@@ -324,7 +324,7 @@ services:
     depends_on:
     - prometheus
     ports:
-    - 127.0.0.1:${GRAFANA_PORT:-9411}:3000
+    - ${GRAFANA_BIND_ADDR:-0.0.0.0}:${GRAFANA_PORT:-9411}:3000
     environment:
       GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?GRAFANA_ADMIN_PASSWORD
