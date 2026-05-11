@@ -26,6 +26,7 @@ variables:
     paths:
       - .cache/pip
   before_script:
+    - apt-get update -qq && apt-get install -y --no-install-recommends make git && rm -rf /var/lib/apt/lists/*
     - python -m pip install --upgrade pip
     - python -m pip install -r requirements.lock
     - python -m pip install --no-deps -e ".[contract]"
@@ -59,8 +60,6 @@ unit-test:
   stage: test
   script:
     - make test
-  needs:
-    - validate
 
 package-release:
   extends: .default-python
@@ -72,13 +71,9 @@ package-release:
     expire_in: 7 days
     paths:
       - dist/*.zip
-  needs:
-    - validate
-    - unit-test
-  rules:
-    - if: '$CI_COMMIT_TAG'
-    - if: '$CI_COMMIT_BRANCH == "release"'
-    - if: '$CI_COMMIT_BRANCH == "main"'
+  only:
+    - tags
+    - release
 
 build-platform:
   extends: .docker-build
@@ -94,13 +89,10 @@ build-platform:
         docker tag "$PLATFORM_IMAGE_SHA" "$PLATFORM_IMAGE_VERSION"
         docker push "$PLATFORM_IMAGE_VERSION"
       fi
-  needs:
-    - validate
-    - unit-test
-  rules:
-    - if: '$CI_COMMIT_BRANCH == "main"'
-    - if: '$CI_COMMIT_BRANCH == "release"'
-    - if: '$CI_COMMIT_TAG'
+  only:
+    - master
+    - release
+    - tags
 
 build-risk-vllm:
   extends: .docker-build
@@ -116,14 +108,11 @@ build-risk-vllm:
       .
     - docker push "$RISK_VLLM_IMAGE_SHA"
     - docker push "$RISK_VLLM_IMAGE_REF"
-  needs:
-    - validate
-    - unit-test
-  rules:
-    - if: '$CI_COMMIT_TAG'
-    - if: '$CI_COMMIT_BRANCH == "main"'
-      when: manual
-      allow_failure: true
+  only:
+    - tags
+    - release
+  when: manual
+  allow_failure: true
 
 # Manual deployment to the 175 GPU runtime server.
 # Required CI/CD variables:
@@ -157,12 +146,8 @@ deploy-gpu-175:
     - printf "%s\n" "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
   script:
     - PLATFORM_IMAGE_TO_DEPLOY="$PLATFORM_IMAGE_SHA" bash scripts/ci/deploy_gitlab_compose.sh
-  needs:
-    - build-platform
-  rules:
-    - if: '$CI_COMMIT_BRANCH == "master"'
-      when: manual
-    - if: '$CI_COMMIT_BRANCH == "release"'
-      when: manual
+  only:
+    - release
+  when: manual
   environment:
     name: gpu-175
