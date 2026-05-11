@@ -82,6 +82,7 @@ ssh "${SSH_TARGET}" \
   DEPLOY_MODE="${DEPLOY_MODE}" \
   GATEWAY_HEALTH_URL="${GATEWAY_HEALTH_URL:-}" \
   RUN_READY_SMOKE="${RUN_READY_SMOKE}" \
+  AUTH_MODE="${AUTH_MODE:-}" \
   bash -s <<'REMOTE'
 set -euo pipefail
 
@@ -115,6 +116,11 @@ echo "[deploy] PLATFORM_IMAGE set to ${PLATFORM_IMAGE_TO_DEPLOY}"
 if [[ -n "${RISK_VLLM_IMAGE_TO_DEPLOY:-}" ]]; then
   set_env_value RISK_VLLM_IMAGE "${RISK_VLLM_IMAGE_TO_DEPLOY}"
   echo "[deploy] RISK_VLLM_IMAGE set to ${RISK_VLLM_IMAGE_TO_DEPLOY}"
+fi
+
+if [[ -n "${AUTH_MODE:-}" ]]; then
+  echo "[deploy] applying auth profile: ${AUTH_MODE}"
+  make auth-apply MODE="${AUTH_MODE}" --yes
 fi
 
 if [[ "${DEPLOY_MODE}" == "full" ]]; then
