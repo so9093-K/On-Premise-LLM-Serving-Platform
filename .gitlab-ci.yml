@@ -140,6 +140,7 @@ deploy-gpu-175:
   before_script:
     - apk add --no-cache bash openssh-client rsync
     - eval "$(ssh-agent -s)"
+    - echo "B64_LEN=$(echo $SSH_PRIVATE_KEY_B64 | wc -c)"
     - echo "$SSH_PRIVATE_KEY_B64" | base64 -d > /tmp/ssh_private_key
     - chmod 400 /tmp/ssh_private_key
     - ssh-keygen -y -f /tmp/ssh_private_key >/dev/null
