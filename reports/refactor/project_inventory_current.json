@@ -82,7 +82,7 @@
         "category": "current handoff/review report",
         "owner": "handoff-reporting",
         "management": "generated/curated for handoff review",
-        "size_bytes": 121695,
+        "size_bytes": 121697,
         "line_count": 3405,
         "role": "structured-data",
         "review_note": "handoff/review artifact; avoid stale phase snapshots in active package"
@@ -225,7 +225,7 @@
         "category": "OpenAPI/JSON schema contract",
         "owner": "api-contracts",
         "management": "managed by root project metadata",
-        "size_bytes": 15575,
+        "size_bytes": 15570,
         "line_count": 425,
         "role": "structured-data",
         "review_note": "supporting project file"
@@ -236,7 +236,7 @@
         "category": "project metadata",
         "owner": "project-maintenance",
         "management": "managed by root project metadata",
-        "size_bytes": 18434,
+        "size_bytes": 18429,
         "line_count": 423,
         "role": "entrypoint",
         "review_note": "primary navigation or current-state entrypoint; keep synchronized with Makefile and reports"
@@ -261,8 +261,8 @@
       "category": "project metadata",
       "owner": "project-maintenance",
       "management": "managed by root project metadata",
-      "size_bytes": 1990,
-      "line_count": 52,
+      "size_bytes": 2206,
+      "line_count": 58,
       "role": "supporting-file",
       "review_note": "supporting project file"
     },
@@ -272,8 +272,8 @@
       "category": "project metadata",
       "owner": "project-maintenance",
       "management": "managed by root project metadata",
-      "size_bytes": 4724,
-      "line_count": 115,
+      "size_bytes": 4890,
+      "line_count": 118,
       "role": "environment-template",
       "review_note": "supporting project file"
     },
@@ -283,7 +283,7 @@
       "category": "project metadata",
       "owner": "project-maintenance",
       "management": "managed by root project metadata",
-      "size_bytes": 4522,
+      "size_bytes": 4507,
       "line_count": 117,
       "role": "environment-template",
       "review_note": "supporting project file"
@@ -294,7 +294,7 @@
       "category": "project metadata",
       "owner": "project-maintenance",
       "management": "managed by root project metadata",
-      "size_bytes": 2347,
+      "size_bytes": 2342,
       "line_count": 80,
       "role": "environment-template",
       "review_note": "supporting project file"
@@ -305,7 +305,7 @@
       "category": "project metadata",
       "owner": "project-maintenance",
       "management": "managed by root project metadata",
-      "size_bytes": 2334,
+      "size_bytes": 2329,
       "line_count": 79,
       "role": "environment-template",
       "review_note": "supporting project file"
@@ -316,8 +316,8 @@
       "category": "project metadata",
       "owner": "project-maintenance",
       "management": "managed by root project metadata",
-      "size_bytes": 1966,
-      "line_count": 48,
+      "size_bytes": 2182,
+      "line_count": 54,
       "role": "supporting-file",
       "review_note": "supporting project file"
     },
@@ -327,8 +327,8 @@
       "category": "project metadata",
       "owner": "project-maintenance",
       "management": "managed by root project metadata",
-      "size_bytes": 4970,
-      "line_count": 174,
+      "size_bytes": 4507,
+      "line_count": 154,
       "role": "structured-data",
       "review_note": "supporting project file"
     },
@@ -382,7 +382,7 @@
       "category": "project metadata",
       "owner": "project-maintenance",
       "management": "managed by root project metadata",
-      "size_bytes": 18434,
+      "size_bytes": 18429,
       "line_count": 423,
       "role": "entrypoint",
       "review_note": "primary navigation or current-state entrypoint; keep synchronized with Makefile and reports"
@@ -393,7 +393,7 @@
       "category": "project metadata",
       "owner": "project-maintenance",
       "management": "managed by root project metadata",
-      "size_bytes": 11,
+      "size_bytes": 6,
       "line_count": 1,
       "role": "supporting-file",
       "review_note": "supporting project file"
@@ -525,7 +525,7 @@
       "category": "configuration source of truth",
       "owner": "configuration",
       "management": "managed by configuration lifecycle",
-      "size_bytes": 2701,
+      "size_bytes": 2696,
       "line_count": 66,
       "role": "structured-data",
       "review_note": "configuration source; validate through governance and projection checks after edits"
@@ -558,7 +558,7 @@
       "category": "configuration source of truth",
       "owner": "configuration",
       "management": "managed by configuration lifecycle",
-      "size_bytes": 1409,
+      "size_bytes": 1404,
       "line_count": 36,
       "role": "structured-data",
       "review_note": "configuration source; validate through governance and projection checks after edits"
@@ -1053,8 +1053,8 @@
       "category": "documentation",
       "owner": "documentation",
       "management": "managed by documentation map",
-      "size_bytes": 2948,
-      "line_count": 67,
+      "size_bytes": 1771,
+      "line_count": 51,
       "role": "documentation",
       "review_note": "documentation; keep relative links valid and avoid duplicating current command flow"
     },
@@ -1405,7 +1405,7 @@
       "category": "project metadata",
       "owner": "project-maintenance",
       "management": "managed by root project metadata",
-      "size_bytes": 822,
+      "size_bytes": 819,
       "line_count": 37,
       "role": "supporting-file",
       "review_note": "supporting project file"
@@ -1482,7 +1482,7 @@
       "category": "current handoff/review report",
       "owner": "handoff-reporting",
       "management": "generated/curated for handoff review",
-      "size_bytes": 58715,
+      "size_bytes": 58717,
       "line_count": 287,
       "role": "structured-data",
       "review_note": "handoff/review artifact; avoid stale phase snapshots in active package"
@@ -1493,7 +1493,7 @@
       "category": "current handoff/review report",
       "owner": "handoff-reporting",
       "management": "generated/curated for handoff review",
-      "size_bytes": 121695,
+      "size_bytes": 121697,
       "line_count": 3405,
       "role": "structured-data",
       "review_note": "handoff/review artifact; avoid stale phase snapshots in active package"
@@ -1526,8 +1526,8 @@
       "category": "runtime/operator generated report",
       "owner": "handoff-reporting",
       "management": "generated by operator report commands",
-      "size_bytes": 10781,
-      "line_count": 397,
+      "size_bytes": 1715,
+      "line_count": 69,
       "role": "structured-data",
       "review_note": "generated operator report; regenerate through make operator-reports before handoff"
     },
@@ -1537,8 +1537,8 @@
       "category": "runtime/operator generated report",
       "owner": "handoff-reporting",
       "management": "generated by operator report commands",
-      "size_bytes": 1473,
-      "line_count": 43,
+      "size_bytes": 1148,
+      "line_count": 33,
       "role": "documentation",
       "review_note": "generated operator report; regenerate through make operator-reports before handoff"
     },
@@ -2263,7 +2263,7 @@
       "category": "OpenAPI/JSON schema contract",
       "owner": "api-contracts",
       "management": "managed by root project metadata",
-      "size_bytes": 15575,
+      "size_bytes": 15570,
       "line_count": 425,
       "role": "structured-data",
       "review_note": "supporting project file"
@@ -2274,7 +2274,7 @@
       "category": "OpenAPI/JSON schema contract",
       "owner": "api-contracts",
       "management": "managed by root project metadata",
-      "size_bytes": 9636,
+      "size_bytes": 9631,
       "line_count": 290,
       "role": "structured-data",
       "review_note": "supporting project file"
@@ -2670,8 +2670,8 @@
       "category": "application/control-plane source",
       "owner": "governance-validation",
       "management": "managed by package source layout",
-      "size_bytes": 5856,
-      "line_count": 127,
+      "size_bytes": 5934,
+      "line_count": 128,
       "role": "python-source",
       "review_note": "application code; preserve public API behavior and compatibility facades"
     },
@@ -2681,7 +2681,7 @@
       "category": "application/control-plane source",
       "owner": "application",
       "management": "managed by package source layout",
-      "size_bytes": 10295,
+      "size_bytes": 10284,
       "line_count": 280,
       "role": "python-source",
       "review_note": "application code; preserve public API behavior and compatibility facades"
@@ -3143,8 +3143,8 @@
       "category": "test suite",
       "owner": "quality",
       "management": "managed by test strategy",
-      "size_bytes": 20407,
-      "line_count": 414,
+      "size_bytes": 20320,
+      "line_count": 413,
       "role": "python-source",
       "review_note": "test coverage; keep deterministic and avoid live GPU dependency"
     },
@@ -3209,8 +3209,8 @@
       "category": "test suite",
       "owner": "quality",
       "management": "managed by test strategy",
-      "size_bytes": 11891,
-      "line_count": 222,
+      "size_bytes": 11966,
+      "line_count": 223,
       "role": "python-source",
       "review_note": "test coverage; keep deterministic and avoid live GPU dependency"
     },
@@ -3330,8 +3330,8 @@
       "category": "test suite",
       "owner": "quality",
       "management": "managed by test strategy",
-      "size_bytes": 3158,
-      "line_count": 85,
+      "size_bytes": 3303,
+      "line_count": 93,
       "role": "python-source",
       "review_note": "test coverage; keep deterministic and avoid live GPU dependency"
     },
@@ -3396,8 +3396,8 @@
       "category": "project metadata",
       "owner": "project-maintenance",
       "management": "managed by root project metadata",
-      "size_bytes": 5937,
-      "line_count": 53,
+      "size_bytes": 728,
+      "line_count": 17,
       "role": "structured-data",
       "review_note": "supporting project file"
     }

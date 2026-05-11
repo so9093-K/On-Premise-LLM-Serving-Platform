@@ -8,5 +8,10 @@
   "release_stage": "release",
   "python_package_version": "0.0.1",
   "purpose": "vLLM 기반 LLM, Embedding, Risk Signal 서비스를 Gateway 중심으로 제공하는 모델 서빙 플랫폼.",
+  "package_contract": {
+    "scope": "platform service package",
+    "reason": "Gateway, Risk Adapter, contract, test, runtime validation tooling을 포함하는 플랫폼 service package다.",
+    "runtime_reports": "live service 실행 시 scripts/validation/runtime_validation.py로 수집한다."
+  },
   "version_reset": true
 }

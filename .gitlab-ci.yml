@@ -59,6 +59,7 @@ unit-test:
   extends: .default-python
   stage: test
   script:
+    - make refresh-generated-reports
     - make test
 
 package-release:

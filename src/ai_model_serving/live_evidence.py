@@ -99,7 +99,7 @@ def latest_runtime_validation_report(
     artifact in the live-evidence bundle.
     """
     report_dir = root / output_dir
-    candidates = sorted(report_dir.glob("runtime_validation_*.json"), key=lambda path: path.stat().st_mtime)
+    candidates = sorted(report_dir.glob("runtime_validation_*.json"), key=lambda path: path.name)
     if not candidates:
         return None
     if prefer_live:

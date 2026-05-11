@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import csv
 import json
+import re
 import tomllib
 from pathlib import Path
 
@@ -46,7 +47,7 @@ def test_monitoring_ports_and_privacy_settings_are_aligned() -> None:
 def test_version_metadata_records_current_package_metadata() -> None:
     version = (ROOT / 'VERSION').read_text(encoding='utf-8').strip()
     manifest = json.loads((ROOT / 'version_manifest.json').read_text(encoding='utf-8'))
-    assert version.startswith('0.1.')
+    assert re.fullmatch(r'\d+\.\d+\.\d+(-rc\.\d+)?', version), f'unexpected VERSION format: {version}'
     assert manifest['version'] == version
     assert manifest['package_profile'] == 'platform'
     assert manifest['package_contract']['scope'] == 'platform service package'

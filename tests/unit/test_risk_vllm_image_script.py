@@ -32,6 +32,12 @@ def copy_minimal_repo(tmp_path: Path) -> Path:
     return repo
 
 
+def _expected_risk_image() -> str:
+    root = Path(__file__).resolve().parents[2]
+    version = (root / 'VERSION').read_text(encoding='utf-8').strip()
+    return f'ai-model-serving-risk-vllm-kanana:{version}'
+
+
 def test_risk_vllm_image_resolver_migrates_stale_env_file(tmp_path):
     repo = copy_minimal_repo(tmp_path)
     shared = 'vllm/vllm-openai:gemma4-0505-cu129'
@@ -45,12 +51,13 @@ def test_risk_vllm_image_resolver_migrates_stale_env_file(tmp_path):
         'risk_vllm_resolve_images .env; '
         'printf "%s\\n" "$RISK_VLLM_IMAGE_RESOLVED"',
     )
+    expected = _expected_risk_image()
     assert result.returncode == 0, result.stderr
-    assert result.stdout.strip() == 'ai-model-serving-risk-vllm-kanana:0.1.0-rc.1'
+    assert result.stdout.strip() == expected
     text = (repo / '.env').read_text(encoding='utf-8')
     assert f'VLLM_IMAGE={shared}' in text
     assert f'RISK_VLLM_IMAGE={shared}' not in text
-    assert 'RISK_VLLM_IMAGE=ai-model-serving-risk-vllm-kanana:0.1.0-rc.1' in text
+    assert f'RISK_VLLM_IMAGE={expected}' in text
 
 
 def test_risk_vllm_image_resolver_ignores_exported_stale_base_value(tmp_path):
@@ -64,9 +71,10 @@ def test_risk_vllm_image_resolver_ignores_exported_stale_base_value(tmp_path):
         'printf "%s\\n" "$RISK_VLLM_IMAGE_RESOLVED"',
         env={'RISK_VLLM_IMAGE': shared},
     )
+    expected = _expected_risk_image()
     assert result.returncode == 0, result.stderr
-    assert result.stdout.strip() == 'ai-model-serving-risk-vllm-kanana:0.1.0-rc.1'
-    assert 'RISK_VLLM_IMAGE=ai-model-serving-risk-vllm-kanana:0.1.0-rc.1' in (repo / '.env').read_text(encoding='utf-8')
+    assert result.stdout.strip() == expected
+    assert f'RISK_VLLM_IMAGE={expected}' in (repo / '.env').read_text(encoding='utf-8')
 
 
 def test_risk_vllm_image_resolver_preserves_custom_exported_image(tmp_path):
