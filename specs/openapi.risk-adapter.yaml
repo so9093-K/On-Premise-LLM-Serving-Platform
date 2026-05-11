@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Risk Adapter API
-  version: 0.1.0-rc.1
+  version: 0.0.1
   description: 한국어 운영자 기준 내부 Risk Adapter API 명세입니다. /ready와 /metrics는 설정에 따라 admin
     Bearer token이 필요합니다.
 servers:

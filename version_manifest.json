@@ -5,7 +5,8 @@
   "artifact_schema_version": "2026-05-11",
   "package_profile": "platform",
   "date": "2026-05-11",
-  "release_stage": "production",
+  "release_stage": "release",
   "python_package_version": "0.0.1",
-  "purpose": "vLLM 기반 LLM, Embedding, Risk Signal 서비스를 Gateway 중심으로 제공하는 모델 서빙 플랫폼."
+  "purpose": "vLLM 기반 LLM, Embedding, Risk Signal 서비스를 Gateway 중심으로 제공하는 모델 서빙 플랫폼.",
+  "version_reset": true
 }

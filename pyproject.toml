@@ -1,6 +1,6 @@
 [project]
 name = "ai-model-serving-platform"
-version = "0.1.0rc1"
+version = "0.0.1"
 description = "Gateway-centered vLLM AI model serving platform with chat, embedding, and risk signal APIs."
 requires-python = ">=3.12,<3.15"
 dependencies = [

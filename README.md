@@ -2,7 +2,7 @@
 
 > vLLM 기반 LLM·Embedding·Risk Signal 서비스를 Gateway 하나로 통합하고, API 계약·모델 구성·운영 검증·모니터링을 일관되게 제공하는 모델 서빙 플랫폼이다.
 
-| 패키지 버전 | `0.1.0-rc.1` |
+| 패키지 버전 | `0.0.1` |
 |---|---|
 | 권장 runtime | Python 3.12.13 |
 | GPU | NVIDIA RTX A6000 48GB |

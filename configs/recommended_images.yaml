@@ -1,6 +1,6 @@
 images:
   platform:
-    default: ai-model-serving-platform:0.1.0-rc.1
+    default: ai-model-serving-platform:0.0.1
     purpose: Gateway and Risk Adapter application image built from this repository.
     mutable: false
     source: local docker build
