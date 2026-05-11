@@ -1,0 +1,69 @@
+# Infisical 자체 호스팅 시크릿 관리 스택
+#
+# 시작:   make infisical-up
+# 웹 UI:  http://localhost:9420
+# 종료:   make infisical-down
+#
+# INFISICAL_AUTH_SECRET, INFISICAL_ENCRYPTION_KEY 는 make init-env-compose 가
+# .env 에 자동 생성합니다. 별도 파일이 필요하지 않습니다.
+#
+# 주의: AUTH_SECRET, ENCRYPTION_KEY는 최초 생성 후 절대 변경하지 않습니다.
+#       변경 시 기존 시크릿 복호화 불가.
+
+services:
+  infisical:
+    image: infisical/infisical:latest-postgres
+    container_name: infisical
+    depends_on:
+      infisical-db:
+        condition: service_healthy
+      infisical-redis:
+        condition: service_healthy
+    ports:
+      - "${INFISICAL_PORT:-9420}:8080"
+    environment:
+      AUTH_SECRET: ${INFISICAL_AUTH_SECRET:?INFISICAL_AUTH_SECRET가 .env에 없습니다. make init-env-compose 를 실행하세요}
+      ENCRYPTION_KEY: ${INFISICAL_ENCRYPTION_KEY:?INFISICAL_ENCRYPTION_KEY가 .env에 없습니다. make init-env-compose 를 실행하세요}
+      DB_CONNECTION_URI: "postgresql://infisical:infisical@infisical-db/infisical"
+      REDIS_URL: "redis://infisical-redis:6379"
+      SITE_URL: "http://localhost:${INFISICAL_PORT:-9420}"
+      TELEMETRY_ENABLED: "false"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8080/api/status || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+    restart: unless-stopped
+
+  infisical-db:
+    image: postgres:16-alpine
+    container_name: infisical-db
+    environment:
+      POSTGRES_USER: infisical
+      POSTGRES_PASSWORD: infisical
+      POSTGRES_DB: infisical
+    volumes:
+      - infisical-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U infisical"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  infisical-redis:
+    image: redis:7-alpine
+    container_name: infisical-redis
+    volumes:
+      - infisical-redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  infisical-db-data:
+  infisical-redis-data:

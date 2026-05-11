@@ -1,0 +1,63 @@
+# 현재 리팩터링 상태
+
+## 현재 기준
+
+현재 기준선은 `0.1.0-rc.1` 위의 streaming, Grafana 운영 UX, 문서 정합성, first-run/clean/package 재감사 상태다. Phase 31의 `/v1/models` parameter discovery 위에 `stream=true` SSE relay, `stream_options.include_usage`, six-dashboard Grafana baseline, 그리고 package hygiene guard가 추가되었다.
+
+## 완료된 핵심 축
+
+| 영역 | 상태 |
+|---|---|
+| Gateway/Risk Adapter | FastAPI app과 service layer 분리, checked-in JSON schema injection 유지 |
+| 인증 제어 | `local_open`, `private_network`, `edge_terminated`, `strict`, `custom` profile과 status/doctor/plan/apply UX 정리 |
+| OpenAPI | static spec, generated schema injection, error response surface, snapshot diff gate 유지 |
+| 모델 관리 | `ModelRegistry`가 model list, runtime target, monitoring projection, contract projection, operator report를 파생 |
+| 모델 parameter discovery | `/v1/models`가 `capabilities`, `request_parameters`, risk `fixed_parameters`를 반환 |
+| Streaming API | `stream=true` SSE relay, `stream_options.include_usage`, streaming error event/metrics 정책 유지 |
+| Monitoring/Grafana | six-dashboard baseline, Korean-first/English metric terms, datasource/window/model/runtime/route/status variables, Git-managed provisioning |
+| Risk vLLM patch | Dockerfile inline patch 제거, `ops/patches` script/metadata/label/verify/removal-check로 lifecycle 관리 |
+| 문서 | 한국어 중심 단일 문서 흐름 유지, Day-0 가이드와 운영 문서 최신화 |
+| 패키징 | `make package` 전 generated report 재생성, secret/cache/timestamped runtime report 제외 |
+
+## `/v1/models` 현재 응답 정책
+
+- `local-main`: chat/sampling/tool/streaming 관련 parameter를 `request_parameters`에 노출한다.
+- `local-embed`: embedding dimension/truncation 관련 parameter를 `request_parameters`에 노출한다.
+- `risk-prompt`, `risk-siren`: 사용자 조정 가능 parameter 없음. `request_parameters`는 `{}`이고 detector 내부 고정값은 `fixed_parameters`다.
+- `stream_options`는 `stream=true`와 함께 사용할 때만 유효하다.
+- serving/runtime 하이퍼파라미터는 사용자 API에서 조정하지 않는다.
+
+## 변경 경계
+
+Phase 31은 API path, 기존 request schema 의미, model id, compose service topology, Risk vLLM runtime/patch 동작, model add/remove write-mode를 바꾸지 않았다. `/v1/models` response metadata가 확장되었으므로, strict client는 새 field 허용 여부를 확인해야 한다.
+
+## 검증 기준
+
+```bash
+python scripts/validation/validate_contracts.py
+python scripts/validation/openapi_snapshot_diff.py
+python scripts/validation/runtime_validation.py --config-only
+python scripts/compose/validate_vllm_compose.py
+python scripts/auth/auth_profile_sanity.py
+python scripts/models/modelctl.py validate
+python scripts/models/modelctl.py diff
+python scripts/validation/run_tests.py -q
+python scripts/validation/release_check.py --step-timeout-seconds 60
+python -m compileall -q src scripts tests
+bash -n scripts/*.sh scripts/lib/*.sh
+```
+
+## 대상 서버 후속 검증
+
+Docker/GPU/vLLM 실측은 target host에서 수행한다.
+
+```bash
+make rebuild-risk-vllm
+make risk-vllm-config-check
+make risk-vllm-patch-removal-check
+make compose-up
+make ready-full
+make runtime-validate
+make operator-reports
+make release-check-full
+```

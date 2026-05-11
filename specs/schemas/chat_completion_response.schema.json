@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "GatewayChatCompletionResponse",
+  "type": "object",
+  "required": ["id", "object", "created", "model", "choices"],
+  "additionalProperties": true,
+  "properties": {
+    "id": {"type": "string", "minLength": 1},
+    "object": {"const": "chat.completion"},
+    "created": {"type": "integer", "minimum": 0},
+    "model": {"const": "local-main"},
+    "choices": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["index", "message", "finish_reason"],
+        "additionalProperties": true,
+        "properties": {
+          "index": {"type": "integer", "minimum": 0},
+          "message": {
+            "type": "object",
+            "required": ["role"],
+            "additionalProperties": true,
+            "properties": {
+              "role": {"const": "assistant"},
+              "content": {"type": ["string", "null"]},
+              "tool_calls": {
+                "type": "array",
+                "minItems": 1,
+                "items": {"$ref": "chat_completion_request.schema.json#/$defs/tool_call"}
+              }
+            }
+          },
+          "finish_reason": {"type": ["string", "null"]}
+        }
+      }
+    },
+    "usage": {"type": "object"}
+  }
+}

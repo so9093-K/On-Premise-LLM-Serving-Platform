@@ -1,0 +1,102 @@
+policy_name: command_terminology_policy
+version: 2
+principle: standard_command_semantics
+canonical_commands:
+  validate:
+    meaning: static repository contract, config, schema, and policy validation
+    starts_services: false
+    requires_live_services: false
+    make_target_required: true
+  test:
+    meaning: automated unit and contract tests
+    starts_services: false
+    requires_live_services: false
+    make_target_required: true
+  build:
+    meaning: compile, assemble, or build artifacts/images
+    starts_services: false
+    requires_live_services: false
+    make_target_required: true
+    forbidden_semantics:
+    - starts_services
+    - keeps_services_alive
+    - proves_live_readiness
+  package:
+    meaning: create a clean distributable archive
+    starts_services: false
+    requires_live_services: false
+    make_target_required: true
+  start:
+    meaning: start local services or compose stack
+    starts_services: true
+    requires_live_services: false
+    make_target_required: true
+  ready:
+    meaning: prove live service readiness using status and smoke checks
+    starts_services: false
+    requires_live_services: true
+    make_target_required: true
+  smoke:
+    meaning: run fast live endpoint checks against already running services
+    starts_services: false
+    requires_live_services: true
+    make_target_required: true
+  status:
+    meaning: inspect process and health state
+    starts_services: false
+    requires_live_services: true
+    make_target_required: true
+  logs:
+    meaning: inspect runtime logs
+    starts_services: false
+    requires_live_services: true
+    make_target_required: true
+  stop:
+    meaning: stop local services or compose stack
+    starts_services: false
+    requires_live_services: true
+    make_target_required: true
+  clean:
+    meaning: remove generated local artifacts
+    starts_services: false
+    requires_live_services: false
+    make_target_required: true
+  clean-all:
+    meaning: remove generated artifacts and guarded large caches
+    starts_services: false
+    requires_live_services: false
+    make_target_required: true
+  reset-version:
+    meaning: update version metadata only
+    starts_services: false
+    requires_live_services: false
+    make_target_required: true
+aliases:
+  up:
+    canonical: start
+    reason: Docker Compose compatibility alias
+    make_target_required: true
+  down:
+    canonical: stop
+    reason: Docker Compose compatibility alias
+    make_target_required: true
+  check-ready:
+    canonical: ready
+    reason: explicit readiness wording alias
+    make_target_required: true
+reserved_terms:
+  deploy: apply artifacts to a target environment; not local startup
+  release: publish a versioned artifact; not a synonym for package
+  run: ambiguous top-level verb; prefer start, ready, or smoke
+  serve: low-level foreground process verb reserved for future single-service use
+required_documentation_phrases:
+- build, start, readiness, deploy, release는 서로 다른 동작이다.
+- '`make build`는 artifact/image를 생성하고 검증한다.'
+- '`make start`는 local service 또는 compose stack을 시작한다.'
+- '`make ready`는 live stack readiness를 증명한다.'
+- '`make up`은 Docker Compose 친화 alias로 유지한다.'
+forbidden_phrases:
+- make build starts services
+- make build keeps services alive
+- make package proves readiness
+- make ready builds artifacts

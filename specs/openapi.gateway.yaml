@@ -1,0 +1,425 @@
+openapi: 3.1.0
+info:
+  title: AI Model Serving Gateway API
+  version: 0.1.0-rc.1
+  description: 한국어 운영자 기준 Gateway API 명세입니다. /ready와 /metrics는 설정에 따라 admin Bearer
+    token이 필요합니다.
+servers:
+- url: http://localhost:9400
+paths:
+  /health:
+    get:
+      summary: Liveness 확인
+      responses:
+        '200':
+          description: 정상 응답
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - status
+                - service
+                properties:
+                  status:
+                    const: ok
+                  service:
+                    const: gateway
+      operationId: health_health_get
+  /ready:
+    get:
+      summary: Dependency readiness 확인
+      description: 내부 readiness endpoint입니다. Gateway가 의존하는 vLLM runtime과 Risk Adapter의
+        준비 상태를 확인합니다. 모델 로딩 중에는 HTTP 503을 반환하며, body의 `not_ready_dependencies`에 아직
+        준비되지 않은 dependency 목록과 `message`가 포함됩니다.
+      responses:
+        '200':
+          description: 준비 완료
+          content:
+            application/json:
+              schema:
+                $ref: ./schemas/readiness_response.schema.json
+        '503':
+          description: 준비되지 않음. 응답 body는 readiness_response.schema.json을 따르며 dependency
+            상태를 포함합니다.
+          content:
+            application/json:
+              schema:
+                $ref: ./schemas/readiness_response.schema.json
+        '401':
+          description: Admin token 누락 또는 유효하지 않음
+          content:
+            application/json:
+              schema:
+                $ref: ./schemas/common_error.schema.json
+      security:
+      - adminBearerAuth: []
+      operationId: ready_ready_get
+  /v1/models:
+    get:
+      summary: 사용 가능한 모델 목록
+      description: Gateway가 외부 호출자에게 노출하는 logical model id, capability, 사용자 조정 가능
+        request parameter 목록입니다. catalog 성격의 엔드포인트이므로 vLLM 로딩 상태와 무관하게 항상 목록을 반환합니다.
+        현재 serving 가능 여부는 `/ready`의 `status`와 `not_ready_dependencies`를 확인하세요. 클라이언트
+        UI는 각 item의 `request_parameters`를 읽어 모델별 입력 form을 구성할 수 있습니다.
+      security:
+      - bearerAuth: []
+      responses:
+        '200':
+          description: 모델 목록 응답
+          content:
+            application/json:
+              schema:
+                $ref: ./schemas/model_list_response.schema.json
+        '401':
+          description: 인증 실패
+          content:
+            application/json:
+              schema:
+                $ref: ./schemas/common_error.schema.json
+      operationId: models_v1_models_get
+  /v1/chat/completions:
+    post:
+      summary: Chat completion 생성
+      security:
+      - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ./schemas/chat_completion_request.schema.json
+            examples:
+              basic:
+                summary: 기본 요청
+                value:
+                  model: local-main
+                  messages:
+                  - role: user
+                    content: 안녕하세요. 간단히 자기소개를 해주세요.
+                  max_tokens: 128
+                  temperature: 0.7
+              streaming:
+                summary: 스트리밍 요청 (stream=true)
+                value:
+                  model: local-main
+                  messages:
+                  - role: user
+                    content: 안녕하세요.
+                  stream: true
+              streaming_with_usage:
+                summary: 스트리밍 + usage 추적
+                value:
+                  model: local-main
+                  messages:
+                  - role: user
+                    content: 안녕하세요.
+                  stream: true
+                  stream_options:
+                    include_usage: true
+              with_system_prompt:
+                summary: 시스템 프롬프트 + 샘플링 파라미터
+                value:
+                  model: local-main
+                  messages:
+                  - role: system
+                    content: You are a helpful assistant. Answer concisely in Korean.
+                  - role: user
+                    content: 오늘 날씨가 좋네요. 가볍게 대화해봐요.
+                  max_tokens: 256
+                  temperature: 0.8
+                  top_p: 0.9
+      responses:
+        '200':
+          description: Main LLM runtime에서 반환한 OpenAI 호환 chat completion 응답. stream=true일
+            때는 text/event-stream SSE 응답을 반환한다.
+          content:
+            application/json:
+              schema:
+                $ref: ./schemas/chat_completion_response.schema.json
+            text/event-stream:
+              schema:
+                type: string
+                description: 'OpenAI-compatible SSE stream. On streaming transport
+                  failures, Gateway emits an SSE error event followed by data: [DONE].'
+        '401':
+          description: 인증 실패
+          content:
+            application/json:
+              schema:
+                $ref: ./schemas/common_error.schema.json
+        '422':
+          description: 요청 검증 실패
+          content:
+            application/json:
+              schema:
+                $ref: ./schemas/common_error.schema.json
+        '503':
+          description: 모델을 사용할 수 없음
+          content:
+            application/json:
+              schema:
+                $ref: ./schemas/common_error.schema.json
+        '413':
+          description: 요청 body가 너무 큼
+          content: &id001
+            application/json:
+              schema:
+                $ref: ./schemas/common_error.schema.json
+        '429':
+          description: Upstream rate limit 또는 local admission timeout
+          content: *id001
+        '502':
+          description: Upstream 오류 또는 유효하지 않은 upstream 응답
+          content: *id001
+        '504':
+          description: Upstream timeout
+          content: *id001
+        '500':
+          description: 내부 서버 오류
+          content: *id001
+      description: '`local-main`을 통해 chat completion을 생성합니다. Gateway가 model id, 입력
+        modality, 최대 토큰 수, tool-call 지원 범위를 먼저 검증합니다. stream=true 요청은 vLLM SSE chunk를
+        버퍼링하지 않고 text/event-stream으로 즉시 relay합니다. OpenAI 호환 형식을 따르며, 지원하지 않는 파라미터는
+        Gateway contract에서 차단합니다.'
+      operationId: chat_completions_v1_chat_completions_post
+  /v1/embeddings:
+    post:
+      summary: Embedding vector 생성
+      security:
+      - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ./schemas/embedding_request.schema.json
+            examples:
+              minimal:
+                summary: 최소 embedding request 예시
+                value:
+                  model: local-embed
+                  input:
+                  - sample text for embedding
+                  dimensions: 768
+      responses:
+        '200':
+          description: Embedding runtime에서 반환한 OpenAI 호환 embedding 응답
+          content:
+            application/json:
+              schema:
+                $ref: ./schemas/embedding_response.schema.json
+        '401':
+          description: 인증 실패
+          content:
+            application/json:
+              schema:
+                $ref: ./schemas/common_error.schema.json
+        '422':
+          description: 요청 검증 실패
+          content:
+            application/json:
+              schema:
+                $ref: ./schemas/common_error.schema.json
+        '503':
+          description: 모델을 사용할 수 없음
+          content:
+            application/json:
+              schema:
+                $ref: ./schemas/common_error.schema.json
+        '413':
+          description: 요청 body가 너무 큼
+          content: *id001
+        '429':
+          description: Upstream rate limit 또는 local admission timeout
+          content: *id001
+        '502':
+          description: Upstream 오류 또는 유효하지 않은 upstream 응답
+          content: *id001
+        '504':
+          description: Upstream timeout
+          content: *id001
+        '500':
+          description: 내부 서버 오류
+          content: *id001
+      description: '`local-embed`를 통해 텍스트의 embedding vector를 생성합니다. 요청 파라미터는 Gateway
+        contract로 검증하며, 지원하지 않는 파라미터는 차단합니다.'
+      operationId: embeddings_v1_embeddings_post
+  /metrics:
+    get:
+      summary: Prometheus metrics 조회
+      description: Prometheus가 scrape하는 Gateway metric 엔드포인트입니다. 운영 환경에서는 admin token
+        또는 내부망으로 보호합니다.
+      responses:
+        '200':
+          description: Prometheus metrics 응답
+          content:
+            text/plain:
+              schema:
+                type: string
+        '401':
+          description: Admin token 누락 또는 유효하지 않음
+          content:
+            application/json:
+              schema:
+                $ref: ./schemas/common_error.schema.json
+      security:
+      - adminBearerAuth: []
+      operationId: metrics_endpoint_metrics_get
+  /v1/risk/detectors/prompt/assessments:
+    post:
+      summary: Prompt 위협 탐지 신호
+      security:
+      - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ./schemas/risk_assessment_request.schema.json
+            examples:
+              minimal:
+                summary: Prompt detector risk 신호 예시
+                value:
+                  prompt: Assess this prompt for risk signals only.
+      responses:
+        '200':
+          description: 정책 결정을 포함하지 않는 risk signal assessment 응답
+          content:
+            application/json:
+              schema:
+                $ref: ./schemas/risk_assessment_response.schema.json
+        '401': &id002
+          description: 인증 실패
+          content:
+            application/json:
+              schema:
+                $ref: ./schemas/common_error.schema.json
+        '422': &id003
+          description: 요청 검증 실패
+          content:
+            application/json:
+              schema:
+                $ref: ./schemas/common_error.schema.json
+        '503': &id004
+          description: Runtime을 사용할 수 없음
+          content:
+            application/json:
+              schema:
+                $ref: ./schemas/common_error.schema.json
+        '413':
+          description: 요청 body가 너무 큼
+          content: *id001
+        '429':
+          description: Upstream rate limit 또는 local admission timeout
+          content: *id001
+        '502':
+          description: Upstream 오류 또는 유효하지 않은 upstream 응답
+          content: *id001
+        '504':
+          description: Upstream timeout
+          content: *id001
+        '500':
+          description: 내부 서버 오류
+          content: *id001
+      description: Prompt attack detector의 위험 신호만 반환합니다. 정책 판단 필드(`allow`, `block`,
+        `decision` 등)는 포함되지 않으며, 최종 허용·차단 결정은 Gateway 밖 product policy layer가 담당합니다.
+      operationId: risk_prompt_assessment_v1_risk_detectors_prompt_assessments_post
+  /v1/risk/detectors/siren/assessments:
+    post:
+      summary: Policy 위반 탐지 신호
+      security:
+      - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ./schemas/risk_assessment_request.schema.json
+            examples:
+              minimal:
+                summary: Siren detector risk 신호 예시
+                value:
+                  prompt: Assess this prompt for risk signals only.
+      responses:
+        '200':
+          description: 정책 결정을 포함하지 않는 risk signal assessment 응답
+          content:
+            application/json:
+              schema:
+                $ref: ./schemas/risk_assessment_response.schema.json
+        '401': *id002
+        '422': *id003
+        '503': *id004
+        '413':
+          description: 요청 body가 너무 큼
+          content: *id001
+        '429':
+          description: Upstream rate limit 또는 local admission timeout
+          content: *id001
+        '502':
+          description: Upstream 오류 또는 유효하지 않은 upstream 응답
+          content: *id001
+        '504':
+          description: Upstream timeout
+          content: *id001
+        '500':
+          description: 내부 서버 오류
+          content: *id001
+      description: Siren policy risk detector의 위험 신호만 반환합니다. 응답은 signal-only contract를
+        따르며 정책 판단 필드는 포함되지 않습니다.
+      operationId: risk_siren_assessment_v1_risk_detectors_siren_assessments_post
+  /v1/risk/assessments:
+    post:
+      summary: 통합 Risk 신호
+      security:
+      - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ./schemas/risk_assessment_request.schema.json
+            examples:
+              minimal:
+                summary: 통합 risk 신호 예시
+                value:
+                  prompt: Assess this prompt for risk signals only.
+      responses:
+        '200':
+          description: 정책 결정을 포함하지 않는 risk signal assessment 응답
+          content:
+            application/json:
+              schema:
+                $ref: ./schemas/risk_assessment_response.schema.json
+        '401': *id002
+        '422': *id003
+        '503': *id004
+        '413':
+          description: 요청 body가 너무 큼
+          content: *id001
+        '429':
+          description: Upstream rate limit 또는 local admission timeout
+          content: *id001
+        '502':
+          description: Upstream 오류 또는 유효하지 않은 upstream 응답
+          content: *id001
+        '504':
+          description: Upstream timeout
+          content: *id001
+        '500':
+          description: 내부 서버 오류
+          content: *id001
+      description: 'Prompt detector와 Siren detector 결과를 aggregate한 통합 risk assessment입니다.
+        두 detector 중 하나라도 위험 신호를 탐지하면 `risk_detected: true`를 반환합니다.'
+      operationId: risk_assessment_v1_risk_assessments_post
+components:
+  securitySchemes:
+    adminBearerAuth:
+      type: http
+      description: /ready, /metrics 같은 운영자 endpoint에 사용하는 admin Bearer token입니다.
+      scheme: bearer
+    bearerAuth:
+      type: http
+      description: Gateway API 또는 내부 Risk Adapter 호출에 사용하는 Bearer token입니다.
+      scheme: bearer

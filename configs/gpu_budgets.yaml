@@ -1,0 +1,104 @@
+gpu:
+  device_class: NVIDIA RTX A6000
+  total_vram_gib: 48
+  reserve_gib:
+    minimum: 4
+    recommended: 6
+  total_gpu_memory_utilization:
+    recommended_start: 0.865
+    upper_review_threshold: 0.89
+    avoid_above: 0.9
+    conservative_range:
+    - 0.74
+    - 0.885
+    live_tuning_review_required_above: 0.885
+  default_profile: single_a6000_conservative
+  profile_rule: Use conservative defaults until live vLLM/GPU measurements prove headroom
+    for a specific increase.
+budgets:
+  main_llm:
+    target_gib: 27.8
+    range_gib:
+    - 27
+    - 29
+    gpu_memory_utilization: 0.58
+    tuning_range:
+      gpu_memory_utilization:
+      - 0.54
+      - 0.58
+      adjustment_priority: last
+      do_not_increase_before_live_validation:
+      - max_model_len
+      - max_num_seqs
+  embedding:
+    target_gib: 1.9
+    range_gib:
+    - 1.5
+    - 2
+    gpu_memory_utilization: 0.04
+    tuning_range:
+      gpu_memory_utilization:
+      - 0.03
+      - 0.04
+      adjustment_priority: first
+      scale_out_note: Can move to CPU, another GPU, or separate service if RAG traffic
+        dominates.
+  risk_prompt:
+    target_gib: 3.1
+    range_gib:
+    - 2.5
+    - 3.5
+    gpu_memory_utilization: 0.065
+    tuning_range:
+      gpu_memory_utilization:
+      - 0.05
+      - 0.065
+      adjustment_priority: third
+      fixed_generation_budget:
+        max_output_tokens: 1
+  risk_siren:
+    target_gib: 8.64
+    range_gib:
+    - 8.0
+    - 9.6
+    gpu_memory_utilization: 0.18
+    tuning_range:
+      gpu_memory_utilization:
+      - 0.18
+      - 0.20
+      adjustment_priority: second
+      fixed_generation_budget:
+        max_output_tokens: 1
+limits:
+  main_llm_max_model_len: 8192
+  main_llm_max_num_seqs: 1
+  risk_max_model_len: 2048
+  risk_max_num_seqs: 1
+  risk_execution: sequential
+  rag_bulk_indexing_initial: disabled_or_throttled
+  main_llm_max_output_tokens: 1024
+  main_llm_max_image_inputs: 1
+  main_llm_max_image_bytes: 750000
+  main_llm_max_image_pixels: 1048576
+  detector_max_output_tokens: 1
+resource_management:
+  isolation: each model runtime uses a separate vLLM process and port
+  admission_control: gateway/upstream clients enforce per-model concurrency, queue
+    timeout, and circuit breaker limits
+  memory_policy: each vLLM runtime must stay within its configured gpu_memory_utilization;
+    total configured utilization should keep reserve_gib.minimum free
+  scale_policy: add a model only after assigning port, gpu budget, max_model_len,
+    max_num_seqs, and dashboard labels; remove a model by deleting all registry entries
+    in one change
+  allocation_strategy: conservative_single_gpu_co_residency
+  live_tuning_order:
+  - measure idle VRAM after all four vLLM runtimes start
+  - measure single-request latency and peak VRAM per model path
+  - run mixed traffic soak before increasing context, batching, or concurrency
+  - adjust embedding batch first, risk_siren budget second, main_llm context/concurrency
+    last
+  fixed_constraints:
+  - risk detector max_output_tokens remains 1
+  - model fallback is not allowed
+  - each model keeps an independent vLLM process and port
+  - remote image URL fetch remains disabled unless an explicit egress policy is added

@@ -1,0 +1,61 @@
+# 전체 실행 런타임
+
+full-stack compose는 다음 서비스를 함께 실행한다.
+
+| service | port | 설명 |
+|---|---:|---|
+| `gateway` | 9400 | 외부 API 진입점 |
+| `risk-adapter` | 9405 | 내부 risk signal adapter |
+| `main-llm-vllm` | 9401 | chat completion backend |
+| `embedding-vllm` | 9402 | embedding backend |
+| `risk-prompt-vllm` | 9403 | prompt risk backend |
+| `risk-siren-vllm` | 9404 | siren risk backend |
+| `prometheus` | 9410 | metrics 수집 |
+| `grafana` | 9411 | dashboard |
+| `dcgm-exporter` | 9412 | GPU metrics |
+| `cadvisor` | 9413 | container CPU/RAM metrics |
+| `infisical` | 9420 | 시크릿 관리 웹 UI (선택, `make infisical-up`) |
+
+Prometheus/Grafana/DCGM/cAdvisor는 처음부터 기본 활성화한다. 사용 여부를 조기에 막지 않고, 실제 운영 관찰 후 축소 여부를 결정한다. Infisical은 선택 서비스로 별도 compose 파일(`ops/compose/infisical.yaml`)로 분리되어 있으며 메인 스택 운영에 영향을 주지 않는다.
+
+Gateway `/ready`는 main LLM, embedding, Risk Adapter readiness를 확인한다. Risk Adapter `/ready`가 admin auth를 요구하는 환경에서는 Gateway가 내부 admin token을 전달한다. Risk Adapter가 `status: not_ready`를 반환하면 Gateway는 해당 dependency를 `not_ready`로 반영한다. `/ready`는 dependency가 준비되지 않았을 때 body를 유지하면서 HTTP 503을 반환하므로, Kubernetes/readinessProbe 같은 HTTP status 기반 gate도 실패로 처리할 수 있다.
+
+## 직접 compose 명령
+
+Make target을 쓰지 않을 때는 다음 원문 명령을 사용한다.
+
+```bash
+make preflight-compose
+make compose-up
+# 또는 직접 실행 전 make sync-runtime-secrets
+docker compose -f ops/compose/full-stack.example.yaml --env-file .env up -d
+docker compose -f ops/compose/full-stack.example.yaml --env-file .env down
+```
+
+`RISK_VLLM_IMAGE` 빌드와 image 내부 Kanana config check는 기본적으로 `make first-run`/`make bootstrap`에 포함된다. risk image만 수동 재빌드할 때는 `make rebuild-risk-vllm && make risk-vllm-config-check`를 실행한다.
+
+`make compose-up`은 기본적으로 `make preflight-compose`를 먼저 수행하고, `.env`, `.runtime/prometheus/admin_api_key`, 그리고 `RISK_VLLM_IMAGE` 내부 Kanana config 로딩을 사전 점검한다. `.runtime` 파일이 지워져도 `.env`를 덮어쓰지 않고 bearer-token 파일만 복구한다.
+
+Prometheus 내부 scrape target은 `dcgm-exporter:9400`과 `cadvisor:8080`을 사용한다. host에 게시되는 포트는 각각 `9412`, `9413`이지만 compose network 내부에서는 service port가 맞다.
+
+`ops/compose/full-stack.private-network.yaml`은 Gateway host publish bind를 `GATEWAY_BIND_ADDR`로 제어한다. 175 shared/staging 배포에서는 `.env`에 175 내부 interface IP를 명시하고, 전체 interface publish가 필요한 경우에만 `GATEWAY_BIND_ADDR=0.0.0.0`을 사용한다.
+
+GitLab CI/CD에서 175로 배포할 때는 [GitLab CI/CD 배포 가이드](./gitlab_cicd_deployment.md)를 따른다. 기본 배포 job은 Docker executor Runner와 rolling app deploy를 전제로 하며, 초기 구축 또는 stack drift 정렬에는 `DEPLOY_MODE=full`을 사용한다.
+
+
+## Readiness UX
+
+- `make ready-local`: app-only `/health` strict 확인. Gateway/Risk Adapter 중 하나라도 내려가 있으면 non-zero로 실패한다. vLLM runtime은 요구하지 않는다.
+- `make ready-full`: Gateway/Risk Adapter `/ready`와 smoke test를 strict하게 확인한다. 실제 vLLM runtime이 필요하다.
+- `make ready`: backward-compatible alias이며 `make ready-full`과 같다.
+
+full-stack 시작 전에는 `make preflight-compose`로 Docker, compose plugin, host-published 포트 충돌, GPU 표시 여부, Prometheus bearer token 파일을 먼저 확인한다. vLLM `9401–9404`는 compose 내부 `expose` port이므로 host port 검사 대상이 아니다.
+
+
+## 장애 진단
+
+`make ready-full` 실패 시 임시 옵션 제거보다 원인 분류를 우선한다. 서비스별 diagnostics와 Kanana/bitsandbytes 검증 정책은 [Full-stack Troubleshooting Guide](./full_stack_troubleshooting.md)를 따른다.
+
+## Risk runtime image
+
+Risk detector는 `RISK_VLLM_IMAGE`를 사용한다. 기본 compose 예시는 main Gemma4 runtime image와 risk Kanana runtime image를 분리하여, Prompt 2.1B의 explicit `head_dim` 호환성 patch/metadata이 main LLM runtime에 영향을 주지 않게 한다. `SKIP_RISK_VLLM_IMAGE_CONFIG_CHECK=1`은 로컬 비런타임 점검용 예외이며, 운영 승격 전에는 사용하지 않는다.

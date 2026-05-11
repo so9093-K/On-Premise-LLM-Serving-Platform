@@ -1,0 +1,312 @@
+version: 0.1.0
+version_semantics: monitoring config schema version, not package release version
+source_of_truth: configs/monitoring.yaml
+monitoring_stack:
+  default_state: enabled
+  default_policy: Keep Prometheus, Grafana, and DCGM exporter enabled by default for
+    local compose, staging, and production-like validation until an explicit operations
+    owner decides otherwise.
+  operator_note_ko: 지금 단계에서는 모니터링 포트를 막거나 비활성화하지 않는다. 운영 소유자와 보안 경계가 확정되면 노출 범위와 인증
+    정책을 별도로 조정한다.
+  prometheus:
+    enabled: true
+    port: 9410
+    scrape_interval: 15s
+    scrape_timeout: 10s
+    retention_for_poc: 7d
+    rule_files:
+    - /etc/prometheus/rules/model_runtime.rules.yml
+  grafana:
+    enabled: true
+    port: 9411
+    dashboard_folder: ops/grafana/dashboards
+    provisioned_datasource_uid: prometheus
+    allow_ui_updates_policy:
+      reference_release: false
+      local_experiment: true
+      reason: Provisioned dashboards are Git-managed artifacts; UI edits in Grafana
+        DB do not write back to JSON sources.
+    dashboard_language_policy: Korean-first titles with English metric terms; PromQL
+      metric names and label values stay ASCII/English.
+    dashboard_variables:
+    - datasource
+    - window
+    - model
+    - runtime_service
+    - route
+    - status_code
+  dcgm_exporter:
+    enabled: true
+    port: 9412
+    reason: GPU memory and utilization telemetry are required for runtime validation;
+      compose exposes host port 9412 while Prometheus scrapes dcgm-exporter:9400 inside
+      the compose network.
+    internal_port: 9400
+    host_port: 9412
+    default_metrics_path: /metrics
+  cadvisor:
+    enabled: true
+    port: 9413
+    internal_port: 8080
+    default_metrics_path: /metrics
+    reason: Container-level CPU, host RAM, network, and restart telemetry are required
+      to distinguish per-vLLM software pressure from single-GPU hardware pressure.
+  alertmanager:
+    port: null
+    enabled_for_reference: false
+    reason: Alert routing requires operational ownership and on-call policy.
+metric_sources:
+  gateway:
+    public_port: 9400
+    metrics_path: /metrics
+    required_metrics:
+    - http_requests_total
+    - http_request_duration_seconds
+    - upstream_request_duration_seconds
+    - upstream_errors_total
+    - auth_failures_total
+    - service_readiness_status
+    - overall_runtime_status
+    - streaming_chunks_total
+    - streaming_bytes_total
+    - streaming_usage_events_total
+    - streaming_errors_total
+    - streaming_requests_total
+    - streaming_time_to_first_chunk_seconds
+    - streaming_duration_seconds
+    - streaming_chunks_per_response
+    - streaming_client_disconnects_total
+  risk_adapter:
+    public_port: 9405
+    metrics_path: /metrics
+    required_metrics:
+    - risk_assessments_total
+    - risk_assessment_duration_seconds
+    - risk_signal_detected_total
+    - risk_adapter_system_signal_total
+    - forbidden_response_field_total
+    - service_readiness_status
+  vllm_instances:
+    scrape_job: vllm-runtimes
+    label_policy:
+      model: logical served model name such as local-main or risk-siren
+      runtime_service: compose service name such as main-llm-vllm
+    ports:
+    - 9401
+    - 9402
+    - 9403
+    - 9404
+    metrics_path: /metrics
+    required_metric_families:
+    - request_rate
+    - request_latency
+    - token_throughput
+    - kv_cache_usage
+    - queue_wait_time
+    source: vllm_metrics_or_site_recording_rules
+  vllm_containers:
+    exporter: cadvisor
+    metrics_path: /metrics
+    compose_service_label: container_label_com_docker_compose_service
+    required_metrics:
+    - vllm_container_memory_usage_bytes
+    - vllm_container_cpu_usage_ratio
+    source: cadvisor_recording_rules
+  gpu_node:
+    exporter: dcgm-exporter_or_nvidia_smi_sidecar
+    required_metrics:
+    - gpu_memory_used_bytes
+    - gpu_memory_total_bytes
+    - gpu_utilization_ratio
+    - gpu_temperature_celsius
+    - gpu_power_watts
+    - gpu_memory_headroom_bytes
+    source: dcgm_exporter_or_site_recording_rules
+ux_dashboards:
+- id: gpu_capacity_and_oom_risk
+  audience: runtime_engineer
+  purpose: GPU capacity, OOM/restart, VRAM budget line, utilization, temperature,
+    power, queue, KV cache, token throughput, and container resources.
+  panels:
+  - gpu_operator_guide
+  - gpu_headroom
+  - gpu_memory_used
+  - gpu_utilization
+  - gpu_temperature
+  - gpu_power
+  - oom_or_restart_events
+  - vram_used_vs_budget
+  - vllm_queue_depth
+  - kv_cache_usage
+  - token_throughput
+  - container_ram
+  - container_cpu
+- id: executive_runtime_overview
+  audience: reviewer_or_operator
+  purpose: Service health, traffic, latency, error rate, GPU headroom, scrape health,
+    readiness, and risk signal health after the GPU home dashboard.
+  panels:
+  - operator_guide
+  - overall_status
+  - user_traffic
+  - p95_latency
+  - error_rate
+  - gpu_memory_headroom
+  - scrape_health
+  - component_readiness
+  - risk_signal_health
+  - gateway_input_auth_issues
+  - upstream_errors
+- id: risk_signal_operations
+  audience: safety_or_policy_reviewer
+  purpose: Risk signal operations without raw prompt or model output exposure.
+  panels:
+  - risk_operator_guide
+  - risk_assessment_volume
+  - risk_detected_rate
+  - detector_timeout_rate
+  - forbidden_field_violation_count
+  - risk_latency
+  - detector_readiness
+  - strongest_code_distribution
+  - system_signal_distribution
+  - forbidden_field_by_name
+  - detector_status_trend
+- id: chat_api_deep_dive
+  audience: gateway_or_runtime_engineer
+  purpose: Chat completions and streaming relay observability using existing Gateway
+    metrics, including TTFT and full stream duration histograms.
+  panels:
+  - chat_operator_guide
+  - chat_request_rate
+  - chat_p95_latency
+  - chat_p99_latency
+  - chat_5xx_rate
+  - streaming_errors
+  - usage_chunk_events
+  - gateway_vs_upstream_p95
+  - streaming_chunks_bytes
+  - streaming_ttft_p95
+  - streaming_duration_chunks
+  - validation_auth_issues
+  - upstream_errors_by_model
+- id: model_runtime_deep_dive
+  audience: runtime_engineer
+  purpose: Model/runtime drill-down by model and runtime_service labels.
+  panels:
+  - model_runtime_guide
+  - token_throughput
+  - queue_depth
+  - kv_cache_usage
+  - upstream_p95
+  - queue_kv_trend
+  - token_throughput_trend
+  - container_ram
+  - container_cpu
+privacy_and_security:
+  raw_prompt_in_metrics: forbidden
+  user_text_labels: forbidden
+  model_output_text_labels: forbidden
+  allowed_dimensions:
+  - endpoint
+  - service
+  - model_logical_id
+  - status_code
+  - risk_code
+  - system_signal_code
+  - reason
+  - field
+  - target
+  - runtime_service
+reference_decisions:
+- Prometheus/Grafana UX is part of the contract reference.
+- Alert routing is configured separately after ownership and escalation are defined.
+- Dashboards may use static JSON templates, but mock runtime services are not allowed
+  outside tests.
+operator_status_ux:
+  goal: Operators must understand the current operating state from the first Grafana
+    screen without reading logs or raw metrics.
+  landing_dashboard: gpu_capacity_and_oom_risk
+  status_levels:
+  - level: green
+    label: Healthy
+    meaning: Public traffic, backend readiness, latency, error, and GPU headroom checks
+      are within reference thresholds.
+  - level: yellow
+    label: Attention
+    meaning: Service is still usable, but one or more latency, queue, risk adapter,
+      or GPU pressure indicators need review.
+  - level: red
+    label: Action Required
+    meaning: User-facing path, backend readiness, OOM/restart, or forbidden-field
+      invariant has failed.
+  - level: gray
+    label: No Runtime Data
+    meaning: The panel depends on runtime metrics that are not currently scraped or
+      mapped.
+  first_screen_order:
+  - gpu_headroom
+  - gpu_memory_used
+  - gpu_utilization
+  - gpu_temperature
+  - gpu_power
+  - oom_or_restart_events
+  - vram_used_vs_budget
+  - vllm_queue_depth
+  - kv_cache_usage
+  design_rule: No panel should require reading raw logs, prompts, generated output,
+    or stack traces to understand current status.
+  dashboard_language_policy: Grafana dashboard and panel titles use English only;
+    Korean may remain in operator guide body text and documentation.
+  visible_runbook_rule: Each dashboard starts with a Text panel so first-time operators
+    do not need to discover tooltip descriptions.
+  dashboard_variables:
+  - datasource
+  - window
+  - model
+  - runtime_service
+  - route
+  - status_code
+  drill_down_order:
+  - gpu_capacity_and_oom_risk
+  - executive_runtime_overview
+  - chat_api_deep_dive
+  - model_runtime_deep_dive
+  - risk_signal_operations
+resource_monitoring:
+  model_labels:
+  - local-main
+  - local-embed
+  - risk-prompt
+  - risk-siren
+  must_show:
+  - traffic_by_model
+  - latency_by_model
+  - error_by_model
+  - queue_or_timeout_by_model
+  - gpu_memory_headroom
+  - kv_cache_usage_when_vllm_exports_it
+  prometheus_label_contract:
+  - vLLM runtime scrape targets use one job, vllm-runtimes, plus model and runtime_service
+    labels.
+  - 'model label values must match public logical model ids where possible: local-main,
+    local-embed, risk-prompt, risk-siren.'
+  - cAdvisor panels must use compose service labels or recording rules, not raw generated
+    container names.
+  operator_rules:
+  - do not use raw prompt or generated text as metric labels
+  - gray/no-data panels are acceptable only when exporter metrics are absent
+  - recording rules must document external metric assumptions
+  streaming_current_metrics:
+  - streaming_chunks_total
+  - streaming_bytes_total
+  - streaming_usage_events_total
+  - streaming_errors_total
+  - streaming_requests_total
+  - streaming_time_to_first_chunk_seconds_bucket
+  - streaming_duration_seconds_bucket
+  - streaming_chunks_per_response_bucket
+  - streaming_client_disconnects_total
+  streaming_instrumentation_backlog:
+  - proxy_buffering_detection
+  - browser_level_stream_render_check

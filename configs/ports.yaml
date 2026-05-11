@@ -1,0 +1,26 @@
+ports:
+  gateway: 9400
+  main_llm_vllm: 9401
+  embedding_vllm: 9402
+  risk_prompt_vllm: 9403
+  risk_siren_vllm: 9404
+  risk_adapter: 9405
+  prometheus: 9410
+  grafana: 9411
+  dcgm_exporter: 9412
+  cadvisor: 9413
+
+exposure:
+  external:
+    - gateway
+  internal:
+    - main_llm_vllm
+    - embedding_vllm
+    - risk_prompt_vllm
+    - risk_siren_vllm
+    - risk_adapter
+    - dcgm_exporter
+  operations_network:
+    - prometheus
+    - grafana
+    - cadvisor

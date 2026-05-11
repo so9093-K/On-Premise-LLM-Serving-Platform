@@ -1,0 +1,36 @@
+version: 0.1.0-rc.1
+source_of_truth: configs/runtime_compatibility.yaml
+
+python:
+  default_version: 3.12.13
+  supported_range: ">=3.12,<3.15"
+  compatibility_policy:
+    - All project-owned Python scripts and tests must run on CPython 3.12, 3.13, and 3.14 at the app/control-plane layer.
+    - Python 3.12 remains the recommended production runtime.
+    - Python 3.13 and 3.14 are supported for app/control-plane execution when dependency tests pass.
+    - Full-stack GPU/vLLM support is validated per Python minor version.
+    - Runtime container images must pin the exact patch version or record the image digest.
+
+package_tools:
+  preferred_environment_manager: uv
+  allowed_package_managers: [uv, pip]
+  lockfile_required_for_runtime_phase: true
+  runtime_lockfile: requirements.runtime.lock
+  contract_lockfile: requirements.lock
+
+vllm:
+  python_policy: follow_upstream_requirements_but_pin_project_default
+  minimum_interpreters_from_current_public_docs: "Python 3.10+; Python 3.12+ recommended"
+  project_decision: "Use Python 3.12.13 as the recommended production reference; support app/control-plane execution on >=3.12,<3.15."
+  runtime_validation_required: true
+
+cuda:
+  runtime_matrix_required_before_runtime_review: true
+  fields_required:
+    - nvidia_driver_version
+    - cuda_runtime_version
+    - torch_version
+    - vllm_version
+    - transformers_version
+    - gpu_name
+    - gpu_memory_gb

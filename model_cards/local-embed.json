@@ -1,0 +1,56 @@
+{
+  "logical_id": "local-embed",
+  "upstream_model_id": "google/embeddinggemma-300m",
+  "role": "embeddings",
+  "license": "gemma",
+  "runtime": {
+    "backend": "vllm",
+    "port": 9402,
+    "endpoint": "/v1/embeddings",
+    "runner": "pooling",
+    "max_model_len": 2048
+  },
+  "spec": {
+    "max_input_tokens": 2048,
+    "default_embedding_dimension": 768,
+    "matryoshka_dimensions": [
+      768,
+      512,
+      256,
+      128
+    ]
+  },
+  "sources": [
+    "https://huggingface.co/google/embeddinggemma-300m",
+    "https://docs.vllm.ai/en/latest/serving/openai_compatible_server/"
+  ],
+  "source_facts": {
+    "model_size": "300M parameters",
+    "license": "gemma",
+    "access": "public repository with usage-license acceptance required for files and content",
+    "max_input_tokens": 2048,
+    "default_embedding_dimension": 768,
+    "matryoshka_dimensions": [
+      768,
+      512,
+      256,
+      128
+    ],
+    "intended_runtime_from_card": "Sentence Transformers"
+  },
+  "project_runtime_policy": {
+    "runner": "pooling",
+    "max_model_len": 2048,
+    "embedding_dimension_default": 768,
+    "embedding_dimension_supported": [
+      768,
+      512,
+      256,
+      128
+    ],
+    "max_num_seqs": 2,
+    "max_num_batched_tokens": 2048,
+    "gpu_memory_utilization": 0.04,
+    "policy_reason": "serve EmbeddingGemma through the platform embedding API while preserving model-card token and dimension limits"
+  }
+}

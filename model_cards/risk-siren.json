@@ -1,0 +1,71 @@
+{
+  "logical_id": "risk-siren",
+  "upstream_model_id": "kakaocorp/kanana-safeguard-siren-8b",
+  "role": "policy_attention_signal_detector",
+  "license": "apache-2.0",
+  "runtime": {
+    "backend": "vllm",
+    "port": 9404,
+    "internal_endpoint": "/v1/chat/completions",
+    "public_adapter_endpoint": "/v1/risk/detectors/siren/assessments",
+    "max_output_tokens": 1
+  },
+  "spec": {
+    "safe_label": "<SAFE>",
+    "unsafe_pattern": "<UNSAFE-Ix>",
+    "codes": [
+      "I1",
+      "I2",
+      "I3",
+      "I4"
+    ],
+    "languages": [
+      "ko"
+    ]
+  },
+  "sources": [
+    "https://huggingface.co/kakaocorp/kanana-safeguard-siren-8b"
+  ],
+  "source_facts": {
+    "single_label_token": true,
+    "safe_label": "<SAFE>",
+    "unsafe_pattern": "<UNSAFE-Ix>",
+    "known_codes": [
+      "I1",
+      "I2",
+      "I3",
+      "I4"
+    ],
+    "languages": [
+      "ko"
+    ],
+    "transformers_min_version": "4.52.4",
+    "model_card_max_new_tokens": 1,
+    "evaluation_basis": "first generated token",
+    "config_shape": {
+      "model_type": "llama",
+      "architecture": "LlamaForCausalLM",
+      "hidden_size": 4096,
+      "num_attention_heads": 32,
+      "num_key_value_heads": 8,
+      "head_dim": 128,
+      "hidden_size_divisible_by_attention_heads": true,
+      "attention_projection_width": 4096,
+      "requires_runtime_head_dim_support": false
+    }
+  },
+  "project_runtime_policy": {
+    "max_output_tokens": 1,
+    "temperature": 0,
+    "prompt_format": "chat_template-compatible user message",
+    "policy_reason": "model card defines one-token classification output and example generation uses max_new_tokens=1",
+    "runtime_features": {
+      "tool_calling": {
+        "enabled": false
+      },
+      "prefix_caching": {
+        "enabled": false
+      }
+    }
+  }
+}

@@ -1,0 +1,373 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "RiskAssessmentResponse",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "assessment_id",
+    "status",
+    "risk_detected",
+    "attention_required",
+    "model_risk_detected",
+    "system_signal_detected",
+    "assessment_complete",
+    "strongest_code",
+    "message",
+    "categories",
+    "system_signals"
+  ],
+  "properties": {
+    "assessment_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "status": {
+      "enum": [
+        "completed",
+        "partial",
+        "failed"
+      ]
+    },
+    "risk_detected": {
+      "type": "boolean"
+    },
+    "attention_required": {
+      "type": "boolean"
+    },
+    "model_risk_detected": {
+      "type": "boolean"
+    },
+    "system_signal_detected": {
+      "type": "boolean"
+    },
+    "assessment_complete": {
+      "type": "boolean"
+    },
+    "strongest_code": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^(A[12]|I[1-4]|PARSE_ERROR|INFERENCE_ERROR|INFERENCE_TIMEOUT|TRUNCATED_INPUT|INFERENCE_QUEUE_TIMEOUT|GPU_MEMORY_PRESSURE)$"
+    },
+    "message": {
+      "type": "string"
+    },
+    "categories": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "code",
+          "family",
+          "detected",
+          "confidence"
+        ],
+        "properties": {
+          "code": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^(A[12]|I[1-4])$"
+          },
+          "family": {
+            "type": "string",
+            "enum": [
+              "prompt_attack",
+              "policy_risk"
+            ]
+          },
+          "detected": {
+            "type": "boolean"
+          },
+          "confidence": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 1
+          },
+          "source_model": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "label": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "pattern": "^A[12]$"
+                }
+              },
+              "required": [
+                "code"
+              ]
+            },
+            "then": {
+              "properties": {
+                "family": {
+                  "const": "prompt_attack"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "pattern": "^I[1-4]$"
+                }
+              },
+              "required": [
+                "code"
+              ]
+            },
+            "then": {
+              "properties": {
+                "family": {
+                  "const": "policy_risk"
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    "system_signals": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "code",
+          "detected",
+          "retryable"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "enum": [
+              "PARSE_ERROR",
+              "INFERENCE_ERROR",
+              "INFERENCE_TIMEOUT",
+              "TRUNCATED_INPUT",
+              "INFERENCE_QUEUE_TIMEOUT",
+              "GPU_MEMORY_PRESSURE"
+            ]
+          },
+          "detected": {
+            "type": "boolean"
+          },
+          "retryable": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "source": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      }
+    }
+  },
+  "not": {
+    "anyOf": [
+      {
+        "required": [
+          "allow"
+        ]
+      },
+      {
+        "required": [
+          "review"
+        ]
+      },
+      {
+        "required": [
+          "block"
+        ]
+      },
+      {
+        "required": [
+          "decision"
+        ]
+      },
+      {
+        "required": [
+          "action"
+        ]
+      },
+      {
+        "required": [
+          "safe_to_send"
+        ]
+      },
+      {
+        "required": [
+          "final_decision"
+        ]
+      },
+      {
+        "required": [
+          "final_decision_owner"
+        ]
+      },
+      {
+        "required": [
+          "policy_overrides"
+        ]
+      }
+    ]
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "completed"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "assessment_complete": {
+            "const": true
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "enum": [
+              "partial",
+              "failed"
+            ]
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "assessment_complete": {
+            "const": false
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "risk_detected": {
+            "const": true
+          }
+        },
+        "required": [
+          "risk_detected"
+        ]
+      },
+      "then": {
+        "properties": {
+          "categories": {
+            "contains": {
+              "type": "object",
+              "properties": {
+                "detected": {
+                  "const": true
+                }
+              },
+              "required": [
+                "detected"
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "model_risk_detected": {
+            "const": true
+          }
+        },
+        "required": [
+          "model_risk_detected"
+        ]
+      },
+      "then": {
+        "properties": {
+          "categories": {
+            "contains": {
+              "type": "object",
+              "properties": {
+                "detected": {
+                  "const": true
+                }
+              },
+              "required": [
+                "detected"
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "system_signal_detected": {
+            "const": true
+          }
+        },
+        "required": [
+          "system_signal_detected"
+        ]
+      },
+      "then": {
+        "properties": {
+          "system_signals": {
+            "contains": {
+              "type": "object",
+              "properties": {
+                "detected": {
+                  "const": true
+                }
+              },
+              "required": [
+                "detected"
+              ]
+            }
+          }
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+logging:
+  format: json
+  prompt_body:
+    enabled: false
+  model_raw_output:
+    enabled: false
+  required_fields:
+    - timestamp
+    - level
+    - service
+    - event
+    - request_id
+    - latency_ms
+  forbidden_fields:
+    - authorization
+    - api_key
+    - prompt
+    - raw_prompt
+    - password
+    - token
+    - secret

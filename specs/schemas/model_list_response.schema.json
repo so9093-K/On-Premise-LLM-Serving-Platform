@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "GatewayModelListResponse",
+  "type": "object",
+  "required": [
+    "object",
+    "data"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "object": {
+      "const": "list"
+    },
+    "data": {
+      "type": "array",
+      "minItems": 4,
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "object",
+          "backend",
+          "capabilities",
+          "request_parameters"
+        ],
+        "additionalProperties": true,
+        "properties": {
+          "id": {
+            "enum": [
+              "local-main",
+              "local-embed",
+              "risk-prompt",
+              "risk-siren"
+            ]
+          },
+          "object": {
+            "const": "model"
+          },
+          "backend": {
+            "type": "string",
+            "minLength": 1
+          },
+          "capabilities": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "enum": [
+                "chat.completions",
+                "chat.completions.vision",
+                "chat.completions.tools",
+                "embeddings",
+                "risk.prompt_attack_signal",
+                "risk.policy_signal",
+                "risk.aggregate_signal"
+              ]
+            }
+          },
+          "request_parameters": {
+            "type": "object",
+            "description": "모델별 사용자 조정 가능 request parameter와 제약 조건입니다. prompt/messages/input 같은 필수 입력 본문은 여기에 포함하지 않습니다.",
+            "additionalProperties": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "fixed_parameters": {
+            "type": "object",
+            "description": "사용자 요청에는 노출하지 않고 adapter/runtime이 고정하는 내부 parameter입니다.",
+            "additionalProperties": true
+          }
+        }
+      }
+    }
+  }
+}

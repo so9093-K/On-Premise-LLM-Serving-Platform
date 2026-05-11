@@ -1,0 +1,66 @@
+images:
+  platform:
+    default: ai-model-serving-platform:0.1.0-rc.1
+    purpose: Gateway and Risk Adapter application image built from this repository.
+    mutable: false
+    source: local docker build
+  vllm:
+    default: vllm/vllm-openai:gemma4-0505-cu129
+    purpose: vLLM OpenAI-compatible runtime with Gemma4 support.
+    mutable: true
+    source: Docker Hub vllm/vllm-openai Gemma4 CUDA 12.9 tag
+    fallback: vllm/vllm-openai:gemma4
+  risk_vllm:
+    default: ai-model-serving-risk-vllm-kanana:0.1.0-rc.1
+    purpose: Dedicated vLLM runtime for Kakao Kanana risk detectors; keeps Gemma4
+      runtime changes isolated from Kanana Llama config compatibility patch metadata.
+    mutable: false
+    source: local docker build from ops/docker/Dockerfile.risk-vllm-kanana
+    base_image_default: vllm/vllm-openai:gemma4-0505-cu129
+    compatibility_pins:
+      transformers: 4.52.4
+      transformers_min: 4.52.4
+    patch_lifecycle:
+      patch_id: transformers_llama_head_dim_guard
+      metadata_path: /usr/local/share/ai-model-serving/patches/transformers_llama_head_dim_guard.json
+      removal_condition: upstream Transformers/vLLM honors explicit Llama head_dim without image patch
+  dcgm_exporter:
+    default: nvcr.io/nvidia/k8s/dcgm-exporter:4.5.2-4.8.1-distroless
+    purpose: NVIDIA GPU metrics exporter for Prometheus.
+    mutable: true
+    source: NVIDIA dcgm-exporter release example
+  prometheus:
+    default: prom/prometheus:v3-distroless
+    purpose: Prometheus metrics server with minimal distroless image variant.
+    mutable: true
+    source: Docker Hub prom/prometheus v3 distroless tag
+  grafana:
+    default: grafana/grafana:12.2.8
+    purpose: Grafana dashboard UI pinned to stable 12.2.x rather than nightly/main
+      tags.
+    mutable: true
+    source: Grafana 12.2.x Docker tag family
+  cadvisor:
+    default: gcr.io/cadvisor/cadvisor:v0.49.2
+    purpose: Container resource advisor exposing per-container CPU and system RAM metrics.
+    mutable: true
+    source: Google cAdvisor v0.49.x stable release
+  infisical:
+    default: infisical/infisical:latest-postgres
+    purpose: Self-hosted secrets management UI and API (ops/compose/infisical.yaml).
+    mutable: true
+    source: Infisical Docker Hub latest-postgres tag
+  infisical_db:
+    default: postgres:16-alpine
+    purpose: PostgreSQL backend for Infisical.
+    mutable: true
+    source: Docker Hub official postgres 16 alpine
+  infisical_redis:
+    default: redis:7-alpine
+    purpose: Redis cache for Infisical.
+    mutable: true
+    source: Docker Hub official redis 7 alpine
+validation_policy:
+  require_digest_before_production: true
+  generated_by: scripts/config/setup_env.py
+  last_reviewed: 2026-05-06

@@ -1,0 +1,184 @@
+# Example full-stack compose file. Run from the repository root with:
+# docker compose -f ops/compose/full-stack.example.yaml --env-file .env up
+# Choose tested image tags, model cache volume paths, GPU runtime settings, and secrets for the target host.
+# This file intentionally does not use :latest images.
+services:
+  gateway:
+    image: ${PLATFORM_IMAGE:?Set PLATFORM_IMAGE to a tested platform image tag}
+    command: ["python", "-m", "uvicorn", "ai_model_serving.apps.gateway:app", "--host", "0.0.0.0", "--port", "9400"]
+    ports: ["${GATEWAY_PORT:-9400}:9400"]
+    env_file: ../../.env
+    environment:
+      HEALTHCHECK_PORT: "9400"
+      APP_CONFIG_ROOT: "/app"
+      PYTHONPATH: "/app/src"
+    depends_on:
+      risk-adapter:
+        condition: service_healthy
+      main-llm-vllm:
+        condition: service_healthy
+      embedding-vllm:
+        condition: service_healthy
+
+  risk-adapter:
+    image: ${PLATFORM_IMAGE:?Set PLATFORM_IMAGE to a tested platform image tag}
+    command: ["python", "-m", "uvicorn", "ai_model_serving.apps.risk_adapter:app", "--host", "0.0.0.0", "--port", "9405"]
+    ports: ["${RISK_ADAPTER_PORT:-9405}:9405"]
+    env_file: ../../.env
+    environment:
+      HEALTHCHECK_PORT: "9405"
+      APP_CONFIG_ROOT: "/app"
+      PYTHONPATH: "/app/src"
+    depends_on:
+      risk-prompt-vllm:
+        condition: service_healthy
+      risk-siren-vllm:
+        condition: service_healthy
+
+  main-llm-vllm:
+    image: ${VLLM_IMAGE:?Set VLLM_IMAGE to a tested vLLM OpenAI image tag}
+    command: ["--model", "QuantTrio/gemma-4-31B-it-AWQ", "--served-model-name", "local-main", "--host", "0.0.0.0", "--port", "9401", "--max-model-len", "8192", "--max-num-seqs", "1", "--max-num-batched-tokens", "4096", "--gpu-memory-utilization", "0.58", "--tensor-parallel-size", "1", "--dtype", "half", "--quantization", "awq", "--trust-remote-code", "--enable-prefix-caching", "--prefix-caching-hash-algo", "sha256_cbor", "--enable-auto-tool-choice", "--tool-call-parser", "gemma4", "--reasoning-parser", "gemma4"]
+    expose: ["9401"]
+    env_file: ../../.env
+    environment:
+      HF_TOKEN: ${HF_TOKEN:-}
+      HUGGING_FACE_HUB_TOKEN: ${HUGGING_FACE_HUB_TOKEN:-}
+      HF_HOME: /root/.cache/huggingface
+    volumes:
+      - ${HF_CACHE_DIR:-./model_cache/huggingface}:/root/.cache/huggingface
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c \"import urllib.request; urllib.request.urlopen('http://localhost:9401/health')\""]
+      interval: 30s
+      timeout: 10s
+      retries: 20
+      start_period: 300s
+    deploy:
+      resources:
+        reservations:
+          devices: [{capabilities: [gpu]}]
+
+  embedding-vllm:
+    image: ${VLLM_IMAGE:?Set VLLM_IMAGE to a tested vLLM OpenAI image tag}
+    command: ["--model", "google/embeddinggemma-300m", "--served-model-name", "local-embed", "--host", "0.0.0.0", "--port", "9402", "--runner", "pooling", "--max-model-len", "2048", "--max-num-seqs", "2", "--max-num-batched-tokens", "2048", "--gpu-memory-utilization", "0.04"]
+    expose: ["9402"]
+    env_file: ../../.env
+    environment:
+      HF_TOKEN: ${HF_TOKEN:-}
+      HUGGING_FACE_HUB_TOKEN: ${HUGGING_FACE_HUB_TOKEN:-}
+      HF_HOME: /root/.cache/huggingface
+    volumes:
+      - ${HF_CACHE_DIR:-./model_cache/huggingface}:/root/.cache/huggingface
+    depends_on:
+      main-llm-vllm:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c \"import urllib.request; urllib.request.urlopen('http://localhost:9402/health')\""]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 120s
+    deploy:
+      resources:
+        reservations:
+          devices: [{capabilities: [gpu]}]
+
+  risk-siren-vllm:
+    image: ${RISK_VLLM_IMAGE:?Set RISK_VLLM_IMAGE to a tested vLLM OpenAI image tag for risk models}
+    command: ["--model", "kakaocorp/kanana-safeguard-siren-8b", "--served-model-name", "risk-siren", "--host", "0.0.0.0", "--port", "9404", "--max-model-len", "2048", "--max-num-seqs", "1", "--max-num-batched-tokens", "2048", "--gpu-memory-utilization", "0.18", "--dtype", "bfloat16", "--quantization", "bitsandbytes", "--load-format", "bitsandbytes", "--enforce-eager"]
+    expose: ["9404"]
+    env_file: ../../.env
+    environment:
+      HF_TOKEN: ${HF_TOKEN:-}
+      HUGGING_FACE_HUB_TOKEN: ${HUGGING_FACE_HUB_TOKEN:-}
+      HF_HOME: /root/.cache/huggingface
+    volumes:
+      - ${HF_CACHE_DIR:-./model_cache/huggingface}:/root/.cache/huggingface
+    depends_on:
+      embedding-vllm:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c \"import urllib.request; urllib.request.urlopen('http://localhost:9404/health')\""]
+      interval: 30s
+      timeout: 10s
+      retries: 15
+      start_period: 180s
+    deploy:
+      resources:
+        reservations:
+          devices: [{capabilities: [gpu]}]
+
+  risk-prompt-vllm:
+    image: ${RISK_VLLM_IMAGE:?Set RISK_VLLM_IMAGE to a tested vLLM OpenAI image tag for risk models}
+    command: ["--model", "kakaocorp/kanana-safeguard-prompt-2.1b", "--served-model-name", "risk-prompt", "--host", "0.0.0.0", "--port", "9403", "--max-model-len", "2048", "--max-num-seqs", "1", "--max-num-batched-tokens", "2048", "--gpu-memory-utilization", "0.065", "--dtype", "bfloat16", "--quantization", "bitsandbytes", "--load-format", "bitsandbytes", "--trust-remote-code", "--enforce-eager"]
+    expose: ["9403"]
+    env_file: ../../.env
+    environment:
+      HF_TOKEN: ${HF_TOKEN:-}
+      HUGGING_FACE_HUB_TOKEN: ${HUGGING_FACE_HUB_TOKEN:-}
+      HF_HOME: /root/.cache/huggingface
+    volumes:
+      - ${HF_CACHE_DIR:-./model_cache/huggingface}:/root/.cache/huggingface
+    depends_on:
+      risk-siren-vllm:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c \"import urllib.request; urllib.request.urlopen('http://localhost:9403/health')\""]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 120s
+    deploy:
+      resources:
+        reservations:
+          devices: [{capabilities: [gpu]}]
+
+  dcgm-exporter:
+    image: ${DCGM_EXPORTER_IMAGE:?Set DCGM_EXPORTER_IMAGE to a tested NVIDIA dcgm-exporter image tag}
+    user: "0:0"
+    privileged: true
+    cap_add: ["SYS_ADMIN"]
+    expose: ["9400"]
+    ports: ["${DCGM_EXPORTER_PORT:-9412}:9400"]
+    deploy:
+      resources:
+        reservations:
+          devices: [{capabilities: [gpu]}]
+
+  cadvisor:
+    image: ${CADVISOR_IMAGE:?Set CADVISOR_IMAGE to a tested cAdvisor image tag}
+    privileged: true
+    expose: ["8080"]
+    ports: ["${CADVISOR_PORT:-9413}:8080"]
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro
+    devices:
+      - /dev/kmsg:/dev/kmsg
+
+  prometheus:
+    image: ${PROMETHEUS_IMAGE:?Set PROMETHEUS_IMAGE to a tested Prometheus image tag}
+    depends_on: [gateway, risk-adapter, main-llm-vllm, embedding-vllm, risk-prompt-vllm, risk-siren-vllm, dcgm-exporter, cadvisor]
+    command: ["--config.file=/etc/prometheus/prometheus.yml"]
+    ports: ["${PROMETHEUS_PORT:-9410}:9090"]
+    volumes:
+      - ../prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ../prometheus/rules:/etc/prometheus/rules:ro
+      - ../../.runtime/prometheus/admin_api_key:/run/secrets/admin_api_key:ro
+
+  grafana:
+    image: ${GRAFANA_IMAGE:?Set GRAFANA_IMAGE to a tested Grafana image tag}
+    depends_on: [prometheus]
+    ports: ["${GRAFANA_PORT:-9411}:3000"]
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: ${GRAFANA_ANONYMOUS_ENABLED:-false}
+      GF_AUTH_ANONYMOUS_ORG_ROLE: ${GRAFANA_ANONYMOUS_ORG_ROLE:-Viewer}
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/gpu_capacity_and_oom_risk.json
+    volumes:
+      - ../grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - ../grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
+      - ../grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro

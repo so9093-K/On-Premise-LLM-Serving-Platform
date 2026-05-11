@@ -1,0 +1,290 @@
+openapi: 3.1.0
+info:
+  title: Risk Adapter API
+  version: 0.1.0-rc.1
+  description: 한국어 운영자 기준 내부 Risk Adapter API 명세입니다. /ready와 /metrics는 설정에 따라 admin
+    Bearer token이 필요합니다.
+servers:
+- url: http://localhost:9405
+paths:
+  /health:
+    get:
+      summary: Liveness 확인
+      responses:
+        '200':
+          description: 정상 응답
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - status
+                - service
+                properties:
+                  status:
+                    const: ok
+                  service:
+                    const: risk-adapter
+      operationId: health_health_get
+  /ready:
+    get:
+      summary: Risk Adapter readiness 확인
+      description: 내부 readiness endpoint입니다. Prompt/Siren detector vLLM runtime 상태를
+        확인합니다. 모델 로딩 중에는 HTTP 503을 반환하고 `not_ready_dependencies`와 dependency별 `message`를
+        제공합니다.
+      responses:
+        '200':
+          description: 준비 완료
+          content:
+            application/json:
+              schema:
+                $ref: ./schemas/readiness_response.schema.json
+        '503':
+          description: 준비되지 않음. 응답 body는 readiness_response.schema.json을 따르며 dependency
+            상태를 포함합니다.
+          content:
+            application/json:
+              schema:
+                $ref: ./schemas/readiness_response.schema.json
+        '401':
+          description: Admin token 누락 또는 유효하지 않음
+          content:
+            application/json:
+              schema:
+                $ref: ./schemas/common_error.schema.json
+      security:
+      - adminBearerAuth: []
+      operationId: ready_ready_get
+  /v1/risk/detectors/prompt/assessments:
+    post:
+      summary: Prompt detector 신호 — Prompt Injection / Leaking
+      security:
+      - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ./schemas/risk_assessment_request.schema.json
+            examples:
+              minimal:
+                summary: Prompt detector risk 신호 예시
+                value:
+                  prompt: Assess this prompt for risk signals only.
+      responses:
+        '200':
+          description: 정책 결정을 포함하지 않는 signal-only assessment 응답
+          content:
+            application/json:
+              schema:
+                $ref: ./schemas/risk_assessment_response.schema.json
+        '401':
+          description: 인증 실패
+          content:
+            application/json:
+              schema:
+                $ref: ./schemas/common_error.schema.json
+        '422':
+          description: 요청 검증 실패
+          content:
+            application/json:
+              schema:
+                $ref: ./schemas/common_error.schema.json
+        '413':
+          description: 요청 body가 너무 큼
+          content: &id001
+            application/json:
+              schema:
+                $ref: ./schemas/common_error.schema.json
+        '429':
+          description: Upstream rate limit 또는 local admission timeout
+          content: *id001
+        '502':
+          description: Upstream 오류 또는 유효하지 않은 upstream 응답
+          content: *id001
+        '504':
+          description: Upstream timeout
+          content: *id001
+        '500':
+          description: 내부 서버 오류
+          content: *id001
+        '503':
+          description: Runtime을 사용할 수 없음
+          content: *id001
+      description: '**Prompt detector**(`risk-prompt`)만 단독 호출합니다.
+
+
+        탐지 대상:
+
+        - system/developer instruction 무시 유도
+
+        - 숨겨진 system prompt·tool config 출력 요구
+
+        - 역할극(DAN 등) jailbreak
+
+        - 문서·웹페이지 안에 숨겨진 간접 prompt injection
+
+        - 연결된 도구로 시크릿·파일·메일 탈취 유도
+
+
+        일반 사이버 공격 절차·폭력·혐오 콘텐츠는 이 detector 범위 밖입니다.'
+      operationId: prompt_assessment_v1_risk_detectors_prompt_assessments_post
+  /v1/risk/detectors/siren/assessments:
+    post:
+      summary: Siren detector 신호 — 정책 risk
+      security:
+      - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ./schemas/risk_assessment_request.schema.json
+            examples:
+              minimal:
+                summary: Siren detector risk 신호 예시
+                value:
+                  prompt: Assess this prompt for risk signals only.
+      responses:
+        '200':
+          description: 정책 결정을 포함하지 않는 signal-only assessment 응답
+          content:
+            application/json:
+              schema:
+                $ref: ./schemas/risk_assessment_response.schema.json
+        '401':
+          description: 인증 실패
+          content:
+            application/json:
+              schema:
+                $ref: ./schemas/common_error.schema.json
+        '422':
+          description: 요청 검증 실패
+          content:
+            application/json:
+              schema:
+                $ref: ./schemas/common_error.schema.json
+        '413':
+          description: 요청 body가 너무 큼
+          content: *id001
+        '429':
+          description: Upstream rate limit 또는 local admission timeout
+          content: *id001
+        '502':
+          description: Upstream 오류 또는 유효하지 않은 upstream 응답
+          content: *id001
+        '504':
+          description: Upstream timeout
+          content: *id001
+        '500':
+          description: 내부 서버 오류
+          content: *id001
+        '503':
+          description: Runtime을 사용할 수 없음
+          content: *id001
+      description: '**Siren detector**(`risk-siren`)만 단독 호출합니다.
+
+
+        탐지 대상:
+
+        - 성인인증·연령 제한 우회
+
+        - 의료·법률·금융 전문 조언 요청
+
+        - 개인정보·민감정보·계정 정보 탈취 시도
+
+        - 유료 콘텐츠·저작권 무단 복제
+
+
+        Prompt Injection·jailbreak는 Prompt detector가 담당합니다.'
+      operationId: siren_assessment_v1_risk_detectors_siren_assessments_post
+  /v1/risk/assessments:
+    post:
+      summary: 통합 risk signal (Prompt + Siren)
+      security:
+      - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ./schemas/risk_assessment_request.schema.json
+            examples:
+              minimal:
+                summary: 통합 risk 신호 예시
+                value:
+                  prompt: Assess this prompt for risk signals only.
+      responses:
+        '200':
+          description: 정책 결정을 포함하지 않는 통합 signal-only assessment 응답
+          content:
+            application/json:
+              schema:
+                $ref: ./schemas/risk_assessment_response.schema.json
+        '401':
+          description: 인증 실패
+          content:
+            application/json:
+              schema:
+                $ref: ./schemas/common_error.schema.json
+        '422':
+          description: 요청 검증 실패
+          content:
+            application/json:
+              schema:
+                $ref: ./schemas/common_error.schema.json
+        '413':
+          description: 요청 body가 너무 큼
+          content: *id001
+        '429':
+          description: Upstream rate limit 또는 local admission timeout
+          content: *id001
+        '502':
+          description: Upstream 오류 또는 유효하지 않은 upstream 응답
+          content: *id001
+        '504':
+          description: Upstream timeout
+          content: *id001
+        '500':
+          description: 내부 서버 오류
+          content: *id001
+        '503':
+          description: Runtime을 사용할 수 없음
+          content: *id001
+      description: 'Prompt detector와 Siren detector를 순차 호출하고 결과를 aggregate합니다.
+
+
+        어느 한 detector가 신호를 탐지하면 `risk_detected: true`를 반환합니다. detector 실패는 policy
+        판단 없이 system signal로 표현됩니다.'
+      operationId: aggregate_v1_risk_assessments_post
+  /metrics:
+    get:
+      summary: Prometheus metrics 조회
+      description: Prometheus가 scrape하는 Risk Adapter metric입니다. detector별 timeout,
+        parse failure, signal count를 확인합니다.
+      responses:
+        '200':
+          description: Prometheus metrics 응답
+          content:
+            text/plain:
+              schema:
+                type: string
+        '401':
+          description: Admin token 누락 또는 유효하지 않음
+          content:
+            application/json:
+              schema:
+                $ref: ./schemas/common_error.schema.json
+      security:
+      - adminBearerAuth: []
+      operationId: metrics_endpoint_metrics_get
+components:
+  securitySchemes:
+    adminBearerAuth:
+      type: http
+      description: /ready, /metrics 같은 운영자 endpoint에 사용하는 admin Bearer token입니다.
+      scheme: bearer
+    bearerAuth:
+      type: http
+      description: Gateway API 또는 내부 Risk Adapter 호출에 사용하는 Bearer token입니다.
+      scheme: bearer

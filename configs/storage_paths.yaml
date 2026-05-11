@@ -1,0 +1,133 @@
+version: 0.1.0
+version_semantics: "local storage path registry schema version, not package release version"
+source_of_truth: configs/storage_paths.yaml
+policy:
+  project_relative_paths_only_by_default: true
+  external_host_paths_must_be_explicit: true
+  destructive_cleanup_requires_env_flag: true
+  release_packages_must_exclude_runtime_state: true
+paths:
+  env_file:
+    path: .env
+    kind: local_config_secret
+    owner: operator
+    lifecycle: generated_by_make_init_env
+    cleanup: never_by_clean
+    release_package: exclude
+    notes: Generated from safe .env templates; contains secrets and host-specific settings.
+  runtime_secret_dir:
+    path: .runtime/
+    kind: runtime_secret
+    owner: operator
+    lifecycle: generated_by_make_init_env_compose_or_sync_runtime_secrets
+    cleanup: keep_by_default; remove only with PURGE_RUNTIME_SECRETS=1
+    release_package: exclude
+    notes: Prometheus bearer token and other local runtime secret files.
+  logs_dir:
+    path: logs/
+    kind: local_runtime_log
+    owner: operator
+    lifecycle: generated_by_make_start_or_manual_log_tail
+    cleanup: remove_by_make_clean_all
+    release_package: exclude
+  run_dir:
+    path: run/
+    kind: process_tracking
+    owner: scripts
+    lifecycle: generated_by_local_start
+    cleanup: remove_by_make_clean
+    release_package: exclude
+  reports_runtime_dir:
+    path: reports/runtime/
+    kind: operator_report
+    owner: operator
+    lifecycle: generated_by_runtime_validation_and_operator_reports
+    cleanup: preserve_reference_reports; runtime_validation_timestamp_reports_excluded_from_release
+    release_package: include_static_reports_exclude_runtime_validation_timestamp_reports
+  reports_refactor_dir:
+    path: reports/refactor/
+    kind: maintenance_report
+    owner: maintainer
+    lifecycle: curated_current_state_reports
+    cleanup: remove_retired_phase_snapshots
+    release_package: include_current_reports
+  dist_dir:
+    path: dist/
+    kind: release_artifact
+    owner: release
+    lifecycle: generated_by_make_package
+    cleanup: remove_by_make_clean
+    release_package: exclude_self
+  build_dir:
+    path: build/
+    kind: build_artifact
+    owner: build
+    lifecycle: generated_by_python_or_image_build_workflows
+    cleanup: remove_by_make_clean
+    release_package: exclude
+  outputs_dir:
+    path: outputs/
+    kind: scratch_output
+    owner: developer
+    lifecycle: ad_hoc_local_output
+    cleanup: remove_by_make_clean
+    release_package: exclude
+  python_venv_dir:
+    path: .venv/
+    kind: local_dependency_environment
+    owner: developer
+    lifecycle: generated_by_make_bootstrap
+    cleanup: remove_by_make_bootstrap; remove_by_make_reset_when_PURGE_VENV=1
+    release_package: exclude
+  model_cache_dir:
+    path: model_cache/huggingface/
+    env: HF_CACHE_DIR
+    container_path: /root/.cache/huggingface
+    kind: large_model_cache
+    owner: operator
+    lifecycle: generated_by_vllm_huggingface_downloads
+    cleanup: keep_by_default; remove only with PURGE_MODEL_CACHE=1
+    release_package: exclude
+    notes: Compose mounts this host directory into every vLLM service as HF_HOME.
+  local_models_dir:
+    path: models/
+    kind: optional_local_model_artifact
+    owner: operator
+    lifecycle: manual_or_future_local_model_storage
+    cleanup: keep_by_default; remove only with PURGE_MODEL_CACHE=1
+    release_package: exclude
+external_host_paths:
+  cadvisor_rootfs:
+    path: /
+    mount: /rootfs:ro
+    service: cadvisor
+    reason: Container filesystem telemetry.
+  docker_socket_state:
+    path: /var/run
+    mount: /var/run:ro
+    service: cadvisor
+    reason: Docker/container telemetry.
+  sysfs:
+    path: /sys
+    mount: /sys:ro
+    service: cadvisor
+    reason: Host/container resource telemetry.
+  docker_lib:
+    path: /var/lib/docker
+    mount: /var/lib/docker:ro
+    service: cadvisor
+    reason: Container storage telemetry.
+cleanup_flags:
+  PURGE_MODEL_CACHE:
+    default: "0"
+    deletes:
+      - model_cache/
+      - models/
+  PURGE_RUNTIME_SECRETS:
+    default: "0"
+    deletes:
+      - .runtime/
+  PURGE_VENV:
+    default: "0"
+    deletes:
+      - .venv/

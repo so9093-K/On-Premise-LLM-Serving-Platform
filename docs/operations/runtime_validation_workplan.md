@@ -1,0 +1,57 @@
+# 런타임 검증 작업 계획
+
+이 문서는 full-stack runtime 검증 작업 순서와 산출물 기준을 정의한다.
+
+## 범위
+
+- Gateway, Risk Adapter, 네 개 vLLM runtime, Prometheus, Grafana, DCGM exporter, cAdvisor를 대상으로 한다.
+- 검증은 target GPU host에서 수행한다.
+- 보고서는 `reports/runtime/` 아래에 생성한다.
+
+## 작업 순서
+
+1. `HF_TOKEN=hf_xxx make first-run`으로 `.venv`, dependency, `.env`, validate, test, platform image, Kanana risk vLLM image, image 내부 config check를 한 번에 완료한다. 기존 `.env`에 토큰이 있으면 `HF_TOKEN=`은 생략한다.
+2. `make preflight-compose`로 Docker, GPU 표시, host-published port, runtime secret, risk image config check를 확인한다.
+3. `make compose-up`으로 full-stack을 기동한다.
+4. `make ready-full`로 Gateway/Risk Adapter/vLLM readiness와 smoke를 확인한다.
+5. `make runtime-validate`로 JSON/Markdown report를 작성한다.
+
+## 실패 분류
+
+- `risk-vllm-config-check` 실패: GPU, bitsandbytes, KV cache 이전의 image/HF loader 호환성 문제로 분류한다.
+- `risk-vllm-config-check` 통과 후 vLLM serve 실패: vLLM runtime 구현, quantization load path, GPU memory allocation 순서로 분리한다.
+- bnb ON/OFF 모두 같은 hidden/head validation 실패: quantization 문제가 아니라 config validation 문제로 분류한다.
+- bnb OFF만 성공: bitsandbytes load path 또는 image dependency 조합 문제로 분류한다.
+
+## 증빙
+
+- `harness/runtime_validation_plan.md`의 Validation Report Rule을 따른다.
+- runtime report는 raw prompt, user text, model output, token, secret을 기록하지 않는다.
+
+## 설정 우선순위
+
+`python scripts/validation/runtime_validation.py`는 live runtime 검증과 config-only 검증을 모두 담당한다. 운영자가 후보 endpoint를 임시로 바꿔 검증할 수 있어야 하므로, host URL 계열 설정은 아래 우선순위를 따른다.
+
+```text
+CLI 인자 > process env / .env > built-in 기본값
+```
+
+```bash
+# .env의 GATEWAY_BASE_URL보다 CLI 인자가 우선한다.
+python scripts/validation/runtime_validation.py --gateway-base http://candidate-gateway:9400
+
+# CLI 인자가 없으면 환경변수 또는 .env를 사용한다.
+GATEWAY_BASE_URL=http://staging-gateway:9400 python scripts/validation/runtime_validation.py
+```
+
+| Runtime target | CLI 인자 | 환경변수 | 기본값 |
+|---|---|---|---|
+| Gateway | `--gateway-base` | `GATEWAY_BASE_URL` | `http://localhost:9400` |
+| Risk Adapter | `--risk-base` | `RISK_ADAPTER_BASE_URL` | `http://localhost:9405` |
+| Main LLM vLLM | `--main-llm-base` | `MAIN_LLM_BASE_URL` | `http://localhost:9401/v1` |
+| Embedding vLLM | `--embedding-base` | `EMBEDDING_BASE_URL` | `http://localhost:9402/v1` |
+| Risk Prompt vLLM | `--risk-prompt-base` | `RISK_PROMPT_BASE_URL` | `http://localhost:9403/v1` |
+| Risk Siren vLLM | `--risk-siren-base` | `RISK_SIREN_BASE_URL` | `http://localhost:9404/v1` |
+| Prometheus | `--prometheus-base` | `PROMETHEUS_BASE_URL` | `http://localhost:9410` |
+
+`API_KEY`, `ADMIN_API_KEY`, `INTERNAL_SERVICE_TOKEN` 같은 secret은 명령 출력과 report에 노출하지 않는다.

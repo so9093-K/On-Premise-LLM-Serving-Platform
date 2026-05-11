@@ -1,0 +1,54 @@
+# ── Secrets & env files ────────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+!.env.local.example
+!.env.compose.example
+
+# ── Log & output artifacts ─────────────────────────────────────────────────
+*.log
+logs/
+outputs/
+run/
+
+# ── Build & dist artifacts ─────────────────────────────────────────────────
+/build/
+/dist/
+*.egg-info/
+
+# ── Cache directories ──────────────────────────────────────────────────────
+.cache/
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# ── Virtual env ────────────────────────────────────────────────────────────
+.venv/
+
+# ── Runtime secrets & generated files ─────────────────────────────────────
+.runtime/
+reports/runtime/
+
+# ── Model data (large binary assets) ──────────────────────────────────────
+/model_cache/
+/models/
+model_cache/
+
+# ── Credential files ───────────────────────────────────────────────────────
+*.secret
+*.pem
+*.key
+*.crt
+
+# ── Test coverage ──────────────────────────────────────────────────────────
+.coverage
+coverage.xml
+htmlcov/
+
+# ── Local AI/dev-agent tool state ───────────────────────────────────────────────
+.agents/
+.codex/
+.claude/
+.cursor/

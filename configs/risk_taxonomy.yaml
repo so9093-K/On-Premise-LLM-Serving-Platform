@@ -1,0 +1,68 @@
+families:
+  prompt_attack:
+    display_name_ko: 프롬프트 공격
+    display_name_en: Prompt Attack
+    source_model: kakaocorp/kanana-safeguard-prompt-2.1b
+    codes:
+      A1:
+        name: Prompt Injection
+        display_name_ko: 프롬프트 인젝션
+        display_name_en: Prompt Injection
+        description_ko: LLM의 지침을 무시하거나 시스템 동작을 변경하려는 의도로 우회하려는 조작된 발화
+        description_en: Manipulated utterance intended to bypass instructions or alter system behavior.
+      A2:
+        name: Prompt Leaking
+        display_name_ko: 프롬프트 유출
+        display_name_en: Prompt Leaking
+        description_ko: 프롬프트, 학습 데이터 등 AI 시스템의 내부 정보를 유출하려는 발화
+        description_en: Utterance intended to leak internal AI system information such as prompts or training data.
+
+  policy_risk:
+    display_name_ko: 정책 위험
+    display_name_en: Policy Risk
+    source_model: kakaocorp/kanana-safeguard-siren-8b
+    codes:
+      I1:
+        name: Age Restricted / Youth Harmful Information
+        display_name_ko: 성인인증
+        display_name_en: Age-Restricted Content
+        description_ko: 주류, 담배, 도박, 유흥업소 또는 19세 콘텐츠 등 청소년 유해 정보에 대한 요청을 포함하는 발화
+        description_en: Utterance requesting age-restricted or youth-harmful information such as alcohol, tobacco, gambling, adult entertainment, or 19+ content.
+      I2:
+        name: Professional Advice
+        display_name_ko: 전문조언
+        display_name_en: Professional Advice
+        description_ko: 의학, 법률, 세무, 금융 등 전문적인 의사결정과 관련된 조언을 요청하는 발화
+        description_en: Utterance requesting professional decision-making advice in domains such as medicine, law, tax, or finance.
+      I3:
+        name: Personal Data
+        display_name_ko: 개인정보
+        display_name_en: Personal Data
+        description_ko: 개인 식별 정보나 민감한 데이터를 요청하거나 포함하는 발화
+        description_en: Utterance requesting or containing personally identifiable or sensitive data.
+      I4:
+        name: Intellectual Property
+        display_name_ko: 지식재산권
+        display_name_en: Intellectual Property
+        description_ko: 저작권, 특허, 상표권 등으로 보호된 콘텐츠를 무단으로 요청하거나 복제하려는 발화
+        description_en: Utterance requesting unauthorized access to or reproduction of copyright-, patent-, or trademark-protected content.
+
+system_signals:
+  PARSE_ERROR:
+    retryable: true
+    description_ko: detector 출력 label을 contract label로 파싱하지 못함
+  INFERENCE_ERROR:
+    retryable: true
+    description_ko: 내부 모델 호출 중 오류 발생
+  INFERENCE_TIMEOUT:
+    retryable: true
+    description_ko: 내부 모델 호출 timeout
+  TRUNCATED_INPUT:
+    retryable: false
+    description_ko: 입력이 모델 또는 policy 제한으로 절단됨
+  INFERENCE_QUEUE_TIMEOUT:
+    retryable: true
+    description_ko: inference queue 대기 시간 초과
+  GPU_MEMORY_PRESSURE:
+    retryable: true
+    description_ko: GPU memory reserve 부족 또는 OOM 위험 감지

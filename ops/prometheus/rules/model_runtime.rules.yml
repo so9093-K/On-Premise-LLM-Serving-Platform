@@ -1,0 +1,47 @@
+groups:
+  - name: ai_model_serving_model_runtime
+    interval: 15s
+    rules:
+      - record: model_runtime_upstream_error_rate_5m
+        expr: sum by (target, code) (rate(upstream_errors_total[5m]))
+      - record: model_runtime_upstream_p95_latency_seconds
+        expr: histogram_quantile(0.95, sum by (le, target, path) (rate(upstream_request_duration_seconds_bucket[5m])))
+      - record: model_runtime_http_p95_latency_seconds
+        expr: histogram_quantile(0.95, sum by (le, service, route) (rate(http_request_duration_seconds_bucket[5m])))
+      - record: model_runtime_gateway_ready
+        expr: min by (service) (overall_runtime_status)
+      # GPU rules depend on DCGM exporter metric names. If the exporter is absent,
+      # these series remain absent so dashboards show No Data rather than fake zeros.
+      # Stat panels (worst-case single value) use the global aggregates below.
+      # Timeseries panels query the raw DCGM_FI_* metrics directly to retain gpu_index.
+      - record: gpu_memory_used_bytes
+        expr: max(DCGM_FI_DEV_FB_USED * 1024 * 1024)
+      - record: gpu_memory_total_bytes
+        expr: max(DCGM_FI_DEV_FB_TOTAL * 1024 * 1024)
+      - record: gpu_memory_headroom_bytes
+        expr: min(DCGM_FI_DEV_FB_FREE * 1024 * 1024)
+      - record: gpu_utilization_ratio
+        expr: max(DCGM_FI_DEV_GPU_UTIL) / 100
+      - record: gpu_temperature_celsius
+        expr: max(DCGM_FI_DEV_GPU_TEMP)
+      - record: gpu_power_watts
+        expr: max(DCGM_FI_DEV_POWER_USAGE)
+      # vLLM metric bridges. vLLM exposes colon-namespaced names (vllm:*)
+      # which dashboards cannot reference directly without these rules.
+      # Absent when vLLM exporter is not scraped → panels show No Data, not fake zeros.
+      # vLLM documents KV cache usage as a ratio where 1 means 100% usage.
+      # Normalize defensively because some runtime/exporter combinations have
+      # emitted 0-100 percent-like samples under the *_perc metric name.
+      # Keep the scrape labels used by Grafana variables and drop exporter-specific extras.
+      - record: vllm_kv_cache_usage_ratio
+        expr: max by (instance, model, runtime_service) ((vllm:kv_cache_usage_perc <= 1) or ((vllm:kv_cache_usage_perc > 1) / 100))
+      - record: vllm_queue_depth
+        expr: vllm:num_requests_waiting
+      - record: vllm_token_throughput_per_second
+        expr: sum by (instance, model, runtime_service) (rate(vllm:generation_tokens_total[5m]))
+      # cAdvisor bridges for per-vLLM container host resources. Compose generated
+      # container names vary by project directory, so use the compose service label.
+      - record: vllm_container_memory_usage_bytes
+        expr: max by (container_label_com_docker_compose_service) (container_memory_usage_bytes{container_label_com_docker_compose_service=~"main-llm-vllm|embedding-vllm|risk-prompt-vllm|risk-siren-vllm"})
+      - record: vllm_container_cpu_usage_ratio
+        expr: sum by (container_label_com_docker_compose_service) (rate(container_cpu_usage_seconds_total{container_label_com_docker_compose_service=~"main-llm-vllm|embedding-vllm|risk-prompt-vllm|risk-siren-vllm"}[1m]))

@@ -1,0 +1,27 @@
+tests:
+  - id: risk_prompt_valid
+    endpoint: /v1/risk/detectors/prompt/assessments
+    body: {prompt: "test prompt"}
+    expected_status: 200
+  - id: risk_siren_valid
+    endpoint: /v1/risk/detectors/siren/assessments
+    body: {prompt: "test prompt"}
+    expected_status: 200
+  - id: risk_extra_field_forbidden
+    endpoint: /v1/risk/assessments
+    body: {prompt: "test", metadata: {request_id: "x"}}
+    expected_status: 422
+  - id: risk_text_field_forbidden
+    endpoint: /v1/risk/assessments
+    body: {text: "test"}
+    expected_status: 422
+  - id: forbidden_response_fields
+    endpoint: /v1/risk/assessments
+    forbidden_fields:
+      - decision
+      - action
+      - allow
+      - review
+      - block
+      - safe_to_send
+      - final_decision

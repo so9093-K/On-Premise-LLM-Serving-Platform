@@ -1,0 +1,350 @@
+version: 0.1.0
+version_semantics: "model catalog schema version, not package release version"
+last_reviewed: 2026-05-05
+source_of_truth: configs/model_catalog.yaml
+models:
+  local-main:
+    role: main_llm
+    upstream_model_id: QuantTrio/gemma-4-31B-it-AWQ
+    base_model_id: google/gemma-4-31B-it
+    provider: QuantTrio
+    family: Gemma 4
+    parameter_class: 31B
+    license: apache-2.0
+    access: public_huggingface
+    primary_capability: chat.completions
+    input_modalities:
+    - text
+    - image
+    deployed_modalities:
+    - text
+    - image
+    output_modalities:
+    - text
+    quantization: AWQ 4-bit
+    runtime:
+      backend: vllm
+      served_model_name: local-main
+      port: 9401
+      endpoint: /v1/chat/completions
+    source_facts:
+      base_model_id: google/gemma-4-31B-it
+      quantization: AWQ 4-bit
+      vllm_min_version: 0.19.0
+      transformers_min_version: 5.5.0
+      cuda_runtime_note: cuda12.8 mentioned by upstream card as of 2026-04-03
+      upstream_example:
+        tensor_parallel_size: 2
+        max_model_len: 32768
+        max_num_seqs: 32
+        gpu_memory_utilization: 0.9
+        trust_remote_code: true
+        enable_auto_tool_choice: true
+        tool_call_parser: gemma4
+        reasoning_parser: gemma4
+      supported_modalities:
+      - text
+      - image
+      context_length_tokens: 262144
+    project_runtime_policy:
+      tensor_parallel_size: 1
+      max_model_len: 8192
+      max_num_seqs: 1
+      max_num_batched_tokens: 4096
+      gpu_memory_utilization: 0.58
+      trust_remote_code: true
+      policy_reason: single-GPU service mix cap; not copied from the upstream multi-GPU
+        example
+      max_output_tokens: 1024
+      input_modalities:
+      - text
+      - image
+      chat_content_contract: OpenAI chat content string or content parts with text
+        and image_url
+      max_image_inputs: 1
+      allowed_image_url_schemes:
+      - data
+      image_url_policy_reason: avoid arbitrary server-side URL fetch by default; validate
+        MIME, decoded image bytes, and image dimensions; external HTTPS image fetch
+        should be enabled only behind an egress policy
+      max_image_bytes: 750000
+      max_image_pixels: 1048576
+      allowed_image_mime_types:
+      - image/jpeg
+      - image/png
+      - image/webp
+      runtime_features:
+        prefix_caching:
+          enabled: true
+          hash_algo: sha256_cbor
+        tool_calling:
+          enabled: true
+          tool_call_parser: gemma4
+          reasoning_parser: gemma4
+          allow_parallel_tool_calls: false
+      request_parameter_policy: bounded allowlist in configs/model_serving.yaml; unknown
+        chat fields rejected at Gateway
+    gateway_listing:
+      enabled: true
+      backend: main_llm_vllm
+      capabilities:
+      - chat.completions
+      - chat.completions.vision
+      - chat.completions.tools
+    lifecycle:
+      state: active
+      exposure: public
+      owner: platform
+      added_at: 2026-05-10
+      deprecation_deadline: null
+      removal_ticket: null
+      add_or_remove_via:
+      - configs/model_catalog.yaml
+      - configs/model_serving.yaml
+      - contracts/model_contracts.yaml
+      - model_cards/<logical-id>.json
+      - specs/schemas/model_list_response.schema.json
+      - tests/contract/test_runtime_policy.py
+      removal_rule: remove from catalog, serving config, model contract, model card,
+        public model schema enum, and runtime validation expectations in one change
+  local-embed:
+    role: embedding
+    upstream_model_id: google/embeddinggemma-300m
+    provider: Google DeepMind
+    family: EmbeddingGemma
+    parameter_class: 300M
+    license: gemma
+    access: gated_terms_acceptance_required
+    primary_capability: embeddings
+    input_modalities:
+    - text
+    output_modalities:
+    - embedding
+    embedding_dimensions:
+      default: 768
+      matryoshka_supported:
+      - 768
+      - 512
+      - 256
+      - 128
+    max_input_tokens: 2048
+    runtime:
+      backend: vllm
+      runner: pooling
+      served_model_name: local-embed
+      port: 9402
+      endpoint: /v1/embeddings
+    source_facts:
+      model_size: 300M parameters
+      license: gemma
+      access: public repository with usage-license acceptance required for files and
+        content
+      max_input_tokens: 2048
+      default_embedding_dimension: 768
+      matryoshka_dimensions:
+      - 768
+      - 512
+      - 256
+      - 128
+      intended_runtime_from_card: Sentence Transformers
+    project_runtime_policy:
+      runner: pooling
+      max_model_len: 2048
+      embedding_dimension_default: 768
+      embedding_dimension_supported:
+      - 768
+      - 512
+      - 256
+      - 128
+      max_num_seqs: 2
+      max_num_batched_tokens: 2048
+      gpu_memory_utilization: 0.04
+      policy_reason: serve EmbeddingGemma through the platform embedding API while
+        preserving model-card token and dimension limits
+    gateway_listing:
+      enabled: true
+      backend: embedding_vllm
+      capabilities:
+      - embeddings
+    lifecycle:
+      state: active
+      exposure: public
+      owner: platform
+      added_at: 2026-05-10
+      deprecation_deadline: null
+      removal_ticket: null
+      add_or_remove_via:
+      - configs/model_catalog.yaml
+      - configs/model_serving.yaml
+      - contracts/model_contracts.yaml
+      - model_cards/<logical-id>.json
+      - specs/schemas/model_list_response.schema.json
+      - tests/contract/test_runtime_policy.py
+      removal_rule: remove from catalog, serving config, model contract, model card,
+        public model schema enum, and runtime validation expectations in one change
+  risk-prompt:
+    role: risk_prompt_detector
+    upstream_model_id: kakaocorp/kanana-safeguard-prompt-2.1b
+    provider: Kakao Corp.
+    family: Kanana Safeguard-Prompt
+    parameter_class: 2.1B
+    license: apache-2.0
+    access: public_huggingface
+    primary_capability: risk.prompt_attack_signal
+    input_modalities:
+    - text
+    output_modalities:
+    - single_label_token
+    output_format:
+      safe: <SAFE>
+      unsafe_pattern: <UNSAFE-Ax>
+      known_codes:
+      - A1
+      - A2
+    runtime:
+      backend: vllm
+      served_model_name: risk-prompt
+      port: 9403
+      internal_endpoint: /v1/chat/completions
+      public_adapter_endpoint: /v1/risk/detectors/prompt/assessments
+      max_output_tokens: 1
+    source_facts:
+      single_label_token: true
+      safe_label: <SAFE>
+      unsafe_pattern: <UNSAFE-Ax>
+      known_codes:
+      - A1
+      - A2
+      languages:
+      - ko
+      - en
+      transformers_min_version: 4.52.4
+      config_shape:
+        model_type: llama
+        architecture: LlamaForCausalLM
+        hidden_size: 1792
+        num_attention_heads: 24
+        num_key_value_heads: 8
+        head_dim: 128
+        hidden_size_divisible_by_attention_heads: false
+        attention_projection_width: 3072
+        requires_runtime_head_dim_support: true
+      model_card_max_new_tokens: 1
+      evaluation_basis: first generated token
+    project_runtime_policy:
+      max_output_tokens: 1
+      temperature: 0
+      prompt_format: chat_template-compatible user message
+      policy_reason: model card defines one-token classification output and example
+        generation uses max_new_tokens=1
+      runtime_features:
+        tool_calling:
+          enabled: false
+        prefix_caching:
+          enabled: false
+    gateway_listing:
+      enabled: true
+      backend: risk_adapter
+      capabilities:
+      - risk.prompt_attack_signal
+    lifecycle:
+      state: active
+      exposure: public
+      owner: platform
+      added_at: 2026-05-10
+      deprecation_deadline: null
+      removal_ticket: null
+      add_or_remove_via:
+      - configs/model_catalog.yaml
+      - configs/model_serving.yaml
+      - contracts/model_contracts.yaml
+      - model_cards/<logical-id>.json
+      - specs/schemas/model_list_response.schema.json
+      - tests/contract/test_runtime_policy.py
+      removal_rule: remove from catalog, serving config, model contract, model card,
+        public model schema enum, and runtime validation expectations in one change
+  risk-siren:
+    role: risk_policy_detector
+    upstream_model_id: kakaocorp/kanana-safeguard-siren-8b
+    provider: Kakao Corp.
+    family: Kanana Safeguard-Siren
+    parameter_class: 8B
+    license: apache-2.0
+    access: public_huggingface
+    primary_capability: risk.policy_signal
+    input_modalities:
+    - text
+    output_modalities:
+    - single_label_token
+    output_format:
+      safe: <SAFE>
+      unsafe_pattern: <UNSAFE-Ix>
+      known_codes:
+      - I1
+      - I2
+      - I3
+      - I4
+    runtime:
+      backend: vllm
+      served_model_name: risk-siren
+      port: 9404
+      internal_endpoint: /v1/chat/completions
+      public_adapter_endpoint: /v1/risk/detectors/siren/assessments
+      max_output_tokens: 1
+    source_facts:
+      single_label_token: true
+      safe_label: <SAFE>
+      unsafe_pattern: <UNSAFE-Ix>
+      known_codes:
+      - I1
+      - I2
+      - I3
+      - I4
+      languages:
+      - ko
+      transformers_min_version: 4.52.4
+      config_shape:
+        model_type: llama
+        architecture: LlamaForCausalLM
+        hidden_size: 4096
+        num_attention_heads: 32
+        num_key_value_heads: 8
+        head_dim: 128
+        hidden_size_divisible_by_attention_heads: true
+        attention_projection_width: 4096
+        requires_runtime_head_dim_support: false
+      model_card_max_new_tokens: 1
+      evaluation_basis: first generated token
+    project_runtime_policy:
+      max_output_tokens: 1
+      temperature: 0
+      prompt_format: chat_template-compatible user message
+      policy_reason: model card defines one-token classification output and example
+        generation uses max_new_tokens=1
+      runtime_features:
+        tool_calling:
+          enabled: false
+        prefix_caching:
+          enabled: false
+    gateway_listing:
+      enabled: true
+      backend: risk_adapter
+      capabilities:
+      - risk.policy_signal
+      - risk.aggregate_signal
+    lifecycle:
+      state: active
+      exposure: public
+      owner: platform
+      added_at: 2026-05-10
+      deprecation_deadline: null
+      removal_ticket: null
+      add_or_remove_via:
+      - configs/model_catalog.yaml
+      - configs/model_serving.yaml
+      - contracts/model_contracts.yaml
+      - model_cards/<logical-id>.json
+      - specs/schemas/model_list_response.schema.json
+      - tests/contract/test_runtime_policy.py
+      removal_rule: remove from catalog, serving config, model contract, model card,
+        public model schema enum, and runtime validation expectations in one change

@@ -1,0 +1,339 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "GatewayChatCompletionRequest",
+  "type": "object",
+  "required": [
+    "model",
+    "messages"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "model": {
+      "const": "local-main"
+    },
+    "messages": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "role"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": [
+              "system",
+              "user",
+              "assistant",
+              "tool"
+            ]
+          },
+          "content": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              },
+              {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "required": [
+                        "type",
+                        "text"
+                      ],
+                      "additionalProperties": false,
+                      "properties": {
+                        "type": {
+                          "const": "text"
+                        },
+                        "text": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "type",
+                        "image_url"
+                      ],
+                      "additionalProperties": false,
+                      "properties": {
+                        "type": {
+                          "const": "image_url"
+                        },
+                        "image_url": {
+                          "type": "object",
+                          "required": [
+                            "url"
+                          ],
+                          "additionalProperties": false,
+                          "properties": {
+                            "url": {
+                              "type": "string",
+                              "pattern": "^data:image/(png|jpeg|webp);base64,"
+                            },
+                            "detail": {
+                              "type": "string",
+                              "enum": [
+                                "auto",
+                                "low",
+                                "high"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "tool_calls": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "$ref": "#/$defs/tool_call"
+            }
+          },
+          "tool_call_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "temperature": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 2
+    },
+    "max_tokens": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1024
+    },
+    "top_p": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "maximum": 1
+    },
+    "top_k": {
+      "type": "integer",
+      "minimum": -1
+    },
+    "min_p": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "presence_penalty": {
+      "type": "number",
+      "minimum": -2,
+      "maximum": 2
+    },
+    "frequency_penalty": {
+      "type": "number",
+      "minimum": -2,
+      "maximum": 2
+    },
+    "repetition_penalty": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "maximum": 2
+    },
+    "seed": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "n": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1
+    },
+    "stop": {
+      "oneOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8,
+          "items": {
+            "type": "string"
+          }
+        }
+      ]
+    },
+    "stream": {
+      "type": "boolean",
+      "description": "When true, Gateway relays the upstream vLLM/OpenAI-compatible SSE response as text/event-stream without buffering or rewriting standard chat.completion.chunk events."
+    },
+    "stream_options": {
+      "type": "object",
+      "description": "OpenAI-compatible streaming options. include_usage asks the upstream to include a final usage chunk when supported.",
+      "additionalProperties": false,
+      "properties": {
+        "include_usage": {
+          "type": "boolean"
+        }
+      }
+    },
+    "tools": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 16,
+      "items": {
+        "$ref": "#/$defs/tool"
+      }
+    },
+    "tool_choice": {
+      "oneOf": [
+        {
+          "type": "string",
+          "enum": [
+            "auto",
+            "none",
+            "required"
+          ]
+        },
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "function"
+          ],
+          "properties": {
+            "type": {
+              "const": "function"
+            },
+            "function": {
+              "type": "object",
+              "required": [
+                "name"
+              ],
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "parallel_tool_calls": {
+      "type": "boolean",
+      "const": false
+    }
+  },
+  "$defs": {
+    "tool": {
+      "type": "object",
+      "required": [
+        "type",
+        "function"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "function"
+        },
+        "function": {
+          "type": "object",
+          "required": [
+            "name"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            },
+            "description": {
+              "type": "string"
+            },
+            "parameters": {
+              "type": "object"
+            },
+            "strict": {
+              "type": "boolean"
+            }
+          }
+        }
+      }
+    },
+    "tool_call": {
+      "type": "object",
+      "required": [
+        "id",
+        "type",
+        "function"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "type": {
+          "const": "function"
+        },
+        "function": {
+          "type": "object",
+          "required": [
+            "name",
+            "arguments"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "name": {
+              "type": "string",
+              "minLength": 1
+            },
+            "arguments": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "required": [
+          "stream_options"
+        ]
+      },
+      "then": {
+        "required": [
+          "stream"
+        ],
+        "properties": {
+          "stream": {
+            "const": true
+          }
+        }
+      }
+    }
+  ]
+}
