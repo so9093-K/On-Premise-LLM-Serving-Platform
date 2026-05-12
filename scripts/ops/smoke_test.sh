@@ -9,7 +9,11 @@ load_local_env .env
 PYTHON_BIN="${PYTHON_BIN:-$(command -v python3.12 || command -v python3 || command -v python)}"
 # Smoke tests always probe host-published ports; RISK_ADAPTER_BASE_URL in .env is the
 # compose-internal URL (http://risk-adapter:9405) and must not be used here.
-GATEWAY_BASE_URL="http://localhost:${GATEWAY_PORT:-9400}"
+GATEWAY_PROBE_HOST="${GATEWAY_PROBE_HOST:-${GATEWAY_BIND_ADDR:-localhost}}"
+if [[ -z "$GATEWAY_PROBE_HOST" || "$GATEWAY_PROBE_HOST" == "0.0.0.0" ]]; then
+  GATEWAY_PROBE_HOST="localhost"
+fi
+GATEWAY_BASE_URL="http://${GATEWAY_PROBE_HOST}:${GATEWAY_PORT:-9400}"
 RISK_ADAPTER_BASE_URL="http://localhost:${RISK_ADAPTER_PORT:-9405}"
 API_KEY="$(local_env_first_value .env API_KEY API_KEYS || true)"
 SMOKE_MAX_REQUEST_SECONDS="${SMOKE_MAX_REQUEST_SECONDS:-30}"

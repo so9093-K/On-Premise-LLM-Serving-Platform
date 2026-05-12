@@ -10,10 +10,16 @@ load_local_env .env
 ADMIN_API_KEY="$(local_env_first_value .env ADMIN_API_KEY ADMIN_API_KEYS || true)"
 
 PYTHON_BIN="${PYTHON_BIN:-$(command -v python3.12 || command -v python3 || command -v python)}"
-# Health probes always target localhost (host-published ports). RISK_ADAPTER_BASE_URL
-# is the internal service-to-service URL (e.g. http://risk-adapter:9405 in compose)
-# and must not be used for host-side readiness checks.
-GATEWAY_BASE_URL="http://localhost:${GATEWAY_PORT:-9400}"
+# Health probes target the host-published Gateway bind address. When Gateway binds
+# to 0.0.0.0, localhost is valid; when it binds to a private interface IP, localhost
+# is not listening and the probe must use that explicit bind address.
+GATEWAY_PROBE_HOST="${GATEWAY_PROBE_HOST:-${GATEWAY_BIND_ADDR:-localhost}}"
+if [[ -z "$GATEWAY_PROBE_HOST" || "$GATEWAY_PROBE_HOST" == "0.0.0.0" ]]; then
+  GATEWAY_PROBE_HOST="localhost"
+fi
+GATEWAY_BASE_URL="http://${GATEWAY_PROBE_HOST}:${GATEWAY_PORT:-9400}"
+# RISK_ADAPTER_BASE_URL is the internal service-to-service URL (e.g.
+# http://risk-adapter:9405 in compose) and must not be used for host-side checks.
 RISK_ADAPTER_BASE_URL="http://localhost:${RISK_ADAPTER_PORT:-9405}"
 READY_FULL_TIMEOUT_SECONDS="${READY_FULL_TIMEOUT_SECONDS:-1800}"
 READY_FULL_INTERVAL_SECONDS="${READY_FULL_INTERVAL_SECONDS:-10}"
