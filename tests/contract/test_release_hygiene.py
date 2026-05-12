@@ -218,6 +218,17 @@ def test_package_script_preserves_documentation_build_directory() -> None:
 def test_vllm_compose_validation_and_diagnostics_are_packaged() -> None:
     assert (ROOT / 'scripts/compose/validate_vllm_compose.py').exists()
     assert (ROOT / 'scripts/compose/compose_diagnostics.sh').exists()
+
+
+def test_gitlab_ci_runs_model_and_compose_contract_gates() -> None:
+    ci = (ROOT / '.gitlab-ci.yml').read_text(encoding='utf-8')
+    assert 'python scripts/compose/validate_vllm_compose.py' in ci
+    assert 'hf-main-model-canary:' in ci
+    assert 'scripts/models/check_hf_model_config.py' in ci
+    assert '--check-tokenizer' in ci
+    assert "configs/model_serving.yaml" in ci
+    assert "main_llm" in ci
+    assert "if: '$HF_TOKEN'" in ci
     validate_script = (ROOT / 'scripts/validation/validate_contracts.py').read_text(encoding='utf-8')
     preflight_script = (ROOT / 'scripts/compose/preflight_compose.sh').read_text(encoding='utf-8')
     ready_full_script = (ROOT / 'scripts/ops/ready_full.sh').read_text(encoding='utf-8')

@@ -53,7 +53,28 @@ validate:
     - make validate
     - python scripts/models/modelctl.py validate
     - python scripts/models/modelctl.py diff
+    - python scripts/compose/validate_vllm_compose.py
     - python scripts/validation/runtime_validation.py --config-only
+
+hf-main-model-canary:
+  extends: .default-python
+  stage: validate
+  script:
+    - |
+      MAIN_MODEL="$(python - <<'PY'
+      import yaml
+      from pathlib import Path
+      print(yaml.safe_load(Path("configs/model_serving.yaml").read_text(encoding="utf-8"))["models"]["main_llm"]["name"])
+      PY
+      )"
+      python scripts/models/check_hf_model_config.py \
+        --model "$MAIN_MODEL" \
+        --check-tokenizer \
+        --json
+  rules:
+    - if: '$HF_TOKEN'
+      when: on_success
+    - when: never
 
 unit-test:
   extends: .default-python
