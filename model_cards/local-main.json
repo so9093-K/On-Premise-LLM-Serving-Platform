@@ -8,7 +8,9 @@
     "backend": "vllm",
     "port": 9401,
     "endpoint": "/v1/chat/completions",
-    "quantization": "fp8",
+    "quantization": "compressed-tensors",
+    "quantization_source": "model_config",
+    "weight_precision": "fp8_dynamic",
     "configured_tensor_parallel_size": 1,
     "model_card_example_tensor_parallel_size": 1,
     "max_model_len": 16384,
@@ -22,7 +24,7 @@
   ],
   "source_facts": {
     "base_model_id": "google/gemma-4-26B-A4B-it",
-    "quantization": "offline FP8 checkpoint for vLLM",
+    "quantization": "offline FP8 checkpoint for vLLM, stored as compressed-tensors",
     "vllm_min_version": "0.19.0",
     "transformers_min_version": "5.5.0",
     "cuda_runtime_note": "LargitData card describes H200-class validation; A6000 requires local boot and runtime validation before production claims",
@@ -37,7 +39,7 @@
       "tool_call_parser": "gemma4",
       "reasoning_parser": "gemma4",
       "dtype": "auto",
-      "quantization": "fp8"
+      "quantization": "model_config compressed-tensors; do not pass --quantization fp8"
     },
     "supported_modalities": [
       "text",

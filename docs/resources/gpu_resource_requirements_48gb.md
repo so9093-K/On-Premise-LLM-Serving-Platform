@@ -78,7 +78,7 @@ vllm serve LargitData/gemma-4-26b-a4b-it-fp8 \
   --reasoning-parser gemma4
 ```
 
-부팅 로그에서 checkpoint quantization을 자동 인식하지 못하면 `--quantization fp8`을 추가한다. `--kv-cache-dtype fp8`은 target GPU에서 boot, quality, latency, long-context soak를 확인한 뒤 고정한다.
+이 checkpoint는 model config의 `compressed-tensors` metadata로 FP8 quantization을 선언하므로 `--quantization fp8`을 추가하지 않는다. 추가하면 vLLM이 model config의 `compressed-tensors`와 CLI `fp8`을 서로 다른 quantization method로 보고 기동을 거부할 수 있다. `--kv-cache-dtype fp8`은 target GPU에서 boot, quality, latency, long-context soak를 확인한 뒤 고정한다.
 
 ## 7. 운영 검증 체크리스트
 

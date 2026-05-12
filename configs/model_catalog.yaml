@@ -29,7 +29,7 @@ models:
       endpoint: /v1/chat/completions
     source_facts:
       base_model_id: google/gemma-4-26B-A4B-it
-      quantization: offline FP8 checkpoint for vLLM
+      quantization: offline FP8 checkpoint for vLLM, stored as compressed-tensors
       vllm_min_version: 0.19.0
       transformers_min_version: 5.5.0
       cuda_runtime_note: LargitData card describes H200-class validation; A6000
@@ -45,7 +45,7 @@ models:
         tool_call_parser: gemma4
         reasoning_parser: gemma4
         dtype: auto
-        quantization: fp8
+        quantization: model_config compressed-tensors; do not pass --quantization fp8
       supported_modalities:
       - text
       - image

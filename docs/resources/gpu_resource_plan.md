@@ -15,6 +15,8 @@
 
 ## 3. Starting Utilization
 
+Main LLM checkpoint는 model config의 `compressed-tensors` quantization metadata를 사용한다. vLLM command에는 `--quantization fp8`을 넣지 않는다.
+
 | Runtime | Port | `gpu_memory_utilization` |
 |---|---:|---:|
 | Main LLM | 9401 | 0.66 |

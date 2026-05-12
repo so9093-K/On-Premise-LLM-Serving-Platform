@@ -132,6 +132,24 @@ def test_render_vllm_command_stays_openai_compatible() -> None:
     assert "--enable-auto-tool-choice" in command
 
 
+def test_render_vllm_command_respects_model_config_quantization() -> None:
+    cfg = {
+        "name": "example/fp8-compressed",
+        "served_model_name": "local-main",
+        "port": 9401,
+        "max_model_len": 16384,
+        "max_num_seqs": 1,
+        "max_num_batched_tokens": 16384,
+        "gpu_memory_utilization": 0.66,
+        "tensor_parallel_size": 1,
+        "dtype": "auto",
+        "quantization": "compressed-tensors",
+        "quantization_source": "model_config",
+    }
+    command = render_vllm_command("main_llm", cfg)
+    assert "--quantization" not in command
+
+
 def test_runtime_validation_report_does_not_store_raw_model_text(tmp_path: Path) -> None:
     json_path, md_path = write_reports(
         root=tmp_path,

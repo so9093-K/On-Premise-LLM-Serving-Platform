@@ -55,7 +55,8 @@ def render_vllm_command(key: str, cfg: dict[str, Any]) -> list[str]:
         cmd.extend(["--tensor-parallel-size", str(cfg["tensor_parallel_size"])])
     if cfg.get("dtype"):
         cmd.extend(["--dtype", str(cfg["dtype"])])
-    if cfg.get("quantization"):
+    quantization_source = str(cfg.get("quantization_source", "cli"))
+    if cfg.get("quantization") and quantization_source != "model_config":
         cmd.extend(["--quantization", str(cfg["quantization"])])
     if cfg.get("load_format"):
         cmd.extend(["--load-format", str(cfg["load_format"])])

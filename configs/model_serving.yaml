@@ -15,7 +15,9 @@ models:
     port: 9401
     endpoint: http://main-llm-vllm:9401/v1
     runner: generation
-    quantization: fp8
+    quantization: compressed-tensors
+    quantization_source: model_config
+    weight_precision: fp8_dynamic
     dtype: auto
     tensor_parallel_size: 1
     model_card_example_tensor_parallel_size: 1
@@ -44,7 +46,7 @@ models:
         max_image_inputs: 1
         allowed_image_url_schemes:
         - data
-        image_input_note: Gemma 4 31B supports image input; Gateway allows one bounded
+        image_input_note: Gemma 4 26B-A4B supports image input; Gateway allows one bounded
           base64 data:image content part, validates MIME, decoded size, and image
           dimensions, and does not allow arbitrary remote image fetch by default.
         max_image_bytes: 750000

@@ -80,8 +80,6 @@ services:
     - '1'
     - --dtype
     - auto
-    - --quantization
-    - fp8
     - --trust-remote-code
     - --enable-prefix-caching
     - --prefix-caching-hash-algo
