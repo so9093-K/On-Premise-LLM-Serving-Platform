@@ -60,7 +60,7 @@ Admin endpoints는 `Authorization: Bearer <ADMIN_API_KEY>` 필요.
 
 | 모델 | 조정 가능 | 조정 불가 |
 |---|---|---|
-| `local-main` | sampling, token limit, seed, stop, tool-call 관련 parameter, `stream`, `stream_options` | runtime/serving 하이퍼파라미터 |
+| `local-main` | sampling, token limit, seed, stop, `n`(1 고정), tool-call 관련 parameter, `stream`, `stream_options` | runtime/serving 하이퍼파라미터 |
 | `local-embed` | `dimensions`, `encoding_format`, `truncate_prompt_tokens` | runtime/serving 하이퍼파라미터 |
 | `risk-prompt` | 없음. `prompt` 입력만 받음 | detector sampling parameter는 adapter가 고정 |
 

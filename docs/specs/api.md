@@ -38,7 +38,7 @@ Gateway는 외부 애플리케이션의 단일 진입점이다.
 | `local-embed` | `dimensions`, `encoding_format`, `truncate_prompt_tokens` | `dimensions`는 `768`, `512`, `256`, `128` 중 하나. `encoding_format`은 `float`로 고정 |
 | `risk-prompt` | 없음 | risk API는 `prompt`만 입력받고 detector parameter는 adapter가 `fixed_parameters`로 고정 |
 
-`request_parameters`는 prompt/messages/input 같은 필수 입력 본문을 뜻하지 않는다. 필수 입력은 각 request schema(`chat_completion_request`, `embedding_request`, `risk_assessment_request`)를 따른다. serving/runtime 하이퍼파라미터(`gpu_memory_utilization`, `max_model_len`, `max_num_seqs`, quantization 등)는 사용자 API에서 조정할 수 없고 운영자 config로만 변경한다. `local-main`의 FP8 checkpoint는 model config의 `compressed-tensors` quantization metadata를 따르며, Gateway request parameter로 노출하지 않는다.
+`request_parameters`는 prompt/messages/input 같은 필수 입력 본문을 뜻하지 않는다. 필수 입력은 각 request schema(`chat_completion_request`, `embedding_request`, `risk_assessment_request`)를 따른다. serving/runtime 하이퍼파라미터(`gpu_memory_utilization`, `max_model_len`, `max_num_seqs`, quantization 등)는 사용자 API에서 조정할 수 없고 운영자 config로만 변경한다. `local-main`의 RedHatAI FP8 Dynamic checkpoint는 model config의 `compressed-tensors` quantization metadata를 따르며, Gateway request parameter로 노출하지 않는다.
 
 상세 schema는 `specs/openapi.gateway.yaml`, `specs/openapi.risk-adapter.yaml`, `specs/schemas/*.json`을 기준으로 한다. Gateway/Risk Adapter의 generated OpenAPI는 `src/ai_model_serving/openapi_contracts.py`를 통해 동일한 checked-in JSON schema를 request/response body에 주입한다. 따라서 `/docs`와 `/openapi.json`에서 보이는 schema는 runtime contract validation과 같은 원천을 바라본다.
 

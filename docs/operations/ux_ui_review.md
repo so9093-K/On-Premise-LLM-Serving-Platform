@@ -62,3 +62,20 @@ Docker/GPU/vLLM이 있는 host에서 full-stack compose와 Grafana real-data ren
 - `make help`를 compact/full 모드로 나누는 방안.
 - Grafana dashboard variable/template은 현재 governance에서 강하게 검증한다. 남은 후보는 registry projection에서 JSON을 자동 생성하는 방안이다.
 - `ModelRegistry` projection 파일을 더 작게 분리해 개발자 탐색성을 높이는 방안.
+
+## Chat UX / API docs update
+
+이번 점검의 핵심 발견은 Chat request schema와 `/v1/models` parameter discovery가 같은 사용자 입력 표면을 바라봐야 한다는 점이다. `n`은 OpenAI-compatible client 호환을 위해 request schema에 존재하지만, 런타임 정책의 `supported_parameters`에 빠져 있으면 Gateway가 `n: 1` 요청도 422로 거부한다.
+
+개선 사항:
+
+- `local-main.request_parameters`에 `n: {min: 1, max: 1}`을 노출한다.
+- Chat UI는 `n`을 일반 슬라이더로 노출하지 않고 숨기거나 읽기 전용 `1`로 표시한다.
+- `parallel_tool_calls`는 현재 `false` 고정이다. UI는 toggle을 비활성화하거나 표시하지 않는다.
+- `stream_options.include_usage`는 `stream=true`일 때만 활성화한다.
+- Governance validation이 `configs/model_serving.yaml`의 chat `supported_parameters`와 `specs/schemas/chat_completion_request.schema.json`의 optional request field 목록을 비교한다.
+
+남은 live-only 확인:
+
+- Gateway 재기동 후 `/v1/chat/completions`에서 `n: 1`은 통과하고 `n: 2`는 422인지 확인한다.
+- running stack 기준 `/docs`, `/openapi.json`, `/v1/models`가 모두 같은 chat parameter surface를 보여주는지 확인한다.

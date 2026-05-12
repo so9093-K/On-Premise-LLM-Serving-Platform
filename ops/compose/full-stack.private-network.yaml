@@ -61,7 +61,7 @@ services:
     image: ${VLLM_IMAGE:?Set VLLM_IMAGE to a tested vLLM OpenAI image tag}
     command:
     - --model
-    - LargitData/gemma-4-26b-a4b-it-fp8
+    - RedHatAI/gemma-4-26B-A4B-it-FP8-Dynamic
     - --served-model-name
     - local-main
     - --host

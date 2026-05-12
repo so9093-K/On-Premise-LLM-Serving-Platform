@@ -101,7 +101,7 @@ def test_model_registry_projects_model_cards_and_runtime_validation_matrix():
 
     card = registry.model_card_projection("local-main")
     assert card.logical_id == "local-main"
-    assert card.upstream_model_id == "LargitData/gemma-4-26b-a4b-it-fp8"
+    assert card.upstream_model_id == "RedHatAI/gemma-4-26B-A4B-it-FP8-Dynamic"
     assert card.runtime["port"] == 9401
     assert card.source_facts["base_model_id"] == "google/gemma-4-26B-A4B-it"
     assert "chat.completions.tools" in card.capabilities
@@ -136,6 +136,7 @@ def test_model_registry_projects_openapi_schema_and_monitoring_labels():
     public_models = {item["id"]: item for item in registry.public_model_response_items()}
     assert public_models["local-main"]["request_parameters"]["max_tokens"] == {"type": "integer", "min": 1, "max": 1024}
     assert public_models["local-main"]["request_parameters"]["top_p"] == {"type": "number", "min_exclusive": 0, "max": 1}
+    assert public_models["local-main"]["request_parameters"]["n"] == {"type": "integer", "min": 1, "max": 1}
     assert public_models["local-embed"]["request_parameters"]["dimensions"] == {"type": "integer", "enum": [768, 512, 256, 128]}
     assert public_models["risk-prompt"]["request_parameters"] == {}
     assert public_models["risk-prompt"]["fixed_parameters"] == {"max_tokens": 1, "temperature": 0}

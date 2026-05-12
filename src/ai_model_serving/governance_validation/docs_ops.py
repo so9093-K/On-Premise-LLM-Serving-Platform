@@ -522,6 +522,11 @@ def validate_operational_hardening_contract() -> None:
     roles = set(chat_schema['properties']['messages']['items']['properties']['role']['enum'])
     if 'tool' not in roles:
         raise SystemExit('chat completion schema must expose tool role for bounded Gemma4 tool calling')
+    serving = read_yaml('configs/model_serving.yaml')
+    supported = set(serving['models']['main_llm']['request_parameter_policy']['supported_parameters'])
+    schema_parameters = set(chat_schema['properties']) - {'model', 'messages'}
+    if supported != schema_parameters:
+        raise SystemExit(f'chat request_parameter_policy must match chat schema parameters: config_only={sorted(supported - schema_parameters)}, schema_only={sorted(schema_parameters - supported)}')
     stream_schema = chat_schema['properties'].get('stream', {})
     if stream_schema.get('type') != 'boolean' or 'const' in stream_schema:
         raise SystemExit('chat completion schema must document stream as a supported boolean parameter')

@@ -59,7 +59,7 @@ def test_model_source_facts_and_runtime_policy_are_separated() -> None:
     catalog = yaml.safe_load((ROOT / 'configs/model_catalog.yaml').read_text(encoding='utf-8'))['models']
     main = catalog['local-main']
     assert main['source_facts']['upstream_example']['tensor_parallel_size'] == 1
-    assert main['source_facts']['upstream_example']['max_model_len'] == 16384
+    assert main['source_facts']['upstream_example']['max_model_len'] == 96000
     assert main['project_runtime_policy']['tensor_parallel_size'] == 1
     assert main['project_runtime_policy']['max_model_len'] == 16384
     assert main['project_runtime_policy']['max_image_inputs'] == 1
@@ -147,8 +147,9 @@ def test_main_runtime_features_and_request_parameter_policy_are_explicit() -> No
     assert features['tool_calling']['chat_template'] == '/app/configs/gemma4_chat_template.jinja'
     policy = main['request_parameter_policy']
     assert policy['allow_unlisted_parameters'] is False
-    for field in ['top_p', 'top_k', 'min_p', 'repetition_penalty', 'tools', 'tool_choice']:
+    for field in ['top_p', 'top_k', 'min_p', 'repetition_penalty', 'n', 'tools', 'tool_choice']:
         assert field in policy['supported_parameters']
+    assert policy['max_n'] == 1
 
     for key in ['risk_prompt']:
         assert serving[key]['runtime_features']['tool_calling']['enabled'] is False

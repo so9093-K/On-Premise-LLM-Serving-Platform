@@ -21,7 +21,7 @@
 
 | 구분 | 모델 | 주요 역할 | 실행 방식 |
 |---|---|---|---|
-| Main LLM | `LargitData/gemma-4-26b-a4b-it-fp8` | 채팅, vision 입력, tool calling 응답 생성 | vLLM generation |
+| Main LLM | `RedHatAI/gemma-4-26B-A4B-it-FP8-Dynamic` | 채팅, vision 입력, tool calling 응답 생성 | vLLM generation |
 | Embedding | `google/embeddinggemma-300m` | RAG embedding 및 검색 벡터화 | vLLM pooling / embedding |
 | Prompt Risk | `kakaocorp/kanana-safeguard-prompt-2.1b` | 프롬프트 공격 탐지 | vLLM generation / signal classifier |
 
@@ -40,7 +40,7 @@
 
 | 구분 | 사실 | 운영 해석 |
 |---|---|---|
-| Main LLM | `LargitData/gemma-4-26b-a4b-it-fp8`은 `google/gemma-4-26B-A4B-it` 기반 vLLM용 offline FP8 checkpoint다. | RTX 6000 Ada에서 TRITON FP8 MoE backend가 확인됐으나, 실제 boot/latency/quality 검증 전까지 보수적으로 budget한다. |
+| Main LLM | `RedHatAI/gemma-4-26B-A4B-it-FP8-Dynamic`은 `google/gemma-4-26B-A4B-it` 기반 compressed-tensors FP8 Dynamic checkpoint다. repo에는 `tokenizer.json`이 포함되어 있다. | upstream은 preliminary이며 B200/vLLM main + 96K context 예시를 제공한다. RTX 6000 Ada에서는 16K context, seq 1부터 tokenizer canary, boot, latency, quality를 검증한다. |
 | Gemma 4 26B-A4B | 전체 26B급 모델이나 active parameter는 더 작다. | 계산량은 줄어도 상주 weight와 KV cache 관점에서는 26B급 모델로 취급한다. |
 | Embedding | 300M급 경량 모델이다. | 모델은 작지만 별도 vLLM process의 CUDA context와 executor overhead를 포함한다. |
 | Prompt Risk | 출력은 `<SAFE>`, `<UNSAFE-A1>` 같은 단일 토큰 signal이다. | `max_num_seqs=1`, `max_output_tokens=1`, `--enforce-eager` 기본값으로 운영한다. |
@@ -60,14 +60,14 @@
 ## 6. 권장 vLLM 시작값
 
 ```bash
-vllm serve LargitData/gemma-4-26b-a4b-it-fp8 \
+vllm serve RedHatAI/gemma-4-26B-A4B-it-FP8-Dynamic \
   --served-model-name local-main \
   --host 0.0.0.0 \
   --port 9401 \
   --max-model-len 16384 \
   --max-num-seqs 1 \
   --max-num-batched-tokens 16384 \
-  --gpu-memory-utilization 0.66 \
+  --gpu-memory-utilization 0.72 \
   --tensor-parallel-size 1 \
   --dtype auto \
   --trust-remote-code \
@@ -75,7 +75,7 @@ vllm serve LargitData/gemma-4-26b-a4b-it-fp8 \
   --prefix-caching-hash-algo sha256_cbor \
   --enable-auto-tool-choice \
   --tool-call-parser gemma4 \
-  --reasoning-parser gemma4
+  --chat-template /app/configs/gemma4_chat_template.jinja
 ```
 
 이 checkpoint는 model config의 `compressed-tensors` metadata로 FP8 quantization을 선언하므로 `--quantization fp8`을 추가하지 않는다. 추가하면 vLLM이 model config의 `compressed-tensors`와 CLI `fp8`을 서로 다른 quantization method로 보고 기동을 거부할 수 있다. `--kv-cache-dtype fp8`은 target GPU에서 boot, quality, latency, long-context soak를 확인한 뒤 고정한다.
@@ -94,6 +94,6 @@ vllm serve LargitData/gemma-4-26b-a4b-it-fp8 \
 
 ## 8. 결론
 
-48GB 단일 GPU 기본 목표는 `LargitData/gemma-4-26b-a4b-it-fp8`, `google/embeddinggemma-300m`, `kakaocorp/kanana-safeguard-prompt-2.1b`의 3개 enabled runtime 구성이다.
+48GB 단일 GPU 기본 목표는 `RedHatAI/gemma-4-26B-A4B-it-FP8-Dynamic`, `google/embeddinggemma-300m`, `kakaocorp/kanana-safeguard-prompt-2.1b`의 3개 enabled runtime 구성이다.
 
 이 구성은 registry-driven runtime, detector registry, prompt-only aggregate, retired `risk-siren` policy를 전제로 한다. 운영 확정 전에는 RTX 6000 Ada 환경에서 boot log, idle VRAM, p95 TTFT, decode tok/s, restart/OOM 0을 기록해야 한다.

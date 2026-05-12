@@ -1,6 +1,6 @@
 {
   "logical_id": "local-main",
-  "upstream_model_id": "LargitData/gemma-4-26b-a4b-it-fp8",
+  "upstream_model_id": "RedHatAI/gemma-4-26B-A4B-it-FP8-Dynamic",
   "base_model_id": "google/gemma-4-26B-A4B-it",
   "role": "main_chat_completion",
   "license": "gemma",
@@ -18,7 +18,7 @@
     "max_output_tokens": 1024
   },
   "sources": [
-    "https://huggingface.co/LargitData/gemma-4-26b-a4b-it-fp8",
+    "https://huggingface.co/RedHatAI/gemma-4-26B-A4B-it-FP8-Dynamic",
     "https://huggingface.co/google/gemma-4-26B-A4B-it",
     "https://docs.vllm.ai/projects/recipes/en/latest/Google/Gemma4.html"
   ],
@@ -27,13 +27,15 @@
     "quantization": "offline FP8 checkpoint for vLLM, stored as compressed-tensors",
     "vllm_min_version": "0.19.0",
     "transformers_min_version": "5.5.0",
-    "cuda_runtime_note": "LargitData card describes H200-class validation; RTX 6000 Ada (TRITON FP8 MoE backend confirmed) requires local boot and runtime validation before production claims",
+    "release_status": "preliminary upstream checkpoint; subject to change",
+    "tokenizer_artifacts": [
+      "tokenizer.json",
+      "tokenizer_config.json"
+    ],
+    "cuda_runtime_note": "RedHatAI card validates on B200 and says to run on vLLM main; RTX 6000 Ada requires local boot, tokenizer canary, and runtime validation before production claims",
     "upstream_example": {
       "tensor_parallel_size": 1,
-      "max_model_len": 16384,
-      "max_num_seqs": 1,
-      "max_num_batched_tokens": 16384,
-      "gpu_memory_utilization": 0.66,
+      "max_model_len": 96000,
       "trust_remote_code": true,
       "enable_auto_tool_choice": true,
       "tool_call_parser": "gemma4",
@@ -58,7 +60,7 @@
     "max_num_batched_tokens": 16384,
     "gpu_memory_utilization": 0.72,
     "trust_remote_code": true,
-    "policy_reason": "RTX 6000 Ada; raised 0.66→0.72 to cover 16K KV cache deficit (0.99 GiB confirmed); Ada TRITON FP8 backend active; upstream card is H200-validated",
+    "policy_reason": "RTX 6000 Ada conservative start for RedHatAI preliminary FP8 checkpoint; upstream example uses 96K context on B200/vLLM main, so this platform keeps 16K seq=1 until local tokenizer, boot, quality, latency, and soak validation pass",
     "max_output_tokens": 1024,
     "input_modalities": [
       "text",

@@ -28,6 +28,22 @@ class ConfigShape:
     requires_runtime_head_dim_support: bool
 
 
+@dataclass(frozen=True)
+class TokenizerCanary:
+    model: str
+    tokenizer_class: str
+    vocab_size: int | None
+    tokenizer_len: int | None
+    unk_token: str | None
+    unk_token_id: int | None
+    token_count: int
+    tokens: list[str]
+    token_ids: list[int]
+    decoded: str
+    ok: bool
+    classification: str | None
+
+
 def classify_exception(exc: BaseException) -> str:
     text = " ".join(str(part) for part in [type(exc).__name__, exc])
     lower = text.lower()
@@ -40,6 +56,47 @@ def classify_exception(exc: BaseException) -> str:
     if "is not a local folder" in lower or "does not appear to have a file named config.json" in lower:
         return "MODEL_ID_OR_CACHE_MISSING"
     return "CONFIG_LOAD_FAILED"
+
+
+def tokenizer_canary_from_tokenizer(
+    *,
+    model: str,
+    tokenizer: Any,
+    text: str,
+    min_vocab_size: int,
+    min_token_count: int,
+) -> TokenizerCanary:
+    ids = list(tokenizer(text, add_special_tokens=False).input_ids)
+    tokens = list(tokenizer.convert_ids_to_tokens(ids))
+    unk_token = getattr(tokenizer, "unk_token", None)
+    unk_token_id = getattr(tokenizer, "unk_token_id", None)
+    vocab_size = getattr(tokenizer, "vocab_size", None)
+    tokenizer_len = len(tokenizer) if hasattr(tokenizer, "__len__") else None
+    classification: str | None = None
+    if isinstance(vocab_size, int) and vocab_size < min_vocab_size:
+        classification = "TOKENIZER_VOCAB_TOO_SMALL"
+    elif isinstance(tokenizer_len, int) and tokenizer_len < min_vocab_size:
+        classification = "TOKENIZER_LENGTH_TOO_SMALL"
+    elif len(ids) < min_token_count:
+        classification = "TOKENIZER_CANARY_TOO_FEW_TOKENS"
+    elif ids and unk_token_id is not None and all(item == unk_token_id for item in ids):
+        classification = "TOKENIZER_CANARY_ALL_UNK"
+    elif tokens and unk_token is not None and all(item == unk_token for item in tokens):
+        classification = "TOKENIZER_CANARY_ALL_UNK"
+    return TokenizerCanary(
+        model=model,
+        tokenizer_class=type(tokenizer).__name__,
+        vocab_size=vocab_size,
+        tokenizer_len=tokenizer_len,
+        unk_token=unk_token,
+        unk_token_id=unk_token_id,
+        token_count=len(ids),
+        tokens=tokens,
+        token_ids=ids,
+        decoded=tokenizer.decode(ids, skip_special_tokens=False),
+        ok=classification is None,
+        classification=classification,
+    )
 
 
 def interpretation_for_failure(classification: str) -> str:
@@ -118,6 +175,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--model", default=DEFAULT_MODEL)
     parser.add_argument("--no-trust-remote-code", action="store_true")
     parser.add_argument("--local-files-only", action="store_true", help="Hugging Face Hub에 접속하지 않고 local cache만 사용합니다.")
+    parser.add_argument("--check-tokenizer", action="store_true", help="AutoProcessor/AutoTokenizer tokenizer artifact canary를 함께 검사합니다.")
+    parser.add_argument("--tokenizer-canary-text", default="The capital of France is", help="tokenizer canary 입력 문장입니다.")
+    parser.add_argument("--min-tokenizer-vocab-size", type=int, default=1000, help="정상 tokenizer로 인정할 최소 vocab/len 기준입니다.")
+    parser.add_argument("--min-token-count", type=int, default=2, help="canary 문장이 최소 몇 개 token으로 분해되어야 하는지 검사합니다.")
     parser.add_argument("--json", action="store_true", help="기계가 읽기 쉬운 JSON 결과를 출력합니다.")
     parser.add_argument("--traceback", action="store_true", help="실패 시 전체 Python traceback을 출력합니다.")
     return parser
@@ -179,12 +240,79 @@ def main(argv: list[str] | None = None) -> int:
         "shape": asdict(shape),
         "interpretation": interpretation_for_shape(shape),
     }
+    if args.check_tokenizer:
+        try:
+            from transformers import AutoProcessor, AutoTokenizer
+
+            processor = AutoProcessor.from_pretrained(
+                args.model,
+                trust_remote_code=trust_remote_code,
+                local_files_only=args.local_files_only,
+            )
+            tokenizer = getattr(processor, "tokenizer", None)
+            if tokenizer is None:
+                tokenizer = AutoTokenizer.from_pretrained(
+                    args.model,
+                    trust_remote_code=trust_remote_code,
+                    local_files_only=args.local_files_only,
+                )
+            canary = tokenizer_canary_from_tokenizer(
+                model=args.model,
+                tokenizer=tokenizer,
+                text=args.tokenizer_canary_text,
+                min_vocab_size=args.min_tokenizer_vocab_size,
+                min_token_count=args.min_token_count,
+            )
+        except Exception as exc:
+            result = {
+                "ok": False,
+                "stage": "transformers_auto_tokenizer",
+                "classification": "TOKENIZER_LOAD_FAILED",
+                "model": args.model,
+                "exception_type": type(exc).__name__,
+                "message": str(exc),
+                "interpretation": "Config loaded, but tokenizer/processor loading failed before vLLM startup.",
+            }
+            if args.json:
+                print(json.dumps(result, ensure_ascii=False, indent=2))
+            else:
+                print("status=failed classification=TOKENIZER_LOAD_FAILED", file=sys.stderr)
+                print(f"{type(exc).__name__}: {exc}", file=sys.stderr)
+                if args.traceback:
+                    traceback.print_exception(exc, file=sys.stderr)
+            return 1
+        result["tokenizer_canary"] = asdict(canary)
+        if not canary.ok:
+            result["ok"] = False
+            result["stage"] = "transformers_auto_tokenizer"
+            result["classification"] = canary.classification
+            result["interpretation"] = (
+                "Config loaded, but tokenizer artifacts look incomplete or incompatible. "
+                "A normal text canary must not collapse entirely to <unk>, and vocab/len "
+                "must be large enough for the model family."
+            )
+            if args.json:
+                print(json.dumps(result, ensure_ascii=False, indent=2))
+            else:
+                print(f"status=failed classification={canary.classification}", file=sys.stderr)
+                print(result["interpretation"], file=sys.stderr)
+                print(f"tokenizer_class={canary.tokenizer_class}", file=sys.stderr)
+                print(f"vocab_size={canary.vocab_size} tokenizer_len={canary.tokenizer_len}", file=sys.stderr)
+                print(f"token_ids={canary.token_ids}", file=sys.stderr)
+                print(f"tokens={canary.tokens}", file=sys.stderr)
+            return 1
     if args.json:
         print(json.dumps(result, ensure_ascii=False, indent=2))
     else:
         print("status=ok")
         for key, value in asdict(shape).items():
             print(f"{key}={value}")
+        if args.check_tokenizer:
+            canary = TokenizerCanary(**result["tokenizer_canary"])
+            print(f"tokenizer_class={canary.tokenizer_class}")
+            print(f"vocab_size={canary.vocab_size}")
+            print(f"tokenizer_len={canary.tokenizer_len}")
+            print(f"token_count={canary.token_count}")
         if shape.hidden_size_divisible_by_attention_heads is False:
             print(
                 "note=hidden_size is not divisible by num_attention_heads; this is only safe if the runtime honors explicit head_dim.",

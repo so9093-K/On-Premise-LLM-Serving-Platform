@@ -803,6 +803,11 @@ def test_gateway_accepts_bounded_tool_calling_when_enabled():
     response = client.post("/v1/chat/completions", headers=auth_headers(), json=parallel)
     assert response.status_code == 422
 
+    multi_choice = dict(payload)
+    multi_choice["n"] = 2
+    response = client.post("/v1/chat/completions", headers=auth_headers(), json=multi_choice)
+    assert response.status_code == 422
+
     unknown = dict(payload)
     unknown["unknown_sampler"] = 1
     response = client.post("/v1/chat/completions", headers=auth_headers(), json=unknown)

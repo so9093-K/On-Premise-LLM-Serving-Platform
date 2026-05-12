@@ -8,14 +8,14 @@
 
 | 모델 | 역할 | 권장 Budget |
 |---|---|---:|
-| `LargitData/gemma-4-26b-a4b-it-fp8` | Main LLM | 34~35GiB |
+| `RedHatAI/gemma-4-26B-A4B-it-FP8-Dynamic` | Main LLM | 34~35GiB |
 | `google/embeddinggemma-300m` | Embedding | 1.5~2GiB |
 | `kakaocorp/kanana-safeguard-prompt-2.1b` | Prompt detector | 2.5~3.5GiB |
 | Reserve | CUDA, fragmentation, peak | 6~8GiB |
 
 ## 3. Starting Utilization
 
-Main LLM checkpoint는 model config의 `compressed-tensors` quantization metadata를 사용한다. vLLM command에는 `--quantization fp8`을 넣지 않는다.
+Main LLM checkpoint는 RedHatAI의 preliminary FP8 Dynamic checkpoint이며, model config의 `compressed-tensors` quantization metadata를 사용한다. vLLM command에는 `--quantization fp8`을 넣지 않는다. upstream 예시는 B200/vLLM main에서 96K context를 사용하지만, 본 플랫폼은 RTX 6000 Ada 48GB 기준 16K context, seq 1, tokenizer canary 통과를 시작 조건으로 둔다.
 
 | Runtime | Port | `gpu_memory_utilization` |
 |---|---:|---:|

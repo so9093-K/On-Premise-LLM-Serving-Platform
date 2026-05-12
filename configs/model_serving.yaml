@@ -9,7 +9,7 @@ server:
     external: false
 models:
   main_llm:
-    name: LargitData/gemma-4-26b-a4b-it-fp8
+    name: RedHatAI/gemma-4-26B-A4B-it-FP8-Dynamic
     served_model_name: local-main
     backend: vllm
     port: 9401
@@ -27,9 +27,10 @@ models:
     max_num_batched_tokens: 16384
     gpu_memory_utilization: 0.72
     timeout_seconds: 120
-    runtime_policy_source: RTX 6000 Ada; raised 0.66→0.72 to cover 16K KV cache deficit
-      (0.99 GiB); upstream card is H200-validated, Ada TRITON FP8 backend confirmed
-      at boot
+    runtime_policy_source: RTX 6000 Ada conservative start for RedHatAI preliminary
+      FP8 checkpoint; upstream card uses B200/vLLM main with 96K context, while this
+      platform starts at 16K seq=1 pending local tokenizer, boot, quality, latency,
+      and soak validation
     max_output_tokens: 1024
     resource_control:
       criticality: primary_user_path
@@ -82,6 +83,7 @@ models:
       - repetition_penalty
       - stop
       - seed
+      - n
       - tools
       - tool_choice
       - parallel_tool_calls
