@@ -71,10 +71,9 @@ hf-main-model-canary:
         --model "$MAIN_MODEL" \
         --check-tokenizer \
         --json
-  rules:
-    - if: '$HF_TOKEN'
-      when: on_success
-    - when: never
+  only:
+    variables:
+      - $HF_TOKEN
 
 unit-test:
   extends: .default-python

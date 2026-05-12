@@ -228,7 +228,9 @@ def test_gitlab_ci_runs_model_and_compose_contract_gates() -> None:
     assert '--check-tokenizer' in ci
     assert "configs/model_serving.yaml" in ci
     assert "main_llm" in ci
-    assert "if: '$HF_TOKEN'" in ci
+    assert 'only:' in ci
+    assert 'variables:' in ci
+    assert '- $HF_TOKEN' in ci
     validate_script = (ROOT / 'scripts/validation/validate_contracts.py').read_text(encoding='utf-8')
     preflight_script = (ROOT / 'scripts/compose/preflight_compose.sh').read_text(encoding='utf-8')
     ready_full_script = (ROOT / 'scripts/ops/ready_full.sh').read_text(encoding='utf-8')
