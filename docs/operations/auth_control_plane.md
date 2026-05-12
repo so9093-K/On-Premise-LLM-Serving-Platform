@@ -39,10 +39,11 @@
 | 생성 명령 | Profile | Public API | Admin endpoint | 내부 service | Docs |
 |---|---|---|---|---|---|
 | `make init-env-local` | `local_open` | open | open | open | enabled |
-| `make init-env-compose` | `private_network` | API key | admin token | internal token | enabled |
+| `make init-env-compose` | `local_open` | open | open | open | enabled |
+| `make auth-apply MODE=private_network` | `private_network` | API key | admin token | internal token | enabled |
 | `make auth-apply MODE=strict` | `strict` | API key | admin token | internal token | disabled 권장 |
 
-`make init-env-compose`가 staging-like `.env`를 만들 때 public API를 열어 두지 않는 것이 현재 안전 기본값이다. 이전 phase에서 발견된 `AUTH_MODE=private_network` + `API_KEY_REQUIRED=false` 조합은 더 이상 생성 기본값이 아니다.
+`make init-env-compose`는 기본값으로 `local_open` profile을 생성한다. 개발·검증을 인증 없이 시작하고, 배포 전 `make auth-apply MODE=private_network`으로 전환하는 흐름을 기준으로 한다.
 
 ## 운영 명령
 

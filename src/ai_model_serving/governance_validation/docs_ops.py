@@ -424,7 +424,7 @@ def validate_storage_path_management() -> None:
     model_cache = paths.get('model_cache_dir', {})
     if model_cache.get('env') != 'HF_CACHE_DIR' or model_cache.get('container_path') != '/root/.cache/huggingface':
         raise SystemExit('storage path registry must define HF_CACHE_DIR -> /root/.cache/huggingface')
-    compose = (ROOT / 'ops/compose/full-stack.example.yaml').read_text(encoding='utf-8')
+    compose = (ROOT / 'ops/compose/full-stack.private-network.yaml').read_text(encoding='utf-8')
     if '${HF_CACHE_DIR:-./model_cache/huggingface}:/root/.cache/huggingface' not in compose:
         raise SystemExit('full-stack compose must mount HF_CACHE_DIR into vLLM Hugging Face cache')
     env_example = (ROOT / '.env.compose.example').read_text(encoding='utf-8')
@@ -459,10 +459,14 @@ def validate_monitoring_resource_mapping() -> None:
         raise SystemExit('prometheus.yml must load the container-mounted model_runtime.rules.yml')
     if 'dcgm-exporter:9400' not in prom:
         raise SystemExit('prometheus.yml must scrape dcgm-exporter on its internal default port 9400')
-    compose = (ROOT / 'ops/compose/full-stack.example.yaml').read_text(encoding='utf-8')
+    private_compose = (ROOT / 'ops/compose/full-stack.private-network.yaml').read_text(encoding='utf-8')
+    for phrase in ['dcgm-exporter:', '${DCGM_EXPORTER_IMAGE:', 'env_file: ../../.env']:
+        if phrase not in private_compose:
+            raise SystemExit(f'full-stack private-network compose must include {phrase}')
+    example_compose = (ROOT / 'ops/compose/full-stack.example.yaml').read_text(encoding='utf-8')
     for phrase in ['dcgm-exporter:', '${DCGM_EXPORTER_IMAGE:', '${DCGM_EXPORTER_PORT:-9412}:9400', 'env_file: ../../.env']:
-        if phrase not in compose:
-            raise SystemExit(f'full-stack compose must include {phrase}')
+        if phrase not in example_compose:
+            raise SystemExit(f'full-stack example compose must include {phrase}')
 
 def validate_operational_hardening_contract() -> None:
     serving = read_yaml('configs/model_serving.yaml')

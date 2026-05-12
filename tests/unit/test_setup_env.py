@@ -3,20 +3,21 @@ from __future__ import annotations
 from scripts.config import setup_env
 
 
-def test_setup_env_generates_compose_env_with_safe_defaults(tmp_path):
+def test_setup_env_generates_compose_env_with_local_open_defaults(tmp_path):
     out = tmp_path / '.env'
     rc = setup_env.main(['--profile', 'compose', '--output', str(out)])
     assert rc == 0
     text = out.read_text(encoding='utf-8')
-    assert 'APP_ENV=staging' in text
-    assert 'API_KEY_REQUIRED=true' in text
-    assert 'ADMIN_API_KEY_REQUIRED=true' in text
+    assert 'APP_ENV=local' in text
+    assert 'API_KEY_REQUIRED=false' in text
+    assert 'ADMIN_API_KEY_REQUIRED=false' in text
+    assert 'INTERNAL_SERVICE_AUTH_REQUIRED=false' in text
+    assert 'AUTH_MODE=local_open' in text
     assert 'ADMIN_API_KEY=ams_admin_' in text
     assert 'ADMIN_API_KEYS=ams_admin_' in text
     assert 'API_KEYS=ams_gateway_' in text
     assert 'API_KEY=ams_gateway_' in text
     assert 'INTERNAL_SERVICE_TOKEN=ams_internal_' in text
-    assert 'AUTH_MODE=private_network' in text
     assert 'FASTAPI_DOCS_ENABLED=true' in text
     assert 'VLLM_IMAGE=vllm/vllm-openai:gemma4-0505-cu129' in text
     assert 'RISK_VLLM_IMAGE=ai-model-serving-risk-vllm-kanana:' in text

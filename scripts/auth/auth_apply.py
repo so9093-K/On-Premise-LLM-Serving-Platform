@@ -55,6 +55,8 @@ def main(argv: list[str] | None = None) -> int:
     values.update(target)
     write_env(lines, values, env_path)
     print(f"업데이트 완료: {env_path}")
+    print(f"안내: 실행 중인 컨테이너에 적용하려면 gateway와 risk-adapter를 재시작하세요.")
+    print(f"  docker compose -f ops/compose/full-stack.private-network.yaml --env-file .env up -d --no-deps gateway risk-adapter")
     return 0
 
 

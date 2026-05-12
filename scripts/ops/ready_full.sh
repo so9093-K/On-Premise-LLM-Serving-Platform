@@ -109,7 +109,7 @@ wait_for_gateway_ready() {
 
     if (( now >= deadline )); then
       rm -f "$tmp"
-      echo "[ready-full] gateway /ready: ${READY_FULL_TIMEOUT_SECONDS}s timeout — 로그를 확인하세요: docker compose -f ops/compose/full-stack.example.yaml logs --tail=50" >&2
+      echo "[ready-full] gateway /ready: ${READY_FULL_TIMEOUT_SECONDS}s timeout — 로그를 확인하세요: docker compose -f ops/compose/full-stack.private-network.yaml logs --tail=50" >&2
       return 1
     fi
 
@@ -154,7 +154,14 @@ PY
 }
 
 wait_for_probe "gateway /health" "$GATEWAY_BASE_URL/health" 200
-wait_for_probe "risk-adapter /health" "$RISK_ADAPTER_BASE_URL/health" 200
+
+# Risk Adapter health은 private-network compose에서는 host port가 없어 직접 접근이 안 된다.
+# 접근 가능할 때만 확인하고, 실패하면 gateway /ready가 risk adapter 상태를 포함해 검증한다.
+if http_probe "risk-adapter /health" "$RISK_ADAPTER_BASE_URL/health" 200 2>/dev/null; then
+  echo "[ready-full] risk-adapter /health: ok"
+else
+  echo "[ready-full] risk-adapter /health: host port not accessible (private-network compose); gateway /ready will verify risk adapter readiness" >&2
+fi
 
 # /health 통과 후 vLLM upstream이 모두 로드될 때까지 /ready를 기다린다.
 # compose services do not have local run/*.pid files; readiness is polled via HTTP.

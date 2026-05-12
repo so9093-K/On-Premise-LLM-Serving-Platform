@@ -103,7 +103,7 @@ def _read_yaml(path: Path) -> dict[str, Any]:
 
 
 def _compose_host_port_services(project_root: Path) -> list[str]:
-    compose = _read_yaml(project_root / "ops" / "compose" / "full-stack.example.yaml")
+    compose = _read_yaml(project_root / "ops" / "compose" / "full-stack.private-network.yaml")
     services = compose.get("services", {})
     published: list[str] = []
     if not isinstance(services, dict):

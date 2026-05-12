@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT"
-COMPOSE_FILE="${COMPOSE_FILE:-ops/compose/full-stack.example.yaml}"
+COMPOSE_FILE="${COMPOSE_FILE:-ops/compose/full-stack.private-network.yaml}"
 ENV_FILE="${ENV_FILE:-.env}"
 TAIL_LINES="${COMPOSE_DIAGNOSTIC_TAIL_LINES:-120}"
 

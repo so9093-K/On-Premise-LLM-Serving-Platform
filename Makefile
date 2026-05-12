@@ -289,10 +289,10 @@ stop:
 down: stop
 
 compose-down:
-	docker compose -f ops/compose/full-stack.example.yaml --env-file .env down
+	docker compose -f ops/compose/full-stack.private-network.yaml --env-file .env down
 
 compose-logs:
-	docker compose -f ops/compose/full-stack.example.yaml --env-file .env logs -f --tail=100
+	docker compose -f ops/compose/full-stack.private-network.yaml --env-file .env logs -f --tail=100
 
 logs:
 	@mkdir -p logs

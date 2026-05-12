@@ -35,9 +35,9 @@ READY_MODE=full make status
 서비스별 로그만 보고 싶으면 다음 명령을 사용한다.
 
 ```bash
-docker compose -f ops/compose/full-stack.example.yaml --env-file .env logs --tail=160 embedding-vllm
-docker compose -f ops/compose/full-stack.example.yaml --env-file .env logs --tail=160 risk-prompt-vllm
-docker compose -f ops/compose/full-stack.example.yaml --env-file .env logs --tail=160 risk-siren-vllm
+docker compose -f ops/compose/full-stack.private-network.yaml --env-file .env logs --tail=160 embedding-vllm
+docker compose -f ops/compose/full-stack.private-network.yaml --env-file .env logs --tail=160 risk-prompt-vllm
+docker compose -f ops/compose/full-stack.private-network.yaml --env-file .env logs --tail=160 risk-siren-vllm
 ```
 
 ## risk-prompt 검증 정책

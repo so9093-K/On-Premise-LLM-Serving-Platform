@@ -15,7 +15,7 @@ from scripts.config import setup_env  # noqa: E402
 
 PROFILE_TO_TEMPLATE = {
     "local": ("local_open", ROOT / ".env.local.example"),
-    "compose": ("private_network", ROOT / ".env.compose.example"),
+    "compose": ("local_open", ROOT / ".env.compose.example"),
 }
 
 

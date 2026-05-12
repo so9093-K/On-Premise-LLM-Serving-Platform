@@ -47,7 +47,7 @@ reports/runtime/storage_paths.md
 HF_CACHE_DIR=./model_cache/huggingface
 ```
 
-`ops/compose/full-stack.example.yaml`의 모든 vLLM service는 이 host path를 다음 container path로 mount한다.
+`ops/compose/full-stack.private-network.yaml`의 모든 vLLM service는 이 host path를 다음 container path로 mount한다.
 
 ```text
 /root/.cache/huggingface

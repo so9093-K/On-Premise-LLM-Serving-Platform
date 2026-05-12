@@ -6,7 +6,7 @@
 
 - `make start`는 로컬 app-only Gateway/Risk Adapter를 시작한다.
 - `make up`은 `make start`의 alias다.
-- `make compose-up`은 `ops/compose/full-stack.example.yaml` 전체 stack을 시작한다.
+- `make compose-up`은 `ops/compose/full-stack.private-network.yaml` 전체 stack을 시작한다.
 - `make stop`과 `make down`은 로컬 app-only 프로세스를 멈춘다.
 - `make compose-down`은 full-stack compose를 내린다.
 - `make ready`는 live service readiness와 smoke 성격의 점검을 실행한다.

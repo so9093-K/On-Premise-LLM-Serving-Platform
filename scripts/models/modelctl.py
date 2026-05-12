@@ -26,7 +26,7 @@ MODEL_LIFECYCLE_FILES = [
     "contracts/model_contracts.yaml",
     "specs/schemas/model_list_response.schema.json",
     "harness/runtime_validation_matrix.yaml",
-    "ops/compose/full-stack.example.yaml",
+    "ops/compose/full-stack.private-network.yaml",
     "ops/prometheus/prometheus.yml",
     "reports/runtime/runtime_targets.*",
     "reports/runtime/monitoring_projection.*",

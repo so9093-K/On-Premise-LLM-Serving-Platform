@@ -9,7 +9,7 @@ PYTHON_BIN="${PYTHON_BIN:-$(command -v python3.12 || command -v python3 || comma
 "$PYTHON_BIN" scripts/build/check_python.py --context preflight-compose >/dev/null
 "$PYTHON_BIN" scripts/compose/validate_vllm_compose.py
 
-COMPOSE_FILE="${COMPOSE_FILE:-ops/compose/full-stack.example.yaml}"
+COMPOSE_FILE="${COMPOSE_FILE:-ops/compose/full-stack.private-network.yaml}"
 
 fail=0
 require_cmd() {

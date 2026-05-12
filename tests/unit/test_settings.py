@@ -36,6 +36,9 @@ def isolate_settings_environment(monkeypatch):
 
 def test_load_settings_rejects_default_api_key_in_non_local_env(monkeypatch):
     monkeypatch.setenv("APP_ENV", "production")
+    monkeypatch.setenv("API_KEY_REQUIRED", "true")
+    monkeypatch.setenv("INTERNAL_SERVICE_AUTH_REQUIRED", "true")
+    monkeypatch.setenv("INTERNAL_SERVICE_TOKEN", "real-internal-token")
     monkeypatch.setenv("API_KEYS", "change-me")
     with pytest.raises(RuntimeError, match="API_KEYS must be set"):
         load_settings()
@@ -121,6 +124,7 @@ def test_load_settings_ignores_local_dotenv_when_app_env_is_explicitly_non_local
     monkeypatch.setenv("APP_ENV", "production")
     monkeypatch.setenv("API_KEYS", "real-key")
     monkeypatch.setenv("INTERNAL_SERVICE_TOKEN", "internal-real-key")
+    monkeypatch.setenv("INTERNAL_SERVICE_AUTH_REQUIRED", "true")
     monkeypatch.setenv("ADMIN_API_KEY_REQUIRED", "true")
     monkeypatch.setenv("ADMIN_API_KEY", "admin-real-key")
     monkeypatch.delenv("ADMIN_API_KEYS", raising=False)
@@ -136,6 +140,7 @@ def test_load_settings_ignores_local_dotenv_when_app_env_is_explicitly_non_local
 def test_load_settings_requires_internal_token_in_non_local_env(monkeypatch):
     monkeypatch.setenv("APP_ENV", "production")
     monkeypatch.setenv("API_KEYS", "real-key")
+    monkeypatch.setenv("INTERNAL_SERVICE_AUTH_REQUIRED", "true")
     monkeypatch.delenv("INTERNAL_SERVICE_TOKEN", raising=False)
     import pytest
     with pytest.raises(RuntimeError, match="INTERNAL_SERVICE_TOKEN"):
@@ -197,6 +202,8 @@ def test_load_settings_uses_nested_admission_control_defaults(monkeypatch):
 
 def test_load_settings_rejects_generated_placeholder_secrets_in_non_local_env(monkeypatch):
     monkeypatch.setenv("APP_ENV", "production")
+    monkeypatch.setenv("API_KEY_REQUIRED", "true")
+    monkeypatch.setenv("INTERNAL_SERVICE_AUTH_REQUIRED", "true")
     monkeypatch.setenv("API_KEYS", "generate-with-make-init-env")
     monkeypatch.setenv("INTERNAL_SERVICE_TOKEN", "internal-real-key")
     monkeypatch.setenv("ADMIN_API_KEY_REQUIRED", "true")

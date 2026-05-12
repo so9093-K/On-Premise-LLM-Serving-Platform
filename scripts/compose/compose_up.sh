@@ -6,7 +6,7 @@ cd "$ROOT"
 
 PYTHON_BIN="${PYTHON_BIN:-$(command -v python3.12 || command -v python3 || command -v python)}"
 ENV_FILE="${ENV_FILE:-.env}"
-COMPOSE_FILE="${COMPOSE_FILE:-ops/compose/full-stack.example.yaml}"
+COMPOSE_FILE="${COMPOSE_FILE:-ops/compose/full-stack.private-network.yaml}"
 PROM_SECRET=".runtime/prometheus/admin_api_key"
 
 if [[ ! -f "$ENV_FILE" ]]; then

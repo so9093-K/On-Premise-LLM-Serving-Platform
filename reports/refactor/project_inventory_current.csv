@@ -1,7 +1,7 @@
 path,area,category,owner,management,size_bytes,line_count,role,review_note
 .dockerignore,.dockerignore,project metadata,project-maintenance,managed by root project metadata,2206,58,supporting-file,supporting project file
 .env,.env,project metadata,project-maintenance,managed by root project metadata,4890,118,environment-template,supporting project file
-.env.compose.example,.env.compose.example,project metadata,project-maintenance,managed by root project metadata,4507,117,environment-template,supporting project file
+.env.compose.example,.env.compose.example,project metadata,project-maintenance,managed by root project metadata,4717,119,environment-template,supporting project file
 .env.example,.env.example,project metadata,project-maintenance,managed by root project metadata,2342,80,environment-template,supporting project file
 .env.local.example,.env.local.example,project metadata,project-maintenance,managed by root project metadata,2329,79,environment-template,supporting project file
 .gitignore,.gitignore,project metadata,project-maintenance,managed by root project metadata,2182,54,supporting-file,supporting project file
@@ -9,7 +9,7 @@ path,area,category,owner,management,size_bytes,line_count,role,review_note
 .python-version,.python-version,project metadata,project-maintenance,managed by root project metadata,8,1,environment-template,supporting project file
 CHANGELOG.md,CHANGELOG.md,project metadata,project-maintenance,managed by root project metadata,15640,164,documentation,supporting project file
 Dockerfile,Dockerfile,project metadata,project-maintenance,managed by root project metadata,1019,30,build-command,supporting project file
-Makefile,Makefile,project metadata,project-maintenance,managed by root project metadata,18028,377,build-command,supporting project file
+Makefile,Makefile,project metadata,project-maintenance,managed by root project metadata,18044,377,build-command,supporting project file
 README.md,README.md,project metadata,project-maintenance,managed by root project metadata,18429,423,entrypoint,primary navigation or current-state entrypoint; keep synchronized with Makefile and reports
 VERSION,VERSION,project metadata,project-maintenance,managed by root project metadata,6,1,supporting-file,supporting project file
 adr/0002-signal-only-risk-contract.md,adr,architecture decision record,project-maintenance,managed by root project metadata,700,21,documentation,supporting project file
@@ -20,7 +20,7 @@ configs/command_terminology_policy.yaml,configs,configuration source of truth,co
 configs/gpu_budgets.yaml,configs,configuration source of truth,configuration,managed by configuration lifecycle,3190,104,structured-data,configuration source; validate through governance and projection checks after edits
 configs/logging_policy.yaml,configs,configuration source of truth,configuration,managed by configuration lifecycle,328,21,structured-data,configuration source; validate through governance and projection checks after edits
 configs/model_catalog.yaml,configs,configuration source of truth,configuration,managed by configuration lifecycle,10637,350,structured-data,configuration source; validate through governance and projection checks after edits
-configs/model_serving.yaml,configs,configuration source of truth,configuration,managed by configuration lifecycle,8024,279,structured-data,configuration source; validate through governance and projection checks after edits
+configs/model_serving.yaml,configs,configuration source of truth,configuration,managed by configuration lifecycle,8030,279,structured-data,configuration source; validate through governance and projection checks after edits
 configs/monitoring.yaml,configs,configuration source of truth,configuration,managed by configuration lifecycle,9975,312,structured-data,configuration source; validate through governance and projection checks after edits
 configs/ports.yaml,configs,configuration source of truth,configuration,managed by configuration lifecycle,454,26,structured-data,configuration source; validate through governance and projection checks after edits
 configs/recommended_images.yaml,configs,configuration source of truth,configuration,managed by configuration lifecycle,2696,66,structured-data,configuration source; validate through governance and projection checks after edits
@@ -89,7 +89,7 @@ model_cards/local-main.json,model_cards,model card metadata,project-maintenance,
 model_cards/risk-prompt.json,model_cards,model card metadata,project-maintenance,managed by root project metadata,1767,69,structured-data,supporting project file
 model_cards/risk-siren.json,model_cards,model card metadata,project-maintenance,managed by root project metadata,1786,71,structured-data,supporting project file
 ops/compose/full-stack.example.yaml,ops,compose/monitoring/runtime ops template,operations,managed by operator templates,8089,184,structured-data,supporting project file
-ops/compose/full-stack.private-network.yaml,ops,compose/monitoring/runtime ops template,operations,managed by operator templates,9044,339,structured-data,supporting project file
+ops/compose/full-stack.private-network.yaml,ops,compose/monitoring/runtime ops template,operations,managed by operator templates,9256,339,structured-data,supporting project file
 ops/compose/infisical.yaml,ops,compose/monitoring/runtime ops template,operations,managed by operator templates,2199,69,structured-data,supporting project file
 ops/docker/Dockerfile.risk-vllm-kanana,ops,compose/monitoring/runtime ops template,operations,managed by operator templates,2868,66,supporting-file,supporting project file
 ops/grafana/dashboards/chat_api_deep_dive.json,ops,compose/monitoring/runtime ops template,operations,managed by operator templates,20369,739,structured-data,supporting project file
@@ -110,16 +110,16 @@ reports/refactor/current_first_run_clean_package_audit.md,reports,current handof
 reports/refactor/current_full_file_hygiene_audit.md,reports,current handoff/review report,handoff-reporting,generated/curated for handoff review,5249,89,documentation,handoff/review artifact; avoid stale phase snapshots in active package
 reports/refactor/current_handoff_summary.md,reports,current handoff/review report,handoff-reporting,generated/curated for handoff review,6431,90,documentation,handoff/review artifact; avoid stale phase snapshots in active package
 reports/refactor/current_refactor_state.md,reports,current handoff/review report,handoff-reporting,generated/curated for handoff review,3394,63,entrypoint,primary navigation or current-state entrypoint; keep synchronized with Makefile and reports
-reports/refactor/project_inventory_current.csv,reports,current handoff/review report,handoff-reporting,generated/curated for handoff review,58717,287,structured-data,handoff/review artifact; avoid stale phase snapshots in active package
-reports/refactor/project_inventory_current.json,reports,current handoff/review report,handoff-reporting,generated/curated for handoff review,121697,3405,structured-data,handoff/review artifact; avoid stale phase snapshots in active package
+reports/refactor/project_inventory_current.csv,reports,current handoff/review report,handoff-reporting,generated/curated for handoff review,58713,287,structured-data,handoff/review artifact; avoid stale phase snapshots in active package
+reports/refactor/project_inventory_current.json,reports,current handoff/review report,handoff-reporting,generated/curated for handoff review,121693,3405,structured-data,handoff/review artifact; avoid stale phase snapshots in active package
 reports/refactor/project_inventory_current.md,reports,current handoff/review report,handoff-reporting,generated/curated for handoff review,5236,89,documentation,handoff/review artifact; avoid stale phase snapshots in active package
 reports/runtime/README.md,reports,runtime/operator generated report,handoff-reporting,generated by operator report commands,603,12,documentation,generated operator report; regenerate through make operator-reports before handoff
-reports/runtime/live_evidence_bundle.json,reports,runtime/operator generated report,handoff-reporting,generated by operator report commands,1715,69,structured-data,generated operator report; regenerate through make operator-reports before handoff
-reports/runtime/live_evidence_bundle.md,reports,runtime/operator generated report,handoff-reporting,generated by operator report commands,1148,33,documentation,generated operator report; regenerate through make operator-reports before handoff
+reports/runtime/live_evidence_bundle.json,reports,runtime/operator generated report,handoff-reporting,generated by operator report commands,1710,69,structured-data,generated operator report; regenerate through make operator-reports before handoff
+reports/runtime/live_evidence_bundle.md,reports,runtime/operator generated report,handoff-reporting,generated by operator report commands,1143,33,documentation,generated operator report; regenerate through make operator-reports before handoff
 reports/runtime/monitoring_projection.json,reports,runtime/operator generated report,handoff-reporting,generated by operator report commands,4913,184,structured-data,generated operator report; regenerate through make operator-reports before handoff
 reports/runtime/monitoring_projection.md,reports,runtime/operator generated report,handoff-reporting,generated by operator report commands,2592,37,documentation,generated operator report; regenerate through make operator-reports before handoff
-reports/runtime/operator_status_bundle.json,reports,runtime/operator generated report,handoff-reporting,generated by operator report commands,19027,623,structured-data,generated operator report; regenerate through make operator-reports before handoff
-reports/runtime/operator_status_bundle.md,reports,runtime/operator generated report,handoff-reporting,generated by operator report commands,5459,89,documentation,generated operator report; regenerate through make operator-reports before handoff
+reports/runtime/operator_status_bundle.json,reports,runtime/operator generated report,handoff-reporting,generated by operator report commands,19022,623,structured-data,generated operator report; regenerate through make operator-reports before handoff
+reports/runtime/operator_status_bundle.md,reports,runtime/operator generated report,handoff-reporting,generated by operator report commands,5454,89,documentation,generated operator report; regenerate through make operator-reports before handoff
 reports/runtime/runtime_targets.json,reports,runtime/operator generated report,handoff-reporting,generated by operator report commands,2533,100,structured-data,generated operator report; regenerate through make operator-reports before handoff
 reports/runtime/runtime_targets.md,reports,runtime/operator generated report,handoff-reporting,generated by operator report commands,1804,36,documentation,generated operator report; regenerate through make operator-reports before handoff
 reports/runtime/storage_paths.json,reports,runtime/operator generated report,handoff-reporting,generated by operator report commands,5210,172,structured-data,generated operator report; regenerate through make operator-reports before handoff
@@ -127,25 +127,25 @@ reports/runtime/storage_paths.md,reports,runtime/operator generated report,hando
 requirements.lock,requirements.lock,project metadata,project-maintenance,managed by root project metadata,811,35,supporting-file,supporting project file
 requirements.runtime.lock,requirements.runtime.lock,project metadata,project-maintenance,managed by root project metadata,579,25,supporting-file,supporting project file
 scripts/README.md,scripts,operator/developer command surface,operator-ux,managed by Makefile command UX,12150,163,documentation,operator/developer command; expose through Makefile/help if user-facing
-scripts/auth/auth_apply.py,scripts,operator/developer command surface,operator-ux,managed by Makefile command UX,2412,62,python-source,operator/developer command; expose through Makefile/help if user-facing
+scripts/auth/auth_apply.py,scripts,operator/developer command surface,operator-ux,managed by Makefile command UX,2658,64,python-source,operator/developer command; expose through Makefile/help if user-facing
 scripts/auth/auth_doctor.py,scripts,operator/developer command surface,operator-ux,managed by Makefile command UX,1848,47,python-source,operator/developer command; expose through Makefile/help if user-facing
 scripts/auth/auth_plan.py,scripts,operator/developer command surface,operator-ux,managed by Makefile command UX,4321,108,python-source,operator/developer command; expose through Makefile/help if user-facing
 scripts/auth/auth_profile_sanity.py,scripts,operator/developer command surface,operator-ux,managed by Makefile command UX,1512,39,python-source,operator/developer command; expose through Makefile/help if user-facing
 scripts/auth/auth_status.py,scripts,operator/developer command surface,operator-ux,managed by Makefile command UX,1616,44,python-source,operator/developer command; expose through Makefile/help if user-facing
-scripts/build/bootstrap.sh,scripts,operator/developer command surface,operator-ux,managed by Makefile command UX,5743,147,shell-command,operator/developer command; expose through Makefile/help if user-facing
+scripts/build/bootstrap.sh,scripts,operator/developer command surface,operator-ux,managed by Makefile command UX,5751,147,shell-command,operator/developer command; expose through Makefile/help if user-facing
 scripts/build/build_all.sh,scripts,operator/developer command surface,operator-ux,managed by Makefile command UX,687,21,shell-command,operator/developer command; expose through Makefile/help if user-facing
 scripts/build/build_platform_image.sh,scripts,operator/developer command surface,operator-ux,managed by Makefile command UX,353,11,shell-command,operator/developer command; expose through Makefile/help if user-facing
 scripts/build/build_risk_vllm_image.sh,scripts,operator/developer command surface,operator-ux,managed by Makefile command UX,2078,58,shell-command,operator/developer command; expose through Makefile/help if user-facing
 scripts/build/check_python.py,scripts,operator/developer command surface,operator-ux,managed by Makefile command UX,2355,68,python-source,operator/developer command; expose through Makefile/help if user-facing
 scripts/build/package_release.sh,scripts,operator/developer command surface,operator-ux,managed by Makefile command UX,6727,202,shell-command,operator/developer command; expose through Makefile/help if user-facing
 scripts/build/reset_version.py,scripts,operator/developer command surface,operator-ux,managed by Makefile command UX,3628,103,python-source,operator/developer command; expose through Makefile/help if user-facing
-scripts/ci/deploy_gitlab_compose.sh,scripts,operator/developer command surface,operator-ux,managed by Makefile command UX,5807,153,shell-command,operator/developer command; expose through Makefile/help if user-facing
+scripts/ci/deploy_gitlab_compose.sh,scripts,operator/developer command surface,operator-ux,managed by Makefile command UX,6039,160,shell-command,operator/developer command; expose through Makefile/help if user-facing
 scripts/compose/compose_diagnostics.sh,scripts,operator/developer command surface,operator-ux,managed by Makefile command UX,2543,40,shell-command,operator/developer command; expose through Makefile/help if user-facing
 scripts/compose/compose_up.sh,scripts,operator/developer command surface,operator-ux,managed by Makefile command UX,1177,33,shell-command,operator/developer command; expose through Makefile/help if user-facing
 scripts/compose/preflight_compose.sh,scripts,operator/developer command surface,operator-ux,managed by Makefile command UX,4721,140,shell-command,operator/developer command; expose through Makefile/help if user-facing
 scripts/compose/validate_vllm_compose.py,scripts,operator/developer command surface,operator-ux,managed by Makefile command UX,6237,143,python-source,operator/developer command; expose through Makefile/help if user-facing
 scripts/config/infisical_sync.py,scripts,operator/developer command surface,operator-ux,managed by Makefile command UX,9054,253,python-source,operator/developer command; expose through Makefile/help if user-facing
-scripts/config/setup_env.py,scripts,operator/developer command surface,operator-ux,managed by Makefile command UX,15316,362,python-source,operator/developer command; expose through Makefile/help if user-facing
+scripts/config/setup_env.py,scripts,operator/developer command surface,operator-ux,managed by Makefile command UX,15309,362,python-source,operator/developer command; expose through Makefile/help if user-facing
 scripts/lib/cli_kr.py,scripts,operator/developer command surface,operator-ux,managed by Makefile command UX,1914,44,python-source,operator/developer command; expose through Makefile/help if user-facing
 scripts/lib/load_env.sh,scripts,operator/developer command surface,operator-ux,managed by Makefile command UX,2086,69,shell-command,operator/developer command; expose through Makefile/help if user-facing
 scripts/lib/risk_vllm_image.sh,scripts,operator/developer command surface,operator-ux,managed by Makefile command UX,3652,104,shell-command,operator/developer command; expose through Makefile/help if user-facing
@@ -282,6 +282,6 @@ tests/unit/test_risk_vllm_image_script.py,tests,test suite,quality,managed by te
 tests/unit/test_risk_vllm_patch_lifecycle.py,tests,test suite,quality,managed by test strategy,2785,69,python-source,test coverage; keep deterministic and avoid live GPU dependency
 tests/unit/test_runtime_validation_package.py,tests,test suite,quality,managed by test strategy,13824,331,python-source,test coverage; keep deterministic and avoid live GPU dependency
 tests/unit/test_settings.py,tests,test suite,quality,managed by test strategy,10919,262,python-source,test coverage; keep deterministic and avoid live GPU dependency
-tests/unit/test_setup_env.py,tests,test suite,quality,managed by test strategy,5861,149,python-source,test coverage; keep deterministic and avoid live GPU dependency
+tests/unit/test_setup_env.py,tests,test suite,quality,managed by test strategy,5920,150,python-source,test coverage; keep deterministic and avoid live GPU dependency
 tests/unit/test_upstream.py,tests,test suite,quality,managed by test strategy,1608,49,python-source,test coverage; keep deterministic and avoid live GPU dependency
 version_manifest.json,version_manifest.json,project metadata,project-maintenance,managed by root project metadata,728,17,structured-data,supporting project file

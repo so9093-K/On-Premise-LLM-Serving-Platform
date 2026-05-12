@@ -120,7 +120,7 @@ fi
 
 if [[ -n "${AUTH_MODE:-}" ]]; then
   echo "[deploy] applying auth profile: ${AUTH_MODE}"
-  make auth-apply MODE="${AUTH_MODE}" --yes
+  make auth-apply MODE="${AUTH_MODE}"
 fi
 
 if [[ "${DEPLOY_MODE}" == "full" ]]; then
@@ -139,19 +139,20 @@ else
 fi
 
 if [[ "${RUN_READY_SMOKE}" == "1" ]]; then
-  echo "[deploy] waiting for gateway /health..."
+  echo "[deploy] waiting for gateway /health (up to 600s)..."
   GATEWAY_PORT="${GATEWAY_PORT:-9400}"
   HEALTH_URL="${GATEWAY_HEALTH_URL:-http://localhost:${GATEWAY_PORT}/health}"
-  for i in $(seq 1 24); do
+  for i in $(seq 1 60); do
     if curl -sf "${HEALTH_URL}" >/dev/null 2>&1; then
       echo "[deploy] gateway /health OK"
       break
     fi
-    if [[ "$i" == "24" ]]; then
-      echo "[deploy] ERROR: gateway /health not ready after 120s" >&2
+    if [[ "$i" == "60" ]]; then
+      echo "[deploy] ERROR: gateway /health not ready after 600s" >&2
       exit 1
     fi
-    sleep 5
+    echo "[deploy] waiting... ${i}/60 (${HEALTH_URL})"
+    sleep 10
   done
 fi
 

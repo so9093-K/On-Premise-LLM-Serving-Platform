@@ -13,14 +13,14 @@
 | Gateway Scalar UI | `http://localhost:9400/docs` | 브라우저 API 탐색·테스트 (Scalar) |
 | Gateway ReDoc | `http://localhost:9400/redoc` | 읽기 전용 API 문서 |
 | Gateway OpenAPI JSON | `http://localhost:9400/openapi.json` | OpenAPI 스펙 다운로드 |
-| **Risk Adapter API** | `http://localhost:9405` | 내부 risk signal adapter |
-| Risk Adapter Scalar UI | `http://localhost:9405/docs` | Risk API 탐색·테스트 |
+| **Risk Adapter API** | compose 내부 전용 (9405) | 내부 risk signal adapter |
 | **Grafana** | `http://localhost:9411` | 운영 대시보드 |
-| **Prometheus** | `http://localhost:9410` | Metrics 수집·쿼리 |
-| DCGM Exporter | `http://localhost:9412/metrics` | GPU raw metrics (텍스트) |
+| **Prometheus** | compose 내부 전용 (9090) | Metrics 수집·쿼리 |
+| DCGM Exporter | compose 내부 전용 (9400) | GPU raw metrics |
 | **Infisical** | `http://localhost:9420` | 시크릿 관리 웹 UI (선택) |
 
-> vLLM runtime(9401–9404)은 compose 내부 네트워크 전용이며 host에서 직접 접근하지 않는다.  
+> `full-stack.private-network.yaml` 기준: vLLM runtime(9401–9404), Risk Adapter(9405), Prometheus, cAdvisor, DCGM Exporter는 compose 내부 네트워크 전용이며 host에서 직접 접근하지 않는다.  
+> Prometheus에 직접 접근하려면 SSH 포트 포워딩(`ssh -L 9410:localhost:9090 <host>`)을 사용한다. Grafana는 Prometheus 데이터를 UI로 제공하므로 대부분의 metrics 조회는 Grafana를 통한다.  
 > Infisical은 선택 서비스로 `make infisical-up`으로 별도 기동한다.
 
 ---
@@ -112,7 +112,7 @@ grep -E "^GRAFANA_ADMIN_(USER|PASSWORD)=" .env
 > `GRAFANA_ADMIN_PASSWORD`는 최초 `make first-run`/`make bootstrap` 또는 `make init-env-compose` 실행 시 한 번 생성되며, 이후 `--force` 재실행에도 변경되지 않는다.  
 > 비밀번호가 분실된 경우: Grafana 컨테이너를 force-recreate하면 `.env` 값으로 재설정된다.  
 > ```bash
-> docker compose -f ops/compose/full-stack.example.yaml --env-file .env \
+> docker compose -f ops/compose/full-stack.private-network.yaml --env-file .env \
 >   up -d --no-deps --force-recreate grafana
 > ```
 
@@ -124,7 +124,15 @@ grep -E "^GRAFANA_ADMIN_(USER|PASSWORD)=" .env
 | 모델 런타임 상세 / Model Runtime Deep Dive | `model_runtime_deep_dive` | model/runtime_service별 queue, KV cache, throughput, container resource |
 | Risk 신호 운영 / Risk Signal Operations | `risk_signal_operations` | Risk signal, detector timeout/error, forbidden field, readiness |
 
-### Prometheus (`http://localhost:9410`)
+### Prometheus (compose 내부 전용; SSH 포트 포워딩으로 접근)
+
+Prometheus는 compose 내부 네트워크 전용이다. 직접 접근하려면 SSH 포트 포워딩을 사용한다.
+
+```bash
+# 175에서 Prometheus에 SSH 포트 포워딩으로 접근하는 예시
+ssh -L 9410:localhost:9090 <deploy-host>
+# 이후 브라우저에서: http://localhost:9410
+```
 
 주요 쿼리 예시:
 
@@ -144,7 +152,7 @@ sum(increase(http_requests_total{service="gateway",status_code=~"5.."}[5m]))
   / clamp_min(sum(increase(http_requests_total{service="gateway"}[5m])), 1)
 ```
 
-Prometheus 자체 `/targets` 페이지(`http://localhost:9410/targets`)에서 scrape 상태를 확인한다.
+Prometheus 자체 `/targets` 페이지에서 scrape 상태를 확인한다 (포트 포워딩 후 `http://localhost:9410/targets`).
 
 ---
 

@@ -122,7 +122,7 @@ else
   PYTHON_BIN="$VENV_PYTHON" make risk-vllm-config-check
 fi
 
-COMPOSE_FILE="${COMPOSE_FILE:-ops/compose/full-stack.example.yaml}"
+COMPOSE_FILE="${COMPOSE_FILE:-ops/compose/full-stack.private-network.yaml}"
 if docker compose -f "$COMPOSE_FILE" --env-file .env ps --status running --quiet 2>/dev/null | grep -q .; then
   echo "[bootstrap] 실행 중인 스택에서 gateway/risk-adapter를 재시작합니다 (토큰 갱신 반영)"
   docker compose -f "$COMPOSE_FILE" --env-file .env up -d --no-deps gateway risk-adapter

@@ -20,17 +20,17 @@
 - FastAPI docs UI 자체는 token을 발급하거나 API 호출 권한을 부여하지 않는다. 다만 public internet에 직접 노출하면 API shape가 노출되므로 `strict`/`edge_terminated` profile에서는 기본적으로 비활성화한다.
 - Prometheus는 `.runtime/prometheus/admin_api_key` bearer token 파일을 사용한다. 이 파일은 package에 포함하지 않는다.
 
-## Private-network compose profile
+## Compose 파일 구조
 
-reference compose(`ops/compose/full-stack.example.yaml`)는 local 검증 편의를 위해 Gateway, Risk Adapter, Prometheus, Grafana, cAdvisor, DCGM exporter 일부 host port를 publish한다. shared staging 또는 production-like 환경에서는 다음 profile을 우선 사용한다.
+`ops/compose/full-stack.private-network.yaml`이 표준 compose 파일이다. `make compose-up`, `make compose-down`, `make compose-logs` 모두 이 파일을 사용한다.
 
 ```bash
 make init-env-compose
-make compose-up-private
-make compose-down-private
+make compose-up
+make compose-down
 ```
 
-`ops/compose/full-stack.private-network.yaml`은 vLLM과 Risk Adapter, Prometheus, cAdvisor, DCGM exporter를 compose network 내부로 유지한다. Gateway host publish bind는 `GATEWAY_BIND_ADDR`로 제어하며 shared/staging 환경에서는 175의 내부 interface IP를 명시한다. 전체 interface publish가 의도된 경우에만 `GATEWAY_BIND_ADDR=0.0.0.0`을 쓰고 firewall/network policy로 내부 CIDR만 허용한다. Grafana는 loopback(`127.0.0.1`)에 bind한다. 또한 `ADMIN_API_KEY_REQUIRED=true`, `STRICT_ADMIN_ENDPOINT_SECURITY=true`, Grafana anonymous auth disabled, `GRAFANA_ADMIN_PASSWORD` 필수화를 적용한다. 이 파일은 example compose의 standalone hardened variant이므로 새 runtime service를 추가하면 두 compose 파일의 drift를 `modelctl diff`, `runtime_validation --config-only`, review checklist로 함께 확인한다.
+`ops/compose/full-stack.private-network.yaml`은 vLLM과 Risk Adapter, Prometheus, cAdvisor, DCGM exporter를 compose network 내부로 유지한다. Gateway host publish bind는 `GATEWAY_BIND_ADDR`로 제어하며 shared/staging 환경에서는 175의 내부 interface IP를 명시한다. 전체 interface publish가 의도된 경우에만 `GATEWAY_BIND_ADDR=0.0.0.0`을 사용한다. Grafana host publish는 `GRAFANA_BIND_ADDR`(기본값 `0.0.0.0`)으로 제어하며, firewall/network policy로 접근 범위를 제한한다. `ADMIN_API_KEY_REQUIRED`, `STRICT_ADMIN_ENDPOINT_SECURITY`는 `.env`의 auth profile 설정을 따른다. 새 runtime service를 추가하면 `modelctl diff`, `runtime_validation --config-only`로 compose 파일 drift를 확인한다.
 
 ## 운영 점검 명령
 

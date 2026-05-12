@@ -1,7 +1,7 @@
 # Standalone private-network hardening compose file.
 # Gateway host bind is controlled by GATEWAY_BIND_ADDR. Use the 175 internal IP when possible, or 0.0.0.0 only with firewall/network policy.
 # Risk Adapter, Prometheus, cAdvisor, DCGM exporter are not host-published (expose only, no ports).
-# Grafana binds to 127.0.0.1; access via SSH tunnel or reverse proxy.
+# Grafana host publish default is 0.0.0.0; restrict with GRAFANA_BIND_ADDR (e.g. 127.0.0.1 for SSH-only access).
 # Example: docker compose -f ops/compose/full-stack.private-network.yaml --env-file .env up -d
 services:
   gateway:
@@ -22,9 +22,9 @@ services:
       HEALTHCHECK_PORT: '9400'
       APP_CONFIG_ROOT: /app
       PYTHONPATH: /app/src
-      ADMIN_API_KEY_REQUIRED: 'true'
-      ADMIN_ENDPOINTS_INTERNAL_ONLY: 'false'
-      STRICT_ADMIN_ENDPOINT_SECURITY: 'true'
+      ADMIN_API_KEY_REQUIRED: '${ADMIN_API_KEY_REQUIRED:-true}'
+      ADMIN_ENDPOINTS_INTERNAL_ONLY: '${ADMIN_ENDPOINTS_INTERNAL_ONLY:-false}'
+      STRICT_ADMIN_ENDPOINT_SECURITY: '${STRICT_ADMIN_ENDPOINT_SECURITY:-true}'
     depends_on:
       risk-adapter:
         condition: service_healthy
@@ -49,9 +49,9 @@ services:
       HEALTHCHECK_PORT: '9405'
       APP_CONFIG_ROOT: /app
       PYTHONPATH: /app/src
-      ADMIN_API_KEY_REQUIRED: 'true'
-      ADMIN_ENDPOINTS_INTERNAL_ONLY: 'false'
-      STRICT_ADMIN_ENDPOINT_SECURITY: 'true'
+      ADMIN_API_KEY_REQUIRED: '${ADMIN_API_KEY_REQUIRED:-true}'
+      ADMIN_ENDPOINTS_INTERNAL_ONLY: '${ADMIN_ENDPOINTS_INTERNAL_ONLY:-false}'
+      STRICT_ADMIN_ENDPOINT_SECURITY: '${STRICT_ADMIN_ENDPOINT_SECURITY:-true}'
     depends_on:
       risk-prompt-vllm:
         condition: service_healthy

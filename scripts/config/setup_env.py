@@ -255,14 +255,14 @@ def generated_values(profile: str, app_env: str | None, overrides: dict[str, str
     }
     if profile == "compose":
         values.update({
-            "APP_ENV": app_env or "staging",
+            "APP_ENV": app_env or "local",
             "BUILD_PROFILE": "compose",
             "GRAFANA_ADMIN_USER": "admin",
             "GRAFANA_ANONYMOUS_ENABLED": "false",
             "INFISICAL_AUTH_SECRET": secrets.token_hex(32),
             "INFISICAL_ENCRYPTION_KEY": secrets.token_hex(16),
         })
-        values.update(auth_profile_env_values("private_network"))
+        values.update(auth_profile_env_values("local_open"))
         values.update(recommended_images())
     else:
         values.update({
@@ -288,7 +288,7 @@ def show_image_tags() -> None:
 def build_parser() -> KoreanArgumentParser:
     parser = KoreanArgumentParser(description="한국어 운영자를 위한 .env 생성기입니다. 기존 .env는 기본적으로 덮어쓰지 않습니다.")
     parser.add_argument("--profile", choices=["local", "compose"], default="compose")
-    parser.add_argument("--app-env", help="APP_ENV를 덮어씁니다. 기본값은 local profile은 local, compose profile은 staging입니다.")
+    parser.add_argument("--app-env", help="APP_ENV를 덮어씁니다. 기본값은 local profile은 local, compose profile은 local입니다.")
     parser.add_argument("--output", default=".env", help="출력할 env 경로입니다. repository root 기준 상대 경로 또는 절대 경로를 사용할 수 있습니다.")
     parser.add_argument("--force", action="store_true", help="기존 출력 파일을 덮어씁니다.")
     parser.add_argument("--show-image-tags", action="store_true", help="권장 compose image tag를 출력하고 종료합니다.")

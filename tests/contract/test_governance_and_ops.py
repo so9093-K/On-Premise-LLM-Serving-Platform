@@ -304,7 +304,7 @@ def test_full_stack_compose_and_prometheus_paths_are_network_correct() -> None:
     assert "${GATEWAY_BIND_ADDR:-0.0.0.0}:${GATEWAY_PORT:-9400}:9400" in private_compose
 
     full_stack_doc = (ROOT / "docs/operations/full_stack_runtime.md").read_text(encoding="utf-8")
-    assert "docker compose -f ops/compose/full-stack.example.yaml --env-file .env up" in full_stack_doc
+    assert "docker compose -f ops/compose/full-stack.private-network.yaml --env-file .env up" in full_stack_doc
     assert "dcgm-exporter:9400" in full_stack_doc
     assert "gitlab_cicd_deployment.md" in full_stack_doc
 

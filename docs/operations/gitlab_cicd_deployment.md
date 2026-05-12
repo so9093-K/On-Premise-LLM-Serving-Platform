@@ -19,10 +19,11 @@ Shell executor Runner를 사용할 때는 다음 조건을 맞춘다.
 
 ## Pipeline 정책
 
-- Merge Request: `validate`, `unit-test`
-- `main`: `validate`, `unit-test`, `package-release`, `build-platform`, manual `deploy-gpu-175`
+GitLab 12.1.1-ee 호환 구성이다. `workflow:`, `needs:`, `rules:` 키워드는 지원하지 않아 사용하지 않는다.
+
+- `master`: `validate`, `unit-test`, `build-platform`
 - `release`: `validate`, `unit-test`, `package-release`, `build-platform`, manual `deploy-gpu-175`
-- tag: `package-release`, `build-platform`, `build-risk-vllm`
+- tag: `validate`, `unit-test`, `package-release`, `build-platform`, manual `build-risk-vllm`
 
 Platform image는 commit tag와 branch tag를 항상 push한다. `release` branch 또는 tag pipeline에서는 `VERSION` 파일을 읽어 `platform:release_<VERSION>` tag도 push한다.
 
@@ -42,6 +43,7 @@ Platform image는 commit tag와 branch tag를 항상 push한다. `release` branc
 
 - `DEPLOY_COMPOSE_FILE`: 기본값 `ops/compose/full-stack.private-network.yaml`
 - `DEPLOY_MODE`: `rolling` 또는 `full`, 기본값 `rolling`
+- `AUTH_MODE`: 배포 시 auth profile 적용. `local_open`, `private_network`, `strict` 등. 미설정 시 175 `.env` 현재값 유지
 - `GATEWAY_BIND_ADDR`: Gateway host publish bind 주소
 - `GATEWAY_HEALTH_URL`: 배포 후 health check URL
 - `RUN_READY_SMOKE`: `1` 또는 `0`, 기본값 `1`

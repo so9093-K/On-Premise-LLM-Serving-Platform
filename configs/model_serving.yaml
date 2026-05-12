@@ -254,14 +254,14 @@ documentation:
   default_policy: enabled_for_local_compose_staging_and_production_until_operator_policy_changes
   language_policy: korean_first_with_api_identifiers_in_english
 security:
-  auth_mode: custom
-  api_key_required: true
+  auth_mode: local_open
+  api_key_required: false
   log_prompt_body: false
   log_model_raw_output: false
   cors_enabled: false
   admin_api_key_required: false
   internal_service_token: change-me-internal
-  internal_service_auth_required: true
+  internal_service_auth_required: false
   internal_service_auth: gateway_to_risk_adapter_only
   admin_endpoints_internal_only: false
 timeouts:

@@ -14,7 +14,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
 from ai_model_serving.domain import ModelRegistry
-COMPOSE_PATH = ROOT / "ops/compose/full-stack.example.yaml"
+COMPOSE_PATH = ROOT / "ops/compose/full-stack.private-network.yaml"
 SERVING_PATH = ROOT / "configs/model_serving.yaml"
 CATALOG_PATH = ROOT / "configs/model_catalog.yaml"
 MODEL_CARD_DIR = ROOT / "model_cards"
