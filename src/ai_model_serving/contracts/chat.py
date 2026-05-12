@@ -87,6 +87,33 @@ def _validate_tool_choice(value: Any) -> None:
         raise ServiceError("VALIDATION_ERROR", "tool_choice.function.name must be a non-empty string.", False, 422)
 
 
+def _tool_names(tools: Any) -> set[str]:
+    if not isinstance(tools, list):
+        return set()
+    names: set[str] = set()
+    for tool in tools:
+        if isinstance(tool, dict):
+            function = tool.get("function")
+            if isinstance(function, dict) and isinstance(function.get("name"), str):
+                names.add(function["name"])
+    return names
+
+
+def _validate_tool_choice_matches_tools(payload: dict[str, Any]) -> None:
+    if "tool_choice" not in payload:
+        return
+    choice = payload["tool_choice"]
+    tools = payload.get("tools")
+    if choice == "none":
+        return
+    if not tools:
+        raise ServiceError("VALIDATION_ERROR", "tool_choice requires a non-empty tools array unless it is 'none'.", False, 422)
+    if isinstance(choice, dict):
+        name = choice.get("function", {}).get("name") if isinstance(choice.get("function"), dict) else None
+        if isinstance(name, str) and name not in _tool_names(tools):
+            raise ServiceError("VALIDATION_ERROR", f"tool_choice.function.name must match one of the provided tools: {name}.", False, 422)
+
+
 def _validate_tool_calls(tool_calls: Any) -> None:
     if not isinstance(tool_calls, list) or not tool_calls:
         raise ServiceError("VALIDATION_ERROR", "tool_calls must be a non-empty array when provided.", False, 422)
@@ -192,6 +219,7 @@ def validate_chat_request(
             _validate_tools(payload["tools"], max_tools=max_tools)
         if "tool_choice" in payload:
             _validate_tool_choice(payload["tool_choice"])
+            _validate_tool_choice_matches_tools(payload)
         if "parallel_tool_calls" in payload:
             if not isinstance(payload["parallel_tool_calls"], bool):
                 raise ServiceError("VALIDATION_ERROR", "parallel_tool_calls must be boolean.", False, 422)

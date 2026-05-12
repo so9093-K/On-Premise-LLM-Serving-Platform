@@ -40,6 +40,12 @@ Gateway는 외부 애플리케이션의 단일 진입점이다.
 
 `request_parameters`는 prompt/messages/input 같은 필수 입력 본문을 뜻하지 않는다. 필수 입력은 각 request schema(`chat_completion_request`, `embedding_request`, `risk_assessment_request`)를 따른다. serving/runtime 하이퍼파라미터(`gpu_memory_utilization`, `max_model_len`, `max_num_seqs`, quantization 등)는 사용자 API에서 조정할 수 없고 운영자 config로만 변경한다. `local-main`의 RedHatAI FP8 Dynamic checkpoint는 model config의 `compressed-tensors` quantization metadata를 따르며, Gateway request parameter로 노출하지 않는다.
 
+`local-main` 예시는 요청 예시일 뿐 Gateway가 기본 sampling 값을 주입한다는 뜻이 아니다. `temperature`, `max_tokens`, `top_p` 등을 생략하면 vLLM/OpenAI-compatible runtime 기본값을 따른다. 안정적인 smoke나 자동 검증에는 `max_tokens: 1`, `temperature: 0`, `n: 1`을 명시한다.
+
+Chat API는 OpenAI 호환 chat completions의 제한된 subset이다. 현재 노출하지 않는 표준/확장 파라미터(`response_format`, `logprobs`, `top_logprobs`, `logit_bias`, `user`, `metadata` 등)는 Gateway allowlist에서 차단한다.
+
+Tool calling을 사용할 때는 `tools`에 function tool을 포함하고 `tool_choice`를 `auto`, `required`, `none` 또는 제공된 function 이름으로 지정한다. `parallel_tool_calls`는 현재 `false`만 허용한다. Vision 요청은 bounded `data:image/*;base64,...` content part 1개만 허용하며 외부 이미지 URL fetch는 기본 차단이다.
+
 상세 schema는 `specs/openapi.gateway.yaml`, `specs/openapi.risk-adapter.yaml`, `specs/schemas/*.json`을 기준으로 한다. Gateway/Risk Adapter의 generated OpenAPI는 `src/ai_model_serving/openapi_contracts.py`를 통해 동일한 checked-in JSON schema를 request/response body에 주입한다. 따라서 `/docs`와 `/openapi.json`에서 보이는 schema는 runtime contract validation과 같은 원천을 바라본다.
 
 ## Chat Streaming

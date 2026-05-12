@@ -16,7 +16,9 @@
 #   DEPLOY_COMPOSE_FILE        compose file relative to DEPLOY_PATH
 #                              default: ops/compose/full-stack.private-network.yaml
 #   DEPLOY_MODE                rolling (default) or full
-#   GATEWAY_HEALTH_URL         default: http://localhost:${GATEWAY_PORT}/health
+#   GATEWAY_HEALTH_URL         explicit post-deploy health URL.
+#                              Default is derived from 175 .env:
+#                              GATEWAY_BIND_ADDR/GATEWAY_PORT, with 0.0.0.0 -> localhost.
 #   RUN_READY_SMOKE            1 (default) or 0 — run /health check after deploy
 set -euo pipefail
 
@@ -108,6 +110,11 @@ set_env_value() {
   fi
 }
 
+get_env_value() {
+  local key="$1"
+  awk -F= -v key="$key" '$1 == key { sub(/^[^=]*=/, ""); print; exit }' .env
+}
+
 # update PLATFORM_IMAGE in .env
 set_env_value PLATFORM_IMAGE "${PLATFORM_IMAGE_TO_DEPLOY}"
 echo "[deploy] PLATFORM_IMAGE set to ${PLATFORM_IMAGE_TO_DEPLOY}"
@@ -140,8 +147,13 @@ fi
 
 if [[ "${RUN_READY_SMOKE}" == "1" ]]; then
   echo "[deploy] waiting for gateway /health (up to 600s)..."
+  GATEWAY_PORT="${GATEWAY_PORT:-$(get_env_value GATEWAY_PORT)}"
   GATEWAY_PORT="${GATEWAY_PORT:-9400}"
-  HEALTH_URL="${GATEWAY_HEALTH_URL:-http://localhost:${GATEWAY_PORT}/health}"
+  GATEWAY_PROBE_HOST="${GATEWAY_BIND_ADDR:-$(get_env_value GATEWAY_BIND_ADDR)}"
+  if [[ -z "${GATEWAY_PROBE_HOST}" || "${GATEWAY_PROBE_HOST}" == "0.0.0.0" ]]; then
+    GATEWAY_PROBE_HOST="localhost"
+  fi
+  HEALTH_URL="${GATEWAY_HEALTH_URL:-http://${GATEWAY_PROBE_HOST}:${GATEWAY_PORT}/health}"
   for i in $(seq 1 60); do
     if curl -sf "${HEALTH_URL}" >/dev/null 2>&1; then
       echo "[deploy] gateway /health OK"

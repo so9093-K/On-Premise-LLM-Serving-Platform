@@ -323,6 +323,13 @@ def test_gateway_framework_documentation_endpoints_are_exposed_by_default():
     assert "catalog" in doc["paths"]["/v1/models"]["get"]["description"]
     assert "not_ready_dependencies" in doc["paths"]["/v1/models"]["get"]["description"]
     assert doc["paths"]["/v1/chat/completions"]["post"]["description"]
+    chat_examples = doc["paths"]["/v1/chat/completions"]["post"]["requestBody"]["content"]["application/json"]["examples"]
+    assert chat_examples["basic"]["summary"] == "최소 요청 (runtime 기본 sampling)"
+    assert "temperature" not in chat_examples["basic"]["value"]
+    assert chat_examples["deterministic_smoke"]["value"]["temperature"] == 0
+    assert chat_examples["deterministic_smoke"]["value"]["n"] == 1
+    assert chat_examples["with_tools"]["value"]["parallel_tool_calls"] is False
+    assert chat_examples["with_image"]["value"]["messages"][0]["content"][1]["image_url"]["url"].startswith("data:image/png;base64,")
     assert "bearerAuth" in doc["components"]["securitySchemes"]
 
     with TestClient(create_gateway_app(admin_settings(), FakeGatewayClients())) as admin_client:
@@ -826,6 +833,16 @@ def test_gateway_accepts_bounded_tool_calling_when_enabled():
     tool_unknown = dict(payload)
     tool_unknown["tools"] = [{"type": "function", "function": {"name": "get_weather", "x-extra": 1}}]
     response = client.post("/v1/chat/completions", headers=auth_headers(), json=tool_unknown)
+    assert response.status_code == 422
+
+    choice_without_tools = dict(payload)
+    choice_without_tools.pop("tools")
+    response = client.post("/v1/chat/completions", headers=auth_headers(), json=choice_without_tools)
+    assert response.status_code == 422
+
+    choice_mismatch = dict(payload)
+    choice_mismatch["tool_choice"] = {"type": "function", "function": {"name": "lookup_stock"}}
+    response = client.post("/v1/chat/completions", headers=auth_headers(), json=choice_mismatch)
     assert response.status_code == 422
 
 

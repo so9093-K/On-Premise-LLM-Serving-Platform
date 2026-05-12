@@ -27,9 +27,7 @@ from ..status import NOT_READY, READY
 
 CHAT_EXAMPLE: dict[str, Any] = {
     "model": "local-main",
-    "messages": [{"role": "user", "content": "안녕하세요. 간단히 자기소개를 해주세요."}],
-    "max_tokens": 512,
-    "temperature": 0.7,
+    "messages": [{"role": "user", "content": "안녕하세요. 한 문장으로 인사해주세요."}],
 }
 
 EMBEDDING_EXAMPLE: dict[str, Any] = {
@@ -110,6 +108,14 @@ GATEWAY_DESCRIPTION_TEMPLATE = """
 - `local-main`: `temperature`, `max_tokens`, `top_p`, `top_k`, `min_p`, penalty, `seed`, tool 관련 parameter를 Gateway 제약 안에서 조정할 수 있습니다. `stream=true`는 vLLM SSE 응답을 Gateway가 실시간 relay하는 fast path로 지원합니다.
 - `local-embed`: `dimensions`, `encoding_format`, `truncate_prompt_tokens`를 조정할 수 있습니다.
 - `risk-prompt`: 사용자가 조정할 수 있는 sampling parameter는 없습니다. risk API는 `prompt` 입력만 받고 detector 호출 parameter는 adapter가 고정합니다.
+
+`local-main`은 RedHatAI Gemma 4 26B-A4B FP8 Dynamic checkpoint를 `local-main`이라는 logical model id로 제공합니다. 문서 예시는 요청 예시이며, Gateway가 `temperature`나 `max_tokens`를 자동 주입하지 않습니다. 호출자가 생략한 값은 vLLM/OpenAI-compatible runtime 기본값을 따릅니다.
+
+Chat API는 OpenAI 호환 chat completions의 제한된 subset입니다. 현재 노출하지 않는 표준/확장 파라미터(`response_format`, `logprobs`, `top_logprobs`, `logit_bias`, `user`, `metadata` 등)는 Gateway allowlist에서 차단합니다.
+
+Tool calling은 Gemma4 tool parser와 전용 chat template 범위에서 지원합니다. `parallel_tool_calls=true`는 아직 허용하지 않으며, 특정 function을 `tool_choice`로 지정할 때는 같은 이름의 function tool을 `tools`에 포함해야 합니다.
+
+Vision 입력은 `data:image/*;base64,...` 형식의 bounded image content part만 허용합니다. 외부 `https://...` 이미지 URL fetch는 기본 차단입니다.
 
 ## Readiness
 
@@ -428,8 +434,28 @@ def create_gateway_app(settings: AppSettings | None = None, clients: GatewayClie
         request_examples={
             ("POST", "/v1/chat/completions"): {
                 "basic": {
-                    "summary": "기본 요청",
+                    "summary": "최소 요청 (runtime 기본 sampling)",
                     "value": CHAT_EXAMPLE,
+                },
+                "deterministic_smoke": {
+                    "summary": "짧은 결정적 smoke 요청",
+                    "value": {
+                        "model": "local-main",
+                        "messages": [{"role": "user", "content": "Say OK only."}],
+                        "max_tokens": 1,
+                        "temperature": 0,
+                        "n": 1,
+                    },
+                },
+                "balanced_sampling": {
+                    "summary": "일반 대화용 sampling 예시",
+                    "value": {
+                        "model": "local-main",
+                        "messages": [{"role": "user", "content": "Gemma 4 모델의 특징을 세 문장으로 설명해주세요."}],
+                        "max_tokens": 512,
+                        "temperature": 0.7,
+                        "top_p": 0.9,
+                    },
                 },
                 "streaming": {
                     "summary": "스트리밍 요청 (stream=true)",
@@ -483,6 +509,7 @@ def create_gateway_app(settings: AppSettings | None = None, clients: GatewayClie
                             }
                         ],
                         "tool_choice": "auto",
+                        "parallel_tool_calls": False,
                     },
                 },
                 "with_image": {

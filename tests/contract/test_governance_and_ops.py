@@ -327,6 +327,9 @@ def test_gitlab_ci_deployment_contract_is_documented_and_operationally_safe() ->
     assert "--exclude \"model_cache/\"" in deploy
     assert 'docker compose -f "${COMPOSE_FILE}" --env-file .env up -d --remove-orphans' in deploy
     assert 'docker compose -f "${COMPOSE_FILE}" --env-file .env up -d --no-deps gateway risk-adapter' in deploy
+    assert 'get_env_value GATEWAY_BIND_ADDR' in deploy
+    assert 'GATEWAY_PROBE_HOST="localhost"' in deploy
+    assert 'HEALTH_URL="${GATEWAY_HEALTH_URL:-http://${GATEWAY_PROBE_HOST}:${GATEWAY_PORT}/health}"' in deploy
 
     assert "Docker executor" in doc
     assert "Shell executor" in doc
