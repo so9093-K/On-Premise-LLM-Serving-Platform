@@ -4,8 +4,8 @@ Gateway는 모델 서버를 직접 생성하지 않는다. vLLM process/containe
 
 ## 제어 지점
 
-- endpoint URL은 `MAIN_LLM_BASE_URL`, `EMBEDDING_BASE_URL`, `RISK_PROMPT_BASE_URL`, `RISK_SIREN_BASE_URL`로 관리한다.
-- served model name은 `MAIN_LLM_MODEL`, `EMBEDDING_MODEL`, `RISK_PROMPT_MODEL`, `RISK_SIREN_MODEL`로 관리한다.
+- endpoint URL은 enabled runtime 기준 `MAIN_LLM_BASE_URL`, `EMBEDDING_BASE_URL`, `RISK_PROMPT_BASE_URL`로 관리한다.
+- served model name은 enabled runtime 기준 `MAIN_LLM_MODEL`, `EMBEDDING_MODEL`, `RISK_PROMPT_MODEL`로 관리한다.
 - timeout은 `*_TIMEOUT_SECONDS`, `REQUEST_TIMEOUT_SECONDS`, `RISK_ADAPTER_TIMEOUT_SECONDS`로 관리한다.
 - admission control은 `*_MAX_CONCURRENCY`, `*_QUEUE_TIMEOUT_SECONDS`로 관리한다.
 - circuit breaker는 `*_CIRCUIT_BREAKER_FAILURE_THRESHOLD`, `*_CIRCUIT_BREAKER_RESET_SECONDS`로 관리한다.
@@ -40,7 +40,7 @@ make model-propose-remove ID=local-main WRITE_PLAN=1 WRITE_PATCH=1
 - Remove a model / 모델 제거: 먼저 `propose-remove`로 단계적 deprecation plan을 확인한다. 곧바로 삭제하지 않고 `lifecycle.state=deprecated|disabled`와 `exposure=hidden|internal`로 축소한 뒤, public listing, route, config, model card, tests를 함께 제거한다.
 - Model independence: 한 모델의 timeout/concurrency 조정이 다른 모델 id나 API contract를 바꾸면 안 된다.
 - Input and output contracts: request/response schema는 Gateway에서 검증한다.
-- lifecycle state는 `experimental`, `active`, `deprecated`, `disabled`, `removed`를 사용한다.
+- lifecycle state는 `experimental`, `active`, `deprecated`, `disabled`, `retired`, `removed`를 사용한다.
 - exposure 값은 `public`, `internal`, `hidden`을 사용한다.
 
 쓰기형 add/remove 명령은 아직 source 파일을 직접 수정하지 않는다. 현재 단계에서는 `modelctl`의 `list/status/validate/diff`가 registry/projection drift를 읽고 검증하고, `propose-add/propose-remove`는 기본적으로 파일 쓰기 없는 plan-only control plane으로 동작한다. `--write-plan`을 주면 `reports/model_changes/*.plan.json`과 `*.plan.md`를 남기고, `--write-patch`를 주면 사람이 리뷰할 수 있는 `*.patch-scaffold.md`까지 생성한다. 이 artifact는 review/checklist 용도이며 `configs/`, `contracts/`, `specs/` 원본 파일은 수정하지 않는다.

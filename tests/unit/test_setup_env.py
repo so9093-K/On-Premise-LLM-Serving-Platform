@@ -107,6 +107,24 @@ def test_setup_env_force_migrates_stale_risk_vllm_transformers_pin(tmp_path):
     assert 'HF_TOKEN=hf_existing' in text
 
 
+def test_setup_env_force_removes_retired_risk_siren_keys(tmp_path):
+    out = tmp_path / '.env'
+    out.write_text(
+        'RISK_SIREN_BASE_URL=http://risk-siren-vllm:9404/v1\n'
+        'RISK_SIREN_MODEL=risk-siren\n'
+        'RISK_SIREN_TIMEOUT_SECONDS=5\n'
+        'RISK_SIREN_MAX_CONCURRENCY=1\n'
+        'RISK_SIREN_QUEUE_TIMEOUT_SECONDS=2\n'
+        'HF_TOKEN=hf_existing\n',
+        encoding='utf-8',
+    )
+    rc = setup_env.main(['--profile', 'compose', '--output', str(out), '--force'])
+    assert rc == 0
+    text = out.read_text(encoding='utf-8')
+    assert 'RISK_SIREN_' not in text
+    assert 'HF_TOKEN=hf_existing' in text
+
+
 def test_setup_env_force_preserves_custom_risk_vllm_image(tmp_path):
     out = tmp_path / '.env'
     out.write_text(

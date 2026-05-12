@@ -106,6 +106,14 @@ ALWAYS_REFRESH_KEYS = {
     *AUTH_PROFILE_ENV_KEYS,
 } | (GENERATED_SECRET_KEYS - {"INFISICAL_AUTH_SECRET", "INFISICAL_ENCRYPTION_KEY"})
 
+RETIRED_ENV_KEYS = {
+    "RISK_SIREN_BASE_URL",
+    "RISK_SIREN_MODEL",
+    "RISK_SIREN_TIMEOUT_SECONDS",
+    "RISK_SIREN_MAX_CONCURRENCY",
+    "RISK_SIREN_QUEUE_TIMEOUT_SECONDS",
+}
+
 
 def preserve_existing_values(out_path: Path, *, force: bool) -> dict[str, str]:
     """Preserve operator edits when regenerating .env.
@@ -120,7 +128,7 @@ def preserve_existing_values(out_path: Path, *, force: bool) -> dict[str, str]:
     preserved = {
         key: value
         for key, value in existing.items()
-        if value and key not in ALWAYS_REFRESH_KEYS
+        if value and key not in ALWAYS_REFRESH_KEYS and key not in RETIRED_ENV_KEYS
     }
     if "HF_TOKEN" in preserved and "HUGGING_FACE_HUB_TOKEN" not in preserved:
         preserved["HUGGING_FACE_HUB_TOKEN"] = preserved["HF_TOKEN"]
