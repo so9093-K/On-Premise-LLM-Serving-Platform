@@ -66,6 +66,7 @@ models:
         enabled: true
         auto_tool_choice: true
         tool_call_parser: gemma4
+        reasoning_parser: gemma4
         allow_parallel_tool_calls: false
         chat_template: /app/configs/gemma4_chat_template.jinja
     request_parameter_policy:
@@ -87,13 +88,21 @@ models:
       - tools
       - tool_choice
       - parallel_tool_calls
+      - reasoning
       max_n: 1
       tool_calling:
         enabled: true
         max_tools: 16
         allow_parallel_tool_calls: false
-      notes: Main LLM supports bounded vLLM/OpenAI chat sampling parameters and Gemma4
-        tool calling through explicit validation. Streaming is supported at Gateway through an SSE relay fast path; proxy buffering must remain disabled in front of the Gateway.
+      reasoning:
+        enabled: true
+        default: false
+        mode: request_opt_in
+        upstream_chat_template_kwargs:
+          enable_thinking: true
+      notes: Main LLM supports bounded vLLM/OpenAI chat sampling parameters, Gemma4
+        tool calling, and request-level Gemma4 thinking via reasoning=true. Streaming
+        is supported at Gateway through an SSE relay fast path; proxy buffering must remain disabled in front of the Gateway.
   embedding:
     name: google/embeddinggemma-300m
     served_model_name: local-embed

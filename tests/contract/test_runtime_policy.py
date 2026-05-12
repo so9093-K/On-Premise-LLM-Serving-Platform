@@ -143,12 +143,14 @@ def test_main_runtime_features_and_request_parameter_policy_are_explicit() -> No
     assert features['prefix_caching']['hash_algo'] == 'sha256_cbor'
     assert features['tool_calling']['enabled'] is True
     assert features['tool_calling']['tool_call_parser'] == 'gemma4'
-    assert 'reasoning_parser' not in features['tool_calling']
+    assert features['tool_calling']['reasoning_parser'] == 'gemma4'
     assert features['tool_calling']['chat_template'] == '/app/configs/gemma4_chat_template.jinja'
     policy = main['request_parameter_policy']
     assert policy['allow_unlisted_parameters'] is False
-    for field in ['top_p', 'top_k', 'min_p', 'repetition_penalty', 'n', 'tools', 'tool_choice']:
+    for field in ['top_p', 'top_k', 'min_p', 'repetition_penalty', 'n', 'tools', 'tool_choice', 'reasoning']:
         assert field in policy['supported_parameters']
+    assert policy['reasoning']['enabled'] is True
+    assert policy['reasoning']['default'] is False
     assert policy['max_n'] == 1
 
     for key in ['risk_prompt']:

@@ -52,7 +52,7 @@
 4. `fixed_parameters`는 읽기 전용 설명으로만 표시하거나 숨긴다.
 5. 호출 전 request schema와 동일한 제한을 클라이언트에서도 한 번 더 검증한다.
 
-`request_parameters`는 허용 표면과 제약 조건이지, Gateway가 주입하는 기본값 목록이 아니다. Chat UI가 기본 입력값을 정해야 한다면 일반 대화는 `temperature=0.7`, `top_p=0.9`, `max_tokens=512` 같은 client preset으로 두고, smoke/debug preset은 `temperature=0`, `max_tokens=1`, `n=1`로 분리한다. `parallel_tool_calls`는 `false` 고정이므로 toggle로 노출하지 않는다. Vision 입력은 base64 `data:image` 1개만 허용하므로 외부 URL 업로드 UX는 별도 proxy/egress 정책이 생기기 전까지 제공하지 않는다.
+`request_parameters`는 허용 표면과 제약 조건이지, Gateway가 주입하는 기본값 목록이 아니다. Chat UI가 기본 입력값을 정해야 한다면 일반 대화는 `temperature=0.7`, `top_p=0.9`, `max_tokens=512` 같은 client preset으로 두고, smoke/debug preset은 `temperature=0`, `max_tokens=1`, `n=1`로 분리한다. `reasoning`은 기본 `false`로 두고 분석·디버깅 preset에서만 켠다. `parallel_tool_calls`는 `false` 고정이므로 toggle로 노출하지 않는다. Vision 입력은 base64 `data:image` 1개만 허용하므로 외부 URL 업로드 UX는 별도 proxy/egress 정책이 생기기 전까지 제공하지 않는다.
 
 ## 운영자 변경 절차
 

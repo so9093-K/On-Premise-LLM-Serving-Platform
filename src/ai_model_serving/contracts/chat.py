@@ -35,6 +35,14 @@ def _validate_stream_options(value: Any) -> None:
         raise ServiceError("VALIDATION_ERROR", "stream_options.include_usage must be boolean when provided.", False, 422)
 
 
+def _validate_reasoning(value: Any, *, policy: dict[str, Any] | None) -> None:
+    reasoning_policy = _chat_policy(policy).get("reasoning", {})
+    if not isinstance(reasoning_policy, dict) or reasoning_policy.get("enabled") is not True:
+        raise ServiceError("VALIDATION_ERROR", "reasoning is not enabled for this model.", False, 422)
+    if not isinstance(value, bool):
+        raise ServiceError("VALIDATION_ERROR", "reasoning must be boolean when provided.", False, 422)
+
+
 def _validate_stop(value: Any) -> None:
     if isinstance(value, str):
         return
@@ -205,6 +213,8 @@ def validate_chat_request(
         _validate_stream_options(payload["stream_options"])
         if payload.get("stream") is not True:
             raise ServiceError("VALIDATION_ERROR", "stream_options may only be provided when stream=true.", False, 422)
+    if "reasoning" in payload:
+        _validate_reasoning(payload["reasoning"], policy=request_parameter_policy)
 
     tool_enabled = _policy_tool_calling_enabled(request_parameter_policy)
     if not tool_enabled:

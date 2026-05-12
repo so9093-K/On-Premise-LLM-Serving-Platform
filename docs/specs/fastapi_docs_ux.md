@@ -66,8 +66,8 @@ Checked-in JSON schema가 API 문서의 source of truth다. Route-local inline s
 
 API 문서는 “사용자가 조정할 수 있는 parameter”와 “운영자가 config로 고정하는 runtime 하이퍼파라미터”를 분리해서 보여줘야 한다. `/v1/models` 응답의 `request_parameters`는 사용자-facing 조정 가능 parameter의 source of truth다.
 
-- Chat UI는 `local-main.request_parameters`를 읽어 `temperature`, `max_tokens`, `top_p`, `top_k`, `min_p`, penalty, `seed`, `n`, tool 관련 입력을 구성한다.
-- Chat 예시는 최소 요청, deterministic smoke, 일반 sampling, streaming, tool calling, bounded vision을 분리한다. 예시의 sampling 값은 client preset이며 Gateway가 자동 주입하는 기본값이 아니다.
+- Chat UI는 `local-main.request_parameters`를 읽어 `temperature`, `max_tokens`, `top_p`, `top_k`, `min_p`, penalty, `seed`, `n`, tool 관련 입력, `reasoning` opt-in을 구성한다.
+- Chat 예시는 최소 요청, deterministic smoke, 일반 sampling, streaming, tool calling, reasoning/thinking, bounded vision을 분리한다. 예시의 sampling 값은 client preset이며 Gateway가 자동 주입하는 기본값이 아니다.
 - Embedding UI는 `local-embed.request_parameters`를 읽어 `dimensions`, `encoding_format`, `truncate_prompt_tokens`만 노출한다.
 - Risk UI는 `risk-prompt`의 `request_parameters`가 비어 있음을 보고 prompt 입력만 노출한다. `fixed_parameters`는 detector adapter 내부값이므로 사용자 form으로 노출하지 않는다.
 

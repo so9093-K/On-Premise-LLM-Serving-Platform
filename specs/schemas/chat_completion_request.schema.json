@@ -242,6 +242,10 @@
     "parallel_tool_calls": {
       "type": "boolean",
       "const": false
+    },
+    "reasoning": {
+      "type": "boolean",
+      "description": "When true, Gateway enables Gemma4 thinking for this request by forwarding chat_template_kwargs.enable_thinking=true to vLLM. Defaults to false when omitted."
     }
   },
   "$defs": {

@@ -75,6 +75,7 @@ vllm serve RedHatAI/gemma-4-26B-A4B-it-FP8-Dynamic \
   --prefix-caching-hash-algo sha256_cbor \
   --enable-auto-tool-choice \
   --tool-call-parser gemma4 \
+  --reasoning-parser gemma4 \
   --chat-template /app/configs/gemma4_chat_template.jinja
 ```
 

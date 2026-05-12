@@ -115,6 +115,8 @@ Chat API는 OpenAI 호환 chat completions의 제한된 subset입니다. 현재 
 
 Tool calling은 Gemma4 tool parser와 전용 chat template 범위에서 지원합니다. `parallel_tool_calls=true`는 아직 허용하지 않으며, 특정 function을 `tool_choice`로 지정할 때는 같은 이름의 function tool을 `tools`에 포함해야 합니다.
 
+Reasoning/thinking은 기본 OFF입니다. 분석·디버깅처럼 추가 latency와 출력 토큰 비용을 감수할 요청에서만 `reasoning: true`를 넣으면 Gateway가 vLLM에 `chat_template_kwargs.enable_thinking=true`를 전달합니다. 이때 응답에는 runtime 버전에 따라 `message.reasoning` 또는 legacy `message.reasoning_content`가 포함될 수 있고, `message.content`는 최종 답변입니다.
+
 Vision 입력은 `data:image/*;base64,...` 형식의 bounded image content part만 허용합니다. 외부 `https://...` 이미지 URL fetch는 기본 차단입니다.
 
 ## Readiness
@@ -510,6 +512,16 @@ def create_gateway_app(settings: AppSettings | None = None, clients: GatewayClie
                         ],
                         "tool_choice": "auto",
                         "parallel_tool_calls": False,
+                    },
+                },
+                "with_reasoning": {
+                    "summary": "Reasoning/thinking opt-in",
+                    "value": {
+                        "model": "local-main",
+                        "messages": [{"role": "user", "content": "이 장애 원인을 단계적으로 분석하고 최종 조치만 정리해줘."}],
+                        "reasoning": True,
+                        "max_tokens": 768,
+                        "temperature": 0.2,
                     },
                 },
                 "with_image": {

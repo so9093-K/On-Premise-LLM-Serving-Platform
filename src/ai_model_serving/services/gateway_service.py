@@ -108,8 +108,19 @@ class GatewayService:
             request_parameter_policy=self.settings.main_llm.request_parameter_policy,
         )
 
+    def _chat_upstream_payload(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """Map Gateway-facing controls to vLLM request extensions."""
+        reasoning_enabled = payload.pop("reasoning", None)
+        if reasoning_enabled is True:
+            upstream = dict(payload)
+            template_kwargs = dict(upstream.get("chat_template_kwargs", {}))
+            template_kwargs["enable_thinking"] = True
+            upstream["chat_template_kwargs"] = template_kwargs
+            return upstream
+        return payload
+
     async def create_chat_completion(self, payload: dict[str, Any]) -> dict[str, Any]:
-        payload = self._validate_chat_payload(payload)
+        payload = self._chat_upstream_payload(self._validate_chat_payload(payload))
         start = time.monotonic()
         try:
             response = await asyncio.wait_for(
@@ -132,7 +143,7 @@ class GatewayService:
 
 
     def stream_chat_completion(self, payload: dict[str, Any]) -> AsyncIterator[bytes]:
-        payload = self._validate_chat_payload(payload)
+        payload = self._chat_upstream_payload(self._validate_chat_payload(payload))
         start = time.monotonic()
         target = self.settings.main_llm.logical_id
 

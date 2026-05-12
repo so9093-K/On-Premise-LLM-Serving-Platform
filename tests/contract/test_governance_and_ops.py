@@ -261,7 +261,7 @@ def test_p2_runtime_validation_harness_is_packaged() -> None:
     assert "--prefix-caching-hash-algo sha256_cbor" in output
     assert "--enable-auto-tool-choice" in output
     assert "--tool-call-parser gemma4" in output
-    assert "--reasoning-parser" not in output
+    assert "--reasoning-parser gemma4" in output
     assert "--chat-template" in output
 
 
@@ -330,6 +330,8 @@ def test_gitlab_ci_deployment_contract_is_documented_and_operationally_safe() ->
     assert 'get_env_value GATEWAY_BIND_ADDR' in deploy
     assert 'GATEWAY_PROBE_HOST="localhost"' in deploy
     assert 'HEALTH_URL="${GATEWAY_HEALTH_URL:-http://${GATEWAY_PROBE_HOST}:${GATEWAY_PORT}/health}"' in deploy
+    assert 'PRUNE_DANGLING_IMAGES="${PRUNE_DANGLING_IMAGES:-1}"' in deploy
+    assert 'docker image prune -f --filter dangling=true' in deploy
 
     assert "Docker executor" in doc
     assert "Shell executor" in doc
@@ -337,6 +339,7 @@ def test_gitlab_ci_deployment_contract_is_documented_and_operationally_safe() ->
     assert "DEPLOY_MODE=rolling" in doc
     assert "DEPLOY_MODE=full" in doc
     assert "GATEWAY_BIND_ADDR=<175 internal IP>" in doc
+    assert "PRUNE_DANGLING_IMAGES" in doc
 
 
 def test_env_bootstrap_and_image_tag_automation_are_present() -> None:

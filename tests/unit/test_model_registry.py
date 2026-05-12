@@ -137,6 +137,7 @@ def test_model_registry_projects_openapi_schema_and_monitoring_labels():
     assert public_models["local-main"]["request_parameters"]["max_tokens"] == {"type": "integer", "min": 1, "max": 1024}
     assert public_models["local-main"]["request_parameters"]["top_p"] == {"type": "number", "min_exclusive": 0, "max": 1}
     assert public_models["local-main"]["request_parameters"]["n"] == {"type": "integer", "min": 1, "max": 1}
+    assert public_models["local-main"]["request_parameters"]["reasoning"] == {"type": "boolean", "default": False, "mode": "request_opt_in"}
     assert public_models["local-embed"]["request_parameters"]["dimensions"] == {"type": "integer", "enum": [768, 512, 256, 128]}
     assert public_models["risk-prompt"]["request_parameters"] == {}
     assert public_models["risk-prompt"]["fixed_parameters"] == {"max_tokens": 1, "temperature": 0}

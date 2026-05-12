@@ -151,6 +151,7 @@ build-risk-vllm:
 #   GATEWAY_BIND_ADDR    175 interface address for gateway host publish
 #   GATEWAY_HEALTH_URL   explicit post-deploy health URL
 #   RUN_READY_SMOKE      1 or 0; default 1
+#   PRUNE_DANGLING_IMAGES 1 or 0; default 1, prune untagged images after successful deploy
 #   RISK_VLLM_IMAGE_TO_DEPLOY override RISK_VLLM_IMAGE in 175 .env when needed
 deploy-gpu-175:
   stage: deploy

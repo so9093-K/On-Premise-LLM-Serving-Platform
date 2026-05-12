@@ -20,6 +20,7 @@
 #                              Default is derived from 175 .env:
 #                              GATEWAY_BIND_ADDR/GATEWAY_PORT, with 0.0.0.0 -> localhost.
 #   RUN_READY_SMOKE            1 (default) or 0 — run /health check after deploy
+#   PRUNE_DANGLING_IMAGES      1 (default) or 0 — prune dangling images after a successful deploy
 set -euo pipefail
 
 : "${PLATFORM_IMAGE_TO_DEPLOY:?Required: full platform image ref}"
@@ -36,6 +37,7 @@ REGISTRY_PASSWORD="${REGISTRY_DEPLOY_PASSWORD:-${CI_REGISTRY_PASSWORD:-}}"
 COMPOSE_FILE="${DEPLOY_COMPOSE_FILE:-ops/compose/full-stack.private-network.yaml}"
 DEPLOY_MODE="${DEPLOY_MODE:-rolling}"
 RUN_READY_SMOKE="${RUN_READY_SMOKE:-1}"
+PRUNE_DANGLING_IMAGES="${PRUNE_DANGLING_IMAGES:-1}"
 SSH_TARGET="${DEPLOY_USER}@${DEPLOY_HOST}"
 
 case "${DEPLOY_MODE}" in
@@ -84,6 +86,7 @@ ssh "${SSH_TARGET}" \
   DEPLOY_MODE="${DEPLOY_MODE}" \
   GATEWAY_HEALTH_URL="${GATEWAY_HEALTH_URL:-}" \
   RUN_READY_SMOKE="${RUN_READY_SMOKE}" \
+  PRUNE_DANGLING_IMAGES="${PRUNE_DANGLING_IMAGES}" \
   AUTH_MODE="${AUTH_MODE:-}" \
   bash -s <<'REMOTE'
 set -euo pipefail
@@ -166,6 +169,11 @@ if [[ "${RUN_READY_SMOKE}" == "1" ]]; then
     echo "[deploy] waiting... ${i}/60 (${HEALTH_URL})"
     sleep 10
   done
+fi
+
+if [[ "${PRUNE_DANGLING_IMAGES}" == "1" ]]; then
+  echo "[deploy] pruning dangling docker images..."
+  docker image prune -f --filter dangling=true >/dev/null
 fi
 
 echo "[deploy] done"

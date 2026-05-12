@@ -31,6 +31,7 @@ def _chat_request_parameters(policy: dict[str, Any], *, max_output_tokens: int |
         "tools": {"type": "array", "min_items": 1, "max_items": max_tools},
         "tool_choice": {"type": "string_or_function_choice", "allowed": ["auto", "none", "required"]},
         "parallel_tool_calls": {"type": "boolean", "const": parallel_tools_enabled},
+        "reasoning": {"type": "boolean", "default": False, "mode": "request_opt_in"},
     }
     return {name: definitions[name] for name in policy.get("supported_parameters", []) if name in definitions and name in supported}
 

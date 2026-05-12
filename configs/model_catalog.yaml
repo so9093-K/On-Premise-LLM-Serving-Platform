@@ -45,6 +45,7 @@ models:
         trust_remote_code: true
         enable_auto_tool_choice: true
         tool_call_parser: gemma4
+        reasoning_parser: gemma4
         chat_template: /app/configs/gemma4_chat_template.jinja
         dtype: auto
         quantization: model_config compressed-tensors; do not pass --quantization fp8
@@ -91,8 +92,15 @@ models:
         tool_calling:
           enabled: true
           tool_call_parser: gemma4
+          reasoning_parser: gemma4
           chat_template: /app/configs/gemma4_chat_template.jinja
           allow_parallel_tool_calls: false
+        reasoning:
+          enabled: true
+          default: false
+          request_parameter: reasoning
+          upstream_chat_template_kwargs:
+            enable_thinking: true
       request_parameter_policy: bounded allowlist in configs/model_serving.yaml; unknown
         chat fields rejected at Gateway
     gateway_listing:

@@ -34,7 +34,7 @@ Gateway는 외부 애플리케이션의 단일 진입점이다.
 
 | 모델 | 사용자 조정 가능 파라미터 | 비고 |
 |---|---|---|
-| `local-main` | `temperature`, `max_tokens`, `top_p`, `top_k`, `min_p`, `presence_penalty`, `frequency_penalty`, `repetition_penalty`, `stop`, `seed`, `n`, `tools`, `tool_choice`, `parallel_tool_calls`, `stream`, `stream_options` | `stream=true`는 SSE relay fast path로 지원하고 `stream_options.include_usage`는 `stream=true`와 함께 사용할 때 upstream이 지원하는 최종 usage chunk를 요청한다. `n`은 `1`만 허용. tool call은 Gemma4 parser 설정 범위에서만 허용 |
+| `local-main` | `temperature`, `max_tokens`, `top_p`, `top_k`, `min_p`, `presence_penalty`, `frequency_penalty`, `repetition_penalty`, `stop`, `seed`, `n`, `tools`, `tool_choice`, `parallel_tool_calls`, `stream`, `stream_options`, `reasoning` | `stream=true`는 SSE relay fast path로 지원하고 `stream_options.include_usage`는 `stream=true`와 함께 사용할 때 upstream이 지원하는 최종 usage chunk를 요청한다. `n`은 `1`만 허용. tool call은 Gemma4 parser 설정 범위에서만 허용. `reasoning=true`는 요청별 Gemma4 thinking opt-in이다 |
 | `local-embed` | `dimensions`, `encoding_format`, `truncate_prompt_tokens` | `dimensions`는 `768`, `512`, `256`, `128` 중 하나. `encoding_format`은 `float`로 고정 |
 | `risk-prompt` | 없음 | risk API는 `prompt`만 입력받고 detector parameter는 adapter가 `fixed_parameters`로 고정 |
 
@@ -45,6 +45,8 @@ Gateway는 외부 애플리케이션의 단일 진입점이다.
 Chat API는 OpenAI 호환 chat completions의 제한된 subset이다. 현재 노출하지 않는 표준/확장 파라미터(`response_format`, `logprobs`, `top_logprobs`, `logit_bias`, `user`, `metadata` 등)는 Gateway allowlist에서 차단한다.
 
 Tool calling을 사용할 때는 `tools`에 function tool을 포함하고 `tool_choice`를 `auto`, `required`, `none` 또는 제공된 function 이름으로 지정한다. `parallel_tool_calls`는 현재 `false`만 허용한다. Vision 요청은 bounded `data:image/*;base64,...` content part 1개만 허용하며 외부 이미지 URL fetch는 기본 차단이다.
+
+Reasoning/thinking은 기본값이 `false`다. 복잡한 디버깅·분석 요청에서만 `reasoning: true`를 명시하면 Gateway가 vLLM 전용 `chat_template_kwargs.enable_thinking=true`로 변환해 전달한다. 이 모드는 latency와 출력 토큰 사용량을 늘릴 수 있으며, 응답에는 runtime 버전에 따라 `message.reasoning` 또는 legacy `message.reasoning_content`가 포함될 수 있다. 최종 답변은 `message.content`를 사용한다.
 
 상세 schema는 `specs/openapi.gateway.yaml`, `specs/openapi.risk-adapter.yaml`, `specs/schemas/*.json`을 기준으로 한다. Gateway/Risk Adapter의 generated OpenAPI는 `src/ai_model_serving/openapi_contracts.py`를 통해 동일한 checked-in JSON schema를 request/response body에 주입한다. 따라서 `/docs`와 `/openapi.json`에서 보이는 schema는 runtime contract validation과 같은 원천을 바라본다.
 

@@ -204,9 +204,11 @@ def tool_calling_settings() -> AppSettings:
                 "tools",
                 "tool_choice",
                 "parallel_tool_calls",
+                "reasoning",
             ],
             "max_n": 1,
             "tool_calling": {"enabled": True, "max_tools": 4, "allow_parallel_tool_calls": False},
+            "reasoning": {"enabled": True, "default": False},
         },
     )
     return AppSettings(
@@ -329,6 +331,7 @@ def test_gateway_framework_documentation_endpoints_are_exposed_by_default():
     assert chat_examples["deterministic_smoke"]["value"]["temperature"] == 0
     assert chat_examples["deterministic_smoke"]["value"]["n"] == 1
     assert chat_examples["with_tools"]["value"]["parallel_tool_calls"] is False
+    assert chat_examples["with_reasoning"]["value"]["reasoning"] is True
     assert chat_examples["with_image"]["value"]["messages"][0]["content"][1]["image_url"]["url"].startswith("data:image/png;base64,")
     assert "bearerAuth" in doc["components"]["securitySchemes"]
 
@@ -843,6 +846,50 @@ def test_gateway_accepts_bounded_tool_calling_when_enabled():
     choice_mismatch = dict(payload)
     choice_mismatch["tool_choice"] = {"type": "function", "function": {"name": "lookup_stock"}}
     response = client.post("/v1/chat/completions", headers=auth_headers(), json=choice_mismatch)
+    assert response.status_code == 422
+
+
+def test_gateway_maps_reasoning_opt_in_to_vllm_chat_template_kwargs():
+    clients = FakeGatewayClients()
+    client = TestClient(create_gateway_app(tool_calling_settings(), clients))
+
+    response = client.post(
+        "/v1/chat/completions",
+        headers=auth_headers(),
+        json={
+            "model": "local-main",
+            "messages": [{"role": "user", "content": "분석해줘"}],
+            "reasoning": True,
+            "max_tokens": 64,
+        },
+    )
+
+    assert response.status_code == 200
+    assert "reasoning" not in clients.main_llm.last_payload
+    assert clients.main_llm.last_payload["chat_template_kwargs"] == {"enable_thinking": True}
+
+    response = client.post(
+        "/v1/chat/completions",
+        headers=auth_headers(),
+        json={
+            "model": "local-main",
+            "messages": [{"role": "user", "content": "hello"}],
+            "reasoning": False,
+        },
+    )
+    assert response.status_code == 200
+    assert "reasoning" not in clients.main_llm.last_payload
+    assert "chat_template_kwargs" not in clients.main_llm.last_payload
+
+    response = client.post(
+        "/v1/chat/completions",
+        headers=auth_headers(),
+        json={
+            "model": "local-main",
+            "messages": [{"role": "user", "content": "hello"}],
+            "reasoning": "yes",
+        },
+    )
     assert response.status_code == 422
 
 

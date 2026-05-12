@@ -25,6 +25,15 @@
             "properties": {
               "role": {"const": "assistant"},
               "content": {"type": ["string", "null"]},
+              "reasoning": {
+                "type": ["string", "null"],
+                "description": "Gemma4 reasoning text when the request used reasoning=true and the upstream vLLM parser emitted it."
+              },
+              "reasoning_content": {
+                "type": ["string", "null"],
+                "deprecated": true,
+                "description": "Legacy vLLM reasoning field name retained for older runtime compatibility."
+              },
               "tool_calls": {
                 "type": "array",
                 "minItems": 1,
