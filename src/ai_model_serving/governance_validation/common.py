@@ -154,7 +154,6 @@ EXPECTED_PORTS = {
     'main_llm_vllm': 9401,
     'embedding_vllm': 9402,
     'risk_prompt_vllm': 9403,
-    'risk_siren_vllm': 9404,
     'risk_adapter': 9405,
 }
 EXCLUDED_SCAN_PARTS = {

@@ -28,7 +28,6 @@ def _settings(**security_overrides):
         main_llm=endpoint,
         embedding=endpoint,
         risk_prompt=endpoint,
-        risk_siren=endpoint,
         risk_adapter_base_url="http://risk",
     )
 

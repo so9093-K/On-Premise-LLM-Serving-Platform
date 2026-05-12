@@ -67,6 +67,10 @@ def _inject_standard_error_responses(document: dict[str, Any], common_error_sche
                 response["description"] = response.get("description") or STANDARD_ERROR_DESCRIPTIONS[code]
                 content = response.setdefault("content", {}).setdefault("application/json", {})
                 content["schema"] = copy.deepcopy(common_error_schema)
+            # Inject schema for any 410 responses that are explicitly declared (e.g. retired endpoints).
+            if "410" in responses and "content" not in responses["410"]:
+                content = responses["410"].setdefault("content", {}).setdefault("application/json", {})
+                content["schema"] = copy.deepcopy(common_error_schema)
 
 def find_project_root(start: Path | None = None) -> Path:
     """Locate the repository/config root that contains the JSON contract schemas."""

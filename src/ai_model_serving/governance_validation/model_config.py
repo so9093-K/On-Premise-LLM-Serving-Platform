@@ -120,7 +120,7 @@ def validate_model_source_facts() -> None:
         if not (policy['max_output_tokens'] == serving[serving_key]['max_output_tokens'] == model['runtime']['max_output_tokens'] == 1):
             raise SystemExit(f'{logical_id} max_output_tokens must remain 1 across source-aware policy and serving config')
 
-    for rel in ['model_cards/local-main.json', 'model_cards/local-embed.json', 'model_cards/risk-prompt.json', 'model_cards/risk-siren.json']:
+    for rel in ['model_cards/local-main.json', 'model_cards/local-embed.json', 'model_cards/risk-prompt.json']:
         card = read_json(rel)
         forbidden_key = 'validation' + '_status'
         if forbidden_key in card:

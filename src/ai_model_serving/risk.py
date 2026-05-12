@@ -7,9 +7,8 @@ from uuid import uuid4
 
 from .errors import ServiceError
 
-RISK_LABEL_RE = re.compile(r"<(?P<label>SAFE|UNSAFE-(?P<code>A[12]|I[1-4]))>")
+RISK_LABEL_RE = re.compile(r"<(?P<label>SAFE|UNSAFE-(?P<code>A[12]))>")
 PROMPT_CODES = {"A1", "A2"}
-POLICY_CODES = {"I1", "I2", "I3", "I4"}
 SYSTEM_CODE_PRIORITY = [
     "GPU_MEMORY_PRESSURE",
     "INFERENCE_TIMEOUT",
@@ -18,7 +17,7 @@ SYSTEM_CODE_PRIORITY = [
     "PARSE_ERROR",
     "TRUNCATED_INPUT",
 ]
-MODEL_CODE_PRIORITY = ["A1", "A2", "I1", "I2", "I3", "I4"]
+MODEL_CODE_PRIORITY = ["A1", "A2"]
 
 
 @dataclass(frozen=True)
@@ -38,12 +37,6 @@ PROMPT_DETECTOR = DetectorSpec(
     source_model="risk-prompt",
     family="prompt_attack",
     allowed_codes=frozenset(PROMPT_CODES),
-)
-SIREN_DETECTOR = DetectorSpec(
-    name="siren",
-    source_model="risk-siren",
-    family="policy_risk",
-    allowed_codes=frozenset(POLICY_CODES),
 )
 
 

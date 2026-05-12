@@ -13,7 +13,7 @@
       "id": 100,
       "type": "text",
       "title": "GPU Operator Guide",
-      "description": "Action guide for A6000-class GPU operation. No Data means check dcgm-exporter/cAdvisor/vLLM scrape.",
+      "description": "Action guide for RTX 6000 Ada GPU operation. No Data means check dcgm-exporter/cAdvisor/vLLM scrape.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"

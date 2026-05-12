@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parents[2]
 def test_gpu_resource_requirement_reference_is_packaged() -> None:
     doc = (ROOT / "docs/resources/gpu_resource_requirements_48gb.md").read_text(encoding="utf-8")
     assert "48GB VRAM 단일 GPU" in doc
-    assert "0.765" in doc
+    assert "0.825" in doc
     assert "runtime peak" in doc
 
 
@@ -261,7 +261,8 @@ def test_p2_runtime_validation_harness_is_packaged() -> None:
     assert "--prefix-caching-hash-algo sha256_cbor" in output
     assert "--enable-auto-tool-choice" in output
     assert "--tool-call-parser gemma4" in output
-    assert "--reasoning-parser gemma4" in output
+    assert "--reasoning-parser" not in output
+    assert "--chat-template" in output
 
 
 

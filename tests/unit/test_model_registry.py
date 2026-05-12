@@ -16,7 +16,7 @@ def test_model_registry_normalizes_public_models_and_serving_records():
         load_yaml("configs/model_serving.yaml"),
     )
 
-    assert registry.logical_ids() == ("local-main", "local-embed", "risk-prompt", "risk-siren")
+    assert registry.logical_ids() == ("local-main", "local-embed", "risk-prompt")
     assert registry.public_logical_ids() == ("local-main", "local-embed", "risk-prompt")
     assert registry.alignment_issues() == ()
 
@@ -91,7 +91,6 @@ def test_model_registry_projects_operator_inventory_without_role_mapping():
     assert rows["local-main"]["input_modalities"] == "text,image"
     assert rows["local-main"]["max_images"] == 1
     assert rows["local-embed"]["max_model_len"] == 2048
-    assert rows["risk-siren"]["max_output_tokens"] == 1
 
 
 def test_model_registry_projects_model_cards_and_runtime_validation_matrix():

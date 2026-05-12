@@ -37,9 +37,8 @@ class FakeDetectorClient:
 
 
 class FakeRiskClients:
-    def __init__(self, prompt_label="<SAFE>", siren_label="<SAFE>", prompt_fail=False):
+    def __init__(self, prompt_label="<SAFE>", prompt_fail=False):
         self.prompt = FakeDetectorClient(prompt_label, fail=prompt_fail)
-        self.siren = FakeDetectorClient(siren_label)
 
 
 def settings() -> AppSettings:
@@ -53,7 +52,6 @@ def settings() -> AppSettings:
         main_llm=endpoint,
         embedding=endpoint,
         risk_prompt=RuntimeEndpoint("risk-prompt", "http://prompt/v1", "risk-prompt", 1),
-        risk_siren=RuntimeEndpoint("risk-siren", "http://siren/v1", "risk-siren", 1),
         risk_adapter_base_url="http://risk",
     )
 
@@ -112,7 +110,6 @@ def test_risk_adapter_framework_documentation_endpoints_are_exposed_by_default()
         main_llm=cfg.main_llm,
         embedding=cfg.embedding,
         risk_prompt=cfg.risk_prompt,
-        risk_siren=cfg.risk_siren,
         risk_adapter_base_url=cfg.risk_adapter_base_url,
     )
     with TestClient(create_risk_adapter_app(cfg, FakeRiskClients())) as admin_client:
@@ -150,7 +147,6 @@ def test_risk_adapter_internal_auth_is_independent_from_public_api_auth():
         main_llm=cfg.main_llm,
         embedding=cfg.embedding,
         risk_prompt=cfg.risk_prompt,
-        risk_siren=cfg.risk_siren,
         risk_adapter_base_url=cfg.risk_adapter_base_url,
     )
     client = TestClient(create_risk_adapter_app(cfg, FakeRiskClients()))
@@ -203,7 +199,7 @@ def test_risk_adapter_safe_label_uses_null_code():
 
 
 def test_risk_adapter_aggregate_partial_on_detector_timeout():
-    client = TestClient(create_risk_adapter_app(settings(), FakeRiskClients(prompt_fail=True, siren_label="<SAFE>")))
+    client = TestClient(create_risk_adapter_app(settings(), FakeRiskClients(prompt_fail=True)))
     response = client.post("/v1/risk/assessments", headers=auth_headers(), json={"prompt": "hello"})
     assert response.status_code == 200
     body = response.json()
@@ -263,7 +259,6 @@ def test_risk_adapter_rejects_oversized_request_body():
         main_llm=cfg.main_llm,
         embedding=cfg.embedding,
         risk_prompt=cfg.risk_prompt,
-        risk_siren=cfg.risk_siren,
         risk_adapter_base_url=cfg.risk_adapter_base_url,
         max_request_body_bytes=32,
     )
@@ -323,7 +318,6 @@ def test_risk_adapter_returns_truncated_input_signal_before_detector_call():
         main_llm=cfg.main_llm,
         embedding=cfg.embedding,
         risk_prompt=cfg.risk_prompt,
-        risk_siren=cfg.risk_siren,
         risk_adapter_base_url=cfg.risk_adapter_base_url,
         risk_input_max_chars=4,
     )

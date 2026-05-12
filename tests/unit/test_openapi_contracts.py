@@ -128,7 +128,7 @@ def test_generated_openapi_includes_static_error_response_surface():
     expected = {"401", "413", "422", "429", "500", "502", "503", "504"}
     for doc, paths in [
         (gateway_doc, ["/v1/chat/completions", "/v1/embeddings", "/v1/risk/assessments"]),
-        (risk_doc, ["/v1/risk/detectors/prompt/assessments", "/v1/risk/detectors/siren/assessments", "/v1/risk/assessments"]),
+        (risk_doc, ["/v1/risk/detectors/prompt/assessments", "/v1/risk/assessments"]),
     ]:
         for path in paths:
             responses = doc["paths"][path]["post"]["responses"]

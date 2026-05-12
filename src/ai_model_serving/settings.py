@@ -116,14 +116,6 @@ def _risk_detectors_from_config(risk_adapter_cfg: dict[str, Any]) -> tuple[RiskD
                 "family": "prompt_attack",
                 "allowed_codes": ["A1", "A2"],
             },
-            "siren": {
-                "enabled": True,
-                "route": "/v1/risk/detectors/siren/assessments",
-                "service_key": "risk_siren",
-                "source_model": "risk-siren",
-                "family": "policy_risk",
-                "allowed_codes": ["I1", "I2", "I3", "I4"],
-            },
         }
     detectors: list[RiskDetectorSettings] = []
     for key, cfg in detectors_cfg.items():
@@ -234,7 +226,6 @@ def load_settings(root: Path | None = None, env_file: Path | str | None = None) 
         main_llm=runtime_endpoints.get("main_llm"),
         embedding=runtime_endpoints.get("embedding"),
         risk_prompt=runtime_endpoints.get("risk_prompt"),
-        risk_siren=runtime_endpoints.get("risk_siren"),
         max_request_body_bytes=_as_int(
             "MAX_REQUEST_BODY_BYTES",
             int(operational_limits.get("max_request_body_bytes", 1_000_000)),

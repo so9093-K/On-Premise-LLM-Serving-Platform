@@ -178,11 +178,9 @@ def test_load_settings_rejects_risk_adapter_timeout_below_sequential_budget(monk
 
 def test_load_settings_supports_per_model_timeout_overrides(monkeypatch):
     monkeypatch.setenv("RISK_PROMPT_TIMEOUT_SECONDS", "3")
-    monkeypatch.setenv("RISK_SIREN_TIMEOUT_SECONDS", "3")
     monkeypatch.setenv("RISK_ADAPTER_TIMEOUT_SECONDS", "10")
     settings = load_settings()
     assert settings.risk_prompt.timeout_seconds == 3
-    assert settings.risk_siren is None
     assert "risk_siren" not in settings.runtime_endpoints
 
 

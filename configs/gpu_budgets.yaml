@@ -1,11 +1,12 @@
 gpu:
-  device_class: NVIDIA RTX A6000
+  device_class: NVIDIA RTX 6000 Ada Generation
   total_vram_gib: 48
   reserve_gib:
     minimum: 6
     recommended: 8
   total_gpu_memory_utilization:
-    recommended_start: 0.765
+    recommended_start: 0.825
+    budget_breakdown: "main_llm 0.72 + embedding 0.04 + risk_prompt 0.065 = 0.825 (raised 0.66→0.72 for 16K KV cache on RTX 6000 Ada)"
     upper_review_threshold: 0.89
     avoid_above: 0.9
     conservative_range:
@@ -17,15 +18,15 @@ gpu:
     for a specific increase.
 budgets:
   main_llm:
-    target_gib: 31.7
+    target_gib: 34.6
     range_gib:
-    - 30
-    - 32
-    gpu_memory_utilization: 0.66
+    - 34
+    - 35
+    gpu_memory_utilization: 0.72
     tuning_range:
       gpu_memory_utilization:
-      - 0.62
-      - 0.66
+      - 0.68
+      - 0.72
       adjustment_priority: last
       do_not_increase_before_live_validation:
       - max_model_len
@@ -53,20 +54,6 @@ budgets:
       gpu_memory_utilization:
       - 0.05
       - 0.065
-      adjustment_priority: third
-      fixed_generation_budget:
-        max_output_tokens: 1
-  risk_siren:
-    enabled: false
-    target_gib: 8.64
-    range_gib:
-    - 8.0
-    - 9.6
-    gpu_memory_utilization: 0.18
-    tuning_range:
-      gpu_memory_utilization:
-      - 0.18
-      - 0.20
       adjustment_priority: second
       fixed_generation_budget:
         max_output_tokens: 1

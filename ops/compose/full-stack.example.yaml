@@ -35,7 +35,7 @@ services:
 
   main-llm-vllm:
     image: ${VLLM_IMAGE:?Set VLLM_IMAGE to a tested vLLM OpenAI image tag}
-    command: ["--model", "LargitData/gemma-4-26b-a4b-it-fp8", "--served-model-name", "local-main", "--host", "0.0.0.0", "--port", "9401", "--max-model-len", "16384", "--max-num-seqs", "1", "--max-num-batched-tokens", "16384", "--gpu-memory-utilization", "0.66", "--tensor-parallel-size", "1", "--dtype", "auto", "--trust-remote-code", "--enable-prefix-caching", "--prefix-caching-hash-algo", "sha256_cbor", "--enable-auto-tool-choice", "--tool-call-parser", "gemma4", "--reasoning-parser", "gemma4"]
+    command: ["--model", "LargitData/gemma-4-26b-a4b-it-fp8", "--served-model-name", "local-main", "--host", "0.0.0.0", "--port", "9401", "--max-model-len", "16384", "--max-num-seqs", "1", "--max-num-batched-tokens", "16384", "--gpu-memory-utilization", "0.72", "--tensor-parallel-size", "1", "--dtype", "auto", "--trust-remote-code", "--enable-prefix-caching", "--prefix-caching-hash-algo", "sha256_cbor", "--enable-auto-tool-choice", "--tool-call-parser", "gemma4", "--chat-template", "/app/configs/gemma4_chat_template.jinja"]
     expose: ["9401"]
     env_file: ../../.env
     environment:
@@ -44,6 +44,7 @@ services:
       HF_HOME: /root/.cache/huggingface
     volumes:
       - ${HF_CACHE_DIR:-./model_cache/huggingface}:/root/.cache/huggingface
+      - ../../configs:/app/configs:ro
     healthcheck:
       test: ["CMD-SHELL", "python3 -c \"import urllib.request; urllib.request.urlopen('http://localhost:9401/health')\""]
       interval: 30s
@@ -83,6 +84,9 @@ services:
   risk-prompt-vllm:
     image: ${RISK_VLLM_IMAGE:?Set RISK_VLLM_IMAGE to a tested vLLM OpenAI image tag for risk models}
     command: ["--model", "kakaocorp/kanana-safeguard-prompt-2.1b", "--served-model-name", "risk-prompt", "--host", "0.0.0.0", "--port", "9403", "--max-model-len", "2048", "--max-num-seqs", "1", "--max-num-batched-tokens", "2048", "--gpu-memory-utilization", "0.065", "--dtype", "bfloat16", "--quantization", "bitsandbytes", "--load-format", "bitsandbytes", "--trust-remote-code", "--enforce-eager"]
+    depends_on:
+      embedding-vllm:
+        condition: service_healthy
     expose: ["9403"]
     env_file: ../../.env
     environment:

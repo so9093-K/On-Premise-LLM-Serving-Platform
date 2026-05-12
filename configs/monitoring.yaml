@@ -95,7 +95,6 @@ metric_sources:
     - 9401
     - 9402
     - 9403
-    - 9404
     metrics_path: /metrics
     required_metric_families:
     - request_rate

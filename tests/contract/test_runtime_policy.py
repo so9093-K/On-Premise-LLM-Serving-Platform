@@ -66,10 +66,8 @@ def test_model_source_facts_and_runtime_policy_are_separated() -> None:
     assert main['project_runtime_policy']['max_image_bytes'] == 750000
     assert set(main['project_runtime_policy']['allowed_image_mime_types']) == {'image/jpeg', 'image/png', 'image/webp'}
     prompt = catalog['risk-prompt']
-    siren = catalog['risk-siren']
     assert prompt['source_facts']['model_card_max_new_tokens'] == 1
-    assert siren['source_facts']['model_card_max_new_tokens'] == 1
-    for rel in ['local-main', 'local-embed', 'risk-prompt', 'risk-siren']:
+    for rel in ['local-main', 'local-embed', 'risk-prompt']:
         card = json.loads((ROOT / f'model_cards/{rel}.json').read_text(encoding='utf-8'))
         assert ('validation' + '_status') not in card
         assert 'source_facts' in card
@@ -97,12 +95,12 @@ def test_common_error_codes_are_enumerated() -> None:
 def test_model_catalog_and_model_contracts_are_cross_checked() -> None:
     catalog = yaml.safe_load((ROOT / 'configs/model_catalog.yaml').read_text(encoding='utf-8'))['models']
     contracts = yaml.safe_load((ROOT / 'contracts/model_contracts.yaml').read_text(encoding='utf-8'))['models']
-    assert set(contracts) == set(catalog) == {'local-main', 'local-embed', 'risk-prompt', 'risk-siren'}
+    assert set(contracts) == set(catalog) == {'local-main', 'local-embed', 'risk-prompt'}
     for logical_id, cfg in catalog.items():
         runtime = cfg['runtime']
         assert contracts[logical_id]['port'] == runtime['port']
         listing = cfg['gateway_listing']
-        assert listing['enabled'] is (logical_id != 'risk-siren')
+        assert listing['enabled'] is True
         assert listing['backend']
         assert listing['capabilities']
 
@@ -145,7 +143,8 @@ def test_main_runtime_features_and_request_parameter_policy_are_explicit() -> No
     assert features['prefix_caching']['hash_algo'] == 'sha256_cbor'
     assert features['tool_calling']['enabled'] is True
     assert features['tool_calling']['tool_call_parser'] == 'gemma4'
-    assert features['tool_calling']['reasoning_parser'] == 'gemma4'
+    assert 'reasoning_parser' not in features['tool_calling']
+    assert features['tool_calling']['chat_template'] == '/app/configs/gemma4_chat_template.jinja'
     policy = main['request_parameter_policy']
     assert policy['allow_unlisted_parameters'] is False
     for field in ['top_p', 'top_k', 'min_p', 'repetition_penalty', 'tools', 'tool_choice']:
@@ -204,7 +203,6 @@ def test_risk_detector_quantization_defaults_are_preserved() -> None:
 def test_kanana_risk_config_shape_facts_are_recorded() -> None:
     catalog = yaml.safe_load((ROOT / 'configs/model_catalog.yaml').read_text(encoding='utf-8'))['models']
     prompt_shape = catalog['risk-prompt']['source_facts']['config_shape']
-    siren_shape = catalog['risk-siren']['source_facts']['config_shape']
 
     assert prompt_shape['model_type'] == 'llama'
     assert prompt_shape['architecture'] == 'LlamaForCausalLM'
@@ -214,10 +212,3 @@ def test_kanana_risk_config_shape_facts_are_recorded() -> None:
     assert prompt_shape['hidden_size_divisible_by_attention_heads'] is False
     assert prompt_shape['attention_projection_width'] == 3072
     assert prompt_shape['requires_runtime_head_dim_support'] is True
-
-    assert siren_shape['hidden_size'] == 4096
-    assert siren_shape['num_attention_heads'] == 32
-    assert siren_shape['head_dim'] == 128
-    assert siren_shape['hidden_size_divisible_by_attention_heads'] is True
-    assert siren_shape['attention_projection_width'] == 4096
-    assert siren_shape['requires_runtime_head_dim_support'] is False

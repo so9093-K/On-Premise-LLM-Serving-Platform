@@ -14,8 +14,3 @@ models:
     port: 9403
     public_endpoint: /v1/risk/detectors/prompt/assessments
     runtime_endpoint: /v1/chat/completions
-  risk-siren:
-    runtime: vllm+adapter
-    port: 9404
-    public_endpoint: /v1/risk/detectors/siren/assessments
-    runtime_endpoint: /v1/chat/completions

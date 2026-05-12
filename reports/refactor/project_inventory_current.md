@@ -2,7 +2,7 @@
 
 이 리포트는 현재 source tree에서 생성되며 로컬 runtime/cache/build 디렉터리는 제외한다.
 
-- 검토 파일 수: **286**
+- 검토 파일 수: **285**
 - CSV matrix: `reports/refactor/project_inventory_current.csv`
 - JSON matrix: `reports/refactor/project_inventory_current.json`
 
@@ -30,7 +30,7 @@
 | `docs` | 49 |
 | `examples` | 1 |
 | `harness` | 4 |
-| `model_cards` | 4 |
+| `model_cards` | 3 |
 | `ops` | 15 |
 | `pyproject.toml` | 1 |
 | `reports` | 20 |
@@ -58,21 +58,21 @@
 
 | 경로 | 줄 수 | 담당 | 검토 메모 |
 |---|---:|---|---|
-| `reports/refactor/project_inventory_current.json` | 3405 | handoff-reporting | handoff/review artifact; avoid stale phase snapshots in active package |
-| `tests/unit/test_gateway_app.py` | 932 | quality | test coverage; keep deterministic and avoid live GPU dependency |
+| `specs/openapi.gateway.yaml` | 3624 | api-contracts | supporting project file |
+| `reports/refactor/project_inventory_current.json` | 3394 | handoff-reporting | handoff/review artifact; avoid stale phase snapshots in active package |
+| `specs/openapi.risk-adapter.yaml` | 1630 | api-contracts | supporting project file |
+| `tests/unit/test_gateway_app.py` | 927 | quality | test coverage; keep deterministic and avoid live GPU dependency |
 | `ops/grafana/dashboards/gpu_capacity_and_oom_risk.json` | 761 | operations | supporting project file |
 | `ops/grafana/dashboards/chat_api_deep_dive.json` | 739 | operations | supporting project file |
-| `reports/runtime/operator_status_bundle.json` | 623 | handoff-reporting | generated operator report; regenerate through make operator-reports before handoff |
 | `ops/grafana/dashboards/executive_runtime_overview.json` | 606 | operations | supporting project file |
-| `src/ai_model_serving/governance_validation/docs_ops.py` | 594 | governance-validation | application code; preserve public API behavior and compatibility facades |
+| `src/ai_model_serving/governance_validation/docs_ops.py` | 604 | governance-validation | application code; preserve public API behavior and compatibility facades |
 | `ops/grafana/dashboards/risk_signal_operations.json` | 585 | operations | supporting project file |
 | `src/ai_model_serving/domain/model_registry.py` | 577 | domain-registry | registry/domain code; monitor size as projections grow |
+| `reports/runtime/operator_status_bundle.json` | 564 | handoff-reporting | generated operator report; regenerate through make operator-reports before handoff |
 | `ops/grafana/dashboards/model_runtime_deep_dive.json` | 555 | operations | supporting project file |
-| `scripts/models/modelctl.py` | 552 | operator-ux | operator/developer command; expose through Makefile/help if user-facing |
-| `src/ai_model_serving/apps/gateway.py` | 479 | application | application code; preserve public API behavior and compatibility facades |
-| `docs/resources/gpu_resource_requirements_48gb.md` | 426 | documentation | documentation; keep relative links valid and avoid duplicating current command flow |
-| `specs/openapi.gateway.yaml` | 425 | api-contracts | supporting project file |
-| `README.md` | 423 | project-maintenance | primary navigation or current-state entrypoint; keep synchronized with Makefile and reports |
+| `scripts/models/modelctl.py` | 551 | operator-ux | operator/developer command; expose through Makefile/help if user-facing |
+| `src/ai_model_serving/apps/gateway.py` | 475 | application | application code; preserve public API behavior and compatibility facades |
+| `README.md` | 422 | project-maintenance | primary navigation or current-state entrypoint; keep synchronized with Makefile and reports |
 
 ## 관리 해석
 

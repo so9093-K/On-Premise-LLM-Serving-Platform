@@ -40,7 +40,7 @@
 
 | 구분 | 사실 | 운영 해석 |
 |---|---|---|
-| Main LLM | `LargitData/gemma-4-26b-a4b-it-fp8`은 `google/gemma-4-26B-A4B-it` 기반 vLLM용 offline FP8 checkpoint다. | A6000에서는 native W8A8 FP8 경로를 전제로 하지 않고, 실제 boot/latency/quality 검증 전까지 보수적으로 budget한다. |
+| Main LLM | `LargitData/gemma-4-26b-a4b-it-fp8`은 `google/gemma-4-26B-A4B-it` 기반 vLLM용 offline FP8 checkpoint다. | RTX 6000 Ada에서 TRITON FP8 MoE backend가 확인됐으나, 실제 boot/latency/quality 검증 전까지 보수적으로 budget한다. |
 | Gemma 4 26B-A4B | 전체 26B급 모델이나 active parameter는 더 작다. | 계산량은 줄어도 상주 weight와 KV cache 관점에서는 26B급 모델로 취급한다. |
 | Embedding | 300M급 경량 모델이다. | 모델은 작지만 별도 vLLM process의 CUDA context와 executor overhead를 포함한다. |
 | Prompt Risk | 출력은 `<SAFE>`, `<UNSAFE-A1>` 같은 단일 토큰 signal이다. | `max_num_seqs=1`, `max_output_tokens=1`, `--enforce-eager` 기본값으로 운영한다. |
@@ -49,10 +49,10 @@
 
 | runtime | service | `gpu_memory_utilization` 시작값 | 비고 |
 |---|---|---:|---|
-| Main LLM | `main-llm-vllm` | `0.66` | 16K context, seq 1 기준 보수 시작값 |
+| Main LLM | `main-llm-vllm` | `0.72` | 16K context, seq 1 기준; 0.99 GiB KV cache 부족으로 0.66→0.72 상향 (RTX 6000 Ada) |
 | Embedding | `embedding-vllm` | `0.04` | pooling runtime |
 | Prompt Risk | `risk-prompt-vllm` | `0.065` | 단일 토큰 signal classifier |
-| 합계 | enabled vLLM total | `0.765` | 48GB 기준 약 36.7GiB 예약 |
+| 합계 | enabled vLLM total | `0.825` | 48GB 기준 약 39.6GiB 예약 |
 | reserve | system/runtime headroom | 8GiB 이상 권장 | 다운로드, warmup, allocator fragmentation, monitoring overhead 포함 |
 
 `runtime peak`는 각 요청 순간의 activation/workspace까지 포함한 최대 사용량이다. 단순 reserved budget이 낮아도 긴 prompt, vision input, warmup, CUDA allocator fragmentation이 겹치면 OOM이 날 수 있으므로, target GPU에서 boot smoke와 30분 soak를 별도로 통과해야 한다.
@@ -96,4 +96,4 @@ vllm serve LargitData/gemma-4-26b-a4b-it-fp8 \
 
 48GB 단일 GPU 기본 목표는 `LargitData/gemma-4-26b-a4b-it-fp8`, `google/embeddinggemma-300m`, `kakaocorp/kanana-safeguard-prompt-2.1b`의 3개 enabled runtime 구성이다.
 
-이 구성은 registry-driven runtime, detector registry, prompt-only aggregate, retired `risk-siren` policy를 전제로 한다. 운영 확정 전에는 A6000 target 환경에서 boot log, idle VRAM, p95 TTFT, decode tok/s, restart/OOM 0을 기록해야 한다.
+이 구성은 registry-driven runtime, detector registry, prompt-only aggregate, retired `risk-siren` policy를 전제로 한다. 운영 확정 전에는 RTX 6000 Ada 환경에서 boot log, idle VRAM, p95 TTFT, decode tok/s, restart/OOM 0을 기록해야 한다.

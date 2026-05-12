@@ -28,7 +28,6 @@
         "top_k": {"type": "integer", "min": -1},
         "min_p": {"type": "number", "min": 0, "max": 1},
         "seed": {"type": "integer", "min": 0},
-        "n": {"type": "integer", "min": 1, "max": 1},
         "stream": {"type": "boolean"}
       }
     }
@@ -40,10 +39,9 @@
 
 | 모델 | 사용자 조정 가능 parameter | 설명 |
 |---|---|---|
-| `local-main` | `temperature`, `max_tokens`, `top_p`, `top_k`, `min_p`, `presence_penalty`, `frequency_penalty`, `repetition_penalty`, `stop`, `seed`, `n`, `tools`, `tool_choice`, `parallel_tool_calls`, `stream`, `stream_options` | Chat/sampling/tool 관련 값만 Gateway contract 범위에서 조정한다. `stream=true`는 Gateway streaming fast path로 SSE를 실시간 relay한다. `stream_options.include_usage=true`는 `stream=true`와 함께 사용할 때 upstream이 지원하는 OpenAI-compatible final usage chunk를 그대로 전달한다. |
+| `local-main` | `temperature`, `max_tokens`, `top_p`, `top_k`, `min_p`, `presence_penalty`, `frequency_penalty`, `repetition_penalty`, `stop`, `seed`, `tools`, `tool_choice`, `parallel_tool_calls`, `stream`, `stream_options` | Chat/sampling/tool 관련 값만 Gateway contract 범위에서 조정한다. `n`은 최대값이 1로 고정되므로 클라이언트 UI에 노출하지 않는다. `stream=true`는 Gateway streaming fast path로 SSE를 실시간 relay한다. `stream_options.include_usage=true`는 `stream=true`와 함께 사용할 때 upstream이 지원하는 OpenAI-compatible final usage chunk를 그대로 전달한다. |
 | `local-embed` | `dimensions`, `encoding_format`, `truncate_prompt_tokens` | embedding dimension과 prompt truncation 범위만 조정한다. |
 | `risk-prompt` | 없음 | risk endpoint는 `prompt` 입력만 받는다. detector sampling 값은 adapter가 고정한다. |
-| `risk-siren` | 없음 | risk endpoint는 `prompt` 입력만 받는다. detector sampling 값은 adapter가 고정한다. |
 
 ## 클라이언트 UI 권장 흐름
 

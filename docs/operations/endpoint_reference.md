@@ -19,7 +19,7 @@
 | DCGM Exporter | compose 내부 전용 (9400) | GPU raw metrics |
 | **Infisical** | `http://localhost:9420` | 시크릿 관리 웹 UI (선택) |
 
-> `full-stack.private-network.yaml` 기준: vLLM runtime(9401–9404), Risk Adapter(9405), Prometheus, cAdvisor, DCGM Exporter는 compose 내부 네트워크 전용이며 host에서 직접 접근하지 않는다.  
+> `full-stack.private-network.yaml` 기준: vLLM runtime(9401–9403), Risk Adapter(9405), Prometheus, cAdvisor, DCGM Exporter는 compose 내부 네트워크 전용이며 host에서 직접 접근하지 않는다.  
 > Prometheus에 직접 접근하려면 SSH 포트 포워딩(`ssh -L 9410:localhost:9090 <host>`)을 사용한다. Grafana는 Prometheus 데이터를 UI로 제공하므로 대부분의 metrics 조회는 Grafana를 통한다.  
 > Infisical은 선택 서비스로 `make infisical-up`으로 별도 기동한다.
 
@@ -46,7 +46,7 @@
 | POST | `/v1/chat/completions` | Chat completion (`local-main`) |
 | POST | `/v1/embeddings` | Embedding 생성 (`local-embed`) |
 | POST | `/v1/risk/detectors/prompt/assessments` | Prompt risk signal |
-| POST | `/v1/risk/detectors/siren/assessments` | Siren risk signal |
+| POST | `/v1/risk/detectors/siren/assessments` | Siren risk signal (retired — 호출 시 410 Gone 반환) |
 | POST | `/v1/risk/assessments` | 통합 risk signal |
 
 사용자 API는 `Authorization: Bearer <API_KEY>` 필요.  

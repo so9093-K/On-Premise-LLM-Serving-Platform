@@ -55,7 +55,7 @@ make stop
 | `ops/ready_local.sh` | app-only `/health` 상태를 strict하게 확인한다. app service가 내려가 있으면 실패하며 vLLM은 요구하지 않는다. |
 | `ops/ready_full.sh` | strict `/ready`와 smoke test를 실행한다. 실제 vLLM runtime이 필요하다. |
 | `ops/ready_check.sh` | backward-compatible alias로 `ready_full.sh`를 호출한다. |
-| `compose/preflight_compose.sh` | full-stack compose 전 Docker, GPU 표시, host-published port, secret 상태를 점검한다. compose 내부 vLLM port 9401–9404는 host port 검사 대상이 아니며, monitoring host port는 `.env`의 `PROMETHEUS_PORT`, `GRAFANA_PORT`, `DCGM_EXPORTER_PORT`, `CADVISOR_PORT` override를 따른다. |
+| `compose/preflight_compose.sh` | full-stack compose 전 Docker, GPU 표시, host-published port, secret 상태를 점검한다. compose 내부 vLLM port 9401–9403는 host port 검사 대상이 아니며, monitoring host port는 `.env`의 `PROMETHEUS_PORT`, `GRAFANA_PORT`, `DCGM_EXPORTER_PORT`, `CADVISOR_PORT` override를 따른다. |
 | `ops/doctor.sh` | Python, 계약, bash syntax, `.env`, local status를 한 번에 진단한다. |
 | `validation/runtime_validation.py` | 실제 runtime 검증 결과를 `reports/runtime/` 아래에 기록한다. |
 | `reports/runtime_targets_report.py` | ModelRegistry projection에서 runtime target inventory JSON/Markdown을 생성한다. |

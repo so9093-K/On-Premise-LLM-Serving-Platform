@@ -156,7 +156,6 @@ def validate_generated_openapi_contract_schemas() -> None:
         '/v1/chat/completions': 'chat_completion_request.schema.json',
         '/v1/embeddings': 'embedding_request.schema.json',
         '/v1/risk/detectors/prompt/assessments': 'risk_assessment_request.schema.json',
-        '/v1/risk/detectors/siren/assessments': 'risk_assessment_request.schema.json',
         '/v1/risk/assessments': 'risk_assessment_request.schema.json',
     }
     expected_gateway_responses = {
@@ -164,12 +163,10 @@ def validate_generated_openapi_contract_schemas() -> None:
         '/v1/chat/completions': ('post', 'chat_completion_response.schema.json'),
         '/v1/embeddings': ('post', 'embedding_response.schema.json'),
         '/v1/risk/detectors/prompt/assessments': ('post', 'risk_assessment_response.schema.json'),
-        '/v1/risk/detectors/siren/assessments': ('post', 'risk_assessment_response.schema.json'),
         '/v1/risk/assessments': ('post', 'risk_assessment_response.schema.json'),
     }
     expected_risk_requests = {
         '/v1/risk/detectors/prompt/assessments': 'risk_assessment_request.schema.json',
-        '/v1/risk/detectors/siren/assessments': 'risk_assessment_request.schema.json',
         '/v1/risk/assessments': 'risk_assessment_request.schema.json',
     }
 

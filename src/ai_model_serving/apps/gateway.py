@@ -28,7 +28,7 @@ from ..status import NOT_READY, READY
 CHAT_EXAMPLE: dict[str, Any] = {
     "model": "local-main",
     "messages": [{"role": "user", "content": "안녕하세요. 간단히 자기소개를 해주세요."}],
-    "max_tokens": 128,
+    "max_tokens": 512,
     "temperature": 0.7,
 }
 
@@ -81,7 +81,7 @@ GATEWAY_TAGS_METADATA = [
 
 PLAYGROUND_PARAMS: list[dict[str, Any]] = [
     {"name": "temperature",        "label": "Temperature",        "type": "float",        "min": 0,    "max": 2.0,        "step": 0.01, "default": 0.7,  "desc": "높을수록 창의적·다양, 낮을수록 결정적·일관"},
-    {"name": "max_tokens",         "label": "Max Tokens",         "type": "int",          "min": 1,    "max": 1024,       "step": 1,    "default": 128,  "desc": "생성할 최대 토큰 수 (모델 설정에 따라 상한 변동)"},
+    {"name": "max_tokens",         "label": "Max Tokens",         "type": "int",          "min": 1,    "max": 1024,       "step": 1,    "default": 512,  "desc": "생성할 최대 토큰 수 (모델 설정에 따라 상한 변동)"},
     {"name": "top_p",              "label": "Top-p",              "type": "float",        "min": 0.01, "max": 1.0,        "step": 0.01, "default": 1.0,  "desc": "Nucleus sampling — 상위 누적 확률 임계값"},
     {"name": "min_p",              "label": "Min-p",              "type": "float",        "min": 0.0,  "max": 1.0,        "step": 0.01, "default": 0.0,  "desc": "최고 확률 대비 낮은 토큰 필터링"},
     {"name": "presence_penalty",   "label": "Presence Penalty",   "type": "float",        "min": -2.0, "max": 2.0,        "step": 0.01, "default": 0.0,  "desc": "이미 등장한 토큰 억제 (양수=다양성↑)"},
@@ -107,7 +107,7 @@ GATEWAY_DESCRIPTION_TEMPLATE = """
 
 `/v1/models`의 각 item은 `request_parameters`를 포함합니다. 클라이언트 UI는 이 값을 읽어 모델별 입력 폼을 동적으로 구성할 수 있습니다.
 
-- `local-main`: `temperature`, `max_tokens`, `top_p`, `top_k`, `min_p`, penalty, `seed`, `n`, tool 관련 parameter를 Gateway 제약 안에서 조정할 수 있습니다. `stream=true`는 vLLM SSE 응답을 Gateway가 실시간 relay하는 fast path로 지원합니다.
+- `local-main`: `temperature`, `max_tokens`, `top_p`, `top_k`, `min_p`, penalty, `seed`, tool 관련 parameter를 Gateway 제약 안에서 조정할 수 있습니다. `stream=true`는 vLLM SSE 응답을 Gateway가 실시간 relay하는 fast path로 지원합니다.
 - `local-embed`: `dimensions`, `encoding_format`, `truncate_prompt_tokens`를 조정할 수 있습니다.
 - `risk-prompt`: 사용자가 조정할 수 있는 sampling parameter는 없습니다. risk API는 `prompt` 입력만 받고 detector 호출 parameter는 adapter가 고정합니다.
 
@@ -381,6 +381,7 @@ def create_gateway_app(settings: AppSettings | None = None, clients: GatewayClie
 
     @app.post(
         "/v1/risk/detectors/siren/assessments",
+        status_code=410,
         dependencies=api_dependencies,
         tags=["Risk"],
         summary="Retired Siren detector 신호",
@@ -422,7 +423,6 @@ def create_gateway_app(settings: AppSettings | None = None, clients: GatewayClie
             ("POST", "/v1/chat/completions"): "chat_completion_response.schema.json",
             ("POST", "/v1/embeddings"): "embedding_response.schema.json",
             ("POST", "/v1/risk/detectors/prompt/assessments"): "risk_assessment_response.schema.json",
-            ("POST", "/v1/risk/detectors/siren/assessments"): "risk_assessment_response.schema.json",
             ("POST", "/v1/risk/assessments"): "risk_assessment_response.schema.json",
         },
         request_examples={
@@ -459,6 +459,51 @@ def create_gateway_app(settings: AppSettings | None = None, clients: GatewayClie
                         "max_tokens": 256,
                         "temperature": 0.8,
                         "top_p": 0.9,
+                    },
+                },
+                "with_tools": {
+                    "summary": "Tool calling (함수 호출)",
+                    "value": {
+                        "model": "local-main",
+                        "messages": [{"role": "user", "content": "서울의 현재 날씨가 어때요?"}],
+                        "tools": [
+                            {
+                                "type": "function",
+                                "function": {
+                                    "name": "get_weather",
+                                    "description": "특정 위치의 날씨 정보를 조회합니다.",
+                                    "parameters": {
+                                        "type": "object",
+                                        "properties": {
+                                            "location": {"type": "string", "description": "도시 이름 (예: 서울)"},
+                                        },
+                                        "required": ["location"],
+                                    },
+                                },
+                            }
+                        ],
+                        "tool_choice": "auto",
+                    },
+                },
+                "with_image": {
+                    "summary": "Vision 요청 (이미지 + 텍스트)",
+                    "value": {
+                        "model": "local-main",
+                        "messages": [
+                            {
+                                "role": "user",
+                                "content": [
+                                    {"type": "text", "text": "이 이미지가 무엇인지 설명해주세요."},
+                                    {
+                                        "type": "image_url",
+                                        "image_url": {
+                                            "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI6QAAAABJRU5ErkJggg==",
+                                        },
+                                    },
+                                ],
+                            }
+                        ],
+                        "max_tokens": 256,
                     },
                 },
             },

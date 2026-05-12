@@ -75,7 +75,6 @@ class AppSettings:
     main_llm: RuntimeEndpoint | None = None
     embedding: RuntimeEndpoint | None = None
     risk_prompt: RuntimeEndpoint | None = None
-    risk_siren: RuntimeEndpoint | None = None
     max_request_body_bytes: int = 1_000_000
     risk_input_max_chars: int = 7_936
     public_models: tuple[dict[str, Any], ...] = ()
@@ -89,7 +88,6 @@ class AppSettings:
                     "main_llm": self.main_llm,
                     "embedding": self.embedding,
                     "risk_prompt": self.risk_prompt,
-                    "risk_siren": self.risk_siren,
                 }.items()
                 if endpoint is not None
             }
@@ -105,17 +103,6 @@ class AppSettings:
                         source_model="risk-prompt",
                         family="prompt_attack",
                         allowed_codes=frozenset({"A1", "A2"}),
-                    )
-                )
-            if self.risk_siren is not None:
-                detectors.append(
-                    RiskDetectorSettings(
-                        key="siren",
-                        route="/v1/risk/detectors/siren/assessments",
-                        service_key="risk_siren",
-                        source_model="risk-siren",
-                        family="policy_risk",
-                        allowed_codes=frozenset({"I1", "I2", "I3", "I4"}),
                     )
                 )
             object.__setattr__(self, "risk_detectors", tuple(detectors))

@@ -139,14 +139,6 @@ def public_models():
             "request_parameters": {},
             "fixed_parameters": {"max_tokens": 1, "temperature": 0},
         },
-        {
-            "id": "risk-siren",
-            "object": "model",
-            "backend": "risk_adapter",
-            "capabilities": ["risk.policy_signal", "risk.aggregate_signal"],
-            "request_parameters": {},
-            "fixed_parameters": {"max_tokens": 1, "temperature": 0},
-        },
     )
 
 
@@ -173,7 +165,6 @@ def settings() -> AppSettings:
         ),
         embedding=RuntimeEndpoint("local-embed", "http://embed/v1", "local-embed", 1),
         risk_prompt=endpoint,
-        risk_siren=endpoint,
         risk_adapter_base_url="http://risk",
         public_models=public_models(),
     )
@@ -227,7 +218,6 @@ def tool_calling_settings() -> AppSettings:
         main_llm=main,
         embedding=cfg.embedding,
         risk_prompt=cfg.risk_prompt,
-        risk_siren=cfg.risk_siren,
         risk_adapter_base_url=cfg.risk_adapter_base_url,
         max_request_body_bytes=cfg.max_request_body_bytes,
         public_models=cfg.public_models,
@@ -251,7 +241,7 @@ def test_gateway_health_ready_and_models():
     assert ready["not_ready_dependencies"] == []
     models = client.get("/v1/models", headers=auth_headers()).json()
     by_id = {item["id"]: item for item in models["data"]}
-    assert set(by_id) == {"local-main", "local-embed", "risk-prompt", "risk-siren"}
+    assert set(by_id) == {"local-main", "local-embed", "risk-prompt"}
     assert by_id["local-main"]["request_parameters"]["temperature"] == {"type": "number", "min": 0, "max": 2}
     assert by_id["local-main"]["request_parameters"]["stream"] == {"type": "boolean"}
     assert by_id["local-embed"]["request_parameters"]["dimensions"]["enum"] == [768, 512, 256, 128]
@@ -276,7 +266,6 @@ def admin_settings() -> AppSettings:
         main_llm=cfg.main_llm,
         embedding=cfg.embedding,
         risk_prompt=cfg.risk_prompt,
-        risk_siren=cfg.risk_siren,
         risk_adapter_base_url=cfg.risk_adapter_base_url,
         max_request_body_bytes=cfg.max_request_body_bytes,
         public_models=cfg.public_models,
@@ -608,7 +597,6 @@ def test_gateway_rejects_oversized_request_body():
         main_llm=cfg.main_llm,
         embedding=cfg.embedding,
         risk_prompt=cfg.risk_prompt,
-        risk_siren=cfg.risk_siren,
         risk_adapter_base_url=cfg.risk_adapter_base_url,
         max_request_body_bytes=32,
         public_models=cfg.public_models,
@@ -892,7 +880,6 @@ def test_gateway_optionally_protects_admin_endpoints():
         main_llm=cfg.main_llm,
         embedding=cfg.embedding,
         risk_prompt=cfg.risk_prompt,
-        risk_siren=cfg.risk_siren,
         risk_adapter_base_url=cfg.risk_adapter_base_url,
         max_request_body_bytes=cfg.max_request_body_bytes,
         public_models=cfg.public_models,

@@ -58,7 +58,7 @@ port_owned_by_compose() {
   return 1
 }
 
-# Check only host-published ports. vLLM runtime ports 9401-9404 are internal
+# Check only host-published ports. vLLM runtime ports 9401-9403 are internal
 # compose-network ports (`expose`), so another local host process on those ports
 # does not block the full-stack compose deployment. Monitoring ports must follow
 # .env/configured host port overrides rather than being hard-coded here.

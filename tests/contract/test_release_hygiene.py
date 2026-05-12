@@ -150,9 +150,9 @@ def test_release_package_uses_stable_root_directory() -> None:
 
 def test_preflight_compose_checks_only_host_published_ports() -> None:
     text = (ROOT / 'scripts/compose/preflight_compose.sh').read_text(encoding='utf-8')
-    assert 'vLLM runtime ports 9401-9404 are internal' in text
+    assert 'vLLM runtime ports 9401-9403 are internal' in text
     loop_line = next(line for line in text.splitlines() if line.strip().startswith('for port in'))
-    for internal_port in ['9401', '9402', '9403', '9404']:
+    for internal_port in ['9401', '9402', '9403']:
         assert internal_port not in loop_line
     assert 'host_published_ports=(' in text
     for env_name in ['PROMETHEUS_PORT', 'GRAFANA_PORT', 'DCGM_EXPORTER_PORT', 'CADVISOR_PORT']:

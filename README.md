@@ -5,7 +5,7 @@
 | 패키지 버전 | `0.0.1` |
 |---|---|
 | 권장 runtime | Python 3.12.13 |
-| GPU | NVIDIA RTX A6000 48GB |
+| GPU | NVIDIA RTX 6000 Ada Generation 48GB |
 
 ---
 
@@ -46,7 +46,7 @@ Risk Adapter는 `allow`, `block`, `decision`, `action` 같은 최종 정책 결�
 
 | 항목 | 요구사항 |
 |---|---|
-| GPU | NVIDIA RTX A6000 48GB 또는 동급 48GiB VRAM 단일 GPU |
+| GPU | NVIDIA RTX 6000 Ada Generation 48GB 또는 동급 48GiB VRAM 단일 GPU |
 | CPU | 16 vCPU 이상 권장 |
 | RAM | 96GiB 이상 권장, 최소 64GiB |
 | Disk | NVMe 500GB 이상 권장 |
@@ -308,7 +308,7 @@ make package
 | 항목 | 확인 내용 |
 |---|---|
 | vLLM 기동 | enabled runtime 3개가 정상 기동하는지 |
-| VRAM | A6000 48GB에서 peak/headroom이 충분한지 |
+| VRAM | RTX 6000 Ada 48GB에서 peak/headroom이 충분한지 |
 | latency | chat/embedding/risk detector p95/p99 |
 | queue/timeout | 동시 요청에서 queue timeout과 circuit breaker 동작 |
 | Prometheus | Gateway/Risk/vLLM/DCGM/cAdvisor scrape 정상 여부 |

@@ -27,7 +27,7 @@
     "quantization": "offline FP8 checkpoint for vLLM, stored as compressed-tensors",
     "vllm_min_version": "0.19.0",
     "transformers_min_version": "5.5.0",
-    "cuda_runtime_note": "LargitData card describes H200-class validation; A6000 requires local boot and runtime validation before production claims",
+    "cuda_runtime_note": "LargitData card describes H200-class validation; RTX 6000 Ada (TRITON FP8 MoE backend confirmed) requires local boot and runtime validation before production claims",
     "upstream_example": {
       "tensor_parallel_size": 1,
       "max_model_len": 16384,
@@ -37,7 +37,7 @@
       "trust_remote_code": true,
       "enable_auto_tool_choice": true,
       "tool_call_parser": "gemma4",
-      "reasoning_parser": "gemma4",
+      "chat_template": "/app/configs/gemma4_chat_template.jinja",
       "dtype": "auto",
       "quantization": "model_config compressed-tensors; do not pass --quantization fp8"
     },
@@ -56,9 +56,9 @@
     "max_model_len": 16384,
     "max_num_seqs": 1,
     "max_num_batched_tokens": 16384,
-    "gpu_memory_utilization": 0.66,
+    "gpu_memory_utilization": 0.72,
     "trust_remote_code": true,
-    "policy_reason": "single-GPU A6000 starting cap for LargitData FP8 checkpoint; upstream validation is H200-oriented, so A6000 settings must be confirmed by runtime validation before increasing context or KV cache FP8 usage",
+    "policy_reason": "RTX 6000 Ada; raised 0.66→0.72 to cover 16K KV cache deficit (0.99 GiB confirmed); Ada TRITON FP8 backend active; upstream card is H200-validated",
     "max_output_tokens": 1024,
     "input_modalities": [
       "text",
@@ -85,7 +85,7 @@
       "tool_calling": {
         "enabled": true,
         "tool_call_parser": "gemma4",
-        "reasoning_parser": "gemma4",
+        "chat_template": "/app/configs/gemma4_chat_template.jinja",
         "allow_parallel_tool_calls": false
       }
     },
