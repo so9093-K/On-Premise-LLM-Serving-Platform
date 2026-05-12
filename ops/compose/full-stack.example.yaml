@@ -32,12 +32,10 @@ services:
     depends_on:
       risk-prompt-vllm:
         condition: service_healthy
-      risk-siren-vllm:
-        condition: service_healthy
 
   main-llm-vllm:
     image: ${VLLM_IMAGE:?Set VLLM_IMAGE to a tested vLLM OpenAI image tag}
-    command: ["--model", "QuantTrio/gemma-4-31B-it-AWQ", "--served-model-name", "local-main", "--host", "0.0.0.0", "--port", "9401", "--max-model-len", "8192", "--max-num-seqs", "1", "--max-num-batched-tokens", "4096", "--gpu-memory-utilization", "0.58", "--tensor-parallel-size", "1", "--dtype", "half", "--quantization", "awq", "--trust-remote-code", "--enable-prefix-caching", "--prefix-caching-hash-algo", "sha256_cbor", "--enable-auto-tool-choice", "--tool-call-parser", "gemma4", "--reasoning-parser", "gemma4"]
+    command: ["--model", "LargitData/gemma-4-26b-a4b-it-fp8", "--served-model-name", "local-main", "--host", "0.0.0.0", "--port", "9401", "--max-model-len", "16384", "--max-num-seqs", "1", "--max-num-batched-tokens", "16384", "--gpu-memory-utilization", "0.66", "--tensor-parallel-size", "1", "--dtype", "auto", "--quantization", "fp8", "--trust-remote-code", "--enable-prefix-caching", "--prefix-caching-hash-algo", "sha256_cbor", "--enable-auto-tool-choice", "--tool-call-parser", "gemma4", "--reasoning-parser", "gemma4"]
     expose: ["9401"]
     env_file: ../../.env
     environment:
@@ -82,31 +80,6 @@ services:
         reservations:
           devices: [{capabilities: [gpu]}]
 
-  risk-siren-vllm:
-    image: ${RISK_VLLM_IMAGE:?Set RISK_VLLM_IMAGE to a tested vLLM OpenAI image tag for risk models}
-    command: ["--model", "kakaocorp/kanana-safeguard-siren-8b", "--served-model-name", "risk-siren", "--host", "0.0.0.0", "--port", "9404", "--max-model-len", "2048", "--max-num-seqs", "1", "--max-num-batched-tokens", "2048", "--gpu-memory-utilization", "0.18", "--dtype", "bfloat16", "--quantization", "bitsandbytes", "--load-format", "bitsandbytes", "--enforce-eager"]
-    expose: ["9404"]
-    env_file: ../../.env
-    environment:
-      HF_TOKEN: ${HF_TOKEN:-}
-      HUGGING_FACE_HUB_TOKEN: ${HUGGING_FACE_HUB_TOKEN:-}
-      HF_HOME: /root/.cache/huggingface
-    volumes:
-      - ${HF_CACHE_DIR:-./model_cache/huggingface}:/root/.cache/huggingface
-    depends_on:
-      embedding-vllm:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD-SHELL", "python3 -c \"import urllib.request; urllib.request.urlopen('http://localhost:9404/health')\""]
-      interval: 30s
-      timeout: 10s
-      retries: 15
-      start_period: 180s
-    deploy:
-      resources:
-        reservations:
-          devices: [{capabilities: [gpu]}]
-
   risk-prompt-vllm:
     image: ${RISK_VLLM_IMAGE:?Set RISK_VLLM_IMAGE to a tested vLLM OpenAI image tag for risk models}
     command: ["--model", "kakaocorp/kanana-safeguard-prompt-2.1b", "--served-model-name", "risk-prompt", "--host", "0.0.0.0", "--port", "9403", "--max-model-len", "2048", "--max-num-seqs", "1", "--max-num-batched-tokens", "2048", "--gpu-memory-utilization", "0.065", "--dtype", "bfloat16", "--quantization", "bitsandbytes", "--load-format", "bitsandbytes", "--trust-remote-code", "--enforce-eager"]
@@ -118,9 +91,6 @@ services:
       HF_HOME: /root/.cache/huggingface
     volumes:
       - ${HF_CACHE_DIR:-./model_cache/huggingface}:/root/.cache/huggingface
-    depends_on:
-      risk-siren-vllm:
-        condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "python3 -c \"import urllib.request; urllib.request.urlopen('http://localhost:9403/health')\""]
       interval: 30s
@@ -159,7 +129,7 @@ services:
 
   prometheus:
     image: ${PROMETHEUS_IMAGE:?Set PROMETHEUS_IMAGE to a tested Prometheus image tag}
-    depends_on: [gateway, risk-adapter, main-llm-vllm, embedding-vllm, risk-prompt-vllm, risk-siren-vllm, dcgm-exporter, cadvisor]
+    depends_on: [gateway, risk-adapter, main-llm-vllm, embedding-vllm, risk-prompt-vllm, dcgm-exporter, cadvisor]
     command: ["--config.file=/etc/prometheus/prometheus.yml"]
     ports: ["${PROMETHEUS_PORT:-9410}:9090"]
     volumes:

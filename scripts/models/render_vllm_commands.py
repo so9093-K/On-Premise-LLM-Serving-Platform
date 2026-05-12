@@ -23,13 +23,16 @@ def load_yaml(path: Path) -> dict[str, Any]:
 def main() -> int:
     parser = argparse.ArgumentParser(description="configs/model_serving.yaml에서 vLLM 시작 명령을 렌더링합니다.")
     parser.add_argument("--root", default=str(ROOT))
-    parser.add_argument("--service", choices=["main_llm", "embedding", "risk_prompt", "risk_siren", "all"], default="all")
+    parser.add_argument("--service", default="all", help="enabled runtime service key 또는 all")
     args = parser.parse_args()
     root = Path(args.root).resolve()
     registry = ModelRegistry(
         load_yaml(root / "configs/model_catalog.yaml"),
         load_yaml(root / "configs/model_serving.yaml"),
     )
+    service_keys = {service.service_key for service in registry.iter_runtime_services()}
+    if args.service != "all" and args.service not in service_keys:
+        raise SystemExit(f"unknown or disabled runtime service: {args.service}")
     for service in registry.iter_runtime_services():
         if args.service not in {"all", service.service_key}:
             continue

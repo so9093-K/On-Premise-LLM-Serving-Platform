@@ -37,7 +37,6 @@ READY_MODE=full make status
 ```bash
 docker compose -f ops/compose/full-stack.private-network.yaml --env-file .env logs --tail=160 embedding-vllm
 docker compose -f ops/compose/full-stack.private-network.yaml --env-file .env logs --tail=160 risk-prompt-vllm
-docker compose -f ops/compose/full-stack.private-network.yaml --env-file .env logs --tail=160 risk-siren-vllm
 ```
 
 ## risk-prompt 검증 정책
@@ -77,13 +76,13 @@ make risk-vllm-config-check
 
 ## risk 모델 GPU OOM 대응 정책
 
-risk 모델(`risk-prompt-vllm`, `risk-siren-vllm`)에는 다음 설정이 적용된다.
+enabled risk 모델(`risk-prompt-vllm`)에는 다음 설정이 적용된다. `risk-siren`은 retired 상태이며 기본 compose, readiness, aggregate execution에서 제외된다.
 
 | 설정 | 값 | 이유 |
 |---|---|---|
 | `--enforce-eager` | 활성화 | CUDA graph pre-capture를 비활성화한다. 모델당 300~500MiB 절약. `max_num_seqs=1`, `max_output_tokens=1` 단일 토큰 분류기에서 CUDA graph 이득이 없다. |
-| `gpu_memory_utilization` | risk-prompt 0.065, risk-siren 0.18 | 4개 모델 총합 0.865 < 0.90 상한 유지. |
-| compose 기동 순서 | main-llm → embedding → risk-siren → risk-prompt | `depends_on: condition: service_healthy` 체인. 동시 기동 시 BF16 weight loading peak가 겹쳐 OOM 발생 가능. |
+| `gpu_memory_utilization` | risk-prompt 0.065 | enabled vLLM 총합 0.765 < 0.90 상한 유지. |
+| compose 기동 순서 | main-llm → embedding → risk-prompt | `depends_on: condition: service_healthy` 체인. 동시 기동 시 weight loading peak가 겹쳐 OOM 발생 가능. |
 
 `Engine core initialization failed. Failed core proc(s): {}` 오류가 보이면 위 설정이 compose에 반영됐는지 `make vllm-commands`로 확인한다.
 
@@ -94,7 +93,7 @@ risk 모델(`risk-prompt-vllm`, `risk-siren-vllm`)에는 다음 설정이 적용
 - compose command와 `configs/model_serving.yaml` 값 정합성
 - Embedding pooling runtime의 `max_num_batched_tokens >= max_model_len`
 - risk detector의 `bitsandbytes` 양자화 기본값 유지
-- `RISK_VLLM_IMAGE` 내부에서 Kanana Prompt 2.1B와 Siren 8B HF config 파싱 검증
+- `RISK_VLLM_IMAGE` 내부에서 enabled Kanana Prompt 2.1B HF config 파싱 검증
 - model catalog, model card, serving config의 핵심 runtime policy 정합성
 - conservative single-GPU profile의 총 `gpu_memory_utilization` 상한
 
@@ -107,7 +106,7 @@ risk 모델(`risk-prompt-vllm`, `risk-siren-vllm`)에는 다음 설정이 적용
 
 ## risk vLLM image 분리 정책
 
-`RISK_VLLM_IMAGE`는 main `VLLM_IMAGE`와 별도 운영 단위다. Prompt 2.1B는 explicit `head_dim`이 필요한 Llama 변형이고, Siren 8B는 전통적인 Llama shape에 가깝다. 같은 Kakao Kanana 계열이어도 두 모델의 failure mode가 다르므로, preflight는 두 모델을 모두 image 내부에서 검사한다.
+`RISK_VLLM_IMAGE`는 main `VLLM_IMAGE`와 별도 운영 단위다. Prompt 2.1B는 explicit `head_dim`이 필요한 Llama 변형이므로, preflight는 enabled risk 모델을 image 내부에서 검사한다.
 
 기본값은 `ai-model-serving-risk-vllm-kanana:<version>`이며 `make first-run`/`make bootstrap`이 생성하고 검증한다. host venv에서 `check_hf_model_config.py`가 통과했더라도 compose 전 image 내부 config check가 통과해야 한다.
 

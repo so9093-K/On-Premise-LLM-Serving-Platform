@@ -1,21 +1,19 @@
-# Gemma4 31B AWQ 모델 검토
+# Retired Gemma4 31B AWQ 모델 검토
 
-이 문서는 `local-main` 모델 후보의 운영 제약을 설명한다. 모델명과 vLLM option은 원문을 유지한다.
+이 문서는 이전 `local-main` 후보였던 `QuantTrio/gemma-4-31B-it-AWQ`의 retired 검토 기록이다. 현재 기본 `local-main`은 `LargitData/gemma-4-26b-a4b-it-fp8`이며, 운영 설정은 `configs/model_catalog.yaml`, `configs/model_serving.yaml`, [GPU Resource Plan](../resources/gpu_resource_plan.md)을 기준으로 한다.
 
 ## 사용 목적
 
-`local-main`은 Gateway의 `/v1/chat/completions`를 담당하는 주 LLM이다. 프로젝트는 vLLM OpenAI-compatible API를 upstream으로 사용한다.
+이 문서는 모델 교체 의사결정의 과거 배경만 보존한다. 현재 Gateway의 `/v1/chat/completions`는 `local-main`이라는 served model name을 유지하되, upstream checkpoint는 LargitData FP8 Gemma 4 26B-A4B로 교체되었다.
 
 ## 기본 정책
 
-- served model name: `local-main`
-- context cap: `8192`
-- output cap: `1024`
-- concurrency: 보수적으로 `1`
-- GPU memory utilization reference: `0.58`
-- quantization: `awq`
-- prefix caching: 활성화
-- tool calling: Gemma 계열 parser 사용
+- status: retired candidate review
+- previous served model name: `local-main`
+- previous context cap: `8192`
+- previous GPU memory utilization reference: `0.58`
+- previous quantization: `awq`
+- replacement: `LargitData/gemma-4-26b-a4b-it-fp8`
 
 ## 검증 필요 항목
 
@@ -26,4 +24,4 @@
 - OOM/restart 여부
 - vLLM image와 parser option 호환성
 
-문서의 숫자는 운영 기본값이며, 최종 성능값은 `scripts/validation/runtime_validation.py` 결과로 갱신한다.
+위 숫자는 현재 운영 기본값이 아니다. 최신 성능값은 `scripts/validation/runtime_validation.py` 결과와 runtime validation report로 갱신한다.

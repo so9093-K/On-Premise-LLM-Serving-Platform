@@ -55,7 +55,7 @@ metadata는 package version, target file path, original/patched file hash, 제�
 다음이 모두 만족되면 patch를 제거한다.
 
 1. 선택한 Transformers/vLLM 조합이 image-level patch 없이 Kanana explicit `head_dim` config를 정상 load한다.
-2. `make risk-vllm-config-check`가 `risk-prompt`, `risk-siren` 모두에서 통과한다.
+2. `make risk-vllm-config-check`가 `risk-prompt` 모두에서 통과한다.
 3. release report에 patch 제거 전/후 image digest와 config load 결과가 남는다.
 4. `make risk-vllm-patch-removal-check`가 제거 후보 상태를 설명하고, patch 없는 candidate image에서 canary가 통과한다.
 5. 운영 문서와 Docker label/metadata 검증이 patch 미사용 상태를 반영한다.

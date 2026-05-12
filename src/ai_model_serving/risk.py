@@ -27,6 +27,10 @@ class DetectorSpec:
     source_model: str
     family: str
     allowed_codes: frozenset[str]
+    route: str = ""
+    service_key: str = ""
+    max_output_tokens: int = 1
+    temperature: float = 0
 
 
 PROMPT_DETECTOR = DetectorSpec(

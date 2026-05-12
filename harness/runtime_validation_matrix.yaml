@@ -14,7 +14,6 @@ validation_checks:
   - local-main
   - local-embed
   - risk-prompt
-  - risk-siren
 - id: risk-adapter-runtime
   owner: risk-adapter
   validation: Detector and aggregate endpoints return signal-only responses.
@@ -24,7 +23,6 @@ validation_checks:
     response field checks.
   models:
   - risk-prompt
-  - risk-siren
 - id: vllm-runtime
   owner: model-runtime
   validation: All configured vLLM runtimes load and expose /v1/models or compatible
@@ -37,12 +35,10 @@ validation_checks:
   - local-main
   - local-embed
   - risk-prompt
-  - risk-siren
   runtime_services:
   - main_llm
   - embedding
   - risk_prompt
-  - risk_siren
 - id: gpu-capacity
   owner: operations
   validation: Soak run completes without OOM, excessive preemption, or restart loop.
@@ -54,7 +50,6 @@ validation_checks:
   - main_llm
   - embedding
   - risk_prompt
-  - risk_siren
 - id: monitoring-scrape
   owner: operations
   validation: Prometheus scrapes Gateway, Risk Adapter, vLLM runtimes, and DCGM exporter.
@@ -65,7 +60,6 @@ validation_checks:
   - main_llm
   - embedding
   - risk_prompt
-  - risk_siren
 - id: grafana-dashboard-render
   owner: operations
   validation: Reference dashboards render without prompt, user text, or model output
@@ -78,4 +72,3 @@ validation_checks:
   - main_llm
   - embedding
   - risk_prompt
-  - risk_siren

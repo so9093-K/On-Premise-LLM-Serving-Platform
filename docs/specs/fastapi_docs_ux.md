@@ -28,7 +28,7 @@
 - Gateway API token과 admin token의 용도 차이
 - app-only `/health`와 full-stack `/ready`의 차이
 - 모델 로딩 중 `/ready`가 HTTP 503을 유지하되 `phase`, `not_ready_dependencies`, dependency별 `message`를 제공한다는 점
-- `local-main`, `local-embed`, `risk-prompt`, `risk-siren` logical model id
+- `local-main`, `local-embed`, `risk-prompt` logical model id
 - `/v1/models`에서 모델별 `capabilities`, `request_parameters`, `fixed_parameters`를 확인할 수 있다는 점
 - Risk API는 signal-only이며 최종 policy decision을 반환하지 않는다는 점
 
@@ -68,7 +68,7 @@ API 문서는 “사용자가 조정할 수 있는 parameter”와 “운영자�
 
 - Chat UI는 `local-main.request_parameters`를 읽어 `temperature`, `max_tokens`, `top_p`, `top_k`, `min_p`, penalty, `seed`, `n`, tool 관련 입력을 구성한다.
 - Embedding UI는 `local-embed.request_parameters`를 읽어 `dimensions`, `encoding_format`, `truncate_prompt_tokens`만 노출한다.
-- Risk UI는 `risk-prompt`/`risk-siren`의 `request_parameters`가 비어 있음을 보고 prompt 입력만 노출한다. `fixed_parameters`는 detector adapter 내부값이므로 사용자 form으로 노출하지 않는다.
+- Risk UI는 `risk-prompt`의 `request_parameters`가 비어 있음을 보고 prompt 입력만 노출한다. `fixed_parameters`는 detector adapter 내부값이므로 사용자 form으로 노출하지 않는다.
 
 ## 4. 비활성화
 

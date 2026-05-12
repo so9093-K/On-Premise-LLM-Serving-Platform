@@ -9,25 +9,25 @@ server:
     external: false
 models:
   main_llm:
-    name: QuantTrio/gemma-4-31B-it-AWQ
+    name: LargitData/gemma-4-26b-a4b-it-fp8
     served_model_name: local-main
     backend: vllm
     port: 9401
     endpoint: http://main-llm-vllm:9401/v1
     runner: generation
-    quantization: awq
-    dtype: half
+    quantization: fp8
+    dtype: auto
     tensor_parallel_size: 1
-    model_card_example_tensor_parallel_size: 2
+    model_card_example_tensor_parallel_size: 1
     trust_remote_code: true
-    max_model_len: 8192
+    max_model_len: 16384
     max_num_seqs: 1
-    max_num_batched_tokens: 4096
-    gpu_memory_utilization: 0.58
+    max_num_batched_tokens: 16384
+    gpu_memory_utilization: 0.66
     timeout_seconds: 120
-    runtime_policy_source: project single-GPU cap; upstream model supports text and
-      image input; Gateway exposes bounded image input with one data:image part by
-      default
+    runtime_policy_source: project single-GPU A6000 starting cap for LargitData FP8
+      checkpoint; upstream card is H200-tested, so A6000 requires local boot and
+      runtime validation before raising context or KV cache FP8 settings
     max_output_tokens: 1024
     resource_control:
       criticality: primary_user_path
@@ -36,7 +36,7 @@ models:
         max_concurrency: 1
         queue_timeout_seconds: 2
       request_limits:
-        max_model_len: 8192
+        max_model_len: 16384
         max_output_tokens: 1024
         input_modalities:
         - text
@@ -183,6 +183,7 @@ models:
         max_tokens: 1
         temperature: 0
   risk_siren:
+    enabled: false
     name: kakaocorp/kanana-safeguard-siren-8b
     served_model_name: risk-siren
     backend: vllm
@@ -229,6 +230,38 @@ risk_adapter:
   endpoint: http://risk-adapter:9405
   request_schema: prompt_only
   aggregate_execution: sequential
+  detectors:
+    prompt:
+      enabled: true
+      route: /v1/risk/detectors/prompt/assessments
+      service_key: risk_prompt
+      source_model: risk-prompt
+      family: prompt_attack
+      allowed_codes:
+      - A1
+      - A2
+      fixed_parameters:
+        max_tokens: 1
+        temperature: 0
+    siren:
+      enabled: false
+      route: /v1/risk/detectors/siren/assessments
+      service_key: risk_siren
+      source_model: risk-siren
+      family: policy_risk
+      allowed_codes:
+      - I1
+      - I2
+      - I3
+      - I4
+      fixed_parameters:
+        max_tokens: 1
+        temperature: 0
+  aggregate:
+    enabled: true
+    detector_order:
+    - prompt
+    execution: sequential
   timeout_seconds: 15
   input_policy:
     max_prompt_chars: 7936

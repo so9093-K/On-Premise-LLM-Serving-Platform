@@ -2,10 +2,10 @@ gpu:
   device_class: NVIDIA RTX A6000
   total_vram_gib: 48
   reserve_gib:
-    minimum: 4
-    recommended: 6
+    minimum: 6
+    recommended: 8
   total_gpu_memory_utilization:
-    recommended_start: 0.865
+    recommended_start: 0.765
     upper_review_threshold: 0.89
     avoid_above: 0.9
     conservative_range:
@@ -17,15 +17,15 @@ gpu:
     for a specific increase.
 budgets:
   main_llm:
-    target_gib: 27.8
+    target_gib: 31.7
     range_gib:
-    - 27
-    - 29
-    gpu_memory_utilization: 0.58
+    - 30
+    - 32
+    gpu_memory_utilization: 0.66
     tuning_range:
       gpu_memory_utilization:
-      - 0.54
-      - 0.58
+      - 0.62
+      - 0.66
       adjustment_priority: last
       do_not_increase_before_live_validation:
       - max_model_len
@@ -57,6 +57,7 @@ budgets:
       fixed_generation_budget:
         max_output_tokens: 1
   risk_siren:
+    enabled: false
     target_gib: 8.64
     range_gib:
     - 8.0
@@ -70,7 +71,7 @@ budgets:
       fixed_generation_budget:
         max_output_tokens: 1
 limits:
-  main_llm_max_model_len: 8192
+  main_llm_max_model_len: 16384
   main_llm_max_num_seqs: 1
   risk_max_model_len: 2048
   risk_max_num_seqs: 1
@@ -92,10 +93,10 @@ resource_management:
     in one change
   allocation_strategy: conservative_single_gpu_co_residency
   live_tuning_order:
-  - measure idle VRAM after all four vLLM runtimes start
+  - measure idle VRAM after all enabled vLLM runtimes start
   - measure single-request latency and peak VRAM per model path
   - run mixed traffic soak before increasing context, batching, or concurrency
-  - adjust embedding batch first, risk_siren budget second, main_llm context/concurrency
+  - adjust embedding batch first, risk_prompt budget second, main_llm context/concurrency
     last
   fixed_constraints:
   - risk detector max_output_tokens remains 1

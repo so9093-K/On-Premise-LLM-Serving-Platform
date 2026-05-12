@@ -486,9 +486,15 @@ def validate_operational_hardening_contract() -> None:
         inference_timeout = model.get('timeout_seconds', timeouts['vllm_request_seconds'])
         return float(queue_timeout) + float(inference_timeout)
 
-    prompt_budget = detector_budget('risk_prompt')
-    siren_budget = detector_budget('risk_siren')
-    if serving['risk_adapter'].get('aggregate_execution') == 'sequential' and risk_adapter_timeout < prompt_budget + siren_budget:
+    detector_keys = [
+        detector['service_key']
+        for detector in serving['risk_adapter'].get('detectors', {}).values()
+        if detector.get('enabled', True) is True
+    ]
+    detector_total_budget = sum(detector_budget(key) for key in detector_keys)
+    aggregate_cfg = serving['risk_adapter'].get('aggregate', {})
+    aggregate_execution = aggregate_cfg.get('execution', serving['risk_adapter'].get('aggregate_execution'))
+    if aggregate_execution == 'sequential' and risk_adapter_timeout < detector_total_budget:
         raise SystemExit('risk_adapter_seconds must cover sequential detector queue and inference budgets')
     settings_text = (ROOT / 'src/ai_model_serving/settings.py').read_text(encoding='utf-8')
     for phrase in [

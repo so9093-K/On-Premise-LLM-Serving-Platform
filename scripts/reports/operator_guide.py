@@ -38,7 +38,7 @@ WORKFLOWS: list[Workflow] = [
     Workflow(
         key="full-stack",
         title="GPU/vLLM full-stack 검증",
-        when="대상 GPU 서버에서 compose, 4개 vLLM runtime, Prometheus, Grafana까지 확인한다.",
+        when="대상 GPU 서버에서 compose, enabled vLLM runtime 3개, Prometheus, Grafana까지 확인한다.",
         commands=[
             "HF_TOKEN=hf_xxx make first-run",
             "source .venv/bin/activate",

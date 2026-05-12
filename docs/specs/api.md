@@ -21,12 +21,12 @@ Gateway는 외부 애플리케이션의 단일 진입점이다.
 | `POST /v1/chat/completions` | `local-main` chat completion |
 | `POST /v1/embeddings` | `local-embed` embedding |
 | `POST /v1/risk/detectors/prompt/assessments` | prompt risk signal |
-| `POST /v1/risk/detectors/siren/assessments` | siren risk signal |
+| `POST /v1/risk/detectors/siren/assessments` | retired siren endpoint, 410 Gone |
 | `POST /v1/risk/assessments` | aggregate risk signal |
 
 사용자 API는 `Authorization: Bearer <API_KEY>`를 요구한다. admin endpoint가 보호되는 환경에서는 `Authorization: Bearer <ADMIN_API_KEY>`를 사용한다.
 
-`/v1/models`는 “계약상 노출되는 모델 목록”을 반환한다. vLLM이 아직 로딩 중이어도 `local-main`, `local-embed`, `risk-prompt`, `risk-siren`은 catalog에 남는다. 현재 호출 가능한 상태인지 보려면 `/ready`의 `phase`와 `not_ready_dependencies`를 확인한다.
+`/v1/models`는 “계약상 노출되는 모델 목록”을 반환한다. vLLM이 아직 로딩 중이어도 enabled public model인 `local-main`, `local-embed`, `risk-prompt`는 catalog에 남는다. 현재 호출 가능한 상태인지 보려면 `/ready`의 `phase`와 `not_ready_dependencies`를 확인한다.
 
 ## 사용자 조정 가능 파라미터
 
@@ -37,7 +37,6 @@ Gateway는 외부 애플리케이션의 단일 진입점이다.
 | `local-main` | `temperature`, `max_tokens`, `top_p`, `top_k`, `min_p`, `presence_penalty`, `frequency_penalty`, `repetition_penalty`, `stop`, `seed`, `n`, `tools`, `tool_choice`, `parallel_tool_calls`, `stream`, `stream_options` | `stream=true`는 SSE relay fast path로 지원하고 `stream_options.include_usage`는 `stream=true`와 함께 사용할 때 upstream이 지원하는 최종 usage chunk를 요청한다. `n`은 `1`만 허용. tool call은 Gemma4 parser 설정 범위에서만 허용 |
 | `local-embed` | `dimensions`, `encoding_format`, `truncate_prompt_tokens` | `dimensions`는 `768`, `512`, `256`, `128` 중 하나. `encoding_format`은 `float`로 고정 |
 | `risk-prompt` | 없음 | risk API는 `prompt`만 입력받고 detector parameter는 adapter가 `fixed_parameters`로 고정 |
-| `risk-siren` | 없음 | risk API는 `prompt`만 입력받고 detector parameter는 adapter가 `fixed_parameters`로 고정 |
 
 `request_parameters`는 prompt/messages/input 같은 필수 입력 본문을 뜻하지 않는다. 필수 입력은 각 request schema(`chat_completion_request`, `embedding_request`, `risk_assessment_request`)를 따른다. serving/runtime 하이퍼파라미터(`gpu_memory_utilization`, `max_model_len`, `max_num_seqs`, quantization 등)는 사용자 API에서 조정할 수 없고 운영자 config로만 변경한다.
 

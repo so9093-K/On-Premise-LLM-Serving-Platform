@@ -20,7 +20,7 @@ from .settings_parts.env import (
 )
 from .settings_parts.runtime_endpoints import build_runtime_endpoint, validate_timeout_budget
 from .settings_parts.security import build_security_settings
-from .settings_parts.types import AppSettings, DocumentationSettings, RuntimeEndpoint, SecuritySettings
+from .settings_parts.types import AppSettings, DocumentationSettings, RiskDetectorSettings, RuntimeEndpoint, SecuritySettings
 
 
 def resolve_project_root(explicit_root: Path | None = None) -> Path:
@@ -79,6 +79,82 @@ def _documentation_settings(documentation_cfg: dict[str, Any]) -> DocumentationS
     )
 
 
+def _env_name(model_key: str, suffix: str) -> str:
+    return f"{model_key.upper()}_{suffix}"
+
+
+def _build_runtime_endpoints(
+    *,
+    models: dict[str, Any],
+    timeout: float,
+    operational_limits: dict[str, Any],
+) -> dict[str, RuntimeEndpoint]:
+    endpoints: dict[str, RuntimeEndpoint] = {}
+    for model_key, cfg in models.items():
+        if cfg.get("enabled", True) is not True:
+            continue
+        endpoints[str(model_key)] = build_runtime_endpoint(
+            model_key=str(model_key),
+            env_url=_env_name(str(model_key), "BASE_URL"),
+            env_model=_env_name(str(model_key), "MODEL"),
+            timeout=timeout,
+            models=models,
+            operational_limits=operational_limits,
+        )
+    return endpoints
+
+
+def _risk_detectors_from_config(risk_adapter_cfg: dict[str, Any]) -> tuple[RiskDetectorSettings, ...]:
+    detectors_cfg = risk_adapter_cfg.get("detectors")
+    if not isinstance(detectors_cfg, dict):
+        detectors_cfg = {
+            "prompt": {
+                "enabled": True,
+                "route": "/v1/risk/detectors/prompt/assessments",
+                "service_key": "risk_prompt",
+                "source_model": "risk-prompt",
+                "family": "prompt_attack",
+                "allowed_codes": ["A1", "A2"],
+            },
+            "siren": {
+                "enabled": True,
+                "route": "/v1/risk/detectors/siren/assessments",
+                "service_key": "risk_siren",
+                "source_model": "risk-siren",
+                "family": "policy_risk",
+                "allowed_codes": ["I1", "I2", "I3", "I4"],
+            },
+        }
+    detectors: list[RiskDetectorSettings] = []
+    for key, cfg in detectors_cfg.items():
+        fixed = cfg.get("fixed_parameters", {}) if isinstance(cfg.get("fixed_parameters", {}), dict) else {}
+        detectors.append(
+            RiskDetectorSettings(
+                key=str(key),
+                route=str(cfg.get("route", f"/v1/risk/detectors/{key}/assessments")),
+                service_key=str(cfg["service_key"]),
+                source_model=str(cfg["source_model"]),
+                family=str(cfg["family"]),
+                allowed_codes=frozenset(str(item) for item in cfg.get("allowed_codes", [])),
+                enabled=cfg.get("enabled", True) is True,
+                max_output_tokens=int(fixed.get("max_tokens", cfg.get("max_output_tokens", 1))),
+                temperature=float(fixed.get("temperature", cfg.get("temperature", 0))),
+            )
+        )
+    return tuple(detectors)
+
+
+def _aggregate_order(risk_adapter_cfg: dict[str, Any], detectors: tuple[RiskDetectorSettings, ...]) -> tuple[str, ...]:
+    aggregate_cfg = risk_adapter_cfg.get("aggregate", {}) if isinstance(risk_adapter_cfg.get("aggregate", {}), dict) else {}
+    order = aggregate_cfg.get("detector_order")
+    if order is None:
+        order = risk_adapter_cfg.get("detector_order")
+    if order is None:
+        order = [detector.key for detector in detectors if detector.enabled]
+    enabled = {detector.key for detector in detectors if detector.enabled}
+    return tuple(str(item) for item in order if str(item) in enabled)
+
+
 def load_settings(root: Path | None = None, env_file: Path | str | None = None) -> AppSettings:
     project_root = resolve_project_root(root)
     # Only use repository .env defaults for local/source-tree runs.  When APP_ENV
@@ -112,23 +188,33 @@ def load_settings(root: Path | None = None, env_file: Path | str | None = None) 
         minimum=0.1,
     )
 
-    main_llm = build_runtime_endpoint(model_key="main_llm", env_url="MAIN_LLM_BASE_URL", env_model="MAIN_LLM_MODEL", timeout=vllm_timeout, models=models, operational_limits=operational_limits)
-    embedding = build_runtime_endpoint(model_key="embedding", env_url="EMBEDDING_BASE_URL", env_model="EMBEDDING_MODEL", timeout=vllm_timeout, models=models, operational_limits=operational_limits)
-    risk_prompt = build_runtime_endpoint(model_key="risk_prompt", env_url="RISK_PROMPT_BASE_URL", env_model="RISK_PROMPT_MODEL", timeout=vllm_timeout, models=models, operational_limits=operational_limits)
-    risk_siren = build_runtime_endpoint(model_key="risk_siren", env_url="RISK_SIREN_BASE_URL", env_model="RISK_SIREN_MODEL", timeout=vllm_timeout, models=models, operational_limits=operational_limits)
+    runtime_endpoints = _build_runtime_endpoints(
+        models=models,
+        timeout=vllm_timeout,
+        operational_limits=operational_limits,
+    )
+    risk_adapter_cfg = model_serving.get("risk_adapter", {})
+    risk_detectors = _risk_detectors_from_config(risk_adapter_cfg)
+    aggregate_detector_order = _aggregate_order(risk_adapter_cfg, risk_detectors)
+    main_llm = runtime_endpoints["main_llm"]
+    risk_detector_endpoints = tuple(
+        runtime_endpoints[detector.service_key]
+        for detector in risk_detectors
+        if detector.enabled and detector.key in aggregate_detector_order and detector.service_key in runtime_endpoints
+    )
 
-    risk_adapter_execution = str(model_serving.get("risk_adapter", {}).get("aggregate_execution", "sequential"))
+    risk_adapter_execution = str(risk_adapter_cfg.get("aggregate", {}).get("execution", risk_adapter_cfg.get("aggregate_execution", "sequential")))
     validate_timeout_budget(
         gateway_timeout_seconds=gateway_timeout_seconds,
         risk_adapter_timeout_seconds=risk_adapter_timeout_seconds,
         main_llm=main_llm,
-        risk_prompt=risk_prompt,
-        risk_siren=risk_siren,
+        risk_detectors=risk_detector_endpoints,
         risk_adapter_execution=risk_adapter_execution,
     )
 
-    risk_input_policy = model_serving.get("risk_adapter", {}).get("input_policy", {})
-    detector_context_chars = max(1, (min(risk_prompt.max_model_len or 2048, risk_siren.max_model_len or 2048) - 64) * 4)
+    risk_input_policy = risk_adapter_cfg.get("input_policy", {})
+    detector_windows = [endpoint.max_model_len or 2048 for endpoint in risk_detector_endpoints]
+    detector_context_chars = max(1, (min(detector_windows or [2048]) - 64) * 4)
     risk_input_max_chars = _as_int(
         "RISK_INPUT_MAX_CHARS",
         int(risk_input_policy.get("max_prompt_chars", detector_context_chars)),
@@ -141,11 +227,14 @@ def load_settings(root: Path | None = None, env_file: Path | str | None = None) 
         security=security,
         gateway_timeout_seconds=gateway_timeout_seconds,
         risk_adapter_timeout_seconds=risk_adapter_timeout_seconds,
-        main_llm=main_llm,
-        embedding=embedding,
-        risk_prompt=risk_prompt,
-        risk_siren=risk_siren,
-        risk_adapter_base_url=_env("RISK_ADAPTER_BASE_URL", str(model_serving["risk_adapter"]["endpoint"])).rstrip("/"),
+        risk_adapter_base_url=_env("RISK_ADAPTER_BASE_URL", str(risk_adapter_cfg["endpoint"])).rstrip("/"),
+        runtime_endpoints=runtime_endpoints,
+        risk_detectors=risk_detectors,
+        aggregate_detector_order=aggregate_detector_order,
+        main_llm=runtime_endpoints.get("main_llm"),
+        embedding=runtime_endpoints.get("embedding"),
+        risk_prompt=runtime_endpoints.get("risk_prompt"),
+        risk_siren=runtime_endpoints.get("risk_siren"),
         max_request_body_bytes=_as_int(
             "MAX_REQUEST_BODY_BYTES",
             int(operational_limits.get("max_request_body_bytes", 1_000_000)),

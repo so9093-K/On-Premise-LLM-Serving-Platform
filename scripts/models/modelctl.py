@@ -50,8 +50,7 @@ def load_registry(root: Path) -> ModelRegistry:
 
 def gpu_summary(root: Path, registry: ModelRegistry) -> dict[str, Any]:
     budgets = load_yaml(root / "configs/gpu_budgets.yaml")
-    rows = [row.as_dict() for row in registry.inventory_rows()]
-    total = round(sum(float(row["gpu_memory_utilization"] or 0) for row in rows), 6)
+    total = round(sum(float(service.config.get("gpu_memory_utilization", 0)) for service in registry.iter_runtime_services()), 6)
     policy = budgets["gpu"]["total_gpu_memory_utilization"]
     return {
         "profile": budgets["gpu"].get("default_profile"),
@@ -131,7 +130,7 @@ def validate_document(root: Path, registry: ModelRegistry) -> dict[str, Any]:
     gpu = gpu_summary(root, registry)
     lifecycle_errors: list[dict[str, str]] = []
     for row in model_rows(registry):
-        if row["state"] not in {"experimental", "active", "deprecated", "disabled", "removed"}:
+        if row["state"] not in {"experimental", "active", "deprecated", "disabled", "retired", "removed"}:
             lifecycle_errors.append({"model": row["id"], "error": f"unknown lifecycle state {row['state']}"})
         if row["exposure"] not in {"public", "internal", "hidden"}:
             lifecycle_errors.append({"model": row["id"], "error": f"unknown exposure {row['exposure']}"})
@@ -525,7 +524,7 @@ def build_parser() -> KoreanArgumentParser:
     add.add_argument("--endpoint", required=True, help="후보 public/internal endpoint path입니다.")
     add.add_argument("--capability", default="chat.completions", help="단일 capability입니다. --capabilities가 있으면 무시됩니다.")
     add.add_argument("--capabilities", help="쉼표로 구분한 capability 목록입니다.")
-    add.add_argument("--state", default="experimental", choices=["experimental", "active", "deprecated", "disabled", "removed"], help="초기 lifecycle state입니다.")
+    add.add_argument("--state", default="experimental", choices=["experimental", "active", "deprecated", "disabled", "retired", "removed"], help="초기 lifecycle state입니다.")
     add.add_argument("--exposure", default="hidden", choices=["public", "internal", "hidden"], help="초기 exposure입니다.")
     add.add_argument("--gpu-memory-utilization", type=float, help="후보 GPU memory utilization입니다. 지정하면 예산 초과를 미리 경고합니다.")
     add.add_argument("--format", choices=["table", "json"], default="table", help="출력 형식입니다.")

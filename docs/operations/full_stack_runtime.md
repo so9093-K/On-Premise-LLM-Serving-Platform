@@ -9,7 +9,6 @@ full-stack compose는 다음 서비스를 함께 실행한다.
 | `main-llm-vllm` | 9401 | chat completion backend |
 | `embedding-vllm` | 9402 | embedding backend |
 | `risk-prompt-vllm` | 9403 | prompt risk backend |
-| `risk-siren-vllm` | 9404 | siren risk backend |
 | `prometheus` | 9410 | metrics 수집 |
 | `grafana` | 9411 | dashboard |
 | `dcgm-exporter` | 9412 | GPU metrics |

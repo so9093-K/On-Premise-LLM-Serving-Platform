@@ -56,7 +56,7 @@ def test_runtime_validation_config_only_runner_records_expected_checks(monkeypat
     validator = RuntimeValidator(load_runtime_config(args))
     validator.run_config_only()
 
-    assert len(validator.results) == 17
+    assert len(validator.results) == 15
     assert all(item.passed for item in validator.results)
     assert {item.category for item in validator.results} >= {
         "vllm-runtime",
@@ -169,8 +169,8 @@ def test_runtime_validation_uses_model_registry_projection_for_model_expectation
     )
     validator = RuntimeValidator(load_runtime_config(args))
 
-    assert validator.registry.public_logical_ids() == ("local-main", "local-embed", "risk-prompt", "risk-siren")
-    assert validator.registry.runtime_service("risk_siren").served_model_name == "risk-siren"
+    assert validator.registry.public_logical_ids() == ("local-main", "local-embed", "risk-prompt")
+    assert "risk_siren" not in validator.config.vllm_bases
 
 
 def test_operator_runtime_targets_report_is_registry_backed(tmp_path: Path) -> None:
@@ -184,7 +184,7 @@ def test_operator_runtime_targets_report_is_registry_backed(tmp_path: Path) -> N
         yaml.safe_load((ROOT / "configs/model_serving.yaml").read_text(encoding="utf-8")),
     )
     document = runtime_targets_document(registry)
-    assert document["compose_service_regex"] == "main-llm-vllm|embedding-vllm|risk-prompt-vllm|risk-siren-vllm"
+    assert document["compose_service_regex"] == "main-llm-vllm|embedding-vllm|risk-prompt-vllm"
     assert document["runtime_targets"][0]["logical_id"] == "local-main"
     markdown = runtime_targets_markdown(document)
     assert "# 런타임 대상 인벤토리" in markdown
@@ -223,8 +223,8 @@ def test_operator_status_bundle_report_is_registry_backed(tmp_path: Path) -> Non
         "authorization_header_included": False,
     }
     assert document["operator_commands"]["operator_status"] == "make operator-status"
-    assert document["gpu_budget_summary"]["runtime_service_count"] == 4
-    assert document["monitoring_summary"]["model_labels"] == ["local-main", "local-embed", "risk-prompt", "risk-siren"]
+    assert document["gpu_budget_summary"]["runtime_service_count"] == 3
+    assert document["monitoring_summary"]["model_labels"] == ["local-main", "local-embed", "risk-prompt"]
     markdown = operator_status_bundle_markdown(document)
     assert "# 운영 상태 번들" in markdown
     assert "make runtime-validate" in markdown
@@ -256,8 +256,8 @@ def test_monitoring_projection_report_is_registry_backed(tmp_path: Path) -> None
     assert projected_prometheus == actual_prometheus
 
     document = monitoring_projection_document(registry=registry, monitoring=monitoring)
-    assert document["recording_rules"]["compose_service_regex"] == "main-llm-vllm|embedding-vllm|risk-prompt-vllm|risk-siren-vllm"
-    assert document["grafana_variables"]["model_values"] == ["local-main", "local-embed", "risk-prompt", "risk-siren"]
+    assert document["recording_rules"]["compose_service_regex"] == "main-llm-vllm|embedding-vllm|risk-prompt-vllm"
+    assert document["grafana_variables"]["model_values"] == ["local-main", "local-embed", "risk-prompt"]
     assert document["privacy_contract"] == {
         "raw_prompt_included": False,
         "user_text_included": False,

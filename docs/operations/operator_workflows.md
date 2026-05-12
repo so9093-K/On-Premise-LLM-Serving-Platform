@@ -29,7 +29,7 @@ make stop
 
 ## 2. GPU/vLLM full-stack 검증
 
-대상 GPU 서버에서 compose, 4개 vLLM runtime, Prometheus, Grafana까지 확인한다.
+대상 GPU 서버에서 compose, enabled vLLM runtime 3개, Prometheus, Grafana까지 확인한다.
 
 ```bash
 HF_TOKEN=hf_xxx make first-run

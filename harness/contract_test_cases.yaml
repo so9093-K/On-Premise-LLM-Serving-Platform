@@ -3,10 +3,10 @@ tests:
     endpoint: /v1/risk/detectors/prompt/assessments
     body: {prompt: "test prompt"}
     expected_status: 200
-  - id: risk_siren_valid
+  - id: risk_siren_retired
     endpoint: /v1/risk/detectors/siren/assessments
     body: {prompt: "test prompt"}
-    expected_status: 200
+    expected_status: 410
   - id: risk_extra_field_forbidden
     endpoint: /v1/risk/assessments
     body: {prompt: "test", metadata: {request_id: "x"}}

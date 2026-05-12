@@ -58,10 +58,10 @@ def test_version_metadata_records_current_package_metadata() -> None:
 def test_model_source_facts_and_runtime_policy_are_separated() -> None:
     catalog = yaml.safe_load((ROOT / 'configs/model_catalog.yaml').read_text(encoding='utf-8'))['models']
     main = catalog['local-main']
-    assert main['source_facts']['upstream_example']['tensor_parallel_size'] == 2
-    assert main['source_facts']['upstream_example']['max_model_len'] == 32768
+    assert main['source_facts']['upstream_example']['tensor_parallel_size'] == 1
+    assert main['source_facts']['upstream_example']['max_model_len'] == 16384
     assert main['project_runtime_policy']['tensor_parallel_size'] == 1
-    assert main['project_runtime_policy']['max_model_len'] == 8192
+    assert main['project_runtime_policy']['max_model_len'] == 16384
     assert main['project_runtime_policy']['max_image_inputs'] == 1
     assert main['project_runtime_policy']['max_image_bytes'] == 750000
     assert set(main['project_runtime_policy']['allowed_image_mime_types']) == {'image/jpeg', 'image/png', 'image/webp'}
@@ -102,7 +102,7 @@ def test_model_catalog_and_model_contracts_are_cross_checked() -> None:
         runtime = cfg['runtime']
         assert contracts[logical_id]['port'] == runtime['port']
         listing = cfg['gateway_listing']
-        assert listing['enabled'] is True
+        assert listing['enabled'] is (logical_id != 'risk-siren')
         assert listing['backend']
         assert listing['capabilities']
 
@@ -151,7 +151,7 @@ def test_main_runtime_features_and_request_parameter_policy_are_explicit() -> No
     for field in ['top_p', 'top_k', 'min_p', 'repetition_penalty', 'tools', 'tool_choice']:
         assert field in policy['supported_parameters']
 
-    for key in ['risk_prompt', 'risk_siren']:
+    for key in ['risk_prompt']:
         assert serving[key]['runtime_features']['tool_calling']['enabled'] is False
         assert serving[key]['runtime_features']['prefix_caching']['enabled'] is False
 
@@ -192,7 +192,7 @@ def test_embedding_pooling_runtime_has_valid_batch_token_budget() -> None:
 
 def test_risk_detector_quantization_defaults_are_preserved() -> None:
     serving = yaml.safe_load((ROOT / 'configs/model_serving.yaml').read_text(encoding='utf-8'))['models']
-    for service_name, key in [('risk-prompt-vllm', 'risk_prompt'), ('risk-siren-vllm', 'risk_siren')]:
+    for service_name, key in [('risk-prompt-vllm', 'risk_prompt')]:
         args = _compose_command_args(service_name)
         assert args['quantization'] == 'bitsandbytes'
         assert args['load_format'] == 'bitsandbytes'

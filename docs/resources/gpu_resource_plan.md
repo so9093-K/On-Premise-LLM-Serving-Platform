@@ -2,46 +2,44 @@
 
 ## 1. 범위
 
-본 문서는 A6000 48GB 단일 GPU에서 4개 vLLM 모델을 동시에 상주시킬 때의 보수적 리소스 배분 기준을 정의한다.
+본 문서는 A6000 48GB 단일 GPU에서 enabled vLLM 모델 3개를 동시에 상주시킬 때의 보수적 리소스 배분 기준을 정의한다. `risk-siren`은 retired 상태이며 기본 runtime budget 합계에서 제외한다.
 
 ## 2. 모델별 Budget
 
 | 모델 | 역할 | 권장 Budget |
 |---|---|---:|
-| `QuantTrio/gemma-4-31B-it-AWQ` | Main LLM | 27~29GiB |
+| `LargitData/gemma-4-26b-a4b-it-fp8` | Main LLM | 30~32GiB |
 | `google/embeddinggemma-300m` | Embedding | 1.5~2GiB |
 | `kakaocorp/kanana-safeguard-prompt-2.1b` | Prompt detector | 2.5~3.5GiB |
-| `kakaocorp/kanana-safeguard-siren-8b` | Siren detector | 6.5~8GiB |
-| Reserve | CUDA, fragmentation, peak | 4~6GiB |
+| Reserve | CUDA, fragmentation, peak | 6~8GiB |
 
 ## 3. Starting Utilization
 
 | Runtime | Port | `gpu_memory_utilization` |
 |---|---:|---:|
-| Main LLM | 9401 | 0.58 |
+| Main LLM | 9401 | 0.66 |
 | Embedding | 9402 | 0.04 |
 | Prompt | 9403 | 0.065 |
-| Siren | 9404 | 0.20 |
-| 합계 | - | 0.885 |
+| 합계 | - | 0.765 |
 
 ## 4. 제한 조건
 
 | 항목 | 기준 |
 |---|---|
-| Main LLM context | 8192부터 시작 |
+| Main LLM context | 16384부터 시작 |
 | Main LLM concurrency | `max_num_seqs=1` |
-| Prompt/Siren context | 1024~2048 |
-| Prompt/Siren output | 단일 토큰 label, `max_output_tokens=1` |
-| 32K context | 4모델 단일 GPU 상주 구조에서 비권장 |
+| Prompt context | 2048 |
+| Prompt output | 단일 토큰 label, `max_output_tokens=1` |
+| 32K context | A6000 실측 전 비권장 |
 | RAG bulk indexing | 초기 검증 단계에서는 제한 |
 
 ## 5. 검증 기준
 
 | 검증 항목 | 기준 |
 |---|---|
-| 모델 로드 | 4개 vLLM 인스턴스 모두 기동 |
+| 모델 로드 | enabled vLLM 인스턴스 모두 기동 |
 | Idle VRAM | 초기 사용량과 reserve 기록 |
-| Prompt/Siren 직렬 실행 | runtime peak가 과도하게 증가하지 않음 |
+| Prompt detector 실행 | runtime peak가 과도하게 증가하지 않음 |
 | LLM generation | 4K/8K 요청에서 OOM 없이 수행 |
 | Embedding | 소규모 batch에서 응답 성공 |
 | 반복 호출 | 50회 이상 반복 후 VRAM 누수 확인 |
@@ -72,8 +70,8 @@ OOM이 발생하지 않는다.
 리소스 조정은 다음 순서를 따른다.
 
 1. `local-embed` 배치 또는 배치 전용 host 분리 검토
-2. `risk-siren` budget 검토
-3. risk aggregate sequential/parallel peak 비교
+2. `risk-prompt` budget 검토
+3. risk aggregate detector 추가 시 sequential/parallel peak 비교
 4. `local-main` batched token 조정
 5. `local-main` context 또는 sequence 동시성 조정
 
@@ -81,14 +79,13 @@ Detector 출력 토큰 수, 모델 fallback 금지, 독립 vLLM process/port 원
 
 ## 리소스 할당 요약
 
-budget id: `single_a6000_conservative` / 설정된 `gpu_memory_utilization` 합계: `0.885`
+budget id: `single_a6000_conservative` / 설정된 enabled `gpu_memory_utilization` 합계: `0.765`
 
 | 모델 | 포트 | 역할 | `gpu_memory_utilization` | 기본 concurrency |
 |---|---:|---|---:|---:|
-| `local-main` | 9401 | chat completion | 0.58 | 1 |
+| `local-main` | 9401 | chat completion | 0.66 | 1 |
 | `local-embed` | 9402 | embedding | 0.04 | 2 |
 | `risk-prompt` | 9403 | prompt risk signal | 0.065 | 1 |
-| `risk-siren` | 9404 | siren risk signal | 0.20 | 1 |
 
 Tuning order: concurrency 축소 → max tokens/batch token 조정 순서를 따른다.
 

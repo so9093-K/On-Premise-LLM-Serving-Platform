@@ -4,7 +4,7 @@
 
 ## 검증 항목
 
-1. 네 개 vLLM process가 동시에 올라오는지 확인한다.
+1. enabled vLLM process가 동시에 올라오는지 확인한다.
 2. 각 모델의 cold start 시간과 peak VRAM을 기록한다.
 3. main LLM, embedding, risk prompt, risk siren 요청을 순차 실행한다.
 4. queue timeout과 circuit breaker가 의도대로 동작하는지 확인한다.

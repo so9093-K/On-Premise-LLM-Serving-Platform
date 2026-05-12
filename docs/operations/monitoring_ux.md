@@ -37,7 +37,7 @@ Dashboard JSON은 `ops/grafana/dashboards/*.json`에서 관리한다. 모든 das
 |---|---|
 | `$datasource` | Prometheus datasource portability |
 | `$window` | `1m`, `5m`, `15m`, `1h` 조회 window |
-| `$model` | `local-main`, `local-embed`, `risk-prompt`, `risk-siren` |
+| `$model` | `local-main`, `local-embed`, `risk-prompt` |
 | `$runtime_service` | compose runtime service filter |
 | `$route` | Gateway route filter |
 | `$status_code` | HTTP status filter |
@@ -66,14 +66,13 @@ Recording rule은 장기 trend와 alert rule에서 `rate()`를 계속 사용할 
 
 ## 모델별 vLLM 관측성
 
-Prometheus는 4개 vLLM runtime을 하나의 `vllm-runtimes` job으로 scrape하고, 각 target에 `model`과 `runtime_service` label을 붙인다. `job`을 모델별로 나누지 않고 label로 분리하면 dashboard와 alert rule을 같은 쿼리 구조로 유지할 수 있다.
+Prometheus는 enabled vLLM runtime을 하나의 `vllm-runtimes` job으로 scrape하고, 각 target에 `model`과 `runtime_service` label을 붙인다. `job`을 모델별로 나누지 않고 label로 분리하면 dashboard와 alert rule을 같은 쿼리 구조로 유지할 수 있다.
 
 | 모델 | Runtime service | Prometheus target |
 |---|---|---|
 | `local-main` | `main-llm-vllm` | `main-llm-vllm:9401` |
 | `local-embed` | `embedding-vllm` | `embedding-vllm:9402` |
 | `risk-prompt` | `risk-prompt-vllm` | `risk-prompt-vllm:9403` |
-| `risk-siren` | `risk-siren-vllm` | `risk-siren-vllm:9404` |
 
 대표 쿼리는 다음과 같다.
 

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 
@@ -49,18 +49,91 @@ class RuntimeEndpoint:
 
 
 @dataclass(frozen=True)
+class RiskDetectorSettings:
+    key: str
+    route: str
+    service_key: str
+    source_model: str
+    family: str
+    allowed_codes: frozenset[str]
+    enabled: bool = True
+    max_output_tokens: int = 1
+    temperature: float = 0
+
+
+@dataclass(frozen=True)
 class AppSettings:
     app_env: str
     project_version: str
     security: SecuritySettings
     gateway_timeout_seconds: float
     risk_adapter_timeout_seconds: float
-    main_llm: RuntimeEndpoint
-    embedding: RuntimeEndpoint
-    risk_prompt: RuntimeEndpoint
-    risk_siren: RuntimeEndpoint
     risk_adapter_base_url: str
+    runtime_endpoints: dict[str, RuntimeEndpoint] = field(default_factory=dict)
+    risk_detectors: tuple[RiskDetectorSettings, ...] = ()
+    aggregate_detector_order: tuple[str, ...] = ()
+    main_llm: RuntimeEndpoint | None = None
+    embedding: RuntimeEndpoint | None = None
+    risk_prompt: RuntimeEndpoint | None = None
+    risk_siren: RuntimeEndpoint | None = None
     max_request_body_bytes: int = 1_000_000
     risk_input_max_chars: int = 7_936
     public_models: tuple[dict[str, Any], ...] = ()
     documentation: DocumentationSettings = DocumentationSettings()
+
+    def __post_init__(self) -> None:
+        if not self.runtime_endpoints:
+            endpoints = {
+                key: endpoint
+                for key, endpoint in {
+                    "main_llm": self.main_llm,
+                    "embedding": self.embedding,
+                    "risk_prompt": self.risk_prompt,
+                    "risk_siren": self.risk_siren,
+                }.items()
+                if endpoint is not None
+            }
+            object.__setattr__(self, "runtime_endpoints", endpoints)
+        if not self.risk_detectors:
+            detectors: list[RiskDetectorSettings] = []
+            if self.risk_prompt is not None:
+                detectors.append(
+                    RiskDetectorSettings(
+                        key="prompt",
+                        route="/v1/risk/detectors/prompt/assessments",
+                        service_key="risk_prompt",
+                        source_model="risk-prompt",
+                        family="prompt_attack",
+                        allowed_codes=frozenset({"A1", "A2"}),
+                    )
+                )
+            if self.risk_siren is not None:
+                detectors.append(
+                    RiskDetectorSettings(
+                        key="siren",
+                        route="/v1/risk/detectors/siren/assessments",
+                        service_key="risk_siren",
+                        source_model="risk-siren",
+                        family="policy_risk",
+                        allowed_codes=frozenset({"I1", "I2", "I3", "I4"}),
+                    )
+                )
+            object.__setattr__(self, "risk_detectors", tuple(detectors))
+        if not self.aggregate_detector_order:
+            object.__setattr__(
+                self,
+                "aggregate_detector_order",
+                tuple(detector.key for detector in self.risk_detectors if detector.enabled),
+            )
+
+    def runtime(self, key: str) -> RuntimeEndpoint:
+        try:
+            return self.runtime_endpoints[key]
+        except KeyError as exc:
+            raise KeyError(f"runtime endpoint is not configured or enabled: {key}") from exc
+
+    def optional_runtime(self, key: str) -> RuntimeEndpoint | None:
+        return self.runtime_endpoints.get(key)
+
+    def enabled_risk_detectors(self) -> tuple[RiskDetectorSettings, ...]:
+        return tuple(detector for detector in self.risk_detectors if detector.enabled)

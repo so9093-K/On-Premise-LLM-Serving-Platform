@@ -124,7 +124,7 @@ elif check == "ready":
 elif check == "models":
     require(doc.get("object") == "list", "object must be list")
     ids = {item.get("id") for item in doc.get("data", [])}
-    require({"local-main", "local-embed", "risk-prompt", "risk-siren"}.issubset(ids), "missing logical model id")
+    require({"local-main", "local-embed", "risk-prompt"}.issubset(ids), "missing logical model id")
 elif check == "risk":
     require(doc.get("assessment_id"), "assessment_id is required")
     require(doc.get("status") in {"completed", "partial", "failed"}, "invalid risk status")
@@ -160,10 +160,6 @@ get_json risk-ready "$RISK_ADAPTER_BASE_URL/ready" admin
 assert_json ready
 
 post_json risk-prompt "$RISK_ADAPTER_BASE_URL/v1/risk/detectors/prompt/assessments" \
-  '{"prompt":"smoke test prompt"}' internal
-assert_json risk
-
-post_json risk-siren "$RISK_ADAPTER_BASE_URL/v1/risk/detectors/siren/assessments" \
   '{"prompt":"smoke test prompt"}' internal
 assert_json risk
 

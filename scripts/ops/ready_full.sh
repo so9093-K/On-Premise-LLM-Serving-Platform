@@ -88,7 +88,7 @@ wait_for_gateway_ready() {
   deadline=$((SECONDS + READY_FULL_TIMEOUT_SECONDS))
 
   echo "[ready-full] gateway /ready: vLLM 모델 로딩 대기 중 (최대 ${READY_FULL_TIMEOUT_SECONDS}s) ..."
-  echo "[ready-full] tip: vLLM 컨테이너는 main-llm → embedding → risk-siren → risk-prompt 순으로 순차 기동합니다 (depends_on healthcheck 체인)." >&2
+  echo "[ready-full] tip: vLLM 컨테이너는 main-llm → embedding → risk-prompt 순으로 기동합니다 (enabled runtime healthcheck 기준)." >&2
   echo "[ready-full] tip: 최초 실행은 HuggingFace 다운로드·캐시·quantization 초기화가 겹쳐 30분을 넘을 수 있습니다. 필요하면 READY_FULL_TIMEOUT_SECONDS를 늘리세요." >&2
 
   while true; do

@@ -13,7 +13,6 @@ Client / Application
       -> Embedding vLLM :9402
       -> Risk Adapter :9405
             -> Prompt Risk vLLM :9403
-            -> Siren Risk vLLM :9404
 ```
 
 ## 3. Public API와 Runtime API
@@ -28,7 +27,7 @@ Client / Application
 
 ## 4. Risk Signal Flow
 
-Risk Adapter는 detector output을 `<SAFE>` 또는 `<UNSAFE-Ax/Ix>` 형태의 signal로 정규화한다. `allow`, `block`, `decision`, `action` 같은 policy field는 반환하지 않는다.
+Risk Adapter는 enabled detector output을 `<SAFE>` 또는 `<UNSAFE-Ax/Ix>` 형태의 signal로 정규화한다. 기본 구성은 prompt detector만 사용하며, retired detector route는 호환성 정책에 따라 410 Gone을 반환한다. `allow`, `block`, `decision`, `action` 같은 policy field는 반환하지 않는다.
 
 ## 5. Gateway Chat Flow
 

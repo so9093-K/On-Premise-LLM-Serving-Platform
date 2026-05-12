@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 
 def capability_values(registry: "ModelRegistry") -> tuple[str, ...]:
     """Return a stable capability enum derived from catalog listings."""
-    values = {capability for record in registry.iter_records() for capability in record.capabilities}
+    values = {capability for record in registry.iter_records() if record.public_enabled for capability in record.capabilities}
     return tuple(sorted(values))
 
 
@@ -27,6 +27,8 @@ def capability_values_in_catalog_order(registry: "ModelRegistry") -> tuple[str, 
     ordered: list[str] = []
     seen: set[str] = set()
     for record in registry.iter_records():
+        if not record.public_enabled:
+            continue
         for capability in record.capabilities:
             if capability not in seen:
                 ordered.append(capability)
@@ -50,6 +52,8 @@ def iter_runtime_services(registry: "ModelRegistry") -> tuple["RuntimeService", 
     records_by_served_name = {record.served_model_name: record for record in registry.iter_records()}
     services: list[RuntimeService] = []
     for service_key, cfg in registry._serving_models().items():
+        if cfg.get("enabled", True) is not True:
+            continue
         served_model_name = str(cfg.get("served_model_name", ""))
         record = records_by_served_name.get(served_model_name)
         endpoint_path = record.endpoint_path if record is not None else None
@@ -195,7 +199,7 @@ def runtime_validation_matrix_checks(registry: "ModelRegistry") -> tuple["Runtim
     risk_models = tuple(
         record.logical_id
         for record in registry.iter_records()
-        if any(capability.startswith("risk.") for capability in record.capabilities)
+        if record.public_enabled and any(capability.startswith("risk.") for capability in record.capabilities)
     )
     return (
         RuntimeValidationMatrixCheck(

@@ -89,7 +89,7 @@ metric_sources:
   vllm_instances:
     scrape_job: vllm-runtimes
     label_policy:
-      model: logical served model name such as local-main or risk-siren
+      model: logical served model name such as local-main or risk-prompt
       runtime_service: compose service name such as main-llm-vllm
     ports:
     - 9401
@@ -278,7 +278,6 @@ resource_monitoring:
   - local-main
   - local-embed
   - risk-prompt
-  - risk-siren
   must_show:
   - traffic_by_model
   - latency_by_model
@@ -290,7 +289,7 @@ resource_monitoring:
   - vLLM runtime scrape targets use one job, vllm-runtimes, plus model and runtime_service
     labels.
   - 'model label values must match public logical model ids where possible: local-main,
-    local-embed, risk-prompt, risk-siren.'
+    local-embed, risk-prompt.'
   - cAdvisor panels must use compose service labels or recording rules, not raw generated
     container names.
   operator_rules:

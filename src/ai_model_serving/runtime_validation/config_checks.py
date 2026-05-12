@@ -189,9 +189,14 @@ class ConfigOnlyChecks:
 
     def _record_fixed_detector_budget(self) -> None:
         fixed = self.gpu_budgets.get("resource_management", {}).get("fixed_constraints", [])
+        detector_service_keys = [
+            str(detector["service_key"])
+            for detector in self.model_serving.get("risk_adapter", {}).get("detectors", {}).values()
+            if detector.get("enabled", True) is True
+        ]
         detector_tokens_ok = all(
             int(self.model_serving["models"][key].get("max_output_tokens", 0)) == 1
-            for key in ("risk_prompt", "risk_siren")
+            for key in detector_service_keys
         )
         self.record(CheckResult(
             "model-resource-control",

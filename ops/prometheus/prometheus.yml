@@ -2,41 +2,46 @@ global:
   scrape_interval: 15s
   scrape_timeout: 10s
   evaluation_interval: 15s
-
 rule_files:
-  - /etc/prometheus/rules/model_runtime.rules.yml
-
+- /etc/prometheus/rules/model_runtime.rules.yml
 scrape_configs:
-  - job_name: gateway
-    metrics_path: /metrics
-    bearer_token_file: /run/secrets/admin_api_key
-    static_configs:
-      - targets: ["gateway:9400"]
-
-  - job_name: risk-adapter
-    metrics_path: /metrics
-    bearer_token_file: /run/secrets/admin_api_key
-    static_configs:
-      - targets: ["risk-adapter:9405"]
-
-  - job_name: vllm-runtimes
-    metrics_path: /metrics
-    static_configs:
-      - targets: ["main-llm-vllm:9401"]
-        labels: {model: "local-main", runtime_service: "main-llm-vllm"}
-      - targets: ["embedding-vllm:9402"]
-        labels: {model: "local-embed", runtime_service: "embedding-vllm"}
-      - targets: ["risk-prompt-vllm:9403"]
-        labels: {model: "risk-prompt", runtime_service: "risk-prompt-vllm"}
-      - targets: ["risk-siren-vllm:9404"]
-        labels: {model: "risk-siren", runtime_service: "risk-siren-vllm"}
-
-  - job_name: dcgm-exporter
-    metrics_path: /metrics
-    static_configs:
-      - targets: ["dcgm-exporter:9400"]
-
-  - job_name: cadvisor
-    metrics_path: /metrics
-    static_configs:
-      - targets: ["cadvisor:8080"]
+- job_name: gateway
+  metrics_path: /metrics
+  bearer_token_file: /run/secrets/admin_api_key
+  static_configs:
+  - targets:
+    - gateway:9400
+- job_name: risk-adapter
+  metrics_path: /metrics
+  bearer_token_file: /run/secrets/admin_api_key
+  static_configs:
+  - targets:
+    - risk-adapter:9405
+- job_name: vllm-runtimes
+  metrics_path: /metrics
+  static_configs:
+  - targets:
+    - main-llm-vllm:9401
+    labels:
+      model: local-main
+      runtime_service: main-llm-vllm
+  - targets:
+    - embedding-vllm:9402
+    labels:
+      model: local-embed
+      runtime_service: embedding-vllm
+  - targets:
+    - risk-prompt-vllm:9403
+    labels:
+      model: risk-prompt
+      runtime_service: risk-prompt-vllm
+- job_name: dcgm-exporter
+  metrics_path: /metrics
+  static_configs:
+  - targets:
+    - dcgm-exporter:9400
+- job_name: cadvisor
+  metrics_path: /metrics
+  static_configs:
+  - targets:
+    - cadvisor:8080

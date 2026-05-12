@@ -62,7 +62,7 @@ Admin endpoints는 `Authorization: Bearer <ADMIN_API_KEY>` 필요.
 |---|---|---|
 | `local-main` | sampling, token limit, seed, stop, tool-call 관련 parameter, `stream`, `stream_options` | runtime/serving 하이퍼파라미터 |
 | `local-embed` | `dimensions`, `encoding_format`, `truncate_prompt_tokens` | runtime/serving 하이퍼파라미터 |
-| `risk-prompt`, `risk-siren` | 없음. `prompt` 입력만 받음 | detector sampling parameter는 adapter가 고정 |
+| `risk-prompt` | 없음. `prompt` 입력만 받음 | detector sampling parameter는 adapter가 고정 |
 
 클라이언트가 모델 선택 UI를 만든다면 `/v1/models`의 `capabilities`와 `request_parameters`를 함께 사용한다. `fixed_parameters`가 있으면 내부 adapter/runtime이 고정하는 값이므로 사용자 입력 form으로 노출하지 않는다.
 

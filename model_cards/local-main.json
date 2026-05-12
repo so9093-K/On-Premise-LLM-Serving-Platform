@@ -1,55 +1,62 @@
 {
   "logical_id": "local-main",
-  "upstream_model_id": "QuantTrio/gemma-4-31B-it-AWQ",
-  "base_model_id": "google/gemma-4-31B-it",
+  "upstream_model_id": "LargitData/gemma-4-26b-a4b-it-fp8",
+  "base_model_id": "google/gemma-4-26B-A4B-it",
   "role": "main_chat_completion",
-  "license": "apache-2.0",
+  "license": "gemma",
   "runtime": {
     "backend": "vllm",
     "port": 9401,
     "endpoint": "/v1/chat/completions",
-    "quantization": "awq",
+    "quantization": "fp8",
     "configured_tensor_parallel_size": 1,
-    "model_card_example_tensor_parallel_size": 2,
-    "max_model_len": 8192,
+    "model_card_example_tensor_parallel_size": 1,
+    "max_model_len": 16384,
     "python_default": "3.12.13",
     "max_output_tokens": 1024
   },
   "sources": [
-    "https://huggingface.co/QuantTrio/gemma-4-31B-it-AWQ",
-    "https://docs.vllm.ai/en/latest/models/supported_models/",
+    "https://huggingface.co/LargitData/gemma-4-26b-a4b-it-fp8",
+    "https://huggingface.co/google/gemma-4-26B-A4B-it",
     "https://docs.vllm.ai/projects/recipes/en/latest/Google/Gemma4.html"
   ],
   "source_facts": {
-    "base_model_id": "google/gemma-4-31B-it",
-    "quantization": "AWQ 4-bit",
+    "base_model_id": "google/gemma-4-26B-A4B-it",
+    "quantization": "offline FP8 checkpoint for vLLM",
     "vllm_min_version": "0.19.0",
     "transformers_min_version": "5.5.0",
-    "cuda_runtime_note": "cuda12.8 mentioned by upstream card as of 2026-04-03",
+    "cuda_runtime_note": "LargitData card describes H200-class validation; A6000 requires local boot and runtime validation before production claims",
     "upstream_example": {
-      "tensor_parallel_size": 2,
-      "max_model_len": 32768,
-      "max_num_seqs": 32,
-      "gpu_memory_utilization": 0.9,
+      "tensor_parallel_size": 1,
+      "max_model_len": 16384,
+      "max_num_seqs": 1,
+      "max_num_batched_tokens": 16384,
+      "gpu_memory_utilization": 0.66,
       "trust_remote_code": true,
       "enable_auto_tool_choice": true,
       "tool_call_parser": "gemma4",
-      "reasoning_parser": "gemma4"
+      "reasoning_parser": "gemma4",
+      "dtype": "auto",
+      "quantization": "fp8"
     },
     "supported_modalities": [
       "text",
       "image"
     ],
-    "context_length_tokens": 262144
+    "context_length_tokens": 262144,
+    "parameter_summary": {
+      "total_parameters": "25.2B",
+      "active_parameters": "3.8B"
+    }
   },
   "project_runtime_policy": {
     "tensor_parallel_size": 1,
-    "max_model_len": 8192,
+    "max_model_len": 16384,
     "max_num_seqs": 1,
-    "max_num_batched_tokens": 4096,
-    "gpu_memory_utilization": 0.58,
+    "max_num_batched_tokens": 16384,
+    "gpu_memory_utilization": 0.66,
     "trust_remote_code": true,
-    "policy_reason": "single-GPU service mix cap; not copied from the upstream multi-GPU example",
+    "policy_reason": "single-GPU A6000 starting cap for LargitData FP8 checkpoint; upstream validation is H200-oriented, so A6000 settings must be confirmed by runtime validation before increasing context or KV cache FP8 usage",
     "max_output_tokens": 1024,
     "input_modalities": [
       "text",

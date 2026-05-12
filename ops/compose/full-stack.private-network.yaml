@@ -55,15 +55,13 @@ services:
     depends_on:
       risk-prompt-vllm:
         condition: service_healthy
-      risk-siren-vllm:
-        condition: service_healthy
     expose:
     - '9405'
   main-llm-vllm:
     image: ${VLLM_IMAGE:?Set VLLM_IMAGE to a tested vLLM OpenAI image tag}
     command:
     - --model
-    - QuantTrio/gemma-4-31B-it-AWQ
+    - LargitData/gemma-4-26b-a4b-it-fp8
     - --served-model-name
     - local-main
     - --host
@@ -71,19 +69,19 @@ services:
     - --port
     - '9401'
     - --max-model-len
-    - '8192'
+    - '16384'
     - --max-num-seqs
     - '1'
     - --max-num-batched-tokens
-    - '4096'
+    - '16384'
     - --gpu-memory-utilization
-    - '0.58'
+    - '0.66'
     - --tensor-parallel-size
     - '1'
     - --dtype
-    - half
+    - auto
     - --quantization
-    - awq
+    - fp8
     - --trust-remote-code
     - --enable-prefix-caching
     - --prefix-caching-hash-algo
@@ -163,59 +161,6 @@ services:
           devices:
           - capabilities:
             - gpu
-  risk-siren-vllm:
-    image: ${RISK_VLLM_IMAGE:?Set RISK_VLLM_IMAGE to a tested vLLM OpenAI image tag
-      for risk models}
-    command:
-    - --model
-    - kakaocorp/kanana-safeguard-siren-8b
-    - --served-model-name
-    - risk-siren
-    - --host
-    - 0.0.0.0
-    - --port
-    - '9404'
-    - --max-model-len
-    - '2048'
-    - --max-num-seqs
-    - '1'
-    - --max-num-batched-tokens
-    - '2048'
-    - --gpu-memory-utilization
-    - '0.18'
-    - --dtype
-    - bfloat16
-    - --quantization
-    - bitsandbytes
-    - --load-format
-    - bitsandbytes
-    - --enforce-eager
-    expose:
-    - '9404'
-    env_file: ../../.env
-    environment:
-      HF_TOKEN: ${HF_TOKEN:-}
-      HUGGING_FACE_HUB_TOKEN: ${HUGGING_FACE_HUB_TOKEN:-}
-      HF_HOME: /root/.cache/huggingface
-    volumes:
-    - ${HF_CACHE_DIR:-./model_cache/huggingface}:/root/.cache/huggingface
-    depends_on:
-      embedding-vllm:
-        condition: service_healthy
-    healthcheck:
-      test:
-      - CMD-SHELL
-      - python3 -c "import urllib.request; urllib.request.urlopen('http://localhost:9404/health')"
-      interval: 30s
-      timeout: 10s
-      retries: 15
-      start_period: 180s
-    deploy:
-      resources:
-        reservations:
-          devices:
-          - capabilities:
-            - gpu
   risk-prompt-vllm:
     image: ${RISK_VLLM_IMAGE:?Set RISK_VLLM_IMAGE to a tested vLLM OpenAI image tag
       for risk models}
@@ -253,9 +198,6 @@ services:
       HF_HOME: /root/.cache/huggingface
     volumes:
     - ${HF_CACHE_DIR:-./model_cache/huggingface}:/root/.cache/huggingface
-    depends_on:
-      risk-siren-vllm:
-        condition: service_healthy
     healthcheck:
       test:
       - CMD-SHELL
@@ -307,7 +249,6 @@ services:
     - main-llm-vllm
     - embedding-vllm
     - risk-prompt-vllm
-    - risk-siren-vllm
     - dcgm-exporter
     - cadvisor
     command:

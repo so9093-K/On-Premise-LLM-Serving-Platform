@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parents[2]
 def test_gpu_resource_requirement_reference_is_packaged() -> None:
     doc = (ROOT / "docs/resources/gpu_resource_requirements_48gb.md").read_text(encoding="utf-8")
     assert "48GB VRAM 단일 GPU" in doc
-    assert "0.83~0.87" in doc
+    assert "0.765" in doc
     assert "runtime peak" in doc
 
 
@@ -40,7 +40,6 @@ def test_ops_templates_exist_without_runtime_claims() -> None:
         "local-main": "main-llm-vllm",
         "local-embed": "embedding-vllm",
         "risk-prompt": "risk-prompt-vllm",
-        "risk-siren": "risk-siren-vllm",
     }
 
     for path in [
@@ -257,7 +256,7 @@ def test_p2_runtime_validation_harness_is_packaged() -> None:
         text=True,
     )
     assert "--served-model-name local-main" in output
-    assert "--max-model-len 8192" in output
+    assert "--max-model-len 16384" in output
     assert "--enable-prefix-caching" in output
     assert "--prefix-caching-hash-algo sha256_cbor" in output
     assert "--enable-auto-tool-choice" in output
@@ -272,8 +271,8 @@ def test_full_stack_compose_and_prometheus_paths_are_network_correct() -> None:
     assert "dcgm-exporter:9400" in prom
     assert "dcgm-exporter:9412" not in prom
     assert "cadvisor:8080" in prom
-    assert 'model: "local-main"' in prom
-    assert 'runtime_service: "main-llm-vllm"' in prom
+    assert 'model: local-main' in prom
+    assert 'runtime_service: main-llm-vllm' in prom
 
     rules = (ROOT / "ops/prometheus/rules/model_runtime.rules.yml").read_text(encoding="utf-8")
     assert "vllm_container_memory_usage_bytes" in rules

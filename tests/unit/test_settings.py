@@ -94,7 +94,7 @@ def test_load_settings_reads_local_dotenv_without_overriding_exported_values(tmp
     assert settings.security.api_keys == frozenset({"dotenv-key"})
     assert settings.max_request_body_bytes == 1234
     assert settings.main_llm.max_concurrency == 2
-    assert {item["id"] for item in settings.public_models} == {"local-main", "local-embed", "risk-prompt", "risk-siren"}
+    assert {item["id"] for item in settings.public_models} == {"local-main", "local-embed", "risk-prompt"}
 
     monkeypatch.setenv("API_KEYS", "exported-key")
     settings = load_settings(root)
@@ -171,7 +171,7 @@ def test_load_settings_supports_independent_internal_service_auth_flag(monkeypat
 
 
 def test_load_settings_rejects_risk_adapter_timeout_below_sequential_budget(monkeypatch):
-    monkeypatch.setenv("RISK_ADAPTER_TIMEOUT_SECONDS", "10")
+    monkeypatch.setenv("RISK_ADAPTER_TIMEOUT_SECONDS", "6")
     with pytest.raises(RuntimeError, match="RISK_ADAPTER_TIMEOUT_SECONDS"):
         load_settings()
 
@@ -182,7 +182,8 @@ def test_load_settings_supports_per_model_timeout_overrides(monkeypatch):
     monkeypatch.setenv("RISK_ADAPTER_TIMEOUT_SECONDS", "10")
     settings = load_settings()
     assert settings.risk_prompt.timeout_seconds == 3
-    assert settings.risk_siren.timeout_seconds == 3
+    assert settings.risk_siren is None
+    assert "risk_siren" not in settings.runtime_endpoints
 
 
 def test_load_settings_uses_nested_admission_control_defaults(monkeypatch):

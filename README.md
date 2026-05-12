@@ -34,7 +34,7 @@
 |---|---|---|
 | 텍스트 생성 | `local-main` | `/v1/chat/completions` |
 | 임베딩 | `local-embed` | `/v1/embeddings` |
-| 위험 신호 분석 | `risk-prompt`, `risk-siren` | `/v1/risk/*` |
+| 위험 신호 분석 | `risk-prompt` | `/v1/risk/*` |
 
 Risk Adapter는 `allow`, `block`, `decision`, `action` 같은 최종 정책 결정을 하지 않는다. detector 결과를 **signal-only response**로 정규화하고, 최종 제품 정책은 Gateway 밖 별도 product policy layer가 담당한다.
 
@@ -95,7 +95,7 @@ make stop
 
 ## Full-stack 경로 (GPU 필요)
 
-Gateway, Risk Adapter, 4개 vLLM runtime, Prometheus, Grafana, DCGM exporter, cAdvisor를 compose로 함께 올린다.
+Gateway, Risk Adapter, enabled vLLM runtime 3개, Prometheus, Grafana, DCGM exporter, cAdvisor를 compose로 함께 올린다.
 
 **사전 준비:** Docker, NVIDIA Container Toolkit, GPU, Hugging Face token
 
@@ -275,10 +275,9 @@ PURGE_RUNTIME_SECRETS=1 make clean-all
 | 서비스 | 포트 | 역할 |
 |---|---:|---|
 | Gateway | 9400 | 외부 단일 진입점 |
-| Main LLM vLLM | 9401 | 31B AWQ generation |
+| Main LLM vLLM | 9401 | Gemma 4 26B-A4B FP8 generation |
 | Embedding vLLM | 9402 | EmbeddingGemma embeddings |
 | Prompt vLLM | 9403 | Kanana Prompt detector |
-| Siren vLLM | 9404 | Kanana Siren detector |
 | Risk Adapter | 9405 | risk signal 정규화/집계 |
 | Prometheus | 9410 | metric 수집/조회 |
 | Grafana | 9411 | 운영 dashboard |
@@ -308,7 +307,7 @@ make package
 
 | 항목 | 확인 내용 |
 |---|---|
-| vLLM 기동 | 4개 runtime이 동시에 정상 기동하는지 |
+| vLLM 기동 | enabled runtime 3개가 정상 기동하는지 |
 | VRAM | A6000 48GB에서 peak/headroom이 충분한지 |
 | latency | chat/embedding/risk detector p95/p99 |
 | queue/timeout | 동시 요청에서 queue timeout과 circuit breaker 동작 |
@@ -381,9 +380,9 @@ Embedding pooling runtime은 `max_num_batched_tokens >= max_model_len` 정책을
 
 ## 부록: Kanana risk vLLM
 
-`risk-prompt`와 `risk-siren`은 main Gemma4 runtime과 image tag를 공유하지 않는다. `risk-prompt` 2.1B는 `hidden_size=1792`, `num_attention_heads=24`, `head_dim=128` 구조라서 explicit `head_dim`을 존중하는 runtime이 필요하다 (transformers 4.52.0–4.52.3 버그, 4.52.4에서 수정). `RISK_VLLM_IMAGE`는 `ops/docker/Dockerfile.risk-vllm-kanana`로 별도 빌드하며, `make first-run`이 image 내부 config 파싱까지 확인한다.
+`risk-prompt`는 main Gemma4 runtime과 image tag를 공유하지 않는다. `risk-prompt` 2.1B는 `hidden_size=1792`, `num_attention_heads=24`, `head_dim=128` 구조라서 explicit `head_dim`을 존중하는 runtime이 필요하다 (transformers 4.52.0–4.52.3 버그, 4.52.4에서 수정). `RISK_VLLM_IMAGE`는 `ops/docker/Dockerfile.risk-vllm-kanana`로 별도 빌드하며, `make first-run`이 image 내부 config 파싱까지 확인한다.
 
-두 risk 모델에는 `--enforce-eager`가 적용된다. `max_num_seqs=1`, `max_output_tokens=1` 단일 토큰 분류기에서 CUDA graph 이점이 없고, 4개 vLLM 동시 기동 시 CUDA graph capture 메모리 spike가 OOM을 유발하기 때문이다.
+Risk detector에는 `--enforce-eager`가 적용된다. `max_num_seqs=1`, `max_output_tokens=1` 단일 토큰 분류기에서 CUDA graph 이점이 작고, vLLM 기동 중 CUDA graph capture 메모리 spike를 피하기 위해서다. `risk-siren`은 현재 retired 상태이며 기본 compose와 `/v1/models`에서 제외된다.
 
 패치 lifecycle과 image metadata 정책은 `docs/operations/risk_vllm_patch_lifecycle.md`을 기준으로 검토한다.
 

@@ -13,7 +13,7 @@
     },
     "data": {
       "type": "array",
-      "minItems": 4,
+      "minItems": 3,
       "items": {
         "type": "object",
         "required": [
@@ -29,8 +29,7 @@
             "enum": [
               "local-main",
               "local-embed",
-              "risk-prompt",
-              "risk-siren"
+              "risk-prompt"
             ]
           },
           "object": {
@@ -49,9 +48,7 @@
                 "chat.completions.vision",
                 "chat.completions.tools",
                 "embeddings",
-                "risk.prompt_attack_signal",
-                "risk.policy_signal",
-                "risk.aggregate_signal"
+                "risk.prompt_attack_signal"
               ]
             }
           },

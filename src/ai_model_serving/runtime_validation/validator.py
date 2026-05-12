@@ -138,8 +138,11 @@ class RuntimeValidator:
         self.safe_check("risk-adapter-runtime", "risk-adapter /ready", self.check_risk_ready)
         for key, base in self.vllm_bases.items():
             self.safe_check("vllm-runtime", f"{key} /models", lambda key=key, base=base: self.check_vllm_models(key, base))
-        self.safe_check("risk-adapter-runtime", "prompt assessment", lambda: self.check_risk_endpoint("/v1/risk/detectors/prompt/assessments", "prompt assessment"))
-        self.safe_check("risk-adapter-runtime", "siren assessment", lambda: self.check_risk_endpoint("/v1/risk/detectors/siren/assessments", "siren assessment"))
+        detectors = self.model_serving.get("risk_adapter", {}).get("detectors", {})
+        for key, detector in detectors.items():
+            if detector.get("enabled", True) is True:
+                route = str(detector.get("route", f"/v1/risk/detectors/{key}/assessments"))
+                self.safe_check("risk-adapter-runtime", f"{key} assessment", lambda route=route, key=key: self.check_risk_endpoint(route, f"{key} assessment"))
         self.safe_check("risk-adapter-runtime", "aggregate assessment", lambda: self.check_risk_endpoint("/v1/risk/assessments", "aggregate assessment"))
         self.safe_check("vllm-runtime", "chat", self.check_chat)
         self.safe_check("vllm-runtime", "streaming chat", self.check_streaming_chat)

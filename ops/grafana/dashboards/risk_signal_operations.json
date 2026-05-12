@@ -519,7 +519,7 @@
         "multi": true,
         "name": "model",
         "options": [],
-        "query": "local-main,local-embed,risk-prompt,risk-siren",
+        "query": "local-main,local-embed,risk-prompt",
         "type": "custom"
       },
       {
@@ -535,7 +535,7 @@
         "multi": true,
         "name": "runtime_service",
         "options": [],
-        "query": "main-llm-vllm,embedding-vllm,risk-prompt-vllm,risk-siren-vllm",
+        "query": "main-llm-vllm,embedding-vllm,risk-prompt-vllm",
         "type": "custom"
       },
       {

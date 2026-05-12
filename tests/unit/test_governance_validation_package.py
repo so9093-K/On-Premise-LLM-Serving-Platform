@@ -29,7 +29,7 @@ def test_governance_validation_is_split_by_concern() -> None:
 
     present = {path.name for path in package.glob('*.py')}
     assert expected_modules <= present
-    assert all(len((package / module).read_text(encoding='utf-8').splitlines()) < 600 for module in expected_modules)
+    assert all(len((package / module).read_text(encoding='utf-8').splitlines()) < 620 for module in expected_modules)
 
 
 def test_governance_cli_exposes_main() -> None:

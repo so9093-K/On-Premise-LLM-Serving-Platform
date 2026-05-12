@@ -4,7 +4,7 @@
 
 ## 범위
 
-- Gateway, Risk Adapter, 네 개 vLLM runtime, Prometheus, Grafana, DCGM exporter, cAdvisor를 대상으로 한다.
+- Gateway, Risk Adapter, enabled vLLM runtime, Prometheus, Grafana, DCGM exporter, cAdvisor를 대상으로 한다.
 - 검증은 target GPU host에서 수행한다.
 - 보고서는 `reports/runtime/` 아래에 생성한다.
 
@@ -51,7 +51,7 @@ GATEWAY_BASE_URL=http://staging-gateway:9400 python scripts/validation/runtime_v
 | Main LLM vLLM | `--main-llm-base` | `MAIN_LLM_BASE_URL` | `http://localhost:9401/v1` |
 | Embedding vLLM | `--embedding-base` | `EMBEDDING_BASE_URL` | `http://localhost:9402/v1` |
 | Risk Prompt vLLM | `--risk-prompt-base` | `RISK_PROMPT_BASE_URL` | `http://localhost:9403/v1` |
-| Risk Siren vLLM | `--risk-siren-base` | `RISK_SIREN_BASE_URL` | `http://localhost:9404/v1` |
+| Risk Siren vLLM | `--risk-siren-base` | `RISK_SIREN_BASE_URL` | retired 호환 옵션, enabled runtime일 때만 사용 |
 | Prometheus | `--prometheus-base` | `PROMETHEUS_BASE_URL` | `http://localhost:9410` |
 
 `API_KEY`, `ADMIN_API_KEY`, `INTERNAL_SERVICE_TOKEN` 같은 secret은 명령 출력과 report에 노출하지 않는다.

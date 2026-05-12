@@ -33,22 +33,17 @@ from .common import (
 
 def validate_ports() -> None:
     ports = read_yaml('configs/ports.yaml')['ports']
-    for key, value in EXPECTED_PORTS.items():
-        if ports.get(key) != value:
-            raise SystemExit(f'port mismatch: {key} expected {value}, got {ports.get(key)}')
-
     model_serving = read_yaml('configs/model_serving.yaml')
     checks = {
         'gateway': model_serving['server']['gateway']['port'],
         'risk_adapter': model_serving['server']['risk_adapter']['port'],
-        'main_llm_vllm': model_serving['models']['main_llm']['port'],
-        'embedding_vllm': model_serving['models']['embedding']['port'],
-        'risk_prompt_vllm': model_serving['models']['risk_prompt']['port'],
-        'risk_siren_vllm': model_serving['models']['risk_siren']['port'],
     }
-    for key, expected in EXPECTED_PORTS.items():
-        if checks[key] != expected:
-            raise SystemExit(f'model_serving port mismatch: {key} expected {expected}, got {checks[key]}')
+    for key, cfg in model_serving['models'].items():
+        if cfg.get('enabled', True) is True:
+            checks[f'{key}_vllm'] = cfg['port']
+    for key, value in checks.items():
+        if ports.get(key) != value:
+            raise SystemExit(f'port mismatch: {key} expected {value}, got {ports.get(key)}')
 
     env = (ROOT / '.env.example').read_text(encoding='utf-8')
     if 'GATEWAY_PORT=9400' not in env:
@@ -90,8 +85,8 @@ def validate_model_source_facts() -> None:
     main = catalog['local-main']
     source = main['source_facts']['upstream_example']
     policy = main['project_runtime_policy']
-    if source['tensor_parallel_size'] != 2 or source['max_model_len'] != 32768:
-        raise SystemExit('local-main source_facts must preserve upstream example TP=2 and max_model_len=32768')
+    if not source.get('tensor_parallel_size') or not source.get('max_model_len'):
+        raise SystemExit('local-main source_facts must preserve upstream example tensor_parallel_size and max_model_len')
     if policy['tensor_parallel_size'] != serving['main_llm']['tensor_parallel_size']:
         raise SystemExit('local-main tensor_parallel_size mismatch between catalog policy and serving config')
     if policy['max_model_len'] != serving['main_llm']['max_model_len']:
@@ -108,10 +103,11 @@ def validate_model_source_facts() -> None:
     if serving['embedding']['max_model_len'] != 2048:
         raise SystemExit('embedding serving max_model_len must match model-card max input tokens')
 
-    for logical_id, serving_key, expected_codes in [
-        ('risk-prompt', 'risk_prompt', {'A1', 'A2'}),
-        ('risk-siren', 'risk_siren', {'I1', 'I2', 'I3', 'I4'}),
-    ]:
+    detector_specs = read_yaml('configs/model_serving.yaml')['risk_adapter'].get('detectors', {})
+    for detector in detector_specs.values():
+        serving_key = detector['service_key']
+        logical_id = detector['source_model']
+        expected_codes = set(detector['allowed_codes'])
         model = catalog[logical_id]
         facts = model['source_facts']
         policy = model['project_runtime_policy']
@@ -163,8 +159,10 @@ def validate_model_registry_alignment() -> None:
     if issues:
         details = '; '.join(f'{issue.code}: {issue.message}' for issue in issues)
         raise SystemExit(f'ModelRegistry alignment failed: {details}')
-    if set(registry.public_logical_ids()) != set(read_yaml('configs/model_catalog.yaml')['models']):
-        raise SystemExit('ModelRegistry public logical ids must match model_catalog.yaml for this release')
+    catalog = read_yaml('configs/model_catalog.yaml')['models']
+    expected_public = {logical_id for logical_id, cfg in catalog.items() if cfg.get('gateway_listing', {}).get('enabled', True) is True}
+    if set(registry.public_logical_ids()) != expected_public:
+        raise SystemExit('ModelRegistry public logical ids must match enabled gateway listings')
     settings_text = (ROOT / 'src/ai_model_serving/settings.py').read_text(encoding='utf-8')
     if '_public_models_from_registry(model_catalog, model_serving)' not in settings_text:
         raise SystemExit('settings.py must build Gateway model list through ModelRegistry with serving alignment')
@@ -181,24 +179,25 @@ def validate_resource_requirements_doc() -> None:
 def validate_risk_detector_generation_budget() -> None:
     serving = read_yaml('configs/model_serving.yaml')['models']
     catalog = read_yaml('configs/model_catalog.yaml')['models']
-    cards = {
-        'risk-prompt': read_json('model_cards/risk-prompt.json'),
-        'risk-siren': read_json('model_cards/risk-siren.json'),
-    }
-    pairs = {
-        'risk-prompt': 'risk_prompt',
-        'risk-siren': 'risk_siren',
-    }
-    for logical_id, serving_key in pairs.items():
+    detector_specs = read_yaml('configs/model_serving.yaml')['risk_adapter'].get('detectors', {})
+    for detector in detector_specs.values():
+        logical_id = detector['source_model']
+        serving_key = detector['service_key']
+        card = read_json(f'model_cards/{logical_id}.json')
         catalog_tokens = catalog[logical_id]['runtime']['max_output_tokens']
         serving_tokens = serving[serving_key]['max_output_tokens']
-        card_tokens = cards[logical_id]['runtime']['max_output_tokens']
+        card_tokens = card['runtime']['max_output_tokens']
         if not (catalog_tokens == serving_tokens == card_tokens == 1):
             raise SystemExit(f'{logical_id} max_output_tokens must align at 1 across catalog, serving, and model card')
     risk_adapter_cfg = read_yaml('configs/model_serving.yaml')['risk_adapter']
     input_policy = risk_adapter_cfg.get('input_policy', {})
     max_prompt_chars = int(input_policy.get('max_prompt_chars', 0))
-    min_detector_window = min(int(serving['risk_prompt']['max_model_len']), int(serving['risk_siren']['max_model_len']))
+    enabled_detector_keys = [
+        detector['service_key']
+        for detector in detector_specs.values()
+        if detector.get('enabled', True) is True
+    ]
+    min_detector_window = min(int(serving[key]['max_model_len']) for key in enabled_detector_keys)
     expected_upper_bound = (min_detector_window - 64) * 4
     if max_prompt_chars <= 0 or max_prompt_chars > expected_upper_bound:
         raise SystemExit(
@@ -213,8 +212,8 @@ def validate_risk_detector_generation_budget() -> None:
     risk_text = (ROOT / 'src/ai_model_serving/apps/risk_adapter.py').read_text(encoding='utf-8')
     risk_service_text = (ROOT / 'src/ai_model_serving/services/risk_assessment.py').read_text(encoding='utf-8')
     risk_input_text = (ROOT / 'src/ai_model_serving/risk_input.py').read_text(encoding='utf-8')
-    if '"max_tokens": 1' not in (risk_text + risk_service_text):
-        raise SystemExit('risk adapter detector calls must request max_tokens=1')
+    if '"max_tokens": detector.max_output_tokens' not in risk_service_text:
+        raise SystemExit('risk adapter detector calls must use configured single-token detector budget')
     if 'RiskInputPolicy' not in risk_service_text or 'TRUNCATED_INPUT' not in risk_input_text:
         raise SystemExit('risk adapter must guard detector context overflow with TRUNCATED_INPUT system signal')
 
@@ -236,10 +235,9 @@ def validate_smoke_thresholds() -> None:
 def validate_model_resource_control_policy() -> None:
     serving = read_yaml('configs/model_serving.yaml')
     catalog = read_yaml('configs/model_catalog.yaml')['models']
-    required_serving_keys = {'main_llm', 'embedding', 'risk_prompt', 'risk_siren'}
-    if set(serving['models']) != required_serving_keys:
-        raise SystemExit(f'model_serving.yaml models must be exactly {required_serving_keys}')
     for key, cfg in serving['models'].items():
+        if cfg.get('enabled', True) is not True:
+            continue
         control = cfg.get('resource_control')
         if not isinstance(control, dict):
             raise SystemExit(f'{key} missing resource_control')
@@ -251,7 +249,7 @@ def validate_model_resource_control_policy() -> None:
             raise SystemExit(f'{key} resource control concurrency should track max_num_seqs')
         if float(cfg.get('gpu_memory_utilization', 0)) <= 0 or float(cfg.get('gpu_memory_utilization', 0)) >= 1:
             raise SystemExit(f'{key} gpu_memory_utilization must be between 0 and 1')
-    total_util = sum(float(cfg['gpu_memory_utilization']) for cfg in serving['models'].values())
+    total_util = sum(float(cfg['gpu_memory_utilization']) for cfg in serving['models'].values() if cfg.get('enabled', True) is True)
     gpu = read_yaml('configs/gpu_budgets.yaml')
     util_policy = gpu['gpu']['total_gpu_memory_utilization']
     avoid_above = float(util_policy['avoid_above'])
@@ -270,7 +268,8 @@ def validate_model_resource_control_policy() -> None:
     if not allocation_doc.exists():
         raise SystemExit('docs/resources/gpu_resource_plan.md is required')
     allocation_text = allocation_doc.read_text(encoding='utf-8')
-    for phrase in ['single_a6000_conservative', '설정된 `gpu_memory_utilization` 합계: `0.885`', 'Tuning order', 'Fixed constraints']:
+    expected_total_phrase = f'설정된 enabled `gpu_memory_utilization` 합계: `{recommended_start:g}`'
+    for phrase in ['single_a6000_conservative', expected_total_phrase, 'Tuning order', 'Fixed constraints']:
         if phrase not in allocation_text:
             raise SystemExit(f'gpu_resource_plan.md missing phrase: {phrase}')
     main_policy = catalog['local-main']['project_runtime_policy']

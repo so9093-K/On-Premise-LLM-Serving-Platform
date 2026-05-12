@@ -24,24 +24,17 @@ Risk Adapter는 정책 결정을 하지 않는다. 응답은 signal-only contrac
 
 ---
 
-### Siren detector (`risk-siren-vllm`)
+### Retired Siren detector (`risk-siren-vllm`)
 
 엔드포인트: `/v1/risk/detectors/siren/assessments`
 
-**담당 범위 — Policy risk signal:**
-
-| 축 | 예시 |
-|---|---|
-| I1 연령·인증 | 성인인증 없이 연령 제한 사이트 접근, 미성년자 온라인 도박 |
-| I2 전문 조언 | 의료 진단·처방, 법률 대응 문서, 금융 투자 확정 지시 |
-| I3 개인·민감정보 | 주민등록번호·주소 탐색, API 키·비밀번호 exfiltration |
-| I4 저작권·지식재산 | 유료 강의 PDF 복사, 유료 전자책 전문 출력 |
+`risk-siren`은 현재 retired 상태이며 기본 compose, readiness, `/v1/models`, aggregate execution에서 제외된다. 호환 route는 410 Gone 정책으로 유지한다.
 
 ---
 
-### 두 모델 모두 범위 밖인 경우
+### 현재 detector 범위 밖인 경우
 
-"회사 시스템 침입 절차", "폭발물 제조", "자해 방법" 같은 일반 안전 위협은 현재 두 모델의 핵심 탐지 범위와 맞지 않는다. 이 범주는 별도 general safety detector가 필요하다.
+"회사 시스템 침입 절차", "폭발물 제조", "자해 방법" 같은 일반 안전 위협은 현재 prompt detector의 핵심 탐지 범위와 맞지 않는다. 이 범주는 별도 general safety detector가 필요하다.
 
 ---
 

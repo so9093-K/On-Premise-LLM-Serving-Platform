@@ -9,9 +9,9 @@ def test_modelctl_status_document_includes_lifecycle_and_gpu_budget():
     registry = modelctl.load_registry(modelctl.ROOT)
     doc = modelctl.status_document(modelctl.ROOT, registry)
     assert doc["model_count"] == 4
-    assert doc["public_model_count"] == 4
-    assert doc["lifecycle_states"] == {"active": 4}
-    assert doc["gpu"]["total_gpu_memory_utilization"] == 0.865
+    assert doc["public_model_count"] == 3
+    assert doc["lifecycle_states"] == {"active": 3, "retired": 1}
+    assert doc["gpu"]["total_gpu_memory_utilization"] == 0.765
     assert doc["alignment_issues"] == []
 
 
@@ -27,7 +27,7 @@ def test_modelctl_list_json_contains_runtime_services(capsys):
     data = json.loads(capsys.readouterr().out)
     rows = {row["id"]: row for row in data["models"]}
     assert rows["local-main"]["runtime_service"] == "main_llm"
-    assert rows["risk-siren"]["state"] == "active"
+    assert rows["risk-siren"]["state"] == "retired"
 
 
 

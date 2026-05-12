@@ -73,11 +73,7 @@ GATEWAY_TAGS_METADATA = [
             "- 역할극(DAN, unrestricted AI 등) jailbreak\n"
             "- 문서·웹페이지 안에 숨겨진 간접 prompt injection\n"
             "- 연결된 도구로 시크릿·파일·메일 탈취 유도\n\n"
-            "**Siren detector** (`risk-siren`) — Policy risk signal 탐지:\n"
-            "- 성인인증·연령 제한 우회\n"
-            "- 의료·법률·금융 전문 조언 요청\n"
-            "- 개인정보·민감정보·계정 정보 탈취\n"
-            "- 유료 콘텐츠·저작권 무단 복제"
+            "`risk-siren`은 retired 상태이며 aggregate는 enabled detector registry 기준으로 동작합니다."
         ),
     },
 ]
@@ -113,7 +109,7 @@ GATEWAY_DESCRIPTION_TEMPLATE = """
 
 - `local-main`: `temperature`, `max_tokens`, `top_p`, `top_k`, `min_p`, penalty, `seed`, `n`, tool 관련 parameter를 Gateway 제약 안에서 조정할 수 있습니다. `stream=true`는 vLLM SSE 응답을 Gateway가 실시간 relay하는 fast path로 지원합니다.
 - `local-embed`: `dimensions`, `encoding_format`, `truncate_prompt_tokens`를 조정할 수 있습니다.
-- `risk-prompt`, `risk-siren`: 사용자가 조정할 수 있는 sampling parameter는 없습니다. risk API는 `prompt` 입력만 받고 detector 호출 parameter는 adapter가 고정합니다.
+- `risk-prompt`: 사용자가 조정할 수 있는 sampling parameter는 없습니다. risk API는 `prompt` 입력만 받고 detector 호출 parameter는 adapter가 고정합니다.
 
 ## Readiness
 
@@ -175,8 +171,8 @@ def model_list_response(settings: AppSettings) -> dict[str, Any]:
 
 class GatewayClients:
     def __init__(self, settings: AppSettings) -> None:
-        self.main_llm = VLLMClient(settings.main_llm)
-        self.embedding = VLLMClient(settings.embedding)
+        self.main_llm = VLLMClient(settings.runtime("main_llm"))
+        self.embedding = VLLMClient(settings.runtime("embedding"))
         self.risk_adapter = VLLMClient(
             RuntimeEndpoint(
                 logical_id="risk-adapter",
@@ -387,12 +383,12 @@ def create_gateway_app(settings: AppSettings | None = None, clients: GatewayClie
         "/v1/risk/detectors/siren/assessments",
         dependencies=api_dependencies,
         tags=["Risk"],
-        summary="Policy 위반 탐지 신호",
+        summary="Retired Siren detector 신호",
         description=(
-            "Siren policy risk detector의 위험 신호만 반환합니다. "
-            "응답은 signal-only contract를 따르며 정책 판단 필드는 포함되지 않습니다."
+            "`risk-siren` detector는 현재 retired 상태입니다. "
+            "호환 route는 남아 있지만 호출 시 Risk Adapter의 410 Gone 응답을 전달합니다."
         ),
-        responses={401: {"description": "API Bearer token 필요"}},
+        responses={401: {"description": "API Bearer token 필요"}, 410: {"description": "Detector retired"}},
     )
     async def risk_siren_assessment(payload: dict[str, Any] = Body(openapi_examples={"basic": {"summary": "기본 요청 예시", "value": RISK_EXAMPLE}})) -> dict[str, Any]:
         return await service.forward_risk_assessment("/v1/risk/detectors/siren/assessments", payload)
@@ -403,8 +399,8 @@ def create_gateway_app(settings: AppSettings | None = None, clients: GatewayClie
         tags=["Risk"],
         summary="통합 Risk 신호",
         description=(
-            "Prompt detector와 Siren detector 결과를 aggregate한 통합 risk assessment입니다. "
-            "두 detector 중 하나라도 위험 신호를 탐지하면 `risk_detected: true`를 반환합니다."
+            "configured enabled detectors 결과를 aggregate한 통합 risk assessment입니다. "
+            "enabled detector 중 하나라도 위험 신호를 탐지하면 `risk_detected: true`를 반환합니다."
         ),
         responses={401: {"description": "API Bearer token 필요"}},
     )

@@ -7,16 +7,14 @@ from typing import Any
 
 import yaml
 
+from ai_model_serving.domain import ModelRegistry
+
 from .env import load_dotenv
 
 
 DEFAULT_BASE_URLS = {
     "gateway": "http://localhost:9400",
     "risk": "http://localhost:9405",
-    "main_llm": "http://localhost:9401/v1",
-    "embedding": "http://localhost:9402/v1",
-    "risk_prompt": "http://localhost:9403/v1",
-    "risk_siren": "http://localhost:9404/v1",
     "prometheus": "http://localhost:9410",
     "grafana": "http://localhost:9411",
 }
@@ -77,6 +75,7 @@ def load_runtime_config(args: Any) -> RuntimeValidationConfig:
     model_catalog = yaml.safe_load((root / "configs/model_catalog.yaml").read_text(encoding="utf-8"))
     monitoring = yaml.safe_load((root / "configs/monitoring.yaml").read_text(encoding="utf-8"))
     gpu_budgets = yaml.safe_load((root / "configs/gpu_budgets.yaml").read_text(encoding="utf-8"))
+    registry = ModelRegistry(model_catalog, model_serving)
 
     api_key = args.api_key or os.getenv("API_KEY", "") or _first_csv_value(os.getenv("API_KEYS", ""))
     admin_api_key = args.admin_api_key or os.getenv("ADMIN_API_KEY", "") or _first_csv_value(os.getenv("ADMIN_API_KEYS", ""))
@@ -100,10 +99,13 @@ def load_runtime_config(args: Any) -> RuntimeValidationConfig:
         grafana_admin_user=_explicit_arg(args, "grafana_user") or os.getenv("GRAFANA_ADMIN_USER", "admin"),
         grafana_admin_password=_explicit_arg(args, "grafana_password") or os.getenv("GRAFANA_ADMIN_PASSWORD", "admin"),
         vllm_bases={
-            "main_llm": _url_value(args, "main_llm_base", "MAIN_LLM_BASE_URL", DEFAULT_BASE_URLS["main_llm"]),
-            "embedding": _url_value(args, "embedding_base", "EMBEDDING_BASE_URL", DEFAULT_BASE_URLS["embedding"]),
-            "risk_prompt": _url_value(args, "risk_prompt_base", "RISK_PROMPT_BASE_URL", DEFAULT_BASE_URLS["risk_prompt"]),
-            "risk_siren": _url_value(args, "risk_siren_base", "RISK_SIREN_BASE_URL", DEFAULT_BASE_URLS["risk_siren"]),
+            service.service_key: _url_value(
+                args,
+                f"{service.service_key}_base",
+                f"{service.service_key.upper()}_BASE_URL",
+                f"http://localhost:{service.port}/v1",
+            )
+            for service in registry.iter_runtime_services()
         },
         model_serving=model_serving,
         model_catalog=model_catalog,

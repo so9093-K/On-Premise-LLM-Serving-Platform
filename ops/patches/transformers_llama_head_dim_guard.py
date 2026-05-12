@@ -165,7 +165,7 @@ def removal_check(path: Path) -> dict[str, Any]:
             "status": "upstream_changed",
             "removal_candidate": True,
             "message": "기존 patch pattern은 없고 head_dim 관련 upstream 변경이 감지되었습니다. 제거 후보일 수 있습니다.",
-            "recommended_next_step": "Patch 없는 image에서 Prompt/Siren HF config canary와 실제 vLLM smoke를 통과한 뒤 patch 제거.",
+            "recommended_next_step": "Patch 없는 image에서 Prompt HF config canary와 실제 vLLM smoke를 통과한 뒤 patch 제거.",
         })
     else:
         result.update({

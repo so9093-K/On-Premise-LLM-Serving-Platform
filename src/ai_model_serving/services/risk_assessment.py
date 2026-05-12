@@ -7,8 +7,6 @@ from ..errors import ServiceError
 from ..metrics import Metrics
 from ..risk_input import RiskInputPolicy
 from ..risk import (
-    PROMPT_DETECTOR,
-    SIREN_DETECTOR,
     DetectorSpec,
     assessment_response,
     extract_generation_text,
@@ -18,8 +16,7 @@ from ..risk import (
 
 
 class RiskClientSet(Protocol):
-    prompt: Any
-    siren: Any
+    detectors: dict[str, Any]
 
 
 class RiskAssessmentService:
@@ -30,24 +27,32 @@ class RiskAssessmentService:
     runtimes, or offline harness execution without copying endpoint code.
     """
 
-    def __init__(self, clients: RiskClientSet, metrics: Metrics | None = None, input_policy: RiskInputPolicy | None = None) -> None:
+    def __init__(
+        self,
+        clients: RiskClientSet,
+        metrics: Metrics | None = None,
+        input_policy: RiskInputPolicy | None = None,
+        detector_specs: dict[str, DetectorSpec] | None = None,
+        aggregate_detector_order: tuple[str, ...] = (),
+    ) -> None:
         self.clients = clients
         self.metrics = metrics
         self.input_policy = input_policy
+        self.detector_specs = detector_specs or {}
+        self.aggregate_detector_order = aggregate_detector_order or tuple(self.detector_specs)
 
     async def assess_prompt(self, prompt: str) -> dict[str, Any]:
-        return await self.assess_detector(self.clients.prompt, PROMPT_DETECTOR, prompt)
+        return await self.assess_detector_key("prompt", prompt)
 
     async def assess_siren(self, prompt: str) -> dict[str, Any]:
-        return await self.assess_detector(self.clients.siren, SIREN_DETECTOR, prompt)
+        return await self.assess_detector_key("siren", prompt)
 
     async def assess_aggregate(self, prompt: str) -> dict[str, Any]:
         start = time.monotonic()
-        prompt_result = await self.assess_prompt(prompt)
-        siren_result = await self.assess_siren(prompt)
-        categories = [*prompt_result["categories"], *siren_result["categories"]]
-        system_signals = [*prompt_result["system_signals"], *siren_result["system_signals"]]
-        status = "completed" if prompt_result["status"] == "completed" and siren_result["status"] == "completed" else "partial"
+        results = [await self.assess_detector_key(detector_key, prompt) for detector_key in self.aggregate_detector_order]
+        categories = [category for result in results for category in result["categories"]]
+        system_signals = [signal for result in results for signal in result["system_signals"]]
+        status = "completed" if results and all(result["status"] == "completed" for result in results) else "partial"
         model_risk = any(item.get("detected") for item in categories)
         system_risk = any(item.get("detected") for item in system_signals)
         if model_risk:
@@ -67,6 +72,15 @@ class RiskAssessmentService:
                 response,
             )
         return response
+
+    async def assess_detector_key(self, detector_key: str, prompt: str) -> dict[str, Any]:
+        if detector_key not in self.detector_specs:
+            raise ServiceError("DETECTOR_DISABLED", f"Risk detector is not enabled: {detector_key}", False, 410)
+        try:
+            client = self.clients.detectors[detector_key]
+        except KeyError as exc:
+            raise ServiceError("DETECTOR_DISABLED", f"Risk detector client is not configured: {detector_key}", False, 410) from exc
+        return await self.assess_detector(client, self.detector_specs[detector_key], prompt)
 
     async def assess_detector(self, client: Any, detector: DetectorSpec, prompt: str) -> dict[str, Any]:
         start = time.monotonic()
@@ -106,8 +120,8 @@ class RiskAssessmentService:
         payload = {
             "model": client.endpoint.model,
             "messages": [{"role": "user", "content": prompt}],
-            "max_tokens": 1,
-            "temperature": 0,
+            "max_tokens": detector.max_output_tokens,
+            "temperature": detector.temperature,
         }
         start = time.monotonic()
         try:

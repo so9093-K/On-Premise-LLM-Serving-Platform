@@ -20,6 +20,7 @@ from ..logging_policy import service_logger
 from ..metrics import Metrics
 from ..openapi_contracts import install_contract_openapi
 from ..risk_input import RiskInputPolicy
+from ..risk import DetectorSpec
 from ..services.risk_assessment import RiskAssessmentService
 from ..services.readiness import DependencyProbe, collect_readiness
 from ..security import require_bearer_auth
@@ -97,8 +98,7 @@ RISK_ADAPTER_TAGS_METADATA = [
             "내부 detector 호출 결과를 signal-only response로 정규화합니다. 최종 정책 결정 필드는 반환하지 않습니다.\n\n"
             "**Prompt detector** — Prompt Injection / Leaking 탐지:\n"
             "지시 무시, system prompt 탈취, roleplay jailbreak, 간접 injection, tool abuse\n\n"
-            "**Siren detector** — Policy risk signal 탐지:\n"
-            "성인인증 우회, 전문 조언(의료·법률·금융), 개인정보·민감정보, 유료 콘텐츠 복제"
+            "Siren detector는 retired 상태이며, aggregate는 enabled detector registry 기준으로 동작합니다."
         ),
     },
 ]
@@ -106,19 +106,18 @@ RISK_ADAPTER_TAGS_METADATA = [
 RISK_ADAPTER_DESCRIPTION_TEMPLATE = """
 내부 Risk Adapter API입니다. Gateway 또는 내부 호출자가 사용합니다.
 
-## 두 Detector 역할
+## Detector 역할
 
 | Detector | 모델 | 담당 신호 |
 |---|---|---|
 | **Prompt** | `risk-prompt` | Prompt Injection / Prompt Leaking |
-| **Siren** | `risk-siren` | 연령·전문조언·개인정보·저작권 |
 
 - detector 출력 `<SAFE>`, `<UNSAFE-A1>`, `<UNSAFE-I1>` 같은 label을 표준 signal-only response로 정규화합니다.
 - `allow`, `block`, `decision`, `action` 같은 최종 정책 결정은 하지 않습니다.
 
 ## Readiness
 
-- 두 detector runtime 모두 준비 → HTTP 200 + `phase: serving`
+- enabled detector runtime 준비 → HTTP 200 + `phase: serving`
 - 모델 로딩 중 → HTTP 503 + `phase: waiting_for_dependencies`
 """
 
@@ -136,11 +135,6 @@ RISK_READY_RESPONSE_EXAMPLE: dict[str, Any] = {
             "status": "ready",
             "endpoint": "http://risk-prompt-vllm:9403/v1/models",
         },
-        {
-            "name": "risk_siren_vllm",
-            "status": "ready",
-            "endpoint": "http://risk-siren-vllm:9404/v1/models",
-        },
     ],
 }
 
@@ -156,48 +150,79 @@ RISK_LOADING_RESPONSE_EXAMPLE: dict[str, Any] = {
             "endpoint": "http://risk-prompt-vllm:9403/v1/models",
             "message": "MODEL_UNAVAILABLE: Upstream unavailable: risk-prompt",
         },
-        {
-            "name": "risk_siren_vllm",
-            "status": "ready",
-            "endpoint": "http://risk-siren-vllm:9404/v1/models",
-        },
     ],
 }
 
 
 class RiskClients:
     def __init__(self, settings: AppSettings) -> None:
-        self.prompt = VLLMClient(settings.risk_prompt)
-        self.siren = VLLMClient(settings.risk_siren)
+        self.detectors = {
+            detector.key: VLLMClient(settings.runtime(detector.service_key))
+            for detector in settings.enabled_risk_detectors()
+        }
+        self.prompt = self.detectors.get("prompt")
+        self.siren = self.detectors.get("siren")
         self.settings = settings
 
     async def close(self) -> None:
-        for client in (self.prompt, self.siren):
+        for client in self.detectors.values():
             close = getattr(client, "aclose", None)
             if close is not None:
                 await close()
 
 
 async def readiness(clients: RiskClients, metrics: Metrics | None = None) -> dict[str, Any]:
+    probes = [
+        DependencyProbe(f"risk_{key}_vllm", client, "models")
+        for key, client in clients.detectors.items()
+    ]
     return await collect_readiness(
         service="risk-adapter",
-        probes=[
-            DependencyProbe("risk_prompt_vllm", clients.prompt, "models"),
-            DependencyProbe("risk_siren_vllm", clients.siren, "models"),
-        ],
+        probes=probes,
         metrics=metrics,
     )
+
+
+def _detector_specs(settings: AppSettings) -> dict[str, DetectorSpec]:
+    return {
+        detector.key: DetectorSpec(
+            name=detector.key,
+            source_model=detector.source_model,
+            family=detector.family,
+            allowed_codes=detector.allowed_codes,
+            route=detector.route,
+            service_key=detector.service_key,
+            max_output_tokens=detector.max_output_tokens,
+            temperature=detector.temperature,
+        )
+        for detector in settings.enabled_risk_detectors()
+    }
+
+
+def _ensure_detector_client_map(clients: Any) -> dict[str, Any]:
+    if hasattr(clients, "detectors"):
+        return dict(clients.detectors)
+    detectors = {}
+    if getattr(clients, "prompt", None) is not None:
+        detectors["prompt"] = clients.prompt
+    if getattr(clients, "siren", None) is not None:
+        detectors["siren"] = clients.siren
+    clients.detectors = detectors
+    return detectors
 
 
 def create_risk_adapter_app(settings: AppSettings | None = None, clients: RiskClients | None = None) -> FastAPI:
     settings = settings or load_settings()
     clients = clients or RiskClients(settings)
+    _ensure_detector_client_map(clients)
     metrics = Metrics("risk-adapter")
     logger = service_logger("risk-adapter")
     service = RiskAssessmentService(
         clients,
         metrics,
         input_policy=RiskInputPolicy(settings.risk_input_max_chars),
+        detector_specs=_detector_specs(settings),
+        aggregate_detector_order=settings.aggregate_detector_order,
     )
     internal_security = SecuritySettings(
         api_key_required=settings.security.internal_service_auth_required,
@@ -234,7 +259,7 @@ def create_risk_adapter_app(settings: AppSettings | None = None, clients: RiskCl
         tags=["Operations"],
         summary="Risk Adapter readiness 확인",
         description=(
-            "내부 readiness endpoint입니다. Prompt/Siren detector vLLM runtime 상태를 확인합니다. "
+            "내부 readiness endpoint입니다. enabled detector vLLM runtime 상태를 확인합니다. "
             "모델 로딩 중에는 HTTP 503을 반환하고 `not_ready_dependencies`와 dependency별 `message`를 제공합니다."
         ),
         responses={
@@ -285,16 +310,16 @@ def create_risk_adapter_app(settings: AppSettings | None = None, clients: RiskCl
         payload: dict[str, Any] = Body(openapi_examples=PROMPT_EXAMPLES),
     ) -> dict[str, Any]:
         prompt = read_risk_prompt(payload)
-        return await service.assess_prompt(prompt)
+        return await service.assess_detector_key("prompt", prompt)
 
     @app.post(
         "/v1/risk/detectors/siren/assessments",
         dependencies=api_dependencies,
         tags=["Risk Signal"],
-        summary="Siren detector 신호 — 정책 risk",
+        summary="Retired Siren detector 신호",
         responses={401: {"description": "Internal Bearer token 필요"}},
         description=(
-            "**Siren detector**(`risk-siren`)만 단독 호출합니다.\n\n"
+            "`risk-siren` detector는 현재 retired 상태입니다. 호출 시 410 Gone을 반환합니다.\n\n"
             "탐지 대상:\n"
             "- 성인인증·연령 제한 우회\n"
             "- 의료·법률·금융 전문 조언 요청\n"
@@ -307,16 +332,16 @@ def create_risk_adapter_app(settings: AppSettings | None = None, clients: RiskCl
         payload: dict[str, Any] = Body(openapi_examples=SIREN_EXAMPLES),
     ) -> dict[str, Any]:
         prompt = read_risk_prompt(payload)
-        return await service.assess_siren(prompt)
+        return await service.assess_detector_key("siren", prompt)
 
     @app.post(
         "/v1/risk/assessments",
         dependencies=api_dependencies,
         tags=["Risk Signal"],
-        summary="통합 risk signal (Prompt + Siren)",
+        summary="통합 risk signal",
         responses={401: {"description": "Internal Bearer token 필요"}},
         description=(
-            "Prompt detector와 Siren detector를 순차 호출하고 결과를 aggregate합니다.\n\n"
+            "enabled detector registry 순서대로 호출하고 결과를 aggregate합니다.\n\n"
             "어느 한 detector가 신호를 탐지하면 `risk_detected: true`를 반환합니다. "
             "detector 실패는 policy 판단 없이 system signal로 표현됩니다."
         ),

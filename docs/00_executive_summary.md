@@ -34,7 +34,6 @@ Client
       -> Embedding vLLM :9402
       -> Risk Adapter :9405
             -> Prompt detector vLLM :9403
-            -> Siren detector vLLM :9404
 
 Prometheus :9410
 Grafana    :9411
