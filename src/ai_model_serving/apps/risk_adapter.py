@@ -223,13 +223,14 @@ def create_risk_adapter_app(settings: AppSettings | None = None, clients: RiskCl
 
     install_exception_handlers(app, metrics=metrics, logger=logger, validation_reason=validation_reason)
     register_scalar_docs(app, settings=settings, title="Risk Adapter")
-    register_health(app, service="risk-adapter")
+    register_health(app, service="risk-adapter", operation_id="getRiskAdapterHealth")
 
     @app.get(
         "/ready",
         dependencies=admin_dependencies,
         tags=["Operations"],
         summary="Risk Adapter readiness 확인",
+        operation_id="getRiskAdapterReadiness",
         description=(
             "내부 readiness endpoint입니다. enabled detector vLLM runtime 상태를 확인합니다. "
             "모델 로딩 중에는 HTTP 503을 반환하고 `not_ready_dependencies`와 dependency별 `message`를 제공합니다."
@@ -255,6 +256,7 @@ def create_risk_adapter_app(settings: AppSettings | None = None, clients: RiskCl
         dependencies=admin_dependencies,
         tags=["Monitoring"],
         summary="Prometheus metrics 조회",
+        operation_id="getRiskAdapterMetrics",
         description="Prometheus가 scrape하는 Risk Adapter metric입니다. detector별 timeout, parse failure, signal count를 확인합니다.",
         responses={401: {"description": "Admin Bearer token 필요"}},
     )
@@ -266,6 +268,7 @@ def create_risk_adapter_app(settings: AppSettings | None = None, clients: RiskCl
         dependencies=api_dependencies,
         tags=["Risk Signal"],
         summary="Prompt detector 신호 — Prompt Injection / Leaking",
+        operation_id="assessRiskPromptDetector",
         responses={401: {"description": "Internal Bearer token 필요"}},
         description=(
             "**Prompt detector**(`risk-prompt`)만 단독 호출합니다.\n\n"
@@ -289,6 +292,7 @@ def create_risk_adapter_app(settings: AppSettings | None = None, clients: RiskCl
         dependencies=api_dependencies,
         tags=["Risk Signal"],
         summary="통합 risk signal",
+        operation_id="assessRiskAggregate",
         responses={401: {"description": "Internal Bearer token 필요"}},
         description=(
             "enabled detector registry 순서대로 호출하고 결과를 aggregate합니다.\n\n"

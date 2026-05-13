@@ -83,8 +83,8 @@
         "category": "OpenAPI/JSON schema contract",
         "owner": "api-contracts",
         "management": "managed by root project metadata",
-        "size_bytes": 139396,
-        "line_count": 3750,
+        "size_bytes": 136931,
+        "line_count": 3736,
         "role": "structured-data",
         "review_note": "supporting project file"
       },
@@ -94,7 +94,7 @@
         "category": "current handoff/review report",
         "owner": "handoff-reporting",
         "management": "generated/curated for handoff review",
-        "size_bytes": 125197,
+        "size_bytes": 125202,
         "line_count": 3505,
         "role": "structured-data",
         "review_note": "handoff/review artifact; avoid stale phase snapshots in active package"
@@ -116,8 +116,8 @@
         "category": "OpenAPI/JSON schema contract",
         "owner": "api-contracts",
         "management": "managed by root project metadata",
-        "size_bytes": 56980,
-        "line_count": 1630,
+        "size_bytes": 56831,
+        "line_count": 1620,
         "role": "structured-data",
         "review_note": "supporting project file"
       },
@@ -166,6 +166,17 @@
         "review_note": "generated operator report; regenerate through make operator-reports before handoff"
       },
       {
+        "path": "src/ai_model_serving/apps/gateway.py",
+        "area": "src",
+        "category": "application/control-plane source",
+        "owner": "application",
+        "management": "managed by package source layout",
+        "size_bytes": 29909,
+        "line_count": 660,
+        "role": "python-source",
+        "review_note": "application code; preserve public API behavior and compatibility facades"
+      },
+      {
         "path": "src/ai_model_serving/domain/model_registry.py",
         "area": "src",
         "category": "application/control-plane source",
@@ -197,17 +208,6 @@
         "line_count": 606,
         "role": "structured-data",
         "review_note": "supporting project file"
-      },
-      {
-        "path": "src/ai_model_serving/apps/gateway.py",
-        "area": "src",
-        "category": "application/control-plane source",
-        "owner": "application",
-        "management": "managed by package source layout",
-        "size_bytes": 31786,
-        "line_count": 597,
-        "role": "python-source",
-        "review_note": "application code; preserve public API behavior and compatibility facades"
       },
       {
         "path": "ops/grafana/dashboards/risk_signal_operations.json",
@@ -878,8 +878,8 @@
       "category": "documentation",
       "owner": "documentation",
       "management": "managed by documentation map",
-      "size_bytes": 11470,
-      "line_count": 214,
+      "size_bytes": 11820,
+      "line_count": 212,
       "role": "documentation",
       "review_note": "documentation; keep relative links valid and avoid duplicating current command flow"
     },
@@ -933,8 +933,8 @@
       "category": "documentation",
       "owner": "documentation",
       "management": "managed by documentation map",
-      "size_bytes": 7332,
-      "line_count": 84,
+      "size_bytes": 8296,
+      "line_count": 101,
       "role": "documentation",
       "review_note": "documentation; keep relative links valid and avoid duplicating current command flow"
     },
@@ -1054,8 +1054,8 @@
       "category": "documentation",
       "owner": "documentation",
       "management": "managed by documentation map",
-      "size_bytes": 6099,
-      "line_count": 88,
+      "size_bytes": 8086,
+      "line_count": 108,
       "role": "documentation",
       "review_note": "documentation; keep relative links valid and avoid duplicating current command flow"
     },
@@ -1120,8 +1120,8 @@
       "category": "documentation",
       "owner": "documentation",
       "management": "managed by documentation map",
-      "size_bytes": 9196,
-      "line_count": 79,
+      "size_bytes": 10922,
+      "line_count": 113,
       "role": "documentation",
       "review_note": "documentation; keep relative links valid and avoid duplicating current command flow"
     },
@@ -1142,8 +1142,8 @@
       "category": "documentation",
       "owner": "documentation",
       "management": "managed by documentation map",
-      "size_bytes": 5040,
-      "line_count": 86,
+      "size_bytes": 7304,
+      "line_count": 135,
       "role": "documentation",
       "review_note": "documentation; keep relative links valid and avoid duplicating current command flow"
     },
@@ -1527,7 +1527,7 @@
       "category": "current handoff/review report",
       "owner": "handoff-reporting",
       "management": "generated/curated for handoff review",
-      "size_bytes": 60520,
+      "size_bytes": 60525,
       "line_count": 296,
       "role": "structured-data",
       "review_note": "handoff/review artifact; avoid stale phase snapshots in active package"
@@ -1538,7 +1538,7 @@
       "category": "current handoff/review report",
       "owner": "handoff-reporting",
       "management": "generated/curated for handoff review",
-      "size_bytes": 125197,
+      "size_bytes": 125202,
       "line_count": 3505,
       "role": "structured-data",
       "review_note": "handoff/review artifact; avoid stale phase snapshots in active package"
@@ -2297,8 +2297,8 @@
       "category": "operator/developer command surface",
       "owner": "operator-ux",
       "management": "managed by Makefile command UX",
-      "size_bytes": 8021,
-      "line_count": 178,
+      "size_bytes": 9191,
+      "line_count": 206,
       "role": "python-source",
       "review_note": "operator/developer command; expose through Makefile/help if user-facing"
     },
@@ -2352,8 +2352,8 @@
       "category": "OpenAPI/JSON schema contract",
       "owner": "api-contracts",
       "management": "managed by root project metadata",
-      "size_bytes": 139396,
-      "line_count": 3750,
+      "size_bytes": 136931,
+      "line_count": 3736,
       "role": "structured-data",
       "review_note": "supporting project file"
     },
@@ -2363,8 +2363,8 @@
       "category": "OpenAPI/JSON schema contract",
       "owner": "api-contracts",
       "management": "managed by root project metadata",
-      "size_bytes": 56980,
-      "line_count": 1630,
+      "size_bytes": 56831,
+      "line_count": 1620,
       "role": "structured-data",
       "review_note": "supporting project file"
     },
@@ -2484,8 +2484,8 @@
       "category": "application/control-plane source",
       "owner": "application",
       "management": "managed by package source layout",
-      "size_bytes": 6177,
-      "line_count": 162,
+      "size_bytes": 6335,
+      "line_count": 165,
       "role": "python-source",
       "review_note": "application code; preserve public API behavior and compatibility facades"
     },
@@ -2506,8 +2506,8 @@
       "category": "application/control-plane source",
       "owner": "application",
       "management": "managed by package source layout",
-      "size_bytes": 31786,
-      "line_count": 597,
+      "size_bytes": 29909,
+      "line_count": 660,
       "role": "python-source",
       "review_note": "application code; preserve public API behavior and compatibility facades"
     },
@@ -2517,8 +2517,8 @@
       "category": "application/control-plane source",
       "owner": "application",
       "management": "managed by package source layout",
-      "size_bytes": 12536,
-      "line_count": 325,
+      "size_bytes": 12760,
+      "line_count": 329,
       "role": "python-source",
       "review_note": "application code; preserve public API behavior and compatibility facades"
     },
@@ -3265,8 +3265,8 @@
       "category": "test suite",
       "owner": "quality",
       "management": "managed by test strategy",
-      "size_bytes": 192,
-      "line_count": 7,
+      "size_bytes": 4756,
+      "line_count": 135,
       "role": "python-source",
       "review_note": "test coverage; keep deterministic and avoid live GPU dependency"
     },

@@ -66,12 +66,61 @@ Checked-in JSON schema가 API 문서의 source of truth다. Route-local inline s
 
 API 문서는 “사용자가 조정할 수 있는 parameter”와 “운영자가 config로 고정하는 runtime 하이퍼파라미터”를 분리해서 보여줘야 한다. `/v1/models` 응답의 `request_parameters`는 사용자-facing 조정 가능 parameter의 source of truth다.
 
+**FastAPI docs(`/docs`)는 contract reference이며 model-aware playground가 아니다.** 모델별 form UI는 `/v1/models` 기반으로 구성해야 한다.
+
 - Chat UI는 `local-main.request_parameters`를 읽어 `temperature`, `max_tokens`, `top_p`, `top_k`, `min_p`, penalty, `seed`, `n`, tool 관련 입력, `reasoning` opt-in을 구성한다.
-- Chat 예시는 최소 요청, deterministic smoke, 일반 sampling, streaming, tool calling, reasoning/thinking, bounded vision을 분리한다. 예시의 sampling 값은 client preset이며 Gateway가 자동 주입하는 기본값이 아니다.
-- Embedding UI는 `local-embed.request_parameters`를 읽어 `dimensions`, `encoding_format`, `truncate_prompt_tokens`만 노출한다.
+- Chat 예시는 최소 요청, deterministic smoke, 일반 sampling, streaming, json_object, json_schema, tool calling, reasoning/thinking, logprobs, bounded vision을 분리한다. 예시의 sampling 값은 client preset이며 Gateway가 자동 주입하는 기본값이 아니다.
+- Embedding UI는 `local-embed.request_parameters`를 읽어 `dimensions`, `truncate_prompt_tokens`를 노출한다. `encoding_format: base64`는 현재 지원하지 않으므로 example에 포함하지 않는다.
 - Risk UI는 `risk-prompt`의 `request_parameters`가 비어 있음을 보고 prompt 입력만 노출한다. `fixed_parameters`는 detector adapter 내부값이므로 사용자 form으로 노출하지 않는다.
 
-## 4. 비활성화
+고급 parameter의 상세 정책(`$ref` subset, `logit_bias` tokenizer 주의사항, `capability_gate` 동작 등)은 top-level description이 아닌 operation description 또는 `docs/specs/api.md`, `docs/operations/model_parameter_discovery.md`로 분리한다.
+
+## 3.3 parameter grouping (UI 권장)
+
+모델별 parameter를 표시할 때 다음 grouping을 권장한다.
+
+| 그룹 | parameter |
+|---|---|
+| Basic generation | `max_tokens`, `temperature`, `top_p` |
+| Advanced sampling | `top_k`, `min_p`, `presence_penalty`, `frequency_penalty`, `repetition_penalty`, `seed`, `n` |
+| Streaming | `stream`, `stream_options` |
+| Tools | `tools`, `tool_choice`, `parallel_tool_calls` |
+| Structured Outputs | `response_format` |
+| Diagnostics | `logprobs`, `top_logprobs` |
+| Advanced token control | `logit_bias` |
+| Vision | `image_url` content part |
+
+`/v1/models`에 `request_parameter_groups` 같은 새 field를 추가하는 것은 별도 PR로 진행한다.
+
+## 3.4 /playground 설계 (TODO)
+
+이번 PR에서 `/playground` 실제 구현은 하지 않는다. 후속 작업의 방향만 기록한다.
+
+- `/playground`는 `/v1/models`를 읽어 model-aware form을 구성한다.
+- 포함할 요소: model selector, capability badge, parameter group, request JSON preview, curl/code copy, streaming viewer, json_schema editor, logprobs/logit_bias advanced section.
+
+## 4. docs asset CDN/self-host 운영 정책
+
+현재 Scalar UI는 CDN에서 `@scalar/api-reference`를 로드한다.
+
+| 환경 | 권장 정책 |
+|---|---|
+| local / dev | CDN mode 허용 |
+| staging / prod / private network | pinned version 또는 self-host asset 권장 |
+| air-gapped / offline / local-only network | self-host asset 필요 |
+
+현재 구현은 CDN 기반이다. self-host asset mode는 후속 작업으로 둔다. 설정 설계안:
+
+```yaml
+documentation:
+  ui: scalar
+  asset_mode: cdn
+  scalar_asset_url: https://cdn.jsdelivr.net/npm/@scalar/api-reference
+```
+
+구현은 이번 PR 범위 밖이다.
+
+## 5. 비활성화
 
 문서 화면을 끄고 싶을 때만 명시한다.
 
@@ -81,6 +130,6 @@ FASTAPI_DOCS_ENABLED=false
 
 이 값은 기본 차단이 아니라 명시적 운영 결정으로 취급한다.
 
-## 5. 보안 경계
+## 6. 보안 경계
 
 문서 화면 자체는 API 호출 권한을 주지 않는다. `/v1/*`, `/ready`, `/metrics`의 실제 접근 권한은 Bearer token, admin token, 네트워크/ingress 설정으로 관리한다. public internet에 직접 노출할 경우 VPN, allowlist, SSO proxy 같은 별도 경계를 적용한다.

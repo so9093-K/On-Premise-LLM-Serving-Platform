@@ -70,6 +70,26 @@ Docker/GPU/vLLM이 있는 host에서 full-stack compose와 Grafana real-data ren
 - Grafana dashboard variable/template은 현재 governance에서 강하게 검증한다. 남은 후보는 registry projection에서 JSON을 자동 생성하는 방안이다.
 - `ModelRegistry` projection 파일을 더 작게 분리해 개발자 탐색성을 높이는 방안.
 
+## FastAPI Docs UX 개선 (docs-ux)
+
+이번 작업의 목표는 `/docs` 첫 화면을 짧고 명확하게 만들고, 고급 정책은 endpoint description과 별도 docs page로 분리하는 것이다.
+
+개선 사항:
+
+- `GATEWAY_DESCRIPTION_TEMPLATE` 압축: Quick Start, Auth guide, 모델별 파라미터 안내, Readiness 설명으로 요약. 상세 정책(json_schema subset, logit_bias, capability_gate 등)은 `docs/specs/api.md`와 operation description으로 이동.
+- `/v1/chat/completions` operation description 재정리: 핵심 동작과 참고 문서 링크 위주.
+- Chat OpenAPI examples 정리: 기존 `with_system_prompt` 예시는 유지하고 `json_object` 예시를 추가했다 (총 12개). json_schema+tools 같은 고급 조합은 docs page로.
+- Embedding OpenAPI examples 보강: basic 외에 `with_dimensions`, `truncate_prompt_tokens` 추가 (3개). `encoding_format: base64`는 미지원이므로 제외.
+- Gateway Risk OpenAPI examples 보강: prompt_injection, prompt_leak, indirect_injection, tool_abuse 추가.
+- `PLAYGROUND_PARAMS` 제거: 미사용 상수 제거. `/playground` 구현 방향은 TODO 주석과 `docs/specs/fastapi_docs_ux.md` 3.4절에 기록.
+- 주요 route에 `operation_id` 명시 (`getGatewayHealth`, `createChatCompletion`, `listModels` 등). SDK/client generation UX 개선 및 route 이름 변경에 무관한 안정적 method name 확보.
+- `docs/specs/fastapi_docs_ux.md`에 parameter grouping 권장 (3.3절), `/playground` 설계 TODO (3.4절), docs asset CDN/self-host 운영 정책 (4절) 추가.
+- `docs/specs/api.md`에 operation_id 목록과 runtime validation 정책 섹션 추가.
+- `docs/operations/endpoint_reference.md` endpoint 표에 operation_id 컬럼 추가.
+- `docs/operations/model_parameter_discovery.md`에 UI parameter grouping 권장 섹션 추가.
+
+FastAPI docs는 model-aware playground가 아니라 API reference다. 모델별 form UI는 `/v1/models` 기반으로 구성한다. live vLLM runtime validation은 현재 merge gate가 아니다.
+
 ## Chat UX / API docs update
 
 이번 점검의 핵심 발견은 Chat request schema와 `/v1/models` parameter discovery가 같은 사용자 입력 표면을 바라봐야 한다는 점이다. `n`은 OpenAI-compatible client 호환을 위해 request schema에 존재하지만, 런타임 정책의 `supported_parameters`에 빠져 있으면 Gateway가 `n: 1` 요청도 422로 거부한다.

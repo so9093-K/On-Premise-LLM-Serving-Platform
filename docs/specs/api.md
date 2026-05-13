@@ -58,6 +58,40 @@ Reasoning/thinking은 기본값이 `false`다. 복잡한 디버깅·분석 요�
 
 상세 schema는 `specs/openapi.gateway.yaml`, `specs/openapi.risk-adapter.yaml`, `specs/schemas/*.json`을 기준으로 한다. Gateway/Risk Adapter의 generated OpenAPI는 `src/ai_model_serving/openapi_contracts.py`를 통해 동일한 checked-in JSON schema를 request/response body에 주입한다. 따라서 `/docs`와 `/openapi.json`에서 보이는 schema는 runtime contract validation과 같은 원천을 바라본다.
 
+## Operation ID 목록
+
+SDK/client generation을 위해 주요 route에 명시적 `operation_id`가 지정되어 있다.
+
+| operation_id | 메서드 | 경로 | 서비스 |
+|---|---|---|---|
+| `getGatewayHealth` | GET | `/health` | Gateway |
+| `getGatewayReadiness` | GET | `/ready` | Gateway |
+| `getGatewayMetrics` | GET | `/metrics` | Gateway |
+| `listModels` | GET | `/v1/models` | Gateway |
+| `createChatCompletion` | POST | `/v1/chat/completions` | Gateway |
+| `createEmbedding` | POST | `/v1/embeddings` | Gateway |
+| `assessPromptRisk` | POST | `/v1/risk/detectors/prompt/assessments` | Gateway |
+| `assessRetiredSirenRisk` | POST | `/v1/risk/detectors/siren/assessments` | Gateway |
+| `assessRisk` | POST | `/v1/risk/assessments` | Gateway |
+| `getRiskAdapterHealth` | GET | `/health` | Risk Adapter |
+| `getRiskAdapterReadiness` | GET | `/ready` | Risk Adapter |
+| `getRiskAdapterMetrics` | GET | `/metrics` | Risk Adapter |
+| `assessRiskPromptDetector` | POST | `/v1/risk/detectors/prompt/assessments` | Risk Adapter |
+| `assessRiskAggregate` | POST | `/v1/risk/assessments` | Risk Adapter |
+
+`operation_id`는 전체 OpenAPI에서 unique해야 한다. route function 이름이나 path가 바뀌어도 SDK method name이 흔들리지 않도록 명시적으로 관리한다.
+
+## Runtime Validation 정책
+
+`make runtime-validate`는 현재 merge gate가 아니다. live vLLM runtime 환경 준비 후 별도 단계에서 실행한다.
+
+config-only validation은 runtime 없이 실행 가능하다:
+```bash
+python scripts/validation/runtime_validation.py --config-only --allow-failures
+```
+
+live mode는 running stack이 필요하다. CI에서는 `make validate` (config/contract/docs validation만)를 사용한다.
+
 ## Chat Streaming
 
 `/v1/chat/completions`에 `stream: true`를 보내면 Gateway는 vLLM SSE chunk를 버퍼링 없이 `text/event-stream`으로 relay한다. 응답은 표준 OpenAI chunk 형태이며 마지막은 `data: [DONE]`으로 끝난다.

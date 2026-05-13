@@ -148,10 +148,13 @@ def register_scalar_docs(app: FastAPI, *, settings: AppSettings, title: str) -> 
         return HTMLResponse(scalar_html(openapi_url, title))
 
 
-def register_health(app: FastAPI, *, service: str) -> None:
+def register_health(app: FastAPI, *, service: str, operation_id: str | None = None) -> None:
     """Register the standard liveness endpoint."""
+    kwargs: dict[str, Any] = {"tags": ["Operations"], "summary": "Liveness 확인"}
+    if operation_id is not None:
+        kwargs["operation_id"] = operation_id
 
-    @app.get("/health", tags=["Operations"], summary="Liveness 확인")
+    @app.get("/health", **kwargs)
     async def health() -> dict[str, str]:
         return {"status": "ok", "service": service}
 

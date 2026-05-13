@@ -100,12 +100,24 @@ def _build_generated_docs() -> dict[str, dict[str, Any]]:
                 os.environ[key] = value
 
 
+def _request_examples(operation: dict[str, Any]) -> dict[str, Any]:
+    return (
+        operation.get("requestBody", {})
+        .get("content", {})
+        .get("application/json", {})
+        .get("examples", {})
+    )
+
+
 def _compare_one(name: str, static_rel: str, generated: dict[str, Any]) -> list[str]:
     static = _load_yaml(static_rel)
     issues: list[str] = []
 
     if static["info"].get("version") != generated["info"].get("version"):
         issues.append(f"{name}: info.version mismatch: static={static['info'].get('version')} generated={generated['info'].get('version')}")
+
+    if static["info"].get("description") != generated["info"].get("description"):
+        issues.append(f"{name}: info.description mismatch")
 
     static_security_schemes = static.get("components", {}).get("securitySchemes", {})
     generated_security_schemes = generated.get("components", {}).get("securitySchemes", {})
@@ -141,6 +153,22 @@ def _compare_one(name: str, static_rel: str, generated: dict[str, Any]) -> list[
             expected_request = _expected_schema(static_request)
             if expected_request is not None and expected_request != generated_request:
                 issues.append(f"{name} {method.upper()} {path}: request schema mismatch")
+
+            static_examples = _request_examples(static_op)
+            generated_examples = _request_examples(generated_op)
+            static_keys = set(static_examples)
+            generated_keys = set(generated_examples)
+            if static_keys != generated_keys:
+                issues.append(
+                    f"{name} {method.upper()} {path}: request examples key mismatch:"
+                    f" static_only={sorted(static_keys - generated_keys)}"
+                    f" generated_only={sorted(generated_keys - static_keys)}"
+                )
+            else:
+                for key in static_keys:
+                    if static_examples[key] != generated_examples[key]:
+                        issues.append(f"{name} {method.upper()} {path}: request example '{key}' value mismatch")
+
             static_response_content = static_op.get("responses", {}).get("200", {}).get("content", {})
             generated_response_content = generated_op.get("responses", {}).get("200", {}).get("content", {})
             compare_response_content = static_op.get("x-response-contract-schema") or path == "/v1/chat/completions"

@@ -60,6 +60,23 @@ Unsupported keyword 제한은 schema object keyword에만 적용되고 JSON outp
 
 `json_schema + tools`, `json_schema + reasoning`은 discovery surface에서 전역 금지하지 않는다. `capability_gate`는 request validator가 기본 허용하고 live canary가 조합 지원 여부를 검증한다는 의미다. canary 결과가 degraded이면 runtime report에 degraded feature로 남고, 운영자가 해당 deployment에서만 combination policy를 `reject`로 낮출 수 있다. client는 `/v1/models`와 운영 readiness/report를 함께 읽어 고급 조합을 노출한다. `logit_bias`와 Structured Outputs/tools 조합은 constrained decoding이나 tool protocol이 token bias보다 우선할 수 있어 best-effort로 설명한다.
 
+## UI parameter grouping 권장
+
+클라이언트가 `request_parameters`를 form으로 표시할 때 다음 grouping을 권장한다.
+
+| 그룹 | parameter |
+|---|---|
+| Basic generation | `max_tokens`, `temperature`, `top_p` |
+| Advanced sampling | `top_k`, `min_p`, `presence_penalty`, `frequency_penalty`, `repetition_penalty`, `seed`, `n` |
+| Streaming | `stream`, `stream_options` |
+| Tools | `tools`, `tool_choice`, `parallel_tool_calls` |
+| Structured Outputs | `response_format` |
+| Diagnostics | `logprobs`, `top_logprobs` |
+| Advanced token control | `logit_bias` (`logit_bias` token id는 served model tokenizer 기준 — OpenAI/tiktoken id와 다름) |
+| Vision | `image_url` content part |
+
+`logit_bias`는 served vLLM model tokenizer token id를 사용해야 하므로 Advanced 섹션에 설명을 포함하고 기본적으로 숨긴다. `/v1/models`에 `request_parameter_groups` 같은 새 field를 추가하는 것은 별도 PR로 진행한다.
+
 ## 운영자 변경 절차
 
 사용자 조정 가능 parameter를 추가하거나 제거할 때는 다음 파일이 함께 맞아야 한다.

@@ -29,25 +29,25 @@
 
 ### 운영 endpoints
 
-| 메서드 | 경로 | 인증 | 설명 |
-|---|---|---|---|
-| GET | `/health` | 없음 | Liveness — 프로세스 생존 여부 |
-| GET | `/ready` | Admin Bearer | Readiness — 모든 upstream 준비 여부 |
-| GET | `/metrics` | Admin Bearer | Prometheus metrics |
-| GET | `/docs` | 없음 | Scalar UI |
-| GET | `/redoc` | 없음 | ReDoc |
-| GET | `/openapi.json` | 없음 | OpenAPI JSON |
+| 메서드 | 경로 | 인증 | operation_id | 설명 |
+|---|---|---|---|---|
+| GET | `/health` | 없음 | `getGatewayHealth` | Liveness — 프로세스 생존 여부 |
+| GET | `/ready` | Admin Bearer | `getGatewayReadiness` | Readiness — 모든 upstream 준비 여부 |
+| GET | `/metrics` | Admin Bearer | `getGatewayMetrics` | Prometheus metrics |
+| GET | `/docs` | 없음 | — | Scalar UI (`/redoc`은 읽기 전용 reference) |
+| GET | `/redoc` | 없음 | — | ReDoc — 읽기 전용 API 문서 |
+| GET | `/openapi.json` | 없음 | — | OpenAPI JSON — contract/source-of-truth 자동화용 |
 
 ### 사용자 API endpoints
 
-| 메서드 | 경로 | 설명 |
-|---|---|---|
-| GET | `/v1/models` | 노출 모델 catalog. 로딩 상태는 `/ready`에서 확인 |
-| POST | `/v1/chat/completions` | Chat completion (`local-main`) |
-| POST | `/v1/embeddings` | Embedding 생성 (`local-embed`) |
-| POST | `/v1/risk/detectors/prompt/assessments` | Prompt risk signal |
-| POST | `/v1/risk/detectors/siren/assessments` | Siren risk signal (retired — 호출 시 410 Gone 반환) |
-| POST | `/v1/risk/assessments` | 통합 risk signal |
+| 메서드 | 경로 | operation_id | 설명 |
+|---|---|---|---|
+| GET | `/v1/models` | `listModels` | 노출 모델 catalog. 로딩 상태는 `/ready`에서 확인 |
+| POST | `/v1/chat/completions` | `createChatCompletion` | Chat completion (`local-main`) |
+| POST | `/v1/embeddings` | `createEmbedding` | Embedding 생성 (`local-embed`) |
+| POST | `/v1/risk/detectors/prompt/assessments` | `assessPromptRisk` | Prompt risk signal |
+| POST | `/v1/risk/detectors/siren/assessments` | `assessRetiredSirenRisk` | Siren risk signal (retired — 호출 시 410 Gone 반환) |
+| POST | `/v1/risk/assessments` | `assessRisk` | 통합 risk signal |
 
 사용자 API는 `Authorization: Bearer <API_KEY>` 필요.  
 Admin endpoints는 `Authorization: Bearer <ADMIN_API_KEY>` 필요.
@@ -153,8 +153,6 @@ sum(increase(http_requests_total{service="gateway",status_code=~"5.."}[5m]))
 ```
 
 Prometheus 자체 `/targets` 페이지에서 scrape 상태를 확인한다 (포트 포워딩 후 `http://localhost:9410/targets`).
-
----
 
 ---
 
