@@ -26,7 +26,7 @@
 
 ## 프로젝트 개요
 
-![AI 모델 서빙 플랫폼 시스템 구성도](assets/ai_model_serving_system_architecture.webp)
+![AI 모델 서빙 플랫폼 시스템 구성도](assets/ai_model_serving_system_architecture.jpg)
 
 이 프로젝트는 애플리케이션이 개별 모델 runtime에 직접 붙지 않고 Gateway `9400` 하나를 통해 다음 기능을 사용하도록 표준화한다.
 
