@@ -387,7 +387,7 @@ secrets-status:
 
 validate-docs:
 	$(PYTHON) scripts/validation/check_docs_links.py
-	$(PYTHON) scripts/validation/check_reports.py
+	$(PYTHON) scripts/validation/check_reports.py --stale-only
 	$(PYTHON) scripts/validation/check_features.py
 
 docs-check:

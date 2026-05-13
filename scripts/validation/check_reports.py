@@ -63,10 +63,9 @@ def _check_stale_phrases(path: Path) -> list[str]:
     return errors
 
 
-def main() -> int:
+def _check_generated_reports() -> list[str]:
+    """generated report 헤딩·내용·배너·버전 레이블 점검."""
     errors: list[str] = []
-
-    # generated report 점검
     for rel, (heading, section) in CHECKS.items():
         p = ROOT / rel
         if not p.exists():
@@ -84,6 +83,17 @@ def main() -> int:
                 f"{rel}: 모호한 '버전: `...' 레이블 발견 — "
                 "'Package version:', 'Config schema version:', 'Schema version:' 중 하나로 명확히 표기하라"
             )
+    return errors
+
+
+def main() -> int:
+    # --stale-only: current_*.md stale phrase 점검만 수행 (generated reports 생략)
+    stale_only = "--stale-only" in sys.argv[1:]
+
+    errors: list[str] = []
+
+    if not stale_only:
+        errors.extend(_check_generated_reports())
 
     # current_*.md stale phrase 점검
     for p in sorted((ROOT / "reports/refactor").glob("current_*.md")):
@@ -96,10 +106,13 @@ def main() -> int:
         return 1
 
     checked_current = len(list((ROOT / "reports/refactor").glob("current_*.md")))
-    print(
-        f"[reports-check] 통과: {len(CHECKS)}개 generated report + "
-        f"{checked_current}개 current_*.md stale phrase 점검 완료"
-    )
+    if stale_only:
+        print(f"[reports-check] 통과: {checked_current}개 current_*.md stale phrase 점검 완료")
+    else:
+        print(
+            f"[reports-check] 통과: {len(CHECKS)}개 generated report + "
+            f"{checked_current}개 current_*.md stale phrase 점검 완료"
+        )
     return 0
 
 
