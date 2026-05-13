@@ -1,3 +1,10 @@
+---
+document_type: current_snapshot
+status: historical_audit
+audience: operator, release_engineer
+note: "이 문서는 특정 시점의 파일 위생 감사 기록이다. 테스트 통과 수는 감사 당시 기준이며, 현재 기준은 make test로 확인한다."
+---
+
 # 전체 파일 위생·빌드·삭제 디버깅 감사 — Current
 
 이 문서는 프로젝트를 처음 받은 상태처럼 다시 풀어 전체 파일을 검토한 current audit 기록이다. 목적은 active source, 문서, 테스트, 생성 산출물, 삭제/빌드 UX의 경계를 명확히 하여 릴리스 패키지에 불필요한 파일이 다시 섞이지 않게 하는 것이다.
@@ -77,7 +84,7 @@ PYTHONPATH=src PYTHONDONTWRITEBYTECODE=1 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 pytest
 
 - contract validation: PASS
 - static release check: PASS
-- deterministic pytest: `198 passed`
+- deterministic pytest: `198 passed` _(Historical note: 감사 당시 기준. 현재 통과 수는 `make test`로 확인한다.)_
 
 ## 남은 운영 확인
 

@@ -1,0 +1,69 @@
+id: monitoring_dashboards
+title: Prometheus / Grafana Monitoring Dashboards
+owner: operations
+audience:
+  - operator
+  - runtime_engineer
+description: >
+  5개 Grafana dashboard와 Prometheus scrape, recording rule을 제공한다.
+  ModelRegistry와 monitoring config에서 dashboard projection을 자동 생성한다.
+  Git-managed JSON이 source of truth다.
+
+source_files:
+  - src/ai_model_serving/monitoring_projection.py
+  - src/ai_model_serving/domain/model_registry.py
+  - scripts/reports/monitoring_projection_report.py
+
+config_files:
+  - configs/monitoring.yaml
+  - configs/model_catalog.yaml
+  - ops/prometheus/prometheus.yml
+  - ops/prometheus/rules/model_runtime.rules.yml
+
+dashboard_files:
+  - ops/grafana/dashboards/gpu_capacity_and_oom_risk.json
+  - ops/grafana/dashboards/executive_runtime_overview.json
+  - ops/grafana/dashboards/chat_api_deep_dive.json
+  - ops/grafana/dashboards/model_runtime_deep_dive.json
+  - ops/grafana/dashboards/risk_signal_operations.json
+
+dashboard_count: 5
+
+docs:
+  - docs/operations/monitoring_ux.md
+  - docs/operations/status_board_ux.md
+  - docs/operations/endpoint_reference.md
+  - docs/START_HERE.md
+
+commands:
+  - make monitoring-projection
+  - make operator-reports
+  - make operator-status
+
+tests:
+  - tests/contract/test_korean_documentation_hygiene.py (generated report heading 검사)
+  - src/ai_model_serving/governance_validation/monitoring_dashboards.py (dashboard 구조 검증)
+
+validation:
+  - make validate
+  - make release-check
+
+generated_outputs:
+  - reports/runtime/monitoring_projection.md
+  - reports/runtime/monitoring_projection.json
+
+package_impact:
+  - ops/grafana/dashboards/*.json 포함
+  - reports/runtime/monitoring_projection.md 포함
+  - reports/runtime/runtime_validation_*.json 제외 (timestamped)
+
+release_checklist_impact:
+  - make monitoring-projection 실행 확인
+  - dashboard JSON이 5개인지 확인
+  - Prometheus/Grafana 포트 (9410/9411) 확인
+
+notes:
+  - "dashboard 수: 5개 (ops/grafana/dashboards/ 기준)"
+  - "Schema version: configs/monitoring.yaml version 필드 (package version과 독립)"
+  - "dashboard panel datasource는 ${datasource} variable 사용 필수"
+  - "운영자가 Grafana UI에서 저장한 변경은 JSON source로 자동 반영되지 않는다"

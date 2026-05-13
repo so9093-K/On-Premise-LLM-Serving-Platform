@@ -47,10 +47,32 @@ def replace_platform_image_tag(path: Path, version: str) -> None:
     )
     path.write_text(text, encoding='utf-8')
 
+
+def replace_risk_vllm_image_tag(path: Path, version: str) -> None:
+    text = path.read_text(encoding='utf-8')
+    text = re.sub(
+        r'(?m)^(\s*default:\s*ai-model-serving-risk-vllm-kanana:).+$',
+        rf'\g<1>{version}',
+        text,
+        count=1,
+    )
+    path.write_text(text, encoding='utf-8')
+
+
 def replace_plain_version_references(path: Path, version: str) -> None:
     text = path.read_text(encoding='utf-8')
     text = re.sub(r'패키지 버전 \| `[^`]+`', f'패키지 버전 | `{version}`', text)
     text = re.sub(r'(?m)^PROJECT_VERSION=.+$', f'PROJECT_VERSION={version}', text)
+    text = re.sub(
+        r'(?m)^PLATFORM_IMAGE=ai-model-serving-platform:.+$',
+        f'PLATFORM_IMAGE=ai-model-serving-platform:{version}',
+        text,
+    )
+    text = re.sub(
+        r'(?m)^RISK_VLLM_IMAGE=ai-model-serving-risk-vllm-kanana:.+$',
+        f'RISK_VLLM_IMAGE=ai-model-serving-risk-vllm-kanana:{version}',
+        text,
+    )
     text = re.sub(r'(?m)^version: .+$', f'version: {version}', text, count=1)
     text = re.sub(
         r'(?s)(## 1\. Current package version\n\n```text\n).*?(\n```)',
@@ -74,6 +96,11 @@ def main() -> None:
     manifest = json.loads(manifest_path.read_text(encoding='utf-8')) if manifest_path.exists() else {}
     manifest['version'] = version
     manifest['python_package_version'] = python_package_version(version)
+    manifest['api_contract_version'] = version
+    if 'image_tags' not in manifest:
+        manifest['image_tags'] = {}
+    manifest['image_tags']['platform'] = f'ai-model-serving-platform:{version}'
+    manifest['image_tags']['risk_vllm'] = f'ai-model-serving-risk-vllm-kanana:{version}'
     manifest['version_reset'] = True
     manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
 
@@ -95,6 +122,7 @@ def main() -> None:
     image_config = ROOT / 'configs/recommended_images.yaml'
     if image_config.exists():
         replace_platform_image_tag(image_config, version)
+        replace_risk_vllm_image_tag(image_config, version)
 
     print(f'version reset to {version}')
 

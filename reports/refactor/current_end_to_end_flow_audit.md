@@ -1,3 +1,10 @@
+---
+document_type: current_snapshot
+status: historical_audit
+audience: operator, release_engineer
+note: "이 문서는 2026-05-11 감사 시점의 snapshot이다. dashboard 수는 현재 ops/grafana/dashboards/ 기준 5개다."
+---
+
 # Current End-to-End Flow Audit
 
 Date: 2026-05-11
@@ -21,7 +28,7 @@ Scope: full project package after streaming and Grafana operations work.
 | Contract validation | PASS | JSON schema, OpenAPI snapshot, registry projection checks are consistent. |
 | Streaming contract | PASS | `stream=true` and `stream_options.include_usage` are accepted and documented. |
 | Streaming transport | PASS | Gateway SSE fast path relays upstream bytes and records chunk/error/usage-event metrics. |
-| Grafana UX | PASS with runtime-render caveat | Six provisioned dashboards exist with datasource/window/model/runtime/route/status variables and operator Text panels. Browser rendering still requires a live Grafana check. |
+| Grafana UX | PASS with runtime-render caveat | Five provisioned dashboards exist with datasource/window/model/runtime/route/status variables and operator Text panels. Browser rendering still requires a live Grafana check. _(Historical note: an earlier draft expected six dashboards; the current baseline has five.)_ |
 | Prometheus rules | PASS | Recording rules align with monitoring projection and dashboard references. |
 | Build/package hygiene | PASS | Runtime secrets, `dist/`, `.pytest_cache`, bytecode, and `__pycache__` are excluded from release artifacts. |
 | Delete/clean flow | PASS | Clean policy preserves source/docs/tests and separates runtime secret purge from normal clean. |
@@ -31,7 +38,7 @@ Scope: full project package after streaming and Grafana operations work.
 
 ### 1. Endpoint reference dashboard inventory drift
 
-`docs/operations/endpoint_reference.md` still described only three dashboards even though the project now provisions six dashboards.
+`docs/operations/endpoint_reference.md` still described only three dashboards even though the project now provisions five dashboards. _(Historical note: "six" was a draft target; five were implemented.)_
 
 Fixed by documenting all current dashboard UIDs:
 
@@ -101,7 +108,7 @@ Retained intentionally:
 
 These require live services and were not claimed as statically completed:
 
-1. Browser-render all six Grafana dashboards.
+1. Browser-render all five Grafana dashboards. _(Historical note: an earlier draft expected six dashboards; the current baseline has five.)_
 2. Verify dashboard variables against a live Prometheus datasource.
 3. Run real `curl -N` streaming traffic through Gateway and confirm chunk/error/usage panels move.
 4. Confirm proxy buffering is off in the deployment ingress/proxy.

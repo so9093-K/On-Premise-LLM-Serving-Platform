@@ -11,7 +11,7 @@ images:
     source: Docker Hub vllm/vllm-openai Gemma4 CUDA 12.9 tag
     fallback: vllm/vllm-openai:gemma4
   risk_vllm:
-    default: ai-model-serving-risk-vllm-kanana:0.1.0-rc.1
+    default: ai-model-serving-risk-vllm-kanana:0.0.1
     purpose: Dedicated vLLM runtime for Kakao Kanana risk detectors; keeps Gemma4
       runtime changes isolated from Kanana Llama config compatibility patch metadata.
     mutable: false

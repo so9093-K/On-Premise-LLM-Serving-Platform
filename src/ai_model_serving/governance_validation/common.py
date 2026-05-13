@@ -21,6 +21,7 @@ ROOT = find_project_root()
 
 REQUIRED_FILES = [
     'README.md',
+    'docs/START_HERE.md',
     'VERSION',
     'version_manifest.json',
     '.env.example',

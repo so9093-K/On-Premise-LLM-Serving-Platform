@@ -152,9 +152,18 @@ def monitoring_projection_markdown(document: dict[str, Any]) -> str:
     variables = document.get("grafana_variables", {})
     rules = document.get("recording_rules", {})
     lines = [
+        "<!-- GENERATED FILE. DO NOT EDIT.",
+        "Source:",
+        "- configs/model_catalog.yaml",
+        "- configs/monitoring.yaml",
+        "Command:",
+        "- make monitoring-projection",
+        "- make operator-reports",
+        "-->",
+        "",
         "# 모니터링 Projection",
         "",
-        f"버전: `{document.get('version', '')}`",
+        f"Schema version: `{document.get('version', '')}`",
         "",
         "이 리포트는 registry/config projection에서 생성되며 원문 프롬프트, 사용자 텍스트, 모델 출력, Authorization 헤더, secret 값을 포함하지 않는다.",
         "",

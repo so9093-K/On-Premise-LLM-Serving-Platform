@@ -8,11 +8,12 @@ AUTH_ENV ?= $(ENV)
 AUTH_ENV_ARG = $(if $(AUTH_ENV),--env $(AUTH_ENV),)
 
 
-.PHONY: help guide init-env init-env-local init-env-compose init-env-local-force init-env-compose-force sync-runtime-secrets show-image-tags validate test build build-pipeline build-image build-risk-vllm-image rebuild-app rebuild-risk-vllm package start up compose-up compose-up-private compose-down-private preflight-compose ready ready-local ready-full check-ready smoke runtime-validate runtime-targets storage-paths project-inventory refresh-generated-reports auth-status auth-doctor auth-plan auth-apply monitoring-projection operator-status operator-reports live-evidence release-check release-check-full vllm-commands hf-config-check risk-vllm-config-check risk-vllm-patch-removal-check model-inventory model-list model-status model-validate model-diff model-propose-add model-propose-remove status stop down compose-down compose-logs logs compose-diagnostics clean clean-dry-run cleanup-plan remove-plan clean-all reset bootstrap first-run rebuild-full doctor reset-version infisical-up infisical-down infisical-logs infisical-init secrets-push secrets-push-sensitive secrets-pull secrets-status
+.PHONY: help guide init-env init-env-local init-env-compose init-env-local-force init-env-compose-force sync-runtime-secrets show-image-tags validate test build build-pipeline build-image build-risk-vllm-image rebuild-app rebuild-risk-vllm package start up compose-up compose-up-private compose-down-private preflight-compose ready ready-local ready-full check-ready smoke runtime-validate runtime-targets storage-paths project-inventory refresh-generated-reports auth-status auth-doctor auth-plan auth-apply monitoring-projection operator-status operator-reports live-evidence release-check release-check-full vllm-commands hf-config-check risk-vllm-config-check risk-vllm-patch-removal-check model-inventory model-list model-status model-validate model-diff model-propose-add model-propose-remove status stop down compose-down compose-logs logs compose-diagnostics clean clean-dry-run cleanup-plan remove-plan clean-all reset bootstrap first-run rebuild-full doctor reset-version infisical-up infisical-down infisical-logs infisical-init secrets-push secrets-push-sensitive secrets-pull secrets-status validate-docs docs-check reports-check feature-check feature-plan
 
 help:
 	@echo "$(PROJECT_NAME) $(CURRENT_VERSION)"
 	@echo ""
+	@echo "어디서 시작할지 모르면: docs/START_HERE.md"
 	@echo "상세 가이드: docs/README.md"
 	@echo "상황별 명령 추천: make guide"
 	@echo "처음 시작: docs/operations/first_project_guide.md"
@@ -111,6 +112,13 @@ help:
 	@echo "make model-propose-add ID=new-model PORT=9499 ENDPOINT=/v1/new UPSTREAM=org/model ROLE=main_llm # 모델 추가 계획"
 	@echo "make model-propose-remove ID=old-model # 모델 제거 계획"
 	@echo "make reset-version NEW_VERSION=x.y.z # 프로젝트 버전 메타데이터 초기화"
+	@echo ""
+	@echo "── 문서·리포트 점검 ────────────────────────────────────────"
+	@echo "make validate-docs          # docs-check + reports-check + feature-check 통합 실행"
+	@echo "make docs-check             # Markdown 링크 유효성 검사 (파일 수정 없음)"
+	@echo "make reports-check          # generated report 헤딩·내용·배너·버전 레이블 점검 (파일 수정 없음)"
+	@echo "make feature-check          # features/*.yaml 매니페스트 정합성 점검 (파일 수정 없음)"
+	@echo "make feature-plan [ID=<id>] # 기능 변경 시 갱신 대상 파일/테스트/명령 출력 (maintainer용)"
 
 guide:
 	$(PYTHON) scripts/reports/operator_guide.py
@@ -141,6 +149,7 @@ show-image-tags:
 validate:
 	$(PYTHON) scripts/build/check_python.py --context validate >/dev/null
 	$(PYTHON) scripts/validation/validate_contracts.py
+	$(MAKE) validate-docs
 
 test:
 	PYTHONDONTWRITEBYTECODE=1 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 $(PYTHON) scripts/validation/run_tests.py -q
@@ -375,3 +384,24 @@ secrets-pull:
 
 secrets-status:
 	$(PYTHON) scripts/config/infisical_sync.py status
+
+validate-docs:
+	$(PYTHON) scripts/validation/check_docs_links.py
+	$(PYTHON) scripts/validation/check_reports.py
+	$(PYTHON) scripts/validation/check_features.py
+
+docs-check:
+	$(PYTHON) scripts/validation/check_docs_links.py
+
+reports-check:
+	$(PYTHON) scripts/validation/check_reports.py
+
+feature-check:
+	$(PYTHON) scripts/validation/check_features.py
+
+feature-plan:
+	@if [[ -z "$(ID)" ]]; then \
+		$(PYTHON) scripts/reports/feature_plan.py --list; \
+	else \
+		$(PYTHON) scripts/reports/feature_plan.py --id $(ID); \
+	fi

@@ -116,9 +116,20 @@ def operator_status_bundle_document(
 def operator_status_bundle_markdown(document: dict[str, Any]) -> str:
     """Render the operator status bundle as a human-readable Markdown report."""
     lines = [
+        "<!-- GENERATED FILE. DO NOT EDIT.",
+        "Source:",
+        "- configs/model_catalog.yaml",
+        "- configs/model_serving.yaml",
+        "- configs/monitoring.yaml",
+        "- configs/gpu_budgets.yaml",
+        "Command:",
+        "- make operator-status",
+        "- make operator-reports",
+        "-->",
+        "",
         "# 운영 상태 번들",
         "",
-        f"버전: `{document.get('version', '')}`",
+        f"Package version: `{document.get('version', '')}`",
         "",
         "이 리포트는 registry/config projection에서 생성되며 원문 프롬프트, 사용자 텍스트, 모델 출력, Authorization 헤더, secret 값을 포함하지 않는다.",
         "",

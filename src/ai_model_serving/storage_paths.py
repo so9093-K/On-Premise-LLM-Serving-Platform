@@ -93,6 +93,14 @@ def _markdown_table(rows: list[dict[str, Any]], columns: list[str]) -> list[str]
 
 def render_storage_report_markdown(document: dict[str, Any]) -> str:
     lines = [
+        "<!-- GENERATED FILE. DO NOT EDIT.",
+        "Source:",
+        "- configs/storage_paths.yaml",
+        "Command:",
+        "- make storage-paths",
+        "- make release-check",
+        "-->",
+        "",
         "# 로컬 저장소 경로 리포트",
         "",
         f"원천 파일: `{document['source_of_truth']}`",

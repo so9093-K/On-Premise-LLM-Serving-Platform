@@ -2,6 +2,8 @@
 
 이 디렉터리는 운영자가 `make` 명령 뒤에서 실제로 호출하는 실행 스크립트를 모아 둔 곳이다. 설명은 한국어를 기본으로 쓰고, 파일명·환경 변수·API 경로·명령어는 원문을 유지한다.
 
+> 어디서 시작할지 모르면 `docs/START_HERE.md`를 먼저 본다.
+
 ## 기본 흐름
 
 ```bash
@@ -35,8 +37,8 @@ make stop
 | `config/` | `.env` 생성과 Infisical 동기화 |
 | `models/` | model registry CLI, vLLM command rendering, HF/risk image checks |
 | `ops/` | start/stop/status/ready/smoke/reset/clean 같은 운영 명령 |
-| `reports/` | runtime target, storage path, monitoring, operator status/evidence reports |
-| `validation/` | contract validation, release gate, deterministic test runner, live runtime validation |
+| `reports/` | runtime target, storage path, monitoring, operator status/evidence reports, feature plan |
+| `validation/` | contract validation, release gate, deterministic test runner, live runtime validation, docs link check |
 | `lib/` | shell/python shared helpers |
 
 ## 주요 스크립트
@@ -44,6 +46,8 @@ make stop
 | 파일 | 용도 |
 |---|---|
 | `reports/operator_guide.py` | 상황별 operator workflow guide를 출력한다. `make guide`에서 호출한다. |
+| `reports/feature_plan.py` | 기능 변경 시 갱신해야 할 파일/테스트/명령을 출력한다. `make feature-plan ID=<id>` 또는 `make feature-plan`(목록). maintainer용. |
+| `validation/check_docs_links.py` | Markdown 상대 링크 유효성 검사. `make docs-check`에서 호출한다. |
 | `config/setup_env.py` | `.env`를 생성한다. 기본 target은 기존 `.env`를 덮어쓰지 않는다. `local_open`/`private_network` profile flag를 drift 없이 생성한다. |
 | `sync-runtime-secrets` / `config/setup_env.py --sync-runtime-secrets` | `.env`의 `ADMIN_API_KEY`를 `.runtime/prometheus/admin_api_key`로 다시 기록한다. |
 | `auth/auth_plan.py` / `auth/auth_apply.py` | secret을 출력하지 않고 auth profile 변경 계획을 보여주거나 managed auth flag만 적용한다. |

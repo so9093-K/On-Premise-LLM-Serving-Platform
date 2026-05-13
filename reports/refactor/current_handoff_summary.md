@@ -1,3 +1,10 @@
+---
+document_type: current_snapshot
+status: current
+audience: operator, release_engineer
+note: "이 문서는 특정 시점의 handoff 요약이다. 최신 package version은 VERSION 파일을 기준으로 한다."
+---
+
 # 현재 Handoff 요약 — Streaming·Grafana·패키징 재감사 포함
 
 ## 현재 추가 사항
@@ -5,7 +12,7 @@
 - `/v1/models` 응답에 모델별 `request_parameters`를 추가했다.
 - `/v1/chat/completions`는 `stream=true`를 공식 request parameter로 허용하고 Gateway SSE fast path로 upstream vLLM chunk를 relay한다.
 - `stream_options.include_usage=true`는 `stream=true`와 함께 사용할 때만 허용한다.
-- Grafana는 six-dashboard baseline으로 확장되었고, `$datasource`, `$window`, `$model`, `$runtime_service`, `$route`, `$status_code` variables와 상단 Text runbook을 사용한다.
+- Grafana는 **5개 dashboard baseline** (`gpu_capacity_and_oom_risk`, `executive_runtime_overview`, `chat_api_deep_dive`, `model_runtime_deep_dive`, `risk_signal_operations`)으로 구성되며, `$datasource`, `$window`, `$model`, `$runtime_service`, `$route`, `$status_code` variables와 상단 Text runbook을 사용한다.
 - first-run, clean/delete, package flow는 `reports/refactor/current_first_run_clean_package_audit.md`에서 최신 기준으로 재감사했다.
 - `local-main`은 chat/sampling/tool 관련 사용자 조정 가능 parameter를 노출한다.
 - `local-embed`는 `dimensions`, `encoding_format`, `truncate_prompt_tokens`를 노출한다.

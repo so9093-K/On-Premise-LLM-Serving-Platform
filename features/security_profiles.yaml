@@ -1,0 +1,104 @@
+id: security_profiles
+title: Auth Security Profiles
+owner: operations
+audience:
+  - operator
+  - release_engineer
+description: >
+  local_open, private_network, edge_terminated, strict, custom 5가지 인증 profile을
+  제공한다. AUTH_MODE flag로 선택하며, status/doctor/plan/apply UX로 안전하게 변경한다.
+  ADMIN_ENDPOINTS_INTERNAL_ONLY는 현재 app-level CIDR enforcement가 아니라 네트워크 경계 선언이다.
+
+source_files:
+  - src/ai_model_serving/auth_control.py
+  - src/ai_model_serving/security.py
+  - scripts/auth/auth_plan.py
+  - scripts/auth/auth_apply.py
+  - scripts/auth/auth_status.py
+  - scripts/auth/auth_doctor.py
+  - scripts/auth/auth_profile_sanity.py
+
+config_files:
+  - .env.example
+  - .env.local.example
+  - .env.compose.example
+
+docs:
+  - docs/operations/auth_control_plane.md
+  - docs/operations/admin_metrics_docs_exposure_policy.md
+  - docs/START_HERE.md
+
+commands:
+  - make auth-status
+  - make auth-doctor
+  - make auth-plan MODE=<profile>
+  - make auth-apply MODE=<profile>
+
+tests:
+  - tests/unit/test_auth_control.py
+  - tests/unit/test_auth_plan.py
+  - tests/unit/test_setup_env.py
+
+validation:
+  - make validate
+  - make release-check
+
+package_impact:
+  - .env.example, .env.local.example, .env.compose.example 포함
+  - secret 값(.env) 제외
+  - AUTH_MODE=local_open이 기본 생성값
+
+release_checklist_impact:
+  - make auth-status로 현재 상태 확인
+  - make auth-doctor로 위험 조합 진단
+  - release 전 AUTH_MODE가 의도한 profile인지 확인
+
+profile_expectations:
+  local_open:
+    api_key_required: false
+    admin_api_key_required: false
+    internal_service_auth_required: false
+    docs_enabled: true
+    scope: 로컬 개발 전용
+    cidr_enforcement: false
+  private_network:
+    api_key_required: true
+    admin_api_key_required: true
+    internal_service_auth_required: true
+    docs_enabled: true
+    scope: 사설망/VPN 경계 + app-level admin token
+    cidr_enforcement: false
+  edge_terminated:
+    api_key_required: false
+    admin_api_key_required: true
+    internal_service_auth_required: true
+    docs_enabled: false
+    scope: edge proxy가 public 인증을 처리하고 app은 admin/internal 경로를 보호
+    cidr_enforcement: false
+  strict:
+    api_key_required: true
+    admin_api_key_required: true
+    internal_service_auth_required: true
+    docs_enabled: false
+    scope: production 또는 internet-facing
+    cidr_enforcement: false
+
+dangerous_combinations:
+  - profile: local_open
+    conditions:
+      - APP_ENV != local
+      - API_KEY_REQUIRED = false
+      - public bind address
+    severity: WARN
+    message: local_open + non-local APP_ENV + public bind 조합은 운영 환경에서 위험하다
+  - profile: any
+    conditions:
+      - ADMIN_ENDPOINTS_INTERNAL_ONLY = true
+      - no network boundary (no VPN/firewall/ingress)
+    severity: WARN
+    message: ADMIN_ENDPOINTS_INTERNAL_ONLY는 app-level CIDR enforcement가 아니다. 별도 네트워크 보호가 필요하다
+
+notes:
+  - "auth-doctor가 위험 조합을 WARN/FAIL로 표시한다"
+  - "local_open은 로컬 개발/검증 UX로 유지한다. 기본값을 strict로 무조건 바꾸지 않는다"
+  - "ADMIN_ENDPOINTS_INTERNAL_ONLY 현재 상태: app-level CIDR enforcement 미구현"

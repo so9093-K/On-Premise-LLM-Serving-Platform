@@ -2,7 +2,7 @@
 
 ## 1. 기본 정책
 
-`0.1.0-rc.1` 기준 이 정책은 “한국어 설명 + 영어 식별자 유지”를 기준으로 한다. API 문서 화면은 local, compose, staging, production-like 검증 환경에서 기본 활성화한다.
+이 정책은 “한국어 설명 + 영어 식별자 유지”를 기준으로 한다. API 문서 화면은 local, compose, staging, production-like 검증 환경에서 기본 활성화한다.
 
 | 항목 | 기본값 |
 |---|---|

@@ -229,9 +229,18 @@ def live_evidence_bundle_markdown(document: dict[str, Any]) -> str:
     runtime = document.get("runtime_report", {})
     static_bundle = document.get("static_operator_bundle", {})
     lines = [
+        "<!-- GENERATED FILE. DO NOT EDIT.",
+        "Source:",
+        "- scripts/reports/live_evidence_bundle.py",
+        "- reports/runtime/operator_status_bundle.json",
+        "Command:",
+        "- make live-evidence",
+        "- make release-check",
+        "-->",
+        "",
         "# 라이브 증빙 번들",
         "",
-        f"버전: `{document.get('version', '')}`",
+        f"Package version: `{document.get('version', '')}`",
         f"증빙 상태: `{document.get('evidence_status', '')}`",
         "",
         "이 리포트는 정적 운영 상태 번들과 sanitised runtime validation report를 결합한다. 원문 프롬프트, 사용자 텍스트, 모델 출력, Authorization 헤더, secret 값은 포함하지 않는다.",
@@ -267,6 +276,12 @@ def live_evidence_bundle_markdown(document: dict[str, Any]) -> str:
         f"- 라이브 runtime 검증: `{commands.get('run_live_validation', '')}`",
         f"- 라이브 증빙 번들: `{commands.get('generate_live_evidence', '')}`",
         f"- 릴리스 gate: `{commands.get('run_release_gate', '')}`",
+        "",
+        "## 운영 해석",
+        "",
+        "이 번들은 정적 운영 projection과 sanitised live runtime evidence를 결합한 릴리스 전 증빙 산출물이다. "
+        "원문 프롬프트, 사용자 텍스트, 모델 출력, Authorization 헤더, secret 값은 포함하지 않는다. "
+        "timestamped runtime validation report는 릴리스 패키지에 포함되지 않으며 live 환경에서만 생성한다.",
     ])
     return "\n".join(lines) + "\n"
 

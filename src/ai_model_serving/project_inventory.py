@@ -216,6 +216,14 @@ def write_inventory_reports(root: Path, output_dir: Path | None = None) -> dict[
     json_path.write_text(json.dumps({'summary': summary, 'files': [asdict(row) for row in rows]}, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
 
     lines = [
+        '<!-- GENERATED FILE. DO NOT EDIT.',
+        'Source:',
+        '- src/ configs/ docs/ scripts/ (source tree)',
+        'Command:',
+        '- make project-inventory',
+        '- make release-check',
+        '-->',
+        '',
         '# 프로젝트 인벤토리와 파일 검토 — Current',
         '',
         '이 리포트는 현재 source tree에서 생성되며 로컬 runtime/cache/build 디렉터리는 제외한다.',

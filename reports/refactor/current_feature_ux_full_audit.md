@@ -1,3 +1,10 @@
+---
+document_type: current_snapshot
+status: historical_audit
+audience: operator, release_engineer
+note: "이 문서는 2026-05-11 감사 시점의 snapshot이다. dashboard 수는 현재 ops/grafana/dashboards/ 기준 5개다."
+---
+
 # Current Feature and UX Full Audit
 
 Date: 2026-05-11
@@ -13,7 +20,7 @@ The project is now internally consistent as a reference release package. The maj
 - `stream_options.include_usage` support, with the important constraint that it is valid only when `stream=true` is present.
 - `/v1/models` parameter discovery.
 - Risk Adapter signal-only response policy.
-- Prometheus/Grafana monitoring with six provisioned dashboards.
+- Prometheus/Grafana monitoring with five provisioned dashboards. _(Historical note: an earlier draft expected six; the current baseline has five.)_
 - Build, clean, package, auth, and operator report workflows.
 
 The review did find several drift/UX issues and one contract bug. They were corrected in this pass.
@@ -67,7 +74,7 @@ Files updated:
 
 ### 5. Monitoring UX docs still reflected an older dashboard maturity level
 
-`ux_ui_review.md` still described the earlier three-dashboard milestone and listed Grafana variable/template validation as a remaining weakness. It now distinguishes the historical milestone from the current six-dashboard, variable-backed, Git-managed Grafana state.
+`ux_ui_review.md` still described the earlier three-dashboard milestone and listed Grafana variable/template validation as a remaining weakness. It now distinguishes the historical milestone from the current five-dashboard (5개), variable-backed, Git-managed Grafana state. _(Historical note: "six" was a draft target; five were implemented and validated in `ops/grafana/dashboards/`.)_
 
 `docs/refactor/refactor_backlog.md` no longer lists Grafana dashboard variable/template validation as open, because governance now checks dashboard existence, variable presence, datasource use, text runbooks, and key PromQL regressions.
 
@@ -114,7 +121,7 @@ Status: good.
 
 Status: strong for static reference; browser rendering remains live-only.
 
-- Six dashboards are present and provisioned.
+- Five dashboards are present and provisioned. _(Historical note: an earlier draft expected six; the current baseline has five.)_
 - Dashboards are Korean-first with English metric terms.
 - Each dashboard starts with a Text panel runbook.
 - Variables are present: `$datasource`, `$window`, `$model`, `$runtime_service`, `$route`, `$status_code`.
@@ -163,7 +170,7 @@ Status: current docs are aligned after this pass.
 ## Remaining checks that cannot be completed statically
 
 1. Real vLLM streaming smoke with `curl -N`.
-2. Grafana browser rendering of all six dashboards.
+2. Grafana browser rendering of all five dashboards.
 3. Prometheus live target scrape and dashboard variable dropdown verification.
 4. Proxy/ingress buffering verification in the deployment environment.
 5. GPU memory, queue, KV cache, temperature, and power readings on the target A6000 host.

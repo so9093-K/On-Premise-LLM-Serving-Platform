@@ -378,3 +378,25 @@ def test_current_project_inventory_does_not_list_removed_legacy_reports() -> Non
     ]:
         text = (ROOT / rel).read_text(encoding='utf-8')
         assert removed not in text
+
+
+def test_image_tags_are_package_version_aligned() -> None:
+    """platform image와 risk_vllm image tag가 모두 package version과 일치해야 한다."""
+    version = (ROOT / 'VERSION').read_text(encoding='utf-8').strip()
+    manifest = json.loads((ROOT / 'version_manifest.json').read_text(encoding='utf-8'))
+    image_tags = manifest.get('image_tags', {})
+    assert image_tags.get('platform') == f'ai-model-serving-platform:{version}', \
+        f"version_manifest image_tags.platform mismatch: {image_tags.get('platform')} != ai-model-serving-platform:{version}"
+    assert image_tags.get('risk_vllm') == f'ai-model-serving-risk-vllm-kanana:{version}', \
+        f"version_manifest image_tags.risk_vllm mismatch: {image_tags.get('risk_vllm')} != ai-model-serving-risk-vllm-kanana:{version}"
+
+    import yaml as _yaml
+    images = _yaml.safe_load((ROOT / 'configs/recommended_images.yaml').read_text(encoding='utf-8'))['images']
+    assert images['platform']['default'] == f'ai-model-serving-platform:{version}', \
+        f"recommended_images platform mismatch: {images['platform']['default']}"
+    assert images['risk_vllm']['default'] == f'ai-model-serving-risk-vllm-kanana:{version}', \
+        f"recommended_images risk_vllm mismatch: {images['risk_vllm']['default']}"
+
+    compose_env = (ROOT / '.env.compose.example').read_text(encoding='utf-8')
+    assert f'PLATFORM_IMAGE=ai-model-serving-platform:{version}' in compose_env
+    assert f'RISK_VLLM_IMAGE=ai-model-serving-risk-vllm-kanana:{version}' in compose_env

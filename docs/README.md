@@ -1,12 +1,23 @@
 # 문서 안내
 
 이 디렉터리는 ai_model_serving_platform의 전체 문서를 담는다.
-**처음 왔다면 아래 표에서 상황에 맞는 문서를 바로 열어라.**
+
+> **처음 왔다면:** [START_HERE.md](START_HERE.md)에서 상황을 골라 바로 이동하거나, 아래 표에서 목적에 맞는 문서를 열어라.
+
+## 문서 유형
+
+| 유형 | 위치 | 설명 |
+|---|---|---|
+| **source** | `docs/` | 사람이 직접 읽고 수정하는 문서 |
+| **generated** | `reports/runtime/` | 스크립트가 자동 생성. 직접 수정하지 않는다 |
+| **current_snapshot** | `reports/refactor/current_*` | 특정 시점의 상태 요약 또는 감사 기록 |
+| **historical** | `CHANGELOG.md`, `adr/` | 과거 결정 기록. 현재 운영 기준이 아닐 수 있다 |
 
 ## 운영자 (Operators)
 
 | 상황 | 문서 |
 |---|---|
+| **어디서 시작할지 모르겠다** | [START_HERE.md](START_HERE.md) |
 | 패키지를 처음 받았다 / 전체 흐름을 알고 싶다 | [operations/first_project_guide.md](operations/first_project_guide.md) |
 | 빠른 실행 명령만 보고 싶다 | [operations/day0_quickstart.md](operations/day0_quickstart.md) |
 | GPU 없이 코드·API만 확인하고 싶다 | [operations/day0_quickstart.md §1](operations/day0_quickstart.md#1-app-only-확인) |

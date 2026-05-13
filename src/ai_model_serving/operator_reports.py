@@ -25,9 +25,18 @@ def runtime_targets_document(registry: ModelRegistry) -> dict[str, Any]:
 def runtime_targets_markdown(document: dict[str, Any]) -> str:
     """Render the runtime target inventory as a compact Markdown report."""
     lines = [
+        "<!-- GENERATED FILE. DO NOT EDIT.",
+        "Source:",
+        "- configs/model_catalog.yaml",
+        "- configs/model_serving.yaml",
+        "Command:",
+        "- make runtime-targets",
+        "- make release-check",
+        "-->",
+        "",
         "# 런타임 대상 인벤토리",
         "",
-        f"버전: `{document.get('version', '')}`",
+        f"Config schema version: `{document.get('version', '')}`",
         "",
         "원천 파일: `configs/model_catalog.yaml` + `configs/model_serving.yaml`",
         "",

@@ -1,3 +1,10 @@
+---
+document_type: source
+status: historical_review
+audience: operator, developer
+note: "이 문서는 UX 개선 이력을 기록한 리뷰 문서다. 각 섹션 제목의 괄호 표기는 해당 개선이 이루어진 내부 작업 단계를 나타내며, 현재 package version과 무관하다. 현재 운영 기준 5개 dashboard 목록은 docs/operations/monitoring_ux.md를 참조한다."
+---
+
 # 운영 UX/UI 검토
 
 ## 좋은 점
