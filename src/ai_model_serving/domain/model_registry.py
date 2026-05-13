@@ -11,6 +11,11 @@ def _chat_request_parameters(policy: dict[str, Any], *, max_output_tokens: int |
     """사용자가 Gateway request에서 직접 조정할 수 있는 chat parameter surface."""
     supported = set(policy.get("supported_parameters", []))
     tool_policy = policy.get("tool_calling", {}) if isinstance(policy.get("tool_calling", {}), dict) else {}
+    response_policy = policy.get("response_format", {}) if isinstance(policy.get("response_format", {}), dict) else {}
+    json_schema_policy = response_policy.get("json_schema", {}) if isinstance(response_policy.get("json_schema", {}), dict) else {}
+    logprobs_policy = policy.get("logprobs", {}) if isinstance(policy.get("logprobs", {}), dict) else {}
+    top_logprobs_policy = policy.get("top_logprobs", {}) if isinstance(policy.get("top_logprobs", {}), dict) else {}
+    logit_bias_policy = policy.get("logit_bias", {}) if isinstance(policy.get("logit_bias", {}), dict) else {}
     max_tools = int(tool_policy.get("max_tools", 16))
     parallel_tools_enabled = tool_policy.get("allow_parallel_tool_calls") is True
     max_n = int(policy.get("max_n", 1))
@@ -32,6 +37,41 @@ def _chat_request_parameters(policy: dict[str, Any], *, max_output_tokens: int |
         "tool_choice": {"type": "string_or_function_choice", "allowed": ["auto", "none", "required"]},
         "parallel_tool_calls": {"type": "boolean", "const": parallel_tools_enabled},
         "reasoning": {"type": "boolean", "default": False, "mode": "request_opt_in"},
+        "response_format": {
+            "type": "object",
+            "allowed_types": list(response_policy.get("types", ["text", "json_object", "json_schema"])),
+            "json_object": {
+                "require_json_instruction": bool(response_policy.get("json_object", {}).get("require_json_instruction", True))
+                if isinstance(response_policy.get("json_object", {}), dict)
+                else True
+            },
+            "json_schema": {
+                "max_schema_bytes": int(json_schema_policy.get("max_schema_bytes", 16384)),
+                "max_depth": int(json_schema_policy.get("max_depth", 8)),
+                "max_total_properties": int(json_schema_policy.get("max_total_properties", 64)),
+                "require_root_object": json_schema_policy.get("require_root_object", True) is True,
+                "require_additional_properties_false": json_schema_policy.get("require_additional_properties_false", True) is True,
+                "strict": dict(json_schema_policy.get("strict", {"allowed": True, "require_true": False})),
+            },
+        },
+        "logprobs": {
+            "type": "boolean",
+            "default": logprobs_policy.get("default", False) is True,
+            "allow_stream": logprobs_policy.get("allow_stream", True) is True,
+        },
+        "top_logprobs": {
+            "type": "integer",
+            "min": int(top_logprobs_policy.get("min", 0)),
+            "max": int(top_logprobs_policy.get("max", 10)),
+            "requires": {"logprobs": top_logprobs_policy.get("requires_logprobs", True) is True},
+        },
+        "logit_bias": {
+            "type": "object",
+            "max_entries": int(logit_bias_policy.get("max_entries", 256)),
+            "value_min": int(logit_bias_policy.get("min_bias", -100)),
+            "value_max": int(logit_bias_policy.get("max_bias", 100)),
+            "token_id_semantics": str(logit_bias_policy.get("token_id_semantics", "served_model_tokenizer")),
+        },
     }
     return {name: definitions[name] for name in policy.get("supported_parameters", []) if name in definitions and name in supported}
 
@@ -281,6 +321,7 @@ class RuntimeValidationMatrixCheck:
     operator_action: str
     models: tuple[str, ...] = ()
     runtime_services: tuple[str, ...] = ()
+    feature_degraded_on_failure: str | None = None
 
     def as_yaml_item(self) -> dict[str, Any]:
         item: dict[str, Any] = {
@@ -295,6 +336,8 @@ class RuntimeValidationMatrixCheck:
             item["models"] = list(self.models)
         if self.runtime_services:
             item["runtime_services"] = list(self.runtime_services)
+        if self.feature_degraded_on_failure:
+            item["feature_degraded_on_failure"] = self.feature_degraded_on_failure
         return item
 
 

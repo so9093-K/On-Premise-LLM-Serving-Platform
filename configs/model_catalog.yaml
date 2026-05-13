@@ -52,10 +52,13 @@ models:
       supported_modalities:
       - text
       - image
-      context_length_tokens: 262144
+      upstream_context_length_tokens:
+        vllm_recipe: 131072
+        redhat_card_example_max_model_len: 96000
+        project_runtime_cap: 16384
       parameter_summary:
-        total_parameters: 25.2B
-        active_parameters: 3.8B
+        vllm_recipe: 26B total / 4B active
+        hf_display: 27B params
     project_runtime_policy:
       tensor_parallel_size: 1
       max_model_len: 16384

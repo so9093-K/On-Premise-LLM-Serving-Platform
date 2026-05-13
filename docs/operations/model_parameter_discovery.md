@@ -40,7 +40,7 @@
 
 | 모델 | 사용자 조정 가능 parameter | 설명 |
 |---|---|---|
-| `local-main` | `temperature`, `max_tokens`, `top_p`, `top_k`, `min_p`, `presence_penalty`, `frequency_penalty`, `repetition_penalty`, `stop`, `seed`, `n`, `tools`, `tool_choice`, `parallel_tool_calls`, `stream`, `stream_options` | Chat/sampling/tool 관련 값만 Gateway contract 범위에서 조정한다. `n`은 OpenAI client 호환을 위해 `1`만 허용하며 UI에서는 숨기거나 읽기 전용으로 표시한다. `stream=true`는 Gateway streaming fast path로 SSE를 실시간 relay한다. `stream_options.include_usage=true`는 `stream=true`와 함께 사용할 때 upstream이 지원하는 OpenAI-compatible final usage chunk를 그대로 전달한다. |
+| `local-main` | `temperature`, `max_tokens`, `top_p`, `top_k`, `min_p`, `presence_penalty`, `frequency_penalty`, `repetition_penalty`, `stop`, `seed`, `n`, `tools`, `tool_choice`, `parallel_tool_calls`, `stream`, `stream_options`, `response_format`, `logprobs`, `top_logprobs`, `logit_bias` | Chat/sampling/tool/structured output 관련 값만 Gateway contract 범위에서 조정한다. `n`은 OpenAI client 호환을 위해 `1`만 허용하며 UI에서는 숨기거나 읽기 전용으로 표시한다. `stream=true`는 Gateway streaming fast path로 SSE를 실시간 relay한다. `stream_options.include_usage=true`는 `stream=true`와 함께 사용할 때 upstream이 지원하는 OpenAI-compatible final usage chunk를 그대로 전달한다. |
 | `local-embed` | `dimensions`, `encoding_format`, `truncate_prompt_tokens` | embedding dimension과 prompt truncation 범위만 조정한다. |
 | `risk-prompt` | 없음 | risk endpoint는 `prompt` 입력만 받는다. detector sampling 값은 adapter가 고정한다. |
 
@@ -53,6 +53,12 @@
 5. 호출 전 request schema와 동일한 제한을 클라이언트에서도 한 번 더 검증한다.
 
 `request_parameters`는 허용 표면과 제약 조건이지, Gateway가 주입하는 기본값 목록이 아니다. Chat UI가 기본 입력값을 정해야 한다면 일반 대화는 `temperature=0.7`, `top_p=0.9`, `max_tokens=512` 같은 client preset으로 두고, smoke/debug preset은 `temperature=0`, `max_tokens=1`, `n=1`로 분리한다. `reasoning`은 기본 `false`로 두고 분석·디버깅 preset에서만 켠다. `parallel_tool_calls`는 `false` 고정이므로 toggle로 노출하지 않는다. Vision 입력은 base64 `data:image` 1개만 허용하므로 외부 URL 업로드 UX는 별도 proxy/egress 정책이 생기기 전까지 제공하지 않는다.
+
+`response_format.allowed_types`는 `text`, `json_object`, `json_schema`다. `json_object`는 JSON mode이고 schema adherence를 보장하지 않으므로 UI는 별도 schema 입력란을 열지 않는다. `json_object`는 messages 안의 명시적인 JSON 지시문이 필요하다. `json_schema`는 bounded OpenAI-compatible Structured Outputs subset이며 root object와 `additionalProperties:false`를 요구한다. root `anyOf`는 거부하지만 nested `anyOf`는 limit 안에서 허용한다. local `$defs`/`$ref`와 recursive local `$ref`는 허용하지만 external `$ref`는 허용하지 않는다. `$ref` 값은 `#`로 시작하는 local reference여야 한다. Phase 1에서는 `$dynamicRef`, `$recursiveRef`, `$dynamicAnchor`, `$recursiveAnchor`를 지원하지 않고, `$id`와 `$anchor`도 local-only reference policy를 단순하게 유지하기 위해 지원하지 않는다. `$schema`는 JSON Schema draft annotation으로 허용될 수 있다. 모든 object property는 `required`에 포함되어야 하며 optional처럼 보이는 field는 `"type": ["string", "null"]` nullable union으로 표현한다. `strict`는 OpenAI 호환성을 위해 받지만 Gateway safety limit은 항상 적용된다. `top_logprobs`는 `logprobs=true`가 필요하고 Gateway cap은 10이다(OpenAI 표준은 20까지 허용). `logit_bias.token_id_semantics`가 `served_model_tokenizer`이면 OpenAI/tiktoken id가 아니라 serving 중인 vLLM tokenizer id를 입력해야 한다.
+
+Unsupported keyword 제한은 schema object keyword에만 적용되고 JSON output property name에는 적용되지 않는다. 따라서 client UI는 `$id`, `not`, `$dynamicRef` 같은 문자열도 output field name으로 허용할 수 있다. 다만 그 문자열이 property schema value 안에서 schema keyword로 사용되면 Gateway가 reject한다.
+
+`json_schema + tools`, `json_schema + reasoning`은 discovery surface에서 전역 금지하지 않는다. `capability_gate`는 request validator가 기본 허용하고 live canary가 조합 지원 여부를 검증한다는 의미다. canary 결과가 degraded이면 runtime report에 degraded feature로 남고, 운영자가 해당 deployment에서만 combination policy를 `reject`로 낮출 수 있다. client는 `/v1/models`와 운영 readiness/report를 함께 읽어 고급 조합을 노출한다. `logit_bias`와 Structured Outputs/tools 조합은 constrained decoding이나 tool protocol이 token bias보다 우선할 수 있어 best-effort로 설명한다.
 
 ## 운영자 변경 절차
 

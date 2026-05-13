@@ -196,6 +196,16 @@ def runtime_validation_matrix_checks(registry: "ModelRegistry") -> tuple["Runtim
 
     all_models = registry.public_logical_ids()
     runtime_services = tuple(target.service_key for target in registry.runtime_validation_targets())
+    chat_models = tuple(
+        record.logical_id
+        for record in registry.iter_records()
+        if record.public_enabled and any(capability.startswith("chat.completions") for capability in record.capabilities)
+    )
+    main_runtime_services = tuple(
+        target.service_key
+        for target in registry.runtime_validation_targets()
+        if any(capability.startswith("chat.completions") for capability in target.capabilities)
+    )
     risk_models = tuple(
         record.logical_id
         for record in registry.iter_records()
@@ -229,6 +239,92 @@ def runtime_validation_matrix_checks(registry: "ModelRegistry") -> tuple["Runtim
             operator_action="Inspect model server startup logs, model names, context length settings, and GPU allocation.",
             models=all_models,
             runtime_services=runtime_services,
+        ),
+        RuntimeValidationMatrixCheck(
+            id="response-format-text-canary",
+            owner="gateway",
+            validation='response_format={"type":"text"} is accepted and returns normal assistant content.',
+            artifact_file="reports/runtime/response-format-text-canary.md",
+            runtime_validation_required=True,
+            operator_action="Inspect Gateway request policy and vLLM OpenAI-compatible chat response_format handling.",
+            models=chat_models,
+        ),
+        RuntimeValidationMatrixCheck(
+            id="response-format-json-object-canary",
+            owner="gateway",
+            validation='response_format={"type":"json_object"} with an explicit JSON instruction returns valid JSON content.',
+            artifact_file="reports/runtime/response-format-json-object-canary.md",
+            runtime_validation_required=True,
+            operator_action="Inspect JSON mode support and ensure prompts include an explicit JSON instruction.",
+            models=chat_models,
+        ),
+        RuntimeValidationMatrixCheck(
+            id="response-format-json-schema-canary",
+            owner="gateway",
+            validation='response_format={"type":"json_schema"} applies constrained decoding and returns schema-valid JSON content.',
+            artifact_file="reports/runtime/response-format-json-schema-canary.md",
+            runtime_validation_required=True,
+            operator_action="Do not hard-code Gateway rejection; lower operator combination policy to reject only if runtime validation stays failed.",
+            models=chat_models,
+            feature_degraded_on_failure="structured_outputs",
+        ),
+        RuntimeValidationMatrixCheck(
+            id="logprobs-non-stream-canary",
+            owner="gateway",
+            validation="logprobs=true and top_logprobs within Gateway cap return choices[].logprobs in non-stream responses.",
+            artifact_file="reports/runtime/logprobs-non-stream-canary.md",
+            runtime_validation_required=True,
+            operator_action="Inspect vLLM logprobs support and response size/latency before changing Gateway caps.",
+            models=chat_models,
+        ),
+        RuntimeValidationMatrixCheck(
+            id="logprobs-stream-canary",
+            owner="gateway",
+            validation="stream=true with logprobs=true relays SSE chunks containing upstream logprobs without buffering or rewriting.",
+            artifact_file="reports/runtime/logprobs-stream-canary.md",
+            runtime_validation_required=True,
+            operator_action="Inspect SSE relay and client chunk parsing; do not add Gateway buffering for this check.",
+            models=chat_models,
+        ),
+        RuntimeValidationMatrixCheck(
+            id="logit-bias-shape-canary",
+            owner="gateway",
+            validation="logit_bias object using served model tokenizer token ids is accepted by vLLM runtime.",
+            artifact_file="reports/runtime/logit-bias-shape-canary.md",
+            runtime_validation_required=True,
+            operator_action="Verify token ids against the served model tokenizer and inspect vLLM request acceptance.",
+            models=chat_models,
+        ),
+        RuntimeValidationMatrixCheck(
+            id="json-schema-with-tools-canary",
+            owner="gateway",
+            validation="json_schema response_format with tools is accepted and either emits schema-valid content or valid tool_calls.",
+            artifact_file="reports/runtime/json-schema-with-tools-canary.md",
+            runtime_validation_required=True,
+            operator_action="Use request_parameter_policy.combinations.json_schema_with_tools.mode=reject only when this deployment cannot support the combination.",
+            models=chat_models,
+            feature_degraded_on_failure="json_schema_with_tools",
+        ),
+        RuntimeValidationMatrixCheck(
+            id="json-schema-with-reasoning-canary",
+            owner="gateway",
+            validation="json_schema response_format with reasoning=true remains accepted after Gateway reasoning normalization.",
+            artifact_file="reports/runtime/json-schema-with-reasoning-canary.md",
+            runtime_validation_required=True,
+            operator_action="Use request_parameter_policy.combinations.json_schema_with_reasoning.mode=reject only when this deployment cannot support the combination.",
+            models=chat_models,
+            feature_degraded_on_failure="json_schema_with_reasoning",
+        ),
+        RuntimeValidationMatrixCheck(
+            id="gemma4-reasoning-parser-structured-outputs-canary",
+            owner="model-runtime",
+            validation="Gemma4 reasoning parser plus structured outputs config enable_in_reasoning=true constrains json_schema output on the reasoning=false/default path and fails if free text bypasses grammar.",
+            artifact_file="reports/runtime/gemma4-reasoning-parser-structured-outputs-canary.md",
+            runtime_validation_required=True,
+            operator_action="Keep Gateway surface compatible; report degradation and adjust runtime structured_outputs or combination policy after canary evidence.",
+            models=chat_models,
+            runtime_services=main_runtime_services,
+            feature_degraded_on_failure="gemma4_reasoning_parser_structured_outputs",
         ),
         RuntimeValidationMatrixCheck(
             id="gpu-capacity",

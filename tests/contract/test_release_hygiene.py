@@ -113,7 +113,7 @@ def test_lockfiles_and_dockerfile_are_aligned_with_runtime_install_contract():
     assert 'jsonschema==' in full_lockfile
     assert 'pytest==9.' not in full_lockfile
     assert 'pytest==' not in runtime_lockfile
-    assert 'jsonschema==' not in runtime_lockfile
+    assert 'jsonschema==4.26.0' in runtime_lockfile
     assert 'COPY pyproject.toml requirements.lock requirements.runtime.lock README.md VERSION ./' in dockerfile
     assert '--requirement requirements.runtime.lock' in dockerfile
     assert '--no-deps .' in dockerfile

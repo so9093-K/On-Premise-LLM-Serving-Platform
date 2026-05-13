@@ -105,13 +105,21 @@ GATEWAY_DESCRIPTION_TEMPLATE = """
 
 `/v1/models`의 각 item은 `request_parameters`를 포함합니다. 클라이언트 UI는 이 값을 읽어 모델별 입력 폼을 동적으로 구성할 수 있습니다.
 
-- `local-main`: `temperature`, `max_tokens`, `top_p`, `top_k`, `min_p`, penalty, `seed`, tool 관련 parameter를 Gateway 제약 안에서 조정할 수 있습니다. `stream=true`는 vLLM SSE 응답을 Gateway가 실시간 relay하는 fast path로 지원합니다.
+- `local-main`: `temperature`, `max_tokens`, `top_p`, `top_k`, `min_p`, penalty, `seed`, tool 관련 parameter와 `response_format`, `logprobs`, `top_logprobs`, `logit_bias`를 Gateway 제약 안에서 조정할 수 있습니다. `stream=true`는 vLLM SSE 응답을 Gateway가 실시간 relay하는 fast path로 지원합니다.
 - `local-embed`: `dimensions`, `encoding_format`, `truncate_prompt_tokens`를 조정할 수 있습니다.
 - `risk-prompt`: 사용자가 조정할 수 있는 sampling parameter는 없습니다. risk API는 `prompt` 입력만 받고 detector 호출 parameter는 adapter가 고정합니다.
 
 `local-main`은 RedHatAI Gemma 4 26B-A4B FP8 Dynamic checkpoint를 `local-main`이라는 logical model id로 제공합니다. 문서 예시는 요청 예시이며, Gateway가 `temperature`나 `max_tokens`를 자동 주입하지 않습니다. 호출자가 생략한 값은 vLLM/OpenAI-compatible runtime 기본값을 따릅니다.
 
-Chat API는 OpenAI 호환 chat completions의 제한된 subset입니다. 현재 노출하지 않는 표준/확장 파라미터(`response_format`, `logprobs`, `top_logprobs`, `logit_bias`, `user`, `metadata` 등)는 Gateway allowlist에서 차단합니다.
+Chat API는 OpenAI 호환 chat completions의 bounded subset입니다. `response_format`은 `text`, `json_object`, `json_schema`를 지원합니다. `json_object`는 JSON mode라서 유효한 JSON만 확인하며 schema adherence는 보장하지 않습니다. `json_object` 요청은 messages 안에 명시적인 JSON 지시문이 필요합니다.
+
+`json_schema`는 bounded OpenAI-compatible Structured Outputs subset으로 검증합니다. root `anyOf`는 거부하고 nested `anyOf`는 limit 안에서 허용합니다. local `$defs`/`$ref`와 recursive local `$ref`는 허용하지만 external `$ref`는 허용하지 않습니다. `$ref` 값은 `#`로 시작하는 local reference여야 합니다. Phase 1에서는 `$dynamicRef`, `$recursiveRef`, `$dynamicAnchor`, `$recursiveAnchor`를 지원하지 않고, `$id`와 `$anchor`도 local-only reference policy를 단순하게 유지하기 위해 지원하지 않습니다. `$schema`는 JSON Schema draft annotation으로 허용될 수 있습니다. 모든 object schema는 `additionalProperties:false`와 전체 property 목록을 담은 `required` array가 필요합니다. optional field는 required에서 빼지 말고 `"type": ["string", "null"]` 같은 nullable union으로 표현합니다. `strict`는 OpenAI compatibility를 위해 받지만 Gateway safety limit은 `strict` 값과 무관하게 적용됩니다.
+
+Unsupported keyword 제한은 schema object keyword에만 적용됩니다. JSON output property name에는 적용되지 않으므로 property 이름이 `$id`, `not`, `$dynamicRef` 같은 문자열이어도 `properties` map의 key로만 사용되면 허용됩니다. 반대로 property schema value 안에서 `$id`, `$dynamicRef`, `not` 등이 schema keyword로 사용되면 reject됩니다.
+
+`top_logprobs`는 `logprobs=true`가 필요하며 Gateway 정책상 0..10으로 제한합니다. OpenAI는 20까지 허용하지만 이 Gateway는 응답 크기와 latency 보호를 위해 10으로 cap합니다. `logit_bias` token id는 OpenAI/tiktoken id가 아니라 served vLLM model tokenizer id입니다. Structured Outputs나 tools와 함께 쓰는 `logit_bias`는 constrained decoding/tool protocol이 token availability를 지배할 수 있어 best-effort입니다. `stream=true`와 `logprobs=true`는 SSE pass-through이며 client가 chunk logprobs를 파싱해야 합니다.
+
+`json_schema + tools`, `json_schema + reasoning`은 Gateway request surface에서 전역 금지하지 않습니다. `capability_gate`는 request validator가 기본 허용하고 live canary가 deployment별 지원 여부를 검증한다는 의미입니다. canary 실패는 runtime report의 degraded feature로 남기며, operator는 필요할 때 config combination policy를 `reject`로 낮출 수 있습니다. 현재 노출하지 않는 표준/확장 파라미터(`user`, `metadata` 등)는 Gateway allowlist에서 차단합니다.
 
 Tool calling은 Gemma4 tool parser와 전용 chat template 범위에서 지원합니다. `parallel_tool_calls=true`는 아직 허용하지 않으며, 특정 function을 `tool_choice`로 지정할 때는 같은 이름의 function tool을 `tools`에 포함해야 합니다.
 
@@ -342,7 +350,8 @@ def create_gateway_app(settings: AppSettings | None = None, clients: GatewayClie
             "`local-main`을 통해 chat completion을 생성합니다. "
             "Gateway가 model id, 입력 modality, 최대 토큰 수, tool-call 지원 범위를 먼저 검증합니다. "
             "stream=true 요청은 vLLM SSE chunk를 버퍼링하지 않고 text/event-stream으로 즉시 relay합니다. "
-            "OpenAI 호환 형식을 따르며, 지원하지 않는 파라미터는 Gateway contract에서 차단합니다."
+            "response_format은 text/json_object/json_schema를 지원하고, logprobs/top_logprobs/logit_bias는 정책 제약 안에서 OpenAI-compatible request field 그대로 upstream에 전달합니다. "
+            "지원하지 않는 파라미터는 Gateway contract에서 차단합니다."
         ),
         responses={401: {"description": "API Bearer token 필요"}},
     )
@@ -522,6 +531,35 @@ def create_gateway_app(settings: AppSettings | None = None, clients: GatewayClie
                         "reasoning": True,
                         "max_tokens": 768,
                         "temperature": 0.2,
+                    },
+                },
+                "json_schema": {
+                    "summary": "Structured Outputs (json_schema)",
+                    "value": {
+                        "model": "local-main",
+                        "messages": [{"role": "user", "content": "Return JSON with a short answer."}],
+                        "response_format": {
+                            "type": "json_schema",
+                            "json_schema": {
+                                "name": "short_answer",
+                                "strict": True,
+                                "schema": {
+                                    "type": "object",
+                                    "additionalProperties": False,
+                                    "properties": {"answer": {"type": "string"}},
+                                    "required": ["answer"],
+                                },
+                            },
+                        },
+                    },
+                },
+                "logprobs": {
+                    "summary": "Log probabilities",
+                    "value": {
+                        "model": "local-main",
+                        "messages": [{"role": "user", "content": "Say OK only."}],
+                        "logprobs": True,
+                        "top_logprobs": 3,
                     },
                 },
                 "with_image": {

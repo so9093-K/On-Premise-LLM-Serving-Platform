@@ -123,6 +123,15 @@ def validate_request_schemas() -> None:
     accepted_chat_stream_sample = {'model': 'local-main', 'stream': True, 'stream_options': {'include_usage': True}, 'messages': [{'role': 'user', 'content': 'hello'}]}
     if list(chat_validator.iter_errors(accepted_chat_stream_sample)):
         raise SystemExit('chat completion schema rejected supported stream=true sample')
+    accepted_advanced_chat_samples = [
+        {'model': 'local-main', 'messages': [{'role': 'user', 'content': 'Return JSON.'}], 'response_format': {'type': 'json_object'}},
+        {'model': 'local-main', 'messages': [{'role': 'user', 'content': 'Return JSON.'}], 'response_format': {'type': 'json_schema', 'json_schema': {'name': 'answer', 'strict': True, 'schema': {'type': 'object', 'additionalProperties': False, 'properties': {'answer': {'type': 'string'}}, 'required': ['answer']}}}},
+        {'model': 'local-main', 'messages': [{'role': 'user', 'content': 'hello'}], 'logprobs': True, 'top_logprobs': 10},
+        {'model': 'local-main', 'messages': [{'role': 'user', 'content': 'hello'}], 'logit_bias': {'42': -1.5}},
+    ]
+    for sample in accepted_advanced_chat_samples:
+        if list(chat_validator.iter_errors(sample)):
+            raise SystemExit(f'chat completion schema rejected supported advanced sample: {sample}')
 
     rejected_chat_samples = [
         {'model': 'local-main', 'stream': 'true', 'messages': [{'role': 'user', 'content': 'hello'}]},
@@ -131,6 +140,12 @@ def validate_request_schemas() -> None:
         {'model': 'local-main', 'stream': False, 'stream_options': {'include_usage': True}, 'messages': [{'role': 'user', 'content': 'hello'}]},
         {'model': 'local-main', 'tools': [], 'messages': [{'role': 'user', 'content': 'hello'}]},
         {'model': 'local-main', 'messages': [{'role': 'user', 'content': 'hello', 'tool_calls': []}]},
+        {'model': 'local-main', 'messages': [{'role': 'user', 'content': 'hello'}], 'response_format': {'type': 'xml'}},
+        {'model': 'local-main', 'messages': [{'role': 'user', 'content': 'hello'}], 'response_format': {'type': 'text', 'json_schema': {'name': 'x', 'schema': {}}}},
+        {'model': 'local-main', 'messages': [{'role': 'user', 'content': 'hello'}], 'top_logprobs': 0},
+        {'model': 'local-main', 'messages': [{'role': 'user', 'content': 'hello'}], 'logprobs': True, 'top_logprobs': 11},
+        {'model': 'local-main', 'messages': [{'role': 'user', 'content': 'hello'}], 'logit_bias': {'x': 1}},
+        {'model': 'local-main', 'messages': [{'role': 'user', 'content': 'hello'}], 'logit_bias': {'1': True}},
     ]
     for sample in rejected_chat_samples:
         if not list(chat_validator.iter_errors(sample)):

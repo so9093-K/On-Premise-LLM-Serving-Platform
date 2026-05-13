@@ -19,6 +19,10 @@ data: [DONE]
 
 `stream=true`와 함께 `stream_options.include_usage=true`를 보낸 경우 upstream이 지원하면 `[DONE]` 직전에 `choices: []`와 전체 `usage`를 포함한 chunk가 추가될 수 있다. stream이 중단되거나 cancel되면 이 최종 usage chunk를 받지 못할 수 있으므로 billing/accounting의 source of truth는 upstream 관측값과 함께 검증한다.
 
+`stream=true`와 `logprobs=true`는 Gateway에서 허용한다. 이 경로는 pass-through SSE이므로 Gateway가 chunk-level logprobs shape를 전체 검증하지 않는다. client는 각 `chat.completion.chunk`의 `choices[].logprobs`를 직접 파싱해야 하며, non-stream 응답에서만 Gateway가 `choices[].logprobs` 위치와 token logprob item shape를 검증한다.
+
+Structured Outputs 관련 조합도 streaming 정책과 분리해서 본다. `json_schema + tools`, `json_schema + reasoning`은 Gateway에서 전역 금지하지 않고, live canary가 deployment별 지원 여부를 확인한다. canary 실패는 runtime report의 degraded feature로 기록되며 운영자가 해당 deployment에서만 combination policy를 `reject`로 낮출 수 있다.
+
 ## Proxy buffering
 
 Gateway 응답에는 다음 header를 항상 포함한다.

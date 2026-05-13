@@ -91,6 +91,8 @@ services:
     - gemma4
     - --chat-template
     - /app/configs/gemma4_chat_template.jinja
+    - --structured-outputs-config
+    - '{"backend":"auto","enable_in_reasoning":true}'
     expose:
     - '9401'
     env_file: ../../.env

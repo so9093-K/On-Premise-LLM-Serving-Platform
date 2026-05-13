@@ -197,10 +197,10 @@ def validate_deployment_reproducibility() -> None:
 
     runtime_lock = ROOT / 'requirements.runtime.lock'
     runtime_lock_text = runtime_lock.read_text(encoding='utf-8') if runtime_lock.exists() else ''
-    for required_pin in ['fastapi==', 'uvicorn==', 'httpx==', 'PyYAML==']:
+    for required_pin in ['fastapi==', 'uvicorn==', 'httpx==', 'PyYAML==', 'jsonschema==']:
         if required_pin not in runtime_lock_text:
             raise SystemExit(f'requirements.runtime.lock missing runtime dependency pin: {required_pin}')
-    for forbidden_pin in ['pytest==', 'jsonschema==']:
+    for forbidden_pin in ['pytest==']:
         if re.search(rf'(?m)^{re.escape(forbidden_pin)}', runtime_lock_text):
             raise SystemExit(f'requirements.runtime.lock must not include contract/test dependency pin: {forbidden_pin}')
 

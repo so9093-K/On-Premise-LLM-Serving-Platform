@@ -60,6 +60,15 @@ def test_model_source_facts_and_runtime_policy_are_separated() -> None:
     main = catalog['local-main']
     assert main['source_facts']['upstream_example']['tensor_parallel_size'] == 1
     assert main['source_facts']['upstream_example']['max_model_len'] == 96000
+    assert main['source_facts']['upstream_context_length_tokens'] == {
+        'vllm_recipe': 131072,
+        'redhat_card_example_max_model_len': 96000,
+        'project_runtime_cap': 16384,
+    }
+    assert main['source_facts']['parameter_summary'] == {
+        'vllm_recipe': '26B total / 4B active',
+        'hf_display': '27B params',
+    }
     assert main['project_runtime_policy']['tensor_parallel_size'] == 1
     assert main['project_runtime_policy']['max_model_len'] == 16384
     assert main['project_runtime_policy']['max_image_inputs'] == 1
@@ -115,7 +124,7 @@ def test_runtime_lockfile_and_dockerfile_hardening_are_present() -> None:
     assert 'uvicorn==' in runtime_lock_text
     assert 'httpx==' in runtime_lock_text
     assert 'pytest==' not in runtime_lock_text
-    assert 'jsonschema==' not in runtime_lock_text
+    assert 'jsonschema==4.26.0' in runtime_lock_text
     dockerfile = (ROOT / 'Dockerfile').read_text(encoding='utf-8')
     assert 'FROM python:3.12.13-slim' in dockerfile
     assert '--requirement requirements.runtime.lock' in dockerfile
@@ -145,12 +154,31 @@ def test_main_runtime_features_and_request_parameter_policy_are_explicit() -> No
     assert features['tool_calling']['tool_call_parser'] == 'gemma4'
     assert features['tool_calling']['reasoning_parser'] == 'gemma4'
     assert features['tool_calling']['chat_template'] == '/app/configs/gemma4_chat_template.jinja'
+    assert features['structured_outputs']['enabled'] is True
+    assert features['structured_outputs']['backend'] == 'auto'
+    assert features['structured_outputs']['enable_in_reasoning'] is True
     policy = main['request_parameter_policy']
     assert policy['allow_unlisted_parameters'] is False
-    for field in ['top_p', 'top_k', 'min_p', 'repetition_penalty', 'n', 'tools', 'tool_choice', 'reasoning']:
+    for field in ['top_p', 'top_k', 'min_p', 'repetition_penalty', 'n', 'tools', 'tool_choice', 'reasoning', 'response_format', 'logprobs', 'top_logprobs', 'logit_bias']:
         assert field in policy['supported_parameters']
     assert policy['reasoning']['enabled'] is True
     assert policy['reasoning']['default'] is False
+    assert policy['response_format']['types'] == ['text', 'json_object', 'json_schema']
+    assert policy['response_format']['json_object']['require_json_instruction'] is True
+    assert policy['response_format']['json_schema']['max_schema_bytes'] == 16384
+    assert policy['response_format']['json_schema']['require_additional_properties_false'] is True
+    assert {
+        '$dynamicRef',
+        '$recursiveRef',
+        '$dynamicAnchor',
+        '$recursiveAnchor',
+        '$id',
+        '$anchor',
+    }.issubset(set(policy['response_format']['json_schema']['disallowed_keywords']))
+    assert policy['logprobs']['enabled'] is True
+    assert policy['logprobs']['allow_stream'] is True
+    assert policy['top_logprobs'] == {'min': 0, 'max': 10, 'requires_logprobs': True}
+    assert policy['logit_bias']['token_id_semantics'] == 'served_model_tokenizer'
     assert policy['max_n'] == 1
 
     for key in ['risk_prompt']:

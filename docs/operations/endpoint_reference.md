@@ -60,7 +60,7 @@ Admin endpoints는 `Authorization: Bearer <ADMIN_API_KEY>` 필요.
 
 | 모델 | 조정 가능 | 조정 불가 |
 |---|---|---|
-| `local-main` | sampling, token limit, seed, stop, `n`(1 고정), tool-call 관련 parameter, `stream`, `stream_options` | runtime/serving 하이퍼파라미터 |
+| `local-main` | sampling, token limit, seed, stop, `n`(1 고정), tool-call 관련 parameter, `stream`, `stream_options`, `response_format`, `logprobs`, `top_logprobs`, `logit_bias` | runtime/serving 하이퍼파라미터 |
 | `local-embed` | `dimensions`, `encoding_format`, `truncate_prompt_tokens` | runtime/serving 하이퍼파라미터 |
 | `risk-prompt` | 없음. `prompt` 입력만 받음 | detector sampling parameter는 adapter가 고정 |
 
@@ -201,6 +201,14 @@ make ready
 ## Streaming 운영 참고
 
 `stream=true`는 SSE fast path입니다. 표준 OpenAI chunk는 `object: "chat.completion.chunk"`, `choices[].delta`, `finish_reason`을 포함하며 마지막에는 `data: [DONE]`이 옵니다. `stream_options.include_usage=true`는 `stream=true`와 함께 사용할 때 upstream이 지원하는 최종 usage chunk를 요청하고 Gateway는 이를 수정하지 않고 relay합니다. Proxy buffering, 중간 실패 SSE error event, usage accounting, timeout tuning은 [streaming_runtime_operations.md](streaming_runtime_operations.md)를 따릅니다.
+
+`response_format`은 `text`, `json_object`, `json_schema`를 지원합니다. `json_object`는 유효한 JSON만 확인하며 schema adherence를 보장하지 않고, messages 안에 명시적인 JSON 지시문이 필요합니다. `json_schema`는 bounded OpenAI-compatible Structured Outputs subset이며 Gateway가 non-stream 응답의 JSON/schema adherence를 검증합니다. root `anyOf`는 거부하고 nested `anyOf`는 limit 안에서 허용합니다. local `$defs`/`$ref`와 recursive local `$ref`는 허용하지만 external `$ref`는 허용하지 않습니다. `$ref` 값은 `#`로 시작하는 local reference여야 합니다. Phase 1에서는 `$dynamicRef`, `$recursiveRef`, `$dynamicAnchor`, `$recursiveAnchor`를 지원하지 않고, `$id`와 `$anchor`도 local-only reference policy를 단순하게 유지하기 위해 지원하지 않습니다. `$schema`는 JSON Schema draft annotation으로 허용될 수 있습니다. 모든 object schema는 `additionalProperties:false`와 전체 property 목록을 담은 `required` array를 가져야 합니다. optional field는 `required`에서 빼지 말고 nullable union 예: `"type": ["string", "null"]`으로 표현합니다. `strict`는 OpenAI 호환성을 위해 허용하지만 Gateway safety limit은 `strict` 값과 무관하게 적용됩니다.
+
+Unsupported keyword 제한은 schema object keyword에만 적용됩니다. JSON output property name에는 적용되지 않으므로 property 이름이 `$id`, `not`, `$dynamicRef` 같은 문자열이어도 `properties` map의 key로만 사용되면 허용됩니다. 반대로 property schema value 안에서 `$id`, `$dynamicRef`, `not` 등이 schema keyword로 사용되면 reject됩니다.
+
+`top_logprobs`는 `logprobs=true`가 필요하고 Gateway 정책상 10까지 허용합니다. OpenAI는 20까지 허용하지만 이 Gateway는 응답 크기와 latency 보호를 위해 10으로 제한합니다. `logit_bias` token id는 served model tokenizer 기준이며 OpenAI/tiktoken id가 아닙니다. Structured Outputs/tools와 함께 쓰는 `logit_bias`는 constrained decoding 또는 tool protocol이 token availability를 지배할 수 있어 best-effort입니다.
+
+`json_schema + tools`, `json_schema + reasoning`은 전역 금지하지 않습니다. `capability_gate` 정책은 request validator가 기본 허용하고 live canary가 deployment별 지원 여부를 검증한다는 뜻입니다. canary 실패는 runtime report의 degraded feature로 남기고, 운영자가 해당 deployment에서만 `request_parameter_policy.combinations.*.mode=reject`로 낮출 수 있습니다.
 
 
 > Grafana dashboard source of truth는 `ops/grafana/dashboards/*.json`이다. Reference release에서는 `allowUiUpdates=false`로 Git-managed dashboard를 유지한다. UI에서 직접 수정한 내용은 JSON source로 자동 반영되지 않는다.

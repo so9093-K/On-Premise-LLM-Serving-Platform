@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from typing import Any
 
 
@@ -25,6 +26,16 @@ def _append_runtime_features(cmd: list[str], cfg: dict[str, Any]) -> None:
     chat_template = features.get("chat_template", {}) or {}
     if chat_template.get("content_format"):
         cmd.extend(["--chat-template-content-format", str(chat_template["content_format"])])
+
+    structured_outputs = features.get("structured_outputs", {}) or {}
+    if structured_outputs.get("enabled") is True:
+        # Project-pinned vllm/vllm-openai:gemma4-0505-cu129 registers this as a
+        # dataclass JSON argument; the runtime canary verifies behavior after boot.
+        config = {
+            "backend": structured_outputs.get("backend", "auto"),
+            "enable_in_reasoning": structured_outputs.get("enable_in_reasoning") is True,
+        }
+        cmd.extend(["--structured-outputs-config", json.dumps(config, separators=(",", ":"))])
 
 
 def render_vllm_command(key: str, cfg: dict[str, Any]) -> list[str]:

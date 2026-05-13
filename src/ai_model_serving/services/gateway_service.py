@@ -10,6 +10,7 @@ from ..errors import ServiceError
 from ..metrics import Metrics
 from ..settings import AppSettings
 from ..contracts import (
+    ChatResponseExpectations,
     read_risk_prompt,
     validate_chat_request,
     validate_chat_response,
@@ -20,6 +21,31 @@ from ..contracts import (
     validate_risk_response,
 )
 
+
+def normalize_chat_request_for_runtime(
+    payload: dict[str, Any],
+    runtime_features: dict[str, Any] | None,
+    policy: dict[str, Any] | None,
+) -> tuple[dict[str, Any], ChatResponseExpectations]:
+    """Map Gateway-facing controls to vLLM request extensions and response checks."""
+    del runtime_features, policy
+    response_format = payload.get("response_format")
+    response_format_type = response_format.get("type") if isinstance(response_format, dict) else None
+    json_schema_wrapper = response_format.get("json_schema") if isinstance(response_format, dict) else None
+    json_schema = json_schema_wrapper.get("schema") if isinstance(json_schema_wrapper, dict) else None
+    expectations = ChatResponseExpectations(
+        response_format_type=response_format_type,
+        json_schema=dict(json_schema) if isinstance(json_schema, dict) else None,
+        expect_logprobs=payload.get("logprobs") is True,
+        stream=payload.get("stream") is True,
+    )
+    upstream = dict(payload)
+    reasoning_enabled = upstream.pop("reasoning", None)
+    if reasoning_enabled is True:
+        template_kwargs = dict(upstream.get("chat_template_kwargs", {}))
+        template_kwargs["enable_thinking"] = True
+        upstream["chat_template_kwargs"] = template_kwargs
+    return upstream, expectations
 
 
 
@@ -108,26 +134,22 @@ class GatewayService:
             request_parameter_policy=self.settings.main_llm.request_parameter_policy,
         )
 
-    def _chat_upstream_payload(self, payload: dict[str, Any]) -> dict[str, Any]:
-        """Map Gateway-facing controls to vLLM request extensions."""
-        reasoning_enabled = payload.pop("reasoning", None)
-        if reasoning_enabled is True:
-            upstream = dict(payload)
-            template_kwargs = dict(upstream.get("chat_template_kwargs", {}))
-            template_kwargs["enable_thinking"] = True
-            upstream["chat_template_kwargs"] = template_kwargs
-            return upstream
-        return payload
+    def _chat_upstream_payload(self, payload: dict[str, Any]) -> tuple[dict[str, Any], ChatResponseExpectations]:
+        return normalize_chat_request_for_runtime(
+            payload,
+            self.settings.main_llm.runtime_features,
+            self.settings.main_llm.request_parameter_policy,
+        )
 
     async def create_chat_completion(self, payload: dict[str, Any]) -> dict[str, Any]:
-        payload = self._chat_upstream_payload(self._validate_chat_payload(payload))
+        payload, expectations = self._chat_upstream_payload(self._validate_chat_payload(payload))
         start = time.monotonic()
         try:
             response = await asyncio.wait_for(
                 self.clients.main_llm.post_json("chat/completions", payload),
                 timeout=self.settings.gateway_timeout_seconds,
             )
-            return validate_chat_response(response, expected_model=self.settings.main_llm.model)
+            return validate_chat_response(response, expected_model=self.settings.main_llm.model, expectations=expectations)
         except TimeoutError as exc:
             self.metrics.record_upstream_error(self.settings.main_llm.logical_id, "GATEWAY_TIMEOUT")
             raise ServiceError("UPSTREAM_TIMEOUT", "Gateway request timed out before the chat runtime completed.", True, 504) from exc
@@ -143,7 +165,7 @@ class GatewayService:
 
 
     def stream_chat_completion(self, payload: dict[str, Any]) -> AsyncIterator[bytes]:
-        payload = self._chat_upstream_payload(self._validate_chat_payload(payload))
+        payload, _expectations = self._chat_upstream_payload(self._validate_chat_payload(payload))
         start = time.monotonic()
         target = self.settings.main_llm.logical_id
 

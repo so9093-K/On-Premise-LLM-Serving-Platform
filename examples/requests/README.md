@@ -14,6 +14,28 @@ curl -s http://127.0.0.1:9400/v1/chat/completions \
   -d '{"model":"local-main","messages":[{"role":"user","content":"안녕하세요"}]}'
 ```
 
+## Gateway Chat (Structured Outputs / Logprobs)
+
+`response_format`은 `text`, `json_object`, `json_schema`를 지원한다. `json_object`는 valid JSON만 확인하고 schema adherence는 보장하지 않으며, messages 안에 명시적인 JSON 지시문이 필요하다. `json_schema`는 bounded OpenAI-compatible Structured Outputs subset이다. 모든 object schema는 `additionalProperties:false`와 전체 property 목록을 담은 `required` array가 필요하다. optional field는 required에서 빼지 말고 nullable union 예: `"type": ["string", "null"]`로 표현한다. root `anyOf`는 거부하고 nested `anyOf`는 limit 안에서 허용한다. `strict`는 OpenAI compatibility를 위해 받지만 Gateway safety limit은 항상 적용된다.
+
+```bash
+curl -s http://127.0.0.1:9400/v1/chat/completions \
+  -H "Authorization: Bearer $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"model":"local-main","messages":[{"role":"user","content":"Return JSON with a short answer."}],"response_format":{"type":"json_schema","json_schema":{"name":"short_answer","strict":true,"schema":{"type":"object","additionalProperties":false,"properties":{"answer":{"type":"string"}},"required":["answer"]}}}}'
+```
+
+`top_logprobs`는 `logprobs=true`가 필요하고 Gateway cap은 10이다. OpenAI는 20까지 허용하지만 이 Gateway는 응답 크기와 latency 보호를 위해 10으로 제한한다. `logit_bias` token id는 served model tokenizer 기준이며 OpenAI/tiktoken id가 아니다.
+
+```bash
+curl -s http://127.0.0.1:9400/v1/chat/completions \
+  -H "Authorization: Bearer $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"model":"local-main","messages":[{"role":"user","content":"Say OK only."}],"logprobs":true,"top_logprobs":3,"logit_bias":{"42":-1.5}}'
+```
+
+Structured Outputs/tools/reasoning 조합은 Gateway가 전역 금지하지 않는다. `capability_gate` 정책에서는 request validator가 기본 허용하고 live canary 결과가 해당 deployment의 실제 지원 여부를 보고한다. 실패하면 runtime report에 degraded feature로 기록하고, 운영자가 deployment-specific `mode=reject`로 낮출 수 있다. constrained decoding이나 tool protocol은 `logit_bias`보다 우선할 수 있다.
+
 ## Gateway Chat (Streaming)
 
 `-N`은 curl 자체 버퍼링을 끄는 옵션이다. SSE에서는 반드시 붙여야 chunk가 실시간으로 출력된다.
@@ -33,6 +55,8 @@ curl -sN http://127.0.0.1:9400/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{"model":"local-main","messages":[{"role":"user","content":"안녕하세요"}],"stream":true,"stream_options":{"include_usage":true}}'
 ```
+
+`stream=true`와 `logprobs=true`도 pass-through SSE로 허용된다. Gateway는 chunk-level full validation을 하지 않으므로 client가 chunk의 `choices[].logprobs`를 파싱한다.
 
 예상 응답 형태:
 

@@ -1,6 +1,13 @@
 from __future__ import annotations
 
+import json
+import re
+from collections.abc import Iterator
+from dataclasses import dataclass
 from typing import Any
+
+from jsonschema import Draft202012Validator, SchemaError, ValidationError
+from jsonschema.validators import validator_for
 
 from ..errors import ServiceError
 from .common import ensure_object, is_int, is_number, reject_unknown_fields
@@ -10,6 +17,40 @@ CHAT_ROLES = {"system", "user", "assistant"}
 TOOL_CHAT_ROLES = {"system", "user", "assistant", "tool"}
 UNSUPPORTED_CHAT_FIELDS = {"tools", "tool_choice", "parallel_tool_calls"}
 UNSUPPORTED_MESSAGE_FIELDS = {"tool_calls", "tool_call_id"}
+JSON_SCHEMA_NAME_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
+SCHEMA_VALUE_KEYS = {
+    "additionalProperties",
+    "items",
+    "contains",
+    "propertyNames",
+    "unevaluatedItems",
+    "unevaluatedProperties",
+    "if",
+    "then",
+    "else",
+    "not",
+}
+SCHEMA_ARRAY_KEYS = {
+    "anyOf",
+    "oneOf",
+    "allOf",
+    "prefixItems",
+}
+SCHEMA_MAP_VALUE_KEYS = {
+    "properties",
+    "$defs",
+    "definitions",
+    "dependentSchemas",
+    "patternProperties",
+}
+
+
+@dataclass(frozen=True)
+class ChatResponseExpectations:
+    response_format_type: str | None
+    json_schema: dict[str, Any] | None
+    expect_logprobs: bool
+    stream: bool
 
 
 def _chat_policy(policy: dict[str, Any] | None) -> dict[str, Any]:
@@ -49,6 +90,302 @@ def _validate_stop(value: Any) -> None:
     if isinstance(value, list) and 0 < len(value) <= 8 and all(isinstance(item, str) for item in value):
         return
     raise ServiceError("VALIDATION_ERROR", "stop must be a string or an array of up to 8 strings.", False, 422)
+
+
+def _message_text(value: Any) -> str:
+    if isinstance(value, str):
+        return value
+    if isinstance(value, list):
+        parts: list[str] = []
+        for item in value:
+            if isinstance(item, dict) and item.get("type") == "text" and isinstance(item.get("text"), str):
+                parts.append(item["text"])
+        return "\n".join(parts)
+    return ""
+
+
+def _messages_contain_json_instruction(payload: dict[str, Any]) -> bool:
+    messages = payload.get("messages")
+    if not isinstance(messages, list):
+        return False
+    return any("json" in _message_text(message.get("content")).lower() for message in messages if isinstance(message, dict))
+
+
+def _schema_policy(policy: dict[str, Any] | None) -> dict[str, Any]:
+    response_policy = _chat_policy(policy).get("response_format", {})
+    if not isinstance(response_policy, dict):
+        return {}
+    schema_policy = response_policy.get("json_schema", {})
+    return schema_policy if isinstance(schema_policy, dict) else {}
+
+
+def _schema_limit(policy: dict[str, Any], key: str, default: int) -> int:
+    try:
+        return int(policy.get(key, default))
+    except (TypeError, ValueError):
+        return default
+
+
+def _schema_depth(value: Any) -> int:
+    if isinstance(value, dict):
+        return 1 + max((_schema_depth(item) for item in value.values()), default=0)
+    if isinstance(value, list):
+        return 1 + max((_schema_depth(item) for item in value), default=0)
+    return 1
+
+
+def _iter_schema_objects(value: Any) -> Iterator[dict[str, Any]]:
+    if not isinstance(value, dict):
+        return
+    yield value
+
+    for key in SCHEMA_VALUE_KEYS:
+        item = value.get(key)
+        if isinstance(item, dict):
+            yield from _iter_schema_objects(item)
+
+    for key in SCHEMA_ARRAY_KEYS:
+        items = value.get(key)
+        if isinstance(items, list):
+            for item in items:
+                if isinstance(item, dict):
+                    yield from _iter_schema_objects(item)
+
+    for key in SCHEMA_MAP_VALUE_KEYS:
+        items = value.get(key)
+        if isinstance(items, dict):
+            for item in items.values():
+                if isinstance(item, dict):
+                    yield from _iter_schema_objects(item)
+
+
+def _total_schema_string_length(value: Any) -> int:
+    if isinstance(value, str):
+        return len(value)
+    if isinstance(value, dict):
+        return sum(len(str(key)) + _total_schema_string_length(item) for key, item in value.items())
+    if isinstance(value, list):
+        return sum(_total_schema_string_length(item) for item in value)
+    return 0
+
+
+def _validate_json_schema_subset(schema: dict[str, Any], *, policy: dict[str, Any]) -> None:
+    disallowed = set(policy.get("disallowed_keywords", []))
+    for obj in _iter_schema_objects(schema):
+        if "$ref" not in obj:
+            blocked = sorted(disallowed.intersection(obj))
+        else:
+            ref = obj.get("$ref")
+            if not isinstance(ref, str) or not ref.startswith("#"):
+                raise ServiceError(
+                    "VALIDATION_ERROR",
+                    "response_format.json_schema.schema only supports local $ref values that start with '#'.",
+                    False,
+                    422,
+                )
+            blocked = sorted(disallowed.intersection(obj))
+        if blocked:
+            raise ServiceError("VALIDATION_ERROR", f"response_format.json_schema.schema uses unsupported keyword(s): {', '.join(blocked)}.", False, 422)
+
+    try:
+        Draft202012Validator.check_schema(schema)
+    except SchemaError as exc:
+        raise ServiceError(
+            "VALIDATION_ERROR",
+            "response_format.json_schema.schema must be a valid JSON Schema.",
+            False,
+            422,
+        ) from exc
+
+    encoded = json.dumps(schema, ensure_ascii=False, separators=(",", ":"), sort_keys=True).encode("utf-8")
+    max_schema_bytes = _schema_limit(policy, "max_schema_bytes", 16384)
+    if len(encoded) > max_schema_bytes:
+        raise ServiceError("VALIDATION_ERROR", f"response_format.json_schema.schema must be {max_schema_bytes} bytes or fewer.", False, 422)
+    max_depth = _schema_limit(policy, "max_depth", 8)
+    if _schema_depth(schema) > max_depth:
+        raise ServiceError("VALIDATION_ERROR", f"response_format.json_schema.schema depth must be {max_depth} or fewer.", False, 422)
+    if policy.get("require_root_object", True) is True and schema.get("type") != "object":
+        raise ServiceError("VALIDATION_ERROR", "response_format.json_schema.schema root type must be object.", False, 422)
+    root_disallowed = set(policy.get("root_disallowed_keywords", ["anyOf"]))
+    for keyword in root_disallowed:
+        if keyword in schema:
+            raise ServiceError("VALIDATION_ERROR", f"response_format.json_schema.schema root keyword is not supported in Phase 1: {keyword}.", False, 422)
+
+    max_total_properties = _schema_limit(policy, "max_total_properties", 64)
+    max_properties_per_object = _schema_limit(policy, "max_properties_per_object", 32)
+    max_required = _schema_limit(policy, "max_required", 64)
+    max_enum_values = _schema_limit(policy, "max_enum_values", 128)
+    max_enum_string_length = _schema_limit(policy, "max_enum_string_length", 256)
+    max_property_name_length = _schema_limit(policy, "max_property_name_length", 64)
+    max_total_schema_string_length = _schema_limit(policy, "max_total_schema_string_length", 32768)
+    total_properties = 0
+    total_required = 0
+    total_enum_values = 0
+
+    if _total_schema_string_length(schema) > max_total_schema_string_length:
+        raise ServiceError("VALIDATION_ERROR", f"response_format.json_schema.schema string content must be {max_total_schema_string_length} characters or fewer.", False, 422)
+
+    for obj in _iter_schema_objects(schema):
+        blocked = sorted(disallowed.intersection(obj))
+        if blocked:
+            raise ServiceError("VALIDATION_ERROR", f"response_format.json_schema.schema uses unsupported keyword(s): {', '.join(blocked)}.", False, 422)
+        properties = obj.get("properties")
+        is_object_schema = obj.get("type") == "object" or isinstance(properties, dict)
+        if is_object_schema and policy.get("require_additional_properties_false", True) is True and obj.get("additionalProperties") is not False:
+            raise ServiceError("VALIDATION_ERROR", "every object schema in response_format.json_schema.schema must set additionalProperties:false.", False, 422)
+        if isinstance(properties, dict):
+            count = len(properties)
+            total_properties += count
+            if count > max_properties_per_object:
+                raise ServiceError("VALIDATION_ERROR", f"object schemas may define at most {max_properties_per_object} properties.", False, 422)
+            for name in properties:
+                if not isinstance(name, str) or len(name) > max_property_name_length:
+                    raise ServiceError("VALIDATION_ERROR", f"schema property names must be strings of {max_property_name_length} chars or fewer.", False, 422)
+        if is_object_schema and isinstance(properties, dict):
+            required = obj.get("required")
+            if not isinstance(required, list):
+                raise ServiceError(
+                    "VALIDATION_ERROR",
+                    "every object schema with properties must define required as an array.",
+                    False,
+                    422,
+                )
+            if not all(isinstance(item, str) for item in required):
+                raise ServiceError(
+                    "VALIDATION_ERROR",
+                    "response_format.json_schema.schema required entries must be strings.",
+                    False,
+                    422,
+                )
+            if set(required) != set(properties):
+                raise ServiceError(
+                    "VALIDATION_ERROR",
+                    "every object schema must list all properties in required; use nullable type unions to emulate optional fields.",
+                    False,
+                    422,
+                )
+        required = obj.get("required")
+        if isinstance(required, list):
+            total_required += len(required)
+        enum = obj.get("enum")
+        if isinstance(enum, list):
+            total_enum_values += len(enum)
+            for item in enum:
+                if isinstance(item, str) and len(item) > max_enum_string_length:
+                    raise ServiceError("VALIDATION_ERROR", f"schema enum strings must be {max_enum_string_length} chars or fewer.", False, 422)
+    if total_properties > max_total_properties:
+        raise ServiceError("VALIDATION_ERROR", f"response_format.json_schema.schema may define at most {max_total_properties} total properties.", False, 422)
+    if total_required > max_required:
+        raise ServiceError("VALIDATION_ERROR", f"response_format.json_schema.schema may define at most {max_required} required entries.", False, 422)
+    if total_enum_values > max_enum_values:
+        raise ServiceError("VALIDATION_ERROR", f"response_format.json_schema.schema may define at most {max_enum_values} enum values.", False, 422)
+
+
+def _validate_response_format(value: Any, payload: dict[str, Any], policy: dict[str, Any] | None) -> None:
+    response_policy = _chat_policy(policy).get("response_format", {})
+    if not isinstance(response_policy, dict) or response_policy.get("enabled") is not True:
+        raise ServiceError("VALIDATION_ERROR", "response_format is not enabled for this model.", False, 422)
+    if not isinstance(value, dict):
+        raise ServiceError("VALIDATION_ERROR", "response_format must be an object when provided.", False, 422)
+    reject_unknown_fields(value, {"type", "json_schema"}, "response_format")
+    allowed_types = set(response_policy.get("types", ["text", "json_object", "json_schema"]))
+    response_type = value.get("type")
+    if response_type not in allowed_types:
+        raise ServiceError("VALIDATION_ERROR", f"response_format.type must be one of {sorted(allowed_types)}.", False, 422)
+    if response_type in {"text", "json_object"} and "json_schema" in value:
+        raise ServiceError("VALIDATION_ERROR", f"response_format.json_schema is only allowed when type=json_schema, not {response_type}.", False, 422)
+    if response_type == "json_object":
+        object_policy = response_policy.get("json_object", {})
+        if isinstance(object_policy, dict) and object_policy.get("require_json_instruction") is True and not _messages_contain_json_instruction(payload):
+            raise ServiceError("VALIDATION_ERROR", "response_format.type=json_object requires an explicit JSON instruction in messages.", False, 422)
+    if response_type != "json_schema":
+        return
+    schema_policy = _schema_policy(policy)
+    if schema_policy.get("enabled", True) is not True:
+        raise ServiceError("VALIDATION_ERROR", "response_format.type=json_schema is not enabled for this model.", False, 422)
+    json_schema = value.get("json_schema")
+    if not isinstance(json_schema, dict):
+        raise ServiceError("VALIDATION_ERROR", "response_format.json_schema must be an object when type=json_schema.", False, 422)
+    reject_unknown_fields(json_schema, {"name", "description", "strict", "schema"}, "response_format.json_schema")
+    name = json_schema.get("name")
+    if not isinstance(name, str) or not JSON_SCHEMA_NAME_RE.fullmatch(name):
+        raise ServiceError("VALIDATION_ERROR", "response_format.json_schema.name must match ^[A-Za-z0-9_-]{1,64}$.", False, 422)
+    if "description" in json_schema and not isinstance(json_schema["description"], str):
+        raise ServiceError("VALIDATION_ERROR", "response_format.json_schema.description must be a string when provided.", False, 422)
+    strict_policy = schema_policy.get("strict", {}) if isinstance(schema_policy.get("strict", {}), dict) else {}
+    if "strict" in json_schema:
+        if not isinstance(json_schema["strict"], bool):
+            raise ServiceError("VALIDATION_ERROR", "response_format.json_schema.strict must be boolean when provided.", False, 422)
+        if strict_policy.get("allowed", True) is not True:
+            raise ServiceError("VALIDATION_ERROR", "response_format.json_schema.strict is not enabled for this model.", False, 422)
+    if strict_policy.get("require_true") is True and json_schema.get("strict") is not True:
+        raise ServiceError("VALIDATION_ERROR", "response_format.json_schema.strict must be true for this model.", False, 422)
+    schema = json_schema.get("schema")
+    if not isinstance(schema, dict):
+        raise ServiceError("VALIDATION_ERROR", "response_format.json_schema.schema must be an object.", False, 422)
+    _validate_json_schema_subset(schema, policy=schema_policy)
+
+
+def _validate_logprobs(payload: dict[str, Any], policy: dict[str, Any] | None) -> None:
+    chat_policy = _chat_policy(policy)
+    logprobs_policy = chat_policy.get("logprobs", {})
+    if "logprobs" in payload:
+        if not isinstance(logprobs_policy, dict) or logprobs_policy.get("enabled") is not True:
+            raise ServiceError("VALIDATION_ERROR", "logprobs is not enabled for this model.", False, 422)
+        if not isinstance(payload["logprobs"], bool):
+            raise ServiceError("VALIDATION_ERROR", "logprobs must be boolean when provided.", False, 422)
+        if payload["logprobs"] and payload.get("stream") is True and logprobs_policy.get("allow_stream", True) is not True:
+            raise ServiceError("VALIDATION_ERROR", "logprobs with stream=true is not enabled for this model.", False, 422)
+    if "top_logprobs" not in payload:
+        return
+    top_policy = chat_policy.get("top_logprobs", {})
+    if not is_int(payload["top_logprobs"]):
+        raise ServiceError("VALIDATION_ERROR", "top_logprobs must be an integer when provided.", False, 422)
+    if isinstance(top_policy, dict) and top_policy.get("requires_logprobs", True) is True and payload.get("logprobs") is not True:
+        raise ServiceError("VALIDATION_ERROR", "top_logprobs requires logprobs=true, including when top_logprobs=0.", False, 422)
+    min_value = int(top_policy.get("min", 0)) if isinstance(top_policy, dict) else 0
+    max_value = int(top_policy.get("max", 10)) if isinstance(top_policy, dict) else 10
+    if payload["top_logprobs"] < min_value or payload["top_logprobs"] > max_value:
+        raise ServiceError("VALIDATION_ERROR", f"top_logprobs must be between {min_value} and {max_value}.", False, 422)
+
+
+def _validate_logit_bias(value: Any, policy: dict[str, Any] | None) -> None:
+    bias_policy = _chat_policy(policy).get("logit_bias", {})
+    if not isinstance(bias_policy, dict) or bias_policy.get("enabled") is not True:
+        raise ServiceError("VALIDATION_ERROR", "logit_bias is not enabled for this model.", False, 422)
+    if not isinstance(value, dict):
+        raise ServiceError("VALIDATION_ERROR", "logit_bias must be an object mapping served model tokenizer token ids to bias values.", False, 422)
+    max_entries = int(bias_policy.get("max_entries", 256))
+    if len(value) > max_entries:
+        raise ServiceError("VALIDATION_ERROR", f"logit_bias may contain at most {max_entries} entries.", False, 422)
+    min_bias = float(bias_policy.get("min_bias", -100))
+    max_bias = float(bias_policy.get("max_bias", 100))
+    token_id_min = int(bias_policy.get("token_id_min", 0))
+    for token_id, bias in value.items():
+        if not isinstance(token_id, str) or not token_id.isdecimal() or int(token_id) < token_id_min:
+            raise ServiceError("VALIDATION_ERROR", "logit_bias keys must be non-negative integer strings for the served model tokenizer.", False, 422)
+        if not is_number(bias) or bias < min_bias or bias > max_bias:
+            raise ServiceError("VALIDATION_ERROR", f"logit_bias values must be numbers between {min_bias:g} and {max_bias:g}; token ids use the served model tokenizer, not OpenAI/tiktoken ids.", False, 422)
+
+
+def _combination_mode(policy: dict[str, Any] | None, key: str) -> str:
+    combinations = _chat_policy(policy).get("combinations", {})
+    entry = combinations.get(key, {}) if isinstance(combinations, dict) else {}
+    return str(entry.get("mode", "allow")) if isinstance(entry, dict) else "allow"
+
+
+def _validate_parameter_combinations(payload: dict[str, Any], policy: dict[str, Any] | None) -> None:
+    response_type = payload.get("response_format", {}).get("type") if isinstance(payload.get("response_format"), dict) else None
+    checks = {
+        "json_schema_with_tools": response_type == "json_schema" and "tools" in payload,
+        "json_schema_with_reasoning": response_type == "json_schema" and payload.get("reasoning") is True,
+        "json_schema_with_logit_bias": response_type == "json_schema" and "logit_bias" in payload,
+        "logit_bias_with_tools": "logit_bias" in payload and "tools" in payload,
+        "logprobs_with_stream": payload.get("logprobs") is True and payload.get("stream") is True,
+    }
+    for name, active in checks.items():
+        if active and _combination_mode(policy, name) == "reject":
+            raise ServiceError("VALIDATION_ERROR", f"request parameter combination is disabled by policy: {name}.", False, 422)
 
 
 def _validate_tools(tools: Any, *, max_tools: int = 16) -> None:
@@ -181,6 +518,10 @@ def _validate_chat_parameters(payload: dict[str, Any], *, max_output_tokens: int
             raise ServiceError("VALIDATION_ERROR", f"n must be an integer between 1 and {max_n}.", False, 422)
     if "stop" in payload:
         _validate_stop(payload["stop"])
+    if "logprobs" in payload or "top_logprobs" in payload:
+        _validate_logprobs(payload, policy)
+    if "logit_bias" in payload:
+        _validate_logit_bias(payload["logit_bias"], policy)
 
 
 def _allowed_message_fields(role: str, *, tool_enabled: bool) -> set[str]:
@@ -293,6 +634,9 @@ def validate_chat_request(
         )
     if image_count > max_image_inputs:
         raise ServiceError("VALIDATION_ERROR", f"at most {max_image_inputs} image content part(s) are allowed per request.", False, 422)
+    if "response_format" in payload:
+        _validate_response_format(payload["response_format"], payload, request_parameter_policy)
+    _validate_parameter_combinations(payload, request_parameter_policy)
     return payload
 
 
@@ -312,7 +656,100 @@ def _validate_assistant_response_message(message: Any, *, choice_index: int) -> 
     raise ServiceError("UPSTREAM_SCHEMA_ERROR", f"chat upstream response choices[{choice_index}].message must contain assistant text content or tool_calls.", True, 502)
 
 
-def validate_chat_response(payload: Any, *, expected_model: str) -> dict[str, Any]:
+def _validate_response_json_content(
+    choice: dict[str, Any],
+    *,
+    choice_index: int,
+    expectations: ChatResponseExpectations,
+) -> None:
+    if choice.get("finish_reason") == "tool_calls":
+        return
+    response_type = expectations.response_format_type
+    if response_type not in {"json_object", "json_schema"}:
+        return
+    message = choice.get("message")
+    content = message.get("content") if isinstance(message, dict) else None
+    if not isinstance(content, str):
+        raise ServiceError("UPSTREAM_SCHEMA_ERROR", f"chat upstream response choices[{choice_index}].message.content must be a JSON string for response_format={response_type}.", True, 502)
+    try:
+        parsed = json.loads(content)
+    except json.JSONDecodeError as exc:
+        detail = f"chat upstream response choices[{choice_index}].message.content is not valid JSON for response_format={response_type}."
+        if choice.get("finish_reason") == "length":
+            detail += " The response may have been truncated by max_tokens."
+        raise ServiceError("UPSTREAM_SCHEMA_ERROR", detail, True, 502) from exc
+    if response_type != "json_schema":
+        return
+    schema = expectations.json_schema
+    if not isinstance(schema, dict):
+        raise ServiceError("UPSTREAM_SCHEMA_ERROR", "Gateway response expectation is missing json_schema.", True, 502)
+    try:
+        validator_cls = validator_for(schema)
+        validator_cls.check_schema(schema)
+        validator_cls(schema).validate(parsed)
+    except SchemaError as exc:
+        raise ServiceError("UPSTREAM_SCHEMA_ERROR", "Gateway response expectation contains an invalid JSON Schema.", True, 502) from exc
+    except ValidationError as exc:
+        detail = f"chat upstream response choices[{choice_index}].message.content does not match response_format.json_schema."
+        if choice.get("finish_reason") == "length":
+            detail += " The response may have been truncated by max_tokens."
+        raise ServiceError("UPSTREAM_SCHEMA_ERROR", detail, True, 502) from exc
+    except Exception as exc:
+        raise ServiceError(
+            "UPSTREAM_SCHEMA_ERROR",
+            "upstream response could not be validated against response_format.json_schema.",
+            True,
+            502,
+        ) from exc
+
+
+def _validate_logprob_bytes(value: Any, *, context: str) -> None:
+    if value is None:
+        return
+    if isinstance(value, list) and all(is_int(item) and 0 <= item <= 255 for item in value):
+        return
+    raise ServiceError("UPSTREAM_SCHEMA_ERROR", f"{context}.bytes must be null or an array of byte integers.", True, 502)
+
+
+def _validate_top_logprob_item(item: Any, *, context: str) -> None:
+    if not isinstance(item, dict):
+        raise ServiceError("UPSTREAM_SCHEMA_ERROR", f"{context} must be an object.", True, 502)
+    if not isinstance(item.get("token"), str):
+        raise ServiceError("UPSTREAM_SCHEMA_ERROR", f"{context}.token must be a string.", True, 502)
+    if not is_number(item.get("logprob")):
+        raise ServiceError("UPSTREAM_SCHEMA_ERROR", f"{context}.logprob must be a number.", True, 502)
+    _validate_logprob_bytes(item.get("bytes"), context=context)
+
+
+def _validate_logprob_item(item: Any, *, context: str) -> None:
+    _validate_top_logprob_item(item, context=context)
+    top = item.get("top_logprobs")
+    if not isinstance(top, list):
+        raise ServiceError("UPSTREAM_SCHEMA_ERROR", f"{context}.top_logprobs must be an array.", True, 502)
+    for index, top_item in enumerate(top):
+        _validate_top_logprob_item(top_item, context=f"{context}.top_logprobs[{index}]")
+
+
+def _validate_choice_logprobs(choice: dict[str, Any], *, choice_index: int) -> None:
+    logprobs = choice.get("logprobs")
+    if not isinstance(logprobs, dict):
+        raise ServiceError("UPSTREAM_SCHEMA_ERROR", f"chat upstream response choices[{choice_index}].logprobs must be an object when logprobs=true.", True, 502)
+    for field in ("content", "refusal"):
+        value = logprobs.get(field)
+        if value is None:
+            continue
+        if not isinstance(value, list):
+            raise ServiceError("UPSTREAM_SCHEMA_ERROR", f"choices[{choice_index}].logprobs.{field} must be null or an array.", True, 502)
+        for item_index, item in enumerate(value):
+            _validate_logprob_item(item, context=f"choices[{choice_index}].logprobs.{field}[{item_index}]")
+
+
+def validate_chat_response(
+    payload: Any,
+    *,
+    expected_model: str,
+    expectations: ChatResponseExpectations | None = None,
+) -> dict[str, Any]:
     payload = ensure_object(payload)
     if payload.get("model") != expected_model:
         raise ServiceError("UPSTREAM_SCHEMA_ERROR", f"chat upstream response model must be {expected_model}.", True, 502)
@@ -325,4 +762,8 @@ def validate_chat_response(payload: Any, *, expected_model: str) -> dict[str, An
         if not isinstance(choice, dict):
             raise ServiceError("UPSTREAM_SCHEMA_ERROR", f"chat upstream response choices[{index}] must be an object.", True, 502)
         _validate_assistant_response_message(choice.get("message"), choice_index=index)
+        if expectations is not None:
+            _validate_response_json_content(choice, choice_index=index, expectations=expectations)
+            if expectations.expect_logprobs and not expectations.stream:
+                _validate_choice_logprobs(choice, choice_index=index)
     return payload

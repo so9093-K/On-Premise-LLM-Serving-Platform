@@ -103,6 +103,33 @@ class RuntimeValidator:
     def check_embedding(self) -> CheckResult:
         return self.live_checks.check_embedding()
 
+    def check_response_format_text(self) -> CheckResult:
+        return self.live_checks.check_response_format_text()
+
+    def check_response_format_json_object(self) -> CheckResult:
+        return self.live_checks.check_response_format_json_object()
+
+    def check_response_format_json_schema(self) -> CheckResult:
+        return self.live_checks.check_response_format_json_schema()
+
+    def check_logprobs_non_stream(self) -> CheckResult:
+        return self.live_checks.check_logprobs_non_stream()
+
+    def check_logprobs_stream(self) -> CheckResult:
+        return self.live_checks.check_logprobs_stream()
+
+    def check_logit_bias_shape(self) -> CheckResult:
+        return self.live_checks.check_logit_bias_shape()
+
+    def check_json_schema_with_tools(self) -> CheckResult:
+        return self.live_checks.check_json_schema_with_tools()
+
+    def check_json_schema_with_reasoning(self) -> CheckResult:
+        return self.live_checks.check_json_schema_with_reasoning()
+
+    def check_gemma4_reasoning_parser_structured_outputs(self) -> CheckResult:
+        return self.live_checks.check_gemma4_reasoning_parser_structured_outputs()
+
     def scrape_metrics(self, service: str, base_url: str, required: list[str], category: str = "monitoring-scrape") -> CheckResult:
         return self.live_checks.scrape_metrics(service, base_url, required, category)
 
@@ -147,6 +174,19 @@ class RuntimeValidator:
         self.safe_check("vllm-runtime", "chat", self.check_chat)
         self.safe_check("vllm-runtime", "streaming chat", self.check_streaming_chat)
         self.safe_check("vllm-runtime", "embedding", self.check_embedding)
+        self.safe_check("response-format-text-canary", "response_format text", self.check_response_format_text)
+        self.safe_check("response-format-json-object-canary", "response_format json_object", self.check_response_format_json_object)
+        self.safe_check("response-format-json-schema-canary", "response_format json_schema", self.check_response_format_json_schema)
+        self.safe_check("logprobs-non-stream-canary", "logprobs non-stream", self.check_logprobs_non_stream)
+        self.safe_check("logprobs-stream-canary", "logprobs stream", self.check_logprobs_stream)
+        self.safe_check("logit-bias-shape-canary", "logit_bias shape", self.check_logit_bias_shape)
+        self.safe_check("json-schema-with-tools-canary", "json_schema with tools", self.check_json_schema_with_tools)
+        self.safe_check("json-schema-with-reasoning-canary", "json_schema with reasoning", self.check_json_schema_with_reasoning)
+        self.safe_check(
+            "gemma4-reasoning-parser-structured-outputs-canary",
+            "gemma4 reasoning parser structured outputs",
+            self.check_gemma4_reasoning_parser_structured_outputs,
+        )
         self.safe_check("gpu-capacity", "gpu sample before soak", lambda: self.sample_gpu("gpu sample before soak"))
         gateway_metrics = self.monitoring["metric_sources"]["gateway"]["required_metrics"]
         risk_metrics = self.monitoring["metric_sources"]["risk_adapter"]["required_metrics"]

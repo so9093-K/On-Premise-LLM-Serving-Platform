@@ -69,6 +69,10 @@ models:
         reasoning_parser: gemma4
         allow_parallel_tool_calls: false
         chat_template: /app/configs/gemma4_chat_template.jinja
+      structured_outputs:
+        enabled: true
+        backend: auto
+        enable_in_reasoning: true
     request_parameter_policy:
       allow_unlisted_parameters: false
       supported_parameters:
@@ -89,6 +93,10 @@ models:
       - tool_choice
       - parallel_tool_calls
       - reasoning
+      - response_format
+      - logprobs
+      - top_logprobs
+      - logit_bias
       max_n: 1
       tool_calling:
         enabled: true
@@ -100,6 +108,79 @@ models:
         mode: request_opt_in
         upstream_chat_template_kwargs:
           enable_thinking: true
+      response_format:
+        enabled: true
+        types:
+        - text
+        - json_object
+        - json_schema
+        json_object:
+          require_json_instruction: true
+        json_schema:
+          enabled: true
+          require_root_object: true
+          require_additional_properties_false: true
+          strict:
+            allowed: true
+            require_true: false
+          max_schema_bytes: 16384
+          max_depth: 8
+          max_total_properties: 64
+          max_properties_per_object: 32
+          max_required: 64
+          max_enum_values: 128
+          max_enum_string_length: 256
+          max_property_name_length: 64
+          max_total_schema_string_length: 32768
+          disallowed_keywords:
+          - allOf
+          - not
+          - if
+          - then
+          - else
+          - dependentRequired
+          - dependentSchemas
+          - patternProperties
+          - $dynamicRef
+          - $recursiveRef
+          - $dynamicAnchor
+          - $recursiveAnchor
+          - $id
+          - $anchor
+          root_disallowed_keywords:
+          - anyOf
+      logprobs:
+        enabled: true
+        default: false
+        allow_stream: true
+      top_logprobs:
+        min: 0
+        max: 10
+        requires_logprobs: true
+      logit_bias:
+        enabled: true
+        max_entries: 256
+        min_bias: -100
+        max_bias: 100
+        token_id_min: 0
+        token_id_semantics: served_model_tokenizer
+      combinations:
+        json_schema_with_tools:
+          mode: capability_gate
+          default: allow
+          canary_required: true
+        json_schema_with_reasoning:
+          mode: capability_gate
+          default: allow
+          canary_required: true
+        json_schema_with_logit_bias:
+          mode: allow
+          note: constrained decoding may dominate token bias
+        logit_bias_with_tools:
+          mode: allow
+          note: tool protocol/special tokens may dominate token bias
+        logprobs_with_stream:
+          mode: allow
       notes: Main LLM supports bounded vLLM/OpenAI chat sampling parameters, Gemma4
         tool calling, and request-level Gemma4 thinking via reasoning=true. Streaming
         is supported at Gateway through an SSE relay fast path; proxy buffering must remain disabled in front of the Gateway.

@@ -99,7 +99,8 @@ def load_contract_schema(schema_name: str, *, root: Path | None = None) -> dict[
     project_root = find_project_root(root)
     schema_dir = project_root / "specs" / "schemas"
     schema = json.loads((schema_dir / schema_name).read_text(encoding="utf-8"))
-    return _resolve_external_refs(schema, schema_dir=schema_dir)
+    external_resolved = _resolve_external_refs(schema, schema_dir=schema_dir)
+    return _resolve_internal_refs(external_resolved, root=external_resolved)
 
 
 def _json_pointer(document: Any, pointer: str) -> Any:
@@ -121,6 +122,18 @@ def _resolve_external_refs(value: Any, *, schema_dir: Path) -> Any:
         return {key: _resolve_external_refs(item, schema_dir=schema_dir) for key, item in value.items()}
     if isinstance(value, list):
         return [_resolve_external_refs(item, schema_dir=schema_dir) for item in value]
+    return value
+
+
+def _resolve_internal_refs(value: Any, *, root: dict[str, Any]) -> Any:
+    if isinstance(value, dict):
+        ref = value.get("$ref")
+        if isinstance(ref, str) and ref.startswith("#"):
+            resolved = copy.deepcopy(_json_pointer(root, ref[1:]))
+            return _resolve_internal_refs(resolved, root=root)
+        return {key: _resolve_internal_refs(item, root=root) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_resolve_internal_refs(item, root=root) for item in value]
     return value
 
 
@@ -180,6 +193,10 @@ def install_contract_openapi(
                 )
             operation.setdefault("x-response-contract-schema", schema_name)
         _inject_standard_error_responses(document, schema_for("common_error.schema.json"))
+        schemas = document.get("components", {}).get("schemas")
+        if isinstance(schemas, dict):
+            schemas.pop("HTTPValidationError", None)
+            schemas.pop("ValidationError", None)
         app.openapi_schema = document
         return document
 

@@ -34,7 +34,7 @@ Gateway는 외부 애플리케이션의 단일 진입점이다.
 
 | 모델 | 사용자 조정 가능 파라미터 | 비고 |
 |---|---|---|
-| `local-main` | `temperature`, `max_tokens`, `top_p`, `top_k`, `min_p`, `presence_penalty`, `frequency_penalty`, `repetition_penalty`, `stop`, `seed`, `n`, `tools`, `tool_choice`, `parallel_tool_calls`, `stream`, `stream_options`, `reasoning` | `stream=true`는 SSE relay fast path로 지원하고 `stream_options.include_usage`는 `stream=true`와 함께 사용할 때 upstream이 지원하는 최종 usage chunk를 요청한다. `n`은 `1`만 허용. tool call은 Gemma4 parser 설정 범위에서만 허용. `reasoning=true`는 요청별 Gemma4 thinking opt-in이다 |
+| `local-main` | `temperature`, `max_tokens`, `top_p`, `top_k`, `min_p`, `presence_penalty`, `frequency_penalty`, `repetition_penalty`, `stop`, `seed`, `n`, `tools`, `tool_choice`, `parallel_tool_calls`, `stream`, `stream_options`, `reasoning`, `response_format`, `logprobs`, `top_logprobs`, `logit_bias` | `stream=true`는 SSE relay fast path로 지원하고 `stream_options.include_usage`는 `stream=true`와 함께 사용할 때 upstream이 지원하는 최종 usage chunk를 요청한다. `n`은 `1`만 허용. tool call은 Gemma4 parser 설정 범위에서만 허용. `reasoning=true`는 요청별 Gemma4 thinking opt-in이다 |
 | `local-embed` | `dimensions`, `encoding_format`, `truncate_prompt_tokens` | `dimensions`는 `768`, `512`, `256`, `128` 중 하나. `encoding_format`은 `float`로 고정 |
 | `risk-prompt` | 없음 | risk API는 `prompt`만 입력받고 detector parameter는 adapter가 `fixed_parameters`로 고정 |
 
@@ -42,7 +42,15 @@ Gateway는 외부 애플리케이션의 단일 진입점이다.
 
 `local-main` 예시는 요청 예시일 뿐 Gateway가 기본 sampling 값을 주입한다는 뜻이 아니다. `temperature`, `max_tokens`, `top_p` 등을 생략하면 vLLM/OpenAI-compatible runtime 기본값을 따른다. 안정적인 smoke나 자동 검증에는 `max_tokens: 1`, `temperature: 0`, `n: 1`을 명시한다.
 
-Chat API는 OpenAI 호환 chat completions의 제한된 subset이다. 현재 노출하지 않는 표준/확장 파라미터(`response_format`, `logprobs`, `top_logprobs`, `logit_bias`, `user`, `metadata` 등)는 Gateway allowlist에서 차단한다.
+Chat API는 OpenAI 호환 chat completions의 bounded subset이다. `response_format`은 `text`, `json_object`, `json_schema`를 지원한다. `json_object`는 JSON mode라서 유효한 JSON만 확인하며 schema adherence는 보장하지 않는다. `json_object` 요청은 messages 안에 명시적인 JSON 지시문이 필요하다.
+
+`json_schema`는 bounded OpenAI-compatible Structured Outputs subset을 사용한다. root schema는 object여야 하고 root `anyOf`는 거부하지만 nested `anyOf`는 project limit 안에서 허용한다. local `$defs`/`$ref`는 허용하며 recursive local `$ref`도 허용한다. external `$ref`는 허용하지 않으므로 `$ref` 값은 `#`로 시작하는 local reference여야 한다. Phase 1에서는 advanced reference keyword인 `$dynamicRef`, `$recursiveRef`, `$dynamicAnchor`, `$recursiveAnchor`를 지원하지 않는다. `$id`와 `$anchor`도 local-only reference policy를 단순하게 유지하기 위해 지원하지 않는다. `$schema`는 JSON Schema draft annotation으로 허용될 수 있다. 모든 object schema는 `additionalProperties:false`를 설정해야 한다. 이 Gateway subset에서는 object의 모든 `properties`가 `required`에 포함되어야 하며, optional field는 `required`에서 빼는 대신 `"type": ["string", "null"]` 같은 nullable union으로 표현한다. `strict`는 OpenAI 호환성을 위해 허용하지만, Gateway의 schema 크기/깊이/속성 수/keyword safety limit은 `strict` 값과 무관하게 적용된다.
+
+Unsupported keyword 제한은 schema object의 keyword에만 적용된다. JSON output property name에는 적용되지 않으므로 property 이름이 `$id`, `not`, `$dynamicRef` 같은 문자열이어도 `properties` map의 key로만 사용되면 허용된다. 반대로 property schema value 안에서 `$id`, `$dynamicRef`, `not` 등이 schema keyword로 사용되면 기존 정책대로 reject된다.
+
+`top_logprobs`는 `logprobs=true`가 필요하며 Gateway 정책상 0..10으로 제한한다. OpenAI는 20까지 허용하지만 이 Gateway는 응답 크기와 latency 보호를 위해 10으로 cap한다. `logit_bias`는 token id string에서 bias number(-100..100)로 가는 object이며, token id는 OpenAI/tiktoken id가 아니라 served vLLM model tokenizer id로 해석한다.
+
+`logit_bias`를 Structured Outputs 또는 tools와 같이 쓰는 것은 best-effort다. constrained decoding이나 tool protocol special token 처리가 token availability를 지배할 수 있다. `stream=true`와 `logprobs=true`는 SSE pass-through이며 clients가 chunk logprobs를 직접 파싱해야 한다. `json_schema + tools`, `json_schema + reasoning`은 전역 금지하지 않으며 runtime canary 결과에 따라 deployment가 완전 검증 여부를 광고하거나 operator config에서 특정 combination을 reject로 낮춘다. 현재 노출하지 않는 표준/확장 파라미터(`user`, `metadata` 등)는 Gateway allowlist에서 차단한다.
 
 Tool calling을 사용할 때는 `tools`에 function tool을 포함하고 `tool_choice`를 `auto`, `required`, `none` 또는 제공된 function 이름으로 지정한다. `parallel_tool_calls`는 현재 `false`만 허용한다. Vision 요청은 bounded `data:image/*;base64,...` content part 1개만 허용하며 외부 이미지 URL fetch는 기본 차단이다.
 

@@ -122,6 +122,7 @@ def test_render_vllm_command_stays_openai_compatible() -> None:
         "runtime_features": {
             "prefix_caching": {"enabled": True, "hash_algo": "sha256_cbor"},
             "tool_calling": {"enabled": True, "tool_call_parser": "gemma4"},
+            "structured_outputs": {"enabled": True, "backend": "auto", "enable_in_reasoning": True},
         },
     }
     command = render_vllm_command("main_llm", cfg)
@@ -130,6 +131,8 @@ def test_render_vllm_command_stays_openai_compatible() -> None:
     assert "local-main" in command
     assert "--enable-prefix-caching" in command
     assert "--enable-auto-tool-choice" in command
+    structured_index = command.index("--structured-outputs-config")
+    assert json.loads(command[structured_index + 1]) == {"backend": "auto", "enable_in_reasoning": True}
 
 
 def test_render_vllm_command_respects_model_config_quantization() -> None:
@@ -160,8 +163,31 @@ def test_runtime_validation_report_does_not_store_raw_model_text(tmp_path: Path)
         results=[CheckResult("gateway-runtime", "gateway /health", "pass", detail="ok")],
     )
     payload = json.loads(json_path.read_text(encoding="utf-8"))
-    assert payload["summary"] == {"passed": 1, "failed": 0}
-    assert "원문 프롬프트, 사용자 텍스트, 모델 출력" in md_path.read_text(encoding="utf-8")
+    assert payload["summary"] == {"passed": 1, "failed": 0, "degraded_features": []}
+    markdown = md_path.read_text(encoding="utf-8")
+    assert "Degraded features: 없음" in markdown
+    assert "원문 프롬프트, 사용자 텍스트, 모델 출력" in markdown
+
+
+def test_runtime_validation_report_summarizes_degraded_features(tmp_path: Path) -> None:
+    json_path, md_path = write_reports(
+        root=tmp_path,
+        output_dir="reports/runtime",
+        version="0.1.0-test",
+        session_started="2026-05-09T00:00:00+00:00",
+        mode="live",
+        results=[
+            CheckResult(
+                "json-schema-with-reasoning-canary",
+                "json_schema with reasoning",
+                "fail",
+                details={"feature_degraded_on_failure": "json_schema_with_reasoning"},
+            )
+        ],
+    )
+    payload = json.loads(json_path.read_text(encoding="utf-8"))
+    assert payload["summary"]["degraded_features"] == ["json_schema_with_reasoning"]
+    assert "Degraded features: json_schema_with_reasoning" in md_path.read_text(encoding="utf-8")
 
 
 def test_runtime_validation_uses_model_registry_projection_for_model_expectations() -> None:
@@ -189,6 +215,55 @@ def test_runtime_validation_uses_model_registry_projection_for_model_expectation
 
     assert validator.registry.public_logical_ids() == ("local-main", "local-embed", "risk-prompt")
     assert "risk_siren" not in validator.config.vllm_bases
+
+
+def test_runtime_validation_live_mode_registers_runtime_canaries(monkeypatch) -> None:
+    _clear_runtime_endpoint_env(monkeypatch)
+    args = SimpleNamespace(
+        root=str(ROOT),
+        output_dir="reports/runtime",
+        gateway_base="http://localhost:9400",
+        risk_base="http://localhost:9405",
+        main_llm_base="http://localhost:9401/v1",
+        embedding_base="http://localhost:9402/v1",
+        risk_prompt_base="http://localhost:9403/v1",
+        risk_siren_base="http://localhost:9404/v1",
+        prometheus_base="http://localhost:9410",
+        api_key="",
+        admin_api_key="",
+        timeout_seconds=30,
+        soak_seconds=1800,
+        soak_interval_seconds=1.0,
+        concurrency=1,
+        skip_soak=False,
+        config_only=False,
+        allow_failures=False,
+    )
+    validator = RuntimeValidator(load_runtime_config(args))
+    registered: list[tuple[str, str]] = []
+    validator.safe_check = lambda category, name, fn: registered.append((category, name))  # type: ignore[method-assign]
+
+    validator.run_live()
+
+    categories = {category for category, _name in registered}
+    expected_canaries = {
+        "response-format-text-canary",
+        "response-format-json-object-canary",
+        "response-format-json-schema-canary",
+        "logprobs-non-stream-canary",
+        "logprobs-stream-canary",
+        "logit-bias-shape-canary",
+        "json-schema-with-tools-canary",
+        "json-schema-with-reasoning-canary",
+        "gemma4-reasoning-parser-structured-outputs-canary",
+    }
+    matrix_ids = {
+        item["id"]
+        for item in validator.registry.runtime_validation_matrix_document()["validation_checks"]
+        if item["id"].endswith("-canary")
+    }
+    assert expected_canaries.issubset(categories)
+    assert matrix_ids == expected_canaries
 
 
 def test_operator_runtime_targets_report_is_registry_backed(tmp_path: Path) -> None:

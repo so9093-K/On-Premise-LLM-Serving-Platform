@@ -246,6 +246,70 @@
     "reasoning": {
       "type": "boolean",
       "description": "When true, Gateway enables Gemma4 thinking for this request by forwarding chat_template_kwargs.enable_thinking=true to vLLM. Defaults to false when omitted."
+    },
+    "response_format": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["text", "json_object", "json_schema"]
+        },
+        "json_schema": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["name", "schema"],
+          "properties": {
+            "name": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{1,64}$",
+              "maxLength": 64
+            },
+            "description": {
+              "type": "string"
+            },
+            "strict": {
+              "type": "boolean"
+            },
+            "schema": {
+              "type": "object"
+            }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"type": {"enum": ["text", "json_object"]}}},
+          "then": {"not": {"required": ["json_schema"]}}
+        },
+        {
+          "if": {"properties": {"type": {"const": "json_schema"}}, "required": ["type"]},
+          "then": {"required": ["json_schema"]}
+        }
+      ]
+    },
+    "logprobs": {
+      "type": "boolean"
+    },
+    "top_logprobs": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 10,
+      "description": "Requires logprobs=true. OpenAI allows up to 20; this Gateway caps at 10 for response-size and latency control."
+    },
+    "logit_bias": {
+      "type": "object",
+      "maxProperties": 256,
+      "propertyNames": {
+        "pattern": "^[0-9]+$"
+      },
+      "additionalProperties": {
+        "type": "number",
+        "minimum": -100,
+        "maximum": 100
+      },
+      "description": "Token ids are interpreted by the served vLLM model tokenizer, not OpenAI/tiktoken ids."
     }
   },
   "$defs": {
@@ -334,6 +398,23 @@
         ],
         "properties": {
           "stream": {
+            "const": true
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "top_logprobs"
+        ]
+      },
+      "then": {
+        "required": [
+          "logprobs"
+        ],
+        "properties": {
+          "logprobs": {
             "const": true
           }
         }
