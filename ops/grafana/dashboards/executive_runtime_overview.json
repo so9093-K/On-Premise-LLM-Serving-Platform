@@ -14,8 +14,20 @@
       "keepTime": true,
       "tags": [],
       "targetBlank": false,
+      "title": "Serving Cockpit",
+      "tooltip": "Home dashboard — idle-aware service, runtime, GPU, and observability cockpit",
+      "type": "link",
+      "url": "/d/serving_cockpit/serving-cockpit"
+    },
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
       "title": "GPU Capacity and OOM Risk",
-      "tooltip": "Home dashboard — GPU headroom, VRAM, utilization, OOM/restart",
+      "tooltip": "GPU/OOM drill-down — GPU headroom, VRAM, utilization, OOM/restart",
       "type": "link",
       "url": "/d/gpu_capacity_and_oom_risk/gpu-capacity-and-oom-risk"
     },

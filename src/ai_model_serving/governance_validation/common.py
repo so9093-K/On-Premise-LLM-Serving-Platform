@@ -67,6 +67,7 @@ REQUIRED_FILES = [
     'harness/runtime_validation_matrix.yaml',
     'harness/runtime_validation_plan.md',
     'ops/grafana/dashboards/risk_signal_operations.json',
+    'ops/grafana/dashboards/serving_cockpit.json',
     'ops/grafana/dashboards/gpu_capacity_and_oom_risk.json',
     'ops/grafana/dashboards/executive_runtime_overview.json',
     'ops/prometheus/prometheus.yml',

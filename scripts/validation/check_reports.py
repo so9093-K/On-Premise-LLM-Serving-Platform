@@ -4,7 +4,7 @@
 make reports-check에서 호출한다.
 
 추가 검사:
-- reports/refactor/current_*.md에서 stale phrase(six dashboards, 198 passed, 0.1.0-rc.1 등)를
+- reports/refactor/current_*.md에서 stale phrase(five dashboards, 5개 dashboard, 198 passed, 0.1.0-rc.1 등)를
   Historical note 없이 현재 기준처럼 사용하는 경우를 감지한다.
 """
 from __future__ import annotations
@@ -35,8 +35,8 @@ STALE_EXEMPT_MARKERS = re.compile(
 )
 
 STALE_PHRASES: list[tuple[str, re.Pattern[str]]] = [
-    ("six dashboards", re.compile(r"\bsix\s+(Grafana\s+)?dashboards?\b", re.IGNORECASE)),
-    ("six provisioned dashboards", re.compile(r"\bsix\s+provisioned\s+dashboards?\b", re.IGNORECASE)),
+    ("five dashboards", re.compile(r"\bfive\s+(Grafana\s+)?dashboards?\b", re.IGNORECASE)),
+    ("5개 dashboard", re.compile(r"\b5개\s+(Grafana\s+)?dashboards?\b|\b5개\s+(Grafana\s+)?dashboard\b", re.IGNORECASE)),
     ("198 passed", re.compile(r"\b198\s+passed\b")),
     ("0.1.0-rc.1 (version ref)", re.compile(r"\b0\.1\.0-rc\.1\b")),
 ]

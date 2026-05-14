@@ -132,7 +132,7 @@ Findings:
 
 - `stream=true is not supported` no longer appears in active code/docs.
 - OpenAI-compatible streaming and `stream_options.include_usage` are documented with the `stream=true` precondition.
-- Dashboard inventory is five dashboards (`gpu_capacity_and_oom_risk`, `executive_runtime_overview`, `chat_api_deep_dive`, `model_runtime_deep_dive`, `risk_signal_operations`), not the previous three-dashboard baseline. _(Historical note: "six" was a draft target; five were implemented and validated.)_
+- Dashboard inventory is six dashboards (`serving_cockpit`, `gpu_capacity_and_oom_risk`, `executive_runtime_overview`, `chat_api_deep_dive`, `model_runtime_deep_dive`, `risk_signal_operations`), not the previous three-dashboard baseline.
 - Dashboard ratio docs use `increase()`-based low-traffic-friendly examples.
 - `docs/refactor/phase*.md` are historical records and are intentionally not edited as current operating instructions.
 - Compatibility facades are intentionally retained: `src/ai_model_serving/validation.py`, `scripts/validation/runtime_validation.py`, `scripts/validation/validate_contracts.py`.
@@ -154,7 +154,7 @@ No additional active file was identified as safe to delete. Deleting historical 
 These cannot be completed by static package review:
 
 1. Real `curl -N` streaming smoke test against vLLM through Gateway.
-2. Grafana browser render of all five dashboards.
+2. Grafana browser render of all six dashboards.
 3. Prometheus variable dropdown checks with live targets.
 4. Proxy/Ingress buffering-off verification.
 5. GPU host readings for VRAM, KV cache, queue, power, and temperature.

@@ -20,7 +20,7 @@ The project is now internally consistent as a reference release package. The maj
 - `stream_options.include_usage` support, with the important constraint that it is valid only when `stream=true` is present.
 - `/v1/models` parameter discovery.
 - Risk Adapter signal-only response policy.
-- Prometheus/Grafana monitoring with five provisioned dashboards. _(Historical note: an earlier draft expected six; the current baseline has five.)_
+- Prometheus/Grafana monitoring with six Grafana dashboards, including `serving_cockpit` as the Grafana home dashboard.
 - Build, clean, package, auth, and operator report workflows.
 
 The review did find several drift/UX issues and one contract bug. They were corrected in this pass.
@@ -121,7 +121,7 @@ Status: good.
 
 Status: strong for static reference; browser rendering remains live-only.
 
-- Five dashboards are present and provisioned. _(Historical note: an earlier draft expected six; the current baseline has five.)_
+- Six dashboards are present and provisioned.
 - Dashboards are Korean-first with English metric terms.
 - Each dashboard starts with a Text panel runbook.
 - Variables are present: `$datasource`, `$window`, `$model`, `$runtime_service`, `$route`, `$status_code`.
@@ -170,7 +170,7 @@ Status: current docs are aligned after this pass.
 ## Remaining checks that cannot be completed statically
 
 1. Real vLLM streaming smoke with `curl -N`.
-2. Grafana browser rendering of all five dashboards.
+2. Grafana browser rendering of all six dashboards.
 3. Prometheus live target scrape and dashboard variable dropdown verification.
 4. Proxy/ingress buffering verification in the deployment environment.
 5. GPU memory, queue, KV cache, temperature, and power readings on the target A6000 host.

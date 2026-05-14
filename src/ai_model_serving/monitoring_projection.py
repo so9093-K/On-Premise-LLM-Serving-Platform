@@ -107,6 +107,28 @@ def recording_rule_projection(*, registry: ModelRegistry) -> dict[str, Any]:
     }
 
 
+def observability_trust_projection(*, registry: ModelRegistry) -> dict[str, Any]:
+    """Return scrape target expectations used by the Serving Cockpit."""
+    return {
+        "critical_jobs": ["gateway", "risk-adapter", "vllm-runtimes", "dcgm-exporter", "cadvisor"],
+        "expected_critical_target_count": 1 + 1 + len(registry.runtime_validation_targets()) + 1 + 1,
+        "count_formula": "gateway + risk-adapter + vLLM runtime targets + dcgm-exporter + cadvisor",
+    }
+
+
+def container_signal_projection(*, registry: ModelRegistry, monitoring: dict[str, Any]) -> dict[str, Any]:
+    """Return cAdvisor container signal expectations for OOM/restart panels."""
+    config = monitoring.get("metric_sources", {}).get("container_signal_sources", {})
+    vllm_regex = registry.monitoring_compose_service_regex()
+    default_critical_regex = f"gateway|risk-adapter|{vllm_regex}"
+    return {
+        "compose_service_label": str(config.get("compose_service_label", "container_label_com_docker_compose_service")),
+        "critical_container_signal_regex": str(config.get("critical_container_regex", default_critical_regex)),
+        "vllm_container_regex": str(config.get("vllm_container_regex", vllm_regex)),
+        "source_metrics": list(config.get("source_metrics", ["container_oom_events_total", "container_start_time_seconds"])),
+    }
+
+
 def grafana_variable_projection(*, registry: ModelRegistry, monitoring: dict[str, Any]) -> dict[str, Any]:
     """Return dashboard variable values operators expect to see."""
     dashboards = monitoring.get("ux_dashboards", [])
@@ -114,6 +136,7 @@ def grafana_variable_projection(*, registry: ModelRegistry, monitoring: dict[str
     return {
         "datasource_uid": str(grafana.get("provisioned_datasource_uid", "prometheus")),
         "variable_names": list(grafana.get("dashboard_variables", [])),
+        "variable_scope": str(grafana.get("dashboard_variable_scope", "")),
         "window_values": ["1m", "5m", "15m", "1h"],
         "model_values": list(registry.monitoring_model_labels()),
         "runtime_service_values": list(registry.monitoring_compose_service_labels()),
@@ -141,6 +164,8 @@ def monitoring_projection_document(*, registry: ModelRegistry, monitoring: dict[
         },
         "prometheus_scrape_config": prometheus_scrape_config_document(registry=registry, monitoring=monitoring),
         "recording_rules": recording_rule_projection(registry=registry),
+        "observability_trust": observability_trust_projection(registry=registry),
+        "container_signals": container_signal_projection(registry=registry, monitoring=monitoring),
         "grafana_variables": grafana_variable_projection(registry=registry, monitoring=monitoring),
     }
 
@@ -151,6 +176,8 @@ def monitoring_projection_markdown(document: dict[str, Any]) -> str:
     jobs = scrape.get("scrape_configs", [])
     variables = document.get("grafana_variables", {})
     rules = document.get("recording_rules", {})
+    trust = document.get("observability_trust", {})
+    container_signals = document.get("container_signals", {})
     lines = [
         "<!-- GENERATED FILE. DO NOT EDIT.",
         "Source:",
@@ -195,10 +222,23 @@ def monitoring_projection_markdown(document: dict[str, Any]) -> str:
         f"Compose 서비스 정규식: `{rules.get('compose_service_regex', '')}`",
         f"필수 record: `{', '.join(rules.get('required_records', []))}`",
         "",
+        "## Serving Cockpit evidence",
+        "",
+        "이 섹션은 Serving Cockpit 첫 화면의 scrape 신뢰도와 container OOM/restart signal이 어떤 기준에서 나온 값인지 설명한다. runtime target 수가 바뀌면 expected critical scrape target count와 dashboard query 검증도 함께 바뀐다.",
+        "운영자는 이 값을 보고 idle 상태가 빈 화면인지, 정상 대기 상태인지, 또는 scrape 누락인지 구분한다. container signal regex는 Gateway, Risk Adapter, vLLM runtime 컨테이너를 함께 감시하기 위한 기준이다.",
+        f"Expected critical scrape target count: `{trust.get('expected_critical_target_count', '')}`",
+        f"Expected count formula: `{trust.get('count_formula', '')}`",
+        f"Critical jobs: `{', '.join(trust.get('critical_jobs', []))}`",
+        f"Container signal label: `{container_signals.get('compose_service_label', '')}`",
+        f"Critical container signal regex: `{container_signals.get('critical_container_signal_regex', '')}`",
+        f"vLLM container regex: `{container_signals.get('vllm_container_regex', '')}`",
+        f"Container signal source metrics: `{', '.join(container_signals.get('source_metrics', []))}`",
+        "",
         "## Grafana 변수",
         "",
         f"Datasource UID: `{variables.get('datasource_uid', '')}`",
         f"Variable 이름: `{', '.join(variables.get('variable_names', []))}`",
+        f"Variable scope: `{variables.get('variable_scope', '')}`",
         f"Window 값: `{', '.join(variables.get('window_values', []))}`",
         f"모델 값: `{', '.join(variables.get('model_values', []))}`",
         f"런타임 서비스 값: `{', '.join(variables.get('runtime_service_values', []))}`",

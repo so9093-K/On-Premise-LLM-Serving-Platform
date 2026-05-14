@@ -14,6 +14,18 @@
       "keepTime": true,
       "tags": [],
       "targetBlank": false,
+      "title": "Serving Cockpit",
+      "tooltip": "Home dashboard — idle-aware service, runtime, GPU, and observability cockpit",
+      "type": "link",
+      "url": "/d/serving_cockpit/serving-cockpit"
+    },
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
       "title": "Executive Runtime Overview",
       "tooltip": "Overall service health, traffic, error, scrape health",
       "type": "link",
@@ -307,8 +319,8 @@
     {
       "id": 3,
       "type": "stat",
-      "title": "OOM or Restart Events",
-      "description": "Healthy/정상: 0 (no events in window). Action Required/조치 필요: any restart or OOM > 0. No Data/런타임 데이터 없음: dcgm-exporter or cAdvisor scrape may be down — check Executive Runtime Overview Scrape Health. 0 means counter exists with no events; No Data means exporter may be absent. or vector(0) is used to show 0 when metric is registered but no events occurred.",
+      "title": "Container OOM or Restart Signals",
+      "description": "Healthy/정상: 0 container OOM events and 0 container start-time changes when cAdvisor scrape health is green. Action Required/조치 필요: any value > 0. No Data/런타임 데이터 없음: cAdvisor source metrics may be absent; do not read No Data as 0. Source metrics: container_oom_events_total and container_start_time_seconds.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -321,14 +333,14 @@
       },
       "targets": [
         {
-          "expr": "sum(increase(backend_restart_total[$window])) or vector(0)",
+          "expr": "sum(changes(container_start_time_seconds{container_label_com_docker_compose_service=~\"gateway|risk-adapter|main-llm-vllm|embedding-vllm|risk-prompt-vllm\"}[$window]))",
           "refId": "A",
-          "legendFormat": "restart"
+          "legendFormat": "container start-time changes"
         },
         {
-          "expr": "sum(increase(gpu_oom_events_total[$window])) or vector(0)",
+          "expr": "sum(increase(container_oom_events_total{container_label_com_docker_compose_service=~\"gateway|risk-adapter|main-llm-vllm|embedding-vllm|risk-prompt-vllm\"}[$window]))",
           "refId": "B",
-          "legendFormat": "oom"
+          "legendFormat": "container oom events"
         }
       ],
       "options": {

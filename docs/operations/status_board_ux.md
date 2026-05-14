@@ -1,6 +1,6 @@
 # 상태 보드 UX
 
-상태 보드는 운영자가 Grafana 첫 화면에서 GPU 용량과 OOM 위험을 먼저 판단하고, 이어서 전체 서비스 상태를 확인하도록 구성한다.
+상태 보드는 운영자가 Grafana 첫 화면인 `Serving Cockpit`에서 service readiness, user traffic, scrape heartbeat, GPU warm residency, OOM/restart 부재를 함께 판단하도록 구성한다. GPU 용량과 OOM 위험은 `gpu_capacity_and_oom_risk` drill-down에서 자세히 본다.
 
 ## 기본 상태
 
@@ -11,21 +11,31 @@
 | `red` | 사용자 경로, backend readiness, OOM/restart, contract invariant 실패 |
 | `gray` | exporter 또는 metric mapping이 없어 데이터 없음 |
 
+## Serving mode
+
+| Mode | 의미 |
+|---|---|
+| `ACTIVE` | user traffic이 있고 readiness/scrape/GPU/OOM-restart evidence가 정상 |
+| `IDLE WARM` | user traffic은 없지만 runtime readiness, Prometheus scrape, GPU headroom/residency, OOM/restart 부재가 warm and ready 상태를 보여줌 |
+| `IDLE COLD` | user traffic이 없고 readiness/scrape/GPU residency evidence가 비어 있음 |
+| `DEGRADED` | readiness, scrape, latency, error, GPU, OOM/restart, queue/KV cache 중 하나 이상 주의 필요 |
+| `NO DATA` | Prometheus runtime evidence가 없어 숫자 0으로 해석하면 안 됨 |
+
 ## 첫 화면 순서
 
-1. GPU 여유분
-2. GPU 메모리 사용량
-3. GPU utilization
-4. GPU 온도와 전력
-5. OOM 또는 restart 이벤트
-6. VRAM budget 대비 사용량
-7. vLLM queue와 KV cache 압력
+1. Overall Status
+2. User Requests in Window (`service="gateway"` public entrypoint count)
+3. Model/Gateway Ready
+4. Prometheus Target Health
+5. Min GPU Headroom
+6. Container OOM / Restart Signals
+7. Warm Readiness Evidence
 
 프롬프트나 생성 결과 원문은 metric label이나 dashboard text에 넣지 않는다.
 
 ## 상태 질문
 
-첫 화면은 “지금 이 GPU에서 요청을 안전하게 계속 처리할 수 있는가?”에 답해야 한다. 이어서 `Executive Runtime Overview`의 `Overall Status`는 “지금 요청을 안전하게 처리할 수 있는가?”라는 전체 서비스 질문에 답한다. 장애 대응 상태는 `Action Required`, 데이터 부재 상태는 `No Runtime Data`로 표시한다.
+첫 화면은 “지금 요청을 안전하게 처리할 수 있는가?”와 “traffic이 없어도 stack은 warm and ready인가?”에 답해야 한다. `gpu_capacity_and_oom_risk`는 이어서 “지금 이 GPU에서 요청을 안전하게 계속 처리할 수 있는가?”라는 drill-down 질문에 답한다. 장애 대응 상태는 `Action Required`, 데이터 부재 상태는 `No Runtime Data` 또는 `No Data`로 표시한다.
 
 
 ## Dashboard 운영 질문
@@ -34,6 +44,7 @@
 
 | Dashboard | 운영 질문 |
 |---|---|
+| `serving_cockpit` | 지금 요청을 안전하게 처리할 수 있는가? traffic이 없어도 stack은 IDLE WARM인가? |
 | `gpu_capacity_and_oom_risk` | 지금 이 GPU에서 요청을 안전하게 계속 처리할 수 있는가? |
 | `executive_runtime_overview` | 전체 서비스가 정상인가? 어디가 문제인가? |
 | `chat_api_deep_dive` | Gateway path와 upstream path 중 어디가 병목인가? |
@@ -45,11 +56,12 @@
 각 dashboard 상단 링크로 이동한다. `includeVars=true`로 현재 variable 값을 유지하며 이동한다.
 
 ```
-gpu_capacity_and_oom_risk → executive_runtime_overview
-executive_runtime_overview → gpu_capacity_and_oom_risk, chat_api_deep_dive, model_runtime_deep_dive, risk_signal_operations
-chat_api_deep_dive → executive_runtime_overview, model_runtime_deep_dive
-model_runtime_deep_dive → gpu_capacity_and_oom_risk, chat_api_deep_dive
-risk_signal_operations → executive_runtime_overview
+serving_cockpit → gpu_capacity_and_oom_risk, executive_runtime_overview, chat_api_deep_dive, model_runtime_deep_dive, risk_signal_operations
+gpu_capacity_and_oom_risk → serving_cockpit, executive_runtime_overview
+executive_runtime_overview → serving_cockpit, gpu_capacity_and_oom_risk, chat_api_deep_dive, model_runtime_deep_dive, risk_signal_operations
+chat_api_deep_dive → serving_cockpit, executive_runtime_overview, model_runtime_deep_dive
+model_runtime_deep_dive → serving_cockpit, gpu_capacity_and_oom_risk, chat_api_deep_dive
+risk_signal_operations → serving_cockpit, executive_runtime_overview
 ```
 
 ## Source of truth 및 UI 수정 정책

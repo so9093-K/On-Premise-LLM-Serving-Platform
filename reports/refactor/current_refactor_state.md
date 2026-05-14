@@ -9,7 +9,7 @@ note: "이 문서는 특정 시점의 리팩터링 상태를 요약한 current_s
 
 ## 현재 기준
 
-현재 기준선은 streaming, Grafana 운영 UX, 문서 정합성, first-run/clean/package 재감사 상태다. `/v1/models` parameter discovery 위에 `stream=true` SSE relay, `stream_options.include_usage`, 5개 dashboard Grafana baseline, 그리고 package hygiene guard가 포함된다.
+현재 기준선은 streaming, Grafana 운영 UX, 문서 정합성, first-run/clean/package 재감사 상태다. `/v1/models` parameter discovery 위에 `stream=true` SSE relay, `stream_options.include_usage`, 6개 dashboard Grafana baseline, 그리고 package hygiene guard가 포함된다.
 
 > **Historical note:** 이 문서를 작성할 당시의 내부 작업 tag는 `0.1.0-rc.1`이었으나, 현재 package version은 `VERSION` 파일을 기준으로 한다. config schema version(0.1.0)은 package version과 독립적으로 관리되며, platform/risk_vllm image tag 기본값은 package version과 정렬된다. 상세 내용은 `docs/release/versioning_policy.md`를 참조한다.
 
@@ -23,7 +23,7 @@ note: "이 문서는 특정 시점의 리팩터링 상태를 요약한 current_s
 | 모델 관리 | `ModelRegistry`가 model list, runtime target, monitoring projection, contract projection, operator report를 파생 |
 | 모델 parameter discovery | `/v1/models`가 `capabilities`, `request_parameters`, risk `fixed_parameters`를 반환 |
 | Streaming API | `stream=true` SSE relay, `stream_options.include_usage`, streaming error event/metrics 정책 유지 |
-| Monitoring/Grafana | 5개 dashboard baseline (`gpu_capacity_and_oom_risk`, `executive_runtime_overview`, `chat_api_deep_dive`, `model_runtime_deep_dive`, `risk_signal_operations`), Korean-first/English metric terms, datasource/window/model/runtime/route/status variables, Git-managed provisioning |
+| Monitoring/Grafana | 6개 dashboard baseline (`serving_cockpit`, `gpu_capacity_and_oom_risk`, `executive_runtime_overview`, `chat_api_deep_dive`, `model_runtime_deep_dive`, `risk_signal_operations`), Korean-first/English metric terms, common datasource/window/model/runtime/route/status variables, Serving Cockpit 전용 user_route, Git-managed provisioning |
 | Risk vLLM patch | Dockerfile inline patch 제거, `ops/patches` script/metadata/label/verify/removal-check로 lifecycle 관리 |
 | 문서 | 한국어 중심 단일 문서 흐름 유지, Day-0 가이드와 운영 문서 최신화 |
 | 패키징 | `make package` 전 generated report 재생성, secret/cache/timestamped runtime report 제외 |

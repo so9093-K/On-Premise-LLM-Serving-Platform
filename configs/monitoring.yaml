@@ -28,12 +28,16 @@ monitoring_stack:
         DB do not write back to JSON sources.
     dashboard_language_policy: Korean-first titles with English metric terms; PromQL
       metric names and label values stay ASCII/English.
+    dashboard_variable_scope: Cockpit-inclusive variable list used by monitoring projection; all dashboards
+      use datasource/window/model/runtime_service/route/status_code, while serving_cockpit
+      additionally uses user_route.
     dashboard_variables:
     - datasource
     - window
     - model
     - runtime_service
     - route
+    - user_route
     - status_code
   dcgm_exporter:
     enabled: true
@@ -110,7 +114,22 @@ metric_sources:
     required_metrics:
     - vllm_container_memory_usage_bytes
     - vllm_container_cpu_usage_ratio
+    - container_oom_events_total
+    - container_start_time_seconds
     source: cadvisor_recording_rules
+    serving_cockpit_source_metrics:
+    - metric: container_oom_events_total
+      purpose: Container OOM event evidence for Serving Cockpit and GPU/OOM drill-down.
+    - metric: container_start_time_seconds
+      purpose: Container restart signal via changes() over the selected dashboard window.
+  container_signal_sources:
+    exporter: cadvisor
+    compose_service_label: container_label_com_docker_compose_service
+    critical_container_regex: gateway|risk-adapter|main-llm-vllm|embedding-vllm|risk-prompt-vllm
+    vllm_container_regex: main-llm-vllm|embedding-vllm|risk-prompt-vllm
+    source_metrics:
+    - container_oom_events_total
+    - container_start_time_seconds
   gpu_node:
     exporter: dcgm-exporter_or_nvidia_smi_sidecar
     required_metrics:
@@ -122,10 +141,30 @@ metric_sources:
     - gpu_memory_headroom_bytes
     source: dcgm_exporter_or_site_recording_rules
 ux_dashboards:
+- id: serving_cockpit
+  audience: operator
+  purpose: Idle-aware serving cockpit that combines service readiness, user traffic,
+    runtime scrape health, GPU warm residency, OOM/restart absence, and drill-down
+    routing.
+  panels:
+  - compact_operator_banner
+  - overall_status
+  - user_requests_in_window
+  - model_gateway_ready
+  - prometheus_target_health
+  - min_gpu_headroom
+  - container_oom_restart_signals
+  - warm_readiness_evidence
+  - runtime_activity_timeline
+  - user_impact
+  - runtime_capacity_chain
+  - gpu_warm_residency
+  - observability_trust
+  - drill_down_links
 - id: gpu_capacity_and_oom_risk
   audience: runtime_engineer
-  purpose: GPU capacity, OOM/restart, VRAM budget line, utilization, temperature,
-    power, queue, KV cache, token throughput, and container resources.
+  purpose: GPU/OOM drill-down for capacity, OOM/restart, VRAM budget line, utilization,
+    temperature, power, queue, KV cache, token throughput, and container resources.
   panels:
   - gpu_operator_guide
   - gpu_headroom
@@ -133,7 +172,7 @@ ux_dashboards:
   - gpu_utilization
   - gpu_temperature
   - gpu_power
-  - oom_or_restart_events
+  - container_oom_restart_signals
   - vram_used_vs_budget
   - vllm_queue_depth
   - kv_cache_usage
@@ -142,8 +181,9 @@ ux_dashboards:
   - container_cpu
 - id: executive_runtime_overview
   audience: reviewer_or_operator
-  purpose: Service health, traffic, latency, error rate, GPU headroom, scrape health,
-    readiness, and risk signal health after the GPU home dashboard.
+  purpose: Reviewer/operator drill-down overview for service health, traffic, latency,
+    error rate, GPU headroom, scrape health, readiness, and risk signal health after
+    the Serving Cockpit home dashboard.
   panels:
   - operator_guide
   - overall_status
@@ -225,7 +265,23 @@ reference_decisions:
 operator_status_ux:
   goal: Operators must understand the current operating state from the first Grafana
     screen without reading logs or raw metrics.
-  landing_dashboard: gpu_capacity_and_oom_risk
+  landing_dashboard: serving_cockpit
+  serving_modes:
+  - mode: ACTIVE
+    meaning: User request activity is present and readiness, scrape, GPU headroom,
+      and OOM/restart evidence are healthy.
+  - mode: IDLE WARM
+    meaning: No user traffic, but runtime readiness, scrape, GPU headroom, warm residency,
+      and OOM/restart absence indicate the stack is warm and ready.
+  - mode: IDLE COLD
+    meaning: No user traffic and readiness, scrape, or warm residency evidence is
+      missing.
+  - mode: DEGRADED
+    meaning: One or more readiness, scrape, latency, error, GPU, OOM, restart, or
+      runtime capacity signals requires attention.
+  - mode: NO DATA
+    meaning: Prometheus has no trustworthy runtime evidence; do not treat this as
+      a numeric zero.
   status_levels:
   - level: green
     label: Healthy
@@ -244,34 +300,54 @@ operator_status_ux:
     meaning: The panel depends on runtime metrics that are not currently scraped or
       mapped.
   first_screen_order:
+  - overall_status
+  - user_requests_in_window
+  - model_gateway_ready
+  - prometheus_target_health
   - gpu_headroom
-  - gpu_memory_used
-  - gpu_utilization
-  - gpu_temperature
-  - gpu_power
   - oom_or_restart_events
-  - vram_used_vs_budget
-  - vllm_queue_depth
-  - kv_cache_usage
+  - warm_readiness_evidence
   design_rule: No panel should require reading raw logs, prompts, generated output,
     or stack traces to understand current status.
   dashboard_language_policy: Grafana dashboard and panel titles use English only;
     Korean may remain in operator guide body text and documentation.
   visible_runbook_rule: Each dashboard starts with a Text panel so first-time operators
     do not need to discover tooltip descriptions.
+  dashboard_variable_scope: Cockpit-inclusive variable list; user_route is Serving
+    Cockpit only.
   dashboard_variables:
   - datasource
   - window
   - model
   - runtime_service
   - route
+  - user_route
   - status_code
   drill_down_order:
+  - serving_cockpit
   - gpu_capacity_and_oom_risk
   - executive_runtime_overview
   - chat_api_deep_dive
   - model_runtime_deep_dive
   - risk_signal_operations
+  traffic_classes:
+  - class: user
+    routes:
+    - /v1/chat/completions
+    - /v1/embeddings
+    - /v1/risk/.*
+  - class: control
+    routes:
+    - /health
+    - /ready
+    - /v1/models
+  - class: observability
+    routes:
+    - /metrics
+  - class: docs
+    routes:
+    - /docs
+    - /openapi.json
 resource_monitoring:
   model_labels:
   - local-main

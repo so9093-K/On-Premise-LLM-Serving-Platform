@@ -17,7 +17,9 @@
 - metric name과 label value는 영어/ASCII를 유지한다.
 - dashboard와 panel 제목은 영어를 사용하고, operator guide 본문과 운영 문서는 한글 우선 + 영어 metric 용어 병기를 사용한다.
 - no-data panel은 exporter가 없거나 metric mapping이 없을 때만 허용한다.
-- Grafana 첫 화면은 `gpu_capacity_and_oom_risk`이며 GPU headroom, VRAM, utilization, OOM/restart, queue, KV cache 압력을 먼저 보여준다.
+- Grafana 첫 화면은 `serving_cockpit`이며 service readiness, user traffic, scrape heartbeat, GPU warm residency, GPU headroom, OOM/restart 부재를 함께 보여준다.
+- user traffic panel은 기본적으로 `/v1/chat/completions|/v1/embeddings|/v1/risk/.*`만 포함하고 `/health`, `/ready`, `/v1/models`, `/metrics`, `/docs`, `/openapi.json` 같은 control/observability/docs route를 제외한다.
+- `User Requests in Window`는 public entrypoint 기준이므로 `service="gateway"`만 사용한다. `Request Rate by Service/Route`는 gateway public activity와 risk-adapter backend activity를 service label로 분리해서 보여주며, 두 값은 같지 않을 수 있다.
 - 각 dashboard 상단에는 tooltip을 열지 않아도 읽히는 Text panel runbook을 둔다.
 - admin endpoint와 monitoring port는 token 또는 private network로 보호한다.
 
@@ -25,13 +27,16 @@
 
 | Dashboard | 목적 | 주요 사용자 |
 |---|---|---|
-| `gpu_capacity_and_oom_risk` | 기본 home dashboard. 단일 GPU 용량, VRAM budget, utilization, OOM/restart, queue, KV cache | runtime engineer |
-| `executive_runtime_overview` | 전체 상태, 트래픽, latency, error, GPU headroom, scrape health | reviewer/operator |
+| `serving_cockpit` | 기본 home dashboard. ACTIVE, IDLE WARM, IDLE COLD, DEGRADED, NO DATA를 구분하는 통합 serving cockpit | operator |
+| `gpu_capacity_and_oom_risk` | GPU/OOM drill-down. 단일 GPU 용량, VRAM budget, utilization, OOM/restart, queue, KV cache | runtime engineer |
+| `executive_runtime_overview` | 전체 상태, 트래픽, latency, error, GPU headroom, scrape health. 장기적으로 `serving_cockpit`에 통합 가능 | reviewer/operator |
 | `chat_api_deep_dive` | `/v1/chat/completions`와 streaming relay 상태 | gateway/runtime engineer |
 | `model_runtime_deep_dive` | model/runtime_service별 queue, KV cache, throughput, container resource | runtime engineer |
 | `risk_signal_operations` | signal-only risk monitoring | safety/policy reviewer |
 
-Dashboard JSON은 `ops/grafana/dashboards/*.json`에서 관리한다. 모든 dashboard는 다음 variable을 제공한다.
+Dashboard JSON은 `ops/grafana/dashboards/*.json`에서 관리한다. 공통 dashboard variable과 Serving Cockpit 전용 variable을 구분한다. `configs/monitoring.yaml`의 `dashboard_variables`는 monitoring projection용 Cockpit-inclusive 목록이며, 모든 dashboard가 `$user_route`를 갖는다는 뜻은 아니다.
+
+공통 dashboard variable:
 
 | Variable | 용도 |
 |---|---|
@@ -41,6 +46,35 @@ Dashboard JSON은 `ops/grafana/dashboards/*.json`에서 관리한다. 모든 das
 | `$runtime_service` | compose runtime service filter |
 | `$route` | Gateway route filter |
 | `$status_code` | HTTP status filter |
+
+Serving Cockpit 전용 variable:
+
+| Variable | 용도 |
+|---|---|
+| `$user_route` | Serving Cockpit user traffic regex. 선택지는 All user routes, Chat, Embeddings, Risk이며 기본값은 `/v1/chat/completions|/v1/embeddings|/v1/risk/.*` |
+
+## Serving mode 정의
+
+`serving_cockpit`은 user traffic이 없는 상태를 장애나 빈 화면으로 보이지 않게 하기 위해 다음 mode를 사용한다. 이번 1차 변경에서는 composite metric을 새로 추가하지 않고 readiness, scrape, GPU, OOM/restart evidence를 조합해 사람이 해석한다.
+
+Prometheus target health의 expected critical target count는 `gateway + risk-adapter + vLLM runtime targets + dcgm-exporter + cadvisor`로 계산한다. 현재 reference topology에서는 이 값이 7이지만, runtime target 수가 바뀌면 `monitoring_projection`의 `expected_critical_target_count`와 dashboard validation이 함께 바뀌어야 한다.
+
+| Mode | 의미 |
+|---|---|
+| `ACTIVE` | user request activity가 있고 readiness, scrape, GPU headroom, OOM/restart evidence가 정상이다. |
+| `IDLE WARM` | user traffic은 없지만 runtime readiness/scrape/GPU headroom/OOM-restart evidence가 stack이 warm and ready임을 보여준다. |
+| `IDLE COLD` | user traffic이 없고 runtime readiness, scrape, GPU warm residency 중 하나 이상이 비어 있다. |
+| `DEGRADED` | readiness, scrape, latency, error, GPU, OOM/restart, capacity chain 중 하나 이상이 주의 또는 조치 필요 상태다. |
+| `NO DATA` | Prometheus scrape 또는 metric mapping이 없어 evidence chain을 신뢰할 수 없다. 숫자 0과 다르게 취급한다. |
+
+Traffic class는 다음처럼 분리한다.
+
+| Class | Route |
+|---|---|
+| user | `/v1/chat/completions`, `/v1/embeddings`, `/v1/risk/.*` |
+| control | `/health`, `/ready`, `/v1/models` |
+| observability | `/metrics` |
+| docs | `/docs`, `/openapi.json` |
 
 ## PromQL rate 계산 정책
 
@@ -114,17 +148,29 @@ streaming_client_disconnects_total{service="gateway",target="local-main",phase="
 
 ## Dashboard navigation 흐름
 
-각 dashboard에는 Grafana 상단 링크로 관련 dashboard 이동 버튼이 있다. `includeVars=true`로 현재 variable 값을 유지하며 이동한다.
+각 dashboard에는 Grafana 상단 링크로 관련 dashboard 이동 버튼이 있다. `includeVars=true`로 현재 variable 값을 유지하며 이동한다. 이 표는 dashboard JSON link graph와 일치해야 한다.
 
 | 출발 dashboard | 이동 대상 |
 |---|---|
-| `gpu_capacity_and_oom_risk` | `executive_runtime_overview` |
-| `executive_runtime_overview` | `gpu_capacity_and_oom_risk`, `chat_api_deep_dive`, `model_runtime_deep_dive`, `risk_signal_operations` |
-| `chat_api_deep_dive` | `executive_runtime_overview`, `model_runtime_deep_dive` |
-| `model_runtime_deep_dive` | `gpu_capacity_and_oom_risk`, `chat_api_deep_dive` |
-| `risk_signal_operations` | `executive_runtime_overview` |
+| `serving_cockpit` | `gpu_capacity_and_oom_risk`, `executive_runtime_overview`, `chat_api_deep_dive`, `model_runtime_deep_dive`, `risk_signal_operations` |
+| `gpu_capacity_and_oom_risk` | `serving_cockpit`, `executive_runtime_overview` |
+| `executive_runtime_overview` | `serving_cockpit`, `gpu_capacity_and_oom_risk`, `chat_api_deep_dive`, `model_runtime_deep_dive`, `risk_signal_operations` |
+| `chat_api_deep_dive` | `serving_cockpit`, `executive_runtime_overview`, `model_runtime_deep_dive` |
+| `model_runtime_deep_dive` | `serving_cockpit`, `gpu_capacity_and_oom_risk`, `chat_api_deep_dive` |
+| `risk_signal_operations` | `serving_cockpit`, `executive_runtime_overview` |
 
-권장 drill-down 순서: GPU Capacity → Executive Overview → Chat Deep Dive → Model Runtime Deep Dive → Risk Signal Operations
+권장 drill-down 순서: Serving Cockpit → GPU Capacity/OOM → Executive Overview → Chat Deep Dive → Model Runtime Deep Dive → Risk Signal Operations
+
+## OOM/restart metric source
+
+`Serving Cockpit`과 `GPU Capacity and OOM Risk`의 OOM/restart panel은 reference package 내부에서 정의되지 않은 site-specific `backend_restart_total` 또는 `gpu_oom_events_total`을 사용하지 않는다. 대신 cAdvisor source metric을 직접 사용한다.
+
+| Signal | Query source | 해석 |
+|---|---|---|
+| Container OOM events | `container_oom_events_total{container_label_com_docker_compose_service=~"gateway|risk-adapter|main-llm-vllm|embedding-vllm|risk-prompt-vllm"}` | 컨테이너 OOM event counter. No Data면 cAdvisor source metric 부재를 의미할 수 있다. |
+| Container restart signals | `changes(container_start_time_seconds{container_label_com_docker_compose_service=~"gateway|risk-adapter|main-llm-vllm|embedding-vllm|risk-prompt-vllm"}[$window])` | 선택 window 내 container start time 변화 수. 재시작 counter가 아니라 start-time change signal이다. |
+
+운영자는 이 panel의 No Data를 0으로 해석하면 안 된다. 먼저 `Prometheus Target Health`와 cAdvisor scrape 상태를 확인한다.
 
 ## No Data vs 0 구분 정책
 
@@ -134,7 +180,7 @@ streaming_client_disconnects_total{service="gateway",target="local-main",phase="
 | exporter/metric 자체가 없음 | No Data | scrape 문제. Scrape Health panel 확인 |
 | or vector(0)로 강제된 0 | 0 | 주의: exporter 부재를 숨길 수 있음 |
 
-- OOM or Restart Events: `backend_restart_total`과 `gpu_oom_events_total`은 dcgm-exporter/cAdvisor 기반이다. `or vector(0)`로 0을 보여주더라도 exporter가 없으면 scrape 오류로 표시된다. `Executive Runtime Overview`의 `Scrape Health` panel을 함께 확인한다.
+- Container OOM / Restart Signals: cAdvisor의 `container_oom_events_total`과 `container_start_time_seconds`를 사용한다. No Data는 cAdvisor scrape 또는 metric source 부재일 수 있으므로 0으로 대체하지 않는다.
 - Forbidden Field Violations: `forbidden_response_field_total`은 risk-adapter 기동 시 항상 등록되므로 risk-adapter가 up이면 0은 "위반 없음"을 의미한다.
 - **원칙**: No Data가 운영상 더 안전한 panel은 `or vector(0)`로 강제하지 않는다.
 
@@ -161,6 +207,27 @@ model_catalog_info{model, revision, quantization}
 
 백로그 포함 정보: Gateway image/version/commit, vLLM image/version, served model name, model revision, GPU name, max_model_len, max_num_seqs, tuned config 적용 여부.
 
+## Serving Cockpit instrumentation backlog
+
+이번 1차 변경에서는 기존 metric label schema를 바꾸지 않는다. 다음 metric은 dashboard UX를 더 정확하게 만들기 위한 backlog다.
+
+```text
+ai_gateway_active_requests{route,model}
+ai_runtime_active_requests{model,runtime_service}
+ai_gateway_last_user_request_timestamp_seconds{route,model}
+ai_synthetic_probe_success{probe,model}
+ai_synthetic_probe_duration_seconds_bucket{probe,model}
+ai_synthetic_probe_last_success_timestamp_seconds{probe,model}
+ai_readiness_last_checked_timestamp_seconds{service}
+ai_model_ready{model,runtime_service}
+ai_serving_mode
+ai_critical_metric_freshness_seconds{metric,job}
+```
+
+`service_readiness_status`와 `overall_runtime_status`는 `/ready` 호출 시점에 갱신되는 readiness evidence다. `Serving Cockpit`의 `Warm Readiness Evidence`는 readiness/scrape evidence이지 아직 full serving mode metric이 아니다. IDLE WARM을 더 강하게 신뢰하려면 readiness freshness(`ai_readiness_last_checked_timestamp_seconds`) 또는 synthetic probe metric이 필요하다.
+
+Serving Cockpit에도 이 한계를 드러내기 위해 synthetic probe backlog text panel을 둔다. 현재 단계에서 IDLE WARM은 “readiness and scrape evidence exists”이지 “fresh active probe succeeded”가 아니다.
+
 ## Live PromQL validation
 
 `scripts/validation/validate_grafana_promql.py`는 dashboard JSON에서 PromQL을 추출하고 Prometheus `/api/v1/query`로 syntax check를 수행하는 선택적 runtime validation 도구다. live Prometheus가 필요하므로 기본 CI gate가 아니라 optional runtime validation으로 실행한다.
@@ -179,7 +246,7 @@ Idle/dev 환경에서는 traffic이 없어 일부 panel query가 no-data를 반�
 Reference release의 Grafana dashboard는 Git-managed artifact다.
 
 - `ops/grafana/provisioning/datasources/prometheus.yml`는 datasource UID를 `prometheus`로 고정한다.
-- compose는 `GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/var/lib/grafana/dashboards/gpu_capacity_and_oom_risk.json`로 Grafana home dashboard를 고정한다.
+- compose는 `GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/var/lib/grafana/dashboards/serving_cockpit.json`로 Grafana home dashboard를 고정한다.
 - dashboard panel은 `$datasource` variable을 통해 Prometheus datasource를 참조한다.
 - reference release에서는 `allowUiUpdates: false`를 사용한다.
 - local 실험이 필요하면 별도 local override 또는 exported JSON을 사용한다.
