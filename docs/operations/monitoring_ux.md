@@ -17,7 +17,7 @@
 - metric name과 label value는 영어/ASCII를 유지한다.
 - dashboard와 panel 제목은 영어를 사용하고, operator guide 본문과 운영 문서는 한글 우선 + 영어 metric 용어 병기를 사용한다.
 - no-data panel은 exporter가 없거나 metric mapping이 없을 때만 허용한다.
-- Grafana 첫 화면은 `serving_cockpit`이며 service readiness, user traffic, scrape heartbeat, GPU warm residency, GPU headroom, OOM/restart 부재를 함께 보여준다.
+- Grafana 첫 화면은 `serving_home`이며 serving verdict banner, evidence cards, Needs Attention triage table, GPU warm residency, GPU headroom, OOM/restart 부재를 함께 보여준다.
 - user traffic panel은 기본적으로 `/v1/chat/completions|/v1/embeddings|/v1/risk/.*`만 포함하고 `/health`, `/ready`, `/v1/models`, `/metrics`, `/docs`, `/openapi.json` 같은 control/observability/docs route를 제외한다.
 - `User Requests in Window`는 public entrypoint 기준이므로 `service="gateway"`만 사용한다. `Request Rate by Service/Route`는 gateway public activity와 risk-adapter backend activity를 service label로 분리해서 보여주며, 두 값은 같지 않을 수 있다.
 - 각 dashboard 상단에는 tooltip을 열지 않아도 읽히는 Text panel runbook을 둔다.
@@ -27,14 +27,15 @@
 
 | Dashboard | 목적 | 주요 사용자 |
 |---|---|---|
-| `serving_cockpit` | 기본 home dashboard. ACTIVE, IDLE WARM, IDLE COLD, DEGRADED, NO DATA를 구분하는 통합 serving cockpit | operator |
+| `serving_home` | 기본 home dashboard. Verdict banner, Evidence cards, Needs Attention triage, GPU warm, Runtime capacity timeseries, drill-down routing | operator |
 | `gpu_capacity_and_oom_risk` | GPU/OOM drill-down. 단일 GPU 용량, VRAM budget, utilization, OOM/restart, queue, KV cache | runtime engineer |
-| `executive_runtime_overview` | 전체 상태, 트래픽, latency, error, GPU headroom, scrape health. 장기적으로 `serving_cockpit`에 통합 가능 | reviewer/operator |
-| `chat_api_deep_dive` | `/v1/chat/completions`와 streaming relay 상태 | gateway/runtime engineer |
+| `executive_runtime_overview` | 전체 상태, 트래픽, latency, error, GPU headroom, scrape health | reviewer/operator |
+| `api_experience` | `/v1/chat/completions`, `/v1/embeddings`, streaming relay, TTFT, duration histograms | gateway/runtime engineer |
 | `model_runtime_deep_dive` | model/runtime_service별 queue, KV cache, throughput, container resource | runtime engineer |
 | `risk_signal_operations` | signal-only risk monitoring | safety/policy reviewer |
+| `observability_data_quality` | scrape target visibility, up vs absent 구분, recording rule health, vLLM metric availability | operator/platform engineer |
 
-Dashboard JSON은 `ops/grafana/dashboards/*.json`에서 관리한다. 공통 dashboard variable과 Serving Cockpit 전용 variable을 구분한다. `configs/monitoring.yaml`의 `dashboard_variables`는 monitoring projection용 Cockpit-inclusive 목록이며, 모든 dashboard가 `$user_route`를 갖는다는 뜻은 아니다.
+Dashboard JSON은 `ops/grafana/dashboards/*.json`에서 관리한다. 공통 dashboard variable과 Serving Home 전용 variable을 구분한다. `configs/monitoring.yaml`의 `dashboard_variables`는 monitoring projection용 Home-inclusive 목록이며, 모든 dashboard가 `$user_route`를 갖는다는 뜻은 아니다.
 
 공통 dashboard variable:
 
@@ -47,15 +48,15 @@ Dashboard JSON은 `ops/grafana/dashboards/*.json`에서 관리한다. 공통 das
 | `$route` | Gateway route filter |
 | `$status_code` | HTTP status filter |
 
-Serving Cockpit 전용 variable:
+Serving Home 전용 variable:
 
 | Variable | 용도 |
 |---|---|
-| `$user_route` | Serving Cockpit user traffic regex. 선택지는 All user routes, Chat, Embeddings, Risk이며 기본값은 `/v1/chat/completions|/v1/embeddings|/v1/risk/.*` |
+| `$user_route` | Serving Home user traffic regex. 선택지는 All user routes, Chat, Embeddings, Risk이며 기본값은 `/v1/chat/completions|/v1/embeddings|/v1/risk/.*` |
 
 ## Serving mode 정의
 
-`serving_cockpit`은 user traffic이 없는 상태를 장애나 빈 화면으로 보이지 않게 하기 위해 다음 mode를 사용한다. 이번 1차 변경에서는 composite metric을 새로 추가하지 않고 readiness, scrape, GPU, OOM/restart evidence를 조합해 사람이 해석한다.
+`serving_home`은 user traffic이 없는 상태를 장애나 빈 화면으로 보이지 않게 하기 위해 다음 mode를 사용한다. `ai_serving_verdict_code` recording rule로 verdict를 자동 계산하며, readiness, scrape, GPU, OOM/restart evidence를 priority chain으로 조합한다.
 
 Prometheus target health의 expected critical target count는 `gateway + risk-adapter + vLLM runtime targets + dcgm-exporter + cadvisor`로 계산한다. 현재 reference topology에서는 이 값이 7이지만, runtime target 수가 바뀌면 `monitoring_projection`의 `expected_critical_target_count`와 dashboard validation이 함께 바뀌어야 한다.
 
@@ -136,7 +137,7 @@ streaming_chunks_per_response_bucket{service="gateway",target="local-main",statu
 streaming_client_disconnects_total{service="gateway",target="local-main",phase="before_first_chunk"}
 ```
 
-`chat_api_deep_dive` dashboard는 위 metric을 사용해 다음을 제공한다.
+`api_experience` dashboard는 위 metric을 사용해 다음을 제공한다.
 
 - **Streaming Chunk Rate**: `streaming_chunks_total` rate
 - **Streaming Byte Throughput**: `streaming_bytes_total` rate
@@ -152,18 +153,19 @@ streaming_client_disconnects_total{service="gateway",target="local-main",phase="
 
 | 출발 dashboard | 이동 대상 |
 |---|---|
-| `serving_cockpit` | `gpu_capacity_and_oom_risk`, `executive_runtime_overview`, `chat_api_deep_dive`, `model_runtime_deep_dive`, `risk_signal_operations` |
-| `gpu_capacity_and_oom_risk` | `serving_cockpit`, `executive_runtime_overview` |
-| `executive_runtime_overview` | `serving_cockpit`, `gpu_capacity_and_oom_risk`, `chat_api_deep_dive`, `model_runtime_deep_dive`, `risk_signal_operations` |
-| `chat_api_deep_dive` | `serving_cockpit`, `executive_runtime_overview`, `model_runtime_deep_dive` |
-| `model_runtime_deep_dive` | `serving_cockpit`, `gpu_capacity_and_oom_risk`, `chat_api_deep_dive` |
-| `risk_signal_operations` | `serving_cockpit`, `executive_runtime_overview` |
+| `serving_home` | `gpu_capacity_and_oom_risk`, `executive_runtime_overview`, `api_experience`, `model_runtime_deep_dive`, `risk_signal_operations`, `observability_data_quality` |
+| `gpu_capacity_and_oom_risk` | `serving_home`, `executive_runtime_overview` |
+| `executive_runtime_overview` | `serving_home`, `gpu_capacity_and_oom_risk`, `api_experience`, `model_runtime_deep_dive`, `risk_signal_operations` |
+| `api_experience` | `serving_home`, `executive_runtime_overview`, `model_runtime_deep_dive` |
+| `model_runtime_deep_dive` | `serving_home`, `gpu_capacity_and_oom_risk`, `api_experience` |
+| `risk_signal_operations` | `serving_home`, `executive_runtime_overview` |
+| `observability_data_quality` | `serving_home`, `executive_runtime_overview` |
 
-권장 drill-down 순서: Serving Cockpit → GPU Capacity/OOM → Executive Overview → Chat Deep Dive → Model Runtime Deep Dive → Risk Signal Operations
+권장 drill-down 순서: Serving Home → GPU Capacity/OOM → Executive Overview → API Experience → Model Runtime Deep Dive → Risk Signal Operations → Observability Data Quality
 
 ## OOM/restart metric source
 
-`Serving Cockpit`과 `GPU Capacity and OOM Risk`의 OOM/restart panel은 reference package 내부에서 정의되지 않은 site-specific `backend_restart_total` 또는 `gpu_oom_events_total`을 사용하지 않는다. 대신 cAdvisor source metric을 직접 사용한다.
+`Serving Home`과 `GPU Capacity and OOM Risk`의 OOM/restart panel은 reference package 내부에서 정의되지 않은 site-specific `backend_restart_total` 또는 `gpu_oom_events_total`을 사용하지 않는다. 대신 cAdvisor source metric을 직접 사용한다.
 
 | Signal | Query source | 해석 |
 |---|---|---|
@@ -207,7 +209,7 @@ model_catalog_info{model, revision, quantization}
 
 백로그 포함 정보: Gateway image/version/commit, vLLM image/version, served model name, model revision, GPU name, max_model_len, max_num_seqs, tuned config 적용 여부.
 
-## Serving Cockpit instrumentation backlog
+## Serving Home instrumentation backlog
 
 이번 1차 변경에서는 기존 metric label schema를 바꾸지 않는다. 다음 metric은 dashboard UX를 더 정확하게 만들기 위한 backlog다.
 
@@ -224,9 +226,9 @@ ai_serving_mode
 ai_critical_metric_freshness_seconds{metric,job}
 ```
 
-`service_readiness_status`와 `overall_runtime_status`는 `/ready` 호출 시점에 갱신되는 readiness evidence다. `Serving Cockpit`의 `Warm Readiness Evidence`는 readiness/scrape evidence이지 아직 full serving mode metric이 아니다. IDLE WARM을 더 강하게 신뢰하려면 readiness freshness(`ai_readiness_last_checked_timestamp_seconds`) 또는 synthetic probe metric이 필요하다.
+`service_readiness_status`와 `overall_runtime_status`는 `/ready` 호출 시점에 갱신되는 readiness evidence다. `Serving Home`의 GPU Warm State Evidence 섹션은 readiness/scrape evidence이지 아직 full serving mode metric이 아니다. IDLE WARM을 더 강하게 신뢰하려면 readiness freshness(`ai_readiness_last_checked_timestamp_seconds`) 또는 synthetic probe metric이 필요하다.
 
-Serving Cockpit에도 이 한계를 드러내기 위해 synthetic probe backlog text panel을 둔다. 현재 단계에서 IDLE WARM은 “readiness and scrape evidence exists”이지 “fresh active probe succeeded”가 아니다.
+현재 단계에서 IDLE WARM은 "readiness and scrape evidence exists"이지 “fresh active probe succeeded”가 아니다 (verdict code 3).
 
 ## Live PromQL validation
 
@@ -246,7 +248,7 @@ Idle/dev 환경에서는 traffic이 없어 일부 panel query가 no-data를 반�
 Reference release의 Grafana dashboard는 Git-managed artifact다.
 
 - `ops/grafana/provisioning/datasources/prometheus.yml`는 datasource UID를 `prometheus`로 고정한다.
-- compose는 `GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/var/lib/grafana/dashboards/serving_cockpit.json`로 Grafana home dashboard를 고정한다.
+- compose는 `GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/var/lib/grafana/dashboards/serving_home.json`로 Grafana home dashboard를 고정한다.
 - dashboard panel은 `$datasource` variable을 통해 Prometheus datasource를 참조한다.
 - reference release에서는 `allowUiUpdates: false`를 사용한다.
 - local 실험이 필요하면 별도 local override 또는 exported JSON을 사용한다.

@@ -14,10 +14,10 @@
       "keepTime": true,
       "tags": [],
       "targetBlank": false,
-      "title": "Serving Cockpit",
-      "tooltip": "Home dashboard — idle-aware service, runtime, GPU, and observability cockpit",
+      "title": "Serving Home",
+      "tooltip": "Serving Home — operator triage surface with verdict, evidence, and drill-down",
       "type": "link",
-      "url": "/d/serving_cockpit/serving-cockpit"
+      "url": "/d/serving_home/serving-home"
     },
     {
       "asDropdown": false,
@@ -49,8 +49,8 @@
     {
       "id": 100,
       "type": "text",
-      "title": "Chat API Operator Guide",
-      "description": "Action guide for chat and streaming. No Data means check Gateway scrape and live stream traffic.",
+      "title": "API Experience Operator Guide",
+      "description": "Action guide for chat, streaming, and API experience. No Data means check Gateway scrape and live stream traffic first.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -64,7 +64,7 @@
       "targets": [],
       "options": {
         "mode": "markdown",
-        "content": "## Chat API와 streaming을 보는 법 / Chat API runbook\n- 먼저 request rate, p95/p99 latency, 5xx rate를 확인합니다.\n- `stream=true`는 chunk rate, byte throughput, error, usage event metric으로 relay 상태를 봅니다.\n- TTFT p95는 `Streaming Time to First Token p95`, stream duration p95는 `Streaming Duration p95`, chunks per response p95는 `Chunks per Response p95` panel에서 확인합니다.\n- Gateway path와 upstream path 중 어디가 병목인지는 `Gateway vs Upstream p95` panel로 비교합니다.\n- No Data는 Gateway `/metrics` scrape와 streaming code path가 실제로 실행됐는지 확인합니다.\n- prompt/user text/model output은 절대 metric label로 노출되지 않습니다.\n"
+        "content": "## API Experience — chat, streaming, and latency\n- Check request rate, p95/p99 latency, and 5xx rate first.\n- `stream=true` requests: use chunk rate, byte throughput, error, and usage event metrics to check relay health.\n- TTFT p95: `Streaming Time to First Token p95`. Stream duration p95: `Streaming Duration p95`. Chunks per response: `Chunks per Response p95`.\n- Gateway vs upstream comparison: `Gateway vs Upstream p95` panel identifies where the bottleneck is.\n- No Data: check Gateway `/metrics` scrape and whether streaming code path was exercised.\n- Prompt / user text / model output are never used as metric labels.\n- `streaming_requests_total.status` and `streaming_duration_seconds.status` use terminal category labels only: `started`, `completed`, `error`, `client_disconnect`.\n"
       },
       "fieldConfig": {
         "defaults": {},
@@ -75,7 +75,7 @@
       "id": 1,
       "type": "stat",
       "title": "Chat Request Rate",
-      "description": "Healthy/정상: expected range. Attention/주의: review trend. Action Required/조치 필요: investigate owner/runbook. No Data/런타임 데이터 없음: check Prometheus scrape/exporter.",
+      "description": "Healthy: non-zero during active sessions. Attention: zero request rate when user traffic is expected. Action Required: 0 with open sessions is a routing or gateway issue. No Data: check Prometheus scrape and gateway /metrics endpoint.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -93,7 +93,12 @@
           "legendFormat": "rps"
         }
       ],
-      "options": {},
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "auto"
+      },
       "fieldConfig": {
         "defaults": {
           "unit": "ops",
@@ -106,7 +111,7 @@
       "id": 2,
       "type": "stat",
       "title": "Chat p95 Latency",
-      "description": "Healthy/정상: expected range. Attention/주의: review trend. Action Required/조치 필요: investigate owner/runbook. No Data/런타임 데이터 없음: check Prometheus scrape/exporter.",
+      "description": "Healthy: p95 latency within SLO. Attention: rising p95 before error rate often indicates runtime pressure. Action Required: p95 above 10s needs runtime drill-down. No Data: check Prometheus scrape and gateway histogram.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -137,18 +142,9 @@
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "orange",
-                "value": 5.0
-              },
-              {
-                "color": "red",
-                "value": 10.0
-              }
+              {"color": "green", "value": null},
+              {"color": "orange", "value": 5.0},
+              {"color": "red", "value": 10.0}
             ]
           }
         },
@@ -159,7 +155,7 @@
       "id": 3,
       "type": "stat",
       "title": "Chat p99 Latency",
-      "description": "Healthy/정상: expected range. Attention/주의: review trend. Action Required/조치 필요: investigate owner/runbook. No Data/런타임 데이터 없음: check Prometheus scrape/exporter.",
+      "description": "Healthy: p99 latency within SLO. Attention: p99 higher than p95 by large margin may indicate tail-latency issues. Action Required: p99 above 20s needs immediate investigation. No Data: check Prometheus scrape and gateway histogram.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -190,18 +186,9 @@
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "orange",
-                "value": 5.0
-              },
-              {
-                "color": "red",
-                "value": 10.0
-              }
+              {"color": "green", "value": null},
+              {"color": "orange", "value": 5.0},
+              {"color": "red", "value": 10.0}
             ]
           }
         },
@@ -212,7 +199,7 @@
       "id": 4,
       "type": "stat",
       "title": "Chat 5xx Rate",
-      "description": "Healthy/정상: expected range. Attention/주의: review trend. Action Required/조치 필요: investigate owner/runbook. No Data/런타임 데이터 없음: check Prometheus scrape/exporter.",
+      "description": "Healthy: 5xx ratio near zero. Attention: above 1% needs triage. Action Required: above 5% means users are experiencing failures. No Data: check Prometheus scrape and gateway request counter.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -243,18 +230,9 @@
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "orange",
-                "value": 0.01
-              },
-              {
-                "color": "red",
-                "value": 0.05
-              }
+              {"color": "green", "value": null},
+              {"color": "orange", "value": 0.01},
+              {"color": "red", "value": 0.05}
             ]
           }
         },
@@ -265,7 +243,7 @@
       "id": 5,
       "type": "stat",
       "title": "Streaming Errors",
-      "description": "Healthy/정상: expected range. Attention/주의: review trend. Action Required/조치 필요: investigate owner/runbook. No Data/런타임 데이터 없음: check Prometheus scrape/exporter.",
+      "description": "Healthy: 0 streaming errors. Attention: any errors need investigation. Action Required: sustained streaming errors with active traffic. No Data: check Gateway scrape and streaming error counter.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -296,14 +274,8 @@
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 1
-              }
+              {"color": "green", "value": null},
+              {"color": "red", "value": 1}
             ]
           }
         },
@@ -314,7 +286,7 @@
       "id": 6,
       "type": "stat",
       "title": "Usage Chunk Events",
-      "description": "Healthy/정상: expected range. Attention/주의: review trend. Action Required/조치 필요: investigate owner/runbook. No Data/런타임 데이터 없음: check Prometheus scrape/exporter.",
+      "description": "Healthy: usage events proportional to completed streaming requests. Attention: missing usage events may indicate incomplete accounting. No Data: check Gateway scrape and streaming usage counter.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -332,7 +304,12 @@
           "legendFormat": "usage events"
         }
       ],
-      "options": {},
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "auto"
+      },
       "fieldConfig": {
         "defaults": {
           "unit": "short",
@@ -345,7 +322,7 @@
       "id": 7,
       "type": "timeseries",
       "title": "Gateway vs Upstream p95",
-      "description": "Healthy/정상: expected range. Attention/주의: review trend. Action Required/조치 필요: investigate owner/runbook. No Data/런타임 데이터 없음: check Prometheus scrape/exporter.",
+      "description": "Healthy: gateway and upstream p95 are both within SLO. Attention: large gap between gateway and upstream p95 may indicate gateway overhead. No Data: check Gateway scrape and upstream latency histogram. Uses path=~chat/completions(:stream)? for upstream.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -373,6 +350,10 @@
           "displayMode": "list",
           "placement": "bottom",
           "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
         }
       },
       "fieldConfig": {
@@ -387,7 +368,7 @@
       "id": 8,
       "type": "timeseries",
       "title": "Streaming Chunk Rate",
-      "description": "Healthy/정상: chunks/sec increasing with traffic. Attention/주의: chunk rate drops while request rate holds. Action Required/조치 필요: chunk rate near zero with active streaming requests. No Data/런타임 데이터 없음: check Gateway scrape and streaming code path.",
+      "description": "Healthy: chunks/sec increases with streaming traffic. Attention: chunk rate drops while request rate holds may indicate relay stall. Action Required: chunk rate near zero with active streaming requests. No Data: check Gateway scrape and streaming chunk counter.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -410,6 +391,10 @@
           "displayMode": "list",
           "placement": "bottom",
           "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
         }
       },
       "fieldConfig": {
@@ -424,7 +409,7 @@
       "id": 13,
       "type": "timeseries",
       "title": "Streaming Byte Throughput",
-      "description": "Healthy/정상: bytes/sec proportional to chunk rate and typical token size. Attention/주의: bytes rate drops disproportionately vs chunk rate. Action Required/조치 필요: byte throughput near zero with active streaming. No Data/런타임 데이터 없음: check Gateway scrape and streaming code path.",
+      "description": "Healthy: bytes/sec proportional to chunk rate and typical token size. Attention: bytes rate drops disproportionately vs chunk rate. Action Required: byte throughput near zero with active streaming traffic. No Data: check Gateway scrape and streaming byte counter.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -447,6 +432,10 @@
           "displayMode": "list",
           "placement": "bottom",
           "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
         }
       },
       "fieldConfig": {
@@ -461,7 +450,7 @@
       "id": 9,
       "type": "timeseries",
       "title": "Validation and Auth Issues",
-      "description": "Healthy/정상: expected range. Attention/주의: review trend. Action Required/조치 필요: investigate owner/runbook. No Data/런타임 데이터 없음: check Prometheus scrape/exporter.",
+      "description": "Healthy: low validation rejections and auth failures. Attention: rising rejections may indicate client API misuse. Action Required: auth failures on user routes need security review. No Data: check Gateway scrape and validation/auth counters.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -489,6 +478,10 @@
           "displayMode": "list",
           "placement": "bottom",
           "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
         }
       },
       "fieldConfig": {
@@ -503,7 +496,7 @@
       "id": 10,
       "type": "timeseries",
       "title": "Upstream Errors by Model",
-      "description": "Healthy/정상: expected range. Attention/주의: review trend. Action Required/조치 필요: investigate owner/runbook. No Data/런타임 데이터 없음: check Prometheus scrape/exporter.",
+      "description": "Healthy: upstream errors near zero. Attention: non-zero upstream errors may indicate runtime instability. Action Required: sustained upstream errors need runtime drill-down. No Data: check Gateway scrape and upstream error counter.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -526,6 +519,10 @@
           "displayMode": "list",
           "placement": "bottom",
           "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
         }
       },
       "fieldConfig": {
@@ -540,7 +537,7 @@
       "id": 11,
       "type": "timeseries",
       "title": "Streaming Time to First Token p95",
-      "description": "Healthy/정상: expected range. Attention/주의: review trend. Action Required/조치 필요: investigate owner/runbook. No Data/런타임 데이터 없음: check Prometheus scrape/exporter. Prompt/user text/model output are never used as labels.",
+      "description": "Healthy: TTFT p95 within SLO. Attention: rising TTFT before error rate often indicates runtime queue or KV pressure. Action Required: TTFT above SLO threshold needs runtime drill-down. No Data: check Gateway scrape. Prompt / user text / model output are never used as labels.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -563,6 +560,10 @@
           "displayMode": "list",
           "placement": "bottom",
           "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
         }
       },
       "fieldConfig": {
@@ -577,7 +578,7 @@
       "id": 12,
       "type": "timeseries",
       "title": "Streaming Duration p95",
-      "description": "Healthy/정상: duration p95 within model SLO. Attention/주의: duration increasing trend. Action Required/조치 필요: duration > SLO threshold. No Data/런타임 데이터 없음: check Gateway scrape. Status labels are sanitized terminal categories only (completed/error/client_disconnect).",
+      "description": "Healthy: streaming duration p95 within model SLO. Attention: duration trend increasing may indicate load pressure. Action Required: duration above SLO threshold. No Data: check Gateway scrape. Status labels are terminal category only: completed, error, client_disconnect.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -600,6 +601,10 @@
           "displayMode": "list",
           "placement": "bottom",
           "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
         }
       },
       "fieldConfig": {
@@ -614,7 +619,7 @@
       "id": 14,
       "type": "timeseries",
       "title": "Chunks per Response p95",
-      "description": "Healthy/정상: chunks p95 consistent with response length. Attention/주의: chunks spike or drop unexpectedly. Action Required/조치 필요: chunks near 0 with active streaming traffic. No Data/런타임 데이터 없음: check Gateway scrape. Status labels are sanitized terminal categories only.",
+      "description": "Healthy: chunks p95 consistent with response length distribution. Attention: chunks spike or drop unexpectedly across models. Action Required: chunks near 0 with active streaming traffic. No Data: check Gateway scrape. Status labels are terminal category only: completed, error, client_disconnect.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -637,6 +642,10 @@
           "displayMode": "list",
           "placement": "bottom",
           "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
         }
       },
       "fieldConfig": {
@@ -654,7 +663,7 @@
   "tags": [
     "contract-reference",
     "ops",
-    "chat",
+    "api",
     "streaming",
     "english-titles"
   ],
@@ -689,26 +698,10 @@
         "multi": false,
         "name": "window",
         "options": [
-          {
-            "selected": false,
-            "text": "1m",
-            "value": "1m"
-          },
-          {
-            "selected": false,
-            "text": "5m",
-            "value": "5m"
-          },
-          {
-            "selected": false,
-            "text": "15m",
-            "value": "15m"
-          },
-          {
-            "selected": false,
-            "text": "1h",
-            "value": "1h"
-          }
+          {"selected": false, "text": "1m", "value": "1m"},
+          {"selected": false, "text": "5m", "value": "5m"},
+          {"selected": false, "text": "15m", "value": "15m"},
+          {"selected": false, "text": "1h", "value": "1h"}
         ],
         "query": "1m,5m,15m,1h",
         "type": "custom"
@@ -785,8 +778,8 @@
   },
   "timepicker": {},
   "timezone": "browser",
-  "title": "Chat API Deep Dive",
-  "uid": "chat_api_deep_dive",
+  "title": "API Experience",
+  "uid": "api_experience",
   "version": 1,
   "weekStart": ""
 }

@@ -1,0 +1,783 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "Serving Home",
+      "tooltip": "Serving Home — operator triage surface with verdict, evidence, and drill-down",
+      "type": "link",
+      "url": "/d/serving_home/serving-home"
+    },
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "Executive Runtime Overview",
+      "tooltip": "Executive runtime reviewer summary",
+      "type": "link",
+      "url": "/d/executive_runtime_overview/executive-runtime-overview"
+    }
+  ],
+  "liveNow": false,
+  "panels": [
+    {
+      "id": 100,
+      "type": "text",
+      "title": "Observability Data Quality Operator Guide",
+      "description": "Action guide for scrape target health and metric availability. No Data means Prometheus cannot reach the exporter — check job configuration and network.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 5
+      },
+      "targets": [],
+      "options": {
+        "mode": "markdown",
+        "content": "## Observability / Data Quality\n\nThis dashboard diagnoses **when evidence is missing** — before assuming a metric zero means everything is fine.\n\n**Scrape target triage order:**\n1. Check `Visible Targets vs Expected` — is the count below 7?\n2. Check `Up Targets vs Visible` — is a visible target down (`up=0`)?\n3. Check `Missing Target Detection` — which job is absent?\n4. Check `Down Target Detection` — which job is present but failing?\n\n**Key distinction:**\n- `up=0`: target is registered in Prometheus but scrape is failing.\n- Absent series: target was never registered or was removed from scrape config.\n\n**Expected critical target count: 7** (gateway + risk-adapter + 3x vllm-runtimes + dcgm-exporter + cadvisor)\n\n**When this dashboard shows a problem, Serving Home verdict will show OBSERVABILITY DEGRADED.**\n"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    },
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Visible Targets vs Expected",
+      "description": "Healthy: visible count equals 7 expected. Attention: below 7 means a target is missing or never registered. No Data: Prometheus up series absent — Prometheus may not be running. The expected critical target count is projected from gateway + risk-adapter + vLLM runtime targets + dcgm + cadvisor.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 5,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "expr": "count(up{job=~\"gateway|risk-adapter|vllm-runtimes|dcgm-exporter|cadvisor\"})",
+          "refId": "A",
+          "legendFormat": "visible"
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No Target Series",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "red", "value": null},
+              {"color": "orange", "value": 5},
+              {"color": "green", "value": 7}
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Up Targets vs Visible",
+      "description": "Healthy: up count equals visible count. Attention: up count below visible count means a registered target is failing its scrape. No Data: Prometheus up series absent. The expected critical target count is projected from gateway + risk-adapter + vLLM runtime targets + dcgm + cadvisor.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "x": 4,
+        "y": 5,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "expr": "sum(up{job=~\"gateway|risk-adapter|vllm-runtimes|dcgm-exporter|cadvisor\"})",
+          "refId": "A",
+          "legendFormat": "up"
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No Target Series",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "red", "value": null},
+              {"color": "orange", "value": 5},
+              {"color": "green", "value": 7}
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Missing Critical Targets",
+      "description": "Healthy: 0 missing targets means all 7 expected targets are visible. Attention: any missing target means Prometheus config or service discovery is incomplete. No Data: ai_missing_critical_targets recording rule absent — check if recording rules are loaded.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 5,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "expr": "ai_missing_critical_targets",
+          "refId": "A",
+          "legendFormat": "missing"
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "Recording Rule Absent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "orange", "value": 1},
+              {"color": "red", "value": 3}
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Gateway Metric Availability",
+      "description": "Healthy: gateway up=1. Attention: up=0 means target registered but scrape failing — check bearer token and /metrics endpoint. No Data: gateway target absent from Prometheus — check scrape config.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 5,
+        "w": 3,
+        "h": 4
+      },
+      "targets": [
+        {
+          "expr": "up{job=\"gateway\"}",
+          "refId": "A",
+          "legendFormat": "gateway"
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {"text": "Scrape Fail", "color": "red"},
+                "1": {"text": "Up", "color": "green"}
+              }
+            }
+          ],
+          "noValue": "Target Missing",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "red", "value": null},
+              {"color": "green", "value": 1}
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Risk Adapter Metric Availability",
+      "description": "Healthy: risk-adapter up=1. Attention: up=0 means target registered but scrape failing. No Data: risk-adapter target absent from Prometheus — check scrape config. Risk adapter absence means risk signal evidence is unavailable.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "x": 15,
+        "y": 5,
+        "w": 3,
+        "h": 4
+      },
+      "targets": [
+        {
+          "expr": "up{job=\"risk-adapter\"}",
+          "refId": "A",
+          "legendFormat": "risk-adapter"
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {"text": "Scrape Fail", "color": "red"},
+                "1": {"text": "Up", "color": "green"}
+              }
+            }
+          ],
+          "noValue": "Target Missing",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "red", "value": null},
+              {"color": "green", "value": 1}
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "DCGM Exporter Availability",
+      "description": "Healthy: DCGM exporter up=1. Attention: up=0 means GPU metrics unavailable — GPU headroom and OOM risk cannot be trusted. No Data: DCGM target absent — GPU evidence chain is broken.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 5,
+        "w": 3,
+        "h": 4
+      },
+      "targets": [
+        {
+          "expr": "up{job=\"dcgm-exporter\"}",
+          "refId": "A",
+          "legendFormat": "dcgm-exporter"
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {"text": "Scrape Fail", "color": "red"},
+                "1": {"text": "Up", "color": "green"}
+              }
+            }
+          ],
+          "noValue": "Target Missing",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "red", "value": null},
+              {"color": "green", "value": 1}
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 7,
+      "type": "stat",
+      "title": "cAdvisor Availability",
+      "description": "Healthy: cAdvisor up=1. Attention: up=0 means OOM/restart signals are unavailable. No Data: cAdvisor target absent — container resource evidence chain is broken.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "x": 21,
+        "y": 5,
+        "w": 3,
+        "h": 4
+      },
+      "targets": [
+        {
+          "expr": "up{job=\"cadvisor\"}",
+          "refId": "A",
+          "legendFormat": "cadvisor"
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {"text": "Scrape Fail", "color": "red"},
+                "1": {"text": "Up", "color": "green"}
+              }
+            }
+          ],
+          "noValue": "Target Missing",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "red", "value": null},
+              {"color": "green", "value": 1}
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 8,
+      "type": "status-history",
+      "title": "Missing Target Detection",
+      "description": "Healthy: all critical job up series are visible over time. Attention: absent series in this chart means the job was never registered. No Data: all targets missing — check Prometheus scrape config.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 9,
+        "w": 12,
+        "h": 6
+      },
+      "targets": [
+        {
+          "expr": "up{job=~\"gateway|risk-adapter|vllm-runtimes|dcgm-exporter|cadvisor\"}",
+          "refId": "A",
+          "legendFormat": "{{job}} {{instance}}"
+        }
+      ],
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        },
+        "showValue": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {"text": "down", "color": "red"},
+                "1": {"text": "up", "color": "green"}
+              }
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "red", "value": null},
+              {"color": "green", "value": 1}
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 9,
+      "type": "status-history",
+      "title": "Down Target Detection",
+      "description": "Healthy: no red bands — all visible targets are up. Attention: red band means target is registered (up series exists) but scrape is failing. No Data: all jobs absent from Prometheus — check scrape config and network.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 9,
+        "w": 12,
+        "h": 6
+      },
+      "targets": [
+        {
+          "expr": "up{job=~\"gateway|risk-adapter|vllm-runtimes|dcgm-exporter|cadvisor\"} == 0",
+          "refId": "A",
+          "legendFormat": "{{job}} {{instance}} DOWN"
+        }
+      ],
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        },
+        "showValue": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {"text": "DOWN", "color": "red"}
+              }
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "red", "value": 0}
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "vLLM Metric Availability",
+      "description": "Healthy: all vLLM runtime targets are up and emitting metrics. Attention: absent vLLM series means KV cache, queue, and token throughput evidence is unavailable. No Data: vllm-runtimes job absent from Prometheus.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 15,
+        "w": 8,
+        "h": 6
+      },
+      "targets": [
+        {
+          "expr": "up{job=\"vllm-runtimes\",model=~\"$model\",runtime_service=~\"$runtime_service\"}",
+          "refId": "A",
+          "legendFormat": "{{model}} {{runtime_service}}"
+        }
+      ],
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "red", "value": null},
+              {"color": "green", "value": 1}
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "Readiness Metric Freshness",
+      "description": "Healthy: service_readiness_status and overall_runtime_status are actively emitting. Attention: absent or stale readiness metric means warm-state evidence is unreliable. No Data: readiness metric absent — gateway or risk-adapter scrape is down. Readiness freshness timestamp requires ai_readiness_last_checked_timestamp_seconds or synthetic probes.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 15,
+        "w": 8,
+        "h": 6
+      },
+      "targets": [
+        {
+          "expr": "service_readiness_status",
+          "refId": "A",
+          "legendFormat": "{{service}} {{dependency}}"
+        },
+        {
+          "expr": "overall_runtime_status",
+          "refId": "B",
+          "legendFormat": "{{service}} overall"
+        }
+      ],
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "red", "value": null},
+              {"color": "green", "value": 1}
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 12,
+      "type": "timeseries",
+      "title": "Critical Recording Rules Health",
+      "description": "Healthy: all critical recording rules are emitting values. Attention: absent recording rule series means dashboard panels relying on them will show No Data. No Data: recording rule group may not be loaded — check Prometheus rule configuration.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 15,
+        "w": 8,
+        "h": 6
+      },
+      "targets": [
+        {
+          "expr": "gpu_memory_headroom_bytes",
+          "refId": "A",
+          "legendFormat": "gpu_memory_headroom_bytes"
+        },
+        {
+          "expr": "vllm_kv_cache_usage_ratio{model=~\"$model\",runtime_service=~\"$runtime_service\"}",
+          "refId": "B",
+          "legendFormat": "vllm_kv_cache {{model}}"
+        },
+        {
+          "expr": "ai_serving_verdict_code",
+          "refId": "C",
+          "legendFormat": "ai_serving_verdict_code"
+        }
+      ],
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      }
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "style": "dark",
+  "tags": [
+    "contract-reference",
+    "observability",
+    "data-quality",
+    "scrape-health"
+  ],
+  "templating": {
+    "list": [
+      {
+        "current": {
+          "selected": false,
+          "text": "Prometheus",
+          "value": "prometheus"
+        },
+        "hide": 0,
+        "includeAll": false,
+        "label": "Datasource",
+        "multi": false,
+        "name": "datasource",
+        "options": [],
+        "query": "prometheus",
+        "refresh": 1,
+        "regex": "",
+        "type": "datasource"
+      },
+      {
+        "current": {
+          "selected": false,
+          "text": "5m",
+          "value": "5m"
+        },
+        "hide": 0,
+        "includeAll": false,
+        "label": "Window",
+        "multi": false,
+        "name": "window",
+        "options": [
+          {"selected": false, "text": "1m", "value": "1m"},
+          {"selected": false, "text": "5m", "value": "5m"},
+          {"selected": false, "text": "15m", "value": "15m"},
+          {"selected": false, "text": "1h", "value": "1h"}
+        ],
+        "query": "1m,5m,15m,1h",
+        "type": "custom"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        },
+        "hide": 0,
+        "includeAll": true,
+        "label": "Model",
+        "multi": true,
+        "name": "model",
+        "options": [],
+        "query": "local-main,local-embed,risk-prompt",
+        "type": "custom"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        },
+        "hide": 0,
+        "includeAll": true,
+        "label": "Runtime Service",
+        "multi": true,
+        "name": "runtime_service",
+        "options": [],
+        "query": "main-llm-vllm,embedding-vllm,risk-prompt-vllm",
+        "type": "custom"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        },
+        "hide": 0,
+        "includeAll": true,
+        "label": "Route",
+        "multi": true,
+        "name": "route",
+        "options": [],
+        "query": "/v1/chat/completions,/v1/embeddings,/health,/ready,/v1/models,/metrics",
+        "type": "custom"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        },
+        "hide": 0,
+        "includeAll": true,
+        "label": "Status Code",
+        "multi": true,
+        "name": "status_code",
+        "options": [],
+        "query": "2..,4..,5..,401,403,422,429,500,502,503,504",
+        "type": "custom"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Observability Data Quality",
+  "uid": "observability_data_quality",
+  "version": 1,
+  "weekStart": ""
+}

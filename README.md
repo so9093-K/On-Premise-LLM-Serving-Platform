@@ -166,7 +166,7 @@ compose/staging/production-like 환경에서는 Prometheus, Grafana, DCGM export
 | DCGM exporter | 9412 | 활성화 |
 | cAdvisor | 9413 | 활성화 |
 
-Grafana 첫 화면은 `Serving Cockpit`을 기준으로 하며, service readiness, user traffic, scrape heartbeat, GPU warm residency, GPU headroom, OOM/restart 부재를 함께 확인한다. `GPU Capacity and OOM Risk`는 GPU/OOM drill-down으로 유지한다. 상세 설정은 `docs/operations/monitoring_ux.md`를 기준으로 한다.
+Grafana 첫 화면은 `Serving Home`을 기준으로 하며, verdict banner, evidence cards, Needs Attention triage, GPU warm residency, OOM/restart 부재를 함께 확인한다. `GPU Capacity and OOM Risk`는 GPU/OOM drill-down으로 유지한다. 상세 설정은 `docs/operations/monitoring_ux.md`를 기준으로 한다.
 
 ---
 

@@ -1,6 +1,6 @@
 # 상태 보드 UX
 
-상태 보드는 운영자가 Grafana 첫 화면인 `Serving Cockpit`에서 service readiness, user traffic, scrape heartbeat, GPU warm residency, OOM/restart 부재를 함께 판단하도록 구성한다. GPU 용량과 OOM 위험은 `gpu_capacity_and_oom_risk` drill-down에서 자세히 본다.
+상태 보드는 운영자가 Grafana 첫 화면인 `Serving Home`에서 serving verdict banner, evidence cards, Needs Attention triage table, GPU warm residency, OOM/restart 부재를 함께 판단하도록 구성한다. GPU 용량과 OOM 위험은 `gpu_capacity_and_oom_risk` drill-down에서 자세히 본다.
 
 ## 기본 상태
 
@@ -23,13 +23,13 @@
 
 ## 첫 화면 순서
 
-1. Overall Status
-2. User Requests in Window (`service="gateway"` public entrypoint count)
-3. Model/Gateway Ready
-4. Prometheus Target Health
-5. Min GPU Headroom
-6. Container OOM / Restart Signals
-7. Warm Readiness Evidence
+1. Serving Verdict (ai_serving_verdict_code: USER_IMPACT / CAPACITY_RISK / OBS_DEGRADED / HEALTHY_ACTIVE / IDLE_WARM / IDLE_COLD)
+2. Overall Status (overall_runtime_status)
+3. User Traffic (`service="gateway"` public entrypoint count)
+4. Scrape Targets (visible vs expected count)
+5. GPU Headroom (min_over_time headroom)
+6. OOM / Restart (container OOM + restart signals)
+7. Runtime Capacity (max KV cache pressure)
 
 프롬프트나 생성 결과 원문은 metric label이나 dashboard text에 넣지 않는다.
 
@@ -44,24 +44,26 @@
 
 | Dashboard | 운영 질문 |
 |---|---|
-| `serving_cockpit` | 지금 요청을 안전하게 처리할 수 있는가? traffic이 없어도 stack은 IDLE WARM인가? |
+| `serving_home` | 지금 요청을 안전하게 처리할 수 있는가? traffic이 없어도 stack은 IDLE WARM인가? |
 | `gpu_capacity_and_oom_risk` | 지금 이 GPU에서 요청을 안전하게 계속 처리할 수 있는가? |
 | `executive_runtime_overview` | 전체 서비스가 정상인가? 어디가 문제인가? |
-| `chat_api_deep_dive` | Gateway path와 upstream path 중 어디가 병목인가? |
+| `api_experience` | Gateway path와 upstream path 중 어디가 병목인가? streaming relay 상태는? |
 | `model_runtime_deep_dive` | 특정 모델의 queue, KV cache, token throughput, container resource 상태는? |
 | `risk_signal_operations` | risk signal만으로 본 현재 detector 상태는? (prompt 없음) |
+| `observability_data_quality` | 지금 scrape target이 몇 개 보이는가? up vs absent를 구분할 수 있는가? |
 
 ## Dashboard navigation
 
 각 dashboard 상단 링크로 이동한다. `includeVars=true`로 현재 variable 값을 유지하며 이동한다.
 
 ```
-serving_cockpit → gpu_capacity_and_oom_risk, executive_runtime_overview, chat_api_deep_dive, model_runtime_deep_dive, risk_signal_operations
-gpu_capacity_and_oom_risk → serving_cockpit, executive_runtime_overview
-executive_runtime_overview → serving_cockpit, gpu_capacity_and_oom_risk, chat_api_deep_dive, model_runtime_deep_dive, risk_signal_operations
-chat_api_deep_dive → serving_cockpit, executive_runtime_overview, model_runtime_deep_dive
-model_runtime_deep_dive → serving_cockpit, gpu_capacity_and_oom_risk, chat_api_deep_dive
-risk_signal_operations → serving_cockpit, executive_runtime_overview
+serving_home → gpu_capacity_and_oom_risk, executive_runtime_overview, api_experience, model_runtime_deep_dive, risk_signal_operations, observability_data_quality
+gpu_capacity_and_oom_risk → serving_home, executive_runtime_overview
+executive_runtime_overview → serving_home, gpu_capacity_and_oom_risk, api_experience, model_runtime_deep_dive, risk_signal_operations
+api_experience → serving_home, executive_runtime_overview, model_runtime_deep_dive
+model_runtime_deep_dive → serving_home, gpu_capacity_and_oom_risk, api_experience
+risk_signal_operations → serving_home, executive_runtime_overview
+observability_data_quality → serving_home, executive_runtime_overview
 ```
 
 ## Source of truth 및 UI 수정 정책

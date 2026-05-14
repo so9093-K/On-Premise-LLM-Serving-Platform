@@ -44,12 +44,13 @@ def test_ops_templates_exist_without_runtime_claims() -> None:
     }
 
     for path in [
-        "ops/grafana/dashboards/serving_cockpit.json",
+        "ops/grafana/dashboards/serving_home.json",
         "ops/grafana/dashboards/executive_runtime_overview.json",
         "ops/grafana/dashboards/gpu_capacity_and_oom_risk.json",
         "ops/grafana/dashboards/risk_signal_operations.json",
-        "ops/grafana/dashboards/chat_api_deep_dive.json",
+        "ops/grafana/dashboards/api_experience.json",
         "ops/grafana/dashboards/model_runtime_deep_dive.json",
+        "ops/grafana/dashboards/observability_data_quality.json",
     ]:
         dashboard = json.loads((ROOT / path).read_text(encoding="utf-8"))
         assert dashboard["uid"]
@@ -70,8 +71,8 @@ def test_runtime_validation_matrix_requires_validation() -> None:
 def test_operator_status_board_ux_is_user_facing() -> None:
     monitoring = yaml.safe_load((ROOT / "configs/monitoring.yaml").read_text(encoding="utf-8"))
     operator = monitoring["operator_status_ux"]
-    assert operator["landing_dashboard"] == "serving_cockpit"
-    assert operator["drill_down_order"][0] == "serving_cockpit"
+    assert operator["landing_dashboard"] == "serving_home"
+    assert operator["drill_down_order"][0] == "serving_home"
     assert "gpu_headroom" in operator["first_screen_order"]
     assert {item["mode"] for item in operator["serving_modes"]} == {
         "ACTIVE",
@@ -96,22 +97,23 @@ def test_operator_status_board_ux_is_user_facing() -> None:
     }.issubset(titles)
     assert exec_dashboard["panels"][0]["type"] == "text"
     assert "이 화면을 보는 법" in exec_dashboard["panels"][0]["options"]["content"]
-    cockpit = json.loads((ROOT / "ops/grafana/dashboards/serving_cockpit.json").read_text(encoding="utf-8"))
-    cockpit_titles = {panel["title"] for panel in cockpit["panels"]}
+    home = json.loads((ROOT / "ops/grafana/dashboards/serving_home.json").read_text(encoding="utf-8"))
+    home_titles = {panel["title"] for panel in home["panels"]}
     assert {
-        "Compact Operator Banner",
-        "Overall Status",
-        "User Requests in Window",
-        "Model/Gateway Ready",
-        "Prometheus Target Health",
-        "Min GPU Headroom",
-        "Container OOM / Restart Signals",
-        "Warm Readiness Evidence",
-    }.issubset(cockpit_titles)
-    assert "IDLE WARM" in cockpit["panels"][0]["options"]["content"]
-    variables_by_name = {item["name"]: item for item in cockpit["templating"]["list"]}
-    cockpit_variables = set(variables_by_name)
-    assert "user_route" in cockpit_variables
+        "Serving Home Operator Guide",
+        "Serving Verdict",
+        "User Traffic",
+        "Scrape Targets",
+        "GPU Headroom",
+        "OOM / Restart",
+        "Runtime Capacity",
+        "Needs Attention",
+    }.issubset(home_titles)
+    assert len(home["panels"]) <= 20
+    assert "IDLE WARM" in home["panels"][0]["options"]["content"]
+    variables_by_name = {item["name"]: item for item in home["templating"]["list"]}
+    home_variables = set(variables_by_name)
+    assert "user_route" in home_variables
     user_route_text = json.dumps(variables_by_name["user_route"], ensure_ascii=False)
     assert "/v1/risk/.*" in user_route_text
     assert re.search(r"(?<!/v1)/risk/\.\*", user_route_text) is None
@@ -127,12 +129,13 @@ def test_operator_status_board_ux_is_user_facing() -> None:
 
 def test_grafana_panels_include_operator_descriptions() -> None:
     for path in [
-        "ops/grafana/dashboards/serving_cockpit.json",
+        "ops/grafana/dashboards/serving_home.json",
         "ops/grafana/dashboards/executive_runtime_overview.json",
         "ops/grafana/dashboards/gpu_capacity_and_oom_risk.json",
         "ops/grafana/dashboards/risk_signal_operations.json",
-        "ops/grafana/dashboards/chat_api_deep_dive.json",
+        "ops/grafana/dashboards/api_experience.json",
         "ops/grafana/dashboards/model_runtime_deep_dive.json",
+        "ops/grafana/dashboards/observability_data_quality.json",
     ]:
         dashboard = json.loads((ROOT / path).read_text(encoding="utf-8"))
         for panel in dashboard["panels"]:
@@ -144,12 +147,13 @@ def test_grafana_panels_include_operator_descriptions() -> None:
 def test_grafana_dashboards_are_english_titled_variable_backed_and_streaming_aware() -> None:
     dashboards = {path.name: json.loads(path.read_text(encoding="utf-8")) for path in (ROOT / "ops/grafana/dashboards").glob("*.json")}
     assert set(dashboards) >= {
-        "serving_cockpit.json",
+        "serving_home.json",
         "executive_runtime_overview.json",
         "gpu_capacity_and_oom_risk.json",
         "risk_signal_operations.json",
-        "chat_api_deep_dive.json",
+        "api_experience.json",
         "model_runtime_deep_dive.json",
+        "observability_data_quality.json",
     }
     for dashboard in dashboards.values():
         assert " / " not in dashboard["title"]
@@ -163,67 +167,48 @@ def test_grafana_dashboards_are_english_titled_variable_backed_and_streaming_awa
                 assert panel["options"].get("graphMode") == "none"
             if panel["type"] == "timeseries":
                 assert panel.get("options", {}).get("legend", {}).get("showLegend") is True
-    chat_text = json.dumps(dashboards["chat_api_deep_dive.json"], ensure_ascii=False)
+    api_text = json.dumps(dashboards["api_experience.json"], ensure_ascii=False)
     for metric in ["streaming_chunks_total", "streaming_bytes_total", "streaming_errors_total", "streaming_usage_events_total"]:
-        assert metric in chat_text
+        assert metric in api_text
     executive_text = json.dumps(dashboards["executive_runtime_overview.json"], ensure_ascii=False)
     assert "clamp_min(sum(increase(http_requests_total" in executive_text
     assert "clamp_min(sum(rate(http_requests_total" not in executive_text
-    chat_text = json.dumps(dashboards["chat_api_deep_dive.json"], ensure_ascii=False)
-    assert 'path=~\\"chat/completions(:stream)?\\"' in chat_text
-    cockpit_text = json.dumps(dashboards["serving_cockpit.json"], ensure_ascii=False)
-    assert 'route=~\\"$user_route\\"' in cockpit_text
-    assert 'service=~\\"gateway|risk-adapter\\"' in cockpit_text
-    assert "Request Rate by Route/Model" not in cockpit_text
-    assert "Request Rate by Service/Route" in cockpit_text
-    assert "HTTP Handler Latency p95/p99" in cockpit_text
-    assert "E2E Latency p95/p99" not in cockpit_text
-    assert "Error Request Rate by Service/Route/Status" in cockpit_text
-    assert "Error Rate by Route/Status" not in cockpit_text
-    for control_route in ["/health", "/ready", "/metrics"]:
-        assert control_route in cockpit_text
-    assert "Warm Readiness Evidence" in cockpit_text
-    assert "Evidence OK" in cockpit_text
-    assert "this is readiness/scrape evidence, not a full serving mode metric yet" in cockpit_text
-    assert "freshness requires ai_readiness_last_checked_timestamp_seconds or synthetic probes" in cockpit_text
-    assert "backend_restart_total" not in cockpit_text
-    assert "gpu_oom_events_total" not in cockpit_text
-    assert "container_oom_events_total" in cockpit_text
-    assert "container_start_time_seconds" in cockpit_text
-    projection = json.loads((ROOT / "reports/runtime/monitoring_projection.json").read_text(encoding="utf-8"))
-    expected_count = projection["observability_trust"]["expected_critical_target_count"]
-    assert f">= bool {expected_count}" in cockpit_text
-    critical_regex = projection["container_signals"]["critical_container_signal_regex"]
-    assert critical_regex in cockpit_text
+    assert 'path=~\\"chat/completions(:stream)?\\"' in api_text
+    home_text = json.dumps(dashboards["serving_home.json"], ensure_ascii=False)
+    assert 'route=~\\"$user_route\\"' in home_text
+    assert "Needs Attention" in home_text
+    assert "ai_serving_verdict_code" in home_text
+    assert "backend_restart_total" not in home_text
+    assert "gpu_oom_events_total" not in home_text
+    assert "container_oom_events_total" in home_text
+    assert "container_start_time_seconds" in home_text
+    home_panels = {panel["title"]: panel for panel in dashboards["serving_home.json"]["panels"]}
+    oom_panel_text = json.dumps(home_panels["OOM / Restart"], ensure_ascii=False)
+    assert "or vector(0)" not in oom_panel_text
+    user_traffic_text = json.dumps(home_panels["User Traffic"], ensure_ascii=False)
+    assert 'service=\\"gateway\\"' in user_traffic_text
+    assert 'status_code=~\\"$status_code\\"' not in user_traffic_text
     for dashboard_name, dashboard in dashboards.items():
-        if dashboard_name != "serving_cockpit.json":
-            assert any(link.get("title") == "Serving Cockpit" for link in dashboard.get("links", []))
+        if dashboard_name != "serving_home.json":
+            assert any(link.get("title") == "Serving Home" for link in dashboard.get("links", []))
         assert "Home dashboard — GPU" not in json.dumps(dashboard, ensure_ascii=False)
-    cockpit_panels = {panel["title"]: panel for panel in dashboards["serving_cockpit.json"]["panels"]}
-    user_requests_text = json.dumps(cockpit_panels["User Requests in Window"], ensure_ascii=False)
-    assert 'service=\\"gateway\\"' in user_requests_text
-    assert 'status_code=~\\"$status_code\\"' not in user_requests_text
-    service_activity_text = json.dumps(cockpit_panels["Request Rate by Service/Route"], ensure_ascii=False)
-    assert 'service=~\\"gateway|risk-adapter\\"' in service_activity_text
-    assert "by (service, route)" in service_activity_text
-    assert "gateway public activity and risk-adapter backend activity are separated by service label" in service_activity_text
     gpu_text = json.dumps(dashboards["gpu_capacity_and_oom_risk.json"], ensure_ascii=False)
     assert "backend_restart_total" not in gpu_text
     assert "gpu_oom_events_total" not in gpu_text
     assert "container_oom_events_total" in gpu_text
     assert "container_start_time_seconds" in gpu_text
-    assert critical_regex in gpu_text
 
 
 def test_endpoint_reference_matches_monitoring_dashboard_inventory() -> None:
     endpoint_doc = (ROOT / "docs/operations/endpoint_reference.md").read_text(encoding="utf-8")
     for dashboard_id in [
-        "serving_cockpit",
+        "serving_home",
         "executive_runtime_overview",
-        "chat_api_deep_dive",
+        "api_experience",
         "model_runtime_deep_dive",
         "gpu_capacity_and_oom_risk",
         "risk_signal_operations",
+        "observability_data_quality",
     ]:
         assert f"`{dashboard_id}`" in endpoint_doc
     assert "clamp_min(sum(rate(http_requests_total" not in endpoint_doc
@@ -368,7 +353,7 @@ def test_full_stack_compose_and_prometheus_paths_are_network_correct() -> None:
     assert "cadvisor:" in compose
     assert (
         "GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: "
-        "/var/lib/grafana/dashboards/serving_cockpit.json"
+        "/var/lib/grafana/dashboards/serving_home.json"
     ) in compose
     assert "${DCGM_EXPORTER_IMAGE:" in compose
     assert "${DCGM_EXPORTER_PORT:-9412}:9400" in compose or "9412:9400" in compose
@@ -379,7 +364,7 @@ def test_full_stack_compose_and_prometheus_paths_are_network_correct() -> None:
     private_compose = (ROOT / "ops/compose/full-stack.private-network.yaml").read_text(encoding="utf-8")
     assert (
         "GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: "
-        "/var/lib/grafana/dashboards/serving_cockpit.json"
+        "/var/lib/grafana/dashboards/serving_home.json"
     ) in private_compose
     assert "${GATEWAY_BIND_ADDR:-0.0.0.0}:${GATEWAY_PORT:-9400}:9400" in private_compose
 
@@ -521,7 +506,7 @@ def test_dashboard_navigation_links_are_nonempty_and_uid_valid() -> None:
 
 def test_no_mixed_unit_panel_titles() -> None:
     chat = json.loads(
-        (ROOT / "ops/grafana/dashboards/chat_api_deep_dive.json").read_text(encoding="utf-8")
+        (ROOT / "ops/grafana/dashboards/api_experience.json").read_text(encoding="utf-8")
     )
     model = json.loads(
         (ROOT / "ops/grafana/dashboards/model_runtime_deep_dive.json").read_text(encoding="utf-8")

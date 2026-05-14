@@ -14,10 +14,10 @@
       "keepTime": true,
       "tags": [],
       "targetBlank": false,
-      "title": "Serving Cockpit",
-      "tooltip": "Home dashboard — idle-aware service, runtime, GPU, and observability cockpit",
+      "title": "Serving Home",
+      "tooltip": "Serving Home — operator triage surface with verdict, evidence, and drill-down",
       "type": "link",
-      "url": "/d/serving_cockpit/serving-cockpit"
+      "url": "/d/serving_home/serving-home"
     },
     {
       "asDropdown": false,
@@ -38,10 +38,10 @@
       "keepTime": true,
       "tags": [],
       "targetBlank": false,
-      "title": "Chat API Deep Dive",
-      "tooltip": "Chat and streaming relay metrics",
+      "title": "API Experience",
+      "tooltip": "Chat latency, streaming, and API experience metrics",
       "type": "link",
-      "url": "/d/chat_api_deep_dive/chat-api-deep-dive"
+      "url": "/d/api_experience/api-experience"
     }
   ],
   "liveNow": false,

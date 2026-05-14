@@ -28,8 +28,8 @@ monitoring_stack:
         DB do not write back to JSON sources.
     dashboard_language_policy: Korean-first titles with English metric terms; PromQL
       metric names and label values stay ASCII/English.
-    dashboard_variable_scope: Cockpit-inclusive variable list used by monitoring projection; all dashboards
-      use datasource/window/model/runtime_service/route/status_code, while serving_cockpit
+    dashboard_variable_scope: Home-inclusive variable list used by monitoring projection; all dashboards
+      use datasource/window/model/runtime_service/route/status_code, while serving_home
       additionally uses user_route.
     dashboard_variables:
     - datasource
@@ -117,9 +117,9 @@ metric_sources:
     - container_oom_events_total
     - container_start_time_seconds
     source: cadvisor_recording_rules
-    serving_cockpit_source_metrics:
+    serving_home_source_metrics:
     - metric: container_oom_events_total
-      purpose: Container OOM event evidence for Serving Cockpit and GPU/OOM drill-down.
+      purpose: Container OOM event evidence for Serving Home and GPU/OOM drill-down.
     - metric: container_start_time_seconds
       purpose: Container restart signal via changes() over the selected dashboard window.
   container_signal_sources:
@@ -141,25 +141,29 @@ metric_sources:
     - gpu_memory_headroom_bytes
     source: dcgm_exporter_or_site_recording_rules
 ux_dashboards:
-- id: serving_cockpit
+- id: serving_home
   audience: operator
-  purpose: Idle-aware serving cockpit that combines service readiness, user traffic,
-    runtime scrape health, GPU warm residency, OOM/restart absence, and drill-down
+  purpose: Idle-aware serving home that combines a verdict banner, evidence cards, Needs
+    Attention triage table, GPU warm residency, runtime capacity timeseries, and drill-down
     routing.
   panels:
-  - compact_operator_banner
-  - overall_status
-  - user_requests_in_window
-  - model_gateway_ready
-  - prometheus_target_health
-  - min_gpu_headroom
-  - container_oom_restart_signals
-  - warm_readiness_evidence
-  - runtime_activity_timeline
-  - user_impact
-  - runtime_capacity_chain
-  - gpu_warm_residency
-  - observability_trust
+  - operator_guide
+  - serving_verdict
+  - state
+  - user_traffic
+  - scrape_targets
+  - gpu_headroom
+  - oom_restart
+  - runtime_capacity
+  - needs_attention
+  - min_gpu_headroom_warm
+  - max_kv_cache_warm
+  - container_oom_restart_warm
+  - vram_used_vs_budget
+  - vllm_queue_depth
+  - kv_cache_pressure
+  - token_throughput
+  - gpu_utilization
   - drill_down_links
 - id: gpu_capacity_and_oom_risk
   audience: runtime_engineer
@@ -183,7 +187,7 @@ ux_dashboards:
   audience: reviewer_or_operator
   purpose: Reviewer/operator drill-down overview for service health, traffic, latency,
     error rate, GPU headroom, scrape health, readiness, and risk signal health after
-    the Serving Cockpit home dashboard.
+    the Serving Home dashboard.
   panels:
   - operator_guide
   - overall_status
@@ -211,10 +215,10 @@ ux_dashboards:
   - system_signal_distribution
   - forbidden_field_by_name
   - detector_status_trend
-- id: chat_api_deep_dive
+- id: api_experience
   audience: gateway_or_runtime_engineer
-  purpose: Chat completions and streaming relay observability using existing Gateway
-    metrics, including TTFT and full stream duration histograms.
+  purpose: API experience observability for chat completions, embeddings, and streaming
+    relay using Gateway metrics including TTFT and full stream duration histograms.
   panels:
   - chat_operator_guide
   - chat_request_rate
@@ -229,6 +233,24 @@ ux_dashboards:
   - streaming_duration_chunks
   - validation_auth_issues
   - upstream_errors_by_model
+- id: observability_data_quality
+  audience: operator_or_platform_engineer
+  purpose: Observability data quality surface for scrape target visibility, up vs absent
+    distinction, recording rule health, and vLLM metric availability.
+  panels:
+  - operator_guide
+  - visible_targets_vs_expected
+  - up_targets_vs_visible
+  - missing_critical_targets
+  - gateway_availability
+  - risk_adapter_availability
+  - dcgm_availability
+  - cadvisor_availability
+  - missing_target_detection
+  - down_target_detection
+  - vllm_metric_availability
+  - readiness_metric_freshness
+  - recording_rules_health
 - id: model_runtime_deep_dive
   audience: runtime_engineer
   purpose: Model/runtime drill-down by model and runtime_service labels.
@@ -265,7 +287,7 @@ reference_decisions:
 operator_status_ux:
   goal: Operators must understand the current operating state from the first Grafana
     screen without reading logs or raw metrics.
-  landing_dashboard: serving_cockpit
+  landing_dashboard: serving_home
   serving_modes:
   - mode: ACTIVE
     meaning: User request activity is present and readiness, scrape, GPU headroom,
@@ -313,8 +335,8 @@ operator_status_ux:
     Korean may remain in operator guide body text and documentation.
   visible_runbook_rule: Each dashboard starts with a Text panel so first-time operators
     do not need to discover tooltip descriptions.
-  dashboard_variable_scope: Cockpit-inclusive variable list; user_route is Serving
-    Cockpit only.
+  dashboard_variable_scope: Home-inclusive variable list; user_route is Serving
+    Home only.
   dashboard_variables:
   - datasource
   - window
@@ -324,12 +346,13 @@ operator_status_ux:
   - user_route
   - status_code
   drill_down_order:
-  - serving_cockpit
+  - serving_home
   - gpu_capacity_and_oom_risk
   - executive_runtime_overview
-  - chat_api_deep_dive
+  - api_experience
   - model_runtime_deep_dive
   - risk_signal_operations
+  - observability_data_quality
   traffic_classes:
   - class: user
     routes:

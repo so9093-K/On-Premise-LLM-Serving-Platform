@@ -14,10 +14,10 @@
       "keepTime": true,
       "tags": [],
       "targetBlank": false,
-      "title": "Serving Cockpit",
-      "tooltip": "Home dashboard — idle-aware service, runtime, GPU, and observability cockpit",
+      "title": "Serving Home",
+      "tooltip": "Serving Home — operator triage surface with verdict, evidence, and drill-down",
       "type": "link",
-      "url": "/d/serving_cockpit/serving-cockpit"
+      "url": "/d/serving_home/serving-home"
     },
     {
       "asDropdown": false,

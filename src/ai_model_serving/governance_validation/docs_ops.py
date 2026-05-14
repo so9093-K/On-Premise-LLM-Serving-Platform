@@ -88,12 +88,13 @@ def validate_monitoring_reference() -> None:
             raise SystemExit(f'monitoring port mismatch in ports.yaml: {name}={ports.get(name)}')
     dashboards = {d['id'] for d in monitoring['ux_dashboards']}
     required = {
-        'serving_cockpit',
+        'serving_home',
         'executive_runtime_overview',
         'gpu_capacity_and_oom_risk',
         'risk_signal_operations',
-        'chat_api_deep_dive',
+        'api_experience',
         'model_runtime_deep_dive',
+        'observability_data_quality',
     }
     if not required.issubset(dashboards):
         raise SystemExit(f'missing required monitoring dashboards: {required - dashboards}')
@@ -103,8 +104,8 @@ def validate_monitoring_reference() -> None:
             raise SystemExit(f'monitoring privacy policy must forbid {key}')
 
     operator = monitoring.get('operator_status_ux', {})
-    if operator.get('landing_dashboard') != 'serving_cockpit':
-        raise SystemExit('monitoring UX must define serving_cockpit as the landing dashboard')
+    if operator.get('landing_dashboard') != 'serving_home':
+        raise SystemExit('monitoring UX must define serving_home as the landing dashboard')
     levels = {item['level'] for item in operator.get('status_levels', [])}
     if levels != {'green', 'yellow', 'red', 'gray'}:
         raise SystemExit(f'monitoring status levels must be green/yellow/red/gray, got {levels}')

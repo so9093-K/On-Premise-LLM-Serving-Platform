@@ -149,7 +149,7 @@ full-stack compose 기동 후:
 
 | 서비스 | URL |
 |---|---|
-| Grafana | `http://localhost:9411` (기본 dashboard: `Serving Cockpit`) |
+| Grafana | `http://localhost:9411` (기본 dashboard: `Serving Home`) |
 | Prometheus | `http://localhost:9410` |
 
 ```bash
@@ -157,7 +157,7 @@ make monitoring-projection      # Prometheus/Grafana projection 리포트
 make operator-reports           # 전체 운영 리포트 통합 생성
 ```
 
-현재 dashboard는 6개다: `serving_cockpit`, `gpu_capacity_and_oom_risk`, `executive_runtime_overview`, `chat_api_deep_dive`, `model_runtime_deep_dive`, `risk_signal_operations`.
+현재 dashboard는 7개다: `serving_home`, `gpu_capacity_and_oom_risk`, `executive_runtime_overview`, `api_experience`, `model_runtime_deep_dive`, `risk_signal_operations`, `observability_data_quality`.
 
 - 📄 [operations/monitoring_ux.md](operations/monitoring_ux.md)
 - 📄 [operations/status_board_ux.md](operations/status_board_ux.md)

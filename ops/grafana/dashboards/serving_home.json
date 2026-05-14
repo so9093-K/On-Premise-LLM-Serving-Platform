@@ -1,0 +1,1202 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "GPU Capacity and OOM Risk",
+      "tooltip": "GPU pressure or OOM risk → GPU Capacity and OOM Risk",
+      "type": "link",
+      "url": "/d/gpu_capacity_and_oom_risk/gpu-capacity-and-oom-risk"
+    },
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "Executive Runtime Overview",
+      "tooltip": "Executive runtime reviewer summary",
+      "type": "link",
+      "url": "/d/executive_runtime_overview/executive-runtime-overview"
+    },
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "API Experience",
+      "tooltip": "Chat latency or streaming issue → API Experience",
+      "type": "link",
+      "url": "/d/api_experience/api-experience"
+    },
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "Model Runtime Deep Dive",
+      "tooltip": "Queue or KV pressure → Model Runtime Deep Dive",
+      "type": "link",
+      "url": "/d/model_runtime_deep_dive/model-runtime-deep-dive"
+    },
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "Risk Signal Operations",
+      "tooltip": "Risk timeout or detector issue → Risk Signal Operations",
+      "type": "link",
+      "url": "/d/risk_signal_operations/risk-signal-operations"
+    },
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "Observability / Data Quality",
+      "tooltip": "Scrape target or metric freshness issue → Observability / Data Quality",
+      "type": "link",
+      "url": "/d/observability_data_quality/observability-data-quality"
+    }
+  ],
+  "liveNow": false,
+  "panels": [
+    {
+      "id": 100,
+      "type": "text",
+      "title": "Serving Home Operator Guide",
+      "description": "Action: use Serving Verdict and Evidence Cards to triage in 5 seconds. No Data in evidence cards means check Observability / Data Quality before assuming healthy zero.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 5
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "# Serving Home\n\nThis dashboard is an **operator triage surface**. The first screen answers: *What is the current state, is there user impact, how trustworthy is the evidence, and what do I do next?*\n\n- **HEALTHY ACTIVE**: user traffic is present and all critical evidence is healthy.\n- **IDLE WARM**: no user traffic, but GPU is warm, readiness is up, and scrape evidence is healthy. This is normal.\n- **IDLE COLD**: no user traffic and warm-state evidence (readiness / headroom / scrape) is missing or degraded.\n- **USER IMPACT**: 5xx rate or latency is above threshold. Open API Experience and Model Runtime Deep Dive.\n- **CAPACITY RISK**: GPU headroom is low or an OOM/restart event was observed. Open GPU Capacity and OOM Risk.\n- **OBSERVABILITY DEGRADED**: fewer scrape targets visible than expected. Open Observability / Data Quality.\n- **NO DATA**: Prometheus has no trustworthy runtime data. This is different from a numeric zero.\n\nDrill-down order: GPU pressure / OOM → GPU Capacity and OOM Risk. Queue / KV pressure → Model Runtime Deep Dive. Chat latency / streaming → API Experience. Risk timeout / detector → Risk Signal Operations. Scrape or metric freshness → Observability / Data Quality.\n"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    },
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Serving Verdict",
+      "description": "Healthy: HEALTHY ACTIVE (code 4) or IDLE WARM (code 3) means the stack is ready. Attention: IDLE COLD (code 2) or OBSERVABILITY DEGRADED (code 5) needs triage. Action Required: USER IMPACT (code 7) or CAPACITY RISK (code 6) requires immediate drill-down. No Data: verdict recording rule absent — check observability_data_quality.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 5,
+        "w": 24,
+        "h": 4
+      },
+      "targets": [
+        {
+          "expr": "ai_serving_verdict_code",
+          "refId": "A",
+          "legendFormat": "verdict"
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "value_and_name"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "2": {
+                  "text": "IDLE COLD",
+                  "color": "yellow"
+                },
+                "3": {
+                  "text": "IDLE WARM",
+                  "color": "blue"
+                },
+                "4": {
+                  "text": "HEALTHY ACTIVE",
+                  "color": "green"
+                },
+                "5": {
+                  "text": "OBSERVABILITY DEGRADED",
+                  "color": "orange"
+                },
+                "6": {
+                  "text": "CAPACITY RISK",
+                  "color": "orange"
+                },
+                "7": {
+                  "text": "USER IMPACT",
+                  "color": "red"
+                }
+              }
+            },
+            {
+              "type": "special",
+              "options": {
+                "match": "null",
+                "result": {
+                  "text": "NO DATA",
+                  "color": "gray"
+                }
+              }
+            }
+          ],
+          "noValue": "NO DATA",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "gray", "value": null},
+              {"color": "yellow", "value": 2},
+              {"color": "blue", "value": 3},
+              {"color": "green", "value": 4},
+              {"color": "orange", "value": 5},
+              {"color": "red", "value": 7}
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "State",
+      "description": "Healthy: overall_runtime_status and service_readiness_status are 1. Action Required: 0 means a readiness path failed. No Data: readiness metric absent or scrape down — do not read No Data as 0.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 9,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "expr": "min(overall_runtime_status)",
+          "refId": "A",
+          "legendFormat": "runtime"
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {"text": "Not Ready", "color": "red"},
+                "1": {"text": "Ready", "color": "green"}
+              }
+            }
+          ],
+          "noValue": "Unavailable",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "gray", "value": null},
+              {"color": "red", "value": 0},
+              {"color": "green", "value": 1}
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "User Traffic",
+      "description": "Healthy: non-zero means active user sessions. Attention: 0 is gray (not red) — idle is normal. No Data: gateway scrape is missing; 0 is suppressed when exporter is absent so this shows No Data rather than false zero.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "x": 4,
+        "y": 9,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "expr": "sum(increase(http_requests_total{service=\"gateway\",route=~\"$user_route\",route!~\"/health|/ready|/v1/models|/metrics|/docs|/openapi.json\"}[$window])) or on() (sum(up{job=\"gateway\"}) * 0)",
+          "refId": "A",
+          "legendFormat": "user requests"
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "Metric Unavailable",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "blue", "value": null},
+              {"color": "green", "value": 1}
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Scrape Targets",
+      "description": "Healthy: visible count equals 7 expected. Attention: below 7 means a target is missing or misconfigured — open Observability / Data Quality. No Data: Prometheus up series absent. The expected critical target count is projected from gateway + risk-adapter + vLLM runtime targets + dcgm + cadvisor.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 9,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "expr": "count(up{job=~\"gateway|risk-adapter|vllm-runtimes|dcgm-exporter|cadvisor\"})",
+          "refId": "A",
+          "legendFormat": "visible"
+        },
+        {
+          "expr": "sum(up{job=~\"gateway|risk-adapter|vllm-runtimes|dcgm-exporter|cadvisor\"})",
+          "refId": "B",
+          "legendFormat": "up"
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"]
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No Target Data",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "red", "value": null},
+              {"color": "orange", "value": 5},
+              {"color": "green", "value": 7}
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "GPU Headroom",
+      "description": "Healthy: selected-range minimum VRAM headroom stays above 6 GiB. Attention: 4-6 GiB is orange. Action Required: below 4 GiB is red. No Data: GPU exporter absent — do not read No Data as zero headroom.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 9,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "expr": "min_over_time(gpu_memory_headroom_bytes[$__range])",
+          "refId": "A",
+          "legendFormat": "min headroom"
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "decimals": 1,
+          "noValue": "GPU Exporter Absent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "red", "value": null},
+              {"color": "orange", "value": 4294967296},
+              {"color": "green", "value": 6442450944}
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "OOM / Restart",
+      "description": "Healthy: 0 OOM events and 0 container start-time changes when cAdvisor scrape is green. Action Required: any value above 0 requires drill-down to GPU Capacity and OOM Risk. No Data: cAdvisor source metric absent — do not read No Data as 0.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 9,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "expr": "sum(increase(container_oom_events_total{container_label_com_docker_compose_service=~\"gateway|risk-adapter|main-llm-vllm|embedding-vllm|risk-prompt-vllm\"}[$window]))",
+          "refId": "A",
+          "legendFormat": "oom events"
+        },
+        {
+          "expr": "sum(changes(container_start_time_seconds{container_label_com_docker_compose_service=~\"gateway|risk-adapter|main-llm-vllm|embedding-vllm|risk-prompt-vllm\"}[$window]))",
+          "refId": "B",
+          "legendFormat": "restart signals"
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "cAdvisor Absent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "red", "value": 1}
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 7,
+      "type": "stat",
+      "title": "Runtime Capacity",
+      "description": "Healthy: max KV cache pressure and max queue depth are near zero at idle. Attention: KV above 0.8 or queue above 10 needs attention. Action Required: KV above 0.9 or OOM risk. No Data: vLLM metric absent.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "x": 20,
+        "y": 9,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "expr": "max_over_time(vllm_kv_cache_usage_ratio{model=~\"$model\",runtime_service=~\"$runtime_service\"}[$__range])",
+          "refId": "A",
+          "legendFormat": "max KV"
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "decimals": 2,
+          "noValue": "vLLM Absent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "orange", "value": 0.8},
+              {"color": "red", "value": 0.9}
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 8,
+      "type": "table",
+      "title": "Needs Attention",
+      "description": "Healthy: all signals below threshold — no action needed. Attention: orange rows need monitoring. Action Required: red rows need immediate drill-down. No Data in a row means the exporter for that signal is absent — open Observability / Data Quality to diagnose.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 13,
+        "w": 24,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "label_replace(label_replace((count(up{job=~\"gateway|risk-adapter|vllm-runtimes|dcgm-exporter|cadvisor\"}) or vector(0)), \"area\", \"Observability\", \"\", \"\"), \"suggested_action\", \"Open: Observability / Data Quality\", \"\", \"\")",
+          "instant": true,
+          "refId": "A",
+          "legendFormat": "Visible Targets"
+        },
+        {
+          "expr": "label_replace(label_replace((min_over_time(gpu_memory_headroom_bytes[$__range])), \"area\", \"GPU Capacity\", \"\", \"\"), \"suggested_action\", \"Open: GPU Capacity and OOM Risk\", \"\", \"\")",
+          "instant": true,
+          "refId": "B",
+          "legendFormat": "Min GPU Headroom (bytes)"
+        },
+        {
+          "expr": "label_replace(label_replace((sum(increase(container_oom_events_total{container_label_com_docker_compose_service=~\"gateway|risk-adapter|main-llm-vllm|embedding-vllm|risk-prompt-vllm\"}[$__range])) or vector(0)), \"area\", \"OOM / Restart\", \"\", \"\"), \"suggested_action\", \"Open: GPU Capacity and OOM Risk\", \"\", \"\")",
+          "instant": true,
+          "refId": "C",
+          "legendFormat": "OOM / Restart Events"
+        },
+        {
+          "expr": "label_replace(label_replace((sum(increase(http_requests_total{service=\"gateway\",route=~\"/v1/chat/completions|/v1/embeddings|/v1/risk/.*\",route!~\"/health|/ready|/v1/models|/metrics|/docs|/openapi.json\"}[$__range])) or on() (sum(up{job=\"gateway\"}) * 0)), \"area\", \"User Traffic\", \"\", \"\"), \"suggested_action\", \"No action if idle expected. Open: API Experience if 5xx present.\", \"\", \"\")",
+          "instant": true,
+          "refId": "D",
+          "legendFormat": "User Requests in Range"
+        },
+        {
+          "expr": "label_replace(label_replace((max_over_time(vllm_kv_cache_usage_ratio{model=~\"$model\",runtime_service=~\"$runtime_service\"}[$__range]) or vector(0)), \"area\", \"Runtime Capacity\", \"\", \"\"), \"suggested_action\", \"Open: Model Runtime Deep Dive\", \"\", \"\")",
+          "instant": true,
+          "refId": "E",
+          "legendFormat": "Max KV Cache Pressure"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "labelsToFields",
+          "options": {
+            "mode": "rows",
+            "valueLabel": "area"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "job": true,
+              "instance": true,
+              "model": true,
+              "runtime_service": true
+            },
+            "renameByName": {
+              "area": "Area",
+              "suggested_action": "Suggested Action",
+              "Value": "Current Value",
+              "Metric": "Signal"
+            },
+            "indexByName": {
+              "area": 0,
+              "suggested_action": 1,
+              "Value": 2
+            }
+          }
+        }
+      ],
+      "options": {
+        "showHeader": true,
+        "footer": {"show": false}
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "left",
+            "displayMode": "color-background"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {"id": "byName", "options": "Visible Targets"},
+            "properties": [
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {"color": "red", "value": null},
+                    {"color": "orange", "value": 5},
+                    {"color": "green", "value": 7}
+                  ]
+                }
+              },
+              {"id": "custom.displayMode", "value": "color-background"}
+            ]
+          },
+          {
+            "matcher": {"id": "byName", "options": "Min GPU Headroom (bytes)"},
+            "properties": [
+              {
+                "id": "unit",
+                "value": "bytes"
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {"color": "red", "value": null},
+                    {"color": "orange", "value": 4294967296},
+                    {"color": "green", "value": 6442450944}
+                  ]
+                }
+              },
+              {"id": "custom.displayMode", "value": "color-background"}
+            ]
+          },
+          {
+            "matcher": {"id": "byName", "options": "OOM / Restart Events"},
+            "properties": [
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {"color": "green", "value": null},
+                    {"color": "red", "value": 1}
+                  ]
+                }
+              },
+              {"id": "custom.displayMode", "value": "color-background"}
+            ]
+          },
+          {
+            "matcher": {"id": "byName", "options": "User Requests in Range"},
+            "properties": [
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {"color": "blue", "value": null},
+                    {"color": "green", "value": 1}
+                  ]
+                }
+              },
+              {"id": "custom.displayMode", "value": "color-background"}
+            ]
+          },
+          {
+            "matcher": {"id": "byName", "options": "Max KV Cache Pressure"},
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percentunit"
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {"color": "green", "value": null},
+                    {"color": "orange", "value": 0.8},
+                    {"color": "red", "value": 0.9}
+                  ]
+                }
+              },
+              {"id": "custom.displayMode", "value": "color-background"}
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": 9,
+      "type": "stat",
+      "title": "Min GPU Headroom",
+      "description": "Healthy: minimum over selected range stays above 6 GiB. Attention: 4-6 GiB means pressure may have occurred. Action Required: below 4 GiB indicates OOM risk. No Data: GPU exporter absent.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 21,
+        "w": 4,
+        "h": 6
+      },
+      "targets": [
+        {
+          "expr": "min_over_time(gpu_memory_headroom_bytes[$__range])",
+          "refId": "A",
+          "legendFormat": "min headroom"
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "decimals": 1,
+          "noValue": "GPU Exporter Absent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "red", "value": null},
+              {"color": "orange", "value": 4294967296},
+              {"color": "green", "value": 6442450944}
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 10,
+      "type": "stat",
+      "title": "Max KV Cache Pressure",
+      "description": "Healthy: max KV pressure stays below 0.8 in range. Attention: 0.8-0.9 is elevated. Action Required: above 0.9 can precede OOM. No Data: vLLM KV metric absent.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "x": 4,
+        "y": 21,
+        "w": 4,
+        "h": 6
+      },
+      "targets": [
+        {
+          "expr": "max_over_time(vllm_kv_cache_usage_ratio{model=~\"$model\",runtime_service=~\"$runtime_service\"}[$__range])",
+          "refId": "A",
+          "legendFormat": "max KV"
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "decimals": 2,
+          "noValue": "vLLM Absent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "orange", "value": 0.8},
+              {"color": "red", "value": 0.9}
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 11,
+      "type": "stat",
+      "title": "Container OOM / Restart Signals",
+      "description": "Healthy: 0 OOM events and 0 restart signals in selected range when cAdvisor scrape is green. Action Required: any value above 0 requires GPU Capacity and OOM Risk drill-down. No Data: cAdvisor source metric absent — do not read No Data as 0.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 21,
+        "w": 4,
+        "h": 6
+      },
+      "targets": [
+        {
+          "expr": "sum(increase(container_oom_events_total{container_label_com_docker_compose_service=~\"gateway|risk-adapter|main-llm-vllm|embedding-vllm|risk-prompt-vllm\"}[$__range]))",
+          "refId": "A",
+          "legendFormat": "oom events"
+        },
+        {
+          "expr": "sum(changes(container_start_time_seconds{container_label_com_docker_compose_service=~\"gateway|risk-adapter|main-llm-vllm|embedding-vllm|risk-prompt-vllm\"}[$__range]))",
+          "refId": "B",
+          "legendFormat": "restart signals"
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "cAdvisor Absent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "red", "value": 1}
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 12,
+      "type": "timeseries",
+      "title": "VRAM Used vs Budget",
+      "description": "Healthy: used VRAM remains under budget lines. Attention: approaching 40-43 GiB budget lines. No Data: DCGM memory metrics absent. GPU warm residency during idle is normal — high VRAM used at idle is expected.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 21,
+        "w": 12,
+        "h": 6
+      },
+      "targets": [
+        {
+          "expr": "DCGM_FI_DEV_FB_USED * 1024 * 1024",
+          "refId": "A",
+          "legendFormat": "used"
+        },
+        {
+          "expr": "DCGM_FI_DEV_FB_TOTAL * 1024 * 1024",
+          "refId": "B",
+          "legendFormat": "total"
+        },
+        {
+          "expr": "vector(40 * 1024 * 1024 * 1024)",
+          "refId": "C",
+          "legendFormat": "40 GiB budget"
+        },
+        {
+          "expr": "vector(43 * 1024 * 1024 * 1024)",
+          "refId": "D",
+          "legendFormat": "43 GiB budget"
+        }
+      ],
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 13,
+      "type": "timeseries",
+      "title": "vLLM Queue Depth",
+      "description": "Healthy: queue remains near zero at idle and follows traffic under load. Attention: rising queue before latency impact indicates runtime saturation. No Data: vLLM metric absent.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 27,
+        "w": 6,
+        "h": 6
+      },
+      "targets": [
+        {
+          "expr": "vllm_queue_depth{model=~\"$model\",runtime_service=~\"$runtime_service\"}",
+          "refId": "A",
+          "legendFormat": "{{model}} {{runtime_service}}"
+        }
+      ],
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    },
+    {
+      "id": 14,
+      "type": "timeseries",
+      "title": "KV Cache Pressure",
+      "description": "Healthy: KV pressure below 0.8 at idle. Attention: sustained high pressure can precede OOM. No Data: vLLM KV metric absent.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 27,
+        "w": 6,
+        "h": 6
+      },
+      "targets": [
+        {
+          "expr": "vllm_kv_cache_usage_ratio{model=~\"$model\",runtime_service=~\"$runtime_service\"}",
+          "refId": "A",
+          "legendFormat": "{{model}} {{runtime_service}}"
+        }
+      ],
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 15,
+      "type": "timeseries",
+      "title": "Token Throughput",
+      "description": "Healthy: throughput follows user traffic. Attention: throughput without user traffic may be background activity. No Data: vLLM token metric absent.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 27,
+        "w": 6,
+        "h": 6
+      },
+      "targets": [
+        {
+          "expr": "vllm_token_throughput_per_second{model=~\"$model\",runtime_service=~\"$runtime_service\"}",
+          "refId": "A",
+          "legendFormat": "{{model}} {{runtime_service}}"
+        }
+      ],
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 16,
+      "type": "timeseries",
+      "title": "GPU Utilization",
+      "description": "Healthy: low utilization at idle is expected. Attention: high utilization without user traffic needs review. No Data: GPU exporter absent.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 27,
+        "w": 6,
+        "h": 6
+      },
+      "targets": [
+        {
+          "expr": "gpu_utilization_ratio",
+          "refId": "A",
+          "legendFormat": "gpu utilization"
+        }
+      ],
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 17,
+      "type": "text",
+      "title": "Drill-down Links",
+      "description": "Action: use these drill-downs after the home verdict identifies the failing evidence chain. Healthy: IDLE WARM with all evidence green needs no drill-down.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 33,
+        "w": 24,
+        "h": 4
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "**When to drill down:**\n- GPU pressure or OOM risk → [GPU Capacity and OOM Risk](/d/gpu_capacity_and_oom_risk/gpu-capacity-and-oom-risk)\n- Queue or KV pressure → [Model Runtime Deep Dive](/d/model_runtime_deep_dive/model-runtime-deep-dive)\n- Chat latency or streaming issue → [API Experience](/d/api_experience/api-experience)\n- Risk timeout or detector issue → [Risk Signal Operations](/d/risk_signal_operations/risk-signal-operations)\n- Scrape target or metric freshness issue → [Observability / Data Quality](/d/observability_data_quality/observability-data-quality)\n- Full runtime reviewer summary → [Executive Runtime Overview](/d/executive_runtime_overview/executive-runtime-overview)\n"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    }
+  ],
+  "refresh": "10s",
+  "schemaVersion": 39,
+  "style": "dark",
+  "tags": [
+    "contract-reference",
+    "serving",
+    "home",
+    "idle-aware"
+  ],
+  "templating": {
+    "list": [
+      {
+        "current": {
+          "selected": false,
+          "text": "Prometheus",
+          "value": "prometheus"
+        },
+        "hide": 0,
+        "includeAll": false,
+        "label": "Datasource",
+        "multi": false,
+        "name": "datasource",
+        "options": [],
+        "query": "prometheus",
+        "refresh": 1,
+        "regex": "",
+        "type": "datasource"
+      },
+      {
+        "current": {
+          "selected": false,
+          "text": "5m",
+          "value": "5m"
+        },
+        "hide": 0,
+        "includeAll": false,
+        "label": "Window",
+        "multi": false,
+        "name": "window",
+        "options": [
+          {"selected": false, "text": "1m", "value": "1m"},
+          {"selected": false, "text": "5m", "value": "5m"},
+          {"selected": false, "text": "15m", "value": "15m"},
+          {"selected": false, "text": "1h", "value": "1h"}
+        ],
+        "query": "1m,5m,15m,1h",
+        "type": "custom"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        },
+        "hide": 0,
+        "includeAll": true,
+        "label": "Model",
+        "multi": true,
+        "name": "model",
+        "options": [],
+        "query": "local-main,local-embed,risk-prompt",
+        "type": "custom"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        },
+        "hide": 0,
+        "includeAll": true,
+        "label": "Runtime Service",
+        "multi": true,
+        "name": "runtime_service",
+        "options": [],
+        "query": "main-llm-vllm,embedding-vllm,risk-prompt-vllm",
+        "type": "custom"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        },
+        "hide": 0,
+        "includeAll": true,
+        "label": "Route",
+        "multi": true,
+        "name": "route",
+        "options": [],
+        "query": "/v1/chat/completions,/v1/embeddings,/v1/risk/.*,/health,/ready,/v1/models,/metrics,/docs,/openapi.json",
+        "type": "custom"
+      },
+      {
+        "current": {
+          "selected": false,
+          "text": "All user routes",
+          "value": "/v1/chat/completions|/v1/embeddings|/v1/risk/.*"
+        },
+        "hide": 0,
+        "includeAll": false,
+        "label": "User Route Regex",
+        "multi": false,
+        "name": "user_route",
+        "options": [
+          {
+            "selected": true,
+            "text": "All user routes",
+            "value": "/v1/chat/completions|/v1/embeddings|/v1/risk/.*"
+          },
+          {
+            "selected": false,
+            "text": "Chat",
+            "value": "/v1/chat/completions"
+          },
+          {
+            "selected": false,
+            "text": "Embeddings",
+            "value": "/v1/embeddings"
+          },
+          {
+            "selected": false,
+            "text": "Risk",
+            "value": "/v1/risk/.*"
+          }
+        ],
+        "query": "All user routes : /v1/chat/completions|/v1/embeddings|/v1/risk/.*, Chat : /v1/chat/completions, Embeddings : /v1/embeddings, Risk : /v1/risk/.*",
+        "type": "custom"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        },
+        "hide": 0,
+        "includeAll": true,
+        "label": "Status Code",
+        "multi": true,
+        "name": "status_code",
+        "options": [],
+        "query": "2..,4..,5..,401,403,422,429,500,502,503,504",
+        "type": "custom"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Serving Home",
+  "uid": "serving_home",
+  "version": 1,
+  "weekStart": ""
+}

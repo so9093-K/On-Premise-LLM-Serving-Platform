@@ -108,7 +108,7 @@ def recording_rule_projection(*, registry: ModelRegistry) -> dict[str, Any]:
 
 
 def observability_trust_projection(*, registry: ModelRegistry) -> dict[str, Any]:
-    """Return scrape target expectations used by the Serving Cockpit."""
+    """Return scrape target expectations used by the Serving Home verdict banner."""
     return {
         "critical_jobs": ["gateway", "risk-adapter", "vllm-runtimes", "dcgm-exporter", "cadvisor"],
         "expected_critical_target_count": 1 + 1 + len(registry.runtime_validation_targets()) + 1 + 1,
@@ -222,9 +222,9 @@ def monitoring_projection_markdown(document: dict[str, Any]) -> str:
         f"Compose 서비스 정규식: `{rules.get('compose_service_regex', '')}`",
         f"필수 record: `{', '.join(rules.get('required_records', []))}`",
         "",
-        "## Serving Cockpit evidence",
+        "## Serving Home evidence",
         "",
-        "이 섹션은 Serving Cockpit 첫 화면의 scrape 신뢰도와 container OOM/restart signal이 어떤 기준에서 나온 값인지 설명한다. runtime target 수가 바뀌면 expected critical scrape target count와 dashboard query 검증도 함께 바뀐다.",
+        "이 섹션은 Serving Home 첫 화면의 scrape 신뢰도와 container OOM/restart signal이 어떤 기준에서 나온 값인지 설명한다. runtime target 수가 바뀌면 expected critical scrape target count와 dashboard query 검증도 함께 바뀐다.",
         "운영자는 이 값을 보고 idle 상태가 빈 화면인지, 정상 대기 상태인지, 또는 scrape 누락인지 구분한다. container signal regex는 Gateway, Risk Adapter, vLLM runtime 컨테이너를 함께 감시하기 위한 기준이다.",
         f"Expected critical scrape target count: `{trust.get('expected_critical_target_count', '')}`",
         f"Expected count formula: `{trust.get('count_formula', '')}`",

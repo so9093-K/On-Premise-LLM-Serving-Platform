@@ -45,3 +45,41 @@ groups:
         expr: max by (container_label_com_docker_compose_service) (container_memory_usage_bytes{container_label_com_docker_compose_service=~"main-llm-vllm|embedding-vllm|risk-prompt-vllm"})
       - record: vllm_container_cpu_usage_ratio
         expr: sum by (container_label_com_docker_compose_service) (rate(container_cpu_usage_seconds_total{container_label_com_docker_compose_service=~"main-llm-vllm|embedding-vllm|risk-prompt-vllm"}[1m]))
+      # Observability trust signals — expected vs observed scrape target counts.
+      # ai_expected_critical_targets reflects the reference topology (7 = gateway +
+      # risk-adapter + 3 vllm-runtimes + dcgm-exporter + cadvisor). Update this value
+      # whenever the topology changes and re-run monitoring-projection.
+      - record: ai_expected_critical_targets
+        expr: vector(7)
+      - record: ai_observed_critical_targets
+        expr: count(up{job=~"gateway|risk-adapter|vllm-runtimes|dcgm-exporter|cadvisor"})
+      - record: ai_up_critical_targets
+        expr: sum(up{job=~"gateway|risk-adapter|vllm-runtimes|dcgm-exporter|cadvisor"})
+      - record: ai_missing_critical_targets
+        expr: ai_expected_critical_targets - ai_observed_critical_targets
+      # Dynamic serving verdict code for the Serving Home banner.
+      # Priority (first non-absent match wins):
+      #   7 = USER_IMPACT    — 5xx rate above threshold
+      #   6 = CAPACITY_RISK  — GPU headroom < 4 GiB or OOM/restart detected
+      #   5 = OBS_DEGRADED   — fewer scrape targets than expected
+      #   4 = HEALTHY_ACTIVE — user traffic present
+      #   3 = IDLE_WARM      — readiness=1 and headroom ok, no traffic
+      #   2 = IDLE_COLD      — fallback when warm evidence is absent
+      # No Data (Grafana noValue) = verdict rule itself is absent.
+      # The trick: (expr > threshold) * 0 + code returns absent when condition is
+      # false/absent, and returns the code value when condition is true.
+      - record: ai_serving_verdict_code
+        expr: >
+          (sum(rate(http_requests_total{service="gateway",status_code=~"5.."}[5m])) > 0.01) * 0 + 7
+          or
+          ((min(gpu_memory_headroom_bytes) < 4294967296)
+          or
+          (sum(increase(container_oom_events_total{container_label_com_docker_compose_service=~"gateway|risk-adapter|main-llm-vllm|embedding-vllm|risk-prompt-vllm"}[5m])) > 0)) * 0 + 6
+          or
+          (count(up{job=~"gateway|risk-adapter|vllm-runtimes|dcgm-exporter|cadvisor"}) < 7) * 0 + 5
+          or
+          (sum(increase(http_requests_total{service="gateway",route=~"/v1/chat/completions|/v1/embeddings|/v1/risk/.*",route!~"/health|/ready|/v1/models|/metrics|/docs|/openapi.json"}[5m])) > 0) * 0 + 4
+          or
+          (min(service_readiness_status) == 1) * 0 + 3
+          or
+          vector(2)

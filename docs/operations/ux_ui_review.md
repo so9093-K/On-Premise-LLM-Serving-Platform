@@ -38,7 +38,7 @@ note: "이 문서는 UX 개선 이력을 기록한 리뷰 문서다. 각 섹션 
 - `.env.compose.example`의 Infisical 키와 `scripts/config/infisical_sync.py` 동기화 스크립트 추가. 별도 Infisical 전용 env 파일은 유지하지 않고, `make init-env-compose`가 생성하는 `.env`를 단일 설정 파일로 사용한다.
 
 ### 모니터링 UX (0.1.0-rc.1)
-- 초기 Grafana 3개 대시보드에 한국어 설명, `timezone: browser`, 대시보드 간 네비게이션 링크를 추가했고, 이후 운영 기준은 6개 dashboard와 variable-backed Git-managed JSON으로 확장했다. Grafana home은 `Serving Cockpit`이며 GPU dashboard는 GPU/OOM drill-down으로 유지한다.
+- 초기 Grafana 3개 대시보드에 한국어 설명, `timezone: browser`, 대시보드 간 네비게이션 링크를 추가했고, 이후 운영 기준은 7개 dashboard와 variable-backed Git-managed JSON으로 확장했다. Grafana home은 `Serving Home`(verdict banner + triage surface)이며 GPU dashboard는 GPU/OOM drill-down으로 유지한다.
 - Grafana 로그인 페이지 기본 대시보드 자동 이동 설정.
 - Prometheus scrape 타겟 및 recording rule 추가.
 

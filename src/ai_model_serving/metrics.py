@@ -194,7 +194,17 @@ class Metrics:
         self.streaming_time_to_first_chunk.labels(self.service, target).observe(elapsed_seconds)
 
     def record_streaming_completed(self, target: str, status: str, elapsed_seconds: float, chunk_count: int) -> None:
-        sanitized_status = status.upper()[:64]
+        # Normalize to categorical contract: completed, error, client_disconnect.
+        # Uppercase raw codes were used in older callers; map them to the canonical
+        # category so dashboard queries on status=~"completed|error|client_disconnect"
+        # remain stable across the migration period.
+        _CATEGORY_MAP = {
+            "completed": "completed",
+            "error": "error",
+            "client_disconnect": "client_disconnect",
+        }
+        lower = status.lower()
+        sanitized_status = _CATEGORY_MAP.get(lower, "error" if lower not in ("completed", "client_disconnect") else lower)
         self.streaming_requests.labels(self.service, target, sanitized_status).inc()
         self.streaming_duration.labels(self.service, target, sanitized_status).observe(elapsed_seconds)
         self.streaming_chunks_per_response.labels(self.service, target, sanitized_status).observe(max(0, chunk_count))
