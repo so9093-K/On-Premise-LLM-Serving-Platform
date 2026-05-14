@@ -52,3 +52,6 @@ htmlcov/
 .codex/
 .claude/
 .cursor/
+
+# ── Other ───────────────────────────────────────────────
+.other/

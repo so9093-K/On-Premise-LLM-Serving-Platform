@@ -56,3 +56,6 @@ models
 .codex/
 .claude/
 .cursor/
+
+# ── Other ───────────────────────────────────────────────
+.other/

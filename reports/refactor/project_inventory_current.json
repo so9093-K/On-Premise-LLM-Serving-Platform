@@ -94,7 +94,7 @@
         "category": "current handoff/review report",
         "owner": "handoff-reporting",
         "management": "generated/curated for handoff review",
-        "size_bytes": 125202,
+        "size_bytes": 125205,
         "line_count": 3505,
         "role": "structured-data",
         "review_note": "handoff/review artifact; avoid stale phase snapshots in active package"
@@ -383,7 +383,7 @@
       "category": "project metadata",
       "owner": "project-maintenance",
       "management": "managed by root project metadata",
-      "size_bytes": 18477,
+      "size_bytes": 18476,
       "line_count": 422,
       "role": "entrypoint",
       "review_note": "primary navigation or current-state entrypoint; keep synchronized with Makefile and reports"
@@ -433,12 +433,12 @@
       "review_note": "supporting project file"
     },
     {
-      "path": "assets/ai_model_serving_system_architecture.webp",
+      "path": "assets/ai_model_serving_system_architecture.jpg",
       "area": "assets",
       "category": "project metadata",
       "owner": "project-maintenance",
       "management": "managed by root project metadata",
-      "size_bytes": 101790,
+      "size_bytes": 163694,
       "line_count": 0,
       "role": "supporting-file",
       "review_note": "supporting project file"
@@ -1054,7 +1054,7 @@
       "category": "documentation",
       "owner": "documentation",
       "management": "managed by documentation map",
-      "size_bytes": 8086,
+      "size_bytes": 8128,
       "line_count": 108,
       "role": "documentation",
       "review_note": "documentation; keep relative links valid and avoid duplicating current command flow"
@@ -1527,7 +1527,7 @@
       "category": "current handoff/review report",
       "owner": "handoff-reporting",
       "management": "generated/curated for handoff review",
-      "size_bytes": 60525,
+      "size_bytes": 60528,
       "line_count": 296,
       "role": "structured-data",
       "review_note": "handoff/review artifact; avoid stale phase snapshots in active package"
@@ -1538,7 +1538,7 @@
       "category": "current handoff/review report",
       "owner": "handoff-reporting",
       "management": "generated/curated for handoff review",
-      "size_bytes": 125202,
+      "size_bytes": 125205,
       "line_count": 3505,
       "role": "structured-data",
       "review_note": "handoff/review artifact; avoid stale phase snapshots in active package"

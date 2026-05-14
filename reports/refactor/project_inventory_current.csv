@@ -10,12 +10,12 @@ path,area,category,owner,management,size_bytes,line_count,role,review_note
 CHANGELOG.md,CHANGELOG.md,project metadata,project-maintenance,managed by root project metadata,15640,164,documentation,supporting project file
 Dockerfile,Dockerfile,project metadata,project-maintenance,managed by root project metadata,1019,30,build-command,supporting project file
 Makefile,Makefile,project metadata,project-maintenance,managed by root project metadata,19447,407,build-command,supporting project file
-README.md,README.md,project metadata,project-maintenance,managed by root project metadata,18477,422,entrypoint,primary navigation or current-state entrypoint; keep synchronized with Makefile and reports
+README.md,README.md,project metadata,project-maintenance,managed by root project metadata,18476,422,entrypoint,primary navigation or current-state entrypoint; keep synchronized with Makefile and reports
 VERSION,VERSION,project metadata,project-maintenance,managed by root project metadata,6,1,supporting-file,supporting project file
 adr/0002-signal-only-risk-contract.md,adr,architecture decision record,project-maintenance,managed by root project metadata,700,21,documentation,supporting project file
 adr/0003-all-vllm-runtime.md,adr,architecture decision record,project-maintenance,managed by root project metadata,584,21,documentation,supporting project file
 adr/0004-port-policy-9400.md,adr,architecture decision record,project-maintenance,managed by root project metadata,857,15,documentation,supporting project file
-assets/ai_model_serving_system_architecture.webp,assets,project metadata,project-maintenance,managed by root project metadata,101790,0,supporting-file,supporting project file
+assets/ai_model_serving_system_architecture.jpg,assets,project metadata,project-maintenance,managed by root project metadata,163694,0,supporting-file,supporting project file
 configs/command_terminology_policy.yaml,configs,configuration source of truth,configuration,managed by configuration lifecycle,3385,102,structured-data,configuration source; validate through governance and projection checks after edits
 configs/gemma4_chat_template.jinja,configs,configuration source of truth,configuration,managed by configuration lifecycle,11780,1,supporting-file,configuration source; validate through governance and projection checks after edits
 configs/gpu_budgets.yaml,configs,configuration source of truth,configuration,managed by configuration lifecycle,3076,92,structured-data,configuration source; validate through governance and projection checks after edits
@@ -71,7 +71,7 @@ docs/operations/runtime_validation_workplan.md,docs,documentation,documentation,
 docs/operations/status_board_ux.md,docs,documentation,documentation,managed by documentation map,3536,47,documentation,documentation; keep relative links valid and avoid duplicating current command flow
 docs/operations/storage_paths.md,docs,documentation,documentation,managed by documentation map,3220,75,entrypoint,primary navigation or current-state entrypoint; keep synchronized with Makefile and reports
 docs/operations/streaming_runtime_operations.md,docs,documentation,documentation,managed by documentation map,7769,128,documentation,documentation; keep relative links valid and avoid duplicating current command flow
-docs/operations/ux_ui_review.md,docs,documentation,documentation,managed by documentation map,8086,108,documentation,documentation; keep relative links valid and avoid duplicating current command flow
+docs/operations/ux_ui_review.md,docs,documentation,documentation,managed by documentation map,8128,108,documentation,documentation; keep relative links valid and avoid duplicating current command flow
 docs/release/release_checklist.md,docs,documentation,documentation,managed by documentation map,2386,73,entrypoint,primary navigation or current-state entrypoint; keep synchronized with Makefile and reports
 docs/release/versioning_policy.md,docs,documentation,documentation,managed by documentation map,5518,121,documentation,documentation; keep relative links valid and avoid duplicating current command flow
 docs/resources/README.md,docs,documentation,documentation,managed by documentation map,329,8,documentation,documentation; keep relative links valid and avoid duplicating current command flow
@@ -114,8 +114,8 @@ reports/refactor/current_first_run_clean_package_audit.md,reports,current handof
 reports/refactor/current_full_file_hygiene_audit.md,reports,current handoff/review report,handoff-reporting,generated/curated for handoff review,5615,96,documentation,handoff/review artifact; avoid stale phase snapshots in active package
 reports/refactor/current_handoff_summary.md,reports,current handoff/review report,handoff-reporting,generated/curated for handoff review,6788,97,documentation,handoff/review artifact; avoid stale phase snapshots in active package
 reports/refactor/current_refactor_state.md,reports,current handoff/review report,handoff-reporting,generated/curated for handoff review,4149,72,entrypoint,primary navigation or current-state entrypoint; keep synchronized with Makefile and reports
-reports/refactor/project_inventory_current.csv,reports,current handoff/review report,handoff-reporting,generated/curated for handoff review,60525,296,structured-data,handoff/review artifact; avoid stale phase snapshots in active package
-reports/refactor/project_inventory_current.json,reports,current handoff/review report,handoff-reporting,generated/curated for handoff review,125202,3505,structured-data,handoff/review artifact; avoid stale phase snapshots in active package
+reports/refactor/project_inventory_current.csv,reports,current handoff/review report,handoff-reporting,generated/curated for handoff review,60528,296,structured-data,handoff/review artifact; avoid stale phase snapshots in active package
+reports/refactor/project_inventory_current.json,reports,current handoff/review report,handoff-reporting,generated/curated for handoff review,125205,3505,structured-data,handoff/review artifact; avoid stale phase snapshots in active package
 reports/refactor/project_inventory_current.md,reports,current handoff/review report,handoff-reporting,generated/curated for handoff review,5332,98,documentation,handoff/review artifact; avoid stale phase snapshots in active package
 reports/runtime/README.md,reports,runtime/operator generated report,handoff-reporting,generated by operator report commands,603,12,documentation,generated operator report; regenerate through make operator-reports before handoff
 reports/runtime/live_evidence_bundle.json,reports,runtime/operator generated report,handoff-reporting,generated by operator report commands,1654,67,structured-data,generated operator report; regenerate through make operator-reports before handoff
