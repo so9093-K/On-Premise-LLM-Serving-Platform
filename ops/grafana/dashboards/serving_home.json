@@ -99,7 +99,7 @@
       },
       "options": {
         "mode": "markdown",
-        "content": "# Serving Home\n\nThis dashboard is an **operator triage surface**. The first screen answers: *What is the current state, is there user impact, how trustworthy is the evidence, and what do I do next?*\n\n- **HEALTHY ACTIVE**: user traffic is present and all critical evidence is healthy.\n- **IDLE WARM**: no user traffic, but GPU is warm, readiness is up, and scrape evidence is healthy. This is normal.\n- **IDLE COLD**: no user traffic and warm-state evidence (readiness / headroom / scrape) is missing or degraded.\n- **USER IMPACT**: 5xx rate or latency is above threshold. Open API Experience and Model Runtime Deep Dive.\n- **CAPACITY RISK**: GPU headroom is low or an OOM/restart event was observed. Open GPU Capacity and OOM Risk.\n- **OBSERVABILITY DEGRADED**: fewer scrape targets visible than expected. Open Observability / Data Quality.\n- **NO DATA**: Prometheus has no trustworthy runtime data. This is different from a numeric zero.\n\nDrill-down order: GPU pressure / OOM → GPU Capacity and OOM Risk. Queue / KV pressure → Model Runtime Deep Dive. Chat latency / streaming → API Experience. Risk timeout / detector → Risk Signal Operations. Scrape or metric freshness → Observability / Data Quality.\n"
+        "content": "# Serving Home — 운영 트리아지 진입점 / operator triage surface\n\n이 화면은 **운영자 트리아지 진입점**입니다. 첫 화면에서 \"현재 상태가 무엇인지, 사용자 영향이 있는지, 증거가 신뢰할 수 있는지, 다음에 무엇을 해야 하는지\"를 확인합니다.\n\n- **HEALTHY ACTIVE**: 사용자 트래픽이 있고 모든 핵심 증거가 정상입니다.\n- **IDLE WARM**: 사용자 트래픽은 없지만 GPU가 warm 상태이고 readiness·scrape 증거가 정상입니다. 대기 중 정상 상태입니다.\n- **IDLE COLD**: 사용자 트래픽이 없고 warm-state 증거(readiness/headroom/scrape)가 누락되거나 degraded 상태입니다.\n- **USER IMPACT**: 5xx 비율 또는 지연이 임계값을 초과했습니다. API Experience와 Model Runtime Deep Dive를 확인하세요.\n- **CAPACITY RISK**: GPU headroom이 낮거나 OOM/재시작 이벤트가 감지되었습니다. GPU Capacity and OOM Risk를 확인하세요.\n- **OBSERVABILITY DEGRADED**: 예상보다 적은 scrape 타겟이 보입니다. Observability / Data Quality를 확인하세요.\n- **NO DATA**: Prometheus에 신뢰할 수 있는 런타임 데이터가 없습니다. 숫자 0과는 다릅니다.\n\nDrill-down 순서: GPU 압력·OOM → GPU Capacity and OOM Risk. Queue·KV 압력 → Model Runtime Deep Dive. Chat 지연·streaming → API Experience. Risk timeout·detector → Risk Signal Operations. Scrape·metric 신선도 → Observability / Data Quality.\n"
       },
       "fieldConfig": {
         "defaults": {},
@@ -110,7 +110,7 @@
       "id": 1,
       "type": "stat",
       "title": "Serving Verdict",
-      "description": "Healthy: HEALTHY ACTIVE (code 4) or IDLE WARM (code 3) means the stack is ready. Attention: IDLE COLD (code 2) or OBSERVABILITY DEGRADED (code 5) needs triage. Action Required: USER IMPACT (code 7) or CAPACITY RISK (code 6) requires immediate drill-down. No Data: verdict recording rule absent — check observability_data_quality.",
+      "description": "Healthy/정상: HEALTHY ACTIVE (code 4) or IDLE WARM (code 3) means the stack is ready. Attention/주의: IDLE COLD (code 2) or OBSERVABILITY DEGRADED (code 5) needs triage. Action Required/조치 필요: USER IMPACT (code 7) or CAPACITY RISK (code 6) requires immediate drill-down. No Data/런타임 데이터 없음: verdict recording rule absent — check observability_data_quality.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -181,12 +181,30 @@
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              {"color": "gray", "value": null},
-              {"color": "yellow", "value": 2},
-              {"color": "blue", "value": 3},
-              {"color": "green", "value": 4},
-              {"color": "orange", "value": 5},
-              {"color": "red", "value": 7}
+              {
+                "color": "gray",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 2
+              },
+              {
+                "color": "blue",
+                "value": 3
+              },
+              {
+                "color": "green",
+                "value": 4
+              },
+              {
+                "color": "orange",
+                "value": 5
+              },
+              {
+                "color": "red",
+                "value": 7
+              }
             ]
           }
         },
@@ -197,7 +215,7 @@
       "id": 2,
       "type": "stat",
       "title": "State",
-      "description": "Healthy: overall_runtime_status and service_readiness_status are 1. Action Required: 0 means a readiness path failed. No Data: readiness metric absent or scrape down — do not read No Data as 0.",
+      "description": "Healthy/정상: overall_runtime_status and service_readiness_status are 1. Action Required/조치 필요: 0 means a readiness path failed. No Data/런타임 데이터 없음: readiness metric absent or scrape down — do not read No Data as 0.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -227,8 +245,14 @@
             {
               "type": "value",
               "options": {
-                "0": {"text": "Not Ready", "color": "red"},
-                "1": {"text": "Ready", "color": "green"}
+                "0": {
+                  "text": "Not Ready",
+                  "color": "red"
+                },
+                "1": {
+                  "text": "Ready",
+                  "color": "green"
+                }
               }
             }
           ],
@@ -236,9 +260,18 @@
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              {"color": "gray", "value": null},
-              {"color": "red", "value": 0},
-              {"color": "green", "value": 1}
+              {
+                "color": "gray",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 0
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
             ]
           }
         },
@@ -249,7 +282,7 @@
       "id": 3,
       "type": "stat",
       "title": "User Traffic",
-      "description": "Healthy: non-zero means active user sessions. Attention: 0 is gray (not red) — idle is normal. No Data: gateway scrape is missing; 0 is suppressed when exporter is absent so this shows No Data rather than false zero.",
+      "description": "Healthy/정상: non-zero means active user sessions. Attention/주의: 0 is blue (not red) — idle is normal. No Data/런타임 데이터 없음: gateway scrape is missing; 0 is suppressed when exporter is absent so this shows No Data rather than false zero.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -280,8 +313,14 @@
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              {"color": "blue", "value": null},
-              {"color": "green", "value": 1}
+              {
+                "color": "blue",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
             ]
           }
         },
@@ -292,7 +331,7 @@
       "id": 4,
       "type": "stat",
       "title": "Scrape Targets",
-      "description": "Healthy: visible count equals 7 expected. Attention: below 7 means a target is missing or misconfigured — open Observability / Data Quality. No Data: Prometheus up series absent. The expected critical target count is projected from gateway + risk-adapter + vLLM runtime targets + dcgm + cadvisor.",
+      "description": "Healthy/정상: visible count equals 7 expected. Attention/주의: below 7 means a target is missing or misconfigured — open Observability / Data Quality. No Data/런타임 데이터 없음: Prometheus up series absent. The expected critical target count is projected from gateway + risk-adapter + vLLM runtime targets + dcgm + cadvisor.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -321,7 +360,9 @@
         "justifyMode": "center",
         "textMode": "auto",
         "reduceOptions": {
-          "calcs": ["lastNotNull"]
+          "calcs": [
+            "lastNotNull"
+          ]
         }
       },
       "fieldConfig": {
@@ -331,9 +372,18 @@
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              {"color": "red", "value": null},
-              {"color": "orange", "value": 5},
-              {"color": "green", "value": 7}
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 5
+              },
+              {
+                "color": "green",
+                "value": 7
+              }
             ]
           }
         },
@@ -344,7 +394,7 @@
       "id": 5,
       "type": "stat",
       "title": "GPU Headroom",
-      "description": "Healthy: selected-range minimum VRAM headroom stays above 6 GiB. Attention: 4-6 GiB is orange. Action Required: below 4 GiB is red. No Data: GPU exporter absent — do not read No Data as zero headroom.",
+      "description": "Healthy/정상: selected-range minimum VRAM headroom stays above 6 GiB. Attention/주의: 4-6 GiB is orange. Action Required/조치 필요: below 4 GiB is red. No Data/런타임 데이터 없음: GPU exporter absent — do not read No Data as zero headroom.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -376,9 +426,18 @@
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              {"color": "red", "value": null},
-              {"color": "orange", "value": 4294967296},
-              {"color": "green", "value": 6442450944}
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 4294967296
+              },
+              {
+                "color": "green",
+                "value": 6442450944
+              }
             ]
           }
         },
@@ -389,7 +448,7 @@
       "id": 6,
       "type": "stat",
       "title": "OOM / Restart",
-      "description": "Healthy: 0 OOM events and 0 container start-time changes when cAdvisor scrape is green. Action Required: any value above 0 requires drill-down to GPU Capacity and OOM Risk. No Data: cAdvisor source metric absent — do not read No Data as 0.",
+      "description": "Healthy/정상: 0 OOM events and 0 container start-time changes when cAdvisor scrape is green. Action Required/조치 필요: any value above 0 requires drill-down to GPU Capacity and OOM Risk. No Data/런타임 데이터 없음: cAdvisor source metric absent — do not read No Data as 0.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -425,8 +484,14 @@
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              {"color": "green", "value": null},
-              {"color": "red", "value": 1}
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
             ]
           }
         },
@@ -437,7 +502,7 @@
       "id": 7,
       "type": "stat",
       "title": "Runtime Capacity",
-      "description": "Healthy: max KV cache pressure and max queue depth are near zero at idle. Attention: KV above 0.8 or queue above 10 needs attention. Action Required: KV above 0.9 or OOM risk. No Data: vLLM metric absent.",
+      "description": "Healthy/정상: max KV cache pressure and max queue depth are near zero at idle. Attention/주의: KV above 0.8 or queue above 10 needs attention. Action Required/조치 필요: KV above 0.9 or OOM risk. No Data/런타임 데이터 없음: vLLM metric absent.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -469,9 +534,18 @@
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              {"color": "green", "value": null},
-              {"color": "orange", "value": 0.8},
-              {"color": "red", "value": 0.9}
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0.8
+              },
+              {
+                "color": "red",
+                "value": 0.9
+              }
             ]
           }
         },
@@ -482,7 +556,7 @@
       "id": 8,
       "type": "table",
       "title": "Needs Attention",
-      "description": "Healthy: all signals below threshold — no action needed. Attention: orange rows need monitoring. Action Required: red rows need immediate drill-down. No Data in a row means the exporter for that signal is absent — open Observability / Data Quality to diagnose.",
+      "description": "Healthy/정상: all signals below threshold — no action needed. Attention/주의: orange rows need monitoring. Action Required/조치 필요: red rows need immediate drill-down. No Data in a row means the exporter for that signal is absent — open Observability / Data Quality to diagnose.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -559,7 +633,9 @@
       ],
       "options": {
         "showHeader": true,
-        "footer": {"show": false}
+        "footer": {
+          "show": false
+        }
       },
       "fieldConfig": {
         "defaults": {
@@ -570,24 +646,42 @@
         },
         "overrides": [
           {
-            "matcher": {"id": "byName", "options": "Visible Targets"},
+            "matcher": {
+              "id": "byName",
+              "options": "Visible Targets"
+            },
             "properties": [
               {
                 "id": "thresholds",
                 "value": {
                   "mode": "absolute",
                   "steps": [
-                    {"color": "red", "value": null},
-                    {"color": "orange", "value": 5},
-                    {"color": "green", "value": 7}
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 5
+                    },
+                    {
+                      "color": "green",
+                      "value": 7
+                    }
                   ]
                 }
               },
-              {"id": "custom.displayMode", "value": "color-background"}
+              {
+                "id": "custom.displayMode",
+                "value": "color-background"
+              }
             ]
           },
           {
-            "matcher": {"id": "byName", "options": "Min GPU Headroom (bytes)"},
+            "matcher": {
+              "id": "byName",
+              "options": "Min GPU Headroom (bytes)"
+            },
             "properties": [
               {
                 "id": "unit",
@@ -598,49 +692,88 @@
                 "value": {
                   "mode": "absolute",
                   "steps": [
-                    {"color": "red", "value": null},
-                    {"color": "orange", "value": 4294967296},
-                    {"color": "green", "value": 6442450944}
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 4294967296
+                    },
+                    {
+                      "color": "green",
+                      "value": 6442450944
+                    }
                   ]
                 }
               },
-              {"id": "custom.displayMode", "value": "color-background"}
+              {
+                "id": "custom.displayMode",
+                "value": "color-background"
+              }
             ]
           },
           {
-            "matcher": {"id": "byName", "options": "OOM / Restart Events"},
+            "matcher": {
+              "id": "byName",
+              "options": "OOM / Restart Events"
+            },
             "properties": [
               {
                 "id": "thresholds",
                 "value": {
                   "mode": "absolute",
                   "steps": [
-                    {"color": "green", "value": null},
-                    {"color": "red", "value": 1}
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "red",
+                      "value": 1
+                    }
                   ]
                 }
               },
-              {"id": "custom.displayMode", "value": "color-background"}
+              {
+                "id": "custom.displayMode",
+                "value": "color-background"
+              }
             ]
           },
           {
-            "matcher": {"id": "byName", "options": "User Requests in Range"},
+            "matcher": {
+              "id": "byName",
+              "options": "User Requests in Range"
+            },
             "properties": [
               {
                 "id": "thresholds",
                 "value": {
                   "mode": "absolute",
                   "steps": [
-                    {"color": "blue", "value": null},
-                    {"color": "green", "value": 1}
+                    {
+                      "color": "blue",
+                      "value": null
+                    },
+                    {
+                      "color": "green",
+                      "value": 1
+                    }
                   ]
                 }
               },
-              {"id": "custom.displayMode", "value": "color-background"}
+              {
+                "id": "custom.displayMode",
+                "value": "color-background"
+              }
             ]
           },
           {
-            "matcher": {"id": "byName", "options": "Max KV Cache Pressure"},
+            "matcher": {
+              "id": "byName",
+              "options": "Max KV Cache Pressure"
+            },
             "properties": [
               {
                 "id": "unit",
@@ -651,13 +784,25 @@
                 "value": {
                   "mode": "absolute",
                   "steps": [
-                    {"color": "green", "value": null},
-                    {"color": "orange", "value": 0.8},
-                    {"color": "red", "value": 0.9}
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 0.8
+                    },
+                    {
+                      "color": "red",
+                      "value": 0.9
+                    }
                   ]
                 }
               },
-              {"id": "custom.displayMode", "value": "color-background"}
+              {
+                "id": "custom.displayMode",
+                "value": "color-background"
+              }
             ]
           }
         ]
@@ -667,7 +812,7 @@
       "id": 9,
       "type": "stat",
       "title": "Min GPU Headroom",
-      "description": "Healthy: minimum over selected range stays above 6 GiB. Attention: 4-6 GiB means pressure may have occurred. Action Required: below 4 GiB indicates OOM risk. No Data: GPU exporter absent.",
+      "description": "Healthy/정상: minimum over selected range stays above 6 GiB. Attention/주의: 4-6 GiB means pressure may have occurred. Action Required/조치 필요: below 4 GiB indicates OOM risk. No Data/런타임 데이터 없음: GPU exporter absent.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -699,9 +844,18 @@
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              {"color": "red", "value": null},
-              {"color": "orange", "value": 4294967296},
-              {"color": "green", "value": 6442450944}
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 4294967296
+              },
+              {
+                "color": "green",
+                "value": 6442450944
+              }
             ]
           }
         },
@@ -712,7 +866,7 @@
       "id": 10,
       "type": "stat",
       "title": "Max KV Cache Pressure",
-      "description": "Healthy: max KV pressure stays below 0.8 in range. Attention: 0.8-0.9 is elevated. Action Required: above 0.9 can precede OOM. No Data: vLLM KV metric absent.",
+      "description": "Healthy/정상: max KV pressure stays below 0.8 in range. Attention/주의: 0.8-0.9 is elevated. Action Required/조치 필요: above 0.9 can precede OOM. No Data/런타임 데이터 없음: vLLM KV metric absent.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -744,9 +898,18 @@
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              {"color": "green", "value": null},
-              {"color": "orange", "value": 0.8},
-              {"color": "red", "value": 0.9}
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0.8
+              },
+              {
+                "color": "red",
+                "value": 0.9
+              }
             ]
           }
         },
@@ -757,7 +920,7 @@
       "id": 11,
       "type": "stat",
       "title": "Container OOM / Restart Signals",
-      "description": "Healthy: 0 OOM events and 0 restart signals in selected range when cAdvisor scrape is green. Action Required: any value above 0 requires GPU Capacity and OOM Risk drill-down. No Data: cAdvisor source metric absent — do not read No Data as 0.",
+      "description": "Healthy/정상: 0 OOM events and 0 restart signals in selected range when cAdvisor scrape is green. Action Required/조치 필요: any value above 0 requires GPU Capacity and OOM Risk drill-down. No Data/런타임 데이터 없음: cAdvisor source metric absent — do not read No Data as 0.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -793,8 +956,14 @@
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              {"color": "green", "value": null},
-              {"color": "red", "value": 1}
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
             ]
           }
         },
@@ -805,7 +974,7 @@
       "id": 12,
       "type": "timeseries",
       "title": "VRAM Used vs Budget",
-      "description": "Healthy: used VRAM remains under budget lines. Attention: approaching 40-43 GiB budget lines. No Data: DCGM memory metrics absent. GPU warm residency during idle is normal — high VRAM used at idle is expected.",
+      "description": "Healthy/정상: used VRAM remains under budget lines. Attention/주의: approaching 40-43 GiB budget lines. No Data/런타임 데이터 없음: DCGM memory metrics absent. GPU warm residency during idle is normal — high VRAM used at idle is expected.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -860,7 +1029,7 @@
       "id": 13,
       "type": "timeseries",
       "title": "vLLM Queue Depth",
-      "description": "Healthy: queue remains near zero at idle and follows traffic under load. Attention: rising queue before latency impact indicates runtime saturation. No Data: vLLM metric absent.",
+      "description": "Healthy/정상: queue remains near zero at idle and follows traffic under load. Attention/주의: rising queue before latency impact indicates runtime saturation. No Data/런타임 데이터 없음: vLLM metric absent.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -898,7 +1067,7 @@
       "id": 14,
       "type": "timeseries",
       "title": "KV Cache Pressure",
-      "description": "Healthy: KV pressure below 0.8 at idle. Attention: sustained high pressure can precede OOM. No Data: vLLM KV metric absent.",
+      "description": "Healthy/정상: KV pressure below 0.8 at idle. Attention/주의: sustained high pressure can precede OOM. No Data/런타임 데이터 없음: vLLM KV metric absent.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -938,7 +1107,7 @@
       "id": 15,
       "type": "timeseries",
       "title": "Token Throughput",
-      "description": "Healthy: throughput follows user traffic. Attention: throughput without user traffic may be background activity. No Data: vLLM token metric absent.",
+      "description": "Healthy/정상: throughput follows user traffic. Attention/주의: throughput without user traffic may be background activity. No Data/런타임 데이터 없음: vLLM token metric absent.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -978,7 +1147,7 @@
       "id": 16,
       "type": "timeseries",
       "title": "GPU Utilization",
-      "description": "Healthy: low utilization at idle is expected. Attention: high utilization without user traffic needs review. No Data: GPU exporter absent.",
+      "description": "Healthy/정상: low utilization at idle is expected. Attention/주의: high utilization without user traffic needs review. No Data/런타임 데이터 없음: GPU exporter absent.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -1018,7 +1187,7 @@
       "id": 17,
       "type": "text",
       "title": "Drill-down Links",
-      "description": "Action: use these drill-downs after the home verdict identifies the failing evidence chain. Healthy: IDLE WARM with all evidence green needs no drill-down.",
+      "description": "Action: use these drill-downs after the home verdict identifies the failing evidence chain. Healthy/정상: IDLE WARM with all evidence green needs no drill-down.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -1079,10 +1248,26 @@
         "multi": false,
         "name": "window",
         "options": [
-          {"selected": false, "text": "1m", "value": "1m"},
-          {"selected": false, "text": "5m", "value": "5m"},
-          {"selected": false, "text": "15m", "value": "15m"},
-          {"selected": false, "text": "1h", "value": "1h"}
+          {
+            "selected": false,
+            "text": "1m",
+            "value": "1m"
+          },
+          {
+            "selected": false,
+            "text": "5m",
+            "value": "5m"
+          },
+          {
+            "selected": false,
+            "text": "15m",
+            "value": "15m"
+          },
+          {
+            "selected": false,
+            "text": "1h",
+            "value": "1h"
+          }
         ],
         "query": "1m,5m,15m,1h",
         "type": "custom"

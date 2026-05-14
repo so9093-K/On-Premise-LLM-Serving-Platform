@@ -52,7 +52,7 @@
       "targets": [],
       "options": {
         "mode": "markdown",
-        "content": "## Observability / Data Quality\n\nThis dashboard diagnoses **when evidence is missing** — before assuming a metric zero means everything is fine.\n\n**Scrape target triage order:**\n1. Check `Visible Targets vs Expected` — is the count below 7?\n2. Check `Up Targets vs Visible` — is a visible target down (`up=0`)?\n3. Check `Missing Target Detection` — which job is absent?\n4. Check `Down Target Detection` — which job is present but failing?\n\n**Key distinction:**\n- `up=0`: target is registered in Prometheus but scrape is failing.\n- Absent series: target was never registered or was removed from scrape config.\n\n**Expected critical target count: 7** (gateway + risk-adapter + 3x vllm-runtimes + dcgm-exporter + cadvisor)\n\n**When this dashboard shows a problem, Serving Home verdict will show OBSERVABILITY DEGRADED.**\n"
+        "content": "## Observability / Data Quality — 데이터 품질 진단 / data quality diagnostics\n\n이 화면은 **증거가 누락된 경우**를 진단합니다 — metric 0이 모두 정상이라고 가정하기 전에 이 화면을 확인하세요.\n\n**Scrape 타겟 트리아지 순서:**\n1. `Visible Targets vs Expected`를 확인합니다 — 개수가 7 미만인가요?\n2. `Up Targets vs Visible`를 확인합니다 — 보이는 타겟이 다운(`up=0`)되어 있나요?\n3. `Missing Target Detection`을 확인합니다 — 어떤 job이 없는지 확인합니다.\n4. `Down Target Detection`을 확인합니다 — 어떤 job이 있지만 실패하는지 확인합니다.\n\n**핵심 구분 / Key distinction:**\n- `up=0`: 타겟이 Prometheus에 등록되어 있지만 scrape가 실패하는 상태입니다.\n- Absent series: 타겟이 scrape 설정에 등록된 적이 없거나 제거된 상태입니다.\n\n**예상 critical 타겟 수: 7** (gateway + risk-adapter + 3x vllm-runtimes + dcgm-exporter + cadvisor)\n\n**이 화면에서 문제가 발견되면 Serving Home 판정이 OBSERVABILITY DEGRADED를 표시합니다.**\n"
       },
       "fieldConfig": {
         "defaults": {},
@@ -63,7 +63,7 @@
       "id": 1,
       "type": "stat",
       "title": "Visible Targets vs Expected",
-      "description": "Healthy: visible count equals 7 expected. Attention: below 7 means a target is missing or never registered. No Data: Prometheus up series absent — Prometheus may not be running. The expected critical target count is projected from gateway + risk-adapter + vLLM runtime targets + dcgm + cadvisor.",
+      "description": "Healthy/정상: visible count equals 7 expected. Attention/주의: below 7 means a target is missing or never registered. No Data/런타임 데이터 없음: Prometheus up series absent — Prometheus may not be running. The expected critical target count is projected from gateway + risk-adapter + vLLM runtime targets + dcgm + cadvisor.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -94,9 +94,18 @@
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              {"color": "red", "value": null},
-              {"color": "orange", "value": 5},
-              {"color": "green", "value": 7}
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 5
+              },
+              {
+                "color": "green",
+                "value": 7
+              }
             ]
           }
         },
@@ -107,7 +116,7 @@
       "id": 2,
       "type": "stat",
       "title": "Up Targets vs Visible",
-      "description": "Healthy: up count equals visible count. Attention: up count below visible count means a registered target is failing its scrape. No Data: Prometheus up series absent. The expected critical target count is projected from gateway + risk-adapter + vLLM runtime targets + dcgm + cadvisor.",
+      "description": "Healthy/정상: up count equals visible count. Attention/주의: up count below visible count means a registered target is failing its scrape. No Data/런타임 데이터 없음: Prometheus up series absent. The expected critical target count is projected from gateway + risk-adapter + vLLM runtime targets + dcgm + cadvisor.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -138,9 +147,18 @@
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              {"color": "red", "value": null},
-              {"color": "orange", "value": 5},
-              {"color": "green", "value": 7}
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 5
+              },
+              {
+                "color": "green",
+                "value": 7
+              }
             ]
           }
         },
@@ -151,7 +169,7 @@
       "id": 3,
       "type": "stat",
       "title": "Missing Critical Targets",
-      "description": "Healthy: 0 missing targets means all 7 expected targets are visible. Attention: any missing target means Prometheus config or service discovery is incomplete. No Data: ai_missing_critical_targets recording rule absent — check if recording rules are loaded.",
+      "description": "Healthy/정상: 0 missing targets means all 7 expected targets are visible. Attention/주의: any missing target means Prometheus config or service discovery is incomplete. No Data/런타임 데이터 없음: ai_missing_critical_targets recording rule absent — check if recording rules are loaded.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -182,9 +200,18 @@
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              {"color": "green", "value": null},
-              {"color": "orange", "value": 1},
-              {"color": "red", "value": 3}
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 3
+              }
             ]
           }
         },
@@ -195,7 +222,7 @@
       "id": 4,
       "type": "stat",
       "title": "Gateway Metric Availability",
-      "description": "Healthy: gateway up=1. Attention: up=0 means target registered but scrape failing — check bearer token and /metrics endpoint. No Data: gateway target absent from Prometheus — check scrape config.",
+      "description": "Healthy/정상: gateway up=1. Attention/주의: up=0 means target registered but scrape failing — check bearer token and /metrics endpoint. No Data/런타임 데이터 없음: gateway target absent from Prometheus — check scrape config.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -225,8 +252,14 @@
             {
               "type": "value",
               "options": {
-                "0": {"text": "Scrape Fail", "color": "red"},
-                "1": {"text": "Up", "color": "green"}
+                "0": {
+                  "text": "Scrape Fail",
+                  "color": "red"
+                },
+                "1": {
+                  "text": "Up",
+                  "color": "green"
+                }
               }
             }
           ],
@@ -234,8 +267,14 @@
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              {"color": "red", "value": null},
-              {"color": "green", "value": 1}
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
             ]
           }
         },
@@ -246,7 +285,7 @@
       "id": 5,
       "type": "stat",
       "title": "Risk Adapter Metric Availability",
-      "description": "Healthy: risk-adapter up=1. Attention: up=0 means target registered but scrape failing. No Data: risk-adapter target absent from Prometheus — check scrape config. Risk adapter absence means risk signal evidence is unavailable.",
+      "description": "Healthy/정상: risk-adapter up=1. Attention/주의: up=0 means target registered but scrape failing. No Data/런타임 데이터 없음: risk-adapter target absent from Prometheus — check scrape config. Risk adapter absence means risk signal evidence is unavailable.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -276,8 +315,14 @@
             {
               "type": "value",
               "options": {
-                "0": {"text": "Scrape Fail", "color": "red"},
-                "1": {"text": "Up", "color": "green"}
+                "0": {
+                  "text": "Scrape Fail",
+                  "color": "red"
+                },
+                "1": {
+                  "text": "Up",
+                  "color": "green"
+                }
               }
             }
           ],
@@ -285,8 +330,14 @@
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              {"color": "red", "value": null},
-              {"color": "green", "value": 1}
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
             ]
           }
         },
@@ -297,7 +348,7 @@
       "id": 6,
       "type": "stat",
       "title": "DCGM Exporter Availability",
-      "description": "Healthy: DCGM exporter up=1. Attention: up=0 means GPU metrics unavailable — GPU headroom and OOM risk cannot be trusted. No Data: DCGM target absent — GPU evidence chain is broken.",
+      "description": "Healthy/정상: DCGM exporter up=1. Attention/주의: up=0 means GPU metrics unavailable — GPU headroom and OOM risk cannot be trusted. No Data/런타임 데이터 없음: DCGM target absent — GPU evidence chain is broken.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -327,8 +378,14 @@
             {
               "type": "value",
               "options": {
-                "0": {"text": "Scrape Fail", "color": "red"},
-                "1": {"text": "Up", "color": "green"}
+                "0": {
+                  "text": "Scrape Fail",
+                  "color": "red"
+                },
+                "1": {
+                  "text": "Up",
+                  "color": "green"
+                }
               }
             }
           ],
@@ -336,8 +393,14 @@
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              {"color": "red", "value": null},
-              {"color": "green", "value": 1}
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
             ]
           }
         },
@@ -348,7 +411,7 @@
       "id": 7,
       "type": "stat",
       "title": "cAdvisor Availability",
-      "description": "Healthy: cAdvisor up=1. Attention: up=0 means OOM/restart signals are unavailable. No Data: cAdvisor target absent — container resource evidence chain is broken.",
+      "description": "Healthy/정상: cAdvisor up=1. Attention/주의: up=0 means OOM/restart signals are unavailable. No Data/런타임 데이터 없음: cAdvisor target absent — container resource evidence chain is broken.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -378,8 +441,14 @@
             {
               "type": "value",
               "options": {
-                "0": {"text": "Scrape Fail", "color": "red"},
-                "1": {"text": "Up", "color": "green"}
+                "0": {
+                  "text": "Scrape Fail",
+                  "color": "red"
+                },
+                "1": {
+                  "text": "Up",
+                  "color": "green"
+                }
               }
             }
           ],
@@ -387,8 +456,14 @@
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              {"color": "red", "value": null},
-              {"color": "green", "value": 1}
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
             ]
           }
         },
@@ -399,7 +474,7 @@
       "id": 8,
       "type": "status-history",
       "title": "Missing Target Detection",
-      "description": "Healthy: all critical job up series are visible over time. Attention: absent series in this chart means the job was never registered. No Data: all targets missing — check Prometheus scrape config.",
+      "description": "Healthy/정상: all critical job up series are visible over time. Attention/주의: absent series in this chart means the job was never registered. No Data/런타임 데이터 없음: all targets missing — check Prometheus scrape config.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -435,16 +510,28 @@
             {
               "type": "value",
               "options": {
-                "0": {"text": "down", "color": "red"},
-                "1": {"text": "up", "color": "green"}
+                "0": {
+                  "text": "down",
+                  "color": "red"
+                },
+                "1": {
+                  "text": "up",
+                  "color": "green"
+                }
               }
             }
           ],
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              {"color": "red", "value": null},
-              {"color": "green", "value": 1}
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
             ]
           }
         },
@@ -455,7 +542,7 @@
       "id": 9,
       "type": "status-history",
       "title": "Down Target Detection",
-      "description": "Healthy: no red bands — all visible targets are up. Attention: red band means target is registered (up series exists) but scrape is failing. No Data: all jobs absent from Prometheus — check scrape config and network.",
+      "description": "Healthy/정상: no red bands — all visible targets are up. Attention/주의: red band means target is registered (up series exists) but scrape is failing. No Data/런타임 데이터 없음: all jobs absent from Prometheus — check scrape config and network.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -491,15 +578,24 @@
             {
               "type": "value",
               "options": {
-                "0": {"text": "DOWN", "color": "red"}
+                "0": {
+                  "text": "DOWN",
+                  "color": "red"
+                }
               }
             }
           ],
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              {"color": "green", "value": null},
-              {"color": "red", "value": 0}
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 0
+              }
             ]
           }
         },
@@ -510,7 +606,7 @@
       "id": 10,
       "type": "timeseries",
       "title": "vLLM Metric Availability",
-      "description": "Healthy: all vLLM runtime targets are up and emitting metrics. Attention: absent vLLM series means KV cache, queue, and token throughput evidence is unavailable. No Data: vllm-runtimes job absent from Prometheus.",
+      "description": "Healthy/정상: all vLLM runtime targets are up and emitting metrics. Attention/주의: absent vLLM series means KV cache, queue, and token throughput evidence is unavailable. No Data/런타임 데이터 없음: vllm-runtimes job absent from Prometheus.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -545,8 +641,14 @@
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              {"color": "red", "value": null},
-              {"color": "green", "value": 1}
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
             ]
           }
         },
@@ -557,7 +659,7 @@
       "id": 11,
       "type": "timeseries",
       "title": "Readiness Metric Freshness",
-      "description": "Healthy: service_readiness_status and overall_runtime_status are actively emitting. Attention: absent or stale readiness metric means warm-state evidence is unreliable. No Data: readiness metric absent — gateway or risk-adapter scrape is down. Readiness freshness timestamp requires ai_readiness_last_checked_timestamp_seconds or synthetic probes.",
+      "description": "Healthy/정상: service_readiness_status and overall_runtime_status are actively emitting. Attention/주의: absent or stale readiness metric means warm-state evidence is unreliable. No Data/런타임 데이터 없음: readiness metric absent — gateway or risk-adapter scrape is down. Readiness freshness timestamp requires ai_readiness_last_checked_timestamp_seconds or synthetic probes.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -597,8 +699,14 @@
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              {"color": "red", "value": null},
-              {"color": "green", "value": 1}
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
             ]
           }
         },
@@ -609,7 +717,7 @@
       "id": 12,
       "type": "timeseries",
       "title": "Critical Recording Rules Health",
-      "description": "Healthy: all critical recording rules are emitting values. Attention: absent recording rule series means dashboard panels relying on them will show No Data. No Data: recording rule group may not be loaded — check Prometheus rule configuration.",
+      "description": "Healthy/정상: all critical recording rules are emitting values. Attention/주의: absent recording rule series means dashboard panels relying on them will show No Data. No Data/런타임 데이터 없음: recording rule group may not be loaded — check Prometheus rule configuration.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -696,10 +804,26 @@
         "multi": false,
         "name": "window",
         "options": [
-          {"selected": false, "text": "1m", "value": "1m"},
-          {"selected": false, "text": "5m", "value": "5m"},
-          {"selected": false, "text": "15m", "value": "15m"},
-          {"selected": false, "text": "1h", "value": "1h"}
+          {
+            "selected": false,
+            "text": "1m",
+            "value": "1m"
+          },
+          {
+            "selected": false,
+            "text": "5m",
+            "value": "5m"
+          },
+          {
+            "selected": false,
+            "text": "15m",
+            "value": "15m"
+          },
+          {
+            "selected": false,
+            "text": "1h",
+            "value": "1h"
+          }
         ],
         "query": "1m,5m,15m,1h",
         "type": "custom"

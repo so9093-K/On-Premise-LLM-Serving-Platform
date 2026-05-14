@@ -302,7 +302,7 @@
       "id": 8,
       "type": "stat",
       "title": "Detector Readiness",
-      "description": "Healthy/정상: expected range. Attention/주의: review trend. Action Required/조치 필요: investigate owner/runbook. No Data/런타임 데이터 없음: check Prometheus scrape/exporter.",
+      "description": "Healthy/정상: 1 = Ready (detector is up). Action Required/조치 필요: 0 = Not Ready — check risk-adapter logs and upstream detector. No Data/런타임 데이터 없음: check Prometheus scrape/exporter.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -329,6 +329,15 @@
       "fieldConfig": {
         "defaults": {
           "unit": "short",
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {"text": "Not Ready", "index": 0},
+                "1": {"text": "Ready", "index": 1}
+              }
+            }
+          ],
           "thresholds": {
             "mode": "absolute",
             "steps": [

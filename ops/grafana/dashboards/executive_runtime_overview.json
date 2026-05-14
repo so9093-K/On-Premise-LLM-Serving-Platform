@@ -125,6 +125,15 @@
       },
       "fieldConfig": {
         "defaults": {
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {"text": "Not Ready", "index": 0},
+                "1": {"text": "Ready", "index": 1}
+              }
+            }
+          ],
           "thresholds": {
             "mode": "absolute",
             "steps": [
