@@ -116,13 +116,19 @@ grep -E "^GRAFANA_ADMIN_(USER|PASSWORD)=" .env
 >   up -d --no-deps --force-recreate grafana
 > ```
 
-| 대시보드 | uid | 용도 |
+| 대시보드 | uid | 운영 질문 |
 |---|---|---|
-| GPU 용량 및 OOM 위험 / GPU Capacity and OOM Risk | `gpu_capacity_and_oom_risk` | 기본 home dashboard. GPU 메모리, budget line, utilization, temperature, power, OOM/restart |
-| 운영 상황판 / Executive Runtime Overview | `executive_runtime_overview` | 전체 상태, 트래픽, latency, error, GPU headroom, readiness, scrape health |
-| local-main Chat API 상세 / Chat API Deep Dive | `chat_api_deep_dive` | `/v1/chat/completions`와 streaming relay 상태 |
-| 모델 런타임 상세 / Model Runtime Deep Dive | `model_runtime_deep_dive` | model/runtime_service별 queue, KV cache, throughput, container resource |
-| Risk 신호 운영 / Risk Signal Operations | `risk_signal_operations` | Risk signal, detector timeout/error, forbidden field, readiness |
+| GPU Capacity and OOM Risk | `gpu_capacity_and_oom_risk` | 지금 이 GPU에서 요청을 안전하게 계속 처리할 수 있는가? (기본 home dashboard) |
+| Executive Runtime Overview | `executive_runtime_overview` | 전체 서비스가 정상인가? 어디가 문제인가? |
+| Chat API Deep Dive | `chat_api_deep_dive` | Gateway path와 upstream 중 어디가 병목인가? streaming relay 상태는? |
+| Model Runtime Deep Dive | `model_runtime_deep_dive` | 특정 모델 queue/KV cache/token throughput/container 상태는? |
+| Risk Signal Operations | `risk_signal_operations` | risk signal만으로 본 detector 상태는? (prompt 없음) |
+
+Dashboard 간 navigation은 Grafana 상단 링크로 이동한다 (UID 기반, `includeVars=true`).
+
+권장 drill-down: `gpu_capacity_and_oom_risk` → `executive_runtime_overview` → `chat_api_deep_dive` → `model_runtime_deep_dive` → `risk_signal_operations`
+
+> **Source of truth**: Dashboard JSON (`ops/grafana/dashboards/*.json`)이 source of truth다. Grafana UI에서 직접 수정한 내용은 JSON으로 자동 반영되지 않는다. live datasource/render validation은 `make runtime-validate`로 별도 수행한다 (기본 CI merge gate가 아님).
 
 ### Prometheus (compose 내부 전용; SSH 포트 포워딩으로 접근)
 

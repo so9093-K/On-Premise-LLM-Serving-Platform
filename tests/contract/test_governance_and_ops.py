@@ -79,7 +79,7 @@ def test_operator_status_board_ux_is_user_facing() -> None:
     assert {
         "Overall Status",
         "User Traffic",
-        "p95 Latency",
+        "p95 Latency (5m)",
         "Error Rate",
         "GPU Headroom",
         "Component Readiness",
@@ -417,3 +417,104 @@ def test_config_version_semantics_are_explicit() -> None:
         text = (ROOT / rel).read_text(encoding="utf-8")
         assert "version_semantics:" in text
         assert "not package release version" in text
+
+
+def test_dashboard_navigation_links_are_nonempty_and_uid_valid() -> None:
+    dashboards_dir = ROOT / "ops/grafana/dashboards"
+    dashboards = {
+        path.stem: json.loads(path.read_text(encoding="utf-8"))
+        for path in dashboards_dir.glob("*.json")
+    }
+    valid_uids = {d["uid"] for d in dashboards.values()}
+
+    for name, dashboard in dashboards.items():
+        links = dashboard.get("links", [])
+        assert links, f"Dashboard '{name}' has no navigation links"
+        for link in links:
+            url = link.get("url", "")
+            assert "/d/" in url, f"Dashboard '{name}' link has unexpected URL format: {url}"
+            target_uid = url.split("/d/")[-1].split("/")[0]
+            assert target_uid in valid_uids, (
+                f"Dashboard '{name}' links to unknown uid '{target_uid}' (url={url})"
+            )
+
+
+def test_no_mixed_unit_panel_titles() -> None:
+    chat = json.loads(
+        (ROOT / "ops/grafana/dashboards/chat_api_deep_dive.json").read_text(encoding="utf-8")
+    )
+    model = json.loads(
+        (ROOT / "ops/grafana/dashboards/model_runtime_deep_dive.json").read_text(encoding="utf-8")
+    )
+    chat_titles = {panel["title"] for panel in chat["panels"]}
+    model_titles = {panel["title"] for panel in model["panels"]}
+
+    assert "Streaming Chunks and Bytes" not in chat_titles, \
+        "Mixed-unit panel 'Streaming Chunks and Bytes' must be split"
+    assert "Streaming Duration and Chunks" not in chat_titles, \
+        "Mixed-unit panel 'Streaming Duration and Chunks' must be split"
+    assert "Queue and KV Trend" not in model_titles, \
+        "Mixed-unit panel 'Queue and KV Trend' must be split"
+
+
+def test_overall_status_does_not_use_max() -> None:
+    dashboard = json.loads(
+        (ROOT / "ops/grafana/dashboards/executive_runtime_overview.json").read_text(encoding="utf-8")
+    )
+    overall_panels = [p for p in dashboard["panels"] if p["title"] == "Overall Status"]
+    assert overall_panels, "Overall Status panel not found in executive_runtime_overview"
+    for panel in overall_panels:
+        for target in panel.get("targets", []):
+            expr = target.get("expr", "")
+            assert "max(overall_runtime_status)" not in expr, (
+                "Overall Status must use min(), not max(), to surface any unhealthy service"
+            )
+
+
+def test_monitoring_ux_streaming_label_is_status_not_result() -> None:
+    monitoring_ux = (ROOT / "docs/operations/monitoring_ux.md").read_text(encoding="utf-8")
+    assert "target,result}" not in monitoring_ux, \
+        "monitoring_ux.md must use 'status' label, not 'result', for streaming metrics"
+    assert ",result}" not in monitoring_ux, \
+        "monitoring_ux.md must use 'status' label, not 'result', for streaming metrics"
+
+
+def test_monitoring_ux_has_ttft_metric_as_current_dashboard_metric() -> None:
+    monitoring_ux = (ROOT / "docs/operations/monitoring_ux.md").read_text(encoding="utf-8")
+    assert "streaming_time_to_first_chunk_seconds_bucket" in monitoring_ux, \
+        "monitoring_ux.md must document streaming_time_to_first_chunk_seconds_bucket"
+    assert "다음 항목은 현재 metric만으로 정확히 계산하지 않는다" not in monitoring_ux, \
+        "Stale 'not calculated' text must be removed — TTFT/duration/chunks are now in the dashboard"
+
+
+def test_dashboard_panel_datasource_uses_variable() -> None:
+    for path in (ROOT / "ops/grafana/dashboards").glob("*.json"):
+        dashboard = json.loads(path.read_text(encoding="utf-8"))
+        for panel in dashboard["panels"]:
+            assert panel.get("datasource") == {"type": "prometheus", "uid": "${datasource}"}, (
+                f"Panel '{panel.get('title')}' in {path.name} "
+                f"must use datasource {{\"type\":\"prometheus\",\"uid\":\"${{datasource}}\"}}"
+            )
+
+
+def test_dashboard_json_has_no_raw_prompt_or_generated_text_in_exprs() -> None:
+    forbidden_label_patterns = ["prompt=", "generated_text=", "raw_input=", "user_text="]
+    for path in (ROOT / "ops/grafana/dashboards").glob("*.json"):
+        dashboard = json.loads(path.read_text(encoding="utf-8"))
+        for panel in dashboard["panels"]:
+            for target in panel.get("targets", []):
+                expr = target.get("expr", "")
+                for pattern in forbidden_label_patterns:
+                    assert pattern not in expr, (
+                        f"Forbidden label selector '{pattern}' found in panel "
+                        f"'{panel.get('title')}' expr in {path.name}"
+                    )
+
+
+def test_validate_grafana_promql_script_exists() -> None:
+    script = ROOT / "scripts/validation/validate_grafana_promql.py"
+    assert script.exists(), "scripts/validation/validate_grafana_promql.py must exist"
+    content = script.read_text(encoding="utf-8")
+    assert "/api/v1/query" in content
+    assert "--config-only" in content
+    assert "--allow-failures" in content

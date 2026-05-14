@@ -88,31 +88,91 @@ DCGM exporter는 단일 GPU의 전체 VRAM, 온도, 전력, utilization을 본�
 
 ## Streaming fast path metric
 
-`stream=true` chat 경로는 다음 metric으로 chunk relay와 accounting 상태를 확인한다. prompt와 generated text는 label에 포함하지 않는다.
+`stream=true` chat 경로는 다음 metric으로 chunk relay, timing, accounting 상태를 확인한다. prompt와 generated text는 label에 포함하지 않는다. 상태 label은 `status`를 사용한다 (`result`가 아님).
 
 ```text
 streaming_chunks_total{service="gateway",target="local-main"}
 streaming_bytes_total{service="gateway",target="local-main"}
 streaming_usage_events_total{service="gateway",target="local-main"}
 streaming_errors_total{service="gateway",target="local-main",code="UPSTREAM_TIMEOUT",phase="mid_stream"}
+streaming_requests_total{service="gateway",target="local-main",status="started"}
+streaming_time_to_first_chunk_seconds_bucket{service="gateway",target="local-main",le="0.5"}
+streaming_duration_seconds_bucket{service="gateway",target="local-main",status="completed",le="30.0"}
+streaming_chunks_per_response_bucket{service="gateway",target="local-main",status="completed",le="100"}
+streaming_client_disconnects_total{service="gateway",target="local-main",phase="before_first_chunk"}
 ```
 
-현재 dashboard는 위 metric으로 streaming chunk/byte/error/usage event를 표시한다. 다음 항목은 현재 metric만으로 정확히 계산하지 않는다.
+`chat_api_deep_dive` dashboard는 위 metric을 사용해 다음을 제공한다.
 
-- TTFT p50/p95
-- full stream duration
-- chunks per response
-- client disconnect count as a first-class counter
+- **Streaming Chunk Rate**: `streaming_chunks_total` rate
+- **Streaming Byte Throughput**: `streaming_bytes_total` rate
+- **Streaming Time to First Token p95**: `histogram_quantile(0.95, streaming_time_to_first_chunk_seconds_bucket)`
+- **Streaming Duration p95**: `histogram_quantile(0.95, streaming_duration_seconds_bucket)`
+- **Chunks per Response p95**: `histogram_quantile(0.95, streaming_chunks_per_response_bucket)`
 
-이 항목이 필요하면 다음 metric을 추가한다.
+`status` label 값: `started`, `completed`, `error`, `client_disconnect` (terminal category only; prompt/generated text는 포함하지 않음).
+
+## Dashboard navigation 흐름
+
+각 dashboard에는 Grafana 상단 링크로 관련 dashboard 이동 버튼이 있다. `includeVars=true`로 현재 variable 값을 유지하며 이동한다.
+
+| 출발 dashboard | 이동 대상 |
+|---|---|
+| `gpu_capacity_and_oom_risk` | `executive_runtime_overview` |
+| `executive_runtime_overview` | `gpu_capacity_and_oom_risk`, `chat_api_deep_dive`, `model_runtime_deep_dive`, `risk_signal_operations` |
+| `chat_api_deep_dive` | `executive_runtime_overview`, `model_runtime_deep_dive` |
+| `model_runtime_deep_dive` | `gpu_capacity_and_oom_risk`, `chat_api_deep_dive` |
+| `risk_signal_operations` | `executive_runtime_overview` |
+
+권장 drill-down 순서: GPU Capacity → Executive Overview → Chat Deep Dive → Model Runtime Deep Dive → Risk Signal Operations
+
+## No Data vs 0 구분 정책
+
+| 상황 | 표시 | 해석 |
+|---|---|---|
+| metric이 등록되어 있고 이벤트가 없음 | 0 | 정상. 이벤트 없음 |
+| exporter/metric 자체가 없음 | No Data | scrape 문제. Scrape Health panel 확인 |
+| or vector(0)로 강제된 0 | 0 | 주의: exporter 부재를 숨길 수 있음 |
+
+- OOM or Restart Events: `backend_restart_total`과 `gpu_oom_events_total`은 dcgm-exporter/cAdvisor 기반이다. `or vector(0)`로 0을 보여주더라도 exporter가 없으면 scrape 오류로 표시된다. `Executive Runtime Overview`의 `Scrape Health` panel을 함께 확인한다.
+- Forbidden Field Violations: `forbidden_response_field_total`은 risk-adapter 기동 시 항상 등록되므로 risk-adapter가 up이면 0은 "위반 없음"을 의미한다.
+- **원칙**: No Data가 운영상 더 안전한 panel은 `or vector(0)`로 강제하지 않는다.
+
+## Fixed window recording rule 사용 panel
+
+다음 panel은 recording rule이 5m 고정 window를 사용하므로 `$window` variable 변경에 영향받지 않는다.
+
+| Panel | Dashboard | Recording rule | Window |
+|---|---|---|---|
+| `p95 Latency (5m)` | `executive_runtime_overview` | `model_runtime_http_p95_latency_seconds` | 5m 고정 |
+| `Upstream p95 Latency (5m)` | `model_runtime_deep_dive` | `model_runtime_upstream_p95_latency_seconds` | 5m 고정 |
+
+panel title에 `(5m)`을 표시하여 `$window` 선택과 무관함을 명시한다. 더 짧거나 긴 window가 필요하면 recording rule 대신 raw histogram query를 사용한다.
+
+## Version/Build/Runtime info backlog
+
+현재 dashboard에는 다음 정보가 없다. 향후 metric 추가 후 panel로 제공할 수 있다.
 
 ```text
-streaming_requests_total{service,target,result}
-streaming_time_to_first_chunk_seconds_bucket{service,target}
-streaming_duration_seconds_bucket{service,target,result}
-streaming_chunks_per_response_bucket{service,target}
-streaming_client_disconnects_total{service,target}
+gateway_build_info{version, commit, image}
+model_runtime_info{model, runtime_service, image, vllm_version}
+model_catalog_info{model, revision, quantization}
 ```
+
+백로그 포함 정보: Gateway image/version/commit, vLLM image/version, served model name, model revision, GPU name, max_model_len, max_num_seqs, tuned config 적용 여부.
+
+## Live PromQL validation
+
+`scripts/validation/validate_grafana_promql.py`는 dashboard JSON에서 PromQL을 추출하고 Prometheus `/api/v1/query`로 syntax check를 수행하는 선택적 runtime validation 도구다. live Prometheus가 필요하므로 기본 CI gate가 아니라 optional runtime validation으로 실행한다.
+
+```bash
+python3 scripts/validation/validate_grafana_promql.py \
+  --prometheus-url http://localhost:9410 \
+  --allow-no-data
+```
+
+Idle/dev 환경에서는 traffic이 없어 일부 panel query가 no-data를 반환할 수 있으므로 `--allow-no-data`로 datasource 연결과 PromQL syntax를 먼저 확인한다.
+운영 traffic이 있는 환경에서 no-data까지 실패로 보고 싶으면 `--allow-no-data` 없이 실행한다.
 
 ## Provisioning 정책
 
@@ -124,7 +184,7 @@ Reference release의 Grafana dashboard는 Git-managed artifact다.
 - reference release에서는 `allowUiUpdates: false`를 사용한다.
 - local 실험이 필요하면 별도 local override 또는 exported JSON을 사용한다.
 
-Grafana UI에서 저장한 provisioned dashboard 변경은 JSON source로 자동 반영되지 않는다. 따라서 운영 기준 dashboard는 repository JSON을 source of truth로 둔다.
+Grafana UI에서 저장한 provisioned dashboard 변경은 JSON source로 자동 반영되지 않는다. 따라서 운영 기준 dashboard는 **repository JSON (`ops/grafana/dashboards/*.json`)을 source of truth**로 둔다. UI에서 수정한 내용을 운영에 반영하려면 JSON을 export하고 repository에 커밋한 뒤 Grafana를 재시작해야 한다. live datasource/render validation은 별도 runtime check (`make runtime-validate`)이며 기본 CI merge gate가 아니다.
 
 ## Dashboard phrase 기준
 

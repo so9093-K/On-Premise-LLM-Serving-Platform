@@ -8,7 +8,7 @@ from ai_model_serving.governance_validation.common import read_json
 def validate_grafana_dashboard_templates() -> None:
     required_titles = {
         'ops/grafana/dashboards/executive_runtime_overview.json': {
-            'Overall Status', 'User Traffic', 'p95 Latency', 'Error Rate',
+            'Overall Status', 'User Traffic', 'p95 Latency (5m)', 'Error Rate',
             'GPU Headroom', 'Component Readiness', 'Scrape Health',
         },
         'ops/grafana/dashboards/gpu_capacity_and_oom_risk.json': {

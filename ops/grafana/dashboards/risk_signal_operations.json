@@ -6,7 +6,20 @@
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
   "id": null,
-  "links": [],
+  "links": [
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "Executive Runtime Overview",
+      "tooltip": "Overall service health and status",
+      "type": "link",
+      "url": "/d/executive_runtime_overview/executive-runtime-overview"
+    }
+  ],
   "liveNow": false,
   "panels": [
     {
@@ -69,7 +82,7 @@
       "id": 2,
       "type": "stat",
       "title": "Risk Detected Rate",
-      "description": "Healthy/정상: expected range. Attention/주의: review trend. Action Required/조치 필요: investigate owner/runbook. No Data/런타임 데이터 없음: check Prometheus scrape/exporter.",
+      "description": "Risk detection ratio for the window (detected / total assessments). Healthy/정상: low baseline ratio. Attention/주의: ratio > 30%. Action Required/조치 필요: ratio > 70% or sudden spike. No Data/런타임 데이터 없음: check risk-adapter scrape. Shows ratio only — for total volume see Risk Assessment Volume; for count by risk type see Strongest Code Distribution below.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -122,7 +135,7 @@
       "id": 3,
       "type": "stat",
       "title": "Detector Timeout Rate",
-      "description": "Healthy/정상: expected range. Attention/주의: review trend. Action Required/조치 필요: investigate owner/runbook. No Data/런타임 데이터 없음: check Prometheus scrape/exporter.",
+      "description": "INFERENCE_TIMEOUT events as ratio of total assessments. Healthy/정상: < 5%. Attention/주의: 5–10%. Action Required/조치 필요: > 10% — check detector upstream latency and Detector Readiness. No Data/런타임 데이터 없음: check risk-adapter scrape. Shows ratio only — for count by signal type see System Signal Distribution below.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -175,7 +188,7 @@
       "id": 4,
       "type": "stat",
       "title": "Forbidden Field Violations",
-      "description": "Healthy/정상: expected range. Attention/주의: review trend. Action Required/조치 필요: investigate owner/runbook. No Data/런타임 데이터 없음: check Prometheus scrape/exporter.",
+      "description": "Healthy/정상: 0 (no signal-only contract violations). Action Required/조치 필요: any violation > 0 — investigate immediately, this indicates a prompt/output field exposure risk. No Data/런타임 데이터 없음: check risk-adapter scrape. 0 = metric registered and no violations (safe). The metric forbidden_response_field_total is always registered when risk-adapter is up, so 0 means no violations occurred.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"

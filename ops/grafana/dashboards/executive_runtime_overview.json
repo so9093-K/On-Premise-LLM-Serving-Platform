@@ -6,7 +6,56 @@
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
   "id": null,
-  "links": [],
+  "links": [
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "GPU Capacity and OOM Risk",
+      "tooltip": "Home dashboard — GPU headroom, VRAM, utilization, OOM/restart",
+      "type": "link",
+      "url": "/d/gpu_capacity_and_oom_risk/gpu-capacity-and-oom-risk"
+    },
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "Chat API Deep Dive",
+      "tooltip": "Chat and streaming relay metrics",
+      "type": "link",
+      "url": "/d/chat_api_deep_dive/chat-api-deep-dive"
+    },
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "Model Runtime Deep Dive",
+      "tooltip": "Queue, KV cache, token throughput, container resources per model",
+      "type": "link",
+      "url": "/d/model_runtime_deep_dive/model-runtime-deep-dive"
+    },
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "Risk Signal Operations",
+      "tooltip": "Signal-only risk monitoring",
+      "type": "link",
+      "url": "/d/risk_signal_operations/risk-signal-operations"
+    }
+  ],
   "liveNow": false,
   "panels": [
     {
@@ -38,7 +87,7 @@
       "id": 1,
       "type": "stat",
       "title": "Overall Status",
-      "description": "Healthy/정상: expected range. Attention/주의: review trend. Action Required/조치 필요: investigate owner/runbook. No Data/런타임 데이터 없음: check Prometheus scrape/exporter.",
+      "description": "Healthy/정상: all services ready (min=1). Action Required/조치 필요: any service not ready (min=0). No Data/런타임 데이터 없음: check Prometheus scrape/exporter. Uses min() so one unhealthy service turns the whole indicator red. See Component Readiness for per-service detail.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -51,7 +100,7 @@
       },
       "targets": [
         {
-          "expr": "max(overall_runtime_status)",
+          "expr": "min(overall_runtime_status)",
           "refId": "A",
           "legendFormat": "overall"
         }
@@ -115,8 +164,8 @@
     {
       "id": 3,
       "type": "stat",
-      "title": "p95 Latency",
-      "description": "Healthy/정상: expected range. Attention/주의: review trend. Action Required/조치 필요: investigate owner/runbook. No Data/런타임 데이터 없음: check Prometheus scrape/exporter.",
+      "title": "p95 Latency (5m)",
+      "description": "Healthy/정상: < 5s. Attention/주의: 5–10s. Action Required/조치 필요: > 10s. No Data/런타임 데이터 없음: check Prometheus scrape/exporter. Uses recording rule model_runtime_http_p95_latency_seconds with fixed 5m window — not affected by $window variable.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"

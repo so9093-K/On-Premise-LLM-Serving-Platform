@@ -28,6 +28,34 @@
 첫 화면은 “지금 이 GPU에서 요청을 안전하게 계속 처리할 수 있는가?”에 답해야 한다. 이어서 `Executive Runtime Overview`의 `Overall Status`는 “지금 요청을 안전하게 처리할 수 있는가?”라는 전체 서비스 질문에 답한다. 장애 대응 상태는 `Action Required`, 데이터 부재 상태는 `No Runtime Data`로 표시한다.
 
 
+## Dashboard 운영 질문
+
+각 dashboard는 다음 운영 질문에 답한다.
+
+| Dashboard | 운영 질문 |
+|---|---|
+| `gpu_capacity_and_oom_risk` | 지금 이 GPU에서 요청을 안전하게 계속 처리할 수 있는가? |
+| `executive_runtime_overview` | 전체 서비스가 정상인가? 어디가 문제인가? |
+| `chat_api_deep_dive` | Gateway path와 upstream path 중 어디가 병목인가? |
+| `model_runtime_deep_dive` | 특정 모델의 queue, KV cache, token throughput, container resource 상태는? |
+| `risk_signal_operations` | risk signal만으로 본 현재 detector 상태는? (prompt 없음) |
+
+## Dashboard navigation
+
+각 dashboard 상단 링크로 이동한다. `includeVars=true`로 현재 variable 값을 유지하며 이동한다.
+
+```
+gpu_capacity_and_oom_risk → executive_runtime_overview
+executive_runtime_overview → gpu_capacity_and_oom_risk, chat_api_deep_dive, model_runtime_deep_dive, risk_signal_operations
+chat_api_deep_dive → executive_runtime_overview, model_runtime_deep_dive
+model_runtime_deep_dive → gpu_capacity_and_oom_risk, chat_api_deep_dive
+risk_signal_operations → executive_runtime_overview
+```
+
+## Source of truth 및 UI 수정 정책
+
+Dashboard JSON (`ops/grafana/dashboards/*.json`)이 source of truth다. Grafana UI에서 직접 수정한 내용은 JSON으로 자동 반영되지 않는다. 운영 변경은 JSON 수정 후 repository 커밋 → Grafana 재시작으로 적용한다. live datasource/render validation은 `make runtime-validate`로 별도 수행한다 (기본 CI gate가 아님).
+
 ## Operator status bundle
 
 운영자용 정적 상태 번들은 `make operator-status`로 생성한다. 이 명령은 `reports/runtime/operator_status_bundle.json`과 `reports/runtime/operator_status_bundle.md`를 작성한다. 번들은 ModelRegistry projection을 기준으로 runtime targets, model inventory, storage paths, GPU budget, monitoring labels, readiness vocabulary, runtime validation matrix를 한 곳에 묶는다.

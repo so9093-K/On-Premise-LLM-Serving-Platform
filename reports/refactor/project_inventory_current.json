@@ -1,6 +1,6 @@
 {
   "summary": {
-    "total_files": 295,
+    "total_files": 298,
     "by_area": {
       ".dockerignore": 1,
       ".env": 1,
@@ -9,6 +9,7 @@
       ".env.local.example": 1,
       ".gitignore": 1,
       ".gitlab-ci.yml": 1,
+      ".other": 1,
       ".python-version": 1,
       "CHANGELOG.md": 1,
       "Dockerfile": 1,
@@ -29,10 +30,10 @@
       "reports": 20,
       "requirements.lock": 1,
       "requirements.runtime.lock": 1,
-      "scripts": 59,
+      "scripts": 60,
       "specs": 11,
       "src": 67,
-      "tests": 26,
+      "tests": 27,
       "version_manifest.json": 1
     },
     "by_category": {
@@ -45,12 +46,12 @@
       "current handoff/review report": 9,
       "documentation": 50,
       "model card metadata": 3,
-      "operator/developer command surface": 59,
-      "project metadata": 21,
+      "operator/developer command surface": 60,
+      "project metadata": 22,
       "request example": 1,
       "runtime validation harness plan/matrix": 4,
       "runtime/operator generated report": 11,
-      "test suite": 26
+      "test suite": 27
     },
     "by_owner": {
       "api-contracts": 17,
@@ -61,17 +62,17 @@
       "governance-validation": 10,
       "handoff-reporting": 20,
       "operations": 15,
-      "operator-ux": 59,
-      "project-maintenance": 34,
-      "quality": 26,
+      "operator-ux": 60,
+      "project-maintenance": 35,
+      "quality": 27,
       "runtime-validation": 14
     },
     "by_role": {
       "build-command": 2,
-      "documentation": 66,
+      "documentation": 67,
       "entrypoint": 9,
       "environment-template": 5,
-      "python-source": 124,
+      "python-source": 126,
       "shell-command": 26,
       "structured-data": 54,
       "supporting-file": 9
@@ -94,8 +95,8 @@
         "category": "current handoff/review report",
         "owner": "handoff-reporting",
         "management": "generated/curated for handoff review",
-        "size_bytes": 125205,
-        "line_count": 3505,
+        "size_bytes": 125981,
+        "line_count": 3528,
         "role": "structured-data",
         "review_note": "handoff/review artifact; avoid stale phase snapshots in active package"
       },
@@ -122,6 +123,28 @@
         "review_note": "supporting project file"
       },
       {
+        "path": "ops/grafana/dashboards/chat_api_deep_dive.json",
+        "area": "ops",
+        "category": "compose/monitoring/runtime ops template",
+        "owner": "operations",
+        "management": "managed by operator templates",
+        "size_bytes": 22214,
+        "line_count": 780,
+        "role": "structured-data",
+        "review_note": "supporting project file"
+      },
+      {
+        "path": "ops/grafana/dashboards/gpu_capacity_and_oom_risk.json",
+        "area": "ops",
+        "category": "compose/monitoring/runtime ops template",
+        "owner": "operations",
+        "management": "managed by operator templates",
+        "size_bytes": 20241,
+        "line_count": 774,
+        "role": "structured-data",
+        "review_note": "supporting project file"
+      },
+      {
         "path": "src/ai_model_serving/contracts/chat.py",
         "area": "src",
         "category": "application/control-plane source",
@@ -131,28 +154,6 @@
         "line_count": 769,
         "role": "python-source",
         "review_note": "application code; preserve public API behavior and compatibility facades"
-      },
-      {
-        "path": "ops/grafana/dashboards/gpu_capacity_and_oom_risk.json",
-        "area": "ops",
-        "category": "compose/monitoring/runtime ops template",
-        "owner": "operations",
-        "management": "managed by operator templates",
-        "size_bytes": 19663,
-        "line_count": 761,
-        "role": "structured-data",
-        "review_note": "supporting project file"
-      },
-      {
-        "path": "ops/grafana/dashboards/chat_api_deep_dive.json",
-        "area": "ops",
-        "category": "compose/monitoring/runtime ops template",
-        "owner": "operations",
-        "management": "managed by operator templates",
-        "size_bytes": 20342,
-        "line_count": 739,
-        "role": "structured-data",
-        "review_note": "supporting project file"
       },
       {
         "path": "reports/runtime/operator_status_bundle.json",
@@ -177,6 +178,17 @@
         "review_note": "application code; preserve public API behavior and compatibility facades"
       },
       {
+        "path": "ops/grafana/dashboards/executive_runtime_overview.json",
+        "area": "ops",
+        "category": "compose/monitoring/runtime ops template",
+        "owner": "operations",
+        "management": "managed by operator templates",
+        "size_bytes": 17688,
+        "line_count": 655,
+        "role": "structured-data",
+        "review_note": "supporting project file"
+      },
+      {
         "path": "src/ai_model_serving/domain/model_registry.py",
         "area": "src",
         "category": "application/control-plane source",
@@ -199,13 +211,13 @@
         "review_note": "application code; preserve public API behavior and compatibility facades"
       },
       {
-        "path": "ops/grafana/dashboards/executive_runtime_overview.json",
+        "path": "ops/grafana/dashboards/model_runtime_deep_dive.json",
         "area": "ops",
         "category": "compose/monitoring/runtime ops template",
         "owner": "operations",
         "management": "managed by operator templates",
-        "size_bytes": 16049,
-        "line_count": 606,
+        "size_bytes": 15910,
+        "line_count": 599,
         "role": "structured-data",
         "review_note": "supporting project file"
       },
@@ -215,19 +227,8 @@
         "category": "compose/monitoring/runtime ops template",
         "owner": "operations",
         "management": "managed by operator templates",
-        "size_bytes": 15398,
-        "line_count": 585,
-        "role": "structured-data",
-        "review_note": "supporting project file"
-      },
-      {
-        "path": "ops/grafana/dashboards/model_runtime_deep_dive.json",
-        "area": "ops",
-        "category": "compose/monitoring/runtime ops template",
-        "owner": "operations",
-        "management": "managed by operator templates",
-        "size_bytes": 14434,
-        "line_count": 555,
+        "size_bytes": 16340,
+        "line_count": 598,
         "role": "structured-data",
         "review_note": "supporting project file"
       },
@@ -262,8 +263,8 @@
       "category": "project metadata",
       "owner": "project-maintenance",
       "management": "managed by root project metadata",
-      "size_bytes": 2206,
-      "line_count": 58,
+      "size_bytes": 2372,
+      "line_count": 61,
       "role": "supporting-file",
       "review_note": "supporting project file"
     },
@@ -317,8 +318,8 @@
       "category": "project metadata",
       "owner": "project-maintenance",
       "management": "managed by root project metadata",
-      "size_bytes": 2182,
-      "line_count": 54,
+      "size_bytes": 2348,
+      "line_count": 57,
       "role": "supporting-file",
       "review_note": "supporting project file"
     },
@@ -331,6 +332,17 @@
       "size_bytes": 5172,
       "line_count": 176,
       "role": "structured-data",
+      "review_note": "supporting project file"
+    },
+    {
+      "path": ".other/sleep_prompt.md",
+      "area": ".other",
+      "category": "project metadata",
+      "owner": "project-maintenance",
+      "management": "managed by root project metadata",
+      "size_bytes": 16751,
+      "line_count": 449,
+      "role": "documentation",
       "review_note": "supporting project file"
     },
     {
@@ -878,8 +890,8 @@
       "category": "documentation",
       "owner": "documentation",
       "management": "managed by documentation map",
-      "size_bytes": 11820,
-      "line_count": 212,
+      "size_bytes": 12273,
+      "line_count": 218,
       "role": "documentation",
       "review_note": "documentation; keep relative links valid and avoid duplicating current command flow"
     },
@@ -955,8 +967,8 @@
       "category": "documentation",
       "owner": "documentation",
       "management": "managed by documentation map",
-      "size_bytes": 7824,
-      "line_count": 155,
+      "size_bytes": 11989,
+      "line_count": 210,
       "role": "documentation",
       "review_note": "documentation; keep relative links valid and avoid duplicating current command flow"
     },
@@ -1021,8 +1033,8 @@
       "category": "documentation",
       "owner": "documentation",
       "management": "managed by documentation map",
-      "size_bytes": 3536,
-      "line_count": 47,
+      "size_bytes": 5102,
+      "line_count": 75,
       "role": "documentation",
       "review_note": "documentation; keep relative links valid and avoid duplicating current command flow"
     },
@@ -1329,8 +1341,8 @@
       "category": "compose/monitoring/runtime ops template",
       "owner": "operations",
       "management": "managed by operator templates",
-      "size_bytes": 20342,
-      "line_count": 739,
+      "size_bytes": 22214,
+      "line_count": 780,
       "role": "structured-data",
       "review_note": "supporting project file"
     },
@@ -1340,8 +1352,8 @@
       "category": "compose/monitoring/runtime ops template",
       "owner": "operations",
       "management": "managed by operator templates",
-      "size_bytes": 16049,
-      "line_count": 606,
+      "size_bytes": 17688,
+      "line_count": 655,
       "role": "structured-data",
       "review_note": "supporting project file"
     },
@@ -1351,8 +1363,8 @@
       "category": "compose/monitoring/runtime ops template",
       "owner": "operations",
       "management": "managed by operator templates",
-      "size_bytes": 19663,
-      "line_count": 761,
+      "size_bytes": 20241,
+      "line_count": 774,
       "role": "structured-data",
       "review_note": "supporting project file"
     },
@@ -1362,8 +1374,8 @@
       "category": "compose/monitoring/runtime ops template",
       "owner": "operations",
       "management": "managed by operator templates",
-      "size_bytes": 14434,
-      "line_count": 555,
+      "size_bytes": 15910,
+      "line_count": 599,
       "role": "structured-data",
       "review_note": "supporting project file"
     },
@@ -1373,8 +1385,8 @@
       "category": "compose/monitoring/runtime ops template",
       "owner": "operations",
       "management": "managed by operator templates",
-      "size_bytes": 15398,
-      "line_count": 585,
+      "size_bytes": 16340,
+      "line_count": 598,
       "role": "structured-data",
       "review_note": "supporting project file"
     },
@@ -1527,8 +1539,8 @@
       "category": "current handoff/review report",
       "owner": "handoff-reporting",
       "management": "generated/curated for handoff review",
-      "size_bytes": 60528,
-      "line_count": 296,
+      "size_bytes": 60905,
+      "line_count": 298,
       "role": "structured-data",
       "review_note": "handoff/review artifact; avoid stale phase snapshots in active package"
     },
@@ -1538,8 +1550,8 @@
       "category": "current handoff/review report",
       "owner": "handoff-reporting",
       "management": "generated/curated for handoff review",
-      "size_bytes": 125205,
-      "line_count": 3505,
+      "size_bytes": 125981,
+      "line_count": 3528,
       "role": "structured-data",
       "review_note": "handoff/review artifact; avoid stale phase snapshots in active package"
     },
@@ -1549,8 +1561,8 @@
       "category": "current handoff/review report",
       "owner": "handoff-reporting",
       "management": "generated/curated for handoff review",
-      "size_bytes": 5332,
-      "line_count": 98,
+      "size_bytes": 5349,
+      "line_count": 99,
       "role": "documentation",
       "review_note": "handoff/review artifact; avoid stale phase snapshots in active package"
     },
@@ -2347,6 +2359,17 @@
       "review_note": "operator/developer command; expose through Makefile/help if user-facing"
     },
     {
+      "path": "scripts/validation/validate_grafana_promql.py",
+      "area": "scripts",
+      "category": "operator/developer command surface",
+      "owner": "operator-ux",
+      "management": "managed by Makefile command UX",
+      "size_bytes": 7611,
+      "line_count": 224,
+      "role": "python-source",
+      "review_note": "operator/developer command; expose through Makefile/help if user-facing"
+    },
+    {
       "path": "specs/openapi.gateway.yaml",
       "area": "specs",
       "category": "OpenAPI/JSON schema contract",
@@ -2726,7 +2749,7 @@
       "category": "application/control-plane source",
       "owner": "governance-validation",
       "management": "managed by package source layout",
-      "size_bytes": 3904,
+      "size_bytes": 3909,
       "line_count": 69,
       "role": "python-source",
       "review_note": "application code; preserve public API behavior and compatibility facades"
@@ -3232,8 +3255,8 @@
       "category": "test suite",
       "owner": "quality",
       "management": "managed by test strategy",
-      "size_bytes": 20724,
-      "line_count": 419,
+      "size_bytes": 25654,
+      "line_count": 520,
       "role": "python-source",
       "review_note": "test coverage; keep deterministic and avoid live GPU dependency"
     },
@@ -3487,6 +3510,17 @@
       "management": "managed by test strategy",
       "size_bytes": 1608,
       "line_count": 49,
+      "role": "python-source",
+      "review_note": "test coverage; keep deterministic and avoid live GPU dependency"
+    },
+    {
+      "path": "tests/unit/test_validate_grafana_promql.py",
+      "area": "tests",
+      "category": "test suite",
+      "owner": "quality",
+      "management": "managed by test strategy",
+      "size_bytes": 8996,
+      "line_count": 244,
       "role": "python-source",
       "review_note": "test coverage; keep deterministic and avoid live GPU dependency"
     },

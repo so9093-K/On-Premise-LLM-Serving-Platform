@@ -6,7 +6,32 @@
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
   "id": null,
-  "links": [],
+  "links": [
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "Executive Runtime Overview",
+      "tooltip": "Overall service health and status",
+      "type": "link",
+      "url": "/d/executive_runtime_overview/executive-runtime-overview"
+    },
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "Model Runtime Deep Dive",
+      "tooltip": "Queue, KV cache, token throughput, container resources per model",
+      "type": "link",
+      "url": "/d/model_runtime_deep_dive/model-runtime-deep-dive"
+    }
+  ],
   "liveNow": false,
   "panels": [
     {
@@ -27,7 +52,7 @@
       "targets": [],
       "options": {
         "mode": "markdown",
-        "content": "## Chat API와 streaming을 보는 법 / Chat API runbook\n- 먼저 request rate, p95/p99 latency, 5xx rate를 확인합니다.\n- `stream=true`는 chunk/bytes/error/usage event metric으로 relay 상태를 봅니다.\n- TTFT, stream duration, chunks per response는 별도 histogram instrumentation이 추가되기 전까지 이 dashboard에서 정확히 계산하지 않습니다.\n- No Data는 Gateway `/metrics` scrape와 streaming code path가 실제로 실행됐는지 확인합니다.\n"
+        "content": "## Chat API와 streaming을 보는 법 / Chat API runbook\n- 먼저 request rate, p95/p99 latency, 5xx rate를 확인합니다.\n- `stream=true`는 chunk rate, byte throughput, error, usage event metric으로 relay 상태를 봅니다.\n- TTFT p95는 `Streaming Time to First Token p95`, stream duration p95는 `Streaming Duration p95`, chunks per response p95는 `Chunks per Response p95` panel에서 확인합니다.\n- Gateway path와 upstream path 중 어디가 병목인지는 `Gateway vs Upstream p95` panel로 비교합니다.\n- No Data는 Gateway `/metrics` scrape와 streaming code path가 실제로 실행됐는지 확인합니다.\n- prompt/user text/model output은 절대 metric label로 노출되지 않습니다.\n"
       },
       "fieldConfig": {
         "defaults": {},
@@ -349,8 +374,8 @@
     {
       "id": 8,
       "type": "timeseries",
-      "title": "Streaming Chunks and Bytes",
-      "description": "Healthy/정상: expected range. Attention/주의: review trend. Action Required/조치 필요: investigate owner/runbook. No Data/런타임 데이터 없음: check Prometheus scrape/exporter.",
+      "title": "Streaming Chunk Rate",
+      "description": "Healthy/정상: chunks/sec increasing with traffic. Attention/주의: chunk rate drops while request rate holds. Action Required/조치 필요: chunk rate near zero with active streaming requests. No Data/런타임 데이터 없음: check Gateway scrape and streaming code path.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -358,19 +383,14 @@
       "gridPos": {
         "x": 12,
         "y": 9,
-        "w": 12,
+        "w": 6,
         "h": 6
       },
       "targets": [
         {
           "expr": "sum(rate(streaming_chunks_total{service=\"gateway\",target=~\"$model\"}[$window])) by (target)",
           "refId": "A",
-          "legendFormat": "chunks {{target}}"
-        },
-        {
-          "expr": "sum(rate(streaming_bytes_total{service=\"gateway\",target=~\"$model\"}[$window])) by (target)",
-          "refId": "B",
-          "legendFormat": "bytes {{target}}"
+          "legendFormat": "{{target}}"
         }
       ],
       "options": {
@@ -382,34 +402,47 @@
       },
       "fieldConfig": {
         "defaults": {
+          "unit": "ops",
           "decimals": 2
         },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byRegexp",
-              "options": "/.*bytes.*/"
-            },
-            "properties": [
-              {
-                "id": "unit",
-                "value": "bytes"
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byRegexp",
-              "options": "/.*chunks.*/"
-            },
-            "properties": [
-              {
-                "id": "unit",
-                "value": "ops"
-              }
-            ]
-          }
-        ]
+        "overrides": []
+      }
+    },
+    {
+      "id": 13,
+      "type": "timeseries",
+      "title": "Streaming Byte Throughput",
+      "description": "Healthy/정상: bytes/sec proportional to chunk rate and typical token size. Attention/주의: bytes rate drops disproportionately vs chunk rate. Action Required/조치 필요: byte throughput near zero with active streaming. No Data/런타임 데이터 없음: check Gateway scrape and streaming code path.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 9,
+        "w": 6,
+        "h": 6
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(streaming_bytes_total{service=\"gateway\",target=~\"$model\"}[$window])) by (target)",
+          "refId": "A",
+          "legendFormat": "{{target}}"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "Bps",
+          "decimals": 1
+        },
+        "overrides": []
       }
     },
     {
@@ -531,8 +564,8 @@
     {
       "id": 12,
       "type": "timeseries",
-      "title": "Streaming Duration and Chunks",
-      "description": "Healthy/정상: expected range. Attention/주의: review trend. Action Required/조치 필요: investigate owner/runbook. No Data/런타임 데이터 없음: check Prometheus scrape/exporter. Status labels are sanitized terminal categories only.",
+      "title": "Streaming Duration p95",
+      "description": "Healthy/정상: duration p95 within model SLO. Attention/주의: duration increasing trend. Action Required/조치 필요: duration > SLO threshold. No Data/런타임 데이터 없음: check Gateway scrape. Status labels are sanitized terminal categories only (completed/error/client_disconnect).",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -540,19 +573,14 @@
       "gridPos": {
         "x": 12,
         "y": 21,
-        "w": 12,
+        "w": 6,
         "h": 6
       },
       "targets": [
         {
           "expr": "histogram_quantile(0.95, sum(rate(streaming_duration_seconds_bucket{service=\"gateway\",target=~\"$model\"}[$window])) by (le, target, status))",
           "refId": "A",
-          "legendFormat": "{{target}} {{status}} duration p95"
-        },
-        {
-          "expr": "histogram_quantile(0.95, sum(rate(streaming_chunks_per_response_bucket{service=\"gateway\",target=~\"$model\"}[$window])) by (le, target, status))",
-          "refId": "B",
-          "legendFormat": "{{target}} {{status}} chunks p95"
+          "legendFormat": "{{target}} {{status}}"
         }
       ],
       "options": {
@@ -564,34 +592,47 @@
       },
       "fieldConfig": {
         "defaults": {
+          "unit": "s",
           "decimals": 3
         },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byRegexp",
-              "options": "/.*duration.*/"
-            },
-            "properties": [
-              {
-                "id": "unit",
-                "value": "s"
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byRegexp",
-              "options": "/.*chunks.*/"
-            },
-            "properties": [
-              {
-                "id": "unit",
-                "value": "short"
-              }
-            ]
-          }
-        ]
+        "overrides": []
+      }
+    },
+    {
+      "id": 14,
+      "type": "timeseries",
+      "title": "Chunks per Response p95",
+      "description": "Healthy/정상: chunks p95 consistent with response length. Attention/주의: chunks spike or drop unexpectedly. Action Required/조치 필요: chunks near 0 with active streaming traffic. No Data/런타임 데이터 없음: check Gateway scrape. Status labels are sanitized terminal categories only.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 21,
+        "w": 6,
+        "h": 6
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(streaming_chunks_per_response_bucket{service=\"gateway\",target=~\"$model\"}[$window])) by (le, target, status))",
+          "refId": "A",
+          "legendFormat": "{{target}} {{status}}"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 1
+        },
+        "overrides": []
       }
     }
   ],

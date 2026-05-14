@@ -6,7 +6,32 @@
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
   "id": null,
-  "links": [],
+  "links": [
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "GPU Capacity and OOM Risk",
+      "tooltip": "Home dashboard — GPU headroom, VRAM, utilization, OOM/restart",
+      "type": "link",
+      "url": "/d/gpu_capacity_and_oom_risk/gpu-capacity-and-oom-risk"
+    },
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "Chat API Deep Dive",
+      "tooltip": "Chat and streaming relay metrics",
+      "type": "link",
+      "url": "/d/chat_api_deep_dive/chat-api-deep-dive"
+    }
+  ],
   "liveNow": false,
   "panels": [
     {
@@ -176,8 +201,8 @@
     {
       "id": 4,
       "type": "stat",
-      "title": "Upstream p95 Latency",
-      "description": "Healthy/정상: expected range. Attention/주의: review trend. Action Required/조치 필요: investigate owner/runbook. No Data/런타임 데이터 없음: check Prometheus scrape/exporter.",
+      "title": "Upstream p95 Latency (5m)",
+      "description": "Healthy/정상: < 5s. Attention/주의: 5–10s. Action Required/조치 필요: > 10s. No Data/런타임 데이터 없음: check Prometheus scrape/exporter. Uses recording rule model_runtime_upstream_p95_latency_seconds with fixed 5m window — not affected by $window variable.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -229,8 +254,8 @@
     {
       "id": 5,
       "type": "timeseries",
-      "title": "Queue and KV Trend",
-      "description": "Healthy/정상: expected range. Attention/주의: review trend. Action Required/조치 필요: investigate owner/runbook. No Data/런타임 데이터 없음: check Prometheus scrape/exporter.",
+      "title": "Queue Depth Trend",
+      "description": "Healthy/정상: queue depth near 0. Attention/주의: queue > 20 sustained. Action Required/조치 필요: queue > 50 or growing without bound. No Data/런타임 데이터 없음: check vLLM scrape and model/runtime_service labels.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -238,19 +263,14 @@
       "gridPos": {
         "x": 0,
         "y": 9,
-        "w": 12,
+        "w": 6,
         "h": 6
       },
       "targets": [
         {
           "expr": "vllm_queue_depth{model=~\"$model\",runtime_service=~\"$runtime_service\"}",
           "refId": "A",
-          "legendFormat": "queue {{model}}"
-        },
-        {
-          "expr": "vllm_kv_cache_usage_ratio{model=~\"$model\",runtime_service=~\"$runtime_service\"}",
-          "refId": "B",
-          "legendFormat": "kv {{model}}"
+          "legendFormat": "{{model}}/{{runtime_service}}"
         }
       ],
       "options": {
@@ -262,42 +282,66 @@
       },
       "fieldConfig": {
         "defaults": {
-          "decimals": 2
+          "unit": "short",
+          "decimals": 0
         },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byRegexp",
-              "options": "/.*queue.*/"
-            },
-            "properties": [
+        "overrides": []
+      }
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "KV Cache Usage Trend",
+      "description": "Healthy/정상: KV cache < 80%. Attention/주의: KV cache 80–90%. Action Required/조치 필요: KV cache > 90% — reduce context/concurrency. No Data/런타임 데이터 없음: check vLLM scrape and model/runtime_service labels.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 9,
+        "w": 6,
+        "h": 6
+      },
+      "targets": [
+        {
+          "expr": "vllm_kv_cache_usage_ratio{model=~\"$model\",runtime_service=~\"$runtime_service\"}",
+          "refId": "A",
+          "legendFormat": "{{model}}/{{runtime_service}}"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "decimals": 2,
+          "min": 0,
+          "max": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
               {
-                "id": "unit",
-                "value": "short"
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byRegexp",
-              "options": "/.*kv.*/"
-            },
-            "properties": [
-              {
-                "id": "unit",
-                "value": "percentunit"
+                "color": "green",
+                "value": null
               },
               {
-                "id": "min",
-                "value": 0
+                "color": "orange",
+                "value": 0.8
               },
               {
-                "id": "max",
-                "value": 1
+                "color": "red",
+                "value": 0.9
               }
             ]
           }
-        ]
+        },
+        "overrides": []
       }
     },
     {

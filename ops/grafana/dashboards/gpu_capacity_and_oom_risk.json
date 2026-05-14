@@ -6,7 +6,20 @@
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
   "id": null,
-  "links": [],
+  "links": [
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "Executive Runtime Overview",
+      "tooltip": "Overall service health, traffic, error, scrape health",
+      "type": "link",
+      "url": "/d/executive_runtime_overview/executive-runtime-overview"
+    }
+  ],
   "liveNow": false,
   "panels": [
     {
@@ -295,7 +308,7 @@
       "id": 3,
       "type": "stat",
       "title": "OOM or Restart Events",
-      "description": "Healthy/정상: expected range. Attention/주의: review trend. Action Required/조치 필요: investigate owner/runbook. No Data/런타임 데이터 없음: check Prometheus scrape/exporter.",
+      "description": "Healthy/정상: 0 (no events in window). Action Required/조치 필요: any restart or OOM > 0. No Data/런타임 데이터 없음: dcgm-exporter or cAdvisor scrape may be down — check Executive Runtime Overview Scrape Health. 0 means counter exists with no events; No Data means exporter may be absent. or vector(0) is used to show 0 when metric is registered but no events occurred.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
