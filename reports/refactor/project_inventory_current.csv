@@ -6,6 +6,7 @@ path,area,category,owner,management,size_bytes,line_count,role,review_note
 .env.local.example,.env.local.example,project metadata,project-maintenance,managed by root project metadata,2173,75,environment-template,supporting project file
 .gitignore,.gitignore,project metadata,project-maintenance,managed by root project metadata,2348,57,supporting-file,supporting project file
 .gitlab-ci.yml,.gitlab-ci.yml,project metadata,project-maintenance,managed by root project metadata,5172,176,structured-data,supporting project file
+.other/registry_cleanup.md,.other,project metadata,project-maintenance,managed by root project metadata,22760,574,documentation,supporting project file
 .other/sleep_prompt.md,.other,project metadata,project-maintenance,managed by root project metadata,16751,449,documentation,supporting project file
 .python-version,.python-version,project metadata,project-maintenance,managed by root project metadata,8,1,environment-template,supporting project file
 CHANGELOG.md,CHANGELOG.md,project metadata,project-maintenance,managed by root project metadata,15640,164,documentation,supporting project file
@@ -63,7 +64,7 @@ docs/operations/full_stack_troubleshooting.md,docs,documentation,documentation,m
 docs/operations/gitlab_cicd_deployment.md,docs,documentation,documentation,managed by documentation map,5067,108,documentation,documentation; keep relative links valid and avoid duplicating current command flow
 docs/operations/model_parameter_discovery.md,docs,documentation,documentation,managed by documentation map,8296,101,documentation,documentation; keep relative links valid and avoid duplicating current command flow
 docs/operations/model_runtime_control.md,docs,documentation,documentation,managed by documentation map,4670,51,documentation,documentation; keep relative links valid and avoid duplicating current command flow
-docs/operations/monitoring_ux.md,docs,documentation,documentation,managed by documentation map,11989,210,documentation,documentation; keep relative links valid and avoid duplicating current command flow
+docs/operations/monitoring_ux.md,docs,documentation,documentation,managed by documentation map,12315,215,documentation,documentation; keep relative links valid and avoid duplicating current command flow
 docs/operations/operator_workflows.md,docs,documentation,documentation,managed by documentation map,4181,121,entrypoint,primary navigation or current-state entrypoint; keep synchronized with Makefile and reports
 docs/operations/project_management_ux.md,docs,documentation,documentation,managed by documentation map,3940,105,entrypoint,primary navigation or current-state entrypoint; keep synchronized with Makefile and reports
 docs/operations/project_state_maintainability_review.md,docs,documentation,documentation,managed by documentation map,7017,115,documentation,documentation; keep relative links valid and avoid duplicating current command flow
@@ -115,8 +116,8 @@ reports/refactor/current_first_run_clean_package_audit.md,reports,current handof
 reports/refactor/current_full_file_hygiene_audit.md,reports,current handoff/review report,handoff-reporting,generated/curated for handoff review,5615,96,documentation,handoff/review artifact; avoid stale phase snapshots in active package
 reports/refactor/current_handoff_summary.md,reports,current handoff/review report,handoff-reporting,generated/curated for handoff review,6788,97,documentation,handoff/review artifact; avoid stale phase snapshots in active package
 reports/refactor/current_refactor_state.md,reports,current handoff/review report,handoff-reporting,generated/curated for handoff review,4149,72,entrypoint,primary navigation or current-state entrypoint; keep synchronized with Makefile and reports
-reports/refactor/project_inventory_current.csv,reports,current handoff/review report,handoff-reporting,generated/curated for handoff review,60905,298,structured-data,handoff/review artifact; avoid stale phase snapshots in active package
-reports/refactor/project_inventory_current.json,reports,current handoff/review report,handoff-reporting,generated/curated for handoff review,125981,3528,structured-data,handoff/review artifact; avoid stale phase snapshots in active package
+reports/refactor/project_inventory_current.csv,reports,current handoff/review report,handoff-reporting,generated/curated for handoff review,61086,299,structured-data,handoff/review artifact; avoid stale phase snapshots in active package
+reports/refactor/project_inventory_current.json,reports,current handoff/review report,handoff-reporting,generated/curated for handoff review,126352,3539,structured-data,handoff/review artifact; avoid stale phase snapshots in active package
 reports/refactor/project_inventory_current.md,reports,current handoff/review report,handoff-reporting,generated/curated for handoff review,5349,99,documentation,handoff/review artifact; avoid stale phase snapshots in active package
 reports/runtime/README.md,reports,runtime/operator generated report,handoff-reporting,generated by operator report commands,603,12,documentation,generated operator report; regenerate through make operator-reports before handoff
 reports/runtime/live_evidence_bundle.json,reports,runtime/operator generated report,handoff-reporting,generated by operator report commands,1654,67,structured-data,generated operator report; regenerate through make operator-reports before handoff

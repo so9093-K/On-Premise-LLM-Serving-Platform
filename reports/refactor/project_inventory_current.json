@@ -1,6 +1,6 @@
 {
   "summary": {
-    "total_files": 298,
+    "total_files": 299,
     "by_area": {
       ".dockerignore": 1,
       ".env": 1,
@@ -9,7 +9,7 @@
       ".env.local.example": 1,
       ".gitignore": 1,
       ".gitlab-ci.yml": 1,
-      ".other": 1,
+      ".other": 2,
       ".python-version": 1,
       "CHANGELOG.md": 1,
       "Dockerfile": 1,
@@ -47,7 +47,7 @@
       "documentation": 50,
       "model card metadata": 3,
       "operator/developer command surface": 60,
-      "project metadata": 22,
+      "project metadata": 23,
       "request example": 1,
       "runtime validation harness plan/matrix": 4,
       "runtime/operator generated report": 11,
@@ -63,13 +63,13 @@
       "handoff-reporting": 20,
       "operations": 15,
       "operator-ux": 60,
-      "project-maintenance": 35,
+      "project-maintenance": 36,
       "quality": 27,
       "runtime-validation": 14
     },
     "by_role": {
       "build-command": 2,
-      "documentation": 67,
+      "documentation": 68,
       "entrypoint": 9,
       "environment-template": 5,
       "python-source": 126,
@@ -95,8 +95,8 @@
         "category": "current handoff/review report",
         "owner": "handoff-reporting",
         "management": "generated/curated for handoff review",
-        "size_bytes": 125981,
-        "line_count": 3528,
+        "size_bytes": 126352,
+        "line_count": 3539,
         "role": "structured-data",
         "review_note": "handoff/review artifact; avoid stale phase snapshots in active package"
       },
@@ -233,15 +233,15 @@
         "review_note": "supporting project file"
       },
       {
-        "path": "scripts/models/modelctl.py",
-        "area": "scripts",
-        "category": "operator/developer command surface",
-        "owner": "operator-ux",
-        "management": "managed by Makefile command UX",
-        "size_bytes": 25252,
-        "line_count": 551,
-        "role": "python-source",
-        "review_note": "operator/developer command; expose through Makefile/help if user-facing"
+        "path": ".other/registry_cleanup.md",
+        "area": ".other",
+        "category": "project metadata",
+        "owner": "project-maintenance",
+        "management": "managed by root project metadata",
+        "size_bytes": 22760,
+        "line_count": 574,
+        "role": "documentation",
+        "review_note": "supporting project file"
       }
     ],
     "entrypoints": [
@@ -332,6 +332,17 @@
       "size_bytes": 5172,
       "line_count": 176,
       "role": "structured-data",
+      "review_note": "supporting project file"
+    },
+    {
+      "path": ".other/registry_cleanup.md",
+      "area": ".other",
+      "category": "project metadata",
+      "owner": "project-maintenance",
+      "management": "managed by root project metadata",
+      "size_bytes": 22760,
+      "line_count": 574,
+      "role": "documentation",
       "review_note": "supporting project file"
     },
     {
@@ -967,8 +978,8 @@
       "category": "documentation",
       "owner": "documentation",
       "management": "managed by documentation map",
-      "size_bytes": 11989,
-      "line_count": 210,
+      "size_bytes": 12315,
+      "line_count": 215,
       "role": "documentation",
       "review_note": "documentation; keep relative links valid and avoid duplicating current command flow"
     },
@@ -1539,8 +1550,8 @@
       "category": "current handoff/review report",
       "owner": "handoff-reporting",
       "management": "generated/curated for handoff review",
-      "size_bytes": 60905,
-      "line_count": 298,
+      "size_bytes": 61086,
+      "line_count": 299,
       "role": "structured-data",
       "review_note": "handoff/review artifact; avoid stale phase snapshots in active package"
     },
@@ -1550,8 +1561,8 @@
       "category": "current handoff/review report",
       "owner": "handoff-reporting",
       "management": "generated/curated for handoff review",
-      "size_bytes": 125981,
-      "line_count": 3528,
+      "size_bytes": 126352,
+      "line_count": 3539,
       "role": "structured-data",
       "review_note": "handoff/review artifact; avoid stale phase snapshots in active package"
     },

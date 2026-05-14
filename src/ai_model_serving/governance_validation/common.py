@@ -161,6 +161,7 @@ EXCLUDED_SCAN_PARTS = {
     '.git', '.venv', 'venv', 'env', '__pycache__', '.pytest_cache',
     '.mypy_cache', '.ruff_cache', '.eggs', 'dist', 'build', 'node_modules',
     '.runtime', 'model_cache', 'models', 'logs', 'run', 'outputs', '.cache',
+    '.other',
 }
 
 
