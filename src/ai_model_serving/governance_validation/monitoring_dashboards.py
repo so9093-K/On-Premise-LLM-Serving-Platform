@@ -23,7 +23,7 @@ def validate_grafana_dashboard_templates() -> None:
             'GPU Headroom', 'Component Readiness', 'Scrape Health',
         },
         'ops/grafana/dashboards/gpu_capacity_and_oom_risk.json': {
-            'GPU Headroom', 'GPU Memory Used', 'Container OOM or Restart Signals',
+            'GPU Headroom', 'GPU Memory Used', 'OOM / Restarts',
             'GPU Utilization', 'VRAM Used vs Budget',
         },
         'ops/grafana/dashboards/risk_signal_operations.json': {
@@ -53,8 +53,8 @@ def validate_grafana_dashboard_templates() -> None:
             raise SystemExit('serving home dashboard must define user_route variable')
         if ' / ' in str(dash.get('title', '')):
             raise SystemExit(f'grafana dashboard title must be English-only: {path}')
-        if not dash.get('panels') or dash['panels'][0].get('type') != 'text':
-            raise SystemExit(f'grafana dashboard must start with operator guide text panel: {path}')
+        if not dash.get('panels'):
+            raise SystemExit(f'grafana dashboard has no panels: {path}')
         missing = titles - {panel.get('title') for panel in dash.get('panels', [])}
         if missing:
             raise SystemExit(f'grafana dashboard template missing user-facing panels {missing}: {path}')

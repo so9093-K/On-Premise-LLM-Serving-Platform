@@ -159,9 +159,7 @@ def test_grafana_dashboards_are_english_titled_variable_backed_and_streaming_awa
         assert " / " not in dashboard["title"]
         variables = {item["name"] for item in dashboard["templating"]["list"]}
         assert {"datasource", "window", "model", "runtime_service", "route", "status_code"}.issubset(variables)
-        assert dashboard["panels"][0]["type"] == "text"
-        assert dashboard["panels"][0]["gridPos"]["h"] >= 5
-        assert "No Data" in dashboard["panels"][0]["description"] or "No Data" in dashboard["panels"][0]["options"].get("content", "")
+        assert dashboard["panels"]
         for panel in dashboard["panels"]:
             if panel["type"] == "stat" and panel.get("options", {}).get("colorMode") == "background":
                 assert panel["options"].get("graphMode") == "none"

@@ -662,6 +662,34 @@ def test_gateway_forwards_risk_assessments_to_internal_risk_adapter():
     assert clients.risk_adapter.last_headers == {"authorization": "Bearer internal-test-key"}
 
 
+def test_gateway_siren_retired_returns_410_without_forwarding():
+    clients = FakeGatewayClients()
+    client = TestClient(create_gateway_app(settings(), clients))
+    response = client.post(
+        "/v1/risk/detectors/siren/assessments",
+        headers=auth_headers(),
+        json={"prompt": "hello"},
+    )
+    assert response.status_code == 410
+    body = response.json()
+    assert body["error"]["code"] == "DETECTOR_RETIRED"
+    assert body["error"]["retryable"] is False
+    assert clients.risk_adapter.last_path is None  # never forwarded
+    Draft202012Validator(error_schema()).validate(body)
+
+
+def test_gateway_siren_retired_returns_410_with_empty_body():
+    clients = FakeGatewayClients()
+    client = TestClient(create_gateway_app(settings(), clients))
+    response = client.post(
+        "/v1/risk/detectors/siren/assessments",
+        headers=auth_headers(),
+    )
+    assert response.status_code == 410
+    assert response.json()["error"]["code"] == "DETECTOR_RETIRED"
+    assert clients.risk_adapter.last_path is None
+
+
 def test_gateway_validates_risk_payload_before_forwarding():
     clients = FakeGatewayClients()
     client = TestClient(create_gateway_app(settings(), clients))

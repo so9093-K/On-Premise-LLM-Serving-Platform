@@ -35,10 +35,9 @@
   "liveNow": false,
   "panels": [
     {
-      "id": 100,
-      "type": "text",
-      "title": "GPU Operator Guide",
-      "description": "Action guide for RTX 6000 Ada GPU operation. No Data means check dcgm-exporter/cAdvisor/vLLM scrape.",
+      "id": 1,
+      "type": "stat",
+      "title": "GPU Headroom",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -46,31 +45,6 @@
       "gridPos": {
         "x": 0,
         "y": 0,
-        "w": 24,
-        "h": 5
-      },
-      "targets": [],
-      "options": {
-        "mode": "markdown",
-        "content": "## GPU runbook\n- **GPU Headroom**이 6GiB 이상이면 정상, 4GiB 미만이면 context/concurrency/max_tokens를 줄이는 조치를 검토합니다.\n- **VRAM Used vs Budget**은 실제 total뿐 아니라 40GiB warning, 43GiB action 기준선을 함께 보여줍니다.\n- VRAM은 높고 GPU utilization이 낮으면 queue/KV/cache 또는 runtime 설정 병목을 의심합니다.\n- No Data는 DCGM exporter/cAdvisor/vLLM scrape 상태를 먼저 확인합니다.\n"
-      },
-      "fieldConfig": {
-        "defaults": {},
-        "overrides": []
-      }
-    },
-    {
-      "id": 1,
-      "type": "stat",
-      "title": "GPU Headroom",
-      "description": "Healthy/정상: expected range. Attention/주의: review trend. Action Required/조치 필요: investigate owner/runbook. No Data/런타임 데이터 없음: check Prometheus scrape/exporter.",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "gridPos": {
-        "x": 0,
-        "y": 5,
         "w": 4,
         "h": 4
       },
@@ -105,20 +79,20 @@
           }
         },
         "overrides": []
-      }
+      },
+      "description": "Healthy: > 6GiB. Attention: 4–6GiB — watch trend. Action Required: < 4GiB — reduce max_tokens or concurrency. No Data: check dcgm-exporter scrape."
     },
     {
       "id": 2,
       "type": "stat",
       "title": "GPU Memory Used",
-      "description": "Healthy/정상: expected range. Attention/주의: review trend. Action Required/조치 필요: investigate owner/runbook. No Data/런타임 데이터 없음: check Prometheus scrape/exporter.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
       },
       "gridPos": {
         "x": 4,
-        "y": 5,
+        "y": 0,
         "w": 4,
         "h": 4
       },
@@ -153,20 +127,20 @@
           }
         },
         "overrides": []
-      }
+      },
+      "description": "Healthy: < 40GiB. Attention: 40–43GiB — approaching budget. Action Required: > 43GiB — reduce load. No Data: check dcgm-exporter scrape."
     },
     {
       "id": 10,
       "type": "stat",
       "title": "GPU Utilization",
-      "description": "Healthy/정상: expected range. Attention/주의: review trend. Action Required/조치 필요: investigate owner/runbook. No Data/런타임 데이터 없음: check Prometheus scrape/exporter.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
       },
       "gridPos": {
         "x": 8,
-        "y": 5,
+        "y": 0,
         "w": 4,
         "h": 4
       },
@@ -208,20 +182,20 @@
           }
         },
         "overrides": []
-      }
+      },
+      "description": "Healthy: active traffic in range. Attention: consistently high with low headroom. Action Required: saturated with queue backlog. No Data: check dcgm-exporter scrape."
     },
     {
       "id": 11,
       "type": "stat",
       "title": "GPU Temperature",
-      "description": "Healthy/정상: expected range. Attention/주의: review trend. Action Required/조치 필요: investigate owner/runbook. No Data/런타임 데이터 없음: check Prometheus scrape/exporter.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
       },
       "gridPos": {
         "x": 12,
-        "y": 5,
+        "y": 0,
         "w": 4,
         "h": 4
       },
@@ -261,20 +235,20 @@
           }
         },
         "overrides": []
-      }
+      },
+      "description": "Healthy: normal operating range. Attention: rising trend — review cooling. Action Required: thermal throttling risk. No Data: check dcgm-exporter scrape."
     },
     {
       "id": 12,
       "type": "stat",
       "title": "GPU Power",
-      "description": "Healthy/정상: expected range. Attention/주의: review trend. Action Required/조치 필요: investigate owner/runbook. No Data/런타임 데이터 없음: check Prometheus scrape/exporter.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
       },
       "gridPos": {
         "x": 16,
-        "y": 5,
+        "y": 0,
         "w": 4,
         "h": 4
       },
@@ -314,41 +288,36 @@
           }
         },
         "overrides": []
-      }
+      },
+      "description": "Healthy: normal range. Attention: sustained high — review workload. Action Required: investigate owner/runbook. No Data: check dcgm-exporter scrape."
     },
     {
       "id": 3,
       "type": "stat",
-      "title": "Container OOM or Restart Signals",
-      "description": "Healthy/정상: 0 container OOM events and 0 container start-time changes when cAdvisor scrape health is green. Action Required/조치 필요: any value > 0. No Data/런타임 데이터 없음: cAdvisor source metrics may be absent; do not read No Data as 0. Source metrics: container_oom_events_total and container_start_time_seconds.",
+      "title": "OOM / Restarts",
+      "description": "Healthy: 0 — no container OOM or restart events. Action Required: any value > 0 — check container logs immediately. No Data: cAdvisor scrape absent; do not read as 0. Source: container_oom_events_total + container_start_time_seconds changes.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
       },
       "gridPos": {
         "x": 20,
-        "y": 5,
+        "y": 0,
         "w": 4,
         "h": 4
       },
       "targets": [
         {
-          "expr": "sum(changes(container_start_time_seconds{container_label_com_docker_compose_service=~\"gateway|risk-adapter|main-llm-vllm|embedding-vllm|risk-prompt-vllm\"}[$window]))",
+          "expr": "sum(changes(container_start_time_seconds{container_label_com_docker_compose_service=~\"gateway|risk-adapter|main-llm-vllm|embedding-vllm|risk-prompt-vllm\"}[$window])) + sum(increase(container_oom_events_total{container_label_com_docker_compose_service=~\"gateway|risk-adapter|main-llm-vllm|embedding-vllm|risk-prompt-vllm\"}[$window]))",
           "refId": "A",
-          "legendFormat": "container start-time changes"
-        },
-        {
-          "expr": "sum(increase(container_oom_events_total{container_label_com_docker_compose_service=~\"gateway|risk-adapter|main-llm-vllm|embedding-vllm|risk-prompt-vllm\"}[$window]))",
-          "refId": "B",
-          "legendFormat": "container oom events"
+          "legendFormat": "events"
         }
       ],
       "options": {
         "colorMode": "background",
         "graphMode": "none",
         "justifyMode": "center",
-        "orientation": "horizontal",
-        "textMode": "auto"
+        "textMode": "value"
       },
       "fieldConfig": {
         "defaults": {
@@ -375,14 +344,13 @@
       "id": 4,
       "type": "timeseries",
       "title": "VRAM Used vs Budget",
-      "description": "Healthy/정상: expected range. Attention/주의: review trend. Action Required/조치 필요: investigate owner/runbook. No Data/런타임 데이터 없음: check Prometheus scrape/exporter.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
       },
       "gridPos": {
         "x": 0,
-        "y": 9,
+        "y": 4,
         "w": 12,
         "h": 6
       },
@@ -421,20 +389,20 @@
           "decimals": 1
         },
         "overrides": []
-      }
+      },
+      "description": "Trend view. warning=40GiB and action=43GiB reference lines shown. Healthy: stable below 40GiB. Attention: approaching 40GiB. Action Required: above 43GiB. No Data: check dcgm-exporter scrape."
     },
     {
       "id": 5,
       "type": "timeseries",
       "title": "vLLM Queue Depth",
-      "description": "Healthy/정상: expected range. Attention/주의: review trend. Action Required/조치 필요: investigate owner/runbook. No Data/런타임 데이터 없음: check Prometheus scrape/exporter.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
       },
       "gridPos": {
         "x": 12,
-        "y": 9,
+        "y": 4,
         "w": 12,
         "h": 6
       },
@@ -475,20 +443,20 @@
           }
         },
         "overrides": []
-      }
+      },
+      "description": "Healthy: near 0. Attention: > 20 — throughput may be constrained. Action Required: > 50 — reduce concurrency or scale. No Data: check vllm-runtimes scrape."
     },
     {
       "id": 6,
       "type": "timeseries",
       "title": "KV Cache Pressure",
-      "description": "Healthy/정상: expected range. Attention/주의: review trend. Action Required/조치 필요: investigate owner/runbook. No Data/런타임 데이터 없음: check Prometheus scrape/exporter.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
       },
       "gridPos": {
         "x": 0,
-        "y": 15,
+        "y": 10,
         "w": 12,
         "h": 6
       },
@@ -529,20 +497,20 @@
           }
         },
         "overrides": []
-      }
+      },
+      "description": "Healthy: < 0.8. Attention: 0.8–0.9 — monitor closely. Action Required: > 0.9 — OOM eviction risk. No Data: check vllm-runtimes scrape."
     },
     {
       "id": 7,
       "type": "timeseries",
       "title": "Token Throughput per Model",
-      "description": "Healthy/정상: expected range. Attention/주의: review trend. Action Required/조치 필요: investigate owner/runbook. No Data/런타임 데이터 없음: check Prometheus scrape/exporter.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
       },
       "gridPos": {
         "x": 12,
-        "y": 15,
+        "y": 10,
         "w": 12,
         "h": 6
       },
@@ -566,20 +534,20 @@
           "decimals": 2
         },
         "overrides": []
-      }
+      },
+      "description": "Healthy: visible generation throughput during active traffic. Attention: sudden drop without traffic decrease. Action Required: near zero with active requests. No Data: check vllm-runtimes scrape."
     },
     {
       "id": 8,
       "type": "timeseries",
       "title": "Container System RAM per Model",
-      "description": "Healthy/정상: expected range. Attention/주의: review trend. Action Required/조치 필요: investigate owner/runbook. No Data/런타임 데이터 없음: check Prometheus scrape/exporter.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
       },
       "gridPos": {
         "x": 0,
-        "y": 21,
+        "y": 16,
         "w": 12,
         "h": 6
       },
@@ -603,20 +571,20 @@
           "decimals": 1
         },
         "overrides": []
-      }
+      },
+      "description": "Healthy: stable trend. Attention: growing unbounded over time. Action Required: spike near host RAM limit. No Data: check cAdvisor scrape."
     },
     {
       "id": 9,
       "type": "timeseries",
       "title": "Container CPU Usage per Model",
-      "description": "Healthy/정상: expected range. Attention/주의: review trend. Action Required/조치 필요: investigate owner/runbook. No Data/런타임 데이터 없음: check Prometheus scrape/exporter.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
       },
       "gridPos": {
         "x": 12,
-        "y": 21,
+        "y": 16,
         "w": 12,
         "h": 6
       },
@@ -640,7 +608,8 @@
           "decimals": 2
         },
         "overrides": []
-      }
+      },
+      "description": "Healthy: normal activity. Attention: sustained high. Action Required: near 100% — investigate process. No Data: check cAdvisor scrape."
     }
   ],
   "refresh": "30s",

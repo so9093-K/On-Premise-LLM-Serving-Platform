@@ -34,7 +34,8 @@
             "QUEUE_TIMEOUT",
             "CIRCUIT_OPEN",
             "REQUEST_TOO_LARGE",
-            "RUNTIME_NOT_READY"
+            "RUNTIME_NOT_READY",
+            "DETECTOR_RETIRED"
           ]
         },
         "message": {

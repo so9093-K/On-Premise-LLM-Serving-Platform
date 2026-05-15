@@ -167,6 +167,7 @@ paths:
                         - CIRCUIT_OPEN
                         - REQUEST_TOO_LARGE
                         - RUNTIME_NOT_READY
+                        - DETECTOR_RETIRED
                       message:
                         type: string
                       retryable:
@@ -243,6 +244,7 @@ paths:
                         - CIRCUIT_OPEN
                         - REQUEST_TOO_LARGE
                         - RUNTIME_NOT_READY
+                        - DETECTOR_RETIRED
                       message:
                         type: string
                       retryable:
@@ -583,6 +585,7 @@ paths:
                         - CIRCUIT_OPEN
                         - REQUEST_TOO_LARGE
                         - RUNTIME_NOT_READY
+                        - DETECTOR_RETIRED
                       message:
                         type: string
                       retryable:
@@ -628,6 +631,7 @@ paths:
                         - CIRCUIT_OPEN
                         - REQUEST_TOO_LARGE
                         - RUNTIME_NOT_READY
+                        - DETECTOR_RETIRED
                       message:
                         type: string
                       retryable:
@@ -673,6 +677,7 @@ paths:
                         - CIRCUIT_OPEN
                         - REQUEST_TOO_LARGE
                         - RUNTIME_NOT_READY
+                        - DETECTOR_RETIRED
                       message:
                         type: string
                       retryable:
@@ -718,6 +723,7 @@ paths:
                         - CIRCUIT_OPEN
                         - REQUEST_TOO_LARGE
                         - RUNTIME_NOT_READY
+                        - DETECTOR_RETIRED
                       message:
                         type: string
                       retryable:
@@ -763,6 +769,7 @@ paths:
                         - CIRCUIT_OPEN
                         - REQUEST_TOO_LARGE
                         - RUNTIME_NOT_READY
+                        - DETECTOR_RETIRED
                       message:
                         type: string
                       retryable:
@@ -808,6 +815,7 @@ paths:
                         - CIRCUIT_OPEN
                         - REQUEST_TOO_LARGE
                         - RUNTIME_NOT_READY
+                        - DETECTOR_RETIRED
                       message:
                         type: string
                       retryable:
@@ -853,6 +861,7 @@ paths:
                         - CIRCUIT_OPEN
                         - REQUEST_TOO_LARGE
                         - RUNTIME_NOT_READY
+                        - DETECTOR_RETIRED
                       message:
                         type: string
                       retryable:
@@ -898,6 +907,7 @@ paths:
                         - CIRCUIT_OPEN
                         - REQUEST_TOO_LARGE
                         - RUNTIME_NOT_READY
+                        - DETECTOR_RETIRED
                       message:
                         type: string
                       retryable:
@@ -1208,6 +1218,7 @@ paths:
                         - CIRCUIT_OPEN
                         - REQUEST_TOO_LARGE
                         - RUNTIME_NOT_READY
+                        - DETECTOR_RETIRED
                       message:
                         type: string
                       retryable:
@@ -1253,6 +1264,7 @@ paths:
                         - CIRCUIT_OPEN
                         - REQUEST_TOO_LARGE
                         - RUNTIME_NOT_READY
+                        - DETECTOR_RETIRED
                       message:
                         type: string
                       retryable:
@@ -1298,6 +1310,7 @@ paths:
                         - CIRCUIT_OPEN
                         - REQUEST_TOO_LARGE
                         - RUNTIME_NOT_READY
+                        - DETECTOR_RETIRED
                       message:
                         type: string
                       retryable:
@@ -1343,6 +1356,7 @@ paths:
                         - CIRCUIT_OPEN
                         - REQUEST_TOO_LARGE
                         - RUNTIME_NOT_READY
+                        - DETECTOR_RETIRED
                       message:
                         type: string
                       retryable:
@@ -1388,6 +1402,7 @@ paths:
                         - CIRCUIT_OPEN
                         - REQUEST_TOO_LARGE
                         - RUNTIME_NOT_READY
+                        - DETECTOR_RETIRED
                       message:
                         type: string
                       retryable:
@@ -1433,6 +1448,7 @@ paths:
                         - CIRCUIT_OPEN
                         - REQUEST_TOO_LARGE
                         - RUNTIME_NOT_READY
+                        - DETECTOR_RETIRED
                       message:
                         type: string
                       retryable:
@@ -1478,6 +1494,7 @@ paths:
                         - CIRCUIT_OPEN
                         - REQUEST_TOO_LARGE
                         - RUNTIME_NOT_READY
+                        - DETECTOR_RETIRED
                       message:
                         type: string
                       retryable:
@@ -1523,6 +1540,7 @@ paths:
                         - CIRCUIT_OPEN
                         - REQUEST_TOO_LARGE
                         - RUNTIME_NOT_READY
+                        - DETECTOR_RETIRED
                       message:
                         type: string
                       retryable:

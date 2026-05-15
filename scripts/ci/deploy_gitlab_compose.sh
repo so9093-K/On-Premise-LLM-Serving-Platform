@@ -133,6 +133,10 @@ if [[ -n "${AUTH_MODE:-}" ]]; then
   make auth-apply MODE="${AUTH_MODE}"
 fi
 
+# sync Prometheus bearer token from current .env (excluded from rsync)
+echo "[deploy] syncing runtime secrets..."
+make sync-runtime-secrets
+
 if [[ "${DEPLOY_MODE}" == "full" ]]; then
   echo "[deploy] full deploy: pulling all compose images..."
   docker compose -f "${COMPOSE_FILE}" --env-file .env pull

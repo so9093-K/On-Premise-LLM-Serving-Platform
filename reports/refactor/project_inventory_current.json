@@ -1,6 +1,6 @@
 {
   "summary": {
-    "total_files": 300,
+    "total_files": 301,
     "by_area": {
       ".dockerignore": 1,
       ".env": 1,
@@ -25,7 +25,7 @@
       "features": 3,
       "harness": 4,
       "model_cards": 3,
-      "ops": 16,
+      "ops": 17,
       "pyproject.toml": 1,
       "reports": 20,
       "requirements.lock": 1,
@@ -40,7 +40,7 @@
       "OpenAPI/JSON schema contract": 11,
       "application/control-plane source": 67,
       "architecture decision record": 3,
-      "compose/monitoring/runtime ops template": 16,
+      "compose/monitoring/runtime ops template": 17,
       "configuration source of truth": 13,
       "contract registry": 2,
       "current handoff/review report": 9,
@@ -61,7 +61,7 @@
       "domain-registry": 3,
       "governance-validation": 10,
       "handoff-reporting": 20,
-      "operations": 16,
+      "operations": 17,
       "operator-ux": 60,
       "project-maintenance": 36,
       "quality": 27,
@@ -74,7 +74,7 @@
       "environment-template": 5,
       "python-source": 126,
       "shell-command": 26,
-      "structured-data": 55,
+      "structured-data": 56,
       "supporting-file": 9
     },
     "large_files_by_line_count": [
@@ -101,17 +101,6 @@
         "review_note": "handoff/review artifact; avoid stale phase snapshots in active package"
       },
       {
-        "path": "ops/grafana/dashboards/serving_cockpit.json",
-        "area": "ops",
-        "category": "compose/monitoring/runtime ops template",
-        "owner": "operations",
-        "management": "managed by operator templates",
-        "size_bytes": 54634,
-        "line_count": 1947,
-        "role": "structured-data",
-        "review_note": "supporting project file"
-      },
-      {
         "path": "tests/unit/test_gateway_app.py",
         "area": "tests",
         "category": "test suite",
@@ -134,13 +123,35 @@
         "review_note": "supporting project file"
       },
       {
-        "path": "ops/grafana/dashboards/chat_api_deep_dive.json",
+        "path": "ops/grafana/dashboards/serving_home.json",
         "area": "ops",
         "category": "compose/monitoring/runtime ops template",
         "owner": "operations",
         "management": "managed by operator templates",
-        "size_bytes": 22587,
-        "line_count": 792,
+        "size_bytes": 41313,
+        "line_count": 1387,
+        "role": "structured-data",
+        "review_note": "supporting project file"
+      },
+      {
+        "path": "ops/grafana/dashboards/observability_data_quality.json",
+        "area": "ops",
+        "category": "compose/monitoring/runtime ops template",
+        "owner": "operations",
+        "management": "managed by operator templates",
+        "size_bytes": 25033,
+        "line_count": 907,
+        "role": "structured-data",
+        "review_note": "supporting project file"
+      },
+      {
+        "path": "ops/grafana/dashboards/api_experience.json",
+        "area": "ops",
+        "category": "compose/monitoring/runtime ops template",
+        "owner": "operations",
+        "management": "managed by operator templates",
+        "size_bytes": 24673,
+        "line_count": 834,
         "role": "structured-data",
         "review_note": "supporting project file"
       },
@@ -150,7 +161,7 @@
         "category": "compose/monitoring/runtime ops template",
         "owner": "operations",
         "management": "managed by operator templates",
-        "size_bytes": 20830,
+        "size_bytes": 20834,
         "line_count": 786,
         "role": "structured-data",
         "review_note": "supporting project file"
@@ -167,6 +178,17 @@
         "review_note": "application code; preserve public API behavior and compatibility facades"
       },
       {
+        "path": "ops/grafana/dashboards/executive_runtime_overview.json",
+        "area": "ops",
+        "category": "compose/monitoring/runtime ops template",
+        "owner": "operations",
+        "management": "managed by operator templates",
+        "size_bytes": 18430,
+        "line_count": 682,
+        "role": "structured-data",
+        "review_note": "supporting project file"
+      },
+      {
         "path": "reports/runtime/operator_status_bundle.json",
         "area": "reports",
         "category": "runtime/operator generated report",
@@ -178,17 +200,6 @@
         "review_note": "generated operator report; regenerate through make operator-reports before handoff"
       },
       {
-        "path": "ops/grafana/dashboards/executive_runtime_overview.json",
-        "area": "ops",
-        "category": "compose/monitoring/runtime ops template",
-        "owner": "operations",
-        "management": "managed by operator templates",
-        "size_bytes": 18065,
-        "line_count": 667,
-        "role": "structured-data",
-        "review_note": "supporting project file"
-      },
-      {
         "path": "src/ai_model_serving/apps/gateway.py",
         "area": "src",
         "category": "application/control-plane source",
@@ -198,6 +209,17 @@
         "line_count": 660,
         "role": "python-source",
         "review_note": "application code; preserve public API behavior and compatibility facades"
+      },
+      {
+        "path": "ops/grafana/dashboards/risk_signal_operations.json",
+        "area": "ops",
+        "category": "compose/monitoring/runtime ops template",
+        "owner": "operations",
+        "management": "managed by operator templates",
+        "size_bytes": 17089,
+        "line_count": 625,
+        "role": "structured-data",
+        "review_note": "supporting project file"
       },
       {
         "path": "src/ai_model_serving/domain/model_registry.py",
@@ -216,32 +238,10 @@
         "category": "application/control-plane source",
         "owner": "governance-validation",
         "management": "managed by package source layout",
-        "size_bytes": 41163,
-        "line_count": 618,
+        "size_bytes": 41214,
+        "line_count": 619,
         "role": "python-source",
         "review_note": "application code; preserve public API behavior and compatibility facades"
-      },
-      {
-        "path": "ops/grafana/dashboards/model_runtime_deep_dive.json",
-        "area": "ops",
-        "category": "compose/monitoring/runtime ops template",
-        "owner": "operations",
-        "management": "managed by operator templates",
-        "size_bytes": 16287,
-        "line_count": 611,
-        "role": "structured-data",
-        "review_note": "supporting project file"
-      },
-      {
-        "path": "ops/grafana/dashboards/risk_signal_operations.json",
-        "area": "ops",
-        "category": "compose/monitoring/runtime ops template",
-        "owner": "operations",
-        "management": "managed by operator templates",
-        "size_bytes": 16713,
-        "line_count": 610,
-        "role": "structured-data",
-        "review_note": "supporting project file"
       }
     ],
     "entrypoints": [
@@ -406,7 +406,7 @@
       "category": "project metadata",
       "owner": "project-maintenance",
       "management": "managed by root project metadata",
-      "size_bytes": 18485,
+      "size_bytes": 18477,
       "line_count": 422,
       "role": "entrypoint",
       "review_note": "primary navigation or current-state entrypoint; keep synchronized with Makefile and reports"
@@ -538,8 +538,8 @@
       "category": "configuration source of truth",
       "owner": "configuration",
       "management": "managed by configuration lifecycle",
-      "size_bytes": 12752,
-      "line_count": 386,
+      "size_bytes": 13431,
+      "line_count": 409,
       "role": "structured-data",
       "review_note": "configuration source; validate through governance and projection checks after edits"
     },
@@ -703,7 +703,7 @@
       "category": "documentation",
       "owner": "documentation",
       "management": "managed by documentation map",
-      "size_bytes": 9074,
+      "size_bytes": 9107,
       "line_count": 258,
       "role": "documentation",
       "review_note": "documentation; keep relative links valid and avoid duplicating current command flow"
@@ -901,8 +901,8 @@
       "category": "documentation",
       "owner": "documentation",
       "management": "managed by documentation map",
-      "size_bytes": 12830,
-      "line_count": 221,
+      "size_bytes": 12983,
+      "line_count": 222,
       "role": "documentation",
       "review_note": "documentation; keep relative links valid and avoid duplicating current command flow"
     },
@@ -978,8 +978,8 @@
       "category": "documentation",
       "owner": "documentation",
       "management": "managed by documentation map",
-      "size_bytes": 17847,
-      "line_count": 282,
+      "size_bytes": 18061,
+      "line_count": 284,
       "role": "documentation",
       "review_note": "documentation; keep relative links valid and avoid duplicating current command flow"
     },
@@ -1044,8 +1044,8 @@
       "category": "documentation",
       "owner": "documentation",
       "management": "managed by documentation map",
-      "size_bytes": 6277,
-      "line_count": 87,
+      "size_bytes": 6678,
+      "line_count": 89,
       "role": "documentation",
       "review_note": "documentation; keep relative links valid and avoid duplicating current command flow"
     },
@@ -1077,7 +1077,7 @@
       "category": "documentation",
       "owner": "documentation",
       "management": "managed by documentation map",
-      "size_bytes": 8224,
+      "size_bytes": 8254,
       "line_count": 108,
       "role": "documentation",
       "review_note": "documentation; keep relative links valid and avoid duplicating current command flow"
@@ -1198,8 +1198,8 @@
       "category": "project metadata",
       "owner": "project-maintenance",
       "management": "managed by root project metadata",
-      "size_bytes": 2322,
-      "line_count": 70,
+      "size_bytes": 2424,
+      "line_count": 71,
       "role": "structured-data",
       "review_note": "supporting project file"
     },
@@ -1308,7 +1308,7 @@
       "category": "compose/monitoring/runtime ops template",
       "owner": "operations",
       "management": "managed by operator templates",
-      "size_bytes": 7017,
+      "size_bytes": 7027,
       "line_count": 158,
       "role": "structured-data",
       "review_note": "supporting project file"
@@ -1319,7 +1319,7 @@
       "category": "compose/monitoring/runtime ops template",
       "owner": "operations",
       "management": "managed by operator templates",
-      "size_bytes": 8110,
+      "size_bytes": 8120,
       "line_count": 286,
       "role": "structured-data",
       "review_note": "supporting project file"
@@ -1347,13 +1347,13 @@
       "review_note": "supporting project file"
     },
     {
-      "path": "ops/grafana/dashboards/chat_api_deep_dive.json",
+      "path": "ops/grafana/dashboards/api_experience.json",
       "area": "ops",
       "category": "compose/monitoring/runtime ops template",
       "owner": "operations",
       "management": "managed by operator templates",
-      "size_bytes": 22587,
-      "line_count": 792,
+      "size_bytes": 24673,
+      "line_count": 834,
       "role": "structured-data",
       "review_note": "supporting project file"
     },
@@ -1363,8 +1363,8 @@
       "category": "compose/monitoring/runtime ops template",
       "owner": "operations",
       "management": "managed by operator templates",
-      "size_bytes": 18065,
-      "line_count": 667,
+      "size_bytes": 18430,
+      "line_count": 682,
       "role": "structured-data",
       "review_note": "supporting project file"
     },
@@ -1374,7 +1374,7 @@
       "category": "compose/monitoring/runtime ops template",
       "owner": "operations",
       "management": "managed by operator templates",
-      "size_bytes": 20830,
+      "size_bytes": 20834,
       "line_count": 786,
       "role": "structured-data",
       "review_note": "supporting project file"
@@ -1385,8 +1385,19 @@
       "category": "compose/monitoring/runtime ops template",
       "owner": "operations",
       "management": "managed by operator templates",
-      "size_bytes": 16287,
+      "size_bytes": 16298,
       "line_count": 611,
+      "role": "structured-data",
+      "review_note": "supporting project file"
+    },
+    {
+      "path": "ops/grafana/dashboards/observability_data_quality.json",
+      "area": "ops",
+      "category": "compose/monitoring/runtime ops template",
+      "owner": "operations",
+      "management": "managed by operator templates",
+      "size_bytes": 25033,
+      "line_count": 907,
       "role": "structured-data",
       "review_note": "supporting project file"
     },
@@ -1396,19 +1407,19 @@
       "category": "compose/monitoring/runtime ops template",
       "owner": "operations",
       "management": "managed by operator templates",
-      "size_bytes": 16713,
-      "line_count": 610,
+      "size_bytes": 17089,
+      "line_count": 625,
       "role": "structured-data",
       "review_note": "supporting project file"
     },
     {
-      "path": "ops/grafana/dashboards/serving_cockpit.json",
+      "path": "ops/grafana/dashboards/serving_home.json",
       "area": "ops",
       "category": "compose/monitoring/runtime ops template",
       "owner": "operations",
       "management": "managed by operator templates",
-      "size_bytes": 54634,
-      "line_count": 1947,
+      "size_bytes": 41313,
+      "line_count": 1387,
       "role": "structured-data",
       "review_note": "supporting project file"
     },
@@ -1473,8 +1484,8 @@
       "category": "compose/monitoring/runtime ops template",
       "owner": "operations",
       "management": "managed by operator templates",
-      "size_bytes": 3111,
-      "line_count": 47,
+      "size_bytes": 5445,
+      "line_count": 85,
       "role": "structured-data",
       "review_note": "supporting project file"
     },
@@ -1605,8 +1616,8 @@
       "category": "runtime/operator generated report",
       "owner": "handoff-reporting",
       "management": "generated by operator report commands",
-      "size_bytes": 9359,
-      "line_count": 351,
+      "size_bytes": 1654,
+      "line_count": 67,
       "role": "structured-data",
       "review_note": "generated operator report; regenerate through make operator-reports before handoff"
     },
@@ -1616,8 +1627,8 @@
       "category": "runtime/operator generated report",
       "owner": "handoff-reporting",
       "management": "generated by operator report commands",
-      "size_bytes": 2006,
-      "line_count": 56,
+      "size_bytes": 1681,
+      "line_count": 46,
       "role": "documentation",
       "review_note": "generated operator report; regenerate through make operator-reports before handoff"
     },
@@ -2727,8 +2738,8 @@
       "category": "application/control-plane source",
       "owner": "governance-validation",
       "management": "managed by package source layout",
-      "size_bytes": 7630,
-      "line_count": 199,
+      "size_bytes": 7798,
+      "line_count": 202,
       "role": "python-source",
       "review_note": "application code; preserve public API behavior and compatibility facades"
     },
@@ -2738,8 +2749,8 @@
       "category": "application/control-plane source",
       "owner": "governance-validation",
       "management": "managed by package source layout",
-      "size_bytes": 41163,
-      "line_count": 618,
+      "size_bytes": 41214,
+      "line_count": 619,
       "role": "python-source",
       "review_note": "application code; preserve public API behavior and compatibility facades"
     },
@@ -2771,8 +2782,8 @@
       "category": "application/control-plane source",
       "owner": "governance-validation",
       "management": "managed by package source layout",
-      "size_bytes": 15737,
-      "line_count": 248,
+      "size_bytes": 18225,
+      "line_count": 299,
       "role": "python-source",
       "review_note": "application code; preserve public API behavior and compatibility facades"
     },
@@ -2837,8 +2848,8 @@
       "category": "application/control-plane source",
       "owner": "application",
       "management": "managed by package source layout",
-      "size_bytes": 10132,
-      "line_count": 233,
+      "size_bytes": 10703,
+      "line_count": 243,
       "role": "python-source",
       "review_note": "application code; preserve public API behavior and compatibility facades"
     },
@@ -2859,7 +2870,7 @@
       "category": "application/control-plane source",
       "owner": "application",
       "management": "managed by package source layout",
-      "size_bytes": 13653,
+      "size_bytes": 13659,
       "line_count": 263,
       "role": "python-source",
       "review_note": "application code; preserve public API behavior and compatibility facades"
@@ -3277,8 +3288,8 @@
       "category": "test suite",
       "owner": "quality",
       "management": "managed by test strategy",
-      "size_bytes": 30166,
-      "line_count": 600,
+      "size_bytes": 28786,
+      "line_count": 585,
       "role": "python-source",
       "review_note": "test coverage; keep deterministic and avoid live GPU dependency"
     },
