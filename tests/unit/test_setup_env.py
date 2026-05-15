@@ -153,6 +153,7 @@ def test_setup_env_syncs_runtime_secret_from_existing_env(tmp_path, monkeypatch)
     rc = setup_env.main(['--sync-runtime-secrets', '--output', str(env_path)])
     assert rc == 0
     assert secret_path.read_text(encoding='utf-8') == 'admin-from-env\n'
+    assert secret_path.stat().st_mode & 0o777 == 0o644
 
 
 def test_setup_env_repairs_empty_runtime_secret_directory(tmp_path, monkeypatch):
@@ -172,6 +173,7 @@ def test_setup_env_repairs_empty_runtime_secret_directory(tmp_path, monkeypatch)
     assert rc == 0
     assert secret_path.is_file()
     assert secret_path.read_text(encoding='utf-8') == 'admin-from-env\n'
+    assert secret_path.stat().st_mode & 0o777 == 0o644
 
 
 def test_setup_env_refuses_non_empty_runtime_secret_directory(tmp_path, monkeypatch, capsys):

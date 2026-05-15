@@ -219,7 +219,9 @@ def write_runtime_secrets(values: dict[str, str]) -> None:
             ) from exc
     secret_path.write_text(admin_key + "\n", encoding="utf-8")
     try:
-        secret_path.chmod(0o600)
+        # The distroless Prometheus image runs as a non-root UID, so the
+        # compose-mounted bearer token must be readable beyond the host owner.
+        secret_path.chmod(0o644)
     except OSError:
         pass
 
