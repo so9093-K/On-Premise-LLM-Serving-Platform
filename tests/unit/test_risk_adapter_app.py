@@ -243,7 +243,10 @@ def test_risk_adapter_rejects_extra_fields_and_oversized_prompt():
 def test_risk_adapter_metrics_records_assessment_and_system_signals():
     client = TestClient(create_risk_adapter_app(settings(), FakeRiskClients(prompt_label="not-a-label")))
     client.post("/v1/risk/detectors/prompt/assessments", headers=auth_headers(), json={"prompt": "hello"})
-    metrics = client.get("/metrics").text
+    response = client.get("/metrics")
+    assert response.headers["content-type"].startswith("text/plain")
+    metrics = response.text
+    assert not metrics.rstrip().endswith("# EOF")
     assert 'risk_assessments_total{detector="prompt",service="risk-adapter",status="failed"}' in metrics
     assert 'risk_adapter_system_signal_total{service="risk-adapter",system_signal_code="PARSE_ERROR"}' in metrics
 

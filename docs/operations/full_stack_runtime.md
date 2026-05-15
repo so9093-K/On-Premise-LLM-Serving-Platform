@@ -33,7 +33,7 @@ docker compose -f ops/compose/full-stack.private-network.yaml --env-file .env do
 
 `RISK_VLLM_IMAGE` 빌드와 image 내부 Kanana config check는 기본적으로 `make first-run`/`make bootstrap`에 포함된다. risk image만 수동 재빌드할 때는 `make rebuild-risk-vllm && make risk-vllm-config-check`를 실행한다.
 
-`make compose-up`은 기본적으로 `make preflight-compose`를 먼저 수행하고, `.env`, `.runtime/prometheus/admin_api_key`, 그리고 `RISK_VLLM_IMAGE` 내부 Kanana config 로딩을 사전 점검한다. `.runtime` 파일이 지워져도 `.env`를 덮어쓰지 않고 bearer-token 파일만 복구한다.
+`make compose-up`은 기본적으로 `make preflight-compose`를 먼저 수행하고, `.env`, `.runtime/prometheus/admin_api_key`, 그리고 `RISK_VLLM_IMAGE` 내부 Kanana config 로딩을 사전 점검한다. `.runtime` 파일이 지워져도 `.env`를 덮어쓰지 않고 bearer-token 파일만 복구한다. Prometheus bearer token은 Compose secret으로 `/run/secrets/admin_api_key`에 마운트되며, host 파일은 non-root Prometheus process가 읽을 수 있도록 일반 파일 `0644` 권한이어야 한다.
 
 Prometheus 내부 scrape target은 `dcgm-exporter:9400`과 `cadvisor:8080`을 사용한다. host에 게시되는 포트는 각각 `9412`, `9413`이지만 compose network 내부에서는 service port가 맞다.
 

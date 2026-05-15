@@ -370,7 +370,7 @@ make doctor
 | app-only에서 `make ready` 실패 | `make ready-local` 사용 여부, `.env` profile |
 | compose에서 Risk Adapter 접근 실패 | `make compose-diagnostics`, compose service 상태 |
 | embedding model pull 실패 | `HF_TOKEN`, Gemma 라이선스 동의 |
-| Prometheus admin token 오류 | `make sync-runtime-secrets` |
+| Prometheus admin token 오류 | `make sync-runtime-secrets`; scrape가 계속 실패하면 `docs/operations/full_stack_troubleshooting.md`의 Prometheus target `lastError` 분기 확인 |
 | Risk vLLM config 오류 | `make risk-vllm-config-check` |
 | auth mismatch | `make auth-doctor` |
 

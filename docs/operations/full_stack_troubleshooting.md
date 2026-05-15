@@ -19,6 +19,9 @@
 | `Engine core initialization failed. Failed core proc(s): {}` | vLLM engine subprocess 비정상 종료 (빈 dict는 자식 프로세스가 오류를 보고하기 전에 죽었음을 뜻함). GPU OOM이 가장 흔한 원인 | risk 모델의 `--enforce-eager` 설정 여부, 총 `gpu_memory_utilization` < 0.90, compose의 `depends_on: service_healthy` 순차 기동 체인을 확인한다. |
 | Gateway/Risk Adapter healthy인데 `ready-full` 실패 | downstream vLLM readiness 실패 | `make compose-diagnostics`로 vLLM 서비스별 로그를 확인한다. |
 | `ready-full`이 timeout까지 계속 `로딩 중` | 최초 모델 다운로드/캐시 생성이 readiness timeout보다 오래 걸리거나 특정 vLLM 컨테이너가 재시작 중 | `READY_FULL_TIMEOUT_SECONDS=2700 make ready-full`로 한 번 더 기다리되, 같은 dependency가 멈춰 있으면 해당 서비스 로그를 확인한다. |
+| Grafana Data Quality에서 Gateway/Risk Adapter만 `Scrape Fail`이고 Prometheus target error가 `permission denied` | Prometheus 컨테이너가 `/run/secrets/admin_api_key`를 읽지 못함. distroless Prometheus는 non-root UID로 실행된다. | `make sync-runtime-secrets`가 만든 `.runtime/prometheus/admin_api_key`가 일반 파일이고 `0644`인지 확인한다. 필요 시 `chmod 644 .runtime/prometheus/admin_api_key` 후 Prometheus를 재생성한다. |
+| Prometheus target error가 `data does not end with # EOF` | `/metrics` 응답 본문은 Prometheus text format인데 Content-Type이 OpenMetrics로 나가는 불일치 | app image가 `prometheus_client.CONTENT_TYPE_LATEST`를 사용하도록 빌드됐는지 확인한다. 수정 후 platform image를 재빌드/배포한다. |
+| `runtime secret 동기화 실패 ... Is a directory: '.runtime/prometheus/admin_api_key'` | 과거 bind mount 또는 수동 작업으로 bearer-token 파일 경로가 디렉터리로 생성됨 | 빈 디렉터리는 `make sync-runtime-secrets`가 파일로 복구한다. 비어 있지 않으면 내용을 확인한 뒤 디렉터리를 제거하고 다시 실행한다. |
 
 ## 권장 진단 순서
 
@@ -38,6 +41,42 @@ READY_MODE=full make status
 docker compose -f ops/compose/full-stack.private-network.yaml --env-file .env logs --tail=160 embedding-vllm
 docker compose -f ops/compose/full-stack.private-network.yaml --env-file .env logs --tail=160 risk-prompt-vllm
 ```
+
+Prometheus scrape 상태는 Grafana 화면보다 Prometheus target API의 `lastError`가 더 직접적이다.
+
+```bash
+docker compose -f ops/compose/full-stack.private-network.yaml --env-file .env exec grafana \
+  wget -qO- http://prometheus:9090/api/v1/targets
+```
+
+Gateway/Risk Adapter가 `healthy`인데 scrape만 실패하면 다음 순서로 분리한다.
+
+```bash
+ls -l .runtime/prometheus/admin_api_key
+python3 - <<'PY'
+from pathlib import Path
+import hashlib
+
+env_key = next(
+    line.split("=", 1)[1].strip()
+    for line in Path(".env").read_text().splitlines()
+    if line.startswith("ADMIN_API_KEY=")
+)
+file_key = Path(".runtime/prometheus/admin_api_key").read_text().strip()
+print("match:", env_key == file_key)
+print("env/admin hash :", hashlib.sha256(env_key.encode()).hexdigest()[:16])
+print("file/admin hash:", hashlib.sha256(file_key.encode()).hexdigest()[:16])
+PY
+```
+
+판단 기준:
+
+| `lastError` | 의미 | 조치 |
+|---|---|---|
+| `permission denied` | Prometheus가 bearer token 파일을 읽지 못함 | 파일이 일반 파일인지, 권한이 `-rw-r--r--`인지 확인한다. |
+| `401 Unauthorized` | token 값 불일치 | `make sync-runtime-secrets` 후 Prometheus를 재생성한다. |
+| `data does not end with # EOF` | OpenMetrics Content-Type과 text body 불일치 | platform image에 metrics Content-Type 수정이 포함됐는지 확인한다. |
+| `connection refused` 또는 timeout | compose network/service 접근 문제 | `docker compose ... ps`, service logs, healthcheck를 확인한다. |
 
 ## risk-prompt 검증 정책
 

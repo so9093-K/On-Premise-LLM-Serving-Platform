@@ -78,7 +78,7 @@ make stop
 ## 운영 주의사항
 
 - `make init-env-compose`는 기존 `.env`가 있으면 실패하고 보존한다.
-- `.runtime/prometheus/admin_api_key`만 사라졌다면 `.env`를 다시 만들지 말고 `make sync-runtime-secrets`를 실행한다.
+- `.runtime/prometheus/admin_api_key`만 사라졌거나 손상되었다면 `.env`를 다시 만들지 말고 `make sync-runtime-secrets`를 실행한다. 이 파일은 Prometheus Compose secret source이므로 일반 파일이어야 하며, non-root Prometheus image가 읽을 수 있도록 `0644` 권한으로 생성된다.
 - `make start`는 vLLM을 시작하지 않는다. app-only 확인용이다.
 - app-only 확인은 `make ready-local`, strict full-stack 확인은 `make ready-full`을 사용한다.
 - full-stack 검증은 Docker/GPU/vLLM이 있는 host에서 `make preflight-compose && make compose-up`으로 수행한다.

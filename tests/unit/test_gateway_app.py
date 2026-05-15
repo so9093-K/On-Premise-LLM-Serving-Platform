@@ -709,7 +709,10 @@ def test_gateway_metrics_records_http_and_upstream_counts():
         headers=auth_headers(),
         json={"model": "local-main", "messages": [{"role": "user", "content": "hello"}]},
     )
-    metrics = client.get("/metrics").text
+    response = client.get("/metrics")
+    assert response.headers["content-type"].startswith("text/plain")
+    metrics = response.text
+    assert not metrics.rstrip().endswith("# EOF")
     assert 'http_requests_total{route="/v1/chat/completions",service="gateway",status_code="200"}' in metrics
     assert 'upstream_request_duration_seconds_count{path="chat/completions",service="gateway",target="local-main"}' in metrics
 
