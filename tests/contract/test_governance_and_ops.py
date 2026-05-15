@@ -460,7 +460,24 @@ def test_compose_up_syncs_runtime_secrets_before_docker_compose() -> None:
     assert "bash scripts/compose/compose_up.sh" in makefile
     assert "--sync-runtime-secrets" in script
     assert ".runtime/prometheus/admin_api_key" in script
+    assert '! -f "$PROM_SECRET" || ! -s "$PROM_SECRET"' in script
+    assert "SKIP_PREFLIGHT=1 bash scripts/compose/compose_up.sh" in makefile
     assert "docker compose -f" in script
+
+
+def test_prometheus_admin_token_uses_compose_secret_not_bind_mount() -> None:
+    for rel in [
+        "ops/compose/full-stack.example.yaml",
+        "ops/compose/full-stack.private-network.yaml",
+    ]:
+        compose = yaml.safe_load((ROOT / rel).read_text(encoding="utf-8"))
+        prometheus_secrets = compose["services"]["prometheus"]["secrets"]
+        assert {"source": "prometheus_admin_api_key", "target": "admin_api_key"} in prometheus_secrets
+        assert compose["secrets"]["prometheus_admin_api_key"]["file"] == "../../.runtime/prometheus/admin_api_key"
+        assert all(
+            not (isinstance(volume, str) and ".runtime/prometheus/admin_api_key" in volume)
+            for volume in compose["services"]["prometheus"].get("volumes", [])
+        )
 
 
 def test_smoke_test_respects_python_bin() -> None:

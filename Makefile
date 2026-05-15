@@ -188,7 +188,7 @@ compose-up:
 
 compose-up-private:
 	@if [[ ! -f .env ]]; then echo "오류: .env 파일이 없습니다. make init-env-compose 를 먼저 실행하세요." >&2; exit 2; fi
-	SKIP_PREFLIGHT=1 docker compose -f ops/compose/full-stack.private-network.yaml --env-file .env up -d
+	SKIP_PREFLIGHT=1 bash scripts/compose/compose_up.sh
 
 compose-down-private:
 	docker compose -f ops/compose/full-stack.private-network.yaml --env-file .env down

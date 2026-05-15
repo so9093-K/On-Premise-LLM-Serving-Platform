@@ -125,10 +125,10 @@ else
   echo "[preflight] skip: risk vLLM image config check disabled by SKIP_RISK_VLLM_IMAGE_CONFIG_CHECK=1" >&2
 fi
 
-if [[ -s .runtime/prometheus/admin_api_key ]]; then
+if [[ -f .runtime/prometheus/admin_api_key && -s .runtime/prometheus/admin_api_key ]]; then
   echo "[preflight] ok: Prometheus admin bearer-token file present"
 else
-  echo "[preflight] missing: .runtime/prometheus/admin_api_key; run 'make sync-runtime-secrets'" >&2
+  echo "[preflight] missing or invalid: .runtime/prometheus/admin_api_key must be a non-empty file; run 'make sync-runtime-secrets'" >&2
   fail=1
 fi
 

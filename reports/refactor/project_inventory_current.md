@@ -10,7 +10,7 @@ Command:
 
 이 리포트는 현재 source tree에서 생성되며 로컬 runtime/cache/build 디렉터리는 제외한다.
 
-- 검토 파일 수: **301**
+- 검토 파일 수: **315**
 - CSV matrix: `reports/refactor/project_inventory_current.csv`
 - JSON matrix: `reports/refactor/project_inventory_current.json`
 
@@ -46,10 +46,10 @@ Command:
 | `reports` | 20 |
 | `requirements.lock` | 1 |
 | `requirements.runtime.lock` | 1 |
-| `scripts` | 60 |
+| `scripts` | 61 |
 | `specs` | 11 |
-| `src` | 67 |
-| `tests` | 27 |
+| `src` | 78 |
+| `tests` | 29 |
 | `version_manifest.json` | 1 |
 
 ## 주요 진입점
@@ -68,21 +68,21 @@ Command:
 
 | 경로 | 줄 수 | 담당 | 검토 메모 |
 |---|---:|---|---|
-| `specs/openapi.gateway.yaml` | 3736 | api-contracts | supporting project file |
-| `reports/refactor/project_inventory_current.json` | 3561 | handoff-reporting | handoff/review artifact; avoid stale phase snapshots in active package |
-| `tests/unit/test_gateway_app.py` | 1718 | quality | test coverage; keep deterministic and avoid live GPU dependency |
-| `specs/openapi.risk-adapter.yaml` | 1620 | api-contracts | supporting project file |
+| `specs/openapi.gateway.yaml` | 3795 | api-contracts | supporting project file |
+| `reports/refactor/project_inventory_current.json` | 3572 | handoff-reporting | handoff/review artifact; avoid stale phase snapshots in active package |
+| `tests/unit/test_gateway_app.py` | 1746 | quality | test coverage; keep deterministic and avoid live GPU dependency |
+| `specs/openapi.risk-adapter.yaml` | 1638 | api-contracts | supporting project file |
 | `ops/grafana/dashboards/serving_home.json` | 1387 | operations | supporting project file |
 | `ops/grafana/dashboards/observability_data_quality.json` | 907 | operations | supporting project file |
 | `ops/grafana/dashboards/api_experience.json` | 834 | operations | supporting project file |
-| `ops/grafana/dashboards/gpu_capacity_and_oom_risk.json` | 786 | operations | supporting project file |
 | `src/ai_model_serving/contracts/chat.py` | 769 | api-contracts | application code; preserve public API behavior and compatibility facades |
+| `ops/grafana/dashboards/gpu_capacity_and_oom_risk.json` | 755 | operations | supporting project file |
 | `ops/grafana/dashboards/executive_runtime_overview.json` | 682 | operations | supporting project file |
-| `reports/runtime/operator_status_bundle.json` | 671 | handoff-reporting | generated operator report; regenerate through make operator-reports before handoff |
-| `src/ai_model_serving/apps/gateway.py` | 660 | application | application code; preserve public API behavior and compatibility facades |
+| `reports/runtime/operator_status_bundle.json` | 672 | handoff-reporting | generated operator report; regenerate through make operator-reports before handoff |
 | `ops/grafana/dashboards/risk_signal_operations.json` | 625 | operations | supporting project file |
 | `src/ai_model_serving/domain/model_registry.py` | 621 | domain-registry | registry/domain code; monitor size as projections grow |
 | `src/ai_model_serving/governance_validation/docs_ops.py` | 619 | governance-validation | application code; preserve public API behavior and compatibility facades |
+| `ops/grafana/dashboards/model_runtime_deep_dive.json` | 611 | operations | supporting project file |
 
 ## 관리 해석
 

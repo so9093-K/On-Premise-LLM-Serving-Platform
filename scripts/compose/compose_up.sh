@@ -15,12 +15,12 @@ if [[ ! -f "$ENV_FILE" ]]; then
   exit 2
 fi
 
-if [[ ! -s "$PROM_SECRET" ]]; then
+if [[ ! -f "$PROM_SECRET" || ! -s "$PROM_SECRET" ]]; then
   echo "[compose-up] $PROM_SECRET 파일이 없거나 비어 있습니다. .env는 유지하고 runtime secret만 복구합니다."
   "$PYTHON_BIN" scripts/config/setup_env.py --sync-runtime-secrets --output "$ENV_FILE"
 fi
 
-if [[ ! -s "$PROM_SECRET" ]]; then
+if [[ ! -f "$PROM_SECRET" || ! -s "$PROM_SECRET" ]]; then
   echo "[compose-up] $PROM_SECRET 복구에 실패했습니다. ADMIN_API_KEY 또는 ADMIN_API_KEYS를 확인하세요." >&2
   exit 2
 fi
