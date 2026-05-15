@@ -149,7 +149,7 @@ full-stack compose 기동 후:
 
 | 서비스 | URL |
 |---|---|
-| Grafana | `http://localhost:9411` (기본 dashboard: `Serving Home`) |
+| Grafana | `http://localhost:9411` (기본 dashboard: `GPU Capacity and OOM Risk`) |
 | Prometheus | `http://localhost:9410` |
 
 ```bash
