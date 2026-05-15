@@ -209,6 +209,14 @@ def write_runtime_secrets(values: dict[str, str]) -> None:
     secret_dir = ROOT / ".runtime" / "prometheus"
     secret_dir.mkdir(parents=True, exist_ok=True)
     secret_path = secret_dir / "admin_api_key"
+    if secret_path.is_dir():
+        try:
+            secret_path.rmdir()
+        except OSError as exc:
+            raise RuntimeError(
+                f"{secret_path} must be a file, but it is a non-empty directory. "
+                "Remove or move it, then rerun `make sync-runtime-secrets`."
+            ) from exc
     secret_path.write_text(admin_key + "\n", encoding="utf-8")
     try:
         secret_path.chmod(0o600)

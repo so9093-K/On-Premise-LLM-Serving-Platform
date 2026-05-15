@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import shutil
+
 from scripts.config import setup_env
 
 
@@ -144,10 +146,52 @@ def test_setup_env_syncs_runtime_secret_from_existing_env(tmp_path, monkeypatch)
     env_path.write_text('ADMIN_API_KEY=admin-from-env\n', encoding='utf-8')
     secret_path = setup_env.ROOT / '.runtime' / 'prometheus' / 'admin_api_key'
     if secret_path.exists():
-        secret_path.unlink()
+        if secret_path.is_dir():
+            shutil.rmtree(secret_path)
+        else:
+            secret_path.unlink()
     rc = setup_env.main(['--sync-runtime-secrets', '--output', str(env_path)])
     assert rc == 0
     assert secret_path.read_text(encoding='utf-8') == 'admin-from-env\n'
+
+
+def test_setup_env_repairs_empty_runtime_secret_directory(tmp_path, monkeypatch):
+    monkeypatch.chdir(setup_env.ROOT)
+    env_path = tmp_path / '.env'
+    env_path.write_text('ADMIN_API_KEY=admin-from-env\n', encoding='utf-8')
+    secret_path = setup_env.ROOT / '.runtime' / 'prometheus' / 'admin_api_key'
+    if secret_path.exists():
+        if secret_path.is_dir():
+            shutil.rmtree(secret_path)
+        else:
+            secret_path.unlink()
+    secret_path.mkdir(parents=True)
+
+    rc = setup_env.main(['--sync-runtime-secrets', '--output', str(env_path)])
+
+    assert rc == 0
+    assert secret_path.is_file()
+    assert secret_path.read_text(encoding='utf-8') == 'admin-from-env\n'
+
+
+def test_setup_env_refuses_non_empty_runtime_secret_directory(tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(setup_env.ROOT)
+    env_path = tmp_path / '.env'
+    env_path.write_text('ADMIN_API_KEY=admin-from-env\n', encoding='utf-8')
+    secret_path = setup_env.ROOT / '.runtime' / 'prometheus' / 'admin_api_key'
+    if secret_path.exists():
+        if secret_path.is_dir():
+            shutil.rmtree(secret_path)
+        else:
+            secret_path.unlink()
+    secret_path.mkdir(parents=True)
+    (secret_path / 'unexpected').write_text('keep-me\n', encoding='utf-8')
+
+    rc = setup_env.main(['--sync-runtime-secrets', '--output', str(env_path)])
+
+    assert rc == 2
+    assert 'must be a file, but it is a non-empty directory' in capsys.readouterr().err
+    shutil.rmtree(secret_path)
 
 
 def test_reset_version_updates_recommended_platform_image(tmp_path):
