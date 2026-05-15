@@ -56,7 +56,7 @@ groups:
       - record: ai_up_critical_targets
         expr: sum(up{job=~"gateway|risk-adapter|vllm-runtimes|dcgm-exporter|cadvisor"})
       - record: ai_missing_critical_targets
-        expr: ai_expected_critical_targets - ai_observed_critical_targets
+        expr: ai_expected_critical_targets - ai_up_critical_targets
       # Dynamic serving verdict code for the Serving Home banner.
       # Priority (first non-absent match wins):
       #   7 = USER_IMPACT    — 5xx rate above threshold
@@ -76,7 +76,7 @@ groups:
           or
           (sum(increase(container_oom_events_total{container_label_com_docker_compose_service=~"gateway|risk-adapter|main-llm-vllm|embedding-vllm|risk-prompt-vllm"}[5m])) > 0)) * 0 + 6
           or
-          (count(up{job=~"gateway|risk-adapter|vllm-runtimes|dcgm-exporter|cadvisor"}) < 7) * 0 + 5
+          (ai_up_critical_targets < ai_expected_critical_targets) * 0 + 5
           or
           (sum(increase(http_requests_total{service="gateway",route=~"/v1/chat/completions|/v1/embeddings|/v1/risk/.*",route!~"/health|/ready|/v1/models|/metrics|/docs|/openapi.json"}[5m])) > 0) * 0 + 4
           or

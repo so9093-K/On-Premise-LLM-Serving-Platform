@@ -15,7 +15,7 @@
 | Gateway OpenAPI JSON | `http://localhost:9400/openapi.json` | OpenAPI 스펙 다운로드 |
 | **Risk Adapter API** | compose 내부 전용 (9405) | 내부 risk signal adapter |
 | **Grafana** | `http://localhost:9411` | 운영 대시보드 |
-| **Prometheus** | compose 내부 전용 (9090) | Metrics 수집·쿼리 |
+| **Prometheus** | compose 내부 전용 (내부 9090, SSH 포워딩 시 호스트 9410) | Metrics 수집·쿼리 |
 | DCGM Exporter | compose 내부 전용 (9400) | GPU raw metrics |
 | **Infisical** | `http://localhost:9420` | 시크릿 관리 웹 UI (선택) |
 
@@ -118,8 +118,8 @@ grep -E "^GRAFANA_ADMIN_(USER|PASSWORD)=" .env
 
 | 대시보드 | uid | 운영 질문 |
 |---|---|---|
-| Serving Home | `serving_home` | 지금 요청을 안전하게 처리할 수 있는가? Verdict banner, Needs Attention triage, GPU warm evidence (기본 home dashboard) |
-| GPU Capacity and OOM Risk | `gpu_capacity_and_oom_risk` | 지금 이 GPU에서 요청을 안전하게 계속 처리할 수 있는가? (GPU/OOM drill-down) |
+| GPU Capacity and OOM Risk | `gpu_capacity_and_oom_risk` | 지금 이 GPU에서 요청을 안전하게 계속 처리할 수 있는가? **(기본 home dashboard)** |
+| Serving Home | `serving_home` | 지금 요청을 안전하게 처리할 수 있는가? Verdict banner, Needs Attention triage, GPU warm evidence |
 | Executive Runtime Overview | `executive_runtime_overview` | 전체 서비스가 정상인가? 어디가 문제인가? |
 | API Experience | `api_experience` | Gateway path와 upstream 중 어디가 병목인가? streaming relay 상태는? |
 | Model Runtime Deep Dive | `model_runtime_deep_dive` | 특정 모델 queue/KV cache/token throughput/container 상태는? |
@@ -128,7 +128,7 @@ grep -E "^GRAFANA_ADMIN_(USER|PASSWORD)=" .env
 
 Dashboard 간 navigation은 Grafana 상단 링크로 이동한다 (UID 기반, `includeVars=true`).
 
-권장 drill-down: `serving_home` → `gpu_capacity_and_oom_risk` → `executive_runtime_overview` → `api_experience` → `model_runtime_deep_dive` → `risk_signal_operations` → `observability_data_quality`
+권장 drill-down: `gpu_capacity_and_oom_risk` → `serving_home` → `executive_runtime_overview` → `api_experience` → `model_runtime_deep_dive` → `risk_signal_operations` → `observability_data_quality`
 
 `Serving Home`의 user route 기본값은 `/v1/chat/completions|/v1/embeddings|/v1/risk/.*`이다. Top strip의 `User Traffic`은 double count를 피하기 위해 `service="gateway"` public entrypoint만 세고, service-level activity panel은 `gateway`와 `risk-adapter`를 service label로 분리한다.
 

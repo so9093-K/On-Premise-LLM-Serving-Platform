@@ -7,7 +7,7 @@ audience:
 description: >
   7개 Grafana dashboard와 Prometheus scrape, recording rule을 제공한다.
   ModelRegistry와 monitoring config에서 dashboard projection을 자동 생성한다.
-  Git-managed JSON이 source of truth다. serving_home이 홈 대시보드다.
+  Git-managed JSON이 source of truth다. gpu_capacity_and_oom_risk가 홈 대시보드다.
 
 source_files:
   - src/ai_model_serving/monitoring_projection.py

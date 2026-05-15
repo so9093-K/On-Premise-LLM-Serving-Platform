@@ -169,7 +169,7 @@
       "id": 3,
       "type": "stat",
       "title": "Missing Critical Targets",
-      "description": "Healthy/정상: 0 missing targets means all 7 expected targets are visible. Attention/주의: any missing target means Prometheus config or service discovery is incomplete. No Data/런타임 데이터 없음: ai_missing_critical_targets recording rule absent — check if recording rules are loaded.",
+      "description": "Healthy/정상: 0 means all 7 expected targets are up and healthy. Action Required/조치 필요: any non-zero value means one or more targets are down (up=0) or absent — check Down Target Detection below. No Data/런타임 데이터 없음: ai_missing_critical_targets recording rule absent — check if recording rules are loaded.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -873,7 +873,7 @@
         "multi": true,
         "name": "route",
         "options": [],
-        "query": "/v1/chat/completions,/v1/embeddings,/health,/ready,/v1/models,/metrics",
+        "query": "/v1/chat/completions,/v1/embeddings,/v1/risk/.*,/health,/ready,/v1/models,/metrics",
         "type": "custom"
       },
       {

@@ -71,7 +71,7 @@ def test_runtime_validation_matrix_requires_validation() -> None:
 def test_operator_status_board_ux_is_user_facing() -> None:
     monitoring = yaml.safe_load((ROOT / "configs/monitoring.yaml").read_text(encoding="utf-8"))
     operator = monitoring["operator_status_ux"]
-    assert operator["landing_dashboard"] == "serving_home"
+    assert operator["landing_dashboard"] == "gpu_capacity_and_oom_risk"
     assert operator["drill_down_order"][0] == "serving_home"
     assert "gpu_headroom" in operator["first_screen_order"]
     assert {item["mode"] for item in operator["serving_modes"]} == {
@@ -353,7 +353,7 @@ def test_full_stack_compose_and_prometheus_paths_are_network_correct() -> None:
     assert "cadvisor:" in compose
     assert (
         "GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: "
-        "/var/lib/grafana/dashboards/serving_home.json"
+        "/var/lib/grafana/dashboards/gpu_capacity_and_oom_risk.json"
     ) in compose
     assert "${DCGM_EXPORTER_IMAGE:" in compose
     assert "${DCGM_EXPORTER_PORT:-9412}:9400" in compose or "9412:9400" in compose
@@ -364,7 +364,7 @@ def test_full_stack_compose_and_prometheus_paths_are_network_correct() -> None:
     private_compose = (ROOT / "ops/compose/full-stack.private-network.yaml").read_text(encoding="utf-8")
     assert (
         "GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: "
-        "/var/lib/grafana/dashboards/serving_home.json"
+        "/var/lib/grafana/dashboards/gpu_capacity_and_oom_risk.json"
     ) in private_compose
     assert "${GATEWAY_BIND_ADDR:-0.0.0.0}:${GATEWAY_PORT:-9400}:9400" in private_compose
 

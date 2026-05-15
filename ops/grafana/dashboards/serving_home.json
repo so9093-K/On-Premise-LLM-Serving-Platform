@@ -99,7 +99,7 @@
       },
       "options": {
         "mode": "markdown",
-        "content": "# Serving Home — 운영 트리아지 진입점 / operator triage surface\n\n이 화면은 **운영자 트리아지 진입점**입니다. 첫 화면에서 \"현재 상태가 무엇인지, 사용자 영향이 있는지, 증거가 신뢰할 수 있는지, 다음에 무엇을 해야 하는지\"를 확인합니다.\n\n- **HEALTHY ACTIVE**: 사용자 트래픽이 있고 모든 핵심 증거가 정상입니다.\n- **IDLE WARM**: 사용자 트래픽은 없지만 GPU가 warm 상태이고 readiness·scrape 증거가 정상입니다. 대기 중 정상 상태입니다.\n- **IDLE COLD**: 사용자 트래픽이 없고 warm-state 증거(readiness/headroom/scrape)가 누락되거나 degraded 상태입니다.\n- **USER IMPACT**: 5xx 비율 또는 지연이 임계값을 초과했습니다. API Experience와 Model Runtime Deep Dive를 확인하세요.\n- **CAPACITY RISK**: GPU headroom이 낮거나 OOM/재시작 이벤트가 감지되었습니다. GPU Capacity and OOM Risk를 확인하세요.\n- **OBSERVABILITY DEGRADED**: 예상보다 적은 scrape 타겟이 보입니다. Observability / Data Quality를 확인하세요.\n- **NO DATA**: Prometheus에 신뢰할 수 있는 런타임 데이터가 없습니다. 숫자 0과는 다릅니다.\n\nDrill-down 순서: GPU 압력·OOM → GPU Capacity and OOM Risk. Queue·KV 압력 → Model Runtime Deep Dive. Chat 지연·streaming → API Experience. Risk timeout·detector → Risk Signal Operations. Scrape·metric 신선도 → Observability / Data Quality.\n"
+        "content": "# Serving Home — 운영 트리아지 진입점 / operator triage surface\n\n이 화면은 **운영자 트리아지 진입점**입니다. 첫 화면에서 \"현재 상태가 무엇인지, 사용자 영향이 있는지, 증거가 신뢰할 수 있는지, 다음에 무엇을 해야 하는지\"를 확인합니다.\n\n- **HEALTHY ACTIVE**: 사용자 트래픽이 있고 모든 핵심 증거가 정상입니다.\n- **IDLE WARM**: 사용자 트래픽은 없지만 GPU가 warm 상태이고 readiness·scrape 증거가 정상입니다. 대기 중 정상 상태입니다.\n- **IDLE COLD**: 사용자 트래픽이 없고 warm-state 증거(readiness/headroom/scrape)가 누락되거나 degraded 상태입니다.\n- **USER IMPACT**: 5xx rate가 0.01 req/s를 초과했습니다. API Experience와 Model Runtime Deep Dive를 확인하세요.\n- **CAPACITY RISK**: GPU headroom이 낮거나 OOM/재시작 이벤트가 감지되었습니다. GPU Capacity and OOM Risk를 확인하세요.\n- **OBSERVABILITY DEGRADED**: 예상보다 적은 scrape 타겟이 보입니다. Observability / Data Quality를 확인하세요.\n- **NO DATA**: Prometheus에 신뢰할 수 있는 런타임 데이터가 없습니다. 숫자 0과는 다릅니다.\n\nDrill-down 순서: GPU 압력·OOM → GPU Capacity and OOM Risk. Queue·KV 압력 → Model Runtime Deep Dive. Chat 지연·streaming → API Experience. Risk timeout·detector → Risk Signal Operations. Scrape·metric 신선도 → Observability / Data Quality.\n"
       },
       "fieldConfig": {
         "defaults": {},
@@ -502,7 +502,7 @@
       "id": 7,
       "type": "stat",
       "title": "Runtime Capacity",
-      "description": "Healthy/정상: max KV cache pressure and max queue depth are near zero at idle. Attention/주의: KV above 0.8 or queue above 10 needs attention. Action Required/조치 필요: KV above 0.9 or OOM risk. No Data/런타임 데이터 없음: vLLM metric absent.",
+      "description": "Healthy/정상: max KV cache pressure near zero at idle. Attention/주의: KV above 0.8. Action Required/조치 필요: KV above 0.9 — OOM risk. No Data/런타임 데이터 없음: vLLM metric absent — check vllm-runtimes scrape.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"

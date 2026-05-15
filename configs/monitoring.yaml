@@ -76,10 +76,11 @@ metric_sources:
     - streaming_usage_events_total
     - streaming_errors_total
     - streaming_requests_total
-    - streaming_time_to_first_chunk_seconds
-    - streaming_duration_seconds
-    - streaming_chunks_per_response
+    - streaming_time_to_first_chunk_seconds_bucket
+    - streaming_duration_seconds_bucket
+    - streaming_chunks_per_response_bucket
     - streaming_client_disconnects_total
+    - request_validation_rejections_total
   risk_adapter:
     public_port: 9405
     metrics_path: /metrics
@@ -287,7 +288,7 @@ reference_decisions:
 operator_status_ux:
   goal: Operators must understand the current operating state from the first Grafana
     screen without reading logs or raw metrics.
-  landing_dashboard: serving_home
+  landing_dashboard: gpu_capacity_and_oom_risk
   serving_modes:
   - mode: ACTIVE
     meaning: User request activity is present and readiness, scrape, GPU headroom,
@@ -347,7 +348,6 @@ operator_status_ux:
   - status_code
   drill_down_order:
   - serving_home
-  - gpu_capacity_and_oom_risk
   - executive_runtime_overview
   - api_experience
   - model_runtime_deep_dive

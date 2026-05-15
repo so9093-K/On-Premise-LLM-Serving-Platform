@@ -1,6 +1,6 @@
 # 상태 보드 UX
 
-상태 보드는 운영자가 Grafana 첫 화면인 `Serving Home`에서 serving verdict banner, evidence cards, Needs Attention triage table, GPU warm residency, OOM/restart 부재를 함께 판단하도록 구성한다. GPU 용량과 OOM 위험은 `gpu_capacity_and_oom_risk` drill-down에서 자세히 본다.
+상태 보드는 운영자가 Grafana 첫 화면인 `GPU Capacity and OOM Risk`에서 GPU headroom, VRAM, utilization, OOM/restart, KV cache를 즉시 판단하도록 구성한다. 트리아지(verdict, evidence, Needs Attention)는 `serving_home` drill-down에서 확인한다.
 
 ## 기본 상태
 
@@ -44,8 +44,8 @@
 
 | Dashboard | 운영 질문 |
 |---|---|
+| `gpu_capacity_and_oom_risk` | 지금 이 GPU에서 요청을 안전하게 계속 처리할 수 있는가? **(기본 home)** |
 | `serving_home` | 지금 요청을 안전하게 처리할 수 있는가? traffic이 없어도 stack은 IDLE WARM인가? |
-| `gpu_capacity_and_oom_risk` | 지금 이 GPU에서 요청을 안전하게 계속 처리할 수 있는가? |
 | `executive_runtime_overview` | 전체 서비스가 정상인가? 어디가 문제인가? |
 | `api_experience` | Gateway path와 upstream path 중 어디가 병목인가? streaming relay 상태는? |
 | `model_runtime_deep_dive` | 특정 모델의 queue, KV cache, token throughput, container resource 상태는? |

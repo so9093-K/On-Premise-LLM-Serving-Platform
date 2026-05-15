@@ -800,7 +800,7 @@
         "multi": true,
         "name": "route",
         "options": [],
-        "query": "/v1/chat/completions,/v1/embeddings,/health,/ready,/v1/models,/metrics",
+        "query": "/v1/chat/completions,/v1/embeddings,/v1/risk/.*,/health,/ready,/v1/models,/metrics",
         "type": "custom"
       },
       {

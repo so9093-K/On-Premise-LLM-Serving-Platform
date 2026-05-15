@@ -104,8 +104,8 @@ def validate_monitoring_reference() -> None:
             raise SystemExit(f'monitoring privacy policy must forbid {key}')
 
     operator = monitoring.get('operator_status_ux', {})
-    if operator.get('landing_dashboard') != 'serving_home':
-        raise SystemExit('monitoring UX must define serving_home as the landing dashboard')
+    if operator.get('landing_dashboard') != 'gpu_capacity_and_oom_risk':
+        raise SystemExit('monitoring UX must define gpu_capacity_and_oom_risk as the landing dashboard')
     levels = {item['level'] for item in operator.get('status_levels', [])}
     if levels != {'green', 'yellow', 'red', 'gray'}:
         raise SystemExit(f'monitoring status levels must be green/yellow/red/gray, got {levels}')
