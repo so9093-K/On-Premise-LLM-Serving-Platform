@@ -546,7 +546,7 @@ def validate_operational_hardening_contract() -> None:
         raise SystemExit('chat completion schema must document stream_options.include_usage as a supported boolean parameter')
     schema_text = json.dumps(chat_schema, ensure_ascii=False)
     if '"required": ["stream_options"]' not in schema_text or '"const": true' not in schema_text: raise SystemExit('chat completion schema must require stream=true when stream_options is provided')
-    gateway_text = (ROOT / 'src/ai_model_serving/apps/gateway.py').read_text(encoding='utf-8')
+    gateway_text = (ROOT / 'src/ai_model_serving/apps/gateway.py').read_text(encoding='utf-8') + (ROOT / 'src/ai_model_serving/api/routers/gateway_inference.py').read_text(encoding='utf-8')
     service_text = (ROOT / 'src/ai_model_serving/services/gateway_service.py').read_text(encoding='utf-8')
     metrics_text = (ROOT / 'src/ai_model_serving/metrics.py').read_text(encoding='utf-8')
     streaming_ops = (ROOT / 'docs/operations/streaming_runtime_operations.md').read_text(encoding='utf-8')
