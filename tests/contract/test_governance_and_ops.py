@@ -868,8 +868,17 @@ def test_gitlab_ci_has_colbert_ko_vllm_build_job() -> None:
     assert "validate_colbert_ko_artifact()" in deploy, (
         "deploy_gitlab_compose.sh must validate ColBERT-ko prepared artifact during full deploy"
     )
-    assert 'local model_dir="${COLBERT_KO_MODEL_DIR:-$(get_env_value COLBERT_KO_MODEL_DIR)}"' in deploy, (
-        "ColBERT artifact preflight must read COLBERT_KO_MODEL_DIR from env override or remote .env"
+    assert "resolve_colbert_ko_model_dir()" in deploy, (
+        "ColBERT artifact preflight must resolve COLBERT_KO_MODEL_DIR through a debuggable helper"
+    )
+    assert "COLBERT_KO_MODEL_DIR source: CI/SSH environment" in deploy, (
+        "deploy logs must identify when COLBERT_KO_MODEL_DIR came from CI/SSH environment"
+    )
+    assert "COLBERT_KO_MODEL_DIR source: remote .env" in deploy, (
+        "deploy logs must identify when COLBERT_KO_MODEL_DIR came from remote .env"
+    )
+    assert 'model_dir="$(resolve_colbert_ko_model_dir)"' in deploy, (
+        "ColBERT artifact preflight and preparation must use the same model dir resolver"
     )
     assert 'COLBERT_KO_MODEL_DIR is empty' in deploy, (
         "ColBERT artifact preflight must fail when COLBERT_KO_MODEL_DIR is empty"

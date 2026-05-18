@@ -211,14 +211,28 @@ fail_colbert_artifact_preflight() {
   echo "[deploy]   COLBERT_KO_MODEL_DIR is required for DEPLOY_MODE=full." >&2
   echo "[deploy]   Production full deploy requires an absolute COLBERT_KO_MODEL_DIR path." >&2
   echo "[deploy]   Do not use raw Hugging Face cache paths or relative paths like ./models/colbert-ko-vllm." >&2
-  echo "[deploy]   Prepare a vLLM-compatible artifact first:" >&2
-  echo "[deploy]     python scripts/models/prepare_colbert_ko_vllm_artifact.py --output-dir \"\$COLBERT_KO_MODEL_DIR\"" >&2
-  echo "[deploy]   Or rerun full deploy with PREPARE_COLBERT_KO_ARTIFACT=1 to prepare it explicitly inside PLATFORM_IMAGE_TO_DEPLOY." >&2
+  echo "[deploy]   Prepare a vLLM-compatible artifact first, or rerun full deploy with" >&2
+  echo "[deploy]   PREPARE_COLBERT_KO_ARTIFACT=1 to prepare it explicitly inside PLATFORM_IMAGE_TO_DEPLOY." >&2
   exit 1
 }
 
+resolve_colbert_ko_model_dir() {
+  local from_env="${COLBERT_KO_MODEL_DIR:-}"
+  local from_file
+  from_file="$(get_env_value COLBERT_KO_MODEL_DIR)"
+
+  if [[ -n "${from_env}" ]]; then
+    echo "[deploy] COLBERT_KO_MODEL_DIR source: CI/SSH environment" >&2
+    printf '%s\n' "${from_env}"
+  else
+    echo "[deploy] COLBERT_KO_MODEL_DIR source: remote .env" >&2
+    printf '%s\n' "${from_file}"
+  fi
+}
+
 validate_colbert_ko_artifact() {
-  local model_dir="${COLBERT_KO_MODEL_DIR:-$(get_env_value COLBERT_KO_MODEL_DIR)}"
+  local model_dir
+  model_dir="$(resolve_colbert_ko_model_dir)"
   if [[ -z "${model_dir}" ]]; then
     fail_colbert_artifact_preflight "COLBERT_KO_MODEL_DIR is empty."
   fi
@@ -260,7 +274,8 @@ prepare_colbert_ko_artifact_if_requested() {
   if [[ "${DEPLOY_MODE}" != "full" || "${PREPARE_COLBERT_KO_ARTIFACT:-0}" != "1" ]]; then
     return 0
   fi
-  local model_dir="${COLBERT_KO_MODEL_DIR:-$(get_env_value COLBERT_KO_MODEL_DIR)}"
+  local model_dir
+  model_dir="$(resolve_colbert_ko_model_dir)"
   if [[ -z "${model_dir}" ]]; then
     fail_colbert_artifact_preflight "COLBERT_KO_MODEL_DIR is empty; cannot prepare artifact."
   fi
