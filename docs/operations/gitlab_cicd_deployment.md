@@ -230,6 +230,17 @@ docker run --rm \
 
 따라서 target host에는 Docker, registry access, Hugging Face network access, `COLBERT_KO_MODEL_DIR` write permission, 그리고 writable Hugging Face cache directory가 필요하다. `COLBERT_KO_MODEL_DIR`는 절대경로여야 하고, raw HF cache를 `COLBERT_KO_MODEL_DIR`로 지정하면 안 된다.
 
+`HF_CACHE_DIR`가 절대경로이면 deploy script는 그대로 사용한다. 상대경로이면 `DEPLOY_PATH` root가 아니라 compose file directory 기준으로 해석한다. 예:
+
+```text
+DEPLOY_PATH=/opt/acl-ai-gateway
+COMPOSE_FILE=ops/compose/full-stack.private-network.yaml
+HF_CACHE_DIR=./model_cache/huggingface
+resolved path=/opt/acl-ai-gateway/ops/compose/model_cache/huggingface
+```
+
+이는 `PREPARE_COLBERT_KO_ARTIFACT=1`의 one-shot platform container와 이후 `docker compose` runtime이 같은 Hugging Face cache host path를 사용하게 하기 위한 정책이다. 로컬 make/compose 실행은 계속 CI/CD와 독립적이며, 이 path resolution은 production deploy script에만 적용된다.
+
 ## 로컬 빌드와 CI 빌드 분리
 
 CI job과 로컬 make target은 목적이 다르며 독립적으로 실행된다.

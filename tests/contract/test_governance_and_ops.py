@@ -914,6 +914,30 @@ def test_gitlab_ci_has_colbert_ko_vllm_build_job() -> None:
     assert "HF_CACHE_DIR" in deploy and "hf_cache_dir_host" in deploy, (
         "deploy script must resolve host HF cache directory for platform-container preparation"
     )
+    assert "compose_file_dir_host()" in deploy, (
+        "deploy_gitlab_compose.sh must calculate the host compose file directory"
+    )
+    assert 'if [[ "${COMPOSE_FILE}" = /* ]]' in deploy, (
+        "compose file directory helper must handle absolute COMPOSE_FILE paths"
+    )
+    assert 'dirname "${DEPLOY_PATH}/${COMPOSE_FILE}"' in deploy, (
+        "compose file directory helper must resolve relative COMPOSE_FILE under DEPLOY_PATH"
+    )
+    assert "resolve_compose_relative_path()" in deploy, (
+        "deploy_gitlab_compose.sh must resolve compose-relative host paths through a helper"
+    )
+    assert 'raw="${raw#./}"' in deploy, (
+        "HF_CACHE_DIR resolver must normalize both ./relative and relative paths"
+    )
+    assert 'hf_cache_dir_host="$(resolve_compose_relative_path "${hf_cache_dir}")"' in deploy, (
+        "artifact preparation must resolve HF_CACHE_DIR relative to the compose file directory"
+    )
+    assert '${DEPLOY_PATH}/${hf_cache_dir#./}' not in deploy, (
+        "artifact preparation must not resolve relative HF_CACHE_DIR directly from DEPLOY_PATH"
+    )
+    assert "Relative HF_CACHE_DIR values are resolved from compose file directory" in deploy, (
+        "deploy logs must explain the HF cache relative path base"
+    )
     artifact_preflight_pos = deploy.find("validate_colbert_ko_artifact")
     artifact_prepare_pos = deploy.find("prepare_colbert_ko_artifact_if_requested")
     backup_pos = deploy.find("cp .env")
@@ -986,6 +1010,22 @@ def test_gitlab_ci_has_colbert_ko_vllm_build_job() -> None:
     )
     assert "PLATFORM_IMAGE_TO_DEPLOY" in doc and "docker run" in doc, (
         "GitLab CI/CD docs must explain platform-container-based artifact preparation"
+    )
+    assert "HF_CACHE_DIR`가 절대경로이면" in doc and "compose file directory 기준" in doc, (
+        "GitLab CI/CD docs must document compose-file-directory HF_CACHE_DIR resolution"
+    )
+    assert "resolved path=/opt/acl-ai-gateway/ops/compose/model_cache/huggingface" in doc, (
+        "GitLab CI/CD docs must include the production HF_CACHE_DIR resolution example"
+    )
+    assert "one-shot platform container" in doc and "docker compose` runtime이 같은 Hugging Face cache" in doc, (
+        "GitLab CI/CD docs must explain why artifact preparation and compose runtime share the same cache path"
+    )
+    env_example = (ROOT / ".env.compose.example").read_text(encoding="utf-8")
+    assert "Production deploy resolves relative HF_CACHE_DIR values from the compose file directory" in env_example, (
+        ".env.compose.example must document production relative HF_CACHE_DIR resolution"
+    )
+    assert "/opt/acl-ai-gateway/ops/compose/model_cache/huggingface" in env_example, (
+        ".env.compose.example must show the compose-directory-based HF cache path"
     )
     assert "COLBERT_KO_MODEL_DIR=./models/colbert-ko-vllm" in doc, (
         "GitLab CI/CD docs must preserve local init-env-compose reproducibility with repo-relative artifact path"

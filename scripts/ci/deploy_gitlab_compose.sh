@@ -159,6 +159,27 @@ get_env_value() {
   awk -F= -v key="$key" '$1 == key { sub(/^[^=]*=/, ""); print; exit }' .env
 }
 
+compose_file_dir_host() {
+  if [[ "${COMPOSE_FILE}" = /* ]]; then
+    dirname "${COMPOSE_FILE}"
+  else
+    dirname "${DEPLOY_PATH}/${COMPOSE_FILE}"
+  fi
+}
+
+resolve_compose_relative_path() {
+  local raw="$1"
+  local base_dir
+  base_dir="$(compose_file_dir_host)"
+
+  if [[ "${raw}" = /* ]]; then
+    printf '%s\n' "${raw}"
+  else
+    raw="${raw#./}"
+    printf '%s/%s\n' "${base_dir}" "${raw}"
+  fi
+}
+
 pull_preflight_image() {
   local label="$1"
   local image="$2"
@@ -251,17 +272,16 @@ prepare_colbert_ko_artifact_if_requested() {
   if [[ -z "${hf_cache_dir}" ]]; then
     hf_cache_dir="./model_cache/huggingface"
   fi
+  local compose_dir
+  compose_dir="$(compose_file_dir_host)"
   local hf_cache_dir_host
-  if [[ "${hf_cache_dir}" = /* ]]; then
-    hf_cache_dir_host="${hf_cache_dir}"
-  else
-    hf_cache_dir_host="${DEPLOY_PATH}/${hf_cache_dir#./}"
-  fi
+  hf_cache_dir_host="$(resolve_compose_relative_path "${hf_cache_dir}")"
 
   mkdir -p "${model_dir}" "${hf_cache_dir_host}"
 
   echo "[deploy] preparing ColBERT-ko vLLM artifact at ${model_dir} using ${PLATFORM_IMAGE_TO_DEPLOY}..."
   echo "[deploy] Hugging Face cache mount: ${hf_cache_dir_host} -> /root/.cache/huggingface"
+  echo "[deploy] Relative HF_CACHE_DIR values are resolved from compose file directory: ${compose_dir}"
 
   local hf_token="${HF_TOKEN:-$(get_env_value HF_TOKEN)}"
   local hub_token="${HUGGING_FACE_HUB_TOKEN:-$(get_env_value HUGGING_FACE_HUB_TOKEN)}"
