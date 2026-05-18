@@ -8,6 +8,7 @@ dependencies = [
   "anyio==4.9.0",
   "uvicorn[standard]==0.46.0",
   "httpx==0.28.1",
+  "huggingface_hub==1.13.0",
   "prometheus-client==0.25.0",
   "PyYAML==6.0.3",
   "jsonschema==4.26.0",

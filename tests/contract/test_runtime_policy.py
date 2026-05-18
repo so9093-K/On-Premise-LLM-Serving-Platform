@@ -123,8 +123,12 @@ def test_runtime_lockfile_and_dockerfile_hardening_are_present() -> None:
     assert 'fastapi==' in runtime_lock_text
     assert 'uvicorn==' in runtime_lock_text
     assert 'httpx==' in runtime_lock_text
+    assert 'huggingface_hub==1.13.0' in runtime_lock_text
     assert 'pytest==' not in runtime_lock_text
     assert 'jsonschema==4.26.0' in runtime_lock_text
+    assert 'torch==' not in runtime_lock_text
+    assert 'vllm==' not in runtime_lock_text
+    assert 'transformers==' not in runtime_lock_text
     dockerfile = (ROOT / 'Dockerfile').read_text(encoding='utf-8')
     assert 'FROM python:3.12.13-slim' in dockerfile
     assert '--requirement requirements.runtime.lock' in dockerfile

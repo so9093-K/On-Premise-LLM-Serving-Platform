@@ -890,12 +890,37 @@ def test_gitlab_ci_has_colbert_ko_vllm_build_job() -> None:
     assert "PREPARE_COLBERT_KO_ARTIFACT" in deploy, (
         "deploy_gitlab_compose.sh must support explicit PREPARE_COLBERT_KO_ARTIFACT opt-in"
     )
+    assert "command -v python3.12" not in deploy and "command -v python3" not in deploy, (
+        "PREPARE_COLBERT_KO_ARTIFACT=1 must not depend on host Python discovery"
+    )
+    assert 'docker run "${docker_run_args[@]}"' in deploy, (
+        "PREPARE_COLBERT_KO_ARTIFACT=1 must run the platform image via docker run"
+    )
+    assert '"${PLATFORM_IMAGE_TO_DEPLOY}"' in deploy, (
+        "artifact preparation must use PLATFORM_IMAGE_TO_DEPLOY"
+    )
+    assert '-v "${model_dir}:/out"' in deploy, (
+        "artifact preparation must mount COLBERT_KO_MODEL_DIR as /out"
+    )
+    assert '-v "${hf_cache_dir_host}:/root/.cache/huggingface"' in deploy, (
+        "artifact preparation must mount the resolved host HF cache into the platform container"
+    )
     assert "prepare_colbert_ko_vllm_artifact.py --output-dir" in deploy, (
         "PREPARE_COLBERT_KO_ARTIFACT=1 must run the existing artifact preparation script"
     )
+    assert "--output-dir /out" in deploy, (
+        "artifact preparation must write to /out inside the platform container"
+    )
+    assert "HF_CACHE_DIR" in deploy and "hf_cache_dir_host" in deploy, (
+        "deploy script must resolve host HF cache directory for platform-container preparation"
+    )
     artifact_preflight_pos = deploy.find("validate_colbert_ko_artifact")
+    artifact_prepare_pos = deploy.find("prepare_colbert_ko_artifact_if_requested")
     backup_pos = deploy.find("cp .env")
     compose_up_pos = deploy.find('docker compose -f "${COMPOSE_FILE}" --env-file .env up -d --remove-orphans')
+    assert artifact_prepare_pos != -1 and artifact_prepare_pos < backup_pos, (
+        "ColBERT artifact preparation must run before .env backup/mutation"
+    )
     assert artifact_preflight_pos != -1 and artifact_preflight_pos < backup_pos, (
         "ColBERT artifact preflight must run before .env backup/mutation"
     )
@@ -955,6 +980,12 @@ def test_gitlab_ci_has_colbert_ko_vllm_build_job() -> None:
     )
     assert "PREPARE_COLBERT_KO_ARTIFACT=1" in doc, (
         "GitLab CI/CD docs must document the explicit artifact preparation opt-in"
+    )
+    assert "target host의 Python이나 `huggingface_hub` 설치를 사용하지 않는다" in doc, (
+        "GitLab CI/CD docs must say artifact preparation does not need host Python/huggingface_hub"
+    )
+    assert "PLATFORM_IMAGE_TO_DEPLOY" in doc and "docker run" in doc, (
+        "GitLab CI/CD docs must explain platform-container-based artifact preparation"
     )
     assert "COLBERT_KO_MODEL_DIR=./models/colbert-ko-vllm" in doc, (
         "GitLab CI/CD docs must preserve local init-env-compose reproducibility with repo-relative artifact path"

@@ -28,7 +28,8 @@
 #   PRUNE_DANGLING_IMAGES      1 (default) or 0 — prune dangling images after a successful deploy
 #   PREPARE_COLBERT_KO_ARTIFACT
 #                              1 to explicitly prepare the ColBERT-ko vLLM artifact
-#                              before full deploy preflight. Default: disabled.
+#                              before full deploy preflight using PLATFORM_IMAGE_TO_DEPLOY.
+#                              Default: disabled.
 set -euo pipefail
 
 : "${PLATFORM_IMAGE_TO_DEPLOY:?Required: full platform image ref}"
@@ -120,6 +121,9 @@ ssh "${SSH_TARGET}" \
   COMPOSE_FILE="${COMPOSE_FILE}" \
   DEPLOY_MODE="${DEPLOY_MODE}" \
   COLBERT_KO_MODEL_DIR="${COLBERT_KO_MODEL_DIR:-}" \
+  HF_CACHE_DIR="${HF_CACHE_DIR:-}" \
+  HF_TOKEN="${HF_TOKEN:-}" \
+  HUGGING_FACE_HUB_TOKEN="${HUGGING_FACE_HUB_TOKEN:-}" \
   GATEWAY_HEALTH_URL="${GATEWAY_HEALTH_URL:-}" \
   RUN_READY_SMOKE="${RUN_READY_SMOKE}" \
   PRUNE_DANGLING_IMAGES="${PRUNE_DANGLING_IMAGES}" \
@@ -188,7 +192,7 @@ fail_colbert_artifact_preflight() {
   echo "[deploy]   Do not use raw Hugging Face cache paths or relative paths like ./models/colbert-ko-vllm." >&2
   echo "[deploy]   Prepare a vLLM-compatible artifact first:" >&2
   echo "[deploy]     python scripts/models/prepare_colbert_ko_vllm_artifact.py --output-dir \"\$COLBERT_KO_MODEL_DIR\"" >&2
-  echo "[deploy]   Or rerun full deploy with PREPARE_COLBERT_KO_ARTIFACT=1 to prepare it explicitly." >&2
+  echo "[deploy]   Or rerun full deploy with PREPARE_COLBERT_KO_ARTIFACT=1 to prepare it explicitly inside PLATFORM_IMAGE_TO_DEPLOY." >&2
   exit 1
 }
 
@@ -242,13 +246,42 @@ prepare_colbert_ko_artifact_if_requested() {
   if [[ "${model_dir}" != /* ]]; then
     fail_colbert_artifact_preflight "COLBERT_KO_MODEL_DIR must be absolute before artifact preparation: ${model_dir}"
   fi
-  echo "[deploy] preparing ColBERT-ko vLLM artifact at ${model_dir}..."
-  local python_bin
-  python_bin="$(command -v python3.12 || command -v python3 || command -v python || true)"
-  if [[ -z "${python_bin}" ]]; then
-    fail_colbert_artifact_preflight "python is required to prepare ColBERT-ko artifact"
+
+  local hf_cache_dir="${HF_CACHE_DIR:-$(get_env_value HF_CACHE_DIR)}"
+  if [[ -z "${hf_cache_dir}" ]]; then
+    hf_cache_dir="./model_cache/huggingface"
   fi
-  if ! "${python_bin}" scripts/models/prepare_colbert_ko_vllm_artifact.py --output-dir "${model_dir}"; then
+  local hf_cache_dir_host
+  if [[ "${hf_cache_dir}" = /* ]]; then
+    hf_cache_dir_host="${hf_cache_dir}"
+  else
+    hf_cache_dir_host="${DEPLOY_PATH}/${hf_cache_dir#./}"
+  fi
+
+  mkdir -p "${model_dir}" "${hf_cache_dir_host}"
+
+  echo "[deploy] preparing ColBERT-ko vLLM artifact at ${model_dir} using ${PLATFORM_IMAGE_TO_DEPLOY}..."
+  echo "[deploy] Hugging Face cache mount: ${hf_cache_dir_host} -> /root/.cache/huggingface"
+
+  local hf_token="${HF_TOKEN:-$(get_env_value HF_TOKEN)}"
+  local hub_token="${HUGGING_FACE_HUB_TOKEN:-$(get_env_value HUGGING_FACE_HUB_TOKEN)}"
+  local -a docker_run_args=(
+    --rm
+    --user 0:0
+    -e "HOST_UID=$(id -u)"
+    -e "HOST_GID=$(id -g)"
+    -v "${model_dir}:/out"
+    -v "${hf_cache_dir_host}:/root/.cache/huggingface"
+  )
+  if [[ -n "${hf_token}" ]]; then
+    docker_run_args+=(-e "HF_TOKEN=${hf_token}" -e "HUGGING_FACE_HUB_TOKEN=${hf_token}")
+  elif [[ -n "${hub_token}" ]]; then
+    docker_run_args+=(-e "HUGGING_FACE_HUB_TOKEN=${hub_token}")
+  fi
+
+  if ! docker run "${docker_run_args[@]}" \
+    "${PLATFORM_IMAGE_TO_DEPLOY}" \
+    sh -lc 'python scripts/models/prepare_colbert_ko_vllm_artifact.py --output-dir /out && chown -R "${HOST_UID}:${HOST_GID}" /out /root/.cache/huggingface'; then
     fail_colbert_artifact_preflight "ColBERT-ko artifact preparation failed for ${model_dir}"
   fi
 }

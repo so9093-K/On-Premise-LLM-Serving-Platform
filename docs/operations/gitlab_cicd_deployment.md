@@ -57,7 +57,7 @@ Platform image는 commit tag와 branch tag를 항상 push한다. `release` branc
 - `GATEWAY_HEALTH_URL`: 배포 후 health check URL
 - `RUN_READY_SMOKE`: `1` 또는 `0`, 기본값 `1`
 - `PRUNE_DANGLING_IMAGES`: `1` 또는 `0`, 기본값 `1`. 성공한 배포 뒤 태그가 사라진 dangling image만 정리
-- `PREPARE_COLBERT_KO_ARTIFACT`: `1`이면 `DEPLOY_MODE=full` preflight 전에 175에서 ColBERT-ko prepared artifact를 명시적으로 생성한다. 기본값은 자동 준비하지 않음
+- `PREPARE_COLBERT_KO_ARTIFACT`: `1`이면 `DEPLOY_MODE=full` preflight 전에 `PLATFORM_IMAGE_TO_DEPLOY` 컨테이너 안에서 ColBERT-ko prepared artifact를 명시적으로 생성한다. 기본값은 자동 준비하지 않음
 - `RISK_VLLM_IMAGE_TO_DEPLOY`: `DEPLOY_MODE=full`에서만 사용. risk vLLM image override가 필요할 때 175 `.env`의 `RISK_VLLM_IMAGE`를 해당 값으로 덮어쓴다
 - `COLBERT_KO_VLLM_IMAGE_TO_DEPLOY`: `DEPLOY_MODE=full`에서만 사용. colbert-ko-vllm image를 새 CI 태그로 교체할 때 175 `.env`의 `COLBERT_KO_VLLM_IMAGE`를 해당 값으로 덮어쓴다
 
@@ -175,14 +175,24 @@ COLBERT_KO_MODEL_DIR=./models/colbert-ko-vllm
 
 현재 compose command는 `--model /models/colbert-ko-vllm`이다. 따라서 host의 `$COLBERT_KO_MODEL_DIR/config.json`이 컨테이너의 `/models/colbert-ko-vllm/config.json`으로 보여야 한다. prepared artifact root에는 최소 `config.json`, `proj.pt`, `tokenizer/`, `encoder/config.json`, `encoder/model.safetensors`가 있어야 한다.
 
-서버에서 사전 준비:
+서버에서 사전 준비가 필요하면 host Python 대신 검증된 platform image container를 사용한다:
 
 ```bash
 sudo mkdir -p /opt/acl-ai-gateway/models
 sudo chown -R "$USER:$USER" /opt/acl-ai-gateway/models
 
-python scripts/models/prepare_colbert_ko_vllm_artifact.py \
-  --output-dir /opt/acl-ai-gateway/models/colbert-ko-vllm
+COLBERT_KO_MODEL_DIR=/opt/acl-ai-gateway/models/colbert-ko-vllm
+HF_CACHE_DIR_HOST=/opt/acl-ai-gateway/model_cache/huggingface
+PLATFORM_IMAGE_TO_DEPLOY=<registry>/platform:<tested-tag>
+
+mkdir -p "$COLBERT_KO_MODEL_DIR" "$HF_CACHE_DIR_HOST"
+
+docker run --rm \
+  -v "${COLBERT_KO_MODEL_DIR}:/out" \
+  -v "${HF_CACHE_DIR_HOST}:/root/.cache/huggingface" \
+  "${PLATFORM_IMAGE_TO_DEPLOY}" \
+  python scripts/models/prepare_colbert_ko_vllm_artifact.py \
+    --output-dir /out
 
 MODEL_DIR=/opt/acl-ai-gateway/models/colbert-ko-vllm
 test -f "$MODEL_DIR/config.json"
@@ -206,6 +216,19 @@ PREPARE_COLBERT_KO_ARTIFACT=1
 ```
 
 `PREPARE_COLBERT_KO_ARTIFACT=1`이 없으면 deploy는 대용량 모델 다운로드를 암묵적으로 시작하지 않는다. 운영자가 미리 prepared artifact를 준비해야 하며, artifact preflight가 실패하면 `.env`를 수정하거나 `docker compose up`까지 가지 않고 중단한다.
+
+`PREPARE_COLBERT_KO_ARTIFACT=1`은 target host의 Python이나 `huggingface_hub` 설치를 사용하지 않는다. Deploy script는 먼저 `PLATFORM_IMAGE_TO_DEPLOY`를 pull한 뒤 다음 형태로 platform image 컨테이너를 실행한다.
+
+```bash
+docker run --rm \
+  -v "${COLBERT_KO_MODEL_DIR}:/out" \
+  -v "${HF_CACHE_DIR_HOST}:/root/.cache/huggingface" \
+  "${PLATFORM_IMAGE_TO_DEPLOY}" \
+  python scripts/models/prepare_colbert_ko_vllm_artifact.py \
+    --output-dir /out
+```
+
+따라서 target host에는 Docker, registry access, Hugging Face network access, `COLBERT_KO_MODEL_DIR` write permission, 그리고 writable Hugging Face cache directory가 필요하다. `COLBERT_KO_MODEL_DIR`는 절대경로여야 하고, raw HF cache를 `COLBERT_KO_MODEL_DIR`로 지정하면 안 된다.
 
 ## 로컬 빌드와 CI 빌드 분리
 

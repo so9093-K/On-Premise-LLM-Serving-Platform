@@ -19,6 +19,8 @@ Production compose는 HF repo root나 raw Hugging Face cache를 `--model`로 넘
 
 Compose는 `--model /models/colbert-ko-vllm`, `--tokenizer /models/colbert-ko-vllm/tokenizer`, `--runner pooling`, `--convert embed`, `--model-impl transformers`, `--pooler-config.task token_embed`를 사용한다. 따라서 host의 `$COLBERT_KO_MODEL_DIR/config.json`이 container 안의 `/models/colbert-ko-vllm/config.json`으로 보여야 한다.
 
+GitLab full deploy에서 `PREPARE_COLBERT_KO_ARTIFACT=1`을 설정하면 target host의 Python 환경을 사용하지 않고 platform image container 안에서 prepare script를 실행한다. Platform image는 `huggingface_hub`만 포함한 lightweight ops helper 역할을 겸하며, torch/vLLM/transformers 같은 model conversion dependency를 추가하지 않는다.
+
 ## Artifact packaging
 
 원본 repository layout은 `encoder/`, `tokenizer/`, `proj.pt`, `inference.py`로 분리되어 있다. vLLM native artifact는 이 구조를 재현 가능한 local directory로 준비하고, root `config.json`에 custom architecture와 projection metadata를 둔다.
