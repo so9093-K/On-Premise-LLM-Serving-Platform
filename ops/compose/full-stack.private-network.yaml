@@ -167,7 +167,7 @@ services:
           - capabilities:
             - gpu
   colbert-ko-vllm:
-    image: ${COLBERT_KO_VLLM_IMAGE:-ai-model-serving-colbert-ko-vllm:0.0.1}
+    image: ${COLBERT_KO_VLLM_IMAGE:?Set COLBERT_KO_VLLM_IMAGE to a tested ColBERT-ko vLLM image tag}
     command:
     - --model
     - /models/colbert-ko-vllm
@@ -205,7 +205,7 @@ services:
       HF_HOME: /root/.cache/huggingface
     volumes:
     - ${HF_CACHE_DIR:-./model_cache/huggingface}:/root/.cache/huggingface
-    - ${COLBERT_KO_MODEL_DIR:-./models/colbert-ko-vllm}:/models/colbert-ko-vllm:ro
+    - ${COLBERT_KO_MODEL_DIR:?Set COLBERT_KO_MODEL_DIR to prepared ColBERT-ko artifact directory}:/models/colbert-ko-vllm:ro
     depends_on:
       embedding-vllm:
         condition: service_healthy

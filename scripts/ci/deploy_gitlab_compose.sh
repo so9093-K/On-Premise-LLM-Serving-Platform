@@ -12,8 +12,9 @@
 #                              (falls back to CI_REGISTRY_USER / CI_REGISTRY_PASSWORD)
 #
 # Optional:
-#   RISK_VLLM_IMAGE_TO_DEPLOY  override RISK_VLLM_IMAGE in 175 .env
-#   DEPLOY_COMPOSE_FILE        compose file relative to DEPLOY_PATH
+#   RISK_VLLM_IMAGE_TO_DEPLOY         override RISK_VLLM_IMAGE in 175 .env
+#   COLBERT_KO_VLLM_IMAGE_TO_DEPLOY   override COLBERT_KO_VLLM_IMAGE in 175 .env
+#   DEPLOY_COMPOSE_FILE               compose file relative to DEPLOY_PATH
 #                              default: ops/compose/full-stack.private-network.yaml
 #   DEPLOY_MODE                rolling (default) or full
 #   GATEWAY_HEALTH_URL         explicit post-deploy health URL.
@@ -78,6 +79,7 @@ rsync -az --delete \
 ssh "${SSH_TARGET}" \
   PLATFORM_IMAGE_TO_DEPLOY="${PLATFORM_IMAGE_TO_DEPLOY}" \
   RISK_VLLM_IMAGE_TO_DEPLOY="${RISK_VLLM_IMAGE_TO_DEPLOY:-}" \
+  COLBERT_KO_VLLM_IMAGE_TO_DEPLOY="${COLBERT_KO_VLLM_IMAGE_TO_DEPLOY:-}" \
   CI_REGISTRY="${CI_REGISTRY}" \
   REGISTRY_USER="${REGISTRY_USER}" \
   REGISTRY_PASSWORD="${REGISTRY_PASSWORD}" \
@@ -126,6 +128,12 @@ echo "[deploy] PLATFORM_IMAGE set to ${PLATFORM_IMAGE_TO_DEPLOY}"
 if [[ -n "${RISK_VLLM_IMAGE_TO_DEPLOY:-}" ]]; then
   set_env_value RISK_VLLM_IMAGE "${RISK_VLLM_IMAGE_TO_DEPLOY}"
   echo "[deploy] RISK_VLLM_IMAGE set to ${RISK_VLLM_IMAGE_TO_DEPLOY}"
+fi
+
+# optionally update COLBERT_KO_VLLM_IMAGE
+if [[ -n "${COLBERT_KO_VLLM_IMAGE_TO_DEPLOY:-}" ]]; then
+  set_env_value COLBERT_KO_VLLM_IMAGE "${COLBERT_KO_VLLM_IMAGE_TO_DEPLOY}"
+  echo "[deploy] COLBERT_KO_VLLM_IMAGE set to ${COLBERT_KO_VLLM_IMAGE_TO_DEPLOY}"
 fi
 
 if [[ -n "${AUTH_MODE:-}" ]]; then

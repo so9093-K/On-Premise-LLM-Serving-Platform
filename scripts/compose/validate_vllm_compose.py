@@ -15,10 +15,12 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from ai_model_serving.domain import ModelRegistry
 COMPOSE_PATH = ROOT / "ops/compose/full-stack.private-network.yaml"
+LOCAL_BUILD_COMPOSE_PATH = ROOT / "ops/compose/full-stack.local-build.yaml"
 SERVING_PATH = ROOT / "configs/model_serving.yaml"
 CATALOG_PATH = ROOT / "configs/model_catalog.yaml"
 GPU_BUDGETS_PATH = ROOT / "configs/gpu_budgets.yaml"
 MODEL_CARD_DIR = ROOT / "model_cards"
+
 
 
 def load_yaml(path: Path) -> Any:
@@ -61,6 +63,71 @@ def as_float(value: object, field: str, service: str) -> float:
         raise SystemExit(f"{service}: {field} must be a float, got {value!r}") from exc
 
 
+_LOCAL_ONLY_IMAGE_PREFIXES = (
+    "ai-model-serving-colbert-ko-vllm:",
+    "ai-model-serving-platform:",
+    "ai-model-serving-risk-vllm-kanana:",
+)
+
+
+def validate_production_compose_image_policy() -> list[str]:
+    """
+    Ensure the production compose file does not contain local-only image fallbacks
+    or build blocks for any service.  Both are only permitted in the local-build
+    override compose.
+    """
+    errors: list[str] = []
+
+    compose = load_yaml(COMPOSE_PATH)
+    raw = COMPOSE_PATH.read_text(encoding="utf-8")
+
+    for svc_name, svc in compose.get("services", {}).items():
+        if "build" in svc:
+            errors.append(
+                f"ops/compose/full-stack.private-network.yaml service '{svc_name}' has a "
+                f"'build' block. Build blocks are only allowed in "
+                f"ops/compose/full-stack.local-build.yaml."
+            )
+
+    # Detect colbert-ko-vllm image with :- fallback (local-only tag) by scanning the raw
+    # text for the specific variable pattern.  We check the raw text rather than the parsed
+    # value because docker compose variable substitution is not evaluated by PyYAML.
+    if "COLBERT_KO_VLLM_IMAGE:-" in raw:
+        errors.append(
+            "ops/compose/full-stack.private-network.yaml: COLBERT_KO_VLLM_IMAGE uses :- fallback "
+            "with a local-only image tag. Production compose must use "
+            "${COLBERT_KO_VLLM_IMAGE:?Set COLBERT_KO_VLLM_IMAGE to a tested ColBERT-ko vLLM image tag}."
+        )
+
+    if "COLBERT_KO_MODEL_DIR:-" in raw:
+        errors.append(
+            "ops/compose/full-stack.private-network.yaml: COLBERT_KO_MODEL_DIR uses :- fallback "
+            "with a relative path. Production compose must use "
+            "${COLBERT_KO_MODEL_DIR:?Set COLBERT_KO_MODEL_DIR to prepared ColBERT-ko artifact directory}."
+        )
+
+    return errors
+
+
+def validate_local_build_override_has_build_block() -> list[str]:
+    """Ensure the local-build override actually contains a build block for colbert-ko-vllm."""
+    errors: list[str] = []
+    if not LOCAL_BUILD_COMPOSE_PATH.exists():
+        errors.append(
+            f"{LOCAL_BUILD_COMPOSE_PATH.name} does not exist. "
+            f"Create ops/compose/full-stack.local-build.yaml with a build block for colbert-ko-vllm."
+        )
+        return errors
+
+    compose = load_yaml(LOCAL_BUILD_COMPOSE_PATH)
+    colbert = compose.get("services", {}).get("colbert-ko-vllm", {})
+    if "build" not in colbert:
+        errors.append(
+            "ops/compose/full-stack.local-build.yaml: colbert-ko-vllm service must have a 'build' block."
+        )
+    return errors
+
+
 def validate_alignment() -> None:
     compose = load_yaml(COMPOSE_PATH)
     serving_doc = load_yaml(SERVING_PATH)
@@ -71,6 +138,9 @@ def validate_alignment() -> None:
     services = compose["services"]
     errors: list[str] = []
     total_gpu_util = 0.0
+
+    errors.extend(validate_production_compose_image_policy())
+    errors.extend(validate_local_build_override_has_build_block())
 
     for runtime in registry.iter_runtime_services():
         if runtime.backend != "vllm":

@@ -16,6 +16,8 @@ variables:
   PLATFORM_IMAGE_REF: "$CI_REGISTRY_IMAGE/platform:$CI_COMMIT_REF_SLUG"
   RISK_VLLM_IMAGE_SHA: "$CI_REGISTRY_IMAGE/risk-vllm-kanana:$CI_COMMIT_SHORT_SHA"
   RISK_VLLM_IMAGE_REF: "$CI_REGISTRY_IMAGE/risk-vllm-kanana:$CI_COMMIT_REF_SLUG"
+  COLBERT_KO_VLLM_IMAGE_SHA: "$CI_REGISTRY_IMAGE/colbert-ko-vllm:$CI_COMMIT_SHORT_SHA"
+  COLBERT_KO_VLLM_IMAGE_REF: "$CI_REGISTRY_IMAGE/colbert-ko-vllm:$CI_COMMIT_REF_SLUG"
 
 .default-python:
   image: python:3.12.13-slim
@@ -136,6 +138,31 @@ build-risk-vllm:
   when: manual
   allow_failure: true
 
+build-colbert-ko-vllm:
+  extends: .docker-build
+  stage: build
+  script:
+    - >
+      docker build --pull
+      -f ops/docker/Dockerfile.colbert-ko-vllm
+      --build-arg COLBERT_KO_VLLM_BASE_IMAGE="${COLBERT_KO_VLLM_BASE_IMAGE:-vllm/vllm-openai:gemma4-0505-cu129}"
+      -t "$COLBERT_KO_VLLM_IMAGE_SHA"
+      -t "$COLBERT_KO_VLLM_IMAGE_REF"
+      .
+    - docker push "$COLBERT_KO_VLLM_IMAGE_SHA"
+    - docker push "$COLBERT_KO_VLLM_IMAGE_REF"
+    - |
+      if [ -n "$CI_COMMIT_TAG" ]; then
+        COLBERT_KO_VLLM_IMAGE_TAG="$CI_REGISTRY_IMAGE/colbert-ko-vllm:$CI_COMMIT_TAG"
+        docker tag "$COLBERT_KO_VLLM_IMAGE_SHA" "$COLBERT_KO_VLLM_IMAGE_TAG"
+        docker push "$COLBERT_KO_VLLM_IMAGE_TAG"
+      fi
+  only:
+    - tags
+    - release
+  when: manual
+  allow_failure: true
+
 # Manual deployment to the 175 GPU runtime server.
 # Required CI/CD variables:
 #   SSH_PRIVATE_KEY      file-type variable; private key for DEPLOY_USER on 175
@@ -152,7 +179,8 @@ build-risk-vllm:
 #   GATEWAY_HEALTH_URL   explicit post-deploy health URL
 #   RUN_READY_SMOKE      1 or 0; default 1
 #   PRUNE_DANGLING_IMAGES 1 or 0; default 1, prune untagged images after successful deploy
-#   RISK_VLLM_IMAGE_TO_DEPLOY override RISK_VLLM_IMAGE in 175 .env when needed
+#   RISK_VLLM_IMAGE_TO_DEPLOY  override RISK_VLLM_IMAGE in 175 .env when needed
+#   COLBERT_KO_VLLM_IMAGE_TO_DEPLOY override COLBERT_KO_VLLM_IMAGE in 175 .env when needed
 deploy-gpu-175:
   stage: deploy
   image: alpine:3.20
@@ -168,7 +196,9 @@ deploy-gpu-175:
     - chmod 700 ~/.ssh
     - printf "%s\n" "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
   script:
-    - PLATFORM_IMAGE_TO_DEPLOY="$PLATFORM_IMAGE_SHA" bash scripts/ci/deploy_gitlab_compose.sh
+    - PLATFORM_IMAGE_TO_DEPLOY="$PLATFORM_IMAGE_SHA"
+      COLBERT_KO_VLLM_IMAGE_TO_DEPLOY="${COLBERT_KO_VLLM_IMAGE_TO_DEPLOY:-}"
+      bash scripts/ci/deploy_gitlab_compose.sh
   only:
     - release
   when: manual

@@ -244,7 +244,7 @@ def test_runtime_validation_matrix_has_actionable_fields() -> None:
 def test_build_ux_separates_build_from_runtime_startup() -> None:
     makefile = (ROOT / 'Makefile').read_text(encoding='utf-8')
     assert 'make build         # build artifacts/images only; does not start or keep services alive' in makefile
-    for target in ['start:', 'up:', 'ready:', 'check-ready:', 'status:', 'stop:', 'down:', 'logs:', 'build-pipeline:', 'first-run:', 'rebuild-full:', 'rebuild-app:', 'rebuild-risk-vllm:', 'remove-plan:']:
+    for target in ['start:', 'up:', 'ready:', 'check-ready:', 'status:', 'stop:', 'down:', 'logs:', 'build-pipeline:', 'first-run:', 'rebuild-full:', 'rebuild-app:', 'rebuild-risk-vllm:', 'rebuild-colbert-ko-vllm:', 'remove-plan:']:
         assert target in makefile
 
     build_doc = (ROOT / 'docs/development/build_ux.md').read_text(encoding='utf-8')
@@ -428,18 +428,21 @@ def test_env_bootstrap_and_image_tag_automation_are_present() -> None:
     setup = ROOT / 'scripts/config/setup_env.py'
     build_image = ROOT / 'scripts/build/build_platform_image.sh'
     build_risk_image = ROOT / 'scripts/build/build_risk_vllm_image.sh'
+    build_colbert_image = ROOT / 'scripts/build/build_colbert_ko_vllm_image.sh'
     check_risk_image = ROOT / 'scripts/models/check_risk_vllm_image_config.sh'
     assert setup.exists()
     assert build_image.exists()
     assert build_risk_image.exists()
+    assert build_colbert_image.exists(), "scripts/build/build_colbert_ko_vllm_image.sh must exist"
     assert check_risk_image.exists()
     assert os.access(setup, os.X_OK)
     assert os.access(build_image, os.X_OK)
     assert os.access(build_risk_image, os.X_OK)
+    assert os.access(build_colbert_image, os.X_OK), "scripts/build/build_colbert_ko_vllm_image.sh must be executable"
     assert os.access(check_risk_image, os.X_OK)
 
     makefile = (ROOT / 'Makefile').read_text(encoding='utf-8')
-    for target in ['init-env:', 'init-env-local:', 'init-env-compose:', 'show-image-tags:', 'build-image:', 'build-risk-vllm-image:', 'risk-vllm-config-check:', 'compose-up:', 'compose-down:']:
+    for target in ['init-env:', 'init-env-local:', 'init-env-compose:', 'show-image-tags:', 'build-image:', 'build-risk-vllm-image:', 'build-colbert-ko-vllm-image:', 'risk-vllm-config-check:', 'compose-up:', 'compose-down:']:
         assert target in makefile
 
     images = yaml.safe_load((ROOT / 'configs/recommended_images.yaml').read_text(encoding='utf-8'))['images']
@@ -467,6 +470,12 @@ def test_compose_env_example_has_reviewed_image_defaults() -> None:
     assert 'VLLM_IMAGE=vllm/vllm-openai:gemma4' in env
     assert 'RISK_VLLM_IMAGE=ai-model-serving-risk-vllm-kanana:' in env
     assert 'RISK_VLLM_TRANSFORMERS_VERSION=4.52.4' in env
+    assert 'COLBERT_KO_VLLM_IMAGE=ai-model-serving-colbert-ko-vllm:' in env, (
+        ".env.compose.example must include COLBERT_KO_VLLM_IMAGE with local build default"
+    )
+    assert 'COLBERT_KO_MODEL_DIR=' in env, (
+        ".env.compose.example must include COLBERT_KO_MODEL_DIR"
+    )
     assert 'DCGM_EXPORTER_IMAGE=nvcr.io/nvidia/k8s/dcgm-exporter:' in env
     assert 'PROMETHEUS_IMAGE=prom/prometheus:v3-distroless' in env
     assert 'GRAFANA_IMAGE=grafana/grafana:12.2' in env
@@ -616,3 +625,85 @@ def test_validate_grafana_promql_script_exists() -> None:
     assert "/api/v1/query" in content
     assert "--config-only" in content
     assert "--allow-failures" in content
+
+
+def test_colbert_ko_vllm_image_is_required_env_in_production_compose() -> None:
+    """Production compose must use :? required syntax — no local-only :-fallback for colbert-ko-vllm."""
+    for rel in [
+        "ops/compose/full-stack.private-network.yaml",
+        "ops/compose/full-stack.example.yaml",
+    ]:
+        raw = (ROOT / rel).read_text(encoding="utf-8")
+        assert "COLBERT_KO_VLLM_IMAGE:?" in raw, (
+            f"{rel}: COLBERT_KO_VLLM_IMAGE must use :? required syntax, "
+            f"not :- with a local-only fallback"
+        )
+        assert ":-ai-model-serving-colbert-ko-vllm" not in raw, (
+            f"{rel}: must not contain local-only colbert-ko-vllm image fallback"
+        )
+        assert "COLBERT_KO_MODEL_DIR:?" in raw, (
+            f"{rel}: COLBERT_KO_MODEL_DIR must use :? required syntax, "
+            f"not :- with a relative path fallback"
+        )
+
+
+def test_production_compose_files_have_no_build_blocks() -> None:
+    """Build blocks belong only in the local-build override, never in production compose."""
+    for rel in [
+        "ops/compose/full-stack.private-network.yaml",
+        "ops/compose/full-stack.example.yaml",
+    ]:
+        compose = yaml.safe_load((ROOT / rel).read_text(encoding="utf-8"))
+        for svc_name, svc in compose["services"].items():
+            assert "build" not in svc, (
+                f"{rel}: service '{svc_name}' must not have a 'build' block. "
+                f"Use ops/compose/full-stack.local-build.yaml for local builds."
+            )
+
+
+def test_local_build_override_compose_exists_with_colbert_build_block() -> None:
+    """ops/compose/full-stack.local-build.yaml must exist and provide a build block for colbert-ko-vllm."""
+    local_build = ROOT / "ops/compose/full-stack.local-build.yaml"
+    assert local_build.exists(), (
+        "ops/compose/full-stack.local-build.yaml does not exist. "
+        "Create it with a build override for local colbert-ko-vllm development."
+    )
+    compose = yaml.safe_load(local_build.read_text(encoding="utf-8"))
+    colbert = compose.get("services", {}).get("colbert-ko-vllm", {})
+    assert "build" in colbert, (
+        "ops/compose/full-stack.local-build.yaml: colbert-ko-vllm must have a 'build' block"
+    )
+    assert colbert.get("build", {}).get("dockerfile") == "ops/docker/Dockerfile.colbert-ko-vllm", (
+        "ops/compose/full-stack.local-build.yaml: build.dockerfile must point to "
+        "ops/docker/Dockerfile.colbert-ko-vllm"
+    )
+
+
+def test_gitlab_ci_has_colbert_ko_vllm_build_job() -> None:
+    """GitLab CI must have a build job for the colbert-ko-vllm image."""
+    ci = (ROOT / ".gitlab-ci.yml").read_text(encoding="utf-8")
+    assert "build-colbert-ko-vllm:" in ci, (
+        ".gitlab-ci.yml must have a 'build-colbert-ko-vllm' job"
+    )
+    assert "COLBERT_KO_VLLM_IMAGE_SHA" in ci, (
+        ".gitlab-ci.yml must define COLBERT_KO_VLLM_IMAGE_SHA variable"
+    )
+    assert "Dockerfile.colbert-ko-vllm" in ci, (
+        ".gitlab-ci.yml build-colbert-ko-vllm job must reference ops/docker/Dockerfile.colbert-ko-vllm"
+    )
+    deploy = (ROOT / "scripts/ci/deploy_gitlab_compose.sh").read_text(encoding="utf-8")
+    assert "COLBERT_KO_VLLM_IMAGE_TO_DEPLOY" in deploy, (
+        "deploy_gitlab_compose.sh must support COLBERT_KO_VLLM_IMAGE_TO_DEPLOY override"
+    )
+    assert "set_env_value COLBERT_KO_VLLM_IMAGE" in deploy, (
+        "deploy_gitlab_compose.sh must update COLBERT_KO_VLLM_IMAGE in server .env"
+    )
+
+
+def test_monitoring_config_includes_colbert_ko_vllm_port() -> None:
+    """configs/monitoring.yaml must list port 9404 (colbert-ko-vllm) in vllm_instances."""
+    monitoring = yaml.safe_load((ROOT / "configs/monitoring.yaml").read_text(encoding="utf-8"))
+    ports = monitoring["metric_sources"]["vllm_instances"]["ports"]
+    assert 9404 in ports, (
+        "configs/monitoring.yaml vllm_instances.ports must include 9404 (colbert-ko-vllm)"
+    )

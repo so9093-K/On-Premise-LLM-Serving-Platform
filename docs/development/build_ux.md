@@ -29,6 +29,7 @@ make bootstrap      = 전체 재빌드 (.venv + 의존성 + .env + 검증 + 플�
 | CI / 릴리스 파이프라인 | `make build-pipeline` / `make build` | validate + test + 플랫폼 이미지 + 패키징만 | 아니오 |
 | 타깃 재빌드 | `make rebuild-app` / `make build-image` | 플랫폼 이미지만 | 아니오 |
 | 타깃 재빌드 | `make rebuild-risk-vllm` / `make build-risk-vllm-image` | Risk vLLM 이미지만 | 예 (이것만) |
+| 타깃 재빌드 | `make rebuild-colbert-ko-vllm` / `make build-colbert-ko-vllm-image` | ColBERT-ko vLLM 이미지만 | 아니오 |
 
 **`make build`와 `make build-pipeline`은 risk vLLM 이미지를 빌드하지 않는다.** CI와 릴리스 파이프라인은 vLLM runtime에 의존하지 않고 플랫폼 아티팩트만 재현 가능하게 생성해야 하기 때문이다. Risk vLLM 이미지는 `make first-run`, `make bootstrap`, `make rebuild-risk-vllm`, `make build-risk-vllm-image`로만 생성된다.
 
@@ -42,6 +43,16 @@ make bootstrap      = 전체 재빌드 (.venv + 의존성 + .env + 검증 + 플�
 - vLLM base 이미지 교체
 
 앱 코드만 변경한 경우 risk vLLM 이미지는 그대로 사용할 수 있다.
+
+### ColBERT-ko vLLM 이미지를 다시 빌드해야 하는 시점
+
+다음 중 하나가 변경됐을 때만 `make rebuild-colbert-ko-vllm` 또는 `make build-colbert-ko-vllm-image`가 필요하다.
+
+- `ops/docker/Dockerfile.colbert-ko-vllm` 수정
+- `COLBERT_KO_VLLM_BASE_IMAGE` 변경
+- vLLM base 이미지 교체
+
+앱 코드만 변경한 경우 ColBERT-ko vLLM 이미지는 그대로 사용할 수 있다. ColBERT-ko vLLM 이미지는 `make rebuild-colbert-ko-vllm` 또는 `make build-colbert-ko-vllm-image`로만 생성된다. CI pipeline의 `build-colbert-ko-vllm` job은 `tags`/`release` branch에서 manual trigger로 레지스트리에 push한다.
 
 ### `make bootstrap`의 risk vLLM 이미지 빌드 제어
 

@@ -1,6 +1,6 @@
 {
   "summary": {
-    "total_files": 340,
+    "total_files": 341,
     "by_area": {
       ".dockerignore": 1,
       ".env": 1,
@@ -25,7 +25,7 @@
       "features": 3,
       "harness": 4,
       "model_cards": 4,
-      "ops": 18,
+      "ops": 19,
       "pyproject.toml": 1,
       "reports": 20,
       "requirements.lock": 1,
@@ -40,7 +40,7 @@
       "OpenAPI/JSON schema contract": 17,
       "application/control-plane source": 85,
       "architecture decision record": 3,
-      "compose/monitoring/runtime ops template": 18,
+      "compose/monitoring/runtime ops template": 19,
       "configuration source of truth": 13,
       "contract registry": 2,
       "current handoff/review report": 9,
@@ -61,7 +61,7 @@
       "domain-registry": 3,
       "governance-validation": 10,
       "handoff-reporting": 20,
-      "operations": 18,
+      "operations": 19,
       "operator-ux": 64,
       "project-maintenance": 42,
       "quality": 30,
@@ -74,7 +74,7 @@
       "environment-template": 5,
       "python-source": 150,
       "shell-command": 27,
-      "structured-data": 64,
+      "structured-data": 65,
       "supporting-file": 10
     },
     "large_files_by_line_count": [
@@ -95,8 +95,8 @@
         "category": "current handoff/review report",
         "owner": "handoff-reporting",
         "management": "generated/curated for handoff review",
-        "size_bytes": 142803,
-        "line_count": 4001,
+        "size_bytes": 143165,
+        "line_count": 4012,
         "role": "structured-data",
         "review_note": "handoff/review artifact; avoid stale phase snapshots in active package"
       },
@@ -189,6 +189,17 @@
         "review_note": "generated operator report; regenerate through make operator-reports before handoff"
       },
       {
+        "path": "tests/contract/test_governance_and_ops.py",
+        "area": "tests",
+        "category": "test suite",
+        "owner": "quality",
+        "management": "managed by test strategy",
+        "size_bytes": 34397,
+        "line_count": 700,
+        "role": "python-source",
+        "review_note": "test coverage; keep deterministic and avoid live GPU dependency"
+      },
+      {
         "path": "ops/grafana/dashboards/executive_runtime_overview.json",
         "area": "ops",
         "category": "compose/monitoring/runtime ops template",
@@ -231,17 +242,6 @@
         "line_count": 619,
         "role": "python-source",
         "review_note": "application code; preserve public API behavior and compatibility facades"
-      },
-      {
-        "path": "tests/contract/test_governance_and_ops.py",
-        "area": "tests",
-        "category": "test suite",
-        "owner": "quality",
-        "management": "managed by test strategy",
-        "size_bytes": 30469,
-        "line_count": 618,
-        "role": "python-source",
-        "review_note": "test coverage; keep deterministic and avoid live GPU dependency"
       }
     ],
     "entrypoints": [
@@ -329,8 +329,8 @@
       "category": "project metadata",
       "owner": "project-maintenance",
       "management": "managed by root project metadata",
-      "size_bytes": 5172,
-      "line_count": 176,
+      "size_bytes": 6304,
+      "line_count": 206,
       "role": "structured-data",
       "review_note": "supporting project file"
     },
@@ -593,8 +593,8 @@
       "category": "configuration source of truth",
       "owner": "configuration",
       "management": "managed by configuration lifecycle",
-      "size_bytes": 13484,
-      "line_count": 410,
+      "size_bytes": 13495,
+      "line_count": 411,
       "role": "structured-data",
       "review_note": "configuration source; validate through governance and projection checks after edits"
     },
@@ -1385,8 +1385,19 @@
       "category": "compose/monitoring/runtime ops template",
       "owner": "operations",
       "management": "managed by operator templates",
-      "size_bytes": 8492,
+      "size_bytes": 8559,
       "line_count": 192,
+      "role": "structured-data",
+      "review_note": "supporting project file"
+    },
+    {
+      "path": "ops/compose/full-stack.local-build.yaml",
+      "area": "ops",
+      "category": "compose/monitoring/runtime ops template",
+      "owner": "operations",
+      "management": "managed by operator templates",
+      "size_bytes": 828,
+      "line_count": 19,
       "role": "structured-data",
       "review_note": "supporting project file"
     },
@@ -1396,7 +1407,7 @@
       "category": "compose/monitoring/runtime ops template",
       "owner": "operations",
       "management": "managed by operator templates",
-      "size_bytes": 9703,
+      "size_bytes": 9770,
       "line_count": 351,
       "role": "structured-data",
       "review_note": "supporting project file"
@@ -1660,8 +1671,8 @@
       "category": "current handoff/review report",
       "owner": "handoff-reporting",
       "management": "generated/curated for handoff review",
-      "size_bytes": 69624,
-      "line_count": 341,
+      "size_bytes": 69796,
+      "line_count": 342,
       "role": "structured-data",
       "review_note": "handoff/review artifact; avoid stale phase snapshots in active package"
     },
@@ -1671,8 +1682,8 @@
       "category": "current handoff/review report",
       "owner": "handoff-reporting",
       "management": "generated/curated for handoff review",
-      "size_bytes": 142803,
-      "line_count": 4001,
+      "size_bytes": 143165,
+      "line_count": 4012,
       "role": "structured-data",
       "review_note": "handoff/review artifact; avoid stale phase snapshots in active package"
     },
@@ -1990,8 +2001,8 @@
       "category": "operator/developer command surface",
       "owner": "operator-ux",
       "management": "managed by Makefile command UX",
-      "size_bytes": 7082,
-      "line_count": 184,
+      "size_bytes": 7512,
+      "line_count": 192,
       "role": "shell-command",
       "review_note": "operator/developer command; expose through Makefile/help if user-facing"
     },
@@ -2034,8 +2045,8 @@
       "category": "operator/developer command surface",
       "owner": "operator-ux",
       "management": "managed by Makefile command UX",
-      "size_bytes": 7233,
-      "line_count": 159,
+      "size_bytes": 10069,
+      "line_count": 229,
       "role": "python-source",
       "review_note": "operator/developer command; expose through Makefile/help if user-facing"
     },
@@ -3695,8 +3706,8 @@
       "category": "test suite",
       "owner": "quality",
       "management": "managed by test strategy",
-      "size_bytes": 30469,
-      "line_count": 618,
+      "size_bytes": 34397,
+      "line_count": 700,
       "role": "python-source",
       "review_note": "test coverage; keep deterministic and avoid live GPU dependency"
     },
