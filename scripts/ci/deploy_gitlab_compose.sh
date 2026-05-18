@@ -105,6 +105,40 @@ fi
 echo "${REGISTRY_PASSWORD}" | \
   docker login "${CI_REGISTRY}" -u "${REGISTRY_USER}" --password-stdin
 
+# ── preflight: verify images can be pulled before touching .env ───────────────
+echo "[deploy] preflight: verifying platform image..."
+if ! docker pull "${PLATFORM_IMAGE_TO_DEPLOY}"; then
+  echo "[deploy] ERROR: cannot pull platform image: ${PLATFORM_IMAGE_TO_DEPLOY}" >&2
+  echo "[deploy]   Ensure the build-platform CI job completed successfully." >&2
+  exit 1
+fi
+echo "[deploy] platform image verified: ${PLATFORM_IMAGE_TO_DEPLOY}"
+
+if [[ "${DEPLOY_MODE}" == "full" ]]; then
+  if [[ -n "${RISK_VLLM_IMAGE_TO_DEPLOY:-}" ]]; then
+    echo "[deploy] preflight: verifying risk-vllm-kanana image..."
+    if ! docker pull "${RISK_VLLM_IMAGE_TO_DEPLOY}"; then
+      echo "[deploy] ERROR: cannot pull risk-vllm-kanana: ${RISK_VLLM_IMAGE_TO_DEPLOY}" >&2
+      echo "[deploy]   Run 'build-vllm-derived' first: set BUILD_VLLM_DERIVED=1 or" >&2
+      echo "[deploy]   DEPLOY_MODE=full when triggering the pipeline, then re-run deploy." >&2
+      echo "[deploy]   Or set RISK_VLLM_IMAGE_TO_DEPLOY to an already-existing image ref." >&2
+      exit 1
+    fi
+    echo "[deploy] risk-vllm-kanana image verified: ${RISK_VLLM_IMAGE_TO_DEPLOY}"
+  fi
+  if [[ -n "${COLBERT_KO_VLLM_IMAGE_TO_DEPLOY:-}" ]]; then
+    echo "[deploy] preflight: verifying colbert-ko-vllm image..."
+    if ! docker pull "${COLBERT_KO_VLLM_IMAGE_TO_DEPLOY}"; then
+      echo "[deploy] ERROR: cannot pull colbert-ko-vllm: ${COLBERT_KO_VLLM_IMAGE_TO_DEPLOY}" >&2
+      echo "[deploy]   Run 'build-vllm-derived' first: set BUILD_VLLM_DERIVED=1 or" >&2
+      echo "[deploy]   DEPLOY_MODE=full when triggering the pipeline, then re-run deploy." >&2
+      echo "[deploy]   Or set COLBERT_KO_VLLM_IMAGE_TO_DEPLOY to an already-existing image ref." >&2
+      exit 1
+    fi
+    echo "[deploy] colbert-ko-vllm image verified: ${COLBERT_KO_VLLM_IMAGE_TO_DEPLOY}"
+  fi
+fi
+
 set_env_value() {
   local key="$1"
   local value="$2"
@@ -119,6 +153,10 @@ get_env_value() {
   local key="$1"
   awk -F= -v key="$key" '$1 == key { sub(/^[^=]*=/, ""); print; exit }' .env
 }
+
+# back up .env before modifying image refs
+cp .env ".env.bak.$(date +%Y%m%d%H%M%S)"
+echo "[deploy] .env backed up"
 
 # update PLATFORM_IMAGE in .env
 set_env_value PLATFORM_IMAGE "${PLATFORM_IMAGE_TO_DEPLOY}"
@@ -147,7 +185,14 @@ make sync-runtime-secrets
 
 if [[ "${DEPLOY_MODE}" == "full" ]]; then
   echo "[deploy] full deploy: pulling all compose images..."
-  docker compose -f "${COMPOSE_FILE}" --env-file .env pull
+  if ! docker compose -f "${COMPOSE_FILE}" --env-file .env pull; then
+    echo "[deploy] ERROR: image pull failed during full deploy." >&2
+    echo "[deploy]   If vLLM-derived images (risk-vllm-kanana, colbert-ko-vllm) are new," >&2
+    echo "[deploy]   run 'build-vllm-derived' in CI first, then set" >&2
+    echo "[deploy]   RISK_VLLM_IMAGE_TO_DEPLOY / COLBERT_KO_VLLM_IMAGE_TO_DEPLOY" >&2
+    echo "[deploy]   and trigger deploy-gpu-175 again." >&2
+    exit 1
+  fi
   echo "[deploy] full deploy: starting stack..."
   docker compose -f "${COMPOSE_FILE}" --env-file .env up -d --remove-orphans
 else

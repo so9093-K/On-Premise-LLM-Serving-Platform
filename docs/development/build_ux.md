@@ -52,7 +52,7 @@ make bootstrap      = 전체 재빌드 (.venv + 의존성 + .env + 검증 + 플�
 - `COLBERT_KO_VLLM_BASE_IMAGE` 변경
 - vLLM base 이미지 교체
 
-앱 코드만 변경한 경우 ColBERT-ko vLLM 이미지는 그대로 사용할 수 있다. ColBERT-ko vLLM 이미지는 `make rebuild-colbert-ko-vllm` 또는 `make build-colbert-ko-vllm-image`로만 생성된다. CI pipeline의 `build-colbert-ko-vllm` job은 `tags`/`release` branch에서 manual trigger로 레지스트리에 push한다.
+앱 코드만 변경한 경우 ColBERT-ko vLLM 이미지는 그대로 사용할 수 있다. ColBERT-ko vLLM 이미지는 `make rebuild-colbert-ko-vllm` 또는 `make build-colbert-ko-vllm-image`로만 생성된다 (로컬). CI pipeline에서는 `build-vllm-derived` job이 `BUILD_VLLM_DERIVED=1` 또는 `DEPLOY_MODE=full` 조건에서 자동 실행되어 registry에 push한다 (risk-vllm-kanana와 colbert-ko-vllm을 동시에 빌드). 로컬 make target과 CI job은 같은 Dockerfile을 사용하지만 실행 방식과 변수는 분리된다 — 로컬은 `.env`, CI는 `VLLM_BASE_IMAGE` 등 CI 변수를 사용한다.
 
 ### `make bootstrap`의 risk vLLM 이미지 빌드 제어
 

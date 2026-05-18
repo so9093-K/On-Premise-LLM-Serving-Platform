@@ -680,23 +680,121 @@ def test_local_build_override_compose_exists_with_colbert_build_block() -> None:
 
 
 def test_gitlab_ci_has_colbert_ko_vllm_build_job() -> None:
-    """GitLab CI must have a build job for the colbert-ko-vllm image."""
+    """GitLab CI must build colbert-ko-vllm as a required dedicated retrieval runtime.
+
+    Both risk-vllm-kanana and colbert-ko-vllm are built in a single build-vllm-derived
+    job to avoid pulling the large vLLM base image twice.  Shell logic lives in
+    scripts/ci/build_vllm_derived_images.sh.
+
+    build-vllm-derived runs automatically on release/tag pipelines when BUILD_VLLM_DERIVED=1
+    or DEPLOY_MODE=full is set.  Rolling app deploys skip it entirely.
+    allow_failure: false — if the job runs and fails, it is a release failure.
+    """
     ci = (ROOT / ".gitlab-ci.yml").read_text(encoding="utf-8")
-    assert "build-colbert-ko-vllm:" in ci, (
-        ".gitlab-ci.yml must have a 'build-colbert-ko-vllm' job"
+    ci_parsed = yaml.safe_load(ci)
+
+    build_script_path = ROOT / "scripts/ci/build_vllm_derived_images.sh"
+    assert build_script_path.exists(), (
+        "scripts/ci/build_vllm_derived_images.sh must exist — "
+        "build-vllm-derived delegates its shell logic here"
+    )
+    build_script = build_script_path.read_text(encoding="utf-8")
+
+    assert "build-vllm-derived:" in ci, (
+        ".gitlab-ci.yml must have a 'build-vllm-derived' job that builds both "
+        "risk-vllm-kanana and colbert-ko-vllm from a shared base image pull"
+    )
+    assert "VLLM_BASE_IMAGE" in ci, (
+        ".gitlab-ci.yml must define VLLM_BASE_IMAGE as the common base for all vLLM-derived images"
     )
     assert "COLBERT_KO_VLLM_IMAGE_SHA" in ci, (
         ".gitlab-ci.yml must define COLBERT_KO_VLLM_IMAGE_SHA variable"
     )
-    assert "Dockerfile.colbert-ko-vllm" in ci, (
-        ".gitlab-ci.yml build-colbert-ko-vllm job must reference ops/docker/Dockerfile.colbert-ko-vllm"
+
+    build_job = ci_parsed.get("build-vllm-derived", {})
+
+    assert build_job.get("when") != "manual", (
+        "build-vllm-derived must not be a manual job — it runs automatically when "
+        "BUILD_VLLM_DERIVED=1 or DEPLOY_MODE=full is set on a release/tag pipeline"
     )
+    assert build_job.get("allow_failure") is False, (
+        "build-vllm-derived must have allow_failure: false explicitly — "
+        "if it runs and fails, it is a release failure"
+    )
+
+    # only: refs + variables — job runs on matching ref AND matching variable
+    only = build_job.get("only", {})
+    assert isinstance(only, dict), (
+        "build-vllm-derived only: must use refs+variables form to gate on pipeline intent variable"
+    )
+    only_vars = only.get("variables", [])
+    assert any("BUILD_VLLM_DERIVED" in v for v in only_vars), (
+        "build-vllm-derived only.variables must include BUILD_VLLM_DERIVED == \"1\" "
+        "so full runtime deploy pipelines trigger the build automatically"
+    )
+    assert any("DEPLOY_MODE" in v for v in only_vars), (
+        "build-vllm-derived only.variables must include DEPLOY_MODE == \"full\" "
+        "as an alternative trigger for full runtime deploy pipelines"
+    )
+
+    build_job_script = " ".join(str(s) for s in build_job.get("script", []))
+    assert "build_vllm_derived_images.sh" in build_job_script, (
+        "build-vllm-derived must delegate to scripts/ci/build_vllm_derived_images.sh"
+    )
+
+    assert "set -euo pipefail" in build_script, (
+        "scripts/ci/build_vllm_derived_images.sh must use 'set -euo pipefail'"
+    )
+    assert "Dockerfile.risk-vllm-kanana" in build_script, (
+        "scripts/ci/build_vllm_derived_images.sh must reference ops/docker/Dockerfile.risk-vllm-kanana"
+    )
+    assert "Dockerfile.colbert-ko-vllm" in build_script, (
+        "scripts/ci/build_vllm_derived_images.sh must reference ops/docker/Dockerfile.colbert-ko-vllm"
+    )
+
+    assert "risk-vllm-kanana:${CI_COMMIT_TAG}" in build_script, (
+        "scripts/ci/build_vllm_derived_images.sh must push risk-vllm-kanana:<tag> on CI_COMMIT_TAG pipelines"
+    )
+    assert "colbert-ko-vllm:${CI_COMMIT_TAG}" in build_script, (
+        "scripts/ci/build_vllm_derived_images.sh must push colbert-ko-vllm:<tag> on CI_COMMIT_TAG pipelines"
+    )
+
+    deploy_job = ci_parsed.get("deploy-gpu-175", {})
+    deploy_script_text = " ".join(str(s) for s in deploy_job.get("script", []))
+    assert "RISK_VLLM_IMAGE_SHA" in deploy_script_text, (
+        "deploy-gpu-175 script must use RISK_VLLM_IMAGE_SHA as the default image "
+        "for DEPLOY_MODE=full when no explicit override is given"
+    )
+    assert "COLBERT_KO_VLLM_IMAGE_SHA" in deploy_script_text, (
+        "deploy-gpu-175 script must use COLBERT_KO_VLLM_IMAGE_SHA as the default image "
+        "for DEPLOY_MODE=full when no explicit override is given"
+    )
+
     deploy = (ROOT / "scripts/ci/deploy_gitlab_compose.sh").read_text(encoding="utf-8")
     assert "COLBERT_KO_VLLM_IMAGE_TO_DEPLOY" in deploy, (
         "deploy_gitlab_compose.sh must support COLBERT_KO_VLLM_IMAGE_TO_DEPLOY override"
     )
     assert "set_env_value COLBERT_KO_VLLM_IMAGE" in deploy, (
         "deploy_gitlab_compose.sh must update COLBERT_KO_VLLM_IMAGE in server .env"
+    )
+    assert ".env.bak." in deploy, (
+        "deploy_gitlab_compose.sh must back up .env before modifying image refs"
+    )
+    assert "build-vllm-derived" in deploy, (
+        "deploy_gitlab_compose.sh must reference 'build-vllm-derived' in its full deploy "
+        "error hint so operators know what to run when a vLLM image pull fails"
+    )
+
+    # preflight must appear before the first .env mutation so a failed pull
+    # never leaves .env in a partially-modified state
+    preflight_pos = deploy.find("preflight")
+    set_env_pos = deploy.find("set_env_value PLATFORM_IMAGE")
+    assert preflight_pos != -1, (
+        "deploy_gitlab_compose.sh must contain an image pull preflight section"
+    )
+    assert preflight_pos < set_env_pos, (
+        "deploy_gitlab_compose.sh preflight must appear before the first set_env_value call "
+        "so .env is not modified when an image does not exist"
     )
 
 

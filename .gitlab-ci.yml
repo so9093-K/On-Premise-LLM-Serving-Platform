@@ -11,6 +11,9 @@ variables:
   PYTEST_DISABLE_PLUGIN_AUTOLOAD: "1"
   PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
   DOCKER_BUILDKIT: "1"
+  # Common base image for all vLLM-derived runtime images (risk-vllm-kanana, colbert-ko-vllm).
+  # Override via CI/CD variable VLLM_BASE_IMAGE to switch base without editing this file.
+  VLLM_BASE_IMAGE: "vllm/vllm-openai:gemma4-0505-cu129"
 
   PLATFORM_IMAGE_SHA: "$CI_REGISTRY_IMAGE/platform:$CI_COMMIT_SHORT_SHA"
   PLATFORM_IMAGE_REF: "$CI_REGISTRY_IMAGE/platform:$CI_COMMIT_REF_SLUG"
@@ -118,52 +121,32 @@ build-platform:
     - release
     - tags
 
-build-risk-vllm:
+# Builds both vLLM-derived runtime images (risk-vllm-kanana, colbert-ko-vllm) in a single
+# job so the large (~25 GB) vLLM base image is pulled only once.  Final images remain
+# separate registry entries; they share daemon layer cache within this job.
+# colbert-ko-vllm is a required dedicated retrieval runtime in the full stack.
+# Runs automatically on release/tag pipelines when BUILD_VLLM_DERIVED=1 or DEPLOY_MODE=full.
+# Rolling app deploys skip this job entirely — no vLLM rebuild is needed.
+# allow_failure: false — if the job runs and fails, it is a release failure.
+build-vllm-derived:
   extends: .docker-build
   stage: build
   script:
-    - >
-      docker build --pull
-      -f ops/docker/Dockerfile.risk-vllm-kanana
-      --build-arg BASE_IMAGE="${RISK_VLLM_BASE_IMAGE:-vllm/vllm-openai:gemma4-0505-cu129}"
-      --build-arg TRANSFORMERS_MIN_VERSION="${RISK_VLLM_TRANSFORMERS_MIN_VERSION:-4.52.4}"
-      -t "$RISK_VLLM_IMAGE_SHA"
-      -t "$RISK_VLLM_IMAGE_REF"
-      .
-    - docker push "$RISK_VLLM_IMAGE_SHA"
-    - docker push "$RISK_VLLM_IMAGE_REF"
+    - bash scripts/ci/build_vllm_derived_images.sh
   only:
-    - tags
-    - release
-  when: manual
-  allow_failure: true
-
-build-colbert-ko-vllm:
-  extends: .docker-build
-  stage: build
-  script:
-    - >
-      docker build --pull
-      -f ops/docker/Dockerfile.colbert-ko-vllm
-      --build-arg COLBERT_KO_VLLM_BASE_IMAGE="${COLBERT_KO_VLLM_BASE_IMAGE:-vllm/vllm-openai:gemma4-0505-cu129}"
-      -t "$COLBERT_KO_VLLM_IMAGE_SHA"
-      -t "$COLBERT_KO_VLLM_IMAGE_REF"
-      .
-    - docker push "$COLBERT_KO_VLLM_IMAGE_SHA"
-    - docker push "$COLBERT_KO_VLLM_IMAGE_REF"
-    - |
-      if [ -n "$CI_COMMIT_TAG" ]; then
-        COLBERT_KO_VLLM_IMAGE_TAG="$CI_REGISTRY_IMAGE/colbert-ko-vllm:$CI_COMMIT_TAG"
-        docker tag "$COLBERT_KO_VLLM_IMAGE_SHA" "$COLBERT_KO_VLLM_IMAGE_TAG"
-        docker push "$COLBERT_KO_VLLM_IMAGE_TAG"
-      fi
-  only:
-    - tags
-    - release
-  when: manual
-  allow_failure: true
+    refs:
+      - release
+      - tags
+    variables:
+      - $BUILD_VLLM_DERIVED == "1"
+      - $DEPLOY_MODE == "full"
+  allow_failure: false
 
 # Manual deployment to the 175 GPU runtime server.
+# Rolling deploy (default): restarts gateway + risk-adapter only; skips vLLM rebuild.
+# Full runtime deploy: set DEPLOY_MODE=full (or BUILD_VLLM_DERIVED=1) when triggering
+#   the pipeline — build-vllm-derived runs automatically before this job.
+#   DEPLOY_MODE=full uses the current pipeline SHA images as RISK/COLBERT defaults.
 # Required CI/CD variables:
 #   SSH_PRIVATE_KEY      file-type variable; private key for DEPLOY_USER on 175
 #   DEPLOY_KNOWN_HOSTS   output of: ssh-keyscan <175-host>
@@ -173,14 +156,15 @@ build-colbert-ko-vllm:
 #   REGISTRY_DEPLOY_USER GitLab Deploy Token username with read_registry
 #   REGISTRY_DEPLOY_PASSWORD GitLab Deploy Token password/token with read_registry
 # Optional variables:
+#   BUILD_VLLM_DERIVED   set to "1" to trigger build-vllm-derived automatically
 #   DEPLOY_COMPOSE_FILE  ops/compose/full-stack.private-network.yaml
 #   DEPLOY_MODE          rolling (default) or full
 #   GATEWAY_BIND_ADDR    175 interface address for gateway host publish
 #   GATEWAY_HEALTH_URL   explicit post-deploy health URL
 #   RUN_READY_SMOKE      1 or 0; default 1
 #   PRUNE_DANGLING_IMAGES 1 or 0; default 1, prune untagged images after successful deploy
-#   RISK_VLLM_IMAGE_TO_DEPLOY  override RISK_VLLM_IMAGE in 175 .env when needed
-#   COLBERT_KO_VLLM_IMAGE_TO_DEPLOY override COLBERT_KO_VLLM_IMAGE in 175 .env when needed
+#   RISK_VLLM_IMAGE_TO_DEPLOY        override RISK_VLLM_IMAGE in 175 .env
+#   COLBERT_KO_VLLM_IMAGE_TO_DEPLOY  override COLBERT_KO_VLLM_IMAGE in 175 .env
 deploy-gpu-175:
   stage: deploy
   image: alpine:3.20
@@ -196,8 +180,17 @@ deploy-gpu-175:
     - chmod 700 ~/.ssh
     - printf "%s\n" "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
   script:
-    - PLATFORM_IMAGE_TO_DEPLOY="$PLATFORM_IMAGE_SHA"
-      COLBERT_KO_VLLM_IMAGE_TO_DEPLOY="${COLBERT_KO_VLLM_IMAGE_TO_DEPLOY:-}"
+    - |
+      if [ "${DEPLOY_MODE:-rolling}" = "full" ]; then
+        _risk_vllm="${RISK_VLLM_IMAGE_TO_DEPLOY:-${RISK_VLLM_IMAGE_SHA}}"
+        _colbert_ko="${COLBERT_KO_VLLM_IMAGE_TO_DEPLOY:-${COLBERT_KO_VLLM_IMAGE_SHA}}"
+      else
+        _risk_vllm="${RISK_VLLM_IMAGE_TO_DEPLOY:-}"
+        _colbert_ko="${COLBERT_KO_VLLM_IMAGE_TO_DEPLOY:-}"
+      fi
+      PLATFORM_IMAGE_TO_DEPLOY="$PLATFORM_IMAGE_SHA" \
+      RISK_VLLM_IMAGE_TO_DEPLOY="${_risk_vllm}" \
+      COLBERT_KO_VLLM_IMAGE_TO_DEPLOY="${_colbert_ko}" \
       bash scripts/ci/deploy_gitlab_compose.sh
   only:
     - release

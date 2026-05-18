@@ -22,8 +22,11 @@ Shell executor Runner를 사용할 때는 다음 조건을 맞춘다.
 GitLab 12.1.1-ee 호환 구성이다. `workflow:`, `needs:`, `rules:` 키워드는 지원하지 않아 사용하지 않는다.
 
 - `master`: `validate`, `unit-test`, `build-platform`
-- `release`: `validate`, `unit-test`, `package-release`, `build-platform`, manual `deploy-gpu-175`
-- tag: `validate`, `unit-test`, `package-release`, `build-platform`, manual `build-risk-vllm`
+- `release` (rolling): `validate`, `unit-test`, `package-release`, `build-platform`, manual `deploy-gpu-175`
+- `release` (full runtime): pipeline을 `BUILD_VLLM_DERIVED=1` 또는 `DEPLOY_MODE=full`로 시작 → `build-vllm-derived` 자동 포함
+- tag: `validate`, `unit-test`, `package-release`, `build-platform` + (`BUILD_VLLM_DERIVED=1`이면 `build-vllm-derived`)
+
+`build-vllm-derived`는 `release`/tag ref에서 `BUILD_VLLM_DERIVED=1` 또는 `DEPLOY_MODE=full` 변수가 설정된 pipeline에서만 자동 실행된다. risk-vllm-kanana와 colbert-ko-vllm(required dedicated retrieval runtime)을 단일 job에서 순차 빌드한다. vLLM base image(~25 GB)를 한 번만 pull해 두 이미지가 daemon layer cache를 공유한다. 실행된 job이 실패하면 release 실패로 처리된다(`allow_failure: false`). 빌드 로직은 `scripts/ci/build_vllm_derived_images.sh`에서 관리한다.
 
 Platform image는 commit tag와 branch tag를 항상 push한다. `release` branch 또는 tag pipeline에서는 `VERSION` 파일을 읽어 `platform:release_<VERSION>` tag도 push한다.
 
@@ -54,6 +57,30 @@ Platform image는 commit tag와 branch tag를 항상 push한다. `release` branc
 175의 `.env`에는 shared/staging 환경 기준으로 `GATEWAY_BIND_ADDR=<175 내부 IP>`를 명시하는 편이 안전하다. 전체 interface publish가 의도된 경우에만 `GATEWAY_BIND_ADDR=0.0.0.0`을 사용하고 firewall/network policy로 내부 CIDR만 허용한다. deploy smoke는 `GATEWAY_HEALTH_URL`이 없으면 175 `.env`의 `GATEWAY_BIND_ADDR`와 `GATEWAY_PORT`로 health URL을 만든다. `GATEWAY_BIND_ADDR=0.0.0.0`일 때만 `localhost`로 fallback한다.
 
 배포 스크립트는 health check가 통과한 뒤 기본적으로 `docker image prune -f --filter dangling=true`를 실행한다. `release`처럼 같은 태그를 새 이미지가 덮어쓰면 이전 이미지가 `<none>` 상태로 남을 수 있는데, 이 단계는 실행 중인 컨테이너가 참조하지 않는 untagged image만 제거한다. 장애 분석이나 수동 롤백 때문에 보존이 필요하면 `PRUNE_DANGLING_IMAGES=0`으로 끈다.
+
+## 배포 흐름
+
+### Rolling app deploy (일반)
+
+platform app 변경만 반영할 때 사용한다. vLLM-derived image는 재빌드하지 않는다.
+
+1. `release` branch에 push → pipeline 자동 시작 (pipeline 변수 추가 없음)
+2. `build-vllm-derived` 스킵 — `BUILD_VLLM_DERIVED` / `DEPLOY_MODE=full` 없으므로 조건 불충족
+3. `deploy-gpu-175` 수동 실행 (기본 `DEPLOY_MODE=rolling`)
+4. 175에서 `gateway`, `risk-adapter` image만 pull 후 재시작
+5. vLLM 컨테이너는 건드리지 않으므로 GPU 모델 reload downtime 없음
+
+### Full runtime deploy (vLLM 이미지 갱신 포함)
+
+risk-vllm-kanana 또는 colbert-ko-vllm(required dedicated retrieval runtime)을 교체할 때 사용한다.
+
+1. pipeline을 `BUILD_VLLM_DERIVED=1` 또는 `DEPLOY_MODE=full` 변수로 시작
+2. `build-vllm-derived` 자동 실행 → risk/colbert 이미지 빌드 후 registry push
+3. `deploy-gpu-175` 수동 실행, `DEPLOY_MODE=full` 설정
+   - `RISK_VLLM_IMAGE_TO_DEPLOY` / `COLBERT_KO_VLLM_IMAGE_TO_DEPLOY` 미설정 시 현재 pipeline SHA 이미지가 기본값
+4. 175에서 `.env` 수정 전 platform/risk/colbert 이미지 pull 가능 여부 검증 (preflight)
+   - preflight 실패 시 `.env`를 수정하지 않고 실패; `build-vllm-derived` 먼저 실행하라는 안내 출력
+5. 전체 stack `up -d --remove-orphans`; vLLM 이미지 pull과 모델 로딩 시간이 길 수 있다
 
 ## 배포 모드
 
@@ -107,3 +134,18 @@ make compose-up-private
 ```
 
 평상시 platform app 변경 배포는 GitLab `deploy-gpu-175` job에서 `DEPLOY_MODE=rolling`을 사용한다.
+
+## 로컬 빌드와 CI 빌드 분리
+
+CI job과 로컬 make target은 목적이 다르며 독립적으로 실행된다.
+
+| 목적 | CI job / 로컬 명령 | 변수 기반 |
+|---|---|---|
+| Platform 이미지 빌드 + push | `build-platform` (CI) | `CI_REGISTRY_IMAGE` 등 CI 변수 |
+| risk/colbert 이미지 빌드 + push | `build-vllm-derived` (CI) | `VLLM_BASE_IMAGE`, `*_IMAGE_SHA` 등 CI 변수 |
+| 로컬 risk vLLM 이미지 빌드 | `make build-risk-vllm-image` | `.env`의 `RISK_VLLM_BASE_IMAGE`, `RISK_VLLM_IMAGE` |
+| 로컬 colbert-ko-vllm 이미지 빌드 | `make build-colbert-ko-vllm-image` | `.env`의 `COLBERT_KO_VLLM_BASE_IMAGE`, `VLLM_IMAGE` |
+
+공통으로 사용하는 것: `ops/docker/Dockerfile.risk-vllm-kanana`, `ops/docker/Dockerfile.colbert-ko-vllm`.
+
+로컬 빌드 명령과 CI/릴리스 빌드 절차 전반은 [`docs/development/build_ux.md`](../development/build_ux.md)를 기준으로 한다.

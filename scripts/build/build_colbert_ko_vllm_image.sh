@@ -12,7 +12,9 @@ if [[ -f .env ]]; then
 fi
 
 IMAGE="${COLBERT_KO_VLLM_IMAGE:-ai-model-serving-colbert-ko-vllm:$(< VERSION)}"
-BASE_IMAGE="${COLBERT_KO_VLLM_BASE_IMAGE:-${VLLM_IMAGE:-vllm/vllm-openai:gemma4-0505-cu129}}"
+# Precedence: COLBERT_KO_VLLM_BASE_IMAGE (local override) > VLLM_BASE_IMAGE (CI canonical,
+# works locally too) > VLLM_IMAGE (.env) > hardcoded default.
+BASE_IMAGE="${COLBERT_KO_VLLM_BASE_IMAGE:-${VLLM_BASE_IMAGE:-${VLLM_IMAGE:-vllm/vllm-openai:gemma4-0505-cu129}}}"
 
 docker build \
   --build-arg "COLBERT_KO_VLLM_BASE_IMAGE=${BASE_IMAGE}" \

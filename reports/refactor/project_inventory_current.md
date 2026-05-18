@@ -10,7 +10,7 @@ Command:
 
 이 리포트는 현재 source tree에서 생성되며 로컬 runtime/cache/build 디렉터리는 제외한다.
 
-- 검토 파일 수: **341**
+- 검토 파일 수: **342**
 - CSV matrix: `reports/refactor/project_inventory_current.csv`
 - JSON matrix: `reports/refactor/project_inventory_current.json`
 
@@ -46,7 +46,7 @@ Command:
 | `reports` | 20 |
 | `requirements.lock` | 1 |
 | `requirements.runtime.lock` | 1 |
-| `scripts` | 64 |
+| `scripts` | 65 |
 | `specs` | 17 |
 | `src` | 85 |
 | `tests` | 30 |
@@ -75,10 +75,10 @@ Command:
 | `ops/grafana/dashboards/serving_home.json` | 1392 | operations | supporting project file |
 | `ops/grafana/dashboards/api_experience.json` | 1095 | operations | supporting project file |
 | `ops/grafana/dashboards/observability_data_quality.json` | 907 | operations | supporting project file |
+| `tests/contract/test_governance_and_ops.py` | 776 | quality | test coverage; keep deterministic and avoid live GPU dependency |
 | `src/ai_model_serving/contracts/chat.py` | 769 | api-contracts | application code; preserve public API behavior and compatibility facades |
 | `ops/grafana/dashboards/gpu_capacity_and_oom_risk.json` | 755 | operations | supporting project file |
 | `reports/runtime/operator_status_bundle.json` | 734 | handoff-reporting | generated operator report; regenerate through make operator-reports before handoff |
-| `tests/contract/test_governance_and_ops.py` | 700 | quality | test coverage; keep deterministic and avoid live GPU dependency |
 | `ops/grafana/dashboards/executive_runtime_overview.json` | 682 | operations | supporting project file |
 | `ops/grafana/dashboards/risk_signal_operations.json` | 625 | operations | supporting project file |
 | `src/ai_model_serving/domain/model_registry.py` | 621 | domain-registry | registry/domain code; monitor size as projections grow |
