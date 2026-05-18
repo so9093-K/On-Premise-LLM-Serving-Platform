@@ -95,8 +95,8 @@
         "category": "current handoff/review report",
         "owner": "handoff-reporting",
         "management": "generated/curated for handoff review",
-        "size_bytes": 143165,
-        "line_count": 4012,
+        "size_bytes": 143577,
+        "line_count": 4023,
         "role": "structured-data",
         "review_note": "handoff/review artifact; avoid stale phase snapshots in active package"
       },
@@ -145,6 +145,17 @@
         "review_note": "supporting project file"
       },
       {
+        "path": "tests/contract/test_governance_and_ops.py",
+        "area": "tests",
+        "category": "test suite",
+        "owner": "quality",
+        "management": "managed by test strategy",
+        "size_bytes": 48330,
+        "line_count": 975,
+        "role": "python-source",
+        "review_note": "test coverage; keep deterministic and avoid live GPU dependency"
+      },
+      {
         "path": "ops/grafana/dashboards/observability_data_quality.json",
         "area": "ops",
         "category": "compose/monitoring/runtime ops template",
@@ -154,17 +165,6 @@
         "line_count": 907,
         "role": "structured-data",
         "review_note": "supporting project file"
-      },
-      {
-        "path": "tests/contract/test_governance_and_ops.py",
-        "area": "tests",
-        "category": "test suite",
-        "owner": "quality",
-        "management": "managed by test strategy",
-        "size_bytes": 38200,
-        "line_count": 776,
-        "role": "python-source",
-        "review_note": "test coverage; keep deterministic and avoid live GPU dependency"
       },
       {
         "path": "src/ai_model_serving/contracts/chat.py",
@@ -285,8 +285,8 @@
       "category": "project metadata",
       "owner": "project-maintenance",
       "management": "managed by root project metadata",
-      "size_bytes": 5152,
-      "line_count": 121,
+      "size_bytes": 5601,
+      "line_count": 125,
       "role": "environment-template",
       "review_note": "supporting project file"
     },
@@ -329,8 +329,8 @@
       "category": "project metadata",
       "owner": "project-maintenance",
       "management": "managed by root project metadata",
-      "size_bytes": 6547,
-      "line_count": 192,
+      "size_bytes": 6926,
+      "line_count": 200,
       "role": "structured-data",
       "review_note": "supporting project file"
     },
@@ -780,8 +780,8 @@
       "category": "documentation",
       "owner": "documentation",
       "management": "managed by documentation map",
-      "size_bytes": 15179,
-      "line_count": 227,
+      "size_bytes": 16431,
+      "line_count": 235,
       "role": "documentation",
       "review_note": "documentation; keep relative links valid and avoid duplicating current command flow"
     },
@@ -934,8 +934,8 @@
       "category": "documentation",
       "owner": "documentation",
       "management": "managed by documentation map",
-      "size_bytes": 3354,
-      "line_count": 57,
+      "size_bytes": 3771,
+      "line_count": 59,
       "role": "documentation",
       "review_note": "documentation; keep relative links valid and avoid duplicating current command flow"
     },
@@ -1011,8 +1011,8 @@
       "category": "documentation",
       "owner": "documentation",
       "management": "managed by documentation map",
-      "size_bytes": 5662,
-      "line_count": 111,
+      "size_bytes": 12625,
+      "line_count": 233,
       "role": "documentation",
       "review_note": "documentation; keep relative links valid and avoid duplicating current command flow"
     },
@@ -1671,8 +1671,8 @@
       "category": "current handoff/review report",
       "owner": "handoff-reporting",
       "management": "generated/curated for handoff review",
-      "size_bytes": 69796,
-      "line_count": 342,
+      "size_bytes": 70018,
+      "line_count": 343,
       "role": "structured-data",
       "review_note": "handoff/review artifact; avoid stale phase snapshots in active package"
     },
@@ -1682,8 +1682,8 @@
       "category": "current handoff/review report",
       "owner": "handoff-reporting",
       "management": "generated/curated for handoff review",
-      "size_bytes": 143165,
-      "line_count": 4012,
+      "size_bytes": 143577,
+      "line_count": 4023,
       "role": "structured-data",
       "review_note": "handoff/review artifact; avoid stale phase snapshots in active package"
     },
@@ -1935,8 +1935,8 @@
       "category": "operator/developer command surface",
       "owner": "operator-ux",
       "management": "managed by Makefile command UX",
-      "size_bytes": 581,
-      "line_count": 23,
+      "size_bytes": 732,
+      "line_count": 25,
       "role": "shell-command",
       "review_note": "operator/developer command; expose through Makefile/help if user-facing"
     },
@@ -2001,7 +2001,7 @@
       "category": "operator/developer command surface",
       "owner": "operator-ux",
       "management": "managed by Makefile command UX",
-      "size_bytes": 5995,
+      "size_bytes": 6072,
       "line_count": 109,
       "role": "shell-command",
       "review_note": "operator/developer command; expose through Makefile/help if user-facing"
@@ -2012,8 +2012,8 @@
       "category": "operator/developer command surface",
       "owner": "operator-ux",
       "management": "managed by Makefile command UX",
-      "size_bytes": 8037,
-      "line_count": 203,
+      "size_bytes": 15907,
+      "line_count": 378,
       "role": "shell-command",
       "review_note": "operator/developer command; expose through Makefile/help if user-facing"
     },
@@ -2045,8 +2045,8 @@
       "category": "operator/developer command surface",
       "owner": "operator-ux",
       "management": "managed by Makefile command UX",
-      "size_bytes": 4805,
-      "line_count": 140,
+      "size_bytes": 6205,
+      "line_count": 173,
       "role": "shell-command",
       "review_note": "operator/developer command; expose through Makefile/help if user-facing"
     },
@@ -2078,8 +2078,8 @@
       "category": "operator/developer command surface",
       "owner": "operator-ux",
       "management": "managed by Makefile command UX",
-      "size_bytes": 16115,
-      "line_count": 381,
+      "size_bytes": 16179,
+      "line_count": 382,
       "role": "python-source",
       "review_note": "operator/developer command; expose through Makefile/help if user-facing"
     },
@@ -3717,8 +3717,8 @@
       "category": "test suite",
       "owner": "quality",
       "management": "managed by test strategy",
-      "size_bytes": 38200,
-      "line_count": 776,
+      "size_bytes": 48330,
+      "line_count": 975,
       "role": "python-source",
       "review_note": "test coverage; keep deterministic and avoid live GPU dependency"
     },
@@ -3981,8 +3981,8 @@
       "category": "test suite",
       "owner": "quality",
       "management": "managed by test strategy",
-      "size_bytes": 8275,
-      "line_count": 214,
+      "size_bytes": 8342,
+      "line_count": 215,
       "role": "python-source",
       "review_note": "test coverage; keep deterministic and avoid live GPU dependency"
     },

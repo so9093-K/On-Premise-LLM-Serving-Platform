@@ -46,8 +46,8 @@ if [ -n "${RISK_LEGACY}" ] && [ -n "${COLBERT_LEGACY}" ] && \
   exit 1
 fi
 
-RESOLVED_BASE="${VLLM_BASE_IMAGE}"
-echo "[build] vLLM base image : ${RESOLVED_BASE}"
+RESOLVED_VLLM_BASE_IMAGE="${VLLM_BASE_IMAGE}"
+echo "[build] vLLM base image : ${RESOLVED_VLLM_BASE_IMAGE}"
 echo "[build] risk-vllm-kanana: ${RISK_VLLM_IMAGE_SHA}"
 echo "[build] colbert-ko-vllm : ${COLBERT_KO_VLLM_IMAGE_SHA} (required dedicated retrieval runtime)"
 
@@ -57,14 +57,14 @@ docker system df -v || true
 
 # ── Pull base image once; both builds share the daemon layer cache ─────────────
 echo "[build] pulling base image..."
-docker pull "${RESOLVED_BASE}"
+docker pull "${RESOLVED_VLLM_BASE_IMAGE}"
 
 # ── Build risk-vllm-kanana ─────────────────────────────────────────────────────
 echo "[build] building risk-vllm-kanana..."
 docker build \
-  --cache-from "${RESOLVED_BASE}" \
+  --cache-from "${RESOLVED_VLLM_BASE_IMAGE}" \
   -f ops/docker/Dockerfile.risk-vllm-kanana \
-  --build-arg BASE_IMAGE="${RESOLVED_BASE}" \
+  --build-arg BASE_IMAGE="${RESOLVED_VLLM_BASE_IMAGE}" \
   --build-arg TRANSFORMERS_MIN_VERSION="${RISK_VLLM_TRANSFORMERS_MIN_VERSION:-4.52.4}" \
   -t "${RISK_VLLM_IMAGE_SHA}" \
   -t "${RISK_VLLM_IMAGE_REF}" \
@@ -73,9 +73,9 @@ docker build \
 # ── Build colbert-ko-vllm (required dedicated retrieval runtime) ───────────────
 echo "[build] building colbert-ko-vllm (required dedicated retrieval runtime)..."
 docker build \
-  --cache-from "${RESOLVED_BASE}" \
+  --cache-from "${RESOLVED_VLLM_BASE_IMAGE}" \
   -f ops/docker/Dockerfile.colbert-ko-vllm \
-  --build-arg COLBERT_KO_VLLM_BASE_IMAGE="${RESOLVED_BASE}" \
+  --build-arg COLBERT_KO_VLLM_BASE_IMAGE="${RESOLVED_VLLM_BASE_IMAGE}" \
   -t "${COLBERT_KO_VLLM_IMAGE_SHA}" \
   -t "${COLBERT_KO_VLLM_IMAGE_REF}" \
   .

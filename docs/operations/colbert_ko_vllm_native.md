@@ -15,7 +15,9 @@
 | score mode | `late_interaction_maxsim` |
 | capabilities | `retrieval_rerank`, `retrieval_score`, `retrieval_token_embeddings` |
 
-Production compose는 HF repo root를 `--model`로 넘기지 않는다. `--model /models/colbert-ko-vllm`, `--tokenizer /models/colbert-ko-vllm/tokenizer`, `--runner pooling`, `--convert embed`, `--model-impl transformers`, `--pooler-config.task token_embed`를 사용한다.
+Production compose는 HF repo root나 raw Hugging Face cache를 `--model`로 넘기지 않는다. The ColBERT-ko source repository is not mounted directly as the vLLM model directory. Run `prepare_colbert_ko_vllm_artifact.py` first. `COLBERT_KO_MODEL_DIR` must point to the prepared artifact directory whose root contains `config.json`.
+
+Compose는 `--model /models/colbert-ko-vllm`, `--tokenizer /models/colbert-ko-vllm/tokenizer`, `--runner pooling`, `--convert embed`, `--model-impl transformers`, `--pooler-config.task token_embed`를 사용한다. 따라서 host의 `$COLBERT_KO_MODEL_DIR/config.json`이 container 안의 `/models/colbert-ko-vllm/config.json`으로 보여야 한다.
 
 ## Artifact packaging
 
@@ -23,7 +25,7 @@ Production compose는 HF repo root를 `--model`로 넘기지 않는다. `--model
 
 ```bash
 /usr/bin/python3.12 scripts/models/prepare_colbert_ko_vllm_artifact.py \
-  --output ./models/colbert-ko-vllm
+  --output-dir ./models/colbert-ko-vllm
 ```
 
 준비된 artifact는 다음 조건을 만족해야 한다.

@@ -145,8 +145,8 @@ build-vllm-derived:
 
 # Manual deployment to the 175 GPU runtime server.
 # Rolling deploy (default): restarts gateway + risk-adapter only; skips vLLM rebuild.
-# Full runtime deploy: set DEPLOY_MODE=full (or BUILD_VLLM_DERIVED=1) when triggering
-#   the pipeline — build-vllm-derived runs automatically before this job.
+# Full runtime deploy: set DEPLOY_MODE=full when triggering the pipeline —
+#   build-vllm-derived runs automatically before this job.
 #   DEPLOY_MODE=full uses the current pipeline SHA images as RISK/COLBERT defaults.
 # Required CI/CD variables:
 #   SSH_PRIVATE_KEY      file-type variable; private key for DEPLOY_USER on 175
@@ -157,15 +157,15 @@ build-vllm-derived:
 #   REGISTRY_DEPLOY_USER GitLab Deploy Token username with read_registry
 #   REGISTRY_DEPLOY_PASSWORD GitLab Deploy Token password/token with read_registry
 # Optional variables:
-#   BUILD_VLLM_DERIVED   set to "1" to trigger build-vllm-derived automatically
+#   BUILD_VLLM_DERIVED   set to "1" to build/push vLLM-derived images only; deploy mode stays rolling unless DEPLOY_MODE is set
 #   DEPLOY_COMPOSE_FILE  ops/compose/full-stack.private-network.yaml
 #   DEPLOY_MODE          rolling (default) or full
 #   GATEWAY_BIND_ADDR    175 interface address for gateway host publish
 #   GATEWAY_HEALTH_URL   explicit post-deploy health URL
 #   RUN_READY_SMOKE      1 or 0; default 1
 #   PRUNE_DANGLING_IMAGES 1 or 0; default 1, prune untagged images after successful deploy
-#   RISK_VLLM_IMAGE_TO_DEPLOY        override RISK_VLLM_IMAGE in 175 .env
-#   COLBERT_KO_VLLM_IMAGE_TO_DEPLOY  override COLBERT_KO_VLLM_IMAGE in 175 .env
+#   RISK_VLLM_IMAGE_TO_DEPLOY        full deploy only; override RISK_VLLM_IMAGE in 175 .env
+#   COLBERT_KO_VLLM_IMAGE_TO_DEPLOY  full deploy only; override COLBERT_KO_VLLM_IMAGE in 175 .env
 deploy-gpu-175:
   stage: deploy
   image: alpine:3.20

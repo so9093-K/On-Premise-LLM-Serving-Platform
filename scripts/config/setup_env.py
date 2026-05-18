@@ -276,6 +276,7 @@ def generated_values(profile: str, app_env: str | None, overrides: dict[str, str
         values.update({
             "APP_ENV": app_env or "local",
             "BUILD_PROFILE": "compose",
+            "COLBERT_KO_MODEL_DIR": "./models/colbert-ko-vllm",
             "GRAFANA_ADMIN_USER": "admin",
             "GRAFANA_ANONYMOUS_ENABLED": "false",
             "INFISICAL_AUTH_SECRET": secrets.token_hex(32),
