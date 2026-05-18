@@ -10,7 +10,7 @@ Command:
 
 이 리포트는 현재 source tree에서 생성되며 로컬 runtime/cache/build 디렉터리는 제외한다.
 
-- 검토 파일 수: **338**
+- 검토 파일 수: **340**
 - CSV matrix: `reports/refactor/project_inventory_current.csv`
 - JSON matrix: `reports/refactor/project_inventory_current.json`
 
@@ -46,9 +46,9 @@ Command:
 | `reports` | 20 |
 | `requirements.lock` | 1 |
 | `requirements.runtime.lock` | 1 |
-| `scripts` | 63 |
+| `scripts` | 64 |
 | `specs` | 17 |
-| `src` | 84 |
+| `src` | 85 |
 | `tests` | 30 |
 | `version_manifest.json` | 1 |
 
@@ -69,8 +69,8 @@ Command:
 | 경로 | 줄 수 | 담당 | 검토 메모 |
 |---|---:|---|---|
 | `specs/openapi.gateway.yaml` | 4048 | api-contracts | supporting project file |
-| `reports/refactor/project_inventory_current.json` | 3979 | handoff-reporting | handoff/review artifact; avoid stale phase snapshots in active package |
-| `tests/unit/test_gateway_app.py` | 1852 | quality | test coverage; keep deterministic and avoid live GPU dependency |
+| `reports/refactor/project_inventory_current.json` | 4001 | handoff-reporting | handoff/review artifact; avoid stale phase snapshots in active package |
+| `tests/unit/test_gateway_app.py` | 1905 | quality | test coverage; keep deterministic and avoid live GPU dependency |
 | `specs/openapi.risk-adapter.yaml` | 1638 | api-contracts | supporting project file |
 | `ops/grafana/dashboards/serving_home.json` | 1392 | operations | supporting project file |
 | `ops/grafana/dashboards/api_experience.json` | 1095 | operations | supporting project file |
@@ -82,7 +82,7 @@ Command:
 | `ops/grafana/dashboards/risk_signal_operations.json` | 625 | operations | supporting project file |
 | `src/ai_model_serving/domain/model_registry.py` | 621 | domain-registry | registry/domain code; monitor size as projections grow |
 | `src/ai_model_serving/governance_validation/docs_ops.py` | 619 | governance-validation | application code; preserve public API behavior and compatibility facades |
-| `ops/grafana/dashboards/model_runtime_deep_dive.json` | 611 | operations | supporting project file |
+| `tests/contract/test_governance_and_ops.py` | 618 | quality | test coverage; keep deterministic and avoid live GPU dependency |
 
 ## 관리 해석
 

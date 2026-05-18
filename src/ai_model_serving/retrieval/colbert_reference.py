@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from collections.abc import Sequence
 from typing import Any
 
 
@@ -28,6 +29,84 @@ def _optional_imports() -> tuple[Any, Any, Any, Any]:
             "ColBERT reference adapter requires optional dependencies: torch, transformers, huggingface_hub."
         ) from exc
     return torch, functional, hf_hub_download, (AutoModel, AutoTokenizer)
+
+
+def _projection_weight_and_bias(loaded: Any, projection_dim: int) -> tuple[Any, Any | None]:
+    if not isinstance(loaded, dict):
+        raise RuntimeError(
+            f"Unsupported projection object: {type(loaded).__name__}. "
+            "Expected a state_dict-compatible object."
+        )
+
+    state = loaded.get("state_dict", loaded)
+    weight = None
+    bias = None
+    for key, value in state.items():
+        if key.endswith("weight") and getattr(value, "ndim", None) == 2:
+            weight = value
+        elif key.endswith("bias") and getattr(value, "ndim", None) == 1:
+            bias = value
+    if weight is None:
+        raise RuntimeError("Could not find a 2D projection weight in proj.pt.")
+    if int(weight.shape[0]) != projection_dim:
+        raise RuntimeError(
+            f"Projection dimension mismatch: expected {projection_dim}, got {weight.shape[0]}."
+        )
+    return weight, bias
+
+
+def maxsim_score(
+    query_embeddings: Sequence[Sequence[float]],
+    document_embeddings: Sequence[Sequence[float]],
+    *,
+    query_mask: Sequence[bool] | None = None,
+    document_mask: Sequence[bool] | None = None,
+) -> float:
+    """Pure-Python ColBERT MaxSim score used for deterministic fixture tests."""
+    if query_mask is None:
+        query_mask = [True] * len(query_embeddings)
+    if document_mask is None:
+        document_mask = [True] * len(document_embeddings)
+    active_docs = [embedding for embedding, keep in zip(document_embeddings, document_mask, strict=True) if keep]
+    if not active_docs:
+        return 0.0
+
+    total = 0.0
+    for query_embedding, keep_query in zip(query_embeddings, query_mask, strict=True):
+        if not keep_query:
+            continue
+        best = max(
+            sum(float(q) * float(d) for q, d in zip(query_embedding, document_embedding, strict=True))
+            for document_embedding in active_docs
+        )
+        total += best
+    return total
+
+
+def maxsim_scores(
+    query_embeddings: Sequence[Sequence[float]],
+    documents_embeddings: Sequence[Sequence[Sequence[float]]],
+    *,
+    query_mask: Sequence[bool] | None = None,
+    documents_mask: Sequence[Sequence[bool]] | None = None,
+) -> list[float]:
+    if documents_mask is None:
+        documents_mask = [[True] * len(document_embeddings) for document_embeddings in documents_embeddings]
+    return [
+        maxsim_score(query_embeddings, document_embeddings, query_mask=query_mask, document_mask=document_mask)
+        for document_embeddings, document_mask in zip(documents_embeddings, documents_mask, strict=True)
+    ]
+
+
+def rerank_from_scores(documents: Sequence[str], scores: Sequence[float]) -> list[dict[str, Any]]:
+    return sorted(
+        [
+            {"index": idx, "document": document, "score": float(score)}
+            for idx, (document, score) in enumerate(zip(documents, scores, strict=True))
+        ],
+        key=lambda item: item["score"],
+        reverse=True,
+    )
 
 
 class ColbertReferenceAdapter:
@@ -69,31 +148,11 @@ class ColbertReferenceAdapter:
                 "Repackage it as a state_dict before using it for parity checks."
             ) from exc
 
-        if not isinstance(loaded, dict):
-            raise RuntimeError(
-                f"Unsupported projection object in {self.config.projection_filename}: "
-                f"{type(loaded).__name__}. Expected a state_dict-compatible object."
-            )
-
-        state = loaded.get("state_dict", loaded)
-        weight = None
-        bias = None
-        for key, value in state.items():
-            if key.endswith("weight") and getattr(value, "ndim", None) == 2:
-                weight = value
-            elif key.endswith("bias") and getattr(value, "ndim", None) == 1:
-                bias = value
-        if weight is None:
-            raise RuntimeError(f"Could not find a 2D projection weight in {self.config.projection_filename}.")
-
+        weight, bias = _projection_weight_and_bias(loaded, self.config.projection_dim)
         layer = torch.nn.Linear(weight.shape[1], weight.shape[0], bias=bias is not None)
         layer.weight.data.copy_(weight)
         if bias is not None:
             layer.bias.data.copy_(bias)
-        if layer.out_features != self.config.projection_dim:
-            raise RuntimeError(
-                f"Projection dimension mismatch: expected {self.config.projection_dim}, got {layer.out_features}."
-            )
         return layer
 
     def token_embeddings(self, texts: list[str], *, max_tokens: int) -> tuple[Any, Any]:
@@ -137,12 +196,4 @@ class ColbertReferenceAdapter:
         return scores
 
     def rerank(self, query: str, documents: list[str]) -> list[dict[str, Any]]:
-        scores = self.score(query, documents)
-        return sorted(
-            [
-                {"index": idx, "document": document, "score": score}
-                for idx, (document, score) in enumerate(zip(documents, scores, strict=True))
-            ],
-            key=lambda item: item["score"],
-            reverse=True,
-        )
+        return rerank_from_scores(documents, self.score(query, documents))

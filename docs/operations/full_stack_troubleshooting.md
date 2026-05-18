@@ -16,7 +16,7 @@
 | `max_num_batched_tokens is smaller than max_model_len` | vLLM runtime 설정 오류 | pooling/embedding runtime은 `max_num_batched_tokens >= max_model_len`로 수정한다. |
 | `hidden size ... is not a multiple of the number of attention heads` | transformers 4.52.0–4.52.3 의 `LlamaConfig.validate_architecture` 버그 + `huggingface_hub >= 1.13.0`의 `init_with_validate` 강화 조합 | `make risk-vllm-config-check`로 image 내부 transformers 버전을 확인한다. 4.52.0–4.52.3 이면 4.52.4 이상으로 재빌드한다. `huggingface_hub`를 0.x로 다운그레이드하지 않는다. 모델 교체로 단정하지 않는다. |
 | `No available memory for the cache blocks` | KV cache VRAM allocation 부족 | `gpu_memory_utilization`, context length, batching, runtime isolation을 검토한다. |
-| `Engine core initialization failed. Failed core proc(s): {}` | vLLM engine subprocess 비정상 종료 (빈 dict는 자식 프로세스가 오류를 보고하기 전에 죽었음을 뜻함). GPU OOM이 가장 흔한 원인 | risk 모델의 `--enforce-eager` 설정 여부, 총 `gpu_memory_utilization` < 0.90, compose의 `depends_on: service_healthy` 순차 기동 체인을 확인한다. |
+| `Engine core initialization failed. Failed core proc(s): {}` | vLLM engine subprocess 비정상 종료 (빈 dict는 자식 프로세스가 오류를 보고하기 전에 죽었음을 뜻함). GPU OOM이 가장 흔한 원인 | risk 모델의 `--enforce-eager` 설정 여부, 총 `gpu_memory_utilization`이 `configs/gpu_budgets.yaml`의 `avoid_above` 미만인지, compose의 `depends_on: service_healthy` 순차 기동 체인을 확인한다. |
 | Gateway/Risk Adapter healthy인데 `ready-full` 실패 | downstream vLLM readiness 실패 | `make compose-diagnostics`로 vLLM 서비스별 로그를 확인한다. |
 | `ready-full`이 timeout까지 계속 `로딩 중` | 최초 모델 다운로드/캐시 생성이 readiness timeout보다 오래 걸리거나 특정 vLLM 컨테이너가 재시작 중 | `READY_FULL_TIMEOUT_SECONDS=2700 make ready-full`로 한 번 더 기다리되, 같은 dependency가 멈춰 있으면 해당 서비스 로그를 확인한다. |
 | Grafana Data Quality에서 Gateway/Risk Adapter만 `Scrape Fail`이고 Prometheus target error가 `permission denied` | Prometheus 컨테이너가 `/run/secrets/admin_api_key`를 읽지 못함. distroless Prometheus는 non-root UID로 실행된다. | `make sync-runtime-secrets`가 만든 `.runtime/prometheus/admin_api_key`가 일반 파일이고 `0644`인지 확인한다. 필요 시 `chmod 644 .runtime/prometheus/admin_api_key` 후 Prometheus를 재생성한다. |
@@ -120,7 +120,7 @@ enabled risk 모델(`risk-prompt-vllm`)에는 다음 설정이 적용된다. `ri
 | 설정 | 값 | 이유 |
 |---|---|---|
 | `--enforce-eager` | 활성화 | CUDA graph pre-capture를 비활성화한다. 모델당 300~500MiB 절약. `max_num_seqs=1`, `max_output_tokens=1` 단일 토큰 분류기에서 CUDA graph 이득이 없다. |
-| `gpu_memory_utilization` | risk-prompt 0.065 | enabled vLLM 총합 0.825 < 0.90 상한 유지. |
+| `gpu_memory_utilization` | risk-prompt 0.065 | ColBERT-ko 포함 4-runtime enabled vLLM 총합 0.865 < `avoid_above` 0.93 유지. |
 | compose 기동 순서 | main-llm → embedding → risk-prompt | `depends_on: condition: service_healthy` 체인. 동시 기동 시 weight loading peak가 겹쳐 OOM 발생 가능. |
 
 `Engine core initialization failed. Failed core proc(s): {}` 오류가 보이면 위 설정이 compose에 반영됐는지 `make vllm-commands`로 확인한다.

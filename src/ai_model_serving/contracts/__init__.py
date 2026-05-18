@@ -4,6 +4,11 @@ from .chat import ChatResponseExpectations, validate_chat_request, validate_chat
 from .common import ensure_object
 from .embedding import expected_embedding_count, requested_embedding_dimensions, validate_embedding_request, validate_embedding_response
 from .risk import read_risk_prompt, validate_risk_response
+from .retrieval import (
+    validate_retrieval_rerank_request,
+    validate_retrieval_score_request,
+    validate_retrieval_token_embeddings_request,
+)
 
 __all__ = [
     "ensure_object",
@@ -16,4 +21,7 @@ __all__ = [
     "validate_embedding_request",
     "validate_embedding_response",
     "validate_risk_response",
+    "validate_retrieval_rerank_request",
+    "validate_retrieval_score_request",
+    "validate_retrieval_token_embeddings_request",
 ]

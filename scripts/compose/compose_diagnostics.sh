@@ -6,6 +6,15 @@ cd "$ROOT"
 COMPOSE_FILE="${COMPOSE_FILE:-ops/compose/full-stack.private-network.yaml}"
 ENV_FILE="${ENV_FILE:-.env}"
 TAIL_LINES="${COMPOSE_DIAGNOSTIC_TAIL_LINES:-120}"
+PYTHON_BIN="${PYTHON_BIN:-$(command -v python3.12 || command -v python3 || command -v python)}"
+GPU_AVOID_ABOVE="$("$PYTHON_BIN" - <<'PY' 2>/dev/null || echo "configs/gpu_budgets.yaml avoid_above"
+from pathlib import Path
+import yaml
+
+doc = yaml.safe_load(Path("configs/gpu_budgets.yaml").read_text(encoding="utf-8"))
+print(doc["gpu"]["total_gpu_memory_utilization"]["avoid_above"])
+PY
+)"
 
 if ! command -v docker >/dev/null 2>&1 || ! docker compose version >/dev/null 2>&1; then
   echo "[diagnostics] docker compose is unavailable; cannot collect compose diagnostics" >&2
@@ -15,7 +24,7 @@ fi
 echo "[diagnostics] docker compose ps"
 docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" ps || true
 
-services=(gateway risk-adapter main-llm-vllm embedding-vllm risk-prompt-vllm prometheus grafana dcgm-exporter cadvisor)
+services=(gateway risk-adapter main-llm-vllm embedding-vllm colbert-ko-vllm risk-prompt-vllm prometheus grafana dcgm-exporter cadvisor)
 for service in "${services[@]}"; do
   echo
   echo "[diagnostics] logs --tail=${TAIL_LINES} ${service}"
@@ -31,7 +40,7 @@ for service in "${services[@]}"; do
     echo "[diagnostics] ${service}: detected KV-cache memory allocation failure; tune gpu_memory_utilization/context/batching or isolate this runtime."
   fi
   if grep -q "Engine core initialization failed" "/tmp/${service}.compose.log" 2>/dev/null; then
-    echo "[diagnostics] ${service}: detected vLLM engine core crash (Engine core initialization failed). GPU OOM 가능성 높음. 확인 항목: risk 모델에 --enforce-eager 설정 여부, 총 gpu_memory_utilization < 0.90, compose의 depends_on healthcheck 체인으로 순차 기동 여부."
+    echo "[diagnostics] ${service}: detected vLLM engine core crash (Engine core initialization failed). GPU OOM 가능성 높음. 확인 항목: risk 모델에 --enforce-eager 설정 여부, 총 gpu_memory_utilization < ${GPU_AVOID_ABOVE}, compose의 depends_on healthcheck 체인으로 순차 기동 여부."
   fi
   if grep -q "executable file not found" "/tmp/${service}.compose.log" 2>/dev/null; then
     echo "[diagnostics] ${service}: detected container entrypoint executable error."

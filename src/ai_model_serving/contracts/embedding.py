@@ -93,6 +93,8 @@ def validate_embedding_response(
         vector = item.get("embedding")
         if not isinstance(vector, list):
             raise ServiceError("UPSTREAM_SCHEMA_ERROR", f"embedding upstream response data[{index}].embedding must be an array.", True, 502)
+        if not vector:
+            raise ServiceError("UPSTREAM_SCHEMA_ERROR", f"embedding upstream response data[{index}].embedding must be non-empty.", True, 502)
         if expected_dimensions is not None and len(vector) != expected_dimensions:
             raise ServiceError(
                 "UPSTREAM_SCHEMA_ERROR",

@@ -8,7 +8,7 @@ AUTH_ENV ?= $(ENV)
 AUTH_ENV_ARG = $(if $(AUTH_ENV),--env $(AUTH_ENV),)
 
 
-.PHONY: help guide init-env init-env-local init-env-compose init-env-local-force init-env-compose-force sync-runtime-secrets show-image-tags validate test build build-pipeline build-image build-colbert-ko-vllm-image build-risk-vllm-image rebuild-app rebuild-colbert-ko-vllm rebuild-risk-vllm package start up compose-up compose-up-private compose-down-private preflight-compose ready ready-local ready-full check-ready smoke runtime-validate runtime-targets storage-paths project-inventory refresh-generated-reports auth-status auth-doctor auth-plan auth-apply monitoring-projection operator-status operator-reports live-evidence release-check release-check-full vllm-commands hf-config-check risk-vllm-config-check risk-vllm-patch-removal-check model-inventory model-list model-status model-validate model-diff model-propose-add model-propose-remove status stop down compose-down compose-logs logs compose-diagnostics clean clean-dry-run cleanup-plan remove-plan clean-all reset bootstrap first-run rebuild-full doctor reset-version infisical-up infisical-down infisical-logs infisical-init secrets-push secrets-push-sensitive secrets-pull secrets-status validate-docs docs-check reports-check feature-check feature-plan
+.PHONY: help guide init-env init-env-local init-env-compose init-env-local-force init-env-compose-force sync-runtime-secrets show-image-tags validate test build build-pipeline build-image build-colbert-ko-vllm-image build-risk-vllm-image rebuild-app rebuild-colbert-ko-vllm rebuild-risk-vllm package start up compose-up compose-up-private compose-down-private preflight-compose ready ready-local ready-full check-ready smoke runtime-validate colbert-parity-smoke runtime-targets storage-paths project-inventory refresh-generated-reports auth-status auth-doctor auth-plan auth-apply monitoring-projection operator-status operator-reports live-evidence release-check release-check-full vllm-commands hf-config-check risk-vllm-config-check risk-vllm-patch-removal-check model-inventory model-list model-status model-validate model-diff model-propose-add model-propose-remove status stop down compose-down compose-logs logs compose-diagnostics clean clean-dry-run cleanup-plan remove-plan clean-all reset bootstrap first-run rebuild-full doctor reset-version infisical-up infisical-down infisical-logs infisical-init secrets-push secrets-push-sensitive secrets-pull secrets-status validate-docs docs-check reports-check feature-check feature-plan
 
 help:
 	@echo "$(PROJECT_NAME) $(CURRENT_VERSION)"
@@ -58,6 +58,7 @@ help:
 	@echo "make ready-full    # 실제 vLLM upstream까지 포함한 엄격 readiness + smoke"
 	@echo "make smoke         # 배포된 서비스 대상 smoke 테스트"
 	@echo "make runtime-validate # 라이브 runtime 검증 리포트 생성 (reports/runtime/)"
+	@echo "make colbert-parity-smoke # GPU/live: ColBERT reference vs vLLM native ranking parity"
 	@echo "make runtime-targets  # registry 기반 runtime target inventory 생성"
 	@echo "make storage-paths    # 로컬 저장소/cache/report/secret 경로 inventory 생성"
 	@echo "make project-inventory # 전체 파일/문서/관리 ownership inventory 생성"
@@ -217,6 +218,9 @@ smoke:
 
 runtime-validate:
 	$(PYTHON) scripts/validation/runtime_validation.py
+
+colbert-parity-smoke:
+	$(PYTHON) scripts/validation/colbert_parity_smoke.py
 
 runtime-targets:
 	$(PYTHON) scripts/reports/runtime_targets_report.py

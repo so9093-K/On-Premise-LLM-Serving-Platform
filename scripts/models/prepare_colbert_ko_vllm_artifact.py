@@ -72,7 +72,6 @@ def prepare_artifact(model_id: str, output_dir: Path, revision: str | None = Non
     config.update(
         {
             "architectures": ["ColbertKoEmbeddingGemmaForTextEncoding"],
-            "model_type": "colbert-ko-embeddinggemma",
             "source_model_id": model_id,
             "source_revision": revision or "default",
             "encoder_subfolder": "encoder",

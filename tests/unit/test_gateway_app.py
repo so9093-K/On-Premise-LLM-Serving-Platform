@@ -521,11 +521,26 @@ def test_gateway_colbert_rerank_uses_vllm_native_score_api():
 
     assert response.status_code == 200
     assert clients.colbert_ko.last_path == "score"
-    assert clients.colbert_ko.last_payload["queries"] == "검색어"
-    assert clients.colbert_ko.last_payload["documents"] == ["낮음", "높음"]
+    assert clients.colbert_ko.last_payload["text_1"] == "검색어"
+    assert clients.colbert_ko.last_payload["text_2"] == ["낮음", "높음"]
     body = response.json()
     assert body["score_mode"] == "late_interaction_maxsim"
     assert [item["index"] for item in body["results"]] == [1, 0]
+
+
+def test_gateway_colbert_score_rejects_invalid_upstream_response():
+    clients = FakeGatewayClients()
+    clients.colbert_ko.post_response = {"object": "list", "model": "local-colbert-ko", "data": []}
+    client = TestClient(create_gateway_app(settings(), clients))
+
+    response = client.post(
+        "/v1/retrieval/score",
+        headers=auth_headers(),
+        json={"model": "local-colbert-ko", "query": "검색어", "documents": ["문서"]},
+    )
+
+    assert response.status_code == 502
+    assert response.json()["error"]["code"] == "UPSTREAM_SCHEMA_ERROR"
 
 
 def test_gateway_dense_retrieval_uses_embedding_runtime():
@@ -552,6 +567,44 @@ def test_gateway_dense_retrieval_uses_embedding_runtime():
     assert body["score_mode"] == "dense_cosine"
     assert body["scores"] == [{"index": 0, "score": 1.0}, {"index": 1, "score": 0.0}]
     assert clients.embedding.last_path == "embeddings"
+
+
+def test_gateway_rejects_retrieval_extra_fields_before_upstream_call():
+    clients = FakeGatewayClients()
+    client = TestClient(create_gateway_app(settings(), clients))
+
+    score = client.post(
+        "/v1/retrieval/score",
+        headers=auth_headers(),
+        json={"model": "local-embed", "query": "q", "documents": ["d"], "extra": "x"},
+    )
+    assert score.status_code == 422
+    assert score.json()["error"]["code"] == "VALIDATION_ERROR"
+    assert clients.embedding.last_path is None
+
+    token_embeddings = client.post(
+        "/v1/retrieval/token-embeddings",
+        headers=auth_headers(),
+        json={"model": "local-colbert-ko", "texts": ["문서"], "extra": "x"},
+    )
+    assert token_embeddings.status_code == 422
+    assert token_embeddings.json()["error"]["code"] == "VALIDATION_ERROR"
+    assert clients.colbert_ko.last_path is None
+
+
+def test_gateway_dense_retrieval_rejects_invalid_embedding_upstream_response():
+    clients = FakeGatewayClients()
+    clients.embedding.post_response = {"object": "list", "model": "local-embed", "data": []}
+    client = TestClient(create_gateway_app(settings(), clients))
+
+    response = client.post(
+        "/v1/retrieval/score",
+        headers=auth_headers(),
+        json={"model": "local-embed", "query": "검색어", "documents": ["문서"]},
+    )
+
+    assert response.status_code == 502
+    assert response.json()["error"]["code"] == "UPSTREAM_SCHEMA_ERROR"
 
 
 def test_gateway_colbert_token_embeddings_use_pooling_api():

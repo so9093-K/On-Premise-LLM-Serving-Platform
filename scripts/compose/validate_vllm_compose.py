@@ -17,6 +17,7 @@ from ai_model_serving.domain import ModelRegistry
 COMPOSE_PATH = ROOT / "ops/compose/full-stack.private-network.yaml"
 SERVING_PATH = ROOT / "configs/model_serving.yaml"
 CATALOG_PATH = ROOT / "configs/model_catalog.yaml"
+GPU_BUDGETS_PATH = ROOT / "configs/gpu_budgets.yaml"
 MODEL_CARD_DIR = ROOT / "model_cards"
 
 
@@ -64,6 +65,8 @@ def validate_alignment() -> None:
     compose = load_yaml(COMPOSE_PATH)
     serving_doc = load_yaml(SERVING_PATH)
     catalog_doc = load_yaml(CATALOG_PATH)
+    gpu_budgets = load_yaml(GPU_BUDGETS_PATH)
+    avoid_above = float(gpu_budgets["gpu"]["total_gpu_memory_utilization"]["avoid_above"])
     registry = ModelRegistry(catalog_doc, serving_doc)
     services = compose["services"]
     errors: list[str] = []
@@ -140,8 +143,11 @@ def validate_alignment() -> None:
                 if key in source and str(source[key]) != str(cfg[key]):
                     errors.append(f"{runtime.logical_id}: {source_name}.{key}={source[key]} does not match model_serving {cfg[key]}")
 
-    if total_gpu_util > 0.90:
-        errors.append(f"total configured gpu_memory_utilization is too high for single-GPU conservative profile: {total_gpu_util:.3f} > 0.900")
+    if total_gpu_util >= avoid_above:
+        errors.append(
+            "total configured gpu_memory_utilization must stay below "
+            f"configs/gpu_budgets.yaml avoid_above: {total_gpu_util:.3f} >= {avoid_above:.3f}"
+        )
 
     if errors:
         raise SystemExit("vLLM compose validation failed:\n- " + "\n- ".join(errors))

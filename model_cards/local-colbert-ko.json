@@ -2,7 +2,7 @@
   "logical_id": "local-colbert-ko",
   "upstream_model_id": "sigridjineth/colbert-ko-embeddinggemma-300m",
   "role": "retrieval",
-  "license": "gemma",
+  "license": "apache-2.0",
   "runtime": {
     "backend": "vllm_native",
     "runner": "pooling",
@@ -17,9 +17,10 @@
   },
   "source_facts": {
     "model_size": "300M parameters",
-    "license": "gemma",
+    "license": "apache-2.0",
     "access": "public repository on Hugging Face",
     "base_model": "google/embeddinggemma-300m",
+    "base_model_license": "gemma",
     "architecture": "ColBERT late-interaction scoring on EmbeddingGemma-300M backbone",
     "scoring_method": "late_interaction_maxsim",
     "languages": [

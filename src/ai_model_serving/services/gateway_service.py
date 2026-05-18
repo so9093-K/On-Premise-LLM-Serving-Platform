@@ -19,6 +19,9 @@ from ..contracts import (
     requested_embedding_dimensions,
     validate_embedding_request,
     validate_embedding_response,
+    validate_retrieval_rerank_request,
+    validate_retrieval_score_request,
+    validate_retrieval_token_embeddings_request,
     validate_risk_response,
 )
 
@@ -306,7 +309,12 @@ class GatewayService:
     def _retrieval_backend(self, model: str) -> str:
         return RETRIEVAL_MODE_BY_MODEL.get(model, ("unknown", "unknown"))[1]
 
-    def _validate_query_documents_payload(self, payload: dict[str, Any]) -> tuple[str, list[str], str, str]:
+    def _validate_query_documents_payload(self, payload: dict[str, Any], *, operation: str) -> tuple[str, list[str], str, str]:
+        payload = (
+            validate_retrieval_rerank_request(payload)
+            if operation == "rerank"
+            else validate_retrieval_score_request(payload)
+        )
         query = payload.get("query")
         documents = payload.get("documents")
         if not isinstance(query, str) or not query.strip():
@@ -326,6 +334,14 @@ class GatewayService:
         return query, documents, model, score_mode
 
     def _validate_token_embeddings_payload(self, payload: dict[str, Any]) -> tuple[list[str], int | None]:
+        if isinstance(payload, dict) and payload.get("model") not in (None, "local-colbert-ko"):
+            raise ServiceError(
+                "MODEL_CAPABILITY_MISMATCH",
+                "token-embeddings only supports model local-colbert-ko.",
+                False,
+                422,
+            )
+        payload = validate_retrieval_token_embeddings_request(payload)
         if payload.get("model") != "local-colbert-ko":
             raise ServiceError(
                 "MODEL_CAPABILITY_MISMATCH",
@@ -370,6 +386,12 @@ class GatewayService:
             self.clients.embedding.post_json("embeddings", {"model": embed_model, "input": texts}),
             timeout=self.settings.gateway_timeout_seconds,
         )
+        response = validate_embedding_response(
+            response,
+            expected_model=embed_model,
+            expected_count=len(texts),
+            expected_dimensions=None,
+        )
         data = sorted(response.get("data", []), key=lambda x: x.get("index", 0))
         return [item["embedding"] for item in data]
 
@@ -393,8 +415,8 @@ class GatewayService:
                 {
                     "model": "local-colbert-ko",
                     "encoding_format": "float",
-                    "queries": query,
-                    "documents": documents,
+                    "text_1": query,
+                    "text_2": documents,
                     "max_tokens_per_query": 128,
                     "max_tokens_per_doc": 192,
                 },
@@ -402,11 +424,35 @@ class GatewayService:
             timeout=self.settings.gateway_timeout_seconds,
         )
         data = response.get("data", [])
-        scores: dict[int, float] = {item["index"]: float(item["score"]) for item in data if "index" in item}
-        return [scores.get(i, 0.0) for i in range(len(documents))]
+        if response.get("object") != "list" or not isinstance(data, list) or len(data) != len(documents):
+            raise ServiceError(
+                "UPSTREAM_SCHEMA_ERROR",
+                "ColBERT score upstream response data must match requested documents.",
+                True,
+                502,
+            )
+        scores: list[float] = []
+        for expected_index, item in enumerate(data):
+            if not isinstance(item, dict) or item.get("index") != expected_index:
+                raise ServiceError(
+                    "UPSTREAM_SCHEMA_ERROR",
+                    f"ColBERT score upstream response data[{expected_index}].index must be {expected_index}.",
+                    True,
+                    502,
+                )
+            score = item.get("score")
+            if not isinstance(score, (int, float)) or isinstance(score, bool):
+                raise ServiceError(
+                    "UPSTREAM_SCHEMA_ERROR",
+                    f"ColBERT score upstream response data[{expected_index}].score must be numeric.",
+                    True,
+                    502,
+                )
+            scores.append(float(score))
+        return scores
 
     async def rerank_documents(self, payload: dict[str, Any]) -> dict[str, Any]:
-        query, documents, model, score_mode = self._validate_query_documents_payload(payload)
+        query, documents, model, score_mode = self._validate_query_documents_payload(payload, operation="rerank")
         backend = self._retrieval_backend(model)
         target = "local-colbert-ko" if score_mode == "late_interaction_maxsim" else (
             self.settings.embedding.logical_id if self.settings.embedding else "local-embed"
@@ -447,7 +493,7 @@ class GatewayService:
         return {"model": model, "score_mode": score_mode, "results": results}
 
     async def score_documents(self, payload: dict[str, Any]) -> dict[str, Any]:
-        query, documents, model, score_mode = self._validate_query_documents_payload(payload)
+        query, documents, model, score_mode = self._validate_query_documents_payload(payload, operation="score")
         backend = self._retrieval_backend(model)
         target = "local-colbert-ko" if score_mode == "late_interaction_maxsim" else (
             self.settings.embedding.logical_id if self.settings.embedding else "local-embed"

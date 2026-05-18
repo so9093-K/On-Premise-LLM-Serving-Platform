@@ -69,6 +69,16 @@ def test_ops_templates_exist_without_runtime_claims() -> None:
             assert panel.get("datasource") == {"type": "prometheus", "uid": "${datasource}"}
 
 
+def test_compose_gpu_budget_uses_configured_avoid_above() -> None:
+    validator = (ROOT / "scripts/compose/validate_vllm_compose.py").read_text(encoding="utf-8")
+    diagnostics = (ROOT / "scripts/compose/compose_diagnostics.sh").read_text(encoding="utf-8")
+    assert "GPU_BUDGETS_PATH" in validator
+    assert "avoid_above" in validator
+    assert "0.90" not in validator
+    assert "GPU_AVOID_ABOVE" in diagnostics
+    assert "0.90" not in diagnostics
+
+
 def test_runtime_validation_matrix_requires_validation() -> None:
     matrix = yaml.safe_load((ROOT / "harness/runtime_validation_matrix.yaml").read_text(encoding="utf-8"))
     assert matrix["validation_policy"] == "runtime_validation_required"
