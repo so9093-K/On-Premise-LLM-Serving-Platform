@@ -47,6 +47,9 @@ _EndpointSpec 레지스트리에서 자동 생성. 수정 시 `endpoint_spec.py`
 | `POST` | `/v1/risk/detectors/prompt/assessments` | stable | `public_api` | `risk_assessment_request.schema.json` ✓ | `risk_assessment_response.schema.json` ✓ | `assessPromptRisk` |
 | `POST` | `/v1/risk/detectors/siren/assessments` | retired ⚠ | `public_api` | — | `common_error.schema.json` ✓ | `assessRetiredSirenRisk` |
 | `POST` | `/v1/risk/assessments` | stable | `public_api` | `risk_assessment_request.schema.json` ✓ | `risk_assessment_response.schema.json` ✓ | `assessRisk` |
+| `POST` | `/v1/retrieval/rerank` | stable | `public_api` | `retrieval_rerank_request.schema.json` ✓ | `retrieval_rerank_response.schema.json` ✓ | `rerankDocuments` |
+| `POST` | `/v1/retrieval/score` | stable | `public_api` | `retrieval_score_request.schema.json` ✓ | `retrieval_score_response.schema.json` ✓ | `scoreDocuments` |
+| `POST` | `/v1/retrieval/token-embeddings` | stable | `admin` | `retrieval_token_embeddings_request.schema.json` ✓ | `retrieval_token_embeddings_response.schema.json` ✓ | `getTokenEmbeddings` |
 
 #### Risk Adapter (port 9405, compose 내부 전용)
 

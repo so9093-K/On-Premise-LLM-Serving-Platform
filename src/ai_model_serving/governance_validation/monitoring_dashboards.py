@@ -159,10 +159,11 @@ def _validate_query_regressions() -> None:
         raise SystemExit('serving home missing cAdvisor OOM/restart source metrics')
     user_route_options = {str(item.get('text')): str(item.get('value')) for item in user_route.get('options', [])}
     expected_user_route_options = {
-        'All user routes': '/v1/chat/completions|/v1/embeddings|/v1/risk/.*',
+        'All user routes': '/v1/chat/completions|/v1/embeddings|/v1/risk/.*|/v1/retrieval/.*',
         'Chat': '/v1/chat/completions',
         'Embeddings': '/v1/embeddings',
         'Risk': '/v1/risk/.*',
+        'Retrieval': '/v1/retrieval/.*',
     }
     if user_route_options != expected_user_route_options:
         raise SystemExit(f'serving home user_route options mismatch: {user_route_options}')

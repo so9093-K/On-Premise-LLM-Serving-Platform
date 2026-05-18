@@ -31,6 +31,7 @@ from ..api.endpoint_spec import GATEWAY_ENDPOINTS, schema_maps_from_specs
 from ..api.routers.gateway_ops import build_router as _build_ops_router
 from ..api.routers.gateway_inference import build_router as _build_inference_router
 from ..api.routers.gateway_risk import build_router as _build_risk_router
+from ..api.routers.gateway_retrieval import build_router as _build_retrieval_router
 
 # TODO(playground): /playground 구현 시 /v1/models[].request_parameters를 읽어
 # model-aware form을 동적으로 구성한다. 아래 grouping을 참고한다:
@@ -49,6 +50,7 @@ class GatewayClients:
     def __init__(self, settings: AppSettings) -> None:
         self.main_llm = VLLMClient(settings.runtime("main_llm"))
         self.embedding = VLLMClient(settings.runtime("embedding"))
+        self.colbert_ko = VLLMClient(settings.runtime("colbert_ko"))
         self.risk_adapter = VLLMClient(
             RuntimeEndpoint(
                 logical_id="risk-adapter",
@@ -62,9 +64,15 @@ class GatewayClients:
                 max_concurrency=4,
             )
         )
+        self.runtimes: dict[str, Any] = {
+            "main_llm": self.main_llm,
+            "embedding": self.embedding,
+            "colbert_ko": self.colbert_ko,
+            "risk_adapter": self.risk_adapter,
+        }
 
     async def close(self) -> None:
-        for client in (self.main_llm, self.embedding, self.risk_adapter):
+        for client in (self.main_llm, self.embedding, self.colbert_ko, self.risk_adapter):
             close = getattr(client, "aclose", None)
             if close is not None:
                 await close()
@@ -108,6 +116,7 @@ def create_gateway_app(settings: AppSettings | None = None, clients: GatewayClie
     app.include_router(_build_ops_router(admin_dependencies, clients, metrics, settings))
     app.include_router(_build_inference_router(api_dependencies, service, settings))
     app.include_router(_build_risk_router(api_dependencies, service))
+    app.include_router(_build_retrieval_router(api_dependencies, admin_dependencies, service, settings))
 
     _request_schemas, _response_schemas = schema_maps_from_specs(GATEWAY_ENDPOINTS)
     install_contract_openapi(
@@ -119,6 +128,9 @@ def create_gateway_app(settings: AppSettings | None = None, clients: GatewayClie
             ("POST", "/v1/embeddings"): GATEWAY_EMBEDDING_REQUEST_EXAMPLES,
             ("POST", "/v1/risk/detectors/prompt/assessments"): GATEWAY_RISK_PROMPT_REQUEST_EXAMPLES,
             ("POST", "/v1/risk/assessments"): GATEWAY_RISK_AGGREGATE_REQUEST_EXAMPLES,
+            ("POST", "/v1/retrieval/rerank"): {"colbert_rerank": {"summary": "ColBERT rerank", "value": {"model": "local-colbert-ko", "query": "검색어", "documents": ["문서1", "문서2"]}}},
+            ("POST", "/v1/retrieval/score"): {"score_documents": {"summary": "Score documents", "value": {"model": "local-colbert-ko", "query": "검색어", "documents": ["문서1", "문서2"]}}},
+            ("POST", "/v1/retrieval/token-embeddings"): {"token_embeddings": {"summary": "Token embeddings", "value": {"model": "local-colbert-ko", "texts": ["문서1"]}}},
         },
     )
 

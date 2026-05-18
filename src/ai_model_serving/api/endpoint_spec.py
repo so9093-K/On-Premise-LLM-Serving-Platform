@@ -228,6 +228,66 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
         request_schema="risk_assessment_request.schema.json",
         response_schema="risk_assessment_response.schema.json",
     ),
+    EndpointSpec(
+        service="gateway",
+        method="POST",
+        path="/v1/retrieval/rerank",
+        operation_id="rerankDocuments",
+        tag="Retrieval",
+        summary="문서 관련도 재순위 정렬",
+        description=(
+            "query와 documents 목록을 받아 관련도 점수로 내림차순 정렬한 결과를 반환합니다.\n\n"
+            "- `score_mode=late_interaction_maxsim` — `local-colbert-ko` ColBERT MaxSim 점수\n"
+            "- `score_mode=dense_cosine` — `local-embed` 밀집 벡터 코사인 유사도\n\n"
+            "모델이 요청한 `score_mode`를 지원하지 않으면 422를 반환합니다."
+        ),
+        auth="public_api",
+        exposure="public_gateway",
+        lifecycle="stable",
+        status_code=200,
+        replacement=None,
+        request_schema="retrieval_rerank_request.schema.json",
+        response_schema="retrieval_rerank_response.schema.json",
+    ),
+    EndpointSpec(
+        service="gateway",
+        method="POST",
+        path="/v1/retrieval/score",
+        operation_id="scoreDocuments",
+        tag="Retrieval",
+        summary="문서 관련도 점수 계산 (입력 순서 유지)",
+        description=(
+            "query와 documents 목록을 받아 관련도 점수를 계산합니다. 입력 순서를 유지합니다.\n\n"
+            "재순위 정렬이 필요하면 `/v1/retrieval/rerank`를 사용하세요."
+        ),
+        auth="public_api",
+        exposure="public_gateway",
+        lifecycle="stable",
+        status_code=200,
+        replacement=None,
+        request_schema="retrieval_score_request.schema.json",
+        response_schema="retrieval_score_response.schema.json",
+    ),
+    EndpointSpec(
+        service="gateway",
+        method="POST",
+        path="/v1/retrieval/token-embeddings",
+        operation_id="getTokenEmbeddings",
+        tag="Retrieval",
+        summary="Token-level embedding 행렬 조회 (restricted)",
+        description=(
+            "`local-colbert-ko` 전용 token-level embedding 행렬을 반환합니다. "
+            "ColBERT 디버깅 및 오프라인 인덱스 구축용 admin endpoint입니다.\n\n"
+            "`local-embed` 같은 비ColBERT 모델을 지정하면 422 `MODEL_CAPABILITY_MISMATCH`를 반환합니다."
+        ),
+        auth="admin",
+        exposure="internal_only",
+        lifecycle="stable",
+        status_code=200,
+        replacement=None,
+        request_schema="retrieval_token_embeddings_request.schema.json",
+        response_schema="retrieval_token_embeddings_response.schema.json",
+    ),
 ]
 
 # ---------------------------------------------------------------------------

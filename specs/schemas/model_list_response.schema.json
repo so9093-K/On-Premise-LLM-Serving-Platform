@@ -13,7 +13,7 @@
     },
     "data": {
       "type": "array",
-      "minItems": 3,
+      "minItems": 4,
       "items": {
         "type": "object",
         "required": [
@@ -29,6 +29,7 @@
             "enum": [
               "local-main",
               "local-embed",
+              "local-colbert-ko",
               "risk-prompt"
             ]
           },
@@ -48,6 +49,9 @@
                 "chat.completions.vision",
                 "chat.completions.tools",
                 "embeddings",
+                "retrieval_rerank",
+                "retrieval_score",
+                "retrieval_token_embeddings",
                 "risk.prompt_attack_signal"
               ]
             }

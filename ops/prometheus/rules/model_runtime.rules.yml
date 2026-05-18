@@ -38,19 +38,19 @@ groups:
       - record: vllm_queue_depth
         expr: vllm:num_requests_waiting
       - record: vllm_token_throughput_per_second
-        expr: sum by (instance, model, runtime_service) (rate(vllm:generation_tokens_total[5m]))
+        expr: sum by (instance, model, runtime_service) (rate(vllm:generation_tokens_total[5m]) + rate(vllm:prompt_tokens_total[5m]))
       # cAdvisor bridges for per-vLLM container host resources. Compose generated
       # container names vary by project directory, so use the compose service label.
       - record: vllm_container_memory_usage_bytes
-        expr: max by (container_label_com_docker_compose_service) (container_memory_usage_bytes{container_label_com_docker_compose_service=~"main-llm-vllm|embedding-vllm|risk-prompt-vllm"})
+        expr: max by (container_label_com_docker_compose_service) (container_memory_usage_bytes{container_label_com_docker_compose_service=~"main-llm-vllm|embedding-vllm|colbert-ko-vllm|risk-prompt-vllm"})
       - record: vllm_container_cpu_usage_ratio
-        expr: sum by (container_label_com_docker_compose_service) (rate(container_cpu_usage_seconds_total{container_label_com_docker_compose_service=~"main-llm-vllm|embedding-vllm|risk-prompt-vllm"}[1m]))
+        expr: sum by (container_label_com_docker_compose_service) (rate(container_cpu_usage_seconds_total{container_label_com_docker_compose_service=~"main-llm-vllm|embedding-vllm|colbert-ko-vllm|risk-prompt-vllm"}[1m]))
       # Observability trust signals — expected vs observed scrape target counts.
-      # ai_expected_critical_targets reflects the reference topology (7 = gateway +
-      # risk-adapter + 3 vllm-runtimes + dcgm-exporter + cadvisor). Update this value
+      # ai_expected_critical_targets reflects the reference topology (8 = gateway +
+      # risk-adapter + 4 vllm-runtimes + dcgm-exporter + cadvisor). Update this value
       # whenever the topology changes and re-run monitoring-projection.
       - record: ai_expected_critical_targets
-        expr: vector(7)
+        expr: vector(8)
       - record: ai_observed_critical_targets
         expr: count(up{job=~"gateway|risk-adapter|vllm-runtimes|dcgm-exporter|cadvisor"})
       - record: ai_up_critical_targets
@@ -74,11 +74,11 @@ groups:
           or
           ((min(gpu_memory_headroom_bytes) < 4294967296)
           or
-          (sum(increase(container_oom_events_total{container_label_com_docker_compose_service=~"gateway|risk-adapter|main-llm-vllm|embedding-vllm|risk-prompt-vllm"}[5m])) > 0)) * 0 + 6
+          (sum(increase(container_oom_events_total{container_label_com_docker_compose_service=~"gateway|risk-adapter|main-llm-vllm|embedding-vllm|colbert-ko-vllm|risk-prompt-vllm"}[5m])) > 0)) * 0 + 6
           or
           (ai_up_critical_targets < ai_expected_critical_targets) * 0 + 5
           or
-          (sum(increase(http_requests_total{service="gateway",route=~"/v1/chat/completions|/v1/embeddings|/v1/risk/.*",route!~"/health|/ready|/v1/models|/metrics|/docs|/openapi.json"}[5m])) > 0) * 0 + 4
+          (sum(increase(http_requests_total{service="gateway",route=~"/v1/chat/completions|/v1/embeddings|/v1/risk/.*|/v1/retrieval/.*",route!~"/health|/ready|/v1/models|/metrics|/docs|/openapi.json"}[5m])) > 0) * 0 + 4
           or
           (min(service_readiness_status) == 1) * 0 + 3
           or

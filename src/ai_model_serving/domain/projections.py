@@ -215,7 +215,7 @@ def runtime_validation_matrix_checks(registry: "ModelRegistry") -> tuple["Runtim
         RuntimeValidationMatrixCheck(
             id="gateway-runtime",
             owner="gateway",
-            validation="/health, /ready, /v1/models, chat, and embeddings return schema-valid responses.",
+            validation="/health, /ready, /v1/models, chat, embeddings, retrieval, and risk return schema-valid responses.",
             artifact_file="reports/runtime/gateway-runtime.md",
             runtime_validation_required=True,
             operator_action="Inspect Gateway process, upstream URLs, API key configuration, and dependency readiness.",

@@ -19,6 +19,8 @@ services:
         condition: service_healthy
       embedding-vllm:
         condition: service_healthy
+      colbert-ko-vllm:
+        condition: service_healthy
 
   risk-adapter:
     image: ${PLATFORM_IMAGE:?Set PLATFORM_IMAGE to a tested platform image tag}
@@ -81,6 +83,31 @@ services:
         reservations:
           devices: [{capabilities: [gpu]}]
 
+  colbert-ko-vllm:
+    image: ${VLLM_IMAGE:?Set VLLM_IMAGE to a tested vLLM OpenAI image tag}
+    command: ["--model", "sigridjineth/colbert-ko-embeddinggemma-300m", "--served-model-name", "local-colbert-ko", "--host", "0.0.0.0", "--port", "9404", "--runner", "pooling", "--max-model-len", "2048", "--max-num-seqs", "1", "--max-num-batched-tokens", "2048", "--gpu-memory-utilization", "0.04"]
+    expose: ["9404"]
+    env_file: ../../.env
+    environment:
+      HF_TOKEN: ${HF_TOKEN:-}
+      HUGGING_FACE_HUB_TOKEN: ${HUGGING_FACE_HUB_TOKEN:-}
+      HF_HOME: /root/.cache/huggingface
+    volumes:
+      - ${HF_CACHE_DIR:-./model_cache/huggingface}:/root/.cache/huggingface
+    depends_on:
+      embedding-vllm:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c \"import urllib.request; urllib.request.urlopen('http://localhost:9404/health')\""]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 120s
+    deploy:
+      resources:
+        reservations:
+          devices: [{capabilities: [gpu]}]
+
   risk-prompt-vllm:
     image: ${RISK_VLLM_IMAGE:?Set RISK_VLLM_IMAGE to a tested vLLM OpenAI image tag for risk models}
     command: ["--model", "kakaocorp/kanana-safeguard-prompt-2.1b", "--served-model-name", "risk-prompt", "--host", "0.0.0.0", "--port", "9403", "--max-model-len", "2048", "--max-num-seqs", "1", "--max-num-batched-tokens", "2048", "--gpu-memory-utilization", "0.065", "--dtype", "bfloat16", "--quantization", "bitsandbytes", "--load-format", "bitsandbytes", "--trust-remote-code", "--enforce-eager"]
@@ -133,7 +160,7 @@ services:
 
   prometheus:
     image: ${PROMETHEUS_IMAGE:?Set PROMETHEUS_IMAGE to a tested Prometheus image tag}
-    depends_on: [gateway, risk-adapter, main-llm-vllm, embedding-vllm, risk-prompt-vllm, dcgm-exporter, cadvisor]
+    depends_on: [gateway, risk-adapter, main-llm-vllm, embedding-vllm, colbert-ko-vllm, risk-prompt-vllm, dcgm-exporter, cadvisor]
     command: ["--config.file=/etc/prometheus/prometheus.yml"]
     ports: ["${PROMETHEUS_PORT:-9410}:9090"]
     volumes:

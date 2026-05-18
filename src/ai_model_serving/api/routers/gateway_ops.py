@@ -32,21 +32,21 @@ def _risk_adapter_readiness(body: dict[str, Any]) -> tuple[str, str | None]:
 
 
 async def _readiness(clients: Any, metrics: Any = None, *, admin_token: str | None = None) -> dict[str, Any]:
-    return await collect_readiness(
-        service="gateway",
-        probes=[
-            DependencyProbe("main_llm_vllm", clients.main_llm, "models"),
-            DependencyProbe("embedding_vllm", clients.embedding, "models"),
-            DependencyProbe(
-                "risk_adapter",
-                clients.risk_adapter,
-                "/ready",
-                {"authorization": f"Bearer {admin_token}"} if admin_token else None,
-                _risk_adapter_readiness,
-            ),
-        ],
-        metrics=metrics,
-    )
+    probes = [
+        DependencyProbe("main_llm_vllm", clients.main_llm, "models"),
+        DependencyProbe("embedding_vllm", clients.embedding, "models"),
+        DependencyProbe(
+            "risk_adapter",
+            clients.risk_adapter,
+            "/ready",
+            {"authorization": f"Bearer {admin_token}"} if admin_token else None,
+            _risk_adapter_readiness,
+        ),
+    ]
+    colbert_ko = getattr(clients, "colbert_ko", None)
+    if colbert_ko is not None:
+        probes.append(DependencyProbe("colbert_ko_vllm", colbert_ko, "models", required=False))
+    return await collect_readiness(service="gateway", probes=probes, metrics=metrics)
 
 
 def build_router(admin_dependencies: list, clients: Any, metrics: Any, settings: Any) -> APIRouter:

@@ -13,7 +13,7 @@
 
 ## 1. 문서 목적
 
-본 문서는 48GB VRAM 단일 GPU 환경에서 현재 기본 enabled vLLM runtime 3개를 동시에 상주시킬 때 필요한 GPU 리소스 요구사항을 정의한다.
+본 문서는 48GB VRAM 단일 GPU 환경에서 현재 기본 enabled vLLM runtime 4개를 동시에 상주시킬 때 필요한 GPU 리소스 요구사항을 정의한다.
 
 이전 기준의 `QuantTrio/gemma-4-31B-it-AWQ`, 4개 runtime, `risk-siren` 상주, 총 utilization `0.83~0.87` 운영 reference는 폐기한다. `risk-siren`은 retired 상태이며 기본 compose, readiness, `/v1/models`, aggregate execution, runtime validation에서 제외된다.
 
@@ -23,6 +23,7 @@
 |---|---|---|---|
 | Main LLM | `RedHatAI/gemma-4-26B-A4B-it-FP8-Dynamic` | 채팅, vision 입력, tool calling 응답 생성 | vLLM generation |
 | Embedding | `google/embeddinggemma-300m` | RAG embedding 및 검색 벡터화 | vLLM pooling / embedding |
+| ColBERT-ko | `sigridjineth/colbert-ko-embeddinggemma-300m` | ColBERT late-interaction retrieval 및 재순위 정렬 | vLLM pooling / score |
 | Prompt Risk | `kakaocorp/kanana-safeguard-prompt-2.1b` | 프롬프트 공격 탐지 | vLLM generation / signal classifier |
 
 ## 3. 분석 전제
@@ -51,9 +52,11 @@
 |---|---|---:|---|
 | Main LLM | `main-llm-vllm` | `0.72` | 16K context, seq 1 기준; 0.99 GiB KV cache 부족으로 0.66→0.72 상향 (RTX 6000 Ada) |
 | Embedding | `embedding-vllm` | `0.04` | pooling runtime |
+| ColBERT-ko | `colbert-ko-vllm` | `0.04` | pooling / score runtime; 포트 9404 |
 | Prompt Risk | `risk-prompt-vllm` | `0.065` | 단일 토큰 signal classifier |
-| 합계 | enabled vLLM total | `0.825` | 48GB 기준 약 39.6GiB 예약 |
-| reserve | system/runtime headroom | 8GiB 이상 권장 | 다운로드, warmup, allocator fragmentation, monitoring overhead 포함 |
+| 합계 (3모델 구성, ColBERT-ko 제외) | enabled vLLM total | `0.825` | 48GB 기준 약 39.6GiB 예약 |
+| 합계 (4모델 구성) | enabled vLLM total | `0.865` | 48GB 기준 약 41.5GiB 예약 |
+| reserve | system/runtime headroom | 5GiB 이상 권장 | 다운로드, warmup, allocator fragmentation, monitoring overhead 포함 |
 
 `runtime peak`는 각 요청 순간의 activation/workspace까지 포함한 최대 사용량이다. 단순 reserved budget이 낮아도 긴 prompt, vision input, warmup, CUDA allocator fragmentation이 겹치면 OOM이 날 수 있으므로, target GPU에서 boot smoke와 30분 soak를 별도로 통과해야 한다.
 
@@ -86,15 +89,15 @@ vllm serve RedHatAI/gemma-4-26B-A4B-it-FP8-Dynamic \
 | 단계 | 확인 |
 |---|---|
 | Config | `make validate`, `pytest`, generated schema/contract/runtime matrix drift 없음 |
-| Compose | 기본 compose에 `risk-siren-vllm` service dependency가 없고, enabled runtime 3개만 scrape 대상인지 확인 |
-| Boot | main 단독, main+embedding, main+embedding+risk-prompt 순서로 기동 |
-| Functional smoke | `/health`, `/ready`, `/v1/models`, chat, streaming chat, image input, embeddings, prompt risk, aggregate |
+| Compose | 기본 compose에 `risk-siren-vllm` service dependency가 없고, enabled runtime 4개만 scrape 대상인지 확인 |
+| Boot | main 단독, main+embedding, main+embedding+colbert-ko, main+embedding+colbert-ko+risk-prompt 순서로 기동 |
+| Functional smoke | `/health`, `/ready`, `/v1/models`, chat, streaming chat, image input, embeddings, retrieval rerank/score, prompt risk, aggregate |
 | Risk retired policy | `/v1/risk/detectors/siren/assessments`는 410 Gone 또는 제거 정책과 일치 |
 | Soak | 16K context, seq 1, mixed text/vision/risk workload 30분, restart/OOM 0 |
 | Monitoring | Prometheus scrape 정상, Grafana No Data 패널 없음, GPU headroom 8GiB 이상 |
 
 ## 8. 결론
 
-48GB 단일 GPU 기본 목표는 `RedHatAI/gemma-4-26B-A4B-it-FP8-Dynamic`, `google/embeddinggemma-300m`, `kakaocorp/kanana-safeguard-prompt-2.1b`의 3개 enabled runtime 구성이다.
+48GB 단일 GPU 기본 목표는 `RedHatAI/gemma-4-26B-A4B-it-FP8-Dynamic`, `google/embeddinggemma-300m`, `sigridjineth/colbert-ko-embeddinggemma-300m`, `kakaocorp/kanana-safeguard-prompt-2.1b`의 4개 enabled runtime 구성이다. ColBERT-ko(`local-colbert-ko`, 포트 9404)는 late-interaction retrieval rerank/score 엔드포인트를 담당한다.
 
 이 구성은 registry-driven runtime, detector registry, prompt-only aggregate, retired `risk-siren` policy를 전제로 한다. 운영 확정 전에는 RTX 6000 Ada 환경에서 boot log, idle VRAM, p95 TTFT, decode tok/s, restart/OOM 0을 기록해야 한다.

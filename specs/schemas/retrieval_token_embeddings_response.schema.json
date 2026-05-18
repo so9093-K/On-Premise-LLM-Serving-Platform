@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "GatewayRetrievalTokenEmbeddingsResponse",
+  "type": "object",
+  "required": ["embeddings", "model"],
+  "additionalProperties": false,
+  "properties": {
+    "model": {"type": "string"},
+    "embeddings": {
+      "type": "array",
+      "minItems": 0,
+      "items": {
+        "type": "object",
+        "required": ["index", "token_count", "embedding"],
+        "additionalProperties": false,
+        "properties": {
+          "index": {"type": "integer", "minimum": 0},
+          "token_count": {"type": "integer", "minimum": 0},
+          "embedding": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": {"type": "number"}
+            }
+          }
+        }
+      }
+    }
+  }
+}

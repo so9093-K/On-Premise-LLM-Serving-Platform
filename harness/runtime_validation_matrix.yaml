@@ -4,8 +4,7 @@ validation_policy: runtime_validation_required
 validation_checks:
 - id: gateway-runtime
   owner: gateway
-  validation: /health, /ready, /v1/models, chat, and embeddings return schema-valid
-    responses.
+  validation: /health, /ready, /v1/models, chat, embeddings, retrieval, and risk return schema-valid responses.
   artifact_file: reports/runtime/gateway-runtime.md
   runtime_validation_required: true
   operator_action: Inspect Gateway process, upstream URLs, API key configuration,
@@ -13,6 +12,7 @@ validation_checks:
   models:
   - local-main
   - local-embed
+  - local-colbert-ko
   - risk-prompt
 - id: risk-adapter-runtime
   owner: risk-adapter
@@ -34,10 +34,12 @@ validation_checks:
   models:
   - local-main
   - local-embed
+  - local-colbert-ko
   - risk-prompt
   runtime_services:
   - main_llm
   - embedding
+  - colbert_ko
   - risk_prompt
 - id: response-format-text-canary
   owner: gateway
@@ -127,6 +129,7 @@ validation_checks:
   runtime_services:
   - main_llm
   - embedding
+  - colbert_ko
   - risk_prompt
 - id: monitoring-scrape
   owner: operations
@@ -137,6 +140,7 @@ validation_checks:
   runtime_services:
   - main_llm
   - embedding
+  - colbert_ko
   - risk_prompt
 - id: grafana-dashboard-render
   owner: operations
@@ -149,4 +153,5 @@ validation_checks:
   runtime_services:
   - main_llm
   - embedding
+  - colbert_ko
   - risk_prompt

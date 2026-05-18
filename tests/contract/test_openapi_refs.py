@@ -38,6 +38,7 @@ def test_model_list_schema_restricts_logical_ids() -> None:
         "data": [
             {"id": "local-main", "object": "model", "backend": "main_llm_vllm", "capabilities": ["chat.completions"], "request_parameters": {"temperature": {"type": "number", "min": 0, "max": 2}}},
             {"id": "local-embed", "object": "model", "backend": "embedding_vllm", "capabilities": ["embeddings"], "request_parameters": {"dimensions": {"type": "integer", "enum": [768, 512, 256, 128]}}},
+            {"id": "local-colbert-ko", "object": "model", "backend": "colbert_ko_vllm", "capabilities": ["retrieval_rerank"], "request_parameters": {}},
             {"id": "risk-prompt", "object": "model", "backend": "risk_adapter", "capabilities": ["risk.prompt_attack_signal"], "request_parameters": {}, "fixed_parameters": {"max_tokens": 1, "temperature": 0}},
         ],
     }

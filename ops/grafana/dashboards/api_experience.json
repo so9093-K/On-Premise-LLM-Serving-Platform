@@ -784,7 +784,7 @@
         "multi": true,
         "name": "runtime_service",
         "options": [],
-        "query": "main-llm-vllm,embedding-vllm,risk-prompt-vllm",
+        "query": "main-llm-vllm,embedding-vllm,colbert-ko-vllm,risk-prompt-vllm",
         "type": "custom"
       },
       {

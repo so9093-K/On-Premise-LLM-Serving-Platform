@@ -308,7 +308,7 @@
       },
       "targets": [
         {
-          "expr": "sum(changes(container_start_time_seconds{container_label_com_docker_compose_service=~\"gateway|risk-adapter|main-llm-vllm|embedding-vllm|risk-prompt-vllm\"}[$window])) + sum(increase(container_oom_events_total{container_label_com_docker_compose_service=~\"gateway|risk-adapter|main-llm-vllm|embedding-vllm|risk-prompt-vllm\"}[$window]))",
+          "expr": "sum(changes(container_start_time_seconds{container_label_com_docker_compose_service=~\"gateway|risk-adapter|main-llm-vllm|embedding-vllm|colbert-ko-vllm|risk-prompt-vllm\"}[$window])) + sum(increase(container_oom_events_total{container_label_com_docker_compose_service=~\"gateway|risk-adapter|main-llm-vllm|embedding-vllm|colbert-ko-vllm|risk-prompt-vllm\"}[$window]))",
           "refId": "A",
           "legendFormat": "events"
         }
@@ -705,7 +705,7 @@
         "multi": true,
         "name": "runtime_service",
         "options": [],
-        "query": "main-llm-vllm,embedding-vllm,risk-prompt-vllm",
+        "query": "main-llm-vllm,embedding-vllm,colbert-ko-vllm,risk-prompt-vllm",
         "type": "custom"
       },
       {

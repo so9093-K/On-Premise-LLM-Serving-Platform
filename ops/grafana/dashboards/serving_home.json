@@ -461,12 +461,12 @@
       },
       "targets": [
         {
-          "expr": "sum(increase(container_oom_events_total{container_label_com_docker_compose_service=~\"gateway|risk-adapter|main-llm-vllm|embedding-vllm|risk-prompt-vllm\"}[$window]))",
+          "expr": "sum(increase(container_oom_events_total{container_label_com_docker_compose_service=~\"gateway|risk-adapter|main-llm-vllm|embedding-vllm|colbert-ko-vllm|risk-prompt-vllm\"}[$window]))",
           "refId": "A",
           "legendFormat": "oom events"
         },
         {
-          "expr": "sum(changes(container_start_time_seconds{container_label_com_docker_compose_service=~\"gateway|risk-adapter|main-llm-vllm|embedding-vllm|risk-prompt-vllm\"}[$window]))",
+          "expr": "sum(changes(container_start_time_seconds{container_label_com_docker_compose_service=~\"gateway|risk-adapter|main-llm-vllm|embedding-vllm|colbert-ko-vllm|risk-prompt-vllm\"}[$window]))",
           "refId": "B",
           "legendFormat": "restart signals"
         }
@@ -581,7 +581,7 @@
           "legendFormat": "Min GPU Headroom (bytes)"
         },
         {
-          "expr": "label_replace(label_replace((sum(increase(container_oom_events_total{container_label_com_docker_compose_service=~\"gateway|risk-adapter|main-llm-vllm|embedding-vllm|risk-prompt-vllm\"}[$__range])) or vector(0)), \"area\", \"OOM / Restart\", \"\", \"\"), \"suggested_action\", \"Open: GPU Capacity and OOM Risk\", \"\", \"\")",
+          "expr": "label_replace(label_replace((sum(increase(container_oom_events_total{container_label_com_docker_compose_service=~\"gateway|risk-adapter|main-llm-vllm|embedding-vllm|colbert-ko-vllm|risk-prompt-vllm\"}[$__range])) or vector(0)), \"area\", \"OOM / Restart\", \"\", \"\"), \"suggested_action\", \"Open: GPU Capacity and OOM Risk\", \"\", \"\")",
           "instant": true,
           "refId": "C",
           "legendFormat": "OOM / Restart Events"
@@ -933,12 +933,12 @@
       },
       "targets": [
         {
-          "expr": "sum(increase(container_oom_events_total{container_label_com_docker_compose_service=~\"gateway|risk-adapter|main-llm-vllm|embedding-vllm|risk-prompt-vllm\"}[$__range]))",
+          "expr": "sum(increase(container_oom_events_total{container_label_com_docker_compose_service=~\"gateway|risk-adapter|main-llm-vllm|embedding-vllm|colbert-ko-vllm|risk-prompt-vllm\"}[$__range]))",
           "refId": "A",
           "legendFormat": "oom events"
         },
         {
-          "expr": "sum(changes(container_start_time_seconds{container_label_com_docker_compose_service=~\"gateway|risk-adapter|main-llm-vllm|embedding-vllm|risk-prompt-vllm\"}[$__range]))",
+          "expr": "sum(changes(container_start_time_seconds{container_label_com_docker_compose_service=~\"gateway|risk-adapter|main-llm-vllm|embedding-vllm|colbert-ko-vllm|risk-prompt-vllm\"}[$__range]))",
           "refId": "B",
           "legendFormat": "restart signals"
         }
@@ -1301,7 +1301,7 @@
         "multi": true,
         "name": "runtime_service",
         "options": [],
-        "query": "main-llm-vllm,embedding-vllm,risk-prompt-vllm",
+        "query": "main-llm-vllm,embedding-vllm,colbert-ko-vllm,risk-prompt-vllm",
         "type": "custom"
       },
       {
@@ -1317,14 +1317,14 @@
         "multi": true,
         "name": "route",
         "options": [],
-        "query": "/v1/chat/completions,/v1/embeddings,/v1/risk/.*,/health,/ready,/v1/models,/metrics,/docs,/openapi.json",
+        "query": "/v1/chat/completions,/v1/embeddings,/v1/risk/.*,/v1/retrieval/.*,/health,/ready,/v1/models,/metrics,/docs,/openapi.json",
         "type": "custom"
       },
       {
         "current": {
           "selected": false,
           "text": "All user routes",
-          "value": "/v1/chat/completions|/v1/embeddings|/v1/risk/.*"
+          "value": "/v1/chat/completions|/v1/embeddings|/v1/risk/.*|/v1/retrieval/.*"
         },
         "hide": 0,
         "includeAll": false,
@@ -1335,7 +1335,7 @@
           {
             "selected": true,
             "text": "All user routes",
-            "value": "/v1/chat/completions|/v1/embeddings|/v1/risk/.*"
+            "value": "/v1/chat/completions|/v1/embeddings|/v1/risk/.*|/v1/retrieval/.*"
           },
           {
             "selected": false,
@@ -1351,9 +1351,14 @@
             "selected": false,
             "text": "Risk",
             "value": "/v1/risk/.*"
+          },
+          {
+            "selected": false,
+            "text": "Retrieval",
+            "value": "/v1/retrieval/.*"
           }
         ],
-        "query": "All user routes : /v1/chat/completions|/v1/embeddings|/v1/risk/.*, Chat : /v1/chat/completions, Embeddings : /v1/embeddings, Risk : /v1/risk/.*",
+        "query": "All user routes : /v1/chat/completions|/v1/embeddings|/v1/risk/.*|/v1/retrieval/.*, Chat : /v1/chat/completions, Embeddings : /v1/embeddings, Risk : /v1/risk/.*, Retrieval : /v1/retrieval/.*",
         "type": "custom"
       },
       {

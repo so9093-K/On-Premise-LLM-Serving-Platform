@@ -16,8 +16,8 @@ def test_model_registry_normalizes_public_models_and_serving_records():
         load_yaml("configs/model_serving.yaml"),
     )
 
-    assert registry.logical_ids() == ("local-main", "local-embed", "risk-prompt")
-    assert registry.public_logical_ids() == ("local-main", "local-embed", "risk-prompt")
+    assert registry.logical_ids() == ("local-main", "local-embed", "local-colbert-ko", "risk-prompt")
+    assert registry.public_logical_ids() == ("local-main", "local-embed", "local-colbert-ko", "risk-prompt")
     assert registry.alignment_issues() == ()
 
     main = registry.record("local-main")
@@ -66,15 +66,19 @@ def test_model_registry_projects_runtime_services_and_contracts():
     )
 
     services = {item.service_key: item for item in registry.iter_runtime_services()}
-    assert list(services) == ["main_llm", "embedding", "risk_prompt"]
+    assert list(services) == ["main_llm", "embedding", "colbert_ko", "risk_prompt"]
     assert services["main_llm"].logical_id == "local-main"
     assert services["main_llm"].served_model_name == "local-main"
     assert services["main_llm"].compose_service_name == "main-llm-vllm"
     assert services["embedding"].compose_service_name == "embedding-vllm"
+    assert services["colbert_ko"].compose_service_name == "colbert-ko-vllm"
     assert services["risk_prompt"].endpoint_path == "/v1/chat/completions"
 
     projected_contracts = registry.model_contracts_document()["models"]
     assert projected_contracts["local-main"]["runtime"] == "vllm"
+    assert projected_contracts["local-colbert-ko"]["runtime"] == "vllm+adapter"
+    assert projected_contracts["local-colbert-ko"]["public_endpoint"] == "/v1/retrieval/rerank"
+    assert projected_contracts["local-colbert-ko"]["runtime_endpoint"] == "/v1/score"
     assert projected_contracts["risk-prompt"]["runtime"] == "vllm+adapter"
     assert projected_contracts["risk-prompt"]["public_endpoint"] == "/v1/risk/detectors/prompt/assessments"
     assert projected_contracts["risk-prompt"]["runtime_endpoint"] == "/v1/chat/completions"
@@ -111,9 +115,9 @@ def test_model_registry_projects_model_cards_and_runtime_validation_matrix():
     assert "risk_siren" not in targets
 
     matrix = {item["id"]: item for item in registry.runtime_validation_matrix_document()["validation_checks"]}
-    assert matrix["gateway-runtime"]["models"] == ["local-main", "local-embed", "risk-prompt"]
-    assert matrix["vllm-runtime"]["runtime_services"] == ["main_llm", "embedding", "risk_prompt"]
-    assert matrix["grafana-dashboard-render"]["runtime_services"] == ["main_llm", "embedding", "risk_prompt"]
+    assert matrix["gateway-runtime"]["models"] == ["local-main", "local-embed", "local-colbert-ko", "risk-prompt"]
+    assert matrix["vllm-runtime"]["runtime_services"] == ["main_llm", "embedding", "colbert_ko", "risk_prompt"]
+    assert matrix["grafana-dashboard-render"]["runtime_services"] == ["main_llm", "embedding", "colbert_ko", "risk_prompt"]
 
 
 def test_model_registry_projects_openapi_schema_and_monitoring_labels():
@@ -124,12 +128,15 @@ def test_model_registry_projects_openapi_schema_and_monitoring_labels():
 
     schema = registry.model_list_schema_document()
     item_properties = schema["properties"]["data"]["items"]["properties"]
-    assert item_properties["id"]["enum"] == ["local-main", "local-embed", "risk-prompt"]
+    assert item_properties["id"]["enum"] == ["local-main", "local-embed", "local-colbert-ko", "risk-prompt"]
     assert item_properties["capabilities"]["items"]["enum"] == [
         "chat.completions",
         "chat.completions.vision",
         "chat.completions.tools",
         "embeddings",
+        "retrieval_rerank",
+        "retrieval_score",
+        "retrieval_token_embeddings",
         "risk.prompt_attack_signal",
     ]
     assert "request_parameters" in item_properties
@@ -139,6 +146,8 @@ def test_model_registry_projects_openapi_schema_and_monitoring_labels():
     assert public_models["local-main"]["request_parameters"]["n"] == {"type": "integer", "min": 1, "max": 1}
     assert public_models["local-main"]["request_parameters"]["reasoning"] == {"type": "boolean", "default": False, "mode": "request_opt_in"}
     assert public_models["local-embed"]["request_parameters"]["dimensions"] == {"type": "integer", "enum": [768, 512, 256, 128]}
+    assert public_models["local-colbert-ko"]["request_parameters"] == {}
+    assert "retrieval_rerank" in public_models["local-colbert-ko"]["capabilities"]
     assert public_models["risk-prompt"]["request_parameters"] == {}
     assert public_models["risk-prompt"]["fixed_parameters"] == {"max_tokens": 1, "temperature": 0}
 
@@ -149,4 +158,4 @@ def test_model_registry_projects_openapi_schema_and_monitoring_labels():
         "runtime_service": "main-llm-vllm",
         "port": 9401,
     }
-    assert registry.monitoring_compose_service_regex() == "main-llm-vllm|embedding-vllm|risk-prompt-vllm"
+    assert registry.monitoring_compose_service_regex() == "main-llm-vllm|embedding-vllm|colbert-ko-vllm|risk-prompt-vllm"

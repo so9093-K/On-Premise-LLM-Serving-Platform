@@ -10,7 +10,7 @@ Command:
 
 이 리포트는 현재 source tree에서 생성되며 로컬 runtime/cache/build 디렉터리는 제외한다.
 
-- 검토 파일 수: **315**
+- 검토 파일 수: **320**
 - CSV matrix: `reports/refactor/project_inventory_current.csv`
 - JSON matrix: `reports/refactor/project_inventory_current.json`
 
@@ -25,7 +25,7 @@ Command:
 | `.env.local.example` | 1 |
 | `.gitignore` | 1 |
 | `.gitlab-ci.yml` | 1 |
-| `.other` | 2 |
+| `.other` | 7 |
 | `.python-version` | 1 |
 | `CHANGELOG.md` | 1 |
 | `Dockerfile` | 1 |
@@ -69,8 +69,8 @@ Command:
 | 경로 | 줄 수 | 담당 | 검토 메모 |
 |---|---:|---|---|
 | `specs/openapi.gateway.yaml` | 3795 | api-contracts | supporting project file |
-| `reports/refactor/project_inventory_current.json` | 3572 | handoff-reporting | handoff/review artifact; avoid stale phase snapshots in active package |
-| `tests/unit/test_gateway_app.py` | 1746 | quality | test coverage; keep deterministic and avoid live GPU dependency |
+| `reports/refactor/project_inventory_current.json` | 3781 | handoff-reporting | handoff/review artifact; avoid stale phase snapshots in active package |
+| `tests/unit/test_gateway_app.py` | 1749 | quality | test coverage; keep deterministic and avoid live GPU dependency |
 | `specs/openapi.risk-adapter.yaml` | 1638 | api-contracts | supporting project file |
 | `ops/grafana/dashboards/serving_home.json` | 1387 | operations | supporting project file |
 | `ops/grafana/dashboards/observability_data_quality.json` | 907 | operations | supporting project file |

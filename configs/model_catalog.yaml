@@ -204,6 +204,76 @@ models:
       - tests/contract/test_runtime_policy.py
       removal_rule: remove from catalog, serving config, model contract, model card,
         public model schema enum, and runtime validation expectations in one change
+  local-colbert-ko:
+    role: retrieval
+    upstream_model_id: sigridjineth/colbert-ko-embeddinggemma-300m
+    provider: sigridjineth
+    family: ColBERT-Ko EmbeddingGemma
+    parameter_class: 300M
+    license: gemma
+    access: public_huggingface
+    primary_capability: retrieval_rerank
+    input_modalities:
+    - text
+    output_modalities:
+    - token_embeddings
+    max_input_tokens: 2048
+    runtime:
+      backend: vllm
+      runner: pooling
+      served_model_name: local-colbert-ko
+      port: 9404
+      internal_endpoint: /v1/score
+      public_adapter_endpoint: /v1/retrieval/rerank
+    source_facts:
+      model_size: 300M parameters
+      license: gemma
+      access: public repository on Hugging Face
+      base_model: google/embeddinggemma-300m
+      architecture: ColBERT late-interaction scoring on EmbeddingGemma-300M backbone
+      scoring_method: late_interaction_maxsim
+      languages:
+      - ko
+      - en
+      max_input_tokens: 2048
+      intended_runtime: vLLM pooling runner with /v1/score endpoint
+      output_type: token_level_embeddings_for_maxsim_scoring
+    project_runtime_policy:
+      runner: pooling
+      max_model_len: 2048
+      max_num_seqs: 1
+      max_num_batched_tokens: 2048
+      gpu_memory_utilization: 0.04
+      query_max_tokens: 128
+      doc_max_tokens: 192
+      max_docs_per_rerank: 32
+      colbert_token_embeddings_public: false
+      policy_reason: ColBERT-Ko late-interaction retrieval on EmbeddingGemma-300M backbone;
+        initial limits set conservatively pending live vLLM scoring validation on RTX
+        6000 Ada
+    gateway_listing:
+      enabled: true
+      backend: colbert_ko_vllm
+      capabilities:
+      - retrieval_rerank
+      - retrieval_score
+      - retrieval_token_embeddings
+    lifecycle:
+      state: active
+      exposure: public
+      owner: platform
+      added_at: 2026-05-18
+      deprecation_deadline: null
+      removal_ticket: null
+      add_or_remove_via:
+      - configs/model_catalog.yaml
+      - configs/model_serving.yaml
+      - contracts/model_contracts.yaml
+      - model_cards/<logical-id>.json
+      - specs/schemas/model_list_response.schema.json
+      - tests/contract/test_runtime_policy.py
+      removal_rule: remove from catalog, serving config, model contract, model card,
+        public model schema enum, and runtime validation expectations in one change
   risk-prompt:
     role: risk_prompt_detector
     upstream_model_id: kakaocorp/kanana-safeguard-prompt-2.1b

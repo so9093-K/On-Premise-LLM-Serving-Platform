@@ -31,6 +31,11 @@ scrape_configs:
       model: local-embed
       runtime_service: embedding-vllm
   - targets:
+    - colbert-ko-vllm:9404
+    labels:
+      model: local-colbert-ko
+      runtime_service: colbert-ko-vllm
+  - targets:
     - risk-prompt-vllm:9403
     labels:
       model: risk-prompt

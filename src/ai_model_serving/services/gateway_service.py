@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import math
 import time
 from collections.abc import AsyncIterator
 from typing import Any, Protocol
@@ -104,6 +105,7 @@ class GatewayClientSet(Protocol):
     main_llm: Any
     embedding: Any
     risk_adapter: Any
+    colbert_ko: Any
 
 
 class GatewayService:
@@ -266,3 +268,141 @@ class GatewayService:
             raise
         finally:
             self.metrics.record_upstream_request("risk-adapter", path, time.monotonic() - start)
+
+    # ------------------------------------------------------------------
+    # Retrieval: rerank, score, token-embeddings
+    # ------------------------------------------------------------------
+
+    def _resolve_retrieval_mode(self, payload: dict[str, Any]) -> tuple[str, str]:
+        embed_model = self.settings.embedding.model if self.settings.embedding else "local-embed"
+        model = payload.get("model")
+        score_mode = payload.get("score_mode")
+
+        if model is None:
+            model = embed_model if score_mode == "dense_cosine" else "local-colbert-ko"
+
+        if score_mode is None:
+            score_mode = "dense_cosine" if model == embed_model else "late_interaction_maxsim"
+
+        if model == embed_model and score_mode != "dense_cosine":
+            raise ServiceError("MODEL_CAPABILITY_MISMATCH", f"{model} only supports dense_cosine score_mode.", False, 422)
+        if model != embed_model and score_mode != "late_interaction_maxsim":
+            raise ServiceError("MODEL_CAPABILITY_MISMATCH", f"{model} only supports late_interaction_maxsim score_mode.", False, 422)
+
+        return model, score_mode
+
+    @staticmethod
+    def _cosine(v1: list[float], v2: list[float]) -> float:
+        dot = sum(a * b for a, b in zip(v1, v2))
+        n1 = math.sqrt(sum(a * a for a in v1))
+        n2 = math.sqrt(sum(b * b for b in v2))
+        return 0.0 if n1 == 0.0 or n2 == 0.0 else dot / (n1 * n2)
+
+    async def _embed_texts(self, texts: list[str]) -> list[list[float]]:
+        embed_model = self.settings.embedding.model if self.settings.embedding else "local-embed"
+        response = await asyncio.wait_for(
+            self.clients.embedding.post_json("embeddings", {"model": embed_model, "input": texts}),
+            timeout=self.settings.gateway_timeout_seconds,
+        )
+        data = sorted(response.get("data", []), key=lambda x: x.get("index", 0))
+        return [item["embedding"] for item in data]
+
+    async def _score_dense_cosine(self, query: str, documents: list[str]) -> list[float]:
+        vectors = await self._embed_texts([query] + documents)
+        query_vec = vectors[0]
+        return [self._cosine(query_vec, doc_vec) for doc_vec in vectors[1:]]
+
+    async def _score_late_interaction(self, query: str, documents: list[str]) -> list[float]:
+        response = await asyncio.wait_for(
+            self.clients.colbert_ko.post_json("score", {"model": "local-colbert-ko", "text_1": query, "text_2": documents}),
+            timeout=self.settings.gateway_timeout_seconds,
+        )
+        data = response.get("data", [])
+        scores: dict[int, float] = {item["index"]: float(item["score"]) for item in data if "index" in item}
+        return [scores.get(i, 0.0) for i in range(len(documents))]
+
+    async def rerank_documents(self, payload: dict[str, Any]) -> dict[str, Any]:
+        query = payload.get("query", "")
+        documents = payload.get("documents", [])
+        model, score_mode = self._resolve_retrieval_mode(payload)
+        target = "local-colbert-ko" if score_mode == "late_interaction_maxsim" else (
+            self.settings.embedding.logical_id if self.settings.embedding else "local-embed"
+        )
+        start = time.monotonic()
+        try:
+            if score_mode == "late_interaction_maxsim":
+                raw_scores = await self._score_late_interaction(query, documents)
+            else:
+                raw_scores = await self._score_dense_cosine(query, documents)
+        except TimeoutError as exc:
+            self.metrics.record_upstream_error(target, "GATEWAY_TIMEOUT")
+            raise ServiceError("UPSTREAM_TIMEOUT", "Gateway request timed out before the retrieval runtime completed.", True, 504) from exc
+        except ServiceError as exc:
+            self.metrics.record_upstream_error(target, exc.code)
+            raise
+        finally:
+            self.metrics.record_upstream_request(target, "retrieval/rerank", time.monotonic() - start)
+
+        results = sorted(
+            [{"index": i, "document": doc, "score": s} for i, (doc, s) in enumerate(zip(documents, raw_scores))],
+            key=lambda x: x["score"],
+            reverse=True,
+        )
+        return {"model": model, "score_mode": score_mode, "results": results}
+
+    async def score_documents(self, payload: dict[str, Any]) -> dict[str, Any]:
+        query = payload.get("query", "")
+        documents = payload.get("documents", [])
+        model, score_mode = self._resolve_retrieval_mode(payload)
+        target = "local-colbert-ko" if score_mode == "late_interaction_maxsim" else (
+            self.settings.embedding.logical_id if self.settings.embedding else "local-embed"
+        )
+        start = time.monotonic()
+        try:
+            if score_mode == "late_interaction_maxsim":
+                raw_scores = await self._score_late_interaction(query, documents)
+            else:
+                raw_scores = await self._score_dense_cosine(query, documents)
+        except TimeoutError as exc:
+            self.metrics.record_upstream_error(target, "GATEWAY_TIMEOUT")
+            raise ServiceError("UPSTREAM_TIMEOUT", "Gateway request timed out before the retrieval runtime completed.", True, 504) from exc
+        except ServiceError as exc:
+            self.metrics.record_upstream_error(target, exc.code)
+            raise
+        finally:
+            self.metrics.record_upstream_request(target, "retrieval/score", time.monotonic() - start)
+
+        return {"model": model, "score_mode": score_mode, "scores": [{"index": i, "score": s} for i, s in enumerate(raw_scores)]}
+
+    async def get_token_embeddings(self, payload: dict[str, Any]) -> dict[str, Any]:
+        if payload.get("model") != "local-colbert-ko":
+            raise ServiceError("MODEL_CAPABILITY_MISMATCH", "token-embeddings only supports model local-colbert-ko.", False, 422)
+        texts = payload.get("texts", [])
+        request_body: dict[str, Any] = {"model": "local-colbert-ko", "input": texts}
+        if "truncate_to_tokens" in payload:
+            request_body["truncate_prompt_tokens"] = payload["truncate_to_tokens"]
+        start = time.monotonic()
+        try:
+            response = await asyncio.wait_for(
+                self.clients.colbert_ko.post_json("embeddings", request_body),
+                timeout=self.settings.gateway_timeout_seconds,
+            )
+        except TimeoutError as exc:
+            self.metrics.record_upstream_error("local-colbert-ko", "GATEWAY_TIMEOUT")
+            raise ServiceError("UPSTREAM_TIMEOUT", "Gateway request timed out before the ColBERT runtime completed.", True, 504) from exc
+        except ServiceError as exc:
+            self.metrics.record_upstream_error("local-colbert-ko", exc.code)
+            raise
+        finally:
+            self.metrics.record_upstream_request("local-colbert-ko", "token-embeddings", time.monotonic() - start)
+
+        embeddings = []
+        for item in sorted(response.get("data", []), key=lambda x: x.get("index", 0)):
+            emb = item.get("embedding", [])
+            if isinstance(emb, list) and emb and isinstance(emb[0], list):
+                token_count = len(emb)
+            else:
+                emb = [emb] if emb else []
+                token_count = len(emb)
+            embeddings.append({"index": item.get("index", 0), "token_count": token_count, "embedding": emb})
+        return {"model": "local-colbert-ko", "embeddings": embeddings}

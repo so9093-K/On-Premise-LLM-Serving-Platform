@@ -169,8 +169,8 @@ streaming_client_disconnects_total{service="gateway",target="local-main",phase="
 
 | Signal | Query source | 해석 |
 |---|---|---|
-| Container OOM events | `container_oom_events_total{container_label_com_docker_compose_service=~"gateway|risk-adapter|main-llm-vllm|embedding-vllm|risk-prompt-vllm"}` | 컨테이너 OOM event counter. No Data면 cAdvisor source metric 부재를 의미할 수 있다. |
-| Container restart signals | `changes(container_start_time_seconds{container_label_com_docker_compose_service=~"gateway|risk-adapter|main-llm-vllm|embedding-vllm|risk-prompt-vllm"}[$window])` | 선택 window 내 container start time 변화 수. 재시작 counter가 아니라 start-time change signal이다. |
+| Container OOM events | `container_oom_events_total{container_label_com_docker_compose_service=~"gateway|risk-adapter|main-llm-vllm|embedding-vllm|colbert-ko-vllm|risk-prompt-vllm"}` | 컨테이너 OOM event counter. No Data면 cAdvisor source metric 부재를 의미할 수 있다. |
+| Container restart signals | `changes(container_start_time_seconds{container_label_com_docker_compose_service=~"gateway|risk-adapter|main-llm-vllm|embedding-vllm|colbert-ko-vllm|risk-prompt-vllm"}[$window])` | 선택 window 내 container start time 변화 수. 재시작 counter가 아니라 start-time change signal이다. |
 
 운영자는 이 panel의 No Data를 0으로 해석하면 안 된다. 먼저 `Prometheus Target Health`와 cAdvisor scrape 상태를 확인한다.
 

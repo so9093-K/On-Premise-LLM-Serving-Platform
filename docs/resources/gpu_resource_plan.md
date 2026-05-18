@@ -2,7 +2,7 @@
 
 ## 1. 범위
 
-본 문서는 RTX 6000 Ada 48GB 단일 GPU에서 enabled vLLM 모델 3개를 동시에 상주시킬 때의 보수적 리소스 배분 기준을 정의한다. `risk-siren`은 retired 상태이며 기본 runtime budget 합계에서 제외한다.
+본 문서는 RTX 6000 Ada 48GB 단일 GPU에서 enabled vLLM 모델 4개를 동시에 상주시킬 때의 보수적 리소스 배분 기준을 정의한다. `risk-siren`은 retired 상태이며 기본 runtime budget 합계에서 제외한다.
 
 ## 2. 모델별 Budget
 
@@ -10,8 +10,9 @@
 |---|---|---:|
 | `RedHatAI/gemma-4-26B-A4B-it-FP8-Dynamic` | Main LLM | 34~35GiB |
 | `google/embeddinggemma-300m` | Embedding | 1.5~2GiB |
+| `sigridjineth/colbert-ko-embeddinggemma-300m` | ColBERT-ko retrieval | 1.5~2GiB |
 | `kakaocorp/kanana-safeguard-prompt-2.1b` | Prompt detector | 2.5~3.5GiB |
-| Reserve | CUDA, fragmentation, peak | 6~8GiB |
+| Reserve | CUDA, fragmentation, peak | 3~5GiB |
 
 ## 3. Starting Utilization
 
@@ -21,8 +22,10 @@ Main LLM checkpoint는 RedHatAI의 preliminary FP8 Dynamic checkpoint이며, mod
 |---|---:|---:|
 | Main LLM | 9401 | 0.72 |
 | Embedding | 9402 | 0.04 |
+| ColBERT-ko | 9404 | 0.04 |
 | Prompt | 9403 | 0.065 |
-| 합계 | - | 0.825 |
+| 합계 (3모델 구성) | - | 0.825 |
+| 합계 (4모델 구성, ColBERT-ko 포함) | - | 0.865 |
 
 ## 4. 제한 조건
 
@@ -81,13 +84,16 @@ Detector 출력 토큰 수, 모델 fallback 금지, 독립 vLLM process/port 원
 
 ## 리소스 할당 요약
 
-budget id: `single_a6000_conservative` / 설정된 enabled `gpu_memory_utilization` 합계: `0.825`
+budget id: `single_a6000_conservative` / 설정된 enabled `gpu_memory_utilization` 합계: `0.865`
 
 | 모델 | 포트 | 역할 | `gpu_memory_utilization` | 기본 concurrency |
 |---|---:|---|---:|---:|
 | `local-main` | 9401 | chat completion | 0.72 | 1 |
 | `local-embed` | 9402 | embedding | 0.04 | 2 |
+| `local-colbert-ko` | 9404 | ColBERT retrieval | 0.04 | 1 |
 | `risk-prompt` | 9403 | prompt risk signal | 0.065 | 1 |
+
+이전 3모델 구성 (ColBERT-ko 제외) 합계: `0.825`
 
 Tuning order: concurrency 축소 → max tokens/batch token 조정 순서를 따른다.
 

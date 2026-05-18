@@ -40,6 +40,7 @@ def test_ops_templates_exist_without_runtime_claims() -> None:
     assert labels == {
         "local-main": "main-llm-vllm",
         "local-embed": "embedding-vllm",
+        "local-colbert-ko": "colbert-ko-vllm",
         "risk-prompt": "risk-prompt-vllm",
     }
 
@@ -119,10 +120,11 @@ def test_operator_status_board_ux_is_user_facing() -> None:
     assert re.search(r"(?<!/v1)/risk/\.\*", user_route_text) is None
     user_route_options = {item["text"]: item["value"] for item in variables_by_name["user_route"]["options"]}
     assert user_route_options == {
-        "All user routes": "/v1/chat/completions|/v1/embeddings|/v1/risk/.*",
+        "All user routes": "/v1/chat/completions|/v1/embeddings|/v1/risk/.*|/v1/retrieval/.*",
         "Chat": "/v1/chat/completions",
         "Embeddings": "/v1/embeddings",
         "Risk": "/v1/risk/.*",
+        "Retrieval": "/v1/retrieval/.*",
     }
 
 

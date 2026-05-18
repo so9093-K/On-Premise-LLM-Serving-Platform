@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "GatewayRetrievalScoreResponse",
+  "type": "object",
+  "required": ["scores", "model", "score_mode"],
+  "additionalProperties": false,
+  "properties": {
+    "model": {"type": "string"},
+    "score_mode": {
+      "type": "string",
+      "enum": ["dense_cosine", "late_interaction_maxsim"]
+    },
+    "scores": {
+      "type": "array",
+      "minItems": 0,
+      "items": {
+        "type": "object",
+        "required": ["index", "score"],
+        "additionalProperties": false,
+        "properties": {
+          "index": {"type": "integer", "minimum": 0},
+          "score": {"type": "number"}
+        }
+      }
+    }
+  }
+}

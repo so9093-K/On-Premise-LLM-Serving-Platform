@@ -110,6 +110,7 @@ def validate_request_schemas() -> None:
         'specs/schemas/model_list_response.schema.json': {'object': 'list', 'data': [
             {'id': 'local-main', 'object': 'model', 'backend': 'main_llm_vllm', 'capabilities': ['chat.completions'], 'request_parameters': {'temperature': {'type': 'number', 'min': 0, 'max': 2}}},
             {'id': 'local-embed', 'object': 'model', 'backend': 'embedding_vllm', 'capabilities': ['embeddings'], 'request_parameters': {'dimensions': {'type': 'integer', 'enum': [768, 512, 256, 128]}}},
+            {'id': 'local-colbert-ko', 'object': 'model', 'backend': 'colbert_ko_vllm', 'capabilities': ['retrieval_rerank'], 'request_parameters': {}},
             {'id': 'risk-prompt', 'object': 'model', 'backend': 'risk_adapter', 'capabilities': ['risk.prompt_attack_signal'], 'request_parameters': {}, 'fixed_parameters': {'max_tokens': 1, 'temperature': 0}},
         ]},
     }
@@ -172,6 +173,9 @@ def validate_generated_openapi_contract_schemas() -> None:
         '/v1/embeddings': 'embedding_request.schema.json',
         '/v1/risk/detectors/prompt/assessments': 'risk_assessment_request.schema.json',
         '/v1/risk/assessments': 'risk_assessment_request.schema.json',
+        '/v1/retrieval/rerank': 'retrieval_rerank_request.schema.json',
+        '/v1/retrieval/score': 'retrieval_score_request.schema.json',
+        '/v1/retrieval/token-embeddings': 'retrieval_token_embeddings_request.schema.json',
     }
     expected_gateway_responses = {
         '/v1/models': ('get', 'model_list_response.schema.json'),
@@ -179,6 +183,9 @@ def validate_generated_openapi_contract_schemas() -> None:
         '/v1/embeddings': ('post', 'embedding_response.schema.json'),
         '/v1/risk/detectors/prompt/assessments': ('post', 'risk_assessment_response.schema.json'),
         '/v1/risk/assessments': ('post', 'risk_assessment_response.schema.json'),
+        '/v1/retrieval/rerank': ('post', 'retrieval_rerank_response.schema.json'),
+        '/v1/retrieval/score': ('post', 'retrieval_score_response.schema.json'),
+        '/v1/retrieval/token-embeddings': ('post', 'retrieval_token_embeddings_response.schema.json'),
     }
     expected_risk_requests = {
         '/v1/risk/detectors/prompt/assessments': 'risk_assessment_request.schema.json',

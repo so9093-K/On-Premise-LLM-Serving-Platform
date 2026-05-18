@@ -3753,6 +3753,259 @@ paths:
       - bearerAuth: []
       x-contract-schema: risk_assessment_request.schema.json
       x-response-contract-schema: risk_assessment_response.schema.json
+  /v1/retrieval/rerank:
+    post:
+      tags:
+      - Retrieval
+      summary: 문서 관련도 재순위 정렬
+      description: |-
+        query와 documents 목록을 받아 관련도 점수로 내림차순 정렬한 결과를 반환합니다.
+
+        - `score_mode=late_interaction_maxsim` — `local-colbert-ko` ColBERT MaxSim 점수
+        - `score_mode=dense_cosine` — `local-embed` 밀집 벡터 코사인 유사도
+
+        모델이 요청한 `score_mode`를 지원하지 않으면 422를 반환합니다.
+      operationId: rerankDocuments
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: ./schemas/retrieval_rerank_request.schema.json
+            examples:
+              colbert_rerank:
+                summary: ColBERT rerank
+                value:
+                  model: local-colbert-ko
+                  query: 검색어
+                  documents:
+                  - 문서1
+                  - 문서2
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: ./schemas/retrieval_rerank_response.schema.json
+        '401':
+          description: API Bearer token 필요
+          content:
+            application/json:
+              schema:
+                $ref: ./schemas/common_error.schema.json
+        '413':
+          description: 요청 body가 너무 큼
+          content:
+            application/json:
+              schema:
+                $ref: ./schemas/common_error.schema.json
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: ./schemas/common_error.schema.json
+        '429':
+          description: Upstream rate limit 또는 local admission timeout
+          content:
+            application/json:
+              schema:
+                $ref: ./schemas/common_error.schema.json
+        '500':
+          description: 내부 서버 오류
+          content:
+            application/json:
+              schema:
+                $ref: ./schemas/common_error.schema.json
+        '502':
+          description: Upstream 오류 또는 유효하지 않은 upstream 응답
+          content:
+            application/json:
+              schema:
+                $ref: ./schemas/common_error.schema.json
+        '503':
+          description: Runtime 또는 dependency를 사용할 수 없음
+          content:
+            application/json:
+              schema:
+                $ref: ./schemas/common_error.schema.json
+        '504':
+          description: Upstream timeout
+          content:
+            application/json:
+              schema:
+                $ref: ./schemas/common_error.schema.json
+      security:
+      - bearerAuth: []
+      x-contract-schema: retrieval_rerank_request.schema.json
+      x-response-contract-schema: retrieval_rerank_response.schema.json
+  /v1/retrieval/score:
+    post:
+      tags:
+      - Retrieval
+      summary: 문서 관련도 점수 계산 (입력 순서 유지)
+      description: |-
+        query와 documents 목록을 받아 관련도 점수를 계산합니다. 입력 순서를 유지합니다.
+
+        재순위 정렬이 필요하면 `/v1/retrieval/rerank`를 사용하세요.
+      operationId: scoreDocuments
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: ./schemas/retrieval_score_request.schema.json
+            examples:
+              score_documents:
+                summary: Score documents
+                value:
+                  model: local-colbert-ko
+                  query: 검색어
+                  documents:
+                  - 문서1
+                  - 문서2
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: ./schemas/retrieval_score_response.schema.json
+        '401':
+          description: API Bearer token 필요
+          content:
+            application/json:
+              schema:
+                $ref: ./schemas/common_error.schema.json
+        '413':
+          description: 요청 body가 너무 큼
+          content:
+            application/json:
+              schema:
+                $ref: ./schemas/common_error.schema.json
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: ./schemas/common_error.schema.json
+        '429':
+          description: Upstream rate limit 또는 local admission timeout
+          content:
+            application/json:
+              schema:
+                $ref: ./schemas/common_error.schema.json
+        '500':
+          description: 내부 서버 오류
+          content:
+            application/json:
+              schema:
+                $ref: ./schemas/common_error.schema.json
+        '502':
+          description: Upstream 오류 또는 유효하지 않은 upstream 응답
+          content:
+            application/json:
+              schema:
+                $ref: ./schemas/common_error.schema.json
+        '503':
+          description: Runtime 또는 dependency를 사용할 수 없음
+          content:
+            application/json:
+              schema:
+                $ref: ./schemas/common_error.schema.json
+        '504':
+          description: Upstream timeout
+          content:
+            application/json:
+              schema:
+                $ref: ./schemas/common_error.schema.json
+      security:
+      - bearerAuth: []
+      x-contract-schema: retrieval_score_request.schema.json
+      x-response-contract-schema: retrieval_score_response.schema.json
+  /v1/retrieval/token-embeddings:
+    post:
+      tags:
+      - Retrieval
+      summary: Token-level embedding 행렬 조회 (restricted)
+      description: |-
+        `local-colbert-ko` 전용 token-level embedding 행렬을 반환합니다. ColBERT 디버깅 및 오프라인 인덱스 구축용 admin endpoint입니다.
+
+        `local-embed` 같은 비ColBERT 모델을 지정하면 422 `MODEL_CAPABILITY_MISMATCH`를 반환합니다.
+      operationId: getTokenEmbeddings
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: ./schemas/retrieval_token_embeddings_request.schema.json
+            examples:
+              token_embeddings:
+                summary: Token embeddings
+                value:
+                  model: local-colbert-ko
+                  texts:
+                  - 문서1
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: ./schemas/retrieval_token_embeddings_response.schema.json
+        '401':
+          description: Admin Bearer token 필요
+          content:
+            application/json:
+              schema:
+                $ref: ./schemas/common_error.schema.json
+        '413':
+          description: 요청 body가 너무 큼
+          content:
+            application/json:
+              schema:
+                $ref: ./schemas/common_error.schema.json
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: ./schemas/common_error.schema.json
+        '429':
+          description: Upstream rate limit 또는 local admission timeout
+          content:
+            application/json:
+              schema:
+                $ref: ./schemas/common_error.schema.json
+        '500':
+          description: 내부 서버 오류
+          content:
+            application/json:
+              schema:
+                $ref: ./schemas/common_error.schema.json
+        '502':
+          description: Upstream 오류 또는 유효하지 않은 upstream 응답
+          content:
+            application/json:
+              schema:
+                $ref: ./schemas/common_error.schema.json
+        '503':
+          description: Runtime 또는 dependency를 사용할 수 없음
+          content:
+            application/json:
+              schema:
+                $ref: ./schemas/common_error.schema.json
+        '504':
+          description: Upstream timeout
+          content:
+            application/json:
+              schema:
+                $ref: ./schemas/common_error.schema.json
+      security:
+      - adminBearerAuth: []
+      x-contract-schema: retrieval_token_embeddings_request.schema.json
+      x-response-contract-schema: retrieval_token_embeddings_response.schema.json
 components:
   schemas: {}
   securitySchemes:

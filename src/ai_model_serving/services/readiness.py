@@ -18,6 +18,7 @@ class DependencyProbe:
     path: str
     headers: Mapping[str, str] | None = None
     evaluator: ReadinessEvaluator | None = None
+    required: bool = True
 
 
 async def collect_readiness(
@@ -48,7 +49,8 @@ async def collect_readiness(
             item["message"] = message
         dependencies.append(item)
 
-    overall = overall_readiness([str(item["status"]) for item in dependencies])
+    required_statuses = [str(item["status"]) for item, probe in zip(dependencies, probes) if probe.required]
+    overall = overall_readiness(required_statuses) if required_statuses else overall_readiness([])
     not_ready_dependencies = [item["name"] for item in dependencies if item["status"] != "ready"]
     if metrics is not None:
         metrics.record_overall_readiness(overall == READY)

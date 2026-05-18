@@ -126,8 +126,8 @@ metric_sources:
   container_signal_sources:
     exporter: cadvisor
     compose_service_label: container_label_com_docker_compose_service
-    critical_container_regex: gateway|risk-adapter|main-llm-vllm|embedding-vllm|risk-prompt-vllm
-    vllm_container_regex: main-llm-vllm|embedding-vllm|risk-prompt-vllm
+    critical_container_regex: gateway|risk-adapter|main-llm-vllm|embedding-vllm|colbert-ko-vllm|risk-prompt-vllm
+    vllm_container_regex: main-llm-vllm|embedding-vllm|colbert-ko-vllm|risk-prompt-vllm
     source_metrics:
     - container_oom_events_total
     - container_start_time_seconds
@@ -375,6 +375,7 @@ resource_monitoring:
   model_labels:
   - local-main
   - local-embed
+  - local-colbert-ko
   - risk-prompt
   must_show:
   - traffic_by_model

@@ -219,7 +219,7 @@ def test_ops_endpoints_require_admin_auth() -> None:
 
 def test_gateway_v1_endpoints_require_public_api_auth() -> None:
     for spec in GATEWAY_ENDPOINTS:
-        if spec.path.startswith("/v1/"):
+        if spec.path.startswith("/v1/") and spec.exposure != "internal_only":
             assert spec.auth == "public_api", (
                 f"Gateway {spec.path} must have auth='public_api', got {spec.auth!r}"
             )
@@ -283,6 +283,9 @@ def test_schema_maps_from_specs_gateway_request() -> None:
         ("POST", "/v1/embeddings"): "embedding_request.schema.json",
         ("POST", "/v1/risk/detectors/prompt/assessments"): "risk_assessment_request.schema.json",
         ("POST", "/v1/risk/assessments"): "risk_assessment_request.schema.json",
+        ("POST", "/v1/retrieval/rerank"): "retrieval_rerank_request.schema.json",
+        ("POST", "/v1/retrieval/score"): "retrieval_score_request.schema.json",
+        ("POST", "/v1/retrieval/token-embeddings"): "retrieval_token_embeddings_request.schema.json",
     }
 
 
@@ -295,6 +298,9 @@ def test_schema_maps_from_specs_gateway_response() -> None:
         ("POST", "/v1/embeddings"): "embedding_response.schema.json",
         ("POST", "/v1/risk/detectors/prompt/assessments"): "risk_assessment_response.schema.json",
         ("POST", "/v1/risk/assessments"): "risk_assessment_response.schema.json",
+        ("POST", "/v1/retrieval/rerank"): "retrieval_rerank_response.schema.json",
+        ("POST", "/v1/retrieval/score"): "retrieval_score_response.schema.json",
+        ("POST", "/v1/retrieval/token-embeddings"): "retrieval_token_embeddings_response.schema.json",
     }
 
 
