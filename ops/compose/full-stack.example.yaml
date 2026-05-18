@@ -84,8 +84,8 @@ services:
           devices: [{capabilities: [gpu]}]
 
   colbert-ko-vllm:
-    image: ${VLLM_IMAGE:?Set VLLM_IMAGE to a tested vLLM OpenAI image tag}
-    command: ["--model", "sigridjineth/colbert-ko-embeddinggemma-300m", "--served-model-name", "local-colbert-ko", "--host", "0.0.0.0", "--port", "9404", "--runner", "pooling", "--max-model-len", "2048", "--max-num-seqs", "1", "--max-num-batched-tokens", "2048", "--gpu-memory-utilization", "0.04"]
+    image: ${COLBERT_KO_VLLM_IMAGE:-ai-model-serving-colbert-ko-vllm:0.0.1}
+    command: ["--model", "/models/colbert-ko-vllm", "--tokenizer", "/models/colbert-ko-vllm/tokenizer", "--served-model-name", "local-colbert-ko", "--host", "0.0.0.0", "--port", "9404", "--runner", "pooling", "--convert", "embed", "--model-impl", "transformers", "--trust-remote-code", "--pooler-config.task", "token_embed", "--max-model-len", "2048", "--max-num-seqs", "1", "--max-num-batched-tokens", "2048", "--gpu-memory-utilization", "0.04"]
     expose: ["9404"]
     env_file: ../../.env
     environment:
@@ -94,6 +94,7 @@ services:
       HF_HOME: /root/.cache/huggingface
     volumes:
       - ${HF_CACHE_DIR:-./model_cache/huggingface}:/root/.cache/huggingface
+      - ${COLBERT_KO_MODEL_DIR:-./models/colbert-ko-vllm}:/models/colbert-ko-vllm:ro
     depends_on:
       embedding-vllm:
         condition: service_healthy

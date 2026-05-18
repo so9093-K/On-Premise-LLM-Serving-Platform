@@ -97,6 +97,11 @@ class FakeGatewayClients:
             "model": "local-embed",
             "data": [{"object": "embedding", "embedding": [0.1] * 768, "index": 0}],
         }, endpoint=RuntimeEndpoint("local-embed", "http://embed/v1", "local-embed", 1))
+        self.colbert_ko = FakeRuntimeClient({
+            "object": "list",
+            "model": "local-colbert-ko",
+            "data": [{"index": 0, "object": "score", "score": 0.7}],
+        }, endpoint=RuntimeEndpoint("local-colbert-ko", "http://colbert/v1", "local-colbert-ko", 1))
         self.risk_adapter = FakeRuntimeClient(
             {
                 "assessment_id": "risk_1",
@@ -129,8 +134,15 @@ def public_models():
             "id": "local-embed",
             "object": "model",
             "backend": "embedding_vllm",
-            "capabilities": ["embeddings"],
+            "capabilities": ["embeddings", "retrieval_rerank", "retrieval_score"],
             "request_parameters": {"dimensions": {"type": "integer", "enum": [768, 512, 256, 128]}},
+        },
+        {
+            "id": "local-colbert-ko",
+            "object": "model",
+            "backend": "colbert_ko_vllm",
+            "capabilities": ["retrieval_rerank", "retrieval_score", "retrieval_token_embeddings"],
+            "request_parameters": {},
         },
         {
             "id": "risk-prompt",
@@ -353,10 +365,16 @@ def test_gateway_health_ready_and_models():
     assert ready["not_ready_dependencies"] == []
     models = client.get("/v1/models", headers=auth_headers()).json()
     by_id = {item["id"]: item for item in models["data"]}
-    assert set(by_id) == {"local-main", "local-embed", "risk-prompt"}
+    assert set(by_id) == {"local-main", "local-embed", "local-colbert-ko", "risk-prompt"}
     assert by_id["local-main"]["request_parameters"]["temperature"] == {"type": "number", "min": 0, "max": 2}
     assert by_id["local-main"]["request_parameters"]["stream"] == {"type": "boolean"}
     assert by_id["local-embed"]["request_parameters"]["dimensions"]["enum"] == [768, 512, 256, 128]
+    assert "retrieval_score" in by_id["local-embed"]["capabilities"]
+    assert by_id["local-colbert-ko"]["capabilities"] == [
+        "retrieval_rerank",
+        "retrieval_score",
+        "retrieval_token_embeddings",
+    ]
     assert by_id["risk-prompt"]["request_parameters"] == {}
     assert by_id["risk-prompt"]["fixed_parameters"] == {"max_tokens": 1, "temperature": 0}
 
@@ -481,6 +499,91 @@ def test_gateway_forwards_chat_and_embeddings_to_vllm_paths():
     )
     assert embed.status_code == 200
     assert clients.embedding.last_path == "embeddings"
+
+
+def test_gateway_colbert_rerank_uses_vllm_native_score_api():
+    clients = FakeGatewayClients()
+    clients.colbert_ko.post_response = {
+        "object": "list",
+        "model": "local-colbert-ko",
+        "data": [
+            {"index": 0, "object": "score", "score": 0.2},
+            {"index": 1, "object": "score", "score": 0.9},
+        ],
+    }
+    client = TestClient(create_gateway_app(settings(), clients))
+
+    response = client.post(
+        "/v1/retrieval/rerank",
+        headers=auth_headers(),
+        json={"model": "local-colbert-ko", "query": "검색어", "documents": ["낮음", "높음"]},
+    )
+
+    assert response.status_code == 200
+    assert clients.colbert_ko.last_path == "score"
+    assert clients.colbert_ko.last_payload["queries"] == "검색어"
+    assert clients.colbert_ko.last_payload["documents"] == ["낮음", "높음"]
+    body = response.json()
+    assert body["score_mode"] == "late_interaction_maxsim"
+    assert [item["index"] for item in body["results"]] == [1, 0]
+
+
+def test_gateway_dense_retrieval_uses_embedding_runtime():
+    clients = FakeGatewayClients()
+    clients.embedding.post_response = {
+        "object": "list",
+        "model": "local-embed",
+        "data": [
+            {"object": "embedding", "embedding": [1.0, 0.0], "index": 0},
+            {"object": "embedding", "embedding": [1.0, 0.0], "index": 1},
+            {"object": "embedding", "embedding": [0.0, 1.0], "index": 2},
+        ],
+    }
+    client = TestClient(create_gateway_app(settings(), clients))
+
+    response = client.post(
+        "/v1/retrieval/score",
+        headers=auth_headers(),
+        json={"model": "local-embed", "query": "검색어", "documents": ["관련", "무관"]},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["score_mode"] == "dense_cosine"
+    assert body["scores"] == [{"index": 0, "score": 1.0}, {"index": 1, "score": 0.0}]
+    assert clients.embedding.last_path == "embeddings"
+
+
+def test_gateway_colbert_token_embeddings_use_pooling_api():
+    clients = FakeGatewayClients()
+    clients.colbert_ko.post_response = {
+        "object": "list",
+        "model": "local-colbert-ko",
+        "data": [{"index": 0, "data": [[0.1, 0.2], [0.3, 0.4]]}],
+    }
+    client = TestClient(create_gateway_app(settings(), clients))
+
+    response = client.post(
+        "/v1/retrieval/token-embeddings",
+        headers=auth_headers(),
+        json={"model": "local-colbert-ko", "texts": ["문서"], "truncate_to_tokens": 16},
+    )
+
+    assert response.status_code == 200
+    assert clients.colbert_ko.last_path == "pooling"
+    assert clients.colbert_ko.last_payload["task"] == "token_embed"
+    assert response.json()["embeddings"][0]["token_count"] == 2
+
+
+def test_gateway_rejects_token_embeddings_for_local_embed():
+    client = TestClient(create_gateway_app(settings(), FakeGatewayClients()))
+    response = client.post(
+        "/v1/retrieval/token-embeddings",
+        headers=auth_headers(),
+        json={"model": "local-embed", "texts": ["문서"]},
+    )
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "MODEL_CAPABILITY_MISMATCH"
 
 
 def test_gateway_rejects_invalid_payloads_before_upstream_call():

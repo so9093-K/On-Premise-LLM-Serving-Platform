@@ -10,7 +10,7 @@ models:
     public_endpoint: /v1/embeddings
     runtime_endpoint: /v1/embeddings
   local-colbert-ko:
-    runtime: vllm+adapter
+    runtime: vllm_native
     port: 9404
     public_endpoint: /v1/retrieval/rerank
     runtime_endpoint: /v1/score

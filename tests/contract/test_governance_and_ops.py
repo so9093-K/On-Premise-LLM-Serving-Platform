@@ -43,6 +43,12 @@ def test_ops_templates_exist_without_runtime_claims() -> None:
         "local-colbert-ko": "colbert-ko-vllm",
         "risk-prompt": "risk-prompt-vllm",
     }
+    compose = yaml.safe_load((ROOT / "ops/compose/full-stack.private-network.yaml").read_text(encoding="utf-8"))
+    colbert_command = compose["services"]["colbert-ko-vllm"]["command"]
+    assert "sigridjineth/colbert-ko-embeddinggemma-300m" not in colbert_command
+    assert "/models/colbert-ko-vllm" in colbert_command
+    assert "--pooler-config.task" in colbert_command
+    assert "token_embed" in colbert_command
 
     for path in [
         "ops/grafana/dashboards/serving_home.json",

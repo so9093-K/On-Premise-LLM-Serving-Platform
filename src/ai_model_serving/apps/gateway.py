@@ -50,7 +50,8 @@ class GatewayClients:
     def __init__(self, settings: AppSettings) -> None:
         self.main_llm = VLLMClient(settings.runtime("main_llm"))
         self.embedding = VLLMClient(settings.runtime("embedding"))
-        self.colbert_ko = VLLMClient(settings.runtime("colbert_ko"))
+        colbert_endpoint = settings.optional_runtime("colbert_ko")
+        self.colbert_ko = VLLMClient(colbert_endpoint) if colbert_endpoint is not None else None
         self.risk_adapter = VLLMClient(
             RuntimeEndpoint(
                 logical_id="risk-adapter",
@@ -67,12 +68,15 @@ class GatewayClients:
         self.runtimes: dict[str, Any] = {
             "main_llm": self.main_llm,
             "embedding": self.embedding,
-            "colbert_ko": self.colbert_ko,
             "risk_adapter": self.risk_adapter,
         }
+        if self.colbert_ko is not None:
+            self.runtimes["colbert_ko"] = self.colbert_ko
 
     async def close(self) -> None:
         for client in (self.main_llm, self.embedding, self.colbert_ko, self.risk_adapter):
+            if client is None:
+                continue
             close = getattr(client, "aclose", None)
             if close is not None:
                 await close()

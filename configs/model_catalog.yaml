@@ -183,11 +183,17 @@ models:
       gpu_memory_utilization: 0.04
       policy_reason: serve EmbeddingGemma through the platform embedding API while
         preserving model-card token and dimension limits
+    retrieval:
+      backend: dense_embedding
+      score_function: cosine
+      score_mode: dense_cosine
     gateway_listing:
       enabled: true
       backend: embedding_vllm
       capabilities:
       - embeddings
+      - retrieval_rerank
+      - retrieval_score
     lifecycle:
       state: active
       exposure: public
@@ -219,12 +225,17 @@ models:
     - token_embeddings
     max_input_tokens: 2048
     runtime:
-      backend: vllm
+      backend: vllm_native
       runner: pooling
       served_model_name: local-colbert-ko
       port: 9404
       internal_endpoint: /v1/score
       public_adapter_endpoint: /v1/retrieval/rerank
+      service: colbert-ko-vllm
+      runtime_model_path: /models/colbert-ko-vllm
+      tokenizer: /models/colbert-ko-vllm/tokenizer
+      production_vllm_native: true
+      promotion_status: production_vllm_native
     source_facts:
       model_size: 300M parameters
       license: gemma
@@ -236,8 +247,16 @@ models:
       - ko
       - en
       max_input_tokens: 2048
-      intended_runtime: vLLM pooling runner with /v1/score endpoint
+      repo_layout: root contains encoder/, tokenizer/, proj.pt, and inference.py;
+        root does not contain config.json.
+      projection_head: proj.pt must be applied after encoder hidden states before
+        L2 normalization and MaxSim scoring.
+      intended_runtime: vLLM pooling runner with token_embed pooler and /v1/score,
+        /v1/rerank, and /pooling endpoints.
       output_type: token_level_embeddings_for_maxsim_scoring
+      vllm_native_docs:
+      - https://docs.vllm.ai/en/latest/models/pooling_models/
+      - https://docs.vllm.ai/en/latest/models/pooling_models/scoring/
     project_runtime_policy:
       runner: pooling
       max_model_len: 2048
@@ -248,9 +267,18 @@ models:
       doc_max_tokens: 192
       max_docs_per_rerank: 32
       colbert_token_embeddings_public: false
-      policy_reason: ColBERT-Ko late-interaction retrieval on EmbeddingGemma-300M backbone;
-        initial limits set conservatively pending live vLLM scoring validation on RTX
-        6000 Ada
+      promotion_gate: reference adapter ranking parity with vLLM native output
+      production_vllm_native: true
+      policy_reason: ColBERT-Ko late-interaction retrieval on EmbeddingGemma-300M
+        backbone; production uses prepared vLLM artifact so proj.pt is applied.
+    retrieval:
+      backend: vllm_native_late_interaction
+      score_function: maxsim
+      score_mode: late_interaction_maxsim
+      production_vllm_native: true
+    reference_adapter:
+      enabled_for_parity: true
+      production_fallback: false
     gateway_listing:
       enabled: true
       backend: colbert_ko_vllm

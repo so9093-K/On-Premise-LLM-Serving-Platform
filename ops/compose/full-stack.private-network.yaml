@@ -167,10 +167,12 @@ services:
           - capabilities:
             - gpu
   colbert-ko-vllm:
-    image: ${VLLM_IMAGE:?Set VLLM_IMAGE to a tested vLLM OpenAI image tag}
+    image: ${COLBERT_KO_VLLM_IMAGE:-ai-model-serving-colbert-ko-vllm:0.0.1}
     command:
     - --model
-    - sigridjineth/colbert-ko-embeddinggemma-300m
+    - /models/colbert-ko-vllm
+    - --tokenizer
+    - /models/colbert-ko-vllm/tokenizer
     - --served-model-name
     - local-colbert-ko
     - --host
@@ -179,6 +181,13 @@ services:
     - '9404'
     - --runner
     - pooling
+    - --convert
+    - embed
+    - --model-impl
+    - transformers
+    - --trust-remote-code
+    - --pooler-config.task
+    - token_embed
     - --max-model-len
     - '2048'
     - --max-num-seqs
@@ -196,6 +205,7 @@ services:
       HF_HOME: /root/.cache/huggingface
     volumes:
     - ${HF_CACHE_DIR:-./model_cache/huggingface}:/root/.cache/huggingface
+    - ${COLBERT_KO_MODEL_DIR:-./models/colbert-ko-vllm}:/models/colbert-ko-vllm:ro
     depends_on:
       embedding-vllm:
         condition: service_healthy

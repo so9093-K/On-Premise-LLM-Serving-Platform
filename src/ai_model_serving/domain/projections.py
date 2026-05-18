@@ -83,7 +83,10 @@ def model_contract_projections(registry: "ModelRegistry") -> tuple["ModelContrac
         runtime = registry._catalog_models()[record.logical_id].get("runtime", {})
         runtime_endpoint = str(runtime.get("endpoint") or runtime.get("internal_endpoint") or "")
         public_endpoint = str(runtime.get("endpoint") or runtime.get("public_adapter_endpoint") or runtime_endpoint)
-        runtime_kind = "vllm+adapter" if public_endpoint != runtime_endpoint else "vllm"
+        if runtime.get("production_vllm_native") is True:
+            runtime_kind = "vllm_native"
+        else:
+            runtime_kind = "vllm+adapter" if public_endpoint != runtime_endpoint else "vllm"
         projections.append(
             ModelContractProjection(
                 logical_id=record.logical_id,

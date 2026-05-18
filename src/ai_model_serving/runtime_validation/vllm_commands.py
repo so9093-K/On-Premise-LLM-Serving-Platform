@@ -39,12 +39,13 @@ def _append_runtime_features(cmd: list[str], cfg: dict[str, Any]) -> None:
 
 
 def render_vllm_command(key: str, cfg: dict[str, Any]) -> list[str]:
+    model_path = cfg.get("runtime_model_path", cfg["name"])
     cmd = [
         "python",
         "-m",
         "vllm.entrypoints.openai.api_server",
         "--model",
-        str(cfg["name"]),
+        str(model_path),
         "--served-model-name",
         str(cfg["served_model_name"]),
         "--host",
@@ -62,6 +63,15 @@ def render_vllm_command(key: str, cfg: dict[str, Any]) -> list[str]:
     ]
     if cfg.get("runner") == "pooling":
         cmd.extend(["--runner", "pooling"])
+    if cfg.get("tokenizer"):
+        cmd.extend(["--tokenizer", str(cfg["tokenizer"])])
+    if cfg.get("convert"):
+        cmd.extend(["--convert", str(cfg["convert"])])
+    if cfg.get("model_impl"):
+        cmd.extend(["--model-impl", str(cfg["model_impl"])])
+    if cfg.get("pooler_config"):
+        for name, value in dict(cfg["pooler_config"]).items():
+            cmd.extend([f"--pooler-config.{name}", str(value)])
     if cfg.get("tensor_parallel_size"):
         cmd.extend(["--tensor-parallel-size", str(cfg["tensor_parallel_size"])])
     if cfg.get("dtype"):

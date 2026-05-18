@@ -29,6 +29,7 @@ tests
 ops/*
 !ops/docker/
 !ops/docker/Dockerfile.risk-vllm-kanana
+!ops/docker/Dockerfile.colbert-ko-vllm
 !ops/patches/
 !ops/patches/transformers_llama_head_dim_guard.py
 harness

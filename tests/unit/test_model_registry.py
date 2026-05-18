@@ -76,7 +76,7 @@ def test_model_registry_projects_runtime_services_and_contracts():
 
     projected_contracts = registry.model_contracts_document()["models"]
     assert projected_contracts["local-main"]["runtime"] == "vllm"
-    assert projected_contracts["local-colbert-ko"]["runtime"] == "vllm+adapter"
+    assert projected_contracts["local-colbert-ko"]["runtime"] == "vllm_native"
     assert projected_contracts["local-colbert-ko"]["public_endpoint"] == "/v1/retrieval/rerank"
     assert projected_contracts["local-colbert-ko"]["runtime_endpoint"] == "/v1/score"
     assert projected_contracts["risk-prompt"]["runtime"] == "vllm+adapter"

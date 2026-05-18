@@ -87,8 +87,9 @@ def validate_alignment() -> None:
         card_policy = card.get("project_runtime_policy", {})
         catalog_policy = catalog_doc["models"][runtime.logical_id].get("project_runtime_policy", {})
 
+        expected_model = str(cfg.get("runtime_model_path", runtime.upstream_model_id))
         expected = {
-            "model": runtime.upstream_model_id,
+            "model": expected_model,
             "served_model_name": runtime.served_model_name,
             "port": str(runtime.port),
             "max_model_len": str(cfg["max_model_len"]),
@@ -103,6 +104,15 @@ def validate_alignment() -> None:
 
         if cfg.get("runner") == "pooling" and str(args.get("runner")) != "pooling":
             errors.append(f"{service_name}: embedding service must use --runner pooling")
+        if runtime.logical_id == "local-colbert-ko":
+            if args.get("model") == runtime.upstream_model_id:
+                errors.append(f"{service_name}: must not pass the non-loadable Hugging Face repo root as --model")
+            for key in ["tokenizer", "convert"]:
+                if str(args.get(key)) != str(cfg.get(key)):
+                    errors.append(f"{service_name}: --{key} must match ColBERT vLLM native config")
+            pooler_task = args.get("pooler_config.task")
+            if pooler_task != "token_embed":
+                errors.append(f"{service_name}: ColBERT late interaction requires --pooler-config.task token_embed")
 
         max_model_len = as_int(args.get("max_model_len"), "max_model_len", service_name)
         max_batched = as_int(args.get("max_num_batched_tokens"), "max_num_batched_tokens", service_name)

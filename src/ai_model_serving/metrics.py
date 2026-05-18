@@ -144,6 +144,30 @@ class Metrics:
             ["service", "target", "phase"],
             registry=self.registry,
         )
+        self.retrieval_requests = Counter(
+            "retrieval_requests_total",
+            "Retrieval requests by route, model, backend, score mode, and status. Labels never include user text.",
+            ["service", "route", "model", "backend", "score_mode", "status_code"],
+            registry=self.registry,
+        )
+        self.retrieval_latency = Histogram(
+            "retrieval_request_duration_seconds",
+            "Retrieval request latency by route, model, backend, and score mode.",
+            ["service", "route", "model", "backend", "score_mode"],
+            registry=self.registry,
+        )
+        self.retrieval_items = Histogram(
+            "retrieval_items_per_request",
+            "Number of documents/items per retrieval request.",
+            ["service", "route", "model", "backend", "score_mode"],
+            registry=self.registry,
+        )
+        self.retrieval_response_bytes = Histogram(
+            "retrieval_response_bytes",
+            "Approximate retrieval response payload size in bytes.",
+            ["service", "route", "model", "backend", "score_mode"],
+            registry=self.registry,
+        )
 
     async def http_middleware(
         self,
@@ -210,6 +234,24 @@ class Metrics:
 
     def record_streaming_client_disconnect(self, target: str, phase: str) -> None:
         self.streaming_client_disconnects.labels(self.service, target, phase).inc()
+
+    def record_retrieval_request(
+        self,
+        *,
+        route: str,
+        model: str,
+        backend: str,
+        score_mode: str,
+        status_code: int,
+        elapsed_seconds: float,
+        item_count: int,
+        response_bytes: int = 0,
+    ) -> None:
+        labels = (self.service, route, model, backend, score_mode)
+        self.retrieval_requests.labels(*labels, str(status_code)).inc()
+        self.retrieval_latency.labels(*labels).observe(elapsed_seconds)
+        self.retrieval_items.labels(*labels).observe(max(0, item_count))
+        self.retrieval_response_bytes.labels(*labels).observe(max(0, response_bytes))
 
     def record_readiness(self, dependency: str, ready: bool) -> None:
         self.service_readiness.labels(self.service, dependency).set(1 if ready else 0)

@@ -37,6 +37,7 @@ def recommended_images() -> dict[str, str]:
     return {
         "PLATFORM_IMAGE": str(images["platform"]["default"]),
         "VLLM_IMAGE": str(images["vllm"]["default"]),
+        "COLBERT_KO_VLLM_IMAGE": str(images.get("colbert_ko_vllm", images["vllm"])["default"]),
         "RISK_VLLM_IMAGE": str(images.get("risk_vllm", images["vllm"])["default"]),
         "DCGM_EXPORTER_IMAGE": str(images["dcgm_exporter"]["default"]),
         "PROMETHEUS_IMAGE": str(images["prometheus"]["default"]),
@@ -364,7 +365,7 @@ def main(argv: list[str] | None = None) -> int:
     print(f"profile={args.profile} APP_ENV={values['APP_ENV']} PROJECT_VERSION={values['PROJECT_VERSION']}")
     if args.profile == "compose":
         print("image tags:")
-        for key in ["PLATFORM_IMAGE", "VLLM_IMAGE", "RISK_VLLM_IMAGE", "DCGM_EXPORTER_IMAGE", "PROMETHEUS_IMAGE", "GRAFANA_IMAGE", "CADVISOR_IMAGE"]:
+        for key in ["PLATFORM_IMAGE", "VLLM_IMAGE", "COLBERT_KO_VLLM_IMAGE", "RISK_VLLM_IMAGE", "DCGM_EXPORTER_IMAGE", "PROMETHEUS_IMAGE", "GRAFANA_IMAGE", "CADVISOR_IMAGE"]:
             print(f"  {key}={values[key]}")
     if args.profile == "compose":
         if out_path.resolve() == (ROOT / ".env").resolve():

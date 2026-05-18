@@ -688,6 +688,267 @@
         },
         "overrides": []
       }
+    },
+    {
+      "id": 15,
+      "type": "timeseries",
+      "title": "Retrieval Request Rate",
+      "description": "Healthy/정상: expected retrieval traffic appears by route/model/backend/score_mode. Attention/주의: missing route or model series can mean Gateway metrics or request routing drift.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 27,
+        "w": 12,
+        "h": 6
+      },
+      "targets": [
+        {
+          "expr": "sum by (route, model, backend, score_mode) (rate(retrieval_requests_total{service=\"gateway\",route=~\"/v1/retrieval/(rerank|score|token-embeddings)\"}[$window]))",
+          "refId": "A",
+          "legendFormat": "{{route}} {{model}} {{backend}} {{score_mode}}"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "decimals": 3
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 16,
+      "type": "timeseries",
+      "title": "Retrieval p50/p95 Latency",
+      "description": "Healthy/정상: p50/p95 stay within retrieval SLO by route/model/backend/score_mode. Attention/주의: late_interaction_maxsim latency spikes should be checked against colbert-ko-vllm queue and GPU headroom.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 27,
+        "w": 12,
+        "h": 6
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum by (le, route, model, backend, score_mode) (rate(retrieval_request_duration_seconds_bucket{service=\"gateway\"}[$window])))",
+          "refId": "A",
+          "legendFormat": "p50 {{route}} {{model}} {{score_mode}}"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum by (le, route, model, backend, score_mode) (rate(retrieval_request_duration_seconds_bucket{service=\"gateway\"}[$window])))",
+          "refId": "B",
+          "legendFormat": "p95 {{route}} {{model}} {{score_mode}}"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "decimals": 3
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 17,
+      "type": "timeseries",
+      "title": "Retrieval Error Rate",
+      "description": "Healthy/정상: non-2xx rate is zero. Attention/주의: 422 indicates validation/capability mismatch; 503/504 indicates unavailable or timed-out retrieval upstream.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 33,
+        "w": 12,
+        "h": 6
+      },
+      "targets": [
+        {
+          "expr": "sum by (route, model, backend, score_mode, status_code) (rate(retrieval_requests_total{service=\"gateway\",status_code!~\"2..\"}[$window]))",
+          "refId": "A",
+          "legendFormat": "{{status_code}} {{route}} {{model}} {{score_mode}}"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "decimals": 3
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 18,
+      "type": "timeseries",
+      "title": "Retrieval Items per Request",
+      "description": "Healthy/정상: items/request stays within configured limits. Attention/주의: sudden max-limit traffic can raise ColBERT latency and response size.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 33,
+        "w": 12,
+        "h": 6
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le, route, model, backend, score_mode) (rate(retrieval_items_per_request_bucket{service=\"gateway\"}[$window])))",
+          "refId": "A",
+          "legendFormat": "p95 {{route}} {{model}} {{score_mode}}"
+        },
+        {
+          "expr": "sum by (route, model, backend, score_mode) (rate(retrieval_items_per_request_sum{service=\"gateway\"}[$window])) / sum by (route, model, backend, score_mode) (rate(retrieval_items_per_request_count{service=\"gateway\"}[$window]))",
+          "refId": "B",
+          "legendFormat": "avg {{route}} {{model}} {{score_mode}}"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 2
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 19,
+      "type": "timeseries",
+      "title": "Token Embeddings Response Bytes",
+      "description": "Healthy/정상: token embedding response bytes stay bounded. Attention/주의: large payloads indicate indexing/debug calls should reduce item count or truncate tokens.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 39,
+        "w": 12,
+        "h": 6
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le, model, backend, score_mode) (rate(retrieval_response_bytes_bucket{service=\"gateway\",route=\"/v1/retrieval/token-embeddings\"}[$window])))",
+          "refId": "A",
+          "legendFormat": "p95 bytes {{model}} {{score_mode}}"
+        },
+        {
+          "expr": "sum by (model, backend, score_mode) (rate(retrieval_response_bytes_sum{service=\"gateway\",route=\"/v1/retrieval/token-embeddings\"}[$window])) / sum by (model, backend, score_mode) (rate(retrieval_response_bytes_count{service=\"gateway\",route=\"/v1/retrieval/token-embeddings\"}[$window]))",
+          "refId": "B",
+          "legendFormat": "avg bytes {{model}} {{score_mode}}"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "decimals": 0
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 20,
+      "type": "timeseries",
+      "title": "ColBERT vLLM Native Upstream p95",
+      "description": "Healthy/정상: local-colbert-ko upstream p95 follows retrieval request latency. Attention/주의: upstream latency without Gateway latency points to colbert-ko-vllm native runtime pressure.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 39,
+        "w": 12,
+        "h": 6
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le, path) (rate(upstream_request_duration_seconds_bucket{service=\"gateway\",target=\"local-colbert-ko\",path=~\"retrieval/(rerank|score)|token-embeddings\"}[$window])))",
+          "refId": "A",
+          "legendFormat": "p95 {{path}}"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "decimals": 3
+        },
+        "overrides": []
+      }
     }
   ],
   "refresh": "30s",

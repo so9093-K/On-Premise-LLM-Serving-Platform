@@ -77,9 +77,22 @@ Admin endpoints는 `Authorization: Bearer <ADMIN_API_KEY>` 필요.
 |---|---|---|
 | `local-main` | sampling, token limit, seed, stop, `n`(1 고정), tool-call 관련 parameter, `stream`, `stream_options`, `response_format`, `logprobs`, `top_logprobs`, `logit_bias` | runtime/serving 하이퍼파라미터 |
 | `local-embed` | `dimensions`, `encoding_format`, `truncate_prompt_tokens` | runtime/serving 하이퍼파라미터 |
+| `local-colbert-ko` | 없음. retrieval API가 score mode와 입력 제한을 고정한다. | runtime/model artifact 하이퍼파라미터, projection head |
 | `risk-prompt` | 없음. `prompt` 입력만 받음 | detector sampling parameter는 adapter가 고정 |
 
 클라이언트가 모델 선택 UI를 만든다면 `/v1/models`의 `capabilities`와 `request_parameters`를 함께 사용한다. `fixed_parameters`가 있으면 내부 adapter/runtime이 고정하는 값이므로 사용자 입력 form으로 노출하지 않는다.
+
+### Retrieval API mode
+
+`/v1/embeddings`는 계속 `local-embed` dense embedding 전용 OpenAI-compatible API다. ColBERT-ko는 이 endpoint의 대체재가 아니라 `/v1/retrieval/*` backend다.
+
+| Endpoint | `local-embed` | `local-colbert-ko` |
+|---|---|---|
+| `/v1/retrieval/rerank` | dense cosine, `score_mode=dense_cosine` | ColBERT MaxSim, `score_mode=late_interaction_maxsim` |
+| `/v1/retrieval/score` | dense cosine, 입력 순서 유지 | ColBERT MaxSim, 입력 순서 유지 |
+| `/v1/retrieval/token-embeddings` | 지원 안 함, 422 `model_capability_mismatch` | token-level embedding matrix, admin/indexing용 |
+
+`local-colbert-ko` production backend는 `colbert-ko-vllm` vLLM native runtime(포트 9404)이다. 준비된 artifact는 `encoder/`, `tokenizer/`, `proj.pt`를 포함해야 하며, encoder-only vLLM smoke는 production 완료로 보지 않는다. Reference adapter는 ranking parity oracle, fallback, debug 용도로만 유지한다.
 
 ---
 

@@ -22,6 +22,14 @@ from ..contracts import (
     validate_risk_response,
 )
 
+RETRIEVAL_MODE_BY_MODEL = {
+    "local-embed": ("dense_cosine", "dense_embedding"),
+    "local-colbert-ko": ("late_interaction_maxsim", "vllm_native_late_interaction"),
+}
+MAX_RETRIEVAL_DOCUMENTS = 32
+MAX_TOKEN_EMBEDDING_TEXTS = 8
+MAX_TOKEN_EMBEDDING_TOKENS = 192
+
 
 def normalize_chat_request_for_runtime(
     payload: dict[str, Any],
@@ -105,7 +113,7 @@ class GatewayClientSet(Protocol):
     main_llm: Any
     embedding: Any
     risk_adapter: Any
-    colbert_ko: Any
+    colbert_ko: Any | None
 
 
 class GatewayService:
@@ -275,11 +283,15 @@ class GatewayService:
 
     def _resolve_retrieval_mode(self, payload: dict[str, Any]) -> tuple[str, str]:
         embed_model = self.settings.embedding.model if self.settings.embedding else "local-embed"
+        colbert_model = "local-colbert-ko"
         model = payload.get("model")
         score_mode = payload.get("score_mode")
 
         if model is None:
             model = embed_model if score_mode == "dense_cosine" else "local-colbert-ko"
+
+        if model not in {embed_model, colbert_model}:
+            raise ServiceError("MODEL_CAPABILITY_MISMATCH", f"Unsupported retrieval model: {model}", False, 422)
 
         if score_mode is None:
             score_mode = "dense_cosine" if model == embed_model else "late_interaction_maxsim"
@@ -290,6 +302,60 @@ class GatewayService:
             raise ServiceError("MODEL_CAPABILITY_MISMATCH", f"{model} only supports late_interaction_maxsim score_mode.", False, 422)
 
         return model, score_mode
+
+    def _retrieval_backend(self, model: str) -> str:
+        return RETRIEVAL_MODE_BY_MODEL.get(model, ("unknown", "unknown"))[1]
+
+    def _validate_query_documents_payload(self, payload: dict[str, Any]) -> tuple[str, list[str], str, str]:
+        query = payload.get("query")
+        documents = payload.get("documents")
+        if not isinstance(query, str) or not query.strip():
+            raise ServiceError("VALIDATION_ERROR", "retrieval query must be a non-empty string.", False, 422)
+        if not isinstance(documents, list) or not documents:
+            raise ServiceError("VALIDATION_ERROR", "retrieval documents must be a non-empty array.", False, 422)
+        if len(documents) > MAX_RETRIEVAL_DOCUMENTS:
+            raise ServiceError(
+                "VALIDATION_ERROR",
+                f"retrieval documents cannot exceed {MAX_RETRIEVAL_DOCUMENTS} items.",
+                False,
+                422,
+            )
+        if any(not isinstance(item, str) or not item.strip() for item in documents):
+            raise ServiceError("VALIDATION_ERROR", "retrieval documents must contain non-empty strings.", False, 422)
+        model, score_mode = self._resolve_retrieval_mode(payload)
+        return query, documents, model, score_mode
+
+    def _validate_token_embeddings_payload(self, payload: dict[str, Any]) -> tuple[list[str], int | None]:
+        if payload.get("model") != "local-colbert-ko":
+            raise ServiceError(
+                "MODEL_CAPABILITY_MISMATCH",
+                "token-embeddings only supports model local-colbert-ko.",
+                False,
+                422,
+            )
+        texts = payload.get("texts")
+        if not isinstance(texts, list) or not texts:
+            raise ServiceError("VALIDATION_ERROR", "token-embeddings texts must be a non-empty array.", False, 422)
+        if len(texts) > MAX_TOKEN_EMBEDDING_TEXTS:
+            raise ServiceError(
+                "VALIDATION_ERROR",
+                f"token-embeddings texts cannot exceed {MAX_TOKEN_EMBEDDING_TEXTS} items.",
+                False,
+                422,
+            )
+        if any(not isinstance(item, str) or not item.strip() for item in texts):
+            raise ServiceError("VALIDATION_ERROR", "token-embeddings texts must contain non-empty strings.", False, 422)
+        truncate = payload.get("truncate_to_tokens")
+        if truncate is None:
+            return texts, None
+        if not isinstance(truncate, int) or truncate < 1 or truncate > MAX_TOKEN_EMBEDDING_TOKENS:
+            raise ServiceError(
+                "VALIDATION_ERROR",
+                f"truncate_to_tokens must be between 1 and {MAX_TOKEN_EMBEDDING_TOKENS}.",
+                False,
+                422,
+            )
+        return texts, truncate
 
     @staticmethod
     def _cosine(v1: list[float], v2: list[float]) -> float:
@@ -313,8 +379,26 @@ class GatewayService:
         return [self._cosine(query_vec, doc_vec) for doc_vec in vectors[1:]]
 
     async def _score_late_interaction(self, query: str, documents: list[str]) -> list[float]:
+        colbert_ko = getattr(self.clients, "colbert_ko", None)
+        if colbert_ko is None:
+            raise ServiceError(
+                "MODEL_UNAVAILABLE",
+                "local-colbert-ko vLLM native runtime is unavailable.",
+                True,
+                503,
+            )
         response = await asyncio.wait_for(
-            self.clients.colbert_ko.post_json("score", {"model": "local-colbert-ko", "text_1": query, "text_2": documents}),
+            colbert_ko.post_json(
+                "score",
+                {
+                    "model": "local-colbert-ko",
+                    "encoding_format": "float",
+                    "queries": query,
+                    "documents": documents,
+                    "max_tokens_per_query": 128,
+                    "max_tokens_per_doc": 192,
+                },
+            ),
             timeout=self.settings.gateway_timeout_seconds,
         )
         data = response.get("data", [])
@@ -322,26 +406,38 @@ class GatewayService:
         return [scores.get(i, 0.0) for i in range(len(documents))]
 
     async def rerank_documents(self, payload: dict[str, Any]) -> dict[str, Any]:
-        query = payload.get("query", "")
-        documents = payload.get("documents", [])
-        model, score_mode = self._resolve_retrieval_mode(payload)
+        query, documents, model, score_mode = self._validate_query_documents_payload(payload)
+        backend = self._retrieval_backend(model)
         target = "local-colbert-ko" if score_mode == "late_interaction_maxsim" else (
             self.settings.embedding.logical_id if self.settings.embedding else "local-embed"
         )
         start = time.monotonic()
+        status_code = 200
         try:
             if score_mode == "late_interaction_maxsim":
                 raw_scores = await self._score_late_interaction(query, documents)
             else:
                 raw_scores = await self._score_dense_cosine(query, documents)
         except TimeoutError as exc:
+            status_code = 504
             self.metrics.record_upstream_error(target, "GATEWAY_TIMEOUT")
             raise ServiceError("UPSTREAM_TIMEOUT", "Gateway request timed out before the retrieval runtime completed.", True, 504) from exc
         except ServiceError as exc:
+            status_code = exc.status_code or 500
             self.metrics.record_upstream_error(target, exc.code)
             raise
         finally:
-            self.metrics.record_upstream_request(target, "retrieval/rerank", time.monotonic() - start)
+            elapsed = time.monotonic() - start
+            self.metrics.record_upstream_request(target, "retrieval/rerank", elapsed)
+            self.metrics.record_retrieval_request(
+                route="/v1/retrieval/rerank",
+                model=model,
+                backend=backend,
+                score_mode=score_mode,
+                status_code=status_code,
+                elapsed_seconds=elapsed,
+                item_count=len(documents),
+            )
 
         results = sorted(
             [{"index": i, "document": doc, "score": s} for i, (doc, s) in enumerate(zip(documents, raw_scores))],
@@ -351,54 +447,95 @@ class GatewayService:
         return {"model": model, "score_mode": score_mode, "results": results}
 
     async def score_documents(self, payload: dict[str, Any]) -> dict[str, Any]:
-        query = payload.get("query", "")
-        documents = payload.get("documents", [])
-        model, score_mode = self._resolve_retrieval_mode(payload)
+        query, documents, model, score_mode = self._validate_query_documents_payload(payload)
+        backend = self._retrieval_backend(model)
         target = "local-colbert-ko" if score_mode == "late_interaction_maxsim" else (
             self.settings.embedding.logical_id if self.settings.embedding else "local-embed"
         )
         start = time.monotonic()
+        status_code = 200
         try:
             if score_mode == "late_interaction_maxsim":
                 raw_scores = await self._score_late_interaction(query, documents)
             else:
                 raw_scores = await self._score_dense_cosine(query, documents)
         except TimeoutError as exc:
+            status_code = 504
             self.metrics.record_upstream_error(target, "GATEWAY_TIMEOUT")
             raise ServiceError("UPSTREAM_TIMEOUT", "Gateway request timed out before the retrieval runtime completed.", True, 504) from exc
         except ServiceError as exc:
+            status_code = exc.status_code or 500
             self.metrics.record_upstream_error(target, exc.code)
             raise
         finally:
-            self.metrics.record_upstream_request(target, "retrieval/score", time.monotonic() - start)
+            elapsed = time.monotonic() - start
+            self.metrics.record_upstream_request(target, "retrieval/score", elapsed)
+            self.metrics.record_retrieval_request(
+                route="/v1/retrieval/score",
+                model=model,
+                backend=backend,
+                score_mode=score_mode,
+                status_code=status_code,
+                elapsed_seconds=elapsed,
+                item_count=len(documents),
+            )
 
-        return {"model": model, "score_mode": score_mode, "scores": [{"index": i, "score": s} for i, s in enumerate(raw_scores)]}
+        return {
+            "model": model,
+            "score_mode": score_mode,
+            "scores": [{"index": i, "score": s} for i, s in enumerate(raw_scores)],
+        }
 
     async def get_token_embeddings(self, payload: dict[str, Any]) -> dict[str, Any]:
-        if payload.get("model") != "local-colbert-ko":
-            raise ServiceError("MODEL_CAPABILITY_MISMATCH", "token-embeddings only supports model local-colbert-ko.", False, 422)
-        texts = payload.get("texts", [])
-        request_body: dict[str, Any] = {"model": "local-colbert-ko", "input": texts}
-        if "truncate_to_tokens" in payload:
-            request_body["truncate_prompt_tokens"] = payload["truncate_to_tokens"]
+        texts, truncate = self._validate_token_embeddings_payload(payload)
+        colbert_ko = getattr(self.clients, "colbert_ko", None)
+        if colbert_ko is None:
+            raise ServiceError(
+                "MODEL_UNAVAILABLE",
+                "local-colbert-ko vLLM native runtime is unavailable.",
+                True,
+                503,
+            )
+        request_body: dict[str, Any] = {
+            "model": "local-colbert-ko",
+            "input": texts,
+            "task": "token_embed",
+        }
+        if truncate is not None:
+            request_body["truncate_prompt_tokens"] = truncate
         start = time.monotonic()
+        status_code = 200
+        response: dict[str, Any] | None = None
         try:
             response = await asyncio.wait_for(
-                self.clients.colbert_ko.post_json("embeddings", request_body),
+                colbert_ko.post_json("pooling", request_body),
                 timeout=self.settings.gateway_timeout_seconds,
             )
         except TimeoutError as exc:
+            status_code = 504
             self.metrics.record_upstream_error("local-colbert-ko", "GATEWAY_TIMEOUT")
             raise ServiceError("UPSTREAM_TIMEOUT", "Gateway request timed out before the ColBERT runtime completed.", True, 504) from exc
         except ServiceError as exc:
+            status_code = exc.status_code or 500
             self.metrics.record_upstream_error("local-colbert-ko", exc.code)
             raise
         finally:
-            self.metrics.record_upstream_request("local-colbert-ko", "token-embeddings", time.monotonic() - start)
+            elapsed = time.monotonic() - start
+            self.metrics.record_upstream_request("local-colbert-ko", "token-embeddings", elapsed)
+            self.metrics.record_retrieval_request(
+                route="/v1/retrieval/token-embeddings",
+                model="local-colbert-ko",
+                backend="vllm_native_late_interaction",
+                score_mode="token_embed",
+                status_code=status_code,
+                elapsed_seconds=elapsed,
+                item_count=len(texts),
+                response_bytes=len(json.dumps(response, ensure_ascii=False).encode("utf-8")) if response is not None else 0,
+            )
 
         embeddings = []
         for item in sorted(response.get("data", []), key=lambda x: x.get("index", 0)):
-            emb = item.get("embedding", [])
+            emb = item.get("data", item.get("embedding", []))
             if isinstance(emb, list) and emb and isinstance(emb[0], list):
                 token_count = len(emb)
             else:

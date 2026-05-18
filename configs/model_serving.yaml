@@ -218,6 +218,10 @@ models:
         - 256
         - 128
       degrade_action: return embedding upstream error only
+    retrieval:
+      backend: dense_embedding
+      score_function: cosine
+      score_mode: dense_cosine
     request_parameter_policy:
       allow_unlisted_parameters: false
       supported_parameters:
@@ -232,18 +236,41 @@ models:
       max_truncate_prompt_tokens: 2048
   colbert_ko:
     name: sigridjineth/colbert-ko-embeddinggemma-300m
+    runtime_model_path: /models/colbert-ko-vllm
+    tokenizer: /models/colbert-ko-vllm/tokenizer
     served_model_name: local-colbert-ko
     backend: vllm
     port: 9404
     endpoint: http://colbert-ko-vllm:9404/v1
     runner: pooling
+    convert: embed
+    model_impl: transformers
+    trust_remote_code: true
+    pooler_config:
+      task: token_embed
     max_model_len: 2048
     max_num_seqs: 1
     max_num_batched_tokens: 2048
     gpu_memory_utilization: 0.04
-    runtime_policy_source: ColBERT-Ko late-interaction retrieval on EmbeddingGemma-300M
-      backbone; initial limits set conservatively pending live vLLM scoring validation
-      on RTX 6000 Ada
+    runtime_policy_source: ColBERT-Ko vLLM native artifact prepared from encoder/
+      + tokenizer/ + proj.pt; repo root is never passed to --model.
+    promotion_gate:
+      status: production_vllm_native
+      reference_adapter: ai_model_serving.retrieval.ColbertReferenceAdapter
+      prepared_artifact: /models/colbert-ko-vllm
+      packaging_script: scripts/models/prepare_colbert_ko_vllm_artifact.py
+      projection_required: true
+      required_artifacts:
+      - encoder/config.json
+      - encoder/model.safetensors
+      - tokenizer/tokenizer.json
+      - tokenizer/tokenizer_config.json
+      - proj.pt
+    retrieval:
+      backend: vllm_native_late_interaction
+      score_function: maxsim
+      score_mode: late_interaction_maxsim
+      production_vllm_native: true
     resource_control:
       criticality: retrieval_support_path
       isolation: dedicated_vllm_process

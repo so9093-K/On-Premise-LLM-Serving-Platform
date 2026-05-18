@@ -8,7 +8,7 @@ AUTH_ENV ?= $(ENV)
 AUTH_ENV_ARG = $(if $(AUTH_ENV),--env $(AUTH_ENV),)
 
 
-.PHONY: help guide init-env init-env-local init-env-compose init-env-local-force init-env-compose-force sync-runtime-secrets show-image-tags validate test build build-pipeline build-image build-risk-vllm-image rebuild-app rebuild-risk-vllm package start up compose-up compose-up-private compose-down-private preflight-compose ready ready-local ready-full check-ready smoke runtime-validate runtime-targets storage-paths project-inventory refresh-generated-reports auth-status auth-doctor auth-plan auth-apply monitoring-projection operator-status operator-reports live-evidence release-check release-check-full vllm-commands hf-config-check risk-vllm-config-check risk-vllm-patch-removal-check model-inventory model-list model-status model-validate model-diff model-propose-add model-propose-remove status stop down compose-down compose-logs logs compose-diagnostics clean clean-dry-run cleanup-plan remove-plan clean-all reset bootstrap first-run rebuild-full doctor reset-version infisical-up infisical-down infisical-logs infisical-init secrets-push secrets-push-sensitive secrets-pull secrets-status validate-docs docs-check reports-check feature-check feature-plan
+.PHONY: help guide init-env init-env-local init-env-compose init-env-local-force init-env-compose-force sync-runtime-secrets show-image-tags validate test build build-pipeline build-image build-colbert-ko-vllm-image build-risk-vllm-image rebuild-app rebuild-colbert-ko-vllm rebuild-risk-vllm package start up compose-up compose-up-private compose-down-private preflight-compose ready ready-local ready-full check-ready smoke runtime-validate runtime-targets storage-paths project-inventory refresh-generated-reports auth-status auth-doctor auth-plan auth-apply monitoring-projection operator-status operator-reports live-evidence release-check release-check-full vllm-commands hf-config-check risk-vllm-config-check risk-vllm-patch-removal-check model-inventory model-list model-status model-validate model-diff model-propose-add model-propose-remove status stop down compose-down compose-logs logs compose-diagnostics clean clean-dry-run cleanup-plan remove-plan clean-all reset bootstrap first-run rebuild-full doctor reset-version infisical-up infisical-down infisical-logs infisical-init secrets-push secrets-push-sensitive secrets-pull secrets-status validate-docs docs-check reports-check feature-check feature-plan
 
 help:
 	@echo "$(PROJECT_NAME) $(CURRENT_VERSION)"
@@ -35,6 +35,7 @@ help:
 	@echo "make build         # validate + test + 이미지 빌드 + 패키징 (서비스 기동 없음)"
 	@echo "make build-image   # 플랫폼 Docker 이미지 빌드"
 	@echo "make rebuild-app   # 플랫폼 이미지만 재빌드 (make build-image 별칭)"
+	@echo "make build-colbert-ko-vllm-image # ColBERT-ko dedicated vLLM 이미지 빌드"
 	@echo "make build-risk-vllm-image # 고급: Kanana risk 전용 vLLM 이미지만 빌드"
 	@echo "make rebuild-risk-vllm # risk vLLM 이미지만 재빌드 (별칭)"
 	@echo "make package       # generated report를 static placeholder로 재생성한 뒤 dist/ 릴리스 ZIP 생성"
@@ -163,6 +164,11 @@ build-image:
 	bash scripts/build/build_platform_image.sh
 
 rebuild-app: build-image
+
+build-colbert-ko-vllm-image:
+	bash scripts/build/build_colbert_ko_vllm_image.sh
+
+rebuild-colbert-ko-vllm: build-colbert-ko-vllm-image
 
 build-risk-vllm-image:
 	bash scripts/build/build_risk_vllm_image.sh

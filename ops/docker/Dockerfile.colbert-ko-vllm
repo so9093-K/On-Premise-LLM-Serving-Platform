@@ -1,0 +1,17 @@
+ARG COLBERT_KO_VLLM_BASE_IMAGE=vllm/vllm-openai:gemma4-0505-cu129
+FROM ${COLBERT_KO_VLLM_BASE_IMAGE}
+
+WORKDIR /app
+
+COPY pyproject.toml requirements.runtime.lock README.md VERSION ./
+COPY src ./src
+COPY scripts ./scripts
+
+RUN python3 -m pip install --no-cache-dir --no-deps .
+
+ENV PYTHONPATH=/app/src \
+    VLLM_PLUGINS=colbert_ko_vllm
+
+EXPOSE 9404
+
+ENTRYPOINT ["python3", "-m", "vllm.entrypoints.openai.api_server"]
