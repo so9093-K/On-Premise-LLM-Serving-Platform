@@ -623,7 +623,7 @@ def test_gateway_colbert_token_embeddings_use_pooling_api():
     )
 
     assert response.status_code == 200
-    assert clients.colbert_ko.last_path == "pooling"
+    assert clients.colbert_ko.last_path == "/pooling"
     assert clients.colbert_ko.last_payload["task"] == "token_embed"
     assert response.json()["embeddings"][0]["token_count"] == 2
 

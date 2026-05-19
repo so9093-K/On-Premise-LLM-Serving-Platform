@@ -4,6 +4,7 @@ import asyncio
 import time
 from collections.abc import AsyncIterator, Mapping
 from typing import Any, Awaitable, Callable
+from urllib.parse import urlsplit, urlunsplit
 
 import httpx
 
@@ -89,6 +90,13 @@ class VLLMClient:
         if self._client is not None and not self._client.is_closed:
             await self._client.aclose()
 
+    def _url(self, path: str) -> str:
+        if path.startswith("/"):
+            parts = urlsplit(self.endpoint.base_url)
+            root = urlunsplit((parts.scheme, parts.netloc, "", "", ""))
+            return f"{root}{path}"
+        return f"{self.endpoint.base_url.rstrip('/')}/{path.lstrip('/')}"
+
     async def _with_operational_guards(self, operation: Callable[[], Awaitable[dict[str, Any]]]) -> dict[str, Any]:
         self._circuit_breaker.before_request(self.endpoint.logical_id)
         try:
@@ -115,7 +123,7 @@ class VLLMClient:
 
     async def post_json(self, path: str, payload: dict[str, Any], *, headers: Mapping[str, str] | None = None) -> dict[str, Any]:
         async def operation() -> dict[str, Any]:
-            url = f"{self.endpoint.base_url.rstrip('/')}/{path.lstrip('/')}"
+            url = self._url(path)
             try:
                 response = await self.client.post(url, json=payload, headers=dict(headers or {}))
                 response.raise_for_status()
@@ -150,7 +158,7 @@ class VLLMClient:
                 503,
             ) from exc
 
-        url = f"{self.endpoint.base_url.rstrip('/')}/{path.lstrip('/')}"
+        url = self._url(path)
         try:
             try:
                 async with self.client.stream(
@@ -180,7 +188,7 @@ class VLLMClient:
 
     async def get_json(self, path: str, *, headers: Mapping[str, str] | None = None) -> dict[str, Any]:
         async def operation() -> dict[str, Any]:
-            url = f"{self.endpoint.base_url.rstrip('/')}/{path.lstrip('/')}"
+            url = self._url(path)
             try:
                 response = await self.client.get(url, headers=dict(headers or {}))
                 response.raise_for_status()
@@ -204,7 +212,7 @@ class VLLMClient:
         inference traffic, and an already-open inference circuit should not hide
         the current readiness reason.
         """
-        url = f"{self.endpoint.base_url.rstrip('/')}/{path.lstrip('/')}"
+        url = self._url(path)
         try:
             response = await self.client.get(url, headers=dict(headers or {}))
             response.raise_for_status()

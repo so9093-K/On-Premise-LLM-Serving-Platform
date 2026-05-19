@@ -612,7 +612,7 @@ class GatewayService:
         response: dict[str, Any] | None = None
         try:
             response = await asyncio.wait_for(
-                colbert_ko.post_json("pooling", request_body),
+                colbert_ko.post_json("/pooling", request_body),
                 timeout=self.settings.gateway_timeout_seconds,
             )
         except TimeoutError as exc:
@@ -637,7 +637,7 @@ class GatewayService:
                 response_bytes=len(json.dumps(response, ensure_ascii=False).encode("utf-8")) if response is not None else 0,
             )
 
-        # Upstream schema validation: /v1/pooling token-embed response contract.
+        # Upstream schema validation: vLLM exposes token-embed pooling at root /pooling.
         if response.get("object") != "list":
             raise ServiceError("UPSTREAM_SCHEMA_ERROR", "token-embeddings upstream response must have object=list.", True, 502)
         raw_data = response.get("data")

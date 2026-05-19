@@ -75,7 +75,7 @@ GitLab full deploy에서 `PREPARE_COLBERT_KO_ARTIFACT=1`을 설정하면 target 
 | `truncate_prompt_tokens` | integer | — | -1 또는 1–2048 | -1은 모델 최대 길이 사용 |
 | `truncation_side` | string | `right` | `left`, `right` | 잘릴 때 어느 쪽을 자를지 |
 
-`/v1/retrieval/token-embeddings`는 `truncate_prompt_tokens`와 deprecated alias `truncate_to_tokens`(최대 192)를 지원한다. 두 값이 모두 있고 다르면 422를 반환한다.
+`/v1/retrieval/token-embeddings`는 `truncate_prompt_tokens`와 deprecated alias `truncate_to_tokens`(최대 192)를 지원한다. 두 값이 모두 있고 다르면 422를 반환한다. Gateway는 이 endpoint를 ColBERT vLLM runtime의 root `/pooling` endpoint로 전달한다. `/v1/pooling`은 vLLM에서 노출하지 않으므로 사용하지 않는다.
 
 runtime 고정값(`fixed_parameters`): `dtype=float32`, `pooler_task=token_embed`, `score_function=maxsim`, `backend=vllm_native_late_interaction`, `max_num_seqs=1`.
 

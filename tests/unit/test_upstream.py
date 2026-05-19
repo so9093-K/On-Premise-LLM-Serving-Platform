@@ -23,6 +23,12 @@ def test_upstream_retryable_errors_still_count_for_circuit_breaker() -> None:
     assert _counts_as_upstream_failure(exc)
 
 
+def test_upstream_client_supports_root_relative_paths_for_vllm_non_v1_endpoints() -> None:
+    client = VLLMClient(endpoint())
+    assert client._url("score") == "http://runtime/v1/score"
+    assert client._url("/pooling") == "http://runtime/pooling"
+
+
 def test_readiness_probe_bypasses_open_circuit_breaker() -> None:
     client = VLLMClient(endpoint())
     client._circuit_breaker.record_failure()

@@ -93,6 +93,17 @@ def test_compose_gpu_budget_uses_configured_avoid_above() -> None:
     assert "0.90" not in diagnostics
 
 
+def test_colbert_token_embeddings_use_vllm_root_pooling_endpoint() -> None:
+    gateway_service = (ROOT / "src/ai_model_serving/services/gateway_service.py").read_text(encoding="utf-8")
+    upstream = (ROOT / "src/ai_model_serving/upstream.py").read_text(encoding="utf-8")
+    doc = (ROOT / "docs/operations/colbert_ko_vllm_native.md").read_text(encoding="utf-8")
+
+    assert 'post_json("/pooling", request_body)' in gateway_service
+    assert 'path.startswith("/")' in upstream
+    assert "urlsplit(self.endpoint.base_url)" in upstream
+    assert "`/v1/pooling`은 vLLM에서 노출하지 않으므로 사용하지 않는다" in doc
+
+
 def test_runtime_validation_matrix_requires_validation() -> None:
     matrix = yaml.safe_load((ROOT / "harness/runtime_validation_matrix.yaml").read_text(encoding="utf-8"))
     assert matrix["validation_policy"] == "runtime_validation_required"

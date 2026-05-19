@@ -73,8 +73,8 @@ Command:
 | `tests/unit/test_gateway_app.py` | 2113 | quality | test coverage; keep deterministic and avoid live GPU dependency |
 | `specs/openapi.risk-adapter.yaml` | 1638 | api-contracts | supporting project file |
 | `ops/grafana/dashboards/serving_home.json` | 1392 | operations | supporting project file |
+| `tests/contract/test_governance_and_ops.py` | 1102 | quality | test coverage; keep deterministic and avoid live GPU dependency |
 | `ops/grafana/dashboards/api_experience.json` | 1095 | operations | supporting project file |
-| `tests/contract/test_governance_and_ops.py` | 1091 | quality | test coverage; keep deterministic and avoid live GPU dependency |
 | `ops/grafana/dashboards/observability_data_quality.json` | 907 | operations | supporting project file |
 | `src/ai_model_serving/contracts/chat.py` | 769 | api-contracts | application code; preserve public API behavior and compatibility facades |
 | `ops/grafana/dashboards/gpu_capacity_and_oom_risk.json` | 755 | operations | supporting project file |
