@@ -68,6 +68,7 @@ class ColbertKoEmbeddingGemmaForTextEncoding(nn.Module):
     """
 
     is_pooling_model = True
+    attn_type = "encoder_only"
     default_seq_pooling_type = "LAST"
     default_tok_pooling_type = "ALL"
     score_type = "late-interaction"
@@ -95,17 +96,26 @@ class ColbertKoEmbeddingGemmaForTextEncoding(nn.Module):
 
     def load_weights(self, weights: Any) -> set[str]:
         # We load the original encoder/ and proj.pt directly from the prepared
-        # artifact to preserve the upstream key layout.
+        # artifact to preserve the upstream key layout.  vLLM still expects the
+        # model to report initialized parameter names so its default loader can
+        # verify that startup did not leave parameters at random init.
         del weights
-        return set()
+        return set(self.state_dict())
 
     def forward(self, input_ids: torch.Tensor, positions: torch.Tensor | None = None, **kwargs: Any) -> torch.Tensor:
         del positions
         attention_mask = kwargs.get("attention_mask")
         if attention_mask is None:
             attention_mask = torch.ones_like(input_ids)
+        flatten_output = input_ids.ndim == 1
+        if flatten_output:
+            input_ids = input_ids.unsqueeze(0)
+            attention_mask = attention_mask.unsqueeze(0)
         outputs = self.encoder(input_ids=input_ids, attention_mask=attention_mask)
-        projected = self.projection(outputs.last_hidden_state)
+        hidden_states = outputs.last_hidden_state.to(dtype=self.projection.weight.dtype)
+        projected = self.projection(hidden_states)
         if self.normalize_embeddings:
             projected = F.normalize(projected, p=2, dim=-1)
+        if flatten_output:
+            projected = projected.squeeze(0)
         return projected

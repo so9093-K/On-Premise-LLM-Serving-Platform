@@ -61,6 +61,12 @@ def test_colbert_vllm_model_uses_version_compatible_pooler_factory():
     assert "DispatchPooler.for_embedding(pooler_config)" in model
     assert "hasattr(DispatchPooler, \"for_embedding\")" in model
     assert "Pooler.for_token_embed(pooler_config)" in model
+    assert 'attn_type = "encoder_only"' in model
+    assert "return set(self.state_dict())" in model
+    assert "flatten_output = input_ids.ndim == 1" in model
+    assert "input_ids = input_ids.unsqueeze(0)" in model
+    assert "projected = projected.squeeze(0)" in model
+    assert "outputs.last_hidden_state.to(dtype=self.projection.weight.dtype)" in model
 
 
 def test_colbert_license_and_live_parity_smoke_are_declared():
