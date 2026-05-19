@@ -84,8 +84,8 @@
         "category": "OpenAPI/JSON schema contract",
         "owner": "api-contracts",
         "management": "managed by root project metadata",
-        "size_bytes": 148051,
-        "line_count": 4048,
+        "size_bytes": 149444,
+        "line_count": 4061,
         "role": "structured-data",
         "review_note": "supporting project file"
       },
@@ -95,7 +95,7 @@
         "category": "current handoff/review report",
         "owner": "handoff-reporting",
         "management": "generated/curated for handoff review",
-        "size_bytes": 143582,
+        "size_bytes": 143583,
         "line_count": 4023,
         "role": "structured-data",
         "review_note": "handoff/review artifact; avoid stale phase snapshots in active package"
@@ -106,8 +106,8 @@
         "category": "test suite",
         "owner": "quality",
         "management": "managed by test strategy",
-        "size_bytes": 76013,
-        "line_count": 1905,
+        "size_bytes": 84481,
+        "line_count": 2113,
         "role": "python-source",
         "review_note": "test coverage; keep deterministic and avoid live GPU dependency"
       },
@@ -200,6 +200,28 @@
         "review_note": "generated operator report; regenerate through make operator-reports before handoff"
       },
       {
+        "path": "src/ai_model_serving/domain/model_registry.py",
+        "area": "src",
+        "category": "application/control-plane source",
+        "owner": "domain-registry",
+        "management": "managed by package source layout",
+        "size_bytes": 30031,
+        "line_count": 703,
+        "role": "python-source",
+        "review_note": "registry/domain code; monitor size as projections grow"
+      },
+      {
+        "path": "src/ai_model_serving/services/gateway_service.py",
+        "area": "src",
+        "category": "application/control-plane source",
+        "owner": "application",
+        "management": "managed by package source layout",
+        "size_bytes": 32264,
+        "line_count": 685,
+        "role": "python-source",
+        "review_note": "application code; preserve public API behavior and compatibility facades"
+      },
+      {
         "path": "ops/grafana/dashboards/executive_runtime_overview.json",
         "area": "ops",
         "category": "compose/monitoring/runtime ops template",
@@ -220,28 +242,6 @@
         "line_count": 625,
         "role": "structured-data",
         "review_note": "supporting project file"
-      },
-      {
-        "path": "src/ai_model_serving/domain/model_registry.py",
-        "area": "src",
-        "category": "application/control-plane source",
-        "owner": "domain-registry",
-        "management": "managed by package source layout",
-        "size_bytes": 26795,
-        "line_count": 621,
-        "role": "python-source",
-        "review_note": "registry/domain code; monitor size as projections grow"
-      },
-      {
-        "path": "src/ai_model_serving/governance_validation/docs_ops.py",
-        "area": "src",
-        "category": "application/control-plane source",
-        "owner": "governance-validation",
-        "management": "managed by package source layout",
-        "size_bytes": 41309,
-        "line_count": 619,
-        "role": "python-source",
-        "review_note": "application code; preserve public API behavior and compatibility facades"
       }
     ],
     "entrypoints": [
@@ -285,8 +285,8 @@
       "category": "project metadata",
       "owner": "project-maintenance",
       "management": "managed by root project metadata",
-      "size_bytes": 5925,
-      "line_count": 129,
+      "size_bytes": 6263,
+      "line_count": 134,
       "role": "environment-template",
       "review_note": "supporting project file"
     },
@@ -582,8 +582,8 @@
       "category": "configuration source of truth",
       "owner": "configuration",
       "management": "managed by configuration lifecycle",
-      "size_bytes": 11738,
-      "line_count": 402,
+      "size_bytes": 12710,
+      "line_count": 442,
       "role": "structured-data",
       "review_note": "configuration source; validate through governance and projection checks after edits"
     },
@@ -934,8 +934,8 @@
       "category": "documentation",
       "owner": "documentation",
       "management": "managed by documentation map",
-      "size_bytes": 4374,
-      "line_count": 61,
+      "size_bytes": 7178,
+      "line_count": 98,
       "role": "documentation",
       "review_note": "documentation; keep relative links valid and avoid duplicating current command flow"
     },
@@ -967,7 +967,7 @@
       "category": "documentation",
       "owner": "documentation",
       "management": "managed by documentation map",
-      "size_bytes": 15973,
+      "size_bytes": 16211,
       "line_count": 250,
       "role": "documentation",
       "review_note": "documentation; keep relative links valid and avoid duplicating current command flow"
@@ -1022,8 +1022,8 @@
       "category": "documentation",
       "owner": "documentation",
       "management": "managed by documentation map",
-      "size_bytes": 8296,
-      "line_count": 101,
+      "size_bytes": 8860,
+      "line_count": 102,
       "role": "documentation",
       "review_note": "documentation; keep relative links valid and avoid duplicating current command flow"
     },
@@ -1209,8 +1209,8 @@
       "category": "documentation",
       "owner": "documentation",
       "management": "managed by documentation map",
-      "size_bytes": 10922,
-      "line_count": 113,
+      "size_bytes": 12177,
+      "line_count": 120,
       "role": "documentation",
       "review_note": "documentation; keep relative links valid and avoid duplicating current command flow"
     },
@@ -1341,8 +1341,8 @@
       "category": "model card metadata",
       "owner": "project-maintenance",
       "management": "managed by root project metadata",
-      "size_bytes": 2470,
-      "line_count": 64,
+      "size_bytes": 4956,
+      "line_count": 128,
       "role": "structured-data",
       "review_note": "supporting project file"
     },
@@ -1352,8 +1352,8 @@
       "category": "model card metadata",
       "owner": "project-maintenance",
       "management": "managed by root project metadata",
-      "size_bytes": 1630,
-      "line_count": 65,
+      "size_bytes": 3640,
+      "line_count": 108,
       "role": "structured-data",
       "review_note": "supporting project file"
     },
@@ -1385,7 +1385,7 @@
       "category": "compose/monitoring/runtime ops template",
       "owner": "operations",
       "management": "managed by operator templates",
-      "size_bytes": 8811,
+      "size_bytes": 8892,
       "line_count": 197,
       "role": "structured-data",
       "review_note": "supporting project file"
@@ -1407,8 +1407,8 @@
       "category": "compose/monitoring/runtime ops template",
       "owner": "operations",
       "management": "managed by operator templates",
-      "size_bytes": 10016,
-      "line_count": 354,
+      "size_bytes": 10101,
+      "line_count": 356,
       "role": "structured-data",
       "review_note": "supporting project file"
     },
@@ -1671,7 +1671,7 @@
       "category": "current handoff/review report",
       "owner": "handoff-reporting",
       "management": "generated/curated for handoff review",
-      "size_bytes": 70022,
+      "size_bytes": 70023,
       "line_count": 343,
       "role": "structured-data",
       "review_note": "handoff/review artifact; avoid stale phase snapshots in active package"
@@ -1682,7 +1682,7 @@
       "category": "current handoff/review report",
       "owner": "handoff-reporting",
       "management": "generated/curated for handoff review",
-      "size_bytes": 143582,
+      "size_bytes": 143583,
       "line_count": 4023,
       "role": "structured-data",
       "review_note": "handoff/review artifact; avoid stale phase snapshots in active package"
@@ -2562,8 +2562,8 @@
       "category": "OpenAPI/JSON schema contract",
       "owner": "api-contracts",
       "management": "managed by root project metadata",
-      "size_bytes": 148051,
-      "line_count": 4048,
+      "size_bytes": 149444,
+      "line_count": 4061,
       "role": "structured-data",
       "review_note": "supporting project file"
     },
@@ -2617,8 +2617,8 @@
       "category": "OpenAPI/JSON schema contract",
       "owner": "api-contracts",
       "management": "managed by root project metadata",
-      "size_bytes": 677,
-      "line_count": 25,
+      "size_bytes": 946,
+      "line_count": 29,
       "role": "structured-data",
       "review_note": "supporting project file"
     },
@@ -2661,8 +2661,8 @@
       "category": "OpenAPI/JSON schema contract",
       "owner": "api-contracts",
       "management": "managed by root project metadata",
-      "size_bytes": 635,
-      "line_count": 27,
+      "size_bytes": 1168,
+      "line_count": 53,
       "role": "structured-data",
       "review_note": "supporting project file"
     },
@@ -2683,8 +2683,8 @@
       "category": "OpenAPI/JSON schema contract",
       "owner": "api-contracts",
       "management": "managed by root project metadata",
-      "size_bytes": 634,
-      "line_count": 27,
+      "size_bytes": 1080,
+      "line_count": 48,
       "role": "structured-data",
       "review_note": "supporting project file"
     },
@@ -2705,8 +2705,8 @@
       "category": "OpenAPI/JSON schema contract",
       "owner": "api-contracts",
       "management": "managed by root project metadata",
-      "size_bytes": 520,
-      "line_count": 23,
+      "size_bytes": 965,
+      "line_count": 32,
       "role": "structured-data",
       "review_note": "supporting project file"
     },
@@ -2782,8 +2782,8 @@
       "category": "application/control-plane source",
       "owner": "application",
       "management": "managed by package source layout",
-      "size_bytes": 16571,
-      "line_count": 410,
+      "size_bytes": 17531,
+      "line_count": 420,
       "role": "python-source",
       "review_note": "application code; preserve public API behavior and compatibility facades"
     },
@@ -2870,8 +2870,8 @@
       "category": "application/control-plane source",
       "owner": "application",
       "management": "managed by package source layout",
-      "size_bytes": 5283,
-      "line_count": 119,
+      "size_bytes": 5628,
+      "line_count": 124,
       "role": "python-source",
       "review_note": "application code; preserve public API behavior and compatibility facades"
     },
@@ -3046,8 +3046,8 @@
       "category": "application/control-plane source",
       "owner": "domain-registry",
       "management": "managed by package source layout",
-      "size_bytes": 26795,
-      "line_count": 621,
+      "size_bytes": 30031,
+      "line_count": 703,
       "role": "python-source",
       "review_note": "registry/domain code; monitor size as projections grow"
     },
@@ -3508,8 +3508,8 @@
       "category": "application/control-plane source",
       "owner": "application",
       "management": "managed by package source layout",
-      "size_bytes": 27247,
-      "line_count": 591,
+      "size_bytes": 32264,
+      "line_count": 685,
       "role": "python-source",
       "review_note": "application code; preserve public API behavior and compatibility facades"
     },
@@ -3662,8 +3662,8 @@
       "category": "application/control-plane source",
       "owner": "application",
       "management": "managed by package source layout",
-      "size_bytes": 4196,
-      "line_count": 108,
+      "size_bytes": 8458,
+      "line_count": 192,
       "role": "python-source",
       "review_note": "application code; preserve public API behavior and compatibility facades"
     },
@@ -3849,8 +3849,8 @@
       "category": "test suite",
       "owner": "quality",
       "management": "managed by test strategy",
-      "size_bytes": 5162,
-      "line_count": 130,
+      "size_bytes": 10655,
+      "line_count": 257,
       "role": "python-source",
       "review_note": "test coverage; keep deterministic and avoid live GPU dependency"
     },
@@ -3871,8 +3871,8 @@
       "category": "test suite",
       "owner": "quality",
       "management": "managed by test strategy",
-      "size_bytes": 76013,
-      "line_count": 1905,
+      "size_bytes": 84481,
+      "line_count": 2113,
       "role": "python-source",
       "review_note": "test coverage; keep deterministic and avoid live GPU dependency"
     },
@@ -3893,8 +3893,8 @@
       "category": "test suite",
       "owner": "quality",
       "management": "managed by test strategy",
-      "size_bytes": 7461,
-      "line_count": 161,
+      "size_bytes": 8420,
+      "line_count": 173,
       "role": "python-source",
       "review_note": "test coverage; keep deterministic and avoid live GPU dependency"
     },

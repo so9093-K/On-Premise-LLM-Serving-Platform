@@ -14,7 +14,16 @@
       "maxItems": 8,
       "items": {"type": "string", "minLength": 1}
     },
+    "truncate_prompt_tokens": {
+      "description": "새 표준 파라미터. vLLM upstream에 그대로 전달한다. -1은 모델 최대 길이 사용을 의미한다.",
+      "type": "integer",
+      "oneOf": [
+        {"const": -1},
+        {"minimum": 1, "maximum": 2048}
+      ]
+    },
     "truncate_to_tokens": {
+      "description": "Deprecated alias for truncate_prompt_tokens. 최대 192로 제한된다. 새 요청은 truncate_prompt_tokens를 사용할 것.",
       "type": "integer",
       "minimum": 1,
       "maximum": 192

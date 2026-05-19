@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import tomllib
 from pathlib import Path
+from importlib.util import find_spec
 
 import pytest
 import yaml
@@ -14,6 +15,9 @@ from ai_model_serving.retrieval.colbert_reference import (
     rerank_from_scores,
 )
 from scripts.models import prepare_colbert_ko_vllm_artifact as prep
+
+_TORCH_AVAILABLE = find_spec("torch") is not None
+skip_no_torch = pytest.mark.skipif(not _TORCH_AVAILABLE, reason="torch not installed")
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -62,10 +66,10 @@ def test_colbert_vllm_model_uses_version_compatible_pooler_factory():
     assert "hasattr(DispatchPooler, \"for_embedding\")" in model
     assert "Pooler.for_token_embed(pooler_config)" in model
     assert 'attn_type = "encoder_only"' in model
-    assert "return set(self.state_dict())" in model
-    assert "flatten_output = input_ids.ndim == 1" in model
-    assert "input_ids = input_ids.unsqueeze(0)" in model
-    assert "projected = projected.squeeze(0)" in model
+    assert "named_parameters" in model
+    assert "_pack_flattened_inputs" in model
+    assert "input_ids.ndim == 1" in model
+    assert "RuntimeError" in model
     assert "outputs.last_hidden_state.to(dtype=self.projection.weight.dtype)" in model
 
 
@@ -141,3 +145,113 @@ def test_reference_projection_fixture_requires_128_dim_proj_head():
 
     with pytest.raises(RuntimeError, match="Projection dimension mismatch"):
         _projection_weight_and_bias({"linear.weight": _FakeTensor((256, 768))}, projection_dim=128)
+
+
+# ---------------------------------------------------------------------------
+# _pack_flattened_inputs unit tests (torch required)
+# ---------------------------------------------------------------------------
+
+@skip_no_torch
+def test_pack_flattened_inputs_single_sequence():
+    """단일 시퀀스가 1D로 들어오면 [1, len] padded tensor를 반환한다."""
+    import torch
+    from ai_model_serving.vllm_colbert.model import _pack_flattened_inputs
+    ids = torch.tensor([1, 2, 3, 4])
+    pos = torch.tensor([0, 1, 2, 3])
+    padded, mask, lengths = _pack_flattened_inputs(ids, pos, pad_token_id=0)
+    assert padded.shape == (1, 4)
+    assert mask.shape == (1, 4)
+    assert lengths == [4]
+    assert padded[0].tolist() == [1, 2, 3, 4]
+    assert mask[0].tolist() == [1, 1, 1, 1]
+
+
+@skip_no_torch
+def test_pack_flattened_inputs_two_sequences():
+    """두 시퀀스가 flattened되어 들어오면 [2, max_len] 배치로 복원된다."""
+    import torch
+    from ai_model_serving.vllm_colbert.model import _pack_flattened_inputs
+    # seq_a = [10, 11, 12], seq_b = [20, 21]
+    ids = torch.tensor([10, 11, 12, 20, 21])
+    pos = torch.tensor([0, 1, 2, 0, 1])
+    padded, mask, lengths = _pack_flattened_inputs(ids, pos, pad_token_id=0)
+    assert padded.shape == (2, 3)
+    assert mask.shape == (2, 3)
+    assert lengths == [3, 2]
+    assert padded[0].tolist() == [10, 11, 12]
+    assert padded[1].tolist() == [20, 21, 0]   # padded
+    assert mask[0].tolist() == [1, 1, 1]
+    assert mask[1].tolist() == [1, 1, 0]
+
+
+@skip_no_torch
+def test_pack_flattened_inputs_attention_mask_shape_is_num_seqs_by_max_len():
+    """attention_mask shape이 [num_seqs, max_len]인지 확인한다."""
+    import torch
+    from ai_model_serving.vllm_colbert.model import _pack_flattened_inputs
+    ids = torch.tensor([1, 2, 0, 1, 2, 3, 4])
+    pos = torch.tensor([0, 1, 2, 0, 1, 2, 3])
+    padded, mask, lengths = _pack_flattened_inputs(ids, pos, pad_token_id=0)
+    assert mask.shape == (2, max(lengths))
+    assert mask.shape == padded.shape
+
+
+@skip_no_torch
+def test_pack_flattened_inputs_raises_without_positions():
+    """positions가 없으면 RuntimeError를 발생시킨다."""
+    import torch
+    from ai_model_serving.vllm_colbert.model import _pack_flattened_inputs
+    ids = torch.tensor([1, 2, 3])
+    with pytest.raises(RuntimeError, match="positions"):
+        _pack_flattened_inputs(ids, None, pad_token_id=0)
+
+
+@skip_no_torch
+def test_pack_flattened_inputs_raises_on_length_mismatch():
+    """input_ids와 positions 길이가 다르면 RuntimeError를 발생시킨다."""
+    import torch
+    from ai_model_serving.vllm_colbert.model import _pack_flattened_inputs
+    ids = torch.tensor([1, 2, 3])
+    pos = torch.tensor([0, 1])
+    with pytest.raises(RuntimeError, match="length mismatch"):
+        _pack_flattened_inputs(ids, pos, pad_token_id=0)
+
+
+@skip_no_torch
+def test_pack_flattened_inputs_batch_invariance_with_mock_encoder():
+    """seq_a 단독 처리 결과와 seq_a+seq_b flattened batch 안의 seq_a가 동일한지 mock encoder로 확인한다."""
+    import torch
+    from unittest.mock import MagicMock
+    from ai_model_serving.vllm_colbert.model import _pack_flattened_inputs
+
+    # seq_a: [10, 11, 12], seq_b: [20, 21]
+    seq_a = torch.tensor([10, 11, 12])
+    seq_b = torch.tensor([20, 21])
+    hidden_size = 4
+
+    def mock_encoder_output(input_ids, attention_mask):
+        result = MagicMock()
+        batch, seq = input_ids.shape
+        hidden = input_ids.float().unsqueeze(-1).expand(batch, seq, hidden_size)
+        result.last_hidden_state = hidden * attention_mask.float().unsqueeze(-1)
+        return result
+
+    # 단독 seq_a 처리
+    padded_a, mask_a, lengths_a = _pack_flattened_inputs(seq_a, torch.arange(len(seq_a)), pad_token_id=0)
+    out_a = mock_encoder_output(padded_a, mask_a)
+    hidden_a = out_a.last_hidden_state  # [1, 3, 4]
+
+    # flattened seq_a + seq_b 처리
+    ids_ab = torch.cat([seq_a, seq_b])
+    pos_ab = torch.cat([torch.arange(len(seq_a)), torch.arange(len(seq_b))])
+    padded_ab, mask_ab, lengths_ab = _pack_flattened_inputs(ids_ab, pos_ab, pad_token_id=0)
+    out_ab = mock_encoder_output(padded_ab, mask_ab)
+    hidden_ab = out_ab.last_hidden_state  # [2, 3, 4]
+
+    # seq_a 부분 비교 (batch 내 첫 번째 seq)
+    seq_a_from_batch = hidden_ab[0, : lengths_ab[0]]  # [3, 4]
+    seq_a_standalone = hidden_a[0, : lengths_a[0]]    # [3, 4]
+    assert torch.allclose(seq_a_standalone, seq_a_from_batch), (
+        "seq_a 단독 처리 결과와 flattened batch 안의 seq_a 결과가 다릅니다. "
+        "cross-sequence attention leakage가 없으면 동일해야 합니다."
+    )

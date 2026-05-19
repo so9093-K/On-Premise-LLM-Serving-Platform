@@ -26,6 +26,10 @@ GATEWAY_TAGS_METADATA = [
         "description": "`local-embed`를 통한 embedding API입니다. 요청 파라미터는 Gateway contract로 검증합니다.",
     },
     {
+        "name": "Retrieval",
+        "description": "`local-colbert-ko`와 `local-embed`를 통한 문서 관련도 평가 API입니다. ColBERT late-interaction MaxSim과 dense cosine 유사도 방식을 지원합니다.",
+    },
+    {
         "name": "Risk",
         "description": (
             "signal-only risk assessment API입니다. `allow`, `block`, `decision`, `action` 같은 정책 판단 필드는 반환하지 않습니다. "
@@ -64,7 +68,8 @@ GATEWAY_DESCRIPTION_TEMPLATE = """
 | 모델 | 기능 |
 |---|---|
 | `local-main` | chat, vision, tools, structured outputs, logprobs |
-| `local-embed` | embeddings (`dimensions`, `truncate_prompt_tokens`) |
+| `local-embed` | embeddings (`dimensions`, `truncate_prompt_tokens`, `user`) |
+| `local-colbert-ko` | retrieval rerank/score (late_interaction_maxsim), token-embeddings (admin) |
 | `risk-prompt` | prompt risk signal — 사용자 sampling parameter 없음 |
 
 상세 정책은 `docs/specs/api.md`와 `docs/operations/model_parameter_discovery.md`를 참고하세요.

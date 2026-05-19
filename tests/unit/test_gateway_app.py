@@ -1903,3 +1903,211 @@ def test_gateway_rejects_invalid_internal_risk_response_schema():
     assert response.status_code == 502
     assert response.json()["error"]["code"] == "UPSTREAM_SCHEMA_ERROR"
     Draft202012Validator(error_schema()).validate(response.json())
+
+
+# ---------------------------------------------------------------------------
+# Retrieval parameter threading tests (P1)
+# ---------------------------------------------------------------------------
+
+def test_gateway_rerank_passes_max_tokens_and_truncation_params_to_upstream():
+    """rerank endpoint에서 max_tokens_per_query, max_tokens_per_doc, truncation_side가 upstream에 전달되는지 확인한다."""
+    clients = FakeGatewayClients()
+    clients.colbert_ko.post_response = {
+        "object": "list",
+        "model": "local-colbert-ko",
+        "data": [
+            {"index": 0, "object": "score", "score": 0.5},
+        ],
+    }
+    client = TestClient(create_gateway_app(settings(), clients))
+    response = client.post(
+        "/v1/retrieval/rerank",
+        headers=auth_headers(),
+        json={
+            "model": "local-colbert-ko",
+            "query": "쿼리",
+            "documents": ["문서1"],
+            "max_tokens_per_query": 64,
+            "max_tokens_per_doc": 384,
+            "truncation_side": "left",
+        },
+    )
+    assert response.status_code == 200
+    payload = clients.colbert_ko.last_payload
+    assert payload["max_tokens_per_query"] == 64
+    assert payload["max_tokens_per_doc"] == 384
+    assert payload["truncation_side"] == "left"
+
+
+def test_gateway_rerank_top_n_limits_results():
+    """rerank top_n이 결과 개수를 제한하는지 확인한다."""
+    clients = FakeGatewayClients()
+    clients.colbert_ko.post_response = {
+        "object": "list",
+        "model": "local-colbert-ko",
+        "data": [
+            {"index": 0, "object": "score", "score": 0.1},
+            {"index": 1, "object": "score", "score": 0.9},
+            {"index": 2, "object": "score", "score": 0.5},
+        ],
+    }
+    client = TestClient(create_gateway_app(settings(), clients))
+    response = client.post(
+        "/v1/retrieval/rerank",
+        headers=auth_headers(),
+        json={"model": "local-colbert-ko", "query": "쿼리", "documents": ["d0", "d1", "d2"], "top_n": 2},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert len(body["results"]) == 2
+    # 상위 2개: score 0.9(index 1), score 0.5(index 2)
+    assert body["results"][0]["score"] == 0.9
+    assert body["results"][1]["score"] == 0.5
+
+
+def test_gateway_score_rejects_top_n():
+    """score endpoint에서 top_n을 보내면 422를 반환한다."""
+    clients = FakeGatewayClients()
+    client = TestClient(create_gateway_app(settings(), clients))
+    response = client.post(
+        "/v1/retrieval/score",
+        headers=auth_headers(),
+        json={"model": "local-colbert-ko", "query": "쿼리", "documents": ["문서"], "top_n": 1},
+    )
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+    assert clients.colbert_ko.last_path is None
+
+
+def test_gateway_token_embeddings_truncate_prompt_tokens_passed_upstream():
+    """token-embeddings에서 truncate_prompt_tokens가 upstream에 전달되는지 확인한다."""
+    clients = FakeGatewayClients()
+    clients.colbert_ko.post_response = {
+        "object": "list",
+        "model": "local-colbert-ko",
+        "data": [{"index": 0, "data": [[0.1, 0.2], [0.3, 0.4]]}],
+    }
+    client = TestClient(create_gateway_app(settings(), clients))
+    response = client.post(
+        "/v1/retrieval/token-embeddings",
+        headers=auth_headers(),
+        json={"model": "local-colbert-ko", "texts": ["문서"], "truncate_prompt_tokens": 256},
+    )
+    assert response.status_code == 200
+    assert clients.colbert_ko.last_payload["truncate_prompt_tokens"] == 256
+
+
+def test_gateway_token_embeddings_truncate_to_tokens_alias_still_works():
+    """deprecated alias truncate_to_tokens가 여전히 동작하는지 확인한다."""
+    clients = FakeGatewayClients()
+    clients.colbert_ko.post_response = {
+        "object": "list",
+        "model": "local-colbert-ko",
+        "data": [{"index": 0, "data": [[0.1, 0.2]]}],
+    }
+    client = TestClient(create_gateway_app(settings(), clients))
+    response = client.post(
+        "/v1/retrieval/token-embeddings",
+        headers=auth_headers(),
+        json={"model": "local-colbert-ko", "texts": ["문서"], "truncate_to_tokens": 32},
+    )
+    assert response.status_code == 200
+    assert clients.colbert_ko.last_payload["truncate_prompt_tokens"] == 32
+
+
+def test_gateway_token_embeddings_alias_conflict_returns_422():
+    """truncate_prompt_tokens와 truncate_to_tokens가 서로 다른 값이면 422를 반환한다."""
+    clients = FakeGatewayClients()
+    client = TestClient(create_gateway_app(settings(), clients))
+    response = client.post(
+        "/v1/retrieval/token-embeddings",
+        headers=auth_headers(),
+        json={"model": "local-colbert-ko", "texts": ["문서"], "truncate_prompt_tokens": 256, "truncate_to_tokens": 32},
+    )
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+    assert clients.colbert_ko.last_path is None
+
+
+def test_gateway_token_embeddings_alias_same_value_allowed():
+    """truncate_prompt_tokens와 truncate_to_tokens가 같은 값이면 허용된다."""
+    clients = FakeGatewayClients()
+    clients.colbert_ko.post_response = {
+        "object": "list",
+        "model": "local-colbert-ko",
+        "data": [{"index": 0, "data": [[0.1, 0.2]]}],
+    }
+    client = TestClient(create_gateway_app(settings(), clients))
+    response = client.post(
+        "/v1/retrieval/token-embeddings",
+        headers=auth_headers(),
+        json={"model": "local-colbert-ko", "texts": ["문서"], "truncate_prompt_tokens": 32, "truncate_to_tokens": 32},
+    )
+    assert response.status_code == 200
+
+
+def test_gateway_token_embeddings_upstream_object_not_list_returns_502():
+    """upstream response에서 object != list이면 502 UPSTREAM_SCHEMA_ERROR를 반환한다."""
+    clients = FakeGatewayClients()
+    clients.colbert_ko.post_response = {
+        "object": "embedding",  # wrong - should be list
+        "model": "local-colbert-ko",
+        "data": [{"index": 0, "data": [[0.1, 0.2]]}],
+    }
+    client = TestClient(create_gateway_app(settings(), clients))
+    response = client.post(
+        "/v1/retrieval/token-embeddings",
+        headers=auth_headers(),
+        json={"model": "local-colbert-ko", "texts": ["문서"]},
+    )
+    assert response.status_code == 502
+    assert response.json()["error"]["code"] == "UPSTREAM_SCHEMA_ERROR"
+
+
+def test_gateway_token_embeddings_upstream_count_mismatch_returns_502():
+    """upstream이 요청한 texts 수와 다른 수의 항목을 반환하면 502를 반환한다."""
+    clients = FakeGatewayClients()
+    clients.colbert_ko.post_response = {
+        "object": "list",
+        "model": "local-colbert-ko",
+        "data": [],  # 0 items for 1 text
+    }
+    client = TestClient(create_gateway_app(settings(), clients))
+    response = client.post(
+        "/v1/retrieval/token-embeddings",
+        headers=auth_headers(),
+        json={"model": "local-colbert-ko", "texts": ["문서"]},
+    )
+    assert response.status_code == 502
+    assert response.json()["error"]["code"] == "UPSTREAM_SCHEMA_ERROR"
+
+
+# ---------------------------------------------------------------------------
+# Embedding user field acceptance tests (P2)
+# ---------------------------------------------------------------------------
+
+def test_gateway_embeddings_accepts_user_field():
+    """embedding 요청에 user 필드가 있어도 422 없이 정상 처리된다."""
+    clients = FakeGatewayClients()
+    client = TestClient(create_gateway_app(settings(), clients))
+    response = client.post(
+        "/v1/embeddings",
+        headers=auth_headers(),
+        json={"model": "local-embed", "input": ["hello"], "user": "test-user-id"},
+    )
+    assert response.status_code == 200
+    assert clients.embedding.last_path == "embeddings"
+
+
+def test_gateway_embeddings_rejects_unsupported_encoding_format():
+    """base64 encoding_format은 422를 반환한다 (smoke 기준 미지원)."""
+    clients = FakeGatewayClients()
+    client = TestClient(create_gateway_app(settings(), clients))
+    response = client.post(
+        "/v1/embeddings",
+        headers=auth_headers(),
+        json={"model": "local-embed", "input": ["hello"], "encoding_format": "base64"},
+    )
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+    assert clients.embedding.last_path is None

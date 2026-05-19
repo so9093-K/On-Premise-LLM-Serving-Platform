@@ -11,7 +11,7 @@ def test_modelctl_status_document_includes_lifecycle_and_gpu_budget():
     assert doc["model_count"] == 4
     assert doc["public_model_count"] == 4
     assert doc["lifecycle_states"] == {"active": 4}
-    assert doc["gpu"]["total_gpu_memory_utilization"] == 0.865
+    assert doc["gpu"]["total_gpu_memory_utilization"] == 0.885
     assert doc["alignment_issues"] == []
 
 

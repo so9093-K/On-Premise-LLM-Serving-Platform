@@ -20,13 +20,16 @@ Gateway는 외부 애플리케이션의 단일 진입점이다.
 | `GET /v1/models` | 노출 모델 catalog. 로딩 상태는 필터링하지 않음 |
 | `POST /v1/chat/completions` | `local-main` chat completion |
 | `POST /v1/embeddings` | `local-embed` embedding |
+| `POST /v1/retrieval/rerank` | `local-colbert-ko` / `local-embed` retrieval rerank |
+| `POST /v1/retrieval/score` | `local-colbert-ko` / `local-embed` retrieval score (입력 순서 유지) |
+| `POST /v1/retrieval/token-embeddings` | `local-colbert-ko` token-level embedding 행렬 (admin) |
 | `POST /v1/risk/detectors/prompt/assessments` | prompt risk signal |
 | `POST /v1/risk/detectors/siren/assessments` | retired siren endpoint, 410 Gone |
 | `POST /v1/risk/assessments` | aggregate risk signal |
 
 사용자 API는 `Authorization: Bearer <API_KEY>`를 요구한다. admin endpoint가 보호되는 환경에서는 `Authorization: Bearer <ADMIN_API_KEY>`를 사용한다.
 
-`/v1/models`는 “계약상 노출되는 모델 목록”을 반환한다. vLLM이 아직 로딩 중이어도 enabled public model인 `local-main`, `local-embed`, `risk-prompt`는 catalog에 남는다. 현재 호출 가능한 상태인지 보려면 `/ready`의 `phase`와 `not_ready_dependencies`를 확인한다.
+`/v1/models`는 “계약상 노출되는 모델 목록”을 반환한다. vLLM이 아직 로딩 중이어도 enabled public model인 `local-main`, `local-embed`, `local-colbert-ko`, `risk-prompt`는 catalog에 남는다. 현재 호출 가능한 상태인지 보려면 `/ready`의 `phase`와 `not_ready_dependencies`를 확인한다.
 
 ## 사용자 조정 가능 파라미터
 
@@ -35,7 +38,8 @@ Gateway는 외부 애플리케이션의 단일 진입점이다.
 | 모델 | 사용자 조정 가능 파라미터 | 비고 |
 |---|---|---|
 | `local-main` | `temperature`, `max_tokens`, `top_p`, `top_k`, `min_p`, `presence_penalty`, `frequency_penalty`, `repetition_penalty`, `stop`, `seed`, `n`, `tools`, `tool_choice`, `parallel_tool_calls`, `stream`, `stream_options`, `reasoning`, `response_format`, `logprobs`, `top_logprobs`, `logit_bias` | `stream=true`는 SSE relay fast path로 지원하고 `stream_options.include_usage`는 `stream=true`와 함께 사용할 때 upstream이 지원하는 최종 usage chunk를 요청한다. `n`은 `1`만 허용. tool call은 Gemma4 parser 설정 범위에서만 허용. `reasoning=true`는 요청별 Gemma4 thinking opt-in이다 |
-| `local-embed` | `dimensions`, `encoding_format`, `truncate_prompt_tokens` | `dimensions`는 `768`, `512`, `256`, `128` 중 하나. `encoding_format`은 `float`로 고정 |
+| `local-embed` | `dimensions`, `encoding_format`, `truncate_prompt_tokens`, `user` | `dimensions`는 `768`, `512`, `256`, `128` 중 하나. `encoding_format`은 `float`로 고정. `user`는 OpenAI API 호환용 optional 식별자 — Gateway에서 accept하지만 metric label로 사용하지 않는다. token-array input과 base64 encoding_format은 smoke 미검증으로 지원하지 않는다. |
+| `local-colbert-ko` | `score_mode`, `top_n`, `max_tokens_per_query`, `max_tokens_per_doc`, `truncate_prompt_tokens`, `truncation_side` | `/v1/retrieval/rerank`와 `/v1/retrieval/score` 전용. `score_mode`는 `late_interaction_maxsim` 고정. `top_n`은 rerank 전용(score에서 422). runtime 고정값(`dtype`, `pooler_task` 등)은 `fixed_parameters`로 노출되며 사용자 변경 불가. |
 | `risk-prompt` | 없음 | risk API는 `prompt`만 입력받고 detector parameter는 adapter가 `fixed_parameters`로 고정 |
 
 `request_parameters`는 prompt/messages/input 같은 필수 입력 본문을 뜻하지 않는다. 필수 입력은 각 request schema(`chat_completion_request`, `embedding_request`, `risk_assessment_request`)를 따른다. serving/runtime 하이퍼파라미터(`gpu_memory_utilization`, `max_model_len`, `max_num_seqs`, quantization 등)는 사용자 API에서 조정할 수 없고 운영자 config로만 변경한다. `local-main`의 RedHatAI FP8 Dynamic checkpoint는 model config의 `compressed-tensors` quantization metadata를 따르며, Gateway request parameter로 노출하지 않는다.
@@ -50,7 +54,7 @@ Unsupported keyword 제한은 schema object의 keyword에만 적용된다. JSON 
 
 `top_logprobs`는 `logprobs=true`가 필요하며 Gateway 정책상 0..10으로 제한한다. OpenAI는 20까지 허용하지만 이 Gateway는 응답 크기와 latency 보호를 위해 10으로 cap한다. `logit_bias`는 token id string에서 bias number(-100..100)로 가는 object이며, token id는 OpenAI/tiktoken id가 아니라 served vLLM model tokenizer id로 해석한다.
 
-`logit_bias`를 Structured Outputs 또는 tools와 같이 쓰는 것은 best-effort다. constrained decoding이나 tool protocol special token 처리가 token availability를 지배할 수 있다. `stream=true`와 `logprobs=true`는 SSE pass-through이며 clients가 chunk logprobs를 직접 파싱해야 한다. `json_schema + tools`, `json_schema + reasoning`은 전역 금지하지 않으며 runtime canary 결과에 따라 deployment가 완전 검증 여부를 광고하거나 operator config에서 특정 combination을 reject로 낮춘다. 현재 노출하지 않는 표준/확장 파라미터(`user`, `metadata` 등)는 Gateway allowlist에서 차단한다.
+`logit_bias`를 Structured Outputs 또는 tools와 같이 쓰는 것은 best-effort다. constrained decoding이나 tool protocol special token 처리가 token availability를 지배할 수 있다. `stream=true`와 `logprobs=true`는 SSE pass-through이며 clients가 chunk logprobs를 직접 파싱해야 한다. `json_schema + tools`, `json_schema + reasoning`은 전역 금지하지 않으며 runtime canary 결과에 따라 deployment가 완전 검증 여부를 광고하거나 operator config에서 특정 combination을 reject로 낮춘다. 현재 노출하지 않는 표준/확장 파라미터(`metadata` 등)는 Gateway allowlist에서 차단한다. `user` 필드는 `/v1/embeddings`에서 OpenAI API 호환용으로 accept하지만 metric label로 사용하지 않는다.
 
 Tool calling을 사용할 때는 `tools`에 function tool을 포함하고 `tool_choice`를 `auto`, `required`, `none` 또는 제공된 function 이름으로 지정한다. `parallel_tool_calls`는 현재 `false`만 허용한다. Vision 요청은 bounded `data:image/*;base64,...` content part 1개만 허용하며 외부 이미지 URL fetch는 기본 차단이다.
 
@@ -70,6 +74,9 @@ SDK/client generation을 위해 주요 route에 명시적 `operation_id`가 지�
 | `listModels` | GET | `/v1/models` | Gateway |
 | `createChatCompletion` | POST | `/v1/chat/completions` | Gateway |
 | `createEmbedding` | POST | `/v1/embeddings` | Gateway |
+| `rerankDocuments` | POST | `/v1/retrieval/rerank` | Gateway |
+| `scoreDocuments` | POST | `/v1/retrieval/score` | Gateway |
+| `getTokenEmbeddings` | POST | `/v1/retrieval/token-embeddings` | Gateway |
 | `assessPromptRisk` | POST | `/v1/risk/detectors/prompt/assessments` | Gateway |
 | `assessRetiredSirenRisk` | POST | `/v1/risk/detectors/siren/assessments` | Gateway |
 | `assessRisk` | POST | `/v1/risk/assessments` | Gateway |

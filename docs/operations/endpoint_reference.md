@@ -77,7 +77,7 @@ Admin endpoints는 `Authorization: Bearer <ADMIN_API_KEY>` 필요.
 |---|---|---|
 | `local-main` | sampling, token limit, seed, stop, `n`(1 고정), tool-call 관련 parameter, `stream`, `stream_options`, `response_format`, `logprobs`, `top_logprobs`, `logit_bias` | runtime/serving 하이퍼파라미터 |
 | `local-embed` | `dimensions`, `encoding_format`, `truncate_prompt_tokens` | runtime/serving 하이퍼파라미터 |
-| `local-colbert-ko` | 없음. retrieval API가 score mode와 입력 제한을 고정한다. | runtime/model artifact 하이퍼파라미터, projection head |
+| `local-colbert-ko` | `score_mode`(고정 enum), `top_n`(rerank 전용, 1–32), `max_tokens_per_query`(1–128, 기본 128), `max_tokens_per_doc`(32–1024, 기본 192), `truncate_prompt_tokens`(-1 또는 1–2048), `truncation_side`(left/right, 기본 right) | `dtype=float32`, `pooler_task=token_embed`, `score_function=maxsim`, runtime/model artifact 하이퍼파라미터, projection head |
 | `risk-prompt` | 없음. `prompt` 입력만 받음 | detector sampling parameter는 adapter가 고정 |
 
 클라이언트가 모델 선택 UI를 만든다면 `/v1/models`의 `capabilities`와 `request_parameters`를 함께 사용한다. `fixed_parameters`가 있으면 내부 adapter/runtime이 고정하는 값이므로 사용자 입력 form으로 노출하지 않는다.

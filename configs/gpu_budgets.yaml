@@ -7,8 +7,8 @@ gpu:
     comfortable: 5
     conservative: 8
   total_gpu_memory_utilization:
-    recommended_start: 0.865
-    budget_breakdown: "main_llm 0.72 + embedding 0.04 + colbert_ko 0.04 + risk_prompt 0.065 = 0.865"
+    recommended_start: 0.885
+    budget_breakdown: "main_llm 0.72 + embedding 0.04 + colbert_ko 0.06 + risk_prompt 0.065 = 0.885"
     upper_review_threshold: 0.91
     avoid_above: 0.93
     conservative_range:
@@ -51,11 +51,11 @@ budgets:
     range_gib:
     - 1.5
     - 2
-    gpu_memory_utilization: 0.04
+    gpu_memory_utilization: 0.06
     tuning_range:
       gpu_memory_utilization:
-      - 0.03
       - 0.04
+      - 0.06
       adjustment_priority: first
       scale_out_note: Can move to CPU, another GPU, or separate service if retrieval
         traffic dominates.

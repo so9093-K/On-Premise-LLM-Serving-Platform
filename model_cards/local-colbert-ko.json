@@ -3,6 +3,11 @@
   "upstream_model_id": "sigridjineth/colbert-ko-embeddinggemma-300m",
   "role": "retrieval",
   "license": "apache-2.0",
+  "capabilities": [
+    "retrieval_rerank",
+    "retrieval_score",
+    "retrieval_token_embeddings"
+  ],
   "runtime": {
     "backend": "vllm_native",
     "runner": "pooling",
@@ -37,19 +42,78 @@
       "https://docs.vllm.ai/en/latest/models/pooling_models/scoring/"
     ]
   },
+  "dtype_policy": {
+    "default": "float32",
+    "allowed": ["float32", "bfloat16"],
+    "forbidden": ["float16"],
+    "reason": "EmbeddingGemma backbone requires avoiding float16 activations. float32 is default for reference parity, reproducibility, and debuggability. bfloat16 may be used for throughput/memory-constrained deployments with ranking parity validation.",
+    "dtype_change_note": "Changing dtype may affect scores at the last decimal places. Validate ranking parity before switching to bfloat16 in production."
+  },
   "project_runtime_policy": {
     "runner": "pooling",
+    "dtype": "float32",
     "max_model_len": 2048,
     "max_num_seqs": 1,
     "max_num_batched_tokens": 2048,
-    "gpu_memory_utilization": 0.04,
+    "gpu_memory_utilization": 0.06,
     "query_max_tokens": 128,
     "doc_max_tokens": 192,
+    "doc_max_tokens_max": 1024,
     "max_docs_per_rerank": 32,
     "colbert_token_embeddings_public": false,
     "promotion_gate": "reference adapter ranking parity with vLLM native output",
     "production_vllm_native": true,
-    "policy_reason": "ColBERT-Ko late-interaction retrieval on EmbeddingGemma-300M backbone; production uses prepared vLLM artifact so proj.pt is applied."
+    "policy_reason": "ColBERT-Ko late-interaction retrieval on EmbeddingGemma-300M backbone; production uses prepared vLLM artifact so proj.pt is applied.",
+    "vllm_args_notes": "--pooler-config.task token_embed is required; --model-impl transformers must NOT be used; --dtype must be set explicitly."
+  },
+  "request_parameters": {
+    "score_mode": {
+      "type": "string",
+      "enum": ["late_interaction_maxsim"],
+      "default": "late_interaction_maxsim"
+    },
+    "top_n": {
+      "type": "integer",
+      "min": 1,
+      "max": 32,
+      "description": "rerank endpoint에서만 지원. score endpoint에서는 422를 반환한다."
+    },
+    "max_tokens_per_query": {
+      "type": "integer",
+      "min": 1,
+      "max": 128,
+      "default": 128
+    },
+    "max_tokens_per_doc": {
+      "type": "integer",
+      "min": 32,
+      "max": 1024,
+      "default": 192,
+      "recommended": [192, 384, 512, 1024]
+    },
+    "truncate_prompt_tokens": {
+      "type": "integer",
+      "one_of": [{"const": -1}, {"min": 1, "max": 2048}],
+      "description": "표준 파라미터. truncate_to_tokens는 deprecated alias이고 최대 192로 제한된다."
+    },
+    "truncation_side": {
+      "type": "string",
+      "enum": ["left", "right"],
+      "default": "right"
+    }
+  },
+  "fixed_parameters": {
+    "dtype": "float32",
+    "pooler_task": "token_embed",
+    "score_function": "maxsim",
+    "backend": "vllm_native_late_interaction",
+    "max_num_seqs": 1,
+    "description": "사용자 요청에서 변경 불가. runtime 고정값이다."
+  },
+  "batch_invariance": {
+    "status": "validated_by_boundary_restoration",
+    "method": "positions 기반 1D flattened input boundary 복원",
+    "note": "max_num_seqs=1은 임시 안전 기본값일 수 있으나 boundary 복원의 대체물이 아니다. boundary 복원이 없으면 batch size와 scheduler packing 상태에 따라 token embedding과 MaxSim score가 달라진다."
   },
   "retrieval": {
     "backend": "vllm_native_late_interaction",

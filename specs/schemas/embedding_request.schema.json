@@ -20,6 +20,10 @@
         {"const": -1},
         {"minimum": 1, "maximum": 2048}
       ]
+    },
+    "user": {
+      "description": "OpenAI API compatibility용 optional 식별자. Gateway에서 accept하되 upstream에 전달 여부는 runtime profile에 따른다. metric label로 사용하지 않는다. response에 영향 없음.",
+      "type": "string"
     }
   }
 }

@@ -247,12 +247,15 @@ models:
     trust_remote_code: true
     pooler_config:
       task: token_embed
+    dtype: float32
     max_model_len: 2048
     max_num_seqs: 1
     max_num_batched_tokens: 2048
-    gpu_memory_utilization: 0.04
+    gpu_memory_utilization: 0.06
     runtime_policy_source: ColBERT-Ko vLLM native artifact prepared from encoder/
       + tokenizer/ + proj.pt; repo root is never passed to --model.
+      dtype=float32 default for reference parity/reproducibility;
+      bfloat16 allowed for throughput; float16 forbidden.
     promotion_gate:
       status: production_vllm_native
       reference_adapter: ai_model_serving.retrieval.ColbertReferenceAdapter
@@ -285,7 +288,44 @@ models:
       degrade_action: return retrieval upstream error only
     request_parameter_policy:
       allow_unlisted_parameters: false
-      supported_parameters: []
+      supported_parameters:
+      - score_mode
+      - top_n
+      - max_tokens_per_query
+      - max_tokens_per_doc
+      - truncate_prompt_tokens
+      - truncation_side
+      score_mode:
+        enum:
+        - late_interaction_maxsim
+        default: late_interaction_maxsim
+      top_n:
+        min: 1
+        max: 32
+      max_tokens_per_query:
+        min: 1
+        max: 128
+        default: 128
+      max_tokens_per_doc:
+        min: 32
+        max: 1024
+        default: 192
+      truncate_prompt_tokens:
+        one_of:
+        - const: -1
+        - min: 1
+          max: 2048
+      truncation_side:
+        enum:
+        - left
+        - right
+        default: right
+      fixed_parameters:
+        dtype: float32
+        pooler_task: token_embed
+        score_function: maxsim
+        backend: vllm_native_late_interaction
+        max_num_seqs: 1
   risk_prompt:
     name: kakaocorp/kanana-safeguard-prompt-2.1b
     served_model_name: risk-prompt

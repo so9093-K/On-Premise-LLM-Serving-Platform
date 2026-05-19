@@ -146,7 +146,19 @@ def test_model_registry_projects_openapi_schema_and_monitoring_labels():
     assert public_models["local-main"]["request_parameters"]["n"] == {"type": "integer", "min": 1, "max": 1}
     assert public_models["local-main"]["request_parameters"]["reasoning"] == {"type": "boolean", "default": False, "mode": "request_opt_in"}
     assert public_models["local-embed"]["request_parameters"]["dimensions"] == {"type": "integer", "enum": [768, 512, 256, 128]}
-    assert public_models["local-colbert-ko"]["request_parameters"] == {}
+    colbert_params = public_models["local-colbert-ko"]["request_parameters"]
+    assert colbert_params["score_mode"] == {"type": "string", "enum": ["late_interaction_maxsim"], "default": "late_interaction_maxsim"}
+    assert colbert_params["top_n"] == {"type": "integer", "min": 1, "max": 32}
+    assert colbert_params["max_tokens_per_query"] == {"type": "integer", "min": 1, "max": 128, "default": 128}
+    assert colbert_params["max_tokens_per_doc"] == {"type": "integer", "min": 32, "max": 1024, "default": 192}
+    assert colbert_params["truncation_side"] == {"type": "string", "enum": ["left", "right"], "default": "right"}
+    assert "truncate_prompt_tokens" in colbert_params
+    colbert_fixed = public_models["local-colbert-ko"]["fixed_parameters"]
+    assert colbert_fixed["dtype"] == "float32"
+    assert colbert_fixed["pooler_task"] == "token_embed"
+    assert colbert_fixed["score_function"] == "maxsim"
+    assert colbert_fixed["backend"] == "vllm_native_late_interaction"
+    assert colbert_fixed["max_num_seqs"] == 1
     assert "retrieval_rerank" in public_models["local-colbert-ko"]["capabilities"]
     assert public_models["risk-prompt"]["request_parameters"] == {}
     assert public_models["risk-prompt"]["fixed_parameters"] == {"max_tokens": 1, "temperature": 0}

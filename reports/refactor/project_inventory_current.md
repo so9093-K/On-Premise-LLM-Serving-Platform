@@ -68,9 +68,9 @@ Command:
 
 | 경로 | 줄 수 | 담당 | 검토 메모 |
 |---|---:|---|---|
-| `specs/openapi.gateway.yaml` | 4048 | api-contracts | supporting project file |
+| `specs/openapi.gateway.yaml` | 4061 | api-contracts | supporting project file |
 | `reports/refactor/project_inventory_current.json` | 4023 | handoff-reporting | handoff/review artifact; avoid stale phase snapshots in active package |
-| `tests/unit/test_gateway_app.py` | 1905 | quality | test coverage; keep deterministic and avoid live GPU dependency |
+| `tests/unit/test_gateway_app.py` | 2113 | quality | test coverage; keep deterministic and avoid live GPU dependency |
 | `specs/openapi.risk-adapter.yaml` | 1638 | api-contracts | supporting project file |
 | `ops/grafana/dashboards/serving_home.json` | 1392 | operations | supporting project file |
 | `ops/grafana/dashboards/api_experience.json` | 1095 | operations | supporting project file |
@@ -79,10 +79,10 @@ Command:
 | `src/ai_model_serving/contracts/chat.py` | 769 | api-contracts | application code; preserve public API behavior and compatibility facades |
 | `ops/grafana/dashboards/gpu_capacity_and_oom_risk.json` | 755 | operations | supporting project file |
 | `reports/runtime/operator_status_bundle.json` | 734 | handoff-reporting | generated operator report; regenerate through make operator-reports before handoff |
+| `src/ai_model_serving/domain/model_registry.py` | 703 | domain-registry | registry/domain code; monitor size as projections grow |
+| `src/ai_model_serving/services/gateway_service.py` | 685 | application | application code; preserve public API behavior and compatibility facades |
 | `ops/grafana/dashboards/executive_runtime_overview.json` | 682 | operations | supporting project file |
 | `ops/grafana/dashboards/risk_signal_operations.json` | 625 | operations | supporting project file |
-| `src/ai_model_serving/domain/model_registry.py` | 621 | domain-registry | registry/domain code; monitor size as projections grow |
-| `src/ai_model_serving/governance_validation/docs_ops.py` | 619 | governance-validation | application code; preserve public API behavior and compatibility facades |
 
 ## 관리 해석
 

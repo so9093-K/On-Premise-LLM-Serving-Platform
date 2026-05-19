@@ -361,16 +361,31 @@ class GatewayService:
             )
         if any(not isinstance(item, str) or not item.strip() for item in texts):
             raise ServiceError("VALIDATION_ERROR", "token-embeddings texts must contain non-empty strings.", False, 422)
-        truncate = payload.get("truncate_to_tokens")
-        if truncate is None:
+
+        # truncate_prompt_tokens (new standard) and truncate_to_tokens (deprecated alias) handling.
+        # If both are present and conflict, return 422. If both equal, allow.
+        # Internal vLLM call always uses truncate_prompt_tokens.
+        truncate_new = payload.get("truncate_prompt_tokens")
+        truncate_legacy = payload.get("truncate_to_tokens")
+        if truncate_new is not None and truncate_legacy is not None:
+            if truncate_new != truncate_legacy:
+                raise ServiceError(
+                    "VALIDATION_ERROR",
+                    "truncate_prompt_tokens and truncate_to_tokens conflict. Provide only one, or ensure both have the same value.",
+                    False,
+                    422,
+                )
+            truncate = truncate_new
+        elif truncate_new is not None:
+            truncate = truncate_new
+        elif truncate_legacy is not None:
+            truncate = truncate_legacy
+        else:
             return texts, None
-        if not isinstance(truncate, int) or truncate < 1 or truncate > MAX_TOKEN_EMBEDDING_TOKENS:
-            raise ServiceError(
-                "VALIDATION_ERROR",
-                f"truncate_to_tokens must be between 1 and {MAX_TOKEN_EMBEDDING_TOKENS}.",
-                False,
-                422,
-            )
+
+        # -1 means use model max length; positive values are validated by schema.
+        if not isinstance(truncate, int) or (truncate != -1 and truncate < 1):
+            raise ServiceError("VALIDATION_ERROR", "truncate value must be -1 or a positive integer.", False, 422)
         return texts, truncate
 
     @staticmethod
@@ -400,7 +415,16 @@ class GatewayService:
         query_vec = vectors[0]
         return [self._cosine(query_vec, doc_vec) for doc_vec in vectors[1:]]
 
-    async def _score_late_interaction(self, query: str, documents: list[str]) -> list[float]:
+    async def _score_late_interaction(
+        self,
+        query: str,
+        documents: list[str],
+        *,
+        max_tokens_per_query: int = 128,
+        max_tokens_per_doc: int = 192,
+        truncate_prompt_tokens: int | None = None,
+        truncation_side: str | None = None,
+    ) -> list[float]:
         colbert_ko = getattr(self.clients, "colbert_ko", None)
         if colbert_ko is None:
             raise ServiceError(
@@ -409,18 +433,20 @@ class GatewayService:
                 True,
                 503,
             )
+        body: dict[str, Any] = {
+            "model": "local-colbert-ko",
+            "encoding_format": "float",
+            "text_1": query,
+            "text_2": documents,
+            "max_tokens_per_query": max_tokens_per_query,
+            "max_tokens_per_doc": max_tokens_per_doc,
+        }
+        if truncate_prompt_tokens is not None:
+            body["truncate_prompt_tokens"] = truncate_prompt_tokens
+        if truncation_side is not None:
+            body["truncation_side"] = truncation_side
         response = await asyncio.wait_for(
-            colbert_ko.post_json(
-                "score",
-                {
-                    "model": "local-colbert-ko",
-                    "encoding_format": "float",
-                    "text_1": query,
-                    "text_2": documents,
-                    "max_tokens_per_query": 128,
-                    "max_tokens_per_doc": 192,
-                },
-            ),
+            colbert_ko.post_json("score", body),
             timeout=self.settings.gateway_timeout_seconds,
         )
         data = response.get("data", [])
@@ -457,11 +483,23 @@ class GatewayService:
         target = "local-colbert-ko" if score_mode == "late_interaction_maxsim" else (
             self.settings.embedding.logical_id if self.settings.embedding else "local-embed"
         )
+        top_n = payload.get("top_n")
+        max_tokens_per_query = int(payload.get("max_tokens_per_query") or 128)
+        max_tokens_per_doc = int(payload.get("max_tokens_per_doc") or 192)
+        truncate_prompt_tokens = payload.get("truncate_prompt_tokens")
+        truncation_side = payload.get("truncation_side") or None
         start = time.monotonic()
         status_code = 200
         try:
             if score_mode == "late_interaction_maxsim":
-                raw_scores = await self._score_late_interaction(query, documents)
+                raw_scores = await self._score_late_interaction(
+                    query,
+                    documents,
+                    max_tokens_per_query=max_tokens_per_query,
+                    max_tokens_per_doc=max_tokens_per_doc,
+                    truncate_prompt_tokens=truncate_prompt_tokens,
+                    truncation_side=truncation_side,
+                )
             else:
                 raw_scores = await self._score_dense_cosine(query, documents)
         except TimeoutError as exc:
@@ -490,19 +528,39 @@ class GatewayService:
             key=lambda x: x["score"],
             reverse=True,
         )
+        if top_n is not None:
+            results = results[:top_n]
         return {"model": model, "score_mode": score_mode, "results": results}
 
     async def score_documents(self, payload: dict[str, Any]) -> dict[str, Any]:
+        if payload.get("top_n") is not None:
+            raise ServiceError(
+                "VALIDATION_ERROR",
+                "top_n is not supported on the score endpoint. Use the rerank endpoint for filtered ranking.",
+                False,
+                422,
+            )
         query, documents, model, score_mode = self._validate_query_documents_payload(payload, operation="score")
         backend = self._retrieval_backend(model)
         target = "local-colbert-ko" if score_mode == "late_interaction_maxsim" else (
             self.settings.embedding.logical_id if self.settings.embedding else "local-embed"
         )
+        max_tokens_per_query = int(payload.get("max_tokens_per_query") or 128)
+        max_tokens_per_doc = int(payload.get("max_tokens_per_doc") or 192)
+        truncate_prompt_tokens = payload.get("truncate_prompt_tokens")
+        truncation_side = payload.get("truncation_side") or None
         start = time.monotonic()
         status_code = 200
         try:
             if score_mode == "late_interaction_maxsim":
-                raw_scores = await self._score_late_interaction(query, documents)
+                raw_scores = await self._score_late_interaction(
+                    query,
+                    documents,
+                    max_tokens_per_query=max_tokens_per_query,
+                    max_tokens_per_doc=max_tokens_per_doc,
+                    truncate_prompt_tokens=truncate_prompt_tokens,
+                    truncation_side=truncation_side,
+                )
             else:
                 raw_scores = await self._score_dense_cosine(query, documents)
         except TimeoutError as exc:
@@ -579,13 +637,49 @@ class GatewayService:
                 response_bytes=len(json.dumps(response, ensure_ascii=False).encode("utf-8")) if response is not None else 0,
             )
 
+        # Upstream schema validation: /v1/pooling token-embed response contract.
+        if response.get("object") != "list":
+            raise ServiceError("UPSTREAM_SCHEMA_ERROR", "token-embeddings upstream response must have object=list.", True, 502)
+        raw_data = response.get("data")
+        if not isinstance(raw_data, list):
+            raise ServiceError("UPSTREAM_SCHEMA_ERROR", "token-embeddings upstream response data must be a list.", True, 502)
+        if len(raw_data) != len(texts):
+            raise ServiceError(
+                "UPSTREAM_SCHEMA_ERROR",
+                f"token-embeddings upstream returned {len(raw_data)} items for {len(texts)} texts.",
+                True,
+                502,
+            )
+
         embeddings = []
-        for item in sorted(response.get("data", []), key=lambda x: x.get("index", 0)):
+        expected_dim: int | None = None
+        for expected_index, item in enumerate(sorted(raw_data, key=lambda x: x.get("index", 0) if isinstance(x, dict) else 0)):
+            if not isinstance(item, dict):
+                raise ServiceError("UPSTREAM_SCHEMA_ERROR", f"token-embeddings upstream data[{expected_index}] must be an object.", True, 502)
+            if item.get("index") != expected_index:
+                raise ServiceError(
+                    "UPSTREAM_SCHEMA_ERROR",
+                    f"token-embeddings upstream data[{expected_index}].index must be {expected_index}.",
+                    True,
+                    502,
+                )
             emb = item.get("data", item.get("embedding", []))
-            if isinstance(emb, list) and emb and isinstance(emb[0], list):
-                token_count = len(emb)
+            if not isinstance(emb, list):
+                raise ServiceError("UPSTREAM_SCHEMA_ERROR", f"token-embeddings upstream data[{expected_index}].embedding must be a list.", True, 502)
+            # Normalize to list[list[float]] (token-level embeddings matrix)
+            if emb and isinstance(emb[0], list):
+                token_vectors = emb
             else:
-                emb = [emb] if emb else []
-                token_count = len(emb)
-            embeddings.append({"index": item.get("index", 0), "token_count": token_count, "embedding": emb})
+                token_vectors = [emb] if emb else []
+            # Validate all token vector dimensions are equal
+            if token_vectors:
+                dims = {len(v) for v in token_vectors if isinstance(v, list)}
+                if len(dims) != 1:
+                    raise ServiceError("UPSTREAM_SCHEMA_ERROR", f"token-embeddings upstream data[{expected_index}] has inconsistent token vector dimensions.", True, 502)
+                dim = dims.pop()
+                if expected_dim is None:
+                    expected_dim = dim
+                elif dim != expected_dim:
+                    raise ServiceError("UPSTREAM_SCHEMA_ERROR", "token-embeddings upstream returned inconsistent dimensions across texts.", True, 502)
+            embeddings.append({"index": expected_index, "token_count": len(token_vectors), "embedding": token_vectors})
         return {"model": "local-colbert-ko", "embeddings": embeddings}

@@ -186,6 +186,8 @@ services:
     - --trust-remote-code
     - --pooler-config.task
     - token_embed
+    - --dtype
+    - ${COLBERT_KO_DTYPE:-float32}
     - --max-model-len
     - '2048'
     - --max-num-seqs
@@ -193,7 +195,7 @@ services:
     - --max-num-batched-tokens
     - '2048'
     - --gpu-memory-utilization
-    - '0.04'
+    - ${COLBERT_KO_GPU_MEMORY_UTILIZATION:-0.06}
     expose:
     - '9404'
     env_file: ../../.env
