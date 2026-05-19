@@ -5,7 +5,6 @@ from typing import Any
 from fastapi import APIRouter, Body
 
 from ..endpoint_spec import RISK_ADAPTER_ENDPOINTS
-from ...api_examples import AGGREGATE_EXAMPLES, PROMPT_EXAMPLES
 from ...contracts import read_risk_prompt
 
 _RA = {(s.method, s.path): s for s in RISK_ADAPTER_ENDPOINTS}
@@ -26,7 +25,7 @@ def build_router(api_dependencies: list, service: Any) -> APIRouter:
         responses={401: {"description": "Internal Bearer token 필요"}},
     )
     async def prompt_assessment(
-        payload: dict[str, Any] = Body(openapi_examples=PROMPT_EXAMPLES),
+        payload: dict[str, Any] = Body(...),
     ) -> dict[str, Any]:
         prompt = read_risk_prompt(payload)
         return await service.assess_detector_key("prompt", prompt)
@@ -43,7 +42,7 @@ def build_router(api_dependencies: list, service: Any) -> APIRouter:
         responses={401: {"description": "Internal Bearer token 필요"}},
     )
     async def aggregate(
-        payload: dict[str, Any] = Body(openapi_examples=AGGREGATE_EXAMPLES),
+        payload: dict[str, Any] = Body(...),
     ) -> dict[str, Any]:
         prompt = read_risk_prompt(payload)
         return await service.assess_aggregate(prompt)

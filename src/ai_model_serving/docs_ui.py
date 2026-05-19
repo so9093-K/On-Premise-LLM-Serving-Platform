@@ -27,6 +27,6 @@ def scalar_html(openapi_url: str, title: str) -> str:
       data-url="{openapi_url}"
       data-configuration='{SCALAR_CONFIG}'
     ></script>
-    <script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference@1"></script>
   </body>
 </html>"""

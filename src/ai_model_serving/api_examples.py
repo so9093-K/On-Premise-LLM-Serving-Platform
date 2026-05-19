@@ -281,6 +281,31 @@ GATEWAY_RISK_AGGREGATE_REQUEST_EXAMPLES: dict[str, Any] = {
 }
 
 # ---------------------------------------------------------------------------
+# Gateway retrieval request examples
+# ---------------------------------------------------------------------------
+
+GATEWAY_RETRIEVAL_RERANK_REQUEST_EXAMPLES: dict[str, Any] = {
+    "colbert_rerank": {
+        "summary": "ColBERT 재순위 정렬",
+        "value": {"model": "local-colbert-ko", "query": "검색어", "documents": ["문서1", "문서2"]},
+    },
+}
+
+GATEWAY_RETRIEVAL_SCORE_REQUEST_EXAMPLES: dict[str, Any] = {
+    "score_documents": {
+        "summary": "문서 점수 계산 (입력 순서 유지)",
+        "value": {"model": "local-colbert-ko", "query": "검색어", "documents": ["문서1", "문서2"]},
+    },
+}
+
+GATEWAY_RETRIEVAL_TOKEN_EMBEDDINGS_REQUEST_EXAMPLES: dict[str, Any] = {
+    "token_embeddings": {
+        "summary": "Token-level embedding 조회",
+        "value": {"model": "local-colbert-ko", "texts": ["문서1"]},
+    },
+}
+
+# ---------------------------------------------------------------------------
 # Risk Adapter request examples
 # ---------------------------------------------------------------------------
 

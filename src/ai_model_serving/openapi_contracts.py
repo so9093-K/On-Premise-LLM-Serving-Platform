@@ -56,6 +56,10 @@ def _inject_standard_error_responses(document: dict[str, Any], common_error_sche
             if method.lower() == "post":
                 codes.extend(POST_STANDARD_ERROR_CODES)
             elif operation.get("security"):
+                # FastAPI routes that use Depends(auth) do not emit a per-operation
+                # "security" field in the generated spec, so this branch only fires
+                # when a route explicitly sets security= (currently none). GET routes
+                # with admin auth declare their own 401 response directly in the router.
                 codes.append("401")
             for code in codes:
                 if code == "401" and not operation.get("security"):
@@ -188,7 +192,7 @@ def install_contract_openapi(
                     "schema",
                     {
                         "type": "string",
-                        "description": "OpenAI-compatible SSE stream. On streaming transport failures, Gateway emits an SSE error event followed by data: [DONE].",
+                        "description": "OpenAI 호환 SSE 스트림. 스트리밍 전송 오류 시 Gateway는 SSE error 이벤트를 먼저 전송하고 data: [DONE]으로 종료합니다.",
                     },
                 )
             operation.setdefault("x-response-contract-schema", schema_name)

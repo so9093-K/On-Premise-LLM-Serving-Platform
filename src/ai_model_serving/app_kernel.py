@@ -127,7 +127,13 @@ def install_exception_handlers(
 
     @app.exception_handler(RequestValidationError)
     async def validation_error_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
-        return error_response("VALIDATION_ERROR", str(exc), False, 422, request_id_from_headers(request.headers))
+        errors = exc.errors()
+        parts = [
+            f"{'.'.join(str(loc) for loc in e.get('loc', ()))}: {e.get('msg', '')}"
+            for e in errors
+        ]
+        message = "; ".join(parts) if parts else str(exc)
+        return error_response("VALIDATION_ERROR", message, False, 422, request_id_from_headers(request.headers))
 
     @app.exception_handler(Exception)
     async def unhandled_error_handler(request: Request, exc: Exception) -> JSONResponse:

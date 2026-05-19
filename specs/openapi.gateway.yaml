@@ -1195,7 +1195,7 @@ paths:
             text/event-stream:
               schema:
                 type: string
-                description: 'OpenAI-compatible SSE stream. On streaming transport failures, Gateway emits an SSE error event followed by data: [DONE].'
+                description: "OpenAI 호환 SSE 스트림. 스트리밍 전송 오류 시 Gateway는 SSE error 이벤트를 먼저 전송하고 data: [DONE]으로 종료합니다."
         '401':
           description: API Bearer token 필요
           content:
@@ -3780,7 +3780,7 @@ paths:
               $ref: ./schemas/retrieval_rerank_request.schema.json
             examples:
               colbert_rerank:
-                summary: ColBERT rerank
+                summary: ColBERT 재순위 정렬
                 value:
                   model: local-colbert-ko
                   query: 검색어
@@ -3866,7 +3866,7 @@ paths:
               $ref: ./schemas/retrieval_score_request.schema.json
             examples:
               score_documents:
-                summary: Score documents
+                summary: 문서 점수 계산 (입력 순서 유지)
                 value:
                   model: local-colbert-ko
                   query: 검색어
@@ -3952,7 +3952,7 @@ paths:
               $ref: ./schemas/retrieval_token_embeddings_request.schema.json
             examples:
               token_embeddings:
-                summary: Token embeddings
+                summary: Token-level embedding 조회
                 value:
                   model: local-colbert-ko
                   texts:

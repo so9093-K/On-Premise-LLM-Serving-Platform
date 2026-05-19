@@ -6,7 +6,6 @@ from fastapi import APIRouter, Body
 from fastapi.responses import StreamingResponse
 
 from ..endpoint_spec import GATEWAY_ENDPOINTS
-from ...api_examples import CHAT_EXAMPLE, EMBEDDING_EXAMPLE
 
 _GW = {(s.method, s.path): s for s in GATEWAY_ENDPOINTS}
 
@@ -39,7 +38,7 @@ def build_router(api_dependencies: list, service: Any, settings: Any) -> APIRout
         responses={401: {"description": "API Bearer token 필요"}},
     )
     async def chat_completions(
-        payload: dict[str, Any] = Body(openapi_examples={"basic": {"summary": "기본 요청 예시", "value": CHAT_EXAMPLE}}),
+        payload: dict[str, Any] = Body(...),
     ) -> Any:
         if payload.get("stream") is True:
             return StreamingResponse(
@@ -64,7 +63,7 @@ def build_router(api_dependencies: list, service: Any, settings: Any) -> APIRout
         responses={401: {"description": "API Bearer token 필요"}},
     )
     async def embeddings(
-        payload: dict[str, Any] = Body(openapi_examples={"basic": {"summary": "기본 요청 예시", "value": EMBEDDING_EXAMPLE}}),
+        payload: dict[str, Any] = Body(...),
     ) -> dict[str, Any]:
         return await service.create_embedding(payload)
 

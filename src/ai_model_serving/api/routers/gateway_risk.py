@@ -5,7 +5,6 @@ from typing import Any
 from fastapi import APIRouter, Body
 
 from ..endpoint_spec import GATEWAY_ENDPOINTS
-from ...api_examples import RISK_EXAMPLE
 from ...errors import ServiceError
 
 _GW = {(s.method, s.path): s for s in GATEWAY_ENDPOINTS}
@@ -26,7 +25,7 @@ def build_router(api_dependencies: list, service: Any) -> APIRouter:
         responses={401: {"description": "API Bearer token 필요"}},
     )
     async def risk_prompt_assessment(
-        payload: dict[str, Any] = Body(openapi_examples={"basic": {"summary": "기본 요청 예시", "value": RISK_EXAMPLE}}),
+        payload: dict[str, Any] = Body(...),
     ) -> dict[str, Any]:
         return await service.forward_risk_assessment("/v1/risk/detectors/prompt/assessments", payload)
 
@@ -41,7 +40,7 @@ def build_router(api_dependencies: list, service: Any) -> APIRouter:
         summary=_s.summary,
         operation_id=_s.operation_id,
         description=_s.description,
-        responses={401: {"description": "API Bearer token 필요"}, 410: {"description": "Detector retired"}},
+        responses={401: {"description": "API Bearer token 필요"}, 410: {"description": "Detector 사용 중단"}},
     )
     async def risk_siren_assessment() -> None:
         raise ServiceError(
@@ -64,7 +63,7 @@ def build_router(api_dependencies: list, service: Any) -> APIRouter:
         responses={401: {"description": "API Bearer token 필요"}},
     )
     async def risk_assessment(
-        payload: dict[str, Any] = Body(openapi_examples={"basic": {"summary": "기본 요청 예시", "value": RISK_EXAMPLE}}),
+        payload: dict[str, Any] = Body(...),
     ) -> dict[str, Any]:
         return await service.forward_risk_assessment("/v1/risk/assessments", payload)
 

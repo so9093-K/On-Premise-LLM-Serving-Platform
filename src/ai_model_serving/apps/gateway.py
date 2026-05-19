@@ -24,6 +24,9 @@ from ..api_descriptions import GATEWAY_DESCRIPTION_TEMPLATE, GATEWAY_TAGS_METADA
 from ..api_examples import (
     GATEWAY_CHAT_REQUEST_EXAMPLES,
     GATEWAY_EMBEDDING_REQUEST_EXAMPLES,
+    GATEWAY_RETRIEVAL_RERANK_REQUEST_EXAMPLES,
+    GATEWAY_RETRIEVAL_SCORE_REQUEST_EXAMPLES,
+    GATEWAY_RETRIEVAL_TOKEN_EMBEDDINGS_REQUEST_EXAMPLES,
     GATEWAY_RISK_AGGREGATE_REQUEST_EXAMPLES,
     GATEWAY_RISK_PROMPT_REQUEST_EXAMPLES,
 )
@@ -132,9 +135,9 @@ def create_gateway_app(settings: AppSettings | None = None, clients: GatewayClie
             ("POST", "/v1/embeddings"): GATEWAY_EMBEDDING_REQUEST_EXAMPLES,
             ("POST", "/v1/risk/detectors/prompt/assessments"): GATEWAY_RISK_PROMPT_REQUEST_EXAMPLES,
             ("POST", "/v1/risk/assessments"): GATEWAY_RISK_AGGREGATE_REQUEST_EXAMPLES,
-            ("POST", "/v1/retrieval/rerank"): {"colbert_rerank": {"summary": "ColBERT rerank", "value": {"model": "local-colbert-ko", "query": "검색어", "documents": ["문서1", "문서2"]}}},
-            ("POST", "/v1/retrieval/score"): {"score_documents": {"summary": "Score documents", "value": {"model": "local-colbert-ko", "query": "검색어", "documents": ["문서1", "문서2"]}}},
-            ("POST", "/v1/retrieval/token-embeddings"): {"token_embeddings": {"summary": "Token embeddings", "value": {"model": "local-colbert-ko", "texts": ["문서1"]}}},
+            ("POST", "/v1/retrieval/rerank"): GATEWAY_RETRIEVAL_RERANK_REQUEST_EXAMPLES,
+            ("POST", "/v1/retrieval/score"): GATEWAY_RETRIEVAL_SCORE_REQUEST_EXAMPLES,
+            ("POST", "/v1/retrieval/token-embeddings"): GATEWAY_RETRIEVAL_TOKEN_EMBEDDINGS_REQUEST_EXAMPLES,
         },
     )
 
