@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import os
+import re
 import sys
 from pathlib import Path
 from typing import Any
@@ -27,6 +29,17 @@ def load_yaml(path: Path) -> Any:
     return yaml.safe_load(path.read_text(encoding="utf-8"))
 
 
+_COMPOSE_VAR_DEFAULT = re.compile(r"^\$\{([A-Za-z_][A-Za-z0-9_]*):-([^}]*)\}$")
+
+
+def resolve_compose_value(value: str) -> str:
+    """Resolve Docker Compose ${VAR:-default} substitutions using os.environ then default."""
+    m = _COMPOSE_VAR_DEFAULT.match(value)
+    if m:
+        return os.environ.get(m.group(1), m.group(2))
+    return value
+
+
 def command_args(command: Any) -> dict[str, str | bool]:
     if not isinstance(command, list):
         raise SystemExit(f"vLLM command must be a list, got {type(command).__name__}")
@@ -39,7 +52,7 @@ def command_args(command: Any) -> dict[str, str | bool]:
         if token.startswith("--"):
             key = token[2:].replace("-", "_")
             if idx + 1 < len(command) and isinstance(command[idx + 1], str) and not command[idx + 1].startswith("--"):
-                result[key] = command[idx + 1]
+                result[key] = resolve_compose_value(command[idx + 1])
                 idx += 2
             else:
                 result[key] = True

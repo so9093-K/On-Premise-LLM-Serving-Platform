@@ -260,18 +260,22 @@ models:
       - https://docs.vllm.ai/en/latest/models/pooling_models/scoring/
     project_runtime_policy:
       runner: pooling
+      dtype: float32
       max_model_len: 2048
       max_num_seqs: 1
       max_num_batched_tokens: 2048
-      gpu_memory_utilization: 0.04
+      gpu_memory_utilization: 0.06
       query_max_tokens: 128
       doc_max_tokens: 192
+      doc_max_tokens_max: 1024
       max_docs_per_rerank: 32
       colbert_token_embeddings_public: false
       promotion_gate: reference adapter ranking parity with vLLM native output
       production_vllm_native: true
       policy_reason: ColBERT-Ko late-interaction retrieval on EmbeddingGemma-300M
         backbone; production uses prepared vLLM artifact so proj.pt is applied.
+      vllm_args_notes: '--pooler-config.task token_embed is required; --model-impl
+        transformers must NOT be used; --dtype must be set explicitly.'
     retrieval:
       backend: vllm_native_late_interaction
       score_function: maxsim

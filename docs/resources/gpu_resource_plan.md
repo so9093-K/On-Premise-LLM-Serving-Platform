@@ -22,10 +22,10 @@ Main LLM checkpoint는 RedHatAI의 preliminary FP8 Dynamic checkpoint이며, mod
 |---|---:|---:|
 | Main LLM | 9401 | 0.72 |
 | Embedding | 9402 | 0.04 |
-| ColBERT-ko | 9404 | 0.04 |
+| ColBERT-ko | 9404 | 0.06 |
 | Prompt | 9403 | 0.065 |
 | 합계 (3모델 구성) | - | 0.825 |
-| 합계 (4모델 구성, ColBERT-ko 포함) | - | 0.865 |
+| 합계 (4모델 구성, ColBERT-ko 포함) | - | 0.885 |
 
 ## 4. 제한 조건
 
@@ -84,13 +84,13 @@ Detector 출력 토큰 수, 모델 fallback 금지, 독립 vLLM process/port 원
 
 ## 리소스 할당 요약
 
-budget id: `single_a6000_conservative` / 설정된 enabled `gpu_memory_utilization` 합계: `0.865`
+budget id: `single_a6000_conservative` / 설정된 enabled `gpu_memory_utilization` 합계: `0.885`
 
 | 모델 | 포트 | 역할 | `gpu_memory_utilization` | 기본 concurrency |
 |---|---:|---|---:|---:|
 | `local-main` | 9401 | chat completion | 0.72 | 1 |
 | `local-embed` | 9402 | embedding | 0.04 | 2 |
-| `local-colbert-ko` | 9404 | ColBERT retrieval | 0.04 | 1 |
+| `local-colbert-ko` | 9404 | ColBERT retrieval | 0.06 | 1 |
 | `risk-prompt` | 9403 | prompt risk signal | 0.065 | 1 |
 
 이전 3모델 구성 (ColBERT-ko 제외) 합계: `0.825`
