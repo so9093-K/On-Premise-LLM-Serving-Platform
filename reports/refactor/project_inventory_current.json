@@ -95,7 +95,7 @@
         "category": "current handoff/review report",
         "owner": "handoff-reporting",
         "management": "generated/curated for handoff review",
-        "size_bytes": 143581,
+        "size_bytes": 143582,
         "line_count": 4023,
         "role": "structured-data",
         "review_note": "handoff/review artifact; avoid stale phase snapshots in active package"
@@ -150,8 +150,8 @@
         "category": "test suite",
         "owner": "quality",
         "management": "managed by test strategy",
-        "size_bytes": 53360,
-        "line_count": 1064,
+        "size_bytes": 55096,
+        "line_count": 1091,
         "role": "python-source",
         "review_note": "test coverage; keep deterministic and avoid live GPU dependency"
       },
@@ -582,8 +582,8 @@
       "category": "configuration source of truth",
       "owner": "configuration",
       "management": "managed by configuration lifecycle",
-      "size_bytes": 11767,
-      "line_count": 403,
+      "size_bytes": 11738,
+      "line_count": 402,
       "role": "structured-data",
       "review_note": "configuration source; validate through governance and projection checks after edits"
     },
@@ -934,7 +934,7 @@
       "category": "documentation",
       "owner": "documentation",
       "management": "managed by documentation map",
-      "size_bytes": 4143,
+      "size_bytes": 4374,
       "line_count": 61,
       "role": "documentation",
       "review_note": "documentation; keep relative links valid and avoid duplicating current command flow"
@@ -1000,7 +1000,7 @@
       "category": "documentation",
       "owner": "documentation",
       "management": "managed by documentation map",
-      "size_bytes": 11644,
+      "size_bytes": 11788,
       "line_count": 155,
       "role": "documentation",
       "review_note": "documentation; keep relative links valid and avoid duplicating current command flow"
@@ -1385,8 +1385,8 @@
       "category": "compose/monitoring/runtime ops template",
       "owner": "operations",
       "management": "managed by operator templates",
-      "size_bytes": 8559,
-      "line_count": 192,
+      "size_bytes": 8811,
+      "line_count": 197,
       "role": "structured-data",
       "review_note": "supporting project file"
     },
@@ -1407,8 +1407,8 @@
       "category": "compose/monitoring/runtime ops template",
       "owner": "operations",
       "management": "managed by operator templates",
-      "size_bytes": 9770,
-      "line_count": 351,
+      "size_bytes": 10016,
+      "line_count": 354,
       "role": "structured-data",
       "review_note": "supporting project file"
     },
@@ -1671,7 +1671,7 @@
       "category": "current handoff/review report",
       "owner": "handoff-reporting",
       "management": "generated/curated for handoff review",
-      "size_bytes": 70021,
+      "size_bytes": 70022,
       "line_count": 343,
       "role": "structured-data",
       "review_note": "handoff/review artifact; avoid stale phase snapshots in active package"
@@ -1682,7 +1682,7 @@
       "category": "current handoff/review report",
       "owner": "handoff-reporting",
       "management": "generated/curated for handoff review",
-      "size_bytes": 143581,
+      "size_bytes": 143582,
       "line_count": 4023,
       "role": "structured-data",
       "review_note": "handoff/review artifact; avoid stale phase snapshots in active package"
@@ -2012,8 +2012,8 @@
       "category": "operator/developer command surface",
       "owner": "operator-ux",
       "management": "managed by Makefile command UX",
-      "size_bytes": 17828,
-      "line_count": 446,
+      "size_bytes": 18802,
+      "line_count": 467,
       "role": "shell-command",
       "review_note": "operator/developer command; expose through Makefile/help if user-facing"
     },
@@ -3717,8 +3717,8 @@
       "category": "test suite",
       "owner": "quality",
       "management": "managed by test strategy",
-      "size_bytes": 53360,
-      "line_count": 1064,
+      "size_bytes": 55096,
+      "line_count": 1091,
       "role": "python-source",
       "review_note": "test coverage; keep deterministic and avoid live GPU dependency"
     },

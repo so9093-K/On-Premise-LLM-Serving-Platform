@@ -28,7 +28,7 @@ configs/gemma4_chat_template.jinja,configs,configuration source of truth,configu
 configs/gpu_budgets.yaml,configs,configuration source of truth,configuration,managed by configuration lifecycle,3406,107,structured-data,configuration source; validate through governance and projection checks after edits
 configs/logging_policy.yaml,configs,configuration source of truth,configuration,managed by configuration lifecycle,328,21,structured-data,configuration source; validate through governance and projection checks after edits
 configs/model_catalog.yaml,configs,configuration source of truth,configuration,managed by configuration lifecycle,12799,386,structured-data,configuration source; validate through governance and projection checks after edits
-configs/model_serving.yaml,configs,configuration source of truth,configuration,managed by configuration lifecycle,11767,403,structured-data,configuration source; validate through governance and projection checks after edits
+configs/model_serving.yaml,configs,configuration source of truth,configuration,managed by configuration lifecycle,11738,402,structured-data,configuration source; validate through governance and projection checks after edits
 configs/monitoring.yaml,configs,configuration source of truth,configuration,managed by configuration lifecycle,13495,411,structured-data,configuration source; validate through governance and projection checks after edits
 configs/ports.yaml,configs,configuration source of truth,configuration,managed by configuration lifecycle,454,26,structured-data,configuration source; validate through governance and projection checks after edits
 configs/recommended_images.yaml,configs,configuration source of truth,configuration,managed by configuration lifecycle,3057,73,structured-data,configuration source; validate through governance and projection checks after edits
@@ -60,13 +60,13 @@ docs/models/model_cards.md,docs,documentation,documentation,managed by documenta
 docs/models/model_runtime_source_review.md,docs,documentation,documentation,managed by documentation map,1054,18,documentation,documentation; keep relative links valid and avoid duplicating current command flow
 docs/operations/admin_metrics_docs_exposure_policy.md,docs,documentation,documentation,managed by documentation map,4254,58,documentation,documentation; keep relative links valid and avoid duplicating current command flow
 docs/operations/auth_control_plane.md,docs,documentation,documentation,managed by documentation map,6192,84,documentation,documentation; keep relative links valid and avoid duplicating current command flow
-docs/operations/colbert_ko_vllm_native.md,docs,documentation,documentation,managed by documentation map,4143,61,documentation,documentation; keep relative links valid and avoid duplicating current command flow
+docs/operations/colbert_ko_vllm_native.md,docs,documentation,documentation,managed by documentation map,4374,61,documentation,documentation; keep relative links valid and avoid duplicating current command flow
 docs/operations/configuration_lifecycle.md,docs,documentation,documentation,managed by documentation map,5269,102,entrypoint,primary navigation or current-state entrypoint; keep synchronized with Makefile and reports
 docs/operations/day0_quickstart.md,docs,documentation,documentation,managed by documentation map,9325,209,entrypoint,primary navigation or current-state entrypoint; keep synchronized with Makefile and reports
 docs/operations/endpoint_reference.md,docs,documentation,documentation,managed by documentation map,15973,250,documentation,documentation; keep relative links valid and avoid duplicating current command flow
 docs/operations/first_project_guide.md,docs,documentation,documentation,managed by documentation map,10808,255,documentation,documentation; keep relative links valid and avoid duplicating current command flow
 docs/operations/full_stack_runtime.md,docs,documentation,documentation,managed by documentation map,4854,61,documentation,documentation; keep relative links valid and avoid duplicating current command flow
-docs/operations/full_stack_troubleshooting.md,docs,documentation,documentation,managed by documentation map,11644,155,documentation,documentation; keep relative links valid and avoid duplicating current command flow
+docs/operations/full_stack_troubleshooting.md,docs,documentation,documentation,managed by documentation map,11788,155,documentation,documentation; keep relative links valid and avoid duplicating current command flow
 docs/operations/gitlab_cicd_deployment.md,docs,documentation,documentation,managed by documentation map,14625,267,documentation,documentation; keep relative links valid and avoid duplicating current command flow
 docs/operations/model_parameter_discovery.md,docs,documentation,documentation,managed by documentation map,8296,101,documentation,documentation; keep relative links valid and avoid duplicating current command flow
 docs/operations/model_runtime_control.md,docs,documentation,documentation,managed by documentation map,4670,51,documentation,documentation; keep relative links valid and avoid duplicating current command flow
@@ -101,9 +101,9 @@ model_cards/local-colbert-ko.json,model_cards,model card metadata,project-mainte
 model_cards/local-embed.json,model_cards,model card metadata,project-maintenance,managed by root project metadata,1630,65,structured-data,supporting project file
 model_cards/local-main.json,model_cards,model card metadata,project-maintenance,managed by root project metadata,4010,110,structured-data,supporting project file
 model_cards/risk-prompt.json,model_cards,model card metadata,project-maintenance,managed by root project metadata,1767,69,structured-data,supporting project file
-ops/compose/full-stack.example.yaml,ops,compose/monitoring/runtime ops template,operations,managed by operator templates,8559,192,structured-data,supporting project file
+ops/compose/full-stack.example.yaml,ops,compose/monitoring/runtime ops template,operations,managed by operator templates,8811,197,structured-data,supporting project file
 ops/compose/full-stack.local-build.yaml,ops,compose/monitoring/runtime ops template,operations,managed by operator templates,828,19,structured-data,supporting project file
-ops/compose/full-stack.private-network.yaml,ops,compose/monitoring/runtime ops template,operations,managed by operator templates,9770,351,structured-data,supporting project file
+ops/compose/full-stack.private-network.yaml,ops,compose/monitoring/runtime ops template,operations,managed by operator templates,10016,354,structured-data,supporting project file
 ops/compose/infisical.yaml,ops,compose/monitoring/runtime ops template,operations,managed by operator templates,2199,69,structured-data,supporting project file
 ops/docker/Dockerfile.colbert-ko-vllm,ops,compose/monitoring/runtime ops template,operations,managed by operator templates,417,17,supporting-file,supporting project file
 ops/docker/Dockerfile.risk-vllm-kanana,ops,compose/monitoring/runtime ops template,operations,managed by operator templates,2868,66,supporting-file,supporting project file
@@ -127,8 +127,8 @@ reports/refactor/current_first_run_clean_package_audit.md,reports,current handof
 reports/refactor/current_full_file_hygiene_audit.md,reports,current handoff/review report,handoff-reporting,generated/curated for handoff review,5615,96,documentation,handoff/review artifact; avoid stale phase snapshots in active package
 reports/refactor/current_handoff_summary.md,reports,current handoff/review report,handoff-reporting,generated/curated for handoff review,6916,97,documentation,handoff/review artifact; avoid stale phase snapshots in active package
 reports/refactor/current_refactor_state.md,reports,current handoff/review report,handoff-reporting,generated/curated for handoff review,4210,72,entrypoint,primary navigation or current-state entrypoint; keep synchronized with Makefile and reports
-reports/refactor/project_inventory_current.csv,reports,current handoff/review report,handoff-reporting,generated/curated for handoff review,70021,343,structured-data,handoff/review artifact; avoid stale phase snapshots in active package
-reports/refactor/project_inventory_current.json,reports,current handoff/review report,handoff-reporting,generated/curated for handoff review,143581,4023,structured-data,handoff/review artifact; avoid stale phase snapshots in active package
+reports/refactor/project_inventory_current.csv,reports,current handoff/review report,handoff-reporting,generated/curated for handoff review,70022,343,structured-data,handoff/review artifact; avoid stale phase snapshots in active package
+reports/refactor/project_inventory_current.json,reports,current handoff/review report,handoff-reporting,generated/curated for handoff review,143582,4023,structured-data,handoff/review artifact; avoid stale phase snapshots in active package
 reports/refactor/project_inventory_current.md,reports,current handoff/review report,handoff-reporting,generated/curated for handoff review,5308,99,documentation,handoff/review artifact; avoid stale phase snapshots in active package
 reports/runtime/README.md,reports,runtime/operator generated report,handoff-reporting,generated by operator report commands,603,12,documentation,generated operator report; regenerate through make operator-reports before handoff
 reports/runtime/live_evidence_bundle.json,reports,runtime/operator generated report,handoff-reporting,generated by operator report commands,1716,69,structured-data,generated operator report; regenerate through make operator-reports before handoff
@@ -158,7 +158,7 @@ scripts/build/check_python.py,scripts,operator/developer command surface,operato
 scripts/build/package_release.sh,scripts,operator/developer command surface,operator-ux,managed by Makefile command UX,6727,202,shell-command,operator/developer command; expose through Makefile/help if user-facing
 scripts/build/reset_version.py,scripts,operator/developer command surface,operator-ux,managed by Makefile command UX,4635,131,python-source,operator/developer command; expose through Makefile/help if user-facing
 scripts/ci/build_vllm_derived_images.sh,scripts,operator/developer command surface,operator-ux,managed by Makefile command UX,6072,109,shell-command,operator/developer command; expose through Makefile/help if user-facing
-scripts/ci/deploy_gitlab_compose.sh,scripts,operator/developer command surface,operator-ux,managed by Makefile command UX,17828,446,shell-command,operator/developer command; expose through Makefile/help if user-facing
+scripts/ci/deploy_gitlab_compose.sh,scripts,operator/developer command surface,operator-ux,managed by Makefile command UX,18802,467,shell-command,operator/developer command; expose through Makefile/help if user-facing
 scripts/compose/compose_diagnostics.sh,scripts,operator/developer command surface,operator-ux,managed by Makefile command UX,2954,49,shell-command,operator/developer command; expose through Makefile/help if user-facing
 scripts/compose/compose_up.sh,scripts,operator/developer command surface,operator-ux,managed by Makefile command UX,1231,33,shell-command,operator/developer command; expose through Makefile/help if user-facing
 scripts/compose/preflight_compose.sh,scripts,operator/developer command surface,operator-ux,managed by Makefile command UX,6632,191,shell-command,operator/developer command; expose through Makefile/help if user-facing
@@ -313,7 +313,7 @@ src/ai_model_serving/vllm_colbert/plugin.py,src,application/control-plane source
 tests/conftest.py,tests,test suite,quality,managed by test strategy,1832,52,python-source,test coverage; keep deterministic and avoid live GPU dependency
 tests/contract/README.md,tests,test suite,quality,managed by test strategy,525,19,documentation,test coverage; keep deterministic and avoid live GPU dependency
 tests/contract/test_endpoint_matrix.py,tests,test suite,quality,managed by test strategy,1120,33,python-source,test coverage; keep deterministic and avoid live GPU dependency
-tests/contract/test_governance_and_ops.py,tests,test suite,quality,managed by test strategy,53360,1064,python-source,test coverage; keep deterministic and avoid live GPU dependency
+tests/contract/test_governance_and_ops.py,tests,test suite,quality,managed by test strategy,55096,1091,python-source,test coverage; keep deterministic and avoid live GPU dependency
 tests/contract/test_korean_documentation_hygiene.py,tests,test suite,quality,managed by test strategy,3653,89,python-source,test coverage; keep deterministic and avoid live GPU dependency
 tests/contract/test_openapi_refs.py,tests,test suite,quality,managed by test strategy,3024,68,python-source,test coverage; keep deterministic and avoid live GPU dependency
 tests/contract/test_openapi_snapshot_diff.py,tests,test suite,quality,managed by test strategy,4756,135,python-source,test coverage; keep deterministic and avoid live GPU dependency

@@ -83,12 +83,15 @@ class ColbertKoEmbeddingGemmaForTextEncoding(nn.Module):
         from vllm.model_executor.layers.pooler import DispatchPooler, Pooler
 
         pooler_config = vllm_config.model_config.pooler_config
-        self.pooler = DispatchPooler(
-            {
-                "token_embed": Pooler.for_token_embed(pooler_config),
-                "embed": Pooler.for_embed(pooler_config),
-            }
-        )
+        if hasattr(DispatchPooler, "for_embedding"):
+            self.pooler = DispatchPooler.for_embedding(pooler_config)
+        else:
+            self.pooler = DispatchPooler(
+                {
+                    "token_embed": Pooler.for_token_embed(pooler_config),
+                    "embed": Pooler.for_embed(pooler_config),
+                }
+            )
 
     def load_weights(self, weights: Any) -> set[str]:
         # We load the original encoder/ and proj.pt directly from the prepared

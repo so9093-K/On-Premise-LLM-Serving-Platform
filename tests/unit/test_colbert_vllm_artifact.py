@@ -56,6 +56,13 @@ def test_colbert_vllm_image_uses_named_vllm_plugin_entrypoint():
     assert "VLLM_PLUGINS=colbert_ko_vllm" in dockerfile
 
 
+def test_colbert_vllm_model_uses_version_compatible_pooler_factory():
+    model = (ROOT / "src/ai_model_serving/vllm_colbert/model.py").read_text(encoding="utf-8")
+    assert "DispatchPooler.for_embedding(pooler_config)" in model
+    assert "hasattr(DispatchPooler, \"for_embedding\")" in model
+    assert "Pooler.for_token_embed(pooler_config)" in model
+
+
 def test_colbert_license_and_live_parity_smoke_are_declared():
     catalog = yaml.safe_load((ROOT / "configs/model_catalog.yaml").read_text(encoding="utf-8"))
     colbert_catalog = catalog["models"]["local-colbert-ko"]
