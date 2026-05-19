@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import json
+import os
+import subprocess
+import sys
 import tomllib
 from pathlib import Path
 from importlib.util import find_spec
@@ -58,10 +61,15 @@ def test_colbert_vllm_image_uses_named_vllm_plugin_entrypoint():
 
     dockerfile = (ROOT / "ops/docker/Dockerfile.colbert-ko-vllm").read_text(encoding="utf-8")
     assert "VLLM_PLUGINS=colbert_ko_vllm" in dockerfile
+    assert '("torch", "vllm", "transformers")' in dockerfile
+    assert "Missing ColBERT runtime dependencies" in dockerfile
 
 
-def test_colbert_vllm_model_uses_version_compatible_pooler_factory():
+def test_colbert_vllm_model_and_compose_policy_are_guarded():
     model = (ROOT / "src/ai_model_serving/vllm_colbert/model.py").read_text(encoding="utf-8")
+    assert "from transformers import AutoModel" not in model.split("class ColbertKoEmbeddingGemmaForTextEncoding", 1)[0]
+    assert "ColBERT-ko vLLM runtime requires transformers" in model
+    assert "dedicated ColBERT vLLM image" in model
     assert "DispatchPooler.for_embedding(pooler_config)" in model
     assert "hasattr(DispatchPooler, \"for_embedding\")" in model
     assert "Pooler.for_token_embed(pooler_config)" in model
@@ -71,6 +79,45 @@ def test_colbert_vllm_model_uses_version_compatible_pooler_factory():
     assert "input_ids.ndim == 1" in model
     assert "RuntimeError" in model
     assert "outputs.last_hidden_state.to(dtype=self.projection.weight.dtype)" in model
+
+    env = os.environ.copy()
+    env.pop("COLBERT_KO_DTYPE", None)
+    default_result = subprocess.run(
+        [sys.executable, "scripts/compose/validate_vllm_compose.py"],
+        cwd=ROOT,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert default_result.returncode == 0, default_result.stderr + default_result.stdout
+
+    env["COLBERT_KO_DTYPE"] = "float16"
+    float16_result = subprocess.run(
+        [sys.executable, "scripts/compose/validate_vllm_compose.py"],
+        cwd=ROOT,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    float16_output = float16_result.stderr + float16_result.stdout
+    assert float16_result.returncode != 0
+    assert "COLBERT_KO_DTYPE=float16" in float16_output
+    assert "float16 is forbidden" in float16_output
+
+    env["COLBERT_KO_DTYPE"] = "bfloat16"
+    bfloat16_result = subprocess.run(
+        [sys.executable, "scripts/compose/validate_vllm_compose.py"],
+        cwd=ROOT,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    bfloat16_output = bfloat16_result.stderr + bfloat16_result.stdout
+    assert bfloat16_result.returncode != 0
+    assert "bfloat16 requires a separately validated runtime profile" in bfloat16_output
 
 
 def test_colbert_license_and_live_parity_smoke_are_declared():

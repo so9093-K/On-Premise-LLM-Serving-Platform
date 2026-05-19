@@ -153,6 +153,13 @@ if operator_bundle.exists():
     write_live_evidence_bundle(document, dst / 'reports/runtime')
     for cache_dir in dst.rglob('__pycache__'):
         shutil.rmtree(cache_dir, ignore_errors=True)
+
+# Re-render the packaged inventory from the staged tree after all package-time
+# rewrites/exclusions, so the inventory is a source of truth for the ZIP itself.
+sys.path.insert(0, str(dst / 'src'))
+from ai_model_serving.project_inventory import write_inventory_reports
+
+write_inventory_reports(dst)
 PYCODE
 
 # Contract hygiene markers retained for static validation. The staging copier above enforces these
@@ -198,5 +205,46 @@ with zipfile.ZipFile(out, 'w', zipfile.ZIP_DEFLATED) as zf:
             with open(fp, 'rb') as fh:
                 zf.writestr(fi, fh.read())
 PYZIP
+
+"$PYTHON_BIN" - "$OUT" "$PACKAGE_ROOT" <<'PYSELF'
+from __future__ import annotations
+
+import csv
+import fnmatch
+import sys
+import zipfile
+
+out = sys.argv[1]
+pkg = sys.argv[2]
+inventory_name = f"{pkg}/reports/refactor/project_inventory_current.csv"
+safe_env_examples = {".env.example", ".env.local.example", ".env.compose.example"}
+
+with zipfile.ZipFile(out) as zf:
+    names = zf.namelist()
+    file_paths = {
+        name[len(pkg) + 1 :]
+        for name in names
+        if name.startswith(f"{pkg}/") and not name.endswith("/")
+    }
+    if inventory_name not in names:
+        raise SystemExit(f"Missing packaged inventory: {inventory_name}")
+    rows = list(csv.DictReader(zf.read(inventory_name).decode("utf-8").splitlines()))
+
+inventory_paths = {row["path"] for row in rows}
+for path in sorted(inventory_paths):
+    name = path.rsplit("/", 1)[-1]
+    if name not in safe_env_examples and (name == ".env" or fnmatch.fnmatch(name, ".env.*")):
+        raise SystemExit(f"Packaged inventory contains excluded environment file: {path}")
+
+missing_from_zip = sorted(inventory_paths - file_paths)
+missing_from_inventory = sorted(file_paths - inventory_paths)
+if missing_from_zip or missing_from_inventory:
+    lines = ["Packaged inventory does not match ZIP file list."]
+    if missing_from_zip:
+        lines.append("Inventory-only paths: " + ", ".join(missing_from_zip[:20]))
+    if missing_from_inventory:
+        lines.append("ZIP-only paths: " + ", ".join(missing_from_inventory[:20]))
+    raise SystemExit("\n".join(lines))
+PYSELF
 
 echo "$OUT"

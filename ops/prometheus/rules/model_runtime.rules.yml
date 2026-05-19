@@ -32,9 +32,10 @@ groups:
       # vLLM documents KV cache usage as a ratio where 1 means 100% usage.
       # Normalize defensively because some runtime/exporter combinations have
       # emitted 0-100 percent-like samples under the *_perc metric name.
+      # clamp_max(1) suppresses transient out-of-range spikes during model restart.
       # Keep the scrape labels used by Grafana variables and drop exporter-specific extras.
       - record: vllm_kv_cache_usage_ratio
-        expr: max by (instance, model, runtime_service) ((vllm:kv_cache_usage_perc <= 1) or ((vllm:kv_cache_usage_perc > 1) / 100))
+        expr: clamp_max(max by (instance, model, runtime_service) ((vllm:kv_cache_usage_perc <= 1) or ((vllm:kv_cache_usage_perc > 1) / 100)), 1)
       - record: vllm_queue_depth
         expr: vllm:num_requests_waiting
       - record: vllm_token_throughput_per_second

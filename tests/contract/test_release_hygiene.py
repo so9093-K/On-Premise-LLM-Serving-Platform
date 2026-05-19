@@ -36,6 +36,15 @@ def test_package_script_excludes_virtualenv_directories() -> None:
         assert dirname in package_script
 
 
+def test_package_script_self_checks_inventory_against_zip() -> None:
+    package_script = (ROOT / 'scripts/build/package_release.sh').read_text(encoding='utf-8')
+    assert 'project_inventory_current.csv' in package_script
+    assert 'Packaged inventory does not match ZIP file list.' in package_script
+    assert 'Packaged inventory contains excluded environment file' in package_script
+    assert 'missing_from_zip' in package_script
+    assert 'missing_from_inventory' in package_script
+
+
 def test_redundant_origin_adr_removed_but_decision_retained() -> None:
     assert not (ROOT / 'adr/0001-origin-transition.md').exists()
     decision_register = (ROOT / 'docs/02_decision_register.md').read_text(encoding='utf-8')

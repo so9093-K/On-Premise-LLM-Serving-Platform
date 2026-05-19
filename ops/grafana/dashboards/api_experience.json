@@ -529,7 +529,7 @@
       "id": 10,
       "type": "timeseries",
       "title": "Upstream Errors by Model",
-      "description": "Healthy/정상: upstream errors near zero. Attention/주의: non-zero upstream errors may indicate runtime instability. Action Required/조치 필요: sustained upstream errors need runtime drill-down. No Data/런타임 데이터 없음: check Gateway scrape and upstream error counter.",
+      "description": "Healthy/정상: upstream errors near zero. Attention/주의: non-zero upstream errors may indicate runtime instability. Action Required/조치 필요: sustained upstream errors need runtime drill-down. No Data/런타임 데이터 없음: check Gateway scrape and upstream error counter. VALIDATION_ERROR code indicates a gateway-side rejection before upstream was reached.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"

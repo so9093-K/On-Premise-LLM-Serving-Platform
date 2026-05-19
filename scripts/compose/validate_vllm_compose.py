@@ -193,6 +193,20 @@ def validate_alignment() -> None:
         if runtime.logical_id == "local-colbert-ko":
             if args.get("model") == runtime.upstream_model_id:
                 errors.append(f"{service_name}: must not pass the non-loadable Hugging Face repo root as --model")
+            actual_dtype = str(args.get("dtype"))
+            expected_dtype = str(cfg.get("dtype"))
+            requested_dtype = os.environ.get("COLBERT_KO_DTYPE")
+            if actual_dtype != expected_dtype:
+                errors.append(
+                    f"{service_name}: --dtype={actual_dtype} must match v0.0.1 production policy "
+                    f"{expected_dtype}"
+                )
+            if requested_dtype and requested_dtype != expected_dtype:
+                errors.append(
+                    f"{service_name}: COLBERT_KO_DTYPE={requested_dtype} is not supported by the "
+                    f"v0.0.1 production compose profile; use {expected_dtype}. "
+                    "bfloat16 requires a separately validated runtime profile; float16 is forbidden."
+                )
             for key in ["tokenizer", "convert"]:
                 if str(args.get(key)) != str(cfg.get(key)):
                     errors.append(f"{service_name}: --{key} must match ColBERT vLLM native config")

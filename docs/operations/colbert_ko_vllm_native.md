@@ -14,8 +14,8 @@
 | runner | `pooling` |
 | score mode | `late_interaction_maxsim` |
 | capabilities | `retrieval_rerank`, `retrieval_score`, `retrieval_token_embeddings` |
-| dtype | `float32` (default); `bfloat16` allowed; `float16` forbidden |
-| env var | `COLBERT_KO_DTYPE` (default: `float32`), `COLBERT_KO_GPU_MEMORY_UTILIZATION` (default: `0.06`) |
+| dtype | `float32` fixed in the v0.0.1 production compose profile; `bfloat16` allowed by policy after parity validation; `float16` forbidden |
+| env var | `COLBERT_KO_GPU_MEMORY_UTILIZATION` (default: `0.06`) |
 
 ## dtype 정책
 
@@ -27,7 +27,7 @@ EmbeddingGemma backbone은 float16 activation을 사용하면 안 된다.
 | `bfloat16` | 허용. 처리량·메모리 제약 환경에서 ranking parity 검증 후 사용 가능 |
 | `float16` | **금지.** EmbeddingGemma backbone 비호환 |
 
-`COLBERT_KO_DTYPE=float32`로 고정하거나 bfloat16으로 전환할 때는 `colbert-parity-smoke`로 ranking parity를 확인한다. dtype을 바꾸면 score 소수점 끝 자리가 달라질 수 있다.
+v0.0.1 production compose는 `--dtype float32`로 고정한다. bfloat16 전환은 별도 runtime profile에서 `colbert-parity-smoke` ranking parity를 통과한 뒤 활성화한다. dtype을 바꾸면 score 소수점 끝 자리가 달라질 수 있다.
 
 ## 1D flattened input 시퀀스 경계 복원
 

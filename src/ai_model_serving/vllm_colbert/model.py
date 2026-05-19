@@ -6,7 +6,6 @@ from typing import Any
 import torch
 import torch.nn.functional as F
 from torch import nn
-from transformers import AutoModel
 
 
 def _model_dir_from_config(vllm_config: Any) -> Path:
@@ -141,6 +140,13 @@ class ColbertKoEmbeddingGemmaForTextEncoding(nn.Module):
         del prefix
         super().__init__()
         model_dir = _model_dir_from_config(vllm_config)
+        try:
+            from transformers import AutoModel
+        except ModuleNotFoundError as exc:
+            raise RuntimeError(
+                "ColBERT-ko vLLM runtime requires transformers. "
+                "Use the dedicated ColBERT vLLM image or install the ColBERT runtime dependencies."
+            ) from exc
         self.encoder = AutoModel.from_pretrained(model_dir / "encoder", trust_remote_code=True)
         self.projection = _load_projection(model_dir / "proj.pt")
         self.normalize_embeddings = True

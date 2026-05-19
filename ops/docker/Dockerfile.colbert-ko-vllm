@@ -9,6 +9,14 @@ COPY scripts ./scripts
 
 RUN python3 -m pip install --no-cache-dir --no-deps .
 
+RUN python3 - <<'PY'
+import importlib.util
+
+missing = [name for name in ("torch", "vllm", "transformers") if importlib.util.find_spec(name) is None]
+if missing:
+    raise SystemExit("Missing ColBERT runtime dependencies: " + ", ".join(missing))
+PY
+
 ENV PYTHONPATH=/app/src \
     VLLM_PLUGINS=colbert_ko_vllm
 
