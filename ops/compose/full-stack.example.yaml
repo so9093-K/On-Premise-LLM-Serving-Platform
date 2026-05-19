@@ -115,6 +115,11 @@ services:
     depends_on:
       embedding-vllm:
         condition: service_healthy
+      # Keep vLLM runtime startup serialized on a shared GPU. vLLM profiles
+      # free memory during init, and concurrent ColBERT/risk startup can make
+      # that profiling fail even when steady-state GPU budget is valid.
+      colbert-ko-vllm:
+        condition: service_healthy
     expose: ["9403"]
     env_file: ../../.env
     environment:

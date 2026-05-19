@@ -121,7 +121,7 @@ enabled risk 모델(`risk-prompt-vllm`)에는 다음 설정이 적용된다. `ri
 |---|---|---|
 | `--enforce-eager` | 활성화 | CUDA graph pre-capture를 비활성화한다. 모델당 300~500MiB 절약. `max_num_seqs=1`, `max_output_tokens=1` 단일 토큰 분류기에서 CUDA graph 이득이 없다. |
 | `gpu_memory_utilization` | risk-prompt 0.065 | ColBERT-ko 포함 4-runtime enabled vLLM 총합 0.865 < `avoid_above` 0.93 유지. |
-| compose 기동 순서 | main-llm → embedding → risk-prompt | `depends_on: condition: service_healthy` 체인. 동시 기동 시 weight loading peak가 겹쳐 OOM 발생 가능. |
+| compose 기동 순서 | main-llm → embedding → colbert-ko → risk-prompt | `depends_on: condition: service_healthy` 체인. vLLM은 초기화 중 free memory를 profiling하므로 ColBERT-ko와 risk-prompt를 동시에 시작하면 steady-state GPU budget이 충분해도 profiling assertion으로 실패할 수 있다. |
 
 `Engine core initialization failed. Failed core proc(s): {}` 오류가 보이면 위 설정이 compose에 반영됐는지 `make vllm-commands`로 확인한다.
 

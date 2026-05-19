@@ -57,6 +57,12 @@ def test_ops_templates_exist_without_runtime_claims() -> None:
     assert "model_impl" not in serving["models"]["colbert_ko"], (
         "colbert_ko model_serving config must not render --model-impl transformers"
     )
+    risk_prompt_depends = compose["services"]["risk-prompt-vllm"]["depends_on"]
+    assert risk_prompt_depends["embedding-vllm"]["condition"] == "service_healthy"
+    assert risk_prompt_depends["colbert-ko-vllm"]["condition"] == "service_healthy", (
+        "risk-prompt-vllm must wait for colbert-ko-vllm so vLLM runtimes start "
+        "serially on a shared GPU; concurrent vLLM startup can fail memory profiling"
+    )
 
     for path in [
         "ops/grafana/dashboards/serving_home.json",
