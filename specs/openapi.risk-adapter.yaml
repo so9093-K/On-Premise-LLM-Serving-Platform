@@ -3,6 +3,9 @@ info:
   title: Risk Adapter
   description: '
 
+    ## 개요
+
+
     내부 Risk Adapter API입니다. Gateway 또는 내부 호출자가 사용합니다.
 
 

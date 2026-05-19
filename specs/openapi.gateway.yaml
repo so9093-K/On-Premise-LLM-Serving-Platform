@@ -16,7 +16,9 @@ info:
 
     5. `POST /v1/embeddings` — embedding 생성 (`local-embed`)
 
-    6. `POST /v1/risk/*` — prompt risk signal
+    6. `POST /v1/retrieval/*` — 문서 관련도 재순위·점수 계산 (`local-colbert-ko`)
+
+    7. `POST /v1/risk/*` — prompt risk signal
 
 
     ## 인증
@@ -3771,7 +3773,12 @@ paths:
 
         모델이 요청한 `score_mode`를 지원하지 않으면 422를 반환합니다.
 
-        `local-colbert-ko` 전용 조정 파라미터: `top_n`(상위 n개만 반환, 1–32), `max_tokens_per_query`(1–128, 기본 128), `max_tokens_per_doc`(32–1024, 기본 192), `truncate_prompt_tokens`(-1 또는 1–2048), `truncation_side`(left/right, 기본 right).
+        `local-colbert-ko` 전용 조정 파라미터:
+        - `top_n`: 상위 n개만 반환 (1–32)
+        - `max_tokens_per_query`: 1–128, 기본 128
+        - `max_tokens_per_doc`: 32–1024, 기본 192
+        - `truncate_prompt_tokens`: -1 또는 1–2048
+        - `truncation_side`: left / right, 기본 right
       operationId: rerankDocuments
       requestBody:
         content:
@@ -3857,7 +3864,13 @@ paths:
 
         재순위 정렬이 필요하면 `/v1/retrieval/rerank`를 사용하세요.
 
-        `top_n`은 이 endpoint에서 지원하지 않습니다(422). `local-colbert-ko` 전용 조정 파라미터: `max_tokens_per_query`(1–128, 기본 128), `max_tokens_per_doc`(32–1024, 기본 192), `truncate_prompt_tokens`(-1 또는 1–2048), `truncation_side`(left/right, 기본 right).
+        `top_n`은 이 endpoint에서 지원하지 않습니다 (422).
+
+        `local-colbert-ko` 전용 조정 파라미터:
+        - `max_tokens_per_query`: 1–128, 기본 128
+        - `max_tokens_per_doc`: 32–1024, 기본 192
+        - `truncate_prompt_tokens`: -1 또는 1–2048
+        - `truncation_side`: left / right, 기본 right
       operationId: scoreDocuments
       requestBody:
         content:
@@ -3943,7 +3956,9 @@ paths:
 
         `local-embed` 같은 비ColBERT 모델을 지정하면 422 `MODEL_CAPABILITY_MISMATCH`를 반환합니다.
 
-        `truncate_prompt_tokens`(-1 또는 1–2048)로 토큰 수를 제한할 수 있습니다. `truncate_to_tokens`는 deprecated alias이며 최대 192로 제한됩니다. 두 파라미터가 모두 있고 값이 다르면 422를 반환합니다.
+        조정 파라미터:
+        - `truncate_prompt_tokens`: -1 또는 1–2048
+        - `truncate_to_tokens`: deprecated alias, 최대 192로 제한 (값이 다르면 422)
       operationId: getTokenEmbeddings
       requestBody:
         content:
@@ -4055,7 +4070,4 @@ tags:
 
     - 문서·웹페이지 안에 숨겨진 간접 prompt injection
 
-    - 연결된 도구로 시크릿·파일·메일 탈취 유도
-
-
-    `risk-siren`은 retired 상태이며 aggregate는 enabled detector registry 기준으로 동작합니다.'
+    - 연결된 도구로 시크릿·파일·메일 탈취 유도'

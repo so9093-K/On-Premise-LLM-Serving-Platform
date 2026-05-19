@@ -240,9 +240,12 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
             "- `score_mode=late_interaction_maxsim` — `local-colbert-ko` ColBERT MaxSim 점수\n"
             "- `score_mode=dense_cosine` — `local-embed` 밀집 벡터 코사인 유사도\n\n"
             "모델이 요청한 `score_mode`를 지원하지 않으면 422를 반환합니다.\n\n"
-            "`local-colbert-ko` 전용 조정 파라미터: `top_n`(상위 n개만 반환, 1–32), "
-            "`max_tokens_per_query`(1–128, 기본 128), `max_tokens_per_doc`(32–1024, 기본 192), "
-            "`truncate_prompt_tokens`(-1 또는 1–2048), `truncation_side`(left/right, 기본 right)."
+            "`local-colbert-ko` 전용 조정 파라미터:\n"
+            "- `top_n`: 상위 n개만 반환 (1–32)\n"
+            "- `max_tokens_per_query`: 1–128, 기본 128\n"
+            "- `max_tokens_per_doc`: 32–1024, 기본 192\n"
+            "- `truncate_prompt_tokens`: -1 또는 1–2048\n"
+            "- `truncation_side`: left / right, 기본 right"
         ),
         auth="public_api",
         exposure="public_gateway",
@@ -262,10 +265,12 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
         description=(
             "query와 documents 목록을 받아 관련도 점수를 계산합니다. 입력 순서를 유지합니다.\n\n"
             "재순위 정렬이 필요하면 `/v1/retrieval/rerank`를 사용하세요.\n\n"
-            "`top_n`은 이 endpoint에서 지원하지 않습니다(422). "
-            "`local-colbert-ko` 전용 조정 파라미터: `max_tokens_per_query`(1–128, 기본 128), "
-            "`max_tokens_per_doc`(32–1024, 기본 192), `truncate_prompt_tokens`(-1 또는 1–2048), "
-            "`truncation_side`(left/right, 기본 right)."
+            "`top_n`은 이 endpoint에서 지원하지 않습니다 (422).\n\n"
+            "`local-colbert-ko` 전용 조정 파라미터:\n"
+            "- `max_tokens_per_query`: 1–128, 기본 128\n"
+            "- `max_tokens_per_doc`: 32–1024, 기본 192\n"
+            "- `truncate_prompt_tokens`: -1 또는 1–2048\n"
+            "- `truncation_side`: left / right, 기본 right"
         ),
         auth="public_api",
         exposure="public_gateway",
@@ -286,9 +291,9 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
             "`local-colbert-ko` 전용 token-level embedding 행렬을 반환합니다. "
             "ColBERT 디버깅 및 오프라인 인덱스 구축용 admin endpoint입니다.\n\n"
             "`local-embed` 같은 비ColBERT 모델을 지정하면 422 `MODEL_CAPABILITY_MISMATCH`를 반환합니다.\n\n"
-            "`truncate_prompt_tokens`(-1 또는 1–2048)로 토큰 수를 제한할 수 있습니다. "
-            "`truncate_to_tokens`는 deprecated alias이며 최대 192로 제한됩니다. "
-            "두 파라미터가 모두 있고 값이 다르면 422를 반환합니다."
+            "조정 파라미터:\n"
+            "- `truncate_prompt_tokens`: -1 또는 1–2048\n"
+            "- `truncate_to_tokens`: deprecated alias, 최대 192로 제한 (값이 다르면 422)"
         ),
         auth="admin",
         exposure="internal_only",

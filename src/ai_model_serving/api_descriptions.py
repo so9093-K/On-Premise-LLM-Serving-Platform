@@ -39,8 +39,7 @@ GATEWAY_TAGS_METADATA = [
             "- 숨겨진 system prompt 출력 요구\n"
             "- 역할극(DAN, unrestricted AI 등) jailbreak\n"
             "- 문서·웹페이지 안에 숨겨진 간접 prompt injection\n"
-            "- 연결된 도구로 시크릿·파일·메일 탈취 유도\n\n"
-            "`risk-siren`은 retired 상태이며 aggregate는 enabled detector registry 기준으로 동작합니다."
+            "- 연결된 도구로 시크릿·파일·메일 탈취 유도"
         ),
     },
 ]
@@ -53,7 +52,8 @@ GATEWAY_DESCRIPTION_TEMPLATE = """
 3. `GET /v1/models` — logical model id, capability, 사용자 조정 가능 parameter 목록
 4. `POST /v1/chat/completions` — chat completion (`local-main`)
 5. `POST /v1/embeddings` — embedding 생성 (`local-embed`)
-6. `POST /v1/risk/*` — prompt risk signal
+6. `POST /v1/retrieval/*` — 문서 관련도 재순위·점수 계산 (`local-colbert-ko`)
+7. `POST /v1/risk/*` — prompt risk signal
 
 ## 인증
 
@@ -106,6 +106,8 @@ RISK_ADAPTER_TAGS_METADATA = [
 ]
 
 RISK_ADAPTER_DESCRIPTION_TEMPLATE = """
+## 개요
+
 내부 Risk Adapter API입니다. Gateway 또는 내부 호출자가 사용합니다.
 
 ## Detector 역할
