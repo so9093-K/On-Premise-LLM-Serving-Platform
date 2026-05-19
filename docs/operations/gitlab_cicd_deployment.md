@@ -182,7 +182,7 @@ sudo mkdir -p /opt/acl-ai-gateway/models
 sudo chown -R "$USER:$USER" /opt/acl-ai-gateway/models
 
 COLBERT_KO_MODEL_DIR=/opt/acl-ai-gateway/models/colbert-ko-vllm
-HF_CACHE_DIR_HOST=/opt/acl-ai-gateway/model_cache/huggingface
+HF_CACHE_DIR_HOST=/opt/acl-ai-gateway/ops/compose/model_cache/huggingface
 PLATFORM_IMAGE_TO_DEPLOY=<registry>/platform:<tested-tag>
 
 mkdir -p "$COLBERT_KO_MODEL_DIR" "$HF_CACHE_DIR_HOST"

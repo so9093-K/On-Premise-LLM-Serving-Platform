@@ -124,6 +124,16 @@ def test_runtime_lockfile_and_dockerfile_hardening_are_present() -> None:
     assert 'uvicorn==' in runtime_lock_text
     assert 'httpx==' in runtime_lock_text
     assert 'huggingface_hub==1.13.0' in runtime_lock_text
+    for hf_transitive_pin in [
+        'fsspec==2026.4.0',
+        'hf-xet==1.4.3',
+        'typer==0.23.1',
+        'rich==15.0.0',
+        'markdown-it-py==4.2.0',
+        'mdurl==0.1.2',
+        'shellingham==1.5.4',
+    ]:
+        assert hf_transitive_pin in runtime_lock_text
     assert 'pytest==' not in runtime_lock_text
     assert 'jsonschema==4.26.0' in runtime_lock_text
     assert 'torch==' not in runtime_lock_text

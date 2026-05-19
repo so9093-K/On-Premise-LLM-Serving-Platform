@@ -11,6 +11,27 @@ PYTHON_BIN="${PYTHON_BIN:-$(command -v python3.12 || command -v python3 || comma
 
 COMPOSE_FILE="${COMPOSE_FILE:-ops/compose/full-stack.private-network.yaml}"
 
+compose_file_dir_host() {
+  if [[ "$COMPOSE_FILE" = /* ]]; then
+    dirname "$COMPOSE_FILE"
+  else
+    dirname "$ROOT/$COMPOSE_FILE"
+  fi
+}
+
+resolve_compose_relative_path() {
+  local raw="$1"
+  local base_dir
+  base_dir="$(compose_file_dir_host)"
+
+  if [[ "$raw" = /* ]]; then
+    printf '%s\n' "$raw"
+  else
+    raw="${raw#./}"
+    printf '%s/%s\n' "$base_dir" "$raw"
+  fi
+}
+
 fail=0
 require_cmd() {
   if command -v "$1" >/dev/null 2>&1; then
@@ -101,14 +122,11 @@ else
 fi
 
 HF_CACHE_DIR_RESOLVED="${HF_CACHE_DIR:-./model_cache/huggingface}"
-if [[ "$HF_CACHE_DIR_RESOLVED" = /* ]]; then
-  HF_CACHE_PATH="$HF_CACHE_DIR_RESOLVED"
-else
-  HF_CACHE_PATH="$ROOT/$HF_CACHE_DIR_RESOLVED"
-fi
+HF_CACHE_PATH="$(resolve_compose_relative_path "$HF_CACHE_DIR_RESOLVED")"
 mkdir -p "$HF_CACHE_PATH"
 if [[ -d "$HF_CACHE_PATH" && -w "$HF_CACHE_PATH" ]]; then
   echo "[preflight] ok: HF cache dir writable: $HF_CACHE_PATH"
+  echo "[preflight] relative HF_CACHE_DIR values are resolved from compose file directory: $(compose_file_dir_host)"
 else
   echo "[preflight] missing: HF cache dir is not writable: $HF_CACHE_PATH" >&2
   fail=1

@@ -406,8 +406,9 @@ def test_gitlab_ci_deployment_contract_is_documented_and_operationally_safe() ->
     assert "--exclude \".env\"" in deploy
     assert "--exclude \".runtime/\"" in deploy
     assert "--exclude \"model_cache/\"" in deploy
-    assert 'docker compose -f "${COMPOSE_FILE}" --env-file .env up -d --remove-orphans' in deploy
-    assert 'docker compose -f "${COMPOSE_FILE}" --env-file .env up -d --no-deps gateway risk-adapter' in deploy
+    assert 'COMPOSE_ENV_FILE="${DEPLOY_PATH}/.env"' in deploy
+    assert 'docker compose -f "${COMPOSE_FILE}" --env-file "${COMPOSE_ENV_FILE}" up -d --remove-orphans' in deploy
+    assert 'docker compose -f "${COMPOSE_FILE}" --env-file "${COMPOSE_ENV_FILE}" up -d --no-deps gateway risk-adapter' in deploy
     assert 'get_env_value GATEWAY_BIND_ADDR' in deploy
     assert 'GATEWAY_PROBE_HOST="localhost"' in deploy
     assert 'HEALTH_URL="${GATEWAY_HEALTH_URL:-http://${GATEWAY_PROBE_HOST}:${GATEWAY_PORT}/health}"' in deploy
@@ -422,6 +423,15 @@ def test_gitlab_ci_deployment_contract_is_documented_and_operationally_safe() ->
     )
     assert "raw Hugging Face cache" in preflight_compose, (
         "local compose preflight must distinguish prepared ColBERT artifact from raw HF cache"
+    )
+    assert "resolve_compose_relative_path()" in preflight_compose, (
+        "local compose preflight must resolve HF_CACHE_DIR the same way docker compose does"
+    )
+    assert 'HF_CACHE_PATH="$(resolve_compose_relative_path "$HF_CACHE_DIR_RESOLVED")"' in preflight_compose, (
+        "local compose preflight must check the compose-file-relative HF cache path"
+    )
+    assert "relative HF_CACHE_DIR values are resolved from compose file directory" in preflight_compose, (
+        "local compose preflight must log the HF cache path base"
     )
 
     assert "Docker executor" in doc
@@ -947,10 +957,22 @@ def test_gitlab_ci_has_colbert_ko_vllm_build_job() -> None:
     assert "Relative HF_CACHE_DIR values are resolved from compose file directory" in deploy, (
         "deploy logs must explain the HF cache relative path base"
     )
+    assert "export_compose_env_from_file()" in deploy, (
+        "deploy script must export remote .env before docker compose so empty SSH env vars cannot shadow required values"
+    )
+    assert 'export "${key}=${value}"' in deploy, (
+        "deploy script must export compose variables from the mutated .env file"
+    )
+    assert 'docker compose -f "${COMPOSE_FILE}" --env-file "${COMPOSE_ENV_FILE}" config >/dev/null' in deploy, (
+        "deploy script must validate compose config interpolation after .env mutation and before pull/up"
+    )
+    assert '--env-file .env pull' not in deploy and '--env-file .env up' not in deploy, (
+        "deploy script must not rely on relative --env-file .env for compose pull/up"
+    )
     artifact_preflight_pos = deploy.find("validate_colbert_ko_artifact")
     artifact_prepare_pos = deploy.find("prepare_colbert_ko_artifact_if_requested")
     backup_pos = deploy.find("cp .env")
-    compose_up_pos = deploy.find('docker compose -f "${COMPOSE_FILE}" --env-file .env up -d --remove-orphans')
+    compose_up_pos = deploy.find('docker compose -f "${COMPOSE_FILE}" --env-file "${COMPOSE_ENV_FILE}" up -d --remove-orphans')
     assert artifact_prepare_pos != -1 and artifact_prepare_pos < backup_pos, (
         "ColBERT artifact preparation must run before .env backup/mutation"
     )

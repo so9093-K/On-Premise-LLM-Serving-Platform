@@ -133,6 +133,7 @@ ssh "${SSH_TARGET}" \
 set -euo pipefail
 
 cd "${DEPLOY_PATH}"
+COMPOSE_ENV_FILE="${DEPLOY_PATH}/.env"
 
 if [[ ! -f .env ]]; then
   echo "[deploy] ERROR: .env not found at ${DEPLOY_PATH}/.env" >&2
@@ -157,6 +158,15 @@ fi
 get_env_value() {
   local key="$1"
   awk -F= -v key="$key" '$1 == key { sub(/^[^=]*=/, ""); print; exit }' .env
+}
+
+export_compose_env_from_file() {
+  local key value
+  while IFS='=' read -r key value; do
+    [[ "${key}" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || continue
+    export "${key}=${value}"
+  done < .env
+  echo "[deploy] compose environment exported from ${COMPOSE_ENV_FILE}"
 }
 
 compose_file_dir_host() {
@@ -390,25 +400,36 @@ if ! make sync-runtime-secrets; then
   fail_after_env_backup "runtime secret sync failed"
 fi
 
+# Docker Compose gives shell environment variables precedence over --env-file.
+# The SSH wrapper intentionally passes optional variables such as COLBERT_KO_MODEL_DIR
+# as empty when they are not set in CI; export the mutated remote .env now so those
+# empty process env values cannot shadow required compose variables.
+export_compose_env_from_file
+
+echo "[deploy] validating compose config with ${COMPOSE_ENV_FILE}..."
+if ! docker compose -f "${COMPOSE_FILE}" --env-file "${COMPOSE_ENV_FILE}" config >/dev/null; then
+  fail_after_env_backup "compose config interpolation failed after .env update"
+fi
+
 if [[ "${DEPLOY_MODE}" == "full" ]]; then
   echo "[deploy] full deploy: pulling all compose images..."
-  if ! docker compose -f "${COMPOSE_FILE}" --env-file .env pull; then
+  if ! docker compose -f "${COMPOSE_FILE}" --env-file "${COMPOSE_ENV_FILE}" pull; then
     fail_after_env_backup "image pull failed during full deploy. If vLLM-derived images are new, confirm build-vllm-derived succeeded or set existing RISK_VLLM_IMAGE_TO_DEPLOY / COLBERT_KO_VLLM_IMAGE_TO_DEPLOY refs."
   fi
   echo "[deploy] full deploy: starting stack..."
-  if ! docker compose -f "${COMPOSE_FILE}" --env-file .env up -d --remove-orphans; then
+  if ! docker compose -f "${COMPOSE_FILE}" --env-file "${COMPOSE_ENV_FILE}" up -d --remove-orphans; then
     fail_after_env_backup "full stack compose up failed"
   fi
 else
   # pull gateway + risk-adapter images only (vLLM images are large; pull separately when needed)
   echo "[deploy] rolling deploy: pulling gateway and risk-adapter images..."
-  if ! docker compose -f "${COMPOSE_FILE}" --env-file .env pull gateway risk-adapter; then
+  if ! docker compose -f "${COMPOSE_FILE}" --env-file "${COMPOSE_ENV_FILE}" pull gateway risk-adapter; then
     fail_after_env_backup "rolling deploy image pull failed for gateway/risk-adapter"
   fi
 
   # rolling restart: gateway + risk-adapter (no vLLM downtime)
   echo "[deploy] rolling deploy: restarting gateway and risk-adapter..."
-  if ! docker compose -f "${COMPOSE_FILE}" --env-file .env up -d --no-deps gateway risk-adapter; then
+  if ! docker compose -f "${COMPOSE_FILE}" --env-file "${COMPOSE_ENV_FILE}" up -d --no-deps gateway risk-adapter; then
     fail_after_env_backup "rolling deploy restart failed for gateway/risk-adapter"
   fi
 fi
