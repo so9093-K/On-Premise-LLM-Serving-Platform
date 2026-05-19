@@ -183,8 +183,6 @@ services:
     - pooling
     - --convert
     - embed
-    - --model-impl
-    - transformers
     - --trust-remote-code
     - --pooler-config.task
     - token_embed

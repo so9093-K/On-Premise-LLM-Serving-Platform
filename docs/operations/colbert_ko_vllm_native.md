@@ -17,7 +17,7 @@
 
 Production compose는 HF repo root나 raw Hugging Face cache를 `--model`로 넘기지 않는다. The ColBERT-ko source repository is not mounted directly as the vLLM model directory. Run `prepare_colbert_ko_vllm_artifact.py` first. `COLBERT_KO_MODEL_DIR` must point to the prepared artifact directory whose root contains `config.json`.
 
-Compose는 `--model /models/colbert-ko-vllm`, `--tokenizer /models/colbert-ko-vllm/tokenizer`, `--runner pooling`, `--convert embed`, `--model-impl transformers`, `--pooler-config.task token_embed`를 사용한다. 따라서 host의 `$COLBERT_KO_MODEL_DIR/config.json`이 container 안의 `/models/colbert-ko-vllm/config.json`으로 보여야 한다.
+Compose는 `--model /models/colbert-ko-vllm`, `--tokenizer /models/colbert-ko-vllm/tokenizer`, `--runner pooling`, `--convert embed`, `--trust-remote-code`, `--pooler-config.task token_embed`를 사용한다. `--model-impl transformers`는 사용하지 않는다. ColBERT-ko는 Transformers `auto_map` model이 아니라 dedicated image의 `colbert_ko_vllm` plugin이 vLLM `ModelRegistry`에 등록하는 custom pooling model이기 때문이다. 따라서 host의 `$COLBERT_KO_MODEL_DIR/config.json`이 container 안의 `/models/colbert-ko-vllm/config.json`으로 보여야 한다.
 
 GitLab full deploy에서 `PREPARE_COLBERT_KO_ARTIFACT=1`을 설정하면 target host의 Python 환경을 사용하지 않고 platform image container 안에서 prepare script를 실행한다. Platform image는 `huggingface_hub`만 포함한 lightweight ops helper 역할을 겸하며, torch/vLLM/transformers 같은 model conversion dependency를 추가하지 않는다.
 

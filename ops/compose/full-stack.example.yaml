@@ -85,7 +85,7 @@ services:
 
   colbert-ko-vllm:
     image: ${COLBERT_KO_VLLM_IMAGE:?Set COLBERT_KO_VLLM_IMAGE to a tested ColBERT-ko vLLM image tag}
-    command: ["--model", "/models/colbert-ko-vllm", "--tokenizer", "/models/colbert-ko-vllm/tokenizer", "--served-model-name", "local-colbert-ko", "--host", "0.0.0.0", "--port", "9404", "--runner", "pooling", "--convert", "embed", "--model-impl", "transformers", "--trust-remote-code", "--pooler-config.task", "token_embed", "--max-model-len", "2048", "--max-num-seqs", "1", "--max-num-batched-tokens", "2048", "--gpu-memory-utilization", "0.04"]
+    command: ["--model", "/models/colbert-ko-vllm", "--tokenizer", "/models/colbert-ko-vllm/tokenizer", "--served-model-name", "local-colbert-ko", "--host", "0.0.0.0", "--port", "9404", "--runner", "pooling", "--convert", "embed", "--trust-remote-code", "--pooler-config.task", "token_embed", "--max-model-len", "2048", "--max-num-seqs", "1", "--max-num-batched-tokens", "2048", "--gpu-memory-utilization", "0.04"]
     expose: ["9404"]
     env_file: ../../.env
     environment:

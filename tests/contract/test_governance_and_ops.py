@@ -49,6 +49,14 @@ def test_ops_templates_exist_without_runtime_claims() -> None:
     assert "/models/colbert-ko-vllm" in colbert_command
     assert "--pooler-config.task" in colbert_command
     assert "token_embed" in colbert_command
+    assert "--model-impl" not in colbert_command, (
+        "colbert-ko-vllm must not force --model-impl transformers; it uses the dedicated "
+        "colbert_ko_vllm plugin and vLLM ModelRegistry registration"
+    )
+    serving = yaml.safe_load((ROOT / "configs/model_serving.yaml").read_text(encoding="utf-8"))
+    assert "model_impl" not in serving["models"]["colbert_ko"], (
+        "colbert_ko model_serving config must not render --model-impl transformers"
+    )
 
     for path in [
         "ops/grafana/dashboards/serving_home.json",
