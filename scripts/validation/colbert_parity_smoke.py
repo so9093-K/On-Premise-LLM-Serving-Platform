@@ -2,8 +2,10 @@
 from __future__ import annotations
 
 import argparse
+import ast
 import json
 import os
+import re
 import sys
 from pathlib import Path
 from typing import Any
@@ -78,7 +80,26 @@ def _load_artifact_manifest(path: Path | None) -> dict[str, Any]:
     return {"manifest": manifest, "config": config}
 
 
+def _observed_forward_paths(log_file: Path | None) -> list[dict[str, Any]]:
+    if log_file is None:
+        return []
+    if not log_file.exists():
+        raise RuntimeError(f"forward shape log file does not exist: {log_file}")
+    observations: list[dict[str, Any]] = []
+    pattern = re.compile(r"ColBERT-ko forward shape trace: (\{.*\})")
+    for line in log_file.read_text(encoding="utf-8", errors="replace").splitlines():
+        match = pattern.search(line)
+        if not match:
+            continue
+        payload = ast.literal_eval(match.group(1))
+        if payload.get("event") == "colbert_ko_forward_shape_trace":
+            observations.append(payload)
+    return observations
+
+
 def run(args: argparse.Namespace) -> dict[str, Any]:
+    if len(args.documents) < 2:
+        raise RuntimeError("ColBERT parity smoke requires at least two documents for /score.")
     artifact = _load_artifact_manifest(args.artifact_dir)
     reference = ColbertReferenceAdapter()
     projection_dim = int(getattr(reference.projection, "out_features", 0))
@@ -97,10 +118,17 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         raise RuntimeError(f"top-1 mismatch: reference={ref_rank[0]} vllm={vllm_rank[0]}")
     if args.require_full_order and ref_rank != vllm_rank:
         raise RuntimeError(f"ranking order mismatch: reference={ref_rank} vllm={vllm_rank}")
+    observed_forward_paths = _observed_forward_paths(args.forward_shape_log)
+    if args.require_forward_trace and not observed_forward_paths:
+        raise RuntimeError(
+            "no ColBERT-ko forward shape trace found. Start colbert-ko-vllm with "
+            "COLBERT_KO_TRACE_FORWARD_SHAPES=1 and pass --forward-shape-log."
+        )
 
     return {
         "status": "pass",
         "model": "local-colbert-ko",
+        "trace_forward_shapes_env": "COLBERT_KO_TRACE_FORWARD_SHAPES=1",
         "query": args.query,
         "documents": args.documents,
         "reference_scores": ref_scores,
@@ -110,13 +138,14 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "top1_index": ref_rank[0],
         "projection_dim": projection_dim,
         "vllm_token_embedding_shape": [token_count, token_dim],
+        "observed_forward_paths": observed_forward_paths,
         "artifact": artifact,
     }
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="GPU/live ColBERT-ko reference-vs-vLLM native ranking parity smoke."
+        description="GPU/live ColBERT-ko reference-vs-vLLM plugin runtime ranking parity smoke."
     )
     parser.add_argument("--vllm-base-url", default=os.getenv("COLBERT_KO_VLLM_BASE_URL", "http://localhost:9404"))
     parser.add_argument("--artifact-dir", type=Path, default=Path(os.getenv("COLBERT_KO_MODEL_DIR", "models/colbert-ko-vllm")))
@@ -124,6 +153,18 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--document", dest="documents", action="append", help="Repeat to override the default fixture documents.")
     parser.add_argument("--timeout", type=float, default=30.0)
     parser.add_argument("--require-full-order", action="store_true")
+    parser.add_argument(
+        "--forward-shape-log",
+        type=Path,
+        default=Path(os.environ["COLBERT_KO_FORWARD_SHAPE_LOG"])
+        if os.getenv("COLBERT_KO_FORWARD_SHAPE_LOG")
+        else None,
+        help=(
+            "Optional colbert-ko-vllm log file captured while "
+            "COLBERT_KO_TRACE_FORWARD_SHAPES=1 is set; parsed into observed_forward_paths."
+        ),
+    )
+    parser.add_argument("--require-forward-trace", action="store_true")
     return parser.parse_args()
 
 

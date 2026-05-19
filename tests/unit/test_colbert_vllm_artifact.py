@@ -67,6 +67,8 @@ def test_colbert_vllm_image_uses_named_vllm_plugin_entrypoint():
 
 def test_colbert_vllm_model_and_compose_policy_are_guarded():
     model = (ROOT / "src/ai_model_serving/vllm_colbert/model.py").read_text(encoding="utf-8")
+    core = (ROOT / "src/ai_model_serving/vllm_colbert/core.py").read_text(encoding="utf-8")
+    packing = (ROOT / "src/ai_model_serving/vllm_colbert/packing.py").read_text(encoding="utf-8")
     assert "from transformers import AutoModel" not in model.split("class ColbertKoEmbeddingGemmaForTextEncoding", 1)[0]
     assert "ColBERT-ko vLLM runtime requires transformers" in model
     assert "dedicated ColBERT vLLM image" in model
@@ -77,8 +79,16 @@ def test_colbert_vllm_model_and_compose_policy_are_guarded():
     assert "named_parameters" in model
     assert "_pack_flattened_inputs" in model
     assert "input_ids.ndim == 1" in model
+    assert "vLLM executor compatibility adapter path" in model
+    assert "selected_path=\"vllm_flattened_adapter\"" in model
+    assert "selected_path=\"direct_2d_core\"" in model
+    assert "COLBERT_KO_TRACE_FORWARD_SHAPES" in model
     assert "RuntimeError" in model
-    assert "outputs.last_hidden_state.to(dtype=self.projection.weight.dtype)" in model
+    assert "torch.ones_like(input_ids)" not in model
+    assert "ColBERT-ko 2D input requires attention_mask" in model
+    assert "outputs.last_hidden_state.to(dtype=self.projection.weight.dtype)" in core
+    assert "ColBERT-ko core requires 2D input_ids" in core
+    assert "vLLM executor compatibility adapter" in packing
 
     env = os.environ.copy()
     env.pop("COLBERT_KO_DTYPE", None)
@@ -141,6 +151,7 @@ def test_colbert_license_and_live_parity_smoke_are_declared():
     assert '"text_2"' in smoke
     assert "/pooling" in smoke
     assert "top-1 mismatch" in smoke
+    assert "observed_forward_paths" in smoke
 
 
 def test_reference_maxsim_fixture_ranks_expected_top1():
@@ -195,14 +206,14 @@ def test_reference_projection_fixture_requires_128_dim_proj_head():
 
 
 # ---------------------------------------------------------------------------
-# _pack_flattened_inputs unit tests (torch required)
+# vLLM flattened adapter compatibility tests (torch required)
 # ---------------------------------------------------------------------------
 
 @skip_no_torch
-def test_pack_flattened_inputs_single_sequence():
-    """단일 시퀀스가 1D로 들어오면 [1, len] padded tensor를 반환한다."""
+def test_vllm_flattened_adapter_pack_single_sequence():
+    """vLLM flattened adapter restores one sequence to a [1, len] 2D core input."""
     import torch
-    from ai_model_serving.vllm_colbert.model import _pack_flattened_inputs
+    from ai_model_serving.vllm_colbert.packing import _pack_flattened_inputs
     ids = torch.tensor([1, 2, 3, 4])
     pos = torch.tensor([0, 1, 2, 3])
     padded, mask, lengths = _pack_flattened_inputs(ids, pos, pad_token_id=0)
@@ -214,10 +225,10 @@ def test_pack_flattened_inputs_single_sequence():
 
 
 @skip_no_torch
-def test_pack_flattened_inputs_two_sequences():
-    """두 시퀀스가 flattened되어 들어오면 [2, max_len] 배치로 복원된다."""
+def test_vllm_flattened_adapter_pack_two_sequences():
+    """vLLM flattened adapter restores two packed sequences to a 2D core batch."""
     import torch
-    from ai_model_serving.vllm_colbert.model import _pack_flattened_inputs
+    from ai_model_serving.vllm_colbert.packing import _pack_flattened_inputs
     # seq_a = [10, 11, 12], seq_b = [20, 21]
     ids = torch.tensor([10, 11, 12, 20, 21])
     pos = torch.tensor([0, 1, 2, 0, 1])
@@ -232,10 +243,10 @@ def test_pack_flattened_inputs_two_sequences():
 
 
 @skip_no_torch
-def test_pack_flattened_inputs_attention_mask_shape_is_num_seqs_by_max_len():
-    """attention_mask shape이 [num_seqs, max_len]인지 확인한다."""
+def test_vllm_flattened_adapter_attention_mask_shape_is_num_seqs_by_max_len():
+    """adapter attention_mask shape is [num_seqs, max_len] for the core."""
     import torch
-    from ai_model_serving.vllm_colbert.model import _pack_flattened_inputs
+    from ai_model_serving.vllm_colbert.packing import _pack_flattened_inputs
     ids = torch.tensor([1, 2, 0, 1, 2, 3, 4])
     pos = torch.tensor([0, 1, 2, 0, 1, 2, 3])
     padded, mask, lengths = _pack_flattened_inputs(ids, pos, pad_token_id=0)
@@ -244,20 +255,20 @@ def test_pack_flattened_inputs_attention_mask_shape_is_num_seqs_by_max_len():
 
 
 @skip_no_torch
-def test_pack_flattened_inputs_raises_without_positions():
-    """positions가 없으면 RuntimeError를 발생시킨다."""
+def test_vllm_flattened_adapter_raises_without_positions():
+    """vLLM flattened adapter requires positions for boundary restoration."""
     import torch
-    from ai_model_serving.vllm_colbert.model import _pack_flattened_inputs
+    from ai_model_serving.vllm_colbert.packing import _pack_flattened_inputs
     ids = torch.tensor([1, 2, 3])
     with pytest.raises(RuntimeError, match="positions"):
         _pack_flattened_inputs(ids, None, pad_token_id=0)
 
 
 @skip_no_torch
-def test_pack_flattened_inputs_raises_on_length_mismatch():
-    """input_ids와 positions 길이가 다르면 RuntimeError를 발생시킨다."""
+def test_vllm_flattened_adapter_raises_on_length_mismatch():
+    """vLLM flattened adapter rejects mismatched input_ids and positions lengths."""
     import torch
-    from ai_model_serving.vllm_colbert.model import _pack_flattened_inputs
+    from ai_model_serving.vllm_colbert.packing import _pack_flattened_inputs
     ids = torch.tensor([1, 2, 3])
     pos = torch.tensor([0, 1])
     with pytest.raises(RuntimeError, match="length mismatch"):
@@ -265,11 +276,11 @@ def test_pack_flattened_inputs_raises_on_length_mismatch():
 
 
 @skip_no_torch
-def test_pack_flattened_inputs_batch_invariance_with_mock_encoder():
-    """seq_a 단독 처리 결과와 seq_a+seq_b flattened batch 안의 seq_a가 동일한지 mock encoder로 확인한다."""
+def test_vllm_flattened_adapter_batch_invariance_with_mock_encoder():
+    """adapter-restored seq_a matches seq_a alone in a mock encoder."""
     import torch
     from unittest.mock import MagicMock
-    from ai_model_serving.vllm_colbert.model import _pack_flattened_inputs
+    from ai_model_serving.vllm_colbert.packing import _pack_flattened_inputs
 
     # seq_a: [10, 11, 12], seq_b: [20, 21]
     seq_a = torch.tensor([10, 11, 12])
@@ -302,3 +313,49 @@ def test_pack_flattened_inputs_batch_invariance_with_mock_encoder():
         "seq_a 단독 처리 결과와 flattened batch 안의 seq_a 결과가 다릅니다. "
         "cross-sequence attention leakage가 없으면 동일해야 합니다."
     )
+
+
+@skip_no_torch
+def test_colbert_ko_core_requires_2d_attention_mask_and_outputs_normalized_128d_embeddings():
+    import torch
+    from torch import nn
+    from unittest.mock import MagicMock
+    from ai_model_serving.vllm_colbert.core import ColbertKoCore
+
+    class MockEncoder(nn.Module):
+        def forward(self, input_ids, attention_mask):
+            del attention_mask
+            result = MagicMock()
+            result.last_hidden_state = input_ids.float().unsqueeze(-1).expand(input_ids.shape[0], input_ids.shape[1], 4)
+            return result
+
+    projection = nn.Linear(4, 128, bias=False)
+    nn.init.constant_(projection.weight, 0.5)
+    core = ColbertKoCore(MockEncoder(), projection)
+    input_ids = torch.tensor([[1, 2, 3], [3, 4, 5]])
+    attention_mask = torch.tensor([[1, 1, 0], [1, 1, 1]])
+
+    embeddings = core(input_ids, attention_mask)
+
+    assert embeddings.shape == (2, 3, 128)
+    assert torch.allclose(torch.linalg.vector_norm(embeddings, dim=-1), torch.ones((2, 3)))
+    with pytest.raises(RuntimeError, match="ColBERT-ko 2D input requires attention_mask"):
+        core(input_ids)
+
+
+@skip_no_torch
+def test_vllm_flattened_adapter_output_shape_matches_core_order_with_mock_core():
+    import torch
+    from ai_model_serving.vllm_colbert.packing import _pack_flattened_inputs
+
+    seq_a = torch.tensor([10, 11, 12])
+    seq_b = torch.tensor([20, 21])
+    ids = torch.cat([seq_a, seq_b])
+    positions = torch.cat([torch.arange(len(seq_a)), torch.arange(len(seq_b))])
+
+    padded, mask, lengths = _pack_flattened_inputs(ids, positions, pad_token_id=0)
+    projected = padded.float().unsqueeze(-1).expand(padded.shape[0], padded.shape[1], 128) * mask.unsqueeze(-1)
+    flattened = torch.cat([projected[i, : lengths[i]] for i in range(len(lengths))], dim=0)
+
+    assert flattened.shape == (5, 128)
+    assert flattened[:, 0].tolist() == [10, 11, 12, 20, 21]

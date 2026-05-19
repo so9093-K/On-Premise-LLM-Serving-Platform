@@ -1,6 +1,8 @@
-# ColBERT-ko vLLM native 운영 노트
+# ColBERT-ko vLLM runtime 운영 노트
 
 `local-colbert-ko`는 retrieval 전용 active model이다. `/v1/embeddings`를 대체하지 않고 `/v1/retrieval/rerank`, `/v1/retrieval/score`, `/v1/retrieval/token-embeddings`에서만 사용한다.
+
+이 문서의 `vLLM native` 표현은 운영상 `colbert-ko-vllm` 서비스가 vLLM plugin runtime으로 `/score`와 `/pooling`을 서빙한다는 뜻이다. ColBERT-ko encoder 자체를 vLLM kernel/native model implementation으로 재구현했다는 뜻이 아니다. 실제 모델 의미는 `text -> tokenizer -> 2D input_ids + attention_mask -> encoder -> proj.pt -> L2 normalize -> token-level embeddings -> MaxSim scoring`이다.
 
 ## Runtime contract
 
@@ -29,11 +31,15 @@ EmbeddingGemma backbone은 float16 activation을 사용하면 안 된다.
 
 v0.0.1 production compose는 `--dtype float32`로 고정한다. bfloat16 전환은 별도 runtime profile에서 `colbert-parity-smoke` ranking parity를 통과한 뒤 활성화한다. dtype을 바꾸면 score 소수점 끝 자리가 달라질 수 있다.
 
-## 1D flattened input 시퀀스 경계 복원
+## Core semantics and vLLM adapter boundary
 
-vLLM pooling 경로는 여러 시퀀스를 하나의 연속된 1D tensor로 전달할 수 있다. ColBERT-ko vLLM 모델은 `positions` tensor가 0으로 재시작되는 지점을 시퀀스 시작점으로 삼아 경계를 복원(`_pack_flattened_inputs`)한 뒤 각 시퀀스를 독립적으로 encoder에 넣는다.
+ColBERT-ko core는 tokenizer가 만든 2D `input_ids`와 `attention_mask`를 입력으로 받는다. `attention_mask` 없이 2D `input_ids`만 들어오는 경로는 원본 HF/ColBERT inference 의미와 맞지 않으므로 runtime error로 취급한다.
+
+vLLM pooling executor는 내부 스케줄링 표현으로 여러 시퀀스를 하나의 연속된 1D tensor로 넘길 수 있다. 이 경우 `model.py`의 vLLM flattened adapter path가 `positions` tensor의 0 재시작 지점을 시퀀스 시작점으로 삼아 2D `input_ids`와 `attention_mask`를 복원한 뒤 core를 호출한다. 이 1D 처리는 vLLM executor compatibility adapter이며 ColBERT-ko의 핵심 기능이나 일반 inference 의미가 아니다.
 
 이 경계 복원이 없으면 여러 시퀀스가 encoder self-attention을 공유해 batch size와 vLLM 스케줄러 packing 상태에 따라 token embedding과 MaxSim score가 달라지는 재현성 문제가 발생한다. `max_num_seqs=1`은 이 문제의 임시 안전장치이지, 경계 복원의 대체재가 아니다.
+
+forward shape trace가 필요할 때만 `COLBERT_KO_TRACE_FORWARD_SHAPES=1`을 `colbert-ko-vllm` runtime 환경에 설정한다. 로그에는 tensor shape, `positions`/`attention_mask` 존재 여부, 선택된 path(`vllm_flattened_adapter` 또는 `direct_2d_core`), 1D adapter 복원 lengths만 남기며 입력 텍스트나 token 값은 남기지 않는다. 기본값에서는 이 로그가 비활성화되어 운영 로그 노이즈를 만들지 않는다.
 
 Production compose는 HF repo root나 raw Hugging Face cache를 `--model`로 넘기지 않는다. The ColBERT-ko source repository is not mounted directly as the vLLM model directory. Run `prepare_colbert_ko_vllm_artifact.py` first. `COLBERT_KO_MODEL_DIR` must point to the prepared artifact directory whose root contains `config.json`.
 
@@ -43,7 +49,7 @@ GitLab full deploy에서 `PREPARE_COLBERT_KO_ARTIFACT=1`을 설정하면 target 
 
 ## Artifact packaging
 
-원본 repository layout은 `encoder/`, `tokenizer/`, `proj.pt`, `inference.py`로 분리되어 있다. vLLM native artifact는 이 구조를 재현 가능한 local directory로 준비하고, root `config.json`에 custom architecture와 projection metadata를 둔다.
+원본 repository layout은 `encoder/`, `tokenizer/`, `proj.pt`, `inference.py`로 분리되어 있다. vLLM-hosted ColBERT-ko wrapper artifact는 이 구조를 재현 가능한 local directory로 준비하고, root `config.json`에 custom architecture와 projection metadata를 둔다.
 
 ```bash
 /usr/bin/python3.12 scripts/models/prepare_colbert_ko_vllm_artifact.py \
@@ -81,7 +87,7 @@ runtime 고정값(`fixed_parameters`): `dtype=float32`, `pooler_task=token_embed
 
 ## Reference adapter
 
-Reference adapter는 production substitute가 아니다. 역할은 `encoder -> proj.pt -> L2 normalize -> MaxSim` 기준선을 제공해서 vLLM native 결과의 ranking sanity를 검증하는 것이다. 최소 fixture에서는 reference top-1과 vLLM native top-1이 일치해야 하며, token embedding shape와 special token masking 정책 차이를 함께 확인한다.
+Reference adapter는 production substitute가 아니다. 역할은 `encoder -> proj.pt -> L2 normalize -> MaxSim` 기준선을 제공해서 vLLM plugin runtime 결과의 ranking sanity를 검증하는 것이다. 최소 fixture에서는 reference top-1과 vLLM-served top-1이 일치해야 하며, token embedding shape와 special token masking 정책 차이를 함께 확인한다.
 
 일반 CI는 Docker/GPU 없이 `maxsim_score` fixture와 prepared artifact/config를 검증한다. GPU host에서는 prepared artifact와 `colbert-ko-vllm`을 띄운 뒤 live parity smoke를 별도로 실행한다.
 
@@ -90,6 +96,17 @@ make colbert-parity-smoke
 ```
 
 이 smoke는 reference adapter 점수, vLLM `/score` 점수, top-1 ranking, `/pooling` token embedding shape, `proj.pt` 128-d 적용 여부를 확인한다. 기본 vLLM base URL은 `COLBERT_KO_VLLM_BASE_URL` 또는 `http://localhost:9404`다.
+
+실제 vLLM forward path 증거를 같이 남기려면 runtime을 `COLBERT_KO_TRACE_FORWARD_SHAPES=1`로 띄우고 로그를 파일로 캡처한 뒤 다음처럼 실행한다.
+
+```bash
+python scripts/validation/colbert_parity_smoke.py \
+  --require-full-order \
+  --forward-shape-log /path/to/colbert-ko-vllm.log \
+  --require-forward-trace
+```
+
+결과 JSON의 `observed_forward_paths`에는 `vllm_flattened_adapter` 또는 `direct_2d_core`가 기록된다.
 
 ## Monitoring
 

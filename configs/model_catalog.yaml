@@ -242,7 +242,8 @@ models:
       access: public repository on Hugging Face
       base_model: google/embeddinggemma-300m
       base_model_license: gemma
-      architecture: ColBERT late-interaction scoring on EmbeddingGemma-300M backbone
+      architecture: ColBERT late-interaction scoring on EmbeddingGemma-300M
+        backbone with 2D input_ids plus attention_mask core semantics
       scoring_method: late_interaction_maxsim
       languages:
       - ko
@@ -252,9 +253,12 @@ models:
         root does not contain config.json.
       projection_head: proj.pt must be applied after encoder hidden states before
         L2 normalization and MaxSim scoring.
-      intended_runtime: vLLM pooling runner with token_embed pooler and /v1/score,
-        /v1/rerank, and /pooling endpoints.
+      intended_runtime: vLLM plugin runtime with a custom pooling model wrapper,
+        token_embed pooler, /v1/score, /v1/rerank, and /pooling endpoints.
       output_type: token_level_embeddings_for_maxsim_scoring
+      vllm_adapter_boundary: vLLM flattened 1D input_ids plus positions are compatibility
+        runtime representation only; the adapter restores 2D input_ids plus attention_mask
+        before calling the ColBERT-ko core.
       vllm_native_docs:
       - https://docs.vllm.ai/en/latest/models/pooling_models/
       - https://docs.vllm.ai/en/latest/models/pooling_models/scoring/
@@ -273,7 +277,8 @@ models:
       promotion_gate: reference adapter ranking parity with vLLM native output
       production_vllm_native: true
       policy_reason: ColBERT-Ko late-interaction retrieval on EmbeddingGemma-300M
-        backbone; production uses prepared vLLM artifact so proj.pt is applied.
+        backbone; production uses prepared vLLM plugin artifact so proj.pt is
+        applied after tokenizer attention_mask-aware encoder inference.
       vllm_args_notes: '--pooler-config.task token_embed is required; --model-impl
         transformers must NOT be used; --dtype must be set explicitly.'
     retrieval:

@@ -252,7 +252,7 @@ models:
     max_num_seqs: 1
     max_num_batched_tokens: 2048
     gpu_memory_utilization: 0.06
-    runtime_policy_source: ColBERT-Ko vLLM native artifact prepared from encoder/
+    runtime_policy_source: ColBERT-Ko vLLM plugin artifact prepared from encoder/
       + tokenizer/ + proj.pt; repo root is never passed to --model.
       dtype=float32 default for reference parity/reproducibility;
       bfloat16 allowed for throughput; float16 forbidden.

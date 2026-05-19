@@ -26,7 +26,7 @@
     "access": "public repository on Hugging Face",
     "base_model": "google/embeddinggemma-300m",
     "base_model_license": "gemma",
-    "architecture": "ColBERT late-interaction scoring on EmbeddingGemma-300M backbone",
+    "architecture": "ColBERT late-interaction scoring on EmbeddingGemma-300M backbone with 2D input_ids plus attention_mask core semantics",
     "scoring_method": "late_interaction_maxsim",
     "languages": [
       "ko",
@@ -35,8 +35,9 @@
     "max_input_tokens": 2048,
     "repo_layout": "root contains encoder/, tokenizer/, proj.pt, and inference.py; root does not contain config.json.",
     "projection_head": "proj.pt must be applied after encoder hidden states before L2 normalization and MaxSim scoring.",
-    "intended_runtime": "vLLM pooling runner with token_embed pooler and /v1/score, /v1/rerank, and /pooling endpoints.",
+    "intended_runtime": "vLLM plugin runtime with a custom pooling model wrapper, token_embed pooler, /v1/score, /v1/rerank, and /pooling endpoints.",
     "output_type": "token_level_embeddings_for_maxsim_scoring",
+    "vllm_adapter_boundary": "vLLM flattened 1D input_ids plus positions are compatibility runtime representation only; the adapter restores 2D input_ids plus attention_mask before calling the ColBERT-ko core.",
     "vllm_native_docs": [
       "https://docs.vllm.ai/en/latest/models/pooling_models/",
       "https://docs.vllm.ai/en/latest/models/pooling_models/scoring/"
@@ -63,7 +64,7 @@
     "colbert_token_embeddings_public": false,
     "promotion_gate": "reference adapter ranking parity with vLLM native output",
     "production_vllm_native": true,
-    "policy_reason": "ColBERT-Ko late-interaction retrieval on EmbeddingGemma-300M backbone; production uses prepared vLLM artifact so proj.pt is applied.",
+    "policy_reason": "ColBERT-Ko late-interaction retrieval on EmbeddingGemma-300M backbone; production uses prepared vLLM plugin artifact so proj.pt is applied after tokenizer attention_mask-aware encoder inference.",
     "vllm_args_notes": "--pooler-config.task token_embed is required; --model-impl transformers must NOT be used; --dtype must be set explicitly."
   },
   "request_parameters": {
@@ -111,9 +112,9 @@
     "description": "사용자 요청에서 변경 불가. runtime 고정값이다."
   },
   "batch_invariance": {
-    "status": "validated_by_boundary_restoration",
-    "method": "positions 기반 1D flattened input boundary 복원",
-    "note": "max_num_seqs=1은 임시 안전 기본값일 수 있으나 boundary 복원의 대체물이 아니다. boundary 복원이 없으면 batch size와 scheduler packing 상태에 따라 token embedding과 MaxSim score가 달라진다."
+    "status": "validated_by_vllm_adapter_boundary_restoration",
+    "method": "vLLM executor compatibility adapter restores flattened input boundary from positions before core inference",
+    "note": "1D flattened input is not a ColBERT-ko core feature. max_num_seqs=1은 임시 안전 기본값일 수 있으나 adapter boundary 복원의 대체물이 아니다. boundary 복원이 없으면 batch size와 scheduler packing 상태에 따라 token embedding과 MaxSim score가 달라진다."
   },
   "retrieval": {
     "backend": "vllm_native_late_interaction",

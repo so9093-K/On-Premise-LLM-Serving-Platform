@@ -101,7 +101,7 @@ def prepare_artifact(model_id: str, output_dir: Path, revision: str | None = Non
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Prepare local-colbert-ko vLLM native artifact.")
+    parser = argparse.ArgumentParser(description="Prepare local-colbert-ko vLLM plugin artifact.")
     parser.add_argument("--model-id", default=DEFAULT_MODEL_ID)
     parser.add_argument("--revision", default=None)
     parser.add_argument("--output-dir", default=str(DEFAULT_OUTPUT))
