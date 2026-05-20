@@ -320,6 +320,7 @@ models:
       - user
       drop_upstream_parameters:
       - user
+      - dimensions
       dimensions:
       - 1024
       truncate_prompt_tokens:

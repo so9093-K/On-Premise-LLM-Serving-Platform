@@ -171,7 +171,7 @@ _PRODUCTION_EMBEDDING_POLICY = {
 _PRODUCTION_EMBEDDING_KO_POLICY = {
     "allow_unlisted_parameters": False,
     "supported_parameters": ["dimensions", "encoding_format", "truncate_prompt_tokens", "user"],
-    "drop_upstream_parameters": ["user"],
+    "drop_upstream_parameters": ["user", "dimensions"],
     "dimensions": [1024],
     "max_truncate_prompt_tokens": 2048,
     "max_embedding_batch_size": 16,
@@ -529,6 +529,25 @@ def test_gateway_readiness_reflects_risk_adapter_body_status():
     risk_dependency = next(item for item in body["dependencies"] if item["name"] == "risk_adapter")
     assert risk_dependency["endpoint"] == "http://risk/ready"
     assert "risk_prompt_vllm" in risk_dependency["message"]
+
+
+def test_gateway_readiness_503_when_embedding_ko_vllm_down():
+    clients = FakeGatewayClients()
+    clients.embedding_ko = FakeRuntimeClient(
+        ready=False,
+        get_response={"error": "model not loaded"},
+        endpoint=RuntimeEndpoint("local-embed-ko", "http://embed-ko/v1", "local-embed-ko", 1),
+    )
+    client = TestClient(create_gateway_app(settings(), clients))
+
+    response = client.get("/ready")
+
+    assert response.status_code == 503
+    body = response.json()
+    assert body["status"] == "not_ready"
+    assert "embedding_ko_vllm" in body["not_ready_dependencies"]
+    assert "embedding_ko_vllm" in body["required_not_ready_dependencies"]
+    assert "embedding_ko_vllm" not in body["optional_not_ready_dependencies"]
 
 
 def test_collect_readiness_response_matches_schema():

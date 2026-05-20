@@ -780,3 +780,22 @@ def test_monitoring_config_includes_embedding_ko_vllm_port() -> None:
     assert 9406 in ports, (
         "configs/monitoring.yaml vllm_instances.ports must include 9406 (embedding-ko-vllm)"
     )
+
+
+def test_gitlab_ci_has_no_colbert_references() -> None:
+    """gitlab-ci.yml must not reference ColBERT after its removal from the stack."""
+    ci = (ROOT / ".gitlab-ci.yml").read_text(encoding="utf-8")
+    assert "COLBERT" not in ci, (
+        ".gitlab-ci.yml still contains COLBERT references; remove COLBERT_KO_VLLM_IMAGE_SHA/REF/TO_DEPLOY"
+    )
+    assert "colbert" not in ci.lower(), (
+        ".gitlab-ci.yml still contains colbert references (case-insensitive)"
+    )
+
+
+def test_dockerignore_has_no_colbert_exception() -> None:
+    """Dockerfile allowlist must not contain the deleted Dockerfile.colbert-ko-vllm."""
+    raw = (ROOT / ".dockerignore").read_text(encoding="utf-8")
+    assert "colbert" not in raw.lower(), (
+        ".dockerignore still has !ops/docker/Dockerfile.colbert-ko-vllm; remove the stale allowlist entry"
+    )

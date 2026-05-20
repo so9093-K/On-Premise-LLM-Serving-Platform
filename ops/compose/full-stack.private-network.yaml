@@ -167,7 +167,7 @@ services:
           - capabilities:
             - gpu
   embedding-ko-vllm:
-    image: ${VLLM_IMAGE:?Set VLLM_IMAGE to a tested vLLM OpenAI image tag}
+    image: ${EMBEDDING_KO_VLLM_IMAGE:?Set EMBEDDING_KO_VLLM_IMAGE to a tested vLLM OpenAI image tag}
     command:
     - --model
     - dragonkue/snowflake-arctic-embed-l-v2.0-ko

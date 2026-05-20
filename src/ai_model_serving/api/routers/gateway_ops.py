@@ -51,7 +51,7 @@ async def _readiness(
     ]
     embedding_ko = getattr(clients, "embedding_ko", None)
     if embedding_ko is not None:
-        probes.append(DependencyProbe("embedding_ko_vllm", embedding_ko, "models", required=False))
+        probes.append(DependencyProbe("embedding_ko_vllm", embedding_ko, "models", required=True))
     return await collect_readiness(service="gateway", probes=probes, metrics=metrics, timeout_seconds=timeout_seconds)
 
 
