@@ -241,7 +241,8 @@ make release-check            # 릴리스 gate 전체 실행
 | **source** | `docs/` | 사람이 직접 읽고 수정하는 문서 |
 | **generated** | `reports/runtime/` | 스크립트가 자동 생성하는 리포트. 직접 수정하지 않는다 |
 | **current_snapshot** | `reports/refactor/current_*` | 특정 시점의 상태 요약. 일부는 역사적 감사 기록 |
-| **historical** | `CHANGELOG.md`, `adr/` | 과거 결정 기록. 현재 운영 기준이 아닐 수 있다 |
+| **decision** | `adr/` | Architectural Decision Records. canonical decision source-of-truth |
+| **changelog** | `CHANGELOG.md` | 버전별 변경 이력 |
 
 ---
 

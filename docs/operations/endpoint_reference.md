@@ -83,7 +83,7 @@ Admin endpoints는 `Authorization: Bearer <ADMIN_API_KEY>` 필요.
 
 ### Retrieval API mode
 
-`/v1/embeddings`는 계속 `local-embed` dense embedding 전용 OpenAI-compatible API다. Dense retrieval-ko는 이 endpoint의 대체재가 아니라 `/v1/retrieval/*` backend다.
+`/v1/embeddings`는 `local-embed`와 `local-embed-ko` 모두를 지원하는 OpenAI-compatible API다. model 파라미터로 모델을 선택한다. retrieval 전용 쿼리를 처리할 때는 `/v1/retrieval/*`를 사용한다. `/v1/retrieval/*`에서 model을 생략하면 `local-embed-ko`가 기본으로 선택된다.
 
 | Endpoint | `local-embed` | `local-embed-ko` |
 |---|---|---|

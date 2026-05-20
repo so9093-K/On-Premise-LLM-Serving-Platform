@@ -18,7 +18,42 @@
 
 동일한 내용을 영어 문서와 한국어 문서로 나눠 병렬 유지하지 않는다. 공개/외부 배포가 필요하면 한국어 본문 아래에 짧은 English summary만 둔다.
 
-## 4. 우선순위
+## 4. Source-of-Truth 정책
+
+문서는 사실을 새로 정의하지 않는다. 각 정보 유형별 source-of-truth를 아래와 같이 확정한다.
+
+| 정보 유형 | Source-of-Truth |
+|---|---|
+| 모델 목록 | `configs/model_catalog.yaml`, `model_cards/*.json` |
+| 모델 runtime 구성 | `configs/model_serving.yaml` |
+| risk code | `configs/risk_taxonomy.yaml` |
+| API endpoint | `src/ai_model_serving/api/endpoint_spec.py`, `specs/openapi.gateway.yaml` |
+| request/response schema | `specs/schemas/*.json` |
+| monitoring target | `configs/monitoring.yaml` |
+| compose service | `ops/compose/*.yaml` |
+| build target | `Makefile`, `scripts/`, `configs/command_terminology_policy.yaml` |
+| architectural decision | `adr/*.md` |
+
+문서가 위 source-of-truth와 충돌하면 source-of-truth가 우선한다. 문서를 느슨하게 만들어 충돌을 숨기지 않는다.
+
+## 5. Examples 정책
+
+`examples/requests/`는 API contract sample이다.
+
+- risk code는 `configs/risk_taxonomy.yaml`에 존재하는 code만 사용한다.
+- retired endpoint는 active 검증 예시로 작성하지 않는다.
+- expected response는 현재 schema와 route lifecycle을 따른다.
+- examples는 `tests/contract/test_document_governance.py`로 검증한다.
+
+## 6. ADR 정책
+
+`adr/`는 canonical decision record다. 새 결정은 `adr/README.md`의 template을 사용한다.
+
+- Status: `Proposed` → `Accepted` 또는 `Rejected`
+- 대체 시: 원본은 보존하고 `Superseded by ADR-XXXX`로 표시
+- `docs/02_decision_register.md`는 ADR index로 운영한다
+
+## 7. 우선순위
 
 | 정보 | 기준 위치 |
 |---|---|
@@ -30,3 +65,15 @@
 | 모니터링 | `docs/operations/monitoring_ux.md`, `configs/monitoring.yaml` |
 | 빌드/패키징 | `docs/development/build_ux.md` |
 | 릴리스 | `docs/release/release_checklist.md`, `docs/release/versioning_policy.md` |
+| 결정 | `adr/` (canonical), `docs/02_decision_register.md` (index) |
+
+## 8. Generated Block 정책
+
+다음 Tier 1 reference 문서는 generated block 후보로 관리한다.
+
+- `docs/operations/endpoint_reference.md` — endpoint matrix (현재 `scripts/generate_endpoint_matrix.py`로 부분 생성)
+- `docs/models/model_cards.md` — 모델 목록 표
+- `docs/operations/model_parameter_discovery.md` — 모델별 파라미터
+- `docs/specs/api.md` — API 요약
+
+Generator 전환 전까지는 `tests/contract/test_document_governance.py`가 source-of-truth와의 일치를 검증한다.

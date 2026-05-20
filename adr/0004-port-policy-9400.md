@@ -1,5 +1,9 @@
 # ADR 0004. 외부 진입 포트 9400 정책
 
+## Status
+
+Accepted
+
 ## 결정
 
 외부 애플리케이션 진입점은 Gateway `9400`으로 둔다. Risk Adapter는 내부 서비스 포트 `9405`를 사용하며, 운영자가 FastAPI Docs를 확인할 수 있도록 compose 예시에서는 host port를 게시한다.

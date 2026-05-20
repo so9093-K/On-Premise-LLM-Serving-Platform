@@ -33,7 +33,8 @@
 | 기능 | 논리 모델 | API |
 |---|---|---|
 | 텍스트 생성 | `local-main` | `/v1/chat/completions` |
-| 임베딩 | `local-embed` | `/v1/embeddings` |
+| 범용 임베딩 | `local-embed` | `/v1/embeddings` |
+| 한국어 retrieval 임베딩 (retrieval 기본) | `local-embed-ko` | `/v1/embeddings`, `/v1/retrieval/*` |
 | 위험 신호 분석 | `risk-prompt` | `/v1/risk/*` |
 
 Risk Adapter는 `allow`, `block`, `decision`, `action` 같은 최종 정책 결정을 하지 않는다. detector 결과를 **signal-only response**로 정규화하고, 최종 제품 정책은 Gateway 밖 별도 product policy layer가 담당한다.
@@ -276,9 +277,10 @@ PURGE_RUNTIME_SECRETS=1 make clean-all
 |---|---:|---|
 | Gateway | 9400 | 외부 단일 진입점 |
 | Main LLM vLLM | 9401 | Gemma 4 26B-A4B FP8 generation |
-| Embedding vLLM | 9402 | EmbeddingGemma embeddings |
+| Embedding vLLM | 9402 | EmbeddingGemma 범용 embeddings |
 | Prompt vLLM | 9403 | Kanana Prompt detector |
 | Risk Adapter | 9405 | risk signal 정규화/집계 |
+| Embedding-ko vLLM | 9406 | Snowflake Arctic Embed L v2.0 ko (한국어 retrieval 기본) |
 | Prometheus | 9410 | metric 수집/조회 |
 | Grafana | 9411 | 운영 dashboard |
 | DCGM exporter | 9412 | GPU metric exporter |

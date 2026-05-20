@@ -32,7 +32,7 @@ GitLab 12.1.1-ee 호환 구성이다. `workflow:`, `needs:`, `rules:` 키워드�
 - `BUILD_VLLM_DERIVED=1`
 - `DEPLOY_MODE=full`
 
-risk-vllm-kanana와 embedding-ko-vllm(required dedicated retrieval runtime)을 단일 job에서 순차 빌드한다. vLLM base image(~25 GB)를 한 번만 pull해 두 이미지가 daemon layer cache를 공유한다. 실행된 job이 실패하면 release 실패로 처리된다(`allow_failure: false`). 빌드 로직은 `scripts/ci/build_vllm_derived_images.sh`에서 관리한다.
+risk-vllm-kanana를 빌드한다. `embedding-ko-vllm`은 derived Dockerfile 빌드 대상이 아니라 `EMBEDDING_KO_VLLM_IMAGE`로 지정한 표준 vLLM 이미지를 사용한다. 실행된 job이 실패하면 release 실패로 처리된다(`allow_failure: false`). 빌드 로직은 `scripts/ci/build_vllm_derived_images.sh`에서 관리한다.
 
 Platform image는 commit tag와 branch tag를 항상 push한다. `release` branch 또는 tag pipeline에서는 `VERSION` 파일을 읽어 `platform:release_<VERSION>` tag도 push한다.
 
@@ -81,13 +81,13 @@ full deploy 없이 registry image만 미리 만들 때 사용한다. deploy mode
 
 1. `release` branch 또는 tag pipeline을 `BUILD_VLLM_DERIVED=1`로 시작
 2. `build-vllm-derived` 자동 실행
-3. risk-vllm-kanana와 embedding-ko-vllm(required dedicated retrieval runtime)을 build/push
+3. risk-vllm-kanana를 build/push. `embedding-ko-vllm`은 표준 vLLM 이미지(`EMBEDDING_KO_VLLM_IMAGE`)를 사용하므로 별도 build 없음
 4. deploy mode는 바뀌지 않는다
 5. full deploy까지 하려면 `DEPLOY_MODE=full`을 사용해야 한다
 
 ### Full runtime deploy (vLLM 이미지 갱신 포함)
 
-risk-vllm-kanana 또는 embedding-ko-vllm(required dedicated retrieval runtime)을 교체할 때 사용한다.
+risk-vllm-kanana를 교체하거나 `EMBEDDING_KO_VLLM_IMAGE`(표준 vLLM 이미지)를 갱신할 때 사용한다.
 
 1. pipeline을 `DEPLOY_MODE=full` 변수로 시작
 3. `deploy-gpu-175` 수동 실행, `DEPLOY_MODE=full` 설정
@@ -225,7 +225,7 @@ CI job과 로컬 make target은 목적이 다르며 독립적으로 실행된다
 
 
 
-공통으로 사용하는 것: `ops/docker/Dockerfile.risk-vllm-kanana`, `ops/docker/Dockerfile.embedding-ko-vllm`.
+derived Dockerfile: `ops/docker/Dockerfile.risk-vllm-kanana`(risk-vllm-kanana 전용). `embedding-ko-vllm`은 표준 vLLM 이미지를 사용하며 derived Dockerfile이 없다.
 
 운영 원칙:
 

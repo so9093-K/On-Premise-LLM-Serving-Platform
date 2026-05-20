@@ -11,7 +11,8 @@
 | **source** | `docs/` | 사람이 직접 읽고 수정하는 문서 |
 | **generated** | `reports/runtime/` | 스크립트가 자동 생성. 직접 수정하지 않는다 |
 | **current_snapshot** | `reports/refactor/current_*` | 특정 시점의 상태 요약 또는 감사 기록 |
-| **historical** | `CHANGELOG.md`, `adr/` | 과거 결정 기록. 현재 운영 기준이 아닐 수 있다 |
+| **decision** | `adr/` | Architectural Decision Records. canonical decision source-of-truth |
+| **changelog** | `CHANGELOG.md` | 버전별 변경 이력 |
 
 ## 운영자 (Operators)
 
@@ -56,7 +57,7 @@
 | 릴리스 전 체크리스트가 필요하다 | [development/final_checklist.md](development/final_checklist.md) |
 | 로깅 정책을 보고 싶다 | [development/logging_policy.md](development/logging_policy.md) |
 | 아키텍처·설계 배경을 알고 싶다 | [06_architecture.md](06_architecture.md), [01_project_background.md](01_project_background.md) |
-| 결정 기록(ADR)을 보고 싶다 | [02_decision_register.md](02_decision_register.md) |
+| 결정 기록(ADR)을 보고 싶다 | [02_decision_register.md](02_decision_register.md) (index) → [`adr/`](../adr/) (canonical) |
 | 문서 관리 정책을 보고 싶다 | [governance/document_management.md](governance/document_management.md) |
 
 ## 디렉터리 구조
