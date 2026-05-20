@@ -28,7 +28,7 @@ configs/gemma4_chat_template.jinja,configs,configuration source of truth,configu
 configs/gpu_budgets.yaml,configs,configuration source of truth,configuration,managed by configuration lifecycle,3410,107,structured-data,configuration source; validate through governance and projection checks after edits
 configs/logging_policy.yaml,configs,configuration source of truth,configuration,managed by configuration lifecycle,328,21,structured-data,configuration source; validate through governance and projection checks after edits
 configs/model_catalog.yaml,configs,configuration source of truth,configuration,managed by configuration lifecycle,12077,376,structured-data,configuration source; validate through governance and projection checks after edits
-configs/model_serving.yaml,configs,configuration source of truth,configuration,managed by configuration lifecycle,12908,451,structured-data,configuration source; validate through governance and projection checks after edits
+configs/model_serving.yaml,configs,configuration source of truth,configuration,managed by configuration lifecycle,12852,450,structured-data,configuration source; validate through governance and projection checks after edits
 configs/monitoring.yaml,configs,configuration source of truth,configuration,managed by configuration lifecycle,13497,411,structured-data,configuration source; validate through governance and projection checks after edits
 configs/ports.yaml,configs,configuration source of truth,configuration,managed by configuration lifecycle,458,26,structured-data,configuration source; validate through governance and projection checks after edits
 configs/recommended_images.yaml,configs,configuration source of truth,configuration,managed by configuration lifecycle,2986,72,structured-data,configuration source; validate through governance and projection checks after edits
@@ -62,7 +62,7 @@ docs/operations/admin_metrics_docs_exposure_policy.md,docs,documentation,documen
 docs/operations/auth_control_plane.md,docs,documentation,documentation,managed by documentation map,6192,84,documentation,documentation; keep relative links valid and avoid duplicating current command flow
 docs/operations/configuration_lifecycle.md,docs,documentation,documentation,managed by documentation map,5269,102,entrypoint,primary navigation or current-state entrypoint; keep synchronized with Makefile and reports
 docs/operations/day0_quickstart.md,docs,documentation,documentation,managed by documentation map,9325,209,entrypoint,primary navigation or current-state entrypoint; keep synchronized with Makefile and reports
-docs/operations/endpoint_reference.md,docs,documentation,documentation,managed by documentation map,15612,248,documentation,documentation; keep relative links valid and avoid duplicating current command flow
+docs/operations/endpoint_reference.md,docs,documentation,documentation,managed by documentation map,16068,250,documentation,documentation; keep relative links valid and avoid duplicating current command flow
 docs/operations/first_project_guide.md,docs,documentation,documentation,managed by documentation map,10808,255,documentation,documentation; keep relative links valid and avoid duplicating current command flow
 docs/operations/full_stack_runtime.md,docs,documentation,documentation,managed by documentation map,5805,77,documentation,documentation; keep relative links valid and avoid duplicating current command flow
 docs/operations/full_stack_troubleshooting.md,docs,documentation,documentation,managed by documentation map,11467,154,documentation,documentation; keep relative links valid and avoid duplicating current command flow
@@ -96,7 +96,7 @@ harness/contract_test_cases.yaml,harness,runtime validation harness plan/matrix,
 harness/gpu_budget_validation_plan.md,harness,runtime validation harness plan/matrix,project-maintenance,managed by root project metadata,1078,17,documentation,supporting project file
 harness/runtime_validation_matrix.yaml,harness,runtime validation harness plan/matrix,project-maintenance,managed by root project metadata,7084,180,structured-data,supporting project file
 harness/runtime_validation_plan.md,harness,runtime validation harness plan/matrix,project-maintenance,managed by root project metadata,1530,32,documentation,supporting project file
-model_cards/local-embed-ko.json,model_cards,model card metadata,project-maintenance,managed by root project metadata,1683,46,structured-data,supporting project file
+model_cards/local-embed-ko.json,model_cards,model card metadata,project-maintenance,managed by root project metadata,2510,60,structured-data,supporting project file
 model_cards/local-embed.json,model_cards,model card metadata,project-maintenance,managed by root project metadata,3640,108,structured-data,supporting project file
 model_cards/local-main.json,model_cards,model card metadata,project-maintenance,managed by root project metadata,4010,110,structured-data,supporting project file
 model_cards/risk-prompt.json,model_cards,model card metadata,project-maintenance,managed by root project metadata,1767,69,structured-data,supporting project file
@@ -104,13 +104,13 @@ ops/compose/full-stack.example.yaml,ops,compose/monitoring/runtime ops template,
 ops/compose/full-stack.private-network.yaml,ops,compose/monitoring/runtime ops template,operations,managed by operator templates,9825,347,structured-data,supporting project file
 ops/compose/infisical.yaml,ops,compose/monitoring/runtime ops template,operations,managed by operator templates,2199,69,structured-data,supporting project file
 ops/docker/Dockerfile.risk-vllm-kanana,ops,compose/monitoring/runtime ops template,operations,managed by operator templates,2868,66,supporting-file,supporting project file
-ops/grafana/dashboards/api_experience.json,ops,compose/monitoring/runtime ops template,operations,managed by operator templates,32897,1095,structured-data,supporting project file
-ops/grafana/dashboards/executive_runtime_overview.json,ops,compose/monitoring/runtime ops template,operations,managed by operator templates,18448,682,structured-data,supporting project file
-ops/grafana/dashboards/gpu_capacity_and_oom_risk.json,ops,compose/monitoring/runtime ops template,operations,managed by operator templates,19227,757,structured-data,supporting project file
-ops/grafana/dashboards/model_runtime_deep_dive.json,ops,compose/monitoring/runtime ops template,operations,managed by operator templates,16316,611,structured-data,supporting project file
-ops/grafana/dashboards/observability_data_quality.json,ops,compose/monitoring/runtime ops template,operations,managed by operator templates,25051,907,structured-data,supporting project file
-ops/grafana/dashboards/risk_signal_operations.json,ops,compose/monitoring/runtime ops template,operations,managed by operator templates,17107,625,structured-data,supporting project file
-ops/grafana/dashboards/serving_home.json,ops,compose/monitoring/runtime ops template,operations,managed by operator templates,41768,1398,structured-data,supporting project file
+ops/grafana/dashboards/api_experience.json,ops,compose/monitoring/runtime ops template,operations,managed by operator templates,32912,1095,structured-data,supporting project file
+ops/grafana/dashboards/executive_runtime_overview.json,ops,compose/monitoring/runtime ops template,operations,managed by operator templates,18463,682,structured-data,supporting project file
+ops/grafana/dashboards/gpu_capacity_and_oom_risk.json,ops,compose/monitoring/runtime ops template,operations,managed by operator templates,19202,757,structured-data,supporting project file
+ops/grafana/dashboards/model_runtime_deep_dive.json,ops,compose/monitoring/runtime ops template,operations,managed by operator templates,16271,611,structured-data,supporting project file
+ops/grafana/dashboards/observability_data_quality.json,ops,compose/monitoring/runtime ops template,operations,managed by operator templates,25046,907,structured-data,supporting project file
+ops/grafana/dashboards/risk_signal_operations.json,ops,compose/monitoring/runtime ops template,operations,managed by operator templates,17122,625,structured-data,supporting project file
+ops/grafana/dashboards/serving_home.json,ops,compose/monitoring/runtime ops template,operations,managed by operator templates,41723,1398,structured-data,supporting project file
 ops/grafana/provisioning/dashboards/dashboards.yml,ops,compose/monitoring/runtime ops template,operations,managed by operator templates,353,13,structured-data,supporting project file
 ops/grafana/provisioning/datasources/prometheus.yml,ops,compose/monitoring/runtime ops template,operations,managed by operator templates,180,10,structured-data,supporting project file
 ops/patches/README.md,ops,compose/monitoring/runtime ops template,operations,managed by operator templates,954,24,documentation,supporting project file
@@ -286,7 +286,7 @@ src/ai_model_serving/runtime_validation/validator.py,src,application/control-pla
 src/ai_model_serving/runtime_validation/vllm_commands.py,src,application/control-plane source,runtime-validation,managed by package source layout,3752,89,python-source,application code; preserve public API behavior and compatibility facades
 src/ai_model_serving/security.py,src,application/control-plane source,application,managed by package source layout,1861,55,python-source,application code; preserve public API behavior and compatibility facades
 src/ai_model_serving/services/__init__.py,src,application/control-plane source,application,managed by package source layout,56,1,python-source,application code; preserve public API behavior and compatibility facades
-src/ai_model_serving/services/gateway_service.py,src,application/control-plane source,application,managed by package source layout,23010,482,python-source,application code; preserve public API behavior and compatibility facades
+src/ai_model_serving/services/gateway_service.py,src,application/control-plane source,application,managed by package source layout,23260,485,python-source,application code; preserve public API behavior and compatibility facades
 src/ai_model_serving/services/readiness.py,src,application/control-plane source,application,managed by package source layout,3211,85,python-source,application code; preserve public API behavior and compatibility facades
 src/ai_model_serving/services/risk_assessment.py,src,application/control-plane source,application,managed by package source layout,6553,147,python-source,application code; preserve public API behavior and compatibility facades
 src/ai_model_serving/settings.py,src,application/control-plane source,application,managed by package source layout,13904,296,python-source,application code; preserve public API behavior and compatibility facades
@@ -316,7 +316,7 @@ tests/unit/test_auth_control.py,tests,test suite,quality,managed by test strateg
 tests/unit/test_auth_plan.py,tests,test suite,quality,managed by test strategy,1745,46,python-source,test coverage; keep deterministic and avoid live GPU dependency
 tests/unit/test_check_hf_model_config.py,tests,test suite,quality,managed by test strategy,2962,97,python-source,test coverage; keep deterministic and avoid live GPU dependency
 tests/unit/test_endpoint_spec.py,tests,test suite,quality,managed by test strategy,14068,339,python-source,test coverage; keep deterministic and avoid live GPU dependency
-tests/unit/test_gateway_app.py,tests,test suite,quality,managed by test strategy,85681,2121,python-source,test coverage; keep deterministic and avoid live GPU dependency
+tests/unit/test_gateway_app.py,tests,test suite,quality,managed by test strategy,89326,2204,python-source,test coverage; keep deterministic and avoid live GPU dependency
 tests/unit/test_governance_validation_package.py,tests,test suite,quality,managed by test strategy,1118,36,python-source,test coverage; keep deterministic and avoid live GPU dependency
 tests/unit/test_model_registry.py,tests,test suite,quality,managed by test strategy,7619,163,python-source,test coverage; keep deterministic and avoid live GPU dependency
 tests/unit/test_modelctl.py,tests,test suite,quality,managed by test strategy,2868,89,python-source,test coverage; keep deterministic and avoid live GPU dependency

@@ -70,7 +70,7 @@ Command:
 |---|---:|---|---|
 | `specs/openapi.gateway.yaml` | 4930 | api-contracts | supporting project file |
 | `reports/refactor/project_inventory_current.json` | 3902 | handoff-reporting | handoff/review artifact; avoid stale phase snapshots in active package |
-| `tests/unit/test_gateway_app.py` | 2121 | quality | test coverage; keep deterministic and avoid live GPU dependency |
+| `tests/unit/test_gateway_app.py` | 2204 | quality | test coverage; keep deterministic and avoid live GPU dependency |
 | `specs/openapi.risk-adapter.yaml` | 1641 | api-contracts | supporting project file |
 | `ops/grafana/dashboards/serving_home.json` | 1398 | operations | supporting project file |
 | `ops/grafana/dashboards/api_experience.json` | 1095 | operations | supporting project file |

@@ -366,6 +366,9 @@ class GatewayService:
         if mode == "prefix":
             return f"{policy.get('prefix', '')}{text}"
         if mode == "sentence_transformers_prompt_name":
+            # TODO: vLLM /v1/embeddings does not accept prompt_name; this branch uses
+            # fallback_prefix only. fallback_prefix="" is a no-op. No active profile uses
+            # this mode — prefer explicit prefix mode for new profiles.
             return f"{policy.get('fallback_prefix', '')}{text}"
         return text
 

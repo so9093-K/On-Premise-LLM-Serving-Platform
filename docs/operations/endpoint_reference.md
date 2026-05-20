@@ -92,6 +92,8 @@ Admin endpoints는 `Authorization: Bearer <ADMIN_API_KEY>` 필요.
 
 `local-embed-ko` production backend는 `embedding-ko-vllm` vLLM native runtime(포트 9406)이다. `dragonkue/snowflake-arctic-embed-l-v2.0-ko` 기반 SentenceTransformer pooling runner로 동작하며 dimension은 1024 고정이다. retrieval 기본 모델이며 model 파라미터 생략 시 자동 선택된다.
 
+**Query prompt policy**: `/v1/retrieval/*` 처리 시 Gateway가 Snowflake-ko 모델 카드 권장 방식에 따라 query에 `query: ` prefix를 자동 적용한다. document embedding에는 prefix를 적용하지 않는다. 이 동작은 request parameter가 아니며 클라이언트가 제어할 수 없다. `/v1/embeddings`를 직접 호출해 retrieval용 query embedding을 생성할 경우 호출자가 `query: ` prefix를 직접 붙여야 한다.
+
 ---
 
 ## 인증 키 확인

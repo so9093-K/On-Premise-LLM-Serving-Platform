@@ -41,9 +41,8 @@ embedding_profiles:
       score_modes: [dense_cosine]
     prompt_policy:
       retrieval_query:
-        mode: sentence_transformers_prompt_name
-        prompt_name: query
-        fallback_prefix: ""
+        mode: prefix
+        prefix: "query: "
       retrieval_document:
         mode: none
 models:

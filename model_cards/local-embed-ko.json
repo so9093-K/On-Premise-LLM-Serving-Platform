@@ -42,5 +42,19 @@
     "score_function": "cosine",
     "score_mode": "dense_cosine",
     "capabilities": ["retrieval_rerank", "retrieval_score"]
+  },
+  "prompt_policy": {
+    "applies_to": ["/v1/retrieval/rerank", "/v1/retrieval/score"],
+    "does_not_apply_to": ["/v1/embeddings"],
+    "retrieval_query": {
+      "mode": "prefix",
+      "prefix": "query: ",
+      "rationale": "Snowflake-ko 모델 카드 권장 사용법. SentenceTransformers prompt_name='query'에 대응하는 prefix를 Gateway가 직접 적용한다."
+    },
+    "retrieval_document": {
+      "mode": "none",
+      "rationale": "문서 embedding에는 별도 prefix 없음. 모델 카드 기준 document는 prefix 없이 입력한다."
+    },
+    "note": "이 policy는 request parameter가 아니다. /v1/embeddings 직접 호출 시 Gateway가 prefix를 자동 적용하지 않으므로 retrieval용 embedding을 직접 생성할 경우 호출자가 query에 'query: ' prefix를 붙여야 한다."
   }
 }

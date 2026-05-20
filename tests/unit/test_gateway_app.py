@@ -229,7 +229,7 @@ def settings() -> AppSettings:
                 retrieval_default=True,
                 score_modes=("dense_cosine",),
                 prompt_policy={
-                    "retrieval_query": {"mode": "sentence_transformers_prompt_name", "prompt_name": "query", "fallback_prefix": ""},
+                    "retrieval_query": {"mode": "prefix", "prefix": "query: "},
                     "retrieval_document": {"mode": "none"},
                 },
                 request_parameter_policy=_PRODUCTION_EMBEDDING_KO_POLICY,
@@ -745,8 +745,11 @@ def test_gateway_rejects_removed_late_interaction_maxsim():
 
 def test_gateway_retrieval_default_model_is_embed_ko():
     clients = FakeGatewayClients()
+    captured_inputs: list[list[str]] = []
+
     def embed_ko_response(_path, payload, **_kwargs):
         inputs = payload["input"] if isinstance(payload.get("input"), list) else [payload["input"]]
+        captured_inputs.append(inputs)
         return {
             "object": "list",
             "model": "local-embed-ko",
@@ -767,6 +770,86 @@ def test_gateway_retrieval_default_model_is_embed_ko():
     assert body["score_mode"] == "dense_cosine"
     assert clients.embedding_ko.last_path == "embeddings"
     assert clients.embedding.last_path is None
+    assert len(captured_inputs) == 2
+    assert captured_inputs[0] == ["query: 대한민국의 수도는?"]
+    assert captured_inputs[1] == ["서울은 대한민국의 수도이다.", "부산은 항구 도시이다."]
+
+
+def test_gateway_local_embed_ko_retrieval_applies_query_prefix_only():
+    """local-embed-ko retrieval query에만 'query: ' prefix가 붙고 document에는 붙지 않는다."""
+    clients = FakeGatewayClients()
+    captured_inputs: list[list[str]] = []
+
+    def embed_ko_response(_path, payload, **_kwargs):
+        inputs = payload["input"]
+        captured_inputs.append(inputs)
+        return {
+            "object": "list",
+            "model": "local-embed-ko",
+            "data": [{"object": "embedding", "embedding": [0.1] * 1024, "index": i} for i in range(len(inputs))],
+        }
+    clients.embedding_ko.post_response = embed_ko_response
+    client = TestClient(create_gateway_app(settings(), clients))
+
+    response = client.post(
+        "/v1/retrieval/score",
+        headers=auth_headers(),
+        json={"model": "local-embed-ko", "query": "대한민국의 수도는?", "documents": ["서울은 대한민국의 수도이다.", "부산은 항구 도시이다."]},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["model"] == "local-embed-ko"
+    assert body["score_mode"] == "dense_cosine"
+    assert clients.embedding.last_path is None
+    assert len(captured_inputs) == 2
+    assert captured_inputs[0] == ["query: 대한민국의 수도는?"]
+    assert captured_inputs[1] == ["서울은 대한민국의 수도이다.", "부산은 항구 도시이다."]
+
+
+def test_gateway_local_embed_retrieval_applies_task_prefix_regression():
+    """local-embed(EmbeddingGemma) prompt policy 불변: query는 task prefix, document는 title prefix."""
+    clients = FakeGatewayClients()
+    captured_inputs: list[list[str]] = []
+
+    def embed_response(_path, payload, **_kwargs):
+        inputs = payload["input"]
+        captured_inputs.append(inputs)
+        return {
+            "object": "list",
+            "model": "local-embed",
+            "data": [{"object": "embedding", "embedding": [0.1] * 768, "index": i} for i in range(len(inputs))],
+        }
+    clients.embedding.post_response = embed_response
+    client = TestClient(create_gateway_app(settings(), clients))
+
+    response = client.post(
+        "/v1/retrieval/score",
+        headers=auth_headers(),
+        json={"model": "local-embed", "query": "대한민국 수도는?", "documents": ["서울은 대한민국의 수도이다."]},
+    )
+
+    assert response.status_code == 200
+    assert clients.embedding_ko.last_path is None
+    assert len(captured_inputs) == 2
+    assert captured_inputs[0] == ["task: search result | query: 대한민국 수도는?"]
+    assert captured_inputs[1] == ["title: none | text: 서울은 대한민국의 수도이다."]
+
+
+def test_gateway_embeddings_does_not_apply_prompt_policy():
+    """/v1/embeddings는 prompt policy를 적용하지 않는다 — local-embed-ko 직접 호출 시 prefix 없음."""
+    clients = FakeGatewayClients()
+    client = TestClient(create_gateway_app(settings(), clients))
+
+    response = client.post(
+        "/v1/embeddings",
+        headers=auth_headers(),
+        json={"model": "local-embed-ko", "input": ["임베딩할 텍스트 예시입니다."]},
+    )
+
+    assert response.status_code == 200
+    assert clients.embedding_ko.last_payload["input"] == ["임베딩할 텍스트 예시입니다."]
+    assert clients.embedding_ko.last_payload["input"] != ["query: 임베딩할 텍스트 예시입니다."]
 
 
 def test_gateway_rejects_invalid_payloads_before_upstream_call():
@@ -2039,7 +2122,7 @@ def test_gateway_rerank_top_n_limits_results():
     """rerank top_n이 결과 개수를 제한하는지 확인한다."""
     clients = FakeGatewayClients()
     vectors = {
-        "쿼리": [1.0] + [0.0] * 1023,
+        "query: 쿼리": [1.0] + [0.0] * 1023,
         "d0": [0.1, 0.995] + [0.0] * 1022,
         "d1": [1.0] + [0.0] * 1023,
         "d2": [0.5, 0.866] + [0.0] * 1022,
