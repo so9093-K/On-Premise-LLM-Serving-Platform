@@ -1,3 +1,6 @@
+# GENERATED FILE. DO NOT EDIT MANUALLY.
+# Source: configs/model_catalog.yaml + configs/model_serving.yaml
+# Command: make render-runtime-assets
 models:
   local-main:
     runtime: vllm

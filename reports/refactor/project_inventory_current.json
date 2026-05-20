@@ -95,7 +95,7 @@
         "category": "current handoff/review report",
         "owner": "handoff-reporting",
         "management": "generated/curated for handoff review",
-        "size_bytes": 144399,
+        "size_bytes": 144397,
         "line_count": 4045,
         "role": "structured-data",
         "review_note": "handoff/review artifact; avoid stale phase snapshots in active package"
@@ -128,8 +128,8 @@
         "category": "compose/monitoring/runtime ops template",
         "owner": "operations",
         "management": "managed by operator templates",
-        "size_bytes": 41635,
-        "line_count": 1392,
+        "size_bytes": 41756,
+        "line_count": 1398,
         "role": "structured-data",
         "review_note": "supporting project file"
       },
@@ -183,8 +183,8 @@
         "category": "compose/monitoring/runtime ops template",
         "owner": "operations",
         "management": "managed by operator templates",
-        "size_bytes": 19181,
-        "line_count": 755,
+        "size_bytes": 19221,
+        "line_count": 757,
         "role": "structured-data",
         "review_note": "supporting project file"
       },
@@ -1473,8 +1473,8 @@
       "category": "compose/monitoring/runtime ops template",
       "owner": "operations",
       "management": "managed by operator templates",
-      "size_bytes": 19181,
-      "line_count": 755,
+      "size_bytes": 19221,
+      "line_count": 757,
       "role": "structured-data",
       "review_note": "supporting project file"
     },
@@ -1517,8 +1517,8 @@
       "category": "compose/monitoring/runtime ops template",
       "owner": "operations",
       "management": "managed by operator templates",
-      "size_bytes": 41635,
-      "line_count": 1392,
+      "size_bytes": 41756,
+      "line_count": 1398,
       "role": "structured-data",
       "review_note": "supporting project file"
     },
@@ -1671,7 +1671,7 @@
       "category": "current handoff/review report",
       "owner": "handoff-reporting",
       "management": "generated/curated for handoff review",
-      "size_bytes": 70475,
+      "size_bytes": 70473,
       "line_count": 345,
       "role": "structured-data",
       "review_note": "handoff/review artifact; avoid stale phase snapshots in active package"
@@ -1682,7 +1682,7 @@
       "category": "current handoff/review report",
       "owner": "handoff-reporting",
       "management": "generated/curated for handoff review",
-      "size_bytes": 144399,
+      "size_bytes": 144397,
       "line_count": 4045,
       "role": "structured-data",
       "review_note": "handoff/review artifact; avoid stale phase snapshots in active package"
@@ -3145,8 +3145,8 @@
       "category": "application/control-plane source",
       "owner": "governance-validation",
       "management": "managed by package source layout",
-      "size_bytes": 18194,
-      "line_count": 300,
+      "size_bytes": 19168,
+      "line_count": 317,
       "role": "python-source",
       "review_note": "application code; preserve public API behavior and compatibility facades"
     },

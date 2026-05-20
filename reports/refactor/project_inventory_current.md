@@ -72,12 +72,12 @@ Command:
 | `reports/refactor/project_inventory_current.json` | 4045 | handoff-reporting | handoff/review artifact; avoid stale phase snapshots in active package |
 | `tests/unit/test_gateway_app.py` | 2113 | quality | test coverage; keep deterministic and avoid live GPU dependency |
 | `specs/openapi.risk-adapter.yaml` | 1641 | api-contracts | supporting project file |
-| `ops/grafana/dashboards/serving_home.json` | 1392 | operations | supporting project file |
+| `ops/grafana/dashboards/serving_home.json` | 1398 | operations | supporting project file |
 | `tests/contract/test_governance_and_ops.py` | 1102 | quality | test coverage; keep deterministic and avoid live GPU dependency |
 | `ops/grafana/dashboards/api_experience.json` | 1095 | operations | supporting project file |
 | `ops/grafana/dashboards/observability_data_quality.json` | 907 | operations | supporting project file |
 | `src/ai_model_serving/contracts/chat.py` | 769 | api-contracts | application code; preserve public API behavior and compatibility facades |
-| `ops/grafana/dashboards/gpu_capacity_and_oom_risk.json` | 755 | operations | supporting project file |
+| `ops/grafana/dashboards/gpu_capacity_and_oom_risk.json` | 757 | operations | supporting project file |
 | `reports/runtime/operator_status_bundle.json` | 734 | handoff-reporting | generated operator report; regenerate through make operator-reports before handoff |
 | `src/ai_model_serving/domain/model_registry.py` | 703 | domain-registry | registry/domain code; monitor size as projections grow |
 | `src/ai_model_serving/services/gateway_service.py` | 685 | application | application code; preserve public API behavior and compatibility facades |

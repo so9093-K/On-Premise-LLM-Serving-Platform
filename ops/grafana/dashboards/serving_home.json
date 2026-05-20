@@ -530,6 +530,8 @@
         "defaults": {
           "unit": "percentunit",
           "decimals": 2,
+          "min": 0,
+          "max": 1,
           "noValue": "vLLM Absent",
           "thresholds": {
             "mode": "absolute",
@@ -894,6 +896,8 @@
         "defaults": {
           "unit": "percentunit",
           "decimals": 2,
+          "min": 0,
+          "max": 1,
           "noValue": "vLLM Absent",
           "thresholds": {
             "mode": "absolute",
@@ -1098,7 +1102,9 @@
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "percentunit"
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1
         },
         "overrides": []
       }

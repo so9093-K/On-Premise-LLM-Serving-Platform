@@ -157,6 +157,7 @@ def _validate_query_regressions() -> None:
         raise SystemExit('serving home must use documented cAdvisor OOM/restart source metrics')
     if 'container_oom_events_total' not in home_text or 'container_start_time_seconds' not in home_text:
         raise SystemExit('serving home missing cAdvisor OOM/restart source metrics')
+    _validate_kv_cache_ratio_axis('ops/grafana/dashboards/serving_home.json', home)
     user_route_options = {str(item.get('text')): str(item.get('value')) for item in user_route.get('options', [])}
     expected_user_route_options = {
         'All user routes': '/v1/chat/completions|/v1/embeddings|/v1/risk/.*|/v1/retrieval/.*',
@@ -170,6 +171,7 @@ def _validate_query_regressions() -> None:
     gpu_text = json.dumps(read_json('ops/grafana/dashboards/gpu_capacity_and_oom_risk.json'), ensure_ascii=False)
     if 'backend_restart_total' in gpu_text or 'gpu_oom_events_total' in gpu_text:
         raise SystemExit('GPU/OOM dashboard must use documented cAdvisor OOM/restart source metrics')
+    _validate_kv_cache_ratio_axis('ops/grafana/dashboards/gpu_capacity_and_oom_risk.json', read_json('ops/grafana/dashboards/gpu_capacity_and_oom_risk.json'))
     _validate_oom_restart_sources(gpu_text)
     _validate_status_board_navigation()
     for dash_path in [
@@ -192,6 +194,21 @@ def _validate_query_regressions() -> None:
         text = json.dumps(read_json(dash_path), ensure_ascii=False)
         if 'status=\\"COMPLETED\\"' in text or 'status=\\"ERROR\\"' in text:
             raise SystemExit(f'dashboard must not use uppercase streaming status labels: {dash_path}')
+
+
+def _validate_kv_cache_ratio_axis(path: str, dashboard: dict[str, object]) -> None:
+    for panel in dashboard.get('panels', []):
+        if panel.get('type') not in {'stat', 'timeseries'}:
+            continue
+        target_text = json.dumps(panel.get('targets', []), ensure_ascii=False)
+        if 'vllm_kv_cache_usage_ratio' not in target_text:
+            continue
+        defaults = panel.get('fieldConfig', {}).get('defaults', {})
+        if defaults.get('unit') != 'percentunit' or defaults.get('min') != 0 or defaults.get('max') != 1:
+            title = panel.get('title')
+            raise SystemExit(
+                f'{path}::{title} must pin vllm_kv_cache_usage_ratio axis to percentunit min=0 max=1'
+            )
 
 
 def _monitoring_projection() -> dict[str, object]:

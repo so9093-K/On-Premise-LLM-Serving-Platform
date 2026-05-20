@@ -14,6 +14,7 @@ PYTHON = sys.executable
 STATIC_STEPS: list[tuple[str, list[str], dict[str, str] | None]] = [
     ("계약 검증", ["__in_process__", "scripts.validation.validate_contracts"], None),
     ("런타임 검증 config-only", ["__in_process__", "scripts.validation.runtime_validation", "--config-only"], None),
+    ("runtime asset drift check", ["__in_process__", "scripts.render_runtime_assets", "--check"], None),
     ("vLLM compose 정합성 검증", ["__in_process__", "scripts.compose.validate_vllm_compose"], None),
     ("OpenAPI snapshot diff", ["__in_process__", "scripts.validation.openapi_snapshot_diff"], None),
     ("runtime target projection", ["__in_process__", "scripts.reports.runtime_targets_report"], None),
