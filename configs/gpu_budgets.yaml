@@ -8,7 +8,7 @@ gpu:
     conservative: 8
   total_gpu_memory_utilization:
     recommended_start: 0.885
-    budget_breakdown: "main_llm 0.72 + embedding 0.04 + colbert_ko 0.06 + risk_prompt 0.065 = 0.885"
+    budget_breakdown: "main_llm 0.72 + embedding 0.04 + embedding_ko 0.06 + risk_prompt 0.065 = 0.885"
     upper_review_threshold: 0.91
     avoid_above: 0.93
     conservative_range:
@@ -46,7 +46,7 @@ budgets:
       adjustment_priority: first
       scale_out_note: Can move to CPU, another GPU, or separate service if RAG traffic
         dominates.
-  colbert_ko:
+  embedding_ko:
     target_gib: 1.9
     range_gib:
     - 1.5

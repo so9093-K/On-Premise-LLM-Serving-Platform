@@ -20,9 +20,6 @@ contract = [
   "pytest==8.4.2",
 ]
 
-[project.entry-points."vllm.general_plugins"]
-colbert_ko_vllm = "ai_model_serving.vllm_colbert.plugin:register"
-
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]

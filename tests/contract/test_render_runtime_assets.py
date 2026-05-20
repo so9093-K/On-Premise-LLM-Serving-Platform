@@ -149,7 +149,7 @@ def test_served_model_name_change_in_runtime_targets(
     block = render_runtime_targets_block(registry)
     assert "local-main" in block
     assert "local-embed" in block
-    assert "local-colbert-ko" in block
+    assert "local-embed-ko" in block
     assert "risk-prompt" in block
 
 
@@ -159,7 +159,7 @@ def test_model_list_schema_contains_public_logical_ids(registry: ModelRegistry) 
     ids = schema["properties"]["data"]["items"]["properties"]["id"]["enum"]
     assert "local-main" in ids
     assert "local-embed" in ids
-    assert "local-colbert-ko" in ids
+    assert "local-embed-ko" in ids
     assert "risk-prompt" in ids
 
 

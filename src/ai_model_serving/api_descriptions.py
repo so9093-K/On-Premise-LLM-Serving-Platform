@@ -23,11 +23,11 @@ GATEWAY_TAGS_METADATA = [
     },
     {
         "name": "Embeddings",
-        "description": "`local-embed`를 통한 embedding API입니다. 요청 파라미터는 Gateway contract로 검증합니다.",
+        "description": "`local-embed`와 `local-embed-ko`를 통한 embedding API입니다. 요청 파라미터는 Gateway contract로 검증합니다.",
     },
     {
         "name": "Retrieval",
-        "description": "`local-colbert-ko`와 `local-embed`를 통한 문서 관련도 평가 API입니다. ColBERT late-interaction MaxSim과 dense cosine 유사도 방식을 지원합니다.",
+        "description": "`local-embed-ko` 기본, `local-embed` 선택 dense cosine 문서 관련도 평가 API입니다.",
     },
     {
         "name": "Risk",
@@ -51,8 +51,8 @@ GATEWAY_DESCRIPTION_TEMPLATE = """
 2. `GET /ready` — vLLM, Risk Adapter 전체 dependency readiness
 3. `GET /v1/models` — logical model id, capability, 사용자 조정 가능 parameter 목록
 4. `POST /v1/chat/completions` — chat completion (`local-main`)
-5. `POST /v1/embeddings` — embedding 생성 (`local-embed`)
-6. `POST /v1/retrieval/*` — 문서 관련도 재순위·점수 계산 (`local-colbert-ko`)
+5. `POST /v1/embeddings` — embedding 생성 (`local-embed`, `local-embed-ko`)
+6. `POST /v1/retrieval/*` — 문서 관련도 재순위·점수 계산 (`local-embed-ko` 기본)
 7. `POST /v1/risk/*` — prompt risk signal
 
 ## 인증
@@ -69,7 +69,7 @@ GATEWAY_DESCRIPTION_TEMPLATE = """
 |---|---|
 | `local-main` | chat, vision, tools, structured outputs, logprobs |
 | `local-embed` | embeddings (`dimensions`, `truncate_prompt_tokens`, `user`) |
-| `local-colbert-ko` | retrieval rerank/score (late_interaction_maxsim), token-embeddings (admin) |
+| `local-embed-ko` | Korean dense retrieval default, embeddings fixed at 1024 dimensions |
 | `risk-prompt` | prompt risk signal — 사용자 sampling parameter 없음 |
 
 상세 정책은 `docs/specs/api.md`와 `docs/operations/model_parameter_discovery.md`를 참고하세요.

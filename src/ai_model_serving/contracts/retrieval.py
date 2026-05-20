@@ -49,11 +49,3 @@ def validate_retrieval_rerank_request(payload: Any) -> dict[str, Any]:
 
 def validate_retrieval_score_request(payload: Any) -> dict[str, Any]:
     return _validate_with_schema(payload, "retrieval_score_request.schema.json", "retrieval score")
-
-
-def validate_retrieval_token_embeddings_request(payload: Any) -> dict[str, Any]:
-    return _validate_with_schema(
-        payload,
-        "retrieval_token_embeddings_request.schema.json",
-        "retrieval token-embeddings",
-    )

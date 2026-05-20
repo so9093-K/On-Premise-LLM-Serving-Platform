@@ -12,7 +12,7 @@ from ai_model_serving.contracts import ChatResponseExpectations, validate_chat_r
 
 from ai_model_serving.apps.gateway import create_gateway_app
 from ai_model_serving.services.readiness import DependencyProbe, collect_readiness
-from ai_model_serving.settings import AppSettings, RuntimeEndpoint, SecuritySettings
+from ai_model_serving.settings import AppSettings, EmbeddingProfile, RuntimeEndpoint, SecuritySettings
 
 
 class FakeRuntimeClient:
@@ -30,6 +30,8 @@ class FakeRuntimeClient:
         self.last_path = path
         self.last_payload = payload
         self.last_headers = kwargs.get("headers")
+        if callable(self.post_response):
+            return self.post_response(path, payload, **kwargs)
         return self.post_response
 
     async def get_json(self, path, **kwargs):
@@ -99,11 +101,12 @@ class FakeGatewayClients:
             "model": "local-embed",
             "data": [{"object": "embedding", "embedding": [0.1] * 768, "index": 0}],
         }, endpoint=RuntimeEndpoint("local-embed", "http://embed/v1", "local-embed", 1))
-        self.colbert_ko = FakeRuntimeClient({
+        self.embedding_ko = FakeRuntimeClient({
             "object": "list",
-            "model": "local-colbert-ko",
-            "data": [{"index": 0, "object": "score", "score": 0.7}],
-        }, endpoint=RuntimeEndpoint("local-colbert-ko", "http://colbert/v1", "local-colbert-ko", 1))
+            "model": "local-embed-ko",
+            "data": [{"object": "embedding", "embedding": [0.1] * 1024, "index": 0}],
+        }, endpoint=RuntimeEndpoint("local-embed-ko", "http://embed-ko/v1", "local-embed-ko", 1))
+        self.embedding_clients = {"local-embed": self.embedding, "local-embed-ko": self.embedding_ko}
         self.risk_adapter = FakeRuntimeClient(
             {
                 "assessment_id": "risk_1",
@@ -140,11 +143,11 @@ def public_models():
             "request_parameters": {"dimensions": {"type": "integer", "enum": [768, 512, 256, 128]}},
         },
         {
-            "id": "local-colbert-ko",
+            "id": "local-embed-ko",
             "object": "model",
-            "backend": "colbert_ko_vllm",
-            "capabilities": ["retrieval_rerank", "retrieval_score", "retrieval_token_embeddings"],
-            "request_parameters": {},
+            "backend": "embedding_ko_vllm",
+            "capabilities": ["embeddings", "retrieval_rerank", "retrieval_score"],
+            "request_parameters": {"dimensions": {"type": "integer", "enum": [1024]}},
         },
         {
             "id": "risk-prompt",
@@ -163,6 +166,15 @@ _PRODUCTION_EMBEDDING_POLICY = {
     "drop_upstream_parameters": ["user"],
     "dimensions": [768, 512, 256, 128],
     "max_truncate_prompt_tokens": 2048,
+}
+
+_PRODUCTION_EMBEDDING_KO_POLICY = {
+    "allow_unlisted_parameters": False,
+    "supported_parameters": ["dimensions", "encoding_format", "truncate_prompt_tokens", "user"],
+    "drop_upstream_parameters": ["user"],
+    "dimensions": [1024],
+    "max_truncate_prompt_tokens": 2048,
+    "max_embedding_batch_size": 16,
 }
 
 
@@ -187,10 +199,43 @@ def settings() -> AppSettings:
             max_image_pixels=4,
             allowed_image_mime_types=("image/png", "image/jpeg", "image/webp"),
         ),
-        embedding=RuntimeEndpoint("local-embed", "http://embed/v1", "local-embed", 1),
+        embedding=RuntimeEndpoint("local-embed", "http://embed/v1", "local-embed", 1, request_parameter_policy=_PRODUCTION_EMBEDDING_POLICY),
+        embedding_ko=RuntimeEndpoint("local-embed-ko", "http://embed-ko/v1", "local-embed-ko", 1, request_parameter_policy=_PRODUCTION_EMBEDDING_KO_POLICY),
         risk_prompt=endpoint,
         risk_adapter_base_url="http://risk",
         public_models=public_models(),
+        embedding_profiles={
+            "local-embed": EmbeddingProfile(
+                model="local-embed",
+                service_key="embedding",
+                upstream_model_id="google/embeddinggemma-300m",
+                dimensions=(768, 512, 256, 128),
+                default_dimensions=768,
+                retrieval_enabled=True,
+                score_modes=("dense_cosine",),
+                prompt_policy={
+                    "retrieval_query": {"mode": "prefix", "prefix": "task: search result | query: "},
+                    "retrieval_document": {"mode": "prefix", "prefix": "title: none | text: "},
+                },
+                request_parameter_policy=_PRODUCTION_EMBEDDING_POLICY,
+            ),
+            "local-embed-ko": EmbeddingProfile(
+                model="local-embed-ko",
+                service_key="embedding_ko",
+                upstream_model_id="dragonkue/snowflake-arctic-embed-l-v2.0-ko",
+                dimensions=(1024,),
+                default_dimensions=1024,
+                retrieval_enabled=True,
+                retrieval_default=True,
+                score_modes=("dense_cosine",),
+                prompt_policy={
+                    "retrieval_query": {"mode": "sentence_transformers_prompt_name", "prompt_name": "query", "fallback_prefix": ""},
+                    "retrieval_document": {"mode": "none"},
+                },
+                request_parameter_policy=_PRODUCTION_EMBEDDING_KO_POLICY,
+            ),
+        },
+        embedding_model_routes={"local-embed": "embedding", "local-embed-ko": "embedding_ko"},
     )
 
 
@@ -208,10 +253,25 @@ def _settings_with_embedding_policy(policy: dict) -> AppSettings:
         risk_adapter_timeout_seconds=base.risk_adapter_timeout_seconds,
         main_llm=base.main_llm,
         embedding=embed,
+        embedding_ko=base.embedding_ko,
         risk_prompt=base.risk_prompt,
         risk_adapter_base_url=base.risk_adapter_base_url,
         max_request_body_bytes=base.max_request_body_bytes,
         public_models=base.public_models,
+        embedding_profiles={
+            **base.embedding_profiles,
+            "local-embed": EmbeddingProfile(
+                model="local-embed",
+                service_key="embedding",
+                upstream_model_id="google/embeddinggemma-300m",
+                dimensions=tuple(policy.get("dimensions", [768, 512, 256, 128])),
+                default_dimensions=768,
+                retrieval_enabled=True,
+                score_modes=("dense_cosine",),
+                request_parameter_policy=policy,
+            ),
+        },
+        embedding_model_routes=base.embedding_model_routes,
     )
 
 
@@ -397,15 +457,15 @@ def test_gateway_health_ready_and_models():
     assert ready["not_ready_dependencies"] == []
     models = client.get("/v1/models", headers=auth_headers()).json()
     by_id = {item["id"]: item for item in models["data"]}
-    assert set(by_id) == {"local-main", "local-embed", "local-colbert-ko", "risk-prompt"}
+    assert set(by_id) == {"local-main", "local-embed", "local-embed-ko", "risk-prompt"}
     assert by_id["local-main"]["request_parameters"]["temperature"] == {"type": "number", "min": 0, "max": 2}
     assert by_id["local-main"]["request_parameters"]["stream"] == {"type": "boolean"}
     assert by_id["local-embed"]["request_parameters"]["dimensions"]["enum"] == [768, 512, 256, 128]
     assert "retrieval_score" in by_id["local-embed"]["capabilities"]
-    assert by_id["local-colbert-ko"]["capabilities"] == [
+    assert by_id["local-embed-ko"]["capabilities"] == [
+        "embeddings",
         "retrieval_rerank",
         "retrieval_score",
-        "retrieval_token_embeddings",
     ]
     assert by_id["risk-prompt"]["request_parameters"] == {}
     assert by_id["risk-prompt"]["fixed_parameters"] == {"max_tokens": 1, "temperature": 0}
@@ -558,59 +618,21 @@ def test_gateway_forwards_chat_and_embeddings_to_vllm_paths():
     assert clients.embedding.last_path == "embeddings"
 
 
-def test_gateway_colbert_rerank_uses_vllm_native_score_api():
-    clients = FakeGatewayClients()
-    clients.colbert_ko.post_response = {
-        "object": "list",
-        "model": "local-colbert-ko",
-        "data": [
-            {"index": 0, "object": "score", "score": 0.2},
-            {"index": 1, "object": "score", "score": 0.9},
-        ],
-    }
-    client = TestClient(create_gateway_app(settings(), clients))
-
-    response = client.post(
-        "/v1/retrieval/rerank",
-        headers=auth_headers(),
-        json={"model": "local-colbert-ko", "query": "검색어", "documents": ["낮음", "높음"]},
-    )
-
-    assert response.status_code == 200
-    assert clients.colbert_ko.last_path == "score"
-    assert clients.colbert_ko.last_payload["text_1"] == "검색어"
-    assert clients.colbert_ko.last_payload["text_2"] == ["낮음", "높음"]
-    body = response.json()
-    assert body["score_mode"] == "late_interaction_maxsim"
-    assert [item["index"] for item in body["results"]] == [1, 0]
-
-
-def test_gateway_colbert_score_rejects_invalid_upstream_response():
-    clients = FakeGatewayClients()
-    clients.colbert_ko.post_response = {"object": "list", "model": "local-colbert-ko", "data": []}
-    client = TestClient(create_gateway_app(settings(), clients))
-
-    response = client.post(
-        "/v1/retrieval/score",
-        headers=auth_headers(),
-        json={"model": "local-colbert-ko", "query": "검색어", "documents": ["문서"]},
-    )
-
-    assert response.status_code == 502
-    assert response.json()["error"]["code"] == "UPSTREAM_SCHEMA_ERROR"
-
-
 def test_gateway_dense_retrieval_uses_embedding_runtime():
     clients = FakeGatewayClients()
-    clients.embedding.post_response = {
-        "object": "list",
-        "model": "local-embed",
-        "data": [
-            {"object": "embedding", "embedding": [1.0, 0.0], "index": 0},
-            {"object": "embedding", "embedding": [1.0, 0.0], "index": 1},
-            {"object": "embedding", "embedding": [0.0, 1.0], "index": 2},
-        ],
-    }
+    def embed_response(_path, payload, **_kwargs):
+        vectors = {
+            "task: search result | query: 검색어": [1.0] + [0.0] * 767,
+            "title: none | text: 관련": [1.0] + [0.0] * 767,
+            "title: none | text: 무관": [0.0, 1.0] + [0.0] * 766,
+        }
+        inputs = payload["input"]
+        return {
+            "object": "list",
+            "model": "local-embed",
+            "data": [{"object": "embedding", "embedding": vectors[text], "index": index} for index, text in enumerate(inputs)],
+        }
+    clients.embedding.post_response = embed_response
     client = TestClient(create_gateway_app(settings(), clients))
 
     response = client.post(
@@ -642,11 +664,9 @@ def test_gateway_rejects_retrieval_extra_fields_before_upstream_call():
     token_embeddings = client.post(
         "/v1/retrieval/token-embeddings",
         headers=auth_headers(),
-        json={"model": "local-colbert-ko", "texts": ["문서"], "extra": "x"},
+        json={"model": "local-embed-ko", "texts": ["문서"], "extra": "x"},
     )
-    assert token_embeddings.status_code == 422
-    assert token_embeddings.json()["error"]["code"] == "VALIDATION_ERROR"
-    assert clients.colbert_ko.last_path is None
+    assert token_embeddings.status_code == 404
 
 
 def test_gateway_dense_retrieval_rejects_invalid_embedding_upstream_response():
@@ -664,36 +684,70 @@ def test_gateway_dense_retrieval_rejects_invalid_embedding_upstream_response():
     assert response.json()["error"]["code"] == "UPSTREAM_SCHEMA_ERROR"
 
 
-def test_gateway_colbert_token_embeddings_use_pooling_api():
-    clients = FakeGatewayClients()
-    clients.colbert_ko.post_response = {
-        "object": "list",
-        "model": "local-colbert-ko",
-        "data": [{"index": 0, "data": [[0.1, 0.2], [0.3, 0.4]]}],
-    }
-    client = TestClient(create_gateway_app(settings(), clients))
-
-    response = client.post(
-        "/v1/retrieval/token-embeddings",
-        headers=auth_headers(),
-        json={"model": "local-colbert-ko", "texts": ["문서"], "truncate_to_tokens": 16},
-    )
-
-    assert response.status_code == 200
-    assert clients.colbert_ko.last_path == "/pooling"
-    assert clients.colbert_ko.last_payload["task"] == "token_embed"
-    assert response.json()["embeddings"][0]["token_count"] == 2
-
-
-def test_gateway_rejects_token_embeddings_for_local_embed():
+def test_gateway_token_embeddings_route_removed():
     client = TestClient(create_gateway_app(settings(), FakeGatewayClients()))
     response = client.post(
         "/v1/retrieval/token-embeddings",
         headers=auth_headers(),
         json={"model": "local-embed", "texts": ["문서"]},
     )
-    assert response.status_code == 422
-    assert response.json()["error"]["code"] == "MODEL_CAPABILITY_MISMATCH"
+    assert response.status_code == 404
+
+
+def test_gateway_rejects_removed_colbert_ko_model():
+    clients = FakeGatewayClients()
+    client = TestClient(create_gateway_app(settings(), clients))
+
+    for endpoint in ("/v1/retrieval/rerank", "/v1/retrieval/score"):
+        response = client.post(
+            endpoint,
+            headers=auth_headers(),
+            json={"model": "local-colbert-ko", "query": "test", "documents": ["doc"]},
+        )
+        assert response.status_code == 422, f"{endpoint} should reject local-colbert-ko"
+        assert response.json()["error"]["code"] == "MODEL_CAPABILITY_MISMATCH"
+        assert clients.embedding.last_path is None
+        assert clients.embedding_ko.last_path is None
+
+
+def test_gateway_rejects_removed_late_interaction_maxsim():
+    clients = FakeGatewayClients()
+    client = TestClient(create_gateway_app(settings(), clients))
+
+    for endpoint in ("/v1/retrieval/rerank", "/v1/retrieval/score"):
+        response = client.post(
+            endpoint,
+            headers=auth_headers(),
+            json={"score_mode": "late_interaction_maxsim", "query": "test", "documents": ["doc"]},
+        )
+        assert response.status_code == 422, f"{endpoint} should reject late_interaction_maxsim"
+        assert response.json()["error"]["code"] == "MODEL_CAPABILITY_MISMATCH"
+
+
+def test_gateway_retrieval_default_model_is_embed_ko():
+    clients = FakeGatewayClients()
+    def embed_ko_response(_path, payload, **_kwargs):
+        inputs = payload["input"] if isinstance(payload.get("input"), list) else [payload["input"]]
+        return {
+            "object": "list",
+            "model": "local-embed-ko",
+            "data": [{"object": "embedding", "embedding": [0.1] * 1024, "index": i} for i in range(len(inputs))],
+        }
+    clients.embedding_ko.post_response = embed_ko_response
+    client = TestClient(create_gateway_app(settings(), clients))
+
+    response = client.post(
+        "/v1/retrieval/score",
+        headers=auth_headers(),
+        json={"query": "대한민국의 수도는?", "documents": ["서울은 대한민국의 수도이다.", "부산은 항구 도시이다."]},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["model"] == "local-embed-ko"
+    assert body["score_mode"] == "dense_cosine"
+    assert clients.embedding_ko.last_path == "embeddings"
+    assert clients.embedding.last_path is None
 
 
 def test_gateway_rejects_invalid_payloads_before_upstream_call():
@@ -1962,64 +2016,30 @@ def test_gateway_rejects_invalid_internal_risk_response_schema():
     Draft202012Validator(error_schema()).validate(response.json())
 
 
-# ---------------------------------------------------------------------------
-# Retrieval parameter threading tests (P1)
-# ---------------------------------------------------------------------------
-
-def test_gateway_rerank_passes_max_tokens_and_truncation_params_to_upstream():
-    """rerank endpoint에서 max_tokens_per_query, max_tokens_per_doc, truncation_side가 upstream에 전달되는지 확인한다."""
-    clients = FakeGatewayClients()
-    clients.colbert_ko.post_response = {
-        "object": "list",
-        "model": "local-colbert-ko",
-        "data": [
-            {"index": 0, "object": "score", "score": 0.5},
-        ],
-    }
-    client = TestClient(create_gateway_app(settings(), clients))
-    response = client.post(
-        "/v1/retrieval/rerank",
-        headers=auth_headers(),
-        json={
-            "model": "local-colbert-ko",
-            "query": "쿼리",
-            "documents": ["문서1"],
-            "max_tokens_per_query": 64,
-            "max_tokens_per_doc": 384,
-            "truncation_side": "left",
-        },
-    )
-    assert response.status_code == 200
-    payload = clients.colbert_ko.last_payload
-    assert payload["max_tokens_per_query"] == 64
-    assert payload["max_tokens_per_doc"] == 384
-    assert payload["truncation_side"] == "left"
-
-
 def test_gateway_rerank_top_n_limits_results():
     """rerank top_n이 결과 개수를 제한하는지 확인한다."""
     clients = FakeGatewayClients()
-    clients.colbert_ko.post_response = {
+    vectors = {
+        "쿼리": [1.0] + [0.0] * 1023,
+        "d0": [0.1, 0.995] + [0.0] * 1022,
+        "d1": [1.0] + [0.0] * 1023,
+        "d2": [0.5, 0.866] + [0.0] * 1022,
+    }
+    clients.embedding_ko.post_response = lambda _path, payload, **_kwargs: {
         "object": "list",
-        "model": "local-colbert-ko",
-        "data": [
-            {"index": 0, "object": "score", "score": 0.1},
-            {"index": 1, "object": "score", "score": 0.9},
-            {"index": 2, "object": "score", "score": 0.5},
-        ],
+        "model": "local-embed-ko",
+        "data": [{"object": "embedding", "embedding": vectors[text], "index": index} for index, text in enumerate(payload["input"])],
     }
     client = TestClient(create_gateway_app(settings(), clients))
     response = client.post(
         "/v1/retrieval/rerank",
         headers=auth_headers(),
-        json={"model": "local-colbert-ko", "query": "쿼리", "documents": ["d0", "d1", "d2"], "top_n": 2},
+        json={"model": "local-embed-ko", "query": "쿼리", "documents": ["d0", "d1", "d2"], "top_n": 2},
     )
     assert response.status_code == 200
     body = response.json()
     assert len(body["results"]) == 2
-    # 상위 2개: score 0.9(index 1), score 0.5(index 2)
-    assert body["results"][0]["score"] == 0.9
-    assert body["results"][1]["score"] == 0.5
+    assert [item["index"] for item in body["results"]] == [1, 2]
 
 
 def test_gateway_score_rejects_top_n():
@@ -2029,114 +2049,11 @@ def test_gateway_score_rejects_top_n():
     response = client.post(
         "/v1/retrieval/score",
         headers=auth_headers(),
-        json={"model": "local-colbert-ko", "query": "쿼리", "documents": ["문서"], "top_n": 1},
+        json={"model": "local-embed-ko", "query": "쿼리", "documents": ["문서"], "top_n": 1},
     )
     assert response.status_code == 422
     assert response.json()["error"]["code"] == "VALIDATION_ERROR"
-    assert clients.colbert_ko.last_path is None
-
-
-def test_gateway_token_embeddings_truncate_prompt_tokens_passed_upstream():
-    """token-embeddings에서 truncate_prompt_tokens가 upstream에 전달되는지 확인한다."""
-    clients = FakeGatewayClients()
-    clients.colbert_ko.post_response = {
-        "object": "list",
-        "model": "local-colbert-ko",
-        "data": [{"index": 0, "data": [[0.1, 0.2], [0.3, 0.4]]}],
-    }
-    client = TestClient(create_gateway_app(settings(), clients))
-    response = client.post(
-        "/v1/retrieval/token-embeddings",
-        headers=auth_headers(),
-        json={"model": "local-colbert-ko", "texts": ["문서"], "truncate_prompt_tokens": 256},
-    )
-    assert response.status_code == 200
-    assert clients.colbert_ko.last_payload["truncate_prompt_tokens"] == 256
-
-
-def test_gateway_token_embeddings_truncate_to_tokens_alias_still_works():
-    """deprecated alias truncate_to_tokens가 여전히 동작하는지 확인한다."""
-    clients = FakeGatewayClients()
-    clients.colbert_ko.post_response = {
-        "object": "list",
-        "model": "local-colbert-ko",
-        "data": [{"index": 0, "data": [[0.1, 0.2]]}],
-    }
-    client = TestClient(create_gateway_app(settings(), clients))
-    response = client.post(
-        "/v1/retrieval/token-embeddings",
-        headers=auth_headers(),
-        json={"model": "local-colbert-ko", "texts": ["문서"], "truncate_to_tokens": 32},
-    )
-    assert response.status_code == 200
-    assert clients.colbert_ko.last_payload["truncate_prompt_tokens"] == 32
-
-
-def test_gateway_token_embeddings_alias_conflict_returns_422():
-    """truncate_prompt_tokens와 truncate_to_tokens가 서로 다른 값이면 422를 반환한다."""
-    clients = FakeGatewayClients()
-    client = TestClient(create_gateway_app(settings(), clients))
-    response = client.post(
-        "/v1/retrieval/token-embeddings",
-        headers=auth_headers(),
-        json={"model": "local-colbert-ko", "texts": ["문서"], "truncate_prompt_tokens": 256, "truncate_to_tokens": 32},
-    )
-    assert response.status_code == 422
-    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
-    assert clients.colbert_ko.last_path is None
-
-
-def test_gateway_token_embeddings_alias_same_value_allowed():
-    """truncate_prompt_tokens와 truncate_to_tokens가 같은 값이면 허용된다."""
-    clients = FakeGatewayClients()
-    clients.colbert_ko.post_response = {
-        "object": "list",
-        "model": "local-colbert-ko",
-        "data": [{"index": 0, "data": [[0.1, 0.2]]}],
-    }
-    client = TestClient(create_gateway_app(settings(), clients))
-    response = client.post(
-        "/v1/retrieval/token-embeddings",
-        headers=auth_headers(),
-        json={"model": "local-colbert-ko", "texts": ["문서"], "truncate_prompt_tokens": 32, "truncate_to_tokens": 32},
-    )
-    assert response.status_code == 200
-
-
-def test_gateway_token_embeddings_upstream_object_not_list_returns_502():
-    """upstream response에서 object != list이면 502 UPSTREAM_SCHEMA_ERROR를 반환한다."""
-    clients = FakeGatewayClients()
-    clients.colbert_ko.post_response = {
-        "object": "embedding",  # wrong - should be list
-        "model": "local-colbert-ko",
-        "data": [{"index": 0, "data": [[0.1, 0.2]]}],
-    }
-    client = TestClient(create_gateway_app(settings(), clients))
-    response = client.post(
-        "/v1/retrieval/token-embeddings",
-        headers=auth_headers(),
-        json={"model": "local-colbert-ko", "texts": ["문서"]},
-    )
-    assert response.status_code == 502
-    assert response.json()["error"]["code"] == "UPSTREAM_SCHEMA_ERROR"
-
-
-def test_gateway_token_embeddings_upstream_count_mismatch_returns_502():
-    """upstream이 요청한 texts 수와 다른 수의 항목을 반환하면 502를 반환한다."""
-    clients = FakeGatewayClients()
-    clients.colbert_ko.post_response = {
-        "object": "list",
-        "model": "local-colbert-ko",
-        "data": [],  # 0 items for 1 text
-    }
-    client = TestClient(create_gateway_app(settings(), clients))
-    response = client.post(
-        "/v1/retrieval/token-embeddings",
-        headers=auth_headers(),
-        json={"model": "local-colbert-ko", "texts": ["문서"]},
-    )
-    assert response.status_code == 502
-    assert response.json()["error"]["code"] == "UPSTREAM_SCHEMA_ERROR"
+    assert clients.embedding_ko.last_path is None
 
 
 # ---------------------------------------------------------------------------

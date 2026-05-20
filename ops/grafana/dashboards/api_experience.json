@@ -706,7 +706,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (route, model, backend, score_mode) (rate(retrieval_requests_total{service=\"gateway\",route=~\"/v1/retrieval/(rerank|score|token-embeddings)\"}[$window]))",
+          "expr": "sum by (route, model, backend, score_mode) (rate(retrieval_requests_total{service=\"gateway\",route=~\"/v1/retrieval/(rerank|score)\"}[$window]))",
           "refId": "A",
           "legendFormat": "{{route}} {{model}} {{backend}} {{score_mode}}"
         }
@@ -734,7 +734,7 @@
       "id": 16,
       "type": "timeseries",
       "title": "Retrieval p50/p95 Latency",
-      "description": "Healthy/정상: p50/p95 stay within retrieval SLO by route/model/backend/score_mode. Attention/주의: late_interaction_maxsim latency spikes should be checked against colbert-ko-vllm queue and GPU headroom.",
+      "description": "Healthy/정상: p50/p95 stay within retrieval SLO by route/model/backend/score_mode. Attention/주의: dense_cosine latency spikes should be checked against embedding-ko-vllm queue and GPU headroom.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -821,7 +821,7 @@
       "id": 18,
       "type": "timeseries",
       "title": "Retrieval Items per Request",
-      "description": "Healthy/정상: items/request stays within configured limits. Attention/주의: sudden max-limit traffic can raise ColBERT latency and response size.",
+      "description": "Healthy/정상: items/request stays within configured limits. Attention/주의: sudden max-limit traffic can raise Dense retrieval latency and response size.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -880,12 +880,12 @@
       },
       "targets": [
         {
-          "expr": "histogram_quantile(0.95, sum by (le, model, backend, score_mode) (rate(retrieval_response_bytes_bucket{service=\"gateway\",route=\"/v1/retrieval/token-embeddings\"}[$window])))",
+          "expr": "histogram_quantile(0.95, sum by (le, model, backend, score_mode) (rate(retrieval_response_bytes_bucket{service=\"gateway\",route=\"/v1/retrieval/score\"}[$window])))",
           "refId": "A",
           "legendFormat": "p95 bytes {{model}} {{score_mode}}"
         },
         {
-          "expr": "sum by (model, backend, score_mode) (rate(retrieval_response_bytes_sum{service=\"gateway\",route=\"/v1/retrieval/token-embeddings\"}[$window])) / sum by (model, backend, score_mode) (rate(retrieval_response_bytes_count{service=\"gateway\",route=\"/v1/retrieval/token-embeddings\"}[$window]))",
+          "expr": "sum by (model, backend, score_mode) (rate(retrieval_response_bytes_sum{service=\"gateway\",route=\"/v1/retrieval/score\"}[$window])) / sum by (model, backend, score_mode) (rate(retrieval_response_bytes_count{service=\"gateway\",route=\"/v1/retrieval/score\"}[$window]))",
           "refId": "B",
           "legendFormat": "avg bytes {{model}} {{score_mode}}"
         }
@@ -912,8 +912,8 @@
     {
       "id": 20,
       "type": "timeseries",
-      "title": "ColBERT vLLM Native Upstream p95",
-      "description": "Healthy/정상: local-colbert-ko upstream p95 follows retrieval request latency. Attention/주의: upstream latency without Gateway latency points to colbert-ko-vllm native runtime pressure.",
+      "title": "Korean Embedding vLLM Upstream p95",
+      "description": "Healthy/정상: local-embed-ko upstream p95 follows retrieval request latency. Attention/주의: upstream latency without Gateway latency points to embedding-ko-vllm native runtime pressure.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -926,7 +926,7 @@
       },
       "targets": [
         {
-          "expr": "histogram_quantile(0.95, sum by (le, path) (rate(upstream_request_duration_seconds_bucket{service=\"gateway\",target=\"local-colbert-ko\",path=~\"retrieval/(rerank|score)|token-embeddings\"}[$window])))",
+          "expr": "histogram_quantile(0.95, sum by (le, path) (rate(upstream_request_duration_seconds_bucket{service=\"gateway\",target=\"local-embed-ko\",path=~\"retrieval/(rerank|score)\"}[$window])))",
           "refId": "A",
           "legendFormat": "p95 {{path}}"
         }
@@ -1045,7 +1045,7 @@
         "multi": true,
         "name": "runtime_service",
         "options": [],
-        "query": "main-llm-vllm,embedding-vllm,colbert-ko-vllm,risk-prompt-vllm",
+        "query": "main-llm-vllm,embedding-vllm,embedding-ko-vllm,risk-prompt-vllm",
         "type": "custom"
       },
       {

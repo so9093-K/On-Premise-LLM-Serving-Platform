@@ -20,7 +20,7 @@ from .settings_parts.env import (
 )
 from .settings_parts.runtime_endpoints import build_runtime_endpoint, validate_timeout_budget
 from .settings_parts.security import build_security_settings
-from .settings_parts.types import AppSettings, DocumentationSettings, RiskDetectorSettings, RuntimeEndpoint, SecuritySettings
+from .settings_parts.types import AppSettings, DocumentationSettings, EmbeddingProfile, RiskDetectorSettings, RuntimeEndpoint, SecuritySettings
 
 
 def resolve_project_root(explicit_root: Path | None = None) -> Path:
@@ -136,6 +136,53 @@ def _risk_detectors_from_config(risk_adapter_cfg: dict[str, Any]) -> tuple[RiskD
     return tuple(detectors)
 
 
+def _embedding_profiles_from_config(model_serving: dict[str, Any]) -> dict[str, EmbeddingProfile]:
+    profiles_cfg = model_serving.get("embedding_profiles")
+    if not isinstance(profiles_cfg, dict):
+        profiles_cfg = {}
+    models = model_serving.get("models", {})
+    profiles: dict[str, EmbeddingProfile] = {}
+    for model_id, cfg in profiles_cfg.items():
+        retrieval = cfg.get("retrieval", {}) if isinstance(cfg.get("retrieval", {}), dict) else {}
+        service_key = str(cfg["service_key"])
+        runtime_cfg = models.get(service_key, {}) if isinstance(models.get(service_key, {}), dict) else {}
+        request_policy = cfg.get("request_parameter_policy")
+        if not isinstance(request_policy, dict):
+            request_policy = runtime_cfg.get("request_parameter_policy", {})
+        profiles[str(model_id)] = EmbeddingProfile(
+            model=str(cfg.get("served_model_name", model_id)),
+            service_key=service_key,
+            upstream_model_id=str(cfg.get("upstream_model_id", runtime_cfg.get("name", ""))),
+            dimensions=tuple(int(item) for item in cfg.get("dimensions", [])),
+            default_dimensions=int(cfg.get("default_dimensions", cfg.get("dimensions", [0])[0])),
+            purpose=str(cfg.get("purpose", "")),
+            retrieval_enabled=retrieval.get("enabled", False) is True,
+            retrieval_default=retrieval.get("default", False) is True,
+            score_modes=tuple(str(item) for item in retrieval.get("score_modes", [])),
+            prompt_policy=dict(cfg.get("prompt_policy", {})) if isinstance(cfg.get("prompt_policy", {}), dict) else {},
+            request_parameter_policy=dict(request_policy) if isinstance(request_policy, dict) else {},
+        )
+    if profiles:
+        return profiles
+
+    embedding_cfg = models.get("embedding", {}) if isinstance(models.get("embedding", {}), dict) else {}
+    if embedding_cfg:
+        model = str(embedding_cfg.get("served_model_name", "local-embed"))
+        profiles[model] = EmbeddingProfile(
+            model=model,
+            service_key="embedding",
+            upstream_model_id=str(embedding_cfg.get("name", "")),
+            dimensions=tuple(int(item) for item in embedding_cfg.get("embedding_dimension_supported", [768, 512, 256, 128])),
+            default_dimensions=int(embedding_cfg.get("embedding_dimension_default", 768)),
+            purpose="general",
+            retrieval_enabled=True,
+            retrieval_default=False,
+            score_modes=("dense_cosine",),
+            request_parameter_policy=dict(embedding_cfg.get("request_parameter_policy", {})),
+        )
+    return profiles
+
+
 def _aggregate_order(risk_adapter_cfg: dict[str, Any], detectors: tuple[RiskDetectorSettings, ...]) -> tuple[str, ...]:
     aggregate_cfg = risk_adapter_cfg.get("aggregate", {}) if isinstance(risk_adapter_cfg.get("aggregate", {}), dict) else {}
     order = aggregate_cfg.get("detector_order")
@@ -185,6 +232,8 @@ def load_settings(root: Path | None = None, env_file: Path | str | None = None) 
         timeout=vllm_timeout,
         operational_limits=operational_limits,
     )
+    embedding_profiles = _embedding_profiles_from_config(model_serving)
+    embedding_model_routes = {model_id: profile.service_key for model_id, profile in embedding_profiles.items()}
     risk_adapter_cfg = model_serving.get("risk_adapter", {})
     risk_detectors = _risk_detectors_from_config(risk_adapter_cfg)
     aggregate_detector_order = _aggregate_order(risk_adapter_cfg, risk_detectors)
@@ -227,7 +276,12 @@ def load_settings(root: Path | None = None, env_file: Path | str | None = None) 
         aggregate_detector_order=aggregate_detector_order,
         main_llm=runtime_endpoints.get("main_llm"),
         embedding=runtime_endpoints.get("embedding"),
+        embedding_ko=runtime_endpoints.get("embedding_ko"),
         risk_prompt=runtime_endpoints.get("risk_prompt"),
+        embedding_profiles=embedding_profiles,
+        embedding_model_routes=embedding_model_routes,
+        default_embedding_model=str(model_serving.get("default_embedding_model", "local-embed")),
+        default_retrieval_model=str(model_serving.get("default_retrieval_model", "local-embed-ko")),
         max_request_body_bytes=_as_int(
             "MAX_REQUEST_BODY_BYTES",
             int(operational_limits.get("max_request_body_bytes", 1_000_000)),

@@ -132,39 +132,6 @@ else
   fail=1
 fi
 
-COLBERT_KO_MODEL_DIR_RESOLVED="${COLBERT_KO_MODEL_DIR:-}"
-if [[ -z "$COLBERT_KO_MODEL_DIR_RESOLVED" ]]; then
-  echo "[preflight] missing: COLBERT_KO_MODEL_DIR is required for full-stack compose" >&2
-  echo "[preflight] prepare it with: $PYTHON_BIN scripts/models/prepare_colbert_ko_vllm_artifact.py --output-dir ./models/colbert-ko-vllm" >&2
-  fail=1
-else
-  if [[ "$COLBERT_KO_MODEL_DIR_RESOLVED" = /* ]]; then
-    COLBERT_KO_MODEL_PATH="$COLBERT_KO_MODEL_DIR_RESOLVED"
-  else
-    COLBERT_KO_MODEL_PATH="$ROOT/$COLBERT_KO_MODEL_DIR_RESOLVED"
-  fi
-  colbert_missing=0
-  for required_path in \
-    "$COLBERT_KO_MODEL_PATH/config.json" \
-    "$COLBERT_KO_MODEL_PATH/proj.pt" \
-    "$COLBERT_KO_MODEL_PATH/tokenizer" \
-    "$COLBERT_KO_MODEL_PATH/encoder/config.json" \
-    "$COLBERT_KO_MODEL_PATH/encoder/model.safetensors"
-  do
-    if [[ ! -e "$required_path" ]]; then
-      echo "[preflight] missing: ColBERT-ko prepared artifact path not found: $required_path" >&2
-      colbert_missing=1
-    fi
-  done
-  if [[ "$colbert_missing" == "0" ]]; then
-    echo "[preflight] ok: ColBERT-ko prepared artifact: $COLBERT_KO_MODEL_PATH"
-  else
-    echo "[preflight] ColBERT-ko artifact must be prepared output, not raw Hugging Face cache." >&2
-    echo "[preflight] prepare it with: $PYTHON_BIN scripts/models/prepare_colbert_ko_vllm_artifact.py --output-dir \"$COLBERT_KO_MODEL_PATH\"" >&2
-    fail=1
-  fi
-fi
-
 if [[ "${SKIP_RISK_VLLM_IMAGE_CONFIG_CHECK:-0}" != "1" ]]; then
   if bash scripts/models/check_risk_vllm_image_config.sh; then
     echo "[preflight] ok: risk vLLM image loads Kanana HF configs"

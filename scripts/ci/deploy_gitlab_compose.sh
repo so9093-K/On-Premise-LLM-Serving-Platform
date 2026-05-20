@@ -14,10 +14,7 @@
 # Optional:
 #   RISK_VLLM_IMAGE_TO_DEPLOY         full runtime deploy override for RISK_VLLM_IMAGE;
 #                                     allowed only when DEPLOY_MODE=full
-#   COLBERT_KO_VLLM_IMAGE_TO_DEPLOY   full runtime deploy override for COLBERT_KO_VLLM_IMAGE;
-#                                     allowed only when DEPLOY_MODE=full
 #   RISK_VLLM_IMAGE_SHA               default risk-vllm-kanana image when DEPLOY_MODE=full
-#   COLBERT_KO_VLLM_IMAGE_SHA         default colbert-ko-vllm image when DEPLOY_MODE=full
 #   DEPLOY_COMPOSE_FILE               compose file relative to DEPLOY_PATH
 #                              default: ops/compose/full-stack.private-network.yaml
 #   DEPLOY_MODE                rolling (default) or full
@@ -26,10 +23,6 @@
 #                              GATEWAY_BIND_ADDR/GATEWAY_PORT, with 0.0.0.0 -> localhost.
 #   RUN_READY_SMOKE            1 (default) or 0 — run /health check after deploy
 #   PRUNE_DANGLING_IMAGES      1 (default) or 0 — prune dangling images after a successful deploy
-#   PREPARE_COLBERT_KO_ARTIFACT
-#                              1 to explicitly prepare the ColBERT-ko vLLM artifact
-#                              before full deploy preflight using PLATFORM_IMAGE_TO_DEPLOY.
-#                              Default: disabled.
 set -euo pipefail
 
 : "${PLATFORM_IMAGE_TO_DEPLOY:?Required: full platform image ref}"
@@ -47,7 +40,6 @@ COMPOSE_FILE="${DEPLOY_COMPOSE_FILE:-ops/compose/full-stack.private-network.yaml
 DEPLOY_MODE="${DEPLOY_MODE:-rolling}"
 RUN_READY_SMOKE="${RUN_READY_SMOKE:-1}"
 PRUNE_DANGLING_IMAGES="${PRUNE_DANGLING_IMAGES:-1}"
-PREPARE_COLBERT_KO_ARTIFACT="${PREPARE_COLBERT_KO_ARTIFACT:-0}"
 SSH_TARGET="${DEPLOY_USER}@${DEPLOY_HOST}"
 
 case "${DEPLOY_MODE}" in
@@ -63,27 +55,19 @@ echo "[deploy] platform image: ${PLATFORM_IMAGE_TO_DEPLOY}"
 echo "[deploy] compose file: ${COMPOSE_FILE}"
 echo "[deploy] mode: ${DEPLOY_MODE}"
 
-if [[ "${DEPLOY_MODE}" == "rolling" ]] && {
-  [[ -n "${RISK_VLLM_IMAGE_TO_DEPLOY:-}" ]] || [[ -n "${COLBERT_KO_VLLM_IMAGE_TO_DEPLOY:-}" ]]
-}; then
+if [[ "${DEPLOY_MODE}" == "rolling" && -n "${RISK_VLLM_IMAGE_TO_DEPLOY:-}" ]]; then
   echo "[deploy] ERROR: vLLM image overrides are allowed only with DEPLOY_MODE=full." >&2
   echo "[deploy]   Rolling deploy only updates gateway and risk-adapter." >&2
-  echo "[deploy]   RISK_VLLM_IMAGE_TO_DEPLOY and COLBERT_KO_VLLM_IMAGE_TO_DEPLOY are invalid for rolling deploy." >&2
+  echo "[deploy]   RISK_VLLM_IMAGE_TO_DEPLOY is invalid for rolling deploy." >&2
   echo "[deploy]   Full runtime deploy requires DEPLOY_MODE=full." >&2
   exit 2
 fi
 
 if [[ "${DEPLOY_MODE}" == "full" ]]; then
   RISK_VLLM_IMAGE_TO_DEPLOY="${RISK_VLLM_IMAGE_TO_DEPLOY:-${RISK_VLLM_IMAGE_SHA:-}}"
-  COLBERT_KO_VLLM_IMAGE_TO_DEPLOY="${COLBERT_KO_VLLM_IMAGE_TO_DEPLOY:-${COLBERT_KO_VLLM_IMAGE_SHA:-}}"
   if [[ -z "${RISK_VLLM_IMAGE_TO_DEPLOY}" ]]; then
     echo "[deploy] ERROR: DEPLOY_MODE=full requires RISK_VLLM_IMAGE_TO_DEPLOY or RISK_VLLM_IMAGE_SHA." >&2
     echo "[deploy]   deploy-gpu-175 defaults RISK_VLLM_IMAGE_TO_DEPLOY from RISK_VLLM_IMAGE_SHA." >&2
-    exit 2
-  fi
-  if [[ -z "${COLBERT_KO_VLLM_IMAGE_TO_DEPLOY}" ]]; then
-    echo "[deploy] ERROR: DEPLOY_MODE=full requires COLBERT_KO_VLLM_IMAGE_TO_DEPLOY or COLBERT_KO_VLLM_IMAGE_SHA." >&2
-    echo "[deploy]   deploy-gpu-175 defaults COLBERT_KO_VLLM_IMAGE_TO_DEPLOY from COLBERT_KO_VLLM_IMAGE_SHA." >&2
     exit 2
   fi
 fi
@@ -113,21 +97,18 @@ rsync -az --delete \
 ssh "${SSH_TARGET}" \
   PLATFORM_IMAGE_TO_DEPLOY="${PLATFORM_IMAGE_TO_DEPLOY}" \
   RISK_VLLM_IMAGE_TO_DEPLOY="${RISK_VLLM_IMAGE_TO_DEPLOY:-}" \
-  COLBERT_KO_VLLM_IMAGE_TO_DEPLOY="${COLBERT_KO_VLLM_IMAGE_TO_DEPLOY:-}" \
   CI_REGISTRY="${CI_REGISTRY}" \
   REGISTRY_USER="${REGISTRY_USER}" \
   REGISTRY_PASSWORD="${REGISTRY_PASSWORD}" \
   DEPLOY_PATH="${DEPLOY_PATH}" \
   COMPOSE_FILE="${COMPOSE_FILE}" \
   DEPLOY_MODE="${DEPLOY_MODE}" \
-  COLBERT_KO_MODEL_DIR="${COLBERT_KO_MODEL_DIR:-}" \
   HF_CACHE_DIR="${HF_CACHE_DIR:-}" \
   HF_TOKEN="${HF_TOKEN:-}" \
   HUGGING_FACE_HUB_TOKEN="${HUGGING_FACE_HUB_TOKEN:-}" \
   GATEWAY_HEALTH_URL="${GATEWAY_HEALTH_URL:-}" \
   RUN_READY_SMOKE="${RUN_READY_SMOKE}" \
   PRUNE_DANGLING_IMAGES="${PRUNE_DANGLING_IMAGES}" \
-  PREPARE_COLBERT_KO_ARTIFACT="${PREPARE_COLBERT_KO_ARTIFACT}" \
   AUTH_MODE="${AUTH_MODE:-}" \
   bash -s <<'REMOTE'
 set -euo pipefail
@@ -145,12 +126,10 @@ fi
 echo "${REGISTRY_PASSWORD}" | \
   docker login "${CI_REGISTRY}" -u "${REGISTRY_USER}" --password-stdin
 
-if [[ "${DEPLOY_MODE}" == "rolling" ]] && {
-  [[ -n "${RISK_VLLM_IMAGE_TO_DEPLOY:-}" ]] || [[ -n "${COLBERT_KO_VLLM_IMAGE_TO_DEPLOY:-}" ]]
-}; then
+if [[ "${DEPLOY_MODE}" == "rolling" && -n "${RISK_VLLM_IMAGE_TO_DEPLOY:-}" ]]; then
   echo "[deploy] ERROR: vLLM image overrides are allowed only with DEPLOY_MODE=full." >&2
   echo "[deploy]   Rolling deploy only updates gateway and risk-adapter." >&2
-  echo "[deploy]   RISK_VLLM_IMAGE_TO_DEPLOY and COLBERT_KO_VLLM_IMAGE_TO_DEPLOY are invalid for rolling deploy." >&2
+  echo "[deploy]   RISK_VLLM_IMAGE_TO_DEPLOY is invalid for rolling deploy." >&2
   echo "[deploy]   Full runtime deploy requires DEPLOY_MODE=full." >&2
   exit 2
 fi
@@ -198,7 +177,7 @@ pull_preflight_image() {
     echo "[deploy] ERROR: cannot pull ${label}: ${image}" >&2
     if [[ "${DEPLOY_MODE}" == "full" ]]; then
       echo "[deploy]   For full deploy, confirm build-vllm-derived succeeded in a DEPLOY_MODE=full pipeline." >&2
-      echo "[deploy]   Or set RISK_VLLM_IMAGE_TO_DEPLOY / COLBERT_KO_VLLM_IMAGE_TO_DEPLOY" >&2
+      echo "[deploy]   Or set RISK_VLLM_IMAGE_TO_DEPLOY" >&2
       echo "[deploy]   to image refs that already exist in the registry." >&2
     else
       echo "[deploy]   Ensure the build-platform CI job completed successfully." >&2
@@ -213,127 +192,6 @@ pull_preflight_image "platform" "${PLATFORM_IMAGE_TO_DEPLOY}"
 
 if [[ "${DEPLOY_MODE}" == "full" ]]; then
   pull_preflight_image "risk-vllm-kanana" "${RISK_VLLM_IMAGE_TO_DEPLOY}"
-  pull_preflight_image "colbert-ko-vllm" "${COLBERT_KO_VLLM_IMAGE_TO_DEPLOY}"
-fi
-
-fail_colbert_artifact_preflight() {
-  echo "[deploy] ERROR: $*" >&2
-  echo "[deploy]   COLBERT_KO_MODEL_DIR is required for DEPLOY_MODE=full." >&2
-  echo "[deploy]   Production full deploy requires an absolute COLBERT_KO_MODEL_DIR path." >&2
-  echo "[deploy]   Do not use raw Hugging Face cache paths or relative paths like ./models/colbert-ko-vllm." >&2
-  echo "[deploy]   Prepare a vLLM-compatible artifact first, or rerun full deploy with" >&2
-  echo "[deploy]   PREPARE_COLBERT_KO_ARTIFACT=1 to prepare it explicitly inside PLATFORM_IMAGE_TO_DEPLOY." >&2
-  exit 1
-}
-
-resolve_colbert_ko_model_dir() {
-  local from_env="${COLBERT_KO_MODEL_DIR:-}"
-  local from_file
-  from_file="$(get_env_value COLBERT_KO_MODEL_DIR)"
-
-  if [[ -n "${from_env}" ]]; then
-    echo "[deploy] COLBERT_KO_MODEL_DIR source: CI/SSH environment" >&2
-    printf '%s\n' "${from_env}"
-  else
-    echo "[deploy] COLBERT_KO_MODEL_DIR source: remote .env" >&2
-    printf '%s\n' "${from_file}"
-  fi
-}
-
-validate_colbert_ko_artifact() {
-  local model_dir
-  model_dir="$(resolve_colbert_ko_model_dir)"
-  if [[ -z "${model_dir}" ]]; then
-    fail_colbert_artifact_preflight "COLBERT_KO_MODEL_DIR is empty."
-  fi
-  if [[ "${model_dir}" != /* ]]; then
-    fail_colbert_artifact_preflight "COLBERT_KO_MODEL_DIR must be absolute for production full deploy: ${model_dir}"
-  fi
-  if [[ ! -e "${model_dir}" ]]; then
-    fail_colbert_artifact_preflight "COLBERT_KO_MODEL_DIR does not exist: ${model_dir}"
-  fi
-  if [[ ! -d "${model_dir}" ]]; then
-    fail_colbert_artifact_preflight "COLBERT_KO_MODEL_DIR is not a directory: ${model_dir}"
-  fi
-  if [[ -z "$(find "${model_dir}" -mindepth 1 -maxdepth 1 -print -quit)" ]]; then
-    fail_colbert_artifact_preflight "COLBERT_KO_MODEL_DIR is empty: ${model_dir}"
-  fi
-
-  local required=(
-    "${model_dir}/config.json"
-    "${model_dir}/proj.pt"
-    "${model_dir}/tokenizer"
-    "${model_dir}/encoder/config.json"
-    "${model_dir}/encoder/model.safetensors"
-  )
-  local path
-  for path in "${required[@]}"; do
-    if [[ ! -e "${path}" ]]; then
-      fail_colbert_artifact_preflight "missing ${path}"
-    fi
-  done
-  if [[ ! -d "${model_dir}/tokenizer" ]]; then
-    fail_colbert_artifact_preflight "tokenizer must be a directory: ${model_dir}/tokenizer"
-  fi
-
-  echo "[deploy] ColBERT-ko artifact verified: ${model_dir}"
-  echo "[deploy] host ${model_dir}/config.json will mount as /models/colbert-ko-vllm/config.json"
-}
-
-prepare_colbert_ko_artifact_if_requested() {
-  if [[ "${DEPLOY_MODE}" != "full" || "${PREPARE_COLBERT_KO_ARTIFACT:-0}" != "1" ]]; then
-    return 0
-  fi
-  local model_dir
-  model_dir="$(resolve_colbert_ko_model_dir)"
-  if [[ -z "${model_dir}" ]]; then
-    fail_colbert_artifact_preflight "COLBERT_KO_MODEL_DIR is empty; cannot prepare artifact."
-  fi
-  if [[ "${model_dir}" != /* ]]; then
-    fail_colbert_artifact_preflight "COLBERT_KO_MODEL_DIR must be absolute before artifact preparation: ${model_dir}"
-  fi
-
-  local hf_cache_dir="${HF_CACHE_DIR:-$(get_env_value HF_CACHE_DIR)}"
-  if [[ -z "${hf_cache_dir}" ]]; then
-    hf_cache_dir="./model_cache/huggingface"
-  fi
-  local compose_dir
-  compose_dir="$(compose_file_dir_host)"
-  local hf_cache_dir_host
-  hf_cache_dir_host="$(resolve_compose_relative_path "${hf_cache_dir}")"
-
-  mkdir -p "${model_dir}" "${hf_cache_dir_host}"
-
-  echo "[deploy] preparing ColBERT-ko vLLM artifact at ${model_dir} using ${PLATFORM_IMAGE_TO_DEPLOY}..."
-  echo "[deploy] Hugging Face cache mount: ${hf_cache_dir_host} -> /root/.cache/huggingface"
-  echo "[deploy] Relative HF_CACHE_DIR values are resolved from compose file directory: ${compose_dir}"
-
-  local hf_token="${HF_TOKEN:-$(get_env_value HF_TOKEN)}"
-  local hub_token="${HUGGING_FACE_HUB_TOKEN:-$(get_env_value HUGGING_FACE_HUB_TOKEN)}"
-  local -a docker_run_args=(
-    --rm
-    --user 0:0
-    -e "HOST_UID=$(id -u)"
-    -e "HOST_GID=$(id -g)"
-    -v "${model_dir}:/out"
-    -v "${hf_cache_dir_host}:/root/.cache/huggingface"
-  )
-  if [[ -n "${hf_token}" ]]; then
-    docker_run_args+=(-e "HF_TOKEN=${hf_token}" -e "HUGGING_FACE_HUB_TOKEN=${hf_token}")
-  elif [[ -n "${hub_token}" ]]; then
-    docker_run_args+=(-e "HUGGING_FACE_HUB_TOKEN=${hub_token}")
-  fi
-
-  if ! docker run "${docker_run_args[@]}" \
-    "${PLATFORM_IMAGE_TO_DEPLOY}" \
-    sh -lc 'python scripts/models/prepare_colbert_ko_vllm_artifact.py --output-dir /out && chown -R "${HOST_UID}:${HOST_GID}" /out /root/.cache/huggingface'; then
-    fail_colbert_artifact_preflight "ColBERT-ko artifact preparation failed for ${model_dir}"
-  fi
-}
-
-if [[ "${DEPLOY_MODE}" == "full" ]]; then
-  prepare_colbert_ko_artifact_if_requested
-  validate_colbert_ko_artifact
 fi
 
 set_env_value() {
@@ -381,12 +239,6 @@ if [[ -n "${RISK_VLLM_IMAGE_TO_DEPLOY:-}" ]]; then
   echo "[deploy] RISK_VLLM_IMAGE set to ${RISK_VLLM_IMAGE_TO_DEPLOY}"
 fi
 
-# optionally update COLBERT_KO_VLLM_IMAGE
-if [[ -n "${COLBERT_KO_VLLM_IMAGE_TO_DEPLOY:-}" ]]; then
-  set_env_value COLBERT_KO_VLLM_IMAGE "${COLBERT_KO_VLLM_IMAGE_TO_DEPLOY}"
-  echo "[deploy] COLBERT_KO_VLLM_IMAGE set to ${COLBERT_KO_VLLM_IMAGE_TO_DEPLOY}"
-fi
-
 if [[ -n "${AUTH_MODE:-}" ]]; then
   echo "[deploy] applying auth profile: ${AUTH_MODE}"
   if ! make auth-apply MODE="${AUTH_MODE}"; then
@@ -401,9 +253,7 @@ if ! make sync-runtime-secrets; then
 fi
 
 # Docker Compose gives shell environment variables precedence over --env-file.
-# The SSH wrapper intentionally passes optional variables such as COLBERT_KO_MODEL_DIR
-# as empty when they are not set in CI; export the mutated remote .env now so those
-# empty process env values cannot shadow required compose variables.
+# Export the mutated remote .env so process env values cannot shadow required compose variables.
 export_compose_env_from_file
 
 echo "[deploy] validating compose config with ${COMPOSE_ENV_FILE}..."
@@ -414,7 +264,7 @@ fi
 if [[ "${DEPLOY_MODE}" == "full" ]]; then
   echo "[deploy] full deploy: pulling all compose images..."
   if ! docker compose -f "${COMPOSE_FILE}" --env-file "${COMPOSE_ENV_FILE}" pull; then
-    fail_after_env_backup "image pull failed during full deploy. If vLLM-derived images are new, confirm build-vllm-derived succeeded or set existing RISK_VLLM_IMAGE_TO_DEPLOY / COLBERT_KO_VLLM_IMAGE_TO_DEPLOY refs."
+    fail_after_env_backup "image pull failed during full deploy. If vLLM-derived images are new, confirm build-vllm-derived succeeded or set an existing RISK_VLLM_IMAGE_TO_DEPLOY ref."
   fi
   echo "[deploy] full deploy: starting stack..."
   if ! docker compose -f "${COMPOSE_FILE}" --env-file "${COMPOSE_ENV_FILE}" up -d --remove-orphans; then

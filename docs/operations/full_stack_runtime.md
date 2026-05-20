@@ -9,7 +9,7 @@ full-stack compose는 다음 서비스를 함께 실행한다.
 | `main-llm-vllm` | 9401 | chat completion backend |
 | `embedding-vllm` | 9402 | embedding backend |
 | `risk-prompt-vllm` | 9403 | prompt risk backend |
-| `colbert-ko-vllm` | 9404 | ColBERT-ko late interaction retrieval backend |
+| `embedding-ko-vllm` | 9406 | Korean dense retrieval (snowflake-arctic-embed-l-v2.0-ko) backend |
 | `prometheus` | 9410 | metrics 수집 |
 | `grafana` | 9411 | dashboard |
 | `dcgm-exporter` | 9412 | GPU metrics |
@@ -27,7 +27,7 @@ _ModelRegistry projection에서 자동 생성. 수정 시 `configs/model_catalog
 |---|---:|---|---|---|
 | `main-llm-vllm` | 9401 | `local-main` | `local-main` | `chat.completions`, `chat.completions.vision`, `chat.completions.tools` |
 | `embedding-vllm` | 9402 | `local-embed` | `local-embed` | `embeddings`, `retrieval_rerank`, `retrieval_score` |
-| `colbert-ko-vllm` | 9404 | `local-colbert-ko` | `local-colbert-ko` | `retrieval_rerank`, `retrieval_score`, `retrieval_token_embeddings` |
+| `embedding-ko-vllm` | 9406 | `local-embed-ko` | `local-embed-ko` | `embeddings`, `retrieval_rerank`, `retrieval_score` |
 | `risk-prompt-vllm` | 9403 | `risk-prompt` | `risk-prompt` | `risk.prompt_attack_signal` |
 
 <!-- END GENERATED RUNTIME TARGETS -->

@@ -7,6 +7,45 @@ server:
     host: 0.0.0.0
     port: 9405
     external: false
+default_embedding_model: local-embed
+default_retrieval_model: local-embed-ko
+embedding_profiles:
+  local-embed:
+    service_key: embedding
+    served_model_name: local-embed
+    upstream_model_id: google/embeddinggemma-300m
+    dimensions: [768, 512, 256, 128]
+    default_dimensions: 768
+    purpose: general
+    retrieval:
+      enabled: true
+      default: false
+      score_modes: [dense_cosine]
+    prompt_policy:
+      retrieval_query:
+        mode: prefix
+        prefix: "task: search result | query: "
+      retrieval_document:
+        mode: prefix
+        prefix: "title: none | text: "
+  local-embed-ko:
+    service_key: embedding_ko
+    served_model_name: local-embed-ko
+    upstream_model_id: dragonkue/snowflake-arctic-embed-l-v2.0-ko
+    dimensions: [1024]
+    default_dimensions: 1024
+    purpose: korean_retrieval
+    retrieval:
+      enabled: true
+      default: true
+      score_modes: [dense_cosine]
+    prompt_policy:
+      retrieval_query:
+        mode: sentence_transformers_prompt_name
+        prompt_name: query
+        fallback_prefix: ""
+      retrieval_document:
+        mode: none
 models:
   main_llm:
     name: RedHatAI/gemma-4-26B-A4B-it-FP8-Dynamic
@@ -237,98 +276,59 @@ models:
       - 256
       - 128
       max_truncate_prompt_tokens: 2048
-  colbert_ko:
-    name: sigridjineth/colbert-ko-embeddinggemma-300m
-    runtime_model_path: /models/colbert-ko-vllm
-    tokenizer: /models/colbert-ko-vllm/tokenizer
-    served_model_name: local-colbert-ko
+      max_embedding_batch_size: 16
+  embedding_ko:
+    name: dragonkue/snowflake-arctic-embed-l-v2.0-ko
+    served_model_name: local-embed-ko
     backend: vllm
-    port: 9404
-    endpoint: http://colbert-ko-vllm:9404/v1
+    port: 9406
+    endpoint: http://embedding-ko-vllm:9406/v1
     runner: pooling
-    convert: embed
     trust_remote_code: true
-    pooler_config:
-      task: token_embed
-    dtype: float32
     max_model_len: 2048
-    max_num_seqs: 1
+    embedding_dimension_default: 1024
+    embedding_dimension_supported:
+    - 1024
+    max_num_seqs: 2
     max_num_batched_tokens: 2048
     gpu_memory_utilization: 0.06
-    runtime_policy_source: ColBERT-Ko vLLM plugin artifact prepared from encoder/
-      + tokenizer/ + proj.pt; repo root is never passed to --model.
-      dtype=float32 default for reference parity/reproducibility;
-      bfloat16 allowed for throughput; float16 forbidden.
-    promotion_gate:
-      status: production_vllm_native
-      reference_adapter: ai_model_serving.retrieval.ColbertReferenceAdapter
-      prepared_artifact: /models/colbert-ko-vllm
-      packaging_script: scripts/models/prepare_colbert_ko_vllm_artifact.py
-      projection_required: true
-      required_artifacts:
-      - encoder/config.json
-      - encoder/model.safetensors
-      - tokenizer/tokenizer.json
-      - tokenizer/tokenizer_config.json
-      - proj.pt
+    runtime_policy_source: Snowflake Arctic Embed L v2.0 Korean SentenceTransformer model served through vLLM pooling runner; project runtime caps context at 2048 for chunk-based retrieval stability.
     retrieval:
-      backend: vllm_native_late_interaction
-      score_function: maxsim
-      score_mode: late_interaction_maxsim
-      production_vllm_native: true
+      backend: dense_embedding
+      score_function: cosine
+      score_mode: dense_cosine
     resource_control:
       criticality: retrieval_support_path
       isolation: dedicated_vllm_process
       admission_control:
-        max_concurrency: 1
+        max_concurrency: 2
         queue_timeout_seconds: 2
       request_limits:
         input_modality: text
         max_model_len: 2048
         max_docs_per_rerank: 32
-        doc_max_tokens: 192
-        query_max_tokens: 128
-      degrade_action: return retrieval upstream error only
+        max_chars_per_document: 4000
+        embedding_dimensions:
+        - 1024
+      degrade_action: return Korean retrieval embedding upstream error only
     request_parameter_policy:
       allow_unlisted_parameters: false
       supported_parameters:
-      - score_mode
-      - top_n
-      - max_tokens_per_query
-      - max_tokens_per_doc
+      - dimensions
+      - encoding_format
       - truncate_prompt_tokens
-      - truncation_side
-      score_mode:
-        enum:
-        - late_interaction_maxsim
-        default: late_interaction_maxsim
-      top_n:
-        min: 1
-        max: 32
-      max_tokens_per_query:
-        min: 1
-        max: 128
-        default: 128
-      max_tokens_per_doc:
-        min: 32
-        max: 1024
-        default: 192
+      - user
+      drop_upstream_parameters:
+      - user
+      dimensions:
+      - 1024
       truncate_prompt_tokens:
         one_of:
         - const: -1
         - min: 1
           max: 2048
-      truncation_side:
-        enum:
-        - left
-        - right
-        default: right
-      fixed_parameters:
-        dtype: float32
-        pooler_task: token_embed
-        score_function: maxsim
-        backend: vllm_native_late_interaction
-        max_num_seqs: 1
+      max_truncate_prompt_tokens: 2048
+      max_embedding_batch_size: 16
   risk_prompt:
     name: kakaocorp/kanana-safeguard-prompt-2.1b
     served_model_name: risk-prompt

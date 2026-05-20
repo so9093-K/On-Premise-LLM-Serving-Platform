@@ -49,6 +49,21 @@ class RuntimeEndpoint:
 
 
 @dataclass(frozen=True)
+class EmbeddingProfile:
+    model: str
+    service_key: str
+    upstream_model_id: str
+    dimensions: tuple[int, ...]
+    default_dimensions: int
+    purpose: str = "general"
+    retrieval_enabled: bool = False
+    retrieval_default: bool = False
+    score_modes: tuple[str, ...] = ()
+    prompt_policy: dict[str, Any] = field(default_factory=dict)
+    request_parameter_policy: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
 class RiskDetectorSettings:
     key: str
     route: str
@@ -74,7 +89,12 @@ class AppSettings:
     aggregate_detector_order: tuple[str, ...] = ()
     main_llm: RuntimeEndpoint | None = None
     embedding: RuntimeEndpoint | None = None
+    embedding_ko: RuntimeEndpoint | None = None
     risk_prompt: RuntimeEndpoint | None = None
+    embedding_profiles: dict[str, EmbeddingProfile] = field(default_factory=dict)
+    embedding_model_routes: dict[str, str] = field(default_factory=dict)
+    default_embedding_model: str = "local-embed"
+    default_retrieval_model: str = "local-embed-ko"
     max_request_body_bytes: int = 1_000_000
     risk_input_max_chars: int = 7_936
     public_models: tuple[dict[str, Any], ...] = ()
@@ -91,11 +111,27 @@ class AppSettings:
                 for key, endpoint in {
                     "main_llm": self.main_llm,
                     "embedding": self.embedding,
+                    "embedding_ko": self.embedding_ko,
                     "risk_prompt": self.risk_prompt,
                 }.items()
                 if endpoint is not None
             }
             object.__setattr__(self, "runtime_endpoints", endpoints)
+        if not self.embedding_profiles and self.embedding is not None:
+            profile = EmbeddingProfile(
+                model=self.embedding.model,
+                service_key="embedding",
+                upstream_model_id="",
+                dimensions=tuple(int(item) for item in (self.embedding.request_parameter_policy or {}).get("dimensions", (768, 512, 256, 128))),
+                default_dimensions=768,
+                retrieval_enabled=True,
+                retrieval_default=False,
+                score_modes=("dense_cosine",),
+                request_parameter_policy=self.embedding.request_parameter_policy or {},
+            )
+            object.__setattr__(self, "embedding_profiles", {profile.model: profile})
+        if not self.embedding_model_routes and self.embedding_profiles:
+            object.__setattr__(self, "embedding_model_routes", {model: profile.service_key for model, profile in self.embedding_profiles.items()})
         if not self.risk_detectors:
             detectors: list[RiskDetectorSettings] = []
             if self.risk_prompt is not None:

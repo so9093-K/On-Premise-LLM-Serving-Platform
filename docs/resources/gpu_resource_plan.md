@@ -10,7 +10,6 @@
 |---|---|---:|
 | `RedHatAI/gemma-4-26B-A4B-it-FP8-Dynamic` | Main LLM | 34~35GiB |
 | `google/embeddinggemma-300m` | Embedding | 1.5~2GiB |
-| `sigridjineth/colbert-ko-embeddinggemma-300m` | ColBERT-ko retrieval | 1.5~2GiB |
 | `kakaocorp/kanana-safeguard-prompt-2.1b` | Prompt detector | 2.5~3.5GiB |
 | Reserve | CUDA, fragmentation, peak | 3~5GiB |
 
@@ -22,10 +21,10 @@ Main LLM checkpoint는 RedHatAI의 preliminary FP8 Dynamic checkpoint이며, mod
 |---|---:|---:|
 | Main LLM | 9401 | 0.72 |
 | Embedding | 9402 | 0.04 |
-| ColBERT-ko | 9404 | 0.06 |
+| Dense retrieval-ko | 9406 | 0.06 |
 | Prompt | 9403 | 0.065 |
 | 합계 (3모델 구성) | - | 0.825 |
-| 합계 (4모델 구성, ColBERT-ko 포함) | - | 0.885 |
+| 합계 (4모델 구성, Dense retrieval-ko 포함) | - | 0.885 |
 
 ## 4. 제한 조건
 
@@ -90,10 +89,10 @@ budget id: `single_a6000_conservative` / 설정된 enabled `gpu_memory_utilizati
 |---|---:|---|---:|---:|
 | `local-main` | 9401 | chat completion | 0.72 | 1 |
 | `local-embed` | 9402 | embedding | 0.04 | 2 |
-| `local-colbert-ko` | 9404 | ColBERT retrieval | 0.06 | 1 |
+| `local-embed-ko` | 9406 | Dense retrieval retrieval | 0.06 | 1 |
 | `risk-prompt` | 9403 | prompt risk signal | 0.065 | 1 |
 
-이전 3모델 구성 (ColBERT-ko 제외) 합계: `0.825`
+이전 3모델 구성 (Dense retrieval-ko 제외) 합계: `0.825`
 
 Tuning order: concurrency 축소 → max tokens/batch token 조정 순서를 따른다.
 

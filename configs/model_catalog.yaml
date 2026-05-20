@@ -210,97 +210,78 @@ models:
       - tests/contract/test_runtime_policy.py
       removal_rule: remove from catalog, serving config, model contract, model card,
         public model schema enum, and runtime validation expectations in one change
-  local-colbert-ko:
-    role: retrieval
-    upstream_model_id: sigridjineth/colbert-ko-embeddinggemma-300m
-    provider: sigridjineth
-    family: ColBERT-Ko EmbeddingGemma
-    parameter_class: 300M
+  local-embed-ko:
+    role: embedding
+    upstream_model_id: dragonkue/snowflake-arctic-embed-l-v2.0-ko
+    provider: dragonkue
+    family: Snowflake Arctic Embed L v2.0 Korean
+    parameter_class: unknown
     license: apache-2.0
     access: public_huggingface
-    primary_capability: retrieval_rerank
+    primary_capability: embeddings
     input_modalities:
     - text
     output_modalities:
-    - token_embeddings
-    max_input_tokens: 2048
+    - embedding
+    embedding_dimensions:
+      default: 1024
+      matryoshka_supported:
+      - 1024
+    max_input_tokens: 8192
     runtime:
-      backend: vllm_native
+      backend: vllm
       runner: pooling
-      served_model_name: local-colbert-ko
-      port: 9404
-      internal_endpoint: /v1/score
-      public_adapter_endpoint: /v1/retrieval/rerank
-      service: colbert-ko-vllm
-      runtime_model_path: /models/colbert-ko-vllm
-      tokenizer: /models/colbert-ko-vllm/tokenizer
-      production_vllm_native: true
-      promotion_status: production_vllm_native
+      served_model_name: local-embed-ko
+      port: 9406
+      endpoint: /v1/embeddings
     source_facts:
-      model_size: 300M parameters
+      model_type: SentenceTransformer
       license: apache-2.0
       access: public repository on Hugging Face
-      base_model: google/embeddinggemma-300m
-      base_model_license: gemma
-      architecture: ColBERT late-interaction scoring on EmbeddingGemma-300M
-        backbone with 2D input_ids plus attention_mask core semantics
-      scoring_method: late_interaction_maxsim
+      base_model: Snowflake/snowflake-arctic-embed-l-v2.0
+      output_dimensions: 1024
+      similarity: cosine
+      max_sequence_length: 8192
       languages:
-      - ko
-      - en
-      max_input_tokens: 2048
-      repo_layout: root contains encoder/, tokenizer/, proj.pt, and inference.py;
-        root does not contain config.json.
-      projection_head: proj.pt must be applied after encoder hidden states before
-        L2 normalization and MaxSim scoring.
-      intended_runtime: vLLM plugin runtime with a custom pooling model wrapper,
-        token_embed pooler, /v1/score, /v1/rerank, and /pooling endpoints.
-      output_type: token_level_embeddings_for_maxsim_scoring
-      vllm_adapter_boundary: vLLM flattened 1D input_ids plus positions are compatibility
-        runtime representation only; the adapter restores 2D input_ids plus attention_mask
-        before calling the ColBERT-ko core.
-      vllm_native_docs:
-      - https://docs.vllm.ai/en/latest/models/pooling_models/
-      - https://docs.vllm.ai/en/latest/models/pooling_models/scoring/
+      - Korean
+      - English
+      prompt_name_query: query
+      korean_retrieval_benchmark_note: upstream model card reports Korean retrieval benchmark improvements; validate against project corpus before parity claims.
     project_runtime_policy:
       runner: pooling
-      dtype: float32
       max_model_len: 2048
-      max_num_seqs: 1
+      embedding_dimension_default: 1024
+      embedding_dimension_supported:
+      - 1024
+      max_num_seqs: 2
       max_num_batched_tokens: 2048
       gpu_memory_utilization: 0.06
-      query_max_tokens: 128
-      doc_max_tokens: 192
-      doc_max_tokens_max: 1024
       max_docs_per_rerank: 32
-      colbert_token_embeddings_public: false
-      promotion_gate: reference adapter ranking parity with vLLM native output
-      production_vllm_native: true
-      policy_reason: ColBERT-Ko late-interaction retrieval on EmbeddingGemma-300M
-        backbone; production uses prepared vLLM plugin artifact so proj.pt is
-        applied after tokenizer attention_mask-aware encoder inference.
-      vllm_args_notes: '--pooler-config.task token_embed is required; --model-impl
-        transformers must NOT be used; --dtype must be set explicitly.'
+      max_chars_per_document: 4000
+      retrieval_default: true
+      score_modes:
+      - dense_cosine
+      chunking_recommended: true
+      sentence_transformers_ranking_parity_required: true
+      policy_reason: project caps runtime context at 2048 and keeps dimensions fixed
+        at 1024 for chunk-based Korean dense retrieval stability; model card 8192
+        context remains a source fact.
     retrieval:
-      backend: vllm_native_late_interaction
-      score_function: maxsim
-      score_mode: late_interaction_maxsim
-      production_vllm_native: true
-    reference_adapter:
-      enabled_for_parity: true
-      production_fallback: false
+      backend: dense_embedding
+      score_function: cosine
+      score_mode: dense_cosine
     gateway_listing:
       enabled: true
-      backend: colbert_ko_vllm
+      backend: embedding_ko_vllm
       capabilities:
+      - embeddings
       - retrieval_rerank
       - retrieval_score
-      - retrieval_token_embeddings
     lifecycle:
       state: active
       exposure: public
       owner: platform
-      added_at: 2026-05-18
+      added_at: 2026-05-20
       deprecation_deadline: null
       removal_ticket: null
       add_or_remove_via:

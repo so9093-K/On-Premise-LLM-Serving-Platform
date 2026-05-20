@@ -94,7 +94,7 @@ def test_load_settings_reads_local_dotenv_without_overriding_exported_values(tmp
     assert settings.security.api_keys == frozenset({"dotenv-key"})
     assert settings.max_request_body_bytes == 1234
     assert settings.main_llm.max_concurrency == 2
-    assert {item["id"] for item in settings.public_models} == {"local-main", "local-embed", "local-colbert-ko", "risk-prompt"}
+    assert {item["id"] for item in settings.public_models} == {"local-main", "local-embed", "local-embed-ko", "risk-prompt"}
 
     monkeypatch.setenv("API_KEYS", "exported-key")
     settings = load_settings(root)

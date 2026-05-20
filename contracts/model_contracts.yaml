@@ -12,11 +12,11 @@ models:
     port: 9402
     public_endpoint: /v1/embeddings
     runtime_endpoint: /v1/embeddings
-  local-colbert-ko:
-    runtime: vllm_native
-    port: 9404
-    public_endpoint: /v1/retrieval/rerank
-    runtime_endpoint: /v1/score
+  local-embed-ko:
+    runtime: vllm
+    port: 9406
+    public_endpoint: /v1/embeddings
+    runtime_endpoint: /v1/embeddings
   risk-prompt:
     runtime: vllm+adapter
     port: 9403

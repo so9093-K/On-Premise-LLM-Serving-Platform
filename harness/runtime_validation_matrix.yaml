@@ -16,7 +16,7 @@ validation_checks:
   models:
   - local-main
   - local-embed
-  - local-colbert-ko
+  - local-embed-ko
   - risk-prompt
 - id: risk-adapter-runtime
   owner: risk-adapter
@@ -38,12 +38,12 @@ validation_checks:
   models:
   - local-main
   - local-embed
-  - local-colbert-ko
+  - local-embed-ko
   - risk-prompt
   runtime_services:
   - main_llm
   - embedding
-  - colbert_ko
+  - embedding_ko
   - risk_prompt
 - id: response-format-text-canary
   owner: gateway
@@ -152,7 +152,7 @@ validation_checks:
   runtime_services:
   - main_llm
   - embedding
-  - colbert_ko
+  - embedding_ko
   - risk_prompt
 - id: monitoring-scrape
   owner: operations
@@ -163,7 +163,7 @@ validation_checks:
   runtime_services:
   - main_llm
   - embedding
-  - colbert_ko
+  - embedding_ko
   - risk_prompt
 - id: grafana-dashboard-render
   owner: operations
@@ -176,5 +176,5 @@ validation_checks:
   runtime_services:
   - main_llm
   - embedding
-  - colbert_ko
+  - embedding_ko
   - risk_prompt

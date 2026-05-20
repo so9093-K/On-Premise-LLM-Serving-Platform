@@ -19,7 +19,7 @@ services:
         condition: service_healthy
       embedding-vllm:
         condition: service_healthy
-      colbert-ko-vllm:
+      embedding-ko-vllm:
         condition: service_healthy
 
   risk-adapter:
@@ -83,10 +83,10 @@ services:
         reservations:
           devices: [{capabilities: [gpu]}]
 
-  colbert-ko-vllm:
-    image: ${COLBERT_KO_VLLM_IMAGE:?Set COLBERT_KO_VLLM_IMAGE to a tested ColBERT-ko vLLM image tag}
-    command: ["--model", "/models/colbert-ko-vllm", "--tokenizer", "/models/colbert-ko-vllm/tokenizer", "--served-model-name", "local-colbert-ko", "--host", "0.0.0.0", "--port", "9404", "--runner", "pooling", "--convert", "embed", "--trust-remote-code", "--pooler-config.task", "token_embed", "--dtype", "float32", "--max-model-len", "2048", "--max-num-seqs", "1", "--max-num-batched-tokens", "2048", "--gpu-memory-utilization", "${COLBERT_KO_GPU_MEMORY_UTILIZATION:-0.06}"]
-    expose: ["9404"]
+  embedding-ko-vllm:
+    image: ${VLLM_IMAGE:?Set VLLM_IMAGE to a tested vLLM OpenAI image tag}
+    command: ["--model", "dragonkue/snowflake-arctic-embed-l-v2.0-ko", "--served-model-name", "local-embed-ko", "--host", "0.0.0.0", "--port", "9406", "--runner", "pooling", "--trust-remote-code", "--max-model-len", "2048", "--max-num-seqs", "2", "--max-num-batched-tokens", "2048", "--gpu-memory-utilization", "${EMBEDDING_KO_GPU_MEMORY_UTILIZATION:-0.06}"]
+    expose: ["9406"]
     env_file: ../../.env
     environment:
       HF_TOKEN: ${HF_TOKEN:-}
@@ -94,12 +94,11 @@ services:
       HF_HOME: /root/.cache/huggingface
     volumes:
       - ${HF_CACHE_DIR:-./model_cache/huggingface}:/root/.cache/huggingface
-      - ${COLBERT_KO_MODEL_DIR:?Set COLBERT_KO_MODEL_DIR to prepared ColBERT-ko artifact directory}:/models/colbert-ko-vllm:ro
     depends_on:
       embedding-vllm:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "python3 -c \"import urllib.request; urllib.request.urlopen('http://localhost:9404/health')\""]
+      test: ["CMD-SHELL", "python3 -c \"import urllib.request; urllib.request.urlopen('http://localhost:9406/health')\""]
       interval: 30s
       timeout: 10s
       retries: 10
@@ -116,9 +115,9 @@ services:
       embedding-vllm:
         condition: service_healthy
       # Keep vLLM runtime startup serialized on a shared GPU. vLLM profiles
-      # free memory during init, and concurrent ColBERT/risk startup can make
+      # free memory during init, and concurrent embedding/risk startup can make
       # that profiling fail even when steady-state GPU budget is valid.
-      colbert-ko-vllm:
+      embedding-ko-vllm:
         condition: service_healthy
     expose: ["9403"]
     env_file: ../../.env
@@ -166,7 +165,7 @@ services:
 
   prometheus:
     image: ${PROMETHEUS_IMAGE:?Set PROMETHEUS_IMAGE to a tested Prometheus image tag}
-    depends_on: [gateway, risk-adapter, main-llm-vllm, embedding-vllm, colbert-ko-vllm, risk-prompt-vllm, dcgm-exporter, cadvisor]
+    depends_on: [gateway, risk-adapter, main-llm-vllm, embedding-vllm, embedding-ko-vllm, risk-prompt-vllm, dcgm-exporter, cadvisor]
     command: ["--config.file=/etc/prometheus/prometheus.yml"]
     ports: ["${PROMETHEUS_PORT:-9410}:9090"]
     volumes:

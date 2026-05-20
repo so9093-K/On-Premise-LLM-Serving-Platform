@@ -39,6 +39,10 @@ src = Path(sys.argv[1]).resolve()
 dst = Path(sys.argv[2]).resolve()
 
 exclude_tree_dirs = {
+    '.agents',
+    '.claude',
+    '.codex',
+    '.cursor',
     '.git',
     '.cache',
     '.mypy_cache',
@@ -53,6 +57,7 @@ exclude_tree_dirs = {
     'model_cache',
 }
 exclude_top_level_dirs = {
+    '.other',
     'build',
     'dist',
     'logs',
@@ -218,6 +223,7 @@ out = sys.argv[1]
 pkg = sys.argv[2]
 inventory_name = f"{pkg}/reports/refactor/project_inventory_current.csv"
 safe_env_examples = {".env.example", ".env.local.example", ".env.compose.example"}
+forbidden_release_dirs = {".other", ".agents", ".codex", ".claude", ".cursor"}
 
 with zipfile.ZipFile(out) as zf:
     names = zf.namelist()
@@ -232,6 +238,9 @@ with zipfile.ZipFile(out) as zf:
 
 inventory_paths = {row["path"] for row in rows}
 for path in sorted(inventory_paths):
+    parts = path.split("/")
+    if any(part in forbidden_release_dirs for part in parts):
+        raise SystemExit(f"Packaged inventory contains forbidden tool/private directory: {path}")
     name = path.rsplit("/", 1)[-1]
     if name not in safe_env_examples and (name == ".env" or fnmatch.fnmatch(name, ".env.*")):
         raise SystemExit(f"Packaged inventory contains excluded environment file: {path}")
@@ -245,6 +254,12 @@ if missing_from_zip or missing_from_inventory:
     if missing_from_inventory:
         lines.append("ZIP-only paths: " + ", ".join(missing_from_inventory[:20]))
     raise SystemExit("\n".join(lines))
+
+for name in names:
+    rel = name[len(pkg) + 1 :] if name.startswith(f"{pkg}/") else name
+    parts = [part for part in rel.split("/") if part]
+    if any(part in forbidden_release_dirs for part in parts):
+        raise SystemExit(f"Release ZIP contains forbidden tool/private directory: {name}")
 PYSELF
 
 echo "$OUT"

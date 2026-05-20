@@ -26,7 +26,6 @@ from ..api_examples import (
     GATEWAY_EMBEDDING_REQUEST_EXAMPLES,
     GATEWAY_RETRIEVAL_RERANK_REQUEST_EXAMPLES,
     GATEWAY_RETRIEVAL_SCORE_REQUEST_EXAMPLES,
-    GATEWAY_RETRIEVAL_TOKEN_EMBEDDINGS_REQUEST_EXAMPLES,
     GATEWAY_RISK_AGGREGATE_REQUEST_EXAMPLES,
     GATEWAY_RISK_PROMPT_REQUEST_EXAMPLES,
 )
@@ -53,8 +52,10 @@ class GatewayClients:
     def __init__(self, settings: AppSettings) -> None:
         self.main_llm = VLLMClient(settings.runtime("main_llm"))
         self.embedding = VLLMClient(settings.runtime("embedding"))
-        colbert_endpoint = settings.optional_runtime("colbert_ko")
-        self.colbert_ko = VLLMClient(colbert_endpoint) if colbert_endpoint is not None else None
+        self.embedding_clients: dict[str, VLLMClient] = {"local-embed": self.embedding}
+        if settings.optional_runtime("embedding_ko") is not None:
+            self.embedding_clients["local-embed-ko"] = VLLMClient(settings.runtime("embedding_ko"))
+        self.embedding_ko = self.embedding_clients.get("local-embed-ko")
         self.risk_adapter = VLLMClient(
             RuntimeEndpoint(
                 logical_id="risk-adapter",
@@ -73,13 +74,17 @@ class GatewayClients:
             "embedding": self.embedding,
             "risk_adapter": self.risk_adapter,
         }
-        if self.colbert_ko is not None:
-            self.runtimes["colbert_ko"] = self.colbert_ko
+        if self.embedding_ko is not None:
+            self.runtimes["embedding_ko"] = self.embedding_ko
 
     async def close(self) -> None:
-        for client in (self.main_llm, self.embedding, self.colbert_ko, self.risk_adapter):
+        seen: set[int] = set()
+        for client in (self.main_llm, *self.embedding_clients.values(), self.risk_adapter):
             if client is None:
                 continue
+            if id(client) in seen:
+                continue
+            seen.add(id(client))
             close = getattr(client, "aclose", None)
             if close is not None:
                 await close()
@@ -137,7 +142,6 @@ def create_gateway_app(settings: AppSettings | None = None, clients: GatewayClie
             ("POST", "/v1/risk/assessments"): GATEWAY_RISK_AGGREGATE_REQUEST_EXAMPLES,
             ("POST", "/v1/retrieval/rerank"): GATEWAY_RETRIEVAL_RERANK_REQUEST_EXAMPLES,
             ("POST", "/v1/retrieval/score"): GATEWAY_RETRIEVAL_SCORE_REQUEST_EXAMPLES,
-            ("POST", "/v1/retrieval/token-embeddings"): GATEWAY_RETRIEVAL_TOKEN_EMBEDDINGS_REQUEST_EXAMPLES,
         },
     )
 

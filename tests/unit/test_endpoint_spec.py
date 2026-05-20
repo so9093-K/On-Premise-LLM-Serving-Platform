@@ -285,7 +285,6 @@ def test_schema_maps_from_specs_gateway_request() -> None:
         ("POST", "/v1/risk/assessments"): "risk_assessment_request.schema.json",
         ("POST", "/v1/retrieval/rerank"): "retrieval_rerank_request.schema.json",
         ("POST", "/v1/retrieval/score"): "retrieval_score_request.schema.json",
-        ("POST", "/v1/retrieval/token-embeddings"): "retrieval_token_embeddings_request.schema.json",
     }
 
 
@@ -300,7 +299,6 @@ def test_schema_maps_from_specs_gateway_response() -> None:
         ("POST", "/v1/risk/assessments"): "risk_assessment_response.schema.json",
         ("POST", "/v1/retrieval/rerank"): "retrieval_rerank_response.schema.json",
         ("POST", "/v1/retrieval/score"): "retrieval_score_response.schema.json",
-        ("POST", "/v1/retrieval/token-embeddings"): "retrieval_token_embeddings_response.schema.json",
     }
 
 

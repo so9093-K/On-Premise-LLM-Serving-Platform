@@ -42,7 +42,7 @@
 |---|---|---|
 | `local-main` | `temperature`, `max_tokens`, `top_p`, `top_k`, `min_p`, `presence_penalty`, `frequency_penalty`, `repetition_penalty`, `stop`, `seed`, `n`, `tools`, `tool_choice`, `parallel_tool_calls`, `stream`, `stream_options`, `response_format`, `logprobs`, `top_logprobs`, `logit_bias` | Chat/sampling/tool/structured output 관련 값만 Gateway contract 범위에서 조정한다. `n`은 OpenAI client 호환을 위해 `1`만 허용하며 UI에서는 숨기거나 읽기 전용으로 표시한다. `stream=true`는 Gateway streaming fast path로 SSE를 실시간 relay한다. `stream_options.include_usage=true`는 `stream=true`와 함께 사용할 때 upstream이 지원하는 OpenAI-compatible final usage chunk를 그대로 전달한다. |
 | `local-embed` | `dimensions`, `encoding_format`, `truncate_prompt_tokens`, `user` | embedding dimension과 prompt truncation 범위만 조정한다. `user`는 OpenAI API 호환용 optional 식별자이며 Gateway에서 accept하지만 metric label로 사용하지 않는다. |
-| `local-colbert-ko` | `score_mode`, `top_n`, `max_tokens_per_query`, `max_tokens_per_doc`, `truncate_prompt_tokens`, `truncation_side` | `score_mode`는 `late_interaction_maxsim` 고정 enum이다. `top_n`은 rerank endpoint 전용(score에서는 422). 나머지는 per-request 토큰 제한과 truncation 방향 제어다. `fixed_parameters`(`dtype`, `pooler_task`, `score_function` 등)는 사용자가 변경할 수 없다. |
+| `local-embed-ko` | `score_mode`, `top_n`, `max_tokens_per_query`, `max_tokens_per_doc`, `truncate_prompt_tokens`, `truncation_side` | `score_mode`는 `dense_cosine` 고정 enum이다. `top_n`은 rerank endpoint 전용(score에서는 422). 나머지는 per-request 토큰 제한과 truncation 방향 제어다. `fixed_parameters`(`dtype`, `pooler_task`, `score_function` 등)는 사용자가 변경할 수 없다. |
 | `risk-prompt` | 없음 | risk endpoint는 `prompt` 입력만 받는다. detector sampling 값은 adapter가 고정한다. |
 
 ## 클라이언트 UI 권장 흐름

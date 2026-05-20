@@ -49,9 +49,9 @@ async def _readiness(
             _risk_adapter_readiness,
         ),
     ]
-    colbert_ko = getattr(clients, "colbert_ko", None)
-    if colbert_ko is not None:
-        probes.append(DependencyProbe("colbert_ko_vllm", colbert_ko, "models", required=False))
+    embedding_ko = getattr(clients, "embedding_ko", None)
+    if embedding_ko is not None:
+        probes.append(DependencyProbe("embedding_ko_vllm", embedding_ko, "models", required=False))
     return await collect_readiness(service="gateway", probes=probes, metrics=metrics, timeout_seconds=timeout_seconds)
 
 

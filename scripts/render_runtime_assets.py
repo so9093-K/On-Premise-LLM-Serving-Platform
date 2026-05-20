@@ -13,8 +13,8 @@ ModelRegistry projection에서 정적 artifact를 생성한다.
 생성 제외 대상:
   compose 파일 (full-stack.private-network.yaml):
     compose 파일에는 registry에서 파생할 수 없는 보일러플레이트가 있다
-    (gateway env, prometheus secret, grafana env, ${COLBERT_KO_MODEL_DIR} 같은 env
-    placeholder, healthcheck 등). PyYAML round-trip은 주석과 env placeholder를 유실한다.
+    (gateway env, prometheus secret, grafana env, healthcheck 등). PyYAML
+    round-trip은 주석과 env placeholder를 유실한다.
     대신 validate_vllm_compose.py가 compose vLLM command drift를 검증하며,
     make check-runtime-assets가 이를 호출한다.
 

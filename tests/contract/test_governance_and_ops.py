@@ -40,27 +40,20 @@ def test_ops_templates_exist_without_runtime_claims() -> None:
     assert labels == {
         "local-main": "main-llm-vllm",
         "local-embed": "embedding-vllm",
-        "local-colbert-ko": "colbert-ko-vllm",
+        "local-embed-ko": "embedding-ko-vllm",
         "risk-prompt": "risk-prompt-vllm",
     }
     compose = yaml.safe_load((ROOT / "ops/compose/full-stack.private-network.yaml").read_text(encoding="utf-8"))
-    colbert_command = compose["services"]["colbert-ko-vllm"]["command"]
-    assert "sigridjineth/colbert-ko-embeddinggemma-300m" not in colbert_command
-    assert "/models/colbert-ko-vllm" in colbert_command
-    assert "--pooler-config.task" in colbert_command
-    assert "token_embed" in colbert_command
-    assert "--model-impl" not in colbert_command, (
-        "colbert-ko-vllm must not force --model-impl transformers; it uses the dedicated "
-        "colbert_ko_vllm plugin and vLLM ModelRegistry registration"
-    )
+    embedding_ko_command = compose["services"]["embedding-ko-vllm"]["command"]
+    assert "dragonkue/snowflake-arctic-embed-l-v2.0-ko" in embedding_ko_command
+    assert "--runner" in embedding_ko_command
+    assert "pooling" in embedding_ko_command
     serving = yaml.safe_load((ROOT / "configs/model_serving.yaml").read_text(encoding="utf-8"))
-    assert "model_impl" not in serving["models"]["colbert_ko"], (
-        "colbert_ko model_serving config must not render --model-impl transformers"
-    )
+    assert "colbert_ko" not in serving["models"]
     risk_prompt_depends = compose["services"]["risk-prompt-vllm"]["depends_on"]
     assert risk_prompt_depends["embedding-vllm"]["condition"] == "service_healthy"
-    assert risk_prompt_depends["colbert-ko-vllm"]["condition"] == "service_healthy", (
-        "risk-prompt-vllm must wait for colbert-ko-vllm so vLLM runtimes start "
+    assert risk_prompt_depends["embedding-ko-vllm"]["condition"] == "service_healthy", (
+        "risk-prompt-vllm must wait for embedding-ko-vllm so vLLM runtimes start "
         "serially on a shared GPU; concurrent vLLM startup can fail memory profiling"
     )
 
@@ -93,15 +86,14 @@ def test_compose_gpu_budget_uses_configured_avoid_above() -> None:
     assert "0.90" not in diagnostics
 
 
-def test_colbert_token_embeddings_use_vllm_root_pooling_endpoint() -> None:
+def test_retrieval_token_embeddings_route_is_removed() -> None:
     gateway_service = (ROOT / "src/ai_model_serving/services/gateway_service.py").read_text(encoding="utf-8")
-    upstream = (ROOT / "src/ai_model_serving/upstream.py").read_text(encoding="utf-8")
-    doc = (ROOT / "docs/operations/colbert_ko_vllm_native.md").read_text(encoding="utf-8")
+    router = (ROOT / "src/ai_model_serving/api/routers/gateway_retrieval.py").read_text(encoding="utf-8")
+    endpoint_spec = (ROOT / "src/ai_model_serving/api/endpoint_spec.py").read_text(encoding="utf-8")
 
-    assert 'post_json("/pooling", request_body)' in gateway_service
-    assert 'path.startswith("/")' in upstream
-    assert "urlsplit(self.endpoint.base_url)" in upstream
-    assert "`/v1/pooling`은 vLLM에서 노출하지 않으므로 사용하지 않는다" in doc
+    assert "get_token_embeddings" not in gateway_service
+    assert "/v1/retrieval/token-embeddings" not in router
+    assert "/v1/retrieval/token-embeddings" not in endpoint_spec
 
 
 def test_runtime_validation_matrix_requires_validation() -> None:
@@ -269,7 +261,7 @@ def test_runtime_validation_matrix_has_actionable_fields() -> None:
 def test_build_ux_separates_build_from_runtime_startup() -> None:
     makefile = (ROOT / 'Makefile').read_text(encoding='utf-8')
     assert 'make build         # build artifacts/images only; does not start or keep services alive' in makefile
-    for target in ['start:', 'up:', 'ready:', 'check-ready:', 'status:', 'stop:', 'down:', 'logs:', 'build-pipeline:', 'first-run:', 'rebuild-full:', 'rebuild-app:', 'rebuild-risk-vllm:', 'rebuild-colbert-ko-vllm:', 'remove-plan:']:
+    for target in ['start:', 'up:', 'ready:', 'check-ready:', 'status:', 'stop:', 'down:', 'logs:', 'build-pipeline:', 'first-run:', 'rebuild-full:', 'rebuild-app:', 'rebuild-risk-vllm:', 'remove-plan:']:
         assert target in makefile
 
     build_doc = (ROOT / 'docs/development/build_ux.md').read_text(encoding='utf-8')
@@ -440,15 +432,8 @@ def test_gitlab_ci_deployment_contract_is_documented_and_operationally_safe() ->
     assert 'PRUNE_DANGLING_IMAGES="${PRUNE_DANGLING_IMAGES:-1}"' in deploy
     assert 'docker image prune -f --filter dangling=true' in deploy
     preflight_compose = (ROOT / "scripts/compose/preflight_compose.sh").read_text(encoding="utf-8")
-    assert "COLBERT_KO_MODEL_DIR_RESOLVED" in preflight_compose, (
-        "local compose preflight must validate COLBERT_KO_MODEL_DIR for reproducible local full-stack runs"
-    )
-    assert "prepare_colbert_ko_vllm_artifact.py --output-dir" in preflight_compose, (
-        "local compose preflight must tell operators how to prepare the ColBERT-ko artifact"
-    )
-    assert "raw Hugging Face cache" in preflight_compose, (
-        "local compose preflight must distinguish prepared ColBERT artifact from raw HF cache"
-    )
+    assert "COLBERT_KO_MODEL_DIR" not in preflight_compose
+    assert "prepare_colbert_ko_vllm_artifact.py" not in preflight_compose
     assert "resolve_compose_relative_path()" in preflight_compose, (
         "local compose preflight must resolve HF_CACHE_DIR the same way docker compose does"
     )
@@ -473,33 +458,18 @@ def test_env_bootstrap_and_image_tag_automation_are_present() -> None:
     setup = ROOT / 'scripts/config/setup_env.py'
     build_image = ROOT / 'scripts/build/build_platform_image.sh'
     build_risk_image = ROOT / 'scripts/build/build_risk_vllm_image.sh'
-    build_colbert_image = ROOT / 'scripts/build/build_colbert_ko_vllm_image.sh'
     check_risk_image = ROOT / 'scripts/models/check_risk_vllm_image_config.sh'
     assert setup.exists()
     assert build_image.exists()
     assert build_risk_image.exists()
-    assert build_colbert_image.exists(), "scripts/build/build_colbert_ko_vllm_image.sh must exist"
     assert check_risk_image.exists()
     assert os.access(setup, os.X_OK)
     assert os.access(build_image, os.X_OK)
     assert os.access(build_risk_image, os.X_OK)
-    assert os.access(build_colbert_image, os.X_OK), "scripts/build/build_colbert_ko_vllm_image.sh must be executable"
     assert os.access(check_risk_image, os.X_OK)
 
-    build_colbert_text = build_colbert_image.read_text(encoding="utf-8")
-    assert ":-${VLLM_BASE_IMAGE" not in build_colbert_text, (
-        "local ColBERT-ko image build must not read CI-only VLLM_BASE_IMAGE"
-    )
-    assert (
-        'BASE_IMAGE="${COLBERT_KO_VLLM_BASE_IMAGE:-${VLLM_IMAGE:-vllm/vllm-openai:gemma4-0505-cu129}}"'
-        in build_colbert_text
-    ), (
-        "local ColBERT-ko build base image precedence must be "
-        "COLBERT_KO_VLLM_BASE_IMAGE > VLLM_IMAGE > default"
-    )
-
     makefile = (ROOT / 'Makefile').read_text(encoding='utf-8')
-    for target in ['init-env:', 'init-env-local:', 'init-env-compose:', 'show-image-tags:', 'build-image:', 'build-risk-vllm-image:', 'build-colbert-ko-vllm-image:', 'risk-vllm-config-check:', 'compose-up:', 'compose-down:']:
+    for target in ['init-env:', 'init-env-local:', 'init-env-compose:', 'show-image-tags:', 'build-image:', 'build-risk-vllm-image:', 'risk-vllm-config-check:', 'compose-up:', 'compose-down:']:
         assert target in makefile
 
     images = yaml.safe_load((ROOT / 'configs/recommended_images.yaml').read_text(encoding='utf-8'))['images']
@@ -527,18 +497,8 @@ def test_compose_env_example_has_reviewed_image_defaults() -> None:
     assert 'VLLM_IMAGE=vllm/vllm-openai:gemma4' in env
     assert 'RISK_VLLM_IMAGE=ai-model-serving-risk-vllm-kanana:' in env
     assert 'RISK_VLLM_TRANSFORMERS_VERSION=4.52.4' in env
-    assert 'COLBERT_KO_VLLM_IMAGE=ai-model-serving-colbert-ko-vllm:' in env, (
-        ".env.compose.example must include COLBERT_KO_VLLM_IMAGE with local build default"
-    )
-    assert 'COLBERT_KO_MODEL_DIR=' in env, (
-        ".env.compose.example must include COLBERT_KO_MODEL_DIR"
-    )
-    assert 'COLBERT_KO_MODEL_DIR=/opt/acl-ai-gateway/models/colbert-ko-vllm' in env, (
-        ".env.compose.example must recommend an absolute production ColBERT-ko prepared artifact path"
-    )
-    assert 'COLBERT_KO_MODEL_DIR=./models/colbert-ko-vllm' not in env, (
-        ".env.compose.example must not recommend relative COLBERT_KO_MODEL_DIR for production full deploy"
-    )
+    assert 'EMBEDDING_KO_VLLM_IMAGE=vllm/vllm-openai:' in env
+    assert 'COLBERT_KO' not in env
     assert 'DCGM_EXPORTER_IMAGE=nvcr.io/nvidia/k8s/dcgm-exporter:' in env
     assert 'PROMETHEUS_IMAGE=prom/prometheus:v3-distroless' in env
     assert 'GRAFANA_IMAGE=grafana/grafana:12.2' in env
@@ -690,24 +650,16 @@ def test_validate_grafana_promql_script_exists() -> None:
     assert "--allow-failures" in content
 
 
-def test_colbert_ko_vllm_image_is_required_env_in_production_compose() -> None:
-    """Production compose must use :? required syntax — no local-only :-fallback for colbert-ko-vllm."""
+def test_embedding_ko_vllm_uses_shared_vllm_image_without_local_build() -> None:
+    """Korean dense embedding runtime uses the standard vLLM image and has no custom build artifact."""
     for rel in [
         "ops/compose/full-stack.private-network.yaml",
         "ops/compose/full-stack.example.yaml",
     ]:
         raw = (ROOT / rel).read_text(encoding="utf-8")
-        assert "COLBERT_KO_VLLM_IMAGE:?" in raw, (
-            f"{rel}: COLBERT_KO_VLLM_IMAGE must use :? required syntax, "
-            f"not :- with a local-only fallback"
-        )
-        assert ":-ai-model-serving-colbert-ko-vllm" not in raw, (
-            f"{rel}: must not contain local-only colbert-ko-vllm image fallback"
-        )
-        assert "COLBERT_KO_MODEL_DIR:?" in raw, (
-            f"{rel}: COLBERT_KO_MODEL_DIR must use :? required syntax, "
-            f"not :- with a relative path fallback"
-        )
+        assert "embedding-ko-vllm" in raw
+        assert "COLBERT_KO" not in raw
+        assert "Dockerfile.colbert-ko-vllm" not in raw
 
 
 def test_production_compose_files_have_no_build_blocks() -> None:
@@ -724,30 +676,16 @@ def test_production_compose_files_have_no_build_blocks() -> None:
             )
 
 
-def test_local_build_override_compose_exists_with_colbert_build_block() -> None:
-    """ops/compose/full-stack.local-build.yaml must exist and provide a build block for colbert-ko-vllm."""
-    local_build = ROOT / "ops/compose/full-stack.local-build.yaml"
-    assert local_build.exists(), (
-        "ops/compose/full-stack.local-build.yaml does not exist. "
-        "Create it with a build override for local colbert-ko-vllm development."
-    )
-    compose = yaml.safe_load(local_build.read_text(encoding="utf-8"))
-    colbert = compose.get("services", {}).get("colbert-ko-vllm", {})
-    assert "build" in colbert, (
-        "ops/compose/full-stack.local-build.yaml: colbert-ko-vllm must have a 'build' block"
-    )
-    assert colbert.get("build", {}).get("dockerfile") == "ops/docker/Dockerfile.colbert-ko-vllm", (
-        "ops/compose/full-stack.local-build.yaml: build.dockerfile must point to "
-        "ops/docker/Dockerfile.colbert-ko-vllm"
-    )
+def test_local_colbert_build_override_removed() -> None:
+    assert not (ROOT / "ops/compose/full-stack.local-build.yaml").exists()
+    assert not (ROOT / "ops/docker/Dockerfile.colbert-ko-vllm").exists()
 
 
-def test_gitlab_ci_has_colbert_ko_vllm_build_job() -> None:
-    """GitLab CI must build colbert-ko-vllm as a required dedicated retrieval runtime.
+def test_gitlab_ci_build_vllm_derived_replaces_colbert_standalone_job() -> None:
+    """GitLab CI must not have standalone build-colbert-ko-vllm or build-risk-vllm jobs.
 
-    Both risk-vllm-kanana and colbert-ko-vllm are built in a single build-vllm-derived
-    job to avoid pulling the large vLLM base image twice.  Shell logic lives in
-    scripts/ci/build_vllm_derived_images.sh.
+    Both were consolidated into build-vllm-derived to avoid pulling the large vLLM base
+    image twice.  Shell logic lives in scripts/ci/build_vllm_derived_images.sh.
 
     build-vllm-derived runs automatically on release/tag pipelines when BUILD_VLLM_DERIVED=1
     or DEPLOY_MODE=full is set.  Rolling app deploys skip it entirely.
@@ -771,15 +709,9 @@ def test_gitlab_ci_has_colbert_ko_vllm_build_job() -> None:
         ".gitlab-ci.yml must not keep the old standalone build-colbert-ko-vllm job; "
         "use build-vllm-derived instead"
     )
-    assert "build-vllm-derived:" in ci, (
-        ".gitlab-ci.yml must have a 'build-vllm-derived' job that builds both "
-        "risk-vllm-kanana and colbert-ko-vllm from a shared base image pull"
-    )
+    assert "build-vllm-derived:" in ci
     assert "VLLM_BASE_IMAGE" in ci, (
         ".gitlab-ci.yml must define VLLM_BASE_IMAGE as the common base for all vLLM-derived images"
-    )
-    assert "COLBERT_KO_VLLM_IMAGE_SHA" in ci, (
-        ".gitlab-ci.yml must define COLBERT_KO_VLLM_IMAGE_SHA variable"
     )
 
     build_job = ci_parsed.get("build-vllm-derived", {})
@@ -819,18 +751,13 @@ def test_gitlab_ci_has_colbert_ko_vllm_build_job() -> None:
     assert "Dockerfile.risk-vllm-kanana" in build_script, (
         "scripts/ci/build_vllm_derived_images.sh must reference ops/docker/Dockerfile.risk-vllm-kanana"
     )
-    assert "Dockerfile.colbert-ko-vllm" in build_script, (
-        "scripts/ci/build_vllm_derived_images.sh must reference ops/docker/Dockerfile.colbert-ko-vllm"
-    )
     assert "docker pull \"${RESOLVED_VLLM_BASE_IMAGE}\"" in build_script, (
         "scripts/ci/build_vllm_derived_images.sh must pull the resolved shared vLLM base image once "
-        "before building risk and colbert derived images"
+        "before building the risk derived image"
     )
     for image_var in [
         "RISK_VLLM_IMAGE_SHA",
         "RISK_VLLM_IMAGE_REF",
-        "COLBERT_KO_VLLM_IMAGE_SHA",
-        "COLBERT_KO_VLLM_IMAGE_REF",
     ]:
         assert f'docker push "${{{image_var}}}"' in build_script, (
             f"scripts/ci/build_vllm_derived_images.sh must push {image_var}"
@@ -839,264 +766,17 @@ def test_gitlab_ci_has_colbert_ko_vllm_build_job() -> None:
     assert "risk-vllm-kanana:${CI_COMMIT_TAG}" in build_script, (
         "scripts/ci/build_vllm_derived_images.sh must push risk-vllm-kanana:<tag> on CI_COMMIT_TAG pipelines"
     )
-    assert "colbert-ko-vllm:${CI_COMMIT_TAG}" in build_script, (
-        "scripts/ci/build_vllm_derived_images.sh must push colbert-ko-vllm:<tag> on CI_COMMIT_TAG pipelines"
-    )
-
-    deploy_job = ci_parsed.get("deploy-gpu-175", {})
-    deploy_script_text = " ".join(str(s) for s in deploy_job.get("script", []))
-    assert "RISK_VLLM_IMAGE_SHA" in deploy_script_text, (
-        "deploy-gpu-175 script must use RISK_VLLM_IMAGE_SHA as the default image "
-        "for DEPLOY_MODE=full when no explicit override is given"
-    )
-    assert "COLBERT_KO_VLLM_IMAGE_SHA" in deploy_script_text, (
-        "deploy-gpu-175 script must use COLBERT_KO_VLLM_IMAGE_SHA as the default image "
-        "for DEPLOY_MODE=full when no explicit override is given"
-    )
-
+    assert "COLBERT_KO" not in build_script
     deploy = (ROOT / "scripts/ci/deploy_gitlab_compose.sh").read_text(encoding="utf-8")
-    assert "COLBERT_KO_VLLM_IMAGE_TO_DEPLOY" in deploy, (
-        "deploy_gitlab_compose.sh must support COLBERT_KO_VLLM_IMAGE_TO_DEPLOY override"
-    )
-    assert "vLLM image overrides are allowed only with DEPLOY_MODE=full" in deploy, (
-        "deploy_gitlab_compose.sh must fail fast when rolling deploy receives "
-        "RISK_VLLM_IMAGE_TO_DEPLOY or COLBERT_KO_VLLM_IMAGE_TO_DEPLOY"
-    )
-    assert "Rolling deploy only updates gateway and risk-adapter" in deploy, (
-        "rolling override error must explain that rolling deploy updates only gateway/risk-adapter"
-    )
-    assert "Full runtime deploy requires DEPLOY_MODE=full" in deploy, (
-        "rolling override error must direct operators to DEPLOY_MODE=full for full runtime deploy"
-    )
-    assert (
-        'RISK_VLLM_IMAGE_TO_DEPLOY="${RISK_VLLM_IMAGE_TO_DEPLOY:-${RISK_VLLM_IMAGE_SHA:-}}"'
-        in deploy
-    ), (
-        "DEPLOY_MODE=full must default RISK_VLLM_IMAGE_TO_DEPLOY from RISK_VLLM_IMAGE_SHA "
-        "inside deploy_gitlab_compose.sh, not only in the .gitlab-ci.yml wrapper"
-    )
-    assert (
-        'COLBERT_KO_VLLM_IMAGE_TO_DEPLOY="${COLBERT_KO_VLLM_IMAGE_TO_DEPLOY:-${COLBERT_KO_VLLM_IMAGE_SHA:-}}"'
-        in deploy
-    ), (
-        "DEPLOY_MODE=full must default COLBERT_KO_VLLM_IMAGE_TO_DEPLOY from "
-        "COLBERT_KO_VLLM_IMAGE_SHA inside deploy_gitlab_compose.sh"
-    )
-    assert "DEPLOY_MODE=full requires RISK_VLLM_IMAGE_TO_DEPLOY or RISK_VLLM_IMAGE_SHA" in deploy, (
-        "full deploy must fail clearly when both risk deploy ref and risk SHA ref are absent"
-    )
-    assert (
-        "DEPLOY_MODE=full requires COLBERT_KO_VLLM_IMAGE_TO_DEPLOY or COLBERT_KO_VLLM_IMAGE_SHA"
-        in deploy
-    ), (
-        "full deploy must fail clearly when both colbert deploy ref and colbert SHA ref are absent"
-    )
-    assert 'pull_preflight_image "platform" "${PLATFORM_IMAGE_TO_DEPLOY}"' in deploy, (
-        "deploy_gitlab_compose.sh must preflight pull the platform image before .env mutation"
-    )
-    assert 'pull_preflight_image "risk-vllm-kanana" "${RISK_VLLM_IMAGE_TO_DEPLOY}"' in deploy, (
-        "full deploy must preflight pull risk-vllm-kanana before .env mutation"
-    )
-    assert 'pull_preflight_image "colbert-ko-vllm" "${COLBERT_KO_VLLM_IMAGE_TO_DEPLOY}"' in deploy, (
-        "full deploy must preflight pull colbert-ko-vllm before .env mutation"
-    )
-    assert "validate_colbert_ko_artifact()" in deploy, (
-        "deploy_gitlab_compose.sh must validate ColBERT-ko prepared artifact during full deploy"
-    )
-    assert "resolve_colbert_ko_model_dir()" in deploy, (
-        "ColBERT artifact preflight must resolve COLBERT_KO_MODEL_DIR through a debuggable helper"
-    )
-    assert "COLBERT_KO_MODEL_DIR source: CI/SSH environment" in deploy, (
-        "deploy logs must identify when COLBERT_KO_MODEL_DIR came from CI/SSH environment"
-    )
-    assert "COLBERT_KO_MODEL_DIR source: remote .env" in deploy, (
-        "deploy logs must identify when COLBERT_KO_MODEL_DIR came from remote .env"
-    )
-    assert 'model_dir="$(resolve_colbert_ko_model_dir)"' in deploy, (
-        "ColBERT artifact preflight and preparation must use the same model dir resolver"
-    )
-    assert 'COLBERT_KO_MODEL_DIR is empty' in deploy, (
-        "ColBERT artifact preflight must fail when COLBERT_KO_MODEL_DIR is empty"
-    )
-    assert 'COLBERT_KO_MODEL_DIR must be absolute' in deploy, (
-        "ColBERT artifact preflight must require an absolute path for production full deploy"
-    )
-    for required_artifact in [
-        "/config.json",
-        "/proj.pt",
-        "/tokenizer",
-        "/encoder/config.json",
-        "/encoder/model.safetensors",
-    ]:
-        assert required_artifact in deploy, (
-            f"ColBERT artifact preflight must check {required_artifact}"
-        )
-    assert "PREPARE_COLBERT_KO_ARTIFACT" in deploy, (
-        "deploy_gitlab_compose.sh must support explicit PREPARE_COLBERT_KO_ARTIFACT opt-in"
-    )
-    assert "command -v python3.12" not in deploy and "command -v python3" not in deploy, (
-        "PREPARE_COLBERT_KO_ARTIFACT=1 must not depend on host Python discovery"
-    )
-    assert 'docker run "${docker_run_args[@]}"' in deploy, (
-        "PREPARE_COLBERT_KO_ARTIFACT=1 must run the platform image via docker run"
-    )
-    assert '"${PLATFORM_IMAGE_TO_DEPLOY}"' in deploy, (
-        "artifact preparation must use PLATFORM_IMAGE_TO_DEPLOY"
-    )
-    assert '-v "${model_dir}:/out"' in deploy, (
-        "artifact preparation must mount COLBERT_KO_MODEL_DIR as /out"
-    )
-    assert '-v "${hf_cache_dir_host}:/root/.cache/huggingface"' in deploy, (
-        "artifact preparation must mount the resolved host HF cache into the platform container"
-    )
-    assert "prepare_colbert_ko_vllm_artifact.py --output-dir" in deploy, (
-        "PREPARE_COLBERT_KO_ARTIFACT=1 must run the existing artifact preparation script"
-    )
-    assert "--output-dir /out" in deploy, (
-        "artifact preparation must write to /out inside the platform container"
-    )
-    assert "HF_CACHE_DIR" in deploy and "hf_cache_dir_host" in deploy, (
-        "deploy script must resolve host HF cache directory for platform-container preparation"
-    )
-    assert "compose_file_dir_host()" in deploy, (
-        "deploy_gitlab_compose.sh must calculate the host compose file directory"
-    )
-    assert 'if [[ "${COMPOSE_FILE}" = /* ]]' in deploy, (
-        "compose file directory helper must handle absolute COMPOSE_FILE paths"
-    )
-    assert 'dirname "${DEPLOY_PATH}/${COMPOSE_FILE}"' in deploy, (
-        "compose file directory helper must resolve relative COMPOSE_FILE under DEPLOY_PATH"
-    )
-    assert "resolve_compose_relative_path()" in deploy, (
-        "deploy_gitlab_compose.sh must resolve compose-relative host paths through a helper"
-    )
-    assert 'raw="${raw#./}"' in deploy, (
-        "HF_CACHE_DIR resolver must normalize both ./relative and relative paths"
-    )
-    assert 'hf_cache_dir_host="$(resolve_compose_relative_path "${hf_cache_dir}")"' in deploy, (
-        "artifact preparation must resolve HF_CACHE_DIR relative to the compose file directory"
-    )
-    assert '${DEPLOY_PATH}/${hf_cache_dir#./}' not in deploy, (
-        "artifact preparation must not resolve relative HF_CACHE_DIR directly from DEPLOY_PATH"
-    )
-    assert "Relative HF_CACHE_DIR values are resolved from compose file directory" in deploy, (
-        "deploy logs must explain the HF cache relative path base"
-    )
-    assert "export_compose_env_from_file()" in deploy, (
-        "deploy script must export remote .env before docker compose so empty SSH env vars cannot shadow required values"
-    )
-    assert 'export "${key}=${value}"' in deploy, (
-        "deploy script must export compose variables from the mutated .env file"
-    )
-    assert 'docker compose -f "${COMPOSE_FILE}" --env-file "${COMPOSE_ENV_FILE}" config >/dev/null' in deploy, (
-        "deploy script must validate compose config interpolation after .env mutation and before pull/up"
-    )
-    assert '--env-file .env pull' not in deploy and '--env-file .env up' not in deploy, (
-        "deploy script must not rely on relative --env-file .env for compose pull/up"
-    )
-    artifact_preflight_pos = deploy.find("validate_colbert_ko_artifact")
-    artifact_prepare_pos = deploy.find("prepare_colbert_ko_artifact_if_requested")
-    backup_pos = deploy.find("cp .env")
-    compose_up_pos = deploy.find('docker compose -f "${COMPOSE_FILE}" --env-file "${COMPOSE_ENV_FILE}" up -d --remove-orphans')
-    assert artifact_prepare_pos != -1 and artifact_prepare_pos < backup_pos, (
-        "ColBERT artifact preparation must run before .env backup/mutation"
-    )
-    assert artifact_preflight_pos != -1 and artifact_preflight_pos < backup_pos, (
-        "ColBERT artifact preflight must run before .env backup/mutation"
-    )
-    assert artifact_preflight_pos < compose_up_pos, (
-        "ColBERT artifact preflight must run before docker compose up"
-    )
-    assert "set_env_value COLBERT_KO_VLLM_IMAGE" in deploy, (
-        "deploy_gitlab_compose.sh must update COLBERT_KO_VLLM_IMAGE in server .env"
-    )
-    assert ".env.bak." in deploy, (
-        "deploy_gitlab_compose.sh must back up .env before modifying image refs"
-    )
-    assert "fail_after_env_backup()" in deploy, (
-        "deploy_gitlab_compose.sh must provide a helper for explicit failures after .env mutation"
-    )
-    assert "[deploy] .env backup:" in deploy, (
-        "deploy_gitlab_compose.sh must print the .env backup path on post-mutation failure"
-    )
-    assert "build-vllm-derived" in deploy, (
-        "deploy_gitlab_compose.sh must reference 'build-vllm-derived' in its full deploy "
-        "error hint so operators know what to run when a vLLM image pull fails"
-    )
-
-    # preflight must appear before the first .env mutation so a failed pull
-    # never leaves .env in a partially-modified state
-    preflight_pos = deploy.find("preflight")
-    set_env_pos = deploy.find("set_env_value PLATFORM_IMAGE")
-    assert preflight_pos != -1, (
-        "deploy_gitlab_compose.sh must contain an image pull preflight section"
-    )
-    assert preflight_pos < set_env_pos, (
-        "deploy_gitlab_compose.sh preflight must appear before the first set_env_value call "
-        "so .env is not modified when an image does not exist"
-    )
-
-    doc = (ROOT / "docs/operations/gitlab_cicd_deployment.md").read_text(encoding="utf-8")
-    assert "Build vLLM-derived images only" in doc, (
-        "GitLab CI/CD docs must describe BUILD_VLLM_DERIVED=1 as a build-only flow"
-    )
-    assert "deploy mode는 바뀌지 않는다" in doc, (
-        "GitLab CI/CD docs must say BUILD_VLLM_DERIVED=1 does not change deploy mode"
-    )
-    assert "pipeline을 `DEPLOY_MODE=full` 변수로 시작" in doc, (
-        "GitLab CI/CD docs must describe DEPLOY_MODE=full as the full runtime deploy flow"
-    )
-    assert "`RISK_VLLM_IMAGE_SHA`와 `COLBERT_KO_VLLM_IMAGE_SHA`가 기본 배포 image" in doc, (
-        "GitLab CI/CD docs must state full deploy defaults to current risk/colbert SHA images"
-    )
-    assert "BUILD_VLLM_DERIVED=1` 또는 `DEPLOY_MODE=full" in doc, (
-        "GitLab CI/CD docs must mention both build-vllm-derived trigger variables"
-    )
-    assert "raw Hugging Face cache" in doc and "prepared artifact" in doc, (
-        "GitLab CI/CD docs must distinguish raw HF cache/source from prepared ColBERT artifact directory"
-    )
-    assert "prepare_colbert_ko_vllm_artifact.py" in doc, (
-        "GitLab CI/CD docs must include ColBERT-ko artifact preparation instructions"
-    )
-    assert "PREPARE_COLBERT_KO_ARTIFACT=1" in doc, (
-        "GitLab CI/CD docs must document the explicit artifact preparation opt-in"
-    )
-    assert "target host의 Python이나 `huggingface_hub` 설치를 사용하지 않는다" in doc, (
-        "GitLab CI/CD docs must say artifact preparation does not need host Python/huggingface_hub"
-    )
-    assert "PLATFORM_IMAGE_TO_DEPLOY" in doc and "docker run" in doc, (
-        "GitLab CI/CD docs must explain platform-container-based artifact preparation"
-    )
-    assert "HF_CACHE_DIR`가 절대경로이면" in doc and "compose file directory 기준" in doc, (
-        "GitLab CI/CD docs must document compose-file-directory HF_CACHE_DIR resolution"
-    )
-    assert "resolved path=/opt/acl-ai-gateway/ops/compose/model_cache/huggingface" in doc, (
-        "GitLab CI/CD docs must include the production HF_CACHE_DIR resolution example"
-    )
-    assert "one-shot platform container" in doc and "docker compose` runtime이 같은 Hugging Face cache" in doc, (
-        "GitLab CI/CD docs must explain why artifact preparation and compose runtime share the same cache path"
-    )
-    env_example = (ROOT / ".env.compose.example").read_text(encoding="utf-8")
-    assert "Production deploy resolves relative HF_CACHE_DIR values from the compose file directory" in env_example, (
-        ".env.compose.example must document production relative HF_CACHE_DIR resolution"
-    )
-    assert "/opt/acl-ai-gateway/ops/compose/model_cache/huggingface" in env_example, (
-        ".env.compose.example must show the compose-directory-based HF cache path"
-    )
-    assert "COLBERT_KO_MODEL_DIR=./models/colbert-ko-vllm" in doc, (
-        "GitLab CI/CD docs must preserve local init-env-compose reproducibility with repo-relative artifact path"
-    )
-    assert "`BUILD_VLLM_DERIVED=1`은 image build intent" in (
-        ROOT / "docs/development/build_ux.md"
-    ).read_text(encoding="utf-8"), (
-        "build UX docs must not treat BUILD_VLLM_DERIVED=1 as equivalent to DEPLOY_MODE=full"
-    )
+    assert "COLBERT_KO" not in deploy
+    assert 'pull_preflight_image "risk-vllm-kanana" "${RISK_VLLM_IMAGE_TO_DEPLOY}"' in deploy
+    assert "set_env_value RISK_VLLM_IMAGE" in deploy
 
 
-def test_monitoring_config_includes_colbert_ko_vllm_port() -> None:
-    """configs/monitoring.yaml must list port 9404 (colbert-ko-vllm) in vllm_instances."""
+def test_monitoring_config_includes_embedding_ko_vllm_port() -> None:
+    """configs/monitoring.yaml must list port 9406 (embedding-ko-vllm) in vllm_instances."""
     monitoring = yaml.safe_load((ROOT / "configs/monitoring.yaml").read_text(encoding="utf-8"))
     ports = monitoring["metric_sources"]["vllm_instances"]["ports"]
-    assert 9404 in ports, (
-        "configs/monitoring.yaml vllm_instances.ports must include 9404 (colbert-ko-vllm)"
+    assert 9406 in ports, (
+        "configs/monitoring.yaml vllm_instances.ports must include 9406 (embedding-ko-vllm)"
     )

@@ -16,8 +16,8 @@ def test_model_registry_normalizes_public_models_and_serving_records():
         load_yaml("configs/model_serving.yaml"),
     )
 
-    assert registry.logical_ids() == ("local-main", "local-embed", "local-colbert-ko", "risk-prompt")
-    assert registry.public_logical_ids() == ("local-main", "local-embed", "local-colbert-ko", "risk-prompt")
+    assert registry.logical_ids() == ("local-main", "local-embed", "local-embed-ko", "risk-prompt")
+    assert registry.public_logical_ids() == ("local-main", "local-embed", "local-embed-ko", "risk-prompt")
     assert registry.alignment_issues() == ()
 
     main = registry.record("local-main")
@@ -30,6 +30,9 @@ def test_model_registry_normalizes_public_models_and_serving_records():
     embedding = registry.record("local-embed")
     assert embedding.embedding_dimensions == (768, 512, 256, 128)
     assert embedding.serving_key == "embedding"
+    embedding_ko = registry.record("local-embed-ko")
+    assert embedding_ko.embedding_dimensions == (1024,)
+    assert embedding_ko.serving_key == "embedding_ko"
 
 
 def test_model_registry_reports_catalog_serving_drift():
@@ -66,19 +69,19 @@ def test_model_registry_projects_runtime_services_and_contracts():
     )
 
     services = {item.service_key: item for item in registry.iter_runtime_services()}
-    assert list(services) == ["main_llm", "embedding", "colbert_ko", "risk_prompt"]
+    assert list(services) == ["main_llm", "embedding", "embedding_ko", "risk_prompt"]
     assert services["main_llm"].logical_id == "local-main"
     assert services["main_llm"].served_model_name == "local-main"
     assert services["main_llm"].compose_service_name == "main-llm-vllm"
     assert services["embedding"].compose_service_name == "embedding-vllm"
-    assert services["colbert_ko"].compose_service_name == "colbert-ko-vllm"
+    assert services["embedding_ko"].compose_service_name == "embedding-ko-vllm"
     assert services["risk_prompt"].endpoint_path == "/v1/chat/completions"
 
     projected_contracts = registry.model_contracts_document()["models"]
     assert projected_contracts["local-main"]["runtime"] == "vllm"
-    assert projected_contracts["local-colbert-ko"]["runtime"] == "vllm_native"
-    assert projected_contracts["local-colbert-ko"]["public_endpoint"] == "/v1/retrieval/rerank"
-    assert projected_contracts["local-colbert-ko"]["runtime_endpoint"] == "/v1/score"
+    assert projected_contracts["local-embed-ko"]["runtime"] == "vllm"
+    assert projected_contracts["local-embed-ko"]["public_endpoint"] == "/v1/embeddings"
+    assert projected_contracts["local-embed-ko"]["runtime_endpoint"] == "/v1/embeddings"
     assert projected_contracts["risk-prompt"]["runtime"] == "vllm+adapter"
     assert projected_contracts["risk-prompt"]["public_endpoint"] == "/v1/risk/detectors/prompt/assessments"
     assert projected_contracts["risk-prompt"]["runtime_endpoint"] == "/v1/chat/completions"
@@ -115,9 +118,9 @@ def test_model_registry_projects_model_cards_and_runtime_validation_matrix():
     assert "risk_siren" not in targets
 
     matrix = {item["id"]: item for item in registry.runtime_validation_matrix_document()["validation_checks"]}
-    assert matrix["gateway-runtime"]["models"] == ["local-main", "local-embed", "local-colbert-ko", "risk-prompt"]
-    assert matrix["vllm-runtime"]["runtime_services"] == ["main_llm", "embedding", "colbert_ko", "risk_prompt"]
-    assert matrix["grafana-dashboard-render"]["runtime_services"] == ["main_llm", "embedding", "colbert_ko", "risk_prompt"]
+    assert matrix["gateway-runtime"]["models"] == ["local-main", "local-embed", "local-embed-ko", "risk-prompt"]
+    assert matrix["vllm-runtime"]["runtime_services"] == ["main_llm", "embedding", "embedding_ko", "risk_prompt"]
+    assert matrix["grafana-dashboard-render"]["runtime_services"] == ["main_llm", "embedding", "embedding_ko", "risk_prompt"]
 
 
 def test_model_registry_projects_openapi_schema_and_monitoring_labels():
@@ -128,7 +131,7 @@ def test_model_registry_projects_openapi_schema_and_monitoring_labels():
 
     schema = registry.model_list_schema_document()
     item_properties = schema["properties"]["data"]["items"]["properties"]
-    assert item_properties["id"]["enum"] == ["local-main", "local-embed", "local-colbert-ko", "risk-prompt"]
+    assert item_properties["id"]["enum"] == ["local-main", "local-embed", "local-embed-ko", "risk-prompt"]
     assert item_properties["capabilities"]["items"]["enum"] == [
         "chat.completions",
         "chat.completions.vision",
@@ -136,7 +139,6 @@ def test_model_registry_projects_openapi_schema_and_monitoring_labels():
         "embeddings",
         "retrieval_rerank",
         "retrieval_score",
-        "retrieval_token_embeddings",
         "risk.prompt_attack_signal",
     ]
     assert "request_parameters" in item_properties
@@ -146,20 +148,8 @@ def test_model_registry_projects_openapi_schema_and_monitoring_labels():
     assert public_models["local-main"]["request_parameters"]["n"] == {"type": "integer", "min": 1, "max": 1}
     assert public_models["local-main"]["request_parameters"]["reasoning"] == {"type": "boolean", "default": False, "mode": "request_opt_in"}
     assert public_models["local-embed"]["request_parameters"]["dimensions"] == {"type": "integer", "enum": [768, 512, 256, 128]}
-    colbert_params = public_models["local-colbert-ko"]["request_parameters"]
-    assert colbert_params["score_mode"] == {"type": "string", "enum": ["late_interaction_maxsim"], "default": "late_interaction_maxsim"}
-    assert colbert_params["top_n"] == {"type": "integer", "min": 1, "max": 32}
-    assert colbert_params["max_tokens_per_query"] == {"type": "integer", "min": 1, "max": 128, "default": 128}
-    assert colbert_params["max_tokens_per_doc"] == {"type": "integer", "min": 32, "max": 1024, "default": 192}
-    assert colbert_params["truncation_side"] == {"type": "string", "enum": ["left", "right"], "default": "right"}
-    assert "truncate_prompt_tokens" in colbert_params
-    colbert_fixed = public_models["local-colbert-ko"]["fixed_parameters"]
-    assert colbert_fixed["dtype"] == "float32"
-    assert colbert_fixed["pooler_task"] == "token_embed"
-    assert colbert_fixed["score_function"] == "maxsim"
-    assert colbert_fixed["backend"] == "vllm_native_late_interaction"
-    assert colbert_fixed["max_num_seqs"] == 1
-    assert "retrieval_rerank" in public_models["local-colbert-ko"]["capabilities"]
+    assert public_models["local-embed-ko"]["request_parameters"]["dimensions"] == {"type": "integer", "enum": [1024]}
+    assert "retrieval_rerank" in public_models["local-embed-ko"]["capabilities"]
     assert public_models["risk-prompt"]["request_parameters"] == {}
     assert public_models["risk-prompt"]["fixed_parameters"] == {"max_tokens": 1, "temperature": 0}
 
@@ -170,4 +160,4 @@ def test_model_registry_projects_openapi_schema_and_monitoring_labels():
         "runtime_service": "main-llm-vllm",
         "port": 9401,
     }
-    assert registry.monitoring_compose_service_regex() == "main-llm-vllm|embedding-vllm|colbert-ko-vllm|risk-prompt-vllm"
+    assert registry.monitoring_compose_service_regex() == "main-llm-vllm|embedding-vllm|embedding-ko-vllm|risk-prompt-vllm"

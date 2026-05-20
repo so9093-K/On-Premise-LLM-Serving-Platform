@@ -43,9 +43,9 @@ groups:
       # cAdvisor bridges for per-vLLM container host resources. Compose generated
       # container names vary by project directory, so use the compose service label.
       - record: vllm_container_memory_usage_bytes
-        expr: max by (container_label_com_docker_compose_service) (container_memory_usage_bytes{container_label_com_docker_compose_service=~"main-llm-vllm|embedding-vllm|colbert-ko-vllm|risk-prompt-vllm"})
+        expr: max by (container_label_com_docker_compose_service) (container_memory_usage_bytes{container_label_com_docker_compose_service=~"main-llm-vllm|embedding-vllm|embedding-ko-vllm|risk-prompt-vllm"})
       - record: vllm_container_cpu_usage_ratio
-        expr: sum by (container_label_com_docker_compose_service) (rate(container_cpu_usage_seconds_total{container_label_com_docker_compose_service=~"main-llm-vllm|embedding-vllm|colbert-ko-vllm|risk-prompt-vllm"}[1m]))
+        expr: sum by (container_label_com_docker_compose_service) (rate(container_cpu_usage_seconds_total{container_label_com_docker_compose_service=~"main-llm-vllm|embedding-vllm|embedding-ko-vllm|risk-prompt-vllm"}[1m]))
       # Observability trust signals — expected vs observed scrape target counts.
       # ai_expected_critical_targets reflects the reference topology (8 = gateway +
       # risk-adapter + 4 vllm-runtimes + dcgm-exporter + cadvisor). Update this value
@@ -75,7 +75,7 @@ groups:
           or
           ((min(gpu_memory_headroom_bytes) < 4294967296)
           or
-          (sum(increase(container_oom_events_total{container_label_com_docker_compose_service=~"gateway|risk-adapter|main-llm-vllm|embedding-vllm|colbert-ko-vllm|risk-prompt-vllm"}[5m])) > 0)) * 0 + 6
+          (sum(increase(container_oom_events_total{container_label_com_docker_compose_service=~"gateway|risk-adapter|main-llm-vllm|embedding-vllm|embedding-ko-vllm|risk-prompt-vllm"}[5m])) > 0)) * 0 + 6
           or
           (ai_up_critical_targets < ai_expected_critical_targets) * 0 + 5
           or

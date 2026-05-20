@@ -5,11 +5,11 @@
   "required": ["results", "model", "score_mode"],
   "additionalProperties": false,
   "properties": {
-    "model": {"type": "string"},
+    "model": {"enum": ["local-embed-ko", "local-embed"]},
     "query": {"type": "string"},
     "score_mode": {
       "type": "string",
-      "enum": ["dense_cosine", "late_interaction_maxsim"]
+      "enum": ["dense_cosine"]
     },
     "results": {
       "type": "array",

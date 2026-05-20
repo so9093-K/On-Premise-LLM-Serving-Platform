@@ -10,12 +10,11 @@ images:
     mutable: true
     source: Docker Hub vllm/vllm-openai Gemma4 CUDA 12.9 tag
     fallback: vllm/vllm-openai:gemma4
-  colbert_ko_vllm:
-    default: ai-model-serving-colbert-ko-vllm:0.0.1
-    purpose: Dedicated vLLM runtime image for local-colbert-ko prepared artifact
-      with encoder/, tokenizer/, and proj.pt projection head.
-    mutable: false
-    source: local docker build from ops/docker/Dockerfile.colbert-ko-vllm
+  embedding_ko_vllm:
+    default: vllm/vllm-openai:gemma4-0505-cu129
+    purpose: vLLM pooling runtime for local-embed-ko Korean dense retrieval embeddings.
+    mutable: true
+    source: Docker Hub vllm/vllm-openai Gemma4 CUDA 12.9 tag
     base_image_default: vllm/vllm-openai:gemma4-0505-cu129
   risk_vllm:
     default: ai-model-serving-risk-vllm-kanana:0.0.1

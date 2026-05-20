@@ -29,7 +29,7 @@ make bootstrap      = 전체 재빌드 (.venv + 의존성 + .env + 검증 + 플�
 | CI / 릴리스 파이프라인 | `make build-pipeline` / `make build` | validate + test + 플랫폼 이미지 + 패키징만 | 아니오 |
 | 타깃 재빌드 | `make rebuild-app` / `make build-image` | 플랫폼 이미지만 | 아니오 |
 | 타깃 재빌드 | `make rebuild-risk-vllm` / `make build-risk-vllm-image` | Risk vLLM 이미지만 | 예 (이것만) |
-| 타깃 재빌드 | `make rebuild-colbert-ko-vllm` / `make build-colbert-ko-vllm-image` | ColBERT-ko vLLM 이미지만 | 아니오 |
+| 타깃 재빌드 | `make rebuild-embedding-ko-vllm` / `make build-embedding-ko-vllm-image` | Dense retrieval-ko vLLM 이미지만 | 아니오 |
 
 **`make build`와 `make build-pipeline`은 risk vLLM 이미지를 빌드하지 않는다.** CI와 릴리스 파이프라인은 vLLM runtime에 의존하지 않고 플랫폼 아티팩트만 재현 가능하게 생성해야 하기 때문이다. Risk vLLM 이미지는 `make first-run`, `make bootstrap`, `make rebuild-risk-vllm`, `make build-risk-vllm-image`로만 생성된다.
 
@@ -44,17 +44,14 @@ make bootstrap      = 전체 재빌드 (.venv + 의존성 + .env + 검증 + 플�
 
 앱 코드만 변경한 경우 risk vLLM 이미지는 그대로 사용할 수 있다.
 
-### ColBERT-ko vLLM 이미지를 다시 빌드해야 하는 시점
+### Dense retrieval-ko vLLM 이미지를 다시 빌드해야 하는 시점
 
-다음 중 하나가 변경됐을 때만 `make rebuild-colbert-ko-vllm` 또는 `make build-colbert-ko-vllm-image`가 필요하다.
+다음 중 하나가 변경됐을 때만 `make rebuild-embedding-ko-vllm` 또는 `make build-embedding-ko-vllm-image`가 필요하다.
 
-- `ops/docker/Dockerfile.colbert-ko-vllm` 수정
-- `COLBERT_KO_VLLM_BASE_IMAGE` 변경
+- `ops/docker/Dockerfile.embedding-ko-vllm` 수정
 - vLLM base 이미지 교체
 
-앱 코드만 변경한 경우 ColBERT-ko vLLM 이미지는 그대로 사용할 수 있다. ColBERT-ko vLLM 이미지는 full-stack의 required dedicated retrieval runtime이며, 로컬에서는 `make rebuild-colbert-ko-vllm` 또는 `make build-colbert-ko-vllm-image`로 생성한다. local ColBERT build는 `COLBERT_KO_VLLM_BASE_IMAGE` 또는 `VLLM_IMAGE`를 사용하며, CI 전용 `VLLM_BASE_IMAGE`를 읽지 않는다. CI pipeline에서는 `build-vllm-derived` job이 `BUILD_VLLM_DERIVED=1` 또는 `DEPLOY_MODE=full` 조건에서 자동 실행되어 registry에 push한다 (risk-vllm-kanana와 colbert-ko-vllm을 동시에 빌드). `BUILD_VLLM_DERIVED=1`은 image build intent일 뿐 deploy mode를 바꾸지 않는다. full runtime deploy까지 하려면 별도로 `DEPLOY_MODE=full`을 사용한다. 로컬 make target과 CI job은 같은 Dockerfile을 사용하지만 실행 방식과 변수는 분리된다. 로컬은 `.env`의 local image variables, CI는 `VLLM_BASE_IMAGE` 등 CI 변수를 사용한다.
 
-`make init-env-compose`로 생성되는 로컬 `.env`는 `COLBERT_KO_MODEL_DIR=./models/colbert-ko-vllm`를 사용한다. production full deploy는 GitLab deploy preflight에서 절대경로를 요구하지만, 로컬 compose 재현은 repository-relative prepared artifact path를 허용한다. 두 경우 모두 raw Hugging Face cache가 아니라 `scripts/models/prepare_colbert_ko_vllm_artifact.py`의 prepared output이어야 한다.
 
 CI/CD와 로컬 실행의 경계:
 

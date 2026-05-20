@@ -1,6 +1,6 @@
 {
   "summary": {
-    "total_files": 346,
+    "total_files": 331,
     "by_area": {
       ".dockerignore": 1,
       ".env": 1,
@@ -20,62 +20,62 @@
       "assets": 1,
       "configs": 13,
       "contracts": 2,
-      "docs": 51,
+      "docs": 50,
       "examples": 1,
       "features": 3,
       "harness": 4,
       "model_cards": 4,
-      "ops": 19,
+      "ops": 17,
       "pyproject.toml": 1,
       "reports": 20,
       "requirements.lock": 1,
       "requirements.runtime.lock": 1,
-      "scripts": 66,
-      "specs": 17,
-      "src": 87,
-      "tests": 31,
+      "scripts": 63,
+      "specs": 15,
+      "src": 81,
+      "tests": 30,
       "version_manifest.json": 1
     },
     "by_category": {
-      "OpenAPI/JSON schema contract": 17,
-      "application/control-plane source": 87,
+      "OpenAPI/JSON schema contract": 15,
+      "application/control-plane source": 81,
       "architecture decision record": 3,
-      "compose/monitoring/runtime ops template": 19,
+      "compose/monitoring/runtime ops template": 17,
       "configuration source of truth": 13,
       "contract registry": 2,
       "current handoff/review report": 9,
-      "documentation": 51,
+      "documentation": 50,
       "model card metadata": 4,
-      "operator/developer command surface": 66,
+      "operator/developer command surface": 63,
       "project metadata": 28,
       "request example": 1,
       "runtime validation harness plan/matrix": 4,
       "runtime/operator generated report": 11,
-      "test suite": 31
+      "test suite": 30
     },
     "by_owner": {
-      "api-contracts": 24,
-      "application": 53,
+      "api-contracts": 22,
+      "application": 47,
       "configuration": 13,
-      "documentation": 51,
+      "documentation": 50,
       "domain-registry": 3,
       "governance-validation": 10,
       "handoff-reporting": 20,
-      "operations": 19,
-      "operator-ux": 66,
+      "operations": 17,
+      "operator-ux": 63,
       "project-maintenance": 42,
-      "quality": 31,
+      "quality": 30,
       "runtime-validation": 14
     },
     "by_role": {
       "build-command": 2,
-      "documentation": 73,
+      "documentation": 72,
       "entrypoint": 9,
       "environment-template": 5,
-      "python-source": 154,
-      "shell-command": 28,
-      "structured-data": 65,
-      "supporting-file": 10
+      "python-source": 145,
+      "shell-command": 27,
+      "structured-data": 62,
+      "supporting-file": 9
     },
     "large_files_by_line_count": [
       {
@@ -84,8 +84,8 @@
         "category": "OpenAPI/JSON schema contract",
         "owner": "api-contracts",
         "management": "managed by root project metadata",
-        "size_bytes": 149531,
-        "line_count": 4073,
+        "size_bytes": 179874,
+        "line_count": 4930,
         "role": "structured-data",
         "review_note": "supporting project file"
       },
@@ -95,7 +95,7 @@
         "category": "current handoff/review report",
         "owner": "handoff-reporting",
         "management": "generated/curated for handoff review",
-        "size_bytes": 145177,
+        "size_bytes": 145178,
         "line_count": 4067,
         "role": "structured-data",
         "review_note": "handoff/review artifact; avoid stale phase snapshots in active package"
@@ -106,8 +106,8 @@
         "category": "test suite",
         "owner": "quality",
         "management": "managed by test strategy",
-        "size_bytes": 86308,
-        "line_count": 2158,
+        "size_bytes": 84921,
+        "line_count": 2102,
         "role": "python-source",
         "review_note": "test coverage; keep deterministic and avoid live GPU dependency"
       },
@@ -117,7 +117,7 @@
         "category": "OpenAPI/JSON schema contract",
         "owner": "api-contracts",
         "management": "managed by root project metadata",
-        "size_bytes": 57621,
+        "size_bytes": 58597,
         "line_count": 1641,
         "role": "structured-data",
         "review_note": "supporting project file"
@@ -128,21 +128,10 @@
         "category": "compose/monitoring/runtime ops template",
         "owner": "operations",
         "management": "managed by operator templates",
-        "size_bytes": 41756,
+        "size_bytes": 41768,
         "line_count": 1398,
         "role": "structured-data",
         "review_note": "supporting project file"
-      },
-      {
-        "path": "tests/contract/test_governance_and_ops.py",
-        "area": "tests",
-        "category": "test suite",
-        "owner": "quality",
-        "management": "managed by test strategy",
-        "size_bytes": 55732,
-        "line_count": 1102,
-        "role": "python-source",
-        "review_note": "test coverage; keep deterministic and avoid live GPU dependency"
       },
       {
         "path": "ops/grafana/dashboards/api_experience.json",
@@ -150,7 +139,7 @@
         "category": "compose/monitoring/runtime ops template",
         "owner": "operations",
         "management": "managed by operator templates",
-        "size_bytes": 32963,
+        "size_bytes": 32897,
         "line_count": 1095,
         "role": "structured-data",
         "review_note": "supporting project file"
@@ -161,10 +150,21 @@
         "category": "compose/monitoring/runtime ops template",
         "owner": "operations",
         "management": "managed by operator templates",
-        "size_bytes": 25049,
+        "size_bytes": 25051,
         "line_count": 907,
         "role": "structured-data",
         "review_note": "supporting project file"
+      },
+      {
+        "path": "tests/contract/test_governance_and_ops.py",
+        "area": "tests",
+        "category": "test suite",
+        "owner": "quality",
+        "management": "managed by test strategy",
+        "size_bytes": 38607,
+        "line_count": 782,
+        "role": "python-source",
+        "review_note": "test coverage; keep deterministic and avoid live GPU dependency"
       },
       {
         "path": "src/ai_model_serving/contracts/chat.py",
@@ -183,7 +183,7 @@
         "category": "compose/monitoring/runtime ops template",
         "owner": "operations",
         "management": "managed by operator templates",
-        "size_bytes": 19221,
+        "size_bytes": 19227,
         "line_count": 757,
         "role": "structured-data",
         "review_note": "supporting project file"
@@ -200,23 +200,12 @@
         "review_note": "generated operator report; regenerate through make operator-reports before handoff"
       },
       {
-        "path": "src/ai_model_serving/services/gateway_service.py",
-        "area": "src",
-        "category": "application/control-plane source",
-        "owner": "application",
-        "management": "managed by package source layout",
-        "size_bytes": 33486,
-        "line_count": 709,
-        "role": "python-source",
-        "review_note": "application code; preserve public API behavior and compatibility facades"
-      },
-      {
         "path": "src/ai_model_serving/domain/model_registry.py",
         "area": "src",
         "category": "application/control-plane source",
         "owner": "domain-registry",
         "management": "managed by package source layout",
-        "size_bytes": 30031,
+        "size_bytes": 29990,
         "line_count": 703,
         "role": "python-source",
         "review_note": "registry/domain code; monitor size as projections grow"
@@ -227,7 +216,7 @@
         "category": "compose/monitoring/runtime ops template",
         "owner": "operations",
         "management": "managed by operator templates",
-        "size_bytes": 18446,
+        "size_bytes": 18448,
         "line_count": 682,
         "role": "structured-data",
         "review_note": "supporting project file"
@@ -238,10 +227,21 @@
         "category": "compose/monitoring/runtime ops template",
         "owner": "operations",
         "management": "managed by operator templates",
-        "size_bytes": 17105,
+        "size_bytes": 17107,
         "line_count": 625,
         "role": "structured-data",
         "review_note": "supporting project file"
+      },
+      {
+        "path": "src/ai_model_serving/governance_validation/docs_ops.py",
+        "area": "src",
+        "category": "application/control-plane source",
+        "owner": "governance-validation",
+        "management": "managed by package source layout",
+        "size_bytes": 41309,
+        "line_count": 619,
+        "role": "python-source",
+        "review_note": "application code; preserve public API behavior and compatibility facades"
       }
     ],
     "entrypoints": [
@@ -274,8 +274,8 @@
       "category": "project metadata",
       "owner": "project-maintenance",
       "management": "managed by root project metadata",
-      "size_bytes": 5256,
-      "line_count": 119,
+      "size_bytes": 5136,
+      "line_count": 118,
       "role": "environment-template",
       "review_note": "supporting project file"
     },
@@ -285,8 +285,8 @@
       "category": "project metadata",
       "owner": "project-maintenance",
       "management": "managed by root project metadata",
-      "size_bytes": 6267,
-      "line_count": 134,
+      "size_bytes": 4924,
+      "line_count": 119,
       "role": "environment-template",
       "review_note": "supporting project file"
     },
@@ -450,8 +450,8 @@
       "category": "project metadata",
       "owner": "project-maintenance",
       "management": "managed by root project metadata",
-      "size_bytes": 20422,
-      "line_count": 427,
+      "size_bytes": 19955,
+      "line_count": 417,
       "role": "build-command",
       "review_note": "supporting project file"
     },
@@ -549,7 +549,7 @@
       "category": "configuration source of truth",
       "owner": "configuration",
       "management": "managed by configuration lifecycle",
-      "size_bytes": 3406,
+      "size_bytes": 3410,
       "line_count": 107,
       "role": "structured-data",
       "review_note": "configuration source; validate through governance and projection checks after edits"
@@ -571,8 +571,8 @@
       "category": "configuration source of truth",
       "owner": "configuration",
       "management": "managed by configuration lifecycle",
-      "size_bytes": 13391,
-      "line_count": 395,
+      "size_bytes": 12077,
+      "line_count": 376,
       "role": "structured-data",
       "review_note": "configuration source; validate through governance and projection checks after edits"
     },
@@ -582,7 +582,7 @@
       "category": "configuration source of truth",
       "owner": "configuration",
       "management": "managed by configuration lifecycle",
-      "size_bytes": 12887,
+      "size_bytes": 12889,
       "line_count": 450,
       "role": "structured-data",
       "review_note": "configuration source; validate through governance and projection checks after edits"
@@ -593,7 +593,7 @@
       "category": "configuration source of truth",
       "owner": "configuration",
       "management": "managed by configuration lifecycle",
-      "size_bytes": 13495,
+      "size_bytes": 13497,
       "line_count": 411,
       "role": "structured-data",
       "review_note": "configuration source; validate through governance and projection checks after edits"
@@ -604,7 +604,7 @@
       "category": "configuration source of truth",
       "owner": "configuration",
       "management": "managed by configuration lifecycle",
-      "size_bytes": 454,
+      "size_bytes": 458,
       "line_count": 26,
       "role": "structured-data",
       "review_note": "configuration source; validate through governance and projection checks after edits"
@@ -615,8 +615,8 @@
       "category": "configuration source of truth",
       "owner": "configuration",
       "management": "managed by configuration lifecycle",
-      "size_bytes": 3057,
-      "line_count": 73,
+      "size_bytes": 2986,
+      "line_count": 72,
       "role": "structured-data",
       "review_note": "configuration source; validate through governance and projection checks after edits"
     },
@@ -681,7 +681,7 @@
       "category": "contract registry",
       "owner": "project-maintenance",
       "management": "managed by root project metadata",
-      "size_bytes": 697,
+      "size_bytes": 687,
       "line_count": 24,
       "role": "structured-data",
       "review_note": "supporting project file"
@@ -780,8 +780,8 @@
       "category": "documentation",
       "owner": "documentation",
       "management": "managed by documentation map",
-      "size_bytes": 16431,
-      "line_count": 235,
+      "size_bytes": 14966,
+      "line_count": 232,
       "role": "documentation",
       "review_note": "documentation; keep relative links valid and avoid duplicating current command flow"
     },
@@ -929,17 +929,6 @@
       "review_note": "documentation; keep relative links valid and avoid duplicating current command flow"
     },
     {
-      "path": "docs/operations/colbert_ko_vllm_native.md",
-      "area": "docs",
-      "category": "documentation",
-      "owner": "documentation",
-      "management": "managed by documentation map",
-      "size_bytes": 9215,
-      "line_count": 115,
-      "role": "documentation",
-      "review_note": "documentation; keep relative links valid and avoid duplicating current command flow"
-    },
-    {
       "path": "docs/operations/configuration_lifecycle.md",
       "area": "docs",
       "category": "documentation",
@@ -967,8 +956,8 @@
       "category": "documentation",
       "owner": "documentation",
       "management": "managed by documentation map",
-      "size_bytes": 16211,
-      "line_count": 250,
+      "size_bytes": 15612,
+      "line_count": 248,
       "role": "documentation",
       "review_note": "documentation; keep relative links valid and avoid duplicating current command flow"
     },
@@ -989,7 +978,7 @@
       "category": "documentation",
       "owner": "documentation",
       "management": "managed by documentation map",
-      "size_bytes": 5801,
+      "size_bytes": 5805,
       "line_count": 77,
       "role": "documentation",
       "review_note": "documentation; keep relative links valid and avoid duplicating current command flow"
@@ -1000,8 +989,8 @@
       "category": "documentation",
       "owner": "documentation",
       "management": "managed by documentation map",
-      "size_bytes": 11788,
-      "line_count": 155,
+      "size_bytes": 11467,
+      "line_count": 154,
       "role": "documentation",
       "review_note": "documentation; keep relative links valid and avoid duplicating current command flow"
     },
@@ -1011,8 +1000,8 @@
       "category": "documentation",
       "owner": "documentation",
       "management": "managed by documentation map",
-      "size_bytes": 14625,
-      "line_count": 267,
+      "size_bytes": 9981,
+      "line_count": 236,
       "role": "documentation",
       "review_note": "documentation; keep relative links valid and avoid duplicating current command flow"
     },
@@ -1022,7 +1011,7 @@
       "category": "documentation",
       "owner": "documentation",
       "management": "managed by documentation map",
-      "size_bytes": 8860,
+      "size_bytes": 8847,
       "line_count": 102,
       "role": "documentation",
       "review_note": "documentation; keep relative links valid and avoid duplicating current command flow"
@@ -1033,7 +1022,7 @@
       "category": "documentation",
       "owner": "documentation",
       "management": "managed by documentation map",
-      "size_bytes": 4670,
+      "size_bytes": 4948,
       "line_count": 51,
       "role": "documentation",
       "review_note": "documentation; keep relative links valid and avoid duplicating current command flow"
@@ -1044,7 +1033,7 @@
       "category": "documentation",
       "owner": "documentation",
       "management": "managed by documentation map",
-      "size_bytes": 18093,
+      "size_bytes": 18097,
       "line_count": 284,
       "role": "documentation",
       "review_note": "documentation; keep relative links valid and avoid duplicating current command flow"
@@ -1187,8 +1176,8 @@
       "category": "documentation",
       "owner": "documentation",
       "management": "managed by documentation map",
-      "size_bytes": 3939,
-      "line_count": 100,
+      "size_bytes": 3885,
+      "line_count": 99,
       "role": "documentation",
       "review_note": "documentation; keep relative links valid and avoid duplicating current command flow"
     },
@@ -1198,8 +1187,8 @@
       "category": "documentation",
       "owner": "documentation",
       "management": "managed by documentation map",
-      "size_bytes": 6877,
-      "line_count": 103,
+      "size_bytes": 6277,
+      "line_count": 100,
       "role": "documentation",
       "review_note": "documentation; keep relative links valid and avoid duplicating current command flow"
     },
@@ -1209,7 +1198,7 @@
       "category": "documentation",
       "owner": "documentation",
       "management": "managed by documentation map",
-      "size_bytes": 12177,
+      "size_bytes": 12187,
       "line_count": 120,
       "role": "documentation",
       "review_note": "documentation; keep relative links valid and avoid duplicating current command flow"
@@ -1319,7 +1308,7 @@
       "category": "runtime validation harness plan/matrix",
       "owner": "project-maintenance",
       "management": "managed by root project metadata",
-      "size_bytes": 7080,
+      "size_bytes": 7084,
       "line_count": 180,
       "role": "structured-data",
       "review_note": "supporting project file"
@@ -1336,13 +1325,13 @@
       "review_note": "supporting project file"
     },
     {
-      "path": "model_cards/local-colbert-ko.json",
+      "path": "model_cards/local-embed-ko.json",
       "area": "model_cards",
       "category": "model card metadata",
       "owner": "project-maintenance",
       "management": "managed by root project metadata",
-      "size_bytes": 5441,
-      "line_count": 129,
+      "size_bytes": 1683,
+      "line_count": 46,
       "role": "structured-data",
       "review_note": "supporting project file"
     },
@@ -1385,19 +1374,8 @@
       "category": "compose/monitoring/runtime ops template",
       "owner": "operations",
       "management": "managed by operator templates",
-      "size_bytes": 8871,
-      "line_count": 197,
-      "role": "structured-data",
-      "review_note": "supporting project file"
-    },
-    {
-      "path": "ops/compose/full-stack.local-build.yaml",
-      "area": "ops",
-      "category": "compose/monitoring/runtime ops template",
-      "owner": "operations",
-      "management": "managed by operator templates",
-      "size_bytes": 828,
-      "line_count": 19,
+      "size_bytes": 8612,
+      "line_count": 196,
       "role": "structured-data",
       "review_note": "supporting project file"
     },
@@ -1407,8 +1385,8 @@
       "category": "compose/monitoring/runtime ops template",
       "owner": "operations",
       "management": "managed by operator templates",
-      "size_bytes": 10080,
-      "line_count": 356,
+      "size_bytes": 9799,
+      "line_count": 347,
       "role": "structured-data",
       "review_note": "supporting project file"
     },
@@ -1421,17 +1399,6 @@
       "size_bytes": 2199,
       "line_count": 69,
       "role": "structured-data",
-      "review_note": "supporting project file"
-    },
-    {
-      "path": "ops/docker/Dockerfile.colbert-ko-vllm",
-      "area": "ops",
-      "category": "compose/monitoring/runtime ops template",
-      "owner": "operations",
-      "management": "managed by operator templates",
-      "size_bytes": 666,
-      "line_count": 25,
-      "role": "supporting-file",
       "review_note": "supporting project file"
     },
     {
@@ -1451,7 +1418,7 @@
       "category": "compose/monitoring/runtime ops template",
       "owner": "operations",
       "management": "managed by operator templates",
-      "size_bytes": 32963,
+      "size_bytes": 32897,
       "line_count": 1095,
       "role": "structured-data",
       "review_note": "supporting project file"
@@ -1462,7 +1429,7 @@
       "category": "compose/monitoring/runtime ops template",
       "owner": "operations",
       "management": "managed by operator templates",
-      "size_bytes": 18446,
+      "size_bytes": 18448,
       "line_count": 682,
       "role": "structured-data",
       "review_note": "supporting project file"
@@ -1473,7 +1440,7 @@
       "category": "compose/monitoring/runtime ops template",
       "owner": "operations",
       "management": "managed by operator templates",
-      "size_bytes": 19221,
+      "size_bytes": 19227,
       "line_count": 757,
       "role": "structured-data",
       "review_note": "supporting project file"
@@ -1484,7 +1451,7 @@
       "category": "compose/monitoring/runtime ops template",
       "owner": "operations",
       "management": "managed by operator templates",
-      "size_bytes": 16314,
+      "size_bytes": 16316,
       "line_count": 611,
       "role": "structured-data",
       "review_note": "supporting project file"
@@ -1495,7 +1462,7 @@
       "category": "compose/monitoring/runtime ops template",
       "owner": "operations",
       "management": "managed by operator templates",
-      "size_bytes": 25049,
+      "size_bytes": 25051,
       "line_count": 907,
       "role": "structured-data",
       "review_note": "supporting project file"
@@ -1506,7 +1473,7 @@
       "category": "compose/monitoring/runtime ops template",
       "owner": "operations",
       "management": "managed by operator templates",
-      "size_bytes": 17105,
+      "size_bytes": 17107,
       "line_count": 625,
       "role": "structured-data",
       "review_note": "supporting project file"
@@ -1517,7 +1484,7 @@
       "category": "compose/monitoring/runtime ops template",
       "owner": "operations",
       "management": "managed by operator templates",
-      "size_bytes": 41756,
+      "size_bytes": 41768,
       "line_count": 1398,
       "role": "structured-data",
       "review_note": "supporting project file"
@@ -1572,7 +1539,7 @@
       "category": "compose/monitoring/runtime ops template",
       "owner": "operations",
       "management": "managed by operator templates",
-      "size_bytes": 1359,
+      "size_bytes": 1361,
       "line_count": 55,
       "role": "structured-data",
       "review_note": "supporting project file"
@@ -1583,7 +1550,7 @@
       "category": "compose/monitoring/runtime ops template",
       "owner": "operations",
       "management": "managed by operator templates",
-      "size_bytes": 5645,
+      "size_bytes": 5651,
       "line_count": 86,
       "role": "structured-data",
       "review_note": "supporting project file"
@@ -1594,8 +1561,8 @@
       "category": "project metadata",
       "owner": "project-maintenance",
       "management": "managed by root project metadata",
-      "size_bytes": 985,
-      "line_count": 42,
+      "size_bytes": 872,
+      "line_count": 39,
       "role": "supporting-file",
       "review_note": "supporting project file"
     },
@@ -1671,7 +1638,7 @@
       "category": "current handoff/review report",
       "owner": "handoff-reporting",
       "management": "generated/curated for handoff review",
-      "size_bytes": 70873,
+      "size_bytes": 70874,
       "line_count": 347,
       "role": "structured-data",
       "review_note": "handoff/review artifact; avoid stale phase snapshots in active package"
@@ -1682,7 +1649,7 @@
       "category": "current handoff/review report",
       "owner": "handoff-reporting",
       "management": "generated/curated for handoff review",
-      "size_bytes": 145177,
+      "size_bytes": 145178,
       "line_count": 4067,
       "role": "structured-data",
       "review_note": "handoff/review artifact; avoid stale phase snapshots in active package"
@@ -1781,8 +1748,8 @@
       "category": "runtime/operator generated report",
       "owner": "handoff-reporting",
       "management": "generated by operator report commands",
-      "size_bytes": 2670,
-      "line_count": 104,
+      "size_bytes": 2622,
+      "line_count": 103,
       "role": "structured-data",
       "review_note": "generated operator report; regenerate through make operator-reports before handoff"
     },
@@ -1792,7 +1759,7 @@
       "category": "runtime/operator generated report",
       "owner": "handoff-reporting",
       "management": "generated by operator report commands",
-      "size_bytes": 2076,
+      "size_bytes": 2034,
       "line_count": 45,
       "role": "documentation",
       "review_note": "generated operator report; regenerate through make operator-reports before handoff"
@@ -1930,17 +1897,6 @@
       "review_note": "operator/developer command; expose through Makefile/help if user-facing"
     },
     {
-      "path": "scripts/build/build_colbert_ko_vllm_image.sh",
-      "area": "scripts",
-      "category": "operator/developer command surface",
-      "owner": "operator-ux",
-      "management": "managed by Makefile command UX",
-      "size_bytes": 732,
-      "line_count": 25,
-      "role": "shell-command",
-      "review_note": "operator/developer command; expose through Makefile/help if user-facing"
-    },
-    {
       "path": "scripts/build/build_platform_image.sh",
       "area": "scripts",
       "category": "operator/developer command surface",
@@ -1979,8 +1935,8 @@
       "category": "operator/developer command surface",
       "owner": "operator-ux",
       "management": "managed by Makefile command UX",
-      "size_bytes": 8562,
-      "line_count": 250,
+      "size_bytes": 9200,
+      "line_count": 265,
       "role": "shell-command",
       "review_note": "operator/developer command; expose through Makefile/help if user-facing"
     },
@@ -2001,8 +1957,8 @@
       "category": "operator/developer command surface",
       "owner": "operator-ux",
       "management": "managed by Makefile command UX",
-      "size_bytes": 6072,
-      "line_count": 109,
+      "size_bytes": 3648,
+      "line_count": 64,
       "role": "shell-command",
       "review_note": "operator/developer command; expose through Makefile/help if user-facing"
     },
@@ -2012,8 +1968,8 @@
       "category": "operator/developer command surface",
       "owner": "operator-ux",
       "management": "managed by Makefile command UX",
-      "size_bytes": 18802,
-      "line_count": 467,
+      "size_bytes": 12231,
+      "line_count": 317,
       "role": "shell-command",
       "review_note": "operator/developer command; expose through Makefile/help if user-facing"
     },
@@ -2023,7 +1979,7 @@
       "category": "operator/developer command surface",
       "owner": "operator-ux",
       "management": "managed by Makefile command UX",
-      "size_bytes": 2954,
+      "size_bytes": 2956,
       "line_count": 49,
       "role": "shell-command",
       "review_note": "operator/developer command; expose through Makefile/help if user-facing"
@@ -2045,8 +2001,8 @@
       "category": "operator/developer command surface",
       "owner": "operator-ux",
       "management": "managed by Makefile command UX",
-      "size_bytes": 6632,
-      "line_count": 191,
+      "size_bytes": 5232,
+      "line_count": 158,
       "role": "shell-command",
       "review_note": "operator/developer command; expose through Makefile/help if user-facing"
     },
@@ -2056,8 +2012,8 @@
       "category": "operator/developer command surface",
       "owner": "operator-ux",
       "management": "managed by Makefile command UX",
-      "size_bytes": 11261,
-      "line_count": 256,
+      "size_bytes": 7889,
+      "line_count": 193,
       "role": "python-source",
       "review_note": "operator/developer command; expose through Makefile/help if user-facing"
     },
@@ -2078,8 +2034,8 @@
       "category": "operator/developer command surface",
       "owner": "operator-ux",
       "management": "managed by Makefile command UX",
-      "size_bytes": 16179,
-      "line_count": 382,
+      "size_bytes": 16121,
+      "line_count": 381,
       "role": "python-source",
       "review_note": "operator/developer command; expose through Makefile/help if user-facing"
     },
@@ -2168,17 +2124,6 @@
       "management": "managed by Makefile command UX",
       "size_bytes": 25252,
       "line_count": 551,
-      "role": "python-source",
-      "review_note": "operator/developer command; expose through Makefile/help if user-facing"
-    },
-    {
-      "path": "scripts/models/prepare_colbert_ko_vllm_artifact.py",
-      "area": "scripts",
-      "category": "operator/developer command surface",
-      "owner": "operator-ux",
-      "management": "managed by Makefile command UX",
-      "size_bytes": 4097,
-      "line_count": 115,
       "role": "python-source",
       "review_note": "operator/developer command; expose through Makefile/help if user-facing"
     },
@@ -2353,7 +2298,7 @@
       "category": "operator/developer command surface",
       "owner": "operator-ux",
       "management": "managed by Makefile command UX",
-      "size_bytes": 11696,
+      "size_bytes": 11648,
       "line_count": 284,
       "role": "python-source",
       "review_note": "operator/developer command; expose through Makefile/help if user-facing"
@@ -2491,17 +2436,6 @@
       "review_note": "operator/developer command; expose through Makefile/help if user-facing"
     },
     {
-      "path": "scripts/validation/colbert_parity_smoke.py",
-      "area": "scripts",
-      "category": "operator/developer command surface",
-      "owner": "operator-ux",
-      "management": "managed by Makefile command UX",
-      "size_bytes": 7302,
-      "line_count": 180,
-      "role": "python-source",
-      "review_note": "operator/developer command; expose through Makefile/help if user-facing"
-    },
-    {
       "path": "scripts/validation/openapi_snapshot_diff.py",
       "area": "scripts",
       "category": "operator/developer command surface",
@@ -2573,8 +2507,8 @@
       "category": "OpenAPI/JSON schema contract",
       "owner": "api-contracts",
       "management": "managed by root project metadata",
-      "size_bytes": 149531,
-      "line_count": 4073,
+      "size_bytes": 179874,
+      "line_count": 4930,
       "role": "structured-data",
       "review_note": "supporting project file"
     },
@@ -2584,7 +2518,7 @@
       "category": "OpenAPI/JSON schema contract",
       "owner": "api-contracts",
       "management": "managed by root project metadata",
-      "size_bytes": 57621,
+      "size_bytes": 58597,
       "line_count": 1641,
       "role": "structured-data",
       "review_note": "supporting project file"
@@ -2628,8 +2562,8 @@
       "category": "OpenAPI/JSON schema contract",
       "owner": "api-contracts",
       "management": "managed by root project metadata",
-      "size_bytes": 946,
-      "line_count": 29,
+      "size_bytes": 1470,
+      "line_count": 53,
       "role": "structured-data",
       "review_note": "supporting project file"
     },
@@ -2639,7 +2573,7 @@
       "category": "OpenAPI/JSON schema contract",
       "owner": "api-contracts",
       "management": "managed by root project metadata",
-      "size_bytes": 994,
+      "size_bytes": 1021,
       "line_count": 52,
       "role": "structured-data",
       "review_note": "supporting project file"
@@ -2650,8 +2584,8 @@
       "category": "OpenAPI/JSON schema contract",
       "owner": "api-contracts",
       "management": "managed by root project metadata",
-      "size_bytes": 2083,
-      "line_count": 76,
+      "size_bytes": 2035,
+      "line_count": 75,
       "role": "structured-data",
       "review_note": "supporting project file"
     },
@@ -2661,8 +2595,8 @@
       "category": "OpenAPI/JSON schema contract",
       "owner": "api-contracts",
       "management": "managed by root project metadata",
-      "size_bytes": 1511,
-      "line_count": 79,
+      "size_bytes": 1879,
+      "line_count": 95,
       "role": "structured-data",
       "review_note": "supporting project file"
     },
@@ -2672,8 +2606,8 @@
       "category": "OpenAPI/JSON schema contract",
       "owner": "api-contracts",
       "management": "managed by root project metadata",
-      "size_bytes": 1168,
-      "line_count": 53,
+      "size_bytes": 933,
+      "line_count": 43,
       "role": "structured-data",
       "review_note": "supporting project file"
     },
@@ -2683,7 +2617,7 @@
       "category": "OpenAPI/JSON schema contract",
       "owner": "api-contracts",
       "management": "managed by root project metadata",
-      "size_bytes": 787,
+      "size_bytes": 785,
       "line_count": 29,
       "role": "structured-data",
       "review_note": "supporting project file"
@@ -2694,8 +2628,8 @@
       "category": "OpenAPI/JSON schema contract",
       "owner": "api-contracts",
       "management": "managed by root project metadata",
-      "size_bytes": 1080,
-      "line_count": 48,
+      "size_bytes": 845,
+      "line_count": 38,
       "role": "structured-data",
       "review_note": "supporting project file"
     },
@@ -2705,30 +2639,8 @@
       "category": "OpenAPI/JSON schema contract",
       "owner": "api-contracts",
       "management": "managed by root project metadata",
-      "size_bytes": 697,
+      "size_bytes": 695,
       "line_count": 27,
-      "role": "structured-data",
-      "review_note": "supporting project file"
-    },
-    {
-      "path": "specs/schemas/retrieval_token_embeddings_request.schema.json",
-      "area": "specs",
-      "category": "OpenAPI/JSON schema contract",
-      "owner": "api-contracts",
-      "management": "managed by root project metadata",
-      "size_bytes": 965,
-      "line_count": 32,
-      "role": "structured-data",
-      "review_note": "supporting project file"
-    },
-    {
-      "path": "specs/schemas/retrieval_token_embeddings_response.schema.json",
-      "area": "specs",
-      "category": "OpenAPI/JSON schema contract",
-      "owner": "api-contracts",
-      "management": "managed by root project metadata",
-      "size_bytes": 809,
-      "line_count": 30,
       "role": "structured-data",
       "review_note": "supporting project file"
     },
@@ -2793,8 +2705,8 @@
       "category": "application/control-plane source",
       "owner": "application",
       "management": "managed by package source layout",
-      "size_bytes": 17546,
-      "line_count": 425,
+      "size_bytes": 15788,
+      "line_count": 390,
       "role": "python-source",
       "review_note": "application code; preserve public API behavior and compatibility facades"
     },
@@ -2826,7 +2738,7 @@
       "category": "application/control-plane source",
       "owner": "application",
       "management": "managed by package source layout",
-      "size_bytes": 3490,
+      "size_bytes": 3500,
       "line_count": 106,
       "role": "python-source",
       "review_note": "application code; preserve public API behavior and compatibility facades"
@@ -2837,8 +2749,8 @@
       "category": "application/control-plane source",
       "owner": "application",
       "management": "managed by package source layout",
-      "size_bytes": 1831,
-      "line_count": 57,
+      "size_bytes": 1313,
+      "line_count": 43,
       "role": "python-source",
       "review_note": "application code; preserve public API behavior and compatibility facades"
     },
@@ -2881,7 +2793,7 @@
       "category": "application/control-plane source",
       "owner": "application",
       "management": "managed by package source layout",
-      "size_bytes": 5608,
+      "size_bytes": 5570,
       "line_count": 126,
       "role": "python-source",
       "review_note": "application code; preserve public API behavior and compatibility facades"
@@ -2892,8 +2804,8 @@
       "category": "application/control-plane source",
       "owner": "application",
       "management": "managed by package source layout",
-      "size_bytes": 13905,
-      "line_count": 370,
+      "size_bytes": 14051,
+      "line_count": 371,
       "role": "python-source",
       "review_note": "application code; preserve public API behavior and compatibility facades"
     },
@@ -2925,8 +2837,8 @@
       "category": "application/control-plane source",
       "owner": "application",
       "management": "managed by package source layout",
-      "size_bytes": 6487,
-      "line_count": 147,
+      "size_bytes": 6615,
+      "line_count": 151,
       "role": "python-source",
       "review_note": "application code; preserve public API behavior and compatibility facades"
     },
@@ -2958,8 +2870,8 @@
       "category": "application/control-plane source",
       "owner": "api-contracts",
       "management": "managed by package source layout",
-      "size_bytes": 999,
-      "line_count": 27,
+      "size_bytes": 899,
+      "line_count": 25,
       "role": "python-source",
       "review_note": "application code; preserve public API behavior and compatibility facades"
     },
@@ -3013,8 +2925,8 @@
       "category": "application/control-plane source",
       "owner": "api-contracts",
       "management": "managed by package source layout",
-      "size_bytes": 1932,
-      "line_count": 59,
+      "size_bytes": 1696,
+      "line_count": 51,
       "role": "python-source",
       "review_note": "application code; preserve public API behavior and compatibility facades"
     },
@@ -3057,7 +2969,7 @@
       "category": "application/control-plane source",
       "owner": "domain-registry",
       "management": "managed by package source layout",
-      "size_bytes": 30031,
+      "size_bytes": 29990,
       "line_count": 703,
       "role": "python-source",
       "review_note": "registry/domain code; monitor size as projections grow"
@@ -3112,7 +3024,7 @@
       "category": "application/control-plane source",
       "owner": "governance-validation",
       "management": "managed by package source layout",
-      "size_bytes": 7827,
+      "size_bytes": 7829,
       "line_count": 203,
       "role": "python-source",
       "review_note": "application code; preserve public API behavior and compatibility facades"
@@ -3178,8 +3090,8 @@
       "category": "application/control-plane source",
       "owner": "governance-validation",
       "management": "managed by package source layout",
-      "size_bytes": 14886,
-      "line_count": 249,
+      "size_bytes": 14783,
+      "line_count": 247,
       "role": "python-source",
       "review_note": "application code; preserve public API behavior and compatibility facades"
     },
@@ -3299,19 +3211,8 @@
       "category": "application/control-plane source",
       "owner": "application",
       "management": "managed by package source layout",
-      "size_bytes": 332,
-      "line_count": 17,
-      "role": "python-source",
-      "review_note": "application code; preserve public API behavior and compatibility facades"
-    },
-    {
-      "path": "src/ai_model_serving/retrieval/colbert_reference.py",
-      "area": "src",
-      "category": "application/control-plane source",
-      "owner": "application",
-      "management": "managed by package source layout",
-      "size_bytes": 8165,
-      "line_count": 199,
+      "size_bytes": 60,
+      "line_count": 3,
       "role": "python-source",
       "review_note": "application code; preserve public API behavior and compatibility facades"
     },
@@ -3519,8 +3420,8 @@
       "category": "application/control-plane source",
       "owner": "application",
       "management": "managed by package source layout",
-      "size_bytes": 33486,
-      "line_count": 709,
+      "size_bytes": 23010,
+      "line_count": 482,
       "role": "python-source",
       "review_note": "application code; preserve public API behavior and compatibility facades"
     },
@@ -3552,8 +3453,8 @@
       "category": "application/control-plane source",
       "owner": "application",
       "management": "managed by package source layout",
-      "size_bytes": 10695,
-      "line_count": 242,
+      "size_bytes": 13904,
+      "line_count": 296,
       "role": "python-source",
       "review_note": "application code; preserve public API behavior and compatibility facades"
     },
@@ -3607,8 +3508,8 @@
       "category": "application/control-plane source",
       "owner": "application",
       "management": "managed by package source layout",
-      "size_bytes": 4515,
-      "line_count": 130,
+      "size_bytes": 6278,
+      "line_count": 166,
       "role": "python-source",
       "review_note": "application code; preserve public API behavior and compatibility facades"
     },
@@ -3657,61 +3558,6 @@
       "review_note": "application code; preserve public API behavior and compatibility facades"
     },
     {
-      "path": "src/ai_model_serving/vllm_colbert/__init__.py",
-      "area": "src",
-      "category": "application/control-plane source",
-      "owner": "application",
-      "management": "managed by package source layout",
-      "size_bytes": 49,
-      "line_count": 3,
-      "role": "python-source",
-      "review_note": "application code; preserve public API behavior and compatibility facades"
-    },
-    {
-      "path": "src/ai_model_serving/vllm_colbert/core.py",
-      "area": "src",
-      "category": "application/control-plane source",
-      "owner": "application",
-      "management": "managed by package source layout",
-      "size_bytes": 3368,
-      "line_count": 79,
-      "role": "python-source",
-      "review_note": "application code; preserve public API behavior and compatibility facades"
-    },
-    {
-      "path": "src/ai_model_serving/vllm_colbert/model.py",
-      "area": "src",
-      "category": "application/control-plane source",
-      "owner": "application",
-      "management": "managed by package source layout",
-      "size_bytes": 6504,
-      "line_count": 157,
-      "role": "python-source",
-      "review_note": "application code; preserve public API behavior and compatibility facades"
-    },
-    {
-      "path": "src/ai_model_serving/vllm_colbert/packing.py",
-      "area": "src",
-      "category": "application/control-plane source",
-      "owner": "application",
-      "management": "managed by package source layout",
-      "size_bytes": 2121,
-      "line_count": 54,
-      "role": "python-source",
-      "review_note": "application code; preserve public API behavior and compatibility facades"
-    },
-    {
-      "path": "src/ai_model_serving/vllm_colbert/plugin.py",
-      "area": "src",
-      "category": "application/control-plane source",
-      "owner": "application",
-      "management": "managed by package source layout",
-      "size_bytes": 564,
-      "line_count": 16,
-      "role": "python-source",
-      "review_note": "application code; preserve public API behavior and compatibility facades"
-    },
-    {
       "path": "tests/conftest.py",
       "area": "tests",
       "category": "test suite",
@@ -3750,8 +3596,8 @@
       "category": "test suite",
       "owner": "quality",
       "management": "managed by test strategy",
-      "size_bytes": 55732,
-      "line_count": 1102,
+      "size_bytes": 38607,
+      "line_count": 782,
       "role": "python-source",
       "review_note": "test coverage; keep deterministic and avoid live GPU dependency"
     },
@@ -3772,8 +3618,8 @@
       "category": "test suite",
       "owner": "quality",
       "management": "managed by test strategy",
-      "size_bytes": 3024,
-      "line_count": 68,
+      "size_bytes": 3132,
+      "line_count": 69,
       "role": "python-source",
       "review_note": "test coverage; keep deterministic and avoid live GPU dependency"
     },
@@ -3794,8 +3640,8 @@
       "category": "test suite",
       "owner": "quality",
       "management": "managed by test strategy",
-      "size_bytes": 21154,
-      "line_count": 411,
+      "size_bytes": 22098,
+      "line_count": 430,
       "role": "python-source",
       "review_note": "test coverage; keep deterministic and avoid live GPU dependency"
     },
@@ -3805,7 +3651,7 @@
       "category": "test suite",
       "owner": "quality",
       "management": "managed by test strategy",
-      "size_bytes": 11202,
+      "size_bytes": 11198,
       "line_count": 275,
       "role": "python-source",
       "review_note": "test coverage; keep deterministic and avoid live GPU dependency"
@@ -3827,7 +3673,7 @@
       "category": "test suite",
       "owner": "quality",
       "management": "managed by test strategy",
-      "size_bytes": 13590,
+      "size_bytes": 13588,
       "line_count": 259,
       "role": "python-source",
       "review_note": "test coverage; keep deterministic and avoid live GPU dependency"
@@ -3888,24 +3734,13 @@
       "review_note": "test coverage; keep deterministic and avoid live GPU dependency"
     },
     {
-      "path": "tests/unit/test_colbert_vllm_artifact.py",
-      "area": "tests",
-      "category": "test suite",
-      "owner": "quality",
-      "management": "managed by test strategy",
-      "size_bytes": 14933,
-      "line_count": 361,
-      "role": "python-source",
-      "review_note": "test coverage; keep deterministic and avoid live GPU dependency"
-    },
-    {
       "path": "tests/unit/test_endpoint_spec.py",
       "area": "tests",
       "category": "test suite",
       "owner": "quality",
       "management": "managed by test strategy",
-      "size_bytes": 14273,
-      "line_count": 341,
+      "size_bytes": 14068,
+      "line_count": 339,
       "role": "python-source",
       "review_note": "test coverage; keep deterministic and avoid live GPU dependency"
     },
@@ -3915,8 +3750,8 @@
       "category": "test suite",
       "owner": "quality",
       "management": "managed by test strategy",
-      "size_bytes": 86308,
-      "line_count": 2158,
+      "size_bytes": 84921,
+      "line_count": 2102,
       "role": "python-source",
       "review_note": "test coverage; keep deterministic and avoid live GPU dependency"
     },
@@ -3937,8 +3772,8 @@
       "category": "test suite",
       "owner": "quality",
       "management": "managed by test strategy",
-      "size_bytes": 8420,
-      "line_count": 173,
+      "size_bytes": 7619,
+      "line_count": 163,
       "role": "python-source",
       "review_note": "test coverage; keep deterministic and avoid live GPU dependency"
     },
@@ -4003,7 +3838,7 @@
       "category": "test suite",
       "owner": "quality",
       "management": "managed by test strategy",
-      "size_bytes": 17418,
+      "size_bytes": 17416,
       "line_count": 424,
       "role": "python-source",
       "review_note": "test coverage; keep deterministic and avoid live GPU dependency"
@@ -4014,7 +3849,7 @@
       "category": "test suite",
       "owner": "quality",
       "management": "managed by test strategy",
-      "size_bytes": 11306,
+      "size_bytes": 11304,
       "line_count": 268,
       "role": "python-source",
       "review_note": "test coverage; keep deterministic and avoid live GPU dependency"
@@ -4025,7 +3860,7 @@
       "category": "test suite",
       "owner": "quality",
       "management": "managed by test strategy",
-      "size_bytes": 8342,
+      "size_bytes": 8321,
       "line_count": 215,
       "role": "python-source",
       "review_note": "test coverage; keep deterministic and avoid live GPU dependency"

@@ -77,7 +77,7 @@ def _chat_request_parameters(policy: dict[str, Any], *, max_output_tokens: int |
 
 
 def _retrieval_request_parameters(policy: dict[str, Any]) -> dict[str, dict[str, Any]]:
-    """ColBERT-ko retrieval request에서 사용자가 직접 조정할 수 있는 parameter surface."""
+    """Retrieval request에서 사용자가 직접 조정할 수 있는 parameter surface."""
     supported = set(policy.get("supported_parameters", []))
     if not supported:
         return {}
@@ -169,7 +169,7 @@ def _embedding_request_parameters(policy: dict[str, Any]) -> dict[str, dict[str,
     return {name: definitions[name] for name in policy.get("supported_parameters", []) if name in definitions and name in supported}
 
 
-_RETRIEVAL_CAPABILITIES = frozenset({"retrieval_rerank", "retrieval_score", "retrieval_token_embeddings"})
+_RETRIEVAL_CAPABILITIES = frozenset({"retrieval_rerank", "retrieval_score"})
 
 
 def _request_parameter_surface(

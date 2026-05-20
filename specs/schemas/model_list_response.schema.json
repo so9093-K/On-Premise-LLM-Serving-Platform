@@ -29,7 +29,7 @@
             "enum": [
               "local-main",
               "local-embed",
-              "local-colbert-ko",
+              "local-embed-ko",
               "risk-prompt"
             ]
           },
@@ -51,7 +51,6 @@
                 "embeddings",
                 "retrieval_rerank",
                 "retrieval_score",
-                "retrieval_token_embeddings",
                 "risk.prompt_attack_signal"
               ]
             }

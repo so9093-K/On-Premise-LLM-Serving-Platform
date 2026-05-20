@@ -20,16 +20,15 @@ Gateway는 외부 애플리케이션의 단일 진입점이다.
 | `GET /v1/models` | 노출 모델 catalog. 로딩 상태는 필터링하지 않음 |
 | `POST /v1/chat/completions` | `local-main` chat completion |
 | `POST /v1/embeddings` | `local-embed` embedding |
-| `POST /v1/retrieval/rerank` | `local-colbert-ko` / `local-embed` retrieval rerank |
-| `POST /v1/retrieval/score` | `local-colbert-ko` / `local-embed` retrieval score (입력 순서 유지) |
-| `POST /v1/retrieval/token-embeddings` | `local-colbert-ko` token-level embedding 행렬 (admin) |
+| `POST /v1/retrieval/rerank` | `local-embed-ko` / `local-embed` retrieval rerank |
+| `POST /v1/retrieval/score` | `local-embed-ko` / `local-embed` retrieval score (입력 순서 유지) |
 | `POST /v1/risk/detectors/prompt/assessments` | prompt risk signal |
 | `POST /v1/risk/detectors/siren/assessments` | retired siren endpoint, 410 Gone |
 | `POST /v1/risk/assessments` | aggregate risk signal |
 
 사용자 API는 `Authorization: Bearer <API_KEY>`를 요구한다. admin endpoint가 보호되는 환경에서는 `Authorization: Bearer <ADMIN_API_KEY>`를 사용한다.
 
-`/v1/models`는 “계약상 노출되는 모델 목록”을 반환한다. vLLM이 아직 로딩 중이어도 enabled public model인 `local-main`, `local-embed`, `local-colbert-ko`, `risk-prompt`는 catalog에 남는다. 현재 호출 가능한 상태인지 보려면 `/ready`의 `phase`와 `not_ready_dependencies`를 확인한다.
+`/v1/models`는 “계약상 노출되는 모델 목록”을 반환한다. vLLM이 아직 로딩 중이어도 enabled public model인 `local-main`, `local-embed`, `local-embed-ko`, `risk-prompt`는 catalog에 남는다. 현재 호출 가능한 상태인지 보려면 `/ready`의 `phase`와 `not_ready_dependencies`를 확인한다.
 
 ## 사용자 조정 가능 파라미터
 
@@ -39,8 +38,10 @@ Gateway는 외부 애플리케이션의 단일 진입점이다.
 |---|---|---|
 | `local-main` | `temperature`, `max_tokens`, `top_p`, `top_k`, `min_p`, `presence_penalty`, `frequency_penalty`, `repetition_penalty`, `stop`, `seed`, `n`, `tools`, `tool_choice`, `parallel_tool_calls`, `stream`, `stream_options`, `reasoning`, `response_format`, `logprobs`, `top_logprobs`, `logit_bias` | `stream=true`는 SSE relay fast path로 지원하고 `stream_options.include_usage`는 `stream=true`와 함께 사용할 때 upstream이 지원하는 최종 usage chunk를 요청한다. `n`은 `1`만 허용. tool call은 Gemma4 parser 설정 범위에서만 허용. `reasoning=true`는 요청별 Gemma4 thinking opt-in이다 |
 | `local-embed` | `dimensions`, `encoding_format`, `truncate_prompt_tokens`, `user` | `dimensions`는 `768`, `512`, `256`, `128` 중 하나. `encoding_format`은 `float`로 고정. `user`는 OpenAI API 호환용 optional 식별자 — Gateway에서 accept하지만 metric label로 사용하지 않는다. token-array input과 base64 encoding_format은 smoke 미검증으로 지원하지 않는다. |
-| `local-colbert-ko` | `score_mode`, `top_n`, `max_tokens_per_query`, `max_tokens_per_doc`, `truncate_prompt_tokens`, `truncation_side` | `/v1/retrieval/rerank`와 `/v1/retrieval/score` 전용. `score_mode`는 `late_interaction_maxsim` 고정. `top_n`은 rerank 전용(score에서 422). runtime 고정값(`dtype`, `pooler_task` 등)은 `fixed_parameters`로 노출되며 사용자 변경 불가. |
+| `local-embed-ko` | `dimensions`, `encoding_format`, `truncate_prompt_tokens`, `user` | Korean dense retrieval 기본 모델. `dimensions`는 `1024` 고정이며 retrieval은 `dense_cosine`만 지원한다. `user`는 Gateway에서 accept하지만 upstream에는 전달하지 않는다. |
 | `risk-prompt` | 없음 | risk API는 `prompt`만 입력받고 detector parameter는 adapter가 `fixed_parameters`로 고정 |
+
+Retrieval 기본 모델은 `local-embed-ko`다. `model`을 생략하면 `local-embed-ko`, `score_mode`를 생략하면 `dense_cosine`을 사용한다. 기존 late-interaction runtime은 유지보수 비용, token-level 응답 크기, 전용 artifact 운영 복잡도를 줄이기 위해 제거했다.
 
 `request_parameters`는 prompt/messages/input 같은 필수 입력 본문을 뜻하지 않는다. 필수 입력은 각 request schema(`chat_completion_request`, `embedding_request`, `risk_assessment_request`)를 따른다. serving/runtime 하이퍼파라미터(`gpu_memory_utilization`, `max_model_len`, `max_num_seqs`, quantization 등)는 사용자 API에서 조정할 수 없고 운영자 config로만 변경한다. `local-main`의 RedHatAI FP8 Dynamic checkpoint는 model config의 `compressed-tensors` quantization metadata를 따르며, Gateway request parameter로 노출하지 않는다.
 
@@ -76,7 +77,6 @@ SDK/client generation을 위해 주요 route에 명시적 `operation_id`가 지�
 | `createEmbedding` | POST | `/v1/embeddings` | Gateway |
 | `rerankDocuments` | POST | `/v1/retrieval/rerank` | Gateway |
 | `scoreDocuments` | POST | `/v1/retrieval/score` | Gateway |
-| `getTokenEmbeddings` | POST | `/v1/retrieval/token-embeddings` | Gateway |
 | `assessPromptRisk` | POST | `/v1/risk/detectors/prompt/assessments` | Gateway |
 | `assessRetiredSirenRisk` | POST | `/v1/risk/detectors/siren/assessments` | Gateway |
 | `assessRisk` | POST | `/v1/risk/assessments` | Gateway |

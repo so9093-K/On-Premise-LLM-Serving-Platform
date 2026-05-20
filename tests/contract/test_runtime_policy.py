@@ -104,7 +104,7 @@ def test_common_error_codes_are_enumerated() -> None:
 def test_model_catalog_and_model_contracts_are_cross_checked() -> None:
     catalog = yaml.safe_load((ROOT / 'configs/model_catalog.yaml').read_text(encoding='utf-8'))['models']
     contracts = yaml.safe_load((ROOT / 'contracts/model_contracts.yaml').read_text(encoding='utf-8'))['models']
-    assert set(contracts) == set(catalog) == {'local-main', 'local-embed', 'local-colbert-ko', 'risk-prompt'}
+    assert set(contracts) == set(catalog) == {'local-main', 'local-embed', 'local-embed-ko', 'risk-prompt'}
     for logical_id, cfg in catalog.items():
         runtime = cfg['runtime']
         assert contracts[logical_id]['port'] == runtime['port']

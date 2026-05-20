@@ -36,6 +36,14 @@ def test_package_script_excludes_virtualenv_directories() -> None:
         assert dirname in package_script
 
 
+def test_package_script_excludes_agent_and_tool_private_directories() -> None:
+    package_script = (ROOT / 'scripts/build/package_release.sh').read_text(encoding='utf-8')
+    for dirname in ["'.other'", "'.agents'", "'.codex'", "'.claude'", "'.cursor'"]:
+        assert dirname in package_script
+    assert "forbidden_release_dirs" in package_script
+    assert "Release ZIP contains forbidden tool/private directory" in package_script
+
+
 def test_package_script_self_checks_inventory_against_zip() -> None:
     package_script = (ROOT / 'scripts/build/package_release.sh').read_text(encoding='utf-8')
     assert 'project_inventory_current.csv' in package_script
@@ -197,6 +205,17 @@ def test_release_zip_hygiene_forbids_runtime_secret_directory_when_present() -> 
     with zipfile.ZipFile(package) as zf:
         names = zf.namelist()
     assert not any('/.runtime/' in name or name.startswith('ai_model_serving_platform/.runtime/') for name in names)
+
+
+def test_release_zip_hygiene_forbids_agent_and_tool_dirs_when_present() -> None:
+    version = (ROOT / 'VERSION').read_text(encoding='utf-8').strip()
+    package = ROOT / 'dist' / f'ai_model_serving_platform_{version}.zip'
+    if not package.exists():
+        return
+    with zipfile.ZipFile(package) as zf:
+        names = zf.namelist()
+    forbidden = ["/.other/", "/.agents/", "/.codex/", "/.claude/", "/.cursor/"]
+    assert not any(any(fragment in name for fragment in forbidden) for name in names)
 
 
 def test_make_package_runs_static_validation_before_zipping() -> None:

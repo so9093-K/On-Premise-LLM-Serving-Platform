@@ -17,7 +17,6 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from ai_model_serving.domain import ModelRegistry
 COMPOSE_PATH = ROOT / "ops/compose/full-stack.private-network.yaml"
-LOCAL_BUILD_COMPOSE_PATH = ROOT / "ops/compose/full-stack.local-build.yaml"
 SERVING_PATH = ROOT / "configs/model_serving.yaml"
 CATALOG_PATH = ROOT / "configs/model_catalog.yaml"
 GPU_BUDGETS_PATH = ROOT / "configs/gpu_budgets.yaml"
@@ -77,7 +76,6 @@ def as_float(value: object, field: str, service: str) -> float:
 
 
 _LOCAL_ONLY_IMAGE_PREFIXES = (
-    "ai-model-serving-colbert-ko-vllm:",
     "ai-model-serving-platform:",
     "ai-model-serving-risk-vllm-kanana:",
 )
@@ -102,42 +100,6 @@ def validate_production_compose_image_policy() -> list[str]:
                 f"ops/compose/full-stack.local-build.yaml."
             )
 
-    # Detect colbert-ko-vllm image with :- fallback (local-only tag) by scanning the raw
-    # text for the specific variable pattern.  We check the raw text rather than the parsed
-    # value because docker compose variable substitution is not evaluated by PyYAML.
-    if "COLBERT_KO_VLLM_IMAGE:-" in raw:
-        errors.append(
-            "ops/compose/full-stack.private-network.yaml: COLBERT_KO_VLLM_IMAGE uses :- fallback "
-            "with a local-only image tag. Production compose must use "
-            "${COLBERT_KO_VLLM_IMAGE:?Set COLBERT_KO_VLLM_IMAGE to a tested ColBERT-ko vLLM image tag}."
-        )
-
-    if "COLBERT_KO_MODEL_DIR:-" in raw:
-        errors.append(
-            "ops/compose/full-stack.private-network.yaml: COLBERT_KO_MODEL_DIR uses :- fallback "
-            "with a relative path. Production compose must use "
-            "${COLBERT_KO_MODEL_DIR:?Set COLBERT_KO_MODEL_DIR to prepared ColBERT-ko artifact directory}."
-        )
-
-    return errors
-
-
-def validate_local_build_override_has_build_block() -> list[str]:
-    """Ensure the local-build override actually contains a build block for colbert-ko-vllm."""
-    errors: list[str] = []
-    if not LOCAL_BUILD_COMPOSE_PATH.exists():
-        errors.append(
-            f"{LOCAL_BUILD_COMPOSE_PATH.name} does not exist. "
-            f"Create ops/compose/full-stack.local-build.yaml with a build block for colbert-ko-vllm."
-        )
-        return errors
-
-    compose = load_yaml(LOCAL_BUILD_COMPOSE_PATH)
-    colbert = compose.get("services", {}).get("colbert-ko-vllm", {})
-    if "build" not in colbert:
-        errors.append(
-            "ops/compose/full-stack.local-build.yaml: colbert-ko-vllm service must have a 'build' block."
-        )
     return errors
 
 
@@ -153,7 +115,6 @@ def validate_alignment() -> None:
     total_gpu_util = 0.0
 
     errors.extend(validate_production_compose_image_policy())
-    errors.extend(validate_local_build_override_has_build_block())
 
     for runtime in registry.iter_runtime_services():
         if runtime.backend != "vllm":
@@ -190,30 +151,6 @@ def validate_alignment() -> None:
 
         if cfg.get("runner") == "pooling" and str(args.get("runner")) != "pooling":
             errors.append(f"{service_name}: embedding service must use --runner pooling")
-        if runtime.logical_id == "local-colbert-ko":
-            if args.get("model") == runtime.upstream_model_id:
-                errors.append(f"{service_name}: must not pass the non-loadable Hugging Face repo root as --model")
-            actual_dtype = str(args.get("dtype"))
-            expected_dtype = str(cfg.get("dtype"))
-            requested_dtype = os.environ.get("COLBERT_KO_DTYPE")
-            if actual_dtype != expected_dtype:
-                errors.append(
-                    f"{service_name}: --dtype={actual_dtype} must match v0.0.1 production policy "
-                    f"{expected_dtype}"
-                )
-            if requested_dtype and requested_dtype != expected_dtype:
-                errors.append(
-                    f"{service_name}: COLBERT_KO_DTYPE={requested_dtype} is not supported by the "
-                    f"v0.0.1 production compose profile; use {expected_dtype}. "
-                    "bfloat16 requires a separately validated runtime profile; float16 is forbidden."
-                )
-            for key in ["tokenizer", "convert"]:
-                if str(args.get(key)) != str(cfg.get(key)):
-                    errors.append(f"{service_name}: --{key} must match ColBERT vLLM native config")
-            pooler_task = args.get("pooler_config.task")
-            if pooler_task != "token_embed":
-                errors.append(f"{service_name}: ColBERT late interaction requires --pooler-config.task token_embed")
-
         max_model_len = as_int(args.get("max_model_len"), "max_model_len", service_name)
         max_batched = as_int(args.get("max_num_batched_tokens"), "max_num_batched_tokens", service_name)
         runner = args.get("runner", cfg.get("runner"))

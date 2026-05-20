@@ -461,12 +461,12 @@
       },
       "targets": [
         {
-          "expr": "sum(increase(container_oom_events_total{container_label_com_docker_compose_service=~\"gateway|risk-adapter|main-llm-vllm|embedding-vllm|colbert-ko-vllm|risk-prompt-vllm\"}[$window]))",
+          "expr": "sum(increase(container_oom_events_total{container_label_com_docker_compose_service=~\"gateway|risk-adapter|main-llm-vllm|embedding-vllm|embedding-ko-vllm|risk-prompt-vllm\"}[$window]))",
           "refId": "A",
           "legendFormat": "oom events"
         },
         {
-          "expr": "sum(changes(container_start_time_seconds{container_label_com_docker_compose_service=~\"gateway|risk-adapter|main-llm-vllm|embedding-vllm|colbert-ko-vllm|risk-prompt-vllm\"}[$window]))",
+          "expr": "sum(changes(container_start_time_seconds{container_label_com_docker_compose_service=~\"gateway|risk-adapter|main-llm-vllm|embedding-vllm|embedding-ko-vllm|risk-prompt-vllm\"}[$window]))",
           "refId": "B",
           "legendFormat": "restart signals"
         }
@@ -583,7 +583,7 @@
           "legendFormat": "Min GPU Headroom (bytes)"
         },
         {
-          "expr": "label_replace(label_replace((sum(increase(container_oom_events_total{container_label_com_docker_compose_service=~\"gateway|risk-adapter|main-llm-vllm|embedding-vllm|colbert-ko-vllm|risk-prompt-vllm\"}[$__range])) or vector(0)), \"area\", \"OOM / Restart\", \"\", \"\"), \"suggested_action\", \"Open: GPU Capacity and OOM Risk\", \"\", \"\")",
+          "expr": "label_replace(label_replace((sum(increase(container_oom_events_total{container_label_com_docker_compose_service=~\"gateway|risk-adapter|main-llm-vllm|embedding-vllm|embedding-ko-vllm|risk-prompt-vllm\"}[$__range])) or vector(0)), \"area\", \"OOM / Restart\", \"\", \"\"), \"suggested_action\", \"Open: GPU Capacity and OOM Risk\", \"\", \"\")",
           "instant": true,
           "refId": "C",
           "legendFormat": "OOM / Restart Events"
@@ -937,12 +937,12 @@
       },
       "targets": [
         {
-          "expr": "sum(increase(container_oom_events_total{container_label_com_docker_compose_service=~\"gateway|risk-adapter|main-llm-vllm|embedding-vllm|colbert-ko-vllm|risk-prompt-vllm\"}[$__range]))",
+          "expr": "sum(increase(container_oom_events_total{container_label_com_docker_compose_service=~\"gateway|risk-adapter|main-llm-vllm|embedding-vllm|embedding-ko-vllm|risk-prompt-vllm\"}[$__range]))",
           "refId": "A",
           "legendFormat": "oom events"
         },
         {
-          "expr": "sum(changes(container_start_time_seconds{container_label_com_docker_compose_service=~\"gateway|risk-adapter|main-llm-vllm|embedding-vllm|colbert-ko-vllm|risk-prompt-vllm\"}[$__range]))",
+          "expr": "sum(changes(container_start_time_seconds{container_label_com_docker_compose_service=~\"gateway|risk-adapter|main-llm-vllm|embedding-vllm|embedding-ko-vllm|risk-prompt-vllm\"}[$__range]))",
           "refId": "B",
           "legendFormat": "restart signals"
         }
@@ -1307,7 +1307,7 @@
         "multi": true,
         "name": "runtime_service",
         "options": [],
-        "query": "main-llm-vllm,embedding-vllm,colbert-ko-vllm,risk-prompt-vllm",
+        "query": "main-llm-vllm,embedding-vllm,embedding-ko-vllm,risk-prompt-vllm",
         "type": "custom"
       },
       {

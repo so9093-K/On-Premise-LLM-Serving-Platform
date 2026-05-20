@@ -24,7 +24,7 @@ fi
 echo "[diagnostics] docker compose ps"
 docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" ps || true
 
-services=(gateway risk-adapter main-llm-vllm embedding-vllm colbert-ko-vllm risk-prompt-vllm prometheus grafana dcgm-exporter cadvisor)
+services=(gateway risk-adapter main-llm-vllm embedding-vllm embedding-ko-vllm risk-prompt-vllm prometheus grafana dcgm-exporter cadvisor)
 for service in "${services[@]}"; do
   echo
   echo "[diagnostics] logs --tail=${TAIL_LINES} ${service}"

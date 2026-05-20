@@ -49,7 +49,6 @@ _EndpointSpec 레지스트리에서 자동 생성. 수정 시 `endpoint_spec.py`
 | `POST` | `/v1/risk/assessments` | stable | `public_api` | `risk_assessment_request.schema.json` ✓ | `risk_assessment_response.schema.json` ✓ | `assessRisk` |
 | `POST` | `/v1/retrieval/rerank` | stable | `public_api` | `retrieval_rerank_request.schema.json` ✓ | `retrieval_rerank_response.schema.json` ✓ | `rerankDocuments` |
 | `POST` | `/v1/retrieval/score` | stable | `public_api` | `retrieval_score_request.schema.json` ✓ | `retrieval_score_response.schema.json` ✓ | `scoreDocuments` |
-| `POST` | `/v1/retrieval/token-embeddings` | stable | `admin` | `retrieval_token_embeddings_request.schema.json` ✓ | `retrieval_token_embeddings_response.schema.json` ✓ | `getTokenEmbeddings` |
 
 #### Risk Adapter (port 9405, compose 내부 전용)
 
@@ -77,22 +76,21 @@ Admin endpoints는 `Authorization: Bearer <ADMIN_API_KEY>` 필요.
 |---|---|---|
 | `local-main` | sampling, token limit, seed, stop, `n`(1 고정), tool-call 관련 parameter, `stream`, `stream_options`, `response_format`, `logprobs`, `top_logprobs`, `logit_bias` | runtime/serving 하이퍼파라미터 |
 | `local-embed` | `dimensions`, `encoding_format`, `truncate_prompt_tokens` | runtime/serving 하이퍼파라미터 |
-| `local-colbert-ko` | `score_mode`(고정 enum), `top_n`(rerank 전용, 1–32), `max_tokens_per_query`(1–128, 기본 128), `max_tokens_per_doc`(32–1024, 기본 192), `truncate_prompt_tokens`(-1 또는 1–2048), `truncation_side`(left/right, 기본 right) | `dtype=float32`, `pooler_task=token_embed`, `score_function=maxsim`, runtime/model artifact 하이퍼파라미터, projection head |
+| `local-embed-ko` | `encoding_format`, `truncate_prompt_tokens`(-1 또는 1–2048), `user` | `dimensions`(1024 고정), runtime/serving 하이퍼파라미터 |
 | `risk-prompt` | 없음. `prompt` 입력만 받음 | detector sampling parameter는 adapter가 고정 |
 
 클라이언트가 모델 선택 UI를 만든다면 `/v1/models`의 `capabilities`와 `request_parameters`를 함께 사용한다. `fixed_parameters`가 있으면 내부 adapter/runtime이 고정하는 값이므로 사용자 입력 form으로 노출하지 않는다.
 
 ### Retrieval API mode
 
-`/v1/embeddings`는 계속 `local-embed` dense embedding 전용 OpenAI-compatible API다. ColBERT-ko는 이 endpoint의 대체재가 아니라 `/v1/retrieval/*` backend다.
+`/v1/embeddings`는 계속 `local-embed` dense embedding 전용 OpenAI-compatible API다. Dense retrieval-ko는 이 endpoint의 대체재가 아니라 `/v1/retrieval/*` backend다.
 
-| Endpoint | `local-embed` | `local-colbert-ko` |
+| Endpoint | `local-embed` | `local-embed-ko` |
 |---|---|---|
-| `/v1/retrieval/rerank` | dense cosine, `score_mode=dense_cosine` | ColBERT MaxSim, `score_mode=late_interaction_maxsim` |
-| `/v1/retrieval/score` | dense cosine, 입력 순서 유지 | ColBERT MaxSim, 입력 순서 유지 |
-| `/v1/retrieval/token-embeddings` | 지원 안 함, 422 `model_capability_mismatch` | token-level embedding matrix, admin/indexing용 |
+| `/v1/retrieval/rerank` | dense cosine, `score_mode=dense_cosine` | dense cosine, `score_mode=dense_cosine` |
+| `/v1/retrieval/score` | dense cosine, 입력 순서 유지 | dense cosine, 입력 순서 유지 |
 
-`local-colbert-ko` production backend는 `colbert-ko-vllm` vLLM native runtime(포트 9404)이다. 준비된 artifact는 `encoder/`, `tokenizer/`, `proj.pt`를 포함해야 하며, encoder-only vLLM smoke는 production 완료로 보지 않는다. Reference adapter는 ranking parity oracle, fallback, debug 용도로만 유지한다.
+`local-embed-ko` production backend는 `embedding-ko-vllm` vLLM native runtime(포트 9406)이다. `dragonkue/snowflake-arctic-embed-l-v2.0-ko` 기반 SentenceTransformer pooling runner로 동작하며 dimension은 1024 고정이다. retrieval 기본 모델이며 model 파라미터 생략 시 자동 선택된다.
 
 ---
 
