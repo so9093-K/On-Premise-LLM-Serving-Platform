@@ -10,7 +10,7 @@
 |---|---|
 | Gateway `:9400` | `/v1/chat/completions`, `/v1/embeddings`, `/v1/risk/*`의 public entrypoint |
 | Risk Adapter `:9405` | risk detector 결과를 signal-only schema로 정규화 |
-| vLLM runtimes `9401–9403` | main, embedding, prompt-risk 모델 runtime |
+| vLLM runtimes | `main-llm-vllm:9401`, `embedding-vllm:9402`, `embedding-ko-vllm:9406`, `risk-prompt-vllm:9403` 모델 runtime |
 | Prometheus/Grafana | runtime·GPU·risk signal 운영 관측 |
 | Infisical | 선택 사항. `.env` 시크릿을 웹 UI로 관리하고 싶을 때만 사용 |
 
@@ -251,5 +251,5 @@ make package
 ## 노출 정책과 runtime 검증 설정
 
 - Admin, metrics, docs 노출 정책은 [`admin_metrics_docs_exposure_policy.md`](admin_metrics_docs_exposure_policy.md)를 기준으로 본다.
-- `runtime_validation.py`의 host URL/env 우선순위는 [`runtime_validation_workplan.md#설정-우선순위`](runtime_validation_workplan.md#설정-우선순위)를 기준으로 본다.
+- `runtime_validation.py`의 host URL/env 우선순위는 [`runtime_validation_operations.md#설정-우선순위`](runtime_validation_operations.md#설정-우선순위)를 기준으로 본다.
 - 패키징 전 generated report는 `make package`가 `make refresh-generated-reports`를 먼저 실행해 current report drift를 줄인다.

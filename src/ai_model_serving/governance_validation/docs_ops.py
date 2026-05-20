@@ -154,7 +154,7 @@ def validate_monitoring_reference() -> None:
         raise SystemExit('endpoint reference must not document low-traffic-skewed rate/clamp error ratio')
     if 'allowUiUpdates=false' not in endpoint_doc:
         raise SystemExit('endpoint reference must document Git-managed Grafana allowUiUpdates=false policy')
-    status_doc = (ROOT / 'docs/operations/status_board_ux.md').read_text(encoding='utf-8')
+    status_doc = (ROOT / 'docs/operations/grafana_status_board.md').read_text(encoding='utf-8')
     for phrase in ['지금 요청을 안전하게 처리할 수 있는가?', 'Overall Status', 'Action Required', 'No Runtime Data', 'make operator-status', 'operator_status_bundle.json']:
         if phrase not in status_doc:
             raise SystemExit(f'status board UX doc missing phrase: {phrase}')
@@ -361,7 +361,7 @@ def validate_build_ux_roles() -> None:
         'docs/operations/first_project_guide.md': '처음 프로젝트를 받았을 때 전체 가이드',
         'docs/operations/configuration_lifecycle.md': '통합 설정·관리·빌드·제거 UX',
         'docs/operations/storage_paths.md': 'configs/storage_paths.yaml',
-        'docs/operations/project_management_ux.md': 'make project-inventory',
+        'docs/operations/project_management_workflow.md': 'make project-inventory',
     }.items():
         if phrase not in (ROOT / doc_path).read_text(encoding='utf-8'):
             raise SystemExit(f'{doc_path} missing UX guide phrase: {phrase}')
@@ -449,7 +449,7 @@ def validate_storage_path_management() -> None:
         raise SystemExit('Makefile must expose storage-paths target')
     if 'project-inventory:' not in makefile or 'scripts/reports/project_inventory_report.py' not in makefile:
         raise SystemExit('Makefile must expose project-inventory target')
-    project_mgmt_doc = (ROOT / 'docs/operations/project_management_ux.md').read_text(encoding='utf-8')
+    project_mgmt_doc = (ROOT / 'docs/operations/project_management_workflow.md').read_text(encoding='utf-8')
     for phrase in ['make project-inventory', 'reports/refactor/project_inventory_current', 'make operator-reports', 'make release-check']:
         if phrase not in project_mgmt_doc:
             raise SystemExit(f'project management UX doc missing phrase: {phrase}')

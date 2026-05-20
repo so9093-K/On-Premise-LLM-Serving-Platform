@@ -10,7 +10,7 @@ Command:
 
 이 리포트는 현재 source tree에서 생성되며 로컬 runtime/cache/build 디렉터리는 제외한다.
 
-- 검토 파일 수: **338**
+- 검토 파일 수: **340**
 - CSV matrix: `reports/refactor/project_inventory_current.csv`
 - JSON matrix: `reports/refactor/project_inventory_current.json`
 
@@ -47,8 +47,8 @@ Command:
 | `requirements.runtime.lock` | 1 |
 | `scripts` | 63 |
 | `specs` | 15 |
-| `src` | 81 |
-| `tests` | 31 |
+| `src` | 80 |
+| `tests` | 34 |
 | `version_manifest.json` | 1 |
 
 ## 주요 진입점
@@ -58,7 +58,7 @@ Command:
 - `docs/operations/configuration_lifecycle.md`
 - `docs/operations/day0_quickstart.md`
 - `docs/operations/operator_workflows.md`
-- `docs/operations/project_management_ux.md`
+- `docs/operations/project_management_workflow.md`
 - `docs/operations/storage_paths.md`
 - `docs/release/release_checklist.md`
 - `reports/refactor/current_refactor_state.md`
@@ -68,7 +68,7 @@ Command:
 | 경로 | 줄 수 | 담당 | 검토 메모 |
 |---|---:|---|---|
 | `specs/openapi.gateway.yaml` | 4930 | api-contracts | supporting project file |
-| `reports/refactor/project_inventory_current.json` | 3980 | handoff-reporting | handoff/review artifact; avoid stale phase snapshots in active package |
+| `reports/refactor/project_inventory_current.json` | 4002 | handoff-reporting | handoff/review artifact; avoid stale phase snapshots in active package |
 | `tests/unit/test_gateway_app.py` | 2204 | quality | test coverage; keep deterministic and avoid live GPU dependency |
 | `specs/openapi.risk-adapter.yaml` | 1641 | api-contracts | supporting project file |
 | `ops/grafana/dashboards/serving_home.json` | 1398 | operations | supporting project file |

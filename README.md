@@ -338,7 +338,7 @@ make runtime-validate
 | 모니터링 UX | `docs/operations/monitoring_ux.md` |
 | 서비스 URL·endpoint·모니터링 주소 | `docs/operations/endpoint_reference.md` |
 | 모델 파라미터 | `docs/operations/model_parameter_discovery.md` |
-| runtime validation URL/env 우선순위 | `docs/operations/runtime_validation_workplan.md#설정-우선순위` |
+| runtime validation URL/env 우선순위 | `docs/operations/runtime_validation_operations.md#설정-우선순위` |
 | 장애 진단 | `docs/operations/full_stack_troubleshooting.md` |
 | 설정·관리·빌드·제거 통합 UX | `docs/operations/configuration_lifecycle.md` |
 | 로컬 저장 경로·모델 캐시 위치 | `docs/operations/storage_paths.md` |
@@ -354,7 +354,7 @@ make runtime-validate
 | 결정 기록(ADR) | `docs/02_decision_register.md` |
 | 문서 관리 정책 | `docs/governance/document_management.md` |
 
-문서 역할은 `docs/README.md`와 `docs/manifest.yaml`을 기준으로 관리한다. ADR의 canonical 위치는 `docs/adr/`, 긴 내부 changelog는 `docs/archive/changelog/`, generated evidence는 `reports/runtime/`, 실행 가능한 sample payload/script는 root `examples/`다.
+문서 역할은 `docs/README.md`와 `docs/manifest.yaml`을 기준으로 관리한다. ADR의 canonical 위치는 `docs/adr/`, 긴 내부 changelog는 `docs/archive/changelog/`, generated evidence는 `reports/runtime/`, 실행 가능한 sample payload/script가 추가되면 root `examples/`에 둔다.
 
 ---
 

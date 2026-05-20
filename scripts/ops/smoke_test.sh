@@ -128,7 +128,7 @@ elif check == "ready":
 elif check == "models":
     require(doc.get("object") == "list", "object must be list")
     ids = {item.get("id") for item in doc.get("data", [])}
-    require({"local-main", "local-embed", "risk-prompt"}.issubset(ids), "missing logical model id")
+    require({"local-main", "local-embed", "local-embed-ko", "risk-prompt"}.issubset(ids), "missing logical model id")
 elif check == "risk":
     require(doc.get("assessment_id"), "assessment_id is required")
     require(doc.get("status") in {"completed", "partial", "failed"}, "invalid risk status")
@@ -183,6 +183,10 @@ assert_json chat
 
 post_json embedding "$GATEWAY_BASE_URL/v1/embeddings" \
   '{"model":"local-embed","input":["smoke test embedding"]}'
+assert_json embedding
+
+post_json embedding-ko "$GATEWAY_BASE_URL/v1/embeddings" \
+  '{"model":"local-embed-ko","input":["smoke test Korean retrieval embedding"]}'
 assert_json embedding
 
 echo "smoke tests completed"

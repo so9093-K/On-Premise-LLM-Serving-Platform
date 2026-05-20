@@ -11,7 +11,7 @@ DOC_PATHS = [
     ROOT / "docs/README.md",
     ROOT / "docs/operations/auth_control_plane.md",
     ROOT / "docs/operations/risk_vllm_patch_lifecycle.md",
-    ROOT / "docs/operations/project_state_maintainability_review.md",
+    ROOT / "docs/operations/project_maintainability_status.md",
     ROOT / "reports/refactor/current_handoff_summary.md",
     ROOT / "reports/refactor/current_refactor_state.md",
     ROOT / "reports/runtime/operator_status_bundle.md",

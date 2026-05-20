@@ -79,10 +79,11 @@ port_owned_by_compose() {
   return 1
 }
 
-# Check only host-published ports. vLLM runtime ports 9401-9403 are internal
-# compose-network ports (`expose`), so another local host process on those ports
-# does not block the full-stack compose deployment. Monitoring ports must follow
-# .env/configured host port overrides rather than being hard-coded here.
+# Check only host-published ports. vLLM runtime ports from configs/ports.yaml
+# (9401, 9402, 9403, 9406) are compose-network `expose` ports, so another
+# local host process on those ports does not block the full-stack deployment.
+# Monitoring ports must follow .env/configured host port overrides rather than
+# being hard-coded here.
 host_published_ports=(
   "${GATEWAY_PORT:-9400}"
   "${RISK_ADAPTER_PORT:-9405}"

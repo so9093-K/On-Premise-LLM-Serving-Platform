@@ -1,4 +1,4 @@
-# 상태 보드 UX
+# Grafana 상태 보드
 
 상태 보드는 운영자가 Grafana 첫 화면인 `GPU Capacity and OOM Risk`에서 GPU headroom, VRAM, utilization, OOM/restart, KV cache를 즉시 판단하도록 구성한다. 트리아지(verdict, evidence, Needs Attention)는 `serving_home` drill-down에서 확인한다.
 

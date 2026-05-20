@@ -10,7 +10,7 @@
 |---|---|---|
 | **source** | `docs/` | 사람이 읽는 상세 문서의 단일 홈 |
 | **decision** | `docs/adr/` | canonical Architectural Decision Records |
-| **examples** | `docs/examples/` | 설명형 API examples. 실행 payload는 root `examples/`에 둔다 |
+| **examples** | `docs/examples/` | 설명형 API examples. 실행 가능한 sample payload가 추가되면 root `examples/`에 둔다 |
 | **archive** | `docs/archive/` | historical context. 현재 운영 기준으로 쓰지 않는다 |
 | **generated** | `reports/runtime/` | 스크립트가 생성하는 runtime evidence. 직접 수정하지 않는다 |
 | **handoff** | `reports/refactor/current_*`, `reports/refactor/project_inventory_current.*` | 현재 상태/handoff/inventory artifact |
@@ -28,10 +28,10 @@
 | 전체 초기화·재빌드를 하고 싶다 | [operations/day0_quickstart.md §4](operations/day0_quickstart.md#4-전체-초기화--재빌드-ux) |
 | **시크릿·API 토큰을 웹 UI로 관리하고 싶다** | [operations/day0_quickstart.md §6](operations/day0_quickstart.md#6-시크릿-관리-infisical-선택) |
 | 인증·admin/metrics/docs 노출 정책을 보고 싶다 | [operations/auth_control_plane.md](operations/auth_control_plane.md), [operations/admin_metrics_docs_exposure_policy.md](operations/admin_metrics_docs_exposure_policy.md) |
-| runtime validation URL/env 우선순위를 확인하고 싶다 | [operations/runtime_validation_workplan.md#설정-우선순위](operations/runtime_validation_workplan.md#설정-우선순위) |
+| runtime validation URL/env 우선순위를 확인하고 싶다 | [operations/runtime_validation_operations.md#설정-우선순위](operations/runtime_validation_operations.md#설정-우선순위) |
 | 상황별 명령을 고르고 싶다 | [operations/operator_workflows.md](operations/operator_workflows.md) |
 | 통합 설정·관리·빌드·제거 흐름을 보고 싶다 | [operations/configuration_lifecycle.md](operations/configuration_lifecycle.md) |
-| 통합 프로젝트 관리 UX를 보고 싶다 | [operations/project_management_ux.md](operations/project_management_ux.md) |
+| 통합 프로젝트 관리 흐름을 보고 싶다 | [operations/project_management_workflow.md](operations/project_management_workflow.md) |
 | 로컬 저장 경로·모델 캐시 위치를 보고 싶다 | [operations/storage_paths.md](operations/storage_paths.md) |
 | 장애가 났다 / 서비스가 안 뜬다 | [operations/full_stack_troubleshooting.md](operations/full_stack_troubleshooting.md) |
 | GitLab CI/CD로 175 GPU 서버에 배포하고 싶다 | [operations/gitlab_cicd_deployment.md](operations/gitlab_cicd_deployment.md) |
@@ -42,7 +42,7 @@
 | 모델 구성·리소스 계획을 보고 싶다 | [models/model_cards.md](models/model_cards.md), [resources/gpu_resource_requirements_48gb.md](resources/gpu_resource_requirements_48gb.md) |
 | GPU 리소스 배분 기준을 보고 싶다 | [resources/gpu_resource_plan.md](resources/gpu_resource_plan.md) |
 | 모델 runtime 제어 기준을 보고 싶다 | [operations/model_runtime_control.md](operations/model_runtime_control.md) |
-| Grafana 상태 보드 구성을 보고 싶다 | [operations/status_board_ux.md](operations/status_board_ux.md) |
+| Grafana 상태 보드 구성을 보고 싶다 | [operations/grafana_status_board.md](operations/grafana_status_board.md) |
 | Risk vLLM patch 관리 정책을 보고 싶다 | [operations/risk_vllm_patch_lifecycle.md](operations/risk_vllm_patch_lifecycle.md) |
 | 전체 서비스 컴포넌트 목록을 보고 싶다 | [operations/full_stack_runtime.md](operations/full_stack_runtime.md) |
 | 릴리스 버전 정책을 확인하고 싶다 | [release/versioning_policy.md](release/versioning_policy.md) |
@@ -78,12 +78,14 @@ docs/
 │   ├── endpoint_reference.md        ← 서비스 URL·API·모니터링 주소 모음
 │   ├── operator_workflows.md        ← 상황별 명령 선택 가이드
 │   ├── configuration_lifecycle.md   ← 설정·관리·빌드·제거 통합 UX
+│   ├── project_management_workflow.md
 │   ├── storage_paths.md             ← 로컬 저장소·모델 캐시·cleanup 정책
 │   ├── full_stack_runtime.md        ← 전체 서비스 컴포넌트 목록
 │   ├── gitlab_cicd_deployment.md    ← GitLab CI/CD와 175 배포 가이드
 │   ├── full_stack_troubleshooting.md
 │   ├── monitoring_ux.md
-│   ├── status_board_ux.md           ← Grafana 상태 보드 구성
+│   ├── grafana_status_board.md      ← Grafana 상태 보드 구성
+│   ├── runtime_validation_operations.md
 │   ├── model_runtime_control.md     ← 모델 runtime 제어 기준
 │   ├── risk_vllm_patch_lifecycle.md ← Risk vLLM patch 관리 정책
 │   └── streaming_runtime_operations.md

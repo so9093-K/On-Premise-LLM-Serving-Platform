@@ -107,6 +107,7 @@ Prometheus는 enabled vLLM runtime을 하나의 `vllm-runtimes` job으로 scrape
 |---|---|---|
 | `local-main` | `main-llm-vllm` | `main-llm-vllm:9401` |
 | `local-embed` | `embedding-vllm` | `embedding-vllm:9402` |
+| `local-embed-ko` | `embedding-ko-vllm` | `embedding-ko-vllm:9406` |
 | `risk-prompt` | `risk-prompt-vllm` | `risk-prompt-vllm:9403` |
 
 대표 쿼리는 다음과 같다.

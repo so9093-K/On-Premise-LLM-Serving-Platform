@@ -302,7 +302,7 @@ def _validate_status_board_navigation() -> None:
         'Risk Signal Operations': 'risk_signal_operations',
         'Observability / Data Quality': 'observability_data_quality',
     }
-    status_doc = (ROOT / 'docs/operations/status_board_ux.md').read_text(encoding='utf-8')
+    status_doc = (ROOT / 'docs/operations/grafana_status_board.md').read_text(encoding='utf-8')
     monitoring_doc = (ROOT / 'docs/operations/monitoring_ux.md').read_text(encoding='utf-8')
     for uid, expected_links in expected.items():
         dash = read_json(f'ops/grafana/dashboards/{uid}.json')

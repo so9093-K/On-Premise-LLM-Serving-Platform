@@ -103,6 +103,9 @@ class RuntimeValidator:
     def check_embedding(self) -> CheckResult:
         return self.live_checks.check_embedding()
 
+    def check_embedding_ko(self) -> CheckResult:
+        return self.live_checks.check_embedding_ko()
+
     def check_response_format_text(self) -> CheckResult:
         return self.live_checks.check_response_format_text()
 
@@ -174,6 +177,7 @@ class RuntimeValidator:
         self.safe_check("vllm-runtime", "chat", self.check_chat)
         self.safe_check("vllm-runtime", "streaming chat", self.check_streaming_chat)
         self.safe_check("vllm-runtime", "embedding", self.check_embedding)
+        self.safe_check("vllm-runtime", "embedding-ko", self.check_embedding_ko)
         self.safe_check("response-format-text-canary", "response_format text", self.check_response_format_text)
         self.safe_check("response-format-json-object-canary", "response_format json_object", self.check_response_format_json_object)
         self.safe_check("response-format-json-schema-canary", "response_format json_schema", self.check_response_format_json_schema)

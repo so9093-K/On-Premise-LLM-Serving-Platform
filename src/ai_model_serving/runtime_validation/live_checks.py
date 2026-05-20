@@ -176,6 +176,14 @@ class LiveRuntimeChecks:
         ok = status == 200 and body.get("object") == "list" and isinstance(vector, list) and len(vector) in {128, 256, 512, 768}
         return CheckResult("vllm-runtime", "gateway embedding", "pass" if ok else "fail", latency, details={"model": body.get("model"), "dimension": len(vector)})
 
+    def check_embedding_ko(self) -> CheckResult:
+        payload = {"model": "local-embed-ko", "input": ["runtime validation Korean retrieval embedding"], "dimensions": 1024}
+        status, body, latency = self.http.json("POST", f"{self.gateway_base}/v1/embeddings", payload)
+        data = body.get("data") or []
+        vector = data[0].get("embedding") if data and isinstance(data[0], dict) else []
+        ok = status == 200 and body.get("object") == "list" and isinstance(vector, list) and len(vector) == 1024
+        return CheckResult("vllm-runtime", "gateway embedding-ko", "pass" if ok else "fail", latency, details={"model": body.get("model"), "dimension": len(vector)})
+
     def check_response_format_text(self) -> CheckResult:
         payload = {
             "model": "local-main",

@@ -70,7 +70,7 @@ DOC_ENTRYPOINTS = {
     'docs/operations/operator_workflows.md',
     'docs/operations/configuration_lifecycle.md',
     'docs/operations/storage_paths.md',
-    'docs/operations/project_management_ux.md',
+    'docs/operations/project_management_workflow.md',
     'docs/release/release_checklist.md',
     'reports/refactor/current_refactor_state.md',
 }

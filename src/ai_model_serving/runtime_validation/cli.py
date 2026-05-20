@@ -17,6 +17,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--risk-base", default=None, help=f"Risk Adapter base URL입니다. 우선순위: CLI > 환경변수 RISK_ADAPTER_BASE_URL > 기본값 {DEFAULT_BASE_URLS['risk']}.")
     parser.add_argument("--main-llm-base", default=None, help="main LLM vLLM OpenAI-compatible base URL입니다. 우선순위: CLI > MAIN_LLM_BASE_URL > config port 기본값.")
     parser.add_argument("--embedding-base", default=None, help="embedding vLLM OpenAI-compatible base URL입니다. 우선순위: CLI > EMBEDDING_BASE_URL > config port 기본값.")
+    parser.add_argument("--embedding-ko-base", default=None, help="embedding-ko vLLM OpenAI-compatible base URL입니다. 우선순위: CLI > EMBEDDING_KO_BASE_URL > config port 기본값.")
     parser.add_argument("--risk-prompt-base", default=None, help="risk-prompt vLLM OpenAI-compatible base URL입니다. 우선순위: CLI > RISK_PROMPT_BASE_URL > config port 기본값.")
     parser.add_argument("--risk-siren-base", default=None, help="retired risk-siren 호환 옵션입니다. enabled runtime일 때만 사용됩니다.")
     parser.add_argument("--prometheus-base", default=None, help=f"Prometheus base URL입니다. 우선순위: CLI > PROMETHEUS_BASE_URL > 기본값 {DEFAULT_BASE_URLS['prometheus']}.")

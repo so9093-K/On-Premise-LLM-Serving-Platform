@@ -41,12 +41,12 @@
 
 ## 5. Examples 정책
 
-설명형 examples 문서는 `docs/examples/`에 둔다. root `examples/`에는 실행 가능한 sample payload나 script만 둔다.
+설명형 examples 문서는 `docs/examples/`에 둔다. 실행 가능한 sample payload나 script가 추가되면 root `examples/`에 두며, 설명형 README는 두지 않는다.
 
 - risk code는 `configs/risk_taxonomy.yaml`에 존재하는 code만 사용한다.
 - retired endpoint는 active 검증 예시로 작성하지 않는다.
 - expected response는 현재 schema와 route lifecycle을 따른다.
-- examples는 `tests/contract/test_document_governance.py`로 검증한다.
+- examples는 `tests/contract/test_document_source_of_truth.py`와 `tests/contract/test_document_stale_markers.py`로 검증한다.
 
 ## 6. ADR 정책
 
@@ -89,21 +89,31 @@
 - `docs/operations/model_parameter_discovery.md` — 모델별 파라미터
 - `docs/specs/api.md` — API 요약
 
-Generator 전환 전까지는 `tests/contract/test_document_governance.py`가 source-of-truth와의 일치를 검증한다.
+Generator 전환 전까지는 `tests/contract/test_document_source_of_truth.py`가 source-of-truth와의 일치를 검증한다.
 
-## 10. Change Impact Matrix
+## 10. Documentation Test 역할
+
+문서 테스트는 문서 정리의 대체물이 아니라, 정리된 구조와 source-of-truth 정합성을 지키는 안전장치다.
+
+- `tests/contract/test_document_structure.py`: 문서 홈, manifest coverage, archive/current 분리처럼 구조 정책을 검증한다.
+- `tests/contract/test_document_source_of_truth.py`: risk taxonomy, model catalog, model cards, runtime port, ADR index, CHANGELOG/VERSION처럼 실제 source-of-truth와 문서의 정합성을 검증한다.
+- `tests/contract/test_document_stale_markers.py`: ColBERT active runtime, retired Siren active 예시, 존재하지 않는 Dockerfile/Make target처럼 재발 위험이 큰 marker만 검사한다.
+
+CI 테스트는 구조와 source-of-truth 정합성을 강하게 검증한다. PR checklist와 리뷰는 문서의 의도, 독자, 설명 품질, 문체를 검토한다. 테스트는 표현을 과도하게 고정하지 않고, 문서가 모델 목록, endpoint, risk code, runtime 구성, build target 같은 source-of-truth를 새로 발명하지 않는지만 강하게 막는다.
+
+## 11. Change Impact Matrix
 
 변경자는 PR에서 아래 범위를 확인한다. 이 matrix는 PR documentation checklist와 연결된다.
 
 | 변경 유형 | 확인 대상 |
 |---|---|
 | model change | `configs/model_catalog.yaml`, `configs/model_serving.yaml`, `model_cards/*.json`, `docs/models/model_cards.md`, `docs/operations/model_parameter_discovery.md`, `docs/specs/api.md`, `README.md`, `reports/runtime/*`, governance tests |
-| endpoint/schema change | `src/ai_model_serving/api/endpoint_spec.py`, `specs/openapi.gateway.yaml`, `specs/schemas/*.json`, `docs/operations/endpoint_reference.md`, `docs/specs/api.md`, `docs/examples/requests.md`, `examples/requests/*.json`, governance tests |
+| endpoint/schema change | `src/ai_model_serving/api/endpoint_spec.py`, `specs/openapi.gateway.yaml`, `specs/schemas/*.json`, `docs/operations/endpoint_reference.md`, `docs/specs/api.md`, `docs/examples/requests.md`, `examples/**/*.json`, governance tests |
 | risk taxonomy change | `configs/risk_taxonomy.yaml`, `docs/specs/risk_signal_contract.md`, `docs/examples/requests.md`, risk schemas, governance tests |
 | runtime/port/compose change | `configs/ports.yaml`, `configs/model_serving.yaml`, `ops/compose/*.yaml`, `.env.*.example`, `docs/operations/full_stack_runtime.md`, `docs/operations/day0_quickstart.md`, `reports/runtime/*`, governance tests |
-| monitoring/Grafana change | `configs/monitoring.yaml`, `ops/prometheus/**`, `ops/grafana/**`, `docs/operations/monitoring_ux.md`, `docs/operations/status_board_ux.md`, `reports/runtime/monitoring_projection.*`, governance tests |
+| monitoring/Grafana change | `configs/monitoring.yaml`, `ops/prometheus/**`, `ops/grafana/**`, `docs/operations/monitoring_ux.md`, `docs/operations/grafana_status_board.md`, `reports/runtime/monitoring_projection.*`, governance tests |
 | CI/CD change | `.gitlab-ci.yml`, `.github/pull_request_template.md`, `Makefile`, `scripts/validation/*`, `docs/operations/gitlab_cicd_deployment.md`, `docs/development/build_ux.md`, governance tests |
 | architecture decision change | `docs/adr/*.md`, `docs/adr/README.md`, `docs/02_decision_register.md`, `docs/governance/document_management.md` |
 | release/version change | `VERSION`, `pyproject.toml`, `version_manifest.json`, `CHANGELOG.md`, `docs/release/versioning_policy.md`, `docs/release/release_checklist.md`, package scripts |
-| examples change | `docs/examples/requests.md`, `examples/requests/*.json`, `specs/schemas/*.json`, `configs/risk_taxonomy.yaml`, governance tests |
+| examples change | `docs/examples/requests.md`, `examples/**/*.json`, `specs/schemas/*.json`, `configs/risk_taxonomy.yaml`, governance tests |
 | docs structure change | `docs/README.md`, `docs/START_HERE.md`, `docs/governance/document_management.md`, `docs/manifest.yaml`, `.github/pull_request_template.md`, governance tests |

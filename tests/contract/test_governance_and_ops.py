@@ -102,7 +102,7 @@ def test_runtime_validation_matrix_requires_validation() -> None:
     assert {check["id"] for check in matrix["validation_checks"]} >= {"gateway-runtime", "risk-adapter-runtime", "vllm-runtime", "gpu-capacity", "monitoring-scrape"}
 
 
-def test_operator_status_board_ux_is_user_facing() -> None:
+def test_operator_grafana_status_board_is_user_facing() -> None:
     monitoring = yaml.safe_load((ROOT / "configs/monitoring.yaml").read_text(encoding="utf-8"))
     operator = monitoring["operator_status_ux"]
     assert operator["landing_dashboard"] == "gpu_capacity_and_oom_risk"
@@ -116,7 +116,7 @@ def test_operator_status_board_ux_is_user_facing() -> None:
         "NO DATA",
     }
     assert {item["level"] for item in operator["status_levels"]} == {"green", "yellow", "red", "gray"}
-    status_doc = (ROOT / "docs/operations/status_board_ux.md").read_text(encoding="utf-8")
+    status_doc = (ROOT / "docs/operations/grafana_status_board.md").read_text(encoding="utf-8")
     assert "지금 요청을 안전하게 처리할 수 있는가?" in status_doc
     exec_dashboard = json.loads((ROOT / "ops/grafana/dashboards/executive_runtime_overview.json").read_text(encoding="utf-8"))
     titles = {panel["title"] for panel in exec_dashboard["panels"]}

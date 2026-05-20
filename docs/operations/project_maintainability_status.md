@@ -1,4 +1,4 @@
-# 프로젝트 현 상태와 유지보수성 검토
+# 프로젝트 유지보수 상태
 
 이 문서는 현재 패키지를 사람이 운영·유지보수할 수 있는지 **기능 UX 흐름, 문서 정합성, 레거시 제거 상태** 관점에서 정리한 active 상태 문서다. 실제 운영 판단은 이 문서와 `reports/refactor/current_refactor_state.md`, `reports/refactor/current_handoff_summary.md`를 기준으로 한다.
 

@@ -160,7 +160,7 @@ make operator-reports           # 전체 운영 리포트 통합 생성
 현재 dashboard는 7개다: `serving_home`, `gpu_capacity_and_oom_risk`, `executive_runtime_overview`, `api_experience`, `model_runtime_deep_dive`, `risk_signal_operations`, `observability_data_quality`.
 
 - 📄 [operations/monitoring_ux.md](operations/monitoring_ux.md)
-- 📄 [operations/status_board_ux.md](operations/status_board_ux.md)
+- 📄 [operations/grafana_status_board.md](operations/grafana_status_board.md)
 - 📊 생성 report: `reports/runtime/monitoring_projection.md`
 
 ---
@@ -229,7 +229,7 @@ make validate                 # 계약·스키마·정책·문서 정적 검증
 make release-check            # 릴리스 gate 전체 실행
 ```
 
-- 📄 [operations/project_management_ux.md](operations/project_management_ux.md)
+- 📄 [operations/project_management_workflow.md](operations/project_management_workflow.md)
 - 📊 생성 report: `reports/refactor/project_inventory_current.md`
 
 ---
@@ -240,7 +240,7 @@ make release-check            # 릴리스 gate 전체 실행
 |---|---|---|
 | **source** | `docs/` | 사람이 읽는 상세 문서의 단일 홈 |
 | **decision** | `docs/adr/` | Architectural Decision Records. canonical decision source-of-truth |
-| **examples** | `docs/examples/` | 설명형 API examples. 실행 payload는 root `examples/`에 둔다 |
+| **examples** | `docs/examples/` | 설명형 API examples. 실행 가능한 sample payload가 추가되면 root `examples/`에 둔다 |
 | **archive** | `docs/archive/` | historical context. 현재 운영 기준으로 쓰지 않는다 |
 | **generated** | `reports/runtime/` | 스크립트가 생성하는 runtime evidence. 직접 수정하지 않는다 |
 | **handoff** | `reports/refactor/current_*`, `reports/refactor/project_inventory_current.*` | 현재 상태/handoff/inventory artifact |

@@ -1,4 +1,4 @@
-# FastAPI Docs UX 기준
+# API Docs Reference
 
 ## 1. 기본 정책
 
@@ -28,7 +28,7 @@
 - Gateway API token과 admin token의 용도 차이
 - app-only `/health`와 full-stack `/ready`의 차이
 - 모델 로딩 중 `/ready`가 HTTP 503을 유지하되 `phase`, `not_ready_dependencies`, dependency별 `message`를 제공한다는 점
-- `local-main`, `local-embed`, `risk-prompt` logical model id
+- `local-main`, `local-embed`, `local-embed-ko`, `risk-prompt` logical model id
 - `/v1/models`에서 모델별 `capabilities`, `request_parameters`, `fixed_parameters`를 확인할 수 있다는 점
 - Risk API는 signal-only이며 최종 policy decision을 반환하지 않는다는 점
 
@@ -70,7 +70,7 @@ API 문서는 “사용자가 조정할 수 있는 parameter”와 “운영자�
 
 - Chat UI는 `local-main.request_parameters`를 읽어 `temperature`, `max_tokens`, `top_p`, `top_k`, `min_p`, penalty, `seed`, `n`, tool 관련 입력, `reasoning` opt-in을 구성한다.
 - Chat 예시는 최소 요청, deterministic smoke, 일반 sampling, streaming, json_object, json_schema, tool calling, reasoning/thinking, logprobs, bounded vision을 분리한다. 예시의 sampling 값은 client preset이며 Gateway가 자동 주입하는 기본값이 아니다.
-- Embedding UI는 `local-embed.request_parameters`를 읽어 `dimensions`, `truncate_prompt_tokens`를 노출한다. `encoding_format: base64`는 현재 지원하지 않으므로 example에 포함하지 않는다.
+- Embedding UI는 `local-embed`와 `local-embed-ko`의 `request_parameters`를 모델별로 읽어 `dimensions`, `encoding_format`, `truncate_prompt_tokens`를 노출한다. `local-embed-ko`의 `dimensions`는 1024만 허용한다. `encoding_format: base64`는 현재 지원하지 않으므로 example에 포함하지 않는다.
 - Risk UI는 `risk-prompt`의 `request_parameters`가 비어 있음을 보고 prompt 입력만 노출한다. `fixed_parameters`는 detector adapter 내부값이므로 사용자 form으로 노출하지 않는다.
 
 고급 parameter의 상세 정책(`$ref` subset, `logit_bias` tokenizer 주의사항, `capability_gate` 동작 등)은 top-level description이 아닌 operation description 또는 `docs/specs/api.md`, `docs/operations/model_parameter_discovery.md`로 분리한다.

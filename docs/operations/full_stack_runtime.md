@@ -65,7 +65,7 @@ GitLab CI/CD에서 175로 배포할 때는 [GitLab CI/CD 배포 가이드](./git
 - `make ready-full`: Gateway/Risk Adapter `/ready`와 smoke test를 strict하게 확인한다. 실제 vLLM runtime이 필요하다.
 - `make ready`: backward-compatible alias이며 `make ready-full`과 같다.
 
-full-stack 시작 전에는 `make preflight-compose`로 Docker, compose plugin, host-published 포트 충돌, GPU 표시 여부, Prometheus bearer token 파일을 먼저 확인한다. vLLM `9401–9404`는 compose 내부 `expose` port이므로 host port 검사 대상이 아니다.
+full-stack 시작 전에는 `make preflight-compose`로 Docker, compose plugin, host-published 포트 충돌, GPU 표시 여부, Prometheus bearer token 파일을 먼저 확인한다. vLLM `9401`, `9402`, `9403`, `9406`은 compose 내부 `expose` port이므로 host port 검사 대상이 아니다.
 
 
 ## 장애 진단

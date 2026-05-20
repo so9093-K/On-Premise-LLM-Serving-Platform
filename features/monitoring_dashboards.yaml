@@ -33,7 +33,7 @@ dashboard_count: 7
 
 docs:
   - docs/operations/monitoring_ux.md
-  - docs/operations/status_board_ux.md
+  - docs/operations/grafana_status_board.md
   - docs/operations/endpoint_reference.md
   - docs/START_HERE.md
 

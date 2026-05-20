@@ -103,6 +103,18 @@ def validate_model_source_facts() -> None:
     if serving['embedding']['max_model_len'] != 2048:
         raise SystemExit('embedding serving max_model_len must match model-card max input tokens')
 
+    embed_ko = catalog['local-embed-ko']
+    ko_facts = embed_ko['source_facts']
+    ko_policy = embed_ko['project_runtime_policy']
+    if ko_facts['output_dimensions'] != 1024 or ko_facts['max_sequence_length'] != 8192:
+        raise SystemExit('local-embed-ko source_facts must preserve 1024 dimensions and 8192 model-card context')
+    if ko_policy['embedding_dimension_supported'] != [1024]:
+        raise SystemExit('local-embed-ko project_runtime_policy must keep fixed 1024 dimensions')
+    if ko_policy.get('retrieval_default') is not True:
+        raise SystemExit('local-embed-ko project_runtime_policy must mark it as retrieval_default')
+    if serving['embedding_ko']['port'] != embed_ko['runtime']['port']:
+        raise SystemExit('local-embed-ko serving port must match model runtime port')
+
     detector_specs = read_yaml('configs/model_serving.yaml')['risk_adapter'].get('detectors', {})
     for detector in detector_specs.values():
         serving_key = detector['service_key']
@@ -120,7 +132,8 @@ def validate_model_source_facts() -> None:
         if not (policy['max_output_tokens'] == serving[serving_key]['max_output_tokens'] == model['runtime']['max_output_tokens'] == 1):
             raise SystemExit(f'{logical_id} max_output_tokens must remain 1 across source-aware policy and serving config')
 
-    for rel in ['model_cards/local-main.json', 'model_cards/local-embed.json', 'model_cards/risk-prompt.json']:
+    for logical_id in sorted(catalog):
+        rel = f'model_cards/{logical_id}.json'
         card = read_json(rel)
         forbidden_key = 'validation' + '_status'
         if forbidden_key in card:

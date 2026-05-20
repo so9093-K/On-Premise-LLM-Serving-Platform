@@ -167,9 +167,10 @@ def test_release_package_uses_stable_root_directory() -> None:
 
 def test_preflight_compose_checks_only_host_published_ports() -> None:
     text = (ROOT / 'scripts/compose/preflight_compose.sh').read_text(encoding='utf-8')
-    assert 'vLLM runtime ports 9401-9403 are internal' in text
+    assert 'vLLM runtime ports from configs/ports.yaml' in text
+    assert '9401, 9402, 9403, 9406' in text
     loop_line = next(line for line in text.splitlines() if line.strip().startswith('for port in'))
-    for internal_port in ['9401', '9402', '9403']:
+    for internal_port in ['9401', '9402', '9403', '9406']:
         assert internal_port not in loop_line
     assert 'host_published_ports=(' in text
     for env_name in ['PROMETHEUS_PORT', 'GRAFANA_PORT', 'DCGM_EXPORTER_PORT', 'CADVISOR_PORT']:
@@ -378,7 +379,7 @@ def test_makefile_exposes_candidate_env_and_model_proposal_ux() -> None:
 
 
 def test_active_maintainability_doc_does_not_contain_stale_phase30_completed_work() -> None:
-    text = (ROOT / 'docs/operations/project_state_maintainability_review.md').read_text(encoding='utf-8')
+    text = (ROOT / 'docs/operations/project_maintainability_status.md').read_text(encoding='utf-8')
     assert 'Phase 24 기준' not in text
     assert 'OpenAPI full snapshot diff를 release gate에 추가한다' not in text
     assert 'Risk patch removal check를 명시적 명령으로 추가한다' not in text
