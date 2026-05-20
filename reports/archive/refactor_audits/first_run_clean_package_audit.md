@@ -35,7 +35,7 @@ Reviewed file groups:
 - contracts/schemas: `contracts/**`, `specs/**`, `harness/**`
 - runtime config: `configs/**`, `model_cards/**`
 - ops: `ops/compose/**`, `ops/grafana/**`, `ops/prometheus/**`, `ops/patches/**`
-- docs and reports: `docs/**`, `reports/refactor/**`, `reports/runtime/**`, `adr/**`, `examples/**`
+- docs and reports: `docs/**`, `reports/refactor/**`, `reports/runtime/**`, `docs/adr/**`, `examples/**`
 
 ## First-run flow debug
 

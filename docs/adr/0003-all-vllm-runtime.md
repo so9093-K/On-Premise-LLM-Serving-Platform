@@ -2,7 +2,9 @@
 
 ## Status
 
-Accepted
+Superseded by ADR-0010
+
+> **Historical record**: 이 ADR은 ColBERT/Siren을 포함했던 과거 runtime 구조를 기록한다. 현재 active runtime 구조는 ADR-0010과 `configs/model_serving.yaml`을 따른다.
 
 ## Context
 

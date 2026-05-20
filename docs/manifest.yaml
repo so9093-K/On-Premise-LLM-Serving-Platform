@@ -1,0 +1,413 @@
+schema_version: 1
+lifecycle:
+  allowed:
+    - active
+    - reference
+    - generated
+    - historical
+    - deprecated
+documents:
+  - path: README.md
+    type: entrypoint
+    lifecycle: active
+    owner: platform
+    source_of_truth:
+      - docs/README.md
+      - docs/START_HERE.md
+    verified_by:
+      - tests/contract/test_document_governance.py
+  - path: CHANGELOG.md
+    type: release
+    lifecycle: active
+    owner: release-engineering
+    source_of_truth:
+      - VERSION
+    verified_by:
+      - tests/contract/test_document_governance.py
+  - path: docs/00_executive_summary.md
+    type: guide
+    lifecycle: active
+    owner: platform
+  - path: docs/01_project_background.md
+    type: guide
+    lifecycle: active
+    owner: platform
+  - path: docs/02_decision_register.md
+    type: decision-index
+    lifecycle: active
+    owner: architecture
+    source_of_truth:
+      - docs/adr/*.md
+  - path: docs/06_architecture.md
+    type: guide
+    lifecycle: active
+    owner: platform
+  - path: docs/07_project_structure.md
+    type: guide
+    lifecycle: active
+    owner: platform
+  - path: docs/README.md
+    type: guide
+    lifecycle: active
+    owner: platform
+    review_required_on:
+      - docs_structure_change
+  - path: docs/START_HERE.md
+    type: guide
+    lifecycle: active
+    owner: platform
+    review_required_on:
+      - docs_structure_change
+  - path: docs/adr/0002-signal-only-risk-contract.md
+    type: decision
+    lifecycle: historical
+    owner: architecture
+    source_of_truth: true
+    status_source: adr_status
+  - path: docs/adr/0003-all-vllm-runtime.md
+    type: decision
+    lifecycle: historical
+    owner: architecture
+    source_of_truth: true
+    status_source: adr_status
+  - path: docs/adr/0004-port-policy-9400.md
+    type: decision
+    lifecycle: historical
+    owner: architecture
+    source_of_truth: true
+    status_source: adr_status
+  - path: docs/adr/0010-colbert-removal-dense-korean-retrieval.md
+    type: decision
+    lifecycle: historical
+    owner: architecture
+    source_of_truth: true
+    status_source: adr_status
+  - path: docs/adr/0011-documentation-source-of-truth-policy.md
+    type: decision
+    lifecycle: historical
+    owner: architecture
+    source_of_truth: true
+    status_source: adr_status
+  - path: docs/adr/README.md
+    type: decision-index
+    lifecycle: active
+    owner: architecture
+    source_of_truth: true
+    status_source: adr_status
+  - path: docs/archive/changelog/maintenance_journal_0.1.0-rc.1.md
+    type: archive
+    lifecycle: historical
+    owner: platform
+  - path: docs/archive/reviews/gemma4_31b_awq_review.md
+    type: review
+    lifecycle: historical
+    owner: model-platform
+  - path: docs/archive/reviews/ux_ui_review.md
+    type: review
+    lifecycle: historical
+    owner: operations
+  - path: docs/development/README.md
+    type: development
+    lifecycle: active
+    owner: platform
+  - path: docs/development/build_ux.md
+    type: development
+    lifecycle: active
+    owner: platform
+  - path: docs/development/final_checklist.md
+    type: development
+    lifecycle: active
+    owner: platform
+  - path: docs/development/logging_policy.md
+    type: development
+    lifecycle: active
+    owner: platform
+  - path: docs/development/python_compatibility.md
+    type: development
+    lifecycle: active
+    owner: platform
+  - path: docs/development/test_strategy.md
+    type: development
+    lifecycle: active
+    owner: platform
+  - path: docs/examples/requests.md
+    type: examples
+    lifecycle: active
+    owner: platform
+    source_of_truth:
+      - configs/risk_taxonomy.yaml
+      - specs/schemas
+    verified_by:
+      - tests/contract/test_document_governance.py
+  - path: docs/governance/document_management.md
+    type: governance
+    lifecycle: active
+    owner: platform
+    verified_by:
+      - tests/contract/test_document_governance.py
+    review_required_on:
+      - docs_structure_change
+  - path: docs/governance/policies/command_terminology_policy.md
+    type: governance
+    lifecycle: active
+    owner: platform
+    verified_by:
+      - tests/contract/test_document_governance.py
+  - path: docs/governance/policies/retired_source_cleanup_policy.md
+    type: governance
+    lifecycle: active
+    owner: platform
+    verified_by:
+      - tests/contract/test_document_governance.py
+  - path: docs/governance/terminology.md
+    type: governance
+    lifecycle: active
+    owner: platform
+    verified_by:
+      - tests/contract/test_document_governance.py
+  - path: docs/models/model_cards.md
+    type: reference
+    lifecycle: reference
+    owner: model-platform
+    source_of_truth:
+      - model_cards/*.json
+      - configs/model_catalog.yaml
+    verified_by:
+      - tests/contract/test_document_governance.py
+      - python scripts/models/modelctl.py validate
+  - path: docs/models/model_runtime_source_review.md
+    type: reference
+    lifecycle: reference
+    owner: model-platform
+    source_of_truth:
+      - model_cards/*.json
+      - configs/model_catalog.yaml
+    verified_by:
+      - tests/contract/test_document_governance.py
+      - python scripts/models/modelctl.py validate
+  - path: docs/operations/admin_metrics_docs_exposure_policy.md
+    type: operations
+    lifecycle: active
+    owner: operations
+  - path: docs/operations/auth_control_plane.md
+    type: operations
+    lifecycle: active
+    owner: operations
+  - path: docs/operations/configuration_lifecycle.md
+    type: operations
+    lifecycle: active
+    owner: operations
+  - path: docs/operations/day0_quickstart.md
+    type: operations
+    lifecycle: active
+    owner: operations
+  - path: docs/operations/endpoint_reference.md
+    type: operations
+    lifecycle: active
+    owner: operations
+  - path: docs/operations/first_project_guide.md
+    type: operations
+    lifecycle: active
+    owner: operations
+  - path: docs/operations/full_stack_runtime.md
+    type: operations
+    lifecycle: active
+    owner: operations
+  - path: docs/operations/full_stack_troubleshooting.md
+    type: operations
+    lifecycle: active
+    owner: operations
+  - path: docs/operations/gitlab_cicd_deployment.md
+    type: operations
+    lifecycle: active
+    owner: operations
+  - path: docs/operations/model_parameter_discovery.md
+    type: operations
+    lifecycle: active
+    owner: operations
+  - path: docs/operations/model_runtime_control.md
+    type: operations
+    lifecycle: active
+    owner: operations
+  - path: docs/operations/monitoring_ux.md
+    type: operations
+    lifecycle: active
+    owner: operations
+  - path: docs/operations/operator_workflows.md
+    type: operations
+    lifecycle: active
+    owner: operations
+  - path: docs/operations/project_management_ux.md
+    type: operations
+    lifecycle: active
+    owner: operations
+  - path: docs/operations/project_state_maintainability_review.md
+    type: operations
+    lifecycle: active
+    owner: operations
+  - path: docs/operations/risk_vllm_patch_lifecycle.md
+    type: operations
+    lifecycle: active
+    owner: operations
+  - path: docs/operations/runtime_validation_workplan.md
+    type: operations
+    lifecycle: active
+    owner: operations
+  - path: docs/operations/status_board_ux.md
+    type: operations
+    lifecycle: active
+    owner: operations
+  - path: docs/operations/storage_paths.md
+    type: operations
+    lifecycle: active
+    owner: operations
+  - path: docs/operations/streaming_runtime_operations.md
+    type: operations
+    lifecycle: active
+    owner: operations
+  - path: docs/release/release_checklist.md
+    type: release
+    lifecycle: active
+    owner: release-engineering
+    source_of_truth:
+      - VERSION
+      - CHANGELOG.md
+      - scripts/build/package_release.sh
+  - path: docs/release/versioning_policy.md
+    type: release
+    lifecycle: active
+    owner: release-engineering
+    source_of_truth:
+      - VERSION
+      - CHANGELOG.md
+      - scripts/build/package_release.sh
+  - path: docs/resources/README.md
+    type: reference
+    lifecycle: reference
+    owner: model-platform
+    source_of_truth:
+      - configs/gpu_budgets.yaml
+      - configs/model_serving.yaml
+  - path: docs/resources/gpu_resource_plan.md
+    type: reference
+    lifecycle: reference
+    owner: model-platform
+    source_of_truth:
+      - configs/gpu_budgets.yaml
+      - configs/model_serving.yaml
+  - path: docs/resources/gpu_resource_requirements_48gb.md
+    type: reference
+    lifecycle: reference
+    owner: model-platform
+    source_of_truth:
+      - configs/gpu_budgets.yaml
+      - configs/model_serving.yaml
+  - path: docs/specs/api.md
+    type: reference
+    lifecycle: reference
+    owner: api-platform
+    source_of_truth:
+      - src/ai_model_serving/api/endpoint_spec.py
+      - specs/openapi.gateway.yaml
+      - specs/schemas/*.json
+    verified_by:
+      - tests/contract/test_document_governance.py
+      - scripts/validation/validate_contracts.py
+  - path: docs/specs/configuration.md
+    type: reference
+    lifecycle: reference
+    owner: api-platform
+    source_of_truth:
+      - src/ai_model_serving/api/endpoint_spec.py
+      - specs/openapi.gateway.yaml
+      - specs/schemas/*.json
+    verified_by:
+      - tests/contract/test_document_governance.py
+      - scripts/validation/validate_contracts.py
+  - path: docs/specs/fastapi_docs_ux.md
+    type: reference
+    lifecycle: reference
+    owner: api-platform
+    source_of_truth:
+      - src/ai_model_serving/api/endpoint_spec.py
+      - specs/openapi.gateway.yaml
+      - specs/schemas/*.json
+    verified_by:
+      - tests/contract/test_document_governance.py
+      - scripts/validation/validate_contracts.py
+  - path: docs/specs/risk_signal_contract.md
+    type: reference
+    lifecycle: reference
+    owner: api-platform
+    source_of_truth:
+      - src/ai_model_serving/api/endpoint_spec.py
+      - specs/openapi.gateway.yaml
+      - specs/schemas/*.json
+    verified_by:
+      - tests/contract/test_document_governance.py
+      - scripts/validation/validate_contracts.py
+  - path: reports/archive/refactor_audits/end_to_end_flow_audit.md
+    type: archive
+    lifecycle: historical
+    owner: platform
+  - path: reports/archive/refactor_audits/feature_ux_full_audit.md
+    type: archive
+    lifecycle: historical
+    owner: platform
+  - path: reports/archive/refactor_audits/first_run_clean_package_audit.md
+    type: archive
+    lifecycle: historical
+    owner: platform
+  - path: reports/archive/refactor_audits/full_file_hygiene_audit.md
+    type: archive
+    lifecycle: historical
+    owner: platform
+  - path: reports/refactor/current_handoff_summary.md
+    type: handoff
+    lifecycle: active
+    owner: platform
+  - path: reports/refactor/current_refactor_state.md
+    type: handoff
+    lifecycle: active
+    owner: platform
+  - path: reports/refactor/project_inventory_current.md
+    type: report
+    lifecycle: generated
+    owner: platform
+    generator: scripts/reports/project_inventory_report.py
+    do_not_edit: true
+  - path: reports/runtime/README.md
+    type: report
+    lifecycle: active
+    owner: operations
+    do_not_edit: false
+  - path: reports/runtime/live_evidence_bundle.md
+    type: report
+    lifecycle: generated
+    owner: operations
+    generator: scripts/reports/live_evidence_bundle.py
+    do_not_edit: true
+  - path: reports/runtime/monitoring_projection.md
+    type: report
+    lifecycle: generated
+    owner: operations
+    generator: scripts/reports/monitoring_projection_report.py
+    do_not_edit: true
+  - path: reports/runtime/operator_status_bundle.md
+    type: report
+    lifecycle: generated
+    owner: operations
+    generator: scripts/reports/operator_status_bundle.py
+    do_not_edit: true
+  - path: reports/runtime/runtime_targets.md
+    type: report
+    lifecycle: generated
+    owner: operations
+    generator: scripts/reports/runtime_targets_report.py
+    do_not_edit: true
+  - path: reports/runtime/storage_paths.md
+    type: report
+    lifecycle: generated
+    owner: operations
+    generator: scripts/reports/storage_paths_report.py
+    do_not_edit: true

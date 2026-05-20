@@ -8,11 +8,13 @@
 
 | 유형 | 위치 | 설명 |
 |---|---|---|
-| **source** | `docs/` | 사람이 직접 읽고 수정하는 문서 |
-| **generated** | `reports/runtime/` | 스크립트가 자동 생성. 직접 수정하지 않는다 |
-| **current_snapshot** | `reports/refactor/current_*` | 특정 시점의 상태 요약 또는 감사 기록 |
-| **decision** | `adr/` | Architectural Decision Records. canonical decision source-of-truth |
-| **changelog** | `CHANGELOG.md` | 버전별 변경 이력 |
+| **source** | `docs/` | 사람이 읽는 상세 문서의 단일 홈 |
+| **decision** | `docs/adr/` | canonical Architectural Decision Records |
+| **examples** | `docs/examples/` | 설명형 API examples. 실행 payload는 root `examples/`에 둔다 |
+| **archive** | `docs/archive/` | historical context. 현재 운영 기준으로 쓰지 않는다 |
+| **generated** | `reports/runtime/` | 스크립트가 생성하는 runtime evidence. 직접 수정하지 않는다 |
+| **handoff** | `reports/refactor/current_*`, `reports/refactor/project_inventory_current.*` | 현재 상태/handoff/inventory artifact |
+| **release history** | `CHANGELOG.md` | root의 짧은 버전별 릴리스 노트 |
 
 ## 운영자 (Operators)
 
@@ -51,13 +53,14 @@
 | 상황 | 문서 |
 |---|---|
 | API 스펙을 확인하고 싶다 | [specs/api.md](specs/api.md) |
+| API request 예시 설명을 보고 싶다 | [examples/requests.md](examples/requests.md) |
 | 빌드·패키징 명령 의미를 이해하고 싶다 | [development/build_ux.md](development/build_ux.md) |
 | Python 버전 호환성을 확인하고 싶다 | [development/python_compatibility.md](development/python_compatibility.md) |
 | 테스트 전략을 보고 싶다 | [development/test_strategy.md](development/test_strategy.md) |
 | 릴리스 전 체크리스트가 필요하다 | [development/final_checklist.md](development/final_checklist.md) |
 | 로깅 정책을 보고 싶다 | [development/logging_policy.md](development/logging_policy.md) |
 | 아키텍처·설계 배경을 알고 싶다 | [06_architecture.md](06_architecture.md), [01_project_background.md](01_project_background.md) |
-| 결정 기록(ADR)을 보고 싶다 | [02_decision_register.md](02_decision_register.md) (index) → [`adr/`](../adr/) (canonical) |
+| 결정 기록(ADR)을 보고 싶다 | [02_decision_register.md](02_decision_register.md) (index) → [`docs/adr/`](adr/) (canonical) |
 | 문서 관리 정책을 보고 싶다 | [governance/document_management.md](governance/document_management.md) |
 
 ## 디렉터리 구조
@@ -65,6 +68,10 @@
 ```
 docs/
 ├── README.md                        ← 지금 읽는 파일 (진입점)
+├── manifest.yaml                    ← 문서 lifecycle/owner/source-of-truth registry
+├── adr/                             ← canonical decision records
+├── examples/                        ← 설명형 API examples
+├── archive/                         ← historical context
 ├── operations/                      ← 운영자 문서
 │   ├── first_project_guide.md       ← 처음 프로젝트를 받았을 때 전체 가이드
 │   ├── day0_quickstart.md           ← 빠른 시작 명령

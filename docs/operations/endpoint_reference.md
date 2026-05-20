@@ -19,7 +19,7 @@
 | DCGM Exporter | compose 내부 전용 (9400) | GPU raw metrics |
 | **Infisical** | `http://localhost:9420` | 시크릿 관리 웹 UI (선택) |
 
-> `full-stack.private-network.yaml` 기준: vLLM runtime(9401–9403), Risk Adapter(9405), Prometheus, cAdvisor, DCGM Exporter는 compose 내부 네트워크 전용이며 host에서 직접 접근하지 않는다.  
+> `full-stack.private-network.yaml` 기준: vLLM runtime(main-llm-vllm 9401, embedding-vllm 9402, risk-prompt-vllm 9403, embedding-ko-vllm 9406), Risk Adapter(9405), Prometheus, cAdvisor, DCGM Exporter는 compose 내부 네트워크 전용이며 host에서 직접 접근하지 않는다.  
 > Prometheus에 직접 접근하려면 SSH 포트 포워딩(`ssh -L 9410:localhost:9090 <host>`)을 사용한다. Grafana는 Prometheus 데이터를 UI로 제공하므로 대부분의 metrics 조회는 Grafana를 통한다.  
 > Infisical은 선택 서비스로 `make infisical-up`으로 별도 기동한다.
 
@@ -76,8 +76,10 @@ Admin endpoints는 `Authorization: Bearer <ADMIN_API_KEY>` 필요.
 |---|---|---|
 | `local-main` | sampling, token limit, seed, stop, `n`(1 고정), tool-call 관련 parameter, `stream`, `stream_options`, `response_format`, `logprobs`, `top_logprobs`, `logit_bias` | runtime/serving 하이퍼파라미터 |
 | `local-embed` | `dimensions`, `encoding_format`, `truncate_prompt_tokens` | runtime/serving 하이퍼파라미터 |
-| `local-embed-ko` | `encoding_format`, `truncate_prompt_tokens`(-1 또는 1–2048), `user` | `dimensions`(1024 고정), runtime/serving 하이퍼파라미터 |
+| `local-embed-ko` | `dimensions`(1024만 허용), `encoding_format`, `truncate_prompt_tokens` | runtime/serving 하이퍼파라미터 |
 | `risk-prompt` | 없음. `prompt` 입력만 받음 | detector sampling parameter는 adapter가 고정 |
+
+`user`는 embedding request schema에서 허용되는 OpenAI 호환 필드지만 `/v1/models` `request_parameters`에는 노출하지 않는다. Gateway는 `user`를 수신한 뒤 upstream에는 전달하지 않는다.
 
 클라이언트가 모델 선택 UI를 만든다면 `/v1/models`의 `capabilities`와 `request_parameters`를 함께 사용한다. `fixed_parameters`가 있으면 내부 adapter/runtime이 고정하는 값이므로 사용자 입력 form으로 노출하지 않는다.
 

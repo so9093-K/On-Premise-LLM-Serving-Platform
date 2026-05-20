@@ -41,8 +41,8 @@
 | 모델 | 사용자 조정 가능 parameter | 설명 |
 |---|---|---|
 | `local-main` | `temperature`, `max_tokens`, `top_p`, `top_k`, `min_p`, `presence_penalty`, `frequency_penalty`, `repetition_penalty`, `stop`, `seed`, `n`, `tools`, `tool_choice`, `parallel_tool_calls`, `stream`, `stream_options`, `response_format`, `logprobs`, `top_logprobs`, `logit_bias` | Chat/sampling/tool/structured output 관련 값만 Gateway contract 범위에서 조정한다. `n`은 OpenAI client 호환을 위해 `1`만 허용하며 UI에서는 숨기거나 읽기 전용으로 표시한다. `stream=true`는 Gateway streaming fast path로 SSE를 실시간 relay한다. `stream_options.include_usage=true`는 `stream=true`와 함께 사용할 때 upstream이 지원하는 OpenAI-compatible final usage chunk를 그대로 전달한다. |
-| `local-embed` | `dimensions`, `encoding_format`, `truncate_prompt_tokens`, `user` | embedding dimension과 prompt truncation 범위만 조정한다. `dimensions`는 768/512/256/128을 지원한다. `user`는 OpenAI API 호환용 optional 식별자이며 Gateway에서 accept하지만 upstream에는 전달하지 않는다. |
-| `local-embed-ko` | `dimensions`(1024만 허용), `encoding_format`, `truncate_prompt_tokens`, `user` | `/v1/embeddings` 직접 호출 파라미터다. `dimensions`는 1024만 허용하며 다른 값은 422다. `truncate_prompt_tokens`는 -1(끝에서 절단) 또는 1–2048. `user`는 accept하지만 upstream에는 전달하지 않는다. `/v1/retrieval/*` request fields(query, documents, model, top_n 등)는 별도 retrieval schema를 따른다. |
+| `local-embed` | `dimensions`, `encoding_format`, `truncate_prompt_tokens` | embedding dimension과 prompt truncation 범위만 조정한다. `dimensions`는 768/512/256/128을 지원한다. |
+| `local-embed-ko` | `dimensions`(1024만 허용), `encoding_format`, `truncate_prompt_tokens` | `/v1/embeddings` 직접 호출 파라미터다. `dimensions`는 1024만 허용하며 다른 값은 422다. `truncate_prompt_tokens`는 -1(끝에서 절단) 또는 1–2048. `/v1/retrieval/*` request fields(query, documents, model, top_n 등)는 별도 retrieval schema를 따른다. |
 | `risk-prompt` | 없음 | risk endpoint는 `prompt` 입력만 받는다. detector sampling 값은 adapter가 고정한다. |
 
 ### local-embed-ko: `/v1/models` 파라미터와 `/v1/retrieval/*` 필드 구분
@@ -51,9 +51,11 @@
 
 | 구분 | 파라미터/필드 | 위치 |
 |---|---|---|
-| `/v1/embeddings` 파라미터 | `dimensions`(1024 고정), `encoding_format`, `truncate_prompt_tokens`, `user` | `/v1/models` `request_parameters` |
+| `/v1/embeddings` 파라미터 | `dimensions`(1024 고정), `encoding_format`, `truncate_prompt_tokens` | `/v1/models` `request_parameters` |
 | `/v1/retrieval/rerank` 필드 | `model`, `query`, `documents`, `top_n` | retrieval_rerank_request.schema.json |
 | `/v1/retrieval/score` 필드 | `model`, `query`, `documents` | retrieval_score_request.schema.json |
+
+**`user` 필드**: embedding request schema에서 accept하지만 `/v1/models` `request_parameters` projection에는 노출하지 않는다. Gateway는 `user`를 수신한 뒤 upstream에 전달하지 않고 drop한다. 사용자가 조정할 수 있는 모델 파라미터가 아니라 OpenAI API 호환용 선택 식별자이기 때문이다.
 
 **Prompt policy는 request parameter가 아니다.** `/v1/retrieval/*` 호출 시 Gateway가 내부적으로 query에 `query: ` prefix를 적용한다. document에는 prefix를 적용하지 않는다. 클라이언트가 request body로 이 동작을 제어할 수 없다. `/v1/embeddings`를 직접 retrieval용으로 호출하는 경우 호출자가 `query: ` prefix를 직접 붙여야 한다.
 

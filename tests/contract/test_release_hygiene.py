@@ -54,7 +54,7 @@ def test_package_script_self_checks_inventory_against_zip() -> None:
 
 
 def test_redundant_origin_adr_removed_but_decision_retained() -> None:
-    assert not (ROOT / 'adr/0001-origin-transition.md').exists()
+    assert not (ROOT / 'docs/adr/0001-origin-transition.md').exists()
     decision_register = (ROOT / 'docs/02_decision_register.md').read_text(encoding='utf-8')
     source_review = (ROOT / 'docs/01_project_background.md').read_text(encoding='utf-8')
     assert 'D-001' in decision_register
@@ -353,7 +353,7 @@ def test_release_package_keeps_documentation_models_directory() -> None:
     with zipfile.ZipFile(package) as zf:
         names = set(zf.namelist())
     assert 'ai_model_serving_platform/docs/models/model_cards.md' in names
-    assert 'ai_model_serving_platform/docs/models/gemma4_31b_awq_review.md' in names
+    assert 'ai_model_serving_platform/docs/archive/reviews/gemma4_31b_awq_review.md' in names
     assert 'ai_model_serving_platform/docs/models/model_runtime_source_review.md' in names
     assert not any(name.startswith('ai_model_serving_platform/models/') for name in names)
 

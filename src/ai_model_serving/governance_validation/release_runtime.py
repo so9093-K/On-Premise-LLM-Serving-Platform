@@ -78,7 +78,8 @@ def validate_release_hygiene() -> None:
     disallowed_paths = [
         'reports/source_file_inventory.csv',
         'docs/reviews/source_file_inventory_summary.md',
-        'adr/0001-origin-transition.md',
+        'adr/',
+        'docs/adr/0001-origin-transition.md',
         'reports/full_project_model_feature_review_2026-05-06.md',
         'reports/project_ux_and_hardening_review_2026-05-06.md',
         'reports/operational_ux_hardening_review_0.1.6_2026-05-06.md',

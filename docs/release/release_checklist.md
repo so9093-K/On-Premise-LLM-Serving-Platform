@@ -48,6 +48,8 @@ make package
 
 ZIP에는 `.env`, `.runtime`, cache, logs, model cache, timestamp runtime validation report, pycache, egg-info가 포함되면 안 된다. ZIP root는 `ai_model_serving_platform/`로 고정한다.
 
+Archive 정책: `docs/archive/`는 historical documentation으로 release package에 포함할 수 있다. `reports/archive/`는 handoff evidence 보존용이며 package script가 제외하지 않는 한 포함 가능하지만, active 운영 guide나 generated runtime evidence로 취급하지 않는다. 포함 여부를 바꾸려면 `scripts/build/package_release.sh`의 제외 규칙과 `docs/manifest.yaml` lifecycle을 함께 갱신한다.
+
 ## 인증 제어 플레인 점검
 
 ```bash

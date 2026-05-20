@@ -1,6 +1,6 @@
 # Retired Gemma4 31B AWQ 모델 검토
 
-이 문서는 이전 `local-main` 후보였던 `QuantTrio/gemma-4-31B-it-AWQ`의 retired 검토 기록이다. 현재 기본 `local-main`은 `RedHatAI/gemma-4-26B-A4B-it-FP8-Dynamic`이며, 운영 설정은 `configs/model_catalog.yaml`, `configs/model_serving.yaml`, [GPU Resource Plan](../resources/gpu_resource_plan.md)을 기준으로 한다.
+이 문서는 이전 `local-main` 후보였던 `QuantTrio/gemma-4-31B-it-AWQ`의 retired 검토 기록이다. 현재 기본 `local-main`은 `RedHatAI/gemma-4-26B-A4B-it-FP8-Dynamic`이며, 운영 설정은 `configs/model_catalog.yaml`, `configs/model_serving.yaml`, [GPU Resource Plan](../../resources/gpu_resource_plan.md)을 기준으로 한다.
 
 ## 사용 목적
 

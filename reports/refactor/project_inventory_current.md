@@ -10,7 +10,7 @@ Command:
 
 이 리포트는 현재 source tree에서 생성되며 로컬 runtime/cache/build 디렉터리는 제외한다.
 
-- 검토 파일 수: **331**
+- 검토 파일 수: **338**
 - CSV matrix: `reports/refactor/project_inventory_current.csv`
 - JSON matrix: `reports/refactor/project_inventory_current.json`
 
@@ -23,6 +23,7 @@ Command:
 | `.env.compose.example` | 1 |
 | `.env.example` | 1 |
 | `.env.local.example` | 1 |
+| `.github` | 1 |
 | `.gitignore` | 1 |
 | `.gitlab-ci.yml` | 1 |
 | `.other` | 7 |
@@ -32,12 +33,10 @@ Command:
 | `Makefile` | 1 |
 | `README.md` | 1 |
 | `VERSION` | 1 |
-| `adr` | 3 |
 | `assets` | 1 |
 | `configs` | 13 |
 | `contracts` | 2 |
-| `docs` | 50 |
-| `examples` | 1 |
+| `docs` | 59 |
 | `features` | 3 |
 | `harness` | 4 |
 | `model_cards` | 4 |
@@ -49,7 +48,7 @@ Command:
 | `scripts` | 63 |
 | `specs` | 15 |
 | `src` | 81 |
-| `tests` | 30 |
+| `tests` | 31 |
 | `version_manifest.json` | 1 |
 
 ## 주요 진입점
@@ -69,7 +68,7 @@ Command:
 | 경로 | 줄 수 | 담당 | 검토 메모 |
 |---|---:|---|---|
 | `specs/openapi.gateway.yaml` | 4930 | api-contracts | supporting project file |
-| `reports/refactor/project_inventory_current.json` | 3902 | handoff-reporting | handoff/review artifact; avoid stale phase snapshots in active package |
+| `reports/refactor/project_inventory_current.json` | 3980 | handoff-reporting | handoff/review artifact; avoid stale phase snapshots in active package |
 | `tests/unit/test_gateway_app.py` | 2204 | quality | test coverage; keep deterministic and avoid live GPU dependency |
 | `specs/openapi.risk-adapter.yaml` | 1641 | api-contracts | supporting project file |
 | `ops/grafana/dashboards/serving_home.json` | 1398 | operations | supporting project file |

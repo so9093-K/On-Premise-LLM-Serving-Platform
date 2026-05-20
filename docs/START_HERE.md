@@ -238,11 +238,13 @@ make release-check            # 릴리스 gate 전체 실행
 
 | 유형 | 위치 | 설명 |
 |---|---|---|
-| **source** | `docs/` | 사람이 직접 읽고 수정하는 문서 |
-| **generated** | `reports/runtime/` | 스크립트가 자동 생성하는 리포트. 직접 수정하지 않는다 |
-| **current_snapshot** | `reports/refactor/current_*` | 특정 시점의 상태 요약. 일부는 역사적 감사 기록 |
-| **decision** | `adr/` | Architectural Decision Records. canonical decision source-of-truth |
-| **changelog** | `CHANGELOG.md` | 버전별 변경 이력 |
+| **source** | `docs/` | 사람이 읽는 상세 문서의 단일 홈 |
+| **decision** | `docs/adr/` | Architectural Decision Records. canonical decision source-of-truth |
+| **examples** | `docs/examples/` | 설명형 API examples. 실행 payload는 root `examples/`에 둔다 |
+| **archive** | `docs/archive/` | historical context. 현재 운영 기준으로 쓰지 않는다 |
+| **generated** | `reports/runtime/` | 스크립트가 생성하는 runtime evidence. 직접 수정하지 않는다 |
+| **handoff** | `reports/refactor/current_*`, `reports/refactor/project_inventory_current.*` | 현재 상태/handoff/inventory artifact |
+| **changelog** | `CHANGELOG.md` | root의 짧은 버전별 릴리스 노트 |
 
 ---
 

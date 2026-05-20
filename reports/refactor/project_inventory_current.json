@@ -1,12 +1,13 @@
 {
   "summary": {
-    "total_files": 331,
+    "total_files": 338,
     "by_area": {
       ".dockerignore": 1,
       ".env": 1,
       ".env.compose.example": 1,
       ".env.example": 1,
       ".env.local.example": 1,
+      ".github": 1,
       ".gitignore": 1,
       ".gitlab-ci.yml": 1,
       ".other": 7,
@@ -16,12 +17,10 @@
       "Makefile": 1,
       "README.md": 1,
       "VERSION": 1,
-      "adr": 3,
       "assets": 1,
       "configs": 13,
       "contracts": 2,
-      "docs": 50,
-      "examples": 1,
+      "docs": 59,
       "features": 3,
       "harness": 4,
       "model_cards": 4,
@@ -33,48 +32,50 @@
       "scripts": 63,
       "specs": 15,
       "src": 81,
-      "tests": 30,
+      "tests": 31,
       "version_manifest.json": 1
     },
     "by_category": {
       "OpenAPI/JSON schema contract": 15,
       "application/control-plane source": 81,
-      "architecture decision record": 3,
+      "architecture decision record": 6,
       "compose/monitoring/runtime ops template": 17,
       "configuration source of truth": 13,
       "contract registry": 2,
-      "current handoff/review report": 9,
-      "documentation": 50,
+      "current handoff/review report": 5,
+      "documentation": 49,
+      "documentation example": 1,
+      "historical documentation archive": 3,
+      "historical report archive": 4,
       "model card metadata": 4,
       "operator/developer command surface": 63,
-      "project metadata": 28,
-      "request example": 1,
+      "project metadata": 29,
       "runtime validation harness plan/matrix": 4,
       "runtime/operator generated report": 11,
-      "test suite": 30
+      "test suite": 31
     },
     "by_owner": {
       "api-contracts": 22,
       "application": 47,
       "configuration": 13,
-      "documentation": 50,
+      "documentation": 59,
       "domain-registry": 3,
       "governance-validation": 10,
       "handoff-reporting": 20,
       "operations": 17,
       "operator-ux": 63,
-      "project-maintenance": 42,
-      "quality": 30,
+      "project-maintenance": 39,
+      "quality": 31,
       "runtime-validation": 14
     },
     "by_role": {
       "build-command": 2,
-      "documentation": 72,
+      "documentation": 77,
       "entrypoint": 9,
       "environment-template": 5,
-      "python-source": 145,
+      "python-source": 146,
       "shell-command": 27,
-      "structured-data": 62,
+      "structured-data": 63,
       "supporting-file": 9
     },
     "large_files_by_line_count": [
@@ -95,8 +96,8 @@
         "category": "current handoff/review report",
         "owner": "handoff-reporting",
         "management": "generated/curated for handoff review",
-        "size_bytes": 139191,
-        "line_count": 3902,
+        "size_bytes": 142132,
+        "line_count": 3980,
         "role": "structured-data",
         "review_note": "handoff/review artifact; avoid stale phase snapshots in active package"
       },
@@ -313,6 +314,17 @@
       "review_note": "supporting project file"
     },
     {
+      "path": ".github/pull_request_template.md",
+      "area": ".github",
+      "category": "project metadata",
+      "owner": "project-maintenance",
+      "management": "managed by root project metadata",
+      "size_bytes": 1205,
+      "line_count": 15,
+      "role": "documentation",
+      "review_note": "supporting project file"
+    },
+    {
       "path": ".gitignore",
       "area": ".gitignore",
       "category": "project metadata",
@@ -428,8 +440,8 @@
       "category": "project metadata",
       "owner": "project-maintenance",
       "management": "managed by root project metadata",
-      "size_bytes": 15640,
-      "line_count": 164,
+      "size_bytes": 1373,
+      "line_count": 31,
       "role": "documentation",
       "review_note": "supporting project file"
     },
@@ -461,8 +473,8 @@
       "category": "project metadata",
       "owner": "project-maintenance",
       "management": "managed by root project metadata",
-      "size_bytes": 18603,
-      "line_count": 422,
+      "size_bytes": 19165,
+      "line_count": 427,
       "role": "entrypoint",
       "review_note": "primary navigation or current-state entrypoint; keep synchronized with Makefile and reports"
     },
@@ -475,39 +487,6 @@
       "size_bytes": 6,
       "line_count": 1,
       "role": "supporting-file",
-      "review_note": "supporting project file"
-    },
-    {
-      "path": "adr/0002-signal-only-risk-contract.md",
-      "area": "adr",
-      "category": "architecture decision record",
-      "owner": "project-maintenance",
-      "management": "managed by root project metadata",
-      "size_bytes": 700,
-      "line_count": 21,
-      "role": "documentation",
-      "review_note": "supporting project file"
-    },
-    {
-      "path": "adr/0003-all-vllm-runtime.md",
-      "area": "adr",
-      "category": "architecture decision record",
-      "owner": "project-maintenance",
-      "management": "managed by root project metadata",
-      "size_bytes": 584,
-      "line_count": 21,
-      "role": "documentation",
-      "review_note": "supporting project file"
-    },
-    {
-      "path": "adr/0004-port-policy-9400.md",
-      "area": "adr",
-      "category": "architecture decision record",
-      "owner": "project-maintenance",
-      "management": "managed by root project metadata",
-      "size_bytes": 857,
-      "line_count": 15,
-      "role": "documentation",
       "review_note": "supporting project file"
     },
     {
@@ -714,8 +693,8 @@
       "category": "documentation",
       "owner": "documentation",
       "management": "managed by documentation map",
-      "size_bytes": 2065,
-      "line_count": 26,
+      "size_bytes": 3277,
+      "line_count": 49,
       "role": "documentation",
       "review_note": "documentation; keep relative links valid and avoid duplicating current command flow"
     },
@@ -747,8 +726,8 @@
       "category": "documentation",
       "owner": "documentation",
       "management": "managed by documentation map",
-      "size_bytes": 8834,
-      "line_count": 125,
+      "size_bytes": 9578,
+      "line_count": 133,
       "role": "entrypoint",
       "review_note": "primary navigation or current-state entrypoint; keep synchronized with Makefile and reports"
     },
@@ -758,8 +737,107 @@
       "category": "documentation",
       "owner": "documentation",
       "management": "managed by documentation map",
-      "size_bytes": 9107,
-      "line_count": 258,
+      "size_bytes": 9398,
+      "line_count": 261,
+      "role": "documentation",
+      "review_note": "documentation; keep relative links valid and avoid duplicating current command flow"
+    },
+    {
+      "path": "docs/adr/0002-signal-only-risk-contract.md",
+      "area": "docs",
+      "category": "architecture decision record",
+      "owner": "documentation",
+      "management": "managed by documentation map",
+      "size_bytes": 700,
+      "line_count": 21,
+      "role": "documentation",
+      "review_note": "documentation; keep relative links valid and avoid duplicating current command flow"
+    },
+    {
+      "path": "docs/adr/0003-all-vllm-runtime.md",
+      "area": "docs",
+      "category": "architecture decision record",
+      "owner": "documentation",
+      "management": "managed by documentation map",
+      "size_bytes": 791,
+      "line_count": 23,
+      "role": "documentation",
+      "review_note": "documentation; keep relative links valid and avoid duplicating current command flow"
+    },
+    {
+      "path": "docs/adr/0004-port-policy-9400.md",
+      "area": "docs",
+      "category": "architecture decision record",
+      "owner": "documentation",
+      "management": "managed by documentation map",
+      "size_bytes": 878,
+      "line_count": 19,
+      "role": "documentation",
+      "review_note": "documentation; keep relative links valid and avoid duplicating current command flow"
+    },
+    {
+      "path": "docs/adr/0010-colbert-removal-dense-korean-retrieval.md",
+      "area": "docs",
+      "category": "architecture decision record",
+      "owner": "documentation",
+      "management": "managed by documentation map",
+      "size_bytes": 3010,
+      "line_count": 58,
+      "role": "documentation",
+      "review_note": "documentation; keep relative links valid and avoid duplicating current command flow"
+    },
+    {
+      "path": "docs/adr/0011-documentation-source-of-truth-policy.md",
+      "area": "docs",
+      "category": "architecture decision record",
+      "owner": "documentation",
+      "management": "managed by documentation map",
+      "size_bytes": 3413,
+      "line_count": 70,
+      "role": "documentation",
+      "review_note": "documentation; keep relative links valid and avoid duplicating current command flow"
+    },
+    {
+      "path": "docs/adr/README.md",
+      "area": "docs",
+      "category": "architecture decision record",
+      "owner": "documentation",
+      "management": "managed by documentation map",
+      "size_bytes": 1937,
+      "line_count": 69,
+      "role": "documentation",
+      "review_note": "documentation; keep relative links valid and avoid duplicating current command flow"
+    },
+    {
+      "path": "docs/archive/changelog/maintenance_journal_0.1.0-rc.1.md",
+      "area": "docs",
+      "category": "historical documentation archive",
+      "owner": "documentation",
+      "management": "managed by documentation map",
+      "size_bytes": 15640,
+      "line_count": 164,
+      "role": "documentation",
+      "review_note": "documentation; keep relative links valid and avoid duplicating current command flow"
+    },
+    {
+      "path": "docs/archive/reviews/gemma4_31b_awq_review.md",
+      "area": "docs",
+      "category": "historical documentation archive",
+      "owner": "documentation",
+      "management": "managed by documentation map",
+      "size_bytes": 1290,
+      "line_count": 27,
+      "role": "documentation",
+      "review_note": "documentation; keep relative links valid and avoid duplicating current command flow"
+    },
+    {
+      "path": "docs/archive/reviews/ux_ui_review.md",
+      "area": "docs",
+      "category": "historical documentation archive",
+      "owner": "documentation",
+      "management": "managed by documentation map",
+      "size_bytes": 8254,
+      "line_count": 108,
       "role": "documentation",
       "review_note": "documentation; keep relative links valid and avoid duplicating current command flow"
     },
@@ -780,8 +858,8 @@
       "category": "documentation",
       "owner": "documentation",
       "management": "managed by documentation map",
-      "size_bytes": 14966,
-      "line_count": 232,
+      "size_bytes": 14814,
+      "line_count": 226,
       "role": "documentation",
       "review_note": "documentation; keep relative links valid and avoid duplicating current command flow"
     },
@@ -830,13 +908,24 @@
       "review_note": "documentation; keep relative links valid and avoid duplicating current command flow"
     },
     {
+      "path": "docs/examples/requests.md",
+      "area": "docs",
+      "category": "documentation example",
+      "owner": "documentation",
+      "management": "managed by documentation map",
+      "size_bytes": 10845,
+      "line_count": 242,
+      "role": "documentation",
+      "review_note": "documentation; keep relative links valid and avoid duplicating current command flow"
+    },
+    {
       "path": "docs/governance/document_management.md",
       "area": "docs",
       "category": "documentation",
       "owner": "documentation",
       "management": "managed by documentation map",
-      "size_bytes": 1439,
-      "line_count": 32,
+      "size_bytes": 7238,
+      "line_count": 109,
       "role": "documentation",
       "review_note": "documentation; keep relative links valid and avoid duplicating current command flow"
     },
@@ -874,14 +963,14 @@
       "review_note": "documentation; keep relative links valid and avoid duplicating current command flow"
     },
     {
-      "path": "docs/models/gemma4_31b_awq_review.md",
+      "path": "docs/manifest.yaml",
       "area": "docs",
       "category": "documentation",
       "owner": "documentation",
       "management": "managed by documentation map",
-      "size_bytes": 1287,
-      "line_count": 27,
-      "role": "documentation",
+      "size_bytes": 11968,
+      "line_count": 413,
+      "role": "structured-data",
       "review_note": "documentation; keep relative links valid and avoid duplicating current command flow"
     },
     {
@@ -890,8 +979,8 @@
       "category": "documentation",
       "owner": "documentation",
       "management": "managed by documentation map",
-      "size_bytes": 1152,
-      "line_count": 20,
+      "size_bytes": 1206,
+      "line_count": 23,
       "role": "documentation",
       "review_note": "documentation; keep relative links valid and avoid duplicating current command flow"
     },
@@ -956,8 +1045,8 @@
       "category": "documentation",
       "owner": "documentation",
       "management": "managed by documentation map",
-      "size_bytes": 16068,
-      "line_count": 250,
+      "size_bytes": 16478,
+      "line_count": 252,
       "role": "documentation",
       "review_note": "documentation; keep relative links valid and avoid duplicating current command flow"
     },
@@ -1000,7 +1089,7 @@
       "category": "documentation",
       "owner": "documentation",
       "management": "managed by documentation map",
-      "size_bytes": 9981,
+      "size_bytes": 10066,
       "line_count": 236,
       "role": "documentation",
       "review_note": "documentation; keep relative links valid and avoid duplicating current command flow"
@@ -1011,8 +1100,8 @@
       "category": "documentation",
       "owner": "documentation",
       "management": "managed by documentation map",
-      "size_bytes": 8847,
-      "line_count": 102,
+      "size_bytes": 10165,
+      "line_count": 116,
       "role": "documentation",
       "review_note": "documentation; keep relative links valid and avoid duplicating current command flow"
     },
@@ -1127,24 +1216,13 @@
       "review_note": "documentation; keep relative links valid and avoid duplicating current command flow"
     },
     {
-      "path": "docs/operations/ux_ui_review.md",
-      "area": "docs",
-      "category": "documentation",
-      "owner": "documentation",
-      "management": "managed by documentation map",
-      "size_bytes": 8254,
-      "line_count": 108,
-      "role": "documentation",
-      "review_note": "documentation; keep relative links valid and avoid duplicating current command flow"
-    },
-    {
       "path": "docs/release/release_checklist.md",
       "area": "docs",
       "category": "documentation",
       "owner": "documentation",
       "management": "managed by documentation map",
-      "size_bytes": 2386,
-      "line_count": 73,
+      "size_bytes": 2832,
+      "line_count": 75,
       "role": "entrypoint",
       "review_note": "primary navigation or current-state entrypoint; keep synchronized with Makefile and reports"
     },
@@ -1198,7 +1276,7 @@
       "category": "documentation",
       "owner": "documentation",
       "management": "managed by documentation map",
-      "size_bytes": 12187,
+      "size_bytes": 12252,
       "line_count": 120,
       "role": "documentation",
       "review_note": "documentation; keep relative links valid and avoid duplicating current command flow"
@@ -1235,17 +1313,6 @@
       "line_count": 67,
       "role": "documentation",
       "review_note": "documentation; keep relative links valid and avoid duplicating current command flow"
-    },
-    {
-      "path": "examples/requests/README.md",
-      "area": "examples",
-      "category": "request example",
-      "owner": "project-maintenance",
-      "management": "managed by root project metadata",
-      "size_bytes": 11282,
-      "line_count": 265,
-      "role": "documentation",
-      "review_note": "supporting project file"
     },
     {
       "path": "features/monitoring_dashboards.yaml",
@@ -1567,48 +1634,48 @@
       "review_note": "supporting project file"
     },
     {
-      "path": "reports/refactor/current_end_to_end_flow_audit.md",
+      "path": "reports/archive/refactor_audits/end_to_end_flow_audit.md",
       "area": "reports",
-      "category": "current handoff/review report",
+      "category": "historical report archive",
       "owner": "handoff-reporting",
-      "management": "generated/curated for handoff review",
-      "size_bytes": 5529,
+      "management": "managed by root project metadata",
+      "size_bytes": 5534,
       "line_count": 116,
       "role": "documentation",
-      "review_note": "handoff/review artifact; avoid stale phase snapshots in active package"
+      "review_note": "supporting project file"
     },
     {
-      "path": "reports/refactor/current_feature_ux_full_audit.md",
+      "path": "reports/archive/refactor_audits/feature_ux_full_audit.md",
       "area": "reports",
-      "category": "current handoff/review report",
+      "category": "historical report archive",
       "owner": "handoff-reporting",
-      "management": "generated/curated for handoff review",
+      "management": "managed by root project metadata",
       "size_bytes": 9357,
       "line_count": 177,
       "role": "documentation",
-      "review_note": "handoff/review artifact; avoid stale phase snapshots in active package"
+      "review_note": "supporting project file"
     },
     {
-      "path": "reports/refactor/current_first_run_clean_package_audit.md",
+      "path": "reports/archive/refactor_audits/first_run_clean_package_audit.md",
       "area": "reports",
-      "category": "current handoff/review report",
+      "category": "historical report archive",
       "owner": "handoff-reporting",
-      "management": "generated/curated for handoff review",
-      "size_bytes": 8546,
+      "management": "managed by root project metadata",
+      "size_bytes": 8551,
       "line_count": 161,
       "role": "documentation",
-      "review_note": "handoff/review artifact; avoid stale phase snapshots in active package"
+      "review_note": "supporting project file"
     },
     {
-      "path": "reports/refactor/current_full_file_hygiene_audit.md",
+      "path": "reports/archive/refactor_audits/full_file_hygiene_audit.md",
       "area": "reports",
-      "category": "current handoff/review report",
+      "category": "historical report archive",
       "owner": "handoff-reporting",
-      "management": "generated/curated for handoff review",
-      "size_bytes": 5615,
+      "management": "managed by root project metadata",
+      "size_bytes": 5620,
       "line_count": 96,
       "role": "documentation",
-      "review_note": "handoff/review artifact; avoid stale phase snapshots in active package"
+      "review_note": "supporting project file"
     },
     {
       "path": "reports/refactor/current_handoff_summary.md",
@@ -1616,7 +1683,7 @@
       "category": "current handoff/review report",
       "owner": "handoff-reporting",
       "management": "generated/curated for handoff review",
-      "size_bytes": 6916,
+      "size_bytes": 6923,
       "line_count": 97,
       "role": "documentation",
       "review_note": "handoff/review artifact; avoid stale phase snapshots in active package"
@@ -1638,8 +1705,8 @@
       "category": "current handoff/review report",
       "owner": "handoff-reporting",
       "management": "generated/curated for handoff review",
-      "size_bytes": 67723,
-      "line_count": 332,
+      "size_bytes": 69262,
+      "line_count": 339,
       "role": "structured-data",
       "review_note": "handoff/review artifact; avoid stale phase snapshots in active package"
     },
@@ -1649,8 +1716,8 @@
       "category": "current handoff/review report",
       "owner": "handoff-reporting",
       "management": "generated/curated for handoff review",
-      "size_bytes": 139191,
-      "line_count": 3902,
+      "size_bytes": 142132,
+      "line_count": 3980,
       "role": "structured-data",
       "review_note": "handoff/review artifact; avoid stale phase snapshots in active package"
     },
@@ -1660,8 +1727,8 @@
       "category": "current handoff/review report",
       "owner": "handoff-reporting",
       "management": "generated/curated for handoff review",
-      "size_bytes": 5307,
-      "line_count": 99,
+      "size_bytes": 5292,
+      "line_count": 98,
       "role": "documentation",
       "review_note": "handoff/review artifact; avoid stale phase snapshots in active package"
     },
@@ -3024,7 +3091,7 @@
       "category": "application/control-plane source",
       "owner": "governance-validation",
       "management": "managed by package source layout",
-      "size_bytes": 7829,
+      "size_bytes": 7841,
       "line_count": 203,
       "role": "python-source",
       "review_note": "application code; preserve public API behavior and compatibility facades"
@@ -3079,8 +3146,8 @@
       "category": "application/control-plane source",
       "owner": "governance-validation",
       "management": "managed by package source layout",
-      "size_bytes": 16390,
-      "line_count": 323,
+      "size_bytes": 16411,
+      "line_count": 324,
       "role": "python-source",
       "review_note": "application code; preserve public API behavior and compatibility facades"
     },
@@ -3200,8 +3267,8 @@
       "category": "application/control-plane source",
       "owner": "application",
       "management": "managed by package source layout",
-      "size_bytes": 11561,
-      "line_count": 250,
+      "size_bytes": 11729,
+      "line_count": 253,
       "role": "python-source",
       "review_note": "application code; preserve public API behavior and compatibility facades"
     },
@@ -3580,6 +3647,17 @@
       "review_note": "test coverage; keep deterministic and avoid live GPU dependency"
     },
     {
+      "path": "tests/contract/test_document_governance.py",
+      "area": "tests",
+      "category": "test suite",
+      "owner": "quality",
+      "management": "managed by test strategy",
+      "size_bytes": 25009,
+      "line_count": 526,
+      "role": "python-source",
+      "review_note": "test coverage; keep deterministic and avoid live GPU dependency"
+    },
+    {
       "path": "tests/contract/test_endpoint_matrix.py",
       "area": "tests",
       "category": "test suite",
@@ -3640,7 +3718,7 @@
       "category": "test suite",
       "owner": "quality",
       "management": "managed by test strategy",
-      "size_bytes": 22098,
+      "size_bytes": 22112,
       "line_count": 430,
       "role": "python-source",
       "review_note": "test coverage; keep deterministic and avoid live GPU dependency"

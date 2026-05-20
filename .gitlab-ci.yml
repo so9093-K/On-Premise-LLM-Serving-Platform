@@ -122,7 +122,7 @@ build-platform:
 
 # Builds vLLM-derived runtime images (risk-vllm-kanana) in a single job so the large
 # (~25 GB) vLLM base image is pulled only once.
-# embedding-ko-vllm uses the standard VLLM_IMAGE and does not require a dedicated build.
+# embedding-ko-vllm uses EMBEDDING_KO_VLLM_IMAGE and does not require a dedicated build.
 # Runs automatically on release/tag pipelines when BUILD_VLLM_DERIVED=1 or DEPLOY_MODE=full.
 # Rolling app deploys skip this job entirely — no vLLM rebuild is needed.
 # allow_failure: false — if the job runs and fails, it is a release failure.

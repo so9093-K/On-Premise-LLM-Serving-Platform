@@ -11,7 +11,7 @@ Accepted
 - 문서가 taxonomy에 없는 risk code(A3–A5, I5)를 예시로 나열했다.
 - Retired Siren endpoint가 active detector처럼 문서화됐다.
 - `/v1/embeddings`가 `local-embed` 전용이라고 잘못 설명됐다.
-- 존재하지 않는 Dockerfile(`Dockerfile.embedding-ko-vllm`)과 make target(`rebuild-embedding-ko-vllm`)이 문서에 남았다.
+- 존재하지 않는 embedding-ko 전용 Dockerfile과 make target이 문서에 남았다.
 - 모델 목록이 `model_cards/*.json`과 일치하지 않는 문서가 있었다.
 
 근본 원인: 문서가 source-of-truth를 참조하는 대신 직접 사실을 정의하려 했다.
@@ -30,14 +30,14 @@ Accepted
 | monitoring target | `configs/monitoring.yaml` |
 | compose service | `ops/compose/*.yaml` |
 | build target | `Makefile`, `scripts/`, `configs/command_terminology_policy.yaml` |
-| architectural decision | `adr/*.md` |
+| architectural decision | `docs/adr/*.md` |
 
 추가 원칙:
 
 - examples는 API contract sample이다. risk code는 `configs/risk_taxonomy.yaml`에 존재하는 code만 사용한다.
 - retired endpoint는 active 검증 예시로 작성하지 않는다.
 - Tier 1 reference 문서는 generated block 또는 governance test로 source-of-truth와의 일치를 보호한다.
-- `adr/`는 canonical decision record다. `docs/02_decision_register.md`는 ADR index로 운영한다.
+- `docs/adr/`는 canonical decision record다. `docs/02_decision_register.md`는 ADR index로 운영한다.
 
 ## Consequences
 
@@ -56,11 +56,11 @@ Accepted
 
 이 ADR 채택과 함께 다음 수정을 완료했다.
 
-- `examples/requests/README.md`에서 A3/A4/A5/I5 제거, Siren active 예시를 retired 안내로 교체
+- `docs/examples/requests.md`에서 A3/A4/A5/I5 제거, Siren active 예시를 retired 안내로 교체
 - `docs/models/model_cards.md`에 `local-embed-ko` 추가, `risk-siren` retained 거짓 문장 제거
 - `docs/operations/endpoint_reference.md`에서 `/v1/embeddings` local-embed 전용 주장 제거
-- `docs/development/build_ux.md`에서 `rebuild-embedding-ko-vllm`, `Dockerfile.embedding-ko-vllm` 제거
-- `docs/operations/gitlab_cicd_deployment.md`에서 `Dockerfile.embedding-ko-vllm` 참조 제거
+- `docs/development/build_ux.md`에서 존재하지 않는 embedding-ko 전용 build 참조 제거
+- `docs/operations/gitlab_cicd_deployment.md`에서 존재하지 않는 embedding-ko 전용 Dockerfile 참조 제거
 
 ## Related
 

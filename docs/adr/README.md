@@ -1,8 +1,8 @@
 # Architectural Decision Records
 
-이 디렉터리는 프로젝트의 **canonical decision record**다.
+`docs/adr/`는 프로젝트의 **canonical decision record**다.
 
-과거 결정의 맥락과 이유를 보존하고, 운영 정책 변경이 어떤 결정에 근거하는지 추적할 수 있도록 유지한다. `docs/02_decision_register.md`는 이 디렉터리의 index다.
+과거 결정의 맥락과 이유를 보존하고, 운영 정책 변경이 어떤 결정에 근거하는지 추적할 수 있도록 유지한다. `docs/02_decision_register.md`는 이 디렉터리의 index와 legacy D-xxx mapping이다.
 
 ---
 
@@ -61,9 +61,9 @@
 | ID | 제목 | Status |
 |---|---|---|
 | ADR-0002 | Signal-only Risk Contract | Accepted |
-| ADR-0003 | All Major Models as vLLM Runtime | Accepted |
+| ADR-0003 | All Major Models as vLLM Runtime | Superseded by ADR-0010 |
 | ADR-0004 | 외부 진입 포트 9400 정책 | Accepted |
 | ADR-0010 | ColBERT 제거와 Dense Korean Retrieval 전환 | Accepted |
 | ADR-0011 | 문서 Source-of-Truth와 Generated Block 정책 | Accepted |
 
-전체 결정 기록은 `docs/02_decision_register.md`를 기준으로 한다.
+전체 결정의 canonical record는 이 `docs/adr/` 디렉터리의 파일이며, `docs/02_decision_register.md`는 ADR index와 legacy D-xxx 매핑을 제공한다.

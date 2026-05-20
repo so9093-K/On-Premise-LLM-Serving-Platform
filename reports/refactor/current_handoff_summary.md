@@ -13,7 +13,7 @@ note: "이 문서는 특정 시점의 handoff 요약이다. 최신 package versi
 - `/v1/chat/completions`는 `stream=true`를 공식 request parameter로 허용하고 Gateway SSE fast path로 upstream vLLM chunk를 relay한다.
 - `stream_options.include_usage=true`는 `stream=true`와 함께 사용할 때만 허용한다.
 - Grafana는 **6개 dashboard baseline** (`serving_cockpit`, `gpu_capacity_and_oom_risk`, `executive_runtime_overview`, `chat_api_deep_dive`, `model_runtime_deep_dive`, `risk_signal_operations`)으로 구성된다. 공통 variable은 `$datasource`, `$window`, `$model`, `$runtime_service`, `$route`, `$status_code`이고, `serving_cockpit`은 전용 `$user_route` variable과 상단 Text runbook을 사용한다.
-- first-run, clean/delete, package flow는 `reports/refactor/current_first_run_clean_package_audit.md`에서 최신 기준으로 재감사했다.
+- first-run, clean/delete, package flow의 과거 감사 snapshot은 `reports/archive/refactor_audits/first_run_clean_package_audit.md`에 보존한다.
 - `local-main`은 chat/sampling/tool 관련 사용자 조정 가능 parameter를 노출한다.
 - `local-embed`는 `dimensions`, `encoding_format`, `truncate_prompt_tokens`를 노출한다.
 - `risk-prompt`, `risk-siren`은 사용자가 조정할 수 있는 parameter가 없으므로 `request_parameters: {}`로 노출한다.

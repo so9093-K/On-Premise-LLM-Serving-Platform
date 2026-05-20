@@ -345,6 +345,7 @@ make runtime-validate
 | GPU 리소스 계획 | `docs/resources/gpu_resource_plan.md` |
 | 릴리스 버전 정책 | `docs/release/versioning_policy.md` |
 | API 스펙 | `docs/specs/api.md` |
+| API request 예시 설명 | `docs/examples/requests.md` |
 | Python 버전 호환성 | `docs/development/python_compatibility.md` |
 | 테스트 전략 | `docs/development/test_strategy.md` |
 | 릴리스 전 체크리스트 | `docs/development/final_checklist.md` |
@@ -352,6 +353,8 @@ make runtime-validate
 | 아키텍처·설계 배경 | `docs/06_architecture.md`, `docs/01_project_background.md` |
 | 결정 기록(ADR) | `docs/02_decision_register.md` |
 | 문서 관리 정책 | `docs/governance/document_management.md` |
+
+문서 역할은 `docs/README.md`와 `docs/manifest.yaml`을 기준으로 관리한다. ADR의 canonical 위치는 `docs/adr/`, 긴 내부 changelog는 `docs/archive/changelog/`, generated evidence는 `reports/runtime/`, 실행 가능한 sample payload/script는 root `examples/`다.
 
 ---
 

@@ -17,7 +17,7 @@ Scope: full project package after streaming and Grafana operations work.
 - Runtime configuration: `configs/**`, `harness/**`
 - Operations assets: `ops/**`
 - Grafana/Prometheus: `ops/grafana/**`, `ops/prometheus/**`, `configs/monitoring.yaml`
-- Documentation: `docs/**`, `adr/**`, `reports/**`
+- Documentation: `docs/**`, `docs/adr/**`, `reports/**`
 - Build, clean, package scripts: `Makefile`, `scripts/**`
 - Tests: `tests/**`
 

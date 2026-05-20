@@ -1,7 +1,7 @@
 # 02. 의사결정 기록 (ADR Index)
 
-이 파일은 `adr/` 디렉터리의 Architectural Decision Records(ADR) index다.  
-각 ADR은 `adr/` 디렉터리의 파일이 source-of-truth이며, 이 문서는 요약 진입점이다.
+이 파일은 `docs/adr/` 디렉터리의 Architectural Decision Records(ADR) index와 legacy D-xxx mapping이다.  
+각 ADR은 `docs/adr/` 디렉터리의 파일이 source-of-truth이며, 이 문서는 canonical record가 아니라 탐색용 index다.
 
 ---
 
@@ -18,17 +18,17 @@
 
 | ID | 파일 | 제목 | Status |
 |---|---|---|---|
-| ADR-0002 | [adr/0002-signal-only-risk-contract.md](../adr/0002-signal-only-risk-contract.md) | Signal-only Risk Contract | Accepted |
-| ADR-0003 | [adr/0003-all-vllm-runtime.md](../adr/0003-all-vllm-runtime.md) | All Major Models as vLLM Runtime | Accepted |
-| ADR-0004 | [adr/0004-port-policy-9400.md](../adr/0004-port-policy-9400.md) | 외부 진입 포트 9400 정책 | Accepted |
-| ADR-0010 | [adr/0010-colbert-removal-dense-korean-retrieval.md](../adr/0010-colbert-removal-dense-korean-retrieval.md) | ColBERT 제거와 Dense Korean Retrieval 전환 | Accepted |
-| ADR-0011 | [adr/0011-documentation-source-of-truth-policy.md](../adr/0011-documentation-source-of-truth-policy.md) | 문서 Source-of-Truth와 Generated Block 정책 | Accepted |
+| ADR-0002 | [docs/adr/0002-signal-only-risk-contract.md](adr/0002-signal-only-risk-contract.md) | Signal-only Risk Contract | Accepted |
+| ADR-0003 | [docs/adr/0003-all-vllm-runtime.md](adr/0003-all-vllm-runtime.md) | All Major Models as vLLM Runtime | Superseded by ADR-0010 |
+| ADR-0004 | [docs/adr/0004-port-policy-9400.md](adr/0004-port-policy-9400.md) | 외부 진입 포트 9400 정책 | Accepted |
+| ADR-0010 | [docs/adr/0010-colbert-removal-dense-korean-retrieval.md](adr/0010-colbert-removal-dense-korean-retrieval.md) | ColBERT 제거와 Dense Korean Retrieval 전환 | Accepted |
+| ADR-0011 | [docs/adr/0011-documentation-source-of-truth-policy.md](adr/0011-documentation-source-of-truth-policy.md) | 문서 Source-of-Truth와 Generated Block 정책 | Accepted |
 
 ---
 
 ## Legacy 결정 요약 (D-001~D-009)
 
-ADR 체계 도입 이전 결정이다. 동일 내용이 `adr/` 파일에도 포함된다.
+ADR 체계 도입 이전 결정이다. 일부는 ADR로 승격되었고, 나머지는 legacy decision으로 이 index에 보존한다.
 
 | ID | 결정 | 이유 | Status |
 |---|---|---|---|

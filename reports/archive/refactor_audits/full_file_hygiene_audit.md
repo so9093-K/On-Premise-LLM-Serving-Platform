@@ -15,7 +15,7 @@ note: "이 문서는 특정 시점의 파일 위생 감사 기록이다. 테스�
 - application source: `src/ai_model_serving/**`
 - operator/developer commands: `scripts/**`
 - configuration and contracts: `configs/**`, `contracts/**`, `specs/**`, `harness/**`
-- runtime/ops templates: `ops/**`, `model_cards/**`, `examples/**`, `adr/**`
+- runtime/ops templates: `ops/**`, `model_cards/**`, `examples/**`, `docs/adr/**`
 - tests: `tests/unit/**`, `tests/contract/**`
 - documentation and reports: `docs/**`, `reports/refactor/**`, `reports/runtime/**`
 - generated/local artifacts: `dist/`, `.runtime/`, `__pycache__/`, `*.pyc`, `.pytest_cache/`, `build/`, `outputs/`, `run/`, `logs/`
