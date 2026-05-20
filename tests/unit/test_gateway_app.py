@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 from pathlib import Path
 
@@ -10,6 +11,7 @@ from ai_model_serving.errors import ServiceError
 from ai_model_serving.contracts import ChatResponseExpectations, validate_chat_response
 
 from ai_model_serving.apps.gateway import create_gateway_app
+from ai_model_serving.services.readiness import DependencyProbe, collect_readiness
 from ai_model_serving.settings import AppSettings, RuntimeEndpoint, SecuritySettings
 
 
@@ -467,6 +469,31 @@ def test_gateway_readiness_reflects_risk_adapter_body_status():
     risk_dependency = next(item for item in body["dependencies"] if item["name"] == "risk_adapter")
     assert risk_dependency["endpoint"] == "http://risk/ready"
     assert "risk_prompt_vllm" in risk_dependency["message"]
+
+
+def test_collect_readiness_response_matches_schema():
+    schema = json.loads(Path("specs/schemas/readiness_response.schema.json").read_text())
+    validator = Draft202012Validator(schema)
+
+    required_client = FakeRuntimeClient(endpoint=RuntimeEndpoint("req", "http://req/v1", "req", 1))
+    optional_client = FakeRuntimeClient(
+        ready=False,
+        get_response={"error": "not ready"},
+        endpoint=RuntimeEndpoint("opt", "http://opt/v1", "opt", 1),
+    )
+    probes = [
+        DependencyProbe("required_dep", required_client, "models", required=True),
+        DependencyProbe("optional_dep", optional_client, "models", required=False),
+    ]
+
+    body = asyncio.run(collect_readiness(service="gateway", probes=probes))
+
+    validator.validate(body)
+    assert body["status"] == "ready"
+    assert body["required_not_ready_dependencies"] == []
+    assert body["optional_not_ready_dependencies"] == ["optional_dep"]
+    assert body["not_ready_dependencies"] == ["optional_dep"]
+
 
 def test_gateway_framework_documentation_endpoints_are_exposed_by_default():
     client = TestClient(create_gateway_app(settings(), FakeGatewayClients()))

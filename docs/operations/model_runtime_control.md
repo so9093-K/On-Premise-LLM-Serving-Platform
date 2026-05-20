@@ -14,7 +14,7 @@ Gateway는 모델 서버를 직접 생성하지 않는다. vLLM process/containe
 
 Gateway `/ready`는 main LLM, embedding, Risk Adapter를 확인한다. Risk Adapter `/ready`가 admin auth를 요구하면 Gateway는 내부 admin bearer token을 전달한다. Gateway는 Risk Adapter의 HTTP 성공만으로 ready 처리하지 않고, 응답 body의 `status`가 `ready`일 때만 Risk Adapter dependency를 ready로 기록한다.
 
-모델이 실제로 로딩 중이면 `/ready`는 HTTP 503을 유지하되 body에 `phase: waiting_for_dependencies`, `not_ready_dependencies`, dependency별 `endpoint`와 `message`를 포함한다. 따라서 UI나 운영 스크립트는 HTTP status로 traffic gate를 막고, body로 어떤 vLLM runtime을 기다리는지 표시한다.
+모델이 실제로 로딩 중이면 `/ready`는 HTTP 503을 유지하되 body에 `phase: waiting_for_dependencies`, `not_ready_dependencies`, `required_not_ready_dependencies`, `optional_not_ready_dependencies`, dependency별 `endpoint`와 `message`를 포함한다. `required_not_ready_dependencies`는 overall status에 영향을 주는 필수 dependency 목록이고, `optional_not_ready_dependencies`는 degraded 상태만 유발하는 선택적 dependency 목록이다. 따라서 UI나 운영 스크립트는 HTTP status로 traffic gate를 막고, body로 어떤 vLLM runtime을 기다리는지 표시한다.
 
 ## 모델 lifecycle과 읽기 전용 제어 플레인
 

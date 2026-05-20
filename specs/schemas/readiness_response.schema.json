@@ -7,6 +7,8 @@
     "service",
     "phase",
     "not_ready_dependencies",
+    "required_not_ready_dependencies",
+    "optional_not_ready_dependencies",
     "dependencies"
   ],
   "additionalProperties": false,
@@ -31,6 +33,20 @@
       ]
     },
     "not_ready_dependencies": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "required_not_ready_dependencies": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "optional_not_ready_dependencies": {
       "type": "array",
       "items": {
         "type": "string",

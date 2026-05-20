@@ -29,6 +29,8 @@ READY_RESPONSE_EXAMPLE: dict[str, Any] = {
     "service": "gateway",
     "phase": "serving",
     "not_ready_dependencies": [],
+    "required_not_ready_dependencies": [],
+    "optional_not_ready_dependencies": [],
     "dependencies": [
         {
             "name": "main_llm_vllm",
@@ -53,6 +55,8 @@ LOADING_RESPONSE_EXAMPLE: dict[str, Any] = {
     "service": "gateway",
     "phase": "waiting_for_dependencies",
     "not_ready_dependencies": ["risk_adapter"],
+    "required_not_ready_dependencies": ["risk_adapter"],
+    "optional_not_ready_dependencies": [],
     "dependencies": [
         {
             "name": "main_llm_vllm",
@@ -345,6 +349,8 @@ RISK_READY_RESPONSE_EXAMPLE: dict[str, Any] = {
     "service": "risk-adapter",
     "phase": "serving",
     "not_ready_dependencies": [],
+    "required_not_ready_dependencies": [],
+    "optional_not_ready_dependencies": [],
     "dependencies": [
         {
             "name": "risk_prompt_vllm",
@@ -359,6 +365,8 @@ RISK_LOADING_RESPONSE_EXAMPLE: dict[str, Any] = {
     "service": "risk-adapter",
     "phase": "waiting_for_dependencies",
     "not_ready_dependencies": ["risk_prompt_vllm"],
+    "required_not_ready_dependencies": ["risk_prompt_vllm"],
+    "optional_not_ready_dependencies": [],
     "dependencies": [
         {
             "name": "risk_prompt_vllm",
