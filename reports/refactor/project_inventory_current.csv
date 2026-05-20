@@ -1,11 +1,11 @@
 path,area,category,owner,management,size_bytes,line_count,role,review_note
-.dockerignore,.dockerignore,project metadata,project-maintenance,managed by root project metadata,2412,62,supporting-file,supporting project file
+.dockerignore,.dockerignore,project metadata,project-maintenance,managed by root project metadata,2373,61,supporting-file,supporting project file
 .env,.env,project metadata,project-maintenance,managed by root project metadata,5136,118,environment-template,supporting project file
 .env.compose.example,.env.compose.example,project metadata,project-maintenance,managed by root project metadata,4924,119,environment-template,supporting project file
 .env.example,.env.example,project metadata,project-maintenance,managed by root project metadata,2167,75,environment-template,supporting project file
 .env.local.example,.env.local.example,project metadata,project-maintenance,managed by root project metadata,2173,75,environment-template,supporting project file
 .gitignore,.gitignore,project metadata,project-maintenance,managed by root project metadata,2348,57,supporting-file,supporting project file
-.gitlab-ci.yml,.gitlab-ci.yml,project metadata,project-maintenance,managed by root project metadata,6926,200,structured-data,supporting project file
+.gitlab-ci.yml,.gitlab-ci.yml,project metadata,project-maintenance,managed by root project metadata,6310,193,structured-data,supporting project file
 .other/MoE_optimize.md,.other,project metadata,project-maintenance,managed by root project metadata,16751,449,documentation,supporting project file
 .other/prompt_injection_defense_eval_20260515_164300.json,.other,project metadata,project-maintenance,managed by root project metadata,28793,540,structured-data,supporting project file
 .other/prompt_injection_defense_eval_20260515_164300.md,.other,project metadata,project-maintenance,managed by root project metadata,14525,114,documentation,supporting project file
@@ -28,7 +28,7 @@ configs/gemma4_chat_template.jinja,configs,configuration source of truth,configu
 configs/gpu_budgets.yaml,configs,configuration source of truth,configuration,managed by configuration lifecycle,3410,107,structured-data,configuration source; validate through governance and projection checks after edits
 configs/logging_policy.yaml,configs,configuration source of truth,configuration,managed by configuration lifecycle,328,21,structured-data,configuration source; validate through governance and projection checks after edits
 configs/model_catalog.yaml,configs,configuration source of truth,configuration,managed by configuration lifecycle,12077,376,structured-data,configuration source; validate through governance and projection checks after edits
-configs/model_serving.yaml,configs,configuration source of truth,configuration,managed by configuration lifecycle,12889,450,structured-data,configuration source; validate through governance and projection checks after edits
+configs/model_serving.yaml,configs,configuration source of truth,configuration,managed by configuration lifecycle,12908,451,structured-data,configuration source; validate through governance and projection checks after edits
 configs/monitoring.yaml,configs,configuration source of truth,configuration,managed by configuration lifecycle,13497,411,structured-data,configuration source; validate through governance and projection checks after edits
 configs/ports.yaml,configs,configuration source of truth,configuration,managed by configuration lifecycle,458,26,structured-data,configuration source; validate through governance and projection checks after edits
 configs/recommended_images.yaml,configs,configuration source of truth,configuration,managed by configuration lifecycle,2986,72,structured-data,configuration source; validate through governance and projection checks after edits
@@ -100,8 +100,8 @@ model_cards/local-embed-ko.json,model_cards,model card metadata,project-maintena
 model_cards/local-embed.json,model_cards,model card metadata,project-maintenance,managed by root project metadata,3640,108,structured-data,supporting project file
 model_cards/local-main.json,model_cards,model card metadata,project-maintenance,managed by root project metadata,4010,110,structured-data,supporting project file
 model_cards/risk-prompt.json,model_cards,model card metadata,project-maintenance,managed by root project metadata,1767,69,structured-data,supporting project file
-ops/compose/full-stack.example.yaml,ops,compose/monitoring/runtime ops template,operations,managed by operator templates,8612,196,structured-data,supporting project file
-ops/compose/full-stack.private-network.yaml,ops,compose/monitoring/runtime ops template,operations,managed by operator templates,9799,347,structured-data,supporting project file
+ops/compose/full-stack.example.yaml,ops,compose/monitoring/runtime ops template,operations,managed by operator templates,8638,196,structured-data,supporting project file
+ops/compose/full-stack.private-network.yaml,ops,compose/monitoring/runtime ops template,operations,managed by operator templates,9825,347,structured-data,supporting project file
 ops/compose/infisical.yaml,ops,compose/monitoring/runtime ops template,operations,managed by operator templates,2199,69,structured-data,supporting project file
 ops/docker/Dockerfile.risk-vllm-kanana,ops,compose/monitoring/runtime ops template,operations,managed by operator templates,2868,66,supporting-file,supporting project file
 ops/grafana/dashboards/api_experience.json,ops,compose/monitoring/runtime ops template,operations,managed by operator templates,32897,1095,structured-data,supporting project file
@@ -124,16 +124,16 @@ reports/refactor/current_first_run_clean_package_audit.md,reports,current handof
 reports/refactor/current_full_file_hygiene_audit.md,reports,current handoff/review report,handoff-reporting,generated/curated for handoff review,5615,96,documentation,handoff/review artifact; avoid stale phase snapshots in active package
 reports/refactor/current_handoff_summary.md,reports,current handoff/review report,handoff-reporting,generated/curated for handoff review,6916,97,documentation,handoff/review artifact; avoid stale phase snapshots in active package
 reports/refactor/current_refactor_state.md,reports,current handoff/review report,handoff-reporting,generated/curated for handoff review,4210,72,entrypoint,primary navigation or current-state entrypoint; keep synchronized with Makefile and reports
-reports/refactor/project_inventory_current.csv,reports,current handoff/review report,handoff-reporting,generated/curated for handoff review,70874,347,structured-data,handoff/review artifact; avoid stale phase snapshots in active package
-reports/refactor/project_inventory_current.json,reports,current handoff/review report,handoff-reporting,generated/curated for handoff review,145178,4067,structured-data,handoff/review artifact; avoid stale phase snapshots in active package
-reports/refactor/project_inventory_current.md,reports,current handoff/review report,handoff-reporting,generated/curated for handoff review,5292,99,documentation,handoff/review artifact; avoid stale phase snapshots in active package
+reports/refactor/project_inventory_current.csv,reports,current handoff/review report,handoff-reporting,generated/curated for handoff review,67723,332,structured-data,handoff/review artifact; avoid stale phase snapshots in active package
+reports/refactor/project_inventory_current.json,reports,current handoff/review report,handoff-reporting,generated/curated for handoff review,139191,3902,structured-data,handoff/review artifact; avoid stale phase snapshots in active package
+reports/refactor/project_inventory_current.md,reports,current handoff/review report,handoff-reporting,generated/curated for handoff review,5307,99,documentation,handoff/review artifact; avoid stale phase snapshots in active package
 reports/runtime/README.md,reports,runtime/operator generated report,handoff-reporting,generated by operator report commands,603,12,documentation,generated operator report; regenerate through make operator-reports before handoff
-reports/runtime/live_evidence_bundle.json,reports,runtime/operator generated report,handoff-reporting,generated by operator report commands,1716,69,structured-data,generated operator report; regenerate through make operator-reports before handoff
-reports/runtime/live_evidence_bundle.md,reports,runtime/operator generated report,handoff-reporting,generated by operator report commands,1727,46,documentation,generated operator report; regenerate through make operator-reports before handoff
-reports/runtime/monitoring_projection.json,reports,runtime/operator generated report,handoff-reporting,generated by operator report commands,5938,208,structured-data,generated operator report; regenerate through make operator-reports before handoff
-reports/runtime/monitoring_projection.md,reports,runtime/operator generated report,handoff-reporting,generated by operator report commands,4157,59,documentation,generated operator report; regenerate through make operator-reports before handoff
-reports/runtime/operator_status_bundle.json,reports,runtime/operator generated report,handoff-reporting,generated by operator report commands,24501,734,structured-data,generated operator report; regenerate through make operator-reports before handoff
-reports/runtime/operator_status_bundle.md,reports,runtime/operator generated report,handoff-reporting,generated by operator report commands,6717,109,documentation,generated operator report; regenerate through make operator-reports before handoff
+reports/runtime/live_evidence_bundle.json,reports,runtime/operator generated report,handoff-reporting,generated by operator report commands,1718,69,structured-data,generated operator report; regenerate through make operator-reports before handoff
+reports/runtime/live_evidence_bundle.md,reports,runtime/operator generated report,handoff-reporting,generated by operator report commands,1729,46,documentation,generated operator report; regenerate through make operator-reports before handoff
+reports/runtime/monitoring_projection.json,reports,runtime/operator generated report,handoff-reporting,generated by operator report commands,5950,208,structured-data,generated operator report; regenerate through make operator-reports before handoff
+reports/runtime/monitoring_projection.md,reports,runtime/operator generated report,handoff-reporting,generated by operator report commands,4165,59,documentation,generated operator report; regenerate through make operator-reports before handoff
+reports/runtime/operator_status_bundle.json,reports,runtime/operator generated report,handoff-reporting,generated by operator report commands,24467,733,structured-data,generated operator report; regenerate through make operator-reports before handoff
+reports/runtime/operator_status_bundle.md,reports,runtime/operator generated report,handoff-reporting,generated by operator report commands,6705,109,documentation,generated operator report; regenerate through make operator-reports before handoff
 reports/runtime/runtime_targets.json,reports,runtime/operator generated report,handoff-reporting,generated by operator report commands,2622,103,structured-data,generated operator report; regenerate through make operator-reports before handoff
 reports/runtime/runtime_targets.md,reports,runtime/operator generated report,handoff-reporting,generated by operator report commands,2034,45,documentation,generated operator report; regenerate through make operator-reports before handoff
 reports/runtime/storage_paths.json,reports,runtime/operator generated report,handoff-reporting,generated by operator report commands,5210,172,structured-data,generated operator report; regenerate through make operator-reports before handoff
@@ -224,7 +224,7 @@ src/ai_model_serving/api/endpoint_matrix.py,src,application/control-plane source
 src/ai_model_serving/api/endpoint_spec.py,src,application/control-plane source,application,managed by package source layout,15788,390,python-source,application code; preserve public API behavior and compatibility facades
 src/ai_model_serving/api/routers/__init__.py,src,application/control-plane source,application,managed by package source layout,0,0,python-source,application code; preserve public API behavior and compatibility facades
 src/ai_model_serving/api/routers/gateway_inference.py,src,application/control-plane source,application,managed by package source layout,2066,70,python-source,application code; preserve public API behavior and compatibility facades
-src/ai_model_serving/api/routers/gateway_ops.py,src,application/control-plane source,application,managed by package source layout,3500,106,python-source,application code; preserve public API behavior and compatibility facades
+src/ai_model_serving/api/routers/gateway_ops.py,src,application/control-plane source,application,managed by package source layout,3499,106,python-source,application code; preserve public API behavior and compatibility facades
 src/ai_model_serving/api/routers/gateway_retrieval.py,src,application/control-plane source,application,managed by package source layout,1313,43,python-source,application code; preserve public API behavior and compatibility facades
 src/ai_model_serving/api/routers/gateway_risk.py,src,application/control-plane source,application,managed by package source layout,2259,70,python-source,application code; preserve public API behavior and compatibility facades
 src/ai_model_serving/api/routers/risk_adapter_ops.py,src,application/control-plane source,application,managed by package source layout,2205,70,python-source,application code; preserve public API behavior and compatibility facades
@@ -302,7 +302,7 @@ src/ai_model_serving/validation.py,src,application/control-plane source,applicat
 tests/conftest.py,tests,test suite,quality,managed by test strategy,1832,52,python-source,test coverage; keep deterministic and avoid live GPU dependency
 tests/contract/README.md,tests,test suite,quality,managed by test strategy,525,19,documentation,test coverage; keep deterministic and avoid live GPU dependency
 tests/contract/test_endpoint_matrix.py,tests,test suite,quality,managed by test strategy,1120,33,python-source,test coverage; keep deterministic and avoid live GPU dependency
-tests/contract/test_governance_and_ops.py,tests,test suite,quality,managed by test strategy,38607,782,python-source,test coverage; keep deterministic and avoid live GPU dependency
+tests/contract/test_governance_and_ops.py,tests,test suite,quality,managed by test strategy,39453,801,python-source,test coverage; keep deterministic and avoid live GPU dependency
 tests/contract/test_korean_documentation_hygiene.py,tests,test suite,quality,managed by test strategy,3653,89,python-source,test coverage; keep deterministic and avoid live GPU dependency
 tests/contract/test_openapi_refs.py,tests,test suite,quality,managed by test strategy,3132,69,python-source,test coverage; keep deterministic and avoid live GPU dependency
 tests/contract/test_openapi_snapshot_diff.py,tests,test suite,quality,managed by test strategy,4756,135,python-source,test coverage; keep deterministic and avoid live GPU dependency
@@ -316,7 +316,7 @@ tests/unit/test_auth_control.py,tests,test suite,quality,managed by test strateg
 tests/unit/test_auth_plan.py,tests,test suite,quality,managed by test strategy,1745,46,python-source,test coverage; keep deterministic and avoid live GPU dependency
 tests/unit/test_check_hf_model_config.py,tests,test suite,quality,managed by test strategy,2962,97,python-source,test coverage; keep deterministic and avoid live GPU dependency
 tests/unit/test_endpoint_spec.py,tests,test suite,quality,managed by test strategy,14068,339,python-source,test coverage; keep deterministic and avoid live GPU dependency
-tests/unit/test_gateway_app.py,tests,test suite,quality,managed by test strategy,84921,2102,python-source,test coverage; keep deterministic and avoid live GPU dependency
+tests/unit/test_gateway_app.py,tests,test suite,quality,managed by test strategy,85681,2121,python-source,test coverage; keep deterministic and avoid live GPU dependency
 tests/unit/test_governance_validation_package.py,tests,test suite,quality,managed by test strategy,1118,36,python-source,test coverage; keep deterministic and avoid live GPU dependency
 tests/unit/test_model_registry.py,tests,test suite,quality,managed by test strategy,7619,163,python-source,test coverage; keep deterministic and avoid live GPU dependency
 tests/unit/test_modelctl.py,tests,test suite,quality,managed by test strategy,2868,89,python-source,test coverage; keep deterministic and avoid live GPU dependency

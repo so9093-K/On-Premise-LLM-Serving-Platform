@@ -621,7 +621,7 @@
         {
           "expr": "up{job=\"vllm-runtimes\",model=~\"$model\",runtime_service=~\"$runtime_service\"}",
           "refId": "A",
-          "legendFormat": "{{model}} {{runtime_service}}"
+          "legendFormat": "{{model}}"
         }
       ],
       "options": {
@@ -829,7 +829,7 @@
         "type": "custom"
       },
       {
-        "allValue": ".*",
+        "allValue": null,
         "current": {
           "selected": true,
           "text": "All",
@@ -841,11 +841,11 @@
         "multi": true,
         "name": "model",
         "options": [],
-        "query": "local-main,local-embed,risk-prompt",
+        "query": "local-main,local-embed,local-embed-ko,risk-prompt",
         "type": "custom"
       },
       {
-        "allValue": ".*",
+        "allValue": null,
         "current": {
           "selected": true,
           "text": "All",
