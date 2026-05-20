@@ -155,6 +155,15 @@ def public_models():
     )
 
 
+_PRODUCTION_EMBEDDING_POLICY = {
+    "allow_unlisted_parameters": False,
+    "supported_parameters": ["dimensions", "encoding_format", "truncate_prompt_tokens", "user"],
+    "drop_upstream_parameters": ["user"],
+    "dimensions": [768, 512, 256, 128],
+    "max_truncate_prompt_tokens": 2048,
+}
+
+
 def settings() -> AppSettings:
     endpoint = RuntimeEndpoint("x", "http://runtime/v1", "x", 1)
     return AppSettings(
@@ -180,6 +189,27 @@ def settings() -> AppSettings:
         risk_prompt=endpoint,
         risk_adapter_base_url="http://risk",
         public_models=public_models(),
+    )
+
+
+def _settings_with_embedding_policy(policy: dict) -> AppSettings:
+    base = settings()
+    embed = RuntimeEndpoint(
+        "local-embed", "http://embed/v1", "local-embed", 1,
+        request_parameter_policy=policy,
+    )
+    return AppSettings(
+        app_env=base.app_env,
+        project_version=base.project_version,
+        security=base.security,
+        gateway_timeout_seconds=base.gateway_timeout_seconds,
+        risk_adapter_timeout_seconds=base.risk_adapter_timeout_seconds,
+        main_llm=base.main_llm,
+        embedding=embed,
+        risk_prompt=base.risk_prompt,
+        risk_adapter_base_url=base.risk_adapter_base_url,
+        max_request_body_bytes=base.max_request_body_bytes,
+        public_models=base.public_models,
     )
 
 
@@ -2087,9 +2117,9 @@ def test_gateway_token_embeddings_upstream_count_mismatch_returns_502():
 # ---------------------------------------------------------------------------
 
 def test_gateway_embeddings_accepts_user_field():
-    """embedding 요청에 user 필드가 있어도 422 없이 정상 처리된다."""
+    """production policy 기반 — user 필드는 허용되지만 upstream으로 전달되지 않는다."""
     clients = FakeGatewayClients()
-    client = TestClient(create_gateway_app(settings(), clients))
+    client = TestClient(create_gateway_app(_settings_with_embedding_policy(_PRODUCTION_EMBEDDING_POLICY), clients))
     response = client.post(
         "/v1/embeddings",
         headers=auth_headers(),
@@ -2097,6 +2127,21 @@ def test_gateway_embeddings_accepts_user_field():
     )
     assert response.status_code == 200
     assert clients.embedding.last_path == "embeddings"
+    assert "user" not in clients.embedding.last_payload
+
+
+def test_gateway_embeddings_user_field_not_sent_upstream():
+    """user 필드는 allow_unlisted=false 환경에서도 허용되고 upstream에서 제거된다."""
+    clients = FakeGatewayClients()
+    client = TestClient(create_gateway_app(_settings_with_embedding_policy(_PRODUCTION_EMBEDDING_POLICY), clients))
+    response = client.post(
+        "/v1/embeddings",
+        headers=auth_headers(),
+        json={"model": "local-embed", "input": "hello", "user": "abc"},
+    )
+    assert response.status_code == 200
+    assert clients.embedding.last_payload.get("user") is None
+    assert clients.embedding.last_payload.get("input") == "hello"
 
 
 def test_gateway_embeddings_rejects_unsupported_encoding_format():

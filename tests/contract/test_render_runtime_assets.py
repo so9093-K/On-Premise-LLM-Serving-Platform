@@ -245,12 +245,11 @@ def test_patch_doc_block_replaces_existing_block() -> None:
     assert "after" in result
 
 
-def test_patch_doc_block_appends_when_markers_absent() -> None:
+def test_patch_doc_block_raises_when_markers_absent() -> None:
     content = "before\nsome text"
     new_block = "<!-- BEGIN FOO -->\nnew\n<!-- END FOO -->"
-    result = patch_doc_block(content, "<!-- BEGIN FOO -->", "<!-- END FOO -->", new_block)
-    assert "new" in result
-    assert "before" in result
+    with pytest.raises(ValueError, match="not found"):
+        patch_doc_block(content, "<!-- BEGIN FOO -->", "<!-- END FOO -->", new_block)
 
 
 def test_compare_doc_block_returns_false_when_no_markers(tmp_path: Path) -> None:

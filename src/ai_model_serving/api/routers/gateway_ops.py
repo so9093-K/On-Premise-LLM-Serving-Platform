@@ -31,7 +31,13 @@ def _risk_adapter_readiness(body: dict[str, Any]) -> tuple[str, str | None]:
     return status, message
 
 
-async def _readiness(clients: Any, metrics: Any = None, *, admin_token: str | None = None) -> dict[str, Any]:
+async def _readiness(
+    clients: Any,
+    metrics: Any = None,
+    *,
+    admin_token: str | None = None,
+    timeout_seconds: float = 2.0,
+) -> dict[str, Any]:
     probes = [
         DependencyProbe("main_llm_vllm", clients.main_llm, "models"),
         DependencyProbe("embedding_vllm", clients.embedding, "models"),
@@ -46,7 +52,7 @@ async def _readiness(clients: Any, metrics: Any = None, *, admin_token: str | No
     colbert_ko = getattr(clients, "colbert_ko", None)
     if colbert_ko is not None:
         probes.append(DependencyProbe("colbert_ko_vllm", colbert_ko, "models", required=False))
-    return await collect_readiness(service="gateway", probes=probes, metrics=metrics)
+    return await collect_readiness(service="gateway", probes=probes, metrics=metrics, timeout_seconds=timeout_seconds)
 
 
 def build_router(admin_dependencies: list, clients: Any, metrics: Any, settings: Any) -> APIRouter:
@@ -75,7 +81,12 @@ def build_router(admin_dependencies: list, clients: Any, metrics: Any, settings:
     )
     async def ready() -> JSONResponse:
         admin_token = next(iter(settings.security.admin_api_keys), None)
-        body = await _readiness(clients, metrics, admin_token=admin_token)
+        body = await _readiness(
+            clients,
+            metrics,
+            admin_token=admin_token,
+            timeout_seconds=settings.readiness_probe_timeout_seconds,
+        )
         return readiness_response(body)
 
     _s = _GW[("GET", "/metrics")]

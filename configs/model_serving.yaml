@@ -228,6 +228,9 @@ models:
       - dimensions
       - encoding_format
       - truncate_prompt_tokens
+      - user
+      drop_upstream_parameters:
+      - user
       dimensions:
       - 768
       - 512
@@ -437,6 +440,11 @@ operational_limits:
   queue_timeout_seconds: 2
   circuit_breaker_failure_threshold: 3
   circuit_breaker_reset_seconds: 15
+  readiness_probe_timeout_seconds: 2
   http_client:
     max_connections: 100
     max_keepalive_connections: 20
+streaming:
+  max_duration_seconds: 300
+  max_chunks: 20000
+  max_bytes: 104857600

@@ -422,5 +422,6 @@ render-runtime-assets:
 	$(PYTHON) scripts/render_runtime_assets.py --write
 
 check-runtime-assets:
+	@# 생성 artifact drift 검출 + compose vLLM command drift 검증 (exit 1 on drift)
 	$(PYTHON) scripts/render_runtime_assets.py --check
 	$(PYTHON) scripts/compose/validate_vllm_compose.py

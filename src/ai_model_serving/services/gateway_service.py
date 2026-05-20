@@ -34,6 +34,17 @@ MAX_TOKEN_EMBEDDING_TEXTS = 8
 MAX_TOKEN_EMBEDDING_TOKENS = 192
 
 
+def normalize_embedding_request_for_runtime(
+    payload: dict[str, Any],
+    policy: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """Gateway에서 허용하지만 upstream으로 전달하지 않을 필드를 제거한다."""
+    upstream = dict(payload)
+    for name in (policy or {}).get("drop_upstream_parameters", []):
+        upstream.pop(name, None)
+    return upstream
+
+
 def normalize_chat_request_for_runtime(
     payload: dict[str, Any],
     runtime_features: dict[str, Any] | None,
@@ -186,20 +197,29 @@ class GatewayService:
             emitted_chunk = False
             first_chunk_recorded = False
             chunk_count = 0
+            byte_count = 0
             terminal_status = "completed"
             observer = StreamingUsageObserver()
             self.metrics.record_streaming_request_started(target)
             try:
-                async for chunk in self.clients.main_llm.stream_bytes("chat/completions", payload):
-                    emitted_chunk = True
-                    chunk_count += 1
-                    if not first_chunk_recorded:
-                        first_chunk_recorded = True
-                        self.metrics.record_streaming_first_chunk(target, time.monotonic() - start)
-                    self.metrics.record_streaming_chunk(target, len(chunk))
-                    for _ in range(observer.observe(chunk)):
-                        self.metrics.record_streaming_usage_event(target)
-                    yield chunk
+                async with asyncio.timeout(self.settings.streaming_max_duration_seconds):
+                    async for chunk in self.clients.main_llm.stream_bytes("chat/completions", payload):
+                        if not chunk:
+                            continue
+                        emitted_chunk = True
+                        chunk_count += 1
+                        byte_count += len(chunk)
+                        if chunk_count > self.settings.streaming_max_chunks:
+                            raise ServiceError("STREAM_LIMIT_EXCEEDED", "stream chunk limit exceeded.", True, 504)
+                        if byte_count > self.settings.streaming_max_bytes:
+                            raise ServiceError("STREAM_LIMIT_EXCEEDED", "stream byte limit exceeded.", True, 504)
+                        if not first_chunk_recorded:
+                            first_chunk_recorded = True
+                            self.metrics.record_streaming_first_chunk(target, time.monotonic() - start)
+                        self.metrics.record_streaming_chunk(target, len(chunk))
+                        for _ in range(observer.observe(chunk)):
+                            self.metrics.record_streaming_usage_event(target)
+                        yield chunk
             except asyncio.CancelledError:
                 terminal_status = "client_disconnect"
                 phase = "mid_stream" if emitted_chunk else "before_first_chunk"
@@ -236,10 +256,14 @@ class GatewayService:
             expected_model=self.settings.embedding.model,
             request_parameter_policy=self.settings.embedding.request_parameter_policy,
         )
+        upstream_payload = normalize_embedding_request_for_runtime(
+            payload,
+            self.settings.embedding.request_parameter_policy,
+        )
         start = time.monotonic()
         try:
             response = await asyncio.wait_for(
-                self.clients.embedding.post_json("embeddings", payload),
+                self.clients.embedding.post_json("embeddings", upstream_payload),
                 timeout=self.settings.gateway_timeout_seconds,
             )
             return validate_embedding_response(

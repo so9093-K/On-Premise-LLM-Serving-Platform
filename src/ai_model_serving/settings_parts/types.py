@@ -79,6 +79,10 @@ class AppSettings:
     risk_input_max_chars: int = 7_936
     public_models: tuple[dict[str, Any], ...] = ()
     documentation: DocumentationSettings = DocumentationSettings()
+    readiness_probe_timeout_seconds: float = 2.0
+    streaming_max_duration_seconds: float = 300.0
+    streaming_max_chunks: int = 20_000
+    streaming_max_bytes: int = 104_857_600
 
     def __post_init__(self) -> None:
         if not self.runtime_endpoints:

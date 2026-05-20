@@ -213,6 +213,8 @@ def load_settings(root: Path | None = None, env_file: Path | str | None = None) 
         minimum=1,
     )
 
+    streaming_cfg = model_serving.get("streaming", {})
+
     return AppSettings(
         app_env=app_env,
         project_version=_env("PROJECT_VERSION", version),
@@ -233,4 +235,8 @@ def load_settings(root: Path | None = None, env_file: Path | str | None = None) 
         risk_input_max_chars=risk_input_max_chars,
         public_models=_public_models_from_registry(model_catalog, model_serving),
         documentation=documentation,
+        readiness_probe_timeout_seconds=float(operational_limits.get("readiness_probe_timeout_seconds", 2.0)),
+        streaming_max_duration_seconds=float(streaming_cfg.get("max_duration_seconds", 300.0)),
+        streaming_max_chunks=int(streaming_cfg.get("max_chunks", 20_000)),
+        streaming_max_bytes=int(streaming_cfg.get("max_bytes", 104_857_600)),
     )

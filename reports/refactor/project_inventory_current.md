@@ -10,7 +10,7 @@ Command:
 
 이 리포트는 현재 source tree에서 생성되며 로컬 runtime/cache/build 디렉터리는 제외한다.
 
-- 검토 파일 수: **344**
+- 검토 파일 수: **346**
 - CSV matrix: `reports/refactor/project_inventory_current.csv`
 - JSON matrix: `reports/refactor/project_inventory_current.json`
 
@@ -46,10 +46,10 @@ Command:
 | `reports` | 20 |
 | `requirements.lock` | 1 |
 | `requirements.runtime.lock` | 1 |
-| `scripts` | 65 |
+| `scripts` | 66 |
 | `specs` | 17 |
 | `src` | 87 |
-| `tests` | 30 |
+| `tests` | 31 |
 | `version_manifest.json` | 1 |
 
 ## 주요 진입점
@@ -69,8 +69,8 @@ Command:
 | 경로 | 줄 수 | 담당 | 검토 메모 |
 |---|---:|---|---|
 | `specs/openapi.gateway.yaml` | 4073 | api-contracts | supporting project file |
-| `reports/refactor/project_inventory_current.json` | 4045 | handoff-reporting | handoff/review artifact; avoid stale phase snapshots in active package |
-| `tests/unit/test_gateway_app.py` | 2113 | quality | test coverage; keep deterministic and avoid live GPU dependency |
+| `reports/refactor/project_inventory_current.json` | 4067 | handoff-reporting | handoff/review artifact; avoid stale phase snapshots in active package |
+| `tests/unit/test_gateway_app.py` | 2158 | quality | test coverage; keep deterministic and avoid live GPU dependency |
 | `specs/openapi.risk-adapter.yaml` | 1641 | api-contracts | supporting project file |
 | `ops/grafana/dashboards/serving_home.json` | 1398 | operations | supporting project file |
 | `tests/contract/test_governance_and_ops.py` | 1102 | quality | test coverage; keep deterministic and avoid live GPU dependency |
@@ -79,8 +79,8 @@ Command:
 | `src/ai_model_serving/contracts/chat.py` | 769 | api-contracts | application code; preserve public API behavior and compatibility facades |
 | `ops/grafana/dashboards/gpu_capacity_and_oom_risk.json` | 757 | operations | supporting project file |
 | `reports/runtime/operator_status_bundle.json` | 734 | handoff-reporting | generated operator report; regenerate through make operator-reports before handoff |
+| `src/ai_model_serving/services/gateway_service.py` | 709 | application | application code; preserve public API behavior and compatibility facades |
 | `src/ai_model_serving/domain/model_registry.py` | 703 | domain-registry | registry/domain code; monitor size as projections grow |
-| `src/ai_model_serving/services/gateway_service.py` | 685 | application | application code; preserve public API behavior and compatibility facades |
 | `ops/grafana/dashboards/executive_runtime_overview.json` | 682 | operations | supporting project file |
 | `ops/grafana/dashboards/risk_signal_operations.json` | 625 | operations | supporting project file |
 

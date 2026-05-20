@@ -166,12 +166,16 @@ def compare_doc_block(path: Path, begin_marker: str, end_marker: str, block: str
 def patch_doc_block(content: str, begin_marker: str, end_marker: str, new_block: str) -> str:
     """begin/end marker 사이 내용(marker 포함)을 new_block으로 교체한다.
 
-    marker가 없으면 파일 끝에 추가한다.
+    marker가 없으면 ValueError를 발생시킨다. 문서 구조 변경 시 조용히 넘어가면
+    drift를 놓칠 수 있기 때문이다.
     """
     begin_idx = content.find(begin_marker)
     end_idx = content.find(end_marker)
     if begin_idx == -1 or end_idx == -1:
-        return content.rstrip() + "\n\n" + new_block + "\n"
+        raise ValueError(
+            f"generated block marker not found: {begin_marker!r} / {end_marker!r}\n"
+            "문서 구조가 변경되었거나 marker가 제거된 것 같습니다."
+        )
     before = content[:begin_idx]
     after = content[end_idx + len(end_marker):]
     return before + new_block + after
@@ -244,7 +248,11 @@ def main() -> int:
                 print(f"skip (not found): {path.relative_to(root)}", file=sys.stderr)
                 continue
             current = path.read_text(encoding="utf-8")
-            updated = patch_doc_block(current, begin_marker, end_marker, block)
+            try:
+                updated = patch_doc_block(current, begin_marker, end_marker, block)
+            except ValueError as exc:
+                print(f"error: {path.relative_to(root)}: {exc}", file=sys.stderr)
+                return 1
             path.write_text(updated, encoding="utf-8")
             print(f"patched {path.relative_to(root)}")
         return 0
