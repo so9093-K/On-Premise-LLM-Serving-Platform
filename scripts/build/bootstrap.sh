@@ -81,9 +81,9 @@ fi
 # Apply exposure mode after .env re-init:
 #   1. Explicit EXPOSURE_MODE env var takes priority.
 #   2. Mode preserved from the previous .env is restored when not overridden.
-#   3. private_network is the init default — skip re-apply to avoid no-op noise.
+#   3. Empty means keep whatever setup_env generated (private_network by default).
 _apply_exposure="${EXPOSURE_MODE:-${_prior_exposure_mode}}"
-if [[ -n "$_apply_exposure" && "$_apply_exposure" != "private_network" ]]; then
+if [[ -n "$_apply_exposure" ]]; then
   _effective_audience="${EXPOSURE_AUDIENCE:-${_prior_exposure_audience}}"
   echo "[bootstrap] applying EXPOSURE_MODE=$_apply_exposure"
   if [[ -n "$_effective_audience" ]]; then
