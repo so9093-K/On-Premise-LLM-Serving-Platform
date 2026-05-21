@@ -65,6 +65,7 @@ def test_runtime_docs_match_model_serving_ports() -> None:
         "docs/operations/full_stack_runtime.md": read_text("docs/operations/full_stack_runtime.md"),
         "scripts/README.md": read_text("scripts/README.md"),
         "scripts/compose/preflight_compose.sh": read_text("scripts/compose/preflight_compose.sh"),
+        "scripts/compose/preflight_compose.py": read_text("scripts/compose/preflight_compose.py"),
     }
     for service, port in expected.items():
         service_name = service.split(":", 1)[0]

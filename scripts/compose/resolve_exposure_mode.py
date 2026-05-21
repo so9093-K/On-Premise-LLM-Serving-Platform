@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
-"""Resolve EXPOSURE_MODE to canonical mode, handling deprecated aliases.
+"""Resolve EXPOSURE_MODE to a supported canonical mode.
 
 Usage:
   python scripts/compose/resolve_exposure_mode.py [MODE]
   python scripts/compose/resolve_exposure_mode.py [MODE] --print-override-file
 
 Returns the canonical mode name to stdout.
-Deprecated alias warnings go to stderr.
 Exits with code 2 on unknown MODE.
 
 This script is the single source of EXPOSURE_MODE routing logic for
@@ -33,26 +32,11 @@ def load_exposure_data(root: Path = ROOT) -> dict:
     return yaml.safe_load(path.read_text(encoding="utf-8")) or {}
 
 
-def resolve(mode: str, data: dict) -> tuple[str, str | None]:
-    """Return (canonical_mode, deprecation_warning | None).
-
-    Raises SystemExit(2) if mode is unknown.
-    """
+def resolve(mode: str, data: dict) -> str:
+    """Return the canonical mode, or exit with code 2 if mode is unknown."""
     canonical_modes: list[str] = data.get("canonical_modes", [])
     if mode in canonical_modes:
-        return mode, None
-
-    aliases: dict = data.get("deprecated_aliases", {})
-    if mode in aliases:
-        alias = aliases[mode]
-        target = str(alias["target"])
-        reason = alias.get("reason", "")
-        remove_after = alias.get("remove_after", "")
-        warning = (
-            f"EXPOSURE_MODE={mode!r} is a deprecated alias for {target!r}. "
-            f"{reason} Remove before {remove_after}."
-        )
-        return target, warning
+        return mode
 
     canonical_str = ", ".join(canonical_modes) if canonical_modes else "(none defined)"
     print(
@@ -79,10 +63,7 @@ def main() -> int:
 
     mode = args.mode or os.environ.get("EXPOSURE_MODE", "private_network")
     data = load_exposure_data()
-    canonical, warning = resolve(mode, data)
-
-    if warning:
-        print(f"WARNING: {warning}", file=sys.stderr)
+    canonical = resolve(mode, data)
 
     if args.print_override_file:
         print(override_file_for(canonical))

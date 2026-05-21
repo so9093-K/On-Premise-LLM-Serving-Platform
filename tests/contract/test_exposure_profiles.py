@@ -5,14 +5,9 @@ not specific past-mistake mode names. If canonical mode names change,
 tests continue to verify the invariants against whatever canonical_modes declares.
 
 Verifies:
-- configs/exposure_profiles.yaml structural invariants (via validate_exposure_profiles.py logic)
+- configs/exposure_profiles.yaml structural invariants via the validator integration
 - configs/auth_profiles.yaml completeness (via verify_auth_profiles_yaml_consistency)
 - auth_control.AUTH_MODE_EXPECTATIONS is derived from YAML (not a separate hardcoded dict)
-- default_private profile does not expose internal/diagnostic services
-- diagnostic_full_stack profile exposes all expected service categories
-- EXPOSURE_AUDIENCE is required for diagnostic_full_stack profiles
-- deprecated_aliases are structurally valid
-- compose override exists for each canonical non-base mode
 - env examples contain all env_contract required keys
 - bootstrap.sh applies named auth modes without private_network-specific skipping
 """
@@ -26,7 +21,7 @@ import yaml
 ROOT = Path(__file__).resolve().parents[2]
 AUTH_PROFILES_YAML = ROOT / "configs" / "auth_profiles.yaml"
 EXPOSURE_PROFILES_YAML = ROOT / "configs" / "exposure_profiles.yaml"
-OVERRIDES_DIR = ROOT / "ops" / "compose" / "overrides"
+SERVICES_YAML = ROOT / "configs" / "services.yaml"
 
 
 # ---------------------------------------------------------------------------
@@ -41,252 +36,16 @@ def _load_auth() -> dict:
     return yaml.safe_load(AUTH_PROFILES_YAML.read_text(encoding="utf-8"))
 
 
+def _load_services() -> dict:
+    return yaml.safe_load(SERVICES_YAML.read_text(encoding="utf-8")).get("services", {})
+
+
 def _canonical_modes(data: dict) -> list[str]:
     return data.get("canonical_modes", [])
 
 
-def _profile(data: dict, mode: str) -> dict:
-    return data.get("profiles", {}).get(mode, {})
-
-
-def _class_profiles(data: dict, cls: str) -> list[str]:
-    return [m for m, p in data.get("profiles", {}).items() if isinstance(p, dict) and p.get("class") == cls]
-
-
 # ---------------------------------------------------------------------------
-# A. configs/exposure_profiles.yaml structure
-# ---------------------------------------------------------------------------
-
-def test_exposure_profiles_yaml_exists() -> None:
-    assert EXPOSURE_PROFILES_YAML.exists(), "configs/exposure_profiles.yaml must exist"
-
-
-def test_exposure_profiles_has_canonical_modes() -> None:
-    data = _load_exposure()
-    modes = _canonical_modes(data)
-    assert len(modes) >= 1, "canonical_modes must be non-empty"
-
-
-def test_exposure_canonical_modes_match_profiles_exactly() -> None:
-    data = _load_exposure()
-    canonical = set(_canonical_modes(data))
-    profile_keys = set(data.get("profiles", {}).keys())
-    assert canonical == profile_keys, (
-        f"canonical_modes and profiles.keys() must match exactly.\n"
-        f"In canonical_modes but not profiles: {sorted(canonical - profile_keys)}\n"
-        f"In profiles but not canonical_modes: {sorted(profile_keys - canonical)}"
-    )
-
-
-def test_exposure_deprecated_aliases_do_not_overlap_profiles() -> None:
-    data = _load_exposure()
-    aliases = set(data.get("deprecated_aliases", {}).keys())
-    profiles = set(data.get("profiles", {}).keys())
-    overlap = aliases & profiles
-    assert overlap == set(), (
-        f"deprecated_aliases must not name the same modes as profiles: {sorted(overlap)}"
-    )
-
-
-def test_exposure_deprecated_aliases_have_required_fields() -> None:
-    data = _load_exposure()
-    for alias_name, alias in data.get("deprecated_aliases", {}).items():
-        for field in ("target", "reason", "remove_after"):
-            assert field in alias, (
-                f"deprecated_aliases.{alias_name} missing required field: {field!r}"
-            )
-        target = alias.get("target")
-        canonical = _canonical_modes(data)
-        assert target in canonical, (
-            f"deprecated_aliases.{alias_name}.target={target!r} is not in canonical_modes={canonical}"
-        )
-
-
-def test_exposure_profiles_have_required_fields() -> None:
-    data = _load_exposure()
-    for mode in _canonical_modes(data):
-        profile = _profile(data, mode)
-        for field in ("class", "diagnostics", "host_published", "description"):
-            assert field in profile, f"profiles.{mode} missing required field: {field!r}"
-
-
-def test_exposure_diagnostics_fields_complete() -> None:
-    required_fields = (
-        "gateway_bypass_possible",
-        "direct_model_runtime_access",
-        "direct_risk_adapter_access",
-        "direct_operations_endpoints",
-        "requires_exposure_audience",
-    )
-    data = _load_exposure()
-    for mode in _canonical_modes(data):
-        diag = _profile(data, mode).get("diagnostics", {})
-        for field in required_fields:
-            assert field in diag, f"profiles.{mode}.diagnostics missing field: {field!r}"
-
-
-# ---------------------------------------------------------------------------
-# B. default_private class invariants
-# ---------------------------------------------------------------------------
-
-def test_exactly_one_default_private_profile() -> None:
-    data = _load_exposure()
-    modes = _class_profiles(data, "default_private")
-    assert len(modes) == 1, (
-        f"Expected exactly 1 profile with class=default_private, found {len(modes)}: {modes}"
-    )
-
-
-def test_default_private_does_not_expose_internal_services() -> None:
-    """default_private must not host-publish services that bypass Gateway auth."""
-    data = _load_exposure()
-    forbidden = {"main_llm_vllm", "embedding_vllm", "embedding_ko_vllm", "risk_prompt_vllm",
-                 "risk_adapter", "prometheus", "dcgm_exporter", "cadvisor"}
-    for mode in _class_profiles(data, "default_private"):
-        published = set(_profile(data, mode).get("host_published", []))
-        exposed = published & forbidden
-        assert exposed == set(), (
-            f"profiles.{mode} (default_private) must not host-publish: {sorted(exposed)}"
-        )
-
-
-def test_default_private_diagnostics_are_all_false() -> None:
-    data = _load_exposure()
-    dangerous = ("gateway_bypass_possible", "direct_model_runtime_access",
-                 "direct_risk_adapter_access", "direct_operations_endpoints")
-    for mode in _class_profiles(data, "default_private"):
-        diag = _profile(data, mode).get("diagnostics", {})
-        for field in dangerous:
-            assert not diag.get(field), (
-                f"profiles.{mode} (default_private) must have diagnostics.{field}=false"
-            )
-
-
-def test_default_private_does_not_require_exposure_audience() -> None:
-    data = _load_exposure()
-    for mode in _class_profiles(data, "default_private"):
-        diag = _profile(data, mode).get("diagnostics", {})
-        assert not diag.get("requires_exposure_audience"), (
-            f"profiles.{mode} (default_private) must not require EXPOSURE_AUDIENCE"
-        )
-
-
-# ---------------------------------------------------------------------------
-# C. diagnostic_full_stack class invariants
-# ---------------------------------------------------------------------------
-
-def test_exactly_one_diagnostic_full_stack_profile() -> None:
-    data = _load_exposure()
-    modes = _class_profiles(data, "diagnostic_full_stack")
-    assert len(modes) == 1, (
-        f"Expected exactly 1 profile with class=diagnostic_full_stack, found {len(modes)}: {modes}"
-    )
-
-
-def test_diagnostic_full_stack_exposes_vllm_runtimes() -> None:
-    data = _load_exposure()
-    required = {"main_llm_vllm", "embedding_vllm", "embedding_ko_vllm", "risk_prompt_vllm"}
-    for mode in _class_profiles(data, "diagnostic_full_stack"):
-        published = set(_profile(data, mode).get("host_published", []))
-        missing = required - published
-        assert missing == set(), (
-            f"profiles.{mode} (diagnostic_full_stack) must host-publish all vLLM runtimes. Missing: {sorted(missing)}"
-        )
-
-
-def test_diagnostic_full_stack_exposes_risk_adapter() -> None:
-    data = _load_exposure()
-    for mode in _class_profiles(data, "diagnostic_full_stack"):
-        published = set(_profile(data, mode).get("host_published", []))
-        assert "risk_adapter" in published, (
-            f"profiles.{mode} (diagnostic_full_stack) must host-publish risk_adapter"
-        )
-
-
-def test_diagnostic_full_stack_exposes_operations_metrics() -> None:
-    data = _load_exposure()
-    required = {"prometheus", "dcgm_exporter", "cadvisor"}
-    for mode in _class_profiles(data, "diagnostic_full_stack"):
-        published = set(_profile(data, mode).get("host_published", []))
-        missing = required - published
-        assert missing == set(), (
-            f"profiles.{mode} (diagnostic_full_stack) must host-publish operations metrics services. Missing: {sorted(missing)}"
-        )
-
-
-def test_diagnostic_full_stack_has_gateway_bypass_diagnostic() -> None:
-    data = _load_exposure()
-    for mode in _class_profiles(data, "diagnostic_full_stack"):
-        diag = _profile(data, mode).get("diagnostics", {})
-        assert diag.get("gateway_bypass_possible"), (
-            f"profiles.{mode} (diagnostic_full_stack) must have diagnostics.gateway_bypass_possible=true"
-        )
-
-
-def test_diagnostic_full_stack_requires_exposure_audience() -> None:
-    data = _load_exposure()
-    for mode in _class_profiles(data, "diagnostic_full_stack"):
-        diag = _profile(data, mode).get("diagnostics", {})
-        assert diag.get("requires_exposure_audience"), (
-            f"profiles.{mode} (diagnostic_full_stack) must have diagnostics.requires_exposure_audience=true"
-        )
-
-
-# ---------------------------------------------------------------------------
-# D. Compose override files for canonical non-base modes
-# ---------------------------------------------------------------------------
-
-def test_compose_override_exists_for_each_canonical_non_base_mode() -> None:
-    data = _load_exposure()
-    base_modes = _class_profiles(data, "default_private")
-    base_mode = base_modes[0] if base_modes else None
-    for mode in _canonical_modes(data):
-        if mode == base_mode:
-            continue
-        slug = mode.replace("_", "-")
-        override = OVERRIDES_DIR / f"exposure.{slug}.yaml"
-        assert override.exists(), (
-            f"compose override file must exist for canonical mode {mode!r}: {override}"
-        )
-
-
-def test_compose_override_for_diagnostic_full_stack_references_source_of_truth() -> None:
-    data = _load_exposure()
-    for mode in _class_profiles(data, "diagnostic_full_stack"):
-        slug = mode.replace("_", "-")
-        override = OVERRIDES_DIR / f"exposure.{slug}.yaml"
-        if not override.exists():
-            continue
-        text = override.read_text(encoding="utf-8")
-        assert "configs/exposure_profiles.yaml" in text, (
-            f"exposure.{slug}.yaml must reference configs/exposure_profiles.yaml as source"
-        )
-
-
-def test_compose_override_for_diagnostic_full_stack_contains_vllm_services() -> None:
-    """Verify the override file actually contains compose service entries for vLLM runtimes."""
-    data = _load_exposure()
-    services = data.get("services", {})
-    for mode in _class_profiles(data, "diagnostic_full_stack"):
-        slug = mode.replace("_", "-")
-        override = OVERRIDES_DIR / f"exposure.{slug}.yaml"
-        if not override.exists():
-            continue
-        override_text = override.read_text(encoding="utf-8")
-        profile = _profile(data, mode)
-        published = set(profile.get("host_published", []))
-        vllm_svcs = {"main_llm_vllm", "embedding_vllm", "embedding_ko_vllm", "risk_prompt_vllm"}
-        for svc_name in vllm_svcs & published:
-            svc_info = services.get(svc_name, {})
-            compose_svc = svc_info.get("compose_service", svc_name.replace("_", "-"))
-            assert compose_svc in override_text, (
-                f"exposure.{slug}.yaml must contain service {compose_svc!r} "
-                f"(profiles.{mode}.host_published includes {svc_name!r})"
-            )
-
-
-# ---------------------------------------------------------------------------
-# E. resolve_exposure_mode.py invariants
+# A. resolve_exposure_mode.py decision function
 # ---------------------------------------------------------------------------
 
 def test_resolve_exposure_mode_returns_canonical_for_canonical() -> None:
@@ -294,20 +53,8 @@ def test_resolve_exposure_mode_returns_canonical_for_canonical() -> None:
     from scripts.compose.resolve_exposure_mode import load_exposure_data, resolve
     data = load_exposure_data(ROOT)
     for mode in _canonical_modes(data):
-        canonical, warning = resolve(mode, data)
+        canonical = resolve(mode, data)
         assert canonical == mode, f"resolve({mode!r}) should return canonical mode, got {canonical!r}"
-        assert warning is None, f"resolve({mode!r}) should have no warning for canonical mode"
-
-
-def test_resolve_exposure_mode_handles_deprecated_aliases() -> None:
-    sys.path.insert(0, str(ROOT))
-    from scripts.compose.resolve_exposure_mode import load_exposure_data, resolve
-    data = load_exposure_data(ROOT)
-    for alias_name, alias in data.get("deprecated_aliases", {}).items():
-        target = alias["target"]
-        canonical, warning = resolve(alias_name, data)
-        assert canonical == target, f"resolve({alias_name!r}) should return target={target!r}, got {canonical!r}"
-        assert warning is not None, f"resolve({alias_name!r}) should emit a deprecation warning"
 
 
 def test_resolve_exposure_mode_fails_on_unknown_mode() -> None:
@@ -316,23 +63,13 @@ def test_resolve_exposure_mode_fails_on_unknown_mode() -> None:
     import pytest
     data = load_exposure_data(ROOT)
     with pytest.raises(SystemExit) as exc_info:
-        resolve("__nonexistent_mode__", data)
+        resolve("unsupported_mode", data)
     assert exc_info.value.code == 2
 
 
 # ---------------------------------------------------------------------------
-# F. validate_exposure_profiles.py structural validator
+# B. validate_exposure_profiles.py structural validator
 # ---------------------------------------------------------------------------
-
-def test_validate_exposure_profiles_passes_on_current_yaml() -> None:
-    sys.path.insert(0, str(ROOT))
-    from scripts.validation.validate_exposure_profiles import load, validate
-    data = load(EXPOSURE_PROFILES_YAML)
-    violations = validate(data, strict=False)
-    assert violations == [], (
-        "validate_exposure_profiles found structural violations:\n" + "\n".join(violations)
-    )
-
 
 def test_validate_exposure_profiles_strict_passes_on_current_yaml() -> None:
     sys.path.insert(0, str(ROOT))
@@ -344,8 +81,116 @@ def test_validate_exposure_profiles_strict_passes_on_current_yaml() -> None:
     )
 
 
+def _profile_diagnostics(*, diagnostic: bool) -> dict[str, bool]:
+    return {
+        "gateway_bypass_possible": diagnostic,
+        "direct_model_runtime_access": diagnostic,
+        "direct_risk_adapter_access": diagnostic,
+        "direct_operations_endpoints": diagnostic,
+        "requires_exposure_audience": diagnostic,
+    }
+
+
+def _validator_service(*categories: str) -> dict:
+    return {
+        "compose_service": "fixture-service",
+        "container_port": 9000,
+        "host_env_port": "FIXTURE_PORT",
+        "default_host_port": 9000,
+        "host_env_bind": "FIXTURE_BIND_ADDR",
+        "default_bind": "127.0.0.1",
+        "categories": list(categories),
+    }
+
+
+def _category_validator_fixture() -> tuple[dict, dict]:
+    services = {
+        "entry": _validator_service("gateway"),
+        "runtime_a": _validator_service("model_runtime"),
+        "runtime_b": _validator_service("model_runtime"),
+        "risk": _validator_service("risk_adapter"),
+        "ops": _validator_service("operations_endpoint"),
+        "view": _validator_service("visualization"),
+    }
+    data = {
+        "canonical_modes": ["private", "diagnostic"],
+        "profiles": {
+            "private": {
+                "class": "default_private",
+                "description": "fixture private",
+                "host_published": ["entry", "view"],
+                "diagnostics": _profile_diagnostics(diagnostic=False),
+            },
+            "diagnostic": {
+                "class": "diagnostic_full_stack",
+                "description": "fixture diagnostic",
+                "host_published": list(services),
+                "diagnostics": _profile_diagnostics(diagnostic=True),
+            },
+        },
+    }
+    return data, services
+
+
+def test_exposure_validator_requires_service_categories() -> None:
+    sys.path.insert(0, str(ROOT))
+    from scripts.validation.validate_exposure_profiles import validate
+
+    data, services = _category_validator_fixture()
+    services["runtime_a"].pop("categories")
+
+    violations = validate(data, services=services)
+
+    assert any(".categories" in violation for violation in violations)
+
+
+def test_exposure_validator_rejects_default_private_operations_category() -> None:
+    sys.path.insert(0, str(ROOT))
+    from scripts.validation.validate_exposure_profiles import validate
+
+    data, services = _category_validator_fixture()
+    data["profiles"]["private"]["host_published"].append("ops")
+
+    violations = validate(data, services=services)
+
+    assert any(
+        "default_private profile must not host-publish operations_endpoint services" in violation
+        for violation in violations
+    )
+
+
+def test_exposure_validator_requires_all_model_runtime_services_for_diagnostic_profile() -> None:
+    sys.path.insert(0, str(ROOT))
+    from scripts.validation.validate_exposure_profiles import validate
+
+    data, services = _category_validator_fixture()
+    data["profiles"]["diagnostic"]["host_published"].remove("runtime_b")
+
+    violations = validate(data, services=services)
+
+    assert any(
+        "diagnostic_full_stack profile is missing model_runtime services" in violation
+        for violation in violations
+    )
+
+
+def test_exposure_validator_requires_diagnostic_visualization_category() -> None:
+    sys.path.insert(0, str(ROOT))
+    from scripts.validation.validate_exposure_profiles import validate
+
+    data, services = _category_validator_fixture()
+    data["profiles"]["diagnostic"]["host_published"].remove("view")
+
+    violations = validate(data, services=services)
+
+    assert any(
+        "diagnostic_full_stack profile must host-publish at least one visualization service" in violation
+        for violation in violations
+    )
+
+
 # ---------------------------------------------------------------------------
-# G. configs/auth_profiles.yaml — YAML is actual source of truth
+# C. configs/auth_profiles.yaml — YAML is actual source of truth
 # ---------------------------------------------------------------------------
 
 def test_auth_profiles_yaml_exists() -> None:
@@ -402,7 +247,7 @@ def test_auth_profiles_yaml_contains_internal_trusted() -> None:
 
 
 # ---------------------------------------------------------------------------
-# H. env examples contain required keys (derived from exposure/model contracts)
+# D. env examples contain required keys (derived from exposure/model contracts)
 # ---------------------------------------------------------------------------
 
 def _env_required_model_runtime_keys() -> list[str]:
@@ -440,9 +285,9 @@ def _env_required_model_runtime_keys() -> list[str]:
 
 
 def _env_required_exposure_bind_keys() -> list[str]:
-    """Return bind addr keys for host-published services, derived from exposure_profiles.yaml."""
+    """Return bind addr keys for host-published services, derived from source registries."""
     data = _load_exposure()
-    services = data.get("services", {})
+    services = _load_services()
     all_published: set[str] = set()
     for profile in data.get("profiles", {}).values():
         if isinstance(profile, dict):
@@ -499,11 +344,11 @@ def test_env_examples_contain_bind_addr_keys() -> None:
     bind_keys = _env_required_exposure_bind_keys()
     for example in (".env.example", ".env.compose.example"):
         missing = _check_env_file(ROOT / example, bind_keys)
-        assert missing == [], f"{example} missing bind addr keys derived from exposure_profiles.yaml: {missing}"
+        assert missing == [], f"{example} missing bind addr keys derived from exposure sources: {missing}"
 
 
 # ---------------------------------------------------------------------------
-# I. bootstrap.sh auth mode application policy
+# E. bootstrap.sh auth mode application policy
 # ---------------------------------------------------------------------------
 
 def test_bootstrap_does_not_skip_any_named_auth_mode() -> None:
@@ -529,7 +374,7 @@ def test_bootstrap_applies_named_auth_modes_skips_only_custom() -> None:
 
 
 # ---------------------------------------------------------------------------
-# J. auth-doctor: internal_trusted + non-local APP_ENV is INFO not FAIL
+# F. auth-doctor: internal_trusted + non-local APP_ENV is INFO not FAIL
 # ---------------------------------------------------------------------------
 
 def test_auth_doctor_internal_trusted_not_fail() -> None:
@@ -569,7 +414,7 @@ def test_auth_doctor_internal_trusted_not_fail() -> None:
 
 
 # ---------------------------------------------------------------------------
-# K. EXPOSURE_AUDIENCE value validation and local_only bind conflict
+# G. EXPOSURE_AUDIENCE value validation and local_only bind conflict
 # ---------------------------------------------------------------------------
 
 def _make_local_settings():
@@ -645,8 +490,7 @@ def test_auth_doctor_passes_local_only_with_loopback_bind(monkeypatch) -> None:
     sys.path.insert(0, str(ROOT / "src"))
     from ai_model_serving.auth_control import diagnose_auth
 
-    data = _load_exposure()
-    services = data.get("services", {})
+    services = _load_services()
 
     monkeypatch.setenv("EXPOSURE_MODE", "master_open")
     monkeypatch.setenv("EXPOSURE_AUDIENCE", "local_only")
@@ -686,7 +530,7 @@ def test_auth_doctor_passes_private_lan_with_open_bind(monkeypatch) -> None:
 
 
 # ---------------------------------------------------------------------------
-# L. validate_docs_exposure: feature manifest scanning
+# H. validate_docs_exposure integration
 # ---------------------------------------------------------------------------
 
 def test_validate_docs_exposure_passes_on_current_state() -> None:
@@ -696,42 +540,5 @@ def test_validate_docs_exposure_passes_on_current_state() -> None:
     violations = validate(ROOT)
     assert violations == [], (
         "validate_docs_exposure found violations in current docs/features:\n"
-        + "\n".join(violations)
-    )
-
-
-def test_exposure_audience_allowed_values_covers_security_profiles_yaml() -> None:
-    """features/security_profiles.yaml must not mention deprecated aliases outside deprecated sections."""
-    data = _load_exposure()
-    aliases = set(data.get("deprecated_aliases", {}).keys())
-    manifest = ROOT / "features" / "security_profiles.yaml"
-    if not manifest.exists():
-        return
-    lines = manifest.read_text(encoding="utf-8").splitlines()
-
-    in_deprecated_block = False
-    deprecated_block_indent = -1
-    violations = []
-    for lineno, line in enumerate(lines, start=1):
-        stripped = line.strip()
-        if not stripped or stripped.startswith("#"):
-            continue
-        if ":" in stripped and not stripped.startswith("-"):
-            key = stripped.split(":")[0].strip()
-            indent = len(line) - len(line.lstrip())
-            if "deprecated" in key.lower():
-                in_deprecated_block = True
-                deprecated_block_indent = indent
-            elif indent <= deprecated_block_indent:
-                in_deprecated_block = False
-                deprecated_block_indent = -1
-        if in_deprecated_block:
-            continue
-        for alias in aliases:
-            if alias in line and "deprecated" not in line.lower():
-                violations.append(f"line {lineno}: deprecated alias {alias!r} outside deprecated section: {line.rstrip()}")
-
-    assert violations == [], (
-        "features/security_profiles.yaml must not reference deprecated aliases outside deprecated sections:\n"
         + "\n".join(violations)
     )

@@ -21,7 +21,6 @@ except ImportError as exc:
     raise SystemExit('jsonschema is required: pip install jsonschema') from exc
 
 from .common import (
-    EXPECTED_PORTS,
     FORBIDDEN_RESPONSE_FIELDS,
     REQUIRED_FILES,
     ROOT,
@@ -29,10 +28,11 @@ from .common import (
     read_json,
     read_runtime_contract_text,
     read_yaml,
+    service_default_host_ports,
 )
 
 def validate_ports() -> None:
-    ports = read_yaml('configs/ports.yaml')['ports']
+    ports = service_default_host_ports()
     model_serving = read_yaml('configs/model_serving.yaml')
     checks = {
         'gateway': model_serving['server']['gateway']['port'],

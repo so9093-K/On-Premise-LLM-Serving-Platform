@@ -6,17 +6,18 @@ PYTHON_BIN="${PYTHON_BIN:-$(command -v python3.12 || command -v python3 || comma
 VERSION="$(cat "$ROOT/VERSION")"
 PACKAGE_NAME="${PACKAGE_NAME:-ai_model_serving_platform}"
 PACKAGE_ROOT="${PACKAGE_ROOT:-ai_model_serving_platform}"
-DIST="$ROOT/dist"
+DIST="${PACKAGE_DIST:-$ROOT/dist}"
 OUT="$DIST/${PACKAGE_NAME}_${VERSION}.zip"
+TMP_OUT="$DIST/.${PACKAGE_NAME}_${VERSION}.zip.tmp.$$"
 STAGE="$(mktemp -d "${TMPDIR:-/tmp}/ai-model-serving-package.XXXXXX")"
 
 cleanup() {
   rm -rf "$STAGE"
+  rm -f "$TMP_OUT"
 }
 trap cleanup EXIT
 
 mkdir -p "$DIST"
-rm -f "$OUT"
 
 if [[ "${PACKAGE_SKIP_VALIDATION:-0}" != "1" ]]; then
   "$PYTHON_BIN" "$ROOT/scripts/build/check_python.py" --context package >/dev/null
@@ -173,13 +174,13 @@ PYCODE
 # Runtime report exclude markers: reports/runtime/runtime_validation_*.json reports/runtime/runtime_validation_*.md; staged live_evidence_bundle is regenerated without timestamped runtime evidence
 # Safe env include markers: "$BASE/.env.example" "$BASE/.env.local.example" "$BASE/.env.compose.example"
 
-"$PYTHON_BIN" - "$STAGE/$PACKAGE_ROOT" "$OUT" <<'PYZIP'
+"$PYTHON_BIN" - "$STAGE/$PACKAGE_ROOT" "$TMP_OUT" <<'PYZIP'
 from __future__ import annotations
 import os, sys, zipfile
 from pathlib import Path
 
 src = Path(sys.argv[1])   # staging/$PACKAGE_ROOT
-out = sys.argv[2]          # dist/...zip
+out = sys.argv[2]          # dist/.<package>.zip.tmp.<pid>
 pkg = src.name             # ai_model_serving_platform
 
 _EPOCH = (1980, 1, 1, 0, 0, 0)
@@ -211,7 +212,7 @@ with zipfile.ZipFile(out, 'w', zipfile.ZIP_DEFLATED) as zf:
                 zf.writestr(fi, fh.read())
 PYZIP
 
-"$PYTHON_BIN" - "$OUT" "$PACKAGE_ROOT" <<'PYSELF'
+"$PYTHON_BIN" - "$TMP_OUT" "$PACKAGE_ROOT" <<'PYSELF'
 from __future__ import annotations
 
 import csv
@@ -261,5 +262,14 @@ for name in names:
     if any(part in forbidden_release_dirs for part in parts):
         raise SystemExit(f"Release ZIP contains forbidden tool/private directory: {name}")
 PYSELF
+
+"$PYTHON_BIN" - "$TMP_OUT" "$OUT" <<'PYREPLACE'
+from __future__ import annotations
+
+import os
+import sys
+
+os.replace(sys.argv[1], sys.argv[2])
+PYREPLACE
 
 echo "$OUT"

@@ -31,7 +31,8 @@ def test_python_default_and_supported_range_are_aligned() -> None:
 
 def test_monitoring_ports_and_privacy_settings_are_aligned() -> None:
     monitoring = yaml.safe_load((ROOT / 'configs/monitoring.yaml').read_text(encoding='utf-8'))
-    ports = yaml.safe_load((ROOT / 'configs/ports.yaml').read_text(encoding='utf-8'))['ports']
+    services = yaml.safe_load((ROOT / 'configs/services.yaml').read_text(encoding='utf-8'))['services']
+    ports = {name: service['default_host_port'] for name, service in services.items()}
     assert monitoring['monitoring_stack']['prometheus']['port'] == ports['prometheus'] == 9410
     assert monitoring['monitoring_stack']['grafana']['port'] == ports['grafana'] == 9411
     assert monitoring['monitoring_stack']['dcgm_exporter']['port'] == ports['dcgm_exporter'] == 9412

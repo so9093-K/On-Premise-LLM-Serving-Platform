@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate compose override files from configs/exposure_profiles.yaml.
+"""Generate compose override files from exposure profiles and service registry.
 
 Reads the canonical exposure profiles and generates
 ops/compose/overrides/exposure.<mode>.yaml for each non-base canonical mode.
@@ -51,6 +51,14 @@ def load_data(root: Path = ROOT) -> dict[str, Any]:
     return yaml.safe_load(path.read_text(encoding="utf-8")) or {}
 
 
+def load_services(root: Path = ROOT) -> dict[str, Any]:
+    path = root / "configs" / "services.yaml"
+    if not path.exists():
+        raise SystemExit(f"configs/services.yaml not found at {path}")
+    data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    return data.get("services", {})
+
+
 def render_override(mode: str, profile: dict, services: dict, base_published: set[str] | None = None) -> str:
     """Generate the compose override YAML content for a diagnostic mode.
 
@@ -90,7 +98,7 @@ def generate(root: Path = ROOT, check: bool = False) -> int:
     data = load_data(root)
     canonical_modes: list[str] = data.get("canonical_modes", [])
     profiles: dict = data.get("profiles", {})
-    services: dict = data.get("services", {})
+    services = load_services(root)
 
     # Identify base mode (default_private) — it does not get an override file
     base_modes = [m for m, p in profiles.items() if isinstance(p, dict) and p.get("class") == "default_private"]

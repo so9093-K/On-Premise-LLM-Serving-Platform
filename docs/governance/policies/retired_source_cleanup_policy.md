@@ -22,4 +22,5 @@
 
 `reports/refactor/`에는 현재 handoff에 필요한 요약과 matrix만 둔다. phase-by-phase 중간 실행 보고서, 오래된 backlog snapshot, 초기 diff, 중복 file-review matrix, 날짜가 붙은 과거 maintenance/rebaseline report는 active source tree에 유지하지 않는다. 현재 상태는 `reports/refactor/current_refactor_state.md`, `reports/refactor/current_handoff_summary.md`, `reports/refactor/project_inventory_current.md`를 기준으로 한다. 날짜가 붙은 `current_refactor_state_*.md`와 `project_inventory_phase*.*`는 current handoff가 아니라 stale snapshot으로 본다.
 
-`tests/contract/test_release_hygiene.py`, `configs/retired_source_cleanup_policy.yaml`, `scripts/validation/validate_contracts.py`가 이 정책을 회귀 방지한다.
+`tests/contract/test_release_hygiene_static.py`, `tests/contract/test_release_package_smoke.py`,
+`configs/retired_source_cleanup_policy.yaml`, `scripts/validation/validate_contracts.py`가 이 정책을 회귀 방지한다.

@@ -36,7 +36,7 @@ STATIC_STEPS: list[tuple[str, list[str], dict[str, str] | None]] = [
 
 TEST_STEP = (
     "deterministic tests",
-    [PYTHON, "scripts/validation/run_tests.py", "-q"],
+    [PYTHON, "scripts/validation/run_tests.py", "-q", "-m", "not runtime and not docker and not gpu"],
     {"PYTHONDONTWRITEBYTECODE": "1", "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1"},
 )
 

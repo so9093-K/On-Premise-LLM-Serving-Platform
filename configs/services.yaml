@@ -1,0 +1,118 @@
+version: 0.1.0
+version_semantics: host-published service registry schema version, not package release version
+source_of_truth: configs/services.yaml
+
+# Canonical compose service, container port, host bind env mapping, and exposure category.
+# Exposure profiles reference these service ids from profiles.*.host_published.
+services:
+  gateway:
+    compose_service: gateway
+    container_port: 9400
+    host_env_port: GATEWAY_PORT
+    default_host_port: 9400
+    host_env_bind: GATEWAY_BIND_ADDR
+    default_bind: "0.0.0.0"
+    categories:
+      - gateway
+      - public_entrypoint
+
+  risk_adapter:
+    compose_service: risk-adapter
+    container_port: 9405
+    host_env_port: RISK_ADAPTER_PORT
+    default_host_port: 9405
+    host_env_bind: RISK_ADAPTER_BIND_ADDR
+    default_bind: "0.0.0.0"
+    categories:
+      - risk_adapter
+
+  main_llm_vllm:
+    compose_service: main-llm-vllm
+    container_port: 9401
+    host_env_port: MAIN_LLM_VLLM_PORT
+    default_host_port: 9401
+    host_env_bind: MAIN_LLM_VLLM_BIND_ADDR
+    default_bind: "0.0.0.0"
+    categories:
+      - model_runtime
+      - vllm_runtime
+
+  embedding_vllm:
+    compose_service: embedding-vllm
+    container_port: 9402
+    host_env_port: EMBEDDING_VLLM_PORT
+    default_host_port: 9402
+    host_env_bind: EMBEDDING_VLLM_BIND_ADDR
+    default_bind: "0.0.0.0"
+    categories:
+      - model_runtime
+      - vllm_runtime
+
+  embedding_ko_vllm:
+    compose_service: embedding-ko-vllm
+    container_port: 9406
+    host_env_port: EMBEDDING_KO_VLLM_PORT
+    default_host_port: 9406
+    host_env_bind: EMBEDDING_KO_VLLM_BIND_ADDR
+    default_bind: "0.0.0.0"
+    categories:
+      - model_runtime
+      - vllm_runtime
+
+  risk_prompt_vllm:
+    compose_service: risk-prompt-vllm
+    container_port: 9403
+    host_env_port: RISK_PROMPT_VLLM_PORT
+    default_host_port: 9403
+    host_env_bind: RISK_PROMPT_VLLM_BIND_ADDR
+    default_bind: "0.0.0.0"
+    categories:
+      - model_runtime
+      - vllm_runtime
+      - risk_model_runtime
+
+  prometheus:
+    compose_service: prometheus
+    container_port: 9090
+    host_env_port: PROMETHEUS_PORT
+    default_host_port: 9410
+    host_env_bind: PROMETHEUS_BIND_ADDR
+    default_bind: "0.0.0.0"
+    categories:
+      - operations_endpoint
+      - metrics_backend
+
+  grafana:
+    compose_service: grafana
+    container_port: 3000
+    host_env_port: GRAFANA_PORT
+    default_host_port: 9411
+    host_env_bind: GRAFANA_BIND_ADDR
+    default_bind: "0.0.0.0"
+    # private_network host-publishes Grafana; keep visualization separate from blocked operations endpoints.
+    categories:
+      - visualization
+
+  dcgm_exporter:
+    compose_service: dcgm-exporter
+    container_port: 9400
+    host_env_port: DCGM_EXPORTER_PORT
+    default_host_port: 9412
+    host_env_bind: DCGM_EXPORTER_BIND_ADDR
+    default_bind: "0.0.0.0"
+    categories:
+      - operations_endpoint
+      - metrics_exporter
+      - gpu_metrics
+
+  cadvisor:
+    compose_service: cadvisor
+    container_port: 8080
+    host_env_port: CADVISOR_PORT
+    default_host_port: 9413
+    host_env_bind: CADVISOR_BIND_ADDR
+    default_bind: "0.0.0.0"
+    categories:
+      - operations_endpoint
+      - metrics_exporter
+      - container_metrics

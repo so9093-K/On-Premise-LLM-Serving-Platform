@@ -29,7 +29,7 @@ Source-of-truth:
 | Flag | 의미 |
 |---|---|
 | `AUTH_MODE` | 사람이 읽는 운영 profile. `local_open`, `internal_trusted`, `private_network`, `edge_terminated`, `strict`, `custom` 중 하나다. |
-| `EXPOSURE_MODE` | Compose host-published port topology. canonical: `private_network`, `master_open`. deprecated alias: `ops_open`→`master_open`, `all_open`→`master_open`. |
+| `EXPOSURE_MODE` | Compose host-published port topology. `private_network`, `master_open`만 지원한다. |
 | `API_KEY_REQUIRED` | Gateway public `/v1/*` Bearer token 요구 여부다. |
 | `ADMIN_API_KEY_REQUIRED` | `/ready`, `/metrics` admin token 요구 여부다. |
 | `ADMIN_ENDPOINTS_INTERNAL_ONLY` | ingress/firewall/VPN 등 네트워크 경계로 admin endpoint를 보호한다는 운영 선언이다. app-level CIDR 차단은 아직 구현하지 않았다. |
@@ -70,9 +70,10 @@ canonical EXPOSURE_MODE는 두 가지다. Source-of-truth: `configs/exposure_pro
 
 `master_open`은 진단/운영 full-stack 모드다. Gateway bypass와 vLLM direct access는 이 모드의 **의도된 특성**이며, 별도 모드로 회피하지 않는다. 대신 `EXPOSURE_AUDIENCE`로 대상 네트워크를 명시하고 `make exposure-status`/`make auth-doctor`가 structured diagnostics로 진단한다.
 
-**Deprecated aliases** (향후 제거 예정, 사용 시 경고 출력):
-- `ops_open` → `master_open`
-- `all_open` → `master_open`
+`EXPOSURE_MODE`는 `private_network`와 `master_open`만 지원한다.
+`master_open`은 Gateway, vLLM runtime, Risk Adapter, Prometheus, Grafana, DCGM,
+cAdvisor 등 전체 stack을 host에서 직접 확인하기 위한 full-stack diagnostic topology다.
+이전 중간 설계에서 쓰였던 별도 open modes는 지원하지 않는다.
 
 `make exposure-status` 또는 `make auth-doctor`로 현재 mode의 diagnostics를 확인한다.
 

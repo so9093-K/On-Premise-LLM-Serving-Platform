@@ -257,19 +257,11 @@ def profile_template(profile: str) -> Path:
     raise ValueError(profile)
 
 
-def _resolve_and_normalize_exposure_mode(exposure_mode: str | None) -> str:
-    """Validate and normalize exposure mode against exposure_profiles.yaml.
-
-    - canonical mode → returned as-is
-    - deprecated alias → warning to stderr, returns canonical target
-    - unknown → prints error, raises SystemExit(2)
-    """
+def _validated_exposure_mode(exposure_mode: str | None) -> str:
+    """Validate the exposure mode against the canonical exposure source."""
     raw = exposure_mode or "private_network"
     exposure_data = load_exposure_data(ROOT)
-    canonical, warning = resolve_exposure(raw, exposure_data)
-    if warning:
-        print(f"warning: {warning}", file=sys.stderr)
-    return canonical
+    return resolve_exposure(raw, exposure_data)
 
 
 def generated_values(
@@ -285,7 +277,7 @@ def generated_values(
     internal_token = token("ams_internal")
     grafana_password = token("ams_grafana")
     effective_auth_mode = auth_mode or "local_open"
-    effective_exposure_mode = _resolve_and_normalize_exposure_mode(exposure_mode)
+    effective_exposure_mode = _validated_exposure_mode(exposure_mode)
     values: dict[str, str] = {
         "PROJECT_VERSION": version,
         "API_KEYS": gateway_key,
@@ -339,7 +331,7 @@ def build_parser() -> KoreanArgumentParser:
     parser.add_argument("--show-image-tags", action="store_true", help="권장 compose image tag를 출력하고 종료합니다.")
     parser.add_argument("--sync-runtime-secrets", action="store_true", help=".env를 다시 쓰지 않고 현재 env 파일에서 .runtime secret file만 동기화합니다.")
     parser.add_argument("--auth-mode", help="AUTH_MODE를 명시적으로 설정합니다. 기본값은 local_open입니다. (local_open|internal_trusted|private_network|edge_terminated|strict)")
-    parser.add_argument("--exposure-mode", help="EXPOSURE_MODE를 명시적으로 설정합니다. 기본값은 private_network입니다. canonical: private_network|master_open  deprecated alias: ops_open→master_open, all_open→master_open")
+    parser.add_argument("--exposure-mode", help="EXPOSURE_MODE를 명시적으로 설정합니다. 기본값은 private_network입니다. 지원값: private_network|master_open")
     parser.add_argument("--platform-image")
     parser.add_argument("--vllm-image")
     parser.add_argument("--risk-vllm-image")

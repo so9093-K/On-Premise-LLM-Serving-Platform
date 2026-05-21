@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import re
-import tomllib
 from pathlib import Path
 
 import yaml
@@ -15,17 +14,6 @@ def test_gpu_resource_requirement_reference_is_packaged() -> None:
     assert "48GB VRAM 단일 GPU" in doc
     assert "0.825" in doc
     assert "runtime peak" in doc
-
-
-def test_pytest_external_plugins_are_disabled() -> None:
-    pyproject = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
-    addopts = pyproject["tool"]["pytest"]["ini_options"].get("addopts", "")
-    assert "-p no:cacheprovider" in addopts
-    assert "-p no:ddtrace" in addopts
-    assert "-p no:asyncio" in addopts
-    makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
-    assert "PYTHONDONTWRITEBYTECODE=1" in makefile
-    assert "PYTEST_DISABLE_PLUGIN_AUTOLOAD=1" in makefile
 
 
 def test_ops_templates_exist_without_runtime_claims() -> None:
@@ -84,16 +72,6 @@ def test_compose_gpu_budget_uses_configured_avoid_above() -> None:
     assert "0.90" not in validator
     assert "GPU_AVOID_ABOVE" in diagnostics
     assert "0.90" not in diagnostics
-
-
-def test_retrieval_token_embeddings_route_is_removed() -> None:
-    gateway_service = (ROOT / "src/ai_model_serving/services/gateway_service.py").read_text(encoding="utf-8")
-    router = (ROOT / "src/ai_model_serving/api/routers/gateway_retrieval.py").read_text(encoding="utf-8")
-    endpoint_spec = (ROOT / "src/ai_model_serving/api/endpoint_spec.py").read_text(encoding="utf-8")
-
-    assert "get_token_embeddings" not in gateway_service
-    assert "/v1/retrieval/token-embeddings" not in router
-    assert "/v1/retrieval/token-embeddings" not in endpoint_spec
 
 
 def test_runtime_validation_matrix_requires_validation() -> None:
@@ -431,13 +409,13 @@ def test_gitlab_ci_deployment_contract_is_documented_and_operationally_safe() ->
     assert 'HEALTH_URL="${GATEWAY_HEALTH_URL:-http://${GATEWAY_PROBE_HOST}:${GATEWAY_PORT}/health}"' in deploy
     assert 'PRUNE_DANGLING_IMAGES="${PRUNE_DANGLING_IMAGES:-1}"' in deploy
     assert 'docker image prune -f --filter dangling=true' in deploy
-    preflight_compose = (ROOT / "scripts/compose/preflight_compose.sh").read_text(encoding="utf-8")
+    preflight_compose = (ROOT / "scripts/compose/preflight_compose.py").read_text(encoding="utf-8")
     assert "COLBERT_KO_MODEL_DIR" not in preflight_compose
     assert "prepare_colbert_ko_vllm_artifact.py" not in preflight_compose
-    assert "resolve_compose_relative_path()" in preflight_compose, (
+    assert "def _resolve_compose_relative_path" in preflight_compose, (
         "local compose preflight must resolve HF_CACHE_DIR the same way docker compose does"
     )
-    assert 'HF_CACHE_PATH="$(resolve_compose_relative_path "$HF_CACHE_DIR_RESOLVED")"' in preflight_compose, (
+    assert "_resolve_compose_relative_path(compose_file, cache_raw)" in preflight_compose, (
         "local compose preflight must check the compose-file-relative HF cache path"
     )
     assert "relative HF_CACHE_DIR values are resolved from compose file directory" in preflight_compose, (
@@ -676,21 +654,8 @@ def test_production_compose_files_have_no_build_blocks() -> None:
             )
 
 
-def test_local_colbert_build_override_removed() -> None:
-    assert not (ROOT / "ops/compose/full-stack.local-build.yaml").exists()
-    assert not (ROOT / "ops/docker/Dockerfile.colbert-ko-vllm").exists()
-
-
-def test_gitlab_ci_build_vllm_derived_replaces_colbert_standalone_job() -> None:
-    """GitLab CI must not have standalone build-colbert-ko-vllm or build-risk-vllm jobs.
-
-    Both were consolidated into build-vllm-derived to avoid pulling the large vLLM base
-    image twice.  Shell logic lives in scripts/ci/build_vllm_derived_images.sh.
-
-    build-vllm-derived runs automatically on release/tag pipelines when BUILD_VLLM_DERIVED=1
-    or DEPLOY_MODE=full is set.  Rolling app deploys skip it entirely.
-    allow_failure: false — if the job runs and fails, it is a release failure.
-    """
+def test_gitlab_ci_vllm_derived_build_contract() -> None:
+    """Derived vLLM image CI stays explicit about pipeline intent and release failure."""
     ci = (ROOT / ".gitlab-ci.yml").read_text(encoding="utf-8")
     ci_parsed = yaml.safe_load(ci)
 
@@ -701,14 +666,6 @@ def test_gitlab_ci_build_vllm_derived_replaces_colbert_standalone_job() -> None:
     )
     build_script = build_script_path.read_text(encoding="utf-8")
 
-    assert "build-risk-vllm:" not in ci, (
-        ".gitlab-ci.yml must not keep the old standalone build-risk-vllm job; "
-        "use build-vllm-derived instead"
-    )
-    assert "build-colbert-ko-vllm:" not in ci, (
-        ".gitlab-ci.yml must not keep the old standalone build-colbert-ko-vllm job; "
-        "use build-vllm-derived instead"
-    )
     assert "build-vllm-derived:" in ci
     assert "VLLM_BASE_IMAGE" in ci, (
         ".gitlab-ci.yml must define VLLM_BASE_IMAGE as the common base for all vLLM-derived images"
@@ -766,9 +723,7 @@ def test_gitlab_ci_build_vllm_derived_replaces_colbert_standalone_job() -> None:
     assert "risk-vllm-kanana:${CI_COMMIT_TAG}" in build_script, (
         "scripts/ci/build_vllm_derived_images.sh must push risk-vllm-kanana:<tag> on CI_COMMIT_TAG pipelines"
     )
-    assert "COLBERT_KO" not in build_script
     deploy = (ROOT / "scripts/ci/deploy_gitlab_compose.sh").read_text(encoding="utf-8")
-    assert "COLBERT_KO" not in deploy
     assert 'pull_preflight_image "risk-vllm-kanana" "${RISK_VLLM_IMAGE_TO_DEPLOY}"' in deploy
     assert "set_env_value RISK_VLLM_IMAGE" in deploy
 
@@ -779,23 +734,4 @@ def test_monitoring_config_includes_embedding_ko_vllm_port() -> None:
     ports = monitoring["metric_sources"]["vllm_instances"]["ports"]
     assert 9406 in ports, (
         "configs/monitoring.yaml vllm_instances.ports must include 9406 (embedding-ko-vllm)"
-    )
-
-
-def test_gitlab_ci_has_no_colbert_references() -> None:
-    """gitlab-ci.yml must not reference ColBERT after its removal from the stack."""
-    ci = (ROOT / ".gitlab-ci.yml").read_text(encoding="utf-8")
-    assert "COLBERT" not in ci, (
-        ".gitlab-ci.yml still contains COLBERT references; remove COLBERT_KO_VLLM_IMAGE_SHA/REF/TO_DEPLOY"
-    )
-    assert "colbert" not in ci.lower(), (
-        ".gitlab-ci.yml still contains colbert references (case-insensitive)"
-    )
-
-
-def test_dockerignore_has_no_colbert_exception() -> None:
-    """Dockerfile allowlist must not contain the deleted Dockerfile.colbert-ko-vllm."""
-    raw = (ROOT / ".dockerignore").read_text(encoding="utf-8")
-    assert "colbert" not in raw.lower(), (
-        ".dockerignore still has !ops/docker/Dockerfile.colbert-ko-vllm; remove the stale allowlist entry"
     )

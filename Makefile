@@ -8,7 +8,7 @@ AUTH_ENV ?= $(ENV)
 AUTH_ENV_ARG = $(if $(AUTH_ENV),--env $(AUTH_ENV),)
 
 
-.PHONY: help guide init-env init-env-local init-env-compose init-env-local-force init-env-compose-force sync-runtime-secrets show-image-tags validate test build build-pipeline build-image build-risk-vllm-image rebuild-app rebuild-risk-vllm package start up compose-up compose-up-master compose-up-private compose-down-private preflight-compose compose-config ready ready-local ready-full check-ready smoke runtime-validate runtime-targets storage-paths project-inventory refresh-generated-reports auth-status auth-doctor auth-plan auth-apply exposure-status monitoring-projection operator-status operator-reports live-evidence release-check release-check-full vllm-commands hf-config-check risk-vllm-config-check risk-vllm-patch-removal-check model-inventory model-list model-status model-validate model-diff model-propose-add model-propose-remove status stop down compose-down compose-logs logs compose-diagnostics clean clean-dry-run cleanup-plan remove-plan clean-all reset bootstrap first-run rebuild-full doctor reset-version infisical-up infisical-down infisical-logs infisical-init secrets-push secrets-push-sensitive secrets-pull secrets-status validate-docs docs-check reports-check feature-check feature-plan render-runtime-assets check-runtime-assets
+.PHONY: help guide init-env init-env-local init-env-compose init-env-local-force init-env-compose-force sync-runtime-secrets show-image-tags validate test test-full build build-pipeline build-image build-risk-vllm-image rebuild-app rebuild-risk-vllm package start up compose-up compose-up-master compose-up-private compose-down-private preflight-compose compose-config ready ready-local ready-full check-ready smoke runtime-validate runtime-targets storage-paths project-inventory refresh-generated-reports auth-status auth-doctor auth-plan auth-apply exposure-status monitoring-projection operator-status operator-reports live-evidence release-check release-check-full vllm-commands hf-config-check risk-vllm-config-check risk-vllm-patch-removal-check model-inventory model-list model-status model-validate model-diff model-propose-add model-propose-remove status stop down compose-down compose-logs logs compose-diagnostics clean clean-dry-run cleanup-plan remove-plan clean-all reset bootstrap first-run rebuild-full doctor reset-version infisical-up infisical-down infisical-logs infisical-init secrets-push secrets-push-sensitive secrets-pull secrets-status validate-docs docs-check reports-check feature-check feature-plan render-runtime-assets check-runtime-assets
 
 help:
 	@echo "$(PROJECT_NAME) $(CURRENT_VERSION)"
@@ -31,7 +31,8 @@ help:
 	@echo "── 검증·테스트·빌드 ────────────────────────────────────────"
 	@echo "make validate      # 계약·스키마·정책·문서 정적 검증"
 	@echo "make build-pipeline # 통합 파이프라인 빌드 (make build 별칭; 서비스 기동 없음)"
-	@echo "make test          # 단위·계약 테스트 (pytest 결정론적 실행)"
+	@echo "make test          # 빠른 결정론적 pytest (slow/runtime/docker/gpu 제외)"
+	@echo "make test-full     # 전체 결정론적 pytest (runtime/docker/gpu 제외)"
 	@echo "make build         # validate + test + 이미지 빌드 + 패키징 (서비스 기동 없음)"
 	@echo "make build-image   # 플랫폼 Docker 이미지 빌드"
 	@echo "make rebuild-app   # 플랫폼 이미지만 재빌드 (make build-image 별칭)"
@@ -123,9 +124,9 @@ help:
 	@echo "make docs-check             # Markdown 링크 유효성 검사 (파일 수정 없음)"
 	@echo "make reports-check          # generated report 헤딩·내용·배너·버전 레이블 점검 (파일 수정 없음)"
 	@echo "make feature-check          # features/*.yaml 매니페스트 정합성 점검 (파일 수정 없음)"
-	@echo "make feature-plan [ID=<id>] # 기능 변경 시 갱신 대상 파일/테스트/명령 출력 (maintainer용)
+	@echo "make feature-plan [ID=<id>] # 기능 변경 시 갱신 대상 파일/테스트/명령 출력 (maintainer용)"
 	@echo "make render-runtime-assets  # prometheus.yml, model_contracts, schema, matrix, doc block 재생성"
-	@echo "make check-runtime-assets   # 위 산출물 drift 검출 + vLLM compose 정합성 검증 (exit 1 on drift)""
+	@echo "make check-runtime-assets   # 위 산출물 drift 검출 + vLLM compose 정합성 검증 (exit 1 on drift)"
 
 guide:
 	$(PYTHON) scripts/reports/operator_guide.py
@@ -159,7 +160,10 @@ validate:
 	$(MAKE) validate-docs
 
 test:
-	PYTHONDONTWRITEBYTECODE=1 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 $(PYTHON) scripts/validation/run_tests.py -q
+	PYTHONDONTWRITEBYTECODE=1 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 $(PYTHON) scripts/validation/run_tests.py -q -m "not slow and not runtime and not docker and not gpu"
+
+test-full:
+	PYTHONDONTWRITEBYTECODE=1 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 $(PYTHON) scripts/validation/run_tests.py -q -m "not runtime and not docker and not gpu"
 
 build:
 	bash scripts/build/build_all.sh

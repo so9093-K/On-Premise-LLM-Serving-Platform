@@ -21,7 +21,6 @@ except ImportError as exc:
     raise SystemExit('jsonschema is required: pip install jsonschema') from exc
 
 from .common import (
-    EXPECTED_PORTS,
     FORBIDDEN_RESPONSE_FIELDS,
     REQUIRED_FILES,
     ROOT,
@@ -29,6 +28,7 @@ from .common import (
     read_json,
     read_runtime_contract_text,
     read_yaml,
+    service_default_host_ports,
 )
 
 def validate_doc_invariants() -> None:
@@ -78,14 +78,14 @@ def validate_doc_invariants() -> None:
 
 def validate_monitoring_reference() -> None:
     monitoring = read_yaml('configs/monitoring.yaml')
-    ports = read_yaml('configs/ports.yaml')['ports']
+    ports = service_default_host_ports()
     expected = {'prometheus': 9410, 'grafana': 9411, 'dcgm_exporter': 9412}
     for name, port in expected.items():
         actual = monitoring['monitoring_stack'][name]['port']
         if actual != port:
             raise SystemExit(f'monitoring port mismatch in monitoring.yaml: {name}={actual}')
         if ports.get(name) != port:
-            raise SystemExit(f'monitoring port mismatch in ports.yaml: {name}={ports.get(name)}')
+            raise SystemExit(f'monitoring port mismatch in services.yaml: {name}={ports.get(name)}')
     dashboards = {d['id'] for d in monitoring['ux_dashboards']}
     required = {
         'serving_home',

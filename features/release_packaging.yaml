@@ -37,7 +37,8 @@ commands:
   - make reset-version NEW_VERSION=x.y.z
 
 tests:
-  - tests/contract/test_release_hygiene.py
+  - tests/contract/test_release_hygiene_static.py
+  - tests/contract/test_release_package_smoke.py
   - tests/contract/test_korean_documentation_hygiene.py
 
 validation:

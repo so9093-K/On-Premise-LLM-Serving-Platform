@@ -21,7 +21,6 @@ except ImportError as exc:
     raise SystemExit('jsonschema is required: pip install jsonschema') from exc
 
 from .common import (
-    EXPECTED_PORTS,
     FORBIDDEN_RESPONSE_FIELDS,
     REQUIRED_FILES,
     ROOT,
@@ -97,6 +96,9 @@ def validate_release_hygiene() -> None:
     for pattern in required_excludes:
         if pattern not in package_script:
             raise SystemExit(f'package_release.sh missing hygiene exclude: {pattern}')
+    for phrase in ['TMP_OUT=', 'PACKAGE_DIST', 'os.replace(sys.argv[1], sys.argv[2])']:
+        if phrase not in package_script:
+            raise SystemExit(f'package_release.sh missing atomic ZIP behavior marker: {phrase}')
 
 def validate_pytest_stability_config() -> None:
     pyproject = tomllib.loads((ROOT / 'pyproject.toml').read_text(encoding='utf-8'))
@@ -113,6 +115,7 @@ def validate_pytest_stability_config() -> None:
 
 def validate_runtime_validation_harness() -> None:
     for rel in ['scripts/compose/preflight_compose.sh',
+    'scripts/compose/preflight_compose.py',
     'scripts/compose/compose_diagnostics.sh',
     'scripts/compose/validate_vllm_compose.py', 'scripts/models/render_vllm_commands.py']:
         path = ROOT / rel

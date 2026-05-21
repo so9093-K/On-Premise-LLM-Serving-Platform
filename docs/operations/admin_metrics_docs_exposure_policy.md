@@ -2,7 +2,7 @@
 
 이 프로젝트는 인증 모드(`AUTH_MODE`)와 노출 모드(`EXPOSURE_MODE`)를 분리한다. 인증 모드는 endpoint 접근 제어를, 노출 모드는 Compose host-published port topology를 각각 독립적으로 제어한다.
 
-Source-of-truth: `configs/exposure_profiles.yaml` (canonical_modes, diagnostics, services)
+Source-of-truth: `configs/exposure_profiles.yaml` (canonical_modes, diagnostics, host-published references) + `configs/services.yaml` (compose service/port/bind mapping)
 
 ## Endpoint별 기본 정책
 
@@ -32,7 +32,10 @@ canonical EXPOSURE_MODE는 두 가지다.
 | dcgm-exporter | compose only | ✓ host |
 | cadvisor | compose only | ✓ host |
 
-**Deprecated aliases**: `ops_open`→`master_open`, `all_open`→`master_open` (사용 시 경고, canonical table에 포함되지 않는다)
+`EXPOSURE_MODE`는 `private_network`와 `master_open`만 지원한다.
+`master_open`은 Gateway, vLLM runtime, Risk Adapter, Prometheus, Grafana, DCGM,
+cAdvisor 등 전체 stack을 host에서 직접 확인하기 위한 full-stack diagnostic topology다.
+이전 중간 설계에서 쓰였던 별도 open modes는 지원하지 않는다.
 
 ### Structured Diagnostics
 
@@ -71,7 +74,7 @@ exposure profile별 diagnostics는 구조화된 boolean 필드로 표현된다. 
 
 ## Compose 파일 구조
 
-`ops/compose/full-stack.private-network.yaml`이 base compose 파일이다. 모든 exposure override는 이 파일 위에 overlay된다. override 파일은 `scripts/compose/render_exposure_overrides.py`가 `configs/exposure_profiles.yaml`에서 자동 생성한다.
+`ops/compose/full-stack.private-network.yaml`이 base compose 파일이다. 모든 exposure override는 이 파일 위에 overlay된다. override 파일은 `scripts/compose/render_exposure_overrides.py`가 `configs/exposure_profiles.yaml`과 `configs/services.yaml`에서 자동 생성한다.
 
 ```bash
 # private_network (기본값)

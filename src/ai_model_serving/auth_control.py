@@ -163,14 +163,9 @@ def _exposure_mode_from_env() -> str:
 
 
 def _resolve_exposure_mode(data: dict[str, Any], mode: str) -> str:
-    """Resolve a mode string to its canonical name, following deprecated_aliases."""
+    """Return a supported exposure mode name, or the unknown input unchanged."""
     canonical = data.get("canonical_modes", [])
-    if mode in canonical:
-        return mode
-    aliases = data.get("deprecated_aliases", {})
-    if mode in aliases:
-        return str(aliases[mode]["target"])
-    return mode
+    return mode if mode in canonical else mode
 
 
 def _exposure_profile(project_root: Path, exposure_mode: str | None = None) -> dict[str, Any]:
@@ -180,6 +175,12 @@ def _exposure_profile(project_root: Path, exposure_mode: str | None = None) -> d
     canonical_mode = _resolve_exposure_mode(data, exposure_mode)
     profiles = data.get("profiles", {})
     return profiles.get(canonical_mode, profiles.get("private_network", {}))
+
+
+def _exposure_services(project_root: Path) -> dict[str, Any]:
+    data = _read_yaml(project_root / "configs" / "services.yaml")
+    services = data.get("services", {})
+    return services if isinstance(services, dict) else {}
 
 
 def _compose_host_port_services(project_root: Path) -> list[str]:
@@ -307,11 +308,11 @@ def diagnose_auth(settings: AppSettings, project_root: Path) -> list[AuthFinding
     exposure_profile_data = _exposure_profile(project_root, canonical_mode)
     diagnostics = exposure_profile_data.get("diagnostics", {})
 
-    if exposure_mode != canonical_mode:
+    if data.get("canonical_modes") and canonical_mode not in data.get("profiles", {}):
         findings.append(AuthFinding(
-            "WARN",
-            "EXPOSURE_MODE_DEPRECATED_ALIAS",
-            f"EXPOSURE_MODE={exposure_mode!r} is a deprecated alias for {canonical_mode!r}. Update to the canonical name.",
+            "FAIL",
+            "EXPOSURE_MODE_UNKNOWN",
+            f"EXPOSURE_MODE={exposure_mode!r} is not supported. Allowed canonical modes: {', '.join(data.get('canonical_modes', []))}.",
         ))
 
     if diagnostics.get("gateway_bypass_possible"):
@@ -360,7 +361,7 @@ def diagnose_auth(settings: AppSettings, project_root: Path) -> list[AuthFinding
             ))
         else:
             if audience == "local_only":
-                services_data = data.get("services", {})
+                services_data = _exposure_services(project_root)
                 published_svc_names: list[str] = exposure_profile_data.get("host_published", [])
                 open_bind_svcs: list[str] = []
                 for svc_name in published_svc_names:

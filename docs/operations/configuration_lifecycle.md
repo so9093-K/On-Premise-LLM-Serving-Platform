@@ -8,11 +8,11 @@
 |---|---|---|
 | 모델 catalog | `configs/model_catalog.yaml` | model cards, model contracts, model-list schema projection |
 | runtime service | `configs/model_serving.yaml` | vLLM command, runtime target report, compose validation |
-| 포트 | `configs/ports.yaml` | endpoint docs, compose/preflight policy |
+| service/port registry | `configs/services.yaml` | compose service name, host/container port projection, bind env mapping, exposure category |
 | GPU 예산 | `configs/gpu_budgets.yaml` | operator status bundle, resource docs |
 | monitoring label | `configs/monitoring.yaml` | Prometheus/Grafana projection, recording-rule validation |
 | auth profile | `configs/auth_profiles.yaml` | AUTH_MODE 기대값, auth-plan/apply, auth_control.py drift check |
-| exposure profile | `configs/exposure_profiles.yaml` | EXPOSURE_MODE별 host-published port, compose override, preflight port check |
+| exposure profile | `configs/exposure_profiles.yaml` | EXPOSURE_MODE별 profile, host-published service reference, diagnostics, compose override |
 | env contract | `.env.*.example` | enabled model runtime env key 완전성 검증 |
 | local storage path | `configs/storage_paths.yaml` | storage path report, cleanup/package policy review |
 | project inventory | source tree + documentation entrypoints | file ownership, management UX, handoff review matrix |
@@ -20,6 +20,19 @@
 | secret/env | `.env` generated from `.env.*.example` | local/compose runtime behavior |
 
 모델과 runtime 관련 해석은 코드에서 직접 YAML을 반복 해석하지 않고 `ModelRegistry` projection을 우선 사용한다.
+
+### Service/port registry boundary
+
+`configs/services.yaml`이 host-published service registry다. 이 파일이
+`compose_service`, `container_port`, `default_host_port`, `host_env_port`,
+`host_env_bind`, `categories`를 갖고 `render_exposure_overrides.py`, auth doctor/status,
+preflight, exposure profile validator가 읽는다. exposure category도 이 registry의
+source-of-truth다. `configs/exposure_profiles.yaml`은 profile, `host_published`
+reference, diagnostics만 갖는다.
+
+기존 `configs/ports.yaml`은 제거했다. endpoint/runtime/monitoring port 검증도
+`configs/services.yaml`의 `default_host_port`를 읽으므로 기본 host port 숫자는 이 registry에
+한 번만 기록한다.
 
 ## 2. 환경 파일 선택
 

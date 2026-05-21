@@ -22,6 +22,7 @@ source_files:
   - scripts/auth/exposure_status.py
   - scripts/compose/compose_up.sh
   - scripts/compose/preflight_compose.sh
+  - scripts/compose/preflight_compose.py
 
 config_files:
   - configs/auth_profiles.yaml
@@ -69,7 +70,6 @@ release_checklist_impact:
   - make auth-doctor로 위험 조합 진단
   - release 전 AUTH_MODE가 의도한 profile인지 확인
   - master_open은 full-stack diagnostic topology다. release 전 의도한 EXPOSURE_MODE와 EXPOSURE_AUDIENCE를 확인한다
-  - deprecated exposure alias(ops_open, all_open)는 canonical mode로 normalize된다. 신규 문서/운영 절차에서는 사용하지 않는다
 
 profile_expectations:
   local_open:
@@ -127,7 +127,7 @@ profile_expectations:
     cidr_enforcement: false
 
 # exposure_profile_expectations: canonical 2-mode exposure topology.
-# Source-of-truth: configs/exposure_profiles.yaml (canonical_modes, profiles, deprecated_aliases)
+# Source-of-truth: configs/exposure_profiles.yaml (canonical_modes, profiles)
 # Do NOT add mode expectations here that are not in configs/exposure_profiles.yaml canonical_modes.
 exposure_profile_expectations:
   private_network:
@@ -166,10 +166,6 @@ exposure_profile_expectations:
       전체 stack host-published. Gateway bypass, vLLM runtime, Risk Adapter, Prometheus, DCGM, cAdvisor
       직접 접근 가능. 정상 진단/운영 모드. EXPOSURE_AUDIENCE 필수.
 
-deprecated_exposure_aliases:
-  ops_open: master_open
-  all_open: master_open
-
 dangerous_combinations:
   - profile: local_open
     conditions:
@@ -202,6 +198,6 @@ notes:
   - "local_open은 로컬 개발/검증 UX로 유지한다. 기본값을 strict로 무조건 바꾸지 않는다"
   - "ADMIN_ENDPOINTS_INTERNAL_ONLY 현재 상태: app-level CIDR enforcement 미구현"
   - "AUTH_MODE source-of-truth: configs/auth_profiles.yaml (runtime source; auth_control.py derives from YAML)"
-  - "EXPOSURE_MODE source-of-truth: configs/exposure_profiles.yaml (canonical_modes, profiles, deprecated_aliases)"
+  - "EXPOSURE_MODE source-of-truth: configs/exposure_profiles.yaml (canonical_modes, profiles)"
   - "master_open의 Gateway bypass, vLLM direct access는 의도된 진단 특성 — 별도 mode로 분리하지 않는다"
   - "EXPOSURE_AUDIENCE가 없는 master_open은 '열림'이 아니라 '누구에게 열리는지 불명확'한 상태"

@@ -34,7 +34,7 @@ REQUIRED_FILES = [
     'requirements.runtime.lock',
     'configs/model_catalog.yaml',
     'configs/model_serving.yaml',
-    'configs/ports.yaml',
+    'configs/services.yaml',
     'configs/risk_taxonomy.yaml',
     'configs/runtime_compatibility.yaml',
     'configs/monitoring.yaml',
@@ -84,6 +84,7 @@ REQUIRED_FILES = [
     'configs/command_terminology_policy.yaml',
     'scripts/validation/run_tests.py',
     'scripts/compose/preflight_compose.sh',
+    'scripts/compose/preflight_compose.py',
     'scripts/compose/compose_diagnostics.sh',
     'scripts/compose/validate_vllm_compose.py',
     'scripts/models/render_vllm_commands.py',
@@ -154,14 +155,6 @@ FORBIDDEN_RESPONSE_FIELDS = {
     'allow', 'review', 'block', 'decision', 'action', 'safe_to_send',
     'final_decision', 'final_decision_owner', 'policy_overrides'
 }
-EXPECTED_PORTS = {
-    'gateway': 9400,
-    'main_llm_vllm': 9401,
-    'embedding_vllm': 9402,
-    'risk_prompt_vllm': 9403,
-    'embedding_ko_vllm': 9406,
-    'risk_adapter': 9405,
-}
 EXCLUDED_SCAN_PARTS = {
     '.git', '.venv', 'venv', 'env', '__pycache__', '.pytest_cache',
     '.mypy_cache', '.ruff_cache', '.eggs', 'dist', 'build', 'node_modules',
@@ -176,6 +169,14 @@ def is_excluded_project_path(path: Path) -> bool:
     except ValueError:
         return True
     return bool(rel_parts & EXCLUDED_SCAN_PARTS)
+
+
+def service_default_host_ports() -> dict[str, int]:
+    services = read_yaml('configs/services.yaml')['services']
+    return {
+        str(service_name): int(service['default_host_port'])
+        for service_name, service in services.items()
+    }
 
 
 def iter_project_files(pattern: str = '*'):

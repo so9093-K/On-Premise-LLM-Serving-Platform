@@ -27,7 +27,6 @@ if [[ ! -f "$PROM_SECRET" || ! -s "$PROM_SECRET" ]]; then
 fi
 
 # Resolve EXPOSURE_MODE to canonical mode via YAML source-of-truth.
-# Deprecated aliases (ops_open, all_open) are resolved with a warning.
 # Unknown modes exit with code 2 and a clear message listing canonical modes.
 CANONICAL_MODE="$("$PYTHON_BIN" scripts/compose/resolve_exposure_mode.py "$EXPOSURE_MODE")"
 

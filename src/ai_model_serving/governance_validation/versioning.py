@@ -21,7 +21,6 @@ except ImportError as exc:
     raise SystemExit('jsonschema is required: pip install jsonschema') from exc
 
 from .common import (
-    EXPECTED_PORTS,
     FORBIDDEN_RESPONSE_FIELDS,
     REQUIRED_FILES,
     ROOT,

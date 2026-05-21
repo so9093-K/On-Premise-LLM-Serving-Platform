@@ -106,8 +106,6 @@ def validate(root: Path = ROOT, strict: bool = False) -> list[str]:
         else:
             exposure_data = load_yaml(exposure_path)
             canonical_modes: list[str] = exposure_data.get("canonical_modes", [])
-            deprecated_aliases: dict = exposure_data.get("deprecated_aliases", {})
-
             # Check that canonical_modes appear in exposure_mode_requirements
             req_any = contract.get("exposure_mode_requirements", {}).get("any", [])
             if "EXPOSURE_MODE" not in req_any:
@@ -123,13 +121,6 @@ def validate(root: Path = ROOT, strict: bool = False) -> list[str]:
                 if mode not in mode_reqs:
                     violations.append(
                         f"env_contract.yaml: exposure_mode_requirements missing entry for canonical non-base mode {mode!r}"
-                    )
-
-            # Deprecated aliases must not appear as keys in exposure_mode_requirements
-            for alias in deprecated_aliases:
-                if alias in mode_reqs:
-                    violations.append(
-                        f"env_contract.yaml: exposure_mode_requirements has entry for deprecated alias {alias!r} — use canonical target instead"
                     )
 
     return violations

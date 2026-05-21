@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
 import anyio
 import httpx
+import pytest
 from fastapi import testclient as fastapi_testclient
 
 
@@ -11,7 +13,7 @@ class InlineASGITestClient:
     """Small TestClient replacement that avoids anyio's background thread portal.
 
     The sandbox used by automated reviews can block cross-thread event-loop wakeups,
-    which makes Starlette's TestClient hang before the app is called.  Unit tests in
+    which makes Starlette's TestClient hang before the app is called. Unit tests in
     this repository only need straightforward ASGI request/response execution, so
     run each request in the current thread through httpx.ASGITransport.
     """
@@ -50,3 +52,24 @@ class InlineASGITestClient:
 
 
 fastapi_testclient.TestClient = InlineASGITestClient
+
+_GOVERNANCE_FILES = frozenset(
+    {
+        "test_exposure_profiles.py",
+        "test_governance_and_ops.py",
+        "test_release_hygiene_static.py",
+        "test_release_package_smoke.py",
+    }
+)
+
+
+def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
+    for item in items:
+        path = Path(str(item.path))
+        parts = path.parts
+        if "unit" in parts:
+            item.add_marker(pytest.mark.unit)
+        if "contract" in parts:
+            item.add_marker(pytest.mark.contract)
+        if path.name in _GOVERNANCE_FILES:
+            item.add_marker(pytest.mark.governance)

@@ -24,7 +24,17 @@ contract = [
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 pythonpath = ["src", "."]
-addopts = "-p no:cacheprovider -p no:ddtrace -p no:asyncio"
+addopts = "-p no:cacheprovider -p no:ddtrace -p no:asyncio --strict-markers"
+markers = [
+  "unit: hermetic unit test for a decision function or component",
+  "contract: deterministic contract or artifact behavior test",
+  "governance: source-of-truth, validator, release, or policy invariant test",
+  "smoke: deployed service smoke validation",
+  "runtime: live service validation requiring a running stack",
+  "docker: validation requiring Docker or docker compose",
+  "gpu: validation requiring visible GPU runtime capability",
+  "slow: deterministic test excluded from the fast default suite",
+]
 
 [tool.ruff]
 target-version = "py312"

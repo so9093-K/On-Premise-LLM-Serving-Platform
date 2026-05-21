@@ -15,7 +15,7 @@ try:
 except ModuleNotFoundError:
     raise SystemExit("Missing dependency: PyYAML. Run `python -m pip install --requirement requirements.lock`.")
 
-# Import resolver so exposure_status uses the same alias/unknown logic as compose_up.sh
+# Import resolver so exposure_status uses the same supported-mode check as compose_up.sh.
 sys.path.insert(0, str(ROOT))
 from scripts.compose.resolve_exposure_mode import load_exposure_data, resolve  # noqa: E402
 
@@ -30,12 +30,10 @@ def main() -> int:
     raw_mode = args.exposure_mode or os.environ.get("EXPOSURE_MODE", "private_network")
     data = load_exposure_data(ROOT)
     profiles = data.get("profiles", {})
-    services = data.get("services", {})
+    services_path = ROOT / "configs" / "services.yaml"
+    services = yaml.safe_load(services_path.read_text(encoding="utf-8")).get("services", {})
 
-    # resolve handles: canonical → pass-through, deprecated alias → normalize+warn, unknown → exit 2
-    canonical_mode, deprecation_warning = resolve(raw_mode, data)
-
-    alias_resolved = raw_mode != canonical_mode
+    canonical_mode = resolve(raw_mode, data)
 
     profile = profiles.get(canonical_mode, {})
     published_service_names = profile.get("host_published", [])
@@ -88,8 +86,6 @@ def main() -> int:
     doc = {
         "raw_mode": raw_mode,
         "canonical_mode": canonical_mode,
-        "alias_resolved": alias_resolved,
-        "deprecation_warning": deprecation_warning,
         "description": profile.get("description", ""),
         "exposure_audience": audience,
         "host_published_services": published_services_detail,
@@ -102,11 +98,7 @@ def main() -> int:
         return 0
 
     # human-readable output
-    if alias_resolved:
-        print(f"EXPOSURE_MODE: {raw_mode} → {canonical_mode}  (deprecated alias)")
-        print(f"경고: {deprecation_warning}", file=sys.stderr)
-    else:
-        print(f"EXPOSURE_MODE: {canonical_mode}")
+    print(f"EXPOSURE_MODE: {canonical_mode}")
 
     print(f"설명: {profile.get('description', '').strip()}")
     print()

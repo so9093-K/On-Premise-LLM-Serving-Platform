@@ -4,16 +4,16 @@
 Checks:
 - canonical_modes field exists and is non-empty
 - profiles.keys() exactly matches canonical_modes
-- deprecated_aliases names do not overlap with profiles
-- deprecated_aliases have required fields: target, reason, remove_after
-- deprecated_aliases targets exist in canonical_modes
 - each profile has class, diagnostics, host_published
 - exactly one profile has class: default_private
 - exactly one profile has class: diagnostic_full_stack
-- default_private profile does not expose internal/diagnostic services
-- diagnostic_full_stack profile exposes all expected service categories
-- services section covers all services referenced in profiles.host_published
-- compose override file exists for each canonical non-base mode
+- default_private profile does not expose blocked service categories
+- diagnostic_full_stack profile covers required service categories and every model runtime
+- configs/services.yaml covers all services referenced in profiles.host_published
+- service registry fields are complete for generated compose and diagnostics consumers
+
+Generated compose override drift is checked separately by:
+  PYTHONPATH=src python scripts/compose/render_exposure_overrides.py --check
 
 Usage:
   PYTHONPATH=src python scripts/validation/validate_exposure_profiles.py
@@ -31,19 +31,18 @@ try:
 except ModuleNotFoundError:
     raise SystemExit("Missing dependency: PyYAML.")
 
-# Services that must NOT appear in default_private host_published
-_PRIVATE_EXCLUDED = frozenset({
-    "main_llm_vllm", "embedding_vllm", "embedding_ko_vllm", "risk_prompt_vllm",
-    "risk_adapter", "prometheus", "dcgm_exporter", "cadvisor",
-})
-
-# Service categories that diagnostic_full_stack must include
-_DIAGNOSTIC_REQUIRED_CATEGORIES = {
-    "vllm_runtimes": frozenset({"main_llm_vllm", "embedding_vllm", "embedding_ko_vllm", "risk_prompt_vllm"}),
-    "risk_adapter": frozenset({"risk_adapter"}),
-    "operations_metrics": frozenset({"prometheus", "dcgm_exporter", "cadvisor"}),
-    "visualization": frozenset({"grafana"}),
-}
+_DEFAULT_PRIVATE_BLOCKED_CATEGORIES = (
+    "model_runtime",
+    "risk_adapter",
+    "operations_endpoint",
+)
+_DIAGNOSTIC_REQUIRED_CATEGORY_COVERAGE = (
+    "gateway",
+    "model_runtime",
+    "risk_adapter",
+    "operations_endpoint",
+    "visualization",
+)
 
 # Required fields per profile
 _PROFILE_REQUIRED_FIELDS = ("class", "diagnostics", "host_published", "description")
@@ -57,8 +56,15 @@ _DIAGNOSTICS_FIELDS = (
     "requires_exposure_audience",
 )
 
-# Required fields per deprecated alias
-_ALIAS_REQUIRED_FIELDS = ("target", "reason", "remove_after")
+_SERVICE_REQUIRED_FIELDS = (
+    "compose_service",
+    "container_port",
+    "host_env_port",
+    "default_host_port",
+    "host_env_bind",
+    "default_bind",
+    "categories",
+)
 
 
 def load(path: Path) -> dict:
@@ -72,7 +78,33 @@ def load(path: Path) -> dict:
     return data
 
 
-def validate(data: dict, strict: bool = False) -> list[str]:
+def load_services(path: Path) -> dict:
+    if not path.exists():
+        print(f"FAIL: configs/services.yaml not found at {path}", file=sys.stderr)
+        raise SystemExit(1)
+    data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    if not isinstance(data, dict) or not isinstance(data.get("services"), dict):
+        print("FAIL: configs/services.yaml must contain a services mapping", file=sys.stderr)
+        raise SystemExit(1)
+    return data["services"]
+
+
+def _service_categories(service: object) -> set[str]:
+    if not isinstance(service, dict):
+        return set()
+    categories = service.get("categories", [])
+    return {str(category) for category in categories} if isinstance(categories, list) else set()
+
+
+def _services_with_category(services: dict, category: str) -> set[str]:
+    return {
+        service_name
+        for service_name, service in services.items()
+        if category in _service_categories(service)
+    }
+
+
+def validate(data: dict, strict: bool = False, services: dict | None = None) -> list[str]:
     """Return list of violation messages. Empty → valid."""
     violations: list[str] = []
 
@@ -84,6 +116,11 @@ def validate(data: dict, strict: bool = False) -> list[str]:
 
     # 2. profiles.keys() must exactly match canonical_modes
     profiles: dict = data.get("profiles", {})
+    if "services" in data:
+        violations.append(
+            "configs/exposure_profiles.yaml must not define services; use configs/services.yaml "
+            "for compose service/port/bind mapping"
+        )
     profile_names = set(profiles.keys())
     canonical_set = set(canonical_modes)
     if profile_names != canonical_set:
@@ -94,25 +131,7 @@ def validate(data: dict, strict: bool = False) -> list[str]:
         if missing:
             violations.append(f"canonical_modes has modes not in profiles: {sorted(missing)}")
 
-    # 3. deprecated_aliases must not overlap with profiles
-    aliases: dict = data.get("deprecated_aliases", {})
-    overlap = set(aliases.keys()) & profile_names
-    if overlap:
-        violations.append(f"deprecated_aliases names overlap with profiles: {sorted(overlap)}")
-
-    # 4. deprecated_aliases required fields
-    for alias_name, alias in aliases.items():
-        if not isinstance(alias, dict):
-            violations.append(f"deprecated_aliases.{alias_name} is not a mapping")
-            continue
-        for field in _ALIAS_REQUIRED_FIELDS:
-            if field not in alias:
-                violations.append(f"deprecated_aliases.{alias_name} missing required field: {field!r}")
-        target = alias.get("target")
-        if target and target not in canonical_set:
-            violations.append(f"deprecated_aliases.{alias_name}.target={target!r} not in canonical_modes")
-
-    # 5. Each profile must have required fields and valid class
+    # 3. Each profile must have required fields and valid class
     classes_found: dict[str, list[str]] = {}
     for mode, profile in profiles.items():
         if not isinstance(profile, dict):
@@ -135,7 +154,7 @@ def validate(data: dict, strict: bool = False) -> list[str]:
         cls = profile.get("class", "")
         classes_found.setdefault(cls, []).append(mode)
 
-    # 6. Exactly one default_private and one diagnostic_full_stack
+    # 4. Exactly one default_private and one diagnostic_full_stack
     default_private_modes = classes_found.get("default_private", [])
     diagnostic_full_stack_modes = classes_found.get("diagnostic_full_stack", [])
 
@@ -148,15 +167,39 @@ def validate(data: dict, strict: bool = False) -> list[str]:
             f"Expected exactly 1 profile with class=diagnostic_full_stack, found {len(diagnostic_full_stack_modes)}: {diagnostic_full_stack_modes}"
         )
 
-    # 7. default_private must not expose internal/diagnostic services
+    # 5. Service registry covers all referenced service names and categories.
+    services = services if services is not None else load_services(ROOT / "configs" / "services.yaml")
+    for svc_name, service in services.items():
+        if not isinstance(service, dict):
+            violations.append(f"services.{svc_name} is not a mapping")
+            continue
+        for field in _SERVICE_REQUIRED_FIELDS:
+            if field not in service:
+                violations.append(f"services.{svc_name} missing required field: {field!r}")
+        categories = service.get("categories")
+        if not isinstance(categories, list) or not categories:
+            violations.append(f"services.{svc_name}.categories must be a non-empty list")
+        elif any(not isinstance(category, str) or not category for category in categories):
+            violations.append(f"services.{svc_name}.categories must contain non-empty strings")
+    for mode, profile in profiles.items():
+        if not isinstance(profile, dict):
+            continue
+        for svc in profile.get("host_published", []):
+            if svc not in services:
+                violations.append(
+                    f"profiles.{mode}.host_published references service {svc!r} not defined in configs/services.yaml"
+                )
+
+    # 6. default_private must not expose blocked service categories
     for mode in default_private_modes:
         profile = profiles.get(mode, {})
         published = set(profile.get("host_published", []))
-        exposed_internal = published & _PRIVATE_EXCLUDED
-        if exposed_internal:
-            violations.append(
-                f"profiles.{mode} (default_private) must not host-publish: {sorted(exposed_internal)}"
-            )
+        for category in _DEFAULT_PRIVATE_BLOCKED_CATEGORIES:
+            blocked = sorted(published & _services_with_category(services, category))
+            if blocked:
+                violations.append(
+                    f"default_private profile must not host-publish {category} services: {', '.join(blocked)}"
+                )
         diag = profile.get("diagnostics", {})
         for dangerous in ("gateway_bypass_possible", "direct_model_runtime_access", "direct_risk_adapter_access", "direct_operations_endpoints"):
             if diag.get(dangerous):
@@ -164,16 +207,22 @@ def validate(data: dict, strict: bool = False) -> list[str]:
                     f"profiles.{mode} (default_private) has diagnostics.{dangerous}=true — not allowed for default_private class"
                 )
 
-    # 8. diagnostic_full_stack must expose all required service categories
+    # 7. diagnostic_full_stack must expose category coverage and every model runtime
     for mode in diagnostic_full_stack_modes:
         profile = profiles.get(mode, {})
         published = set(profile.get("host_published", []))
-        for category, required_svcs in _DIAGNOSTIC_REQUIRED_CATEGORIES.items():
-            if not required_svcs.issubset(published):
-                missing_svcs = required_svcs - published
+        for category in _DIAGNOSTIC_REQUIRED_CATEGORY_COVERAGE:
+            category_services = _services_with_category(services, category)
+            if not published & category_services:
                 violations.append(
-                    f"profiles.{mode} (diagnostic_full_stack) missing {category} services: {sorted(missing_svcs)}"
+                    f"diagnostic_full_stack profile must host-publish at least one {category} service"
                 )
+        missing_model_runtimes = sorted(_services_with_category(services, "model_runtime") - published)
+        if missing_model_runtimes:
+            violations.append(
+                "diagnostic_full_stack profile is missing model_runtime services: "
+                + ", ".join(missing_model_runtimes)
+            )
         diag = profile.get("diagnostics", {})
         for required_diag in ("gateway_bypass_possible", "direct_model_runtime_access", "direct_operations_endpoints"):
             if not diag.get(required_diag):
@@ -185,50 +234,15 @@ def validate(data: dict, strict: bool = False) -> list[str]:
                 f"profiles.{mode} (diagnostic_full_stack) must have diagnostics.requires_exposure_audience=true"
             )
 
-    # 9. services section covers all referenced service names
-    services: dict = data.get("services", {})
-    for mode, profile in profiles.items():
-        if not isinstance(profile, dict):
+    # 8. Service registry port fields stay numeric.
+    for svc_name, service in services.items():
+        if not isinstance(service, dict):
             continue
-        for svc in profile.get("host_published", []):
-            if svc not in services:
-                violations.append(
-                    f"profiles.{mode}.host_published references service {svc!r} not defined in services section"
-                )
-
-    # 10. compose override file exists for each canonical non-base mode (strict only)
-    if strict:
-        overrides_dir = ROOT / "ops" / "compose" / "overrides"
-        base_mode = default_private_modes[0] if len(default_private_modes) == 1 else None
-
-        # Services already host-published in the base topology (default_private profile)
-        # do not need to appear in the override file.
-        base_published = set(profiles.get(base_mode, {}).get("host_published", [])) if base_mode else set()
-
-        for mode in canonical_modes:
-            if mode == base_mode:
-                continue
-            slug = mode.replace("_", "-")
-            override_path = overrides_dir / f"exposure.{slug}.yaml"
-            if not override_path.exists():
-                violations.append(
-                    f"compose override file missing for canonical mode {mode!r}: {override_path}"
-                )
-            else:
-                # Verify override references services that are added on top of the base topology.
-                # Services already in base_published are handled by the base compose file.
-                profile = profiles.get(mode, {})
-                published = set(profile.get("host_published", []))
-                added_by_override = published - base_published
-                override_text = override_path.read_text(encoding="utf-8")
-                for svc_name in added_by_override:
-                    svc_info = services.get(svc_name, {})
-                    compose_svc = svc_info.get("compose_service", svc_name.replace("_", "-"))
-                    if compose_svc not in override_text:
-                        violations.append(
-                            f"compose override {override_path.name} missing service {compose_svc!r} "
-                            f"(profiles.{mode}.host_published adds {svc_name!r} over base topology)"
-                        )
+        for field in ("container_port", "default_host_port"):
+            try:
+                int(service.get(field, -1))
+            except (TypeError, ValueError):
+                violations.append(f"services.{svc_name}.{field} must be numeric")
 
     return violations
 
@@ -236,11 +250,16 @@ def validate(data: dict, strict: bool = False) -> list[str]:
 def main() -> int:
     import argparse
     parser = argparse.ArgumentParser(description="Validate configs/exposure_profiles.yaml structural invariants.")
-    parser.add_argument("--strict", action="store_true", help="Also check compose override file consistency")
+    parser.add_argument(
+        "--strict",
+        action="store_true",
+        help="Verify extended source-of-truth invariants; generated override drift is checked by render_exposure_overrides.py --check.",
+    )
     args = parser.parse_args()
 
     data = load(ROOT / "configs" / "exposure_profiles.yaml")
-    violations = validate(data, strict=args.strict)
+    services = load_services(ROOT / "configs" / "services.yaml")
+    violations = validate(data, strict=args.strict, services=services)
 
     if violations:
         for v in violations:
@@ -250,7 +269,7 @@ def main() -> int:
 
     print("validate_exposure_profiles: OK — configs/exposure_profiles.yaml is structurally valid.")
     if args.strict:
-        print("  (strict mode: compose override files verified)")
+        print("  (strict mode: extended source-of-truth invariants verified)")
     return 0
 
 
