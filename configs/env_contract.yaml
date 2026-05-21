@@ -1,0 +1,94 @@
+version: 0.1.0
+source_of_truth: configs/env_contract.yaml
+description: >
+  Required env keys per context. Used by validate_env_contract.py to verify
+  that .env examples do not drift from what each runtime/mode requires.
+
+# always_required: env keys that must be present regardless of mode.
+always_required:
+  - APP_ENV
+  - LOG_LEVEL
+  - GATEWAY_HOST
+  - GATEWAY_PORT
+  - GATEWAY_BIND_ADDR
+  - AUTH_MODE
+  - EXPOSURE_MODE
+
+# auth_mode_keys: keys that are part of the auth contract.
+auth_mode_keys:
+  - API_KEY_REQUIRED
+  - ADMIN_API_KEY_REQUIRED
+  - ADMIN_ENDPOINTS_INTERNAL_ONLY
+  - INTERNAL_SERVICE_AUTH_REQUIRED
+
+# model_runtime_keys: required per active model runtime.
+# env_prefix maps to the runtime; suffixes are appended to form the full key.
+model_runtimes:
+  main_llm:
+    env_prefix: MAIN_LLM
+    suffixes:
+      - BASE_URL
+      - MODEL
+      - TIMEOUT_SECONDS
+      - MAX_CONCURRENCY
+      - QUEUE_TIMEOUT_SECONDS
+  embedding:
+    env_prefix: EMBEDDING
+    suffixes:
+      - BASE_URL
+      - MODEL
+      - TIMEOUT_SECONDS
+      - MAX_CONCURRENCY
+      - QUEUE_TIMEOUT_SECONDS
+  embedding_ko:
+    env_prefix: EMBEDDING_KO
+    suffixes:
+      - BASE_URL
+      - MODEL
+      - TIMEOUT_SECONDS
+      - MAX_CONCURRENCY
+      - QUEUE_TIMEOUT_SECONDS
+  risk_prompt:
+    env_prefix: RISK_PROMPT
+    suffixes:
+      - BASE_URL
+      - MODEL
+      - TIMEOUT_SECONDS
+      - MAX_CONCURRENCY
+      - QUEUE_TIMEOUT_SECONDS
+
+# exposure_mode_keys: keys required per EXPOSURE_MODE.
+# These are validated against .env.compose.example.
+exposure_mode_requirements:
+  any:
+    - EXPOSURE_MODE
+  master_open:
+    - EXPOSURE_AUDIENCE
+    - GRAFANA_BIND_ADDR
+    - PROMETHEUS_BIND_ADDR
+    - RISK_ADAPTER_BIND_ADDR
+    - DCGM_EXPORTER_BIND_ADDR
+    - CADVISOR_BIND_ADDR
+    - MAIN_LLM_VLLM_BIND_ADDR
+    - EMBEDDING_VLLM_BIND_ADDR
+    - EMBEDDING_KO_VLLM_BIND_ADDR
+    - RISK_PROMPT_VLLM_BIND_ADDR
+
+# env_examples: which example files must contain which key sets.
+env_examples:
+  .env.example:
+    required_key_sets:
+      - always_required
+      - auth_mode_keys
+      - model_runtimes
+      - exposure_mode_requirements.any
+  .env.local.example:
+    required_key_sets:
+      - model_runtimes
+  .env.compose.example:
+    required_key_sets:
+      - always_required
+      - auth_mode_keys
+      - model_runtimes
+      - exposure_mode_requirements.any
+      - exposure_mode_requirements.master_open

@@ -65,5 +65,6 @@
 | ADR-0004 | 외부 진입 포트 9400 정책 | Accepted |
 | ADR-0010 | ColBERT 제거와 Dense Korean Retrieval 전환 | Accepted |
 | ADR-0011 | 문서 Source-of-Truth와 Generated Block 정책 | Accepted |
+| [ADR-0012](0012-auth-ownership-and-compose-exposure-source-of-truth.md) | Auth 소유권과 Compose Exposure Profile Source-of-Truth 분리 | Accepted |
 
 전체 결정의 canonical record는 이 `docs/adr/` 디렉터리의 파일이며, `docs/02_decision_register.md`는 ADR index와 legacy D-xxx 매핑을 제공한다.

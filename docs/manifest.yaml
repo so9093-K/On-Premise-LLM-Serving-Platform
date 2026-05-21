@@ -106,6 +106,13 @@ documents:
     disposition: keep
     source_of_truth: true
     status_source: adr_status
+  - path: docs/adr/0012-auth-ownership-and-compose-exposure-source-of-truth.md
+    type: decision
+    lifecycle: historical
+    owner: architecture
+    disposition: keep
+    source_of_truth: true
+    status_source: adr_status
   - path: docs/adr/README.md
     type: decision-index
     lifecycle: active

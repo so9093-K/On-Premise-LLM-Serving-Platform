@@ -7,6 +7,7 @@ cd "$ROOT"
 PYTHON_BIN="${PYTHON_BIN:-$(command -v python3.12 || command -v python3 || command -v python)}"
 ENV_FILE="${ENV_FILE:-.env}"
 COMPOSE_FILE="${COMPOSE_FILE:-ops/compose/full-stack.private-network.yaml}"
+EXPOSURE_MODE="${EXPOSURE_MODE:-private_network}"
 PROM_SECRET=".runtime/prometheus/admin_api_key"
 
 if [[ ! -f "$ENV_FILE" ]]; then
@@ -25,9 +26,28 @@ if [[ ! -f "$PROM_SECRET" || ! -s "$PROM_SECRET" ]]; then
   exit 2
 fi
 
-if [[ "${SKIP_PREFLIGHT:-0}" != "1" ]]; then
-  bash scripts/compose/preflight_compose.sh
+# Resolve EXPOSURE_MODE to canonical mode via YAML source-of-truth.
+# Deprecated aliases (ops_open, all_open) are resolved with a warning.
+# Unknown modes exit with code 2 and a clear message listing canonical modes.
+CANONICAL_MODE="$("$PYTHON_BIN" scripts/compose/resolve_exposure_mode.py "$EXPOSURE_MODE")"
+
+# Determine compose override file from the canonical mode.
+COMPOSE_OVERRIDE="$("$PYTHON_BIN" scripts/compose/resolve_exposure_mode.py "$EXPOSURE_MODE" --print-override-file)"
+
+if [[ -n "$COMPOSE_OVERRIDE" && ! -f "$COMPOSE_OVERRIDE" ]]; then
+  echo "[compose-up] compose override file not found: $COMPOSE_OVERRIDE" >&2
+  echo "[compose-up] Run 'python scripts/compose/render_exposure_overrides.py' to generate it." >&2
+  exit 2
 fi
 
-echo "[compose-up] using $COMPOSE_FILE with $ENV_FILE"
-docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" up -d
+if [[ "${SKIP_PREFLIGHT:-0}" != "1" ]]; then
+  EXPOSURE_MODE="$CANONICAL_MODE" bash scripts/compose/preflight_compose.sh
+fi
+
+if [[ -n "$COMPOSE_OVERRIDE" ]]; then
+  echo "[compose-up] using $COMPOSE_FILE + $COMPOSE_OVERRIDE (EXPOSURE_MODE=$CANONICAL_MODE) with $ENV_FILE"
+  docker compose -f "$COMPOSE_FILE" -f "$COMPOSE_OVERRIDE" --env-file "$ENV_FILE" up -d
+else
+  echo "[compose-up] using $COMPOSE_FILE with $ENV_FILE"
+  docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" up -d
+fi

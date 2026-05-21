@@ -1,3 +1,10 @@
+# LEGACY EXAMPLE FILE — not the standard source-of-truth for operations.
+# This file illustrates a master_open topology (Risk Adapter, DCGM, cAdvisor host-published).
+# For production/staging operations use:
+#   ops/compose/full-stack.private-network.yaml  (base topology)
+#   ops/compose/overrides/exposure.*.yaml         (overlay for EXPOSURE_MODE)
+# Run with: make compose-up [EXPOSURE_MODE=master_open]
+#
 # Example full-stack compose file. Run from the repository root with:
 # docker compose -f ops/compose/full-stack.example.yaml --env-file .env up
 # Choose tested image tags, model cache volume paths, GPU runtime settings, and secrets for the target host.

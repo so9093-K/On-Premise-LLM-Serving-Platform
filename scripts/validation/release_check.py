@@ -13,6 +13,10 @@ PYTHON = sys.executable
 
 STATIC_STEPS: list[tuple[str, list[str], dict[str, str] | None]] = [
     ("계약 검증", ["__in_process__", "scripts.validation.validate_contracts"], None),
+    ("exposure profiles 구조 검증", ["__in_process__", "scripts.validation.validate_exposure_profiles", "--strict"], None),
+    ("compose override drift check", ["__in_process__", "scripts.compose.render_exposure_overrides", "--check"], None),
+    ("env contract 검증", ["__in_process__", "scripts.validation.validate_env_contract", "--strict"], None),
+    ("docs exposure semantic 검증", ["__in_process__", "scripts.validation.validate_docs_exposure"], None),
     ("런타임 검증 config-only", ["__in_process__", "scripts.validation.runtime_validation", "--config-only"], None),
     ("runtime asset drift check", ["__in_process__", "scripts.render_runtime_assets", "--check"], None),
     ("vLLM compose 정합성 검증", ["__in_process__", "scripts.compose.validate_vllm_compose"], None),

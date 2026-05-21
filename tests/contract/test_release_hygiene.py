@@ -167,15 +167,26 @@ def test_release_package_uses_stable_root_directory() -> None:
 
 def test_preflight_compose_checks_only_host_published_ports() -> None:
     text = (ROOT / 'scripts/compose/preflight_compose.sh').read_text(encoding='utf-8')
+    # vLLM runtime ports are compose-internal only — documented, not host-checked
     assert 'vLLM runtime ports from configs/ports.yaml' in text
     assert '9401, 9402, 9403, 9406' in text
-    loop_line = next(line for line in text.splitlines() if line.strip().startswith('for port in'))
-    for internal_port in ['9401', '9402', '9403', '9406']:
-        assert internal_port not in loop_line
-    assert 'host_published_ports=(' in text
+    # Internal vLLM ports must not appear as hardcoded port literals in port-checking logic
+    # (any port check loop must drive from YAML, not a hardcoded list)
+    assert '9401 9402 9403 9406' not in text
+    assert '9410 9411 9412 9413' not in text
+    # Port checking is driven dynamically from configs/exposure_profiles.yaml
+    assert 'configs/exposure_profiles.yaml' in text
+    # EXPOSURE_MODE drives which services are checked
+    assert 'EXPOSURE_MODE' in text
+    # EXPOSURE_AUDIENCE is validated for diagnostic profiles
+    assert 'EXPOSURE_AUDIENCE' in text
+    # resolve_exposure_mode.py is used to canonicalize and validate EXPOSURE_MODE
+    assert 'resolve_exposure_mode.py' in text
+    # Diagnostics (structured) are reported for non-default_private modes
+    assert 'diagnostics' in text
+    # Port env names appear in comments or code (read via Python YAML inline)
     for env_name in ['PROMETHEUS_PORT', 'GRAFANA_PORT', 'DCGM_EXPORTER_PORT', 'CADVISOR_PORT']:
         assert env_name in text
-    assert '9410 9411 9412 9413' not in text
 
 
 def test_ready_local_is_strict_health_gate() -> None:

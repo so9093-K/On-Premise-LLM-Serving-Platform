@@ -1,0 +1,65 @@
+version: 0.1.0
+version_semantics: auth profile schema version, not package release version
+source_of_truth: configs/auth_profiles.yaml
+
+profiles:
+  local_open:
+    api_key_required: false
+    admin_api_key_required: false
+    admin_endpoints_internal_only: false
+    internal_service_auth_required: false
+    docs_enabled: true
+    auth_owner: operator
+    scope: "로컬 개발 전용"
+    allowed_in_production: false
+
+  internal_trusted:
+    api_key_required: false
+    admin_api_key_required: false
+    admin_endpoints_internal_only: true
+    internal_service_auth_required: false
+    docs_enabled: false
+    auth_owner: caller_or_network
+    scope: "production/staging 운영용 무인증 Gateway — 네트워크 소유권으로 인증"
+    note: >
+      API authentication is delegated to the network boundary or upstream caller.
+      ADMIN_ENDPOINTS_INTERNAL_ONLY=true declares that network/ingress policy protects
+      admin endpoints. auth-doctor does not FAIL for non-local APP_ENV when this profile
+      is active; instead it marks auth ownership as caller_or_network.
+    allowed_in_production: true
+
+  private_network:
+    api_key_required: true
+    admin_api_key_required: true
+    admin_endpoints_internal_only: false
+    internal_service_auth_required: true
+    docs_enabled: true
+    auth_owner: app
+    scope: "사설망/VPN 경계 + app-level admin token"
+    allowed_in_production: true
+
+  edge_terminated:
+    api_key_required: false
+    admin_api_key_required: true
+    admin_endpoints_internal_only: false
+    internal_service_auth_required: true
+    docs_enabled: false
+    auth_owner: edge_proxy
+    scope: "edge proxy가 public 인증을 처리하고 app은 admin/internal 경로를 보호"
+    allowed_in_production: true
+
+  strict:
+    api_key_required: true
+    admin_api_key_required: true
+    admin_endpoints_internal_only: false
+    internal_service_auth_required: true
+    docs_enabled: false
+    auth_owner: app
+    scope: "production 또는 internet-reachable 배포"
+    allowed_in_production: true
+
+  custom:
+    auth_owner: operator
+    scope: "운영자가 직접 관리하는 custom flag 조합"
+    note: "auth-doctor does not validate flag consistency for custom mode"
+    allowed_in_production: true

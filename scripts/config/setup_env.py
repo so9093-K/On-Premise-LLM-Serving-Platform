@@ -22,6 +22,7 @@ if str(ROOT / "src") not in sys.path:
     sys.path.insert(0, str(ROOT / "src"))
 
 from scripts.lib.cli_kr import KoreanArgumentParser  # noqa: E402
+from scripts.compose.resolve_exposure_mode import load_exposure_data, resolve as resolve_exposure  # noqa: E402
 from ai_model_serving.auth_control import AUTH_PROFILE_ENV_KEYS, auth_profile_env_values
 
 IMAGE_CONFIG = ROOT / "configs" / "recommended_images.yaml"
@@ -87,6 +88,7 @@ GENERATED_SECRET_KEYS = {
     "INTERNAL_SERVICE_TOKEN",
     "INTERNAL_SERVICE_AUTH_REQUIRED",
     "AUTH_MODE",
+    "EXPOSURE_MODE",
     "INFISICAL_AUTH_SECRET",
     "INFISICAL_ENCRYPTION_KEY",
 }
@@ -255,12 +257,35 @@ def profile_template(profile: str) -> Path:
     raise ValueError(profile)
 
 
-def generated_values(profile: str, app_env: str | None, overrides: dict[str, str]) -> dict[str, str]:
+def _resolve_and_normalize_exposure_mode(exposure_mode: str | None) -> str:
+    """Validate and normalize exposure mode against exposure_profiles.yaml.
+
+    - canonical mode → returned as-is
+    - deprecated alias → warning to stderr, returns canonical target
+    - unknown → prints error, raises SystemExit(2)
+    """
+    raw = exposure_mode or "private_network"
+    exposure_data = load_exposure_data(ROOT)
+    canonical, warning = resolve_exposure(raw, exposure_data)
+    if warning:
+        print(f"warning: {warning}", file=sys.stderr)
+    return canonical
+
+
+def generated_values(
+    profile: str,
+    app_env: str | None,
+    overrides: dict[str, str],
+    auth_mode: str | None = None,
+    exposure_mode: str | None = None,
+) -> dict[str, str]:
     version = (ROOT / "VERSION").read_text(encoding="utf-8").strip()
     gateway_key = token("ams_gateway")
     admin_key = token("ams_admin")
     internal_token = token("ams_internal")
     grafana_password = token("ams_grafana")
+    effective_auth_mode = auth_mode or "local_open"
+    effective_exposure_mode = _resolve_and_normalize_exposure_mode(exposure_mode)
     values: dict[str, str] = {
         "PROJECT_VERSION": version,
         "API_KEYS": gateway_key,
@@ -271,6 +296,7 @@ def generated_values(profile: str, app_env: str | None, overrides: dict[str, str
         "INTERNAL_SERVICE_AUTH_REQUIRED": "true",
         "GRAFANA_ADMIN_PASSWORD": grafana_password,
         "SECRETS_GENERATED_AT": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "EXPOSURE_MODE": effective_exposure_mode,
     }
     if profile == "compose":
         values.update({
@@ -281,7 +307,7 @@ def generated_values(profile: str, app_env: str | None, overrides: dict[str, str
             "INFISICAL_AUTH_SECRET": secrets.token_hex(32),
             "INFISICAL_ENCRYPTION_KEY": secrets.token_hex(16),
         })
-        values.update(auth_profile_env_values("local_open"))
+        values.update(auth_profile_env_values(effective_auth_mode))
         values.update(recommended_images())
     else:
         values.update({
@@ -290,7 +316,7 @@ def generated_values(profile: str, app_env: str | None, overrides: dict[str, str
             "GRAFANA_ADMIN_USER": "admin",
             "GRAFANA_ANONYMOUS_ENABLED": "false",
         })
-        values.update(auth_profile_env_values("local_open"))
+        values.update(auth_profile_env_values(effective_auth_mode))
     values.update({k: v for k, v in overrides.items() if v})
     return values
 
@@ -312,6 +338,8 @@ def build_parser() -> KoreanArgumentParser:
     parser.add_argument("--force", action="store_true", help="기존 출력 파일을 덮어씁니다.")
     parser.add_argument("--show-image-tags", action="store_true", help="권장 compose image tag를 출력하고 종료합니다.")
     parser.add_argument("--sync-runtime-secrets", action="store_true", help=".env를 다시 쓰지 않고 현재 env 파일에서 .runtime secret file만 동기화합니다.")
+    parser.add_argument("--auth-mode", help="AUTH_MODE를 명시적으로 설정합니다. 기본값은 local_open입니다. (local_open|internal_trusted|private_network|edge_terminated|strict)")
+    parser.add_argument("--exposure-mode", help="EXPOSURE_MODE를 명시적으로 설정합니다. 기본값은 private_network입니다. canonical: private_network|master_open  deprecated alias: ops_open→master_open, all_open→master_open")
     parser.add_argument("--platform-image")
     parser.add_argument("--vllm-image")
     parser.add_argument("--risk-vllm-image")
@@ -352,7 +380,7 @@ def main(argv: list[str] | None = None) -> int:
         "PROMETHEUS_IMAGE": args.prometheus_image,
         "GRAFANA_IMAGE": args.grafana_image,
     }
-    values = base_values | generated_values(args.profile, args.app_env, overrides) | preserved_values
+    values = base_values | generated_values(args.profile, args.app_env, overrides, auth_mode=args.auth_mode, exposure_mode=args.exposure_mode) | preserved_values
     if args.profile == "compose":
         normalize_risk_vllm_image(values, explicit_override=bool(args.risk_vllm_image))
         normalize_risk_vllm_transformers_pin(values)

@@ -11,6 +11,9 @@
 | 포트 | `configs/ports.yaml` | endpoint docs, compose/preflight policy |
 | GPU 예산 | `configs/gpu_budgets.yaml` | operator status bundle, resource docs |
 | monitoring label | `configs/monitoring.yaml` | Prometheus/Grafana projection, recording-rule validation |
+| auth profile | `configs/auth_profiles.yaml` | AUTH_MODE 기대값, auth-plan/apply, auth_control.py drift check |
+| exposure profile | `configs/exposure_profiles.yaml` | EXPOSURE_MODE별 host-published port, compose override, preflight port check |
+| env contract | `.env.*.example` | enabled model runtime env key 완전성 검증 |
 | local storage path | `configs/storage_paths.yaml` | storage path report, cleanup/package policy review |
 | project inventory | source tree + documentation entrypoints | file ownership, management UX, handoff review matrix |
 | runtime matrix | `harness/runtime_validation_matrix.yaml` | runtime validation config-only checks |

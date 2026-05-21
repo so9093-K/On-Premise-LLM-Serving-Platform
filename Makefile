@@ -8,7 +8,7 @@ AUTH_ENV ?= $(ENV)
 AUTH_ENV_ARG = $(if $(AUTH_ENV),--env $(AUTH_ENV),)
 
 
-.PHONY: help guide init-env init-env-local init-env-compose init-env-local-force init-env-compose-force sync-runtime-secrets show-image-tags validate test build build-pipeline build-image build-risk-vllm-image rebuild-app rebuild-risk-vllm package start up compose-up compose-up-private compose-down-private preflight-compose ready ready-local ready-full check-ready smoke runtime-validate runtime-targets storage-paths project-inventory refresh-generated-reports auth-status auth-doctor auth-plan auth-apply monitoring-projection operator-status operator-reports live-evidence release-check release-check-full vllm-commands hf-config-check risk-vllm-config-check risk-vllm-patch-removal-check model-inventory model-list model-status model-validate model-diff model-propose-add model-propose-remove status stop down compose-down compose-logs logs compose-diagnostics clean clean-dry-run cleanup-plan remove-plan clean-all reset bootstrap first-run rebuild-full doctor reset-version infisical-up infisical-down infisical-logs infisical-init secrets-push secrets-push-sensitive secrets-pull secrets-status validate-docs docs-check reports-check feature-check feature-plan render-runtime-assets check-runtime-assets
+.PHONY: help guide init-env init-env-local init-env-compose init-env-local-force init-env-compose-force sync-runtime-secrets show-image-tags validate test build build-pipeline build-image build-risk-vllm-image rebuild-app rebuild-risk-vllm package start up compose-up compose-up-master compose-up-private compose-down-private preflight-compose compose-config ready ready-local ready-full check-ready smoke runtime-validate runtime-targets storage-paths project-inventory refresh-generated-reports auth-status auth-doctor auth-plan auth-apply exposure-status monitoring-projection operator-status operator-reports live-evidence release-check release-check-full vllm-commands hf-config-check risk-vllm-config-check risk-vllm-patch-removal-check model-inventory model-list model-status model-validate model-diff model-propose-add model-propose-remove status stop down compose-down compose-logs logs compose-diagnostics clean clean-dry-run cleanup-plan remove-plan clean-all reset bootstrap first-run rebuild-full doctor reset-version infisical-up infisical-down infisical-logs infisical-init secrets-push secrets-push-sensitive secrets-pull secrets-status validate-docs docs-check reports-check feature-check feature-plan render-runtime-assets check-runtime-assets
 
 help:
 	@echo "$(PROJECT_NAME) $(CURRENT_VERSION)"
@@ -42,8 +42,12 @@ help:
 	@echo "── 기동·종료 ───────────────────────────────────────────────"
 	@echo "make start              # 로컬 Gateway·Risk Adapter 기동"
 	@echo "make up                 # make start 별칭"
-	@echo "make compose-up         # preflight 후 full-stack compose 기동"
-	@echo "make compose-up-private # private-network compose로 host 노출 축소 기동"
+	@echo "make compose-up                            # preflight 후 full-stack compose 기동 (EXPOSURE_MODE=private_network 기본)"
+	@echo "make compose-up EXPOSURE_MODE=master_open  # master_open 노출로 compose 기동 (전체 stack: vLLM, Risk Adapter, Prometheus, DCGM, cAdvisor)"
+	@echo "                                           # EXPOSURE_AUDIENCE=local_only|private_lan|vpn|public 설정 필요"
+	@echo "make compose-up-master                     # master_open compose 기동 shorthand"
+	@echo "make compose-up-private                    # private-network compose로 host 노출 축소 기동 (preflight 생략)"
+	@echo "make compose-config EXPOSURE_MODE=master_open  # compose 병합 결과만 출력 (기동 없음)"
 	@echo "make preflight-compose  # compose 기동 전 Docker·GPU·포트·시크릿 확인"
 	@echo "make stop               # 로컬 서비스 및 compose 스택 종료"
 	@echo "make down               # make stop 별칭"
@@ -60,8 +64,9 @@ help:
 	@echo "make runtime-targets  # registry 기반 runtime target inventory 생성"
 	@echo "make storage-paths    # 로컬 저장소/cache/report/secret 경로 inventory 생성"
 	@echo "make project-inventory # 전체 파일/문서/관리 ownership inventory 생성"
-	@echo "make auth-status [ENV=/tmp/candidate.env] # 인증/profile/admin/internal-service 상태 표시"
-	@echo "make auth-doctor [ENV=/tmp/candidate.env] # 인증 설정 위험/불일치 진단"
+	@echo "make auth-status [ENV=/tmp/candidate.env]  # 인증/profile/admin/internal-service 상태 표시"
+	@echo "make auth-doctor [ENV=/tmp/candidate.env]  # 인증 설정 위험/불일치 진단"
+	@echo "make exposure-status                       # EXPOSURE_MODE별 host-published 서비스 및 side effect 표시"
 	@echo "make auth-plan MODE=strict [ENV=/tmp/candidate.env] # 인증 profile 변경 계획 표시"
 	@echo "make auth-apply MODE=strict [ENV=/tmp/candidate.env] # 인증 profile flag를 env에 적용"
 	@echo "make monitoring-projection # registry 기반 Prometheus/Grafana projection 생성"
@@ -185,18 +190,32 @@ start:
 
 up: start
 
+EXPOSURE_MODE ?= private_network
+
 compose-up:
-	bash scripts/compose/compose_up.sh
+	EXPOSURE_MODE=$(EXPOSURE_MODE) bash scripts/compose/compose_up.sh
+
+compose-up-master:
+	EXPOSURE_MODE=master_open bash scripts/compose/compose_up.sh
 
 compose-up-private:
 	@if [[ ! -f .env ]]; then echo "오류: .env 파일이 없습니다. make init-env-compose 를 먼저 실행하세요." >&2; exit 2; fi
-	SKIP_PREFLIGHT=1 bash scripts/compose/compose_up.sh
+	SKIP_PREFLIGHT=1 EXPOSURE_MODE=private_network bash scripts/compose/compose_up.sh
 
 compose-down-private:
 	docker compose -f ops/compose/full-stack.private-network.yaml --env-file .env down
 
+compose-config:
+	@CANONICAL="$$($(PYTHON) scripts/compose/resolve_exposure_mode.py "$(EXPOSURE_MODE)")"; \
+	OVERRIDE_FILE="$$($(PYTHON) scripts/compose/resolve_exposure_mode.py "$(EXPOSURE_MODE)" --print-override-file)"; \
+	if [[ -n "$$OVERRIDE_FILE" ]]; then \
+	  docker compose -f ops/compose/full-stack.private-network.yaml -f "$$OVERRIDE_FILE" --env-file .env config; \
+	else \
+	  docker compose -f ops/compose/full-stack.private-network.yaml --env-file .env config; \
+	fi
+
 preflight-compose:
-	bash scripts/compose/preflight_compose.sh
+	EXPOSURE_MODE=$(EXPOSURE_MODE) bash scripts/compose/preflight_compose.sh
 
 ready: ready-full
 
@@ -230,12 +249,15 @@ auth-doctor:
 	$(PYTHON) scripts/auth/auth_doctor.py $(AUTH_ENV_ARG) --warn-only
 
 auth-plan:
-	@if [[ -z "$(MODE)" ]]; then echo "MODE=local_open|private_network|edge_terminated|strict 를 지정하세요" >&2; exit 2; fi
+	@if [[ -z "$(MODE)" ]]; then echo "MODE=local_open|internal_trusted|private_network|edge_terminated|strict 를 지정하세요" >&2; exit 2; fi
 	$(PYTHON) scripts/auth/auth_plan.py $(AUTH_ENV_ARG) --mode $(MODE)
 
 auth-apply:
-	@if [[ -z "$(MODE)" ]]; then echo "MODE=local_open|private_network|edge_terminated|strict 를 지정하세요" >&2; exit 2; fi
+	@if [[ -z "$(MODE)" ]]; then echo "MODE=local_open|internal_trusted|private_network|edge_terminated|strict 를 지정하세요" >&2; exit 2; fi
 	$(PYTHON) scripts/auth/auth_apply.py $(AUTH_ENV_ARG) --mode $(MODE) --yes
+
+exposure-status:
+	$(PYTHON) scripts/auth/exposure_status.py
 
 monitoring-projection:
 	$(PYTHON) scripts/reports/monitoring_projection_report.py

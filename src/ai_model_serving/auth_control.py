@@ -9,43 +9,63 @@ import yaml
 from .settings import AppSettings
 
 
-AUTH_MODE_EXPECTATIONS: dict[str, dict[str, bool | str]] = {
-    "local_open": {
-        "api_key_required": False,
-        "admin_api_key_required": False,
-        "admin_endpoints_internal_only": False,
-        "internal_service_auth_required": False,
-        "docs_enabled": True,
-        "scope": "로컬 개발 전용",
-    },
-    "private_network": {
-        "api_key_required": True,
-        "admin_api_key_required": True,
-        "admin_endpoints_internal_only": False,
-        "internal_service_auth_required": True,
-        "docs_enabled": True,
-        "scope": "사설망 또는 VPN 경계 + app-level admin token",
-    },
-    "edge_terminated": {
-        "api_key_required": False,
-        "admin_api_key_required": True,
-        "admin_endpoints_internal_only": False,
-        "internal_service_auth_required": True,
-        "docs_enabled": False,
-        "scope": "edge proxy가 public 인증을 처리하고 app은 admin/internal 경로를 보호",
-    },
-    "strict": {
-        "api_key_required": True,
-        "admin_api_key_required": True,
-        "admin_endpoints_internal_only": False,
-        "internal_service_auth_required": True,
-        "docs_enabled": False,
-        "scope": "production 또는 internet-reachable 배포",
-    },
-    "custom": {
-        "scope": "운영자가 직접 관리하는 custom flag 조합",
-    },
-}
+# ---------------------------------------------------------------------------
+# Load auth profiles from YAML — configs/auth_profiles.yaml is the source of truth.
+# AUTH_MODE_EXPECTATIONS is derived from the YAML at module startup; it is NOT
+# a hand-maintained dict. Any change to auth semantics goes in the YAML first.
+# ---------------------------------------------------------------------------
+
+_PROJECT_ROOT = Path(__file__).resolve().parents[2]
+_AUTH_PROFILES_YAML = _PROJECT_ROOT / "configs" / "auth_profiles.yaml"
+
+_BOOL_FIELDS = (
+    "api_key_required",
+    "admin_api_key_required",
+    "admin_endpoints_internal_only",
+    "internal_service_auth_required",
+    "docs_enabled",
+)
+
+_SEMANTIC_FIELDS = (
+    "auth_owner",
+    "scope",
+    "allowed_in_production",
+)
+
+_REQUIRED_FIELDS = _BOOL_FIELDS + _SEMANTIC_FIELDS
+
+
+def _load_auth_profiles(yaml_path: Path) -> dict[str, dict[str, Any]]:
+    """Load configs/auth_profiles.yaml and return the profiles dict."""
+    if not yaml_path.exists():
+        raise FileNotFoundError(
+            f"configs/auth_profiles.yaml not found at {yaml_path}. "
+            "This file is the source of truth for auth mode expectations."
+        )
+    data = yaml.safe_load(yaml_path.read_text(encoding="utf-8"))
+    if not isinstance(data, dict):
+        raise ValueError(f"configs/auth_profiles.yaml is not a valid YAML mapping: {yaml_path}")
+    return data.get("profiles", {})
+
+
+def _build_expectations(profiles: dict[str, dict[str, Any]]) -> dict[str, dict[str, bool | str]]:
+    """Project YAML profiles into the AUTH_MODE_EXPECTATIONS format."""
+    result: dict[str, dict[str, bool | str]] = {}
+    for mode, profile in profiles.items():
+        entry: dict[str, bool | str] = {}
+        for field in _BOOL_FIELDS:
+            if field in profile:
+                entry[field] = bool(profile[field])
+        for field in _SEMANTIC_FIELDS:
+            if field in profile:
+                val = profile[field]
+                entry[field] = bool(val) if isinstance(val, bool) else str(val)
+        result[mode] = entry
+    return result
+
+
+_YAML_PROFILES: dict[str, dict[str, Any]] = _load_auth_profiles(_AUTH_PROFILES_YAML)
+AUTH_MODE_EXPECTATIONS: dict[str, dict[str, bool | str]] = _build_expectations(_YAML_PROFILES)
 
 AUTH_PROFILE_ENV_KEYS = (
     "AUTH_MODE",
@@ -69,17 +89,52 @@ def auth_profile_env_values(mode: str) -> dict[str, str]:
         raise ValueError(f"{mode!r} is not a managed auth profile")
     return {
         "AUTH_MODE": mode,
-        "API_KEY_REQUIRED": str(bool(expected["api_key_required"])).lower(),
-        "ADMIN_API_KEY_REQUIRED": str(bool(expected["admin_api_key_required"])).lower(),
-        "ADMIN_ENDPOINTS_INTERNAL_ONLY": str(bool(expected["admin_endpoints_internal_only"])).lower(),
-        "INTERNAL_SERVICE_AUTH_REQUIRED": str(bool(expected["internal_service_auth_required"])).lower(),
-        "FASTAPI_DOCS_ENABLED": str(bool(expected["docs_enabled"])).lower(),
+        "API_KEY_REQUIRED": str(bool(expected.get("api_key_required", False))).lower(),
+        "ADMIN_API_KEY_REQUIRED": str(bool(expected.get("admin_api_key_required", False))).lower(),
+        "ADMIN_ENDPOINTS_INTERNAL_ONLY": str(bool(expected.get("admin_endpoints_internal_only", False))).lower(),
+        "INTERNAL_SERVICE_AUTH_REQUIRED": str(bool(expected.get("internal_service_auth_required", False))).lower(),
+        "FASTAPI_DOCS_ENABLED": str(bool(expected.get("docs_enabled", True))).lower(),
     }
 
 
 def auth_profile_summary(mode: str) -> str:
-    expected = AUTH_MODE_EXPECTATIONS.get(mode, AUTH_MODE_EXPECTATIONS["custom"])
+    expected = AUTH_MODE_EXPECTATIONS.get(mode, AUTH_MODE_EXPECTATIONS.get("custom", {}))
     return str(expected.get("scope", "운영자가 직접 관리하는 custom flag 조합"))
+
+
+def verify_auth_profiles_yaml_consistency(project_root: Path) -> list[str]:
+    """Validate configs/auth_profiles.yaml structural completeness.
+
+    Checks that each non-custom profile has all required semantic and bool fields.
+    Returns a list of violation messages. Empty list means the YAML is structurally valid.
+
+    After the switch to YAML-as-source-of-truth, this function is a semantic completeness
+    validator rather than a drift check between two parallel representations.
+    """
+    yaml_path = project_root / "configs" / "auth_profiles.yaml"
+    if not yaml_path.exists():
+        return [f"configs/auth_profiles.yaml not found at {yaml_path}"]
+
+    try:
+        data = yaml.safe_load(yaml_path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        return [f"configs/auth_profiles.yaml YAML parse error: {exc}"]
+
+    profiles = data.get("profiles", {}) if isinstance(data, dict) else {}
+    violations: list[str] = []
+
+    for mode, profile in profiles.items():
+        if mode == "custom":
+            continue
+        if not isinstance(profile, dict):
+            violations.append(f"auth_profiles.yaml[{mode}] is not a mapping")
+            continue
+        for field in _REQUIRED_FIELDS:
+            if field not in profile:
+                violations.append(f"auth_profiles.yaml[{mode}] missing required field: {field!r}")
+
+    return violations
+
 
 NON_LOCAL_ENVS = {"staging", "production", "prod"}
 PRIVATE_NETWORK_WARNING_PORTS = {"risk-adapter", "prometheus", "grafana", "cadvisor"}
@@ -102,6 +157,31 @@ def _read_yaml(path: Path) -> dict[str, Any]:
     return data if isinstance(data, dict) else {}
 
 
+def _exposure_mode_from_env() -> str:
+    import os
+    return os.environ.get("EXPOSURE_MODE", "private_network")
+
+
+def _resolve_exposure_mode(data: dict[str, Any], mode: str) -> str:
+    """Resolve a mode string to its canonical name, following deprecated_aliases."""
+    canonical = data.get("canonical_modes", [])
+    if mode in canonical:
+        return mode
+    aliases = data.get("deprecated_aliases", {})
+    if mode in aliases:
+        return str(aliases[mode]["target"])
+    return mode
+
+
+def _exposure_profile(project_root: Path, exposure_mode: str | None = None) -> dict[str, Any]:
+    if exposure_mode is None:
+        exposure_mode = _exposure_mode_from_env()
+    data = _read_yaml(project_root / "configs" / "exposure_profiles.yaml")
+    canonical_mode = _resolve_exposure_mode(data, exposure_mode)
+    profiles = data.get("profiles", {})
+    return profiles.get(canonical_mode, profiles.get("private_network", {}))
+
+
 def _compose_host_port_services(project_root: Path) -> list[str]:
     compose = _read_yaml(project_root / "ops" / "compose" / "full-stack.private-network.yaml")
     services = compose.get("services", {})
@@ -114,9 +194,23 @@ def _compose_host_port_services(project_root: Path) -> list[str]:
     return published
 
 
+def _exposure_host_published_services(project_root: Path, exposure_mode: str | None = None) -> list[str]:
+    """Return list of service names that are host-published for the given exposure profile."""
+    profile = _exposure_profile(project_root, exposure_mode)
+    return list(profile.get("host_published", []))
+
+
 def auth_status_document(settings: AppSettings, project_root: Path, env_path: Path | None = None) -> dict[str, Any]:
     env_path = env_path or (project_root / ".env")
     published_services = _compose_host_port_services(project_root)
+    exposure_mode = _exposure_mode_from_env()
+
+    data = _read_yaml(project_root / "configs" / "exposure_profiles.yaml")
+    canonical_mode = _resolve_exposure_mode(data, exposure_mode)
+    exposure_published = _exposure_host_published_services(project_root, canonical_mode)
+    profile = _exposure_profile(project_root, canonical_mode)
+
+    auth_owner = AUTH_MODE_EXPECTATIONS.get(settings.security.auth_mode, {}).get("auth_owner", "app")
     return {
         "env_file": {
             "path": str(env_path),
@@ -125,7 +219,10 @@ def auth_status_document(settings: AppSettings, project_root: Path, env_path: Pa
         },
         "auth_mode": settings.security.auth_mode,
         "app_env": settings.app_env,
-        "mode_scope": AUTH_MODE_EXPECTATIONS.get(settings.security.auth_mode, AUTH_MODE_EXPECTATIONS["custom"]).get("scope", "unknown"),
+        "mode_scope": AUTH_MODE_EXPECTATIONS.get(settings.security.auth_mode, {}).get("scope", "unknown"),
+        "auth_owner": auth_owner,
+        "exposure_mode": exposure_mode,
+        "canonical_exposure_mode": canonical_mode,
         "public_api": {
             "/v1/*": "api_key_required" if settings.security.api_key_required else "unauthenticated",
             "/docs": "enabled" if settings.documentation.enabled else "disabled",
@@ -144,6 +241,12 @@ def auth_status_document(settings: AppSettings, project_root: Path, env_path: Pa
         "observability": {
             "published_compose_services": [name for name in published_services if name in PRIVATE_NETWORK_WARNING_PORTS],
         },
+        "exposure": {
+            "exposure_mode": exposure_mode,
+            "canonical_mode": canonical_mode,
+            "host_published_services": exposure_published,
+            "diagnostics": profile.get("diagnostics", {}),
+        },
     }
 
 
@@ -153,9 +256,9 @@ def diagnose_auth(settings: AppSettings, project_root: Path) -> list[AuthFinding
     expected = AUTH_MODE_EXPECTATIONS.get(mode)
     if expected is None:
         findings.append(AuthFinding("WARN", "AUTH_MODE_UNKNOWN", f"AUTH_MODE={mode!r}는 알려진 profile이 아니므로 custom으로 해석합니다."))
-        expected = AUTH_MODE_EXPECTATIONS["custom"]
+        expected = AUTH_MODE_EXPECTATIONS.get("custom", {})
 
-    if mode != "custom":
+    if mode not in ("custom",):
         for key, actual in {
             "api_key_required": settings.security.api_key_required,
             "admin_api_key_required": settings.security.admin_api_key_required,
@@ -167,20 +270,133 @@ def diagnose_auth(settings: AppSettings, project_root: Path) -> list[AuthFinding
                 findings.append(AuthFinding("WARN", "AUTH_MODE_FLAG_MISMATCH", f"AUTH_MODE={mode} 기대값은 {key}={expected[key]}인데 실제값은 {actual}입니다."))
 
     non_local = settings.app_env.lower() in NON_LOCAL_ENVS or settings.app_env.lower() not in {"local", "test", "development"}
+
+    is_internal_trusted = mode == "internal_trusted"
+    auth_owner = str(expected.get("auth_owner", "app"))
+
     if non_local and not settings.security.api_key_required:
-        findings.append(AuthFinding("FAIL", "PUBLIC_API_UNAUTHENTICATED_NON_LOCAL", f"APP_ENV={settings.app_env}인데 API_KEY_REQUIRED=false입니다."))
+        if is_internal_trusted:
+            findings.append(AuthFinding(
+                "INFO",
+                "AUTH_DELEGATED_TO_NETWORK",
+                f"AUTH_MODE=internal_trusted: API_KEY_REQUIRED=false — 인증 소유권이 네트워크/호출자에 위임됨 (APP_ENV={settings.app_env}). "
+                "ADMIN_ENDPOINTS_INTERNAL_ONLY=true가 admin endpoint 보호를 선언해야 합니다.",
+            ))
+        else:
+            findings.append(AuthFinding("FAIL", "PUBLIC_API_UNAUTHENTICATED_NON_LOCAL", f"APP_ENV={settings.app_env}인데 API_KEY_REQUIRED=false입니다."))
+
     if non_local and not settings.security.internal_service_auth_required:
-        findings.append(AuthFinding("FAIL", "INTERNAL_SERVICE_AUTH_DISABLED_NON_LOCAL", f"APP_ENV={settings.app_env}인데 INTERNAL_SERVICE_AUTH_REQUIRED=false입니다."))
+        if is_internal_trusted:
+            findings.append(AuthFinding(
+                "INFO",
+                "INTERNAL_AUTH_DELEGATED",
+                f"AUTH_MODE=internal_trusted: INTERNAL_SERVICE_AUTH_REQUIRED=false — 내부 서비스 인증도 네트워크 소유권에 위임됨 (APP_ENV={settings.app_env}).",
+            ))
+        else:
+            findings.append(AuthFinding("FAIL", "INTERNAL_SERVICE_AUTH_DISABLED_NON_LOCAL", f"APP_ENV={settings.app_env}인데 INTERNAL_SERVICE_AUTH_REQUIRED=false입니다."))
+
     if non_local and not settings.security.admin_api_key_required and not settings.security.admin_endpoints_internal_only:
         findings.append(AuthFinding("WARN", "ADMIN_ENDPOINTS_OPEN_NON_LOCAL", f"APP_ENV={settings.app_env}에서 ADMIN_API_KEY_REQUIRED=false 및 ADMIN_ENDPOINTS_INTERNAL_ONLY=false입니다."))
     if settings.security.admin_endpoints_internal_only and not settings.security.admin_api_key_required:
         findings.append(AuthFinding("WARN", "ADMIN_INTERNAL_ONLY_NOT_APP_ENFORCED", "ADMIN_ENDPOINTS_INTERNAL_ONLY=true는 배포/networking 선언이며 app-level CIDR enforcement는 아직 구현되지 않았습니다."))
 
+    # Exposure-aware diagnostics — driven by structured diagnostics fields, not free-text strings.
+    exposure_mode = _exposure_mode_from_env()
+    data = _read_yaml(project_root / "configs" / "exposure_profiles.yaml")
+    canonical_mode = _resolve_exposure_mode(data, exposure_mode)
+    exposure_profile_data = _exposure_profile(project_root, canonical_mode)
+    diagnostics = exposure_profile_data.get("diagnostics", {})
+
+    if exposure_mode != canonical_mode:
+        findings.append(AuthFinding(
+            "WARN",
+            "EXPOSURE_MODE_DEPRECATED_ALIAS",
+            f"EXPOSURE_MODE={exposure_mode!r} is a deprecated alias for {canonical_mode!r}. Update to the canonical name.",
+        ))
+
+    if diagnostics.get("gateway_bypass_possible"):
+        findings.append(AuthFinding(
+            "WARN",
+            "EXPOSURE_GATEWAY_BYPASS_POSSIBLE",
+            f"EXPOSURE_MODE={canonical_mode}: diagnostics.gateway_bypass_possible=true — vLLM runtime ports are host-published. "
+            "Gateway authentication bypass is possible for direct vLLM access.",
+        ))
+
+    if diagnostics.get("direct_model_runtime_access"):
+        findings.append(AuthFinding(
+            "INFO",
+            "EXPOSURE_DIRECT_MODEL_RUNTIME_ACCESS",
+            f"EXPOSURE_MODE={canonical_mode}: vLLM runtimes are host-published (direct_model_runtime_access=true). "
+            "This is an intended diagnostic property of this exposure mode.",
+        ))
+
+    if diagnostics.get("direct_operations_endpoints"):
+        findings.append(AuthFinding(
+            "INFO",
+            "EXPOSURE_DIRECT_OPERATIONS_ENDPOINTS",
+            f"EXPOSURE_MODE={canonical_mode}: Prometheus, DCGM, cAdvisor are host-published (direct_operations_endpoints=true). "
+            "This is an intended diagnostic property of this exposure mode.",
+        ))
+
+    if diagnostics.get("requires_exposure_audience"):
+        import os
+        audience = os.environ.get("EXPOSURE_AUDIENCE", "")
+        allowed_audiences: list[str] = data.get("exposure_audience", {}).get("allowed_values", [])
+        if not audience:
+            allowed_str = "|".join(allowed_audiences) if allowed_audiences else "local_only|private_lan|vpn|public"
+            findings.append(AuthFinding(
+                "FAIL",
+                "EXPOSURE_AUDIENCE_MISSING",
+                f"EXPOSURE_MODE={canonical_mode} requires EXPOSURE_AUDIENCE to be set. "
+                f"Allowed values: {allowed_str}. "
+                "Set EXPOSURE_AUDIENCE to declare who can reach the host-published ports.",
+            ))
+        elif allowed_audiences and audience not in allowed_audiences:
+            findings.append(AuthFinding(
+                "FAIL",
+                "EXPOSURE_AUDIENCE_INVALID_VALUE",
+                f"EXPOSURE_AUDIENCE={audience!r} is not a valid value. "
+                f"Allowed values: {', '.join(allowed_audiences)}.",
+            ))
+        else:
+            if audience == "local_only":
+                services_data = data.get("services", {})
+                published_svc_names: list[str] = exposure_profile_data.get("host_published", [])
+                open_bind_svcs: list[str] = []
+                for svc_name in published_svc_names:
+                    svc = services_data.get(svc_name, {})
+                    bind_env = svc.get("host_env_bind", "")
+                    default_bind = svc.get("default_bind", "0.0.0.0")
+                    actual_bind = os.environ.get(bind_env, default_bind) if bind_env else default_bind
+                    if actual_bind == "0.0.0.0":
+                        open_bind_svcs.append(f"{svc.get('compose_service', svc_name)} ({bind_env or 'default'}={actual_bind})")
+                if open_bind_svcs:
+                    preview = ", ".join(open_bind_svcs[:3])
+                    if len(open_bind_svcs) > 3:
+                        preview += f" ... ({len(open_bind_svcs)} total)"
+                    findings.append(AuthFinding(
+                        "FAIL",
+                        "EXPOSURE_LOCAL_ONLY_BIND_MISMATCH",
+                        f"EXPOSURE_AUDIENCE=local_only but services are bound to 0.0.0.0 (all interfaces): {preview}. "
+                        "Set *_BIND_ADDR=127.0.0.1 for all host-published services, or change EXPOSURE_AUDIENCE.",
+                    ))
+            if audience == "public":
+                if os.environ.get("ALLOW_PUBLIC_OPERATIONS_ENDPOINTS", "").lower() not in ("1", "true"):
+                    findings.append(AuthFinding(
+                        "FAIL",
+                        "EXPOSURE_PUBLIC_AUDIENCE_WITHOUT_EXPLICIT_OPT_IN",
+                        "EXPOSURE_AUDIENCE=public requires ALLOW_PUBLIC_OPERATIONS_ENDPOINTS=true as explicit opt-in. "
+                        "Setting this on a public network exposes vLLM APIs and operations endpoints without Gateway auth.",
+                    ))
+
+    # Legacy compose-based checks (still useful for private-network base compose)
     published = set(_compose_host_port_services(project_root))
-    if "risk-adapter" in published:
+    exposure_published = set(exposure_profile_data.get("host_published", []))
+    if "risk-adapter" in published and "risk_adapter" not in exposure_published:
         findings.append(AuthFinding("WARN", "RISK_ADAPTER_HOST_PORT_PUBLISHED", "reference compose 파일에서 Risk Adapter host port가 published 상태입니다. private network 또는 firewall로 보호하세요."))
     for service in sorted(published & {"prometheus", "grafana", "cadvisor"}):
-        findings.append(AuthFinding("WARN", "OBSERVABILITY_HOST_PORT_PUBLISHED", f"{service} host port가 reference compose 파일에서 published 상태입니다. shared 환경에서는 접근을 제한하세요."))
+        if service not in exposure_published:
+            findings.append(AuthFinding("WARN", "OBSERVABILITY_HOST_PORT_PUBLISHED", f"{service} host port가 reference compose 파일에서 published 상태입니다. shared 환경에서는 접근을 제한하세요."))
 
     if not findings:
         findings.append(AuthFinding("OK", "AUTH_POLICY_OK", "인증 제어 플레인에서 발견된 문제가 없습니다."))
@@ -192,6 +408,7 @@ def render_auth_status(settings: AppSettings, project_root: Path, env_path: Path
     lines = [
         f"인증 profile: {doc['auth_mode']}",
         f"APP_ENV: {doc['app_env']}",
+        f"인증 소유권: {doc['auth_owner']}",
         f"env 파일: {doc['env_file']['path'] if doc['env_file']['exists'] else str(doc['env_file']['path']) + ' (없음)'}",
         f"적용 범위: {doc['mode_scope']}",
         "",
@@ -210,6 +427,17 @@ def render_auth_status(settings: AppSettings, project_root: Path, env_path: Path
     lines.extend(["", "Observability"])
     published = doc["observability"]["published_compose_services"]
     lines.append(f"  Host-published service {', '.join(published) if published else 'none'}")
+    lines.extend(["", "Exposure"])
+    exposure = doc["exposure"]
+    canonical = exposure["canonical_mode"]
+    lines.append(f"  EXPOSURE_MODE: {exposure['exposure_mode']}" + (f" → {canonical}" if canonical != exposure["exposure_mode"] else ""))
+    lines.append(f"  Host-published: {', '.join(exposure['host_published_services']) if exposure['host_published_services'] else 'none'}")
+    diag = exposure["diagnostics"]
+    if any(diag.values()):
+        lines.append("  Diagnostics:")
+        for k, v in diag.items():
+            if v:
+                lines.append(f"    {k}: {v}")
     env_info = doc["env_file"]
     if not env_info["exists"]:
         lines.extend([

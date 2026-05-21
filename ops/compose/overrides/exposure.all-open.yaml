@@ -1,0 +1,35 @@
+# DEPRECATED: all_open is a deprecated alias for master_open.
+# This file is no longer referenced by compose_up.sh or any orchestration script.
+# Use EXPOSURE_MODE=master_open with exposure.master-open.yaml instead.
+# This file will be removed after 2026-12-01. See configs/exposure_profiles.yaml deprecated_aliases.
+#
+# Gateway bypass is an intended diagnostic property of master_open and does not require
+# a separate exposure mode. See: configs/exposure_profiles.yaml profiles.master_open.diagnostics
+#
+# Compose override: all_open exposure profile (deprecated)
+# Source-of-truth: configs/exposure_profiles.yaml deprecated_aliases.all_open
+services:
+  risk-adapter:
+    ports:
+      - ${RISK_ADAPTER_BIND_ADDR:-0.0.0.0}:${RISK_ADAPTER_PORT:-9405}:9405
+  main-llm-vllm:
+    ports:
+      - ${MAIN_LLM_VLLM_BIND_ADDR:-0.0.0.0}:${MAIN_LLM_VLLM_PORT:-9401}:9401
+  embedding-vllm:
+    ports:
+      - ${EMBEDDING_VLLM_BIND_ADDR:-0.0.0.0}:${EMBEDDING_VLLM_PORT:-9402}:9402
+  embedding-ko-vllm:
+    ports:
+      - ${EMBEDDING_KO_VLLM_BIND_ADDR:-0.0.0.0}:${EMBEDDING_KO_VLLM_PORT:-9406}:9406
+  risk-prompt-vllm:
+    ports:
+      - ${RISK_PROMPT_VLLM_BIND_ADDR:-0.0.0.0}:${RISK_PROMPT_VLLM_PORT:-9403}:9403
+  prometheus:
+    ports:
+      - ${PROMETHEUS_BIND_ADDR:-0.0.0.0}:${PROMETHEUS_PORT:-9410}:9090
+  dcgm-exporter:
+    ports:
+      - ${DCGM_EXPORTER_BIND_ADDR:-0.0.0.0}:${DCGM_EXPORTER_PORT:-9412}:9400
+  cadvisor:
+    ports:
+      - ${CADVISOR_BIND_ADDR:-0.0.0.0}:${CADVISOR_PORT:-9413}:8080

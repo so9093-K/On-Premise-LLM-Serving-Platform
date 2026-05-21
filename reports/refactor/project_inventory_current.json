@@ -1,6 +1,6 @@
 {
   "summary": {
-    "total_files": 340,
+    "total_files": 354,
     "by_area": {
       ".dockerignore": 1,
       ".env": 1,
@@ -18,29 +18,29 @@
       "README.md": 1,
       "VERSION": 1,
       "assets": 1,
-      "configs": 13,
+      "configs": 16,
       "contracts": 2,
-      "docs": 59,
+      "docs": 60,
       "features": 3,
       "harness": 4,
       "model_cards": 4,
-      "ops": 17,
+      "ops": 20,
       "pyproject.toml": 1,
       "reports": 20,
       "requirements.lock": 1,
       "requirements.runtime.lock": 1,
-      "scripts": 63,
+      "scripts": 69,
       "specs": 15,
       "src": 80,
-      "tests": 34,
+      "tests": 35,
       "version_manifest.json": 1
     },
     "by_category": {
       "OpenAPI/JSON schema contract": 15,
       "application/control-plane source": 80,
-      "architecture decision record": 6,
-      "compose/monitoring/runtime ops template": 17,
-      "configuration source of truth": 13,
+      "architecture decision record": 7,
+      "compose/monitoring/runtime ops template": 20,
+      "configuration source of truth": 16,
       "contract registry": 2,
       "current handoff/review report": 5,
       "documentation": 49,
@@ -48,34 +48,34 @@
       "historical documentation archive": 3,
       "historical report archive": 4,
       "model card metadata": 4,
-      "operator/developer command surface": 63,
+      "operator/developer command surface": 69,
       "project metadata": 29,
       "runtime validation harness plan/matrix": 4,
       "runtime/operator generated report": 11,
-      "test suite": 34
+      "test suite": 35
     },
     "by_owner": {
       "api-contracts": 22,
       "application": 46,
-      "configuration": 13,
-      "documentation": 59,
+      "configuration": 16,
+      "documentation": 60,
       "domain-registry": 3,
       "governance-validation": 10,
       "handoff-reporting": 20,
-      "operations": 17,
-      "operator-ux": 63,
+      "operations": 20,
+      "operator-ux": 69,
       "project-maintenance": 39,
-      "quality": 34,
+      "quality": 35,
       "runtime-validation": 14
     },
     "by_role": {
       "build-command": 2,
-      "documentation": 77,
+      "documentation": 78,
       "entrypoint": 9,
       "environment-template": 5,
-      "python-source": 148,
+      "python-source": 155,
       "shell-command": 27,
-      "structured-data": 63,
+      "structured-data": 69,
       "supporting-file": 9
     },
     "large_files_by_line_count": [
@@ -96,8 +96,8 @@
         "category": "current handoff/review report",
         "owner": "handoff-reporting",
         "management": "generated/curated for handoff review",
-        "size_bytes": 142855,
-        "line_count": 4002,
+        "size_bytes": 148447,
+        "line_count": 4156,
         "role": "structured-data",
         "review_note": "handoff/review artifact; avoid stale phase snapshots in active package"
       },
@@ -162,7 +162,7 @@
         "category": "test suite",
         "owner": "quality",
         "management": "managed by test strategy",
-        "size_bytes": 39463,
+        "size_bytes": 39481,
         "line_count": 801,
         "role": "python-source",
         "review_note": "test coverage; keep deterministic and avoid live GPU dependency"
@@ -188,6 +188,17 @@
         "line_count": 757,
         "role": "structured-data",
         "review_note": "supporting project file"
+      },
+      {
+        "path": "tests/contract/test_exposure_profiles.py",
+        "area": "tests",
+        "category": "test suite",
+        "owner": "quality",
+        "management": "managed by test strategy",
+        "size_bytes": 31946,
+        "line_count": 737,
+        "role": "python-source",
+        "review_note": "test coverage; keep deterministic and avoid live GPU dependency"
       },
       {
         "path": "reports/runtime/operator_status_bundle.json",
@@ -232,17 +243,6 @@
         "line_count": 625,
         "role": "structured-data",
         "review_note": "supporting project file"
-      },
-      {
-        "path": "src/ai_model_serving/governance_validation/docs_ops.py",
-        "area": "src",
-        "category": "application/control-plane source",
-        "owner": "governance-validation",
-        "management": "managed by package source layout",
-        "size_bytes": 41326,
-        "line_count": 619,
-        "role": "python-source",
-        "review_note": "application code; preserve public API behavior and compatibility facades"
       }
     ],
     "entrypoints": [
@@ -286,8 +286,8 @@
       "category": "project metadata",
       "owner": "project-maintenance",
       "management": "managed by root project metadata",
-      "size_bytes": 4924,
-      "line_count": 119,
+      "size_bytes": 6851,
+      "line_count": 157,
       "role": "environment-template",
       "review_note": "supporting project file"
     },
@@ -297,8 +297,8 @@
       "category": "project metadata",
       "owner": "project-maintenance",
       "management": "managed by root project metadata",
-      "size_bytes": 2167,
-      "line_count": 75,
+      "size_bytes": 2759,
+      "line_count": 92,
       "role": "environment-template",
       "review_note": "supporting project file"
     },
@@ -308,8 +308,8 @@
       "category": "project metadata",
       "owner": "project-maintenance",
       "management": "managed by root project metadata",
-      "size_bytes": 2173,
-      "line_count": 75,
+      "size_bytes": 2354,
+      "line_count": 80,
       "role": "environment-template",
       "review_note": "supporting project file"
     },
@@ -462,8 +462,8 @@
       "category": "project metadata",
       "owner": "project-maintenance",
       "management": "managed by root project metadata",
-      "size_bytes": 19955,
-      "line_count": 417,
+      "size_bytes": 21473,
+      "line_count": 439,
       "role": "build-command",
       "review_note": "supporting project file"
     },
@@ -501,6 +501,17 @@
       "review_note": "supporting project file"
     },
     {
+      "path": "configs/auth_profiles.yaml",
+      "area": "configs",
+      "category": "configuration source of truth",
+      "owner": "configuration",
+      "management": "managed by configuration lifecycle",
+      "size_bytes": 2247,
+      "line_count": 65,
+      "role": "structured-data",
+      "review_note": "configuration source; validate through governance and projection checks after edits"
+    },
+    {
       "path": "configs/command_terminology_policy.yaml",
       "area": "configs",
       "category": "configuration source of truth",
@@ -508,6 +519,28 @@
       "management": "managed by configuration lifecycle",
       "size_bytes": 3385,
       "line_count": 102,
+      "role": "structured-data",
+      "review_note": "configuration source; validate through governance and projection checks after edits"
+    },
+    {
+      "path": "configs/env_contract.yaml",
+      "area": "configs",
+      "category": "configuration source of truth",
+      "owner": "configuration",
+      "management": "managed by configuration lifecycle",
+      "size_bytes": 2387,
+      "line_count": 94,
+      "role": "structured-data",
+      "review_note": "configuration source; validate through governance and projection checks after edits"
+    },
+    {
+      "path": "configs/exposure_profiles.yaml",
+      "area": "configs",
+      "category": "configuration source of truth",
+      "owner": "configuration",
+      "management": "managed by configuration lifecycle",
+      "size_bytes": 5633,
+      "line_count": 165,
       "role": "structured-data",
       "review_note": "configuration source; validate through governance and projection checks after edits"
     },
@@ -798,13 +831,24 @@
       "review_note": "documentation; keep relative links valid and avoid duplicating current command flow"
     },
     {
+      "path": "docs/adr/0012-auth-ownership-and-compose-exposure-source-of-truth.md",
+      "area": "docs",
+      "category": "architecture decision record",
+      "owner": "documentation",
+      "management": "managed by documentation map",
+      "size_bytes": 8202,
+      "line_count": 139,
+      "role": "documentation",
+      "review_note": "documentation; keep relative links valid and avoid duplicating current command flow"
+    },
+    {
       "path": "docs/adr/README.md",
       "area": "docs",
       "category": "architecture decision record",
       "owner": "documentation",
       "management": "managed by documentation map",
-      "size_bytes": 1937,
-      "line_count": 69,
+      "size_bytes": 2092,
+      "line_count": 70,
       "role": "documentation",
       "review_note": "documentation; keep relative links valid and avoid duplicating current command flow"
     },
@@ -968,8 +1012,8 @@
       "category": "documentation",
       "owner": "documentation",
       "management": "managed by documentation map",
-      "size_bytes": 14096,
-      "line_count": 500,
+      "size_bytes": 14569,
+      "line_count": 511,
       "role": "structured-data",
       "review_note": "documentation; keep relative links valid and avoid duplicating current command flow"
     },
@@ -1001,8 +1045,8 @@
       "category": "documentation",
       "owner": "documentation",
       "management": "managed by documentation map",
-      "size_bytes": 4254,
-      "line_count": 58,
+      "size_bytes": 6041,
+      "line_count": 115,
       "role": "documentation",
       "review_note": "documentation; keep relative links valid and avoid duplicating current command flow"
     },
@@ -1012,8 +1056,8 @@
       "category": "documentation",
       "owner": "documentation",
       "management": "managed by documentation map",
-      "size_bytes": 6192,
-      "line_count": 84,
+      "size_bytes": 9606,
+      "line_count": 132,
       "role": "documentation",
       "review_note": "documentation; keep relative links valid and avoid duplicating current command flow"
     },
@@ -1023,8 +1067,8 @@
       "category": "documentation",
       "owner": "documentation",
       "management": "managed by documentation map",
-      "size_bytes": 5269,
-      "line_count": 102,
+      "size_bytes": 5605,
+      "line_count": 105,
       "role": "entrypoint",
       "review_note": "primary navigation or current-state entrypoint; keep synchronized with Makefile and reports"
     },
@@ -1342,8 +1386,8 @@
       "category": "project metadata",
       "owner": "project-maintenance",
       "management": "managed by root project metadata",
-      "size_bytes": 3279,
-      "line_count": 104,
+      "size_bytes": 7892,
+      "line_count": 207,
       "role": "structured-data",
       "review_note": "supporting project file"
     },
@@ -1441,8 +1485,8 @@
       "category": "compose/monitoring/runtime ops template",
       "owner": "operations",
       "management": "managed by operator templates",
-      "size_bytes": 8638,
-      "line_count": 196,
+      "size_bytes": 9049,
+      "line_count": 203,
       "role": "structured-data",
       "review_note": "supporting project file"
     },
@@ -1465,6 +1509,39 @@
       "management": "managed by operator templates",
       "size_bytes": 2199,
       "line_count": 69,
+      "role": "structured-data",
+      "review_note": "supporting project file"
+    },
+    {
+      "path": "ops/compose/overrides/exposure.all-open.yaml",
+      "area": "ops",
+      "category": "compose/monitoring/runtime ops template",
+      "owner": "operations",
+      "management": "managed by operator templates",
+      "size_bytes": 1490,
+      "line_count": 35,
+      "role": "structured-data",
+      "review_note": "supporting project file"
+    },
+    {
+      "path": "ops/compose/overrides/exposure.master-open.yaml",
+      "area": "ops",
+      "category": "compose/monitoring/runtime ops template",
+      "owner": "operations",
+      "management": "managed by operator templates",
+      "size_bytes": 1547,
+      "line_count": 38,
+      "role": "structured-data",
+      "review_note": "supporting project file"
+    },
+    {
+      "path": "ops/compose/overrides/exposure.ops-open.yaml",
+      "area": "ops",
+      "category": "compose/monitoring/runtime ops template",
+      "owner": "operations",
+      "management": "managed by operator templates",
+      "size_bytes": 636,
+      "line_count": 12,
       "role": "structured-data",
       "review_note": "supporting project file"
     },
@@ -1705,8 +1782,8 @@
       "category": "current handoff/review report",
       "owner": "handoff-reporting",
       "management": "generated/curated for handoff review",
-      "size_bytes": 69599,
-      "line_count": 341,
+      "size_bytes": 72596,
+      "line_count": 355,
       "role": "structured-data",
       "review_note": "handoff/review artifact; avoid stale phase snapshots in active package"
     },
@@ -1716,8 +1793,8 @@
       "category": "current handoff/review report",
       "owner": "handoff-reporting",
       "management": "generated/curated for handoff review",
-      "size_bytes": 142855,
-      "line_count": 4002,
+      "size_bytes": 148447,
+      "line_count": 4156,
       "role": "structured-data",
       "review_note": "handoff/review artifact; avoid stale phase snapshots in active package"
     },
@@ -1727,7 +1804,7 @@
       "category": "current handoff/review report",
       "owner": "handoff-reporting",
       "management": "generated/curated for handoff review",
-      "size_bytes": 5298,
+      "size_bytes": 5261,
       "line_count": 98,
       "role": "documentation",
       "review_note": "handoff/review artifact; avoid stale phase snapshots in active package"
@@ -1749,8 +1826,8 @@
       "category": "runtime/operator generated report",
       "owner": "handoff-reporting",
       "management": "generated by operator report commands",
-      "size_bytes": 1718,
-      "line_count": 69,
+      "size_bytes": 11030,
+      "line_count": 404,
       "role": "structured-data",
       "review_note": "generated operator report; regenerate through make operator-reports before handoff"
     },
@@ -1760,8 +1837,8 @@
       "category": "runtime/operator generated report",
       "owner": "handoff-reporting",
       "management": "generated by operator report commands",
-      "size_bytes": 1729,
-      "line_count": 46,
+      "size_bytes": 2054,
+      "line_count": 56,
       "role": "documentation",
       "review_note": "generated operator report; regenerate through make operator-reports before handoff"
     },
@@ -1942,13 +2019,24 @@
       "review_note": "operator/developer command; expose through Makefile/help if user-facing"
     },
     {
+      "path": "scripts/auth/exposure_status.py",
+      "area": "scripts",
+      "category": "operator/developer command surface",
+      "owner": "operator-ux",
+      "management": "managed by Makefile command UX",
+      "size_bytes": 6209,
+      "line_count": 141,
+      "role": "python-source",
+      "review_note": "operator/developer command; expose through Makefile/help if user-facing"
+    },
+    {
       "path": "scripts/build/bootstrap.sh",
       "area": "scripts",
       "category": "operator/developer command surface",
       "owner": "operator-ux",
       "management": "managed by Makefile command UX",
-      "size_bytes": 5751,
-      "line_count": 147,
+      "size_bytes": 5850,
+      "line_count": 149,
       "role": "shell-command",
       "review_note": "operator/developer command; expose through Makefile/help if user-facing"
     },
@@ -2057,8 +2145,8 @@
       "category": "operator/developer command surface",
       "owner": "operator-ux",
       "management": "managed by Makefile command UX",
-      "size_bytes": 1231,
-      "line_count": 33,
+      "size_bytes": 2302,
+      "line_count": 53,
       "role": "shell-command",
       "review_note": "operator/developer command; expose through Makefile/help if user-facing"
     },
@@ -2068,9 +2156,31 @@
       "category": "operator/developer command surface",
       "owner": "operator-ux",
       "management": "managed by Makefile command UX",
-      "size_bytes": 5254,
-      "line_count": 159,
+      "size_bytes": 12552,
+      "line_count": 317,
       "role": "shell-command",
+      "review_note": "operator/developer command; expose through Makefile/help if user-facing"
+    },
+    {
+      "path": "scripts/compose/render_exposure_overrides.py",
+      "area": "scripts",
+      "category": "operator/developer command surface",
+      "owner": "operator-ux",
+      "management": "managed by Makefile command UX",
+      "size_bytes": 6122,
+      "line_count": 157,
+      "role": "python-source",
+      "review_note": "operator/developer command; expose through Makefile/help if user-facing"
+    },
+    {
+      "path": "scripts/compose/resolve_exposure_mode.py",
+      "area": "scripts",
+      "category": "operator/developer command surface",
+      "owner": "operator-ux",
+      "management": "managed by Makefile command UX",
+      "size_bytes": 3187,
+      "line_count": 96,
+      "role": "python-source",
       "review_note": "operator/developer command; expose through Makefile/help if user-facing"
     },
     {
@@ -2101,8 +2211,8 @@
       "category": "operator/developer command surface",
       "owner": "operator-ux",
       "management": "managed by Makefile command UX",
-      "size_bytes": 16121,
-      "line_count": 381,
+      "size_bytes": 17610,
+      "line_count": 409,
       "role": "python-source",
       "review_note": "operator/developer command; expose through Makefile/help if user-facing"
     },
@@ -2519,8 +2629,8 @@
       "category": "operator/developer command surface",
       "owner": "operator-ux",
       "management": "managed by Makefile command UX",
-      "size_bytes": 5296,
-      "line_count": 117,
+      "size_bytes": 5765,
+      "line_count": 121,
       "role": "python-source",
       "review_note": "operator/developer command; expose through Makefile/help if user-facing"
     },
@@ -2554,6 +2664,39 @@
       "management": "managed by Makefile command UX",
       "size_bytes": 330,
       "line_count": 14,
+      "role": "python-source",
+      "review_note": "operator/developer command; expose through Makefile/help if user-facing"
+    },
+    {
+      "path": "scripts/validation/validate_docs_exposure.py",
+      "area": "scripts",
+      "category": "operator/developer command surface",
+      "owner": "operator-ux",
+      "management": "managed by Makefile command UX",
+      "size_bytes": 6294,
+      "line_count": 165,
+      "role": "python-source",
+      "review_note": "operator/developer command; expose through Makefile/help if user-facing"
+    },
+    {
+      "path": "scripts/validation/validate_env_contract.py",
+      "area": "scripts",
+      "category": "operator/developer command surface",
+      "owner": "operator-ux",
+      "management": "managed by Makefile command UX",
+      "size_bytes": 6418,
+      "line_count": 159,
+      "role": "python-source",
+      "review_note": "operator/developer command; expose through Makefile/help if user-facing"
+    },
+    {
+      "path": "scripts/validation/validate_exposure_profiles.py",
+      "area": "scripts",
+      "category": "operator/developer command surface",
+      "owner": "operator-ux",
+      "management": "managed by Makefile command UX",
+      "size_bytes": 11467,
+      "line_count": 258,
       "role": "python-source",
       "review_note": "operator/developer command; expose through Makefile/help if user-facing"
     },
@@ -2926,8 +3069,8 @@
       "category": "application/control-plane source",
       "owner": "application",
       "management": "managed by package source layout",
-      "size_bytes": 11239,
-      "line_count": 232,
+      "size_bytes": 22312,
+      "line_count": 460,
       "role": "python-source",
       "review_note": "application code; preserve public API behavior and compatibility facades"
     },
@@ -3691,12 +3834,23 @@
       "review_note": "test coverage; keep deterministic and avoid live GPU dependency"
     },
     {
+      "path": "tests/contract/test_exposure_profiles.py",
+      "area": "tests",
+      "category": "test suite",
+      "owner": "quality",
+      "management": "managed by test strategy",
+      "size_bytes": 31946,
+      "line_count": 737,
+      "role": "python-source",
+      "review_note": "test coverage; keep deterministic and avoid live GPU dependency"
+    },
+    {
       "path": "tests/contract/test_governance_and_ops.py",
       "area": "tests",
       "category": "test suite",
       "owner": "quality",
       "management": "managed by test strategy",
-      "size_bytes": 39463,
+      "size_bytes": 39481,
       "line_count": 801,
       "role": "python-source",
       "review_note": "test coverage; keep deterministic and avoid live GPU dependency"
@@ -3740,8 +3894,8 @@
       "category": "test suite",
       "owner": "quality",
       "management": "managed by test strategy",
-      "size_bytes": 22159,
-      "line_count": 431,
+      "size_bytes": 22835,
+      "line_count": 442,
       "role": "python-source",
       "review_note": "test coverage; keep deterministic and avoid live GPU dependency"
     },

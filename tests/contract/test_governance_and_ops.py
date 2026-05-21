@@ -511,7 +511,7 @@ def test_compose_up_syncs_runtime_secrets_before_docker_compose() -> None:
     assert "--sync-runtime-secrets" in script
     assert ".runtime/prometheus/admin_api_key" in script
     assert '! -f "$PROM_SECRET" || ! -s "$PROM_SECRET"' in script
-    assert "SKIP_PREFLIGHT=1 bash scripts/compose/compose_up.sh" in makefile
+    assert "SKIP_PREFLIGHT=1" in makefile and "bash scripts/compose/compose_up.sh" in makefile
     assert "docker compose -f" in script
 
 

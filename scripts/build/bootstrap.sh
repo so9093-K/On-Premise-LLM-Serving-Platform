@@ -47,8 +47,8 @@ echo "[bootstrap] installing dependencies"
 
 echo "[bootstrap] initializing .env"
 # Read the current auth mode before init-env-compose-force resets it.
-# This lets bootstrap preserve a non-default mode (e.g. local_open) across re-runs
-# without requiring the caller to pass AUTH_MODE every time.
+# This lets bootstrap preserve a non-default mode across re-runs without requiring
+# the caller to pass AUTH_MODE every time.
 _prior_auth_mode=""
 if [[ -z "${AUTH_MODE:-}" && -f .env ]]; then
   _prior_auth_mode="$(grep -E '^AUTH_MODE=' .env | cut -d= -f2- || true)"
@@ -63,9 +63,11 @@ fi
 # Apply auth mode after .env re-init:
 #   1. Explicit AUTH_MODE env var takes priority.
 #   2. Mode preserved from the previous .env is restored when not overridden.
-#   3. private_network is the compose default — no re-apply needed.
+#   3. No mode means keep whatever setup_env generated (local_open by default).
+#   Note: private_network is not assumed as a "compose default" — it is treated
+#   like any other named profile and applied explicitly if set.
 _apply_mode="${AUTH_MODE:-${_prior_auth_mode}}"
-if [[ -n "$_apply_mode" && "$_apply_mode" != "custom" && "$_apply_mode" != "private_network" ]]; then
+if [[ -n "$_apply_mode" && "$_apply_mode" != "custom" ]]; then
   echo "[bootstrap] applying AUTH_MODE=$_apply_mode"
   "$VENV_PYTHON" scripts/auth/auth_apply.py --mode "$_apply_mode" --yes
 fi
