@@ -239,6 +239,12 @@ if [[ -n "${RISK_VLLM_IMAGE_TO_DEPLOY:-}" ]]; then
   echo "[deploy] RISK_VLLM_IMAGE set to ${RISK_VLLM_IMAGE_TO_DEPLOY}"
 fi
 
+# sync any new template keys added since last deploy (preserves existing values)
+echo "[deploy] syncing .env template keys..."
+if ! make sync-env; then
+  fail_after_env_backup "sync-env failed"
+fi
+
 if [[ -n "${AUTH_MODE:-}" ]]; then
   echo "[deploy] applying auth profile: ${AUTH_MODE}"
   if ! make auth-apply MODE="${AUTH_MODE}"; then

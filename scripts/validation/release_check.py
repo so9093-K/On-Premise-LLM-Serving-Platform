@@ -32,6 +32,7 @@ STATIC_STEPS: list[tuple[str, list[str], dict[str, str] | None]] = [
     ("monitoring projection", ["__in_process__", "scripts.reports.monitoring_projection_report"], None),
     ("operator status bundle", ["__in_process__", "scripts.reports.operator_status_bundle"], None),
     ("live evidence bundle", ["__in_process__", "scripts.reports.live_evidence_bundle"], None),
+    ("command registry 검증", ["__in_process__", "scripts.commands.validate_command_registry"], None),
 ]
 
 TEST_STEP = (

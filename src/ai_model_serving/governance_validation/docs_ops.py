@@ -312,6 +312,21 @@ def validate_retired_source_cleanup_policy() -> None:
             rel_matches = [str(path.relative_to(ROOT)) for path in matches]
             raise SystemExit(f'prohibited stale refactor reports exist for {pattern}: {rel_matches}')
 
+def _validate_operator_workflow_targets_in_registry(root: Path) -> None:
+    try:
+        import yaml as _yaml
+    except ImportError:
+        return
+    rpath = root / 'configs' / 'command_registry.yaml'
+    if not rpath.exists():
+        raise SystemExit('configs/command_registry.yaml 이 없습니다')
+    registered = {c['make_target'] for c in _yaml.safe_load(rpath.read_text(encoding='utf-8')).get('commands', [])}
+    required = ['guide', 'runtime-targets', 'storage-paths', 'project-inventory', 'monitoring-projection', 'operator-status', 'operator-reports', 'live-evidence', 'release-check', 'release-check-full', 'cleanup-plan', 'remove-plan', 'build-pipeline', 'first-run', 'rebuild-full']
+    for t in required:
+        if t not in registered:
+            raise SystemExit(f'command_registry.yaml에 operator workflow target 누락: {t}')
+
+
 def validate_build_ux_roles() -> None:
     makefile = (ROOT / 'Makefile').read_text(encoding='utf-8')
     for target in ['guide:', 'start:', 'up:', 'ready:', 'check-ready:', 'runtime-targets:', 'storage-paths:', 'project-inventory:', 'monitoring-projection:', 'operator-status:', 'operator-reports:', 'live-evidence:', 'release-check:', 'release-check-full:', 'status:', 'stop:', 'down:', 'logs:', 'cleanup-plan:', 'remove-plan:', 'build-pipeline:', 'first-run:', 'rebuild-full:', 'rebuild-app:', 'rebuild-risk-vllm:']:
@@ -321,25 +336,7 @@ def validate_build_ux_roles() -> None:
         raise SystemExit('Makefile test target must use deterministic run_tests.py')
     if 'make build         # build artifacts/images only; does not start or keep services alive' not in makefile:
         raise SystemExit('Makefile help must state that make build does not start services')
-    for phrase in [
-        'make guide                  # 상황별 명령 추천 가이드 출력',
-        'make runtime-targets  # registry 기반 runtime target inventory 생성',
-        'make storage-paths    # 로컬 저장소/cache/report/secret 경로 inventory 생성',
-        'make project-inventory # 전체 파일/문서/관리 ownership inventory 생성',
-        'make monitoring-projection # registry 기반 Prometheus/Grafana projection 생성',
-        'make operator-status  # runtime targets + GPU budget + monitoring label 상태 번들 생성',
-        'make operator-reports # runtime-targets + storage-paths + project-inventory + monitoring-projection + operator-status + live-evidence',
-        'make live-evidence    # operator status + runtime validation evidence 번들 생성',
-        'make release-check    # 서비스 기동 없는 정적 릴리스 gate 실행',
-        'make release-check-full # release-check + deterministic tests',
-        'make cleanup-plan   # make clean-dry-run 별칭',
-        'make remove-plan    # 삭제 대상 미리 보기 (make cleanup-plan 별칭)',
-        'make build-pipeline # 통합 파이프라인 빌드 (make build 별칭; 서비스 기동 없음)',
-        'make first-run     # 처음 full-stack 준비 (make bootstrap 별칭)',
-        'make rebuild-full  # 전체 재빌드 (make bootstrap 별칭)',
-    ]:
-        if phrase not in makefile:
-            raise SystemExit(f'Makefile help missing operator workflow phrase: {phrase}')
+    _validate_operator_workflow_targets_in_registry(ROOT)
     for script in ['scripts/validation/run_tests.py', 'scripts/reports/operator_guide.py', 'scripts/reports/operator_status_bundle.py', 'scripts/reports/live_evidence_bundle.py', 'scripts/validation/release_check.py', 'scripts/reports/monitoring_projection_report.py', 'scripts/reports/runtime_targets_report.py', 'scripts/reports/storage_paths_report.py', 'scripts/reports/project_inventory_report.py',
     'scripts/ops/start_services.sh', 'scripts/ops/up_services.sh', 'scripts/ops/stop_services.sh', 'scripts/ops/down_services.sh', 'scripts/ops/status_services.sh', 'scripts/ops/ready_check.sh',
     'scripts/ops/check_ready.sh']:

@@ -36,14 +36,58 @@ reference, diagnostics만 갖는다.
 
 ## 2. 환경 파일 선택
 
+세 가지 `.env` example 파일이 있다. 각 파일의 역할은 다음과 같다:
+
+| 파일 | 역할 |
+|---|---|
+| `.env.example` | 전체 key 참조용. 직접 복사하지 않는다. |
+| `.env.local.example` | `make init-env-local` 템플릿. localhost 기반 app-only 개발용. |
+| `.env.compose.example` | `make init-env-compose` 템플릿. full-stack compose 배포용. image tag·secret 포함. |
+
 | 목적 | 명령 | 설명 |
 |---|---|---|
 | 로컬 app-only | `make init-env-local` | localhost 기반 Gateway/Risk Adapter 개발용 |
 | full-stack compose | `make init-env-compose` | compose 내부 hostname, Prometheus token file 포함 |
 | 기존 값 보존 후 재발급 | `make init-env-compose-force` | 비밀키 재발급이 필요한 경우에만 사용 |
+| **git pull 후 키 동기화** | **`make sync-env`** | 누락 키 추가·폐기 키 제거. 시크릿·기존 값 보존 |
 | runtime secret file 복구 | `make sync-runtime-secrets` | `.env`는 유지하고 `.runtime/prometheus/admin_api_key`만 복구 |
 
 app-only에서 `make init-env-compose`를 쓰면 compose hostname 때문에 readiness가 헷갈릴 수 있다. 이 경우 `.env`를 다시 만들기보다 목적에 맞는 profile로 재초기화한다.
+
+### 인증·노출 모드 변경
+
+`.env` 생성 후 인증 프로파일과 노출 모드는 각각의 apply 커맨드로 변경한다.
+
+**인증 프로파일 (AUTH_MODE):**
+
+| 목적 | 명령 |
+|---|---|
+| 변경 미리보기 | `make auth-plan MODE=<profile>` |
+| 변경 적용 | `make auth-apply MODE=<profile>` |
+| 진단 | `make auth-doctor` |
+
+profile 선택: `local_open` (인증 없음) · `internal_trusted` (네트워크 위임) · `private_network` (API key 필요) · `strict` (production)
+
+**노출 모드 (EXPOSURE_MODE):**
+
+| 목적 | 명령 |
+|---|---|
+| 변경 미리보기 | `make exposure-plan MODE=<mode>` |
+| 변경 적용 | `make exposure-apply MODE=<mode> [AUDIENCE=<x>]` |
+| 현재 상태 확인 | `make exposure-status` |
+
+mode 선택: `private_network` (Gateway·Grafana만 host-published) · `master_open` (전체 stack — AUDIENCE 필수)
+
+AUDIENCE 선택: `local_only` · `private_lan` · `vpn` · `public`
+
+**운영 표준 세팅 예시:**
+
+```bash
+make init-env-compose
+make auth-apply MODE=private_network
+make exposure-apply MODE=master_open AUDIENCE=private_lan   # 모든 포트 허용
+make compose-up
+```
 
 ## 3. 빌드와 기동의 분리
 

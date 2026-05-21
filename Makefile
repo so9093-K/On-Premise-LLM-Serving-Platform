@@ -8,125 +8,19 @@ AUTH_ENV ?= $(ENV)
 AUTH_ENV_ARG = $(if $(AUTH_ENV),--env $(AUTH_ENV),)
 
 
-.PHONY: help guide init-env init-env-local init-env-compose init-env-local-force init-env-compose-force sync-runtime-secrets show-image-tags validate test test-full build build-pipeline build-image build-risk-vllm-image rebuild-app rebuild-risk-vllm package start up compose-up compose-up-master compose-up-private compose-down-private preflight-compose compose-config ready ready-local ready-full check-ready smoke runtime-validate runtime-targets storage-paths project-inventory refresh-generated-reports auth-status auth-doctor auth-plan auth-apply exposure-status monitoring-projection operator-status operator-reports live-evidence release-check release-check-full vllm-commands hf-config-check risk-vllm-config-check risk-vllm-patch-removal-check model-inventory model-list model-status model-validate model-diff model-propose-add model-propose-remove status stop down compose-down compose-logs logs compose-diagnostics clean clean-dry-run cleanup-plan remove-plan clean-all reset bootstrap first-run rebuild-full doctor reset-version infisical-up infisical-down infisical-logs infisical-init secrets-push secrets-push-sensitive secrets-pull secrets-status validate-docs docs-check reports-check feature-check feature-plan render-runtime-assets check-runtime-assets
+.PHONY: help help-full help-json command-check guide init-env init-env-local init-env-compose init-env-local-force init-env-compose-force sync-runtime-secrets sync-env show-image-tags validate test test-full build build-pipeline build-image build-risk-vllm-image rebuild-app rebuild-risk-vllm package start up compose-up compose-up-master compose-up-private compose-down-private preflight-compose compose-config ready ready-local ready-full check-ready smoke runtime-validate runtime-targets storage-paths project-inventory refresh-generated-reports auth-status auth-doctor auth-plan auth-apply exposure-status exposure-plan exposure-apply monitoring-projection operator-status operator-reports live-evidence release-check release-check-full vllm-commands hf-config-check risk-vllm-config-check risk-vllm-patch-removal-check model-inventory model-list model-status model-validate model-diff model-propose-add model-propose-remove status stop down compose-down compose-logs logs compose-diagnostics clean clean-dry-run cleanup-plan remove-plan clean-all reset bootstrap first-run rebuild-full doctor reset-version infisical-up infisical-down infisical-logs infisical-init secrets-push secrets-push-sensitive secrets-pull secrets-status validate-docs docs-check reports-check feature-check feature-plan render-runtime-assets check-runtime-assets
 
 help:
-	@echo "$(PROJECT_NAME) $(CURRENT_VERSION)"
-	@echo ""
-	@echo "어디서 시작할지 모르면: docs/START_HERE.md"
-	@echo "상세 가이드: docs/README.md"
-	@echo "상황별 명령 추천: make guide"
-	@echo "처음 시작: docs/operations/first_project_guide.md"
-	@echo "빠른 실행: docs/operations/day0_quickstart.md"
-	@echo "빌드 흐름: docs/development/build_ux.md"
-	@echo ""
-	@echo "── 환경 초기화 ────────────────────────────────────────────────"
-	@echo "make guide                  # 상황별 명령 추천 가이드 출력"
-	@echo "make init-env-compose       # compose용 .env 생성 (이미 있으면 건너뜀)"
-	@echo "make init-env-local         # 로컬 app-only .env 생성 (이미 있으면 건너뜀)"
-	@echo "make init-env-compose-force # .env 강제 재생성 (비밀키 재발급, 나머지는 보존)"
-	@echo "make sync-runtime-secrets   # .env의 admin key를 Prometheus 토큰 파일로만 복구"
-	@echo "make show-image-tags        # compose 권장 이미지 태그 출력"
-	@echo ""
-	@echo "── 검증·테스트·빌드 ────────────────────────────────────────"
-	@echo "make validate      # 계약·스키마·정책·문서 정적 검증"
-	@echo "make build-pipeline # 통합 파이프라인 빌드 (make build 별칭; 서비스 기동 없음)"
-	@echo "make test          # 빠른 결정론적 pytest (slow/runtime/docker/gpu 제외)"
-	@echo "make test-full     # 전체 결정론적 pytest (runtime/docker/gpu 제외)"
-	@echo "make build         # validate + test + 이미지 빌드 + 패키징 (서비스 기동 없음)"
-	@echo "make build-image   # 플랫폼 Docker 이미지 빌드"
-	@echo "make rebuild-app   # 플랫폼 이미지만 재빌드 (make build-image 별칭)"
-	@echo "make build-risk-vllm-image # 고급: Kanana risk 전용 vLLM 이미지만 빌드"
-	@echo "make rebuild-risk-vllm # risk vLLM 이미지만 재빌드 (별칭)"
-	@echo "make package       # generated report를 static placeholder로 재생성한 뒤 dist/ 릴리스 ZIP 생성"
-	@echo ""
-	@echo "── 기동·종료 ───────────────────────────────────────────────"
-	@echo "make start              # 로컬 Gateway·Risk Adapter 기동"
-	@echo "make up                 # make start 별칭"
-	@echo "make compose-up                            # preflight 후 full-stack compose 기동 (EXPOSURE_MODE=private_network 기본)"
-	@echo "make compose-up EXPOSURE_MODE=master_open  # master_open 노출로 compose 기동 (전체 stack: vLLM, Risk Adapter, Prometheus, DCGM, cAdvisor)"
-	@echo "                                           # EXPOSURE_AUDIENCE=local_only|private_lan|vpn|public 설정 필요"
-	@echo "make compose-up-master                     # master_open compose 기동 shorthand"
-	@echo "make compose-up-private                    # private-network compose로 host 노출 축소 기동 (preflight 생략)"
-	@echo "make compose-config EXPOSURE_MODE=master_open  # compose 병합 결과만 출력 (기동 없음)"
-	@echo "make preflight-compose  # compose 기동 전 Docker·GPU·포트·시크릿 확인"
-	@echo "make stop               # 로컬 서비스 및 compose 스택 종료"
-	@echo "make down               # make stop 별칭"
-	@echo "make compose-down       # full-stack compose 스택만 종료"
-	@echo "make compose-diagnostics # compose ps·로그·vLLM 장애 패턴 요약"
-	@echo "make logs               # 로컬 Gateway·Risk Adapter 로그 tail"
-	@echo ""
-	@echo "── Readiness·상태 ──────────────────────────────────────────"
-	@echo "make ready-local   # 로컬 app-only /health 확인 (vLLM 불필요)"
-	@echo "make ready         # full-stack readiness 확인 (make ready-full 별칭)"
-	@echo "make ready-full    # 실제 vLLM upstream까지 포함한 엄격 readiness + smoke"
-	@echo "make smoke         # 배포된 서비스 대상 smoke 테스트"
-	@echo "make runtime-validate # 라이브 runtime 검증 리포트 생성 (reports/runtime/)"
-	@echo "make runtime-targets  # registry 기반 runtime target inventory 생성"
-	@echo "make storage-paths    # 로컬 저장소/cache/report/secret 경로 inventory 생성"
-	@echo "make project-inventory # 전체 파일/문서/관리 ownership inventory 생성"
-	@echo "make auth-status [ENV=/tmp/candidate.env]  # 인증/profile/admin/internal-service 상태 표시"
-	@echo "make auth-doctor [ENV=/tmp/candidate.env]  # 인증 설정 위험/불일치 진단"
-	@echo "make exposure-status                       # EXPOSURE_MODE별 host-published 서비스 및 side effect 표시"
-	@echo "make auth-plan MODE=strict [ENV=/tmp/candidate.env] # 인증 profile 변경 계획 표시"
-	@echo "make auth-apply MODE=strict [ENV=/tmp/candidate.env] # 인증 profile flag를 env에 적용"
-	@echo "make monitoring-projection # registry 기반 Prometheus/Grafana projection 생성"
-	@echo "make operator-status  # runtime targets + GPU budget + monitoring label 상태 번들 생성"
-	@echo "make operator-reports # runtime-targets + storage-paths + project-inventory + monitoring-projection + operator-status + live-evidence"
-	@echo "make refresh-generated-reports # package 전 current generated report 재생성"
-	@echo "make live-evidence    # operator status + runtime validation evidence 번들 생성"
-	@echo "make release-check    # 서비스 기동 없는 정적 릴리스 gate 실행"
-	@echo "make release-check-full # release-check + deterministic tests"
-	@echo "make status        # 프로세스·/health 상태 표시 (READY_MODE=full로 의존성 상세)"
-	@echo ""
-	@echo "── 진단·초기화·정리 ────────────────────────────────────────"
-	@echo "make doctor        # Python·계약·bash 문법·환경·서비스 로컬 진단"
-	@echo "make reset         # 통합 제거/초기화 (서비스 중지 + 플랫폼/risk 이미지 + 아티팩트)"
-	@echo "                   #   PURGE_MODEL_CACHE=1  → model_cache/ 추가 삭제"
-	@echo "                   #   PURGE_RUNTIME_SECRETS=1 → .runtime/ 추가 삭제"
-	@echo "                   #   PURGE_VENV=1         → .venv/ 추가 삭제"
-	@echo "make bootstrap     # 전체 재빌드 (.venv + deps + .env + validate + test + 플랫폼/risk 이미지 + risk config check)"
-	@echo "make first-run     # 처음 full-stack 준비 (make bootstrap 별칭)"
-	@echo "make rebuild-full  # 전체 재빌드 (make bootstrap 별칭)"
-	@echo "                   #   HF_TOKEN=hf_xxx make first-run"
-	@echo "                   #   AUTH_MODE=local_open HF_TOKEN=hf_xxx make first-run  → 인증 없이"
-	@echo "make clean         # 생성 아티팩트 제거 (서비스 실행 중이면 거부)"
-	@echo "make clean-dry-run # clean이 삭제할 항목 미리 보기"
-	@echo "make cleanup-plan   # make clean-dry-run 별칭"
-	@echo "make remove-plan    # 삭제 대상 미리 보기 (make cleanup-plan 별칭)"
-	@echo "make clean-all     # 아티팩트·로그·선택적 대형 캐시 제거"
-	@echo ""
-	@echo "── 시크릿 관리 (Infisical) ─────────────────────────────────"
-	@echo "make infisical-up         # Infisical 자체 호스팅 스택 기동 (웹 UI: :9420)"
-	@echo "make infisical-down       # Infisical 스택 종료"
-	@echo "make infisical-init       # Machine Identity 설정 가이드 출력"
-	@echo "make secrets-push         # .env 전체 → Infisical 동기화"
-	@echo "make secrets-push-sensitive # 민감 값(TOKEN/KEY/PASSWORD)만 → Infisical"
-	@echo "make secrets-pull         # Infisical → .env 갱신"
-	@echo "make secrets-status       # .env vs Infisical 상태 비교"
-	@echo ""
-	@echo "── 모델·버전 ────────────────────────────────────────────────"
-	@echo "make vllm-commands        # 설정된 vLLM 기동 명령 출력"
-	@echo "make hf-config-check      # HF AutoConfig만 로드해 vLLM/bnb 이전 config 문제 분리"
-	@echo "make risk-vllm-config-check # 고급: RISK_VLLM_IMAGE 내부에서 Kanana config 파싱 검증"
-	@echo "make risk-vllm-patch-removal-check # 고급: vendor patch 제거 후보 상태 점검"
-	@echo "make model-inventory      # 모델 API·리소스 현황 표시"
-	@echo "make model-list           # read-only modelctl list"
-	@echo "make model-status         # read-only modelctl status"
-	@echo "make model-validate       # registry/projection/lifecycle 검증"
-	@echo "make model-diff           # registry projection drift 확인"
-	@echo "make model-propose-add ID=new-model PORT=9499 ENDPOINT=/v1/new UPSTREAM=org/model ROLE=main_llm # 모델 추가 계획"
-	@echo "make model-propose-remove ID=old-model # 모델 제거 계획"
-	@echo "make reset-version NEW_VERSION=x.y.z # 프로젝트 버전 메타데이터 초기화"
-	@echo ""
-	@echo "── 문서·리포트 점검 ────────────────────────────────────────"
-	@echo "make validate-docs          # docs-check + reports-check + feature-check 통합 실행"
-	@echo "make docs-check             # Markdown 링크 유효성 검사 (파일 수정 없음)"
-	@echo "make reports-check          # generated report 헤딩·내용·배너·버전 레이블 점검 (파일 수정 없음)"
-	@echo "make feature-check          # features/*.yaml 매니페스트 정합성 점검 (파일 수정 없음)"
-	@echo "make feature-plan [ID=<id>] # 기능 변경 시 갱신 대상 파일/테스트/명령 출력 (maintainer용)"
-	@echo "make render-runtime-assets  # prometheus.yml, model_contracts, schema, matrix, doc block 재생성"
-	@echo "make check-runtime-assets   # 위 산출물 drift 검출 + vLLM compose 정합성 검증 (exit 1 on drift)"
+	@$(PYTHON) scripts/commands/render_command_help.py
+
+help-full:
+	@$(PYTHON) scripts/commands/render_command_help.py --mode full
+
+help-json:
+	@$(PYTHON) scripts/commands/render_command_help.py --json
+
+command-check:
+	$(PYTHON) scripts/commands/validate_command_registry.py --strict
 
 guide:
 	$(PYTHON) scripts/reports/operator_guide.py
@@ -151,6 +45,9 @@ init-env-compose-force:
 sync-runtime-secrets:
 	$(PYTHON) scripts/config/setup_env.py --sync-runtime-secrets
 
+sync-env:
+	$(PYTHON) scripts/config/setup_env.py --sync-env
+
 show-image-tags:
 	$(PYTHON) scripts/config/setup_env.py --show-image-tags
 
@@ -158,6 +55,7 @@ validate:
 	$(PYTHON) scripts/build/check_python.py --context validate >/dev/null
 	$(PYTHON) scripts/validation/validate_contracts.py
 	$(MAKE) validate-docs
+	$(MAKE) command-check
 
 test:
 	PYTHONDONTWRITEBYTECODE=1 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 $(PYTHON) scripts/validation/run_tests.py -q -m "not slow and not runtime and not docker and not gpu"
@@ -263,6 +161,14 @@ auth-apply:
 exposure-status:
 	$(PYTHON) scripts/auth/exposure_status.py
 
+exposure-plan:
+	@if [[ -z "$(MODE)" ]]; then echo "MODE=private_network|master_open 를 지정하세요" >&2; exit 2; fi
+	$(PYTHON) scripts/auth/exposure_plan.py --mode $(MODE) $(if $(AUDIENCE),--audience $(AUDIENCE),)
+
+exposure-apply:
+	@if [[ -z "$(MODE)" ]]; then echo "MODE=private_network|master_open 를 지정하세요" >&2; exit 2; fi
+	$(PYTHON) scripts/auth/exposure_apply.py --mode $(MODE) $(if $(AUDIENCE),--audience $(AUDIENCE),) --yes
+
 monitoring-projection:
 	$(PYTHON) scripts/reports/monitoring_projection_report.py
 
@@ -330,6 +236,9 @@ compose-down:
 
 compose-logs:
 	docker compose -f ops/compose/full-stack.private-network.yaml --env-file .env logs -f --tail=100
+
+compose-diagnostics:
+	bash scripts/compose/compose_diagnostics.sh
 
 logs:
 	@mkdir -p logs

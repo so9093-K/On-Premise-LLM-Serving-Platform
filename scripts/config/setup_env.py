@@ -249,6 +249,61 @@ def sync_runtime_secrets_from_env(env_path: Path) -> None:
         raise RuntimeError(f"{env_path}에 ADMIN_API_KEY 또는 ADMIN_API_KEYS가 없습니다")
     write_runtime_secrets({"ADMIN_API_KEY": admin_key})
 
+
+def sync_env_keys(env_path: Path, *, dry_run: bool = False) -> int:
+    """템플릿과 기존 .env를 비교해 누락 키 추가, 폐기 키 제거.
+
+    BUILD_PROFILE로 템플릿 자동 감지. 시크릿은 재생성하지 않는다.
+    기존 값(HF_TOKEN, API 키 등)은 모두 보존된다.
+    """
+    if not env_path.exists():
+        raise FileNotFoundError(f".env 파일이 없습니다: {env_path}")
+
+    env_lines, existing = parse_env_template(env_path)
+    profile = existing.get("BUILD_PROFILE", "compose")
+    if profile not in ("local", "compose"):
+        profile = "compose"
+
+    template_path = profile_template(profile)
+    _, template_values = parse_env_template(template_path)
+
+    added = [k for k in template_values if k not in existing and k not in RETIRED_ENV_KEYS]
+    retired_found = [k for k in existing if k in RETIRED_ENV_KEYS]
+
+    if not added and not retired_found:
+        print(f"변경 없음: .env가 최신 상태입니다. (profile={profile})")
+        return 0
+
+    if added:
+        print(f"추가될 키 ({len(added)}개): {', '.join(sorted(added))}")
+    if retired_found:
+        print(f"제거될 키 ({len(retired_found)}개): {', '.join(sorted(retired_found))}")
+
+    if dry_run:
+        print("dry-run: 실제 변경 없음.")
+        return 0
+
+    merged = {k: v for k, v in existing.items() if k not in RETIRED_ENV_KEYS}
+    for k in added:
+        merged[k] = template_values[k]
+
+    if merged.get("HF_TOKEN") and not merged.get("HUGGING_FACE_HUB_TOKEN"):
+        merged["HUGGING_FACE_HUB_TOKEN"] = merged["HF_TOKEN"]
+
+    filtered_lines = [
+        line for line in env_lines
+        if not (
+            line.strip()
+            and not line.strip().startswith("#")
+            and "=" in line.strip()
+            and line.strip().split("=", 1)[0] in RETIRED_ENV_KEYS
+        )
+    ]
+
+    write_env(filtered_lines, merged, env_path)
+    print(f"업데이트 완료: {env_path} (profile={profile})")
+    return 0
+
 def profile_template(profile: str) -> Path:
     if profile == "compose":
         return ROOT / ".env.compose.example"
@@ -330,6 +385,8 @@ def build_parser() -> KoreanArgumentParser:
     parser.add_argument("--force", action="store_true", help="기존 출력 파일을 덮어씁니다.")
     parser.add_argument("--show-image-tags", action="store_true", help="권장 compose image tag를 출력하고 종료합니다.")
     parser.add_argument("--sync-runtime-secrets", action="store_true", help=".env를 다시 쓰지 않고 현재 env 파일에서 .runtime secret file만 동기화합니다.")
+    parser.add_argument("--sync-env", action="store_true", help="템플릿과 기존 .env를 비교해 누락 키를 추가하고 폐기 키를 제거합니다. 시크릿은 재생성하지 않습니다.")
+    parser.add_argument("--dry-run", action="store_true", help="--sync-env 미리보기. 실제 변경 없음.")
     parser.add_argument("--auth-mode", help="AUTH_MODE를 명시적으로 설정합니다. 기본값은 local_open입니다. (local_open|internal_trusted|private_network|edge_terminated|strict)")
     parser.add_argument("--exposure-mode", help="EXPOSURE_MODE를 명시적으로 설정합니다. 기본값은 private_network입니다. 지원값: private_network|master_open")
     parser.add_argument("--platform-image")
@@ -357,6 +414,12 @@ def main(argv: list[str] | None = None) -> int:
             return 2
         print(f".runtime/prometheus/admin_api_key 동기화 완료: {out_path}")
         return 0
+    if args.sync_env:
+        try:
+            return sync_env_keys(out_path, dry_run=args.dry_run)
+        except Exception as exc:
+            print(f"sync-env 실패: {exc}", file=sys.stderr)
+            return 2
     if out_path.exists() and not args.force:
         print(f"기존 파일을 덮어쓰지 않습니다: {out_path}. 교체하려면 --force를 사용하세요.", file=sys.stderr)
         print("기존 .env를 유지하면서 Prometheus secret만 복구하려면 `make sync-runtime-secrets`를 사용하세요.", file=sys.stderr)

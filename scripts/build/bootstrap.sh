@@ -46,12 +46,18 @@ echo "[bootstrap] installing dependencies"
 "$VENV_PYTHON" -m pip install --no-deps -e ".[contract]" -q
 
 echo "[bootstrap] initializing .env"
-# Read the current auth mode before init-env-compose-force resets it.
-# This lets bootstrap preserve a non-default mode across re-runs without requiring
-# the caller to pass AUTH_MODE every time.
+# Read the current auth/exposure modes before init-env-compose-force resets them.
+# This lets bootstrap preserve non-default modes across re-runs without requiring
+# the caller to pass them every time.
 _prior_auth_mode=""
 if [[ -z "${AUTH_MODE:-}" && -f .env ]]; then
   _prior_auth_mode="$(grep -E '^AUTH_MODE=' .env | cut -d= -f2- || true)"
+fi
+_prior_exposure_mode=""
+_prior_exposure_audience=""
+if [[ -z "${EXPOSURE_MODE:-}" && -f .env ]]; then
+  _prior_exposure_mode="$(grep -E '^EXPOSURE_MODE=' .env | cut -d= -f2- || true)"
+  _prior_exposure_audience="$(grep -E '^EXPOSURE_AUDIENCE=' .env | cut -d= -f2- || true)"
 fi
 
 if [[ -f .env ]]; then
@@ -70,6 +76,21 @@ _apply_mode="${AUTH_MODE:-${_prior_auth_mode}}"
 if [[ -n "$_apply_mode" && "$_apply_mode" != "custom" ]]; then
   echo "[bootstrap] applying AUTH_MODE=$_apply_mode"
   "$VENV_PYTHON" scripts/auth/auth_apply.py --mode "$_apply_mode" --yes
+fi
+
+# Apply exposure mode after .env re-init:
+#   1. Explicit EXPOSURE_MODE env var takes priority.
+#   2. Mode preserved from the previous .env is restored when not overridden.
+#   3. private_network is the init default — skip re-apply to avoid no-op noise.
+_apply_exposure="${EXPOSURE_MODE:-${_prior_exposure_mode}}"
+if [[ -n "$_apply_exposure" && "$_apply_exposure" != "private_network" ]]; then
+  _effective_audience="${EXPOSURE_AUDIENCE:-${_prior_exposure_audience}}"
+  echo "[bootstrap] applying EXPOSURE_MODE=$_apply_exposure"
+  if [[ -n "$_effective_audience" ]]; then
+    "$VENV_PYTHON" scripts/auth/exposure_apply.py --mode "$_apply_exposure" --audience "$_effective_audience" --yes
+  else
+    "$VENV_PYTHON" scripts/auth/exposure_apply.py --mode "$_apply_exposure" --yes
+  fi
 fi
 
 # Inject HF_TOKEN whenever the caller passes one — always override, not only when empty.

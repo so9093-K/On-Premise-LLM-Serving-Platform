@@ -47,6 +47,27 @@ make compose-down
 
 인증 없이 바로 올리려면 `AUTH_MODE=local_open`을 앞에 붙인다. `.env` 초기화 직후 자동으로 `local_open` 프로파일(API key 불필요, APP_ENV=local)이 적용된다.
 
+**모든 포트를 허용하는 운영 세팅 (master_open):**
+
+vLLM, Risk Adapter, Prometheus, Grafana 등 전체 stack을 host-published로 올릴 때 사용한다.
+
+```bash
+make init-env-compose
+make auth-apply MODE=private_network      # API key 인증 활성화
+make exposure-apply MODE=master_open AUDIENCE=private_lan  # 전체 포트 허용 (내부망)
+make compose-up
+make exposure-status                       # 현재 노출 상태 확인
+```
+
+AUDIENCE 선택 기준:
+
+| 값 | 의미 |
+|---|---|
+| `local_only` | 127.0.0.1 바인드 (개발자 로컬) |
+| `private_lan` | 사내 사설망 (staging·ops 표준) |
+| `vpn` | VPN 경계 내부 |
+| `public` | 인터넷 노출 (권장하지 않음) |
+
 ```bash
 AUTH_MODE=local_open HF_TOKEN=hf_xxx make first-run
 

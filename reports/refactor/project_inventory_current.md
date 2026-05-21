@@ -10,7 +10,7 @@ Command:
 
 이 리포트는 현재 source tree에서 생성되며 로컬 runtime/cache/build 디렉터리는 제외한다.
 
-- 검토 파일 수: **355**
+- 검토 파일 수: **359**
 - CSV matrix: `reports/refactor/project_inventory_current.csv`
 - JSON matrix: `reports/refactor/project_inventory_current.json`
 
@@ -34,7 +34,7 @@ Command:
 | `README.md` | 1 |
 | `VERSION` | 1 |
 | `assets` | 1 |
-| `configs` | 16 |
+| `configs` | 17 |
 | `contracts` | 2 |
 | `docs` | 60 |
 | `features` | 3 |
@@ -45,10 +45,10 @@ Command:
 | `reports` | 20 |
 | `requirements.lock` | 1 |
 | `requirements.runtime.lock` | 1 |
-| `scripts` | 71 |
+| `scripts` | 73 |
 | `specs` | 15 |
 | `src` | 80 |
-| `tests` | 36 |
+| `tests` | 37 |
 | `version_manifest.json` | 1 |
 
 ## 주요 진입점
@@ -68,8 +68,9 @@ Command:
 | 경로 | 줄 수 | 담당 | 검토 메모 |
 |---|---:|---|---|
 | `specs/openapi.gateway.yaml` | 4930 | api-contracts | supporting project file |
-| `reports/refactor/project_inventory_current.json` | 4167 | handoff-reporting | handoff/review artifact; avoid stale phase snapshots in active package |
+| `reports/refactor/project_inventory_current.json` | 4211 | handoff-reporting | handoff/review artifact; avoid stale phase snapshots in active package |
 | `tests/unit/test_gateway_app.py` | 2204 | quality | test coverage; keep deterministic and avoid live GPU dependency |
+| `configs/command_registry.yaml` | 2032 | configuration | configuration source; validate through governance and projection checks after edits |
 | `specs/openapi.risk-adapter.yaml` | 1641 | api-contracts | supporting project file |
 | `ops/grafana/dashboards/serving_home.json` | 1398 | operations | supporting project file |
 | `ops/grafana/dashboards/api_experience.json` | 1095 | operations | supporting project file |
@@ -81,7 +82,6 @@ Command:
 | `src/ai_model_serving/domain/model_registry.py` | 703 | domain-registry | registry/domain code; monitor size as projections grow |
 | `ops/grafana/dashboards/executive_runtime_overview.json` | 682 | operations | supporting project file |
 | `ops/grafana/dashboards/risk_signal_operations.json` | 625 | operations | supporting project file |
-| `src/ai_model_serving/governance_validation/docs_ops.py` | 619 | governance-validation | application code; preserve public API behavior and compatibility facades |
 
 ## 관리 해석
 
