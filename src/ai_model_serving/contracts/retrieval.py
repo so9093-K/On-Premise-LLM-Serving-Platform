@@ -8,7 +8,7 @@ from typing import Any
 from jsonschema import Draft202012Validator, ValidationError
 
 from ..errors import ServiceError
-from ..settings import resolve_project_root
+from ..project_paths import resolve_project_root
 from .common import ensure_object
 
 

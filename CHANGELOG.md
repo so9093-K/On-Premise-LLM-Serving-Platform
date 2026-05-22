@@ -6,10 +6,14 @@
 
 ### Added
 
+- `make sync-env` — `git pull` 이후 `.env`를 템플릿과 동기화한다. 누락 키를 추가하고 폐기 키를 제거하되, 기존 크리덴셜·이미지 태그·커스텀 값은 모두 보존한다. 시크릿을 재생성하지 않는다.
+- `setup_env.py --env-file <path>` — `--sync-env` 실행 시 프로젝트 루트가 아닌 다른 경로의 `.env`를 대상으로 지정할 수 있다. 별도 배포 디렉터리의 `.env` 동기화에 사용한다.
 - 문서 lifecycle, ownership, source-of-truth, 검증 방식을 추적하는 `docs/manifest.yaml`을 추가했다.
 
 ### Changed
 
+- `bootstrap.sh`(`make rebuild-full`)이 `EXPOSURE_MODE`와 `EXPOSURE_AUDIENCE`를 기존 `.env`에서 읽어 재초기화 후 복원한다. 이전에는 `AUTH_MODE`만 보존되고 `EXPOSURE_MODE`는 초기화됐다.
+- `deploy_gitlab_compose.sh` CI/CD 배포 시 `.env` 이미지 참조 업데이트 직후 `make sync-env`를 호출해 신규 템플릿 키를 서버 `.env`에 자동 반영한다.
 - ADR canonical 위치를 `docs/adr/`로 통합하고 root `adr/`는 더 이상 사용하지 않는다.
 - 설명형 request examples 문서를 `docs/examples/requests.md`로 이동했다.
 - `reports/refactor/current_*`에는 실제 current state, handoff, inventory만 남기고 과거 audit snapshot은 archive로 분리했다.

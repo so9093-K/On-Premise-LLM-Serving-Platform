@@ -1,8 +1,8 @@
 path,area,category,owner,management,size_bytes,line_count,role,review_note
 .dockerignore,.dockerignore,project metadata,project-maintenance,managed by root project metadata,2373,61,supporting-file,supporting project file
-.env,.env,project metadata,project-maintenance,managed by root project metadata,6514,147,environment-template,supporting project file
+.env,.env,project metadata,project-maintenance,managed by root project metadata,6509,147,environment-template,supporting project file
 .env.compose.example,.env.compose.example,project metadata,project-maintenance,managed by root project metadata,6784,156,environment-template,supporting project file
-.env.example,.env.example,project metadata,project-maintenance,managed by root project metadata,3008,94,environment-template,supporting project file
+.env.example,.env.example,project metadata,project-maintenance,managed by root project metadata,4231,108,environment-template,supporting project file
 .env.local.example,.env.local.example,project metadata,project-maintenance,managed by root project metadata,2354,80,environment-template,supporting project file
 .github/pull_request_template.md,.github,project metadata,project-maintenance,managed by root project metadata,1205,15,documentation,supporting project file
 .gitignore,.gitignore,project metadata,project-maintenance,managed by root project metadata,2348,57,supporting-file,supporting project file
@@ -15,14 +15,14 @@ path,area,category,owner,management,size_bytes,line_count,role,review_note
 .other/프롬프트 공격 요청 원문.md,.other,project metadata,project-maintenance,managed by root project metadata,9038,189,documentation,supporting project file
 .other/프롬프트 방어 능력 평가.md,.other,project metadata,project-maintenance,managed by root project metadata,24164,447,documentation,supporting project file
 .python-version,.python-version,project metadata,project-maintenance,managed by root project metadata,8,1,environment-template,supporting project file
-CHANGELOG.md,CHANGELOG.md,project metadata,project-maintenance,managed by root project metadata,1373,31,documentation,supporting project file
+CHANGELOG.md,CHANGELOG.md,project metadata,project-maintenance,managed by root project metadata,2243,35,documentation,supporting project file
 Dockerfile,Dockerfile,project metadata,project-maintenance,managed by root project metadata,1019,30,build-command,supporting project file
-Makefile,Makefile,project metadata,project-maintenance,managed by root project metadata,12095,341,build-command,supporting project file
+Makefile,Makefile,project metadata,project-maintenance,managed by root project metadata,12642,352,build-command,supporting project file
 README.md,README.md,project metadata,project-maintenance,managed by root project metadata,19187,427,entrypoint,primary navigation or current-state entrypoint; keep synchronized with Makefile and reports
 VERSION,VERSION,project metadata,project-maintenance,managed by root project metadata,6,1,supporting-file,supporting project file
 assets/ai_model_serving_system_architecture.jpg,assets,project metadata,project-maintenance,managed by root project metadata,163694,0,supporting-file,supporting project file
 configs/auth_profiles.yaml,configs,configuration source of truth,configuration,managed by configuration lifecycle,2247,65,structured-data,configuration source; validate through governance and projection checks after edits
-configs/command_registry.yaml,configs,configuration source of truth,configuration,managed by configuration lifecycle,53836,2032,structured-data,configuration source; validate through governance and projection checks after edits
+configs/command_registry.yaml,configs,configuration source of truth,configuration,managed by configuration lifecycle,55823,2100,structured-data,configuration source; validate through governance and projection checks after edits
 configs/command_terminology_policy.yaml,configs,configuration source of truth,configuration,managed by configuration lifecycle,3385,102,structured-data,configuration source; validate through governance and projection checks after edits
 configs/env_contract.yaml,configs,configuration source of truth,configuration,managed by configuration lifecycle,2387,94,structured-data,configuration source; validate through governance and projection checks after edits
 configs/exposure_profiles.yaml,configs,configuration source of truth,configuration,managed by configuration lifecycle,2524,67,structured-data,configuration source; validate through governance and projection checks after edits
@@ -42,7 +42,7 @@ contracts/api_contract_matrix.csv,contracts,contract registry,project-maintenanc
 contracts/model_contracts.yaml,contracts,contract registry,project-maintenance,managed by root project metadata,687,24,structured-data,supporting project file
 docs/00_executive_summary.md,docs,documentation,documentation,managed by documentation map,1739,45,documentation,documentation; keep relative links valid and avoid duplicating current command flow
 docs/01_project_background.md,docs,documentation,documentation,managed by documentation map,1105,20,documentation,documentation; keep relative links valid and avoid duplicating current command flow
-docs/02_decision_register.md,docs,documentation,documentation,managed by documentation map,3277,49,documentation,documentation; keep relative links valid and avoid duplicating current command flow
+docs/02_decision_register.md,docs,documentation,documentation,managed by documentation map,3669,51,documentation,documentation; keep relative links valid and avoid duplicating current command flow
 docs/06_architecture.md,docs,documentation,documentation,managed by documentation map,1434,34,documentation,documentation; keep relative links valid and avoid duplicating current command flow
 docs/07_project_structure.md,docs,documentation,documentation,managed by documentation map,1261,19,documentation,documentation; keep relative links valid and avoid duplicating current command flow
 docs/README.md,docs,documentation,documentation,managed by documentation map,9734,135,entrypoint,primary navigation or current-state entrypoint; keep synchronized with Makefile and reports
@@ -53,7 +53,8 @@ docs/adr/0004-port-policy-9400.md,docs,architecture decision record,documentatio
 docs/adr/0010-colbert-removal-dense-korean-retrieval.md,docs,architecture decision record,documentation,managed by documentation map,3010,58,documentation,documentation; keep relative links valid and avoid duplicating current command flow
 docs/adr/0011-documentation-source-of-truth-policy.md,docs,architecture decision record,documentation,managed by documentation map,3796,74,documentation,documentation; keep relative links valid and avoid duplicating current command flow
 docs/adr/0012-auth-ownership-and-compose-exposure-source-of-truth.md,docs,architecture decision record,documentation,managed by documentation map,9058,157,documentation,documentation; keep relative links valid and avoid duplicating current command flow
-docs/adr/README.md,docs,architecture decision record,documentation,managed by documentation map,2092,70,documentation,documentation; keep relative links valid and avoid duplicating current command flow
+docs/adr/0013-env-lifecycle-non-destructive-sync.md,docs,architecture decision record,documentation,managed by documentation map,3922,61,documentation,documentation; keep relative links valid and avoid duplicating current command flow
+docs/adr/README.md,docs,architecture decision record,documentation,managed by documentation map,2196,71,documentation,documentation; keep relative links valid and avoid duplicating current command flow
 docs/archive/changelog/maintenance_journal_0.1.0-rc.1.md,docs,historical documentation archive,documentation,managed by documentation map,15640,164,documentation,documentation; keep relative links valid and avoid duplicating current command flow
 docs/archive/reviews/gemma4_31b_awq_review.md,docs,historical documentation archive,documentation,managed by documentation map,1290,27,documentation,documentation; keep relative links valid and avoid duplicating current command flow
 docs/archive/reviews/ux_ui_review.md,docs,historical documentation archive,documentation,managed by documentation map,8254,108,documentation,documentation; keep relative links valid and avoid duplicating current command flow
@@ -73,8 +74,8 @@ docs/models/model_cards.md,docs,documentation,documentation,managed by documenta
 docs/models/model_runtime_source_review.md,docs,documentation,documentation,managed by documentation map,1054,18,documentation,documentation; keep relative links valid and avoid duplicating current command flow
 docs/operations/admin_metrics_docs_exposure_policy.md,docs,documentation,documentation,managed by documentation map,6341,118,documentation,documentation; keep relative links valid and avoid duplicating current command flow
 docs/operations/auth_control_plane.md,docs,documentation,documentation,managed by documentation map,9738,133,documentation,documentation; keep relative links valid and avoid duplicating current command flow
-docs/operations/configuration_lifecycle.md,docs,documentation,documentation,managed by documentation map,6395,118,entrypoint,primary navigation or current-state entrypoint; keep synchronized with Makefile and reports
-docs/operations/day0_quickstart.md,docs,documentation,documentation,managed by documentation map,9325,209,entrypoint,primary navigation or current-state entrypoint; keep synchronized with Makefile and reports
+docs/operations/configuration_lifecycle.md,docs,documentation,documentation,managed by documentation map,8071,162,entrypoint,primary navigation or current-state entrypoint; keep synchronized with Makefile and reports
+docs/operations/day0_quickstart.md,docs,documentation,documentation,managed by documentation map,10034,230,entrypoint,primary navigation or current-state entrypoint; keep synchronized with Makefile and reports
 docs/operations/endpoint_reference.md,docs,documentation,documentation,managed by documentation map,16478,252,documentation,documentation; keep relative links valid and avoid duplicating current command flow
 docs/operations/first_project_guide.md,docs,documentation,documentation,managed by documentation map,10864,255,documentation,documentation; keep relative links valid and avoid duplicating current command flow
 docs/operations/full_stack_runtime.md,docs,documentation,documentation,managed by documentation map,5822,77,documentation,documentation; keep relative links valid and avoid duplicating current command flow
@@ -136,8 +137,8 @@ reports/archive/refactor_audits/first_run_clean_package_audit.md,reports,histori
 reports/archive/refactor_audits/full_file_hygiene_audit.md,reports,historical report archive,handoff-reporting,managed by root project metadata,5620,96,documentation,supporting project file
 reports/refactor/current_handoff_summary.md,reports,current handoff/review report,handoff-reporting,generated/curated for handoff review,6917,97,documentation,handoff/review artifact; avoid stale phase snapshots in active package
 reports/refactor/current_refactor_state.md,reports,current handoff/review report,handoff-reporting,generated/curated for handoff review,4210,72,entrypoint,primary navigation or current-state entrypoint; keep synchronized with Makefile and reports
-reports/refactor/project_inventory_current.csv,reports,current handoff/review report,handoff-reporting,generated/curated for handoff review,73732,360,structured-data,handoff/review artifact; avoid stale phase snapshots in active package
-reports/refactor/project_inventory_current.json,reports,current handoff/review report,handoff-reporting,generated/curated for handoff review,150582,4211,structured-data,handoff/review artifact; avoid stale phase snapshots in active package
+reports/refactor/project_inventory_current.csv,reports,current handoff/review report,handoff-reporting,generated/curated for handoff review,73730,360,structured-data,handoff/review artifact; avoid stale phase snapshots in active package
+reports/refactor/project_inventory_current.json,reports,current handoff/review report,handoff-reporting,generated/curated for handoff review,150580,4211,structured-data,handoff/review artifact; avoid stale phase snapshots in active package
 reports/refactor/project_inventory_current.md,reports,current handoff/review report,handoff-reporting,generated/curated for handoff review,5277,98,documentation,handoff/review artifact; avoid stale phase snapshots in active package
 reports/runtime/README.md,reports,runtime/operator generated report,handoff-reporting,generated by operator report commands,603,12,documentation,generated operator report; regenerate through make operator-reports before handoff
 reports/runtime/live_evidence_bundle.json,reports,runtime/operator generated report,handoff-reporting,generated by operator report commands,1718,69,structured-data,generated operator report; regenerate through make operator-reports before handoff
@@ -158,8 +159,10 @@ scripts/auth/auth_doctor.py,scripts,operator/developer command surface,operator-
 scripts/auth/auth_plan.py,scripts,operator/developer command surface,operator-ux,managed by Makefile command UX,4321,108,python-source,operator/developer command; expose through Makefile/help if user-facing
 scripts/auth/auth_profile_sanity.py,scripts,operator/developer command surface,operator-ux,managed by Makefile command UX,1507,39,python-source,operator/developer command; expose through Makefile/help if user-facing
 scripts/auth/auth_status.py,scripts,operator/developer command surface,operator-ux,managed by Makefile command UX,1616,44,python-source,operator/developer command; expose through Makefile/help if user-facing
+scripts/auth/exposure_apply.py,scripts,operator/developer command surface,operator-ux,managed by Makefile command UX,2219,61,python-source,operator/developer command; expose through Makefile/help if user-facing
+scripts/auth/exposure_plan.py,scripts,operator/developer command surface,operator-ux,managed by Makefile command UX,5716,145,python-source,operator/developer command; expose through Makefile/help if user-facing
 scripts/auth/exposure_status.py,scripts,operator/developer command surface,operator-ux,managed by Makefile command UX,5861,133,python-source,operator/developer command; expose through Makefile/help if user-facing
-scripts/build/bootstrap.sh,scripts,operator/developer command surface,operator-ux,managed by Makefile command UX,5850,149,shell-command,operator/developer command; expose through Makefile/help if user-facing
+scripts/build/bootstrap.sh,scripts,operator/developer command surface,operator-ux,managed by Makefile command UX,6879,170,shell-command,operator/developer command; expose through Makefile/help if user-facing
 scripts/build/build_all.sh,scripts,operator/developer command surface,operator-ux,managed by Makefile command UX,687,21,shell-command,operator/developer command; expose through Makefile/help if user-facing
 scripts/build/build_platform_image.sh,scripts,operator/developer command surface,operator-ux,managed by Makefile command UX,353,11,shell-command,operator/developer command; expose through Makefile/help if user-facing
 scripts/build/build_risk_vllm_image.sh,scripts,operator/developer command surface,operator-ux,managed by Makefile command UX,2078,58,shell-command,operator/developer command; expose through Makefile/help if user-facing
@@ -167,7 +170,7 @@ scripts/build/check_python.py,scripts,operator/developer command surface,operato
 scripts/build/package_release.sh,scripts,operator/developer command surface,operator-ux,managed by Makefile command UX,9458,275,shell-command,operator/developer command; expose through Makefile/help if user-facing
 scripts/build/reset_version.py,scripts,operator/developer command surface,operator-ux,managed by Makefile command UX,4635,131,python-source,operator/developer command; expose through Makefile/help if user-facing
 scripts/ci/build_vllm_derived_images.sh,scripts,operator/developer command surface,operator-ux,managed by Makefile command UX,3648,64,shell-command,operator/developer command; expose through Makefile/help if user-facing
-scripts/ci/deploy_gitlab_compose.sh,scripts,operator/developer command surface,operator-ux,managed by Makefile command UX,12231,317,shell-command,operator/developer command; expose through Makefile/help if user-facing
+scripts/ci/deploy_gitlab_compose.sh,scripts,operator/developer command surface,operator-ux,managed by Makefile command UX,12429,323,shell-command,operator/developer command; expose through Makefile/help if user-facing
 scripts/commands/render_command_help.py,scripts,operator/developer command surface,operator-ux,managed by Makefile command UX,5142,145,python-source,operator/developer command; expose through Makefile/help if user-facing
 scripts/commands/validate_command_registry.py,scripts,operator/developer command surface,operator-ux,managed by Makefile command UX,15692,406,python-source,operator/developer command; expose through Makefile/help if user-facing
 scripts/compose/compose_diagnostics.sh,scripts,operator/developer command surface,operator-ux,managed by Makefile command UX,2956,49,shell-command,operator/developer command; expose through Makefile/help if user-facing
@@ -179,7 +182,7 @@ scripts/compose/render_exposure_overrides.py,scripts,operator/developer command 
 scripts/compose/resolve_exposure_mode.py,scripts,operator/developer command surface,operator-ux,managed by Makefile command UX,2554,77,python-source,operator/developer command; expose through Makefile/help if user-facing
 scripts/compose/validate_vllm_compose.py,scripts,operator/developer command surface,operator-ux,managed by Makefile command UX,7889,193,python-source,operator/developer command; expose through Makefile/help if user-facing
 scripts/config/infisical_sync.py,scripts,operator/developer command surface,operator-ux,managed by Makefile command UX,9054,253,python-source,operator/developer command; expose through Makefile/help if user-facing
-scripts/config/setup_env.py,scripts,operator/developer command surface,operator-ux,managed by Makefile command UX,17242,401,python-source,operator/developer command; expose through Makefile/help if user-facing
+scripts/config/setup_env.py,scripts,operator/developer command surface,operator-ux,managed by Makefile command UX,20094,470,python-source,operator/developer command; expose through Makefile/help if user-facing
 scripts/generate_endpoint_matrix.py,scripts,operator/developer command surface,operator-ux,managed by Makefile command UX,1115,38,python-source,operator/developer command; expose through Makefile/help if user-facing
 scripts/lib/cli_kr.py,scripts,operator/developer command surface,operator-ux,managed by Makefile command UX,1914,44,python-source,operator/developer command; expose through Makefile/help if user-facing
 scripts/lib/load_env.sh,scripts,operator/developer command surface,operator-ux,managed by Makefile command UX,2086,69,shell-command,operator/developer command; expose through Makefile/help if user-facing

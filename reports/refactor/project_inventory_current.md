@@ -10,7 +10,7 @@ Command:
 
 이 리포트는 현재 source tree에서 생성되며 로컬 runtime/cache/build 디렉터리는 제외한다.
 
-- 검토 파일 수: **359**
+- 검토 파일 수: **362**
 - CSV matrix: `reports/refactor/project_inventory_current.csv`
 - JSON matrix: `reports/refactor/project_inventory_current.json`
 
@@ -36,7 +36,7 @@ Command:
 | `assets` | 1 |
 | `configs` | 17 |
 | `contracts` | 2 |
-| `docs` | 60 |
+| `docs` | 61 |
 | `features` | 3 |
 | `harness` | 4 |
 | `model_cards` | 4 |
@@ -45,7 +45,7 @@ Command:
 | `reports` | 20 |
 | `requirements.lock` | 1 |
 | `requirements.runtime.lock` | 1 |
-| `scripts` | 73 |
+| `scripts` | 75 |
 | `specs` | 15 |
 | `src` | 80 |
 | `tests` | 37 |
@@ -70,7 +70,7 @@ Command:
 | `specs/openapi.gateway.yaml` | 4930 | api-contracts | supporting project file |
 | `reports/refactor/project_inventory_current.json` | 4211 | handoff-reporting | handoff/review artifact; avoid stale phase snapshots in active package |
 | `tests/unit/test_gateway_app.py` | 2204 | quality | test coverage; keep deterministic and avoid live GPU dependency |
-| `configs/command_registry.yaml` | 2032 | configuration | configuration source; validate through governance and projection checks after edits |
+| `configs/command_registry.yaml` | 2100 | configuration | configuration source; validate through governance and projection checks after edits |
 | `specs/openapi.risk-adapter.yaml` | 1641 | api-contracts | supporting project file |
 | `ops/grafana/dashboards/serving_home.json` | 1398 | operations | supporting project file |
 | `ops/grafana/dashboards/api_experience.json` | 1095 | operations | supporting project file |

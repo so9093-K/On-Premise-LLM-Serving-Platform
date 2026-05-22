@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-import os
 from pathlib import Path
 from typing import Any
 
 from .domain import ModelRegistry
+from .project_paths import resolve_project_root
 from .settings_parts.env import (
     DEFAULT_SECRET_VALUES,
     DOTENV_VALUES,
@@ -21,26 +21,6 @@ from .settings_parts.env import (
 from .settings_parts.runtime_endpoints import build_runtime_endpoint, validate_timeout_budget
 from .settings_parts.security import build_security_settings
 from .settings_parts.types import AppSettings, DocumentationSettings, EmbeddingProfile, RiskDetectorSettings, RuntimeEndpoint, SecuritySettings
-
-
-def resolve_project_root(explicit_root: Path | None = None) -> Path:
-    """Return the repository/config root for source-tree and installed-package runs."""
-    candidates: list[Path] = []
-    if explicit_root is not None:
-        candidates.append(explicit_root)
-    for env_name in ("APP_CONFIG_ROOT", "PROJECT_ROOT"):
-        value = os.getenv(env_name)
-        if value:
-            candidates.append(Path(value))
-    candidates.append(Path.cwd())
-    here = Path(__file__).resolve()
-    candidates.extend(here.parents)
-    for candidate in candidates:
-        root = candidate.resolve()
-        if (root / "configs" / "model_serving.yaml").exists() and (root / "VERSION").exists():
-            return root
-    return (explicit_root or Path.cwd()).resolve()
-
 
 ROOT = resolve_project_root()
 

@@ -23,6 +23,8 @@
 | ADR-0004 | [docs/adr/0004-port-policy-9400.md](adr/0004-port-policy-9400.md) | 외부 진입 포트 9400 정책 | Accepted |
 | ADR-0010 | [docs/adr/0010-colbert-removal-dense-korean-retrieval.md](adr/0010-colbert-removal-dense-korean-retrieval.md) | ColBERT 제거와 Dense Korean Retrieval 전환 | Accepted |
 | ADR-0011 | [docs/adr/0011-documentation-source-of-truth-policy.md](adr/0011-documentation-source-of-truth-policy.md) | 문서 Source-of-Truth와 Generated Block 정책 | Accepted |
+| ADR-0012 | [docs/adr/0012-auth-ownership-and-compose-exposure-source-of-truth.md](adr/0012-auth-ownership-and-compose-exposure-source-of-truth.md) | Auth 소유권과 Compose Exposure Profile Source-of-Truth 분리 | Accepted |
+| ADR-0013 | [docs/adr/0013-env-lifecycle-non-destructive-sync.md](adr/0013-env-lifecycle-non-destructive-sync.md) | .env 비파괴 동기화 정책 | Accepted |
 
 ---
 

@@ -387,6 +387,7 @@ def build_parser() -> KoreanArgumentParser:
     parser.add_argument("--sync-runtime-secrets", action="store_true", help=".env를 다시 쓰지 않고 현재 env 파일에서 .runtime secret file만 동기화합니다.")
     parser.add_argument("--sync-env", action="store_true", help="템플릿과 기존 .env를 비교해 누락 키를 추가하고 폐기 키를 제거합니다. 시크릿은 재생성하지 않습니다.")
     parser.add_argument("--dry-run", action="store_true", help="--sync-env 미리보기. 실제 변경 없음.")
+    parser.add_argument("--env-file", help="--sync-env 대상 .env 파일 절대경로. 기본값은 프로젝트 루트 .env.")
     parser.add_argument("--auth-mode", help="AUTH_MODE를 명시적으로 설정합니다. 기본값은 local_open입니다. (local_open|internal_trusted|private_network|edge_terminated|strict)")
     parser.add_argument("--exposure-mode", help="EXPOSURE_MODE를 명시적으로 설정합니다. 기본값은 private_network입니다. 지원값: private_network|master_open")
     parser.add_argument("--platform-image")
@@ -406,6 +407,11 @@ def main(argv: list[str] | None = None) -> int:
     out_path = Path(args.output)
     if not out_path.is_absolute():
         out_path = ROOT / out_path
+    if getattr(args, "env_file", None):
+        env_file_path = Path(args.env_file)
+        if not env_file_path.is_absolute():
+            env_file_path = Path.cwd() / env_file_path
+        out_path = env_file_path
     if args.sync_runtime_secrets:
         try:
             sync_runtime_secrets_from_env(out_path)
