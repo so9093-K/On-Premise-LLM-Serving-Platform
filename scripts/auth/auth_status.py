@@ -32,7 +32,11 @@ def main() -> int:
     if env_path is not None and not env_path.exists():
         print(f"env 파일을 찾을 수 없습니다: {env_path}", file=sys.stderr)
         return 2
-    settings = load_settings(env_file=env_path)
+    try:
+        settings = load_settings(env_file=env_path)
+    except RuntimeError as exc:
+        print(f"env 파일 오류: {exc}", file=sys.stderr)
+        return 2
     if args.json:
         print(json.dumps(auth_status_document(settings, SETTINGS_ROOT, env_path), ensure_ascii=False, indent=2))
     else:

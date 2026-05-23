@@ -62,6 +62,7 @@ def test_release_package_zip_hygiene_is_isolated(package_zip: Path) -> None:
     for safe_env in [".env.example", ".env.local.example", ".env.compose.example"]:
         assert f"{PACKAGE_ROOT}/{safe_env}" in names
     assert f"{PACKAGE_ROOT}/scripts/env/env_get.py" in names
+    assert f"{PACKAGE_ROOT}/scripts/env/env_validate.py" in names
 
     epoch = (1980, 1, 1, 0, 0, 0)
     non_normalized = [info.filename for info in infos if info.date_time != epoch]

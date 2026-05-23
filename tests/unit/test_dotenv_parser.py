@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import subprocess
 import shlex
+import sys
 from pathlib import Path
 
 import pytest
@@ -71,3 +72,26 @@ def test_shell_load_env_reports_invalid_key_without_bash_export_error(tmp_path):
     assert "[load-env] invalid env key" in result.stderr
     assert "BAD-KEY" in result.stderr
     assert "invalid variable name" not in result.stderr
+
+
+def test_env_validate_rejects_duplicate_even_when_process_env_overrides(tmp_path, monkeypatch):
+    env_file = tmp_path / ".env"
+    env_file.write_text("EXPOSURE_MODE=private_network\nEXPOSURE_MODE=master_open\n", encoding="utf-8")
+    monkeypatch.setenv("EXPOSURE_MODE", "private_network")
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "scripts/env/env_validate.py",
+            "--env-file",
+            str(env_file),
+        ],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert result.returncode == 2
+    assert "[env] invalid env file:" in result.stderr
+    assert "duplicate env key 'EXPOSURE_MODE'" in result.stderr

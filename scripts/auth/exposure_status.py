@@ -18,6 +18,19 @@ except ModuleNotFoundError:
 # Import resolver so exposure_status uses the same supported-mode check as compose_up.sh.
 sys.path.insert(0, str(ROOT))
 from scripts.compose.resolve_exposure_mode import load_exposure_data, resolve  # noqa: E402
+sys.path.insert(0, str(ROOT / "src"))
+from ai_model_serving.settings_parts.dotenv_parser import load_strict_env_file  # noqa: E402
+
+
+def _env_path(value: str | None) -> Path | None:
+    if not value:
+        return None
+    path = Path(value)
+    return path if path.is_absolute() else ROOT / path
+
+
+def _env_value(values: dict[str, str], key: str, default: str = "") -> str:
+    return os.environ.get(key, values.get(key, default))
 
 
 def main() -> int:
@@ -25,9 +38,20 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="현재 EXPOSURE_MODE의 host-published 서비스와 diagnostics를 표시합니다.")
     parser.add_argument("--json", action="store_true", help="JSON 출력")
     parser.add_argument("--exposure-mode", help="점검할 EXPOSURE_MODE (기본값: 환경 변수 또는 private_network)")
+    parser.add_argument("--env", help="점검할 env 파일 경로입니다. 기본값은 process env만 사용합니다.")
     args = parser.parse_args()
 
-    raw_mode = args.exposure_mode or os.environ.get("EXPOSURE_MODE", "private_network")
+    env_path = _env_path(args.env)
+    if env_path is not None and not env_path.exists():
+        print(f"env 파일을 찾을 수 없습니다: {env_path}", file=sys.stderr)
+        return 2
+    try:
+        env_values = load_strict_env_file(env_path) if env_path is not None else {}
+    except RuntimeError as exc:
+        print(f"env 파일 오류: {exc}", file=sys.stderr)
+        return 2
+
+    raw_mode = args.exposure_mode or _env_value(env_values, "EXPOSURE_MODE", "private_network")
     data = load_exposure_data(ROOT)
     profiles = data.get("profiles", {})
     services_path = ROOT / "configs" / "services.yaml"
@@ -39,7 +63,7 @@ def main() -> int:
     published_service_names = profile.get("host_published", [])
     diagnostics: dict = profile.get("diagnostics", {})
 
-    audience = os.environ.get("EXPOSURE_AUDIENCE", "")
+    audience = _env_value(env_values, "EXPOSURE_AUDIENCE", "")
 
     published_services_detail = []
     for svc_name in published_service_names:
@@ -48,8 +72,8 @@ def main() -> int:
         bind_env = svc.get("host_env_bind", "")
         default_port = svc.get("default_host_port", "")
         default_bind = svc.get("default_bind", "0.0.0.0")
-        actual_port = os.environ.get(port_env, str(default_port)) if port_env else str(default_port)
-        actual_bind = os.environ.get(bind_env, default_bind) if bind_env else default_bind
+        actual_port = _env_value(env_values, port_env, str(default_port)) if port_env else str(default_port)
+        actual_bind = _env_value(env_values, bind_env, default_bind) if bind_env else default_bind
         published_services_detail.append({
             "name": svc_name,
             "compose_service": svc.get("compose_service", svc_name),

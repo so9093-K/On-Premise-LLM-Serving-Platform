@@ -106,7 +106,9 @@ compose-down-private:
 	docker compose -f ops/compose/full-stack.private-network.yaml --env-file .env down
 
 compose-config:
-	@MODE="$${EXPOSURE_MODE:-$$($(PYTHON) scripts/env/env_get.py --env-file "$${ENV_FILE:-.env}" EXPOSURE_MODE --default private_network)}"; \
+	@set -euo pipefail; \
+	$(PYTHON) scripts/env/env_validate.py --env-file "$${ENV_FILE:-.env}"; \
+	MODE="$${EXPOSURE_MODE:-$$($(PYTHON) scripts/env/env_get.py --env-file "$${ENV_FILE:-.env}" EXPOSURE_MODE --default private_network)}"; \
 	CANONICAL="$$($(PYTHON) scripts/compose/resolve_exposure_mode.py "$$MODE")"; \
 	OVERRIDE_FILE="$$($(PYTHON) scripts/compose/resolve_exposure_mode.py "$$MODE" --print-override-file)"; \
 	if [[ -n "$$OVERRIDE_FILE" ]]; then \
@@ -158,7 +160,7 @@ auth-apply:
 	$(PYTHON) scripts/auth/auth_apply.py $(AUTH_ENV_ARG) --mode $(MODE) --yes
 
 exposure-status:
-	$(PYTHON) scripts/auth/exposure_status.py
+	$(PYTHON) scripts/auth/exposure_status.py $(AUTH_ENV_ARG)
 
 exposure-plan:
 	@if [[ -z "$(MODE)" ]]; then echo "MODE=private_network|master_open 를 지정하세요" >&2; exit 2; fi

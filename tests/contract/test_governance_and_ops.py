@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 import re
+import os
+import subprocess
 from pathlib import Path
 
 import yaml
@@ -493,6 +495,7 @@ def test_compose_up_syncs_runtime_secrets_before_docker_compose() -> None:
     assert "ALLOW_SKIP_PREFLIGHT" in script
     assert "CHANGE_TICKET" in script
     assert "SKIP_PREFLIGHT=1 is forbidden" in script
+    assert 'scripts/env/env_validate.py --env-file "$ENV_FILE"' in script
     assert 'EXPOSURE_MODE_EFFECTIVE="$(_env_value EXPOSURE_MODE)"' in script
     assert "scripts/env/env_get.py" in script
     assert "docker compose -f" in script
@@ -504,6 +507,44 @@ def test_make_compose_up_uses_env_file_as_exposure_source_of_truth() -> None:
     assert "EXPOSURE_MODE ?= private_network" not in makefile
     assert "\ncompose-up:\n\tbash scripts/compose/compose_up.sh\n" in makefile
     assert "\npreflight-compose:\n\tbash scripts/compose/preflight_compose.sh\n" in makefile
+    assert "\ncompose-config:\n\t@set -euo pipefail; \\\n" in makefile
+    assert "scripts/env/env_validate.py --env-file \"$${ENV_FILE:-.env}\"" in makefile
+    assert "\nexposure-status:\n\t$(PYTHON) scripts/auth/exposure_status.py $(AUTH_ENV_ARG)\n" in makefile
+
+
+def test_compose_config_does_not_call_docker_when_env_file_is_invalid(tmp_path) -> None:
+    env_file = tmp_path / "bad.env"
+    env_file.write_text(
+        "APP_ENV=production\nAUTH_MODE=strict\nEXPOSURE_MODE=private_network\nEXPOSURE_MODE=master_open\n",
+        encoding="utf-8",
+    )
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    docker_log = tmp_path / "docker.log"
+    fake_docker = bin_dir / "docker"
+    fake_docker.write_text(
+        "#!/usr/bin/env bash\n"
+        f"echo \"$@\" >> {docker_log}\n"
+        "exit 0\n",
+        encoding="utf-8",
+    )
+    fake_docker.chmod(0o755)
+    env = os.environ.copy()
+    env["ENV_FILE"] = str(env_file)
+    env["PATH"] = f"{bin_dir}:{env['PATH']}"
+
+    result = subprocess.run(
+        ["make", "compose-config"],
+        cwd=ROOT,
+        env=env,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert result.returncode != 0
+    assert "duplicate env key 'EXPOSURE_MODE'" in result.stderr
+    assert not docker_log.exists(), result.stdout + result.stderr
 
 
 def test_prometheus_admin_token_uses_compose_secret_not_bind_mount() -> None:

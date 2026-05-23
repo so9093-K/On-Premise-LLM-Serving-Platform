@@ -158,6 +158,49 @@ def test_auth_status_cli_reads_exposure_from_env_file(tmp_path, monkeypatch):
     assert payload["canonical_exposure_mode"] == "master_open"
 
 
+def test_auth_status_and_doctor_report_invalid_env_without_traceback(tmp_path):
+    root = Path(__file__).resolve().parents[2]
+    env_path = tmp_path / "dupe.env"
+    env_path.write_text("AUTH_MODE=local_open\nAUTH_MODE=strict\n", encoding="utf-8")
+
+    for script in ["scripts/auth/auth_status.py", "scripts/auth/auth_doctor.py"]:
+        result = subprocess.run(
+            [sys.executable, script, "--env", str(env_path)],
+            cwd=root,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        assert result.returncode == 2
+        assert "env 파일 오류:" in result.stderr
+        assert "duplicate env key 'AUTH_MODE'" in result.stderr
+        assert "Traceback" not in result.stderr
+
+
+def test_exposure_status_cli_reads_explicit_env_file(tmp_path, monkeypatch):
+    root = Path(__file__).resolve().parents[2]
+    env_path = tmp_path / "candidate.env"
+    env_path.write_text(
+        "EXPOSURE_MODE=master_open\nEXPOSURE_AUDIENCE=private_lan\n",
+        encoding="utf-8",
+    )
+    monkeypatch.delenv("EXPOSURE_MODE", raising=False)
+    monkeypatch.delenv("EXPOSURE_AUDIENCE", raising=False)
+
+    result = subprocess.run(
+        [sys.executable, "scripts/auth/exposure_status.py", "--env", str(env_path), "--json"],
+        cwd=root,
+        text=True,
+        capture_output=True,
+        check=True,
+    )
+
+    payload = json.loads(result.stdout)
+    assert payload["raw_mode"] == "master_open"
+    assert payload["canonical_mode"] == "master_open"
+    assert payload["exposure_audience"] == "private_lan"
+
+
 def test_auth_doctor_reads_internal_trusted_evidence_from_explicit_env_file(tmp_path, monkeypatch):
     env_path = tmp_path / "trusted.env"
     env_path.write_text(

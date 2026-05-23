@@ -15,6 +15,8 @@ if [[ ! -f "$ENV_FILE" ]]; then
   exit 2
 fi
 
+"$PYTHON_BIN" scripts/env/env_validate.py --env-file "$ENV_FILE"
+
 _env_value() {
   local key="$1"
   "$PYTHON_BIN" scripts/env/env_get.py --env-file "$ENV_FILE" "$key"
