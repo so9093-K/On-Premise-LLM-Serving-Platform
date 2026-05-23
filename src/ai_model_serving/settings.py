@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Any
 
 from .domain import ModelRegistry
-from .project_paths import resolve_project_root
+from .project_paths import resolve_project_root as _resolve_project_root
 from .settings_parts.env import (
     DEFAULT_SECRET_VALUES,
     DOTENV_VALUES,
@@ -16,13 +16,12 @@ from .settings_parts.env import (
     load_dotenv,
     load_local_dotenv_when_allowed,
     load_yaml,
-    strip_env_quotes as _strip_env_quotes,
 )
 from .settings_parts.runtime_endpoints import build_runtime_endpoint, validate_timeout_budget
 from .settings_parts.security import build_security_settings
 from .settings_parts.types import AppSettings, DocumentationSettings, EmbeddingProfile, RiskDetectorSettings, RuntimeEndpoint, SecuritySettings
 
-ROOT = resolve_project_root()
+ROOT = _resolve_project_root()
 
 
 # Operational hardening markers validated by governance tooling.  The executable
@@ -175,7 +174,7 @@ def _aggregate_order(risk_adapter_cfg: dict[str, Any], detectors: tuple[RiskDete
 
 
 def load_settings(root: Path | None = None, env_file: Path | str | None = None) -> AppSettings:
-    project_root = resolve_project_root(root)
+    project_root = _resolve_project_root(root)
     # Only use repository .env defaults for local/source-tree runs.  When APP_ENV
     # is explicitly exported as production/staging/etc., secrets must come from
     # process environment rather than being silently back-filled from local files.

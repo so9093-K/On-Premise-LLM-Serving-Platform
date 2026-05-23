@@ -39,10 +39,14 @@ def build_parser() -> KoreanArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     env_path = _env_path(args.env)
-    if env_path.exists():
-        lines, values = parse_env_template(env_path)
-    else:
-        lines, values = [], {}
+    try:
+        if env_path.exists():
+            lines, values = parse_env_template(env_path)
+        else:
+            lines, values = [], {}
+    except RuntimeError as exc:
+        print(f"env 파일 오류: {exc}", file=sys.stderr)
+        return 2
     target = auth_profile_env_values(args.mode)
     resolved_app_env = args.app_env or _APP_ENV_FOR_MODE.get(args.mode)
     if resolved_app_env:

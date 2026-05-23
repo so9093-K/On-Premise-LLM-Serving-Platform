@@ -6,6 +6,8 @@ from typing import Any
 
 import yaml
 
+from .dotenv_parser import load_strict_env_file
+
 DOTENV_VALUES: dict[str, str] = {}
 DEFAULT_SECRET_VALUES = {
     "",
@@ -37,28 +39,13 @@ def env(name: str, default: str) -> str:
     return DOTENV_VALUES.get(name, default)
 
 
-def strip_env_quotes(value: str) -> str:
-    value = value.strip()
-    if len(value) >= 2 and value[0] == value[-1] and value[0] in {"'", '"'}:
-        return value[1:-1]
-    return value
-
-
 def load_dotenv(project_root: Path, env_file: Path | None = None) -> None:
     """Load simple KEY=VALUE pairs as fallback values only."""
     DOTENV_VALUES.clear()
     path = env_file or (project_root / ".env")
     if not path.exists():
         return
-    for raw_line in path.read_text(encoding="utf-8").splitlines():
-        line = raw_line.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        key, value = line.split("=", 1)
-        key = key.strip()
-        if not key or any(ch.isspace() for ch in key):
-            continue
-        DOTENV_VALUES.setdefault(key, strip_env_quotes(value))
+    DOTENV_VALUES.update(load_strict_env_file(path))
 
 
 def load_local_dotenv_when_allowed(project_root: Path, env_file: Path | str | None) -> None:

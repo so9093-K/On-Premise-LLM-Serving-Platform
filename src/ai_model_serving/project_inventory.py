@@ -10,10 +10,10 @@ ROOT_MARKERS = ('VERSION', 'configs', 'src')
 
 EXCLUDED_PARTS = {
     '.git', '.cache', '.mypy_cache', '.pytest_cache', '.ruff_cache', '.runtime', '.tox',
-    '.venv', 'venv', 'env', '__pycache__', 'dist', 'logs', 'model_cache',
+    '.venv', 'venv', '__pycache__', 'dist', 'logs', 'model_cache',
     'outputs', 'run', 'node_modules',
 }
-TOP_LEVEL_EXCLUDED_PARTS = {'build', 'models'}
+TOP_LEVEL_EXCLUDED_PARTS = {'build', 'env', 'models'}
 EXCLUDED_SUFFIXES = {'.pyc', '.pyo'}
 DYNAMIC_RUNTIME_PATTERNS = ('runtime_validation_',)
 

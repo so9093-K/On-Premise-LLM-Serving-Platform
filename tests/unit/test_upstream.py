@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import httpx
+
 from ai_model_serving.errors import ServiceError
 from ai_model_serving.settings import RuntimeEndpoint
 from ai_model_serving.upstream import VLLMClient, _counts_as_upstream_failure, _http_status_to_service_error
@@ -16,6 +18,28 @@ def test_upstream_client_request_errors_are_validation_errors_not_502() -> None:
         assert exc.status_code == 422
         assert exc.retryable is False
         assert not _counts_as_upstream_failure(exc)
+
+
+def test_upstream_platform_error_payload_is_preserved_for_gateway_risk_forwarding() -> None:
+    response = httpx.Response(
+        410,
+        json={
+            "error": {
+                "code": "DETECTOR_DISABLED",
+                "message": "Risk detector is not enabled: prompt",
+                "retryable": False,
+                "request_id": "req_disabled",
+            }
+        },
+    )
+
+    exc = _http_status_to_service_error(endpoint(), response)
+
+    assert exc.code == "DETECTOR_DISABLED"
+    assert exc.status_code == 410
+    assert exc.retryable is False
+    assert exc.request_id == "req_disabled"
+    assert not _counts_as_upstream_failure(exc)
 
 
 def test_upstream_retryable_errors_still_count_for_circuit_breaker() -> None:

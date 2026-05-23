@@ -17,11 +17,15 @@ from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[2]
+if str(ROOT / "src") not in sys.path:
+    sys.path.insert(0, str(ROOT / "src"))
 
 try:
     import yaml
 except ModuleNotFoundError:
     raise SystemExit("Missing dependency: PyYAML.")
+
+from ai_model_serving.settings_parts.dotenv_parser import parse_env_file  # noqa: E402
 
 
 def load_yaml(path: Path) -> dict[str, Any]:
@@ -35,16 +39,7 @@ def load_yaml(path: Path) -> dict[str, Any]:
 
 def parse_env_keys(path: Path) -> set[str]:
     """Return the set of keys defined (key=...) in an env example file."""
-    if not path.exists():
-        return set()
-    keys: set[str] = set()
-    for line in path.read_text(encoding="utf-8").splitlines():
-        stripped = line.strip()
-        if stripped and not stripped.startswith("#") and "=" in stripped:
-            key = stripped.split("=", 1)[0].strip()
-            if key:
-                keys.add(key)
-    return keys
+    return set(parse_env_file(path).values)
 
 
 def expand_required_keys(contract: dict[str, Any], key_set_names: list[str]) -> list[str]:
@@ -90,6 +85,8 @@ def validate(root: Path = ROOT, strict: bool = False) -> list[str]:
             violations.append(f"{filename}: file not found")
             continue
 
+        parse_result = parse_env_file(file_path)
+        violations.extend(parse_result.errors)
         present_keys = parse_env_keys(file_path)
         key_set_names: list[str] = cfg.get("required_key_sets", [])
         required_keys = list(dict.fromkeys(expand_required_keys(contract, key_set_names)))  # dedup, order-preserving

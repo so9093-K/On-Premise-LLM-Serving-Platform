@@ -5,6 +5,7 @@ from typing import Any, Protocol
 
 from ..errors import ServiceError
 from ..metrics import Metrics
+from ..runtime_clients.ports import JsonRuntimeClient
 from ..risk_input import RiskInputPolicy
 from ..risk import (
     DetectorSpec,
@@ -16,7 +17,7 @@ from ..risk import (
 
 
 class RiskClientSet(Protocol):
-    detectors: dict[str, Any]
+    detectors: dict[str, JsonRuntimeClient]
 
 
 class RiskAssessmentService:
@@ -82,7 +83,7 @@ class RiskAssessmentService:
             raise ServiceError("DETECTOR_DISABLED", f"Risk detector client is not configured: {detector_key}", False, 410) from exc
         return await self.assess_detector(client, self.detector_specs[detector_key], prompt)
 
-    async def assess_detector(self, client: Any, detector: DetectorSpec, prompt: str) -> dict[str, Any]:
+    async def assess_detector(self, client: JsonRuntimeClient, detector: DetectorSpec, prompt: str) -> dict[str, Any]:
         start = time.monotonic()
         try:
             if self.input_policy is not None and self.input_policy.overflowed(prompt):
@@ -116,7 +117,7 @@ class RiskAssessmentService:
             )
         return response
 
-    async def _call_detector(self, client: Any, detector: DetectorSpec, prompt: str) -> dict[str, Any]:
+    async def _call_detector(self, client: JsonRuntimeClient, detector: DetectorSpec, prompt: str) -> dict[str, Any]:
         payload = {
             "model": client.endpoint.model,
             "messages": [{"role": "user", "content": prompt}],

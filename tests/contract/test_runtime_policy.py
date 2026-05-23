@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 import csv
 import json
 import re
@@ -97,9 +98,78 @@ def test_api_contract_matrix_has_auth_schema_and_exposure_columns() -> None:
 
 
 def test_common_error_codes_are_enumerated() -> None:
+    from ai_model_serving.errors import ERROR_STATUS
+
     schema = json.loads((ROOT / 'specs/schemas/common_error.schema.json').read_text(encoding='utf-8'))
     codes = set(schema['properties']['error']['properties']['code']['enum'])
-    assert {'VALIDATION_ERROR', 'MODEL_UNAVAILABLE', 'UPSTREAM_TIMEOUT', 'UPSTREAM_SCHEMA_ERROR', 'RUNTIME_NOT_READY'}.issubset(codes)
+    assert set(ERROR_STATUS) == codes
+    assert {'VALIDATION_ERROR', 'MODEL_UNAVAILABLE', 'UPSTREAM_TIMEOUT', 'UPSTREAM_SCHEMA_ERROR', 'RUNTIME_NOT_READY', 'DETECTOR_DISABLED', 'STREAM_LIMIT_EXCEEDED'}.issubset(codes)
+
+
+def _service_error_codes_from_source() -> set[str]:
+    codes: set[str] = set()
+    for path in (ROOT / 'src' / 'ai_model_serving').rglob('*.py'):
+        tree = ast.parse(path.read_text(encoding='utf-8'), filename=str(path))
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
+                continue
+            func = node.func
+            is_service_error = (
+                isinstance(func, ast.Name) and func.id == 'ServiceError'
+            ) or (
+                isinstance(func, ast.Attribute) and func.attr == 'ServiceError'
+            )
+            if not is_service_error or not node.args:
+                continue
+            first = node.args[0]
+            if isinstance(first, ast.Constant) and isinstance(first.value, str):
+                codes.add(first.value)
+    return codes
+
+
+def _common_error_enums(document: object) -> list[set[str]]:
+    enums: list[set[str]] = []
+    if isinstance(document, dict):
+        error = document.get('properties', {}).get('error') if isinstance(document.get('properties'), dict) else None
+        if isinstance(error, dict):
+            code = error.get('properties', {}).get('code') if isinstance(error.get('properties'), dict) else None
+            enum = code.get('enum') if isinstance(code, dict) else None
+            if isinstance(enum, list) and all(isinstance(item, str) for item in enum):
+                enums.append(set(enum))
+        for value in document.values():
+            enums.extend(_common_error_enums(value))
+    elif isinstance(document, list):
+        for item in document:
+            enums.extend(_common_error_enums(item))
+    return enums
+
+
+def test_service_error_status_schema_and_openapi_enums_do_not_drift() -> None:
+    from ai_model_serving.errors import ERROR_STATUS
+
+    service_error_codes = _service_error_codes_from_source()
+    schema_codes = set(json.loads((ROOT / 'specs/schemas/common_error.schema.json').read_text(encoding='utf-8'))['properties']['error']['properties']['code']['enum'])
+    errors_codes = set(ERROR_STATUS)
+
+    assert not sorted(service_error_codes - errors_codes), (
+        'ServiceError code(s) missing from ERROR_STATUS: '
+        + ', '.join(sorted(service_error_codes - errors_codes))
+    )
+    assert errors_codes == schema_codes, (
+        'ERROR_STATUS and common_error.schema.json code enum drift: '
+        f'only in ERROR_STATUS={sorted(errors_codes - schema_codes)}, '
+        f'only in schema={sorted(schema_codes - errors_codes)}'
+    )
+
+    for rel in ('specs/openapi.gateway.yaml', 'specs/openapi.risk-adapter.yaml'):
+        openapi = yaml.safe_load((ROOT / rel).read_text(encoding='utf-8'))
+        enums = _common_error_enums(openapi)
+        assert enums, f'{rel} does not expose CommonErrorResponse code enum'
+        drift = [
+            enum for enum in enums
+            if enum != schema_codes
+        ]
+        assert not drift, f'{rel} CommonErrorResponse enum drift from common_error.schema.json'
 
 
 def test_model_catalog_and_model_contracts_are_cross_checked() -> None:

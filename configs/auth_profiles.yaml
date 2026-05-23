@@ -61,5 +61,5 @@ profiles:
   custom:
     auth_owner: operator
     scope: "운영자가 직접 관리하는 custom flag 조합"
-    note: "auth-doctor does not validate flag consistency for custom mode"
+    note: "non-local custom mode requires CUSTOM_AUTH_RISK_ACCEPTED=true and CUSTOM_AUTH_RISK_TICKET"
     allowed_in_production: true

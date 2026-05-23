@@ -490,7 +490,20 @@ def test_compose_up_syncs_runtime_secrets_before_docker_compose() -> None:
     assert ".runtime/prometheus/admin_api_key" in script
     assert '! -f "$PROM_SECRET" || ! -s "$PROM_SECRET"' in script
     assert "SKIP_PREFLIGHT=1" in makefile and "bash scripts/compose/compose_up.sh" in makefile
+    assert "ALLOW_SKIP_PREFLIGHT" in script
+    assert "CHANGE_TICKET" in script
+    assert "SKIP_PREFLIGHT=1 is forbidden" in script
+    assert 'EXPOSURE_MODE_EFFECTIVE="$(_env_value EXPOSURE_MODE)"' in script
+    assert "scripts/env/env_get.py" in script
     assert "docker compose -f" in script
+    assert '--env-file "$${ENV_FILE:-.env}" config' in makefile
+
+
+def test_make_compose_up_uses_env_file_as_exposure_source_of_truth() -> None:
+    makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
+    assert "EXPOSURE_MODE ?= private_network" not in makefile
+    assert "\ncompose-up:\n\tbash scripts/compose/compose_up.sh\n" in makefile
+    assert "\npreflight-compose:\n\tbash scripts/compose/preflight_compose.sh\n" in makefile
 
 
 def test_prometheus_admin_token_uses_compose_secret_not_bind_mount() -> None:

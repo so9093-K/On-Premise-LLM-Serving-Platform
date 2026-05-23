@@ -24,6 +24,7 @@ if str(ROOT / "src") not in sys.path:
 from scripts.lib.cli_kr import KoreanArgumentParser  # noqa: E402
 from scripts.compose.resolve_exposure_mode import load_exposure_data, resolve as resolve_exposure  # noqa: E402
 from ai_model_serving.auth_control import AUTH_PROFILE_ENV_KEYS, auth_profile_env_values
+from ai_model_serving.settings_parts.dotenv_parser import load_strict_env_file
 
 IMAGE_CONFIG = ROOT / "configs" / "recommended_images.yaml"
 MIN_RISK_VLLM_TRANSFORMERS_VERSION = "4.52.4"
@@ -53,14 +54,7 @@ def token(prefix: str) -> str:
 
 def parse_env_template(path: Path) -> tuple[list[str], dict[str, str]]:
     lines = path.read_text(encoding="utf-8").splitlines()
-    values: dict[str, str] = {}
-    for line in lines:
-        stripped = line.strip()
-        if not stripped or stripped.startswith("#") or "=" not in stripped:
-            continue
-        key, value = stripped.split("=", 1)
-        values[key] = value
-    return lines, values
+    return lines, load_strict_env_file(path)
 
 
 def write_env(lines: list[str], values: dict[str, str], out_path: Path) -> None:
@@ -430,9 +424,13 @@ def main(argv: list[str] | None = None) -> int:
         print(f"기존 파일을 덮어쓰지 않습니다: {out_path}. 교체하려면 --force를 사용하세요.", file=sys.stderr)
         print("기존 .env를 유지하면서 Prometheus secret만 복구하려면 `make sync-runtime-secrets`를 사용하세요.", file=sys.stderr)
         return 2
-    template = profile_template(args.profile)
-    lines, base_values = parse_env_template(template)
-    preserved_values = preserve_existing_values(out_path, force=args.force)
+    try:
+        template = profile_template(args.profile)
+        lines, base_values = parse_env_template(template)
+        preserved_values = preserve_existing_values(out_path, force=args.force)
+    except RuntimeError as exc:
+        print(f"env 파일 오류: {exc}", file=sys.stderr)
+        return 2
     overrides = {
         "PLATFORM_IMAGE": args.platform_image,
         "VLLM_IMAGE": args.vllm_image,

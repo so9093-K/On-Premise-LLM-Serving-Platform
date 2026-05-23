@@ -51,6 +51,19 @@ exposure profile별 diagnostics는 구조화된 boolean 필드로 표현된다. 
 
 `master_open`의 Gateway bypass와 vLLM direct access는 **의도된 특성**이다. 별도 모드로 회피하는 대신, `EXPOSURE_AUDIENCE`로 대상 네트워크를 명시하고 preflight/doctor가 구조적으로 진단한다.
 
+### AUTH_MODE 운영 hard-fail
+
+- `local_open`은 local/test/development 전용이다. staging/production 같은 non-local 환경에서는 auth-doctor와 compose preflight가 실패해야 한다.
+- `internal_trusted`는 app-level public/internal auth를 끄고 network/edge/caller가 인증 소유자가 되는 profile이다. non-local 환경에서는 `INTERNAL_TRUSTED_AUTH_EVIDENCE`로 해당 소유권 근거를 남겨야 한다.
+- `custom` profile은 운영자가 flag 조합을 직접 소유하는 예외 경로다. production 성격의 환경에서는 `CUSTOM_AUTH_RISK_ACCEPTED=true`와 `CUSTOM_AUTH_RISK_TICKET` 없이 통과하지 않는다.
+- production에서 `SKIP_PREFLIGHT=1`은 process env로 `ALLOW_SKIP_PREFLIGHT=1`과 `CHANGE_TICKET`이 함께 있을 때만 compose-up에서 허용된다. 이 값들은 `.env`에 상시 저장하지 말고 배포 명령/CI job의 일회성 override로 남긴다.
+
+### Env 해석 정책
+
+`auth-status`, `auth-doctor`, compose preflight, compose-up은 process env를 우선하고 없으면 `ENV_FILE`/`.env`의 값을 읽는다. 기본 `make compose-up`과 `make preflight-compose`는 `.env`의 `EXPOSURE_MODE`를 source-of-truth로 사용하며, `compose-up-master`처럼 명시 override target만 process env로 노출 모드를 바꾼다.
+
+프로젝트 dotenv는 안전한 운영 제어를 위해 Docker Compose 전체 문법이 아니라 strict subset만 허용한다. 중복 key, quoted value, inline comment, `export KEY=VALUE`, `KEY: VALUE`, multiline/interpolation은 configuration error다.
+
 ### EXPOSURE_AUDIENCE
 
 `master_open` 사용 시 `EXPOSURE_AUDIENCE` 설정이 필수다. 이 값은 누가 host-published 포트에 접근할 수 있는지를 선언한다.

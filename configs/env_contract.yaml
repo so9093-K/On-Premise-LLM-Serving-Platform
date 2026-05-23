@@ -21,6 +21,20 @@ auth_mode_keys:
   - ADMIN_ENDPOINTS_INTERNAL_ONLY
   - INTERNAL_SERVICE_AUTH_REQUIRED
 
+# auth_evidence_keys: optional-by-default keys that become mandatory for
+# specific non-local auth profiles.
+auth_evidence_keys:
+  - INTERNAL_TRUSTED_AUTH_EVIDENCE
+  - CUSTOM_AUTH_RISK_ACCEPTED
+  - CUSTOM_AUTH_RISK_TICKET
+
+# preflight_override_process_keys: compose-up emergency override keys.
+# These are intentionally process-env oriented; documentation must describe
+# them, but env examples may keep them commented to avoid normalizing bypasses.
+preflight_override_process_keys:
+  - ALLOW_SKIP_PREFLIGHT
+  - CHANGE_TICKET
+
 # model_runtime_keys: required per active model runtime.
 # env_prefix maps to the runtime; suffixes are appended to form the full key.
 model_runtimes:
@@ -80,6 +94,7 @@ env_examples:
     required_key_sets:
       - always_required
       - auth_mode_keys
+      - auth_evidence_keys
       - model_runtimes
       - exposure_mode_requirements.any
   .env.local.example:
@@ -89,6 +104,7 @@ env_examples:
     required_key_sets:
       - always_required
       - auth_mode_keys
+      - auth_evidence_keys
       - model_runtimes
       - exposure_mode_requirements.any
       - exposure_mode_requirements.master_open

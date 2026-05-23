@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from scripts.auth import auth_apply, auth_plan
+from scripts.auth import auth_apply, auth_plan, exposure_apply, exposure_plan
 
 
 def test_auth_plan_masks_secrets_and_reports_changes():
@@ -38,6 +38,40 @@ def test_auth_apply_updates_only_profile_flags(tmp_path):
     assert "INTERNAL_SERVICE_AUTH_REQUIRED=true" in text
     assert "FASTAPI_DOCS_ENABLED=false" in text
     assert "API_KEYS=keep-me" in text
+
+
+def test_auth_plan_apply_report_invalid_env_without_traceback(tmp_path, capsys):
+    env_path = tmp_path / ".env"
+    env_path.write_text("AUTH_MODE=local_open\nAUTH_MODE=strict\n", encoding="utf-8")
+
+    assert auth_plan.main(["--mode", "strict", "--env", str(env_path)]) == 2
+    captured = capsys.readouterr()
+    assert "env 파일 오류:" in captured.err
+    assert "duplicate env key 'AUTH_MODE'" in captured.err
+    assert "Traceback" not in captured.err
+
+    assert auth_apply.main(["--mode", "strict", "--env", str(env_path)]) == 2
+    captured = capsys.readouterr()
+    assert "env 파일 오류:" in captured.err
+    assert "duplicate env key 'AUTH_MODE'" in captured.err
+    assert "Traceback" not in captured.err
+
+
+def test_exposure_plan_apply_report_invalid_env_without_traceback(tmp_path, capsys):
+    env_path = tmp_path / ".env"
+    env_path.write_text("EXPOSURE_MODE=private_network\nEXPOSURE_MODE=master_open\n", encoding="utf-8")
+
+    assert exposure_plan.main(["--mode", "private_network", "--env", str(env_path)]) == 2
+    captured = capsys.readouterr()
+    assert "env 파일 오류:" in captured.err
+    assert "duplicate env key 'EXPOSURE_MODE'" in captured.err
+    assert "Traceback" not in captured.err
+
+    assert exposure_apply.main(["--mode", "private_network", "--env", str(env_path)]) == 2
+    captured = capsys.readouterr()
+    assert "env 파일 오류:" in captured.err
+    assert "duplicate env key 'EXPOSURE_MODE'" in captured.err
+    assert "Traceback" not in captured.err
 
 
 def test_auth_profile_sanity_script_passes():

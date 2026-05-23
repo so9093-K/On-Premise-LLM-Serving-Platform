@@ -8,7 +8,7 @@ from urllib.parse import urlsplit, urlunsplit
 
 import httpx
 
-from .errors import ServiceError
+from .errors import ERROR_STATUS, ServiceError
 from .settings import RuntimeEndpoint
 
 
@@ -45,7 +45,41 @@ def _counts_as_upstream_failure(exc: ServiceError) -> bool:
     return exc.retryable or status >= 500 or exc.code in {"MODEL_UNAVAILABLE", "UPSTREAM_ERROR", "UPSTREAM_TIMEOUT"}
 
 
-def _http_status_to_service_error(endpoint: RuntimeEndpoint, status: int) -> ServiceError:
+def _platform_error_from_response(response: httpx.Response) -> ServiceError | None:
+    try:
+        payload = response.json()
+    except ValueError:
+        return None
+    if not isinstance(payload, dict):
+        return None
+    error = payload.get("error")
+    if not isinstance(error, dict):
+        return None
+    code = error.get("code")
+    message = error.get("message")
+    retryable = error.get("retryable")
+    request_id = error.get("request_id")
+    if not isinstance(code, str) or ERROR_STATUS.get(code) != response.status_code:
+        return None
+    if not isinstance(message, str) or not isinstance(retryable, bool):
+        return None
+    return ServiceError(
+        code,
+        message,
+        retryable,
+        response.status_code,
+        request_id if isinstance(request_id, str) else None,
+    )
+
+
+def _http_status_to_service_error(endpoint: RuntimeEndpoint, response_or_status: httpx.Response | int) -> ServiceError:
+    if isinstance(response_or_status, httpx.Response):
+        platform_error = _platform_error_from_response(response_or_status)
+        if platform_error is not None:
+            return platform_error
+        status = response_or_status.status_code
+    else:
+        status = response_or_status
     if status == 429:
         return ServiceError("RATE_LIMITED", f"Upstream rate limited: {endpoint.logical_id}", True, 429)
     if status in {400, 404, 422}:
@@ -131,7 +165,7 @@ class VLLMClient:
             except httpx.TimeoutException as exc:
                 raise ServiceError("UPSTREAM_TIMEOUT", f"Upstream timed out: {self.endpoint.logical_id}", True, 504) from exc
             except httpx.HTTPStatusError as exc:
-                raise _http_status_to_service_error(self.endpoint, exc.response.status_code) from exc
+                raise _http_status_to_service_error(self.endpoint, exc.response) from exc
             except httpx.HTTPError as exc:
                 raise ServiceError("MODEL_UNAVAILABLE", f"Upstream unavailable: {self.endpoint.logical_id}", True, 503) from exc
             except ValueError as exc:
@@ -174,7 +208,7 @@ class VLLMClient:
             except httpx.TimeoutException as exc:
                 raise ServiceError("UPSTREAM_TIMEOUT", f"Upstream timed out: {self.endpoint.logical_id}", True, 504) from exc
             except httpx.HTTPStatusError as exc:
-                raise _http_status_to_service_error(self.endpoint, exc.response.status_code) from exc
+                raise _http_status_to_service_error(self.endpoint, exc.response) from exc
             except httpx.HTTPError as exc:
                 raise ServiceError("MODEL_UNAVAILABLE", f"Upstream unavailable: {self.endpoint.logical_id}", True, 503) from exc
             else:
@@ -196,7 +230,7 @@ class VLLMClient:
             except httpx.TimeoutException as exc:
                 raise ServiceError("UPSTREAM_TIMEOUT", f"Upstream timed out: {self.endpoint.logical_id}", True, 504) from exc
             except httpx.HTTPStatusError as exc:
-                raise _http_status_to_service_error(self.endpoint, exc.response.status_code) from exc
+                raise _http_status_to_service_error(self.endpoint, exc.response) from exc
             except httpx.HTTPError as exc:
                 raise ServiceError("MODEL_UNAVAILABLE", f"Upstream unavailable: {self.endpoint.logical_id}", True, 503) from exc
             except ValueError as exc:
@@ -220,7 +254,7 @@ class VLLMClient:
         except httpx.TimeoutException as exc:
             raise ServiceError("UPSTREAM_TIMEOUT", f"Upstream timed out: {self.endpoint.logical_id}", True, 504) from exc
         except httpx.HTTPStatusError as exc:
-            raise _http_status_to_service_error(self.endpoint, exc.response.status_code) from exc
+            raise _http_status_to_service_error(self.endpoint, exc.response) from exc
         except httpx.HTTPError as exc:
             raise ServiceError("MODEL_UNAVAILABLE", f"Upstream unavailable: {self.endpoint.logical_id}", True, 503) from exc
         except ValueError as exc:

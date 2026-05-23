@@ -92,10 +92,8 @@ start:
 
 up: start
 
-EXPOSURE_MODE ?= private_network
-
 compose-up:
-	EXPOSURE_MODE=$(EXPOSURE_MODE) bash scripts/compose/compose_up.sh
+	bash scripts/compose/compose_up.sh
 
 compose-up-master:
 	EXPOSURE_MODE=master_open bash scripts/compose/compose_up.sh
@@ -108,16 +106,17 @@ compose-down-private:
 	docker compose -f ops/compose/full-stack.private-network.yaml --env-file .env down
 
 compose-config:
-	@CANONICAL="$$($(PYTHON) scripts/compose/resolve_exposure_mode.py "$(EXPOSURE_MODE)")"; \
-	OVERRIDE_FILE="$$($(PYTHON) scripts/compose/resolve_exposure_mode.py "$(EXPOSURE_MODE)" --print-override-file)"; \
+	@MODE="$${EXPOSURE_MODE:-$$($(PYTHON) scripts/env/env_get.py --env-file "$${ENV_FILE:-.env}" EXPOSURE_MODE --default private_network)}"; \
+	CANONICAL="$$($(PYTHON) scripts/compose/resolve_exposure_mode.py "$$MODE")"; \
+	OVERRIDE_FILE="$$($(PYTHON) scripts/compose/resolve_exposure_mode.py "$$MODE" --print-override-file)"; \
 	if [[ -n "$$OVERRIDE_FILE" ]]; then \
-	  docker compose -f ops/compose/full-stack.private-network.yaml -f "$$OVERRIDE_FILE" --env-file .env config; \
+	  docker compose -f ops/compose/full-stack.private-network.yaml -f "$$OVERRIDE_FILE" --env-file "$${ENV_FILE:-.env}" config; \
 	else \
-	  docker compose -f ops/compose/full-stack.private-network.yaml --env-file .env config; \
+	  docker compose -f ops/compose/full-stack.private-network.yaml --env-file "$${ENV_FILE:-.env}" config; \
 	fi
 
 preflight-compose:
-	EXPOSURE_MODE=$(EXPOSURE_MODE) bash scripts/compose/preflight_compose.sh
+	bash scripts/compose/preflight_compose.sh
 
 ready: ready-full
 

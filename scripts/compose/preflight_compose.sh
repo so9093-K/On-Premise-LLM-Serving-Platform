@@ -3,8 +3,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT"
-source scripts/lib/load_env.sh
-load_local_env .env
+ENV_FILE="${ENV_FILE:-.env}"
 
 PYTHON_BIN="${PYTHON_BIN:-$(command -v python3.12 || command -v python3 || command -v python || true)}"
 if [[ -z "$PYTHON_BIN" ]]; then
@@ -13,4 +12,4 @@ if [[ -z "$PYTHON_BIN" ]]; then
 fi
 
 "$PYTHON_BIN" scripts/build/check_python.py --context preflight-compose >/dev/null
-exec "$PYTHON_BIN" scripts/compose/preflight_compose.py "$@"
+exec env ENV_FILE="$ENV_FILE" "$PYTHON_BIN" scripts/compose/preflight_compose.py "$@"

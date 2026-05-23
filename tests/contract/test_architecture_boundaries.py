@@ -88,8 +88,8 @@ def test_contracts_do_not_import_runtime_layers_or_settings() -> None:
     )
 
 
-def test_services_do_not_import_fastapi() -> None:
-    _assert_no_imports("services", ("fastapi",))
+def test_services_do_not_import_framework_or_upstream_clients() -> None:
+    _assert_no_imports("services", ("fastapi", "ai_model_serving.upstream"))
 
 
 def test_api_routers_do_not_import_upstream_clients() -> None:

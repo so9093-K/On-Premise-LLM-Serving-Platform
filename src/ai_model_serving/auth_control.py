@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -7,6 +8,7 @@ from typing import Any
 import yaml
 
 from .settings import AppSettings
+from .settings_parts.env import env as _env
 
 
 # ---------------------------------------------------------------------------
@@ -137,6 +139,9 @@ def verify_auth_profiles_yaml_consistency(project_root: Path) -> list[str]:
 
 
 NON_LOCAL_ENVS = {"staging", "production", "prod"}
+INTERNAL_TRUSTED_EVIDENCE_ENV = "INTERNAL_TRUSTED_AUTH_EVIDENCE"
+CUSTOM_AUTH_RISK_ACCEPTED_ENV = "CUSTOM_AUTH_RISK_ACCEPTED"
+CUSTOM_AUTH_RISK_TICKET_ENV = "CUSTOM_AUTH_RISK_TICKET"
 PRIVATE_NETWORK_WARNING_PORTS = {"risk-adapter", "prometheus", "grafana", "cadvisor"}
 
 
@@ -158,8 +163,7 @@ def _read_yaml(path: Path) -> dict[str, Any]:
 
 
 def _exposure_mode_from_env() -> str:
-    import os
-    return os.environ.get("EXPOSURE_MODE", "private_network")
+    return _env("EXPOSURE_MODE", "private_network")
 
 
 def _resolve_exposure_mode(data: dict[str, Any], mode: str) -> str:
@@ -275,6 +279,34 @@ def diagnose_auth(settings: AppSettings, project_root: Path) -> list[AuthFinding
     is_internal_trusted = mode == "internal_trusted"
     auth_owner = str(expected.get("auth_owner", "app"))
 
+    if non_local and mode == "local_open":
+        findings.append(AuthFinding(
+            "FAIL",
+            "LOCAL_OPEN_FORBIDDEN_NON_LOCAL",
+            f"AUTH_MODE=local_open is only allowed for local/test/development environments; APP_ENV={settings.app_env}.",
+        ))
+
+    if non_local and is_internal_trusted:
+        evidence = _env(INTERNAL_TRUSTED_EVIDENCE_ENV, "").strip()
+        if not evidence:
+            findings.append(AuthFinding(
+                "FAIL",
+                "INTERNAL_TRUSTED_EVIDENCE_MISSING",
+                f"AUTH_MODE=internal_trusted delegates app-level auth to {auth_owner}; "
+                f"set {INTERNAL_TRUSTED_EVIDENCE_ENV} with network/edge/caller ownership evidence.",
+            ))
+
+    if non_local and mode == "custom":
+        accepted = _env(CUSTOM_AUTH_RISK_ACCEPTED_ENV, "").lower() in ("1", "true")
+        ticket = _env(CUSTOM_AUTH_RISK_TICKET_ENV, "").strip()
+        if not accepted or not ticket:
+            findings.append(AuthFinding(
+                "FAIL",
+                "CUSTOM_AUTH_RISK_ACCEPTANCE_REQUIRED",
+                f"AUTH_MODE=custom in {settings.app_env} requires "
+                f"{CUSTOM_AUTH_RISK_ACCEPTED_ENV}=true and {CUSTOM_AUTH_RISK_TICKET_ENV}.",
+            ))
+
     if non_local and not settings.security.api_key_required:
         if is_internal_trusted:
             findings.append(AuthFinding(
@@ -340,8 +372,7 @@ def diagnose_auth(settings: AppSettings, project_root: Path) -> list[AuthFinding
         ))
 
     if diagnostics.get("requires_exposure_audience"):
-        import os
-        audience = os.environ.get("EXPOSURE_AUDIENCE", "")
+        audience = _env("EXPOSURE_AUDIENCE", "")
         allowed_audiences: list[str] = data.get("exposure_audience", {}).get("allowed_values", [])
         if not audience:
             allowed_str = "|".join(allowed_audiences) if allowed_audiences else "local_only|private_lan|vpn|public"
@@ -368,7 +399,7 @@ def diagnose_auth(settings: AppSettings, project_root: Path) -> list[AuthFinding
                     svc = services_data.get(svc_name, {})
                     bind_env = svc.get("host_env_bind", "")
                     default_bind = svc.get("default_bind", "0.0.0.0")
-                    actual_bind = os.environ.get(bind_env, default_bind) if bind_env else default_bind
+                    actual_bind = _env(bind_env, default_bind) if bind_env else default_bind
                     if actual_bind == "0.0.0.0":
                         open_bind_svcs.append(f"{svc.get('compose_service', svc_name)} ({bind_env or 'default'}={actual_bind})")
                 if open_bind_svcs:
@@ -382,7 +413,7 @@ def diagnose_auth(settings: AppSettings, project_root: Path) -> list[AuthFinding
                         "Set *_BIND_ADDR=127.0.0.1 for all host-published services, or change EXPOSURE_AUDIENCE.",
                     ))
             if audience == "public":
-                if os.environ.get("ALLOW_PUBLIC_OPERATIONS_ENDPOINTS", "").lower() not in ("1", "true"):
+                if _env("ALLOW_PUBLIC_OPERATIONS_ENDPOINTS", "").lower() not in ("1", "true"):
                     findings.append(AuthFinding(
                         "FAIL",
                         "EXPOSURE_PUBLIC_AUDIENCE_WITHOUT_EXPLICIT_OPT_IN",

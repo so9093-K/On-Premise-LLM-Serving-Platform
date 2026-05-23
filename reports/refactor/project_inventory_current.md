@@ -10,7 +10,7 @@ Command:
 
 이 리포트는 현재 source tree에서 생성되며 로컬 runtime/cache/build 디렉터리는 제외한다.
 
-- 검토 파일 수: **362**
+- 검토 파일 수: **376**
 - CSV matrix: `reports/refactor/project_inventory_current.csv`
 - JSON matrix: `reports/refactor/project_inventory_current.json`
 
@@ -45,10 +45,10 @@ Command:
 | `reports` | 20 |
 | `requirements.lock` | 1 |
 | `requirements.runtime.lock` | 1 |
-| `scripts` | 75 |
+| `scripts` | 76 |
 | `specs` | 15 |
-| `src` | 80 |
-| `tests` | 37 |
+| `src` | 91 |
+| `tests` | 39 |
 | `version_manifest.json` | 1 |
 
 ## 주요 진입점
@@ -67,17 +67,17 @@ Command:
 
 | 경로 | 줄 수 | 담당 | 검토 메모 |
 |---|---:|---|---|
-| `specs/openapi.gateway.yaml` | 4930 | api-contracts | supporting project file |
-| `reports/refactor/project_inventory_current.json` | 4211 | handoff-reporting | handoff/review artifact; avoid stale phase snapshots in active package |
-| `tests/unit/test_gateway_app.py` | 2204 | quality | test coverage; keep deterministic and avoid live GPU dependency |
+| `specs/openapi.gateway.yaml` | 5038 | api-contracts | supporting project file |
+| `reports/refactor/project_inventory_current.json` | 4398 | handoff-reporting | handoff/review artifact; avoid stale phase snapshots in active package |
+| `tests/unit/test_gateway_app.py` | 2311 | quality | test coverage; keep deterministic and avoid live GPU dependency |
 | `configs/command_registry.yaml` | 2100 | configuration | configuration source; validate through governance and projection checks after edits |
-| `specs/openapi.risk-adapter.yaml` | 1641 | api-contracts | supporting project file |
+| `specs/openapi.risk-adapter.yaml` | 1677 | api-contracts | supporting project file |
 | `ops/grafana/dashboards/serving_home.json` | 1398 | operations | supporting project file |
 | `ops/grafana/dashboards/api_experience.json` | 1095 | operations | supporting project file |
 | `ops/grafana/dashboards/observability_data_quality.json` | 907 | operations | supporting project file |
-| `src/ai_model_serving/contracts/chat.py` | 769 | api-contracts | application code; preserve public API behavior and compatibility facades |
 | `ops/grafana/dashboards/gpu_capacity_and_oom_risk.json` | 757 | operations | supporting project file |
-| `tests/contract/test_governance_and_ops.py` | 737 | quality | test coverage; keep deterministic and avoid live GPU dependency |
+| `tests/contract/test_governance_and_ops.py` | 750 | quality | test coverage; keep deterministic and avoid live GPU dependency |
+| `tests/contract/test_exposure_profiles.py` | 749 | quality | test coverage; keep deterministic and avoid live GPU dependency |
 | `reports/runtime/operator_status_bundle.json` | 733 | handoff-reporting | generated operator report; regenerate through make operator-reports before handoff |
 | `src/ai_model_serving/domain/model_registry.py` | 703 | domain-registry | registry/domain code; monitor size as projections grow |
 | `ops/grafana/dashboards/executive_runtime_overview.json` | 682 | operations | supporting project file |

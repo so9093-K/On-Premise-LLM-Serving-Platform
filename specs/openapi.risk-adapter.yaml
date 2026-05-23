@@ -189,6 +189,8 @@ paths:
                         - REQUEST_TOO_LARGE
                         - RUNTIME_NOT_READY
                         - DETECTOR_RETIRED
+                        - DETECTOR_DISABLED
+                        - STREAM_LIMIT_EXCEEDED
                       message:
                         type: string
                       retryable:
@@ -272,6 +274,8 @@ paths:
                         - REQUEST_TOO_LARGE
                         - RUNTIME_NOT_READY
                         - DETECTOR_RETIRED
+                        - DETECTOR_DISABLED
+                        - STREAM_LIMIT_EXCEEDED
                       message:
                         type: string
                       retryable:
@@ -617,6 +621,8 @@ paths:
                         - REQUEST_TOO_LARGE
                         - RUNTIME_NOT_READY
                         - DETECTOR_RETIRED
+                        - DETECTOR_DISABLED
+                        - STREAM_LIMIT_EXCEEDED
                       message:
                         type: string
                       retryable:
@@ -665,6 +671,8 @@ paths:
                         - REQUEST_TOO_LARGE
                         - RUNTIME_NOT_READY
                         - DETECTOR_RETIRED
+                        - DETECTOR_DISABLED
+                        - STREAM_LIMIT_EXCEEDED
                       message:
                         type: string
                       retryable:
@@ -713,6 +721,8 @@ paths:
                         - REQUEST_TOO_LARGE
                         - RUNTIME_NOT_READY
                         - DETECTOR_RETIRED
+                        - DETECTOR_DISABLED
+                        - STREAM_LIMIT_EXCEEDED
                       message:
                         type: string
                       retryable:
@@ -761,6 +771,8 @@ paths:
                         - REQUEST_TOO_LARGE
                         - RUNTIME_NOT_READY
                         - DETECTOR_RETIRED
+                        - DETECTOR_DISABLED
+                        - STREAM_LIMIT_EXCEEDED
                       message:
                         type: string
                       retryable:
@@ -809,6 +821,8 @@ paths:
                         - REQUEST_TOO_LARGE
                         - RUNTIME_NOT_READY
                         - DETECTOR_RETIRED
+                        - DETECTOR_DISABLED
+                        - STREAM_LIMIT_EXCEEDED
                       message:
                         type: string
                       retryable:
@@ -857,6 +871,8 @@ paths:
                         - REQUEST_TOO_LARGE
                         - RUNTIME_NOT_READY
                         - DETECTOR_RETIRED
+                        - DETECTOR_DISABLED
+                        - STREAM_LIMIT_EXCEEDED
                       message:
                         type: string
                       retryable:
@@ -905,6 +921,8 @@ paths:
                         - REQUEST_TOO_LARGE
                         - RUNTIME_NOT_READY
                         - DETECTOR_RETIRED
+                        - DETECTOR_DISABLED
+                        - STREAM_LIMIT_EXCEEDED
                       message:
                         type: string
                       retryable:
@@ -953,6 +971,8 @@ paths:
                         - REQUEST_TOO_LARGE
                         - RUNTIME_NOT_READY
                         - DETECTOR_RETIRED
+                        - DETECTOR_DISABLED
+                        - STREAM_LIMIT_EXCEEDED
                       message:
                         type: string
                       retryable:
@@ -1267,6 +1287,8 @@ paths:
                         - REQUEST_TOO_LARGE
                         - RUNTIME_NOT_READY
                         - DETECTOR_RETIRED
+                        - DETECTOR_DISABLED
+                        - STREAM_LIMIT_EXCEEDED
                       message:
                         type: string
                       retryable:
@@ -1315,6 +1337,8 @@ paths:
                         - REQUEST_TOO_LARGE
                         - RUNTIME_NOT_READY
                         - DETECTOR_RETIRED
+                        - DETECTOR_DISABLED
+                        - STREAM_LIMIT_EXCEEDED
                       message:
                         type: string
                       retryable:
@@ -1363,6 +1387,8 @@ paths:
                         - REQUEST_TOO_LARGE
                         - RUNTIME_NOT_READY
                         - DETECTOR_RETIRED
+                        - DETECTOR_DISABLED
+                        - STREAM_LIMIT_EXCEEDED
                       message:
                         type: string
                       retryable:
@@ -1411,6 +1437,8 @@ paths:
                         - REQUEST_TOO_LARGE
                         - RUNTIME_NOT_READY
                         - DETECTOR_RETIRED
+                        - DETECTOR_DISABLED
+                        - STREAM_LIMIT_EXCEEDED
                       message:
                         type: string
                       retryable:
@@ -1459,6 +1487,8 @@ paths:
                         - REQUEST_TOO_LARGE
                         - RUNTIME_NOT_READY
                         - DETECTOR_RETIRED
+                        - DETECTOR_DISABLED
+                        - STREAM_LIMIT_EXCEEDED
                       message:
                         type: string
                       retryable:
@@ -1507,6 +1537,8 @@ paths:
                         - REQUEST_TOO_LARGE
                         - RUNTIME_NOT_READY
                         - DETECTOR_RETIRED
+                        - DETECTOR_DISABLED
+                        - STREAM_LIMIT_EXCEEDED
                       message:
                         type: string
                       retryable:
@@ -1555,6 +1587,8 @@ paths:
                         - REQUEST_TOO_LARGE
                         - RUNTIME_NOT_READY
                         - DETECTOR_RETIRED
+                        - DETECTOR_DISABLED
+                        - STREAM_LIMIT_EXCEEDED
                       message:
                         type: string
                       retryable:
@@ -1603,6 +1637,8 @@ paths:
                         - REQUEST_TOO_LARGE
                         - RUNTIME_NOT_READY
                         - DETECTOR_RETIRED
+                        - DETECTOR_DISABLED
+                        - STREAM_LIMIT_EXCEEDED
                       message:
                         type: string
                       retryable:

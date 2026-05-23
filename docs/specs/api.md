@@ -43,6 +43,8 @@ Gateway는 외부 애플리케이션의 단일 진입점이다.
 
 Retrieval 기본 모델은 `local-embed-ko`다. `model`을 생략하면 `local-embed-ko`, `score_mode`를 생략하면 `dense_cosine`을 사용한다. 기존 late-interaction runtime은 유지보수 비용, token-level 응답 크기, 전용 artifact 운영 복잡도를 줄이기 위해 제거했다.
 
+`/v1/retrieval/rerank`와 `/v1/retrieval/score`의 `truncate_prompt_tokens`는 내부 `/v1/embeddings` 호출에도 전달된다. vLLM OpenAI-compatible embedding request는 `truncate_prompt_tokens`를 받지만 `truncation_side`는 현재 baseline에서 확인된 embedding request parameter가 아니므로 retrieval schema에 포함하지 않는다. left/right truncation이 필요한 client는 tokenizer-aware pre-truncation 후 요청한다.
+
 `request_parameters`는 prompt/messages/input 같은 필수 입력 본문을 뜻하지 않는다. 필수 입력은 각 request schema(`chat_completion_request`, `embedding_request`, `risk_assessment_request`)를 따른다. serving/runtime 하이퍼파라미터(`gpu_memory_utilization`, `max_model_len`, `max_num_seqs`, quantization 등)는 사용자 API에서 조정할 수 없고 운영자 config로만 변경한다. `local-main`의 RedHatAI FP8 Dynamic checkpoint는 model config의 `compressed-tensors` quantization metadata를 따르며, Gateway request parameter로 노출하지 않는다.
 
 `local-main` 예시는 요청 예시일 뿐 Gateway가 기본 sampling 값을 주입한다는 뜻이 아니다. `temperature`, `max_tokens`, `top_p` 등을 생략하면 vLLM/OpenAI-compatible runtime 기본값을 따른다. 안정적인 smoke나 자동 검증에는 `max_tokens: 1`, `temperature: 0`, `n: 1`을 명시한다.
@@ -113,7 +115,11 @@ curl -sN http://localhost:9400/v1/chat/completions \
 - curl에서 `-N`은 필수다. 없으면 curl이 chunk를 모았다가 한 번에 출력한다.
 - `stream_options: {"include_usage": true}`를 함께 보내면 `[DONE]` 직전에 usage chunk가 추가된다.
 - proxy(Nginx, Ingress) 앞단이 있으면 `proxy_buffering off` 설정이 필요하다. 상세는 `docs/operations/streaming_runtime_operations.md`를 참고한다.
-- streaming 중 upstream 오류가 발생하면 정상 JSON error envelope 대신 `event: error` SSE event가 온다.
+- streaming 중 upstream 오류가 발생하면 정상 JSON error envelope 대신 `event: error` SSE event가 온다. Gateway stream guard가 chunk/byte limit을 초과한 경우도 같은 SSE error event로 전달되며 code는 `STREAM_LIMIT_EXCEEDED`다.
+
+## 공통 Error Code
+
+`CommonErrorResponse.error.code` enum은 `src/ai_model_serving/errors.py`의 `ERROR_STATUS`와 Gateway/Risk Adapter OpenAPI에 동시에 고정된다. `DETECTOR_DISABLED`는 Risk Adapter에서 detector가 설정되지 않았을 때 410으로 발생하며, Gateway가 Risk Adapter의 공통 error envelope를 받은 경우 410과 code를 보존한다.
 
 ## Health/readiness 노출 제약
 

@@ -95,7 +95,11 @@ def build_parser() -> KoreanArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-    current = load_current(_env_path(args.env))
+    try:
+        current = load_current(_env_path(args.env))
+    except RuntimeError as exc:
+        print(f"env 파일 오류: {exc}", file=sys.stderr)
+        return 2
     plan = build_plan(current, args.mode, app_env=args.app_env)
     if args.json:
         print(json.dumps(plan, indent=2, ensure_ascii=False))

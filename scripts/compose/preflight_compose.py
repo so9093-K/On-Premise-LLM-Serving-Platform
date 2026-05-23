@@ -17,7 +17,10 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.stdout.reconfigure(line_buffering=True)
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
+if str(ROOT / "src") not in sys.path:
+    sys.path.insert(0, str(ROOT / "src"))
 
+from ai_model_serving.settings_parts.dotenv_parser import load_strict_env_file  # noqa: E402
 from scripts.compose.effective_host_ports import effective_host_ports  # noqa: E402
 from scripts.compose.resolve_exposure_mode import (  # noqa: E402
     load_exposure_data,
@@ -32,6 +35,61 @@ def _fail(message: str) -> None:
 
 def _warn(message: str) -> None:
     print(f"[preflight] warn: {message}", file=sys.stderr)
+
+
+def _env_value(key: str, default: str = "") -> str:
+    value = os.environ.get(key)
+    if value is not None:
+        return value
+    env_file = Path(os.environ.get("ENV_FILE", ".env"))
+    env_path = env_file if env_file.is_absolute() else ROOT / env_file
+    if env_path.exists():
+        try:
+            return load_strict_env_file(env_path).get(key, default)
+        except RuntimeError as exc:
+            _fail(f"invalid env file: {env_path}")
+            for line in str(exc).splitlines():
+                print(f"  {line}", file=sys.stderr)
+            print(
+                "[preflight] Fix strict KEY=VALUE syntax before runtime checks. "
+                "Duplicate keys, quotes, inline comments, and export syntax are not supported.",
+                file=sys.stderr,
+            )
+            raise SystemExit("[preflight] configuration preflight failed; fix env file syntax.") from exc
+    return default
+
+
+def _non_local_app_env() -> bool:
+    app_env = _env_value("APP_ENV", "local").strip().lower()
+    return app_env in {"staging", "stage", "production", "prod"} or app_env not in {"local", "test", "development"}
+
+
+def _check_auth_profile_preflight() -> None:
+    app_env = _env_value("APP_ENV", "local").strip()
+    auth_mode = _env_value("AUTH_MODE", "local_open").strip() or "local_open"
+    if not _non_local_app_env():
+        return
+    failures: list[str] = []
+    if auth_mode == "local_open":
+        failures.append(f"AUTH_MODE=local_open is not allowed when APP_ENV={app_env}.")
+    if auth_mode == "internal_trusted" and not _env_value("INTERNAL_TRUSTED_AUTH_EVIDENCE").strip():
+        failures.append(
+            "AUTH_MODE=internal_trusted requires INTERNAL_TRUSTED_AUTH_EVIDENCE "
+            "describing the network/edge/caller auth owner."
+        )
+    if auth_mode == "custom":
+        accepted = _env_value("CUSTOM_AUTH_RISK_ACCEPTED").lower() in {"1", "true"}
+        ticket = _env_value("CUSTOM_AUTH_RISK_TICKET").strip()
+        if not accepted or not ticket:
+            failures.append(
+                "AUTH_MODE=custom requires CUSTOM_AUTH_RISK_ACCEPTED=true and "
+                "CUSTOM_AUTH_RISK_TICKET in non-local environments."
+            )
+    if failures:
+        for failure in failures:
+            _fail(failure)
+        raise SystemExit("[preflight] configuration preflight failed; fix auth profile evidence before runtime checks.")
+    print(f"[preflight] ok: AUTH_MODE={auth_mode} APP_ENV={app_env}")
 
 
 def _load_yaml(path: Path, label: str) -> dict[str, Any]:
@@ -73,18 +131,19 @@ def _bind_conflicts(
         service = services.get(service_name, {})
         bind_env = str(service.get("host_env_bind", ""))
         default_bind = str(service.get("default_bind", "0.0.0.0"))
-        bind = os.environ.get(bind_env, default_bind) if bind_env else default_bind
+        bind = _env_value(bind_env, default_bind) if bind_env else default_bind
         if bind != "0.0.0.0":
             continue
         port_env = str(service.get("host_env_port", ""))
-        port = os.environ.get(port_env, str(service.get("default_host_port", ""))) if port_env else ""
+        port = _env_value(port_env, str(service.get("default_host_port", ""))) if port_env else ""
         conflicts.append(f"{service.get('compose_service', service_name)}:{port}")
     return conflicts
 
 
 def _phase1(exposure_data: dict[str, Any]) -> str:
     print("[preflight] Phase 1: exposure decision")
-    raw_mode = os.environ.get("EXPOSURE_MODE", "private_network")
+    _check_auth_profile_preflight()
+    raw_mode = _env_value("EXPOSURE_MODE", "private_network")
     canonical_mode = resolve(raw_mode, exposure_data)
     print(f"[preflight] EXPOSURE_MODE={canonical_mode}")
 
@@ -93,7 +152,7 @@ def _phase1(exposure_data: dict[str, Any]) -> str:
     if not diagnostics.get("requires_exposure_audience"):
         return canonical_mode
 
-    audience = os.environ.get("EXPOSURE_AUDIENCE", "")
+    audience = _env_value("EXPOSURE_AUDIENCE", "")
     allowed = exposure_data.get("exposure_audience", {}).get("allowed_values", [])
     allowed = allowed or ["local_only", "private_lan", "vpn", "public"]
     if not audience:
@@ -129,7 +188,7 @@ def _phase1(exposure_data: dict[str, Any]) -> str:
         print("[preflight] ok: EXPOSURE_AUDIENCE=local_only - all host-published services bound to loopback")
 
     if audience == "public":
-        opt_in = os.environ.get("ALLOW_PUBLIC_OPERATIONS_ENDPOINTS", "")
+        opt_in = _env_value("ALLOW_PUBLIC_OPERATIONS_ENDPOINTS", "")
         if opt_in not in {"1", "true"}:
             _fail(
                 "EXPOSURE_AUDIENCE=public requires "

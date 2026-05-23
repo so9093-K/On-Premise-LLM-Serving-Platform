@@ -48,6 +48,26 @@ def test_setup_env_refuses_overwrite_without_force(tmp_path):
     assert out.read_text(encoding='utf-8') == 'EXISTING=1\n'
 
 
+def test_setup_env_force_rejects_duplicate_existing_env(tmp_path, capsys):
+    out = tmp_path / '.env'
+    out.write_text('AUTH_MODE=local_open\nAUTH_MODE=strict\n', encoding='utf-8')
+
+    rc = setup_env.main(['--profile', 'compose', '--output', str(out), '--force'])
+
+    assert rc == 2
+    assert "duplicate env key 'AUTH_MODE'" in capsys.readouterr().err
+
+
+def test_setup_env_sync_rejects_quoted_existing_env(tmp_path, capsys):
+    out = tmp_path / '.env'
+    out.write_text('BUILD_PROFILE=compose\nEXPOSURE_MODE="master_open"\n', encoding='utf-8')
+
+    rc = setup_env.main(['--sync-env', '--env-file', str(out)])
+
+    assert rc == 2
+    assert "quoted values are not supported" in capsys.readouterr().err
+
+
 def test_setup_env_show_image_tags(capsys):
     rc = setup_env.main(['--show-image-tags'])
     assert rc == 0

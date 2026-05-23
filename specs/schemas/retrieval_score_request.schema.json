@@ -29,10 +29,6 @@
         {"const": -1},
         {"minimum": 1, "maximum": 2048}
       ]
-    },
-    "truncation_side": {
-      "type": "string",
-      "enum": ["left", "right"]
     }
   }
 }

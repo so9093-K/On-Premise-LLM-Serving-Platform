@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
+import subprocess
+import sys
 
 from ai_model_serving.auth_control import auth_status_document, diagnose_auth
-from ai_model_serving.settings import AppSettings, RuntimeEndpoint, SecuritySettings
+from ai_model_serving.settings import AppSettings, RuntimeEndpoint, SecuritySettings, load_settings
 
 
 def _settings(**security_overrides):
@@ -89,3 +92,130 @@ def test_auth_status_document_records_explicit_env_path(tmp_path):
     assert doc["env_file"]["path"] == str(env_path)
     assert doc["env_file"]["exists"] is True
     assert doc["env_file"]["repository_default"] is False
+
+
+def test_auth_status_reads_exposure_from_explicit_env_file(tmp_path, monkeypatch):
+    env_path = tmp_path / "candidate.env"
+    env_path.write_text(
+        "\n".join(
+            [
+                "APP_ENV=local",
+                "AUTH_MODE=local_open",
+                "API_KEY_REQUIRED=false",
+                "ADMIN_API_KEY_REQUIRED=false",
+                "ADMIN_ENDPOINTS_INTERNAL_ONLY=false",
+                "INTERNAL_SERVICE_AUTH_REQUIRED=false",
+                "FASTAPI_DOCS_ENABLED=true",
+                "EXPOSURE_MODE=master_open",
+                "EXPOSURE_AUDIENCE=private_lan",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    monkeypatch.delenv("EXPOSURE_MODE", raising=False)
+    monkeypatch.delenv("EXPOSURE_AUDIENCE", raising=False)
+
+    settings = load_settings(env_file=env_path)
+    doc = auth_status_document(settings, Path.cwd(), env_path)
+
+    assert doc["exposure_mode"] == "master_open"
+    assert doc["canonical_exposure_mode"] == "master_open"
+
+
+def test_auth_status_cli_reads_exposure_from_env_file(tmp_path, monkeypatch):
+    root = Path(__file__).resolve().parents[2]
+    env_path = tmp_path / "candidate.env"
+    env_path.write_text(
+        "\n".join(
+            [
+                "APP_ENV=local",
+                "AUTH_MODE=local_open",
+                "API_KEY_REQUIRED=false",
+                "ADMIN_API_KEY_REQUIRED=false",
+                "ADMIN_ENDPOINTS_INTERNAL_ONLY=false",
+                "INTERNAL_SERVICE_AUTH_REQUIRED=false",
+                "FASTAPI_DOCS_ENABLED=true",
+                "EXPOSURE_MODE=master_open",
+                "EXPOSURE_AUDIENCE=private_lan",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    monkeypatch.delenv("EXPOSURE_MODE", raising=False)
+    monkeypatch.delenv("EXPOSURE_AUDIENCE", raising=False)
+
+    result = subprocess.run(
+        [sys.executable, "scripts/auth/auth_status.py", "--env", str(env_path), "--json"],
+        cwd=root,
+        text=True,
+        capture_output=True,
+        check=True,
+    )
+    payload = json.loads(result.stdout)
+    assert payload["exposure_mode"] == "master_open"
+    assert payload["canonical_exposure_mode"] == "master_open"
+
+
+def test_auth_doctor_reads_internal_trusted_evidence_from_explicit_env_file(tmp_path, monkeypatch):
+    env_path = tmp_path / "trusted.env"
+    env_path.write_text(
+        "\n".join(
+            [
+                "APP_ENV=production",
+                "AUTH_MODE=internal_trusted",
+                "API_KEY_REQUIRED=false",
+                "ADMIN_API_KEY_REQUIRED=false",
+                "ADMIN_ENDPOINTS_INTERNAL_ONLY=true",
+                "INTERNAL_SERVICE_AUTH_REQUIRED=false",
+                "FASTAPI_DOCS_ENABLED=false",
+                "API_KEY=api-key",
+                "API_KEYS=api-key",
+                "ADMIN_API_KEY=admin-key",
+                "ADMIN_API_KEYS=admin-key",
+                "INTERNAL_SERVICE_TOKEN=internal-key",
+                "INTERNAL_TRUSTED_AUTH_EVIDENCE=edge gateway authenticates callers; CHG-1234",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("EXPOSURE_MODE", "private_network")
+
+    settings = load_settings(env_file=env_path)
+    findings = diagnose_auth(settings, Path.cwd())
+
+    assert not any(f.code == "INTERNAL_TRUSTED_EVIDENCE_MISSING" for f in findings)
+
+
+def test_auth_doctor_reads_custom_risk_acceptance_from_explicit_env_file(tmp_path, monkeypatch):
+    env_path = tmp_path / "custom.env"
+    env_path.write_text(
+        "\n".join(
+            [
+                "APP_ENV=production",
+                "AUTH_MODE=custom",
+                "API_KEY_REQUIRED=true",
+                "ADMIN_API_KEY_REQUIRED=true",
+                "ADMIN_ENDPOINTS_INTERNAL_ONLY=false",
+                "INTERNAL_SERVICE_AUTH_REQUIRED=true",
+                "FASTAPI_DOCS_ENABLED=false",
+                "API_KEY=api-key",
+                "API_KEYS=api-key",
+                "ADMIN_API_KEY=admin-key",
+                "ADMIN_API_KEYS=admin-key",
+                "INTERNAL_SERVICE_TOKEN=internal-key",
+                "CUSTOM_AUTH_RISK_ACCEPTED=true",
+                "CUSTOM_AUTH_RISK_TICKET=CHG-9999",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("EXPOSURE_MODE", "private_network")
+
+    settings = load_settings(env_file=env_path)
+    findings = diagnose_auth(settings, Path.cwd())
+
+    assert not any(f.code == "CUSTOM_AUTH_RISK_ACCEPTANCE_REQUIRED" for f in findings)

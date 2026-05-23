@@ -667,6 +667,92 @@ def test_gateway_dense_retrieval_uses_embedding_runtime():
     assert clients.embedding.last_path == "embeddings"
 
 
+def test_gateway_retrieval_forwards_truncate_prompt_tokens_to_embedding_runtime():
+    clients = FakeGatewayClients()
+    captured_payloads: list[dict] = []
+
+    def embed_response(_path, payload, **_kwargs):
+        captured_payloads.append(payload)
+        inputs = payload["input"]
+        return {
+            "object": "list",
+            "model": "local-embed",
+            "data": [
+                {"object": "embedding", "embedding": [1.0] + [0.0] * 767, "index": index}
+                for index, _text in enumerate(inputs)
+            ],
+        }
+
+    clients.embedding.post_response = embed_response
+    client = TestClient(create_gateway_app(settings(), clients))
+
+    score = client.post(
+        "/v1/retrieval/score",
+        headers=auth_headers(),
+        json={"model": "local-embed", "query": "q", "documents": ["d"], "truncate_prompt_tokens": 512},
+    )
+    rerank = client.post(
+        "/v1/retrieval/rerank",
+        headers=auth_headers(),
+        json={"model": "local-embed", "query": "q", "documents": ["d"], "truncate_prompt_tokens": 512},
+    )
+
+    assert score.status_code == 200
+    assert rerank.status_code == 200
+    assert captured_payloads
+    assert all(payload.get("truncate_prompt_tokens") == 512 for payload in captured_payloads)
+    assert all("truncation_side" not in payload for payload in captured_payloads)
+
+
+def test_gateway_retrieval_rejects_truncation_side_before_upstream_call():
+    clients = FakeGatewayClients()
+    client = TestClient(create_gateway_app(settings(), clients))
+
+    response = client.post(
+        "/v1/retrieval/score",
+        headers=auth_headers(),
+        json={"model": "local-embed", "query": "q", "documents": ["d"], "truncation_side": "left"},
+    )
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+    assert "truncation_side" in response.json()["error"]["message"]
+    assert clients.embedding.last_path is None
+
+
+def test_gateway_retrieval_truncate_prompt_tokens_can_change_ranking_canary():
+    clients = FakeGatewayClients()
+
+    def embed_response(_path, payload, **_kwargs):
+        truncated = payload.get("truncate_prompt_tokens") == 1
+        data = []
+        for index, text in enumerate(payload["input"]):
+            if text.startswith("task: search result | query: "):
+                vector = [0.0, 1.0] if truncated else [1.0, 0.0]
+            elif text.endswith("first"):
+                vector = [1.0, 0.0]
+            else:
+                vector = [0.0, 1.0]
+            data.append({"object": "embedding", "embedding": vector + [0.0] * 766, "index": index})
+        return {"object": "list", "model": "local-embed", "data": data}
+
+    clients.embedding.post_response = embed_response
+    client = TestClient(create_gateway_app(settings(), clients))
+    base_payload = {"model": "local-embed", "query": "long query", "documents": ["first", "second"]}
+
+    before = client.post("/v1/retrieval/rerank", headers=auth_headers(), json=base_payload)
+    after = client.post(
+        "/v1/retrieval/rerank",
+        headers=auth_headers(),
+        json={**base_payload, "truncate_prompt_tokens": 1},
+    )
+
+    assert before.status_code == 200
+    assert after.status_code == 200
+    assert [item["index"] for item in before.json()["results"]] == [0, 1]
+    assert [item["index"] for item in after.json()["results"]] == [1, 0]
+
+
 def test_gateway_rejects_retrieval_extra_fields_before_upstream_call():
     clients = FakeGatewayClients()
     client = TestClient(create_gateway_app(settings(), clients))
@@ -1029,6 +1115,27 @@ def test_gateway_forwards_risk_assessments_to_internal_risk_adapter():
     assert clients.risk_adapter.last_path == "/v1/risk/assessments"
     assert clients.risk_adapter.last_payload == {"prompt": "hello"}
     assert clients.risk_adapter.last_headers == {"authorization": "Bearer internal-test-key"}
+
+
+def test_gateway_preserves_detector_disabled_from_risk_adapter():
+    clients = FakeGatewayClients()
+
+    def disabled_response(_path, _payload, **_kwargs):
+        raise ServiceError("DETECTOR_DISABLED", "Risk detector is not enabled: prompt", False, 410)
+
+    clients.risk_adapter.post_response = disabled_response
+    client = TestClient(create_gateway_app(settings(), clients))
+
+    response = client.post(
+        "/v1/risk/assessments",
+        headers=auth_headers(),
+        json={"prompt": "hello"},
+    )
+
+    assert response.status_code == 410
+    body = response.json()
+    assert body["error"]["code"] == "DETECTOR_DISABLED"
+    assert body["error"]["retryable"] is False
 
 
 def test_gateway_siren_retired_returns_410_without_forwarding():

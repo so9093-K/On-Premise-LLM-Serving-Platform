@@ -33,10 +33,14 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     env_path = _env_path(args.env)
 
-    if env_path.exists():
-        lines, current = parse_env_template(env_path)
-    else:
-        lines, current = [], {}
+    try:
+        if env_path.exists():
+            lines, current = parse_env_template(env_path)
+        else:
+            lines, current = [], {}
+    except RuntimeError as exc:
+        print(f"env 파일 오류: {exc}", file=sys.stderr)
+        return 2
 
     plan = build_plan(current, args.mode, args.audience)
     print(render_plan(plan), end="")
