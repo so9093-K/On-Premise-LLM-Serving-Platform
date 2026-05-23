@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from ai_model_serving.settings import load_settings
+from ai_model_serving.settings import AppSettings, EmbeddingProfile, RuntimeEndpoint, SecuritySettings, load_settings
 
 
 @pytest.fixture(autouse=True)
@@ -238,6 +238,60 @@ def test_load_settings_enables_fastapi_docs_by_default(monkeypatch):
     assert settings.documentation.docs_url == "/docs"
     assert settings.documentation.redoc_url == "/redoc"
     assert settings.documentation.openapi_url == "/openapi.json"
+
+
+def _minimal_settings_kwargs() -> dict:
+    endpoint = RuntimeEndpoint("local-embed", "http://embed/v1", "local-embed", 1)
+    return {
+        "app_env": "test",
+        "project_version": "0.1.0",
+        "security": SecuritySettings(
+            api_key_required=False,
+            api_keys=frozenset(),
+            internal_service_token="internal",
+        ),
+        "gateway_timeout_seconds": 1,
+        "risk_adapter_timeout_seconds": 1,
+        "risk_adapter_base_url": "http://risk",
+        "runtime_endpoints": {"embedding": endpoint},
+        "embedding": endpoint,
+    }
+
+
+def test_app_settings_validates_embedding_route_service_keys() -> None:
+    with pytest.raises(ValueError, match="unknown runtime service"):
+        AppSettings(
+            **_minimal_settings_kwargs(),
+            embedding_profiles={
+                "local-embed": EmbeddingProfile(
+                    model="local-embed",
+                    service_key="missing",
+                    upstream_model_id="example/embed",
+                    dimensions=(768,),
+                    default_dimensions=768,
+                )
+            },
+            embedding_model_routes={"local-embed": "missing"},
+        )
+
+
+def test_app_settings_validates_default_embedding_models() -> None:
+    with pytest.raises(ValueError, match="default_retrieval_model"):
+        AppSettings(
+            **_minimal_settings_kwargs(),
+            embedding_profiles={
+                "local-embed": EmbeddingProfile(
+                    model="local-embed",
+                    service_key="embedding",
+                    upstream_model_id="example/embed",
+                    dimensions=(768,),
+                    default_dimensions=768,
+                )
+            },
+            embedding_model_routes={"local-embed": "embedding"},
+            default_embedding_model="local-embed",
+            default_retrieval_model="missing",
+        )
 
 
 def test_load_settings_can_disable_fastapi_docs_explicitly(monkeypatch):

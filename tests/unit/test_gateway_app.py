@@ -10,7 +10,9 @@ from jsonschema import Draft202012Validator
 from ai_model_serving.errors import ServiceError
 from ai_model_serving.contracts import ChatResponseExpectations, validate_chat_response
 
-from ai_model_serving.apps.gateway import create_gateway_app
+from ai_model_serving.apps import gateway as gateway_app_module
+from ai_model_serving.apps.gateway import GatewayClients, create_gateway_app
+from ai_model_serving.api.routers.gateway_ops import _readiness
 from ai_model_serving.services.readiness import DependencyProbe, collect_readiness
 from ai_model_serving.settings import AppSettings, EmbeddingProfile, RuntimeEndpoint, SecuritySettings
 
@@ -79,12 +81,16 @@ class StreamingErrorRuntimeClient(FakeRuntimeClient):
 class ExplodingGatewayClients:
     def __init__(self):
         self.main_llm = ExplodingRuntimeClient()
-        self.embedding = FakeRuntimeClient({
+        embedding = FakeRuntimeClient({
             "object": "list",
             "model": "local-embed",
             "data": [{"object": "embedding", "embedding": [0.1] * 768, "index": 0}],
         })
+        self.embedding_clients = {"local-embed": embedding}
+        self.runtime_clients_by_service_key = {"embedding": embedding}
+        self.runtimes = {"main_llm": self.main_llm, "embedding": embedding}
         self.risk_adapter = FakeRuntimeClient({"status": "ready", "service": "risk-adapter", "dependencies": []})
+        self.runtimes["risk_adapter"] = self.risk_adapter
 
 
 class FakeGatewayClients:
@@ -96,17 +102,21 @@ class FakeGatewayClients:
             "model": "local-main",
             "choices": [{"index": 0, "message": {"role": "assistant", "content": "ok"}, "finish_reason": "stop"}],
         }, endpoint=RuntimeEndpoint("local-main", "http://main/v1", "local-main", 1))
-        self.embedding = FakeRuntimeClient({
+        embedding = FakeRuntimeClient({
             "object": "list",
             "model": "local-embed",
             "data": [{"object": "embedding", "embedding": [0.1] * 768, "index": 0}],
         }, endpoint=RuntimeEndpoint("local-embed", "http://embed/v1", "local-embed", 1))
-        self.embedding_ko = FakeRuntimeClient({
+        embedding_ko = FakeRuntimeClient({
             "object": "list",
             "model": "local-embed-ko",
             "data": [{"object": "embedding", "embedding": [0.1] * 1024, "index": 0}],
         }, endpoint=RuntimeEndpoint("local-embed-ko", "http://embed-ko/v1", "local-embed-ko", 1))
-        self.embedding_clients = {"local-embed": self.embedding, "local-embed-ko": self.embedding_ko}
+        self.embedding_clients = {"local-embed": embedding, "local-embed-ko": embedding_ko}
+        self.runtime_clients_by_service_key = {
+            "embedding": embedding,
+            "embedding_ko": embedding_ko,
+        }
         self.risk_adapter = FakeRuntimeClient(
             {
                 "assessment_id": "risk_1",
@@ -124,6 +134,12 @@ class FakeGatewayClients:
             get_response={"status": "ready", "service": "risk-adapter", "dependencies": []},
             endpoint=RuntimeEndpoint("risk-adapter", "http://risk", "risk-adapter", 1),
         )
+        self.runtimes = {
+            "main_llm": self.main_llm,
+            "embedding": embedding,
+            "embedding_ko": embedding_ko,
+            "risk_adapter": self.risk_adapter,
+        }
 
 
 def public_models():
@@ -237,6 +253,120 @@ def settings() -> AppSettings:
         },
         embedding_model_routes={"local-embed": "embedding", "local-embed-ko": "embedding_ko"},
     )
+
+
+def _settings_with_embedding_routes(
+    *,
+    embedding_profiles: dict[str, EmbeddingProfile],
+    embedding_model_routes: dict[str, str],
+    runtime_endpoints: dict[str, RuntimeEndpoint] | None = None,
+) -> AppSettings:
+    base = settings()
+    endpoints = dict(base.runtime_endpoints)
+    if runtime_endpoints:
+        endpoints.update(runtime_endpoints)
+    return AppSettings(
+        app_env=base.app_env,
+        project_version=base.project_version,
+        security=base.security,
+        gateway_timeout_seconds=base.gateway_timeout_seconds,
+        risk_adapter_timeout_seconds=base.risk_adapter_timeout_seconds,
+        risk_adapter_base_url=base.risk_adapter_base_url,
+        runtime_endpoints=endpoints,
+        main_llm=endpoints["main_llm"],
+        embedding=endpoints.get("embedding"),
+        embedding_ko=endpoints.get("embedding_ko"),
+        risk_prompt=endpoints.get("risk_prompt"),
+        embedding_profiles=embedding_profiles,
+        embedding_model_routes=embedding_model_routes,
+        default_embedding_model=base.default_embedding_model,
+        default_retrieval_model=base.default_retrieval_model,
+        max_request_body_bytes=base.max_request_body_bytes,
+        public_models=base.public_models,
+    )
+
+
+class SpyVLLMClient(FakeRuntimeClient):
+    created_endpoints: list[RuntimeEndpoint] = []
+    closed_endpoints: list[str] = []
+
+    def __init__(self, endpoint: RuntimeEndpoint):
+        super().__init__(endpoint=endpoint)
+        self.endpoint = endpoint
+        self.closed = False
+        self.__class__.created_endpoints.append(endpoint)
+
+    async def aclose(self):
+        self.closed = True
+        self.__class__.closed_endpoints.append(self.endpoint.logical_id)
+
+
+def test_gateway_clients_build_embedding_clients_from_model_routes(monkeypatch):
+    SpyVLLMClient.created_endpoints = []
+    SpyVLLMClient.closed_endpoints = []
+    monkeypatch.setattr(gateway_app_module, "VLLMClient", SpyVLLMClient)
+
+    clients = GatewayClients(settings())
+
+    assert set(clients.embedding_clients) == {"local-embed", "local-embed-ko"}
+    assert clients.embedding_clients["local-embed"] is clients.runtime_clients_by_service_key["embedding"]
+    assert clients.embedding_clients["local-embed-ko"] is clients.runtime_clients_by_service_key["embedding_ko"]
+    created = [endpoint.logical_id for endpoint in SpyVLLMClient.created_endpoints]
+    assert created.count("local-embed") == 1
+    assert created.count("local-embed-ko") == 1
+
+
+def test_gateway_clients_pick_up_new_embedding_route_without_code_change(monkeypatch):
+    SpyVLLMClient.created_endpoints = []
+    monkeypatch.setattr(gateway_app_module, "VLLMClient", SpyVLLMClient)
+    base = settings()
+    extra_endpoint = RuntimeEndpoint("local-embed-extra", "http://embed-extra/v1", "local-embed-extra", 1)
+    extra_profile = EmbeddingProfile(
+        model="local-embed-extra",
+        service_key="embedding_extra",
+        upstream_model_id="example/embed-extra",
+        dimensions=(384,),
+        default_dimensions=384,
+        retrieval_enabled=True,
+        score_modes=("dense_cosine",),
+    )
+    cfg = _settings_with_embedding_routes(
+        embedding_profiles={**base.embedding_profiles, "local-embed-extra": extra_profile},
+        embedding_model_routes={**base.embedding_model_routes, "local-embed-extra": "embedding_extra"},
+        runtime_endpoints={"embedding_extra": extra_endpoint},
+    )
+
+    clients = GatewayClients(cfg)
+
+    assert "local-embed-extra" in clients.embedding_clients
+    assert clients.embedding_clients["local-embed-extra"] is clients.runtime_clients_by_service_key["embedding_extra"]
+    assert "local-embed-extra" in [endpoint.logical_id for endpoint in SpyVLLMClient.created_endpoints]
+
+
+def test_gateway_clients_dedupe_runtime_clients_by_service_key(monkeypatch):
+    SpyVLLMClient.created_endpoints = []
+    monkeypatch.setattr(gateway_app_module, "VLLMClient", SpyVLLMClient)
+    base = settings()
+    alias_profile = EmbeddingProfile(
+        model="local-embed-alias",
+        service_key="embedding",
+        upstream_model_id="google/embeddinggemma-300m",
+        dimensions=(768, 512, 256, 128),
+        default_dimensions=768,
+        retrieval_enabled=True,
+        score_modes=("dense_cosine",),
+        request_parameter_policy=_PRODUCTION_EMBEDDING_POLICY,
+    )
+    cfg = _settings_with_embedding_routes(
+        embedding_profiles={**base.embedding_profiles, "local-embed-alias": alias_profile},
+        embedding_model_routes={**base.embedding_model_routes, "local-embed-alias": "embedding"},
+    )
+
+    clients = GatewayClients(cfg)
+
+    assert clients.embedding_clients["local-embed-alias"] is clients.embedding_clients["local-embed"]
+    created = [endpoint.logical_id for endpoint in SpyVLLMClient.created_endpoints]
+    assert created.count("local-embed") == 1
 
 
 def _settings_with_embedding_policy(policy: dict) -> AppSettings:
@@ -533,11 +663,14 @@ def test_gateway_readiness_reflects_risk_adapter_body_status():
 
 def test_gateway_readiness_503_when_embedding_ko_vllm_down():
     clients = FakeGatewayClients()
-    clients.embedding_ko = FakeRuntimeClient(
+    embedding_ko = FakeRuntimeClient(
         ready=False,
         get_response={"error": "model not loaded"},
         endpoint=RuntimeEndpoint("local-embed-ko", "http://embed-ko/v1", "local-embed-ko", 1),
     )
+    clients.embedding_clients["local-embed-ko"] = embedding_ko
+    clients.runtime_clients_by_service_key["embedding_ko"] = embedding_ko
+    clients.runtimes["embedding_ko"] = embedding_ko
     client = TestClient(create_gateway_app(settings(), clients))
 
     response = client.get("/ready")
@@ -548,6 +681,44 @@ def test_gateway_readiness_503_when_embedding_ko_vllm_down():
     assert "embedding_ko_vllm" in body["not_ready_dependencies"]
     assert "embedding_ko_vllm" in body["required_not_ready_dependencies"]
     assert "embedding_ko_vllm" not in body["optional_not_ready_dependencies"]
+
+
+def test_gateway_readiness_builds_embedding_probes_from_model_routes():
+    cfg = settings()
+    clients = FakeGatewayClients()
+
+    body = asyncio.run(_readiness(clients, cfg))
+
+    dependency_names = {item["name"] for item in body["dependencies"]}
+    assert {"embedding_vllm", "embedding_ko_vllm"}.issubset(dependency_names)
+
+
+def test_gateway_readiness_picks_up_new_embedding_route_without_code_change():
+    base = settings()
+    extra_endpoint = RuntimeEndpoint("local-embed-extra", "http://embed-extra/v1", "local-embed-extra", 1)
+    extra_profile = EmbeddingProfile(
+        model="local-embed-extra",
+        service_key="embedding_extra",
+        upstream_model_id="example/embed-extra",
+        dimensions=(384,),
+        default_dimensions=384,
+        retrieval_enabled=True,
+        score_modes=("dense_cosine",),
+    )
+    cfg = _settings_with_embedding_routes(
+        embedding_profiles={**base.embedding_profiles, "local-embed-extra": extra_profile},
+        embedding_model_routes={**base.embedding_model_routes, "local-embed-extra": "embedding_extra"},
+        runtime_endpoints={"embedding_extra": extra_endpoint},
+    )
+    clients = FakeGatewayClients()
+    clients.runtime_clients_by_service_key["embedding_extra"] = FakeRuntimeClient(
+        endpoint=extra_endpoint,
+    )
+
+    body = asyncio.run(_readiness(clients, cfg))
+
+    dependency_names = {item["name"] for item in body["dependencies"]}
+    assert "embedding_extra_vllm" in dependency_names
 
 
 def test_collect_readiness_response_matches_schema():
@@ -634,7 +805,7 @@ def test_gateway_forwards_chat_and_embeddings_to_vllm_paths():
         json={"model": "local-embed", "input": ["hello"], "dimensions": 768},
     )
     assert embed.status_code == 200
-    assert clients.embedding.last_path == "embeddings"
+    assert clients.embedding_clients["local-embed"].last_path == "embeddings"
 
 
 def test_gateway_dense_retrieval_uses_embedding_runtime():
@@ -651,7 +822,7 @@ def test_gateway_dense_retrieval_uses_embedding_runtime():
             "model": "local-embed",
             "data": [{"object": "embedding", "embedding": vectors[text], "index": index} for index, text in enumerate(inputs)],
         }
-    clients.embedding.post_response = embed_response
+    clients.embedding_clients["local-embed"].post_response = embed_response
     client = TestClient(create_gateway_app(settings(), clients))
 
     response = client.post(
@@ -664,7 +835,7 @@ def test_gateway_dense_retrieval_uses_embedding_runtime():
     body = response.json()
     assert body["score_mode"] == "dense_cosine"
     assert body["scores"] == [{"index": 0, "score": 1.0}, {"index": 1, "score": 0.0}]
-    assert clients.embedding.last_path == "embeddings"
+    assert clients.embedding_clients["local-embed"].last_path == "embeddings"
 
 
 def test_gateway_retrieval_forwards_truncate_prompt_tokens_to_embedding_runtime():
@@ -683,7 +854,7 @@ def test_gateway_retrieval_forwards_truncate_prompt_tokens_to_embedding_runtime(
             ],
         }
 
-    clients.embedding.post_response = embed_response
+    clients.embedding_clients["local-embed"].post_response = embed_response
     client = TestClient(create_gateway_app(settings(), clients))
 
     score = client.post(
@@ -717,7 +888,7 @@ def test_gateway_retrieval_rejects_truncation_side_before_upstream_call():
     assert response.status_code == 422
     assert response.json()["error"]["code"] == "VALIDATION_ERROR"
     assert "truncation_side" in response.json()["error"]["message"]
-    assert clients.embedding.last_path is None
+    assert clients.embedding_clients["local-embed"].last_path is None
 
 
 def test_gateway_retrieval_truncate_prompt_tokens_can_change_ranking_canary():
@@ -736,7 +907,7 @@ def test_gateway_retrieval_truncate_prompt_tokens_can_change_ranking_canary():
             data.append({"object": "embedding", "embedding": vector + [0.0] * 766, "index": index})
         return {"object": "list", "model": "local-embed", "data": data}
 
-    clients.embedding.post_response = embed_response
+    clients.embedding_clients["local-embed"].post_response = embed_response
     client = TestClient(create_gateway_app(settings(), clients))
     base_payload = {"model": "local-embed", "query": "long query", "documents": ["first", "second"]}
 
@@ -764,7 +935,7 @@ def test_gateway_rejects_retrieval_extra_fields_before_upstream_call():
     )
     assert score.status_code == 422
     assert score.json()["error"]["code"] == "VALIDATION_ERROR"
-    assert clients.embedding.last_path is None
+    assert clients.embedding_clients["local-embed"].last_path is None
 
     token_embeddings = client.post(
         "/v1/retrieval/token-embeddings",
@@ -776,7 +947,7 @@ def test_gateway_rejects_retrieval_extra_fields_before_upstream_call():
 
 def test_gateway_dense_retrieval_rejects_invalid_embedding_upstream_response():
     clients = FakeGatewayClients()
-    clients.embedding.post_response = {"object": "list", "model": "local-embed", "data": []}
+    clients.embedding_clients["local-embed"].post_response = {"object": "list", "model": "local-embed", "data": []}
     client = TestClient(create_gateway_app(settings(), clients))
 
     response = client.post(
@@ -811,8 +982,8 @@ def test_gateway_rejects_removed_colbert_ko_model():
         )
         assert response.status_code == 422, f"{endpoint} should reject local-colbert-ko"
         assert response.json()["error"]["code"] == "MODEL_CAPABILITY_MISMATCH"
-        assert clients.embedding.last_path is None
-        assert clients.embedding_ko.last_path is None
+        assert clients.embedding_clients["local-embed"].last_path is None
+        assert clients.embedding_clients["local-embed-ko"].last_path is None
 
 
 def test_gateway_rejects_removed_late_interaction_maxsim():
@@ -841,7 +1012,7 @@ def test_gateway_retrieval_default_model_is_embed_ko():
             "model": "local-embed-ko",
             "data": [{"object": "embedding", "embedding": [0.1] * 1024, "index": i} for i in range(len(inputs))],
         }
-    clients.embedding_ko.post_response = embed_ko_response
+    clients.embedding_clients["local-embed-ko"].post_response = embed_ko_response
     client = TestClient(create_gateway_app(settings(), clients))
 
     response = client.post(
@@ -854,8 +1025,8 @@ def test_gateway_retrieval_default_model_is_embed_ko():
     body = response.json()
     assert body["model"] == "local-embed-ko"
     assert body["score_mode"] == "dense_cosine"
-    assert clients.embedding_ko.last_path == "embeddings"
-    assert clients.embedding.last_path is None
+    assert clients.embedding_clients["local-embed-ko"].last_path == "embeddings"
+    assert clients.embedding_clients["local-embed"].last_path is None
     assert len(captured_inputs) == 2
     assert captured_inputs[0] == ["query: 대한민국의 수도는?"]
     assert captured_inputs[1] == ["서울은 대한민국의 수도이다.", "부산은 항구 도시이다."]
@@ -874,7 +1045,7 @@ def test_gateway_local_embed_ko_retrieval_applies_query_prefix_only():
             "model": "local-embed-ko",
             "data": [{"object": "embedding", "embedding": [0.1] * 1024, "index": i} for i in range(len(inputs))],
         }
-    clients.embedding_ko.post_response = embed_ko_response
+    clients.embedding_clients["local-embed-ko"].post_response = embed_ko_response
     client = TestClient(create_gateway_app(settings(), clients))
 
     response = client.post(
@@ -887,7 +1058,7 @@ def test_gateway_local_embed_ko_retrieval_applies_query_prefix_only():
     body = response.json()
     assert body["model"] == "local-embed-ko"
     assert body["score_mode"] == "dense_cosine"
-    assert clients.embedding.last_path is None
+    assert clients.embedding_clients["local-embed"].last_path is None
     assert len(captured_inputs) == 2
     assert captured_inputs[0] == ["query: 대한민국의 수도는?"]
     assert captured_inputs[1] == ["서울은 대한민국의 수도이다.", "부산은 항구 도시이다."]
@@ -906,7 +1077,7 @@ def test_gateway_local_embed_retrieval_applies_task_prefix_regression():
             "model": "local-embed",
             "data": [{"object": "embedding", "embedding": [0.1] * 768, "index": i} for i in range(len(inputs))],
         }
-    clients.embedding.post_response = embed_response
+    clients.embedding_clients["local-embed"].post_response = embed_response
     client = TestClient(create_gateway_app(settings(), clients))
 
     response = client.post(
@@ -916,7 +1087,7 @@ def test_gateway_local_embed_retrieval_applies_task_prefix_regression():
     )
 
     assert response.status_code == 200
-    assert clients.embedding_ko.last_path is None
+    assert clients.embedding_clients["local-embed-ko"].last_path is None
     assert len(captured_inputs) == 2
     assert captured_inputs[0] == ["task: search result | query: 대한민국 수도는?"]
     assert captured_inputs[1] == ["title: none | text: 서울은 대한민국의 수도이다."]
@@ -934,8 +1105,8 @@ def test_gateway_embeddings_does_not_apply_prompt_policy():
     )
 
     assert response.status_code == 200
-    assert clients.embedding_ko.last_payload["input"] == ["임베딩할 텍스트 예시입니다."]
-    assert clients.embedding_ko.last_payload["input"] != ["query: 임베딩할 텍스트 예시입니다."]
+    assert clients.embedding_clients["local-embed-ko"].last_payload["input"] == ["임베딩할 텍스트 예시입니다."]
+    assert clients.embedding_clients["local-embed-ko"].last_payload["input"] != ["query: 임베딩할 텍스트 예시입니다."]
 
 
 def test_gateway_rejects_invalid_payloads_before_upstream_call():
@@ -956,7 +1127,7 @@ def test_gateway_rejects_invalid_payloads_before_upstream_call():
         json={"model": "local-embed", "input": [], "dimensions": 42},
     )
     assert embed.status_code == 422
-    assert clients.embedding.last_path is None
+    assert clients.embedding_clients["local-embed"].last_path is None
     Draft202012Validator(error_schema()).validate(embed.json())
 
     embed_zero_truncate = client.post(
@@ -965,7 +1136,7 @@ def test_gateway_rejects_invalid_payloads_before_upstream_call():
         json={"model": "local-embed", "input": ["hello"], "truncate_prompt_tokens": 0},
     )
     assert embed_zero_truncate.status_code == 422
-    assert clients.embedding.last_path is None
+    assert clients.embedding_clients["local-embed"].last_path is None
 
     embed_base64 = client.post(
         "/v1/embeddings",
@@ -973,7 +1144,7 @@ def test_gateway_rejects_invalid_payloads_before_upstream_call():
         json={"model": "local-embed", "input": ["hello"], "encoding_format": "base64"},
     )
     assert embed_base64.status_code == 422
-    assert clients.embedding.last_path is None
+    assert clients.embedding_clients["local-embed"].last_path is None
 
 
 
@@ -991,7 +1162,7 @@ def test_gateway_rejects_embedding_upstream_count_mismatch():
 
 def test_gateway_rejects_embedding_upstream_dimension_mismatch():
     clients = FakeGatewayClients()
-    clients.embedding.post_response = {
+    clients.embedding_clients["local-embed"].post_response = {
         "object": "list",
         "model": "local-embed",
         "data": [{"object": "embedding", "embedding": [0.1], "index": 0}],
@@ -1008,7 +1179,7 @@ def test_gateway_rejects_embedding_upstream_dimension_mismatch():
 
 def test_gateway_rejects_embedding_upstream_index_mismatch():
     clients = FakeGatewayClients()
-    clients.embedding.post_response = {
+    clients.embedding_clients["local-embed"].post_response = {
         "object": "list",
         "model": "local-embed",
         "data": [{"object": "embedding", "embedding": [0.1] * 768, "index": 1}],
@@ -2234,7 +2405,7 @@ def test_gateway_rerank_top_n_limits_results():
         "d1": [1.0] + [0.0] * 1023,
         "d2": [0.5, 0.866] + [0.0] * 1022,
     }
-    clients.embedding_ko.post_response = lambda _path, payload, **_kwargs: {
+    clients.embedding_clients["local-embed-ko"].post_response = lambda _path, payload, **_kwargs: {
         "object": "list",
         "model": "local-embed-ko",
         "data": [{"object": "embedding", "embedding": vectors[text], "index": index} for index, text in enumerate(payload["input"])],
@@ -2262,7 +2433,7 @@ def test_gateway_score_rejects_top_n():
     )
     assert response.status_code == 422
     assert response.json()["error"]["code"] == "VALIDATION_ERROR"
-    assert clients.embedding_ko.last_path is None
+    assert clients.embedding_clients["local-embed-ko"].last_path is None
 
 
 # ---------------------------------------------------------------------------
@@ -2279,8 +2450,8 @@ def test_gateway_embeddings_accepts_user_field():
         json={"model": "local-embed", "input": ["hello"], "user": "test-user-id"},
     )
     assert response.status_code == 200
-    assert clients.embedding.last_path == "embeddings"
-    assert "user" not in clients.embedding.last_payload
+    assert clients.embedding_clients["local-embed"].last_path == "embeddings"
+    assert "user" not in clients.embedding_clients["local-embed"].last_payload
 
 
 def test_gateway_embeddings_user_field_not_sent_upstream():
@@ -2293,8 +2464,8 @@ def test_gateway_embeddings_user_field_not_sent_upstream():
         json={"model": "local-embed", "input": "hello", "user": "abc"},
     )
     assert response.status_code == 200
-    assert clients.embedding.last_payload.get("user") is None
-    assert clients.embedding.last_payload.get("input") == "hello"
+    assert clients.embedding_clients["local-embed"].last_payload.get("user") is None
+    assert clients.embedding_clients["local-embed"].last_payload.get("input") == "hello"
 
 
 def test_gateway_embeddings_rejects_unsupported_encoding_format():
@@ -2308,4 +2479,4 @@ def test_gateway_embeddings_rejects_unsupported_encoding_format():
     )
     assert response.status_code == 422
     assert response.json()["error"]["code"] == "VALIDATION_ERROR"
-    assert clients.embedding.last_path is None
+    assert clients.embedding_clients["local-embed"].last_path is None

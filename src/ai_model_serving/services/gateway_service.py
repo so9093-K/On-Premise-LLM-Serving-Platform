@@ -115,7 +115,6 @@ class StreamingUsageObserver:
 
 class GatewayClientSet(Protocol):
     main_llm: StreamingRuntimeClient
-    embedding: JsonRuntimeClient
     embedding_clients: dict[str, JsonRuntimeClient]
     risk_adapter: JsonRuntimeClient
 

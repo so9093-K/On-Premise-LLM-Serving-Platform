@@ -51,11 +51,14 @@ from ..api.routers.gateway_retrieval import build_router as _build_retrieval_rou
 class GatewayClients:
     def __init__(self, settings: AppSettings) -> None:
         self.main_llm = VLLMClient(settings.runtime("main_llm"))
-        self.embedding = VLLMClient(settings.runtime("embedding"))
-        self.embedding_clients: dict[str, VLLMClient] = {"local-embed": self.embedding}
-        if settings.optional_runtime("embedding_ko") is not None:
-            self.embedding_clients["local-embed-ko"] = VLLMClient(settings.runtime("embedding_ko"))
-        self.embedding_ko = self.embedding_clients.get("local-embed-ko")
+        self.runtime_clients_by_service_key: dict[str, VLLMClient] = {}
+        self.embedding_clients: dict[str, VLLMClient] = {}
+        for model_id, service_key in settings.embedding_model_routes.items():
+            client = self.runtime_clients_by_service_key.get(service_key)
+            if client is None:
+                client = VLLMClient(settings.runtime(service_key))
+                self.runtime_clients_by_service_key[service_key] = client
+            self.embedding_clients[model_id] = client
         self.risk_adapter = VLLMClient(
             RuntimeEndpoint(
                 logical_id="risk-adapter",
@@ -71,15 +74,13 @@ class GatewayClients:
         )
         self.runtimes: dict[str, Any] = {
             "main_llm": self.main_llm,
-            "embedding": self.embedding,
             "risk_adapter": self.risk_adapter,
         }
-        if self.embedding_ko is not None:
-            self.runtimes["embedding_ko"] = self.embedding_ko
+        self.runtimes.update(self.runtime_clients_by_service_key)
 
     async def close(self) -> None:
         seen: set[int] = set()
-        for client in (self.main_llm, *self.embedding_clients.values(), self.risk_adapter):
+        for client in (self.main_llm, *self.runtime_clients_by_service_key.values(), self.risk_adapter):
             if client is None:
                 continue
             if id(client) in seen:

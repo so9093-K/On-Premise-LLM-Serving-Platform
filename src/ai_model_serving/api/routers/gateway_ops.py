@@ -33,14 +33,29 @@ def _risk_adapter_readiness(body: dict[str, Any]) -> tuple[str, str | None]:
 
 async def _readiness(
     clients: Any,
+    settings: Any,
     metrics: Any = None,
     *,
     admin_token: str | None = None,
     timeout_seconds: float = 2.0,
 ) -> dict[str, Any]:
+    runtime_clients = getattr(clients, "runtime_clients_by_service_key", None)
+    if runtime_clients is None:
+        runtime_clients = getattr(clients, "runtimes", {})
+    embedding_probes: list[DependencyProbe] = []
+    seen_service_keys: set[str] = set()
+    for service_key in settings.embedding_model_routes.values():
+        if service_key in seen_service_keys:
+            continue
+        seen_service_keys.add(service_key)
+        client = getattr(clients, service_key, None)
+        if client is None and isinstance(runtime_clients, dict):
+            client = runtime_clients.get(service_key)
+        if client is not None:
+            embedding_probes.append(DependencyProbe(f"{service_key}_vllm", client, "models", required=True))
     probes = [
         DependencyProbe("main_llm_vllm", clients.main_llm, "models"),
-        DependencyProbe("embedding_vllm", clients.embedding, "models"),
+        *embedding_probes,
         DependencyProbe(
             "risk_adapter",
             clients.risk_adapter,
@@ -49,9 +64,6 @@ async def _readiness(
             _risk_adapter_readiness,
         ),
     ]
-    embedding_ko = getattr(clients, "embedding_ko", None)
-    if embedding_ko is not None:
-        probes.append(DependencyProbe("embedding_ko_vllm", embedding_ko, "models", required=True))
     return await collect_readiness(service="gateway", probes=probes, metrics=metrics, timeout_seconds=timeout_seconds)
 
 
@@ -83,6 +95,7 @@ def build_router(admin_dependencies: list, clients: Any, metrics: Any, settings:
         admin_token = next(iter(settings.security.admin_api_keys), None)
         body = await _readiness(
             clients,
+            settings,
             metrics,
             admin_token=admin_token,
             timeout_seconds=settings.readiness_probe_timeout_seconds,

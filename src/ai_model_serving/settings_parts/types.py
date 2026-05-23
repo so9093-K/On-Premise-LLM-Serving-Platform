@@ -130,8 +130,16 @@ class AppSettings:
                 request_parameter_policy=self.embedding.request_parameter_policy or {},
             )
             object.__setattr__(self, "embedding_profiles", {profile.model: profile})
+            # Legacy AppSettings construction path: older tests/extensions may
+            # supply only one embedding endpoint. Synthesize a matching profile
+            # and align defaults so validation still has one source of truth.
+            if self.default_embedding_model not in {profile.model}:
+                object.__setattr__(self, "default_embedding_model", profile.model)
+            if self.default_retrieval_model not in {profile.model}:
+                object.__setattr__(self, "default_retrieval_model", profile.model)
         if not self.embedding_model_routes and self.embedding_profiles:
             object.__setattr__(self, "embedding_model_routes", {model: profile.service_key for model, profile in self.embedding_profiles.items()})
+        self._validate_embedding_configuration()
         if not self.risk_detectors:
             detectors: list[RiskDetectorSettings] = []
             if self.risk_prompt is not None:
@@ -164,3 +172,45 @@ class AppSettings:
 
     def enabled_risk_detectors(self) -> tuple[RiskDetectorSettings, ...]:
         return tuple(detector for detector in self.risk_detectors if detector.enabled)
+
+    def _validate_embedding_configuration(self) -> None:
+        if not self.embedding_profiles and not self.embedding_model_routes:
+            return
+        profile_keys = set(self.embedding_profiles)
+        route_keys = set(self.embedding_model_routes)
+        if profile_keys != route_keys:
+            missing_routes = sorted(profile_keys - route_keys)
+            missing_profiles = sorted(route_keys - profile_keys)
+            details: list[str] = []
+            if missing_routes:
+                details.append(f"missing routes for embedding profiles: {', '.join(missing_routes)}")
+            if missing_profiles:
+                details.append(f"routes without embedding profiles: {', '.join(missing_profiles)}")
+            raise ValueError("; ".join(details))
+        models_by_service_key: dict[str, set[str]] = {}
+        for profile in self.embedding_profiles.values():
+            models_by_service_key.setdefault(profile.service_key, set()).add(profile.model)
+        for model_id, profile in self.embedding_profiles.items():
+            if profile.model != model_id:
+                raise ValueError(f"embedding profile key {model_id!r} must match profile.model {profile.model!r}")
+            route_service_key = self.embedding_model_routes.get(model_id)
+            if route_service_key != profile.service_key:
+                raise ValueError(
+                    f"embedding route for {model_id!r} points to {route_service_key!r}, "
+                    f"but profile.service_key is {profile.service_key!r}"
+                )
+            if profile.service_key not in self.runtime_endpoints:
+                raise ValueError(f"embedding profile {model_id!r} references unknown runtime service {profile.service_key!r}")
+            runtime = self.runtime_endpoints[profile.service_key]
+            service_models = models_by_service_key[profile.service_key]
+            if runtime.model not in service_models:
+                raise ValueError(
+                    f"embedding runtime {profile.service_key!r} serves model {runtime.model!r}, "
+                    f"but embedding profiles for that service expect one of {', '.join(sorted(service_models))}"
+                )
+        for attr_name, model_id in (
+            ("default_embedding_model", self.default_embedding_model),
+            ("default_retrieval_model", self.default_retrieval_model),
+        ):
+            if model_id not in self.embedding_profiles:
+                raise ValueError(f"{attr_name} {model_id!r} is not configured in embedding_profiles")

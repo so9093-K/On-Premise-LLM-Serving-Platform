@@ -1,6 +1,6 @@
 {
   "summary": {
-    "total_files": 377,
+    "total_files": 380,
     "by_area": {
       ".dockerignore": 1,
       ".env": 1,
@@ -31,13 +31,13 @@
       "requirements.runtime.lock": 1,
       "scripts": 77,
       "specs": 15,
-      "src": 91,
+      "src": 94,
       "tests": 39,
       "version_manifest.json": 1
     },
     "by_category": {
       "OpenAPI/JSON schema contract": 15,
-      "application/control-plane source": 91,
+      "application/control-plane source": 94,
       "architecture decision record": 8,
       "compose/monitoring/runtime ops template": 18,
       "configuration source of truth": 17,
@@ -59,7 +59,7 @@
       "application": 51,
       "configuration": 17,
       "documentation": 61,
-      "domain-registry": 3,
+      "domain-registry": 6,
       "governance-validation": 10,
       "handoff-reporting": 20,
       "operations": 18,
@@ -73,7 +73,7 @@
       "documentation": 79,
       "entrypoint": 9,
       "environment-template": 5,
-      "python-source": 178,
+      "python-source": 181,
       "shell-command": 27,
       "structured-data": 68,
       "supporting-file": 9
@@ -96,8 +96,8 @@
         "category": "current handoff/review report",
         "owner": "handoff-reporting",
         "management": "generated/curated for handoff review",
-        "size_bytes": 157890,
-        "line_count": 4409,
+        "size_bytes": 159132,
+        "line_count": 4442,
         "role": "structured-data",
         "review_note": "handoff/review artifact; avoid stale phase snapshots in active package"
       },
@@ -107,8 +107,8 @@
         "category": "test suite",
         "owner": "quality",
         "management": "managed by test strategy",
-        "size_bytes": 93394,
-        "line_count": 2311,
+        "size_bytes": 101313,
+        "line_count": 2482,
         "role": "python-source",
         "review_note": "test coverage; keep deterministic and avoid live GPU dependency"
       },
@@ -212,17 +212,6 @@
         "review_note": "generated operator report; regenerate through make operator-reports before handoff"
       },
       {
-        "path": "src/ai_model_serving/domain/model_registry.py",
-        "area": "src",
-        "category": "application/control-plane source",
-        "owner": "domain-registry",
-        "management": "managed by package source layout",
-        "size_bytes": 29990,
-        "line_count": 703,
-        "role": "python-source",
-        "review_note": "registry/domain code; monitor size as projections grow"
-      },
-      {
         "path": "ops/grafana/dashboards/executive_runtime_overview.json",
         "area": "ops",
         "category": "compose/monitoring/runtime ops template",
@@ -243,6 +232,17 @@
         "line_count": 625,
         "role": "structured-data",
         "review_note": "supporting project file"
+      },
+      {
+        "path": "src/ai_model_serving/governance_validation/docs_ops.py",
+        "area": "src",
+        "category": "application/control-plane source",
+        "owner": "governance-validation",
+        "management": "managed by package source layout",
+        "size_bytes": 40731,
+        "line_count": 616,
+        "role": "python-source",
+        "review_note": "application code; preserve public API behavior and compatibility facades"
       }
     ],
     "entrypoints": [
@@ -1782,8 +1782,8 @@
       "category": "current handoff/review report",
       "owner": "handoff-reporting",
       "management": "generated/curated for handoff review",
-      "size_bytes": 77661,
-      "line_count": 378,
+      "size_bytes": 78299,
+      "line_count": 381,
       "role": "structured-data",
       "review_note": "handoff/review artifact; avoid stale phase snapshots in active package"
     },
@@ -1793,8 +1793,8 @@
       "category": "current handoff/review report",
       "owner": "handoff-reporting",
       "management": "generated/curated for handoff review",
-      "size_bytes": 157890,
-      "line_count": 4409,
+      "size_bytes": 159132,
+      "line_count": 4442,
       "role": "structured-data",
       "review_note": "handoff/review artifact; avoid stale phase snapshots in active package"
     },
@@ -1804,7 +1804,7 @@
       "category": "current handoff/review report",
       "owner": "handoff-reporting",
       "management": "generated/curated for handoff review",
-      "size_bytes": 5264,
+      "size_bytes": 5297,
       "line_count": 98,
       "role": "documentation",
       "review_note": "handoff/review artifact; avoid stale phase snapshots in active package"
@@ -3036,8 +3036,8 @@
       "category": "application/control-plane source",
       "owner": "application",
       "management": "managed by package source layout",
-      "size_bytes": 3499,
-      "line_count": 106,
+      "size_bytes": 4050,
+      "line_count": 119,
       "role": "python-source",
       "review_note": "application code; preserve public API behavior and compatibility facades"
     },
@@ -3135,8 +3135,8 @@
       "category": "application/control-plane source",
       "owner": "application",
       "management": "managed by package source layout",
-      "size_bytes": 6615,
-      "line_count": 151,
+      "size_bytes": 6664,
+      "line_count": 152,
       "role": "python-source",
       "review_note": "application code; preserve public API behavior and compatibility facades"
     },
@@ -3322,8 +3322,19 @@
       "category": "application/control-plane source",
       "owner": "domain-registry",
       "management": "managed by package source layout",
-      "size_bytes": 645,
-      "line_count": 29,
+      "size_bytes": 711,
+      "line_count": 33,
+      "role": "python-source",
+      "review_note": "registry/domain code; monitor size as projections grow"
+    },
+    {
+      "path": "src/ai_model_serving/domain/model_records.py",
+      "area": "src",
+      "category": "application/control-plane source",
+      "owner": "domain-registry",
+      "management": "managed by package source layout",
+      "size_bytes": 2916,
+      "line_count": 97,
       "role": "python-source",
       "review_note": "registry/domain code; monitor size as projections grow"
     },
@@ -3333,8 +3344,19 @@
       "category": "application/control-plane source",
       "owner": "domain-registry",
       "management": "managed by package source layout",
-      "size_bytes": 29990,
-      "line_count": 703,
+      "size_bytes": 10402,
+      "line_count": 220,
+      "role": "python-source",
+      "review_note": "registry/domain code; monitor size as projections grow"
+    },
+    {
+      "path": "src/ai_model_serving/domain/projection_models.py",
+      "area": "src",
+      "category": "application/control-plane source",
+      "owner": "domain-registry",
+      "management": "managed by package source layout",
+      "size_bytes": 7664,
+      "line_count": 219,
       "role": "python-source",
       "review_note": "registry/domain code; monitor size as projections grow"
     },
@@ -3344,8 +3366,19 @@
       "category": "application/control-plane source",
       "owner": "domain-registry",
       "management": "managed by package source layout",
-      "size_bytes": 18218,
+      "size_bytes": 18286,
       "line_count": 368,
+      "role": "python-source",
+      "review_note": "registry/domain code; monitor size as projections grow"
+    },
+    {
+      "path": "src/ai_model_serving/domain/request_surfaces.py",
+      "area": "src",
+      "category": "application/control-plane source",
+      "owner": "domain-registry",
+      "management": "managed by package source layout",
+      "size_bytes": 9631,
+      "line_count": 189,
       "role": "python-source",
       "review_note": "registry/domain code; monitor size as projections grow"
     },
@@ -3806,8 +3839,8 @@
       "category": "application/control-plane source",
       "owner": "application",
       "management": "managed by package source layout",
-      "size_bytes": 14437,
-      "line_count": 310,
+      "size_bytes": 14404,
+      "line_count": 309,
       "role": "python-source",
       "review_note": "application code; preserve public API behavior and compatibility facades"
     },
@@ -3916,8 +3949,8 @@
       "category": "application/control-plane source",
       "owner": "application",
       "management": "managed by package source layout",
-      "size_bytes": 6278,
-      "line_count": 166,
+      "size_bytes": 9412,
+      "line_count": 216,
       "role": "python-source",
       "review_note": "application code; preserve public API behavior and compatibility facades"
     },
@@ -4004,8 +4037,8 @@
       "category": "test suite",
       "owner": "quality",
       "management": "managed by test strategy",
-      "size_bytes": 2997,
-      "line_count": 96,
+      "size_bytes": 3223,
+      "line_count": 102,
       "role": "python-source",
       "review_note": "test coverage; keep deterministic and avoid live GPU dependency"
     },
@@ -4257,8 +4290,8 @@
       "category": "test suite",
       "owner": "quality",
       "management": "managed by test strategy",
-      "size_bytes": 93394,
-      "line_count": 2311,
+      "size_bytes": 101313,
+      "line_count": 2482,
       "role": "python-source",
       "review_note": "test coverage; keep deterministic and avoid live GPU dependency"
     },
@@ -4356,8 +4389,8 @@
       "category": "test suite",
       "owner": "quality",
       "management": "managed by test strategy",
-      "size_bytes": 11304,
-      "line_count": 268,
+      "size_bytes": 13287,
+      "line_count": 322,
       "role": "python-source",
       "review_note": "test coverage; keep deterministic and avoid live GPU dependency"
     },

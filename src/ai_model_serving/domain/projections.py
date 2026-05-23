@@ -3,14 +3,14 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from .model_registry import (
+    from .model_records import RuntimeService
+    from .model_registry import ModelRegistry
+    from .projection_models import (
         ModelCardProjection,
         ModelContractProjection,
         ModelInventoryRow,
         ModelListSchemaProjection,
-        ModelRegistry,
         MonitoringTargetProjection,
-        RuntimeService,
         RuntimeValidationMatrixCheck,
         RuntimeValidationTarget,
     )
@@ -37,7 +37,7 @@ def capability_values_in_catalog_order(registry: "ModelRegistry") -> tuple[str, 
 
 
 def model_list_schema_projection(registry: "ModelRegistry") -> "ModelListSchemaProjection":
-    from .model_registry import ModelListSchemaProjection
+    from .projection_models import ModelListSchemaProjection
 
     return ModelListSchemaProjection(
         model_ids=registry.public_logical_ids(),
@@ -47,7 +47,7 @@ def model_list_schema_projection(registry: "ModelRegistry") -> "ModelListSchemaP
 
 def iter_runtime_services(registry: "ModelRegistry") -> tuple["RuntimeService", ...]:
     """Return runtime services in model_serving.yaml order with catalog context."""
-    from .model_registry import RuntimeService
+    from .model_records import RuntimeService
 
     records_by_served_name = {record.served_model_name: record for record in registry.iter_records()}
     services: list[RuntimeService] = []
@@ -76,7 +76,7 @@ def iter_runtime_services(registry: "ModelRegistry") -> tuple["RuntimeService", 
 
 def model_contract_projections(registry: "ModelRegistry") -> tuple["ModelContractProjection", ...]:
     """Derive the model contract inventory from catalog runtime metadata."""
-    from .model_registry import ModelContractProjection
+    from .projection_models import ModelContractProjection
 
     projections: list[ModelContractProjection] = []
     for record in registry.iter_records():
@@ -101,7 +101,7 @@ def model_contract_projections(registry: "ModelRegistry") -> tuple["ModelContrac
 
 def inventory_rows(registry: "ModelRegistry") -> tuple["ModelInventoryRow", ...]:
     """Return operator-facing model inventory rows without role-specific branching."""
-    from .model_registry import ModelInventoryRow
+    from .projection_models import ModelInventoryRow
 
     rows: list[ModelInventoryRow] = []
     for record in registry.iter_records():
@@ -134,7 +134,7 @@ def inventory_rows(registry: "ModelRegistry") -> tuple["ModelInventoryRow", ...]
 
 def model_card_projections(registry: "ModelRegistry") -> tuple["ModelCardProjection", ...]:
     """Return catalog-derived expectations for model card governance."""
-    from .model_registry import ModelCardProjection
+    from .projection_models import ModelCardProjection
 
     projections: list[ModelCardProjection] = []
     for record in registry.iter_records():
@@ -156,7 +156,7 @@ def model_card_projections(registry: "ModelRegistry") -> tuple["ModelCardProject
 
 def runtime_validation_targets(registry: "ModelRegistry") -> tuple["RuntimeValidationTarget", ...]:
     """Return one validation target per configured runtime service."""
-    from .model_registry import RuntimeValidationTarget
+    from .projection_models import RuntimeValidationTarget
 
     records_by_id = {record.logical_id: record for record in registry.iter_records()}
     targets: list[RuntimeValidationTarget] = []
@@ -180,7 +180,7 @@ def runtime_validation_targets(registry: "ModelRegistry") -> tuple["RuntimeValid
 
 def monitoring_targets(registry: "ModelRegistry") -> tuple["MonitoringTargetProjection", ...]:
     """Return Prometheus/Grafana model/runtime label expectations."""
-    from .model_registry import MonitoringTargetProjection
+    from .projection_models import MonitoringTargetProjection
 
     return tuple(
         MonitoringTargetProjection(
@@ -195,7 +195,7 @@ def monitoring_targets(registry: "ModelRegistry") -> tuple["MonitoringTargetProj
 
 def runtime_validation_matrix_checks(registry: "ModelRegistry") -> tuple["RuntimeValidationMatrixCheck", ...]:
     """Derive the runtime validation matrix from the model registry."""
-    from .model_registry import RuntimeValidationMatrixCheck
+    from .projection_models import RuntimeValidationMatrixCheck
 
     all_models = registry.public_logical_ids()
     runtime_services = tuple(target.service_key for target in registry.runtime_validation_targets())

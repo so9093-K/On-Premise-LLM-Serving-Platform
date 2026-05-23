@@ -94,3 +94,9 @@ def test_services_do_not_import_framework_or_upstream_clients() -> None:
 
 def test_api_routers_do_not_import_upstream_clients() -> None:
     _assert_no_imports("api/routers", ("ai_model_serving.upstream",))
+
+
+def test_gateway_clients_do_not_hardcode_embedding_model_ids() -> None:
+    source = (SRC / "apps" / "gateway.py").read_text(encoding="utf-8")
+    assert "local-embed" not in source
+    assert "local-embed-ko" not in source
