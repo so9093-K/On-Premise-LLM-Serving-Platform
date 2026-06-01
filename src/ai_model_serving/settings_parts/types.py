@@ -96,6 +96,7 @@ class AppSettings:
     default_embedding_model: str = "local-embed"
     default_retrieval_model: str = "local-embed-ko"
     max_request_body_bytes: int = 1_000_000
+    max_retrieval_documents: int = 32
     risk_input_max_chars: int = 7_936
     public_models: tuple[dict[str, Any], ...] = ()
     documentation: DocumentationSettings = DocumentationSettings()

@@ -265,6 +265,7 @@ def load_settings(root: Path | None = None, env_file: Path | str | None = None) 
             "MAX_REQUEST_BODY_BYTES",
             int(operational_limits.get("max_request_body_bytes", 1_000_000)),
         ),
+        max_retrieval_documents=int(operational_limits.get("max_retrieval_documents", 32)),
         risk_input_max_chars=risk_input_max_chars,
         public_models=_public_models_from_registry(model_catalog, model_serving),
         documentation=documentation,

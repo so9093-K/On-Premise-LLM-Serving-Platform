@@ -45,9 +45,10 @@ def validate_ports() -> None:
         if ports.get(key) != value:
             raise SystemExit(f'port mismatch: {key} expected {value}, got {ports.get(key)}')
 
+    gateway_port = model_serving['server']['gateway']['port']
     env = (ROOT / '.env.example').read_text(encoding='utf-8')
-    if 'GATEWAY_PORT=9400' not in env:
-        raise SystemExit('.env.example must include GATEWAY_PORT=9400')
+    if f'GATEWAY_PORT={gateway_port}' not in env:
+        raise SystemExit(f'.env.example must include GATEWAY_PORT={gateway_port}')
 
 def validate_model_cards() -> None:
     from ai_model_serving.domain import ModelRegistry
@@ -102,7 +103,7 @@ def validate_model_source_facts() -> None:
         raise SystemExit('local-embed source_facts must preserve 2048 token input and 768 default dimension')
     if set(facts['matryoshka_dimensions']) != {768, 512, 256, 128}:
         raise SystemExit('local-embed source_facts must preserve Matryoshka dimensions')
-    if serving['embedding']['max_model_len'] != 2048:
+    if serving['embedding']['max_model_len'] != facts['max_input_tokens']:
         raise SystemExit('embedding serving max_model_len must match model-card max input tokens')
 
     embed_ko = catalog['local-embed-ko']
@@ -110,7 +111,7 @@ def validate_model_source_facts() -> None:
     ko_policy = embed_ko['project_runtime_policy']
     if ko_facts['output_dimensions'] != 1024 or ko_facts['max_sequence_length'] != 8192:
         raise SystemExit('local-embed-ko source_facts must preserve 1024 dimensions and 8192 model-card context')
-    if ko_policy['embedding_dimension_supported'] != [1024]:
+    if ko_policy['embedding_dimension_supported'] != [ko_facts['output_dimensions']]:
         raise SystemExit('local-embed-ko project_runtime_policy must keep fixed 1024 dimensions')
     if ko_policy.get('retrieval_default') is not True:
         raise SystemExit('local-embed-ko project_runtime_policy must mark it as retrieval_default')

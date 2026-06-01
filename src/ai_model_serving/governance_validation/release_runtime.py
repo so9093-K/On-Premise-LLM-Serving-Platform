@@ -231,8 +231,13 @@ def validate_deployment_reproducibility() -> None:
     if 'PYTHON ?= $(if $(PYTHON_BIN)' not in makefile:
         raise SystemExit('Makefile must honor caller-provided PYTHON_BIN for bootstrap/CI validation.')
 
+    serving_cfg = read_yaml('configs/model_serving.yaml')['server']
+    compose_port_checks = {
+        'gateway': str(serving_cfg['gateway']['port']),
+        'risk-adapter': str(serving_cfg['risk_adapter']['port']),
+    }
     compose = read_yaml('ops/compose/full-stack.private-network.yaml')
-    for service, expected_port in {'gateway': '9400', 'risk-adapter': '9405'}.items():
+    for service, expected_port in compose_port_checks.items():
         env = compose['services'][service].get('environment', {})
         if str(env.get('HEALTHCHECK_PORT')) != expected_port:
             raise SystemExit(f'{service} compose service must set HEALTHCHECK_PORT={expected_port}')

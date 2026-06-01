@@ -124,7 +124,7 @@
     "max_tokens": {
       "type": "integer",
       "minimum": 1,
-      "maximum": 1024
+      "maximum": 4096
     },
     "top_p": {
       "type": "number",

@@ -15,8 +15,6 @@ from ..metrics import Metrics
 from ..runtime_clients.ports import JsonRuntimeClient
 from ..settings import AppSettings
 
-MAX_RETRIEVAL_DOCUMENTS = 32
-
 
 type RetrievalPayload = tuple[str, list[str], str, str, int | None]
 
@@ -64,10 +62,10 @@ class RetrievalService:
             raise ServiceError("VALIDATION_ERROR", "retrieval query must be a non-empty string.", False, 422)
         if not isinstance(documents, list) or not documents:
             raise ServiceError("VALIDATION_ERROR", "retrieval documents must be a non-empty array.", False, 422)
-        if len(documents) > MAX_RETRIEVAL_DOCUMENTS:
+        if len(documents) > self.settings.max_retrieval_documents:
             raise ServiceError(
                 "VALIDATION_ERROR",
-                f"retrieval documents cannot exceed {MAX_RETRIEVAL_DOCUMENTS} items.",
+                f"retrieval documents cannot exceed {self.settings.max_retrieval_documents} items.",
                 False,
                 422,
             )

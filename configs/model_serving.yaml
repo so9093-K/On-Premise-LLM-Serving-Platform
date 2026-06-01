@@ -436,6 +436,7 @@ timeouts:
   risk_adapter_seconds: 15
 operational_limits:
   max_request_body_bytes: 1250000
+  max_retrieval_documents: 32
   per_upstream_concurrency: 1
   queue_timeout_seconds: 2
   circuit_breaker_failure_threshold: 3

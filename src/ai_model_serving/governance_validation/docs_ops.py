@@ -595,8 +595,9 @@ def validate_multimodal_chat_and_token_caps() -> None:
     image_schema_text = json.dumps(content_schema)
     if 'image_url' not in image_schema_text or 'data:image' not in image_schema_text:
         raise SystemExit('chat completion schema must expose bounded image_url content parts')
-    if chat_schema['properties']['max_tokens'].get('maximum') != 1024:
-        raise SystemExit('chat completion schema must cap max_tokens at 1024')
+    expected_max_tokens = int(read_yaml('configs/gpu_budgets.yaml')['limits']['main_llm_max_output_tokens'])
+    if chat_schema['properties']['max_tokens'].get('maximum') != expected_max_tokens:
+        raise SystemExit(f'chat completion schema max_tokens.maximum must match gpu_budgets.yaml main_llm_max_output_tokens {expected_max_tokens}')
     validation = read_runtime_contract_text()
     for phrase in [
         'image_url.url scheme must be one of',
