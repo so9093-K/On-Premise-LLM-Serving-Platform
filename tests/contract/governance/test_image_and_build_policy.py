@@ -75,7 +75,6 @@ def test_embedding_ko_vllm_uses_shared_vllm_image_without_local_build() -> None:
     """Korean dense embedding runtime uses the standard vLLM image and has no custom build artifact."""
     for rel in [
         "ops/compose/full-stack.private-network.yaml",
-        "ops/compose/full-stack.example.yaml",
     ]:
         raw = (ROOT / rel).read_text(encoding="utf-8")
         assert "embedding-ko-vllm" in raw

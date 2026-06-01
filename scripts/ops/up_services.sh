@@ -68,10 +68,10 @@ wait_for_health() {
   return 1
 }
 
-start_service gateway ai_model_serving.apps.gateway:app "$GATEWAY_HOST" "$GATEWAY_PORT"
+start_service gateway ai_model_serving.apps.gateway_asgi:app "$GATEWAY_HOST" "$GATEWAY_PORT"
 wait_for_health gateway "http://${GATEWAY_HOST}:${GATEWAY_PORT}"
 
-start_service risk_adapter ai_model_serving.apps.risk_adapter:app "$RISK_ADAPTER_HOST" "$RISK_ADAPTER_PORT"
+start_service risk_adapter ai_model_serving.apps.risk_adapter_asgi:app "$RISK_ADAPTER_HOST" "$RISK_ADAPTER_PORT"
 wait_for_health risk_adapter "http://${RISK_ADAPTER_HOST}:${RISK_ADAPTER_PORT}"
 
 cat <<MSG

@@ -272,7 +272,7 @@ def test_main_runtime_features_and_request_parameter_policy_are_explicit() -> No
 
 
 def _compose_command_args(service_name: str) -> dict[str, str | bool]:
-    compose = yaml.safe_load((ROOT / 'ops/compose/full-stack.example.yaml').read_text(encoding='utf-8'))
+    compose = yaml.safe_load((ROOT / 'ops/compose/full-stack.private-network.yaml').read_text(encoding='utf-8'))
     command = compose['services'][service_name]['command']
     result: dict[str, str | bool] = {}
     i = 0

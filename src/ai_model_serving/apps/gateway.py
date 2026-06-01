@@ -147,6 +147,3 @@ def create_gateway_app(settings: AppSettings | None = None, clients: GatewayClie
     )
 
     return app
-
-
-app = create_gateway_app()

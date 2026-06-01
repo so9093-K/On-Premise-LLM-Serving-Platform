@@ -338,8 +338,7 @@ def validate_build_ux_roles() -> None:
         raise SystemExit('Makefile help must state that make build does not start services')
     _validate_operator_workflow_targets_in_registry(ROOT)
     for script in ['scripts/validation/run_tests.py', 'scripts/reports/operator_guide.py', 'scripts/reports/operator_status_bundle.py', 'scripts/reports/live_evidence_bundle.py', 'scripts/validation/release_check.py', 'scripts/reports/monitoring_projection_report.py', 'scripts/reports/runtime_targets_report.py', 'scripts/reports/storage_paths_report.py', 'scripts/reports/project_inventory_report.py',
-    'scripts/ops/start_services.sh', 'scripts/ops/up_services.sh', 'scripts/ops/stop_services.sh', 'scripts/ops/down_services.sh', 'scripts/ops/status_services.sh', 'scripts/ops/ready_check.sh',
-    'scripts/ops/check_ready.sh']:
+    'scripts/ops/start_services.sh', 'scripts/ops/up_services.sh', 'scripts/ops/stop_services.sh', 'scripts/ops/down_services.sh', 'scripts/ops/status_services.sh', 'scripts/ops/ready_check.sh']:
         path = ROOT / script
         if not path.exists():
             raise SystemExit(f'missing runtime UX script: {script}')
@@ -470,10 +469,6 @@ def validate_monitoring_resource_mapping() -> None:
     for phrase in ['dcgm-exporter:', '${DCGM_EXPORTER_IMAGE:', 'env_file: ../../.env']:
         if phrase not in private_compose:
             raise SystemExit(f'full-stack private-network compose must include {phrase}')
-    example_compose = (ROOT / 'ops/compose/full-stack.example.yaml').read_text(encoding='utf-8')
-    for phrase in ['dcgm-exporter:', '${DCGM_EXPORTER_IMAGE:', '${DCGM_EXPORTER_PORT:-9412}:9400', 'env_file: ../../.env']:
-        if phrase not in example_compose:
-            raise SystemExit(f'full-stack example compose must include {phrase}')
 
 def validate_operational_hardening_contract() -> None:
     serving = read_yaml('configs/model_serving.yaml')

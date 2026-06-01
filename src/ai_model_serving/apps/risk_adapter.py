@@ -129,6 +129,3 @@ def create_risk_adapter_app(settings: AppSettings | None = None, clients: RiskCl
     )
 
     return app
-
-
-app = create_risk_adapter_app()

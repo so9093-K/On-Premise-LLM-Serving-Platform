@@ -82,7 +82,6 @@ def test_runtime_ux_scripts_exist_and_are_executable() -> None:
         'scripts/ops/down_services.sh',
         'scripts/ops/status_services.sh',
         'scripts/ops/ready_check.sh',
-        'scripts/ops/check_ready.sh',
     ]:
         path = ROOT / rel
         assert path.exists()

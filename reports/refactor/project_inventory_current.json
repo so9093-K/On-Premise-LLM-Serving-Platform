@@ -1,6 +1,6 @@
 {
   "summary": {
-    "total_files": 409,
+    "total_files": 411,
     "by_area": {
       ".dockerignore": 1,
       ".env": 1,
@@ -31,13 +31,13 @@
       "requirements.runtime.lock": 1,
       "scripts": 77,
       "specs": 15,
-      "src": 94,
+      "src": 96,
       "tests": 68,
       "version_manifest.json": 1
     },
     "by_category": {
       "OpenAPI/JSON schema contract": 15,
-      "application/control-plane source": 94,
+      "application/control-plane source": 96,
       "architecture decision record": 8,
       "compose/monitoring/runtime ops template": 18,
       "configuration source of truth": 17,
@@ -56,7 +56,7 @@
     },
     "by_owner": {
       "api-contracts": 28,
-      "application": 51,
+      "application": 53,
       "configuration": 17,
       "documentation": 61,
       "domain-registry": 6,
@@ -73,7 +73,7 @@
       "documentation": 79,
       "entrypoint": 9,
       "environment-template": 5,
-      "python-source": 209,
+      "python-source": 211,
       "shell-command": 27,
       "structured-data": 69,
       "supporting-file": 9
@@ -96,8 +96,8 @@
         "category": "current handoff/review report",
         "owner": "handoff-reporting",
         "management": "generated/curated for handoff review",
-        "size_bytes": 169826,
-        "line_count": 4761,
+        "size_bytes": 170645,
+        "line_count": 4783,
         "role": "structured-data",
         "review_note": "handoff/review artifact; avoid stale phase snapshots in active package"
       },
@@ -206,8 +206,8 @@
         "category": "application/control-plane source",
         "owner": "governance-validation",
         "management": "managed by package source layout",
-        "size_bytes": 40731,
-        "line_count": 616,
+        "size_bytes": 40924,
+        "line_count": 617,
         "role": "python-source",
         "review_note": "application code; preserve public API behavior and compatibility facades"
       },
@@ -451,7 +451,7 @@
       "category": "project metadata",
       "owner": "project-maintenance",
       "management": "managed by root project metadata",
-      "size_bytes": 1019,
+      "size_bytes": 1024,
       "line_count": 30,
       "role": "build-command",
       "review_note": "supporting project file"
@@ -605,8 +605,8 @@
       "category": "configuration source of truth",
       "owner": "configuration",
       "management": "managed by configuration lifecycle",
-      "size_bytes": 12852,
-      "line_count": 450,
+      "size_bytes": 12882,
+      "line_count": 451,
       "role": "structured-data",
       "review_note": "configuration source; validate through governance and projection checks after edits"
     },
@@ -1507,7 +1507,7 @@
       "category": "compose/monitoring/runtime ops template",
       "owner": "operations",
       "management": "managed by operator templates",
-      "size_bytes": 9049,
+      "size_bytes": 9059,
       "line_count": 203,
       "role": "structured-data",
       "review_note": "supporting project file"
@@ -1518,7 +1518,7 @@
       "category": "compose/monitoring/runtime ops template",
       "owner": "operations",
       "management": "managed by operator templates",
-      "size_bytes": 9825,
+      "size_bytes": 9835,
       "line_count": 347,
       "role": "structured-data",
       "review_note": "supporting project file"
@@ -1782,8 +1782,8 @@
       "category": "current handoff/review report",
       "owner": "handoff-reporting",
       "management": "generated/curated for handoff review",
-      "size_bytes": 83506,
-      "line_count": 410,
+      "size_bytes": 83945,
+      "line_count": 412,
       "role": "structured-data",
       "review_note": "handoff/review artifact; avoid stale phase snapshots in active package"
     },
@@ -1793,8 +1793,8 @@
       "category": "current handoff/review report",
       "owner": "handoff-reporting",
       "management": "generated/curated for handoff review",
-      "size_bytes": 169826,
-      "line_count": 4761,
+      "size_bytes": 170645,
+      "line_count": 4783,
       "role": "structured-data",
       "review_note": "handoff/review artifact; avoid stale phase snapshots in active package"
     },
@@ -2552,7 +2552,7 @@
       "category": "operator/developer command surface",
       "owner": "operator-ux",
       "management": "managed by Makefile command UX",
-      "size_bytes": 2877,
+      "size_bytes": 2887,
       "line_count": 81,
       "role": "shell-command",
       "review_note": "operator/developer command; expose through Makefile/help if user-facing"
@@ -3135,8 +3135,19 @@
       "category": "application/control-plane source",
       "owner": "application",
       "management": "managed by package source layout",
-      "size_bytes": 6664,
-      "line_count": 152,
+      "size_bytes": 6635,
+      "line_count": 149,
+      "role": "python-source",
+      "review_note": "application code; preserve public API behavior and compatibility facades"
+    },
+    {
+      "path": "src/ai_model_serving/apps/gateway_asgi.py",
+      "area": "src",
+      "category": "application/control-plane source",
+      "owner": "application",
+      "management": "managed by package source layout",
+      "size_bytes": 68,
+      "line_count": 3,
       "role": "python-source",
       "review_note": "application code; preserve public API behavior and compatibility facades"
     },
@@ -3146,8 +3157,19 @@
       "category": "application/control-plane source",
       "owner": "application",
       "management": "managed by package source layout",
-      "size_bytes": 5123,
-      "line_count": 134,
+      "size_bytes": 5089,
+      "line_count": 131,
+      "role": "python-source",
+      "review_note": "application code; preserve public API behavior and compatibility facades"
+    },
+    {
+      "path": "src/ai_model_serving/apps/risk_adapter_asgi.py",
+      "area": "src",
+      "category": "application/control-plane source",
+      "owner": "application",
+      "management": "managed by package source layout",
+      "size_bytes": 83,
+      "line_count": 3,
       "role": "python-source",
       "review_note": "application code; preserve public API behavior and compatibility facades"
     },
@@ -3432,8 +3454,8 @@
       "category": "application/control-plane source",
       "owner": "governance-validation",
       "management": "managed by package source layout",
-      "size_bytes": 40731,
-      "line_count": 616,
+      "size_bytes": 40924,
+      "line_count": 617,
       "role": "python-source",
       "review_note": "application code; preserve public API behavior and compatibility facades"
     },
@@ -3454,8 +3476,8 @@
       "category": "application/control-plane source",
       "owner": "governance-validation",
       "management": "managed by package source layout",
-      "size_bytes": 19266,
-      "line_count": 312,
+      "size_bytes": 19899,
+      "line_count": 321,
       "role": "python-source",
       "review_note": "application code; preserve public API behavior and compatibility facades"
     },
@@ -3476,8 +3498,8 @@
       "category": "application/control-plane source",
       "owner": "governance-validation",
       "management": "managed by package source layout",
-      "size_bytes": 16661,
-      "line_count": 327,
+      "size_bytes": 16861,
+      "line_count": 332,
       "role": "python-source",
       "review_note": "application code; preserve public API behavior and compatibility facades"
     },
@@ -3861,8 +3883,8 @@
       "category": "application/control-plane source",
       "owner": "application",
       "management": "managed by package source layout",
-      "size_bytes": 11646,
-      "line_count": 262,
+      "size_bytes": 11644,
+      "line_count": 260,
       "role": "python-source",
       "review_note": "application code; preserve public API behavior and compatibility facades"
     },
@@ -3883,8 +3905,8 @@
       "category": "application/control-plane source",
       "owner": "application",
       "management": "managed by package source layout",
-      "size_bytes": 13161,
-      "line_count": 275,
+      "size_bytes": 13253,
+      "line_count": 276,
       "role": "python-source",
       "review_note": "application code; preserve public API behavior and compatibility facades"
     },
@@ -3949,8 +3971,8 @@
       "category": "application/control-plane source",
       "owner": "application",
       "management": "managed by package source layout",
-      "size_bytes": 9412,
-      "line_count": 216,
+      "size_bytes": 9450,
+      "line_count": 217,
       "role": "python-source",
       "review_note": "application code; preserve public API behavior and compatibility facades"
     },

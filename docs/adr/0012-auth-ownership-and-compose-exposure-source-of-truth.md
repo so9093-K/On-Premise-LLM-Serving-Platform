@@ -80,7 +80,7 @@ auth-doctor는 `AUTH_MODE=internal_trusted + non-local APP_ENV`를 FAIL이 아�
 
 override 파일은 `scripts/compose/render_exposure_overrides.py`가 `configs/exposure_profiles.yaml`과 `configs/services.yaml`에서 생성한다. 수동 편집 금지. drift는 `--check` flag로 검사한다.
 
-`full-stack.example.yaml`은 legacy example 파일로 유지하고 표준 source-of-truth로 사용하지 않는다.
+`full-stack.example.yaml`은 legacy example 파일이었으며 제거했다.
 
 ### Single resolver 스크립트
 

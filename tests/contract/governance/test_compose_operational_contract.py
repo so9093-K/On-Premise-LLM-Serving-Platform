@@ -29,25 +29,21 @@ def test_full_stack_compose_and_prometheus_paths_are_network_correct() -> None:
     assert "(vllm:kv_cache_usage_perc <= 1)" in rules
     assert "((vllm:kv_cache_usage_perc > 1) / 100)" in rules
 
-    compose = (ROOT / "ops/compose/full-stack.example.yaml").read_text(encoding="utf-8")
-    assert "dcgm-exporter:" in compose
-    assert "cadvisor:" in compose
-    assert (
-        "GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: "
-        "/var/lib/grafana/dashboards/gpu_capacity_and_oom_risk.json"
-    ) in compose
-    assert "${DCGM_EXPORTER_IMAGE:" in compose
-    assert "${DCGM_EXPORTER_PORT:-9412}:9400" in compose or "9412:9400" in compose
-    assert "${CADVISOR_PORT:-9413}:8080" in compose or "9413:8080" in compose
-    assert "env_file: ../../.env" in compose
-    assert "copy to compose.yaml" not in compose.lower()
-
     private_compose = (ROOT / "ops/compose/full-stack.private-network.yaml").read_text(encoding="utf-8")
+    assert "dcgm-exporter:" in private_compose
+    assert "cadvisor:" in private_compose
     assert (
         "GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: "
         "/var/lib/grafana/dashboards/gpu_capacity_and_oom_risk.json"
     ) in private_compose
+    assert "${DCGM_EXPORTER_IMAGE:" in private_compose
+    assert "env_file: ../../.env" in private_compose
+    assert "copy to compose.yaml" not in private_compose.lower()
     assert "${GATEWAY_BIND_ADDR:-0.0.0.0}:${GATEWAY_PORT:-9400}:9400" in private_compose
+
+    master_open_overlay = (ROOT / "ops/compose/overrides/exposure.master-open.yaml").read_text(encoding="utf-8")
+    assert "${DCGM_EXPORTER_PORT:-9412}:9400" in master_open_overlay or "9412:9400" in master_open_overlay
+    assert "${CADVISOR_PORT:-9413}:8080" in master_open_overlay or "9413:8080" in master_open_overlay
 
     full_stack_doc = (ROOT / "docs/operations/full_stack_runtime.md").read_text(encoding="utf-8")
     assert "docker compose -f ops/compose/full-stack.private-network.yaml --env-file .env up" in full_stack_doc
@@ -135,7 +131,6 @@ def test_compose_config_does_not_call_docker_when_env_file_is_invalid(tmp_path) 
 
 def test_prometheus_admin_token_uses_compose_secret_not_bind_mount() -> None:
     for rel in [
-        "ops/compose/full-stack.example.yaml",
         "ops/compose/full-stack.private-network.yaml",
     ]:
         compose = yaml.safe_load((ROOT / rel).read_text(encoding="utf-8"))
@@ -160,7 +155,6 @@ def test_production_compose_files_have_no_build_blocks() -> None:
     """Build blocks belong only in the local-build override, never in production compose."""
     for rel in [
         "ops/compose/full-stack.private-network.yaml",
-        "ops/compose/full-stack.example.yaml",
     ]:
         compose = yaml.safe_load((ROOT / rel).read_text(encoding="utf-8"))
         for svc_name, svc in compose["services"].items():
