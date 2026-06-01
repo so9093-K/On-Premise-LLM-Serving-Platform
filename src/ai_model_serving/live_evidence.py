@@ -158,6 +158,7 @@ def live_evidence_bundle_document(
     runtime_report: dict[str, Any] | None,
     runtime_report_path: str | None,
     version: str,
+    is_package_placeholder: bool = False,
 ) -> dict[str, Any]:
     """Combine static operator projections with a sanitised runtime validation report."""
     runtime_results = _sanitised_runtime_results(runtime_report or {})
@@ -171,7 +172,9 @@ def live_evidence_bundle_document(
         "gpu-capacity",
     ]
     failed = int(runtime_summary.get("failed", len([item for item in runtime_results if item.get("status") != "pass"])))
-    if not runtime_report:
+    if not runtime_report and is_package_placeholder:
+        evidence_status = "excluded_from_release_package"
+    elif not runtime_report:
         evidence_status = "missing_runtime_evidence"
     elif runtime_mode == "config-only":
         evidence_status = "static_only"

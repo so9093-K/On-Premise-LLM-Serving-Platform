@@ -13,6 +13,7 @@ source_files:
   - src/ai_model_serving/monitoring_projection.py
   - src/ai_model_serving/domain/model_registry.py
   - scripts/reports/monitoring_projection_report.py
+  - src/ai_model_serving/governance_validation/monitoring_dashboards.py
 
 config_files:
   - configs/monitoring.yaml
@@ -44,7 +45,7 @@ commands:
 
 tests:
   - tests/contract/test_korean_documentation_hygiene.py (generated report heading 검사)
-  - src/ai_model_serving/governance_validation/monitoring_dashboards.py (dashboard 구조 검증)
+  - tests/contract/governance/test_monitoring_dashboards.py (dashboard 구조 검증)
 
 validation:
   - make validate

@@ -22,7 +22,7 @@ README.md,README.md,project metadata,project-maintenance,managed by root project
 VERSION,VERSION,project metadata,project-maintenance,managed by root project metadata,6,1,supporting-file,supporting project file
 assets/ai_model_serving_system_architecture.jpg,assets,project metadata,project-maintenance,managed by root project metadata,163694,0,supporting-file,supporting project file
 configs/auth_profiles.yaml,configs,configuration source of truth,configuration,managed by configuration lifecycle,2274,65,structured-data,configuration source; validate through governance and projection checks after edits
-configs/command_registry.yaml,configs,configuration source of truth,configuration,managed by configuration lifecycle,55823,2100,structured-data,configuration source; validate through governance and projection checks after edits
+configs/command_registry.yaml,configs,configuration source of truth,configuration,managed by configuration lifecycle,55792,2100,structured-data,configuration source; validate through governance and projection checks after edits
 configs/command_terminology_policy.yaml,configs,configuration source of truth,configuration,managed by configuration lifecycle,3385,102,structured-data,configuration source; validate through governance and projection checks after edits
 configs/env_contract.yaml,configs,configuration source of truth,configuration,managed by configuration lifecycle,2968,110,structured-data,configuration source; validate through governance and projection checks after edits
 configs/exposure_profiles.yaml,configs,configuration source of truth,configuration,managed by configuration lifecycle,2524,67,structured-data,configuration source; validate through governance and projection checks after edits
@@ -52,7 +52,7 @@ docs/adr/0003-all-vllm-runtime.md,docs,architecture decision record,documentatio
 docs/adr/0004-port-policy-9400.md,docs,architecture decision record,documentation,managed by documentation map,878,19,documentation,documentation; keep relative links valid and avoid duplicating current command flow
 docs/adr/0010-colbert-removal-dense-korean-retrieval.md,docs,architecture decision record,documentation,managed by documentation map,3010,58,documentation,documentation; keep relative links valid and avoid duplicating current command flow
 docs/adr/0011-documentation-source-of-truth-policy.md,docs,architecture decision record,documentation,managed by documentation map,3796,74,documentation,documentation; keep relative links valid and avoid duplicating current command flow
-docs/adr/0012-auth-ownership-and-compose-exposure-source-of-truth.md,docs,architecture decision record,documentation,managed by documentation map,9058,157,documentation,documentation; keep relative links valid and avoid duplicating current command flow
+docs/adr/0012-auth-ownership-and-compose-exposure-source-of-truth.md,docs,architecture decision record,documentation,managed by documentation map,9042,157,documentation,documentation; keep relative links valid and avoid duplicating current command flow
 docs/adr/0013-env-lifecycle-non-destructive-sync.md,docs,architecture decision record,documentation,managed by documentation map,3922,61,documentation,documentation; keep relative links valid and avoid duplicating current command flow
 docs/adr/README.md,docs,architecture decision record,documentation,managed by documentation map,2196,71,documentation,documentation; keep relative links valid and avoid duplicating current command flow
 docs/archive/changelog/maintenance_journal_0.1.0-rc.1.md,docs,historical documentation archive,documentation,managed by documentation map,15640,164,documentation,documentation; keep relative links valid and avoid duplicating current command flow
@@ -103,7 +103,7 @@ docs/specs/configuration.md,docs,documentation,documentation,managed by document
 docs/specs/risk_signal_contract.md,docs,documentation,documentation,managed by documentation map,2069,67,documentation,documentation; keep relative links valid and avoid duplicating current command flow
 features/monitoring_dashboards.yaml,features,project metadata,project-maintenance,managed by root project metadata,2429,71,structured-data,supporting project file
 features/release_packaging.yaml,features,project metadata,project-maintenance,managed by root project metadata,2881,99,structured-data,supporting project file
-features/security_profiles.yaml,features,project metadata,project-maintenance,managed by root project metadata,7667,203,structured-data,supporting project file
+features/security_profiles.yaml,features,project metadata,project-maintenance,managed by root project metadata,7933,208,structured-data,supporting project file
 harness/contract_test_cases.yaml,harness,runtime validation harness plan/matrix,project-maintenance,managed by root project metadata,761,27,structured-data,supporting project file
 harness/gpu_budget_validation_plan.md,harness,runtime validation harness plan/matrix,project-maintenance,managed by root project metadata,1078,17,documentation,supporting project file
 harness/runtime_validation_matrix.yaml,harness,runtime validation harness plan/matrix,project-maintenance,managed by root project metadata,7084,180,structured-data,supporting project file
@@ -130,16 +130,16 @@ ops/patches/README.md,ops,compose/monitoring/runtime ops template,operations,man
 ops/patches/transformers_llama_head_dim_guard.py,ops,compose/monitoring/runtime ops template,operations,managed by operator templates,9791,213,python-source,supporting project file
 ops/prometheus/prometheus.yml,ops,compose/monitoring/runtime ops template,operations,managed by operator templates,1361,55,structured-data,supporting project file
 ops/prometheus/rules/model_runtime.rules.yml,ops,compose/monitoring/runtime ops template,operations,managed by operator templates,5651,86,structured-data,supporting project file
-pyproject.toml,pyproject.toml,project metadata,project-maintenance,managed by root project metadata,1411,49,supporting-file,supporting project file
+pyproject.toml,pyproject.toml,project metadata,project-maintenance,managed by root project metadata,2157,59,supporting-file,supporting project file
 reports/archive/refactor_audits/end_to_end_flow_audit.md,reports,historical report archive,handoff-reporting,managed by root project metadata,5534,116,documentation,supporting project file
 reports/archive/refactor_audits/feature_ux_full_audit.md,reports,historical report archive,handoff-reporting,managed by root project metadata,9357,177,documentation,supporting project file
 reports/archive/refactor_audits/first_run_clean_package_audit.md,reports,historical report archive,handoff-reporting,managed by root project metadata,8551,161,documentation,supporting project file
 reports/archive/refactor_audits/full_file_hygiene_audit.md,reports,historical report archive,handoff-reporting,managed by root project metadata,5620,96,documentation,supporting project file
 reports/refactor/current_handoff_summary.md,reports,current handoff/review report,handoff-reporting,generated/curated for handoff review,6917,97,documentation,handoff/review artifact; avoid stale phase snapshots in active package
 reports/refactor/current_refactor_state.md,reports,current handoff/review report,handoff-reporting,generated/curated for handoff review,4210,72,entrypoint,primary navigation or current-state entrypoint; keep synchronized with Makefile and reports
-reports/refactor/project_inventory_current.csv,reports,current handoff/review report,handoff-reporting,generated/curated for handoff review,78299,381,structured-data,handoff/review artifact; avoid stale phase snapshots in active package
-reports/refactor/project_inventory_current.json,reports,current handoff/review report,handoff-reporting,generated/curated for handoff review,159132,4442,structured-data,handoff/review artifact; avoid stale phase snapshots in active package
-reports/refactor/project_inventory_current.md,reports,current handoff/review report,handoff-reporting,generated/curated for handoff review,5297,98,documentation,handoff/review artifact; avoid stale phase snapshots in active package
+reports/refactor/project_inventory_current.csv,reports,current handoff/review report,handoff-reporting,generated/curated for handoff review,83506,410,structured-data,handoff/review artifact; avoid stale phase snapshots in active package
+reports/refactor/project_inventory_current.json,reports,current handoff/review report,handoff-reporting,generated/curated for handoff review,169826,4761,structured-data,handoff/review artifact; avoid stale phase snapshots in active package
+reports/refactor/project_inventory_current.md,reports,current handoff/review report,handoff-reporting,generated/curated for handoff review,5226,98,documentation,handoff/review artifact; avoid stale phase snapshots in active package
 reports/runtime/README.md,reports,runtime/operator generated report,handoff-reporting,generated by operator report commands,603,12,documentation,generated operator report; regenerate through make operator-reports before handoff
 reports/runtime/live_evidence_bundle.json,reports,runtime/operator generated report,handoff-reporting,generated by operator report commands,1718,69,structured-data,generated operator report; regenerate through make operator-reports before handoff
 reports/runtime/live_evidence_bundle.md,reports,runtime/operator generated report,handoff-reporting,generated by operator report commands,1729,46,documentation,generated operator report; regenerate through make operator-reports before handoff
@@ -172,7 +172,7 @@ scripts/build/reset_version.py,scripts,operator/developer command surface,operat
 scripts/ci/build_vllm_derived_images.sh,scripts,operator/developer command surface,operator-ux,managed by Makefile command UX,3648,64,shell-command,operator/developer command; expose through Makefile/help if user-facing
 scripts/ci/deploy_gitlab_compose.sh,scripts,operator/developer command surface,operator-ux,managed by Makefile command UX,12429,323,shell-command,operator/developer command; expose through Makefile/help if user-facing
 scripts/commands/render_command_help.py,scripts,operator/developer command surface,operator-ux,managed by Makefile command UX,5142,145,python-source,operator/developer command; expose through Makefile/help if user-facing
-scripts/commands/validate_command_registry.py,scripts,operator/developer command surface,operator-ux,managed by Makefile command UX,15692,406,python-source,operator/developer command; expose through Makefile/help if user-facing
+scripts/commands/validate_command_registry.py,scripts,operator/developer command surface,operator-ux,managed by Makefile command UX,16228,415,python-source,operator/developer command; expose through Makefile/help if user-facing
 scripts/compose/compose_diagnostics.sh,scripts,operator/developer command surface,operator-ux,managed by Makefile command UX,2956,49,shell-command,operator/developer command; expose through Makefile/help if user-facing
 scripts/compose/compose_up.sh,scripts,operator/developer command surface,operator-ux,managed by Makefile command UX,3274,79,shell-command,operator/developer command; expose through Makefile/help if user-facing
 scripts/compose/effective_host_ports.py,scripts,operator/developer command surface,operator-ux,managed by Makefile command UX,1661,53,python-source,operator/developer command; expose through Makefile/help if user-facing
@@ -286,7 +286,7 @@ src/ai_model_serving/domain/request_surfaces.py,src,application/control-plane so
 src/ai_model_serving/errors.py,src,application/control-plane source,application,managed by package source layout,2524,92,python-source,application code; preserve public API behavior and compatibility facades
 src/ai_model_serving/governance_validation/__init__.py,src,application/control-plane source,governance-validation,managed by package source layout,101,5,python-source,application code; preserve public API behavior and compatibility facades
 src/ai_model_serving/governance_validation/cli.py,src,application/control-plane source,governance-validation,managed by package source layout,3605,109,python-source,application code; preserve public API behavior and compatibility facades
-src/ai_model_serving/governance_validation/common.py,src,application/control-plane source,governance-validation,managed by package source layout,8325,210,python-source,application code; preserve public API behavior and compatibility facades
+src/ai_model_serving/governance_validation/common.py,src,application/control-plane source,governance-validation,managed by package source layout,8492,214,python-source,application code; preserve public API behavior and compatibility facades
 src/ai_model_serving/governance_validation/docs_ops.py,src,application/control-plane source,governance-validation,managed by package source layout,40731,616,python-source,application code; preserve public API behavior and compatibility facades
 src/ai_model_serving/governance_validation/filesystem.py,src,application/control-plane source,governance-validation,managed by package source layout,1171,44,python-source,application code; preserve public API behavior and compatibility facades
 src/ai_model_serving/governance_validation/model_config.py,src,application/control-plane source,governance-validation,managed by package source layout,19266,312,python-source,application code; preserve public API behavior and compatibility facades
@@ -339,17 +339,34 @@ src/ai_model_serving/status.py,src,application/control-plane source,application,
 src/ai_model_serving/storage_paths.py,src,application/control-plane source,application,managed by package source layout,6101,151,python-source,application code; preserve public API behavior and compatibility facades
 src/ai_model_serving/upstream.py,src,application/control-plane source,application,managed by package source layout,11484,261,python-source,application code; preserve public API behavior and compatibility facades
 src/ai_model_serving/validation.py,src,application/control-plane source,application,managed by package source layout,1577,52,python-source,application code; preserve public API behavior and compatibility facades
-tests/conftest.py,tests,test suite,quality,managed by test strategy,2482,75,python-source,test coverage; keep deterministic and avoid live GPU dependency
+tests/conftest.py,tests,test suite,quality,managed by test strategy,3731,91,python-source,test coverage; keep deterministic and avoid live GPU dependency
 tests/contract/README.md,tests,test suite,quality,managed by test strategy,525,19,documentation,test coverage; keep deterministic and avoid live GPU dependency
 tests/contract/document_test_helpers.py,tests,test suite,quality,managed by test strategy,1430,55,python-source,test coverage; keep deterministic and avoid live GPU dependency
+tests/contract/exposure/__init__.py,tests,test suite,quality,managed by test strategy,0,0,python-source,test coverage; keep deterministic and avoid live GPU dependency
+tests/contract/exposure/conftest.py,tests,test suite,quality,managed by test strategy,78,3,python-source,test coverage; keep deterministic and avoid live GPU dependency
+tests/contract/exposure/helpers.py,tests,test suite,quality,managed by test strategy,6237,190,python-source,test coverage; keep deterministic and avoid live GPU dependency
+tests/contract/exposure/test_auth_doctor.py,tests,test suite,quality,managed by test strategy,10553,271,python-source,test coverage; keep deterministic and avoid live GPU dependency
+tests/contract/exposure/test_auth_profiles.py,tests,test suite,quality,managed by test strategy,2509,56,python-source,test coverage; keep deterministic and avoid live GPU dependency
+tests/contract/exposure/test_compose_preflight.py,tests,test suite,quality,managed by test strategy,3583,89,python-source,test coverage; keep deterministic and avoid live GPU dependency
+tests/contract/exposure/test_docs_exposure.py,tests,test suite,quality,managed by test strategy,511,14,python-source,test coverage; keep deterministic and avoid live GPU dependency
+tests/contract/exposure/test_env_examples.py,tests,test suite,quality,managed by test strategy,1680,37,python-source,test coverage; keep deterministic and avoid live GPU dependency
+tests/contract/exposure/test_exposure_profile_schema.py,tests,test suite,quality,managed by test strategy,3216,89,python-source,test coverage; keep deterministic and avoid live GPU dependency
+tests/contract/governance/__init__.py,tests,test suite,quality,managed by test strategy,0,0,python-source,test coverage; keep deterministic and avoid live GPU dependency
+tests/contract/governance/conftest.py,tests,test suite,quality,managed by test strategy,78,3,python-source,test coverage; keep deterministic and avoid live GPU dependency
+tests/contract/governance/helpers.py,tests,test suite,quality,managed by test strategy,459,31,python-source,test coverage; keep deterministic and avoid live GPU dependency
+tests/contract/governance/test_ci_release_contract.py,tests,test suite,quality,managed by test strategy,6116,123,python-source,test coverage; keep deterministic and avoid live GPU dependency
+tests/contract/governance/test_command_terminology.py,tests,test suite,quality,managed by test strategy,1473,30,python-source,test coverage; keep deterministic and avoid live GPU dependency
+tests/contract/governance/test_compose_operational_contract.py,tests,test suite,quality,managed by test strategy,7985,171,python-source,test coverage; keep deterministic and avoid live GPU dependency
+tests/contract/governance/test_image_and_build_policy.py,tests,test suite,quality,managed by test strategy,4492,84,python-source,test coverage; keep deterministic and avoid live GPU dependency
+tests/contract/governance/test_monitoring_dashboards.py,tests,test suite,quality,managed by test strategy,12869,258,python-source,test coverage; keep deterministic and avoid live GPU dependency
+tests/contract/governance/test_runtime_docs_and_harness.py,tests,test suite,quality,managed by test strategy,5925,131,python-source,test coverage; keep deterministic and avoid live GPU dependency
+tests/contract/manifests/env_examples.yaml,tests,test suite,quality,managed by test strategy,478,12,structured-data,test coverage; keep deterministic and avoid live GPU dependency
 tests/contract/test_architecture_boundaries.py,tests,test suite,quality,managed by test strategy,3223,102,python-source,test coverage; keep deterministic and avoid live GPU dependency
 tests/contract/test_command_registry.py,tests,test suite,quality,managed by test strategy,14270,381,python-source,test coverage; keep deterministic and avoid live GPU dependency
 tests/contract/test_document_source_of_truth.py,tests,test suite,quality,managed by test strategy,7557,161,python-source,test coverage; keep deterministic and avoid live GPU dependency
 tests/contract/test_document_stale_markers.py,tests,test suite,quality,managed by test strategy,3845,101,python-source,test coverage; keep deterministic and avoid live GPU dependency
 tests/contract/test_document_structure.py,tests,test suite,quality,managed by test strategy,8184,177,python-source,test coverage; keep deterministic and avoid live GPU dependency
 tests/contract/test_endpoint_matrix.py,tests,test suite,quality,managed by test strategy,1120,33,python-source,test coverage; keep deterministic and avoid live GPU dependency
-tests/contract/test_exposure_profiles.py,tests,test suite,quality,managed by test strategy,29778,749,python-source,test coverage; keep deterministic and avoid live GPU dependency
-tests/contract/test_governance_and_ops.py,tests,test suite,quality,managed by test strategy,38561,791,python-source,test coverage; keep deterministic and avoid live GPU dependency
 tests/contract/test_korean_documentation_hygiene.py,tests,test suite,quality,managed by test strategy,3647,89,python-source,test coverage; keep deterministic and avoid live GPU dependency
 tests/contract/test_openapi_refs.py,tests,test suite,quality,managed by test strategy,3132,69,python-source,test coverage; keep deterministic and avoid live GPU dependency
 tests/contract/test_openapi_snapshot_diff.py,tests,test suite,quality,managed by test strategy,4756,135,python-source,test coverage; keep deterministic and avoid live GPU dependency
@@ -360,16 +377,28 @@ tests/contract/test_risk_schema.py,tests,test suite,quality,managed by test stra
 tests/contract/test_runtime_policy.py,tests,test suite,quality,managed by test strategy,16812,330,python-source,test coverage; keep deterministic and avoid live GPU dependency
 tests/contract/test_version_reset.py,tests,test suite,quality,managed by test strategy,9527,237,python-source,test coverage; keep deterministic and avoid live GPU dependency
 tests/integration/README.md,tests,test suite,quality,managed by test strategy,507,14,documentation,test coverage; keep deterministic and avoid live GPU dependency
+tests/unit/gateway/__init__.py,tests,test suite,quality,managed by test strategy,0,0,python-source,test coverage; keep deterministic and avoid live GPU dependency
+tests/unit/gateway/conftest.py,tests,test suite,quality,managed by test strategy,78,3,python-source,test coverage; keep deterministic and avoid live GPU dependency
+tests/unit/gateway/helpers.py,tests,test suite,quality,managed by test strategy,22099,571,python-source,test coverage; keep deterministic and avoid live GPU dependency
+tests/unit/gateway/test_auth_and_docs.py,tests,test suite,quality,managed by test strategy,4289,79,python-source,test coverage; keep deterministic and avoid live GPU dependency
+tests/unit/gateway/test_chat.py,tests,test suite,quality,managed by test strategy,10763,273,python-source,test coverage; keep deterministic and avoid live GPU dependency
+tests/unit/gateway/test_clients.py,tests,test suite,quality,managed by test strategy,3186,71,python-source,test coverage; keep deterministic and avoid live GPU dependency
+tests/unit/gateway/test_embeddings.py,tests,test suite,quality,managed by test strategy,5626,136,python-source,test coverage; keep deterministic and avoid live GPU dependency
+tests/unit/gateway/test_json_schema.py,tests,test suite,quality,managed by test strategy,17816,475,python-source,test coverage; keep deterministic and avoid live GPU dependency
+tests/unit/gateway/test_metrics_and_errors.py,tests,test suite,quality,managed by test strategy,2495,59,python-source,test coverage; keep deterministic and avoid live GPU dependency
+tests/unit/gateway/test_readiness.py,tests,test suite,quality,managed by test strategy,6304,145,python-source,test coverage; keep deterministic and avoid live GPU dependency
+tests/unit/gateway/test_retrieval.py,tests,test suite,quality,managed by test strategy,13371,318,python-source,test coverage; keep deterministic and avoid live GPU dependency
+tests/unit/gateway/test_risk.py,tests,test suite,quality,managed by test strategy,3704,101,python-source,test coverage; keep deterministic and avoid live GPU dependency
+tests/unit/gateway/test_streaming.py,tests,test suite,quality,managed by test strategy,12320,295,python-source,test coverage; keep deterministic and avoid live GPU dependency
 tests/unit/test_auth_control.py,tests,test suite,quality,managed by test strategy,9520,264,python-source,test coverage; keep deterministic and avoid live GPU dependency
 tests/unit/test_auth_plan.py,tests,test suite,quality,managed by test strategy,3290,80,python-source,test coverage; keep deterministic and avoid live GPU dependency
 tests/unit/test_check_hf_model_config.py,tests,test suite,quality,managed by test strategy,2962,97,python-source,test coverage; keep deterministic and avoid live GPU dependency
 tests/unit/test_dotenv_parser.py,tests,test suite,quality,managed by test strategy,3062,97,python-source,test coverage; keep deterministic and avoid live GPU dependency
 tests/unit/test_endpoint_spec.py,tests,test suite,quality,managed by test strategy,14068,339,python-source,test coverage; keep deterministic and avoid live GPU dependency
-tests/unit/test_gateway_app.py,tests,test suite,quality,managed by test strategy,101313,2482,python-source,test coverage; keep deterministic and avoid live GPU dependency
 tests/unit/test_governance_validation_package.py,tests,test suite,quality,managed by test strategy,1118,36,python-source,test coverage; keep deterministic and avoid live GPU dependency
 tests/unit/test_model_registry.py,tests,test suite,quality,managed by test strategy,7619,163,python-source,test coverage; keep deterministic and avoid live GPU dependency
 tests/unit/test_modelctl.py,tests,test suite,quality,managed by test strategy,2868,89,python-source,test coverage; keep deterministic and avoid live GPU dependency
-tests/unit/test_openapi_contracts.py,tests,test suite,quality,managed by test strategy,6426,136,python-source,test coverage; keep deterministic and avoid live GPU dependency
+tests/unit/test_openapi_contracts.py,tests,test suite,quality,managed by test strategy,6436,136,python-source,test coverage; keep deterministic and avoid live GPU dependency
 tests/unit/test_risk_adapter_app.py,tests,test suite,quality,managed by test strategy,15074,342,python-source,test coverage; keep deterministic and avoid live GPU dependency
 tests/unit/test_risk_vllm_image_script.py,tests,test suite,quality,managed by test strategy,3303,93,python-source,test coverage; keep deterministic and avoid live GPU dependency
 tests/unit/test_risk_vllm_patch_lifecycle.py,tests,test suite,quality,managed by test strategy,2785,69,python-source,test coverage; keep deterministic and avoid live GPU dependency

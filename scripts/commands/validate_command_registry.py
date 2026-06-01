@@ -311,6 +311,15 @@ def main() -> int:
                 else:
                     warnings.append(msg)
 
+    # ── 3.5. tests/docs 경로 존재 검사 ─────────────────────────────────────
+    for cmd in registry.get("commands", []):
+        target = cmd.get("make_target", "<unknown>")
+        for field in ("tests", "docs"):
+            for entry in cmd.get(field, []) or []:
+                fpath = str(entry).strip()
+                if fpath and not (ROOT / fpath).exists():
+                    errors.append(f"[{target}] {field}: 경로 없음: {fpath!r}")
+
     # ── 4. Makefile target 존재 검사 ────────────────────────────────────────
     defined_targets, phony_only = _parse_makefile_targets()
 

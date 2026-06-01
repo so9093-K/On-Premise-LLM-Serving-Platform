@@ -1,0 +1,12 @@
+# Required env example invariants. This manifest does not define runtime config;
+# it names existing example files that must contain keys derived from configs/env_contract.yaml.
+env_example_required_key_groups:
+  - id: root_env_embedding_ko
+    path: .env.example
+    key_prefix: EMBEDDING_KO_
+  - id: local_env_embedding_ko
+    path: .env.local.example
+    key_prefix: EMBEDDING_KO_
+  - id: compose_env_embedding_ko
+    path: .env.compose.example
+    key_prefix: EMBEDDING_KO_

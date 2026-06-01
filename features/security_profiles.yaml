@@ -52,7 +52,12 @@ tests:
   - tests/unit/test_auth_control.py
   - tests/unit/test_auth_plan.py
   - tests/unit/test_setup_env.py
-  - tests/contract/test_exposure_profiles.py
+  - tests/contract/exposure/test_exposure_profile_schema.py
+  - tests/contract/exposure/test_auth_profiles.py
+  - tests/contract/exposure/test_auth_doctor.py
+  - tests/contract/exposure/test_compose_preflight.py
+  - tests/contract/exposure/test_env_examples.py
+  - tests/contract/exposure/test_docs_exposure.py
 
 validation:
   - make validate

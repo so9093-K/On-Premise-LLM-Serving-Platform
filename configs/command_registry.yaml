@@ -184,7 +184,7 @@ commands:
     docs:
       - docs/development/build_ux.md
     tests:
-      - tests/contract/test_governance_and_ops.py
+      - tests/contract/governance/
 
   - make_target: test
     title: 빠른 결정론적 테스트
@@ -730,7 +730,7 @@ commands:
     docs:
       - docs/operations/admin_metrics_docs_exposure_policy.md
     tests:
-      - tests/contract/test_exposure_profiles.py
+      - tests/contract/exposure/
 
   - make_target: exposure-plan
     title: EXPOSURE_MODE 변경 계획 미리보기

@@ -6,8 +6,8 @@ from ai_model_serving.apps.gateway import create_gateway_app
 from ai_model_serving.apps.risk_adapter import create_risk_adapter_app
 from ai_model_serving.openapi_contracts import install_contract_openapi, load_contract_schema
 
-from test_gateway_app import FakeGatewayClients, settings as gateway_settings
-from test_risk_adapter_app import FakeRiskClients, settings as risk_settings
+from tests.unit.gateway.helpers import FakeGatewayClients, settings as gateway_settings
+from tests.unit.test_risk_adapter_app import FakeRiskClients, settings as risk_settings
 
 
 def test_gateway_generated_openapi_uses_checked_in_request_contracts():

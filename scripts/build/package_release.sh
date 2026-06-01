@@ -155,6 +155,7 @@ if operator_bundle.exists():
         runtime_report=None,
         runtime_report_path=None,
         version=version,
+        is_package_placeholder=True,
     )
     write_live_evidence_bundle(document, dst / 'reports/runtime')
     for cache_dir in dst.rglob('__pycache__'):

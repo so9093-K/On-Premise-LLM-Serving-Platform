@@ -1,6 +1,6 @@
 {
   "summary": {
-    "total_files": 380,
+    "total_files": 409,
     "by_area": {
       ".dockerignore": 1,
       ".env": 1,
@@ -32,7 +32,7 @@
       "scripts": 77,
       "specs": 15,
       "src": 94,
-      "tests": 39,
+      "tests": 68,
       "version_manifest.json": 1
     },
     "by_category": {
@@ -52,7 +52,7 @@
       "project metadata": 29,
       "runtime validation harness plan/matrix": 4,
       "runtime/operator generated report": 11,
-      "test suite": 39
+      "test suite": 68
     },
     "by_owner": {
       "api-contracts": 28,
@@ -65,7 +65,7 @@
       "operations": 18,
       "operator-ux": 77,
       "project-maintenance": 39,
-      "quality": 39,
+      "quality": 68,
       "runtime-validation": 14
     },
     "by_role": {
@@ -73,9 +73,9 @@
       "documentation": 79,
       "entrypoint": 9,
       "environment-template": 5,
-      "python-source": 181,
+      "python-source": 209,
       "shell-command": 27,
-      "structured-data": 68,
+      "structured-data": 69,
       "supporting-file": 9
     },
     "large_files_by_line_count": [
@@ -96,21 +96,10 @@
         "category": "current handoff/review report",
         "owner": "handoff-reporting",
         "management": "generated/curated for handoff review",
-        "size_bytes": 159132,
-        "line_count": 4442,
+        "size_bytes": 169826,
+        "line_count": 4761,
         "role": "structured-data",
         "review_note": "handoff/review artifact; avoid stale phase snapshots in active package"
-      },
-      {
-        "path": "tests/unit/test_gateway_app.py",
-        "area": "tests",
-        "category": "test suite",
-        "owner": "quality",
-        "management": "managed by test strategy",
-        "size_bytes": 101313,
-        "line_count": 2482,
-        "role": "python-source",
-        "review_note": "test coverage; keep deterministic and avoid live GPU dependency"
       },
       {
         "path": "configs/command_registry.yaml",
@@ -118,7 +107,7 @@
         "category": "configuration source of truth",
         "owner": "configuration",
         "management": "managed by configuration lifecycle",
-        "size_bytes": 55823,
+        "size_bytes": 55792,
         "line_count": 2100,
         "role": "structured-data",
         "review_note": "configuration source; validate through governance and projection checks after edits"
@@ -168,17 +157,6 @@
         "review_note": "supporting project file"
       },
       {
-        "path": "tests/contract/test_governance_and_ops.py",
-        "area": "tests",
-        "category": "test suite",
-        "owner": "quality",
-        "management": "managed by test strategy",
-        "size_bytes": 38561,
-        "line_count": 791,
-        "role": "python-source",
-        "review_note": "test coverage; keep deterministic and avoid live GPU dependency"
-      },
-      {
         "path": "ops/grafana/dashboards/gpu_capacity_and_oom_risk.json",
         "area": "ops",
         "category": "compose/monitoring/runtime ops template",
@@ -188,17 +166,6 @@
         "line_count": 757,
         "role": "structured-data",
         "review_note": "supporting project file"
-      },
-      {
-        "path": "tests/contract/test_exposure_profiles.py",
-        "area": "tests",
-        "category": "test suite",
-        "owner": "quality",
-        "management": "managed by test strategy",
-        "size_bytes": 29778,
-        "line_count": 749,
-        "role": "python-source",
-        "review_note": "test coverage; keep deterministic and avoid live GPU dependency"
       },
       {
         "path": "reports/runtime/operator_status_bundle.json",
@@ -243,6 +210,39 @@
         "line_count": 616,
         "role": "python-source",
         "review_note": "application code; preserve public API behavior and compatibility facades"
+      },
+      {
+        "path": "ops/grafana/dashboards/model_runtime_deep_dive.json",
+        "area": "ops",
+        "category": "compose/monitoring/runtime ops template",
+        "owner": "operations",
+        "management": "managed by operator templates",
+        "size_bytes": 16271,
+        "line_count": 611,
+        "role": "structured-data",
+        "review_note": "supporting project file"
+      },
+      {
+        "path": ".other/registry_cleanup.md",
+        "area": ".other",
+        "category": "project metadata",
+        "owner": "project-maintenance",
+        "management": "managed by root project metadata",
+        "size_bytes": 22760,
+        "line_count": 574,
+        "role": "documentation",
+        "review_note": "supporting project file"
+      },
+      {
+        "path": "tests/unit/gateway/helpers.py",
+        "area": "tests",
+        "category": "test suite",
+        "owner": "quality",
+        "management": "managed by test strategy",
+        "size_bytes": 22099,
+        "line_count": 571,
+        "role": "python-source",
+        "review_note": "test coverage; keep deterministic and avoid live GPU dependency"
       }
     ],
     "entrypoints": [
@@ -517,7 +517,7 @@
       "category": "configuration source of truth",
       "owner": "configuration",
       "management": "managed by configuration lifecycle",
-      "size_bytes": 55823,
+      "size_bytes": 55792,
       "line_count": 2100,
       "role": "structured-data",
       "review_note": "configuration source; validate through governance and projection checks after edits"
@@ -847,7 +847,7 @@
       "category": "architecture decision record",
       "owner": "documentation",
       "management": "managed by documentation map",
-      "size_bytes": 9058,
+      "size_bytes": 9042,
       "line_count": 157,
       "role": "documentation",
       "review_note": "documentation; keep relative links valid and avoid duplicating current command flow"
@@ -1408,8 +1408,8 @@
       "category": "project metadata",
       "owner": "project-maintenance",
       "management": "managed by root project metadata",
-      "size_bytes": 7667,
-      "line_count": 203,
+      "size_bytes": 7933,
+      "line_count": 208,
       "role": "structured-data",
       "review_note": "supporting project file"
     },
@@ -1705,8 +1705,8 @@
       "category": "project metadata",
       "owner": "project-maintenance",
       "management": "managed by root project metadata",
-      "size_bytes": 1411,
-      "line_count": 49,
+      "size_bytes": 2157,
+      "line_count": 59,
       "role": "supporting-file",
       "review_note": "supporting project file"
     },
@@ -1782,8 +1782,8 @@
       "category": "current handoff/review report",
       "owner": "handoff-reporting",
       "management": "generated/curated for handoff review",
-      "size_bytes": 78299,
-      "line_count": 381,
+      "size_bytes": 83506,
+      "line_count": 410,
       "role": "structured-data",
       "review_note": "handoff/review artifact; avoid stale phase snapshots in active package"
     },
@@ -1793,8 +1793,8 @@
       "category": "current handoff/review report",
       "owner": "handoff-reporting",
       "management": "generated/curated for handoff review",
-      "size_bytes": 159132,
-      "line_count": 4442,
+      "size_bytes": 169826,
+      "line_count": 4761,
       "role": "structured-data",
       "review_note": "handoff/review artifact; avoid stale phase snapshots in active package"
     },
@@ -1804,7 +1804,7 @@
       "category": "current handoff/review report",
       "owner": "handoff-reporting",
       "management": "generated/curated for handoff review",
-      "size_bytes": 5297,
+      "size_bytes": 5226,
       "line_count": 98,
       "role": "documentation",
       "review_note": "handoff/review artifact; avoid stale phase snapshots in active package"
@@ -2167,8 +2167,8 @@
       "category": "operator/developer command surface",
       "owner": "operator-ux",
       "management": "managed by Makefile command UX",
-      "size_bytes": 15692,
-      "line_count": 406,
+      "size_bytes": 16228,
+      "line_count": 415,
       "role": "python-source",
       "review_note": "operator/developer command; expose through Makefile/help if user-facing"
     },
@@ -3421,8 +3421,8 @@
       "category": "application/control-plane source",
       "owner": "governance-validation",
       "management": "managed by package source layout",
-      "size_bytes": 8325,
-      "line_count": 210,
+      "size_bytes": 8492,
+      "line_count": 214,
       "role": "python-source",
       "review_note": "application code; preserve public API behavior and compatibility facades"
     },
@@ -4004,8 +4004,8 @@
       "category": "test suite",
       "owner": "quality",
       "management": "managed by test strategy",
-      "size_bytes": 2482,
-      "line_count": 75,
+      "size_bytes": 3731,
+      "line_count": 91,
       "role": "python-source",
       "review_note": "test coverage; keep deterministic and avoid live GPU dependency"
     },
@@ -4029,6 +4029,215 @@
       "size_bytes": 1430,
       "line_count": 55,
       "role": "python-source",
+      "review_note": "test coverage; keep deterministic and avoid live GPU dependency"
+    },
+    {
+      "path": "tests/contract/exposure/__init__.py",
+      "area": "tests",
+      "category": "test suite",
+      "owner": "quality",
+      "management": "managed by test strategy",
+      "size_bytes": 0,
+      "line_count": 0,
+      "role": "python-source",
+      "review_note": "test coverage; keep deterministic and avoid live GPU dependency"
+    },
+    {
+      "path": "tests/contract/exposure/conftest.py",
+      "area": "tests",
+      "category": "test suite",
+      "owner": "quality",
+      "management": "managed by test strategy",
+      "size_bytes": 78,
+      "line_count": 3,
+      "role": "python-source",
+      "review_note": "test coverage; keep deterministic and avoid live GPU dependency"
+    },
+    {
+      "path": "tests/contract/exposure/helpers.py",
+      "area": "tests",
+      "category": "test suite",
+      "owner": "quality",
+      "management": "managed by test strategy",
+      "size_bytes": 6237,
+      "line_count": 190,
+      "role": "python-source",
+      "review_note": "test coverage; keep deterministic and avoid live GPU dependency"
+    },
+    {
+      "path": "tests/contract/exposure/test_auth_doctor.py",
+      "area": "tests",
+      "category": "test suite",
+      "owner": "quality",
+      "management": "managed by test strategy",
+      "size_bytes": 10553,
+      "line_count": 271,
+      "role": "python-source",
+      "review_note": "test coverage; keep deterministic and avoid live GPU dependency"
+    },
+    {
+      "path": "tests/contract/exposure/test_auth_profiles.py",
+      "area": "tests",
+      "category": "test suite",
+      "owner": "quality",
+      "management": "managed by test strategy",
+      "size_bytes": 2509,
+      "line_count": 56,
+      "role": "python-source",
+      "review_note": "test coverage; keep deterministic and avoid live GPU dependency"
+    },
+    {
+      "path": "tests/contract/exposure/test_compose_preflight.py",
+      "area": "tests",
+      "category": "test suite",
+      "owner": "quality",
+      "management": "managed by test strategy",
+      "size_bytes": 3583,
+      "line_count": 89,
+      "role": "python-source",
+      "review_note": "test coverage; keep deterministic and avoid live GPU dependency"
+    },
+    {
+      "path": "tests/contract/exposure/test_docs_exposure.py",
+      "area": "tests",
+      "category": "test suite",
+      "owner": "quality",
+      "management": "managed by test strategy",
+      "size_bytes": 511,
+      "line_count": 14,
+      "role": "python-source",
+      "review_note": "test coverage; keep deterministic and avoid live GPU dependency"
+    },
+    {
+      "path": "tests/contract/exposure/test_env_examples.py",
+      "area": "tests",
+      "category": "test suite",
+      "owner": "quality",
+      "management": "managed by test strategy",
+      "size_bytes": 1680,
+      "line_count": 37,
+      "role": "python-source",
+      "review_note": "test coverage; keep deterministic and avoid live GPU dependency"
+    },
+    {
+      "path": "tests/contract/exposure/test_exposure_profile_schema.py",
+      "area": "tests",
+      "category": "test suite",
+      "owner": "quality",
+      "management": "managed by test strategy",
+      "size_bytes": 3216,
+      "line_count": 89,
+      "role": "python-source",
+      "review_note": "test coverage; keep deterministic and avoid live GPU dependency"
+    },
+    {
+      "path": "tests/contract/governance/__init__.py",
+      "area": "tests",
+      "category": "test suite",
+      "owner": "quality",
+      "management": "managed by test strategy",
+      "size_bytes": 0,
+      "line_count": 0,
+      "role": "python-source",
+      "review_note": "test coverage; keep deterministic and avoid live GPU dependency"
+    },
+    {
+      "path": "tests/contract/governance/conftest.py",
+      "area": "tests",
+      "category": "test suite",
+      "owner": "quality",
+      "management": "managed by test strategy",
+      "size_bytes": 78,
+      "line_count": 3,
+      "role": "python-source",
+      "review_note": "test coverage; keep deterministic and avoid live GPU dependency"
+    },
+    {
+      "path": "tests/contract/governance/helpers.py",
+      "area": "tests",
+      "category": "test suite",
+      "owner": "quality",
+      "management": "managed by test strategy",
+      "size_bytes": 459,
+      "line_count": 31,
+      "role": "python-source",
+      "review_note": "test coverage; keep deterministic and avoid live GPU dependency"
+    },
+    {
+      "path": "tests/contract/governance/test_ci_release_contract.py",
+      "area": "tests",
+      "category": "test suite",
+      "owner": "quality",
+      "management": "managed by test strategy",
+      "size_bytes": 6116,
+      "line_count": 123,
+      "role": "python-source",
+      "review_note": "test coverage; keep deterministic and avoid live GPU dependency"
+    },
+    {
+      "path": "tests/contract/governance/test_command_terminology.py",
+      "area": "tests",
+      "category": "test suite",
+      "owner": "quality",
+      "management": "managed by test strategy",
+      "size_bytes": 1473,
+      "line_count": 30,
+      "role": "python-source",
+      "review_note": "test coverage; keep deterministic and avoid live GPU dependency"
+    },
+    {
+      "path": "tests/contract/governance/test_compose_operational_contract.py",
+      "area": "tests",
+      "category": "test suite",
+      "owner": "quality",
+      "management": "managed by test strategy",
+      "size_bytes": 7985,
+      "line_count": 171,
+      "role": "python-source",
+      "review_note": "test coverage; keep deterministic and avoid live GPU dependency"
+    },
+    {
+      "path": "tests/contract/governance/test_image_and_build_policy.py",
+      "area": "tests",
+      "category": "test suite",
+      "owner": "quality",
+      "management": "managed by test strategy",
+      "size_bytes": 4492,
+      "line_count": 84,
+      "role": "python-source",
+      "review_note": "test coverage; keep deterministic and avoid live GPU dependency"
+    },
+    {
+      "path": "tests/contract/governance/test_monitoring_dashboards.py",
+      "area": "tests",
+      "category": "test suite",
+      "owner": "quality",
+      "management": "managed by test strategy",
+      "size_bytes": 12869,
+      "line_count": 258,
+      "role": "python-source",
+      "review_note": "test coverage; keep deterministic and avoid live GPU dependency"
+    },
+    {
+      "path": "tests/contract/governance/test_runtime_docs_and_harness.py",
+      "area": "tests",
+      "category": "test suite",
+      "owner": "quality",
+      "management": "managed by test strategy",
+      "size_bytes": 5925,
+      "line_count": 131,
+      "role": "python-source",
+      "review_note": "test coverage; keep deterministic and avoid live GPU dependency"
+    },
+    {
+      "path": "tests/contract/manifests/env_examples.yaml",
+      "area": "tests",
+      "category": "test suite",
+      "owner": "quality",
+      "management": "managed by test strategy",
+      "size_bytes": 478,
+      "line_count": 12,
+      "role": "structured-data",
       "review_note": "test coverage; keep deterministic and avoid live GPU dependency"
     },
     {
@@ -4094,28 +4303,6 @@
       "management": "managed by test strategy",
       "size_bytes": 1120,
       "line_count": 33,
-      "role": "python-source",
-      "review_note": "test coverage; keep deterministic and avoid live GPU dependency"
-    },
-    {
-      "path": "tests/contract/test_exposure_profiles.py",
-      "area": "tests",
-      "category": "test suite",
-      "owner": "quality",
-      "management": "managed by test strategy",
-      "size_bytes": 29778,
-      "line_count": 749,
-      "role": "python-source",
-      "review_note": "test coverage; keep deterministic and avoid live GPU dependency"
-    },
-    {
-      "path": "tests/contract/test_governance_and_ops.py",
-      "area": "tests",
-      "category": "test suite",
-      "owner": "quality",
-      "management": "managed by test strategy",
-      "size_bytes": 38561,
-      "line_count": 791,
       "role": "python-source",
       "review_note": "test coverage; keep deterministic and avoid live GPU dependency"
     },
@@ -4230,6 +4417,149 @@
       "review_note": "test coverage; keep deterministic and avoid live GPU dependency"
     },
     {
+      "path": "tests/unit/gateway/__init__.py",
+      "area": "tests",
+      "category": "test suite",
+      "owner": "quality",
+      "management": "managed by test strategy",
+      "size_bytes": 0,
+      "line_count": 0,
+      "role": "python-source",
+      "review_note": "test coverage; keep deterministic and avoid live GPU dependency"
+    },
+    {
+      "path": "tests/unit/gateway/conftest.py",
+      "area": "tests",
+      "category": "test suite",
+      "owner": "quality",
+      "management": "managed by test strategy",
+      "size_bytes": 78,
+      "line_count": 3,
+      "role": "python-source",
+      "review_note": "test coverage; keep deterministic and avoid live GPU dependency"
+    },
+    {
+      "path": "tests/unit/gateway/helpers.py",
+      "area": "tests",
+      "category": "test suite",
+      "owner": "quality",
+      "management": "managed by test strategy",
+      "size_bytes": 22099,
+      "line_count": 571,
+      "role": "python-source",
+      "review_note": "test coverage; keep deterministic and avoid live GPU dependency"
+    },
+    {
+      "path": "tests/unit/gateway/test_auth_and_docs.py",
+      "area": "tests",
+      "category": "test suite",
+      "owner": "quality",
+      "management": "managed by test strategy",
+      "size_bytes": 4289,
+      "line_count": 79,
+      "role": "python-source",
+      "review_note": "test coverage; keep deterministic and avoid live GPU dependency"
+    },
+    {
+      "path": "tests/unit/gateway/test_chat.py",
+      "area": "tests",
+      "category": "test suite",
+      "owner": "quality",
+      "management": "managed by test strategy",
+      "size_bytes": 10763,
+      "line_count": 273,
+      "role": "python-source",
+      "review_note": "test coverage; keep deterministic and avoid live GPU dependency"
+    },
+    {
+      "path": "tests/unit/gateway/test_clients.py",
+      "area": "tests",
+      "category": "test suite",
+      "owner": "quality",
+      "management": "managed by test strategy",
+      "size_bytes": 3186,
+      "line_count": 71,
+      "role": "python-source",
+      "review_note": "test coverage; keep deterministic and avoid live GPU dependency"
+    },
+    {
+      "path": "tests/unit/gateway/test_embeddings.py",
+      "area": "tests",
+      "category": "test suite",
+      "owner": "quality",
+      "management": "managed by test strategy",
+      "size_bytes": 5626,
+      "line_count": 136,
+      "role": "python-source",
+      "review_note": "test coverage; keep deterministic and avoid live GPU dependency"
+    },
+    {
+      "path": "tests/unit/gateway/test_json_schema.py",
+      "area": "tests",
+      "category": "test suite",
+      "owner": "quality",
+      "management": "managed by test strategy",
+      "size_bytes": 17816,
+      "line_count": 475,
+      "role": "python-source",
+      "review_note": "test coverage; keep deterministic and avoid live GPU dependency"
+    },
+    {
+      "path": "tests/unit/gateway/test_metrics_and_errors.py",
+      "area": "tests",
+      "category": "test suite",
+      "owner": "quality",
+      "management": "managed by test strategy",
+      "size_bytes": 2495,
+      "line_count": 59,
+      "role": "python-source",
+      "review_note": "test coverage; keep deterministic and avoid live GPU dependency"
+    },
+    {
+      "path": "tests/unit/gateway/test_readiness.py",
+      "area": "tests",
+      "category": "test suite",
+      "owner": "quality",
+      "management": "managed by test strategy",
+      "size_bytes": 6304,
+      "line_count": 145,
+      "role": "python-source",
+      "review_note": "test coverage; keep deterministic and avoid live GPU dependency"
+    },
+    {
+      "path": "tests/unit/gateway/test_retrieval.py",
+      "area": "tests",
+      "category": "test suite",
+      "owner": "quality",
+      "management": "managed by test strategy",
+      "size_bytes": 13371,
+      "line_count": 318,
+      "role": "python-source",
+      "review_note": "test coverage; keep deterministic and avoid live GPU dependency"
+    },
+    {
+      "path": "tests/unit/gateway/test_risk.py",
+      "area": "tests",
+      "category": "test suite",
+      "owner": "quality",
+      "management": "managed by test strategy",
+      "size_bytes": 3704,
+      "line_count": 101,
+      "role": "python-source",
+      "review_note": "test coverage; keep deterministic and avoid live GPU dependency"
+    },
+    {
+      "path": "tests/unit/gateway/test_streaming.py",
+      "area": "tests",
+      "category": "test suite",
+      "owner": "quality",
+      "management": "managed by test strategy",
+      "size_bytes": 12320,
+      "line_count": 295,
+      "role": "python-source",
+      "review_note": "test coverage; keep deterministic and avoid live GPU dependency"
+    },
+    {
       "path": "tests/unit/test_auth_control.py",
       "area": "tests",
       "category": "test suite",
@@ -4285,17 +4615,6 @@
       "review_note": "test coverage; keep deterministic and avoid live GPU dependency"
     },
     {
-      "path": "tests/unit/test_gateway_app.py",
-      "area": "tests",
-      "category": "test suite",
-      "owner": "quality",
-      "management": "managed by test strategy",
-      "size_bytes": 101313,
-      "line_count": 2482,
-      "role": "python-source",
-      "review_note": "test coverage; keep deterministic and avoid live GPU dependency"
-    },
-    {
       "path": "tests/unit/test_governance_validation_package.py",
       "area": "tests",
       "category": "test suite",
@@ -4334,7 +4653,7 @@
       "category": "test suite",
       "owner": "quality",
       "management": "managed by test strategy",
-      "size_bytes": 6426,
+      "size_bytes": 6436,
       "line_count": 136,
       "role": "python-source",
       "review_note": "test coverage; keep deterministic and avoid live GPU dependency"

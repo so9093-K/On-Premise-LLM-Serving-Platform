@@ -44,6 +44,7 @@ def main() -> int:
         runtime_report=runtime_report,
         runtime_report_path=str(runtime_report_path.relative_to(root)) if runtime_report_path else None,
         version=(root / "VERSION").read_text(encoding="utf-8").strip(),
+        is_package_placeholder=args.static_placeholder,
     )
     json_path, md_path = write_live_evidence_bundle(document, output_dir)
     print(f"wrote {json_path}")

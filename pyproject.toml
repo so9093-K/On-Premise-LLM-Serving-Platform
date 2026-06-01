@@ -34,6 +34,16 @@ markers = [
   "docker: validation requiring Docker or docker compose",
   "gpu: validation requiring visible GPU runtime capability",
   "slow: deterministic test excluded from the fast default suite",
+  "gateway: Gateway app, route, service, or client behavior test",
+  "settings: settings loading, dotenv, auth profile, or env contract test",
+  "auth: authentication, authorization, or exposure ownership test",
+  "openapi: OpenAPI generation, schema reference, or snapshot contract test",
+  "docs: documentation structure, stale marker, or generated doc invariant test",
+  "compose: Docker Compose, preflight, or compose operational contract test",
+  "monitoring: Prometheus, Grafana, dashboard, or observability contract test",
+  "package: release package or package hygiene test",
+  "model_registry: model registry, modelctl, projection, or runtime asset model test",
+  "cli: command registry, CLI wrapper, or operator command behavior test",
 ]
 
 [tool.ruff]

@@ -78,7 +78,7 @@ def test_release_package_static_evidence_and_model_docs(package_zip: Path) -> No
     assert not any("/reports/runtime/runtime_validation_" in name for name in names)
     assert evidence["runtime_report"]["path"] is None
     assert evidence["runtime_report"]["mode"] == "missing"
-    assert evidence["evidence_status"] == "missing_runtime_evidence"
+    assert evidence["evidence_status"] == "excluded_from_release_package"
 
     assert f"{PACKAGE_ROOT}/docs/models/model_cards.md" in names
     assert f"{PACKAGE_ROOT}/docs/archive/reviews/gemma4_31b_awq_review.md" in names
