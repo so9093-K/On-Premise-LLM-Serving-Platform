@@ -70,7 +70,7 @@ models:
         checkpoint; upstream example uses 96K context on B200/vLLM main, so this
         platform keeps 16K seq=1 until local tokenizer, boot, quality, latency, and
         soak validation pass
-      max_output_tokens: 1024
+      max_output_tokens: 4096
       input_modalities:
       - text
       - image

@@ -69,7 +69,7 @@ models:
       FP8 checkpoint; upstream card uses B200/vLLM main with 96K context, while this
       platform starts at 16K seq=1 pending local tokenizer, boot, quality, latency,
       and soak validation
-    max_output_tokens: 1024
+    max_output_tokens: 4096
     resource_control:
       criticality: primary_user_path
       isolation: dedicated_vllm_process
@@ -78,7 +78,7 @@ models:
         queue_timeout_seconds: 2
       request_limits:
         max_model_len: 16384
-        max_output_tokens: 1024
+        max_output_tokens: 4096
         input_modalities:
         - text
         - image

@@ -91,6 +91,8 @@ def validate_model_source_facts() -> None:
         raise SystemExit('local-main tensor_parallel_size mismatch between catalog policy and serving config')
     if policy['max_model_len'] != serving['main_llm']['max_model_len']:
         raise SystemExit('local-main max_model_len mismatch between catalog policy and serving config')
+    if policy['max_output_tokens'] != serving['main_llm']['max_output_tokens']:
+        raise SystemExit('local-main max_output_tokens mismatch between catalog policy and serving config')
     if serving['main_llm'].get('runtime_policy_source') is None:
         raise SystemExit('local-main serving config must document the source/policy distinction')
 
@@ -286,8 +288,14 @@ def validate_model_resource_control_policy() -> None:
         if phrase not in allocation_text:
             raise SystemExit(f'gpu_resource_plan.md missing phrase: {phrase}')
     main_policy = catalog['local-main']['project_runtime_policy']
-    if set(main_policy.get('input_modalities', [])) != {'text', 'image'} or int(main_policy.get('max_output_tokens')) != 1024:
-        raise SystemExit('local-main project runtime policy must define text+image input and max_output_tokens=1024')
+    expected_max_output_tokens = int(gpu['limits']['main_llm_max_output_tokens'])
+    if set(main_policy.get('input_modalities', [])) != {'text', 'image'}:
+        raise SystemExit('local-main project runtime policy must define text+image input modalities')
+    if int(main_policy.get('max_output_tokens', 0)) != expected_max_output_tokens:
+        raise SystemExit(
+            f'local-main max_output_tokens {main_policy.get("max_output_tokens")} must match '
+            f'gpu_budgets.yaml main_llm_max_output_tokens {expected_max_output_tokens}'
+        )
     if int(main_policy.get('max_image_inputs', 0)) != 1 or main_policy.get('allowed_image_url_schemes') != ['data']:
         raise SystemExit('local-main image input policy must allow exactly one data:image input by default')
     if int(main_policy.get('max_image_bytes', 0)) <= 0 or int(main_policy.get('max_image_pixels', 0)) <= 0:
