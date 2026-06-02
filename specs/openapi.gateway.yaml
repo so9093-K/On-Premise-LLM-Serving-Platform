@@ -43,16 +43,12 @@ info:
 
     | `local-main` | chat, vision, tools, structured outputs, logprobs |
 
-    | `local-embed` | embeddings (`dimensions`, `truncate_prompt_tokens`, `user`)
-    |
+    | `local-embed` | embeddings (`dimensions`, `truncate_prompt_tokens`) |
 
     | `local-embed-ko` | Korean dense retrieval default, embeddings fixed at 1024
     dimensions |
 
     | `risk-prompt` | prompt risk signal — 사용자 sampling parameter 없음 |
-
-
-    상세 정책은 `docs/specs/api.md`와 `docs/operations/model_parameter_discovery.md`를 참고하세요.
 
 
     ## Readiness
@@ -460,24 +456,14 @@ paths:
       tags:
       - Chat
       summary: Chat completion 생성
-      description: '`local-main`을 통한 chat completion API입니다. OpenAI 호환 bounded subset을
-        제공합니다.
-
-
-        Gateway가 model id, 입력 modality, token limit, tool-call 지원, parameter allowlist를
-        검증합니다.
-
-
-        - `stream=true` — vLLM SSE chunk를 버퍼링 없이 `text/event-stream`으로 relay
-
-        - `response_format` — `text` / `json_object` / `json_schema` 지원
-
-        - `logprobs`, `top_logprobs`, `logit_bias` — Gateway policy 안에서 upstream에
-        전달
-
-
-        상세 Structured Outputs subset은 `docs/specs/api.md`와 `docs/operations/model_parameter_discovery.md`를
-        참고하세요.'
+      description: "`local-main`을 통한 chat completion API입니다. OpenAI 호환 bounded subset을\
+        \ 제공합니다.\n\nGateway가 model id, 입력 modality, token limit, tool-call 지원, parameter\
+        \ allowlist를 검증합니다.\n\n- `stream=true` — vLLM SSE chunk를 버퍼링 없이 `text/event-stream`으로\
+        \ relay\n- `response_format`\n  - `json_object` — JSON mode. messages에 명시적\
+        \ JSON 지시문 필요, schema 일치 미보장\n  - `json_schema` — Structured Outputs. root\
+        \ `object` 필수, `additionalProperties: false` 필수, optional field는 nullable\
+        \ union(`[\"type\", \"null\"]`) 으로 표현, external `$ref` 불가\n- `logprobs`, `top_logprobs`,\
+        \ `logit_bias` — Gateway policy 안에서 upstream에 전달"
       operationId: createChatCompletion
       requestBody:
         content:
@@ -591,7 +577,7 @@ paths:
                 max_tokens:
                   type: integer
                   minimum: 1
-                  maximum: 1024
+                  maximum: 4096
                 top_p:
                   type: number
                   exclusiveMinimum: 0
@@ -1667,8 +1653,8 @@ paths:
       tags:
       - Embeddings
       summary: Embedding vector 생성
-      description: '`local-embed`를 통해 텍스트의 embedding vector를 생성합니다. 요청 파라미터는 Gateway
-        contract로 검증하며, 지원하지 않는 파라미터는 차단합니다.'
+      description: '`local-embed` 및 `local-embed-ko`를 통해 텍스트의 embedding vector를 생성합니다.
+        요청 파라미터는 Gateway contract로 검증하며, 지원하지 않는 파라미터는 차단합니다.'
       operationId: createEmbedding
       requestBody:
         content:
@@ -5012,8 +4998,8 @@ tags:
   description: Gateway가 외부 호출자에게 노출하는 logical model catalog입니다. `/v1/models` 응답은 모델별
     `capabilities`와 사용자 조정 가능 `request_parameters`를 함께 제공합니다.
 - name: Chat
-  description: '`local-main`을 통한 chat completion API입니다. OpenAI 호환 형식을 따르며, 지원 파라미터는
-    Gateway contract로 제한합니다.'
+  description: OpenAI 호환 chat completions API입니다. `stream`, `tools`, structured outputs,
+    `reasoning`, `logprobs` 등 고급 기능을 지원합니다.
 - name: Embeddings
   description: '`local-embed`와 `local-embed-ko`를 통한 embedding API입니다. 요청 파라미터는 Gateway
     contract로 검증합니다.'
