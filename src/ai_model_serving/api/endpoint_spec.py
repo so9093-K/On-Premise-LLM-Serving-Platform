@@ -160,7 +160,7 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
         tag="Embeddings",
         summary="Embedding vector 생성",
         description=(
-            "`local-embed`를 통해 텍스트의 embedding vector를 생성합니다. "
+            "`local-embed` 및 `local-embed-ko`를 통해 텍스트의 embedding vector를 생성합니다. "
             "요청 파라미터는 Gateway contract로 검증하며, 지원하지 않는 파라미터는 차단합니다."
         ),
         auth="public_api",

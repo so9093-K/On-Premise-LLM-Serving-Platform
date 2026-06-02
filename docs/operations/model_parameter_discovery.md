@@ -69,7 +69,7 @@
 
 `request_parameters`는 허용 표면과 제약 조건이지, Gateway가 주입하는 기본값 목록이 아니다. Chat UI가 기본 입력값을 정해야 한다면 일반 대화는 `temperature=0.7`, `top_p=0.9`, `max_tokens=512` 같은 client preset으로 두고, smoke/debug preset은 `temperature=0`, `max_tokens=1`, `n=1`로 분리한다. `reasoning`은 기본 `false`로 두고 분석·디버깅 preset에서만 켠다. `parallel_tool_calls`는 `false` 고정이므로 toggle로 노출하지 않는다. Vision 입력은 base64 `data:image` 1개만 허용하므로 외부 URL 업로드 UX는 별도 proxy/egress 정책이 생기기 전까지 제공하지 않는다.
 
-`response_format.allowed_types`는 `text`, `json_object`, `json_schema`다. `json_object`는 JSON mode이고 schema adherence를 보장하지 않으므로 UI는 별도 schema 입력란을 열지 않는다. `json_object`는 messages 안의 명시적인 JSON 지시문이 필요하다. `json_schema`는 bounded OpenAI-compatible Structured Outputs subset이며 root object와 `additionalProperties:false`를 요구한다. root `anyOf`는 거부하지만 nested `anyOf`는 limit 안에서 허용한다. local `$defs`/`$ref`와 recursive local `$ref`는 허용하지만 external `$ref`는 허용하지 않는다. `$ref` 값은 `#`로 시작하는 local reference여야 한다. Phase 1에서는 `$dynamicRef`, `$recursiveRef`, `$dynamicAnchor`, `$recursiveAnchor`를 지원하지 않고, `$id`와 `$anchor`도 local-only reference policy를 단순하게 유지하기 위해 지원하지 않는다. `$schema`는 JSON Schema draft annotation으로 허용될 수 있다. 모든 object property는 `required`에 포함되어야 하며 optional처럼 보이는 field는 `"type": ["string", "null"]` nullable union으로 표현한다. `strict`는 OpenAI 호환성을 위해 받지만 Gateway safety limit은 항상 적용된다. `top_logprobs`는 `logprobs=true`가 필요하고 Gateway cap은 10이다(OpenAI 표준은 20까지 허용). `logit_bias.token_id_semantics`가 `served_model_tokenizer`이면 OpenAI/tiktoken id가 아니라 serving 중인 vLLM tokenizer id를 입력해야 한다.
+`response_format.allowed_types`는 `text`, `json_object`, `json_schema`다. `json_object`는 JSON mode이고 schema adherence를 보장하지 않으므로 UI는 별도 schema 입력란을 열지 않는다. `json_object`는 messages 안의 명시적인 JSON 지시문이 필요하다. `json_schema`는 bounded OpenAI-compatible Structured Outputs subset이며 root object와 `additionalProperties:false`를 요구한다. root `anyOf`는 거부하지만 nested `anyOf`는 limit 안에서 허용한다. local `$defs`/`$ref`와 recursive local `$ref`는 허용하지만 external `$ref`는 허용하지 않는다. `$ref` 값은 `#`로 시작하는 local reference여야 한다. 현재 `$dynamicRef`, `$recursiveRef`, `$dynamicAnchor`, `$recursiveAnchor`는 지원하지 않고, `$id`와 `$anchor`도 local-only reference policy를 단순하게 유지하기 위해 지원하지 않는다. `$schema`는 JSON Schema draft annotation으로 허용될 수 있다. 모든 object property는 `required`에 포함되어야 하며 optional처럼 보이는 field는 `"type": ["string", "null"]` nullable union으로 표현한다. `strict`는 OpenAI 호환성을 위해 받지만 Gateway safety limit은 항상 적용된다. `top_logprobs`는 `logprobs=true`가 필요하고 Gateway cap은 10이다(OpenAI 표준은 20까지 허용). `logit_bias.token_id_semantics`가 `served_model_tokenizer`이면 OpenAI/tiktoken id가 아니라 serving 중인 vLLM tokenizer id를 입력해야 한다.
 
 Unsupported keyword 제한은 schema object keyword에만 적용되고 JSON output property name에는 적용되지 않는다. 따라서 client UI는 `$id`, `not`, `$dynamicRef` 같은 문자열도 output field name으로 허용할 수 있다. 다만 그 문자열이 property schema value 안에서 schema keyword로 사용되면 Gateway가 reject한다.
 
@@ -90,7 +90,7 @@ Unsupported keyword 제한은 schema object keyword에만 적용되고 JSON outp
 | Advanced token control | `logit_bias` (`logit_bias` token id는 served model tokenizer 기준 — OpenAI/tiktoken id와 다름) |
 | Vision | `image_url` content part |
 
-`logit_bias`는 served vLLM model tokenizer token id를 사용해야 하므로 Advanced 섹션에 설명을 포함하고 기본적으로 숨긴다. `/v1/models`에 `request_parameter_groups` 같은 새 field를 추가하는 것은 별도 PR로 진행한다.
+`logit_bias`는 served vLLM model tokenizer token id를 사용해야 하므로 Advanced 섹션에 설명을 포함하고 기본적으로 숨긴다. `/v1/models`에 `request_parameter_groups` 같은 새 field는 현재 미구현이며, 필요 시 별도로 추가할 수 있다.
 
 ## 운영자 변경 절차
 

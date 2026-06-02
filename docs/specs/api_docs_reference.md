@@ -90,11 +90,11 @@ API 문서는 “사용자가 조정할 수 있는 parameter”와 “운영자�
 | Advanced token control | `logit_bias` |
 | Vision | `image_url` content part |
 
-`/v1/models`에 `request_parameter_groups` 같은 새 field를 추가하는 것은 별도 PR로 진행한다.
+`/v1/models`에 `request_parameter_groups` 같은 새 field는 현재 미구현이다. 필요 시 별도로 추가할 수 있다.
 
-## 3.4 /playground 설계 (TODO)
+## 3.4 /playground 설계 (미구현)
 
-이번 PR에서 `/playground` 실제 구현은 하지 않는다. 후속 작업의 방향만 기록한다.
+`/playground`는 현재 구현되지 않았다. 향후 구현 방향:
 
 - `/playground`는 `/v1/models`를 읽어 model-aware form을 구성한다.
 - 포함할 요소: model selector, capability badge, parameter group, request JSON preview, curl/code copy, streaming viewer, json_schema editor, logprobs/logit_bias advanced section.
@@ -109,7 +109,7 @@ API 문서는 “사용자가 조정할 수 있는 parameter”와 “운영자�
 | staging / prod / private network | pinned version 또는 self-host asset 권장 |
 | air-gapped / offline / local-only network | self-host asset 필요 |
 
-현재 구현은 CDN 기반이다. self-host asset mode는 후속 작업으로 둔다. 설정 설계안:
+현재 구현은 CDN 기반이다. self-host asset mode는 미구현이다. 향후 설정 설계안:
 
 ```yaml
 documentation:
@@ -117,8 +117,6 @@ documentation:
   asset_mode: cdn
   scalar_asset_url: https://cdn.jsdelivr.net/npm/@scalar/api-reference
 ```
-
-구현은 이번 PR 범위 밖이다.
 
 ## 5. 비활성화
 

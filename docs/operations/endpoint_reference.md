@@ -16,7 +16,7 @@
 | **Risk Adapter API** | compose 내부 전용 (9405) | 내부 risk signal adapter |
 | **Grafana** | `http://localhost:9411` | 운영 대시보드 |
 | **Prometheus** | compose 내부 전용 (내부 9090, SSH 포워딩 시 호스트 9410) | Metrics 수집·쿼리 |
-| DCGM Exporter | compose 내부 전용 (9400) | GPU raw metrics |
+| DCGM Exporter | compose 내부 전용 (9400, DCGM 기본 포트 — host publish 없음) | GPU raw metrics |
 | **Infisical** | `http://localhost:9420` | 시크릿 관리 웹 UI (선택) |
 
 > `full-stack.private-network.yaml` 기준: vLLM runtime(main-llm-vllm 9401, embedding-vllm 9402, risk-prompt-vllm 9403, embedding-ko-vllm 9406), Risk Adapter(9405), Prometheus, cAdvisor, DCGM Exporter는 compose 내부 네트워크 전용이며 host에서 직접 접근하지 않는다.  
@@ -242,7 +242,7 @@ make ready
 
 `stream=true`는 SSE fast path입니다. 표준 OpenAI chunk는 `object: "chat.completion.chunk"`, `choices[].delta`, `finish_reason`을 포함하며 마지막에는 `data: [DONE]`이 옵니다. `stream_options.include_usage=true`는 `stream=true`와 함께 사용할 때 upstream이 지원하는 최종 usage chunk를 요청하고 Gateway는 이를 수정하지 않고 relay합니다. Proxy buffering, 중간 실패 SSE error event, usage accounting, timeout tuning은 [streaming_runtime_operations.md](streaming_runtime_operations.md)를 따릅니다.
 
-`response_format`은 `text`, `json_object`, `json_schema`를 지원합니다. `json_object`는 유효한 JSON만 확인하며 schema adherence를 보장하지 않고, messages 안에 명시적인 JSON 지시문이 필요합니다. `json_schema`는 bounded OpenAI-compatible Structured Outputs subset이며 Gateway가 non-stream 응답의 JSON/schema adherence를 검증합니다. root `anyOf`는 거부하고 nested `anyOf`는 limit 안에서 허용합니다. local `$defs`/`$ref`와 recursive local `$ref`는 허용하지만 external `$ref`는 허용하지 않습니다. `$ref` 값은 `#`로 시작하는 local reference여야 합니다. Phase 1에서는 `$dynamicRef`, `$recursiveRef`, `$dynamicAnchor`, `$recursiveAnchor`를 지원하지 않고, `$id`와 `$anchor`도 local-only reference policy를 단순하게 유지하기 위해 지원하지 않습니다. `$schema`는 JSON Schema draft annotation으로 허용될 수 있습니다. 모든 object schema는 `additionalProperties:false`와 전체 property 목록을 담은 `required` array를 가져야 합니다. optional field는 `required`에서 빼지 말고 nullable union 예: `"type": ["string", "null"]`으로 표현합니다. `strict`는 OpenAI 호환성을 위해 허용하지만 Gateway safety limit은 `strict` 값과 무관하게 적용됩니다.
+`response_format`은 `text`, `json_object`, `json_schema`를 지원합니다. `json_object`는 유효한 JSON만 확인하며 schema adherence를 보장하지 않고, messages 안에 명시적인 JSON 지시문이 필요합니다. `json_schema`는 bounded OpenAI-compatible Structured Outputs subset이며 Gateway가 non-stream 응답의 JSON/schema adherence를 검증합니다. root `anyOf`는 거부하고 nested `anyOf`는 limit 안에서 허용합니다. local `$defs`/`$ref`와 recursive local `$ref`는 허용하지만 external `$ref`는 허용하지 않습니다. `$ref` 값은 `#`로 시작하는 local reference여야 합니다. 현재 `$dynamicRef`, `$recursiveRef`, `$dynamicAnchor`, `$recursiveAnchor`는 지원하지 않고, `$id`와 `$anchor`도 local-only reference policy를 단순하게 유지하기 위해 지원하지 않습니다. `$schema`는 JSON Schema draft annotation으로 허용될 수 있습니다. 모든 object schema는 `additionalProperties:false`와 전체 property 목록을 담은 `required` array를 가져야 합니다. optional field는 `required`에서 빼지 말고 nullable union 예: `"type": ["string", "null"]`으로 표현합니다. `strict`는 OpenAI 호환성을 위해 허용하지만 Gateway safety limit은 `strict` 값과 무관하게 적용됩니다.
 
 Unsupported keyword 제한은 schema object keyword에만 적용됩니다. JSON output property name에는 적용되지 않으므로 property 이름이 `$id`, `not`, `$dynamicRef` 같은 문자열이어도 `properties` map의 key로만 사용되면 허용됩니다. 반대로 property schema value 안에서 `$id`, `$dynamicRef`, `not` 등이 schema keyword로 사용되면 reject됩니다.
 

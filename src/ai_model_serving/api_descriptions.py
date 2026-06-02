@@ -19,7 +19,7 @@ GATEWAY_TAGS_METADATA = [
     },
     {
         "name": "Chat",
-        "description": "`local-main`을 통한 chat completion API입니다. OpenAI 호환 형식을 따르며, 지원 파라미터는 Gateway contract로 제한합니다.",
+        "description": "OpenAI 호환 chat completions API입니다. `stream`, `tools`, structured outputs, `reasoning`, `logprobs` 등 고급 기능을 지원합니다.",
     },
     {
         "name": "Embeddings",
@@ -68,11 +68,9 @@ GATEWAY_DESCRIPTION_TEMPLATE = """
 | 모델 | 기능 |
 |---|---|
 | `local-main` | chat, vision, tools, structured outputs, logprobs |
-| `local-embed` | embeddings (`dimensions`, `truncate_prompt_tokens`, `user`) |
+| `local-embed` | embeddings (`dimensions`, `truncate_prompt_tokens`) |
 | `local-embed-ko` | Korean dense retrieval default, embeddings fixed at 1024 dimensions |
 | `risk-prompt` | prompt risk signal — 사용자 sampling parameter 없음 |
-
-
 
 ## Readiness
 
