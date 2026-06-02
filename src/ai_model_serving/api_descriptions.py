@@ -72,7 +72,7 @@ GATEWAY_DESCRIPTION_TEMPLATE = """
 | `local-embed-ko` | Korean dense retrieval default, embeddings fixed at 1024 dimensions |
 | `risk-prompt` | prompt risk signal — 사용자 sampling parameter 없음 |
 
-상세 정책은 `docs/specs/api.md`와 `docs/operations/model_parameter_discovery.md`를 참고하세요.
+
 
 ## Readiness
 
@@ -117,7 +117,7 @@ RISK_ADAPTER_DESCRIPTION_TEMPLATE = """
 | **Prompt** | `risk-prompt` | Prompt Injection / Prompt Leaking |
 
 - detector 출력 `<SAFE>`, `<UNSAFE-A1>` 같은 label을 표준 signal-only response로 정규화합니다.
-- `allow`, `block`, `decision`, `action` 같은 최종 정책 결정은 하지 않습니다.
+- 정책 판단 필드(`allow`, `block`, `decision`, `action`)는 반환하지 않습니다.
 
 ## Readiness
 

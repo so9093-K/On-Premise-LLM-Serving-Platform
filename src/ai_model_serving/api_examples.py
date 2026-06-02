@@ -331,6 +331,7 @@ PROMPT_EXAMPLES: dict[str, Any] = {
 
 AGGREGATE_EXAMPLES: dict[str, Any] = {
     "prompt_injection": PROMPT_EXAMPLES["prompt_injection"],
+    "indirect_injection": PROMPT_EXAMPLES["indirect_injection"],
 }
 
 # ---------------------------------------------------------------------------
