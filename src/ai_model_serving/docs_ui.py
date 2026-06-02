@@ -2,7 +2,10 @@ from __future__ import annotations
 
 import json
 
-SCALAR_VERSION = "1.57.5"
+SCALAR_CONFIG = json.dumps({
+    "theme": "default",
+    "defaultHttpClient": {"targetKey": "shell", "clientKey": "curl"},
+})
 
 
 def scalar_html(openapi_url: str, title: str) -> str:
@@ -19,72 +22,11 @@ def scalar_html(openapi_url: str, title: str) -> str:
     <style>body {{ margin: 0; }}</style>
   </head>
   <body>
-    <div id="api-reference"></div>
-    <script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference@{SCALAR_VERSION}"></script>
-    <script>
-      const OPENAPI_URL = {json.dumps(openapi_url)};
-      let lastRawResponse = null;
-      let overrideNextWrite = false;
-
-      const originalWriteText = navigator.clipboard.writeText.bind(navigator.clipboard);
-
-      function isOpenApiDocumentRequest(input) {{
-        try {{
-          const reqUrl = new URL(typeof input === "string" ? input : input.url, window.location.href);
-          const specUrl = new URL(OPENAPI_URL, window.location.href);
-          return reqUrl.pathname === specUrl.pathname;
-        }} catch (_) {{ return false; }}
-      }}
-
-      function isStreamingRequest(init) {{
-        try {{
-          if (!init?.body || typeof init.body !== "string") return false;
-          return JSON.parse(init.body)?.stream === true;
-        }} catch (_) {{ return false; }}
-      }}
-
-      async function captureRawResponse(input, response) {{
-        if (isOpenApiDocumentRequest(input)) return;
-        try {{
-          lastRawResponse = await response.clone().text();
-        }} catch (_) {{}}
-      }}
-
-      // Preview Copy 버튼 클릭을 가로채서 raw response를 복사하도록 한다.
-      // "copy as curl", "copy url" 등은 제외하고 일반 Copy만 대상으로 한다.
-      document.addEventListener("click", (e) => {{
-        if (!lastRawResponse) return;
-        const btn = e.target.closest("button, [role='button']");
-        if (!btn) return;
-        const label = (btn.getAttribute("aria-label") || btn.title || btn.textContent || "").toLowerCase().trim();
-        if (label.includes("copy") && !label.includes("curl") && !label.includes("url")) {{
-          overrideNextWrite = true;
-          setTimeout(() => {{ overrideNextWrite = false; }}, 300);
-        }}
-      }}, true);
-
-      navigator.clipboard.writeText = async (text) => {{
-        if (overrideNextWrite && lastRawResponse) {{
-          overrideNextWrite = false;
-          return originalWriteText(lastRawResponse);
-        }}
-        return originalWriteText(text);
-      }};
-
-      Scalar.createApiReference("#api-reference", {{
-        url: OPENAPI_URL,
-        theme: "default",
-        defaultHttpClient: {{ targetKey: "shell", clientKey: "curl" }},
-        customFetch: async (input, init) => {{
-          if (isStreamingRequest(init)) {{
-            lastRawResponse = null;
-            return fetch(input, init);
-          }}
-          const response = await fetch(input, init);
-          captureRawResponse(input, response);
-          return response;
-        }}
-      }});
-    </script>
+    <script
+      id="api-reference"
+      data-url="{openapi_url}"
+      data-configuration='{SCALAR_CONFIG}'
+    ></script>
+    <script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference@1"></script>
   </body>
 </html>"""
