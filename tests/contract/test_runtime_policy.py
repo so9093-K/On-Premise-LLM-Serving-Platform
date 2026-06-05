@@ -59,6 +59,7 @@ def test_version_metadata_records_current_package_metadata() -> None:
 
 def test_model_source_facts_and_runtime_policy_are_separated() -> None:
     catalog = yaml.safe_load((ROOT / 'configs/model_catalog.yaml').read_text(encoding='utf-8'))['models']
+    gpu_budgets = yaml.safe_load((ROOT / 'configs/gpu_budgets.yaml').read_text(encoding='utf-8'))['limits']
     main = catalog['local-main']
     assert main['source_facts']['upstream_example']['tensor_parallel_size'] == 1
     assert main['source_facts']['upstream_example']['max_model_len'] == 96000
@@ -74,7 +75,8 @@ def test_model_source_facts_and_runtime_policy_are_separated() -> None:
     assert main['project_runtime_policy']['tensor_parallel_size'] == 1
     assert main['project_runtime_policy']['max_model_len'] == 16384
     assert main['project_runtime_policy']['max_image_inputs'] == 1
-    assert main['project_runtime_policy']['max_image_bytes'] == 750000
+    assert main['project_runtime_policy']['max_image_bytes'] == gpu_budgets['main_llm_max_image_bytes']
+    assert main['project_runtime_policy']['max_image_pixels'] == gpu_budgets['main_llm_max_image_pixels']
     assert set(main['project_runtime_policy']['allowed_image_mime_types']) == {'image/jpeg', 'image/png', 'image/webp'}
     prompt = catalog['risk-prompt']
     assert prompt['source_facts']['model_card_max_new_tokens'] == 1

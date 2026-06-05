@@ -33,19 +33,19 @@ Command:
 | `Makefile` | 1 |
 | `README.md` | 1 |
 | `VERSION` | 1 |
-| `assets` | 1 |
+| `assets` | 3 |
 | `configs` | 17 |
 | `contracts` | 2 |
 | `docs` | 61 |
 | `features` | 3 |
 | `harness` | 4 |
 | `model_cards` | 4 |
-| `ops` | 18 |
+| `ops` | 17 |
 | `pyproject.toml` | 1 |
 | `reports` | 20 |
 | `requirements.lock` | 1 |
 | `requirements.runtime.lock` | 1 |
-| `scripts` | 77 |
+| `scripts` | 76 |
 | `specs` | 15 |
 | `src` | 96 |
 | `tests` | 68 |
@@ -67,10 +67,10 @@ Command:
 
 | 경로 | 줄 수 | 담당 | 검토 메모 |
 |---|---:|---|---|
-| `specs/openapi.gateway.yaml` | 5038 | api-contracts | supporting project file |
+| `specs/openapi.gateway.yaml` | 5024 | api-contracts | supporting project file |
 | `reports/refactor/project_inventory_current.json` | 4783 | handoff-reporting | handoff/review artifact; avoid stale phase snapshots in active package |
 | `configs/command_registry.yaml` | 2100 | configuration | configuration source; validate through governance and projection checks after edits |
-| `specs/openapi.risk-adapter.yaml` | 1677 | api-contracts | supporting project file |
+| `specs/openapi.risk-adapter.yaml` | 1684 | api-contracts | supporting project file |
 | `ops/grafana/dashboards/serving_home.json` | 1398 | operations | supporting project file |
 | `ops/grafana/dashboards/api_experience.json` | 1095 | operations | supporting project file |
 | `ops/grafana/dashboards/observability_data_quality.json` | 907 | operations | supporting project file |
@@ -78,7 +78,7 @@ Command:
 | `reports/runtime/operator_status_bundle.json` | 733 | handoff-reporting | generated operator report; regenerate through make operator-reports before handoff |
 | `ops/grafana/dashboards/executive_runtime_overview.json` | 682 | operations | supporting project file |
 | `ops/grafana/dashboards/risk_signal_operations.json` | 625 | operations | supporting project file |
-| `src/ai_model_serving/governance_validation/docs_ops.py` | 617 | governance-validation | application code; preserve public API behavior and compatibility facades |
+| `src/ai_model_serving/governance_validation/docs_ops.py` | 612 | governance-validation | application code; preserve public API behavior and compatibility facades |
 | `ops/grafana/dashboards/model_runtime_deep_dive.json` | 611 | operations | supporting project file |
 | `.other/registry_cleanup.md` | 574 | project-maintenance | supporting project file |
 | `tests/unit/gateway/helpers.py` | 571 | quality | test coverage; keep deterministic and avoid live GPU dependency |

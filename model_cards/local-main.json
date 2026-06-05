@@ -77,8 +77,8 @@
       "data"
     ],
     "image_url_policy_reason": "avoid arbitrary server-side URL fetch by default; validate MIME, decoded image bytes, and image dimensions; external HTTPS image fetch should be enabled only behind an egress policy",
-    "max_image_bytes": 750000,
-    "max_image_pixels": 1048576,
+    "max_image_bytes": 2000000,
+    "max_image_pixels": 3145728,
     "allowed_image_mime_types": [
       "image/jpeg",
       "image/png",
