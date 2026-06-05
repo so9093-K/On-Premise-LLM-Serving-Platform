@@ -81,8 +81,8 @@ limits:
   rag_bulk_indexing_initial: disabled_or_throttled
   main_llm_max_output_tokens: 4096
   main_llm_max_image_inputs: 1
-  main_llm_max_image_bytes: 2000000
-  main_llm_max_image_pixels: 3145728
+  main_llm_max_image_bytes: 7000000
+  main_llm_max_image_pixels: 6422528
   detector_max_output_tokens: 1
 resource_management:
   isolation: each model runtime uses a separate vLLM process and port
