@@ -29,10 +29,10 @@ configs/command_terminology_policy.yaml,configs,configuration source of truth,co
 configs/env_contract.yaml,configs,configuration source of truth,configuration,managed by configuration lifecycle,2968,110,structured-data,configuration source; validate through governance and projection checks after edits
 configs/exposure_profiles.yaml,configs,configuration source of truth,configuration,managed by configuration lifecycle,2524,67,structured-data,configuration source; validate through governance and projection checks after edits
 configs/gemma4_chat_template.jinja,configs,configuration source of truth,configuration,managed by configuration lifecycle,11780,1,supporting-file,configuration source; validate through governance and projection checks after edits
-configs/gpu_budgets.yaml,configs,configuration source of truth,configuration,managed by configuration lifecycle,3410,107,structured-data,configuration source; validate through governance and projection checks after edits
+configs/gpu_budgets.yaml,configs,configuration source of truth,configuration,managed by configuration lifecycle,3411,107,structured-data,configuration source; validate through governance and projection checks after edits
 configs/logging_policy.yaml,configs,configuration source of truth,configuration,managed by configuration lifecycle,328,21,structured-data,configuration source; validate through governance and projection checks after edits
-configs/model_catalog.yaml,configs,configuration source of truth,configuration,managed by configuration lifecycle,12077,376,structured-data,configuration source; validate through governance and projection checks after edits
-configs/model_serving.yaml,configs,configuration source of truth,configuration,managed by configuration lifecycle,12882,451,structured-data,configuration source; validate through governance and projection checks after edits
+configs/model_catalog.yaml,configs,configuration source of truth,configuration,managed by configuration lifecycle,12078,376,structured-data,configuration source; validate through governance and projection checks after edits
+configs/model_serving.yaml,configs,configuration source of truth,configuration,managed by configuration lifecycle,12884,451,structured-data,configuration source; validate through governance and projection checks after edits
 configs/monitoring.yaml,configs,configuration source of truth,configuration,managed by configuration lifecycle,13497,411,structured-data,configuration source; validate through governance and projection checks after edits
 configs/recommended_images.yaml,configs,configuration source of truth,configuration,managed by configuration lifecycle,2986,72,structured-data,configuration source; validate through governance and projection checks after edits
 configs/retired_source_cleanup_policy.yaml,configs,configuration source of truth,configuration,managed by configuration lifecycle,2374,69,structured-data,configuration source; validate through governance and projection checks after edits
@@ -99,7 +99,7 @@ docs/release/versioning_policy.md,docs,documentation,documentation,managed by do
 docs/resources/README.md,docs,documentation,documentation,managed by documentation map,329,8,documentation,documentation; keep relative links valid and avoid duplicating current command flow
 docs/resources/gpu_resource_plan.md,docs,documentation,documentation,managed by documentation map,3885,99,documentation,documentation; keep relative links valid and avoid duplicating current command flow
 docs/resources/gpu_resource_requirements_48gb.md,docs,documentation,documentation,managed by documentation map,6277,100,documentation,documentation; keep relative links valid and avoid duplicating current command flow
-docs/specs/api.md,docs,documentation,documentation,managed by documentation map,13203,126,documentation,documentation; keep relative links valid and avoid duplicating current command flow
+docs/specs/api.md,docs,documentation,documentation,managed by documentation map,13771,126,documentation,documentation; keep relative links valid and avoid duplicating current command flow
 docs/specs/api_docs_reference.md,docs,documentation,documentation,managed by documentation map,7379,133,documentation,documentation; keep relative links valid and avoid duplicating current command flow
 docs/specs/configuration.md,docs,documentation,documentation,managed by documentation map,2198,40,documentation,documentation; keep relative links valid and avoid duplicating current command flow
 docs/specs/risk_signal_contract.md,docs,documentation,documentation,managed by documentation map,2069,67,documentation,documentation; keep relative links valid and avoid duplicating current command flow
@@ -112,7 +112,7 @@ harness/runtime_validation_matrix.yaml,harness,runtime validation harness plan/m
 harness/runtime_validation_plan.md,harness,runtime validation harness plan/matrix,project-maintenance,managed by root project metadata,1530,32,documentation,supporting project file
 model_cards/local-embed-ko.json,model_cards,model card metadata,project-maintenance,managed by root project metadata,2510,60,structured-data,supporting project file
 model_cards/local-embed.json,model_cards,model card metadata,project-maintenance,managed by root project metadata,3640,108,structured-data,supporting project file
-model_cards/local-main.json,model_cards,model card metadata,project-maintenance,managed by root project metadata,4010,110,structured-data,supporting project file
+model_cards/local-main.json,model_cards,model card metadata,project-maintenance,managed by root project metadata,4011,110,structured-data,supporting project file
 model_cards/risk-prompt.json,model_cards,model card metadata,project-maintenance,managed by root project metadata,1767,69,structured-data,supporting project file
 ops/compose/full-stack.private-network.yaml,ops,compose/monitoring/runtime ops template,operations,managed by operator templates,9835,347,structured-data,supporting project file
 ops/compose/infisical.yaml,ops,compose/monitoring/runtime ops template,operations,managed by operator templates,2199,69,structured-data,supporting project file
@@ -138,8 +138,8 @@ reports/archive/refactor_audits/first_run_clean_package_audit.md,reports,histori
 reports/archive/refactor_audits/full_file_hygiene_audit.md,reports,historical report archive,handoff-reporting,managed by root project metadata,5620,96,documentation,supporting project file
 reports/refactor/current_handoff_summary.md,reports,current handoff/review report,handoff-reporting,generated/curated for handoff review,6917,97,documentation,handoff/review artifact; avoid stale phase snapshots in active package
 reports/refactor/current_refactor_state.md,reports,current handoff/review report,handoff-reporting,generated/curated for handoff review,4210,72,entrypoint,primary navigation or current-state entrypoint; keep synchronized with Makefile and reports
-reports/refactor/project_inventory_current.csv,reports,current handoff/review report,handoff-reporting,generated/curated for handoff review,83918,412,structured-data,handoff/review artifact; avoid stale phase snapshots in active package
-reports/refactor/project_inventory_current.json,reports,current handoff/review report,handoff-reporting,generated/curated for handoff review,170619,4783,structured-data,handoff/review artifact; avoid stale phase snapshots in active package
+reports/refactor/project_inventory_current.csv,reports,current handoff/review report,handoff-reporting,generated/curated for handoff review,83916,412,structured-data,handoff/review artifact; avoid stale phase snapshots in active package
+reports/refactor/project_inventory_current.json,reports,current handoff/review report,handoff-reporting,generated/curated for handoff review,170617,4783,structured-data,handoff/review artifact; avoid stale phase snapshots in active package
 reports/refactor/project_inventory_current.md,reports,current handoff/review report,handoff-reporting,generated/curated for handoff review,5226,98,documentation,handoff/review artifact; avoid stale phase snapshots in active package
 reports/runtime/README.md,reports,runtime/operator generated report,handoff-reporting,generated by operator report commands,603,12,documentation,generated operator report; regenerate through make operator-reports before handoff
 reports/runtime/live_evidence_bundle.json,reports,runtime/operator generated report,handoff-reporting,generated by operator report commands,1723,69,structured-data,generated operator report; regenerate through make operator-reports before handoff
@@ -275,7 +275,7 @@ src/ai_model_serving/contracts/chat_response_format.py,src,application/control-p
 src/ai_model_serving/contracts/chat_tools.py,src,application/control-plane source,api-contracts,managed by package source layout,5847,97,python-source,application code; preserve public API behavior and compatibility facades
 src/ai_model_serving/contracts/common.py,src,application/control-plane source,api-contracts,managed by package source layout,851,30,python-source,application code; preserve public API behavior and compatibility facades
 src/ai_model_serving/contracts/embedding.py,src,application/control-plane source,api-contracts,managed by package source layout,5130,107,python-source,application code; preserve public API behavior and compatibility facades
-src/ai_model_serving/contracts/media.py,src,application/control-plane source,api-contracts,managed by package source layout,8466,191,python-source,application code; preserve public API behavior and compatibility facades
+src/ai_model_serving/contracts/media.py,src,application/control-plane source,api-contracts,managed by package source layout,8374,189,python-source,application code; preserve public API behavior and compatibility facades
 src/ai_model_serving/contracts/retrieval.py,src,application/control-plane source,api-contracts,managed by package source layout,1701,51,python-source,application code; preserve public API behavior and compatibility facades
 src/ai_model_serving/contracts/risk.py,src,application/control-plane source,api-contracts,managed by package source layout,8290,164,python-source,application code; preserve public API behavior and compatibility facades
 src/ai_model_serving/docs_ui.py,src,application/control-plane source,application,managed by package source layout,1004,32,python-source,application code; preserve public API behavior and compatibility facades
@@ -376,7 +376,7 @@ tests/contract/test_release_hygiene_static.py,tests,test suite,quality,managed b
 tests/contract/test_release_package_smoke.py,tests,test suite,quality,managed by test strategy,3004,86,python-source,test coverage; keep deterministic and avoid live GPU dependency
 tests/contract/test_render_runtime_assets.py,tests,test suite,quality,managed by test strategy,11198,275,python-source,test coverage; keep deterministic and avoid live GPU dependency
 tests/contract/test_risk_schema.py,tests,test suite,quality,managed by test strategy,2242,73,python-source,test coverage; keep deterministic and avoid live GPU dependency
-tests/contract/test_runtime_policy.py,tests,test suite,quality,managed by test strategy,16820,330,python-source,test coverage; keep deterministic and avoid live GPU dependency
+tests/contract/test_runtime_policy.py,tests,test suite,quality,managed by test strategy,17067,332,python-source,test coverage; keep deterministic and avoid live GPU dependency
 tests/contract/test_version_reset.py,tests,test suite,quality,managed by test strategy,9527,237,python-source,test coverage; keep deterministic and avoid live GPU dependency
 tests/integration/README.md,tests,test suite,quality,managed by test strategy,507,14,documentation,test coverage; keep deterministic and avoid live GPU dependency
 tests/unit/gateway/__init__.py,tests,test suite,quality,managed by test strategy,0,0,python-source,test coverage; keep deterministic and avoid live GPU dependency

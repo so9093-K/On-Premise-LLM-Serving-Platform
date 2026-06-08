@@ -12,6 +12,8 @@
 
 ### Changed
 
+- Vision 이미지 한도를 Gemma 4 SigLIP2 아키텍처 기준으로 상향했다: `max_image_bytes` 750,000 → 7,000,000, `max_image_pixels` 1,048,576 → 6,422,528 (8타일 × 896²), `max_request_body_bytes` 1,250,000 → 10,000,000. 한도 source-of-truth는 `configs/gpu_budgets.yaml`이며 contract 테스트가 cross-config 일치를 동적으로 검증한다. ([ADR-0014](docs/adr/0014-image-validation-policy.md))
+- Vision 이미지 포맷 파서 선택을 MIME type 기반에서 magic bytes sequential detection으로 변경했다. MIME type allowlist(`image/jpeg`, `image/png`, `image/webp`) 검사는 유지되지만, 파서는 MIME type 선언과 무관하게 실제 바이트로 포맷을 판단한다. MIME type을 잘못 선언한 클라이언트의 불필요한 422가 제거된다. ([ADR-0014](docs/adr/0014-image-validation-policy.md))
 - 공통 error code 계약에 `DETECTOR_DISABLED`, `STREAM_LIMIT_EXCEEDED`를 반영하고, Gateway가 Risk Adapter의 `DETECTOR_DISABLED` 410 envelope를 보존하도록 했다.
 - retrieval 내부 embedding 호출이 `truncate_prompt_tokens`를 전달하도록 정리했다. 확인되지 않은 `truncation_side`는 silent no-op 대신 422 validation error로 처리한다.
 - non-local `local_open`/`custom`/`internal_trusted` auth profile과 production `SKIP_PREFLIGHT=1` 경로의 운영 hard-fail 조건을 강화했다.
