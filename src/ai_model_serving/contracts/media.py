@@ -71,13 +71,11 @@ def _webp_dimensions(decoded: bytes) -> tuple[int, int] | None:
     return None
 
 
-def _image_dimensions(decoded: bytes, media_type: str) -> tuple[int, int] | None:
-    if media_type == "image/png":
-        return _png_dimensions(decoded)
-    if media_type == "image/jpeg":
-        return _jpeg_dimensions(decoded)
-    if media_type == "image/webp":
-        return _webp_dimensions(decoded)
+def _image_dimensions(decoded: bytes) -> tuple[int, int] | None:
+    for parser in (_jpeg_dimensions, _png_dimensions, _webp_dimensions):
+        result = parser(decoded)
+        if result is not None:
+            return result
     return None
 
 
@@ -103,7 +101,7 @@ def _validate_data_image_url(
         raise ServiceError("VALIDATION_ERROR", "image_url data image must contain valid base64.", False, 422) from exc
     if max_image_bytes and len(decoded) > max_image_bytes:
         raise ServiceError("VALIDATION_ERROR", f"image_url decoded image must be {max_image_bytes} bytes or fewer.", False, 422)
-    dimensions = _image_dimensions(decoded, media_type)
+    dimensions = _image_dimensions(decoded)
     if dimensions is None:
         raise ServiceError("VALIDATION_ERROR", "image_url image dimensions could not be read safely.", False, 422)
     width, height = dimensions
