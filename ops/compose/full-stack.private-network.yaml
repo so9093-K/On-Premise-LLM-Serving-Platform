@@ -95,8 +95,6 @@ services:
     - /app/configs/gemma4_chat_template.jinja
     - --structured-outputs-config
     - '{"backend":"auto","enable_in_reasoning":true}'
-    - --speculative-config
-    - '{"method":"mtp","model":"google/gemma-4-26B-A4B-it-assistant","num_speculative_tokens":2}'
     expose:
     - '9401'
     env_file: ../../.env

@@ -120,20 +120,6 @@ documents:
     disposition: keep
     source_of_truth: true
     status_source: adr_status
-  - path: docs/adr/0014-image-validation-policy.md
-    type: decision
-    lifecycle: historical
-    owner: architecture
-    disposition: keep
-    source_of_truth: true
-    status_source: adr_status
-  - path: docs/adr/0015-mtp-speculative-decoding-policy.md
-    type: decision
-    lifecycle: historical
-    owner: architecture
-    disposition: keep
-    source_of_truth: true
-    status_source: adr_status
   - path: docs/adr/README.md
     type: decision-index
     lifecycle: active
@@ -362,13 +348,6 @@ documents:
     lifecycle: active
     owner: operations
     disposition: keep
-  - path: docs/operations/speculative_decoding_mtp.md
-    type: operations
-    lifecycle: active
-    owner: operations
-    disposition: keep
-    source_of_truth:
-      - configs/model_serving.yaml
   - path: docs/release/release_checklist.md
     type: release
     lifecycle: active

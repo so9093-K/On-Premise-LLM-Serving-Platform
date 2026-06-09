@@ -163,42 +163,6 @@ def validate_alignment() -> None:
         util = as_float(args.get("gpu_memory_utilization"), "gpu_memory_utilization", service_name)
         total_gpu_util += util
 
-        # Speculative decoding config alignment: model_serving ↔ compose command
-        features = cfg.get("runtime_features", {}) or {}
-        spec_cfg = features.get("speculative_decoding") or {}
-        if spec_cfg.get("enabled") is True and runtime.service_key == "main_llm":
-            drafter = str(spec_cfg.get("mtp_drafter_model") or "")
-            num_tokens = spec_cfg.get("num_speculative_tokens")
-            method = str(spec_cfg.get("method") or "")
-            rendered_spec = args.get("speculative_config")
-            if not rendered_spec:
-                errors.append(
-                    f"{service_name}: speculative_decoding.enabled=true but "
-                    "--speculative-config is missing from compose command"
-                )
-            else:
-                try:
-                    spec_json = json.loads(str(rendered_spec))
-                    if spec_json.get("method") != method:
-                        errors.append(
-                            f"{service_name}: compose --speculative-config method="
-                            f"{spec_json.get('method')!r} != serving config {method!r}"
-                        )
-                    if spec_json.get("model") != drafter:
-                        errors.append(
-                            f"{service_name}: compose --speculative-config model="
-                            f"{spec_json.get('model')!r} != mtp_drafter_model {drafter!r}"
-                        )
-                    if spec_json.get("num_speculative_tokens") != num_tokens:
-                        errors.append(
-                            f"{service_name}: compose --speculative-config num_speculative_tokens="
-                            f"{spec_json.get('num_speculative_tokens')!r} != serving config {num_tokens!r}"
-                        )
-                except (json.JSONDecodeError, ValueError) as exc:
-                    errors.append(
-                        f"{service_name}: compose --speculative-config is not valid JSON: {exc}"
-                    )
-
         if runtime.role in {"risk_prompt_detector", "risk_policy_detector"}:
             if args.get("quantization") != "bitsandbytes" or args.get("load_format") != "bitsandbytes":
                 errors.append(f"{service_name}: risk detector compose defaults must keep bitsandbytes quantization/load-format")
