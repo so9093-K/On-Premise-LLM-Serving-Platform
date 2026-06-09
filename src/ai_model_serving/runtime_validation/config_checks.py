@@ -13,6 +13,10 @@ from ai_model_serving.storage_paths import StorageRegistry
 
 from .config import RuntimeValidationConfig
 from .results import CheckResult
+from .speculative_validation import (
+    validate_rendered_speculative_command,
+    validate_speculative_decoding_config,
+)
 from .vllm_commands import render_vllm_command
 
 RecordFn = Callable[[CheckResult], None]
@@ -51,6 +55,7 @@ class ConfigOnlyChecks:
         self._record_resource_control(runtime_services)
         self._record_gpu_budget(runtime_services)
         self._record_fixed_detector_budget()
+        self._record_speculative_decoding_checks(runtime_services)
 
     def _record_model_list_schema_projection(self) -> None:
         schema_path = self.root / "specs/schemas/model_list_response.schema.json"
@@ -185,6 +190,30 @@ class ConfigOnlyChecks:
                 "avoid_above": avoid_above,
                 "profile": self.gpu_budgets["gpu"].get("default_profile"),
             },
+        ))
+
+    def _record_speculative_decoding_checks(self, runtime_services: tuple[Any, ...]) -> None:
+        errors: list[str] = []
+        for service in runtime_services:
+            if service.backend != "vllm":
+                continue
+            is_main = service.service_key == "main_llm"
+            features = service.config.get("runtime_features", {}) or {}
+            errors.extend(
+                validate_speculative_decoding_config(service.service_key, features, is_main_llm=is_main)
+            )
+            if is_main:
+                spec = features.get("speculative_decoding") or {}
+                if spec.get("enabled") is True:
+                    command = render_vllm_command(service.service_key, service.config)
+                    errors.extend(
+                        validate_rendered_speculative_command(service.service_key, command)
+                    )
+        self.record(CheckResult(
+            "speculative-decoding",
+            "speculative decoding config and command validation",
+            "pass" if not errors else "fail",
+            details={"errors": errors} if errors else {"status": "ok"},
         ))
 
     def _record_fixed_detector_budget(self) -> None:

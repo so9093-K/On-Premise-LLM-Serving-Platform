@@ -318,6 +318,59 @@ def test_risk_detector_quantization_defaults_are_preserved() -> None:
         assert serving[key]['max_output_tokens'] == 1
 
 
+def test_main_llm_speculative_decoding_policy_is_explicit() -> None:
+    import json as _json
+    from ai_model_serving.runtime_validation import render_vllm_command
+
+    serving = yaml.safe_load((ROOT / 'configs/model_serving.yaml').read_text(encoding='utf-8'))['models']
+    main_cfg = serving['main_llm']
+    spec = main_cfg['runtime_features']['speculative_decoding']
+
+    assert spec['enabled'] is True
+    assert spec['method'] == 'mtp'
+    assert spec['mtp_drafter_model'] == 'google/gemma-4-26B-A4B-it-assistant'
+    assert isinstance(spec['num_speculative_tokens'], int)
+    assert spec['num_speculative_tokens'] == 2
+
+    # long_context and debug profiles must have MTP disabled
+    assert spec['profiles']['long_context']['enabled'] is False
+    assert spec['profiles']['debug']['enabled'] is False
+
+    # balanced and latency profiles must have MTP enabled
+    assert spec['profiles']['balanced']['enabled'] is True
+    assert spec['profiles']['latency']['enabled'] is True
+
+    # side effects must be documented
+    side_effects = spec['side_effects']
+    assert side_effects['consumes_additional_vram'] is True
+    assert side_effects['may_reduce_effective_kv_cache_context'] is True
+    assert side_effects['may_shift_ttft_or_itl_metrics'] is True
+
+    # catalog source_facts must document the drafter (not runtime truth)
+    catalog = yaml.safe_load((ROOT / 'configs/model_catalog.yaml').read_text(encoding='utf-8'))['models']
+    mtp_facts = catalog['local-main']['source_facts']
+    assert mtp_facts['mtp_drafter_model'] == 'google/gemma-4-26B-A4B-it-assistant'
+    assert 'drafter' in mtp_facts['mtp_drafter_role'].lower()
+    assert 'mtp_default_num_speculative_tokens' in mtp_facts
+
+    # Rendered command must include --speculative-config with correct JSON
+    cmd = render_vllm_command('main_llm', main_cfg)
+    assert '--speculative-config' in cmd
+    idx = cmd.index('--speculative-config')
+    spec_json = _json.loads(cmd[idx + 1])
+    assert spec_json == {
+        'method': 'mtp',
+        'model': 'google/gemma-4-26B-A4B-it-assistant',
+        'num_speculative_tokens': 2,
+    }
+
+    # Compose must have --speculative-config matching serving config
+    compose_args = _compose_command_args('main-llm-vllm')
+    assert 'speculative_config' in compose_args
+    compose_spec = _json.loads(str(compose_args['speculative_config']))
+    assert compose_spec == spec_json
+
+
 def test_kanana_risk_config_shape_facts_are_recorded() -> None:
     catalog = yaml.safe_load((ROOT / 'configs/model_catalog.yaml').read_text(encoding='utf-8'))['models']
     prompt_shape = catalog['risk-prompt']['source_facts']['config_shape']

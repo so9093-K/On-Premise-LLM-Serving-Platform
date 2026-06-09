@@ -111,6 +111,30 @@ models:
         enabled: true
         backend: auto
         enable_in_reasoning: true
+      speculative_decoding:
+        enabled: true
+        method: mtp
+        mtp_drafter_model: google/gemma-4-26B-A4B-it-assistant
+        num_speculative_tokens: 2
+        profiles:
+          balanced:
+            enabled: true
+            num_speculative_tokens: 2
+          latency:
+            enabled: true
+            num_speculative_tokens: 2
+          long_context:
+            enabled: false
+          debug:
+            enabled: false
+        side_effects:
+          consumes_additional_vram: true
+          may_reduce_effective_kv_cache_context: true
+          may_shift_ttft_or_itl_metrics: true
+        validation:
+          require_method_mtp: true
+          forbid_generic_draft_model_path_for_gemma4_assistant: true
+          require_rendered_speculative_config: true
     request_parameter_policy:
       allow_unlisted_parameters: false
       supported_parameters:

@@ -56,7 +56,7 @@ def test_runtime_validation_config_only_runner_records_expected_checks(monkeypat
     validator = RuntimeValidator(load_runtime_config(args))
     validator.run_config_only()
 
-    assert len(validator.results) == 17
+    assert len(validator.results) == 18
     assert all(item.passed for item in validator.results)
     assert {item.category for item in validator.results} >= {
         "vllm-runtime",
@@ -69,6 +69,7 @@ def test_runtime_validation_config_only_runner_records_expected_checks(monkeypat
         "operator-storage-paths",
         "operator-status-bundle",
         "operator-monitoring-projection",
+        "speculative-decoding",
     }
 
 
@@ -133,6 +134,102 @@ def test_render_vllm_command_stays_openai_compatible() -> None:
     assert "--enable-auto-tool-choice" in command
     structured_index = command.index("--structured-outputs-config")
     assert json.loads(command[structured_index + 1]) == {"backend": "auto", "enable_in_reasoning": True}
+
+
+def test_render_vllm_command_includes_speculative_config_for_main_llm() -> None:
+    cfg = {
+        "name": "RedHatAI/gemma-4-26B-A4B-it-FP8-Dynamic",
+        "served_model_name": "local-main",
+        "port": 9401,
+        "max_model_len": 16384,
+        "max_num_seqs": 1,
+        "max_num_batched_tokens": 16384,
+        "gpu_memory_utilization": 0.72,
+        "tensor_parallel_size": 1,
+        "dtype": "auto",
+        "quantization": "compressed-tensors",
+        "quantization_source": "model_config",
+        "trust_remote_code": True,
+        "runtime_features": {
+            "prefix_caching": {"enabled": True, "hash_algo": "sha256_cbor"},
+            "tool_calling": {
+                "enabled": True,
+                "auto_tool_choice": True,
+                "tool_call_parser": "gemma4",
+                "reasoning_parser": "gemma4",
+                "chat_template": "/app/configs/gemma4_chat_template.jinja",
+            },
+            "structured_outputs": {"enabled": True, "backend": "auto", "enable_in_reasoning": True},
+            "speculative_decoding": {
+                "enabled": True,
+                "method": "mtp",
+                "mtp_drafter_model": "google/gemma-4-26B-A4B-it-assistant",
+                "num_speculative_tokens": 2,
+            },
+        },
+    }
+    command = render_vllm_command("main_llm", cfg)
+
+    # --speculative-config must be present
+    assert "--speculative-config" in command
+    idx = command.index("--speculative-config")
+    spec_json = json.loads(command[idx + 1])
+    assert spec_json == {
+        "method": "mtp",
+        "model": "google/gemma-4-26B-A4B-it-assistant",
+        "num_speculative_tokens": 2,
+    }
+
+    # Existing features must be unaffected
+    assert "--enable-prefix-caching" in command
+    assert "--prefix-caching-hash-algo" in command
+    assert "sha256_cbor" in command
+    assert "--enable-auto-tool-choice" in command
+    assert "--tool-call-parser" in command
+    assert "gemma4" in command
+    assert "--reasoning-parser" in command
+    assert "--chat-template" in command
+    assert "/app/configs/gemma4_chat_template.jinja" in command
+    structured_idx = command.index("--structured-outputs-config")
+    assert json.loads(command[structured_idx + 1]) == {"backend": "auto", "enable_in_reasoning": True}
+
+    # quantization_source=model_config must still suppress --quantization
+    assert "--quantization" not in command
+
+
+def test_render_vllm_command_omits_speculative_config_for_non_main_llm() -> None:
+    embedding_cfg = {
+        "name": "google/embeddinggemma-300m",
+        "served_model_name": "local-embed",
+        "port": 9402,
+        "max_model_len": 2048,
+        "max_num_seqs": 2,
+        "max_num_batched_tokens": 2048,
+        "gpu_memory_utilization": 0.04,
+        "runner": "pooling",
+        "runtime_features": {
+            "prefix_caching": {"enabled": False},
+            "tool_calling": {"enabled": False},
+        },
+    }
+    assert "--speculative-config" not in render_vllm_command("embedding", embedding_cfg)
+
+    risk_cfg = {
+        "name": "kakaocorp/kanana-safeguard-prompt-2.1b",
+        "served_model_name": "risk-prompt",
+        "port": 9403,
+        "max_model_len": 2048,
+        "max_num_seqs": 1,
+        "max_num_batched_tokens": 2048,
+        "gpu_memory_utilization": 0.065,
+        "quantization": "bitsandbytes",
+        "load_format": "bitsandbytes",
+        "runtime_features": {
+            "prefix_caching": {"enabled": False},
+            "tool_calling": {"enabled": False},
+        },
+    }
+    assert "--speculative-config" not in render_vllm_command("risk_prompt", risk_cfg)
 
 
 def test_render_vllm_command_respects_model_config_quantization() -> None:

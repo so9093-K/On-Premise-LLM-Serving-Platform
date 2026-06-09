@@ -37,6 +37,19 @@ def _append_runtime_features(cmd: list[str], cfg: dict[str, Any]) -> None:
         }
         cmd.extend(["--structured-outputs-config", json.dumps(config, separators=(",", ":"))])
 
+    speculative = features.get("speculative_decoding") or {}
+    if speculative.get("enabled") is True:
+        method = speculative.get("method")
+        drafter = speculative.get("mtp_drafter_model") or speculative.get("speculative_drafter_model")
+        num_tokens = speculative.get("num_speculative_tokens")
+        if method and drafter and isinstance(num_tokens, int) and num_tokens > 0:
+            spec_config = {
+                "method": str(method),
+                "model": str(drafter),
+                "num_speculative_tokens": int(num_tokens),
+            }
+            cmd.extend(["--speculative-config", json.dumps(spec_config, separators=(",", ":"))])
+
 
 def render_vllm_command(key: str, cfg: dict[str, Any]) -> list[str]:
     model_path = cfg.get("runtime_model_path", cfg["name"])

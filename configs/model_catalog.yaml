@@ -59,6 +59,12 @@ models:
       parameter_summary:
         vllm_recipe: 26B total / 4B active
         hf_display: 27B params
+      mtp_drafter_model: google/gemma-4-26B-A4B-it-assistant
+      mtp_drafter_role: Gemma 4 MTP drafter/speculator, not chat assistant
+      mtp_drafter_size_hint: approximately 839MB safetensors, lightweight 4-layer drafter
+      mtp_default_num_speculative_tokens: 2
+      mtp_long_context_policy: disabled for long_context profile because effective KV/context
+        headroom may decrease
     project_runtime_policy:
       tensor_parallel_size: 1
       max_model_len: 16384

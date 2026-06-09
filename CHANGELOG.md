@@ -6,6 +6,7 @@
 
 ### Added
 
+- Gemma 4 MTP speculative decoding을 정식 runtime feature로 추가했다. target model `RedHatAI/gemma-4-26B-A4B-it-FP8-Dynamic`에 drafter `google/gemma-4-26B-A4B-it-assistant`(경량 4-layer MTP drafter/speculator, 약 839MB)를 연동한다. `balanced`/`latency` profile에서 기본 ON(`num_speculative_tokens=2`), `long_context`/`debug` profile에서 OFF. 내부 실측 기준 output token throughput 약 35% 개선, acceptance rate 약 70.78%. ([ADR-0015](docs/adr/0015-mtp-speculative-decoding-policy.md))
 - `make sync-env` — `git pull` 이후 `.env`를 템플릿과 동기화한다. 누락 키를 추가하고 폐기 키를 제거하되, 기존 크리덴셜·이미지 태그·커스텀 값은 모두 보존한다. 시크릿을 재생성하지 않는다.
 - `setup_env.py --env-file <path>` — `--sync-env` 실행 시 프로젝트 루트가 아닌 다른 경로의 `.env`를 대상으로 지정할 수 있다. 별도 배포 디렉터리의 `.env` 동기화에 사용한다.
 - 문서 lifecycle, ownership, source-of-truth, 검증 방식을 추적하는 `docs/manifest.yaml`을 추가했다.
