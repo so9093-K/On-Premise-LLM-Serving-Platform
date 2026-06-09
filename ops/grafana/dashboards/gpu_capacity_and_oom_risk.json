@@ -73,14 +73,14 @@
               },
               {
                 "color": "green",
-                "value": 6442450944
+                "value": 5368709120
               }
             ]
           }
         },
         "overrides": []
       },
-      "description": "Healthy: > 6GiB. Attention: 4–6GiB — watch trend. Action Required: < 4GiB — reduce max_tokens or concurrency. No Data: check dcgm-exporter scrape."
+      "description": "Healthy: observed live headroom stays above 5GiB. Attention: 4-5GiB means reserve is thinning. Action Required: below 4GiB is red and needs load/context review. No Data: check dcgm-exporter scrape."
     },
     {
       "id": 2,
@@ -117,18 +117,18 @@
               },
               {
                 "color": "orange",
-                "value": 42949672960
+                "value": 46170898432
               },
               {
                 "color": "red",
-                "value": 46170898432
+                "value": 47781511168
               }
             ]
           }
         },
         "overrides": []
       },
-      "description": "Healthy: < 40GiB. Attention: 40–43GiB — approaching budget. Action Required: > 43GiB — reduce load. No Data: check dcgm-exporter scrape."
+      "description": "Healthy: observed live VRAM stays below 43GiB. Attention: 43-44.5GiB is close to the configured reserve floor. Action Required: above 44.5GiB is red and needs immediate load/context review. No Data: check dcgm-exporter scrape."
     },
     {
       "id": 10,

@@ -394,7 +394,7 @@
       "id": 5,
       "type": "stat",
       "title": "GPU Headroom",
-      "description": "Healthy/정상: selected-range minimum VRAM headroom stays above 6 GiB. Attention/주의: 4-6 GiB is orange. Action Required/조치 필요: below 4 GiB is red. No Data/런타임 데이터 없음: GPU exporter absent — do not read No Data as zero headroom.",
+      "description": "Healthy/정상: selected-range minimum observed headroom stays above 5GiB. Attention/주의: 4-5GiB means reserve tightened during the window. Action Required/조치 필요: below 4GiB is red. No Data/런타임 데이터 없음: GPU exporter absent — do not read No Data as zero headroom.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -436,7 +436,7 @@
               },
               {
                 "color": "green",
-                "value": 6442450944
+                "value": 5368709120
               }
             ]
           }
@@ -856,7 +856,7 @@
               },
               {
                 "color": "green",
-                "value": 6442450944
+                "value": 5368709120
               }
             ]
           }
@@ -978,7 +978,7 @@
       "id": 12,
       "type": "timeseries",
       "title": "VRAM Used vs Budget",
-      "description": "Healthy/정상: used VRAM remains under budget lines. Attention/주의: approaching 40-43 GiB budget lines. No Data/런타임 데이터 없음: DCGM memory metrics absent. GPU warm residency during idle is normal — high VRAM used at idle is expected.",
+      "description": "Healthy/정상: observed live VRAM remains under the current guide lines. Attention/주의: 43-44.5GiB means the configured reserve is thinning. No Data/런타임 데이터 없음: DCGM memory metrics absent. GPU warm residency during idle is normal — high VRAM used at idle is expected.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -1001,14 +1001,14 @@
           "legendFormat": "total"
         },
         {
-          "expr": "vector(40 * 1024 * 1024 * 1024)",
+          "expr": "vector(43 * 1024 * 1024 * 1024)",
           "refId": "C",
-          "legendFormat": "40 GiB budget"
+          "legendFormat": "43 GiB guide"
         },
         {
-          "expr": "vector(43 * 1024 * 1024 * 1024)",
+          "expr": "vector(44.5 * 1024 * 1024 * 1024)",
           "refId": "D",
-          "legendFormat": "43 GiB budget"
+          "legendFormat": "44.5 GiB hard-floor guide"
         }
       ],
       "options": {

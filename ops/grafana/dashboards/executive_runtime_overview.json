@@ -161,7 +161,7 @@
       "id": 2,
       "type": "stat",
       "title": "User Traffic",
-      "description": "Healthy/정상: expected range. Attention/주의: review trend. Action Required/조치 필요: investigate owner/runbook. No Data/런타임 데이터 없음: check Prometheus scrape/exporter.",
+      "description": "Healthy/정상: observed live headroom stays above 5GiB. Attention/주의: 4-5GiB means reserve is thinning. Action Required/조치 필요: below 4GiB requires load/context review. No Data/런타임 데이터 없음: check Prometheus scrape/exporter.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -334,7 +334,7 @@
               },
               {
                 "color": "green",
-                "value": 6442450944
+                "value": 5368709120
               }
             ]
           }

@@ -1,6 +1,6 @@
 # Grafana 상태 보드
 
-상태 보드는 운영자가 Grafana 첫 화면인 `GPU Capacity and OOM Risk`에서 GPU headroom, VRAM, utilization, OOM/restart, KV cache를 즉시 판단하도록 구성한다. 트리아지(verdict, evidence, Needs Attention)는 `serving_home` drill-down에서 확인한다.
+상태 보드는 운영자가 Grafana 첫 화면인 `GPU Capacity and OOM Risk`에서 GPU headroom, VRAM, utilization, OOM/restart, KV cache를 즉시 판단하도록 구성한다. 이 화면의 GPU Headroom/GPU Memory Used는 config projection이 아니라 DCGM 기반 live observed metric이다. 트리아지(verdict, evidence, Needs Attention)는 `serving_home` drill-down에서 확인한다.
 
 ## 기본 상태
 
@@ -76,7 +76,7 @@ Dashboard JSON (`ops/grafana/dashboards/*.json`)이 source of truth다. Grafana 
 
 `make runtime-targets`는 더 작은 범위의 runtime target inventory만 생성한다. `make storage-paths`는 `.env`, `.runtime/`, `reports/runtime/`, `logs/`, `model_cache/huggingface/`의 저장 위치와 cleanup 정책을 생성한다. `make operator-status`는 그 정보를 포함해 GPU/resource budget과 monitoring/status vocabulary까지 함께 보여준다.
 
-이 번들은 prompt, user text, model output, Authorization header, secret 값을 포함하지 않는다. 라이브 지표가 아니라 config/registry 기반 control-plane snapshot이므로, 실제 기동 상태 판단은 `make status READY_MODE=full`, `make runtime-validate`, 그리고 `make live-evidence` 결과와 함께 본다.
+이 번들은 prompt, user text, model output, Authorization header, secret 값을 포함하지 않는다. 라이브 지표가 아니라 config/registry 기반 control-plane snapshot이므로, 실제 기동 상태 판단은 `make status READY_MODE=full`, `make runtime-validate`, 그리고 `make live-evidence` 결과와 함께 본다. 즉 Grafana의 GPU card는 live observed usage/headroom이고, operator status bundle은 configured budget/projection이다.
 
 ## 모니터링 projection 흐름
 

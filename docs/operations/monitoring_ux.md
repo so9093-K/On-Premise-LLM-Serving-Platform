@@ -17,7 +17,7 @@
 - metric name과 label value는 영어/ASCII를 유지한다.
 - dashboard와 panel 제목은 영어를 사용하고, operator guide 본문과 운영 문서는 한글 우선 + 영어 metric 용어 병기를 사용한다.
 - no-data panel은 exporter가 없거나 metric mapping이 없을 때만 허용한다.
-- Grafana 첫 화면은 `gpu_capacity_and_oom_risk`이며 GPU headroom, VRAM, utilization, OOM/restart, KV cache를 바로 보여준다. 상세 트리아지(verdict banner, evidence cards, Needs Attention table)는 `serving_home` drill-down에서 확인한다.
+- Grafana 첫 화면은 `gpu_capacity_and_oom_risk`이며 GPU headroom, VRAM, utilization, OOM/restart, KV cache를 바로 보여준다. 여기의 GPU Headroom/GPU Memory Used는 DCGM exporter 기반 live observed metric이며, configured budget/projection은 operator status bundle에서 확인한다. 상세 트리아지(verdict banner, evidence cards, Needs Attention table)는 `serving_home` drill-down에서 확인한다.
 - user traffic panel은 기본적으로 `/v1/chat/completions|/v1/embeddings|/v1/risk/.*`만 포함하고 `/health`, `/ready`, `/v1/models`, `/metrics`, `/docs`, `/openapi.json` 같은 control/observability/docs route를 제외한다.
 - `User Requests in Window`는 public entrypoint 기준이므로 `service="gateway"`만 사용한다. `Request Rate by Service/Route`는 gateway public activity와 risk-adapter backend activity를 service label로 분리해서 보여주며, 두 값은 같지 않을 수 있다.
 - 각 dashboard 상단에는 tooltip을 열지 않아도 읽히는 Text panel runbook을 둔다.
@@ -27,7 +27,7 @@
 
 | Dashboard | 목적 | 주요 사용자 |
 |---|---|---|
-| `gpu_capacity_and_oom_risk` | **기본 home dashboard.** GPU headroom, VRAM budget, utilization, OOM/restart, KV cache, queue | operator/runtime engineer |
+| `gpu_capacity_and_oom_risk` | **기본 home dashboard.** live GPU headroom, observed VRAM, utilization, OOM/restart, KV cache, queue | operator/runtime engineer |
 | `serving_home` | Verdict banner, Evidence cards, Needs Attention triage, GPU warm, drill-down routing | operator |
 | `executive_runtime_overview` | 전체 상태, 트래픽, latency, error, GPU headroom, scrape health | reviewer/operator |
 | `api_experience` | `/v1/chat/completions`, `/v1/embeddings`, streaming relay, TTFT, duration histograms | gateway/runtime engineer |
