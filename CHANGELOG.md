@@ -12,7 +12,7 @@
 
 ### Changed
 
-- Main LLM runtime target을 32K/O3로 정렬했다: `max_model_len=32768`, `max_num_batched_tokens=32768`, `optimization_level=3`. ModelRegistry projection, compose validation, model card, catalog, docs, tests가 같은 runtime policy를 검증한다. FP8 Dynamic checkpoint와 `kv_cache_dtype=fp8_e5m2` 조합은 현재 runtime image에서 boot 단계에서 거부되어 active target에서 제외했다. ([ADR-0015](docs/adr/0015-main-llm-32k-o3-runtime-target.md))
+- Main LLM runtime target을 `gpu_memory_utilization=0.76`, `max_model_len=20000`, `max_num_batched_tokens=20000`, `optimization_level=3`로 정렬했다. ModelRegistry projection, compose validation, model card, catalog, docs, tests가 같은 runtime policy를 검증한다. FP8 Dynamic checkpoint와 `kv_cache_dtype=fp8_e5m2` 조합은 현재 runtime image에서 boot 단계에서 거부되어 active target에서 제외했다. ([ADR-0015](docs/adr/0015-main-llm-20k-o3-runtime-target.md))
 - Vision 이미지 한도를 Gemma 4 SigLIP2 아키텍처 기준으로 상향했다: `max_image_bytes` 750,000 → 7,000,000, `max_image_pixels` 1,048,576 → 6,422,528 (8타일 × 896²), `max_request_body_bytes` 1,250,000 → 10,000,000. 한도 source-of-truth는 `configs/gpu_budgets.yaml`이며 contract 테스트가 cross-config 일치를 동적으로 검증한다. ([ADR-0014](docs/adr/0014-image-validation-policy.md))
 - Vision 이미지 포맷 파서 선택을 MIME type 기반에서 magic bytes sequential detection으로 변경했다. MIME type allowlist(`image/jpeg`, `image/png`, `image/webp`) 검사는 유지되지만, 파서는 MIME type 선언과 무관하게 실제 바이트로 포맷을 판단한다. MIME type을 잘못 선언한 클라이언트의 불필요한 422가 제거된다. ([ADR-0014](docs/adr/0014-image-validation-policy.md))
 - 공통 error code 계약에 `DETECTOR_DISABLED`, `STREAM_LIMIT_EXCEEDED`를 반영하고, Gateway가 Risk Adapter의 `DETECTOR_DISABLED` 410 envelope를 보존하도록 했다.

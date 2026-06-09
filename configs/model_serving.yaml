@@ -60,13 +60,13 @@ models:
     tensor_parallel_size: 1
     model_card_example_tensor_parallel_size: 1
     trust_remote_code: true
-    max_model_len: 32768
+    max_model_len: 20000
     max_num_seqs: 1
-    max_num_batched_tokens: 32768
+    max_num_batched_tokens: 20000
     optimization_level: 3
-    gpu_memory_utilization: 0.72
+    gpu_memory_utilization: 0.76
     timeout_seconds: 120
-    runtime_policy_source: 32K context and optimization level 3 runtime target
+    runtime_policy_source: 20K context and optimization level 3 runtime target
       for RedHatAI preliminary FP8 checkpoint on RTX 6000 Ada; upstream card
       uses B200/vLLM main with 96K context, so this platform requires local
       tokenizer, boot, quality, latency, and soak validation before production
@@ -79,7 +79,7 @@ models:
         max_concurrency: 1
         queue_timeout_seconds: 2
       request_limits:
-        max_model_len: 32768
+        max_model_len: 20000
         max_output_tokens: 4096
         input_modalities:
         - text

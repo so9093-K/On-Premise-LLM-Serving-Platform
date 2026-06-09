@@ -120,9 +120,10 @@ def test_p2_runtime_validation_harness_is_packaged() -> None:
         text=True,
     )
     assert "--served-model-name local-main" in output
-    assert "--max-model-len 32768" in output
-    assert "--max-num-batched-tokens 32768" in output
+    assert "--max-model-len 20000" in output
+    assert "--max-num-batched-tokens 20000" in output
     assert "--optimization-level 3" in output
+    assert "--gpu-memory-utilization 0.76" in output
     assert "--enable-prefix-caching" in output
     assert "--prefix-caching-hash-algo sha256_cbor" in output
     assert "--enable-auto-tool-choice" in output

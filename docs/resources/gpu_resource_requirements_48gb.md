@@ -32,7 +32,7 @@
 | GPU 구성 | 48GB VRAM 단일 GPU |
 | 모델 상주 방식 | enabled 모델만 vLLM 기반으로 GPU에 상주시킨다. |
 | 인스턴스 구성 | Main LLM, Embedding, Prompt Risk를 각각 독립된 vLLM 인스턴스로 운용한다. |
-| Main LLM canary context | `max_model_len=32768`, `max_num_seqs=1`, `max_num_batched_tokens=32768`, `optimization_level=3` |
+| Main LLM canary context | `max_model_len=20000`, `max_num_seqs=1`, `max_num_batched_tokens=20000`, `optimization_level=3`, `gpu_memory_utilization=0.76` |
 | Risk Adapter 구성 | enabled detector registry 기준 prompt-only aggregate |
 | 운영 기준 | 모델 weight, KV cache, CUDA context, executor overhead, allocator fragmentation, runtime peak reserve를 포함한다. |
 
@@ -40,7 +40,7 @@
 
 | 구분 | 사실 | 운영 해석 |
 |---|---|---|
-| Main LLM | `RedHatAI/gemma-4-26B-A4B-it-FP8-Dynamic`은 `google/gemma-4-26B-A4B-it` 기반 compressed-tensors FP8 Dynamic checkpoint다. repo에는 `tokenizer.json`이 포함되어 있다. | upstream은 preliminary이며 B200/vLLM main + 96K context 예시를 제공한다. RTX 6000 Ada에서는 32K context, seq 1, optimization level 3 runtime target으로 tokenizer, boot, latency, quality를 검증한다. |
+| Main LLM | `RedHatAI/gemma-4-26B-A4B-it-FP8-Dynamic`은 `google/gemma-4-26B-A4B-it` 기반 compressed-tensors FP8 Dynamic checkpoint다. repo에는 `tokenizer.json`이 포함되어 있다. | upstream은 preliminary이며 B200/vLLM main + 96K context 예시를 제공한다. RTX 6000 Ada에서는 20K context, seq 1, optimization level 3 runtime target으로 tokenizer, boot, latency, quality를 검증한다. |
 | Gemma 4 26B-A4B | 전체 26B급 모델이나 active parameter는 더 작다. | 계산량은 줄어도 상주 weight와 KV cache 관점에서는 26B급 모델로 취급한다. |
 | Embedding | 300M급 경량 모델이다. | 모델은 작지만 별도 vLLM process의 CUDA context와 executor overhead를 포함한다. |
 | Prompt Risk | 출력은 `<SAFE>`, `<UNSAFE-A1>` 같은 단일 토큰 signal이다. | `max_num_seqs=1`, `max_output_tokens=1`, `--enforce-eager` 기본값으로 운영한다. |
@@ -49,13 +49,13 @@
 
 | runtime | service | `gpu_memory_utilization` 시작값 | 비고 |
 |---|---|---:|---|
-| Main LLM | `main-llm-vllm` | `0.72` | 32K context + O3 runtime target, seq 1 기준; boot/latency/quality/soak 통과 전 production 확정 아님 |
+| Main LLM | `main-llm-vllm` | `0.76` | 20K context + O3 runtime target, seq 1 기준; boot/latency/quality/soak 통과 전 production 확정 아님 |
 | Embedding | `embedding-vllm` | `0.04` | pooling runtime |
 | Dense retrieval-ko | `embedding-ko-vllm` | `0.06` | pooling / score runtime; 포트 9406 |
 | Prompt Risk | `risk-prompt-vllm` | `0.065` | 단일 토큰 signal classifier |
 | 합계 (3모델 구성, Dense retrieval-ko 제외) | enabled vLLM total | `0.825` | 48GB 기준 약 39.6GiB 예약 |
-| 합계 (4모델 구성) | enabled vLLM total | `0.865` | 48GB 기준 약 41.5GiB 예약 |
-| reserve | system/runtime headroom | 5GiB 이상 권장 | 다운로드, warmup, allocator fragmentation, monitoring overhead 포함 |
+| 합계 (4모델 구성) | enabled vLLM total | `0.925` | 48GB 기준 약 44.4GiB 예약 |
+| reserve | system/runtime headroom | 3.5GiB hard minimum, 4~5GiB watch/comfortable target | 다운로드, warmup, allocator fragmentation, monitoring overhead 포함 |
 
 `runtime peak`는 각 요청 순간의 activation/workspace까지 포함한 최대 사용량이다. 단순 reserved budget이 낮아도 긴 prompt, vision input, warmup, CUDA allocator fragmentation이 겹치면 OOM이 날 수 있으므로, target GPU에서 boot smoke와 30분 soak를 별도로 통과해야 한다.
 
@@ -66,11 +66,11 @@ vllm serve RedHatAI/gemma-4-26B-A4B-it-FP8-Dynamic \
   --served-model-name local-main \
   --host 0.0.0.0 \
   --port 9401 \
-  --max-model-len 32768 \
+  --max-model-len 20000 \
   --max-num-seqs 1 \
-  --max-num-batched-tokens 32768 \
+  --max-num-batched-tokens 20000 \
   --optimization-level 3 \
-  --gpu-memory-utilization 0.72 \
+  --gpu-memory-utilization 0.76 \
   --tensor-parallel-size 1 \
   --dtype auto \
   --trust-remote-code \
@@ -82,7 +82,7 @@ vllm serve RedHatAI/gemma-4-26B-A4B-it-FP8-Dynamic \
   --chat-template /app/configs/gemma4_chat_template.jinja
 ```
 
-이 checkpoint는 model config의 `compressed-tensors` metadata로 FP8 quantization을 선언하므로 `--quantization fp8`을 추가하지 않는다. 추가하면 vLLM이 model config의 `compressed-tensors`와 CLI `fp8`을 서로 다른 quantization method로 보고 기동을 거부할 수 있다. 현재 runtime target은 `--optimization-level 3`을 포함한 32K context 검증이며, target GPU에서 boot, quality, latency, long-context soak를 확인한 뒤 production claim 여부를 판단한다.
+이 checkpoint는 model config의 `compressed-tensors` metadata로 FP8 quantization을 선언하므로 `--quantization fp8`을 추가하지 않는다. 추가하면 vLLM이 model config의 `compressed-tensors`와 CLI `fp8`을 서로 다른 quantization method로 보고 기동을 거부할 수 있다. 현재 runtime target은 `--optimization-level 3`을 포함한 20K context 검증이며, target GPU에서 boot, quality, latency, long-context soak를 확인한 뒤 production claim 여부를 판단한다.
 
 Prefix caching은 반복 prefix가 있는 multi-turn, tool, RAG prompt에서 prefill 재사용 가능성이 있을 때 주로 효과가 나며, prefix가 매번 달라지는 요청에서는 hit/reuse 지표로 실효성을 확인해야 한다.
 
@@ -94,7 +94,7 @@ Prefix caching은 반복 prefix가 있는 multi-turn, tool, RAG prompt에서 pre
 | Compose | 기본 compose에 `risk-siren-vllm` service dependency가 없고, enabled runtime 4개만 scrape 대상인지 확인 |
 | Functional smoke | `/health`, `/ready`, `/v1/models`, chat, streaming chat, image input, embeddings, retrieval rerank/score, prompt risk, aggregate |
 | Risk retired policy | `/v1/risk/detectors/siren/assessments`는 410 Gone 또는 제거 정책과 일치 |
-| Soak | 32K context, seq 1, mixed text/vision/risk workload 30분, restart/OOM 0 |
+| Soak | 20K context, seq 1, mixed text/vision/risk workload 30분, restart/OOM 0 |
 | Monitoring | Prometheus scrape 정상, Grafana No Data 패널 없음, GPU headroom 8GiB 이상 |
 
 ## 8. 결론

@@ -55,19 +55,19 @@ models:
       upstream_context_length_tokens:
         vllm_recipe: 131072
         redhat_card_example_max_model_len: 96000
-        project_runtime_cap: 32768
+        project_runtime_cap: 20000
       parameter_summary:
         vllm_recipe: 26B total / 4B active
         hf_display: 27B params
     project_runtime_policy:
       tensor_parallel_size: 1
-      max_model_len: 32768
+      max_model_len: 20000
       max_num_seqs: 1
-      max_num_batched_tokens: 32768
+      max_num_batched_tokens: 20000
       optimization_level: 3
-      gpu_memory_utilization: 0.72
+      gpu_memory_utilization: 0.76
       trust_remote_code: true
-      policy_reason: 32K context and optimization level 3 runtime target for
+      policy_reason: 20K context and optimization level 3 runtime target for
         RedHatAI preliminary FP8 checkpoint on RTX 6000 Ada; upstream example
         uses 96K context on B200/vLLM main, so this platform requires local
         tokenizer, boot, quality, latency, and soak validation before production

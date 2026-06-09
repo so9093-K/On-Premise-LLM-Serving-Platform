@@ -7,8 +7,8 @@ gpu:
     comfortable: 5
     conservative: 8
   total_gpu_memory_utilization:
-    recommended_start: 0.885
-    budget_breakdown: "main_llm 0.72 + embedding 0.04 + embedding_ko 0.06 + risk_prompt 0.065 = 0.885"
+    recommended_start: 0.925
+    budget_breakdown: "main_llm 0.76 + embedding 0.04 + embedding_ko 0.06 + risk_prompt 0.065 = 0.925"
     upper_review_threshold: 0.91
     avoid_above: 0.93
     conservative_range:
@@ -24,11 +24,11 @@ budgets:
     range_gib:
     - 34
     - 35
-    gpu_memory_utilization: 0.72
+    gpu_memory_utilization: 0.76
     tuning_range:
       gpu_memory_utilization:
       - 0.68
-      - 0.72
+      - 0.76
       adjustment_priority: last
       do_not_increase_before_live_validation:
       - max_model_len
@@ -73,7 +73,7 @@ budgets:
       fixed_generation_budget:
         max_output_tokens: 1
 limits:
-  main_llm_max_model_len: 32768
+  main_llm_max_model_len: 20000
   main_llm_max_num_seqs: 1
   risk_max_model_len: 2048
   risk_max_num_seqs: 1

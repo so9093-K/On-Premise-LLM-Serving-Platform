@@ -23,7 +23,7 @@ def test_model_registry_normalizes_public_models_and_serving_records():
     main = registry.record("local-main")
     assert main.serving_key == "main_llm"
     assert main.port == 9401
-    assert main.max_model_len == 32768
+    assert main.max_model_len == 20000
     assert main.input_modalities == ("text", "image")
     assert "chat.completions.tools" in main.capabilities
 
@@ -112,7 +112,7 @@ def test_model_registry_projects_model_cards_and_runtime_validation_matrix():
     assert card.upstream_model_id == "RedHatAI/gemma-4-26B-A4B-it-FP8-Dynamic"
     assert card.runtime["port"] == 9401
     assert card.source_facts["base_model_id"] == "google/gemma-4-26B-A4B-it"
-    assert card.project_runtime_policy["max_model_len"] == 32768
+    assert card.project_runtime_policy["max_model_len"] == 20000
     assert card.project_runtime_policy["optimization_level"] == 3
     assert "chat.completions.tools" in card.capabilities
 

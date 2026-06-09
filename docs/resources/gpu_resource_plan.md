@@ -15,28 +15,28 @@
 
 ## 3. Starting Utilization
 
-Main LLM checkpoint는 RedHatAI의 preliminary FP8 Dynamic checkpoint이며, model config의 `compressed-tensors` quantization metadata를 사용한다. vLLM command에는 `--quantization fp8`을 넣지 않는다. upstream 예시는 B200/vLLM main에서 96K context를 사용하지만, 본 플랫폼은 RTX 6000 Ada 48GB 기준 32K context, seq 1, optimization level 3 runtime target을 검증 조건으로 둔다.
+Main LLM checkpoint는 RedHatAI의 preliminary FP8 Dynamic checkpoint이며, model config의 `compressed-tensors` quantization metadata를 사용한다. vLLM command에는 `--quantization fp8`을 넣지 않는다. upstream 예시는 B200/vLLM main에서 96K context를 사용하지만, 본 플랫폼은 RTX 6000 Ada 48GB 기준 20K context, seq 1, optimization level 3 runtime target을 검증 조건으로 둔다.
 
 Prefix cache는 동일하거나 긴 공통 prefix가 반복되는 요청에서 prefill 재사용을 기대하는 기능이며, 운영 검증에서는 hit/reuse 관련 지표를 별도로 확인한다.
 
 | Runtime | Port | `gpu_memory_utilization` |
 |---|---:|---:|
-| Main LLM | 9401 | 0.72 |
+| Main LLM | 9401 | 0.76 |
 | Embedding | 9402 | 0.04 |
 | Dense retrieval-ko | 9406 | 0.06 |
 | Prompt | 9403 | 0.065 |
 | 합계 (3모델 구성) | - | 0.825 |
-| 합계 (4모델 구성, Dense retrieval-ko 포함) | - | 0.885 |
+| 합계 (4모델 구성, Dense retrieval-ko 포함) | - | 0.925 |
 
 ## 4. 제한 조건
 
 | 항목 | 기준 |
 |---|---|
-| Main LLM context | 32768 runtime target |
+| Main LLM context | 20000 runtime target |
 | Main LLM concurrency | `max_num_seqs=1` |
 | Prompt context | 2048 |
 | Prompt output | 단일 토큰 label, `max_output_tokens=1` |
-| 32K context | boot/latency/quality/soak 검증 전 production 확정 아님 |
+| 20K context | boot/latency/quality/soak 검증 전 production 확정 아님 |
 | RAG bulk indexing | 초기 검증 단계에서는 제한 |
 
 ## 5. 검증 기준
@@ -85,11 +85,11 @@ Detector 출력 토큰 수, 모델 fallback 금지, 독립 vLLM process/port 원
 
 ## 리소스 할당 요약
 
-budget id: `single_a6000_conservative` / 설정된 enabled `gpu_memory_utilization` 합계: `0.885`
+budget id: `single_a6000_conservative` / 설정된 enabled `gpu_memory_utilization` 합계: `0.925`
 
 | 모델 | 포트 | 역할 | `gpu_memory_utilization` | 기본 concurrency |
 |---|---:|---|---:|---:|
-| `local-main` | 9401 | chat completion | 0.72 | 1 |
+| `local-main` | 9401 | chat completion | 0.76 | 1 |
 | `local-embed` | 9402 | embedding | 0.04 | 2 |
 | `local-embed-ko` | 9406 | Dense retrieval retrieval | 0.06 | 1 |
 | `risk-prompt` | 9403 | prompt risk signal | 0.065 | 1 |
