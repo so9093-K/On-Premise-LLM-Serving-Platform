@@ -71,11 +71,15 @@ services:
     - --port
     - '9401'
     - --max-model-len
-    - '16384'
+    - '32768'
     - --max-num-seqs
     - '1'
     - --max-num-batched-tokens
-    - '16384'
+    - '32768'
+    - --kv-cache-dtype
+    - fp8_e5m2
+    - --optimization-level
+    - '3'
     - --gpu-memory-utilization
     - '0.72'
     - --tensor-parallel-size

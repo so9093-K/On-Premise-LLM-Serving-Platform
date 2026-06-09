@@ -15,7 +15,9 @@
 
 ## 3. Starting Utilization
 
-Main LLM checkpoint는 RedHatAI의 preliminary FP8 Dynamic checkpoint이며, model config의 `compressed-tensors` quantization metadata를 사용한다. vLLM command에는 `--quantization fp8`을 넣지 않는다. upstream 예시는 B200/vLLM main에서 96K context를 사용하지만, 본 플랫폼은 RTX 6000 Ada 48GB 기준 16K context, seq 1, tokenizer canary 통과를 시작 조건으로 둔다.
+Main LLM checkpoint는 RedHatAI의 preliminary FP8 Dynamic checkpoint이며, model config의 `compressed-tensors` quantization metadata를 사용한다. vLLM command에는 `--quantization fp8`을 넣지 않는다. upstream 예시는 B200/vLLM main에서 96K context를 사용하지만, 본 플랫폼은 RTX 6000 Ada 48GB 기준 FP8 KV 기반 32K context, seq 1, optimization level 3 canary target을 검증 조건으로 둔다.
+
+FP8 KV cache의 기대 효과는 KV cache memory footprint 감소다. 전체 GPU 사용량에는 model weight, CUDA context, activation/workspace, fragmentation, 다른 runtime process reserve가 함께 포함되므로 전체 VRAM 절반 감소로 해석하지 않는다. prefix cache는 동일하거나 긴 공통 prefix가 반복되는 요청에서 prefill 재사용을 기대하는 기능이며, 운영 검증에서는 hit/reuse 관련 지표를 별도로 확인한다.
 
 | Runtime | Port | `gpu_memory_utilization` |
 |---|---:|---:|
@@ -30,11 +32,11 @@ Main LLM checkpoint는 RedHatAI의 preliminary FP8 Dynamic checkpoint이며, mod
 
 | 항목 | 기준 |
 |---|---|
-| Main LLM context | 16384부터 시작 |
+| Main LLM context | FP8 KV 기반 32768 canary target |
 | Main LLM concurrency | `max_num_seqs=1` |
 | Prompt context | 2048 |
 | Prompt output | 단일 토큰 label, `max_output_tokens=1` |
-| 32K context | Ada 실측 전 비권장 |
+| 32K context | boot/latency/quality/soak 검증 전 production 확정 아님 |
 | RAG bulk indexing | 초기 검증 단계에서는 제한 |
 
 ## 5. 검증 기준

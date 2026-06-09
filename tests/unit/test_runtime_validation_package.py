@@ -115,6 +115,9 @@ def test_render_vllm_command_stays_openai_compatible() -> None:
         "max_num_seqs": 1,
         "max_num_batched_tokens": 4096,
         "gpu_memory_utilization": 0.58,
+        "kv_cache_dtype": "fp8_e5m2",
+        "optimization_level": 3,
+        "compilation_config": {"mode": 3},
         "tensor_parallel_size": 1,
         "dtype": "half",
         "quantization": "awq",
@@ -131,6 +134,9 @@ def test_render_vllm_command_stays_openai_compatible() -> None:
     assert "local-main" in command
     assert "--enable-prefix-caching" in command
     assert "--enable-auto-tool-choice" in command
+    assert command[command.index("--kv-cache-dtype") + 1] == "fp8_e5m2"
+    assert command[command.index("--optimization-level") + 1] == "3"
+    assert command[command.index("--compilation-config") + 1] == '{"mode":3}'
     structured_index = command.index("--structured-outputs-config")
     assert json.loads(command[structured_index + 1]) == {"backend": "auto", "enable_in_reasoning": True}
 
@@ -140,17 +146,21 @@ def test_render_vllm_command_respects_model_config_quantization() -> None:
         "name": "example/fp8-compressed",
         "served_model_name": "local-main",
         "port": 9401,
-        "max_model_len": 16384,
+        "max_model_len": 32768,
         "max_num_seqs": 1,
-        "max_num_batched_tokens": 16384,
+        "max_num_batched_tokens": 32768,
         "gpu_memory_utilization": 0.66,
         "tensor_parallel_size": 1,
         "dtype": "auto",
         "quantization": "compressed-tensors",
         "quantization_source": "model_config",
+        "kv_cache_dtype": "fp8_e5m2",
+        "optimization_level": 3,
     }
     command = render_vllm_command("main_llm", cfg)
     assert "--quantization" not in command
+    assert "--kv-cache-dtype" in command
+    assert "--optimization-level" in command
 
 
 def test_runtime_validation_report_does_not_store_raw_model_text(tmp_path: Path) -> None:

@@ -73,7 +73,7 @@ budgets:
       fixed_generation_budget:
         max_output_tokens: 1
 limits:
-  main_llm_max_model_len: 16384
+  main_llm_max_model_len: 32768
   main_llm_max_num_seqs: 1
   risk_max_model_len: 2048
   risk_max_num_seqs: 1

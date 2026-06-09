@@ -10,7 +10,7 @@ Command:
 
 이 리포트는 현재 source tree에서 생성되며 로컬 runtime/cache/build 디렉터리는 제외한다.
 
-- 검토 파일 수: **411**
+- 검토 파일 수: **412**
 - CSV matrix: `reports/refactor/project_inventory_current.csv`
 - JSON matrix: `reports/refactor/project_inventory_current.json`
 
@@ -36,7 +36,7 @@ Command:
 | `assets` | 3 |
 | `configs` | 17 |
 | `contracts` | 2 |
-| `docs` | 61 |
+| `docs` | 62 |
 | `features` | 3 |
 | `harness` | 4 |
 | `model_cards` | 4 |

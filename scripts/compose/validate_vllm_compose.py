@@ -22,6 +22,32 @@ CATALOG_PATH = ROOT / "configs/model_catalog.yaml"
 GPU_BUDGETS_PATH = ROOT / "configs/gpu_budgets.yaml"
 MODEL_CARD_DIR = ROOT / "model_cards"
 
+COMPOSE_SCALAR_ARGS = (
+    "model",
+    "served_model_name",
+    "port",
+    "max_model_len",
+    "max_num_seqs",
+    "max_num_batched_tokens",
+    "gpu_memory_utilization",
+    "kv_cache_dtype",
+    "optimization_level",
+)
+
+COMPOSE_JSON_ARGS = (
+    "compilation_config",
+)
+
+RUNTIME_POLICY_FIELDS = (
+    "max_model_len",
+    "max_num_seqs",
+    "max_num_batched_tokens",
+    "gpu_memory_utilization",
+    "kv_cache_dtype",
+    "optimization_level",
+    "compilation_config",
+)
+
 
 
 def load_yaml(path: Path) -> Any:
@@ -73,6 +99,29 @@ def as_float(value: object, field: str, service: str) -> float:
         return float(str(value))
     except Exception as exc:
         raise SystemExit(f"{service}: {field} must be a float, got {value!r}") from exc
+
+
+def normalize_json_arg(value: object, field: str, service: str) -> str:
+    if value is None:
+        raise SystemExit(f"{service}: --{field.replace('_','-')} is missing")
+    try:
+        return json.dumps(json.loads(str(value)), separators=(",", ":"), sort_keys=True)
+    except Exception as exc:
+        raise SystemExit(f"{service}: --{field.replace('_','-')} must be valid JSON, got {value!r}") from exc
+
+
+def expected_compose_args(cfg: dict[str, Any], runtime: Any) -> dict[str, str]:
+    values: dict[str, Any] = {
+        "model": cfg.get("runtime_model_path", runtime.upstream_model_id),
+        "served_model_name": runtime.served_model_name,
+        "port": runtime.port,
+    }
+    for key in COMPOSE_SCALAR_ARGS:
+        if key in {"model", "served_model_name", "port"}:
+            continue
+        if key in cfg:
+            values[key] = cfg[key]
+    return {key: str(value) for key, value in values.items()}
 
 
 _LOCAL_ONLY_IMAGE_PREFIXES = (
@@ -134,20 +183,17 @@ def validate_alignment() -> None:
         card_policy = card.get("project_runtime_policy", {})
         catalog_policy = catalog_doc["models"][runtime.logical_id].get("project_runtime_policy", {})
 
-        expected_model = str(cfg.get("runtime_model_path", runtime.upstream_model_id))
-        expected = {
-            "model": expected_model,
-            "served_model_name": runtime.served_model_name,
-            "port": str(runtime.port),
-            "max_model_len": str(cfg["max_model_len"]),
-            "max_num_seqs": str(cfg["max_num_seqs"]),
-            "max_num_batched_tokens": str(cfg["max_num_batched_tokens"]),
-            "gpu_memory_utilization": str(cfg["gpu_memory_utilization"]),
-        }
+        expected = expected_compose_args(cfg, runtime)
         for key, expected_value in expected.items():
             actual = str(args.get(key))
             if actual != expected_value:
                 errors.append(f"{service_name}: --{key.replace('_','-')}={actual} does not match ModelRegistry projection {expected_value}")
+        for key in COMPOSE_JSON_ARGS:
+            if key in cfg:
+                expected_value = json.dumps(cfg[key], separators=(",", ":"), sort_keys=True)
+                actual = normalize_json_arg(args.get(key), key, service_name)
+                if actual != expected_value:
+                    errors.append(f"{service_name}: --{key.replace('_','-')}={actual} does not match ModelRegistry projection {expected_value}")
 
         if cfg.get("runner") == "pooling" and str(args.get("runner")) != "pooling":
             errors.append(f"{service_name}: embedding service must use --runner pooling")
@@ -172,10 +218,27 @@ def validate_alignment() -> None:
                 errors.append(f"{service_name}: risk detector max_output_tokens must remain 1")
 
         # Keep the three runtime policy sources aligned where they all declare the value.
-        for key in ["max_model_len", "max_num_seqs", "max_num_batched_tokens", "gpu_memory_utilization"]:
+        for key in RUNTIME_POLICY_FIELDS:
             for source_name, source in [("model_catalog", catalog_policy), ("model_card", card_policy)]:
-                if key in source and str(source[key]) != str(cfg[key]):
+                if key in source and key not in cfg:
+                    errors.append(f"{runtime.logical_id}: {source_name}.{key} is declared but model_serving.{key} is missing")
+                    continue
+                if key in source and key in COMPOSE_JSON_ARGS:
+                    source_value = json.dumps(source[key], separators=(",", ":"), sort_keys=True)
+                    cfg_value = json.dumps(cfg[key], separators=(",", ":"), sort_keys=True)
+                    if source_value != cfg_value:
+                        errors.append(f"{runtime.logical_id}: {source_name}.{key}={source_value} does not match model_serving {cfg_value}")
+                elif key in source and str(source[key]) != str(cfg[key]):
                     errors.append(f"{runtime.logical_id}: {source_name}.{key}={source[key]} does not match model_serving {cfg[key]}")
+
+        source_context = catalog_doc["models"][runtime.logical_id].get("source_facts", {}).get("upstream_context_length_tokens", {})
+        if "project_runtime_cap" in source_context and "max_model_len" in catalog_policy:
+            if str(source_context["project_runtime_cap"]) != str(catalog_policy["max_model_len"]):
+                errors.append(
+                    f"{runtime.logical_id}: source_facts.upstream_context_length_tokens.project_runtime_cap="
+                    f"{source_context['project_runtime_cap']} does not match project_runtime_policy.max_model_len "
+                    f"{catalog_policy['max_model_len']}"
+                )
 
     if total_gpu_util >= avoid_above:
         errors.append(

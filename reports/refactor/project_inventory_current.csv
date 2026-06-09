@@ -15,7 +15,7 @@ path,area,category,owner,management,size_bytes,line_count,role,review_note
 .other/프롬프트 공격 요청 원문.md,.other,project metadata,project-maintenance,managed by root project metadata,9038,189,documentation,supporting project file
 .other/프롬프트 방어 능력 평가.md,.other,project metadata,project-maintenance,managed by root project metadata,24164,447,documentation,supporting project file
 .python-version,.python-version,project metadata,project-maintenance,managed by root project metadata,8,1,environment-template,supporting project file
-CHANGELOG.md,CHANGELOG.md,project metadata,project-maintenance,managed by root project metadata,2958,39,documentation,supporting project file
+CHANGELOG.md,CHANGELOG.md,project metadata,project-maintenance,managed by root project metadata,3816,41,documentation,supporting project file
 Dockerfile,Dockerfile,project metadata,project-maintenance,managed by root project metadata,1024,30,build-command,supporting project file
 Makefile,Makefile,project metadata,project-maintenance,managed by root project metadata,12809,353,build-command,supporting project file
 README.md,README.md,project metadata,project-maintenance,managed by root project metadata,17196,418,entrypoint,primary navigation or current-state entrypoint; keep synchronized with Makefile and reports
@@ -44,7 +44,7 @@ contracts/api_contract_matrix.csv,contracts,contract registry,project-maintenanc
 contracts/model_contracts.yaml,contracts,contract registry,project-maintenance,managed by root project metadata,687,24,structured-data,supporting project file
 docs/00_executive_summary.md,docs,documentation,documentation,managed by documentation map,1739,45,documentation,documentation; keep relative links valid and avoid duplicating current command flow
 docs/01_project_background.md,docs,documentation,documentation,managed by documentation map,1105,20,documentation,documentation; keep relative links valid and avoid duplicating current command flow
-docs/02_decision_register.md,docs,documentation,documentation,managed by documentation map,3669,51,documentation,documentation; keep relative links valid and avoid duplicating current command flow
+docs/02_decision_register.md,docs,documentation,documentation,managed by documentation map,3860,52,documentation,documentation; keep relative links valid and avoid duplicating current command flow
 docs/06_architecture.md,docs,documentation,documentation,managed by documentation map,1434,34,documentation,documentation; keep relative links valid and avoid duplicating current command flow
 docs/07_project_structure.md,docs,documentation,documentation,managed by documentation map,1261,19,documentation,documentation; keep relative links valid and avoid duplicating current command flow
 docs/README.md,docs,documentation,documentation,managed by documentation map,9734,135,entrypoint,primary navigation or current-state entrypoint; keep synchronized with Makefile and reports
@@ -56,7 +56,8 @@ docs/adr/0010-colbert-removal-dense-korean-retrieval.md,docs,architecture decisi
 docs/adr/0011-documentation-source-of-truth-policy.md,docs,architecture decision record,documentation,managed by documentation map,3796,74,documentation,documentation; keep relative links valid and avoid duplicating current command flow
 docs/adr/0012-auth-ownership-and-compose-exposure-source-of-truth.md,docs,architecture decision record,documentation,managed by documentation map,9002,157,documentation,documentation; keep relative links valid and avoid duplicating current command flow
 docs/adr/0013-env-lifecycle-non-destructive-sync.md,docs,architecture decision record,documentation,managed by documentation map,3922,61,documentation,documentation; keep relative links valid and avoid duplicating current command flow
-docs/adr/README.md,docs,architecture decision record,documentation,managed by documentation map,2196,71,documentation,documentation; keep relative links valid and avoid duplicating current command flow
+docs/adr/0014-image-validation-policy.md,docs,architecture decision record,documentation,managed by documentation map,5262,95,documentation,documentation; keep relative links valid and avoid duplicating current command flow
+docs/adr/README.md,docs,architecture decision record,documentation,managed by documentation map,2340,72,documentation,documentation; keep relative links valid and avoid duplicating current command flow
 docs/archive/changelog/maintenance_journal_0.1.0-rc.1.md,docs,historical documentation archive,documentation,managed by documentation map,15640,164,documentation,documentation; keep relative links valid and avoid duplicating current command flow
 docs/archive/reviews/gemma4_31b_awq_review.md,docs,historical documentation archive,documentation,managed by documentation map,1290,27,documentation,documentation; keep relative links valid and avoid duplicating current command flow
 docs/archive/reviews/ux_ui_review.md,docs,historical documentation archive,documentation,managed by documentation map,8254,108,documentation,documentation; keep relative links valid and avoid duplicating current command flow
@@ -71,7 +72,7 @@ docs/governance/document_management.md,docs,documentation,documentation,managed 
 docs/governance/policies/command_terminology_policy.md,docs,documentation,documentation,managed by documentation map,1635,28,documentation,documentation; keep relative links valid and avoid duplicating current command flow
 docs/governance/policies/retired_source_cleanup_policy.md,docs,documentation,documentation,managed by documentation map,1908,26,documentation,documentation; keep relative links valid and avoid duplicating current command flow
 docs/governance/terminology.md,docs,documentation,documentation,managed by documentation map,1250,19,documentation,documentation; keep relative links valid and avoid duplicating current command flow
-docs/manifest.yaml,docs,documentation,documentation,managed by documentation map,14778,518,structured-data,documentation; keep relative links valid and avoid duplicating current command flow
+docs/manifest.yaml,docs,documentation,documentation,managed by documentation map,14976,525,structured-data,documentation; keep relative links valid and avoid duplicating current command flow
 docs/models/model_cards.md,docs,documentation,documentation,managed by documentation map,1206,23,documentation,documentation; keep relative links valid and avoid duplicating current command flow
 docs/models/model_runtime_source_review.md,docs,documentation,documentation,managed by documentation map,1054,18,documentation,documentation; keep relative links valid and avoid duplicating current command flow
 docs/operations/admin_metrics_docs_exposure_policy.md,docs,documentation,documentation,managed by documentation map,7891,131,documentation,documentation; keep relative links valid and avoid duplicating current command flow
@@ -142,11 +143,11 @@ reports/refactor/project_inventory_current.csv,reports,current handoff/review re
 reports/refactor/project_inventory_current.json,reports,current handoff/review report,handoff-reporting,generated/curated for handoff review,170617,4783,structured-data,handoff/review artifact; avoid stale phase snapshots in active package
 reports/refactor/project_inventory_current.md,reports,current handoff/review report,handoff-reporting,generated/curated for handoff review,5226,98,documentation,handoff/review artifact; avoid stale phase snapshots in active package
 reports/runtime/README.md,reports,runtime/operator generated report,handoff-reporting,generated by operator report commands,603,12,documentation,generated operator report; regenerate through make operator-reports before handoff
-reports/runtime/live_evidence_bundle.json,reports,runtime/operator generated report,handoff-reporting,generated by operator report commands,1723,69,structured-data,generated operator report; regenerate through make operator-reports before handoff
-reports/runtime/live_evidence_bundle.md,reports,runtime/operator generated report,handoff-reporting,generated by operator report commands,1734,46,documentation,generated operator report; regenerate through make operator-reports before handoff
+reports/runtime/live_evidence_bundle.json,reports,runtime/operator generated report,handoff-reporting,generated by operator report commands,11347,418,structured-data,generated operator report; regenerate through make operator-reports before handoff
+reports/runtime/live_evidence_bundle.md,reports,runtime/operator generated report,handoff-reporting,generated by operator report commands,2087,57,documentation,generated operator report; regenerate through make operator-reports before handoff
 reports/runtime/monitoring_projection.json,reports,runtime/operator generated report,handoff-reporting,generated by operator report commands,5950,208,structured-data,generated operator report; regenerate through make operator-reports before handoff
 reports/runtime/monitoring_projection.md,reports,runtime/operator generated report,handoff-reporting,generated by operator report commands,4165,59,documentation,generated operator report; regenerate through make operator-reports before handoff
-reports/runtime/operator_status_bundle.json,reports,runtime/operator generated report,handoff-reporting,generated by operator report commands,24467,733,structured-data,generated operator report; regenerate through make operator-reports before handoff
+reports/runtime/operator_status_bundle.json,reports,runtime/operator generated report,handoff-reporting,generated by operator report commands,24468,733,structured-data,generated operator report; regenerate through make operator-reports before handoff
 reports/runtime/operator_status_bundle.md,reports,runtime/operator generated report,handoff-reporting,generated by operator report commands,6705,109,documentation,generated operator report; regenerate through make operator-reports before handoff
 reports/runtime/runtime_targets.json,reports,runtime/operator generated report,handoff-reporting,generated by operator report commands,2622,103,structured-data,generated operator report; regenerate through make operator-reports before handoff
 reports/runtime/runtime_targets.md,reports,runtime/operator generated report,handoff-reporting,generated by operator report commands,2034,45,documentation,generated operator report; regenerate through make operator-reports before handoff

@@ -66,14 +66,17 @@ def test_model_source_facts_and_runtime_policy_are_separated() -> None:
     assert main['source_facts']['upstream_context_length_tokens'] == {
         'vllm_recipe': 131072,
         'redhat_card_example_max_model_len': 96000,
-        'project_runtime_cap': 16384,
+        'project_runtime_cap': 32768,
     }
     assert main['source_facts']['parameter_summary'] == {
         'vllm_recipe': '26B total / 4B active',
         'hf_display': '27B params',
     }
     assert main['project_runtime_policy']['tensor_parallel_size'] == 1
-    assert main['project_runtime_policy']['max_model_len'] == 16384
+    assert main['project_runtime_policy']['max_model_len'] == 32768
+    assert main['project_runtime_policy']['max_num_batched_tokens'] == 32768
+    assert main['project_runtime_policy']['kv_cache_dtype'] == 'fp8_e5m2'
+    assert main['project_runtime_policy']['optimization_level'] == 3
     assert main['project_runtime_policy']['max_image_inputs'] == 1
     assert main['project_runtime_policy']['max_image_bytes'] == gpu_budgets['main_llm_max_image_bytes']
     assert main['project_runtime_policy']['max_image_pixels'] == gpu_budgets['main_llm_max_image_pixels']
@@ -305,6 +308,27 @@ def test_embedding_pooling_runtime_has_valid_batch_token_budget() -> None:
     assert card['project_runtime_policy']['max_num_batched_tokens'] == serving['max_num_batched_tokens']
     assert int(args['max_num_batched_tokens']) == serving['max_num_batched_tokens']
     assert int(args['max_num_batched_tokens']) >= int(args['max_model_len'])
+
+
+def test_main_runtime_compose_has_fp8_kv_32k_canary_policy() -> None:
+    serving = yaml.safe_load((ROOT / 'configs/model_serving.yaml').read_text(encoding='utf-8'))['models']['main_llm']
+    catalog = yaml.safe_load((ROOT / 'configs/model_catalog.yaml').read_text(encoding='utf-8'))['models']['local-main']
+    card = json.loads((ROOT / 'model_cards/local-main.json').read_text(encoding='utf-8'))
+    args = _compose_command_args('main-llm-vllm')
+
+    assert serving['max_model_len'] == 32768
+    assert serving['max_num_batched_tokens'] == 32768
+    assert serving['kv_cache_dtype'] == 'fp8_e5m2'
+    assert serving['optimization_level'] == 3
+    for source in [catalog['project_runtime_policy'], card['project_runtime_policy']]:
+        assert source['max_model_len'] == serving['max_model_len']
+        assert source['max_num_batched_tokens'] == serving['max_num_batched_tokens']
+        assert source['kv_cache_dtype'] == serving['kv_cache_dtype']
+        assert source['optimization_level'] == serving['optimization_level']
+    assert int(args['max_model_len']) == serving['max_model_len']
+    assert int(args['max_num_batched_tokens']) == serving['max_num_batched_tokens']
+    assert args['kv_cache_dtype'] == serving['kv_cache_dtype']
+    assert int(args['optimization_level']) == serving['optimization_level']
 
 
 def test_risk_detector_quantization_defaults_are_preserved() -> None:

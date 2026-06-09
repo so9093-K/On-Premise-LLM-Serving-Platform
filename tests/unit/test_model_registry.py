@@ -23,7 +23,7 @@ def test_model_registry_normalizes_public_models_and_serving_records():
     main = registry.record("local-main")
     assert main.serving_key == "main_llm"
     assert main.port == 9401
-    assert main.max_model_len == 16384
+    assert main.max_model_len == 32768
     assert main.input_modalities == ("text", "image")
     assert "chat.completions.tools" in main.capabilities
 
@@ -73,6 +73,8 @@ def test_model_registry_projects_runtime_services_and_contracts():
     assert services["main_llm"].logical_id == "local-main"
     assert services["main_llm"].served_model_name == "local-main"
     assert services["main_llm"].compose_service_name == "main-llm-vllm"
+    assert services["main_llm"].config["kv_cache_dtype"] == "fp8_e5m2"
+    assert services["main_llm"].config["optimization_level"] == 3
     assert services["embedding"].compose_service_name == "embedding-vllm"
     assert services["embedding_ko"].compose_service_name == "embedding-ko-vllm"
     assert services["risk_prompt"].endpoint_path == "/v1/chat/completions"
@@ -111,6 +113,9 @@ def test_model_registry_projects_model_cards_and_runtime_validation_matrix():
     assert card.upstream_model_id == "RedHatAI/gemma-4-26B-A4B-it-FP8-Dynamic"
     assert card.runtime["port"] == 9401
     assert card.source_facts["base_model_id"] == "google/gemma-4-26B-A4B-it"
+    assert card.project_runtime_policy["max_model_len"] == 32768
+    assert card.project_runtime_policy["kv_cache_dtype"] == "fp8_e5m2"
+    assert card.project_runtime_policy["optimization_level"] == 3
     assert "chat.completions.tools" in card.capabilities
 
     targets = {target.service_key: target.as_dict() for target in registry.runtime_validation_targets()}

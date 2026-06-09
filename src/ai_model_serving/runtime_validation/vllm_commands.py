@@ -3,6 +3,58 @@ from __future__ import annotations
 import json
 from typing import Any
 
+VLLM_SCALAR_ARGS: tuple[str, ...] = (
+    "served_model_name",
+    "host",
+    "port",
+    "max_model_len",
+    "max_num_seqs",
+    "max_num_batched_tokens",
+    "gpu_memory_utilization",
+    "runner",
+    "tokenizer",
+    "convert",
+    "model_impl",
+    "tensor_parallel_size",
+    "dtype",
+    "load_format",
+    "kv_cache_dtype",
+    "optimization_level",
+)
+
+VLLM_JSON_ARGS: tuple[str, ...] = (
+    "compilation_config",
+)
+
+VLLM_BOOL_ARGS: tuple[str, ...] = (
+    "trust_remote_code",
+    "enforce_eager",
+)
+
+
+def _arg_name(key: str) -> str:
+    return f"--{key.replace('_', '-')}"
+
+
+def _append_scalar_args(cmd: list[str], cfg: dict[str, Any], keys: tuple[str, ...]) -> None:
+    for key in keys:
+        value = cfg.get(key)
+        if value is not None:
+            cmd.extend([_arg_name(key), str(value)])
+
+
+def _append_json_args(cmd: list[str], cfg: dict[str, Any], keys: tuple[str, ...]) -> None:
+    for key in keys:
+        value = cfg.get(key)
+        if value is not None:
+            cmd.extend([_arg_name(key), json.dumps(value, separators=(",", ":"), sort_keys=True)])
+
+
+def _append_bool_args(cmd: list[str], cfg: dict[str, Any], keys: tuple[str, ...]) -> None:
+    for key in keys:
+        if cfg.get(key) is True:
+            cmd.append(_arg_name(key))
+
 
 def _append_runtime_features(cmd: list[str], cfg: dict[str, Any]) -> None:
     features = cfg.get("runtime_features", {}) or {}
@@ -46,44 +98,21 @@ def render_vllm_command(key: str, cfg: dict[str, Any]) -> list[str]:
         "vllm.entrypoints.openai.api_server",
         "--model",
         str(model_path),
-        "--served-model-name",
-        str(cfg["served_model_name"]),
-        "--host",
-        "0.0.0.0",
-        "--port",
-        str(cfg["port"]),
-        "--max-model-len",
-        str(cfg["max_model_len"]),
-        "--max-num-seqs",
-        str(cfg["max_num_seqs"]),
-        "--max-num-batched-tokens",
-        str(cfg["max_num_batched_tokens"]),
-        "--gpu-memory-utilization",
-        str(cfg["gpu_memory_utilization"]),
     ]
-    if cfg.get("runner") == "pooling":
-        cmd.extend(["--runner", "pooling"])
-    if cfg.get("tokenizer"):
-        cmd.extend(["--tokenizer", str(cfg["tokenizer"])])
-    if cfg.get("convert"):
-        cmd.extend(["--convert", str(cfg["convert"])])
-    if cfg.get("model_impl"):
-        cmd.extend(["--model-impl", str(cfg["model_impl"])])
+    render_cfg = {"host": "0.0.0.0", **cfg}
+    scalar_keys = tuple(
+        key
+        for key in VLLM_SCALAR_ARGS
+        if key != "runner" or cfg.get("runner") == "pooling"
+    )
+    _append_scalar_args(cmd, render_cfg, scalar_keys)
     if cfg.get("pooler_config"):
         for name, value in dict(cfg["pooler_config"]).items():
             cmd.extend([f"--pooler-config.{name}", str(value)])
-    if cfg.get("tensor_parallel_size"):
-        cmd.extend(["--tensor-parallel-size", str(cfg["tensor_parallel_size"])])
-    if cfg.get("dtype"):
-        cmd.extend(["--dtype", str(cfg["dtype"])])
     quantization_source = str(cfg.get("quantization_source", "cli"))
     if cfg.get("quantization") and quantization_source != "model_config":
         cmd.extend(["--quantization", str(cfg["quantization"])])
-    if cfg.get("load_format"):
-        cmd.extend(["--load-format", str(cfg["load_format"])])
-    if cfg.get("trust_remote_code") is True:
-        cmd.append("--trust-remote-code")
-    if cfg.get("enforce_eager") is True:
-        cmd.append("--enforce-eager")
+    _append_json_args(cmd, cfg, VLLM_JSON_ARGS)
+    _append_bool_args(cmd, cfg, VLLM_BOOL_ARGS)
     _append_runtime_features(cmd, cfg)
     return cmd
