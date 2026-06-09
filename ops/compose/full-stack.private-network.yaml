@@ -76,8 +76,6 @@ services:
     - '1'
     - --max-num-batched-tokens
     - '32768'
-    - --kv-cache-dtype
-    - fp8_e5m2
     - --optimization-level
     - '3'
     - --gpu-memory-utilization

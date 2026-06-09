@@ -32,7 +32,7 @@
 | GPU 구성 | 48GB VRAM 단일 GPU |
 | 모델 상주 방식 | enabled 모델만 vLLM 기반으로 GPU에 상주시킨다. |
 | 인스턴스 구성 | Main LLM, Embedding, Prompt Risk를 각각 독립된 vLLM 인스턴스로 운용한다. |
-| Main LLM canary context | `max_model_len=32768`, `max_num_seqs=1`, `max_num_batched_tokens=32768`, `kv_cache_dtype=fp8_e5m2`, `optimization_level=3` |
+| Main LLM canary context | `max_model_len=32768`, `max_num_seqs=1`, `max_num_batched_tokens=32768`, `optimization_level=3` |
 | Risk Adapter 구성 | enabled detector registry 기준 prompt-only aggregate |
 | 운영 기준 | 모델 weight, KV cache, CUDA context, executor overhead, allocator fragmentation, runtime peak reserve를 포함한다. |
 
@@ -40,7 +40,7 @@
 
 | 구분 | 사실 | 운영 해석 |
 |---|---|---|
-| Main LLM | `RedHatAI/gemma-4-26B-A4B-it-FP8-Dynamic`은 `google/gemma-4-26B-A4B-it` 기반 compressed-tensors FP8 Dynamic checkpoint다. repo에는 `tokenizer.json`이 포함되어 있다. | upstream은 preliminary이며 B200/vLLM main + 96K context 예시를 제공한다. RTX 6000 Ada에서는 FP8 KV 기반 32K context, seq 1 canary target으로 tokenizer, boot, latency, quality를 검증한다. |
+| Main LLM | `RedHatAI/gemma-4-26B-A4B-it-FP8-Dynamic`은 `google/gemma-4-26B-A4B-it` 기반 compressed-tensors FP8 Dynamic checkpoint다. repo에는 `tokenizer.json`이 포함되어 있다. | upstream은 preliminary이며 B200/vLLM main + 96K context 예시를 제공한다. RTX 6000 Ada에서는 32K context, seq 1, optimization level 3 runtime target으로 tokenizer, boot, latency, quality를 검증한다. |
 | Gemma 4 26B-A4B | 전체 26B급 모델이나 active parameter는 더 작다. | 계산량은 줄어도 상주 weight와 KV cache 관점에서는 26B급 모델로 취급한다. |
 | Embedding | 300M급 경량 모델이다. | 모델은 작지만 별도 vLLM process의 CUDA context와 executor overhead를 포함한다. |
 | Prompt Risk | 출력은 `<SAFE>`, `<UNSAFE-A1>` 같은 단일 토큰 signal이다. | `max_num_seqs=1`, `max_output_tokens=1`, `--enforce-eager` 기본값으로 운영한다. |
@@ -49,7 +49,7 @@
 
 | runtime | service | `gpu_memory_utilization` 시작값 | 비고 |
 |---|---|---:|---|
-| Main LLM | `main-llm-vllm` | `0.72` | FP8 KV 기반 32K canary target, seq 1 기준; boot/latency/quality/soak 통과 전 production 확정 아님 |
+| Main LLM | `main-llm-vllm` | `0.72` | 32K context + O3 runtime target, seq 1 기준; boot/latency/quality/soak 통과 전 production 확정 아님 |
 | Embedding | `embedding-vllm` | `0.04` | pooling runtime |
 | Dense retrieval-ko | `embedding-ko-vllm` | `0.06` | pooling / score runtime; 포트 9406 |
 | Prompt Risk | `risk-prompt-vllm` | `0.065` | 단일 토큰 signal classifier |
@@ -69,7 +69,6 @@ vllm serve RedHatAI/gemma-4-26B-A4B-it-FP8-Dynamic \
   --max-model-len 32768 \
   --max-num-seqs 1 \
   --max-num-batched-tokens 32768 \
-  --kv-cache-dtype fp8_e5m2 \
   --optimization-level 3 \
   --gpu-memory-utilization 0.72 \
   --tensor-parallel-size 1 \
@@ -83,9 +82,9 @@ vllm serve RedHatAI/gemma-4-26B-A4B-it-FP8-Dynamic \
   --chat-template /app/configs/gemma4_chat_template.jinja
 ```
 
-이 checkpoint는 model config의 `compressed-tensors` metadata로 FP8 quantization을 선언하므로 `--quantization fp8`을 추가하지 않는다. 추가하면 vLLM이 model config의 `compressed-tensors`와 CLI `fp8`을 서로 다른 quantization method로 보고 기동을 거부할 수 있다. `--kv-cache-dtype fp8_e5m2`와 `--optimization-level 3`은 FP8 KV 기반 32K canary target이며, target GPU에서 boot, quality, latency, long-context soak를 확인한 뒤 production claim 여부를 판단한다.
+이 checkpoint는 model config의 `compressed-tensors` metadata로 FP8 quantization을 선언하므로 `--quantization fp8`을 추가하지 않는다. 추가하면 vLLM이 model config의 `compressed-tensors`와 CLI `fp8`을 서로 다른 quantization method로 보고 기동을 거부할 수 있다. 현재 runtime target은 `--optimization-level 3`을 포함한 32K context 검증이며, target GPU에서 boot, quality, latency, long-context soak를 확인한 뒤 production claim 여부를 판단한다.
 
-FP8 KV cache는 KV cache 저장 precision을 낮춰 long-context 요청의 KV cache memory footprint를 줄이는 설정이다. 모델 weight, CUDA context, activation/workspace, allocator fragmentation, 다른 vLLM process의 reserve를 절반으로 줄인다는 뜻은 아니므로 전체 VRAM 50% 감소로 표현하지 않는다. prefix caching은 반복 prefix가 있는 multi-turn, tool, RAG prompt에서 prefill 재사용 가능성이 있을 때 주로 효과가 나며, prefix가 매번 달라지는 요청에서는 hit/reuse 지표로 실효성을 확인해야 한다.
+Prefix caching은 반복 prefix가 있는 multi-turn, tool, RAG prompt에서 prefill 재사용 가능성이 있을 때 주로 효과가 나며, prefix가 매번 달라지는 요청에서는 hit/reuse 지표로 실효성을 확인해야 한다.
 
 ## 7. 운영 검증 체크리스트
 
@@ -95,7 +94,7 @@ FP8 KV cache는 KV cache 저장 precision을 낮춰 long-context 요청의 KV ca
 | Compose | 기본 compose에 `risk-siren-vllm` service dependency가 없고, enabled runtime 4개만 scrape 대상인지 확인 |
 | Functional smoke | `/health`, `/ready`, `/v1/models`, chat, streaming chat, image input, embeddings, retrieval rerank/score, prompt risk, aggregate |
 | Risk retired policy | `/v1/risk/detectors/siren/assessments`는 410 Gone 또는 제거 정책과 일치 |
-| Soak | FP8 KV 기반 32K context, seq 1, mixed text/vision/risk workload 30분, restart/OOM 0 |
+| Soak | 32K context, seq 1, mixed text/vision/risk workload 30분, restart/OOM 0 |
 | Monitoring | Prometheus scrape 정상, Grafana No Data 패널 없음, GPU headroom 8GiB 이상 |
 
 ## 8. 결론

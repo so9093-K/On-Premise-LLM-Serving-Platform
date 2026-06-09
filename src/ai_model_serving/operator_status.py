@@ -35,7 +35,6 @@ def _gpu_budget_summary(gpu_budgets: dict[str, Any], registry: ModelRegistry) ->
                 "max_model_len": service.config.get("max_model_len"),
                 "max_num_seqs": service.config.get("max_num_seqs"),
                 "max_num_batched_tokens": service.config.get("max_num_batched_tokens"),
-                "kv_cache_dtype": service.config.get("kv_cache_dtype", ""),
                 "optimization_level": service.config.get("optimization_level", ""),
             }
             for service in runtime_services
@@ -162,12 +161,12 @@ def operator_status_bundle_markdown(document: dict[str, Any]) -> str:
         f"권장 시작값: `{gpu.get('recommended_start', '')}` / 초과 회피 기준: `{gpu.get('avoid_above', '')}`",
         f"최소 reserve GiB: `{gpu.get('reserve_gib_minimum', '')}`",
         "",
-        "| 서비스 키 | 모델 | Compose 서비스 | GPU utilization | max_model_len | max_num_batched_tokens | max_num_seqs | KV cache dtype | O level |",
-        "|---|---|---|---:|---:|---:|---:|---|---:|",
+        "| 서비스 키 | 모델 | Compose 서비스 | GPU utilization | max_model_len | max_num_batched_tokens | max_num_seqs | O level |",
+        "|---|---|---|---:|---:|---:|---:|---:|",
     ])
     for row in gpu.get("per_runtime", []):
         lines.append(
-            "| {service_key} | {logical_id} | {compose_service_name} | {gpu_memory_utilization} | {max_model_len} | {max_num_batched_tokens} | {max_num_seqs} | {kv_cache_dtype} | {optimization_level} |".format(**row)
+            "| {service_key} | {logical_id} | {compose_service_name} | {gpu_memory_utilization} | {max_model_len} | {max_num_batched_tokens} | {max_num_seqs} | {optimization_level} |".format(**row)
         )
 
     readiness = document.get("readiness_vocabulary", {})

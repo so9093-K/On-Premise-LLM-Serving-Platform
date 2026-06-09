@@ -14,6 +14,7 @@
 | 증상 | 원인 분류 | 조치 |
 |---|---|---|
 | `max_num_batched_tokens is smaller than max_model_len` | vLLM runtime 설정 오류 | pooling/embedding runtime은 `max_num_batched_tokens >= max_model_len`로 수정한다. |
+| `fp8_e5m2 kv-cache is not supported with fp8 checkpoints` | 현재 checkpoint/image 조합에서 unsupported한 KV cache dtype | active runtime policy에서 `--kv-cache-dtype`를 제거하고, 32K/O3 등 다른 target을 분리 검증한다. |
 | `hidden size ... is not a multiple of the number of attention heads` | transformers 4.52.0–4.52.3 의 `LlamaConfig.validate_architecture` 버그 + `huggingface_hub >= 1.13.0`의 `init_with_validate` 강화 조합 | `make risk-vllm-config-check`로 image 내부 transformers 버전을 확인한다. 4.52.0–4.52.3 이면 4.52.4 이상으로 재빌드한다. `huggingface_hub`를 0.x로 다운그레이드하지 않는다. 모델 교체로 단정하지 않는다. |
 | `No available memory for the cache blocks` | KV cache VRAM allocation 부족 | `gpu_memory_utilization`, context length, batching, runtime isolation을 검토한다. |
 | `Engine core initialization failed. Failed core proc(s): {}` | vLLM engine subprocess 비정상 종료 (빈 dict는 자식 프로세스가 오류를 보고하기 전에 죽었음을 뜻함). GPU OOM이 가장 흔한 원인 | risk 모델의 `--enforce-eager` 설정 여부, 총 `gpu_memory_utilization`이 `configs/gpu_budgets.yaml`의 `avoid_above` 미만인지, compose의 `depends_on: service_healthy` 순차 기동 체인을 확인한다. |

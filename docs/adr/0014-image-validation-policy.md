@@ -77,7 +77,7 @@ MIME type allowlist 검사(`image/jpeg`, `image/png`, `image/webp` 중 하나여
 ## Operational impact
 
 - `max_request_body_bytes: 10,000,000`: Nginx/프록시의 `client_max_body_size`가 이 값보다 작으면 먼저 413을 반환한다. 10MB 이상으로 설정되어 있는지 확인이 필요하다.
-- 이미지 처리 비용은 픽셀 수에 비례하므로, 6,422,528 픽셀(≈2688×2394) 이미지는 소형 이미지 대비 추론 시간이 증가한다. FP8 KV 기반 32K canary target인 `max_model_len: 32768`에서 최대 이미지 토큰은 ≈2,048이며 나머지 ≈30,720이 텍스트 예산으로 남는다.
+- 이미지 처리 비용은 픽셀 수에 비례하므로, 6,422,528 픽셀(≈2688×2394) 이미지는 소형 이미지 대비 추론 시간이 증가한다. 32K runtime target인 `max_model_len: 32768`에서 최대 이미지 토큰은 ≈2,048이며 나머지 ≈30,720이 텍스트 예산으로 남는다.
 - `max_image_inputs: 1` 제한은 변경하지 않았다.
 
 ## Migration notes

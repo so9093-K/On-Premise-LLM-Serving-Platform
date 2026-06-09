@@ -63,14 +63,14 @@ models:
     max_model_len: 32768
     max_num_seqs: 1
     max_num_batched_tokens: 32768
-    kv_cache_dtype: fp8_e5m2
     optimization_level: 3
     gpu_memory_utilization: 0.72
     timeout_seconds: 120
-    runtime_policy_source: FP8 KV 기반 32K canary target for RedHatAI preliminary
-      FP8 checkpoint on RTX 6000 Ada; upstream card uses B200/vLLM main with
-      96K context, so this platform requires local tokenizer, boot, quality,
-      latency, and soak validation before production claims
+    runtime_policy_source: 32K context and optimization level 3 runtime target
+      for RedHatAI preliminary FP8 checkpoint on RTX 6000 Ada; upstream card
+      uses B200/vLLM main with 96K context, so this platform requires local
+      tokenizer, boot, quality, latency, and soak validation before production
+      claims
     max_output_tokens: 4096
     resource_control:
       criticality: primary_user_path

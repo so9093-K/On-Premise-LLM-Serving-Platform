@@ -18,7 +18,6 @@ VLLM_SCALAR_ARGS: tuple[str, ...] = (
     "tensor_parallel_size",
     "dtype",
     "load_format",
-    "kv_cache_dtype",
     "optimization_level",
 )
 

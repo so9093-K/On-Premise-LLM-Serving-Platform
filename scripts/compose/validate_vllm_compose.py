@@ -30,7 +30,6 @@ COMPOSE_SCALAR_ARGS = (
     "max_num_seqs",
     "max_num_batched_tokens",
     "gpu_memory_utilization",
-    "kv_cache_dtype",
     "optimization_level",
 )
 
@@ -43,7 +42,6 @@ RUNTIME_POLICY_FIELDS = (
     "max_num_seqs",
     "max_num_batched_tokens",
     "gpu_memory_utilization",
-    "kv_cache_dtype",
     "optimization_level",
     "compilation_config",
 )

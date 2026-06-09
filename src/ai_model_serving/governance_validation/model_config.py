@@ -94,8 +94,6 @@ def validate_model_source_facts() -> None:
         raise SystemExit('local-main max_model_len mismatch between catalog policy and serving config')
     if policy['max_num_batched_tokens'] != serving['main_llm']['max_num_batched_tokens']:
         raise SystemExit('local-main max_num_batched_tokens mismatch between catalog policy and serving config')
-    if policy.get('kv_cache_dtype') != serving['main_llm'].get('kv_cache_dtype'):
-        raise SystemExit('local-main kv_cache_dtype mismatch between catalog policy and serving config')
     if policy.get('optimization_level') != serving['main_llm'].get('optimization_level'):
         raise SystemExit('local-main optimization_level mismatch between catalog policy and serving config')
     if main['source_facts']['upstream_context_length_tokens'].get('project_runtime_cap') != policy['max_model_len']:

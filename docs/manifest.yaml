@@ -127,7 +127,7 @@ documents:
     disposition: keep
     source_of_truth: true
     status_source: adr_status
-  - path: docs/adr/0015-main-llm-fp8-kv-32k-o3-runtime-target.md
+  - path: docs/adr/0015-main-llm-32k-o3-runtime-target.md
     type: decision
     lifecycle: historical
     owner: architecture

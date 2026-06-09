@@ -39,6 +39,9 @@ for service in "${services[@]}"; do
   if grep -q "No available memory for the cache blocks" "/tmp/${service}.compose.log" 2>/dev/null; then
     echo "[diagnostics] ${service}: detected KV-cache memory allocation failure; tune gpu_memory_utilization/context/batching or isolate this runtime."
   fi
+  if grep -q "kv-cache is not supported with fp8 checkpoints" "/tmp/${service}.compose.log" 2>/dev/null; then
+    echo "[diagnostics] ${service}: detected unsupported kv_cache_dtype for an FP8 checkpoint. Remove --kv-cache-dtype from the active runtime policy for this model/image combination."
+  fi
   if grep -q "Engine core initialization failed" "/tmp/${service}.compose.log" 2>/dev/null; then
     echo "[diagnostics] ${service}: detected vLLM engine core crash (Engine core initialization failed). GPU OOM 가능성 높음. 확인 항목: risk 모델에 --enforce-eager 설정 여부, 총 gpu_memory_utilization < ${GPU_AVOID_ABOVE}, compose의 depends_on healthcheck 체인으로 순차 기동 여부."
   fi

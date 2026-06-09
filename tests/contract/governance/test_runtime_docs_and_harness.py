@@ -122,7 +122,6 @@ def test_p2_runtime_validation_harness_is_packaged() -> None:
     assert "--served-model-name local-main" in output
     assert "--max-model-len 32768" in output
     assert "--max-num-batched-tokens 32768" in output
-    assert "--kv-cache-dtype fp8_e5m2" in output
     assert "--optimization-level 3" in output
     assert "--enable-prefix-caching" in output
     assert "--prefix-caching-hash-algo sha256_cbor" in output
