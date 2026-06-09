@@ -8,6 +8,14 @@ from .config import RuntimeValidationConfig
 from .results import CheckResult
 
 
+def _reserve_hard_minimum(gpu_budgets: dict[str, Any]) -> float:
+    reserve_policy = gpu_budgets["gpu"]["reserve_gib"]
+    value = reserve_policy.get("hard_minimum", reserve_policy.get("minimum"))
+    if value is None:
+        raise KeyError("hard_minimum")
+    return float(value)
+
+
 def sample_gpu(config: RuntimeValidationConfig, gpu_budgets: dict[str, Any], name: str) -> CheckResult:
     cmd = [
         "nvidia-smi",
@@ -19,6 +27,6 @@ def sample_gpu(config: RuntimeValidationConfig, gpu_budgets: dict[str, Any], nam
     total_mib = float(row[0])
     used_mib = float(row[1])
     reserve_gib = (total_mib - used_mib) / 1024
-    minimum = float(gpu_budgets["gpu"]["reserve_gib"]["minimum"])
+    minimum = _reserve_hard_minimum(gpu_budgets)
     ok = reserve_gib >= minimum
     return CheckResult("gpu-capacity", name, "pass" if ok else "fail", details={"total_mib": total_mib, "used_mib": used_mib, "reserve_gib": round(reserve_gib, 2), "minimum_reserve_gib": minimum})

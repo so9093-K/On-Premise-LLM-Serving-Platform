@@ -121,7 +121,7 @@ enabled risk 모델(`risk-prompt-vllm`)에는 다음 설정이 적용된다. `ri
 | 설정 | 값 | 이유 |
 |---|---|---|
 | `--enforce-eager` | 활성화 | CUDA graph pre-capture를 비활성화한다. 모델당 300~500MiB 절약. `max_num_seqs=1`, `max_output_tokens=1` 단일 토큰 분류기에서 CUDA graph 이득이 없다. |
-| `gpu_memory_utilization` | risk-prompt 0.065 | Dense retrieval-ko 포함 4-runtime enabled vLLM 총합 0.865 < `avoid_above` 0.93 유지. |
+| `gpu_memory_utilization` | risk-prompt 0.065 | Dense retrieval-ko 포함 4-runtime enabled vLLM 총합은 0.925로 `avoid_above` 0.93 바로 아래다. 추가 runtime, context 증가, concurrency 증가는 별도 검증 없이 허용하지 않는다. |
 
 `Engine core initialization failed. Failed core proc(s): {}` 오류가 보이면 위 설정이 compose에 반영됐는지 `make vllm-commands`로 확인한다.
 

@@ -10,6 +10,11 @@ from ai_model_serving.monitoring_projection import monitoring_projection_documen
 from ai_model_serving.operator_reports import runtime_targets_document
 
 
+def _reserve_hard_minimum(reserve_policy: dict[str, Any]) -> float | None:
+    value = reserve_policy.get("hard_minimum", reserve_policy.get("minimum"))
+    return float(value) if value is not None else None
+
+
 def _gpu_budget_summary(gpu_budgets: dict[str, Any], registry: ModelRegistry) -> dict[str, Any]:
     """Build a compact GPU/resource budget view for operator status bundles."""
     runtime_services = registry.iter_runtime_services()
@@ -25,7 +30,7 @@ def _gpu_budget_summary(gpu_budgets: dict[str, Any], registry: ModelRegistry) ->
         "total_gpu_memory_utilization": total_utilization,
         "recommended_start": utilization_policy.get("recommended_start"),
         "avoid_above": utilization_policy.get("avoid_above"),
-        "reserve_gib_minimum": reserve_policy.get("minimum"),
+        "reserve_gib_hard_minimum": _reserve_hard_minimum(reserve_policy),
         "per_runtime": [
             {
                 "service_key": service.service_key,
@@ -159,7 +164,7 @@ def operator_status_bundle_markdown(document: dict[str, Any]) -> str:
         f"프로필: `{gpu.get('profile', '')}`",
         f"설정된 GPU memory utilization 합계: `{gpu.get('total_gpu_memory_utilization', '')}`",
         f"권장 시작값: `{gpu.get('recommended_start', '')}` / 초과 회피 기준: `{gpu.get('avoid_above', '')}`",
-        f"최소 reserve GiB: `{gpu.get('reserve_gib_minimum', '')}`",
+        f"reserve hard minimum GiB: `{gpu.get('reserve_gib_hard_minimum', '')}`",
         "",
         "| 서비스 키 | 모델 | Compose 서비스 | GPU utilization | max_model_len | max_num_batched_tokens | max_num_seqs | O level |",
         "|---|---|---|---:|---:|---:|---:|---:|",

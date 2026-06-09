@@ -323,15 +323,44 @@ def test_operator_status_bundle_report_is_registry_backed(tmp_path: Path) -> Non
     }
     assert document["operator_commands"]["operator_status"] == "make operator-status"
     assert document["gpu_budget_summary"]["runtime_service_count"] == 4
+    assert document["gpu_budget_summary"]["reserve_gib_hard_minimum"] == 3.5
     assert document["monitoring_summary"]["model_labels"] == ["local-main", "local-embed", "local-embed-ko", "risk-prompt"]
     markdown = operator_status_bundle_markdown(document)
     assert "# 운영 상태 번들" in markdown
     assert "make runtime-validate" in markdown
+    assert "reserve hard minimum GiB" in markdown
     assert "원문 프롬프트" in markdown
 
     json_path, md_path = write_operator_status_bundle(document, tmp_path)
     assert json_path.exists()
     assert md_path.exists()
+
+
+def test_gpu_check_uses_hard_minimum_with_legacy_fallback(monkeypatch) -> None:
+    from ai_model_serving.runtime_validation.gpu_checks import sample_gpu
+    from types import SimpleNamespace
+
+    def fake_check_output(*args, **kwargs):
+        return "49140, 45000, 80, 55, 120\n"
+
+    monkeypatch.setattr("ai_model_serving.runtime_validation.gpu_checks.subprocess.check_output", fake_check_output)
+
+    config = SimpleNamespace(timeout_seconds=5)
+    result = sample_gpu(
+        config,
+        {"gpu": {"reserve_gib": {"hard_minimum": 3.5}}},
+        "gpu sample",
+    )
+    assert result.status == "pass"
+    assert result.details["minimum_reserve_gib"] == 3.5
+
+    legacy_result = sample_gpu(
+        config,
+        {"gpu": {"reserve_gib": {"minimum": 3.0}}},
+        "gpu sample legacy",
+    )
+    assert legacy_result.status == "pass"
+    assert legacy_result.details["minimum_reserve_gib"] == 3.0
 
 
 def test_monitoring_projection_report_is_registry_backed(tmp_path: Path) -> None:

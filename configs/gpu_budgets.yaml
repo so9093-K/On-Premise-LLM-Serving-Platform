@@ -89,7 +89,7 @@ resource_management:
   admission_control: gateway/upstream clients enforce per-model concurrency, queue
     timeout, and circuit breaker limits
   memory_policy: each vLLM runtime must stay within its configured gpu_memory_utilization;
-    total configured utilization should keep reserve_gib.minimum free
+    total configured utilization should keep reserve_gib.hard_minimum free
   scale_policy: add a model only after assigning port, gpu budget, max_model_len,
     max_num_seqs, and dashboard labels; remove a model by deleting all registry entries
     in one change

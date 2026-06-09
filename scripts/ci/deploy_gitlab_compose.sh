@@ -21,7 +21,9 @@
 #   GATEWAY_HEALTH_URL         explicit post-deploy health URL.
 #                              Default is derived from 175 .env:
 #                              GATEWAY_BIND_ADDR/GATEWAY_PORT, with 0.0.0.0 -> localhost.
-#   RUN_READY_SMOKE            1 (default) or 0 — run /health check after deploy
+#   RUN_READY_SMOKE            1 (default) or 0 — run gateway /health check after deploy
+#   RUN_READY_FULL_SMOKE       1 or 0 (default) — when DEPLOY_MODE=full, run make ready-full
+#                              after /health to verify downstream vLLM readiness and smoke
 #   PRUNE_DANGLING_IMAGES      1 (default) or 0 — prune dangling images after a successful deploy
 set -euo pipefail
 
@@ -39,6 +41,7 @@ REGISTRY_PASSWORD="${REGISTRY_DEPLOY_PASSWORD:-${CI_REGISTRY_PASSWORD:-}}"
 COMPOSE_FILE="${DEPLOY_COMPOSE_FILE:-ops/compose/full-stack.private-network.yaml}"
 DEPLOY_MODE="${DEPLOY_MODE:-rolling}"
 RUN_READY_SMOKE="${RUN_READY_SMOKE:-1}"
+RUN_READY_FULL_SMOKE="${RUN_READY_FULL_SMOKE:-0}"
 PRUNE_DANGLING_IMAGES="${PRUNE_DANGLING_IMAGES:-1}"
 SSH_TARGET="${DEPLOY_USER}@${DEPLOY_HOST}"
 
@@ -108,6 +111,7 @@ ssh "${SSH_TARGET}" \
   HUGGING_FACE_HUB_TOKEN="${HUGGING_FACE_HUB_TOKEN:-}" \
   GATEWAY_HEALTH_URL="${GATEWAY_HEALTH_URL:-}" \
   RUN_READY_SMOKE="${RUN_READY_SMOKE}" \
+  RUN_READY_FULL_SMOKE="${RUN_READY_FULL_SMOKE}" \
   PRUNE_DANGLING_IMAGES="${PRUNE_DANGLING_IMAGES}" \
   AUTH_MODE="${AUTH_MODE:-}" \
   bash -s <<'REMOTE'
@@ -310,6 +314,14 @@ if [[ "${RUN_READY_SMOKE}" == "1" ]]; then
     echo "[deploy] waiting... ${i}/60 (${HEALTH_URL})"
     sleep 10
   done
+fi
+
+if [[ "${DEPLOY_MODE}" == "full" && "${RUN_READY_FULL_SMOKE}" == "1" ]]; then
+  echo "[deploy] full deploy: running make ready-full..."
+  if ! make ready-full; then
+    make compose-diagnostics || true
+    fail_after_env_backup "full runtime readiness failed"
+  fi
 fi
 
 if [[ "${PRUNE_DANGLING_IMAGES}" == "1" ]]; then

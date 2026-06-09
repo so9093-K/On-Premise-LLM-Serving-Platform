@@ -56,10 +56,11 @@ Platform image는 commit tag와 branch tag를 항상 push한다. `release` branc
 - `GATEWAY_BIND_ADDR`: Gateway host publish bind 주소
 - `GATEWAY_HEALTH_URL`: 배포 후 health check URL
 - `RUN_READY_SMOKE`: `1` 또는 `0`, 기본값 `1`
+- `RUN_READY_FULL_SMOKE`: `1` 또는 `0`, 기본값 `0`. `DEPLOY_MODE=full`일 때 `make ready-full`을 추가 실행해 vLLM downstream readiness와 smoke를 함께 확인한다.
 - `PRUNE_DANGLING_IMAGES`: `1` 또는 `0`, 기본값 `1`. 성공한 배포 뒤 태그가 사라진 dangling image만 정리
 - `RISK_VLLM_IMAGE_TO_DEPLOY`: `DEPLOY_MODE=full`에서만 사용. risk vLLM image override가 필요할 때 175 `.env`의 `RISK_VLLM_IMAGE`를 해당 값으로 덮어쓴다
 
-175의 `.env`에는 shared/staging 환경 기준으로 `GATEWAY_BIND_ADDR=<175 내부 IP>`를 명시하는 편이 안전하다. 전체 interface publish가 의도된 경우에만 `GATEWAY_BIND_ADDR=0.0.0.0`을 사용하고 firewall/network policy로 내부 CIDR만 허용한다. deploy smoke는 `GATEWAY_HEALTH_URL`이 없으면 175 `.env`의 `GATEWAY_BIND_ADDR`와 `GATEWAY_PORT`로 health URL을 만든다. `GATEWAY_BIND_ADDR=0.0.0.0`일 때만 `localhost`로 fallback한다.
+175의 `.env`에는 shared/staging 환경 기준으로 `GATEWAY_BIND_ADDR=<175 내부 IP>`를 명시하는 편이 안전하다. 전체 interface publish가 의도된 경우에만 `GATEWAY_BIND_ADDR=0.0.0.0`을 사용하고 firewall/network policy로 내부 CIDR만 허용한다. deploy smoke는 `GATEWAY_HEALTH_URL`이 없으면 175 `.env`의 `GATEWAY_BIND_ADDR`와 `GATEWAY_PORT`로 health URL을 만든다. `GATEWAY_BIND_ADDR=0.0.0.0`일 때만 `localhost`로 fallback한다. `RUN_READY_SMOKE=1`은 Gateway `/health`만 확인하므로, full runtime deploy에서 downstream vLLM까지 함께 gate하려면 `RUN_READY_FULL_SMOKE=1`을 사용한다.
 
 배포 스크립트는 health check가 통과한 뒤 기본적으로 `docker image prune -f --filter dangling=true`를 실행한다. `release`처럼 같은 태그를 새 이미지가 덮어쓰면 이전 이미지가 `<none>` 상태로 남을 수 있는데, 이 단계는 실행 중인 컨테이너가 참조하지 않는 untagged image만 제거한다. 장애 분석이나 수동 롤백 때문에 보존이 필요하면 `PRUNE_DANGLING_IMAGES=0`으로 끈다.
 
@@ -93,6 +94,7 @@ risk-vllm-kanana를 교체하거나 `EMBEDDING_KO_VLLM_IMAGE`(표준 vLLM 이미
 3. `deploy-gpu-175` 수동 실행, `DEPLOY_MODE=full` 설정
    - preflight 실패 시 `.env`를 수정하지 않고 실패; `build-vllm-derived` 먼저 실행하라는 안내 출력
 5. 전체 stack `up -d --remove-orphans`; vLLM 이미지 pull과 모델 로딩 시간이 길 수 있다
+6. 필요 시 `RUN_READY_FULL_SMOKE=1`로 `make ready-full`을 추가 실행해 Gateway `/ready`, downstream vLLM readiness, smoke를 함께 확인한다. 실패 시 compose diagnostics를 함께 출력한다.
 
 ## 배포 모드
 

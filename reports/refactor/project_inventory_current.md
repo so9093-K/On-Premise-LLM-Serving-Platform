@@ -10,7 +10,7 @@ Command:
 
 이 리포트는 현재 source tree에서 생성되며 로컬 runtime/cache/build 디렉터리는 제외한다.
 
-- 검토 파일 수: **412**
+- 검토 파일 수: **413**
 - CSV matrix: `reports/refactor/project_inventory_current.csv`
 - JSON matrix: `reports/refactor/project_inventory_current.json`
 
@@ -36,7 +36,7 @@ Command:
 | `assets` | 3 |
 | `configs` | 17 |
 | `contracts` | 2 |
-| `docs` | 62 |
+| `docs` | 63 |
 | `features` | 3 |
 | `harness` | 4 |
 | `model_cards` | 4 |
@@ -68,14 +68,14 @@ Command:
 | 경로 | 줄 수 | 담당 | 검토 메모 |
 |---|---:|---|---|
 | `specs/openapi.gateway.yaml` | 5024 | api-contracts | supporting project file |
-| `reports/refactor/project_inventory_current.json` | 4783 | handoff-reporting | handoff/review artifact; avoid stale phase snapshots in active package |
+| `reports/refactor/project_inventory_current.json` | 4794 | handoff-reporting | handoff/review artifact; avoid stale phase snapshots in active package |
 | `configs/command_registry.yaml` | 2100 | configuration | configuration source; validate through governance and projection checks after edits |
 | `specs/openapi.risk-adapter.yaml` | 1684 | api-contracts | supporting project file |
 | `ops/grafana/dashboards/serving_home.json` | 1398 | operations | supporting project file |
 | `ops/grafana/dashboards/api_experience.json` | 1095 | operations | supporting project file |
 | `ops/grafana/dashboards/observability_data_quality.json` | 907 | operations | supporting project file |
 | `ops/grafana/dashboards/gpu_capacity_and_oom_risk.json` | 757 | operations | supporting project file |
-| `reports/runtime/operator_status_bundle.json` | 733 | handoff-reporting | generated operator report; regenerate through make operator-reports before handoff |
+| `reports/runtime/operator_status_bundle.json` | 737 | handoff-reporting | generated operator report; regenerate through make operator-reports before handoff |
 | `ops/grafana/dashboards/executive_runtime_overview.json` | 682 | operations | supporting project file |
 | `ops/grafana/dashboards/risk_signal_operations.json` | 625 | operations | supporting project file |
 | `src/ai_model_serving/governance_validation/docs_ops.py` | 612 | governance-validation | application code; preserve public API behavior and compatibility facades |

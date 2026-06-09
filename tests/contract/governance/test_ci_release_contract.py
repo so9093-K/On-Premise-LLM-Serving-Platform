@@ -24,6 +24,10 @@ def test_gitlab_ci_deployment_contract_is_documented_and_operationally_safe() ->
     assert 'get_env_value GATEWAY_BIND_ADDR' in deploy
     assert 'GATEWAY_PROBE_HOST="localhost"' in deploy
     assert 'HEALTH_URL="${GATEWAY_HEALTH_URL:-http://${GATEWAY_PROBE_HOST}:${GATEWAY_PORT}/health}"' in deploy
+    assert 'RUN_READY_FULL_SMOKE="${RUN_READY_FULL_SMOKE:-0}"' in deploy
+    assert 'if [[ "${DEPLOY_MODE}" == "full" && "${RUN_READY_FULL_SMOKE}" == "1" ]]; then' in deploy
+    assert 'make ready-full' in deploy
+    assert 'make compose-diagnostics || true' in deploy
     assert 'PRUNE_DANGLING_IMAGES="${PRUNE_DANGLING_IMAGES:-1}"' in deploy
     assert 'docker image prune -f --filter dangling=true' in deploy
     preflight_compose = (ROOT / "scripts/compose/preflight_compose.py").read_text(encoding="utf-8")
@@ -45,6 +49,7 @@ def test_gitlab_ci_deployment_contract_is_documented_and_operationally_safe() ->
     assert "DEPLOY_MODE=rolling" in doc
     assert "DEPLOY_MODE=full" in doc
     assert "GATEWAY_BIND_ADDR=<175 internal IP>" in doc
+    assert "RUN_READY_FULL_SMOKE" in doc
     assert "PRUNE_DANGLING_IMAGES" in doc
 
 
@@ -120,4 +125,3 @@ def test_gitlab_ci_vllm_derived_build_contract() -> None:
     deploy = (ROOT / "scripts/ci/deploy_gitlab_compose.sh").read_text(encoding="utf-8")
     assert 'pull_preflight_image "risk-vllm-kanana" "${RISK_VLLM_IMAGE_TO_DEPLOY}"' in deploy
     assert "set_env_value RISK_VLLM_IMAGE" in deploy
-
