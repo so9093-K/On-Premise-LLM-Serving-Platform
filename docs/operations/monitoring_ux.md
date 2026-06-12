@@ -15,7 +15,7 @@
 
 - prompt, generated text, raw input은 metric label에 넣지 않는다.
 - metric name과 label value는 영어/ASCII를 유지한다.
-- dashboard와 panel 제목은 영어를 사용하되 metric 이름보다 운영자가 판단하는 언어를 우선한다. 내부 metric 용어는 panel description과 운영 문서에 둔다.
+- dashboard와 panel 제목은 영어를 사용하되 metric 이름보다 운영자가 판단하는 언어를 우선한다. 운영 문서는 한글 우선으로 작성하고, 내부 metric 용어는 panel description과 운영 문서에 둔다.
 - no-data panel은 exporter가 없거나 metric mapping이 없을 때만 허용한다.
 - Grafana 첫 화면은 `gpu_capacity_and_oom_risk`이며 GPU headroom, VRAM, utilization, OOM/restart, KV cache를 바로 보여준다. 여기의 GPU Headroom/GPU Memory Used는 DCGM exporter 기반 live observed metric이며, configured budget/projection은 operator status bundle에서 확인한다. 상세 트리아지(verdict banner, evidence cards, Attention Needed table)는 `serving_home` drill-down에서 확인한다.
 - user traffic panel은 기본적으로 `/v1/chat/completions|/v1/embeddings|/v1/risk/.*`만 포함하고 `/health`, `/ready`, `/v1/models`, `/metrics`, `/docs`, `/openapi.json` 같은 control/observability/docs route를 제외한다.
@@ -260,7 +260,7 @@ Grafana UI에서 저장한 provisioned dashboard 변경은 JSON source로 자동
 ## Dashboard phrase 기준
 
 - No prompt leakage: prompt와 generated text는 metric label과 dashboard에 노출하지 않는다.
-- Risk Signal Health: Risk Adapter와 detector별 signal 상태를 별도 panel로 본다.
+- Risk Signal Activity: Risk Adapter와 detector별 signal 상태를 별도 panel로 본다.
 - No Runtime Data: exporter 또는 scrape가 없을 때 gray 상태로 표시한다.
 - Healthy / Attention / Action Required: 모든 panel description은 정상, 주의, 조치 필요, No Data 해석을 포함한다.
 

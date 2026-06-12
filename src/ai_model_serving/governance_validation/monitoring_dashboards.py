@@ -9,40 +9,17 @@ from ai_model_serving.monitoring_projection import monitoring_projection_documen
 
 
 def validate_grafana_dashboard_templates() -> None:
-    required_titles = {
-        'ops/grafana/dashboards/serving_home.json': {
-            'Serving Home Operator Guide', 'Serving Verdict', 'State', 'User Traffic',
-            'Scrape Targets', 'GPU Headroom', 'OOM / Restart', 'Runtime Capacity',
-            'Needs Attention', 'Min GPU Headroom', 'Max KV Cache Pressure',
-            'Container OOM / Restart Signals', 'VRAM Used vs Budget',
-            'vLLM Queue Depth', 'KV Cache Pressure', 'Token Throughput',
-            'GPU Utilization', 'Drill-down Links',
-        },
-        'ops/grafana/dashboards/executive_runtime_overview.json': {
-            'Overall Status', 'User Traffic', 'p95 Latency (5m)', 'Error Rate',
-            'GPU Headroom', 'Component Readiness', 'Scrape Health',
-        },
-        'ops/grafana/dashboards/gpu_capacity_and_oom_risk.json': {
-            'GPU Headroom', 'GPU Memory Used', 'OOM / Restarts',
-            'GPU Utilization', 'VRAM Used vs Budget',
-        },
-        'ops/grafana/dashboards/risk_signal_operations.json': {
-            'Risk Assessment Volume', 'Risk Detected Rate', 'Forbidden Field Violations',
-        },
-        'ops/grafana/dashboards/api_experience.json': {
-            'Chat Request Rate', 'Streaming Errors', 'Usage Chunk Events',
-        },
-        'ops/grafana/dashboards/model_runtime_deep_dive.json': {
-            'Token Throughput', 'Queue Depth', 'KV Cache Usage',
-        },
-        'ops/grafana/dashboards/observability_data_quality.json': {
-            'Visible Targets vs Expected', 'Up Targets vs Visible',
-            'Missing Critical Targets', 'Missing Target Detection',
-            'Down Target Detection',
-        },
-    }
-    expected_variables = {'datasource', 'window', 'model', 'runtime_service', 'route', 'status_code'}
-    for path, titles in required_titles.items():
+    monitoring = read_yaml('configs/monitoring.yaml')
+    grafana = monitoring.get('monitoring_stack', {}).get('grafana', {})
+    contracts = grafana.get('dashboard_contracts', [])
+    if not contracts:
+        raise SystemExit('monitoring config must define grafana dashboard_contracts')
+    expected_variables = set(grafana.get('dashboard_variables', [])) - {'user_route'}
+    for contract in contracts:
+        path = str(contract.get('path', ''))
+        titles = {str(title) for title in contract.get('required_panels', [])}
+        if not path or not titles:
+            raise SystemExit(f'grafana dashboard contract must define path and required_panels: {contract}')
         dash = read_json(path)
         if not dash.get('uid') or 'contract-reference' not in dash.get('tags', []):
             raise SystemExit(f'grafana dashboard template missing reference metadata: {path}')
@@ -55,36 +32,42 @@ def validate_grafana_dashboard_templates() -> None:
             raise SystemExit(f'grafana dashboard title must be English-only: {path}')
         if not dash.get('panels'):
             raise SystemExit(f'grafana dashboard has no panels: {path}')
-        missing = titles - {panel.get('title') for panel in dash.get('panels', [])}
+        panel_titles = {panel.get('title') for panel in _iter_panels(dash.get('panels', []))}
+        missing = titles - panel_titles
         if missing:
             raise SystemExit(f'grafana dashboard template missing user-facing panels {missing}: {path}')
-        for panel in dash.get('panels', []):
+        _validate_collapsed_detail_rows(path, dash, contract)
+        for panel in _iter_panels(dash.get('panels', [])):
             _validate_panel(path, panel)
     _validate_serving_home_constraints()
     _validate_query_regressions()
 
 
 def _validate_serving_home_constraints() -> None:
+    contract = _dashboard_contract('ops/grafana/dashboards/serving_home.json')
+    attention_title = _semantic_panel(contract, 'attention')
+    user_requests_title = _semantic_panel(contract, 'user_requests')
+    service_verdict_title = _semantic_panel(contract, 'service_verdict')
     home = read_json('ops/grafana/dashboards/serving_home.json')
     panels = home.get('panels', [])
     panel_count = len(panels)
     if panel_count > 20:
         raise SystemExit(f'serving home dashboard must have at most 20 panels, found {panel_count}')
     panel_titles = {panel.get('title') for panel in panels}
-    if 'Needs Attention' not in panel_titles:
-        raise SystemExit('serving home dashboard must have a Needs Attention panel')
+    if attention_title not in panel_titles:
+        raise SystemExit(f'serving home dashboard must have an {attention_title} panel')
     backlog_indicators = ['Backlog', 'TODO', 'instrumentation plan', 'backlog']
     home_text = json.dumps(home, ensure_ascii=False)
     for indicator in backlog_indicators:
         if f'"title": "{indicator}' in home_text:
             raise SystemExit(f'serving home dashboard must not contain Backlog/TODO panels: {indicator}')
-    # User Traffic must not use red for zero — no colorMode=background with red at null threshold
-    user_traffic_panel = next((p for p in panels if p.get('title') == 'User Traffic'), None)
+    # The user-demand panel must not use red for zero traffic.
+    user_traffic_panel = next((p for p in panels if p.get('title') == user_requests_title), None)
     if user_traffic_panel:
         steps = (user_traffic_panel.get('fieldConfig', {})
                  .get('defaults', {}).get('thresholds', {}).get('steps', []))
         if steps and steps[0].get('color') == 'red':
-            raise SystemExit('serving home User Traffic panel must not use red as the base (null) threshold color')
+            raise SystemExit(f'serving home {user_requests_title} panel must not use red as the base (null) threshold color')
     # Raw GPU Memory Used must not be a top-level red background stat
     forbidden_titles = {'Current GPU Memory Used', 'Max GPU Memory Used in Range'}
     for panel in panels:
@@ -103,11 +86,51 @@ def _validate_serving_home_constraints() -> None:
         if 'or vector(0)' in oom_text and 'container_oom_events_total' in oom_text:
             raise SystemExit('OOM/restart panel must not use or vector(0) — cAdvisor absence must not be hidden as 0')
     # Verdict banner must use ai_serving_verdict_code
-    verdict_panel = next((p for p in panels if p.get('title') == 'Serving Verdict'), None)
+    verdict_panel = next((p for p in panels if p.get('title') == service_verdict_title), None)
     if verdict_panel:
         verdict_text = json.dumps(verdict_panel, ensure_ascii=False)
         if 'ai_serving_verdict_code' not in verdict_text:
-            raise SystemExit('serving home Serving Verdict panel must use ai_serving_verdict_code')
+            raise SystemExit(f'serving home {service_verdict_title} panel must use ai_serving_verdict_code')
+
+
+def _iter_panels(panels: list[dict[str, object]]) -> object:
+    for panel in panels:
+        yield panel
+        yield from _iter_panels(panel.get('panels', []))  # type: ignore[arg-type]
+
+
+def _dashboard_contract(path: str) -> dict[str, object]:
+    monitoring = read_yaml('configs/monitoring.yaml')
+    contracts = monitoring.get('monitoring_stack', {}).get('grafana', {}).get('dashboard_contracts', [])
+    for contract in contracts:
+        if contract.get('path') == path:
+            return contract
+    raise SystemExit(f'monitoring config missing grafana dashboard contract: {path}')
+
+
+def _semantic_panel(contract: dict[str, object], key: str) -> str:
+    semantic_panels = contract.get('semantic_panels', {})
+    if not isinstance(semantic_panels, dict) or key not in semantic_panels:
+        raise SystemExit(f'grafana dashboard contract missing semantic panel key: {contract.get("path")}::{key}')
+    return str(semantic_panels[key])
+
+
+def _validate_collapsed_detail_rows(path: str, dashboard: dict[str, object], contract: dict[str, object]) -> None:
+    expected_rows = {str(title) for title in contract.get('collapsed_detail_rows', [])}
+    if not expected_rows:
+        return
+    rows = {
+        str(panel.get('title')): panel
+        for panel in dashboard.get('panels', [])
+        if panel.get('type') == 'row'
+    }
+    missing = expected_rows - set(rows)
+    if missing:
+        raise SystemExit(f'grafana dashboard missing collapsed detail rows {missing}: {path}')
+    for title in expected_rows:
+        row = rows[title]
+        if row.get('collapsed') is not True or not row.get('panels'):
+            raise SystemExit(f'grafana detail row must be collapsed and own nested panels: {path}::{title}')
 
 
 def _validate_panel(path: str, panel: dict[str, object]) -> None:
@@ -146,12 +169,14 @@ def _validate_query_regressions() -> None:
     for route in ['/health', '/ready', '/metrics', '/docs', '/openapi.json']:
         if route not in home_text:
             raise SystemExit(f'serving home user traffic exclusion missing route: {route}')
-    panels = {panel.get('title'): panel for panel in home.get('panels', [])}
-    user_traffic = json.dumps(panels.get('User Traffic', {}), ensure_ascii=False)
+    panels = {panel.get('title'): panel for panel in _iter_panels(home.get('panels', []))}
+    home_contract = _dashboard_contract('ops/grafana/dashboards/serving_home.json')
+    user_requests_title = _semantic_panel(home_contract, 'user_requests')
+    user_traffic = json.dumps(panels.get(user_requests_title, {}), ensure_ascii=False)
     if 'service=\\"gateway\\"' not in user_traffic:
-        raise SystemExit('serving home User Traffic must count gateway public entrypoint only')
+        raise SystemExit(f'serving home {user_requests_title} must count gateway public entrypoint only')
     if 'status_code=~\\"$status_code\\"' in user_traffic:
-        raise SystemExit('serving home User Traffic must not filter the total by status_code')
+        raise SystemExit(f'serving home {user_requests_title} must not filter the total by status_code')
     _validate_serving_home_projected_constants(home_text, panels)
     if 'backend_restart_total' in home_text or 'gpu_oom_events_total' in home_text:
         raise SystemExit('serving home must use documented cAdvisor OOM/restart source metrics')
@@ -197,7 +222,7 @@ def _validate_query_regressions() -> None:
 
 
 def _validate_kv_cache_ratio_axis(path: str, dashboard: dict[str, object]) -> None:
-    for panel in dashboard.get('panels', []):
+    for panel in _iter_panels(dashboard.get('panels', [])):
         if panel.get('type') not in {'stat', 'timeseries'}:
             continue
         target_text = json.dumps(panel.get('targets', []), ensure_ascii=False)
@@ -223,7 +248,11 @@ def _validate_serving_home_projected_constants(home_text: str, panels: dict[obje
     count_expr = f'>= bool {expected_count}'
     # Serving Home uses threshold-based coloring (not bool expr) for scrape targets,
     # so check the description phrases instead of the PromQL expression.
-    for title in ['Scrape Targets', 'Visible Targets vs Expected']:
+    projected_count_titles = [
+        _semantic_panel(_dashboard_contract('ops/grafana/dashboards/serving_home.json'), 'monitoring_coverage'),
+        _semantic_panel(_dashboard_contract('ops/grafana/dashboards/observability_data_quality.json'), 'systems_visible'),
+    ]
+    for title in projected_count_titles:
         description = str(panels.get(title, {}).get('description', ''))
         if description and 'projected from gateway + risk-adapter + vLLM runtime targets + dcgm + cadvisor' not in description:
             raise SystemExit(f'serving home panel must explain projected expected target count: {title}')

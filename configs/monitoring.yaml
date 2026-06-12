@@ -39,6 +39,81 @@ monitoring_stack:
     - route
     - user_route
     - status_code
+    dashboard_contracts:
+    - path: ops/grafana/dashboards/serving_home.json
+      required_panels:
+      - Service Snapshot
+      - Service Verdict
+      - Serving State
+      - User Requests
+      - Monitoring Coverage
+      - GPU Safety Margin
+      - Crashes and Restarts
+      - Model Capacity
+      - Attention Needed
+      - Lowest GPU Safety Margin
+      - Highest Model Capacity Used
+      - Crash and Restart Signals
+      - GPU Memory Used vs Budget
+      - Waiting Requests
+      - Model Capacity Used
+      - Generation Speed
+      - GPU Workload
+      - Related Views
+      semantic_panels:
+        attention: Attention Needed
+        user_requests: User Requests
+        service_verdict: Service Verdict
+        monitoring_coverage: Monitoring Coverage
+        crashes_restarts: Crashes and Restarts
+    - path: ops/grafana/dashboards/executive_runtime_overview.json
+      required_panels:
+      - Service Health
+      - User Requests
+      - Response Delay (p95, 5m)
+      - Failed Request Rate
+      - GPU Safety Margin
+      - Component Availability
+      - Monitoring Coverage
+    - path: ops/grafana/dashboards/gpu_capacity_and_oom_risk.json
+      required_panels:
+      - GPU Headroom
+      - GPU Memory Used
+      - OOM / Restarts
+      - GPU Utilization
+      - VRAM Used vs Budget
+    - path: ops/grafana/dashboards/risk_signal_operations.json
+      required_panels:
+      - Risk Checks
+      - Risk Detections
+      - Unsafe Response Fields
+      collapsed_detail_rows:
+      - Risk Details
+    - path: ops/grafana/dashboards/api_experience.json
+      required_panels:
+      - Chat Requests
+      - Streaming Failures
+      - Streaming Usage Reports
+      collapsed_detail_rows:
+      - Streaming Details
+      - Retrieval Details
+      - Embedding Details
+    - path: ops/grafana/dashboards/model_runtime_deep_dive.json
+      required_panels:
+      - Generation Speed
+      - Waiting Requests
+      - Capacity Used
+    - path: ops/grafana/dashboards/observability_data_quality.json
+      required_panels:
+      - Systems Visible
+      - Systems Reporting
+      - Missing Sources
+      - Source Visibility
+      - Sources Down
+      semantic_panels:
+        systems_visible: Systems Visible
+      collapsed_detail_rows:
+      - Monitoring Details
   dcgm_exporter:
     enabled: true
     port: 9412

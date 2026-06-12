@@ -24,7 +24,7 @@
 ## 첫 화면 순서
 
 1. Service Verdict (ai_serving_verdict_code: USER_IMPACT / CAPACITY_RISK / OBS_DEGRADED / HEALTHY_ACTIVE / IDLE_WARM / IDLE_COLD)
-2. Serving State (overall_runtime_status)
+2. Serving State (`overall_runtime_status`)
 3. User Requests (`service="gateway"` public entrypoint count)
 4. Monitoring Coverage (visible vs expected count)
 5. GPU Safety Margin (min_over_time headroom)

@@ -143,7 +143,7 @@ def validate_monitoring_reference() -> None:
         raise SystemExit('grafana monitoring config missing required dashboard variables')
 
     doc = (ROOT / 'docs/operations/monitoring_ux.md').read_text(encoding='utf-8')
-    for phrase in ['Prometheus', 'Grafana', 'No prompt leakage', 'Risk Signal Health', 'No Runtime Data', '한글 우선', '$datasource', 'streaming_time_to_first_chunk_seconds_bucket']:
+    for phrase in ['Prometheus', 'Grafana', 'No prompt leakage', 'Risk Signal Activity', 'No Runtime Data', '한글 우선', '$datasource', 'streaming_time_to_first_chunk_seconds_bucket']:
         if phrase not in doc:
             raise SystemExit(f'monitoring UX doc missing phrase: {phrase}')
     endpoint_doc = (ROOT / 'docs/operations/endpoint_reference.md').read_text(encoding='utf-8')
@@ -155,7 +155,7 @@ def validate_monitoring_reference() -> None:
     if 'allowUiUpdates=false' not in endpoint_doc:
         raise SystemExit('endpoint reference must document Git-managed Grafana allowUiUpdates=false policy')
     status_doc = (ROOT / 'docs/operations/grafana_status_board.md').read_text(encoding='utf-8')
-    for phrase in ['지금 요청을 안전하게 처리할 수 있는가?', 'Overall Status', 'Action Required', 'No Runtime Data', 'make operator-status', 'operator_status_bundle.json']:
+    for phrase in ['지금 요청을 안전하게 처리할 수 있는가?', 'Serving State', 'Action Required', 'No Runtime Data', 'make operator-status', 'operator_status_bundle.json']:
         if phrase not in status_doc:
             raise SystemExit(f'status board UX doc missing phrase: {phrase}')
 

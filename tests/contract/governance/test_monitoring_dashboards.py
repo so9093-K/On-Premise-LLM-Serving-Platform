@@ -1,6 +1,23 @@
 from __future__ import annotations
 
+from collections.abc import Iterator
+
 from .helpers import *  # noqa: F401,F403
+
+def iter_panels(panels: list[dict]) -> Iterator[dict]:
+    for panel in panels:
+        yield panel
+        yield from iter_panels(panel.get("panels", []))
+
+
+def grafana_contract(path: str) -> dict:
+    monitoring = yaml.safe_load((ROOT / "configs/monitoring.yaml").read_text(encoding="utf-8"))
+    contracts = monitoring["monitoring_stack"]["grafana"]["dashboard_contracts"]
+    for contract in contracts:
+        if contract["path"] == path:
+            return contract
+    raise AssertionError(f"missing grafana dashboard contract: {path}")
+
 
 def test_operator_grafana_status_board_is_user_facing() -> None:
     monitoring = yaml.safe_load((ROOT / "configs/monitoring.yaml").read_text(encoding="utf-8"))
@@ -20,30 +37,15 @@ def test_operator_grafana_status_board_is_user_facing() -> None:
     assert "지금 요청을 안전하게 처리할 수 있는가?" in status_doc
     exec_dashboard = json.loads((ROOT / "ops/grafana/dashboards/executive_runtime_overview.json").read_text(encoding="utf-8"))
     titles = {panel["title"] for panel in exec_dashboard["panels"]}
-    assert {
-        "Service Health",
-        "User Requests",
-        "Response Delay (p95, 5m)",
-        "Failed Request Rate",
-        "GPU Safety Margin",
-        "Component Availability",
-        "Monitoring Coverage",
-    }.issubset(titles)
+    exec_required = set(grafana_contract("ops/grafana/dashboards/executive_runtime_overview.json")["required_panels"])
+    assert exec_required.issubset(titles)
     assert exec_dashboard["panels"][0]["type"] == "text"
     assert exec_dashboard["panels"][0]["gridPos"]["h"] <= 1
     assert "runbook" not in exec_dashboard["panels"][0]["options"]["content"].lower()
     home = json.loads((ROOT / "ops/grafana/dashboards/serving_home.json").read_text(encoding="utf-8"))
     home_titles = {panel["title"] for panel in home["panels"]}
-    assert {
-        "Service Snapshot",
-        "Service Verdict",
-        "User Requests",
-        "Monitoring Coverage",
-        "GPU Safety Margin",
-        "Crashes and Restarts",
-        "Model Capacity",
-        "Attention Needed",
-    }.issubset(home_titles)
+    home_required = set(grafana_contract("ops/grafana/dashboards/serving_home.json")["required_panels"])
+    assert home_required.issubset({panel["title"] for panel in iter_panels(home["panels"])})
     assert len(home["panels"]) <= 20
     assert home["panels"][0]["gridPos"]["h"] <= 1
     assert "runbook" not in home["panels"][0]["options"]["content"].lower()
@@ -74,7 +76,7 @@ def test_grafana_panels_include_operator_descriptions() -> None:
         "ops/grafana/dashboards/observability_data_quality.json",
     ]:
         dashboard = json.loads((ROOT / path).read_text(encoding="utf-8"))
-        for panel in dashboard["panels"]:
+        for panel in iter_panels(dashboard["panels"]):
             description = panel.get("description", "")
             assert description
             assert any(token in description for token in ["Healthy", "Attention", "Action Required", "No Runtime Data", "No Data", "Action"])
@@ -87,7 +89,8 @@ def test_detail_panels_are_collapsed_below_snapshot_cards() -> None:
     }
 
     api_rows = {panel["title"]: panel for panel in dashboards["api_experience.json"]["panels"] if panel["type"] == "row"}
-    assert {"Streaming Details", "Retrieval Details", "Embedding Details"}.issubset(api_rows)
+    api_expected_rows = set(grafana_contract("ops/grafana/dashboards/api_experience.json")["collapsed_detail_rows"])
+    assert api_expected_rows.issubset(api_rows)
     for row in api_rows.values():
         assert row.get("collapsed") is True
         assert row.get("panels"), f"{row['title']} must own the detailed panels it hides"
@@ -98,13 +101,17 @@ def test_detail_panels_are_collapsed_below_snapshot_cards() -> None:
     assert "Streaming Output Rate" not in api_top_titles
 
     risk_rows = {panel["title"]: panel for panel in dashboards["risk_signal_operations.json"]["panels"] if panel["type"] == "row"}
-    assert risk_rows["Risk Details"].get("collapsed") is True
+    risk_expected_rows = set(grafana_contract("ops/grafana/dashboards/risk_signal_operations.json").get("collapsed_detail_rows", []))
+    for title in risk_expected_rows:
+        assert risk_rows[title].get("collapsed") is True
     risk_top_titles = {panel["title"] for panel in dashboards["risk_signal_operations.json"]["panels"] if panel["type"] != "row"}
     assert "Risk Types" not in risk_top_titles
     assert "System Signals" not in risk_top_titles
 
     obs_rows = {panel["title"]: panel for panel in dashboards["observability_data_quality.json"]["panels"] if panel["type"] == "row"}
-    assert obs_rows["Monitoring Details"].get("collapsed") is True
+    obs_expected_rows = set(grafana_contract("ops/grafana/dashboards/observability_data_quality.json")["collapsed_detail_rows"])
+    for title in obs_expected_rows:
+        assert obs_rows[title].get("collapsed") is True
     obs_top_titles = {panel["title"] for panel in dashboards["observability_data_quality.json"]["panels"] if panel["type"] != "row"}
     assert "Derived Signals" not in obs_top_titles
 
@@ -139,16 +146,17 @@ def test_grafana_dashboards_are_english_titled_variable_backed_and_streaming_awa
     assert 'path=~\\"chat/completions(:stream)?\\"' in api_text
     home_text = json.dumps(dashboards["serving_home.json"], ensure_ascii=False)
     assert 'route=~\\"$user_route\\"' in home_text
-    assert "Attention Needed" in home_text
     assert "ai_serving_verdict_code" in home_text
     assert "backend_restart_total" not in home_text
     assert "gpu_oom_events_total" not in home_text
     assert "container_oom_events_total" in home_text
     assert "container_start_time_seconds" in home_text
     home_panels = {panel["title"]: panel for panel in dashboards["serving_home.json"]["panels"]}
-    oom_panel_text = json.dumps(home_panels["Crashes and Restarts"], ensure_ascii=False)
+    home_semantic = grafana_contract("ops/grafana/dashboards/serving_home.json")["semantic_panels"]
+    assert home_semantic["attention"] in home_text
+    oom_panel_text = json.dumps(home_panels[home_semantic["crashes_restarts"]], ensure_ascii=False)
     assert "or vector(0)" not in oom_panel_text
-    user_traffic_text = json.dumps(home_panels["User Requests"], ensure_ascii=False)
+    user_traffic_text = json.dumps(home_panels[home_semantic["user_requests"]], ensure_ascii=False)
     assert 'service=\\"gateway\\"' in user_traffic_text
     assert 'status_code=~\\"$status_code\\"' not in user_traffic_text
     for dashboard_name, dashboard in dashboards.items():
@@ -249,7 +257,7 @@ def test_monitoring_ux_has_ttft_metric_as_current_dashboard_metric() -> None:
 def test_dashboard_panel_datasource_uses_variable() -> None:
     for path in (ROOT / "ops/grafana/dashboards").glob("*.json"):
         dashboard = json.loads(path.read_text(encoding="utf-8"))
-        for panel in dashboard["panels"]:
+        for panel in iter_panels(dashboard["panels"]):
             assert panel.get("datasource") == {"type": "prometheus", "uid": "${datasource}"}, (
                 f"Panel '{panel.get('title')}' in {path.name} "
                 f"must use datasource {{\"type\":\"prometheus\",\"uid\":\"${{datasource}}\"}}"
@@ -260,7 +268,7 @@ def test_dashboard_json_has_no_raw_prompt_or_generated_text_in_exprs() -> None:
     forbidden_label_patterns = ["prompt=", "generated_text=", "raw_input=", "user_text="]
     for path in (ROOT / "ops/grafana/dashboards").glob("*.json"):
         dashboard = json.loads(path.read_text(encoding="utf-8"))
-        for panel in dashboard["panels"]:
+        for panel in iter_panels(dashboard["panels"]):
             for target in panel.get("targets", []):
                 expr = target.get("expr", "")
                 for pattern in forbidden_label_patterns:
