@@ -160,7 +160,7 @@ grep -E "^GRAFANA_ADMIN_(USER|PASSWORD)=" .env
 
 Dashboard 간 navigation은 Grafana 상단 링크로 이동한다 (UID 기반, `includeVars=true`).
 
-권장 drill-down: `gpu_capacity_and_oom_risk` → `serving_home` → `executive_runtime_overview` → `api_experience` → `model_runtime_deep_dive` → `risk_signal_operations` → `observability_data_quality`
+권장 drill-down: `gpu_capacity_and_oom_risk` → `serving_home` → 필요한 영역별로 `api_experience`, `model_runtime_deep_dive`, `risk_signal_operations`, `observability_data_quality`를 연다. `executive_runtime_overview`는 호환용 요약 화면으로 남긴다.
 
 `Serving Home`의 user route 기본값은 `/v1/chat/completions|/v1/embeddings|/v1/risk/.*`이다. Top strip의 `User Requests`는 double count를 피하기 위해 `service="gateway"` public entrypoint만 세고, service-level activity panel은 `gateway`와 `risk-adapter`를 service label로 분리한다.
 

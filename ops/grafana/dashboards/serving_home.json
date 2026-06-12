@@ -26,18 +26,6 @@
       "keepTime": true,
       "tags": [],
       "targetBlank": false,
-      "title": "Executive Runtime Overview",
-      "tooltip": "Executive runtime reviewer summary",
-      "type": "link",
-      "url": "/d/executive_runtime_overview/executive-runtime-overview"
-    },
-    {
-      "asDropdown": false,
-      "icon": "external link",
-      "includeVars": true,
-      "keepTime": true,
-      "tags": [],
-      "targetBlank": false,
       "title": "API Experience",
       "tooltip": "Chat latency or streaming issue → API Experience",
       "type": "link",
@@ -811,10 +799,10 @@
       }
     },
     {
-      "id": 9,
-      "type": "stat",
-      "title": "Lowest GPU Safety Margin",
-      "description": "Healthy/정상: minimum over selected range stays above 6 GiB. Attention/주의: 4-6 GiB means pressure may have occurred. Action Required/조치 필요: below 4 GiB indicates OOM risk. No Data/런타임 데이터 없음: GPU exporter absent.",
+      "id": 101,
+      "type": "row",
+      "title": "Evidence Details",
+      "description": "Action: expand only when the snapshot indicates this detail is needed.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -822,396 +810,391 @@
       "gridPos": {
         "x": 0,
         "y": 17,
-        "w": 4,
-        "h": 6
-      },
-      "targets": [
-        {
-          "expr": "min_over_time(gpu_memory_headroom_bytes[$__range])",
-          "refId": "A",
-          "legendFormat": "min headroom"
-        }
-      ],
-      "options": {
-        "colorMode": "background",
-        "graphMode": "none",
-        "justifyMode": "center",
-        "textMode": "auto"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "bytes",
-          "decimals": 1,
-          "noValue": "GPU Exporter Absent",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "red",
-                "value": null
-              },
-              {
-                "color": "orange",
-                "value": 4294967296
-              },
-              {
-                "color": "green",
-                "value": 5368709120
-              }
-            ]
-          }
-        },
-        "overrides": []
-      }
-    },
-    {
-      "id": 10,
-      "type": "stat",
-      "title": "Highest Model Capacity Used",
-      "description": "Healthy/정상: max KV pressure stays below 0.8 in range. Attention/주의: 0.8-0.9 is elevated. Action Required/조치 필요: above 0.9 can precede OOM. No Data/런타임 데이터 없음: vLLM KV metric absent.",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "gridPos": {
-        "x": 4,
-        "y": 17,
-        "w": 4,
-        "h": 6
-      },
-      "targets": [
-        {
-          "expr": "max_over_time(vllm_kv_cache_usage_ratio{model=~\"$model\",runtime_service=~\"$runtime_service\"}[$__range])",
-          "refId": "A",
-          "legendFormat": "max KV"
-        }
-      ],
-      "options": {
-        "colorMode": "background",
-        "graphMode": "none",
-        "justifyMode": "center",
-        "textMode": "auto"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "percentunit",
-          "decimals": 2,
-          "min": 0,
-          "max": 1,
-          "noValue": "vLLM Absent",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "orange",
-                "value": 0.8
-              },
-              {
-                "color": "red",
-                "value": 0.9
-              }
-            ]
-          }
-        },
-        "overrides": []
-      }
-    },
-    {
-      "id": 11,
-      "type": "stat",
-      "title": "Crash and Restart Signals",
-      "description": "Healthy/정상: 0 OOM events and 0 restart signals in selected range when cAdvisor scrape is green. Action Required/조치 필요: any value above 0 requires GPU Capacity and OOM Risk drill-down. No Data/런타임 데이터 없음: cAdvisor source metric absent — do not read No Data as 0.",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "gridPos": {
-        "x": 8,
-        "y": 17,
-        "w": 4,
-        "h": 6
-      },
-      "targets": [
-        {
-          "expr": "sum(increase(container_oom_events_total{container_label_com_docker_compose_service=~\"gateway|risk-adapter|main-llm-vllm|embedding-vllm|embedding-ko-vllm|risk-prompt-vllm\"}[$__range]))",
-          "refId": "A",
-          "legendFormat": "oom events"
-        },
-        {
-          "expr": "sum(changes(container_start_time_seconds{container_label_com_docker_compose_service=~\"gateway|risk-adapter|main-llm-vllm|embedding-vllm|embedding-ko-vllm|risk-prompt-vllm\"}[$__range]))",
-          "refId": "B",
-          "legendFormat": "restart signals"
-        }
-      ],
-      "options": {
-        "colorMode": "background",
-        "graphMode": "none",
-        "justifyMode": "center",
-        "textMode": "auto"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "noValue": "cAdvisor Absent",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 1
-              }
-            ]
-          }
-        },
-        "overrides": []
-      }
-    },
-    {
-      "id": 12,
-      "type": "timeseries",
-      "title": "GPU Memory Used vs Budget",
-      "description": "Healthy/정상: observed live VRAM remains under the current guide lines. Attention/주의: 43-44.5GiB means the configured reserve is thinning. No Data/런타임 데이터 없음: DCGM memory metrics absent. GPU warm residency during idle is normal — high VRAM used at idle is expected.",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "gridPos": {
-        "x": 12,
-        "y": 17,
-        "w": 12,
-        "h": 6
-      },
-      "targets": [
-        {
-          "expr": "DCGM_FI_DEV_FB_USED * 1024 * 1024",
-          "refId": "A",
-          "legendFormat": "used"
-        },
-        {
-          "expr": "DCGM_FI_DEV_FB_TOTAL * 1024 * 1024",
-          "refId": "B",
-          "legendFormat": "total"
-        },
-        {
-          "expr": "vector(43 * 1024 * 1024 * 1024)",
-          "refId": "C",
-          "legendFormat": "43 GiB guide"
-        },
-        {
-          "expr": "vector(44.5 * 1024 * 1024 * 1024)",
-          "refId": "D",
-          "legendFormat": "44.5 GiB hard-floor guide"
-        }
-      ],
-      "options": {
-        "legend": {
-          "showLegend": true,
-          "displayMode": "list",
-          "placement": "bottom"
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "none"
-        }
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "bytes"
-        },
-        "overrides": []
-      }
-    },
-    {
-      "id": 13,
-      "type": "timeseries",
-      "title": "Waiting Requests",
-      "description": "Healthy/정상: queue remains near zero at idle and follows traffic under load. Attention/주의: rising queue before latency impact indicates runtime saturation. No Data/런타임 데이터 없음: vLLM metric absent.",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "gridPos": {
-        "x": 0,
-        "y": 23,
-        "w": 6,
-        "h": 6
-      },
-      "targets": [
-        {
-          "expr": "vllm_queue_depth{model=~\"$model\",runtime_service=~\"$runtime_service\"}",
-          "refId": "A",
-          "legendFormat": "{{model}}"
-        }
-      ],
-      "options": {
-        "legend": {
-          "showLegend": true,
-          "displayMode": "list",
-          "placement": "bottom"
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "none"
-        }
-      },
-      "fieldConfig": {
-        "defaults": {},
-        "overrides": []
-      }
-    },
-    {
-      "id": 14,
-      "type": "timeseries",
-      "title": "Model Capacity Used",
-      "description": "Healthy/정상: KV pressure below 0.8 at idle. Attention/주의: sustained high pressure can precede OOM. No Data/런타임 데이터 없음: vLLM KV metric absent.",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "gridPos": {
-        "x": 6,
-        "y": 23,
-        "w": 6,
-        "h": 6
-      },
-      "targets": [
-        {
-          "expr": "vllm_kv_cache_usage_ratio{model=~\"$model\",runtime_service=~\"$runtime_service\"}",
-          "refId": "A",
-          "legendFormat": "{{model}}"
-        }
-      ],
-      "options": {
-        "legend": {
-          "showLegend": true,
-          "displayMode": "list",
-          "placement": "bottom"
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "none"
-        }
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "percentunit",
-          "min": 0,
-          "max": 1
-        },
-        "overrides": []
-      }
-    },
-    {
-      "id": 15,
-      "type": "timeseries",
-      "title": "Generation Speed",
-      "description": "Healthy/정상: throughput follows user traffic. Attention/주의: throughput without user traffic may be background activity. No Data/런타임 데이터 없음: vLLM token metric absent.",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "gridPos": {
-        "x": 12,
-        "y": 23,
-        "w": 6,
-        "h": 6
-      },
-      "targets": [
-        {
-          "expr": "vllm_token_throughput_per_second{model=~\"$model\",runtime_service=~\"$runtime_service\"}",
-          "refId": "A",
-          "legendFormat": "{{model}}"
-        }
-      ],
-      "options": {
-        "legend": {
-          "showLegend": true,
-          "displayMode": "list",
-          "placement": "bottom"
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "none"
-        }
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "ops"
-        },
-        "overrides": []
-      }
-    },
-    {
-      "id": 16,
-      "type": "timeseries",
-      "title": "GPU Workload",
-      "description": "Healthy/정상: low utilization at idle is expected. Attention/주의: high utilization without user traffic needs review. No Data/런타임 데이터 없음: GPU exporter absent.",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "gridPos": {
-        "x": 18,
-        "y": 23,
-        "w": 6,
-        "h": 6
-      },
-      "targets": [
-        {
-          "expr": "gpu_utilization_ratio",
-          "refId": "A",
-          "legendFormat": "gpu utilization"
-        }
-      ],
-      "options": {
-        "legend": {
-          "showLegend": true,
-          "displayMode": "list",
-          "placement": "bottom"
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "none"
-        }
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "percentunit"
-        },
-        "overrides": []
-      }
-    },
-    {
-      "id": 17,
-      "type": "text",
-      "title": "Related Views",
-      "description": "Action: use these drill-downs after the home verdict identifies the failing evidence chain. Healthy/정상: IDLE WARM with all evidence green needs no drill-down.",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "gridPos": {
-        "x": 0,
-        "y": 29,
         "w": 24,
-        "h": 4
+        "h": 1
       },
-      "options": {
-        "mode": "markdown",
-        "content": "**When to drill down:**\n- GPU pressure or OOM risk → [GPU Capacity and OOM Risk](/d/gpu_capacity_and_oom_risk/gpu-capacity-and-oom-risk)\n- Queue or KV pressure → [Model Runtime Deep Dive](/d/model_runtime_deep_dive/model-runtime-deep-dive)\n- Chat latency or streaming issue → [API Experience](/d/api_experience/api-experience)\n- Risk timeout or detector issue → [Risk Signal Operations](/d/risk_signal_operations/risk-signal-operations)\n- Scrape target or metric freshness issue → [Observability / Data Quality](/d/observability_data_quality/observability-data-quality)\n- Full runtime reviewer summary → [Executive Runtime Overview](/d/executive_runtime_overview/executive-runtime-overview)\n"
-      },
-      "fieldConfig": {
-        "defaults": {},
-        "overrides": []
-      }
+      "collapsed": true,
+      "panels": [
+        {
+          "id": 9,
+          "type": "stat",
+          "title": "Lowest GPU Safety Margin",
+          "description": "Healthy/정상: minimum over selected range stays above 6 GiB. Attention/주의: 4-6 GiB means pressure may have occurred. Action Required/조치 필요: below 4 GiB indicates OOM risk. No Data/런타임 데이터 없음: GPU exporter absent.",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 0,
+            "w": 6,
+            "h": 6
+          },
+          "targets": [
+            {
+              "expr": "min_over_time(gpu_memory_headroom_bytes[$__range])",
+              "refId": "A",
+              "legendFormat": "min headroom"
+            }
+          ],
+          "options": {
+            "colorMode": "background",
+            "graphMode": "none",
+            "justifyMode": "center",
+            "textMode": "auto"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "bytes",
+              "decimals": 1,
+              "noValue": "GPU Exporter Absent",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "red",
+                    "value": null
+                  },
+                  {
+                    "color": "orange",
+                    "value": 4294967296
+                  },
+                  {
+                    "color": "green",
+                    "value": 5368709120
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          }
+        },
+        {
+          "id": 10,
+          "type": "stat",
+          "title": "Highest Model Capacity Used",
+          "description": "Healthy/정상: max KV pressure stays below 0.8 in range. Attention/주의: 0.8-0.9 is elevated. Action Required/조치 필요: above 0.9 can precede OOM. No Data/런타임 데이터 없음: vLLM KV metric absent.",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "gridPos": {
+            "x": 6,
+            "y": 0,
+            "w": 6,
+            "h": 6
+          },
+          "targets": [
+            {
+              "expr": "max_over_time(vllm_kv_cache_usage_ratio{model=~\"$model\",runtime_service=~\"$runtime_service\"}[$__range])",
+              "refId": "A",
+              "legendFormat": "max KV"
+            }
+          ],
+          "options": {
+            "colorMode": "background",
+            "graphMode": "none",
+            "justifyMode": "center",
+            "textMode": "auto"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percentunit",
+              "decimals": 2,
+              "min": 0,
+              "max": 1,
+              "noValue": "vLLM Absent",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "orange",
+                    "value": 0.8
+                  },
+                  {
+                    "color": "red",
+                    "value": 0.9
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          }
+        },
+        {
+          "id": 11,
+          "type": "stat",
+          "title": "Crash and Restart Signals",
+          "description": "Healthy/정상: 0 OOM events and 0 restart signals in selected range when cAdvisor scrape is green. Action Required/조치 필요: any value above 0 requires GPU Capacity and OOM Risk drill-down. No Data/런타임 데이터 없음: cAdvisor source metric absent — do not read No Data as 0.",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "gridPos": {
+            "x": 12,
+            "y": 0,
+            "w": 6,
+            "h": 6
+          },
+          "targets": [
+            {
+              "expr": "sum(increase(container_oom_events_total{container_label_com_docker_compose_service=~\"gateway|risk-adapter|main-llm-vllm|embedding-vllm|embedding-ko-vllm|risk-prompt-vllm\"}[$__range]))",
+              "refId": "A",
+              "legendFormat": "oom events"
+            },
+            {
+              "expr": "sum(changes(container_start_time_seconds{container_label_com_docker_compose_service=~\"gateway|risk-adapter|main-llm-vllm|embedding-vllm|embedding-ko-vllm|risk-prompt-vllm\"}[$__range]))",
+              "refId": "B",
+              "legendFormat": "restart signals"
+            }
+          ],
+          "options": {
+            "colorMode": "background",
+            "graphMode": "none",
+            "justifyMode": "center",
+            "textMode": "auto"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "noValue": "cAdvisor Absent",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 1
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          }
+        },
+        {
+          "id": 12,
+          "type": "timeseries",
+          "title": "GPU Memory Used vs Budget",
+          "description": "Healthy/정상: observed live VRAM remains under the current guide lines. Attention/주의: 43-44.5GiB means the configured reserve is thinning. No Data/런타임 데이터 없음: DCGM memory metrics absent. GPU warm residency during idle is normal — high VRAM used at idle is expected.",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "gridPos": {
+            "x": 18,
+            "y": 0,
+            "w": 6,
+            "h": 6
+          },
+          "targets": [
+            {
+              "expr": "DCGM_FI_DEV_FB_USED * 1024 * 1024",
+              "refId": "A",
+              "legendFormat": "used"
+            },
+            {
+              "expr": "DCGM_FI_DEV_FB_TOTAL * 1024 * 1024",
+              "refId": "B",
+              "legendFormat": "total"
+            },
+            {
+              "expr": "vector(43 * 1024 * 1024 * 1024)",
+              "refId": "C",
+              "legendFormat": "43 GiB guide"
+            },
+            {
+              "expr": "vector(44.5 * 1024 * 1024 * 1024)",
+              "refId": "D",
+              "legendFormat": "44.5 GiB hard-floor guide"
+            }
+          ],
+          "options": {
+            "legend": {
+              "showLegend": true,
+              "displayMode": "list",
+              "placement": "bottom"
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "none"
+            }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "bytes"
+            },
+            "overrides": []
+          }
+        },
+        {
+          "id": 13,
+          "type": "timeseries",
+          "title": "Waiting Requests",
+          "description": "Healthy/정상: queue remains near zero at idle and follows traffic under load. Attention/주의: rising queue before latency impact indicates runtime saturation. No Data/런타임 데이터 없음: vLLM metric absent.",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 6,
+            "w": 6,
+            "h": 6
+          },
+          "targets": [
+            {
+              "expr": "vllm_queue_depth{model=~\"$model\",runtime_service=~\"$runtime_service\"}",
+              "refId": "A",
+              "legendFormat": "{{model}}"
+            }
+          ],
+          "options": {
+            "legend": {
+              "showLegend": true,
+              "displayMode": "list",
+              "placement": "bottom"
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "none"
+            }
+          },
+          "fieldConfig": {
+            "defaults": {},
+            "overrides": []
+          }
+        },
+        {
+          "id": 14,
+          "type": "timeseries",
+          "title": "Model Capacity Used",
+          "description": "Healthy/정상: KV pressure below 0.8 at idle. Attention/주의: sustained high pressure can precede OOM. No Data/런타임 데이터 없음: vLLM KV metric absent.",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "gridPos": {
+            "x": 6,
+            "y": 6,
+            "w": 6,
+            "h": 6
+          },
+          "targets": [
+            {
+              "expr": "vllm_kv_cache_usage_ratio{model=~\"$model\",runtime_service=~\"$runtime_service\"}",
+              "refId": "A",
+              "legendFormat": "{{model}}"
+            }
+          ],
+          "options": {
+            "legend": {
+              "showLegend": true,
+              "displayMode": "list",
+              "placement": "bottom"
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "none"
+            }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percentunit",
+              "min": 0,
+              "max": 1
+            },
+            "overrides": []
+          }
+        },
+        {
+          "id": 15,
+          "type": "timeseries",
+          "title": "Generation Speed",
+          "description": "Healthy/정상: throughput follows user traffic. Attention/주의: throughput without user traffic may be background activity. No Data/런타임 데이터 없음: vLLM token metric absent.",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "gridPos": {
+            "x": 12,
+            "y": 6,
+            "w": 6,
+            "h": 6
+          },
+          "targets": [
+            {
+              "expr": "vllm_token_throughput_per_second{model=~\"$model\",runtime_service=~\"$runtime_service\"}",
+              "refId": "A",
+              "legendFormat": "{{model}}"
+            }
+          ],
+          "options": {
+            "legend": {
+              "showLegend": true,
+              "displayMode": "list",
+              "placement": "bottom"
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "none"
+            }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "ops"
+            },
+            "overrides": []
+          }
+        },
+        {
+          "id": 16,
+          "type": "timeseries",
+          "title": "GPU Workload",
+          "description": "Healthy/정상: low utilization at idle is expected. Attention/주의: high utilization without user traffic needs review. No Data/런타임 데이터 없음: GPU exporter absent.",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "gridPos": {
+            "x": 18,
+            "y": 6,
+            "w": 6,
+            "h": 6
+          },
+          "targets": [
+            {
+              "expr": "gpu_utilization_ratio",
+              "refId": "A",
+              "legendFormat": "gpu utilization"
+            }
+          ],
+          "options": {
+            "legend": {
+              "showLegend": true,
+              "displayMode": "list",
+              "placement": "bottom"
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "none"
+            }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percentunit"
+            },
+            "overrides": []
+          }
+        }
+      ]
     }
   ],
   "refresh": "10s",

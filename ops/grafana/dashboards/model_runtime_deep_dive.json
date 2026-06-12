@@ -264,10 +264,10 @@
       }
     },
     {
-      "id": 5,
-      "type": "timeseries",
-      "title": "Waiting Requests Over Time",
-      "description": "Healthy/정상: queue depth near 0. Attention/주의: queue > 20 sustained. Action Required/조치 필요: queue > 50 or growing without bound. No Data/런타임 데이터 없음: check vLLM scrape and model/runtime_service labels.",
+      "id": 101,
+      "type": "row",
+      "title": "Runtime Details",
+      "description": "Action: expand only when the snapshot indicates this detail is needed.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -275,197 +275,216 @@
       "gridPos": {
         "x": 0,
         "y": 5,
-        "w": 6,
-        "h": 6
+        "w": 24,
+        "h": 1
       },
-      "targets": [
+      "collapsed": true,
+      "panels": [
         {
-          "expr": "vllm_queue_depth{model=~\"$model\",runtime_service=~\"$runtime_service\"}",
-          "refId": "A",
-          "legendFormat": "{{model}}"
-        }
-      ],
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        }
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "decimals": 0
-        },
-        "overrides": []
-      }
-    },
-    {
-      "id": 9,
-      "type": "timeseries",
-      "title": "Capacity Used Over Time",
-      "description": "Healthy/정상: KV cache < 80%. Attention/주의: KV cache 80–90%. Action Required/조치 필요: KV cache > 90% — reduce context/concurrency. No Data/런타임 데이터 없음: check vLLM scrape and model/runtime_service labels.",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "gridPos": {
-        "x": 6,
-        "y": 5,
-        "w": 6,
-        "h": 6
-      },
-      "targets": [
-        {
-          "expr": "vllm_kv_cache_usage_ratio{model=~\"$model\",runtime_service=~\"$runtime_service\"}",
-          "refId": "A",
-          "legendFormat": "{{model}}"
-        }
-      ],
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        }
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "percentunit",
-          "decimals": 2,
-          "min": 0,
-          "max": 1,
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "orange",
-                "value": 0.8
-              },
-              {
-                "color": "red",
-                "value": 0.9
-              }
-            ]
+          "id": 5,
+          "type": "timeseries",
+          "title": "Waiting Requests Over Time",
+          "description": "Healthy/정상: queue depth near 0. Attention/주의: queue > 20 sustained. Action Required/조치 필요: queue > 50 or growing without bound. No Data/런타임 데이터 없음: check vLLM scrape and model/runtime_service labels.",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 0,
+            "w": 12,
+            "h": 6
+          },
+          "targets": [
+            {
+              "expr": "vllm_queue_depth{model=~\"$model\",runtime_service=~\"$runtime_service\"}",
+              "refId": "A",
+              "legendFormat": "{{model}}"
+            }
+          ],
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "decimals": 0
+            },
+            "overrides": []
           }
         },
-        "overrides": []
-      }
-    },
-    {
-      "id": 6,
-      "type": "timeseries",
-      "title": "Generation Speed Over Time",
-      "description": "Healthy/정상: expected range. Attention/주의: review trend. Action Required/조치 필요: investigate the owning service. No Data/런타임 데이터 없음: check Prometheus scrape/exporter.",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "gridPos": {
-        "x": 12,
-        "y": 5,
-        "w": 12,
-        "h": 6
-      },
-      "targets": [
         {
-          "expr": "vllm_token_throughput_per_second{model=~\"$model\",runtime_service=~\"$runtime_service\"}",
-          "refId": "A",
-          "legendFormat": "{{model}}"
-        }
-      ],
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        }
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "ops",
-          "decimals": 2
+          "id": 9,
+          "type": "timeseries",
+          "title": "Capacity Used Over Time",
+          "description": "Healthy/정상: KV cache < 80%. Attention/주의: KV cache 80–90%. Action Required/조치 필요: KV cache > 90% — reduce context/concurrency. No Data/런타임 데이터 없음: check vLLM scrape and model/runtime_service labels.",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "gridPos": {
+            "x": 12,
+            "y": 0,
+            "w": 12,
+            "h": 6
+          },
+          "targets": [
+            {
+              "expr": "vllm_kv_cache_usage_ratio{model=~\"$model\",runtime_service=~\"$runtime_service\"}",
+              "refId": "A",
+              "legendFormat": "{{model}}"
+            }
+          ],
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percentunit",
+              "decimals": 2,
+              "min": 0,
+              "max": 1,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "orange",
+                    "value": 0.8
+                  },
+                  {
+                    "color": "red",
+                    "value": 0.9
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          }
         },
-        "overrides": []
-      }
-    },
-    {
-      "id": 7,
-      "type": "timeseries",
-      "title": "Runtime Memory",
-      "description": "Healthy/정상: expected range. Attention/주의: review trend. Action Required/조치 필요: investigate the owning service. No Data/런타임 데이터 없음: check Prometheus scrape/exporter.",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "gridPos": {
-        "x": 0,
-        "y": 11,
-        "w": 12,
-        "h": 6
-      },
-      "targets": [
         {
-          "expr": "vllm_container_memory_usage_bytes{container_label_com_docker_compose_service=~\"$runtime_service\"}",
-          "refId": "A",
-          "legendFormat": "{{container_label_com_docker_compose_service}}"
-        }
-      ],
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        }
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "bytes",
-          "decimals": 1
+          "id": 6,
+          "type": "timeseries",
+          "title": "Generation Speed Over Time",
+          "description": "Healthy/정상: expected range. Attention/주의: review trend. Action Required/조치 필요: investigate the owning service. No Data/런타임 데이터 없음: check Prometheus scrape/exporter.",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 6,
+            "w": 12,
+            "h": 6
+          },
+          "targets": [
+            {
+              "expr": "vllm_token_throughput_per_second{model=~\"$model\",runtime_service=~\"$runtime_service\"}",
+              "refId": "A",
+              "legendFormat": "{{model}}"
+            }
+          ],
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "ops",
+              "decimals": 2
+            },
+            "overrides": []
+          }
         },
-        "overrides": []
-      }
-    },
-    {
-      "id": 8,
-      "type": "timeseries",
-      "title": "Runtime CPU",
-      "description": "Healthy/정상: expected range. Attention/주의: review trend. Action Required/조치 필요: investigate the owning service. No Data/런타임 데이터 없음: check Prometheus scrape/exporter.",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "gridPos": {
-        "x": 12,
-        "y": 11,
-        "w": 12,
-        "h": 6
-      },
-      "targets": [
         {
-          "expr": "vllm_container_cpu_usage_ratio{container_label_com_docker_compose_service=~\"$runtime_service\"}",
-          "refId": "A",
-          "legendFormat": "{{container_label_com_docker_compose_service}}"
-        }
-      ],
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        }
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "percentunit",
-          "decimals": 2
+          "id": 7,
+          "type": "timeseries",
+          "title": "Runtime Memory",
+          "description": "Healthy/정상: expected range. Attention/주의: review trend. Action Required/조치 필요: investigate the owning service. No Data/런타임 데이터 없음: check Prometheus scrape/exporter.",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "gridPos": {
+            "x": 12,
+            "y": 6,
+            "w": 12,
+            "h": 6
+          },
+          "targets": [
+            {
+              "expr": "vllm_container_memory_usage_bytes{container_label_com_docker_compose_service=~\"$runtime_service\"}",
+              "refId": "A",
+              "legendFormat": "{{container_label_com_docker_compose_service}}"
+            }
+          ],
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "bytes",
+              "decimals": 1
+            },
+            "overrides": []
+          }
         },
-        "overrides": []
-      }
+        {
+          "id": 8,
+          "type": "timeseries",
+          "title": "Runtime CPU",
+          "description": "Healthy/정상: expected range. Attention/주의: review trend. Action Required/조치 필요: investigate the owning service. No Data/런타임 데이터 없음: check Prometheus scrape/exporter.",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 12,
+            "w": 12,
+            "h": 6
+          },
+          "targets": [
+            {
+              "expr": "vllm_container_cpu_usage_ratio{container_label_com_docker_compose_service=~\"$runtime_service\"}",
+              "refId": "A",
+              "legendFormat": "{{container_label_com_docker_compose_service}}"
+            }
+          ],
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percentunit",
+              "decimals": 2
+            },
+            "overrides": []
+          }
+        }
+      ]
     }
   ],
   "refresh": "30s",

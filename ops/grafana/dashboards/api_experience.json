@@ -26,18 +26,6 @@
       "keepTime": true,
       "tags": [],
       "targetBlank": false,
-      "title": "Executive Runtime Overview",
-      "tooltip": "Overall service health and status",
-      "type": "link",
-      "url": "/d/executive_runtime_overview/executive-runtime-overview"
-    },
-    {
-      "asDropdown": false,
-      "icon": "external link",
-      "includeVars": true,
-      "keepTime": true,
-      "tags": [],
-      "targetBlank": false,
       "title": "Model Runtime Deep Dive",
       "tooltip": "Queue, KV cache, token throughput, container resources per model",
       "type": "link",
@@ -64,7 +52,7 @@
       "targets": [],
       "options": {
         "mode": "markdown",
-        "content": "**API snapshot** · requests, response delay, failures, streaming quality, and model-call delay."
+        "content": "**API snapshot** · activity and failures first; latency/retrieval/embedding details stay collapsed until traffic exists."
       },
       "fieldConfig": {
         "defaults": {},
@@ -74,8 +62,8 @@
     {
       "id": 1,
       "type": "stat",
-      "title": "Chat Requests",
-      "description": "Healthy/정상: non-zero during active sessions. Attention/주의: zero request rate when user traffic is expected. Action Required/조치 필요: 0 with open sessions is a routing or gateway issue. No Data/런타임 데이터 없음: check Prometheus scrape and gateway /metrics endpoint.",
+      "title": "API Activity",
+      "description": "Healthy/정상: user traffic is present when expected. Attention/주의: 0 means idle, not failure, unless traffic is expected. No Data/런타임 데이터 없음: check Gateway scrape.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -83,7 +71,7 @@
       "gridPos": {
         "x": 0,
         "y": 1,
-        "w": 4,
+        "w": 6,
         "h": 4
       },
       "targets": [
@@ -108,112 +96,6 @@
       }
     },
     {
-      "id": 2,
-      "type": "stat",
-      "title": "Chat Response Delay (p95)",
-      "description": "Healthy/정상: p95 latency within SLO. Attention/주의: rising p95 before error rate often indicates runtime pressure. Action Required/조치 필요: p95 above 10s needs runtime drill-down. No Data/런타임 데이터 없음: check Prometheus scrape and gateway histogram.",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "gridPos": {
-        "x": 4,
-        "y": 1,
-        "w": 5,
-        "h": 4
-      },
-      "targets": [
-        {
-          "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{service=\"gateway\",route=\"/v1/chat/completions\"}[$window])) by (le))",
-          "refId": "A",
-          "legendFormat": "p95"
-        }
-      ],
-      "options": {
-        "colorMode": "background",
-        "graphMode": "none",
-        "justifyMode": "center",
-        "textMode": "auto"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "s",
-          "decimals": 3,
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "orange",
-                "value": 5.0
-              },
-              {
-                "color": "red",
-                "value": 10.0
-              }
-            ]
-          }
-        },
-        "overrides": []
-      }
-    },
-    {
-      "id": 3,
-      "type": "stat",
-      "title": "Slowest Chat Responses (p99)",
-      "description": "Healthy/정상: p99 latency within SLO. Attention/주의: p99 higher than p95 by large margin may indicate tail-latency issues. Action Required/조치 필요: p99 above 10s needs immediate investigation. No Data/런타임 데이터 없음: check Prometheus scrape and gateway histogram.",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "gridPos": {
-        "x": 9,
-        "y": 1,
-        "w": 5,
-        "h": 4
-      },
-      "targets": [
-        {
-          "expr": "histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket{service=\"gateway\",route=\"/v1/chat/completions\"}[$window])) by (le))",
-          "refId": "A",
-          "legendFormat": "p99"
-        }
-      ],
-      "options": {
-        "colorMode": "background",
-        "graphMode": "none",
-        "justifyMode": "center",
-        "textMode": "auto"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "s",
-          "decimals": 3,
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "orange",
-                "value": 5.0
-              },
-              {
-                "color": "red",
-                "value": 10.0
-              }
-            ]
-          }
-        },
-        "overrides": []
-      }
-    },
-    {
       "id": 4,
       "type": "stat",
       "title": "Chat Failures",
@@ -223,14 +105,14 @@
         "uid": "${datasource}"
       },
       "gridPos": {
-        "x": 14,
+        "x": 6,
         "y": 1,
         "w": 4,
         "h": 4
       },
       "targets": [
         {
-          "expr": "sum(increase(http_requests_total{service=\"gateway\",route=\"/v1/chat/completions\",status_code=~\"5..\"}[$window])) / clamp_min(sum(increase(http_requests_total{service=\"gateway\",route=\"/v1/chat/completions\"}[$window])), 1)",
+          "expr": "(sum(increase(http_requests_total{service=\"gateway\",route=\"/v1/chat/completions\",status_code=~\"5..\"}[$window])) / clamp_min(sum(increase(http_requests_total{service=\"gateway\",route=\"/v1/chat/completions\"}[$window])), 1)) or on() (sum(up{job=\"gateway\"}) * 0)",
           "refId": "A",
           "legendFormat": "5xx ratio"
         }
@@ -276,14 +158,14 @@
         "uid": "${datasource}"
       },
       "gridPos": {
-        "x": 18,
+        "x": 10,
         "y": 1,
-        "w": 6,
+        "w": 4,
         "h": 4
       },
       "targets": [
         {
-          "expr": "sum(increase(streaming_errors_total{service=\"gateway\",target=~\"$model\"}[$window]))",
+          "expr": "sum(increase(streaming_errors_total{service=\"gateway\",target=~\"$model\"}[$window])) or on() (sum(up{job=\"gateway\"}) * 0)",
           "refId": "A",
           "legendFormat": "errors"
         }
@@ -316,88 +198,32 @@
       }
     },
     {
-      "id": 7,
-      "type": "timeseries",
-      "title": "Delay Split: Gateway vs Model",
-      "description": "Healthy/정상: gateway and upstream p95 are both within SLO. Attention/주의: large gap between gateway and upstream p95 may indicate gateway overhead. No Data/런타임 데이터 없음: check Gateway scrape and upstream latency histogram. Uses path=~chat/completions(:stream)? for upstream.",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "gridPos": {
-        "x": 0,
-        "y": 5,
-        "w": 12,
-        "h": 6
-      },
-      "targets": [
-        {
-          "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{service=\"gateway\",route=\"/v1/chat/completions\"}[$window])) by (le))",
-          "refId": "A",
-          "legendFormat": "gateway chat p95"
-        },
-        {
-          "expr": "histogram_quantile(0.95, sum(rate(upstream_request_duration_seconds_bucket{service=\"gateway\",target=~\"$model\",path=~\"chat/completions(:stream)?\"}[$window])) by (le, target))",
-          "refId": "B",
-          "legendFormat": "upstream {{target}} p95"
-        }
-      ],
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "none"
-        }
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "s",
-          "decimals": 3
-        },
-        "overrides": []
-      }
-    },
-    {
       "id": 9,
-      "type": "timeseries",
+      "type": "stat",
       "title": "Rejected Requests",
-      "description": "Healthy/정상: low validation rejections and auth failures. Attention/주의: rising rejections may indicate client API misuse. Action Required/조치 필요: auth failures on user routes need security review. No Data/런타임 데이터 없음: check Gateway scrape and validation/auth counters.",
+      "description": "Healthy/정상: 0 rejected requests. Attention/주의: non-zero validation or auth rejects. No Data/런타임 데이터 없음: check Gateway scrape.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
       },
       "gridPos": {
-        "x": 12,
-        "y": 5,
-        "w": 6,
-        "h": 6
+        "x": 14,
+        "y": 1,
+        "w": 5,
+        "h": 4
       },
       "targets": [
         {
-          "expr": "sum(increase(request_validation_rejections_total{service=\"gateway\"}[$window])) by (reason)",
+          "expr": "(sum(increase(request_validation_rejections_total{service=\"gateway\"}[$window])) + sum(increase(auth_failures_total{service=\"gateway\"}[$window]))) or on() (sum(up{job=\"gateway\"}) * 0)",
           "refId": "A",
-          "legendFormat": "validation {{reason}}"
-        },
-        {
-          "expr": "sum(increase(auth_failures_total{service=\"gateway\"}[$window])) by (reason)",
-          "refId": "B",
-          "legendFormat": "auth {{reason}}"
+          "legendFormat": "rejected"
         }
       ],
       "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "none"
-        }
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "auto"
       },
       "fieldConfig": {
         "defaults": {
@@ -409,36 +235,31 @@
     },
     {
       "id": 10,
-      "type": "timeseries",
+      "type": "stat",
       "title": "Model Call Failures",
-      "description": "Healthy/정상: upstream errors near zero. Attention/주의: non-zero upstream errors may indicate runtime instability. Action Required/조치 필요: sustained upstream errors need runtime drill-down. No Data/런타임 데이터 없음: check Gateway scrape and upstream error counter. VALIDATION_ERROR code indicates a gateway-side rejection before upstream was reached.",
+      "description": "Healthy/정상: 0 model call failures. Attention/주의: non-zero upstream/model-call failures. No Data/런타임 데이터 없음: check Gateway scrape.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
       },
       "gridPos": {
-        "x": 18,
-        "y": 5,
-        "w": 6,
-        "h": 6
+        "x": 19,
+        "y": 1,
+        "w": 5,
+        "h": 4
       },
       "targets": [
         {
-          "expr": "sum(increase(upstream_errors_total{service=\"gateway\",target=~\"$model\"}[$window])) by (target, code)",
+          "expr": "sum(increase(upstream_errors_total{service=\"gateway\",target=~\"$model\"}[$window])) or on() (sum(up{job=\"gateway\"}) * 0)",
           "refId": "A",
-          "legendFormat": "{{target}} {{code}}"
+          "legendFormat": "model call failures"
         }
       ],
       "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "none"
-        }
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "auto"
       },
       "fieldConfig": {
         "defaults": {
@@ -447,6 +268,177 @@
         },
         "overrides": []
       }
+    },
+    {
+      "id": 104,
+      "type": "row",
+      "title": "Delay Details",
+      "description": "Action: expand only when the snapshot indicates this detail is needed.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 5,
+        "w": 24,
+        "h": 1
+      },
+      "collapsed": true,
+      "panels": [
+        {
+          "id": 2,
+          "type": "stat",
+          "title": "Chat Response Delay (p95)",
+          "description": "Healthy/정상: p95 latency within SLO. Attention/주의: rising p95 before error rate often indicates runtime pressure. Action Required/조치 필요: p95 above 10s needs runtime drill-down. No Data/런타임 데이터 없음: check Prometheus scrape and gateway histogram.",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 0,
+            "w": 12,
+            "h": 4
+          },
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{service=\"gateway\",route=\"/v1/chat/completions\"}[$window])) by (le))",
+              "refId": "A",
+              "legendFormat": "p95"
+            }
+          ],
+          "options": {
+            "colorMode": "background",
+            "graphMode": "none",
+            "justifyMode": "center",
+            "textMode": "auto"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "s",
+              "decimals": 3,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "orange",
+                    "value": 5.0
+                  },
+                  {
+                    "color": "red",
+                    "value": 10.0
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          }
+        },
+        {
+          "id": 3,
+          "type": "stat",
+          "title": "Slowest Chat Responses (p99)",
+          "description": "Healthy/정상: p99 latency within SLO. Attention/주의: p99 higher than p95 by large margin may indicate tail-latency issues. Action Required/조치 필요: p99 above 10s needs immediate investigation. No Data/런타임 데이터 없음: check Prometheus scrape and gateway histogram.",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "gridPos": {
+            "x": 12,
+            "y": 0,
+            "w": 12,
+            "h": 4
+          },
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket{service=\"gateway\",route=\"/v1/chat/completions\"}[$window])) by (le))",
+              "refId": "A",
+              "legendFormat": "p99"
+            }
+          ],
+          "options": {
+            "colorMode": "background",
+            "graphMode": "none",
+            "justifyMode": "center",
+            "textMode": "auto"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "s",
+              "decimals": 3,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "orange",
+                    "value": 5.0
+                  },
+                  {
+                    "color": "red",
+                    "value": 10.0
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          }
+        },
+        {
+          "id": 7,
+          "type": "timeseries",
+          "title": "Delay Split: Gateway vs Model",
+          "description": "Healthy/정상: gateway and upstream p95 are both within SLO. Attention/주의: large gap between gateway and upstream p95 may indicate gateway overhead. No Data/런타임 데이터 없음: check Gateway scrape and upstream latency histogram. Uses path=~chat/completions(:stream)? for upstream.",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 6,
+            "w": 12,
+            "h": 6
+          },
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{service=\"gateway\",route=\"/v1/chat/completions\"}[$window])) by (le))",
+              "refId": "A",
+              "legendFormat": "gateway chat p95"
+            },
+            {
+              "expr": "histogram_quantile(0.95, sum(rate(upstream_request_duration_seconds_bucket{service=\"gateway\",target=~\"$model\",path=~\"chat/completions(:stream)?\"}[$window])) by (le, target))",
+              "refId": "B",
+              "legendFormat": "upstream {{target}} p95"
+            }
+          ],
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "none"
+            }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "s",
+              "decimals": 3
+            },
+            "overrides": []
+          }
+        }
+      ]
     },
     {
       "id": 101,
@@ -459,7 +451,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 11,
+        "y": 6,
         "w": 24,
         "h": 1
       },
@@ -719,7 +711,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 12,
+        "y": 7,
         "w": 24,
         "h": 1
       },
@@ -912,7 +904,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 13,
+        "y": 8,
         "w": 24,
         "h": 1
       },

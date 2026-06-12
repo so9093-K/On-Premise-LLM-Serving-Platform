@@ -59,13 +59,15 @@ monitoring_stack:
       - Model Capacity Used
       - Generation Speed
       - GPU Workload
-      - Related Views
+      - Evidence Details
       semantic_panels:
         attention: Attention Needed
         user_requests: User Requests
         service_verdict: Service Verdict
         monitoring_coverage: Monitoring Coverage
         crashes_restarts: Crashes and Restarts
+      collapsed_detail_rows:
+      - Evidence Details
     - path: ops/grafana/dashboards/executive_runtime_overview.json
       required_panels:
       - Service Health
@@ -91,10 +93,11 @@ monitoring_stack:
       - Risk Details
     - path: ops/grafana/dashboards/api_experience.json
       required_panels:
-      - Chat Requests
+      - API Activity
       - Streaming Failures
       - Streaming Usage Reports
       collapsed_detail_rows:
+      - Delay Details
       - Streaming Details
       - Retrieval Details
       - Embedding Details
@@ -103,6 +106,8 @@ monitoring_stack:
       - Generation Speed
       - Waiting Requests
       - Capacity Used
+      collapsed_detail_rows:
+      - Runtime Details
     - path: ops/grafana/dashboards/observability_data_quality.json
       required_panels:
       - Systems Visible

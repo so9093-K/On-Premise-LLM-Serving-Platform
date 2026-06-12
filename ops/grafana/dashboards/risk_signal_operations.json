@@ -18,18 +18,6 @@
       "tooltip": "Serving Home — operator triage surface with verdict, evidence, and drill-down",
       "type": "link",
       "url": "/d/serving_home/serving-home"
-    },
-    {
-      "asDropdown": false,
-      "icon": "external link",
-      "includeVars": true,
-      "keepTime": true,
-      "tags": [],
-      "targetBlank": false,
-      "title": "Executive Runtime Overview",
-      "tooltip": "Overall service health and status",
-      "type": "link",
-      "url": "/d/executive_runtime_overview/executive-runtime-overview"
     }
   ],
   "liveNow": false,
@@ -52,7 +40,7 @@
       "targets": [],
       "options": {
         "mode": "markdown",
-        "content": "**Risk snapshot** · detector availability, check volume, timeouts, unsafe fields, and delay."
+        "content": "**Risk snapshot** · detector availability, check activity, policy violations, and timeout pressure."
       },
       "fieldConfig": {
         "defaults": {},
@@ -126,7 +114,7 @@
       "id": 1,
       "type": "stat",
       "title": "Risk Checks",
-      "description": "Healthy/정상: expected range. Attention/주의: review trend. Action Required/조치 필요: investigate the owning service. No Data/런타임 데이터 없음: check Prometheus scrape/exporter.",
+      "description": "Healthy/정상: risk checks appear when risk traffic is expected. Attention/주의: 0 means idle unless risk traffic is expected. No Data/런타임 데이터 없음: check risk-adapter scrape.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -223,7 +211,7 @@
       },
       "targets": [
         {
-          "expr": "sum(increase(risk_adapter_system_signal_total{system_signal_code=\"INFERENCE_TIMEOUT\"}[$window])) / clamp_min(sum(increase(risk_assessments_total[$window])), 1)",
+          "expr": "(sum(increase(risk_adapter_system_signal_total{system_signal_code=\"INFERENCE_TIMEOUT\"}[$window])) / clamp_min(sum(increase(risk_assessments_total[$window])), 1)) or on() (sum(up{job=\"risk-adapter\"}) * 0)",
           "refId": "A",
           "legendFormat": "timeout ratio"
         }
@@ -271,12 +259,12 @@
       "gridPos": {
         "x": 16,
         "y": 1,
-        "w": 4,
+        "w": 8,
         "h": 4
       },
       "targets": [
         {
-          "expr": "sum(increase(forbidden_response_field_total[$window])) or vector(0)",
+          "expr": "sum(increase(forbidden_response_field_total[$window])) or on() (sum(up{job=\"risk-adapter\"}) * 0)",
           "refId": "A",
           "legendFormat": "violations"
         }
@@ -309,59 +297,6 @@
       }
     },
     {
-      "id": 7,
-      "type": "stat",
-      "title": "Risk Check Delay (p95)",
-      "description": "Healthy/정상: expected range. Attention/주의: review trend. Action Required/조치 필요: investigate the owning service. No Data/런타임 데이터 없음: check Prometheus scrape/exporter.",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "gridPos": {
-        "x": 20,
-        "y": 1,
-        "w": 4,
-        "h": 4
-      },
-      "targets": [
-        {
-          "expr": "histogram_quantile(0.95, sum(rate(risk_assessment_duration_seconds_bucket[$window])) by (le))",
-          "refId": "A",
-          "legendFormat": "p95"
-        }
-      ],
-      "options": {
-        "colorMode": "background",
-        "graphMode": "none",
-        "justifyMode": "center",
-        "textMode": "auto"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "s",
-          "decimals": 3,
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "orange",
-                "value": 3.0
-              },
-              {
-                "color": "red",
-                "value": 5.0
-              }
-            ]
-          }
-        },
-        "overrides": []
-      }
-    },
-    {
       "id": 101,
       "type": "row",
       "title": "Risk Details",
@@ -379,6 +314,59 @@
       "collapsed": true,
       "panels": [
         {
+          "id": 7,
+          "type": "stat",
+          "title": "Risk Check Delay (p95)",
+          "description": "Healthy/정상: expected range. Attention/주의: review trend. Action Required/조치 필요: investigate the owning service. No Data/런타임 데이터 없음: check Prometheus scrape/exporter.",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 0,
+            "w": 12,
+            "h": 6
+          },
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.95, sum(rate(risk_assessment_duration_seconds_bucket[$window])) by (le))",
+              "refId": "A",
+              "legendFormat": "p95"
+            }
+          ],
+          "options": {
+            "colorMode": "background",
+            "graphMode": "none",
+            "justifyMode": "center",
+            "textMode": "auto"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "s",
+              "decimals": 3,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "orange",
+                    "value": 3.0
+                  },
+                  {
+                    "color": "red",
+                    "value": 5.0
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          }
+        },
+        {
           "id": 5,
           "type": "barchart",
           "title": "Risk Types",
@@ -388,7 +376,7 @@
             "uid": "${datasource}"
           },
           "gridPos": {
-            "x": 0,
+            "x": 12,
             "y": 0,
             "w": 12,
             "h": 6
@@ -416,8 +404,8 @@
             "uid": "${datasource}"
           },
           "gridPos": {
-            "x": 12,
-            "y": 0,
+            "x": 0,
+            "y": 6,
             "w": 12,
             "h": 6
           },
@@ -444,7 +432,7 @@
             "uid": "${datasource}"
           },
           "gridPos": {
-            "x": 0,
+            "x": 12,
             "y": 6,
             "w": 12,
             "h": 6
@@ -472,8 +460,8 @@
             "uid": "${datasource}"
           },
           "gridPos": {
-            "x": 12,
-            "y": 6,
+            "x": 0,
+            "y": 12,
             "w": 12,
             "h": 6
           },

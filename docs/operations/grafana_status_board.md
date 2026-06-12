@@ -57,13 +57,13 @@
 각 dashboard 상단 링크로 이동한다. `includeVars=true`로 현재 variable 값을 유지하며 이동한다.
 
 ```
-serving_home → gpu_capacity_and_oom_risk, executive_runtime_overview, api_experience, model_runtime_deep_dive, risk_signal_operations, observability_data_quality
+serving_home → gpu_capacity_and_oom_risk, api_experience, model_runtime_deep_dive, risk_signal_operations, observability_data_quality
 gpu_capacity_and_oom_risk → serving_home, executive_runtime_overview
 executive_runtime_overview → serving_home, gpu_capacity_and_oom_risk, api_experience, model_runtime_deep_dive, risk_signal_operations
-api_experience → serving_home, executive_runtime_overview, model_runtime_deep_dive
+api_experience → serving_home, model_runtime_deep_dive
 model_runtime_deep_dive → serving_home, gpu_capacity_and_oom_risk, api_experience
-risk_signal_operations → serving_home, executive_runtime_overview
-observability_data_quality → serving_home, executive_runtime_overview
+risk_signal_operations → serving_home
+observability_data_quality → serving_home
 ```
 
 ## Source of truth 및 UI 수정 정책

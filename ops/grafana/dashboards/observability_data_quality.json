@@ -18,18 +18,6 @@
       "tooltip": "Serving Home — operator triage surface with verdict, evidence, and drill-down",
       "type": "link",
       "url": "/d/serving_home/serving-home"
-    },
-    {
-      "asDropdown": false,
-      "icon": "external link",
-      "includeVars": true,
-      "keepTime": true,
-      "tags": [],
-      "targetBlank": false,
-      "title": "Executive Runtime Overview",
-      "tooltip": "Executive runtime reviewer summary",
-      "type": "link",
-      "url": "/d/executive_runtime_overview/executive-runtime-overview"
     }
   ],
   "liveNow": false,

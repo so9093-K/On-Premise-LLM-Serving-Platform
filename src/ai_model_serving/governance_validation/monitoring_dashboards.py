@@ -303,7 +303,6 @@ def _validate_status_board_navigation() -> None:
     expected = {
         'serving_home': [
             'gpu_capacity_and_oom_risk',
-            'executive_runtime_overview',
             'api_experience',
             'model_runtime_deep_dive',
             'risk_signal_operations',
@@ -317,10 +316,10 @@ def _validate_status_board_navigation() -> None:
             'model_runtime_deep_dive',
             'risk_signal_operations',
         ],
-        'api_experience': ['serving_home', 'executive_runtime_overview', 'model_runtime_deep_dive'],
+        'api_experience': ['serving_home', 'model_runtime_deep_dive'],
         'model_runtime_deep_dive': ['serving_home', 'gpu_capacity_and_oom_risk', 'api_experience'],
-        'risk_signal_operations': ['serving_home', 'executive_runtime_overview'],
-        'observability_data_quality': ['serving_home', 'executive_runtime_overview'],
+        'risk_signal_operations': ['serving_home'],
+        'observability_data_quality': ['serving_home'],
     }
     title_to_uid = {
         'Serving Home': 'serving_home',
