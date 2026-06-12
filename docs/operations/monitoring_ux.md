@@ -14,6 +14,7 @@
 ## 원칙
 
 - prompt, generated text, raw input은 metric label에 넣지 않는다.
+- client IP는 Prometheus metric label에 넣지 않는다. abuse/rate-limit 분석은 access log의 `client_ip_hash`, `forwarded_for_present`, `request_id`를 기준으로 수행한다.
 - metric name과 label value는 영어/ASCII를 유지한다.
 - dashboard와 panel 제목은 영어를 사용하되 metric 이름보다 운영자가 판단하는 언어를 우선한다. 운영 문서는 한글 우선으로 작성하고, 내부 metric 용어는 panel description과 운영 문서에 둔다.
 - no-data panel은 exporter가 없거나 metric mapping이 없을 때만 허용한다.

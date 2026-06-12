@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import hashlib
 import time
 from typing import Any
 
@@ -47,6 +48,20 @@ def service_logger(service: str) -> logging.Logger:
     return logger
 
 
+def _first_forwarded_for(headers: Any) -> str | None:
+    value = headers.get("x-forwarded-for") if hasattr(headers, "get") else None
+    if not isinstance(value, str):
+        return None
+    first = value.split(",", 1)[0].strip()
+    return first or None
+
+
+def _client_ip_hash(value: str | None) -> str | None:
+    if not value:
+        return None
+    return hashlib.sha256(value.encode("utf-8")).hexdigest()[:16]
+
+
 def safe_request_log_record(
     *,
     service: str,
@@ -56,6 +71,9 @@ def safe_request_log_record(
 ) -> dict[str, Any]:
     route_obj = request.scope.get("route")
     route = getattr(route_obj, "path", None) or request.url.path
+    peer_host = request.client.host if request.client else None
+    forwarded_for = _first_forwarded_for(request.headers)
+    client_ip_for_correlation = forwarded_for or peer_host
     record = {
         "event": "http_request_completed",
         "service": service,
@@ -64,7 +82,10 @@ def safe_request_log_record(
         "route": route,
         "status_code": status_code,
         "latency_ms": round(elapsed_seconds * 1000, 3),
-        "client_host": request.client.host if request.client else None,
+        "client_host": peer_host,
+        "client_ip_hash": _client_ip_hash(client_ip_for_correlation),
+        "forwarded_for_present": forwarded_for is not None,
+        "forwarded_proto": request.headers.get("x-forwarded-proto"),
     }
     return scrub_for_log(record)
 

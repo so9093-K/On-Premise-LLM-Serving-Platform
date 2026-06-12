@@ -144,8 +144,8 @@
     {
       "id": 2,
       "type": "stat",
-      "title": "Risk Detections",
-      "description": "Risk detection ratio for the window (detected / total assessments). Healthy/정상: low baseline ratio. Attention/주의: ratio > 30%. Action Required/조치 필요: ratio > 70% or sudden spike. No Data/런타임 데이터 없음: check risk-adapter scrape. Shows ratio only — for total volume see Risk Checks; for count by risk type see Risk Types below.",
+      "title": "A1 Detections",
+      "description": "Healthy/정상: 0 A1 detections in the selected window. Attention/주의: non-zero A1 detections indicate prompt-attack risk activity. No Data/런타임 데이터 없음: check risk-adapter scrape.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -158,9 +158,9 @@
       },
       "targets": [
         {
-          "expr": "sum(increase(risk_signal_detected_total[$window])) / clamp_min(sum(increase(risk_assessments_total[$window])), 1)",
+          "expr": "sum(increase(risk_signal_detected_total{risk_code=\"A1\"}[$window])) or on() (sum(up{job=\"risk-adapter\"}) * 0)",
           "refId": "A",
-          "legendFormat": "detected ratio"
+          "legendFormat": "A1"
         }
       ],
       "options": {
@@ -171,8 +171,61 @@
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "percentunit",
-          "decimals": 2,
+          "unit": "short",
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0.3
+              },
+              {
+                "color": "red",
+                "value": 0.7
+              }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 102,
+      "type": "stat",
+      "title": "A2 Detections",
+      "description": "Healthy/정상: 0 A2 detections in the selected window. Attention/주의: non-zero A2 detections indicate prompt-attack risk activity. No Data/런타임 데이터 없음: check risk-adapter scrape.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 1,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "expr": "sum(increase(risk_signal_detected_total{risk_code=\"A2\"}[$window])) or on() (sum(up{job=\"risk-adapter\"}) * 0)",
+          "refId": "A",
+          "legendFormat": "A2"
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -204,7 +257,7 @@
         "uid": "${datasource}"
       },
       "gridPos": {
-        "x": 12,
+        "x": 16,
         "y": 1,
         "w": 4,
         "h": 4
@@ -257,9 +310,9 @@
         "uid": "${datasource}"
       },
       "gridPos": {
-        "x": 16,
+        "x": 20,
         "y": 1,
-        "w": 8,
+        "w": 4,
         "h": 4
       },
       "targets": [

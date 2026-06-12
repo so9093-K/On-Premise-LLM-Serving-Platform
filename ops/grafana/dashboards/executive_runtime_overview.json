@@ -440,13 +440,18 @@
       },
       "targets": [
         {
-          "expr": "sum(rate(risk_signal_detected_total[$window])) by (risk_code)",
+          "expr": "sum(rate(risk_signal_detected_total{risk_code=\"A1\"}[$window])) or on() (sum(up{job=\"risk-adapter\"}) * 0)",
           "refId": "A",
-          "legendFormat": "risk={{risk_code}}"
+          "legendFormat": "A1 detections"
+        },
+        {
+          "expr": "sum(rate(risk_signal_detected_total{risk_code=\"A2\"}[$window])) or on() (sum(up{job=\"risk-adapter\"}) * 0)",
+          "refId": "B",
+          "legendFormat": "A2 detections"
         },
         {
           "expr": "sum(rate(risk_adapter_system_signal_total[$window])) by (system_signal_code)",
-          "refId": "B",
+          "refId": "C",
           "legendFormat": "signal={{system_signal_code}}"
         }
       ],

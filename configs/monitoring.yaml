@@ -87,7 +87,8 @@ monitoring_stack:
     - path: ops/grafana/dashboards/risk_signal_operations.json
       required_panels:
       - Risk Checks
-      - Risk Detections
+      - A1 Detections
+      - A2 Detections
       - Unsafe Response Fields
       collapsed_detail_rows:
       - Risk Details

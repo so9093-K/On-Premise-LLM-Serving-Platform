@@ -76,7 +76,7 @@
       },
       "targets": [
         {
-          "expr": "sum(rate(http_requests_total{service=\"gateway\",route=\"/v1/chat/completions\"}[$window]))",
+          "expr": "sum(rate(http_requests_total{service=\"gateway\",route=\"/v1/chat/completions\"}[$window])) or on() (sum(up{job=\"gateway\"}) * 0)",
           "refId": "A",
           "legendFormat": "rps"
         }
