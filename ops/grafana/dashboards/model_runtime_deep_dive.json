@@ -49,8 +49,8 @@
     {
       "id": 100,
       "type": "text",
-      "title": "Model Runtime Guide",
-      "description": "Action guide for model runtime drill-down. No Data means check vLLM/cAdvisor scrape and labels.",
+      "title": "Runtime Snapshot",
+      "description": "Action: read waiting requests, capacity used, generation speed, delay, CPU, and memory by model runtime.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -59,12 +59,12 @@
         "x": 0,
         "y": 0,
         "w": 24,
-        "h": 5
+        "h": 1
       },
       "targets": [],
       "options": {
         "mode": "markdown",
-        "content": "## 모델 런타임 상세 / Model runtime runbook\n- `$model`과 `$runtime_service`를 좁혀 특정 runtime 병목을 확인합니다.\n- queue가 높고 token throughput이 낮으면 vLLM scheduling/KV/cache 압박을 의심합니다.\n- container CPU/RAM은 cAdvisor recording rule 기반입니다. No Data는 cAdvisor scrape 또는 compose service label을 확인합니다.\n"
+        "content": "**Runtime snapshot** · waiting requests, capacity used, generation speed, delay, CPU, and memory."
       },
       "fieldConfig": {
         "defaults": {},
@@ -74,15 +74,15 @@
     {
       "id": 1,
       "type": "stat",
-      "title": "Token Throughput",
-      "description": "Healthy/정상: expected range. Attention/주의: review trend. Action Required/조치 필요: investigate owner/runbook. No Data/런타임 데이터 없음: check Prometheus scrape/exporter.",
+      "title": "Generation Speed",
+      "description": "Healthy/정상: expected range. Attention/주의: review trend. Action Required/조치 필요: investigate the owning service. No Data/런타임 데이터 없음: check Prometheus scrape/exporter.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
       },
       "gridPos": {
         "x": 0,
-        "y": 5,
+        "y": 1,
         "w": 6,
         "h": 4
       },
@@ -105,15 +105,15 @@
     {
       "id": 2,
       "type": "stat",
-      "title": "Queue Depth",
-      "description": "Healthy/정상: expected range. Attention/주의: review trend. Action Required/조치 필요: investigate owner/runbook. No Data/런타임 데이터 없음: check Prometheus scrape/exporter.",
+      "title": "Waiting Requests",
+      "description": "Healthy/정상: expected range. Attention/주의: review trend. Action Required/조치 필요: investigate the owning service. No Data/런타임 데이터 없음: check Prometheus scrape/exporter.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
       },
       "gridPos": {
         "x": 6,
-        "y": 5,
+        "y": 1,
         "w": 6,
         "h": 4
       },
@@ -158,15 +158,15 @@
     {
       "id": 3,
       "type": "stat",
-      "title": "KV Cache Usage",
-      "description": "Healthy/정상: expected range. Attention/주의: review trend. Action Required/조치 필요: investigate owner/runbook. No Data/런타임 데이터 없음: check Prometheus scrape/exporter.",
+      "title": "Capacity Used",
+      "description": "Healthy/정상: expected range. Attention/주의: review trend. Action Required/조치 필요: investigate the owning service. No Data/런타임 데이터 없음: check Prometheus scrape/exporter.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
       },
       "gridPos": {
         "x": 12,
-        "y": 5,
+        "y": 1,
         "w": 6,
         "h": 4
       },
@@ -213,7 +213,7 @@
     {
       "id": 4,
       "type": "stat",
-      "title": "Upstream p95 Latency (5m)",
+      "title": "Model Response Delay (p95, 5m)",
       "description": "Healthy/정상: < 5s. Attention/주의: 5–10s. Action Required/조치 필요: > 10s. No Data/런타임 데이터 없음: check Prometheus scrape/exporter. Uses recording rule model_runtime_upstream_p95_latency_seconds with fixed 5m window — not affected by $window variable.",
       "datasource": {
         "type": "prometheus",
@@ -221,7 +221,7 @@
       },
       "gridPos": {
         "x": 18,
-        "y": 5,
+        "y": 1,
         "w": 6,
         "h": 4
       },
@@ -266,7 +266,7 @@
     {
       "id": 5,
       "type": "timeseries",
-      "title": "Queue Depth Trend",
+      "title": "Waiting Requests Over Time",
       "description": "Healthy/정상: queue depth near 0. Attention/주의: queue > 20 sustained. Action Required/조치 필요: queue > 50 or growing without bound. No Data/런타임 데이터 없음: check vLLM scrape and model/runtime_service labels.",
       "datasource": {
         "type": "prometheus",
@@ -274,7 +274,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 9,
+        "y": 5,
         "w": 6,
         "h": 6
       },
@@ -303,7 +303,7 @@
     {
       "id": 9,
       "type": "timeseries",
-      "title": "KV Cache Usage Trend",
+      "title": "Capacity Used Over Time",
       "description": "Healthy/정상: KV cache < 80%. Attention/주의: KV cache 80–90%. Action Required/조치 필요: KV cache > 90% — reduce context/concurrency. No Data/런타임 데이터 없음: check vLLM scrape and model/runtime_service labels.",
       "datasource": {
         "type": "prometheus",
@@ -311,7 +311,7 @@
       },
       "gridPos": {
         "x": 6,
-        "y": 9,
+        "y": 5,
         "w": 6,
         "h": 6
       },
@@ -359,15 +359,15 @@
     {
       "id": 6,
       "type": "timeseries",
-      "title": "Token Throughput Trend",
-      "description": "Healthy/정상: expected range. Attention/주의: review trend. Action Required/조치 필요: investigate owner/runbook. No Data/런타임 데이터 없음: check Prometheus scrape/exporter.",
+      "title": "Generation Speed Over Time",
+      "description": "Healthy/정상: expected range. Attention/주의: review trend. Action Required/조치 필요: investigate the owning service. No Data/런타임 데이터 없음: check Prometheus scrape/exporter.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
       },
       "gridPos": {
         "x": 12,
-        "y": 9,
+        "y": 5,
         "w": 12,
         "h": 6
       },
@@ -396,15 +396,15 @@
     {
       "id": 7,
       "type": "timeseries",
-      "title": "Container RAM",
-      "description": "Healthy/정상: expected range. Attention/주의: review trend. Action Required/조치 필요: investigate owner/runbook. No Data/런타임 데이터 없음: check Prometheus scrape/exporter.",
+      "title": "Runtime Memory",
+      "description": "Healthy/정상: expected range. Attention/주의: review trend. Action Required/조치 필요: investigate the owning service. No Data/런타임 데이터 없음: check Prometheus scrape/exporter.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
       },
       "gridPos": {
         "x": 0,
-        "y": 15,
+        "y": 11,
         "w": 12,
         "h": 6
       },
@@ -433,15 +433,15 @@
     {
       "id": 8,
       "type": "timeseries",
-      "title": "Container CPU",
-      "description": "Healthy/정상: expected range. Attention/주의: review trend. Action Required/조치 필요: investigate owner/runbook. No Data/런타임 데이터 없음: check Prometheus scrape/exporter.",
+      "title": "Runtime CPU",
+      "description": "Healthy/정상: expected range. Attention/주의: review trend. Action Required/조치 필요: investigate the owning service. No Data/런타임 데이터 없음: check Prometheus scrape/exporter.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
       },
       "gridPos": {
         "x": 12,
-        "y": 15,
+        "y": 11,
         "w": 12,
         "h": 6
       },

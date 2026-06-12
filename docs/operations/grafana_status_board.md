@@ -1,6 +1,6 @@
 # Grafana 상태 보드
 
-상태 보드는 운영자가 Grafana 첫 화면인 `GPU Capacity and OOM Risk`에서 GPU headroom, VRAM, utilization, OOM/restart, KV cache를 즉시 판단하도록 구성한다. 이 화면의 GPU Headroom/GPU Memory Used는 config projection이 아니라 DCGM 기반 live observed metric이다. 트리아지(verdict, evidence, Needs Attention)는 `serving_home` drill-down에서 확인한다.
+상태 보드는 운영자가 Grafana 첫 화면인 `GPU Capacity and OOM Risk`에서 GPU headroom, VRAM, utilization, OOM/restart, KV cache를 즉시 판단하도록 구성한다. 이 화면의 GPU Headroom/GPU Memory Used는 config projection이 아니라 DCGM 기반 live observed metric이다. 트리아지(verdict, evidence, Attention Needed)는 `serving_home` drill-down에서 확인한다.
 
 ## 기본 상태
 
@@ -23,13 +23,13 @@
 
 ## 첫 화면 순서
 
-1. Serving Verdict (ai_serving_verdict_code: USER_IMPACT / CAPACITY_RISK / OBS_DEGRADED / HEALTHY_ACTIVE / IDLE_WARM / IDLE_COLD)
-2. Overall Status (overall_runtime_status)
-3. User Traffic (`service="gateway"` public entrypoint count)
-4. Scrape Targets (visible vs expected count)
-5. GPU Headroom (min_over_time headroom)
-6. OOM / Restart (container OOM + restart signals)
-7. Runtime Capacity (max KV cache pressure)
+1. Service Verdict (ai_serving_verdict_code: USER_IMPACT / CAPACITY_RISK / OBS_DEGRADED / HEALTHY_ACTIVE / IDLE_WARM / IDLE_COLD)
+2. Serving State (overall_runtime_status)
+3. User Requests (`service="gateway"` public entrypoint count)
+4. Monitoring Coverage (visible vs expected count)
+5. GPU Safety Margin (min_over_time headroom)
+6. Crashes and Restarts (container OOM + restart signals)
+7. Model Capacity (max KV cache pressure)
 
 프롬프트나 생성 결과 원문은 metric label이나 dashboard text에 넣지 않는다.
 

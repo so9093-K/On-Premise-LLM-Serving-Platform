@@ -37,8 +37,8 @@
     {
       "id": 100,
       "type": "text",
-      "title": "Risk Operator Guide",
-      "description": "Action guide for signal-only risk monitoring. No prompt leakage is allowed.",
+      "title": "Risk Snapshot",
+      "description": "Action: read detector availability, risk-check volume, timeouts, unsafe fields, and response delay.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -47,12 +47,12 @@
         "x": 0,
         "y": 0,
         "w": 24,
-        "h": 5
+        "h": 1
       },
       "targets": [],
       "options": {
         "mode": "markdown",
-        "content": "## Risk 화면을 보는 법 / Risk runbook\n- timeout/error가 증가하면 detector readiness와 upstream latency를 먼저 확인합니다.\n- forbidden field가 1 이상이면 signal-only contract 위반 가능성이 있으므로 즉시 조치합니다.\n- prompt/raw text/model output은 dashboard와 metric label에 절대 넣지 않습니다.\n- No Data는 risk-adapter scrape 또는 detector dependency 상태를 확인합니다.\n"
+        "content": "**Risk snapshot** · detector availability, check volume, timeouts, unsafe fields, and delay."
       },
       "fieldConfig": {
         "defaults": {},
@@ -60,256 +60,17 @@
       }
     },
     {
-      "id": 1,
-      "type": "stat",
-      "title": "Risk Assessment Volume",
-      "description": "Healthy/정상: expected range. Attention/주의: review trend. Action Required/조치 필요: investigate owner/runbook. No Data/런타임 데이터 없음: check Prometheus scrape/exporter.",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "gridPos": {
-        "x": 0,
-        "y": 5,
-        "w": 4,
-        "h": 4
-      },
-      "targets": [
-        {
-          "expr": "sum(rate(risk_assessments_total[$window]))",
-          "refId": "A",
-          "legendFormat": "rps"
-        }
-      ],
-      "options": {},
-      "fieldConfig": {
-        "defaults": {
-          "unit": "ops",
-          "decimals": 2
-        },
-        "overrides": []
-      }
-    },
-    {
-      "id": 2,
-      "type": "stat",
-      "title": "Risk Detected Rate",
-      "description": "Risk detection ratio for the window (detected / total assessments). Healthy/정상: low baseline ratio. Attention/주의: ratio > 30%. Action Required/조치 필요: ratio > 70% or sudden spike. No Data/런타임 데이터 없음: check risk-adapter scrape. Shows ratio only — for total volume see Risk Assessment Volume; for count by risk type see Strongest Code Distribution below.",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "gridPos": {
-        "x": 4,
-        "y": 5,
-        "w": 4,
-        "h": 4
-      },
-      "targets": [
-        {
-          "expr": "sum(increase(risk_signal_detected_total[$window])) / clamp_min(sum(increase(risk_assessments_total[$window])), 1)",
-          "refId": "A",
-          "legendFormat": "detected ratio"
-        }
-      ],
-      "options": {
-        "colorMode": "background",
-        "graphMode": "none",
-        "justifyMode": "center",
-        "textMode": "auto"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "percentunit",
-          "decimals": 2,
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "orange",
-                "value": 0.3
-              },
-              {
-                "color": "red",
-                "value": 0.7
-              }
-            ]
-          }
-        },
-        "overrides": []
-      }
-    },
-    {
-      "id": 3,
-      "type": "stat",
-      "title": "Detector Timeout Rate",
-      "description": "INFERENCE_TIMEOUT events as ratio of total assessments. Healthy/정상: < 5%. Attention/주의: 5–10%. Action Required/조치 필요: > 10% — check detector upstream latency and Detector Readiness. No Data/런타임 데이터 없음: check risk-adapter scrape. Shows ratio only — for count by signal type see System Signal Distribution below.",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "gridPos": {
-        "x": 8,
-        "y": 5,
-        "w": 4,
-        "h": 4
-      },
-      "targets": [
-        {
-          "expr": "sum(increase(risk_adapter_system_signal_total{system_signal_code=\"INFERENCE_TIMEOUT\"}[$window])) / clamp_min(sum(increase(risk_assessments_total[$window])), 1)",
-          "refId": "A",
-          "legendFormat": "timeout ratio"
-        }
-      ],
-      "options": {
-        "colorMode": "background",
-        "graphMode": "none",
-        "justifyMode": "center",
-        "textMode": "auto"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "percentunit",
-          "decimals": 2,
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "orange",
-                "value": 0.05
-              },
-              {
-                "color": "red",
-                "value": 0.1
-              }
-            ]
-          }
-        },
-        "overrides": []
-      }
-    },
-    {
-      "id": 4,
-      "type": "stat",
-      "title": "Forbidden Field Violations",
-      "description": "Healthy/정상: 0 (no signal-only contract violations). Action Required/조치 필요: any violation > 0 — investigate immediately, this indicates a prompt/output field exposure risk. No Data/런타임 데이터 없음: check risk-adapter scrape. 0 = metric registered and no violations (safe). The metric forbidden_response_field_total is always registered when risk-adapter is up, so 0 means no violations occurred.",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "gridPos": {
-        "x": 12,
-        "y": 5,
-        "w": 4,
-        "h": 4
-      },
-      "targets": [
-        {
-          "expr": "sum(increase(forbidden_response_field_total[$window])) or vector(0)",
-          "refId": "A",
-          "legendFormat": "violations"
-        }
-      ],
-      "options": {
-        "colorMode": "background",
-        "graphMode": "none",
-        "justifyMode": "center",
-        "textMode": "auto"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "decimals": 0,
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 1
-              }
-            ]
-          }
-        },
-        "overrides": []
-      }
-    },
-    {
-      "id": 7,
-      "type": "stat",
-      "title": "Risk Assessment p95 Latency",
-      "description": "Healthy/정상: expected range. Attention/주의: review trend. Action Required/조치 필요: investigate owner/runbook. No Data/런타임 데이터 없음: check Prometheus scrape/exporter.",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "gridPos": {
-        "x": 16,
-        "y": 5,
-        "w": 4,
-        "h": 4
-      },
-      "targets": [
-        {
-          "expr": "histogram_quantile(0.95, sum(rate(risk_assessment_duration_seconds_bucket[$window])) by (le))",
-          "refId": "A",
-          "legendFormat": "p95"
-        }
-      ],
-      "options": {
-        "colorMode": "background",
-        "graphMode": "none",
-        "justifyMode": "center",
-        "textMode": "auto"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "s",
-          "decimals": 3,
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "orange",
-                "value": 3.0
-              },
-              {
-                "color": "red",
-                "value": 5.0
-              }
-            ]
-          }
-        },
-        "overrides": []
-      }
-    },
-    {
       "id": 8,
       "type": "stat",
-      "title": "Detector Readiness",
+      "title": "Detector Availability",
       "description": "Healthy/정상: 1 = Ready (detector is up). Action Required/조치 필요: 0 = Not Ready — check risk-adapter logs and upstream detector. No Data/런타임 데이터 없음: check Prometheus scrape/exporter.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
       },
       "gridPos": {
-        "x": 20,
-        "y": 5,
+        "x": 0,
+        "y": 1,
         "w": 4,
         "h": 4
       },
@@ -362,124 +123,382 @@
       }
     },
     {
-      "id": 5,
-      "type": "barchart",
-      "title": "Strongest Code Distribution",
-      "description": "Healthy/정상: expected range. Attention/주의: review trend. Action Required/조치 필요: investigate owner/runbook. No Data/런타임 데이터 없음: check Prometheus scrape/exporter.",
+      "id": 1,
+      "type": "stat",
+      "title": "Risk Checks",
+      "description": "Healthy/정상: expected range. Attention/주의: review trend. Action Required/조치 필요: investigate the owning service. No Data/런타임 데이터 없음: check Prometheus scrape/exporter.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
       },
       "gridPos": {
-        "x": 0,
-        "y": 9,
-        "w": 12,
-        "h": 6
+        "x": 4,
+        "y": 1,
+        "w": 4,
+        "h": 4
       },
       "targets": [
         {
-          "expr": "sum(increase(risk_signal_detected_total[$window])) by (risk_code)",
+          "expr": "sum(rate(risk_assessments_total[$window]))",
           "refId": "A",
-          "legendFormat": "{{risk_code}}"
+          "legendFormat": "rps"
         }
       ],
       "options": {},
-      "fieldConfig": {
-        "defaults": {},
-        "overrides": []
-      }
-    },
-    {
-      "id": 6,
-      "type": "barchart",
-      "title": "System Signal Distribution",
-      "description": "Healthy/정상: expected range. Attention/주의: review trend. Action Required/조치 필요: investigate owner/runbook. No Data/런타임 데이터 없음: check Prometheus scrape/exporter.",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "gridPos": {
-        "x": 12,
-        "y": 9,
-        "w": 12,
-        "h": 6
-      },
-      "targets": [
-        {
-          "expr": "sum(increase(risk_adapter_system_signal_total[$window])) by (system_signal_code)",
-          "refId": "A",
-          "legendFormat": "{{system_signal_code}}"
-        }
-      ],
-      "options": {},
-      "fieldConfig": {
-        "defaults": {},
-        "overrides": []
-      }
-    },
-    {
-      "id": 9,
-      "type": "barchart",
-      "title": "Forbidden Field by Field Name",
-      "description": "Healthy/정상: expected range. Attention/주의: review trend. Action Required/조치 필요: investigate owner/runbook. No Data/런타임 데이터 없음: check Prometheus scrape/exporter.",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "gridPos": {
-        "x": 0,
-        "y": 15,
-        "w": 12,
-        "h": 6
-      },
-      "targets": [
-        {
-          "expr": "sum(increase(forbidden_response_field_total[$window])) by (field)",
-          "refId": "A",
-          "legendFormat": "{{field}}"
-        }
-      ],
-      "options": {},
-      "fieldConfig": {
-        "defaults": {},
-        "overrides": []
-      }
-    },
-    {
-      "id": 10,
-      "type": "timeseries",
-      "title": "Detector Status Trend",
-      "description": "Healthy/정상: expected range. Attention/주의: review trend. Action Required/조치 필요: investigate owner/runbook. No Data/런타임 데이터 없음: check Prometheus scrape/exporter.",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "gridPos": {
-        "x": 12,
-        "y": 15,
-        "w": 12,
-        "h": 6
-      },
-      "targets": [
-        {
-          "expr": "sum(rate(risk_adapter_system_signal_total[$window])) by (system_signal_code)",
-          "refId": "A",
-          "legendFormat": "{{system_signal_code}}"
-        }
-      ],
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        }
-      },
       "fieldConfig": {
         "defaults": {
-          "unit": "short"
+          "unit": "ops",
+          "decimals": 2
         },
         "overrides": []
       }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Risk Detections",
+      "description": "Risk detection ratio for the window (detected / total assessments). Healthy/정상: low baseline ratio. Attention/주의: ratio > 30%. Action Required/조치 필요: ratio > 70% or sudden spike. No Data/런타임 데이터 없음: check risk-adapter scrape. Shows ratio only — for total volume see Risk Checks; for count by risk type see Risk Types below.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 1,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "expr": "sum(increase(risk_signal_detected_total[$window])) / clamp_min(sum(increase(risk_assessments_total[$window])), 1)",
+          "refId": "A",
+          "legendFormat": "detected ratio"
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "decimals": 2,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0.3
+              },
+              {
+                "color": "red",
+                "value": 0.7
+              }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Risk Check Timeouts",
+      "description": "INFERENCE_TIMEOUT events as ratio of total assessments. Healthy/정상: < 5%. Attention/주의: 5–10%. Action Required/조치 필요: > 10% — check detector upstream latency and Detector Availability. No Data/런타임 데이터 없음: check risk-adapter scrape. Shows ratio only — for count by signal type see System Signals below.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 1,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "expr": "sum(increase(risk_adapter_system_signal_total{system_signal_code=\"INFERENCE_TIMEOUT\"}[$window])) / clamp_min(sum(increase(risk_assessments_total[$window])), 1)",
+          "refId": "A",
+          "legendFormat": "timeout ratio"
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "decimals": 2,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0.05
+              },
+              {
+                "color": "red",
+                "value": 0.1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Unsafe Response Fields",
+      "description": "Healthy/정상: 0 (no signal-only contract violations). Action Required/조치 필요: any violation > 0 — investigate immediately, this indicates a prompt/output field exposure risk. No Data/런타임 데이터 없음: check risk-adapter scrape. 0 = metric registered and no violations (safe). The metric forbidden_response_field_total is always registered when risk-adapter is up, so 0 means no violations occurred.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 1,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "expr": "sum(increase(forbidden_response_field_total[$window])) or vector(0)",
+          "refId": "A",
+          "legendFormat": "violations"
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 7,
+      "type": "stat",
+      "title": "Risk Check Delay (p95)",
+      "description": "Healthy/정상: expected range. Attention/주의: review trend. Action Required/조치 필요: investigate the owning service. No Data/런타임 데이터 없음: check Prometheus scrape/exporter.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "x": 20,
+        "y": 1,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(risk_assessment_duration_seconds_bucket[$window])) by (le))",
+          "refId": "A",
+          "legendFormat": "p95"
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "decimals": 3,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 3.0
+              },
+              {
+                "color": "red",
+                "value": 5.0
+              }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 101,
+      "type": "row",
+      "title": "Risk Details",
+      "description": "Action: expand for detailed investigation when the snapshot cards point here.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 5,
+        "w": 24,
+        "h": 1
+      },
+      "collapsed": true,
+      "panels": [
+        {
+          "id": 5,
+          "type": "barchart",
+          "title": "Risk Types",
+          "description": "Healthy/정상: expected range. Attention/주의: review trend. Action Required/조치 필요: investigate the owning service. No Data/런타임 데이터 없음: check Prometheus scrape/exporter.",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 0,
+            "w": 12,
+            "h": 6
+          },
+          "targets": [
+            {
+              "expr": "sum(increase(risk_signal_detected_total[$window])) by (risk_code)",
+              "refId": "A",
+              "legendFormat": "{{risk_code}}"
+            }
+          ],
+          "options": {},
+          "fieldConfig": {
+            "defaults": {},
+            "overrides": []
+          }
+        },
+        {
+          "id": 6,
+          "type": "barchart",
+          "title": "System Signals",
+          "description": "Healthy/정상: expected range. Attention/주의: review trend. Action Required/조치 필요: investigate the owning service. No Data/런타임 데이터 없음: check Prometheus scrape/exporter.",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "gridPos": {
+            "x": 12,
+            "y": 0,
+            "w": 12,
+            "h": 6
+          },
+          "targets": [
+            {
+              "expr": "sum(increase(risk_adapter_system_signal_total[$window])) by (system_signal_code)",
+              "refId": "A",
+              "legendFormat": "{{system_signal_code}}"
+            }
+          ],
+          "options": {},
+          "fieldConfig": {
+            "defaults": {},
+            "overrides": []
+          }
+        },
+        {
+          "id": 9,
+          "type": "barchart",
+          "title": "Unsafe Fields by Name",
+          "description": "Healthy/정상: expected range. Attention/주의: review trend. Action Required/조치 필요: investigate the owning service. No Data/런타임 데이터 없음: check Prometheus scrape/exporter.",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 6,
+            "w": 12,
+            "h": 6
+          },
+          "targets": [
+            {
+              "expr": "sum(increase(forbidden_response_field_total[$window])) by (field)",
+              "refId": "A",
+              "legendFormat": "{{field}}"
+            }
+          ],
+          "options": {},
+          "fieldConfig": {
+            "defaults": {},
+            "overrides": []
+          }
+        },
+        {
+          "id": 10,
+          "type": "timeseries",
+          "title": "Detector Signals Over Time",
+          "description": "Healthy/정상: expected range. Attention/주의: review trend. Action Required/조치 필요: investigate the owning service. No Data/런타임 데이터 없음: check Prometheus scrape/exporter.",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "gridPos": {
+            "x": 12,
+            "y": 6,
+            "w": 12,
+            "h": 6
+          },
+          "targets": [
+            {
+              "expr": "sum(rate(risk_adapter_system_signal_total[$window])) by (system_signal_code)",
+              "refId": "A",
+              "legendFormat": "{{system_signal_code}}"
+            }
+          ],
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short"
+            },
+            "overrides": []
+          }
+        }
+      ]
     }
   ],
   "refresh": "30s",

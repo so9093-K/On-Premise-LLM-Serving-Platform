@@ -151,7 +151,7 @@ grep -E "^GRAFANA_ADMIN_(USER|PASSWORD)=" .env
 | 대시보드 | uid | 운영 질문 |
 |---|---|---|
 | GPU Capacity and OOM Risk | `gpu_capacity_and_oom_risk` | 지금 이 GPU에서 요청을 안전하게 계속 처리할 수 있는가? **(기본 home dashboard)** |
-| Serving Home | `serving_home` | 지금 요청을 안전하게 처리할 수 있는가? Verdict banner, Needs Attention triage, GPU warm evidence |
+| Serving Home | `serving_home` | 지금 요청을 안전하게 처리할 수 있는가? Service Verdict, Attention Needed, GPU warm evidence |
 | Executive Runtime Overview | `executive_runtime_overview` | 전체 서비스가 정상인가? 어디가 문제인가? |
 | API Experience | `api_experience` | Gateway path와 upstream 중 어디가 병목인가? streaming relay 상태는? |
 | Model Runtime Deep Dive | `model_runtime_deep_dive` | 특정 모델 queue/KV cache/token throughput/container 상태는? |
@@ -162,7 +162,7 @@ Dashboard 간 navigation은 Grafana 상단 링크로 이동한다 (UID 기반, `
 
 권장 drill-down: `gpu_capacity_and_oom_risk` → `serving_home` → `executive_runtime_overview` → `api_experience` → `model_runtime_deep_dive` → `risk_signal_operations` → `observability_data_quality`
 
-`Serving Home`의 user route 기본값은 `/v1/chat/completions|/v1/embeddings|/v1/risk/.*`이다. Top strip의 `User Traffic`은 double count를 피하기 위해 `service="gateway"` public entrypoint만 세고, service-level activity panel은 `gateway`와 `risk-adapter`를 service label로 분리한다.
+`Serving Home`의 user route 기본값은 `/v1/chat/completions|/v1/embeddings|/v1/risk/.*`이다. Top strip의 `User Requests`는 double count를 피하기 위해 `service="gateway"` public entrypoint만 세고, service-level activity panel은 `gateway`와 `risk-adapter`를 service label로 분리한다.
 
 > **Source of truth**: Dashboard JSON (`ops/grafana/dashboards/*.json`)이 source of truth다. Grafana UI에서 직접 수정한 내용은 JSON으로 자동 반영되지 않는다. live datasource/render validation은 `make runtime-validate`로 별도 수행한다 (기본 CI merge gate가 아님).
 

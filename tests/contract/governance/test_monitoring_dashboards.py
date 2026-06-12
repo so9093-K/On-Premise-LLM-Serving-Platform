@@ -21,30 +21,32 @@ def test_operator_grafana_status_board_is_user_facing() -> None:
     exec_dashboard = json.loads((ROOT / "ops/grafana/dashboards/executive_runtime_overview.json").read_text(encoding="utf-8"))
     titles = {panel["title"] for panel in exec_dashboard["panels"]}
     assert {
-        "Overall Status",
-        "User Traffic",
-        "p95 Latency (5m)",
-        "Error Rate",
-        "GPU Headroom",
-        "Component Readiness",
-        "Scrape Health",
+        "Service Health",
+        "User Requests",
+        "Response Delay (p95, 5m)",
+        "Failed Request Rate",
+        "GPU Safety Margin",
+        "Component Availability",
+        "Monitoring Coverage",
     }.issubset(titles)
     assert exec_dashboard["panels"][0]["type"] == "text"
-    assert "이 화면을 보는 법" in exec_dashboard["panels"][0]["options"]["content"]
+    assert exec_dashboard["panels"][0]["gridPos"]["h"] <= 1
+    assert "runbook" not in exec_dashboard["panels"][0]["options"]["content"].lower()
     home = json.loads((ROOT / "ops/grafana/dashboards/serving_home.json").read_text(encoding="utf-8"))
     home_titles = {panel["title"] for panel in home["panels"]}
     assert {
-        "Serving Home Operator Guide",
-        "Serving Verdict",
-        "User Traffic",
-        "Scrape Targets",
-        "GPU Headroom",
-        "OOM / Restart",
-        "Runtime Capacity",
-        "Needs Attention",
+        "Service Snapshot",
+        "Service Verdict",
+        "User Requests",
+        "Monitoring Coverage",
+        "GPU Safety Margin",
+        "Crashes and Restarts",
+        "Model Capacity",
+        "Attention Needed",
     }.issubset(home_titles)
     assert len(home["panels"]) <= 20
-    assert "IDLE WARM" in home["panels"][0]["options"]["content"]
+    assert home["panels"][0]["gridPos"]["h"] <= 1
+    assert "runbook" not in home["panels"][0]["options"]["content"].lower()
     variables_by_name = {item["name"]: item for item in home["templating"]["list"]}
     home_variables = set(variables_by_name)
     assert "user_route" in home_variables
@@ -78,6 +80,35 @@ def test_grafana_panels_include_operator_descriptions() -> None:
             assert any(token in description for token in ["Healthy", "Attention", "Action Required", "No Runtime Data", "No Data", "Action"])
 
 
+def test_detail_panels_are_collapsed_below_snapshot_cards() -> None:
+    dashboards = {
+        path.name: json.loads(path.read_text(encoding="utf-8"))
+        for path in (ROOT / "ops/grafana/dashboards").glob("*.json")
+    }
+
+    api_rows = {panel["title"]: panel for panel in dashboards["api_experience.json"]["panels"] if panel["type"] == "row"}
+    assert {"Streaming Details", "Retrieval Details", "Embedding Details"}.issubset(api_rows)
+    for row in api_rows.values():
+        assert row.get("collapsed") is True
+        assert row.get("panels"), f"{row['title']} must own the detailed panels it hides"
+
+    api_top_titles = {panel["title"] for panel in dashboards["api_experience.json"]["panels"] if panel["type"] != "row"}
+    assert "Retrieval Requests" not in api_top_titles
+    assert "Embedding Response Size" not in api_top_titles
+    assert "Streaming Output Rate" not in api_top_titles
+
+    risk_rows = {panel["title"]: panel for panel in dashboards["risk_signal_operations.json"]["panels"] if panel["type"] == "row"}
+    assert risk_rows["Risk Details"].get("collapsed") is True
+    risk_top_titles = {panel["title"] for panel in dashboards["risk_signal_operations.json"]["panels"] if panel["type"] != "row"}
+    assert "Risk Types" not in risk_top_titles
+    assert "System Signals" not in risk_top_titles
+
+    obs_rows = {panel["title"]: panel for panel in dashboards["observability_data_quality.json"]["panels"] if panel["type"] == "row"}
+    assert obs_rows["Monitoring Details"].get("collapsed") is True
+    obs_top_titles = {panel["title"] for panel in dashboards["observability_data_quality.json"]["panels"] if panel["type"] != "row"}
+    assert "Derived Signals" not in obs_top_titles
+
+
 def test_grafana_dashboards_are_english_titled_variable_backed_and_streaming_aware() -> None:
     dashboards = {path.name: json.loads(path.read_text(encoding="utf-8")) for path in (ROOT / "ops/grafana/dashboards").glob("*.json")}
     assert set(dashboards) >= {
@@ -108,16 +139,16 @@ def test_grafana_dashboards_are_english_titled_variable_backed_and_streaming_awa
     assert 'path=~\\"chat/completions(:stream)?\\"' in api_text
     home_text = json.dumps(dashboards["serving_home.json"], ensure_ascii=False)
     assert 'route=~\\"$user_route\\"' in home_text
-    assert "Needs Attention" in home_text
+    assert "Attention Needed" in home_text
     assert "ai_serving_verdict_code" in home_text
     assert "backend_restart_total" not in home_text
     assert "gpu_oom_events_total" not in home_text
     assert "container_oom_events_total" in home_text
     assert "container_start_time_seconds" in home_text
     home_panels = {panel["title"]: panel for panel in dashboards["serving_home.json"]["panels"]}
-    oom_panel_text = json.dumps(home_panels["OOM / Restart"], ensure_ascii=False)
+    oom_panel_text = json.dumps(home_panels["Crashes and Restarts"], ensure_ascii=False)
     assert "or vector(0)" not in oom_panel_text
-    user_traffic_text = json.dumps(home_panels["User Traffic"], ensure_ascii=False)
+    user_traffic_text = json.dumps(home_panels["User Requests"], ensure_ascii=False)
     assert 'service=\\"gateway\\"' in user_traffic_text
     assert 'status_code=~\\"$status_code\\"' not in user_traffic_text
     for dashboard_name, dashboard in dashboards.items():
@@ -189,13 +220,13 @@ def test_overall_status_does_not_use_max() -> None:
     dashboard = json.loads(
         (ROOT / "ops/grafana/dashboards/executive_runtime_overview.json").read_text(encoding="utf-8")
     )
-    overall_panels = [p for p in dashboard["panels"] if p["title"] == "Overall Status"]
-    assert overall_panels, "Overall Status panel not found in executive_runtime_overview"
+    overall_panels = [p for p in dashboard["panels"] if p["title"] == "Service Health"]
+    assert overall_panels, "Service Health panel not found in executive_runtime_overview"
     for panel in overall_panels:
         for target in panel.get("targets", []):
             expr = target.get("expr", "")
             assert "max(overall_runtime_status)" not in expr, (
-                "Overall Status must use min(), not max(), to surface any unhealthy service"
+                "Service Health must use min(), not max(), to surface any unhealthy service"
             )
 
 
@@ -255,4 +286,3 @@ def test_monitoring_config_includes_embedding_ko_vllm_port() -> None:
     assert 9406 in ports, (
         "configs/monitoring.yaml vllm_instances.ports must include 9406 (embedding-ko-vllm)"
     )
-

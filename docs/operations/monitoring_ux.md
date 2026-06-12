@@ -15,12 +15,13 @@
 
 - prompt, generated text, raw input은 metric label에 넣지 않는다.
 - metric name과 label value는 영어/ASCII를 유지한다.
-- dashboard와 panel 제목은 영어를 사용하고, operator guide 본문과 운영 문서는 한글 우선 + 영어 metric 용어 병기를 사용한다.
+- dashboard와 panel 제목은 영어를 사용하되 metric 이름보다 운영자가 판단하는 언어를 우선한다. 내부 metric 용어는 panel description과 운영 문서에 둔다.
 - no-data panel은 exporter가 없거나 metric mapping이 없을 때만 허용한다.
-- Grafana 첫 화면은 `gpu_capacity_and_oom_risk`이며 GPU headroom, VRAM, utilization, OOM/restart, KV cache를 바로 보여준다. 여기의 GPU Headroom/GPU Memory Used는 DCGM exporter 기반 live observed metric이며, configured budget/projection은 operator status bundle에서 확인한다. 상세 트리아지(verdict banner, evidence cards, Needs Attention table)는 `serving_home` drill-down에서 확인한다.
+- Grafana 첫 화면은 `gpu_capacity_and_oom_risk`이며 GPU headroom, VRAM, utilization, OOM/restart, KV cache를 바로 보여준다. 여기의 GPU Headroom/GPU Memory Used는 DCGM exporter 기반 live observed metric이며, configured budget/projection은 operator status bundle에서 확인한다. 상세 트리아지(verdict banner, evidence cards, Attention Needed table)는 `serving_home` drill-down에서 확인한다.
 - user traffic panel은 기본적으로 `/v1/chat/completions|/v1/embeddings|/v1/risk/.*`만 포함하고 `/health`, `/ready`, `/v1/models`, `/metrics`, `/docs`, `/openapi.json` 같은 control/observability/docs route를 제외한다.
 - `User Requests in Window`는 public entrypoint 기준이므로 `service="gateway"`만 사용한다. `Request Rate by Service/Route`는 gateway public activity와 risk-adapter backend activity를 service label로 분리해서 보여주며, 두 값은 같지 않을 수 있다.
-- 각 dashboard 상단에는 tooltip을 열지 않아도 읽히는 Text panel runbook을 둔다.
+- 각 dashboard 상단에는 긴 guide/runbook 대신 1-row snapshot text panel만 둔다. 판단은 패널 제목, 값, 색, 배치가 하며 자세한 설명은 panel description과 운영 문서로 내린다.
+- 첫 화면은 snapshot cards와 핵심 원인 패널만 둔다. Streaming, retrieval, embedding, risk distribution, derived monitoring signal 같은 상세 분석 패널은 collapsed row로 내린다.
 - admin endpoint와 monitoring port는 token 또는 private network로 보호한다.
 
 ## Grafana dashboard 구성
@@ -28,12 +29,12 @@
 | Dashboard | 목적 | 주요 사용자 |
 |---|---|---|
 | `gpu_capacity_and_oom_risk` | **기본 home dashboard.** live GPU headroom, observed VRAM, utilization, OOM/restart, KV cache, queue | operator/runtime engineer |
-| `serving_home` | Verdict banner, Evidence cards, Needs Attention triage, GPU warm, drill-down routing | operator |
-| `executive_runtime_overview` | 전체 상태, 트래픽, latency, error, GPU headroom, scrape health | reviewer/operator |
-| `api_experience` | `/v1/chat/completions`, `/v1/embeddings`, streaming relay, TTFT, duration histograms | gateway/runtime engineer |
-| `model_runtime_deep_dive` | model/runtime_service별 queue, KV cache, throughput, container resource | runtime engineer |
-| `risk_signal_operations` | signal-only risk monitoring | safety/policy reviewer |
-| `observability_data_quality` | scrape target visibility, up vs absent 구분, recording rule health, vLLM metric availability | operator/platform engineer |
+| `serving_home` | Service Verdict, Serving State, User Requests, Monitoring Coverage, GPU Safety Margin, Attention Needed | operator |
+| `executive_runtime_overview` | Service Health, User Requests, Response Delay, Failed Request Rate, GPU Safety Margin, Monitoring Coverage | reviewer/operator |
+| `api_experience` | Chat Requests, Chat Response Delay, Chat Failures, Streaming Failures, Delay Split, retrieval/embedding detail | gateway/runtime engineer |
+| `model_runtime_deep_dive` | Generation Speed, Waiting Requests, Capacity Used, Model Response Delay, Runtime CPU/RAM | runtime engineer |
+| `risk_signal_operations` | Risk Checks, Risk Detections, Risk Check Timeouts, Unsafe Response Fields, Detector Availability | safety/policy reviewer |
+| `observability_data_quality` | Systems Visible, Systems Reporting, Missing Sources, metric source availability, derived signal health | operator/platform engineer |
 
 Dashboard JSON은 `ops/grafana/dashboards/*.json`에서 관리한다. 공통 dashboard variable과 Serving Home 전용 variable을 구분한다. `configs/monitoring.yaml`의 `dashboard_variables`는 monitoring projection용 Home-inclusive 목록이며, 모든 dashboard가 `$user_route`를 갖는다는 뜻은 아니다.
 
@@ -180,11 +181,11 @@ streaming_client_disconnects_total{service="gateway",target="local-main",phase="
 | 상황 | 표시 | 해석 |
 |---|---|---|
 | metric이 등록되어 있고 이벤트가 없음 | 0 | 정상. 이벤트 없음 |
-| exporter/metric 자체가 없음 | No Data | scrape 문제. Scrape Health panel 확인 |
+| exporter/metric 자체가 없음 | No Data | scrape 문제. Monitoring Coverage panel 확인 |
 | or vector(0)로 강제된 0 | 0 | 주의: exporter 부재를 숨길 수 있음 |
 
 - Container OOM / Restart Signals: cAdvisor의 `container_oom_events_total`과 `container_start_time_seconds`를 사용한다. No Data는 cAdvisor scrape 또는 metric source 부재일 수 있으므로 0으로 대체하지 않는다.
-- Forbidden Field Violations: `forbidden_response_field_total`은 risk-adapter 기동 시 항상 등록되므로 risk-adapter가 up이면 0은 "위반 없음"을 의미한다.
+- Unsafe Response Fields: `forbidden_response_field_total`은 risk-adapter 기동 시 항상 등록되므로 risk-adapter가 up이면 0은 "위반 없음"을 의미한다.
 - **원칙**: No Data가 운영상 더 안전한 panel은 `or vector(0)`로 강제하지 않는다.
 
 ## Fixed window recording rule 사용 panel
@@ -193,8 +194,8 @@ streaming_client_disconnects_total{service="gateway",target="local-main",phase="
 
 | Panel | Dashboard | Recording rule | Window |
 |---|---|---|---|
-| `p95 Latency (5m)` | `executive_runtime_overview` | `model_runtime_http_p95_latency_seconds` | 5m 고정 |
-| `Upstream p95 Latency (5m)` | `model_runtime_deep_dive` | `model_runtime_upstream_p95_latency_seconds` | 5m 고정 |
+| `Response Delay (p95, 5m)` | `executive_runtime_overview` | `model_runtime_http_p95_latency_seconds` | 5m 고정 |
+| `Model Response Delay (p95, 5m)` | `model_runtime_deep_dive` | `model_runtime_upstream_p95_latency_seconds` | 5m 고정 |
 
 panel title에 `(5m)`을 표시하여 `$window` 선택과 무관함을 명시한다. 더 짧거나 긴 window가 필요하면 recording rule 대신 raw histogram query를 사용한다.
 

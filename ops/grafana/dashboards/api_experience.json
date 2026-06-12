@@ -49,8 +49,8 @@
     {
       "id": 100,
       "type": "text",
-      "title": "API Experience Operator Guide",
-      "description": "Action guide for chat, streaming, and API experience. No Data means check Gateway scrape and live stream traffic first.",
+      "title": "API Snapshot",
+      "description": "Action: read user requests, response delay, failures, streaming quality, and model-call delay.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -59,12 +59,12 @@
         "x": 0,
         "y": 0,
         "w": 24,
-        "h": 5
+        "h": 1
       },
       "targets": [],
       "options": {
         "mode": "markdown",
-        "content": "## API Experience — 채팅·스트리밍·지연 진단 / chat, streaming, and latency\n- 요청 수, p95/p99 지연, 5xx 비율을 먼저 확인합니다.\n- `stream=true` 요청: chunk 수, byte 처리량, 오류, usage event metric으로 relay 상태를 확인합니다.\n- TTFT p95: `Streaming Time to First Token p95`. 스트림 전체 지연 p95: `Streaming Duration p95`. 응답당 chunk: `Chunks per Response p95`.\n- Gateway vs upstream 비교: `Gateway vs Upstream p95` 패널에서 병목 위치를 확인합니다.\n- No Data: Gateway `/metrics` scrape와 streaming code path 실행 여부를 확인합니다.\n- Prompt / 사용자 텍스트 / 모델 출력은 metric label에 절대 포함하지 않습니다.\n- `streaming_requests_total.status`와 `streaming_duration_seconds.status`는 터미널 카테고리 label만 사용합니다: `started`, `completed`, `error`, `client_disconnect`.\n"
+        "content": "**API snapshot** · requests, response delay, failures, streaming quality, and model-call delay."
       },
       "fieldConfig": {
         "defaults": {},
@@ -74,7 +74,7 @@
     {
       "id": 1,
       "type": "stat",
-      "title": "Chat Request Rate",
+      "title": "Chat Requests",
       "description": "Healthy/정상: non-zero during active sessions. Attention/주의: zero request rate when user traffic is expected. Action Required/조치 필요: 0 with open sessions is a routing or gateway issue. No Data/런타임 데이터 없음: check Prometheus scrape and gateway /metrics endpoint.",
       "datasource": {
         "type": "prometheus",
@@ -82,7 +82,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 5,
+        "y": 1,
         "w": 4,
         "h": 4
       },
@@ -110,7 +110,7 @@
     {
       "id": 2,
       "type": "stat",
-      "title": "Chat p95 Latency",
+      "title": "Chat Response Delay (p95)",
       "description": "Healthy/정상: p95 latency within SLO. Attention/주의: rising p95 before error rate often indicates runtime pressure. Action Required/조치 필요: p95 above 10s needs runtime drill-down. No Data/런타임 데이터 없음: check Prometheus scrape and gateway histogram.",
       "datasource": {
         "type": "prometheus",
@@ -118,8 +118,8 @@
       },
       "gridPos": {
         "x": 4,
-        "y": 5,
-        "w": 4,
+        "y": 1,
+        "w": 5,
         "h": 4
       },
       "targets": [
@@ -163,16 +163,16 @@
     {
       "id": 3,
       "type": "stat",
-      "title": "Chat p99 Latency",
+      "title": "Slowest Chat Responses (p99)",
       "description": "Healthy/정상: p99 latency within SLO. Attention/주의: p99 higher than p95 by large margin may indicate tail-latency issues. Action Required/조치 필요: p99 above 10s needs immediate investigation. No Data/런타임 데이터 없음: check Prometheus scrape and gateway histogram.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
       },
       "gridPos": {
-        "x": 8,
-        "y": 5,
-        "w": 4,
+        "x": 9,
+        "y": 1,
+        "w": 5,
         "h": 4
       },
       "targets": [
@@ -216,15 +216,15 @@
     {
       "id": 4,
       "type": "stat",
-      "title": "Chat 5xx Rate",
+      "title": "Chat Failures",
       "description": "Healthy/정상: 5xx ratio near zero. Attention/주의: above 1% needs triage. Action Required/조치 필요: above 5% means users are experiencing failures. No Data/런타임 데이터 없음: check Prometheus scrape and gateway request counter.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
       },
       "gridPos": {
-        "x": 12,
-        "y": 5,
+        "x": 14,
+        "y": 1,
         "w": 4,
         "h": 4
       },
@@ -269,16 +269,16 @@
     {
       "id": 5,
       "type": "stat",
-      "title": "Streaming Errors",
+      "title": "Streaming Failures",
       "description": "Healthy/정상: 0 streaming errors. Attention/주의: any errors need investigation. Action Required/조치 필요: sustained streaming errors with active traffic. No Data/런타임 데이터 없음: check Gateway scrape and streaming error counter.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
       },
       "gridPos": {
-        "x": 16,
-        "y": 5,
-        "w": 4,
+        "x": 18,
+        "y": 1,
+        "w": 6,
         "h": 4
       },
       "targets": [
@@ -316,45 +316,9 @@
       }
     },
     {
-      "id": 6,
-      "type": "stat",
-      "title": "Usage Chunk Events",
-      "description": "Healthy/정상: usage events proportional to completed streaming requests. Attention/주의: missing usage events may indicate incomplete accounting. No Data/런타임 데이터 없음: check Gateway scrape and streaming usage counter.",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "gridPos": {
-        "x": 20,
-        "y": 5,
-        "w": 4,
-        "h": 4
-      },
-      "targets": [
-        {
-          "expr": "sum(increase(streaming_usage_events_total{service=\"gateway\",target=~\"$model\"}[$window]))",
-          "refId": "A",
-          "legendFormat": "usage events"
-        }
-      ],
-      "options": {
-        "colorMode": "background",
-        "graphMode": "none",
-        "justifyMode": "center",
-        "textMode": "auto"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "decimals": 0
-        },
-        "overrides": []
-      }
-    },
-    {
       "id": 7,
       "type": "timeseries",
-      "title": "Gateway vs Upstream p95",
+      "title": "Delay Split: Gateway vs Model",
       "description": "Healthy/정상: gateway and upstream p95 are both within SLO. Attention/주의: large gap between gateway and upstream p95 may indicate gateway overhead. No Data/런타임 데이터 없음: check Gateway scrape and upstream latency histogram. Uses path=~chat/completions(:stream)? for upstream.",
       "datasource": {
         "type": "prometheus",
@@ -362,7 +326,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 9,
+        "y": 5,
         "w": 12,
         "h": 6
       },
@@ -398,100 +362,18 @@
       }
     },
     {
-      "id": 8,
-      "type": "timeseries",
-      "title": "Streaming Chunk Rate",
-      "description": "Healthy/정상: chunks/sec increases with streaming traffic. Attention/주의: chunk rate drops while request rate holds may indicate relay stall. Action Required/조치 필요: chunk rate near zero with active streaming requests. No Data/런타임 데이터 없음: check Gateway scrape and streaming chunk counter.",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "gridPos": {
-        "x": 12,
-        "y": 9,
-        "w": 6,
-        "h": 6
-      },
-      "targets": [
-        {
-          "expr": "sum(rate(streaming_chunks_total{service=\"gateway\",target=~\"$model\"}[$window])) by (target)",
-          "refId": "A",
-          "legendFormat": "{{target}}"
-        }
-      ],
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "none"
-        }
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "ops",
-          "decimals": 2
-        },
-        "overrides": []
-      }
-    },
-    {
-      "id": 13,
-      "type": "timeseries",
-      "title": "Streaming Byte Throughput",
-      "description": "Healthy/정상: bytes/sec proportional to chunk rate and typical token size. Attention/주의: bytes rate drops disproportionately vs chunk rate. Action Required/조치 필요: byte throughput near zero with active streaming traffic. No Data/런타임 데이터 없음: check Gateway scrape and streaming byte counter.",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "gridPos": {
-        "x": 18,
-        "y": 9,
-        "w": 6,
-        "h": 6
-      },
-      "targets": [
-        {
-          "expr": "sum(rate(streaming_bytes_total{service=\"gateway\",target=~\"$model\"}[$window])) by (target)",
-          "refId": "A",
-          "legendFormat": "{{target}}"
-        }
-      ],
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "none"
-        }
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "Bps",
-          "decimals": 1
-        },
-        "overrides": []
-      }
-    },
-    {
       "id": 9,
       "type": "timeseries",
-      "title": "Validation and Auth Issues",
+      "title": "Rejected Requests",
       "description": "Healthy/정상: low validation rejections and auth failures. Attention/주의: rising rejections may indicate client API misuse. Action Required/조치 필요: auth failures on user routes need security review. No Data/런타임 데이터 없음: check Gateway scrape and validation/auth counters.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
       },
       "gridPos": {
-        "x": 0,
-        "y": 15,
-        "w": 12,
+        "x": 12,
+        "y": 5,
+        "w": 6,
         "h": 6
       },
       "targets": [
@@ -528,16 +410,16 @@
     {
       "id": 10,
       "type": "timeseries",
-      "title": "Upstream Errors by Model",
+      "title": "Model Call Failures",
       "description": "Healthy/정상: upstream errors near zero. Attention/주의: non-zero upstream errors may indicate runtime instability. Action Required/조치 필요: sustained upstream errors need runtime drill-down. No Data/런타임 데이터 없음: check Gateway scrape and upstream error counter. VALIDATION_ERROR code indicates a gateway-side rejection before upstream was reached.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
       },
       "gridPos": {
-        "x": 12,
-        "y": 15,
-        "w": 12,
+        "x": 18,
+        "y": 5,
+        "w": 6,
         "h": 6
       },
       "targets": [
@@ -567,388 +449,563 @@
       }
     },
     {
-      "id": 11,
-      "type": "timeseries",
-      "title": "Streaming Time to First Token p95",
-      "description": "Healthy/정상: TTFT p95 within SLO. Attention/주의: rising TTFT before error rate often indicates runtime queue or KV pressure. Action Required/조치 필요: TTFT above SLO threshold needs runtime drill-down. No Data/런타임 데이터 없음: check Gateway scrape. Prompt / user text / model output are never used as labels.",
+      "id": 101,
+      "type": "row",
+      "title": "Streaming Details",
+      "description": "Action: expand for detailed investigation when the snapshot cards point here.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
       },
       "gridPos": {
         "x": 0,
-        "y": 21,
-        "w": 12,
-        "h": 6
+        "y": 11,
+        "w": 24,
+        "h": 1
       },
-      "targets": [
+      "collapsed": true,
+      "panels": [
         {
-          "expr": "histogram_quantile(0.95, sum(rate(streaming_time_to_first_chunk_seconds_bucket{service=\"gateway\",target=~\"$model\"}[$window])) by (le, target))",
-          "refId": "A",
-          "legendFormat": "{{target}} TTFT p95"
-        }
-      ],
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
+          "id": 6,
+          "type": "stat",
+          "title": "Streaming Usage Reports",
+          "description": "Healthy/정상: usage events proportional to completed streaming requests. Attention/주의: missing usage events may indicate incomplete accounting. No Data/런타임 데이터 없음: check Gateway scrape and streaming usage counter.",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 0,
+            "w": 8,
+            "h": 4
+          },
+          "targets": [
+            {
+              "expr": "sum(increase(streaming_usage_events_total{service=\"gateway\",target=~\"$model\"}[$window]))",
+              "refId": "A",
+              "legendFormat": "usage events"
+            }
+          ],
+          "options": {
+            "colorMode": "background",
+            "graphMode": "none",
+            "justifyMode": "center",
+            "textMode": "auto"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "decimals": 0
+            },
+            "overrides": []
+          }
         },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "none"
-        }
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "s",
-          "decimals": 3
+        {
+          "id": 8,
+          "type": "timeseries",
+          "title": "Streaming Output Rate",
+          "description": "Healthy/정상: chunks/sec increases with streaming traffic. Attention/주의: chunk rate drops while request rate holds may indicate relay stall. Action Required/조치 필요: chunk rate near zero with active streaming requests. No Data/런타임 데이터 없음: check Gateway scrape and streaming chunk counter.",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "gridPos": {
+            "x": 8,
+            "y": 0,
+            "w": 8,
+            "h": 6
+          },
+          "targets": [
+            {
+              "expr": "sum(rate(streaming_chunks_total{service=\"gateway\",target=~\"$model\"}[$window])) by (target)",
+              "refId": "A",
+              "legendFormat": "{{target}}"
+            }
+          ],
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "none"
+            }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "ops",
+              "decimals": 2
+            },
+            "overrides": []
+          }
         },
-        "overrides": []
-      }
+        {
+          "id": 13,
+          "type": "timeseries",
+          "title": "Streaming Data Sent",
+          "description": "Healthy/정상: bytes/sec proportional to chunk rate and typical token size. Attention/주의: bytes rate drops disproportionately vs chunk rate. Action Required/조치 필요: byte throughput near zero with active streaming traffic. No Data/런타임 데이터 없음: check Gateway scrape and streaming byte counter.",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "gridPos": {
+            "x": 16,
+            "y": 0,
+            "w": 8,
+            "h": 6
+          },
+          "targets": [
+            {
+              "expr": "sum(rate(streaming_bytes_total{service=\"gateway\",target=~\"$model\"}[$window])) by (target)",
+              "refId": "A",
+              "legendFormat": "{{target}}"
+            }
+          ],
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "none"
+            }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "Bps",
+              "decimals": 1
+            },
+            "overrides": []
+          }
+        },
+        {
+          "id": 11,
+          "type": "timeseries",
+          "title": "First Token Delay (p95)",
+          "description": "Healthy/정상: TTFT p95 within SLO. Attention/주의: rising TTFT before error rate often indicates runtime queue or KV pressure. Action Required/조치 필요: TTFT above SLO threshold needs runtime drill-down. No Data/런타임 데이터 없음: check Gateway scrape. Prompt / user text / model output are never used as labels.",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 6,
+            "w": 8,
+            "h": 6
+          },
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.95, sum(rate(streaming_time_to_first_chunk_seconds_bucket{service=\"gateway\",target=~\"$model\"}[$window])) by (le, target))",
+              "refId": "A",
+              "legendFormat": "{{target}} TTFT p95"
+            }
+          ],
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "none"
+            }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "s",
+              "decimals": 3
+            },
+            "overrides": []
+          }
+        },
+        {
+          "id": 12,
+          "type": "timeseries",
+          "title": "Full Stream Duration (p95)",
+          "description": "Healthy/정상: streaming duration p95 within model SLO. Attention/주의: duration trend increasing may indicate load pressure. Action Required/조치 필요: duration above SLO threshold. No Data/런타임 데이터 없음: check Gateway scrape. Status labels are terminal category only: completed, error, client_disconnect.",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "gridPos": {
+            "x": 8,
+            "y": 6,
+            "w": 8,
+            "h": 6
+          },
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.95, sum(rate(streaming_duration_seconds_bucket{service=\"gateway\",target=~\"$model\"}[$window])) by (le, target, status))",
+              "refId": "A",
+              "legendFormat": "{{target}} {{status}}"
+            }
+          ],
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "none"
+            }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "s",
+              "decimals": 3
+            },
+            "overrides": []
+          }
+        },
+        {
+          "id": 14,
+          "type": "timeseries",
+          "title": "Stream Size per Response (p95)",
+          "description": "Healthy/정상: chunks p95 consistent with response length distribution. Attention/주의: chunks spike or drop unexpectedly across models. Action Required/조치 필요: chunks near 0 with active streaming traffic. No Data/런타임 데이터 없음: check Gateway scrape. Status labels are terminal category only: completed, error, client_disconnect.",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "gridPos": {
+            "x": 16,
+            "y": 6,
+            "w": 8,
+            "h": 6
+          },
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.95, sum(rate(streaming_chunks_per_response_bucket{service=\"gateway\",target=~\"$model\"}[$window])) by (le, target, status))",
+              "refId": "A",
+              "legendFormat": "{{target}} {{status}}"
+            }
+          ],
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "none"
+            }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "decimals": 1
+            },
+            "overrides": []
+          }
+        }
+      ]
     },
     {
-      "id": 12,
-      "type": "timeseries",
-      "title": "Streaming Duration p95",
-      "description": "Healthy/정상: streaming duration p95 within model SLO. Attention/주의: duration trend increasing may indicate load pressure. Action Required/조치 필요: duration above SLO threshold. No Data/런타임 데이터 없음: check Gateway scrape. Status labels are terminal category only: completed, error, client_disconnect.",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "gridPos": {
-        "x": 12,
-        "y": 21,
-        "w": 6,
-        "h": 6
-      },
-      "targets": [
-        {
-          "expr": "histogram_quantile(0.95, sum(rate(streaming_duration_seconds_bucket{service=\"gateway\",target=~\"$model\"}[$window])) by (le, target, status))",
-          "refId": "A",
-          "legendFormat": "{{target}} {{status}}"
-        }
-      ],
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "none"
-        }
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "s",
-          "decimals": 3
-        },
-        "overrides": []
-      }
-    },
-    {
-      "id": 14,
-      "type": "timeseries",
-      "title": "Chunks per Response p95",
-      "description": "Healthy/정상: chunks p95 consistent with response length distribution. Attention/주의: chunks spike or drop unexpectedly across models. Action Required/조치 필요: chunks near 0 with active streaming traffic. No Data/런타임 데이터 없음: check Gateway scrape. Status labels are terminal category only: completed, error, client_disconnect.",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "gridPos": {
-        "x": 18,
-        "y": 21,
-        "w": 6,
-        "h": 6
-      },
-      "targets": [
-        {
-          "expr": "histogram_quantile(0.95, sum(rate(streaming_chunks_per_response_bucket{service=\"gateway\",target=~\"$model\"}[$window])) by (le, target, status))",
-          "refId": "A",
-          "legendFormat": "{{target}} {{status}}"
-        }
-      ],
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "none"
-        }
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "decimals": 1
-        },
-        "overrides": []
-      }
-    },
-    {
-      "id": 15,
-      "type": "timeseries",
-      "title": "Retrieval Request Rate",
-      "description": "Healthy/정상: expected retrieval traffic appears by route/model/backend/score_mode. Attention/주의: missing route or model series can mean Gateway metrics or request routing drift.",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "gridPos": {
-        "x": 0,
-        "y": 27,
-        "w": 12,
-        "h": 6
-      },
-      "targets": [
-        {
-          "expr": "sum by (route, model, backend, score_mode) (rate(retrieval_requests_total{service=\"gateway\",route=~\"/v1/retrieval/(rerank|score)\"}[$window]))",
-          "refId": "A",
-          "legendFormat": "{{route}} {{model}} {{backend}} {{score_mode}}"
-        }
-      ],
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "none"
-        }
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "reqps",
-          "decimals": 3
-        },
-        "overrides": []
-      }
-    },
-    {
-      "id": 16,
-      "type": "timeseries",
-      "title": "Retrieval p50/p95 Latency",
-      "description": "Healthy/정상: p50/p95 stay within retrieval SLO by route/model/backend/score_mode. Attention/주의: dense_cosine latency spikes should be checked against embedding-ko-vllm queue and GPU headroom.",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "gridPos": {
-        "x": 12,
-        "y": 27,
-        "w": 12,
-        "h": 6
-      },
-      "targets": [
-        {
-          "expr": "histogram_quantile(0.50, sum by (le, route, model, backend, score_mode) (rate(retrieval_request_duration_seconds_bucket{service=\"gateway\"}[$window])))",
-          "refId": "A",
-          "legendFormat": "p50 {{route}} {{model}} {{score_mode}}"
-        },
-        {
-          "expr": "histogram_quantile(0.95, sum by (le, route, model, backend, score_mode) (rate(retrieval_request_duration_seconds_bucket{service=\"gateway\"}[$window])))",
-          "refId": "B",
-          "legendFormat": "p95 {{route}} {{model}} {{score_mode}}"
-        }
-      ],
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "none"
-        }
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "s",
-          "decimals": 3
-        },
-        "overrides": []
-      }
-    },
-    {
-      "id": 17,
-      "type": "timeseries",
-      "title": "Retrieval Error Rate",
-      "description": "Healthy/정상: non-2xx rate is zero. Attention/주의: 422 indicates validation/capability mismatch; 503/504 indicates unavailable or timed-out retrieval upstream.",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "gridPos": {
-        "x": 0,
-        "y": 33,
-        "w": 12,
-        "h": 6
-      },
-      "targets": [
-        {
-          "expr": "sum by (route, model, backend, score_mode, status_code) (rate(retrieval_requests_total{service=\"gateway\",status_code!~\"2..\"}[$window]))",
-          "refId": "A",
-          "legendFormat": "{{status_code}} {{route}} {{model}} {{score_mode}}"
-        }
-      ],
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "none"
-        }
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "reqps",
-          "decimals": 3
-        },
-        "overrides": []
-      }
-    },
-    {
-      "id": 18,
-      "type": "timeseries",
-      "title": "Retrieval Items per Request",
-      "description": "Healthy/정상: items/request stays within configured limits. Attention/주의: sudden max-limit traffic can raise Dense retrieval latency and response size.",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "gridPos": {
-        "x": 12,
-        "y": 33,
-        "w": 12,
-        "h": 6
-      },
-      "targets": [
-        {
-          "expr": "histogram_quantile(0.95, sum by (le, route, model, backend, score_mode) (rate(retrieval_items_per_request_bucket{service=\"gateway\"}[$window])))",
-          "refId": "A",
-          "legendFormat": "p95 {{route}} {{model}} {{score_mode}}"
-        },
-        {
-          "expr": "sum by (route, model, backend, score_mode) (rate(retrieval_items_per_request_sum{service=\"gateway\"}[$window])) / sum by (route, model, backend, score_mode) (rate(retrieval_items_per_request_count{service=\"gateway\"}[$window]))",
-          "refId": "B",
-          "legendFormat": "avg {{route}} {{model}} {{score_mode}}"
-        }
-      ],
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "none"
-        }
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "decimals": 2
-        },
-        "overrides": []
-      }
-    },
-    {
-      "id": 19,
-      "type": "timeseries",
-      "title": "Token Embeddings Response Bytes",
-      "description": "Healthy/정상: token embedding response bytes stay bounded. Attention/주의: large payloads indicate indexing/debug calls should reduce item count or truncate tokens.",
+      "id": 102,
+      "type": "row",
+      "title": "Retrieval Details",
+      "description": "Action: expand for detailed investigation when the snapshot cards point here.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
       },
       "gridPos": {
         "x": 0,
-        "y": 39,
-        "w": 12,
-        "h": 6
+        "y": 12,
+        "w": 24,
+        "h": 1
       },
-      "targets": [
+      "collapsed": true,
+      "panels": [
         {
-          "expr": "histogram_quantile(0.95, sum by (le, model, backend, score_mode) (rate(retrieval_response_bytes_bucket{service=\"gateway\",route=\"/v1/retrieval/score\"}[$window])))",
-          "refId": "A",
-          "legendFormat": "p95 bytes {{model}} {{score_mode}}"
+          "id": 15,
+          "type": "timeseries",
+          "title": "Retrieval Requests",
+          "description": "Healthy/정상: expected retrieval traffic appears by route/model/backend/score_mode. Attention/주의: missing route or model series can mean Gateway metrics or request routing drift.",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 0,
+            "w": 12,
+            "h": 6
+          },
+          "targets": [
+            {
+              "expr": "sum by (route, model, backend, score_mode) (rate(retrieval_requests_total{service=\"gateway\",route=~\"/v1/retrieval/(rerank|score)\"}[$window]))",
+              "refId": "A",
+              "legendFormat": "{{route}} {{model}} {{backend}} {{score_mode}}"
+            }
+          ],
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "none"
+            }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "reqps",
+              "decimals": 3
+            },
+            "overrides": []
+          }
         },
         {
-          "expr": "sum by (model, backend, score_mode) (rate(retrieval_response_bytes_sum{service=\"gateway\",route=\"/v1/retrieval/score\"}[$window])) / sum by (model, backend, score_mode) (rate(retrieval_response_bytes_count{service=\"gateway\",route=\"/v1/retrieval/score\"}[$window]))",
-          "refId": "B",
-          "legendFormat": "avg bytes {{model}} {{score_mode}}"
-        }
-      ],
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
+          "id": 16,
+          "type": "timeseries",
+          "title": "Retrieval Response Delay",
+          "description": "Healthy/정상: p50/p95 stay within retrieval SLO by route/model/backend/score_mode. Attention/주의: dense_cosine latency spikes should be checked against embedding-ko-vllm queue and GPU headroom.",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "gridPos": {
+            "x": 12,
+            "y": 0,
+            "w": 12,
+            "h": 6
+          },
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.50, sum by (le, route, model, backend, score_mode) (rate(retrieval_request_duration_seconds_bucket{service=\"gateway\"}[$window])))",
+              "refId": "A",
+              "legendFormat": "p50 {{route}} {{model}} {{score_mode}}"
+            },
+            {
+              "expr": "histogram_quantile(0.95, sum by (le, route, model, backend, score_mode) (rate(retrieval_request_duration_seconds_bucket{service=\"gateway\"}[$window])))",
+              "refId": "B",
+              "legendFormat": "p95 {{route}} {{model}} {{score_mode}}"
+            }
+          ],
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "none"
+            }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "s",
+              "decimals": 3
+            },
+            "overrides": []
+          }
         },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "none"
-        }
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "bytes",
-          "decimals": 0
+        {
+          "id": 17,
+          "type": "timeseries",
+          "title": "Retrieval Failures",
+          "description": "Healthy/정상: non-2xx rate is zero. Attention/주의: 422 indicates validation/capability mismatch; 503/504 indicates unavailable or timed-out retrieval upstream.",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 6,
+            "w": 12,
+            "h": 6
+          },
+          "targets": [
+            {
+              "expr": "sum by (route, model, backend, score_mode, status_code) (rate(retrieval_requests_total{service=\"gateway\",status_code!~\"2..\"}[$window]))",
+              "refId": "A",
+              "legendFormat": "{{status_code}} {{route}} {{model}} {{score_mode}}"
+            }
+          ],
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "none"
+            }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "reqps",
+              "decimals": 3
+            },
+            "overrides": []
+          }
         },
-        "overrides": []
-      }
+        {
+          "id": 18,
+          "type": "timeseries",
+          "title": "Retrieval Items per Request",
+          "description": "Healthy/정상: items/request stays within configured limits. Attention/주의: sudden max-limit traffic can raise Dense retrieval latency and response size.",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "gridPos": {
+            "x": 12,
+            "y": 6,
+            "w": 12,
+            "h": 6
+          },
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.95, sum by (le, route, model, backend, score_mode) (rate(retrieval_items_per_request_bucket{service=\"gateway\"}[$window])))",
+              "refId": "A",
+              "legendFormat": "p95 {{route}} {{model}} {{score_mode}}"
+            },
+            {
+              "expr": "sum by (route, model, backend, score_mode) (rate(retrieval_items_per_request_sum{service=\"gateway\"}[$window])) / sum by (route, model, backend, score_mode) (rate(retrieval_items_per_request_count{service=\"gateway\"}[$window]))",
+              "refId": "B",
+              "legendFormat": "avg {{route}} {{model}} {{score_mode}}"
+            }
+          ],
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "none"
+            }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "decimals": 2
+            },
+            "overrides": []
+          }
+        }
+      ]
     },
     {
-      "id": 20,
-      "type": "timeseries",
-      "title": "Korean Embedding vLLM Upstream p95",
-      "description": "Healthy/정상: local-embed-ko upstream p95 follows retrieval request latency. Attention/주의: upstream latency without Gateway latency points to embedding-ko-vllm native runtime pressure.",
+      "id": 103,
+      "type": "row",
+      "title": "Embedding Details",
+      "description": "Action: expand for detailed investigation when the snapshot cards point here.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
       },
       "gridPos": {
-        "x": 12,
-        "y": 39,
-        "w": 12,
-        "h": 6
+        "x": 0,
+        "y": 13,
+        "w": 24,
+        "h": 1
       },
-      "targets": [
+      "collapsed": true,
+      "panels": [
         {
-          "expr": "histogram_quantile(0.95, sum by (le, path) (rate(upstream_request_duration_seconds_bucket{service=\"gateway\",target=\"local-embed-ko\",path=~\"retrieval/(rerank|score)\"}[$window])))",
-          "refId": "A",
-          "legendFormat": "p95 {{path}}"
-        }
-      ],
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
+          "id": 19,
+          "type": "timeseries",
+          "title": "Embedding Response Size",
+          "description": "Healthy/정상: token embedding response bytes stay bounded. Attention/주의: large payloads indicate indexing/debug calls should reduce item count or truncate tokens.",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 0,
+            "w": 12,
+            "h": 6
+          },
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.95, sum by (le, model, backend, score_mode) (rate(retrieval_response_bytes_bucket{service=\"gateway\",route=\"/v1/retrieval/score\"}[$window])))",
+              "refId": "A",
+              "legendFormat": "p95 bytes {{model}} {{score_mode}}"
+            },
+            {
+              "expr": "sum by (model, backend, score_mode) (rate(retrieval_response_bytes_sum{service=\"gateway\",route=\"/v1/retrieval/score\"}[$window])) / sum by (model, backend, score_mode) (rate(retrieval_response_bytes_count{service=\"gateway\",route=\"/v1/retrieval/score\"}[$window]))",
+              "refId": "B",
+              "legendFormat": "avg bytes {{model}} {{score_mode}}"
+            }
+          ],
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "none"
+            }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "bytes",
+              "decimals": 0
+            },
+            "overrides": []
+          }
         },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "none"
+        {
+          "id": 20,
+          "type": "timeseries",
+          "title": "Korean Embedding Delay (p95)",
+          "description": "Healthy/정상: local-embed-ko upstream p95 follows retrieval request latency. Attention/주의: upstream latency without Gateway latency points to embedding-ko-vllm native runtime pressure.",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "gridPos": {
+            "x": 12,
+            "y": 0,
+            "w": 12,
+            "h": 6
+          },
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.95, sum by (le, path) (rate(upstream_request_duration_seconds_bucket{service=\"gateway\",target=\"local-embed-ko\",path=~\"retrieval/(rerank|score)\"}[$window])))",
+              "refId": "A",
+              "legendFormat": "p95 {{path}}"
+            }
+          ],
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "none"
+            }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "s",
+              "decimals": 3
+            },
+            "overrides": []
+          }
         }
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "s",
-          "decimals": 3
-        },
-        "overrides": []
-      }
+      ]
     }
   ],
   "refresh": "30s",

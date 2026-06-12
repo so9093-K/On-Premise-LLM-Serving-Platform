@@ -333,10 +333,10 @@ operator_status_ux:
   - warm_readiness_evidence
   design_rule: No panel should require reading raw logs, prompts, generated output,
     or stack traces to understand current status.
-  dashboard_language_policy: Grafana dashboard and panel titles use English only;
-    Korean may remain in operator guide body text and documentation.
-  visible_runbook_rule: Each dashboard starts with a Text panel so first-time operators
-    do not need to discover tooltip descriptions.
+  dashboard_language_policy: Grafana dashboard and panel titles use English only
+    and should use operator-facing judgment language before implementation terms.
+  visible_runbook_rule: Each dashboard starts with a compact snapshot text panel;
+    detailed runbook guidance belongs in panel descriptions and operations docs.
   dashboard_variable_scope: Home-inclusive variable list; user_route is Serving
     Home only.
   dashboard_variables:

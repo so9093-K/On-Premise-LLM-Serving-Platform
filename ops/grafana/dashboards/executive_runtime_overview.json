@@ -73,8 +73,8 @@
     {
       "id": 100,
       "type": "text",
-      "title": "Operator Guide",
-      "description": "Action guide is visible without opening panel tooltip. No Data means check scrape/exporter before assuming healthy zero.",
+      "title": "Service Snapshot",
+      "description": "Action: read service health, demand, response delay, failures, capacity, and monitoring coverage.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -83,12 +83,12 @@
         "x": 0,
         "y": 0,
         "w": 24,
-        "h": 5
+        "h": 1
       },
       "targets": [],
       "options": {
         "mode": "markdown",
-        "content": "## 이 화면을 보는 법 / How to read this board\n1. **Overall Status**가 빨강이면 구성요소 준비 상태와 scrape 상태를 먼저 확인합니다.\n2. 지연만 높고 오류율이 낮으면 vLLM queue, KV cache, GPU headroom을 확인합니다.\n3. 오류율이 높으면 upstream error, validation rejection, auth failure를 확인합니다.\n4. **No Data**은 정상 0이 아니라 exporter 또는 Prometheus scrape 문제일 수 있습니다.\n5. Dashboard and panel titles are English-only; PromQL labels stay ASCII/English.\n"
+        "content": "**Service snapshot** · health, demand, delay, failures, capacity, and monitoring coverage."
       },
       "fieldConfig": {
         "defaults": {},
@@ -98,7 +98,7 @@
     {
       "id": 1,
       "type": "stat",
-      "title": "Overall Status",
+      "title": "Service Health",
       "description": "Healthy/정상: all services ready (min=1). Action Required/조치 필요: any service not ready (min=0). No Data/런타임 데이터 없음: check Prometheus scrape/exporter. Uses min() so one unhealthy service turns the whole indicator red. See Component Readiness for per-service detail.",
       "datasource": {
         "type": "prometheus",
@@ -106,7 +106,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 5,
+        "y": 1,
         "w": 4,
         "h": 4
       },
@@ -160,7 +160,7 @@
     {
       "id": 2,
       "type": "stat",
-      "title": "User Traffic",
+      "title": "User Requests",
       "description": "Healthy/정상: observed live headroom stays above 5GiB. Attention/주의: 4-5GiB means reserve is thinning. Action Required/조치 필요: below 4GiB requires load/context review. No Data/런타임 데이터 없음: check Prometheus scrape/exporter.",
       "datasource": {
         "type": "prometheus",
@@ -168,7 +168,7 @@
       },
       "gridPos": {
         "x": 4,
-        "y": 5,
+        "y": 1,
         "w": 4,
         "h": 4
       },
@@ -191,7 +191,7 @@
     {
       "id": 3,
       "type": "stat",
-      "title": "p95 Latency (5m)",
+      "title": "Response Delay (p95, 5m)",
       "description": "Healthy/정상: < 5s. Attention/주의: 5–10s. Action Required/조치 필요: > 10s. No Data/런타임 데이터 없음: check Prometheus scrape/exporter. Uses recording rule model_runtime_http_p95_latency_seconds with fixed 5m window — not affected by $window variable.",
       "datasource": {
         "type": "prometheus",
@@ -199,7 +199,7 @@
       },
       "gridPos": {
         "x": 8,
-        "y": 5,
+        "y": 1,
         "w": 4,
         "h": 4
       },
@@ -244,15 +244,15 @@
     {
       "id": 4,
       "type": "stat",
-      "title": "Error Rate",
-      "description": "Healthy/정상: expected range. Attention/주의: review trend. Action Required/조치 필요: investigate owner/runbook. No Data/런타임 데이터 없음: check Prometheus scrape/exporter.",
+      "title": "Failed Request Rate",
+      "description": "Healthy/정상: expected range. Attention/주의: review trend. Action Required/조치 필요: investigate the owning service. No Data/런타임 데이터 없음: check Prometheus scrape/exporter.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
       },
       "gridPos": {
         "x": 12,
-        "y": 5,
+        "y": 1,
         "w": 4,
         "h": 4
       },
@@ -297,15 +297,15 @@
     {
       "id": 5,
       "type": "stat",
-      "title": "GPU Headroom",
-      "description": "Healthy/정상: expected range. Attention/주의: review trend. Action Required/조치 필요: investigate owner/runbook. No Data/런타임 데이터 없음: check Prometheus scrape/exporter.",
+      "title": "GPU Safety Margin",
+      "description": "Healthy/정상: expected range. Attention/주의: review trend. Action Required/조치 필요: investigate the owning service. No Data/런타임 데이터 없음: check Prometheus scrape/exporter.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
       },
       "gridPos": {
         "x": 16,
-        "y": 5,
+        "y": 1,
         "w": 4,
         "h": 4
       },
@@ -345,15 +345,15 @@
     {
       "id": 8,
       "type": "stat",
-      "title": "Scrape Health",
-      "description": "Healthy/정상: expected range. Attention/주의: review trend. Action Required/조치 필요: investigate owner/runbook. No Data/런타임 데이터 없음: check Prometheus scrape/exporter.",
+      "title": "Monitoring Coverage",
+      "description": "Healthy/정상: expected range. Attention/주의: review trend. Action Required/조치 필요: investigate the owning service. No Data/런타임 데이터 없음: check Prometheus scrape/exporter.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
       },
       "gridPos": {
         "x": 20,
-        "y": 5,
+        "y": 1,
         "w": 4,
         "h": 4
       },
@@ -392,15 +392,15 @@
     {
       "id": 6,
       "type": "timeseries",
-      "title": "Component Readiness",
-      "description": "Healthy/정상: expected range. Attention/주의: review trend. Action Required/조치 필요: investigate owner/runbook. No Data/런타임 데이터 없음: check Prometheus scrape/exporter.",
+      "title": "Component Availability",
+      "description": "Healthy/정상: expected range. Attention/주의: review trend. Action Required/조치 필요: investigate the owning service. No Data/런타임 데이터 없음: check Prometheus scrape/exporter.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
       },
       "gridPos": {
         "x": 0,
-        "y": 9,
+        "y": 5,
         "w": 12,
         "h": 6
       },
@@ -426,15 +426,15 @@
     {
       "id": 7,
       "type": "timeseries",
-      "title": "Risk Signal Health",
-      "description": "Healthy/정상: expected range. Attention/주의: review trend. Action Required/조치 필요: investigate owner/runbook. No Data/런타임 데이터 없음: check Prometheus scrape/exporter.",
+      "title": "Risk Signal Activity",
+      "description": "Healthy/정상: expected range. Attention/주의: review trend. Action Required/조치 필요: investigate the owning service. No Data/런타임 데이터 없음: check Prometheus scrape/exporter.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
       },
       "gridPos": {
         "x": 12,
-        "y": 9,
+        "y": 5,
         "w": 12,
         "h": 6
       },
@@ -465,15 +465,15 @@
     {
       "id": 9,
       "type": "timeseries",
-      "title": "Gateway Input & Auth Issues",
-      "description": "Healthy/정상: expected range. Attention/주의: review trend. Action Required/조치 필요: investigate owner/runbook. No Data/런타임 데이터 없음: check Prometheus scrape/exporter.",
+      "title": "Request and Auth Problems",
+      "description": "Healthy/정상: expected range. Attention/주의: review trend. Action Required/조치 필요: investigate the owning service. No Data/런타임 데이터 없음: check Prometheus scrape/exporter.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
       },
       "gridPos": {
         "x": 0,
-        "y": 15,
+        "y": 11,
         "w": 12,
         "h": 6
       },
@@ -504,15 +504,15 @@
     {
       "id": 10,
       "type": "timeseries",
-      "title": "Upstream Errors",
-      "description": "Healthy/정상: expected range. Attention/주의: review trend. Action Required/조치 필요: investigate owner/runbook. No Data/런타임 데이터 없음: check Prometheus scrape/exporter.",
+      "title": "Model Call Failures",
+      "description": "Healthy/정상: expected range. Attention/주의: review trend. Action Required/조치 필요: investigate the owning service. No Data/런타임 데이터 없음: check Prometheus scrape/exporter.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
       },
       "gridPos": {
         "x": 12,
-        "y": 15,
+        "y": 11,
         "w": 12,
         "h": 6
       },
