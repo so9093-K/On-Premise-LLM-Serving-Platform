@@ -1117,8 +1117,8 @@
         {
           "id": 15,
           "type": "timeseries",
-          "title": "Generation Speed",
-          "description": "Healthy/정상: throughput follows user traffic. Attention/주의: throughput without user traffic may be background activity. No Data/런타임 데이터 없음: vLLM token metric absent.",
+          "title": "Token Throughput",
+          "description": "Healthy/정상: prompt+generation tokens follow user traffic. Attention/주의: token throughput without user traffic may be background activity. No Data/런타임 데이터 없음: vLLM token metric absent.",
           "datasource": {
             "type": "prometheus",
             "uid": "${datasource}"
@@ -1149,7 +1149,7 @@
           },
           "fieldConfig": {
             "defaults": {
-              "unit": "ops"
+              "unit": "suffix: tok/s"
             },
             "overrides": []
           }

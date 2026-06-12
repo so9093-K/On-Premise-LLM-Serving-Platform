@@ -92,14 +92,14 @@ def recording_rule_projection(*, registry: ModelRegistry) -> dict[str, Any]:
             "vllm_queue_depth",
             "vllm_token_throughput_per_second",
             "vllm_container_memory_usage_bytes",
-            "vllm_container_cpu_usage_ratio",
+            "vllm_container_cpu_cores_used",
         ],
         "cadvisor_bridge_expressions": {
             "vllm_container_memory_usage_bytes": (
                 'max by (container_label_com_docker_compose_service) '
                 f'(container_memory_usage_bytes{{container_label_com_docker_compose_service=~"{compose_regex}"}})'
             ),
-            "vllm_container_cpu_usage_ratio": (
+            "vllm_container_cpu_cores_used": (
                 'sum by (container_label_com_docker_compose_service) '
                 f'(rate(container_cpu_usage_seconds_total{{container_label_com_docker_compose_service=~"{compose_regex}"}}[1m]))'
             ),

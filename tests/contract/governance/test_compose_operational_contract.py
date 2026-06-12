@@ -23,7 +23,7 @@ def test_full_stack_compose_and_prometheus_paths_are_network_correct() -> None:
 
     rules = (ROOT / "ops/prometheus/rules/model_runtime.rules.yml").read_text(encoding="utf-8")
     assert "vllm_container_memory_usage_bytes" in rules
-    assert "vllm_container_cpu_usage_ratio" in rules
+    assert "vllm_container_cpu_cores_used" in rules
     assert "container_label_com_docker_compose_service" in rules
     assert "vllm:kv_cache_usage_perc" in rules
     assert "(vllm:kv_cache_usage_perc <= 1)" in rules
@@ -162,4 +162,3 @@ def test_production_compose_files_have_no_build_blocks() -> None:
                 f"{rel}: service '{svc_name}' must not have a 'build' block. "
                 f"Use ops/compose/full-stack.local-build.yaml for local builds."
             )
-

@@ -532,12 +532,12 @@
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "ops",
+          "unit": "suffix: tok/s",
           "decimals": 2
         },
         "overrides": []
       },
-      "description": "Healthy: visible generation throughput during active traffic. Attention: sudden drop without traffic decrease. Action Required: near zero with active requests. No Data: check vllm-runtimes scrape."
+      "description": "Healthy: visible prompt+generation token throughput during active traffic. Attention: sudden drop without traffic decrease. Action Required: near zero with active requests. No Data: check vllm-runtimes scrape."
     },
     {
       "id": 8,
@@ -579,7 +579,7 @@
     {
       "id": 9,
       "type": "timeseries",
-      "title": "Container CPU Usage per Model",
+      "title": "CPU Cores Used per Model",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -592,7 +592,7 @@
       },
       "targets": [
         {
-          "expr": "vllm_container_cpu_usage_ratio{container_label_com_docker_compose_service=~\"$runtime_service\"}",
+          "expr": "vllm_container_cpu_cores_used{container_label_com_docker_compose_service=~\"$runtime_service\"}",
           "refId": "A",
           "legendFormat": "{{container_label_com_docker_compose_service}}"
         }
@@ -606,12 +606,12 @@
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "percentunit",
-          "decimals": 2
+          "unit": "suffix: cores",
+          "decimals": 3
         },
         "overrides": []
       },
-      "description": "Healthy: normal activity. Attention: sustained high. Action Required: near 100% — investigate process. No Data: check cAdvisor scrape."
+      "description": "Healthy: normal core usage. Attention: sustained high core usage. Action Required: high cores used while GPU work is blocked. No Data: check cAdvisor scrape."
     }
   ],
   "refresh": "30s",

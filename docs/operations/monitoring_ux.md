@@ -33,7 +33,7 @@
 | `serving_home` | Service Verdict, Serving State, User Requests, Monitoring Coverage, GPU Safety Margin, Attention Needed | operator |
 | `executive_runtime_overview` | Service Health, User Requests, Response Delay, Failed Request Rate, GPU Safety Margin, Monitoring Coverage | reviewer/operator |
 | `api_experience` | Chat Requests, Chat Response Delay, Chat Failures, Streaming Failures, Delay Split, retrieval/embedding detail | gateway/runtime engineer |
-| `model_runtime_deep_dive` | Generation Speed, Waiting Requests, Capacity Used, Model Response Delay, Runtime CPU/RAM | runtime engineer |
+| `model_runtime_deep_dive` | Token Throughput, Waiting Requests, Capacity Used, Average Model Response Time, Model Response Delay, CPU Cores Used, Runtime RAM | runtime engineer |
 | `risk_signal_operations` | Risk Checks, Risk Detections, Risk Check Timeouts, Unsafe Response Fields, Detector Availability | safety/policy reviewer |
 | `observability_data_quality` | Systems Visible, Systems Reporting, Missing Sources, metric source availability, derived signal health | operator/platform engineer |
 
@@ -119,10 +119,10 @@ vllm_kv_cache_usage_ratio{model=~"$model",runtime_service=~"$runtime_service"}
 vllm_queue_depth{model=~"$model",runtime_service=~"$runtime_service"}
 vllm_token_throughput_per_second{model=~"$model",runtime_service=~"$runtime_service"}
 vllm_container_memory_usage_bytes{container_label_com_docker_compose_service=~"$runtime_service"}
-vllm_container_cpu_usage_ratio{container_label_com_docker_compose_service=~"$runtime_service"}
+vllm_container_cpu_cores_used{container_label_com_docker_compose_service=~"$runtime_service"}
 ```
 
-DCGM exporter는 단일 GPU의 전체 VRAM, 온도, 전력, utilization을 본다. 모델별 실제 작업량과 병목은 vLLM metric과 cAdvisor recording rule을 우선 확인한다.
+`vllm_token_throughput_per_second`는 request operations가 아니라 prompt+generation token/sec이다. `vllm_container_cpu_cores_used`는 host 전체 CPU percentage가 아니라 사용 중인 CPU core 수이다. DCGM exporter는 단일 GPU의 전체 VRAM, 온도, 전력, utilization을 본다. 모델별 실제 작업량과 병목은 vLLM metric과 cAdvisor recording rule을 우선 확인한다.
 
 ## Streaming fast path metric
 
@@ -199,6 +199,8 @@ streaming_client_disconnects_total{service="gateway",target="local-main",phase="
 | `Model Response Delay (p95, 5m)` | `model_runtime_deep_dive` | `model_runtime_upstream_p95_latency_seconds` | 5m 고정 |
 
 panel title에 `(5m)`을 표시하여 `$window` 선택과 무관함을 명시한다. 더 짧거나 긴 window가 필요하면 recording rule 대신 raw histogram query를 사용한다.
+
+`Average Model Response Time`과 `Average Delay: Gateway vs Model`은 raw histogram의 `_sum/_count`를 사용하므로 `$window` 선택을 따른다.
 
 ## Version/Build/Runtime info backlog
 

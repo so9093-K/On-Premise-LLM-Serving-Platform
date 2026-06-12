@@ -44,7 +44,7 @@ groups:
       # container names vary by project directory, so use the compose service label.
       - record: vllm_container_memory_usage_bytes
         expr: max by (container_label_com_docker_compose_service) (container_memory_usage_bytes{container_label_com_docker_compose_service=~"main-llm-vllm|embedding-vllm|embedding-ko-vllm|risk-prompt-vllm"})
-      - record: vllm_container_cpu_usage_ratio
+      - record: vllm_container_cpu_cores_used
         expr: sum by (container_label_com_docker_compose_service) (rate(container_cpu_usage_seconds_total{container_label_com_docker_compose_service=~"main-llm-vllm|embedding-vllm|embedding-ko-vllm|risk-prompt-vllm"}[1m]))
       # Observability trust signals — expected vs observed scrape target counts.
       # ai_expected_critical_targets reflects the reference topology (8 = gateway +

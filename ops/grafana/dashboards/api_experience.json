@@ -403,7 +403,7 @@
           },
           "gridPos": {
             "x": 0,
-            "y": 6,
+            "y": 12,
             "w": 12,
             "h": 6
           },
@@ -417,6 +417,52 @@
               "expr": "histogram_quantile(0.95, sum(rate(upstream_request_duration_seconds_bucket{service=\"gateway\",target=~\"$model\",path=~\"chat/completions(:stream)?\"}[$window])) by (le, target))",
               "refId": "B",
               "legendFormat": "upstream {{target}} p95"
+            }
+          ],
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "none"
+            }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "s",
+              "decimals": 3
+            },
+            "overrides": []
+          }
+        },
+        {
+          "id": 105,
+          "type": "timeseries",
+          "title": "Average Delay: Gateway vs Model",
+          "description": "Healthy/정상: average Gateway and model-call latency stay close and within SLO. Attention/주의: Gateway average above model average indicates Gateway overhead; model average rising indicates runtime pressure. No Data/런타임 데이터 없음: check Gateway scrape and upstream latency histogram.",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "gridPos": {
+            "x": 12,
+            "y": 12,
+            "w": 12,
+            "h": 6
+          },
+          "targets": [
+            {
+              "expr": "sum(rate(http_request_duration_seconds_sum{service=\"gateway\",route=\"/v1/chat/completions\"}[$window])) / sum(rate(http_request_duration_seconds_count{service=\"gateway\",route=\"/v1/chat/completions\"}[$window]))",
+              "refId": "A",
+              "legendFormat": "gateway chat avg"
+            },
+            {
+              "expr": "sum by (target) (rate(upstream_request_duration_seconds_sum{service=\"gateway\",target=~\"$model\",path=~\"chat/completions(:stream)?\"}[$window])) / sum by (target) (rate(upstream_request_duration_seconds_count{service=\"gateway\",target=~\"$model\",path=~\"chat/completions(:stream)?\"}[$window]))",
+              "refId": "B",
+              "legendFormat": "model {{target}} avg"
             }
           ],
           "options": {

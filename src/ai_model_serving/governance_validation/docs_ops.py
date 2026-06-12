@@ -201,7 +201,7 @@ def validate_ops_templates() -> None:
     if labels != expected_labels:
         raise SystemExit(f'vLLM scrape labels must use logical model ids and runtime services: {labels}')
     rules = (ROOT / 'ops/prometheus/rules/model_runtime.rules.yml').read_text(encoding='utf-8')
-    for record in ['vllm_container_memory_usage_bytes', 'vllm_container_cpu_usage_ratio', 'container_label_com_docker_compose_service']:
+    for record in ['vllm_container_memory_usage_bytes', 'vllm_container_cpu_cores_used', 'container_label_com_docker_compose_service']:
         if record not in rules:
             raise SystemExit(f'prometheus recording rules missing per-container resource bridge: {record}')
     if registry.monitoring_compose_service_regex() not in rules:

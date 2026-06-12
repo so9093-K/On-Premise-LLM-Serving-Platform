@@ -378,7 +378,7 @@
           "gridPos": {
             "x": 0,
             "y": 0,
-            "w": 12,
+            "w": 8,
             "h": 6
           },
           "targets": [
@@ -420,34 +420,6 @@
           }
         },
         {
-          "id": 5,
-          "type": "barchart",
-          "title": "Risk Types",
-          "description": "Healthy/정상: expected range. Attention/주의: review trend. Action Required/조치 필요: investigate the owning service. No Data/런타임 데이터 없음: check Prometheus scrape/exporter.",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          },
-          "gridPos": {
-            "x": 12,
-            "y": 0,
-            "w": 12,
-            "h": 6
-          },
-          "targets": [
-            {
-              "expr": "sum(increase(risk_signal_detected_total[$window])) by (risk_code)",
-              "refId": "A",
-              "legendFormat": "{{risk_code}}"
-            }
-          ],
-          "options": {},
-          "fieldConfig": {
-            "defaults": {},
-            "overrides": []
-          }
-        },
-        {
           "id": 6,
           "type": "barchart",
           "title": "System Signals",
@@ -457,9 +429,9 @@
             "uid": "${datasource}"
           },
           "gridPos": {
-            "x": 0,
-            "y": 6,
-            "w": 12,
+            "x": 8,
+            "y": 0,
+            "w": 8,
             "h": 6
           },
           "targets": [
@@ -485,9 +457,9 @@
             "uid": "${datasource}"
           },
           "gridPos": {
-            "x": 12,
-            "y": 6,
-            "w": 12,
+            "x": 16,
+            "y": 0,
+            "w": 8,
             "h": 6
           },
           "targets": [
@@ -514,8 +486,8 @@
           },
           "gridPos": {
             "x": 0,
-            "y": 12,
-            "w": 12,
+            "y": 6,
+            "w": 24,
             "h": 6
           },
           "targets": [

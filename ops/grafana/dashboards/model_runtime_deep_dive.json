@@ -74,7 +74,7 @@
     {
       "id": 1,
       "type": "stat",
-      "title": "Generation Speed",
+      "title": "Token Throughput",
       "description": "Healthy/정상: expected range. Attention/주의: review trend. Action Required/조치 필요: investigate the owning service. No Data/런타임 데이터 없음: check Prometheus scrape/exporter.",
       "datasource": {
         "type": "prometheus",
@@ -83,7 +83,7 @@
       "gridPos": {
         "x": 0,
         "y": 1,
-        "w": 6,
+        "w": 5,
         "h": 4
       },
       "targets": [
@@ -96,7 +96,7 @@
       "options": {},
       "fieldConfig": {
         "defaults": {
-          "unit": "ops",
+          "unit": "suffix: tok/s",
           "decimals": 2
         },
         "overrides": []
@@ -112,9 +112,9 @@
         "uid": "${datasource}"
       },
       "gridPos": {
-        "x": 6,
+        "x": 5,
         "y": 1,
-        "w": 6,
+        "w": 5,
         "h": 4
       },
       "targets": [
@@ -165,9 +165,9 @@
         "uid": "${datasource}"
       },
       "gridPos": {
-        "x": 12,
+        "x": 10,
         "y": 1,
-        "w": 6,
+        "w": 5,
         "h": 4
       },
       "targets": [
@@ -211,6 +211,59 @@
       }
     },
     {
+      "id": 102,
+      "type": "stat",
+      "title": "Average Model Response Time",
+      "description": "Healthy/정상: average model-call latency within SLO. Attention/주의: rising average before p95 often means broad slowdown. Action Required/조치 필요: sustained high average latency. No Data/런타임 데이터 없음: check Gateway upstream latency histogram.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "x": 15,
+        "y": 1,
+        "w": 5,
+        "h": 4
+      },
+      "targets": [
+        {
+          "expr": "sum by (target) (rate(upstream_request_duration_seconds_sum{service=\"gateway\",target=~\"$model\"}[$window])) / sum by (target) (rate(upstream_request_duration_seconds_count{service=\"gateway\",target=~\"$model\"}[$window]))",
+          "refId": "A",
+          "legendFormat": "{{target}} avg"
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "decimals": 3,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 5.0
+              },
+              {
+                "color": "red",
+                "value": 10.0
+              }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
       "id": 4,
       "type": "stat",
       "title": "Model Response Delay (p95, 5m)",
@@ -220,9 +273,9 @@
         "uid": "${datasource}"
       },
       "gridPos": {
-        "x": 18,
+        "x": 20,
         "y": 1,
-        "w": 6,
+        "w": 4,
         "h": 4
       },
       "targets": [
@@ -376,7 +429,7 @@
         {
           "id": 6,
           "type": "timeseries",
-          "title": "Generation Speed Over Time",
+          "title": "Token Throughput Over Time",
           "description": "Healthy/정상: expected range. Attention/주의: review trend. Action Required/조치 필요: investigate the owning service. No Data/런타임 데이터 없음: check Prometheus scrape/exporter.",
           "datasource": {
             "type": "prometheus",
@@ -404,7 +457,7 @@
           },
           "fieldConfig": {
             "defaults": {
-              "unit": "ops",
+              "unit": "suffix: tok/s",
               "decimals": 2
             },
             "overrides": []
@@ -450,7 +503,7 @@
         {
           "id": 8,
           "type": "timeseries",
-          "title": "Runtime CPU",
+          "title": "CPU Cores Used",
           "description": "Healthy/정상: expected range. Attention/주의: review trend. Action Required/조치 필요: investigate the owning service. No Data/런타임 데이터 없음: check Prometheus scrape/exporter.",
           "datasource": {
             "type": "prometheus",
@@ -464,7 +517,7 @@
           },
           "targets": [
             {
-              "expr": "vllm_container_cpu_usage_ratio{container_label_com_docker_compose_service=~\"$runtime_service\"}",
+              "expr": "vllm_container_cpu_cores_used{container_label_com_docker_compose_service=~\"$runtime_service\"}",
               "refId": "A",
               "legendFormat": "{{container_label_com_docker_compose_service}}"
             }
@@ -478,8 +531,8 @@
           },
           "fieldConfig": {
             "defaults": {
-              "unit": "percentunit",
-              "decimals": 2
+              "unit": "suffix: cores",
+              "decimals": 3
             },
             "overrides": []
           }

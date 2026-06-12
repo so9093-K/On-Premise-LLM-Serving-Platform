@@ -57,7 +57,7 @@ monitoring_stack:
       - GPU Memory Used vs Budget
       - Waiting Requests
       - Model Capacity Used
-      - Generation Speed
+      - Token Throughput
       - GPU Workload
       - Evidence Details
       semantic_panels:
@@ -84,6 +84,7 @@ monitoring_stack:
       - OOM / Restarts
       - GPU Utilization
       - VRAM Used vs Budget
+      - CPU Cores Used per Model
     - path: ops/grafana/dashboards/risk_signal_operations.json
       required_panels:
       - Risk Checks
@@ -104,9 +105,10 @@ monitoring_stack:
       - Embedding Details
     - path: ops/grafana/dashboards/model_runtime_deep_dive.json
       required_panels:
-      - Generation Speed
+      - Token Throughput
       - Waiting Requests
       - Capacity Used
+      - Average Model Response Time
       collapsed_detail_rows:
       - Runtime Details
     - path: ops/grafana/dashboards/observability_data_quality.json
@@ -196,7 +198,7 @@ metric_sources:
     compose_service_label: container_label_com_docker_compose_service
     required_metrics:
     - vllm_container_memory_usage_bytes
-    - vllm_container_cpu_usage_ratio
+    - vllm_container_cpu_cores_used
     - container_oom_events_total
     - container_start_time_seconds
     source: cadvisor_recording_rules
