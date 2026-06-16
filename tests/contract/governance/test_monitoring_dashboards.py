@@ -35,20 +35,11 @@ def test_operator_grafana_status_board_is_user_facing() -> None:
     assert {item["level"] for item in operator["status_levels"]} == {"green", "yellow", "red", "gray"}
     status_doc = (ROOT / "docs/operations/grafana_status_board.md").read_text(encoding="utf-8")
     assert "지금 요청을 안전하게 처리할 수 있는가?" in status_doc
-    exec_dashboard = json.loads((ROOT / "ops/grafana/dashboards/executive_runtime_overview.json").read_text(encoding="utf-8"))
-    titles = {panel["title"] for panel in exec_dashboard["panels"]}
-    exec_required = set(grafana_contract("ops/grafana/dashboards/executive_runtime_overview.json")["required_panels"])
-    assert exec_required.issubset(titles)
-    assert exec_dashboard["panels"][0]["type"] == "text"
-    assert exec_dashboard["panels"][0]["gridPos"]["h"] <= 1
-    assert "runbook" not in exec_dashboard["panels"][0]["options"]["content"].lower()
     home = json.loads((ROOT / "ops/grafana/dashboards/serving_home.json").read_text(encoding="utf-8"))
     home_titles = {panel["title"] for panel in home["panels"]}
     home_required = set(grafana_contract("ops/grafana/dashboards/serving_home.json")["required_panels"])
     assert home_required.issubset({panel["title"] for panel in iter_panels(home["panels"])})
     assert len(home["panels"]) <= 20
-    assert home["panels"][0]["gridPos"]["h"] <= 1
-    assert "runbook" not in home["panels"][0]["options"]["content"].lower()
     variables_by_name = {item["name"]: item for item in home["templating"]["list"]}
     home_variables = set(variables_by_name)
     assert "user_route" in home_variables
@@ -68,7 +59,6 @@ def test_operator_grafana_status_board_is_user_facing() -> None:
 def test_grafana_panels_include_operator_descriptions() -> None:
     for path in [
         "ops/grafana/dashboards/serving_home.json",
-        "ops/grafana/dashboards/executive_runtime_overview.json",
         "ops/grafana/dashboards/gpu_capacity_and_oom_risk.json",
         "ops/grafana/dashboards/risk_signal_operations.json",
         "ops/grafana/dashboards/api_experience.json",
@@ -120,7 +110,6 @@ def test_grafana_dashboards_are_english_titled_variable_backed_and_streaming_awa
     dashboards = {path.name: json.loads(path.read_text(encoding="utf-8")) for path in (ROOT / "ops/grafana/dashboards").glob("*.json")}
     assert set(dashboards) >= {
         "serving_home.json",
-        "executive_runtime_overview.json",
         "gpu_capacity_and_oom_risk.json",
         "risk_signal_operations.json",
         "api_experience.json",
@@ -130,7 +119,7 @@ def test_grafana_dashboards_are_english_titled_variable_backed_and_streaming_awa
     for dashboard in dashboards.values():
         assert " / " not in dashboard["title"]
         variables = {item["name"] for item in dashboard["templating"]["list"]}
-        assert {"datasource", "window", "model", "runtime_service", "route", "status_code"}.issubset(variables)
+        assert {"datasource", "window"}.issubset(variables)
         assert dashboard["panels"]
         for panel in dashboard["panels"]:
             if panel["type"] == "stat" and panel.get("options", {}).get("colorMode") == "background":
@@ -140,9 +129,6 @@ def test_grafana_dashboards_are_english_titled_variable_backed_and_streaming_awa
     api_text = json.dumps(dashboards["api_experience.json"], ensure_ascii=False)
     for metric in ["streaming_chunks_total", "streaming_bytes_total", "streaming_errors_total", "streaming_usage_events_total"]:
         assert metric in api_text
-    executive_text = json.dumps(dashboards["executive_runtime_overview.json"], ensure_ascii=False)
-    assert "clamp_min(sum(increase(http_requests_total" in executive_text
-    assert "clamp_min(sum(rate(http_requests_total" not in executive_text
     assert 'path=~\\"chat/completions(:stream)?\\"' in api_text
     home_text = json.dumps(dashboards["serving_home.json"], ensure_ascii=False)
     assert 'route=~\\"$user_route\\"' in home_text
@@ -174,7 +160,6 @@ def test_endpoint_reference_matches_monitoring_dashboard_inventory() -> None:
     endpoint_doc = (ROOT / "docs/operations/endpoint_reference.md").read_text(encoding="utf-8")
     for dashboard_id in [
         "serving_home",
-        "executive_runtime_overview",
         "api_experience",
         "model_runtime_deep_dive",
         "gpu_capacity_and_oom_risk",
@@ -222,20 +207,6 @@ def test_no_mixed_unit_panel_titles() -> None:
         "Mixed-unit panel 'Streaming Duration and Chunks' must be split"
     assert "Queue and KV Trend" not in model_titles, \
         "Mixed-unit panel 'Queue and KV Trend' must be split"
-
-
-def test_overall_status_does_not_use_max() -> None:
-    dashboard = json.loads(
-        (ROOT / "ops/grafana/dashboards/executive_runtime_overview.json").read_text(encoding="utf-8")
-    )
-    overall_panels = [p for p in dashboard["panels"] if p["title"] == "Service Health"]
-    assert overall_panels, "Service Health panel not found in executive_runtime_overview"
-    for panel in overall_panels:
-        for target in panel.get("targets", []):
-            expr = target.get("expr", "")
-            assert "max(overall_runtime_status)" not in expr, (
-                "Service Health must use min(), not max(), to surface any unhealthy service"
-            )
 
 
 def test_monitoring_ux_streaming_label_is_status_not_result() -> None:

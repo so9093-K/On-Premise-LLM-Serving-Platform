@@ -380,7 +380,28 @@ risk_adapter:
   request_schema: prompt_only
   aggregate_execution: sequential
   detectors:
+    pii:
+      type: local
+      enabled: true
+      route: /v1/risk/detectors/pii/assessments
+      source_model: presidio-analyzer
+      family: data_exposure
+      allowed_codes:
+      - D1
+      - D2
+      - D3
+      - D5
+    secret:
+      type: local
+      enabled: true
+      route: /v1/risk/detectors/secret/assessments
+      source_model: secret-scanner
+      family: data_exposure
+      allowed_codes:
+      - D4
+      - D5
     prompt:
+      type: vllm
       enabled: true
       route: /v1/risk/detectors/prompt/assessments
       service_key: risk_prompt
@@ -395,6 +416,8 @@ risk_adapter:
   aggregate:
     enabled: true
     detector_order:
+    - pii
+    - secret
     - prompt
     execution: sequential
   timeout_seconds: 15

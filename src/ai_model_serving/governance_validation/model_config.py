@@ -126,6 +126,8 @@ def validate_model_source_facts() -> None:
 
     detector_specs = read_yaml('configs/model_serving.yaml')['risk_adapter'].get('detectors', {})
     for detector in detector_specs.values():
+        if detector.get('type', 'vllm') == 'local':
+            continue
         serving_key = detector['service_key']
         logical_id = detector['source_model']
         expected_codes = set(detector['allowed_codes'])
@@ -203,6 +205,8 @@ def validate_risk_detector_generation_budget() -> None:
     catalog = read_yaml('configs/model_catalog.yaml')['models']
     detector_specs = read_yaml('configs/model_serving.yaml')['risk_adapter'].get('detectors', {})
     for detector in detector_specs.values():
+        if detector.get('type', 'vllm') == 'local':
+            continue
         logical_id = detector['source_model']
         serving_key = detector['service_key']
         card = read_json(f'model_cards/{logical_id}.json')
@@ -217,7 +221,7 @@ def validate_risk_detector_generation_budget() -> None:
     enabled_detector_keys = [
         detector['service_key']
         for detector in detector_specs.values()
-        if detector.get('enabled', True) is True
+        if detector.get('enabled', True) is True and detector.get('type', 'vllm') != 'local'
     ]
     min_detector_window = min(int(serving[key]['max_model_len']) for key in enabled_detector_keys)
     expected_upper_bound = (min_detector_window - 64) * 4

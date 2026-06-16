@@ -32,10 +32,13 @@ class _FakeClient:
 
 class _FakeGatewayClients:
     def __init__(self) -> None:
+        from ai_model_serving.services.runtime_state import RuntimeStateStore
         ep = RuntimeEndpoint("x", "http://x/v1", "x", 1)
         self.main_llm = _FakeClient(ep)
         self.embedding = _FakeClient(ep)
         self.risk_adapter = _FakeClient(RuntimeEndpoint("risk-adapter", "http://risk", "risk-adapter", 1))
+        self.runtime_state = RuntimeStateStore()
+        self.sidecar = None
 
 
 class _FakeRiskClients:
@@ -282,6 +285,8 @@ def test_schema_maps_from_specs_gateway_request() -> None:
         ("POST", "/v1/chat/completions"): "chat_completion_request.schema.json",
         ("POST", "/v1/embeddings"): "embedding_request.schema.json",
         ("POST", "/v1/risk/detectors/prompt/assessments"): "risk_assessment_request.schema.json",
+        ("POST", "/v1/risk/detectors/pii/assessments"): "risk_assessment_request.schema.json",
+        ("POST", "/v1/risk/detectors/secret/assessments"): "risk_assessment_request.schema.json",
         ("POST", "/v1/risk/assessments"): "risk_assessment_request.schema.json",
         ("POST", "/v1/retrieval/rerank"): "retrieval_rerank_request.schema.json",
         ("POST", "/v1/retrieval/score"): "retrieval_score_request.schema.json",
@@ -296,6 +301,8 @@ def test_schema_maps_from_specs_gateway_response() -> None:
         ("POST", "/v1/chat/completions"): "chat_completion_response.schema.json",
         ("POST", "/v1/embeddings"): "embedding_response.schema.json",
         ("POST", "/v1/risk/detectors/prompt/assessments"): "risk_assessment_response.schema.json",
+        ("POST", "/v1/risk/detectors/pii/assessments"): "risk_assessment_response.schema.json",
+        ("POST", "/v1/risk/detectors/secret/assessments"): "risk_assessment_response.schema.json",
         ("POST", "/v1/risk/assessments"): "risk_assessment_response.schema.json",
         ("POST", "/v1/retrieval/rerank"): "retrieval_rerank_response.schema.json",
         ("POST", "/v1/retrieval/score"): "retrieval_score_response.schema.json",
@@ -306,11 +313,15 @@ def test_schema_maps_from_specs_risk_adapter() -> None:
     request_schemas, response_schemas = schema_maps_from_specs(RISK_ADAPTER_ENDPOINTS)
     assert request_schemas == {
         ("POST", "/v1/risk/detectors/prompt/assessments"): "risk_assessment_request.schema.json",
+        ("POST", "/v1/risk/detectors/pii/assessments"): "risk_assessment_request.schema.json",
+        ("POST", "/v1/risk/detectors/secret/assessments"): "risk_assessment_request.schema.json",
         ("POST", "/v1/risk/assessments"): "risk_assessment_request.schema.json",
     }
     assert response_schemas == {
         ("GET", "/ready"): "readiness_response.schema.json",
         ("POST", "/v1/risk/detectors/prompt/assessments"): "risk_assessment_response.schema.json",
+        ("POST", "/v1/risk/detectors/pii/assessments"): "risk_assessment_response.schema.json",
+        ("POST", "/v1/risk/detectors/secret/assessments"): "risk_assessment_response.schema.json",
         ("POST", "/v1/risk/assessments"): "risk_assessment_response.schema.json",
     }
 

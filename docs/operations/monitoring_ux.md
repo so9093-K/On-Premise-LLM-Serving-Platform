@@ -31,7 +31,6 @@
 |---|---|---|
 | `gpu_capacity_and_oom_risk` | **기본 home dashboard.** live GPU headroom, observed VRAM, utilization, OOM/restart, KV cache, queue | operator/runtime engineer |
 | `serving_home` | Service Verdict, Serving State, User Requests, Monitoring Coverage, GPU Safety Margin, Attention Needed | operator |
-| `executive_runtime_overview` | Service Health, User Requests, Response Delay, Failed Request Rate, GPU Safety Margin, Monitoring Coverage | reviewer/operator |
 | `api_experience` | Chat Requests, Chat Response Delay, Chat Failures, Streaming Failures, Delay Split, retrieval/embedding detail | gateway/runtime engineer |
 | `model_runtime_deep_dive` | Token Throughput, Waiting Requests, Capacity Used, Average Model Response Time, Model Response Delay, CPU Cores Used, Runtime RAM | runtime engineer |
 | `risk_signal_operations` | Risk Checks, Risk Detections, Risk Check Timeouts, Unsafe Response Fields, Detector Availability | safety/policy reviewer |
@@ -41,20 +40,13 @@ Dashboard JSON은 `ops/grafana/dashboards/*.json`에서 관리한다. 공통 das
 
 공통 dashboard variable:
 
-| Variable | 용도 |
-|---|---|
-| `$datasource` | Prometheus datasource portability |
-| `$window` | `1m`, `5m`, `15m`, `1h` 조회 window |
-| `$model` | `local-main`, `local-embed`, `risk-prompt` |
-| `$runtime_service` | compose runtime service filter |
-| `$route` | Gateway route filter |
-| `$status_code` | HTTP status filter |
-
-Serving Home 전용 variable:
-
-| Variable | 용도 |
-|---|---|
-| `$user_route` | Serving Home user traffic regex. 선택지는 All user routes, Chat, Embeddings, Risk이며 기본값은 `/v1/chat/completions|/v1/embeddings|/v1/risk/.*` |
+| Variable | 용도 | 대상 |
+|---|---|---|
+| `$datasource` | Prometheus datasource portability | 전체 |
+| `$window` | `1m`, `5m`, `15m`, `1h` 조회 window | 전체 |
+| `$model` | `local-main`, `local-embed`, `risk-prompt` | serving_home, gpu_capacity_and_oom_risk, api_experience, model_runtime_deep_dive, observability_data_quality |
+| `$runtime_service` | compose runtime service filter | serving_home, gpu_capacity_and_oom_risk, model_runtime_deep_dive, observability_data_quality |
+| `$user_route` | Serving Home user traffic regex | serving_home 전용 |
 
 ## Serving mode 정의
 
@@ -157,14 +149,13 @@ streaming_client_disconnects_total{service="gateway",target="local-main",phase="
 | 출발 dashboard | 이동 대상 |
 |---|---|
 | `serving_home` | `gpu_capacity_and_oom_risk`, `api_experience`, `model_runtime_deep_dive`, `risk_signal_operations`, `observability_data_quality` |
-| `gpu_capacity_and_oom_risk` | `serving_home`, `executive_runtime_overview` |
-| `executive_runtime_overview` | `serving_home`, `gpu_capacity_and_oom_risk`, `api_experience`, `model_runtime_deep_dive`, `risk_signal_operations` |
+| `gpu_capacity_and_oom_risk` | `serving_home` |
 | `api_experience` | `serving_home`, `model_runtime_deep_dive` |
 | `model_runtime_deep_dive` | `serving_home`, `gpu_capacity_and_oom_risk`, `api_experience` |
 | `risk_signal_operations` | `serving_home` |
 | `observability_data_quality` | `serving_home` |
 
-권장 drill-down 순서: Serving Home → GPU Capacity/OOM, API Experience, Model Runtime Deep Dive, Risk Signal Operations, Observability Data Quality. `executive_runtime_overview`는 호환용으로 남기며 GPU dashboard의 기존 링크는 유지한다.
+권장 drill-down 순서: Serving Home → GPU Capacity/OOM, API Experience, Model Runtime Deep Dive, Risk Signal Operations, Observability Data Quality.
 
 ## OOM/restart metric source
 
@@ -195,7 +186,6 @@ streaming_client_disconnects_total{service="gateway",target="local-main",phase="
 
 | Panel | Dashboard | Recording rule | Window |
 |---|---|---|---|
-| `Response Delay (p95, 5m)` | `executive_runtime_overview` | `model_runtime_http_p95_latency_seconds` | 5m 고정 |
 | `Model Response Delay (p95, 5m)` | `model_runtime_deep_dive` | `model_runtime_upstream_p95_latency_seconds` | 5m 고정 |
 
 panel title에 `(5m)`을 표시하여 `$window` 선택과 무관함을 명시한다. 더 짧거나 긴 window가 필요하면 recording rule 대신 raw histogram query를 사용한다.

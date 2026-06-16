@@ -35,31 +35,6 @@
   "liveNow": false,
   "panels": [
     {
-      "id": 100,
-      "type": "text",
-      "title": "API Snapshot",
-      "description": "Action: read user requests, response delay, failures, streaming quality, and model-call delay.",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "gridPos": {
-        "x": 0,
-        "y": 0,
-        "w": 24,
-        "h": 1
-      },
-      "targets": [],
-      "options": {
-        "mode": "markdown",
-        "content": "**API snapshot** · activity and failures first; latency/retrieval/embedding details stay collapsed until traffic exists."
-      },
-      "fieldConfig": {
-        "defaults": {},
-        "overrides": []
-      }
-    },
-    {
       "id": 1,
       "type": "stat",
       "title": "API Activity",
@@ -70,7 +45,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 1,
+        "y": 0,
         "w": 6,
         "h": 4
       },
@@ -106,7 +81,7 @@
       },
       "gridPos": {
         "x": 6,
-        "y": 1,
+        "y": 0,
         "w": 4,
         "h": 4
       },
@@ -159,7 +134,7 @@
       },
       "gridPos": {
         "x": 10,
-        "y": 1,
+        "y": 0,
         "w": 4,
         "h": 4
       },
@@ -208,7 +183,7 @@
       },
       "gridPos": {
         "x": 14,
-        "y": 1,
+        "y": 0,
         "w": 5,
         "h": 4
       },
@@ -244,7 +219,7 @@
       },
       "gridPos": {
         "x": 19,
-        "y": 1,
+        "y": 0,
         "w": 5,
         "h": 4
       },
@@ -280,7 +255,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 5,
+        "y": 4,
         "w": 24,
         "h": 1
       },
@@ -497,7 +472,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 6,
+        "y": 5,
         "w": 24,
         "h": 1
       },
@@ -757,7 +732,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 7,
+        "y": 6,
         "w": 24,
         "h": 1
       },
@@ -950,7 +925,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 8,
+        "y": 7,
         "w": 24,
         "h": 1
       },
@@ -1125,54 +1100,6 @@
         "name": "model",
         "options": [],
         "query": "local-main,local-embed,local-embed-ko,risk-prompt",
-        "type": "custom"
-      },
-      {
-        "allValue": null,
-        "current": {
-          "selected": true,
-          "text": "All",
-          "value": "$__all"
-        },
-        "hide": 0,
-        "includeAll": true,
-        "label": "Runtime Service",
-        "multi": true,
-        "name": "runtime_service",
-        "options": [],
-        "query": "main-llm-vllm,embedding-vllm,embedding-ko-vllm,risk-prompt-vllm",
-        "type": "custom"
-      },
-      {
-        "allValue": ".*",
-        "current": {
-          "selected": true,
-          "text": "All",
-          "value": "$__all"
-        },
-        "hide": 0,
-        "includeAll": true,
-        "label": "Route",
-        "multi": true,
-        "name": "route",
-        "options": [],
-        "query": "/v1/chat/completions,/v1/embeddings,/v1/risk/.*,/health,/ready,/v1/models,/metrics",
-        "type": "custom"
-      },
-      {
-        "allValue": ".*",
-        "current": {
-          "selected": true,
-          "text": "All",
-          "value": "$__all"
-        },
-        "hide": 0,
-        "includeAll": true,
-        "label": "Status Code",
-        "multi": true,
-        "name": "status_code",
-        "options": [],
-        "query": "2..,4..,5..,401,403,422,429,500,502,503,504",
         "type": "custom"
       }
     ]

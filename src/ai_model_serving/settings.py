@@ -88,6 +88,7 @@ def _risk_detectors_from_config(risk_adapter_cfg: dict[str, Any]) -> tuple[RiskD
     if not isinstance(detectors_cfg, dict):
         detectors_cfg = {
             "prompt": {
+                "type": "vllm",
                 "enabled": True,
                 "route": "/v1/risk/detectors/prompt/assessments",
                 "service_key": "risk_prompt",
@@ -99,14 +100,18 @@ def _risk_detectors_from_config(risk_adapter_cfg: dict[str, Any]) -> tuple[RiskD
     detectors: list[RiskDetectorSettings] = []
     for key, cfg in detectors_cfg.items():
         fixed = cfg.get("fixed_parameters", {}) if isinstance(cfg.get("fixed_parameters", {}), dict) else {}
+        detector_type = str(cfg.get("type", "vllm"))
+        # Local detectors do not require service_key; default to empty string.
+        service_key = str(cfg.get("service_key", "")) if detector_type == "local" else str(cfg["service_key"])
         detectors.append(
             RiskDetectorSettings(
                 key=str(key),
                 route=str(cfg.get("route", f"/v1/risk/detectors/{key}/assessments")),
-                service_key=str(cfg["service_key"]),
-                source_model=str(cfg["source_model"]),
+                service_key=service_key,
+                source_model=str(cfg.get("source_model", key)),
                 family=str(cfg["family"]),
                 allowed_codes=frozenset(str(item) for item in cfg.get("allowed_codes", [])),
+                detector_type=detector_type,
                 enabled=cfg.get("enabled", True) is True,
                 max_output_tokens=int(fixed.get("max_tokens", cfg.get("max_output_tokens", 1))),
                 temperature=float(fixed.get("temperature", cfg.get("temperature", 0))),
@@ -217,10 +222,16 @@ def load_settings(root: Path | None = None, env_file: Path | str | None = None) 
     risk_detectors = _risk_detectors_from_config(risk_adapter_cfg)
     aggregate_detector_order = _aggregate_order(risk_adapter_cfg, risk_detectors)
     main_llm = runtime_endpoints["main_llm"]
+    # Only vLLM detectors contribute to timeout budget; local detectors run in-process.
     risk_detector_endpoints = tuple(
         runtime_endpoints[detector.service_key]
         for detector in risk_detectors
-        if detector.enabled and detector.key in aggregate_detector_order and detector.service_key in runtime_endpoints
+        if (
+            detector.enabled
+            and detector.key in aggregate_detector_order
+            and detector.detector_type != "local"
+            and detector.service_key in runtime_endpoints
+        )
     )
 
     risk_adapter_execution = str(risk_adapter_cfg.get("aggregate", {}).get("execution", risk_adapter_cfg.get("aggregate_execution", "sequential")))
@@ -273,4 +284,5 @@ def load_settings(root: Path | None = None, env_file: Path | str | None = None) 
         streaming_max_duration_seconds=float(streaming_cfg.get("max_duration_seconds", 300.0)),
         streaming_max_chunks=int(streaming_cfg.get("max_chunks", 20_000)),
         streaming_max_bytes=int(streaming_cfg.get("max_bytes", 104_857_600)),
+        admin_sidecar_url=_env("ADMIN_SIDECAR_URL", ""),
     )

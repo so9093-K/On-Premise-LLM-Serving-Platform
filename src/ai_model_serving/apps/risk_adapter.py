@@ -19,12 +19,15 @@ from ..metrics import Metrics
 from ..openapi_contracts import install_contract_openapi
 from ..risk_input import RiskInputPolicy
 from ..risk import DetectorSpec
+from ..detectors import PIIProtectionDetector, SecretExposureDetector
+from ..detectors.protocol import RiskDetector
 from ..services.risk_assessment import RiskAssessmentService
 from ..security import require_bearer_auth
 from ..settings import AppSettings, SecuritySettings, load_settings
+from ..settings_parts.types import RiskDetectorSettings
 from ..upstream import VLLMClient
 from ..api_descriptions import RISK_ADAPTER_DESCRIPTION_TEMPLATE, RISK_ADAPTER_TAGS_METADATA
-from ..api_examples import AGGREGATE_EXAMPLES, PROMPT_EXAMPLES
+from ..api_examples import AGGREGATE_EXAMPLES, PROMPT_EXAMPLES, PII_EXAMPLES, SECRET_EXAMPLES
 from ..api.endpoint_spec import RISK_ADAPTER_ENDPOINTS, schema_maps_from_specs
 from ..api.routers.risk_adapter_ops import build_router as _build_ops_router
 from ..api.routers.risk_adapter_risk import build_router as _build_risk_router
@@ -35,6 +38,7 @@ class RiskClients:
         self.detectors = {
             detector.key: VLLMClient(settings.runtime(detector.service_key))
             for detector in settings.enabled_risk_detectors()
+            if detector.detector_type == "vllm" and detector.service_key
         }
         self.prompt = self.detectors.get("prompt")
         self.settings = settings
@@ -44,6 +48,19 @@ class RiskClients:
             close = getattr(client, "aclose", None)
             if close is not None:
                 await close()
+
+
+def _build_local_detectors(settings: AppSettings) -> dict[str, RiskDetector]:
+    """Instantiate local (in-process) detectors for each configured local detector key."""
+    local: dict[str, RiskDetector] = {}
+    for detector in settings.enabled_risk_detectors():
+        if detector.detector_type != "local":
+            continue
+        if detector.key == "pii":
+            local["pii"] = PIIProtectionDetector()
+        elif detector.key == "secret":
+            local["secret"] = SecretExposureDetector()
+    return local
 
 
 def _detector_specs(settings: AppSettings) -> dict[str, DetectorSpec]:
@@ -76,6 +93,7 @@ def create_risk_adapter_app(settings: AppSettings | None = None, clients: RiskCl
     settings = settings or load_settings()
     clients = clients or RiskClients(settings)
     _ensure_detector_client_map(clients)
+    local_detectors = _build_local_detectors(settings)
     metrics = Metrics("risk-adapter")
     logger = service_logger("risk-adapter")
     service = RiskAssessmentService(
@@ -84,6 +102,7 @@ def create_risk_adapter_app(settings: AppSettings | None = None, clients: RiskCl
         input_policy=RiskInputPolicy(settings.risk_input_max_chars),
         detector_specs=_detector_specs(settings),
         aggregate_detector_order=settings.aggregate_detector_order,
+        local_detectors=local_detectors,
     )
     internal_security = SecuritySettings(
         api_key_required=settings.security.internal_service_auth_required,
@@ -124,6 +143,8 @@ def create_risk_adapter_app(settings: AppSettings | None = None, clients: RiskCl
         response_schemas=_response_schemas,
         request_examples={
             ("POST", "/v1/risk/detectors/prompt/assessments"): PROMPT_EXAMPLES,
+            ("POST", "/v1/risk/detectors/pii/assessments"): PII_EXAMPLES,
+            ("POST", "/v1/risk/detectors/secret/assessments"): SECRET_EXAMPLES,
             ("POST", "/v1/risk/assessments"): AGGREGATE_EXAMPLES,
         },
     )

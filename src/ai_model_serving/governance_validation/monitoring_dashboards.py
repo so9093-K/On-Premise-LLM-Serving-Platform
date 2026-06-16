@@ -146,9 +146,6 @@ def _validate_panel(path: str, panel: dict[str, object]) -> None:
 
 
 def _validate_query_regressions() -> None:
-    exec_text = json.dumps(read_json('ops/grafana/dashboards/executive_runtime_overview.json'), ensure_ascii=False)
-    if 'clamp_min(sum(rate(http_requests_total' in exec_text:
-        raise SystemExit('executive dashboard must not clamp low-traffic rate denominators to 1')
     api_text = json.dumps(read_json('ops/grafana/dashboards/api_experience.json'), ensure_ascii=False)
     for metric in ['streaming_chunks_total', 'streaming_bytes_total', 'streaming_errors_total', 'streaming_usage_events_total']:
         if metric not in api_text:
@@ -200,7 +197,6 @@ def _validate_query_regressions() -> None:
     _validate_oom_restart_sources(gpu_text)
     _validate_status_board_navigation()
     for dash_path in [
-        'ops/grafana/dashboards/executive_runtime_overview.json',
         'ops/grafana/dashboards/gpu_capacity_and_oom_risk.json',
         'ops/grafana/dashboards/risk_signal_operations.json',
         'ops/grafana/dashboards/api_experience.json',
@@ -308,14 +304,7 @@ def _validate_status_board_navigation() -> None:
             'risk_signal_operations',
             'observability_data_quality',
         ],
-        'gpu_capacity_and_oom_risk': ['serving_home', 'executive_runtime_overview'],
-        'executive_runtime_overview': [
-            'serving_home',
-            'gpu_capacity_and_oom_risk',
-            'api_experience',
-            'model_runtime_deep_dive',
-            'risk_signal_operations',
-        ],
+        'gpu_capacity_and_oom_risk': ['serving_home'],
         'api_experience': ['serving_home', 'model_runtime_deep_dive'],
         'model_runtime_deep_dive': ['serving_home', 'gpu_capacity_and_oom_risk', 'api_experience'],
         'risk_signal_operations': ['serving_home'],
@@ -324,7 +313,6 @@ def _validate_status_board_navigation() -> None:
     title_to_uid = {
         'Serving Home': 'serving_home',
         'GPU Capacity and OOM Risk': 'gpu_capacity_and_oom_risk',
-        'Executive Runtime Overview': 'executive_runtime_overview',
         'API Experience': 'api_experience',
         'Model Runtime Deep Dive': 'model_runtime_deep_dive',
         'Risk Signal Operations': 'risk_signal_operations',

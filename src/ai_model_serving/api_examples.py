@@ -334,6 +334,68 @@ AGGREGATE_EXAMPLES: dict[str, Any] = {
     "indirect_injection": PROMPT_EXAMPLES["indirect_injection"],
 }
 
+PII_EXAMPLES: dict[str, Any] = {
+    "email_and_phone": {
+        "summary": "이메일·전화번호 노출 (D2)",
+        "value": {"prompt": "담당자 이메일은 hong@example.com이고 연락처는 010-1234-5678입니다."},
+    },
+    "korean_rrn": {
+        "summary": "주민등록번호 노출 (D1)",
+        "value": {"prompt": "주민등록번호: 901201-1234567 로 조회해주세요."},
+    },
+    "business_registration": {
+        "summary": "사업자등록번호 노출 (D3)",
+        "value": {"prompt": "사업자 번호 123-45-67890으로 세금계산서를 발행해주세요."},
+    },
+    "credit_card": {
+        "summary": "신용카드 번호 노출 (D3)",
+        "value": {"prompt": "카드 번호 4111-1111-1111-1111 로 결제해주세요."},
+    },
+    "ip_address": {
+        "summary": "IP 주소 노출 (D5)",
+        "value": {"prompt": "서버 IP 192.168.1.100에 접속하세요."},
+    },
+    "safe": {
+        "summary": "PII 없음 (safe)",
+        "value": {"prompt": "오늘 날씨가 맑습니다."},
+    },
+}
+
+SECRET_EXAMPLES: dict[str, Any] = {
+    "openai_api_key": {
+        "summary": "OpenAI API key 노출 (D4)",
+        "value": {"prompt": "API 키는 sk-proj-abcdefghijklmnopqrstuvwxyz1234567890ABCDE 입니다."},
+    },
+    "aws_access_key": {
+        "summary": "AWS Access Key 노출 (D4)",
+        "value": {"prompt": "AWS 설정: AKIAIOSFODNN7EXAMPLE"},
+    },
+    "github_token": {
+        "summary": "GitHub Token 노출 (D4)",
+        "value": {"prompt": "export GH_TOKEN=ghp_abcdefghijklmnopqrstuvwxyz1234567890AB"},
+    },
+    "jwt_token": {
+        "summary": "JWT 토큰 노출 (D4)",
+        "value": {"prompt": "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U"},
+    },
+    "database_url": {
+        "summary": "데이터베이스 연결 URL 노출 (D5)",
+        "value": {"prompt": "DATABASE_URL=postgresql://user:password@db.example.com:5432/mydb"},
+    },
+    "password_assignment": {
+        "summary": "비밀번호 할당 노출 (D4)",
+        "value": {"prompt": "DB 비밀번호: password=Sup3rS3cr3t! 로 설정하세요."},
+    },
+    "private_key_block": {
+        "summary": "Private key block 노출 (D4)",
+        "value": {"prompt": "-----BEGIN RSA PRIVATE KEY-----\nMIIEo...\n-----END RSA PRIVATE KEY-----"},
+    },
+    "safe": {
+        "summary": "시크릿 없음 (safe)",
+        "value": {"prompt": "일반적인 질문입니다. 오늘 날씨가 어떤가요?"},
+    },
+}
+
 # ---------------------------------------------------------------------------
 # Risk Adapter readiness response examples
 # ---------------------------------------------------------------------------

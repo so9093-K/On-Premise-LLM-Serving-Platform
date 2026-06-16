@@ -37,6 +37,35 @@ Exposure policy처럼 service classification이 필요한 검증은 `configs/ser
 Docker/GPU가 없는 환경에서는 `--config-only`로 설정 정합성만 확인한다. Docker compose,
 GPU 표시, live vLLM 증빙은 `runtime`, `docker`, `gpu` 계층이며 명시적으로 실행한다.
 
+## Sensitive Data Protection 테스트 계층
+
+PII Protection과 Secret Exposure Signal은 다음 테스트로 검증한다.
+
+### Unit tests
+
+| 파일 | 검증 대상 |
+|---|---|
+| `tests/unit/test_pii_protection_detector.py` | Korean custom recognizer, entity→D-code 매핑, span_count, 원문값 미포함, boolean consistency |
+| `tests/unit/test_secret_exposure_detector.py` | regex 패턴, entropy-based generic candidate, D4/D5 매핑, 원문 secret 미포함 |
+| `tests/unit/test_risk_data_exposure_contract.py` | `_validate_risk_category()` D1-D5, span_count 검증, forbidden field 차단 |
+| `tests/unit/gateway/test_risk_forwarding_data_exposure.py` | Gateway PII/Secret forwarding, forbidden field rejection |
+
+### Contract tests
+
+| 파일 | 검증 대상 |
+|---|---|
+| `tests/contract/test_risk_assessment_response_schema.py` | D1-D5 JSON Schema 통과, span_count, family consistency, forbidden field, A1/A2 기존 동작 |
+
+### 핵심 검증 불변식
+
+- D1~D5 모든 코드가 schema를 통과한다.
+- `data_exposure` family가 validator를 통과한다.
+- `span_count`가 탐지 개수를 표현한다.
+- 원문 PII/Secret 값이 response JSON에 포함되지 않는다.
+- aggregate의 boolean consistency(`risk_detected == model_risk_detected == any(detected)`)가 유지된다.
+- 기존 A1/A2 prompt detector 동작이 변경되지 않는다.
+- D4 코드는 `strongest_code`에서 A1보다 우선한다.
+
 ## 새 테스트 추가 기준
 
 새 pytest를 추가하기 전에 다음을 확인한다.

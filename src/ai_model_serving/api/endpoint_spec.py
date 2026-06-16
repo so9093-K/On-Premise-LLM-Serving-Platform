@@ -194,6 +194,54 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
     EndpointSpec(
         service="gateway",
         method="POST",
+        path="/v1/risk/detectors/pii/assessments",
+        operation_id="assessPIIRisk",
+        tag="Risk",
+        summary="PII Protection 탐지 신호",
+        description=(
+            "**PII Protection detector** — Presidio Analyzer(optional) + Korean custom recognizer 기반 로컬 탐지.\n\n"
+            "탐지 코드:\n"
+            "- **D1** Personal Identifier: KR_RRN, KR_FRN, KR_PASSPORT, KR_DRIVER_LICENSE, PERSON\n"
+            "- **D2** Contact and Location: EMAIL_ADDRESS, PHONE_NUMBER, ADDRESS\n"
+            "- **D3** Financial Identifier: CREDIT_CARD, KR_BRN, BANK_ACCOUNT_CANDIDATE\n"
+            "- **D5** Network/Infrastructure: IP_ADDRESS, URL\n\n"
+            "원문 PII 값은 응답에 포함되지 않습니다. `span_count`로 entity별 탐지 개수를 제공합니다.\n"
+            "탐지 결과는 최종 정책 판단이 아닌 진단 signal로 취급합니다."
+        ),
+        auth="public_api",
+        exposure="public_gateway",
+        lifecycle="stable",
+        status_code=200,
+        replacement=None,
+        request_schema="risk_assessment_request.schema.json",
+        response_schema="risk_assessment_response.schema.json",
+    ),
+    EndpointSpec(
+        service="gateway",
+        method="POST",
+        path="/v1/risk/detectors/secret/assessments",
+        operation_id="assessSecretRisk",
+        tag="Risk",
+        summary="Secret Exposure 탐지 신호",
+        description=(
+            "**Secret Exposure detector** — curated regex + entropy 기반 로컬 탐지. 외부 CLI 없이 Python 내부 scanner로 동작합니다.\n\n"
+            "탐지 코드:\n"
+            "- **D4** Secret/Credential: OPENAI_API_KEY, AWS_ACCESS_KEY_ID, GITHUB_TOKEN, GITLAB_TOKEN, HUGGINGFACE_TOKEN, JWT, PRIVATE_KEY_BLOCK, PASSWORD_ASSIGNMENT, GENERIC_SECRET_CANDIDATE\n"
+            "- **D5** Network/Infrastructure: DATABASE_URL\n\n"
+            "응답, 로그, metric label에 원문 시크릿 값을 남기지 않습니다. `span_count`로 탐지 개수를 제공합니다.\n"
+            "탐지 결과는 최종 정책 판단이 아닌 진단 signal로 취급합니다."
+        ),
+        auth="public_api",
+        exposure="public_gateway",
+        lifecycle="stable",
+        status_code=200,
+        replacement=None,
+        request_schema="risk_assessment_request.schema.json",
+        response_schema="risk_assessment_response.schema.json",
+    ),
+    EndpointSpec(
+        service="gateway",
+        method="POST",
         path="/v1/risk/detectors/siren/assessments",
         operation_id="assessRetiredSirenRisk",
         tag="Risk",
@@ -220,6 +268,7 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
         summary="통합 Risk 신호",
         description=(
             "configured enabled detectors 결과를 aggregate한 통합 risk assessment입니다. "
+            "PII Protection(D1-D3, D5), Secret Exposure(D4, D5), Prompt Injection(A1, A2) 신호를 통합합니다. "
             "enabled detector 중 하나라도 위험 신호를 탐지하면 `risk_detected: true`를 반환합니다."
         ),
         auth="public_api",
@@ -269,6 +318,106 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
         replacement=None,
         request_schema="retrieval_score_request.schema.json",
         response_schema="retrieval_score_response.schema.json",
+    ),
+    # ------------------------------------------------------------------ admin runtime control
+    EndpointSpec(
+        service="gateway",
+        method="GET",
+        path="/admin/runtimes",
+        operation_id="listRuntimes",
+        tag="Runtime Control",
+        summary="런타임 상태 조회",
+        description=(
+            "controllable vLLM 런타임의 gateway 상태와 컨테이너 상태를 반환합니다. "
+            "`gateway_state`는 gateway 라우팅 의도, `container_status`는 실제 컨테이너 상태입니다. "
+            "admin Bearer token 필요."
+        ),
+        auth="admin",
+        exposure="operations_network",
+        lifecycle="stable",
+        status_code=200,
+        replacement=None,
+        request_schema=None,
+        response_schema=None,
+    ),
+    EndpointSpec(
+        service="gateway",
+        method="POST",
+        path="/admin/runtimes/{service_key}/disable",
+        operation_id="disableRuntime",
+        tag="Runtime Control",
+        summary="런타임 소프트 비활성화",
+        description=(
+            "gateway 라우팅을 즉시 차단합니다. 컨테이너는 계속 실행되며 VRAM은 유지됩니다. "
+            "`service_key`: embedding | embedding_ko | risk_prompt. admin Bearer token 필요."
+        ),
+        auth="admin",
+        exposure="operations_network",
+        lifecycle="stable",
+        status_code=200,
+        replacement=None,
+        request_schema=None,
+        response_schema=None,
+    ),
+    EndpointSpec(
+        service="gateway",
+        method="POST",
+        path="/admin/runtimes/{service_key}/enable",
+        operation_id="enableRuntime",
+        tag="Runtime Control",
+        summary="런타임 활성화",
+        description=(
+            "disable된 런타임의 gateway 라우팅을 복구합니다. "
+            "컨테이너가 중지된 경우 start를 먼저 호출하세요. admin Bearer token 필요."
+        ),
+        auth="admin",
+        exposure="operations_network",
+        lifecycle="stable",
+        status_code=200,
+        replacement=None,
+        request_schema=None,
+        response_schema=None,
+    ),
+    EndpointSpec(
+        service="gateway",
+        method="POST",
+        path="/admin/runtimes/{service_key}/stop",
+        operation_id="stopRuntime",
+        tag="Runtime Control",
+        summary="런타임 컨테이너 중지 (VRAM 회수)",
+        description=(
+            "admin-sidecar를 통해 vLLM 컨테이너를 중지하고 VRAM을 회수합니다. "
+            "gateway 라우팅도 동시에 차단됩니다. "
+            "`service_key`: embedding | embedding_ko | risk_prompt. admin Bearer token 필요."
+        ),
+        auth="admin",
+        exposure="operations_network",
+        lifecycle="stable",
+        status_code=200,
+        replacement=None,
+        request_schema=None,
+        response_schema=None,
+    ),
+    EndpointSpec(
+        service="gateway",
+        method="POST",
+        path="/admin/runtimes/{service_key}/start",
+        operation_id="startRuntime",
+        tag="Runtime Control",
+        summary="런타임 컨테이너 시작 (GPU serial 보장)",
+        description=(
+            "admin-sidecar를 통해 vLLM 컨테이너를 시작합니다. "
+            "GPU 메모리 프로파일링 충돌 방지를 위해 prerequisite 컨테이너를 순차적으로 먼저 시작합니다. "
+            "health check 완료 후 gateway 라우팅이 복구됩니다. "
+            "`service_key`: embedding | embedding_ko | risk_prompt. admin Bearer token 필요."
+        ),
+        auth="admin",
+        exposure="operations_network",
+        lifecycle="stable",
+        status_code=200,
+        replacement=None,
+        request_schema=None,
+        response_schema=None,
     ),
 ]
 
@@ -356,6 +505,54 @@ RISK_ADAPTER_ENDPOINTS: list[EndpointSpec] = [
     EndpointSpec(
         service="risk-adapter",
         method="POST",
+        path="/v1/risk/detectors/pii/assessments",
+        operation_id="assessRiskPIIDetector",
+        tag="Risk Signal",
+        summary="PII Protection detector 신호 — 개인정보 노출 탐지",
+        description=(
+            "**PII Protection detector** — Presidio Analyzer(optional) + Korean custom recognizer 기반 로컬 탐지.\n\n"
+            "탐지 코드:\n"
+            "- **D1** Personal Identifier: KR_RRN, KR_FRN, KR_PASSPORT, KR_DRIVER_LICENSE, PERSON\n"
+            "- **D2** Contact and Location: EMAIL_ADDRESS, PHONE_NUMBER, ADDRESS\n"
+            "- **D3** Financial Identifier: CREDIT_CARD, KR_BRN, BANK_ACCOUNT_CANDIDATE\n"
+            "- **D5** Network/Infrastructure: IP_ADDRESS, URL\n\n"
+            "응답에 원문 PII 값을 포함하지 않습니다. `span_count`로 entity별 탐지 개수를 제공합니다.\n"
+            "탐지 결과는 최종 정책 판단이 아닌 진단 signal로 취급합니다."
+        ),
+        auth="internal_service",
+        exposure="internal_service",
+        lifecycle="stable",
+        status_code=200,
+        replacement=None,
+        request_schema="risk_assessment_request.schema.json",
+        response_schema="risk_assessment_response.schema.json",
+    ),
+    EndpointSpec(
+        service="risk-adapter",
+        method="POST",
+        path="/v1/risk/detectors/secret/assessments",
+        operation_id="assessRiskSecretDetector",
+        tag="Risk Signal",
+        summary="Secret Exposure detector 신호 — 시크릿·자격증명 노출 탐지",
+        description=(
+            "**Secret Exposure detector** — curated regex + entropy 기반 로컬 탐지. 외부 CLI 없이 Python 내부 scanner로 동작합니다.\n\n"
+            "탐지 코드:\n"
+            "- **D4** Secret/Credential: OPENAI_API_KEY, AWS_ACCESS_KEY_ID, GITHUB_TOKEN, GITLAB_TOKEN, HUGGINGFACE_TOKEN, JWT, PRIVATE_KEY_BLOCK, PASSWORD_ASSIGNMENT, GENERIC_SECRET_CANDIDATE\n"
+            "- **D5** Network/Infrastructure: DATABASE_URL\n\n"
+            "응답, 로그, metric label에 원문 시크릿 값을 남기지 않습니다. `span_count`로 탐지 개수를 제공합니다.\n"
+            "탐지 결과는 최종 정책 판단이 아닌 진단 signal로 취급합니다."
+        ),
+        auth="internal_service",
+        exposure="internal_service",
+        lifecycle="stable",
+        status_code=200,
+        replacement=None,
+        request_schema="risk_assessment_request.schema.json",
+        response_schema="risk_assessment_response.schema.json",
+    ),
+    EndpointSpec(
+        service="risk-adapter",
+        method="POST",
         path="/v1/risk/detectors/siren/assessments",
         operation_id="assessSirenDetector",
         tag="Risk Signal",
@@ -377,9 +574,10 @@ RISK_ADAPTER_ENDPOINTS: list[EndpointSpec] = [
         tag="Risk Signal",
         summary="통합 risk signal",
         description=(
-            "enabled detector registry 순서대로 호출하고 결과를 aggregate합니다.\n\n"
+            "enabled detector registry 순서(pii → secret → prompt)대로 호출하고 결과를 aggregate합니다.\n\n"
             "어느 한 detector가 신호를 탐지하면 `risk_detected: true`를 반환합니다. "
-            "detector 실패는 policy 판단 없이 system signal로 표현됩니다."
+            "detector 실패는 policy 판단 없이 system signal로 표현됩니다.\n\n"
+            "PII Protection(D1-D3, D5)과 Secret Exposure(D4, D5) 신호를 Prompt Injection(A1, A2)과 함께 통합합니다."
         ),
         auth="internal_service",
         exposure="internal_service",

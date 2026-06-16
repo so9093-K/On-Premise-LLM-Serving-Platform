@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import time
-from typing import Any, Protocol
+from typing import Any, Protocol, TYPE_CHECKING
 
 from ..errors import ServiceError
 from ..metrics import Metrics
@@ -15,6 +15,9 @@ from ..risk import (
     system_signal,
 )
 
+if TYPE_CHECKING:
+    from ..detectors.protocol import RiskDetector
+
 
 class RiskClientSet(Protocol):
     detectors: dict[str, JsonRuntimeClient]
@@ -23,9 +26,12 @@ class RiskClientSet(Protocol):
 class RiskAssessmentService:
     """Use-case layer for detector assessment and aggregation.
 
-    The service keeps detector orchestration independent from the FastAPI
-    transport layer.  That makes it easier to add future detectors, alternate
-    runtimes, or offline harness execution without copying endpoint code.
+    The service supports two detector types:
+    - vLLM detectors: call a remote model via JsonRuntimeClient (prompt detector)
+    - Local detectors: run in-process without a remote call (PII, Secret)
+
+    Local detectors are passed via the `local_detectors` parameter and are
+    looked up by detector key before falling back to the vLLM client map.
     """
 
     def __init__(
@@ -35,12 +41,14 @@ class RiskAssessmentService:
         input_policy: RiskInputPolicy | None = None,
         detector_specs: dict[str, DetectorSpec] | None = None,
         aggregate_detector_order: tuple[str, ...] = (),
+        local_detectors: dict[str, "RiskDetector"] | None = None,
     ) -> None:
         self.clients = clients
         self.metrics = metrics
         self.input_policy = input_policy
         self.detector_specs = detector_specs or {}
         self.aggregate_detector_order = aggregate_detector_order or tuple(self.detector_specs)
+        self.local_detectors: dict[str, RiskDetector] = local_detectors or {}
 
     async def assess_prompt(self, prompt: str) -> dict[str, Any]:
         return await self.assess_detector_key("prompt", prompt)
@@ -52,7 +60,7 @@ class RiskAssessmentService:
         start = time.monotonic()
         results = [await self.assess_detector_key(detector_key, prompt) for detector_key in self.aggregate_detector_order]
         categories = [category for result in results for category in result["categories"]]
-        system_signals = [signal for result in results for signal in result["system_signals"]]
+        system_signals = [sig for result in results for sig in result["system_signals"]]
         status = "completed" if results and all(result["status"] == "completed" for result in results) else "partial"
         model_risk = any(item.get("detected") for item in categories)
         system_risk = any(item.get("detected") for item in system_signals)
@@ -77,11 +85,36 @@ class RiskAssessmentService:
     async def assess_detector_key(self, detector_key: str, prompt: str) -> dict[str, Any]:
         if detector_key not in self.detector_specs:
             raise ServiceError("DETECTOR_DISABLED", f"Risk detector is not enabled: {detector_key}", False, 410)
+
+        # Local detectors bypass the vLLM client
+        if detector_key in self.local_detectors:
+            return await self._assess_local_detector(detector_key, prompt)
+
         try:
             client = self.clients.detectors[detector_key]
         except KeyError as exc:
             raise ServiceError("DETECTOR_DISABLED", f"Risk detector client is not configured: {detector_key}", False, 410) from exc
         return await self.assess_detector(client, self.detector_specs[detector_key], prompt)
+
+    async def _assess_local_detector(self, detector_key: str, prompt: str) -> dict[str, Any]:
+        detector = self.local_detectors[detector_key]
+        start = time.monotonic()
+        try:
+            if self.input_policy is not None and self.input_policy.overflowed(prompt):
+                response = self.input_policy.system_signal_response(
+                    detector_name=detector_key,
+                    source_model=detector_key,
+                )
+            else:
+                response = await detector.assess(prompt)
+        except Exception as exc:
+            response = assessment_response(
+                categories=[],
+                system_signals=[system_signal("INFERENCE_ERROR", str(exc), detector_key, True)],
+                status="failed",
+                message="Local detector failed.",
+            )
+        return self._record_detector_result(detector_key, start, response)
 
     async def assess_detector(self, client: JsonRuntimeClient, detector: DetectorSpec, prompt: str) -> dict[str, Any]:
         start = time.monotonic()

@@ -18,7 +18,8 @@ FORBIDDEN_RISK_RESPONSE_FIELDS = {
     "policy_overrides",
 }
 RISK_RESPONSE_STATUS = {"completed", "partial", "failed"}
-MODEL_RISK_CODES = {"A1", "A2", "I1", "I2", "I3", "I4"}
+MODEL_RISK_CODES = {"A1", "A2", "I1", "I2", "I3", "I4", "D1", "D2", "D3", "D4", "D5"}
+DATA_EXPOSURE_CODES = {"D1", "D2", "D3", "D4", "D5"}
 SYSTEM_RISK_CODES = {
     "GPU_MEMORY_PRESSURE",
     "INFERENCE_TIMEOUT",
@@ -57,7 +58,7 @@ def read_risk_prompt(payload: Any) -> str:
 def _validate_risk_category(category: Any, *, index: int) -> bool:
     if not isinstance(category, dict):
         raise ServiceError("UPSTREAM_SCHEMA_ERROR", f"risk response categories[{index}] must be an object.", True, 502)
-    required = {"code", "family", "detected", "confidence", "source_model", "label"}
+    required = {"code", "family", "detected", "confidence"}
     if not required.issubset(category):
         raise ServiceError("UPSTREAM_SCHEMA_ERROR", f"risk response categories[{index}] is missing required fields.", True, 502)
     if not isinstance(category.get("detected"), bool):
@@ -65,19 +66,51 @@ def _validate_risk_category(category: Any, *, index: int) -> bool:
     code = category.get("code")
     family = category.get("family")
     label = category.get("label")
+
     if code is None:
-        if category["detected"] is not False or label != "<SAFE>":
+        # Safe category: detected must be False
+        if category["detected"] is not False:
             raise ServiceError("UPSTREAM_SCHEMA_ERROR", f"risk response categories[{index}] safe category is inconsistent.", True, 502)
+        # For prompt_attack safe categories, label must be "<SAFE>"
+        # For data_exposure safe categories, label may be None
+        if family == "prompt_attack" and label != "<SAFE>":
+            raise ServiceError("UPSTREAM_SCHEMA_ERROR", f"risk response categories[{index}] prompt safe label must be <SAFE>.", True, 502)
+        if family not in {"prompt_attack", "policy_risk", "data_exposure"}:
+            raise ServiceError("UPSTREAM_SCHEMA_ERROR", f"risk response categories[{index}] family is not supported.", True, 502)
     elif code in {"A1", "A2"}:
         if family != "prompt_attack" or label != f"<UNSAFE-{code}>":
             raise ServiceError("UPSTREAM_SCHEMA_ERROR", f"risk response categories[{index}] prompt risk code is inconsistent.", True, 502)
     elif code in {"I1", "I2", "I3", "I4"}:
         if family != "policy_risk" or label != f"<UNSAFE-{code}>":
             raise ServiceError("UPSTREAM_SCHEMA_ERROR", f"risk response categories[{index}] policy risk code is inconsistent.", True, 502)
+    elif code in DATA_EXPOSURE_CODES:
+        if family != "data_exposure":
+            raise ServiceError("UPSTREAM_SCHEMA_ERROR", f"risk response categories[{index}] data exposure code must have family=data_exposure.", True, 502)
+        # label is an entity label (e.g. "KR_RRN", "EMAIL_ADDRESS") — must be non-empty string when detected
+        if category["detected"] and (not isinstance(label, str) or not label):
+            raise ServiceError("UPSTREAM_SCHEMA_ERROR", f"risk response categories[{index}] detected data_exposure category must have a non-empty label.", True, 502)
+        # span_count is optional: None or int >= 0
+        span_count = category.get("span_count")
+        if span_count is not None and (not isinstance(span_count, int) or span_count < 0):
+            raise ServiceError("UPSTREAM_SCHEMA_ERROR", f"risk response categories[{index}].span_count must be a non-negative integer or null.", True, 502)
     else:
         raise ServiceError("UPSTREAM_SCHEMA_ERROR", f"risk response categories[{index}].code is not supported.", True, 502)
-    if not isinstance(category.get("source_model"), str) or not category["source_model"]:
-        raise ServiceError("UPSTREAM_SCHEMA_ERROR", f"risk response categories[{index}].source_model must be a non-empty string.", True, 502)
+
+    # source_model validation: required field for all detector-produced categories (vLLM or local)
+    # For safe prompt categories the field exists but may vary; for data_exposure it must be present and non-empty.
+    if "source_model" in category:
+        sm = category["source_model"]
+        if sm is not None and (not isinstance(sm, str) or not sm):
+            raise ServiceError("UPSTREAM_SCHEMA_ERROR", f"risk response categories[{index}].source_model must be a non-empty string or null.", True, 502)
+    if code in DATA_EXPOSURE_CODES:
+        # source_model is required for data_exposure categories
+        if "source_model" not in category or not isinstance(category.get("source_model"), str) or not category["source_model"]:
+            raise ServiceError("UPSTREAM_SCHEMA_ERROR", f"risk response categories[{index}].source_model must be a non-empty string for data_exposure.", True, 502)
+    elif code is not None:
+        # For A/I codes: source_model must be present and non-empty
+        if not isinstance(category.get("source_model"), str) or not category["source_model"]:
+            raise ServiceError("UPSTREAM_SCHEMA_ERROR", f"risk response categories[{index}].source_model must be a non-empty string.", True, 502)
+
     return bool(category["detected"]) and code is not None
 
 

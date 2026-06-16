@@ -34,6 +34,9 @@ from ..api.routers.gateway_ops import build_router as _build_ops_router
 from ..api.routers.gateway_inference import build_router as _build_inference_router
 from ..api.routers.gateway_risk import build_router as _build_risk_router
 from ..api.routers.gateway_retrieval import build_router as _build_retrieval_router
+from ..api.routers.gateway_runtime_control import build_router as _build_runtime_control_router
+from ..services.runtime_state import RuntimeStateStore
+from ..services.sidecar_client import SidecarClient
 
 # TODO(playground): /playground 구현 시 /v1/models[].request_parameters를 읽어
 # model-aware form을 동적으로 구성한다. 아래 grouping을 참고한다:
@@ -50,6 +53,10 @@ from ..api.routers.gateway_retrieval import build_router as _build_retrieval_rou
 
 class GatewayClients:
     def __init__(self, settings: AppSettings) -> None:
+        self.runtime_state = RuntimeStateStore()
+        self.sidecar: SidecarClient | None = (
+            SidecarClient(settings.admin_sidecar_url) if settings.admin_sidecar_url else None
+        )
         self.main_llm = VLLMClient(settings.runtime("main_llm"))
         self.runtime_clients_by_service_key: dict[str, VLLMClient] = {}
         self.embedding_clients: dict[str, VLLMClient] = {}
@@ -127,9 +134,10 @@ def create_gateway_app(settings: AppSettings | None = None, clients: GatewayClie
     register_health(app, service="gateway", operation_id="getGatewayHealth")
 
     app.include_router(_build_ops_router(admin_dependencies, clients, metrics, settings))
-    app.include_router(_build_inference_router(api_dependencies, service, settings))
-    app.include_router(_build_risk_router(api_dependencies, service))
+    app.include_router(_build_inference_router(api_dependencies, service, settings, clients.runtime_state))
+    app.include_router(_build_risk_router(api_dependencies, service, clients.runtime_state))
     app.include_router(_build_retrieval_router(api_dependencies, admin_dependencies, service, settings))
+    app.include_router(_build_runtime_control_router(admin_dependencies, clients.runtime_state, clients.sidecar, settings))
 
     _request_schemas, _response_schemas = schema_maps_from_specs(GATEWAY_ENDPOINTS)
     install_contract_openapi(

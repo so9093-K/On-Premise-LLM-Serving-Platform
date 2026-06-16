@@ -25,7 +25,10 @@ services:
       ADMIN_API_KEY_REQUIRED: '${ADMIN_API_KEY_REQUIRED:-true}'
       ADMIN_ENDPOINTS_INTERNAL_ONLY: '${ADMIN_ENDPOINTS_INTERNAL_ONLY:-false}'
       STRICT_ADMIN_ENDPOINT_SECURITY: '${STRICT_ADMIN_ENDPOINT_SECURITY:-true}'
+      ADMIN_SIDECAR_URL: http://admin-sidecar:8080
     depends_on:
+      admin-sidecar:
+        condition: service_healthy
       risk-adapter:
         condition: service_healthy
       main-llm-vllm:
@@ -344,6 +347,40 @@ services:
     - ../grafana/dashboards:/var/lib/grafana/dashboards:ro
     - ../grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
     - ../grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
+  # -------------------------------------------------------------------------
+  # Admin sidecar — internal container lifecycle control.
+  # Docker socket is mounted here, NOT on gateway (security boundary).
+  # Port 8080 is expose-only; never publish to host.
+  # -------------------------------------------------------------------------
+  admin-sidecar:
+    image: ${PLATFORM_IMAGE:?Set PLATFORM_IMAGE to a tested platform image tag}
+    command:
+    - python
+    - -m
+    - uvicorn
+    - ai_model_serving.apps.admin_sidecar:app
+    - --host
+    - 0.0.0.0
+    - --port
+    - '8080'
+    env_file: ../../.env
+    environment:
+      APP_CONFIG_ROOT: /app
+      PYTHONPATH: /app/src
+      DOCKER_SOCKET: /var/run/docker.sock
+      COMPOSE_PROJECT: ${COMPOSE_PROJECT_NAME:-ai-model-serving}
+    volumes:
+    - /var/run/docker.sock:/var/run/docker.sock:ro
+    expose:
+    - '8080'
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - python3 -c "import urllib.request; urllib.request.urlopen('http://localhost:8080/health')"
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 secrets:
   prometheus_admin_api_key:
     file: ../../.runtime/prometheus/admin_api_key

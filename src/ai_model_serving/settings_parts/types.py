@@ -67,10 +67,11 @@ class EmbeddingProfile:
 class RiskDetectorSettings:
     key: str
     route: str
-    service_key: str
     source_model: str
     family: str
     allowed_codes: frozenset[str]
+    service_key: str = ""
+    detector_type: str = "vllm"
     enabled: bool = True
     max_output_tokens: int = 1
     temperature: float = 0
@@ -104,6 +105,7 @@ class AppSettings:
     streaming_max_duration_seconds: float = 300.0
     streaming_max_chunks: int = 20_000
     streaming_max_bytes: int = 104_857_600
+    admin_sidecar_url: str = ""
 
     def __post_init__(self) -> None:
         if not self.runtime_endpoints:
@@ -152,6 +154,7 @@ class AppSettings:
                         source_model="risk-prompt",
                         family="prompt_attack",
                         allowed_codes=frozenset({"A1", "A2"}),
+                        detector_type="vllm",
                     )
                 )
             object.__setattr__(self, "risk_detectors", tuple(detectors))

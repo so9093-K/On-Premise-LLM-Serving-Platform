@@ -28,21 +28,16 @@ monitoring_stack:
         DB do not write back to JSON sources.
     dashboard_language_policy: Korean-first titles with English metric terms; PromQL
       metric names and label values stay ASCII/English.
-    dashboard_variable_scope: Home-inclusive variable list used by monitoring projection; all dashboards
-      use datasource/window/model/runtime_service/route/status_code, while serving_home
-      additionally uses user_route.
+    dashboard_variable_scope: Minimum common variable list; datasource/window are required
+      for all dashboards. serving_home additionally uses user_route; model/runtime_service
+      are present in most dashboards but not all.
     dashboard_variables:
     - datasource
     - window
-    - model
-    - runtime_service
-    - route
     - user_route
-    - status_code
     dashboard_contracts:
     - path: ops/grafana/dashboards/serving_home.json
       required_panels:
-      - Service Snapshot
       - Service Verdict
       - Serving State
       - User Requests
@@ -68,15 +63,6 @@ monitoring_stack:
         crashes_restarts: Crashes and Restarts
       collapsed_detail_rows:
       - Evidence Details
-    - path: ops/grafana/dashboards/executive_runtime_overview.json
-      required_panels:
-      - Service Health
-      - User Requests
-      - Response Delay (p95, 5m)
-      - Failed Request Rate
-      - GPU Safety Margin
-      - Component Availability
-      - Monitoring Coverage
     - path: ops/grafana/dashboards/gpu_capacity_and_oom_risk.json
       required_panels:
       - GPU Headroom
@@ -92,7 +78,7 @@ monitoring_stack:
       - A2 Detections
       - Unsafe Response Fields
       collapsed_detail_rows:
-      - Risk Details
+      - Drill Down
     - path: ops/grafana/dashboards/api_experience.json
       required_panels:
       - API Activity
@@ -117,7 +103,6 @@ monitoring_stack:
       - Systems Reporting
       - Missing Sources
       - Source Visibility
-      - Sources Down
       semantic_panels:
         systems_visible: Systems Visible
       collapsed_detail_rows:
@@ -268,23 +253,6 @@ ux_dashboards:
   - token_throughput
   - container_ram
   - container_cpu
-- id: executive_runtime_overview
-  audience: reviewer_or_operator
-  purpose: Reviewer/operator drill-down overview for service health, traffic, latency,
-    error rate, GPU headroom, scrape health, readiness, and risk signal health after
-    the Serving Home dashboard.
-  panels:
-  - operator_guide
-  - overall_status
-  - user_traffic
-  - p95_latency
-  - error_rate
-  - gpu_memory_headroom
-  - scrape_health
-  - component_readiness
-  - risk_signal_health
-  - gateway_input_auth_issues
-  - upstream_errors
 - id: risk_signal_operations
   audience: safety_or_policy_reviewer
   purpose: Risk signal operations without raw prompt or model output exposure.
@@ -425,14 +393,9 @@ operator_status_ux:
   dashboard_variables:
   - datasource
   - window
-  - model
-  - runtime_service
-  - route
   - user_route
-  - status_code
   drill_down_order:
   - serving_home
-  - executive_runtime_overview
   - api_experience
   - model_runtime_deep_dive
   - risk_signal_operations

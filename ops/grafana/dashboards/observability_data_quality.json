@@ -23,31 +23,6 @@
   "liveNow": false,
   "panels": [
     {
-      "id": 100,
-      "type": "text",
-      "title": "Monitoring Snapshot",
-      "description": "Action: read whether expected systems are visible, reporting, fresh, and producing derived signals.",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "gridPos": {
-        "x": 0,
-        "y": 0,
-        "w": 24,
-        "h": 1
-      },
-      "targets": [],
-      "options": {
-        "mode": "markdown",
-        "content": "**Monitoring snapshot** · visible systems, reporting systems, missing sources, freshness, and derived signals."
-      },
-      "fieldConfig": {
-        "defaults": {},
-        "overrides": []
-      }
-    },
-    {
       "id": 1,
       "type": "stat",
       "title": "Systems Visible",
@@ -58,7 +33,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 1,
+        "y": 0,
         "w": 4,
         "h": 4
       },
@@ -111,7 +86,7 @@
       },
       "gridPos": {
         "x": 4,
-        "y": 1,
+        "y": 0,
         "w": 4,
         "h": 4
       },
@@ -157,14 +132,14 @@
       "id": 3,
       "type": "stat",
       "title": "Missing Sources",
-      "description": "Healthy/정상: 0 means all 7 expected targets are up and healthy. Action Required/조치 필요: any non-zero value means one or more targets are down (up=0) or absent — check Down Target Detection below. No Data/런타임 데이터 없음: ai_missing_critical_targets recording rule absent — check if recording rules are loaded.",
+      "description": "Healthy/정상: 0 means all expected targets are up and healthy. Action Required/조치 필요: any non-zero value means one or more targets are down (up=0) or absent — check Source Visibility below. No Data/런타임 데이터 없음: ai_missing_critical_targets recording rule absent — check if recording rules are loaded.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
       },
       "gridPos": {
         "x": 8,
-        "y": 1,
+        "y": 0,
         "w": 4,
         "h": 4
       },
@@ -217,7 +192,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 1,
+        "y": 0,
         "w": 3,
         "h": 4
       },
@@ -280,7 +255,7 @@
       },
       "gridPos": {
         "x": 15,
-        "y": 1,
+        "y": 0,
         "w": 3,
         "h": 4
       },
@@ -343,7 +318,7 @@
       },
       "gridPos": {
         "x": 18,
-        "y": 1,
+        "y": 0,
         "w": 3,
         "h": 4
       },
@@ -406,7 +381,7 @@
       },
       "gridPos": {
         "x": 21,
-        "y": 1,
+        "y": 0,
         "w": 3,
         "h": 4
       },
@@ -462,14 +437,14 @@
       "id": 8,
       "type": "status-history",
       "title": "Source Visibility",
-      "description": "Healthy/정상: all critical job up series are visible over time. Attention/주의: absent series in this chart means the job was never registered. No Data/런타임 데이터 없음: all targets missing — check Prometheus scrape config.",
+      "description": "Healthy/정상: all critical job up series are visible over time. Attention/주의: red band means target is registered (up series exists) but scrape is failing; absent row means job was never registered. No Data/런타임 데이터 없음: all targets missing — check Prometheus scrape config.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
       },
       "gridPos": {
         "x": 0,
-        "y": 5,
+        "y": 4,
         "w": 24,
         "h": 5
       },
@@ -530,83 +505,19 @@
       "id": 101,
       "type": "row",
       "title": "Monitoring Details",
-      "description": "Action: expand for detailed investigation when the snapshot cards point here.",
+      "description": "Action: expand for detailed investigation when the snapshot cards or Source Visibility indicate a problem.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
       },
       "gridPos": {
         "x": 0,
-        "y": 10,
+        "y": 9,
         "w": 24,
         "h": 1
       },
       "collapsed": true,
       "panels": [
-        {
-          "id": 9,
-          "type": "status-history",
-          "title": "Sources Down",
-          "description": "Healthy/정상: no red bands — all visible targets are up. Attention/주의: red band means target is registered (up series exists) but scrape is failing. No Data/런타임 데이터 없음: all jobs absent from Prometheus — check scrape config and network.",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          },
-          "gridPos": {
-            "x": 0,
-            "y": 0,
-            "w": 12,
-            "h": 6
-          },
-          "targets": [
-            {
-              "expr": "up{job=~\"gateway|risk-adapter|vllm-runtimes|dcgm-exporter|cadvisor\"} == 0",
-              "refId": "A",
-              "legendFormat": "{{job}} {{instance}} DOWN"
-            }
-          ],
-          "options": {
-            "legend": {
-              "showLegend": true,
-              "displayMode": "list",
-              "placement": "bottom"
-            },
-            "tooltip": {
-              "mode": "multi",
-              "sort": "none"
-            },
-            "showValue": "auto"
-          },
-          "fieldConfig": {
-            "defaults": {
-              "mappings": [
-                {
-                  "type": "value",
-                  "options": {
-                    "0": {
-                      "text": "DOWN",
-                      "color": "red"
-                    }
-                  }
-                }
-              ],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green",
-                    "value": null
-                  },
-                  {
-                    "color": "red",
-                    "value": 0
-                  }
-                ]
-              }
-            },
-            "overrides": []
-          }
-        },
         {
           "id": 10,
           "type": "timeseries",
@@ -617,7 +528,7 @@
             "uid": "${datasource}"
           },
           "gridPos": {
-            "x": 12,
+            "x": 0,
             "y": 0,
             "w": 12,
             "h": 6
@@ -664,14 +575,14 @@
           "id": 11,
           "type": "timeseries",
           "title": "Service State Freshness",
-          "description": "Healthy/정상: service_readiness_status and overall_runtime_status are actively emitting. Attention/주의: absent or stale readiness metric means warm-state evidence is unreliable. No Data/런타임 데이터 없음: readiness metric absent — gateway or risk-adapter scrape is down. Readiness freshness timestamp requires ai_readiness_last_checked_timestamp_seconds or synthetic probes.",
+          "description": "Healthy/정상: service_readiness_status is actively emitting per service and dependency. Attention/주의: absent or stale readiness metric means warm-state evidence is unreliable. No Data/런타임 데이터 없음: readiness metric absent — gateway or risk-adapter scrape is down.",
           "datasource": {
             "type": "prometheus",
             "uid": "${datasource}"
           },
           "gridPos": {
-            "x": 0,
-            "y": 6,
+            "x": 12,
+            "y": 0,
             "w": 12,
             "h": 6
           },
@@ -680,11 +591,6 @@
               "expr": "service_readiness_status",
               "refId": "A",
               "legendFormat": "{{service}} {{dependency}}"
-            },
-            {
-              "expr": "overall_runtime_status",
-              "refId": "B",
-              "legendFormat": "{{service}} overall"
             }
           ],
           "options": {
@@ -728,9 +634,9 @@
             "uid": "${datasource}"
           },
           "gridPos": {
-            "x": 12,
+            "x": 0,
             "y": 6,
-            "w": 12,
+            "w": 24,
             "h": 6
           },
           "targets": [
@@ -865,38 +771,6 @@
         "name": "runtime_service",
         "options": [],
         "query": "main-llm-vllm,embedding-vllm,embedding-ko-vllm,risk-prompt-vllm",
-        "type": "custom"
-      },
-      {
-        "allValue": ".*",
-        "current": {
-          "selected": true,
-          "text": "All",
-          "value": "$__all"
-        },
-        "hide": 0,
-        "includeAll": true,
-        "label": "Route",
-        "multi": true,
-        "name": "route",
-        "options": [],
-        "query": "/v1/chat/completions,/v1/embeddings,/v1/risk/.*,/health,/ready,/v1/models,/metrics",
-        "type": "custom"
-      },
-      {
-        "allValue": ".*",
-        "current": {
-          "selected": true,
-          "text": "All",
-          "value": "$__all"
-        },
-        "hide": 0,
-        "includeAll": true,
-        "label": "Status Code",
-        "multi": true,
-        "name": "status_code",
-        "options": [],
-        "query": "2..,4..,5..,401,403,422,429,500,502,503,504",
         "type": "custom"
       }
     ]

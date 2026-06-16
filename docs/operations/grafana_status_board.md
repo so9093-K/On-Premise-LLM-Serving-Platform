@@ -46,7 +46,6 @@
 |---|---|
 | `gpu_capacity_and_oom_risk` | 지금 이 GPU에서 요청을 안전하게 계속 처리할 수 있는가? **(기본 home)** |
 | `serving_home` | 지금 요청을 안전하게 처리할 수 있는가? traffic이 없어도 stack은 IDLE WARM인가? |
-| `executive_runtime_overview` | 전체 서비스가 정상인가? 어디가 문제인가? |
 | `api_experience` | Gateway path와 upstream path 중 어디가 병목인가? streaming relay 상태는? |
 | `model_runtime_deep_dive` | 특정 모델의 queue, KV cache, token throughput, container resource 상태는? |
 | `risk_signal_operations` | risk signal만으로 본 현재 detector 상태는? (prompt 없음) |
@@ -58,8 +57,7 @@
 
 ```
 serving_home → gpu_capacity_and_oom_risk, api_experience, model_runtime_deep_dive, risk_signal_operations, observability_data_quality
-gpu_capacity_and_oom_risk → serving_home, executive_runtime_overview
-executive_runtime_overview → serving_home, gpu_capacity_and_oom_risk, api_experience, model_runtime_deep_dive, risk_signal_operations
+gpu_capacity_and_oom_risk → serving_home
 api_experience → serving_home, model_runtime_deep_dive
 model_runtime_deep_dive → serving_home, gpu_capacity_and_oom_risk, api_experience
 risk_signal_operations → serving_home

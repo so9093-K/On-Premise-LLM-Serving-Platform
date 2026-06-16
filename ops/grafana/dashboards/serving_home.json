@@ -71,30 +71,6 @@
   "liveNow": false,
   "panels": [
     {
-      "id": 100,
-      "type": "text",
-      "title": "Service Snapshot",
-      "description": "Action: judge service state, user impact, capacity risk, and monitoring coverage from the first cards.",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "gridPos": {
-        "x": 0,
-        "y": 0,
-        "w": 24,
-        "h": 1
-      },
-      "options": {
-        "mode": "markdown",
-        "content": "**Service snapshot** · state, user demand, GPU safety, failures, and monitoring coverage."
-      },
-      "fieldConfig": {
-        "defaults": {},
-        "overrides": []
-      }
-    },
-    {
       "id": 1,
       "type": "stat",
       "title": "Service Verdict",
@@ -105,7 +81,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 1,
+        "y": 0,
         "w": 24,
         "h": 4
       },
@@ -210,7 +186,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 5,
+        "y": 4,
         "w": 4,
         "h": 4
       },
@@ -277,7 +253,7 @@
       },
       "gridPos": {
         "x": 4,
-        "y": 5,
+        "y": 4,
         "w": 4,
         "h": 4
       },
@@ -326,7 +302,7 @@
       },
       "gridPos": {
         "x": 8,
-        "y": 5,
+        "y": 4,
         "w": 4,
         "h": 4
       },
@@ -389,7 +365,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 5,
+        "y": 4,
         "w": 4,
         "h": 4
       },
@@ -443,7 +419,7 @@
       },
       "gridPos": {
         "x": 16,
-        "y": 5,
+        "y": 4,
         "w": 4,
         "h": 4
       },
@@ -497,7 +473,7 @@
       },
       "gridPos": {
         "x": 20,
-        "y": 5,
+        "y": 4,
         "w": 4,
         "h": 4
       },
@@ -553,7 +529,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 9,
+        "y": 8,
         "w": 24,
         "h": 8
       },
@@ -692,7 +668,7 @@
                     },
                     {
                       "color": "green",
-                      "value": 6442450944
+                      "value": 5368709120
                     }
                   ]
                 }
@@ -809,7 +785,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 17,
+        "y": 16,
         "w": 24,
         "h": 1
       },
@@ -819,7 +795,7 @@
           "id": 9,
           "type": "stat",
           "title": "Lowest GPU Safety Margin",
-          "description": "Healthy/정상: minimum over selected range stays above 6 GiB. Attention/주의: 4-6 GiB means pressure may have occurred. Action Required/조치 필요: below 4 GiB indicates OOM risk. No Data/런타임 데이터 없음: GPU exporter absent.",
+          "description": "Healthy/정상: minimum over selected range stays above 5 GiB. Attention/주의: 4-5 GiB means pressure may have occurred. Action Required/조치 필요: below 4 GiB indicates OOM risk. No Data/런타임 데이터 없음: GPU exporter absent.",
           "datasource": {
             "type": "prometheus",
             "uid": "${datasource}"
@@ -1294,22 +1270,6 @@
         "type": "custom"
       },
       {
-        "allValue": ".*",
-        "current": {
-          "selected": true,
-          "text": "All",
-          "value": "$__all"
-        },
-        "hide": 0,
-        "includeAll": true,
-        "label": "Route",
-        "multi": true,
-        "name": "route",
-        "options": [],
-        "query": "/v1/chat/completions,/v1/embeddings,/v1/risk/.*,/v1/retrieval/.*,/health,/ready,/v1/models,/metrics,/docs,/openapi.json",
-        "type": "custom"
-      },
-      {
         "current": {
           "selected": false,
           "text": "All user routes",
@@ -1348,22 +1308,6 @@
           }
         ],
         "query": "All user routes : /v1/chat/completions|/v1/embeddings|/v1/risk/.*|/v1/retrieval/.*, Chat : /v1/chat/completions, Embeddings : /v1/embeddings, Risk : /v1/risk/.*, Retrieval : /v1/retrieval/.*",
-        "type": "custom"
-      },
-      {
-        "allValue": ".*",
-        "current": {
-          "selected": true,
-          "text": "All",
-          "value": "$__all"
-        },
-        "hide": 0,
-        "includeAll": true,
-        "label": "Status Code",
-        "multi": true,
-        "name": "status_code",
-        "options": [],
-        "query": "2..,4..,5..,401,403,422,429,500,502,503,504",
         "type": "custom"
       }
     ]

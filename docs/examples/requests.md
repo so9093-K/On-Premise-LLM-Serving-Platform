@@ -222,6 +222,90 @@ curl -s http://127.0.0.1:9405/v1/risk/detectors/prompt/assessments \
 
 ---
 
+---
+
+## PII Protection Detector 검증
+
+`/v1/risk/detectors/pii/assessments` — 개인정보 노출 탐지 (D1, D2, D3, D5)  
+로컬 탐지: Presidio Analyzer(optional) + Korean custom recognizer
+
+### D1 — 주민등록번호 탐지 (Personal Identifier)
+
+```bash
+curl -s http://127.0.0.1:9405/v1/risk/detectors/pii/assessments \
+  -H "Authorization: Bearer $INTERNAL_SERVICE_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"prompt":"주민번호: 901201-1234567 확인 바랍니다."}'
+```
+
+예상: `risk_detected: true`, `categories[0].code: "D1"`, `categories[0].label: "KR_RRN"`, `span_count: 1`
+
+### D2 — 이메일 주소 탐지 (Contact Information)
+
+```bash
+curl -s http://127.0.0.1:9405/v1/risk/detectors/pii/assessments \
+  -H "Authorization: Bearer $INTERNAL_SERVICE_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"prompt":"담당자 이메일은 hong@example.com이고 연락처는 010-1234-5678입니다."}'
+```
+
+예상: `risk_detected: true`, D2 categories 포함 (EMAIL_ADDRESS, PHONE_NUMBER)
+
+### D3 — 사업자등록번호 탐지 (Financial Identifier)
+
+```bash
+curl -s http://127.0.0.1:9405/v1/risk/detectors/pii/assessments \
+  -H "Authorization: Bearer $INTERNAL_SERVICE_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"prompt":"사업자 번호 123-45-67890으로 세금계산서를 발행해주세요."}'
+```
+
+예상: `risk_detected: true`, `categories[0].code: "D3"`, `categories[0].label: "KR_BRN"`
+
+---
+
+## Secret Exposure Detector 검증
+
+`/v1/risk/detectors/secret/assessments` — 시크릿·자격증명 노출 탐지 (D4, D5)  
+로컬 탐지: curated regex + Shannon entropy (외부 CLI 없음)
+
+### D4 — OpenAI API Key 탐지
+
+```bash
+curl -s http://127.0.0.1:9405/v1/risk/detectors/secret/assessments \
+  -H "Authorization: Bearer $INTERNAL_SERVICE_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"prompt":"내 API 키: sk-proj-abcdefghijklmnopqrstuvwxyz12345"}'
+```
+
+예상: `risk_detected: true`, `categories[0].code: "D4"`, `categories[0].label: "OPENAI_API_KEY"`
+
+### D4 — JWT 토큰 탐지
+
+```bash
+curl -s http://127.0.0.1:9405/v1/risk/detectors/secret/assessments \
+  -H "Authorization: Bearer $INTERNAL_SERVICE_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"prompt":"Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U"}'
+```
+
+예상: `risk_detected: true`, `categories[0].code: "D4"`, `categories[0].label: "JWT"`
+
+### D5 — 데이터베이스 URL 탐지
+
+```bash
+curl -s http://127.0.0.1:9405/v1/risk/detectors/secret/assessments \
+  -H "Authorization: Bearer $INTERNAL_SERVICE_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"prompt":"DATABASE_URL=postgresql://user:p4ssw0rd@db.example.com:5432/mydb"}'
+```
+
+예상: `risk_detected: true`, `categories[0].code: "D5"`, `categories[0].label: "DATABASE_URL"`
+
+> **보안 주의:** 원문 시크릿 값은 응답에 포함되지 않는다. `label`은 entity type 이름, `span_count`는 탐지 개수.
+
+---
+
 ## Siren Detector (Retired)
 
 `/v1/risk/detectors/siren/assessments`는 retired endpoint다. 현재 이 route는 **410 Gone**을 반환한다.

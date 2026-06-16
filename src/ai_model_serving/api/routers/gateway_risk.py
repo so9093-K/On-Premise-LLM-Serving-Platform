@@ -2,15 +2,20 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Body
+from fastapi import APIRouter, Body, HTTPException
 
 from ..endpoint_spec import GATEWAY_ENDPOINTS
 from ...errors import ServiceError
+from ...services.runtime_state import RuntimeState, RuntimeStateStore
 
 _GW = {(s.method, s.path): s for s in GATEWAY_ENDPOINTS}
 
 
-def build_router(api_dependencies: list, service: Any) -> APIRouter:
+def build_router(
+    api_dependencies: list,
+    service: Any,
+    state_store: RuntimeStateStore | None = None,
+) -> APIRouter:
     router = APIRouter()
 
     _s = _GW[("POST", "/v1/risk/detectors/prompt/assessments")]
@@ -27,7 +32,50 @@ def build_router(api_dependencies: list, service: Any) -> APIRouter:
     async def risk_prompt_assessment(
         payload: dict[str, Any] = Body(...),
     ) -> dict[str, Any]:
+        if state_store is not None:
+            state = await state_store.get("risk_prompt")
+            if state in (RuntimeState.disabled, RuntimeState.stopped, RuntimeState.starting):
+                raise HTTPException(
+                    503,
+                    detail={
+                        "error": "runtime_unavailable",
+                        "service_key": "risk_prompt",
+                        "state": state.value,
+                    },
+                )
         return await service.forward_risk_assessment("/v1/risk/detectors/prompt/assessments", payload)
+
+    _s = _GW[("POST", "/v1/risk/detectors/pii/assessments")]
+
+    @router.post(
+        "/v1/risk/detectors/pii/assessments",
+        dependencies=api_dependencies,
+        tags=[_s.tag],
+        summary=_s.summary,
+        operation_id=_s.operation_id,
+        description=_s.description,
+        responses={401: {"description": "API Bearer token 필요"}},
+    )
+    async def risk_pii_assessment(
+        payload: dict[str, Any] = Body(...),
+    ) -> dict[str, Any]:
+        return await service.forward_risk_assessment("/v1/risk/detectors/pii/assessments", payload)
+
+    _s = _GW[("POST", "/v1/risk/detectors/secret/assessments")]
+
+    @router.post(
+        "/v1/risk/detectors/secret/assessments",
+        dependencies=api_dependencies,
+        tags=[_s.tag],
+        summary=_s.summary,
+        operation_id=_s.operation_id,
+        description=_s.description,
+        responses={401: {"description": "API Bearer token 필요"}},
+    )
+    async def risk_secret_assessment(
+        payload: dict[str, Any] = Body(...),
+    ) -> dict[str, Any]:
+        return await service.forward_risk_assessment("/v1/risk/detectors/secret/assessments", payload)
 
     _s = _GW[("POST", "/v1/risk/detectors/siren/assessments")]
 

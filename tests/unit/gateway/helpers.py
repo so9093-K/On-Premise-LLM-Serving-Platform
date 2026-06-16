@@ -110,6 +110,9 @@ class ExplodingGatewayClients:
         self.runtimes = {"main_llm": self.main_llm, "embedding": embedding}
         self.risk_adapter = FakeRuntimeClient({"status": "ready", "service": "risk-adapter", "dependencies": []})
         self.runtimes["risk_adapter"] = self.risk_adapter
+        from ai_model_serving.services.runtime_state import RuntimeStateStore
+        self.runtime_state = RuntimeStateStore()
+        self.sidecar = None
 
 
 class FakeGatewayClients:
@@ -159,6 +162,9 @@ class FakeGatewayClients:
             "embedding_ko": embedding_ko,
             "risk_adapter": self.risk_adapter,
         }
+        from ai_model_serving.services.runtime_state import RuntimeStateStore
+        self.runtime_state = RuntimeStateStore()
+        self.sidecar = None
 
 
 def public_models():

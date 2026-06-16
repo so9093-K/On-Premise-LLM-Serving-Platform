@@ -48,7 +48,7 @@
         "string",
         "null"
       ],
-      "pattern": "^(A[12]|I[1-4]|PARSE_ERROR|INFERENCE_ERROR|INFERENCE_TIMEOUT|TRUNCATED_INPUT|INFERENCE_QUEUE_TIMEOUT|GPU_MEMORY_PRESSURE)$"
+      "pattern": "^(A[12]|I[1-4]|D[1-5]|PARSE_ERROR|INFERENCE_ERROR|INFERENCE_TIMEOUT|TRUNCATED_INPUT|INFERENCE_QUEUE_TIMEOUT|GPU_MEMORY_PRESSURE)$"
     },
     "message": {
       "type": "string"
@@ -70,13 +70,14 @@
               "string",
               "null"
             ],
-            "pattern": "^(A[12]|I[1-4])$"
+            "pattern": "^(A[12]|I[1-4]|D[1-5])$"
           },
           "family": {
             "type": "string",
             "enum": [
               "prompt_attack",
-              "policy_risk"
+              "policy_risk",
+              "data_exposure"
             ]
           },
           "detected": {
@@ -101,6 +102,13 @@
               "string",
               "null"
             ]
+          },
+          "span_count": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
           }
         },
         "allOf": [
@@ -140,6 +148,26 @@
               "properties": {
                 "family": {
                   "const": "policy_risk"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "pattern": "^D[1-5]$"
+                }
+              },
+              "required": [
+                "code"
+              ]
+            },
+            "then": {
+              "properties": {
+                "family": {
+                  "const": "data_exposure"
                 }
               }
             }

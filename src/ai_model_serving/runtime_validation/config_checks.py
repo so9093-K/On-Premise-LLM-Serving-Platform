@@ -189,10 +189,11 @@ class ConfigOnlyChecks:
 
     def _record_fixed_detector_budget(self) -> None:
         fixed = self.gpu_budgets.get("resource_management", {}).get("fixed_constraints", [])
+        # Only vLLM detectors have a service_key; local detectors are in-process and have no GPU budget.
         detector_service_keys = [
             str(detector["service_key"])
             for detector in self.model_serving.get("risk_adapter", {}).get("detectors", {}).values()
-            if detector.get("enabled", True) is True
+            if detector.get("enabled", True) is True and detector.get("type", "vllm") == "vllm" and "service_key" in detector
         ]
         detector_tokens_ok = all(
             int(self.model_serving["models"][key].get("max_output_tokens", 0)) == 1

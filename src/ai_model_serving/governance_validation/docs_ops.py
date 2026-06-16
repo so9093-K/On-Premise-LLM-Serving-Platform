@@ -89,7 +89,6 @@ def validate_monitoring_reference() -> None:
     dashboards = {d['id'] for d in monitoring['ux_dashboards']}
     required = {
         'serving_home',
-        'executive_runtime_overview',
         'gpu_capacity_and_oom_risk',
         'risk_signal_operations',
         'api_experience',
@@ -139,7 +138,7 @@ def validate_monitoring_reference() -> None:
         raise SystemExit('grafana provisioning must define the portable prometheus datasource uid')
     if grafana.get('allow_ui_updates_policy', {}).get('reference_release') is not False:
         raise SystemExit('reference release dashboards must be Git-managed with allowUiUpdates=false')
-    if not {'datasource', 'window', 'model', 'runtime_service', 'route', 'user_route', 'status_code'}.issubset(set(grafana.get('dashboard_variables', []))):
+    if not {'datasource', 'window', 'user_route'}.issubset(set(grafana.get('dashboard_variables', []))):
         raise SystemExit('grafana monitoring config missing required dashboard variables')
 
     doc = (ROOT / 'docs/operations/monitoring_ux.md').read_text(encoding='utf-8')
@@ -491,7 +490,7 @@ def validate_operational_hardening_contract() -> None:
     detector_keys = [
         detector['service_key']
         for detector in serving['risk_adapter'].get('detectors', {}).values()
-        if detector.get('enabled', True) is True
+        if detector.get('enabled', True) is True and detector.get('type', 'vllm') != 'local'
     ]
     detector_total_budget = sum(detector_budget(key) for key in detector_keys)
     aggregate_cfg = serving['risk_adapter'].get('aggregate', {})

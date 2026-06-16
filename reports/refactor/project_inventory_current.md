@@ -72,13 +72,13 @@ Command:
 | `configs/command_registry.yaml` | 2100 | configuration | configuration source; validate through governance and projection checks after edits |
 | `specs/openapi.risk-adapter.yaml` | 1684 | api-contracts | supporting project file |
 | `ops/grafana/dashboards/serving_home.json` | 1381 | operations | supporting project file |
-| `ops/grafana/dashboards/api_experience.json` | 1144 | operations | supporting project file |
+| `ops/grafana/dashboards/api_experience.json` | 1190 | operations | supporting project file |
 | `ops/grafana/dashboards/observability_data_quality.json` | 914 | operations | supporting project file |
 | `ops/grafana/dashboards/gpu_capacity_and_oom_risk.json` | 757 | operations | supporting project file |
 | `reports/runtime/operator_status_bundle.json` | 737 | handoff-reporting | generated operator report; regenerate through make operator-reports before handoff |
 | `ops/grafana/dashboards/executive_runtime_overview.json` | 687 | operations | supporting project file |
-| `ops/grafana/dashboards/risk_signal_operations.json` | 685 | operations | supporting project file |
-| `ops/grafana/dashboards/model_runtime_deep_dive.json` | 630 | operations | supporting project file |
+| `ops/grafana/dashboards/model_runtime_deep_dive.json` | 683 | operations | supporting project file |
+| `ops/grafana/dashboards/risk_signal_operations.json` | 657 | operations | supporting project file |
 | `src/ai_model_serving/governance_validation/docs_ops.py` | 612 | governance-validation | application code; preserve public API behavior and compatibility facades |
 | `.other/registry_cleanup.md` | 574 | project-maintenance | supporting project file |
 | `tests/unit/gateway/helpers.py` | 571 | quality | test coverage; keep deterministic and avoid live GPU dependency |

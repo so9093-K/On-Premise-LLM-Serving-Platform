@@ -96,7 +96,7 @@
         "category": "current handoff/review report",
         "owner": "handoff-reporting",
         "management": "generated/curated for handoff review",
-        "size_bytes": 171460,
+        "size_bytes": 171458,
         "line_count": 4805,
         "role": "structured-data",
         "review_note": "handoff/review artifact; avoid stale phase snapshots in active package"
@@ -129,7 +129,7 @@
         "category": "compose/monitoring/runtime ops template",
         "owner": "operations",
         "management": "managed by operator templates",
-        "size_bytes": 40637,
+        "size_bytes": 40666,
         "line_count": 1381,
         "role": "structured-data",
         "review_note": "supporting project file"
@@ -140,8 +140,8 @@
         "category": "compose/monitoring/runtime ops template",
         "owner": "operations",
         "management": "managed by operator templates",
-        "size_bytes": 35378,
-        "line_count": 1144,
+        "size_bytes": 37324,
+        "line_count": 1190,
         "role": "structured-data",
         "review_note": "supporting project file"
       },
@@ -162,7 +162,7 @@
         "category": "compose/monitoring/runtime ops template",
         "owner": "operations",
         "management": "managed by operator templates",
-        "size_bytes": 19331,
+        "size_bytes": 19371,
         "line_count": 757,
         "role": "structured-data",
         "review_note": "supporting project file"
@@ -190,24 +190,24 @@
         "review_note": "supporting project file"
       },
       {
-        "path": "ops/grafana/dashboards/risk_signal_operations.json",
-        "area": "ops",
-        "category": "compose/monitoring/runtime ops template",
-        "owner": "operations",
-        "management": "managed by operator templates",
-        "size_bytes": 18793,
-        "line_count": 685,
-        "role": "structured-data",
-        "review_note": "supporting project file"
-      },
-      {
         "path": "ops/grafana/dashboards/model_runtime_deep_dive.json",
         "area": "ops",
         "category": "compose/monitoring/runtime ops template",
         "owner": "operations",
         "management": "managed by operator templates",
-        "size_bytes": 17280,
-        "line_count": 630,
+        "size_bytes": 18923,
+        "line_count": 683,
+        "role": "structured-data",
+        "review_note": "supporting project file"
+      },
+      {
+        "path": "ops/grafana/dashboards/risk_signal_operations.json",
+        "area": "ops",
+        "category": "compose/monitoring/runtime ops template",
+        "owner": "operations",
+        "management": "managed by operator templates",
+        "size_bytes": 17887,
+        "line_count": 657,
         "role": "structured-data",
         "review_note": "supporting project file"
       },
@@ -217,7 +217,7 @@
         "category": "application/control-plane source",
         "owner": "governance-validation",
         "management": "managed by package source layout",
-        "size_bytes": 40546,
+        "size_bytes": 40545,
         "line_count": 612,
         "role": "python-source",
         "review_note": "application code; preserve public API behavior and compatibility facades"
@@ -440,8 +440,8 @@
       "category": "project metadata",
       "owner": "project-maintenance",
       "management": "managed by root project metadata",
-      "size_bytes": 4926,
-      "line_count": 44,
+      "size_bytes": 5419,
+      "line_count": 46,
       "role": "documentation",
       "review_note": "supporting project file"
     },
@@ -638,8 +638,8 @@
       "category": "configuration source of truth",
       "owner": "configuration",
       "management": "managed by configuration lifecycle",
-      "size_bytes": 15958,
-      "line_count": 492,
+      "size_bytes": 16026,
+      "line_count": 494,
       "role": "structured-data",
       "review_note": "configuration source; validate through governance and projection checks after edits"
     },
@@ -1243,8 +1243,8 @@
       "category": "documentation",
       "owner": "documentation",
       "management": "managed by documentation map",
-      "size_bytes": 19077,
-      "line_count": 287,
+      "size_bytes": 19483,
+      "line_count": 289,
       "role": "documentation",
       "review_note": "documentation; keep relative links valid and avoid duplicating current command flow"
     },
@@ -1595,8 +1595,8 @@
       "category": "compose/monitoring/runtime ops template",
       "owner": "operations",
       "management": "managed by operator templates",
-      "size_bytes": 35378,
-      "line_count": 1144,
+      "size_bytes": 37324,
+      "line_count": 1190,
       "role": "structured-data",
       "review_note": "supporting project file"
     },
@@ -1617,7 +1617,7 @@
       "category": "compose/monitoring/runtime ops template",
       "owner": "operations",
       "management": "managed by operator templates",
-      "size_bytes": 19331,
+      "size_bytes": 19371,
       "line_count": 757,
       "role": "structured-data",
       "review_note": "supporting project file"
@@ -1628,8 +1628,8 @@
       "category": "compose/monitoring/runtime ops template",
       "owner": "operations",
       "management": "managed by operator templates",
-      "size_bytes": 17280,
-      "line_count": 630,
+      "size_bytes": 18923,
+      "line_count": 683,
       "role": "structured-data",
       "review_note": "supporting project file"
     },
@@ -1650,8 +1650,8 @@
       "category": "compose/monitoring/runtime ops template",
       "owner": "operations",
       "management": "managed by operator templates",
-      "size_bytes": 18793,
-      "line_count": 685,
+      "size_bytes": 17887,
+      "line_count": 657,
       "role": "structured-data",
       "review_note": "supporting project file"
     },
@@ -1661,7 +1661,7 @@
       "category": "compose/monitoring/runtime ops template",
       "owner": "operations",
       "management": "managed by operator templates",
-      "size_bytes": 40637,
+      "size_bytes": 40666,
       "line_count": 1381,
       "role": "structured-data",
       "review_note": "supporting project file"
@@ -1727,7 +1727,7 @@
       "category": "compose/monitoring/runtime ops template",
       "owner": "operations",
       "management": "managed by operator templates",
-      "size_bytes": 5651,
+      "size_bytes": 5650,
       "line_count": 86,
       "role": "structured-data",
       "review_note": "supporting project file"
@@ -1815,7 +1815,7 @@
       "category": "current handoff/review report",
       "owner": "handoff-reporting",
       "management": "generated/curated for handoff review",
-      "size_bytes": 84378,
+      "size_bytes": 84376,
       "line_count": 414,
       "role": "structured-data",
       "review_note": "handoff/review artifact; avoid stale phase snapshots in active package"
@@ -1826,7 +1826,7 @@
       "category": "current handoff/review report",
       "owner": "handoff-reporting",
       "management": "generated/curated for handoff review",
-      "size_bytes": 171460,
+      "size_bytes": 171458,
       "line_count": 4805,
       "role": "structured-data",
       "review_note": "handoff/review artifact; avoid stale phase snapshots in active package"
@@ -3476,7 +3476,7 @@
       "category": "application/control-plane source",
       "owner": "governance-validation",
       "management": "managed by package source layout",
-      "size_bytes": 40546,
+      "size_bytes": 40545,
       "line_count": 612,
       "role": "python-source",
       "review_note": "application code; preserve public API behavior and compatibility facades"
@@ -3597,7 +3597,7 @@
       "category": "application/control-plane source",
       "owner": "application",
       "management": "managed by package source layout",
-      "size_bytes": 13659,
+      "size_bytes": 13657,
       "line_count": 263,
       "role": "python-source",
       "review_note": "application code; preserve public API behavior and compatibility facades"
@@ -4235,8 +4235,8 @@
       "category": "test suite",
       "owner": "quality",
       "management": "managed by test strategy",
-      "size_bytes": 7850,
-      "line_count": 165,
+      "size_bytes": 7848,
+      "line_count": 164,
       "role": "python-source",
       "review_note": "test coverage; keep deterministic and avoid live GPU dependency"
     },

@@ -45,10 +45,17 @@ _EndpointSpec 레지스트리에서 자동 생성. 수정 시 `endpoint_spec.py`
 | `POST` | `/v1/chat/completions` | stable | `public_api` | `chat_completion_request.schema.json` ✓ | `chat_completion_response.schema.json` ✓ | `createChatCompletion` |
 | `POST` | `/v1/embeddings` | stable | `public_api` | `embedding_request.schema.json` ✓ | `embedding_response.schema.json` ✓ | `createEmbedding` |
 | `POST` | `/v1/risk/detectors/prompt/assessments` | stable | `public_api` | `risk_assessment_request.schema.json` ✓ | `risk_assessment_response.schema.json` ✓ | `assessPromptRisk` |
+| `POST` | `/v1/risk/detectors/pii/assessments` | stable | `public_api` | `risk_assessment_request.schema.json` ✓ | `risk_assessment_response.schema.json` ✓ | `assessPIIRisk` |
+| `POST` | `/v1/risk/detectors/secret/assessments` | stable | `public_api` | `risk_assessment_request.schema.json` ✓ | `risk_assessment_response.schema.json` ✓ | `assessSecretRisk` |
 | `POST` | `/v1/risk/detectors/siren/assessments` | retired ⚠ | `public_api` | — | `common_error.schema.json` ✓ | `assessRetiredSirenRisk` |
 | `POST` | `/v1/risk/assessments` | stable | `public_api` | `risk_assessment_request.schema.json` ✓ | `risk_assessment_response.schema.json` ✓ | `assessRisk` |
 | `POST` | `/v1/retrieval/rerank` | stable | `public_api` | `retrieval_rerank_request.schema.json` ✓ | `retrieval_rerank_response.schema.json` ✓ | `rerankDocuments` |
 | `POST` | `/v1/retrieval/score` | stable | `public_api` | `retrieval_score_request.schema.json` ✓ | `retrieval_score_response.schema.json` ✓ | `scoreDocuments` |
+| `GET` | `/admin/runtimes` | stable | `admin` | — | — | `listRuntimes` |
+| `POST` | `/admin/runtimes/{service_key}/disable` | stable | `admin` | — | — | `disableRuntime` |
+| `POST` | `/admin/runtimes/{service_key}/enable` | stable | `admin` | — | — | `enableRuntime` |
+| `POST` | `/admin/runtimes/{service_key}/stop` | stable | `admin` | — | — | `stopRuntime` |
+| `POST` | `/admin/runtimes/{service_key}/start` | stable | `admin` | — | — | `startRuntime` |
 
 #### Risk Adapter (port 9405, compose 내부 전용)
 
@@ -58,6 +65,8 @@ _EndpointSpec 레지스트리에서 자동 생성. 수정 시 `endpoint_spec.py`
 | `GET` | `/ready` | stable | `admin` | — | `readiness_response.schema.json` ✓ | `getRiskAdapterReadiness` |
 | `GET` | `/metrics` | stable | `admin` | — | — | `getRiskAdapterMetrics` |
 | `POST` | `/v1/risk/detectors/prompt/assessments` | stable | `internal_service` | `risk_assessment_request.schema.json` ✓ | `risk_assessment_response.schema.json` ✓ | `assessRiskPromptDetector` |
+| `POST` | `/v1/risk/detectors/pii/assessments` | stable | `internal_service` | `risk_assessment_request.schema.json` ✓ | `risk_assessment_response.schema.json` ✓ | `assessRiskPIIDetector` |
+| `POST` | `/v1/risk/detectors/secret/assessments` | stable | `internal_service` | `risk_assessment_request.schema.json` ✓ | `risk_assessment_response.schema.json` ✓ | `assessRiskSecretDetector` |
 | `POST` | `/v1/risk/detectors/siren/assessments` | removed ✕ | `none` | — | — | `assessSirenDetector` |
 | `POST` | `/v1/risk/assessments` | stable | `internal_service` | `risk_assessment_request.schema.json` ✓ | `risk_assessment_response.schema.json` ✓ | `assessRiskAggregate` |
 
@@ -152,7 +161,6 @@ grep -E "^GRAFANA_ADMIN_(USER|PASSWORD)=" .env
 |---|---|---|
 | GPU Capacity and OOM Risk | `gpu_capacity_and_oom_risk` | 지금 이 GPU에서 요청을 안전하게 계속 처리할 수 있는가? **(기본 home dashboard)** |
 | Serving Home | `serving_home` | 지금 요청을 안전하게 처리할 수 있는가? Service Verdict, Attention Needed, GPU warm evidence |
-| Executive Runtime Overview | `executive_runtime_overview` | 전체 서비스가 정상인가? 어디가 문제인가? |
 | API Experience | `api_experience` | Gateway path와 upstream 중 어디가 병목인가? streaming relay 상태는? |
 | Model Runtime Deep Dive | `model_runtime_deep_dive` | 특정 모델 queue/KV cache/token throughput/container 상태는? |
 | Risk Signal Operations | `risk_signal_operations` | risk signal만으로 본 detector 상태는? (prompt 없음) |
@@ -160,7 +168,7 @@ grep -E "^GRAFANA_ADMIN_(USER|PASSWORD)=" .env
 
 Dashboard 간 navigation은 Grafana 상단 링크로 이동한다 (UID 기반, `includeVars=true`).
 
-권장 drill-down: `gpu_capacity_and_oom_risk` → `serving_home` → 필요한 영역별로 `api_experience`, `model_runtime_deep_dive`, `risk_signal_operations`, `observability_data_quality`를 연다. `executive_runtime_overview`는 호환용 요약 화면으로 남긴다.
+권장 drill-down: `gpu_capacity_and_oom_risk` → `serving_home` → 필요한 영역별로 `api_experience`, `model_runtime_deep_dive`, `risk_signal_operations`, `observability_data_quality`를 연다.
 
 `Serving Home`의 user route 기본값은 `/v1/chat/completions|/v1/embeddings|/v1/risk/.*`이다. Top strip의 `User Requests`는 double count를 피하기 위해 `service="gateway"` public entrypoint만 세고, service-level activity panel은 `gateway`와 `risk-adapter`를 service label로 분리한다.
 

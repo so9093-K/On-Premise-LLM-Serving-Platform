@@ -12,22 +12,38 @@ info:
     ## Detector 역할
 
 
-    | Detector | 모델 | 담당 신호 |
+    | Detector | 유형 | 담당 신호 | Risk 코드 |
 
-    |---|---|---|
+    |---|---|---|---|
 
-    | **Prompt** | `risk-prompt` | Prompt Injection / Prompt Leaking |
+    | **PII Protection** | local (presidio + regex) | 개인정보 노출 | D1, D2, D3, D5 |
+
+    | **Secret Exposure** | local (regex + entropy) | 시크릿·자격증명 노출 | D4, D5 |
+
+    | **Prompt** | vLLM (`risk-prompt`) | Prompt Injection / Prompt Leaking | A1,
+    A2 |
 
 
-    - detector 출력 `<SAFE>`, `<UNSAFE-A1>` 같은 label을 표준 signal-only response로 정규화합니다.
+    - PII Protection과 Secret Exposure는 in-process 로컬 탐지로 외부 모델 호출이 없습니다.
+
+    - Prompt detector 출력 `<SAFE>`, `<UNSAFE-A1>` 같은 label을 표준 signal-only response로
+    정규화합니다.
 
     - 정책 판단 필드(`allow`, `block`, `decision`, `action`)는 반환하지 않습니다.
+
+    - 원문 PII/Secret 값은 응답, 로그, metric에 포함되지 않습니다.
+
+
+    ## Aggregate 실행 순서
+
+
+    `pii → secret → prompt` 순서로 sequential 실행. 어느 detector든 탐지하면 `risk_detected: true`.
 
 
     ## Readiness
 
 
-    - enabled detector runtime 준비 → HTTP 200 + `phase: serving`
+    - enabled vLLM detector runtime 준비 → HTTP 200 + `phase: serving`
 
     - 모델 로딩 중 → HTTP 503 + `phase: waiting_for_dependencies`
 
@@ -394,7 +410,7 @@ paths:
                     type:
                     - string
                     - 'null'
-                    pattern: ^(A[12]|I[1-4]|PARSE_ERROR|INFERENCE_ERROR|INFERENCE_TIMEOUT|TRUNCATED_INPUT|INFERENCE_QUEUE_TIMEOUT|GPU_MEMORY_PRESSURE)$
+                    pattern: ^(A[12]|I[1-4]|D[1-5]|PARSE_ERROR|INFERENCE_ERROR|INFERENCE_TIMEOUT|TRUNCATED_INPUT|INFERENCE_QUEUE_TIMEOUT|GPU_MEMORY_PRESSURE)$
                   message:
                     type: string
                   categories:
@@ -412,12 +428,13 @@ paths:
                           type:
                           - string
                           - 'null'
-                          pattern: ^(A[12]|I[1-4])$
+                          pattern: ^(A[12]|I[1-4]|D[1-5])$
                         family:
                           type: string
                           enum:
                           - prompt_attack
                           - policy_risk
+                          - data_exposure
                         detected:
                           type: boolean
                         confidence:
@@ -434,6 +451,11 @@ paths:
                           type:
                           - string
                           - 'null'
+                        span_count:
+                          type:
+                          - integer
+                          - 'null'
+                          minimum: 0
                       allOf:
                       - if:
                           properties:
@@ -457,6 +479,1461 @@ paths:
                           properties:
                             family:
                               const: policy_risk
+                      - if:
+                          properties:
+                            code:
+                              type: string
+                              pattern: ^D[1-5]$
+                          required:
+                          - code
+                        then:
+                          properties:
+                            family:
+                              const: data_exposure
+                  system_signals:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: false
+                      required:
+                      - code
+                      - detected
+                      - retryable
+                      properties:
+                        code:
+                          type: string
+                          enum:
+                          - PARSE_ERROR
+                          - INFERENCE_ERROR
+                          - INFERENCE_TIMEOUT
+                          - TRUNCATED_INPUT
+                          - INFERENCE_QUEUE_TIMEOUT
+                          - GPU_MEMORY_PRESSURE
+                        detected:
+                          type: boolean
+                        retryable:
+                          type: boolean
+                        message:
+                          type:
+                          - string
+                          - 'null'
+                        source:
+                          type:
+                          - string
+                          - 'null'
+                not:
+                  anyOf:
+                  - required:
+                    - allow
+                  - required:
+                    - review
+                  - required:
+                    - block
+                  - required:
+                    - decision
+                  - required:
+                    - action
+                  - required:
+                    - safe_to_send
+                  - required:
+                    - final_decision
+                  - required:
+                    - final_decision_owner
+                  - required:
+                    - policy_overrides
+                allOf:
+                - if:
+                    properties:
+                      status:
+                        const: completed
+                    required:
+                    - status
+                  then:
+                    properties:
+                      assessment_complete:
+                        const: true
+                - if:
+                    properties:
+                      status:
+                        enum:
+                        - partial
+                        - failed
+                    required:
+                    - status
+                  then:
+                    properties:
+                      assessment_complete:
+                        const: false
+                - if:
+                    properties:
+                      risk_detected:
+                        const: true
+                    required:
+                    - risk_detected
+                  then:
+                    properties:
+                      categories:
+                        contains:
+                          type: object
+                          properties:
+                            detected:
+                              const: true
+                          required:
+                          - detected
+                - if:
+                    properties:
+                      model_risk_detected:
+                        const: true
+                    required:
+                    - model_risk_detected
+                  then:
+                    properties:
+                      categories:
+                        contains:
+                          type: object
+                          properties:
+                            detected:
+                              const: true
+                          required:
+                          - detected
+                - if:
+                    properties:
+                      system_signal_detected:
+                        const: true
+                    required:
+                    - system_signal_detected
+                  then:
+                    properties:
+                      system_signals:
+                        contains:
+                          type: object
+                          properties:
+                            detected:
+                              const: true
+                          required:
+                          - detected
+        '401':
+          description: Internal Bearer token 필요
+          content:
+            application/json:
+              schema:
+                $schema: https://json-schema.org/draft/2020-12/schema
+                title: CommonErrorResponse
+                type: object
+                required:
+                - error
+                additionalProperties: false
+                properties:
+                  error:
+                    type: object
+                    required:
+                    - code
+                    - message
+                    - retryable
+                    - request_id
+                    additionalProperties: false
+                    properties:
+                      code:
+                        type: string
+                        enum:
+                        - VALIDATION_ERROR
+                        - UNAUTHORIZED
+                        - FORBIDDEN
+                        - NOT_FOUND
+                        - MODEL_UNAVAILABLE
+                        - MODEL_PARKED
+                        - MODEL_CAPABILITY_MISMATCH
+                        - UPSTREAM_TIMEOUT
+                        - UPSTREAM_ERROR
+                        - UPSTREAM_SCHEMA_ERROR
+                        - RATE_LIMITED
+                        - PARSE_ERROR
+                        - INTERNAL_ERROR
+                        - QUEUE_TIMEOUT
+                        - CIRCUIT_OPEN
+                        - REQUEST_TOO_LARGE
+                        - RUNTIME_NOT_READY
+                        - DETECTOR_RETIRED
+                        - DETECTOR_DISABLED
+                        - STREAM_LIMIT_EXCEEDED
+                      message:
+                        type: string
+                      retryable:
+                        type: boolean
+                      request_id:
+                        type: string
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $schema: https://json-schema.org/draft/2020-12/schema
+                title: CommonErrorResponse
+                type: object
+                required:
+                - error
+                additionalProperties: false
+                properties:
+                  error:
+                    type: object
+                    required:
+                    - code
+                    - message
+                    - retryable
+                    - request_id
+                    additionalProperties: false
+                    properties:
+                      code:
+                        type: string
+                        enum:
+                        - VALIDATION_ERROR
+                        - UNAUTHORIZED
+                        - FORBIDDEN
+                        - NOT_FOUND
+                        - MODEL_UNAVAILABLE
+                        - MODEL_PARKED
+                        - MODEL_CAPABILITY_MISMATCH
+                        - UPSTREAM_TIMEOUT
+                        - UPSTREAM_ERROR
+                        - UPSTREAM_SCHEMA_ERROR
+                        - RATE_LIMITED
+                        - PARSE_ERROR
+                        - INTERNAL_ERROR
+                        - QUEUE_TIMEOUT
+                        - CIRCUIT_OPEN
+                        - REQUEST_TOO_LARGE
+                        - RUNTIME_NOT_READY
+                        - DETECTOR_RETIRED
+                        - DETECTOR_DISABLED
+                        - STREAM_LIMIT_EXCEEDED
+                      message:
+                        type: string
+                      retryable:
+                        type: boolean
+                      request_id:
+                        type: string
+        '413':
+          description: 요청 body가 너무 큼
+          content:
+            application/json:
+              schema:
+                $schema: https://json-schema.org/draft/2020-12/schema
+                title: CommonErrorResponse
+                type: object
+                required:
+                - error
+                additionalProperties: false
+                properties:
+                  error:
+                    type: object
+                    required:
+                    - code
+                    - message
+                    - retryable
+                    - request_id
+                    additionalProperties: false
+                    properties:
+                      code:
+                        type: string
+                        enum:
+                        - VALIDATION_ERROR
+                        - UNAUTHORIZED
+                        - FORBIDDEN
+                        - NOT_FOUND
+                        - MODEL_UNAVAILABLE
+                        - MODEL_PARKED
+                        - MODEL_CAPABILITY_MISMATCH
+                        - UPSTREAM_TIMEOUT
+                        - UPSTREAM_ERROR
+                        - UPSTREAM_SCHEMA_ERROR
+                        - RATE_LIMITED
+                        - PARSE_ERROR
+                        - INTERNAL_ERROR
+                        - QUEUE_TIMEOUT
+                        - CIRCUIT_OPEN
+                        - REQUEST_TOO_LARGE
+                        - RUNTIME_NOT_READY
+                        - DETECTOR_RETIRED
+                        - DETECTOR_DISABLED
+                        - STREAM_LIMIT_EXCEEDED
+                      message:
+                        type: string
+                      retryable:
+                        type: boolean
+                      request_id:
+                        type: string
+        '429':
+          description: Upstream rate limit 또는 local admission timeout
+          content:
+            application/json:
+              schema:
+                $schema: https://json-schema.org/draft/2020-12/schema
+                title: CommonErrorResponse
+                type: object
+                required:
+                - error
+                additionalProperties: false
+                properties:
+                  error:
+                    type: object
+                    required:
+                    - code
+                    - message
+                    - retryable
+                    - request_id
+                    additionalProperties: false
+                    properties:
+                      code:
+                        type: string
+                        enum:
+                        - VALIDATION_ERROR
+                        - UNAUTHORIZED
+                        - FORBIDDEN
+                        - NOT_FOUND
+                        - MODEL_UNAVAILABLE
+                        - MODEL_PARKED
+                        - MODEL_CAPABILITY_MISMATCH
+                        - UPSTREAM_TIMEOUT
+                        - UPSTREAM_ERROR
+                        - UPSTREAM_SCHEMA_ERROR
+                        - RATE_LIMITED
+                        - PARSE_ERROR
+                        - INTERNAL_ERROR
+                        - QUEUE_TIMEOUT
+                        - CIRCUIT_OPEN
+                        - REQUEST_TOO_LARGE
+                        - RUNTIME_NOT_READY
+                        - DETECTOR_RETIRED
+                        - DETECTOR_DISABLED
+                        - STREAM_LIMIT_EXCEEDED
+                      message:
+                        type: string
+                      retryable:
+                        type: boolean
+                      request_id:
+                        type: string
+        '500':
+          description: 내부 서버 오류
+          content:
+            application/json:
+              schema:
+                $schema: https://json-schema.org/draft/2020-12/schema
+                title: CommonErrorResponse
+                type: object
+                required:
+                - error
+                additionalProperties: false
+                properties:
+                  error:
+                    type: object
+                    required:
+                    - code
+                    - message
+                    - retryable
+                    - request_id
+                    additionalProperties: false
+                    properties:
+                      code:
+                        type: string
+                        enum:
+                        - VALIDATION_ERROR
+                        - UNAUTHORIZED
+                        - FORBIDDEN
+                        - NOT_FOUND
+                        - MODEL_UNAVAILABLE
+                        - MODEL_PARKED
+                        - MODEL_CAPABILITY_MISMATCH
+                        - UPSTREAM_TIMEOUT
+                        - UPSTREAM_ERROR
+                        - UPSTREAM_SCHEMA_ERROR
+                        - RATE_LIMITED
+                        - PARSE_ERROR
+                        - INTERNAL_ERROR
+                        - QUEUE_TIMEOUT
+                        - CIRCUIT_OPEN
+                        - REQUEST_TOO_LARGE
+                        - RUNTIME_NOT_READY
+                        - DETECTOR_RETIRED
+                        - DETECTOR_DISABLED
+                        - STREAM_LIMIT_EXCEEDED
+                      message:
+                        type: string
+                      retryable:
+                        type: boolean
+                      request_id:
+                        type: string
+        '502':
+          description: Upstream 오류 또는 유효하지 않은 upstream 응답
+          content:
+            application/json:
+              schema:
+                $schema: https://json-schema.org/draft/2020-12/schema
+                title: CommonErrorResponse
+                type: object
+                required:
+                - error
+                additionalProperties: false
+                properties:
+                  error:
+                    type: object
+                    required:
+                    - code
+                    - message
+                    - retryable
+                    - request_id
+                    additionalProperties: false
+                    properties:
+                      code:
+                        type: string
+                        enum:
+                        - VALIDATION_ERROR
+                        - UNAUTHORIZED
+                        - FORBIDDEN
+                        - NOT_FOUND
+                        - MODEL_UNAVAILABLE
+                        - MODEL_PARKED
+                        - MODEL_CAPABILITY_MISMATCH
+                        - UPSTREAM_TIMEOUT
+                        - UPSTREAM_ERROR
+                        - UPSTREAM_SCHEMA_ERROR
+                        - RATE_LIMITED
+                        - PARSE_ERROR
+                        - INTERNAL_ERROR
+                        - QUEUE_TIMEOUT
+                        - CIRCUIT_OPEN
+                        - REQUEST_TOO_LARGE
+                        - RUNTIME_NOT_READY
+                        - DETECTOR_RETIRED
+                        - DETECTOR_DISABLED
+                        - STREAM_LIMIT_EXCEEDED
+                      message:
+                        type: string
+                      retryable:
+                        type: boolean
+                      request_id:
+                        type: string
+        '503':
+          description: Runtime 또는 dependency를 사용할 수 없음
+          content:
+            application/json:
+              schema:
+                $schema: https://json-schema.org/draft/2020-12/schema
+                title: CommonErrorResponse
+                type: object
+                required:
+                - error
+                additionalProperties: false
+                properties:
+                  error:
+                    type: object
+                    required:
+                    - code
+                    - message
+                    - retryable
+                    - request_id
+                    additionalProperties: false
+                    properties:
+                      code:
+                        type: string
+                        enum:
+                        - VALIDATION_ERROR
+                        - UNAUTHORIZED
+                        - FORBIDDEN
+                        - NOT_FOUND
+                        - MODEL_UNAVAILABLE
+                        - MODEL_PARKED
+                        - MODEL_CAPABILITY_MISMATCH
+                        - UPSTREAM_TIMEOUT
+                        - UPSTREAM_ERROR
+                        - UPSTREAM_SCHEMA_ERROR
+                        - RATE_LIMITED
+                        - PARSE_ERROR
+                        - INTERNAL_ERROR
+                        - QUEUE_TIMEOUT
+                        - CIRCUIT_OPEN
+                        - REQUEST_TOO_LARGE
+                        - RUNTIME_NOT_READY
+                        - DETECTOR_RETIRED
+                        - DETECTOR_DISABLED
+                        - STREAM_LIMIT_EXCEEDED
+                      message:
+                        type: string
+                      retryable:
+                        type: boolean
+                      request_id:
+                        type: string
+        '504':
+          description: Upstream timeout
+          content:
+            application/json:
+              schema:
+                $schema: https://json-schema.org/draft/2020-12/schema
+                title: CommonErrorResponse
+                type: object
+                required:
+                - error
+                additionalProperties: false
+                properties:
+                  error:
+                    type: object
+                    required:
+                    - code
+                    - message
+                    - retryable
+                    - request_id
+                    additionalProperties: false
+                    properties:
+                      code:
+                        type: string
+                        enum:
+                        - VALIDATION_ERROR
+                        - UNAUTHORIZED
+                        - FORBIDDEN
+                        - NOT_FOUND
+                        - MODEL_UNAVAILABLE
+                        - MODEL_PARKED
+                        - MODEL_CAPABILITY_MISMATCH
+                        - UPSTREAM_TIMEOUT
+                        - UPSTREAM_ERROR
+                        - UPSTREAM_SCHEMA_ERROR
+                        - RATE_LIMITED
+                        - PARSE_ERROR
+                        - INTERNAL_ERROR
+                        - QUEUE_TIMEOUT
+                        - CIRCUIT_OPEN
+                        - REQUEST_TOO_LARGE
+                        - RUNTIME_NOT_READY
+                        - DETECTOR_RETIRED
+                        - DETECTOR_DISABLED
+                        - STREAM_LIMIT_EXCEEDED
+                      message:
+                        type: string
+                      retryable:
+                        type: boolean
+                      request_id:
+                        type: string
+      security:
+      - bearerAuth: []
+      x-contract-schema: risk_assessment_request.schema.json
+      x-response-contract-schema: risk_assessment_response.schema.json
+  /v1/risk/detectors/pii/assessments:
+    post:
+      tags:
+      - Risk Signal
+      summary: PII Protection detector 신호 — 개인정보 노출 탐지
+      description: '**PII Protection detector** — Presidio Analyzer(optional) + Korean
+        custom recognizer 기반 로컬 탐지.
+
+
+        탐지 코드:
+
+        - **D1** Personal Identifier: KR_RRN, KR_FRN, KR_PASSPORT, KR_DRIVER_LICENSE,
+        PERSON
+
+        - **D2** Contact and Location: EMAIL_ADDRESS, PHONE_NUMBER, ADDRESS
+
+        - **D3** Financial Identifier: CREDIT_CARD, KR_BRN, BANK_ACCOUNT_CANDIDATE
+
+        - **D5** Network/Infrastructure: IP_ADDRESS, URL
+
+
+        응답에 원문 PII 값을 포함하지 않습니다. `span_count`로 entity별 탐지 개수를 제공합니다.
+
+        탐지 결과는 최종 정책 판단이 아닌 진단 signal로 취급합니다.'
+      operationId: assessRiskPIIDetector
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $schema: https://json-schema.org/draft/2020-12/schema
+              title: RiskAssessmentRequest
+              type: object
+              additionalProperties: false
+              required:
+              - prompt
+              properties:
+                prompt:
+                  type: string
+                  minLength: 1
+                  maxLength: 20000
+            examples:
+              email_and_phone:
+                summary: 이메일·전화번호 노출 (D2)
+                value:
+                  prompt: 담당자 이메일은 hong@example.com이고 연락처는 010-1234-5678입니다.
+              korean_rrn:
+                summary: 주민등록번호 노출 (D1)
+                value:
+                  prompt: '주민등록번호: 901201-1234567 로 조회해주세요.'
+              business_registration:
+                summary: 사업자등록번호 노출 (D3)
+                value:
+                  prompt: 사업자 번호 123-45-67890으로 세금계산서를 발행해주세요.
+              credit_card:
+                summary: 신용카드 번호 노출 (D3)
+                value:
+                  prompt: 카드 번호 4111-1111-1111-1111 로 결제해주세요.
+              ip_address:
+                summary: IP 주소 노출 (D5)
+                value:
+                  prompt: 서버 IP 192.168.1.100에 접속하세요.
+              safe:
+                summary: PII 없음 (safe)
+                value:
+                  prompt: 오늘 날씨가 맑습니다.
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $schema: https://json-schema.org/draft/2020-12/schema
+                title: RiskAssessmentResponse
+                type: object
+                additionalProperties: false
+                required:
+                - assessment_id
+                - status
+                - risk_detected
+                - attention_required
+                - model_risk_detected
+                - system_signal_detected
+                - assessment_complete
+                - strongest_code
+                - message
+                - categories
+                - system_signals
+                properties:
+                  assessment_id:
+                    type: string
+                    minLength: 1
+                  status:
+                    enum:
+                    - completed
+                    - partial
+                    - failed
+                  risk_detected:
+                    type: boolean
+                  attention_required:
+                    type: boolean
+                  model_risk_detected:
+                    type: boolean
+                  system_signal_detected:
+                    type: boolean
+                  assessment_complete:
+                    type: boolean
+                  strongest_code:
+                    type:
+                    - string
+                    - 'null'
+                    pattern: ^(A[12]|I[1-4]|D[1-5]|PARSE_ERROR|INFERENCE_ERROR|INFERENCE_TIMEOUT|TRUNCATED_INPUT|INFERENCE_QUEUE_TIMEOUT|GPU_MEMORY_PRESSURE)$
+                  message:
+                    type: string
+                  categories:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: false
+                      required:
+                      - code
+                      - family
+                      - detected
+                      - confidence
+                      properties:
+                        code:
+                          type:
+                          - string
+                          - 'null'
+                          pattern: ^(A[12]|I[1-4]|D[1-5])$
+                        family:
+                          type: string
+                          enum:
+                          - prompt_attack
+                          - policy_risk
+                          - data_exposure
+                        detected:
+                          type: boolean
+                        confidence:
+                          type:
+                          - number
+                          - 'null'
+                          minimum: 0
+                          maximum: 1
+                        source_model:
+                          type:
+                          - string
+                          - 'null'
+                        label:
+                          type:
+                          - string
+                          - 'null'
+                        span_count:
+                          type:
+                          - integer
+                          - 'null'
+                          minimum: 0
+                      allOf:
+                      - if:
+                          properties:
+                            code:
+                              type: string
+                              pattern: ^A[12]$
+                          required:
+                          - code
+                        then:
+                          properties:
+                            family:
+                              const: prompt_attack
+                      - if:
+                          properties:
+                            code:
+                              type: string
+                              pattern: ^I[1-4]$
+                          required:
+                          - code
+                        then:
+                          properties:
+                            family:
+                              const: policy_risk
+                      - if:
+                          properties:
+                            code:
+                              type: string
+                              pattern: ^D[1-5]$
+                          required:
+                          - code
+                        then:
+                          properties:
+                            family:
+                              const: data_exposure
+                  system_signals:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: false
+                      required:
+                      - code
+                      - detected
+                      - retryable
+                      properties:
+                        code:
+                          type: string
+                          enum:
+                          - PARSE_ERROR
+                          - INFERENCE_ERROR
+                          - INFERENCE_TIMEOUT
+                          - TRUNCATED_INPUT
+                          - INFERENCE_QUEUE_TIMEOUT
+                          - GPU_MEMORY_PRESSURE
+                        detected:
+                          type: boolean
+                        retryable:
+                          type: boolean
+                        message:
+                          type:
+                          - string
+                          - 'null'
+                        source:
+                          type:
+                          - string
+                          - 'null'
+                not:
+                  anyOf:
+                  - required:
+                    - allow
+                  - required:
+                    - review
+                  - required:
+                    - block
+                  - required:
+                    - decision
+                  - required:
+                    - action
+                  - required:
+                    - safe_to_send
+                  - required:
+                    - final_decision
+                  - required:
+                    - final_decision_owner
+                  - required:
+                    - policy_overrides
+                allOf:
+                - if:
+                    properties:
+                      status:
+                        const: completed
+                    required:
+                    - status
+                  then:
+                    properties:
+                      assessment_complete:
+                        const: true
+                - if:
+                    properties:
+                      status:
+                        enum:
+                        - partial
+                        - failed
+                    required:
+                    - status
+                  then:
+                    properties:
+                      assessment_complete:
+                        const: false
+                - if:
+                    properties:
+                      risk_detected:
+                        const: true
+                    required:
+                    - risk_detected
+                  then:
+                    properties:
+                      categories:
+                        contains:
+                          type: object
+                          properties:
+                            detected:
+                              const: true
+                          required:
+                          - detected
+                - if:
+                    properties:
+                      model_risk_detected:
+                        const: true
+                    required:
+                    - model_risk_detected
+                  then:
+                    properties:
+                      categories:
+                        contains:
+                          type: object
+                          properties:
+                            detected:
+                              const: true
+                          required:
+                          - detected
+                - if:
+                    properties:
+                      system_signal_detected:
+                        const: true
+                    required:
+                    - system_signal_detected
+                  then:
+                    properties:
+                      system_signals:
+                        contains:
+                          type: object
+                          properties:
+                            detected:
+                              const: true
+                          required:
+                          - detected
+        '401':
+          description: Internal Bearer token 필요
+          content:
+            application/json:
+              schema:
+                $schema: https://json-schema.org/draft/2020-12/schema
+                title: CommonErrorResponse
+                type: object
+                required:
+                - error
+                additionalProperties: false
+                properties:
+                  error:
+                    type: object
+                    required:
+                    - code
+                    - message
+                    - retryable
+                    - request_id
+                    additionalProperties: false
+                    properties:
+                      code:
+                        type: string
+                        enum:
+                        - VALIDATION_ERROR
+                        - UNAUTHORIZED
+                        - FORBIDDEN
+                        - NOT_FOUND
+                        - MODEL_UNAVAILABLE
+                        - MODEL_PARKED
+                        - MODEL_CAPABILITY_MISMATCH
+                        - UPSTREAM_TIMEOUT
+                        - UPSTREAM_ERROR
+                        - UPSTREAM_SCHEMA_ERROR
+                        - RATE_LIMITED
+                        - PARSE_ERROR
+                        - INTERNAL_ERROR
+                        - QUEUE_TIMEOUT
+                        - CIRCUIT_OPEN
+                        - REQUEST_TOO_LARGE
+                        - RUNTIME_NOT_READY
+                        - DETECTOR_RETIRED
+                        - DETECTOR_DISABLED
+                        - STREAM_LIMIT_EXCEEDED
+                      message:
+                        type: string
+                      retryable:
+                        type: boolean
+                      request_id:
+                        type: string
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $schema: https://json-schema.org/draft/2020-12/schema
+                title: CommonErrorResponse
+                type: object
+                required:
+                - error
+                additionalProperties: false
+                properties:
+                  error:
+                    type: object
+                    required:
+                    - code
+                    - message
+                    - retryable
+                    - request_id
+                    additionalProperties: false
+                    properties:
+                      code:
+                        type: string
+                        enum:
+                        - VALIDATION_ERROR
+                        - UNAUTHORIZED
+                        - FORBIDDEN
+                        - NOT_FOUND
+                        - MODEL_UNAVAILABLE
+                        - MODEL_PARKED
+                        - MODEL_CAPABILITY_MISMATCH
+                        - UPSTREAM_TIMEOUT
+                        - UPSTREAM_ERROR
+                        - UPSTREAM_SCHEMA_ERROR
+                        - RATE_LIMITED
+                        - PARSE_ERROR
+                        - INTERNAL_ERROR
+                        - QUEUE_TIMEOUT
+                        - CIRCUIT_OPEN
+                        - REQUEST_TOO_LARGE
+                        - RUNTIME_NOT_READY
+                        - DETECTOR_RETIRED
+                        - DETECTOR_DISABLED
+                        - STREAM_LIMIT_EXCEEDED
+                      message:
+                        type: string
+                      retryable:
+                        type: boolean
+                      request_id:
+                        type: string
+        '413':
+          description: 요청 body가 너무 큼
+          content:
+            application/json:
+              schema:
+                $schema: https://json-schema.org/draft/2020-12/schema
+                title: CommonErrorResponse
+                type: object
+                required:
+                - error
+                additionalProperties: false
+                properties:
+                  error:
+                    type: object
+                    required:
+                    - code
+                    - message
+                    - retryable
+                    - request_id
+                    additionalProperties: false
+                    properties:
+                      code:
+                        type: string
+                        enum:
+                        - VALIDATION_ERROR
+                        - UNAUTHORIZED
+                        - FORBIDDEN
+                        - NOT_FOUND
+                        - MODEL_UNAVAILABLE
+                        - MODEL_PARKED
+                        - MODEL_CAPABILITY_MISMATCH
+                        - UPSTREAM_TIMEOUT
+                        - UPSTREAM_ERROR
+                        - UPSTREAM_SCHEMA_ERROR
+                        - RATE_LIMITED
+                        - PARSE_ERROR
+                        - INTERNAL_ERROR
+                        - QUEUE_TIMEOUT
+                        - CIRCUIT_OPEN
+                        - REQUEST_TOO_LARGE
+                        - RUNTIME_NOT_READY
+                        - DETECTOR_RETIRED
+                        - DETECTOR_DISABLED
+                        - STREAM_LIMIT_EXCEEDED
+                      message:
+                        type: string
+                      retryable:
+                        type: boolean
+                      request_id:
+                        type: string
+        '429':
+          description: Upstream rate limit 또는 local admission timeout
+          content:
+            application/json:
+              schema:
+                $schema: https://json-schema.org/draft/2020-12/schema
+                title: CommonErrorResponse
+                type: object
+                required:
+                - error
+                additionalProperties: false
+                properties:
+                  error:
+                    type: object
+                    required:
+                    - code
+                    - message
+                    - retryable
+                    - request_id
+                    additionalProperties: false
+                    properties:
+                      code:
+                        type: string
+                        enum:
+                        - VALIDATION_ERROR
+                        - UNAUTHORIZED
+                        - FORBIDDEN
+                        - NOT_FOUND
+                        - MODEL_UNAVAILABLE
+                        - MODEL_PARKED
+                        - MODEL_CAPABILITY_MISMATCH
+                        - UPSTREAM_TIMEOUT
+                        - UPSTREAM_ERROR
+                        - UPSTREAM_SCHEMA_ERROR
+                        - RATE_LIMITED
+                        - PARSE_ERROR
+                        - INTERNAL_ERROR
+                        - QUEUE_TIMEOUT
+                        - CIRCUIT_OPEN
+                        - REQUEST_TOO_LARGE
+                        - RUNTIME_NOT_READY
+                        - DETECTOR_RETIRED
+                        - DETECTOR_DISABLED
+                        - STREAM_LIMIT_EXCEEDED
+                      message:
+                        type: string
+                      retryable:
+                        type: boolean
+                      request_id:
+                        type: string
+        '500':
+          description: 내부 서버 오류
+          content:
+            application/json:
+              schema:
+                $schema: https://json-schema.org/draft/2020-12/schema
+                title: CommonErrorResponse
+                type: object
+                required:
+                - error
+                additionalProperties: false
+                properties:
+                  error:
+                    type: object
+                    required:
+                    - code
+                    - message
+                    - retryable
+                    - request_id
+                    additionalProperties: false
+                    properties:
+                      code:
+                        type: string
+                        enum:
+                        - VALIDATION_ERROR
+                        - UNAUTHORIZED
+                        - FORBIDDEN
+                        - NOT_FOUND
+                        - MODEL_UNAVAILABLE
+                        - MODEL_PARKED
+                        - MODEL_CAPABILITY_MISMATCH
+                        - UPSTREAM_TIMEOUT
+                        - UPSTREAM_ERROR
+                        - UPSTREAM_SCHEMA_ERROR
+                        - RATE_LIMITED
+                        - PARSE_ERROR
+                        - INTERNAL_ERROR
+                        - QUEUE_TIMEOUT
+                        - CIRCUIT_OPEN
+                        - REQUEST_TOO_LARGE
+                        - RUNTIME_NOT_READY
+                        - DETECTOR_RETIRED
+                        - DETECTOR_DISABLED
+                        - STREAM_LIMIT_EXCEEDED
+                      message:
+                        type: string
+                      retryable:
+                        type: boolean
+                      request_id:
+                        type: string
+        '502':
+          description: Upstream 오류 또는 유효하지 않은 upstream 응답
+          content:
+            application/json:
+              schema:
+                $schema: https://json-schema.org/draft/2020-12/schema
+                title: CommonErrorResponse
+                type: object
+                required:
+                - error
+                additionalProperties: false
+                properties:
+                  error:
+                    type: object
+                    required:
+                    - code
+                    - message
+                    - retryable
+                    - request_id
+                    additionalProperties: false
+                    properties:
+                      code:
+                        type: string
+                        enum:
+                        - VALIDATION_ERROR
+                        - UNAUTHORIZED
+                        - FORBIDDEN
+                        - NOT_FOUND
+                        - MODEL_UNAVAILABLE
+                        - MODEL_PARKED
+                        - MODEL_CAPABILITY_MISMATCH
+                        - UPSTREAM_TIMEOUT
+                        - UPSTREAM_ERROR
+                        - UPSTREAM_SCHEMA_ERROR
+                        - RATE_LIMITED
+                        - PARSE_ERROR
+                        - INTERNAL_ERROR
+                        - QUEUE_TIMEOUT
+                        - CIRCUIT_OPEN
+                        - REQUEST_TOO_LARGE
+                        - RUNTIME_NOT_READY
+                        - DETECTOR_RETIRED
+                        - DETECTOR_DISABLED
+                        - STREAM_LIMIT_EXCEEDED
+                      message:
+                        type: string
+                      retryable:
+                        type: boolean
+                      request_id:
+                        type: string
+        '503':
+          description: Runtime 또는 dependency를 사용할 수 없음
+          content:
+            application/json:
+              schema:
+                $schema: https://json-schema.org/draft/2020-12/schema
+                title: CommonErrorResponse
+                type: object
+                required:
+                - error
+                additionalProperties: false
+                properties:
+                  error:
+                    type: object
+                    required:
+                    - code
+                    - message
+                    - retryable
+                    - request_id
+                    additionalProperties: false
+                    properties:
+                      code:
+                        type: string
+                        enum:
+                        - VALIDATION_ERROR
+                        - UNAUTHORIZED
+                        - FORBIDDEN
+                        - NOT_FOUND
+                        - MODEL_UNAVAILABLE
+                        - MODEL_PARKED
+                        - MODEL_CAPABILITY_MISMATCH
+                        - UPSTREAM_TIMEOUT
+                        - UPSTREAM_ERROR
+                        - UPSTREAM_SCHEMA_ERROR
+                        - RATE_LIMITED
+                        - PARSE_ERROR
+                        - INTERNAL_ERROR
+                        - QUEUE_TIMEOUT
+                        - CIRCUIT_OPEN
+                        - REQUEST_TOO_LARGE
+                        - RUNTIME_NOT_READY
+                        - DETECTOR_RETIRED
+                        - DETECTOR_DISABLED
+                        - STREAM_LIMIT_EXCEEDED
+                      message:
+                        type: string
+                      retryable:
+                        type: boolean
+                      request_id:
+                        type: string
+        '504':
+          description: Upstream timeout
+          content:
+            application/json:
+              schema:
+                $schema: https://json-schema.org/draft/2020-12/schema
+                title: CommonErrorResponse
+                type: object
+                required:
+                - error
+                additionalProperties: false
+                properties:
+                  error:
+                    type: object
+                    required:
+                    - code
+                    - message
+                    - retryable
+                    - request_id
+                    additionalProperties: false
+                    properties:
+                      code:
+                        type: string
+                        enum:
+                        - VALIDATION_ERROR
+                        - UNAUTHORIZED
+                        - FORBIDDEN
+                        - NOT_FOUND
+                        - MODEL_UNAVAILABLE
+                        - MODEL_PARKED
+                        - MODEL_CAPABILITY_MISMATCH
+                        - UPSTREAM_TIMEOUT
+                        - UPSTREAM_ERROR
+                        - UPSTREAM_SCHEMA_ERROR
+                        - RATE_LIMITED
+                        - PARSE_ERROR
+                        - INTERNAL_ERROR
+                        - QUEUE_TIMEOUT
+                        - CIRCUIT_OPEN
+                        - REQUEST_TOO_LARGE
+                        - RUNTIME_NOT_READY
+                        - DETECTOR_RETIRED
+                        - DETECTOR_DISABLED
+                        - STREAM_LIMIT_EXCEEDED
+                      message:
+                        type: string
+                      retryable:
+                        type: boolean
+                      request_id:
+                        type: string
+      security:
+      - bearerAuth: []
+      x-contract-schema: risk_assessment_request.schema.json
+      x-response-contract-schema: risk_assessment_response.schema.json
+  /v1/risk/detectors/secret/assessments:
+    post:
+      tags:
+      - Risk Signal
+      summary: Secret Exposure detector 신호 — 시크릿·자격증명 노출 탐지
+      description: '**Secret Exposure detector** — curated regex + entropy 기반 로컬 탐지.
+        외부 CLI 없이 Python 내부 scanner로 동작합니다.
+
+
+        탐지 코드:
+
+        - **D4** Secret/Credential: OPENAI_API_KEY, AWS_ACCESS_KEY_ID, GITHUB_TOKEN,
+        GITLAB_TOKEN, HUGGINGFACE_TOKEN, JWT, PRIVATE_KEY_BLOCK, PASSWORD_ASSIGNMENT,
+        GENERIC_SECRET_CANDIDATE
+
+        - **D5** Network/Infrastructure: DATABASE_URL
+
+
+        응답, 로그, metric label에 원문 시크릿 값을 남기지 않습니다. `span_count`로 탐지 개수를 제공합니다.
+
+        탐지 결과는 최종 정책 판단이 아닌 진단 signal로 취급합니다.'
+      operationId: assessRiskSecretDetector
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $schema: https://json-schema.org/draft/2020-12/schema
+              title: RiskAssessmentRequest
+              type: object
+              additionalProperties: false
+              required:
+              - prompt
+              properties:
+                prompt:
+                  type: string
+                  minLength: 1
+                  maxLength: 20000
+            examples:
+              openai_api_key:
+                summary: OpenAI API key 노출 (D4)
+                value:
+                  prompt: API 키는 sk-proj-abcdefghijklmnopqrstuvwxyz1234567890ABCDE
+                    입니다.
+              aws_access_key:
+                summary: AWS Access Key 노출 (D4)
+                value:
+                  prompt: 'AWS 설정: AKIAIOSFODNN7EXAMPLE'
+              github_token:
+                summary: GitHub Token 노출 (D4)
+                value:
+                  prompt: export GH_TOKEN=ghp_abcdefghijklmnopqrstuvwxyz1234567890AB
+              jwt_token:
+                summary: JWT 토큰 노출 (D4)
+                value:
+                  prompt: 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U'
+              database_url:
+                summary: 데이터베이스 연결 URL 노출 (D5)
+                value:
+                  prompt: DATABASE_URL=postgresql://user:password@db.example.com:5432/mydb
+              password_assignment:
+                summary: 비밀번호 할당 노출 (D4)
+                value:
+                  prompt: 'DB 비밀번호: password=Sup3rS3cr3t! 로 설정하세요.'
+              private_key_block:
+                summary: Private key block 노출 (D4)
+                value:
+                  prompt: '-----BEGIN RSA PRIVATE KEY-----
+
+                    MIIEo...
+
+                    -----END RSA PRIVATE KEY-----'
+              safe:
+                summary: 시크릿 없음 (safe)
+                value:
+                  prompt: 일반적인 질문입니다. 오늘 날씨가 어떤가요?
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $schema: https://json-schema.org/draft/2020-12/schema
+                title: RiskAssessmentResponse
+                type: object
+                additionalProperties: false
+                required:
+                - assessment_id
+                - status
+                - risk_detected
+                - attention_required
+                - model_risk_detected
+                - system_signal_detected
+                - assessment_complete
+                - strongest_code
+                - message
+                - categories
+                - system_signals
+                properties:
+                  assessment_id:
+                    type: string
+                    minLength: 1
+                  status:
+                    enum:
+                    - completed
+                    - partial
+                    - failed
+                  risk_detected:
+                    type: boolean
+                  attention_required:
+                    type: boolean
+                  model_risk_detected:
+                    type: boolean
+                  system_signal_detected:
+                    type: boolean
+                  assessment_complete:
+                    type: boolean
+                  strongest_code:
+                    type:
+                    - string
+                    - 'null'
+                    pattern: ^(A[12]|I[1-4]|D[1-5]|PARSE_ERROR|INFERENCE_ERROR|INFERENCE_TIMEOUT|TRUNCATED_INPUT|INFERENCE_QUEUE_TIMEOUT|GPU_MEMORY_PRESSURE)$
+                  message:
+                    type: string
+                  categories:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: false
+                      required:
+                      - code
+                      - family
+                      - detected
+                      - confidence
+                      properties:
+                        code:
+                          type:
+                          - string
+                          - 'null'
+                          pattern: ^(A[12]|I[1-4]|D[1-5])$
+                        family:
+                          type: string
+                          enum:
+                          - prompt_attack
+                          - policy_risk
+                          - data_exposure
+                        detected:
+                          type: boolean
+                        confidence:
+                          type:
+                          - number
+                          - 'null'
+                          minimum: 0
+                          maximum: 1
+                        source_model:
+                          type:
+                          - string
+                          - 'null'
+                        label:
+                          type:
+                          - string
+                          - 'null'
+                        span_count:
+                          type:
+                          - integer
+                          - 'null'
+                          minimum: 0
+                      allOf:
+                      - if:
+                          properties:
+                            code:
+                              type: string
+                              pattern: ^A[12]$
+                          required:
+                          - code
+                        then:
+                          properties:
+                            family:
+                              const: prompt_attack
+                      - if:
+                          properties:
+                            code:
+                              type: string
+                              pattern: ^I[1-4]$
+                          required:
+                          - code
+                        then:
+                          properties:
+                            family:
+                              const: policy_risk
+                      - if:
+                          properties:
+                            code:
+                              type: string
+                              pattern: ^D[1-5]$
+                          required:
+                          - code
+                        then:
+                          properties:
+                            family:
+                              const: data_exposure
                   system_signals:
                     type: array
                     items:
@@ -988,11 +2465,16 @@ paths:
       tags:
       - Risk Signal
       summary: 통합 risk signal
-      description: 'enabled detector registry 순서대로 호출하고 결과를 aggregate합니다.
+      description: 'enabled detector registry 순서(pii → secret → prompt)대로 호출하고 결과를
+        aggregate합니다.
 
 
         어느 한 detector가 신호를 탐지하면 `risk_detected: true`를 반환합니다. detector 실패는 policy
-        판단 없이 system signal로 표현됩니다.'
+        판단 없이 system signal로 표현됩니다.
+
+
+        PII Protection(D1-D3, D5)과 Secret Exposure(D4, D5) 신호를 Prompt Injection(A1,
+        A2)과 함께 통합합니다.'
       operationId: assessRiskAggregate
       requestBody:
         content:
@@ -1067,7 +2549,7 @@ paths:
                     type:
                     - string
                     - 'null'
-                    pattern: ^(A[12]|I[1-4]|PARSE_ERROR|INFERENCE_ERROR|INFERENCE_TIMEOUT|TRUNCATED_INPUT|INFERENCE_QUEUE_TIMEOUT|GPU_MEMORY_PRESSURE)$
+                    pattern: ^(A[12]|I[1-4]|D[1-5]|PARSE_ERROR|INFERENCE_ERROR|INFERENCE_TIMEOUT|TRUNCATED_INPUT|INFERENCE_QUEUE_TIMEOUT|GPU_MEMORY_PRESSURE)$
                   message:
                     type: string
                   categories:
@@ -1085,12 +2567,13 @@ paths:
                           type:
                           - string
                           - 'null'
-                          pattern: ^(A[12]|I[1-4])$
+                          pattern: ^(A[12]|I[1-4]|D[1-5])$
                         family:
                           type: string
                           enum:
                           - prompt_attack
                           - policy_risk
+                          - data_exposure
                         detected:
                           type: boolean
                         confidence:
@@ -1107,6 +2590,11 @@ paths:
                           type:
                           - string
                           - 'null'
+                        span_count:
+                          type:
+                          - integer
+                          - 'null'
+                          minimum: 0
                       allOf:
                       - if:
                           properties:
@@ -1130,6 +2618,17 @@ paths:
                           properties:
                             family:
                               const: policy_risk
+                      - if:
+                          properties:
+                            code:
+                              type: string
+                              pattern: ^D[1-5]$
+                          required:
+                          - code
+                        then:
+                          properties:
+                            family:
+                              const: data_exposure
                   system_signals:
                     type: array
                     items:
@@ -1677,6 +3176,13 @@ tags:
 - name: Risk Signal
   description: '내부 detector 호출 결과를 signal-only response로 정규화합니다. 최종 정책 결정 필드는 반환하지
     않습니다.
+
+
+    **Sensitive Data Protection**:
+
+    - **PII Protection** (D1-D3, D5) — Presidio + Korean recognizer 기반 개인정보 탐지
+
+    - **Secret Exposure** (D4, D5) — regex/entropy 기반 시크릿·자격증명 탐지
 
 
     **Prompt detector** — Prompt Injection / Leaking 탐지:

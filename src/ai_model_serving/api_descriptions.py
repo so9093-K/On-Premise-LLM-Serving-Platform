@@ -34,6 +34,9 @@ GATEWAY_TAGS_METADATA = [
         "description": (
             "signal-only risk assessment API입니다. `allow`, `block`, `decision`, `action` 같은 정책 판단 필드는 반환하지 않습니다. "
             "최종 허용·차단 결정은 Gateway 밖 product policy layer가 담당합니다.\n\n"
+            "**Sensitive Data Protection** — PII Protection + Secret Exposure Signal:\n"
+            "- **PII Protection** (D1-D3, D5): 주민등록번호, 이메일, 전화번호, 신용카드, IP 주소 등 탐지\n"
+            "- **Secret Exposure** (D4, D5): API 키, JWT, private key, 비밀번호, DB URL 탐지\n\n"
             "**Prompt detector** (`risk-prompt`) — Prompt Injection / Prompt Leaking 탐지:\n"
             "- system/developer instruction 무시 유도\n"
             "- 숨겨진 system prompt 출력 요구\n"
@@ -97,6 +100,9 @@ RISK_ADAPTER_TAGS_METADATA = [
         "name": "Risk Signal",
         "description": (
             "내부 detector 호출 결과를 signal-only response로 정규화합니다. 최종 정책 결정 필드는 반환하지 않습니다.\n\n"
+            "**Sensitive Data Protection**:\n"
+            "- **PII Protection** (D1-D3, D5) — Presidio + Korean recognizer 기반 개인정보 탐지\n"
+            "- **Secret Exposure** (D4, D5) — regex/entropy 기반 시크릿·자격증명 탐지\n\n"
             "**Prompt detector** — Prompt Injection / Leaking 탐지:\n"
             "지시 무시, system prompt 탈취, roleplay jailbreak, 간접 injection, tool abuse"
         ),
@@ -110,15 +116,23 @@ RISK_ADAPTER_DESCRIPTION_TEMPLATE = """
 
 ## Detector 역할
 
-| Detector | 모델 | 담당 신호 |
-|---|---|---|
-| **Prompt** | `risk-prompt` | Prompt Injection / Prompt Leaking |
+| Detector | 유형 | 담당 신호 | Risk 코드 |
+|---|---|---|---|
+| **PII Protection** | local (presidio + regex) | 개인정보 노출 | D1, D2, D3, D5 |
+| **Secret Exposure** | local (regex + entropy) | 시크릿·자격증명 노출 | D4, D5 |
+| **Prompt** | vLLM (`risk-prompt`) | Prompt Injection / Prompt Leaking | A1, A2 |
 
-- detector 출력 `<SAFE>`, `<UNSAFE-A1>` 같은 label을 표준 signal-only response로 정규화합니다.
+- PII Protection과 Secret Exposure는 in-process 로컬 탐지로 외부 모델 호출이 없습니다.
+- Prompt detector 출력 `<SAFE>`, `<UNSAFE-A1>` 같은 label을 표준 signal-only response로 정규화합니다.
 - 정책 판단 필드(`allow`, `block`, `decision`, `action`)는 반환하지 않습니다.
+- 원문 PII/Secret 값은 응답, 로그, metric에 포함되지 않습니다.
+
+## Aggregate 실행 순서
+
+`pii → secret → prompt` 순서로 sequential 실행. 어느 detector든 탐지하면 `risk_detected: true`.
 
 ## Readiness
 
-- enabled detector runtime 준비 → HTTP 200 + `phase: serving`
+- enabled vLLM detector runtime 준비 → HTTP 200 + `phase: serving`
 - 모델 로딩 중 → HTTP 503 + `phase: waiting_for_dependencies`
 """

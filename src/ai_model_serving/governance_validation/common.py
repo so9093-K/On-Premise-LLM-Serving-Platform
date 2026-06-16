@@ -68,7 +68,6 @@ REQUIRED_FILES = [
     'ops/grafana/dashboards/risk_signal_operations.json',
     'ops/grafana/dashboards/serving_home.json',
     'ops/grafana/dashboards/gpu_capacity_and_oom_risk.json',
-    'ops/grafana/dashboards/executive_runtime_overview.json',
     'ops/grafana/dashboards/api_experience.json',
     'ops/grafana/dashboards/model_runtime_deep_dive.json',
     'ops/grafana/dashboards/observability_data_quality.json',

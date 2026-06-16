@@ -18,18 +18,6 @@
       "tooltip": "Serving Home — operator triage surface with verdict, evidence, and drill-down",
       "type": "link",
       "url": "/d/serving_home/serving-home"
-    },
-    {
-      "asDropdown": false,
-      "icon": "external link",
-      "includeVars": true,
-      "keepTime": true,
-      "tags": [],
-      "targetBlank": false,
-      "title": "Executive Runtime Overview",
-      "tooltip": "Overall service health, traffic, error, scrape health",
-      "type": "link",
-      "url": "/d/executive_runtime_overview/executive-runtime-overview"
     }
   ],
   "liveNow": false,
@@ -708,38 +696,6 @@
         "name": "runtime_service",
         "options": [],
         "query": "main-llm-vllm,embedding-vllm,embedding-ko-vllm,risk-prompt-vllm",
-        "type": "custom"
-      },
-      {
-        "allValue": ".*",
-        "current": {
-          "selected": true,
-          "text": "All",
-          "value": "$__all"
-        },
-        "hide": 0,
-        "includeAll": true,
-        "label": "Route",
-        "multi": true,
-        "name": "route",
-        "options": [],
-        "query": "/v1/chat/completions,/v1/embeddings,/v1/risk/.*,/health,/ready,/v1/models,/metrics",
-        "type": "custom"
-      },
-      {
-        "allValue": ".*",
-        "current": {
-          "selected": true,
-          "text": "All",
-          "value": "$__all"
-        },
-        "hide": 0,
-        "includeAll": true,
-        "label": "Status Code",
-        "multi": true,
-        "name": "status_code",
-        "options": [],
-        "query": "2..,4..,5..,401,403,422,429,500,502,503,504",
         "type": "custom"
       }
     ]

@@ -40,7 +40,6 @@ def test_ops_templates_exist_without_runtime_claims() -> None:
 
     for path in [
         "ops/grafana/dashboards/serving_home.json",
-        "ops/grafana/dashboards/executive_runtime_overview.json",
         "ops/grafana/dashboards/gpu_capacity_and_oom_risk.json",
         "ops/grafana/dashboards/risk_signal_operations.json",
         "ops/grafana/dashboards/api_experience.json",
@@ -52,7 +51,7 @@ def test_ops_templates_exist_without_runtime_claims() -> None:
         assert "contract-reference" in dashboard["tags"]
         assert dashboard["panels"]
         variable_names = {item["name"] for item in dashboard["templating"]["list"]}
-        assert {"datasource", "window", "model", "runtime_service", "route", "status_code"}.issubset(variable_names)
+        assert {"datasource", "window"}.issubset(variable_names)
         for panel in dashboard["panels"]:
             assert panel.get("datasource") == {"type": "prometheus", "uid": "${datasource}"}
 

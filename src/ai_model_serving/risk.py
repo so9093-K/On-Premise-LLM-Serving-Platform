@@ -17,7 +17,9 @@ SYSTEM_CODE_PRIORITY = [
     "PARSE_ERROR",
     "TRUNCATED_INPUT",
 ]
-MODEL_CODE_PRIORITY = ["A1", "A2"]
+# D4 (Secret/Credential) is the strongest data exposure signal, ranked before prompt attacks.
+# D1-D3 and D5 follow prompt attacks (A1, A2) in priority order.
+MODEL_CODE_PRIORITY = ["D4", "A1", "A2", "D1", "D2", "D3", "D5"]
 
 
 @dataclass(frozen=True)
