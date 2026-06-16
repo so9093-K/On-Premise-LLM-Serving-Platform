@@ -10,9 +10,15 @@ from ..endpoint_spec import GATEWAY_ENDPOINTS
 from ...api_examples import (
     RUNTIME_DISABLE_RESPONSE_EXAMPLE,
     RUNTIME_ENABLE_RESPONSE_EXAMPLE,
+    RUNTIME_ERROR_404_EXAMPLE,
+    RUNTIME_ERROR_503_NO_SIDECAR_EXAMPLE,
+    RUNTIME_ERROR_503_SIDECAR_UNAVAILABLE_EXAMPLE,
+    RUNTIME_LIST_MIXED_STATE_EXAMPLE,
     RUNTIME_LIST_RESPONSE_EXAMPLE,
     RUNTIME_START_RESPONSE_EXAMPLE,
+    RUNTIME_START_WITH_PREREQ_RESPONSE_EXAMPLE,
     RUNTIME_STOP_RESPONSE_EXAMPLE,
+    RUNTIME_STOP_WITH_PREREQ_RESPONSE_EXAMPLE,
 )
 from ...services.runtime_state import RuntimeState, RuntimeStateStore
 from ...services.sidecar_client import SidecarClient, SidecarUnavailableError
@@ -56,6 +62,12 @@ def build_router(
             if sk in _CONTROLLABLE_KEYS
         ]
 
+    _ADMIN_401 = (
+        {401: {"description": "Admin Bearer token 필요"}}
+        if settings.security.admin_api_key_required
+        else {}
+    )
+
     _s = _GW[("GET", "/admin/runtimes")]
 
     @router.get(
@@ -66,8 +78,11 @@ def build_router(
         operation_id=_s.operation_id,
         description=_s.description,
         responses={
-            200: {"content": {"application/json": {"example": RUNTIME_LIST_RESPONSE_EXAMPLE}}},
-            401: {"description": "Admin Bearer token 필요"},
+            200: {"content": {"application/json": {"examples": {
+                "all_active": {"summary": "전체 활성", "value": RUNTIME_LIST_RESPONSE_EXAMPLE},
+                "mixed_state": {"summary": "중지/시작 중 포함", "value": RUNTIME_LIST_MIXED_STATE_EXAMPLE},
+            }}}},
+            **_ADMIN_401,
         },
     )
     async def list_runtimes() -> JSONResponse:
@@ -91,8 +106,6 @@ def build_router(
             })
         return JSONResponse({"runtimes": runtimes})
 
-    _ADMIN_401 = {401: {"description": "Admin Bearer token 필요"}}
-
     _s = _GW[("POST", "/admin/runtimes/{service_key}/disable")]
 
     @router.post(
@@ -104,6 +117,7 @@ def build_router(
         description=_s.description,
         responses={
             200: {"content": {"application/json": {"example": RUNTIME_DISABLE_RESPONSE_EXAMPLE}}},
+            404: {"content": {"application/json": {"example": RUNTIME_ERROR_404_EXAMPLE}}},
             **_ADMIN_401,
         },
     )
@@ -124,6 +138,7 @@ def build_router(
         description=_s.description,
         responses={
             200: {"content": {"application/json": {"example": RUNTIME_ENABLE_RESPONSE_EXAMPLE}}},
+            404: {"content": {"application/json": {"example": RUNTIME_ERROR_404_EXAMPLE}}},
             **_ADMIN_401,
         },
     )
@@ -143,7 +158,15 @@ def build_router(
         operation_id=_s.operation_id,
         description=_s.description,
         responses={
-            200: {"content": {"application/json": {"example": RUNTIME_STOP_RESPONSE_EXAMPLE}}},
+            200: {"content": {"application/json": {"examples": {
+                "stop_single": {"summary": "단일 컨테이너 중지", "value": RUNTIME_STOP_RESPONSE_EXAMPLE},
+                "stop_with_prereq": {"summary": "선행 컨테이너 포함 중지", "value": RUNTIME_STOP_WITH_PREREQ_RESPONSE_EXAMPLE},
+            }}}},
+            404: {"content": {"application/json": {"example": RUNTIME_ERROR_404_EXAMPLE}}},
+            503: {"content": {"application/json": {"examples": {
+                "no_sidecar": {"summary": "sidecar 미설정", "value": RUNTIME_ERROR_503_NO_SIDECAR_EXAMPLE},
+                "sidecar_unavailable": {"summary": "sidecar 연결 실패", "value": RUNTIME_ERROR_503_SIDECAR_UNAVAILABLE_EXAMPLE},
+            }}}},
             **_ADMIN_401,
         },
     )
@@ -179,7 +202,15 @@ def build_router(
         operation_id=_s.operation_id,
         description=_s.description,
         responses={
-            200: {"content": {"application/json": {"example": RUNTIME_START_RESPONSE_EXAMPLE}}},
+            200: {"content": {"application/json": {"examples": {
+                "start_single": {"summary": "단일 컨테이너 시작", "value": RUNTIME_START_RESPONSE_EXAMPLE},
+                "start_with_prereq": {"summary": "선행 컨테이너 포함 시작", "value": RUNTIME_START_WITH_PREREQ_RESPONSE_EXAMPLE},
+            }}}},
+            404: {"content": {"application/json": {"example": RUNTIME_ERROR_404_EXAMPLE}}},
+            503: {"content": {"application/json": {"examples": {
+                "no_sidecar": {"summary": "sidecar 미설정", "value": RUNTIME_ERROR_503_NO_SIDECAR_EXAMPLE},
+                "sidecar_unavailable": {"summary": "sidecar 연결 실패", "value": RUNTIME_ERROR_503_SIDECAR_UNAVAILABLE_EXAMPLE},
+            }}}},
             **_ADMIN_401,
         },
     )

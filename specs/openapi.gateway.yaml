@@ -6478,20 +6478,39 @@ paths:
           content:
             application/json:
               schema: {}
-              example:
-                runtimes:
-                - service_key: embedding
-                  container: embedding-vllm
-                  gateway_state: active
-                  container_status: running
-                - service_key: embedding_ko
-                  container: embedding-ko-vllm
-                  gateway_state: active
-                  container_status: running
-                - service_key: risk_prompt
-                  container: risk-prompt-vllm
-                  gateway_state: disabled
-                  container_status: exited
+              examples:
+                all_active:
+                  summary: 전체 활성
+                  value:
+                    runtimes:
+                    - service_key: embedding
+                      container: embedding-vllm
+                      gateway_state: active
+                      container_status: running
+                    - service_key: embedding_ko
+                      container: embedding-ko-vllm
+                      gateway_state: active
+                      container_status: running
+                    - service_key: risk_prompt
+                      container: risk-prompt-vllm
+                      gateway_state: active
+                      container_status: running
+                mixed_state:
+                  summary: 중지/시작 중 포함
+                  value:
+                    runtimes:
+                    - service_key: embedding
+                      container: embedding-vllm
+                      gateway_state: active
+                      container_status: running
+                    - service_key: embedding_ko
+                      container: embedding-ko-vllm
+                      gateway_state: stopped
+                      container_status: exited
+                    - service_key: risk_prompt
+                      container: risk-prompt-vllm
+                      gateway_state: starting
+                      container_status: starting
         '401':
           description: Admin Bearer token 필요
           content:
@@ -6570,6 +6589,12 @@ paths:
               example:
                 service_key: embedding
                 gateway_state: disabled
+        '404':
+          content:
+            application/json:
+              example:
+                detail: 'unknown or non-controllable runtime: main_llm'
+          description: Not Found
         '401':
           description: Admin Bearer token 필요
           content:
@@ -6996,6 +7021,12 @@ paths:
               example:
                 service_key: embedding
                 gateway_state: active
+        '404':
+          content:
+            application/json:
+              example:
+                detail: 'unknown or non-controllable runtime: main_llm'
+          description: Not Found
         '401':
           description: Admin Bearer token 필요
           content:
@@ -7420,11 +7451,87 @@ paths:
           content:
             application/json:
               schema: {}
+              examples:
+                stop_single:
+                  summary: 단일 컨테이너 중지
+                  value:
+                    service_key: embedding_ko
+                    gateway_state: stopped
+                    containers_stopped:
+                    - embedding-ko-vllm
+                stop_with_prereq:
+                  summary: 선행 컨테이너 포함 중지
+                  value:
+                    service_key: risk_prompt
+                    gateway_state: stopped
+                    containers_stopped:
+                    - risk-prompt-vllm
+                    - embedding-vllm
+        '404':
+          content:
+            application/json:
               example:
-                service_key: embedding
-                gateway_state: stopped
-                containers_stopped:
-                - embedding-vllm
+                detail: 'unknown or non-controllable runtime: main_llm'
+          description: Not Found
+        '503':
+          content:
+            application/json:
+              examples:
+                no_sidecar:
+                  summary: sidecar 미설정
+                  value:
+                    detail: admin sidecar is not configured (ADMIN_SIDECAR_URL missing)
+                sidecar_unavailable:
+                  summary: sidecar 연결 실패
+                  value:
+                    detail: 'sidecar unavailable: Connection refused http://admin-sidecar:8080'
+              schema:
+                $schema: https://json-schema.org/draft/2020-12/schema
+                title: CommonErrorResponse
+                type: object
+                required:
+                - error
+                additionalProperties: false
+                properties:
+                  error:
+                    type: object
+                    required:
+                    - code
+                    - message
+                    - retryable
+                    - request_id
+                    additionalProperties: false
+                    properties:
+                      code:
+                        type: string
+                        enum:
+                        - VALIDATION_ERROR
+                        - UNAUTHORIZED
+                        - FORBIDDEN
+                        - NOT_FOUND
+                        - MODEL_UNAVAILABLE
+                        - MODEL_PARKED
+                        - MODEL_CAPABILITY_MISMATCH
+                        - UPSTREAM_TIMEOUT
+                        - UPSTREAM_ERROR
+                        - UPSTREAM_SCHEMA_ERROR
+                        - RATE_LIMITED
+                        - PARSE_ERROR
+                        - INTERNAL_ERROR
+                        - QUEUE_TIMEOUT
+                        - CIRCUIT_OPEN
+                        - REQUEST_TOO_LARGE
+                        - RUNTIME_NOT_READY
+                        - DETECTOR_RETIRED
+                        - DETECTOR_DISABLED
+                        - STREAM_LIMIT_EXCEEDED
+                      message:
+                        type: string
+                      retryable:
+                        type: boolean
+                      request_id:
+                        type: string
+          description: Service Unavailable
         '401':
           description: Admin Bearer token 필요
           content:
@@ -7677,56 +7784,6 @@ paths:
                         type: string
         '502':
           description: Upstream 오류 또는 유효하지 않은 upstream 응답
-          content:
-            application/json:
-              schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
-                title: CommonErrorResponse
-                type: object
-                required:
-                - error
-                additionalProperties: false
-                properties:
-                  error:
-                    type: object
-                    required:
-                    - code
-                    - message
-                    - retryable
-                    - request_id
-                    additionalProperties: false
-                    properties:
-                      code:
-                        type: string
-                        enum:
-                        - VALIDATION_ERROR
-                        - UNAUTHORIZED
-                        - FORBIDDEN
-                        - NOT_FOUND
-                        - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
-                        - MODEL_CAPABILITY_MISMATCH
-                        - UPSTREAM_TIMEOUT
-                        - UPSTREAM_ERROR
-                        - UPSTREAM_SCHEMA_ERROR
-                        - RATE_LIMITED
-                        - PARSE_ERROR
-                        - INTERNAL_ERROR
-                        - QUEUE_TIMEOUT
-                        - CIRCUIT_OPEN
-                        - REQUEST_TOO_LARGE
-                        - RUNTIME_NOT_READY
-                        - DETECTOR_RETIRED
-                        - DETECTOR_DISABLED
-                        - STREAM_LIMIT_EXCEEDED
-                      message:
-                        type: string
-                      retryable:
-                        type: boolean
-                      request_id:
-                        type: string
-        '503':
-          description: Runtime 또는 dependency를 사용할 수 없음
           content:
             application/json:
               schema:
@@ -7849,11 +7906,87 @@ paths:
           content:
             application/json:
               schema: {}
+              examples:
+                start_single:
+                  summary: 단일 컨테이너 시작
+                  value:
+                    service_key: embedding_ko
+                    gateway_state: active
+                    containers_started:
+                    - embedding-ko-vllm
+                start_with_prereq:
+                  summary: 선행 컨테이너 포함 시작
+                  value:
+                    service_key: risk_prompt
+                    gateway_state: active
+                    containers_started:
+                    - embedding-vllm
+                    - risk-prompt-vllm
+        '404':
+          content:
+            application/json:
               example:
-                service_key: embedding
-                gateway_state: active
-                containers_started:
-                - embedding-vllm
+                detail: 'unknown or non-controllable runtime: main_llm'
+          description: Not Found
+        '503':
+          content:
+            application/json:
+              examples:
+                no_sidecar:
+                  summary: sidecar 미설정
+                  value:
+                    detail: admin sidecar is not configured (ADMIN_SIDECAR_URL missing)
+                sidecar_unavailable:
+                  summary: sidecar 연결 실패
+                  value:
+                    detail: 'sidecar unavailable: Connection refused http://admin-sidecar:8080'
+              schema:
+                $schema: https://json-schema.org/draft/2020-12/schema
+                title: CommonErrorResponse
+                type: object
+                required:
+                - error
+                additionalProperties: false
+                properties:
+                  error:
+                    type: object
+                    required:
+                    - code
+                    - message
+                    - retryable
+                    - request_id
+                    additionalProperties: false
+                    properties:
+                      code:
+                        type: string
+                        enum:
+                        - VALIDATION_ERROR
+                        - UNAUTHORIZED
+                        - FORBIDDEN
+                        - NOT_FOUND
+                        - MODEL_UNAVAILABLE
+                        - MODEL_PARKED
+                        - MODEL_CAPABILITY_MISMATCH
+                        - UPSTREAM_TIMEOUT
+                        - UPSTREAM_ERROR
+                        - UPSTREAM_SCHEMA_ERROR
+                        - RATE_LIMITED
+                        - PARSE_ERROR
+                        - INTERNAL_ERROR
+                        - QUEUE_TIMEOUT
+                        - CIRCUIT_OPEN
+                        - REQUEST_TOO_LARGE
+                        - RUNTIME_NOT_READY
+                        - DETECTOR_RETIRED
+                        - DETECTOR_DISABLED
+                        - STREAM_LIMIT_EXCEEDED
+                      message:
+                        type: string
+                      retryable:
+                        type: boolean
+                      request_id:
+                        type: string
+          description: Service Unavailable
         '401':
           description: Admin Bearer token 필요
           content:
@@ -8106,56 +8239,6 @@ paths:
                         type: string
         '502':
           description: Upstream 오류 또는 유효하지 않은 upstream 응답
-          content:
-            application/json:
-              schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
-                title: CommonErrorResponse
-                type: object
-                required:
-                - error
-                additionalProperties: false
-                properties:
-                  error:
-                    type: object
-                    required:
-                    - code
-                    - message
-                    - retryable
-                    - request_id
-                    additionalProperties: false
-                    properties:
-                      code:
-                        type: string
-                        enum:
-                        - VALIDATION_ERROR
-                        - UNAUTHORIZED
-                        - FORBIDDEN
-                        - NOT_FOUND
-                        - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
-                        - MODEL_CAPABILITY_MISMATCH
-                        - UPSTREAM_TIMEOUT
-                        - UPSTREAM_ERROR
-                        - UPSTREAM_SCHEMA_ERROR
-                        - RATE_LIMITED
-                        - PARSE_ERROR
-                        - INTERNAL_ERROR
-                        - QUEUE_TIMEOUT
-                        - CIRCUIT_OPEN
-                        - REQUEST_TOO_LARGE
-                        - RUNTIME_NOT_READY
-                        - DETECTOR_RETIRED
-                        - DETECTOR_DISABLED
-                        - STREAM_LIMIT_EXCEEDED
-                      message:
-                        type: string
-                      retryable:
-                        type: boolean
-                      request_id:
-                        type: string
-        '503':
-          description: Runtime 또는 dependency를 사용할 수 없음
           content:
             application/json:
               schema:
@@ -8306,3 +8389,4 @@ tags:
     - 문서·웹페이지 안에 숨겨진 간접 prompt injection
 
     - 연결된 도구로 시크릿·파일·메일 탈취 유도'
+

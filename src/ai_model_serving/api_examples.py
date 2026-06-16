@@ -470,8 +470,31 @@ RUNTIME_LIST_RESPONSE_EXAMPLE: dict[str, Any] = {
         {
             "service_key": "risk_prompt",
             "container": "risk-prompt-vllm",
-            "gateway_state": "disabled",
+            "gateway_state": "active",
+            "container_status": "running",
+        },
+    ]
+}
+
+RUNTIME_LIST_MIXED_STATE_EXAMPLE: dict[str, Any] = {
+    "runtimes": [
+        {
+            "service_key": "embedding",
+            "container": "embedding-vllm",
+            "gateway_state": "active",
+            "container_status": "running",
+        },
+        {
+            "service_key": "embedding_ko",
+            "container": "embedding-ko-vllm",
+            "gateway_state": "stopped",
             "container_status": "exited",
+        },
+        {
+            "service_key": "risk_prompt",
+            "container": "risk-prompt-vllm",
+            "gateway_state": "starting",
+            "container_status": "starting",
         },
     ]
 }
@@ -487,13 +510,37 @@ RUNTIME_ENABLE_RESPONSE_EXAMPLE: dict[str, Any] = {
 }
 
 RUNTIME_STOP_RESPONSE_EXAMPLE: dict[str, Any] = {
-    "service_key": "embedding",
+    "service_key": "embedding_ko",
     "gateway_state": "stopped",
-    "containers_stopped": ["embedding-vllm"],
+    "containers_stopped": ["embedding-ko-vllm"],
+}
+
+RUNTIME_STOP_WITH_PREREQ_RESPONSE_EXAMPLE: dict[str, Any] = {
+    "service_key": "risk_prompt",
+    "gateway_state": "stopped",
+    "containers_stopped": ["risk-prompt-vllm", "embedding-vllm"],
 }
 
 RUNTIME_START_RESPONSE_EXAMPLE: dict[str, Any] = {
-    "service_key": "embedding",
+    "service_key": "embedding_ko",
     "gateway_state": "active",
-    "containers_started": ["embedding-vllm"],
+    "containers_started": ["embedding-ko-vllm"],
+}
+
+RUNTIME_START_WITH_PREREQ_RESPONSE_EXAMPLE: dict[str, Any] = {
+    "service_key": "risk_prompt",
+    "gateway_state": "active",
+    "containers_started": ["embedding-vllm", "risk-prompt-vllm"],
+}
+
+RUNTIME_ERROR_404_EXAMPLE: dict[str, Any] = {
+    "detail": "unknown or non-controllable runtime: main_llm",
+}
+
+RUNTIME_ERROR_503_NO_SIDECAR_EXAMPLE: dict[str, Any] = {
+    "detail": "admin sidecar is not configured (ADMIN_SIDECAR_URL missing)",
+}
+
+RUNTIME_ERROR_503_SIDECAR_UNAVAILABLE_EXAMPLE: dict[str, Any] = {
+    "detail": "sidecar unavailable: Connection refused http://admin-sidecar:8080",
 }
