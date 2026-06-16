@@ -55,6 +55,27 @@ class TestKoreanCustomRecognizers:
         counts = _run_custom_recognizers("숫자 나열: 12345678901234")
         assert "BANK_ACCOUNT_CANDIDATE" not in counts
 
+    def test_mobile_phone_detected(self):
+        counts = _run_custom_recognizers("내 전화번호는 010-3817-5168입니다.")
+        assert "PHONE_NUMBER" in counts
+        assert counts["PHONE_NUMBER"] >= 1
+
+    def test_mobile_phone_010_4digit_detected(self):
+        counts = _run_custom_recognizers("연락처: 010-1234-5678")
+        assert "PHONE_NUMBER" in counts
+
+    def test_seoul_landline_detected(self):
+        counts = _run_custom_recognizers("사무실: 02-1234-5678")
+        assert "PHONE_NUMBER" in counts
+
+    def test_regional_landline_detected(self):
+        counts = _run_custom_recognizers("경기 번호: 031-123-4567")
+        assert "PHONE_NUMBER" in counts
+
+    def test_old_mobile_prefix_detected(self):
+        counts = _run_custom_recognizers("구형 번호: 011-123-4567")
+        assert "PHONE_NUMBER" in counts
+
     def test_clean_text_returns_empty(self):
         counts = _run_custom_recognizers("오늘 날씨가 맑습니다.")
         assert counts == {}
@@ -186,6 +207,15 @@ class TestPIIProtectionDetector:
         for cat in response["categories"]:
             assert isinstance(cat.get("source_model"), str)
             assert cat["source_model"]
+
+    def test_korean_phone_number_returns_d2_signal(self):
+        detector = PIIProtectionDetector()
+        response = self._run(detector.assess("내 전화번호는 010-3817-5168입니다."))
+        assert response["risk_detected"] is True
+        d2_cats = [c for c in response["categories"] if c.get("code") == "D2"]
+        assert d2_cats
+        assert d2_cats[0]["label"] == "PHONE_NUMBER"
+        assert d2_cats[0]["span_count"] >= 1
 
     def test_forbidden_fields_not_in_response(self):
         detector = PIIProtectionDetector()

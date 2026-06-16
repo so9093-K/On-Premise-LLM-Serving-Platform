@@ -29,9 +29,6 @@ _GW = {(s.method, s.path): s for s in GATEWAY_ENDPOINTS}
 # Only these keys are controllable (main_llm is excluded).
 _CONTROLLABLE_KEYS = frozenset({"embedding", "embedding_ko", "risk_prompt"})
 
-# compose_service_name → service_key (reverse of above, built at router build time)
-_CONTAINER_TO_KEY: dict[str, str] = {}
-
 
 def _container_name(base_url: str) -> str:
     return urlparse(base_url).hostname or ""

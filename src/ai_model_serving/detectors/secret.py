@@ -10,7 +10,7 @@ from ..risk import assessment_response
 SOURCE_MODEL = "secret-scanner"
 
 # --------------------------------------------------------------------------
-# Regex patterns: (compiled_re, entity_label, d_code, allowlist_set | None)
+# Regex patterns: (compiled_re, entity_label)
 # --------------------------------------------------------------------------
 
 _ALLOWLIST_GENERIC: frozenset[str] = frozenset(
@@ -28,36 +28,38 @@ _ALLOWLIST_GENERIC: frozenset[str] = frozenset(
     }
 )
 
-_PATTERNS: list[tuple[re.Pattern[str], str, str]] = [
+_PATTERNS: list[tuple[re.Pattern[str], str]] = [
     # OpenAI API key
-    (re.compile(r"sk-[A-Za-z0-9]{20}T3BlbkFJ[A-Za-z0-9]{20}"), "OPENAI_API_KEY", "D4"),
+    (re.compile(r"sk-[A-Za-z0-9]{20}T3BlbkFJ[A-Za-z0-9]{20}"), "OPENAI_API_KEY"),
     # OpenAI new-format key (sk-proj-, sk-svcacct-)
-    (re.compile(r"sk-(?:proj|svcacct)-[A-Za-z0-9_\-]{30,}"), "OPENAI_API_KEY", "D4"),
+    (re.compile(r"sk-(?:proj|svcacct)-[A-Za-z0-9_\-]{30,}"), "OPENAI_API_KEY"),
+    # Anthropic / Claude API key (sk-ant-api03-...)
+    (re.compile(r"sk-ant-[A-Za-z0-9_\-]{10,}"), "ANTHROPIC_API_KEY"),
     # AWS Access Key ID
-    (re.compile(r"(?<![A-Z0-9])(AKIA[0-9A-Z]{16})(?![A-Z0-9])"), "AWS_ACCESS_KEY_ID", "D4"),
+    (re.compile(r"(?<![A-Z0-9])(AKIA[0-9A-Z]{16})(?![A-Z0-9])"), "AWS_ACCESS_KEY_ID"),
     # GitHub personal access token (classic: ghp_, fine-grained: github_pat_)
-    (re.compile(r"(?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9]{36}"), "GITHUB_TOKEN", "D4"),
-    (re.compile(r"github_pat_[A-Za-z0-9_]{82}"), "GITHUB_TOKEN", "D4"),
+    (re.compile(r"(?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9]{36}"), "GITHUB_TOKEN"),
+    (re.compile(r"github_pat_[A-Za-z0-9_]{82}"), "GITHUB_TOKEN"),
     # GitLab personal/group/project token
-    (re.compile(r"glpat-[A-Za-z0-9\-_]{20}"), "GITLAB_TOKEN", "D4"),
+    (re.compile(r"glpat-[A-Za-z0-9\-_]{20}"), "GITLAB_TOKEN"),
     # HuggingFace token
-    (re.compile(r"hf_[A-Za-z0-9]{34}"), "HUGGINGFACE_TOKEN", "D4"),
+    (re.compile(r"hf_[A-Za-z0-9]{34}"), "HUGGINGFACE_TOKEN"),
     # JWT: three base64url segments separated by dots
-    (re.compile(r"eyJ[A-Za-z0-9_-]{5,}\.eyJ[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_\-=+/]{10,}"), "JWT", "D4"),
+    (re.compile(r"eyJ[A-Za-z0-9_-]{5,}\.eyJ[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_\-=+/]{10,}"), "JWT"),
     # PEM private key block
-    (re.compile(r"-----BEGIN (?:RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----"), "PRIVATE_KEY_BLOCK", "D4"),
+    (re.compile(r"-----BEGIN (?:RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----"), "PRIVATE_KEY_BLOCK"),
     # Database connection URL
     (re.compile(
         r"(?:mysql|postgresql|postgres|mongodb(?:\+srv)?|redis|amqp|amqps|mariadb)://"
         r"[A-Za-z0-9_.%~!$&'()*+,;=:@\-]+:[A-Za-z0-9_.%~!$&'()*+,;=:@\-]+@"
         r"[A-Za-z0-9.\-]+"
-    ), "DATABASE_URL", "D5"),
+    ), "DATABASE_URL"),
     # Password assignment patterns
     (re.compile(
         r'(?i)(?:password|passwd|secret|api[_\-]?key|token|auth[_\-]?token)\s*[:=]\s*'
         r'(?!["\']?\s*["\'])'      # not empty value
         r'(["\']?)([^\s,;\'"]{6,})(\1)'
-    ), "PASSWORD_ASSIGNMENT", "D4"),
+    ), "PASSWORD_ASSIGNMENT"),
 ]
 
 # High-entropy generic secret candidate
@@ -77,7 +79,7 @@ def _find_generic_candidates(text: str) -> int:
     """Count high-entropy strings that aren't matched by named patterns."""
     # Remove known-pattern matches to avoid double-counting
     cleaned = text
-    for pattern, _, _ in _PATTERNS:
+    for pattern, _ in _PATTERNS:
         cleaned = pattern.sub("", cleaned)
 
     count = 0
@@ -94,7 +96,7 @@ def _scan_text(text: str) -> dict[str, int]:
     """Scan text for secrets; return entity_label -> span_count, without raw values."""
     counts: dict[str, int] = {}
 
-    for pattern, label, _code in _PATTERNS:
+    for pattern, label in _PATTERNS:
         matches = pattern.findall(text)
         if matches:
             counts[label] = counts.get(label, 0) + len(matches)
@@ -107,6 +109,7 @@ def _scan_text(text: str) -> dict[str, int]:
 
 _LABEL_CODE: dict[str, str] = {
     "OPENAI_API_KEY": "D4",
+    "ANTHROPIC_API_KEY": "D4",
     "AWS_ACCESS_KEY_ID": "D4",
     "GITHUB_TOKEN": "D4",
     "GITLAB_TOKEN": "D4",
@@ -135,7 +138,7 @@ def _build_categories(entity_counts: dict[str, int]) -> list[dict[str, Any]]:
 
     categories: list[dict[str, Any]] = []
     for label, span_count in sorted(entity_counts.items()):
-        code = _LABEL_CODE.get(label, "D4")
+        code = _LABEL_CODE[label]
         categories.append(
             {
                 "code": code,

@@ -1,12 +1,6 @@
 from __future__ import annotations
 
-import csv
-import json
 import os
-import re
-import subprocess
-import sys
-import tomllib
 from pathlib import Path
 from typing import Any
 
@@ -22,11 +16,8 @@ except ImportError as exc:
 
 from .common import (
     FORBIDDEN_RESPONSE_FIELDS,
-    REQUIRED_FILES,
     ROOT,
-    iter_project_files,
     read_json,
-    read_runtime_contract_text,
     read_yaml,
 )
 
@@ -164,8 +155,23 @@ def validate_generated_openapi_contract_schemas() -> None:
     from ai_model_serving.apps.risk_adapter import create_risk_adapter_app
     from ai_model_serving.openapi_contracts import load_contract_schema
 
-    gateway = create_gateway_app().openapi()
-    risk_adapter = create_risk_adapter_app().openapi()
+    # Generate with strict auth to validate the full error surface (401 on all POST endpoints).
+    # This matches the env used to generate specs/openapi.gateway.yaml.
+    _strict = {
+        'ADMIN_API_KEY_REQUIRED': 'true',
+        'ADMIN_API_KEYS': 'validate-admin-key',
+    }
+    _saved = {k: os.environ.get(k) for k in _strict}
+    os.environ.update(_strict)
+    try:
+        gateway = create_gateway_app().openapi()
+        risk_adapter = create_risk_adapter_app().openapi()
+    finally:
+        for k, v in _saved.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
 
     expected_gateway_requests = {
         '/v1/chat/completions': 'chat_completion_request.schema.json',

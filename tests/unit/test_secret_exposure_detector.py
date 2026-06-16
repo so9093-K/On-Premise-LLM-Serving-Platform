@@ -28,6 +28,7 @@ from ai_model_serving.detectors.secret import (
 # ---------------------------------------------------------------------------
 
 OPENAI_KEY = "sk-proj-abcdefghijklmnopqrstuvwxyz12345678901234ABCDE"
+ANTHROPIC_KEY = "sk-ant-api03-abcdefghijklmnopqrstuvwxyz1234567890ABCDEFGHIJ"
 AWS_ACCESS_KEY = "AKIAIOSFODNN7EXAMPLE"
 GITHUB_TOKEN = "ghp_abcdefghijklmnopqrstuvwxyz1234567890AB"
 GITLAB_TOKEN = "glpat-abcdefghijklmnopqrst"
@@ -42,6 +43,10 @@ class TestScanText:
     def test_openai_key_detected(self):
         counts = _scan_text(f"API_KEY={OPENAI_KEY}")
         assert "OPENAI_API_KEY" in counts
+
+    def test_anthropic_key_detected(self):
+        counts = _scan_text(f"ANTHROPIC_API_KEY={ANTHROPIC_KEY}")
+        assert "ANTHROPIC_API_KEY" in counts
 
     def test_aws_access_key_detected(self):
         counts = _scan_text(f"AWS_ACCESS_KEY_ID={AWS_ACCESS_KEY}")
@@ -146,6 +151,14 @@ class TestSecretExposureDetector:
         assert d4_cats
         assert d4_cats[0]["label"] == "OPENAI_API_KEY"
 
+    def test_anthropic_key_returns_d4_signal(self):
+        detector = SecretExposureDetector()
+        response = self._run(detector.assess(f"키: {ANTHROPIC_KEY}"))
+        assert response["risk_detected"] is True
+        d4_cats = [c for c in response["categories"] if c.get("code") == "D4"]
+        assert d4_cats
+        assert any(c["label"] == "ANTHROPIC_API_KEY" for c in d4_cats)
+
     def test_jwt_returns_d4_signal(self):
         detector = SecretExposureDetector()
         response = self._run(detector.assess(f"Bearer {JWT}"))
@@ -179,7 +192,7 @@ class TestSecretExposureDetector:
 
     def test_raw_secret_values_absent_from_response(self):
         detector = SecretExposureDetector()
-        for secret in [OPENAI_KEY, AWS_ACCESS_KEY, GITHUB_TOKEN, JWT, DATABASE_URL]:
+        for secret in [OPENAI_KEY, ANTHROPIC_KEY, AWS_ACCESS_KEY, GITHUB_TOKEN, JWT, DATABASE_URL]:
             response = self._run(detector.assess(f"값: {secret}"))
             response_str = json.dumps(response)
             assert secret not in response_str, f"raw secret found in response for {secret[:20]}..."

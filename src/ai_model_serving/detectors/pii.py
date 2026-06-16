@@ -42,6 +42,13 @@ _KR_FRN_RE = re.compile(r"\b(\d{6})-([5-8]\d{6})\b")
 _KR_BRN_RE = re.compile(r"\b(\d{3})-(\d{2})-(\d{5})\b")
 _KR_PASSPORT_RE = re.compile(r"\b[MR][A-Z]\d{7}\b")
 _KR_DRIVER_LICENSE_RE = re.compile(r"\b\d{2}-\d{2}-\d{6}-\d{2}\b")
+_KR_PHONE_RE = re.compile(
+    r"(?<!\d)(?:"
+    r"01[016789]-\d{3,4}-\d{4}"   # 휴대폰 (010/011/016/017/018/019)
+    r"|02-\d{3,4}-\d{4}"          # 서울 유선
+    r"|0[3-9]\d-\d{3,4}-\d{4}"    # 지역 유선 (031~099)
+    r")(?!\d)"
+)
 _BANK_ACCOUNT_RE = re.compile(r"\b\d{10,14}\b")
 _BANK_ACCOUNT_CONTEXT_RE = re.compile(
     r"(?i)(계좌|입금|출금|이체|account|bank|통장)",
@@ -62,6 +69,8 @@ def _run_custom_recognizers(text: str) -> dict[str, int]:
         counts["KR_PASSPORT"] = len(m)
     if m := _KR_DRIVER_LICENSE_RE.findall(text):
         counts["KR_DRIVER_LICENSE"] = len(m)
+    if m := _KR_PHONE_RE.findall(text):
+        counts["PHONE_NUMBER"] = len(m)
 
     # Bank account candidate: only count when financial context keyword nearby
     if _BANK_ACCOUNT_CONTEXT_RE.search(text):
