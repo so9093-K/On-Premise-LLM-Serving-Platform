@@ -87,10 +87,10 @@ rsync -az --delete \
   --exclude "__pycache__/" \
   --exclude "*.pyc" \
   --exclude "model_cache/" \
-  --exclude "models/" \
+  --exclude "ops/compose/models/" \
   --exclude "logs/" \
-  --exclude "dist/" \
-  --exclude "build/" \
+  --exclude "/dist/" \
+  --exclude "/build/" \
   --exclude "run/" \
   --exclude "outputs/" \
   ./ \
