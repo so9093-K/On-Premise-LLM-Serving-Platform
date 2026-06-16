@@ -6,6 +6,8 @@
 
 ### Added
 
+- 한국 전화번호(휴대폰 `01x-`, 서울 `02-`, 지역 `0[3-9]x-`)를 PII Protection detector가 D2 신호로 감지한다. 기존에 Presidio English recognizer가 한국 번호 포맷을 안정적으로 인식하지 못해 누락되던 케이스다.
+- Anthropic API 키(`sk-ant-...`) 패턴을 Secret Exposure detector가 D4 신호로 감지한다. 이전에는 고엔트로피 generic candidate로만 잡혔다.
 - `make sync-env` — `git pull` 이후 `.env`를 템플릿과 동기화한다. 누락 키를 추가하고 폐기 키를 제거하되, 기존 크리덴셜·이미지 태그·커스텀 값은 모두 보존한다. 시크릿을 재생성하지 않는다.
 - `setup_env.py --env-file <path>` — `--sync-env` 실행 시 프로젝트 루트가 아닌 다른 경로의 `.env`를 대상으로 지정할 수 있다. 별도 배포 디렉터리의 `.env` 동기화에 사용한다.
 - 문서 lifecycle, ownership, source-of-truth, 검증 방식을 추적하는 `docs/manifest.yaml`을 추가했다.
@@ -28,6 +30,10 @@
 - ADR canonical 위치를 `docs/adr/`로 통합하고 root `adr/`는 더 이상 사용하지 않는다.
 - 설명형 request examples 문서를 `docs/examples/requests.md`로 이동했다.
 - `reports/refactor/current_*`에는 실제 current state, handoff, inventory만 남기고 과거 audit snapshot은 archive로 분리했다.
+
+### Fixed
+
+- `make validate` 중 OpenAPI contract 검증이 `ADMIN_API_KEY_REQUIRED` 미설정 환경에서 admin endpoint의 401 응답을 누락 감지하던 문제를 수정했다. validator가 strict auth env를 임시 적용해 spec을 생성한 후 복원한다.
 
 ## [0.0.1] - 2026-05-20
 
