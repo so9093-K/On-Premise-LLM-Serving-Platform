@@ -464,18 +464,21 @@ RUNTIME_LIST_RESPONSE_EXAMPLE: dict[str, Any] = {
             "container": "embedding-vllm",
             "gateway_state": "active",
             "container_status": "running",
+            "available_actions": ["disable", "stop"],
         },
         {
             "service_key": "embedding_ko",
             "container": "embedding-ko-vllm",
             "gateway_state": "active",
             "container_status": "running",
+            "available_actions": ["disable", "stop"],
         },
         {
             "service_key": "risk_prompt",
             "container": "risk-prompt-vllm",
             "gateway_state": "active",
             "container_status": "running",
+            "available_actions": ["disable", "stop"],
         },
     ]
 }
@@ -487,18 +490,21 @@ RUNTIME_LIST_MIXED_STATE_EXAMPLE: dict[str, Any] = {
             "container": "embedding-vllm",
             "gateway_state": "active",
             "container_status": "running",
+            "available_actions": ["disable", "stop"],
         },
         {
             "service_key": "embedding_ko",
             "container": "embedding-ko-vllm",
             "gateway_state": "stopped",
             "container_status": "exited",
+            "available_actions": ["start"],
         },
         {
             "service_key": "risk_prompt",
             "container": "risk-prompt-vllm",
             "gateway_state": "starting",
             "container_status": "starting",
+            "available_actions": [],
         },
     ]
 }

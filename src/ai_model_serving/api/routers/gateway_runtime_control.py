@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from enum import Enum
 from typing import Any
 from urllib.parse import urlparse
 
@@ -20,14 +21,47 @@ from ...api_examples import (
     RUNTIME_STOP_RESPONSE_EXAMPLE,
     RUNTIME_STOP_WITH_PREREQ_RESPONSE_EXAMPLE,
 )
-from ...services.runtime_state import RuntimeState, RuntimeStateStore
+from ...services.runtime_state import CONTROLLABLE_KEYS, RuntimeState, RuntimeStateStore
 from ...services.sidecar_client import SidecarClient, SidecarUnavailableError
 
 _GW = {(s.method, s.path): s for s in GATEWAY_ENDPOINTS}
 
-# service_key → compose service name, derived from runtime endpoint base_url hostname.
-# Only these keys are controllable (main_llm is excluded).
-_CONTROLLABLE_KEYS = frozenset({"embedding", "embedding_ko", "risk_prompt"})
+
+class RuntimeServiceKey(str, Enum):
+    embedding = "embedding"
+    embedding_ko = "embedding_ko"
+    risk_prompt = "risk_prompt"
+
+
+_CONTAINER_RUNNING = frozenset({"running", "restarting"})
+_CONTAINER_STOPPED = frozenset({"exited", "created", "dead"})
+
+
+def _available_actions(gateway_state: str, container_status: str) -> list[str]:
+    actions: list[str] = []
+    c_running = container_status in _CONTAINER_RUNNING
+    c_stopped = container_status in _CONTAINER_STOPPED
+
+    if gateway_state == "active":
+        actions.append("disable")
+        if c_running:
+            actions.append("stop")
+        elif c_stopped:
+            actions.append("start")
+    elif gateway_state == "disabled":
+        actions.append("enable")
+        if c_running:
+            actions.append("stop")
+        elif c_stopped:
+            actions.append("start")
+    elif gateway_state == "stopped":
+        if c_stopped:
+            actions.append("start")
+        elif c_running:
+            actions.extend(["enable", "stop"])
+    # starting → no actions available
+
+    return actions
 
 
 def _container_name(base_url: str) -> str:
@@ -46,7 +80,7 @@ def build_router(
     container_to_key: dict[str, str] = {
         _container_name(ep.base_url): sk
         for sk, ep in settings.runtime_endpoints.items()
-        if sk in _CONTROLLABLE_KEYS
+        if sk in CONTROLLABLE_KEYS
     }
 
     def _controllable_runtimes() -> list[dict[str, str]]:
@@ -56,7 +90,7 @@ def build_router(
                 "container": _container_name(ep.base_url),
             }
             for sk, ep in settings.runtime_endpoints.items()
-            if sk in _CONTROLLABLE_KEYS
+            if sk in CONTROLLABLE_KEYS
         ]
 
     _ADMIN_401 = (
@@ -95,11 +129,14 @@ def build_router(
         for item in _controllable_runtimes():
             sk = item["service_key"]
             container = item["container"]
+            gw_state = gateway_states.get(sk, RuntimeState.active).value
+            c_status = container_statuses.get(container, "unknown")
             runtimes.append({
                 "service_key": sk,
                 "container": container,
-                "gateway_state": gateway_states.get(sk, RuntimeState.active).value,
-                "container_status": container_statuses.get(container, "unknown"),
+                "gateway_state": gw_state,
+                "container_status": c_status,
+                "available_actions": _available_actions(gw_state, c_status),
             })
         return JSONResponse({"runtimes": runtimes})
 
@@ -114,15 +151,12 @@ def build_router(
         description=_s.description,
         responses={
             200: {"content": {"application/json": {"example": RUNTIME_DISABLE_RESPONSE_EXAMPLE}}},
-            404: {"content": {"application/json": {"example": RUNTIME_ERROR_404_EXAMPLE}}},
             **_ADMIN_401,
         },
     )
-    async def disable_runtime(service_key: str) -> JSONResponse:
-        if not state_store.is_controllable(service_key):
-            raise HTTPException(404, detail=f"unknown or non-controllable runtime: {service_key}")
-        await state_store.set(service_key, RuntimeState.disabled)
-        return JSONResponse({"service_key": service_key, "gateway_state": "disabled"})
+    async def disable_runtime(service_key: RuntimeServiceKey) -> JSONResponse:
+        await state_store.set(service_key.value, RuntimeState.disabled)
+        return JSONResponse({"service_key": service_key.value, "gateway_state": "disabled"})
 
     _s = _GW[("POST", "/admin/runtimes/{service_key}/enable")]
 
@@ -135,15 +169,12 @@ def build_router(
         description=_s.description,
         responses={
             200: {"content": {"application/json": {"example": RUNTIME_ENABLE_RESPONSE_EXAMPLE}}},
-            404: {"content": {"application/json": {"example": RUNTIME_ERROR_404_EXAMPLE}}},
             **_ADMIN_401,
         },
     )
-    async def enable_runtime(service_key: str) -> JSONResponse:
-        if not state_store.is_controllable(service_key):
-            raise HTTPException(404, detail=f"unknown or non-controllable runtime: {service_key}")
-        await state_store.set(service_key, RuntimeState.active)
-        return JSONResponse({"service_key": service_key, "gateway_state": "active"})
+    async def enable_runtime(service_key: RuntimeServiceKey) -> JSONResponse:
+        await state_store.set(service_key.value, RuntimeState.active)
+        return JSONResponse({"service_key": service_key.value, "gateway_state": "active"})
 
     _s = _GW[("POST", "/admin/runtimes/{service_key}/stop")]
 
@@ -167,24 +198,22 @@ def build_router(
             **_ADMIN_401,
         },
     )
-    async def stop_runtime(service_key: str) -> JSONResponse:
-        if not state_store.is_controllable(service_key):
-            raise HTTPException(404, detail=f"unknown or non-controllable runtime: {service_key}")
+    async def stop_runtime(service_key: RuntimeServiceKey) -> JSONResponse:
         if sidecar is None:
             raise HTTPException(503, detail="admin sidecar is not configured (ADMIN_SIDECAR_URL missing)")
-        ep = settings.runtime_endpoints.get(service_key)
+        ep = settings.runtime_endpoints.get(service_key.value)
         if ep is None:
-            raise HTTPException(404, detail=f"runtime endpoint not found: {service_key}")
+            raise HTTPException(404, detail=f"runtime endpoint not found: {service_key.value}")
         container = _container_name(ep.base_url)
-        await state_store.set(service_key, RuntimeState.stopped)
+        await state_store.set(service_key.value, RuntimeState.stopped)
         try:
             stopped = await sidecar.stop(container)
         except SidecarUnavailableError as exc:
-            await state_store.set(service_key, RuntimeState.disabled)
+            await state_store.set(service_key.value, RuntimeState.disabled)
             raise HTTPException(503, detail=str(exc)) from exc
 
         return JSONResponse({
-            "service_key": service_key,
+            "service_key": service_key.value,
             "gateway_state": "stopped",
             "containers_stopped": stopped,
         })
@@ -211,21 +240,19 @@ def build_router(
             **_ADMIN_401,
         },
     )
-    async def start_runtime(service_key: str) -> JSONResponse:
-        if not state_store.is_controllable(service_key):
-            raise HTTPException(404, detail=f"unknown or non-controllable runtime: {service_key}")
+    async def start_runtime(service_key: RuntimeServiceKey) -> JSONResponse:
         if sidecar is None:
             raise HTTPException(503, detail="admin sidecar is not configured (ADMIN_SIDECAR_URL missing)")
-        ep = settings.runtime_endpoints.get(service_key)
+        ep = settings.runtime_endpoints.get(service_key.value)
         if ep is None:
-            raise HTTPException(404, detail=f"runtime endpoint not found: {service_key}")
+            raise HTTPException(404, detail=f"runtime endpoint not found: {service_key.value}")
         container = _container_name(ep.base_url)
 
-        await state_store.set(service_key, RuntimeState.starting)
+        await state_store.set(service_key.value, RuntimeState.starting)
         try:
             started_containers = await sidecar.start(container)
         except SidecarUnavailableError as exc:
-            await state_store.set(service_key, RuntimeState.stopped)
+            await state_store.set(service_key.value, RuntimeState.stopped)
             raise HTTPException(503, detail=str(exc)) from exc
 
         # Sync gateway state for any prerequisite services the sidecar started.
@@ -233,9 +260,11 @@ def build_router(
             started_key = container_to_key.get(started_container)
             if started_key:
                 await state_store.set(started_key, RuntimeState.active)
+        # Always set primary key active regardless of sidecar response shape.
+        await state_store.set(service_key.value, RuntimeState.active)
 
         return JSONResponse({
-            "service_key": service_key,
+            "service_key": service_key.value,
             "gateway_state": "active",
             "containers_started": started_containers,
         })

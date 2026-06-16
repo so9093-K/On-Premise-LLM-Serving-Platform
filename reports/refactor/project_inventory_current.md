@@ -67,7 +67,7 @@ Command:
 
 | 경로 | 줄 수 | 담당 | 검토 메모 |
 |---|---:|---|---|
-| `specs/openapi.gateway.yaml` | 8308 | api-contracts | supporting project file |
+| `specs/openapi.gateway.yaml` | 8392 | api-contracts | supporting project file |
 | `reports/refactor/project_inventory_current.json` | 4937 | handoff-reporting | handoff/review artifact; avoid stale phase snapshots in active package |
 | `specs/openapi.risk-adapter.yaml` | 3198 | api-contracts | supporting project file |
 | `configs/command_registry.yaml` | 2100 | configuration | configuration source; validate through governance and projection checks after edits |
