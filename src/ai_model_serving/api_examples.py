@@ -382,6 +382,10 @@ SECRET_EXAMPLES: dict[str, Any] = {
         "summary": "OpenAI API key 노출 (D4)",
         "value": {"prompt": "API 키는 sk-proj-abcdefghijklmnopqrstuvwxyz1234567890ABCDE 입니다."},
     },
+    "anthropic_api_key": {
+        "summary": "Anthropic API key 노출 (D4)",
+        "value": {"prompt": "Claude API 키: sk-ant-api03-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"},
+    },
     "aws_access_key": {
         "summary": "AWS Access Key 노출 (D4)",
         "value": {"prompt": "AWS 설정: AKIAIOSFODNN7EXAMPLE"},
