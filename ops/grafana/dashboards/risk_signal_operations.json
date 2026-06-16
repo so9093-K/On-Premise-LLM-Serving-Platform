@@ -232,8 +232,8 @@
         "uid": "${datasource}"
       },
       "gridPos": {
-        "x": 0,
-        "y": 4,
+        "x": 8,
+        "y": 8,
         "w": 8,
         "h": 4
       },
@@ -285,8 +285,8 @@
         "uid": "${datasource}"
       },
       "gridPos": {
-        "x": 8,
-        "y": 4,
+        "x": 16,
+        "y": 8,
         "w": 8,
         "h": 4
       },
@@ -339,7 +339,7 @@
       },
       "gridPos": {
         "x": 16,
-        "y": 4,
+        "y": 12,
         "w": 8,
         "h": 4
       },
@@ -388,7 +388,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 8,
+        "y": 16,
         "w": 24,
         "h": 6
       },
@@ -397,6 +397,11 @@
           "expr": "sum(rate(risk_adapter_system_signal_total[$window])) by (system_signal_code)",
           "refId": "A",
           "legendFormat": "{{system_signal_code}}"
+        },
+        {
+          "expr": "sum(rate(risk_signal_detected_total[])) by (risk_code)",
+          "refId": "B",
+          "legendFormat": "{{risk_code}}"
         }
       ],
       "options": {
@@ -414,6 +419,271 @@
       }
     },
     {
+      "id": 110,
+      "type": "stat",
+      "title": "D1 Personal ID",
+      "description": "Healthy/정상: 0 D1 detections. D1 = 주민등록번호·외국인등록번호·여권·면허증·이름. Attention/주의: 개인 식별자 노출 신호. No Data: check risk-adapter scrape.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 4,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "expr": "sum(increase(risk_signal_detected_total{risk_code=\"D1\"}[])) or on() (sum(up{job=\"risk-adapter\"}) * 0)",
+          "refId": "A",
+          "legendFormat": "D1"
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 3
+              }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 111,
+      "type": "stat",
+      "title": "D2 Contact/Location",
+      "description": "Healthy/정상: 0 D2 detections. D2 = EMAIL_ADDRESS·PHONE_NUMBER·ADDRESS. Attention/주의: 연락처·위치 정보 노출 신호. No Data: check risk-adapter scrape.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 4,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "expr": "sum(increase(risk_signal_detected_total{risk_code=\"D2\"}[])) or on() (sum(up{job=\"risk-adapter\"}) * 0)",
+          "refId": "A",
+          "legendFormat": "D2"
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 3
+              }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 112,
+      "type": "stat",
+      "title": "D3 Financial ID",
+      "description": "Healthy/정상: 0 D3 detections. D3 = 신용카드·사업자등록번호·계좌번호. Attention/주의: 금융 식별자 노출 신호. No Data: check risk-adapter scrape.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 4,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "expr": "sum(increase(risk_signal_detected_total{risk_code=\"D3\"}[])) or on() (sum(up{job=\"risk-adapter\"}) * 0)",
+          "refId": "A",
+          "legendFormat": "D3"
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 3
+              }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 113,
+      "type": "stat",
+      "title": "D5 Network/Infra",
+      "description": "Healthy/정상: 0 D5 detections. D5 = IP_ADDRESS·URL. PII와 Secret detector 공통 코드. Attention/주의: 네트워크·인프라 식별자 노출 신호. No Data: check risk-adapter scrape.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 4,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "expr": "sum(increase(risk_signal_detected_total{risk_code=\"D5\"}[])) or on() (sum(up{job=\"risk-adapter\"}) * 0)",
+          "refId": "A",
+          "legendFormat": "D5"
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 3
+              }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 114,
+      "type": "stat",
+      "title": "D4 Secret/Credential",
+      "description": "Healthy/정상: 0 D4 detections. D4 = OPENAI_API_KEY·AWS_ACCESS_KEY·GITHUB_TOKEN·GITLAB_TOKEN·HUGGINGFACE_TOKEN·JWT·PRIVATE_KEY_BLOCK·PASSWORD_ASSIGNMENT·GENERIC_SECRET_CANDIDATE. D4는 A1보다 높은 우선순위(strongest_code). Attention/주의: 자격증명 노출 신호. No Data: check risk-adapter scrape.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 8,
+        "w": 8,
+        "h": 4
+      },
+      "targets": [
+        {
+          "expr": "sum(increase(risk_signal_detected_total{risk_code=\"D4\"}[])) or on() (sum(up{job=\"risk-adapter\"}) * 0)",
+          "refId": "A",
+          "legendFormat": "D4"
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 3
+              }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
       "id": 101,
       "type": "row",
       "title": "Drill Down",
@@ -424,7 +694,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 14,
+        "y": 22,
         "w": 24,
         "h": 1
       },

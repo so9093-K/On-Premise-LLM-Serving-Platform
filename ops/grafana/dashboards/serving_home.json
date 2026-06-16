@@ -295,7 +295,7 @@
       "id": 4,
       "type": "stat",
       "title": "Monitoring Coverage",
-      "description": "Healthy/정상: visible count equals 7 expected. Attention/주의: below 7 means a target is missing or misconfigured — open Observability / Data Quality. No Data/런타임 데이터 없음: Prometheus up series absent. The expected critical target count is projected from gateway + risk-adapter + vLLM runtime targets + dcgm + cadvisor.",
+      "description": "Healthy/정상: visible count equals 8 expected. Attention/주의: below 8 means a target is missing or misconfigured — open Observability / Data Quality. No Data/런타임 데이터 없음: Prometheus up series absent. The expected critical target count is projected from gateway + risk-adapter + vLLM runtime targets + dcgm + cadvisor.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -346,7 +346,7 @@
               },
               {
                 "color": "green",
-                "value": 7
+                "value": 8
               }
             ]
           }
