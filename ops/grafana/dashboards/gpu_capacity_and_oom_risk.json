@@ -23,204 +23,6 @@
   "liveNow": false,
   "panels": [
     {
-      "id": 120,
-      "type": "stat",
-      "title": "embedding-vllm",
-      "description": "Healthy/정상: 1 = embedding-vllm 컨테이너 running, Prometheus scrape 정상. Action Required/조치 필요: 0 = 컨테이너 중지 또는 scrape 실패. No Data: Prometheus vllm-runtimes 스크레이프 설정 확인.",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "gridPos": {
-        "x": 0,
-        "y": 0,
-        "w": 8,
-        "h": 4
-      },
-      "targets": [
-        {
-          "expr": "up{job=\"vllm-runtimes\",runtime_service=\"embedding-vllm\"}",
-          "refId": "A",
-          "legendFormat": "embedding-vllm"
-        }
-      ],
-      "options": {
-        "colorMode": "background",
-        "graphMode": "none",
-        "justifyMode": "center",
-        "textMode": "value_and_name"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "decimals": 0,
-          "mappings": [
-            {
-              "type": "value",
-              "options": {
-                "0": {
-                  "text": "Stopped",
-                  "color": "red",
-                  "index": 0
-                },
-                "1": {
-                  "text": "Running",
-                  "color": "green",
-                  "index": 1
-                }
-              }
-            }
-          ],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "red",
-                "value": null
-              },
-              {
-                "color": "green",
-                "value": 1
-              }
-            ]
-          }
-        },
-        "overrides": []
-      }
-    },
-    {
-      "id": 121,
-      "type": "stat",
-      "title": "embedding-ko-vllm",
-      "description": "Healthy/정상: 1 = embedding-ko-vllm 컨테이너 running, Prometheus scrape 정상. Action Required/조치 필요: 0 = 컨테이너 중지 또는 scrape 실패. No Data: Prometheus vllm-runtimes 스크레이프 설정 확인.",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "gridPos": {
-        "x": 8,
-        "y": 0,
-        "w": 8,
-        "h": 4
-      },
-      "targets": [
-        {
-          "expr": "up{job=\"vllm-runtimes\",runtime_service=\"embedding-ko-vllm\"}",
-          "refId": "A",
-          "legendFormat": "embedding-ko-vllm"
-        }
-      ],
-      "options": {
-        "colorMode": "background",
-        "graphMode": "none",
-        "justifyMode": "center",
-        "textMode": "value_and_name"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "decimals": 0,
-          "mappings": [
-            {
-              "type": "value",
-              "options": {
-                "0": {
-                  "text": "Stopped",
-                  "color": "red",
-                  "index": 0
-                },
-                "1": {
-                  "text": "Running",
-                  "color": "green",
-                  "index": 1
-                }
-              }
-            }
-          ],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "red",
-                "value": null
-              },
-              {
-                "color": "green",
-                "value": 1
-              }
-            ]
-          }
-        },
-        "overrides": []
-      }
-    },
-    {
-      "id": 122,
-      "type": "stat",
-      "title": "risk-prompt-vllm",
-      "description": "Healthy/정상: 1 = risk-prompt-vllm 컨테이너 running, Prometheus scrape 정상. Action Required/조치 필요: 0 = 컨테이너 중지 또는 scrape 실패. No Data: Prometheus vllm-runtimes 스크레이프 설정 확인.",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "gridPos": {
-        "x": 16,
-        "y": 0,
-        "w": 8,
-        "h": 4
-      },
-      "targets": [
-        {
-          "expr": "up{job=\"vllm-runtimes\",runtime_service=\"risk-prompt-vllm\"}",
-          "refId": "A",
-          "legendFormat": "risk-prompt-vllm"
-        }
-      ],
-      "options": {
-        "colorMode": "background",
-        "graphMode": "none",
-        "justifyMode": "center",
-        "textMode": "value_and_name"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "decimals": 0,
-          "mappings": [
-            {
-              "type": "value",
-              "options": {
-                "0": {
-                  "text": "Stopped",
-                  "color": "red",
-                  "index": 0
-                },
-                "1": {
-                  "text": "Running",
-                  "color": "green",
-                  "index": 1
-                }
-              }
-            }
-          ],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "red",
-                "value": null
-              },
-              {
-                "color": "green",
-                "value": 1
-              }
-            ]
-          }
-        },
-        "overrides": []
-      }
-    },
-    {
       "id": 1,
       "type": "stat",
       "title": "GPU Headroom",
@@ -230,7 +32,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 4,
+        "y": 0,
         "w": 4,
         "h": 4
       },
@@ -278,7 +80,7 @@
       },
       "gridPos": {
         "x": 4,
-        "y": 4,
+        "y": 0,
         "w": 4,
         "h": 4
       },
@@ -326,7 +128,7 @@
       },
       "gridPos": {
         "x": 8,
-        "y": 4,
+        "y": 0,
         "w": 4,
         "h": 4
       },
@@ -381,7 +183,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 4,
+        "y": 0,
         "w": 4,
         "h": 4
       },
@@ -434,7 +236,7 @@
       },
       "gridPos": {
         "x": 16,
-        "y": 4,
+        "y": 0,
         "w": 4,
         "h": 4
       },
@@ -488,7 +290,7 @@
       },
       "gridPos": {
         "x": 20,
-        "y": 4,
+        "y": 0,
         "w": 4,
         "h": 4
       },
@@ -536,7 +338,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 8,
+        "y": 4,
         "w": 12,
         "h": 6
       },
@@ -588,7 +390,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 8,
+        "y": 4,
         "w": 12,
         "h": 6
       },
@@ -642,7 +444,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 14,
+        "y": 10,
         "w": 12,
         "h": 6
       },
@@ -698,7 +500,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 14,
+        "y": 10,
         "w": 12,
         "h": 6
       },
@@ -735,7 +537,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 20,
+        "y": 16,
         "w": 12,
         "h": 6
       },
@@ -772,7 +574,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 20,
+        "y": 16,
         "w": 12,
         "h": 6
       },
