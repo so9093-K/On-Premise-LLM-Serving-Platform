@@ -28,6 +28,8 @@ from ..api_examples import (
     GATEWAY_RETRIEVAL_SCORE_REQUEST_EXAMPLES,
     GATEWAY_RISK_AGGREGATE_REQUEST_EXAMPLES,
     GATEWAY_RISK_PROMPT_REQUEST_EXAMPLES,
+    PII_EXAMPLES,
+    SECRET_EXAMPLES,
 )
 from ..api.endpoint_spec import GATEWAY_ENDPOINTS, schema_maps_from_specs
 from ..api.routers.gateway_ops import build_router as _build_ops_router
@@ -148,6 +150,8 @@ def create_gateway_app(settings: AppSettings | None = None, clients: GatewayClie
             ("POST", "/v1/chat/completions"): GATEWAY_CHAT_REQUEST_EXAMPLES,
             ("POST", "/v1/embeddings"): GATEWAY_EMBEDDING_REQUEST_EXAMPLES,
             ("POST", "/v1/risk/detectors/prompt/assessments"): GATEWAY_RISK_PROMPT_REQUEST_EXAMPLES,
+            ("POST", "/v1/risk/detectors/pii/assessments"): PII_EXAMPLES,
+            ("POST", "/v1/risk/detectors/secret/assessments"): SECRET_EXAMPLES,
             ("POST", "/v1/risk/assessments"): GATEWAY_RISK_AGGREGATE_REQUEST_EXAMPLES,
             ("POST", "/v1/retrieval/rerank"): GATEWAY_RETRIEVAL_RERANK_REQUEST_EXAMPLES,
             ("POST", "/v1/retrieval/score"): GATEWAY_RETRIEVAL_SCORE_REQUEST_EXAMPLES,

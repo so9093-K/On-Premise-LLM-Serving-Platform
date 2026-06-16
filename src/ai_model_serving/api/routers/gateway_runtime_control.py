@@ -7,6 +7,13 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import JSONResponse
 
 from ..endpoint_spec import GATEWAY_ENDPOINTS
+from ...api_examples import (
+    RUNTIME_DISABLE_RESPONSE_EXAMPLE,
+    RUNTIME_ENABLE_RESPONSE_EXAMPLE,
+    RUNTIME_LIST_RESPONSE_EXAMPLE,
+    RUNTIME_START_RESPONSE_EXAMPLE,
+    RUNTIME_STOP_RESPONSE_EXAMPLE,
+)
 from ...services.runtime_state import RuntimeState, RuntimeStateStore
 from ...services.sidecar_client import SidecarClient, SidecarUnavailableError
 
@@ -58,6 +65,10 @@ def build_router(
         summary=_s.summary,
         operation_id=_s.operation_id,
         description=_s.description,
+        responses={
+            200: {"content": {"application/json": {"example": RUNTIME_LIST_RESPONSE_EXAMPLE}}},
+            401: {"description": "Admin Bearer token 필요"},
+        },
     )
     async def list_runtimes() -> JSONResponse:
         gateway_states = await state_store.all()
@@ -91,7 +102,10 @@ def build_router(
         summary=_s.summary,
         operation_id=_s.operation_id,
         description=_s.description,
-        responses=_ADMIN_401,
+        responses={
+            200: {"content": {"application/json": {"example": RUNTIME_DISABLE_RESPONSE_EXAMPLE}}},
+            **_ADMIN_401,
+        },
     )
     async def disable_runtime(service_key: str) -> JSONResponse:
         if not state_store.is_controllable(service_key):
@@ -108,7 +122,10 @@ def build_router(
         summary=_s.summary,
         operation_id=_s.operation_id,
         description=_s.description,
-        responses=_ADMIN_401,
+        responses={
+            200: {"content": {"application/json": {"example": RUNTIME_ENABLE_RESPONSE_EXAMPLE}}},
+            **_ADMIN_401,
+        },
     )
     async def enable_runtime(service_key: str) -> JSONResponse:
         if not state_store.is_controllable(service_key):
@@ -125,7 +142,10 @@ def build_router(
         summary=_s.summary,
         operation_id=_s.operation_id,
         description=_s.description,
-        responses=_ADMIN_401,
+        responses={
+            200: {"content": {"application/json": {"example": RUNTIME_STOP_RESPONSE_EXAMPLE}}},
+            **_ADMIN_401,
+        },
     )
     async def stop_runtime(service_key: str) -> JSONResponse:
         if not state_store.is_controllable(service_key):
@@ -158,7 +178,10 @@ def build_router(
         summary=_s.summary,
         operation_id=_s.operation_id,
         description=_s.description,
-        responses=_ADMIN_401,
+        responses={
+            200: {"content": {"application/json": {"example": RUNTIME_START_RESPONSE_EXAMPLE}}},
+            **_ADMIN_401,
+        },
     )
     async def start_runtime(service_key: str) -> JSONResponse:
         if not state_store.is_controllable(service_key):
