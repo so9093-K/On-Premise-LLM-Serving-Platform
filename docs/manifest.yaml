@@ -131,6 +131,10 @@ documents:
     type: decision
     lifecycle: historical
     owner: architecture
+  - path: docs/adr/0016-xgrammar-disable-any-whitespace.md
+    type: decision
+    lifecycle: historical
+    owner: architecture
     disposition: keep
     source_of_truth: true
     status_source: adr_status

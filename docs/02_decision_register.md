@@ -27,6 +27,7 @@
 | ADR-0013 | [docs/adr/0013-env-lifecycle-non-destructive-sync.md](adr/0013-env-lifecycle-non-destructive-sync.md) | .env 비파괴 동기화 정책 | Accepted |
 | ADR-0014 | [docs/adr/0014-image-validation-policy.md](adr/0014-image-validation-policy.md) | Vision 이미지 검증 정책 — 한도 상향과 MIME type 독립 파서 탐지 | Accepted |
 | ADR-0015 | [docs/adr/0015-main-llm-20k-o3-runtime-target.md](adr/0015-main-llm-20k-o3-runtime-target.md) | Main LLM 20K O3 Runtime Target | Accepted |
+| ADR-0016 | [docs/adr/0016-xgrammar-disable-any-whitespace.md](adr/0016-xgrammar-disable-any-whitespace.md) | xgrammar disable-any-whitespace Structured Output Backend | Accepted |
 
 ---
 
