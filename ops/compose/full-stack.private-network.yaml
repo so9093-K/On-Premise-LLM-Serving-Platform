@@ -369,9 +369,9 @@ services:
       PYTHONPATH: /app/src
       DOCKER_SOCKET: /var/run/docker.sock
       COMPOSE_PROJECT: ${COMPOSE_PROJECT_NAME:-ai-model-serving}
-    # GID 999 = docker group on Ubuntu/Debian (verify with: getent group docker | cut -d: -f3)
+    # Override DOCKER_GID if host docker group differs from 999 (getent group docker | cut -d: -f3)
     group_add:
-    - '999'
+    - "${DOCKER_GID:-999}"
     volumes:
     - /var/run/docker.sock:/var/run/docker.sock:ro
     expose:

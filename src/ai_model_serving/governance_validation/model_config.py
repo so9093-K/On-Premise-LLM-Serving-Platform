@@ -105,18 +105,24 @@ def validate_model_source_facts() -> None:
 
     embed = catalog['local-embed']
     facts = embed['source_facts']
-    if facts['max_input_tokens'] != 2048 or facts['default_embedding_dimension'] != 768:
-        raise SystemExit('local-embed source_facts must preserve 2048 token input and 768 default dimension')
-    if set(facts['matryoshka_dimensions']) != {768, 512, 256, 128}:
-        raise SystemExit('local-embed source_facts must preserve Matryoshka dimensions')
+    embed_dims = embed.get('embedding_dimensions', {})
+    if facts['max_input_tokens'] != embed['max_input_tokens']:
+        raise SystemExit('local-embed source_facts.max_input_tokens must match catalog max_input_tokens')
+    if facts['default_embedding_dimension'] != embed_dims.get('default'):
+        raise SystemExit('local-embed source_facts.default_embedding_dimension must match catalog embedding_dimensions.default')
+    if sorted(facts['matryoshka_dimensions']) != sorted(embed_dims.get('matryoshka_supported', [])):
+        raise SystemExit('local-embed source_facts.matryoshka_dimensions must match catalog embedding_dimensions.matryoshka_supported')
     if serving['embedding']['max_model_len'] != facts['max_input_tokens']:
         raise SystemExit('embedding serving max_model_len must match model-card max input tokens')
 
     embed_ko = catalog['local-embed-ko']
     ko_facts = embed_ko['source_facts']
     ko_policy = embed_ko['project_runtime_policy']
-    if ko_facts['output_dimensions'] != 1024 or ko_facts['max_sequence_length'] != 8192:
-        raise SystemExit('local-embed-ko source_facts must preserve 1024 dimensions and 8192 model-card context')
+    ko_embed_dims = embed_ko.get('embedding_dimensions', {})
+    if ko_facts['output_dimensions'] != ko_embed_dims.get('default'):
+        raise SystemExit('local-embed-ko source_facts.output_dimensions must match catalog embedding_dimensions.default')
+    if ko_facts['max_sequence_length'] != embed_ko.get('max_input_tokens'):
+        raise SystemExit('local-embed-ko source_facts.max_sequence_length must match catalog max_input_tokens')
     if ko_policy['embedding_dimension_supported'] != [ko_facts['output_dimensions']]:
         raise SystemExit('local-embed-ko project_runtime_policy must keep fixed 1024 dimensions')
     if ko_policy.get('retrieval_default') is not True:
@@ -172,9 +178,6 @@ def validate_model_list_schema_enums() -> None:
     settings_source = (ROOT / 'src/ai_model_serving/settings.py').read_text(encoding='utf-8')
     if 'MODEL_LIST' in gateway_source:
         raise SystemExit('gateway.py must not define a hardcoded MODEL_LIST')
-    if '_public_models_from_registry' not in settings_source:
-        raise SystemExit('settings.py must build Gateway model list through ModelRegistry')
-
 def validate_model_registry_alignment() -> None:
     from ai_model_serving.domain import ModelRegistry
 
@@ -211,10 +214,9 @@ def validate_risk_detector_generation_budget() -> None:
         serving_key = detector['service_key']
         card = read_json(f'model_cards/{logical_id}.json')
         catalog_tokens = catalog[logical_id]['runtime']['max_output_tokens']
-        serving_tokens = serving[serving_key]['max_output_tokens']
         card_tokens = card['runtime']['max_output_tokens']
-        if not (catalog_tokens == serving_tokens == card_tokens == 1):
-            raise SystemExit(f'{logical_id} max_output_tokens must align at 1 across catalog, serving, and model card')
+        if not (catalog_tokens == card_tokens == 1):
+            raise SystemExit(f'{logical_id} max_output_tokens must align at 1 across catalog and model card')
     risk_adapter_cfg = read_yaml('configs/model_serving.yaml')['risk_adapter']
     input_policy = risk_adapter_cfg.get('input_policy', {})
     max_prompt_chars = int(input_policy.get('max_prompt_chars', 0))

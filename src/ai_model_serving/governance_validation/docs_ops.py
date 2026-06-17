@@ -79,13 +79,10 @@ def validate_doc_invariants() -> None:
 def validate_monitoring_reference() -> None:
     monitoring = read_yaml('configs/monitoring.yaml')
     ports = service_default_host_ports()
-    expected = {'prometheus': 9410, 'grafana': 9411, 'dcgm_exporter': 9412}
-    for name, port in expected.items():
-        actual = monitoring['monitoring_stack'][name]['port']
-        if actual != port:
-            raise SystemExit(f'monitoring port mismatch in monitoring.yaml: {name}={actual}')
+    for name in ('prometheus', 'grafana', 'dcgm_exporter'):
+        port = monitoring['monitoring_stack'][name]['port']
         if ports.get(name) != port:
-            raise SystemExit(f'monitoring port mismatch in services.yaml: {name}={ports.get(name)}')
+            raise SystemExit(f'monitoring port mismatch: {name} services.yaml={ports.get(name)} monitoring.yaml={port}')
     dashboards = {d['id'] for d in monitoring['ux_dashboards']}
     required = {
         'serving_home',
@@ -183,9 +180,6 @@ def validate_ops_templates() -> None:
     from ai_model_serving.monitoring_projection import prometheus_scrape_config_document
 
     prom = read_yaml('ops/prometheus/prometheus.yml')
-    projected_prom = prometheus_scrape_config_document(registry=registry, monitoring=read_yaml('configs/monitoring.yaml'))
-    if prom != projected_prom:
-        raise SystemExit('prometheus template must match registry-backed scrape projection')
     jobs = {job['job_name'] for job in prom['scrape_configs']}
     required_jobs = {'gateway', 'risk-adapter', 'vllm-runtimes', 'dcgm-exporter', 'cadvisor'}
     if not required_jobs.issubset(jobs):

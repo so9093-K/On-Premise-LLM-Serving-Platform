@@ -113,12 +113,12 @@ def validate_python_compatibility() -> None:
         raise SystemExit('runtime_compatibility supported_range disagrees with pyproject')
 
     env = (ROOT / '.env.example').read_text(encoding='utf-8')
-    if 'PYTHON_VERSION=3.12.13' not in env:
-        raise SystemExit('.env.example must include PYTHON_VERSION=3.12.13')
+    if f'PYTHON_VERSION={py_version}' not in env:
+        raise SystemExit(f'.env.example must include PYTHON_VERSION={py_version}')
 
     doc = (ROOT / 'docs/development/python_compatibility.md').read_text(encoding='utf-8')
-    if '3.12.13' not in doc or '>=3.12,<3.15' not in doc or '3.14' not in doc:
-        raise SystemExit('Python compatibility doc must mention 3.12.13, >=3.12,<3.15, and 3.14')
+    if py_version not in doc or requires not in doc or '3.14' not in doc:
+        raise SystemExit(f'Python compatibility doc must mention {py_version}, {requires}, and 3.14')
 
 def validate_version_bump_policy() -> None:
     version = (ROOT / 'VERSION').read_text(encoding='utf-8').strip()

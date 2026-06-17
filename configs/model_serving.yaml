@@ -71,7 +71,7 @@ models:
       uses B200/vLLM main with 96K context, so this platform requires local
       tokenizer, boot, quality, latency, and soak validation before production
       claims
-    max_output_tokens: 4096
+    max_output_tokens: 8192
     resource_control:
       criticality: primary_user_path
       isolation: dedicated_vllm_process
@@ -80,7 +80,7 @@ models:
         queue_timeout_seconds: 2
       request_limits:
         max_model_len: 20000
-        max_output_tokens: 4096
+        max_output_tokens: 8192
         input_modalities:
         - text
         - image

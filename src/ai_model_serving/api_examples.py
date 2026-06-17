@@ -287,7 +287,7 @@ GATEWAY_RISK_AGGREGATE_REQUEST_EXAMPLES: dict[str, Any] = {
         "value": {"prompt": "담당자 이메일은 hong@example.com이고 연락처는 010-1234-5678입니다."},
     },
     "secret_exposure": {
-        "summary": "시크릿 노출 탐지 (D4 — 데이터베이스 URL)",
+        "summary": "시크릿 노출 탐지 (D5 — 데이터베이스 URL)",
         "value": {"prompt": "DATABASE_URL=postgresql://user:password@db.example.com:5432/mydb"},
     },
 }
@@ -544,7 +544,7 @@ RUNTIME_START_WITH_PREREQ_RESPONSE_EXAMPLE: dict[str, Any] = {
 }
 
 RUNTIME_ERROR_404_EXAMPLE: dict[str, Any] = {
-    "detail": "unknown or non-controllable runtime: main_llm",
+    "detail": "runtime endpoint not found: embedding_ko",
 }
 
 RUNTIME_ERROR_503_NO_SIDECAR_EXAMPLE: dict[str, Any] = {

@@ -7,7 +7,8 @@
     "backend": "vllm",
     "runner": "pooling",
     "port": 9406,
-    "endpoint": "/v1/embeddings"
+    "endpoint": "/v1/embeddings",
+    "max_model_len": 2048
   },
   "source_facts": {
     "model_type": "SentenceTransformer",
@@ -29,6 +30,7 @@
     "max_num_seqs": 2,
     "max_num_batched_tokens": 2048,
     "gpu_memory_utilization": 0.06,
+    "trust_remote_code": true,
     "max_docs_per_rerank": 32,
     "max_chars_per_document": 4000,
     "retrieval_default": true,

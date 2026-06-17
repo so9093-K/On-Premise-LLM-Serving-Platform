@@ -42,23 +42,17 @@ def _available_actions(gateway_state: str, container_status: str) -> list[str]:
     c_running = container_status in _CONTAINER_RUNNING
     c_stopped = container_status in _CONTAINER_STOPPED
 
-    if gateway_state == "active":
-        actions.append("disable")
-        if c_running:
-            actions.append("stop")
-        elif c_stopped:
-            actions.append("start")
-    elif gateway_state == "disabled":
-        actions.append("enable")
+    if gateway_state in ("active", "disabled"):
+        actions.append("disable" if gateway_state == "active" else "enable")
         if c_running:
             actions.append("stop")
         elif c_stopped:
             actions.append("start")
     elif gateway_state == "stopped":
-        if c_stopped:
-            actions.append("start")
-        elif c_running:
+        if c_running:
             actions.extend(["enable", "stop"])
+        else:
+            actions.append("start")
     # starting → no actions available
 
     return actions

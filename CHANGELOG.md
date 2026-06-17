@@ -33,6 +33,7 @@
 
 ### Fixed
 
+- Main LLM `max_output_tokens`를 4096 → 8192로 상향했다. 복잡한 JSON Schema를 사용하는 structured output 요청이 `finish_reason: length`로 잘려 `UPSTREAM_SCHEMA_ERROR` 502를 유발하던 문제다. configs, model card, OpenAPI spec, JSON Schema, test 6개 파일에 분산된 하드코딩을 일괄 반영했다.
 - `make validate` 중 OpenAPI contract 검증이 `ADMIN_API_KEY_REQUIRED` 미설정 환경에서 admin endpoint의 401 응답을 누락 감지하던 문제를 수정했다. validator가 strict auth env를 임시 적용해 spec을 생성한 후 복원한다.
 
 ## [0.0.1] - 2026-05-20

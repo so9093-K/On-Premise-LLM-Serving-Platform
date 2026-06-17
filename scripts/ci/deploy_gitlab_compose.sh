@@ -91,6 +91,7 @@ rsync -az --delete \
   --exclude "logs/" \
   --exclude "/dist/" \
   --exclude "/build/" \
+  --exclude "scripts/build/" \
   --exclude "run/" \
   --exclude "outputs/" \
   ./ \

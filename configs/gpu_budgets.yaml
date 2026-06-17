@@ -79,7 +79,7 @@ limits:
   risk_max_num_seqs: 1
   risk_execution: sequential
   rag_bulk_indexing_initial: disabled_or_throttled
-  main_llm_max_output_tokens: 4096
+  main_llm_max_output_tokens: 8192
   main_llm_max_image_inputs: 1
   main_llm_max_image_bytes: 7000000
   main_llm_max_image_pixels: 6422528

@@ -72,7 +72,7 @@ models:
         uses 96K context on B200/vLLM main, so this platform requires local
         tokenizer, boot, quality, latency, and soak validation before production
         claims
-      max_output_tokens: 4096
+      max_output_tokens: 8192
       input_modalities:
       - text
       - image
@@ -258,6 +258,7 @@ models:
       max_num_seqs: 2
       max_num_batched_tokens: 2048
       gpu_memory_utilization: 0.06
+      trust_remote_code: true
       max_docs_per_rerank: 32
       max_chars_per_document: 4000
       retrieval_default: true

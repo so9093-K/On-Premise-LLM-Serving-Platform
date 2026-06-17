@@ -577,7 +577,7 @@ paths:
                 max_tokens:
                   type: integer
                   minimum: 1
-                  maximum: 4096
+                  maximum: 8192
                 top_p:
                   type: number
                   exclusiveMinimum: 0
@@ -4800,7 +4800,7 @@ paths:
                 value:
                   prompt: 담당자 이메일은 hong@example.com이고 연락처는 010-1234-5678입니다.
               secret_exposure:
-                summary: 시크릿 노출 탐지 (D4 — 데이터베이스 URL)
+                summary: 시크릿 노출 탐지 (D5 — 데이터베이스 URL)
                 value:
                   prompt: DATABASE_URL=postgresql://user:password@db.example.com:5432/mydb
         required: true
@@ -6586,6 +6586,10 @@ paths:
         required: true
         schema:
           type: string
+          enum:
+          - embedding
+          - embedding_ko
+          - risk_prompt
           title: Service Key
       responses:
         '200':
@@ -7012,6 +7016,10 @@ paths:
         required: true
         schema:
           type: string
+          enum:
+          - embedding
+          - embedding_ko
+          - risk_prompt
           title: Service Key
       responses:
         '200':
@@ -7439,6 +7447,10 @@ paths:
         required: true
         schema:
           type: string
+          enum:
+          - embedding
+          - embedding_ko
+          - risk_prompt
           title: Service Key
       responses:
         '200':
@@ -7894,6 +7906,10 @@ paths:
         required: true
         schema:
           type: string
+          enum:
+          - embedding
+          - embedding_ko
+          - risk_prompt
           title: Service Key
       responses:
         '200':
@@ -8333,7 +8349,14 @@ paths:
                       request_id:
                         type: string
 components:
-  schemas: {}
+  schemas:
+    RuntimeServiceKey:
+      type: string
+      enum:
+      - embedding
+      - embedding_ko
+      - risk_prompt
+      title: RuntimeServiceKey
   securitySchemes:
     adminBearerAuth:
       type: http

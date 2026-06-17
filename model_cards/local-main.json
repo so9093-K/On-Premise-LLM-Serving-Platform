@@ -15,7 +15,7 @@
     "model_card_example_tensor_parallel_size": 1,
     "max_model_len": 20000,
     "python_default": "3.12.13",
-    "max_output_tokens": 4096
+    "max_output_tokens": 8192
   },
   "sources": [
     "https://huggingface.co/RedHatAI/gemma-4-26B-A4B-it-FP8-Dynamic",
@@ -67,7 +67,7 @@
     "gpu_memory_utilization": 0.76,
     "trust_remote_code": true,
     "policy_reason": "20K context and optimization level 3 runtime target for RedHatAI preliminary FP8 checkpoint on RTX 6000 Ada; upstream example uses 96K context on B200/vLLM main, so this platform requires local tokenizer, boot, quality, latency, and soak validation before production claims",
-    "max_output_tokens": 4096,
+    "max_output_tokens": 8192,
     "input_modalities": [
       "text",
       "image"
