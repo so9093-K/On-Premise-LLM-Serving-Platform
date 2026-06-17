@@ -7,7 +7,6 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
 
 from ..endpoint_spec import GATEWAY_ENDPOINTS
-from ...errors import ServiceError
 from ...api_examples import (
     RUNTIME_ERROR_404_EXAMPLE,
     RUNTIME_ERROR_503_NO_SIDECAR_EXAMPLE,
@@ -214,63 +213,5 @@ def build_router(
                 "state": "stopped",
                 "containers_stopped": stopped,
             })
-
-    # Retired endpoints — 410 Gone
-    _s_disable = _GW[("POST", "/admin/runtimes/{service_key}/disable")]
-    _s_enable = _GW[("POST", "/admin/runtimes/{service_key}/enable")]
-    _s_stop = _GW[("POST", "/admin/runtimes/{service_key}/stop")]
-    _s_start = _GW[("POST", "/admin/runtimes/{service_key}/start")]
-
-    @router.post(
-        "/admin/runtimes/{service_key}/disable",
-        dependencies=admin_dependencies,
-        tags=[_s_disable.tag],
-        summary=_s_disable.summary,
-        operation_id=_s_disable.operation_id,
-        description=_s_disable.description,
-        responses={410: {"description": "사용 중단됨"}, **_ADMIN_401},
-        include_in_schema=True,
-    )
-    async def disable_runtime(service_key: str) -> None:
-        raise ServiceError("GONE", "이 endpoint는 retired 상태입니다. PATCH /admin/runtimes/{service_key} 를 사용하세요.", False, 410)
-
-    @router.post(
-        "/admin/runtimes/{service_key}/enable",
-        dependencies=admin_dependencies,
-        tags=[_s_enable.tag],
-        summary=_s_enable.summary,
-        operation_id=_s_enable.operation_id,
-        description=_s_enable.description,
-        responses={410: {"description": "사용 중단됨"}, **_ADMIN_401},
-        include_in_schema=True,
-    )
-    async def enable_runtime(service_key: str) -> None:
-        raise ServiceError("GONE", "이 endpoint는 retired 상태입니다. PATCH /admin/runtimes/{service_key} 를 사용하세요.", False, 410)
-
-    @router.post(
-        "/admin/runtimes/{service_key}/stop",
-        dependencies=admin_dependencies,
-        tags=[_s_stop.tag],
-        summary=_s_stop.summary,
-        operation_id=_s_stop.operation_id,
-        description=_s_stop.description,
-        responses={410: {"description": "사용 중단됨"}, **_ADMIN_401},
-        include_in_schema=True,
-    )
-    async def stop_runtime(service_key: str) -> None:
-        raise ServiceError("GONE", "이 endpoint는 retired 상태입니다. PATCH /admin/runtimes/{service_key} 를 사용하세요.", False, 410)
-
-    @router.post(
-        "/admin/runtimes/{service_key}/start",
-        dependencies=admin_dependencies,
-        tags=[_s_start.tag],
-        summary=_s_start.summary,
-        operation_id=_s_start.operation_id,
-        description=_s_start.description,
-        responses={410: {"description": "사용 중단됨"}, **_ADMIN_401},
-        include_in_schema=True,
-    )
-    async def start_runtime(service_key: str) -> None:
-        raise ServiceError("GONE", "이 endpoint는 retired 상태입니다. PATCH /admin/runtimes/{service_key} 를 사용하세요.", False, 410)
 
     return router

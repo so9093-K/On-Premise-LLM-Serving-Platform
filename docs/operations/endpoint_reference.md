@@ -53,10 +53,6 @@ _EndpointSpec 레지스트리에서 자동 생성. 수정 시 `endpoint_spec.py`
 | `POST` | `/v1/retrieval/score` | stable | `public_api` | `retrieval_score_request.schema.json` ✓ | `retrieval_score_response.schema.json` ✓ | `scoreDocuments` |
 | `GET` | `/admin/runtimes` | stable | `admin` | — | — | `listRuntimes` |
 | `PATCH` | `/admin/runtimes/{service_key}` | stable | `admin` | — | — | `transitionRuntime` |
-| `POST` | `/admin/runtimes/{service_key}/disable` | retired ⚠ | `admin` | — | `common_error.schema.json` ✓ | `disableRuntime` |
-| `POST` | `/admin/runtimes/{service_key}/enable` | retired ⚠ | `admin` | — | `common_error.schema.json` ✓ | `enableRuntime` |
-| `POST` | `/admin/runtimes/{service_key}/stop` | retired ⚠ | `admin` | — | `common_error.schema.json` ✓ | `stopRuntime` |
-| `POST` | `/admin/runtimes/{service_key}/start` | retired ⚠ | `admin` | — | `common_error.schema.json` ✓ | `startRuntime` |
 
 #### Risk Adapter (port 9405, compose 내부 전용)
 

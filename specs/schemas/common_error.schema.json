@@ -39,7 +39,6 @@
             "RUNTIME_NOT_READY",
             "DETECTOR_RETIRED",
             "DETECTOR_DISABLED",
-            "GONE",
             "STREAM_LIMIT_EXCEEDED"
           ]
         },

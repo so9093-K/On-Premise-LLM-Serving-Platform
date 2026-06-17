@@ -24,12 +24,12 @@ _ENTITY_CODE: dict[str, str] = {
     "URL": "D5",
 }
 
-# Presidio built-in entities to request
+# Presidio built-in entities to request.
+# PERSON and ADDRESS are NLP/NER-based; en_core_web_sm on Korean text produces
+# false positives for PERSON and no recognizer exists for ADDRESS in English.
 _PRESIDIO_ENTITIES = [
     "EMAIL_ADDRESS",
     "PHONE_NUMBER",
-    "PERSON",
-    "ADDRESS",
     "CREDIT_CARD",
     "IP_ADDRESS",
     "URL",
@@ -42,6 +42,8 @@ _KR_FRN_RE = re.compile(r"\b(\d{6})-([5-8]\d{6})\b")
 _KR_BRN_RE = re.compile(r"\b(\d{3})-(\d{2})-(\d{5})\b")
 _KR_PASSPORT_RE = re.compile(r"\b[MR][A-Z]\d{7}\b")
 _KR_DRIVER_LICENSE_RE = re.compile(r"\b\d{2}-\d{2}-\d{6}-\d{2}\b")
+# RFC 5321 local-part + domain — no \b to handle mixed Korean/ASCII boundaries
+_EMAIL_RE = re.compile(r"[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}")
 _KR_PHONE_RE = re.compile(
     r"(?<!\d)(?:"
     r"01[016789]-\d{3,4}-\d{4}"   # 휴대폰 (010/011/016/017/018/019)
@@ -69,6 +71,8 @@ def _run_custom_recognizers(text: str) -> dict[str, int]:
         counts["KR_PASSPORT"] = len(m)
     if m := _KR_DRIVER_LICENSE_RE.findall(text):
         counts["KR_DRIVER_LICENSE"] = len(m)
+    if m := _EMAIL_RE.findall(text):
+        counts["EMAIL_ADDRESS"] = len(m)
     if m := _KR_PHONE_RE.findall(text):
         counts["PHONE_NUMBER"] = len(m)
 
@@ -98,12 +102,19 @@ def _try_presidio_analysis(text: str) -> dict[str, int] | None:
 
 _analyzer_instance: Any = None
 
+_SPACY_MODEL = "en_core_web_sm"
+
 
 def _get_analyzer() -> Any:
     global _analyzer_instance
     if _analyzer_instance is None:
         from presidio_analyzer import AnalyzerEngine  # type: ignore[import-untyped]
-        _analyzer_instance = AnalyzerEngine()
+        from presidio_analyzer.nlp_engine import NlpEngineProvider  # type: ignore[import-untyped]
+        nlp_engine = NlpEngineProvider(nlp_configuration={
+            "nlp_engine_name": "spacy",
+            "models": [{"lang_code": "en", "model_name": _SPACY_MODEL}],
+        }).create_engine()
+        _analyzer_instance = AnalyzerEngine(nlp_engine=nlp_engine)
     return _analyzer_instance
 
 

@@ -17,6 +17,7 @@ COPY scripts ./scripts
 RUN python -m pip install --upgrade pip \
     && python -m pip install --requirement requirements.runtime.lock \
     && python -m pip install --no-deps . \
+    && python -m spacy download en_core_web_sm \
     && useradd --create-home --shell /usr/sbin/nologin appuser \
     && chown -R appuser:appuser /app
 
