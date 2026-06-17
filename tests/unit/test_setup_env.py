@@ -21,7 +21,7 @@ def test_setup_env_generates_compose_env_with_local_open_defaults(tmp_path):
     assert 'API_KEY=ams_gateway_' in text
     assert 'INTERNAL_SERVICE_TOKEN=ams_internal_' in text
     assert 'FASTAPI_DOCS_ENABLED=true' in text
-    assert 'VLLM_IMAGE=vllm/vllm-openai:gemma4-0505-cu129' in text
+    assert 'VLLM_IMAGE=vllm/vllm-openai:gemma4-unified-cu129' in text
     assert 'RISK_VLLM_IMAGE=ai-model-serving-risk-vllm-kanana:' in text
     assert 'COLBERT_KO_MODEL_DIR' not in text
     assert 'PROMETHEUS_IMAGE=prom/prometheus:v3-distroless' in text

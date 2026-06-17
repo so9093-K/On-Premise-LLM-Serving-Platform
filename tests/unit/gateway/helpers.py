@@ -496,7 +496,7 @@ def advanced_chat_settings() -> AppSettings:
         max_image_pixels=cfg.main_llm.max_image_pixels,
         allowed_image_mime_types=cfg.main_llm.allowed_image_mime_types,
         request_parameter_policy=policy,
-        runtime_features={"structured_outputs": {"enabled": True, "backend": "xgrammar:disable-any-whitespace", "enable_in_reasoning": True}},
+        runtime_features={"structured_outputs": {"enabled": True, "backend": "xgrammar", "disable_any_whitespace": True, "enable_in_reasoning": True}},
     )
     return AppSettings(
         app_env=cfg.app_env,

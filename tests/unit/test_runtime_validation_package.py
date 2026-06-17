@@ -124,7 +124,7 @@ def test_render_vllm_command_stays_openai_compatible() -> None:
         "runtime_features": {
             "prefix_caching": {"enabled": True, "hash_algo": "sha256_cbor"},
             "tool_calling": {"enabled": True, "tool_call_parser": "gemma4"},
-            "structured_outputs": {"enabled": True, "backend": "xgrammar:disable-any-whitespace", "enable_in_reasoning": True},
+            "structured_outputs": {"enabled": True, "backend": "xgrammar", "disable_any_whitespace": True, "enable_in_reasoning": True},
         },
     }
     command = render_vllm_command("main_llm", cfg)
@@ -136,7 +136,7 @@ def test_render_vllm_command_stays_openai_compatible() -> None:
     assert command[command.index("--optimization-level") + 1] == "3"
     assert command[command.index("--compilation-config") + 1] == '{"mode":3}'
     structured_index = command.index("--structured-outputs-config")
-    assert json.loads(command[structured_index + 1]) == {"backend": "xgrammar:disable-any-whitespace", "enable_in_reasoning": True}
+    assert json.loads(command[structured_index + 1]) == {"backend": "xgrammar", "disable_any_whitespace": True, "enable_in_reasoning": True}
 
 
 def test_render_vllm_command_respects_model_config_quantization() -> None:

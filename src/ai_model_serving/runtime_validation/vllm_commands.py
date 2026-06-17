@@ -80,12 +80,12 @@ def _append_runtime_features(cmd: list[str], cfg: dict[str, Any]) -> None:
 
     structured_outputs = features.get("structured_outputs", {}) or {}
     if structured_outputs.get("enabled") is True:
-        # Project-pinned vllm/vllm-openai:gemma4-0505-cu129 registers this as a
-        # dataclass JSON argument; the runtime canary verifies behavior after boot.
-        config = {
+        config: dict[str, Any] = {
             "backend": structured_outputs.get("backend", "auto"),
             "enable_in_reasoning": structured_outputs.get("enable_in_reasoning") is True,
         }
+        if structured_outputs.get("disable_any_whitespace") is True:
+            config["disable_any_whitespace"] = True
         cmd.extend(["--structured-outputs-config", json.dumps(config, separators=(",", ":"))])
 
 

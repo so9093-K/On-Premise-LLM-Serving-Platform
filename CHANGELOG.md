@@ -14,6 +14,7 @@
 
 ### Changed
 
+- vLLM 이미지를 `gemma4-0505-cu129`(custom feature-branch 빌드)에서 `gemma4-unified-cu129`(vLLM main 기반, 2026-06-03)로 교체했다. `gemma4-0505-cu129`는 `StructuredOutputsConfig.disable_any_whitespace` 필드를 지원하지 않아 컨테이너가 exit code 2로 종료됐다. `gemma4-unified-cu129`에서 `Gemma4ForCausalLM` 아키텍처 지원 및 신규 API 적용을 확인했다. ([ADR-0016](docs/adr/0016-xgrammar-disable-any-whitespace.md))
 - Main LLM runtime target을 `gpu_memory_utilization=0.76`, `max_model_len=20000`, `max_num_batched_tokens=20000`, `optimization_level=3`로 정렬했다. ModelRegistry projection, compose validation, model card, catalog, docs, tests가 같은 runtime policy를 검증한다. FP8 Dynamic checkpoint와 `kv_cache_dtype=fp8_e5m2` 조합은 현재 runtime image에서 boot 단계에서 거부되어 active target에서 제외했다. ([ADR-0015](docs/adr/0015-main-llm-20k-o3-runtime-target.md))
 - Vision 이미지 한도를 Gemma 4 SigLIP2 아키텍처 기준으로 상향했다: `max_image_bytes` 750,000 → 7,000,000, `max_image_pixels` 1,048,576 → 6,422,528 (8타일 × 896²), `max_request_body_bytes` 1,250,000 → 10,000,000. 한도 source-of-truth는 `configs/gpu_budgets.yaml`이며 contract 테스트가 cross-config 일치를 동적으로 검증한다. ([ADR-0014](docs/adr/0014-image-validation-policy.md))
 - Vision 이미지 포맷 파서 선택을 MIME type 기반에서 magic bytes sequential detection으로 변경했다. MIME type allowlist(`image/jpeg`, `image/png`, `image/webp`) 검사는 유지되지만, 파서는 MIME type 선언과 무관하게 실제 바이트로 포맷을 판단한다. MIME type을 잘못 선언한 클라이언트의 불필요한 422가 제거된다. ([ADR-0014](docs/adr/0014-image-validation-policy.md))
@@ -33,7 +34,7 @@
 
 ### Fixed
 
-- `json_schema` structured output 요청에서 whitespace가 `max_tokens`까지 반복 생성되던 버그를 수정했다. xgrammar의 `any_whitespace` 기능이 중첩 배열 닫는 `]` 이후 `}` 전이를 막아 stuck state에 진입하던 문제로, vLLM 공식 확인 버그다(PR #12744, #15316). non-stream 요청은 502 `UPSTREAM_SCHEMA_ERROR`, stream 요청은 200이지만 invalid JSON으로 나타났다. backend를 `xgrammar:disable-any-whitespace`로 변경해 해결했다. ([ADR-0016](docs/adr/0016-xgrammar-disable-any-whitespace.md))
+- `json_schema` structured output 요청에서 whitespace가 `max_tokens`까지 반복 생성되던 버그를 수정했다. xgrammar의 `any_whitespace` 기능이 중첩 배열 닫는 `]` 이후 `}` 전이를 막아 stuck state에 진입하던 문제다(vLLM PR #12744, #15316). non-stream 요청은 502 `UPSTREAM_SCHEMA_ERROR`, stream 요청은 200이지만 invalid JSON으로 나타났다. `StructuredOutputsConfig`의 `disable_any_whitespace: true` 필드로 해결했다. ([ADR-0016](docs/adr/0016-xgrammar-disable-any-whitespace.md))
 - Main LLM `max_output_tokens`를 4096 → 8192로 상향했다. 복잡한 JSON Schema를 사용하는 structured output 요청이 `finish_reason: length`로 잘려 `UPSTREAM_SCHEMA_ERROR` 502를 유발하던 문제다. configs, model card, OpenAPI spec, JSON Schema, test 6개 파일에 분산된 하드코딩을 일괄 반영했다.
 - `make validate` 중 OpenAPI contract 검증이 `ADMIN_API_KEY_REQUIRED` 미설정 환경에서 admin endpoint의 401 응답을 누락 감지하던 문제를 수정했다. validator가 strict auth env를 임시 적용해 spec을 생성한 후 복원한다.
 

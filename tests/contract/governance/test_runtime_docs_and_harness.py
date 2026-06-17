@@ -144,10 +144,12 @@ def test_compose_structured_outputs_config_matches_model_serving_yaml() -> None:
     compose_config = json.loads(vllm_cmd[compose_idx + 1])
 
     so_cfg = model_cfg["models"]["main_llm"]["runtime_features"]["structured_outputs"]
-    expected_config = {
+    expected_config: dict = {
         "backend": so_cfg["backend"],
         "enable_in_reasoning": so_cfg["enable_in_reasoning"],
     }
+    if so_cfg.get("disable_any_whitespace"):
+        expected_config["disable_any_whitespace"] = True
     assert compose_config == expected_config, (
         f"compose --structured-outputs-config {compose_config} "
         f"does not match model_serving.yaml {expected_config}"

@@ -111,7 +111,8 @@ models:
         chat_template: /app/configs/gemma4_chat_template.jinja
       structured_outputs:
         enabled: true
-        backend: "xgrammar:disable-any-whitespace"
+        backend: "xgrammar"
+        disable_any_whitespace: true
         enable_in_reasoning: true
     request_parameter_policy:
       allow_unlisted_parameters: false

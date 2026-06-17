@@ -5,17 +5,17 @@ images:
     mutable: false
     source: local docker build
   vllm:
-    default: vllm/vllm-openai:gemma4-0505-cu129
+    default: vllm/vllm-openai:gemma4-unified-cu129
     purpose: vLLM OpenAI-compatible runtime with Gemma4 support.
     mutable: true
-    source: Docker Hub vllm/vllm-openai Gemma4 CUDA 12.9 tag
+    source: Docker Hub vllm/vllm-openai Gemma4 Unified CUDA 12.9 tag
     fallback: vllm/vllm-openai:gemma4
   embedding_ko_vllm:
-    default: vllm/vllm-openai:gemma4-0505-cu129
+    default: vllm/vllm-openai:gemma4-unified-cu129
     purpose: vLLM pooling runtime for local-embed-ko Korean dense retrieval embeddings.
     mutable: true
-    source: Docker Hub vllm/vllm-openai Gemma4 CUDA 12.9 tag
-    base_image_default: vllm/vllm-openai:gemma4-0505-cu129
+    source: Docker Hub vllm/vllm-openai Gemma4 Unified CUDA 12.9 tag
+    base_image_default: vllm/vllm-openai:gemma4-unified-cu129
   risk_vllm:
     default: ai-model-serving-risk-vllm-kanana:0.0.1
     purpose: Dedicated vLLM runtime for Kakao Kanana risk detectors; keeps Gemma4
