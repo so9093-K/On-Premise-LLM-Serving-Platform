@@ -6585,12 +6585,7 @@ paths:
         in: path
         required: true
         schema:
-          type: string
-          enum:
-          - embedding
-          - embedding_ko
-          - risk_prompt
-          title: Service Key
+          $ref: '#/components/schemas/RuntimeServiceKey'
       responses:
         '200':
           description: Successful Response
@@ -7015,12 +7010,7 @@ paths:
         in: path
         required: true
         schema:
-          type: string
-          enum:
-          - embedding
-          - embedding_ko
-          - risk_prompt
-          title: Service Key
+          $ref: '#/components/schemas/RuntimeServiceKey'
       responses:
         '200':
           description: Successful Response
@@ -7446,12 +7436,7 @@ paths:
         in: path
         required: true
         schema:
-          type: string
-          enum:
-          - embedding
-          - embedding_ko
-          - risk_prompt
-          title: Service Key
+          $ref: '#/components/schemas/RuntimeServiceKey'
       responses:
         '200':
           description: Successful Response
@@ -7905,12 +7890,7 @@ paths:
         in: path
         required: true
         schema:
-          type: string
-          enum:
-          - embedding
-          - embedding_ko
-          - risk_prompt
-          title: Service Key
+          $ref: '#/components/schemas/RuntimeServiceKey'
       responses:
         '200':
           description: Successful Response

@@ -267,30 +267,56 @@ fi
 # Export the mutated remote .env so process env values cannot shadow required compose variables.
 export_compose_env_from_file
 
+# Resolve exposure overlay from .env (mirrors compose_up.sh logic).
+# EXPOSURE_MODE is now exported by export_compose_env_from_file.
+_PYTHON_BIN="$(command -v python3.12 || command -v python3 || command -v python)"
+_exposure_mode="${EXPOSURE_MODE:-private_network}"
+COMPOSE_OVERRIDE=""
+if [[ -f "scripts/compose/resolve_exposure_mode.py" ]]; then
+  COMPOSE_OVERRIDE="$("$_PYTHON_BIN" scripts/compose/resolve_exposure_mode.py "$_exposure_mode" --print-override-file 2>/dev/null || true)"
+fi
+if [[ -n "$COMPOSE_OVERRIDE" && ! -f "$COMPOSE_OVERRIDE" ]]; then
+  echo "[deploy] WARNING: exposure overlay not found: $COMPOSE_OVERRIDE — deploying without overlay" >&2
+  COMPOSE_OVERRIDE=""
+fi
+if [[ -n "$COMPOSE_OVERRIDE" ]]; then
+  echo "[deploy] exposure overlay: $COMPOSE_OVERRIDE (EXPOSURE_MODE=$_exposure_mode)"
+else
+  echo "[deploy] no exposure overlay (EXPOSURE_MODE=$_exposure_mode)"
+fi
+
+compose_run() {
+  if [[ -n "${COMPOSE_OVERRIDE:-}" ]]; then
+    docker compose -f "${COMPOSE_FILE}" -f "${COMPOSE_OVERRIDE}" --env-file "${COMPOSE_ENV_FILE}" "$@"
+  else
+    docker compose -f "${COMPOSE_FILE}" --env-file "${COMPOSE_ENV_FILE}" "$@"
+  fi
+}
+
 echo "[deploy] validating compose config with ${COMPOSE_ENV_FILE}..."
-if ! docker compose -f "${COMPOSE_FILE}" --env-file "${COMPOSE_ENV_FILE}" config >/dev/null; then
+if ! compose_run config >/dev/null; then
   fail_after_env_backup "compose config interpolation failed after .env update"
 fi
 
 if [[ "${DEPLOY_MODE}" == "full" ]]; then
   echo "[deploy] full deploy: pulling all compose images..."
-  if ! docker compose -f "${COMPOSE_FILE}" --env-file "${COMPOSE_ENV_FILE}" pull; then
+  if ! compose_run pull; then
     fail_after_env_backup "image pull failed during full deploy. If vLLM-derived images are new, confirm build-vllm-derived succeeded or set an existing RISK_VLLM_IMAGE_TO_DEPLOY ref."
   fi
   echo "[deploy] full deploy: starting stack..."
-  if ! docker compose -f "${COMPOSE_FILE}" --env-file "${COMPOSE_ENV_FILE}" up -d --remove-orphans; then
+  if ! compose_run up -d --remove-orphans; then
     fail_after_env_backup "full stack compose up failed"
   fi
 else
   # pull gateway + risk-adapter images only (vLLM images are large; pull separately when needed)
   echo "[deploy] rolling deploy: pulling gateway and risk-adapter images..."
-  if ! docker compose -f "${COMPOSE_FILE}" --env-file "${COMPOSE_ENV_FILE}" pull gateway risk-adapter; then
+  if ! compose_run pull gateway risk-adapter; then
     fail_after_env_backup "rolling deploy image pull failed for gateway/risk-adapter"
   fi
 
   # rolling restart: gateway + risk-adapter (no vLLM downtime)
   echo "[deploy] rolling deploy: restarting gateway and risk-adapter..."
-  if ! docker compose -f "${COMPOSE_FILE}" --env-file "${COMPOSE_ENV_FILE}" up -d --no-deps gateway risk-adapter; then
+  if ! compose_run up -d --no-deps gateway risk-adapter; then
     fail_after_env_backup "rolling deploy restart failed for gateway/risk-adapter"
   fi
 fi
