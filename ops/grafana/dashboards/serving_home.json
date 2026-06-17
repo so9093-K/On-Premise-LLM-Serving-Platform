@@ -358,7 +358,7 @@
       "id": 5,
       "type": "stat",
       "title": "GPU Safety Margin",
-      "description": "Healthy/정상: selected-range minimum observed headroom stays above 5GiB. Attention/주의: 4-5GiB means reserve tightened during the window. Action Required/조치 필요: below 4GiB is red. No Data/런타임 데이터 없음: GPU exporter absent — do not read No Data as zero headroom.",
+      "description": "Healthy/정상: selected-range minimum observed headroom stays above 3.5GiB. Attention/주의: 2.5-3.5GiB means reserve tightened during the window. Action Required/조치 필요: below 2.5GiB is red. No Data/런타임 데이터 없음: GPU exporter absent — do not read No Data as zero headroom.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -396,11 +396,11 @@
               },
               {
                 "color": "orange",
-                "value": 4294967296
+                "value": 2684354560
               },
               {
                 "color": "green",
-                "value": 5368709120
+                "value": 3758096384
               }
             ]
           }
@@ -664,11 +664,11 @@
                     },
                     {
                       "color": "orange",
-                      "value": 4294967296
+                      "value": 2684354560
                     },
                     {
                       "color": "green",
-                      "value": 5368709120
+                      "value": 3758096384
                     }
                   ]
                 }
@@ -833,11 +833,11 @@
                   },
                   {
                     "color": "orange",
-                    "value": 4294967296
+                    "value": 2684354560
                   },
                   {
                     "color": "green",
-                    "value": 5368709120
+                    "value": 3758096384
                   }
                 ]
               }
@@ -959,7 +959,7 @@
           "id": 12,
           "type": "timeseries",
           "title": "GPU Memory Used vs Budget",
-          "description": "Healthy/정상: observed live VRAM remains under the current guide lines. Attention/주의: 43-44.5GiB means the configured reserve is thinning. No Data/런타임 데이터 없음: DCGM memory metrics absent. GPU warm residency during idle is normal — high VRAM used at idle is expected.",
+          "description": "Healthy/정상: observed live VRAM remains under the current guide lines. Attention/주의: 44-45.5GiB means the configured reserve is thinning. No Data/런타임 데이터 없음: DCGM memory metrics absent. GPU warm residency during idle is normal — high VRAM used at idle is expected.",
           "datasource": {
             "type": "prometheus",
             "uid": "${datasource}"
@@ -982,14 +982,14 @@
               "legendFormat": "total"
             },
             {
-              "expr": "vector(43 * 1024 * 1024 * 1024)",
+              "expr": "vector(44 * 1024 * 1024 * 1024)",
               "refId": "C",
-              "legendFormat": "43 GiB guide"
+              "legendFormat": "44 GiB guide"
             },
             {
-              "expr": "vector(44.5 * 1024 * 1024 * 1024)",
+              "expr": "vector(45.5 * 1024 * 1024 * 1024)",
               "refId": "D",
-              "legendFormat": "44.5 GiB hard-floor guide"
+              "legendFormat": "45.5 GiB hard-floor guide"
             }
           ],
           "options": {

@@ -61,7 +61,7 @@ groups:
       # Dynamic serving verdict code for the Serving Home banner.
       # Priority (first non-absent match wins):
       #   7 = USER_IMPACT    — 5xx rate above threshold
-      #   6 = CAPACITY_RISK  — GPU headroom < 4 GiB or OOM/restart detected
+      #   6 = CAPACITY_RISK  — GPU headroom < 3 GiB or OOM/restart detected
       #   5 = OBS_DEGRADED   — fewer scrape targets than expected
       #   4 = HEALTHY_ACTIVE — user traffic present
       #   3 = IDLE_WARM      — readiness=1 and headroom ok, no traffic
@@ -73,7 +73,7 @@ groups:
         expr: >
           (sum(rate(http_requests_total{service="gateway",status_code=~"5.."}[5m])) > 0.01) * 0 + 7
           or
-          ((min(gpu_memory_headroom_bytes) < 4294967296)
+          ((min(gpu_memory_headroom_bytes) < 3221225472)
           or
           (sum(increase(container_oom_events_total{container_label_com_docker_compose_service=~"gateway|risk-adapter|main-llm-vllm|embedding-vllm|embedding-ko-vllm|risk-prompt-vllm"}[5m])) > 0)) * 0 + 6
           or
