@@ -22,11 +22,33 @@ def scalar_html(openapi_url: str, title: str) -> str:
     <style>body {{ margin: 0; }}</style>
   </head>
   <body>
+    <script>
+      if (!window.isSecureContext && !navigator.clipboard) {{
+        navigator.clipboard = {{
+          writeText: function(text) {{
+            return new Promise(function(resolve, reject) {{
+              try {{
+                var el = document.createElement('textarea');
+                el.value = text;
+                el.style.position = 'fixed';
+                el.style.opacity = '0';
+                document.body.appendChild(el);
+                el.focus();
+                el.select();
+                var ok = document.execCommand('copy');
+                document.body.removeChild(el);
+                ok ? resolve() : reject(new Error('execCommand failed'));
+              }} catch (e) {{ reject(e); }}
+            }});
+          }}
+        }};
+      }}
+    </script>
     <script
       id="api-reference"
       data-url="{openapi_url}"
       data-configuration='{SCALAR_CONFIG}'
     ></script>
-    <script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference@1"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference@1.59.3"></script>
   </body>
 </html>"""
