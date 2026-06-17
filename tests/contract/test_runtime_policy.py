@@ -245,7 +245,7 @@ def test_main_runtime_features_and_request_parameter_policy_are_explicit() -> No
     assert features['tool_calling']['reasoning_parser'] == 'gemma4'
     assert features['tool_calling']['chat_template'] == '/app/configs/gemma4_chat_template.jinja'
     assert features['structured_outputs']['enabled'] is True
-    assert features['structured_outputs']['backend'] == 'outlines'
+    assert features['structured_outputs']['backend'] == 'xgrammar:disable-any-whitespace'
     assert features['structured_outputs']['enable_in_reasoning'] is True
     policy = main['request_parameter_policy']
     assert policy['allow_unlisted_parameters'] is False

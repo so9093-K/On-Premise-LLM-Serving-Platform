@@ -99,7 +99,7 @@ services:
     - --chat-template
     - /app/configs/gemma4_chat_template.jinja
     - --structured-outputs-config
-    - '{"backend":"outlines","enable_in_reasoning":true}'
+    - '{"backend":"xgrammar:disable-any-whitespace","enable_in_reasoning":true}'
     expose:
     - '9401'
     env_file: ../../.env

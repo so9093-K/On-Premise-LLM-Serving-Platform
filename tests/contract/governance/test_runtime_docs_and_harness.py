@@ -129,3 +129,26 @@ def test_p2_runtime_validation_harness_is_packaged() -> None:
     assert "--tool-call-parser gemma4" in output
     assert "--reasoning-parser gemma4" in output
     assert "--chat-template" in output
+    assert "--structured-outputs-config" in output
+
+
+def test_compose_structured_outputs_config_matches_model_serving_yaml() -> None:
+    compose = yaml.safe_load(
+        (ROOT / "ops/compose/full-stack.private-network.yaml").read_text(encoding="utf-8")
+    )
+    model_cfg = yaml.safe_load(
+        (ROOT / "configs/model_serving.yaml").read_text(encoding="utf-8")
+    )
+    vllm_cmd = compose["services"]["main-llm-vllm"]["command"]
+    compose_idx = vllm_cmd.index("--structured-outputs-config")
+    compose_config = json.loads(vllm_cmd[compose_idx + 1])
+
+    so_cfg = model_cfg["models"]["main_llm"]["runtime_features"]["structured_outputs"]
+    expected_config = {
+        "backend": so_cfg["backend"],
+        "enable_in_reasoning": so_cfg["enable_in_reasoning"],
+    }
+    assert compose_config == expected_config, (
+        f"compose --structured-outputs-config {compose_config} "
+        f"does not match model_serving.yaml {expected_config}"
+    )
