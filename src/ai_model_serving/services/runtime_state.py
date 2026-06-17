@@ -6,7 +6,6 @@ from enum import Enum
 
 class RuntimeState(str, Enum):
     active = "active"
-    disabled = "disabled"
     stopped = "stopped"
     starting = "starting"
 

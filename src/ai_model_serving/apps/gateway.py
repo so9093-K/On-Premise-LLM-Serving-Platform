@@ -155,6 +155,10 @@ def create_gateway_app(settings: AppSettings | None = None, clients: GatewayClie
             ("POST", "/v1/risk/assessments"): GATEWAY_RISK_AGGREGATE_REQUEST_EXAMPLES,
             ("POST", "/v1/retrieval/rerank"): GATEWAY_RETRIEVAL_RERANK_REQUEST_EXAMPLES,
             ("POST", "/v1/retrieval/score"): GATEWAY_RETRIEVAL_SCORE_REQUEST_EXAMPLES,
+            ("PATCH", "/admin/runtimes/{service_key}"): {
+                "to_stopped": {"summary": "중지 (VRAM 회수)", "value": {"desired_state": "stopped"}},
+                "to_active": {"summary": "시작 (서비스 복구)", "value": {"desired_state": "active"}},
+            },
         },
     )
 

@@ -328,12 +328,34 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
         tag="Runtime Control",
         summary="런타임 상태 조회",
         description=(
-            "제어 가능한 vLLM 런타임(embedding, embedding_ko, risk_prompt)의 상태를 반환합니다. "
-            "`gateway_state`: gateway 라우팅 의도 (active/disabled/stopped/starting). "
-            "`container_status`: 실제 Docker 컨테이너 상태 (running/exited 등). "
-            "`available_actions`: 현재 상태 기준 호출 가능한 액션 목록. "
-            "워크플로우 — VRAM 절약: disable → stop / 복구: start (enable 자동). "
-            "admin Bearer token 필요."
+            "제어 가능한 vLLM 런타임(embedding, embedding_ko, risk_prompt)의 현재 상태를 반환합니다.\n\n"
+            "`state`: 런타임 상태 — `active`(서비스 중) / `stopped`(컨테이너 중지, VRAM 회수) / `starting`(전환 중, 일시적).\n\n"
+            "`container_status`: 실제 Docker 컨테이너 상태(참고용). "
+            "상태 전환은 `PATCH /admin/runtimes/{service_key}`로 수행합니다."
+        ),
+        auth="admin",
+        exposure="operations_network",
+        lifecycle="stable",
+        status_code=200,
+        replacement=None,
+        request_schema=None,
+        response_schema=None,
+    ),
+    EndpointSpec(
+        service="gateway",
+        method="PATCH",
+        path="/admin/runtimes/{service_key}",
+        operation_id="transitionRuntime",
+        tag="Runtime Control",
+        summary="런타임 상태 전환",
+        description=(
+            "`desired_state`에 지정한 목표 상태로 런타임을 전환합니다.\n\n"
+            "- **`active`** — 컨테이너를 시작하고 gateway 라우팅을 복구합니다. "
+            "이미 `active`면 no-op.\n"
+            "- **`stopped`** — 컨테이너를 중지하고 GPU VRAM을 회수합니다. "
+            "이미 `stopped`면 no-op.\n\n"
+            "전환 중(`starting`) 상태에서 `stopped`를 요청하면 409를 반환합니다. "
+            "Scalar UI 드롭다운에서 선택 후 Execute만 누르면 됩니다."
         ),
         auth="admin",
         exposure="operations_network",
@@ -349,19 +371,15 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
         path="/admin/runtimes/{service_key}/disable",
         operation_id="disableRuntime",
         tag="Runtime Control",
-        summary="런타임 소프트 비활성화 (컨테이너 유지)",
-        description=(
-            "gateway 라우팅을 즉시 차단합니다. 컨테이너는 계속 실행되며 VRAM은 유지됩니다. "
-            "빠른 비활성화가 필요하거나 잠깐 막을 때 사용. 복구는 /enable. "
-            "VRAM까지 회수하려면 /stop을 사용하세요. admin Bearer token 필요."
-        ),
+        summary="[Retired] 런타임 비활성화",
+        description="이 endpoint는 retired 상태입니다. `PATCH /admin/runtimes/{service_key}`를 사용하세요.",
         auth="admin",
         exposure="operations_network",
-        lifecycle="stable",
-        status_code=200,
-        replacement=None,
+        lifecycle="retired",
+        status_code=410,
+        replacement="/admin/runtimes/{service_key}",
         request_schema=None,
-        response_schema=None,
+        response_schema="common_error.schema.json",
     ),
     EndpointSpec(
         service="gateway",
@@ -369,19 +387,15 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
         path="/admin/runtimes/{service_key}/enable",
         operation_id="enableRuntime",
         tag="Runtime Control",
-        summary="런타임 활성화 (gateway 라우팅 복구)",
-        description=(
-            "disable된 런타임의 gateway 라우팅을 복구합니다. "
-            "컨테이너가 exited 상태면 /start를 먼저 호출하세요 (/start는 enable을 자동 수행). "
-            "admin Bearer token 필요."
-        ),
+        summary="[Retired] 런타임 활성화",
+        description="이 endpoint는 retired 상태입니다. `PATCH /admin/runtimes/{service_key}`를 사용하세요.",
         auth="admin",
         exposure="operations_network",
-        lifecycle="stable",
-        status_code=200,
-        replacement=None,
+        lifecycle="retired",
+        status_code=410,
+        replacement="/admin/runtimes/{service_key}",
         request_schema=None,
-        response_schema=None,
+        response_schema="common_error.schema.json",
     ),
     EndpointSpec(
         service="gateway",
@@ -389,19 +403,15 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
         path="/admin/runtimes/{service_key}/stop",
         operation_id="stopRuntime",
         tag="Runtime Control",
-        summary="런타임 컨테이너 중지 (VRAM 회수)",
-        description=(
-            "vLLM 컨테이너를 중지하고 GPU VRAM을 회수합니다. "
-            "gateway 라우팅도 동시에 차단됩니다. 다른 모델에 VRAM을 양보할 때 사용. "
-            "복구는 /start (컨테이너 재시작 + gateway enable 자동). admin Bearer token 필요."
-        ),
+        summary="[Retired] 런타임 중지",
+        description="이 endpoint는 retired 상태입니다. `PATCH /admin/runtimes/{service_key}`를 사용하세요.",
         auth="admin",
         exposure="operations_network",
-        lifecycle="stable",
-        status_code=200,
-        replacement=None,
+        lifecycle="retired",
+        status_code=410,
+        replacement="/admin/runtimes/{service_key}",
         request_schema=None,
-        response_schema=None,
+        response_schema="common_error.schema.json",
     ),
     EndpointSpec(
         service="gateway",
@@ -409,20 +419,15 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
         path="/admin/runtimes/{service_key}/start",
         operation_id="startRuntime",
         tag="Runtime Control",
-        summary="런타임 컨테이너 시작 + gateway 활성화",
-        description=(
-            "중지된 vLLM 컨테이너를 시작합니다. "
-            "GPU 메모리 프로파일링 충돌 방지를 위해 prerequisite 컨테이너를 순차 시작합니다 "
-            "(예: risk_prompt → embedding-vllm 먼저 시작). "
-            "health check 완료 후 gateway 라우팅이 자동으로 active로 전환됩니다. admin Bearer token 필요."
-        ),
+        summary="[Retired] 런타임 시작",
+        description="이 endpoint는 retired 상태입니다. `PATCH /admin/runtimes/{service_key}`를 사용하세요.",
         auth="admin",
         exposure="operations_network",
-        lifecycle="stable",
-        status_code=200,
-        replacement=None,
+        lifecycle="retired",
+        status_code=410,
+        replacement="/admin/runtimes/{service_key}",
         request_schema=None,
-        response_schema=None,
+        response_schema="common_error.schema.json",
     ),
 ]
 

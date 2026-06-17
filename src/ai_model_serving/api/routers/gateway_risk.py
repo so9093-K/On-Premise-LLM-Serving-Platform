@@ -34,7 +34,7 @@ def build_router(
     ) -> dict[str, Any]:
         if state_store is not None:
             state = await state_store.get("risk_prompt")
-            if state in (RuntimeState.disabled, RuntimeState.stopped, RuntimeState.starting):
+            if state in (RuntimeState.stopped, RuntimeState.starting):
                 raise HTTPException(
                     503,
                     detail={

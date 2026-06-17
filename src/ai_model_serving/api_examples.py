@@ -462,23 +462,20 @@ RUNTIME_LIST_RESPONSE_EXAMPLE: dict[str, Any] = {
         {
             "service_key": "embedding",
             "container": "embedding-vllm",
-            "gateway_state": "active",
+            "state": "active",
             "container_status": "running",
-            "available_actions": ["disable", "stop"],
         },
         {
             "service_key": "embedding_ko",
             "container": "embedding-ko-vllm",
-            "gateway_state": "active",
+            "state": "active",
             "container_status": "running",
-            "available_actions": ["disable", "stop"],
         },
         {
             "service_key": "risk_prompt",
             "container": "risk-prompt-vllm",
-            "gateway_state": "active",
+            "state": "active",
             "container_status": "running",
-            "available_actions": ["disable", "stop"],
         },
     ]
 }
@@ -488,59 +485,52 @@ RUNTIME_LIST_MIXED_STATE_EXAMPLE: dict[str, Any] = {
         {
             "service_key": "embedding",
             "container": "embedding-vllm",
-            "gateway_state": "active",
+            "state": "active",
             "container_status": "running",
-            "available_actions": ["disable", "stop"],
         },
         {
             "service_key": "embedding_ko",
             "container": "embedding-ko-vllm",
-            "gateway_state": "stopped",
+            "state": "stopped",
             "container_status": "exited",
-            "available_actions": ["start"],
         },
         {
             "service_key": "risk_prompt",
             "container": "risk-prompt-vllm",
-            "gateway_state": "starting",
+            "state": "starting",
             "container_status": "starting",
-            "available_actions": [],
         },
     ]
 }
 
-RUNTIME_DISABLE_RESPONSE_EXAMPLE: dict[str, Any] = {
-    "service_key": "embedding",
-    "gateway_state": "disabled",
-}
-
-RUNTIME_ENABLE_RESPONSE_EXAMPLE: dict[str, Any] = {
-    "service_key": "embedding",
-    "gateway_state": "active",
-}
-
-RUNTIME_STOP_RESPONSE_EXAMPLE: dict[str, Any] = {
+RUNTIME_TRANSITION_TO_STOPPED_EXAMPLE: dict[str, Any] = {
     "service_key": "embedding_ko",
-    "gateway_state": "stopped",
+    "state": "stopped",
     "containers_stopped": ["embedding-ko-vllm"],
 }
 
-RUNTIME_STOP_WITH_PREREQ_RESPONSE_EXAMPLE: dict[str, Any] = {
+RUNTIME_TRANSITION_TO_STOPPED_WITH_PREREQ_EXAMPLE: dict[str, Any] = {
     "service_key": "risk_prompt",
-    "gateway_state": "stopped",
+    "state": "stopped",
     "containers_stopped": ["risk-prompt-vllm", "embedding-vllm"],
 }
 
-RUNTIME_START_RESPONSE_EXAMPLE: dict[str, Any] = {
+RUNTIME_TRANSITION_TO_ACTIVE_EXAMPLE: dict[str, Any] = {
     "service_key": "embedding_ko",
-    "gateway_state": "active",
+    "state": "active",
     "containers_started": ["embedding-ko-vllm"],
 }
 
-RUNTIME_START_WITH_PREREQ_RESPONSE_EXAMPLE: dict[str, Any] = {
+RUNTIME_TRANSITION_TO_ACTIVE_WITH_PREREQ_EXAMPLE: dict[str, Any] = {
     "service_key": "risk_prompt",
-    "gateway_state": "active",
+    "state": "active",
     "containers_started": ["embedding-vllm", "risk-prompt-vllm"],
+}
+
+RUNTIME_TRANSITION_NOOP_EXAMPLE: dict[str, Any] = {
+    "service_key": "embedding",
+    "state": "active",
+    "changed": False,
 }
 
 RUNTIME_ERROR_404_EXAMPLE: dict[str, Any] = {

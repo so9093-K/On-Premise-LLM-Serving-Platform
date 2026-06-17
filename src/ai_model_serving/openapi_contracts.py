@@ -53,7 +53,7 @@ def _inject_standard_error_responses(document: dict[str, Any], common_error_sche
                 continue
             responses = operation.setdefault("responses", {})
             codes: list[str] = []
-            if method.lower() == "post":
+            if method.lower() in ("post", "patch", "put"):
                 codes.extend(POST_STANDARD_ERROR_CODES)
             elif operation.get("security"):
                 # FastAPI routes that use Depends(auth) do not emit a per-operation

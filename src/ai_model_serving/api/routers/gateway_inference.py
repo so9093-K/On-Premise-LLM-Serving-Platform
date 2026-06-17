@@ -75,7 +75,7 @@ def build_router(
             model = str(payload.get("model", settings.default_embedding_model))
             service_key = settings.embedding_model_routes.get(model, "embedding")
             state = await state_store.get(service_key)
-            if state in (RuntimeState.disabled, RuntimeState.stopped, RuntimeState.starting):
+            if state in (RuntimeState.stopped, RuntimeState.starting):
                 raise HTTPException(
                     503,
                     detail={
