@@ -644,6 +644,9 @@ if [[ "${DEPLOY_MODE}" == "full" ]]; then
   if [[ "${capture_status}" == "missing" ]]; then
     MAIN_MODEL_ROLLBACK_OVERRIDE=""
     echo "[deploy] no current main-model container; initial deployment has no runtime rollback target"
+  elif [[ "${capture_status}" == "mutable-tag" ]]; then
+    MAIN_MODEL_ROLLBACK_OVERRIDE=""
+    echo "[deploy] WARNING: current main-model image is not digest-pinned; rollback override unavailable"
   else
     echo "[deploy] current main-model runtime captured for rollback"
   fi

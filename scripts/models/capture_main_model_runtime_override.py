@@ -15,6 +15,12 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
 _DIGEST_IMAGE = re.compile(r"^.+@sha256:[0-9a-f]{64}$")
+
+
+class MutableTagError(RuntimeError):
+    """Raised when the running container's image is not pinned by sha256 digest."""
+
+
 if str(ROOT / "src") not in sys.path:
     sys.path.insert(0, str(ROOT / "src"))
 
@@ -75,9 +81,24 @@ def capture_runtime_override(
     if not isinstance(image, str) or not image:
         raise RuntimeError("current main-model container image is missing")
     if not _DIGEST_IMAGE.fullmatch(image):
-        raise RuntimeError(
-            "current main-model container image is not pinned by sha256 digest"
+        # Container started with a mutable tag — resolve via RepoDigests for a pullable pinned ref.
+        image_id = inspected.get("Image", "")
+        repo_digests = json.loads(
+            subprocess.check_output(
+                ["docker", "image", "inspect", image_id, "--format", "{{json .RepoDigests}}"],
+                text=True,
+            )
         )
+        pinned = next(
+            (ref for ref in (repo_digests or []) if _DIGEST_IMAGE.fullmatch(ref)),
+            None,
+        )
+        if pinned is None:
+            raise MutableTagError(
+                f"current main-model container image is not pinned by sha256 digest "
+                f"and has no RepoDigests: {image!r}"
+            )
+        image = pinned
     if not isinstance(runtime_command, list) or not all(
         isinstance(value, str) for value in runtime_command
     ):
@@ -102,10 +123,15 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--compose-project", default="")
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args(argv)
-    document = capture_runtime_override(
-        catalog_path=args.catalog,
-        compose_project=args.compose_project,
-    )
+    try:
+        document = capture_runtime_override(
+            catalog_path=args.catalog,
+            compose_project=args.compose_project,
+        )
+    except MutableTagError as exc:
+        print(f"[capture] WARNING: {exc}; rollback capture skipped", file=sys.stderr)
+        print("mutable-tag")
+        return 0
     if document is None:
         print("missing")
         return 0
