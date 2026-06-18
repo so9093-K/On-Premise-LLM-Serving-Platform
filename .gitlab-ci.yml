@@ -127,8 +127,6 @@ build-platform:
     - release
     - tags
   artifacts:
-    reports:
-      dotenv: build/platform-image.env
     paths:
       - build/platform-image.env
     expire_in: 7 days
@@ -178,6 +176,8 @@ build-vllm-derived:
 deploy-gpu-175:
   stage: deploy
   image: alpine:3.20
+  dependencies:
+    - build-platform
   tags:
     - ai-serving
     - docker-build
@@ -191,12 +191,21 @@ deploy-gpu-175:
     - printf "%s\n" "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
   script:
     - |
+      test -f build/platform-image.env
+      . build/platform-image.env
+      case "${PLATFORM_IMAGE_DIGEST:-}" in
+        "${CI_REGISTRY_IMAGE}/platform@"sha256:*) ;;
+        *)
+          echo "Invalid or missing PLATFORM_IMAGE_DIGEST artifact" >&2
+          exit 1
+          ;;
+      esac
       if [ "${DEPLOY_MODE:-rolling}" = "full" ]; then
         _risk_vllm="${RISK_VLLM_IMAGE_TO_DEPLOY:-${RISK_VLLM_IMAGE_SHA}}"
       else
         _risk_vllm="${RISK_VLLM_IMAGE_TO_DEPLOY:-}"
       fi
-      PLATFORM_IMAGE_TO_DEPLOY="${PLATFORM_IMAGE_DIGEST:-$PLATFORM_IMAGE_SHA}" \
+      PLATFORM_IMAGE_TO_DEPLOY="${PLATFORM_IMAGE_DIGEST}" \
       RISK_VLLM_IMAGE_TO_DEPLOY="${_risk_vllm}" \
       bash scripts/ci/deploy_gitlab_compose.sh
   only:

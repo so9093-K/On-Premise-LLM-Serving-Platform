@@ -10,6 +10,17 @@ def test_gitlab_ci_deployment_contract_is_documented_and_operationally_safe() ->
     assert "docker:27.5.1-dind" in ci
     assert 'PLATFORM_IMAGE_VERSION="$CI_REGISTRY_IMAGE/platform:release_${APP_VERSION}"' in ci
     assert "release" in ci
+    assert "dotenv:" not in ci, (
+        "GitLab 12.1.1 does not support artifacts:reports:dotenv"
+    )
+    for unsupported_key in ("workflow:", "rules:", "needs:"):
+        assert unsupported_key not in ci, (
+            f"GitLab 12.1.1 compatibility forbids {unsupported_key}"
+        )
+    assert "dependencies:" in ci
+    assert "- build-platform" in ci
+    assert ". build/platform-image.env" in ci
+    assert 'PLATFORM_IMAGE_TO_DEPLOY="${PLATFORM_IMAGE_DIGEST}"' in ci
 
     assert 'REGISTRY_USER="${REGISTRY_DEPLOY_USER:-${CI_REGISTRY_USER:-}}"' in deploy
     assert 'REGISTRY_PASSWORD="${REGISTRY_DEPLOY_PASSWORD:-${CI_REGISTRY_PASSWORD:-}}"' in deploy

@@ -19,7 +19,10 @@ Shell executor Runner를 사용할 때는 다음 조건을 맞춘다.
 
 ## Pipeline 정책
 
-GitLab 12.1.1-ee 호환 구성이다. `workflow:`, `needs:`, `rules:` 키워드는 지원하지 않아 사용하지 않는다.
+GitLab 12.1.1-ee 호환 구성이다. `workflow:`, `needs:`, `rules:`,
+`artifacts:reports:dotenv` 키워드는 사용하지 않는다. 빌드한 platform image digest는
+일반 artifact인 `build/platform-image.env`로 저장하고, deploy job이
+`dependencies: [build-platform]`으로 내려받아 명시적으로 읽는다.
 
 - `master`: `validate`, `unit-test`, `build-platform`
 - `release` (rolling): `validate`, `unit-test`, `package-release`, `build-platform`, manual `deploy-gpu-175`
