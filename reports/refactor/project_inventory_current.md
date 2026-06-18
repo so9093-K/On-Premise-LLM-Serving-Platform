@@ -68,7 +68,7 @@ Command:
 | 경로 | 줄 수 | 담당 | 검토 메모 |
 |---|---:|---|---|
 | `specs/openapi.gateway.yaml` | 7138 | api-contracts | supporting project file |
-| `reports/refactor/project_inventory_current.json` | 4937 | handoff-reporting | handoff/review artifact; avoid stale phase snapshots in active package |
+| `reports/refactor/project_inventory_current.json` | 4948 | handoff-reporting | handoff/review artifact; avoid stale phase snapshots in active package |
 | `specs/openapi.risk-adapter.yaml` | 3202 | api-contracts | supporting project file |
 | `configs/command_registry.yaml` | 2100 | configuration | configuration source; validate through governance and projection checks after edits |
 | `ops/grafana/dashboards/serving_home.json` | 1325 | operations | supporting project file |

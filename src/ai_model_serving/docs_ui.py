@@ -53,6 +53,14 @@ def scalar_html(openapi_url: str, title: str) -> str:
             }});
           }} catch(e) {{}}
         }}
+        var _exec0 = document.execCommand.bind(document);
+        document.execCommand = function(cmd) {{
+          if (cmd === 'copy') {{
+            var ts = document.querySelectorAll('body > textarea');
+            if (ts.length) ts[ts.length - 1].focus();
+          }}
+          return _exec0.apply(document, arguments);
+        }};
       }}
     </script>
     <script
