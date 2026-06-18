@@ -10,7 +10,7 @@ Command:
 
 이 리포트는 현재 source tree에서 생성되며 로컬 runtime/cache/build 디렉터리는 제외한다.
 
-- 검토 파일 수: **425**
+- 검토 파일 수: **426**
 - CSV matrix: `reports/refactor/project_inventory_current.csv`
 - JSON matrix: `reports/refactor/project_inventory_current.json`
 
@@ -36,7 +36,7 @@ Command:
 | `assets` | 3 |
 | `configs` | 17 |
 | `contracts` | 2 |
-| `docs` | 63 |
+| `docs` | 64 |
 | `features` | 3 |
 | `harness` | 4 |
 | `model_cards` | 4 |
@@ -67,21 +67,21 @@ Command:
 
 | 경로 | 줄 수 | 담당 | 검토 메모 |
 |---|---:|---|---|
-| `specs/openapi.gateway.yaml` | 8392 | api-contracts | supporting project file |
+| `specs/openapi.gateway.yaml` | 7138 | api-contracts | supporting project file |
 | `reports/refactor/project_inventory_current.json` | 4937 | handoff-reporting | handoff/review artifact; avoid stale phase snapshots in active package |
-| `specs/openapi.risk-adapter.yaml` | 3198 | api-contracts | supporting project file |
+| `specs/openapi.risk-adapter.yaml` | 3202 | api-contracts | supporting project file |
 | `configs/command_registry.yaml` | 2100 | configuration | configuration source; validate through governance and projection checks after edits |
 | `ops/grafana/dashboards/serving_home.json` | 1325 | operations | supporting project file |
 | `ops/grafana/dashboards/api_experience.json` | 1117 | operations | supporting project file |
-| `ops/grafana/dashboards/gpu_capacity_and_oom_risk.json` | 911 | operations | supporting project file |
 | `ops/grafana/dashboards/risk_signal_operations.json` | 838 | operations | supporting project file |
 | `ops/grafana/dashboards/observability_data_quality.json` | 788 | operations | supporting project file |
 | `reports/runtime/operator_status_bundle.json` | 732 | handoff-reporting | generated operator report; regenerate through make operator-reports before handoff |
+| `ops/grafana/dashboards/gpu_capacity_and_oom_risk.json` | 713 | operations | supporting project file |
 | `ops/grafana/dashboards/model_runtime_deep_dive.json` | 626 | operations | supporting project file |
-| `src/ai_model_serving/governance_validation/docs_ops.py` | 611 | governance-validation | application code; preserve public API behavior and compatibility facades |
-| `src/ai_model_serving/api/endpoint_spec.py` | 590 | application | application code; preserve public API behavior and compatibility facades |
+| `src/ai_model_serving/governance_validation/docs_ops.py` | 605 | governance-validation | application code; preserve public API behavior and compatibility facades |
 | `tests/unit/gateway/helpers.py` | 577 | quality | test coverage; keep deterministic and avoid live GPU dependency |
 | `.other/registry_cleanup.md` | 574 | project-maintenance | supporting project file |
+| `scripts/models/modelctl.py` | 551 | operator-ux | operator/developer command; expose through Makefile/help if user-facing |
 
 ## 관리 해석
 

@@ -15,8 +15,8 @@ path,area,category,owner,management,size_bytes,line_count,role,review_note
 .other/프롬프트 공격 요청 원문.md,.other,project metadata,project-maintenance,managed by root project metadata,9038,189,documentation,supporting project file
 .other/프롬프트 방어 능력 평가.md,.other,project metadata,project-maintenance,managed by root project metadata,24164,447,documentation,supporting project file
 .python-version,.python-version,project metadata,project-maintenance,managed by root project metadata,8,1,environment-template,supporting project file
-CHANGELOG.md,CHANGELOG.md,project metadata,project-maintenance,managed by root project metadata,6110,52,documentation,supporting project file
-Dockerfile,Dockerfile,project metadata,project-maintenance,managed by root project metadata,1024,30,build-command,supporting project file
+CHANGELOG.md,CHANGELOG.md,project metadata,project-maintenance,managed by root project metadata,7448,55,documentation,supporting project file
+Dockerfile,Dockerfile,project metadata,project-maintenance,managed by root project metadata,1073,31,build-command,supporting project file
 Makefile,Makefile,project metadata,project-maintenance,managed by root project metadata,12809,353,build-command,supporting project file
 README.md,README.md,project metadata,project-maintenance,managed by root project metadata,17790,435,entrypoint,primary navigation or current-state entrypoint; keep synchronized with Makefile and reports
 VERSION,VERSION,project metadata,project-maintenance,managed by root project metadata,6,1,supporting-file,supporting project file
@@ -31,10 +31,10 @@ configs/exposure_profiles.yaml,configs,configuration source of truth,configurati
 configs/gemma4_chat_template.jinja,configs,configuration source of truth,configuration,managed by configuration lifecycle,11780,1,supporting-file,configuration source; validate through governance and projection checks after edits
 configs/gpu_budgets.yaml,configs,configuration source of truth,configuration,managed by configuration lifecycle,3416,107,structured-data,configuration source; validate through governance and projection checks after edits
 configs/logging_policy.yaml,configs,configuration source of truth,configuration,managed by configuration lifecycle,328,21,structured-data,configuration source; validate through governance and projection checks after edits
-configs/model_catalog.yaml,configs,configuration source of truth,configuration,managed by configuration lifecycle,12157,378,structured-data,configuration source; validate through governance and projection checks after edits
-configs/model_serving.yaml,configs,configuration source of truth,configuration,managed by configuration lifecycle,13428,476,structured-data,configuration source; validate through governance and projection checks after edits
+configs/model_catalog.yaml,configs,configuration source of truth,configuration,managed by configuration lifecycle,12187,379,structured-data,configuration source; validate through governance and projection checks after edits
+configs/model_serving.yaml,configs,configuration source of truth,configuration,managed by configuration lifecycle,13471,477,structured-data,configuration source; validate through governance and projection checks after edits
 configs/monitoring.yaml,configs,configuration source of truth,configuration,managed by configuration lifecycle,15044,457,structured-data,configuration source; validate through governance and projection checks after edits
-configs/recommended_images.yaml,configs,configuration source of truth,configuration,managed by configuration lifecycle,2986,72,structured-data,configuration source; validate through governance and projection checks after edits
+configs/recommended_images.yaml,configs,configuration source of truth,configuration,managed by configuration lifecycle,3011,72,structured-data,configuration source; validate through governance and projection checks after edits
 configs/retired_source_cleanup_policy.yaml,configs,configuration source of truth,configuration,managed by configuration lifecycle,2374,69,structured-data,configuration source; validate through governance and projection checks after edits
 configs/risk_taxonomy.yaml,configs,configuration source of truth,configuration,managed by configuration lifecycle,6724,137,structured-data,configuration source; validate through governance and projection checks after edits
 configs/runtime_compatibility.yaml,configs,configuration source of truth,configuration,managed by configuration lifecycle,1404,36,structured-data,configuration source; validate through governance and projection checks after edits
@@ -44,7 +44,7 @@ contracts/api_contract_matrix.csv,contracts,contract registry,project-maintenanc
 contracts/model_contracts.yaml,contracts,contract registry,project-maintenance,managed by root project metadata,687,24,structured-data,supporting project file
 docs/00_executive_summary.md,docs,documentation,documentation,managed by documentation map,1739,45,documentation,documentation; keep relative links valid and avoid duplicating current command flow
 docs/01_project_background.md,docs,documentation,documentation,managed by documentation map,1105,20,documentation,documentation; keep relative links valid and avoid duplicating current command flow
-docs/02_decision_register.md,docs,documentation,documentation,managed by documentation map,4013,53,documentation,documentation; keep relative links valid and avoid duplicating current command flow
+docs/02_decision_register.md,docs,documentation,documentation,managed by documentation map,4195,54,documentation,documentation; keep relative links valid and avoid duplicating current command flow
 docs/06_architecture.md,docs,documentation,documentation,managed by documentation map,1434,34,documentation,documentation; keep relative links valid and avoid duplicating current command flow
 docs/07_project_structure.md,docs,documentation,documentation,managed by documentation map,1261,19,documentation,documentation; keep relative links valid and avoid duplicating current command flow
 docs/README.md,docs,documentation,documentation,managed by documentation map,9734,135,entrypoint,primary navigation or current-state entrypoint; keep synchronized with Makefile and reports
@@ -58,7 +58,8 @@ docs/adr/0012-auth-ownership-and-compose-exposure-source-of-truth.md,docs,archit
 docs/adr/0013-env-lifecycle-non-destructive-sync.md,docs,architecture decision record,documentation,managed by documentation map,3922,61,documentation,documentation; keep relative links valid and avoid duplicating current command flow
 docs/adr/0014-image-validation-policy.md,docs,architecture decision record,documentation,managed by documentation map,5329,95,documentation,documentation; keep relative links valid and avoid duplicating current command flow
 docs/adr/0015-main-llm-20k-o3-runtime-target.md,docs,architecture decision record,documentation,managed by documentation map,5446,67,documentation,documentation; keep relative links valid and avoid duplicating current command flow
-docs/adr/README.md,docs,architecture decision record,documentation,managed by documentation map,2439,73,documentation,documentation; keep relative links valid and avoid duplicating current command flow
+docs/adr/0016-xgrammar-disable-any-whitespace.md,docs,architecture decision record,documentation,managed by documentation map,5430,78,documentation,documentation; keep relative links valid and avoid duplicating current command flow
+docs/adr/README.md,docs,architecture decision record,documentation,managed by documentation map,2566,74,documentation,documentation; keep relative links valid and avoid duplicating current command flow
 docs/archive/changelog/maintenance_journal_0.1.0-rc.1.md,docs,historical documentation archive,documentation,managed by documentation map,15640,164,documentation,documentation; keep relative links valid and avoid duplicating current command flow
 docs/archive/reviews/gemma4_31b_awq_review.md,docs,historical documentation archive,documentation,managed by documentation map,1290,27,documentation,documentation; keep relative links valid and avoid duplicating current command flow
 docs/archive/reviews/ux_ui_review.md,docs,historical documentation archive,documentation,managed by documentation map,8254,108,documentation,documentation; keep relative links valid and avoid duplicating current command flow
@@ -73,14 +74,14 @@ docs/governance/document_management.md,docs,documentation,documentation,managed 
 docs/governance/policies/command_terminology_policy.md,docs,documentation,documentation,managed by documentation map,1635,28,documentation,documentation; keep relative links valid and avoid duplicating current command flow
 docs/governance/policies/retired_source_cleanup_policy.md,docs,documentation,documentation,managed by documentation map,1908,26,documentation,documentation; keep relative links valid and avoid duplicating current command flow
 docs/governance/terminology.md,docs,documentation,documentation,managed by documentation map,1250,19,documentation,documentation; keep relative links valid and avoid duplicating current command flow
-docs/manifest.yaml,docs,documentation,documentation,managed by documentation map,15181,532,structured-data,documentation; keep relative links valid and avoid duplicating current command flow
+docs/manifest.yaml,docs,documentation,documentation,managed by documentation map,15309,536,structured-data,documentation; keep relative links valid and avoid duplicating current command flow
 docs/models/model_cards.md,docs,documentation,documentation,managed by documentation map,1206,23,documentation,documentation; keep relative links valid and avoid duplicating current command flow
 docs/models/model_runtime_source_review.md,docs,documentation,documentation,managed by documentation map,1054,18,documentation,documentation; keep relative links valid and avoid duplicating current command flow
 docs/operations/admin_metrics_docs_exposure_policy.md,docs,documentation,documentation,managed by documentation map,7891,131,documentation,documentation; keep relative links valid and avoid duplicating current command flow
 docs/operations/auth_control_plane.md,docs,documentation,documentation,managed by documentation map,9738,133,documentation,documentation; keep relative links valid and avoid duplicating current command flow
 docs/operations/configuration_lifecycle.md,docs,documentation,documentation,managed by documentation map,8071,162,entrypoint,primary navigation or current-state entrypoint; keep synchronized with Makefile and reports
 docs/operations/day0_quickstart.md,docs,documentation,documentation,managed by documentation map,10034,230,entrypoint,primary navigation or current-state entrypoint; keep synchronized with Makefile and reports
-docs/operations/endpoint_reference.md,docs,documentation,documentation,managed by documentation map,17845,262,documentation,documentation; keep relative links valid and avoid duplicating current command flow
+docs/operations/endpoint_reference.md,docs,documentation,documentation,managed by documentation map,17544,259,documentation,documentation; keep relative links valid and avoid duplicating current command flow
 docs/operations/first_project_guide.md,docs,documentation,documentation,managed by documentation map,10864,255,documentation,documentation; keep relative links valid and avoid duplicating current command flow
 docs/operations/full_stack_runtime.md,docs,documentation,documentation,managed by documentation map,5822,77,documentation,documentation; keep relative links valid and avoid duplicating current command flow
 docs/operations/full_stack_troubleshooting.md,docs,documentation,documentation,managed by documentation map,11826,155,documentation,documentation; keep relative links valid and avoid duplicating current command flow
@@ -112,20 +113,20 @@ harness/contract_test_cases.yaml,harness,runtime validation harness plan/matrix,
 harness/gpu_budget_validation_plan.md,harness,runtime validation harness plan/matrix,project-maintenance,managed by root project metadata,1078,17,documentation,supporting project file
 harness/runtime_validation_matrix.yaml,harness,runtime validation harness plan/matrix,project-maintenance,managed by root project metadata,7084,180,structured-data,supporting project file
 harness/runtime_validation_plan.md,harness,runtime validation harness plan/matrix,project-maintenance,managed by root project metadata,1530,32,documentation,supporting project file
-model_cards/local-embed-ko.json,model_cards,model card metadata,project-maintenance,managed by root project metadata,2510,60,structured-data,supporting project file
+model_cards/local-embed-ko.json,model_cards,model card metadata,project-maintenance,managed by root project metadata,2568,62,structured-data,supporting project file
 model_cards/local-embed.json,model_cards,model card metadata,project-maintenance,managed by root project metadata,3640,108,structured-data,supporting project file
 model_cards/local-main.json,model_cards,model card metadata,project-maintenance,managed by root project metadata,4083,111,structured-data,supporting project file
 model_cards/risk-prompt.json,model_cards,model card metadata,project-maintenance,managed by root project metadata,1767,69,structured-data,supporting project file
-ops/compose/full-stack.private-network.yaml,ops,compose/monitoring/runtime ops template,operations,managed by operator templates,11082,386,structured-data,supporting project file
+ops/compose/full-stack.private-network.yaml,ops,compose/monitoring/runtime ops template,operations,managed by operator templates,11258,389,structured-data,supporting project file
 ops/compose/infisical.yaml,ops,compose/monitoring/runtime ops template,operations,managed by operator templates,2199,69,structured-data,supporting project file
 ops/compose/overrides/exposure.master-open.yaml,ops,compose/monitoring/runtime ops template,operations,managed by operator templates,1547,38,structured-data,supporting project file
 ops/docker/Dockerfile.risk-vllm-kanana,ops,compose/monitoring/runtime ops template,operations,managed by operator templates,2868,66,supporting-file,supporting project file
 ops/grafana/dashboards/api_experience.json,ops,compose/monitoring/runtime ops template,operations,managed by operator templates,35381,1117,structured-data,supporting project file
-ops/grafana/dashboards/gpu_capacity_and_oom_risk.json,ops,compose/monitoring/runtime ops template,operations,managed by operator templates,23386,911,structured-data,supporting project file
+ops/grafana/dashboards/gpu_capacity_and_oom_risk.json,ops,compose/monitoring/runtime ops template,operations,managed by operator templates,18177,713,structured-data,supporting project file
 ops/grafana/dashboards/model_runtime_deep_dive.json,ops,compose/monitoring/runtime ops template,operations,managed by operator templates,17418,626,structured-data,supporting project file
 ops/grafana/dashboards/observability_data_quality.json,ops,compose/monitoring/runtime ops template,operations,managed by operator templates,21147,788,structured-data,supporting project file
 ops/grafana/dashboards/risk_signal_operations.json,ops,compose/monitoring/runtime ops template,operations,managed by operator templates,22216,838,structured-data,supporting project file
-ops/grafana/dashboards/serving_home.json,ops,compose/monitoring/runtime ops template,operations,managed by operator templates,39154,1325,structured-data,supporting project file
+ops/grafana/dashboards/serving_home.json,ops,compose/monitoring/runtime ops template,operations,managed by operator templates,39162,1325,structured-data,supporting project file
 ops/grafana/provisioning/dashboards/dashboards.yml,ops,compose/monitoring/runtime ops template,operations,managed by operator templates,353,13,structured-data,supporting project file
 ops/grafana/provisioning/datasources/prometheus.yml,ops,compose/monitoring/runtime ops template,operations,managed by operator templates,180,10,structured-data,supporting project file
 ops/patches/README.md,ops,compose/monitoring/runtime ops template,operations,managed by operator templates,954,24,documentation,supporting project file
@@ -139,8 +140,8 @@ reports/archive/refactor_audits/first_run_clean_package_audit.md,reports,histori
 reports/archive/refactor_audits/full_file_hygiene_audit.md,reports,historical report archive,handoff-reporting,managed by root project metadata,5620,96,documentation,supporting project file
 reports/refactor/current_handoff_summary.md,reports,current handoff/review report,handoff-reporting,generated/curated for handoff review,6917,97,documentation,handoff/review artifact; avoid stale phase snapshots in active package
 reports/refactor/current_refactor_state.md,reports,current handoff/review report,handoff-reporting,generated/curated for handoff review,4210,72,entrypoint,primary navigation or current-state entrypoint; keep synchronized with Makefile and reports
-reports/refactor/project_inventory_current.csv,reports,current handoff/review report,handoff-reporting,generated/curated for handoff review,86917,426,structured-data,handoff/review artifact; avoid stale phase snapshots in active package
-reports/refactor/project_inventory_current.json,reports,current handoff/review report,handoff-reporting,generated/curated for handoff review,176313,4937,structured-data,handoff/review artifact; avoid stale phase snapshots in active package
+reports/refactor/project_inventory_current.csv,reports,current handoff/review report,handoff-reporting,generated/curated for handoff review,86918,426,structured-data,handoff/review artifact; avoid stale phase snapshots in active package
+reports/refactor/project_inventory_current.json,reports,current handoff/review report,handoff-reporting,generated/curated for handoff review,176314,4937,structured-data,handoff/review artifact; avoid stale phase snapshots in active package
 reports/refactor/project_inventory_current.md,reports,current handoff/review report,handoff-reporting,generated/curated for handoff review,5264,98,documentation,handoff/review artifact; avoid stale phase snapshots in active package
 reports/runtime/README.md,reports,runtime/operator generated report,handoff-reporting,generated by operator report commands,961,14,documentation,generated operator report; regenerate through make operator-reports before handoff
 reports/runtime/live_evidence_bundle.json,reports,runtime/operator generated report,handoff-reporting,generated by operator report commands,1723,69,structured-data,generated operator report; regenerate through make operator-reports before handoff
@@ -153,8 +154,8 @@ reports/runtime/runtime_targets.json,reports,runtime/operator generated report,h
 reports/runtime/runtime_targets.md,reports,runtime/operator generated report,handoff-reporting,generated by operator report commands,2034,45,documentation,generated operator report; regenerate through make operator-reports before handoff
 reports/runtime/storage_paths.json,reports,runtime/operator generated report,handoff-reporting,generated by operator report commands,5210,172,structured-data,generated operator report; regenerate through make operator-reports before handoff
 reports/runtime/storage_paths.md,reports,runtime/operator generated report,handoff-reporting,generated by operator report commands,3352,55,documentation,generated operator report; regenerate through make operator-reports before handoff
-requirements.lock,requirements.lock,project metadata,project-maintenance,managed by root project metadata,1035,48,supporting-file,supporting project file
-requirements.runtime.lock,requirements.runtime.lock,project metadata,project-maintenance,managed by root project metadata,941,45,supporting-file,supporting project file
+requirements.lock,requirements.lock,project metadata,project-maintenance,managed by root project metadata,1598,77,supporting-file,supporting project file
+requirements.runtime.lock,requirements.runtime.lock,project metadata,project-maintenance,managed by root project metadata,1466,74,supporting-file,supporting project file
 scripts/README.md,scripts,operator/developer command surface,operator-ux,managed by Makefile command UX,12752,167,documentation,operator/developer command; expose through Makefile/help if user-facing
 scripts/auth/auth_apply.py,scripts,operator/developer command surface,operator-ux,managed by Makefile command UX,2792,68,python-source,operator/developer command; expose through Makefile/help if user-facing
 scripts/auth/auth_doctor.py,scripts,operator/developer command surface,operator-ux,managed by Makefile command UX,1970,51,python-source,operator/developer command; expose through Makefile/help if user-facing
@@ -172,7 +173,7 @@ scripts/build/check_python.py,scripts,operator/developer command surface,operato
 scripts/build/package_release.sh,scripts,operator/developer command surface,operator-ux,managed by Makefile command UX,9495,276,shell-command,operator/developer command; expose through Makefile/help if user-facing
 scripts/build/reset_version.py,scripts,operator/developer command surface,operator-ux,managed by Makefile command UX,4635,131,python-source,operator/developer command; expose through Makefile/help if user-facing
 scripts/ci/build_vllm_derived_images.sh,scripts,operator/developer command surface,operator-ux,managed by Makefile command UX,3648,64,shell-command,operator/developer command; expose through Makefile/help if user-facing
-scripts/ci/deploy_gitlab_compose.sh,scripts,operator/developer command surface,operator-ux,managed by Makefile command UX,13007,335,shell-command,operator/developer command; expose through Makefile/help if user-facing
+scripts/ci/deploy_gitlab_compose.sh,scripts,operator/developer command surface,operator-ux,managed by Makefile command UX,13900,362,shell-command,operator/developer command; expose through Makefile/help if user-facing
 scripts/commands/render_command_help.py,scripts,operator/developer command surface,operator-ux,managed by Makefile command UX,5142,145,python-source,operator/developer command; expose through Makefile/help if user-facing
 scripts/commands/validate_command_registry.py,scripts,operator/developer command surface,operator-ux,managed by Makefile command UX,16228,415,python-source,operator/developer command; expose through Makefile/help if user-facing
 scripts/compose/compose_diagnostics.sh,scripts,operator/developer command surface,operator-ux,managed by Makefile command UX,3256,52,shell-command,operator/developer command; expose through Makefile/help if user-facing
@@ -231,8 +232,8 @@ scripts/validation/validate_docs_exposure.py,scripts,operator/developer command 
 scripts/validation/validate_env_contract.py,scripts,operator/developer command surface,operator-ux,managed by Makefile command UX,5901,147,python-source,operator/developer command; expose through Makefile/help if user-facing
 scripts/validation/validate_exposure_profiles.py,scripts,operator/developer command surface,operator-ux,managed by Makefile command UX,11432,277,python-source,operator/developer command; expose through Makefile/help if user-facing
 scripts/validation/validate_grafana_promql.py,scripts,operator/developer command surface,operator-ux,managed by Makefile command UX,7611,224,python-source,operator/developer command; expose through Makefile/help if user-facing
-specs/openapi.gateway.yaml,specs,OpenAPI/JSON schema contract,api-contracts,managed by root project metadata,308632,8392,structured-data,supporting project file
-specs/openapi.risk-adapter.yaml,specs,OpenAPI/JSON schema contract,api-contracts,managed by root project metadata,115974,3198,structured-data,supporting project file
+specs/openapi.gateway.yaml,specs,OpenAPI/JSON schema contract,api-contracts,managed by root project metadata,262589,7138,structured-data,supporting project file
+specs/openapi.risk-adapter.yaml,specs,OpenAPI/JSON schema contract,api-contracts,managed by root project metadata,116191,3202,structured-data,supporting project file
 specs/schemas/chat_completion_request.schema.json,specs,OpenAPI/JSON schema contract,api-contracts,managed by root project metadata,10118,424,structured-data,supporting project file
 specs/schemas/chat_completion_response.schema.json,specs,OpenAPI/JSON schema contract,api-contracts,managed by root project metadata,3262,101,structured-data,supporting project file
 specs/schemas/common_error.schema.json,specs,OpenAPI/JSON schema contract,api-contracts,managed by root project metadata,1316,57,structured-data,supporting project file
@@ -249,21 +250,21 @@ specs/schemas/risk_assessment_response.schema.json,specs,OpenAPI/JSON schema con
 src/ai_model_serving/__init__.py,src,application/control-plane source,application,managed by package source layout,0,0,python-source,application code; preserve public API behavior and compatibility facades
 src/ai_model_serving/api/__init__.py,src,application/control-plane source,application,managed by package source layout,0,0,python-source,application code; preserve public API behavior and compatibility facades
 src/ai_model_serving/api/endpoint_matrix.py,src,application/control-plane source,application,managed by package source layout,2591,76,python-source,application code; preserve public API behavior and compatibility facades
-src/ai_model_serving/api/endpoint_spec.py,src,application/control-plane source,application,managed by package source layout,25140,590,python-source,application code; preserve public API behavior and compatibility facades
+src/ai_model_serving/api/endpoint_spec.py,src,application/control-plane source,application,managed by package source layout,23377,536,python-source,application code; preserve public API behavior and compatibility facades
 src/ai_model_serving/api/routers/__init__.py,src,application/control-plane source,application,managed by package source layout,0,0,python-source,application code; preserve public API behavior and compatibility facades
-src/ai_model_serving/api/routers/gateway_inference.py,src,application/control-plane source,application,managed by package source layout,2849,89,python-source,application code; preserve public API behavior and compatibility facades
+src/ai_model_serving/api/routers/gateway_inference.py,src,application/control-plane source,application,managed by package source layout,2826,89,python-source,application code; preserve public API behavior and compatibility facades
 src/ai_model_serving/api/routers/gateway_ops.py,src,application/control-plane source,application,managed by package source layout,4050,119,python-source,application code; preserve public API behavior and compatibility facades
 src/ai_model_serving/api/routers/gateway_retrieval.py,src,application/control-plane source,application,managed by package source layout,1313,43,python-source,application code; preserve public API behavior and compatibility facades
-src/ai_model_serving/api/routers/gateway_risk.py,src,application/control-plane source,application,managed by package source layout,4034,118,python-source,application code; preserve public API behavior and compatibility facades
-src/ai_model_serving/api/routers/gateway_runtime_control.py,src,application/control-plane source,application,managed by package source layout,10062,243,python-source,application code; preserve public API behavior and compatibility facades
+src/ai_model_serving/api/routers/gateway_risk.py,src,application/control-plane source,application,managed by package source layout,4011,118,python-source,application code; preserve public API behavior and compatibility facades
+src/ai_model_serving/api/routers/gateway_runtime_control.py,src,application/control-plane source,application,managed by package source layout,9256,217,python-source,application code; preserve public API behavior and compatibility facades
 src/ai_model_serving/api/routers/risk_adapter_ops.py,src,application/control-plane source,application,managed by package source layout,2205,70,python-source,application code; preserve public API behavior and compatibility facades
 src/ai_model_serving/api/routers/risk_adapter_risk.py,src,application/control-plane source,application,managed by package source layout,2661,84,python-source,application code; preserve public API behavior and compatibility facades
 src/ai_model_serving/api_descriptions.py,src,application/control-plane source,application,managed by package source layout,6592,138,python-source,application code; preserve public API behavior and compatibility facades
-src/ai_model_serving/api_examples.py,src,application/control-plane source,application,managed by package source layout,20540,550,python-source,application code; preserve public API behavior and compatibility facades
+src/ai_model_serving/api_examples.py,src,application/control-plane source,application,managed by package source layout,20376,546,python-source,application code; preserve public API behavior and compatibility facades
 src/ai_model_serving/app_kernel.py,src,application/control-plane source,application,managed by package source layout,6562,171,python-source,application code; preserve public API behavior and compatibility facades
 src/ai_model_serving/apps/__init__.py,src,application/control-plane source,application,managed by package source layout,0,0,python-source,application code; preserve public API behavior and compatibility facades
 src/ai_model_serving/apps/admin_sidecar.py,src,application/control-plane source,application,managed by package source layout,5819,171,python-source,application code; preserve public API behavior and compatibility facades
-src/ai_model_serving/apps/gateway.py,src,application/control-plane source,application,managed by package source layout,7401,161,python-source,application code; preserve public API behavior and compatibility facades
+src/ai_model_serving/apps/gateway.py,src,application/control-plane source,application,managed by package source layout,7689,165,python-source,application code; preserve public API behavior and compatibility facades
 src/ai_model_serving/apps/gateway_asgi.py,src,application/control-plane source,application,managed by package source layout,68,3,python-source,application code; preserve public API behavior and compatibility facades
 src/ai_model_serving/apps/risk_adapter.py,src,application/control-plane source,application,managed by package source layout,6144,152,python-source,application code; preserve public API behavior and compatibility facades
 src/ai_model_serving/apps/risk_adapter_asgi.py,src,application/control-plane source,application,managed by package source layout,83,3,python-source,application code; preserve public API behavior and compatibility facades
@@ -282,10 +283,10 @@ src/ai_model_serving/contracts/media.py,src,application/control-plane source,api
 src/ai_model_serving/contracts/retrieval.py,src,application/control-plane source,api-contracts,managed by package source layout,1701,51,python-source,application code; preserve public API behavior and compatibility facades
 src/ai_model_serving/contracts/risk.py,src,application/control-plane source,api-contracts,managed by package source layout,10852,197,python-source,application code; preserve public API behavior and compatibility facades
 src/ai_model_serving/detectors/__init__.py,src,application/control-plane source,application,managed by package source layout,232,7,python-source,application code; preserve public API behavior and compatibility facades
-src/ai_model_serving/detectors/pii.py,src,application/control-plane source,application,managed by package source layout,5814,185,python-source,application code; preserve public API behavior and compatibility facades
+src/ai_model_serving/detectors/pii.py,src,application/control-plane source,application,managed by package source layout,6530,196,python-source,application code; preserve public API behavior and compatibility facades
 src/ai_model_serving/detectors/protocol.py,src,application/control-plane source,application,managed by package source layout,444,15,python-source,application code; preserve public API behavior and compatibility facades
 src/ai_model_serving/detectors/secret.py,src,application/control-plane source,application,managed by package source layout,5986,173,python-source,application code; preserve public API behavior and compatibility facades
-src/ai_model_serving/docs_ui.py,src,application/control-plane source,application,managed by package source layout,1004,32,python-source,application code; preserve public API behavior and compatibility facades
+src/ai_model_serving/docs_ui.py,src,application/control-plane source,application,managed by package source layout,1805,54,python-source,application code; preserve public API behavior and compatibility facades
 src/ai_model_serving/domain/__init__.py,src,application/control-plane source,domain-registry,managed by package source layout,711,33,python-source,registry/domain code; monitor size as projections grow
 src/ai_model_serving/domain/model_records.py,src,application/control-plane source,domain-registry,managed by package source layout,2916,97,python-source,registry/domain code; monitor size as projections grow
 src/ai_model_serving/domain/model_registry.py,src,application/control-plane source,domain-registry,managed by package source layout,10402,220,python-source,registry/domain code; monitor size as projections grow
@@ -296,19 +297,19 @@ src/ai_model_serving/errors.py,src,application/control-plane source,application,
 src/ai_model_serving/governance_validation/__init__.py,src,application/control-plane source,governance-validation,managed by package source layout,101,5,python-source,application code; preserve public API behavior and compatibility facades
 src/ai_model_serving/governance_validation/cli.py,src,application/control-plane source,governance-validation,managed by package source layout,3605,109,python-source,application code; preserve public API behavior and compatibility facades
 src/ai_model_serving/governance_validation/common.py,src,application/control-plane source,governance-validation,managed by package source layout,8353,211,python-source,application code; preserve public API behavior and compatibility facades
-src/ai_model_serving/governance_validation/docs_ops.py,src,application/control-plane source,governance-validation,managed by package source layout,40499,611,python-source,application code; preserve public API behavior and compatibility facades
+src/ai_model_serving/governance_validation/docs_ops.py,src,application/control-plane source,governance-validation,managed by package source layout,40093,605,python-source,application code; preserve public API behavior and compatibility facades
 src/ai_model_serving/governance_validation/filesystem.py,src,application/control-plane source,governance-validation,managed by package source layout,1171,44,python-source,application code; preserve public API behavior and compatibility facades
-src/ai_model_serving/governance_validation/model_config.py,src,application/control-plane source,governance-validation,managed by package source layout,20708,331,python-source,application code; preserve public API behavior and compatibility facades
+src/ai_model_serving/governance_validation/model_config.py,src,application/control-plane source,governance-validation,managed by package source layout,21004,333,python-source,application code; preserve public API behavior and compatibility facades
 src/ai_model_serving/governance_validation/monitoring_dashboards.py,src,application/control-plane source,governance-validation,managed by package source layout,19824,333,python-source,application code; preserve public API behavior and compatibility facades
 src/ai_model_serving/governance_validation/release_runtime.py,src,application/control-plane source,governance-validation,managed by package source layout,16861,332,python-source,application code; preserve public API behavior and compatibility facades
 src/ai_model_serving/governance_validation/schemas.py,src,application/control-plane source,governance-validation,managed by package source layout,15158,252,python-source,application code; preserve public API behavior and compatibility facades
-src/ai_model_serving/governance_validation/versioning.py,src,application/control-plane source,governance-validation,managed by package source layout,6713,136,python-source,application code; preserve public API behavior and compatibility facades
+src/ai_model_serving/governance_validation/versioning.py,src,application/control-plane source,governance-validation,managed by package source layout,6724,136,python-source,application code; preserve public API behavior and compatibility facades
 src/ai_model_serving/live_evidence.py,src,application/control-plane source,application,managed by package source layout,11183,298,python-source,application code; preserve public API behavior and compatibility facades
 src/ai_model_serving/logging_policy.py,src,application/control-plane source,application,managed by package source layout,3529,130,python-source,application code; preserve public API behavior and compatibility facades
 src/ai_model_serving/metrics.py,src,application/control-plane source,application,managed by package source layout,12455,284,python-source,application code; preserve public API behavior and compatibility facades
 src/ai_model_serving/middleware.py,src,application/control-plane source,application,managed by package source layout,3047,93,python-source,application code; preserve public API behavior and compatibility facades
 src/ai_model_serving/monitoring_projection.py,src,application/control-plane source,application,managed by package source layout,13657,263,python-source,application code; preserve public API behavior and compatibility facades
-src/ai_model_serving/openapi_contracts.py,src,application/control-plane source,application,managed by package source layout,10027,207,python-source,application code; preserve public API behavior and compatibility facades
+src/ai_model_serving/openapi_contracts.py,src,application/control-plane source,application,managed by package source layout,10045,207,python-source,application code; preserve public API behavior and compatibility facades
 src/ai_model_serving/operator_reports.py,src,application/control-plane source,application,managed by package source layout,4011,94,python-source,application code; preserve public API behavior and compatibility facades
 src/ai_model_serving/operator_status.py,src,application/control-plane source,application,managed by package source layout,12264,248,python-source,application code; preserve public API behavior and compatibility facades
 src/ai_model_serving/project_inventory.py,src,application/control-plane source,application,managed by package source layout,11735,253,python-source,application code; preserve public API behavior and compatibility facades
@@ -330,14 +331,14 @@ src/ai_model_serving/runtime_validation/reporting.py,src,application/control-pla
 src/ai_model_serving/runtime_validation/results.py,src,application/control-plane source,runtime-validation,managed by package source layout,375,18,python-source,application code; preserve public API behavior and compatibility facades
 src/ai_model_serving/runtime_validation/soak.py,src,application/control-plane source,runtime-validation,managed by package source layout,2615,46,python-source,application code; preserve public API behavior and compatibility facades
 src/ai_model_serving/runtime_validation/validator.py,src,application/control-plane source,runtime-validation,managed by package source layout,10844,214,python-source,application code; preserve public API behavior and compatibility facades
-src/ai_model_serving/runtime_validation/vllm_commands.py,src,application/control-plane source,runtime-validation,managed by package source layout,4103,117,python-source,application code; preserve public API behavior and compatibility facades
+src/ai_model_serving/runtime_validation/vllm_commands.py,src,application/control-plane source,runtime-validation,managed by package source layout,4076,117,python-source,application code; preserve public API behavior and compatibility facades
 src/ai_model_serving/security.py,src,application/control-plane source,application,managed by package source layout,1861,55,python-source,application code; preserve public API behavior and compatibility facades
 src/ai_model_serving/services/__init__.py,src,application/control-plane source,application,managed by package source layout,56,1,python-source,application code; preserve public API behavior and compatibility facades
 src/ai_model_serving/services/gateway_service.py,src,application/control-plane source,application,managed by package source layout,14404,309,python-source,application code; preserve public API behavior and compatibility facades
 src/ai_model_serving/services/readiness.py,src,application/control-plane source,application,managed by package source layout,3211,85,python-source,application code; preserve public API behavior and compatibility facades
 src/ai_model_serving/services/retrieval_service.py,src,application/control-plane source,application,managed by package source layout,11644,260,python-source,application code; preserve public API behavior and compatibility facades
 src/ai_model_serving/services/risk_assessment.py,src,application/control-plane source,application,managed by package source layout,8087,181,python-source,application code; preserve public API behavior and compatibility facades
-src/ai_model_serving/services/runtime_state.py,src,application/control-plane source,application,managed by package source layout,1673,52,python-source,application code; preserve public API behavior and compatibility facades
+src/ai_model_serving/services/runtime_state.py,src,application/control-plane source,application,managed by package source layout,1536,48,python-source,application code; preserve public API behavior and compatibility facades
 src/ai_model_serving/services/sidecar_client.py,src,application/control-plane source,application,managed by package source layout,2000,48,python-source,application code; preserve public API behavior and compatibility facades
 src/ai_model_serving/settings.py,src,application/control-plane source,application,managed by package source layout,13813,288,python-source,application code; preserve public API behavior and compatibility facades
 src/ai_model_serving/settings_parts/__init__.py,src,application/control-plane source,application,managed by package source layout,278,6,python-source,application code; preserve public API behavior and compatibility facades
@@ -365,12 +366,12 @@ tests/contract/exposure/test_exposure_profile_schema.py,tests,test suite,quality
 tests/contract/governance/__init__.py,tests,test suite,quality,managed by test strategy,0,0,python-source,test coverage; keep deterministic and avoid live GPU dependency
 tests/contract/governance/conftest.py,tests,test suite,quality,managed by test strategy,78,3,python-source,test coverage; keep deterministic and avoid live GPU dependency
 tests/contract/governance/helpers.py,tests,test suite,quality,managed by test strategy,459,31,python-source,test coverage; keep deterministic and avoid live GPU dependency
-tests/contract/governance/test_ci_release_contract.py,tests,test suite,quality,managed by test strategy,6425,127,python-source,test coverage; keep deterministic and avoid live GPU dependency
+tests/contract/governance/test_ci_release_contract.py,tests,test suite,quality,managed by test strategy,6311,127,python-source,test coverage; keep deterministic and avoid live GPU dependency
 tests/contract/governance/test_command_terminology.py,tests,test suite,quality,managed by test strategy,1473,30,python-source,test coverage; keep deterministic and avoid live GPU dependency
 tests/contract/governance/test_compose_operational_contract.py,tests,test suite,quality,managed by test strategy,7848,164,python-source,test coverage; keep deterministic and avoid live GPU dependency
 tests/contract/governance/test_image_and_build_policy.py,tests,test suite,quality,managed by test strategy,4445,83,python-source,test coverage; keep deterministic and avoid live GPU dependency
 tests/contract/governance/test_monitoring_dashboards.py,tests,test suite,quality,managed by test strategy,13943,267,python-source,test coverage; keep deterministic and avoid live GPU dependency
-tests/contract/governance/test_runtime_docs_and_harness.py,tests,test suite,quality,managed by test strategy,5921,131,python-source,test coverage; keep deterministic and avoid live GPU dependency
+tests/contract/governance/test_runtime_docs_and_harness.py,tests,test suite,quality,managed by test strategy,6988,156,python-source,test coverage; keep deterministic and avoid live GPU dependency
 tests/contract/manifests/env_examples.yaml,tests,test suite,quality,managed by test strategy,478,12,structured-data,test coverage; keep deterministic and avoid live GPU dependency
 tests/contract/test_architecture_boundaries.py,tests,test suite,quality,managed by test strategy,3223,102,python-source,test coverage; keep deterministic and avoid live GPU dependency
 tests/contract/test_command_registry.py,tests,test suite,quality,managed by test strategy,14270,381,python-source,test coverage; keep deterministic and avoid live GPU dependency
@@ -386,12 +387,12 @@ tests/contract/test_release_package_smoke.py,tests,test suite,quality,managed by
 tests/contract/test_render_runtime_assets.py,tests,test suite,quality,managed by test strategy,11198,275,python-source,test coverage; keep deterministic and avoid live GPU dependency
 tests/contract/test_risk_assessment_response_schema.py,tests,test suite,quality,managed by test strategy,8758,233,python-source,test coverage; keep deterministic and avoid live GPU dependency
 tests/contract/test_risk_schema.py,tests,test suite,quality,managed by test strategy,2242,73,python-source,test coverage; keep deterministic and avoid live GPU dependency
-tests/contract/test_runtime_policy.py,tests,test suite,quality,managed by test strategy,18648,356,python-source,test coverage; keep deterministic and avoid live GPU dependency
+tests/contract/test_runtime_policy.py,tests,test suite,quality,managed by test strategy,18728,357,python-source,test coverage; keep deterministic and avoid live GPU dependency
 tests/contract/test_version_reset.py,tests,test suite,quality,managed by test strategy,9527,237,python-source,test coverage; keep deterministic and avoid live GPU dependency
 tests/integration/README.md,tests,test suite,quality,managed by test strategy,507,14,documentation,test coverage; keep deterministic and avoid live GPU dependency
 tests/unit/gateway/__init__.py,tests,test suite,quality,managed by test strategy,0,0,python-source,test coverage; keep deterministic and avoid live GPU dependency
 tests/unit/gateway/conftest.py,tests,test suite,quality,managed by test strategy,78,3,python-source,test coverage; keep deterministic and avoid live GPU dependency
-tests/unit/gateway/helpers.py,tests,test suite,quality,managed by test strategy,22409,577,python-source,test coverage; keep deterministic and avoid live GPU dependency
+tests/unit/gateway/helpers.py,tests,test suite,quality,managed by test strategy,22445,577,python-source,test coverage; keep deterministic and avoid live GPU dependency
 tests/unit/gateway/test_auth_and_docs.py,tests,test suite,quality,managed by test strategy,4289,79,python-source,test coverage; keep deterministic and avoid live GPU dependency
 tests/unit/gateway/test_chat.py,tests,test suite,quality,managed by test strategy,10763,273,python-source,test coverage; keep deterministic and avoid live GPU dependency
 tests/unit/gateway/test_clients.py,tests,test suite,quality,managed by test strategy,3186,71,python-source,test coverage; keep deterministic and avoid live GPU dependency
@@ -412,15 +413,15 @@ tests/unit/test_governance_validation_package.py,tests,test suite,quality,manage
 tests/unit/test_model_registry.py,tests,test suite,quality,managed by test strategy,7816,166,python-source,test coverage; keep deterministic and avoid live GPU dependency
 tests/unit/test_modelctl.py,tests,test suite,quality,managed by test strategy,2868,89,python-source,test coverage; keep deterministic and avoid live GPU dependency
 tests/unit/test_openapi_contracts.py,tests,test suite,quality,managed by test strategy,6447,136,python-source,test coverage; keep deterministic and avoid live GPU dependency
-tests/unit/test_pii_protection_detector.py,tests,test suite,quality,managed by test strategy,9627,224,python-source,test coverage; keep deterministic and avoid live GPU dependency
+tests/unit/test_pii_protection_detector.py,tests,test suite,quality,managed by test strategy,11658,270,python-source,test coverage; keep deterministic and avoid live GPU dependency
 tests/unit/test_risk_adapter_app.py,tests,test suite,quality,managed by test strategy,15074,342,python-source,test coverage; keep deterministic and avoid live GPU dependency
 tests/unit/test_risk_data_exposure_contract.py,tests,test suite,quality,managed by test strategy,9302,246,python-source,test coverage; keep deterministic and avoid live GPU dependency
 tests/unit/test_risk_vllm_image_script.py,tests,test suite,quality,managed by test strategy,3303,93,python-source,test coverage; keep deterministic and avoid live GPU dependency
 tests/unit/test_risk_vllm_patch_lifecycle.py,tests,test suite,quality,managed by test strategy,2785,69,python-source,test coverage; keep deterministic and avoid live GPU dependency
-tests/unit/test_runtime_validation_package.py,tests,test suite,quality,managed by test strategy,18753,459,python-source,test coverage; keep deterministic and avoid live GPU dependency
+tests/unit/test_runtime_validation_package.py,tests,test suite,quality,managed by test strategy,18825,459,python-source,test coverage; keep deterministic and avoid live GPU dependency
 tests/unit/test_secret_exposure_detector.py,tests,test suite,quality,managed by test strategy,9624,237,python-source,test coverage; keep deterministic and avoid live GPU dependency
 tests/unit/test_settings.py,tests,test suite,quality,managed by test strategy,13287,322,python-source,test coverage; keep deterministic and avoid live GPU dependency
-tests/unit/test_setup_env.py,tests,test suite,quality,managed by test strategy,9032,235,python-source,test coverage; keep deterministic and avoid live GPU dependency
+tests/unit/test_setup_env.py,tests,test suite,quality,managed by test strategy,9035,235,python-source,test coverage; keep deterministic and avoid live GPU dependency
 tests/unit/test_upstream.py,tests,test suite,quality,managed by test strategy,2544,79,python-source,test coverage; keep deterministic and avoid live GPU dependency
 tests/unit/test_validate_grafana_promql.py,tests,test suite,quality,managed by test strategy,8996,244,python-source,test coverage; keep deterministic and avoid live GPU dependency
 version_manifest.json,version_manifest.json,project metadata,project-maintenance,managed by root project metadata,1894,34,structured-data,supporting project file
