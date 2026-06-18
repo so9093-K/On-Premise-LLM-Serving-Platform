@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 import urllib.error
 import urllib.parse
@@ -111,8 +112,8 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument(
         "--prometheus-url",
-        default="http://localhost:9410",
-        help="Prometheus base URL (default: http://localhost:9410)",
+        default=os.environ.get("PROMETHEUS_BASE_URL", "http://localhost:9410"),
+        help="Prometheus base URL (default: $PROMETHEUS_BASE_URL or http://localhost:9410)",
     )
     parser.add_argument(
         "--dashboards-dir",

@@ -7,6 +7,8 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 
+import yaml
+
 import httpx
 from fastapi import FastAPI, Header, HTTPException
 from fastapi.responses import JSONResponse
@@ -46,17 +48,23 @@ CONTROLLABLE: frozenset[str] = frozenset({
     "risk-prompt-vllm",
 })
 
-# Serial GPU startup: before starting B, ensure A is healthy first.
-# Keys are in the correct start order; values are (service_name, health_port).
-_START_PREREQUISITES: dict[str, list[tuple[str, int]]] = {
-    "embedding-ko-vllm": [("embedding-vllm", 9402)],
-    "risk-prompt-vllm": [("embedding-vllm", 9402), ("embedding-ko-vllm", 9406)],
+# Container health ports derived from model_serving.yaml (single source of truth).
+_serving_cfg_path = APP_CONFIG_ROOT / "configs/model_serving.yaml"
+_serving_cfg = yaml.safe_load(_serving_cfg_path.read_text(encoding="utf-8")) if _serving_cfg_path.exists() else {}
+_HEALTH_PORT: dict[str, int] = {
+    svc["endpoint"].split("//", 1)[1].split(":")[0]: int(svc["port"])
+    for svc in _serving_cfg.get("models", {}).values()
+    if svc.get("backend") == "vllm"
+    and svc.get("endpoint")
+    and svc.get("port") is not None
+    and svc["endpoint"].split("//", 1)[1].split(":")[0] in CONTROLLABLE
 }
 
-_HEALTH_PORT: dict[str, int] = {
-    "embedding-vllm": 9402,
-    "embedding-ko-vllm": 9406,
-    "risk-prompt-vllm": 9403,
+# GPU startup order (policy): before starting B, wait for A to be healthy.
+# Ports are resolved via _HEALTH_PORT at runtime.
+_START_PREREQUISITES: dict[str, list[str]] = {
+    "embedding-ko-vllm": ["embedding-vllm"],
+    "risk-prompt-vllm": ["embedding-vllm", "embedding-ko-vllm"],
 }
 
 # ------------------------------------------------------------------ docker api
@@ -302,7 +310,8 @@ async def start_container(
     started: list[str] = []
 
     # Start prerequisites in order (serial GPU memory profiling)
-    for prereq, prereq_port in _START_PREREQUISITES.get(service, []):
+    for prereq in _START_PREREQUISITES.get(service, []):
+        prereq_port = _HEALTH_PORT[prereq]
         status = await _container_status(prereq)
         if status == "running":
             continue

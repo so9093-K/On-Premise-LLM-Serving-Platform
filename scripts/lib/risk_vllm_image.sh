@@ -69,7 +69,17 @@ PY
 
 risk_vllm_resolve_images() {
   local env_file="${1:-.env}"
-  local default_main="vllm/vllm-openai:gemma4-0505-cu129"
+  local _lib_dir _root default_main
+  _lib_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  _root="$(cd "${_lib_dir}/../.." && pwd)"
+  if ! default_main="$(python3 -c "
+import yaml, sys
+from pathlib import Path
+cfg = yaml.safe_load((Path(sys.argv[1]) / 'configs/recommended_images.yaml').read_text())
+print(cfg['images']['vllm']['default'])
+" "$_root" 2>/dev/null)"; then
+    default_main="vllm/vllm-openai:gemma4-unified-cu129"
+  fi
   local default_risk
   default_risk="$(risk_vllm_default_image)"
 
