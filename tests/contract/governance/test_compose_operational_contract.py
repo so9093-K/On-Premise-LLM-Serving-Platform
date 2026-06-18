@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import pytest
+
 from .helpers import *  # noqa: F401,F403
 
 def test_compose_gpu_budget_uses_configured_avoid_above() -> None:
@@ -141,6 +143,7 @@ def test_compose_commands_share_custom_context() -> None:
     assert 'project="$COMPOSE_PROJECT_NAME_EFFECTIVE"' in down
 
 
+@pytest.mark.docker
 def test_custom_env_file_is_used_for_service_environment(tmp_path) -> None:
     env_file = tmp_path / "custom.env"
     env_source = ROOT / ".env"
