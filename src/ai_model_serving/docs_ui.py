@@ -24,29 +24,35 @@ def scalar_html(openapi_url: str, title: str) -> str:
   <body>
     <script>
       if (!window.isSecureContext) {{
+        var _clip = {{
+          writeText: function(text) {{
+            return new Promise(function(resolve, reject) {{
+              try {{
+                var el = document.createElement('textarea');
+                el.value = text;
+                el.setAttribute('readonly', '');
+                el.style.cssText = 'position:fixed;top:-9999px;left:-9999px;opacity:0;';
+                document.body.appendChild(el);
+                el.focus();
+                el.setSelectionRange(0, el.value.length);
+                var ok = document.execCommand('copy');
+                document.body.removeChild(el);
+                ok ? resolve() : reject(new Error('execCommand failed'));
+              }} catch (e) {{ reject(e); }}
+            }});
+          }}
+        }};
         try {{
-          Object.defineProperty(navigator, 'clipboard', {{
-            configurable: true,
-            value: {{
-              writeText: function(text) {{
-                return new Promise(function(resolve, reject) {{
-                  try {{
-                    var el = document.createElement('textarea');
-                    el.value = text;
-                    el.style.position = 'fixed';
-                    el.style.opacity = '0';
-                    document.body.appendChild(el);
-                    el.focus();
-                    el.select();
-                    var ok = document.execCommand('copy');
-                    document.body.removeChild(el);
-                    ok ? resolve() : reject(new Error('execCommand failed'));
-                  }} catch (e) {{ reject(e); }}
-                }});
-              }}
-            }}
-          }});
+          Object.defineProperty(navigator, 'clipboard', {{configurable: true, value: _clip}});
         }} catch(e) {{}}
+        if (!navigator.clipboard) {{
+          try {{
+            Object.defineProperty(Navigator.prototype, 'clipboard', {{
+              configurable: true,
+              get: function() {{ return _clip; }}
+            }});
+          }} catch(e) {{}}
+        }}
       }}
     </script>
     <script
