@@ -72,7 +72,7 @@ hf-main-model-profiles-canary:
       trap 'rm -rf "$HF_CANARY_VENV"' EXIT
       python -m venv "$HF_CANARY_VENV"
       "$HF_CANARY_VENV/bin/python" -m pip install \
-        "transformers" \
+        "transformers[sentencepiece]" \
         "huggingface_hub==1.13.0" \
         "Pillow" \
         "PyYAML==6.0.3"
