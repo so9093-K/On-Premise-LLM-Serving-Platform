@@ -180,7 +180,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--no-trust-remote-code", action="store_true")
     parser.add_argument("--local-files-only", action="store_true", help="Hugging Face Hub에 접속하지 않고 local cache만 사용합니다.")
-    parser.add_argument("--check-tokenizer", action="store_true", help="AutoProcessor/AutoTokenizer tokenizer artifact canary를 함께 검사합니다.")
+    parser.add_argument("--check-tokenizer", action="store_true", help="AutoTokenizer tokenizer artifact canary를 함께 검사합니다.")
     parser.add_argument("--tokenizer-canary-text", default="The capital of France is", help="tokenizer canary 입력 문장입니다.")
     parser.add_argument("--min-tokenizer-vocab-size", type=int, default=1000, help="정상 tokenizer로 인정할 최소 vocab/len 기준입니다.")
     parser.add_argument("--min-token-count", type=int, default=2, help="canary 문장이 최소 몇 개 token으로 분해되어야 하는지 검사합니다.")
@@ -198,8 +198,8 @@ def main(argv: list[str] | None = None) -> int:
     except ModuleNotFoundError as exc:
         print(
             "missing optional dependency: transformers/huggingface_hub. "
-            "Run this inside the vLLM image or install a diagnostic env, for example: "
-            "python3 -m pip install 'transformers>=4.52.4' huggingface_hub",
+            "Install a diagnostic env: "
+            "python3 -m pip install 'transformers[sentencepiece]' huggingface_hub",
             file=sys.stderr,
         )
         raise SystemExit(2) from exc
@@ -250,22 +250,14 @@ def main(argv: list[str] | None = None) -> int:
     }
     if args.check_tokenizer:
         try:
-            from transformers import AutoProcessor, AutoTokenizer
+            from transformers import AutoTokenizer
 
-            processor = AutoProcessor.from_pretrained(
+            tokenizer = AutoTokenizer.from_pretrained(
                 args.model,
                 revision=args.revision,
                 trust_remote_code=trust_remote_code,
                 local_files_only=args.local_files_only,
             )
-            tokenizer = getattr(processor, "tokenizer", None)
-            if tokenizer is None:
-                tokenizer = AutoTokenizer.from_pretrained(
-                    args.model,
-                    revision=args.revision,
-                    trust_remote_code=trust_remote_code,
-                    local_files_only=args.local_files_only,
-                )
             canary = tokenizer_canary_from_tokenizer(
                 model=args.model,
                 tokenizer=tokenizer,
