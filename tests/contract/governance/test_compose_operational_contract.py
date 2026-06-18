@@ -143,7 +143,10 @@ def test_compose_commands_share_custom_context() -> None:
 
 def test_custom_env_file_is_used_for_service_environment(tmp_path) -> None:
     env_file = tmp_path / "custom.env"
-    text = (ROOT / ".env").read_text(encoding="utf-8")
+    env_source = ROOT / ".env"
+    if not env_source.exists():
+        env_source = ROOT / ".env.example"
+    text = env_source.read_text(encoding="utf-8")
     text = re.sub(r"^APP_ENV=.*$", "APP_ENV=custom-probe", text, flags=re.MULTILINE)
     text = re.sub(
         r"^COMPOSE_PROJECT_NAME=.*$",

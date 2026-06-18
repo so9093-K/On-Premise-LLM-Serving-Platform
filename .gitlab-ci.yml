@@ -58,6 +58,7 @@ validate:
     - make validate
     - python scripts/models/modelctl.py validate
     - python scripts/models/modelctl.py diff
+    - python scripts/render_runtime_assets.py --check
     - python scripts/compose/validate_vllm_compose.py
     - python scripts/validation/runtime_validation.py --config-only
     - python -m pytest -q tests/unit/test_main_model_control.py tests/unit/test_docker_main_model_backend.py tests/unit/gateway/test_main_model_control.py
@@ -72,7 +73,7 @@ hf-main-model-profiles-canary:
       trap 'rm -rf "$HF_CANARY_VENV"' EXIT
       python -m venv "$HF_CANARY_VENV"
       "$HF_CANARY_VENV/bin/python" -m pip install \
-        "transformers[sentencepiece]" \
+        "transformers[sentencepiece]>=4.52.4" \
         "huggingface_hub==1.13.0" \
         "PyYAML==6.0.3"
       "$HF_CANARY_VENV/bin/python" scripts/models/check_main_model_profiles.py
