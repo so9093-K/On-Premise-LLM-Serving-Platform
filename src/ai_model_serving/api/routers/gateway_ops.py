@@ -10,6 +10,7 @@ from ..endpoint_spec import GATEWAY_ENDPOINTS
 from ...api_examples import LOADING_RESPONSE_EXAMPLE, READY_RESPONSE_EXAMPLE
 from ...services.readiness import DependencyProbe, collect_readiness
 from ...status import NOT_READY, READY
+from ...services.sidecar_client import SidecarUnavailableError
 
 _GW = {(s.method, s.path): s for s in GATEWAY_ENDPOINTS}
 
@@ -114,6 +115,12 @@ def build_router(admin_dependencies: list, clients: Any, metrics: Any, settings:
         responses={401: {"description": "Admin Bearer token 필요"}},
     )
     async def metrics_endpoint():
+        sidecar = getattr(clients, "sidecar", None)
+        if sidecar is not None:
+            try:
+                metrics.project_main_model(await sidecar.main_model())
+            except SidecarUnavailableError:
+                metrics.main_model_gate.labels(metrics.service).set(0)
         return metrics.response()
 
     return router

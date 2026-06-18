@@ -229,12 +229,22 @@ paths:
                         - DETECTOR_RETIRED
                         - DETECTOR_DISABLED
                         - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
                       message:
                         type: string
                       retryable:
                         type: boolean
                       request_id:
                         type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                        type:
+                        - string
+                        - 'null'
         '503':
           description: 일부 dependency 로딩 중 또는 불가
           content:
@@ -317,12 +327,22 @@ paths:
                         - DETECTOR_RETIRED
                         - DETECTOR_DISABLED
                         - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
                       message:
                         type: string
                       retryable:
                         type: boolean
                       request_id:
                         type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                        type:
+                        - string
+                        - 'null'
       security:
       - adminBearerAuth: []
   /v1/models:
@@ -442,12 +462,22 @@ paths:
                         - DETECTOR_RETIRED
                         - DETECTOR_DISABLED
                         - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
                       message:
                         type: string
                       retryable:
                         type: boolean
                       request_id:
                         type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                        type:
+                        - string
+                        - 'null'
       security:
       - bearerAuth: []
       x-response-contract-schema: model_list_response.schema.json
@@ -1288,12 +1318,88 @@ paths:
                         - DETECTOR_RETIRED
                         - DETECTOR_DISABLED
                         - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
                       message:
                         type: string
                       retryable:
                         type: boolean
                       request_id:
                         type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                        type:
+                        - string
+                        - 'null'
+        '503':
+          description: 메인 모델 전환 중 또는 control plane 불가
+          headers:
+            Retry-After:
+              description: 재시도 전 대기 시간(초)
+              schema:
+                type: integer
+                example: 5
+          content:
+            application/json:
+              schema:
+                $schema: https://json-schema.org/draft/2020-12/schema
+                title: CommonErrorResponse
+                type: object
+                required:
+                - error
+                additionalProperties: false
+                properties:
+                  error:
+                    type: object
+                    required:
+                    - code
+                    - message
+                    - retryable
+                    - request_id
+                    additionalProperties: false
+                    properties:
+                      code:
+                        type: string
+                        enum:
+                        - VALIDATION_ERROR
+                        - UNAUTHORIZED
+                        - FORBIDDEN
+                        - NOT_FOUND
+                        - MODEL_UNAVAILABLE
+                        - MODEL_PARKED
+                        - MODEL_CAPABILITY_MISMATCH
+                        - UPSTREAM_TIMEOUT
+                        - UPSTREAM_ERROR
+                        - UPSTREAM_SCHEMA_ERROR
+                        - RATE_LIMITED
+                        - PARSE_ERROR
+                        - INTERNAL_ERROR
+                        - QUEUE_TIMEOUT
+                        - CIRCUIT_OPEN
+                        - REQUEST_TOO_LARGE
+                        - RUNTIME_NOT_READY
+                        - DETECTOR_RETIRED
+                        - DETECTOR_DISABLED
+                        - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
+                      message:
+                        type: string
+                      retryable:
+                        type: boolean
+                      request_id:
+                        type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                        type:
+                        - string
+                        - 'null'
         '422':
           description: Validation Error
           content:
@@ -1338,12 +1444,22 @@ paths:
                         - DETECTOR_RETIRED
                         - DETECTOR_DISABLED
                         - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
                       message:
                         type: string
                       retryable:
                         type: boolean
                       request_id:
                         type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                        type:
+                        - string
+                        - 'null'
         '413':
           description: 요청 body가 너무 큼
           content:
@@ -1388,12 +1504,22 @@ paths:
                         - DETECTOR_RETIRED
                         - DETECTOR_DISABLED
                         - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
                       message:
                         type: string
                       retryable:
                         type: boolean
                       request_id:
                         type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                        type:
+                        - string
+                        - 'null'
         '429':
           description: Upstream rate limit 또는 local admission timeout
           content:
@@ -1438,12 +1564,22 @@ paths:
                         - DETECTOR_RETIRED
                         - DETECTOR_DISABLED
                         - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
                       message:
                         type: string
                       retryable:
                         type: boolean
                       request_id:
                         type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                        type:
+                        - string
+                        - 'null'
         '500':
           description: 내부 서버 오류
           content:
@@ -1488,12 +1624,22 @@ paths:
                         - DETECTOR_RETIRED
                         - DETECTOR_DISABLED
                         - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
                       message:
                         type: string
                       retryable:
                         type: boolean
                       request_id:
                         type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                        type:
+                        - string
+                        - 'null'
         '502':
           description: Upstream 오류 또는 유효하지 않은 upstream 응답
           content:
@@ -1538,62 +1684,22 @@ paths:
                         - DETECTOR_RETIRED
                         - DETECTOR_DISABLED
                         - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
                       message:
                         type: string
                       retryable:
                         type: boolean
                       request_id:
                         type: string
-        '503':
-          description: Runtime 또는 dependency를 사용할 수 없음
-          content:
-            application/json:
-              schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
-                title: CommonErrorResponse
-                type: object
-                required:
-                - error
-                additionalProperties: false
-                properties:
-                  error:
-                    type: object
-                    required:
-                    - code
-                    - message
-                    - retryable
-                    - request_id
-                    additionalProperties: false
-                    properties:
-                      code:
-                        type: string
-                        enum:
-                        - VALIDATION_ERROR
-                        - UNAUTHORIZED
-                        - FORBIDDEN
-                        - NOT_FOUND
-                        - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
-                        - MODEL_CAPABILITY_MISMATCH
-                        - UPSTREAM_TIMEOUT
-                        - UPSTREAM_ERROR
-                        - UPSTREAM_SCHEMA_ERROR
-                        - RATE_LIMITED
-                        - PARSE_ERROR
-                        - INTERNAL_ERROR
-                        - QUEUE_TIMEOUT
-                        - CIRCUIT_OPEN
-                        - REQUEST_TOO_LARGE
-                        - RUNTIME_NOT_READY
-                        - DETECTOR_RETIRED
-                        - DETECTOR_DISABLED
-                        - STREAM_LIMIT_EXCEEDED
-                      message:
-                        type: string
-                      retryable:
-                        type: boolean
-                      request_id:
-                        type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                        type:
+                        - string
+                        - 'null'
         '504':
           description: Upstream timeout
           content:
@@ -1638,12 +1744,22 @@ paths:
                         - DETECTOR_RETIRED
                         - DETECTOR_DISABLED
                         - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
                       message:
                         type: string
                       retryable:
                         type: boolean
                       request_id:
                         type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                        type:
+                        - string
+                        - 'null'
       security:
       - bearerAuth: []
       x-contract-schema: chat_completion_request.schema.json
@@ -1838,12 +1954,22 @@ paths:
                         - DETECTOR_RETIRED
                         - DETECTOR_DISABLED
                         - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
                       message:
                         type: string
                       retryable:
                         type: boolean
                       request_id:
                         type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                        type:
+                        - string
+                        - 'null'
         '422':
           description: Validation Error
           content:
@@ -1888,12 +2014,22 @@ paths:
                         - DETECTOR_RETIRED
                         - DETECTOR_DISABLED
                         - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
                       message:
                         type: string
                       retryable:
                         type: boolean
                       request_id:
                         type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                        type:
+                        - string
+                        - 'null'
         '413':
           description: 요청 body가 너무 큼
           content:
@@ -1938,12 +2074,22 @@ paths:
                         - DETECTOR_RETIRED
                         - DETECTOR_DISABLED
                         - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
                       message:
                         type: string
                       retryable:
                         type: boolean
                       request_id:
                         type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                        type:
+                        - string
+                        - 'null'
         '429':
           description: Upstream rate limit 또는 local admission timeout
           content:
@@ -1988,12 +2134,22 @@ paths:
                         - DETECTOR_RETIRED
                         - DETECTOR_DISABLED
                         - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
                       message:
                         type: string
                       retryable:
                         type: boolean
                       request_id:
                         type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                        type:
+                        - string
+                        - 'null'
         '500':
           description: 내부 서버 오류
           content:
@@ -2038,12 +2194,22 @@ paths:
                         - DETECTOR_RETIRED
                         - DETECTOR_DISABLED
                         - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
                       message:
                         type: string
                       retryable:
                         type: boolean
                       request_id:
                         type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                        type:
+                        - string
+                        - 'null'
         '502':
           description: Upstream 오류 또는 유효하지 않은 upstream 응답
           content:
@@ -2088,12 +2254,22 @@ paths:
                         - DETECTOR_RETIRED
                         - DETECTOR_DISABLED
                         - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
                       message:
                         type: string
                       retryable:
                         type: boolean
                       request_id:
                         type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                        type:
+                        - string
+                        - 'null'
         '503':
           description: Runtime 또는 dependency를 사용할 수 없음
           content:
@@ -2138,12 +2314,22 @@ paths:
                         - DETECTOR_RETIRED
                         - DETECTOR_DISABLED
                         - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
                       message:
                         type: string
                       retryable:
                         type: boolean
                       request_id:
                         type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                        type:
+                        - string
+                        - 'null'
         '504':
           description: Upstream timeout
           content:
@@ -2188,12 +2374,22 @@ paths:
                         - DETECTOR_RETIRED
                         - DETECTOR_DISABLED
                         - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
                       message:
                         type: string
                       retryable:
                         type: boolean
                       request_id:
                         type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                        type:
+                        - string
+                        - 'null'
       security:
       - bearerAuth: []
       x-contract-schema: embedding_request.schema.json
@@ -2534,12 +2730,22 @@ paths:
                         - DETECTOR_RETIRED
                         - DETECTOR_DISABLED
                         - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
                       message:
                         type: string
                       retryable:
                         type: boolean
                       request_id:
                         type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                        type:
+                        - string
+                        - 'null'
         '422':
           description: Validation Error
           content:
@@ -2584,12 +2790,22 @@ paths:
                         - DETECTOR_RETIRED
                         - DETECTOR_DISABLED
                         - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
                       message:
                         type: string
                       retryable:
                         type: boolean
                       request_id:
                         type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                        type:
+                        - string
+                        - 'null'
         '413':
           description: 요청 body가 너무 큼
           content:
@@ -2634,12 +2850,22 @@ paths:
                         - DETECTOR_RETIRED
                         - DETECTOR_DISABLED
                         - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
                       message:
                         type: string
                       retryable:
                         type: boolean
                       request_id:
                         type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                        type:
+                        - string
+                        - 'null'
         '429':
           description: Upstream rate limit 또는 local admission timeout
           content:
@@ -2684,12 +2910,22 @@ paths:
                         - DETECTOR_RETIRED
                         - DETECTOR_DISABLED
                         - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
                       message:
                         type: string
                       retryable:
                         type: boolean
                       request_id:
                         type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                        type:
+                        - string
+                        - 'null'
         '500':
           description: 내부 서버 오류
           content:
@@ -2734,12 +2970,22 @@ paths:
                         - DETECTOR_RETIRED
                         - DETECTOR_DISABLED
                         - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
                       message:
                         type: string
                       retryable:
                         type: boolean
                       request_id:
                         type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                        type:
+                        - string
+                        - 'null'
         '502':
           description: Upstream 오류 또는 유효하지 않은 upstream 응답
           content:
@@ -2784,12 +3030,22 @@ paths:
                         - DETECTOR_RETIRED
                         - DETECTOR_DISABLED
                         - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
                       message:
                         type: string
                       retryable:
                         type: boolean
                       request_id:
                         type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                        type:
+                        - string
+                        - 'null'
         '503':
           description: Runtime 또는 dependency를 사용할 수 없음
           content:
@@ -2834,12 +3090,22 @@ paths:
                         - DETECTOR_RETIRED
                         - DETECTOR_DISABLED
                         - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
                       message:
                         type: string
                       retryable:
                         type: boolean
                       request_id:
                         type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                        type:
+                        - string
+                        - 'null'
         '504':
           description: Upstream timeout
           content:
@@ -2884,12 +3150,22 @@ paths:
                         - DETECTOR_RETIRED
                         - DETECTOR_DISABLED
                         - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
                       message:
                         type: string
                       retryable:
                         type: boolean
                       request_id:
                         type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                        type:
+                        - string
+                        - 'null'
       security:
       - bearerAuth: []
       x-contract-schema: risk_assessment_request.schema.json
@@ -3251,12 +3527,22 @@ paths:
                         - DETECTOR_RETIRED
                         - DETECTOR_DISABLED
                         - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
                       message:
                         type: string
                       retryable:
                         type: boolean
                       request_id:
                         type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                        type:
+                        - string
+                        - 'null'
         '422':
           description: Validation Error
           content:
@@ -3301,12 +3587,22 @@ paths:
                         - DETECTOR_RETIRED
                         - DETECTOR_DISABLED
                         - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
                       message:
                         type: string
                       retryable:
                         type: boolean
                       request_id:
                         type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                        type:
+                        - string
+                        - 'null'
         '413':
           description: 요청 body가 너무 큼
           content:
@@ -3351,12 +3647,22 @@ paths:
                         - DETECTOR_RETIRED
                         - DETECTOR_DISABLED
                         - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
                       message:
                         type: string
                       retryable:
                         type: boolean
                       request_id:
                         type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                        type:
+                        - string
+                        - 'null'
         '429':
           description: Upstream rate limit 또는 local admission timeout
           content:
@@ -3401,12 +3707,22 @@ paths:
                         - DETECTOR_RETIRED
                         - DETECTOR_DISABLED
                         - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
                       message:
                         type: string
                       retryable:
                         type: boolean
                       request_id:
                         type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                        type:
+                        - string
+                        - 'null'
         '500':
           description: 내부 서버 오류
           content:
@@ -3451,12 +3767,22 @@ paths:
                         - DETECTOR_RETIRED
                         - DETECTOR_DISABLED
                         - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
                       message:
                         type: string
                       retryable:
                         type: boolean
                       request_id:
                         type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                        type:
+                        - string
+                        - 'null'
         '502':
           description: Upstream 오류 또는 유효하지 않은 upstream 응답
           content:
@@ -3501,12 +3827,22 @@ paths:
                         - DETECTOR_RETIRED
                         - DETECTOR_DISABLED
                         - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
                       message:
                         type: string
                       retryable:
                         type: boolean
                       request_id:
                         type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                        type:
+                        - string
+                        - 'null'
         '503':
           description: Runtime 또는 dependency를 사용할 수 없음
           content:
@@ -3551,12 +3887,22 @@ paths:
                         - DETECTOR_RETIRED
                         - DETECTOR_DISABLED
                         - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
                       message:
                         type: string
                       retryable:
                         type: boolean
                       request_id:
                         type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                        type:
+                        - string
+                        - 'null'
         '504':
           description: Upstream timeout
           content:
@@ -3601,12 +3947,22 @@ paths:
                         - DETECTOR_RETIRED
                         - DETECTOR_DISABLED
                         - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
                       message:
                         type: string
                       retryable:
                         type: boolean
                       request_id:
                         type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                        type:
+                        - string
+                        - 'null'
       security:
       - bearerAuth: []
       x-contract-schema: risk_assessment_request.schema.json
@@ -3982,12 +4338,22 @@ paths:
                         - DETECTOR_RETIRED
                         - DETECTOR_DISABLED
                         - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
                       message:
                         type: string
                       retryable:
                         type: boolean
                       request_id:
                         type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                        type:
+                        - string
+                        - 'null'
         '422':
           description: Validation Error
           content:
@@ -4032,12 +4398,22 @@ paths:
                         - DETECTOR_RETIRED
                         - DETECTOR_DISABLED
                         - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
                       message:
                         type: string
                       retryable:
                         type: boolean
                       request_id:
                         type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                        type:
+                        - string
+                        - 'null'
         '413':
           description: 요청 body가 너무 큼
           content:
@@ -4082,12 +4458,22 @@ paths:
                         - DETECTOR_RETIRED
                         - DETECTOR_DISABLED
                         - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
                       message:
                         type: string
                       retryable:
                         type: boolean
                       request_id:
                         type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                        type:
+                        - string
+                        - 'null'
         '429':
           description: Upstream rate limit 또는 local admission timeout
           content:
@@ -4132,12 +4518,22 @@ paths:
                         - DETECTOR_RETIRED
                         - DETECTOR_DISABLED
                         - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
                       message:
                         type: string
                       retryable:
                         type: boolean
                       request_id:
                         type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                        type:
+                        - string
+                        - 'null'
         '500':
           description: 내부 서버 오류
           content:
@@ -4182,12 +4578,22 @@ paths:
                         - DETECTOR_RETIRED
                         - DETECTOR_DISABLED
                         - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
                       message:
                         type: string
                       retryable:
                         type: boolean
                       request_id:
                         type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                        type:
+                        - string
+                        - 'null'
         '502':
           description: Upstream 오류 또는 유효하지 않은 upstream 응답
           content:
@@ -4232,12 +4638,22 @@ paths:
                         - DETECTOR_RETIRED
                         - DETECTOR_DISABLED
                         - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
                       message:
                         type: string
                       retryable:
                         type: boolean
                       request_id:
                         type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                        type:
+                        - string
+                        - 'null'
         '503':
           description: Runtime 또는 dependency를 사용할 수 없음
           content:
@@ -4282,12 +4698,22 @@ paths:
                         - DETECTOR_RETIRED
                         - DETECTOR_DISABLED
                         - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
                       message:
                         type: string
                       retryable:
                         type: boolean
                       request_id:
                         type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                        type:
+                        - string
+                        - 'null'
         '504':
           description: Upstream timeout
           content:
@@ -4332,12 +4758,22 @@ paths:
                         - DETECTOR_RETIRED
                         - DETECTOR_DISABLED
                         - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
                       message:
                         type: string
                       retryable:
                         type: boolean
                       request_id:
                         type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                        type:
+                        - string
+                        - 'null'
       security:
       - bearerAuth: []
       x-contract-schema: risk_assessment_request.schema.json
@@ -4401,12 +4837,22 @@ paths:
                         - DETECTOR_RETIRED
                         - DETECTOR_DISABLED
                         - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
                       message:
                         type: string
                       retryable:
                         type: boolean
                       request_id:
                         type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                        type:
+                        - string
+                        - 'null'
         '413':
           description: 요청 body가 너무 큼
           content:
@@ -4451,12 +4897,22 @@ paths:
                         - DETECTOR_RETIRED
                         - DETECTOR_DISABLED
                         - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
                       message:
                         type: string
                       retryable:
                         type: boolean
                       request_id:
                         type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                        type:
+                        - string
+                        - 'null'
         '422':
           description: 요청 검증 실패
           content:
@@ -4501,12 +4957,22 @@ paths:
                         - DETECTOR_RETIRED
                         - DETECTOR_DISABLED
                         - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
                       message:
                         type: string
                       retryable:
                         type: boolean
                       request_id:
                         type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                        type:
+                        - string
+                        - 'null'
         '429':
           description: Upstream rate limit 또는 local admission timeout
           content:
@@ -4551,12 +5017,22 @@ paths:
                         - DETECTOR_RETIRED
                         - DETECTOR_DISABLED
                         - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
                       message:
                         type: string
                       retryable:
                         type: boolean
                       request_id:
                         type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                        type:
+                        - string
+                        - 'null'
         '500':
           description: 내부 서버 오류
           content:
@@ -4601,12 +5077,22 @@ paths:
                         - DETECTOR_RETIRED
                         - DETECTOR_DISABLED
                         - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
                       message:
                         type: string
                       retryable:
                         type: boolean
                       request_id:
                         type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                        type:
+                        - string
+                        - 'null'
         '502':
           description: Upstream 오류 또는 유효하지 않은 upstream 응답
           content:
@@ -4651,12 +5137,22 @@ paths:
                         - DETECTOR_RETIRED
                         - DETECTOR_DISABLED
                         - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
                       message:
                         type: string
                       retryable:
                         type: boolean
                       request_id:
                         type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                        type:
+                        - string
+                        - 'null'
         '503':
           description: Runtime 또는 dependency를 사용할 수 없음
           content:
@@ -4701,12 +5197,22 @@ paths:
                         - DETECTOR_RETIRED
                         - DETECTOR_DISABLED
                         - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
                       message:
                         type: string
                       retryable:
                         type: boolean
                       request_id:
                         type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                        type:
+                        - string
+                        - 'null'
         '504':
           description: Upstream timeout
           content:
@@ -4751,12 +5257,22 @@ paths:
                         - DETECTOR_RETIRED
                         - DETECTOR_DISABLED
                         - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
                       message:
                         type: string
                       retryable:
                         type: boolean
                       request_id:
                         type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                        type:
+                        - string
+                        - 'null'
       security:
       - bearerAuth: []
   /v1/risk/assessments:
@@ -5095,12 +5611,22 @@ paths:
                         - DETECTOR_RETIRED
                         - DETECTOR_DISABLED
                         - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
                       message:
                         type: string
                       retryable:
                         type: boolean
                       request_id:
                         type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                        type:
+                        - string
+                        - 'null'
         '422':
           description: Validation Error
           content:
@@ -5145,12 +5671,22 @@ paths:
                         - DETECTOR_RETIRED
                         - DETECTOR_DISABLED
                         - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
                       message:
                         type: string
                       retryable:
                         type: boolean
                       request_id:
                         type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                        type:
+                        - string
+                        - 'null'
         '413':
           description: 요청 body가 너무 큼
           content:
@@ -5195,12 +5731,22 @@ paths:
                         - DETECTOR_RETIRED
                         - DETECTOR_DISABLED
                         - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
                       message:
                         type: string
                       retryable:
                         type: boolean
                       request_id:
                         type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                        type:
+                        - string
+                        - 'null'
         '429':
           description: Upstream rate limit 또는 local admission timeout
           content:
@@ -5245,12 +5791,22 @@ paths:
                         - DETECTOR_RETIRED
                         - DETECTOR_DISABLED
                         - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
                       message:
                         type: string
                       retryable:
                         type: boolean
                       request_id:
                         type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                        type:
+                        - string
+                        - 'null'
         '500':
           description: 내부 서버 오류
           content:
@@ -5295,12 +5851,22 @@ paths:
                         - DETECTOR_RETIRED
                         - DETECTOR_DISABLED
                         - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
                       message:
                         type: string
                       retryable:
                         type: boolean
                       request_id:
                         type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                        type:
+                        - string
+                        - 'null'
         '502':
           description: Upstream 오류 또는 유효하지 않은 upstream 응답
           content:
@@ -5345,12 +5911,22 @@ paths:
                         - DETECTOR_RETIRED
                         - DETECTOR_DISABLED
                         - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
                       message:
                         type: string
                       retryable:
                         type: boolean
                       request_id:
                         type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                        type:
+                        - string
+                        - 'null'
         '503':
           description: Runtime 또는 dependency를 사용할 수 없음
           content:
@@ -5395,12 +5971,22 @@ paths:
                         - DETECTOR_RETIRED
                         - DETECTOR_DISABLED
                         - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
                       message:
                         type: string
                       retryable:
                         type: boolean
                       request_id:
                         type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                        type:
+                        - string
+                        - 'null'
         '504':
           description: Upstream timeout
           content:
@@ -5445,12 +6031,22 @@ paths:
                         - DETECTOR_RETIRED
                         - DETECTOR_DISABLED
                         - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
                       message:
                         type: string
                       retryable:
                         type: boolean
                       request_id:
                         type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                        type:
+                        - string
+                        - 'null'
       security:
       - bearerAuth: []
       x-contract-schema: risk_assessment_request.schema.json
@@ -5606,12 +6202,22 @@ paths:
                         - DETECTOR_RETIRED
                         - DETECTOR_DISABLED
                         - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
                       message:
                         type: string
                       retryable:
                         type: boolean
                       request_id:
                         type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                        type:
+                        - string
+                        - 'null'
         '422':
           description: Validation Error
           content:
@@ -5656,12 +6262,22 @@ paths:
                         - DETECTOR_RETIRED
                         - DETECTOR_DISABLED
                         - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
                       message:
                         type: string
                       retryable:
                         type: boolean
                       request_id:
                         type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                        type:
+                        - string
+                        - 'null'
         '413':
           description: 요청 body가 너무 큼
           content:
@@ -5706,12 +6322,22 @@ paths:
                         - DETECTOR_RETIRED
                         - DETECTOR_DISABLED
                         - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
                       message:
                         type: string
                       retryable:
                         type: boolean
                       request_id:
                         type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                        type:
+                        - string
+                        - 'null'
         '429':
           description: Upstream rate limit 또는 local admission timeout
           content:
@@ -5756,12 +6382,22 @@ paths:
                         - DETECTOR_RETIRED
                         - DETECTOR_DISABLED
                         - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
                       message:
                         type: string
                       retryable:
                         type: boolean
                       request_id:
                         type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                        type:
+                        - string
+                        - 'null'
         '500':
           description: 내부 서버 오류
           content:
@@ -5806,12 +6442,22 @@ paths:
                         - DETECTOR_RETIRED
                         - DETECTOR_DISABLED
                         - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
                       message:
                         type: string
                       retryable:
                         type: boolean
                       request_id:
                         type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                        type:
+                        - string
+                        - 'null'
         '502':
           description: Upstream 오류 또는 유효하지 않은 upstream 응답
           content:
@@ -5856,12 +6502,22 @@ paths:
                         - DETECTOR_RETIRED
                         - DETECTOR_DISABLED
                         - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
                       message:
                         type: string
                       retryable:
                         type: boolean
                       request_id:
                         type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                        type:
+                        - string
+                        - 'null'
         '503':
           description: Runtime 또는 dependency를 사용할 수 없음
           content:
@@ -5906,12 +6562,22 @@ paths:
                         - DETECTOR_RETIRED
                         - DETECTOR_DISABLED
                         - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
                       message:
                         type: string
                       retryable:
                         type: boolean
                       request_id:
                         type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                        type:
+                        - string
+                        - 'null'
         '504':
           description: Upstream timeout
           content:
@@ -5956,12 +6622,22 @@ paths:
                         - DETECTOR_RETIRED
                         - DETECTOR_DISABLED
                         - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
                       message:
                         type: string
                       retryable:
                         type: boolean
                       request_id:
                         type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                        type:
+                        - string
+                        - 'null'
       security:
       - bearerAuth: []
       x-contract-schema: retrieval_rerank_request.schema.json
@@ -6108,12 +6784,22 @@ paths:
                         - DETECTOR_RETIRED
                         - DETECTOR_DISABLED
                         - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
                       message:
                         type: string
                       retryable:
                         type: boolean
                       request_id:
                         type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                        type:
+                        - string
+                        - 'null'
         '422':
           description: Validation Error
           content:
@@ -6158,12 +6844,22 @@ paths:
                         - DETECTOR_RETIRED
                         - DETECTOR_DISABLED
                         - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
                       message:
                         type: string
                       retryable:
                         type: boolean
                       request_id:
                         type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                        type:
+                        - string
+                        - 'null'
         '413':
           description: 요청 body가 너무 큼
           content:
@@ -6208,12 +6904,22 @@ paths:
                         - DETECTOR_RETIRED
                         - DETECTOR_DISABLED
                         - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
                       message:
                         type: string
                       retryable:
                         type: boolean
                       request_id:
                         type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                        type:
+                        - string
+                        - 'null'
         '429':
           description: Upstream rate limit 또는 local admission timeout
           content:
@@ -6258,12 +6964,22 @@ paths:
                         - DETECTOR_RETIRED
                         - DETECTOR_DISABLED
                         - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
                       message:
                         type: string
                       retryable:
                         type: boolean
                       request_id:
                         type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                        type:
+                        - string
+                        - 'null'
         '500':
           description: 내부 서버 오류
           content:
@@ -6308,12 +7024,22 @@ paths:
                         - DETECTOR_RETIRED
                         - DETECTOR_DISABLED
                         - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
                       message:
                         type: string
                       retryable:
                         type: boolean
                       request_id:
                         type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                        type:
+                        - string
+                        - 'null'
         '502':
           description: Upstream 오류 또는 유효하지 않은 upstream 응답
           content:
@@ -6358,12 +7084,22 @@ paths:
                         - DETECTOR_RETIRED
                         - DETECTOR_DISABLED
                         - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
                       message:
                         type: string
                       retryable:
                         type: boolean
                       request_id:
                         type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                        type:
+                        - string
+                        - 'null'
         '503':
           description: Runtime 또는 dependency를 사용할 수 없음
           content:
@@ -6408,12 +7144,22 @@ paths:
                         - DETECTOR_RETIRED
                         - DETECTOR_DISABLED
                         - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
                       message:
                         type: string
                       retryable:
                         type: boolean
                       request_id:
                         type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                        type:
+                        - string
+                        - 'null'
         '504':
           description: Upstream timeout
           content:
@@ -6458,12 +7204,22 @@ paths:
                         - DETECTOR_RETIRED
                         - DETECTOR_DISABLED
                         - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
                       message:
                         type: string
                       retryable:
                         type: boolean
                       request_id:
                         type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                        type:
+                        - string
+                        - 'null'
       security:
       - bearerAuth: []
       x-contract-schema: retrieval_score_request.schema.json
@@ -6567,12 +7323,22 @@ paths:
                         - DETECTOR_RETIRED
                         - DETECTOR_DISABLED
                         - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
                       message:
                         type: string
                       retryable:
                         type: boolean
                       request_id:
                         type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                      type:
+                      - string
+                      - 'null'
       security:
       - adminBearerAuth: []
   /admin/runtimes/{service_key}:
@@ -6703,12 +7469,22 @@ paths:
                         - DETECTOR_RETIRED
                         - DETECTOR_DISABLED
                         - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
                       message:
                         type: string
                       retryable:
                         type: boolean
                       request_id:
                         type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                        type:
+                        - string
+                        - 'null'
           description: Service Unavailable
         '401':
           description: Admin Bearer token 필요
@@ -6754,12 +7530,22 @@ paths:
                         - DETECTOR_RETIRED
                         - DETECTOR_DISABLED
                         - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
                       message:
                         type: string
                       retryable:
                         type: boolean
                       request_id:
                         type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                        type:
+                        - string
+                        - 'null'
         '422':
           description: Validation Error
           content:
@@ -6804,12 +7590,22 @@ paths:
                         - DETECTOR_RETIRED
                         - DETECTOR_DISABLED
                         - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
                       message:
                         type: string
                       retryable:
                         type: boolean
                       request_id:
                         type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                        type:
+                        - string
+                        - 'null'
         '413':
           description: 요청 body가 너무 큼
           content:
@@ -6854,12 +7650,22 @@ paths:
                         - DETECTOR_RETIRED
                         - DETECTOR_DISABLED
                         - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
                       message:
                         type: string
                       retryable:
                         type: boolean
                       request_id:
                         type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                        type:
+                        - string
+                        - 'null'
         '429':
           description: Upstream rate limit 또는 local admission timeout
           content:
@@ -6904,12 +7710,22 @@ paths:
                         - DETECTOR_RETIRED
                         - DETECTOR_DISABLED
                         - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
                       message:
                         type: string
                       retryable:
                         type: boolean
                       request_id:
                         type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                        type:
+                        - string
+                        - 'null'
         '500':
           description: 내부 서버 오류
           content:
@@ -6954,12 +7770,22 @@ paths:
                         - DETECTOR_RETIRED
                         - DETECTOR_DISABLED
                         - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
                       message:
                         type: string
                       retryable:
                         type: boolean
                       request_id:
                         type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                        type:
+                        - string
+                        - 'null'
         '502':
           description: Upstream 오류 또는 유효하지 않은 upstream 응답
           content:
@@ -7004,12 +7830,22 @@ paths:
                         - DETECTOR_RETIRED
                         - DETECTOR_DISABLED
                         - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
                       message:
                         type: string
                       retryable:
                         type: boolean
                       request_id:
                         type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                        type:
+                        - string
+                        - 'null'
         '504':
           description: Upstream timeout
           content:
@@ -7054,12 +7890,22 @@ paths:
                         - DETECTOR_RETIRED
                         - DETECTOR_DISABLED
                         - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
                       message:
                         type: string
                       retryable:
                         type: boolean
                       request_id:
                         type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                        type:
+                        - string
+                        - 'null'
       requestBody:
         required: true
         content:
@@ -7084,6 +7930,1350 @@ paths:
                 summary: 시작 (서비스 복구)
                 value:
                   desired_state: active
+  /admin/main-model:
+    get:
+      tags:
+      - Runtime Control
+      summary: 활성 메인 모델 조회
+      operationId: getMainModel
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '401':
+          description: 인증 실패
+          content:
+            application/json:
+              schema:
+                $schema: https://json-schema.org/draft/2020-12/schema
+                title: CommonErrorResponse
+                type: object
+                required:
+                - error
+                additionalProperties: false
+                properties:
+                  error:
+                    type: object
+                    required:
+                    - code
+                    - message
+                    - retryable
+                    - request_id
+                    additionalProperties: false
+                    properties:
+                      code:
+                        type: string
+                        enum:
+                        - VALIDATION_ERROR
+                        - UNAUTHORIZED
+                        - FORBIDDEN
+                        - NOT_FOUND
+                        - MODEL_UNAVAILABLE
+                        - MODEL_PARKED
+                        - MODEL_CAPABILITY_MISMATCH
+                        - UPSTREAM_TIMEOUT
+                        - UPSTREAM_ERROR
+                        - UPSTREAM_SCHEMA_ERROR
+                        - RATE_LIMITED
+                        - PARSE_ERROR
+                        - INTERNAL_ERROR
+                        - QUEUE_TIMEOUT
+                        - CIRCUIT_OPEN
+                        - REQUEST_TOO_LARGE
+                        - RUNTIME_NOT_READY
+                        - DETECTOR_RETIRED
+                        - DETECTOR_DISABLED
+                        - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
+                      message:
+                        type: string
+                      retryable:
+                        type: boolean
+                      request_id:
+                        type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                      type:
+                      - string
+                      - 'null'
+        '503':
+          description: Admin Sidecar 연결 또는 상태 파일 오류
+      security:
+      - adminBearerAuth: []
+  /admin/main-model/profiles:
+    get:
+      tags:
+      - Runtime Control
+      summary: 메인 모델 프로필 조회
+      operationId: listMainModelProfiles
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '401':
+          description: 인증 실패
+          content:
+            application/json:
+              schema:
+                $schema: https://json-schema.org/draft/2020-12/schema
+                title: CommonErrorResponse
+                type: object
+                required:
+                - error
+                additionalProperties: false
+                properties:
+                  error:
+                    type: object
+                    required:
+                    - code
+                    - message
+                    - retryable
+                    - request_id
+                    additionalProperties: false
+                    properties:
+                      code:
+                        type: string
+                        enum:
+                        - VALIDATION_ERROR
+                        - UNAUTHORIZED
+                        - FORBIDDEN
+                        - NOT_FOUND
+                        - MODEL_UNAVAILABLE
+                        - MODEL_PARKED
+                        - MODEL_CAPABILITY_MISMATCH
+                        - UPSTREAM_TIMEOUT
+                        - UPSTREAM_ERROR
+                        - UPSTREAM_SCHEMA_ERROR
+                        - RATE_LIMITED
+                        - PARSE_ERROR
+                        - INTERNAL_ERROR
+                        - QUEUE_TIMEOUT
+                        - CIRCUIT_OPEN
+                        - REQUEST_TOO_LARGE
+                        - RUNTIME_NOT_READY
+                        - DETECTOR_RETIRED
+                        - DETECTOR_DISABLED
+                        - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
+                      message:
+                        type: string
+                      retryable:
+                        type: boolean
+                      request_id:
+                        type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                      type:
+                      - string
+                      - 'null'
+        '503':
+          description: Admin Sidecar 연결 실패
+      security:
+      - adminBearerAuth: []
+  /admin/main-model/switch:
+    post:
+      tags:
+      - Runtime Control
+      summary: 메인 모델 전환
+      operationId: switchMainModel
+      requestBody:
+        content:
+          application/json:
+            schema:
+              properties:
+                profile:
+                  type: string
+                  enum:
+                  - gemma4-26b-a4b-fp8
+                  - gemma4-12b-unified-fp8
+                confirm_unverified:
+                  type: boolean
+                  default: false
+                request_id:
+                  type: string
+                  maxLength: 128
+                  minLength: 1
+              additionalProperties: false
+              type: object
+              required:
+              - profile
+            examples:
+              switch_to_12b:
+                value:
+                  profile: gemma4-12b-unified-fp8
+                  confirm_unverified: true
+                  request_id: ops-20260618-12b
+        required: true
+      responses:
+        '202':
+          description: 전환 작업 접수
+          content:
+            application/json:
+              schema:
+                properties:
+                  operation_id:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+                    const: pending
+                type: object
+                required:
+                - operation_id
+                - status
+        '409':
+          description: 전환 중, locked, confirmation 필요 또는 request_id 충돌
+        '422':
+          description: 잘못된 profile 또는 request
+          content:
+            application/json:
+              schema:
+                $schema: https://json-schema.org/draft/2020-12/schema
+                title: CommonErrorResponse
+                type: object
+                required:
+                - error
+                additionalProperties: false
+                properties:
+                  error:
+                    type: object
+                    required:
+                    - code
+                    - message
+                    - retryable
+                    - request_id
+                    additionalProperties: false
+                    properties:
+                      code:
+                        type: string
+                        enum:
+                        - VALIDATION_ERROR
+                        - UNAUTHORIZED
+                        - FORBIDDEN
+                        - NOT_FOUND
+                        - MODEL_UNAVAILABLE
+                        - MODEL_PARKED
+                        - MODEL_CAPABILITY_MISMATCH
+                        - UPSTREAM_TIMEOUT
+                        - UPSTREAM_ERROR
+                        - UPSTREAM_SCHEMA_ERROR
+                        - RATE_LIMITED
+                        - PARSE_ERROR
+                        - INTERNAL_ERROR
+                        - QUEUE_TIMEOUT
+                        - CIRCUIT_OPEN
+                        - REQUEST_TOO_LARGE
+                        - RUNTIME_NOT_READY
+                        - DETECTOR_RETIRED
+                        - DETECTOR_DISABLED
+                        - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
+                      message:
+                        type: string
+                      retryable:
+                        type: boolean
+                      request_id:
+                        type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                        type:
+                        - string
+                        - 'null'
+        '503':
+          description: Admin Sidecar 연결 실패
+          content:
+            application/json:
+              schema:
+                $schema: https://json-schema.org/draft/2020-12/schema
+                title: CommonErrorResponse
+                type: object
+                required:
+                - error
+                additionalProperties: false
+                properties:
+                  error:
+                    type: object
+                    required:
+                    - code
+                    - message
+                    - retryable
+                    - request_id
+                    additionalProperties: false
+                    properties:
+                      code:
+                        type: string
+                        enum:
+                        - VALIDATION_ERROR
+                        - UNAUTHORIZED
+                        - FORBIDDEN
+                        - NOT_FOUND
+                        - MODEL_UNAVAILABLE
+                        - MODEL_PARKED
+                        - MODEL_CAPABILITY_MISMATCH
+                        - UPSTREAM_TIMEOUT
+                        - UPSTREAM_ERROR
+                        - UPSTREAM_SCHEMA_ERROR
+                        - RATE_LIMITED
+                        - PARSE_ERROR
+                        - INTERNAL_ERROR
+                        - QUEUE_TIMEOUT
+                        - CIRCUIT_OPEN
+                        - REQUEST_TOO_LARGE
+                        - RUNTIME_NOT_READY
+                        - DETECTOR_RETIRED
+                        - DETECTOR_DISABLED
+                        - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
+                      message:
+                        type: string
+                      retryable:
+                        type: boolean
+                      request_id:
+                        type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                        type:
+                        - string
+                        - 'null'
+        '401':
+          description: 인증 실패
+          content:
+            application/json:
+              schema:
+                $schema: https://json-schema.org/draft/2020-12/schema
+                title: CommonErrorResponse
+                type: object
+                required:
+                - error
+                additionalProperties: false
+                properties:
+                  error:
+                    type: object
+                    required:
+                    - code
+                    - message
+                    - retryable
+                    - request_id
+                    additionalProperties: false
+                    properties:
+                      code:
+                        type: string
+                        enum:
+                        - VALIDATION_ERROR
+                        - UNAUTHORIZED
+                        - FORBIDDEN
+                        - NOT_FOUND
+                        - MODEL_UNAVAILABLE
+                        - MODEL_PARKED
+                        - MODEL_CAPABILITY_MISMATCH
+                        - UPSTREAM_TIMEOUT
+                        - UPSTREAM_ERROR
+                        - UPSTREAM_SCHEMA_ERROR
+                        - RATE_LIMITED
+                        - PARSE_ERROR
+                        - INTERNAL_ERROR
+                        - QUEUE_TIMEOUT
+                        - CIRCUIT_OPEN
+                        - REQUEST_TOO_LARGE
+                        - RUNTIME_NOT_READY
+                        - DETECTOR_RETIRED
+                        - DETECTOR_DISABLED
+                        - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
+                      message:
+                        type: string
+                      retryable:
+                        type: boolean
+                      request_id:
+                        type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                        type:
+                        - string
+                        - 'null'
+        '413':
+          description: 요청 body가 너무 큼
+          content:
+            application/json:
+              schema:
+                $schema: https://json-schema.org/draft/2020-12/schema
+                title: CommonErrorResponse
+                type: object
+                required:
+                - error
+                additionalProperties: false
+                properties:
+                  error:
+                    type: object
+                    required:
+                    - code
+                    - message
+                    - retryable
+                    - request_id
+                    additionalProperties: false
+                    properties:
+                      code:
+                        type: string
+                        enum:
+                        - VALIDATION_ERROR
+                        - UNAUTHORIZED
+                        - FORBIDDEN
+                        - NOT_FOUND
+                        - MODEL_UNAVAILABLE
+                        - MODEL_PARKED
+                        - MODEL_CAPABILITY_MISMATCH
+                        - UPSTREAM_TIMEOUT
+                        - UPSTREAM_ERROR
+                        - UPSTREAM_SCHEMA_ERROR
+                        - RATE_LIMITED
+                        - PARSE_ERROR
+                        - INTERNAL_ERROR
+                        - QUEUE_TIMEOUT
+                        - CIRCUIT_OPEN
+                        - REQUEST_TOO_LARGE
+                        - RUNTIME_NOT_READY
+                        - DETECTOR_RETIRED
+                        - DETECTOR_DISABLED
+                        - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
+                      message:
+                        type: string
+                      retryable:
+                        type: boolean
+                      request_id:
+                        type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                        type:
+                        - string
+                        - 'null'
+        '429':
+          description: Upstream rate limit 또는 local admission timeout
+          content:
+            application/json:
+              schema:
+                $schema: https://json-schema.org/draft/2020-12/schema
+                title: CommonErrorResponse
+                type: object
+                required:
+                - error
+                additionalProperties: false
+                properties:
+                  error:
+                    type: object
+                    required:
+                    - code
+                    - message
+                    - retryable
+                    - request_id
+                    additionalProperties: false
+                    properties:
+                      code:
+                        type: string
+                        enum:
+                        - VALIDATION_ERROR
+                        - UNAUTHORIZED
+                        - FORBIDDEN
+                        - NOT_FOUND
+                        - MODEL_UNAVAILABLE
+                        - MODEL_PARKED
+                        - MODEL_CAPABILITY_MISMATCH
+                        - UPSTREAM_TIMEOUT
+                        - UPSTREAM_ERROR
+                        - UPSTREAM_SCHEMA_ERROR
+                        - RATE_LIMITED
+                        - PARSE_ERROR
+                        - INTERNAL_ERROR
+                        - QUEUE_TIMEOUT
+                        - CIRCUIT_OPEN
+                        - REQUEST_TOO_LARGE
+                        - RUNTIME_NOT_READY
+                        - DETECTOR_RETIRED
+                        - DETECTOR_DISABLED
+                        - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
+                      message:
+                        type: string
+                      retryable:
+                        type: boolean
+                      request_id:
+                        type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                        type:
+                        - string
+                        - 'null'
+        '500':
+          description: 내부 서버 오류
+          content:
+            application/json:
+              schema:
+                $schema: https://json-schema.org/draft/2020-12/schema
+                title: CommonErrorResponse
+                type: object
+                required:
+                - error
+                additionalProperties: false
+                properties:
+                  error:
+                    type: object
+                    required:
+                    - code
+                    - message
+                    - retryable
+                    - request_id
+                    additionalProperties: false
+                    properties:
+                      code:
+                        type: string
+                        enum:
+                        - VALIDATION_ERROR
+                        - UNAUTHORIZED
+                        - FORBIDDEN
+                        - NOT_FOUND
+                        - MODEL_UNAVAILABLE
+                        - MODEL_PARKED
+                        - MODEL_CAPABILITY_MISMATCH
+                        - UPSTREAM_TIMEOUT
+                        - UPSTREAM_ERROR
+                        - UPSTREAM_SCHEMA_ERROR
+                        - RATE_LIMITED
+                        - PARSE_ERROR
+                        - INTERNAL_ERROR
+                        - QUEUE_TIMEOUT
+                        - CIRCUIT_OPEN
+                        - REQUEST_TOO_LARGE
+                        - RUNTIME_NOT_READY
+                        - DETECTOR_RETIRED
+                        - DETECTOR_DISABLED
+                        - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
+                      message:
+                        type: string
+                      retryable:
+                        type: boolean
+                      request_id:
+                        type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                        type:
+                        - string
+                        - 'null'
+        '502':
+          description: Upstream 오류 또는 유효하지 않은 upstream 응답
+          content:
+            application/json:
+              schema:
+                $schema: https://json-schema.org/draft/2020-12/schema
+                title: CommonErrorResponse
+                type: object
+                required:
+                - error
+                additionalProperties: false
+                properties:
+                  error:
+                    type: object
+                    required:
+                    - code
+                    - message
+                    - retryable
+                    - request_id
+                    additionalProperties: false
+                    properties:
+                      code:
+                        type: string
+                        enum:
+                        - VALIDATION_ERROR
+                        - UNAUTHORIZED
+                        - FORBIDDEN
+                        - NOT_FOUND
+                        - MODEL_UNAVAILABLE
+                        - MODEL_PARKED
+                        - MODEL_CAPABILITY_MISMATCH
+                        - UPSTREAM_TIMEOUT
+                        - UPSTREAM_ERROR
+                        - UPSTREAM_SCHEMA_ERROR
+                        - RATE_LIMITED
+                        - PARSE_ERROR
+                        - INTERNAL_ERROR
+                        - QUEUE_TIMEOUT
+                        - CIRCUIT_OPEN
+                        - REQUEST_TOO_LARGE
+                        - RUNTIME_NOT_READY
+                        - DETECTOR_RETIRED
+                        - DETECTOR_DISABLED
+                        - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
+                      message:
+                        type: string
+                      retryable:
+                        type: boolean
+                      request_id:
+                        type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                        type:
+                        - string
+                        - 'null'
+        '504':
+          description: Upstream timeout
+          content:
+            application/json:
+              schema:
+                $schema: https://json-schema.org/draft/2020-12/schema
+                title: CommonErrorResponse
+                type: object
+                required:
+                - error
+                additionalProperties: false
+                properties:
+                  error:
+                    type: object
+                    required:
+                    - code
+                    - message
+                    - retryable
+                    - request_id
+                    additionalProperties: false
+                    properties:
+                      code:
+                        type: string
+                        enum:
+                        - VALIDATION_ERROR
+                        - UNAUTHORIZED
+                        - FORBIDDEN
+                        - NOT_FOUND
+                        - MODEL_UNAVAILABLE
+                        - MODEL_PARKED
+                        - MODEL_CAPABILITY_MISMATCH
+                        - UPSTREAM_TIMEOUT
+                        - UPSTREAM_ERROR
+                        - UPSTREAM_SCHEMA_ERROR
+                        - RATE_LIMITED
+                        - PARSE_ERROR
+                        - INTERNAL_ERROR
+                        - QUEUE_TIMEOUT
+                        - CIRCUIT_OPEN
+                        - REQUEST_TOO_LARGE
+                        - RUNTIME_NOT_READY
+                        - DETECTOR_RETIRED
+                        - DETECTOR_DISABLED
+                        - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
+                      message:
+                        type: string
+                      retryable:
+                        type: boolean
+                      request_id:
+                        type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                        type:
+                        - string
+                        - 'null'
+      security:
+      - adminBearerAuth: []
+  /admin/main-model/rollback:
+    post:
+      tags:
+      - Runtime Control
+      summary: 이전 정상 메인 모델로 rollback
+      operationId: rollbackMainModel
+      requestBody:
+        content:
+          application/json:
+            schema:
+              properties:
+                request_id:
+                  type: string
+                  maxLength: 128
+                  minLength: 1
+              additionalProperties: false
+              type: object
+            example:
+              request_id: ops-20260618-rollback
+        required: true
+      responses:
+        '202':
+          description: rollback 작업 접수
+          content:
+            application/json:
+              schema:
+                properties:
+                  operation_id:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+                    const: pending
+                type: object
+                required:
+                - operation_id
+                - status
+        '409':
+          description: rollback 대상 없음 또는 다른 전환 진행 중
+        '503':
+          description: Admin Sidecar 연결 실패
+          content:
+            application/json:
+              schema:
+                $schema: https://json-schema.org/draft/2020-12/schema
+                title: CommonErrorResponse
+                type: object
+                required:
+                - error
+                additionalProperties: false
+                properties:
+                  error:
+                    type: object
+                    required:
+                    - code
+                    - message
+                    - retryable
+                    - request_id
+                    additionalProperties: false
+                    properties:
+                      code:
+                        type: string
+                        enum:
+                        - VALIDATION_ERROR
+                        - UNAUTHORIZED
+                        - FORBIDDEN
+                        - NOT_FOUND
+                        - MODEL_UNAVAILABLE
+                        - MODEL_PARKED
+                        - MODEL_CAPABILITY_MISMATCH
+                        - UPSTREAM_TIMEOUT
+                        - UPSTREAM_ERROR
+                        - UPSTREAM_SCHEMA_ERROR
+                        - RATE_LIMITED
+                        - PARSE_ERROR
+                        - INTERNAL_ERROR
+                        - QUEUE_TIMEOUT
+                        - CIRCUIT_OPEN
+                        - REQUEST_TOO_LARGE
+                        - RUNTIME_NOT_READY
+                        - DETECTOR_RETIRED
+                        - DETECTOR_DISABLED
+                        - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
+                      message:
+                        type: string
+                      retryable:
+                        type: boolean
+                      request_id:
+                        type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                        type:
+                        - string
+                        - 'null'
+        '401':
+          description: 인증 실패
+          content:
+            application/json:
+              schema:
+                $schema: https://json-schema.org/draft/2020-12/schema
+                title: CommonErrorResponse
+                type: object
+                required:
+                - error
+                additionalProperties: false
+                properties:
+                  error:
+                    type: object
+                    required:
+                    - code
+                    - message
+                    - retryable
+                    - request_id
+                    additionalProperties: false
+                    properties:
+                      code:
+                        type: string
+                        enum:
+                        - VALIDATION_ERROR
+                        - UNAUTHORIZED
+                        - FORBIDDEN
+                        - NOT_FOUND
+                        - MODEL_UNAVAILABLE
+                        - MODEL_PARKED
+                        - MODEL_CAPABILITY_MISMATCH
+                        - UPSTREAM_TIMEOUT
+                        - UPSTREAM_ERROR
+                        - UPSTREAM_SCHEMA_ERROR
+                        - RATE_LIMITED
+                        - PARSE_ERROR
+                        - INTERNAL_ERROR
+                        - QUEUE_TIMEOUT
+                        - CIRCUIT_OPEN
+                        - REQUEST_TOO_LARGE
+                        - RUNTIME_NOT_READY
+                        - DETECTOR_RETIRED
+                        - DETECTOR_DISABLED
+                        - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
+                      message:
+                        type: string
+                      retryable:
+                        type: boolean
+                      request_id:
+                        type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                        type:
+                        - string
+                        - 'null'
+        '413':
+          description: 요청 body가 너무 큼
+          content:
+            application/json:
+              schema:
+                $schema: https://json-schema.org/draft/2020-12/schema
+                title: CommonErrorResponse
+                type: object
+                required:
+                - error
+                additionalProperties: false
+                properties:
+                  error:
+                    type: object
+                    required:
+                    - code
+                    - message
+                    - retryable
+                    - request_id
+                    additionalProperties: false
+                    properties:
+                      code:
+                        type: string
+                        enum:
+                        - VALIDATION_ERROR
+                        - UNAUTHORIZED
+                        - FORBIDDEN
+                        - NOT_FOUND
+                        - MODEL_UNAVAILABLE
+                        - MODEL_PARKED
+                        - MODEL_CAPABILITY_MISMATCH
+                        - UPSTREAM_TIMEOUT
+                        - UPSTREAM_ERROR
+                        - UPSTREAM_SCHEMA_ERROR
+                        - RATE_LIMITED
+                        - PARSE_ERROR
+                        - INTERNAL_ERROR
+                        - QUEUE_TIMEOUT
+                        - CIRCUIT_OPEN
+                        - REQUEST_TOO_LARGE
+                        - RUNTIME_NOT_READY
+                        - DETECTOR_RETIRED
+                        - DETECTOR_DISABLED
+                        - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
+                      message:
+                        type: string
+                      retryable:
+                        type: boolean
+                      request_id:
+                        type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                        type:
+                        - string
+                        - 'null'
+        '422':
+          description: 요청 검증 실패
+          content:
+            application/json:
+              schema:
+                $schema: https://json-schema.org/draft/2020-12/schema
+                title: CommonErrorResponse
+                type: object
+                required:
+                - error
+                additionalProperties: false
+                properties:
+                  error:
+                    type: object
+                    required:
+                    - code
+                    - message
+                    - retryable
+                    - request_id
+                    additionalProperties: false
+                    properties:
+                      code:
+                        type: string
+                        enum:
+                        - VALIDATION_ERROR
+                        - UNAUTHORIZED
+                        - FORBIDDEN
+                        - NOT_FOUND
+                        - MODEL_UNAVAILABLE
+                        - MODEL_PARKED
+                        - MODEL_CAPABILITY_MISMATCH
+                        - UPSTREAM_TIMEOUT
+                        - UPSTREAM_ERROR
+                        - UPSTREAM_SCHEMA_ERROR
+                        - RATE_LIMITED
+                        - PARSE_ERROR
+                        - INTERNAL_ERROR
+                        - QUEUE_TIMEOUT
+                        - CIRCUIT_OPEN
+                        - REQUEST_TOO_LARGE
+                        - RUNTIME_NOT_READY
+                        - DETECTOR_RETIRED
+                        - DETECTOR_DISABLED
+                        - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
+                      message:
+                        type: string
+                      retryable:
+                        type: boolean
+                      request_id:
+                        type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                        type:
+                        - string
+                        - 'null'
+        '429':
+          description: Upstream rate limit 또는 local admission timeout
+          content:
+            application/json:
+              schema:
+                $schema: https://json-schema.org/draft/2020-12/schema
+                title: CommonErrorResponse
+                type: object
+                required:
+                - error
+                additionalProperties: false
+                properties:
+                  error:
+                    type: object
+                    required:
+                    - code
+                    - message
+                    - retryable
+                    - request_id
+                    additionalProperties: false
+                    properties:
+                      code:
+                        type: string
+                        enum:
+                        - VALIDATION_ERROR
+                        - UNAUTHORIZED
+                        - FORBIDDEN
+                        - NOT_FOUND
+                        - MODEL_UNAVAILABLE
+                        - MODEL_PARKED
+                        - MODEL_CAPABILITY_MISMATCH
+                        - UPSTREAM_TIMEOUT
+                        - UPSTREAM_ERROR
+                        - UPSTREAM_SCHEMA_ERROR
+                        - RATE_LIMITED
+                        - PARSE_ERROR
+                        - INTERNAL_ERROR
+                        - QUEUE_TIMEOUT
+                        - CIRCUIT_OPEN
+                        - REQUEST_TOO_LARGE
+                        - RUNTIME_NOT_READY
+                        - DETECTOR_RETIRED
+                        - DETECTOR_DISABLED
+                        - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
+                      message:
+                        type: string
+                      retryable:
+                        type: boolean
+                      request_id:
+                        type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                        type:
+                        - string
+                        - 'null'
+        '500':
+          description: 내부 서버 오류
+          content:
+            application/json:
+              schema:
+                $schema: https://json-schema.org/draft/2020-12/schema
+                title: CommonErrorResponse
+                type: object
+                required:
+                - error
+                additionalProperties: false
+                properties:
+                  error:
+                    type: object
+                    required:
+                    - code
+                    - message
+                    - retryable
+                    - request_id
+                    additionalProperties: false
+                    properties:
+                      code:
+                        type: string
+                        enum:
+                        - VALIDATION_ERROR
+                        - UNAUTHORIZED
+                        - FORBIDDEN
+                        - NOT_FOUND
+                        - MODEL_UNAVAILABLE
+                        - MODEL_PARKED
+                        - MODEL_CAPABILITY_MISMATCH
+                        - UPSTREAM_TIMEOUT
+                        - UPSTREAM_ERROR
+                        - UPSTREAM_SCHEMA_ERROR
+                        - RATE_LIMITED
+                        - PARSE_ERROR
+                        - INTERNAL_ERROR
+                        - QUEUE_TIMEOUT
+                        - CIRCUIT_OPEN
+                        - REQUEST_TOO_LARGE
+                        - RUNTIME_NOT_READY
+                        - DETECTOR_RETIRED
+                        - DETECTOR_DISABLED
+                        - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
+                      message:
+                        type: string
+                      retryable:
+                        type: boolean
+                      request_id:
+                        type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                        type:
+                        - string
+                        - 'null'
+        '502':
+          description: Upstream 오류 또는 유효하지 않은 upstream 응답
+          content:
+            application/json:
+              schema:
+                $schema: https://json-schema.org/draft/2020-12/schema
+                title: CommonErrorResponse
+                type: object
+                required:
+                - error
+                additionalProperties: false
+                properties:
+                  error:
+                    type: object
+                    required:
+                    - code
+                    - message
+                    - retryable
+                    - request_id
+                    additionalProperties: false
+                    properties:
+                      code:
+                        type: string
+                        enum:
+                        - VALIDATION_ERROR
+                        - UNAUTHORIZED
+                        - FORBIDDEN
+                        - NOT_FOUND
+                        - MODEL_UNAVAILABLE
+                        - MODEL_PARKED
+                        - MODEL_CAPABILITY_MISMATCH
+                        - UPSTREAM_TIMEOUT
+                        - UPSTREAM_ERROR
+                        - UPSTREAM_SCHEMA_ERROR
+                        - RATE_LIMITED
+                        - PARSE_ERROR
+                        - INTERNAL_ERROR
+                        - QUEUE_TIMEOUT
+                        - CIRCUIT_OPEN
+                        - REQUEST_TOO_LARGE
+                        - RUNTIME_NOT_READY
+                        - DETECTOR_RETIRED
+                        - DETECTOR_DISABLED
+                        - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
+                      message:
+                        type: string
+                      retryable:
+                        type: boolean
+                      request_id:
+                        type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                        type:
+                        - string
+                        - 'null'
+        '504':
+          description: Upstream timeout
+          content:
+            application/json:
+              schema:
+                $schema: https://json-schema.org/draft/2020-12/schema
+                title: CommonErrorResponse
+                type: object
+                required:
+                - error
+                additionalProperties: false
+                properties:
+                  error:
+                    type: object
+                    required:
+                    - code
+                    - message
+                    - retryable
+                    - request_id
+                    additionalProperties: false
+                    properties:
+                      code:
+                        type: string
+                        enum:
+                        - VALIDATION_ERROR
+                        - UNAUTHORIZED
+                        - FORBIDDEN
+                        - NOT_FOUND
+                        - MODEL_UNAVAILABLE
+                        - MODEL_PARKED
+                        - MODEL_CAPABILITY_MISMATCH
+                        - UPSTREAM_TIMEOUT
+                        - UPSTREAM_ERROR
+                        - UPSTREAM_SCHEMA_ERROR
+                        - RATE_LIMITED
+                        - PARSE_ERROR
+                        - INTERNAL_ERROR
+                        - QUEUE_TIMEOUT
+                        - CIRCUIT_OPEN
+                        - REQUEST_TOO_LARGE
+                        - RUNTIME_NOT_READY
+                        - DETECTOR_RETIRED
+                        - DETECTOR_DISABLED
+                        - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
+                      message:
+                        type: string
+                      retryable:
+                        type: boolean
+                      request_id:
+                        type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                        type:
+                        - string
+                        - 'null'
+      security:
+      - adminBearerAuth: []
+  /admin/main-model/operations/{operation_id}:
+    get:
+      tags:
+      - Runtime Control
+      summary: 메인 모델 전환 작업 조회
+      operationId: getMainModelOperation
+      responses:
+        '200':
+          description: 전환 작업 상태
+          content:
+            application/json:
+              schema:
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  requested_profile:
+                    type: string
+                  previous_profile:
+                    type:
+                    - string
+                    - 'null'
+                  client_request_id:
+                    type:
+                    - string
+                    - 'null'
+                  status:
+                    type: string
+                    enum:
+                    - pending
+                    - draining
+                    - stopping
+                    - starting
+                    - validating
+                    - rolling_back
+                    - completed
+                    - failed
+                    - rollback_failed
+                  stage:
+                    type: string
+                    enum:
+                    - pending
+                    - draining
+                    - stopping
+                    - starting
+                    - validating
+                    - rolling_back
+                    - completed
+                    - failed
+                    - rollback_failed
+                  error:
+                    type:
+                    - string
+                    - 'null'
+                  rollback_error:
+                    type:
+                    - string
+                    - 'null'
+                  created_at:
+                    type: number
+                  updated_at:
+                    type: number
+                type: object
+                required:
+                - id
+                - requested_profile
+                - status
+                - stage
+                - created_at
+                - updated_at
+        '404':
+          description: operation 없음
+        '503':
+          description: Admin Sidecar 연결 실패
+        '401':
+          description: 인증 실패
+          content:
+            application/json:
+              schema:
+                $schema: https://json-schema.org/draft/2020-12/schema
+                title: CommonErrorResponse
+                type: object
+                required:
+                - error
+                additionalProperties: false
+                properties:
+                  error:
+                    type: object
+                    required:
+                    - code
+                    - message
+                    - retryable
+                    - request_id
+                    additionalProperties: false
+                    properties:
+                      code:
+                        type: string
+                        enum:
+                        - VALIDATION_ERROR
+                        - UNAUTHORIZED
+                        - FORBIDDEN
+                        - NOT_FOUND
+                        - MODEL_UNAVAILABLE
+                        - MODEL_PARKED
+                        - MODEL_CAPABILITY_MISMATCH
+                        - UPSTREAM_TIMEOUT
+                        - UPSTREAM_ERROR
+                        - UPSTREAM_SCHEMA_ERROR
+                        - RATE_LIMITED
+                        - PARSE_ERROR
+                        - INTERNAL_ERROR
+                        - QUEUE_TIMEOUT
+                        - CIRCUIT_OPEN
+                        - REQUEST_TOO_LARGE
+                        - RUNTIME_NOT_READY
+                        - DETECTOR_RETIRED
+                        - DETECTOR_DISABLED
+                        - STREAM_LIMIT_EXCEEDED
+                        - MAIN_MODEL_CONTROL_UNAVAILABLE
+                        - MAIN_MODEL_SWITCH_IN_PROGRESS
+                      message:
+                        type: string
+                      retryable:
+                        type: boolean
+                      request_id:
+                        type: string
+                      operation_id:
+                        type:
+                        - string
+                        - 'null'
+                      operation_status:
+                        type:
+                        - string
+                        - 'null'
+      security:
+      - adminBearerAuth: []
 components:
   schemas: {}
   securitySchemes:

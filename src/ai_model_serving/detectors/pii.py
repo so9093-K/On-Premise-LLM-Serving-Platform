@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import re
+from dataclasses import dataclass
 from typing import Any
 
 from ..risk import assessment_response
 
-SOURCE_MODEL = "presidio-analyzer"
+DETECTOR_SOURCE = "pii-protection"
 
 # Entity label -> D-code mapping
 _ENTITY_CODE: dict[str, str] = {
@@ -35,14 +36,39 @@ _PRESIDIO_ENTITIES = [
     "URL",
 ]
 
+
+@dataclass(frozen=True)
+class EntitySpan:
+    """One recognizer finding before duplicate removal.
+
+    Raw matched text is intentionally not stored. Character offsets are retained
+    only in-process so multiple recognizers can be deduplicated without exposing
+    PII in the API response.
+    """
+
+    entity: str
+    start: int
+    end: int
+    source: str
+
+
+@dataclass(frozen=True)
+class EntitySummary:
+    """Classified count produced after recognizer reconciliation."""
+
+    entity: str
+    code: str
+    span_count: int
+
+
 # --- Korean custom recognizer patterns (no context required for strong patterns) ---
 
-_KR_RRN_RE = re.compile(r"\b(\d{6})-([1-4]\d{6})\b")
-_KR_FRN_RE = re.compile(r"\b(\d{6})-([5-8]\d{6})\b")
-_KR_BRN_RE = re.compile(r"\b(\d{3})-(\d{2})-(\d{5})\b")
-_KR_PASSPORT_RE = re.compile(r"\b[MR][A-Z]\d{7}\b")
-_KR_DRIVER_LICENSE_RE = re.compile(r"\b\d{2}-\d{2}-\d{6}-\d{2}\b")
-# RFC 5321 local-part + domain — no \b to handle mixed Korean/ASCII boundaries
+_KR_RRN_RE = re.compile(r"(?<!\d)\d{6}-[1-4]\d{6}(?!\d)")
+_KR_FRN_RE = re.compile(r"(?<!\d)\d{6}-[5-8]\d{6}(?!\d)")
+_KR_BRN_RE = re.compile(r"(?<!\d)\d{3}-\d{2}-\d{5}(?!\d)")
+_KR_PASSPORT_RE = re.compile(r"(?<![A-Z0-9])[MR][A-Z]\d{7}(?![A-Z0-9])")
+_KR_DRIVER_LICENSE_RE = re.compile(r"(?<!\d)\d{2}-\d{2}-\d{6}-\d{2}(?!\d)")
+# RFC 5321 local-part + domain — ASCII lookarounds handle mixed Korean/ASCII boundaries.
 _EMAIL_RE = re.compile(r"[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}")
 _KR_PHONE_RE = re.compile(
     r"(?<!\d)(?:"
@@ -51,41 +77,59 @@ _KR_PHONE_RE = re.compile(
     r"|0[3-9]\d-\d{3,4}-\d{4}"    # 지역 유선 (031~099)
     r")(?!\d)"
 )
-_BANK_ACCOUNT_RE = re.compile(r"\b\d{10,14}\b")
+_BANK_ACCOUNT_RE = re.compile(r"(?<!\d)\d{10,14}(?!\d)")
 _BANK_ACCOUNT_CONTEXT_RE = re.compile(
     r"(?i)(계좌|입금|출금|이체|account|bank|통장)",
 )
+_BANK_ACCOUNT_CONTEXT_WINDOW = 16
+
+_PHONE_SHAPED_IDENTIFIER_ENTITIES: frozenset[str] = frozenset(
+    {"KR_RRN", "KR_FRN", "KR_BRN", "KR_DRIVER_LICENSE"}
+)
 
 
-def _run_custom_recognizers(text: str) -> dict[str, int]:
-    """Run Korean custom recognizers and return entity_label -> span_count dict."""
-    counts: dict[str, int] = {}
-
-    if m := _KR_RRN_RE.findall(text):
-        counts["KR_RRN"] = len(m)
-    if m := _KR_FRN_RE.findall(text):
-        counts["KR_FRN"] = len(m)
-    if m := _KR_BRN_RE.findall(text):
-        counts["KR_BRN"] = len(m)
-    if m := _KR_PASSPORT_RE.findall(text):
-        counts["KR_PASSPORT"] = len(m)
-    if m := _KR_DRIVER_LICENSE_RE.findall(text):
-        counts["KR_DRIVER_LICENSE"] = len(m)
-    if m := _EMAIL_RE.findall(text):
-        counts["EMAIL_ADDRESS"] = len(m)
-    if m := _KR_PHONE_RE.findall(text):
-        counts["PHONE_NUMBER"] = len(m)
-
-    # Bank account candidate: only count when financial context keyword nearby
-    if _BANK_ACCOUNT_CONTEXT_RE.search(text):
-        if m := _BANK_ACCOUNT_RE.findall(text):
-            counts["BANK_ACCOUNT_CANDIDATE"] = len(m)
-
-    return counts
+def _regex_spans(
+    text: str,
+    entity: str,
+    pattern: re.Pattern[str],
+) -> list[EntitySpan]:
+    return [
+        EntitySpan(entity, match.start(), match.end(), "custom")
+        for match in pattern.finditer(text)
+    ]
 
 
-def _try_presidio_analysis(text: str) -> dict[str, int] | None:
-    """Run Presidio analysis; return None if presidio is not installed."""
+def _run_custom_span_recognizers(text: str) -> list[EntitySpan]:
+    """Return strong local recognizer findings with their character offsets."""
+    spans: list[EntitySpan] = []
+    for entity, pattern in (
+        ("KR_RRN", _KR_RRN_RE),
+        ("KR_FRN", _KR_FRN_RE),
+        ("KR_BRN", _KR_BRN_RE),
+        ("KR_PASSPORT", _KR_PASSPORT_RE),
+        ("KR_DRIVER_LICENSE", _KR_DRIVER_LICENSE_RE),
+        ("EMAIL_ADDRESS", _EMAIL_RE),
+        ("PHONE_NUMBER", _KR_PHONE_RE),
+    ):
+        spans.extend(_regex_spans(text, entity, pattern))
+
+    for match in _BANK_ACCOUNT_RE.finditer(text):
+        context_start = max(0, match.start() - _BANK_ACCOUNT_CONTEXT_WINDOW)
+        context_end = min(len(text), match.end() + _BANK_ACCOUNT_CONTEXT_WINDOW)
+        if _BANK_ACCOUNT_CONTEXT_RE.search(text[context_start:context_end]):
+            spans.append(
+                EntitySpan(
+                    "BANK_ACCOUNT_CANDIDATE",
+                    match.start(),
+                    match.end(),
+                    "custom",
+                )
+            )
+    return spans
+
+
+def _try_presidio_span_analysis(text: str) -> list[EntitySpan] | None:
+    """Run Presidio while retaining offsets needed for reconciliation."""
     try:
         from presidio_analyzer import AnalyzerEngine  # type: ignore[import-untyped]
     except ImportError:
@@ -93,11 +137,84 @@ def _try_presidio_analysis(text: str) -> dict[str, int] | None:
 
     engine = _get_analyzer()
     results = engine.analyze(text=text, language="en", entities=_PRESIDIO_ENTITIES)
+    return [
+        EntitySpan(
+            entity=result.entity_type,
+            start=int(result.start),
+            end=int(result.end),
+            source="presidio",
+        )
+        for result in results
+    ]
+
+
+def _same_span(left: EntitySpan, right: EntitySpan) -> bool:
+    return left.start == right.start and left.end == right.end
+
+
+def _contains(container: EntitySpan, nested: EntitySpan) -> bool:
+    return container.start <= nested.start and nested.end <= container.end
+
+
+def _is_nested_duplicate(preferred: EntitySpan, candidate: EntitySpan) -> bool:
+    """Return true only for known recognizer duplication, not general overlap."""
+    if (
+        preferred.entity in _PHONE_SHAPED_IDENTIFIER_ENTITIES
+        and candidate.entity == "PHONE_NUMBER"
+    ):
+        return _same_span(preferred, candidate)
+    if preferred.entity == "EMAIL_ADDRESS" and candidate.entity == "URL":
+        return _contains(preferred, candidate)
+    return False
+
+
+def _reconcile_spans(spans: list[EntitySpan]) -> list[EntitySpan]:
+    """Remove technical duplicates while preserving independent findings."""
+    candidates = sorted(
+        spans,
+        key=lambda span: (
+            span.start,
+            span.end,
+            span.entity,
+            0 if span.source == "custom" else 1,
+        ),
+    )
+
+    # Only the exact same entity and exact same range is a duplicate. Partial
+    # overlap is preserved because the reconciler does not infer meaning.
+    deduplicated: list[EntitySpan] = []
+    for candidate in candidates:
+        if any(
+            accepted.entity == candidate.entity and _same_span(accepted, candidate)
+            for accepted in deduplicated
+        ):
+            continue
+        deduplicated.append(candidate)
+
+    return [
+        candidate
+        for candidate in deduplicated
+        if not any(
+            other is not candidate and _is_nested_duplicate(other, candidate)
+            for other in deduplicated
+        )
+    ]
+
+
+def _count_spans(spans: list[EntitySpan]) -> dict[str, int]:
     counts: dict[str, int] = {}
-    for result in results:
-        entity = result.entity_type
-        counts[entity] = counts.get(entity, 0) + 1
+    for span in spans:
+        counts[span.entity] = counts.get(span.entity, 0) + 1
     return counts
+
+
+def _classify_spans(spans: list[EntitySpan]) -> list[EntitySummary]:
+    """Map reconciled entity spans to the public D-code taxonomy."""
+    return [
+        EntitySummary(entity=entity, code=_ENTITY_CODE[entity], span_count=count)
+        for entity, count in sorted(_count_spans(spans).items())
+        if entity in _ENTITY_CODE
+    ]
 
 
 _analyzer_instance: Any = None
@@ -118,79 +235,70 @@ def _get_analyzer() -> Any:
     return _analyzer_instance
 
 
-def _build_categories(entity_counts: dict[str, int]) -> list[dict[str, Any]]:
-    """Convert entity_label -> count mapping to category dicts."""
-    if not entity_counts:
-        return [
-            {
-                "code": None,
-                "family": "data_exposure",
-                "detected": False,
-                "confidence": None,
-                "source_model": SOURCE_MODEL,
-                "label": None,
-                "span_count": 0,
-            }
-        ]
+def _safe_category() -> dict[str, Any]:
+    return {
+        "code": None,
+        "family": "data_exposure",
+        "detected": False,
+        "confidence": None,
+        "source_model": DETECTOR_SOURCE,
+        "label": None,
+        "span_count": 0,
+    }
 
-    categories: list[dict[str, Any]] = []
-    for entity_label, span_count in sorted(entity_counts.items()):
-        code = _ENTITY_CODE.get(entity_label)
-        if code is None:
-            continue
-        categories.append(
-            {
-                "code": code,
-                "family": "data_exposure",
-                "detected": True,
-                "confidence": None,
-                "source_model": SOURCE_MODEL,
-                "label": entity_label,
-                "span_count": span_count,
-            }
-        )
 
-    if not categories:
-        return [
-            {
-                "code": None,
-                "family": "data_exposure",
-                "detected": False,
-                "confidence": None,
-                "source_model": SOURCE_MODEL,
-                "label": None,
-                "span_count": 0,
-            }
-        ]
-    return categories
+def _categories_from_summaries(
+    summaries: list[EntitySummary],
+) -> list[dict[str, Any]]:
+    """Build contract categories without performing recognition or reconciliation."""
+    if not summaries:
+        return [_safe_category()]
+
+    return [
+        {
+            "code": summary.code,
+            "family": "data_exposure",
+            "detected": True,
+            "confidence": None,
+            "source_model": DETECTOR_SOURCE,
+            "label": summary.entity,
+            "span_count": summary.span_count,
+        }
+        for summary in summaries
+    ]
+
+
+def _collect_recognizer_spans(text: str) -> list[EntitySpan]:
+    """Collect findings; each recognizer remains responsible only for detection."""
+    spans = _run_custom_span_recognizers(text)
+    presidio_spans = _try_presidio_span_analysis(text)
+    if presidio_spans is not None:
+        spans.extend(presidio_spans)
+    return spans
+
+
+def _build_assessment(categories: list[dict[str, Any]]) -> dict[str, Any]:
+    """Build the external assessment contract from already classified categories."""
+    detected = any(category["detected"] for category in categories)
+    message = "Data exposure signal detected." if detected else "No PII signal detected."
+    return assessment_response(
+        categories=categories,
+        system_signals=[],
+        status="completed",
+        message=message,
+    )
 
 
 class PIIProtectionDetector:
-    """PII detection using Presidio Analyzer (optional) + Korean custom recognizers.
+    """Coordinate recognition, technical deduplication, classification, and output.
 
-    Presidio is an optional runtime dependency. When not installed, only the
-    Korean regex recognizers run. Original PII values are never included in the
-    response; only entity labels and span counts are returned.
+    Each stage is implemented separately. The detector does not validate whether
+    an identifier exists or belongs to a real person or business.
     """
 
     async def assess(self, text: str) -> dict[str, Any]:
-        entity_counts: dict[str, int] = {}
-
-        # Korean custom recognizers (always available)
-        entity_counts.update(_run_custom_recognizers(text))
-
-        # Presidio built-in recognizers (optional)
-        presidio_counts = _try_presidio_analysis(text)
-        if presidio_counts is not None:
-            for entity, count in presidio_counts.items():
-                entity_counts[entity] = entity_counts.get(entity, 0) + count
-
-        categories = _build_categories(entity_counts)
-        detected = any(c["detected"] for c in categories)
-        message = "Data exposure signal detected." if detected else "No PII signal detected."
-        return assessment_response(
-            categories=categories,
-            system_signals=[],
-            status="completed",
-            message=message,
-        )
+        recognized = _collect_recognizer_spans(text)
+        reconciled = _reconcile_spans(recognized)
+        summaries = _classify_spans(reconciled)
+        categories = _categories_from_summaries(summaries)
+        return _build_assessment(categories)

@@ -48,6 +48,7 @@ embedding_profiles:
 models:
   main_llm:
     name: RedHatAI/gemma-4-26B-A4B-it-FP8-Dynamic
+    revision: 8edbb9269ec9c3faad538ee1208a07eb46051f34
     served_model_name: local-main
     backend: vllm
     port: 9401
@@ -385,7 +386,7 @@ risk_adapter:
       type: local
       enabled: true
       route: /v1/risk/detectors/pii/assessments
-      source_model: presidio-analyzer
+      source_model: pii-protection
       family: data_exposure
       allowed_codes:
       - D1

@@ -63,10 +63,12 @@ services:
     expose:
     - '9405'
   main-llm-vllm:
-    image: ${VLLM_IMAGE:?Set VLLM_IMAGE to a tested vLLM OpenAI image tag}
+    image: vllm/vllm-openai@sha256:f4492643056969529a74238f71dd66dc3097c0d433156a4f4478456bf84bd276
     command:
     - --model
     - RedHatAI/gemma-4-26B-A4B-it-FP8-Dynamic
+    - --revision
+    - 8edbb9269ec9c3faad538ee1208a07eb46051f34
     - --served-model-name
     - local-main
     - --host
@@ -354,6 +356,7 @@ services:
   # -------------------------------------------------------------------------
   admin-sidecar:
     image: ${PLATFORM_IMAGE:?Set PLATFORM_IMAGE to a tested platform image tag}
+    user: 0:0
     command:
     - python
     - -m
@@ -369,11 +372,16 @@ services:
       PYTHONPATH: /app/src
       DOCKER_SOCKET: /var/run/docker.sock
       COMPOSE_PROJECT: ${COMPOSE_PROJECT_NAME:-ai-model-serving}
+      GATEWAY_INTERNAL_URL: http://gateway:9400
+      MAIN_MODEL_STATE_PATH: /var/lib/ai-model-serving/main-model-state.json
+      MAIN_LLM_BOOT_PROFILE: ${MAIN_LLM_BOOT_PROFILE:-gemma4-26b-a4b-fp8}
+      MAIN_LLM_PROFILE_LOCKED: ${MAIN_LLM_PROFILE_LOCKED:-false}
     # Override DOCKER_GID if host docker group differs from 999 (getent group docker | cut -d: -f3)
     group_add:
     - "${DOCKER_GID:-999}"
     volumes:
     - /var/run/docker.sock:/var/run/docker.sock:ro
+    - ../../.runtime/main-model:/var/lib/ai-model-serving
     expose:
     - '8080'
     healthcheck:

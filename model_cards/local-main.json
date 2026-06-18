@@ -1,6 +1,7 @@
 {
   "logical_id": "local-main",
   "upstream_model_id": "RedHatAI/gemma-4-26B-A4B-it-FP8-Dynamic",
+  "upstream_revision": "8edbb9269ec9c3faad538ee1208a07eb46051f34",
   "base_model_id": "google/gemma-4-26B-A4B-it",
   "role": "main_chat_completion",
   "license": "gemma",

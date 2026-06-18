@@ -1,0 +1,131 @@
+version: 1
+public_model: local-main
+default_profile: gemma4-26b-a4b-fp8
+runtime:
+  compose_service: main-llm-vllm
+  container_port: 9401
+  health_path: /health
+  models_path: /v1/models
+  chat_path: /v1/chat/completions
+  image: vllm/vllm-openai@sha256:f4492643056969529a74238f71dd66dc3097c0d433156a4f4478456bf84bd276
+  drain_timeout_seconds: 30
+  startup_timeout_seconds: 600
+profiles:
+  gemma4-26b-a4b-fp8:
+    display_name: Gemma 4 26B A4B FP8
+    model_id: RedHatAI/gemma-4-26B-A4B-it-FP8-Dynamic
+    revision: 8edbb9269ec9c3faad538ee1208a07eb46051f34
+    served_model_name: local-main
+    compatibility:
+      status: verified
+      reasons:
+      - Current RTX 6000 Ada 48 GiB deployment is running the 26B model with this 20K runtime policy.
+      - The model revision and runtime image digest were captured when this profile was added.
+      validation:
+        gpu: NVIDIA RTX 6000 Ada Generation
+        compute_capability: "8.9"
+        vram_mib: 49140
+        context_tokens: 20000
+        concurrency: 1
+        validated_at: 2026-06-18
+    capabilities:
+      model_input: [text, image]
+      deployed_input: [text, image]
+      output: [text]
+      audio: disabled
+      audio_enabled: false
+      audio_block_reason: model_variant_does_not_expose_audio
+    command:
+    - --model
+    - RedHatAI/gemma-4-26B-A4B-it-FP8-Dynamic
+    - --revision
+    - 8edbb9269ec9c3faad538ee1208a07eb46051f34
+    - --served-model-name
+    - local-main
+    - --host
+    - 0.0.0.0
+    - --port
+    - "9401"
+    - --max-model-len
+    - "20000"
+    - --max-num-seqs
+    - "1"
+    - --max-num-batched-tokens
+    - "20000"
+    - --optimization-level
+    - "3"
+    - --gpu-memory-utilization
+    - "0.76"
+    - --tensor-parallel-size
+    - "1"
+    - --dtype
+    - auto
+    - --trust-remote-code
+    - --enable-prefix-caching
+    - --prefix-caching-hash-algo
+    - sha256_cbor
+    - --enable-auto-tool-choice
+    - --tool-call-parser
+    - gemma4
+    - --reasoning-parser
+    - gemma4
+    - --chat-template
+    - /app/configs/gemma4_chat_template.jinja
+    - --structured-outputs-config
+    - '{"backend":"xgrammar","disable_any_whitespace":true,"enable_in_reasoning":true}'
+  gemma4-12b-unified-fp8:
+    display_name: Gemma 4 12B Unified FP8
+    model_id: RedHatAI/gemma-4-12B-it-FP8-Dynamic
+    revision: 67e53491df7a281623fa740de61307d5c542b7f4
+    served_model_name: local-main
+    compatibility:
+      status: unverified
+      reasons:
+      - The checkpoint card states compatibility with vLLM nightly.
+      - This exact revision and pinned runtime image have not been boot-validated on the current host.
+      - No 24 GiB hardware claim is made without an exact-system validation record.
+    capabilities:
+      model_input: [text, image, audio]
+      deployed_input: [text, image]
+      output: [text]
+      audio: disabled_pending_gateway_and_runtime_validation
+      audio_enabled: false
+      audio_block_reason: pinned_runtime_missing_soundfile_and_pyav_and_no_12b_audio_canary
+    command:
+    - --model
+    - RedHatAI/gemma-4-12B-it-FP8-Dynamic
+    - --revision
+    - 67e53491df7a281623fa740de61307d5c542b7f4
+    - --served-model-name
+    - local-main
+    - --host
+    - 0.0.0.0
+    - --port
+    - "9401"
+    - --max-model-len
+    - "20000"
+    - --max-num-seqs
+    - "1"
+    - --max-num-batched-tokens
+    - "20000"
+    - --optimization-level
+    - "3"
+    - --gpu-memory-utilization
+    - "0.76"
+    - --tensor-parallel-size
+    - "1"
+    - --dtype
+    - auto
+    - --trust-remote-code
+    - --enable-prefix-caching
+    - --prefix-caching-hash-algo
+    - sha256_cbor
+    - --enable-auto-tool-choice
+    - --tool-call-parser
+    - gemma4
+    - --reasoning-parser
+    - gemma4
+    - --chat-template
+    - /app/configs/gemma4_chat_template.jinja
+    - --structured-outputs-config
+    - '{"backend":"xgrammar","disable_any_whitespace":true,"enable_in_reasoning":true}'

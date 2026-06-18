@@ -2,6 +2,11 @@
 
 모니터링은 기본 활성화한다. 초기 운영 단계에서는 보이지 않는 것이 더 큰 위험이므로 Prometheus, Grafana, DCGM exporter, cAdvisor를 compose reference에 포함한다.
 
+메인 모델 선택 기능은 `main_model_control` dashboard에서 확인한다. active
+profile/revision/runtime image/compatibility, request gate, latest operation
+state, switch·rollback 누적 결과와 마지막 전환 시간을 표시한다. operation
+ID와 오류 문자열은 metric label로 사용하지 않는다.
+
 | UI/endpoint | 기본 포트 | 용도 |
 |---|---:|---|
 | Prometheus | 9410 | scrape target과 metric 확인 |

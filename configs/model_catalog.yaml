@@ -6,6 +6,7 @@ models:
   local-main:
     role: main_llm
     upstream_model_id: RedHatAI/gemma-4-26B-A4B-it-FP8-Dynamic
+    upstream_revision: 8edbb9269ec9c3faad538ee1208a07eb46051f34
     base_model_id: google/gemma-4-26B-A4B-it
     provider: RedHatAI
     family: Gemma 4
@@ -131,6 +132,13 @@ models:
       - tests/contract/test_runtime_policy.py
       removal_rule: remove from catalog, serving config, model contract, model card,
         public model schema enum, and runtime validation expectations in one change
+    selectable_runtime_profiles:
+      source: configs/main_model_profiles.yaml
+      profiles:
+      - gemma4-26b-a4b-fp8
+      - gemma4-12b-unified-fp8
+      selection_note: Both profiles preserve the public local-main alias; only one
+        main runtime is loaded at a time.
   local-embed:
     role: embedding
     upstream_model_id: google/embeddinggemma-300m

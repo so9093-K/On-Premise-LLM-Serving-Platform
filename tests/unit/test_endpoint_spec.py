@@ -266,11 +266,11 @@ def test_retired_specs_have_replacement() -> None:
             )
 
 
-def test_stable_specs_have_200_status() -> None:
+def test_stable_specs_have_success_status() -> None:
     for spec in GATEWAY_ENDPOINTS + RISK_ADAPTER_ENDPOINTS:
         if spec.lifecycle == "stable":
-            assert spec.status_code == 200, (
-                f"{spec.service} {spec.path}: stable endpoint must have status_code=200, "
+            assert spec.status_code in {200, 202}, (
+                f"{spec.service} {spec.path}: stable endpoint must have status_code=200 or 202, "
                 f"got {spec.status_code}"
             )
 

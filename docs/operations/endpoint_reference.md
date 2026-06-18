@@ -20,6 +20,9 @@
 | **Infisical** | `http://localhost:9420` | 시크릿 관리 웹 UI (선택) |
 
 > `full-stack.private-network.yaml` 기준: vLLM runtime(main-llm-vllm 9401, embedding-vllm 9402, risk-prompt-vllm 9403, embedding-ko-vllm 9406), Risk Adapter(9405), Prometheus, cAdvisor, DCGM Exporter는 compose 내부 네트워크 전용이며 host에서 직접 접근하지 않는다.  
+> `master_open`에서는 진단 목적으로 이 포트들을 host-publish하므로 Gateway 인증,
+> request validation, rate limit, access logging을 우회할 수 있다. 일반 사용자
+> API가 아니며 `EXPOSURE_AUDIENCE`와 interface bind로 접근 범위를 제한한다.
 > Prometheus에 직접 접근하려면 SSH 포트 포워딩(`ssh -L 9410:localhost:9090 <host>`)을 사용한다. Grafana는 Prometheus 데이터를 UI로 제공하므로 대부분의 metrics 조회는 Grafana를 통한다.  
 > Infisical은 선택 서비스로 `make infisical-up`으로 별도 기동한다.
 
@@ -41,6 +44,7 @@ _EndpointSpec 레지스트리에서 자동 생성. 수정 시 `endpoint_spec.py`
 | `GET` | `/health` | stable | `none` | — | — | `getGatewayHealth` |
 | `GET` | `/ready` | stable | `admin` | — | `readiness_response.schema.json` ✓ | `getGatewayReadiness` |
 | `GET` | `/metrics` | stable | `admin` | — | — | `getGatewayMetrics` |
+| `GET` | `/internal/main-model/drain-status` | stable | `internal_service` | — | — | `getMainModelDrainStatus` |
 | `GET` | `/v1/models` | stable | `public_api` | — | `model_list_response.schema.json` ✓ | `listModels` |
 | `POST` | `/v1/chat/completions` | stable | `public_api` | `chat_completion_request.schema.json` ✓ | `chat_completion_response.schema.json` ✓ | `createChatCompletion` |
 | `POST` | `/v1/embeddings` | stable | `public_api` | `embedding_request.schema.json` ✓ | `embedding_response.schema.json` ✓ | `createEmbedding` |
@@ -53,6 +57,11 @@ _EndpointSpec 레지스트리에서 자동 생성. 수정 시 `endpoint_spec.py`
 | `POST` | `/v1/retrieval/score` | stable | `public_api` | `retrieval_score_request.schema.json` ✓ | `retrieval_score_response.schema.json` ✓ | `scoreDocuments` |
 | `GET` | `/admin/runtimes` | stable | `admin` | — | — | `listRuntimes` |
 | `PATCH` | `/admin/runtimes/{service_key}` | stable | `admin` | — | — | `transitionRuntime` |
+| `GET` | `/admin/main-model` | stable | `admin` | — | — | `getMainModel` |
+| `GET` | `/admin/main-model/profiles` | stable | `admin` | — | — | `listMainModelProfiles` |
+| `POST` | `/admin/main-model/switch` | stable | `admin` | — | — | `switchMainModel` |
+| `GET` | `/admin/main-model/operations/{operation_id}` | stable | `admin` | — | — | `getMainModelOperation` |
+| `POST` | `/admin/main-model/rollback` | stable | `admin` | — | — | `rollbackMainModel` |
 
 #### Risk Adapter (port 9405, compose 내부 전용)
 
@@ -162,10 +171,11 @@ grep -E "^GRAFANA_ADMIN_(USER|PASSWORD)=" .env
 | Model Runtime Deep Dive | `model_runtime_deep_dive` | 특정 모델 queue/KV cache/token throughput/container 상태는? |
 | Risk Signal Operations | `risk_signal_operations` | risk signal만으로 본 detector 상태는? (prompt 없음) |
 | Observability Data Quality | `observability_data_quality` | scrape target 몇 개가 보이는가? up vs absent 구분, recording rule health, vLLM metric 가용성 |
+| Main Model Control | `main_model_control` | 어떤 main profile이 active인지, 전환·rollback 상태와 request gate가 정상인지 확인 |
 
 Dashboard 간 navigation은 Grafana 상단 링크로 이동한다 (UID 기반, `includeVars=true`).
 
-권장 drill-down: `gpu_capacity_and_oom_risk` → `serving_home` → 필요한 영역별로 `api_experience`, `model_runtime_deep_dive`, `risk_signal_operations`, `observability_data_quality`를 연다.
+권장 drill-down: `gpu_capacity_and_oom_risk` → `serving_home` → 필요한 영역별로 `api_experience`, `model_runtime_deep_dive`, `risk_signal_operations`, `observability_data_quality`, `main_model_control`을 연다.
 
 `Serving Home`의 user route 기본값은 `/v1/chat/completions|/v1/embeddings|/v1/risk/.*`이다. Top strip의 `User Requests`는 double count를 피하기 위해 `service="gateway"` public entrypoint만 세고, service-level activity panel은 `gateway`와 `risk-adapter`를 service label로 분리한다.
 

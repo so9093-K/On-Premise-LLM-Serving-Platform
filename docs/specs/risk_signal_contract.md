@@ -111,7 +111,7 @@ D4(Secret/Credential)는 가장 강한 signal로 취급된다.
   "family": "data_exposure",
   "detected": true,
   "confidence": null,
-  "source_model": "presidio-analyzer",
+  "source_model": "pii-protection",
   "label": "KR_RRN",
   "span_count": 2
 }
@@ -128,7 +128,7 @@ D4(Secret/Credential)는 가장 강한 signal로 취급된다.
   "family": "data_exposure",
   "detected": false,
   "confidence": null,
-  "source_model": "presidio-analyzer",
+  "source_model": "pii-protection",
   "label": null,
   "span_count": 0
 }

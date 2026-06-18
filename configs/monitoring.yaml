@@ -107,6 +107,13 @@ monitoring_stack:
         systems_visible: Systems Visible
       collapsed_detail_rows:
       - Monitoring Details
+    - path: ops/grafana/dashboards/main_model_control.json
+      required_panels:
+      - Main-model Gate Open
+      - Active Profile / Revision / Compatibility
+      - Latest Operation State
+      - Switch / Rollback Totals
+      - Last Switch Duration
   dcgm_exporter:
     enabled: true
     port: 9412
@@ -317,6 +324,17 @@ ux_dashboards:
   - token_throughput_trend
   - container_ram
   - container_cpu
+- id: main_model_control
+  audience: operator_or_runtime_engineer
+  purpose: Active main-model identity, request gate, switch lifecycle, rollback totals,
+    and last switch duration without operation IDs or error strings in metric labels.
+  panels:
+  - active_profile
+  - request_gate
+  - operation_state
+  - switch_totals
+  - rollback_totals
+  - last_switch_duration
 privacy_and_security:
   raw_prompt_in_metrics: forbidden
   user_text_labels: forbidden

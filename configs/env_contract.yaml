@@ -46,6 +46,8 @@ model_runtimes:
       - TIMEOUT_SECONDS
       - MAX_CONCURRENCY
       - QUEUE_TIMEOUT_SECONDS
+      - BOOT_PROFILE
+      - PROFILE_LOCKED
   embedding:
     env_prefix: EMBEDDING
     suffixes:

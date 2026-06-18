@@ -3,6 +3,7 @@ from __future__ import annotations
 from .helpers import *  # noqa: F401,F403
 from starlette.requests import Request
 from ai_model_serving.logging_policy import safe_request_log_record
+from ai_model_serving.metrics import Metrics
 
 def test_gateway_error_uses_incoming_request_id():
     client = TestClient(create_gateway_app(settings(), FakeGatewayClients()))
@@ -90,3 +91,40 @@ def test_access_log_records_client_ip_hash_without_metric_label_style_ip():
     assert record["forwarded_for_present"] is True
     assert record["forwarded_proto"] == "https"
     assert "203.0.113.10" not in json.dumps(record)
+
+
+def test_main_model_metrics_restore_persistent_state_without_operation_id_labels():
+    metrics = Metrics("gateway")
+    metrics.project_main_model(
+        {
+            "public_model": "local-main",
+            "active_profile": {
+                "id": "gemma4-12b-unified-fp8",
+                "upstream_model_id": "RedHatAI/gemma-4-12B-it-FP8-Dynamic",
+                "revision": "67e53491df7a281623fa740de61307d5c542b7f4",
+                "compatibility": {"status": "unverified"},
+            },
+            "runtime_image": "vllm/vllm-openai@sha256:" + "a" * 64,
+            "gate": "closed",
+            "last_operation": {
+                "id": "sensitive-operation-id",
+                "status": "rolling_back",
+                "error": "sensitive error text",
+            },
+            "stats": {
+                "switch_requests": 3,
+                "switch_successes": 1,
+                "switch_failures": 2,
+                "rollbacks": 1,
+                "rollback_failures": 0,
+                "last_switch_timestamp": 123,
+                "last_switch_duration_seconds": 45,
+            },
+        }
+    )
+    text = metrics.response().body.decode()
+    assert 'main_model_gate_open{service="gateway"} 0.0' in text
+    assert 'main_model_operation_state{service="gateway",state="rolling_back"} 1.0' in text
+    assert 'main_model_switch_operations{result="failure",service="gateway"} 2.0' in text
+    assert "sensitive-operation-id" not in text
+    assert "sensitive error text" not in text

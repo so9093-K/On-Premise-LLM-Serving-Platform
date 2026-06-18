@@ -60,7 +60,7 @@ echo "[deploy] mode: ${DEPLOY_MODE}"
 
 if [[ "${DEPLOY_MODE}" == "rolling" && -n "${RISK_VLLM_IMAGE_TO_DEPLOY:-}" ]]; then
   echo "[deploy] ERROR: vLLM image overrides are allowed only with DEPLOY_MODE=full." >&2
-  echo "[deploy]   Rolling deploy only updates gateway and risk-adapter." >&2
+    echo "[deploy]   Rolling deploy only updates gateway, admin-sidecar, and risk-adapter." >&2
   echo "[deploy]   RISK_VLLM_IMAGE_TO_DEPLOY is invalid for rolling deploy." >&2
   echo "[deploy]   Full runtime deploy requires DEPLOY_MODE=full." >&2
   exit 2
@@ -133,7 +133,7 @@ echo "${REGISTRY_PASSWORD}" | \
 
 if [[ "${DEPLOY_MODE}" == "rolling" && -n "${RISK_VLLM_IMAGE_TO_DEPLOY:-}" ]]; then
   echo "[deploy] ERROR: vLLM image overrides are allowed only with DEPLOY_MODE=full." >&2
-  echo "[deploy]   Rolling deploy only updates gateway and risk-adapter." >&2
+    echo "[deploy]   Rolling deploy only updates gateway, admin-sidecar, and risk-adapter." >&2
   echo "[deploy]   RISK_VLLM_IMAGE_TO_DEPLOY is invalid for rolling deploy." >&2
   echo "[deploy]   Full runtime deploy requires DEPLOY_MODE=full." >&2
   exit 2
@@ -308,14 +308,19 @@ if [[ "${DEPLOY_MODE}" == "full" ]]; then
     fail_after_env_backup "full stack compose up failed"
   fi
 else
-  # pull gateway + risk-adapter images only (vLLM images are large; pull separately when needed)
-  echo "[deploy] rolling deploy: pulling gateway and risk-adapter images..."
-  if ! compose_run pull gateway risk-adapter; then
-    fail_after_env_backup "rolling deploy image pull failed for gateway/risk-adapter"
+  # Pull the application/control-plane images only. Gateway and Admin Sidecar
+  # implement one management API and must be deployed at the same revision.
+  echo "[deploy] rolling deploy: pulling gateway, admin-sidecar, and risk-adapter images..."
+  if ! compose_run pull gateway admin-sidecar risk-adapter; then
+    fail_after_env_backup "rolling deploy image pull failed for gateway/admin-sidecar/risk-adapter"
   fi
 
-  # rolling restart: gateway + risk-adapter (no vLLM downtime)
-  echo "[deploy] rolling deploy: restarting gateway and risk-adapter..."
+  # Keep vLLM intact. Bring the sidecar up first so the new Gateway never
+  # targets an older control-plane implementation.
+  echo "[deploy] rolling deploy: restarting admin-sidecar, gateway, and risk-adapter..."
+  if ! compose_run up -d --no-deps admin-sidecar; then
+    fail_after_env_backup "rolling deploy restart failed for admin-sidecar"
+  fi
   if ! compose_run up -d --no-deps gateway risk-adapter; then
     fail_after_env_backup "rolling deploy restart failed for gateway/risk-adapter"
   fi

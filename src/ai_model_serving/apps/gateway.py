@@ -17,7 +17,7 @@ from ..logging_policy import service_logger
 from ..metrics import Metrics
 from ..openapi_contracts import install_contract_openapi
 from ..security import require_bearer_auth
-from ..settings import AppSettings, RuntimeEndpoint, load_settings
+from ..settings import AppSettings, RuntimeEndpoint, SecuritySettings, load_settings
 from ..services.gateway_service import GatewayService
 from ..upstream import VLLMClient
 from ..api_descriptions import GATEWAY_DESCRIPTION_TEMPLATE, GATEWAY_TAGS_METADATA
@@ -39,6 +39,7 @@ from ..api.routers.gateway_retrieval import build_router as _build_retrieval_rou
 from ..api.routers.gateway_runtime_control import build_router as _build_runtime_control_router
 from ..services.runtime_state import RuntimeStateStore
 from ..services.sidecar_client import SidecarClient
+from ..services.main_model_inflight import MainModelInFlight
 
 # TODO(playground): /playground 구현 시 /v1/models[].request_parameters를 읽어
 # model-aware form을 동적으로 구성한다. 아래 grouping을 참고한다:
@@ -56,8 +57,14 @@ from ..services.sidecar_client import SidecarClient
 class GatewayClients:
     def __init__(self, settings: AppSettings) -> None:
         self.runtime_state = RuntimeStateStore()
+        self.main_model_inflight = MainModelInFlight()
         self.sidecar: SidecarClient | None = (
-            SidecarClient(settings.admin_sidecar_url) if settings.admin_sidecar_url else None
+            SidecarClient(
+                settings.admin_sidecar_url,
+                settings.security.internal_service_token,
+            )
+            if settings.admin_sidecar_url
+            else None
         )
         self.main_llm = VLLMClient(settings.runtime("main_llm"))
         self.runtime_clients_by_service_key: dict[str, VLLMClient] = {}
@@ -103,6 +110,8 @@ class GatewayClients:
 def create_gateway_app(settings: AppSettings | None = None, clients: GatewayClients | None = None) -> FastAPI:
     settings = settings or load_settings()
     clients = clients or GatewayClients(settings)
+    if not hasattr(clients, "main_model_inflight"):
+        clients.main_model_inflight = MainModelInFlight()
     metrics = Metrics("gateway")
     logger = service_logger("gateway")
     service = GatewayService(settings, clients, metrics)
@@ -136,10 +145,39 @@ def create_gateway_app(settings: AppSettings | None = None, clients: GatewayClie
     register_health(app, service="gateway", operation_id="getGatewayHealth")
 
     app.include_router(_build_ops_router(admin_dependencies, clients, metrics, settings))
-    app.include_router(_build_inference_router(api_dependencies, service, settings, clients.runtime_state))
+    app.include_router(
+        _build_inference_router(
+            api_dependencies,
+            service,
+            settings,
+            clients.runtime_state,
+            clients.sidecar,
+            clients.main_model_inflight,
+        )
+    )
     app.include_router(_build_risk_router(api_dependencies, service, clients.runtime_state))
     app.include_router(_build_retrieval_router(api_dependencies, admin_dependencies, service, settings))
     app.include_router(_build_runtime_control_router(admin_dependencies, clients.runtime_state, clients.sidecar, settings))
+
+    @app.get(
+        "/internal/main-model/drain-status",
+        include_in_schema=False,
+        operation_id="getMainModelDrainStatus",
+    )
+    async def main_model_drain_status(
+        _: None = Depends(require_bearer_auth(
+            SecuritySettings(
+                api_key_required=settings.security.internal_service_auth_required,
+                api_keys=(
+                    frozenset({settings.security.internal_service_token})
+                    if settings.security.internal_service_token
+                    else frozenset()
+                ),
+                internal_service_token=settings.security.internal_service_token,
+            )
+        )),
+    ) -> dict[str, int]:
+        return {"in_flight": await clients.main_model_inflight.count()}
 
     _request_schemas, _response_schemas = schema_maps_from_specs(GATEWAY_ENDPOINTS)
     install_contract_openapi(

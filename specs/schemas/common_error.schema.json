@@ -39,7 +39,9 @@
             "RUNTIME_NOT_READY",
             "DETECTOR_RETIRED",
             "DETECTOR_DISABLED",
-            "STREAM_LIMIT_EXCEEDED"
+            "STREAM_LIMIT_EXCEEDED",
+            "MAIN_MODEL_CONTROL_UNAVAILABLE",
+            "MAIN_MODEL_SWITCH_IN_PROGRESS"
           ]
         },
         "message": {
@@ -50,6 +52,12 @@
         },
         "request_id": {
           "type": "string"
+        },
+        "operation_id": {
+          "type": ["string", "null"]
+        },
+        "operation_status": {
+          "type": ["string", "null"]
         }
       }
     }

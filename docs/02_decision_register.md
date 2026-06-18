@@ -28,6 +28,7 @@
 | ADR-0014 | [docs/adr/0014-image-validation-policy.md](adr/0014-image-validation-policy.md) | Vision 이미지 검증 정책 — 한도 상향과 MIME type 독립 파서 탐지 | Accepted |
 | ADR-0015 | [docs/adr/0015-main-llm-20k-o3-runtime-target.md](adr/0015-main-llm-20k-o3-runtime-target.md) | Main LLM 20K O3 Runtime Target | Accepted |
 | ADR-0016 | [docs/adr/0016-xgrammar-disable-any-whitespace.md](adr/0016-xgrammar-disable-any-whitespace.md) | xgrammar disable-any-whitespace Structured Output Backend | Accepted |
+| ADR-0017 | [docs/adr/0017-selectable-main-model-runtime.md](adr/0017-selectable-main-model-runtime.md) | Selectable Gemma 4 Main-model Runtime | Accepted |
 
 ---
 

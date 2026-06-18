@@ -28,8 +28,9 @@ dashboard_files:
   - ops/grafana/dashboards/model_runtime_deep_dive.json
   - ops/grafana/dashboards/risk_signal_operations.json
   - ops/grafana/dashboards/observability_data_quality.json
+  - ops/grafana/dashboards/main_model_control.json
 
-dashboard_count: 6
+dashboard_count: 7
 
 docs:
   - docs/operations/monitoring_ux.md

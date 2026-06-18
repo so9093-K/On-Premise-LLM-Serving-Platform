@@ -2,6 +2,53 @@
 
 Gateway는 모델 서버를 직접 생성하지 않는다. vLLM process/container는 compose 또는 운영 플랫폼이 관리하고, Gateway는 HTTP upstream으로 호출한다.
 
+## 메인 모델 선택
+
+`local-main` 외부 API alias는 유지하면서 내부 메인 모델 프로필을 선택할 수 있다.
+
+```bash
+curl -H "Authorization: Bearer $ADMIN_API_KEY" \
+  http://127.0.0.1:9400/admin/main-model
+
+curl -H "Authorization: Bearer $ADMIN_API_KEY" \
+  http://127.0.0.1:9400/admin/main-model/profiles
+
+curl -X POST \
+  -H "Authorization: Bearer $ADMIN_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"profile":"gemma4-12b-unified-fp8","confirm_unverified":true}' \
+  http://127.0.0.1:9400/admin/main-model/switch
+```
+
+전환 요청은 `202 Accepted`와 operation ID를 반환한다. 진행 상태는
+`GET /admin/main-model/operations/{operation_id}`로 확인한다. API에는 profile
+ID만 전달할 수 있고 model ID, image, command, environment는 지정할 수 없다.
+
+- `gemma4-26b-a4b-fp8` — Gemma 4 26B A4B FP8
+- `gemma4-12b-unified-fp8` — Gemma 4 12B Unified FP8
+
+전환 중 신규 chat 요청은 `503`과 `Retry-After: 5`를 받는다. health,
+`/v1/models`, 실제 text canary 중 하나라도 실패하면 last-known-good
+profile로 rollback한다. rollback도 실패하면 gate를 닫은 fail-closed 상태를
+유지한다. 이 과정은 무중단 전환이 아니다.
+
+부팅 우선순위는 locked profile, 마지막 성공 active profile, 설치 기본
+profile 순서다. 기본값은 기존 26B를 보존한다.
+
+```dotenv
+MAIN_LLM_BOOT_PROFILE=gemma4-26b-a4b-fp8
+MAIN_LLM_PROFILE_LOCKED=false
+```
+
+`MAIN_LLM_PROFILE_LOCKED=true`이면 API 전환은 거절된다. 상태는
+`.runtime/main-model/main-model-state.json`에 atomic write로 저장된다.
+
+12B compatibility는 현재 `unverified`다. 고정 revision과 runtime image
+조합의 GPU boot/Text/Image parity 전에는 24 GiB 호환이나 production-ready를
+의미하지 않는다. Google은 12B 모델의 audio capability를 문서화하지만,
+현재 Gateway와 고정 vLLM 이미지의 audio 계약은 검증되지 않았으므로 제품
+입력은 text/image로 제한한다.
+
 ## 제어 지점
 
 - endpoint URL은 enabled runtime 기준 `MAIN_LLM_BASE_URL`, `EMBEDDING_BASE_URL`, `RISK_PROMPT_BASE_URL`로 관리한다.

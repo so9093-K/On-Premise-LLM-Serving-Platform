@@ -3,15 +3,41 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+from contextlib import asynccontextmanager
+from pathlib import Path
+from typing import Any
 
 import httpx
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, Header, HTTPException
 from fastapi.responses import JSONResponse
+
+from ..docker_main_model_backend import DockerMainModelBackend
+from ..main_model_control import (
+    MainModelManager,
+    MainModelStateError,
+    MainModelStateStore,
+    MainModelSwitchError,
+    load_main_model_catalog,
+)
 
 # --------------------------------------------------------------------- config
 
 DOCKER_SOCKET = os.environ.get("DOCKER_SOCKET", "/var/run/docker.sock")
 COMPOSE_PROJECT = os.environ.get("COMPOSE_PROJECT", "")
+APP_CONFIG_ROOT = Path(os.environ.get("APP_CONFIG_ROOT", "/app"))
+_using_local_config = False
+if not (APP_CONFIG_ROOT / "configs/main_model_profiles.yaml").exists():
+    APP_CONFIG_ROOT = Path(__file__).resolve().parents[3]
+    _using_local_config = True
+_default_state_path = (
+    APP_CONFIG_ROOT / ".runtime/main-model/main-model-state.json"
+    if _using_local_config
+    else Path("/var/lib/ai-model-serving/main-model-state.json")
+)
+MAIN_MODEL_STATE_PATH = Path(os.environ.get("MAIN_MODEL_STATE_PATH", str(_default_state_path)))
+MAIN_LLM_BOOT_PROFILE = os.environ.get("MAIN_LLM_BOOT_PROFILE")
+MAIN_LLM_PROFILE_LOCKED = os.environ.get("MAIN_LLM_PROFILE_LOCKED", "false").lower() == "true"
+SIDECAR_TOKEN = os.environ.get("INTERNAL_SERVICE_TOKEN", "")
 
 # Only these compose service names can be started/stopped.
 CONTROLLABLE: frozenset[str] = frozenset({
@@ -102,6 +128,48 @@ async def _wait_healthy(service: str, port: int, timeout: float = 120.0) -> bool
     return False
 
 
+_catalog = load_main_model_catalog(APP_CONFIG_ROOT / "configs/main_model_profiles.yaml")
+_state_store = MainModelStateStore(MAIN_MODEL_STATE_PATH, _catalog.default_profile)
+try:
+    _state_store.read()
+except MainModelStateError as exc:
+    _state_store.quarantine_corrupt_state(str(exc))
+_main_model_manager = MainModelManager(
+    _catalog,
+    _state_store,
+    DockerMainModelBackend(
+        DOCKER_SOCKET,
+        COMPOSE_PROJECT,
+        gateway_url=os.environ.get("GATEWAY_INTERNAL_URL", "http://gateway:9400"),
+        internal_token=SIDECAR_TOKEN,
+    ),
+    boot_profile=MAIN_LLM_BOOT_PROFILE,
+    profile_locked=MAIN_LLM_PROFILE_LOCKED,
+)
+_initialization_error: str | None = None
+_initialized = asyncio.Event()
+
+
+async def _require_sidecar_token(authorization: str | None = Header(default=None)) -> None:
+    if not SIDECAR_TOKEN:
+        return
+    if authorization != f"Bearer {SIDECAR_TOKEN}":
+        raise HTTPException(401, detail="invalid internal service token")
+
+
+@asynccontextmanager
+async def _lifespan(app: FastAPI):
+    del app
+    global _initialization_error
+    try:
+        await _main_model_manager.initialize()
+    except Exception as exc:
+        _initialization_error = str(exc)
+    finally:
+        _initialized.set()
+    yield
+
+
 # --------------------------------------------------------------------- app
 
 app = FastAPI(
@@ -110,16 +178,22 @@ app = FastAPI(
     docs_url=None,
     redoc_url=None,
     openapi_url=None,
+    lifespan=_lifespan,
 )
 
 
 @app.get("/health")
 async def health() -> dict[str, str]:
+    if not _initialized.is_set():
+        raise HTTPException(503, detail="main model reconciliation is in progress")
+    if _initialization_error:
+        raise HTTPException(503, detail=f"main model reconciliation failed: {_initialization_error}")
     return {"status": "ok"}
 
 
 @app.get("/containers/status")
-async def containers_status() -> JSONResponse:
+async def containers_status(authorization: str | None = Header(default=None)) -> JSONResponse:
+    await _require_sidecar_token(authorization)
     statuses: dict[str, str] = {}
     for service in CONTROLLABLE:
         try:
@@ -129,8 +203,84 @@ async def containers_status() -> JSONResponse:
     return JSONResponse({"containers": statuses})
 
 
+@app.get("/main-model")
+async def main_model(authorization: str | None = Header(default=None)) -> JSONResponse:
+    await _require_sidecar_token(authorization)
+    try:
+        return JSONResponse(_main_model_manager.snapshot())
+    except MainModelStateError as exc:
+        raise HTTPException(503, detail=str(exc)) from exc
+
+
+@app.get("/main-model/profiles")
+async def main_model_profiles(authorization: str | None = Header(default=None)) -> JSONResponse:
+    await _require_sidecar_token(authorization)
+    return JSONResponse({"profiles": _main_model_manager.profiles()})
+
+
+@app.post("/main-model/switch", status_code=202)
+async def switch_main_model(
+    payload: dict[str, Any],
+    authorization: str | None = Header(default=None),
+) -> JSONResponse:
+    await _require_sidecar_token(authorization)
+    unknown = set(payload) - {"profile", "confirm_unverified", "request_id"}
+    if unknown:
+        raise HTTPException(422, detail=f"unsupported fields: {sorted(unknown)}")
+    try:
+        operation_id = _main_model_manager.request_switch(
+            str(payload.get("profile", "")),
+            confirm_unverified=payload.get("confirm_unverified") is True,
+            client_request_id=payload.get("request_id"),
+        )
+    except MainModelSwitchError as exc:
+        raise HTTPException(
+            exc.status_code,
+            detail={"code": exc.code, "message": str(exc)},
+        ) from exc
+    return JSONResponse({"operation_id": operation_id, "status": "pending"}, status_code=202)
+
+
+@app.post("/main-model/rollback", status_code=202)
+async def rollback_main_model(
+    payload: dict[str, Any] | None = None,
+    authorization: str | None = Header(default=None),
+) -> JSONResponse:
+    await _require_sidecar_token(authorization)
+    body = payload or {}
+    unknown = set(body) - {"request_id"}
+    if unknown:
+        raise HTTPException(422, detail=f"unsupported fields: {sorted(unknown)}")
+    try:
+        operation_id = _main_model_manager.request_rollback(
+            client_request_id=body.get("request_id")
+        )
+    except MainModelSwitchError as exc:
+        raise HTTPException(
+            exc.status_code,
+            detail={"code": exc.code, "message": str(exc)},
+        ) from exc
+    return JSONResponse({"operation_id": operation_id, "status": "pending"}, status_code=202)
+
+
+@app.get("/main-model/operations/{operation_id}")
+async def main_model_operation(
+    operation_id: str,
+    authorization: str | None = Header(default=None),
+) -> JSONResponse:
+    await _require_sidecar_token(authorization)
+    operation = _main_model_manager.operation(operation_id)
+    if operation is None:
+        raise HTTPException(404, detail="operation not found")
+    return JSONResponse(operation)
+
+
 @app.post("/containers/{service}/stop")
-async def stop_container(service: str) -> JSONResponse:
+async def stop_container(
+    service: str,
+    authorization: str | None = Header(default=None),
+) -> JSONResponse:
+    await _require_sidecar_token(authorization)
     if service not in CONTROLLABLE:
         raise HTTPException(403, detail=f"not controllable: {service}")
     container_id = await _find_container_id(service)
@@ -141,7 +291,11 @@ async def stop_container(service: str) -> JSONResponse:
 
 
 @app.post("/containers/{service}/start")
-async def start_container(service: str) -> JSONResponse:
+async def start_container(
+    service: str,
+    authorization: str | None = Header(default=None),
+) -> JSONResponse:
+    await _require_sidecar_token(authorization)
     if service not in CONTROLLABLE:
         raise HTTPException(403, detail=f"not controllable: {service}")
 

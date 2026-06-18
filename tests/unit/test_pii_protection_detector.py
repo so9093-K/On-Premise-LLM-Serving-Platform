@@ -14,11 +14,26 @@ Validated invariants:
 from __future__ import annotations
 
 import asyncio
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
-from ai_model_serving.detectors.pii import PIIProtectionDetector, _run_custom_recognizers, _build_categories
+from ai_model_serving.detectors.pii import (
+    EntitySpan,
+    EntitySummary,
+    PIIProtectionDetector,
+    _categories_from_summaries,
+    _classify_spans,
+    _reconcile_spans,
+    _run_custom_span_recognizers,
+)
+
+
+def _custom_counts(text: str) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for span in _run_custom_span_recognizers(text):
+        counts[span.entity] = counts.get(span.entity, 0) + 1
+    return counts
 
 
 # ---------------------------------------------------------------------------
@@ -27,58 +42,148 @@ from ai_model_serving.detectors.pii import PIIProtectionDetector, _run_custom_re
 
 class TestKoreanCustomRecognizers:
     def test_rrn_detected(self):
-        counts = _run_custom_recognizers("주민번호: 901201-1234567 확인 바랍니다.")
+        counts = _custom_counts("주민번호: 901201-1234567 확인 바랍니다.")
         assert "KR_RRN" in counts
         assert counts["KR_RRN"] >= 1
 
     def test_frn_detected(self):
-        counts = _run_custom_recognizers("외국인등록번호: 901201-5234567")
+        counts = _custom_counts("외국인등록번호: 901201-5234567")
         assert "KR_FRN" in counts
 
     def test_brn_detected(self):
-        counts = _run_custom_recognizers("사업자번호: 123-45-67890")
+        counts = _custom_counts("사업자번호: 123-45-67890")
         assert "KR_BRN" in counts
 
+    def test_brn_detected_before_korean_postposition(self):
+        counts = _custom_counts(
+            "사업자 번호 123-45-67890으로 세금계산서를 발행해주세요."
+        )
+        assert counts == {"KR_BRN": 1}
+
     def test_passport_detected(self):
-        counts = _run_custom_recognizers("여권번호: MA1234567")
+        counts = _custom_counts("여권번호: MA1234567")
         assert "KR_PASSPORT" in counts
 
     def test_driver_license_detected(self):
-        counts = _run_custom_recognizers("면허번호: 12-34-567890-12")
+        counts = _custom_counts("면허번호: 12-34-567890-12")
         assert "KR_DRIVER_LICENSE" in counts
 
     def test_bank_account_with_context_detected(self):
-        counts = _run_custom_recognizers("계좌 번호: 12345678901234")
+        counts = _custom_counts("계좌 번호: 12345678901234")
         assert "BANK_ACCOUNT_CANDIDATE" in counts
 
     def test_bank_account_without_context_not_detected(self):
-        counts = _run_custom_recognizers("숫자 나열: 12345678901234")
+        counts = _custom_counts("숫자 나열: 12345678901234")
+        assert "BANK_ACCOUNT_CANDIDATE" not in counts
+
+    def test_bank_context_far_from_number_does_not_apply(self):
+        counts = _custom_counts(
+            "계좌 안내입니다. 이 문장은 별도의 주문 설명을 충분히 길게 제공합니다. "
+            "주문번호 12345678901234"
+        )
         assert "BANK_ACCOUNT_CANDIDATE" not in counts
 
     def test_mobile_phone_detected(self):
-        counts = _run_custom_recognizers("내 전화번호는 010-3817-5168입니다.")
+        counts = _custom_counts("내 전화번호는 010-3817-5168입니다.")
         assert "PHONE_NUMBER" in counts
         assert counts["PHONE_NUMBER"] >= 1
 
     def test_mobile_phone_010_4digit_detected(self):
-        counts = _run_custom_recognizers("연락처: 010-1234-5678")
+        counts = _custom_counts("연락처: 010-1234-5678")
         assert "PHONE_NUMBER" in counts
 
     def test_seoul_landline_detected(self):
-        counts = _run_custom_recognizers("사무실: 02-1234-5678")
+        counts = _custom_counts("사무실: 02-1234-5678")
         assert "PHONE_NUMBER" in counts
 
     def test_regional_landline_detected(self):
-        counts = _run_custom_recognizers("경기 번호: 031-123-4567")
+        counts = _custom_counts("경기 번호: 031-123-4567")
         assert "PHONE_NUMBER" in counts
 
     def test_old_mobile_prefix_detected(self):
-        counts = _run_custom_recognizers("구형 번호: 011-123-4567")
+        counts = _custom_counts("구형 번호: 011-123-4567")
         assert "PHONE_NUMBER" in counts
 
     def test_clean_text_returns_empty(self):
-        counts = _run_custom_recognizers("오늘 날씨가 맑습니다.")
+        counts = _custom_counts("오늘 날씨가 맑습니다.")
         assert counts == {}
+
+
+# ---------------------------------------------------------------------------
+# Span reconciliation tests
+# ---------------------------------------------------------------------------
+
+class TestSpanReconciliation:
+    def test_brn_suppresses_overlapping_generic_phone(self):
+        spans = [
+            EntitySpan("KR_BRN", 7, 19, "custom"),
+            EntitySpan("PHONE_NUMBER", 7, 19, "presidio"),
+        ]
+        assert _reconcile_spans(spans) == [spans[0]]
+
+    def test_email_suppresses_url_inside_its_domain(self):
+        email = EntitySpan("EMAIL_ADDRESS", 7, 23, "custom")
+        url = EntitySpan("URL", 12, 23, "presidio")
+        assert _reconcile_spans([email, url]) == [email]
+
+    def test_independent_email_and_url_are_both_preserved(self):
+        email = EntitySpan("EMAIL_ADDRESS", 0, 16, "custom")
+        url = EntitySpan("URL", 21, 32, "presidio")
+        assert _reconcile_spans([email, url]) == [email, url]
+
+    def test_same_email_from_two_recognizers_counts_once(self):
+        custom = EntitySpan("EMAIL_ADDRESS", 7, 23, "custom")
+        presidio = EntitySpan("EMAIL_ADDRESS", 7, 23, "presidio")
+        assert _reconcile_spans([presidio, custom]) == [custom]
+
+    def test_partial_overlap_of_same_entity_is_preserved(self):
+        first = EntitySpan("URL", 0, 12, "custom")
+        second = EntitySpan("URL", 5, 18, "presidio")
+        assert _reconcile_spans([first, second]) == [first, second]
+
+    def test_partially_overlapping_phone_is_not_suppressed_by_brn(self):
+        brn = EntitySpan("KR_BRN", 7, 19, "custom")
+        phone = EntitySpan("PHONE_NUMBER", 10, 19, "presidio")
+        assert _reconcile_spans([brn, phone]) == [brn, phone]
+
+    def test_partially_overlapping_url_is_not_suppressed_by_email(self):
+        email = EntitySpan("EMAIL_ADDRESS", 7, 23, "custom")
+        url = EntitySpan("URL", 12, 28, "presidio")
+        assert _reconcile_spans([email, url]) == [email, url]
+
+
+# ---------------------------------------------------------------------------
+# Classification and response-category tests
+# ---------------------------------------------------------------------------
+
+class TestClassification:
+    def test_classifier_only_maps_reconciled_spans_to_taxonomy(self):
+        summaries = _classify_spans(
+            [
+                EntitySpan("KR_BRN", 0, 12, "custom"),
+                EntitySpan("EMAIL_ADDRESS", 20, 36, "custom"),
+            ]
+        )
+        assert summaries == [
+            EntitySummary("EMAIL_ADDRESS", "D2", 1),
+            EntitySummary("KR_BRN", "D3", 1),
+        ]
+
+    def test_category_builder_does_not_reconcile_or_recognize(self):
+        categories = _categories_from_summaries(
+            [EntitySummary("KR_BRN", "D3", 2)]
+        )
+        assert categories == [
+            {
+                "code": "D3",
+                "family": "data_exposure",
+                "detected": True,
+                "confidence": None,
+                "source_model": "pii-protection",
+                "label": "KR_BRN",
+                "span_count": 2,
+            }
+        ]
 
 
 # ---------------------------------------------------------------------------
@@ -87,7 +192,7 @@ class TestKoreanCustomRecognizers:
 
 class TestBuildCategories:
     def test_empty_counts_returns_safe_category(self):
-        cats = _build_categories({})
+        cats = _categories_from_summaries([])
         assert len(cats) == 1
         cat = cats[0]
         assert cat["code"] is None
@@ -97,7 +202,7 @@ class TestBuildCategories:
         assert "source_model" in cat
 
     def test_d1_rrn_category(self):
-        cats = _build_categories({"KR_RRN": 2})
+        cats = _categories_from_summaries([EntitySummary("KR_RRN", "D1", 2)])
         assert len(cats) == 1
         cat = cats[0]
         assert cat["code"] == "D1"
@@ -107,28 +212,39 @@ class TestBuildCategories:
         assert cat["family"] == "data_exposure"
 
     def test_d2_email_category(self):
-        cats = _build_categories({"EMAIL_ADDRESS": 1})
+        cats = _categories_from_summaries(
+            [EntitySummary("EMAIL_ADDRESS", "D2", 1)]
+        )
         assert cats[0]["code"] == "D2"
         assert cats[0]["label"] == "EMAIL_ADDRESS"
 
     def test_d3_credit_card_category(self):
-        cats = _build_categories({"CREDIT_CARD": 1})
+        cats = _categories_from_summaries(
+            [EntitySummary("CREDIT_CARD", "D3", 1)]
+        )
         assert cats[0]["code"] == "D3"
 
     def test_d5_ip_address_category(self):
-        cats = _build_categories({"IP_ADDRESS": 3})
+        cats = _categories_from_summaries(
+            [EntitySummary("IP_ADDRESS", "D5", 3)]
+        )
         assert cats[0]["code"] == "D5"
         assert cats[0]["span_count"] == 3
 
     def test_multiple_entity_types(self):
-        cats = _build_categories({"EMAIL_ADDRESS": 2, "KR_RRN": 1})
+        cats = _categories_from_summaries(
+            [
+                EntitySummary("EMAIL_ADDRESS", "D2", 2),
+                EntitySummary("KR_RRN", "D1", 1),
+            ]
+        )
         codes = {c["code"] for c in cats}
         assert "D1" in codes
         assert "D2" in codes
         assert all(c["detected"] for c in cats)
 
     def test_no_raw_pii_values_in_categories(self):
-        cats = _build_categories({"KR_RRN": 1})
+        cats = _categories_from_summaries([EntitySummary("KR_RRN", "D1", 1)])
         for cat in cats:
             for key, value in cat.items():
                 if isinstance(value, str):
@@ -136,7 +252,7 @@ class TestBuildCategories:
                     assert value in {"KR_RRN", "KR_FRN", "KR_BRN", "KR_PASSPORT", "KR_DRIVER_LICENSE",
                                      "EMAIL_ADDRESS", "PHONE_NUMBER", "ADDRESS", "CREDIT_CARD",
                                      "BANK_ACCOUNT_CANDIDATE", "IP_ADDRESS", "URL", "data_exposure",
-                                     "presidio-analyzer", "D1", "D2", "D3", "D5", None}
+                                     "pii-protection", "D1", "D2", "D3", "D5", None}
 
 
 # ---------------------------------------------------------------------------
@@ -216,6 +332,37 @@ class TestPIIProtectionDetector:
         assert d2_cats
         assert d2_cats[0]["label"] == "PHONE_NUMBER"
         assert d2_cats[0]["span_count"] >= 1
+
+    def test_business_registration_is_only_d3_not_phone(self):
+        detector = PIIProtectionDetector()
+        response = self._run(
+            detector.assess(
+                "사업자 번호 123-45-67890으로 세금계산서를 발행해주세요."
+            )
+        )
+        detected = {
+            category["label"]: category
+            for category in response["categories"]
+            if category["detected"]
+        }
+        assert set(detected) == {"KR_BRN"}
+        assert detected["KR_BRN"]["code"] == "D3"
+        assert detected["KR_BRN"]["span_count"] == 1
+
+    def test_email_domain_is_not_reported_as_url(self):
+        detector = PIIProtectionDetector()
+        response = self._run(
+            detector.assess(
+                "담당자 이메일은 hong@example.com이고 연락처는 010-1234-5678입니다."
+            )
+        )
+        detected = {
+            category["label"]: category
+            for category in response["categories"]
+            if category["detected"]
+        }
+        assert set(detected) == {"EMAIL_ADDRESS", "PHONE_NUMBER"}
+        assert detected["EMAIL_ADDRESS"]["span_count"] == 1
 
     def test_forbidden_fields_not_in_response(self):
         detector = PIIProtectionDetector()

@@ -52,7 +52,7 @@ families:
     display_name_en: Sensitive Data Exposure
     source_model: local
     description_ko: >
-      PII Protection(presidio-analyzer 기반)과 Secret Exposure Signal(curated regex + entropy)로 구성되는
+      PII Protection(Presidio + Korean recognizer)과 Secret Exposure Signal(curated regex + entropy)로 구성되는
       로컬 탐지 계층. 탐지 결과는 최종 정책 판단이 아닌 진단 signal로 제공된다.
       원문 민감값은 응답·로그·metric에 남기지 않는다.
     codes:

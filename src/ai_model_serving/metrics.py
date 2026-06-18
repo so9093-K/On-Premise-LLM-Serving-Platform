@@ -168,6 +168,42 @@ class Metrics:
             ["service", "route", "model", "backend", "score_mode"],
             registry=self.registry,
         )
+        self.main_model_profile_info = Gauge(
+            "main_model_profile_info",
+            "Active main-model profile and pinned upstream identity.",
+            ["service", "public_model", "profile", "upstream_model_id", "revision", "runtime_image", "compatibility"],
+            registry=self.registry,
+        )
+        self.main_model_gate = Gauge(
+            "main_model_gate_open",
+            "Whether the main-model inference gate is open.",
+            ["service"],
+            registry=self.registry,
+        )
+        self.main_model_switch_stats = Gauge(
+            "main_model_switch_operations",
+            "Persisted main-model switch operation totals by result.",
+            ["service", "result"],
+            registry=self.registry,
+        )
+        self.main_model_last_switch_timestamp = Gauge(
+            "main_model_last_switch_timestamp_seconds",
+            "Unix timestamp of the last terminal main-model switch.",
+            ["service"],
+            registry=self.registry,
+        )
+        self.main_model_last_switch_duration = Gauge(
+            "main_model_last_switch_duration_seconds",
+            "Duration of the last terminal main-model switch.",
+            ["service"],
+            registry=self.registry,
+        )
+        self.main_model_operation_state = Gauge(
+            "main_model_operation_state",
+            "One-hot state of the latest main-model switch operation.",
+            ["service", "state"],
+            registry=self.registry,
+        )
 
     async def http_middleware(
         self,
@@ -258,6 +294,55 @@ class Metrics:
 
     def record_overall_readiness(self, ready: bool) -> None:
         self.overall_runtime_status.labels(self.service).set(1 if ready else 0)
+
+    def project_main_model(self, snapshot: dict) -> None:
+        self.main_model_profile_info.clear()
+        active = snapshot.get("active_profile") or {}
+        if active:
+            compatibility = active.get("compatibility", {})
+            self.main_model_profile_info.labels(
+                self.service,
+                snapshot.get("public_model", "local-main"),
+                active.get("id", "unknown"),
+                active.get("upstream_model_id", "unknown"),
+                active.get("revision", "unknown"),
+                snapshot.get("runtime_image", "unknown"),
+                compatibility.get("status", "unknown"),
+            ).set(1)
+        self.main_model_gate.labels(self.service).set(1 if snapshot.get("gate") == "open" else 0)
+        stats = snapshot.get("stats", {})
+        for result, key in {
+            "requested": "switch_requests",
+            "success": "switch_successes",
+            "failure": "switch_failures",
+            "rollback": "rollbacks",
+            "rollback_failure": "rollback_failures",
+        }.items():
+            self.main_model_switch_stats.labels(self.service, result).set(
+                float(stats.get(key, 0))
+            )
+        self.main_model_last_switch_timestamp.labels(self.service).set(
+            float(stats.get("last_switch_timestamp", 0))
+        )
+        self.main_model_last_switch_duration.labels(self.service).set(
+            float(stats.get("last_switch_duration_seconds", 0))
+        )
+        operation = snapshot.get("last_operation") or {}
+        current_state = operation.get("status")
+        for state in (
+            "pending",
+            "draining",
+            "stopping",
+            "starting",
+            "validating",
+            "rolling_back",
+            "completed",
+            "failed",
+            "rollback_failed",
+        ):
+            self.main_model_operation_state.labels(self.service, state).set(
+                1 if state == current_state else 0
+            )
 
     def record_risk_assessment(
         self,

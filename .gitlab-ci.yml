@@ -13,7 +13,7 @@ variables:
   DOCKER_BUILDKIT: "1"
   # Common base image for all vLLM-derived runtime images (risk-vllm-kanana).
   # Override via CI/CD variable VLLM_BASE_IMAGE to switch base without editing this file.
-  VLLM_BASE_IMAGE: "vllm/vllm-openai:gemma4-0505-cu129"
+  VLLM_BASE_IMAGE: "vllm/vllm-openai@sha256:f4492643056969529a74238f71dd66dc3097c0d433156a4f4478456bf84bd276"
 
   PLATFORM_IMAGE_SHA: "$CI_REGISTRY_IMAGE/platform:$CI_COMMIT_SHORT_SHA"
   PLATFORM_IMAGE_REF: "$CI_REGISTRY_IMAGE/platform:$CI_COMMIT_REF_SLUG"
@@ -60,6 +60,8 @@ validate:
     - python scripts/models/modelctl.py diff
     - python scripts/compose/validate_vllm_compose.py
     - python scripts/validation/runtime_validation.py --config-only
+    - python -m pytest -q tests/unit/test_main_model_control.py tests/unit/test_docker_main_model_backend.py tests/unit/gateway/test_main_model_control.py
+    - bash -n scripts/ci/*.sh scripts/compose/*.sh scripts/ops/*.sh
 
 hf-main-model-canary:
   extends: .default-python
@@ -109,6 +111,11 @@ build-platform:
     - docker build --pull -t "$PLATFORM_IMAGE_SHA" -t "$PLATFORM_IMAGE_REF" .
     - docker push "$PLATFORM_IMAGE_SHA"
     - docker push "$PLATFORM_IMAGE_REF"
+    - docker pull "$PLATFORM_IMAGE_SHA"
+    - mkdir -p build
+    - PLATFORM_IMAGE_DIGEST="$(docker image inspect "$PLATFORM_IMAGE_SHA" --format '{{index .RepoDigests 0}}')"
+    - test -n "$PLATFORM_IMAGE_DIGEST"
+    - printf 'PLATFORM_IMAGE_DIGEST=%s\n' "$PLATFORM_IMAGE_DIGEST" > build/platform-image.env
     - |
       if [ "$CI_COMMIT_BRANCH" = "release" ] || [ -n "$CI_COMMIT_TAG" ]; then
         PLATFORM_IMAGE_VERSION="$CI_REGISTRY_IMAGE/platform:release_${APP_VERSION}"
@@ -119,12 +126,18 @@ build-platform:
     - master
     - release
     - tags
+  artifacts:
+    reports:
+      dotenv: build/platform-image.env
+    paths:
+      - build/platform-image.env
+    expire_in: 7 days
 
 # Builds vLLM-derived runtime images (risk-vllm-kanana) in a single job so the large
 # (~25 GB) vLLM base image is pulled only once.
 # embedding-ko-vllm uses EMBEDDING_KO_VLLM_IMAGE and does not require a dedicated build.
 # Runs automatically on release/tag pipelines when BUILD_VLLM_DERIVED=1 or DEPLOY_MODE=full.
-# Rolling app deploys skip this job entirely — no vLLM rebuild is needed.
+# Rolling control-plane deploys skip this job entirely — no vLLM rebuild is needed.
 # allow_failure: false — if the job runs and fails, it is a release failure.
 build-vllm-derived:
   extends: .docker-build
@@ -141,7 +154,7 @@ build-vllm-derived:
   allow_failure: false
 
 # Manual deployment to the 175 GPU runtime server.
-# Rolling deploy (default): restarts gateway + risk-adapter only; skips vLLM rebuild.
+# Rolling deploy (default): restarts gateway + admin-sidecar + risk-adapter; skips vLLM rebuild.
 # Full runtime deploy: set DEPLOY_MODE=full when triggering the pipeline —
 #   build-vllm-derived runs automatically before this job.
 #   DEPLOY_MODE=full uses the current pipeline SHA image as RISK default.
@@ -183,7 +196,7 @@ deploy-gpu-175:
       else
         _risk_vllm="${RISK_VLLM_IMAGE_TO_DEPLOY:-}"
       fi
-      PLATFORM_IMAGE_TO_DEPLOY="$PLATFORM_IMAGE_SHA" \
+      PLATFORM_IMAGE_TO_DEPLOY="${PLATFORM_IMAGE_DIGEST:-$PLATFORM_IMAGE_SHA}" \
       RISK_VLLM_IMAGE_TO_DEPLOY="${_risk_vllm}" \
       bash scripts/ci/deploy_gitlab_compose.sh
   only:
