@@ -4,7 +4,10 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT"
 source scripts/lib/risk_vllm_image.sh
-risk_vllm_resolve_images .env
+source scripts/lib/load_env.sh
+ENV_FILE="${ENV_FILE:-.env}"
+load_local_env "$ENV_FILE"
+risk_vllm_resolve_images "$ENV_FILE"
 
 IMAGE="$RISK_VLLM_IMAGE_RESOLVED"
 PYTHON_IN_IMAGE="${RISK_VLLM_IMAGE_PYTHON:-python3}"

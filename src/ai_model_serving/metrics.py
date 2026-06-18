@@ -331,6 +331,7 @@ class Metrics:
         current_state = operation.get("status")
         for state in (
             "pending",
+            "preparing",
             "draining",
             "stopping",
             "starting",

@@ -3,11 +3,20 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 from scripts.models.check_hf_model_config import (
+    build_parser,
     classify_exception,
     interpretation_for_shape,
     shape_from_config,
     tokenizer_canary_from_tokenizer,
 )
+
+
+def test_parser_accepts_pinned_revision() -> None:
+    args = build_parser().parse_args(
+        ["--model", "org/model", "--revision", "a" * 40]
+    )
+    assert args.model == "org/model"
+    assert args.revision == "a" * 40
 
 
 def test_classify_hidden_head_config_validation_failure() -> None:

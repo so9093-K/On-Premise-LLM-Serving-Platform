@@ -308,7 +308,10 @@ validate → test → package → build → deploy
 | 노출 profile | `configs/exposure_profiles.yaml` | compose host-published port 범위를 정의한다. |
 | service registry | `configs/services.yaml` | service, container port, host bind env, exposure category를 정의한다. |
 
-기본 로컬 확인은 `local_open`으로 시작할 수 있다. 공유 또는 운영 성격의 host에서는 `private_network`, `edge_terminated`, `strict` 등 목적에 맞는 profile을 적용하고 `make auth-doctor`, `make exposure-status`로 확인한다.
+외부 접근이 차단된 사내망의 기본 profile은 `local_open`이다. 이 profile은
+`master_open/private_lan`을 함께 적용하여 Gateway와 vLLM을 포함한 전체 stack을
+host-publish한다. Gateway 경유만 허용하거나 app-level 인증이 필요한 환경은
+`private_network`, `edge_terminated`, `strict` 등을 선택한다.
 
 주요 endpoint 기준:
 

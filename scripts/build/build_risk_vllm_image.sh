@@ -5,15 +5,18 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT"
 source scripts/lib/risk_vllm_image.sh
 source scripts/lib/load_env.sh
-load_local_env .env
-risk_vllm_resolve_images .env
+ENV_FILE="${ENV_FILE:-.env}"
+load_local_env "$ENV_FILE"
+risk_vllm_resolve_images "$ENV_FILE"
 
 VERSION="$(cat VERSION)"
 PYTHON_BIN="${PYTHON_BIN:-$(command -v python3.12 || command -v python3 || command -v python)}"
 IMAGE="$RISK_VLLM_IMAGE_RESOLVED"
 BASE_IMAGE="$RISK_VLLM_BASE_IMAGE_RESOLVED"
-TRANSFORMERS_MIN_VERSION="${RISK_VLLM_TRANSFORMERS_MIN_VERSION:-${RISK_VLLM_TRANSFORMERS_VERSION:-4.52.4}}"
-MIN_TRANSFORMERS_VERSION="4.52.4"
+MIN_TRANSFORMERS_VERSION="$(
+  "$PYTHON_BIN" scripts/models/print_risk_vllm_compatibility.py
+)"
+TRANSFORMERS_MIN_VERSION="${RISK_VLLM_TRANSFORMERS_MIN_VERSION:-${RISK_VLLM_TRANSFORMERS_VERSION:-$MIN_TRANSFORMERS_VERSION}}"
 
 version_lt() {
   local left="$1"

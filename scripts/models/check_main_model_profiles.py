@@ -1,0 +1,46 @@
+#!/usr/bin/env python3
+from __future__ import annotations
+
+import argparse
+import subprocess
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[2]
+if str(ROOT / "src") not in sys.path:
+    sys.path.insert(0, str(ROOT / "src"))
+
+from ai_model_serving.main_model_control import load_main_model_catalog  # noqa: E402
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(
+        description="Run the HF config/tokenizer canary for every configured main-model profile."
+    )
+    parser.add_argument(
+        "--catalog", type=Path, default=ROOT / "configs/main_model_profiles.yaml"
+    )
+    parser.add_argument("--local-files-only", action="store_true")
+    args = parser.parse_args(argv)
+
+    catalog = load_main_model_catalog(args.catalog)
+    for profile in catalog.profiles.values():
+        print(f"[hf-main-model] checking profile={profile.profile_id}", flush=True)
+        command = [
+            sys.executable,
+            str(ROOT / "scripts/models/check_hf_model_config.py"),
+            "--model",
+            profile.model_id,
+            "--revision",
+            profile.revision,
+            "--check-tokenizer",
+            "--json",
+        ]
+        if args.local_files_only:
+            command.append("--local-files-only")
+        subprocess.run(command, check=True)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

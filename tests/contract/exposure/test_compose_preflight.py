@@ -24,7 +24,9 @@ def test_bootstrap_applies_named_auth_modes_skips_only_custom() -> None:
     )
 
 
-def test_compose_preflight_rejects_non_local_local_open(monkeypatch) -> None:
+def test_compose_preflight_rejects_local_open_without_full_stack_private_lan(
+    monkeypatch,
+) -> None:
     import importlib.util
     import pytest
 
@@ -35,10 +37,33 @@ def test_compose_preflight_rejects_non_local_local_open(monkeypatch) -> None:
 
     monkeypatch.setenv("APP_ENV", "production")
     monkeypatch.setenv("AUTH_MODE", "local_open")
+    monkeypatch.setenv("EXPOSURE_MODE", "private_network")
+    monkeypatch.setenv("EXPOSURE_AUDIENCE", "")
     with pytest.raises(SystemExit) as exc:
         module._phase1({"profiles": {"private_network": {"diagnostics": {}}}})
 
     assert "auth profile evidence" in str(exc.value)
+
+
+def test_compose_preflight_allows_non_local_local_open_on_trusted_lan(
+    monkeypatch,
+) -> None:
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        "preflight_compose_trusted_lan",
+        ROOT / "scripts/compose/preflight_compose.py",
+    )
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    monkeypatch.setenv("APP_ENV", "production")
+    monkeypatch.setenv("AUTH_MODE", "local_open")
+    monkeypatch.setenv("EXPOSURE_MODE", "master_open")
+    monkeypatch.setenv("EXPOSURE_AUDIENCE", "private_lan")
+
+    module._check_auth_profile_preflight()
 
 
 def test_preflight_compose_wrapper_does_not_preload_root_dotenv() -> None:
@@ -86,4 +111,3 @@ def test_compose_preflight_reads_exposure_from_env_file(monkeypatch, tmp_path) -
 
     with pytest.raises(SystemExit):
         module._phase1(_load_exposure())
-

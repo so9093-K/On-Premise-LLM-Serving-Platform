@@ -16,6 +16,7 @@ from scripts.lib.cli_kr import KoreanArgumentParser  # noqa: E402
 from ai_model_serving.auth_control import (  # noqa: E402
     AUTH_MODE_EXPECTATIONS,
     AUTH_PROFILE_ENV_KEYS,
+    auth_profile_exposure_values,
     auth_profile_env_values,
     auth_profile_summary,
 )
@@ -39,10 +40,11 @@ def load_current(path: Path) -> dict[str, str]:
 
 def build_plan(current: dict[str, str], mode: str, *, app_env: str | None = None) -> dict[str, Any]:
     target = auth_profile_env_values(mode)
+    target.update(auth_profile_exposure_values(mode))
     if app_env:
         target["APP_ENV"] = app_env
     changes = []
-    for key in ("APP_ENV", *AUTH_PROFILE_ENV_KEYS):
+    for key in ("APP_ENV", *AUTH_PROFILE_ENV_KEYS, "EXPOSURE_MODE", "EXPOSURE_AUDIENCE"):
         if key not in target:
             continue
         before = current.get(key, "<unset>")
@@ -51,7 +53,10 @@ def build_plan(current: dict[str, str], mode: str, *, app_env: str | None = None
     effective_env = (app_env or current.get("APP_ENV") or ("local" if mode == "local_open" else "staging")).lower()
     warnings: list[str] = []
     if mode == "local_open" and effective_env not in {"local", "test", "development"}:
-        warnings.append("local_open은 API/admin/internal 인증을 끕니다. APP_ENV=local/test/development에서만 사용하세요.")
+        warnings.append(
+            "local_open은 API/admin/internal 인증을 끄고 master_open/private_lan으로 "
+            "전체 stack을 host-publish합니다. 외부 접근이 차단된 신뢰된 사내망에서만 사용하세요."
+        )
     if mode == "edge_terminated":
         warnings.append("edge_terminated는 외부 proxy가 public /v1/* traffic을 인증한다고 가정합니다. admin/internal token은 켜 둬야 합니다.")
     if mode in {"private_network", "strict"} and target.get("API_KEY_REQUIRED") != "true":

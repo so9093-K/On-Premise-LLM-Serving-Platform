@@ -28,8 +28,8 @@ profiles:
   master_open:
     class: diagnostic_full_stack
     description: >
-      전체 stack host-published. Gateway bypass, vLLM runtime direct access, Risk Adapter,
-      Prometheus, DCGM, cAdvisor 직접 접근 가능. 정상 진단/운영 모드.
+      전체 stack host-published. 외부 접근이 차단된 신뢰된 사내망에서
+      Gateway와 vLLM runtime, Risk Adapter, Prometheus, DCGM, cAdvisor를 직접 사용한다.
     host_published:
       - gateway
       - main_llm_vllm
@@ -49,7 +49,8 @@ profiles:
       requires_exposure_audience: true
     note: >
       Gateway bypass, runtime direct access, operations endpoint direct exposure는
-      master_open의 의도된 특성이다. 이를 별도 mode로 회피하지 않는다.
+      master_open의 의도된 사내망 운영 특성이다. AUTH_MODE=local_open의 기본
+      exposure는 master_open + private_lan이다.
       대신 EXPOSURE_AUDIENCE로 대상 network을 명시하고, exposure-status/doctor/preflight가
       구조화된 diagnostics 필드로 판단한다.
       EXPOSURE_AUDIENCE allowed values: local_only, private_lan, vpn, public

@@ -4,11 +4,11 @@ CURRENT_VERSION := $(shell cat VERSION 2>/dev/null || echo 0.0.0)
 
 PYTHON ?= $(if $(PYTHON_BIN),$(PYTHON_BIN),$(shell command -v python3.12 || command -v python3 || command -v python))
 export PYTHON_BIN := $(PYTHON)
-AUTH_ENV ?= $(ENV)
+AUTH_ENV ?= $(if $(ENV_FILE),$(ENV_FILE),$(ENV))
 AUTH_ENV_ARG = $(if $(AUTH_ENV),--env $(AUTH_ENV),)
 
 
-.PHONY: help help-full help-json command-check guide init-env init-env-local init-env-compose init-env-local-force init-env-compose-force sync-runtime-secrets sync-env show-image-tags validate test test-full build build-pipeline build-image build-risk-vllm-image rebuild-app rebuild-risk-vllm package start up compose-up compose-up-master compose-up-private compose-down-private preflight-compose compose-config ready ready-local ready-full check-ready smoke runtime-validate runtime-targets storage-paths project-inventory refresh-generated-reports auth-status auth-doctor auth-plan auth-apply exposure-status exposure-plan exposure-apply monitoring-projection operator-status operator-reports live-evidence release-check release-check-full vllm-commands hf-config-check risk-vllm-config-check risk-vllm-patch-removal-check model-inventory model-list model-status model-validate model-diff model-propose-add model-propose-remove status stop down compose-down compose-logs logs compose-diagnostics clean clean-dry-run cleanup-plan remove-plan clean-all reset bootstrap first-run rebuild-full doctor reset-version infisical-up infisical-down infisical-logs infisical-init secrets-push secrets-push-sensitive secrets-pull secrets-status validate-docs docs-check reports-check feature-check feature-plan render-runtime-assets check-runtime-assets
+.PHONY: help help-full help-json command-check guide init-env init-env-local init-env-compose init-env-local-force init-env-compose-force sync-runtime-secrets sync-env show-image-tags validate test test-full build build-pipeline build-image build-risk-vllm-image rebuild-app rebuild-risk-vllm package start up compose-up compose-up-master compose-up-private compose-down-private preflight-compose compose-config ready ready-local ready-full check-ready smoke runtime-validate runtime-targets storage-paths project-inventory refresh-generated-reports auth-status auth-doctor auth-plan auth-apply exposure-status exposure-plan exposure-apply monitoring-projection operator-status operator-reports live-evidence release-check release-check-full vllm-commands hf-config-check main-model-prepare risk-vllm-config-check risk-vllm-patch-removal-check model-inventory model-list model-status model-validate model-diff model-propose-add model-propose-remove status stop down compose-down compose-logs logs compose-diagnostics clean clean-dry-run cleanup-plan remove-plan clean-all reset bootstrap first-run rebuild-full doctor reset-version infisical-up infisical-down infisical-logs infisical-init secrets-push secrets-push-sensitive secrets-pull secrets-status validate-docs docs-check reports-check feature-check feature-plan render-runtime-assets check-runtime-assets
 
 help:
 	@$(PYTHON) scripts/commands/render_command_help.py
@@ -43,10 +43,10 @@ init-env-compose-force:
 	$(PYTHON) scripts/config/setup_env.py --profile compose --force
 
 sync-runtime-secrets:
-	$(PYTHON) scripts/config/setup_env.py --sync-runtime-secrets
+	$(PYTHON) scripts/config/setup_env.py --sync-runtime-secrets --env-file "$${ENV_FILE:-.env}"
 
 sync-env:
-	$(PYTHON) scripts/config/setup_env.py --sync-env
+	$(PYTHON) scripts/config/setup_env.py --sync-env --env-file "$${ENV_FILE:-.env}"
 
 show-image-tags:
 	$(PYTHON) scripts/config/setup_env.py --show-image-tags
@@ -99,23 +99,14 @@ compose-up-master:
 	EXPOSURE_MODE=master_open bash scripts/compose/compose_up.sh
 
 compose-up-private:
-	@if [[ ! -f .env ]]; then echo "오류: .env 파일이 없습니다. make init-env-compose 를 먼저 실행하세요." >&2; exit 2; fi
+	@if [[ ! -f "$${ENV_FILE:-.env}" ]]; then echo "오류: $${ENV_FILE:-.env} 파일이 없습니다. make init-env-compose 를 먼저 실행하세요." >&2; exit 2; fi
 	SKIP_PREFLIGHT=1 EXPOSURE_MODE=private_network bash scripts/compose/compose_up.sh
 
 compose-down-private:
-	docker compose -f ops/compose/full-stack.private-network.yaml --env-file .env down
+	COMPOSE_FILE="$${COMPOSE_FILE:-ops/compose/full-stack.private-network.yaml}" ENV_FILE="$${ENV_FILE:-.env}" bash scripts/ops/down_services.sh
 
 compose-config:
-	@set -euo pipefail; \
-	$(PYTHON) scripts/env/env_validate.py --env-file "$${ENV_FILE:-.env}"; \
-	MODE="$${EXPOSURE_MODE:-$$($(PYTHON) scripts/env/env_get.py --env-file "$${ENV_FILE:-.env}" EXPOSURE_MODE --default private_network)}"; \
-	CANONICAL="$$($(PYTHON) scripts/compose/resolve_exposure_mode.py "$$MODE")"; \
-	OVERRIDE_FILE="$$($(PYTHON) scripts/compose/resolve_exposure_mode.py "$$MODE" --print-override-file)"; \
-	if [[ -n "$$OVERRIDE_FILE" ]]; then \
-	  docker compose -f ops/compose/full-stack.private-network.yaml -f "$$OVERRIDE_FILE" --env-file "$${ENV_FILE:-.env}" config; \
-	else \
-	  docker compose -f ops/compose/full-stack.private-network.yaml --env-file "$${ENV_FILE:-.env}" config; \
-	fi
+	@bash scripts/compose/compose_config.sh
 
 preflight-compose:
 	bash scripts/compose/preflight_compose.sh
@@ -164,11 +155,11 @@ exposure-status:
 
 exposure-plan:
 	@if [[ -z "$(MODE)" ]]; then echo "MODE=private_network|master_open 를 지정하세요" >&2; exit 2; fi
-	$(PYTHON) scripts/auth/exposure_plan.py --mode $(MODE) $(if $(AUDIENCE),--audience $(AUDIENCE),)
+	$(PYTHON) scripts/auth/exposure_plan.py $(AUTH_ENV_ARG) --mode $(MODE) $(if $(AUDIENCE),--audience $(AUDIENCE),)
 
 exposure-apply:
 	@if [[ -z "$(MODE)" ]]; then echo "MODE=private_network|master_open 를 지정하세요" >&2; exit 2; fi
-	$(PYTHON) scripts/auth/exposure_apply.py --mode $(MODE) $(if $(AUDIENCE),--audience $(AUDIENCE),) --yes
+	$(PYTHON) scripts/auth/exposure_apply.py $(AUTH_ENV_ARG) --mode $(MODE) $(if $(AUDIENCE),--audience $(AUDIENCE),) --yes
 
 monitoring-projection:
 	$(PYTHON) scripts/reports/monitoring_projection_report.py
@@ -194,6 +185,10 @@ vllm-commands:
 
 hf-config-check:
 	$(PYTHON) scripts/models/check_hf_model_config.py
+
+main-model-prepare:
+	@if [[ -z "$(PROFILE)" ]]; then echo "PROFILE=<main-model-profile-id>를 지정하세요" >&2; exit 2; fi
+	$(PYTHON) scripts/models/prepare_main_model_cache.py --profile "$(PROFILE)" --env-file "$${ENV_FILE:-.env}" --compose-file "$${COMPOSE_FILE:-ops/compose/full-stack.private-network.yaml}"
 
 risk-vllm-config-check:
 	bash scripts/models/check_risk_vllm_image_config.sh
@@ -233,10 +228,10 @@ stop:
 down: stop
 
 compose-down:
-	docker compose -f ops/compose/full-stack.private-network.yaml --env-file .env down
+	bash scripts/ops/down_services.sh
 
 compose-logs:
-	docker compose -f ops/compose/full-stack.private-network.yaml --env-file .env logs -f --tail=100
+	bash scripts/compose/compose_logs.sh
 
 compose-diagnostics:
 	bash scripts/compose/compose_diagnostics.sh

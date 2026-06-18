@@ -54,3 +54,9 @@ def test_auth_profiles_yaml_contains_internal_trusted() -> None:
     assert p.get("auth_owner") == "caller_or_network"
     assert p.get("allowed_in_production") is True
 
+
+def test_local_open_profile_owns_trusted_lan_full_stack_exposure() -> None:
+    data = _load_auth()
+    profile = data["profiles"]["local_open"]
+    assert profile["default_exposure_mode"] == "master_open"
+    assert profile["default_exposure_audience"] == "private_lan"

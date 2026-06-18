@@ -130,6 +130,11 @@ def validate_model_source_facts() -> None:
     if serving['embedding_ko']['port'] != embed_ko['runtime']['port']:
         raise SystemExit('local-embed-ko serving port must match model runtime port')
 
+    compatibility_floor = str(
+        read_yaml('configs/recommended_images.yaml')['images']['risk_vllm'][
+            'compatibility_pins'
+        ]['transformers_min']
+    )
     detector_specs = read_yaml('configs/model_serving.yaml')['risk_adapter'].get('detectors', {})
     for detector in detector_specs.values():
         if detector.get('type', 'vllm') == 'local':
@@ -144,8 +149,11 @@ def validate_model_source_facts() -> None:
             raise SystemExit(f'{logical_id} source_facts must define one-token classifier output')
         if set(facts['known_codes']) != expected_codes:
             raise SystemExit(f'{logical_id} source_facts code mismatch')
-        if facts.get('transformers_min_version') != '4.52.4':
-            raise SystemExit(f'{logical_id} must require transformers_min_version 4.52.4 for Kanana risk vLLM config compatibility')
+        if facts.get('transformers_min_version') != compatibility_floor:
+            raise SystemExit(
+                f'{logical_id} must require transformers_min_version '
+                f'{compatibility_floor} for Kanana risk vLLM config compatibility'
+            )
         if not (policy['max_output_tokens'] == serving[serving_key]['max_output_tokens'] == model['runtime']['max_output_tokens'] == 1):
             raise SystemExit(f'{logical_id} max_output_tokens must remain 1 across source-aware policy and serving config')
 
@@ -157,8 +165,15 @@ def validate_model_source_facts() -> None:
             raise SystemExit(f'{rel} must not use legacy validation status for model identity or runtime policy')
         if 'source_facts' not in card or 'project_runtime_policy' not in card:
             raise SystemExit(f'{rel} must record source_facts and project_runtime_policy')
-        if rel.startswith('model_cards/risk-') and card['source_facts'].get('transformers_min_version') != '4.52.4':
-            raise SystemExit(f'{rel} must require transformers_min_version 4.52.4')
+        if (
+            rel.startswith('model_cards/risk-')
+            and card['source_facts'].get('transformers_min_version')
+            != compatibility_floor
+        ):
+            raise SystemExit(
+                f'{rel} must require transformers_min_version '
+                f'{compatibility_floor}'
+            )
 
     review = (ROOT / 'docs/models/model_runtime_source_review.md').read_text(encoding='utf-8')
     for phrase in ['source_facts', 'project_runtime_policy', 'max_tokens=1', 'single-label-token']:

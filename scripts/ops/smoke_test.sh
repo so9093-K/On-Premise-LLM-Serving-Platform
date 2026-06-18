@@ -4,7 +4,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT"
 source scripts/lib/load_env.sh
-load_local_env .env
+ENV_FILE="${ENV_FILE:-.env}"
+load_local_env "$ENV_FILE"
 
 PYTHON_BIN="${PYTHON_BIN:-$(command -v python3.12 || command -v python3 || command -v python)}"
 # Smoke tests always probe host-published ports; RISK_ADAPTER_BASE_URL in .env is the
@@ -15,7 +16,7 @@ if [[ -z "$GATEWAY_PROBE_HOST" || "$GATEWAY_PROBE_HOST" == "0.0.0.0" ]]; then
 fi
 GATEWAY_BASE_URL="http://${GATEWAY_PROBE_HOST}:${GATEWAY_PORT:-9400}"
 RISK_ADAPTER_BASE_URL="http://localhost:${RISK_ADAPTER_PORT:-9405}"
-API_KEY="$(local_env_first_value .env API_KEY API_KEYS || true)"
+API_KEY="$(local_env_first_value "$ENV_FILE" API_KEY API_KEYS || true)"
 SMOKE_MAX_REQUEST_SECONDS="${SMOKE_MAX_REQUEST_SECONDS:-30}"
 SMOKE_MAX_LATENCY_MS="${SMOKE_MAX_LATENCY_MS:-0}"
 
@@ -23,7 +24,7 @@ AUTH_ARGS=()
 if [[ -n "$API_KEY" ]]; then
   AUTH_ARGS=(-H "Authorization: Bearer ${API_KEY}")
 fi
-ADMIN_API_KEY="$(local_env_first_value .env ADMIN_API_KEY ADMIN_API_KEYS || true)"
+ADMIN_API_KEY="$(local_env_first_value "$ENV_FILE" ADMIN_API_KEY ADMIN_API_KEYS || true)"
 ADMIN_AUTH_ARGS=()
 if [[ -n "$ADMIN_API_KEY" ]]; then
   ADMIN_AUTH_ARGS=(-H "Authorization: Bearer ${ADMIN_API_KEY}")

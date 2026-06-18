@@ -24,6 +24,18 @@ curl -X POST \
 `GET /admin/main-model/operations/{operation_id}`로 확인한다. API에는 profile
 ID만 전달할 수 있고 model ID, image, command, environment는 지정할 수 없다.
 
+전환 작업은 먼저 `preparing` 단계에서 선택 profile의 고정
+`model_id + revision` 전체 snapshot을 공용 Hugging Face cache에 준비하고
+local-only로 다시 확인한다. 이 단계에서는 현재 main-model gate를 열어 둔다.
+다운로드나 cache 검증이 실패하면 실행 중인 모델을 중지하지 않고 작업만
+실패한다. 운영자가 전환 전에 명시적으로 준비하려면 다음 명령을 사용할 수 있다.
+
+```bash
+make main-model-prepare PROFILE=gemma4-12b-unified-fp8
+```
+
+이 명령은 active profile이나 실행 중인 컨테이너를 변경하지 않는다.
+
 - `gemma4-26b-a4b-fp8` — Gemma 4 26B A4B FP8
 - `gemma4-12b-unified-fp8` — Gemma 4 12B Unified FP8
 
@@ -42,6 +54,14 @@ MAIN_LLM_PROFILE_LOCKED=false
 
 `MAIN_LLM_PROFILE_LOCKED=true`이면 API 전환은 거절된다. 상태는
 `.runtime/main-model/main-model-state.json`에 atomic write로 저장된다.
+
+Full Compose 기동과 Full CI 배포는 이 상태를 시작 전에 읽어 임시 Compose boot
+projection을 원자적으로 생성한다. projection은 해당 Compose 명령이 끝나면
+삭제되며 영구 active-state나 운영자 편집 대상이 아니다. Compose는 projection의
+profile command로 main model을 처음부터 부팅하고, Admin Sidecar는 실제 container
+command를 확인해 상태를 검증한다.
+상태 JSON이 손상됐거나 저장 profile이 현재 catalog에 없으면 기본 26B로 조용히
+fallback하지 않고 기동을 중단한다.
 
 12B compatibility는 현재 `unverified`다. 고정 revision과 runtime image
 조합의 GPU boot/Text/Image parity 전에는 24 GiB 호환이나 production-ready를

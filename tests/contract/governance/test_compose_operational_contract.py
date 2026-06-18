@@ -30,6 +30,8 @@ def test_full_stack_compose_and_prometheus_paths_are_network_correct() -> None:
     assert "((vllm:kv_cache_usage_perc > 1) / 100)" in rules
 
     private_compose = (ROOT / "ops/compose/full-stack.private-network.yaml").read_text(encoding="utf-8")
+    assert "name: ${COMPOSE_PROJECT_NAME:-compose}" in private_compose
+    assert "COMPOSE_PROJECT: ${COMPOSE_PROJECT_NAME:-compose}" in private_compose
     assert "dcgm-exporter:" in private_compose
     assert "cadvisor:" in private_compose
     assert (
@@ -37,7 +39,7 @@ def test_full_stack_compose_and_prometheus_paths_are_network_correct() -> None:
         "/var/lib/grafana/dashboards/gpu_capacity_and_oom_risk.json"
     ) in private_compose
     assert "${DCGM_EXPORTER_IMAGE:" in private_compose
-    assert "env_file: ../../.env" in private_compose
+    assert "env_file: ${COMPOSE_SERVICE_ENV_FILE:?" in private_compose
     assert "copy to compose.yaml" not in private_compose.lower()
     assert "${GATEWAY_BIND_ADDR:-0.0.0.0}:${GATEWAY_PORT:-9400}:9400" in private_compose
 
@@ -46,7 +48,8 @@ def test_full_stack_compose_and_prometheus_paths_are_network_correct() -> None:
     assert "${CADVISOR_PORT:-9413}:8080" in master_open_overlay or "9413:8080" in master_open_overlay
 
     full_stack_doc = (ROOT / "docs/operations/full_stack_runtime.md").read_text(encoding="utf-8")
-    assert "docker compose -f ops/compose/full-stack.private-network.yaml --env-file .env up" in full_stack_doc
+    assert "make compose-up" in full_stack_doc
+    assert "make compose-down" in full_stack_doc
     assert "dcgm-exporter:9400" in full_stack_doc
     assert "gitlab_cicd_deployment.md" in full_stack_doc
 
@@ -78,10 +81,24 @@ def test_compose_up_syncs_runtime_secrets_before_docker_compose() -> None:
     assert "CHANGE_TICKET" in script
     assert "SKIP_PREFLIGHT=1 is forbidden" in script
     assert 'scripts/env/env_validate.py --env-file "$ENV_FILE"' in script
-    assert 'EXPOSURE_MODE_EFFECTIVE="$(_env_value EXPOSURE_MODE)"' in script
+    assert 'EXPOSURE_MODE_EFFECTIVE="${EXPOSURE_MODE:-$(_env_value EXPOSURE_MODE)}"' in script
+    assert 'COMPOSE_FILE="$COMPOSE_FILE"' in script
     assert "scripts/env/env_get.py" in script
-    assert "docker compose -f" in script
-    assert '--env-file "$${ENV_FILE:-.env}" config' in makefile
+    assert 'COMPOSE_ARGS=("${COMPOSE_CONTEXT_FILE_ARGS[@]}")' in script
+    assert 'docker compose "${COMPOSE_ARGS[@]}"' in script
+    assert "compose_context_init" in script
+    assert "render_main_model_boot_override.py" in script
+    assert "ai_model_serving.model_cache_cli" in script
+    assert script.index('docker compose "${COMPOSE_ARGS[@]}"') < script.index(
+        "preparing main-model cache"
+    )
+    compose_config = (ROOT / "scripts/compose/compose_config.sh").read_text(
+        encoding="utf-8"
+    )
+    assert "render_main_model_boot_override.py" in compose_config
+    assert 'BOOT_OVERRIDE="$(mktemp ' in compose_config
+    assert "compose_context_init" in compose_config
+    assert '--env-file "$ENV_FILE_ABS" config' in compose_config
 
 
 def test_make_compose_up_uses_env_file_as_exposure_source_of_truth() -> None:
@@ -89,9 +106,82 @@ def test_make_compose_up_uses_env_file_as_exposure_source_of_truth() -> None:
     assert "EXPOSURE_MODE ?= private_network" not in makefile
     assert "\ncompose-up:\n\tbash scripts/compose/compose_up.sh\n" in makefile
     assert "\npreflight-compose:\n\tbash scripts/compose/preflight_compose.sh\n" in makefile
-    assert "\ncompose-config:\n\t@set -euo pipefail; \\\n" in makefile
-    assert "scripts/env/env_validate.py --env-file \"$${ENV_FILE:-.env}\"" in makefile
+    assert "\ncompose-config:\n\t@bash scripts/compose/compose_config.sh\n" in makefile
     assert "\nexposure-status:\n\t$(PYTHON) scripts/auth/exposure_status.py $(AUTH_ENV_ARG)\n" in makefile
+    assert "AUTH_ENV ?= $(if $(ENV_FILE),$(ENV_FILE),$(ENV))" in makefile
+
+
+def test_compose_preflight_reads_hf_settings_from_env_file() -> None:
+    preflight = (ROOT / "scripts/compose/preflight_compose.py").read_text(encoding="utf-8")
+    assert 'if _env_value("HF_TOKEN") or _env_value("HUGGING_FACE_HUB_TOKEN"):' in preflight
+    assert 'cache_raw = _env_value("HF_CACHE_DIR", "./model_cache/huggingface")' in preflight
+    assert '"--compose-file",' in preflight
+    assert '"--effective-config",' in preflight
+    validator = (ROOT / "scripts/compose/validate_vllm_compose.py").read_text(
+        encoding="utf-8"
+    )
+    assert 'parser.add_argument("--compose-file", type=Path, default=COMPOSE_PATH)' in validator
+
+
+def test_compose_commands_share_custom_context() -> None:
+    for rel in [
+        "scripts/ops/ready_full.sh",
+        "scripts/ops/smoke_test.sh",
+        "scripts/ops/status_services.sh",
+        "scripts/ops/ready_local.sh",
+        "scripts/ops/up_services.sh",
+    ]:
+        text = (ROOT / rel).read_text(encoding="utf-8")
+        assert 'ENV_FILE="${ENV_FILE:-.env}"' in text, rel
+        assert 'load_local_env "$ENV_FILE"' in text, rel
+    down = (ROOT / "scripts/ops/down_services.sh").read_text(encoding="utf-8")
+    assert 'COMPOSE_FILE="${COMPOSE_FILE:-ops/compose/full-stack.private-network.yaml}"' in down
+    assert 'ENV_FILE="${ENV_FILE:-.env}"' in down
+    assert 'compose_context_init "$ROOT"' in down
+    assert 'project="$COMPOSE_PROJECT_NAME_EFFECTIVE"' in down
+
+
+def test_custom_env_file_is_used_for_service_environment(tmp_path) -> None:
+    env_file = tmp_path / "custom.env"
+    text = (ROOT / ".env").read_text(encoding="utf-8")
+    text = re.sub(r"^APP_ENV=.*$", "APP_ENV=custom-probe", text, flags=re.MULTILINE)
+    text = re.sub(
+        r"^COMPOSE_PROJECT_NAME=.*$",
+        "COMPOSE_PROJECT_NAME=custom-context-test",
+        text,
+        flags=re.MULTILINE,
+    )
+    if "COMPOSE_PROJECT_NAME=custom-context-test" not in text:
+        text += "\nCOMPOSE_PROJECT_NAME=custom-context-test\n"
+    env_file.write_text(text, encoding="utf-8")
+    env = os.environ.copy()
+    env["ENV_FILE"] = str(env_file)
+    env["COMPOSE_FILE"] = "ops/compose/full-stack.private-network.yaml"
+    env.pop("COMPOSE_PROJECT_NAME", None)
+
+    result = subprocess.run(
+        ["make", "compose-config"],
+        cwd=ROOT,
+        env=env,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    document = yaml.safe_load(result.stdout)
+    assert document["name"] == "custom-context-test"
+    assert document["services"]["gateway"]["environment"]["APP_ENV"] == "custom-probe"
+
+
+def test_process_compose_project_override_and_down_fallback_share_one_value(
+    tmp_path,
+) -> None:
+    helper = (ROOT / "scripts/lib/compose_context.sh").read_text(encoding="utf-8")
+    down = (ROOT / "scripts/ops/down_services.sh").read_text(encoding="utf-8")
+    assert 'local project_name="${COMPOSE_PROJECT_NAME:-}"' in helper
+    assert 'project_name="${project_name:-compose}"' in helper
+    assert 'project="$COMPOSE_PROJECT_NAME_EFFECTIVE"' in down
 
 
 def test_compose_config_does_not_call_docker_when_env_file_is_invalid(tmp_path) -> None:

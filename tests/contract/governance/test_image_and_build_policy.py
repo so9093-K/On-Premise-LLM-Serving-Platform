@@ -21,6 +21,11 @@ def test_build_ux_separates_build_from_runtime_startup() -> None:
     assert 'make first-run' in build_doc
     assert 'make remove-plan' in build_doc
     assert (ROOT / 'docs/operations/first_project_guide.md').exists()
+    build_all = (ROOT / "scripts/build/build_all.sh").read_text(encoding="utf-8")
+    assert "scripts/reports/refresh_generated_reports.py" in build_all
+    assert "docker CLI is required because make build includes the platform image" in build_all
+    assert "platform image build skipped" not in build_all
+    assert "PACKAGE_SKIP_VALIDATION=1 bash scripts/build/package_release.sh" in build_all
 
 
 def test_env_bootstrap_and_image_tag_automation_are_present() -> None:
@@ -51,13 +56,23 @@ def test_env_bootstrap_and_image_tag_automation_are_present() -> None:
     assert images['prometheus']['default'].startswith('prom/prometheus:v3')
     assert images['grafana']['default'].startswith('grafana/grafana:12.2')
     build_script = (ROOT / 'scripts/build/build_risk_vllm_image.sh').read_text(encoding='utf-8')
-    assert 'MIN_TRANSFORMERS_VERSION="4.52.4"' in build_script
-    assert 'load_local_env .env' in build_script
+    assert "print_risk_vllm_compatibility.py" in build_script
+    assert 'load_local_env "$ENV_FILE"' in build_script
     assert 'below the Kanana minimum' in build_script
     dockerignore = (ROOT / '.dockerignore').read_text(encoding='utf-8')
     assert 'ops/*' in dockerignore
     assert '!ops/docker/Dockerfile.risk-vllm-kanana' in dockerignore
     assert '!ops/patches/transformers_llama_head_dim_guard.py' in dockerignore
+
+
+def test_bootstrap_restarts_gateway_and_admin_sidecar_at_the_same_revision() -> None:
+    bootstrap = (ROOT / "scripts/build/bootstrap.sh").read_text(encoding="utf-8")
+    assert "render_main_model_boot_override.py" in bootstrap
+    assert 'docker compose "${_compose_args[@]}" --env-file "$ENV_FILE_ABS" config' in bootstrap
+    assert "up -d --no-deps admin-sidecar" in bootstrap
+    assert "up -d --no-deps gateway risk-adapter" in bootstrap
+    assert "python3.12 python3.13 python3.14" in bootstrap
+    assert "Python >=3.12,<3.15 not found" in bootstrap
 
 
 def test_config_version_semantics_are_explicit() -> None:
@@ -81,3 +96,11 @@ def test_embedding_ko_vllm_uses_shared_vllm_image_without_local_build() -> None:
         assert "COLBERT_KO" not in raw
         assert "Dockerfile.colbert-ko-vllm" not in raw
 
+
+def test_clean_removes_timestamped_runtime_reports_but_keeps_shared_state() -> None:
+    clean = (ROOT / "scripts/ops/clean_all.sh").read_text(encoding="utf-8")
+    assert "remove_runtime_validation_reports" in clean
+    assert "runtime_validation_*.json" in clean
+    assert "runtime_validation_*.md" in clean
+    assert 'PURGE_MODEL_CACHE:-0' in clean
+    assert 'PURGE_RUNTIME_SECRETS:-0' in clean

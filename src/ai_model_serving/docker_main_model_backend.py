@@ -3,11 +3,14 @@ from __future__ import annotations
 import asyncio
 import copy
 import json
+import os
+from pathlib import Path
 from typing import Any
 
 import httpx
 
 from .main_model_control import MainModelCatalog, MainModelProfile
+from .model_cache import prepare_model_snapshot
 
 
 class DockerMainModelBackend:
@@ -25,12 +28,16 @@ class DockerMainModelBackend:
         *,
         gateway_url: str = "http://gateway:9400",
         internal_token: str = "",
+        cache_dir: str | None = None,
     ) -> None:
         self.docker_socket = docker_socket
         self.compose_project = compose_project
         self.gateway_url = gateway_url.rstrip("/")
         self.internal_headers = (
             {"Authorization": f"Bearer {internal_token}"} if internal_token else {}
+        )
+        self.cache_dir = Path(
+            cache_dir or os.environ.get("HF_HOME", "/root/.cache/huggingface")
         )
         self._template: dict[str, Any] | None = None
 
@@ -84,6 +91,17 @@ class DockerMainModelBackend:
             if profile.model_id == model and (revision is None or revision == profile.revision):
                 return profile.profile_id
         return None
+
+    async def prepare(
+        self, catalog: MainModelCatalog, profile: MainModelProfile
+    ) -> None:
+        del catalog
+        await asyncio.to_thread(
+            prepare_model_snapshot,
+            model_id=profile.model_id,
+            revision=profile.revision,
+            cache_dir=self.cache_dir,
+        )
 
     @staticmethod
     def _creation_template(inspected: dict[str, Any]) -> dict[str, Any]:

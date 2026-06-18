@@ -5,7 +5,8 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT"
 
 source scripts/lib/load_env.sh
-load_local_env .env
+ENV_FILE="${ENV_FILE:-.env}"
+load_local_env "$ENV_FILE"
 
 mkdir -p run logs
 

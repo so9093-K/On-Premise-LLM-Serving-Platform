@@ -40,6 +40,42 @@ def test_auth_apply_updates_only_profile_flags(tmp_path):
     assert "API_KEYS=keep-me" in text
 
 
+def test_auth_apply_local_open_applies_trusted_lan_full_stack_policy(tmp_path):
+    env_path = tmp_path / ".env"
+    env_path.write_text(
+        "AUTH_MODE=strict\n"
+        "APP_ENV=production\n"
+        "EXPOSURE_MODE=private_network\n"
+        "EXPOSURE_AUDIENCE=\n",
+        encoding="utf-8",
+    )
+
+    rc = auth_apply.main(
+        ["--mode", "local_open", "--env", str(env_path), "--yes"]
+    )
+
+    assert rc == 0
+    text = env_path.read_text(encoding="utf-8")
+    assert "AUTH_MODE=local_open" in text
+    assert "APP_ENV=local" in text
+    assert "EXPOSURE_MODE=master_open" in text
+    assert "EXPOSURE_AUDIENCE=private_lan" in text
+
+
+def test_auth_plan_local_open_declares_exposure_changes():
+    plan = auth_plan.build_plan(
+        {
+            "AUTH_MODE": "strict",
+            "EXPOSURE_MODE": "private_network",
+            "EXPOSURE_AUDIENCE": "",
+        },
+        "local_open",
+    )
+    changes = {change["key"]: change["after"] for change in plan["env_changes"]}
+    assert changes["EXPOSURE_MODE"] == "master_open"
+    assert changes["EXPOSURE_AUDIENCE"] == "private_lan"
+
+
 def test_auth_plan_apply_report_invalid_env_without_traceback(tmp_path, capsys):
     env_path = tmp_path / ".env"
     env_path.write_text("AUTH_MODE=local_open\nAUTH_MODE=strict\n", encoding="utf-8")

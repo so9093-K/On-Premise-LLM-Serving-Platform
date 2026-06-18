@@ -102,14 +102,17 @@ def test_vllm_compose_validation_and_diagnostics_are_packaged() -> None:
 def test_gitlab_ci_runs_model_and_compose_contract_gates() -> None:
     ci = (ROOT / '.gitlab-ci.yml').read_text(encoding='utf-8')
     assert 'python scripts/compose/validate_vllm_compose.py' in ci
-    assert 'hf-main-model-canary:' in ci
-    assert 'scripts/models/check_hf_model_config.py' in ci
-    assert '--check-tokenizer' in ci
-    assert "configs/model_serving.yaml" in ci
-    assert "main_llm" in ci
-    assert 'only:' in ci
-    assert 'variables:' in ci
-    assert '- $HF_TOKEN' in ci
+    assert 'hf-main-model-profiles-canary:' in ci
+    assert 'scripts/models/check_main_model_profiles.py' in ci
+    assert 'HF_CANARY_VENV="$(mktemp -d)"' in ci
+    assert "trap 'rm -rf \"$HF_CANARY_VENV\"' EXIT" in ci
+    assert '"huggingface_hub==1.13.0"' in ci
+    assert "gemma4-26b-a4b-fp8" not in ci
+    assert "gemma4-12b-unified-fp8" not in ci
+    canary = ci.split("hf-main-model-profiles-canary:", 1)[1].split(
+        "\nunit-test:", 1
+    )[0]
+    assert "only:" not in canary
     validate_script = (ROOT / 'scripts/validation/validate_contracts.py').read_text(encoding='utf-8')
     preflight_script = (ROOT / 'scripts/compose/preflight_compose.py').read_text(encoding='utf-8')
     ready_full_script = (ROOT / 'scripts/ops/ready_full.sh').read_text(encoding='utf-8')
@@ -159,7 +162,7 @@ def test_status_services_reports_readiness_phase_and_not_ready_dependencies() ->
 
 def test_makefile_exposes_candidate_env_and_model_proposal_ux() -> None:
     makefile = (ROOT / 'Makefile').read_text(encoding='utf-8')
-    assert 'AUTH_ENV ?= $(ENV)' in makefile
+    assert 'AUTH_ENV ?= $(if $(ENV_FILE),$(ENV_FILE),$(ENV))' in makefile
     assert 'scripts/auth/auth_status.py $(AUTH_ENV_ARG)' in makefile
     assert 'scripts/auth/auth_doctor.py $(AUTH_ENV_ARG) --warn-only' in makefile
     assert 'model-propose-add' in makefile

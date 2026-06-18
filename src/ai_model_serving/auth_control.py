@@ -34,6 +34,11 @@ _SEMANTIC_FIELDS = (
     "allowed_in_production",
 )
 
+_OPTIONAL_POLICY_FIELDS = (
+    "default_exposure_mode",
+    "default_exposure_audience",
+)
+
 _REQUIRED_FIELDS = _BOOL_FIELDS + _SEMANTIC_FIELDS
 
 
@@ -58,7 +63,7 @@ def _build_expectations(profiles: dict[str, dict[str, Any]]) -> dict[str, dict[s
         for field in _BOOL_FIELDS:
             if field in profile:
                 entry[field] = bool(profile[field])
-        for field in _SEMANTIC_FIELDS:
+        for field in (*_SEMANTIC_FIELDS, *_OPTIONAL_POLICY_FIELDS):
             if field in profile:
                 val = profile[field]
                 entry[field] = bool(val) if isinstance(val, bool) else str(val)
@@ -97,6 +102,21 @@ def auth_profile_env_values(mode: str) -> dict[str, str]:
         "INTERNAL_SERVICE_AUTH_REQUIRED": str(bool(expected.get("internal_service_auth_required", False))).lower(),
         "FASTAPI_DOCS_ENABLED": str(bool(expected.get("docs_enabled", True))).lower(),
     }
+
+
+def auth_profile_exposure_values(mode: str) -> dict[str, str]:
+    """Return exposure defaults explicitly owned by an auth profile."""
+    expected = AUTH_MODE_EXPECTATIONS.get(mode)
+    if expected is None or mode == "custom":
+        raise ValueError(f"{mode!r} is not a managed auth profile")
+    exposure_mode = expected.get("default_exposure_mode")
+    if not exposure_mode:
+        return {}
+    values = {"EXPOSURE_MODE": str(exposure_mode)}
+    audience = expected.get("default_exposure_audience")
+    if audience:
+        values["EXPOSURE_AUDIENCE"] = str(audience)
+    return values
 
 
 def auth_profile_summary(mode: str) -> str:
@@ -163,7 +183,7 @@ def _read_yaml(path: Path) -> dict[str, Any]:
 
 
 def _exposure_mode_from_env() -> str:
-    return _env("EXPOSURE_MODE", "private_network")
+    return _env("EXPOSURE_MODE", "master_open")
 
 
 def _resolve_exposure_mode(data: dict[str, Any], mode: str) -> str:
@@ -277,14 +297,12 @@ def diagnose_auth(settings: AppSettings, project_root: Path) -> list[AuthFinding
     non_local = settings.app_env.lower() in NON_LOCAL_ENVS or settings.app_env.lower() not in {"local", "test", "development"}
 
     is_internal_trusted = mode == "internal_trusted"
+    is_local_open_trusted_lan = (
+        mode == "local_open"
+        and _env("EXPOSURE_MODE", "") == "master_open"
+        and _env("EXPOSURE_AUDIENCE", "") == "private_lan"
+    )
     auth_owner = str(expected.get("auth_owner", "app"))
-
-    if non_local and mode == "local_open":
-        findings.append(AuthFinding(
-            "FAIL",
-            "LOCAL_OPEN_FORBIDDEN_NON_LOCAL",
-            f"AUTH_MODE=local_open is only allowed for local/test/development environments; APP_ENV={settings.app_env}.",
-        ))
 
     if non_local and is_internal_trusted:
         evidence = _env(INTERNAL_TRUSTED_EVIDENCE_ENV, "").strip()
@@ -308,22 +326,23 @@ def diagnose_auth(settings: AppSettings, project_root: Path) -> list[AuthFinding
             ))
 
     if non_local and not settings.security.api_key_required:
-        if is_internal_trusted:
+        if is_internal_trusted or is_local_open_trusted_lan:
             findings.append(AuthFinding(
                 "INFO",
                 "AUTH_DELEGATED_TO_NETWORK",
-                f"AUTH_MODE=internal_trusted: API_KEY_REQUIRED=false — 인증 소유권이 네트워크/호출자에 위임됨 (APP_ENV={settings.app_env}). "
-                "ADMIN_ENDPOINTS_INTERNAL_ONLY=true가 admin endpoint 보호를 선언해야 합니다.",
+                f"AUTH_MODE={mode}: API_KEY_REQUIRED=false — 인증 소유권이 "
+                f"신뢰된 네트워크 경계에 위임됨 (APP_ENV={settings.app_env}).",
             ))
         else:
             findings.append(AuthFinding("FAIL", "PUBLIC_API_UNAUTHENTICATED_NON_LOCAL", f"APP_ENV={settings.app_env}인데 API_KEY_REQUIRED=false입니다."))
 
     if non_local and not settings.security.internal_service_auth_required:
-        if is_internal_trusted:
+        if is_internal_trusted or is_local_open_trusted_lan:
             findings.append(AuthFinding(
                 "INFO",
                 "INTERNAL_AUTH_DELEGATED",
-                f"AUTH_MODE=internal_trusted: INTERNAL_SERVICE_AUTH_REQUIRED=false — 내부 서비스 인증도 네트워크 소유권에 위임됨 (APP_ENV={settings.app_env}).",
+                f"AUTH_MODE={mode}: INTERNAL_SERVICE_AUTH_REQUIRED=false — "
+                f"내부 서비스 인증도 네트워크 소유권에 위임됨 (APP_ENV={settings.app_env}).",
             ))
         else:
             findings.append(AuthFinding("FAIL", "INTERNAL_SERVICE_AUTH_DISABLED_NON_LOCAL", f"APP_ENV={settings.app_env}인데 INTERNAL_SERVICE_AUTH_REQUIRED=false입니다."))
@@ -339,6 +358,20 @@ def diagnose_auth(settings: AppSettings, project_root: Path) -> list[AuthFinding
     canonical_mode = _resolve_exposure_mode(data, exposure_mode)
     exposure_profile_data = _exposure_profile(project_root, canonical_mode)
     diagnostics = exposure_profile_data.get("diagnostics", {})
+    exposure_audience = _env("EXPOSURE_AUDIENCE", "").strip()
+
+    if mode == "local_open" and (
+        canonical_mode != "master_open" or exposure_audience != "private_lan"
+    ):
+        findings.append(
+            AuthFinding(
+                "FAIL",
+                "LOCAL_OPEN_EXPOSURE_POLICY_MISMATCH",
+                "AUTH_MODE=local_open requires EXPOSURE_MODE=master_open and "
+                "EXPOSURE_AUDIENCE=private_lan so the trusted corporate network "
+                "owns access control for Gateway, vLLM, and operations endpoints.",
+            )
+        )
 
     if data.get("canonical_modes") and canonical_mode not in data.get("profiles", {}):
         findings.append(AuthFinding(
@@ -348,19 +381,36 @@ def diagnose_auth(settings: AppSettings, project_root: Path) -> list[AuthFinding
         ))
 
     if diagnostics.get("gateway_bypass_possible"):
-        findings.append(AuthFinding(
-            "WARN",
-            "EXPOSURE_GATEWAY_BYPASS_POSSIBLE",
-            f"EXPOSURE_MODE={canonical_mode}: diagnostics.gateway_bypass_possible=true — vLLM runtime ports are host-published. "
-            "Gateway authentication bypass is possible for direct vLLM access.",
-        ))
+        trusted_local_open = (
+            mode == "local_open"
+            and canonical_mode == "master_open"
+            and exposure_audience == "private_lan"
+        )
+        findings.append(
+            AuthFinding(
+                "INFO" if trusted_local_open else "WARN",
+                "EXPOSURE_GATEWAY_BYPASS_EXPECTED"
+                if trusted_local_open
+                else "EXPOSURE_GATEWAY_BYPASS_POSSIBLE",
+                (
+                    "AUTH_MODE=local_open + EXPOSURE_MODE=master_open/private_lan: "
+                    "vLLM direct access is enabled by the trusted corporate-network policy."
+                    if trusted_local_open
+                    else (
+                        f"EXPOSURE_MODE={canonical_mode}: "
+                        "diagnostics.gateway_bypass_possible=true — vLLM runtime ports "
+                        "are host-published. Gateway authentication bypass is possible."
+                    )
+                ),
+            )
+        )
 
     if diagnostics.get("direct_model_runtime_access"):
         findings.append(AuthFinding(
             "INFO",
             "EXPOSURE_DIRECT_MODEL_RUNTIME_ACCESS",
             f"EXPOSURE_MODE={canonical_mode}: vLLM runtimes are host-published (direct_model_runtime_access=true). "
-            "This is an intended diagnostic property of this exposure mode.",
+            "This is the intended trusted-corporate-network property of this exposure mode.",
         ))
 
     if diagnostics.get("direct_operations_endpoints"):
@@ -368,11 +418,11 @@ def diagnose_auth(settings: AppSettings, project_root: Path) -> list[AuthFinding
             "INFO",
             "EXPOSURE_DIRECT_OPERATIONS_ENDPOINTS",
             f"EXPOSURE_MODE={canonical_mode}: Prometheus, DCGM, cAdvisor are host-published (direct_operations_endpoints=true). "
-            "This is an intended diagnostic property of this exposure mode.",
+            "This is the intended trusted-corporate-network property of this exposure mode.",
         ))
 
     if diagnostics.get("requires_exposure_audience"):
-        audience = _env("EXPOSURE_AUDIENCE", "")
+        audience = exposure_audience
         allowed_audiences: list[str] = data.get("exposure_audience", {}).get("allowed_values", [])
         if not audience:
             allowed_str = "|".join(allowed_audiences) if allowed_audiences else "local_only|private_lan|vpn|public"

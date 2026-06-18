@@ -5,7 +5,8 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT"
 
 source scripts/lib/load_env.sh
-load_local_env .env
+ENV_FILE="${ENV_FILE:-.env}"
+load_local_env "$ENV_FILE"
 
 PYTHON_BIN="${PYTHON_BIN:-$(command -v python3.12 || command -v python3 || command -v python)}"
 "$PYTHON_BIN" scripts/build/check_python.py --context ready-local >/dev/null

@@ -1,6 +1,14 @@
 from __future__ import annotations
 
+import asyncio
+
+import ai_model_serving.docker_main_model_backend as backend_module
 from ai_model_serving.docker_main_model_backend import DockerMainModelBackend
+from ai_model_serving.main_model_control import load_main_model_catalog
+
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[2]
 
 
 def test_creation_template_copies_only_allowlisted_container_fields():
@@ -70,3 +78,27 @@ def test_creation_template_preserves_private_network_without_host_binding():
     }
     template = DockerMainModelBackend._creation_template(inspected)
     assert template["host_config"]["PortBindings"] == {}
+
+
+def test_prepare_uses_profile_identity_and_shared_cache_path(tmp_path, monkeypatch):
+    calls = []
+
+    def fake_prepare(**kwargs):
+        calls.append(kwargs)
+
+    monkeypatch.setattr(backend_module, "prepare_model_snapshot", fake_prepare)
+    catalog = load_main_model_catalog(ROOT / "configs/main_model_profiles.yaml")
+    profile = catalog.profiles["gemma4-12b-unified-fp8"]
+    backend = DockerMainModelBackend(
+        "/var/run/docker.sock",
+        cache_dir=str(tmp_path),
+    )
+    asyncio.run(backend.prepare(catalog, profile))
+
+    assert calls == [
+        {
+            "model_id": profile.model_id,
+            "revision": profile.revision,
+            "cache_dir": tmp_path,
+        }
+    ]

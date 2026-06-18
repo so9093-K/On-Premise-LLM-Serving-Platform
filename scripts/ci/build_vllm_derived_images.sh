@@ -9,7 +9,7 @@
 #
 # Optional:
 #   RISK_VLLM_BASE_IMAGE             legacy fallback for VLLM_BASE_IMAGE
-#   RISK_VLLM_TRANSFORMERS_MIN_VERSION   (default: 4.52.4)
+#   RISK_VLLM_TRANSFORMERS_MIN_VERSION   (default: configs/recommended_images.yaml)
 #   CI_COMMIT_TAG                    if non-empty, also pushes <image>:$CI_COMMIT_TAG
 
 set -euo pipefail
@@ -24,6 +24,9 @@ set -euo pipefail
 RESOLVED_VLLM_BASE_IMAGE="${VLLM_BASE_IMAGE}"
 echo "[build] vLLM base image : ${RESOLVED_VLLM_BASE_IMAGE}"
 echo "[build] risk-vllm-kanana: ${RISK_VLLM_IMAGE_SHA}"
+RISK_VLLM_TRANSFORMERS_MIN_VERSION="${RISK_VLLM_TRANSFORMERS_MIN_VERSION:-$(
+  python3 scripts/models/print_risk_vllm_compatibility.py
+)}"
 
 # ── Pre-build disk status ──────────────────────────────────────────────────────
 echo "[build] disk status (pre-build):"
@@ -39,7 +42,7 @@ docker build \
   --cache-from "${RESOLVED_VLLM_BASE_IMAGE}" \
   -f ops/docker/Dockerfile.risk-vllm-kanana \
   --build-arg BASE_IMAGE="${RESOLVED_VLLM_BASE_IMAGE}" \
-  --build-arg TRANSFORMERS_MIN_VERSION="${RISK_VLLM_TRANSFORMERS_MIN_VERSION:-4.52.4}" \
+  --build-arg TRANSFORMERS_MIN_VERSION="${RISK_VLLM_TRANSFORMERS_MIN_VERSION}" \
   -t "${RISK_VLLM_IMAGE_SHA}" \
   -t "${RISK_VLLM_IMAGE_REF}" \
   .

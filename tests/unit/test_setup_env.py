@@ -15,6 +15,8 @@ def test_setup_env_generates_compose_env_with_local_open_defaults(tmp_path):
     assert 'ADMIN_API_KEY_REQUIRED=false' in text
     assert 'INTERNAL_SERVICE_AUTH_REQUIRED=false' in text
     assert 'AUTH_MODE=local_open' in text
+    assert 'EXPOSURE_MODE=master_open' in text
+    assert 'EXPOSURE_AUDIENCE=private_lan' in text
     assert 'ADMIN_API_KEY=ams_admin_' in text
     assert 'ADMIN_API_KEYS=ams_admin_' in text
     assert 'API_KEYS=ams_gateway_' in text
@@ -34,6 +36,8 @@ def test_setup_env_generates_local_open_profile(tmp_path):
     text = out.read_text(encoding='utf-8')
     assert 'APP_ENV=local' in text
     assert 'AUTH_MODE=local_open' in text
+    assert 'EXPOSURE_MODE=master_open' in text
+    assert 'EXPOSURE_AUDIENCE=private_lan' in text
     assert 'API_KEY_REQUIRED=false' in text
     assert 'ADMIN_API_KEY_REQUIRED=false' in text
     assert 'INTERNAL_SERVICE_AUTH_REQUIRED=false' in text
@@ -46,6 +50,22 @@ def test_setup_env_refuses_overwrite_without_force(tmp_path):
     rc = setup_env.main(['--profile', 'local', '--output', str(out)])
     assert rc == 2
     assert out.read_text(encoding='utf-8') == 'EXISTING=1\n'
+
+
+def test_setup_env_rejects_private_exposure_with_local_open(tmp_path, capsys):
+    out = tmp_path / '.env'
+    rc = setup_env.main(
+        [
+            '--profile',
+            'compose',
+            '--output',
+            str(out),
+            '--exposure-mode',
+            'private_network',
+        ]
+    )
+    assert rc == 2
+    assert "AUTH_MODE=local_open requires" in capsys.readouterr().err
 
 
 def test_setup_env_force_rejects_duplicate_existing_env(tmp_path, capsys):

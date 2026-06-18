@@ -47,10 +47,28 @@ remove_glob_find() {
   fi
 }
 
-for path in "$ROOT/dist" "$ROOT/build" "$ROOT/outputs" "$ROOT/run" "$ROOT/.pytest_cache"; do
+remove_runtime_validation_reports() {
+  local report_dir="$ROOT/reports/runtime"
+  [[ -d "$report_dir" ]] || return 0
+  if [[ "$DRY_RUN" == "1" ]]; then
+    find "$report_dir" -maxdepth 1 -type f \
+      \( -name 'runtime_validation_*.json' -o -name 'runtime_validation_*.md' \) \
+      -print | sed 's/^/would remove: /'
+  else
+    find "$report_dir" -maxdepth 1 -type f \
+      \( -name 'runtime_validation_*.json' -o -name 'runtime_validation_*.md' \) \
+      -delete
+  fi
+}
+
+for path in \
+  "$ROOT/dist" "$ROOT/build" "$ROOT/outputs" "$ROOT/run" \
+  "$ROOT/.pytest_cache" "$ROOT/.mypy_cache" "$ROOT/.ruff_cache" \
+  "$ROOT/.coverage" "$ROOT/coverage.xml" "$ROOT/htmlcov"; do
   remove_path "$path"
 done
 remove_glob_find
+remove_runtime_validation_reports
 
 if [[ "$MODE" == "--all" ]]; then
   remove_path "$ROOT/logs"
@@ -76,8 +94,8 @@ if [[ "$MODE" == "--all" ]]; then
   fi
 else
   if [[ "$DRY_RUN" == "1" ]]; then
-    echo "dry run: generated artifacts would be removed; logs, .runtime, and model_cache/models kept."
+    echo "dry run: generated artifacts and timestamped runtime validation reports would be removed; logs, .runtime, and model_cache/models kept."
   else
-    echo "removed generated artifacts; logs, .runtime, and model_cache/models kept. Use make clean-all to remove logs."
+    echo "removed generated artifacts and timestamped runtime validation reports; logs, .runtime, and model_cache/models kept. Use make clean-all to remove logs."
   fi
 fi

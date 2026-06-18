@@ -125,6 +125,7 @@ def test_main_model_metrics_restore_persistent_state_without_operation_id_labels
     text = metrics.response().body.decode()
     assert 'main_model_gate_open{service="gateway"} 0.0' in text
     assert 'main_model_operation_state{service="gateway",state="rolling_back"} 1.0' in text
+    assert 'main_model_operation_state{service="gateway",state="preparing"} 0.0' in text
     assert 'main_model_switch_operations{result="failure",service="gateway"} 2.0' in text
     assert "sensitive-operation-id" not in text
     assert "sensitive error text" not in text

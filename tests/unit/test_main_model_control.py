@@ -25,15 +25,23 @@ class FakeBackend:
         observed: str | None = None,
         fail_profile: str | None = None,
         fail_drain: bool = False,
+        fail_prepare: bool = False,
     ) -> None:
         self.observed = observed
         self.fail_profile = fail_profile
         self.fail_drain = fail_drain
+        self.fail_prepare = fail_prepare
+        self.prepared: list[str] = []
         self.replaced: list[str] = []
         self.drain_calls = 0
 
     async def observed_profile(self, catalog):
         return self.observed
+
+    async def prepare(self, catalog, profile):
+        self.prepared.append(profile.profile_id)
+        if self.fail_prepare:
+            raise RuntimeError("cache prepare failed")
 
     async def replace(self, catalog, profile):
         self.replaced.append(profile.profile_id)
@@ -185,6 +193,7 @@ def test_successful_switch_commits_only_after_validation(tmp_path):
 
     operation_id = asyncio.run(run())
     assert manager.operation(operation_id)["status"] == "completed"
+    assert manager.operation(operation_id)["stage"] == "completed"
     assert manager.snapshot()["active_profile"]["id"] == "gemma4-12b-unified-fp8"
     assert manager.snapshot()["gate"] == "open"
 
@@ -256,6 +265,84 @@ def test_drain_failure_preserves_current_runtime_without_replace(tmp_path):
     assert manager.operation(operation_id)["status"] == "failed"
     assert backend.replaced == []
     assert manager.snapshot()["active_profile"]["id"] == "gemma4-26b-a4b-fp8"
+    assert manager.snapshot()["gate"] == "open"
+
+
+def test_cache_prepare_failure_keeps_current_runtime_and_gate_open(tmp_path):
+    loaded = catalog()
+    store = MainModelStateStore(tmp_path / "state.json", loaded.default_profile)
+    state = store.read()
+    state.update(
+        active_profile="gemma4-26b-a4b-fp8",
+        last_known_good_profile="gemma4-26b-a4b-fp8",
+        gate="open",
+    )
+    store.write(state)
+    backend = FakeBackend("gemma4-26b-a4b-fp8", fail_prepare=True)
+    manager = MainModelManager(loaded, store, backend)
+
+    async def run():
+        operation_id = manager.request_switch(
+            "gemma4-12b-unified-fp8", confirm_unverified=True
+        )
+        while manager.operation(operation_id)["status"] not in {
+            "completed",
+            "failed",
+            "rollback_failed",
+        }:
+            await asyncio.sleep(0.01)
+        return operation_id
+
+    operation_id = asyncio.run(run())
+    assert manager.operation(operation_id)["status"] == "failed"
+    assert manager.operation(operation_id)["error"] == "cache prepare failed"
+    assert backend.prepared == ["gemma4-12b-unified-fp8"]
+    assert backend.replaced == []
+    assert manager.snapshot()["active_profile"]["id"] == "gemma4-26b-a4b-fp8"
+    assert manager.snapshot()["gate"] == "open"
+
+
+def test_gate_stays_open_while_cache_prepare_is_running(tmp_path):
+    loaded = catalog()
+    store = MainModelStateStore(tmp_path / "state.json", loaded.default_profile)
+    state = store.read()
+    state.update(
+        active_profile="gemma4-26b-a4b-fp8",
+        last_known_good_profile="gemma4-26b-a4b-fp8",
+        gate="open",
+    )
+    store.write(state)
+
+    class BlockingPrepareBackend(FakeBackend):
+        def __init__(self):
+            super().__init__("gemma4-26b-a4b-fp8")
+            self.started = asyncio.Event()
+            self.release = asyncio.Event()
+
+        async def prepare(self, catalog, profile):
+            self.prepared.append(profile.profile_id)
+            self.started.set()
+            await self.release.wait()
+
+    backend = BlockingPrepareBackend()
+    manager = MainModelManager(loaded, store, backend)
+
+    async def run():
+        operation_id = manager.request_switch(
+            "gemma4-12b-unified-fp8", confirm_unverified=True
+        )
+        await backend.started.wait()
+        assert manager.operation(operation_id)["stage"] == "preparing"
+        assert manager.snapshot()["gate"] == "open"
+        backend.release.set()
+        while manager.operation(operation_id)["status"] not in {
+            "completed",
+            "failed",
+            "rollback_failed",
+        }:
+            await asyncio.sleep(0.01)
+
+    asyncio.run(run())
     assert manager.snapshot()["gate"] == "open"
 
 

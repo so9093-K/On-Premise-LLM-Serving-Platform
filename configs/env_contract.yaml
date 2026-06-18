@@ -13,6 +13,7 @@ always_required:
   - GATEWAY_BIND_ADDR
   - AUTH_MODE
   - EXPOSURE_MODE
+  - COMPOSE_PROJECT_NAME
 
 # auth_mode_keys: keys that are part of the auth contract.
 auth_mode_keys:

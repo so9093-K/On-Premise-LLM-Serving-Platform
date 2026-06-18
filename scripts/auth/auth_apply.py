@@ -11,7 +11,11 @@ if str(ROOT / "src") not in sys.path:
     sys.path.insert(0, str(ROOT / "src"))
 
 from scripts.lib.cli_kr import KoreanArgumentParser  # noqa: E402
-from ai_model_serving.auth_control import AUTH_MODE_EXPECTATIONS, auth_profile_env_values  # noqa: E402
+from ai_model_serving.auth_control import (  # noqa: E402
+    AUTH_MODE_EXPECTATIONS,
+    auth_profile_env_values,
+    auth_profile_exposure_values,
+)
 from scripts.auth.auth_plan import build_plan, render_plan  # noqa: E402
 from scripts.config.setup_env import parse_env_template, write_env  # noqa: E402
 
@@ -48,6 +52,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"env 파일 오류: {exc}", file=sys.stderr)
         return 2
     target = auth_profile_env_values(args.mode)
+    target.update(auth_profile_exposure_values(args.mode))
     resolved_app_env = args.app_env or _APP_ENV_FOR_MODE.get(args.mode)
     if resolved_app_env:
         target["APP_ENV"] = resolved_app_env

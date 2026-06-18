@@ -66,7 +66,9 @@ app-only에서 `make init-env-compose`를 쓰면 compose hostname 때문에 read
 | 변경 적용 | `make auth-apply MODE=<profile>` |
 | 진단 | `make auth-doctor` |
 
-profile 선택: `local_open` (인증 없음) · `internal_trusted` (네트워크 위임) · `private_network` (API key 필요) · `strict` (production)
+profile 선택: `local_open` (신뢰된 사내망, 전체 stack 공개) · `internal_trusted`
+(Gateway 인증을 네트워크에 위임) · `private_network` (API key 필요) ·
+`strict` (인터넷 연결 가능 환경)
 
 **노출 모드 (EXPOSURE_MODE):**
 
@@ -76,7 +78,8 @@ profile 선택: `local_open` (인증 없음) · `internal_trusted` (네트워크
 | 변경 적용 | `make exposure-apply MODE=<mode> [AUDIENCE=<x>]` |
 | 현재 상태 확인 | `make exposure-status` |
 
-mode 선택: `private_network` (Gateway·Grafana만 host-published) · `master_open` (전체 stack — AUDIENCE 필수)
+mode 선택: `master_open` (`local_open` 기본, 전체 stack,
+`private_lan`) · `private_network` (Gateway·Grafana만 host-published)
 
 AUDIENCE 선택: `local_only` · `private_lan` · `vpn` · `public`
 
@@ -132,7 +135,7 @@ make operator-reports
 | 범위 | 명령 | 보존되는 것 |
 |---|---|---|
 | 미리 보기 | `make remove-plan` / `make cleanup-plan` | 실제 삭제 없음 |
-| 일반 산출물 | `make clean` | logs, model cache, `.runtime`, Docker image |
+| 일반 산출물 | `make clean` | logs, model cache, `.runtime`, Docker image. timestamp runtime validation report는 정리 |
 | 산출물 + logs | `make clean-all` | model cache, `.runtime`, Docker image |
 | 모델 캐시 포함 | `PURGE_MODEL_CACHE=1 make clean-all` | `.runtime`, Docker image |
 | runtime secret 포함 | `PURGE_RUNTIME_SECRETS=1 make clean-all` | model cache, Docker image |
@@ -140,6 +143,23 @@ make operator-reports
 | Docker image 포함 | `make reset` | `.env`, upstream/base vLLM image |
 
 `model_cache/`와 `.runtime/`은 실수 삭제 비용이 크므로 기본 보존한다. compose의 Hugging Face 다운로드 캐시는 기본적으로 `HF_CACHE_DIR=./model_cache/huggingface`에 모으며, vLLM 컨테이너 내부 `/root/.cache/huggingface`로 mount한다.
+
+Compose resource namespace는 `.env`의 `COMPOSE_PROJECT_NAME`으로 고정한다. 기본값
+`compose`는 기존 설치와의 호환을 위한 값이다. 같은 Docker host에 여러 설치를
+둘 때는 설치마다 고유한 이름을 지정한다.
+
+Full-stack Compose 명령은 `ENV_FILE`, `COMPOSE_FILE`,
+`COMPOSE_PROJECT_NAME`을 하나의 실행 context로 해석한다. `ENV_FILE`은 Compose
+변수 보간뿐 아니라 컨테이너의 `env_file`에도 같은 절대경로로 전달된다. project
+이름 우선순위는 process environment, `ENV_FILE`, 기본값 `compose` 순서이며
+up/down/logs/config/diagnostics와 CI 배포가 같은 값을 사용한다. 따라서 custom
+환경은 직접 `docker compose`를 조합하지 말고 다음처럼 project 명령을 사용한다.
+
+```bash
+ENV_FILE=/srv/instance-a.env \
+COMPOSE_FILE=ops/compose/full-stack.private-network.yaml \
+make compose-up
+```
 
 ## 6. 추천 단순 흐름
 

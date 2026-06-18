@@ -211,7 +211,11 @@ def write_inventory_reports(root: Path, output_dir: Path | None = None) -> dict[
     md_path = output_dir / 'project_inventory_current.md'
 
     with csv_path.open('w', encoding='utf-8', newline='') as fh:
-        writer = csv.DictWriter(fh, fieldnames=list(FileInventoryRow.__dataclass_fields__))
+        writer = csv.DictWriter(
+            fh,
+            fieldnames=list(FileInventoryRow.__dataclass_fields__),
+            lineterminator='\n',
+        )
         writer.writeheader()
         for row in rows:
             writer.writerow(asdict(row))

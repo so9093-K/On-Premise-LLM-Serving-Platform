@@ -7,7 +7,11 @@ cd "$ROOT"
 PYTHON_BIN="${PYTHON_BIN:-$(command -v python3.12 || command -v python3 || command -v python)}"
 ENV_FILE="${ENV_FILE:-.env}"
 COMPOSE_FILE="${COMPOSE_FILE:-ops/compose/full-stack.private-network.yaml}"
+source scripts/lib/compose_context.sh
+compose_context_init "$ROOT"
 PROM_SECRET=".runtime/prometheus/admin_api_key"
+MAIN_MODEL_BOOT_OVERRIDE="$(mktemp "${TMPDIR:-/tmp}/main-model-boot.XXXXXX.yaml")"
+trap 'rm -f "$MAIN_MODEL_BOOT_OVERRIDE"' EXIT
 
 if [[ ! -f "$ENV_FILE" ]]; then
   echo "[compose-up] $ENV_FILE 파일이 없습니다." >&2
@@ -32,8 +36,8 @@ if [[ ! -f "$PROM_SECRET" || ! -s "$PROM_SECRET" ]]; then
   exit 2
 fi
 
-EXPOSURE_MODE_EFFECTIVE="$(_env_value EXPOSURE_MODE)"
-EXPOSURE_MODE_EFFECTIVE="${EXPOSURE_MODE_EFFECTIVE:-private_network}"
+EXPOSURE_MODE_EFFECTIVE="${EXPOSURE_MODE:-$(_env_value EXPOSURE_MODE)}"
+EXPOSURE_MODE_EFFECTIVE="${EXPOSURE_MODE_EFFECTIVE:-master_open}"
 
 # Resolve EXPOSURE_MODE to canonical mode via YAML source-of-truth.
 # Unknown modes exit with code 2 and a clear message listing canonical modes.
@@ -48,8 +52,19 @@ if [[ -n "$COMPOSE_OVERRIDE" && ! -f "$COMPOSE_OVERRIDE" ]]; then
   exit 2
 fi
 
+echo "[compose-up] resolving persisted main-model boot profile"
+MAIN_MODEL_BOOT_PROFILE="$(
+  "$PYTHON_BIN" scripts/models/render_main_model_boot_override.py \
+    --catalog configs/main_model_profiles.yaml \
+    --state .runtime/main-model/main-model-state.json \
+    --env-file "$ENV_FILE" \
+    --output "$MAIN_MODEL_BOOT_OVERRIDE"
+)"
+echo "[compose-up] main-model boot profile: $MAIN_MODEL_BOOT_PROFILE"
+
 if [[ "${SKIP_PREFLIGHT:-0}" != "1" ]]; then
-  ENV_FILE="$ENV_FILE" EXPOSURE_MODE="$CANONICAL_MODE" bash scripts/compose/preflight_compose.sh
+  ENV_FILE="$ENV_FILE" COMPOSE_FILE="$COMPOSE_FILE" EXPOSURE_MODE="$CANONICAL_MODE" \
+    bash scripts/compose/preflight_compose.sh
 else
   APP_ENV_EFFECTIVE="$(_env_value APP_ENV)"
   APP_ENV_EFFECTIVE="${APP_ENV_EFFECTIVE:-local}"
@@ -70,10 +85,34 @@ else
   esac
 fi
 
+COMPOSE_ARGS=("${COMPOSE_CONTEXT_FILE_ARGS[@]}")
 if [[ -n "$COMPOSE_OVERRIDE" ]]; then
-  echo "[compose-up] using $COMPOSE_FILE + $COMPOSE_OVERRIDE (EXPOSURE_MODE=$CANONICAL_MODE) with $ENV_FILE"
-  docker compose -f "$COMPOSE_FILE" -f "$COMPOSE_OVERRIDE" --env-file "$ENV_FILE" up -d
-else
-  echo "[compose-up] using $COMPOSE_FILE with $ENV_FILE"
-  docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" up -d
+  COMPOSE_ARGS+=(-f "$COMPOSE_OVERRIDE")
 fi
+COMPOSE_ARGS+=(-f "$MAIN_MODEL_BOOT_OVERRIDE")
+echo "[compose-up] validating effective Compose config for profile $MAIN_MODEL_BOOT_PROFILE"
+docker compose "${COMPOSE_ARGS[@]}" --env-file "$ENV_FILE_ABS" config >/dev/null
+
+HF_CACHE_HOST="$(
+  "$PYTHON_BIN" scripts/models/resolve_hf_cache_dir.py \
+    --env-file "$ENV_FILE" \
+    --compose-file "$COMPOSE_FILE"
+)"
+mkdir -p "$HF_CACHE_HOST"
+if [[ ! -w "$HF_CACHE_HOST" ]]; then
+  echo "[compose-up] Hugging Face cache directory is not writable: $HF_CACHE_HOST" >&2
+  exit 2
+fi
+HF_TOKEN_EFFECTIVE="$(_env_value HF_TOKEN)"
+HUGGING_FACE_HUB_TOKEN_EFFECTIVE="$(_env_value HUGGING_FACE_HUB_TOKEN)"
+echo "[compose-up] preparing main-model cache for $MAIN_MODEL_BOOT_PROFILE"
+HF_TOKEN="$HF_TOKEN_EFFECTIVE" \
+HUGGING_FACE_HUB_TOKEN="${HUGGING_FACE_HUB_TOKEN_EFFECTIVE:-$HF_TOKEN_EFFECTIVE}" \
+PYTHONPATH="$ROOT/src${PYTHONPATH:+:$PYTHONPATH}" \
+  "$PYTHON_BIN" -m ai_model_serving.model_cache_cli \
+    --catalog configs/main_model_profiles.yaml \
+    --cache-dir "$HF_CACHE_HOST" \
+    --profile "$MAIN_MODEL_BOOT_PROFILE"
+
+echo "[compose-up] starting stack (EXPOSURE_MODE=$CANONICAL_MODE, profile=$MAIN_MODEL_BOOT_PROFILE)"
+docker compose "${COMPOSE_ARGS[@]}" --env-file "$ENV_FILE_ABS" up -d

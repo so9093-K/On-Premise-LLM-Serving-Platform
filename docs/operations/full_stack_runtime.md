@@ -44,8 +44,8 @@ Make target을 쓰지 않을 때는 다음 원문 명령을 사용한다.
 make preflight-compose
 make compose-up
 # 또는 직접 실행 전 make sync-runtime-secrets
-docker compose -f ops/compose/full-stack.private-network.yaml --env-file .env up -d
-docker compose -f ops/compose/full-stack.private-network.yaml --env-file .env down
+make compose-up
+make compose-down
 ```
 
 `RISK_VLLM_IMAGE` 빌드와 image 내부 Kanana config check는 기본적으로 `make first-run`/`make bootstrap`에 포함된다. risk image만 수동 재빌드할 때는 `make rebuild-risk-vllm && make risk-vllm-config-check`를 실행한다.

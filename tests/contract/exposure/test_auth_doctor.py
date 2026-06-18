@@ -74,7 +74,9 @@ def test_auth_doctor_custom_requires_risk_acceptance(monkeypatch) -> None:
     assert auth_fail_findings == []
 
 
-def test_auth_doctor_rejects_local_open_in_non_local() -> None:
+def test_auth_doctor_rejects_local_open_without_trusted_lan_policy(
+    monkeypatch,
+) -> None:
     sys.path.insert(0, str(ROOT / "src"))
     from ai_model_serving.auth_control import diagnose_auth
 
@@ -94,8 +96,42 @@ def test_auth_doctor_rejects_local_open_in_non_local() -> None:
         app_env = "production"
         documentation = MockDocumentation()
 
+    monkeypatch.setenv("EXPOSURE_MODE", "private_network")
+    monkeypatch.setenv("EXPOSURE_AUDIENCE", "")
     findings = diagnose_auth(MockSettings(), ROOT)  # type: ignore[arg-type]
-    assert any(f.code == "LOCAL_OPEN_FORBIDDEN_NON_LOCAL" and f.level == "FAIL" for f in findings)
+    assert any(
+        f.code == "LOCAL_OPEN_EXPOSURE_POLICY_MISMATCH" and f.level == "FAIL"
+        for f in findings
+    )
+
+
+def test_auth_doctor_allows_non_local_local_open_on_trusted_lan(
+    monkeypatch,
+) -> None:
+    sys.path.insert(0, str(ROOT / "src"))
+    from ai_model_serving.auth_control import diagnose_auth
+
+    class MockSecurity:
+        auth_mode = "local_open"
+        api_key_required = False
+        admin_api_key_required = False
+        admin_endpoints_internal_only = False
+        internal_service_auth_required = False
+        docs_enabled = True
+
+    class MockDocumentation:
+        enabled = True
+
+    class MockSettings:
+        security = MockSecurity()
+        app_env = "production"
+        documentation = MockDocumentation()
+
+    monkeypatch.setenv("EXPOSURE_MODE", "master_open")
+    monkeypatch.setenv("EXPOSURE_AUDIENCE", "private_lan")
+    findings = diagnose_auth(MockSettings(), ROOT)  # type: ignore[arg-type]
+    assert not [finding for finding in findings if finding.level == "FAIL"]
+    assert any(f.code == "AUTH_DELEGATED_TO_NETWORK" for f in findings)
 
 
 def test_exposure_audience_allowed_values_declared_in_yaml() -> None:
@@ -268,4 +304,3 @@ def test_auth_doctor_reads_local_only_binds_from_explicit_env_file(monkeypatch, 
 
     codes = [f.code for f in findings if f.level == "FAIL"]
     assert "EXPOSURE_LOCAL_ONLY_BIND_MISMATCH" not in codes
-

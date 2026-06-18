@@ -4,6 +4,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT"
 ENV_FILE="${ENV_FILE:-.env}"
+COMPOSE_FILE="${COMPOSE_FILE:-ops/compose/full-stack.private-network.yaml}"
 
 PYTHON_BIN="${PYTHON_BIN:-$(command -v python3.12 || command -v python3 || command -v python || true)}"
 if [[ -z "$PYTHON_BIN" ]]; then
@@ -12,4 +13,5 @@ if [[ -z "$PYTHON_BIN" ]]; then
 fi
 
 "$PYTHON_BIN" scripts/build/check_python.py --context preflight-compose >/dev/null
-exec env ENV_FILE="$ENV_FILE" "$PYTHON_BIN" scripts/compose/preflight_compose.py "$@"
+exec env ENV_FILE="$ENV_FILE" COMPOSE_FILE="$COMPOSE_FILE" \
+  "$PYTHON_BIN" scripts/compose/preflight_compose.py "$@"

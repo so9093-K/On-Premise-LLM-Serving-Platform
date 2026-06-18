@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import argparse
 import json
 import os
 import re
@@ -128,7 +129,9 @@ _LOCAL_ONLY_IMAGE_PREFIXES = (
 )
 
 
-def validate_production_compose_image_policy() -> list[str]:
+def validate_production_compose_image_policy(
+    compose_path: Path = COMPOSE_PATH,
+) -> list[str]:
     """
     Ensure the production compose file does not contain local-only image fallbacks
     or build blocks for any service.  Both are only permitted in the local-build
@@ -136,8 +139,7 @@ def validate_production_compose_image_policy() -> list[str]:
     """
     errors: list[str] = []
 
-    compose = load_yaml(COMPOSE_PATH)
-    raw = COMPOSE_PATH.read_text(encoding="utf-8")
+    compose = load_yaml(compose_path)
 
     for svc_name, svc in compose.get("services", {}).items():
         if "build" in svc:
@@ -150,8 +152,12 @@ def validate_production_compose_image_policy() -> list[str]:
     return errors
 
 
-def validate_alignment() -> None:
-    compose = load_yaml(COMPOSE_PATH)
+def validate_alignment(
+    compose_path: Path = COMPOSE_PATH,
+    *,
+    effective_compose: dict[str, Any] | None = None,
+) -> None:
+    compose = effective_compose if effective_compose is not None else load_yaml(compose_path)
     serving_doc = load_yaml(SERVING_PATH)
     catalog_doc = load_yaml(CATALOG_PATH)
     gpu_budgets = load_yaml(GPU_BUDGETS_PATH)
@@ -161,7 +167,7 @@ def validate_alignment() -> None:
     errors: list[str] = []
     total_gpu_util = 0.0
 
-    errors.extend(validate_production_compose_image_policy())
+    errors.extend(validate_production_compose_image_policy(compose_path))
 
     for runtime in registry.iter_runtime_services():
         if runtime.backend != "vllm":
@@ -251,4 +257,20 @@ def validate_alignment() -> None:
 
 
 if __name__ == "__main__":
-    validate_alignment()
+    parser = argparse.ArgumentParser(
+        description="Validate vLLM runtime policy against a Compose file."
+    )
+    parser.add_argument("--compose-file", type=Path, default=COMPOSE_PATH)
+    parser.add_argument(
+        "--effective-config",
+        type=Path,
+        help="docker compose config output to validate instead of re-interpolating source YAML",
+    )
+    args = parser.parse_args()
+    compose_path = (
+        args.compose_file
+        if args.compose_file.is_absolute()
+        else (ROOT / args.compose_file).resolve()
+    )
+    effective_compose = load_yaml(args.effective_config) if args.effective_config else None
+    validate_alignment(compose_path, effective_compose=effective_compose)

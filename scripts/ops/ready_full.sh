@@ -5,9 +5,12 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT"
 
 source scripts/lib/load_env.sh
-load_local_env .env
+ENV_FILE="${ENV_FILE:-.env}"
+COMPOSE_FILE="${COMPOSE_FILE:-ops/compose/full-stack.private-network.yaml}"
+export ENV_FILE COMPOSE_FILE
+load_local_env "$ENV_FILE"
 
-ADMIN_API_KEY="$(local_env_first_value .env ADMIN_API_KEY ADMIN_API_KEYS || true)"
+ADMIN_API_KEY="$(local_env_first_value "$ENV_FILE" ADMIN_API_KEY ADMIN_API_KEYS || true)"
 
 PYTHON_BIN="${PYTHON_BIN:-$(command -v python3.12 || command -v python3 || command -v python)}"
 # Health probes target the host-published Gateway bind address. When Gateway binds
@@ -115,7 +118,7 @@ wait_for_gateway_ready() {
 
     if (( now >= deadline )); then
       rm -f "$tmp"
-      echo "[ready-full] gateway /ready: ${READY_FULL_TIMEOUT_SECONDS}s timeout — 로그를 확인하세요: docker compose -f ops/compose/full-stack.private-network.yaml logs --tail=50" >&2
+      echo "[ready-full] gateway /ready: ${READY_FULL_TIMEOUT_SECONDS}s timeout — 로그를 확인하세요: COMPOSE_FILE=${COMPOSE_FILE} ENV_FILE=${ENV_FILE} make compose-logs" >&2
       return 1
     fi
 

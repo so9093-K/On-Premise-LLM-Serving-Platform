@@ -58,7 +58,10 @@ make auth-doctor
 make auth-plan MODE=strict
 ```
 
-`local_open`은 로컬 개발용이다. staging/production-like release에서는 public API, admin endpoint, internal service auth가 의도한 profile과 일치해야 한다.
+`local_open`은 외부 접근이 차단된 신뢰된 사내망용이다. 이 profile은
+`master_open/private_lan`과 함께 사용하며, internet-reachable release에는
+사용하지 않는다. 그 외 release에서는 public API, admin endpoint, internal
+service auth가 의도한 profile과 일치해야 한다.
 
 ## Generated OpenAPI 계약 gate
 

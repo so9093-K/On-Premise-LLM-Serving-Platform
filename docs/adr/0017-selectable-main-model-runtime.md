@@ -134,3 +134,17 @@ text/image contract.
 - The 12B checkpoint and Gemma 4 runtime support are preliminary.
 - The pinned image is an immutable digest, but deployment environments must
   pull or retain that digest before switching.
+
+## Deployment integration
+
+Full Compose startup projects the locked/configured/persisted boot intent into a
+temporary generated Compose file. The file is not an additional state store,
+is never edited as the active profile, and is removed when the Compose command
+finishes. It is recreated from the catalog, `.env` lock policy, and atomic
+sidecar state before Compose config validation.
+
+The selected profile snapshot is prepared in the shared Hugging Face cache
+before a runtime switch closes the inference gate. Full deployment performs the
+same preparation before mutating services. Corrupt state, an unknown persisted
+profile, cache preparation failure, or invalid effective Compose config fails
+closed instead of silently booting the installation default.

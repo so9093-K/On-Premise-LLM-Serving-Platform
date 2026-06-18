@@ -47,7 +47,7 @@ variables:
     DOCKER_HOST: tcp://docker:2375
     DOCKER_TLS_CERTDIR: ""
   before_script:
-    - apk add --no-cache bash
+    - apk add --no-cache bash python3 py3-yaml
     - docker info
     - echo "$CI_REGISTRY_PASSWORD" | docker login "$CI_REGISTRY" -u "$CI_REGISTRY_USER" --password-stdin
 
@@ -63,24 +63,19 @@ validate:
     - python -m pytest -q tests/unit/test_main_model_control.py tests/unit/test_docker_main_model_backend.py tests/unit/gateway/test_main_model_control.py
     - bash -n scripts/ci/*.sh scripts/compose/*.sh scripts/ops/*.sh
 
-hf-main-model-canary:
+hf-main-model-profiles-canary:
   extends: .default-python
   stage: validate
   script:
     - |
-      MAIN_MODEL="$(python - <<'PY'
-      import yaml
-      from pathlib import Path
-      print(yaml.safe_load(Path("configs/model_serving.yaml").read_text(encoding="utf-8"))["models"]["main_llm"]["name"])
-      PY
-      )"
-      python scripts/models/check_hf_model_config.py \
-        --model "$MAIN_MODEL" \
-        --check-tokenizer \
-        --json
-  only:
-    variables:
-      - $HF_TOKEN
+      HF_CANARY_VENV="$(mktemp -d)"
+      trap 'rm -rf "$HF_CANARY_VENV"' EXIT
+      python -m venv "$HF_CANARY_VENV"
+      "$HF_CANARY_VENV/bin/python" -m pip install \
+        "transformers==4.52.4" \
+        "huggingface_hub==1.13.0" \
+        "PyYAML==6.0.3"
+      "$HF_CANARY_VENV/bin/python" scripts/models/check_main_model_profiles.py
 
 unit-test:
   extends: .default-python
@@ -109,6 +104,7 @@ build-platform:
   script:
     - APP_VERSION="$(tr -d '\r\n' < VERSION)"
     - docker build --pull -t "$PLATFORM_IMAGE_SHA" -t "$PLATFORM_IMAGE_REF" .
+    - docker run --rm --entrypoint python "$PLATFORM_IMAGE_SHA" -c "from pathlib import Path; from ai_model_serving.main_model_control import load_main_model_catalog; from ai_model_serving.model_cache import prepare_model_snapshot; catalog = load_main_model_catalog(Path('/app/configs/main_model_profiles.yaml')); assert catalog.profiles"
     - docker push "$PLATFORM_IMAGE_SHA"
     - docker push "$PLATFORM_IMAGE_REF"
     - docker pull "$PLATFORM_IMAGE_SHA"
@@ -207,6 +203,7 @@ deploy-gpu-175:
       fi
       PLATFORM_IMAGE_TO_DEPLOY="${PLATFORM_IMAGE_DIGEST}" \
       RISK_VLLM_IMAGE_TO_DEPLOY="${_risk_vllm}" \
+      DEPLOY_RELEASE_ID="${CI_COMMIT_SHA}" \
       bash scripts/ci/deploy_gitlab_compose.sh
   only:
     - release

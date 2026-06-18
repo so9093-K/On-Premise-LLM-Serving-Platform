@@ -5,6 +5,12 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT"
 
 COMPOSE_FILE="${COMPOSE_FILE:-ops/compose/full-stack.private-network.yaml}"
+ENV_FILE="${ENV_FILE:-.env}"
+PYTHON_BIN="${PYTHON_BIN:-$(command -v python3.12 || command -v python3 || command -v python)}"
+
+env_value() {
+  "$PYTHON_BIN" scripts/env/env_get.py --env-file "$ENV_FILE" "$1" --default ""
+}
 
 remove_image_and_containers() {
   local image="$1"
@@ -40,13 +46,13 @@ if ! docker info >/dev/null 2>&1; then
   exit 2
 fi
 
-bash scripts/ops/down_services.sh
+ENV_FILE="$ENV_FILE" COMPOSE_FILE="$COMPOSE_FILE" bash scripts/ops/down_services.sh
 
 # compose file의 image: 항목은 build: 섹션이 없어 --rmi local로 삭제되지 않는다.
 # .env의 PLATFORM_IMAGE 태그를 직접 삭제한다.
 PLATFORM_IMAGE=""
-if [[ -f .env ]]; then
-  PLATFORM_IMAGE="$(grep -E '^PLATFORM_IMAGE=' .env | cut -d= -f2- || true)"
+if [[ -f "$ENV_FILE" ]]; then
+  PLATFORM_IMAGE="$(env_value PLATFORM_IMAGE || true)"
 fi
 if [[ -z "$PLATFORM_IMAGE" && -f VERSION ]]; then
   PLATFORM_IMAGE="ai-model-serving-platform:$(cat VERSION)"
@@ -57,10 +63,10 @@ remove_image_and_containers "$PLATFORM_IMAGE" "platform image"
 RISK_VLLM_IMAGE=""
 RISK_VLLM_BASE_IMAGE=""
 VLLM_IMAGE=""
-if [[ -f .env ]]; then
-  RISK_VLLM_IMAGE="$(grep -E '^RISK_VLLM_IMAGE=' .env | cut -d= -f2- || true)"
-  RISK_VLLM_BASE_IMAGE="$(grep -E '^RISK_VLLM_BASE_IMAGE=' .env | cut -d= -f2- || true)"
-  VLLM_IMAGE="$(grep -E '^VLLM_IMAGE=' .env | cut -d= -f2- || true)"
+if [[ -f "$ENV_FILE" ]]; then
+  RISK_VLLM_IMAGE="$(env_value RISK_VLLM_IMAGE || true)"
+  RISK_VLLM_BASE_IMAGE="$(env_value RISK_VLLM_BASE_IMAGE || true)"
+  VLLM_IMAGE="$(env_value VLLM_IMAGE || true)"
 fi
 if [[ -z "$RISK_VLLM_IMAGE" && -f VERSION ]]; then
   RISK_VLLM_IMAGE="ai-model-serving-risk-vllm-kanana:$(cat VERSION)"

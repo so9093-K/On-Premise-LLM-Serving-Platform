@@ -223,7 +223,12 @@ commands:
       live_services: false
       secrets: false
       env_file: true
-    writes_files: [dist/]
+    writes_files:
+      - dist/
+      - reports/runtime/
+      - reports/refactor/project_inventory_current.csv
+      - reports/refactor/project_inventory_current.json
+      - reports/refactor/project_inventory_current.md
     outputs: [dist/]
     owner: operations
     docs:
@@ -311,7 +316,7 @@ commands:
     canonical: start
     safety: starts_services
     requires:
-      python: false
+      python: true
       docker: false
       gpu: false
       live_services: false
@@ -327,7 +332,7 @@ commands:
     title: Full-stack compose 기동
     category: start_stop
     audience: [operator]
-    description: "preflight 후 full-stack compose를 기동한다. EXPOSURE_MODE=private_network 기본."
+    description: "preflight 후 full-stack compose를 기동한다. 신규 local_open 환경은 master_open/private_lan 기본."
     command: make compose-up
     kind: public
     safety: starts_services
@@ -338,7 +343,9 @@ commands:
       live_services: false
       secrets: true
       env_file: true
-    writes_files: []
+    writes_files:
+      - .runtime/prometheus/admin_api_key
+      - ops/compose/model_cache/huggingface/
     outputs: []
     owner: operations
     docs:
@@ -355,7 +362,7 @@ commands:
     kind: public
     safety: stops_services
     requires:
-      python: false
+      python: true
       docker: true
       gpu: false
       live_services: false
@@ -381,7 +388,7 @@ commands:
       gpu: false
       live_services: false
       secrets: false
-      env_file: false
+      env_file: true
     writes_files: []
     outputs: [stdout]
     owner: operations
@@ -487,12 +494,12 @@ commands:
     kind: public
     safety: diagnostic
     requires:
-      python: false
+      python: true
       docker: true
       gpu: true
       live_services: true
       secrets: false
-      env_file: false
+      env_file: true
     writes_files: []
     outputs: [stdout]
     owner: operations
@@ -907,7 +914,7 @@ commands:
     title: 생성 아티팩트 제거
     category: maintenance
     audience: [developer, operator]
-    description: "dist/, build/, outputs/, run/, .pytest_cache/, __pycache__/, *.egg-info/, *.pyc를 제거한다. 서비스 실행 중이면 거부."
+    description: "일반 build/test 산출물과 timestamp runtime validation report를 제거한다. 서비스 실행 중이면 거부."
     command: make clean
     kind: public
     safety: deletes_files
@@ -924,6 +931,13 @@ commands:
       - outputs/
       - run/
       - .pytest_cache/
+      - .mypy_cache/
+      - .ruff_cache/
+      - .coverage
+      - coverage.xml
+      - htmlcov/
+      - reports/runtime/runtime_validation_*.json
+      - reports/runtime/runtime_validation_*.md
     outputs: []
     owner: operations
     docs:
@@ -952,6 +966,13 @@ commands:
       - run/
       - logs/
       - .pytest_cache/
+      - .mypy_cache/
+      - .ruff_cache/
+      - .coverage
+      - coverage.xml
+      - htmlcov/
+      - reports/runtime/runtime_validation_*.json
+      - reports/runtime/runtime_validation_*.md
     outputs: []
     owner: operations
     docs:
@@ -1276,7 +1297,9 @@ commands:
       live_services: false
       secrets: true
       env_file: true
-    writes_files: []
+    writes_files:
+      - .runtime/prometheus/admin_api_key
+      - ops/compose/model_cache/huggingface/
     outputs: []
     owner: operations
     docs:
@@ -1864,6 +1887,31 @@ commands:
     tests:
       - tests/unit/test_check_hf_model_config.py
 
+  - make_target: main-model-prepare
+    title: 메인 모델 캐시 준비
+    category: model
+    audience: [operator]
+    description: "허용된 main-model profile의 고정 revision 전체 snapshot을 공용 HF cache에 준비하고 local-only로 재검증한다."
+    command: make main-model-prepare PROFILE=<main-model-profile-id>
+    kind: public
+    safety: writes_generated
+    requires:
+      python: true
+      docker: false
+      gpu: false
+      live_services: false
+      secrets: true
+      env_file: true
+    writes_files:
+      - ops/compose/model_cache/huggingface/
+    outputs: [stdout]
+    owner: operations
+    docs:
+      - docs/operations/model_runtime_control.md
+    tests:
+      - tests/unit/test_model_cache.py
+      - tests/unit/test_main_model_boot_override.py
+
   - make_target: compose-up-private
     title: private_network compose 기동 (CI 전용)
     category: start_stop
@@ -1879,7 +1927,9 @@ commands:
       live_services: false
       secrets: true
       env_file: true
-    writes_files: []
+    writes_files:
+      - .runtime/prometheus/admin_api_key
+      - ops/compose/model_cache/huggingface/
     outputs: []
     owner: operations
     docs:

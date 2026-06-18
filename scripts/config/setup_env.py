@@ -23,15 +23,26 @@ if str(ROOT / "src") not in sys.path:
 
 from scripts.lib.cli_kr import KoreanArgumentParser  # noqa: E402
 from scripts.compose.resolve_exposure_mode import load_exposure_data, resolve as resolve_exposure  # noqa: E402
-from ai_model_serving.auth_control import AUTH_PROFILE_ENV_KEYS, auth_profile_env_values
+from ai_model_serving.auth_control import (
+    AUTH_PROFILE_ENV_KEYS,
+    auth_profile_env_values,
+    auth_profile_exposure_values,
+)
 from ai_model_serving.settings_parts.dotenv_parser import load_strict_env_file
 
 IMAGE_CONFIG = ROOT / "configs" / "recommended_images.yaml"
-MIN_RISK_VLLM_TRANSFORMERS_VERSION = "4.52.4"
 
 
 def read_yaml(path: Path) -> dict[str, Any]:
     return yaml.safe_load(path.read_text(encoding="utf-8"))
+
+
+def minimum_risk_vllm_transformers_version() -> str:
+    return str(
+        read_yaml(IMAGE_CONFIG)["images"]["risk_vllm"]["compatibility_pins"][
+            "transformers_min"
+        ]
+    )
 
 
 def recommended_images() -> dict[str, str]:
@@ -181,17 +192,18 @@ def normalize_risk_vllm_transformers_pin(values: dict[str, str]) -> None:
     RISK_VLLM_TRANSFORMERS_VERSION / RISK_VLLM_TRANSFORMERS_MIN_VERSION can rebuild the dedicated Kanana image with a
     config loader that rejects explicit ``head_dim`` models.
     """
-    minimum_tuple = _version_tuple(MIN_RISK_VLLM_TRANSFORMERS_VERSION)
+    minimum_version = minimum_risk_vllm_transformers_version()
+    minimum_tuple = _version_tuple(minimum_version)
     for key in ("RISK_VLLM_TRANSFORMERS_VERSION", "RISK_VLLM_TRANSFORMERS_MIN_VERSION"):
         current = values.get(key, "").strip()
         current_tuple = _version_tuple(current) if current else None
         if current_tuple is None or minimum_tuple is None or current_tuple < minimum_tuple:
             if current:
                 print(
-                    f"migrated {key} from {current} to {MIN_RISK_VLLM_TRANSFORMERS_VERSION}",
+                    f"migrated {key} from {current} to {minimum_version}",
                     file=sys.stderr,
                 )
-            values[key] = MIN_RISK_VLLM_TRANSFORMERS_VERSION
+            values[key] = minimum_version
 
 
 def write_runtime_secrets(values: dict[str, str]) -> None:
@@ -306,11 +318,10 @@ def profile_template(profile: str) -> Path:
     raise ValueError(profile)
 
 
-def _validated_exposure_mode(exposure_mode: str | None) -> str:
+def _validated_exposure_mode(exposure_mode: str) -> str:
     """Validate the exposure mode against the canonical exposure source."""
-    raw = exposure_mode or "private_network"
     exposure_data = load_exposure_data(ROOT)
-    return resolve_exposure(raw, exposure_data)
+    return resolve_exposure(exposure_mode, exposure_data)
 
 
 def generated_values(
@@ -319,6 +330,7 @@ def generated_values(
     overrides: dict[str, str],
     auth_mode: str | None = None,
     exposure_mode: str | None = None,
+    exposure_audience: str | None = None,
 ) -> dict[str, str]:
     version = (ROOT / "VERSION").read_text(encoding="utf-8").strip()
     gateway_key = token("ams_gateway")
@@ -326,7 +338,27 @@ def generated_values(
     internal_token = token("ams_internal")
     grafana_password = token("ams_grafana")
     effective_auth_mode = auth_mode or "local_open"
-    effective_exposure_mode = _validated_exposure_mode(exposure_mode)
+    auth_exposure = auth_profile_exposure_values(effective_auth_mode)
+    effective_exposure_mode = _validated_exposure_mode(
+        exposure_mode or auth_exposure.get("EXPOSURE_MODE", "private_network")
+    )
+    effective_exposure_audience = (
+        exposure_audience
+        if exposure_audience is not None
+        else (
+            ""
+            if exposure_mode is not None
+            else auth_exposure.get("EXPOSURE_AUDIENCE", "")
+        )
+    )
+    if effective_auth_mode == "local_open" and (
+        effective_exposure_mode != "master_open"
+        or effective_exposure_audience != "private_lan"
+    ):
+        raise ValueError(
+            "AUTH_MODE=local_open requires "
+            "EXPOSURE_MODE=master_open and EXPOSURE_AUDIENCE=private_lan"
+        )
     values: dict[str, str] = {
         "PROJECT_VERSION": version,
         "API_KEYS": gateway_key,
@@ -338,6 +370,7 @@ def generated_values(
         "GRAFANA_ADMIN_PASSWORD": grafana_password,
         "SECRETS_GENERATED_AT": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "EXPOSURE_MODE": effective_exposure_mode,
+        "EXPOSURE_AUDIENCE": effective_exposure_audience,
     }
     if profile == "compose":
         values.update({
@@ -383,7 +416,8 @@ def build_parser() -> KoreanArgumentParser:
     parser.add_argument("--dry-run", action="store_true", help="--sync-env 미리보기. 실제 변경 없음.")
     parser.add_argument("--env-file", help="--sync-env 대상 .env 파일 절대경로. 기본값은 프로젝트 루트 .env.")
     parser.add_argument("--auth-mode", help="AUTH_MODE를 명시적으로 설정합니다. 기본값은 local_open입니다. (local_open|internal_trusted|private_network|edge_terminated|strict)")
-    parser.add_argument("--exposure-mode", help="EXPOSURE_MODE를 명시적으로 설정합니다. 기본값은 private_network입니다. 지원값: private_network|master_open")
+    parser.add_argument("--exposure-mode", help="EXPOSURE_MODE를 명시적으로 설정합니다. local_open 기본값은 master_open입니다. 지원값: private_network|master_open")
+    parser.add_argument("--exposure-audience", help="EXPOSURE_AUDIENCE를 명시적으로 설정합니다. local_open 기본값은 private_lan입니다.")
     parser.add_argument("--platform-image")
     parser.add_argument("--vllm-image")
     parser.add_argument("--risk-vllm-image")
@@ -439,7 +473,19 @@ def main(argv: list[str] | None = None) -> int:
         "PROMETHEUS_IMAGE": args.prometheus_image,
         "GRAFANA_IMAGE": args.grafana_image,
     }
-    values = base_values | generated_values(args.profile, args.app_env, overrides, auth_mode=args.auth_mode, exposure_mode=args.exposure_mode) | preserved_values
+    try:
+        generated = generated_values(
+            args.profile,
+            args.app_env,
+            overrides,
+            auth_mode=args.auth_mode,
+            exposure_mode=args.exposure_mode,
+            exposure_audience=args.exposure_audience,
+        )
+    except ValueError as exc:
+        print(f"env 정책 오류: {exc}", file=sys.stderr)
+        return 2
+    values = base_values | generated | preserved_values
     if args.profile == "compose":
         normalize_risk_vllm_image(values, explicit_override=bool(args.risk_vllm_image))
         normalize_risk_vllm_transformers_pin(values)

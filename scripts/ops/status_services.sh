@@ -5,7 +5,8 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT"
 
 source scripts/lib/load_env.sh
-load_local_env .env
+ENV_FILE="${ENV_FILE:-.env}"
+load_local_env "$ENV_FILE"
 
 MODE="${1:---local}"
 PYTHON_BIN="${PYTHON_BIN:-$(command -v python3.12 || command -v python3 || command -v python)}"
@@ -14,8 +15,8 @@ if [[ -z "$GATEWAY_PROBE_HOST" || "$GATEWAY_PROBE_HOST" == "0.0.0.0" ]]; then
   GATEWAY_PROBE_HOST="localhost"
 fi
 GATEWAY_BASE_URL="${GATEWAY_BASE_URL:-http://${GATEWAY_PROBE_HOST}:${GATEWAY_PORT:-9400}}"
-RISK_ADAPTER_BASE_URL="${RISK_ADAPTER_BASE_URL:-http://localhost:9405}"
-ADMIN_API_KEY="$(local_env_first_value .env ADMIN_API_KEY ADMIN_API_KEYS || true)"
+RISK_ADAPTER_BASE_URL="${RISK_ADAPTER_HOST_BASE_URL:-http://localhost:${RISK_ADAPTER_PORT:-9405}}"
+ADMIN_API_KEY="$(local_env_first_value "$ENV_FILE" ADMIN_API_KEY ADMIN_API_KEYS || true)"
 
 status_pid() {
   local name="$1"

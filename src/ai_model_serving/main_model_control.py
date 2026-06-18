@@ -262,6 +262,7 @@ class MainModelStateStore:
 
 class MainModelRuntimeBackend(Protocol):
     async def observed_profile(self, catalog: MainModelCatalog) -> str | None: ...
+    async def prepare(self, catalog: MainModelCatalog, profile: MainModelProfile) -> None: ...
     async def wait_for_drain(self, timeout_seconds: float) -> None: ...
     async def replace(self, catalog: MainModelCatalog, profile: MainModelProfile) -> None: ...
     async def validate(self, catalog: MainModelCatalog, profile: MainModelProfile) -> None: ...
@@ -340,6 +341,7 @@ class MainModelManager:
         # Gateway will fail closed until the persisted target validates.
         if observed in self.catalog.profiles:
             await self.backend.validate(self.catalog, self.catalog.profiles[observed])
+        self.state_store.update(lambda state: state.update(gate="closed"))
         self.request_switch(target, confirm_unverified=True, boot_reconcile=True)
 
     async def _recover_interrupted(
@@ -465,6 +467,7 @@ class MainModelManager:
                     "requested_profile": profile_id,
                     "previous_profile": value.get("active_profile")
                     or value.get("last_known_good_profile"),
+                    "previous_gate": value.get("gate", "closed"),
                     "status": "pending",
                     "stage": "pending",
                     "error": None,
@@ -474,7 +477,6 @@ class MainModelManager:
                     "boot_reconcile": boot_reconcile,
                     "client_request_id": client_request_id,
                 }
-                value["gate"] = "closed"
                 value["last_operation"] = operation
                 value.setdefault("operations", []).append(operation)
                 value["operations"] = value["operations"][-50:]
@@ -570,8 +572,12 @@ class MainModelManager:
             return
         target = self.catalog.profiles[operation["requested_profile"]]
         previous_id = operation.get("previous_profile")
+        previous_gate = str(operation.get("previous_gate", "closed"))
         replaced = False
         try:
+            self._set_operation(operation_id, "preparing")
+            await self.backend.prepare(self.catalog, target)
+            self.state_store.update(lambda state: state.update(gate="closed"))
             self._set_operation(operation_id, "draining")
             if not boot_reconcile:
                 await self.backend.wait_for_drain(
@@ -590,8 +596,12 @@ class MainModelManager:
                     self.state_store.update(
                         lambda state: state.update(
                             active_profile=previous_id,
-                            gate="open",
+                            gate=previous_gate,
                         )
+                    )
+                else:
+                    self.state_store.update(
+                        lambda state: state.update(gate=previous_gate)
                     )
                 self._record_terminal(operation_id, success=False)
                 return

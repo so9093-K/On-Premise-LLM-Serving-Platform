@@ -10,8 +10,14 @@ profiles:
     internal_service_auth_required: false
     docs_enabled: true
     auth_owner: operator
-    scope: "로컬 개발 전용"
-    allowed_in_production: false
+    scope: "외부에서 접근할 수 없는 신뢰된 사내망에서 app 인증 없이 전체 stack 사용"
+    default_exposure_mode: master_open
+    default_exposure_audience: private_lan
+    note: >
+      local_open은 이 프로젝트의 사내망 운영 profile이다. Gateway 인증뿐 아니라
+      vLLM, Risk Adapter, observability endpoint의 host publish를 함께 허용한다.
+      네트워크 경계가 접근 제어를 소유하며 internet-reachable 환경에는 사용할 수 없다.
+    allowed_in_production: true
 
   internal_trusted:
     api_key_required: false

@@ -40,7 +40,7 @@ Source-of-truth:
 
 | `AUTH_MODE` | 목적 | 인증 소유권 | Public Gateway `/v1/*` | Admin endpoint | Gateway → Risk Adapter | Docs |
 |---|---|---|---|---|---|---|
-| `local_open` | 로컬 app-only 개발 | operator | open | open | open | enabled |
+| `local_open` | 외부 접근이 차단된 사내망 full-stack | network/operator | open | open | open | enabled |
 | `internal_trusted` | production/staging 운영용 무인증 Gateway | caller_or_network | open (network boundary 인증) | ADMIN_ENDPOINTS_INTERNAL_ONLY=true 선언 | open | disabled |
 | `private_network` | 사설망/VPN 서버 | app | API key 필요 | admin token 필요 | internal token 필요 | enabled |
 | `edge_terminated` | 앞단 proxy/SSO/API Gateway가 public 인증 담당 | edge_proxy | app API key 선택 | admin token 필요 | internal token 필요 | disabled |
@@ -65,10 +65,14 @@ canonical EXPOSURE_MODE는 두 가지다. Source-of-truth: `configs/exposure_pro
 
 | `EXPOSURE_MODE` | class | Host-published 서비스 | 주요 diagnostics |
 |---|---|---|---|
-| `private_network` (기본값) | `default_private` | gateway, grafana | 모든 diagnostics false |
-| `master_open` | `diagnostic_full_stack` | gateway, 모든 vLLM runtime, risk_adapter, prometheus, grafana, dcgm_exporter, cadvisor | `gateway_bypass_possible`, `direct_model_runtime_access`, `direct_risk_adapter_access`, `direct_operations_endpoints` = true. `EXPOSURE_AUDIENCE` 필수 |
+| `private_network` | `default_private` | gateway, grafana | 모든 diagnostics false |
+| `master_open` (`local_open` 기본값) | `diagnostic_full_stack` | gateway, 모든 vLLM runtime, risk_adapter, prometheus, grafana, dcgm_exporter, cadvisor | `gateway_bypass_possible`, `direct_model_runtime_access`, `direct_risk_adapter_access`, `direct_operations_endpoints` = true. `EXPOSURE_AUDIENCE` 필수 |
 
-`master_open`은 진단/운영 full-stack 모드다. Gateway bypass와 vLLM direct access는 이 모드의 **의도된 특성**이며, 별도 모드로 회피하지 않는다. 대신 `EXPOSURE_AUDIENCE`로 대상 네트워크를 명시하고 `make exposure-status`/`make auth-doctor`가 structured diagnostics로 진단한다.
+`master_open`은 외부 접근이 차단된 신뢰된 사내망의 full-stack 운영 모드다.
+Gateway bypass와 vLLM direct access는 이 모드의 **의도된 특성**이다.
+`AUTH_MODE=local_open`을 적용하면 `EXPOSURE_MODE=master_open`,
+`EXPOSURE_AUDIENCE=private_lan`도 함께 적용된다. 인터넷 연결 가능 환경에서는
+이 조합을 사용하지 않는다.
 
 `EXPOSURE_MODE`는 `private_network`와 `master_open`만 지원한다.
 `master_open`은 Gateway, vLLM runtime, Risk Adapter, Prometheus, Grafana, DCGM,
@@ -82,12 +86,14 @@ cAdvisor 등 전체 stack을 host에서 직접 확인하기 위한 full-stack di
 | 생성 명령 | AUTH Profile | EXPOSURE Profile | Public API | Admin endpoint | 내부 service | Docs |
 |---|---|---|---|---|---|---|
 | `make init-env-local` | `local_open` | (local, compose 무관) | open | open | open | enabled |
-| `make init-env-compose` | `local_open` | `private_network` | open | open | open | enabled |
+| `make init-env-compose` | `local_open` | `master_open` / `private_lan` | open | open | open | enabled |
 | `make auth-apply MODE=internal_trusted` | `internal_trusted` | (별도 관리) | open (network auth) | INTERNAL_ONLY 선언 | open | disabled |
 | `make auth-apply MODE=private_network` | `private_network` | (별도 관리) | API key | admin token | internal token | enabled |
 | `make auth-apply MODE=strict` | `strict` | (별도 관리) | API key | admin token | internal token | disabled |
 
-`make init-env-compose`는 기본값으로 `local_open` profile과 `private_network` exposure를 생성한다.
+`make init-env-compose`는 기본값으로 `local_open` profile과
+`master_open` / `private_lan` exposure를 생성한다. 즉 사내망 사용자는 Gateway와
+vLLM endpoint를 모두 host에서 직접 사용할 수 있다.
 
 ## 운영 명령
 

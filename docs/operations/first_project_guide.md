@@ -150,7 +150,8 @@ make auth-plan MODE=strict ENV=/tmp/candidate.env
 
 운영 기준:
 
-- `local_open`은 로컬 개발용 비인증 모드다.
+- `local_open`은 외부 접근이 차단된 신뢰된 사내망의 비인증 full-stack 모드다.
+  `master_open/private_lan`이 함께 적용되어 vLLM endpoint도 host-publish된다.
 - `private_network`, `edge_terminated`, `strict`는 public/admin/internal-service auth 상태를 명확히 구분한다.
 - 인증 모드는 API 기능을 바꾸지 않고 접근 경계만 바꿔야 한다.
 

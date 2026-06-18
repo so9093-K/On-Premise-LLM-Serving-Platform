@@ -59,11 +59,31 @@ Platform image는 commit tag와 branch tag를 항상 push한다. `release` branc
 - `GATEWAY_BIND_ADDR`: Gateway host publish bind 주소
 - `GATEWAY_HEALTH_URL`: 배포 후 health check URL
 - `RUN_READY_SMOKE`: `1` 또는 `0`, 기본값 `1`
-- `RUN_READY_FULL_SMOKE`: `1` 또는 `0`, 기본값 `0`. `DEPLOY_MODE=full`일 때 `make ready-full`을 추가 실행해 vLLM downstream readiness와 smoke를 함께 확인한다.
+- `RUN_READY_FULL_SMOKE`: 호환성 변수이며 기본값은 `1`이다. `DEPLOY_MODE=full`에서는
+  반드시 `1`이어야 하고 `make ready-full`을 항상 실행한다. `0`이면 배포 시작 전에 거절한다.
 - `PRUNE_DANGLING_IMAGES`: `1` 또는 `0`, 기본값 `1`. 성공한 배포 뒤 태그가 사라진 dangling image만 정리
 - `RISK_VLLM_IMAGE_TO_DEPLOY`: `DEPLOY_MODE=full`에서만 사용. risk vLLM image override가 필요할 때 175 `.env`의 `RISK_VLLM_IMAGE`를 해당 값으로 덮어쓴다
+- `DEPLOY_RELEASE_ID`: `releases/<id>`에 사용할 immutable release ID. CI에서는 commit SHA를 사용한다.
+- `RELEASES_TO_KEEP`: 보존할 성공 release 수, 기본값 `5`
+- `COMPOSE_PROJECT_NAME`: `.env`에 저장되는 Docker Compose resource namespace.
+  기존 설치 호환 기본값은 `compose`이며, 같은 host에 여러 설치가 있으면 고유값으로 설정한다.
+- `HF_TOKEN`: validate 단계의 모든 main-model profile config/tokenizer canary에
+  사용한다. 누락 또는 권한 부족을 job skip으로 숨기지 않고 validate 실패로
+  처리한다. 배포 대상 host의 모델 다운로드는 원격 `.env`의 `HF_TOKEN`을 사용한다.
 
-175의 `.env`에는 shared/staging 환경 기준으로 `GATEWAY_BIND_ADDR=<175 내부 IP>`를 명시하는 편이 안전하다. 전체 interface publish가 의도된 경우에만 `GATEWAY_BIND_ADDR=0.0.0.0`을 사용하고 firewall/network policy로 내부 CIDR만 허용한다. deploy smoke는 `GATEWAY_HEALTH_URL`이 없으면 175 `.env`의 `GATEWAY_BIND_ADDR`와 `GATEWAY_PORT`로 health URL을 만든다. `GATEWAY_BIND_ADDR=0.0.0.0`일 때만 `localhost`로 fallback한다. `RUN_READY_SMOKE=1`은 Gateway `/health`만 확인하므로, full runtime deploy에서 downstream vLLM까지 함께 gate하려면 `RUN_READY_FULL_SMOKE=1`을 사용한다.
+배포 파일은 운영 root를 직접 덮어쓰지 않는다. 새 소스는 먼저
+`releases/<commit>`에 동기화되고 해당 디렉터리의 Compose·스크립트로 검증 및
+기동된다. readiness가 성공한 뒤에만 `current` symlink를 원자적으로 교체한다.
+Full 배포는 실제 vLLM 파일 세대를 나타내는 `runtime-current`도 함께 갱신한다.
+실패하면 공유 `.env`, 서비스, `current`, `runtime-current`를 모두 이전 release로
+복원한 후 후보 디렉터리를 삭제한다.
+
+기존 운영 root를 직접 사용하던 서버의 첫 배포에서는 기존 트리를
+`releases/legacy-<timestamp>`로 먼저 스냅샷하고 이를 초기 `current`와
+`runtime-current`로 설정한다. 따라서 첫 release-directory Full 배포도 신규
+스크립트가 아닌 legacy snapshot의 Compose와 Makefile을 rollback 원본으로 사용한다.
+
+175의 `.env`에는 shared/staging 환경 기준으로 `GATEWAY_BIND_ADDR=<175 내부 IP>`를 명시하는 편이 안전하다. 전체 interface publish가 의도된 경우에만 `GATEWAY_BIND_ADDR=0.0.0.0`을 사용하고 firewall/network policy로 내부 CIDR만 허용한다. deploy smoke는 `GATEWAY_HEALTH_URL`이 없으면 175 `.env`의 `GATEWAY_BIND_ADDR`와 `GATEWAY_PORT`로 health URL을 만든다. `GATEWAY_BIND_ADDR=0.0.0.0`일 때만 `localhost`로 fallback한다. Rolling 배포는 `RUN_READY_SMOKE=1`로 Gateway `/health`를 확인하고, Full 배포는 추가로 `make ready-full`을 반드시 통과해야 한다.
 
 배포 스크립트는 health check가 통과한 뒤 기본적으로 `docker image prune -f --filter dangling=true`를 실행한다. `release`처럼 같은 태그를 새 이미지가 덮어쓰면 이전 이미지가 `<none>` 상태로 남을 수 있는데, 이 단계는 실행 중인 컨테이너가 참조하지 않는 untagged image만 제거한다. 장애 분석이나 수동 롤백 때문에 보존이 필요하면 `PRUNE_DANGLING_IMAGES=0`으로 끈다.
 
@@ -76,7 +96,7 @@ platform app 변경만 반영할 때 사용한다. vLLM-derived image는 재빌�
 1. `release` branch에 push → pipeline 자동 시작 (pipeline 변수 추가 없음)
 2. `build-vllm-derived` 스킵 — `BUILD_VLLM_DERIVED` / `DEPLOY_MODE=full` 없으므로 조건 불충족
 3. `deploy-gpu-175` 수동 실행 (기본 `DEPLOY_MODE=rolling`)
-4. 175에서 `gateway`, `risk-adapter` image만 pull 후 재시작
+4. 175에서 `gateway`, `admin-sidecar`, `risk-adapter` image만 pull 후 재시작
 5. vLLM 컨테이너는 건드리지 않으므로 GPU 모델 reload downtime 없음
 
 ### Build vLLM-derived images only
@@ -97,14 +117,24 @@ risk-vllm-kanana를 교체하거나 `EMBEDDING_KO_VLLM_IMAGE`(표준 vLLM 이미
 3. `deploy-gpu-175` 수동 실행, `DEPLOY_MODE=full` 설정
    - preflight 실패 시 `.env`를 수정하지 않고 실패; `build-vllm-derived` 먼저 실행하라는 안내 출력
 5. 전체 stack `up -d --remove-orphans`; vLLM 이미지 pull과 모델 로딩 시간이 길 수 있다
-6. 필요 시 `RUN_READY_FULL_SMOKE=1`로 `make ready-full`을 추가 실행해 Gateway `/ready`, downstream vLLM readiness, smoke를 함께 확인한다. 실패 시 compose diagnostics를 함께 출력한다.
+   - 배포 전 `.runtime/main-model/main-model-state.json`과 profile catalog를 검증한다.
+   - locked profile 또는 저장된 active profile을 boot projection으로 생성한다.
+   - 선택 profile의 고정 HF revision을 공용 cache에 준비한 뒤, 해당 profile로
+     main runtime을 처음부터 부팅한다. 기본 26B를 먼저 올렸다가 재전환하지 않는다.
+6. `make ready-full`을 반드시 실행해 Gateway `/ready`, downstream vLLM readiness,
+   smoke를 함께 확인한다. 실패 시 compose diagnostics를 출력하고 `.env`와 Compose
+   서비스 이미지를 배포 전 상태로 자동 복원한다. Full 배포는 변경 전에 실행 중인
+   main-model container의 image/command도 실제 Compose project label로 캡처해
+   rollback override로 사용한다. 자동 복원이 일부라도 실패하면 백업 경로와 수동
+   복구 필요성을 오류로 남긴다.
 
 ## 배포 모드
 
 `DEPLOY_MODE=rolling`은 app layer 배포다.
 
-- `gateway`, `risk-adapter` image만 pull한다.
-- `gateway`, `risk-adapter`만 `up -d --no-deps`로 재시작한다.
+- `gateway`, `admin-sidecar`, `risk-adapter` image만 pull한다.
+- `admin-sidecar`를 먼저 재시작한 뒤 `gateway`, `risk-adapter`를
+  `up -d --no-deps`로 재시작한다.
 - vLLM 모델 컨테이너를 건드리지 않아 GPU 모델 reload downtime을 피한다.
 
 `DEPLOY_MODE=full`은 초기 구축 또는 stack drift 정렬용이다.

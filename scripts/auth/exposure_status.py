@@ -37,8 +37,8 @@ def main() -> int:
     import argparse
     parser = argparse.ArgumentParser(description="현재 EXPOSURE_MODE의 host-published 서비스와 diagnostics를 표시합니다.")
     parser.add_argument("--json", action="store_true", help="JSON 출력")
-    parser.add_argument("--exposure-mode", help="점검할 EXPOSURE_MODE (기본값: 환경 변수 또는 private_network)")
-    parser.add_argument("--env", help="점검할 env 파일 경로입니다. 기본값은 process env만 사용합니다.")
+    parser.add_argument("--exposure-mode", help="점검할 EXPOSURE_MODE (기본값: 환경 변수 또는 master_open)")
+    parser.add_argument("--env", default=".env", help="점검할 env 파일 경로입니다. 기본값은 repository root의 .env입니다.")
     args = parser.parse_args()
 
     env_path = _env_path(args.env)
@@ -51,7 +51,7 @@ def main() -> int:
         print(f"env 파일 오류: {exc}", file=sys.stderr)
         return 2
 
-    raw_mode = args.exposure_mode or _env_value(env_values, "EXPOSURE_MODE", "private_network")
+    raw_mode = args.exposure_mode or _env_value(env_values, "EXPOSURE_MODE", "master_open")
     data = load_exposure_data(ROOT)
     profiles = data.get("profiles", {})
     services_path = ROOT / "configs" / "services.yaml"

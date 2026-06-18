@@ -29,6 +29,7 @@ from ...services.sidecar_client import (
 _GW = {(s.method, s.path): s for s in GATEWAY_ENDPOINTS}
 _MAIN_MODEL_OPERATION_STATES = [
     "pending",
+    "preparing",
     "draining",
     "stopping",
     "starting",
@@ -384,10 +385,7 @@ def build_router(
                             "properties": {
                                 "profile": {
                                     "type": "string",
-                                    "enum": [
-                                        "gemma4-26b-a4b-fp8",
-                                        "gemma4-12b-unified-fp8",
-                                    ],
+                                    "description": "configs/main_model_profiles.yaml의 profile ID",
                                 },
                                 "confirm_unverified": {"type": "boolean", "default": False},
                                 "request_id": {

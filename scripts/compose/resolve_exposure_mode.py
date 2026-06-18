@@ -57,11 +57,11 @@ def override_file_for(canonical_mode: str) -> str:
 def main() -> int:
     import argparse
     parser = argparse.ArgumentParser(description="Resolve EXPOSURE_MODE to canonical name.")
-    parser.add_argument("mode", nargs="?", default=None, help="EXPOSURE_MODE value (default: env or private_network)")
+    parser.add_argument("mode", nargs="?", default=None, help="EXPOSURE_MODE value (default: env or master_open)")
     parser.add_argument("--print-override-file", action="store_true", help="Print compose override file path instead of mode name")
     args = parser.parse_args()
 
-    mode = args.mode or os.environ.get("EXPOSURE_MODE", "private_network")
+    mode = args.mode or os.environ.get("EXPOSURE_MODE", "master_open")
     data = load_exposure_data()
     canonical = resolve(mode, data)
 

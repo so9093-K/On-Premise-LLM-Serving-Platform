@@ -8,6 +8,7 @@ import shutil
 import socket
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -20,6 +21,9 @@ if str(ROOT) not in sys.path:
 if str(ROOT / "src") not in sys.path:
     sys.path.insert(0, str(ROOT / "src"))
 
+from ai_model_serving.main_model_boot import (  # noqa: E402
+    resolve_compose_relative_path,
+)
 from ai_model_serving.settings_parts.dotenv_parser import load_strict_env_file  # noqa: E402
 from scripts.compose.effective_host_ports import effective_host_ports  # noqa: E402
 from scripts.compose.resolve_exposure_mode import (  # noqa: E402
@@ -67,11 +71,23 @@ def _non_local_app_env() -> bool:
 def _check_auth_profile_preflight() -> None:
     app_env = _env_value("APP_ENV", "local").strip()
     auth_mode = _env_value("AUTH_MODE", "local_open").strip() or "local_open"
-    if not _non_local_app_env():
-        return
     failures: list[str] = []
     if auth_mode == "local_open":
-        failures.append(f"AUTH_MODE=local_open is not allowed when APP_ENV={app_env}.")
+        exposure_mode = _env_value("EXPOSURE_MODE", "")
+        exposure_audience = _env_value("EXPOSURE_AUDIENCE", "")
+        if exposure_mode != "master_open" or exposure_audience != "private_lan":
+            failures.append(
+                "AUTH_MODE=local_open requires EXPOSURE_MODE=master_open and "
+                "EXPOSURE_AUDIENCE=private_lan."
+            )
+    if not _non_local_app_env():
+        if failures:
+            for failure in failures:
+                _fail(failure)
+            raise SystemExit(
+                "[preflight] configuration preflight failed; fix auth/exposure policy."
+            )
+        return
     if auth_mode == "internal_trusted" and not _env_value("INTERNAL_TRUSTED_AUTH_EVIDENCE").strip():
         failures.append(
             "AUTH_MODE=internal_trusted requires INTERNAL_TRUSTED_AUTH_EVIDENCE "
@@ -143,7 +159,7 @@ def _bind_conflicts(
 def _phase1(exposure_data: dict[str, Any]) -> str:
     print("[preflight] Phase 1: exposure decision")
     _check_auth_profile_preflight()
-    raw_mode = _env_value("EXPOSURE_MODE", "private_network")
+    raw_mode = _env_value("EXPOSURE_MODE", "master_open")
     canonical_mode = resolve(raw_mode, exposure_data)
     print(f"[preflight] EXPOSURE_MODE={canonical_mode}")
 
@@ -207,18 +223,27 @@ def _phase1(exposure_data: dict[str, Any]) -> str:
     return canonical_mode
 
 
-def _compose_command(compose_args: list[str], env_file: str, *args: str) -> list[str]:
-    return ["docker", "compose", *compose_args, "--env-file", env_file, *args]
+def _compose_command(
+    compose_args: list[str],
+    env_file: str,
+    project_name: str,
+    *args: str,
+) -> list[str]:
+    return [
+        "docker",
+        "compose",
+        "--project-name",
+        project_name,
+        *compose_args,
+        "--env-file",
+        env_file,
+        *args,
+    ]
 
 
 def _compose_file_dir(compose_file: str) -> Path:
     path = Path(compose_file)
     return path.parent if path.is_absolute() else (ROOT / path).parent
-
-
-def _resolve_compose_relative_path(compose_file: str, raw: str) -> Path:
-    path = Path(raw.removeprefix("./"))
-    return path if Path(raw).is_absolute() else _compose_file_dir(compose_file) / path
 
 
 def _run_status(command: list[str], *, capture: bool = False) -> subprocess.CompletedProcess[str]:
@@ -258,8 +283,20 @@ def _show_gpu() -> None:
             print(f"[preflight] gpu: {line}")
 
 
-def _compose_owned_ports(compose_args: list[str], env_file: str) -> set[str]:
-    result = _run_status(_compose_command(compose_args, env_file, "ps", "--format", "{{.Ports}}"), capture=True)
+def _compose_owned_ports(
+    compose_args: list[str], env_file: str, project_name: str
+) -> set[str]:
+    result = _run_status(
+        _compose_command(
+            compose_args,
+            env_file,
+            project_name,
+            "ps",
+            "--format",
+            "{{.Ports}}",
+        ),
+        capture=True,
+    )
     if result.returncode != 0:
         return set()
     return set(re.findall(r"(?:\d+\.\d+\.\d+\.\d+|0\.0\.0\.0):(\d+)", result.stdout))
@@ -277,8 +314,13 @@ def _port_available(host_port: str, bind: str) -> bool:
     return True
 
 
-def _effective_ports(compose_args: list[str], env_file: str) -> list[tuple[str, str, str]] | None:
-    result = _run_status(_compose_command(compose_args, env_file, "config"), capture=True)
+def _effective_compose_document(
+    compose_args: list[str], env_file: str, project_name: str
+) -> dict[str, Any] | None:
+    result = _run_status(
+        _compose_command(compose_args, env_file, project_name, "config", "--format", "json"),
+        capture=True,
+    )
     if result.returncode != 0:
         if result.stdout:
             print(result.stdout, end="")
@@ -291,7 +333,10 @@ def _effective_ports(compose_args: list[str], env_file: str) -> list[tuple[str, 
         )
         return None
     document = yaml.safe_load(result.stdout) or {}
-    return list(effective_host_ports(document))
+    if not isinstance(document, dict):
+        _fail("effective compose config must be a mapping")
+        return None
+    return document
 
 
 def _diagnostics(canonical_mode: str, exposure_data: dict[str, Any]) -> None:
@@ -310,8 +355,17 @@ def _phase2(canonical_mode: str, exposure_data: dict[str, Any]) -> int:
     print("[preflight] Phase 2: compose and runtime checks")
     compose_file = os.environ.get("COMPOSE_FILE", "ops/compose/full-stack.private-network.yaml")
     env_file = os.environ.get("ENV_FILE", ".env")
+    env_path = Path(env_file)
+    env_path = env_path if env_path.is_absolute() else (ROOT / env_path).resolve()
+    compose_path = Path(compose_file)
+    compose_path = (
+        compose_path if compose_path.is_absolute() else (ROOT / compose_path).resolve()
+    )
+    project_name = _env_value("COMPOSE_PROJECT_NAME", "compose") or "compose"
+    os.environ["COMPOSE_PROJECT_NAME"] = project_name
+    os.environ["COMPOSE_SERVICE_ENV_FILE"] = str(env_path)
     override = override_file_for(canonical_mode)
-    compose_args = ["-f", compose_file, *(["-f", override] if override else [])]
+    compose_args = ["-f", str(compose_path), *(["-f", override] if override else [])]
     fail = False
     if not (ROOT / compose_file).exists() and not Path(compose_file).is_absolute():
         print(f"[preflight] missing: base compose file {compose_file}", file=sys.stderr)
@@ -329,17 +383,42 @@ def _phase2(canonical_mode: str, exposure_data: dict[str, Any]) -> int:
     docker_ok = _docker_compose_available()
     fail = fail or not docker_ok
     _show_gpu()
-    vllm = _run_status([sys.executable, "scripts/compose/validate_vllm_compose.py"])
-    fail = fail or vllm.returncode != 0
-
     if docker_ok and not fail:
-        owned_ports = _compose_owned_ports(compose_args, env_file)
-        host_ports = _effective_ports(compose_args, env_file)
-        if host_ports is None:
+        effective_document = _effective_compose_document(
+            compose_args, str(env_path), project_name
+        )
+        if effective_document is None:
             fail = True
-        elif not host_ports:
-            print("[preflight] ok: effective compose config has no host-published ports")
         else:
+            with tempfile.NamedTemporaryFile(
+                mode="w",
+                encoding="utf-8",
+                suffix=".json",
+                delete=False,
+            ) as handle:
+                yaml.safe_dump(effective_document, handle, sort_keys=False)
+                effective_path = Path(handle.name)
+            try:
+                vllm = _run_status(
+                    [
+                        sys.executable,
+                        "scripts/compose/validate_vllm_compose.py",
+                        "--compose-file",
+                        str(compose_path),
+                        "--effective-config",
+                        str(effective_path),
+                    ]
+                )
+                fail = fail or vllm.returncode != 0
+            finally:
+                effective_path.unlink(missing_ok=True)
+
+            owned_ports = _compose_owned_ports(
+                compose_args, str(env_path), project_name
+            )
+            host_ports = list(effective_host_ports(effective_document))
+            if not host_ports:
+                print("[preflight] ok: effective compose config has no host-published ports")
             for service_name, host_port, bind in host_ports:
                 if host_port in owned_ports:
                     print(f"[preflight] ok: port {host_port} ({service_name}) held by current compose stack")
@@ -357,13 +436,13 @@ def _phase2(canonical_mode: str, exposure_data: dict[str, Any]) -> int:
         fail = True
 
     _diagnostics(canonical_mode, exposure_data)
-    if os.environ.get("HF_TOKEN") or os.environ.get("HUGGING_FACE_HUB_TOKEN"):
+    if _env_value("HF_TOKEN") or _env_value("HUGGING_FACE_HUB_TOKEN"):
         print("[preflight] ok: Hugging Face token env present")
     else:
         _warn("no HF_TOKEN/HUGGING_FACE_HUB_TOKEN found; private model pulls may fail")
 
-    cache_raw = os.environ.get("HF_CACHE_DIR", "./model_cache/huggingface")
-    cache_path = _resolve_compose_relative_path(compose_file, cache_raw)
+    cache_raw = _env_value("HF_CACHE_DIR", "./model_cache/huggingface")
+    cache_path = resolve_compose_relative_path(cache_raw, Path(compose_file))
     cache_path.mkdir(parents=True, exist_ok=True)
     if cache_path.is_dir() and os.access(cache_path, os.W_OK):
         print(f"[preflight] ok: HF cache dir writable: {cache_path}")

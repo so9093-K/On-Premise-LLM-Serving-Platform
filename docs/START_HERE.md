@@ -89,7 +89,7 @@ make operator-reports
 
 | 내 상황 | 추천 AUTH_MODE |
 |---|---|
-| 로컬 노트북/단일 사용자 개발 | `local_open` |
+| 외부 접근이 차단된 사내망 또는 로컬 단일 사용자 | `local_open` (`master_open/private_lan`) |
 | 내부 GPU 서버, 팀 공용, VPN/사설망 | `private_network` |
 | edge proxy(SSO/API GW)가 public 인증 담당 | `edge_terminated` |
 | public endpoint, internet-facing | `strict` |

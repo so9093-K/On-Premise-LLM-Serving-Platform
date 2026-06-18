@@ -20,7 +20,7 @@
 | **Infisical** | `http://localhost:9420` | 시크릿 관리 웹 UI (선택) |
 
 > `full-stack.private-network.yaml` 기준: vLLM runtime(main-llm-vllm 9401, embedding-vllm 9402, risk-prompt-vllm 9403, embedding-ko-vllm 9406), Risk Adapter(9405), Prometheus, cAdvisor, DCGM Exporter는 compose 내부 네트워크 전용이며 host에서 직접 접근하지 않는다.  
-> `master_open`에서는 진단 목적으로 이 포트들을 host-publish하므로 Gateway 인증,
+> `master_open`에서는 신뢰된 사내망의 직접 사용을 위해 이 포트들을 host-publish하므로 Gateway 인증,
 > request validation, rate limit, access logging을 우회할 수 있다. 일반 사용자
 > API가 아니며 `EXPOSURE_AUDIENCE`와 interface bind로 접근 범위를 제한한다.
 > Prometheus에 직접 접근하려면 SSH 포트 포워딩(`ssh -L 9410:localhost:9090 <host>`)을 사용한다. Grafana는 Prometheus 데이터를 UI로 제공하므로 대부분의 metrics 조회는 Grafana를 통한다.  

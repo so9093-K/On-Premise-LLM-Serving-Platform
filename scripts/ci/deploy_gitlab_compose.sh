@@ -22,9 +22,11 @@
 #                              Default is derived from 175 .env:
 #                              GATEWAY_BIND_ADDR/GATEWAY_PORT, with 0.0.0.0 -> localhost.
 #   RUN_READY_SMOKE            1 (default) or 0 — run gateway /health check after deploy
-#   RUN_READY_FULL_SMOKE       1 or 0 (default) — when DEPLOY_MODE=full, run make ready-full
-#                              after /health to verify downstream vLLM readiness and smoke
+#   RUN_READY_FULL_SMOKE       compatibility variable. Full deploy requires 1
+#                              and always runs make ready-full after /health.
 #   PRUNE_DANGLING_IMAGES      1 (default) or 0 — prune dangling images after a successful deploy
+#   DEPLOY_RELEASE_ID          immutable release directory name; defaults to CI_COMMIT_SHA
+#   RELEASES_TO_KEEP           successful release directories to retain (default: 5)
 set -euo pipefail
 
 : "${PLATFORM_IMAGE_TO_DEPLOY:?Required: full platform image ref}"
@@ -41,9 +43,24 @@ REGISTRY_PASSWORD="${REGISTRY_DEPLOY_PASSWORD:-${CI_REGISTRY_PASSWORD:-}}"
 COMPOSE_FILE="${DEPLOY_COMPOSE_FILE:-ops/compose/full-stack.private-network.yaml}"
 DEPLOY_MODE="${DEPLOY_MODE:-rolling}"
 RUN_READY_SMOKE="${RUN_READY_SMOKE:-1}"
-RUN_READY_FULL_SMOKE="${RUN_READY_FULL_SMOKE:-0}"
+RUN_READY_FULL_SMOKE="${RUN_READY_FULL_SMOKE:-1}"
 PRUNE_DANGLING_IMAGES="${PRUNE_DANGLING_IMAGES:-1}"
+RELEASES_TO_KEEP="${RELEASES_TO_KEEP:-5}"
+RELEASE_ID="${DEPLOY_RELEASE_ID:-${CI_COMMIT_SHA:-}}"
 SSH_TARGET="${DEPLOY_USER}@${DEPLOY_HOST}"
+
+if [[ -z "${RELEASE_ID}" ]]; then
+  RELEASE_ID="$(date -u +%Y%m%dT%H%M%SZ)"
+fi
+if [[ ! "${RELEASE_ID}" =~ ^[A-Za-z0-9._-]{1,128}$ ]]; then
+  echo "[deploy] ERROR: DEPLOY_RELEASE_ID must contain only A-Za-z0-9._- and be <=128 chars." >&2
+  exit 2
+fi
+if [[ ! "${RELEASES_TO_KEEP}" =~ ^[1-9][0-9]*$ ]]; then
+  echo "[deploy] ERROR: RELEASES_TO_KEEP must be a positive integer." >&2
+  exit 2
+fi
+RELEASE_PATH="${DEPLOY_PATH}/releases/${RELEASE_ID}"
 
 case "${DEPLOY_MODE}" in
   rolling|full) ;;
@@ -57,6 +74,7 @@ echo "[deploy] target: ${SSH_TARGET}:${DEPLOY_PATH}"
 echo "[deploy] platform image: ${PLATFORM_IMAGE_TO_DEPLOY}"
 echo "[deploy] compose file: ${COMPOSE_FILE}"
 echo "[deploy] mode: ${DEPLOY_MODE}"
+echo "[deploy] release: ${RELEASE_ID}"
 
 if [[ "${DEPLOY_MODE}" == "rolling" && -n "${RISK_VLLM_IMAGE_TO_DEPLOY:-}" ]]; then
   echo "[deploy] ERROR: vLLM image overrides are allowed only with DEPLOY_MODE=full." >&2
@@ -67,6 +85,11 @@ if [[ "${DEPLOY_MODE}" == "rolling" && -n "${RISK_VLLM_IMAGE_TO_DEPLOY:-}" ]]; t
 fi
 
 if [[ "${DEPLOY_MODE}" == "full" ]]; then
+  if [[ "${RUN_READY_FULL_SMOKE}" != "1" ]]; then
+    echo "[deploy] ERROR: full deploy requires RUN_READY_FULL_SMOKE=1." >&2
+    echo "[deploy]   Full runtime deployment cannot succeed on Gateway /health alone." >&2
+    exit 2
+  fi
   RISK_VLLM_IMAGE_TO_DEPLOY="${RISK_VLLM_IMAGE_TO_DEPLOY:-${RISK_VLLM_IMAGE_SHA:-}}"
   if [[ -z "${RISK_VLLM_IMAGE_TO_DEPLOY}" ]]; then
     echo "[deploy] ERROR: DEPLOY_MODE=full requires RISK_VLLM_IMAGE_TO_DEPLOY or RISK_VLLM_IMAGE_SHA." >&2
@@ -75,8 +98,22 @@ if [[ "${DEPLOY_MODE}" == "full" ]]; then
   fi
 fi
 
-# ── 1. sync deployable project files ───────────────────────────────────────
-echo "[deploy] syncing deployable project files to ${SSH_TARGET}:${DEPLOY_PATH}/"
+# ── 1. stage immutable release files ────────────────────────────────────────
+echo "[deploy] preparing release directory ${SSH_TARGET}:${RELEASE_PATH}/"
+ssh "${SSH_TARGET}" \
+  DEPLOY_PATH="${DEPLOY_PATH}" \
+  RELEASE_PATH="${RELEASE_PATH}" \
+  bash -s <<'REMOTE_PREPARE'
+set -euo pipefail
+mkdir -p "${DEPLOY_PATH}/releases"
+if [[ -e "${RELEASE_PATH}" ]]; then
+  echo "[deploy] ERROR: release directory already exists: ${RELEASE_PATH}" >&2
+  exit 1
+fi
+mkdir "${RELEASE_PATH}"
+REMOTE_PREPARE
+
+echo "[deploy] syncing deployable project files to staged release..."
 rsync -az --delete \
   --exclude ".git/" \
   --exclude ".env" \
@@ -91,13 +128,12 @@ rsync -az --delete \
   --exclude "logs/" \
   --exclude "/dist/" \
   --exclude "/build/" \
-  --exclude "scripts/build/" \
   --exclude "run/" \
   --exclude "outputs/" \
   ./ \
-  "${SSH_TARGET}:${DEPLOY_PATH}/"
+  "${SSH_TARGET}:${RELEASE_PATH}/"
 
-# ── 2. remote: login, update .env image refs, pull, up ────────────────────
+# ── 2. remote: validate candidate, deploy, then atomically switch current ──
 ssh "${SSH_TARGET}" \
   PLATFORM_IMAGE_TO_DEPLOY="${PLATFORM_IMAGE_TO_DEPLOY}" \
   RISK_VLLM_IMAGE_TO_DEPLOY="${RISK_VLLM_IMAGE_TO_DEPLOY:-}" \
@@ -105,11 +141,11 @@ ssh "${SSH_TARGET}" \
   REGISTRY_USER="${REGISTRY_USER}" \
   REGISTRY_PASSWORD="${REGISTRY_PASSWORD}" \
   DEPLOY_PATH="${DEPLOY_PATH}" \
+  RELEASE_PATH="${RELEASE_PATH}" \
+  RELEASE_ID="${RELEASE_ID}" \
+  RELEASES_TO_KEEP="${RELEASES_TO_KEEP}" \
   COMPOSE_FILE="${COMPOSE_FILE}" \
   DEPLOY_MODE="${DEPLOY_MODE}" \
-  HF_CACHE_DIR="${HF_CACHE_DIR:-}" \
-  HF_TOKEN="${HF_TOKEN:-}" \
-  HUGGING_FACE_HUB_TOKEN="${HUGGING_FACE_HUB_TOKEN:-}" \
   GATEWAY_HEALTH_URL="${GATEWAY_HEALTH_URL:-}" \
   RUN_READY_SMOKE="${RUN_READY_SMOKE}" \
   RUN_READY_FULL_SMOKE="${RUN_READY_FULL_SMOKE}" \
@@ -118,13 +154,112 @@ ssh "${SSH_TARGET}" \
   bash -s <<'REMOTE'
 set -euo pipefail
 
-cd "${DEPLOY_PATH}"
+if [[ ! -d "${RELEASE_PATH}" ]]; then
+  echo "[deploy] ERROR: staged release not found: ${RELEASE_PATH}" >&2
+  exit 1
+fi
+if [[ ! -f "${DEPLOY_PATH}/.env" ]]; then
+  echo "[deploy] ERROR: shared .env not found at ${DEPLOY_PATH}/.env" >&2
+  echo "[deploy] Run bootstrap on the deployment root before the first CI deployment." >&2
+  rm -rf "${RELEASE_PATH}"
+  exit 1
+fi
+mkdir -p "${DEPLOY_PATH}/.runtime" "${DEPLOY_PATH}/ops/compose/model_cache"
+
+PREVIOUS_RELEASE=""
+LEGACY_RELEASE_CREATED=""
+if [[ -L "${DEPLOY_PATH}/current" ]]; then
+  if ! PREVIOUS_RELEASE="$(readlink -f "${DEPLOY_PATH}/current")" ||
+    [[ ! -d "${PREVIOUS_RELEASE}" ]]; then
+    echo "[deploy] ERROR: current release link is broken" >&2
+    rm -rf "${RELEASE_PATH}"
+    exit 1
+  fi
+elif [[ -f "${DEPLOY_PATH}/Makefile" && -f "${DEPLOY_PATH}/${COMPOSE_FILE}" ]]; then
+  LEGACY_RELEASE_CREATED="${DEPLOY_PATH}/releases/legacy-$(date -u +%Y%m%dT%H%M%SZ)-$$"
+  echo "[deploy] legacy live tree detected; snapshotting it to ${LEGACY_RELEASE_CREATED}"
+  mkdir "${LEGACY_RELEASE_CREATED}"
+  if ! rsync -a --delete \
+    --exclude "/releases/" \
+    --exclude "/current" \
+    --exclude "/runtime-current" \
+    --exclude "/.env" \
+    --exclude "/.env.bak.*" \
+    --exclude "/.runtime/" \
+    --exclude "/ops/compose/model_cache/" \
+    "${DEPLOY_PATH}/" "${LEGACY_RELEASE_CREATED}/"; then
+    rm -rf "${LEGACY_RELEASE_CREATED}" "${RELEASE_PATH}"
+    echo "[deploy] ERROR: failed to snapshot legacy live tree" >&2
+    exit 1
+  fi
+  ln -s "${DEPLOY_PATH}/.env" "${LEGACY_RELEASE_CREATED}/.env"
+  ln -s "${DEPLOY_PATH}/.runtime" "${LEGACY_RELEASE_CREATED}/.runtime"
+  mkdir -p "${LEGACY_RELEASE_CREATED}/ops/compose"
+  ln -s "${DEPLOY_PATH}/ops/compose/model_cache" \
+    "${LEGACY_RELEASE_CREATED}/ops/compose/model_cache"
+  ln -s "releases/$(basename "${LEGACY_RELEASE_CREATED}")" \
+    "${DEPLOY_PATH}/.current.legacy.$$"
+  mv -Tf "${DEPLOY_PATH}/.current.legacy.$$" "${DEPLOY_PATH}/current"
+  ln -s "releases/$(basename "${LEGACY_RELEASE_CREATED}")" \
+    "${DEPLOY_PATH}/.runtime-current.legacy.$$"
+  mv -Tf "${DEPLOY_PATH}/.runtime-current.legacy.$$" \
+    "${DEPLOY_PATH}/runtime-current"
+  PREVIOUS_RELEASE="${LEGACY_RELEASE_CREATED}"
+  echo "[deploy] legacy snapshot activated as the initial release-directory baseline"
+fi
+RUNTIME_RELEASE=""
+if [[ -L "${DEPLOY_PATH}/runtime-current" ]]; then
+  if ! RUNTIME_RELEASE="$(readlink -f "${DEPLOY_PATH}/runtime-current")" ||
+    [[ ! -d "${RUNTIME_RELEASE}" ]]; then
+    echo "[deploy] ERROR: runtime-current release link is broken" >&2
+    rm -rf "${RELEASE_PATH}"
+    exit 1
+  fi
+fi
+PREVIOUS_CURRENT_LINK=""
+PREVIOUS_RUNTIME_LINK=""
+if [[ -L "${DEPLOY_PATH}/current" ]]; then
+  PREVIOUS_CURRENT_LINK="$(readlink "${DEPLOY_PATH}/current")"
+fi
+if [[ -L "${DEPLOY_PATH}/runtime-current" ]]; then
+  PREVIOUS_RUNTIME_LINK="$(readlink "${DEPLOY_PATH}/runtime-current")"
+fi
+
+ln -s "${DEPLOY_PATH}/.env" "${RELEASE_PATH}/.env"
+ln -s "${DEPLOY_PATH}/.runtime" "${RELEASE_PATH}/.runtime"
+mkdir -p "${RELEASE_PATH}/ops/compose"
+ln -s "${DEPLOY_PATH}/ops/compose/model_cache" \
+  "${RELEASE_PATH}/ops/compose/model_cache"
+
+cleanup_staged_candidate() {
+  rm -rf "${RELEASE_PATH}"
+}
+trap cleanup_staged_candidate EXIT
+
+cd "${RELEASE_PATH}"
 COMPOSE_ENV_FILE="${DEPLOY_PATH}/.env"
 
-if [[ ! -f .env ]]; then
-  echo "[deploy] ERROR: .env not found at ${DEPLOY_PATH}/.env" >&2
-  echo "[deploy] Run bootstrap on 175 first to generate .env" >&2
-  exit 1
+if [[ "${DEPLOY_MODE}" == "rolling" ]]; then
+  if [[ -z "${PREVIOUS_RELEASE}" || ! -d "${PREVIOUS_RELEASE}" ]]; then
+    echo "[deploy] ERROR: first release-directory deployment requires DEPLOY_MODE=full." >&2
+    rm -rf "${RELEASE_PATH}"
+    exit 2
+  fi
+  runtime_sensitive_files=(
+    "ops/compose/full-stack.private-network.yaml"
+    "configs/main_model_profiles.yaml"
+    "configs/gemma4_chat_template.jinja"
+  )
+  for relative_path in "${runtime_sensitive_files[@]}"; do
+    if ! cmp -s \
+      "${PREVIOUS_RELEASE}/${relative_path}" \
+      "${RELEASE_PATH}/${relative_path}"; then
+      echo "[deploy] ERROR: rolling deploy cannot change runtime-sensitive file: ${relative_path}" >&2
+      echo "[deploy] Re-run the pipeline with DEPLOY_MODE=full." >&2
+      rm -rf "${RELEASE_PATH}"
+      exit 2
+    fi
+  done
 fi
 
 # registry login with read-only deploy token
@@ -141,37 +276,117 @@ fi
 
 get_env_value() {
   local key="$1"
-  awk -F= -v key="$key" '$1 == key { sub(/^[^=]*=/, ""); print; exit }' .env
+  awk -F= -v key="$key" '$1 == key { sub(/^[^=]*=/, ""); print; exit }' \
+    "${COMPOSE_ENV_FILE}"
 }
 
+COMPOSE_EXPORTED_KEYS=()
 export_compose_env_from_file() {
   local key value
+  if ((${#COMPOSE_EXPORTED_KEYS[@]})); then
+    unset "${COMPOSE_EXPORTED_KEYS[@]}"
+  fi
+  COMPOSE_EXPORTED_KEYS=()
   while IFS='=' read -r key value; do
     [[ "${key}" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || continue
     export "${key}=${value}"
-  done < .env
+    COMPOSE_EXPORTED_KEYS+=("${key}")
+  done < "${COMPOSE_ENV_FILE}"
   echo "[deploy] compose environment exported from ${COMPOSE_ENV_FILE}"
 }
 
-compose_file_dir_host() {
-  if [[ "${COMPOSE_FILE}" = /* ]]; then
-    dirname "${COMPOSE_FILE}"
+_PYTHON_BIN="$(command -v python3.12 || command -v python3 || command -v python)"
+_exposure_mode=""
+COMPOSE_OVERRIDE=""
+MAIN_MODEL_BOOT_OVERRIDE=""
+MAIN_MODEL_ROLLBACK_OVERRIDE=""
+RESTORING_RELEASE=0
+ENV_BACKUP_CREATED=0
+cleanup_generated_files() {
+  local path
+  for path in "${MAIN_MODEL_BOOT_OVERRIDE:-}" "${MAIN_MODEL_ROLLBACK_OVERRIDE:-}"; do
+    if [[ -n "${path}" ]]; then
+      rm -f "${path}"
+    fi
+  done
+  if [[ "${ENV_BACKUP_CREATED:-0}" != "1" &&
+    -n "${RELEASE_PATH:-}" && -d "${RELEASE_PATH}" ]]; then
+    rm -rf "${RELEASE_PATH}"
+  fi
+}
+trap cleanup_generated_files EXIT
+
+configure_release_context() {
+  local release_path="$1"
+  cd "${release_path}"
+  _exposure_mode="${EXPOSURE_MODE:-private_network}"
+  if [[ ! -f "scripts/compose/resolve_exposure_mode.py" ]]; then
+    if [[ "${RESTORING_RELEASE:-0}" != "1" ]]; then
+      echo "[deploy] ERROR: exposure mode resolver is missing in ${release_path}" >&2
+      return 1
+    fi
+    case "${_exposure_mode}" in
+      private_network) COMPOSE_OVERRIDE="" ;;
+      master_open) COMPOSE_OVERRIDE="ops/compose/overrides/exposure.master-open.yaml" ;;
+      *)
+        echo "[deploy] ERROR: previous release cannot resolve EXPOSURE_MODE=${_exposure_mode}" >&2
+        return 1
+        ;;
+    esac
+  elif ! COMPOSE_OVERRIDE="$(
+    "$_PYTHON_BIN" scripts/compose/resolve_exposure_mode.py \
+      "$_exposure_mode" --print-override-file
+  )"; then
+    echo "[deploy] ERROR: failed to resolve EXPOSURE_MODE=${_exposure_mode}" >&2
+    return 1
+  fi
+  if [[ -n "$COMPOSE_OVERRIDE" && ! -f "$COMPOSE_OVERRIDE" ]]; then
+    echo "[deploy] ERROR: exposure overlay not found: ${COMPOSE_OVERRIDE}" >&2
+    return 1
+  fi
+
+  if [[ "${DEPLOY_MODE}" == "full" && "${RESTORING_RELEASE:-0}" != "1" ]]; then
+    if [[ -z "${MAIN_MODEL_BOOT_OVERRIDE}" ]]; then
+      MAIN_MODEL_BOOT_OVERRIDE="$(
+        mktemp "${TMPDIR:-/tmp}/main-model-boot.XXXXXX.yaml"
+      )"
+    fi
+    if ! MAIN_MODEL_BOOT_PROFILE="$(
+      "${_PYTHON_BIN}" scripts/models/render_main_model_boot_override.py \
+        --catalog configs/main_model_profiles.yaml \
+        --state "${DEPLOY_PATH}/.runtime/main-model/main-model-state.json" \
+        --env-file "${COMPOSE_ENV_FILE}" \
+        --output "${MAIN_MODEL_BOOT_OVERRIDE}"
+    )"; then
+      echo "[deploy] ERROR: persisted main-model boot profile is invalid" >&2
+      return 1
+    fi
+  fi
+
+  if [[ -n "$COMPOSE_OVERRIDE" ]]; then
+    echo "[deploy] exposure overlay: $COMPOSE_OVERRIDE (EXPOSURE_MODE=$_exposure_mode)"
   else
-    dirname "${DEPLOY_PATH}/${COMPOSE_FILE}"
+    echo "[deploy] no exposure overlay (EXPOSURE_MODE=$_exposure_mode)"
   fi
 }
 
-resolve_compose_relative_path() {
-  local raw="$1"
-  local base_dir
-  base_dir="$(compose_file_dir_host)"
-
-  if [[ "${raw}" = /* ]]; then
-    printf '%s\n' "${raw}"
-  else
-    raw="${raw#./}"
-    printf '%s/%s\n' "${base_dir}" "${raw}"
+compose_run() {
+  local compose_args=(-f "${COMPOSE_FILE}")
+  if [[ -n "${COMPOSE_OVERRIDE:-}" ]]; then
+    compose_args+=(-f "${COMPOSE_OVERRIDE}")
   fi
+  if [[ "${RESTORING_RELEASE:-0}" != "1" && -n "${MAIN_MODEL_BOOT_OVERRIDE:-}" ]]; then
+    compose_args+=(-f "${MAIN_MODEL_BOOT_OVERRIDE}")
+  fi
+  if [[ "${RESTORING_RELEASE:-0}" == "1" && -n "${MAIN_MODEL_ROLLBACK_OVERRIDE:-}" ]]; then
+    compose_args+=(-f "${MAIN_MODEL_ROLLBACK_OVERRIDE}")
+  fi
+  COMPOSE_SERVICE_ENV_FILE="${COMPOSE_ENV_FILE}" \
+    docker compose \
+      --project-name "${COMPOSE_PROJECT_NAME:-compose}" \
+      "${compose_args[@]}" \
+      --env-file "${COMPOSE_ENV_FILE}" \
+      "$@"
 }
 
 pull_preflight_image() {
@@ -210,14 +425,133 @@ set_env_value() {
 }
 
 # back up .env before modifying image refs
-ENV_BACKUP_PATH=""
-ENV_BACKUP=".env.bak.$(date +%Y%m%d%H%M%S)"
-cp .env "${ENV_BACKUP}"
-ENV_BACKUP_PATH="${DEPLOY_PATH}/${ENV_BACKUP}"
+ENV_BACKUP_PATH="${DEPLOY_PATH}/.env.bak.$(date +%Y%m%d%H%M%S)"
+ENV_BACKUP="${ENV_BACKUP_PATH}"
+cp "${COMPOSE_ENV_FILE}" "${ENV_BACKUP}"
+ENV_BACKUP_CREATED=1
 echo "[deploy] .env backed up: ${ENV_BACKUP_PATH}"
 
+SERVICES_MUTATED=0
+LINKS_MUTATED=0
+
+restore_release_links() {
+  local restore_failed=0
+  local temporary
+
+  if [[ "${LINKS_MUTATED}" != "1" ]]; then
+    return 0
+  fi
+
+  if [[ -n "${PREVIOUS_CURRENT_LINK}" ]]; then
+    temporary="${DEPLOY_PATH}/.current.restore.$$"
+    rm -f "${temporary}"
+    if ln -s "${PREVIOUS_CURRENT_LINK}" "${temporary}" &&
+      mv -Tf "${temporary}" "${DEPLOY_PATH}/current"; then
+      echo "[deploy] restored current -> ${PREVIOUS_CURRENT_LINK}" >&2
+    else
+      rm -f "${temporary}"
+      echo "[deploy] ERROR: failed to restore current release link" >&2
+      restore_failed=1
+    fi
+  elif ! rm -f "${DEPLOY_PATH}/current"; then
+    echo "[deploy] ERROR: failed to remove newly-created current release link" >&2
+    restore_failed=1
+  fi
+
+  if [[ -n "${PREVIOUS_RUNTIME_LINK}" ]]; then
+    temporary="${DEPLOY_PATH}/.runtime-current.restore.$$"
+    rm -f "${temporary}"
+    if ln -s "${PREVIOUS_RUNTIME_LINK}" "${temporary}" &&
+      mv -Tf "${temporary}" "${DEPLOY_PATH}/runtime-current"; then
+      echo "[deploy] restored runtime-current -> ${PREVIOUS_RUNTIME_LINK}" >&2
+    else
+      rm -f "${temporary}"
+      echo "[deploy] ERROR: failed to restore runtime-current release link" >&2
+      restore_failed=1
+    fi
+  elif ! rm -f "${DEPLOY_PATH}/runtime-current"; then
+    echo "[deploy] ERROR: failed to remove newly-created runtime release link" >&2
+    restore_failed=1
+  fi
+
+  return "${restore_failed}"
+}
+
+restore_previous_release() {
+  local restore_failed=0
+  local context_ready=0
+
+  if [[ -n "${ENV_BACKUP:-}" && -f "${ENV_BACKUP}" ]]; then
+    if cp "${ENV_BACKUP}" "${COMPOSE_ENV_FILE}"; then
+      echo "[deploy] restored .env from ${ENV_BACKUP_PATH}" >&2
+    else
+      echo "[deploy] ERROR: failed to restore .env from ${ENV_BACKUP_PATH}" >&2
+      restore_failed=1
+    fi
+  else
+    echo "[deploy] ERROR: cannot restore .env; backup is missing" >&2
+    restore_failed=1
+  fi
+
+  if [[ -z "${PREVIOUS_RELEASE}" || ! -d "${PREVIOUS_RELEASE}" ]]; then
+    echo "[deploy] ERROR: previous release source is unavailable for rollback" >&2
+    restore_failed=1
+  else
+    cd "${PREVIOUS_RELEASE}"
+    export_compose_env_from_file
+    RESTORING_RELEASE=1
+    if ! configure_release_context "${PREVIOUS_RELEASE}"; then
+      echo "[deploy] ERROR: failed to configure previous release context" >&2
+      restore_failed=1
+    else
+      context_ready=1
+    fi
+    if ! make sync-runtime-secrets; then
+      echo "[deploy] ERROR: failed to resync runtime secrets from restored .env" >&2
+      restore_failed=1
+    fi
+    if [[ "${SERVICES_MUTATED}" == "1" && "${context_ready}" == "1" ]]; then
+      echo "[deploy] restoring services from the previous release..." >&2
+      if ! compose_run config >/dev/null; then
+        echo "[deploy] ERROR: restored compose config is invalid" >&2
+        restore_failed=1
+      elif [[ "${DEPLOY_MODE}" == "full" ]]; then
+        if ! compose_run up -d --remove-orphans; then
+          echo "[deploy] ERROR: failed to restore the previous full stack" >&2
+          restore_failed=1
+        fi
+      else
+        if ! compose_run up -d --no-deps admin-sidecar; then
+          echo "[deploy] ERROR: failed to restore the previous admin-sidecar" >&2
+          restore_failed=1
+        fi
+        if ! compose_run up -d --no-deps gateway risk-adapter prometheus grafana; then
+          echo "[deploy] ERROR: failed to restore previous app/observability services" >&2
+          restore_failed=1
+        fi
+      fi
+    fi
+  fi
+
+  if ! restore_release_links; then
+    restore_failed=1
+  fi
+
+  if [[ "${restore_failed}" == "0" ]]; then
+    echo "[deploy] previous release, .env, services, and release links restored" >&2
+    return 0
+  fi
+
+  echo "[deploy] ERROR: automatic restore was incomplete; manual recovery is required" >&2
+  return 1
+}
+
 fail_after_env_backup() {
-  echo "[deploy] ERROR: $*" >&2
+  local message="$*"
+  trap - ERR
+  restore_previous_release || true
+  rm -rf "${RELEASE_PATH}"
+  echo "[deploy] ERROR: ${message}" >&2
   if [[ -n "${ENV_BACKUP_PATH:-}" ]]; then
     echo "[deploy] .env backup: ${ENV_BACKUP_PATH}" >&2
   fi
@@ -226,6 +560,9 @@ fail_after_env_backup() {
 
 unexpected_failure_after_env_backup() {
   local code=$?
+  trap - ERR
+  restore_previous_release || true
+  rm -rf "${RELEASE_PATH}"
   echo "[deploy] ERROR: deploy failed after .env backup was created." >&2
   if [[ -n "${ENV_BACKUP_PATH:-}" ]]; then
     echo "[deploy] .env backup: ${ENV_BACKUP_PATH}" >&2
@@ -267,35 +604,71 @@ fi
 # Export the mutated remote .env so process env values cannot shadow required compose variables.
 export_compose_env_from_file
 
-# Resolve exposure overlay from .env (mirrors compose_up.sh logic).
-# EXPOSURE_MODE is now exported by export_compose_env_from_file.
-_PYTHON_BIN="$(command -v python3.12 || command -v python3 || command -v python)"
-_exposure_mode="${EXPOSURE_MODE:-private_network}"
-COMPOSE_OVERRIDE=""
-if [[ -f "scripts/compose/resolve_exposure_mode.py" ]]; then
-  COMPOSE_OVERRIDE="$("$_PYTHON_BIN" scripts/compose/resolve_exposure_mode.py "$_exposure_mode" --print-override-file 2>/dev/null || true)"
+if ! configure_release_context "${RELEASE_PATH}"; then
+  fail_after_env_backup "candidate release context is invalid"
 fi
-if [[ -n "$COMPOSE_OVERRIDE" && ! -f "$COMPOSE_OVERRIDE" ]]; then
-  echo "[deploy] WARNING: exposure overlay not found: $COMPOSE_OVERRIDE — deploying without overlay" >&2
-  COMPOSE_OVERRIDE=""
+if [[ "${DEPLOY_MODE}" == "full" ]]; then
+  echo "[deploy] main-model boot profile: ${MAIN_MODEL_BOOT_PROFILE}"
 fi
-if [[ -n "$COMPOSE_OVERRIDE" ]]; then
-  echo "[deploy] exposure overlay: $COMPOSE_OVERRIDE (EXPOSURE_MODE=$_exposure_mode)"
-else
-  echo "[deploy] no exposure overlay (EXPOSURE_MODE=$_exposure_mode)"
-fi
-
-compose_run() {
-  if [[ -n "${COMPOSE_OVERRIDE:-}" ]]; then
-    docker compose -f "${COMPOSE_FILE}" -f "${COMPOSE_OVERRIDE}" --env-file "${COMPOSE_ENV_FILE}" "$@"
-  else
-    docker compose -f "${COMPOSE_FILE}" --env-file "${COMPOSE_ENV_FILE}" "$@"
-  fi
-}
 
 echo "[deploy] validating compose config with ${COMPOSE_ENV_FILE}..."
-if ! compose_run config >/dev/null; then
+if ! COMPOSE_PROJECT_EFFECTIVE="$(
+  compose_run config --format json |
+    "${_PYTHON_BIN}" -c 'import json, sys; print(json.load(sys.stdin)["name"])'
+)"; then
   fail_after_env_backup "compose config interpolation failed after .env update"
+fi
+if [[ -z "${COMPOSE_PROJECT_EFFECTIVE}" ]]; then
+  fail_after_env_backup "effective Compose project name is empty"
+fi
+
+if [[ "${DEPLOY_MODE}" == "full" ]]; then
+  CAPTURE_CATALOG="${RELEASE_PATH}/configs/main_model_profiles.yaml"
+  if [[ -n "${PREVIOUS_RELEASE}" &&
+    -f "${PREVIOUS_RELEASE}/configs/main_model_profiles.yaml" ]]; then
+    CAPTURE_CATALOG="${PREVIOUS_RELEASE}/configs/main_model_profiles.yaml"
+  fi
+  MAIN_MODEL_ROLLBACK_OVERRIDE="$(
+    mktemp "${TMPDIR:-/tmp}/main-model-rollback.XXXXXX.yaml"
+  )"
+  rm -f "${MAIN_MODEL_ROLLBACK_OVERRIDE}"
+  echo "[deploy] capturing current main-model runtime for rollback..."
+  if ! capture_status="$(
+    "${_PYTHON_BIN}" scripts/models/capture_main_model_runtime_override.py \
+      --catalog "${CAPTURE_CATALOG}" \
+      --compose-project "${COMPOSE_PROJECT_EFFECTIVE}" \
+      --output "${MAIN_MODEL_ROLLBACK_OVERRIDE}"
+  )"; then
+    fail_after_env_backup "failed to capture current main-model runtime"
+  fi
+  if [[ "${capture_status}" == "missing" ]]; then
+    MAIN_MODEL_ROLLBACK_OVERRIDE=""
+    echo "[deploy] no current main-model container; initial deployment has no runtime rollback target"
+  else
+    echo "[deploy] current main-model runtime captured for rollback"
+  fi
+
+  HF_CACHE_HOST="$(
+    "${_PYTHON_BIN}" scripts/models/resolve_hf_cache_dir.py \
+      --env-file "${COMPOSE_ENV_FILE}" \
+      --compose-file "${COMPOSE_FILE}"
+  )"
+  if ! mkdir -p "${HF_CACHE_HOST}" || [[ ! -w "${HF_CACHE_HOST}" ]]; then
+    fail_after_env_backup "Hugging Face cache directory is not writable: ${HF_CACHE_HOST}"
+  fi
+  echo "[deploy] preparing main-model cache for ${MAIN_MODEL_BOOT_PROFILE}..."
+  if ! docker run --rm \
+    --user 0:0 \
+    --entrypoint python \
+    -e HF_TOKEN \
+    -e HUGGING_FACE_HUB_TOKEN \
+    -e HF_HOME=/root/.cache/huggingface \
+    -v "${HF_CACHE_HOST}:/root/.cache/huggingface" \
+    "${PLATFORM_IMAGE_TO_DEPLOY}" \
+    -m ai_model_serving.model_cache_cli \
+    --profile "${MAIN_MODEL_BOOT_PROFILE}"; then
+    fail_after_env_backup "main-model cache prepare failed for ${MAIN_MODEL_BOOT_PROFILE}"
+  fi
 fi
 
 if [[ "${DEPLOY_MODE}" == "full" ]]; then
@@ -304,20 +677,22 @@ if [[ "${DEPLOY_MODE}" == "full" ]]; then
     fail_after_env_backup "image pull failed during full deploy. If vLLM-derived images are new, confirm build-vllm-derived succeeded or set an existing RISK_VLLM_IMAGE_TO_DEPLOY ref."
   fi
   echo "[deploy] full deploy: starting stack..."
+  SERVICES_MUTATED=1
   if ! compose_run up -d --remove-orphans; then
     fail_after_env_backup "full stack compose up failed"
   fi
 else
   # Pull the application/control-plane images only. Gateway and Admin Sidecar
   # implement one management API and must be deployed at the same revision.
-  echo "[deploy] rolling deploy: pulling gateway, admin-sidecar, and risk-adapter images..."
+  echo "[deploy] rolling deploy: pulling app/control-plane images..."
   if ! compose_run pull gateway admin-sidecar risk-adapter; then
     fail_after_env_backup "rolling deploy image pull failed for gateway/admin-sidecar/risk-adapter"
   fi
 
   # Keep vLLM intact. Bring the sidecar up first so the new Gateway never
   # targets an older control-plane implementation.
-  echo "[deploy] rolling deploy: restarting admin-sidecar, gateway, and risk-adapter..."
+  echo "[deploy] rolling deploy: restarting app/control-plane services..."
+  SERVICES_MUTATED=1
   if ! compose_run up -d --no-deps admin-sidecar; then
     fail_after_env_backup "rolling deploy restart failed for admin-sidecar"
   fi
@@ -348,7 +723,7 @@ if [[ "${RUN_READY_SMOKE}" == "1" ]]; then
   done
 fi
 
-if [[ "${DEPLOY_MODE}" == "full" && "${RUN_READY_FULL_SMOKE}" == "1" ]]; then
+if [[ "${DEPLOY_MODE}" == "full" ]]; then
   echo "[deploy] full deploy: running make ready-full..."
   if ! make ready-full; then
     make compose-diagnostics || true
@@ -356,10 +731,47 @@ if [[ "${DEPLOY_MODE}" == "full" && "${RUN_READY_FULL_SMOKE}" == "1" ]]; then
   fi
 fi
 
+echo "[deploy] activating release ${RELEASE_ID}..."
+CURRENT_LINK_TMP="${DEPLOY_PATH}/.current.${RELEASE_ID}.$$"
+RUNTIME_LINK_TMP=""
+LINKS_MUTATED=1
+ln -s "releases/${RELEASE_ID}" "${CURRENT_LINK_TMP}"
+mv -Tf "${CURRENT_LINK_TMP}" "${DEPLOY_PATH}/current"
+echo "[deploy] current -> releases/${RELEASE_ID}"
+if [[ "${DEPLOY_MODE}" == "full" ]]; then
+  RUNTIME_LINK_TMP="${DEPLOY_PATH}/.runtime-current.${RELEASE_ID}.$$"
+  ln -s "releases/${RELEASE_ID}" "${RUNTIME_LINK_TMP}"
+  mv -Tf "${RUNTIME_LINK_TMP}" "${DEPLOY_PATH}/runtime-current"
+  RUNTIME_RELEASE="${RELEASE_PATH}"
+  echo "[deploy] runtime-current -> releases/${RELEASE_ID}"
+fi
+
+trap - ERR
+
+mapfile -t RELEASE_DIRS < <(
+  find "${DEPLOY_PATH}/releases" -mindepth 1 -maxdepth 1 -type d \
+    -printf '%T@ %p\n' |
+    sort -nr |
+    cut -d' ' -f2-
+)
+for ((index=RELEASES_TO_KEEP; index<${#RELEASE_DIRS[@]}; index++)); do
+  old_release="${RELEASE_DIRS[$index]}"
+  if [[ "${old_release}" != "${RELEASE_PATH}" && "${old_release}" != "${RUNTIME_RELEASE}" ]]; then
+    if rm -rf "${old_release}"; then
+      echo "[deploy] pruned old release: ${old_release}"
+    else
+      echo "[deploy] WARNING: failed to prune old release: ${old_release}" >&2
+    fi
+  fi
+done
+if ! rm -f "${ENV_BACKUP}"; then
+  echo "[deploy] WARNING: failed to remove .env backup: ${ENV_BACKUP}" >&2
+fi
+
 if [[ "${PRUNE_DANGLING_IMAGES}" == "1" ]]; then
   echo "[deploy] pruning dangling docker images..."
   if ! docker image prune -f --filter dangling=true >/dev/null; then
-    fail_after_env_backup "dangling docker image prune failed"
+    echo "[deploy] WARNING: dangling docker image prune failed after successful deploy" >&2
   fi
 fi
 

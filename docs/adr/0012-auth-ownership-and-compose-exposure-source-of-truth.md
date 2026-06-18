@@ -42,9 +42,16 @@ Updated to reflect two-mode canonical exposure design: `private_network` + `mast
 exposure mode를 두 가지 canonical mode로 단순화한다:
 
 - `private_network` (class: `default_private`): Gateway와 Grafana만 host-published. 표준 운영 topology.
-- `master_open` (class: `diagnostic_full_stack`): 모든 서비스 host-published (vLLM runtimes, Risk Adapter, Prometheus, DCGM exporter, cAdvisor 포함). 진단/운영 full-stack 모드.
+- `master_open` (class: `diagnostic_full_stack`): 모든 서비스 host-published
+  (vLLM runtimes, Risk Adapter, Prometheus, DCGM exporter, cAdvisor 포함).
+  외부 접근이 차단된 신뢰된 사내망의 `local_open` 기본 topology.
 
 **Gateway bypass와 vLLM direct access는 `master_open`의 의도된 특성**이다. 이를 별도 모드로 분리하는 것은 side effect 회피이지 구조적 해결이 아니었다. `master_open`이 전체 stack을 직접 노출하는 것은 정상이며, `EXPOSURE_AUDIENCE`와 structured diagnostics로 제어한다.
+
+프로젝트 운영 정책상 `AUTH_MODE=local_open`은
+`EXPOSURE_MODE=master_open + EXPOSURE_AUDIENCE=private_lan`과 하나의 profile로
+취급한다. 이 조합은 사내망 경계를 접근 제어로 사용하며, `local_open`과
+`private_network`의 혼합은 허용하지 않는다.
 
 ### Structured Diagnostics
 

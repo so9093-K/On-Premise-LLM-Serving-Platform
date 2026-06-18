@@ -19,6 +19,10 @@ make bootstrap      = 전체 재빌드 (.venv + 의존성 + .env + 검증 + 플�
 
 `make first-run`, `make rebuild-full`, `make build-pipeline`은 새 담당자가 의미를 바로 이해하기 위한 alias다. 기존 자동화와 하위 호환을 위해 `make bootstrap`, `make build`도 계속 유지한다.
 
+`make build`는 플랫폼 Docker image까지 포함하는 명령이므로 Docker CLI와 daemon이
+필수다. Docker 없이 ZIP만 만들려면 `make package`를 사용한다. `make build`와
+`make package`는 모두 패키징 전에 generated report를 갱신한다.
+
 ## 빌드 계층
 
 이 프로젝트에는 목적이 다른 네 가지 빌드 진입점이 있다.

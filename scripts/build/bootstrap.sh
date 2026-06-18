@@ -15,29 +15,36 @@ if ! docker info >/dev/null 2>&1; then
   exit 2
 fi
 
-echo "[bootstrap] removing stale .venv (if any)"
-rm -rf .venv
-
-# .venv 삭제 후 시스템 python3.12를 찾는다.
-# 활성화된 venv가 PATH에 있으면 command -v가 삭제된 venv 경로를 반환할 수 있으므로
-# 시스템 경로를 명시적으로 우선 탐색한다.
-PYTHON312=""
-for p in /usr/bin/python3.12 /usr/local/bin/python3.12; do
-  if [[ -x "$p" ]]; then
-    PYTHON312="$p"
+# Select a supported system interpreter before deleting an active/stale .venv.
+# Prefer an explicit PYTHON_BIN, then the recommended production minor.
+SYSTEM_PYTHON=""
+python_candidates=()
+if [[ -n "${PYTHON_BIN:-}" ]]; then
+  python_candidates+=("${PYTHON_BIN}")
+fi
+for command_name in python3.12 python3.13 python3.14; do
+  candidate="$(PATH="/usr/bin:/usr/local/bin:/bin:/usr/sbin:$PATH" command -v "$command_name" 2>/dev/null || true)"
+  [[ -n "$candidate" ]] && python_candidates+=("$candidate")
+done
+for candidate in "${python_candidates[@]}"; do
+  case "$candidate" in
+    "$ROOT/.venv/"*) continue ;;
+  esac
+  if [[ -x "$candidate" ]] && "$candidate" -c \
+    'import sys; raise SystemExit(0 if (3, 12) <= sys.version_info[:2] < (3, 15) else 1)'; then
+    SYSTEM_PYTHON="$candidate"
     break
   fi
 done
-if [[ -z "$PYTHON312" ]]; then
-  PYTHON312="$(PATH="/usr/bin:/usr/local/bin:/bin:/usr/sbin:$PATH" command -v python3.12 2>/dev/null || true)"
-fi
-if [[ -z "$PYTHON312" ]]; then
-  echo "[bootstrap] python3.12 not found. Install python3.12 and retry." >&2
+if [[ -z "$SYSTEM_PYTHON" ]]; then
+  echo "[bootstrap] Python >=3.12,<3.15 not found. Install Python 3.12, 3.13, or 3.14 and retry." >&2
   exit 1
 fi
 
-echo "[bootstrap] creating .venv with $PYTHON312"
-"$PYTHON312" -m venv .venv
+echo "[bootstrap] removing stale .venv (if any)"
+rm -rf .venv
+echo "[bootstrap] creating .venv with $SYSTEM_PYTHON"
+"$SYSTEM_PYTHON" -m venv .venv
 VENV_PYTHON="$ROOT/.venv/bin/python"
 
 echo "[bootstrap] installing dependencies"
@@ -81,7 +88,8 @@ fi
 # Apply exposure mode after .env re-init:
 #   1. Explicit EXPOSURE_MODE env var takes priority.
 #   2. Mode preserved from the previous .env is restored when not overridden.
-#   3. Empty means keep whatever setup_env generated (private_network by default).
+#   3. Empty means keep whatever setup_env generated
+#      (local_open => master_open/private_lan).
 _apply_exposure="${EXPOSURE_MODE:-${_prior_exposure_mode}}"
 if [[ -n "$_apply_exposure" ]]; then
   _effective_audience="${EXPOSURE_AUDIENCE:-${_prior_exposure_audience}}"
@@ -146,10 +154,32 @@ else
 fi
 
 COMPOSE_FILE="${COMPOSE_FILE:-ops/compose/full-stack.private-network.yaml}"
-if docker compose -f "$COMPOSE_FILE" --env-file .env ps --status running --quiet 2>/dev/null | grep -q .; then
-  echo "[bootstrap] 실행 중인 스택에서 gateway/risk-adapter를 재시작합니다 (토큰 갱신 반영)"
-  docker compose -f "$COMPOSE_FILE" --env-file .env up -d --no-deps gateway risk-adapter
-  echo "[bootstrap] gateway/risk-adapter 재시작 완료"
+ENV_FILE=.env
+source scripts/lib/compose_context.sh
+compose_context_init "$ROOT"
+if compose_context_run ps --status running --quiet 2>/dev/null | grep -q .; then
+  echo "[bootstrap] 실행 중인 스택에서 gateway/admin-sidecar/risk-adapter를 재시작합니다"
+  _exposure_mode="$("$VENV_PYTHON" scripts/env/env_get.py --env-file .env EXPOSURE_MODE --default private_network)"
+  _exposure_override="$(
+    "$VENV_PYTHON" scripts/compose/resolve_exposure_mode.py \
+      "$_exposure_mode" --print-override-file
+  )"
+  _boot_override="$(mktemp "${TMPDIR:-/tmp}/main-model-boot.XXXXXX.yaml")"
+  trap 'rm -f "$_boot_override"' EXIT
+  "$VENV_PYTHON" scripts/models/render_main_model_boot_override.py \
+    --env-file .env \
+    --output "$_boot_override" >/dev/null
+  _compose_args=("${COMPOSE_CONTEXT_FILE_ARGS[@]}")
+  if [[ -n "$_exposure_override" ]]; then
+    _compose_args+=(-f "$_exposure_override")
+  fi
+  _compose_args+=(-f "$_boot_override")
+  docker compose "${_compose_args[@]}" --env-file "$ENV_FILE_ABS" config >/dev/null
+  docker compose "${_compose_args[@]}" --env-file "$ENV_FILE_ABS" up -d --no-deps admin-sidecar
+  docker compose "${_compose_args[@]}" --env-file "$ENV_FILE_ABS" up -d --no-deps gateway risk-adapter
+  rm -f "$_boot_override"
+  trap - EXIT
+  echo "[bootstrap] gateway/admin-sidecar/risk-adapter 재시작 완료"
 fi
 
 if [[ -f .env ]]; then

@@ -459,7 +459,11 @@ def validate_monitoring_resource_mapping() -> None:
     if 'dcgm-exporter:9400' not in prom:
         raise SystemExit('prometheus.yml must scrape dcgm-exporter on its internal default port 9400')
     private_compose = (ROOT / 'ops/compose/full-stack.private-network.yaml').read_text(encoding='utf-8')
-    for phrase in ['dcgm-exporter:', '${DCGM_EXPORTER_IMAGE:', 'env_file: ../../.env']:
+    for phrase in [
+        'dcgm-exporter:',
+        '${DCGM_EXPORTER_IMAGE:',
+        'env_file: ${COMPOSE_SERVICE_ENV_FILE:?',
+    ]:
         if phrase not in private_compose:
             raise SystemExit(f'full-stack private-network compose must include {phrase}')
 

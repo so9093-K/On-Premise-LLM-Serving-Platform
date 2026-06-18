@@ -53,7 +53,9 @@ exposure profile별 diagnostics는 구조화된 boolean 필드로 표현된다. 
 
 ### AUTH_MODE 운영 hard-fail
 
-- `local_open`은 local/test/development 전용이다. staging/production 같은 non-local 환경에서는 auth-doctor와 compose preflight가 실패해야 한다.
+- `local_open`은 외부 접근이 차단된 신뢰된 사내망 전용이다.
+  `master_open/private_lan` 조합이면 non-local `APP_ENV`에서도 허용되며, 다른
+  exposure 조합은 auth-doctor와 compose preflight가 실패해야 한다.
 - `internal_trusted`는 app-level public/internal auth를 끄고 network/edge/caller가 인증 소유자가 되는 profile이다. non-local 환경에서는 `INTERNAL_TRUSTED_AUTH_EVIDENCE`로 해당 소유권 근거를 남겨야 한다.
 - `custom` profile은 운영자가 flag 조합을 직접 소유하는 예외 경로다. production 성격의 환경에서는 `CUSTOM_AUTH_RISK_ACCEPTED=true`와 `CUSTOM_AUTH_RISK_TICKET` 없이 통과하지 않는다.
 - production에서 `SKIP_PREFLIGHT=1`은 process env로 `ALLOW_SKIP_PREFLIGHT=1`과 `CHANGE_TICKET`이 함께 있을 때만 compose-up에서 허용된다. 이 값들은 `.env`에 상시 저장하지 말고 배포 명령/CI job의 일회성 override로 남긴다.
@@ -90,10 +92,10 @@ exposure profile별 diagnostics는 구조화된 boolean 필드로 표현된다. 
 `ops/compose/full-stack.private-network.yaml`이 base compose 파일이다. 모든 exposure override는 이 파일 위에 overlay된다. override 파일은 `scripts/compose/render_exposure_overrides.py`가 `configs/exposure_profiles.yaml`과 `configs/services.yaml`에서 자동 생성한다.
 
 ```bash
-# private_network (기본값)
+# private_network (Gateway 경유만 필요한 경우)
 make compose-up
 
-# master_open (full-stack diagnostic — vLLM, Risk Adapter, Prometheus, DCGM, cAdvisor host-published)
+# master_open (local_open 기본 — 신뢰된 사내망 full-stack host-published)
 make compose-up EXPOSURE_MODE=master_open EXPOSURE_AUDIENCE=private_lan
 make compose-up-master  # shorthand
 

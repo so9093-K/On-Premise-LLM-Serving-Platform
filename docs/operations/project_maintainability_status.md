@@ -9,7 +9,7 @@
 | 처음 프로젝트 진입 | 개선됨 | `docs/operations/first_project_guide.md`, `make help`, `make guide`로 Day-0 흐름을 따라갈 수 있음 |
 | 빌드/제거/재빌드 | 개선됨 | `make build-pipeline`, `make first-run`, `make rebuild-full`, `make remove-plan`, `make reset`으로 목적별 진입점 정리 |
 | 인증 제어 | 개선됨 | `auth-status`/`auth-doctor`/`auth-plan`/`auth-apply`와 `ENV=<path>` 후보 env 진단으로 사람이 profile 단위 관리 가능 |
-| 비인증 모드 | 개선됨 | `local_open`은 로컬 개발용으로 정리되고, non-local 비인증은 doctor가 위험으로 표시 |
+| 비인증 모드 | 개선됨 | `local_open`은 `master_open/private_lan` 사내망 정책으로 고정되고, 불일치 조합은 doctor/preflight가 실패 처리 |
 | OpenAPI | 개선됨 | checked-in schema injection, generated error surface, snapshot diff release gate로 FastAPI loose schema 회귀 위험 축소 |
 | Risk vLLM patch | 관리 가능하지만 장기 위험 | metadata/label/verify/removal-check는 있으나 vendor patch이므로 제거 조건 추적 필요 |
 | 모델 관리 | read-only + plan-only | `modelctl list/status/validate/diff`와 `propose-add/propose-remove`로 상태와 변경 영향 파악 가능, write-mode apply는 아직 보류 |

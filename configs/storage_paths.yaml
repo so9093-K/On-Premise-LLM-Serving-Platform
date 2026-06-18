@@ -42,7 +42,7 @@ paths:
     kind: operator_report
     owner: operator
     lifecycle: generated_by_runtime_validation_and_operator_reports
-    cleanup: preserve_reference_reports; runtime_validation_timestamp_reports_excluded_from_release
+    cleanup: static reports preserved; timestamped runtime_validation reports removed by make clean
     release_package: include_static_reports_exclude_runtime_validation_timestamp_reports
   reports_refactor_dir:
     path: reports/refactor/

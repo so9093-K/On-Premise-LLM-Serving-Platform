@@ -173,6 +173,11 @@ def build_parser() -> argparse.ArgumentParser:
         )
     )
     parser.add_argument("--model", default=DEFAULT_MODEL)
+    parser.add_argument(
+        "--revision",
+        default=None,
+        help="고정된 Hugging Face commit revision. 지정하면 config/processor/tokenizer 모두 같은 revision을 사용합니다.",
+    )
     parser.add_argument("--no-trust-remote-code", action="store_true")
     parser.add_argument("--local-files-only", action="store_true", help="Hugging Face Hub에 접속하지 않고 local cache만 사용합니다.")
     parser.add_argument("--check-tokenizer", action="store_true", help="AutoProcessor/AutoTokenizer tokenizer artifact canary를 함께 검사합니다.")
@@ -203,12 +208,14 @@ def main(argv: list[str] | None = None) -> int:
     if not args.json:
         print_human_versions(transformers, huggingface_hub)
         print(f"model={args.model}")
+        print(f"revision={args.revision or 'default'}")
         print(f"trust_remote_code={trust_remote_code}")
         print(f"local_files_only={args.local_files_only}")
 
     try:
         config = AutoConfig.from_pretrained(
             args.model,
+            revision=args.revision,
             trust_remote_code=trust_remote_code,
             local_files_only=args.local_files_only,
         )
@@ -219,6 +226,7 @@ def main(argv: list[str] | None = None) -> int:
             "stage": "transformers_auto_config",
             "classification": classification,
             "model": args.model,
+            "revision": args.revision,
             "exception_type": type(exc).__name__,
             "message": str(exc),
             "interpretation": interpretation_for_failure(classification),
@@ -246,6 +254,7 @@ def main(argv: list[str] | None = None) -> int:
 
             processor = AutoProcessor.from_pretrained(
                 args.model,
+                revision=args.revision,
                 trust_remote_code=trust_remote_code,
                 local_files_only=args.local_files_only,
             )
@@ -253,6 +262,7 @@ def main(argv: list[str] | None = None) -> int:
             if tokenizer is None:
                 tokenizer = AutoTokenizer.from_pretrained(
                     args.model,
+                    revision=args.revision,
                     trust_remote_code=trust_remote_code,
                     local_files_only=args.local_files_only,
                 )
@@ -269,6 +279,7 @@ def main(argv: list[str] | None = None) -> int:
                 "stage": "transformers_auto_tokenizer",
                 "classification": "TOKENIZER_LOAD_FAILED",
                 "model": args.model,
+                "revision": args.revision,
                 "exception_type": type(exc).__name__,
                 "message": str(exc),
                 "interpretation": "Config loaded, but tokenizer/processor loading failed before vLLM startup.",
