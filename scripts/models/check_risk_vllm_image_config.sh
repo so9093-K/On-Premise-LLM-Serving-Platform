@@ -12,7 +12,6 @@ MODELS=("${@:-}")
 if [[ ${#MODELS[@]} -eq 0 || -z "${MODELS[0]:-}" ]]; then
   MODELS=(
     "kakaocorp/kanana-safeguard-prompt-2.1b"
-    "kakaocorp/kanana-safeguard-siren-8b"
   )
 fi
 

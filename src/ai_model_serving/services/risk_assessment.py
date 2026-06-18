@@ -53,9 +53,6 @@ class RiskAssessmentService:
     async def assess_prompt(self, prompt: str) -> dict[str, Any]:
         return await self.assess_detector_key("prompt", prompt)
 
-    async def assess_siren(self, prompt: str) -> dict[str, Any]:
-        return await self.assess_detector_key("siren", prompt)
-
     async def assess_aggregate(self, prompt: str) -> dict[str, Any]:
         start = time.monotonic()
         results = [await self.assess_detector_key(detector_key, prompt) for detector_key in self.aggregate_detector_order]
