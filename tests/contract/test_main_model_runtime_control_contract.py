@@ -4,6 +4,7 @@ import json
 import subprocess
 from pathlib import Path
 
+import pytest
 import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -17,6 +18,7 @@ def _compose_config(*files: str) -> dict:
     return json.loads(subprocess.check_output(command, cwd=ROOT, text=True))
 
 
+@pytest.mark.docker
 def test_private_network_does_not_publish_vllm_or_sidecar_ports():
     config = _compose_config("ops/compose/full-stack.private-network.yaml")
     services = config["services"]
@@ -30,6 +32,7 @@ def test_private_network_does_not_publish_vllm_or_sidecar_ports():
         assert not services[name].get("ports"), name
 
 
+@pytest.mark.docker
 def test_master_open_publishes_vllm_but_not_sidecar():
     config = _compose_config(
         "ops/compose/full-stack.private-network.yaml",
