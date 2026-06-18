@@ -274,6 +274,12 @@ def main(argv: list[str] | None = None) -> int:
                 min_token_count=args.min_token_count,
             )
         except Exception as exc:
+            # Always dump the full chain so CI logs expose the root ImportError,
+            # not just the transformers lazy-module wrapper message.
+            traceback.print_exception(exc, file=sys.stderr)
+            root_cause = exc
+            while root_cause.__cause__ is not None:
+                root_cause = root_cause.__cause__
             result = {
                 "ok": False,
                 "stage": "transformers_auto_tokenizer",
@@ -282,6 +288,8 @@ def main(argv: list[str] | None = None) -> int:
                 "revision": args.revision,
                 "exception_type": type(exc).__name__,
                 "message": str(exc),
+                "root_cause_type": type(root_cause).__name__,
+                "root_cause_message": str(root_cause),
                 "interpretation": "Config loaded, but tokenizer/processor loading failed before vLLM startup.",
             }
             if args.json:
@@ -289,8 +297,6 @@ def main(argv: list[str] | None = None) -> int:
             else:
                 print("status=failed classification=TOKENIZER_LOAD_FAILED", file=sys.stderr)
                 print(f"{type(exc).__name__}: {exc}", file=sys.stderr)
-                if args.traceback:
-                    traceback.print_exception(exc, file=sys.stderr)
             return 1
         result["tokenizer_canary"] = asdict(canary)
         if not canary.ok:
