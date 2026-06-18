@@ -73,7 +73,6 @@ hf-main-model-profiles-canary:
       python -m venv "$HF_CANARY_VENV"
       "$HF_CANARY_VENV/bin/python" -m pip install \
         "transformers==4.52.4" \
-        "huggingface_hub==1.13.0" \
         "PyYAML==6.0.3"
       "$HF_CANARY_VENV/bin/python" scripts/models/check_main_model_profiles.py
 
