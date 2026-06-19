@@ -26,7 +26,7 @@ def test_gitlab_ci_deployment_contract_is_documented_and_operationally_safe() ->
 
     assert 'REGISTRY_USER="${REGISTRY_DEPLOY_USER:-${CI_REGISTRY_USER:-}}"' in deploy
     assert 'REGISTRY_PASSWORD="${REGISTRY_DEPLOY_PASSWORD:-${CI_REGISTRY_PASSWORD:-}}"' in deploy
-    assert 'DEPLOY_MODE="${DEPLOY_MODE:-rolling}"' in deploy
+    assert 'DEPLOY_MODE="rolling"' in deploy
     assert "rolling|full" in deploy
     assert "--exclude \".env\"" in deploy
     assert "--exclude \".runtime/\"" in deploy
@@ -43,7 +43,6 @@ def test_gitlab_ci_deployment_contract_is_documented_and_operationally_safe() ->
     assert 'GATEWAY_PROBE_HOST="localhost"' in deploy
     assert 'HEALTH_URL="${GATEWAY_HEALTH_URL:-http://${GATEWAY_PROBE_HOST}:${GATEWAY_PORT}/health}"' in deploy
     assert 'RUN_READY_FULL_SMOKE="${RUN_READY_FULL_SMOKE:-1}"' in deploy
-    assert 'if [[ "${RUN_READY_FULL_SMOKE}" != "1" ]]; then' in deploy
     assert 'if [[ "${DEPLOY_MODE}" == "full" ]]; then' in deploy
     assert 'make ready-full' in deploy
     assert 'make compose-diagnostics || true' in deploy

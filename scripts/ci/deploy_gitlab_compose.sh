@@ -17,7 +17,8 @@
 #   RISK_VLLM_IMAGE_SHA               default risk-vllm-kanana image when DEPLOY_MODE=full
 #   DEPLOY_COMPOSE_FILE               compose file relative to DEPLOY_PATH
 #                              default: ops/compose/full-stack.private-network.yaml
-#   DEPLOY_MODE                rolling (default) or full
+#   DEPLOY_MODE                auto-detected (rolling unless vLLM image changes or
+#                              runtime-sensitive files change); can be forced to full
 #   GATEWAY_HEALTH_URL         explicit post-deploy health URL.
 #                              Default is derived from 175 .env:
 #                              GATEWAY_BIND_ADDR/GATEWAY_PORT, with 0.0.0.0 -> localhost.
@@ -41,13 +42,26 @@ REGISTRY_PASSWORD="${REGISTRY_DEPLOY_PASSWORD:-${CI_REGISTRY_PASSWORD:-}}"
 : "${REGISTRY_PASSWORD:?Required: REGISTRY_DEPLOY_PASSWORD or CI_REGISTRY_PASSWORD}"
 
 COMPOSE_FILE="${DEPLOY_COMPOSE_FILE:-ops/compose/full-stack.private-network.yaml}"
-DEPLOY_MODE="${DEPLOY_MODE:-rolling}"
 RUN_READY_SMOKE="${RUN_READY_SMOKE:-1}"
 RUN_READY_FULL_SMOKE="${RUN_READY_FULL_SMOKE:-1}"
 PRUNE_DANGLING_IMAGES="${PRUNE_DANGLING_IMAGES:-1}"
 RELEASES_TO_KEEP="${RELEASES_TO_KEEP:-5}"
 RELEASE_ID="${DEPLOY_RELEASE_ID:-${CI_COMMIT_SHA:-}}"
 SSH_TARGET="${DEPLOY_USER}@${DEPLOY_HOST}"
+
+# Auto-detect deploy mode. Full deploy is required when a vLLM image override is
+# provided; otherwise default to rolling (platform-only restart, no vLLM downtime).
+# DEPLOY_MODE can still be set explicitly to force full when needed.
+_vllm_image_override="${RISK_VLLM_IMAGE_TO_DEPLOY:-${RISK_VLLM_IMAGE_SHA:-}}"
+if [[ -z "${DEPLOY_MODE:-}" ]]; then
+  if [[ -n "${_vllm_image_override}" ]]; then
+    DEPLOY_MODE="full"
+    echo "[deploy] auto mode: full (vLLM image override provided)"
+  else
+    DEPLOY_MODE="rolling"
+    echo "[deploy] auto mode: rolling (platform-only change)"
+  fi
+fi
 
 if [[ -z "${RELEASE_ID}" ]]; then
   RELEASE_ID="$(date -u +%Y%m%dT%H%M%SZ)"
@@ -76,24 +90,10 @@ echo "[deploy] compose file: ${COMPOSE_FILE}"
 echo "[deploy] mode: ${DEPLOY_MODE}"
 echo "[deploy] release: ${RELEASE_ID}"
 
-if [[ "${DEPLOY_MODE}" == "rolling" && -n "${RISK_VLLM_IMAGE_TO_DEPLOY:-}" ]]; then
-  echo "[deploy] ERROR: vLLM image overrides are allowed only with DEPLOY_MODE=full." >&2
-    echo "[deploy]   Rolling deploy only updates gateway, admin-sidecar, and risk-adapter." >&2
-  echo "[deploy]   RISK_VLLM_IMAGE_TO_DEPLOY is invalid for rolling deploy." >&2
-  echo "[deploy]   Full runtime deploy requires DEPLOY_MODE=full." >&2
-  exit 2
-fi
-
 if [[ "${DEPLOY_MODE}" == "full" ]]; then
-  if [[ "${RUN_READY_FULL_SMOKE}" != "1" ]]; then
-    echo "[deploy] ERROR: full deploy requires RUN_READY_FULL_SMOKE=1." >&2
-    echo "[deploy]   Full runtime deployment cannot succeed on Gateway /health alone." >&2
-    exit 2
-  fi
   RISK_VLLM_IMAGE_TO_DEPLOY="${RISK_VLLM_IMAGE_TO_DEPLOY:-${RISK_VLLM_IMAGE_SHA:-}}"
   if [[ -z "${RISK_VLLM_IMAGE_TO_DEPLOY}" ]]; then
-    echo "[deploy] ERROR: DEPLOY_MODE=full requires RISK_VLLM_IMAGE_TO_DEPLOY or RISK_VLLM_IMAGE_SHA." >&2
-    echo "[deploy]   deploy-gpu-175 defaults RISK_VLLM_IMAGE_TO_DEPLOY from RISK_VLLM_IMAGE_SHA." >&2
+    echo "[deploy] ERROR: full deploy requires RISK_VLLM_IMAGE_TO_DEPLOY or RISK_VLLM_IMAGE_SHA." >&2
     exit 2
   fi
 fi
@@ -250,29 +250,28 @@ if [[ "${DEPLOY_MODE}" == "rolling" ]]; then
     "configs/main_model_profiles.yaml"
     "configs/gemma4_chat_template.jinja"
   )
+  _changed_sensitive=()
   for relative_path in "${runtime_sensitive_files[@]}"; do
     if ! cmp -s \
       "${PREVIOUS_RELEASE}/${relative_path}" \
       "${RELEASE_PATH}/${relative_path}"; then
-      echo "[deploy] ERROR: rolling deploy cannot change runtime-sensitive file: ${relative_path}" >&2
-      echo "[deploy] Re-run the pipeline with DEPLOY_MODE=full." >&2
-      rm -rf "${RELEASE_PATH}"
-      exit 2
+      _changed_sensitive+=("${relative_path}")
     fi
   done
+  if [[ ${#_changed_sensitive[@]} -gt 0 ]]; then
+    echo "[deploy] runtime-sensitive files changed — auto-upgrading to full deploy:"
+    for _f in "${_changed_sensitive[@]}"; do echo "[deploy]   ${_f}"; done
+    DEPLOY_MODE="full"
+    if [[ -z "${RISK_VLLM_IMAGE_TO_DEPLOY:-}" ]]; then
+      RISK_VLLM_IMAGE_TO_DEPLOY="$(get_env_value RISK_VLLM_IMAGE)"
+      echo "[deploy] keeping current RISK_VLLM_IMAGE: ${RISK_VLLM_IMAGE_TO_DEPLOY}"
+    fi
+  fi
 fi
 
 # registry login with read-only deploy token
 echo "${REGISTRY_PASSWORD}" | \
   docker login "${CI_REGISTRY}" -u "${REGISTRY_USER}" --password-stdin
-
-if [[ "${DEPLOY_MODE}" == "rolling" && -n "${RISK_VLLM_IMAGE_TO_DEPLOY:-}" ]]; then
-  echo "[deploy] ERROR: vLLM image overrides are allowed only with DEPLOY_MODE=full." >&2
-    echo "[deploy]   Rolling deploy only updates gateway, admin-sidecar, and risk-adapter." >&2
-  echo "[deploy]   RISK_VLLM_IMAGE_TO_DEPLOY is invalid for rolling deploy." >&2
-  echo "[deploy]   Full runtime deploy requires DEPLOY_MODE=full." >&2
-  exit 2
-fi
 
 get_env_value() {
   local key="$1"

@@ -164,7 +164,8 @@ build-vllm-derived:
 # Optional variables:
 #   BUILD_VLLM_DERIVED   set to "1" to build/push vLLM-derived images only; deploy mode stays rolling unless DEPLOY_MODE is set
 #   DEPLOY_COMPOSE_FILE  ops/compose/full-stack.private-network.yaml
-#   DEPLOY_MODE          rolling (default) or full
+#   DEPLOY_MODE          auto-detected (rolling for platform-only; full when vLLM image
+#                        or runtime-sensitive files change). Set explicitly to force.
 #   GATEWAY_BIND_ADDR    175 interface address for gateway host publish
 #   GATEWAY_HEALTH_URL   explicit post-deploy health URL
 #   RUN_READY_SMOKE      1 or 0; default 1
