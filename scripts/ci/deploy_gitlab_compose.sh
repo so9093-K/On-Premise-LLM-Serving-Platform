@@ -18,7 +18,11 @@
 #   DEPLOY_COMPOSE_FILE               compose file relative to DEPLOY_PATH
 #                              default: ops/compose/full-stack.private-network.yaml
 #   DEPLOY_MODE                auto-detected (rolling unless vLLM image changes or
-#                              runtime-sensitive files change); can be forced to full
+#                              runtime-sensitive files change); can be forced to full.
+#                              A full deploy converges per-service: it recreates only
+#                              the services whose image ID changed (or whose mounted
+#                              runtime config changed), leaving unchanged vLLM models
+#                              serving instead of cold-restarting the whole fleet.
 #   GATEWAY_HEALTH_URL         explicit post-deploy health URL.
 #                              Default is derived from 175 .env:
 #                              GATEWAY_BIND_ADDR/GATEWAY_PORT, with 0.0.0.0 -> localhost.
@@ -391,6 +395,42 @@ compose_run() {
       "$@"
 }
 
+# Print the Compose services whose image changed (or that are not running).
+#
+# Why image identity and not Compose's config-hash: every service loads the
+# shared .env via `env_file: ../../.env`, and that file changes on every deploy
+# (PLATFORM_IMAGE digest, DEPLOY_RELEASE_ID, ...). Compose folds the whole
+# resolved environment into each service's config-hash, so config-hash rehashes
+# the entire fleet every release and cannot scope recreation. The resolved image
+# ID is the signal that actually reflects "this service's payload changed": it
+# ignores .env churn, and comparing IDs (not refs) also catches a moved tag
+# (e.g. risk-vllm-kanana:release rebuilt to a new digest) after `compose pull`.
+# A service whose image ID is unchanged keeps serving instead of cold-restarting
+# the whole fleet and racing a multi-minute serial healthcheck chain.
+#
+# Config-content changes (chat template, model profile) do not change the image;
+# the full-deploy caller adds the affected vLLM services separately.
+list_services_needing_recreate() {
+  local svc cref cid runid candid
+  while read -r svc cref; do
+    [[ -z "${svc}" ]] && continue
+    cid="$(compose_run ps -q "${svc}" 2>/dev/null || true)"
+    if [[ -z "${cid}" ]]; then
+      echo "${svc}"
+      continue
+    fi
+    runid="$(docker inspect -f '{{ .Image }}' "${cid}" 2>/dev/null || true)"
+    candid="$(docker image inspect -f '{{ .Id }}' "${cref}" 2>/dev/null || true)"
+    if [[ -z "${candid}" || "${runid}" != "${candid}" ]]; then
+      echo "${svc}"
+    fi
+  done < <(
+    compose_run config --format json |
+      "${_PYTHON_BIN}" -c \
+        'import json,sys; d=json.load(sys.stdin); [print(n, s.get("image","")) for n,s in d["services"].items()]'
+  )
+}
+
 pull_preflight_image() {
   local label="$1"
   local image="$2"
@@ -518,9 +558,18 @@ restore_previous_release() {
         echo "[deploy] ERROR: restored compose config is invalid" >&2
         restore_failed=1
       elif [[ "${DEPLOY_MODE}" == "full" ]]; then
-        if ! compose_run up -d --remove-orphans; then
-          echo "[deploy] ERROR: failed to restore the previous full stack" >&2
+        # Symmetric rollback: revert only the services that now differ from the
+        # previous release (i.e. the ones this deploy changed). Never cold-restart
+        # vLLM models that were left untouched.
+        local _rollback_services
+        mapfile -t _rollback_services < <(list_services_needing_recreate)
+        if [[ ${#_rollback_services[@]} -eq 0 ]]; then
+          echo "[deploy] no service differs from the previous release; already converged" >&2
+        elif ! compose_run up -d --remove-orphans "${_rollback_services[@]}"; then
+          echo "[deploy] ERROR: failed to restore changed services: ${_rollback_services[*]}" >&2
           restore_failed=1
+        else
+          echo "[deploy] restored services: ${_rollback_services[*]}" >&2
         fi
       else
         if ! compose_run up -d --no-deps admin-sidecar; then
@@ -655,10 +704,52 @@ if [[ "${DEPLOY_MODE}" == "full" ]]; then
   if ! compose_run pull; then
     fail_after_env_backup "image pull failed during full deploy. If vLLM-derived images are new, confirm build-vllm-derived succeeded or set an existing RISK_VLLM_IMAGE_TO_DEPLOY ref."
   fi
-  echo "[deploy] full deploy: starting stack..."
-  SERVICES_MUTATED=1
-  if ! compose_run up -d --remove-orphans; then
-    fail_after_env_backup "full stack compose up failed"
+  # Converge only the services whose image or resolved config actually changed.
+  # Unchanged vLLM models keep serving, so the readiness gate only races the one
+  # service that was genuinely replaced — not a fleet-wide serial cold start.
+  echo "[deploy] full deploy: computing changed services..."
+  mapfile -t _image_changed < <(list_services_needing_recreate)
+
+  # Config-content changes (chat template, model profile, compose file) do not
+  # change the image ID, so detect them separately and recreate the vLLM services
+  # that consume them. Only triggers when a config file actually differs from the
+  # running release, so a plain platform deploy never restarts the models.
+  _config_changed_vllm=()
+  if [[ -n "${PREVIOUS_RELEASE}" && -d "${PREVIOUS_RELEASE}" ]]; then
+    runtime_config_files=(
+      "ops/compose/full-stack.private-network.yaml"
+      "configs/main_model_profiles.yaml"
+      "configs/gemma4_chat_template.jinja"
+    )
+    for relative_path in "${runtime_config_files[@]}"; do
+      if ! cmp -s \
+        "${PREVIOUS_RELEASE}/${relative_path}" \
+        "${RELEASE_PATH}/${relative_path}" 2>/dev/null; then
+        echo "[deploy] runtime config changed: ${relative_path} — recreating vLLM services"
+        _config_changed_vllm=(main-llm-vllm embedding-vllm embedding-ko-vllm risk-prompt-vllm)
+        break
+      fi
+    done
+  fi
+
+  declare -A _recreate_seen=()
+  CHANGED_SERVICES=()
+  for _svc in "${_image_changed[@]}" "${_config_changed_vllm[@]}"; do
+    [[ -z "${_svc}" ]] && continue
+    if [[ -z "${_recreate_seen[${_svc}]:-}" ]]; then
+      _recreate_seen[${_svc}]=1
+      CHANGED_SERVICES+=("${_svc}")
+    fi
+  done
+
+  if [[ ${#CHANGED_SERVICES[@]} -eq 0 ]]; then
+    echo "[deploy] full deploy: all services already converged; nothing to recreate"
+  else
+    echo "[deploy] full deploy: recreating changed services: ${CHANGED_SERVICES[*]}"
+    SERVICES_MUTATED=1
+    if ! compose_run up -d --remove-orphans "${CHANGED_SERVICES[@]}"; then
+      fail_after_env_backup "compose up failed for changed services: ${CHANGED_SERVICES[*]}"
+    fi
   fi
 else
   # Pull the application/control-plane images only. Gateway and Admin Sidecar

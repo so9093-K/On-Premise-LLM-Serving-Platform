@@ -137,11 +137,25 @@ risk-vllm-kanana를 교체하거나 `EMBEDDING_KO_VLLM_IMAGE`(표준 vLLM 이미
   `up -d --no-deps`로 재시작한다.
 - vLLM 모델 컨테이너를 건드리지 않아 GPU 모델 reload downtime을 피한다.
 
-`DEPLOY_MODE=full`은 초기 구축 또는 stack drift 정렬용이다.
+`DEPLOY_MODE=full`은 vLLM image 교체, runtime config(chat template·model profile·compose) 변경, 또는 초기 구축/stack drift 정렬용이다.
 
 - compose 전체 image를 pull한다.
-- 전체 stack을 `up -d --remove-orphans`로 정렬한다.
-- vLLM image pull과 모델 로딩 시간이 길 수 있다.
+- **service 단위로 수렴한다.** 실제로 바뀐 service만 재생성한다:
+  - resolved image ID가 running 컨테이너와 다른 service (image 교체된 것)
+  - runtime config 파일(`full-stack.private-network.yaml`, `main_model_profiles.yaml`,
+    `gemma4_chat_template.jinja`)이 직전 릴리즈와 다르면 vLLM service들
+- 바뀌지 않은 vLLM 모델은 그대로 serving을 유지하므로, platform-only 변경이
+  full로 분류되어도 모델을 cold-restart하지 않는다. `make ready-full` gate는
+  실제로 교체된 한 service만 warmup 대상으로 만나며, 전체 fleet의 직렬
+  cold-start 창이 사라진다.
+- 처음 기동이거나 stack이 내려가 있으면 모든 service가 "not running"으로 잡혀
+  전부 기동된다(정당한 cold start). 평상시 healthy stack에서는 변경분만 건드린다.
+
+> 참고: 모든 service가 `env_file: ../../.env`로 shared `.env`를 통째로 로드하기
+> 때문에, deploy마다 바뀌는 키(`PLATFORM_IMAGE` digest, `DEPLOY_RELEASE_ID` 등)로
+> Compose의 config-hash가 매번 전 service에서 흔들린다. 그래서 수렴 판단은
+> config-hash가 아니라 **resolved image ID 비교**(`.env` 잡음에 영향받지 않고,
+> 같은 tag가 새 digest로 재빌드된 경우도 잡음)로 한다.
 
 ## 동기화 범위
 

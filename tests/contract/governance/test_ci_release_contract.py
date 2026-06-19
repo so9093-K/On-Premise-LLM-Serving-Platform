@@ -34,6 +34,26 @@ def test_gitlab_ci_deployment_contract_is_documented_and_operationally_safe() ->
     assert '--exclude "scripts/build/"' not in deploy
     assert 'COMPOSE_ENV_FILE="${DEPLOY_PATH}/.env"' in deploy
     assert 'compose_run up -d --remove-orphans' in deploy
+    # Full deploy must converge per-service (recreate only changed services),
+    # not cold-restart the whole fleet on every release. Scoping is by resolved
+    # image ID, because the shared .env (loaded by every service via env_file)
+    # changes every deploy and so Compose's config-hash rehashes the whole fleet.
+    assert "list_services_needing_recreate" in deploy, (
+        "full deploy must converge per-service, not cold-restart the whole fleet"
+    )
+    assert "docker image inspect -f '{{ .Id }}'" in deploy, (
+        "per-service convergence must compare the candidate resolved image ID"
+    )
+    assert "docker inspect -f '{{ .Image }}'" in deploy, (
+        "per-service convergence must read the running container's image ID"
+    )
+    assert 'compose_run up -d --remove-orphans "${CHANGED_SERVICES[@]}"' in deploy, (
+        "full deploy must recreate only the changed service set"
+    )
+    assert 'runtime_config_files=(' in deploy, (
+        "config-content changes (chat template, model profile) must recreate vLLM services "
+        "even when the image ID is unchanged"
+    )
     assert 'compose_run up -d --no-deps gateway risk-adapter' in deploy
     assert 'compose_run pull gateway admin-sidecar risk-adapter' in deploy
     assert 'compose_run pull gateway admin-sidecar risk-adapter prometheus grafana' not in deploy
