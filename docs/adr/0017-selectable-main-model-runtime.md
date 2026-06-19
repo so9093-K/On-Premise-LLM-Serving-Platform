@@ -1,150 +1,102 @@
-# ADR-0017: Selectable Gemma 4 main-model runtime
+# ADR-0017: 선택 가능한 Gemma 4 메인 모델 런타임
 
-Date: 2026-06-18
+날짜: 2026-06-18
 
-## Status
+## 상태
 
-Accepted
+승인됨
 
-GPU switch validation remains pending until the 12B checkpoint has been
-downloaded and exercised on the deployment host.
+12B 체크포인트가 배포 호스트에서 다운로드 및 검증되기 전까지 GPU 전환 검증은 보류 상태입니다.
 
-## Current-state analysis
+## 현재 상태 분석
 
-- `main-llm-vllm` starts from
-  `ops/compose/full-stack.private-network.yaml`; its 26B model command is
-  currently static.
-- `local-main` is the public API identity. It is projected through
-  `configs/model_catalog.yaml`, `configs/model_serving.yaml`, Gateway settings,
-  schemas, model cards, tests, and the vLLM `--served-model-name` argument.
-- Runtime Control currently manages only embedding and risk runtimes. Gateway
-  calls the internal Admin Sidecar, and only the sidecar receives the read-only
-  Docker socket mount.
-- Existing sidecar operations can start and stop an existing container. They
-  cannot apply a different model command, so a main-model switch requires an
-  allowlisted recreate operation.
-- Existing runtime intent is in Gateway memory only. Main-model selection needs
-  sidecar-owned persistent state because the sidecar performs and observes the
-  Docker transaction.
-- The current 26B command is preserved byte-for-byte as the 26B profile:
-  context 20000, one sequence, 20000 batched tokens, optimization level 3,
-  GPU utilization 0.76, Gemma 4 reasoning/tool parsers, project chat template,
-  prefix caching, and xgrammar structured outputs.
+- `main-llm-vllm`은 `ops/compose/full-stack.private-network.yaml`에서 시작하며, 26B 모델 커맨드는 현재 정적으로 고정되어 있습니다.
+- `local-main`은 공개 API 식별자입니다. `configs/model_catalog.yaml`, `configs/model_serving.yaml`, Gateway 설정, 스키마, 모델 카드, 테스트, vLLM `--served-model-name` 인수를 통해 표출됩니다.
+- Runtime Control은 현재 임베딩 및 리스크 런타임만 관리합니다. Gateway는 내부 Admin Sidecar를 호출하며, 읽기 전용 Docker 소켓 마운트는 사이드카만 받습니다.
+- 기존 사이드카 작업은 기존 컨테이너를 시작·중지할 수 있지만, 다른 모델 커맨드를 적용할 수 없습니다. 따라서 메인 모델 전환은 허용 목록에 등록된 recreate 작업이 필요합니다.
+- 기존 런타임 의도는 Gateway 메모리에만 존재합니다. 메인 모델 선택에는 사이드카 소유의 영속 상태가 필요합니다. 사이드카가 Docker 트랜잭션을 수행하고 관찰하기 때문입니다.
+- 현재 26B 커맨드는 26B 프로파일로 바이트 단위로 보존됩니다: context 20000, 시퀀스 1개, 배치 토큰 20000, 최적화 레벨 3, GPU 활용률 0.76, Gemma 4 reasoning/tool 파서, 프로젝트 채팅 템플릿, prefix caching, xgrammar 구조화 출력.
 
-## Verified upstream facts
+## 검증된 업스트림 사실
 
-- 26B checkpoint revision:
-  `8edbb9269ec9c3faad538ee1208a07eb46051f34`.
-- 12B checkpoint revision:
-  `67e53491df7a281623fa740de61307d5c542b7f4`.
-- Runtime image used by the current host:
-  `vllm/vllm-openai@sha256:f4492643056969529a74238f71dd66dc3097c0d433156a4f4478456bf84bd276`.
-- Google documents Gemma 4 26B A4B as text/image input and 12B Unified as
-  text/image/audio input. Both generate text.
-- The RedHatAI 12B FP8 card calls the checkpoint preliminary and says it was
-  tested against vLLM nightly. That is not evidence that this deployment image
-  supports every modality.
-- vLLM documentation and Google capability documentation are not yet sufficient
-  evidence for this Gateway's audio request contract. Audio therefore remains
-  disabled in this change.
-- The current host is an NVIDIA RTX 6000 Ada Generation with 48 GiB VRAM. The
-  running 26B service is healthy. No 24 GiB compatibility claim is made.
+- 26B 체크포인트 리비전: `8edbb9269ec9c3faad538ee1208a07eb46051f34`
+- 12B 체크포인트 리비전: `67e53491df7a281623fa740de61307d5c542b7f4`
+- 현재 호스트에서 사용 중인 런타임 이미지: `vllm/vllm-openai@sha256:f4492643056969529a74238f71dd66dc3097c0d433156a4f4478456bf84bd276`
+- Google 문서에 따르면 Gemma 4 26B A4B는 텍스트/이미지 입력, 12B Unified는 텍스트/이미지/오디오 입력을 지원하며, 둘 다 텍스트를 생성합니다.
+- RedHatAI 12B FP8 카드는 해당 체크포인트가 예비 단계이며 vLLM nightly 빌드 기준으로 테스트되었다고 명시합니다. 이는 이 배포 이미지가 모든 모달리티를 지원한다는 증거가 아닙니다.
+- vLLM 문서와 Google 기능 문서는 이 Gateway의 오디오 요청 계약에 충분한 근거가 되지 않습니다. 따라서 오디오는 이번 변경에서 비활성 상태를 유지합니다.
+- 현재 호스트는 48 GiB VRAM을 탑재한 NVIDIA RTX 6000 Ada Generation입니다. 실행 중인 26B 서비스는 정상 동작 중입니다. 24 GiB 호환성 주장은 하지 않습니다.
 
-## Decision
+## 결정
 
-Add two internal profiles sharing the public alias `local-main`:
+공개 별칭 `local-main`을 공유하는 두 개의 내부 프로파일을 추가합니다:
 
 - `gemma4-26b-a4b-fp8`
 - `gemma4-12b-unified-fp8`
 
-The Admin Sidecar owns:
+Admin Sidecar가 소유하는 항목:
 
-- the profile allowlist;
-- boot-profile precedence and profile locking;
-- atomic state and operation history;
-- the global switch lock;
-- Docker stop/remove/create/start operations;
-- health, `/v1/models`, and inference-canary validation;
-- rollback to the last-known-good profile.
+- 프로파일 허용 목록
+- 부트 프로파일 우선순위 및 프로파일 잠금
+- 원자적 상태 및 작업 이력
+- 전역 전환 잠금
+- Docker stop/remove/create/start 작업
+- health, `/v1/models`, inference canary 검증
+- 마지막으로 정상 동작했던 프로파일로의 롤백
 
-Gateway remains the authenticated public management boundary and proxies only
-profile IDs. It never accepts model IDs, images, commands, environment values,
-or Compose paths from callers. Inference is fail-closed while a switch or failed
-rollback leaves the main-model gate closed.
+Gateway는 인증된 공개 관리 경계로서 프로파일 ID만 프록시합니다. 호출자로부터 모델 ID, 이미지, 커맨드, 환경 변수, Compose 경로를 절대 수락하지 않습니다. 전환 중이거나 롤백 실패로 메인 모델 게이트가 닫힌 상태에서는 추론이 fail-closed됩니다.
 
-The replacement container is created from a narrowly selected subset of the
-existing Compose container configuration. The image, command, labels, mounts,
-network, GPU device request, and healthcheck are controlled by the profile or
-copied from the already allowlisted `main-llm-vllm` container. No shell is used.
+교체 컨테이너는 기존 Compose 컨테이너 설정에서 좁게 선별된 하위 집합으로 생성됩니다. 이미지, 커맨드, 레이블, 마운트, 네트워크, GPU 장치 요청, 헬스체크는 프로파일에서 제어하거나 이미 허용 목록에 등록된 `main-llm-vllm` 컨테이너에서 복사합니다. 셸은 사용하지 않습니다.
 
-## Boot precedence
+## 부트 우선순위
 
-1. `MAIN_LLM_PROFILE_LOCKED=true`: configured boot profile.
-2. Last successfully committed active profile.
-3. `MAIN_LLM_BOOT_PROFILE`.
-4. Configuration error.
+1. `MAIN_LLM_PROFILE_LOCKED=true`: 설정된 부트 프로파일
+2. 마지막으로 성공적으로 커밋된 활성 프로파일
+3. `MAIN_LLM_BOOT_PROFILE`
+4. 설정 오류
 
-The installation default remains `gemma4-26b-a4b-fp8`, preserving upgrades.
+설치 기본값은 `gemma4-26b-a4b-fp8`을 유지하여 업그레이드 경로를 보존합니다.
 
-## Switch transaction
+## 전환 트랜잭션
 
-1. Validate profile and readiness policy.
-2. Acquire the global operation lock and persist `preparing`.
-3. Close the main-model request gate.
-4. Wait the configured drain interval.
-5. Stop and remove the current container.
-6. Recreate it with the selected allowlisted command.
-7. Start and wait for Docker/application health.
-8. Verify `/v1/models` contains `local-main`.
-9. Run a minimal text canary through the vLLM API.
-10. Atomically commit active and last-known-good profiles and reopen the gate.
-11. On post-removal failure, recreate and validate the previous profile.
-12. If rollback fails, preserve a fail-closed state and report both failures.
+1. 프로파일 및 readiness 정책 검증
+2. 전역 작업 잠금 획득 후 `preparing` 상태 영속화
+3. 메인 모델 요청 게이트 닫기
+4. 설정된 drain 간격 대기
+5. 현재 컨테이너 중지 및 제거
+6. 선택된 허용 목록 커맨드로 컨테이너 재생성
+7. Docker/애플리케이션 헬스 확인까지 시작 및 대기
+8. `/v1/models`에 `local-main`이 포함되는지 검증
+9. vLLM API를 통해 최소 텍스트 canary 실행
+10. 활성 프로파일 및 last-known-good 프로파일을 원자적으로 커밋하고 게이트 재개방
+11. 컨테이너 제거 이후 실패 시, 이전 프로파일을 재생성 및 검증
+12. 롤백 실패 시, fail-closed 상태를 유지하고 두 실패 모두 보고
 
-## Compatibility and capability policy
+## 호환성 및 기능 정책
 
-Compatibility is reported as `verified`, `likely`, `unverified`,
-`incompatible`, or `unknown`, with reasons. A static memory threshold is not a
-proof of compatibility. The 26B profile records the current deployment
-validation evidence for the existing 26B deployment policy; the 12B profile remains `unverified` until boot, text,
-image, tool, structured-output, reasoning, streaming, Korean, and soak checks
-are completed with the pinned revision and image.
+호환성은 `verified`, `likely`, `unverified`, `incompatible`, `unknown` 중 하나로 이유와 함께 기록합니다. 정적 메모리 임계값은 호환성의 증거가 아닙니다. 26B 프로파일은 기존 26B 배포 정책에 대한 현재 배포 검증 증거를 기록합니다. 12B 프로파일은 고정된 리비전과 이미지로 부트, 텍스트, 이미지, 도구, 구조화 출력, 추론, 스트리밍, 한국어, 장기 운용 확인이 완료되기 전까지 `unverified` 상태를 유지합니다.
 
-Audio is recorded as a model capability for 12B but is not a deployed product
-capability. Gateway audio input remains rejected by the existing bounded
-text/image contract.
+오디오는 12B의 모델 기능으로 기록되어 있지만 배포된 제품 기능은 아닙니다. Gateway 오디오 입력은 기존의 텍스트/이미지 제한 계약에 의해 계속 거부됩니다.
 
-## Test plan
+## 테스트 계획
 
-- Profile schema, revision/image pinning, duplicate-alias safety.
-- Boot precedence, lock behavior, atomic persistence, corruption handling.
-- Unknown/incompatible profile rejection and concurrent-switch rejection.
-- Docker transaction success, validation-stage failures, rollback success, and
-  rollback failure using a fake Docker backend.
-- Gateway management API authentication/proxy behavior and inference gate.
-- Existing contract, OpenAPI, Compose, release, and documentation checks.
-- Live GPU validation is reported separately and is not inferred from unit
-  tests.
+- 프로파일 스키마, 리비전/이미지 고정, 중복 별칭 안전성
+- 부트 우선순위, 잠금 동작, 원자적 영속성, 상태 손상 처리
+- 알 수 없는/호환되지 않는 프로파일 거부 및 동시 전환 거부
+- 가짜 Docker 백엔드를 사용한 Docker 트랜잭션 성공, 검증 단계 실패, 롤백 성공, 롤백 실패
+- Gateway 관리 API 인증/프록시 동작 및 추론 게이트
+- 기존 contract, OpenAPI, Compose, 릴리스, 문서 검사
+- 실제 GPU 검증은 별도 보고하며 단위 테스트로 추론하지 않습니다
 
-## Risks
+## 위험 요소
 
-- Docker recreate is disruptive; this is a draining switch, not zero downtime.
-- A process crash between old-container removal and replacement can require
-  startup reconciliation.
-- The 12B checkpoint and Gemma 4 runtime support are preliminary.
-- The pinned image is an immutable digest, but deployment environments must
-  pull or retain that digest before switching.
+- Docker recreate는 서비스 중단을 유발합니다. 이는 draining 전환으로 무중단이 아닙니다.
+- 이전 컨테이너 제거와 교체 사이에 프로세스 충돌이 발생하면 시작 시 복구가 필요할 수 있습니다.
+- 12B 체크포인트 및 Gemma 4 런타임 지원은 예비 단계입니다.
+- 고정된 이미지는 불변 digest이지만, 배포 환경은 전환 전에 해당 digest를 pull하거나 보유하고 있어야 합니다.
 
-## Deployment integration
+## 배포 통합
 
-Full Compose startup projects the locked/configured/persisted boot intent into a
-temporary generated Compose file. The file is not an additional state store,
-is never edited as the active profile, and is removed when the Compose command
-finishes. It is recreated from the catalog, `.env` lock policy, and atomic
-sidecar state before Compose config validation.
+전체 Compose 시작은 잠금/설정/영속화된 부트 의도를 임시 생성 Compose 파일로 투영합니다. 이 파일은 추가 상태 저장소가 아니며, 활성 프로파일로 편집되지 않고, Compose 커맨드 완료 시 제거됩니다. Compose 설정 검증 전에 카탈로그, `.env` 잠금 정책, 원자적 사이드카 상태에서 재생성됩니다.
 
-The selected profile snapshot is prepared in the shared Hugging Face cache
-before a runtime switch closes the inference gate. Full deployment performs the
-same preparation before mutating services. Corrupt state, an unknown persisted
-profile, cache preparation failure, or invalid effective Compose config fails
-closed instead of silently booting the installation default.
+선택된 프로파일 스냅샷은 런타임 전환이 추론 게이트를 닫기 전에 공유 Hugging Face 캐시에서 준비됩니다. 전체 배포도 서비스 변경 전에 동일한 준비를 수행합니다. 손상된 상태, 알 수 없는 영속 프로파일, 캐시 준비 실패, 또는 유효하지 않은 유효 Compose 설정은 설치 기본값으로 조용히 부팅하는 대신 fail-closed됩니다.
