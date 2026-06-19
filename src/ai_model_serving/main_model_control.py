@@ -179,6 +179,10 @@ class MainModelStateStore:
             return self._initial()
         try:
             value = json.loads(self.path.read_text(encoding="utf-8"))
+        except PermissionError as exc:
+            raise MainModelStateError(
+                f"main model state is not readable (permission denied): {self.path}"
+            ) from exc
         except (OSError, json.JSONDecodeError) as exc:
             raise MainModelStateError(f"main model state is corrupt: {self.path}") from exc
         if not isinstance(value, dict) or value.get("schema_version") != 1:
@@ -195,6 +199,7 @@ class MainModelStateStore:
                 handle.write("\n")
                 handle.flush()
                 os.fsync(handle.fileno())
+            os.chmod(temp_name, 0o644)
             os.replace(temp_name, self.path)
             directory_fd = os.open(self.path.parent, os.O_RDONLY)
             try:

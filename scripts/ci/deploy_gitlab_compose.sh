@@ -350,10 +350,17 @@ configure_release_context() {
         mktemp "${TMPDIR:-/tmp}/main-model-boot.XXXXXX.yaml"
       )"
     fi
+    _state_file="${DEPLOY_PATH}/.runtime/main-model/main-model-state.json"
+    if [[ -f "${_state_file}" && ! -r "${_state_file}" ]]; then
+      echo "[deploy] ERROR: main-model state file exists but is not readable by the deploy user." >&2
+      echo "[deploy]   Fix: sudo chmod o+r ${_state_file}" >&2
+      echo "[deploy]   This happens when the admin-sidecar container wrote the file as a different user." >&2
+      return 1
+    fi
     if ! MAIN_MODEL_BOOT_PROFILE="$(
       "${_PYTHON_BIN}" scripts/models/render_main_model_boot_override.py \
         --catalog configs/main_model_profiles.yaml \
-        --state "${DEPLOY_PATH}/.runtime/main-model/main-model-state.json" \
+        --state "${_state_file}" \
         --env-file "${COMPOSE_ENV_FILE}" \
         --output "${MAIN_MODEL_BOOT_OVERRIDE}"
     )"; then

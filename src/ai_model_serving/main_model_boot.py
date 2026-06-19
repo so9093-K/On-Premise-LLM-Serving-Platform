@@ -39,6 +39,10 @@ def read_persisted_active_profile(path: Path) -> str | None:
         return None
     try:
         state = json.loads(path.read_text(encoding="utf-8"))
+    except PermissionError as exc:
+        raise MainModelStateError(
+            f"main model state is not readable (permission denied): {path}"
+        ) from exc
     except (OSError, json.JSONDecodeError) as exc:
         raise MainModelStateError(f"main model state is corrupt: {path}") from exc
     if not isinstance(state, dict) or state.get("schema_version") != 1:
