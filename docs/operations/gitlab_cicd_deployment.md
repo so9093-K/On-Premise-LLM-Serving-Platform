@@ -140,14 +140,20 @@ risk-vllm-kanana를 교체하거나 `EMBEDDING_KO_VLLM_IMAGE`(표준 vLLM 이미
 `DEPLOY_MODE=full`은 vLLM image 교체, runtime config(chat template·model profile·compose) 변경, 또는 초기 구축/stack drift 정렬용이다.
 
 - compose 전체 image를 pull한다.
-- **service 단위로 수렴한다.** 실제로 바뀐 service만 재생성한다:
+- **service 단위로 수렴한다(`compute_recreate_set`).** 실제로 바뀐 service만 재생성한다:
   - resolved image ID가 running 컨테이너와 다른 service (image 교체된 것)
-  - runtime config 파일(`full-stack.private-network.yaml`, `main_model_profiles.yaml`,
-    `gemma4_chat_template.jinja`)이 직전 릴리즈와 다르면 vLLM service들
+  - `configs/main_model_profiles.yaml` 또는 `configs/gemma4_chat_template.jinja`가
+    직전 릴리즈와 다르면 → **`main-llm-vllm`만** (configs/와 chat template을
+    mount하는 유일한 모델)
+  - compose 파일 자체가 바뀌면 → 전체 service (구조 변경은 어떤 service 정의든
+    바꿀 수 있고 image ID로는 감지되지 않으므로 보수적으로 전부 재수렴)
+- 재생성은 항상 `--no-deps`로 한다. 안 그러면 `up -d gateway`가 gateway의
+  `depends_on` 그래프(vLLM 전체)를 끌어오고, shared `.env`가 매 배포 config-hash를
+  흔들어 결국 fleet 전체가 recreate된다.
 - 바뀌지 않은 vLLM 모델은 그대로 serving을 유지하므로, platform-only 변경이
-  full로 분류되어도 모델을 cold-restart하지 않는다. `make ready-full` gate는
-  실제로 교체된 한 service만 warmup 대상으로 만나며, 전체 fleet의 직렬
-  cold-start 창이 사라진다.
+  full로 분류되어도 모델을 cold-restart하지 않는다.
+- 롤백도 동일한 `compute_recreate_set`을 실패 후보(RELEASE_PATH) 기준으로 호출해
+  **바뀐 service만 대칭으로 되돌린다** — fleet 전체 재기동이나 split 상태가 없다.
 - 처음 기동이거나 stack이 내려가 있으면 모든 service가 "not running"으로 잡혀
   전부 기동된다(정당한 cold start). 평상시 healthy stack에서는 변경분만 건드린다.
 

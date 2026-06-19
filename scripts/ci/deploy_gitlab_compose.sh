@@ -409,7 +409,7 @@ compose_run() {
 # the whole fleet and racing a multi-minute serial healthcheck chain.
 #
 # Config-content changes (chat template, model profile) do not change the image;
-# the full-deploy caller adds the affected vLLM services separately.
+# compute_recreate_set() adds the services that actually mount them.
 list_services_needing_recreate() {
   local svc cref cid runid candid
   while read -r svc cref; do
@@ -429,6 +429,38 @@ list_services_needing_recreate() {
       "${_PYTHON_BIN}" -c \
         'import json,sys; d=json.load(sys.stdin); [print(n, s.get("image","")) for n,s in d["services"].items()]'
   )
+}
+
+# Echo the unique set of services to (re)create so the running stack converges to
+# the compose context configured in the current working directory. Combines:
+#   - image-ID changes / not-running services (list_services_needing_recreate)
+#   - config-content changes vs the ${1} baseline release tree, mapped to the
+#     services that actually consume each file:
+#       * configs/main_model_profiles.yaml, configs/gemma4_chat_template.jinja
+#         -> main-llm-vllm (the only model that mounts configs/ and the template)
+#       * the compose file itself -> every service (a structural change can alter
+#         any service definition, and image-ID alone would not detect it)
+# Pass an empty baseline to skip the config diff (e.g. first deployment).
+# The comparison is symmetric, so the same call drives both forward deploy
+# (baseline = previous release) and rollback (baseline = failed candidate).
+compute_recreate_set() {
+  local baseline="$1" rel
+  {
+    list_services_needing_recreate
+    if [[ -n "${baseline}" && -d "${baseline}" ]]; then
+      for rel in configs/main_model_profiles.yaml configs/gemma4_chat_template.jinja; do
+        if ! cmp -s "${baseline}/${rel}" "${PWD}/${rel}" 2>/dev/null; then
+          echo "[deploy] runtime config changed: ${rel} -> main-llm-vllm" >&2
+          echo "main-llm-vllm"
+          break
+        fi
+      done
+      if ! cmp -s "${baseline}/${COMPOSE_FILE}" "${PWD}/${COMPOSE_FILE}" 2>/dev/null; then
+        echo "[deploy] compose file changed -> reconverging all services" >&2
+        compose_run config --services 2>/dev/null
+      fi
+    fi
+  } | awk 'NF && !seen[$0]++'
 }
 
 pull_preflight_image() {
@@ -559,13 +591,14 @@ restore_previous_release() {
         restore_failed=1
       elif [[ "${DEPLOY_MODE}" == "full" ]]; then
         # Symmetric rollback: revert only the services that now differ from the
-        # previous release (i.e. the ones this deploy changed). Never cold-restart
-        # vLLM models that were left untouched.
+        # previous release — the same image-ID + config-content set the forward
+        # deploy used, computed against the failed candidate (RELEASE_PATH) as the
+        # baseline. Never cold-restart vLLM models that were left untouched.
         local _rollback_services
-        mapfile -t _rollback_services < <(list_services_needing_recreate)
+        mapfile -t _rollback_services < <(compute_recreate_set "${RELEASE_PATH}")
         if [[ ${#_rollback_services[@]} -eq 0 ]]; then
           echo "[deploy] no service differs from the previous release; already converged" >&2
-        elif ! compose_run up -d --remove-orphans "${_rollback_services[@]}"; then
+        elif ! compose_run up -d --no-deps --remove-orphans "${_rollback_services[@]}"; then
           echo "[deploy] ERROR: failed to restore changed services: ${_rollback_services[*]}" >&2
           restore_failed=1
         else
@@ -708,46 +741,18 @@ if [[ "${DEPLOY_MODE}" == "full" ]]; then
   # Unchanged vLLM models keep serving, so the readiness gate only races the one
   # service that was genuinely replaced — not a fleet-wide serial cold start.
   echo "[deploy] full deploy: computing changed services..."
-  mapfile -t _image_changed < <(list_services_needing_recreate)
-
-  # Config-content changes (chat template, model profile, compose file) do not
-  # change the image ID, so detect them separately and recreate the vLLM services
-  # that consume them. Only triggers when a config file actually differs from the
-  # running release, so a plain platform deploy never restarts the models.
-  _config_changed_vllm=()
-  if [[ -n "${PREVIOUS_RELEASE}" && -d "${PREVIOUS_RELEASE}" ]]; then
-    runtime_config_files=(
-      "ops/compose/full-stack.private-network.yaml"
-      "configs/main_model_profiles.yaml"
-      "configs/gemma4_chat_template.jinja"
-    )
-    for relative_path in "${runtime_config_files[@]}"; do
-      if ! cmp -s \
-        "${PREVIOUS_RELEASE}/${relative_path}" \
-        "${RELEASE_PATH}/${relative_path}" 2>/dev/null; then
-        echo "[deploy] runtime config changed: ${relative_path} — recreating vLLM services"
-        _config_changed_vllm=(main-llm-vllm embedding-vllm embedding-ko-vllm risk-prompt-vllm)
-        break
-      fi
-    done
-  fi
-
-  declare -A _recreate_seen=()
-  CHANGED_SERVICES=()
-  for _svc in "${_image_changed[@]}" "${_config_changed_vllm[@]}"; do
-    [[ -z "${_svc}" ]] && continue
-    if [[ -z "${_recreate_seen[${_svc}]:-}" ]]; then
-      _recreate_seen[${_svc}]=1
-      CHANGED_SERVICES+=("${_svc}")
-    fi
-  done
+  mapfile -t CHANGED_SERVICES < <(compute_recreate_set "${PREVIOUS_RELEASE}")
 
   if [[ ${#CHANGED_SERVICES[@]} -eq 0 ]]; then
     echo "[deploy] full deploy: all services already converged; nothing to recreate"
   else
     echo "[deploy] full deploy: recreating changed services: ${CHANGED_SERVICES[*]}"
     SERVICES_MUTATED=1
-    if ! compose_run up -d --remove-orphans "${CHANGED_SERVICES[@]}"; then
+    # --no-deps is essential: without it, `up -d gateway` pulls in gateway's
+    # depends_on graph, and because the shared .env changed every service's
+    # config-hash, Compose would recreate the whole vLLM fleet anyway. With
+    # --no-deps only the listed (genuinely changed) services are touched.
+    if ! compose_run up -d --no-deps --remove-orphans "${CHANGED_SERVICES[@]}"; then
       fail_after_env_backup "compose up failed for changed services: ${CHANGED_SERVICES[*]}"
     fi
   fi

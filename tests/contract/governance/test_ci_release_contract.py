@@ -33,7 +33,13 @@ def test_gitlab_ci_deployment_contract_is_documented_and_operationally_safe() ->
     assert "--exclude \"model_cache/\"" in deploy
     assert '--exclude "scripts/build/"' not in deploy
     assert 'COMPOSE_ENV_FILE="${DEPLOY_PATH}/.env"' in deploy
-    assert 'compose_run up -d --remove-orphans' in deploy
+    # Per-service recreation must use --no-deps: without it, `up -d gateway`
+    # cascades into recreating gateway's whole depends_on graph (the vLLM fleet),
+    # because the shared .env changes every service's config-hash each deploy.
+    assert 'compose_run up -d --no-deps --remove-orphans' in deploy
+    assert 'compose_run up -d --remove-orphans "${CHANGED_SERVICES' not in deploy, (
+        "per-service converge must pass --no-deps so it does not cascade into the dependency graph"
+    )
     # Full deploy must converge per-service (recreate only changed services),
     # not cold-restart the whole fleet on every release. Scoping is by resolved
     # image ID, because the shared .env (loaded by every service via env_file)
@@ -47,12 +53,25 @@ def test_gitlab_ci_deployment_contract_is_documented_and_operationally_safe() ->
     assert "docker inspect -f '{{ .Image }}'" in deploy, (
         "per-service convergence must read the running container's image ID"
     )
-    assert 'compose_run up -d --remove-orphans "${CHANGED_SERVICES[@]}"' in deploy, (
-        "full deploy must recreate only the changed service set"
+    assert 'compose_run up -d --no-deps --remove-orphans "${CHANGED_SERVICES[@]}"' in deploy, (
+        "full deploy must recreate only the changed service set, without cascading to deps"
     )
-    assert 'runtime_config_files=(' in deploy, (
-        "config-content changes (chat template, model profile) must recreate vLLM services "
-        "even when the image ID is unchanged"
+    # Forward deploy and rollback must compute the recreate set the same way, so a
+    # failed deploy reverts exactly what it changed (no inconsistent split state).
+    assert "compute_recreate_set" in deploy, (
+        "forward deploy and rollback must share one recreate-set computation"
+    )
+    assert 'compute_recreate_set "${PREVIOUS_RELEASE}"' in deploy, (
+        "forward deploy computes the recreate set against the previous release"
+    )
+    assert 'compute_recreate_set "${RELEASE_PATH}"' in deploy, (
+        "rollback computes the recreate set symmetrically against the failed candidate"
+    )
+    # Config-content changes do not change the image ID; map them to the services
+    # that actually consume each file. Only main-llm-vllm mounts configs/ and the
+    # chat template, so a model-profile/template change must not restart other models.
+    assert "configs/main_model_profiles.yaml configs/gemma4_chat_template.jinja" in deploy, (
+        "model-profile/chat-template changes must map to main-llm-vllm only"
     )
     assert 'compose_run up -d --no-deps gateway risk-adapter' in deploy
     assert 'compose_run pull gateway admin-sidecar risk-adapter' in deploy
