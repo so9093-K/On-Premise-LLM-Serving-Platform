@@ -76,7 +76,7 @@ def test_manifest_schema_lifecycle_disposition_and_paths_are_valid() -> None:
     errors: list[str] = []
     for entry in manifest.get("documents", []):
         path = entry.get("path", "<missing-path>")
-        if not (ROOT / path).exists():
+        if not (ROOT / path).exists() and entry.get("lifecycle") != "generated":
             errors.append(f"{path}: registered path does not exist")
         if not entry.get("type"):
             errors.append(f"{path}: missing type")

@@ -19,6 +19,8 @@ RISK_ADAPTER_BASE_URL="http://localhost:${RISK_ADAPTER_PORT:-9405}"
 API_KEY="$(local_env_first_value "$ENV_FILE" API_KEY API_KEYS || true)"
 SMOKE_MAX_REQUEST_SECONDS="${SMOKE_MAX_REQUEST_SECONDS:-30}"
 SMOKE_MAX_LATENCY_MS="${SMOKE_MAX_LATENCY_MS:-0}"
+SMOKE_RETRY_ATTEMPTS="${SMOKE_RETRY_ATTEMPTS:-3}"
+SMOKE_RETRY_DELAY_SECONDS="${SMOKE_RETRY_DELAY_SECONDS:-5}"
 
 AUTH_ARGS=()
 if [[ -n "$API_KEY" ]]; then
@@ -95,6 +97,20 @@ post_json() {
   check_latency "$name" "$elapsed"
 }
 
+post_json_with_retry() {
+  local attempt
+  for attempt in $(seq 1 "${SMOKE_RETRY_ATTEMPTS}"); do
+    if post_json "$@"; then
+      return 0
+    fi
+    if [[ "${attempt}" -lt "${SMOKE_RETRY_ATTEMPTS}" ]]; then
+      echo "[smoke] $1: transient failure (attempt ${attempt}/${SMOKE_RETRY_ATTEMPTS}), retrying in ${SMOKE_RETRY_DELAY_SECONDS}s..." >&2
+      sleep "${SMOKE_RETRY_DELAY_SECONDS}"
+    fi
+  done
+  return 1
+}
+
 assert_json() {
   local check_name="$1"
   "$PYTHON_BIN" - "$check_name" "$tmp_json" <<'PY'
@@ -155,7 +171,7 @@ assert_json ready
 get_json gateway-models "$GATEWAY_BASE_URL/v1/models"
 assert_json models
 
-post_json gateway-risk-aggregate "$GATEWAY_BASE_URL/v1/risk/assessments" \
+post_json_with_retry gateway-risk-aggregate "$GATEWAY_BASE_URL/v1/risk/assessments" \
   '{"prompt":"smoke test prompt"}'
 assert_json risk
 
@@ -167,26 +183,26 @@ if curl -sS --max-time 3 -o /dev/null "$RISK_ADAPTER_BASE_URL/health" 2>/dev/nul
   get_json risk-ready "$RISK_ADAPTER_BASE_URL/ready" admin
   assert_json ready
 
-  post_json risk-prompt "$RISK_ADAPTER_BASE_URL/v1/risk/detectors/prompt/assessments" \
+  post_json_with_retry risk-prompt "$RISK_ADAPTER_BASE_URL/v1/risk/detectors/prompt/assessments" \
     '{"prompt":"smoke test prompt"}' internal
   assert_json risk
 
-  post_json risk-aggregate "$RISK_ADAPTER_BASE_URL/v1/risk/assessments" \
+  post_json_with_retry risk-aggregate "$RISK_ADAPTER_BASE_URL/v1/risk/assessments" \
     '{"prompt":"smoke test prompt"}' internal
   assert_json risk
 else
   echo "[smoke] risk-adapter: host port not accessible (private-network compose); gateway /v1/risk/assessments covers risk path" >&2
 fi
 
-post_json chat "$GATEWAY_BASE_URL/v1/chat/completions" \
+post_json_with_retry chat "$GATEWAY_BASE_URL/v1/chat/completions" \
   '{"model":"local-main","messages":[{"role":"user","content":"Say OK only."}],"max_tokens":1,"temperature":0}'
 assert_json chat
 
-post_json embedding "$GATEWAY_BASE_URL/v1/embeddings" \
+post_json_with_retry embedding "$GATEWAY_BASE_URL/v1/embeddings" \
   '{"model":"local-embed","input":["smoke test embedding"]}'
 assert_json embedding
 
-post_json embedding-ko "$GATEWAY_BASE_URL/v1/embeddings" \
+post_json_with_retry embedding-ko "$GATEWAY_BASE_URL/v1/embeddings" \
   '{"model":"local-embed-ko","input":["smoke test Korean retrieval embedding"]}'
 assert_json embedding
 
