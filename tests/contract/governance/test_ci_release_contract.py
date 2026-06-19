@@ -59,9 +59,8 @@ def test_gitlab_ci_deployment_contract_is_documented_and_operationally_safe() ->
     assert "exposure overlay not found" in deploy
     assert "deploying without overlay" not in deploy
     assert "COMPOSE_PROJECT_EFFECTIVE" in deploy
-    assert "--compose-project \"${COMPOSE_PROJECT_EFFECTIVE}\"" in deploy
     assert ".env.snapshot" not in deploy
-    assert "capture_main_model_runtime_override.py" in deploy
+    assert "capture_main_model_runtime_override.py" not in deploy
     assert deploy.index("validating compose config with") < deploy.index(
         "preparing main-model cache"
     )

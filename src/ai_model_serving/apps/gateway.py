@@ -119,9 +119,13 @@ def create_gateway_app(settings: AppSettings | None = None, clients: GatewayClie
     api_dependencies = [Depends(auth)] if settings.security.api_key_required else []
     admin_dependencies = build_admin_dependencies(settings)
 
+    _release = settings.deploy_release_id
+    _version = (
+        f"{settings.project_version} ({_release[:8]})" if _release else settings.project_version
+    )
     app = create_service_app(
         title="AI Model Serving Gateway",
-        version=settings.project_version,
+        version=_version,
         description=GATEWAY_DESCRIPTION_TEMPLATE,
         settings=settings,
         tags_metadata=GATEWAY_TAGS_METADATA,

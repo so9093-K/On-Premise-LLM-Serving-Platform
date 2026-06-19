@@ -38,9 +38,6 @@ class FakeMainModelSidecar:
         self.switch_requests.append((profile, confirm_unverified, request_id))
         return {"operation_id": "op-2", "status": "pending"}
 
-    async def rollback_main_model(self, *, request_id=None):
-        return {"operation_id": "op-3", "status": "pending"}
-
     async def main_model_operation(self, operation_id):
         return {"id": operation_id, "status": "validating"}
 
@@ -104,10 +101,3 @@ def test_main_model_admin_routes_proxy_only_profile_ids():
     operation = client.get("/admin/main-model/operations/op-2")
     assert operation.status_code == 200
     assert operation.json()["status"] == "validating"
-
-    rollback = client.post(
-        "/admin/main-model/rollback",
-        json={"request_id": "rollback-1"},
-    )
-    assert rollback.status_code == 202
-    assert rollback.json()["operation_id"] == "op-3"

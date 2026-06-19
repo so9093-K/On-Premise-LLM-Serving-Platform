@@ -164,7 +164,15 @@ def _is_nested_duplicate(preferred: EntitySpan, candidate: EntitySpan) -> bool:
     ):
         return _same_span(preferred, candidate)
     if preferred.entity == "EMAIL_ADDRESS" and candidate.entity == "URL":
-        return _contains(preferred, candidate)
+        # Two suppression cases for URLs that co-locate with an email:
+        # 1) URL is inside email (e.g. domain "example.com" ⊆ "hong@example.com"):
+        #    candidate.end <= preferred.end
+        # 2) URL wraps email due to SpaCy extending past Korean boundary
+        #    (e.g. "hong@example.com이고" → URL=[9,28) vs EMAIL=[9,25)):
+        #    candidate.start == preferred.start
+        # A URL that starts *inside* the email span and extends *beyond* it is a
+        # distinct entity (different semantics) and must be kept.
+        return candidate.start == preferred.start or candidate.end <= preferred.end
     return False
 
 

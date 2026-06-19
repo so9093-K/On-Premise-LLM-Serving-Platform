@@ -429,59 +429,6 @@ def build_router(
         except SidecarUnavailableError as exc:
             raise HTTPException(503, detail=str(exc)) from exc
 
-    @router.post(
-        "/admin/main-model/rollback",
-        dependencies=admin_dependencies,
-        tags=["Runtime Control"],
-        summary="이전 정상 메인 모델로 rollback",
-        operation_id="rollbackMainModel",
-        status_code=202,
-        responses={
-            202: {
-                "description": "rollback 작업 접수",
-                "content": {"application/json": {"schema": _ACCEPTED_SCHEMA}},
-            },
-            409: {"description": "rollback 대상 없음 또는 다른 전환 진행 중"},
-            503: {"description": "Admin Sidecar 연결 실패"},
-        },
-        openapi_extra={
-            "requestBody": {
-                "required": True,
-                "content": {
-                    "application/json": {
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": False,
-                            "properties": {
-                                "request_id": {
-                                    "type": "string",
-                                    "minLength": 1,
-                                    "maxLength": 128,
-                                }
-                            },
-                        },
-                        "example": {"request_id": "ops-20260618-rollback"},
-                    }
-                },
-            }
-        },
-    )
-    async def rollback_main_model(request: Request) -> JSONResponse:
-        payload = await request.json()
-        if not isinstance(payload, dict):
-            raise HTTPException(422, detail="request body must be an object")
-        unknown = set(payload) - {"request_id"}
-        if unknown:
-            raise HTTPException(422, detail=f"unsupported fields: {sorted(unknown)}")
-        client = await require_sidecar()
-        try:
-            result = await client.rollback_main_model(request_id=payload.get("request_id"))
-            return JSONResponse(result, status_code=202)
-        except SidecarRequestError as exc:
-            raise HTTPException(exc.status_code, detail=exc.detail) from exc
-        except SidecarUnavailableError as exc:
-            raise HTTPException(503, detail=str(exc)) from exc
-
     @router.get(
         "/admin/main-model/operations/{operation_id}",
         dependencies=admin_dependencies,

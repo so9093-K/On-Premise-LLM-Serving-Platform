@@ -409,33 +409,6 @@ def test_restart_reconciles_interrupted_operation_on_requested_profile(tmp_path)
     assert manager.operation(operation["id"])["recovered_after_restart"] is True
 
 
-def test_explicit_rollback_targets_previous_successful_profile(tmp_path):
-    loaded = catalog()
-    store = MainModelStateStore(tmp_path / "state.json", loaded.default_profile)
-    state = store.read()
-    state.update(
-        active_profile="gemma4-12b-unified-fp8",
-        last_known_good_profile="gemma4-12b-unified-fp8",
-        previous_known_good_profile="gemma4-26b-a4b-fp8",
-        gate="open",
-    )
-    store.write(state)
-    backend = FakeBackend("gemma4-12b-unified-fp8")
-    manager = MainModelManager(loaded, store, backend)
-
-    async def run():
-        operation_id = manager.request_rollback(client_request_id="rollback-1")
-        while manager.operation(operation_id)["status"] not in {
-            "completed",
-            "failed",
-            "rollback_failed",
-        }:
-            await asyncio.sleep(0.01)
-
-    asyncio.run(run())
-    assert manager.snapshot()["active_profile"]["id"] == "gemma4-26b-a4b-fp8"
-
-
 def test_locked_manager_rejects_runtime_change(tmp_path):
     loaded = catalog()
     store = MainModelStateStore(tmp_path / "state.json", loaded.default_profile)

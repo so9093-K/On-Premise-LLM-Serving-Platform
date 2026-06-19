@@ -497,21 +497,6 @@ class MainModelManager:
         task.add_done_callback(self._tasks.discard)
         return operation_id
 
-    def request_rollback(self, *, client_request_id: str | None = None) -> str:
-        state = self.state_store.read()
-        target = state.get("previous_known_good_profile")
-        if not target or target not in self.catalog.profiles:
-            raise MainModelSwitchError(
-                "MODEL_ROLLBACK_UNAVAILABLE",
-                "no previous successful main-model profile is available",
-                status_code=409,
-            )
-        return self.request_switch(
-            str(target),
-            confirm_unverified=True,
-            client_request_id=client_request_id,
-        )
-
     def _set_operation(self, operation_id: str, status: str, **fields: Any) -> None:
         def mutate(state: dict[str, Any]) -> None:
             target = None

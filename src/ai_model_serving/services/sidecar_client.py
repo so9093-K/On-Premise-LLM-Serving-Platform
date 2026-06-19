@@ -109,26 +109,6 @@ class SidecarClient:
         except Exception as exc:
             raise SidecarUnavailableError(f"sidecar main-model switch failed: {exc}") from exc
 
-    async def rollback_main_model(self, *, request_id: str | None = None) -> dict:
-        try:
-            async with httpx.AsyncClient(timeout=10.0) as client:
-                resp = await client.post(
-                    f"{self._base}/main-model/rollback",
-                    headers=self._headers,
-                    json={"request_id": request_id} if request_id else {},
-                )
-                if resp.status_code >= 400:
-                    try:
-                        detail = resp.json().get("detail", resp.text)
-                    except ValueError:
-                        detail = resp.text
-                    raise SidecarRequestError(resp.status_code, detail)
-                return resp.json()
-        except (SidecarUnavailableError, SidecarRequestError):
-            raise
-        except Exception as exc:
-            raise SidecarUnavailableError(f"sidecar main-model rollback failed: {exc}") from exc
-
     async def main_model_operation(self, operation_id: str) -> dict:
         try:
             async with httpx.AsyncClient(timeout=5.0) as client:

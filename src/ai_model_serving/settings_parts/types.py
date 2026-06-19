@@ -106,6 +106,7 @@ class AppSettings:
     streaming_max_chunks: int = 20_000
     streaming_max_bytes: int = 104_857_600
     admin_sidecar_url: str = ""
+    deploy_release_id: str = ""
 
     def __post_init__(self) -> None:
         if not self.runtime_endpoints:

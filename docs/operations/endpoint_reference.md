@@ -61,7 +61,6 @@ _EndpointSpec 레지스트리에서 자동 생성. 수정 시 `endpoint_spec.py`
 | `GET` | `/admin/main-model/profiles` | stable | `admin` | — | — | `listMainModelProfiles` |
 | `POST` | `/admin/main-model/switch` | stable | `admin` | — | — | `switchMainModel` |
 | `GET` | `/admin/main-model/operations/{operation_id}` | stable | `admin` | — | — | `getMainModelOperation` |
-| `POST` | `/admin/main-model/rollback` | stable | `admin` | — | — | `rollbackMainModel` |
 
 #### Risk Adapter (port 9405, compose 내부 전용)
 

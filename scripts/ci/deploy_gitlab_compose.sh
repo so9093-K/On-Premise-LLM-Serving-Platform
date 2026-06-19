@@ -299,12 +299,11 @@ _PYTHON_BIN="$(command -v python3.12 || command -v python3 || command -v python)
 _exposure_mode=""
 COMPOSE_OVERRIDE=""
 MAIN_MODEL_BOOT_OVERRIDE=""
-MAIN_MODEL_ROLLBACK_OVERRIDE=""
 RESTORING_RELEASE=0
 ENV_BACKUP_CREATED=0
 cleanup_generated_files() {
   local path
-  for path in "${MAIN_MODEL_BOOT_OVERRIDE:-}" "${MAIN_MODEL_ROLLBACK_OVERRIDE:-}"; do
+  for path in "${MAIN_MODEL_BOOT_OVERRIDE:-}"; do
     if [[ -n "${path}" ]]; then
       rm -f "${path}"
     fi
@@ -377,9 +376,6 @@ compose_run() {
   fi
   if [[ "${RESTORING_RELEASE:-0}" != "1" && -n "${MAIN_MODEL_BOOT_OVERRIDE:-}" ]]; then
     compose_args+=(-f "${MAIN_MODEL_BOOT_OVERRIDE}")
-  fi
-  if [[ "${RESTORING_RELEASE:-0}" == "1" && -n "${MAIN_MODEL_ROLLBACK_OVERRIDE:-}" ]]; then
-    compose_args+=(-f "${MAIN_MODEL_ROLLBACK_OVERRIDE}")
   fi
   COMPOSE_SERVICE_ENV_FILE="${COMPOSE_ENV_FILE}" \
     docker compose \
@@ -574,6 +570,8 @@ trap unexpected_failure_after_env_backup ERR
 # update PLATFORM_IMAGE in .env
 set_env_value PLATFORM_IMAGE "${PLATFORM_IMAGE_TO_DEPLOY}"
 echo "[deploy] PLATFORM_IMAGE set to ${PLATFORM_IMAGE_TO_DEPLOY}"
+set_env_value DEPLOY_RELEASE_ID "${RELEASE_ID}"
+echo "[deploy] DEPLOY_RELEASE_ID set to ${RELEASE_ID}"
 
 # optionally update RISK_VLLM_IMAGE
 if [[ -n "${RISK_VLLM_IMAGE_TO_DEPLOY:-}" ]]; then
@@ -623,34 +621,6 @@ if [[ -z "${COMPOSE_PROJECT_EFFECTIVE}" ]]; then
 fi
 
 if [[ "${DEPLOY_MODE}" == "full" ]]; then
-  CAPTURE_CATALOG="${RELEASE_PATH}/configs/main_model_profiles.yaml"
-  if [[ -n "${PREVIOUS_RELEASE}" &&
-    -f "${PREVIOUS_RELEASE}/configs/main_model_profiles.yaml" ]]; then
-    CAPTURE_CATALOG="${PREVIOUS_RELEASE}/configs/main_model_profiles.yaml"
-  fi
-  MAIN_MODEL_ROLLBACK_OVERRIDE="$(
-    mktemp "${TMPDIR:-/tmp}/main-model-rollback.XXXXXX.yaml"
-  )"
-  rm -f "${MAIN_MODEL_ROLLBACK_OVERRIDE}"
-  echo "[deploy] capturing current main-model runtime for rollback..."
-  if ! capture_status="$(
-    "${_PYTHON_BIN}" scripts/models/capture_main_model_runtime_override.py \
-      --catalog "${CAPTURE_CATALOG}" \
-      --compose-project "${COMPOSE_PROJECT_EFFECTIVE}" \
-      --output "${MAIN_MODEL_ROLLBACK_OVERRIDE}"
-  )"; then
-    fail_after_env_backup "failed to capture current main-model runtime"
-  fi
-  if [[ "${capture_status}" == "missing" ]]; then
-    MAIN_MODEL_ROLLBACK_OVERRIDE=""
-    echo "[deploy] no current main-model container; initial deployment has no runtime rollback target"
-  elif [[ "${capture_status}" == "mutable-tag" ]]; then
-    MAIN_MODEL_ROLLBACK_OVERRIDE=""
-    echo "[deploy] WARNING: current main-model image is not digest-pinned; rollback override unavailable"
-  else
-    echo "[deploy] current main-model runtime captured for rollback"
-  fi
-
   HF_CACHE_HOST="$(
     "${_PYTHON_BIN}" scripts/models/resolve_hf_cache_dir.py \
       --env-file "${COMPOSE_ENV_FILE}" \
