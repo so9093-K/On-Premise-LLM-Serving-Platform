@@ -352,3 +352,4 @@ Invalid or missing PLATFORM_IMAGE_DIGEST artifact
 | smoke test POST 503 | vLLM이 `/ready` 200 반환 후 실제 추론 준비 미완료 (race condition) | 재트리거. `SMOKE_RETRY_ATTEMPTS`, `SMOKE_RETRY_DELAY_SECONDS` 조정 가능 |
 | `/health` timeout | 컨테이너 기동 실패 또는 image pull 오류 | `make compose-diagnostics`로 서비스별 로그 확인 |
 | `ready-full` timeout | vLLM 모델 로딩 지연 (최초 다운로드, quantization 초기화) | `READY_FULL_TIMEOUT_SECONDS=2700` 설정 후 재트리거 |
+| `main-model chat not serving ... gate did not open` | control-plane 재배포로 admin-sidecar 재기동 → main-model gate가 boot reconcile 동안 닫힘 (`local-main` chat 503). gate 대기 budget은 모델 로딩과 동일한 `READY_FULL_TIMEOUT_SECONDS`(기본 1800s) | `observed == target`이면 수초 내 reopen. `observed != target`(persisted profile ≠ 실행 중 main-llm)이면 **모델 swap = 전체 reload**라 분 단위로 걸림(1800s budget이 커버). budget 초과 시 CI 로그의 `make compose-diagnostics` 출력에서 admin-sidecar boot reconcile 로그 확인 — 매 배포 swap이 일어나면 boot_profile 산출이 불안정한 것 |

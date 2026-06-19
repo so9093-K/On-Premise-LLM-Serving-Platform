@@ -31,6 +31,15 @@ READY_FULL_INTERVAL_SECONDS="${READY_FULL_INTERVAL_SECONDS:-10}"
 # its engine is fully accepting work. This warmup step polls a lightweight inference
 # endpoint until it succeeds — separating "stack is up" from "inference is serving".
 READY_FULL_INFERENCE_WARMUP_SECONDS="${READY_FULL_INFERENCE_WARMUP_SECONDS:-120}"
+# Recreating the admin-sidecar (every deploy bumps PLATFORM_IMAGE) closes the
+# main-model inference gate; the gateway 503s local-main chat until the boot
+# reconcile revalidates the persisted profile. /ready does not reflect this gate,
+# so ready-full waits for chat to actually serve before the strict smoke gate.
+# Budget matches the model-load budget (READY_FULL_TIMEOUT_SECONDS): when the boot
+# reconcile has to swap the main model (observed != persisted target), the gate
+# stays closed for a full model reload, not just a few seconds. The fast path
+# (gate already open) returns immediately regardless of the cap.
+READY_FULL_MAIN_MODEL_TIMEOUT_SECONDS="${READY_FULL_MAIN_MODEL_TIMEOUT_SECONDS:-${READY_FULL_TIMEOUT_SECONDS}}"
 
 "$PYTHON_BIN" scripts/build/check_python.py --context ready-full >/dev/null
 "$PYTHON_BIN" scripts/compose/validate_vllm_compose.py >/dev/null
@@ -167,10 +176,40 @@ PY
   done
 }
 
-# Warm a single inference endpoint until it serves (2xx) or the per-endpoint
-# budget elapses. A vLLM may report /ready 200 yet transiently 503 its first
-# inference requests before the engine accepts work; this absorbs that race so
-# the strict smoke gate never sees it.
+# Wait (fatal) for the main-model inference gate to reopen after a control-plane
+# redeploy. The gateway returns 503 (MAIN_MODEL_SWITCH_IN_PROGRESS) for local-main
+# chat while the gate is closed; we poll the real chat path until it serves 200.
+# A gate-closed 503 just means "keep waiting"; only a true timeout fails the deploy.
+wait_for_main_model_ready() {
+  local url="$GATEWAY_BASE_URL/v1/chat/completions"
+  local body='{"model":"local-main","messages":[{"role":"user","content":"ok"}],"max_tokens":1,"temperature":0}'
+  local start=$SECONDS deadline=$((SECONDS + READY_FULL_MAIN_MODEL_TIMEOUT_SECONDS))
+  local attempt=0 code elapsed
+  local curl_args=(-sS --max-time 30 -o /dev/null -w '%{http_code}'
+    -H 'Content-Type: application/json' -d "$body")
+  [[ -n "$API_KEY" ]] && curl_args+=(-H "Authorization: Bearer ${API_KEY}")
+  echo "[ready-full] waiting for main-model gate to open (local-main chat, up to ${READY_FULL_MAIN_MODEL_TIMEOUT_SECONDS}s)..."
+  while true; do
+    attempt=$((attempt + 1))
+    code="$(curl "${curl_args[@]}" "$url" 2>/dev/null || true)"
+    elapsed=$((SECONDS - start))
+    if [[ "$code" == "200" ]]; then
+      echo "[ready-full] main-model chat serving (${elapsed}s, attempt ${attempt})"
+      return 0
+    fi
+    if (( SECONDS >= deadline )); then
+      echo "[ready-full] main-model chat not serving after ${READY_FULL_MAIN_MODEL_TIMEOUT_SECONDS}s (last HTTP ${code:-000}) — gate did not open" >&2
+      return 1
+    fi
+    echo "[ready-full] main-model gate not open yet (HTTP ${code:-000}, ${elapsed}s), retrying in ${READY_FULL_INTERVAL_SECONDS}s..." >&2
+    sleep "$READY_FULL_INTERVAL_SECONDS"
+  done
+}
+
+# Best-effort warm a single inference endpoint until it serves or the budget
+# elapses. A freshly (re)started vLLM may report /ready 200 yet transiently 503
+# its first inference requests; warming absorbs that race before the smoke gate.
+# This is NOT a gate — callers ignore failures so warmup can never abort a deploy.
 warm_one_endpoint() {
   local name="$1" url="$2" body="$3" bearer="${4:-}"
   local deadline=$((SECONDS + READY_FULL_INFERENCE_WARMUP_SECONDS))
@@ -182,32 +221,29 @@ warm_one_endpoint() {
   while true; do
     attempt=$((attempt + 1))
     if curl "${curl_args[@]}" "$url" >/dev/null 2>&1; then
-      echo "[ready-full] ${name}: serving (attempt ${attempt})"
+      echo "[ready-full] ${name}: warm (attempt ${attempt})"
       return 0
     fi
     if (( SECONDS >= deadline )); then
-      echo "[ready-full] ${name}: not serving after ${READY_FULL_INFERENCE_WARMUP_SECONDS}s — stack may be degraded" >&2
+      echo "[ready-full] ${name}: not warm after ${READY_FULL_INFERENCE_WARMUP_SECONDS}s (best-effort; smoke is the gate)" >&2
       return 1
     fi
-    echo "[ready-full] ${name}: not yet serving (attempt ${attempt}), retrying in 10s..." >&2
+    echo "[ready-full] ${name}: not yet warm (attempt ${attempt}), retrying in 10s..." >&2
     sleep 10
   done
 }
 
-# Warm every inference path the smoke gate will hard-test. Models that were not
-# recreated are already warm and return immediately; only a genuinely cold model
-# (freshly (re)started) consumes its warmup budget. This makes the gate reliable
-# regardless of how many models the deploy actually replaced.
-wait_for_inference_ready() {
-  echo "[ready-full] warming inference paths (up to ${READY_FULL_INFERENCE_WARMUP_SECONDS}s each)..."
+# Best-effort warm of the remaining inference paths so the strict smoke gate does
+# not race a freshly (re)started vLLM's first-request 503. Never fatal: the chat
+# gate is handled by wait_for_main_model_ready above, and smoke is the real gate.
+warm_inference_paths_best_effort() {
+  echo "[ready-full] warming inference paths (best-effort, up to ${READY_FULL_INFERENCE_WARMUP_SECONDS}s each)..."
   warm_one_endpoint "risk" "$GATEWAY_BASE_URL/v1/risk/assessments" \
-    '{"prompt":"warmup"}' "$API_KEY"
-  warm_one_endpoint "chat (local-main)" "$GATEWAY_BASE_URL/v1/chat/completions" \
-    '{"model":"local-main","messages":[{"role":"user","content":"ok"}],"max_tokens":1,"temperature":0}' "$API_KEY"
+    '{"prompt":"warmup"}' "$API_KEY" || true
   warm_one_endpoint "embedding (local-embed)" "$GATEWAY_BASE_URL/v1/embeddings" \
-    '{"model":"local-embed","input":["warmup"]}' "$API_KEY"
+    '{"model":"local-embed","input":["warmup"]}' "$API_KEY" || true
   warm_one_endpoint "embedding (local-embed-ko)" "$GATEWAY_BASE_URL/v1/embeddings" \
-    '{"model":"local-embed-ko","input":["warmup"]}' "$API_KEY"
+    '{"model":"local-embed-ko","input":["warmup"]}' "$API_KEY" || true
 }
 
 wait_for_probe "gateway /health" "$GATEWAY_BASE_URL/health" 200
@@ -227,9 +263,13 @@ wait_for_gateway_ready "$GATEWAY_BASE_URL/ready" "$ADMIN_API_KEY"
 # Print readiness dependencies before the strict smoke gate.
 bash scripts/ops/status_services.sh --full || true
 
+# control-plane 재배포 후 admin-sidecar가 main-model gate를 닫았다가 boot reconcile로
+# 다시 연다. gate가 닫혀 있는 동안 local-main chat은 503이고 /ready엔 반영되지 않으므로,
+# smoke(엄격 gate) 전에 chat이 실제로 200을 줄 때까지 기다린다.
+wait_for_main_model_ready
+
 # /ready 200 이후에도 갓 (재)기동된 vLLM은 첫 inference 요청을 503으로 반환할 수 있다.
-# smoke가 hard-test하는 모든 모델 경로(risk·chat·embedding·embedding-ko)를
-# 실제로 응답할 때까지 warmup한 뒤 smoke_test.sh로 진입한다.
-wait_for_inference_ready
+# risk·embedding 경로를 best-effort로 데운다(실패해도 abort하지 않음 — smoke가 진짜 gate).
+warm_inference_paths_best_effort
 
 bash scripts/ops/smoke_test.sh

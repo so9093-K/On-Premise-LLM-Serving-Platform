@@ -132,6 +132,16 @@ def test_ready_full_is_compose_aware_and_retries_transient_startup() -> None:
     assert 'compose services do not have' in text
     assert 'run_diagnostics' in text
     assert 'status_pid gateway' not in text
+    # A control-plane redeploy closes the main-model gate; ready-full must wait for
+    # local-main chat to actually serve (gate reopened) before the strict smoke gate,
+    # and inference warmup must be best-effort so it can never abort the deploy.
+    assert 'wait_for_main_model_ready' in text, (
+        "ready-full must wait for the main-model gate to reopen before smoke"
+    )
+    assert 'READY_FULL_MAIN_MODEL_TIMEOUT_SECONDS' in text
+    assert 'warm_inference_paths_best_effort' in text, (
+        "inference warmup must be best-effort, not a deploy-aborting gate"
+    )
 
 
 def test_compose_env_example_does_not_embed_real_huggingface_token() -> None:
