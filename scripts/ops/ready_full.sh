@@ -11,6 +11,7 @@ export ENV_FILE COMPOSE_FILE
 load_local_env "$ENV_FILE"
 
 ADMIN_API_KEY="$(local_env_first_value "$ENV_FILE" ADMIN_API_KEY ADMIN_API_KEYS || true)"
+API_KEY="$(local_env_first_value "$ENV_FILE" API_KEY API_KEYS || true)"
 
 PYTHON_BIN="${PYTHON_BIN:-$(command -v python3.12 || command -v python3 || command -v python)}"
 # Health probes target the host-published Gateway bind address. When Gateway binds
@@ -26,6 +27,10 @@ GATEWAY_BASE_URL="http://${GATEWAY_PROBE_HOST}:${GATEWAY_PORT:-9400}"
 RISK_ADAPTER_BASE_URL="http://localhost:${RISK_ADAPTER_PORT:-9405}"
 READY_FULL_TIMEOUT_SECONDS="${READY_FULL_TIMEOUT_SECONDS:-1800}"
 READY_FULL_INTERVAL_SECONDS="${READY_FULL_INTERVAL_SECONDS:-10}"
+# After /ready 200, vLLM may transiently 503 on first inference requests before
+# its engine is fully accepting work. This warmup step polls a lightweight inference
+# endpoint until it succeeds — separating "stack is up" from "inference is serving".
+READY_FULL_INFERENCE_WARMUP_SECONDS="${READY_FULL_INFERENCE_WARMUP_SECONDS:-120}"
 
 "$PYTHON_BIN" scripts/build/check_python.py --context ready-full >/dev/null
 "$PYTHON_BIN" scripts/compose/validate_vllm_compose.py >/dev/null
@@ -162,6 +167,32 @@ PY
   done
 }
 
+wait_for_inference_ready() {
+  local url="$1"
+  local bearer="${2:-}"
+  local deadline=$((SECONDS + READY_FULL_INFERENCE_WARMUP_SECONDS))
+  local attempt=0
+  local curl_args=(-sf -X POST --max-time 10
+    -H 'Content-Type: application/json'
+    -d '{"prompt":"warmup"}')
+  [[ -n "$bearer" ]] && curl_args+=(-H "Authorization: Bearer ${bearer}")
+
+  echo "[ready-full] waiting for inference to be available (up to ${READY_FULL_INFERENCE_WARMUP_SECONDS}s)..."
+  while true; do
+    attempt=$((attempt + 1))
+    if curl "${curl_args[@]}" "$url" >/dev/null 2>&1; then
+      echo "[ready-full] inference ready (attempt ${attempt})"
+      return 0
+    fi
+    if (( SECONDS >= deadline )); then
+      echo "[ready-full] inference not available after ${READY_FULL_INFERENCE_WARMUP_SECONDS}s — stack may be degraded" >&2
+      return 1
+    fi
+    echo "[ready-full] inference not yet available (attempt ${attempt}), retrying in 10s..." >&2
+    sleep 10
+  done
+}
+
 wait_for_probe "gateway /health" "$GATEWAY_BASE_URL/health" 200
 
 # Risk Adapter health은 private-network compose에서는 host port가 없어 직접 접근이 안 된다.
@@ -178,5 +209,9 @@ wait_for_gateway_ready "$GATEWAY_BASE_URL/ready" "$ADMIN_API_KEY"
 
 # Print readiness dependencies before the strict smoke gate.
 bash scripts/ops/status_services.sh --full || true
+
+# /ready 200 이후에도 vLLM이 첫 inference 요청을 503으로 반환할 수 있다.
+# smoke_test.sh 전에 inference가 실제로 응답할 때까지 기다린다.
+wait_for_inference_ready "$GATEWAY_BASE_URL/v1/risk/assessments" "$API_KEY"
 
 bash scripts/ops/smoke_test.sh

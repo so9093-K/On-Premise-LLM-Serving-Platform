@@ -269,3 +269,66 @@ derived Dockerfile: `ops/docker/Dockerfile.risk-vllm-kanana`(risk-vllm-kanana �
 - Shared: Dockerfile, compose validation, model contract
 
 로컬 빌드 명령과 CI/릴리스 빌드 절차 전반은 [`docs/development/build_ux.md`](../development/build_ux.md)를 기준으로 한다.
+
+## 배포 오류 대응
+
+### `main-model state file exists but is not readable by the deploy user`
+
+```
+[deploy] ERROR: main-model state file exists but is not readable by the deploy user.
+[deploy]   Fix: sudo chmod o+r /opt/acl-ai-gateway/.runtime/main-model/main-model-state.json
+[deploy]   This happens when the admin-sidecar container wrote the file as a different user.
+```
+
+**원인**
+
+`admin-sidecar` 컨테이너는 `user: 0:0`(root)으로 실행되며, state 파일을 쓸 때 기본 권한 `0o600`(소유자만 읽기 가능)으로 생성한다. deploy 사용자는 root가 아니기 때문에 파일을 읽지 못한다.
+
+코드 수정(`_write_unlocked`에서 `os.chmod 0o644` 적용) 이후 새로 쓰는 파일은 자동으로 `0o644`로 생성된다. 단, **수정 전 코드가 쓴 파일이 서버에 남아 있으면** 최초 1회 수동 조치가 필요하다.
+
+**조치**
+
+175 서버에 접속해서 다음을 실행한다.
+
+```bash
+sudo chmod o+r /opt/acl-ai-gateway/.runtime/main-model/main-model-state.json
+```
+
+이후 파이프라인을 재트리거하면 된다. 이 조치는 한 번만 필요하다.
+
+---
+
+### `Invalid or missing PLATFORM_IMAGE_DIGEST artifact`
+
+```
+Invalid or missing PLATFORM_IMAGE_DIGEST artifact
+```
+
+**원인**
+
+`deploy-gpu-175` job이 `build-platform` job의 아티팩트(`build/platform-image.env`)를 찾지 못한 경우다. `build-platform`이 실패했거나, 아티팩트 만료(7일) 후 이전 pipeline의 deploy job을 재실행하는 경우에 발생한다.
+
+**조치**
+
+`build-platform` job부터 다시 실행하거나, 새 pipeline을 트리거한다.
+
+---
+
+### 배포 후 자동 롤백된 경우
+
+```
+[deploy] previous release, .env, services, and release links restored
+[deploy] ERROR: candidate release context is invalid
+```
+
+`make ready-full`(health → ready → smoke test) 중 하나가 실패하면 자동으로 이전 릴리즈로 롤백된다. 롤백 자체는 정상 동작이다.
+
+**원인 파악**
+
+로그에서 롤백 직전 출력을 확인한다. 주요 원인:
+
+| 증상 | 원인 | 조치 |
+|------|------|------|
+| smoke test POST 503 | vLLM이 `/ready` 200 반환 후 실제 추론 준비 미완료 (race condition) | 재트리거. `SMOKE_RETRY_ATTEMPTS`, `SMOKE_RETRY_DELAY_SECONDS` 조정 가능 |
+| `/health` timeout | 컨테이너 기동 실패 또는 image pull 오류 | `make compose-diagnostics`로 서비스별 로그 확인 |
+| `ready-full` timeout | vLLM 모델 로딩 지연 (최초 다운로드, quantization 초기화) | `READY_FULL_TIMEOUT_SECONDS=2700` 설정 후 재트리거 |
