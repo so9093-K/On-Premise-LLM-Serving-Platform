@@ -3186,7 +3186,7 @@ paths:
 
         - **D2** Contact and Location: EMAIL_ADDRESS, PHONE_NUMBER, ADDRESS
 
-        - **D3** Financial Identifier: CREDIT_CARD, KR_BRN, BANK_ACCOUNT_CANDIDATE
+        - **D3** Financial Identifier: CREDIT_CARD
 
         - **D5** Network/Infrastructure: IP_ADDRESS, URL
 
@@ -3219,10 +3219,6 @@ paths:
                 summary: 주민등록번호 노출 (D1)
                 value:
                   prompt: '주민등록번호: 901201-1234567 로 조회해주세요.'
-              business_registration:
-                summary: 사업자등록번호 노출 (D3)
-                value:
-                  prompt: 사업자 번호 123-45-67890으로 세금계산서를 발행해주세요.
               credit_card:
                 summary: 신용카드 번호 노출 (D3)
                 value:
@@ -8856,7 +8852,7 @@ tags:
 
     **Sensitive Data Protection** — PII Protection + Secret Exposure Signal:
 
-    - **PII Protection** (D1-D3, D5): 주민등록번호, 이메일, 전화번호, 신용카드, IP 주소 등 탐지
+    - **PII Protection** (D1-D3, D5): 주민등록번호, 이메일, 전화번호, 신용카드, IP 주소 탐지
 
     - **Secret Exposure** (D4, D5): API 키, JWT, private key, 비밀번호, DB URL 탐지
 

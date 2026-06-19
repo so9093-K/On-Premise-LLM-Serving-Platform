@@ -19,8 +19,6 @@ _ENTITY_CODE: dict[str, str] = {
     "PHONE_NUMBER": "D2",
     "ADDRESS": "D2",
     "CREDIT_CARD": "D3",
-    "KR_BRN": "D3",
-    "BANK_ACCOUNT_CANDIDATE": "D3",
     "IP_ADDRESS": "D5",
     "URL": "D5",
 }
@@ -65,7 +63,6 @@ class EntitySummary:
 
 _KR_RRN_RE = re.compile(r"(?<!\d)\d{6}-[1-4]\d{6}(?!\d)")
 _KR_FRN_RE = re.compile(r"(?<!\d)\d{6}-[5-8]\d{6}(?!\d)")
-_KR_BRN_RE = re.compile(r"(?<!\d)\d{3}-\d{2}-\d{5}(?!\d)")
 _KR_PASSPORT_RE = re.compile(r"(?<![A-Z0-9])[MR][A-Z]\d{7}(?![A-Z0-9])")
 _KR_DRIVER_LICENSE_RE = re.compile(r"(?<!\d)\d{2}-\d{2}-\d{6}-\d{2}(?!\d)")
 # RFC 5321 local-part + domain — ASCII lookarounds handle mixed Korean/ASCII boundaries.
@@ -77,14 +74,13 @@ _KR_PHONE_RE = re.compile(
     r"|0[3-9]\d-\d{3,4}-\d{4}"    # 지역 유선 (031~099)
     r")(?!\d)"
 )
-_BANK_ACCOUNT_RE = re.compile(r"(?<!\d)\d{10,14}(?!\d)")
-_BANK_ACCOUNT_CONTEXT_RE = re.compile(
-    r"(?i)(계좌|입금|출금|이체|account|bank|통장)",
-)
-_BANK_ACCOUNT_CONTEXT_WINDOW = 16
+_IP_ADDRESS_RE = re.compile(r"(?<!\d)(?:\d{1,3}\.){3}\d{1,3}(?!\d)")
 
-_PHONE_SHAPED_IDENTIFIER_ENTITIES: frozenset[str] = frozenset(
-    {"KR_RRN", "KR_FRN", "KR_BRN", "KR_DRIVER_LICENSE"}
+# Entities that supersede PHONE_NUMBER when they occupy the same span.
+# Presidio's phone recognizer catches dotted-decimal patterns (IP addresses,
+# Korean identifiers formatted with dashes) as false positives.
+_SUPERSEDES_PHONE_NUMBER: frozenset[str] = frozenset(
+    {"KR_RRN", "KR_FRN", "KR_DRIVER_LICENSE", "IP_ADDRESS"}
 )
 
 
@@ -105,26 +101,14 @@ def _run_custom_span_recognizers(text: str) -> list[EntitySpan]:
     for entity, pattern in (
         ("KR_RRN", _KR_RRN_RE),
         ("KR_FRN", _KR_FRN_RE),
-        ("KR_BRN", _KR_BRN_RE),
         ("KR_PASSPORT", _KR_PASSPORT_RE),
         ("KR_DRIVER_LICENSE", _KR_DRIVER_LICENSE_RE),
+        ("IP_ADDRESS", _IP_ADDRESS_RE),
         ("EMAIL_ADDRESS", _EMAIL_RE),
         ("PHONE_NUMBER", _KR_PHONE_RE),
     ):
         spans.extend(_regex_spans(text, entity, pattern))
 
-    for match in _BANK_ACCOUNT_RE.finditer(text):
-        context_start = max(0, match.start() - _BANK_ACCOUNT_CONTEXT_WINDOW)
-        context_end = min(len(text), match.end() + _BANK_ACCOUNT_CONTEXT_WINDOW)
-        if _BANK_ACCOUNT_CONTEXT_RE.search(text[context_start:context_end]):
-            spans.append(
-                EntitySpan(
-                    "BANK_ACCOUNT_CANDIDATE",
-                    match.start(),
-                    match.end(),
-                    "custom",
-                )
-            )
     return spans
 
 
@@ -159,7 +143,7 @@ def _contains(container: EntitySpan, nested: EntitySpan) -> bool:
 def _is_nested_duplicate(preferred: EntitySpan, candidate: EntitySpan) -> bool:
     """Return true only for known recognizer duplication, not general overlap."""
     if (
-        preferred.entity in _PHONE_SHAPED_IDENTIFIER_ENTITIES
+        preferred.entity in _SUPERSEDES_PHONE_NUMBER
         and candidate.entity == "PHONE_NUMBER"
     ):
         return _same_span(preferred, candidate)

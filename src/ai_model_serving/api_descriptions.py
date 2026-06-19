@@ -35,7 +35,7 @@ GATEWAY_TAGS_METADATA = [
             "signal-only risk assessment API입니다. `allow`, `block`, `decision`, `action` 같은 정책 판단 필드는 반환하지 않습니다. "
             "최종 허용·차단 결정은 Gateway 밖 product policy layer가 담당합니다.\n\n"
             "**Sensitive Data Protection** — PII Protection + Secret Exposure Signal:\n"
-            "- **PII Protection** (D1-D3, D5): 주민등록번호, 이메일, 전화번호, 신용카드, IP 주소 등 탐지\n"
+            "- **PII Protection** (D1-D3, D5): 주민등록번호, 이메일, 전화번호, 신용카드, IP 주소 탐지\n"
             "- **Secret Exposure** (D4, D5): API 키, JWT, private key, 비밀번호, DB URL 탐지\n\n"
             "**Prompt detector** (`risk-prompt`) — Prompt Injection / Prompt Leaking 탐지:\n"
             "- system/developer instruction 무시 유도\n"

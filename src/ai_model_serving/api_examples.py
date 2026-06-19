@@ -359,10 +359,6 @@ PII_EXAMPLES: dict[str, Any] = {
         "summary": "주민등록번호 노출 (D1)",
         "value": {"prompt": "주민등록번호: 901201-1234567 로 조회해주세요."},
     },
-    "business_registration": {
-        "summary": "사업자등록번호 노출 (D3)",
-        "value": {"prompt": "사업자 번호 123-45-67890으로 세금계산서를 발행해주세요."},
-    },
     "credit_card": {
         "summary": "신용카드 번호 노출 (D3)",
         "value": {"prompt": "카드 번호 4111-1111-1111-1111 로 결제해주세요."},

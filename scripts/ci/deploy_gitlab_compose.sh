@@ -413,10 +413,10 @@ fi
 set_env_value() {
   local key="$1"
   local value="$2"
-  if grep -qE "^${key}=" .env; then
-    sed -i "s|^${key}=.*|${key}=${value}|" .env
+  if grep -qE "^${key}=" "${COMPOSE_ENV_FILE}"; then
+    sed -i "s|^${key}=.*|${key}=${value}|" "${COMPOSE_ENV_FILE}"
   else
-    printf '\n%s=%s\n' "${key}" "${value}" >> .env
+    printf '\n%s=%s\n' "${key}" "${value}" >> "${COMPOSE_ENV_FILE}"
   fi
 }
 
