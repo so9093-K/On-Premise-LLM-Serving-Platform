@@ -157,6 +157,9 @@ _main_model_manager = MainModelManager(
 )
 _initialization_error: str | None = None
 _initialized = asyncio.Event()
+# Hold strong references to background tasks so they are not garbage collected
+# mid-flight (asyncio only keeps weak references to scheduled tasks).
+_BACKGROUND_TASKS: set[asyncio.Task[Any]] = set()
 
 
 async def _require_sidecar_token(authorization: str | None = Header(default=None)) -> None:
@@ -166,17 +169,33 @@ async def _require_sidecar_token(authorization: str | None = Header(default=None
         raise HTTPException(401, detail="invalid internal service token")
 
 
-@asynccontextmanager
-async def _lifespan(app: FastAPI):
-    del app
+async def _run_initialize() -> None:
     global _initialization_error
     try:
         await _main_model_manager.initialize()
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - surfaced via /health, must not crash the loop
         _initialization_error = str(exc)
     finally:
         _initialized.set()
-    yield
+
+
+@asynccontextmanager
+async def _lifespan(app: FastAPI):
+    del app
+    # Main-model reconciliation can block up to startup_timeout_seconds (600s)
+    # waiting for the main-llm runtime to become healthy. Awaiting it here would
+    # delay uvicorn's startup, leaving /health unreachable past the container's
+    # ~40s healthcheck budget on a cold deploy -> the sidecar is marked unhealthy
+    # and the Gateway's depends_on(service_healthy) fails the whole rollout.
+    # The sidecar is a control plane: its liveness is independent of main-llm
+    # boot, which is tracked by the gate (read by the Gateway) instead.
+    init_task = asyncio.create_task(_run_initialize())
+    _BACKGROUND_TASKS.add(init_task)
+    init_task.add_done_callback(_BACKGROUND_TASKS.discard)
+    try:
+        yield
+    finally:
+        init_task.cancel()
 
 
 # --------------------------------------------------------------------- app
@@ -193,9 +212,11 @@ app = FastAPI(
 
 @app.get("/health")
 async def health() -> dict[str, str]:
-    if not _initialized.is_set():
-        raise HTTPException(503, detail="main model reconciliation is in progress")
-    if _initialization_error:
+    # Control-plane liveness is intentionally decoupled from main-llm boot.
+    # While reconciliation is still in progress the sidecar is healthy and the
+    # gate stays closed (the Gateway fails closed on local-main). Only a
+    # *definitive* reconciliation failure is surfaced as unhealthy.
+    if _initialized.is_set() and _initialization_error:
         raise HTTPException(503, detail=f"main model reconciliation failed: {_initialization_error}")
     return {"status": "ok"}
 
