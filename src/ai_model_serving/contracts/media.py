@@ -111,6 +111,58 @@ def _validate_data_image_url(
         raise ServiceError("VALIDATION_ERROR", f"image_url image dimensions must contain {max_image_pixels} pixels or fewer.", False, 422)
 
 
+# Formats whose magic bytes _audio_format_matches() can verify. The configured
+# `allowed_audio_formats` (model_serving.yaml) MUST stay a subset of this set: a
+# format allowed in config but absent here would always fail the magic check and
+# be silently rejected. Extend both together.
+SNIFFABLE_AUDIO_FORMATS: frozenset[str] = frozenset({"wav", "flac", "ogg", "mp3"})
+
+
+def _audio_format_matches(fmt: str, decoded: bytes) -> bool:
+    """Best-effort magic-byte sniff so a declared format cannot misrepresent bytes."""
+    if fmt == "wav":
+        return len(decoded) >= 12 and decoded.startswith(b"RIFF") and decoded[8:12] == b"WAVE"
+    if fmt == "flac":
+        return decoded.startswith(b"fLaC")
+    if fmt == "ogg":
+        return decoded.startswith(b"OggS")
+    if fmt == "mp3":
+        return decoded.startswith(b"ID3") or (
+            len(decoded) >= 2 and decoded[0] == 0xFF and (decoded[1] & 0xE0) == 0xE0
+        )
+    return False
+
+
+def _validate_input_audio(
+    part: Any,
+    *,
+    allowed_audio_formats: set[str],
+    max_audio_bytes: int,
+) -> None:
+    reject_unknown_fields(part, {"type", "input_audio"}, "input_audio content part")
+    audio = part.get("input_audio")
+    if not isinstance(audio, dict):
+        raise ServiceError("VALIDATION_ERROR", "input_audio content parts require an input_audio object.", False, 422)
+    reject_unknown_fields(audio, {"data", "format"}, "input_audio")
+    fmt = audio.get("format")
+    if not isinstance(fmt, str) or (allowed_audio_formats and fmt not in allowed_audio_formats):
+        allowed = ", ".join(sorted(allowed_audio_formats)) or "none"
+        raise ServiceError("VALIDATION_ERROR", f"input_audio.format must be one of: {allowed}.", False, 422)
+    data = audio.get("data")
+    if not isinstance(data, str) or not data:
+        raise ServiceError("VALIDATION_ERROR", "input_audio.data must be a base64-encoded string.", False, 422)
+    try:
+        decoded = base64.b64decode(data, validate=True)
+    except (binascii.Error, ValueError) as exc:
+        raise ServiceError("VALIDATION_ERROR", "input_audio.data must contain valid base64.", False, 422) from exc
+    if not decoded:
+        raise ServiceError("VALIDATION_ERROR", "input_audio.data must not be empty.", False, 422)
+    if max_audio_bytes and len(decoded) > max_audio_bytes:
+        raise ServiceError("VALIDATION_ERROR", f"input_audio decoded audio must be {max_audio_bytes} bytes or fewer.", False, 422)
+    if not _audio_format_matches(fmt, decoded):
+        raise ServiceError("VALIDATION_ERROR", f"input_audio.data does not look like a valid {fmt} stream.", False, 422)
+
+
 def _validate_content_part(
     part: Any,
     *,
@@ -119,6 +171,8 @@ def _validate_content_part(
     max_image_bytes: int,
     max_image_pixels: int,
     allowed_image_mime_types: set[str],
+    allowed_audio_formats: set[str],
+    max_audio_bytes: int,
 ) -> str:
     if not isinstance(part, dict):
         raise ServiceError("VALIDATION_ERROR", "message content parts must be objects.", False, 422)
@@ -153,7 +207,17 @@ def _validate_content_part(
                 allowed_image_mime_types=allowed_image_mime_types,
             )
         return "image"
-    raise ServiceError("VALIDATION_ERROR", "message content part type must be text or image_url.", False, 422)
+    if part_type == "input_audio":
+        if "audio" not in allowed_modalities:
+            raise ServiceError("VALIDATION_ERROR", "audio content parts are not enabled for this model.", False, 422)
+        _validate_input_audio(
+            part,
+            allowed_audio_formats=allowed_audio_formats,
+            max_audio_bytes=max_audio_bytes,
+        )
+        return "audio"
+    allowed_types = "text or image_url" + (" or input_audio" if "audio" in allowed_modalities else "")
+    raise ServiceError("VALIDATION_ERROR", f"message content part type must be {allowed_types}.", False, 422)
 
 
 def validate_message_content(
@@ -165,14 +229,18 @@ def validate_message_content(
     max_image_bytes: int,
     max_image_pixels: int,
     allowed_image_mime_types: set[str],
-) -> int:
+    max_audio_inputs: int = 0,
+    allowed_audio_formats: set[str] | None = None,
+    max_audio_bytes: int = 0,
+) -> tuple[int, int]:
     if isinstance(content, str):
         if "text" not in allowed_modalities:
             raise ServiceError("VALIDATION_ERROR", "string chat content is not enabled for this model.", False, 422)
-        return 0
+        return 0, 0
     if not isinstance(content, list) or not content:
         raise ServiceError("VALIDATION_ERROR", "message content must be a string or non-empty content part array.", False, 422)
     image_count = 0
+    audio_count = 0
     for part in content:
         modality = _validate_content_part(
             part,
@@ -181,9 +249,15 @@ def validate_message_content(
             max_image_bytes=max_image_bytes,
             max_image_pixels=max_image_pixels,
             allowed_image_mime_types=allowed_image_mime_types,
+            allowed_audio_formats=allowed_audio_formats or set(),
+            max_audio_bytes=max_audio_bytes,
         )
         if modality == "image":
             image_count += 1
+        elif modality == "audio":
+            audio_count += 1
     if image_count > max_image_inputs:
         raise ServiceError("VALIDATION_ERROR", f"at most {max_image_inputs} image content part(s) are allowed.", False, 422)
-    return image_count
+    if audio_count > max_audio_inputs:
+        raise ServiceError("VALIDATION_ERROR", f"at most {max_audio_inputs} audio content part(s) are allowed.", False, 422)
+    return image_count, audio_count

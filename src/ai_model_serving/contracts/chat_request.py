@@ -171,6 +171,9 @@ def validate_chat_request(
     max_image_bytes: int = 0,
     max_image_pixels: int = 0,
     allowed_image_mime_types: tuple[str, ...] = (),
+    max_audio_inputs: int = 0,
+    allowed_audio_formats: tuple[str, ...] = (),
+    max_audio_bytes: int = 0,
     request_parameter_policy: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     payload = ensure_object(payload)
@@ -210,10 +213,12 @@ def validate_chat_request(
     allowed_modalities = set(allowed_input_modalities)
     allowed_schemes = set(allowed_image_url_schemes)
     allowed_mime_types = set(allowed_image_mime_types)
+    allowed_audio = set(allowed_audio_formats)
     messages = payload.get("messages")
     if not isinstance(messages, list) or not messages:
         raise ServiceError("VALIDATION_ERROR", "messages must be a non-empty array.", False, 422)
     image_count = 0
+    audio_count = 0
     allowed_roles = TOOL_CHAT_ROLES if tool_enabled else CHAT_ROLES
     for index, message in enumerate(messages):
         if not isinstance(message, dict):
@@ -251,7 +256,7 @@ def validate_chat_request(
             _validate_tool_calls(message["tool_calls"])
             if message.get("content") is None:
                 continue
-        image_count += validate_message_content(
+        message_images, message_audio = validate_message_content(
             message.get("content"),
             allowed_modalities=allowed_modalities,
             max_image_inputs=max_image_inputs,
@@ -259,9 +264,16 @@ def validate_chat_request(
             max_image_bytes=max_image_bytes,
             max_image_pixels=max_image_pixels,
             allowed_image_mime_types=allowed_mime_types,
+            max_audio_inputs=max_audio_inputs,
+            allowed_audio_formats=allowed_audio,
+            max_audio_bytes=max_audio_bytes,
         )
+        image_count += message_images
+        audio_count += message_audio
     if image_count > max_image_inputs:
         raise ServiceError("VALIDATION_ERROR", f"at most {max_image_inputs} image content part(s) are allowed per request.", False, 422)
+    if audio_count > max_audio_inputs:
+        raise ServiceError("VALIDATION_ERROR", f"at most {max_audio_inputs} audio content part(s) are allowed per request.", False, 422)
     if "response_format" in payload:
         _validate_response_format(payload["response_format"], payload, request_parameter_policy)
     _validate_parameter_combinations(payload, request_parameter_policy)

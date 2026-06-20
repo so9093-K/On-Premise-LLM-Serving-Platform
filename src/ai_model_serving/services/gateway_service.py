@@ -134,17 +134,37 @@ class GatewayService:
         self.metrics = metrics
         self.retrieval = RetrievalService(settings, clients, metrics)
 
-    def _validate_chat_payload(self, payload: dict[str, Any]) -> dict[str, Any]:
+    def _validate_chat_payload(
+        self,
+        payload: dict[str, Any],
+        *,
+        active_modalities: tuple[str, ...] | None = None,
+    ) -> dict[str, Any]:
+        # The set of accepted input modalities tracks the ACTIVE main-model profile
+        # (deployed_input from the sidecar snapshot) when available, falling back to
+        # the static registry value. This keeps the current model's behavior
+        # unchanged (its profile resolves to the same modalities) while letting a
+        # switched-in profile (e.g. audio-capable) widen what is accepted -- without
+        # ever advertising a modality the running model cannot serve. The per-modality
+        # safety limits remain static policy from the registry.
+        allowed_input_modalities = (
+            active_modalities
+            if active_modalities is not None
+            else self.settings.main_llm.allowed_input_modalities
+        )
         return validate_chat_request(
             payload,
             expected_model=self.settings.main_llm.model,
             max_output_tokens=self.settings.main_llm.max_output_tokens,
-            allowed_input_modalities=self.settings.main_llm.allowed_input_modalities,
+            allowed_input_modalities=allowed_input_modalities,
             max_image_inputs=self.settings.main_llm.max_image_inputs,
             allowed_image_url_schemes=self.settings.main_llm.allowed_image_url_schemes,
             max_image_bytes=self.settings.main_llm.max_image_bytes,
             max_image_pixels=self.settings.main_llm.max_image_pixels,
             allowed_image_mime_types=self.settings.main_llm.allowed_image_mime_types,
+            max_audio_inputs=self.settings.main_llm.max_audio_inputs,
+            allowed_audio_formats=self.settings.main_llm.allowed_audio_formats,
+            max_audio_bytes=self.settings.main_llm.max_audio_bytes,
             request_parameter_policy=self.settings.main_llm.request_parameter_policy,
         )
 
@@ -155,8 +175,15 @@ class GatewayService:
             self.settings.main_llm.request_parameter_policy,
         )
 
-    async def create_chat_completion(self, payload: dict[str, Any]) -> dict[str, Any]:
-        payload, expectations = self._chat_upstream_payload(self._validate_chat_payload(payload))
+    async def create_chat_completion(
+        self,
+        payload: dict[str, Any],
+        *,
+        active_modalities: tuple[str, ...] | None = None,
+    ) -> dict[str, Any]:
+        payload, expectations = self._chat_upstream_payload(
+            self._validate_chat_payload(payload, active_modalities=active_modalities)
+        )
         start = time.monotonic()
         try:
             response = await asyncio.wait_for(
@@ -178,8 +205,15 @@ class GatewayService:
             )
 
 
-    def stream_chat_completion(self, payload: dict[str, Any]) -> AsyncIterator[bytes]:
-        payload, _expectations = self._chat_upstream_payload(self._validate_chat_payload(payload))
+    def stream_chat_completion(
+        self,
+        payload: dict[str, Any],
+        *,
+        active_modalities: tuple[str, ...] | None = None,
+    ) -> AsyncIterator[bytes]:
+        payload, _expectations = self._chat_upstream_payload(
+            self._validate_chat_payload(payload, active_modalities=active_modalities)
+        )
         start = time.monotonic()
         target = self.settings.main_llm.logical_id
 

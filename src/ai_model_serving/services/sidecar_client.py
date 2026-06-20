@@ -47,17 +47,71 @@ class SidecarClient:
         except Exception as exc:
             raise SidecarUnavailableError(f"sidecar stop failed: {exc}") from exc
 
-    async def start(self, container: str) -> list[str]:
-        """Starts container (and any prerequisites). Returns list of containers started."""
+    async def start(self, container: str, *, force: bool = False) -> list[str]:
+        """Starts container (and any prerequisites). Returns list of containers started.
+
+        A 409 GPU-budget rejection is surfaced as SidecarRequestError (carrying the
+        eviction plan); connection/other failures remain SidecarUnavailableError.
+        """
         try:
             async with httpx.AsyncClient(timeout=180.0) as client:
                 resp = await client.post(
-                    f"{self._base}/containers/{container}/start", headers=self._headers
+                    f"{self._base}/containers/{container}/start",
+                    headers=self._headers,
+                    params={"force": "true"} if force else None,
                 )
+                if resp.status_code == 409:
+                    try:
+                        detail = resp.json().get("detail", resp.text)
+                    except ValueError:
+                        detail = resp.text
+                    raise SidecarRequestError(409, detail)
                 resp.raise_for_status()
                 return resp.json().get("started", [container])
+        except (SidecarUnavailableError, SidecarRequestError):
+            raise
         except Exception as exc:
             raise SidecarUnavailableError(f"sidecar start failed: {exc}") from exc
+
+    async def gpu_budget(self) -> dict:
+        try:
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                resp = await client.get(f"{self._base}/gpu-budget", headers=self._headers)
+                resp.raise_for_status()
+                return resp.json()
+        except Exception as exc:
+            raise SidecarUnavailableError(f"sidecar gpu-budget failed: {exc}") from exc
+
+    async def main_stop(self) -> dict:
+        try:
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                resp = await client.post(f"{self._base}/main-model/stop", headers=self._headers)
+                resp.raise_for_status()
+                return resp.json()
+        except Exception as exc:
+            raise SidecarUnavailableError(f"sidecar main-model stop failed: {exc}") from exc
+
+    async def main_start(self, *, force: bool = False) -> dict:
+        """Starts the main runtime. 409 (budget) -> SidecarRequestError with plan."""
+        try:
+            async with httpx.AsyncClient(timeout=180.0) as client:
+                resp = await client.post(
+                    f"{self._base}/main-model/start",
+                    headers=self._headers,
+                    params={"force": "true"} if force else None,
+                )
+                if resp.status_code == 409:
+                    try:
+                        detail = resp.json().get("detail", resp.text)
+                    except ValueError:
+                        detail = resp.text
+                    raise SidecarRequestError(409, detail)
+                resp.raise_for_status()
+                return resp.json()
+        except (SidecarUnavailableError, SidecarRequestError):
+            raise
+        except Exception as exc:
+            raise SidecarUnavailableError(f"sidecar main-model start failed: {exc}") from exc
 
     async def main_model(self) -> dict:
         try:

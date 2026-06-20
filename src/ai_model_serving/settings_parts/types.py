@@ -44,6 +44,9 @@ class RuntimeEndpoint:
     max_image_bytes: int = 0
     max_image_pixels: int = 0
     allowed_image_mime_types: tuple[str, ...] = ()
+    max_audio_inputs: int = 0
+    allowed_audio_formats: tuple[str, ...] = ()
+    max_audio_bytes: int = 0
     request_parameter_policy: dict[str, Any] | None = None
     runtime_features: dict[str, Any] | None = None
 

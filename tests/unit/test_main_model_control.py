@@ -34,9 +34,23 @@ class FakeBackend:
         self.prepared: list[str] = []
         self.replaced: list[str] = []
         self.drain_calls = 0
+        self.stopped = 0
+        self.started = 0
+        self.running = observed is not None
 
     async def observed_profile(self, catalog):
         return self.observed
+
+    async def stop(self, catalog):
+        self.stopped += 1
+        self.running = False
+
+    async def start(self, catalog):
+        self.started += 1
+        self.running = True
+
+    async def is_running(self, catalog):
+        return self.running
 
     async def prepare(self, catalog, profile):
         self.prepared.append(profile.profile_id)
@@ -476,3 +490,63 @@ def test_initialize_reconciles_persisted_profile_in_background(tmp_path):
 
     asyncio.run(run())
     assert manager.snapshot()["active_profile"]["id"] == "gemma4-12b-unified-fp8"
+
+
+def test_stop_main_drains_and_marks_stopped(tmp_path):
+    loaded = catalog()
+    store = MainModelStateStore(tmp_path / "state.json", loaded.default_profile)
+    store.write({**store.read(), "active_profile": loaded.default_profile, "gate": "open"})
+    backend = FakeBackend(loaded.default_profile)
+    manager = MainModelManager(loaded, store, backend)
+
+    asyncio.run(manager.stop_main())
+
+    assert backend.drain_calls == 1
+    assert backend.stopped == 1
+    assert backend.running is False
+    snap = manager.snapshot()
+    assert snap["runtime_state"] == "stopped"
+    assert snap["gate"] == "closed"
+
+
+def test_start_main_starts_validates_and_opens_gate(tmp_path):
+    loaded = catalog()
+    store = MainModelStateStore(tmp_path / "state.json", loaded.default_profile)
+    store.write({
+        **store.read(),
+        "active_profile": loaded.default_profile,
+        "gate": "closed",
+        "runtime_state": "stopped",
+    })
+    backend = FakeBackend(loaded.default_profile)
+    backend.running = False
+    manager = MainModelManager(loaded, store, backend)
+
+    asyncio.run(manager.start_main())
+
+    assert backend.started == 1
+    assert backend.running is True
+    snap = manager.snapshot()
+    assert snap["runtime_state"] == "active"
+    assert snap["gate"] == "open"
+
+
+def test_initialize_respects_deliberate_stop(tmp_path):
+    loaded = catalog()
+    store = MainModelStateStore(tmp_path / "state.json", loaded.default_profile)
+    store.write({
+        **store.read(),
+        "active_profile": loaded.default_profile,
+        "gate": "closed",
+        "runtime_state": "stopped",
+    })
+    backend = FakeBackend(loaded.default_profile)
+    manager = MainModelManager(loaded, store, backend)
+
+    asyncio.run(manager.initialize())
+
+    # A deliberately-stopped main is not auto-started on boot.
+    assert backend.started == 0
+    assert backend.replaced == []
+    assert manager.snapshot()["gate"] == "closed"
+    assert manager.snapshot()["runtime_state"] == "stopped"

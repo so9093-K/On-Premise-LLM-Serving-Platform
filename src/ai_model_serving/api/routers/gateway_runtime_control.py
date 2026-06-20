@@ -117,6 +117,28 @@ def _container_name(base_url: str) -> str:
     return urlparse(base_url).hostname or ""
 
 
+def _budget_participant(budget: dict[str, Any] | None, key: str) -> dict[str, Any] | None:
+    for participant in (budget or {}).get("participants", []):
+        if participant.get("key") == key:
+            return participant
+    return None
+
+
+def _budget_fraction(budget: dict[str, Any] | None, key: str) -> float | None:
+    participant = _budget_participant(budget, key)
+    return participant.get("vram_fraction") if participant else None
+
+
+def _main_participant(
+    budget: dict[str, Any] | None, secondary_containers: set[str]
+) -> dict[str, Any] | None:
+    """The non-secondary budget participant (the main model), if present."""
+    for participant in (budget or {}).get("participants", []):
+        if participant.get("key") not in secondary_containers:
+            return participant
+    return None
+
+
 def _validate_service_key(service_key: str) -> None:
     if service_key not in CONTROLLABLE_KEYS:
         raise HTTPException(404, detail=f"runtime endpoint not found: {service_key}")
@@ -172,11 +194,21 @@ def build_router(
     async def list_runtimes() -> JSONResponse:
         gateway_states = await state_store.all()
         container_statuses: dict[str, str] = {}
+        budget: dict[str, Any] | None = None
+        main_model: dict[str, Any] | None = None
         if sidecar is not None:
             try:
                 container_statuses = await sidecar.get_status()
             except SidecarUnavailableError:
                 container_statuses = {}
+            try:
+                budget = await sidecar.gpu_budget()
+            except SidecarUnavailableError:
+                budget = None
+            try:
+                main_model = await sidecar.main_model()
+            except SidecarUnavailableError:
+                main_model = None
 
         runtimes = []
         for item in _controllable_runtimes():
@@ -189,8 +221,33 @@ def build_router(
                 "container": container,
                 "state": state,
                 "container_status": c_status,
+                "vram_fraction": _budget_fraction(budget, container),
             })
-        return JSONResponse({"runtimes": runtimes})
+        # The main chat model is a first-class participant in the shared GPU budget.
+        if main_model is not None:
+            active_profile = main_model.get("active_profile") or {}
+            main_participant = _main_participant(budget, set(container_to_key))
+            runtimes.append({
+                "service_key": "main",
+                "container": main_participant.get("key") if main_participant else None,
+                "state": main_model.get("runtime_state", "active"),
+                "container_status": (
+                    ("running" if main_participant.get("active") else "stopped")
+                    if main_participant
+                    else "unknown"
+                ),
+                "vram_fraction": active_profile.get("vram_fraction"),
+                "gate": main_model.get("gate"),
+                "active_profile": active_profile.get("id"),
+            })
+        body: dict[str, Any] = {"runtimes": runtimes}
+        if budget is not None:
+            body["budget"] = {
+                "ceiling": budget.get("ceiling"),
+                "used": budget.get("used"),
+                "free": budget.get("free"),
+            }
+        return JSONResponse(body)
 
     _s = _GW[("PATCH", "/admin/runtimes/{service_key}")]
 
@@ -238,8 +295,13 @@ def build_router(
                 raise HTTPException(404, detail=f"runtime endpoint not found: {service_key}")
             container = _container_name(ep.base_url)
             await state_store.set(service_key, RuntimeState.starting)
+            force = bool(payload.get("force")) if isinstance(payload, dict) else False
             try:
-                started_containers = await sidecar.start(container)
+                started_containers = await sidecar.start(container, force=force)
+            except SidecarRequestError as exc:
+                # GPU-budget admission rejection: surface the status + eviction plan.
+                await state_store.set(service_key, RuntimeState.stopped)
+                raise HTTPException(exc.status_code, detail=exc.detail) from exc
             except SidecarUnavailableError as exc:
                 await state_store.set(service_key, RuntimeState.stopped)
                 raise HTTPException(503, detail=str(exc)) from exc
@@ -449,6 +511,97 @@ def build_router(
         client = await require_sidecar()
         try:
             return JSONResponse(await client.main_model_operation(operation_id))
+        except SidecarUnavailableError as exc:
+            raise HTTPException(503, detail=str(exc)) from exc
+
+    @router.post(
+        "/admin/main-model/stop",
+        dependencies=admin_dependencies,
+        tags=["Runtime Control"],
+        summary="메인 모델 정지",
+        operation_id="stopMainModel",
+        responses={
+            200: {
+                "description": "메인 런타임을 드레인 후 정지하고 VRAM을 회수합니다 (chat은 fail-closed).",
+                "content": {
+                    "application/json": {
+                        "example": {
+                            "action": "stop",
+                            "service": "main-llm-vllm",
+                            "runtime_state": "stopped",
+                        }
+                    }
+                },
+            },
+            503: {"description": "Admin Sidecar 연결 실패"},
+        },
+    )
+    async def stop_main_model() -> JSONResponse:
+        client = await require_sidecar()
+        try:
+            return JSONResponse(await client.main_stop())
+        except SidecarUnavailableError as exc:
+            raise HTTPException(503, detail=str(exc)) from exc
+
+    @router.post(
+        "/admin/main-model/start",
+        dependencies=admin_dependencies,
+        tags=["Runtime Control"],
+        summary="메인 모델 시작",
+        operation_id="startMainModel",
+        responses={
+            200: {
+                "description": "공유 GPU 예산 admission 후 메인 런타임을 시작·검증합니다.",
+                "content": {
+                    "application/json": {
+                        "example": {
+                            "action": "start",
+                            "service": "main-llm-vllm",
+                            "runtime_state": "active",
+                            "evicted": [],
+                        }
+                    }
+                },
+            },
+            409: {"description": "GPU 예산 초과: 정지 계획(plan.stop)을 반환합니다. force=true로 자동 축출."},
+            503: {"description": "Admin Sidecar 연결 실패"},
+        },
+        openapi_extra={
+            "requestBody": {
+                "required": False,
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": False,
+                            "properties": {
+                                "force": {
+                                    "type": "boolean",
+                                    "default": False,
+                                    "description": "예산 초과 시 우선순위가 낮은 보조 런타임을 자동 정지해 공간을 확보합니다.",
+                                }
+                            },
+                        },
+                        "examples": {
+                            "start": {"value": {}},
+                            "start_force": {"value": {"force": True}},
+                        },
+                    }
+                },
+            }
+        },
+    )
+    async def start_main_model(request: Request) -> JSONResponse:
+        try:
+            payload = await request.json()
+        except Exception:
+            payload = {}
+        force = bool(payload.get("force")) if isinstance(payload, dict) else False
+        client = await require_sidecar()
+        try:
+            return JSONResponse(await client.main_start(force=force))
+        except SidecarRequestError as exc:
+            raise HTTPException(exc.status_code, detail=exc.detail) from exc
         except SidecarUnavailableError as exc:
             raise HTTPException(503, detail=str(exc)) from exc
 

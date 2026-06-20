@@ -47,6 +47,9 @@ class MainModelProfile:
     command: tuple[str, ...]
     compatibility: dict[str, Any]
     capabilities: dict[str, Any]
+    # Fraction of total GPU VRAM this profile reserves (its
+    # --gpu-memory-utilization). Used by the shared GPU budget / admission planner.
+    vram_fraction: float = 0.9
 
     def public_view(self) -> dict[str, Any]:
         return {
@@ -57,6 +60,7 @@ class MainModelProfile:
             "revision": self.revision,
             "compatibility": self.compatibility,
             "capabilities": self.capabilities,
+            "vram_fraction": self.vram_fraction,
         }
 
 
@@ -66,6 +70,16 @@ class MainModelCatalog:
     default_profile: str
     runtime: dict[str, Any]
     profiles: dict[str, MainModelProfile]
+
+
+def _parse_gpu_fraction(command: list[str]) -> float:
+    """Extract --gpu-memory-utilization from a profile command (vLLM default 0.9)."""
+    if "--gpu-memory-utilization" in command:
+        try:
+            return float(command[command.index("--gpu-memory-utilization") + 1])
+        except (IndexError, ValueError):
+            pass
+    return 0.9
 
 
 def load_main_model_catalog(path: Path) -> MainModelCatalog:
@@ -118,6 +132,7 @@ def load_main_model_catalog(path: Path) -> MainModelCatalog:
             command=tuple(command),
             compatibility=dict(compatibility),
             capabilities=dict(item.get("capabilities", {})),
+            vram_fraction=_parse_gpu_fraction(command),
         )
     if default_profile not in profiles:
         raise MainModelConfigurationError("default_profile must reference a configured profile")
@@ -160,6 +175,7 @@ class MainModelStateStore:
             "last_known_good_profile": None,
             "previous_known_good_profile": None,
             "gate": "closed",
+            "runtime_state": "active",
             "last_operation": None,
             "operations": [],
             "stats": {
@@ -271,6 +287,9 @@ class MainModelRuntimeBackend(Protocol):
     async def wait_for_drain(self, timeout_seconds: float) -> None: ...
     async def replace(self, catalog: MainModelCatalog, profile: MainModelProfile) -> None: ...
     async def validate(self, catalog: MainModelCatalog, profile: MainModelProfile) -> None: ...
+    async def stop(self, catalog: MainModelCatalog) -> None: ...
+    async def start(self, catalog: MainModelCatalog) -> None: ...
+    async def is_running(self, catalog: MainModelCatalog) -> bool: ...
 
 
 class MainModelManager:
@@ -307,6 +326,7 @@ class MainModelManager:
             "last_known_good_profile": state.get("last_known_good_profile"),
             "previous_known_good_profile": state.get("previous_known_good_profile"),
             "gate": state.get("gate", "closed"),
+            "runtime_state": state.get("runtime_state", "active"),
             "profile_locked": self.profile_locked,
             "boot_profile": self.boot_profile,
             "last_operation": state.get("last_operation"),
@@ -328,7 +348,46 @@ class MainModelManager:
                 return operation
         return None
 
+    async def stop_main(self) -> None:
+        """Drain and stop the main runtime to reclaim its VRAM.
+
+        The gate closes (chat fails closed / 503) and the persisted runtime_state
+        becomes "stopped" so a later restart does not auto-start it.
+        """
+        async with self._lock:
+            self.state_store.update(lambda s: s.update(gate="closed"))
+            try:
+                await self.backend.wait_for_drain(
+                    float(self.catalog.runtime.get("drain_timeout_seconds", 30))
+                )
+            except Exception:  # noqa: BLE001 - deliberate stop proceeds even if drain times out
+                pass
+            await self.backend.stop(self.catalog)
+            self.state_store.update(lambda s: s.update(runtime_state="stopped"))
+
+    async def start_main(self) -> None:
+        """Start the (stopped) main runtime with its persisted profile and validate.
+
+        Admission against the shared GPU budget is the caller's responsibility.
+        """
+        async with self._lock:
+            await self.backend.start(self.catalog)
+            active_id = self.state_store.read().get("active_profile") or self.boot_profile
+            profile = self.catalog.profiles[active_id]
+            await self.backend.validate(self.catalog, profile)
+
+            def commit(state: dict[str, Any]) -> None:
+                state["runtime_state"] = "active"
+                state["gate"] = "open"
+
+            self.state_store.update(commit)
+
     async def initialize(self) -> None:
+        if self.state_store.read().get("runtime_state") == "stopped":
+            # Respect a deliberate operator stop across restarts: leave the main
+            # runtime down and the gate closed instead of reconciling it up.
+            self.state_store.update(lambda s: s.update(gate="closed"))
+            return
         observed = await self.backend.observed_profile(self.catalog)
         interrupted = self.state_store.read().get("last_operation")
         if interrupted and interrupted.get("status") not in _TERMINAL_STATES:
@@ -635,6 +694,7 @@ class MainModelManager:
             state["active_profile"] = target.profile_id
             state["last_known_good_profile"] = target.profile_id
             state["gate"] = "open"
+            state["runtime_state"] = "active"
         self.state_store.update(commit)
         self._set_operation(operation_id, "completed")
         self._record_terminal(operation_id, success=True)

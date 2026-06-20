@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import asyncio
+import base64
 import copy
+import io
 import json
 import os
+import wave
 from pathlib import Path
 from typing import Any
 
@@ -11,6 +14,20 @@ import httpx
 
 from .main_model_control import MainModelCatalog, MainModelProfile
 from .model_cache import prepare_model_snapshot
+
+
+def _silent_wav_canary_base64() -> str:
+    """A tiny valid mono 16 kHz PCM WAV (0.1 s silence) for the audio boot canary."""
+    buffer = io.BytesIO()
+    with wave.open(buffer, "wb") as writer:
+        writer.setnchannels(1)
+        writer.setsampwidth(2)
+        writer.setframerate(16000)
+        writer.writeframes(b"\x00\x00" * 1600)
+    return base64.b64encode(buffer.getvalue()).decode("ascii")
+
+
+_AUDIO_CANARY_WAV_B64 = _silent_wav_canary_base64()
 
 
 class DockerMainModelBackend:
@@ -77,6 +94,40 @@ class DockerMainModelBackend:
             response = await client.get(f"/containers/{container_id}/json", timeout=5)
             response.raise_for_status()
             return response.json()
+
+    async def is_running(self, catalog: MainModelCatalog) -> bool:
+        service = str(catalog.runtime["compose_service"])
+        container_id = await self._container_id(service)
+        if container_id is None:
+            return False
+        inspected = await self._inspect(container_id)
+        return inspected.get("State", {}).get("Status") == "running"
+
+    async def stop(self, catalog: MainModelCatalog) -> None:
+        """Stop (but keep) the main runtime container to reclaim its VRAM."""
+        service = str(catalog.runtime["compose_service"])
+        container_id = await self._container_id(service)
+        if container_id is None:
+            return
+        async with self._client() as client:
+            stopped = await client.post(
+                f"/containers/{container_id}/stop",
+                params={"t": int(catalog.runtime.get("stop_timeout_seconds", 30))},
+                timeout=40,
+            )
+            if stopped.status_code not in (204, 304):
+                stopped.raise_for_status()
+
+    async def start(self, catalog: MainModelCatalog) -> None:
+        """Start the existing (stopped) main runtime container with its profile."""
+        service = str(catalog.runtime["compose_service"])
+        container_id = await self._container_id(service)
+        if container_id is None:
+            raise RuntimeError("main runtime container not found to start")
+        async with self._client() as client:
+            started = await client.post(f"/containers/{container_id}/start", timeout=30)
+            if started.status_code not in (204, 304):
+                started.raise_for_status()
 
     async def observed_profile(self, catalog: MainModelCatalog) -> str | None:
         service = str(catalog.runtime["compose_service"])
@@ -264,3 +315,33 @@ class DockerMainModelBackend:
             choices = body.get("choices", [])
             if not choices or not choices[0].get("message", {}).get("content"):
                 raise RuntimeError("main runtime inference canary returned no content")
+            # Audio boot canary: only for profiles that actually deploy audio. This
+            # proves the runtime can decode and attend to an audio part before the
+            # gate opens, so an audio-advertised model that cannot serve audio fails
+            # validation (and rolls back) instead of 500-ing live audio requests.
+            if profile.capabilities.get("audio_enabled"):
+                audio_canary = await client.post(
+                    base + str(catalog.runtime["chat_path"]),
+                    json={
+                        "model": catalog.public_model,
+                        "messages": [
+                            {
+                                "role": "user",
+                                "content": [
+                                    {"type": "text", "text": "Reply with OK only."},
+                                    {
+                                        "type": "input_audio",
+                                        "input_audio": {"data": _AUDIO_CANARY_WAV_B64, "format": "wav"},
+                                    },
+                                ],
+                            }
+                        ],
+                        "max_tokens": 8,
+                        "temperature": 0,
+                    },
+                )
+                audio_canary.raise_for_status()
+                audio_body = audio_canary.json()
+                audio_choices = audio_body.get("choices", [])
+                if not audio_choices or not audio_choices[0].get("message", {}).get("content"):
+                    raise RuntimeError("main runtime audio canary returned no content")

@@ -15,6 +15,7 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 
 from ..docker_main_model_backend import DockerMainModelBackend
+from ..gpu_budget import Participant, budget_snapshot, plan_activation
 from ..main_model_control import (
     MainModelManager,
     MainModelStateError,
@@ -67,6 +68,22 @@ _START_PREREQUISITES: dict[str, list[str]] = {
     "embedding-ko-vllm": ["embedding-vllm"],
     "risk-prompt-vllm": ["embedding-vllm", "embedding-ko-vllm"],
 }
+
+# Per-secondary VRAM reservation (gpu_memory_utilization) from model_serving.yaml,
+# keyed by compose service name -- the cost side of the shared GPU budget.
+_VRAM_FRACTION: dict[str, float] = {
+    svc["endpoint"].split("//", 1)[1].split(":")[0]: float(svc["gpu_memory_utilization"])
+    for svc in _serving_cfg.get("models", {}).values()
+    if svc.get("backend") == "vllm"
+    and svc.get("endpoint")
+    and svc.get("gpu_memory_utilization") is not None
+    and svc["endpoint"].split("//", 1)[1].split(":")[0] in CONTROLLABLE
+}
+_GPU_BUDGET_CEILING = float((_serving_cfg.get("gpu_budget") or {}).get("ceiling", 0.95))
+# Priorities: the main model is highest and never auto-evicted; secondaries share
+# one evictable tier (largest-first to minimise how many get stopped).
+_MAIN_PRIORITY = 100
+_SECONDARY_PRIORITY = 50
 
 # ------------------------------------------------------------------ docker api
 
@@ -155,11 +172,89 @@ _main_model_manager = MainModelManager(
     boot_profile=MAIN_LLM_BOOT_PROFILE,
     profile_locked=MAIN_LLM_PROFILE_LOCKED,
 )
+_MAIN_SERVICE = str(_catalog.runtime["compose_service"])
 _initialization_error: str | None = None
 _initialized = asyncio.Event()
 # Hold strong references to background tasks so they are not garbage collected
 # mid-flight (asyncio only keeps weak references to scheduled tasks).
 _BACKGROUND_TASKS: set[asyncio.Task[Any]] = set()
+# Serializes GPU-budget admission decisions so two activations cannot both pass.
+_budget_lock = asyncio.Lock()
+
+
+async def _build_participants() -> list[Participant]:
+    """Current GPU-budget participants: secondaries + the main model."""
+    participants: list[Participant] = []
+    for service, fraction in _VRAM_FRACTION.items():
+        status = await _container_status(service)
+        participants.append(
+            Participant(
+                key=service,
+                vram_fraction=fraction,
+                active=(status == "running"),
+                priority=_SECONDARY_PRIORITY,
+                evictable=True,
+            )
+        )
+    snapshot = _main_model_manager.snapshot()
+    active_profile = snapshot.get("active_profile") or {}
+    main_fraction = float(active_profile.get("vram_fraction", 0.9))
+    main_status = await _container_status(_MAIN_SERVICE)
+    participants.append(
+        Participant(
+            key=_MAIN_SERVICE,
+            vram_fraction=main_fraction,
+            active=(main_status == "running"),
+            priority=_MAIN_PRIORITY,
+            evictable=False,
+        )
+    )
+    return participants
+
+
+async def _admit_or_raise(target_key: str, target_fraction: float, *, force: bool) -> list[str]:
+    """Admit an activation against the shared GPU budget.
+
+    Returns the list of victims stopped (empty if it already fit). Raises 409 with
+    a plan when it does not fit (and force is False) or is impossible.
+    """
+    participants = await _build_participants()
+    result = plan_activation(
+        participants, target_key, target_fraction, ceiling=_GPU_BUDGET_CEILING
+    )
+    if result.already_fits:
+        return []
+    if not result.feasible:
+        raise HTTPException(
+            409,
+            detail={
+                "code": "GPU_BUDGET_EXCEEDED",
+                "feasible": False,
+                "required": round(result.required, 4),
+                "available": round(result.available, 4),
+                "ceiling": result.ceiling,
+                "reason": result.reason,
+            },
+        )
+    if not force:
+        raise HTTPException(
+            409,
+            detail={
+                "code": "GPU_BUDGET_EXCEEDED",
+                "feasible": True,
+                "required": round(result.required, 4),
+                "available": round(result.available, 4),
+                "ceiling": result.ceiling,
+                "plan": {"stop": list(result.victims)},
+            },
+        )
+    stopped: list[str] = []
+    for victim in result.victims:
+        container_id = await _find_container_id(victim)
+        if container_id is not None:
+            await _do_stop(container_id)
+            stopped.append(victim)
+    return stopped
 
 
 async def _require_sidecar_token(authorization: str | None = Header(default=None)) -> None:
@@ -233,6 +328,13 @@ async def containers_status(authorization: str | None = Header(default=None)) ->
     return JSONResponse({"containers": statuses})
 
 
+@app.get("/gpu-budget")
+async def gpu_budget(authorization: str | None = Header(default=None)) -> JSONResponse:
+    await _require_sidecar_token(authorization)
+    participants = await _build_participants()
+    return JSONResponse(budget_snapshot(participants, ceiling=_GPU_BUDGET_CEILING))
+
+
 @app.get("/main-model")
 async def main_model(authorization: str | None = Header(default=None)) -> JSONResponse:
     await _require_sidecar_token(authorization)
@@ -261,12 +363,21 @@ async def switch_main_model(
     unknown = set(payload) - {"profile", "confirm_unverified", "request_id"}
     if unknown:
         raise HTTPException(422, detail=f"unsupported fields: {sorted(unknown)}")
+    profile_id = str(payload.get("profile", ""))
+    target_profile = _catalog.profiles.get(profile_id)
     try:
-        operation_id = _main_model_manager.request_switch(
-            str(payload.get("profile", "")),
-            confirm_unverified=payload.get("confirm_unverified") is True,
-            client_request_id=payload.get("request_id"),
-        )
+        async with _budget_lock:
+            # Refuse (with an eviction plan) if the target profile would oversubscribe
+            # the GPU. Switching to a same-or-smaller profile fits in the main slot;
+            # a larger one tells the operator what to stop first. (No auto-evict here:
+            # a profile change is deliberate, so freeing room is an explicit step.)
+            if target_profile is not None:
+                await _admit_or_raise(_MAIN_SERVICE, target_profile.vram_fraction, force=False)
+            operation_id = _main_model_manager.request_switch(
+                profile_id,
+                confirm_unverified=payload.get("confirm_unverified") is True,
+                client_request_id=payload.get("request_id"),
+            )
     except MainModelSwitchError as exc:
         raise HTTPException(
             exc.status_code,
@@ -309,6 +420,35 @@ async def main_model_operation(
     return JSONResponse(operation)
 
 
+@app.post("/main-model/stop")
+async def main_model_stop(authorization: str | None = Header(default=None)) -> JSONResponse:
+    """Drain and stop the main runtime to reclaim its VRAM (chat fails closed)."""
+    await _require_sidecar_token(authorization)
+    await _main_model_manager.stop_main()
+    return JSONResponse({"action": "stop", "service": _MAIN_SERVICE, "runtime_state": "stopped"})
+
+
+@app.post("/main-model/start")
+async def main_model_start(
+    force: bool = False,
+    authorization: str | None = Header(default=None),
+) -> JSONResponse:
+    """Admit against the GPU budget, then start and validate the main runtime."""
+    await _require_sidecar_token(authorization)
+    snapshot = _main_model_manager.snapshot()
+    active_profile = snapshot.get("active_profile") or {}
+    target_fraction = float(
+        active_profile.get("vram_fraction")
+        or _catalog.profiles[_main_model_manager.boot_profile].vram_fraction
+    )
+    async with _budget_lock:
+        evicted = await _admit_or_raise(_MAIN_SERVICE, target_fraction, force=force)
+        await _main_model_manager.start_main()
+    return JSONResponse(
+        {"action": "start", "service": _MAIN_SERVICE, "runtime_state": "active", "evicted": evicted}
+    )
+
+
 @app.post("/containers/{service}/stop")
 async def stop_container(
     service: str,
@@ -327,6 +467,7 @@ async def stop_container(
 @app.post("/containers/{service}/start")
 async def start_container(
     service: str,
+    force: bool = False,
     authorization: str | None = Header(default=None),
 ) -> JSONResponse:
     await _require_sidecar_token(authorization)
@@ -334,6 +475,21 @@ async def start_container(
         raise HTTPException(403, detail=f"not controllable: {service}")
 
     started: list[str] = []
+    evicted: list[str] = []
+
+    async with _budget_lock:
+        # Admit the whole set being brought up (service + any not-yet-running
+        # prerequisites) against the shared GPU budget before touching anything.
+        to_start = [
+            prereq
+            for prereq in _START_PREREQUISITES.get(service, [])
+            if await _container_status(prereq) != "running"
+        ]
+        if await _container_status(service) != "running":
+            to_start.append(service)
+        target_fraction = sum(_VRAM_FRACTION.get(svc, 0.0) for svc in to_start)
+        if target_fraction > 0:
+            evicted = await _admit_or_raise(service, target_fraction, force=force)
 
     # Start prerequisites in order (serial GPU memory profiling)
     for prereq in _START_PREREQUISITES.get(service, []):
@@ -357,4 +513,6 @@ async def start_container(
     await _do_start(container_id)
     started.append(service)
 
-    return JSONResponse({"action": "start", "service": service, "started": started})
+    return JSONResponse(
+        {"action": "start", "service": service, "started": started, "evicted": evicted}
+    )

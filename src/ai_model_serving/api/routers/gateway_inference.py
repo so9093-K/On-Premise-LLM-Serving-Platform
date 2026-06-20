@@ -15,6 +15,27 @@ from ...services.main_model_inflight import MainModelInFlight
 _GW = {(s.method, s.path): s for s in GATEWAY_ENDPOINTS}
 
 
+def _active_input_modalities(main_model: dict[str, Any]) -> tuple[str, ...] | None:
+    """Input modalities the *currently active* main-model profile actually serves.
+
+    Returned to the validation layer so accepted modalities track the running model
+    (e.g. an audio-capable profile) instead of a static registry value. None means
+    "use the static default" (no usable profile signal)."""
+    profile = main_model.get("active_profile")
+    if not isinstance(profile, dict):
+        return None
+    capabilities = profile.get("capabilities")
+    if not isinstance(capabilities, dict):
+        return None
+    deployed = capabilities.get("deployed_input")
+    # An empty/malformed list falls back to the static default rather than
+    # collapsing to "no modalities" (which would reject even plain text and break
+    # all chat on a misconfigured profile).
+    if not isinstance(deployed, list) or not deployed or not all(isinstance(item, str) for item in deployed):
+        return None
+    return tuple(deployed)
+
+
 def build_router(
     api_dependencies: list,
     service: Any,
@@ -66,6 +87,7 @@ def build_router(
         tracking = main_model_inflight.track() if main_model_inflight is not None else None
         if tracking is not None:
             await tracking.__aenter__()
+        active_modalities: tuple[str, ...] | None = None
         try:
             if sidecar is not None:
                 try:
@@ -94,13 +116,14 @@ def build_router(
                         status_code=503,
                         headers={"Retry-After": "5"},
                     )
+                active_modalities = _active_input_modalities(main_model)
         except Exception:
             if tracking is not None:
                 await tracking.__aexit__(None, None, None)
             raise
         if payload.get("stream") is True:
             try:
-                upstream_stream = service.stream_chat_completion(payload)
+                upstream_stream = service.stream_chat_completion(payload, active_modalities=active_modalities)
             except Exception:
                 if tracking is not None:
                     await tracking.__aexit__(None, None, None)
@@ -122,9 +145,9 @@ def build_router(
                 },
             )
         if tracking is None:
-            return await service.create_chat_completion(payload)
+            return await service.create_chat_completion(payload, active_modalities=active_modalities)
         try:
-            return await service.create_chat_completion(payload)
+            return await service.create_chat_completion(payload, active_modalities=active_modalities)
         finally:
             await tracking.__aexit__(None, None, None)
 
