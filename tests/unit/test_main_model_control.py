@@ -63,6 +63,34 @@ def catalog():
     return result
 
 
+def test_real_catalog_profile_views_are_json_serializable() -> None:
+    # The admin-sidecar GET /main-model serializes profile snapshots with the
+    # stdlib JSON encoder. A non-serializable value (e.g. an unquoted YAML date
+    # parsed as datetime.date) makes that endpoint return 500, which the Gateway
+    # reads as SidecarUnavailable and then 503s every main-model request — a
+    # deploy-breaking failure. Guard the shipped catalog directly.
+    loaded = load_main_model_catalog(ROOT / "configs/main_model_profiles.yaml")
+    for profile in loaded.profiles.values():
+        json.dumps(profile.public_view())
+
+
+def test_main_model_snapshot_serializes_through_endpoint_encoder(tmp_path) -> None:
+    # Covers the exact admin-sidecar /main-model serialization path: the endpoint
+    # returns jsonable_encoder(manager.snapshot()). This is the path that actually
+    # 500'd in production (a date in the active profile's compatibility block), and
+    # is the boundary the jsonable_encoder hardening protects. Built from the real
+    # shipped catalog so a regression in either the data or the encoding is caught.
+    from fastapi.encoders import jsonable_encoder
+
+    loaded = load_main_model_catalog(ROOT / "configs/main_model_profiles.yaml")
+    store = MainModelStateStore(tmp_path / "state.json", loaded.default_profile)
+    state = store.read()
+    state.update(active_profile=loaded.default_profile, gate="open")
+    store.write(state)
+    manager = MainModelManager(loaded, store, FakeBackend(loaded.default_profile))
+    json.dumps(jsonable_encoder(manager.snapshot()))
+
+
 def wait_for_operation(manager: MainModelManager, operation_id: str) -> dict:
     async def wait():
         for _ in range(100):

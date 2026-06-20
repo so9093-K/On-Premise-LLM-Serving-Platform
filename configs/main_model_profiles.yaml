@@ -27,7 +27,7 @@ profiles:
         vram_mib: 49140
         context_tokens: 20000
         concurrency: 1
-        validated_at: 2026-06-18
+        validated_at: "2026-06-18"
     capabilities:
       model_input: [text, image]
       deployed_input: [text, image]

@@ -184,8 +184,9 @@ wait_for_main_model_ready() {
   local url="$GATEWAY_BASE_URL/v1/chat/completions"
   local body='{"model":"local-main","messages":[{"role":"user","content":"ok"}],"max_tokens":1,"temperature":0}'
   local start=$SECONDS deadline=$((SECONDS + READY_FULL_MAIN_MODEL_TIMEOUT_SECONDS))
-  local attempt=0 code elapsed
-  local curl_args=(-sS --max-time 30 -o /dev/null -w '%{http_code}'
+  local attempt=0 code elapsed tmp detail
+  tmp="$(mktemp)"
+  local curl_args=(-sS --max-time 30 -o "$tmp" -w '%{http_code}'
     -H 'Content-Type: application/json' -d "$body")
   [[ -n "$API_KEY" ]] && curl_args+=(-H "Authorization: Bearer ${API_KEY}")
   echo "[ready-full] waiting for main-model gate to open (local-main chat, up to ${READY_FULL_MAIN_MODEL_TIMEOUT_SECONDS}s)..."
@@ -194,14 +195,23 @@ wait_for_main_model_ready() {
     code="$(curl "${curl_args[@]}" "$url" 2>/dev/null || true)"
     elapsed=$((SECONDS - start))
     if [[ "$code" == "200" ]]; then
+      rm -f "$tmp"
       echo "[ready-full] main-model chat serving (${elapsed}s, attempt ${attempt})"
       return 0
     fi
+    # Surface the gateway's error so failures are diagnosable inline. A
+    # MAIN_MODEL_CONTROL_UNAVAILABLE here means the gateway cannot read the gate
+    # from the admin-sidecar (e.g. the sidecar /main-model is erroring) — check the
+    # admin-sidecar logs in the diagnostics below. MAIN_MODEL_SWITCH_IN_PROGRESS
+    # means the gate is genuinely still reopening; keep waiting.
+    detail="$(tr '\n' ' ' < "$tmp" 2>/dev/null | cut -c1-300)"
     if (( SECONDS >= deadline )); then
-      echo "[ready-full] main-model chat not serving after ${READY_FULL_MAIN_MODEL_TIMEOUT_SECONDS}s (last HTTP ${code:-000}) — gate did not open" >&2
+      echo "[ready-full] main-model chat not serving after ${READY_FULL_MAIN_MODEL_TIMEOUT_SECONDS}s (last HTTP ${code:-000}): ${detail}" >&2
+      echo "[ready-full] gate did not open — inspect admin-sidecar logs in the diagnostics that follow" >&2
+      rm -f "$tmp"
       return 1
     fi
-    echo "[ready-full] main-model gate not open yet (HTTP ${code:-000}, ${elapsed}s), retrying in ${READY_FULL_INTERVAL_SECONDS}s..." >&2
+    echo "[ready-full] main-model gate not open yet (HTTP ${code:-000}, ${elapsed}s): ${detail}" >&2
     sleep "$READY_FULL_INTERVAL_SECONDS"
   done
 }

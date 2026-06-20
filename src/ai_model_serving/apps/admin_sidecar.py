@@ -11,6 +11,7 @@ import yaml
 
 import httpx
 from fastapi import FastAPI, Header, HTTPException
+from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 
 from ..docker_main_model_backend import DockerMainModelBackend
@@ -215,7 +216,11 @@ async def containers_status(authorization: str | None = Header(default=None)) ->
 async def main_model(authorization: str | None = Header(default=None)) -> JSONResponse:
     await _require_sidecar_token(authorization)
     try:
-        return JSONResponse(_main_model_manager.snapshot())
+        # jsonable_encoder coerces date/datetime (and other non-JSON-native types)
+        # to serializable forms. Without it a single date value in the profile
+        # catalog (e.g. an unquoted validated_at) makes this endpoint 500, which the
+        # Gateway reads as SidecarUnavailable and fails every main-model request.
+        return JSONResponse(jsonable_encoder(_main_model_manager.snapshot()))
     except MainModelStateError as exc:
         raise HTTPException(503, detail=str(exc)) from exc
 
@@ -223,7 +228,7 @@ async def main_model(authorization: str | None = Header(default=None)) -> JSONRe
 @app.get("/main-model/profiles")
 async def main_model_profiles(authorization: str | None = Header(default=None)) -> JSONResponse:
     await _require_sidecar_token(authorization)
-    return JSONResponse({"profiles": _main_model_manager.profiles()})
+    return JSONResponse(jsonable_encoder({"profiles": _main_model_manager.profiles()}))
 
 
 @app.post("/main-model/switch", status_code=202)
