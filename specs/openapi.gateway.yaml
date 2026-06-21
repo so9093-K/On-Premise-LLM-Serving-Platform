@@ -7225,16 +7225,22 @@ paths:
       tags:
       - Runtime Control
       summary: 런타임 상태 조회
-      description: '제어 가능한 vLLM 런타임(embedding, embedding_ko, risk_prompt)의 현재 상태를
-        반환합니다.
+      description: '공유 GPU 예산 위의 모든 vLLM 런타임(보조: embedding, embedding_ko, risk_prompt
+        + 메인 `local-main`)의 현재 상태와 VRAM 점유를 반환합니다.
 
 
         `state`: 런타임 상태 — `active`(서비스 중) / `stopped`(컨테이너 중지, VRAM 회수) / `starting`(전환
         중, 일시적).
 
 
-        `container_status`: 실제 Docker 컨테이너 상태(참고용). 상태 전환은 `PATCH /admin/runtimes/{service_key}`로
-        수행합니다.'
+        `vram_fraction`: 각 런타임의 GPU VRAM 점유율(gpu_memory_utilization).
+
+
+        `budget`: `{ceiling, used, free}` — 활성 런타임 점유율 합과 천장.
+
+
+        `container_status`: 실제 Docker 컨테이너 상태(참고용). 보조 전환은 `PATCH /admin/runtimes/{service_key}`,
+        메인 정지/시작은 `POST /admin/main-model/stop|start`로 수행합니다.'
       operationId: listRuntimes
       responses:
         '200':
@@ -7251,30 +7257,53 @@ paths:
                       container: embedding-vllm
                       state: active
                       container_status: running
+                      vram_fraction: 0.04
                     - service_key: embedding_ko
                       container: embedding-ko-vllm
                       state: active
                       container_status: running
+                      vram_fraction: 0.06
                     - service_key: risk_prompt
                       container: risk-prompt-vllm
                       state: active
                       container_status: running
+                      vram_fraction: 0.065
+                    - service_key: main
+                      container: main-llm-vllm
+                      state: active
+                      container_status: running
+                      vram_fraction: 0.76
+                      gate: open
+                      active_profile: gemma4-26b-a4b-fp8
+                    budget:
+                      ceiling: 0.95
+                      used: 0.925
+                      free: 0.025
                 mixed_state:
                   summary: 중지/시작 중 포함
                   value:
                     runtimes:
                     - service_key: embedding
                       container: embedding-vllm
-                      state: active
-                      container_status: running
-                    - service_key: embedding_ko
-                      container: embedding-ko-vllm
                       state: stopped
                       container_status: exited
+                      vram_fraction: 0.04
                     - service_key: risk_prompt
                       container: risk-prompt-vllm
-                      state: starting
-                      container_status: starting
+                      state: active
+                      container_status: running
+                      vram_fraction: 0.065
+                    - service_key: main
+                      container: main-llm-vllm
+                      state: stopped
+                      container_status: exited
+                      vram_fraction: 0.76
+                      gate: closed
+                      active_profile: gemma4-26b-a4b-fp8
+                    budget:
+                      ceiling: 0.95
+                      used: 0.065
+                      free: 0.885
         '401':
           description: Admin Bearer token 필요
           content:
@@ -7412,7 +7441,27 @@ paths:
                 detail: 'runtime endpoint not found: embedding_ko'
           description: Not Found
         '409':
-          description: 런타임이 전환 중입니다. 잠시 후 다시 시도하세요.
+          description: 런타임이 전환 중이거나 GPU 예산 초과(정지 계획 반환). force=true로 자동 축출.
+          content:
+            application/json:
+              examples:
+                budget_exceeded:
+                  summary: GPU 예산 초과 + 정지 계획
+                  value:
+                    detail:
+                      code: GPU_BUDGET_EXCEEDED
+                      feasible: true
+                      required: 0.76
+                      available: 0.025
+                      ceiling: 0.95
+                      plan:
+                        stop:
+                        - risk-prompt-vllm
+                        - embedding-ko-vllm
+                in_progress:
+                  summary: 전환 중
+                  value:
+                    detail: runtime is currently starting; wait and retry
         '503':
           content:
             application/json:
@@ -7917,6 +7966,11 @@ paths:
                   - active
                   - stopped
                   description: '목표 상태: active(서비스 시작) 또는 stopped(컨테이너 중지, VRAM 회수)'
+                force:
+                  type: boolean
+                  default: false
+                  description: active 전환 시 GPU 예산이 부족하면 우선순위가 낮은 런타임을 자동 정지해 공간을 확보합니다.
+                    기본값은 false로, 부족하면 409와 정지 계획을 반환합니다.
             examples:
               to_stopped:
                 summary: 중지 (VRAM 회수)
@@ -7926,6 +7980,11 @@ paths:
                 summary: 시작 (서비스 복구)
                 value:
                   desired_state: active
+              to_active_force:
+                summary: 시작 + 자동 축출
+                value:
+                  desired_state: active
+                  force: true
   /admin/main-model:
     get:
       tags:

@@ -489,9 +489,3 @@ streaming:
   max_duration_seconds: 300
   max_chunks: 20000
   max_bytes: 104857600
-
-# Shared GPU VRAM budget. All vLLM runtimes reserve a fraction of total VRAM
-# (their gpu_memory_utilization); the sum of active runtimes must stay under this
-# ceiling. The sidecar enforces admission against it; the gateway reports it.
-gpu_budget:
-  ceiling: 0.95

@@ -8,6 +8,7 @@ from fastapi.responses import JSONResponse
 
 from ..endpoint_spec import GATEWAY_ENDPOINTS
 from ...api_examples import (
+    RUNTIME_BUDGET_EXCEEDED_EXAMPLE,
     RUNTIME_ERROR_404_EXAMPLE,
     RUNTIME_ERROR_503_NO_SIDECAR_EXAMPLE,
     RUNTIME_ERROR_503_SIDECAR_UNAVAILABLE_EXAMPLE,
@@ -78,10 +79,12 @@ _MAIN_MODEL_STATUS_EXAMPLE = {
             "output": ["text"],
             "audio_enabled": False,
         },
+        "vram_fraction": 0.76,
     },
     "last_known_good_profile": "gemma4-26b-a4b-fp8",
     "previous_known_good_profile": None,
     "gate": "open",
+    "runtime_state": "active",
     "profile_locked": False,
     "boot_profile": "gemma4-26b-a4b-fp8",
     "last_operation": None,
@@ -100,12 +103,18 @@ _DESIRED_STATE_SCHEMA = {
                             "type": "string",
                             "enum": ["active", "stopped"],
                             "description": "목표 상태: active(서비스 시작) 또는 stopped(컨테이너 중지, VRAM 회수)",
-                        }
+                        },
+                        "force": {
+                            "type": "boolean",
+                            "default": False,
+                            "description": "active 전환 시 GPU 예산이 부족하면 우선순위가 낮은 런타임을 자동 정지해 공간을 확보합니다. 기본값은 false로, 부족하면 409와 정지 계획을 반환합니다.",
+                        },
                     },
                 },
                 "examples": {
                     "to_stopped": {"summary": "중지 (VRAM 회수)", "value": {"desired_state": "stopped"}},
                     "to_active": {"summary": "시작 (서비스 복구)", "value": {"desired_state": "active"}},
+                    "to_active_force": {"summary": "시작 + 자동 축출", "value": {"desired_state": "active", "force": True}},
                 },
             }
         },
@@ -267,7 +276,13 @@ def build_router(
                 "noop": {"summary": "이미 목표 상태 (no-op)", "value": RUNTIME_TRANSITION_NOOP_EXAMPLE},
             }}}},
             404: {"content": {"application/json": {"example": RUNTIME_ERROR_404_EXAMPLE}}},
-            409: {"description": "런타임이 전환 중입니다. 잠시 후 다시 시도하세요."},
+            409: {
+                "description": "런타임이 전환 중이거나 GPU 예산 초과(정지 계획 반환). force=true로 자동 축출.",
+                "content": {"application/json": {"examples": {
+                    "budget_exceeded": {"summary": "GPU 예산 초과 + 정지 계획", "value": RUNTIME_BUDGET_EXCEEDED_EXAMPLE},
+                    "in_progress": {"summary": "전환 중", "value": {"detail": "runtime is currently starting; wait and retry"}},
+                }}},
+            },
             503: {"content": {"application/json": {"examples": {
                 "no_sidecar": {"summary": "sidecar 미설정", "value": RUNTIME_ERROR_503_NO_SIDECAR_EXAMPLE},
                 "sidecar_unavailable": {"summary": "sidecar 연결 실패", "value": RUNTIME_ERROR_503_SIDECAR_UNAVAILABLE_EXAMPLE},
@@ -563,7 +578,10 @@ def build_router(
                     }
                 },
             },
-            409: {"description": "GPU 예산 초과: 정지 계획(plan.stop)을 반환합니다. force=true로 자동 축출."},
+            409: {
+                "description": "GPU 예산 초과: 정지 계획(plan.stop)을 반환합니다. force=true로 자동 축출.",
+                "content": {"application/json": {"example": RUNTIME_BUDGET_EXCEEDED_EXAMPLE}},
+            },
             503: {"description": "Admin Sidecar 연결 실패"},
         },
         openapi_extra={

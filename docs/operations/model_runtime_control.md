@@ -67,7 +67,57 @@ fallback하지 않고 기동을 중단한다.
 조합의 GPU boot/Text/Image parity 전에는 24 GiB 호환이나 production-ready를
 의미하지 않는다. Google은 12B 모델의 audio capability를 문서화하지만,
 현재 Gateway와 고정 vLLM 이미지의 audio 계약은 검증되지 않았으므로 제품
-입력은 text/image로 제한한다.
+입력은 text/image로 제한한다. audio 입력 기계장치(프로필별 동적 모달리티,
+`input_audio` 검증기, audio canary)는 휴면 상태로 들어가 있으며, 활성화 절차와
+audio 런타임 이미지는 `ops/images/vllm-gemma4-audio/README.md`에 문서화돼 있다.
+
+## 메인 모델 정지/시작 (VRAM 회수)
+
+메인 모델도 보조 런타임처럼 정지해 VRAM을 회수할 수 있다. 정지는 gate를 닫고
+진행 중 요청을 drain한 뒤 컨테이너를 내린다(같은 프로필 재시작이 빠르도록 제거하지
+않는다). 정지 상태(`runtime_state=stopped`)는 영속되어 재시작 시에도 자동으로 다시
+올리지 않는다. 프로필 교체는 기존 `switch`를 그대로 사용한다.
+
+```bash
+# 정지 (드레인 후 VRAM 회수, 신규 chat은 503으로 fail-closed)
+curl -X POST -H "Authorization: Bearer $ADMIN_API_KEY" \
+  http://127.0.0.1:9400/admin/main-model/stop
+
+# 시작 (GPU 예산 admission 후 기동·검증; 예산 부족 시 force=true)
+curl -X POST -H "Authorization: Bearer $ADMIN_API_KEY" \
+  -H "Content-Type: application/json" -d '{"force": false}' \
+  http://127.0.0.1:9400/admin/main-model/start
+```
+
+## 공유 GPU 예산과 admission
+
+모든 vLLM 런타임(보조 + 메인)은 하나의 GPU VRAM 예산을 공유한다. 각 런타임은
+`gpu_memory_utilization`만큼 VRAM을 예약하며, 활성 런타임 점유율의 합은 천장을
+넘을 수 없다. 천장과 모델별 점유율의 단일 원천은 `configs/gpu_budgets.yaml`이며
+(`gpu.total_gpu_memory_utilization.avoid_above`, 현재 0.93), 현재 4개 모델 합은
+0.925다. `GET /admin/runtimes`는 보조와 메인을 한 번에 보여주고
+`budget {ceiling, used, free}`를 함께 반환한다.
+
+```bash
+curl -H "Authorization: Bearer $ADMIN_API_KEY" \
+  http://127.0.0.1:9400/admin/runtimes
+```
+
+런타임을 올릴 때 예산을 초과하면 자동으로 다른 모델을 내리지 않고 `409`와 정지
+계획을 반환한다.
+
+```json
+{"detail": {"code": "GPU_BUDGET_EXCEEDED", "feasible": true,
+  "required": 0.85, "available": 0.765, "ceiling": 0.93,
+  "plan": {"stop": ["risk-prompt-vllm", "embedding-ko-vllm"]}}}
+```
+
+계획대로 직접 정지한 뒤 다시 시도하거나, 보조 시작/메인 시작은 `force=true`로
+우선순위가 낮은 런타임을 자동 축출할 수 있다. 메인은 다른 모델을 위해 절대 자동
+축출되지 않는다(최고 우선순위).
+
+단일 GPU에서 26B(0.76)와 12B(0.76)를 동시에 올릴 수 없으므로, 12B를 검증하려면
+먼저 메인을 정지(또는 교체)해 자리를 비워야 한다 — 위 절차가 이를 안전하게 수행한다.
 
 ## 제어 지점
 

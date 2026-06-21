@@ -79,7 +79,20 @@ _VRAM_FRACTION: dict[str, float] = {
     and svc.get("gpu_memory_utilization") is not None
     and svc["endpoint"].split("//", 1)[1].split(":")[0] in CONTROLLABLE
 }
-_GPU_BUDGET_CEILING = float((_serving_cfg.get("gpu_budget") or {}).get("ceiling", 0.95))
+# Canonical GPU VRAM budget lives in configs/gpu_budgets.yaml (single source of
+# truth, also consumed by modelctl/runtime_validation). The admission ceiling is
+# its policy "avoid_above" fraction.
+_gpu_budgets_path = APP_CONFIG_ROOT / "configs/gpu_budgets.yaml"
+_gpu_budgets_cfg = (
+    yaml.safe_load(_gpu_budgets_path.read_text(encoding="utf-8"))
+    if _gpu_budgets_path.exists()
+    else {}
+)
+_GPU_BUDGET_CEILING = float(
+    ((_gpu_budgets_cfg.get("gpu") or {}).get("total_gpu_memory_utilization") or {}).get(
+        "avoid_above", 0.95
+    )
+)
 # Priorities: the main model is highest and never auto-evicted; secondaries share
 # one evictable tier (largest-first to minimise how many get stopped).
 _MAIN_PRIORITY = 100
@@ -198,7 +211,10 @@ async def _build_participants() -> list[Participant]:
         )
     snapshot = _main_model_manager.snapshot()
     active_profile = snapshot.get("active_profile") or {}
-    main_fraction = float(active_profile.get("vram_fraction", 0.9))
+    # Fall back to the boot profile's reservation (not a generic 0.9) when no active
+    # profile is recorded yet, so the ledger reflects the real main-model cost.
+    _boot_fraction = _catalog.profiles[_main_model_manager.boot_profile].vram_fraction
+    main_fraction = float(active_profile.get("vram_fraction") or _boot_fraction)
     main_status = await _container_status(_MAIN_SERVICE)
     participants.append(
         Participant(

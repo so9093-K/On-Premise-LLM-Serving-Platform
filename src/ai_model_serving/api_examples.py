@@ -460,20 +460,33 @@ RUNTIME_LIST_RESPONSE_EXAMPLE: dict[str, Any] = {
             "container": "embedding-vllm",
             "state": "active",
             "container_status": "running",
+            "vram_fraction": 0.04,
         },
         {
             "service_key": "embedding_ko",
             "container": "embedding-ko-vllm",
             "state": "active",
             "container_status": "running",
+            "vram_fraction": 0.06,
         },
         {
             "service_key": "risk_prompt",
             "container": "risk-prompt-vllm",
             "state": "active",
             "container_status": "running",
+            "vram_fraction": 0.065,
         },
-    ]
+        {
+            "service_key": "main",
+            "container": "main-llm-vllm",
+            "state": "active",
+            "container_status": "running",
+            "vram_fraction": 0.76,
+            "gate": "open",
+            "active_profile": "gemma4-26b-a4b-fp8",
+        },
+    ],
+    "budget": {"ceiling": 0.93, "used": 0.925, "free": 0.005},
 }
 
 RUNTIME_LIST_MIXED_STATE_EXAMPLE: dict[str, Any] = {
@@ -481,22 +494,28 @@ RUNTIME_LIST_MIXED_STATE_EXAMPLE: dict[str, Any] = {
         {
             "service_key": "embedding",
             "container": "embedding-vllm",
-            "state": "active",
-            "container_status": "running",
-        },
-        {
-            "service_key": "embedding_ko",
-            "container": "embedding-ko-vllm",
             "state": "stopped",
             "container_status": "exited",
+            "vram_fraction": 0.04,
         },
         {
             "service_key": "risk_prompt",
             "container": "risk-prompt-vllm",
-            "state": "starting",
-            "container_status": "starting",
+            "state": "active",
+            "container_status": "running",
+            "vram_fraction": 0.065,
         },
-    ]
+        {
+            "service_key": "main",
+            "container": "main-llm-vllm",
+            "state": "stopped",
+            "container_status": "exited",
+            "vram_fraction": 0.76,
+            "gate": "closed",
+            "active_profile": "gemma4-26b-a4b-fp8",
+        },
+    ],
+    "budget": {"ceiling": 0.93, "used": 0.065, "free": 0.865},
 }
 
 RUNTIME_TRANSITION_TO_STOPPED_EXAMPLE: dict[str, Any] = {
@@ -531,6 +550,20 @@ RUNTIME_TRANSITION_NOOP_EXAMPLE: dict[str, Any] = {
 
 RUNTIME_ERROR_404_EXAMPLE: dict[str, Any] = {
     "detail": "runtime endpoint not found: embedding_ko",
+}
+
+# Illustrative: activating a runtime that does not fit (e.g. switching main to a
+# larger profile). Secondaries are active (0.165); ceiling 0.93 leaves 0.765 for
+# main, short of 0.85, so the response lists what to stop first.
+RUNTIME_BUDGET_EXCEEDED_EXAMPLE: dict[str, Any] = {
+    "detail": {
+        "code": "GPU_BUDGET_EXCEEDED",
+        "feasible": True,
+        "required": 0.85,
+        "available": 0.765,
+        "ceiling": 0.93,
+        "plan": {"stop": ["risk-prompt-vllm", "embedding-ko-vllm"]},
+    }
 }
 
 RUNTIME_ERROR_503_NO_SIDECAR_EXAMPLE: dict[str, Any] = {
