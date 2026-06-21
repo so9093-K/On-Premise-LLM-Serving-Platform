@@ -225,12 +225,15 @@ def build_router(
             container = item["container"]
             state = gateway_states.get(sk, RuntimeState.active).value
             c_status = container_statuses.get(container, "unknown")
+            sk_participant = _budget_participant(budget, container)
             runtimes.append({
                 "service_key": sk,
                 "container": container,
                 "state": state,
                 "container_status": c_status,
                 "vram_fraction": _budget_fraction(budget, container),
+                # role this runtime serves; what an eviction here would degrade
+                "criticality": (sk_participant or {}).get("criticality"),
             })
         # The main chat model is a first-class participant in the shared GPU budget.
         if main_model is not None:
@@ -246,6 +249,7 @@ def build_router(
                     else "unknown"
                 ),
                 "vram_fraction": active_profile.get("vram_fraction"),
+                "criticality": (main_participant or {}).get("criticality", "primary_user_path"),
                 "gate": main_model.get("gate"),
                 "active_profile": active_profile.get("id"),
             })
@@ -269,11 +273,14 @@ def build_router(
         description=_s.description,
         responses={
             200: {"content": {"application/json": {"examples": {
-                "to_stopped": {"summary": "중지 (VRAM 회수)", "value": RUNTIME_TRANSITION_TO_STOPPED_EXAMPLE},
-                "to_stopped_prereq": {"summary": "중지 — 선행 컨테이너 포함", "value": RUNTIME_TRANSITION_TO_STOPPED_WITH_PREREQ_EXAMPLE},
-                "to_active": {"summary": "시작 (서비스 복구)", "value": RUNTIME_TRANSITION_TO_ACTIVE_EXAMPLE},
-                "to_active_prereq": {"summary": "시작 — 선행 컨테이너 포함", "value": RUNTIME_TRANSITION_TO_ACTIVE_WITH_PREREQ_EXAMPLE},
+                "to_stopped": {"summary": "보조 중지 (VRAM 회수)", "value": RUNTIME_TRANSITION_TO_STOPPED_EXAMPLE},
+                "to_stopped_prereq": {"summary": "보조 중지 — 선행 컨테이너 포함", "value": RUNTIME_TRANSITION_TO_STOPPED_WITH_PREREQ_EXAMPLE},
+                "to_active": {"summary": "보조 시작 (서비스 복구)", "value": RUNTIME_TRANSITION_TO_ACTIVE_EXAMPLE},
+                "to_active_prereq": {"summary": "보조 시작 — 선행 컨테이너 포함", "value": RUNTIME_TRANSITION_TO_ACTIVE_WITH_PREREQ_EXAMPLE},
                 "noop": {"summary": "이미 목표 상태 (no-op)", "value": RUNTIME_TRANSITION_NOOP_EXAMPLE},
+                "main_stopped": {"summary": "메인 정지 (key=main, VRAM 회수)", "value": {"service_key": "main", "state": "stopped", "evicted": []}},
+                "main_active": {"summary": "메인 시작 (key=main)", "value": {"service_key": "main", "state": "active", "evicted": []}},
+                "main_active_force": {"summary": "메인 시작 + 보조 축출 (force)", "value": {"service_key": "main", "state": "active", "evicted": ["risk-prompt-vllm", "embedding-ko-vllm"]}},
             }}}},
             404: {"content": {"application/json": {"example": RUNTIME_ERROR_404_EXAMPLE}}},
             409: {
@@ -292,12 +299,35 @@ def build_router(
         openapi_extra=_DESIRED_STATE_SCHEMA,
     )
     async def transition_runtime(service_key: str, request: Request) -> JSONResponse:
-        _validate_service_key(service_key)
         payload = await request.json()
         desired_state = payload.get("desired_state") if isinstance(payload, dict) else None
         if desired_state not in ("active", "stopped"):
             raise HTTPException(422, detail="desired_state must be 'active' or 'stopped'")
+        force = bool(payload.get("force")) if isinstance(payload, dict) else False
 
+        # The main chat model is a budget participant in the same fleet, so it is
+        # stopped/started through the same desired_state verb. Its profile change
+        # remains the main-only POST /admin/main-model/switch. The drain/gate/canary
+        # semantics live in the sidecar; here we just dispatch.
+        if service_key == "main":
+            if sidecar is None:
+                raise HTTPException(503, detail="admin sidecar is not configured (ADMIN_SIDECAR_URL missing)")
+            try:
+                if desired_state == "active":
+                    result = await sidecar.main_start(force=force)
+                else:
+                    result = await sidecar.main_stop()
+            except SidecarRequestError as exc:  # GPU-budget admission rejection
+                raise HTTPException(exc.status_code, detail=exc.detail) from exc
+            except SidecarUnavailableError as exc:
+                raise HTTPException(503, detail=str(exc)) from exc
+            return JSONResponse({
+                "service_key": "main",
+                "state": result.get("runtime_state", desired_state),
+                "evicted": result.get("evicted", []),
+            })
+
+        _validate_service_key(service_key)
         current_state = await state_store.get(service_key)
 
         if desired_state == "active":
@@ -310,7 +340,6 @@ def build_router(
                 raise HTTPException(404, detail=f"runtime endpoint not found: {service_key}")
             container = _container_name(ep.base_url)
             await state_store.set(service_key, RuntimeState.starting)
-            force = bool(payload.get("force")) if isinstance(payload, dict) else False
             try:
                 started_containers = await sidecar.start(container, force=force)
             except SidecarRequestError as exc:
@@ -369,7 +398,30 @@ def build_router(
             200: {
                 "description": "현재 main-model 상태",
                 "content": {
-                    "application/json": {"example": _MAIN_MODEL_STATUS_EXAMPLE}
+                    "application/json": {"examples": {
+                        "active": {
+                            "summary": "서비스 중 (gate open)",
+                            "value": _MAIN_MODEL_STATUS_EXAMPLE,
+                        },
+                        "stopped": {
+                            "summary": "정지됨 (VRAM 회수, gate closed)",
+                            "value": {**_MAIN_MODEL_STATUS_EXAMPLE, "gate": "closed", "runtime_state": "stopped"},
+                        },
+                        "switch_in_progress": {
+                            "summary": "전환 중 (gate closed, 작업 진행)",
+                            "value": {
+                                **_MAIN_MODEL_STATUS_EXAMPLE,
+                                "gate": "closed",
+                                "last_operation": {
+                                    "id": "8f3c2b10-0000-4000-8000-000000000001",
+                                    "requested_profile": "gemma4-12b-unified-fp8",
+                                    "previous_profile": "gemma4-26b-a4b-fp8",
+                                    "status": "validating",
+                                    "stage": "validating",
+                                },
+                            },
+                        },
+                    }}
                 },
             },
             503: {"description": "Admin Sidecar 연결 또는 상태 파일 오류"},
@@ -474,12 +526,20 @@ def build_router(
                         },
                         "examples": {
                             "switch_to_12b": {
+                                "summary": "12B로 전환 (unverified → 확인 필요)",
                                 "value": {
                                     "profile": "gemma4-12b-unified-fp8",
                                     "confirm_unverified": True,
                                     "request_id": "ops-20260618-12b",
-                                }
-                            }
+                                },
+                            },
+                            "switch_to_26b": {
+                                "summary": "26B로 복귀 (verified)",
+                                "value": {
+                                    "profile": "gemma4-26b-a4b-fp8",
+                                    "request_id": "ops-20260618-26b",
+                                },
+                            },
                         },
                     }
                 },
@@ -529,98 +589,9 @@ def build_router(
         except SidecarUnavailableError as exc:
             raise HTTPException(503, detail=str(exc)) from exc
 
-    @router.post(
-        "/admin/main-model/stop",
-        dependencies=admin_dependencies,
-        tags=["Runtime Control"],
-        summary="메인 모델 정지",
-        operation_id="stopMainModel",
-        responses={
-            200: {
-                "description": "메인 런타임을 드레인 후 정지하고 VRAM을 회수합니다 (chat은 fail-closed).",
-                "content": {
-                    "application/json": {
-                        "example": {
-                            "action": "stop",
-                            "service": "main-llm-vllm",
-                            "runtime_state": "stopped",
-                        }
-                    }
-                },
-            },
-            503: {"description": "Admin Sidecar 연결 실패"},
-        },
-    )
-    async def stop_main_model() -> JSONResponse:
-        client = await require_sidecar()
-        try:
-            return JSONResponse(await client.main_stop())
-        except SidecarUnavailableError as exc:
-            raise HTTPException(503, detail=str(exc)) from exc
-
-    @router.post(
-        "/admin/main-model/start",
-        dependencies=admin_dependencies,
-        tags=["Runtime Control"],
-        summary="메인 모델 시작",
-        operation_id="startMainModel",
-        responses={
-            200: {
-                "description": "공유 GPU 예산 admission 후 메인 런타임을 시작·검증합니다.",
-                "content": {
-                    "application/json": {
-                        "example": {
-                            "action": "start",
-                            "service": "main-llm-vllm",
-                            "runtime_state": "active",
-                            "evicted": [],
-                        }
-                    }
-                },
-            },
-            409: {
-                "description": "GPU 예산 초과: 정지 계획(plan.stop)을 반환합니다. force=true로 자동 축출.",
-                "content": {"application/json": {"example": RUNTIME_BUDGET_EXCEEDED_EXAMPLE}},
-            },
-            503: {"description": "Admin Sidecar 연결 실패"},
-        },
-        openapi_extra={
-            "requestBody": {
-                "required": False,
-                "content": {
-                    "application/json": {
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": False,
-                            "properties": {
-                                "force": {
-                                    "type": "boolean",
-                                    "default": False,
-                                    "description": "예산 초과 시 우선순위가 낮은 보조 런타임을 자동 정지해 공간을 확보합니다.",
-                                }
-                            },
-                        },
-                        "examples": {
-                            "start": {"value": {}},
-                            "start_force": {"value": {"force": True}},
-                        },
-                    }
-                },
-            }
-        },
-    )
-    async def start_main_model(request: Request) -> JSONResponse:
-        try:
-            payload = await request.json()
-        except Exception:
-            payload = {}
-        force = bool(payload.get("force")) if isinstance(payload, dict) else False
-        client = await require_sidecar()
-        try:
-            return JSONResponse(await client.main_start(force=force))
-        except SidecarRequestError as exc:
-            raise HTTPException(exc.status_code, detail=exc.detail) from exc
-        except SidecarUnavailableError as exc:
-            raise HTTPException(503, detail=str(exc)) from exc
+    # Main stop/start are NOT separate endpoints: the main model is a budget
+    # participant and is stopped/started through the uniform fleet verb
+    # PATCH /admin/runtimes/main {desired_state}. Only the main-specific profile
+    # change (switch) lives under /admin/main-model.
 
     return router

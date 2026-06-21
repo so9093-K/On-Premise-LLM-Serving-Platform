@@ -461,6 +461,7 @@ RUNTIME_LIST_RESPONSE_EXAMPLE: dict[str, Any] = {
             "state": "active",
             "container_status": "running",
             "vram_fraction": 0.04,
+            "criticality": "retrieval_support_path",
         },
         {
             "service_key": "embedding_ko",
@@ -468,6 +469,7 @@ RUNTIME_LIST_RESPONSE_EXAMPLE: dict[str, Any] = {
             "state": "active",
             "container_status": "running",
             "vram_fraction": 0.06,
+            "criticality": "retrieval_support_path",
         },
         {
             "service_key": "risk_prompt",
@@ -475,6 +477,7 @@ RUNTIME_LIST_RESPONSE_EXAMPLE: dict[str, Any] = {
             "state": "active",
             "container_status": "running",
             "vram_fraction": 0.065,
+            "criticality": "risk_signal_path",
         },
         {
             "service_key": "main",
@@ -482,6 +485,7 @@ RUNTIME_LIST_RESPONSE_EXAMPLE: dict[str, Any] = {
             "state": "active",
             "container_status": "running",
             "vram_fraction": 0.76,
+            "criticality": "primary_user_path",
             "gate": "open",
             "active_profile": "gemma4-26b-a4b-fp8",
         },
@@ -497,6 +501,7 @@ RUNTIME_LIST_MIXED_STATE_EXAMPLE: dict[str, Any] = {
             "state": "stopped",
             "container_status": "exited",
             "vram_fraction": 0.04,
+            "criticality": "retrieval_support_path",
         },
         {
             "service_key": "risk_prompt",
@@ -504,6 +509,7 @@ RUNTIME_LIST_MIXED_STATE_EXAMPLE: dict[str, Any] = {
             "state": "active",
             "container_status": "running",
             "vram_fraction": 0.065,
+            "criticality": "risk_signal_path",
         },
         {
             "service_key": "main",
@@ -511,6 +517,7 @@ RUNTIME_LIST_MIXED_STATE_EXAMPLE: dict[str, Any] = {
             "state": "stopped",
             "container_status": "exited",
             "vram_fraction": 0.76,
+            "criticality": "primary_user_path",
             "gate": "closed",
             "active_profile": "gemma4-26b-a4b-fp8",
         },

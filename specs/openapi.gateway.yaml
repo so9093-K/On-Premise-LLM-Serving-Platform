@@ -7239,8 +7239,8 @@ paths:
         `budget`: `{ceiling, used, free}` — 활성 런타임 점유율 합과 천장.
 
 
-        `container_status`: 실제 Docker 컨테이너 상태(참고용). 보조 전환은 `PATCH /admin/runtimes/{service_key}`,
-        메인 정지/시작은 `POST /admin/main-model/stop|start`로 수행합니다.'
+        `container_status`: 실제 Docker 컨테이너 상태(참고용). 정지/시작은 보조·메인 모두 `PATCH /admin/runtimes/{service_key}`(메인은
+        `service_key=main`)로, 메인 프로필 교체만 `POST /admin/main-model/switch`로 수행합니다.'
       operationId: listRuntimes
       responses:
         '200':
@@ -7276,9 +7276,9 @@ paths:
                       gate: open
                       active_profile: gemma4-26b-a4b-fp8
                     budget:
-                      ceiling: 0.95
+                      ceiling: 0.93
                       used: 0.925
-                      free: 0.025
+                      free: 0.005
                 mixed_state:
                   summary: 중지/시작 중 포함
                   value:
@@ -7301,9 +7301,9 @@ paths:
                       gate: closed
                       active_profile: gemma4-26b-a4b-fp8
                     budget:
-                      ceiling: 0.95
+                      ceiling: 0.93
                       used: 0.065
-                      free: 0.885
+                      free: 0.865
         '401':
           description: Admin Bearer token 필요
           content:
@@ -7371,7 +7371,8 @@ paths:
       tags:
       - Runtime Control
       summary: 런타임 상태 전환
-      description: '`desired_state`에 지정한 목표 상태로 런타임을 전환합니다.
+      description: '`desired_state`에 지정한 목표 상태로 런타임을 전환합니다. `service_key`는 보조 런타임(embedding,
+        embedding_ko, risk_prompt)과 메인 모델(`main`)을 모두 받습니다 — 함대 전체를 같은 동사로 제어합니다.
 
 
         - **`active`** — 컨테이너를 시작하고 gateway 라우팅을 복구합니다. 이미 `active`면 no-op.
@@ -7379,8 +7380,12 @@ paths:
         - **`stopped`** — 컨테이너를 중지하고 GPU VRAM을 회수합니다. 이미 `stopped`면 no-op.
 
 
-        전환 중(`starting`) 상태에서 `stopped`를 요청하면 409를 반환합니다. Scalar UI 드롭다운에서 선택 후 Execute만
-        누르면 됩니다.'
+        `main`은 정지 시 드레인 후 gate를 닫고, 시작 시 GPU 예산 admission과 canary 검증을 거칩니다(프로필 교체는
+        `POST /admin/main-model/switch`).
+
+
+        GPU 예산을 초과하면 409와 정지 계획(`plan.stop`)을 반환하며, `force: true`로 우선순위 낮은 보조를 자동 축출할
+        수 있습니다. Scalar UI 드롭다운에서 선택 후 Execute만 누르면 됩니다.'
       operationId: transitionRuntime
       security:
       - adminBearerAuth: []
@@ -7399,14 +7404,14 @@ paths:
               schema: {}
               examples:
                 to_stopped:
-                  summary: 중지 (VRAM 회수)
+                  summary: 보조 중지 (VRAM 회수)
                   value:
                     service_key: embedding_ko
                     state: stopped
                     containers_stopped:
                     - embedding-ko-vllm
                 to_stopped_prereq:
-                  summary: 중지 — 선행 컨테이너 포함
+                  summary: 보조 중지 — 선행 컨테이너 포함
                   value:
                     service_key: risk_prompt
                     state: stopped
@@ -7414,14 +7419,14 @@ paths:
                     - risk-prompt-vllm
                     - embedding-vllm
                 to_active:
-                  summary: 시작 (서비스 복구)
+                  summary: 보조 시작 (서비스 복구)
                   value:
                     service_key: embedding_ko
                     state: active
                     containers_started:
                     - embedding-ko-vllm
                 to_active_prereq:
-                  summary: 시작 — 선행 컨테이너 포함
+                  summary: 보조 시작 — 선행 컨테이너 포함
                   value:
                     service_key: risk_prompt
                     state: active
@@ -7434,6 +7439,26 @@ paths:
                     service_key: embedding
                     state: active
                     changed: false
+                main_stopped:
+                  summary: 메인 정지 (key=main, VRAM 회수)
+                  value:
+                    service_key: main
+                    state: stopped
+                    evicted: []
+                main_active:
+                  summary: 메인 시작 (key=main)
+                  value:
+                    service_key: main
+                    state: active
+                    evicted: []
+                main_active_force:
+                  summary: 메인 시작 + 보조 축출 (force)
+                  value:
+                    service_key: main
+                    state: active
+                    evicted:
+                    - risk-prompt-vllm
+                    - embedding-ko-vllm
         '404':
           content:
             application/json:
@@ -7451,9 +7476,9 @@ paths:
                     detail:
                       code: GPU_BUDGET_EXCEEDED
                       feasible: true
-                      required: 0.76
-                      available: 0.025
-                      ceiling: 0.95
+                      required: 0.85
+                      available: 0.765
+                      ceiling: 0.93
                       plan:
                         stop:
                         - risk-prompt-vllm
@@ -7997,31 +8022,100 @@ paths:
           content:
             application/json:
               schema: {}
-              example:
-                public_model: local-main
-                active_profile:
-                  id: gemma4-26b-a4b-fp8
-                  display_name: Gemma 4 26B A4B FP8
-                  served_model_name: local-main
-                  upstream_model_id: RedHatAI/gemma-4-26B-A4B-it-FP8-Dynamic
-                  revision: 8edbb9269ec9c3faad538ee1208a07eb46051f34
-                  compatibility:
-                    status: verified
-                    reasons: []
-                  capabilities:
-                    model_input:
-                    - text
-                    - image
-                    deployed_input:
-                    - text
-                    - image
-                    output:
-                    - text
-                    audio_enabled: false
-                last_known_good_profile: gemma4-26b-a4b-fp8
-                gate: open
-                profile_locked: false
-                boot_profile: gemma4-26b-a4b-fp8
+              examples:
+                active:
+                  summary: 서비스 중 (gate open)
+                  value:
+                    public_model: local-main
+                    active_profile:
+                      id: gemma4-26b-a4b-fp8
+                      display_name: Gemma 4 26B A4B FP8
+                      served_model_name: local-main
+                      upstream_model_id: RedHatAI/gemma-4-26B-A4B-it-FP8-Dynamic
+                      revision: 8edbb9269ec9c3faad538ee1208a07eb46051f34
+                      compatibility:
+                        status: verified
+                        reasons: []
+                      capabilities:
+                        model_input:
+                        - text
+                        - image
+                        deployed_input:
+                        - text
+                        - image
+                        output:
+                        - text
+                        audio_enabled: false
+                      vram_fraction: 0.76
+                    last_known_good_profile: gemma4-26b-a4b-fp8
+                    gate: open
+                    runtime_state: active
+                    profile_locked: false
+                    boot_profile: gemma4-26b-a4b-fp8
+                stopped:
+                  summary: 정지됨 (VRAM 회수, gate closed)
+                  value:
+                    public_model: local-main
+                    active_profile:
+                      id: gemma4-26b-a4b-fp8
+                      display_name: Gemma 4 26B A4B FP8
+                      served_model_name: local-main
+                      upstream_model_id: RedHatAI/gemma-4-26B-A4B-it-FP8-Dynamic
+                      revision: 8edbb9269ec9c3faad538ee1208a07eb46051f34
+                      compatibility:
+                        status: verified
+                        reasons: []
+                      capabilities:
+                        model_input:
+                        - text
+                        - image
+                        deployed_input:
+                        - text
+                        - image
+                        output:
+                        - text
+                        audio_enabled: false
+                      vram_fraction: 0.76
+                    last_known_good_profile: gemma4-26b-a4b-fp8
+                    gate: closed
+                    runtime_state: stopped
+                    profile_locked: false
+                    boot_profile: gemma4-26b-a4b-fp8
+                switch_in_progress:
+                  summary: 전환 중 (gate closed, 작업 진행)
+                  value:
+                    public_model: local-main
+                    active_profile:
+                      id: gemma4-26b-a4b-fp8
+                      display_name: Gemma 4 26B A4B FP8
+                      served_model_name: local-main
+                      upstream_model_id: RedHatAI/gemma-4-26B-A4B-it-FP8-Dynamic
+                      revision: 8edbb9269ec9c3faad538ee1208a07eb46051f34
+                      compatibility:
+                        status: verified
+                        reasons: []
+                      capabilities:
+                        model_input:
+                        - text
+                        - image
+                        deployed_input:
+                        - text
+                        - image
+                        output:
+                        - text
+                        audio_enabled: false
+                      vram_fraction: 0.76
+                    last_known_good_profile: gemma4-26b-a4b-fp8
+                    gate: closed
+                    runtime_state: active
+                    profile_locked: false
+                    boot_profile: gemma4-26b-a4b-fp8
+                    last_operation:
+                      id: 8f3c2b10-0000-4000-8000-000000000001
+                      requested_profile: gemma4-12b-unified-fp8
+                      previous_profile: gemma4-26b-a4b-fp8
+                      status: validating
+                      stage: validating
         '503':
           description: Admin Sidecar 연결 또는 상태 파일 오류
         '401':
@@ -8231,10 +8325,16 @@ paths:
               - profile
             examples:
               switch_to_12b:
+                summary: 12B로 전환 (unverified → 확인 필요)
                 value:
                   profile: gemma4-12b-unified-fp8
                   confirm_unverified: true
                   request_id: ops-20260618-12b
+              switch_to_26b:
+                summary: 26B로 복귀 (verified)
+                value:
+                  profile: gemma4-26b-a4b-fp8
+                  request_id: ops-20260618-26b
         required: true
       responses:
         '202':
@@ -8437,1023 +8537,6 @@ paths:
                         - 'null'
         '413':
           description: 요청 body가 너무 큼
-          content:
-            application/json:
-              schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
-                title: CommonErrorResponse
-                type: object
-                required:
-                - error
-                additionalProperties: false
-                properties:
-                  error:
-                    type: object
-                    required:
-                    - code
-                    - message
-                    - retryable
-                    - request_id
-                    additionalProperties: false
-                    properties:
-                      code:
-                        type: string
-                        enum:
-                        - VALIDATION_ERROR
-                        - UNAUTHORIZED
-                        - FORBIDDEN
-                        - NOT_FOUND
-                        - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
-                        - MODEL_CAPABILITY_MISMATCH
-                        - UPSTREAM_TIMEOUT
-                        - UPSTREAM_ERROR
-                        - UPSTREAM_SCHEMA_ERROR
-                        - RATE_LIMITED
-                        - PARSE_ERROR
-                        - INTERNAL_ERROR
-                        - QUEUE_TIMEOUT
-                        - CIRCUIT_OPEN
-                        - REQUEST_TOO_LARGE
-                        - RUNTIME_NOT_READY
-                        - DETECTOR_RETIRED
-                        - DETECTOR_DISABLED
-                        - STREAM_LIMIT_EXCEEDED
-                        - MAIN_MODEL_CONTROL_UNAVAILABLE
-                        - MAIN_MODEL_SWITCH_IN_PROGRESS
-                      message:
-                        type: string
-                      retryable:
-                        type: boolean
-                      request_id:
-                        type: string
-                      operation_id:
-                        type:
-                        - string
-                        - 'null'
-                      operation_status:
-                        type:
-                        - string
-                        - 'null'
-        '429':
-          description: Upstream rate limit 또는 local admission timeout
-          content:
-            application/json:
-              schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
-                title: CommonErrorResponse
-                type: object
-                required:
-                - error
-                additionalProperties: false
-                properties:
-                  error:
-                    type: object
-                    required:
-                    - code
-                    - message
-                    - retryable
-                    - request_id
-                    additionalProperties: false
-                    properties:
-                      code:
-                        type: string
-                        enum:
-                        - VALIDATION_ERROR
-                        - UNAUTHORIZED
-                        - FORBIDDEN
-                        - NOT_FOUND
-                        - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
-                        - MODEL_CAPABILITY_MISMATCH
-                        - UPSTREAM_TIMEOUT
-                        - UPSTREAM_ERROR
-                        - UPSTREAM_SCHEMA_ERROR
-                        - RATE_LIMITED
-                        - PARSE_ERROR
-                        - INTERNAL_ERROR
-                        - QUEUE_TIMEOUT
-                        - CIRCUIT_OPEN
-                        - REQUEST_TOO_LARGE
-                        - RUNTIME_NOT_READY
-                        - DETECTOR_RETIRED
-                        - DETECTOR_DISABLED
-                        - STREAM_LIMIT_EXCEEDED
-                        - MAIN_MODEL_CONTROL_UNAVAILABLE
-                        - MAIN_MODEL_SWITCH_IN_PROGRESS
-                      message:
-                        type: string
-                      retryable:
-                        type: boolean
-                      request_id:
-                        type: string
-                      operation_id:
-                        type:
-                        - string
-                        - 'null'
-                      operation_status:
-                        type:
-                        - string
-                        - 'null'
-        '500':
-          description: 내부 서버 오류
-          content:
-            application/json:
-              schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
-                title: CommonErrorResponse
-                type: object
-                required:
-                - error
-                additionalProperties: false
-                properties:
-                  error:
-                    type: object
-                    required:
-                    - code
-                    - message
-                    - retryable
-                    - request_id
-                    additionalProperties: false
-                    properties:
-                      code:
-                        type: string
-                        enum:
-                        - VALIDATION_ERROR
-                        - UNAUTHORIZED
-                        - FORBIDDEN
-                        - NOT_FOUND
-                        - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
-                        - MODEL_CAPABILITY_MISMATCH
-                        - UPSTREAM_TIMEOUT
-                        - UPSTREAM_ERROR
-                        - UPSTREAM_SCHEMA_ERROR
-                        - RATE_LIMITED
-                        - PARSE_ERROR
-                        - INTERNAL_ERROR
-                        - QUEUE_TIMEOUT
-                        - CIRCUIT_OPEN
-                        - REQUEST_TOO_LARGE
-                        - RUNTIME_NOT_READY
-                        - DETECTOR_RETIRED
-                        - DETECTOR_DISABLED
-                        - STREAM_LIMIT_EXCEEDED
-                        - MAIN_MODEL_CONTROL_UNAVAILABLE
-                        - MAIN_MODEL_SWITCH_IN_PROGRESS
-                      message:
-                        type: string
-                      retryable:
-                        type: boolean
-                      request_id:
-                        type: string
-                      operation_id:
-                        type:
-                        - string
-                        - 'null'
-                      operation_status:
-                        type:
-                        - string
-                        - 'null'
-        '502':
-          description: Upstream 오류 또는 유효하지 않은 upstream 응답
-          content:
-            application/json:
-              schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
-                title: CommonErrorResponse
-                type: object
-                required:
-                - error
-                additionalProperties: false
-                properties:
-                  error:
-                    type: object
-                    required:
-                    - code
-                    - message
-                    - retryable
-                    - request_id
-                    additionalProperties: false
-                    properties:
-                      code:
-                        type: string
-                        enum:
-                        - VALIDATION_ERROR
-                        - UNAUTHORIZED
-                        - FORBIDDEN
-                        - NOT_FOUND
-                        - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
-                        - MODEL_CAPABILITY_MISMATCH
-                        - UPSTREAM_TIMEOUT
-                        - UPSTREAM_ERROR
-                        - UPSTREAM_SCHEMA_ERROR
-                        - RATE_LIMITED
-                        - PARSE_ERROR
-                        - INTERNAL_ERROR
-                        - QUEUE_TIMEOUT
-                        - CIRCUIT_OPEN
-                        - REQUEST_TOO_LARGE
-                        - RUNTIME_NOT_READY
-                        - DETECTOR_RETIRED
-                        - DETECTOR_DISABLED
-                        - STREAM_LIMIT_EXCEEDED
-                        - MAIN_MODEL_CONTROL_UNAVAILABLE
-                        - MAIN_MODEL_SWITCH_IN_PROGRESS
-                      message:
-                        type: string
-                      retryable:
-                        type: boolean
-                      request_id:
-                        type: string
-                      operation_id:
-                        type:
-                        - string
-                        - 'null'
-                      operation_status:
-                        type:
-                        - string
-                        - 'null'
-        '504':
-          description: Upstream timeout
-          content:
-            application/json:
-              schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
-                title: CommonErrorResponse
-                type: object
-                required:
-                - error
-                additionalProperties: false
-                properties:
-                  error:
-                    type: object
-                    required:
-                    - code
-                    - message
-                    - retryable
-                    - request_id
-                    additionalProperties: false
-                    properties:
-                      code:
-                        type: string
-                        enum:
-                        - VALIDATION_ERROR
-                        - UNAUTHORIZED
-                        - FORBIDDEN
-                        - NOT_FOUND
-                        - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
-                        - MODEL_CAPABILITY_MISMATCH
-                        - UPSTREAM_TIMEOUT
-                        - UPSTREAM_ERROR
-                        - UPSTREAM_SCHEMA_ERROR
-                        - RATE_LIMITED
-                        - PARSE_ERROR
-                        - INTERNAL_ERROR
-                        - QUEUE_TIMEOUT
-                        - CIRCUIT_OPEN
-                        - REQUEST_TOO_LARGE
-                        - RUNTIME_NOT_READY
-                        - DETECTOR_RETIRED
-                        - DETECTOR_DISABLED
-                        - STREAM_LIMIT_EXCEEDED
-                        - MAIN_MODEL_CONTROL_UNAVAILABLE
-                        - MAIN_MODEL_SWITCH_IN_PROGRESS
-                      message:
-                        type: string
-                      retryable:
-                        type: boolean
-                      request_id:
-                        type: string
-                      operation_id:
-                        type:
-                        - string
-                        - 'null'
-                      operation_status:
-                        type:
-                        - string
-                        - 'null'
-      security:
-      - adminBearerAuth: []
-  /admin/main-model/stop:
-    post:
-      tags:
-      - Runtime Control
-      summary: 메인 모델 정지
-      operationId: stopMainModel
-      responses:
-        '200':
-          description: 메인 런타임을 드레인 후 정지하고 VRAM을 회수합니다 (chat은 fail-closed).
-          content:
-            application/json:
-              schema: {}
-              example:
-                action: stop
-                service: main-llm-vllm
-                runtime_state: stopped
-        '503':
-          description: Admin Sidecar 연결 실패
-          content:
-            application/json:
-              schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
-                title: CommonErrorResponse
-                type: object
-                required:
-                - error
-                additionalProperties: false
-                properties:
-                  error:
-                    type: object
-                    required:
-                    - code
-                    - message
-                    - retryable
-                    - request_id
-                    additionalProperties: false
-                    properties:
-                      code:
-                        type: string
-                        enum:
-                        - VALIDATION_ERROR
-                        - UNAUTHORIZED
-                        - FORBIDDEN
-                        - NOT_FOUND
-                        - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
-                        - MODEL_CAPABILITY_MISMATCH
-                        - UPSTREAM_TIMEOUT
-                        - UPSTREAM_ERROR
-                        - UPSTREAM_SCHEMA_ERROR
-                        - RATE_LIMITED
-                        - PARSE_ERROR
-                        - INTERNAL_ERROR
-                        - QUEUE_TIMEOUT
-                        - CIRCUIT_OPEN
-                        - REQUEST_TOO_LARGE
-                        - RUNTIME_NOT_READY
-                        - DETECTOR_RETIRED
-                        - DETECTOR_DISABLED
-                        - STREAM_LIMIT_EXCEEDED
-                        - MAIN_MODEL_CONTROL_UNAVAILABLE
-                        - MAIN_MODEL_SWITCH_IN_PROGRESS
-                      message:
-                        type: string
-                      retryable:
-                        type: boolean
-                      request_id:
-                        type: string
-                      operation_id:
-                        type:
-                        - string
-                        - 'null'
-                      operation_status:
-                        type:
-                        - string
-                        - 'null'
-        '401':
-          description: 인증 실패
-          content:
-            application/json:
-              schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
-                title: CommonErrorResponse
-                type: object
-                required:
-                - error
-                additionalProperties: false
-                properties:
-                  error:
-                    type: object
-                    required:
-                    - code
-                    - message
-                    - retryable
-                    - request_id
-                    additionalProperties: false
-                    properties:
-                      code:
-                        type: string
-                        enum:
-                        - VALIDATION_ERROR
-                        - UNAUTHORIZED
-                        - FORBIDDEN
-                        - NOT_FOUND
-                        - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
-                        - MODEL_CAPABILITY_MISMATCH
-                        - UPSTREAM_TIMEOUT
-                        - UPSTREAM_ERROR
-                        - UPSTREAM_SCHEMA_ERROR
-                        - RATE_LIMITED
-                        - PARSE_ERROR
-                        - INTERNAL_ERROR
-                        - QUEUE_TIMEOUT
-                        - CIRCUIT_OPEN
-                        - REQUEST_TOO_LARGE
-                        - RUNTIME_NOT_READY
-                        - DETECTOR_RETIRED
-                        - DETECTOR_DISABLED
-                        - STREAM_LIMIT_EXCEEDED
-                        - MAIN_MODEL_CONTROL_UNAVAILABLE
-                        - MAIN_MODEL_SWITCH_IN_PROGRESS
-                      message:
-                        type: string
-                      retryable:
-                        type: boolean
-                      request_id:
-                        type: string
-                      operation_id:
-                        type:
-                        - string
-                        - 'null'
-                      operation_status:
-                        type:
-                        - string
-                        - 'null'
-        '413':
-          description: 요청 body가 너무 큼
-          content:
-            application/json:
-              schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
-                title: CommonErrorResponse
-                type: object
-                required:
-                - error
-                additionalProperties: false
-                properties:
-                  error:
-                    type: object
-                    required:
-                    - code
-                    - message
-                    - retryable
-                    - request_id
-                    additionalProperties: false
-                    properties:
-                      code:
-                        type: string
-                        enum:
-                        - VALIDATION_ERROR
-                        - UNAUTHORIZED
-                        - FORBIDDEN
-                        - NOT_FOUND
-                        - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
-                        - MODEL_CAPABILITY_MISMATCH
-                        - UPSTREAM_TIMEOUT
-                        - UPSTREAM_ERROR
-                        - UPSTREAM_SCHEMA_ERROR
-                        - RATE_LIMITED
-                        - PARSE_ERROR
-                        - INTERNAL_ERROR
-                        - QUEUE_TIMEOUT
-                        - CIRCUIT_OPEN
-                        - REQUEST_TOO_LARGE
-                        - RUNTIME_NOT_READY
-                        - DETECTOR_RETIRED
-                        - DETECTOR_DISABLED
-                        - STREAM_LIMIT_EXCEEDED
-                        - MAIN_MODEL_CONTROL_UNAVAILABLE
-                        - MAIN_MODEL_SWITCH_IN_PROGRESS
-                      message:
-                        type: string
-                      retryable:
-                        type: boolean
-                      request_id:
-                        type: string
-                      operation_id:
-                        type:
-                        - string
-                        - 'null'
-                      operation_status:
-                        type:
-                        - string
-                        - 'null'
-        '422':
-          description: 요청 검증 실패
-          content:
-            application/json:
-              schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
-                title: CommonErrorResponse
-                type: object
-                required:
-                - error
-                additionalProperties: false
-                properties:
-                  error:
-                    type: object
-                    required:
-                    - code
-                    - message
-                    - retryable
-                    - request_id
-                    additionalProperties: false
-                    properties:
-                      code:
-                        type: string
-                        enum:
-                        - VALIDATION_ERROR
-                        - UNAUTHORIZED
-                        - FORBIDDEN
-                        - NOT_FOUND
-                        - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
-                        - MODEL_CAPABILITY_MISMATCH
-                        - UPSTREAM_TIMEOUT
-                        - UPSTREAM_ERROR
-                        - UPSTREAM_SCHEMA_ERROR
-                        - RATE_LIMITED
-                        - PARSE_ERROR
-                        - INTERNAL_ERROR
-                        - QUEUE_TIMEOUT
-                        - CIRCUIT_OPEN
-                        - REQUEST_TOO_LARGE
-                        - RUNTIME_NOT_READY
-                        - DETECTOR_RETIRED
-                        - DETECTOR_DISABLED
-                        - STREAM_LIMIT_EXCEEDED
-                        - MAIN_MODEL_CONTROL_UNAVAILABLE
-                        - MAIN_MODEL_SWITCH_IN_PROGRESS
-                      message:
-                        type: string
-                      retryable:
-                        type: boolean
-                      request_id:
-                        type: string
-                      operation_id:
-                        type:
-                        - string
-                        - 'null'
-                      operation_status:
-                        type:
-                        - string
-                        - 'null'
-        '429':
-          description: Upstream rate limit 또는 local admission timeout
-          content:
-            application/json:
-              schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
-                title: CommonErrorResponse
-                type: object
-                required:
-                - error
-                additionalProperties: false
-                properties:
-                  error:
-                    type: object
-                    required:
-                    - code
-                    - message
-                    - retryable
-                    - request_id
-                    additionalProperties: false
-                    properties:
-                      code:
-                        type: string
-                        enum:
-                        - VALIDATION_ERROR
-                        - UNAUTHORIZED
-                        - FORBIDDEN
-                        - NOT_FOUND
-                        - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
-                        - MODEL_CAPABILITY_MISMATCH
-                        - UPSTREAM_TIMEOUT
-                        - UPSTREAM_ERROR
-                        - UPSTREAM_SCHEMA_ERROR
-                        - RATE_LIMITED
-                        - PARSE_ERROR
-                        - INTERNAL_ERROR
-                        - QUEUE_TIMEOUT
-                        - CIRCUIT_OPEN
-                        - REQUEST_TOO_LARGE
-                        - RUNTIME_NOT_READY
-                        - DETECTOR_RETIRED
-                        - DETECTOR_DISABLED
-                        - STREAM_LIMIT_EXCEEDED
-                        - MAIN_MODEL_CONTROL_UNAVAILABLE
-                        - MAIN_MODEL_SWITCH_IN_PROGRESS
-                      message:
-                        type: string
-                      retryable:
-                        type: boolean
-                      request_id:
-                        type: string
-                      operation_id:
-                        type:
-                        - string
-                        - 'null'
-                      operation_status:
-                        type:
-                        - string
-                        - 'null'
-        '500':
-          description: 내부 서버 오류
-          content:
-            application/json:
-              schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
-                title: CommonErrorResponse
-                type: object
-                required:
-                - error
-                additionalProperties: false
-                properties:
-                  error:
-                    type: object
-                    required:
-                    - code
-                    - message
-                    - retryable
-                    - request_id
-                    additionalProperties: false
-                    properties:
-                      code:
-                        type: string
-                        enum:
-                        - VALIDATION_ERROR
-                        - UNAUTHORIZED
-                        - FORBIDDEN
-                        - NOT_FOUND
-                        - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
-                        - MODEL_CAPABILITY_MISMATCH
-                        - UPSTREAM_TIMEOUT
-                        - UPSTREAM_ERROR
-                        - UPSTREAM_SCHEMA_ERROR
-                        - RATE_LIMITED
-                        - PARSE_ERROR
-                        - INTERNAL_ERROR
-                        - QUEUE_TIMEOUT
-                        - CIRCUIT_OPEN
-                        - REQUEST_TOO_LARGE
-                        - RUNTIME_NOT_READY
-                        - DETECTOR_RETIRED
-                        - DETECTOR_DISABLED
-                        - STREAM_LIMIT_EXCEEDED
-                        - MAIN_MODEL_CONTROL_UNAVAILABLE
-                        - MAIN_MODEL_SWITCH_IN_PROGRESS
-                      message:
-                        type: string
-                      retryable:
-                        type: boolean
-                      request_id:
-                        type: string
-                      operation_id:
-                        type:
-                        - string
-                        - 'null'
-                      operation_status:
-                        type:
-                        - string
-                        - 'null'
-        '502':
-          description: Upstream 오류 또는 유효하지 않은 upstream 응답
-          content:
-            application/json:
-              schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
-                title: CommonErrorResponse
-                type: object
-                required:
-                - error
-                additionalProperties: false
-                properties:
-                  error:
-                    type: object
-                    required:
-                    - code
-                    - message
-                    - retryable
-                    - request_id
-                    additionalProperties: false
-                    properties:
-                      code:
-                        type: string
-                        enum:
-                        - VALIDATION_ERROR
-                        - UNAUTHORIZED
-                        - FORBIDDEN
-                        - NOT_FOUND
-                        - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
-                        - MODEL_CAPABILITY_MISMATCH
-                        - UPSTREAM_TIMEOUT
-                        - UPSTREAM_ERROR
-                        - UPSTREAM_SCHEMA_ERROR
-                        - RATE_LIMITED
-                        - PARSE_ERROR
-                        - INTERNAL_ERROR
-                        - QUEUE_TIMEOUT
-                        - CIRCUIT_OPEN
-                        - REQUEST_TOO_LARGE
-                        - RUNTIME_NOT_READY
-                        - DETECTOR_RETIRED
-                        - DETECTOR_DISABLED
-                        - STREAM_LIMIT_EXCEEDED
-                        - MAIN_MODEL_CONTROL_UNAVAILABLE
-                        - MAIN_MODEL_SWITCH_IN_PROGRESS
-                      message:
-                        type: string
-                      retryable:
-                        type: boolean
-                      request_id:
-                        type: string
-                      operation_id:
-                        type:
-                        - string
-                        - 'null'
-                      operation_status:
-                        type:
-                        - string
-                        - 'null'
-        '504':
-          description: Upstream timeout
-          content:
-            application/json:
-              schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
-                title: CommonErrorResponse
-                type: object
-                required:
-                - error
-                additionalProperties: false
-                properties:
-                  error:
-                    type: object
-                    required:
-                    - code
-                    - message
-                    - retryable
-                    - request_id
-                    additionalProperties: false
-                    properties:
-                      code:
-                        type: string
-                        enum:
-                        - VALIDATION_ERROR
-                        - UNAUTHORIZED
-                        - FORBIDDEN
-                        - NOT_FOUND
-                        - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
-                        - MODEL_CAPABILITY_MISMATCH
-                        - UPSTREAM_TIMEOUT
-                        - UPSTREAM_ERROR
-                        - UPSTREAM_SCHEMA_ERROR
-                        - RATE_LIMITED
-                        - PARSE_ERROR
-                        - INTERNAL_ERROR
-                        - QUEUE_TIMEOUT
-                        - CIRCUIT_OPEN
-                        - REQUEST_TOO_LARGE
-                        - RUNTIME_NOT_READY
-                        - DETECTOR_RETIRED
-                        - DETECTOR_DISABLED
-                        - STREAM_LIMIT_EXCEEDED
-                        - MAIN_MODEL_CONTROL_UNAVAILABLE
-                        - MAIN_MODEL_SWITCH_IN_PROGRESS
-                      message:
-                        type: string
-                      retryable:
-                        type: boolean
-                      request_id:
-                        type: string
-                      operation_id:
-                        type:
-                        - string
-                        - 'null'
-                      operation_status:
-                        type:
-                        - string
-                        - 'null'
-      security:
-      - adminBearerAuth: []
-  /admin/main-model/start:
-    post:
-      tags:
-      - Runtime Control
-      summary: 메인 모델 시작
-      operationId: startMainModel
-      requestBody:
-        content:
-          application/json:
-            schema:
-              properties:
-                force:
-                  type: boolean
-                  description: 예산 초과 시 우선순위가 낮은 보조 런타임을 자동 정지해 공간을 확보합니다.
-                  default: false
-              additionalProperties: false
-              type: object
-            examples:
-              start:
-                value: {}
-              start_force:
-                value:
-                  force: true
-        required: false
-      responses:
-        '200':
-          description: 공유 GPU 예산 admission 후 메인 런타임을 시작·검증합니다.
-          content:
-            application/json:
-              schema: {}
-              example:
-                action: start
-                service: main-llm-vllm
-                runtime_state: active
-                evicted: []
-        '409':
-          description: 'GPU 예산 초과: 정지 계획(plan.stop)을 반환합니다. force=true로 자동 축출.'
-        '503':
-          description: Admin Sidecar 연결 실패
-          content:
-            application/json:
-              schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
-                title: CommonErrorResponse
-                type: object
-                required:
-                - error
-                additionalProperties: false
-                properties:
-                  error:
-                    type: object
-                    required:
-                    - code
-                    - message
-                    - retryable
-                    - request_id
-                    additionalProperties: false
-                    properties:
-                      code:
-                        type: string
-                        enum:
-                        - VALIDATION_ERROR
-                        - UNAUTHORIZED
-                        - FORBIDDEN
-                        - NOT_FOUND
-                        - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
-                        - MODEL_CAPABILITY_MISMATCH
-                        - UPSTREAM_TIMEOUT
-                        - UPSTREAM_ERROR
-                        - UPSTREAM_SCHEMA_ERROR
-                        - RATE_LIMITED
-                        - PARSE_ERROR
-                        - INTERNAL_ERROR
-                        - QUEUE_TIMEOUT
-                        - CIRCUIT_OPEN
-                        - REQUEST_TOO_LARGE
-                        - RUNTIME_NOT_READY
-                        - DETECTOR_RETIRED
-                        - DETECTOR_DISABLED
-                        - STREAM_LIMIT_EXCEEDED
-                        - MAIN_MODEL_CONTROL_UNAVAILABLE
-                        - MAIN_MODEL_SWITCH_IN_PROGRESS
-                      message:
-                        type: string
-                      retryable:
-                        type: boolean
-                      request_id:
-                        type: string
-                      operation_id:
-                        type:
-                        - string
-                        - 'null'
-                      operation_status:
-                        type:
-                        - string
-                        - 'null'
-        '401':
-          description: 인증 실패
-          content:
-            application/json:
-              schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
-                title: CommonErrorResponse
-                type: object
-                required:
-                - error
-                additionalProperties: false
-                properties:
-                  error:
-                    type: object
-                    required:
-                    - code
-                    - message
-                    - retryable
-                    - request_id
-                    additionalProperties: false
-                    properties:
-                      code:
-                        type: string
-                        enum:
-                        - VALIDATION_ERROR
-                        - UNAUTHORIZED
-                        - FORBIDDEN
-                        - NOT_FOUND
-                        - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
-                        - MODEL_CAPABILITY_MISMATCH
-                        - UPSTREAM_TIMEOUT
-                        - UPSTREAM_ERROR
-                        - UPSTREAM_SCHEMA_ERROR
-                        - RATE_LIMITED
-                        - PARSE_ERROR
-                        - INTERNAL_ERROR
-                        - QUEUE_TIMEOUT
-                        - CIRCUIT_OPEN
-                        - REQUEST_TOO_LARGE
-                        - RUNTIME_NOT_READY
-                        - DETECTOR_RETIRED
-                        - DETECTOR_DISABLED
-                        - STREAM_LIMIT_EXCEEDED
-                        - MAIN_MODEL_CONTROL_UNAVAILABLE
-                        - MAIN_MODEL_SWITCH_IN_PROGRESS
-                      message:
-                        type: string
-                      retryable:
-                        type: boolean
-                      request_id:
-                        type: string
-                      operation_id:
-                        type:
-                        - string
-                        - 'null'
-                      operation_status:
-                        type:
-                        - string
-                        - 'null'
-        '413':
-          description: 요청 body가 너무 큼
-          content:
-            application/json:
-              schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
-                title: CommonErrorResponse
-                type: object
-                required:
-                - error
-                additionalProperties: false
-                properties:
-                  error:
-                    type: object
-                    required:
-                    - code
-                    - message
-                    - retryable
-                    - request_id
-                    additionalProperties: false
-                    properties:
-                      code:
-                        type: string
-                        enum:
-                        - VALIDATION_ERROR
-                        - UNAUTHORIZED
-                        - FORBIDDEN
-                        - NOT_FOUND
-                        - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
-                        - MODEL_CAPABILITY_MISMATCH
-                        - UPSTREAM_TIMEOUT
-                        - UPSTREAM_ERROR
-                        - UPSTREAM_SCHEMA_ERROR
-                        - RATE_LIMITED
-                        - PARSE_ERROR
-                        - INTERNAL_ERROR
-                        - QUEUE_TIMEOUT
-                        - CIRCUIT_OPEN
-                        - REQUEST_TOO_LARGE
-                        - RUNTIME_NOT_READY
-                        - DETECTOR_RETIRED
-                        - DETECTOR_DISABLED
-                        - STREAM_LIMIT_EXCEEDED
-                        - MAIN_MODEL_CONTROL_UNAVAILABLE
-                        - MAIN_MODEL_SWITCH_IN_PROGRESS
-                      message:
-                        type: string
-                      retryable:
-                        type: boolean
-                      request_id:
-                        type: string
-                      operation_id:
-                        type:
-                        - string
-                        - 'null'
-                      operation_status:
-                        type:
-                        - string
-                        - 'null'
-        '422':
-          description: 요청 검증 실패
           content:
             application/json:
               schema:

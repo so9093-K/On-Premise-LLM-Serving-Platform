@@ -352,9 +352,9 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
             "`state`: 런타임 상태 — `active`(서비스 중) / `stopped`(컨테이너 중지, VRAM 회수) / `starting`(전환 중, 일시적).\n\n"
             "`vram_fraction`: 각 런타임의 GPU VRAM 점유율(gpu_memory_utilization).\n\n"
             "`budget`: `{ceiling, used, free}` — 활성 런타임 점유율 합과 천장.\n\n"
-            "`container_status`: 실제 Docker 컨테이너 상태(참고용). 보조 전환은 "
-            "`PATCH /admin/runtimes/{service_key}`, 메인 정지/시작은 "
-            "`POST /admin/main-model/stop|start`로 수행합니다."
+            "`container_status`: 실제 Docker 컨테이너 상태(참고용). 정지/시작은 보조·메인 모두 "
+            "`PATCH /admin/runtimes/{service_key}`(메인은 `service_key=main`)로, "
+            "메인 프로필 교체만 `POST /admin/main-model/switch`로 수행합니다."
         ),
         auth="admin",
         exposure="operations_network",
@@ -372,12 +372,17 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
         tag="Runtime Control",
         summary="런타임 상태 전환",
         description=(
-            "`desired_state`에 지정한 목표 상태로 런타임을 전환합니다.\n\n"
+            "`desired_state`에 지정한 목표 상태로 런타임을 전환합니다. "
+            "`service_key`는 보조 런타임(embedding, embedding_ko, risk_prompt)과 "
+            "메인 모델(`main`)을 모두 받습니다 — 함대 전체를 같은 동사로 제어합니다.\n\n"
             "- **`active`** — 컨테이너를 시작하고 gateway 라우팅을 복구합니다. "
             "이미 `active`면 no-op.\n"
             "- **`stopped`** — 컨테이너를 중지하고 GPU VRAM을 회수합니다. "
             "이미 `stopped`면 no-op.\n\n"
-            "전환 중(`starting`) 상태에서 `stopped`를 요청하면 409를 반환합니다. "
+            "`main`은 정지 시 드레인 후 gate를 닫고, 시작 시 GPU 예산 admission과 "
+            "canary 검증을 거칩니다(프로필 교체는 `POST /admin/main-model/switch`).\n\n"
+            "GPU 예산을 초과하면 409와 정지 계획(`plan.stop`)을 반환하며, "
+            "`force: true`로 우선순위 낮은 보조를 자동 축출할 수 있습니다. "
             "Scalar UI 드롭다운에서 선택 후 Execute만 누르면 됩니다."
         ),
         auth="admin",
@@ -444,38 +449,6 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
         tag="Runtime Control",
         summary="메인 모델 전환 작업 조회",
         description="전환 단계 및 실패 원인을 조회합니다.",
-        auth="admin",
-        exposure="operations_network",
-        lifecycle="stable",
-        status_code=200,
-        replacement=None,
-        request_schema=None,
-        response_schema=None,
-    ),
-    EndpointSpec(
-        service="gateway",
-        method="POST",
-        path="/admin/main-model/stop",
-        operation_id="stopMainModel",
-        tag="Runtime Control",
-        summary="메인 모델 정지",
-        description="메인 런타임을 드레인 후 정지하고 VRAM을 회수합니다. chat은 fail-closed로 503.",
-        auth="admin",
-        exposure="operations_network",
-        lifecycle="stable",
-        status_code=200,
-        replacement=None,
-        request_schema=None,
-        response_schema=None,
-    ),
-    EndpointSpec(
-        service="gateway",
-        method="POST",
-        path="/admin/main-model/start",
-        operation_id="startMainModel",
-        tag="Runtime Control",
-        summary="메인 모델 시작",
-        description="공유 GPU 예산 admission 후 메인 런타임을 시작·검증합니다. 초과 시 409 정지 계획.",
         auth="admin",
         exposure="operations_network",
         lifecycle="stable",

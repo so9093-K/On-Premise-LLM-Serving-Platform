@@ -31,6 +31,10 @@ class Participant:
     # auto-evicted to make room for another model (evictable=False).
     priority: int = 0
     evictable: bool = True
+    # Descriptive role (resource_control.criticality), surfaced in the budget view
+    # so operators see what a candidate eviction would degrade. Not used by the
+    # planner itself (which orders by priority/fraction).
+    criticality: str | None = None
 
 
 @dataclass(frozen=True)
@@ -135,6 +139,7 @@ def budget_snapshot(
                 "active": p.active,
                 "priority": p.priority,
                 "evictable": p.evictable,
+                "criticality": p.criticality,
             }
             for p in participants
         ],

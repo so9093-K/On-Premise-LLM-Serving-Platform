@@ -74,6 +74,22 @@ def test_lower_priority_tier_evicted_before_higher():
     assert result.victims == ("low",)
 
 
+def test_criticality_policy_evicts_retrieval_before_risk():
+    # Mirrors the sidecar's criticality->priority mapping: retrieval_support_path
+    # (50) is evicted before risk_signal_path (60); main is non-evictable.
+    main = Participant("main", 0.76, active=False, priority=100, evictable=False)
+    emb = Participant("embedding", 0.04, active=True, priority=50)
+    emb_ko = Participant("embedding_ko", 0.06, active=True, priority=50)
+    risk = Participant("risk_prompt", 0.065, active=True, priority=60)
+    fleet = [main, emb, emb_ko, risk]
+    # main stopped; bring up a 0.9 target. available 0.765, deficit 0.135.
+    # retrieval tier first (0.06+0.04=0.10 < 0.135), then risk (0.165 >= 0.135).
+    result = plan_activation(fleet, "main", 0.9)
+    assert result.victims == ("embedding_ko", "embedding", "risk_prompt")
+    # risk is only taken because retrieval alone was insufficient; it is last.
+    assert result.victims[-1] == "risk_prompt"
+
+
 def test_main_never_auto_evicted_for_others():
     # Even a target that would fit only by stopping main stays infeasible, because
     # main is non-evictable.

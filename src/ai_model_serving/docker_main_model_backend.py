@@ -53,8 +53,15 @@ class DockerMainModelBackend:
         self.internal_headers = (
             {"Authorization": f"Bearer {internal_token}"} if internal_token else {}
         )
+        # Hugging Face stores repos under the *hub* cache (HF_HOME/hub), which is
+        # where vLLM looks them up. snapshot_download(cache_dir=X) writes to
+        # X/models--..., so cache_dir must be the hub dir, not HF_HOME, or the
+        # prepared snapshot lands one level above where the runtime resolves it.
+        _hf_home = os.environ.get("HF_HOME", "/root/.cache/huggingface")
         self.cache_dir = Path(
-            cache_dir or os.environ.get("HF_HOME", "/root/.cache/huggingface")
+            cache_dir
+            or os.environ.get("HF_HUB_CACHE")
+            or os.path.join(_hf_home, "hub")
         )
         self._template: dict[str, Any] | None = None
 

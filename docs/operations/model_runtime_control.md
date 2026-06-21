@@ -73,20 +73,23 @@ audio 런타임 이미지는 `ops/images/vllm-gemma4-audio/README.md`에 문서�
 
 ## 메인 모델 정지/시작 (VRAM 회수)
 
-메인 모델도 보조 런타임처럼 정지해 VRAM을 회수할 수 있다. 정지는 gate를 닫고
-진행 중 요청을 drain한 뒤 컨테이너를 내린다(같은 프로필 재시작이 빠르도록 제거하지
-않는다). 정지 상태(`runtime_state=stopped`)는 영속되어 재시작 시에도 자동으로 다시
-올리지 않는다. 프로필 교체는 기존 `switch`를 그대로 사용한다.
+메인 모델도 보조 런타임과 **동일한 동사**로 정지/시작한다 —
+`PATCH /admin/runtimes/main`에 `desired_state`를 지정한다. 별도 엔드포인트는 없다.
+정지는 gate를 닫고 진행 중 요청을 drain한 뒤 컨테이너를 내린다(같은 프로필 재시작이
+빠르도록 제거하지 않는다). 정지 상태(`runtime_state=stopped`)는 영속되어 재시작 시에도
+자동으로 다시 올리지 않는다. 시작은 GPU 예산 admission과 canary 검증을 거친다.
+프로필 교체만 메인 고유의 `POST /admin/main-model/switch`를 쓴다.
 
 ```bash
 # 정지 (드레인 후 VRAM 회수, 신규 chat은 503으로 fail-closed)
-curl -X POST -H "Authorization: Bearer $ADMIN_API_KEY" \
-  http://127.0.0.1:9400/admin/main-model/stop
+curl -X PATCH -H "Authorization: Bearer $ADMIN_API_KEY" \
+  -H "Content-Type: application/json" -d '{"desired_state": "stopped"}' \
+  http://127.0.0.1:9400/admin/runtimes/main
 
-# 시작 (GPU 예산 admission 후 기동·검증; 예산 부족 시 force=true)
-curl -X POST -H "Authorization: Bearer $ADMIN_API_KEY" \
-  -H "Content-Type: application/json" -d '{"force": false}' \
-  http://127.0.0.1:9400/admin/main-model/start
+# 시작 (GPU 예산 admission 후 기동·검증; 예산 부족 시 force=true로 보조 축출)
+curl -X PATCH -H "Authorization: Bearer $ADMIN_API_KEY" \
+  -H "Content-Type: application/json" -d '{"desired_state": "active", "force": false}' \
+  http://127.0.0.1:9400/admin/runtimes/main
 ```
 
 ## 공유 GPU 예산과 admission
@@ -118,6 +121,34 @@ curl -H "Authorization: Bearer $ADMIN_API_KEY" \
 
 단일 GPU에서 26B(0.76)와 12B(0.76)를 동시에 올릴 수 없으므로, 12B를 검증하려면
 먼저 메인을 정지(또는 교체)해 자리를 비워야 한다 — 위 절차가 이를 안전하게 수행한다.
+
+### vLLM 런타임 의존성과 독립성
+
+런타임 사이의 의존은 **시작 순서**에 한정된다(런타임 결합이 아니다). compose는
+`main-llm → embedding → embedding-ko → risk-prompt → risk-adapter → gateway` 순으로
+`service_healthy`를 기다리는데, 이유는 vLLM이 init 중 free VRAM을 프로파일하므로
+**동시 기동 시 steady-state 예산이 맞아도 프로파일이 실패**할 수 있기 때문이다(직렬
+로딩). sidecar의 보조 재기동 prerequisite(embedding-ko←embedding,
+risk-prompt←embedding+embedding-ko)도 같은 직렬화 정책이다.
+
+steady-state에서는 각 vLLM이 자기 포트에서 독립 서빙한다. 기능 의존만 남는다:
+- **채팅 경로는 main만** 사용한다 → 보조를 모두 내려도 채팅은 동작한다(축출이
+  안전한 근거).
+- risk-adapter의 vllm prompt detector → risk-prompt에 의존.
+- 임베딩/retrieval → embedding(+ko)에 의존.
+
+**축출 순서**는 `resource_control.criticality` 기준으로 결정된다(서비스명 하드코딩
+아님): `retrieval_support_path`(embedding, embedding-ko)를 먼저 내리고,
+`risk_signal_path`(risk-prompt)는 더 오래 유지하며, `primary_user_path`(main)은
+다른 모델을 위해 절대 자동 축출되지 않는다. 즉 force 축출 시 **retrieval이 risk보다
+먼저 희생**된다. `GET /admin/runtimes`의 각 런타임 `criticality` 필드로 무엇이
+희생될지 미리 확인할 수 있다.
+
+> ⚠️ 알려진 엣지: 메인을 의도적으로 정지(`runtime_state=stopped`)한 상태에서 full
+> `compose up`이 일어나면 compose가 main-llm-vllm을 무조건 기동하므로, sidecar는
+> gate를 닫은 채(정지 의도 존중) 컨테이너만 떠서 VRAM을 점유하는 상태가 될 수 있다.
+> full compose 기동 후에는 `GET /admin/runtimes`로 main 상태를 확인하고 필요하면
+> 다시 정지한다. (per-service 롤링 배포에는 해당하지 않는다.)
 
 ## 제어 지점
 

@@ -93,10 +93,31 @@ _GPU_BUDGET_CEILING = float(
         "avoid_above", 0.95
     )
 )
-# Priorities: the main model is highest and never auto-evicted; secondaries share
-# one evictable tier (largest-first to minimise how many get stopped).
+
+# Per-secondary criticality (resource_control.criticality) from model_serving.yaml,
+# keyed by compose service name. Drives eviction order so the right thing is kept.
+_CRITICALITY: dict[str, str] = {
+    svc["endpoint"].split("//", 1)[1].split(":")[0]: str(
+        (svc.get("resource_control") or {}).get("criticality", "")
+    )
+    for svc in _serving_cfg.get("models", {}).values()
+    if svc.get("backend") == "vllm"
+    and svc.get("endpoint")
+    and svc["endpoint"].split("//", 1)[1].split(":")[0] in CONTROLLABLE
+}
+# Eviction policy by criticality: higher priority is evicted LATER. The primary
+# user path (main) is never auto-evicted; the risk/safety path is kept longer than
+# retrieval support. Unknown roles fall in the default evictable tier.
+_CRITICALITY_PRIORITY: dict[str, tuple[int, bool]] = {
+    "primary_user_path": (100, False),
+    "risk_signal_path": (60, True),
+    "retrieval_support_path": (50, True),
+}
 _MAIN_PRIORITY = 100
-_SECONDARY_PRIORITY = 50
+
+
+def _eviction_policy(criticality: str) -> tuple[int, bool]:
+    return _CRITICALITY_PRIORITY.get(criticality, (50, True))
 
 # ------------------------------------------------------------------ docker api
 
@@ -200,13 +221,16 @@ async def _build_participants() -> list[Participant]:
     participants: list[Participant] = []
     for service, fraction in _VRAM_FRACTION.items():
         status = await _container_status(service)
+        criticality = _CRITICALITY.get(service, "")
+        priority, evictable = _eviction_policy(criticality)
         participants.append(
             Participant(
                 key=service,
                 vram_fraction=fraction,
                 active=(status == "running"),
-                priority=_SECONDARY_PRIORITY,
-                evictable=True,
+                priority=priority,
+                evictable=evictable,
+                criticality=criticality or None,
             )
         )
     snapshot = _main_model_manager.snapshot()
@@ -223,6 +247,7 @@ async def _build_participants() -> list[Participant]:
             active=(main_status == "running"),
             priority=_MAIN_PRIORITY,
             evictable=False,
+            criticality="primary_user_path",
         )
     )
     return participants
