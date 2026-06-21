@@ -229,6 +229,28 @@ GATEWAY_CHAT_REQUEST_EXAMPLES: dict[str, Any] = {
             "max_tokens": 256,
         },
     },
+    "with_audio": {
+        "summary": "오디오 요청 (오디오 + 텍스트) — 오디오 프로필 활성 시",
+        "value": {
+            "model": "local-main",
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": "이 오디오에 어떤 소리가 들리는지 설명해주세요."},
+                        {
+                            "type": "input_audio",
+                            "input_audio": {
+                                "data": "UklGRjQAAABXQVZFZm10IBAAAAABAAEAgD4AAAB9AAACABAAZGF0YRAAAAAAAAAAAAAAAAAAAAAAAAAA",
+                                "format": "wav",
+                            },
+                        },
+                    ],
+                }
+            ],
+            "max_tokens": 256,
+        },
+    },
 }
 
 GATEWAY_EMBEDDING_REQUEST_EXAMPLES: dict[str, Any] = {
