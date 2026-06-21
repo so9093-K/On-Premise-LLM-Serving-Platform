@@ -550,3 +550,74 @@ def test_initialize_respects_deliberate_stop(tmp_path):
     assert backend.replaced == []
     assert manager.snapshot()["gate"] == "closed"
     assert manager.snapshot()["runtime_state"] == "stopped"
+
+
+_SHARED_IMAGE = "registry.example.com/vllm@sha256:" + "a" * 64
+_AUDIO_IMAGE = "registry.example.com/vllm-audio@sha256:" + "b" * 64
+_REV_A = "0" * 40
+_REV_B = "1" * 40
+
+
+def _catalog_yaml(*, audio_image: str | None) -> str:
+    audio_line = f"\n    image: {audio_image}" if audio_image is not None else ""
+    return f"""
+version: 1
+public_model: local-main
+default_profile: base
+runtime:
+  compose_service: main-llm-vllm
+  image: {_SHARED_IMAGE}
+profiles:
+  base:
+    display_name: Base
+    model_id: org/base
+    revision: "{_REV_A}"
+    served_model_name: local-main
+    compatibility:
+      status: verified
+    command: [--model, org/base, --revision, "{_REV_A}", --served-model-name, local-main]
+  audio:
+    display_name: Audio{audio_line}
+    model_id: org/audio
+    revision: "{_REV_B}"
+    served_model_name: local-main
+    compatibility:
+      status: verified
+    command: [--model, org/audio, --revision, "{_REV_B}", --served-model-name, local-main]
+"""
+
+
+def _write_catalog(tmp_path, *, audio_image: str | None):
+    path = tmp_path / "profiles.yaml"
+    path.write_text(_catalog_yaml(audio_image=audio_image), encoding="utf-8")
+    return load_main_model_catalog(path)
+
+
+def test_profile_without_image_inherits_shared_runtime_image(tmp_path):
+    loaded = _write_catalog(tmp_path, audio_image=None)
+    # Neither profile pins an image -> both resolve to the shared runtime.image,
+    # so a profile switch never silently changes the runtime backing 26b.
+    assert loaded.profiles["base"].image == _SHARED_IMAGE
+    assert loaded.profiles["audio"].image == _SHARED_IMAGE
+    assert loaded.profiles["base"].public_view()["runtime_image"] == _SHARED_IMAGE
+
+
+def test_profile_image_override_travels_with_profile(tmp_path):
+    loaded = _write_catalog(tmp_path, audio_image=_AUDIO_IMAGE)
+    # The audio profile pins its own runtime; the base profile is untouched.
+    assert loaded.profiles["base"].image == _SHARED_IMAGE
+    assert loaded.profiles["audio"].image == _AUDIO_IMAGE
+
+
+def test_profile_image_must_be_digest_pinned(tmp_path):
+    with pytest.raises(MainModelConfigurationError):
+        _write_catalog(tmp_path, audio_image="registry.example.com/vllm-audio:latest")
+
+
+def test_snapshot_runtime_image_reflects_active_profile(tmp_path):
+    loaded = _write_catalog(tmp_path, audio_image=_AUDIO_IMAGE)
+    store = MainModelStateStore(tmp_path / "state.json", loaded.default_profile)
+    store.write({**store.read(), "active_profile": "audio", "gate": "open"})
+    manager = MainModelManager(loaded, store, FakeBackend("audio"))
+    # The live runtime image follows the active profile, not the shared default.
+    assert manager.snapshot()["runtime_image"] == _AUDIO_IMAGE

@@ -79,6 +79,7 @@ _MAIN_MODEL_STATUS_EXAMPLE = {
             "output": ["text"],
             "audio_enabled": False,
         },
+        "runtime_image": "vllm/vllm-openai@sha256:f4492643056969529a74238f71dd66dc3097c0d433156a4f4478456bf84bd276",
         "vram_fraction": 0.76,
     },
     "last_known_good_profile": "gemma4-26b-a4b-fp8",

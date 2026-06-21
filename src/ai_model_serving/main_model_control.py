@@ -47,6 +47,13 @@ class MainModelProfile:
     command: tuple[str, ...]
     compatibility: dict[str, Any]
     capabilities: dict[str, Any]
+    # Resolved runtime image for this profile: a profile-level override when the
+    # profile pins its own image (e.g. an audio-capable runtime), otherwise the
+    # shared runtime.image. Required (the loader is the only constructor and
+    # always resolves it to a digest-pinned value) so an empty image can never
+    # reach the Docker boundary. The runtime capability (e.g. audio decode libs)
+    # thus travels with the active profile.
+    image: str
     # Fraction of total GPU VRAM this profile reserves (its
     # --gpu-memory-utilization). Used by the shared GPU budget / admission planner.
     vram_fraction: float = 0.9
@@ -60,6 +67,7 @@ class MainModelProfile:
             "revision": self.revision,
             "compatibility": self.compatibility,
             "capabilities": self.capabilities,
+            "runtime_image": self.image,
             "vram_fraction": self.vram_fraction,
         }
 
@@ -123,6 +131,18 @@ def load_main_model_catalog(path: Path) -> MainModelCatalog:
         compatibility = item.get("compatibility", {})
         if compatibility.get("status") not in _COMPATIBILITY:
             raise MainModelConfigurationError(f"profile {profile_id} has invalid compatibility status")
+        # A profile may pin its own runtime image (e.g. an audio-capable build);
+        # absent that, it inherits the shared runtime.image. Either way the
+        # resolved image must be digest-pinned.
+        profile_image = item.get("image")
+        if profile_image is None:
+            resolved_image = image
+        elif isinstance(profile_image, str) and _DIGEST_IMAGE_RE.fullmatch(profile_image):
+            resolved_image = profile_image
+        else:
+            raise MainModelConfigurationError(
+                f"profile {profile_id} image must be pinned by sha256 digest"
+            )
         profiles[str(profile_id)] = MainModelProfile(
             profile_id=str(profile_id),
             display_name=str(item.get("display_name", profile_id)),
@@ -132,6 +152,7 @@ def load_main_model_catalog(path: Path) -> MainModelCatalog:
             command=tuple(command),
             compatibility=dict(compatibility),
             capabilities=dict(item.get("capabilities", {})),
+            image=resolved_image,
             vram_fraction=_parse_gpu_fraction(command),
         )
     if default_profile not in profiles:
@@ -331,7 +352,10 @@ class MainModelManager:
             "boot_profile": self.boot_profile,
             "last_operation": state.get("last_operation"),
             "stats": state.get("stats", {}),
-            "runtime_image": self.catalog.runtime.get("image"),
+            # The image actually backing the live runtime is the active profile's
+            # (which may override the shared runtime.image); fall back to the
+            # shared image when no profile is active yet.
+            "runtime_image": active.image if active else self.catalog.runtime.get("image"),
             "state_recovery_error": state.get("state_recovery_error"),
         }
 

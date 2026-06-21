@@ -262,7 +262,10 @@ class DockerMainModelBackend:
             raise RuntimeError("main runtime container template is unavailable")
 
         payload = copy.deepcopy(self._template["config"])
-        payload["Image"] = str(catalog.runtime["image"])
+        # Use the active profile's resolved image (a profile may pin its own
+        # runtime, e.g. an audio-capable build) rather than the shared default.
+        # The loader guarantees profile.image is digest-pinned and non-empty.
+        payload["Image"] = str(profile.image)
         payload["Cmd"] = list(profile.command)
         payload["HostConfig"] = copy.deepcopy(self._template["host_config"])
         payload["NetworkingConfig"] = copy.deepcopy(self._template["networking_config"])
