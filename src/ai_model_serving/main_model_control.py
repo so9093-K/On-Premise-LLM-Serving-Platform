@@ -90,7 +90,44 @@ def _parse_gpu_fraction(command: list[str]) -> float:
     return 0.9
 
 
-def load_main_model_catalog(path: Path) -> MainModelCatalog:
+# Per-host override for the main model's --gpu-memory-utilization. The catalog
+# value is the reference-host default; a host with a different GPU sets this so
+# the same profiles fit without editing the shared catalog. It is a fraction of
+# *that host's* VRAM, so a smaller GPU sets a larger fraction.
+GPU_UTIL_OVERRIDE_ENV = "MAIN_LLM_GPU_MEMORY_UTILIZATION"
+
+
+def gpu_util_override_from_mapping(mapping: dict[str, str]) -> float | None:
+    """Parse the per-host gpu-memory-utilization override, or None when unset."""
+    raw = (mapping.get(GPU_UTIL_OVERRIDE_ENV) or "").strip()
+    if not raw:
+        return None
+    try:
+        value = float(raw)
+    except ValueError as exc:
+        raise MainModelConfigurationError(
+            f"{GPU_UTIL_OVERRIDE_ENV} must be a number in (0, 1]"
+        ) from exc
+    if not 0.0 < value <= 1.0:
+        raise MainModelConfigurationError(f"{GPU_UTIL_OVERRIDE_ENV} must be in (0, 1]")
+    return value
+
+
+def _apply_util_override(command: list[str], override: float | None) -> list[str]:
+    """Return command with --gpu-memory-utilization set to the per-host override."""
+    if override is None:
+        return command
+    rendered = f"{override:g}"
+    if "--gpu-memory-utilization" in command:
+        out = list(command)
+        out[out.index("--gpu-memory-utilization") + 1] = rendered
+        return out
+    return [*command, "--gpu-memory-utilization", rendered]
+
+
+def load_main_model_catalog(
+    path: Path, *, gpu_memory_utilization_override: float | None = None
+) -> MainModelCatalog:
     raw = yaml.safe_load(path.read_text(encoding="utf-8"))
     if not isinstance(raw, dict) or raw.get("version") != 1:
         raise MainModelConfigurationError("main model profile schema version must be 1")
@@ -128,6 +165,9 @@ def load_main_model_catalog(path: Path) -> MainModelCatalog:
             raise MainModelConfigurationError(f"profile {profile_id} command alias does not match")
         if "--revision" not in command or command[command.index("--revision") + 1] != revision:
             raise MainModelConfigurationError(f"profile {profile_id} command must use its pinned revision")
+        # Apply the per-host gpu-memory-utilization override (if any) so the
+        # runtime command and the parsed vram_fraction stay in lockstep.
+        command = _apply_util_override(command, gpu_memory_utilization_override)
         compatibility = item.get("compatibility", {})
         if compatibility.get("status") not in _COMPATIBILITY:
             raise MainModelConfigurationError(f"profile {profile_id} has invalid compatibility status")

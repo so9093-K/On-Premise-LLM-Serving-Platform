@@ -21,6 +21,7 @@ from ..main_model_control import (
     MainModelStateError,
     MainModelStateStore,
     MainModelSwitchError,
+    gpu_util_override_from_mapping,
     load_main_model_catalog,
 )
 
@@ -188,7 +189,10 @@ async def _wait_healthy(service: str, port: int, timeout: float = 120.0) -> bool
     return False
 
 
-_catalog = load_main_model_catalog(APP_CONFIG_ROOT / "configs/main_model_profiles.yaml")
+_catalog = load_main_model_catalog(
+    APP_CONFIG_ROOT / "configs/main_model_profiles.yaml",
+    gpu_memory_utilization_override=gpu_util_override_from_mapping(os.environ),
+)
 _state_store = MainModelStateStore(MAIN_MODEL_STATE_PATH, _catalog.default_profile)
 try:
     _state_store.read()

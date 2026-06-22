@@ -145,6 +145,13 @@ documents:
     disposition: keep
     source_of_truth: true
     status_source: adr_status
+  - path: docs/adr/0018-gpu-vram-admission-and-per-profile-runtime-image.md
+    type: decision
+    lifecycle: active
+    owner: architecture
+    disposition: keep
+    source_of_truth: true
+    status_source: adr_status
   - path: docs/adr/README.md
     type: decision-index
     lifecycle: active

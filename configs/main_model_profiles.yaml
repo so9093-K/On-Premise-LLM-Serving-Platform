@@ -110,6 +110,8 @@ profiles:
     - "20000"
     - --optimization-level
     - "3"
+    # Per-host capacity knob: override at deploy time via
+    # MAIN_LLM_GPU_MEMORY_UTILIZATION (a smaller GPU sets a higher fraction).
     - --gpu-memory-utilization
     - "0.76"
     - --tensor-parallel-size

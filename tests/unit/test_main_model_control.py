@@ -587,10 +587,14 @@ profiles:
 """
 
 
-def _write_catalog(tmp_path, *, audio_image: str | None):
+def _write_catalog_path(tmp_path, *, audio_image: str | None = None):
     path = tmp_path / "profiles.yaml"
     path.write_text(_catalog_yaml(audio_image=audio_image), encoding="utf-8")
-    return load_main_model_catalog(path)
+    return path
+
+
+def _write_catalog(tmp_path, *, audio_image: str | None):
+    return load_main_model_catalog(_write_catalog_path(tmp_path, audio_image=audio_image))
 
 
 def test_profile_without_image_inherits_shared_runtime_image(tmp_path):
@@ -621,3 +625,41 @@ def test_snapshot_runtime_image_reflects_active_profile(tmp_path):
     manager = MainModelManager(loaded, store, FakeBackend("audio"))
     # The live runtime image follows the active profile, not the shared default.
     assert manager.snapshot()["runtime_image"] == _AUDIO_IMAGE
+
+
+def test_gpu_util_override_rewrites_command_and_fraction():
+    from ai_model_serving.main_model_control import load_main_model_catalog as _load
+
+    loaded = _load(ROOT / "configs/main_model_profiles.yaml", gpu_memory_utilization_override=0.55)
+    # Override flows to both the runtime command and the parsed budget cost, in
+    # lockstep, for every profile (a per-host capacity knob).
+    for profile in loaded.profiles.values():
+        cmd = list(profile.command)
+        assert cmd[cmd.index("--gpu-memory-utilization") + 1] == "0.55"
+        assert profile.vram_fraction == 0.55
+
+
+def test_gpu_util_override_absent_keeps_catalog_value():
+    loaded = catalog()
+    assert loaded.profiles["gemma4-26b-a4b-fp8"].vram_fraction == 0.76
+
+
+def test_gpu_util_override_appends_when_command_omits_flag(tmp_path):
+    # The base/audio fixtures carry no --gpu-memory-utilization; the override adds it.
+    loaded = load_main_model_catalog(
+        _write_catalog_path(tmp_path), gpu_memory_utilization_override=0.5
+    )
+    cmd = list(loaded.profiles["base"].command)
+    assert cmd[cmd.index("--gpu-memory-utilization") + 1] == "0.5"
+    assert loaded.profiles["base"].vram_fraction == 0.5
+
+
+def test_gpu_util_override_from_mapping_parses_and_validates():
+    from ai_model_serving.main_model_control import gpu_util_override_from_mapping as f
+
+    assert f({}) is None
+    assert f({"MAIN_LLM_GPU_MEMORY_UTILIZATION": ""}) is None
+    assert f({"MAIN_LLM_GPU_MEMORY_UTILIZATION": "0.9"}) == 0.9
+    for bad in ("abc", "0", "-0.1", "1.5"):
+        with pytest.raises(MainModelConfigurationError):
+            f({"MAIN_LLM_GPU_MEMORY_UTILIZATION": bad})

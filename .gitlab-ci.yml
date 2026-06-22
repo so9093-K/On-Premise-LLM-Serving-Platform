@@ -19,6 +19,8 @@ variables:
   PLATFORM_IMAGE_REF: "$CI_REGISTRY_IMAGE/platform:$CI_COMMIT_REF_SLUG"
   RISK_VLLM_IMAGE_SHA: "$CI_REGISTRY_IMAGE/risk-vllm-kanana:$CI_COMMIT_SHORT_SHA"
   RISK_VLLM_IMAGE_REF: "$CI_REGISTRY_IMAGE/risk-vllm-kanana:$CI_COMMIT_REF_SLUG"
+  AUDIO_VLLM_IMAGE_SHA: "$CI_REGISTRY_IMAGE/vllm-gemma4-audio:$CI_COMMIT_SHORT_SHA"
+  AUDIO_VLLM_IMAGE_REF: "$CI_REGISTRY_IMAGE/vllm-gemma4-audio:$CI_COMMIT_REF_SLUG"
 
 .default-python:
   image: python:3.12.13-slim
@@ -147,6 +149,12 @@ build-vllm-derived:
       - $BUILD_VLLM_DERIVED == "1"
       - $DEPLOY_MODE == "full"
   allow_failure: false
+  artifacts:
+    # Immutable digest of vllm-gemma4-audio, to pin into the 12B profile's image
+    # override (configs/main_model_profiles.yaml).
+    paths:
+      - build/audio-image.env
+    expire_in: 7 days
 
 # Manual deployment to the 175 GPU runtime server.
 # Rolling deploy (default): restarts gateway + admin-sidecar + risk-adapter; skips vLLM rebuild.

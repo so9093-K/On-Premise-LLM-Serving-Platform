@@ -377,6 +377,9 @@ services:
       MAIN_MODEL_STATE_PATH: /var/lib/ai-model-serving/main-model-state.json
       MAIN_LLM_BOOT_PROFILE: ${MAIN_LLM_BOOT_PROFILE:-}
       MAIN_LLM_PROFILE_LOCKED: ${MAIN_LLM_PROFILE_LOCKED:-false}
+      # Optional per-host override for the main model's --gpu-memory-utilization;
+      # empty = use the catalog default. A smaller GPU sets a higher fraction.
+      MAIN_LLM_GPU_MEMORY_UTILIZATION: ${MAIN_LLM_GPU_MEMORY_UTILIZATION:-}
       HF_TOKEN: ${HF_TOKEN:-}
       HUGGING_FACE_HUB_TOKEN: ${HUGGING_FACE_HUB_TOKEN:-}
       HF_HOME: /root/.cache/huggingface

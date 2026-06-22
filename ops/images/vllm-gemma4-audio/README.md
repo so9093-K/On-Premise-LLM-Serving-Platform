@@ -12,27 +12,40 @@ is flipped to deploy audio. Until then:
   includes it (26B never does);
 - the backend audio boot canary only runs for an `audio_enabled` profile.
 
-## 1. Build & push
+## 1. Build & push (CI — canonical)
+
+The image is built by the **`build-vllm-derived`** CI job (same job as
+risk-vllm-kanana, so the ~25 GB vLLM base is pulled once). Trigger a release/tag
+pipeline with `BUILD_VLLM_DERIVED=1` (or `DEPLOY_MODE=full`). The job pushes
+`vllm-gemma4-audio` and writes the immutable digest to the
+**`build/audio-image.env`** artifact (`AUDIO_VLLM_IMAGE_DIGEST=...`).
+
+Manual fallback (only if CI is unavailable):
 
 ```bash
-docker build \
+docker build --build-arg BASE_IMAGE="$(yq '.runtime.image' configs/main_model_profiles.yaml)" \
   -t gitlab.wizvera.com:4567/acl-ai-system/acl-ai-gateway/vllm-gemma4-audio:<tag> \
-  ops/images/vllm-gemma4-audio
+  -f ops/images/vllm-gemma4-audio/Dockerfile .
 docker push gitlab.wizvera.com:4567/acl-ai-system/acl-ai-gateway/vllm-gemma4-audio:<tag>
-# capture the pushed digest:
 docker inspect --format '{{index .RepoDigests 0}}' \
   gitlab.wizvera.com:4567/acl-ai-system/acl-ai-gateway/vllm-gemma4-audio:<tag>
 ```
 
-## 2. Point the runtime at it (both refs — they are separate sources of truth)
+## 2. Pin it on the 12B profile only (26B untouched)
 
-- `.env` on the deploy host: `VLLM_IMAGE=...vllm-gemma4-audio:<tag>` (compose static
-  main-llm-vllm).
-- `configs/main_model_profiles.yaml` `runtime.image:` → the **sha256 digest** from
-  step 1 (the hot-swap backend uses this when recreating the container).
+In `configs/main_model_profiles.yaml`, set the **per-profile image override** on
+`gemma4-12b-unified-fp8` to the digest from step 1:
 
-Deploy. This recreates `main-llm-vllm` once on the new image; 26B behavior is
-unchanged.
+```yaml
+  gemma4-12b-unified-fp8:
+    image: gitlab.wizvera.com:4567/acl-ai-system/acl-ai-gateway/vllm-gemma4-audio@sha256:<digest>
+```
+
+The loader resolves this per profile (falling back to the shared `runtime.image`
+for any profile without an override), so **26B keeps the plain base** and the audio
+runtime travels only with the 12B profile — switching profiles carries the
+capability with it. Pinning `runtime.image` (which both profiles share) is the old,
+pre-override approach; do not use it.
 
 ## 3. Flip the 12B profile to deploy audio
 

@@ -71,5 +71,6 @@
 | [ADR-0015](0015-main-llm-20k-o3-runtime-target.md) | Main LLM 20K O3 Runtime Target | Accepted |
 | [ADR-0016](0016-xgrammar-disable-any-whitespace.md) | xgrammar disable-any-whitespace Structured Output Backend | Accepted |
 | [ADR-0017](0017-selectable-main-model-runtime.md) | Selectable Gemma 4 Main-model Runtime | Accepted |
+| [ADR-0018](0018-gpu-vram-admission-and-per-profile-runtime-image.md) | 통합 GPU VRAM Admission과 Per-profile 런타임 이미지 | Accepted |
 
 전체 결정의 canonical record는 이 `docs/adr/` 디렉터리의 파일이며, `docs/02_decision_register.md`는 ADR index와 legacy D-xxx 매핑을 제공한다.

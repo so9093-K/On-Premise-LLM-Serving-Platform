@@ -6,6 +6,10 @@
 
 Accepted
 
+확장: [ADR-0018](0018-gpu-vram-admission-and-per-profile-runtime-image.md) — 통합 GPU
+VRAM admission, per-profile 런타임 이미지, per-host util override, 오디오 활성화 경로.
+0017의 "단일 고정 이미지·0.76 고정·오디오 inert" 전제를 갱신한다.
+
 ## 현재 상태 분석
 
 - `main-llm-vllm`은 `ops/compose/full-stack.private-network.yaml`에서 시작하며, 26B 모델 커맨드는 현재 정적으로 고정되어 있습니다.

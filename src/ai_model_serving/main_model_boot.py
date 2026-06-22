@@ -6,6 +6,7 @@ from typing import Any
 
 from .main_model_control import (
     MainModelStateError,
+    gpu_util_override_from_mapping,
     load_main_model_catalog,
     resolve_boot_profile,
 )
@@ -59,8 +60,11 @@ def render_boot_override(
     state_path: Path,
     env_path: Path,
 ) -> tuple[str, dict[str, Any]]:
-    catalog = load_main_model_catalog(catalog_path)
     env = read_env_values(env_path)
+    catalog = load_main_model_catalog(
+        catalog_path,
+        gpu_memory_utilization_override=gpu_util_override_from_mapping(env),
+    )
     configured = env.get("MAIN_LLM_BOOT_PROFILE") or catalog.default_profile
     locked = _strict_bool(
         env.get("MAIN_LLM_PROFILE_LOCKED", "false"),
