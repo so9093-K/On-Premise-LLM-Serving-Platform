@@ -19,6 +19,10 @@ gpu:
   profile_rule: Use conservative defaults until live vLLM/GPU measurements prove headroom
     for a specific increase.
 budgets:
+  # Reference-host (48 GiB) capacity-planning figures, NOT the live cost. The
+  # runtime reservation is the active profile's --gpu-memory-utilization, which a
+  # host may override via MAIN_LLM_GPU_MEMORY_UTILIZATION; GPU admission reads that
+  # live value, not this block. See ADR-0018.
   main_llm:
     target_gib: 34.6
     range_gib:

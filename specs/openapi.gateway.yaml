@@ -8859,7 +8859,17 @@ paths:
       tags:
       - Runtime Control
       summary: 메인 모델 전환 작업 조회
+      description: 비동기 전환 작업의 상태를 조회한다. `operation_id`는 `POST /admin/main-model/switch`의 202 응답에서 받은 값이며, `completed`·`failed`·`rollback_failed`에 도달할 때까지 폴링한다. 가장 최근 작업은 `GET /admin/main-model`의 `last_operation`으로도 확인할 수 있고, 진행 상태는 Grafana `Main-model Control` 대시보드의 Latest Operation State 패널에서 실시간으로 볼 수 있다.
       operationId: getMainModelOperation
+      parameters:
+      - name: operation_id
+        in: path
+        required: true
+        description: switch 202 응답의 `operation_id` (UUID).
+        schema:
+          type: string
+          format: uuid
+        example: 41cf50bb-60b2-4dbc-b38a-7dd07da91d97
       responses:
         '200':
           description: 전환 작업 상태

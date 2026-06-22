@@ -44,7 +44,9 @@ MAIN_LLM_BOOT_PROFILE = os.environ.get("MAIN_LLM_BOOT_PROFILE")
 MAIN_LLM_PROFILE_LOCKED = os.environ.get("MAIN_LLM_PROFILE_LOCKED", "false").lower() == "true"
 SIDECAR_TOKEN = os.environ.get("INTERNAL_SERVICE_TOKEN", "")
 
-# Only these compose service names can be started/stopped.
+# Only these compose service names can be started/stopped. Kept in sync with
+# configs/model_serving.yaml (vLLM models minus the main runtime) and the gateway
+# CONTROLLABLE_KEYS by tests/unit/test_runtime_topology_consistency.py.
 CONTROLLABLE: frozenset[str] = frozenset({
     "embedding-vllm",
     "embedding-ko-vllm",
@@ -64,7 +66,10 @@ _HEALTH_PORT: dict[str, int] = {
 }
 
 # GPU startup order (policy): before starting B, wait for A to be healthy.
-# Ports are resolved via _HEALTH_PORT at runtime.
+# Ports are resolved via _HEALTH_PORT at runtime. This mirrors the compose
+# depends_on graph's secondary<->secondary edges (the main-llm root edge is
+# omitted on purpose — see below); kept in sync with compose by
+# tests/unit/test_runtime_topology_consistency.py.
 _START_PREREQUISITES: dict[str, list[str]] = {
     "embedding-ko-vllm": ["embedding-vllm"],
     "risk-prompt-vllm": ["embedding-vllm", "embedding-ko-vllm"],

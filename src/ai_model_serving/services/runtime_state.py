@@ -10,6 +10,9 @@ class RuntimeState(str, Enum):
     starting = "starting"
 
 
+# Logical keys (gateway naming domain) for the controllable secondary runtimes.
+# Kept in sync with configs/model_serving.yaml and the sidecar's CONTROLLABLE
+# (compose service names) by tests/unit/test_runtime_topology_consistency.py.
 CONTROLLABLE_KEYS = frozenset({"embedding", "embedding_ko", "risk_prompt"})
 
 

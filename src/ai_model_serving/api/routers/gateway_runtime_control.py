@@ -56,6 +56,68 @@ _OPERATION_RESPONSE_SCHEMA = {
         "updated_at": {"type": "number"},
     },
 }
+_OPERATION_ID_EXAMPLE = "41cf50bb-60b2-4dbc-b38a-7dd07da91d97"
+_OPERATION_LOOKUP_DESCRIPTION = (
+    "비동기 전환 작업의 상태를 조회한다. `operation_id`는 `POST /admin/main-model/switch`의 202 "
+    "응답에서 받은 값이며, `completed`·`failed`·`rollback_failed`에 도달할 때까지 폴링한다. 가장 "
+    "최근 작업은 `GET /admin/main-model`의 `last_operation`으로도 확인할 수 있고, 진행 상태는 "
+    "Grafana `Main-model Control` 대시보드의 Latest Operation State 패널에서 실시간으로 볼 수 있다."
+)
+_OPERATION_ID_PARAMETER = {
+    "name": "operation_id",
+    "in": "path",
+    "required": True,
+    "description": "switch 202 응답의 `operation_id` (UUID).",
+    "schema": {"type": "string", "format": "uuid"},
+    "example": _OPERATION_ID_EXAMPLE,
+}
+_OPERATION_RESPONSE_EXAMPLES = {
+    "in_progress": {
+        "summary": "진행 중 (validating)",
+        "value": {
+            "id": _OPERATION_ID_EXAMPLE,
+            "requested_profile": "gemma4-12b-unified-fp8",
+            "previous_profile": "gemma4-26b-a4b-fp8",
+            "client_request_id": "ops-20260622-12b",
+            "status": "validating",
+            "stage": "validating",
+            "error": None,
+            "rollback_error": None,
+            "created_at": 1782086105.78,
+            "updated_at": 1782086230.12,
+        },
+    },
+    "completed": {
+        "summary": "완료",
+        "value": {
+            "id": _OPERATION_ID_EXAMPLE,
+            "requested_profile": "gemma4-12b-unified-fp8",
+            "previous_profile": "gemma4-26b-a4b-fp8",
+            "client_request_id": "ops-20260622-12b",
+            "status": "completed",
+            "stage": "completed",
+            "error": None,
+            "rollback_error": None,
+            "created_at": 1782086105.78,
+            "updated_at": 1782086258.20,
+        },
+    },
+    "failed": {
+        "summary": "실패 후 이전 프로필로 rollback",
+        "value": {
+            "id": _OPERATION_ID_EXAMPLE,
+            "requested_profile": "gemma4-12b-unified-fp8",
+            "previous_profile": "gemma4-26b-a4b-fp8",
+            "client_request_id": "ops-20260622-12b",
+            "status": "failed",
+            "stage": "validating",
+            "error": "runtime validation failed: /v1/models did not report local-main",
+            "rollback_error": None,
+            "created_at": 1782086105.78,
+            "updated_at": 1782086240.55,
+        },
+    },
+}
 _ACCEPTED_SCHEMA = {
     "type": "object",
     "required": ["operation_id", "status"],
@@ -572,15 +634,22 @@ def build_router(
         dependencies=admin_dependencies,
         tags=["Runtime Control"],
         summary="메인 모델 전환 작업 조회",
+        description=_OPERATION_LOOKUP_DESCRIPTION,
         operation_id="getMainModelOperation",
         responses={
             200: {
                 "description": "전환 작업 상태",
-                "content": {"application/json": {"schema": _OPERATION_RESPONSE_SCHEMA}},
+                "content": {
+                    "application/json": {
+                        "schema": _OPERATION_RESPONSE_SCHEMA,
+                        "examples": _OPERATION_RESPONSE_EXAMPLES,
+                    }
+                },
             },
-            404: {"description": "operation 없음"},
+            404: {"description": "operation 없음 (id 오타이거나 만료/미존재)"},
             503: {"description": "Admin Sidecar 연결 실패"},
         },
+        openapi_extra={"parameters": [_OPERATION_ID_PARAMETER]},
     )
     async def get_main_model_operation(request: Request) -> JSONResponse:
         operation_id = str(request.path_params["operation_id"])
