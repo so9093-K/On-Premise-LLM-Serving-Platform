@@ -34,7 +34,8 @@ Prometheus metric(`main_model_operation_state` 등)으로 확인한다. operatio
 
 | Dashboard | 목적 | 주요 사용자 |
 |---|---|---|
-| `gpu_capacity_and_oom_risk` | **단일 운영 dashboard.** live GPU headroom, observed VRAM, utilization, OOM/restart, KV cache, queue | operator/runtime engineer |
+| `gpu_capacity_and_oom_risk` | **안전 dashboard.** live GPU headroom, observed VRAM, utilization, OOM/restart, KV cache, queue | operator/runtime engineer |
+| `usage_today` | **사용량 dashboard (glanceable).** GPU 가동, 모델별 요청 비중, 거부 요청, 토큰 처리량 추세 — 판단이 색/제목에 박혀 가이드 없이 읽힘 | operator |
 
 Dashboard JSON은 `ops/grafana/dashboards/*.json`에서 관리한다. `configs/monitoring.yaml`의 `dashboard_variables`는 monitoring projection용 공통 목록이다.
 

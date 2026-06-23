@@ -10,7 +10,7 @@ Command:
 
 이 리포트는 현재 source tree에서 생성되며 로컬 runtime/cache/build 디렉터리는 제외한다.
 
-- 검토 파일 수: **454**
+- 검토 파일 수: **455**
 - CSV matrix: `reports/refactor/project_inventory_current.csv`
 - JSON matrix: `reports/refactor/project_inventory_current.json`
 
@@ -41,7 +41,7 @@ Command:
 | `features` | 3 |
 | `harness` | 4 |
 | `model_cards` | 4 |
-| `ops` | 13 |
+| `ops` | 14 |
 | `pyproject.toml` | 1 |
 | `reports` | 20 |
 | `requirements.lock` | 1 |
@@ -69,12 +69,12 @@ Command:
 | 경로 | 줄 수 | 담당 | 검토 메모 |
 |---|---:|---|---|
 | `specs/openapi.gateway.yaml` | 9056 | api-contracts | supporting project file |
-| `reports/refactor/project_inventory_current.json` | 5257 | handoff-reporting | handoff/review artifact; avoid stale phase snapshots in active package |
+| `reports/refactor/project_inventory_current.json` | 5268 | handoff-reporting | handoff/review artifact; avoid stale phase snapshots in active package |
 | `specs/openapi.risk-adapter.yaml` | 3538 | api-contracts | supporting project file |
 | `configs/command_registry.yaml` | 2150 | configuration | configuration source; validate through governance and projection checks after edits |
 | `scripts/ci/deploy_gitlab_compose.sh` | 854 | operator-ux | operator/developer command; expose through Makefile/help if user-facing |
 | `src/ai_model_serving/main_model_control.py` | 764 | application | application code; preserve public API behavior and compatibility facades |
-| `reports/runtime/operator_status_bundle.json` | 709 | handoff-reporting | generated operator report; regenerate through make operator-reports before handoff |
+| `reports/runtime/operator_status_bundle.json` | 710 | handoff-reporting | generated operator report; regenerate through make operator-reports before handoff |
 | `ops/grafana/dashboards/gpu_capacity_and_oom_risk.json` | 700 | operations | supporting project file |
 | `src/ai_model_serving/api/routers/gateway_runtime_control.py` | 667 | application | application code; preserve public API behavior and compatibility facades |
 | `tests/unit/test_main_model_control.py` | 665 | quality | test coverage; keep deterministic and avoid live GPU dependency |

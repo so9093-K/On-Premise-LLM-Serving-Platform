@@ -1,0 +1,288 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "GPU Capacity and OOM Risk",
+      "tooltip": "GPU Capacity and OOM Risk — capacity, OOM/restart, and KV cache safety view",
+      "type": "link",
+      "url": "/d/gpu_capacity_and_oom_risk/gpu-capacity-and-oom-risk"
+    }
+  ],
+  "liveNow": false,
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "GPU Workload",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 5
+      },
+      "targets": [
+        {
+          "expr": "max(gpu_utilization_ratio)",
+          "refId": "A",
+          "legendFormat": "busy"
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "textMode": "value"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "decimals": 0,
+          "min": 0,
+          "max": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0.85
+              },
+              {
+                "color": "red",
+                "value": 0.95
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "description": "오늘 이 GPU가 얼마나 일했는지 한눈에 본다. 색 기준은 GPU Capacity 보드와 동일(안전 의미 일치). Healthy: 여유 있음. Attention: 0.85 초과 — 지속 사용량 높음. Action Required: 0.95 초과 — 포화, 동시 요청/컨텍스트를 줄인다. No Data: check dcgm-exporter scrape."
+    },
+    {
+      "id": 2,
+      "type": "bargauge",
+      "title": "Top Models by Requests",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 0,
+        "w": 8,
+        "h": 5
+      },
+      "targets": [
+        {
+          "expr": "sum by (target) (rate(upstream_request_duration_seconds_count{service=\"gateway\"}[$window]))",
+          "refId": "A",
+          "legendFormat": "{{target}}"
+        }
+      ],
+      "options": {
+        "displayMode": "gradient",
+        "orientation": "horizontal",
+        "showUnfilled": true,
+        "valueMode": "color"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "decimals": 2,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "description": "누가(어느 모델이) 이 GPU를 가장 많이 쓰는지 막대 길이로 본다. 가장 긴 막대가 주 사용 모델이다. Healthy: 트래픽이 의도한 모델 분포와 맞음. Attention: 예상치 못한 모델이 점유를 차지하면 원인을 본다. No Data: 트래픽이 없거나 gateway scrape를 확인한다."
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Rejected Requests",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 0,
+        "w": 8,
+        "h": 5
+      },
+      "targets": [
+        {
+          "expr": "sum(increase(request_validation_rejections_total[$window]))",
+          "refId": "A",
+          "legendFormat": "rejected"
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "value"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "description": "선택 window 동안 검증에서 거부된 요청 수. Healthy: 0 — 정상. Attention: 1 이상 — 클라이언트 입력/한도/통합을 확인한다(거부율 SLO가 정해지면 Action 기준을 추가한다). No Data: check gateway scrape."
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Token Throughput Trend",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 5,
+        "w": 24,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "sum(vllm_token_throughput_per_second)",
+          "refId": "A",
+          "legendFormat": "total tok/s"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "suffix: tok/s",
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "description": "전체 prompt+generation 토큰 처리량 추세로 사용량 흐름을 본다. Healthy: 트래픽에 따라 오르내림이 보임. Attention: 트래픽이 있는데 갑자기 꺾이면 병목을 본다. Action Required: 활성 요청이 있는데 0 근처면 runtime을 확인한다. No Data: check vllm-runtimes scrape."
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "style": "dark",
+  "tags": [
+    "contract-reference",
+    "ops",
+    "usage",
+    "english-titles"
+  ],
+  "templating": {
+    "list": [
+      {
+        "current": {
+          "selected": false,
+          "text": "Prometheus",
+          "value": "prometheus"
+        },
+        "hide": 0,
+        "includeAll": false,
+        "label": "Datasource",
+        "multi": false,
+        "name": "datasource",
+        "options": [],
+        "query": "prometheus",
+        "refresh": 1,
+        "regex": "",
+        "type": "datasource"
+      },
+      {
+        "current": {
+          "selected": false,
+          "text": "1h",
+          "value": "1h"
+        },
+        "hide": 0,
+        "includeAll": false,
+        "label": "Window",
+        "multi": false,
+        "name": "window",
+        "options": [
+          {
+            "selected": false,
+            "text": "1m",
+            "value": "1m"
+          },
+          {
+            "selected": false,
+            "text": "5m",
+            "value": "5m"
+          },
+          {
+            "selected": false,
+            "text": "15m",
+            "value": "15m"
+          },
+          {
+            "selected": true,
+            "text": "1h",
+            "value": "1h"
+          }
+        ],
+        "query": "1m,5m,15m,1h",
+        "type": "custom"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Usage Today",
+  "uid": "usage_today",
+  "version": 1,
+  "weekStart": ""
+}

@@ -42,6 +42,12 @@ monitoring_stack:
       - GPU Utilization
       - VRAM Used vs Budget
       - CPU Cores Used per Model
+    - path: ops/grafana/dashboards/usage_today.json
+      required_panels:
+      - GPU Workload
+      - Top Models by Requests
+      - Rejected Requests
+      - Token Throughput Trend
   dcgm_exporter:
     enabled: true
     port: 9412
@@ -164,6 +170,15 @@ ux_dashboards:
   - token_throughput
   - container_ram
   - container_cpu
+- id: usage_today
+  audience: operator
+  purpose: Glanceable usage view — GPU workload, top models by requests, rejected
+    requests, and token throughput trend. Judgment is in color/title; no guide needed.
+  panels:
+  - gpu_workload
+  - top_models_by_requests
+  - rejected_requests
+  - token_throughput_trend
 privacy_and_security:
   raw_prompt_in_metrics: forbidden
   user_text_labels: forbidden

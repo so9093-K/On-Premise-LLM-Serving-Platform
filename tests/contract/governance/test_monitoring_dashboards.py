@@ -5,6 +5,7 @@ from collections.abc import Iterator
 from .helpers import *  # noqa: F401,F403
 
 GPU_DASHBOARD = "ops/grafana/dashboards/gpu_capacity_and_oom_risk.json"
+USAGE_DASHBOARD = "ops/grafana/dashboards/usage_today.json"
 
 
 def iter_panels(panels: list[dict]) -> Iterator[dict]:
@@ -22,15 +23,33 @@ def grafana_contract(path: str) -> dict:
     raise AssertionError(f"missing grafana dashboard contract: {path}")
 
 
-def test_monitoring_keeps_only_the_gpu_capacity_dashboard() -> None:
+def test_monitoring_dashboards_are_the_two_curated_boards() -> None:
     dashboards = {path.name for path in (ROOT / "ops/grafana/dashboards").glob("*.json")}
-    assert dashboards == {"gpu_capacity_and_oom_risk.json"}
+    assert dashboards == {"gpu_capacity_and_oom_risk.json", "usage_today.json"}
     monitoring = yaml.safe_load((ROOT / "configs/monitoring.yaml").read_text(encoding="utf-8"))
     assert "operator_status_ux" not in monitoring
     contracts = monitoring["monitoring_stack"]["grafana"]["dashboard_contracts"]
-    assert [contract["path"] for contract in contracts] == [GPU_DASHBOARD]
+    assert {contract["path"] for contract in contracts} == {GPU_DASHBOARD, USAGE_DASHBOARD}
     ux_ids = {item["id"] for item in monitoring["ux_dashboards"]}
-    assert ux_ids == {"gpu_capacity_and_oom_risk"}
+    assert ux_ids == {"gpu_capacity_and_oom_risk", "usage_today"}
+
+
+def test_usage_dashboard_required_panels_present_and_glanceable() -> None:
+    dashboard = json.loads((ROOT / USAGE_DASHBOARD).read_text(encoding="utf-8"))
+    assert dashboard["uid"] == "usage_today"
+    assert " / " not in dashboard["title"]
+    variables = {item["name"] for item in dashboard["templating"]["list"]}
+    assert {"datasource", "window"}.issubset(variables)
+    required = set(grafana_contract(USAGE_DASHBOARD)["required_panels"])
+    titles = {panel["title"] for panel in iter_panels(dashboard["panels"])}
+    assert required.issubset(titles)
+    for panel in iter_panels(dashboard["panels"]):
+        description = panel.get("description", "")
+        assert description
+        assert any(
+            token in description
+            for token in ["Healthy", "Attention", "Action Required", "No Runtime Data", "No Data", "Action"]
+        )
 
 
 def test_gpu_dashboard_required_panels_present() -> None:

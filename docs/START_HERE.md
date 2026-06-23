@@ -157,7 +157,7 @@ make monitoring-projection      # Prometheus/Grafana projection 리포트
 make operator-reports           # 전체 운영 리포트 통합 생성
 ```
 
-현재 dashboard는 1개다: `gpu_capacity_and_oom_risk` (GPU 용량과 OOM 위험을 한눈에 보는 단일 운영 대시보드).
+현재 dashboard는 2개다: `gpu_capacity_and_oom_risk` (GPU 용량·OOM 위험 안전 대시보드), `usage_today` (사용량을 가이드 없이 한눈에 보는 glanceable 대시보드).
 
 - 📄 [operations/monitoring_ux.md](operations/monitoring_ux.md)
 - 📊 생성 report: `reports/runtime/monitoring_projection.md`

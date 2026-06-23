@@ -164,9 +164,10 @@ grep -E "^GRAFANA_ADMIN_(USER|PASSWORD)=" .env
 
 | 대시보드 | uid | 운영 질문 |
 |---|---|---|
-| GPU Capacity and OOM Risk | `gpu_capacity_and_oom_risk` | 지금 이 GPU에서 요청을 안전하게 계속 처리할 수 있는가? GPU headroom, VRAM, utilization, OOM/restart, KV cache **(단일 운영 dashboard)** |
+| GPU Capacity and OOM Risk | `gpu_capacity_and_oom_risk` | 지금 이 GPU에서 요청을 안전하게 계속 처리할 수 있는가? GPU headroom, VRAM, utilization, OOM/restart, KV cache **(안전 dashboard)** |
+| Usage Today | `usage_today` | 누가 얼마나 쓰고 있는가? GPU 가동, 모델별 요청 비중, 거부 요청, 토큰 처리량 추세 **(glanceable 사용량 dashboard)** |
 
-GPU·streaming·risk 외 영역의 Prometheus metric은 `docs/operations/monitoring_ux.md`의 metric 카탈로그로 직접 조회한다.
+위 2개 외 영역의 Prometheus metric은 `docs/operations/monitoring_ux.md`의 metric 카탈로그로 직접 조회한다.
 
 > **Source of truth**: Dashboard JSON (`ops/grafana/dashboards/*.json`)이 source of truth다. Grafana UI에서 직접 수정한 내용은 JSON으로 자동 반영되지 않는다. live datasource/render validation은 `make runtime-validate`로 별도 수행한다 (기본 CI merge gate가 아님).
 
