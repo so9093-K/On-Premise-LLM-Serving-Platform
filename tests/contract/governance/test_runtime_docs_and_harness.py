@@ -39,12 +39,7 @@ def test_ops_templates_exist_without_runtime_claims() -> None:
     )
 
     for path in [
-        "ops/grafana/dashboards/serving_home.json",
         "ops/grafana/dashboards/gpu_capacity_and_oom_risk.json",
-        "ops/grafana/dashboards/risk_signal_operations.json",
-        "ops/grafana/dashboards/api_experience.json",
-        "ops/grafana/dashboards/model_runtime_deep_dive.json",
-        "ops/grafana/dashboards/observability_data_quality.json",
     ]:
         dashboard = json.loads((ROOT / path).read_text(encoding="utf-8"))
         assert dashboard["uid"]

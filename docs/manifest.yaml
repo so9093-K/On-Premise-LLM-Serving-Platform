@@ -321,12 +321,6 @@ documents:
     lifecycle: active
     owner: operations
     disposition: keep
-  - path: docs/operations/grafana_status_board.md
-    type: operations
-    lifecycle: active
-    owner: operations
-    disposition: keep
-    previous_path: docs/operations/status_board_ux.md
   - path: docs/operations/model_parameter_discovery.md
     type: operations
     lifecycle: active

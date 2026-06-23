@@ -103,8 +103,6 @@ def operator_status_bundle_document(
         "monitoring_summary": {
             "model_labels": list(registry.monitoring_model_labels()),
             "runtime_service_labels": list(registry.monitoring_compose_service_labels()),
-            "landing_dashboard": monitoring.get("operator_status_ux", {}).get("landing_dashboard", ""),
-            "first_screen_order": list(monitoring.get("operator_status_ux", {}).get("first_screen_order", [])),
         },
         "operator_commands": {
             "runtime_targets": "make runtime-targets",
@@ -189,7 +187,6 @@ def operator_status_bundle_markdown(document: dict[str, Any]) -> str:
         f"모델 라벨: `{', '.join(monitoring.get('model_labels', []))}`",
         f"런타임 서비스 라벨: `{', '.join(monitoring.get('runtime_service_labels', []))}`",
         f"Compose 서비스 정규식: `{document.get('compose_service_regex', '')}`",
-        f"첫 화면 dashboard: `{monitoring.get('landing_dashboard', '')}`",
         f"Prometheus scrape job: `{', '.join(document.get('monitoring_projection', {}).get('prometheus_scrape_jobs', []))}`",
         "",
         "## 저장소 경로",

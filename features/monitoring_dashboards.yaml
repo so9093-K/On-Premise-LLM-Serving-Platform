@@ -5,9 +5,9 @@ audience:
   - operator
   - runtime_engineer
 description: >
-  7개 Grafana dashboard와 Prometheus scrape, recording rule을 제공한다.
-  ModelRegistry와 monitoring config에서 dashboard projection을 자동 생성한다.
-  Git-managed JSON이 source of truth다. gpu_capacity_and_oom_risk가 홈 대시보드다.
+  GPU Capacity and OOM Risk Grafana dashboard와 Prometheus scrape, recording rule을 제공한다.
+  ModelRegistry와 monitoring config에서 monitoring projection을 자동 생성한다.
+  Git-managed JSON이 source of truth다. gpu_capacity_and_oom_risk가 단일 운영 대시보드다.
 
 source_files:
   - src/ai_model_serving/monitoring_projection.py
@@ -22,19 +22,12 @@ config_files:
   - ops/prometheus/rules/model_runtime.rules.yml
 
 dashboard_files:
-  - ops/grafana/dashboards/serving_home.json
   - ops/grafana/dashboards/gpu_capacity_and_oom_risk.json
-  - ops/grafana/dashboards/api_experience.json
-  - ops/grafana/dashboards/model_runtime_deep_dive.json
-  - ops/grafana/dashboards/risk_signal_operations.json
-  - ops/grafana/dashboards/observability_data_quality.json
-  - ops/grafana/dashboards/main_model_control.json
 
-dashboard_count: 7
+dashboard_count: 1
 
 docs:
   - docs/operations/monitoring_ux.md
-  - docs/operations/grafana_status_board.md
   - docs/operations/endpoint_reference.md
   - docs/START_HERE.md
 
@@ -62,11 +55,11 @@ package_impact:
 
 release_checklist_impact:
   - make monitoring-projection 실행 확인
-  - dashboard JSON이 7개인지 확인
+  - dashboard JSON이 1개(gpu_capacity_and_oom_risk)인지 확인
   - Prometheus/Grafana 포트 (9410/9411) 확인
 
 notes:
-  - "dashboard 수: 7개 (ops/grafana/dashboards/ 기준)"
+  - "dashboard 수: 1개 (ops/grafana/dashboards/ 기준)"
   - "Schema version: configs/monitoring.yaml version 필드 (package version과 독립)"
   - "dashboard panel datasource는 ${datasource} variable 사용 필수"
   - "운영자가 Grafana UI에서 저장한 변경은 JSON source로 자동 반영되지 않는다"

@@ -111,7 +111,7 @@ CI 테스트는 구조와 source-of-truth 정합성을 강하게 검증한다. P
 | endpoint/schema change | `src/ai_model_serving/api/endpoint_spec.py`, `specs/openapi.gateway.yaml`, `specs/schemas/*.json`, `docs/operations/endpoint_reference.md`, `docs/specs/api.md`, `docs/examples/requests.md`, `examples/**/*.json`, governance tests |
 | risk taxonomy change | `configs/risk_taxonomy.yaml`, `docs/specs/risk_signal_contract.md`, `docs/examples/requests.md`, risk schemas, governance tests |
 | runtime/port/compose change | `configs/services.yaml`, `configs/model_serving.yaml`, `ops/compose/*.yaml`, `.env.*.example`, `docs/operations/full_stack_runtime.md`, `docs/operations/day0_quickstart.md`, `reports/runtime/*`, governance tests |
-| monitoring/Grafana change | `configs/monitoring.yaml`, `ops/prometheus/**`, `ops/grafana/**`, `docs/operations/monitoring_ux.md`, `docs/operations/grafana_status_board.md`, `reports/runtime/monitoring_projection.*`, governance tests |
+| monitoring/Grafana change | `configs/monitoring.yaml`, `ops/prometheus/**`, `ops/grafana/**`, `docs/operations/monitoring_ux.md`, `reports/runtime/monitoring_projection.*`, governance tests |
 | CI/CD change | `.gitlab-ci.yml`, `.github/pull_request_template.md`, `Makefile`, `scripts/validation/*`, `docs/operations/gitlab_cicd_deployment.md`, `docs/development/build_ux.md`, governance tests |
 | architecture decision change | `docs/adr/*.md`, `docs/adr/README.md`, `docs/02_decision_register.md`, `docs/governance/document_management.md` |
 | release/version change | `VERSION`, `pyproject.toml`, `version_manifest.json`, `CHANGELOG.md`, `docs/release/versioning_policy.md`, `docs/release/release_checklist.md`, package scripts |

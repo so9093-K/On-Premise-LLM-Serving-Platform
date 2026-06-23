@@ -29,6 +29,18 @@ def _silent_wav_canary_base64() -> str:
 
 _AUDIO_CANARY_WAV_B64 = _silent_wav_canary_base64()
 
+# Docker Engine API HTTP-call timeouts (seconds). These bound the request to the
+# local docker socket only; the model lifecycle (drain/stop/startup) is governed
+# by the profile's own timeouts in catalog.runtime.
+_DOCKER_INSPECT_TIMEOUT = 5          # cheap list/inspect GET
+_DOCKER_API_TIMEOUT = 30             # create / start container
+_DOCKER_DELETE_TIMEOUT = 10          # delete container
+_DOCKER_STOP_TIMEOUT_BUFFER = 10     # stop HTTP timeout = docker stop grace + this
+_DRAIN_POLL_CLIENT_TIMEOUT = 3       # each drain-status poll request
+_DRAIN_POLL_INTERVAL_SECONDS = 0.25  # between drain-status polls
+_HEALTH_POLL_INTERVAL_SECONDS = 3    # between container health polls
+_RUNTIME_HTTP_TIMEOUT = 30           # HTTP to the vLLM runtime (/v1/models, canary)
+
 
 class DockerMainModelBackend:
     """Recreate only the allowlisted Compose main-model container.
@@ -82,7 +94,7 @@ class DockerMainModelBackend:
             response = await client.get(
                 "/containers/json",
                 params={"all": "true", "filters": self._filters(service)},
-                timeout=5,
+                timeout=_DOCKER_INSPECT_TIMEOUT,
             )
             response.raise_for_status()
             rows = response.json()
@@ -98,7 +110,7 @@ class DockerMainModelBackend:
 
     async def _inspect(self, container_id: str) -> dict[str, Any]:
         async with self._client() as client:
-            response = await client.get(f"/containers/{container_id}/json", timeout=5)
+            response = await client.get(f"/containers/{container_id}/json", timeout=_DOCKER_INSPECT_TIMEOUT)
             response.raise_for_status()
             return response.json()
 
@@ -116,11 +128,12 @@ class DockerMainModelBackend:
         container_id = await self._container_id(service)
         if container_id is None:
             return
+        grace = int(catalog.runtime.get("stop_timeout_seconds", 30))
         async with self._client() as client:
             stopped = await client.post(
                 f"/containers/{container_id}/stop",
-                params={"t": int(catalog.runtime.get("stop_timeout_seconds", 30))},
-                timeout=40,
+                params={"t": grace},
+                timeout=grace + _DOCKER_STOP_TIMEOUT_BUFFER,
             )
             if stopped.status_code not in (204, 304):
                 stopped.raise_for_status()
@@ -132,7 +145,7 @@ class DockerMainModelBackend:
         if container_id is None:
             raise RuntimeError("main runtime container not found to start")
         async with self._client() as client:
-            started = await client.post(f"/containers/{container_id}/start", timeout=30)
+            started = await client.post(f"/containers/{container_id}/start", timeout=_DOCKER_API_TIMEOUT)
             if started.status_code not in (204, 304):
                 started.raise_for_status()
 
@@ -226,7 +239,7 @@ class DockerMainModelBackend:
     async def wait_for_drain(self, timeout_seconds: float) -> None:
         deadline = asyncio.get_running_loop().time() + timeout_seconds
         last_in_flight: int | None = None
-        async with httpx.AsyncClient(timeout=3) as client:
+        async with httpx.AsyncClient(timeout=_DRAIN_POLL_CLIENT_TIMEOUT) as client:
             while asyncio.get_running_loop().time() < deadline:
                 response = await client.get(
                     f"{self.gateway_url}/internal/main-model/drain-status",
@@ -236,7 +249,7 @@ class DockerMainModelBackend:
                 last_in_flight = int(response.json().get("in_flight", -1))
                 if last_in_flight == 0:
                     return
-                await asyncio.sleep(0.25)
+                await asyncio.sleep(_DRAIN_POLL_INTERVAL_SECONDS)
         raise RuntimeError(
             f"main-model request drain timed out with in_flight={last_in_flight}"
         )
@@ -247,15 +260,16 @@ class DockerMainModelBackend:
         if container_id is not None:
             inspected = await self._inspect(container_id)
             self._template = self._creation_template(inspected)
+            grace = int(catalog.runtime.get("stop_timeout_seconds", 30))
             async with self._client() as client:
                 stopped = await client.post(
                     f"/containers/{container_id}/stop",
-                    params={"t": int(catalog.runtime.get("stop_timeout_seconds", 30))},
-                    timeout=40,
+                    params={"t": grace},
+                    timeout=grace + _DOCKER_STOP_TIMEOUT_BUFFER,
                 )
                 if stopped.status_code not in (204, 304):
                     stopped.raise_for_status()
-                removed = await client.delete(f"/containers/{container_id}", timeout=10)
+                removed = await client.delete(f"/containers/{container_id}", timeout=_DOCKER_DELETE_TIMEOUT)
                 if removed.status_code != 204:
                     removed.raise_for_status()
         if self._template is None:
@@ -274,11 +288,11 @@ class DockerMainModelBackend:
                 "/containers/create",
                 params={"name": self._template["name"]},
                 json=payload,
-                timeout=30,
+                timeout=_DOCKER_API_TIMEOUT,
             )
             created.raise_for_status()
             new_id = created.json()["Id"]
-            started = await client.post(f"/containers/{new_id}/start", timeout=30)
+            started = await client.post(f"/containers/{new_id}/start", timeout=_DOCKER_API_TIMEOUT)
             if started.status_code != 204:
                 started.raise_for_status()
 
@@ -299,13 +313,13 @@ class DockerMainModelBackend:
                     raise RuntimeError(
                         f"main runtime exited during startup: {state.get('ExitCode')}"
                     )
-            await asyncio.sleep(3)
+            await asyncio.sleep(_HEALTH_POLL_INTERVAL_SECONDS)
         else:
             raise RuntimeError(f"main runtime did not become healthy: {last_health}")
 
         port = int(catalog.runtime["container_port"])
         base = f"http://{service}:{port}"
-        async with httpx.AsyncClient(timeout=30) as client:
+        async with httpx.AsyncClient(timeout=_RUNTIME_HTTP_TIMEOUT) as client:
             models = await client.get(base + str(catalog.runtime["models_path"]))
             models.raise_for_status()
             ids = {row.get("id") for row in models.json().get("data", [])}

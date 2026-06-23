@@ -436,28 +436,6 @@ async def switch_main_model(
     return JSONResponse({"operation_id": operation_id, "status": "pending"}, status_code=202)
 
 
-@app.post("/main-model/rollback", status_code=202)
-async def rollback_main_model(
-    payload: dict[str, Any] | None = None,
-    authorization: str | None = Header(default=None),
-) -> JSONResponse:
-    await _require_sidecar_token(authorization)
-    body = payload or {}
-    unknown = set(body) - {"request_id"}
-    if unknown:
-        raise HTTPException(422, detail=f"unsupported fields: {sorted(unknown)}")
-    try:
-        operation_id = _main_model_manager.request_rollback(
-            client_request_id=body.get("request_id")
-        )
-    except MainModelSwitchError as exc:
-        raise HTTPException(
-            exc.status_code,
-            detail={"code": exc.code, "message": str(exc)},
-        ) from exc
-    return JSONResponse({"operation_id": operation_id, "status": "pending"}, status_code=202)
-
-
 @app.get("/main-model/operations/{operation_id}")
 async def main_model_operation(
     operation_id: str,

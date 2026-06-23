@@ -29,40 +29,11 @@ monitoring_stack:
     dashboard_language_policy: Korean-first titles with English metric terms; PromQL
       metric names and label values stay ASCII/English.
     dashboard_variable_scope: Minimum common variable list; datasource/window are required
-      for all dashboards. serving_home additionally uses user_route; model/runtime_service
-      are present in most dashboards but not all.
+      for all dashboards.
     dashboard_variables:
     - datasource
     - window
-    - user_route
     dashboard_contracts:
-    - path: ops/grafana/dashboards/serving_home.json
-      required_panels:
-      - Service Verdict
-      - Serving State
-      - User Requests
-      - Monitoring Coverage
-      - GPU Safety Margin
-      - Crashes and Restarts
-      - Model Capacity
-      - Attention Needed
-      - Lowest GPU Safety Margin
-      - Highest Model Capacity Used
-      - Crash and Restart Signals
-      - GPU Memory Used vs Budget
-      - Waiting Requests
-      - Model Capacity Used
-      - Token Throughput
-      - GPU Workload
-      - Evidence Details
-      semantic_panels:
-        attention: Attention Needed
-        user_requests: User Requests
-        service_verdict: Service Verdict
-        monitoring_coverage: Monitoring Coverage
-        crashes_restarts: Crashes and Restarts
-      collapsed_detail_rows:
-      - Evidence Details
     - path: ops/grafana/dashboards/gpu_capacity_and_oom_risk.json
       required_panels:
       - GPU Headroom
@@ -71,49 +42,6 @@ monitoring_stack:
       - GPU Utilization
       - VRAM Used vs Budget
       - CPU Cores Used per Model
-    - path: ops/grafana/dashboards/risk_signal_operations.json
-      required_panels:
-      - Risk Checks
-      - A1 Detections
-      - A2 Detections
-      - Unsafe Response Fields
-      collapsed_detail_rows:
-      - Drill Down
-    - path: ops/grafana/dashboards/api_experience.json
-      required_panels:
-      - API Activity
-      - Streaming Failures
-      - Streaming Usage Reports
-      collapsed_detail_rows:
-      - Delay Details
-      - Streaming Details
-      - Retrieval Details
-      - Embedding Details
-    - path: ops/grafana/dashboards/model_runtime_deep_dive.json
-      required_panels:
-      - Token Throughput
-      - Waiting Requests
-      - Capacity Used
-      - Average Model Response Time
-      collapsed_detail_rows:
-      - Runtime Details
-    - path: ops/grafana/dashboards/observability_data_quality.json
-      required_panels:
-      - Systems Visible
-      - Systems Reporting
-      - Missing Sources
-      - Source Visibility
-      semantic_panels:
-        systems_visible: Systems Visible
-      collapsed_detail_rows:
-      - Monitoring Details
-    - path: ops/grafana/dashboards/main_model_control.json
-      required_panels:
-      - Main-model Gate Open
-      - Active Profile / Revision / Compatibility
-      - Latest Operation State
-      - Switch / Rollback Totals
-      - Last Switch Duration
   dcgm_exporter:
     enabled: true
     port: 9412
@@ -194,9 +122,9 @@ metric_sources:
     - container_oom_events_total
     - container_start_time_seconds
     source: cadvisor_recording_rules
-    serving_home_source_metrics:
+    oom_restart_source_metrics:
     - metric: container_oom_events_total
-      purpose: Container OOM event evidence for Serving Home and GPU/OOM drill-down.
+      purpose: Container OOM event evidence for the GPU Capacity and OOM Risk dashboard.
     - metric: container_start_time_seconds
       purpose: Container restart signal via changes() over the selected dashboard window.
   container_signal_sources:
@@ -218,30 +146,6 @@ metric_sources:
     - gpu_memory_headroom_bytes
     source: dcgm_exporter_or_site_recording_rules
 ux_dashboards:
-- id: serving_home
-  audience: operator
-  purpose: Idle-aware serving home that combines a verdict banner, evidence cards, Needs
-    Attention triage table, GPU warm residency, runtime capacity timeseries, and drill-down
-    routing.
-  panels:
-  - operator_guide
-  - serving_verdict
-  - state
-  - user_traffic
-  - scrape_targets
-  - gpu_headroom
-  - oom_restart
-  - runtime_capacity
-  - needs_attention
-  - min_gpu_headroom_warm
-  - max_kv_cache_warm
-  - container_oom_restart_warm
-  - vram_used_vs_budget
-  - vllm_queue_depth
-  - kv_cache_pressure
-  - token_throughput
-  - gpu_utilization
-  - drill_down_links
 - id: gpu_capacity_and_oom_risk
   audience: runtime_engineer
   purpose: GPU/OOM drill-down for capacity, OOM/restart, VRAM budget line, utilization,
@@ -260,81 +164,6 @@ ux_dashboards:
   - token_throughput
   - container_ram
   - container_cpu
-- id: risk_signal_operations
-  audience: safety_or_policy_reviewer
-  purpose: Risk signal operations without raw prompt or model output exposure.
-  panels:
-  - risk_operator_guide
-  - risk_assessment_volume
-  - risk_detected_rate
-  - detector_timeout_rate
-  - forbidden_field_violation_count
-  - risk_latency
-  - detector_readiness
-  - strongest_code_distribution
-  - system_signal_distribution
-  - forbidden_field_by_name
-  - detector_status_trend
-- id: api_experience
-  audience: gateway_or_runtime_engineer
-  purpose: API experience observability for chat completions, embeddings, and streaming
-    relay using Gateway metrics including TTFT and full stream duration histograms.
-  panels:
-  - chat_operator_guide
-  - chat_request_rate
-  - chat_p95_latency
-  - chat_p99_latency
-  - chat_5xx_rate
-  - streaming_errors
-  - usage_chunk_events
-  - gateway_vs_upstream_p95
-  - streaming_chunks_bytes
-  - streaming_ttft_p95
-  - streaming_duration_chunks
-  - validation_auth_issues
-  - upstream_errors_by_model
-- id: observability_data_quality
-  audience: operator_or_platform_engineer
-  purpose: Observability data quality surface for scrape target visibility, up vs absent
-    distinction, recording rule health, and vLLM metric availability.
-  panels:
-  - operator_guide
-  - visible_targets_vs_expected
-  - up_targets_vs_visible
-  - missing_critical_targets
-  - gateway_availability
-  - risk_adapter_availability
-  - dcgm_availability
-  - cadvisor_availability
-  - missing_target_detection
-  - down_target_detection
-  - vllm_metric_availability
-  - readiness_metric_freshness
-  - recording_rules_health
-- id: model_runtime_deep_dive
-  audience: runtime_engineer
-  purpose: Model/runtime drill-down by model and runtime_service labels.
-  panels:
-  - model_runtime_guide
-  - token_throughput
-  - queue_depth
-  - kv_cache_usage
-  - upstream_p95
-  - queue_kv_trend
-  - token_throughput_trend
-  - container_ram
-  - container_cpu
-- id: main_model_control
-  audience: operator_or_runtime_engineer
-  purpose: Active main-model identity, request gate, switch lifecycle, rollback totals,
-    and last switch duration without operation IDs or error strings in metric labels.
-  panels:
-  - active_profile
-  - request_gate
-  - operation_state
-  - switch_totals
-  - rollback_totals
-  - last_switch_duration
 privacy_and_security:
   raw_prompt_in_metrics: forbidden
   user_text_labels: forbidden
@@ -355,87 +184,6 @@ reference_decisions:
 - Alert routing is configured separately after ownership and escalation are defined.
 - Dashboards may use static JSON templates, but mock runtime services are not allowed
   outside tests.
-operator_status_ux:
-  goal: Operators must understand the current operating state from the first Grafana
-    screen without reading logs or raw metrics.
-  landing_dashboard: gpu_capacity_and_oom_risk
-  serving_modes:
-  - mode: ACTIVE
-    meaning: User request activity is present and readiness, scrape, GPU headroom,
-      and OOM/restart evidence are healthy.
-  - mode: IDLE WARM
-    meaning: No user traffic, but runtime readiness, scrape, GPU headroom, warm residency,
-      and OOM/restart absence indicate the stack is warm and ready.
-  - mode: IDLE COLD
-    meaning: No user traffic and readiness, scrape, or warm residency evidence is
-      missing.
-  - mode: DEGRADED
-    meaning: One or more readiness, scrape, latency, error, GPU, OOM, restart, or
-      runtime capacity signals requires attention.
-  - mode: NO DATA
-    meaning: Prometheus has no trustworthy runtime evidence; do not treat this as
-      a numeric zero.
-  status_levels:
-  - level: green
-    label: Healthy
-    meaning: Public traffic, backend readiness, latency, error, and GPU headroom checks
-      are within reference thresholds.
-  - level: yellow
-    label: Attention
-    meaning: Service is still usable, but one or more latency, queue, risk adapter,
-      or GPU pressure indicators need review.
-  - level: red
-    label: Action Required
-    meaning: User-facing path, backend readiness, OOM/restart, or forbidden-field
-      invariant has failed.
-  - level: gray
-    label: No Runtime Data
-    meaning: The panel depends on runtime metrics that are not currently scraped or
-      mapped.
-  first_screen_order:
-  - overall_status
-  - user_requests_in_window
-  - model_gateway_ready
-  - prometheus_target_health
-  - gpu_headroom
-  - oom_or_restart_events
-  - warm_readiness_evidence
-  design_rule: No panel should require reading raw logs, prompts, generated output,
-    or stack traces to understand current status.
-  dashboard_language_policy: Grafana dashboard and panel titles use English only
-    and should use operator-facing judgment language before implementation terms.
-  visible_runbook_rule: Each dashboard starts with a compact snapshot text panel;
-    detailed runbook guidance belongs in panel descriptions and operations docs.
-  dashboard_variable_scope: Home-inclusive variable list; user_route is Serving
-    Home only.
-  dashboard_variables:
-  - datasource
-  - window
-  - user_route
-  drill_down_order:
-  - serving_home
-  - api_experience
-  - model_runtime_deep_dive
-  - risk_signal_operations
-  - observability_data_quality
-  traffic_classes:
-  - class: user
-    routes:
-    - /v1/chat/completions
-    - /v1/embeddings
-    - /v1/risk/.*
-  - class: control
-    routes:
-    - /health
-    - /ready
-    - /v1/models
-  - class: observability
-    routes:
-    - /metrics
-  - class: docs
-    routes:
-    - /docs
-    - /openapi.json
 resource_monitoring:
   model_labels:
   - local-main

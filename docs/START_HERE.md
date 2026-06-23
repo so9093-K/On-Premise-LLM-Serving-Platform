@@ -157,10 +157,9 @@ make monitoring-projection      # Prometheus/Grafana projection 리포트
 make operator-reports           # 전체 운영 리포트 통합 생성
 ```
 
-현재 dashboard는 6개다: `serving_home`, `gpu_capacity_and_oom_risk`, `api_experience`, `model_runtime_deep_dive`, `risk_signal_operations`, `observability_data_quality`.
+현재 dashboard는 1개다: `gpu_capacity_and_oom_risk` (GPU 용량과 OOM 위험을 한눈에 보는 단일 운영 대시보드).
 
 - 📄 [operations/monitoring_ux.md](operations/monitoring_ux.md)
-- 📄 [operations/grafana_status_board.md](operations/grafana_status_board.md)
 - 📊 생성 report: `reports/runtime/monitoring_projection.md`
 
 ---

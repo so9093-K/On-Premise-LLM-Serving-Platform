@@ -120,22 +120,3 @@ def test_sidecar_and_main_runtime_share_the_hugging_face_cache():
     assert services["admin-sidecar"]["environment"]["HF_HOME"] == (
         "/root/.cache/huggingface"
     )
-
-
-def test_main_model_dashboard_is_registered_and_uses_bounded_labels():
-    dashboard = json.loads(
-        (ROOT / "ops/grafana/dashboards/main_model_control.json").read_text(
-            encoding="utf-8"
-        )
-    )
-    text = json.dumps(dashboard)
-    assert dashboard["uid"] == "main_model_control"
-    for metric in (
-        "main_model_profile_info",
-        "main_model_gate_open",
-        "main_model_switch_operations",
-        "main_model_operation_state",
-    ):
-        assert metric in text
-    assert "operation_id" not in text
-    assert "error_message" not in text

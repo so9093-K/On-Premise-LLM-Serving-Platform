@@ -42,7 +42,6 @@
 | 모델 구성·리소스 계획을 보고 싶다 | [models/model_cards.md](models/model_cards.md), [resources/gpu_resource_requirements_48gb.md](resources/gpu_resource_requirements_48gb.md) |
 | GPU 리소스 배분 기준을 보고 싶다 | [resources/gpu_resource_plan.md](resources/gpu_resource_plan.md) |
 | 모델 runtime 제어 기준을 보고 싶다 | [operations/model_runtime_control.md](operations/model_runtime_control.md) |
-| Grafana 상태 보드 구성을 보고 싶다 | [operations/grafana_status_board.md](operations/grafana_status_board.md) |
 | Risk vLLM patch 관리 정책을 보고 싶다 | [operations/risk_vllm_patch_lifecycle.md](operations/risk_vllm_patch_lifecycle.md) |
 | 전체 서비스 컴포넌트 목록을 보고 싶다 | [operations/full_stack_runtime.md](operations/full_stack_runtime.md) |
 | 릴리스 버전 정책을 확인하고 싶다 | [release/versioning_policy.md](release/versioning_policy.md) |
@@ -84,7 +83,6 @@ docs/
 │   ├── gitlab_cicd_deployment.md    ← GitLab CI/CD와 175 배포 가이드
 │   ├── full_stack_troubleshooting.md
 │   ├── monitoring_ux.md
-│   ├── grafana_status_board.md      ← Grafana 상태 보드 구성
 │   ├── runtime_validation_operations.md
 │   ├── model_runtime_control.md     ← 모델 runtime 제어 기준
 │   ├── risk_vllm_patch_lifecycle.md ← Risk vLLM patch 관리 정책

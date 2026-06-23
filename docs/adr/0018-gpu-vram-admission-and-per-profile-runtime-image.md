@@ -110,6 +110,5 @@ VRAM을 단일 예산으로 보고 모든 모델 로드를 그 예산에 대한 
 - `build-vllm-derived` CI 잡이 risk-vllm-kanana와 `vllm-gemma4-audio`를 한 잡에서 빌드한다
   (~25 GiB vLLM base를 한 번만 pull). 오디오 digest는 `build/audio-image.env` 아티팩트로
   산출되어 12B 프로필 핀에 사용된다.
-- admission·메인 상태·전환 결과는 기존 Gateway Prometheus metric과 `main_model_control`
-  Grafana 대시보드(Gate/Active Profile/Latest Operation State/Switch Totals/Duration)로
-  관측한다.
+- admission·메인 상태·전환 결과는 기존 Gateway Prometheus metric(`main_model_operation_state`,
+  request gate, switch/rollback totals, 마지막 전환 시간)으로 관측한다.

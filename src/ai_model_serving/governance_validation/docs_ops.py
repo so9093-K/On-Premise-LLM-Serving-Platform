@@ -84,31 +84,13 @@ def validate_monitoring_reference() -> None:
         if ports.get(name) != port:
             raise SystemExit(f'monitoring port mismatch: {name} services.yaml={ports.get(name)} monitoring.yaml={port}')
     dashboards = {d['id'] for d in monitoring['ux_dashboards']}
-    required = {
-        'serving_home',
-        'gpu_capacity_and_oom_risk',
-        'risk_signal_operations',
-        'api_experience',
-        'model_runtime_deep_dive',
-        'observability_data_quality',
-    }
+    required = {'gpu_capacity_and_oom_risk'}
     if not required.issubset(dashboards):
         raise SystemExit(f'missing required monitoring dashboards: {required - dashboards}')
     forbidden_text_labels = monitoring['privacy_and_security']
     for key in ['raw_prompt_in_metrics', 'user_text_labels', 'model_output_text_labels']:
         if forbidden_text_labels.get(key) != 'forbidden':
             raise SystemExit(f'monitoring privacy policy must forbid {key}')
-
-    operator = monitoring.get('operator_status_ux', {})
-    if operator.get('landing_dashboard') != 'gpu_capacity_and_oom_risk':
-        raise SystemExit('monitoring UX must define gpu_capacity_and_oom_risk as the landing dashboard')
-    levels = {item['level'] for item in operator.get('status_levels', [])}
-    if levels != {'green', 'yellow', 'red', 'gray'}:
-        raise SystemExit(f'monitoring status levels must be green/yellow/red/gray, got {levels}')
-    first_screen = operator.get('first_screen_order', [])
-    for expected in ['overall_status', 'model_gateway_ready', 'prometheus_target_health', 'gpu_headroom']:
-        if expected not in first_screen:
-            raise SystemExit(f'monitoring first screen must include {expected}')
 
     from ai_model_serving.domain import ModelRegistry
     from ai_model_serving.monitoring_projection import monitoring_projection_document, prometheus_scrape_config_document
@@ -135,11 +117,11 @@ def validate_monitoring_reference() -> None:
         raise SystemExit('grafana provisioning must define the portable prometheus datasource uid')
     if grafana.get('allow_ui_updates_policy', {}).get('reference_release') is not False:
         raise SystemExit('reference release dashboards must be Git-managed with allowUiUpdates=false')
-    if not {'datasource', 'window', 'user_route'}.issubset(set(grafana.get('dashboard_variables', []))):
+    if not {'datasource', 'window'}.issubset(set(grafana.get('dashboard_variables', []))):
         raise SystemExit('grafana monitoring config missing required dashboard variables')
 
     doc = (ROOT / 'docs/operations/monitoring_ux.md').read_text(encoding='utf-8')
-    for phrase in ['Prometheus', 'Grafana', 'No prompt leakage', 'Risk Signal Activity', 'No Runtime Data', '한글 우선', '$datasource', 'streaming_time_to_first_chunk_seconds_bucket']:
+    for phrase in ['Prometheus', 'Grafana', 'No prompt leakage', 'No Runtime Data', '한글 우선', '$datasource', 'streaming_time_to_first_chunk_seconds_bucket']:
         if phrase not in doc:
             raise SystemExit(f'monitoring UX doc missing phrase: {phrase}')
     endpoint_doc = (ROOT / 'docs/operations/endpoint_reference.md').read_text(encoding='utf-8')
@@ -150,10 +132,6 @@ def validate_monitoring_reference() -> None:
         raise SystemExit('endpoint reference must not document low-traffic-skewed rate/clamp error ratio')
     if 'allowUiUpdates=false' not in endpoint_doc:
         raise SystemExit('endpoint reference must document Git-managed Grafana allowUiUpdates=false policy')
-    status_doc = (ROOT / 'docs/operations/grafana_status_board.md').read_text(encoding='utf-8')
-    for phrase in ['지금 요청을 안전하게 처리할 수 있는가?', 'Serving State', 'Action Required', 'No Runtime Data', 'make operator-status', 'operator_status_bundle.json']:
-        if phrase not in status_doc:
-            raise SystemExit(f'status board UX doc missing phrase: {phrase}')
 
 def validate_status_vocabulary() -> None:
     from ai_model_serving import status as status_vocab

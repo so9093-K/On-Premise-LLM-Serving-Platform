@@ -6,20 +6,7 @@
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
   "id": null,
-  "links": [
-    {
-      "asDropdown": false,
-      "icon": "external link",
-      "includeVars": true,
-      "keepTime": true,
-      "tags": [],
-      "targetBlank": false,
-      "title": "Serving Home",
-      "tooltip": "Serving Home — operator triage surface with verdict, evidence, and drill-down",
-      "type": "link",
-      "url": "/d/serving_home/serving-home"
-    }
-  ],
+  "links": [],
   "liveNow": false,
   "panels": [
     {

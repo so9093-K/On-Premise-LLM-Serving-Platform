@@ -164,19 +164,9 @@ grep -E "^GRAFANA_ADMIN_(USER|PASSWORD)=" .env
 
 | 대시보드 | uid | 운영 질문 |
 |---|---|---|
-| GPU Capacity and OOM Risk | `gpu_capacity_and_oom_risk` | 지금 이 GPU에서 요청을 안전하게 계속 처리할 수 있는가? **(기본 home dashboard)** |
-| Serving Home | `serving_home` | 지금 요청을 안전하게 처리할 수 있는가? Service Verdict, Attention Needed, GPU warm evidence |
-| API Experience | `api_experience` | Gateway path와 upstream 중 어디가 병목인가? streaming relay 상태는? |
-| Model Runtime Deep Dive | `model_runtime_deep_dive` | 특정 모델 queue/KV cache/token throughput/container 상태는? |
-| Risk Signal Operations | `risk_signal_operations` | risk signal만으로 본 detector 상태는? (prompt 없음) |
-| Observability Data Quality | `observability_data_quality` | scrape target 몇 개가 보이는가? up vs absent 구분, recording rule health, vLLM metric 가용성 |
-| Main Model Control | `main_model_control` | 어떤 main profile이 active인지, 전환·rollback 상태와 request gate가 정상인지 확인 |
+| GPU Capacity and OOM Risk | `gpu_capacity_and_oom_risk` | 지금 이 GPU에서 요청을 안전하게 계속 처리할 수 있는가? GPU headroom, VRAM, utilization, OOM/restart, KV cache **(단일 운영 dashboard)** |
 
-Dashboard 간 navigation은 Grafana 상단 링크로 이동한다 (UID 기반, `includeVars=true`).
-
-권장 drill-down: `gpu_capacity_and_oom_risk` → `serving_home` → 필요한 영역별로 `api_experience`, `model_runtime_deep_dive`, `risk_signal_operations`, `observability_data_quality`, `main_model_control`을 연다.
-
-`Serving Home`의 user route 기본값은 `/v1/chat/completions|/v1/embeddings|/v1/risk/.*`이다. Top strip의 `User Requests`는 double count를 피하기 위해 `service="gateway"` public entrypoint만 세고, service-level activity panel은 `gateway`와 `risk-adapter`를 service label로 분리한다.
+GPU·streaming·risk 외 영역의 Prometheus metric은 `docs/operations/monitoring_ux.md`의 metric 카탈로그로 직접 조회한다.
 
 > **Source of truth**: Dashboard JSON (`ops/grafana/dashboards/*.json`)이 source of truth다. Grafana UI에서 직접 수정한 내용은 JSON으로 자동 반영되지 않는다. live datasource/render validation은 `make runtime-validate`로 별도 수행한다 (기본 CI merge gate가 아님).
 
