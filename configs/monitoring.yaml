@@ -47,7 +47,8 @@ monitoring_stack:
       - GPU Workload
       - Top Models by Requests
       - Rejected Requests
-      - Token Throughput Trend
+      - 'Token Throughput: Input vs Output'
+      - Requests by Model
   dcgm_exporter:
     enabled: true
     port: 9412
@@ -173,12 +174,14 @@ ux_dashboards:
 - id: usage_today
   audience: operator
   purpose: Glanceable usage view — GPU workload, top models by requests, rejected
-    requests, and token throughput trend. Judgment is in color/title; no guide needed.
+    requests, input/output token throughput, and per-model request trend. Judgment
+    is in color/title; no guide needed.
   panels:
   - gpu_workload
   - top_models_by_requests
   - rejected_requests
-  - token_throughput_trend
+  - token_throughput_input_output
+  - requests_by_model
 privacy_and_security:
   raw_prompt_in_metrics: forbidden
   user_text_labels: forbidden

@@ -165,7 +165,7 @@ grep -E "^GRAFANA_ADMIN_(USER|PASSWORD)=" .env
 | 대시보드 | uid | 운영 질문 |
 |---|---|---|
 | GPU Capacity and OOM Risk | `gpu_capacity_and_oom_risk` | 지금 이 GPU에서 요청을 안전하게 계속 처리할 수 있는가? GPU headroom, VRAM, utilization, OOM/restart, KV cache **(안전 dashboard)** |
-| Usage Today | `usage_today` | 누가 얼마나 쓰고 있는가? GPU 가동, 모델별 요청 비중, 거부 요청, 토큰 처리량 추세 **(glanceable 사용량 dashboard)** |
+| Usage Today | `usage_today` | 누가 얼마나 쓰고 있는가? GPU 가동, 모델별 요청 비중, 거부 요청, input/output 토큰 처리량, 모델별 요청 추세 **(glanceable 사용량 dashboard)** |
 
 위 2개 외 영역의 Prometheus metric은 `docs/operations/monitoring_ux.md`의 metric 카탈로그로 직접 조회한다.
 

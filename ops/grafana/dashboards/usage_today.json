@@ -174,7 +174,7 @@
     {
       "id": 4,
       "type": "timeseries",
-      "title": "Token Throughput Trend",
+      "title": "Token Throughput: Input vs Output",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -183,13 +183,18 @@
         "x": 0,
         "y": 5,
         "w": 24,
-        "h": 8
+        "h": 7
       },
       "targets": [
         {
-          "expr": "sum(vllm_token_throughput_per_second)",
+          "expr": "sum(vllm_prompt_tokens_per_second)",
           "refId": "A",
-          "legendFormat": "total tok/s"
+          "legendFormat": "input (prompt) tok/s"
+        },
+        {
+          "expr": "sum(vllm_generation_tokens_per_second)",
+          "refId": "B",
+          "legendFormat": "output (generation) tok/s"
         }
       ],
       "options": {
@@ -202,11 +207,54 @@
       "fieldConfig": {
         "defaults": {
           "unit": "suffix: tok/s",
-          "decimals": 1
+          "decimals": 1,
+          "custom": {
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            }
+          }
         },
         "overrides": []
       },
-      "description": "전체 prompt+generation 토큰 처리량 추세로 사용량 흐름을 본다. Healthy: 트래픽에 따라 오르내림이 보임. Attention: 트래픽이 있는데 갑자기 꺾이면 병목을 본다. Action Required: 활성 요청이 있는데 0 근처면 runtime을 확인한다. No Data: check vllm-runtimes scrape."
+      "description": "토큰 처리량을 input(프롬프트)과 output(생성)으로 나눠 사용량의 성격을 본다. 쌓은 높이의 합이 전체 처리량이다. Healthy: 트래픽에 따라 오르내림이 보임. Attention: input이 치솟으면 컨텍스트 부하, output이 치솟으면 생성 부하. Action Required: 활성 요청이 있는데 0 근처면 runtime을 확인한다. No Data: check vllm-runtimes scrape."
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Requests by Model",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 12,
+        "w": 24,
+        "h": 7
+      },
+      "targets": [
+        {
+          "expr": "sum by (target) (rate(upstream_request_duration_seconds_count{service=\"gateway\"}[$window]))",
+          "refId": "A",
+          "legendFormat": "{{target}}"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "decimals": 2
+        },
+        "overrides": []
+      },
+      "description": "모델별 요청량이 시간에 따라 어떻게 변하는지 본다(상단 Top Models 스냅샷의 추세 짝). Healthy: 의도한 모델 분포가 유지됨. Attention: 특정 모델이 갑자기 치솟거나 꺾이면 원인을 본다. No Data: 트래픽이 없거나 gateway scrape를 확인한다."
     }
   ],
   "refresh": "30s",

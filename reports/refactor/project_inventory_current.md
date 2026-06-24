@@ -72,7 +72,7 @@ Command:
 | `reports/refactor/project_inventory_current.json` | 5268 | handoff-reporting | handoff/review artifact; avoid stale phase snapshots in active package |
 | `specs/openapi.risk-adapter.yaml` | 3538 | api-contracts | supporting project file |
 | `configs/command_registry.yaml` | 2150 | configuration | configuration source; validate through governance and projection checks after edits |
-| `scripts/ci/deploy_gitlab_compose.sh` | 854 | operator-ux | operator/developer command; expose through Makefile/help if user-facing |
+| `scripts/ci/deploy_gitlab_compose.sh` | 881 | operator-ux | operator/developer command; expose through Makefile/help if user-facing |
 | `src/ai_model_serving/main_model_control.py` | 764 | application | application code; preserve public API behavior and compatibility facades |
 | `reports/runtime/operator_status_bundle.json` | 710 | handoff-reporting | generated operator report; regenerate through make operator-reports before handoff |
 | `ops/grafana/dashboards/gpu_capacity_and_oom_risk.json` | 700 | operations | supporting project file |

@@ -40,6 +40,12 @@ groups:
         expr: vllm:num_requests_waiting
       - record: vllm_token_throughput_per_second
         expr: sum by (instance, model, runtime_service) (rate(vllm:generation_tokens_total[5m]) + rate(vllm:prompt_tokens_total[5m]))
+      # Input vs output token split for the usage dashboard. Same labels as the
+      # combined throughput rule so Grafana variables stay consistent.
+      - record: vllm_prompt_tokens_per_second
+        expr: sum by (instance, model, runtime_service) (rate(vllm:prompt_tokens_total[5m]))
+      - record: vllm_generation_tokens_per_second
+        expr: sum by (instance, model, runtime_service) (rate(vllm:generation_tokens_total[5m]))
       # cAdvisor bridges for per-vLLM container host resources. Compose generated
       # container names vary by project directory, so use the compose service label.
       - record: vllm_container_memory_usage_bytes

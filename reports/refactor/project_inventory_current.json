@@ -130,8 +130,8 @@
         "category": "operator/developer command surface",
         "owner": "operator-ux",
         "management": "managed by Makefile command UX",
-        "size_bytes": 33502,
-        "line_count": 854,
+        "size_bytes": 34695,
+        "line_count": 881,
         "role": "shell-command",
         "review_note": "operator/developer command; expose through Makefile/help if user-facing"
       },
@@ -661,8 +661,8 @@
       "category": "configuration source of truth",
       "owner": "configuration",
       "management": "managed by configuration lifecycle",
-      "size_bytes": 8155,
-      "line_count": 238,
+      "size_bytes": 8259,
+      "line_count": 241,
       "role": "structured-data",
       "review_note": "configuration source; validate through governance and projection checks after edits"
     },
@@ -1211,7 +1211,7 @@
       "category": "documentation",
       "owner": "documentation",
       "management": "managed by documentation map",
-      "size_bytes": 17425,
+      "size_bytes": 17456,
       "line_count": 259,
       "role": "documentation",
       "review_note": "documentation; keep relative links valid and avoid duplicating current command flow"
@@ -1288,7 +1288,7 @@
       "category": "documentation",
       "owner": "documentation",
       "management": "managed by documentation map",
-      "size_bytes": 14763,
+      "size_bytes": 14794,
       "line_count": 227,
       "role": "documentation",
       "review_note": "documentation; keep relative links valid and avoid duplicating current command flow"
@@ -1651,8 +1651,8 @@
       "category": "compose/monitoring/runtime ops template",
       "owner": "operations",
       "management": "managed by operator templates",
-      "size_bytes": 7088,
-      "line_count": 279,
+      "size_bytes": 8938,
+      "line_count": 336,
       "role": "structured-data",
       "review_note": "supporting project file"
     },
@@ -1739,8 +1739,8 @@
       "category": "compose/monitoring/runtime ops template",
       "owner": "operations",
       "management": "managed by operator templates",
-      "size_bytes": 5650,
-      "line_count": 86,
+      "size_bytes": 6087,
+      "line_count": 92,
       "role": "structured-data",
       "review_note": "supporting project file"
     },
@@ -2190,8 +2190,8 @@
       "category": "operator/developer command surface",
       "owner": "operator-ux",
       "management": "managed by Makefile command UX",
-      "size_bytes": 33502,
-      "line_count": 854,
+      "size_bytes": 34695,
+      "line_count": 881,
       "role": "shell-command",
       "review_note": "operator/developer command; expose through Makefile/help if user-facing"
     },
