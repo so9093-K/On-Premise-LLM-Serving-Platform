@@ -35,6 +35,8 @@ RUN python3 -c "import soundfile, librosa; print('audio decode ok', soundfile.__
 # Carry the two vLLM/transformers multimodal fixes (image FP8 mis-quant + audio
 # warmup fft_length). The script asserts on the upstream code layout, so a base
 # image bump that invalidates a patch fails the build loudly. Idempotent.
-COPY ops/images/vllm-gemma4-audio/apply_gemma4_multimodal_patches.py /tmp/apply_gemma4_multimodal_patches.py
+# Patch lives in ops/patches/ (the build-context allowlist in .dockerignore), like
+# the risk image's transformers patch.
+COPY ops/patches/apply_gemma4_multimodal_patches.py /tmp/apply_gemma4_multimodal_patches.py
 RUN python3 /tmp/apply_gemma4_multimodal_patches.py \
     && rm /tmp/apply_gemma4_multimodal_patches.py

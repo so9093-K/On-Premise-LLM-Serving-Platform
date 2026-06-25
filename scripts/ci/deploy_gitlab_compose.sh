@@ -141,6 +141,7 @@ rsync -az --delete \
 ssh "${SSH_TARGET}" \
   PLATFORM_IMAGE_TO_DEPLOY="${PLATFORM_IMAGE_TO_DEPLOY}" \
   RISK_VLLM_IMAGE_TO_DEPLOY="${RISK_VLLM_IMAGE_TO_DEPLOY:-}" \
+  AUDIO_VLLM_IMAGE_TO_DEPLOY="${AUDIO_VLLM_IMAGE_TO_DEPLOY:-}" \
   CI_REGISTRY="${CI_REGISTRY}" \
   REGISTRY_USER="${REGISTRY_USER}" \
   REGISTRY_PASSWORD="${REGISTRY_PASSWORD}" \
@@ -270,6 +271,33 @@ if [[ "${DEPLOY_MODE}" == "rolling" ]]; then
       RISK_VLLM_IMAGE_TO_DEPLOY="$(get_env_value RISK_VLLM_IMAGE)"
       echo "[deploy] keeping current RISK_VLLM_IMAGE: ${RISK_VLLM_IMAGE_TO_DEPLOY}"
     fi
+  fi
+fi
+
+# Guard against silently shipping a STALE derived image. GitLab 12.1.1 cannot auto-build
+# on source change (no rule engine), so the ~25 GB build is a manual opt-in — meaning an
+# operator can edit the vllm-gemma4-audio Dockerfile/patch and forget to rebuild. If the
+# image source changed since the previous release but no fresh digest is being deployed
+# (build-vllm-derived did not run -> AUDIO_VLLM_IMAGE_TO_DEPLOY empty here, before the
+# preflight's current-.env fallback), the old image would deploy. Fail loudly instead.
+if [[ -n "${PREVIOUS_RELEASE}" && -d "${PREVIOUS_RELEASE}" ]]; then
+  _audio_image_source=(
+    "ops/images/vllm-gemma4-audio/Dockerfile"
+    "ops/patches/apply_gemma4_multimodal_patches.py"
+  )
+  _audio_src_changed=false
+  for relative_path in "${_audio_image_source[@]}"; do
+    if ! cmp -s "${PREVIOUS_RELEASE}/${relative_path}" "${RELEASE_PATH}/${relative_path}"; then
+      _audio_src_changed=true
+    fi
+  done
+  if [[ "${_audio_src_changed}" == "true" && -z "${AUDIO_VLLM_IMAGE_TO_DEPLOY:-}" ]]; then
+    echo "[deploy] ERROR: vllm-gemma4-audio image source changed but build-vllm-derived did not run." >&2
+    echo "[deploy]   No fresh AUDIO_VLLM_IMAGE digest — deploying now would ship the previous image." >&2
+    echo "[deploy]   Re-trigger the pipeline with DEPLOY_MODE=full (or BUILD_VLLM_DERIVED=1) so the" >&2
+    echo "[deploy]   image is rebuilt before deploy." >&2
+    rm -rf "${RELEASE_PATH}"
+    exit 2
   fi
 fi
 
@@ -486,6 +514,18 @@ pull_preflight_image "platform" "${PLATFORM_IMAGE_TO_DEPLOY}"
 
 if [[ "${DEPLOY_MODE}" == "full" ]]; then
   pull_preflight_image "risk-vllm-kanana" "${RISK_VLLM_IMAGE_TO_DEPLOY}"
+
+  # The 12B multimodal image is per-profile (not a compose service), so compose
+  # never pulls it and the sidecar's /containers/create does not auto-pull — it must
+  # already be on the box or a switch to 12B fails with "No such image". Pre-pull the
+  # digest the box will use (the fresh build, else the current .env pin) here, while
+  # the current chat model is still serving, instead of mid-switch with the gate closed.
+  if [[ -z "${AUDIO_VLLM_IMAGE_TO_DEPLOY:-}" ]]; then
+    AUDIO_VLLM_IMAGE_TO_DEPLOY="$(get_env_value AUDIO_VLLM_IMAGE)"
+  fi
+  if [[ -n "${AUDIO_VLLM_IMAGE_TO_DEPLOY}" ]]; then
+    pull_preflight_image "vllm-gemma4-audio" "${AUDIO_VLLM_IMAGE_TO_DEPLOY}"
+  fi
 fi
 
 set_env_value() {

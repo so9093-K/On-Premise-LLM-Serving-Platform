@@ -21,27 +21,37 @@ upstream so the patches can be dropped. The patches touch only the `gemma4_unifi
 code path and the decode libs are otherwise unused, so 26B (a different `gemma4`
 architecture) behaves identically on this image — it is safe as a per-profile override.
 
-Activation is **one full-deploy pipeline** — no manual digest pin, no config flip.
-The 12B profile already declares `image: ${AUDIO_VLLM_IMAGE}` and full
-`deployed_input: [text, image, audio]`; the build emits the digest, the deploy
-injects it into `AUDIO_VLLM_IMAGE`, and the **audio boot canary** gates go-live
-(decode the runtime or roll back). 26B keeps the plain base.
+Activation needs **no digest pin and no config flip** — the 12B profile already declares
+`image: ${AUDIO_VLLM_IMAGE}` and full `deployed_input: [text, image, audio]`. The one
+variable you set is `DEPLOY_MODE=full`, which triggers the build. That trigger is a
+**deliberate, governance-enforced opt-in** (`test_gitlab_ci_vllm_derived_build_contract`):
+the expensive ~25 GB derived-image build runs only when an operator explicitly asks for
+it. The **audio boot canary** gates go-live (decode the runtime or roll back). 26B keeps
+the plain base.
 
-## 1. Build + deploy (single pipeline)
+## 1. Trigger with `DEPLOY_MODE=full`, then click deploy
 
-Trigger a release pipeline with **`DEPLOY_MODE=full`**. In one run:
+1. Start the `release` pipeline with **`DEPLOY_MODE=full`** (or `BUILD_VLLM_DERIVED=1`).
+   This is the deliberate opt-in for the expensive derived-image build.
+2. **`build-vllm-derived`** builds & pushes `vllm-gemma4-audio` (shared ~25 GB base pulled
+   once) and writes the immutable digest to the **`build/audio-image.env`** artifact.
+3. **`deploy-gpu-175`** (manual click — the deliberate human gate, since it swaps a live
+   model) auto-detects **full** because `configs/main_model_profiles.yaml` is a
+   runtime-sensitive file, reads the digest artifact, pre-pulls the image on the box, and
+   sets `AUDIO_VLLM_IMAGE=<digest>` in the 175 `.env`. The sidecar's loader expands
+   `${AUDIO_VLLM_IMAGE}` on the 12B profile → the fixed runtime is pinned.
 
-1. **`build-vllm-derived`** builds & pushes `vllm-gemma4-audio` (same job as
-   risk-vllm-kanana, so the ~25 GB base is pulled once) and writes the immutable
-   digest to the **`build/audio-image.env`** artifact (`AUDIO_VLLM_IMAGE_DIGEST=...`).
-2. **`deploy-gpu-175`** reads that artifact and sets `AUDIO_VLLM_IMAGE=<digest>` in
-   the 175 `.env` (exactly like `RISK_VLLM_IMAGE`). The sidecar's catalog loader
-   expands `${AUDIO_VLLM_IMAGE}` on the 12B profile → the fixed runtime is pinned.
+`AUDIO_VLLM_IMAGE` persists in `.env`, so **routine deploys reuse the pin** (no rebuild
+needed). When `AUDIO_VLLM_IMAGE` is unset (image never built), the loader falls back to
+the shared base and the audio canary keeps 12B from going live.
 
-`AUDIO_VLLM_IMAGE` persists in `.env`, so **routine deploys reuse the pin** — you
-only rebuild when the base image or the patch script changes. When `AUDIO_VLLM_IMAGE`
-is unset (image never built), the loader falls back to the shared base and the audio
-canary keeps 12B from going live.
+> Why manual, not auto-build-on-change? It is a **deliberate policy**, enforced by
+> `test_gitlab_ci_vllm_derived_build_contract`, which requires the `BUILD_VLLM_DERIVED` /
+> `DEPLOY_MODE=full` trigger (and GitLab 12.1.1 lacks `rules:` for change-detection
+> anyway). Forgetting to opt in does **not** silently ship a stale image: the deploy
+> guard (in `deploy_gitlab_compose.sh`) fails loudly when the image source changed but no
+> rebuild ran. Auto-building on source change would mean changing that governance
+> contract — a team decision, not a CI tweak.
 
 Manual fallback (CI unavailable): build locally, then set the digest in the 175
 `.env` by hand —

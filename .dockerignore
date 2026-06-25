@@ -31,6 +31,7 @@ ops/*
 !ops/docker/Dockerfile.risk-vllm-kanana
 !ops/patches/
 !ops/patches/transformers_llama_head_dim_guard.py
+!ops/patches/apply_gemma4_multimodal_patches.py
 harness
 adr
 reports

@@ -141,6 +141,14 @@ build-vllm-derived:
   stage: build
   script:
     - bash scripts/ci/build_vllm_derived_images.sh
+  # The derived-image build is a DELIBERATE manual opt-in, not an accident:
+  # test_gitlab_ci_vllm_derived_build_contract requires the BUILD_VLLM_DERIVED /
+  # DEPLOY_MODE=full trigger so this expensive (~25 GB) build only runs when an operator
+  # explicitly asks. (GitLab 12.1.1 also lacks the modern rule engine, so source-change
+  # auto-build is not even available.) Auto-building on source change is a team decision — it
+  # means changing that governance contract, not just this job. The deploy guard in
+  # deploy_gitlab_compose.sh makes the manual policy safe: it fails loudly if the image
+  # source changed but no rebuild was run, so a stale image is never shipped silently.
   only:
     refs:
       - release
