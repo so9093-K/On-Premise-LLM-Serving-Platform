@@ -667,6 +667,15 @@ if [[ -n "${RISK_VLLM_IMAGE_TO_DEPLOY:-}" ]]; then
   echo "[deploy] RISK_VLLM_IMAGE set to ${RISK_VLLM_IMAGE_TO_DEPLOY}"
 fi
 
+# optionally update AUDIO_VLLM_IMAGE — the derived multimodal runtime pinned by the
+# 12B profile via ${AUDIO_VLLM_IMAGE} (configs/main_model_profiles.yaml). The build
+# job emits its immutable digest; absent a fresh build the existing .env value (and
+# thus the current pin) is preserved, so routine deploys never repin by hand.
+if [[ -n "${AUDIO_VLLM_IMAGE_TO_DEPLOY:-}" ]]; then
+  set_env_value AUDIO_VLLM_IMAGE "${AUDIO_VLLM_IMAGE_TO_DEPLOY}"
+  echo "[deploy] AUDIO_VLLM_IMAGE set to ${AUDIO_VLLM_IMAGE_TO_DEPLOY}"
+fi
+
 # sync any new template keys added since last deploy (preserves existing values)
 echo "[deploy] syncing .env template keys..."
 if ! make sync-env; then

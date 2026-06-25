@@ -78,19 +78,34 @@ profiles:
     model_id: RedHatAI/gemma-4-12B-it-FP8-Dynamic
     revision: 67e53491df7a281623fa740de61307d5c542b7f4
     served_model_name: local-main
+    # Per-profile runtime image: the derived ops/images/vllm-gemma4-audio build that
+    # fixes 12B multimodal (see capabilities). CI/deploy injects its immutable digest
+    # into AUDIO_VLLM_IMAGE (like compose's ${RISK_VLLM_IMAGE}); when unset the loader
+    # falls back to the shared base and the audio boot canary keeps 12B from going live.
+    image: ${AUDIO_VLLM_IMAGE}
     compatibility:
       status: unverified
       reasons:
       - The checkpoint card states compatibility with vLLM nightly.
       - This exact revision and pinned runtime image have not been boot-validated on the current host.
       - No 24 GiB hardware claim is made without an exact-system validation record.
+      - image and audio are broken on the stock base (vision_embedder.patch_dense FP8
+        ignore-list prefix mismatch gives pad output; missing feature_extractor.fft_length
+        crashes audio warmup), root-caused 2026-06-25 as upstream vLLM/transformers bugs
+        and fixed in the derived ops/images/vllm-gemma4-audio image, pinned via the
+        AUDIO_VLLM_IMAGE override (CI/deploy injects the digest). The audio boot canary
+        validates the runtime on every switch, so 12B never goes live half-capable —
+        without the fixed image the canary fails and the switch rolls back.
     capabilities:
       model_input: [text, image, audio]
-      deployed_input: [text, image]
+      # Full multimodal, served by the pinned derived image (image rides in
+      # deployed_input like 26B). audio_enabled triggers the audio boot canary
+      # (fails -> rollback), so go-live is gated on the runtime actually decoding
+      # audio, not on a static flag.
+      deployed_input: [text, image, audio]
       output: [text]
-      audio: disabled_pending_gateway_and_runtime_validation
-      audio_enabled: false
-      audio_block_reason: pinned_runtime_missing_soundfile_and_pyav_and_no_12b_audio_canary
+      audio: enabled
+      audio_enabled: true
     command:
     - --model
     - RedHatAI/gemma-4-12B-it-FP8-Dynamic

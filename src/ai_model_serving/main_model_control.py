@@ -30,6 +30,10 @@ import yaml
 
 _REVISION_RE = re.compile(r"^[0-9a-f]{40}$")
 _DIGEST_IMAGE_RE = re.compile(r"^.+@sha256:[0-9a-f]{64}$")
+# A profile image may be a literal digest or a single ${ENV_VAR} reference that
+# CI/deploy resolves to one — mirrors compose's `${RISK_VLLM_IMAGE}`, so a derived
+# runtime (e.g. the audio/multimodal image) is pinned by the pipeline, not by hand.
+_IMAGE_ENV_REF_RE = re.compile(r"^\$\{([A-Z_][A-Z0-9_]*)\}$")
 _COMPATIBILITY = frozenset({"verified", "likely", "unverified", "incompatible", "unknown"})
 _TERMINAL_STATES = frozenset({"completed", "failed", "rollback_failed"})
 _CLIENT_REQUEST_RE = re.compile(r"^[A-Za-z0-9._:-]{1,128}$")
@@ -138,8 +142,49 @@ def _apply_util_override(command: list[str], override: float | None) -> list[str
     return [*command, "--gpu-memory-utilization", rendered]
 
 
+def _resolve_profile_image(
+    profile_image: object,
+    shared_image: str,
+    env: dict[str, str] | None,
+    profile_id: str,
+) -> str:
+    """Resolve a profile's runtime image to a digest-pinned value.
+
+    - ``None`` inherits the shared ``runtime.image``.
+    - ``"${VAR}"`` is resolved from ``env`` (set by CI/deploy, like compose's
+      ``${RISK_VLLM_IMAGE}``). When ``VAR`` is unset/empty the image is not built yet,
+      so the profile inherits the shared base only to keep the sidecar booting; the
+      profile's declared capabilities are unchanged (it is a multimodal model, not a
+      separate text-only one), and the switch-time boot canary is what proves the live
+      runtime can actually serve them — a switch to a not-yet-built runtime fails the
+      canary and rolls back, so the model is never half-served.
+    - A literal value must be a sha256 digest.
+    """
+    if profile_image is None:
+        return shared_image
+    if isinstance(profile_image, str):
+        ref = _IMAGE_ENV_REF_RE.match(profile_image)
+        if ref is not None:
+            resolved = (env or {}).get(ref.group(1), "").strip()
+            if not resolved:
+                return shared_image
+            if _DIGEST_IMAGE_RE.fullmatch(resolved):
+                return resolved
+            raise MainModelConfigurationError(
+                f"profile {profile_id} image env {ref.group(1)} must resolve to a sha256 digest"
+            )
+        if _DIGEST_IMAGE_RE.fullmatch(profile_image):
+            return profile_image
+    raise MainModelConfigurationError(
+        f"profile {profile_id} image must be a sha256 digest or a ${{ENV}} reference"
+    )
+
+
 def load_main_model_catalog(
-    path: Path, *, gpu_memory_utilization_override: float | None = None
+    path: Path,
+    *,
+    gpu_memory_utilization_override: float | None = None,
+    env: dict[str, str] | None = None,
 ) -> MainModelCatalog:
     raw = yaml.safe_load(path.read_text(encoding="utf-8"))
     if not isinstance(raw, dict) or raw.get("version") != 1:
@@ -184,18 +229,10 @@ def load_main_model_catalog(
         compatibility = item.get("compatibility", {})
         if compatibility.get("status") not in _COMPATIBILITY:
             raise MainModelConfigurationError(f"profile {profile_id} has invalid compatibility status")
-        # A profile may pin its own runtime image (e.g. an audio-capable build);
-        # absent that, it inherits the shared runtime.image. Either way the
-        # resolved image must be digest-pinned.
-        profile_image = item.get("image")
-        if profile_image is None:
-            resolved_image = image
-        elif isinstance(profile_image, str) and _DIGEST_IMAGE_RE.fullmatch(profile_image):
-            resolved_image = profile_image
-        else:
-            raise MainModelConfigurationError(
-                f"profile {profile_id} image must be pinned by sha256 digest"
-            )
+        # A profile may pin its own runtime image (e.g. a multimodal build) as a
+        # literal digest or a ${ENV} reference resolved by CI/deploy; absent that it
+        # inherits the shared runtime.image. Either way the resolved image is a digest.
+        resolved_image = _resolve_profile_image(item.get("image"), image, env, str(profile_id))
         profiles[str(profile_id)] = MainModelProfile(
             profile_id=str(profile_id),
             display_name=str(item.get("display_name", profile_id)),
@@ -375,11 +412,22 @@ class MainModelManager:
         *,
         boot_profile: str | None = None,
         profile_locked: bool = False,
+        idempotency_ttl_seconds: float | None = None,
     ) -> None:
         self.catalog = catalog
         self.state_store = state_store
         self.backend = backend
         self.profile_locked = profile_locked
+        if idempotency_ttl_seconds is None:
+            # A request_id is a retry-safety key, not a permanent record. A switch
+            # can run up to startup_timeout_seconds (vLLM load + validate), so the
+            # window must outlast that for an in-flight retry to dedup, plus an equal
+            # grace for a caller to retry just after it settles — hence twice the
+            # startup timeout. Beyond this a re-used request_id is a new intent, not a
+            # replay, so it no longer hijacks a fresh switch.
+            startup = float(catalog.runtime.get("startup_timeout_seconds", 600))
+            idempotency_ttl_seconds = 2.0 * startup
+        self._idempotency_ttl = float(idempotency_ttl_seconds)
         persisted = state_store.read().get("active_profile")
         self.boot_profile = resolve_boot_profile(
             catalog,
@@ -536,6 +584,40 @@ class MainModelManager:
             state["gate"] = "open"
         self.state_store.update(mutate)
 
+    def _idempotent_prior(
+        self,
+        operations: list[dict[str, Any]],
+        client_request_id: str,
+        profile_id: str,
+        now: float,
+    ) -> dict[str, Any] | None:
+        """Return the prior operation a request_id idempotently maps to, if any.
+
+        A request_id is a bounded-lifetime retry key, not a permanent ledger entry.
+        A prior is a live match only while it is still in flight, or for
+        ``_idempotency_ttl`` seconds after it reached a terminal state. Expired
+        priors are ignored entirely (neither replayed nor treated as a conflict),
+        so re-using the same id after the window starts a fresh switch instead of
+        resurrecting a long-past operation.
+        """
+        for prior in operations:
+            if prior.get("client_request_id") != client_request_id:
+                continue
+            if prior.get("status") in _TERMINAL_STATES:
+                settled_at = float(
+                    prior.get("updated_at") or prior.get("created_at") or 0.0
+                )
+                if now - settled_at > self._idempotency_ttl:
+                    continue
+            if prior.get("requested_profile") != profile_id:
+                raise MainModelSwitchError(
+                    "SWITCH_REQUEST_ID_CONFLICT",
+                    "request_id was already used for a different profile",
+                    status_code=409,
+                )
+            return prior
+        return None
+
     def request_switch(
         self,
         profile_id: str,
@@ -571,15 +653,14 @@ class MainModelManager:
                 status_code=422,
             )
         if client_request_id is not None:
-            for prior in self.state_store.read().get("operations", []):
-                if prior.get("client_request_id") == client_request_id:
-                    if prior.get("requested_profile") != profile_id:
-                        raise MainModelSwitchError(
-                            "SWITCH_REQUEST_ID_CONFLICT",
-                            "request_id was already used for a different profile",
-                            status_code=409,
-                        )
-                    return SwitchOutcome(str(prior["id"]), True)
+            prior = self._idempotent_prior(
+                self.state_store.read().get("operations", []),
+                client_request_id,
+                profile_id,
+                time.time(),
+            )
+            if prior is not None:
+                return SwitchOutcome(str(prior["id"]), True)
         operation_id = str(uuid.uuid4())
         lock_context = self.state_store.operation_lock()
         lock_context.__enter__()
@@ -588,16 +669,15 @@ class MainModelManager:
             def mutate(value: dict[str, Any]) -> None:
                 nonlocal reused_operation_id
                 if client_request_id is not None:
-                    for prior in value.get("operations", []):
-                        if prior.get("client_request_id") == client_request_id:
-                            if prior.get("requested_profile") != profile_id:
-                                raise MainModelSwitchError(
-                                    "SWITCH_REQUEST_ID_CONFLICT",
-                                    "request_id was already used for a different profile",
-                                    status_code=409,
-                                )
-                            reused_operation_id = str(prior["id"])
-                            return
+                    prior = self._idempotent_prior(
+                        value.get("operations", []),
+                        client_request_id,
+                        profile_id,
+                        time.time(),
+                    )
+                    if prior is not None:
+                        reused_operation_id = str(prior["id"])
+                        return
                 current = value.get("last_operation")
                 if current and current.get("status") not in _TERMINAL_STATES:
                     raise MainModelSwitchError(

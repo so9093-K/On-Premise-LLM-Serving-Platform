@@ -1,13 +1,19 @@
-# Audio-enabled vLLM runtime for the Gemma 4 unified family.
+# Multimodal-enabling vLLM runtime for the Gemma 4 *unified* family (12B).
 #
-# The stock `vllm/vllm-openai:gemma4-unified-cu129` image ships torchaudio but NOT
-# the libraries vLLM uses to decode user-supplied audio (soundfile + libsndfile,
-# librosa). Without them the unified model's audio tower is unreachable: audio
-# requests 400 at the runtime. This image adds exactly those decode deps on top of
-# the pinned base; nothing else changes, so the 26B text+image profile behaves
-# identically when run on this image.
+# The stock `vllm/vllm-openai:gemma4-unified-cu129` base cannot actually serve the
+# 12B unified model's image OR audio input; on it `gemma4-12b-unified-fp8` serves
+# text correctly but image requests return pad-only output and audio warmup crashes.
+# This image fixes all three blockers on top of the pinned base:
+#   1. audio decode stack (libsndfile1 + soundfile + librosa) — base lacks it, so
+#      audio requests 400 at the runtime;
+#   2. image — vision projection is wrongly FP8-quantized (see patch script);
+#   3. audio warmup — missing `fft_length` crashes multimodal warmup (see patch script).
+# Fixes 2+3 are upstream vLLM/transformers bugs; the patch script asserts on the
+# upstream layout so a base bump fails the build instead of shipping broken.
 #
-# Build/push/activate is a deliberate, gated operation -- see README.md in this dir.
+# The patches touch only the gemma4_unified path and the decode libs are otherwise
+# unused, so 26B (a different gemma4 architecture, text+image) behaves identically on
+# this image — safe as a per-profile override. Build/push/activate is gated; see README.md.
 ARG BASE_IMAGE=vllm/vllm-openai:gemma4-unified-cu129
 FROM ${BASE_IMAGE}
 
@@ -25,3 +31,10 @@ RUN python3 -m pip install --no-cache-dir \
 # Fail the build if the decode stack is not importable, so a broken image never
 # ships.
 RUN python3 -c "import soundfile, librosa; print('audio decode ok', soundfile.__version__, librosa.__version__)"
+
+# Carry the two vLLM/transformers multimodal fixes (image FP8 mis-quant + audio
+# warmup fft_length). The script asserts on the upstream code layout, so a base
+# image bump that invalidates a patch fails the build loudly. Idempotent.
+COPY ops/images/vllm-gemma4-audio/apply_gemma4_multimodal_patches.py /tmp/apply_gemma4_multimodal_patches.py
+RUN python3 /tmp/apply_gemma4_multimodal_patches.py \
+    && rm /tmp/apply_gemma4_multimodal_patches.py

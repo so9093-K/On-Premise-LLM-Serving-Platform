@@ -42,6 +42,9 @@ _default_state_path = (
 MAIN_MODEL_STATE_PATH = Path(os.environ.get("MAIN_MODEL_STATE_PATH", str(_default_state_path)))
 MAIN_LLM_BOOT_PROFILE = os.environ.get("MAIN_LLM_BOOT_PROFILE")
 MAIN_LLM_PROFILE_LOCKED = os.environ.get("MAIN_LLM_PROFILE_LOCKED", "false").lower() == "true"
+MAIN_LLM_SWITCH_IDEMPOTENCY_TTL_SECONDS = os.environ.get(
+    "MAIN_LLM_SWITCH_IDEMPOTENCY_TTL_SECONDS"
+)
 SIDECAR_TOKEN = os.environ.get("INTERNAL_SERVICE_TOKEN", "")
 
 # Only these compose service names can be started/stopped. Kept in sync with
@@ -197,6 +200,7 @@ async def _wait_healthy(service: str, port: int, timeout: float = 120.0) -> bool
 _catalog = load_main_model_catalog(
     APP_CONFIG_ROOT / "configs/main_model_profiles.yaml",
     gpu_memory_utilization_override=gpu_util_override_from_mapping(os.environ),
+    env=dict(os.environ),
 )
 _state_store = MainModelStateStore(MAIN_MODEL_STATE_PATH, _catalog.default_profile)
 try:
@@ -214,6 +218,11 @@ _main_model_manager = MainModelManager(
     ),
     boot_profile=MAIN_LLM_BOOT_PROFILE,
     profile_locked=MAIN_LLM_PROFILE_LOCKED,
+    idempotency_ttl_seconds=(
+        float(MAIN_LLM_SWITCH_IDEMPOTENCY_TTL_SECONDS)
+        if MAIN_LLM_SWITCH_IDEMPOTENCY_TTL_SECONDS
+        else None
+    ),
 )
 _MAIN_SERVICE = str(_catalog.runtime["compose_service"])
 _initialization_error: str | None = None

@@ -184,6 +184,9 @@ deploy-gpu-175:
   image: alpine:3.20
   dependencies:
     - build-platform
+    # build-vllm-derived only runs on full/BUILD_VLLM_DERIVED pipelines; its
+    # build/audio-image.env artifact is absent on rolling deploys (handled below).
+    - build-vllm-derived
   tags:
     - ai-serving
     - docker-build
@@ -211,8 +214,19 @@ deploy-gpu-175:
       else
         _risk_vllm="${RISK_VLLM_IMAGE_TO_DEPLOY:-}"
       fi
+      # Pin the freshly-built 12B multimodal image when build-vllm-derived ran;
+      # otherwise leave AUDIO_VLLM_IMAGE untouched (deploy preserves the current pin).
+      _audio_vllm="${AUDIO_VLLM_IMAGE_TO_DEPLOY:-}"
+      if [ -f build/audio-image.env ]; then
+        . build/audio-image.env
+        case "${AUDIO_VLLM_IMAGE_DIGEST:-}" in
+          *"@sha256:"*) _audio_vllm="${AUDIO_VLLM_IMAGE_DIGEST}" ;;
+          *) echo "build/audio-image.env present but AUDIO_VLLM_IMAGE_DIGEST is not a digest" >&2; exit 1 ;;
+        esac
+      fi
       PLATFORM_IMAGE_TO_DEPLOY="${PLATFORM_IMAGE_DIGEST}" \
       RISK_VLLM_IMAGE_TO_DEPLOY="${_risk_vllm}" \
+      AUDIO_VLLM_IMAGE_TO_DEPLOY="${_audio_vllm}" \
       DEPLOY_RELEASE_ID="${CI_COMMIT_SHA}" \
       bash scripts/ci/deploy_gitlab_compose.sh
   only:

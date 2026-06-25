@@ -418,6 +418,38 @@ def test_request_id_retry_is_idempotent(tmp_path):
     assert len(store.read()["operations"]) == 1
 
 
+def test_request_id_starts_fresh_switch_after_ttl_expires(tmp_path):
+    loaded = catalog()
+    store = MainModelStateStore(tmp_path / "state.json", loaded.default_profile)
+    # ttl=0 means a request_id expires as soon as its operation settles, so a
+    # re-send of the same id is a new intent rather than a replay of the old one.
+    manager = MainModelManager(
+        loaded, store, FakeBackend(), idempotency_ttl_seconds=0.0
+    )
+    terminal = {"completed", "failed", "rollback_failed"}
+
+    async def run():
+        first = manager.request_switch(
+            "gemma4-12b-unified-fp8",
+            confirm_unverified=True,
+            client_request_id="deploy-12b-1",
+        )
+        while manager.operation(first.operation_id)["status"] not in terminal:
+            await asyncio.sleep(0.01)
+        second = manager.request_switch(
+            "gemma4-12b-unified-fp8",
+            confirm_unverified=True,
+            client_request_id="deploy-12b-1",
+        )
+        assert second.reused is False
+        assert second.operation_id != first.operation_id
+        while manager.operation(second.operation_id)["status"] not in terminal:
+            await asyncio.sleep(0.01)
+
+    asyncio.run(run())
+    assert len(store.read()["operations"]) == 2
+
+
 def test_restart_reconciles_interrupted_operation_on_requested_profile(tmp_path):
     loaded = catalog()
     store = MainModelStateStore(tmp_path / "state.json", loaded.default_profile)
@@ -595,8 +627,35 @@ def _write_catalog_path(tmp_path, *, audio_image: str | None = None):
     return path
 
 
-def _write_catalog(tmp_path, *, audio_image: str | None):
-    return load_main_model_catalog(_write_catalog_path(tmp_path, audio_image=audio_image))
+def _write_catalog(tmp_path, *, audio_image: str | None, env: dict[str, str] | None = None):
+    return load_main_model_catalog(
+        _write_catalog_path(tmp_path, audio_image=audio_image), env=env
+    )
+
+
+def test_profile_image_env_ref_resolves_from_env(tmp_path):
+    # CI/deploy injects the immutable digest; the profile pins ${AUDIO_VLLM_IMAGE}.
+    loaded = _write_catalog(
+        tmp_path, audio_image="${AUDIO_VLLM_IMAGE}", env={"AUDIO_VLLM_IMAGE": _AUDIO_IMAGE}
+    )
+    assert loaded.profiles["audio"].image == _AUDIO_IMAGE
+    assert loaded.profiles["base"].image == _SHARED_IMAGE
+
+
+def test_profile_image_env_ref_falls_back_to_shared_when_unset(tmp_path):
+    # No digest built yet -> the env is unset -> the profile inherits the shared base,
+    # so the sidecar still boots (the audio boot canary, not the pin, gates go-live).
+    loaded = _write_catalog(tmp_path, audio_image="${AUDIO_VLLM_IMAGE}", env={})
+    assert loaded.profiles["audio"].image == _SHARED_IMAGE
+
+
+def test_profile_image_env_ref_rejects_non_digest_value(tmp_path):
+    with pytest.raises(MainModelConfigurationError):
+        _write_catalog(
+            tmp_path,
+            audio_image="${AUDIO_VLLM_IMAGE}",
+            env={"AUDIO_VLLM_IMAGE": "registry.example.com/vllm-audio:latest"},
+        )
 
 
 def test_profile_without_image_inherits_shared_runtime_image(tmp_path):

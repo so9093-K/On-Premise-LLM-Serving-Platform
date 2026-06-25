@@ -534,14 +534,15 @@ def build_router(
                                     "compatibility": {
                                         "status": "unverified",
                                         "reasons": [
-                                            "GPU audio/text/image certification has not been executed."
+                                            "image/audio fixed in the vllm-gemma4-audio derived image (pinned via AUDIO_VLLM_IMAGE); the audio boot canary validates the runtime on switch.",
+                                            "GPU full-system certification has not been executed.",
                                         ],
                                     },
                                     "capabilities": {
                                         "model_input": ["text", "image", "audio"],
-                                        "deployed_input": ["text", "image"],
+                                        "deployed_input": ["text", "image", "audio"],
                                         "output": ["text"],
-                                        "audio_enabled": False,
+                                        "audio_enabled": True,
                                     },
                                     "active": False,
                                 },
@@ -567,8 +568,9 @@ def build_router(
         summary="메인 모델 전환",
         description=(
             "메인 모델 프로필을 비동기로 전환한다(202 + operation_id). "
-            "`request_id`는 선택적 멱등 키다 — 동일 값을 다시 보내면 새 전환을 시작하지 않고 "
-            "기존 작업을 반환하며 응답 `reused=true`로 표시한다. 새 전환을 원하면 매번 고유한 "
+            "`request_id`는 선택적 멱등 키다 — 진행 중이거나 방금 끝난 동일 작업이 있으면 "
+            "새 전환을 시작하지 않고 그 작업을 반환하며 응답 `reused=true`로 표시한다(재시도 "
+            "안전용이라 일정 시간 뒤에는 만료된다). 새 전환을 원하면 매번 고유한 "
             "`request_id`를 쓰거나 생략한다. 진행 상황은 응답 `operation_id`로 "
             "`GET /admin/main-model/operations/{operation_id}` 또는 "
             "`GET /admin/main-model`의 `last_operation`에서 확인한다."
