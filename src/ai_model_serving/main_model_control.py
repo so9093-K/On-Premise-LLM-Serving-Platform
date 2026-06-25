@@ -11,7 +11,20 @@ import uuid
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Any, NamedTuple, Protocol
+
+
+class SwitchOutcome(NamedTuple):
+    """Result of request_switch.
+
+    reused=True means the supplied request_id already mapped to an existing
+    operation, so that operation was returned and NO new switch was started.
+    Callers surface this so an idempotent replay is never mistaken for a fresh
+    switch.
+    """
+
+    operation_id: str
+    reused: bool
 
 import yaml
 
@@ -530,7 +543,7 @@ class MainModelManager:
         confirm_unverified: bool = False,
         boot_reconcile: bool = False,
         client_request_id: str | None = None,
-    ) -> str:
+    ) -> SwitchOutcome:
         if profile_id not in self.catalog.profiles:
             raise MainModelSwitchError("MODEL_PROFILE_NOT_FOUND", f"unknown profile: {profile_id}", status_code=404)
         if self.profile_locked and not boot_reconcile:
@@ -566,7 +579,7 @@ class MainModelManager:
                             "request_id was already used for a different profile",
                             status_code=409,
                         )
-                    return str(prior["id"])
+                    return SwitchOutcome(str(prior["id"]), True)
         operation_id = str(uuid.uuid4())
         lock_context = self.state_store.operation_lock()
         lock_context.__enter__()
@@ -616,14 +629,14 @@ class MainModelManager:
             raise
         if reused_operation_id is not None:
             lock_context.__exit__(None, None, None)
-            return reused_operation_id
+            return SwitchOutcome(reused_operation_id, True)
         task = asyncio.create_task(
             self._run(operation_id, lock_context, boot_reconcile=boot_reconcile),
             name=operation_id,
         )
         self._tasks.add(task)
         task.add_done_callback(self._tasks.discard)
-        return operation_id
+        return SwitchOutcome(operation_id, False)
 
     def _set_operation(self, operation_id: str, status: str, **fields: Any) -> None:
         def mutate(state: dict[str, Any]) -> None:

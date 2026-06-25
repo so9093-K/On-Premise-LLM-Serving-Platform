@@ -423,7 +423,7 @@ async def switch_main_model(
             # a profile change is deliberate, so freeing room is an explicit step.)
             if target_profile is not None:
                 await _admit_or_raise(_MAIN_SERVICE, target_profile.vram_fraction, force=False)
-            operation_id = _main_model_manager.request_switch(
+            outcome = _main_model_manager.request_switch(
                 profile_id,
                 confirm_unverified=payload.get("confirm_unverified") is True,
                 client_request_id=payload.get("request_id"),
@@ -433,7 +433,32 @@ async def switch_main_model(
             exc.status_code,
             detail={"code": exc.code, "message": str(exc)},
         ) from exc
-    return JSONResponse({"operation_id": operation_id, "status": "pending"}, status_code=202)
+    # Self-describing response: report the operation's REAL status (a fresh switch
+    # is "pending"; an idempotent replay carries the prior operation's status) and
+    # say plainly whether a new switch actually started and where to watch it.
+    operation = _main_model_manager.operation(outcome.operation_id) or {}
+    status = str(operation.get("status", "pending"))
+    if outcome.reused:
+        message = (
+            f"request_id was already used; returning the existing operation "
+            f"(status: {status}). No new switch was started — send a unique "
+            f"request_id (or omit it) to start a new switch."
+        )
+    else:
+        message = (
+            "Switch accepted. Watch progress at "
+            f"GET /admin/main-model/operations/{outcome.operation_id} or "
+            "GET /admin/main-model (last_operation)."
+        )
+    return JSONResponse(
+        {
+            "operation_id": outcome.operation_id,
+            "status": status,
+            "reused": outcome.reused,
+            "message": message,
+        },
+        status_code=202,
+    )
 
 
 @app.get("/main-model/operations/{operation_id}")

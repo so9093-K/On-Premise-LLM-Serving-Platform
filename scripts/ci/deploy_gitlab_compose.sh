@@ -774,13 +774,16 @@ else
   if ! compose_run up -d --no-deps gateway risk-adapter; then
     fail_after_env_backup "rolling deploy restart failed for gateway/risk-adapter"
   fi
+fi
 
-  # Grafana and Prometheus are bind-mount config services: their container image
-  # never changes, so image-based convergence can never catch dashboard/rule edits.
-  # A container also keeps the release path it was created with, so flipping the
-  # `current` symlink alone leaves them serving the previous release's config.
-  # Recreate them only when their mounted config actually differs from the previous
-  # release — same change-detection philosophy as runtime_sensitive_files above.
+# Grafana and Prometheus are bind-mount config services: their container image never
+# changes, so neither the full-deploy image-based convergence nor the rolling
+# app-restart set ever catches dashboard/rule edits. A container also keeps the
+# release path it was created with, so flipping `current` alone leaves them serving
+# the previous release's config. Independent of deploy mode, recreate them when their
+# mounted config differs from the previous release. Skipped on first deploy (no
+# previous release; the initial bring-up already starts them fresh).
+if [[ -n "${PREVIOUS_RELEASE:-}" && -d "${PREVIOUS_RELEASE}" ]]; then
   _config_service_dirs=(
     "ops/grafana/dashboards"
     "ops/grafana/provisioning"
@@ -796,9 +799,9 @@ else
     fi
   done
   if [[ ${_config_services_changed} -eq 1 ]]; then
-    echo "[deploy] rolling deploy: grafana/prometheus config changed — force-recreating"
+    echo "[deploy] grafana/prometheus config changed — force-recreating"
     if ! compose_run up -d --no-deps --force-recreate grafana prometheus; then
-      fail_after_env_backup "rolling deploy restart failed for grafana/prometheus"
+      fail_after_env_backup "deploy restart failed for grafana/prometheus"
     fi
   fi
 fi

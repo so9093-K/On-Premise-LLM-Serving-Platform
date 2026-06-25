@@ -120,10 +120,21 @@ _OPERATION_RESPONSE_EXAMPLES = {
 }
 _ACCEPTED_SCHEMA = {
     "type": "object",
-    "required": ["operation_id", "status"],
+    "required": ["operation_id", "status", "reused"],
     "properties": {
         "operation_id": {"type": "string", "format": "uuid"},
-        "status": {"type": "string", "const": "pending"},
+        "status": {
+            "type": "string",
+            "description": "operation 현재 stage/status. 새 전환은 pending으로 시작하고, 동일 request_id 재생 시 기존 작업의 status(예: completed)를 그대로 반환한다.",
+        },
+        "reused": {
+            "type": "boolean",
+            "description": "true면 동일 request_id의 기존 작업을 반환한 것이며 새 전환은 시작되지 않았다.",
+        },
+        "message": {
+            "type": "string",
+            "description": "운영자용 설명 — 재생 여부와 진행 상황 조회 위치를 안내한다.",
+        },
     },
 }
 _MAIN_MODEL_STATUS_EXAMPLE = {
@@ -554,6 +565,14 @@ def build_router(
         dependencies=admin_dependencies,
         tags=["Runtime Control"],
         summary="메인 모델 전환",
+        description=(
+            "메인 모델 프로필을 비동기로 전환한다(202 + operation_id). "
+            "`request_id`는 선택적 멱등 키다 — 동일 값을 다시 보내면 새 전환을 시작하지 않고 "
+            "기존 작업을 반환하며 응답 `reused=true`로 표시한다. 새 전환을 원하면 매번 고유한 "
+            "`request_id`를 쓰거나 생략한다. 진행 상황은 응답 `operation_id`로 "
+            "`GET /admin/main-model/operations/{operation_id}` 또는 "
+            "`GET /admin/main-model`의 `last_operation`에서 확인한다."
+        ),
         operation_id="switchMainModel",
         status_code=202,
         responses={
@@ -593,14 +612,12 @@ def build_router(
                                 "value": {
                                     "profile": "gemma4-12b-unified-fp8",
                                     "confirm_unverified": True,
-                                    "request_id": "ops-20260618-12b",
                                 },
                             },
                             "switch_to_26b": {
                                 "summary": "26B로 복귀 (verified)",
                                 "value": {
                                     "profile": "gemma4-26b-a4b-fp8",
-                                    "request_id": "ops-20260618-26b",
                                 },
                             },
                         },

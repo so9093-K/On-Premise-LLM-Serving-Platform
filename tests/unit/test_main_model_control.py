@@ -222,7 +222,7 @@ def test_successful_switch_commits_only_after_validation(tmp_path):
     manager = MainModelManager(loaded, store, FakeBackend("gemma4-26b-a4b-fp8"))
 
     async def run():
-        operation_id = manager.request_switch(
+        operation_id, _ = manager.request_switch(
             "gemma4-12b-unified-fp8", confirm_unverified=True
         )
         while manager.operation(operation_id)["status"] not in {
@@ -257,7 +257,7 @@ def test_failed_switch_rolls_back_without_silent_success(tmp_path):
     manager = MainModelManager(loaded, store, backend)
 
     async def run():
-        operation_id = manager.request_switch(
+        operation_id, _ = manager.request_switch(
             "gemma4-12b-unified-fp8", confirm_unverified=True
         )
         while manager.operation(operation_id)["status"] not in {
@@ -292,7 +292,7 @@ def test_drain_failure_preserves_current_runtime_without_replace(tmp_path):
     manager = MainModelManager(loaded, store, backend)
 
     async def run():
-        operation_id = manager.request_switch(
+        operation_id, _ = manager.request_switch(
             "gemma4-12b-unified-fp8", confirm_unverified=True
         )
         while manager.operation(operation_id)["status"] not in {
@@ -324,7 +324,7 @@ def test_cache_prepare_failure_keeps_current_runtime_and_gate_open(tmp_path):
     manager = MainModelManager(loaded, store, backend)
 
     async def run():
-        operation_id = manager.request_switch(
+        operation_id, _ = manager.request_switch(
             "gemma4-12b-unified-fp8", confirm_unverified=True
         )
         while manager.operation(operation_id)["status"] not in {
@@ -370,7 +370,7 @@ def test_gate_stays_open_while_cache_prepare_is_running(tmp_path):
     manager = MainModelManager(loaded, store, backend)
 
     async def run():
-        operation_id = manager.request_switch(
+        operation_id, _ = manager.request_switch(
             "gemma4-12b-unified-fp8", confirm_unverified=True
         )
         await backend.started.wait()
@@ -404,8 +404,10 @@ def test_request_id_retry_is_idempotent(tmp_path):
             confirm_unverified=True,
             client_request_id="deploy-12b-1",
         )
-        assert first == second
-        while manager.operation(first)["status"] not in {
+        assert first.operation_id == second.operation_id
+        assert first.reused is False
+        assert second.reused is True
+        while manager.operation(first.operation_id)["status"] not in {
             "completed",
             "failed",
             "rollback_failed",
