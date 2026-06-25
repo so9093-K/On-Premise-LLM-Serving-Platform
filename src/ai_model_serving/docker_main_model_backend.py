@@ -155,11 +155,17 @@ class DockerMainModelBackend:
         if container_id is None:
             return None
         inspected = await self._inspect(container_id)
-        command = list(inspected.get("Config", {}).get("Cmd") or [])
+        config = inspected.get("Config", {})
+        command = list(config.get("Cmd") or [])
+        image = config.get("Image")
         model = command[command.index("--model") + 1] if "--model" in command else None
         revision = command[command.index("--revision") + 1] if "--revision" in command else None
         for profile in catalog.profiles.values():
-            if profile.model_id == model and (revision is None or revision == profile.revision):
+            if (
+                profile.model_id == model
+                and (revision is None or revision == profile.revision)
+                and image == profile.image
+            ):
                 return profile.profile_id
         return None
 

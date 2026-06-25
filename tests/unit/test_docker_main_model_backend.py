@@ -102,3 +102,44 @@ def test_prepare_uses_profile_identity_and_shared_cache_path(tmp_path, monkeypat
             "cache_dir": tmp_path,
         }
     ]
+
+
+def test_observed_profile_requires_matching_runtime_image(monkeypatch):
+    catalog = load_main_model_catalog(ROOT / "configs/main_model_profiles.yaml")
+    profile = catalog.profiles["gemma4-26b-a4b-fp8"]
+    backend = DockerMainModelBackend("/var/run/docker.sock")
+
+    async def fake_container_id(service):
+        assert service == catalog.runtime["compose_service"]
+        return "container-1"
+
+    async def fake_inspect(_container_id):
+        return {
+            "Config": {
+                "Cmd": list(profile.command),
+                "Image": "registry.example.com/wrong@sha256:" + "c" * 64,
+            }
+        }
+
+    monkeypatch.setattr(backend, "_container_id", fake_container_id)
+    monkeypatch.setattr(backend, "_inspect", fake_inspect)
+
+    assert asyncio.run(backend.observed_profile(catalog)) is None
+
+
+def test_observed_profile_accepts_matching_command_and_runtime_image(monkeypatch):
+    catalog = load_main_model_catalog(ROOT / "configs/main_model_profiles.yaml")
+    profile = catalog.profiles["gemma4-26b-a4b-fp8"]
+    backend = DockerMainModelBackend("/var/run/docker.sock")
+
+    async def fake_container_id(service):
+        assert service == catalog.runtime["compose_service"]
+        return "container-1"
+
+    async def fake_inspect(_container_id):
+        return {"Config": {"Cmd": list(profile.command), "Image": profile.image}}
+
+    monkeypatch.setattr(backend, "_container_id", fake_container_id)
+    monkeypatch.setattr(backend, "_inspect", fake_inspect)
+
+    assert asyncio.run(backend.observed_profile(catalog)) == profile.profile_id

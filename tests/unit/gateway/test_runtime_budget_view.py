@@ -7,6 +7,8 @@ from ai_model_serving.api.routers.gateway_runtime_control import (
     _budget_participant,
     _main_participant,
 )
+from ai_model_serving.services.runtime_state import RuntimeState
+from .helpers import FakeGatewayClients, TestClient, create_gateway_app, settings
 
 BUDGET = {
     "ceiling": 0.95,
@@ -40,3 +42,30 @@ def test_main_participant_is_the_non_secondary_one():
 
 def test_main_participant_none_without_budget():
     assert _main_participant(None, SECONDARY_CONTAINERS) is None
+
+
+class EvictingSidecar:
+    async def start(self, container: str, *, force: bool = False):
+        assert container == "embed-ko"
+        assert force is True
+        return {"started": ["embed-ko"], "evicted": ["embed"]}
+
+
+def test_runtime_start_marks_sidecar_evictions_stopped():
+    clients = FakeGatewayClients()
+    clients.sidecar = EvictingSidecar()
+    client = TestClient(create_gateway_app(settings(), clients))
+
+    import asyncio
+
+    asyncio.run(clients.runtime_state.set("embedding_ko", RuntimeState.stopped))
+    response = client.patch(
+        "/admin/runtimes/embedding_ko",
+        json={"desired_state": "active", "force": True},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["containers_started"] == ["embed-ko"]
+    assert response.json()["evicted"] == ["embed"]
+    assert asyncio.run(clients.runtime_state.get("embedding")) == RuntimeState.stopped
+    assert asyncio.run(clients.runtime_state.get("embedding_ko")) == RuntimeState.active

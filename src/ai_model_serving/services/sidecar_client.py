@@ -47,8 +47,8 @@ class SidecarClient:
         except Exception as exc:
             raise SidecarUnavailableError(f"sidecar stop failed: {exc}") from exc
 
-    async def start(self, container: str, *, force: bool = False) -> list[str]:
-        """Starts container (and any prerequisites). Returns list of containers started.
+    async def start(self, container: str, *, force: bool = False) -> dict:
+        """Starts container (and any prerequisites). Returns the sidecar result.
 
         A 409 GPU-budget rejection is surfaced as SidecarRequestError (carrying the
         eviction plan); connection/other failures remain SidecarUnavailableError.
@@ -67,7 +67,11 @@ class SidecarClient:
                         detail = resp.text
                     raise SidecarRequestError(409, detail)
                 resp.raise_for_status()
-                return resp.json().get("started", [container])
+                body = resp.json()
+                return {
+                    "started": body.get("started", [container]),
+                    "evicted": body.get("evicted", []),
+                }
         except (SidecarUnavailableError, SidecarRequestError):
             raise
         except Exception as exc:

@@ -499,6 +499,9 @@ class MainModelManager:
             await self.backend.start(self.catalog)
             active_id = self.state_store.read().get("active_profile") or self.boot_profile
             profile = self.catalog.profiles[active_id]
+            observed = await self.backend.observed_profile(self.catalog)
+            if observed != active_id:
+                await self.backend.replace(self.catalog, profile)
             await self.backend.validate(self.catalog, profile)
 
             def commit(state: dict[str, Any]) -> None:

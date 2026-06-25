@@ -415,7 +415,7 @@ def build_router(
             container = _container_name(ep.base_url)
             await state_store.set(service_key, RuntimeState.starting)
             try:
-                started_containers = await sidecar.start(container, force=force)
+                result = await sidecar.start(container, force=force)
             except SidecarRequestError as exc:
                 # GPU-budget admission rejection: surface the status + eviction plan.
                 await state_store.set(service_key, RuntimeState.stopped)
@@ -423,6 +423,12 @@ def build_router(
             except SidecarUnavailableError as exc:
                 await state_store.set(service_key, RuntimeState.stopped)
                 raise HTTPException(503, detail=str(exc)) from exc
+            started_containers = list(result.get("started", []))
+            evicted_containers = list(result.get("evicted", []))
+            for evicted_container in evicted_containers:
+                evicted_key = container_to_key.get(evicted_container)
+                if evicted_key:
+                    await state_store.set(evicted_key, RuntimeState.stopped)
             for started_container in started_containers:
                 started_key = container_to_key.get(started_container)
                 if started_key:
@@ -432,6 +438,7 @@ def build_router(
                 "service_key": service_key,
                 "state": "active",
                 "containers_started": started_containers,
+                "evicted": evicted_containers,
             })
 
         else:  # desired_state == "stopped"

@@ -565,6 +565,29 @@ def test_start_main_starts_validates_and_opens_gate(tmp_path):
     assert snap["gate"] == "open"
 
 
+def test_start_main_recreates_container_when_observed_profile_does_not_match(tmp_path):
+    loaded = catalog()
+    store = MainModelStateStore(tmp_path / "state.json", loaded.default_profile)
+    store.write({
+        **store.read(),
+        "active_profile": "gemma4-12b-unified-fp8",
+        "gate": "closed",
+        "runtime_state": "stopped",
+    })
+    backend = FakeBackend("gemma4-26b-a4b-fp8")
+    backend.running = False
+    manager = MainModelManager(loaded, store, backend)
+
+    asyncio.run(manager.start_main())
+
+    assert backend.started == 1
+    assert backend.replaced == ["gemma4-12b-unified-fp8"]
+    snap = manager.snapshot()
+    assert snap["active_profile"]["id"] == "gemma4-12b-unified-fp8"
+    assert snap["runtime_state"] == "active"
+    assert snap["gate"] == "open"
+
+
 def test_initialize_respects_deliberate_stop(tmp_path):
     loaded = catalog()
     store = MainModelStateStore(tmp_path / "state.json", loaded.default_profile)
