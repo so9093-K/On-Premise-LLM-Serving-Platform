@@ -64,6 +64,7 @@ def render_boot_override(
     catalog = load_main_model_catalog(
         catalog_path,
         gpu_memory_utilization_override=gpu_util_override_from_mapping(env),
+        env=env,
     )
     configured = env.get("MAIN_LLM_BOOT_PROFILE") or catalog.default_profile
     locked = _strict_bool(

@@ -13,10 +13,14 @@ ROOT = Path(__file__).resolve().parents[2]
 CATALOG = ROOT / "configs/main_model_profiles.yaml"
 
 
-def _env(path: Path, *, profile: str, locked: bool) -> None:
+_AUDIO_IMAGE = "registry.example.com/vllm-gemma4-audio@sha256:" + "a" * 64
+
+
+def _env(path: Path, *, profile: str, locked: bool, audio_image: str = "") -> None:
     path.write_text(
         f"MAIN_LLM_BOOT_PROFILE={profile}\n"
-        f"MAIN_LLM_PROFILE_LOCKED={'true' if locked else 'false'}\n",
+        f"MAIN_LLM_PROFILE_LOCKED={'true' if locked else 'false'}\n"
+        f"AUDIO_VLLM_IMAGE={audio_image}\n",
         encoding="utf-8",
     )
 
@@ -29,10 +33,10 @@ def _state(path: Path, active: str | None) -> None:
     )
 
 
-def test_persisted_profile_is_projected_to_compose_command(tmp_path):
+def test_persisted_profile_is_projected_to_compose_command_and_image(tmp_path):
     env = tmp_path / ".env"
     state = tmp_path / "state.json"
-    _env(env, profile="gemma4-26b-a4b-fp8", locked=False)
+    _env(env, profile="gemma4-26b-a4b-fp8", locked=False, audio_image=_AUDIO_IMAGE)
     _state(state, "gemma4-12b-unified-fp8")
 
     profile, override = render_boot_override(
@@ -45,9 +49,23 @@ def test_persisted_profile_is_projected_to_compose_command(tmp_path):
     assert override["services"]["main-llm-vllm"]["command"] == catalog["profiles"][
         profile
     ]["command"]
-    assert override["services"]["main-llm-vllm"]["image"] == catalog["runtime"][
-        "image"
-    ]
+    assert override["services"]["main-llm-vllm"]["image"] == _AUDIO_IMAGE
+
+
+def test_persisted_audio_profile_falls_back_to_shared_image_without_audio_pin(tmp_path):
+    env = tmp_path / ".env"
+    state = tmp_path / "state.json"
+    _env(env, profile="gemma4-26b-a4b-fp8", locked=False)
+    _state(state, "gemma4-12b-unified-fp8")
+
+    profile, override = render_boot_override(
+        catalog_path=CATALOG,
+        state_path=state,
+        env_path=env,
+    )
+    catalog = yaml.safe_load(CATALOG.read_text(encoding="utf-8"))
+    assert profile == "gemma4-12b-unified-fp8"
+    assert override["services"]["main-llm-vllm"]["image"] == catalog["runtime"]["image"]
 
 
 def test_locked_boot_profile_overrides_persisted_profile(tmp_path):
