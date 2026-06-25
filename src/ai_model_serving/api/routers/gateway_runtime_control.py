@@ -389,6 +389,10 @@ def build_router(
             try:
                 if desired_state == "active":
                     result = await sidecar.main_start(force=force)
+                    for evicted_container in result.get("evicted", []):
+                        evicted_key = container_to_key.get(evicted_container)
+                        if evicted_key:
+                            await state_store.set(evicted_key, RuntimeState.stopped)
                 else:
                     result = await sidecar.main_stop()
             except SidecarRequestError as exc:  # GPU-budget admission rejection
