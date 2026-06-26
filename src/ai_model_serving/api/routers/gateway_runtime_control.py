@@ -623,7 +623,7 @@ def build_router(
                         },
                         "examples": {
                             "switch_to_12b": {
-                                "summary": "12B로 전환 (unverified → 확인 필요)",
+                                "summary": "12B로 전환 (verified)",
                                 "value": {
                                     "profile": "gemma4-12b-unified-fp8",
                                     "confirm_unverified": True,
