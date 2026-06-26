@@ -10,6 +10,18 @@ from ..errors import ServiceError
 from .common import reject_unknown_fields
 
 
+def _decode_media_base64(data: str) -> bytes:
+    """Decode media base64 with the same tolerance as the downstream runtime.
+
+    The validating gateway must not be stricter than vLLM: standard base64
+    decoders ignore insignificant whitespace, so newline-wrapped payloads (the
+    default of the ``base64`` CLI and MIME encoders) are valid input. Strip ASCII
+    whitespace before decoding, but keep the alphabet and padding strict
+    (``validate=True``) so genuinely malformed data still fails fast and early.
+    """
+    return base64.b64decode("".join(data.split()), validate=True)
+
+
 def _image_url_scheme(url: str) -> str:
     if url.startswith("data:image/"):
         return "data"
@@ -96,7 +108,7 @@ def _validate_data_image_url(
     if ";base64" not in header.lower():
         raise ServiceError("VALIDATION_ERROR", "image_url data images must be base64 encoded.", False, 422)
     try:
-        decoded = base64.b64decode(encoded, validate=True)
+        decoded = _decode_media_base64(encoded)
     except (binascii.Error, ValueError) as exc:
         raise ServiceError("VALIDATION_ERROR", "image_url data image must contain valid base64.", False, 422) from exc
     if max_image_bytes and len(decoded) > max_image_bytes:
@@ -160,8 +172,12 @@ def _validate_input_audio(
     data = audio.get("data")
     if not isinstance(data, str) or not data:
         raise ServiceError("VALIDATION_ERROR", "input_audio.data must be a base64-encoded string.", False, 422)
+    if data.lstrip().startswith("data:"):
+        # input_audio.data is raw base64, unlike image_url/video_url which carry a
+        # data: URL. A data: prefix here is a field-shape mistake, not bad base64.
+        raise ServiceError("VALIDATION_ERROR", "input_audio.data must be raw base64 (no data: URL prefix).", False, 422)
     try:
-        decoded = base64.b64decode(data, validate=True)
+        decoded = _decode_media_base64(data)
     except (binascii.Error, ValueError) as exc:
         raise ServiceError("VALIDATION_ERROR", "input_audio.data must contain valid base64.", False, 422) from exc
     if not decoded:
@@ -194,7 +210,7 @@ def _decode_video_frame_sequence(encoded: str) -> list[bytes]:
         if not frame_b64:
             raise ServiceError("VALIDATION_ERROR", f"video_url frame {frame_index} must not be empty.", False, 422)
         try:
-            frames.append(base64.b64decode(frame_b64, validate=True))
+            frames.append(_decode_media_base64(frame_b64))
         except (binascii.Error, ValueError) as exc:
             raise ServiceError("VALIDATION_ERROR", f"video_url frame {frame_index} must contain valid base64.", False, 422) from exc
     return frames
@@ -242,7 +258,7 @@ def _validate_data_video_url(
         return
 
     try:
-        decoded = base64.b64decode(encoded, validate=True)
+        decoded = _decode_media_base64(encoded)
     except (binascii.Error, ValueError) as exc:
         raise ServiceError("VALIDATION_ERROR", "video_url data video must contain valid base64.", False, 422) from exc
     if not decoded:

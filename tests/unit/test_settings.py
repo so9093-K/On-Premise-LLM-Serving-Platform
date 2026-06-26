@@ -320,3 +320,19 @@ def test_load_settings_can_read_explicit_env_file_outside_repo(tmp_path, monkeyp
     assert settings.security.api_keys == frozenset({"explicit-gateway-key"})
     assert settings.security.admin_api_keys == frozenset({"explicit-admin-key"})
     assert settings.security.internal_service_token == "explicit-internal-key"
+
+
+def test_load_settings_uses_yaml_max_request_body_bytes_when_env_unset():
+    # MAX_REQUEST_BODY_BYTES is yaml-owned (operational_limits.max_request_body_bytes).
+    # With the env var absent (the isolate fixture clears it), settings must read the
+    # yaml value so a single source of truth drives the deployed body cap.
+    from pathlib import Path
+
+    import yaml
+
+    cfg_path = Path(__file__).resolve().parents[2] / "configs" / "model_serving.yaml"
+    cfg = yaml.safe_load(cfg_path.read_text(encoding="utf-8"))
+    expected = int(cfg["operational_limits"]["max_request_body_bytes"])
+
+    settings = load_settings()
+    assert settings.max_request_body_bytes == expected

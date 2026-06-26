@@ -45,11 +45,6 @@ def minimum_risk_vllm_transformers_version() -> str:
     )
 
 
-def configured_max_request_body_bytes() -> str:
-    model_serving = read_yaml(ROOT / "configs" / "model_serving.yaml")
-    return str(model_serving["operational_limits"]["max_request_body_bytes"])
-
-
 def recommended_images() -> dict[str, str]:
     images = read_yaml(IMAGE_CONFIG)["images"]
     return {
@@ -125,9 +120,14 @@ RETIRED_ENV_KEYS = {
     "RISK_SIREN_TIMEOUT_SECONDS",
     "RISK_SIREN_MAX_CONCURRENCY",
     "RISK_SIREN_QUEUE_TIMEOUT_SECONDS",
+    # MAX_REQUEST_BODY_BYTES is a uniform size policy owned by
+    # configs/model_serving.yaml (operational_limits.max_request_body_bytes).
+    # It was previously duplicated into .env templates where it shadowed the yaml
+    # value and silently drifted (deployed .env stuck at 1.25 MB across releases).
+    # Retiring it strips the key from existing .env on sync-env so the yaml value
+    # becomes authoritative; settings.py still honors an explicit env override.
+    "MAX_REQUEST_BODY_BYTES",
 }
-
-STALE_MAX_REQUEST_BODY_BYTES = frozenset({"1250000", "10000000", "40000000"})
 
 
 def preserve_existing_values(out_path: Path, *, force: bool) -> dict[str, str]:
@@ -213,23 +213,6 @@ def normalize_risk_vllm_transformers_pin(values: dict[str, str]) -> None:
             values[key] = minimum_version
 
 
-def normalize_request_body_limit(values: dict[str, str]) -> None:
-    """Repair the old pre-multimodal HTTP body cap.
-
-    1.25 MB was safe for tiny image smoke requests, but it rejects realistic
-    base64 image/audio payloads before per-modality validation can run. Only
-    migrate the exact old default so operator-owned lower limits remain custom.
-    """
-    current = values.get("MAX_REQUEST_BODY_BYTES", "").strip()
-    if current in STALE_MAX_REQUEST_BODY_BYTES:
-        replacement = configured_max_request_body_bytes()
-        print(
-            f"migrated MAX_REQUEST_BODY_BYTES from {current} to {replacement}",
-            file=sys.stderr,
-        )
-        values["MAX_REQUEST_BODY_BYTES"] = replacement
-
-
 def write_runtime_secrets(values: dict[str, str]) -> None:
     """Write generated runtime secret files consumed by local Compose services.
 
@@ -300,22 +283,7 @@ def sync_env_keys(env_path: Path, *, dry_run: bool = False) -> int:
     added = [k for k in template_values if k not in existing and k not in RETIRED_ENV_KEYS]
     retired_found = [k for k in existing if k in RETIRED_ENV_KEYS]
 
-    merged = {k: v for k, v in existing.items() if k not in RETIRED_ENV_KEYS}
-    for k in added:
-        merged[k] = template_values[k]
-
-    if merged.get("HF_TOKEN") and not merged.get("HUGGING_FACE_HUB_TOKEN"):
-        merged["HUGGING_FACE_HUB_TOKEN"] = merged["HF_TOKEN"]
-    normalize_request_body_limit(merged)
-
-    # Value migrations (e.g. stale MAX_REQUEST_BODY_BYTES) must propagate even when no
-    # template key is added or retired. Detect in-place value changes to preserved keys
-    # so a pure value bump is not silently dropped by an "all keys present" early return.
-    migrated = sorted(
-        k for k in existing if k not in RETIRED_ENV_KEYS and existing[k] != merged.get(k)
-    )
-
-    if not added and not retired_found and not migrated:
+    if not added and not retired_found:
         print(f"변경 없음: .env가 최신 상태입니다. (profile={profile})")
         return 0
 
@@ -323,12 +291,17 @@ def sync_env_keys(env_path: Path, *, dry_run: bool = False) -> int:
         print(f"추가될 키 ({len(added)}개): {', '.join(sorted(added))}")
     if retired_found:
         print(f"제거될 키 ({len(retired_found)}개): {', '.join(sorted(retired_found))}")
-    if migrated:
-        print(f"값이 갱신될 키 ({len(migrated)}개): {', '.join(migrated)}")
 
     if dry_run:
         print("dry-run: 실제 변경 없음.")
         return 0
+
+    merged = {k: v for k, v in existing.items() if k not in RETIRED_ENV_KEYS}
+    for k in added:
+        merged[k] = template_values[k]
+
+    if merged.get("HF_TOKEN") and not merged.get("HUGGING_FACE_HUB_TOKEN"):
+        merged["HUGGING_FACE_HUB_TOKEN"] = merged["HF_TOKEN"]
 
     filtered_lines = [
         line for line in env_lines
@@ -520,7 +493,6 @@ def main(argv: list[str] | None = None) -> int:
         print(f"env 정책 오류: {exc}", file=sys.stderr)
         return 2
     values = base_values | generated | preserved_values
-    normalize_request_body_limit(values)
     if args.profile == "compose":
         normalize_risk_vllm_image(values, explicit_override=bool(args.risk_vllm_image))
         normalize_risk_vllm_transformers_pin(values)

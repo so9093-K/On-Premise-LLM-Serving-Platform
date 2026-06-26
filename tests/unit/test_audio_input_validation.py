@@ -141,6 +141,36 @@ def test_invalid_base64_audio_rejected():
     assert "valid base64" in str(exc.value)
 
 
+def test_newline_wrapped_base64_audio_accepted():
+    # `base64 file.wav` (CLI) and MIME encoders wrap at 76 columns. The gateway
+    # must tolerate this exactly like the downstream runtime, not 422 it.
+    clean = _wav_b64()
+    wrapped = "\n".join(clean[i:i + 76] for i in range(0, len(clean), 76))
+    assert "\n" in wrapped
+    _validate(_audio_payload(wrapped, fmt="wav"), TEXT_IMAGE_AUDIO)
+
+
+def test_whitespace_padded_base64_audio_accepted():
+    _validate(_audio_payload("  " + _wav_b64() + "\n", fmt="wav"), TEXT_IMAGE_AUDIO)
+
+
+def test_unpadded_base64_audio_still_rejected():
+    # Missing '=' padding is non-standard and the runtime decoder also rejects it;
+    # the gate stays strict here so the error surfaces early and clearly.
+    with pytest.raises(ServiceError) as exc:
+        _validate(_audio_payload(_wav_b64().rstrip("="), fmt="wav"), TEXT_IMAGE_AUDIO)
+    assert exc.value.status_code == 422
+    assert "valid base64" in str(exc.value)
+
+
+def test_data_url_prefix_in_input_audio_data_rejected_with_specific_error():
+    # input_audio.data is raw base64 (unlike image_url/video_url data: URLs).
+    with pytest.raises(ServiceError) as exc:
+        _validate(_audio_payload("data:audio/wav;base64," + _wav_b64(), fmt="wav"), TEXT_IMAGE_AUDIO)
+    assert exc.value.status_code == 422
+    assert "raw base64" in str(exc.value)
+
+
 def test_too_many_audio_parts_rejected():
     with pytest.raises(ServiceError) as exc:
         _validate(_audio_payload(_wav_b64(), count=2), TEXT_IMAGE_AUDIO)
