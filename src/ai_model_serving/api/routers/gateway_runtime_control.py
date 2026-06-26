@@ -544,10 +544,11 @@ def build_router(
                                     "upstream_model_id": "RedHatAI/gemma-4-12B-it-FP8-Dynamic",
                                     "revision": "67e53491df7a281623fa740de61307d5c542b7f4",
                                     "compatibility": {
-                                        "status": "unverified",
+                                        "status": "verified",
                                         "reasons": [
+                                            "First host validation completed for this exact revision and pinned derived runtime image.",
                                             "image/audio/video fixed in the vllm-gemma4-audio derived image (pinned via AUDIO_VLLM_IMAGE); audio/video boot canaries validate the runtime on switch.",
-                                            "GPU full-system certification has not been executed.",
+                                            "No 24 GiB hardware claim is made without an exact-system validation record.",
                                         ],
                                     },
                                     "capabilities": {
@@ -626,7 +627,6 @@ def build_router(
                                 "summary": "12B로 전환 (verified)",
                                 "value": {
                                     "profile": "gemma4-12b-unified-fp8",
-                                    "confirm_unverified": True,
                                 },
                             },
                             "switch_to_26b": {

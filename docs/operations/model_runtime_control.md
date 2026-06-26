@@ -16,7 +16,7 @@ curl -H "Authorization: Bearer $ADMIN_API_KEY" \
 curl -X POST \
   -H "Authorization: Bearer $ADMIN_API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"profile":"gemma4-12b-unified-fp8","confirm_unverified":true}' \
+  -d '{"profile":"gemma4-12b-unified-fp8"}' \
   http://127.0.0.1:9400/admin/main-model/switch
 ```
 
@@ -63,9 +63,9 @@ command를 확인해 상태를 검증한다.
 상태 JSON이 손상됐거나 저장 profile이 현재 catalog에 없으면 기본 26B로 조용히
 fallback하지 않고 기동을 중단한다.
 
-12B compatibility는 현재 `unverified`다. 고정 revision과 runtime image
-조합의 GPU boot/Text/Image/Audio/Video parity 전에는 24 GiB 호환이나
-production-ready를 의미하지 않는다. Gateway는 Scalar/OpenAPI에 text,
+12B compatibility는 현재 고정 revision과 pinned derived runtime image 기준으로
+`verified`다. 이 검증은 현재 호스트의 1차 검증 결과이며, 별도 exact-system evidence
+없이 24 GiB 호환이나 장기 production-ready를 일반화하지 않는다. Gateway는 Scalar/OpenAPI에 text,
 `image_url`, `input_audio`, `video_url` content part를 표현하되 실제 허용은
 active profile의 `deployed_input`과 boot canary 결과로 gate한다. 26B active
 상태에서는 audio/video가 422로 거부되고, 12B 전환은 image/audio/video가 고정

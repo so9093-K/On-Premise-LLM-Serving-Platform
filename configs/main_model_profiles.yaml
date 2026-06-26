@@ -87,10 +87,9 @@ profiles:
     # falls back to the shared base and the media boot canaries keep 12B from going live.
     image: ${AUDIO_VLLM_IMAGE}
     compatibility:
-      status: unverified
+      status: verified
       reasons:
-      - The checkpoint card states compatibility with vLLM nightly.
-      - This exact revision and pinned runtime image have not been boot-validated on the current host.
+      - First host validation completed for this exact revision and pinned derived runtime image.
       - No 24 GiB hardware claim is made without an exact-system validation record.
       - image/audio are broken on the stock base (vision_embedder.patch_dense FP8
         ignore-list prefix mismatch gives pad output; missing feature_extractor.fft_length

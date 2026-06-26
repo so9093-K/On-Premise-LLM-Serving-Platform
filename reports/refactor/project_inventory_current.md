@@ -10,7 +10,7 @@ Command:
 
 이 리포트는 현재 source tree에서 생성되며 로컬 runtime/cache/build 디렉터리는 제외한다.
 
-- 검토 파일 수: **454**
+- 검토 파일 수: **455**
 - CSV matrix: `reports/refactor/project_inventory_current.csv`
 - JSON matrix: `reports/refactor/project_inventory_current.json`
 
@@ -48,7 +48,7 @@ Command:
 | `requirements.runtime.lock` | 1 |
 | `scripts` | 84 |
 | `specs` | 15 |
-| `src` | 111 |
+| `src` | 112 |
 | `tests` | 86 |
 | `version_manifest.json` | 1 |
 
@@ -68,19 +68,19 @@ Command:
 
 | 경로 | 줄 수 | 담당 | 검토 메모 |
 |---|---:|---|---|
-| `specs/openapi.gateway.yaml` | 9064 | api-contracts | supporting project file |
+| `specs/openapi.gateway.yaml` | 9185 | api-contracts | supporting project file |
 | `reports/refactor/project_inventory_current.json` | 5257 | handoff-reporting | handoff/review artifact; avoid stale phase snapshots in active package |
 | `specs/openapi.risk-adapter.yaml` | 3538 | api-contracts | supporting project file |
 | `configs/command_registry.yaml` | 2150 | configuration | configuration source; validate through governance and projection checks after edits |
-| `scripts/ci/deploy_gitlab_compose.sh` | 933 | operator-ux | operator/developer command; expose through Makefile/help if user-facing |
+| `scripts/ci/deploy_gitlab_compose.sh` | 953 | operator-ux | operator/developer command; expose through Makefile/help if user-facing |
 | `src/ai_model_serving/main_model_control.py` | 860 | application | application code; preserve public API behavior and compatibility facades |
-| `tests/unit/test_main_model_control.py` | 749 | quality | test coverage; keep deterministic and avoid live GPU dependency |
+| `tests/unit/test_main_model_control.py` | 753 | quality | test coverage; keep deterministic and avoid live GPU dependency |
 | `reports/runtime/operator_status_bundle.json` | 710 | handoff-reporting | generated operator report; regenerate through make operator-reports before handoff |
 | `ops/grafana/dashboards/gpu_capacity_and_oom_risk.json` | 700 | operations | supporting project file |
-| `src/ai_model_serving/api/routers/gateway_runtime_control.py` | 697 | application | application code; preserve public API behavior and compatibility facades |
+| `src/ai_model_serving/api/routers/gateway_runtime_control.py` | 699 | application | application code; preserve public API behavior and compatibility facades |
 | `src/ai_model_serving/api/endpoint_spec.py` | 628 | application | application code; preserve public API behavior and compatibility facades |
-| `src/ai_model_serving/api_examples.py` | 604 | application | application code; preserve public API behavior and compatibility facades |
-| `src/ai_model_serving/governance_validation/docs_ops.py` | 587 | governance-validation | application code; preserve public API behavior and compatibility facades |
+| `src/ai_model_serving/api_examples.py` | 627 | application | application code; preserve public API behavior and compatibility facades |
+| `src/ai_model_serving/governance_validation/docs_ops.py` | 595 | governance-validation | application code; preserve public API behavior and compatibility facades |
 | `src/ai_model_serving/apps/admin_sidecar.py` | 580 | application | application code; preserve public API behavior and compatibility facades |
 | `tests/unit/gateway/helpers.py` | 577 | quality | test coverage; keep deterministic and avoid live GPU dependency |
 

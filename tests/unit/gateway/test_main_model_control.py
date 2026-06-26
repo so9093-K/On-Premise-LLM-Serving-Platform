@@ -79,7 +79,6 @@ def test_main_model_admin_routes_proxy_only_profile_ids():
         "/admin/main-model/switch",
         json={
             "profile": "gemma4-12b-unified-fp8",
-            "confirm_unverified": True,
             "model_id": "attacker/arbitrary",
             "command": ["sh", "-c", "id"],
         },
@@ -91,12 +90,11 @@ def test_main_model_admin_routes_proxy_only_profile_ids():
         "/admin/main-model/switch",
         json={
             "profile": "gemma4-12b-unified-fp8",
-            "confirm_unverified": True,
         },
     )
     assert switch.status_code == 202
     assert switch.json()["operation_id"] == "op-2"
-    assert sidecar.switch_requests == [("gemma4-12b-unified-fp8", True, None)]
+    assert sidecar.switch_requests == [("gemma4-12b-unified-fp8", False, None)]
 
     operation = client.get("/admin/main-model/operations/op-2")
     assert operation.status_code == 200

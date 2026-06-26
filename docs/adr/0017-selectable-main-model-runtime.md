@@ -79,7 +79,7 @@ Gateway는 인증된 공개 관리 경계로서 프로파일 ID만 프록시합�
 호환성은 `verified`, `likely`, `unverified`, `incompatible`, `unknown` 중 하나로 이유와 함께 `configs/main_model_profiles.yaml`에 기록합니다. 정적 메모리 임계값은 호환성의 증거가 아닙니다.
 
 - `gemma4-26b-a4b-fp8`: `verified` — RTX 6000 Ada 48 GiB에서 20K context, 정밀 검증 완료
-- `gemma4-12b-unified-fp8`: `unverified` — 고정된 리비전과 이미지로 부트, 텍스트, 이미지, 도구, 구조화 출력, 추론, 스트리밍, 한국어, 장기 운용 확인이 완료되기 전까지 유지
+- `gemma4-12b-unified-fp8`: `verified` — 후속 media canary 설계와 pinned derived runtime image 기준 1차 검증 완료. 이 검증은 exact-system 범위이며, 별도 증빙 없이 24 GiB 호환이나 장기 운용을 일반화하지 않는다.
 
 당시 결정 기준으로 오디오는 12B의 모델 기능으로만 기록했고 배포된 제품 기능은 아니었습니다. 이 제약은 [ADR-0018](0018-gpu-vram-admission-and-per-profile-runtime-image.md)과 이후 media boot canary 설계로 대체되었습니다. 현재 계약은 active profile의 `deployed_input`과 media canary 결과로 audio/video를 gate합니다.
 

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -202,6 +203,11 @@ def test_state_store_update_does_not_lose_concurrent_process_updates(tmp_path):
 
 def test_unverified_switch_requires_confirmation(tmp_path):
     loaded = catalog()
+    profile = loaded.profiles["gemma4-12b-unified-fp8"]
+    loaded.profiles["gemma4-12b-unified-fp8"] = replace(
+        profile,
+        compatibility={**profile.compatibility, "status": "unknown"},
+    )
     store = MainModelStateStore(tmp_path / "state.json", loaded.default_profile)
     manager = MainModelManager(loaded, store, FakeBackend(), boot_profile=loaded.default_profile)
     with pytest.raises(MainModelSwitchError) as error:
@@ -222,9 +228,7 @@ def test_successful_switch_commits_only_after_validation(tmp_path):
     manager = MainModelManager(loaded, store, FakeBackend("gemma4-26b-a4b-fp8"))
 
     async def run():
-        operation_id, _ = manager.request_switch(
-            "gemma4-12b-unified-fp8", confirm_unverified=True
-        )
+        operation_id, _ = manager.request_switch("gemma4-12b-unified-fp8")
         while manager.operation(operation_id)["status"] not in {
             "completed",
             "failed",
@@ -257,9 +261,7 @@ def test_failed_switch_rolls_back_without_silent_success(tmp_path):
     manager = MainModelManager(loaded, store, backend)
 
     async def run():
-        operation_id, _ = manager.request_switch(
-            "gemma4-12b-unified-fp8", confirm_unverified=True
-        )
+        operation_id, _ = manager.request_switch("gemma4-12b-unified-fp8")
         while manager.operation(operation_id)["status"] not in {
             "completed",
             "failed",
@@ -292,9 +294,7 @@ def test_drain_failure_preserves_current_runtime_without_replace(tmp_path):
     manager = MainModelManager(loaded, store, backend)
 
     async def run():
-        operation_id, _ = manager.request_switch(
-            "gemma4-12b-unified-fp8", confirm_unverified=True
-        )
+        operation_id, _ = manager.request_switch("gemma4-12b-unified-fp8")
         while manager.operation(operation_id)["status"] not in {
             "completed",
             "failed",
@@ -324,9 +324,7 @@ def test_cache_prepare_failure_keeps_current_runtime_and_gate_open(tmp_path):
     manager = MainModelManager(loaded, store, backend)
 
     async def run():
-        operation_id, _ = manager.request_switch(
-            "gemma4-12b-unified-fp8", confirm_unverified=True
-        )
+        operation_id, _ = manager.request_switch("gemma4-12b-unified-fp8")
         while manager.operation(operation_id)["status"] not in {
             "completed",
             "failed",
@@ -370,9 +368,7 @@ def test_gate_stays_open_while_cache_prepare_is_running(tmp_path):
     manager = MainModelManager(loaded, store, backend)
 
     async def run():
-        operation_id, _ = manager.request_switch(
-            "gemma4-12b-unified-fp8", confirm_unverified=True
-        )
+        operation_id, _ = manager.request_switch("gemma4-12b-unified-fp8")
         await backend.started.wait()
         assert manager.operation(operation_id)["stage"] == "preparing"
         assert manager.snapshot()["gate"] == "open"
@@ -396,12 +392,10 @@ def test_request_id_retry_is_idempotent(tmp_path):
     async def run():
         first = manager.request_switch(
             "gemma4-12b-unified-fp8",
-            confirm_unverified=True,
             client_request_id="deploy-12b-1",
         )
         second = manager.request_switch(
             "gemma4-12b-unified-fp8",
-            confirm_unverified=True,
             client_request_id="deploy-12b-1",
         )
         assert first.operation_id == second.operation_id
@@ -431,14 +425,12 @@ def test_request_id_starts_fresh_switch_after_ttl_expires(tmp_path):
     async def run():
         first = manager.request_switch(
             "gemma4-12b-unified-fp8",
-            confirm_unverified=True,
             client_request_id="deploy-12b-1",
         )
         while manager.operation(first.operation_id)["status"] not in terminal:
             await asyncio.sleep(0.01)
         second = manager.request_switch(
             "gemma4-12b-unified-fp8",
-            confirm_unverified=True,
             client_request_id="deploy-12b-1",
         )
         assert second.reused is False
