@@ -34,10 +34,11 @@ Gateway의 Vision 이미지 검증은 세 계층으로 구성된다.
 |---|---|---|
 | `max_image_bytes` | 750,000 | 7,000,000 (≈6.7 MB) |
 | `max_image_pixels` | 1,048,576 | 6,422,528 (8타일 × 896², SigLIP2 상한) |
-| `max_request_body_bytes` | 1,250,000 | 10,000,000 (≈9.5 MB) |
+| `max_request_body_bytes` | 1,250,000 | 40,000,000 (≈38.1 MB) |
 
 한도 일관성 공식: `max_request_body_bytes ≥ ceil(max_image_bytes × 4/3) + ~100KB JSON`
 - 7,000,000 × 4/3 ≈ 9,333,333 + JSON overhead → 10,000,000으로 충분히 수용.
+- audio profile 활성화 시 decoded audio 25,000,000 × 4/3 ≈ 33,333,334 + JSON overhead → 40,000,000으로 수용.
 
 ### MIME type 독립 파서 탐지
 
@@ -71,12 +72,12 @@ MIME type allowlist 검사(`image/jpeg`, `image/png`, `image/webp` 중 하나여
 |---|---|
 | SigLIP2 아키텍처 상한까지 이미지를 처리할 수 있다 | 더 큰 이미지 허용으로 단일 요청 처리 시간이 늘어날 수 있다 |
 | MIME type 오선언 클라이언트의 불필요한 422 제거 | (없음) |
-| body 한도와 decoded 한도가 일관성 있게 정렬됐다 | |
+| body 한도와 image/audio decoded 한도가 일관성 있게 정렬됐다 | |
 | gpu_budgets.yaml 한 곳만 수정하면 모든 설정이 따라온다 | |
 
 ## Operational impact
 
-- `max_request_body_bytes: 10,000,000`: Nginx/프록시의 `client_max_body_size`가 이 값보다 작으면 먼저 413을 반환한다. 10MB 이상으로 설정되어 있는지 확인이 필요하다.
+- `max_request_body_bytes: 40,000,000`: Nginx/프록시의 `client_max_body_size`가 이 값보다 작으면 먼저 413을 반환한다. 40MB 이상으로 설정되어 있는지 확인이 필요하다.
 - 이미지 처리 비용은 픽셀 수에 비례하므로, 6,422,528 픽셀(≈2688×2394) 이미지는 소형 이미지 대비 추론 시간이 증가한다. 현재 active runtime target에서는 이미지 토큰이 텍스트 예산을 함께 사용하므로, long-context와 image input canary를 같은 target policy에서 함께 확인해야 한다.
 - `max_image_inputs: 1` 제한은 변경하지 않았다.
 

@@ -99,7 +99,7 @@ class AppSettings:
     embedding_model_routes: dict[str, str] = field(default_factory=dict)
     default_embedding_model: str = "local-embed"
     default_retrieval_model: str = "local-embed-ko"
-    max_request_body_bytes: int = 1_000_000
+    max_request_body_bytes: int = 40_000_000
     max_retrieval_documents: int = 32
     risk_input_max_chars: int = 7_936
     public_models: tuple[dict[str, Any], ...] = ()

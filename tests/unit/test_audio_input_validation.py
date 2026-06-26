@@ -9,6 +9,7 @@ exactly as before -- the audio feature is inert until a profile deploys it.
 from __future__ import annotations
 
 import base64
+import math
 import io
 import wave
 
@@ -123,6 +124,18 @@ def test_configured_audio_formats_are_all_sniffable():
 
     configured = set(load_settings().main_llm.allowed_audio_formats)
     assert configured <= SNIFFABLE_AUDIO_FORMATS, configured - SNIFFABLE_AUDIO_FORMATS
+
+
+def test_request_body_limit_can_carry_configured_audio_limit(monkeypatch):
+    # The raw HTTP cap must not reject valid max-size audio before decoded
+    # audio validation can return the precise contract error/success.
+    from ai_model_serving.settings import load_settings
+
+    monkeypatch.delenv("MAX_REQUEST_BODY_BYTES", raising=False)
+    settings = load_settings()
+    assert settings.main_llm is not None
+    required_body_bytes = math.ceil(settings.main_llm.max_audio_bytes * 4 / 3) + 100_000
+    assert settings.max_request_body_bytes >= required_body_bytes
 
 
 def test_active_input_modalities_extracts_deployed_input():

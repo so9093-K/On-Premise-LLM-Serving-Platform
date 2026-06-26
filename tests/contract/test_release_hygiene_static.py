@@ -202,14 +202,21 @@ def test_refresh_generated_reports_uses_static_live_evidence_placeholder() -> No
 
 
 def test_current_project_inventory_does_not_list_removed_legacy_reports() -> None:
-    removed = 'reports/maintenance_version_rebaseline_0.1.0-rc.1_2026-05-06.md'
+    removed_paths = [
+        'reports/maintenance_version_rebaseline_0.1.0-rc.1_2026-05-06.md',
+        'harness/contract_test_cases.yaml',
+        'harness/gpu_budget_validation_plan.md',
+    ]
+    for removed in removed_paths:
+        assert not (ROOT / removed).exists()
     for rel in [
         'reports/refactor/project_inventory_current.csv',
         'reports/refactor/project_inventory_current.json',
         'reports/refactor/project_inventory_current.md',
     ]:
         text = (ROOT / rel).read_text(encoding='utf-8')
-        assert removed not in text
+        for removed in removed_paths:
+            assert removed not in text
 
 
 def test_image_tags_are_package_version_aligned() -> None:

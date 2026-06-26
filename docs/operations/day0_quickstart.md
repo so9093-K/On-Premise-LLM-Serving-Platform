@@ -73,7 +73,7 @@ AUTH_MODE=local_open HF_TOKEN=hf_xxx make first-run
 
 source .venv/bin/activate
 make compose-up
-make ready
+make ready-full
 ```
 
 `make first-run`은 `make bootstrap`의 alias다. `make bootstrap`은 `.venv` 생성부터 플랫폼 이미지와 Kanana risk 전용 vLLM 이미지 빌드, image 내부 Kanana config check까지 한 번에 처리한다. 기존 `.env`에 `HF_TOKEN`이 이미 있어도 `HF_TOKEN=hf_xxx`를 명시하면 항상 덮어쓴다.
@@ -121,7 +121,7 @@ HF_TOKEN=hf_xxx make rebuild-full
 # 3. 기동
 source .venv/bin/activate
 make compose-up
-make ready
+make ready-full
 ```
 
 **인증 없음 (개발·테스트 환경)**
@@ -139,7 +139,7 @@ AUTH_MODE=local_open HF_TOKEN=hf_xxx make rebuild-full
 # 3. 기동
 source .venv/bin/activate
 make compose-up
-make ready
+make ready-full
 ```
 
 `AUTH_MODE=local_open`이 적용되면 다음이 자동으로 설정된다:

@@ -239,7 +239,7 @@ make status
 curl -s http://localhost:9400/health | python3 -m json.tool
 
 # 전체 readiness (admin 키 자동 주입)
-make ready
+make ready-full
 ```
 
 

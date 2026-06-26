@@ -197,4 +197,4 @@ if [[ -z "$resolved_token" ]]; then
 fi
 echo "  source .venv/bin/activate"
 echo "  make compose-up"
-echo "  make ready"
+echo "  make ready-full"

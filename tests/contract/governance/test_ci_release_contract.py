@@ -228,13 +228,18 @@ def test_gitlab_ci_vllm_derived_build_contract() -> None:
     assert "Dockerfile.risk-vllm-kanana" in build_script, (
         "scripts/ci/build_vllm_derived_images.sh must reference ops/docker/Dockerfile.risk-vllm-kanana"
     )
+    assert "ops/images/vllm-gemma4-audio/Dockerfile" in build_script, (
+        "scripts/ci/build_vllm_derived_images.sh must build the 12B multimodal audio runtime image"
+    )
     assert "docker pull \"${RESOLVED_VLLM_BASE_IMAGE}\"" in build_script, (
         "scripts/ci/build_vllm_derived_images.sh must pull the resolved shared vLLM base image once "
-        "before building the risk derived image"
+        "before building derived runtime images"
     )
     for image_var in [
         "RISK_VLLM_IMAGE_SHA",
         "RISK_VLLM_IMAGE_REF",
+        "AUDIO_VLLM_IMAGE_SHA",
+        "AUDIO_VLLM_IMAGE_REF",
     ]:
         assert f'docker push "${{{image_var}}}"' in build_script, (
             f"scripts/ci/build_vllm_derived_images.sh must push {image_var}"
@@ -242,6 +247,12 @@ def test_gitlab_ci_vllm_derived_build_contract() -> None:
 
     assert "risk-vllm-kanana:${CI_COMMIT_TAG}" in build_script, (
         "scripts/ci/build_vllm_derived_images.sh must push risk-vllm-kanana:<tag> on CI_COMMIT_TAG pipelines"
+    )
+    assert "vllm-gemma4-audio:${CI_COMMIT_TAG}" in build_script, (
+        "scripts/ci/build_vllm_derived_images.sh must push vllm-gemma4-audio:<tag> on CI_COMMIT_TAG pipelines"
+    )
+    assert "AUDIO_VLLM_IMAGE_DIGEST" in build_script and "build/audio-image.env" in build_script, (
+        "scripts/ci/build_vllm_derived_images.sh must emit the audio image digest artifact"
     )
     deploy = (ROOT / "scripts/ci/deploy_gitlab_compose.sh").read_text(encoding="utf-8")
     assert 'pull_preflight_image "risk-vllm-kanana" "${RISK_VLLM_IMAGE_TO_DEPLOY}"' in deploy

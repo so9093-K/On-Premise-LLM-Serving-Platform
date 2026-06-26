@@ -11,7 +11,8 @@ variables:
   PYTEST_DISABLE_PLUGIN_AUTOLOAD: "1"
   PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
   DOCKER_BUILDKIT: "1"
-  # Common base image for all vLLM-derived runtime images (risk-vllm-kanana).
+  # Common base image for all vLLM-derived runtime images
+  # (risk-vllm-kanana and vllm-gemma4-audio).
   # Override via CI/CD variable VLLM_BASE_IMAGE to switch base without editing this file.
   VLLM_BASE_IMAGE: "vllm/vllm-openai@sha256:f4492643056969529a74238f71dd66dc3097c0d433156a4f4478456bf84bd276"
 
@@ -130,8 +131,8 @@ build-platform:
       - build/platform-image.env
     expire_in: 7 days
 
-# Builds vLLM-derived runtime images (risk-vllm-kanana) in a single job so the large
-# (~25 GB) vLLM base image is pulled only once.
+# Builds vLLM-derived runtime images (risk-vllm-kanana and vllm-gemma4-audio)
+# in a single job so the large (~25 GB) vLLM base image is pulled only once.
 # embedding-ko-vllm uses EMBEDDING_KO_VLLM_IMAGE and does not require a dedicated build.
 # Runs automatically on release/tag pipelines when BUILD_VLLM_DERIVED=1 or DEPLOY_MODE=full.
 # Rolling control-plane deploys skip this job entirely — no vLLM rebuild is needed.

@@ -27,16 +27,17 @@ make bootstrap      = 전체 재빌드 (.venv + 의존성 + .env + 검증 + 플�
 
 이 프로젝트에는 목적이 다른 네 가지 빌드 진입점이 있다.
 
-| 계층 | 명령 | 대상 | Risk vLLM 이미지 포함? |
+| 계층 | 명령 | 대상 | Runtime-derived 이미지 포함? |
 |---|---|---|:---:|
 | Day-0 / 전체 설정 | `make first-run` / `make bootstrap` | .venv + 플랫폼 이미지 + risk vLLM 이미지 + config check | 예 (기본값) |
 | CI / 릴리스 파이프라인 | `make build-pipeline` / `make build` | validate + test + 플랫폼 이미지 + 패키징만 | 아니오 |
 | 타깃 재빌드 | `make rebuild-app` / `make build-image` | 플랫폼 이미지만 | 아니오 |
 | 타깃 재빌드 | `make rebuild-risk-vllm` / `make build-risk-vllm-image` | Risk vLLM 이미지만 | 예 (이것만) |
+| CI derived 이미지 | `build-vllm-derived` | risk-vllm-kanana + vllm-gemma4-audio build/push | 예 (명시 opt-in) |
 
 **`make build`와 `make build-pipeline`은 risk vLLM 이미지를 빌드하지 않는다.** CI와 릴리스 파이프라인은 vLLM runtime에 의존하지 않고 플랫폼 아티팩트만 재현 가능하게 생성해야 하기 때문이다. Risk vLLM 이미지는 `make first-run`, `make bootstrap`, `make rebuild-risk-vllm`, `make build-risk-vllm-image`로만 생성된다.
 
-**`embedding-ko-vllm`은 별도 derived Dockerfile 빌드 대상이 아니다.** `EMBEDDING_KO_VLLM_IMAGE` 환경 변수로 지정한 표준 vLLM 이미지를 사용한다. derived image build가 필요한 runtime은 risk-vllm-kanana(`ops/docker/Dockerfile.risk-vllm-kanana`)뿐이다.
+**`embedding-ko-vllm`은 별도 derived Dockerfile 빌드 대상이 아니다.** `EMBEDDING_KO_VLLM_IMAGE` 환경 변수로 지정한 표준 vLLM 이미지를 사용한다. derived image build가 필요한 runtime은 risk-vllm-kanana(`ops/docker/Dockerfile.risk-vllm-kanana`)와 12B multimodal profile용 `vllm-gemma4-audio`(`ops/images/vllm-gemma4-audio/Dockerfile`)뿐이다. 로컬 make target은 risk image만 직접 빌드하고, audio image는 CI `build-vllm-derived` 또는 `ops/images/vllm-gemma4-audio/README.md`의 수동 fallback 절차로 빌드·push·pin한다.
 
 ### Risk vLLM 이미지를 다시 빌드해야 하는 시점
 
@@ -155,6 +156,7 @@ make rebuild-app
 ```
 
 Dockerfile.risk-vllm-kanana, `ops/patches/`, `RISK_VLLM_TRANSFORMERS_MIN_VERSION`이 변경된 경우에는 `SKIP_RISK_VLLM_IMAGE_BUILD=auto`를 사용하지 않고 전체 `make first-run`을 실행하거나 `make rebuild-risk-vllm`를 직접 호출한다.
+`ops/images/vllm-gemma4-audio/` 또는 Gemma4 multimodal patch가 변경된 경우에는 로컬 `make rebuild-risk-vllm`이 아니라 release/tag pipeline의 `build-vllm-derived`를 `BUILD_VLLM_DERIVED=1` 또는 `DEPLOY_MODE=full`로 실행해 새 audio digest를 만들고 배포 `.env`의 `AUDIO_VLLM_IMAGE`에 pin한다.
 
 ### 전체 초기화 + 재빌드
 
@@ -166,7 +168,7 @@ PURGE_MODEL_CACHE=1 PURGE_RUNTIME_SECRETS=1 PURGE_VENV=1 make reset
 HF_TOKEN=hf_xxx AUTH_MODE=local_open make rebuild-full
 source .venv/bin/activate
 make compose-up
-make ready
+make ready-full
 ```
 
 `make reset`은 `.env`와 upstream/base vLLM 이미지는 보존하고, 이 프로젝트가 만든 platform image와 local `RISK_VLLM_IMAGE`는 삭제한다. base image까지 지워야 할 때만 `PURGE_BASE_IMAGES=1 make reset`을 사용한다.

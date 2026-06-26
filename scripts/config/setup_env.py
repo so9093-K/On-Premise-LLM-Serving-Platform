@@ -45,6 +45,11 @@ def minimum_risk_vllm_transformers_version() -> str:
     )
 
 
+def configured_max_request_body_bytes() -> str:
+    model_serving = read_yaml(ROOT / "configs" / "model_serving.yaml")
+    return str(model_serving["operational_limits"]["max_request_body_bytes"])
+
+
 def recommended_images() -> dict[str, str]:
     images = read_yaml(IMAGE_CONFIG)["images"]
     return {
@@ -121,6 +126,8 @@ RETIRED_ENV_KEYS = {
     "RISK_SIREN_MAX_CONCURRENCY",
     "RISK_SIREN_QUEUE_TIMEOUT_SECONDS",
 }
+
+STALE_MAX_REQUEST_BODY_BYTES = frozenset({"1250000", "10000000"})
 
 
 def preserve_existing_values(out_path: Path, *, force: bool) -> dict[str, str]:
@@ -204,6 +211,23 @@ def normalize_risk_vllm_transformers_pin(values: dict[str, str]) -> None:
                     file=sys.stderr,
                 )
             values[key] = minimum_version
+
+
+def normalize_request_body_limit(values: dict[str, str]) -> None:
+    """Repair the old pre-multimodal HTTP body cap.
+
+    1.25 MB was safe for tiny image smoke requests, but it rejects realistic
+    base64 image/audio payloads before per-modality validation can run. Only
+    migrate the exact old default so operator-owned lower limits remain custom.
+    """
+    current = values.get("MAX_REQUEST_BODY_BYTES", "").strip()
+    if current in STALE_MAX_REQUEST_BODY_BYTES:
+        replacement = configured_max_request_body_bytes()
+        print(
+            f"migrated MAX_REQUEST_BODY_BYTES from {current} to {replacement}",
+            file=sys.stderr,
+        )
+        values["MAX_REQUEST_BODY_BYTES"] = replacement
 
 
 def write_runtime_secrets(values: dict[str, str]) -> None:
@@ -295,6 +319,7 @@ def sync_env_keys(env_path: Path, *, dry_run: bool = False) -> int:
 
     if merged.get("HF_TOKEN") and not merged.get("HUGGING_FACE_HUB_TOKEN"):
         merged["HUGGING_FACE_HUB_TOKEN"] = merged["HF_TOKEN"]
+    normalize_request_body_limit(merged)
 
     filtered_lines = [
         line for line in env_lines
@@ -486,6 +511,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"env 정책 오류: {exc}", file=sys.stderr)
         return 2
     values = base_values | generated | preserved_values
+    normalize_request_body_limit(values)
     if args.profile == "compose":
         normalize_risk_vllm_image(values, explicit_override=bool(args.risk_vllm_image))
         normalize_risk_vllm_transformers_pin(values)

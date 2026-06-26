@@ -25,6 +25,7 @@ def test_setup_env_generates_compose_env_with_local_open_defaults(tmp_path):
     assert 'FASTAPI_DOCS_ENABLED=true' in text
     assert 'VLLM_IMAGE=vllm/vllm-openai:gemma4-unified-cu129' in text
     assert 'RISK_VLLM_IMAGE=ai-model-serving-risk-vllm-kanana:' in text
+    assert 'MAX_REQUEST_BODY_BYTES=40000000' in text
     assert 'COLBERT_KO_MODEL_DIR' not in text
     assert 'PROMETHEUS_IMAGE=prom/prometheus:v3-distroless' in text
 
@@ -42,6 +43,7 @@ def test_setup_env_generates_local_open_profile(tmp_path):
     assert 'ADMIN_API_KEY_REQUIRED=false' in text
     assert 'INTERNAL_SERVICE_AUTH_REQUIRED=false' in text
     assert 'FASTAPI_DOCS_ENABLED=true' in text
+    assert 'MAX_REQUEST_BODY_BYTES=40000000' in text
 
 
 def test_setup_env_refuses_overwrite_without_force(tmp_path):
@@ -147,6 +149,36 @@ def test_setup_env_force_migrates_stale_risk_vllm_transformers_pin(tmp_path):
     assert rc == 0
     text = out.read_text(encoding='utf-8')
     assert 'RISK_VLLM_TRANSFORMERS_VERSION=4.52.4' in text
+    assert 'HF_TOKEN=hf_existing' in text
+
+
+def test_setup_env_force_migrates_stale_request_body_limit(tmp_path):
+    out = tmp_path / '.env'
+    out.write_text(
+        'MAX_REQUEST_BODY_BYTES=1250000\n'
+        'HF_TOKEN=hf_existing\n',
+        encoding='utf-8',
+    )
+    rc = setup_env.main(['--profile', 'compose', '--output', str(out), '--force'])
+    assert rc == 0
+    text = out.read_text(encoding='utf-8')
+    assert 'MAX_REQUEST_BODY_BYTES=40000000' in text
+    assert 'MAX_REQUEST_BODY_BYTES=1250000' not in text
+    assert 'HF_TOKEN=hf_existing' in text
+
+
+def test_setup_env_force_migrates_image_only_request_body_limit(tmp_path):
+    out = tmp_path / '.env'
+    out.write_text(
+        'MAX_REQUEST_BODY_BYTES=10000000\n'
+        'HF_TOKEN=hf_existing\n',
+        encoding='utf-8',
+    )
+    rc = setup_env.main(['--profile', 'compose', '--output', str(out), '--force'])
+    assert rc == 0
+    text = out.read_text(encoding='utf-8')
+    assert 'MAX_REQUEST_BODY_BYTES=40000000' in text
+    assert 'MAX_REQUEST_BODY_BYTES=10000000' not in text
     assert 'HF_TOKEN=hf_existing' in text
 
 

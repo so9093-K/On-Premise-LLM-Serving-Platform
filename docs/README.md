@@ -125,7 +125,7 @@ make rebuild-full  # 전체 재빌드 (.venv·deps·env·validate·test·platfor
 make start         # 로컬 app-only 기동
 make compose-up    # full-stack compose 기동
 make ready-local   # 로컬 health 확인
-make ready         # full-stack readiness 확인
+make ready-full    # full-stack readiness 확인
 make infisical-up  # 시크릿 관리 UI 기동 (선택)
 make secrets-push  # .env → Infisical 동기화
 make project-inventory # 전체 파일·문서·관리 inventory 생성

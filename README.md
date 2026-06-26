@@ -293,7 +293,7 @@ validate → test → package → build → deploy
 | validate | 설정, model registry, compose, runtime validation config 검증 |
 | test | generated report 갱신 후 test suite 실행 |
 | package | 릴리스 ZIP 생성 |
-| build | platform image와 runtime-derived image 빌드 |
+| build | platform image 빌드, opt-in pipeline에서 runtime-derived image 빌드 |
 | deploy | GitLab CI/CD variables로 지정한 GPU runtime host에 수동 배포 |
 
 내부 target host 이름, 내부 IP, 환경별 deploy job 이름은 repository 문서에 직접 적지 않는다. Target별 배포 절차는 `docs/operations/gitlab_cicd_deployment.md`와 `.gitlab-ci.yml`을 기준으로 확인한다.

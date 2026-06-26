@@ -475,7 +475,7 @@ timeouts:
   vllm_request_seconds: 20
   risk_adapter_seconds: 15
 operational_limits:
-  max_request_body_bytes: 10000000
+  max_request_body_bytes: 40000000
   max_retrieval_documents: 32
   per_upstream_concurrency: 1
   queue_timeout_seconds: 2
