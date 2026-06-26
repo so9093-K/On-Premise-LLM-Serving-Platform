@@ -7490,13 +7490,12 @@ paths:
                     containers_stopped:
                     - embedding-ko-vllm
                 to_stopped_prereq:
-                  summary: 보조 중지 — 선행 컨테이너 포함
+                  summary: 보조 중지 — 실제 컨테이너 상태 재확인
                   value:
                     service_key: risk_prompt
                     state: stopped
                     containers_stopped:
                     - risk-prompt-vllm
-                    - embedding-vllm
                 to_active:
                   summary: 보조 시작 (서비스 복구)
                   value:

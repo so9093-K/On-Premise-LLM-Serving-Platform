@@ -188,6 +188,8 @@ build-vllm-derived:
 #   RUN_READY_SMOKE      1 or 0; default 1
 #   PRUNE_DANGLING_IMAGES 1 or 0; default 1, prune untagged images after successful deploy
 #   RISK_VLLM_IMAGE_TO_DEPLOY  full deploy only; override RISK_VLLM_IMAGE in 175 .env
+#   DEPLOY_RUNTIME_PROFILE     full deploy runtime startup profile (full_hot, main_only, retrieval_ready)
+#   DEPLOY_DEFERRED_RUNTIMES   explicit comma-separated deferred runtime override; wins over DEPLOY_RUNTIME_PROFILE
 deploy-gpu-175:
   stage: deploy
   image: alpine:3.20

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from .helpers import *  # noqa: F401,F403
+from ai_model_serving.services.runtime_state import RuntimeState
 
 def test_gateway_dense_retrieval_uses_embedding_runtime():
     clients = FakeGatewayClients()
@@ -30,6 +31,24 @@ def test_gateway_dense_retrieval_uses_embedding_runtime():
     assert body["score_mode"] == "dense_cosine"
     assert body["scores"] == [{"index": 0, "score": 1.0}, {"index": 1, "score": 0.0}]
     assert clients.embedding_clients["local-embed"].last_path == "embeddings"
+
+
+def test_gateway_retrieval_returns_503_when_embedding_runtime_stopped():
+    clients = FakeGatewayClients()
+    asyncio.run(clients.runtime_state.set("embedding", RuntimeState.stopped))
+    client = TestClient(create_gateway_app(settings(), clients))
+
+    response = client.post(
+        "/v1/retrieval/score",
+        headers=auth_headers(),
+        json={"model": "local-embed", "query": "검색어", "documents": ["관련"]},
+    )
+
+    assert response.status_code == 503
+    body = response.json()
+    assert body["error"]["code"] == "MODEL_UNAVAILABLE"
+    assert "embedding runtime is stopped" in body["error"]["message"]
+    assert clients.embedding_clients["local-embed"].last_path is None
 
 
 def test_gateway_retrieval_forwards_truncate_prompt_tokens_to_embedding_runtime():
@@ -315,4 +334,3 @@ def test_gateway_score_rejects_top_n():
     assert response.status_code == 422
     assert response.json()["error"]["code"] == "VALIDATION_ERROR"
     assert clients.embedding_clients["local-embed-ko"].last_path is None
-

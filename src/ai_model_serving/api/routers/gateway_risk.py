@@ -35,13 +35,12 @@ def build_router(
         if state_store is not None:
             state = await state_store.get("risk_prompt")
             if state in (RuntimeState.stopped, RuntimeState.starting):
-                raise HTTPException(
+                raise ServiceError(
+                    "MODEL_UNAVAILABLE",
+                    "risk_prompt runtime is "
+                    f"{state.value}. Start it with PATCH /admin/runtimes/risk_prompt.",
+                    True,
                     503,
-                    detail={
-                        "error": "runtime_unavailable",
-                        "service_key": "risk_prompt",
-                        "state": state.value,
-                    },
                 )
         return await service.forward_risk_assessment("/v1/risk/detectors/prompt/assessments", payload)
 
@@ -113,6 +112,16 @@ def build_router(
     async def risk_assessment(
         payload: dict[str, Any] = Body(...),
     ) -> dict[str, Any]:
+        if state_store is not None:
+            state = await state_store.get("risk_prompt")
+            if state in (RuntimeState.stopped, RuntimeState.starting):
+                raise ServiceError(
+                    "MODEL_UNAVAILABLE",
+                    "risk_prompt runtime is "
+                    f"{state.value}. Start it with PATCH /admin/runtimes/risk_prompt.",
+                    True,
+                    503,
+                )
         return await service.forward_risk_assessment("/v1/risk/assessments", payload)
 
     return router

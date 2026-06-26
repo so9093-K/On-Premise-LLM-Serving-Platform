@@ -32,6 +32,13 @@
 #   PRUNE_DANGLING_IMAGES      1 (default) or 0 — prune dangling images after a successful deploy
 #   DEPLOY_RELEASE_ID          immutable release directory name; defaults to CI_COMMIT_SHA
 #   RELEASES_TO_KEEP           successful release directories to retain (default: 5)
+#   DEPLOY_RUNTIME_PROFILE     runtime startup profile from configs/deploy_profiles.yaml
+#                              (for example: full_hot, main_only, retrieval_ready).
+#   DEPLOY_DEFERRED_RUNTIMES   comma-separated controllable runtime keys or compose services
+#                              to keep stopped after deploy (for example:
+#                              embedding,embedding_ko,risk_prompt). Full deploy creates
+#                              their containers without starting them. When set, this
+#                              explicit list overrides DEPLOY_RUNTIME_PROFILE.
 set -euo pipefail
 
 : "${PLATFORM_IMAGE_TO_DEPLOY:?Required: full platform image ref}"
@@ -87,6 +94,16 @@ case "${DEPLOY_MODE}" in
     exit 2
     ;;
 esac
+if [[ "${DEPLOY_MODE}" == "full" && "${RUN_READY_FULL_SMOKE}" != "1" ]]; then
+  echo "[deploy] ERROR: full deploy requires RUN_READY_FULL_SMOKE=1 so make ready-full cannot be skipped." >&2
+  exit 2
+fi
+if [[ "${DEPLOY_MODE}" != "full" &&
+  ( -n "${DEPLOY_RUNTIME_PROFILE:-}" || -n "${DEPLOY_DEFERRED_RUNTIMES:-}" ) ]]; then
+  echo "[deploy] ERROR: DEPLOY_RUNTIME_PROFILE/DEPLOY_DEFERRED_RUNTIMES require DEPLOY_MODE=full." >&2
+  echo "[deploy] Runtime startup policy mutates Gateway desired runtime state and must not run in rolling deploys." >&2
+  exit 2
+fi
 
 echo "[deploy] target: ${SSH_TARGET}:${DEPLOY_PATH}"
 echo "[deploy] platform image: ${PLATFORM_IMAGE_TO_DEPLOY}"
@@ -155,6 +172,8 @@ ssh "${SSH_TARGET}" \
   RUN_READY_SMOKE="${RUN_READY_SMOKE}" \
   RUN_READY_FULL_SMOKE="${RUN_READY_FULL_SMOKE}" \
   PRUNE_DANGLING_IMAGES="${PRUNE_DANGLING_IMAGES}" \
+  DEPLOY_RUNTIME_PROFILE="${DEPLOY_RUNTIME_PROFILE:-}" \
+  DEPLOY_DEFERRED_RUNTIMES="${DEPLOY_DEFERRED_RUNTIMES:-}" \
   AUTH_MODE="${AUTH_MODE:-}" \
   bash -s <<'REMOTE'
 set -euo pipefail
@@ -273,6 +292,12 @@ if [[ "${DEPLOY_MODE}" == "rolling" ]]; then
     fi
   fi
 fi
+if [[ "${DEPLOY_MODE}" != "full" &&
+  ( -n "${DEPLOY_RUNTIME_PROFILE:-}" || -n "${DEPLOY_DEFERRED_RUNTIMES:-}" ) ]]; then
+  echo "[deploy] ERROR: DEPLOY_RUNTIME_PROFILE/DEPLOY_DEFERRED_RUNTIMES require DEPLOY_MODE=full." >&2
+  rm -rf "${RELEASE_PATH}"
+  exit 2
+fi
 
 # Guard against silently shipping a STALE derived image. GitLab 12.1.1 cannot auto-build
 # on source change (no rule engine), so the ~25 GB build is a manual opt-in — meaning an
@@ -330,6 +355,10 @@ _PYTHON_BIN="$(command -v python3.12 || command -v python3 || command -v python)
 _exposure_mode=""
 COMPOSE_OVERRIDE=""
 MAIN_MODEL_BOOT_OVERRIDE=""
+DEPLOY_RUNTIME_PROFILE="${DEPLOY_RUNTIME_PROFILE:-}"
+DEPLOY_DEFERRED_RUNTIMES="${DEPLOY_DEFERRED_RUNTIMES:-}"
+DEFERRED_RUNTIME_KEYS=()
+DEFERRED_RUNTIME_SERVICES=()
 RESTORING_RELEASE=0
 ENV_BACKUP_CREATED=0
 cleanup_generated_files() {
@@ -421,6 +450,67 @@ compose_run() {
       "${compose_args[@]}" \
       --env-file "${COMPOSE_ENV_FILE}" \
       "$@"
+}
+
+resolve_deferred_runtimes() {
+  DEFERRED_RUNTIME_KEYS=()
+  DEFERRED_RUNTIME_SERVICES=()
+  [[ -n "${DEPLOY_DEFERRED_RUNTIMES:-}" || -n "${DEPLOY_RUNTIME_PROFILE:-}" ]] || return 0
+  local resolved
+  if ! resolved="$(
+    "${_PYTHON_BIN}" scripts/runtime/deferred_runtimes.py \
+      --config-root "${PWD}" \
+      --compose-file "${COMPOSE_FILE}" \
+      --profile "${DEPLOY_RUNTIME_PROFILE}" \
+      --runtimes "${DEPLOY_DEFERRED_RUNTIMES}" \
+      --output lines
+  )"; then
+    return 1
+  fi
+  mapfile -t _resolved_lines <<<"${resolved}"
+  read -r -a DEFERRED_RUNTIME_KEYS <<<"${_resolved_lines[0]:-}"
+  read -r -a DEFERRED_RUNTIME_SERVICES <<<"${_resolved_lines[1]:-}"
+  if [[ ${#DEFERRED_RUNTIME_KEYS[@]} -gt 0 ]]; then
+    echo "[deploy] deferred runtimes: ${DEFERRED_RUNTIME_KEYS[*]} (${DEFERRED_RUNTIME_SERVICES[*]})"
+  elif [[ -n "${DEPLOY_RUNTIME_PROFILE:-}" ]]; then
+    echo "[deploy] runtime profile ${DEPLOY_RUNTIME_PROFILE}: no deferred runtimes"
+  fi
+}
+
+is_deferred_service() {
+  local service="$1"
+  local deferred
+  for deferred in "${DEFERRED_RUNTIME_SERVICES[@]}"; do
+    [[ "${service}" == "${deferred}" ]] && return 0
+  done
+  return 1
+}
+
+apply_deferred_runtime_state() {
+  [[ ${#DEFERRED_RUNTIME_KEYS[@]} -gt 0 ]] || return 0
+  local state_path="${DEPLOY_PATH}/.runtime/gateway/runtime-state.json"
+  mkdir -p "$(dirname "${state_path}")"
+  if [[ "${RUNTIME_STATE_MUTATED}" != "1" ]]; then
+    RUNTIME_STATE_BACKUP="${DEPLOY_PATH}/.runtime/gateway/runtime-state.json.bak.$(date +%Y%m%d%H%M%S)"
+    if [[ -f "${state_path}" ]]; then
+      cp "${state_path}" "${RUNTIME_STATE_BACKUP}"
+      RUNTIME_STATE_ORIGINAL_EXISTS=1
+    else
+      RUNTIME_STATE_ORIGINAL_EXISTS=0
+    fi
+    RUNTIME_STATE_MUTATED=1
+  fi
+  "${_PYTHON_BIN}" scripts/runtime/deferred_runtimes.py \
+    --config-root "${PWD}" \
+    --compose-file "${COMPOSE_FILE}" \
+    --profile "${DEPLOY_RUNTIME_PROFILE}" \
+    --runtimes "${DEPLOY_DEFERRED_RUNTIMES}" \
+    --state-path "${state_path}" \
+    --apply-state \
+    --reason deferred_at_deploy \
+    --source deploy \
+    --output lines >/dev/null
+  echo "[deploy] gateway desired runtime state updated: ${state_path}"
 }
 
 # Print the Compose services whose image changed (or that are not running).
@@ -547,6 +637,9 @@ echo "[deploy] .env backed up: ${ENV_BACKUP_PATH}"
 
 SERVICES_MUTATED=0
 LINKS_MUTATED=0
+RUNTIME_STATE_MUTATED=0
+RUNTIME_STATE_ORIGINAL_EXISTS=0
+RUNTIME_STATE_BACKUP=""
 
 restore_release_links() {
   local restore_failed=0
@@ -605,6 +698,24 @@ restore_previous_release() {
   else
     echo "[deploy] ERROR: cannot restore .env; backup is missing" >&2
     restore_failed=1
+  fi
+
+  if [[ "${RUNTIME_STATE_MUTATED:-0}" == "1" ]]; then
+    local runtime_state_path="${DEPLOY_PATH}/.runtime/gateway/runtime-state.json"
+    if [[ "${RUNTIME_STATE_ORIGINAL_EXISTS:-0}" == "1" ]]; then
+      if [[ -n "${RUNTIME_STATE_BACKUP:-}" && -f "${RUNTIME_STATE_BACKUP}" ]] &&
+        cp "${RUNTIME_STATE_BACKUP}" "${runtime_state_path}"; then
+        echo "[deploy] restored gateway runtime state from ${RUNTIME_STATE_BACKUP}" >&2
+      else
+        echo "[deploy] ERROR: failed to restore gateway runtime state" >&2
+        restore_failed=1
+      fi
+    elif rm -f "${runtime_state_path}"; then
+      echo "[deploy] removed newly-created gateway runtime state" >&2
+    else
+      echo "[deploy] ERROR: failed to remove newly-created gateway runtime state" >&2
+      restore_failed=1
+    fi
   fi
 
   if [[ -z "${PREVIOUS_RELEASE}" || ! -d "${PREVIOUS_RELEASE}" ]]; then
@@ -742,6 +853,12 @@ export_compose_env_from_file
 if ! configure_release_context "${RELEASE_PATH}"; then
   fail_after_env_backup "candidate release context is invalid"
 fi
+if ! resolve_deferred_runtimes; then
+  fail_after_env_backup "invalid DEPLOY_DEFERRED_RUNTIMES=${DEPLOY_DEFERRED_RUNTIMES}"
+fi
+if ! apply_deferred_runtime_state; then
+  fail_after_env_backup "failed to apply deferred runtime desired state"
+fi
 if [[ "${DEPLOY_MODE}" == "full" ]]; then
   echo "[deploy] main-model boot profile: ${MAIN_MODEL_BOOT_PROFILE}"
 fi
@@ -795,14 +912,30 @@ if [[ "${DEPLOY_MODE}" == "full" ]]; then
   if [[ ${#CHANGED_SERVICES[@]} -eq 0 ]]; then
     echo "[deploy] full deploy: all services already converged; nothing to recreate"
   else
-    echo "[deploy] full deploy: recreating changed services: ${CHANGED_SERVICES[*]}"
+    ACTIVE_CHANGED_SERVICES=()
+    DEFERRED_CHANGED_SERVICES=()
+    for service in "${CHANGED_SERVICES[@]}"; do
+      if is_deferred_service "${service}"; then
+        DEFERRED_CHANGED_SERVICES+=("${service}")
+      else
+        ACTIVE_CHANGED_SERVICES+=("${service}")
+      fi
+    done
+    echo "[deploy] full deploy: recreating changed services: ${ACTIVE_CHANGED_SERVICES[*]:-(none)}"
     SERVICES_MUTATED=1
     # --no-deps is essential: without it, `up -d gateway` pulls in gateway's
     # depends_on graph, and because the shared .env changed every service's
     # config-hash, Compose would recreate the whole vLLM fleet anyway. With
     # --no-deps only the listed (genuinely changed) services are touched.
-    if ! compose_run up -d --no-deps --remove-orphans "${CHANGED_SERVICES[@]}"; then
-      fail_after_env_backup "compose up failed for changed services: ${CHANGED_SERVICES[*]}"
+    if [[ ${#ACTIVE_CHANGED_SERVICES[@]} -gt 0 ]] &&
+      ! compose_run up -d --no-deps --remove-orphans "${ACTIVE_CHANGED_SERVICES[@]}"; then
+      fail_after_env_backup "compose up failed for changed services: ${ACTIVE_CHANGED_SERVICES[*]}"
+    fi
+    if [[ ${#DEFERRED_CHANGED_SERVICES[@]} -gt 0 ]]; then
+      echo "[deploy] full deploy: creating deferred runtime containers without starting: ${DEFERRED_CHANGED_SERVICES[*]}"
+      if ! compose_run create --force-recreate "${DEFERRED_CHANGED_SERVICES[@]}"; then
+        fail_after_env_backup "compose create failed for deferred services: ${DEFERRED_CHANGED_SERVICES[*]}"
+      fi
     fi
   fi
 else
@@ -879,7 +1012,10 @@ fi
 
 if [[ "${DEPLOY_MODE}" == "full" ]]; then
   echo "[deploy] full deploy: running make ready-full..."
-  if ! make ready-full; then
+  if ! SMOKE_SKIP_RUNTIMES="$(
+    IFS=,
+    echo "${DEFERRED_RUNTIME_KEYS[*]}"
+  )" make ready-full; then
     make compose-diagnostics || true
     fail_after_env_backup "full runtime readiness failed"
   fi
@@ -920,6 +1056,9 @@ for ((index=RELEASES_TO_KEEP; index<${#RELEASE_DIRS[@]}; index++)); do
 done
 if ! rm -f "${ENV_BACKUP}"; then
   echo "[deploy] WARNING: failed to remove .env backup: ${ENV_BACKUP}" >&2
+fi
+if [[ -n "${RUNTIME_STATE_BACKUP:-}" ]] && ! rm -f "${RUNTIME_STATE_BACKUP}"; then
+  echo "[deploy] WARNING: failed to remove runtime state backup: ${RUNTIME_STATE_BACKUP}" >&2
 fi
 
 # Apply a stable, cosmetic ':deployed' tag to the digest-pinned images so `docker images`

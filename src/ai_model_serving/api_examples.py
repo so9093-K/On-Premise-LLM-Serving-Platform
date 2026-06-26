@@ -579,7 +579,7 @@ RUNTIME_TRANSITION_TO_STOPPED_EXAMPLE: dict[str, Any] = {
 RUNTIME_TRANSITION_TO_STOPPED_WITH_PREREQ_EXAMPLE: dict[str, Any] = {
     "service_key": "risk_prompt",
     "state": "stopped",
-    "containers_stopped": ["risk-prompt-vllm", "embedding-vllm"],
+    "containers_stopped": ["risk-prompt-vllm"],
 }
 
 RUNTIME_TRANSITION_TO_ACTIVE_EXAMPLE: dict[str, Any] = {

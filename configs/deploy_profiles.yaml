@@ -1,0 +1,24 @@
+version: 0.1.0
+source_of_truth: configs/deploy_profiles.yaml
+description: >
+  Deployment runtime profiles for CI/CD full deploys. Profiles describe which
+  controllable secondary runtimes should be created but left stopped after deploy.
+
+default_profile: full_hot
+
+profiles:
+  full_hot:
+    description: Start all configured runtimes after a full deploy.
+    deferred_runtimes: []
+
+  main_only:
+    description: Start only the main chat model and control plane; keep secondary runtimes on demand.
+    deferred_runtimes:
+      - embedding
+      - embedding_ko
+      - risk_prompt
+
+  retrieval_ready:
+    description: Start main and embedding runtimes, but keep prompt-risk runtime on demand.
+    deferred_runtimes:
+      - risk_prompt

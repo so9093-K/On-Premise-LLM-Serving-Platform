@@ -27,6 +27,7 @@ services:
       ADMIN_ENDPOINTS_INTERNAL_ONLY: '${ADMIN_ENDPOINTS_INTERNAL_ONLY:-false}'
       STRICT_ADMIN_ENDPOINT_SECURITY: '${STRICT_ADMIN_ENDPOINT_SECURITY:-true}'
       ADMIN_SIDECAR_URL: http://admin-sidecar:8080
+      GATEWAY_RUNTIME_STATE_PATH: /var/lib/ai-model-serving/runtime-state.json
     depends_on:
       admin-sidecar:
         condition: service_healthy
@@ -34,10 +35,8 @@ services:
         condition: service_healthy
       main-llm-vllm:
         condition: service_healthy
-      embedding-vllm:
-        condition: service_healthy
-      embedding-ko-vllm:
-        condition: service_healthy
+    volumes:
+    - ../../.runtime/gateway:/var/lib/ai-model-serving
   risk-adapter:
     image: ${PLATFORM_IMAGE:?Set PLATFORM_IMAGE to a tested platform image tag}
     command:
@@ -58,9 +57,6 @@ services:
       ADMIN_API_KEY_REQUIRED: '${ADMIN_API_KEY_REQUIRED:-true}'
       ADMIN_ENDPOINTS_INTERNAL_ONLY: '${ADMIN_ENDPOINTS_INTERNAL_ONLY:-false}'
       STRICT_ADMIN_ENDPOINT_SECURITY: '${STRICT_ADMIN_ENDPOINT_SECURITY:-true}'
-    depends_on:
-      risk-prompt-vllm:
-        condition: service_healthy
     expose:
     - '9405'
   main-llm-vllm:
@@ -316,9 +312,6 @@ services:
     - gateway
     - risk-adapter
     - main-llm-vllm
-    - embedding-vllm
-    - embedding-ko-vllm
-    - risk-prompt-vllm
     - dcgm-exporter
     - cadvisor
     command:

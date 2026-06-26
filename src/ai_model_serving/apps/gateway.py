@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+from pathlib import Path
 from typing import Any
 
 from fastapi import Depends, FastAPI
@@ -40,6 +42,7 @@ from ..api.routers.gateway_runtime_control import build_router as _build_runtime
 from ..services.runtime_state import RuntimeStateStore
 from ..services.sidecar_client import SidecarClient
 from ..services.main_model_inflight import MainModelInFlight
+from ..runtime_topology import load_runtime_topology
 
 # TODO(playground): /playground 구현 시 /v1/models[].request_parameters를 읽어
 # model-aware form을 동적으로 구성한다. 아래 grouping을 참고한다:
@@ -56,7 +59,14 @@ from ..services.main_model_inflight import MainModelInFlight
 
 class GatewayClients:
     def __init__(self, settings: AppSettings) -> None:
-        self.runtime_state = RuntimeStateStore()
+        state_path = os.environ.get("GATEWAY_RUNTIME_STATE_PATH")
+        topology = load_runtime_topology(
+            Path(os.environ.get("APP_CONFIG_ROOT", Path(__file__).resolve().parents[3]))
+        )
+        self.runtime_state = RuntimeStateStore(
+            Path(state_path) if state_path else None,
+            controllable_keys=topology.controllable_keys,
+        )
         self.main_model_inflight = MainModelInFlight()
         self.sidecar: SidecarClient | None = (
             SidecarClient(
@@ -160,7 +170,7 @@ def create_gateway_app(settings: AppSettings | None = None, clients: GatewayClie
         )
     )
     app.include_router(_build_risk_router(api_dependencies, service, clients.runtime_state))
-    app.include_router(_build_retrieval_router(api_dependencies, admin_dependencies, service, settings))
+    app.include_router(_build_retrieval_router(api_dependencies, admin_dependencies, service, settings, clients.runtime_state))
     app.include_router(_build_runtime_control_router(admin_dependencies, clients.runtime_state, clients.sidecar, settings))
 
     @app.get(

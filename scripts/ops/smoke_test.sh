@@ -21,6 +21,7 @@ SMOKE_MAX_REQUEST_SECONDS="${SMOKE_MAX_REQUEST_SECONDS:-30}"
 SMOKE_MAX_LATENCY_MS="${SMOKE_MAX_LATENCY_MS:-0}"
 SMOKE_RETRY_ATTEMPTS="${SMOKE_RETRY_ATTEMPTS:-3}"
 SMOKE_RETRY_DELAY_SECONDS="${SMOKE_RETRY_DELAY_SECONDS:-5}"
+SMOKE_SKIP_RUNTIMES="${SMOKE_SKIP_RUNTIMES:-}"
 
 AUTH_ARGS=()
 if [[ -n "$API_KEY" ]]; then
@@ -164,6 +165,14 @@ else:
 PY
 }
 
+skip_runtime() {
+  local runtime="$1"
+  case ",${SMOKE_SKIP_RUNTIMES}," in
+    *",${runtime},"*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
 get_json gateway-health "$GATEWAY_BASE_URL/health"
 assert_json health
 get_json gateway-ready "$GATEWAY_BASE_URL/ready" admin
@@ -171,13 +180,19 @@ assert_json ready
 get_json gateway-models "$GATEWAY_BASE_URL/v1/models"
 assert_json models
 
-post_json_with_retry gateway-risk-aggregate "$GATEWAY_BASE_URL/v1/risk/assessments" \
-  '{"prompt":"smoke test prompt"}'
-assert_json risk
+if skip_runtime risk_prompt; then
+  echo "[smoke] risk-prompt runtime is deferred; skipping risk inference probes" >&2
+else
+  post_json_with_retry gateway-risk-aggregate "$GATEWAY_BASE_URL/v1/risk/assessments" \
+    '{"prompt":"smoke test prompt"}'
+  assert_json risk
+fi
 
 # Private-network compose에서는 risk-adapter 포트가 host에 노출되지 않는다.
 # 접근 가능할 때만 직접 프로브를 실행하고, 아닐 경우 gateway 경유 테스트로 검증한다.
-if curl -sS --max-time 3 -o /dev/null "$RISK_ADAPTER_BASE_URL/health" 2>/dev/null; then
+if skip_runtime risk_prompt; then
+  :
+elif curl -sS --max-time 3 -o /dev/null "$RISK_ADAPTER_BASE_URL/health" 2>/dev/null; then
   get_json risk-health "$RISK_ADAPTER_BASE_URL/health"
   assert_json health
   get_json risk-ready "$RISK_ADAPTER_BASE_URL/ready" admin
@@ -198,12 +213,20 @@ post_json_with_retry chat "$GATEWAY_BASE_URL/v1/chat/completions" \
   '{"model":"local-main","messages":[{"role":"user","content":"Say OK only."}],"max_tokens":1,"temperature":0}'
 assert_json chat
 
-post_json_with_retry embedding "$GATEWAY_BASE_URL/v1/embeddings" \
-  '{"model":"local-embed","input":["smoke test embedding"]}'
-assert_json embedding
+if skip_runtime embedding; then
+  echo "[smoke] embedding runtime is deferred; skipping local-embed probe" >&2
+else
+  post_json_with_retry embedding "$GATEWAY_BASE_URL/v1/embeddings" \
+    '{"model":"local-embed","input":["smoke test embedding"]}'
+  assert_json embedding
+fi
 
-post_json_with_retry embedding-ko "$GATEWAY_BASE_URL/v1/embeddings" \
-  '{"model":"local-embed-ko","input":["smoke test Korean retrieval embedding"]}'
-assert_json embedding
+if skip_runtime embedding_ko; then
+  echo "[smoke] embedding_ko runtime is deferred; skipping local-embed-ko probe" >&2
+else
+  post_json_with_retry embedding-ko "$GATEWAY_BASE_URL/v1/embeddings" \
+    '{"model":"local-embed-ko","input":["smoke test Korean retrieval embedding"]}'
+  assert_json embedding
+fi
 
 echo "smoke tests completed"

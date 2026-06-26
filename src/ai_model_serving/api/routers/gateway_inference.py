@@ -3,11 +3,11 @@ from __future__ import annotations
 from collections.abc import AsyncIterator
 from typing import Any
 
-from fastapi import APIRouter, Body, HTTPException
+from fastapi import APIRouter, Body
 from fastapi.responses import JSONResponse, StreamingResponse
 
 from ..endpoint_spec import GATEWAY_ENDPOINTS
-from ...errors import error_payload
+from ...errors import ServiceError, error_payload
 from ...services.runtime_state import RuntimeState, RuntimeStateStore
 from ...services.sidecar_client import SidecarClient, SidecarUnavailableError
 from ...services.main_model_inflight import MainModelInFlight
@@ -170,13 +170,11 @@ def build_router(
             service_key = settings.embedding_model_routes.get(model, "embedding")
             state = await state_store.get(service_key)
             if state in (RuntimeState.stopped, RuntimeState.starting):
-                raise HTTPException(
+                raise ServiceError(
+                    "MODEL_UNAVAILABLE",
+                    f"{service_key} runtime is {state.value}. Start it with PATCH /admin/runtimes/{service_key}.",
+                    True,
                     503,
-                    detail={
-                        "error": "runtime_unavailable",
-                        "service_key": service_key,
-                        "state": state.value,
-                    },
                 )
         return await service.create_embedding(payload)
 

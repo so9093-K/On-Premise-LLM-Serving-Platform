@@ -24,6 +24,7 @@ from ..main_model_control import (
     gpu_util_override_from_mapping,
     load_main_model_catalog,
 )
+from ..runtime_topology import load_runtime_topology
 
 # --------------------------------------------------------------------- config
 
@@ -47,47 +48,14 @@ MAIN_LLM_SWITCH_IDEMPOTENCY_TTL_SECONDS = os.environ.get(
 )
 SIDECAR_TOKEN = os.environ.get("INTERNAL_SERVICE_TOKEN", "")
 
-# Only these compose service names can be started/stopped. Kept in sync with
-# configs/model_serving.yaml (vLLM models minus the main runtime) and the gateway
-# CONTROLLABLE_KEYS by tests/unit/test_runtime_topology_consistency.py.
-CONTROLLABLE: frozenset[str] = frozenset({
-    "embedding-vllm",
-    "embedding-ko-vllm",
-    "risk-prompt-vllm",
-})
-
-# Container health ports derived from model_serving.yaml (single source of truth).
-_serving_cfg_path = APP_CONFIG_ROOT / "configs/model_serving.yaml"
-_serving_cfg = yaml.safe_load(_serving_cfg_path.read_text(encoding="utf-8")) if _serving_cfg_path.exists() else {}
-_HEALTH_PORT: dict[str, int] = {
-    svc["endpoint"].split("//", 1)[1].split(":")[0]: int(svc["port"])
-    for svc in _serving_cfg.get("models", {}).values()
-    if svc.get("backend") == "vllm"
-    and svc.get("endpoint")
-    and svc.get("port") is not None
-    and svc["endpoint"].split("//", 1)[1].split(":")[0] in CONTROLLABLE
-}
-
-# GPU startup order (policy): before starting B, wait for A to be healthy.
-# Ports are resolved via _HEALTH_PORT at runtime. This mirrors the compose
-# depends_on graph's secondary<->secondary edges (the main-llm root edge is
-# omitted on purpose — see below); kept in sync with compose by
-# tests/unit/test_runtime_topology_consistency.py.
-_START_PREREQUISITES: dict[str, list[str]] = {
-    "embedding-ko-vllm": ["embedding-vllm"],
-    "risk-prompt-vllm": ["embedding-vllm", "embedding-ko-vllm"],
-}
-
-# Per-secondary VRAM reservation (gpu_memory_utilization) from model_serving.yaml,
-# keyed by compose service name -- the cost side of the shared GPU budget.
-_VRAM_FRACTION: dict[str, float] = {
-    svc["endpoint"].split("//", 1)[1].split(":")[0]: float(svc["gpu_memory_utilization"])
-    for svc in _serving_cfg.get("models", {}).values()
-    if svc.get("backend") == "vllm"
-    and svc.get("endpoint")
-    and svc.get("gpu_memory_utilization") is not None
-    and svc["endpoint"].split("//", 1)[1].split(":")[0] in CONTROLLABLE
-}
+_TOPOLOGY = load_runtime_topology(
+    APP_CONFIG_ROOT,
+    compose_path=APP_CONFIG_ROOT / "ops/compose/full-stack.private-network.yaml",
+)
+CONTROLLABLE: frozenset[str] = _TOPOLOGY.controllable_services
+_HEALTH_PORT: dict[str, int] = dict(_TOPOLOGY.health_port_by_service)
+_START_PREREQUISITES: dict[str, list[str]] = dict(_TOPOLOGY.start_prerequisites_by_service)
+_VRAM_FRACTION: dict[str, float] = dict(_TOPOLOGY.vram_fraction_by_service)
 # Canonical GPU VRAM budget lives in configs/gpu_budgets.yaml (single source of
 # truth, also consumed by modelctl/runtime_validation). The admission ceiling is
 # its policy "avoid_above" fraction.
@@ -103,17 +71,7 @@ _GPU_BUDGET_CEILING = float(
     )
 )
 
-# Per-secondary criticality (resource_control.criticality) from model_serving.yaml,
-# keyed by compose service name. Drives eviction order so the right thing is kept.
-_CRITICALITY: dict[str, str] = {
-    svc["endpoint"].split("//", 1)[1].split(":")[0]: str(
-        (svc.get("resource_control") or {}).get("criticality", "")
-    )
-    for svc in _serving_cfg.get("models", {}).values()
-    if svc.get("backend") == "vllm"
-    and svc.get("endpoint")
-    and svc["endpoint"].split("//", 1)[1].split(":")[0] in CONTROLLABLE
-}
+_CRITICALITY: dict[str, str] = dict(_TOPOLOGY.criticality_by_service)
 # Eviction policy by criticality: higher priority is evicted LATER. The primary
 # user path (main) is never auto-evicted; the risk/safety path is kept longer than
 # retrieval support. Unknown roles fall in the default evictable tier.
@@ -542,6 +500,9 @@ async def start_container(
     async with _budget_lock:
         # Admit the whole set being brought up (service + any not-yet-running
         # prerequisites) against the shared GPU budget before touching anything.
+        # Keep the lock through the actual start/health sequence so another
+        # concurrent activation cannot pass admission against the same pre-start
+        # snapshot and overcommit VRAM.
         to_start = [
             prereq
             for prereq in _START_PREREQUISITES.get(service, [])
@@ -553,27 +514,33 @@ async def start_container(
         if target_fraction > 0:
             evicted = await _admit_or_raise(service, target_fraction, force=force)
 
-    # Start prerequisites in order (serial GPU memory profiling)
-    for prereq in _START_PREREQUISITES.get(service, []):
-        prereq_port = _HEALTH_PORT[prereq]
-        status = await _container_status(prereq)
-        if status == "running":
-            continue
-        prereq_id = await _find_container_id(prereq)
-        if prereq_id is None:
-            raise HTTPException(503, detail=f"prerequisite container not found: {prereq}")
-        await _do_start(prereq_id)
-        if not await _wait_healthy(prereq, prereq_port):
-            raise HTTPException(
-                503, detail=f"prerequisite {prereq} did not become healthy within timeout"
-            )
-        started.append(prereq)
+        # Start prerequisites in order (serial GPU memory profiling).
+        for prereq in _START_PREREQUISITES.get(service, []):
+            prereq_port = _HEALTH_PORT[prereq]
+            status = await _container_status(prereq)
+            if status == "running":
+                continue
+            prereq_id = await _find_container_id(prereq)
+            if prereq_id is None:
+                raise HTTPException(503, detail=f"prerequisite container not found: {prereq}")
+            await _do_start(prereq_id)
+            if not await _wait_healthy(prereq, prereq_port):
+                raise HTTPException(
+                    503, detail=f"prerequisite {prereq} did not become healthy within timeout"
+                )
+            started.append(prereq)
 
-    container_id = await _find_container_id(service)
-    if container_id is None:
-        raise HTTPException(404, detail=f"container not found: {service}")
-    await _do_start(container_id)
-    started.append(service)
+        container_id = await _find_container_id(service)
+        if container_id is None:
+            raise HTTPException(404, detail=f"container not found: {service}")
+        if await _container_status(service) != "running":
+            await _do_start(container_id)
+            started.append(service)
+        target_port = _HEALTH_PORT[service]
+        if not await _wait_healthy(service, target_port):
+            raise HTTPException(
+                503, detail=f"container {service} did not become healthy within timeout"
+            )
 
     return JSONResponse(
         {"action": "start", "service": service, "started": started, "evicted": evicted}

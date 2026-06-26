@@ -65,6 +65,20 @@ Platform image는 commit tag와 branch tag를 항상 push한다. `release` branc
 - `RISK_VLLM_IMAGE_TO_DEPLOY`: `DEPLOY_MODE=full`에서만 사용. risk vLLM image override가 필요할 때 175 `.env`의 `RISK_VLLM_IMAGE`를 해당 값으로 덮어쓴다
 - `DEPLOY_RELEASE_ID`: `releases/<id>`에 사용할 immutable release ID. CI에서는 commit SHA를 사용한다.
 - `RELEASES_TO_KEEP`: 보존할 성공 release 수, 기본값 `5`
+- `DEPLOY_RUNTIME_PROFILE`: Full 배포 후 어떤 보조 런타임을 바로 올릴지 정하는
+  profile. Source of truth는 `configs/deploy_profiles.yaml`이다.
+  - `full_hot`: 전체 런타임을 기동
+  - `main_only`: 메인 모델/control plane만 기동, embedding/risk는 on-demand
+  - `retrieval_ready`: embedding은 기동, prompt-risk는 on-demand
+- `DEPLOY_DEFERRED_RUNTIMES`: profile보다 더 세밀한 override. Full 배포 후 바로 올리지 않을 보조 런타임 목록.
+  논리 key(`embedding`, `embedding_ko`, `risk_prompt`) 또는 compose service name을
+  comma-separated로 지정한다. 예:
+  `DEPLOY_DEFERRED_RUNTIMES=embedding,embedding_ko,risk_prompt`.
+  이 값이 있으면 `DEPLOY_RUNTIME_PROFILE`보다 우선한다. 배포 스크립트는 해당 런타임의 Gateway desired state를 `stopped`로 기록하고,
+  reason/source를 `deferred_at_deploy`/`deploy`로 남긴다. 컨테이너는 생성만 해 둔 뒤 시작하지 않는다. 이후
+  `PATCH /admin/runtimes/{service_key}`로 필요할 때 올린다.
+  이 두 변수는 runtime startup policy라서 `DEPLOY_MODE=full`에서만 허용한다.
+  rolling deploy에서 주입되면 배포 시작 전에 거절해 runtime-state만 바뀌는 잔여 상태를 만들지 않는다.
 - `COMPOSE_PROJECT_NAME`: `.env`에 저장되는 Docker Compose resource namespace.
   기존 설치 호환 기본값은 `compose`이며, 같은 host에 여러 설치가 있으면 고유값으로 설정한다.
 - `HF_TOKEN`: validate 단계의 모든 main-model profile config/tokenizer canary에
@@ -116,7 +130,7 @@ risk-vllm-kanana를 교체하거나 `vllm-gemma4-audio` digest를 새로 pin하�
 1. pipeline을 `DEPLOY_MODE=full` 변수로 시작
 3. `deploy-gpu-175` 수동 실행, `DEPLOY_MODE=full` 설정
    - preflight 실패 시 `.env`를 수정하지 않고 실패; `build-vllm-derived` 먼저 실행하라는 안내 출력
-5. 전체 stack `up -d --remove-orphans`; vLLM 이미지 pull과 모델 로딩 시간이 길 수 있다
+5. 변경된 service만 수렴한다. deferred 런타임은 `docker compose create`로 컨테이너만 준비하고 시작하지 않는다.
    - 배포 전 `.runtime/main-model/main-model-state.json`과 profile catalog를 검증한다.
    - locked profile 또는 저장된 active profile을 boot projection으로 생성한다.
    - 선택 profile의 고정 HF revision을 공용 cache에 준비한 뒤, 해당 profile로
@@ -150,6 +164,9 @@ risk-vllm-kanana를 교체하거나 `vllm-gemma4-audio` digest를 새로 pin하�
 - 재생성은 항상 `--no-deps`로 한다. 안 그러면 `up -d gateway`가 gateway의
   `depends_on` 그래프(vLLM 전체)를 끌어오고, shared `.env`가 매 배포 config-hash를
   흔들어 결국 fleet 전체가 recreate된다.
+- `DEPLOY_DEFERRED_RUNTIMES`에 지정된 보조 런타임은 changed set에 포함되더라도
+  `up` 대상에서 제외하고 `create --force-recreate`로 stopped container만 준비한다.
+  Gateway `/ready`와 smoke는 해당 런타임을 의도된 optional/stopped 상태로 취급한다.
 - 바뀌지 않은 vLLM 모델은 그대로 serving을 유지하므로, platform-only 변경이
   full로 분류되어도 모델을 cold-restart하지 않는다.
 - 롤백도 동일한 `compute_recreate_set`을 실패 후보(RELEASE_PATH) 기준으로 호출해

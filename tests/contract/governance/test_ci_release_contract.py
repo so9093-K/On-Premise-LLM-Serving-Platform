@@ -53,9 +53,20 @@ def test_gitlab_ci_deployment_contract_is_documented_and_operationally_safe() ->
     assert "docker inspect -f '{{ .Image }}'" in deploy, (
         "per-service convergence must read the running container's image ID"
     )
-    assert 'compose_run up -d --no-deps --remove-orphans "${CHANGED_SERVICES[@]}"' in deploy, (
-        "full deploy must recreate only the changed service set, without cascading to deps"
+    assert 'compose_run up -d --no-deps --remove-orphans "${ACTIVE_CHANGED_SERVICES[@]}"' in deploy, (
+        "full deploy must recreate only the active changed service set, without cascading to deps"
     )
+    assert 'compose_run create --force-recreate "${DEFERRED_CHANGED_SERVICES[@]}"' in deploy, (
+        "deferred runtimes must be created but left stopped for admin runtime control"
+    )
+    assert "DEPLOY_RUNTIME_PROFILE" in deploy
+    assert "scripts/runtime/deferred_runtimes.py" in deploy
+    assert "--profile" in deploy
+    assert "Runtime startup policy mutates Gateway desired runtime state" in deploy
+    assert "deferred_at_deploy" in deploy
+    assert "RUNTIME_STATE_BACKUP" in deploy
+    assert "restored gateway runtime state" in deploy
+    assert "removed newly-created gateway runtime state" in deploy
     # Forward deploy and rollback must compute the recreate set the same way, so a
     # failed deploy reverts exactly what it changed (no inconsistent split state).
     assert "compute_recreate_set" in deploy, (
@@ -82,6 +93,7 @@ def test_gitlab_ci_deployment_contract_is_documented_and_operationally_safe() ->
     assert 'GATEWAY_PROBE_HOST="localhost"' in deploy
     assert 'HEALTH_URL="${GATEWAY_HEALTH_URL:-http://${GATEWAY_PROBE_HOST}:${GATEWAY_PORT}/health}"' in deploy
     assert 'RUN_READY_FULL_SMOKE="${RUN_READY_FULL_SMOKE:-1}"' in deploy
+    assert 'full deploy requires RUN_READY_FULL_SMOKE=1' in deploy
     assert 'if [[ "${DEPLOY_MODE}" == "full" ]]; then' in deploy
     assert 'make ready-full' in deploy
     assert 'make compose-diagnostics || true' in deploy

@@ -47,10 +47,39 @@ def test_main_participant_none_without_budget():
 
 
 class EvictingSidecar:
+    async def get_status(self):
+        return {"embed-ko": "exited"}
+
     async def start(self, container: str, *, force: bool = False):
         assert container == "embed-ko"
         assert force is True
         return {"started": ["embed-ko"], "evicted": ["embed"]}
+
+
+class StartReconcilingSidecar:
+    def __init__(self):
+        self.started = False
+
+    async def get_status(self):
+        return {"embed-ko": "exited"}
+
+    async def start(self, container: str, *, force: bool = False):
+        assert container == "embed-ko"
+        self.started = True
+        return {"started": ["embed-ko"], "evicted": []}
+
+
+class StopReconcilingSidecar:
+    def __init__(self):
+        self.stopped = False
+
+    async def get_status(self):
+        return {"embed-ko": "running"}
+
+    async def stop(self, container: str):
+        assert container == "embed-ko"
+        self.stopped = True
+        return ["embed-ko"]
 
 
 class MainStartEvictingSidecar:
@@ -76,6 +105,41 @@ def test_runtime_start_marks_sidecar_evictions_stopped():
     assert response.json()["evicted"] == ["embed"]
     assert asyncio.run(clients.runtime_state.get("embedding")) == RuntimeState.stopped
     assert asyncio.run(clients.runtime_state.get("embedding_ko")) == RuntimeState.active
+
+
+def test_runtime_active_reconciles_when_desired_active_but_container_is_down():
+    clients = FakeGatewayClients()
+    sidecar = StartReconcilingSidecar()
+    clients.sidecar = sidecar
+    client = TestClient(create_gateway_app(settings(), clients))
+
+    response = client.request(
+        "PATCH",
+        "/admin/runtimes/embedding_ko",
+        json={"desired_state": "active"},
+    )
+
+    assert response.status_code == 200
+    assert sidecar.started is True
+    assert response.json()["containers_started"] == ["embed-ko"]
+
+
+def test_runtime_stop_reconciles_when_desired_stopped_but_container_is_running():
+    clients = FakeGatewayClients()
+    sidecar = StopReconcilingSidecar()
+    clients.sidecar = sidecar
+    client = TestClient(create_gateway_app(settings(), clients))
+
+    asyncio.run(clients.runtime_state.set("embedding_ko", RuntimeState.stopped))
+    response = client.request(
+        "PATCH",
+        "/admin/runtimes/embedding_ko",
+        json={"desired_state": "stopped"},
+    )
+
+    assert response.status_code == 200
+    assert sidecar.stopped is True
+    assert response.json()["containers_stopped"] == ["embed-ko"]
 
 
 def test_main_runtime_start_marks_sidecar_evictions_stopped():

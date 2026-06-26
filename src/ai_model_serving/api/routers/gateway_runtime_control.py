@@ -20,7 +20,7 @@ from ...api_examples import (
     RUNTIME_TRANSITION_TO_STOPPED_EXAMPLE,
     RUNTIME_TRANSITION_TO_STOPPED_WITH_PREREQ_EXAMPLE,
 )
-from ...services.runtime_state import CONTROLLABLE_KEYS, RuntimeState, RuntimeStateStore
+from ...services.runtime_state import RuntimeState, RuntimeStateStore
 from ...services.sidecar_client import (
     SidecarClient,
     SidecarRequestError,
@@ -223,8 +223,8 @@ def _main_participant(
     return None
 
 
-def _validate_service_key(service_key: str) -> None:
-    if service_key not in CONTROLLABLE_KEYS:
+def _validate_service_key(service_key: str, state_store: RuntimeStateStore) -> None:
+    if service_key not in state_store.controllable_keys:
         raise HTTPException(404, detail=f"runtime endpoint not found: {service_key}")
 
 
@@ -239,7 +239,7 @@ def build_router(
     container_to_key: dict[str, str] = {
         _container_name(ep.base_url): sk
         for sk, ep in settings.runtime_endpoints.items()
-        if sk in CONTROLLABLE_KEYS
+        if sk in state_store.controllable_keys
     }
 
     def _controllable_runtimes() -> list[dict[str, str]]:
@@ -249,7 +249,7 @@ def build_router(
                 "container": _container_name(ep.base_url),
             }
             for sk, ep in settings.runtime_endpoints.items()
-            if sk in CONTROLLABLE_KEYS
+            if sk in state_store.controllable_keys
         ]
 
     _ADMIN_401 = (
@@ -276,7 +276,7 @@ def build_router(
         },
     )
     async def list_runtimes() -> JSONResponse:
-        gateway_states = await state_store.all()
+        gateway_records = await state_store.all_records()
         container_statuses: dict[str, str] = {}
         budget: dict[str, Any] | None = None
         main_model: dict[str, Any] | None = None
@@ -298,10 +298,11 @@ def build_router(
         for item in _controllable_runtimes():
             sk = item["service_key"]
             container = item["container"]
-            state = gateway_states.get(sk, RuntimeState.active).value
+            record = gateway_records.get(sk)
+            state = record.state.value if record is not None else RuntimeState.active.value
             c_status = container_statuses.get(container, "unknown")
             sk_participant = _budget_participant(budget, container)
-            runtimes.append({
+            runtime = {
                 "service_key": sk,
                 "container": container,
                 "state": state,
@@ -309,7 +310,15 @@ def build_router(
                 "vram_fraction": _budget_fraction(budget, container),
                 # role this runtime serves; what an eviction here would degrade
                 "criticality": (sk_participant or {}).get("criticality"),
-            })
+            }
+            if record is not None:
+                if record.reason:
+                    runtime["state_reason"] = record.reason
+                if record.source:
+                    runtime["state_source"] = record.source
+                if record.updated_at:
+                    runtime["state_updated_at"] = record.updated_at
+            runtimes.append(runtime)
         # The main chat model is a first-class participant in the shared GPU budget.
         if main_model is not None:
             active_profile = main_model.get("active_profile") or {}
@@ -349,7 +358,7 @@ def build_router(
         responses={
             200: {"content": {"application/json": {"examples": {
                 "to_stopped": {"summary": "보조 중지 (VRAM 회수)", "value": RUNTIME_TRANSITION_TO_STOPPED_EXAMPLE},
-                "to_stopped_prereq": {"summary": "보조 중지 — 선행 컨테이너 포함", "value": RUNTIME_TRANSITION_TO_STOPPED_WITH_PREREQ_EXAMPLE},
+                "to_stopped_prereq": {"summary": "보조 중지 — 실제 컨테이너 상태 재확인", "value": RUNTIME_TRANSITION_TO_STOPPED_WITH_PREREQ_EXAMPLE},
                 "to_active": {"summary": "보조 시작 (서비스 복구)", "value": RUNTIME_TRANSITION_TO_ACTIVE_EXAMPLE},
                 "to_active_prereq": {"summary": "보조 시작 — 선행 컨테이너 포함", "value": RUNTIME_TRANSITION_TO_ACTIVE_WITH_PREREQ_EXAMPLE},
                 "noop": {"summary": "이미 목표 상태 (no-op)", "value": RUNTIME_TRANSITION_NOOP_EXAMPLE},
@@ -393,7 +402,12 @@ def build_router(
                     for evicted_container in result.get("evicted", []):
                         evicted_key = container_to_key.get(evicted_container)
                         if evicted_key:
-                            await state_store.set(evicted_key, RuntimeState.stopped)
+                            await state_store.set(
+                                evicted_key,
+                                RuntimeState.stopped,
+                                reason="evicted_by_main_start",
+                                source="runtime_control",
+                            )
                 else:
                     result = await sidecar.main_stop()
             except SidecarRequestError as exc:  # GPU-budget admission rejection
@@ -406,39 +420,78 @@ def build_router(
                 "evicted": result.get("evicted", []),
             })
 
-        _validate_service_key(service_key)
+        _validate_service_key(service_key, state_store)
         current_state = await state_store.get(service_key)
+        ep = settings.runtime_endpoints.get(service_key)
+        if ep is None:
+            raise HTTPException(404, detail=f"runtime endpoint not found: {service_key}")
+        container = _container_name(ep.base_url)
 
         if desired_state == "active":
-            if current_state in (RuntimeState.active, RuntimeState.starting):
+            if current_state == RuntimeState.active and sidecar is None:
+                return JSONResponse({"service_key": service_key, "state": "active", "changed": False})
+            if current_state == RuntimeState.active and sidecar is not None:
+                try:
+                    actual = (await sidecar.get_status()).get(container)
+                except SidecarUnavailableError as exc:
+                    raise HTTPException(503, detail=str(exc)) from exc
+                if actual == "running":
+                    return JSONResponse({"service_key": service_key, "state": "active", "changed": False})
+            if current_state == RuntimeState.starting:
                 return JSONResponse({"service_key": service_key, "state": "active", "changed": False})
             if sidecar is None:
                 raise HTTPException(503, detail="admin sidecar is not configured (ADMIN_SIDECAR_URL missing)")
-            ep = settings.runtime_endpoints.get(service_key)
-            if ep is None:
-                raise HTTPException(404, detail=f"runtime endpoint not found: {service_key}")
-            container = _container_name(ep.base_url)
-            await state_store.set(service_key, RuntimeState.starting)
+            await state_store.set(
+                service_key,
+                RuntimeState.starting,
+                reason="operator_start_requested",
+                source="runtime_control",
+            )
             try:
                 result = await sidecar.start(container, force=force)
             except SidecarRequestError as exc:
                 # GPU-budget admission rejection: surface the status + eviction plan.
-                await state_store.set(service_key, RuntimeState.stopped)
+                await state_store.set(
+                    service_key,
+                    RuntimeState.stopped,
+                    reason="start_rejected",
+                    source="runtime_control",
+                )
                 raise HTTPException(exc.status_code, detail=exc.detail) from exc
             except SidecarUnavailableError as exc:
-                await state_store.set(service_key, RuntimeState.stopped)
+                await state_store.set(
+                    service_key,
+                    RuntimeState.stopped,
+                    reason="start_sidecar_unavailable",
+                    source="runtime_control",
+                )
                 raise HTTPException(503, detail=str(exc)) from exc
             started_containers = list(result.get("started", []))
             evicted_containers = list(result.get("evicted", []))
             for evicted_container in evicted_containers:
                 evicted_key = container_to_key.get(evicted_container)
                 if evicted_key:
-                    await state_store.set(evicted_key, RuntimeState.stopped)
+                    await state_store.set(
+                        evicted_key,
+                        RuntimeState.stopped,
+                        reason="evicted_by_runtime_start",
+                        source="runtime_control",
+                    )
             for started_container in started_containers:
                 started_key = container_to_key.get(started_container)
                 if started_key:
-                    await state_store.set(started_key, RuntimeState.active)
-            await state_store.set(service_key, RuntimeState.active)
+                    await state_store.set(
+                        started_key,
+                        RuntimeState.active,
+                        reason="started_by_runtime_control",
+                        source="runtime_control",
+                    )
+            await state_store.set(
+                service_key,
+                RuntimeState.active,
+                reason="started_by_runtime_control",
+                source="runtime_control",
+            )
             return JSONResponse({
                 "service_key": service_key,
                 "state": "active",
@@ -447,21 +500,34 @@ def build_router(
             })
 
         else:  # desired_state == "stopped"
-            if current_state == RuntimeState.stopped:
+            if current_state == RuntimeState.stopped and sidecar is None:
                 return JSONResponse({"service_key": service_key, "state": "stopped", "changed": False})
+            if current_state == RuntimeState.stopped and sidecar is not None:
+                try:
+                    actual = (await sidecar.get_status()).get(container)
+                except SidecarUnavailableError as exc:
+                    raise HTTPException(503, detail=str(exc)) from exc
+                if actual != "running":
+                    return JSONResponse({"service_key": service_key, "state": "stopped", "changed": False})
             if current_state == RuntimeState.starting:
                 raise HTTPException(409, detail="runtime is currently starting; wait and retry")
             if sidecar is None:
                 raise HTTPException(503, detail="admin sidecar is not configured (ADMIN_SIDECAR_URL missing)")
-            ep = settings.runtime_endpoints.get(service_key)
-            if ep is None:
-                raise HTTPException(404, detail=f"runtime endpoint not found: {service_key}")
-            container = _container_name(ep.base_url)
-            await state_store.set(service_key, RuntimeState.stopped)
+            await state_store.set(
+                service_key,
+                RuntimeState.stopped,
+                reason="operator_stop_requested",
+                source="runtime_control",
+            )
             try:
                 stopped = await sidecar.stop(container)
             except SidecarUnavailableError as exc:
-                await state_store.set(service_key, RuntimeState.active)
+                await state_store.set(
+                    service_key,
+                    RuntimeState.active,
+                    reason="stop_sidecar_unavailable",
+                    source="runtime_control",
+                )
                 raise HTTPException(503, detail=str(exc)) from exc
             return JSONResponse({
                 "service_key": service_key,

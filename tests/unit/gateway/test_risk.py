@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from .helpers import *  # noqa: F401,F403
+from ai_model_serving.services.runtime_state import RuntimeState
 
 def test_gateway_forwards_risk_assessments_to_internal_risk_adapter():
     clients = FakeGatewayClients()
@@ -14,6 +15,24 @@ def test_gateway_forwards_risk_assessments_to_internal_risk_adapter():
     assert clients.risk_adapter.last_path == "/v1/risk/assessments"
     assert clients.risk_adapter.last_payload == {"prompt": "hello"}
     assert clients.risk_adapter.last_headers == {"authorization": "Bearer internal-test-key"}
+
+
+def test_gateway_risk_aggregate_returns_503_when_prompt_runtime_stopped():
+    clients = FakeGatewayClients()
+    asyncio.run(clients.runtime_state.set("risk_prompt", RuntimeState.stopped))
+    client = TestClient(create_gateway_app(settings(), clients))
+
+    response = client.post(
+        "/v1/risk/assessments",
+        headers=auth_headers(),
+        json={"prompt": "hello"},
+    )
+
+    assert response.status_code == 503
+    body = response.json()
+    assert body["error"]["code"] == "MODEL_UNAVAILABLE"
+    assert "risk_prompt runtime is stopped" in body["error"]["message"]
+    assert clients.risk_adapter.last_path is None
 
 
 def test_gateway_preserves_detector_disabled_from_risk_adapter():
@@ -98,4 +117,3 @@ def test_gateway_rejects_invalid_internal_risk_response_schema():
     assert response.status_code == 502
     assert response.json()["error"]["code"] == "UPSTREAM_SCHEMA_ERROR"
     Draft202012Validator(error_schema()).validate(response.json())
-

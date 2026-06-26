@@ -23,6 +23,8 @@ def test_build_ux_separates_build_from_runtime_startup() -> None:
     assert (ROOT / 'docs/operations/first_project_guide.md').exists()
     build_all = (ROOT / "scripts/build/build_all.sh").read_text(encoding="utf-8")
     assert "scripts/reports/refresh_generated_reports.py" in build_all
+    assert "scripts/validation/check_docs_links.py" in build_all
+    assert "scripts/commands/validate_command_registry.py --strict" in build_all
     assert "docker CLI is required because make build includes the platform image" in build_all
     assert "platform image build skipped" not in build_all
     assert "PACKAGE_SKIP_VALIDATION=1 bash scripts/build/package_release.sh" in build_all

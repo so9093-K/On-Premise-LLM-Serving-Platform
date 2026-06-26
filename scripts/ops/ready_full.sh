@@ -40,6 +40,7 @@ READY_FULL_INFERENCE_WARMUP_SECONDS="${READY_FULL_INFERENCE_WARMUP_SECONDS:-120}
 # stays closed for a full model reload, not just a few seconds. The fast path
 # (gate already open) returns immediately regardless of the cap.
 READY_FULL_MAIN_MODEL_TIMEOUT_SECONDS="${READY_FULL_MAIN_MODEL_TIMEOUT_SECONDS:-${READY_FULL_TIMEOUT_SECONDS}}"
+SMOKE_SKIP_RUNTIMES="${SMOKE_SKIP_RUNTIMES:-}"
 
 "$PYTHON_BIN" scripts/build/check_python.py --context ready-full >/dev/null
 "$PYTHON_BIN" scripts/compose/validate_vllm_compose.py >/dev/null
@@ -243,17 +244,31 @@ warm_one_endpoint() {
   done
 }
 
+skip_runtime() {
+  local runtime="$1"
+  case ",${SMOKE_SKIP_RUNTIMES}," in
+    *",${runtime},"*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
 # Best-effort warm of the remaining inference paths so the strict smoke gate does
 # not race a freshly (re)started vLLM's first-request 503. Never fatal: the chat
 # gate is handled by wait_for_main_model_ready above, and smoke is the real gate.
 warm_inference_paths_best_effort() {
   echo "[ready-full] warming inference paths (best-effort, up to ${READY_FULL_INFERENCE_WARMUP_SECONDS}s each)..."
-  warm_one_endpoint "risk" "$GATEWAY_BASE_URL/v1/risk/assessments" \
-    '{"prompt":"warmup"}' "$API_KEY" || true
-  warm_one_endpoint "embedding (local-embed)" "$GATEWAY_BASE_URL/v1/embeddings" \
-    '{"model":"local-embed","input":["warmup"]}' "$API_KEY" || true
-  warm_one_endpoint "embedding (local-embed-ko)" "$GATEWAY_BASE_URL/v1/embeddings" \
-    '{"model":"local-embed-ko","input":["warmup"]}' "$API_KEY" || true
+  if ! skip_runtime risk_prompt; then
+    warm_one_endpoint "risk" "$GATEWAY_BASE_URL/v1/risk/assessments" \
+      '{"prompt":"warmup"}' "$API_KEY" || true
+  fi
+  if ! skip_runtime embedding; then
+    warm_one_endpoint "embedding (local-embed)" "$GATEWAY_BASE_URL/v1/embeddings" \
+      '{"model":"local-embed","input":["warmup"]}' "$API_KEY" || true
+  fi
+  if ! skip_runtime embedding_ko; then
+    warm_one_endpoint "embedding (local-embed-ko)" "$GATEWAY_BASE_URL/v1/embeddings" \
+      '{"model":"local-embed-ko","input":["warmup"]}' "$API_KEY" || true
+  fi
 }
 
 wait_for_probe "gateway /health" "$GATEWAY_BASE_URL/health" 200

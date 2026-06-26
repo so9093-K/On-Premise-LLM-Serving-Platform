@@ -81,6 +81,12 @@ runtime image에서 canary를 통과해야 open된다. audio/video 런타임 이
 자동으로 다시 올리지 않는다. 시작은 GPU 예산 admission과 canary 검증을 거친다.
 프로필 교체만 메인 고유의 `POST /admin/main-model/switch`를 쓴다.
 
+보조 런타임(`embedding`, `embedding_ko`, `risk_prompt`)도 같은
+`PATCH /admin/runtimes/{service_key}` 동사를 쓴다. 보조 desired state는 Gateway
+runtime-state 파일에 저장되어 Gateway 재시작 후에도 유지되며, `active`/`stopped`
+요청은 실제 Docker container 상태를 다시 확인해 의도 상태와 실제 상태가 어긋나면
+복구 동작을 수행한다.
+
 ```bash
 # 정지 (드레인 후 VRAM 회수, 신규 chat은 503으로 fail-closed)
 curl -X PATCH -H "Authorization: Bearer $ADMIN_API_KEY" \
@@ -125,12 +131,28 @@ curl -H "Authorization: Bearer $ADMIN_API_KEY" \
 
 ### vLLM 런타임 의존성과 독립성
 
-런타임 사이의 의존은 **시작 순서**에 한정된다(런타임 결합이 아니다). compose는
-`main-llm → embedding → embedding-ko → risk-prompt → risk-adapter → gateway` 순으로
-`service_healthy`를 기다리는데, 이유는 vLLM이 init 중 free VRAM을 프로파일하므로
-**동시 기동 시 steady-state 예산이 맞아도 프로파일이 실패**할 수 있기 때문이다(직렬
-로딩). sidecar의 보조 재기동 prerequisite(embedding-ko←embedding,
-risk-prompt←embedding+embedding-ko)도 같은 직렬화 정책이다.
+런타임 사이의 의존은 **시작 순서**에 한정된다(런타임 결합이 아니다). Gateway와
+Risk Adapter는 보조 vLLM이 내려간 상태에서도 먼저 뜰 수 있어야 하므로 compose
+단계에서 보조 vLLM health에 강하게 묶지 않는다. 대신 sidecar의 보조 재기동
+prerequisite이 `embedding-ko ← embedding`, `risk-prompt ← embedding + embedding-ko`
+순서를 적용한다.
+
+이 순서가 필요한 이유는 vLLM이 init 중 free VRAM을 프로파일하므로 **동시 기동 시
+steady-state 예산이 맞아도 프로파일이 실패**할 수 있기 때문이다(직렬 로딩).
+배포 시 `DEPLOY_RUNTIME_PROFILE=main_only`를 지정하면
+`configs/deploy_profiles.yaml`에 따라 보조 컨테이너는 생성만 되고 시작하지 않는다.
+더 세밀하게 지정해야 하면
+`DEPLOY_DEFERRED_RUNTIMES=embedding,embedding_ko,risk_prompt`를 직접 사용할 수 있다.
+Gateway desired state는 `stopped`로 남으며, `/admin/runtimes`에는
+`state_reason=deferred_at_deploy`, `state_source=deploy`가 함께 표시된다. `/ready`와
+smoke는 이를 장애가 아닌 의도된 optional 상태로 취급한다.
+필요할 때는 동일한 런타임 컨트롤 API로 올린다.
+
+```bash
+curl -X PATCH -H "Authorization: Bearer $ADMIN_API_KEY" \
+  -H "Content-Type: application/json" -d '{"desired_state": "active", "force": true}' \
+  http://127.0.0.1:9400/admin/runtimes/embedding
+```
 
 steady-state에서는 각 vLLM이 자기 포트에서 독립 서빙한다. 기능 의존만 남는다:
 - **채팅 경로는 main만** 사용한다 → 보조를 모두 내려도 채팅은 동작한다(축출이
@@ -150,6 +172,10 @@ steady-state에서는 각 vLLM이 자기 포트에서 독립 서빙한다. 기�
 > gate를 닫은 채(정지 의도 존중) 컨테이너만 떠서 VRAM을 점유하는 상태가 될 수 있다.
 > full compose 기동 후에는 `GET /admin/runtimes`로 main 상태를 확인하고 필요하면
 > 다시 정지한다. (per-service 롤링 배포에는 해당하지 않는다.)
+> 같은 이유로 보조 런타임도 desired state가 `stopped`인데 compose가 컨테이너를
+> 다시 띄운 경우가 있을 수 있다. 이때 public route는 desired state 기준으로 503을
+> 반환하며, `PATCH /admin/runtimes/{service_key}`에 `desired_state=stopped`를 다시
+> 보내면 실제 컨테이너 상태를 재확인하고 정지한다.
 
 ## 제어 지점
 

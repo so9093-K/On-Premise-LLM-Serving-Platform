@@ -1,14 +1,4 @@
-"""Drift guards for the vLLM runtime topology.
-
-The set of controllable secondaries and the vLLM start order are declared in
-several places by necessity — the sidecar uses compose service names, the gateway
-uses logical keys, and the start sequencer encodes runtime ordering separately
-from compose's boot ordering. Those separations are intentional (a security
-allowlist, two naming domains, boot-vs-runtime semantics), but nothing stopped
-the declarations from silently drifting apart or away from the single source of
-truth. These tests fail the moment any of them diverges from
-``configs/model_serving.yaml`` / ``main_model_profiles.yaml`` / the compose graph.
-"""
+"""Drift guards for the projected vLLM runtime topology."""
 
 from __future__ import annotations
 
@@ -56,24 +46,26 @@ def test_sidecar_controllable_matches_model_serving(monkeypatch):
 
 
 def test_gateway_controllable_keys_match_model_serving():
-    from ai_model_serving.services.runtime_state import CONTROLLABLE_KEYS
+    from ai_model_serving.runtime_topology import load_runtime_topology
 
-    assert set(CONTROLLABLE_KEYS) == set(_controllable())
+    assert set(load_runtime_topology(ROOT).controllable_keys) == set(_controllable())
 
 
 def test_controllable_key_and_service_views_are_one_to_one(monkeypatch):
     # The gateway (logical keys) and the sidecar (compose service names) must
     # describe the same set of runtimes, just in their own naming domain.
     sidecar = _sidecar(monkeypatch)
-    from ai_model_serving.services.runtime_state import CONTROLLABLE_KEYS
+    from ai_model_serving.runtime_topology import load_runtime_topology
 
     controllable = _controllable()
-    assert set(CONTROLLABLE_KEYS) == set(controllable)
+    assert set(load_runtime_topology(ROOT).controllable_keys) == set(controllable)
     assert set(sidecar.CONTROLLABLE) == set(controllable.values())
 
 
 def test_start_prerequisites_match_compose_secondary_edges(monkeypatch):
     sidecar = _sidecar(monkeypatch)
+    from ai_model_serving.runtime_topology import load_runtime_topology
+
     controllable = set(_controllable().values())
     compose = _load_yaml("ops/compose/full-stack.private-network.yaml")
 
@@ -91,3 +83,11 @@ def test_start_prerequisites_match_compose_secondary_edges(monkeypatch):
 
     actual = {service: sorted(prereqs) for service, prereqs in sidecar._START_PREREQUISITES.items()}
     assert actual == expected
+    projected = load_runtime_topology(
+        ROOT,
+        compose_path=ROOT / "ops/compose/full-stack.private-network.yaml",
+    )
+    assert {
+        service: sorted(prereqs)
+        for service, prereqs in projected.start_prerequisites_by_service.items()
+    } == expected

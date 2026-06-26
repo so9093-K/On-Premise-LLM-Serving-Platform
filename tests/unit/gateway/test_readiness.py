@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from .helpers import *  # noqa: F401,F403
+from ai_model_serving.services.runtime_state import RuntimeState
 
 def test_gateway_health_ready_and_models():
     client = TestClient(create_gateway_app(settings(), FakeGatewayClients()))
@@ -82,6 +83,29 @@ def test_gateway_readiness_503_when_embedding_ko_vllm_down():
     assert "embedding_ko_vllm" not in body["optional_not_ready_dependencies"]
 
 
+def test_gateway_readiness_treats_stopped_runtime_as_optional():
+    clients = FakeGatewayClients()
+    embedding_ko = FakeRuntimeClient(
+        ready=False,
+        get_response={"error": "model not loaded"},
+        endpoint=RuntimeEndpoint("local-embed-ko", "http://embed-ko/v1", "local-embed-ko", 1),
+    )
+    clients.embedding_clients["local-embed-ko"] = embedding_ko
+    clients.runtime_clients_by_service_key["embedding_ko"] = embedding_ko
+    clients.runtimes["embedding_ko"] = embedding_ko
+    asyncio.run(clients.runtime_state.set("embedding_ko", RuntimeState.stopped))
+    client = TestClient(create_gateway_app(settings(), clients))
+
+    response = client.get("/ready")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "ready"
+    assert "embedding_ko_vllm" in body["not_ready_dependencies"]
+    assert "embedding_ko_vllm" in body["optional_not_ready_dependencies"]
+    assert "embedding_ko_vllm" not in body["required_not_ready_dependencies"]
+
+
 def test_gateway_readiness_builds_embedding_probes_from_model_routes():
     cfg = settings()
     clients = FakeGatewayClients()
@@ -142,4 +166,3 @@ def test_collect_readiness_response_matches_schema():
     assert body["required_not_ready_dependencies"] == []
     assert body["optional_not_ready_dependencies"] == ["optional_dep"]
     assert body["not_ready_dependencies"] == ["optional_dep"]
-
