@@ -922,6 +922,26 @@ if ! rm -f "${ENV_BACKUP}"; then
   echo "[deploy] WARNING: failed to remove .env backup: ${ENV_BACKUP}" >&2
 fi
 
+# Apply a stable, cosmetic ':deployed' tag to the digest-pinned images so `docker images`
+# is human-readable on the box (digest pins otherwise show up as <none>). This never
+# changes what compose runs — .env keeps the @sha256 pin. The tag is re-pointed to the
+# current image every deploy, so the previous image loses it and is reclaimed by the
+# dangling prune below. Cosmetic only: failures never fail the deploy.
+tag_deployed() {
+  local ref="$1"
+  [[ -n "${ref}" ]] || return 0
+  local repo="${ref%@*}"             # drop @sha256:... digest if present
+  local last="${repo##*/}"
+  if [[ "${last}" == *:* ]]; then    # drop :tag but keep registry host:port
+    repo="${repo%/*}/${last%%:*}"
+  fi
+  if ! docker tag "${ref}" "${repo}:deployed"; then
+    echo "[deploy] WARNING: failed to apply cosmetic ${repo}:deployed tag" >&2
+  fi
+}
+tag_deployed "$(get_env_value PLATFORM_IMAGE)"
+tag_deployed "$(get_env_value AUDIO_VLLM_IMAGE)"
+
 if [[ "${PRUNE_DANGLING_IMAGES}" == "1" ]]; then
   echo "[deploy] pruning dangling docker images..."
   if ! docker image prune -f --filter dangling=true >/dev/null; then

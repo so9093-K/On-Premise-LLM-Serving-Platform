@@ -38,6 +38,7 @@
 - ADR canonical 위치를 `docs/adr/`로 통합하고 root `adr/`는 더 이상 사용하지 않는다.
 - 설명형 request examples 문서를 `docs/examples/requests.md`로 이동했다.
 - `reports/refactor/current_*`에는 실제 current state, handoff, inventory만 남기고 과거 audit snapshot은 archive로 분리했다.
+- `deploy_gitlab_compose.sh`가 배포 성공 직후 digest로 핀된 이미지(platform, vllm-gemma4-audio)에 안정적인 cosmetic `:deployed` 태그를 부여한다. digest pin은 `docker images`에서 `<none>`으로 보여 on-box 식별이 어려웠는데, 런타임 핀(`.env`의 `@sha256`)은 그대로 두고 표시용 태그만 매 배포마다 현재 이미지로 옮겨 단다(이전 이미지는 태그를 잃고 dangling prune으로 회수). 동작 영향 없는 가독성 개선이다.
 
 ### Fixed
 
