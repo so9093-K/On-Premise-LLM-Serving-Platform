@@ -165,6 +165,12 @@ class GatewayService:
             max_audio_inputs=self.settings.main_llm.max_audio_inputs,
             allowed_audio_formats=self.settings.main_llm.allowed_audio_formats,
             max_audio_bytes=self.settings.main_llm.max_audio_bytes,
+            max_video_inputs=self.settings.main_llm.max_video_inputs,
+            allowed_video_url_schemes=self.settings.main_llm.allowed_video_url_schemes,
+            allowed_video_mime_types=self.settings.main_llm.allowed_video_mime_types,
+            max_video_bytes=self.settings.main_llm.max_video_bytes,
+            max_video_frames=self.settings.main_llm.max_video_frames,
+            max_video_frame_pixels=self.settings.main_llm.max_video_frame_pixels,
             request_parameter_policy=self.settings.main_llm.request_parameter_policy,
         )
 

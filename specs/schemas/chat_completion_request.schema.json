@@ -92,6 +92,71 @@
                           }
                         }
                       }
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "type",
+                        "input_audio"
+                      ],
+                      "additionalProperties": false,
+                      "properties": {
+                        "type": {
+                          "const": "input_audio"
+                        },
+                        "input_audio": {
+                          "type": "object",
+                          "required": [
+                            "data",
+                            "format"
+                          ],
+                          "additionalProperties": false,
+                          "properties": {
+                            "data": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "format": {
+                              "type": "string",
+                              "enum": [
+                                "wav",
+                                "mp3",
+                                "flac",
+                                "ogg",
+                                "m4a",
+                                "mp4",
+                                "aac"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "type",
+                        "video_url"
+                      ],
+                      "additionalProperties": false,
+                      "properties": {
+                        "type": {
+                          "const": "video_url"
+                        },
+                        "video_url": {
+                          "type": "object",
+                          "required": [
+                            "url"
+                          ],
+                          "additionalProperties": false,
+                          "properties": {
+                            "url": {
+                              "type": "string",
+                              "pattern": "^data:video/(mp4|webm|quicktime|jpeg);base64,"
+                            }
+                          }
+                        }
+                      }
                     }
                   ]
                 }

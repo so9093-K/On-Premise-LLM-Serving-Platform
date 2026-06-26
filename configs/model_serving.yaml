@@ -109,7 +109,26 @@ models:
         - mp3
         - flac
         - ogg
+        - m4a
+        - mp4
+        - aac
         max_audio_bytes: 25000000
+        video_input_note: Video is enforced only when the ACTIVE main-model profile
+          deploys the video modality (deployed_input includes video). Gateway accepts
+          one bounded base64 video_url content part for vLLM/OpenAI-compatible video
+          input, validates allowed data URL containers or pre-extracted JPEG frames,
+          and gates container decode support with runtime boot canaries.
+        max_video_inputs: 1
+        allowed_video_url_schemes:
+        - data
+        allowed_video_mime_types:
+        - video/mp4
+        - video/webm
+        - video/quicktime
+        - video/jpeg
+        max_video_bytes: 25000000
+        max_video_frames: 32
+        max_video_frame_pixels: 6422528
       degrade_action: return upstream error; do not fall back to risk or embedding
         models
     runtime_features:

@@ -151,6 +151,7 @@ _MAIN_MODEL_STATUS_EXAMPLE = {
             "deployed_input": ["text", "image"],
             "output": ["text"],
             "audio_enabled": False,
+            "video_enabled": False,
         },
         "runtime_image": "vllm/vllm-openai@sha256:f4492643056969529a74238f71dd66dc3097c0d433156a4f4478456bf84bd276",
         "vram_fraction": 0.76,
@@ -545,15 +546,16 @@ def build_router(
                                     "compatibility": {
                                         "status": "unverified",
                                         "reasons": [
-                                            "image/audio fixed in the vllm-gemma4-audio derived image (pinned via AUDIO_VLLM_IMAGE); the audio boot canary validates the runtime on switch.",
+                                            "image/audio/video fixed in the vllm-gemma4-audio derived image (pinned via AUDIO_VLLM_IMAGE); audio/video boot canaries validate the runtime on switch.",
                                             "GPU full-system certification has not been executed.",
                                         ],
                                     },
                                     "capabilities": {
-                                        "model_input": ["text", "image", "audio"],
-                                        "deployed_input": ["text", "image", "audio"],
+                                        "model_input": ["text", "image", "audio", "video"],
+                                        "deployed_input": ["text", "image", "audio", "video"],
                                         "output": ["text"],
                                         "audio_enabled": True,
+                                        "video_enabled": True,
                                     },
                                     "active": False,
                                 },

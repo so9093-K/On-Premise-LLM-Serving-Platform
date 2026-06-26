@@ -4,8 +4,9 @@
 `vllm/vllm-openai:gemma4-unified-cu129` base — only text works there. This derived
 image fixes all three blockers (each reproduced and verified live on 2026-06-25):
 
-1. **audio I/O** — the base lacks the decode stack (`libsndfile1` + `soundfile` +
-   `librosa`), so audio requests 400 at the runtime.
+1. **media I/O** — the base lacks the audited decode stack (`libsndfile1` +
+   `soundfile` + `librosa` + `PyAV`), so audio/container media requests can 400 at
+   the runtime.
 2. **image** (vLLM bug) — the vision projection `vision_embedder.patch_dense` is in
    the checkpoint's FP8 `ignore` list under its HF name
    (`model.vision_embedder.patch_dense`), but vLLM matches the bare internal name
@@ -22,11 +23,11 @@ code path and the decode libs are otherwise unused, so 26B (a different `gemma4`
 architecture) behaves identically on this image — it is safe as a per-profile override.
 
 Activation needs **no digest pin and no config flip** — the 12B profile already declares
-`image: ${AUDIO_VLLM_IMAGE}` and full `deployed_input: [text, image, audio]`. The one
+`image: ${AUDIO_VLLM_IMAGE}` and full `deployed_input: [text, image, audio, video]`. The one
 variable you set is `DEPLOY_MODE=full`, which triggers the build. That trigger is a
 **deliberate, governance-enforced opt-in** (`test_gitlab_ci_vllm_derived_build_contract`):
 the expensive ~25 GB derived-image build runs only when an operator explicitly asks for
-it. The **audio boot canary** gates go-live (decode the runtime or roll back). 26B keeps
+it. The **media boot canaries** gate go-live (decode the runtime or roll back). 26B keeps
 the plain base.
 
 ## 1. Trigger with `DEPLOY_MODE=full`, then click deploy
@@ -43,7 +44,7 @@ the plain base.
 
 `AUDIO_VLLM_IMAGE` persists in `.env`, so **routine deploys reuse the pin** (no rebuild
 needed). When `AUDIO_VLLM_IMAGE` is unset (image never built), the loader falls back to
-the shared base and the audio canary keeps 12B from going live.
+the shared base and the audio/video canaries keep 12B from going live.
 
 > Why manual, not auto-build-on-change? It is a **deliberate policy**, enforced by
 > `test_gitlab_ci_vllm_derived_build_contract`, which requires the `BUILD_VLLM_DERIVED` /
@@ -67,10 +68,11 @@ docker push  gitlab.wizvera.com:4567/acl-ai-system/acl-ai-gateway/vllm-gemma4-au
 
 `POST /admin/main-model/switch {"profile":"gemma4-12b-unified-fp8","confirm_unverified":true}`
 
-On switch the backend runs the text canary **and** the audio boot canary (it fires
-for any `audio_enabled` profile). If the runtime cannot decode audio — e.g.
+On switch the backend runs the text canary plus media boot canaries: an AAC-in-MP4
+`input_audio` canary for `audio_enabled` profiles and an MP4 `video_url` canary for
+`video_enabled` profiles. If the runtime cannot decode an advertised modality — e.g.
 `AUDIO_VLLM_IMAGE` was unset so 12B fell back to the base — the switch fails and
-rolls back to 26B, so 12B never goes live half-capable. The 26B chat template is kept
-forced on the 12B `command`: `/app/configs/gemma4_chat_template.jinja` templates both
-`<|image|>` and `<|audio|>` correctly for the unified model (token ids match the
-config), so no template change is needed.
+rolls back to 26B, so 12B never goes live half-capable. The shared Gemma 4 chat
+template is forced on the 12B `command`; `/app/configs/gemma4_chat_template.jinja`
+maps OpenAI-compatible `input_audio` and `video_url` parts to the unified model's
+`<|audio|>` and `<|video|>` markers.

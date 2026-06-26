@@ -667,7 +667,7 @@ def test_profile_image_env_ref_resolves_from_env(tmp_path):
 
 def test_profile_image_env_ref_falls_back_to_shared_when_unset(tmp_path):
     # No digest built yet -> the env is unset -> the profile inherits the shared base,
-    # so the sidecar still boots (the audio boot canary, not the pin, gates go-live).
+    # so the sidecar still boots (the media boot canary, not the pin, gates go-live).
     loaded = _write_catalog(tmp_path, audio_image="${AUDIO_VLLM_IMAGE}", env={})
     assert loaded.profiles["audio"].image == _SHARED_IMAGE
 

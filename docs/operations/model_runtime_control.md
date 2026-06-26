@@ -64,12 +64,13 @@ command를 확인해 상태를 검증한다.
 fallback하지 않고 기동을 중단한다.
 
 12B compatibility는 현재 `unverified`다. 고정 revision과 runtime image
-조합의 GPU boot/Text/Image parity 전에는 24 GiB 호환이나 production-ready를
-의미하지 않는다. Google은 12B 모델의 audio capability를 문서화하지만,
-현재 Gateway와 고정 vLLM 이미지의 audio 계약은 검증되지 않았으므로 제품
-입력은 text/image로 제한한다. audio 입력 기계장치(프로필별 동적 모달리티,
-`input_audio` 검증기, audio canary)는 휴면 상태로 들어가 있으며, 활성화 절차와
-audio 런타임 이미지는 `ops/images/vllm-gemma4-audio/README.md`에 문서화돼 있다.
+조합의 GPU boot/Text/Image/Audio/Video parity 전에는 24 GiB 호환이나
+production-ready를 의미하지 않는다. Gateway는 Scalar/OpenAPI에 text,
+`image_url`, `input_audio`, `video_url` content part를 표현하되 실제 허용은
+active profile의 `deployed_input`과 boot canary 결과로 gate한다. 26B active
+상태에서는 audio/video가 422로 거부되고, 12B 전환은 image/audio/video가 고정
+runtime image에서 canary를 통과해야 open된다. audio/video 런타임 이미지는
+`ops/images/vllm-gemma4-audio/README.md`에 문서화돼 있다.
 
 ## 메인 모델 정지/시작 (VRAM 회수)
 

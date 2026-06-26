@@ -18,14 +18,24 @@ import pytest
 from ai_model_serving.api.routers.gateway_inference import _active_input_modalities
 from ai_model_serving.contracts.chat_request import validate_chat_request
 from ai_model_serving.errors import ServiceError
+from ai_model_serving.media_samples import TINY_JPEG_1X1_B64
 
 AUDIO_LIMITS = dict(
     max_audio_inputs=1,
-    allowed_audio_formats=("wav", "mp3", "flac", "ogg"),
+    allowed_audio_formats=("wav", "mp3", "flac", "ogg", "m4a", "mp4", "aac"),
     max_audio_bytes=25_000_000,
+)
+VIDEO_LIMITS = dict(
+    max_video_inputs=1,
+    allowed_video_url_schemes=("data",),
+    allowed_video_mime_types=("video/mp4", "video/webm", "video/quicktime", "video/jpeg"),
+    max_video_bytes=25_000_000,
+    max_video_frames=32,
+    max_video_frame_pixels=6_422_528,
 )
 TEXT_IMAGE = ("text", "image")
 TEXT_IMAGE_AUDIO = ("text", "image", "audio")
+TEXT_IMAGE_AUDIO_VIDEO = ("text", "image", "audio", "video")
 
 
 def _wav_b64(seconds: float = 0.1) -> str:
@@ -44,6 +54,12 @@ def _audio_payload(data_b64: str, fmt: str = "wav", *, count: int = 1):
     return {"model": "local-main", "messages": [{"role": "user", "content": parts}]}
 
 
+def _video_payload(url: str, *, count: int = 1):
+    parts = [{"type": "text", "text": "describe this"}]
+    parts += [{"type": "video_url", "video_url": {"url": url}}] * count
+    return {"model": "local-main", "messages": [{"role": "user", "content": parts}]}
+
+
 def _validate(payload, modalities):
     return validate_chat_request(
         payload,
@@ -51,6 +67,7 @@ def _validate(payload, modalities):
         allowed_input_modalities=modalities,
         max_image_inputs=1,
         **AUDIO_LIMITS,
+        **VIDEO_LIMITS,
     )
 
 
@@ -68,9 +85,29 @@ def test_audio_part_rejected_when_audio_not_deployed():
 
 def test_audio_format_must_be_allowed():
     with pytest.raises(ServiceError) as exc:
-        _validate(_audio_payload(_wav_b64(), fmt="aac"), TEXT_IMAGE_AUDIO)
+        validate_chat_request(
+            _audio_payload(_wav_b64(), fmt="aac"),
+            expected_model="local-main",
+            allowed_input_modalities=TEXT_IMAGE_AUDIO,
+            max_image_inputs=1,
+            max_audio_inputs=1,
+            allowed_audio_formats=("wav",),
+            max_audio_bytes=25_000_000,
+        )
     assert exc.value.status_code == 422
     assert "input_audio.format" in str(exc.value)
+
+
+@pytest.mark.parametrize(
+    ("fmt", "raw"),
+    [
+        ("m4a", b"\x00\x00\x00\x18ftypM4A \x00\x00\x00\x00M4A mp42isom"),
+        ("mp4", b"\x00\x00\x00\x18ftypmp42\x00\x00\x00\x00mp42isom"),
+        ("aac", b"\xff\xf1\x50\x80\x00\x1f\xfc"),
+    ],
+)
+def test_container_audio_formats_are_accepted_when_magic_matches(fmt, raw):
+    _validate(_audio_payload(base64.b64encode(raw).decode("ascii"), fmt=fmt), TEXT_IMAGE_AUDIO)
 
 
 def test_audio_oversize_rejected():
@@ -111,6 +148,39 @@ def test_too_many_audio_parts_rejected():
     assert "audio content part(s) are allowed" in str(exc.value)
 
 
+def test_video_part_accepted_when_profile_deploys_video():
+    url = f"data:video/jpeg;base64,{TINY_JPEG_1X1_B64}"
+    _validate(_video_payload(url), TEXT_IMAGE_AUDIO_VIDEO)
+
+
+def test_video_part_rejected_when_video_not_deployed():
+    url = f"data:video/jpeg;base64,{TINY_JPEG_1X1_B64}"
+    with pytest.raises(ServiceError) as exc:
+        _validate(_video_payload(url), TEXT_IMAGE_AUDIO)
+    assert exc.value.status_code == 422
+    assert "video content parts are not enabled" in str(exc.value)
+
+
+def test_mp4_video_container_is_accepted_when_magic_matches():
+    raw = b"\x00\x00\x00\x18ftypmp42\x00\x00\x00\x00mp42isom"
+    url = "data:video/mp4;base64," + base64.b64encode(raw).decode("ascii")
+    _validate(_video_payload(url), TEXT_IMAGE_AUDIO_VIDEO)
+
+
+def test_video_mime_must_be_allowed():
+    with pytest.raises(ServiceError) as exc:
+        _validate(_video_payload(f"data:video/avi;base64,{TINY_JPEG_1X1_B64}"), TEXT_IMAGE_AUDIO_VIDEO)
+    assert exc.value.status_code == 422
+    assert "video_url MIME type" in str(exc.value)
+
+
+def test_too_many_video_parts_rejected():
+    with pytest.raises(ServiceError) as exc:
+        _validate(_video_payload(f"data:video/jpeg;base64,{TINY_JPEG_1X1_B64}", count=2), TEXT_IMAGE_AUDIO_VIDEO)
+    assert exc.value.status_code == 422
+    assert "video content part(s) are allowed" in str(exc.value)
+
+
 def test_text_only_request_unaffected_by_audio_params():
     payload = {"model": "local-main", "messages": [{"role": "user", "content": "hello"}]}
     _validate(payload, TEXT_IMAGE)  # must not raise
@@ -126,6 +196,14 @@ def test_configured_audio_formats_are_all_sniffable():
     assert configured <= SNIFFABLE_AUDIO_FORMATS, configured - SNIFFABLE_AUDIO_FORMATS
 
 
+def test_configured_video_mime_types_are_all_sniffable():
+    from ai_model_serving.contracts.media import SNIFFABLE_VIDEO_MIME_TYPES
+    from ai_model_serving.settings import load_settings
+
+    configured = set(load_settings().main_llm.allowed_video_mime_types)
+    assert configured <= SNIFFABLE_VIDEO_MIME_TYPES, configured - SNIFFABLE_VIDEO_MIME_TYPES
+
+
 def test_request_body_limit_can_carry_configured_audio_limit(monkeypatch):
     # The raw HTTP cap must not reject valid max-size audio before decoded
     # audio validation can return the precise contract error/success.
@@ -139,16 +217,22 @@ def test_request_body_limit_can_carry_configured_audio_limit(monkeypatch):
 
 
 def test_active_input_modalities_extracts_deployed_input():
-    snapshot = {"active_profile": {"capabilities": {"deployed_input": ["text", "image", "audio"]}}}
-    assert _active_input_modalities(snapshot) == ("text", "image", "audio")
+    snapshot = {"active_profile": {"capabilities": {"deployed_input": ["text", "image", "audio", "video"]}}}
+    assert _active_input_modalities(snapshot) == ("text", "image", "audio", "video")
 
 
 def test_backend_audio_canary_is_a_valid_input_audio_part():
     # The boot canary the backend sends must itself satisfy the gateway's audio
     # validation (format/magic/size), or validation and runtime would disagree.
-    from ai_model_serving.docker_main_model_backend import _AUDIO_CANARY_WAV_B64
+    from ai_model_serving.docker_main_model_backend import _AUDIO_CANARY_M4A_B64
 
-    _validate(_audio_payload(_AUDIO_CANARY_WAV_B64), TEXT_IMAGE_AUDIO)
+    _validate(_audio_payload(_AUDIO_CANARY_M4A_B64, fmt="m4a"), TEXT_IMAGE_AUDIO)
+
+
+def test_backend_video_canary_is_a_valid_video_url_part():
+    from ai_model_serving.docker_main_model_backend import _VIDEO_CANARY_MP4_B64
+
+    _validate(_video_payload(f"data:video/mp4;base64,{_VIDEO_CANARY_MP4_B64}"), TEXT_IMAGE_AUDIO_VIDEO)
 
 
 @pytest.mark.parametrize(

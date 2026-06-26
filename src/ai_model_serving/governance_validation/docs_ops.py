@@ -565,6 +565,10 @@ def validate_multimodal_chat_and_token_caps() -> None:
     image_schema_text = json.dumps(content_schema)
     if 'image_url' not in image_schema_text or 'data:image' not in image_schema_text:
         raise SystemExit('chat completion schema must expose bounded image_url content parts')
+    if 'input_audio' not in image_schema_text or 'm4a' not in image_schema_text or 'aac' not in image_schema_text:
+        raise SystemExit('chat completion schema must expose active-profile-gated input_audio content parts')
+    if 'video_url' not in image_schema_text or 'data:video' not in image_schema_text:
+        raise SystemExit('chat completion schema must expose active-profile-gated video_url content parts')
     expected_max_tokens = int(read_yaml('configs/gpu_budgets.yaml')['limits']['main_llm_max_output_tokens'])
     if chat_schema['properties']['max_tokens'].get('maximum') != expected_max_tokens:
         raise SystemExit(f'chat completion schema max_tokens.maximum must match gpu_budgets.yaml main_llm_max_output_tokens {expected_max_tokens}')
@@ -577,6 +581,10 @@ def validate_multimodal_chat_and_token_caps() -> None:
         'image dimensions',
         'MIME type must be one of',
         'valid base64',
+        'input_audio.format must be one of',
+        'video_url.url scheme must be one of',
+        'at most {max_video_inputs} video',
+        'video_url decoded video must be',
     ]:
         if phrase not in validation:
             raise SystemExit(f'runtime contract validators must enforce multimodal bounds and token caps: {phrase}')

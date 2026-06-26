@@ -47,6 +47,12 @@ class RuntimeEndpoint:
     max_audio_inputs: int = 0
     allowed_audio_formats: tuple[str, ...] = ()
     max_audio_bytes: int = 0
+    max_video_inputs: int = 0
+    allowed_video_url_schemes: tuple[str, ...] = ()
+    allowed_video_mime_types: tuple[str, ...] = ()
+    max_video_bytes: int = 0
+    max_video_frames: int = 0
+    max_video_frame_pixels: int = 0
     request_parameter_policy: dict[str, Any] | None = None
     runtime_features: dict[str, Any] | None = None
 

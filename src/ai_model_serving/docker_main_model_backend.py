@@ -1,33 +1,21 @@
 from __future__ import annotations
 
 import asyncio
-import base64
 import copy
-import io
 import json
 import os
-import wave
 from pathlib import Path
 from typing import Any
 
 import httpx
 
 from .main_model_control import MainModelCatalog, MainModelProfile
+from .media_samples import TINY_M4A_AAC_B64, TINY_MP4_VIDEO_B64
 from .model_cache import prepare_model_snapshot
 
 
-def _silent_wav_canary_base64() -> str:
-    """A tiny valid mono 16 kHz PCM WAV (0.1 s silence) for the audio boot canary."""
-    buffer = io.BytesIO()
-    with wave.open(buffer, "wb") as writer:
-        writer.setnchannels(1)
-        writer.setsampwidth(2)
-        writer.setframerate(16000)
-        writer.writeframes(b"\x00\x00" * 1600)
-    return base64.b64encode(buffer.getvalue()).decode("ascii")
-
-
-_AUDIO_CANARY_WAV_B64 = _silent_wav_canary_base64()
+_AUDIO_CANARY_M4A_B64 = TINY_M4A_AAC_B64
+_VIDEO_CANARY_MP4_B64 = TINY_MP4_VIDEO_B64
 
 # Docker Engine API HTTP-call timeouts (seconds). These bound the request to the
 # local docker socket only; the model lifecycle (drain/stop/startup) is governed
@@ -345,10 +333,10 @@ class DockerMainModelBackend:
             choices = body.get("choices", [])
             if not choices or not choices[0].get("message", {}).get("content"):
                 raise RuntimeError("main runtime inference canary returned no content")
-            # Audio boot canary: only for profiles that actually deploy audio. This
-            # proves the runtime can decode and attend to an audio part before the
-            # gate opens, so an audio-advertised model that cannot serve audio fails
-            # validation (and rolls back) instead of 500-ing live audio requests.
+            # Media boot canaries: only for profiles that actually deploy the
+            # modality. These prove the runtime can decode container media before
+            # the gate opens, so an advertised-but-broken modality rolls back
+            # instead of 500-ing live requests.
             if profile.capabilities.get("audio_enabled"):
                 audio_canary = await client.post(
                     base + str(catalog.runtime["chat_path"]),
@@ -361,7 +349,7 @@ class DockerMainModelBackend:
                                     {"type": "text", "text": "Reply with OK only."},
                                     {
                                         "type": "input_audio",
-                                        "input_audio": {"data": _AUDIO_CANARY_WAV_B64, "format": "wav"},
+                                        "input_audio": {"data": _AUDIO_CANARY_M4A_B64, "format": "m4a"},
                                     },
                                 ],
                             }
@@ -375,3 +363,29 @@ class DockerMainModelBackend:
                 audio_choices = audio_body.get("choices", [])
                 if not audio_choices or not audio_choices[0].get("message", {}).get("content"):
                     raise RuntimeError("main runtime audio canary returned no content")
+            if profile.capabilities.get("video_enabled"):
+                video_canary = await client.post(
+                    base + str(catalog.runtime["chat_path"]),
+                    json={
+                        "model": catalog.public_model,
+                        "messages": [
+                            {
+                                "role": "user",
+                                "content": [
+                                    {"type": "text", "text": "Reply with OK only."},
+                                    {
+                                        "type": "video_url",
+                                        "video_url": {"url": f"data:video/mp4;base64,{_VIDEO_CANARY_MP4_B64}"},
+                                    },
+                                ],
+                            }
+                        ],
+                        "max_tokens": 8,
+                        "temperature": 0,
+                    },
+                )
+                video_canary.raise_for_status()
+                video_body = video_canary.json()
+                video_choices = video_body.get("choices", [])
+                if not video_choices or not video_choices[0].get("message", {}).get("content"):
+                    raise RuntimeError("main runtime video canary returned no content")

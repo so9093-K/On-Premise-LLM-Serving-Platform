@@ -67,6 +67,12 @@ def build_runtime_endpoint(
         max_audio_inputs=int(request_limits.get("max_audio_inputs", 0)),
         allowed_audio_formats=tuple(str(item) for item in request_limits.get("allowed_audio_formats", [])),
         max_audio_bytes=int(request_limits.get("max_audio_bytes", 0)),
+        max_video_inputs=int(request_limits.get("max_video_inputs", 0)),
+        allowed_video_url_schemes=tuple(str(item) for item in request_limits.get("allowed_video_url_schemes", [])),
+        allowed_video_mime_types=tuple(str(item) for item in request_limits.get("allowed_video_mime_types", [])),
+        max_video_bytes=int(request_limits.get("max_video_bytes", 0)),
+        max_video_frames=int(request_limits.get("max_video_frames", 0)),
+        max_video_frame_pixels=int(request_limits.get("max_video_frame_pixels", 0)),
         request_parameter_policy=cfg.get("request_parameter_policy", {}),
         runtime_features=cfg.get("runtime_features", {}),
     )

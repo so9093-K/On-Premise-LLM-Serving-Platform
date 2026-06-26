@@ -73,9 +73,9 @@ if [ -n "${CI_COMMIT_TAG:-}" ]; then
   docker push "${RISK_VLLM_TAG}"
 fi
 
-# ── Build vllm-gemma4-audio (same base + audio decode deps) ─────────────────────
-# Reuses the already-pulled base layers; adds only soundfile/librosa/libsndfile so
-# the unified model's audio tower is reachable. Pinned into the 12B profile image.
+# ── Build vllm-gemma4-audio (same base + media decode deps) ─────────────────────
+# Reuses the already-pulled base layers; adds the audited audio/container decode
+# stack plus Gemma4 multimodal patches. Pinned into the 12B profile image.
 echo "[build] building vllm-gemma4-audio: ${AUDIO_VLLM_IMAGE_SHA}"
 docker build \
   --cache-from "${RESOLVED_VLLM_BASE_IMAGE}" \

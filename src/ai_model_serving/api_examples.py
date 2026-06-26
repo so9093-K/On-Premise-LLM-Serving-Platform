@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from .media_samples import TINY_MP4_VIDEO_B64
+
 # ---------------------------------------------------------------------------
 # Base request value fixtures (reused in Body() and install_contract_openapi)
 # ---------------------------------------------------------------------------
@@ -243,6 +245,27 @@ GATEWAY_CHAT_REQUEST_EXAMPLES: dict[str, Any] = {
                             "input_audio": {
                                 "data": "UklGRjQAAABXQVZFZm10IBAAAAABAAEAgD4AAAB9AAACABAAZGF0YRAAAAAAAAAAAAAAAAAAAAAAAAAA",
                                 "format": "wav",
+                            },
+                        },
+                    ],
+                }
+            ],
+            "max_tokens": 256,
+        },
+    },
+    "with_video": {
+        "summary": "비디오 요청 (비디오 + 텍스트) — 비디오 프로필 활성 시",
+        "value": {
+            "model": "local-main",
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": "이 비디오에서 보이는 장면을 설명해주세요."},
+                        {
+                            "type": "video_url",
+                            "video_url": {
+                                "url": f"data:video/mp4;base64,{TINY_MP4_VIDEO_B64}",
                             },
                         },
                     ],

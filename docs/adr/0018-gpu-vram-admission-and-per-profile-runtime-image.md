@@ -17,10 +17,10 @@ Accepted
   on/off가 서로의 VRAM을 모른 채 동작했고, "모델 Y를 올리려면 누구를 내릴지" 결정하는
   주체가 없었다. 실측으로도 26B(0.76)+12B(0.76)=1.52 > 1.0 이라 12B 검증조차 26B를
   내려야 가능한데 그 조율이 수동·암묵이었다.
-- 0017은 호스트의 런타임 이미지를 단일 고정 digest로 본다. 그러나 12B의 오디오 입력을
-  쓰려면 디코드 라이브러리(`libsndfile`/`soundfile`/`librosa`)가 포함된 **다른** 런타임
-  이미지가 필요하다. 능력이 이미지에 묶여 있는데 이미지가 프로필을 따라오지 않으면, 12B로
-  전환해도 표준 이미지로 떠서 오디오가 닿지 않는다.
+- 0017은 호스트의 런타임 이미지를 단일 고정 digest로 본다. 그러나 12B의 audio/video
+  입력을 쓰려면 디코드 라이브러리(`libsndfile`/`soundfile`/`librosa`/`PyAV`)가 포함된
+  **다른** 런타임 이미지가 필요하다. 능력이 이미지에 묶여 있는데 이미지가 프로필을
+  따라오지 않으면, 12B로 전환해도 표준 이미지로 떠서 media 입력이 닿지 않는다.
 - `gpu_memory_utilization`은 그 GPU 총량의 **비율**이다. 12B FP8 가중치(~13 GiB)는 0.76
   (~34 GiB 예약)을 필요로 하지 않으며, 더 작은 GPU에 올리려면 같은 모델이라도 다른 비율이
   필요하다. 하나의 정적 값으로 서로 다른 크기의 GPU를 동시에 만족시킬 수 없다.
@@ -66,23 +66,22 @@ VRAM을 단일 예산으로 보고 모든 모델 로드를 그 예산에 대한 
 - fraction은 그 호스트 VRAM의 비율이므로, 더 작은 GPU는 더 큰 값을 설정한다. 하드웨어
   이름은 어디에도 박지 않는다.
 
-### 4. 오디오 활성화 경로
+### 4. 멀티모달 활성화 경로
 
-오디오는 0017과 동일하게 기본 inert다. 활성화는 게이트된 운영 절차다:
+Audio/video는 0017과 동일하게 기본 inert다. 활성화는 게이트된 운영 절차다:
 
 1. `vllm-gemma4-audio` 이미지를 `build-vllm-derived` CI 잡으로 빌드·push하고 immutable
-   digest를 산출한다(`build/audio-image.env`). base는 메인 런타임 digest + 디코드 3종뿐.
+   digest를 산출한다(`build/audio-image.env`). base는 메인 런타임 digest + 디코드 스택뿐.
 2. 그 digest를 `gemma4-12b-unified-fp8` 프로필 `image`에 핀하고 caps를 flip한다
-   (`deployed_input`에 audio 추가, `audio_enabled: true`, block_reason·강제 chat-template
-   제거).
-3. 12B로 switch하면 `validate()`가 오디오 boot canary를 실행한다. 디코드 실패 시 26B로
-   rollback되어 오디오가 반쪽 활성되지 않는다.
+   (`deployed_input`에 audio/video 추가, `audio_enabled: true`, `video_enabled: true`).
+3. 12B로 switch하면 `validate()`가 media boot canaries를 실행한다. 디코드 실패 시 26B로
+   rollback되어 advertised modality가 반쪽 활성되지 않는다.
 
 ## 호환성 및 기능 정책
 
 - 메인은 admission에서 non-evictable이다. 다른 모델을 위해 메인이 자동으로 내려가는 일은
   없다.
-- 오디오는 이미지·프로필 flip·canary가 모두 충족되기 전까지 inert다(0017 정책 유지).
+- Audio/video는 이미지·프로필 flip·canary가 모두 충족되기 전까지 inert다(0017 정책 유지).
   게이트웨이는 활성 프로필의 `deployed_input`에 audio가 포함될 때만 오디오 입력을 받는다.
 
 ## 테스트 계획

@@ -566,6 +566,51 @@ paths:
                                       - auto
                                       - low
                                       - high
+                            - type: object
+                              required:
+                              - type
+                              - input_audio
+                              additionalProperties: false
+                              properties:
+                                type:
+                                  const: input_audio
+                                input_audio:
+                                  type: object
+                                  required:
+                                  - data
+                                  - format
+                                  additionalProperties: false
+                                  properties:
+                                    data:
+                                      type: string
+                                      minLength: 1
+                                    format:
+                                      type: string
+                                      enum:
+                                      - wav
+                                      - mp3
+                                      - flac
+                                      - ogg
+                                      - m4a
+                                      - mp4
+                                      - aac
+                            - type: object
+                              required:
+                              - type
+                              - video_url
+                              additionalProperties: false
+                              properties:
+                                type:
+                                  const: video_url
+                                video_url:
+                                  type: object
+                                  required:
+                                  - url
+                                  additionalProperties: false
+                                  properties:
+                                    url:
+                                      type: string
+                                      pattern: ^data:video/(mp4|webm|quicktime|jpeg);base64,
                       tool_calls:
                         type: array
                         minItems: 1
@@ -1018,6 +1063,19 @@ paths:
                       input_audio:
                         data: UklGRjQAAABXQVZFZm10IBAAAAABAAEAgD4AAAB9AAACABAAZGF0YRAAAAAAAAAAAAAAAAAAAAAAAAAA
                         format: wav
+                  max_tokens: 256
+              with_video:
+                summary: 비디오 요청 (비디오 + 텍스트) — 비디오 프로필 활성 시
+                value:
+                  model: local-main
+                  messages:
+                  - role: user
+                    content:
+                    - type: text
+                      text: 이 비디오에서 보이는 장면을 설명해주세요.
+                    - type: video_url
+                      video_url:
+                        url: data:video/mp4;base64,AAAAHGZ0eXBpc29tAAACAGlzb21pc28ybXA0MQAAAAhmcmVlAAAAGW1kYXQAAAGzABAHAAABthYFGCPbfgAAAzFtb292AAAAbG12aGQAAAAAAAAAAAAAAAAAAAPoAAAD6AABAAABAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAAACW3RyYWsAAABcdGtoZAAAAAMAAAAAAAAAAAAAAAEAAAAAAAAD6AAAAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAEAAAAAAEAAAABAAAAAAACRlZHRzAAAAHGVsc3QAAAAAAAAAAQAAA+gAAAAAAAEAAAAAAdNtZGlhAAAAIG1kaGQAAAAAAAAAAAAAAAAAAEAAAABAAFXEAAAAAAAtaGRscgAAAAAAAAAAdmlkZQAAAAAAAAAAAAAAAFZpZGVvSGFuZGxlcgAAAAF+bWluZgAAABR2bWhkAAAAAQAAAAAAAAAAAAAAJGRpbmYAAAAcZHJlZgAAAAAAAAABAAAADHVybCAAAAABAAABPnN0YmwAAADac3RzZAAAAAAAAAABAAAAym1wNHYAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAEAAQAEgAAABIAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAY//8AAABgZXNkcwAAAAADgICATwABAASAgIBBIBEAAAAAAACIAAAAAAWAgIAvAAABsAEAAAG1iRMAAAEAAAABIADEjYgADQCEAhRjAAABskxhdmM2Mi4yOC4xMDEGgICAAQIAAAAUYnRydAAAAAAAAACIAAAAAAAAABhzdHRzAAAAAAAAAAEAAAABAABAAAAAABxzdHNjAAAAAAAAAAEAAAABAAAAAQAAAAEAAAAUc3RzegAAAAAAAAARAAAAAQAAABRzdGNvAAAAAAAAAAEAAAAsAAAAYnVkdGEAAABabWV0YQAAAAAAAAAhaGRscgAAAAAAAAAAbWRpcmFwcGwAAAAAAAAAAAAAAAAtaWxzdAAAACWpdG9vAAAAHWRhdGEAAAABAAAAAExhdmY2Mi4xMi4xMDE=
                   max_tokens: 256
         required: true
       responses:
@@ -7272,21 +7330,25 @@ paths:
                       state: active
                       container_status: running
                       vram_fraction: 0.04
+                      criticality: retrieval_support_path
                     - service_key: embedding_ko
                       container: embedding-ko-vllm
                       state: active
                       container_status: running
                       vram_fraction: 0.06
+                      criticality: retrieval_support_path
                     - service_key: risk_prompt
                       container: risk-prompt-vllm
                       state: active
                       container_status: running
                       vram_fraction: 0.065
+                      criticality: risk_signal_path
                     - service_key: main
                       container: main-llm-vllm
                       state: active
                       container_status: running
                       vram_fraction: 0.76
+                      criticality: primary_user_path
                       gate: open
                       active_profile: gemma4-26b-a4b-fp8
                     budget:
@@ -7302,16 +7364,19 @@ paths:
                       state: stopped
                       container_status: exited
                       vram_fraction: 0.04
+                      criticality: retrieval_support_path
                     - service_key: risk_prompt
                       container: risk-prompt-vllm
                       state: active
                       container_status: running
                       vram_fraction: 0.065
+                      criticality: risk_signal_path
                     - service_key: main
                       container: main-llm-vllm
                       state: stopped
                       container_status: exited
                       vram_fraction: 0.76
+                      criticality: primary_user_path
                       gate: closed
                       active_profile: gemma4-26b-a4b-fp8
                     budget:
@@ -7398,8 +7463,8 @@ paths:
         `POST /admin/main-model/switch`).
 
 
-        GPU 예산을 초과하면 409와 정지 계획(`plan.stop`)을 반환하며, `force: true`로 우선순위 낮은 보조를 자동 축출할
-        수 있습니다. Scalar UI 드롭다운에서 선택 후 Execute만 누르면 됩니다.'
+        GPU 예산을 초과하면 409와 정지 계획(`plan.stop`)을 반환하며, `force: true`로 우선순위 낮은 보조를 자동
+        축출할 수 있습니다. Scalar UI 드롭다운에서 선택 후 Execute만 누르면 됩니다.'
       operationId: transitionRuntime
       security:
       - adminBearerAuth: []
@@ -8060,6 +8125,7 @@ paths:
                         output:
                         - text
                         audio_enabled: false
+                        video_enabled: false
                       runtime_image: vllm/vllm-openai@sha256:f4492643056969529a74238f71dd66dc3097c0d433156a4f4478456bf84bd276
                       vram_fraction: 0.76
                     last_known_good_profile: gemma4-26b-a4b-fp8
@@ -8090,6 +8156,7 @@ paths:
                         output:
                         - text
                         audio_enabled: false
+                        video_enabled: false
                       runtime_image: vllm/vllm-openai@sha256:f4492643056969529a74238f71dd66dc3097c0d433156a4f4478456bf84bd276
                       vram_fraction: 0.76
                     last_known_good_profile: gemma4-26b-a4b-fp8
@@ -8120,6 +8187,7 @@ paths:
                         output:
                         - text
                         audio_enabled: false
+                        video_enabled: false
                       runtime_image: vllm/vllm-openai@sha256:f4492643056969529a74238f71dd66dc3097c0d433156a4f4478456bf84bd276
                       vram_fraction: 0.76
                     last_known_good_profile: gemma4-26b-a4b-fp8
@@ -8229,6 +8297,9 @@ paths:
                     output:
                     - text
                     audio_enabled: false
+                    video_enabled: false
+                  runtime_image: vllm/vllm-openai@sha256:f4492643056969529a74238f71dd66dc3097c0d433156a4f4478456bf84bd276
+                  vram_fraction: 0.76
                   active: true
                 - id: gemma4-12b-unified-fp8
                   display_name: Gemma 4 12B Unified FP8
@@ -8238,20 +8309,25 @@ paths:
                   compatibility:
                     status: unverified
                     reasons:
-                    - image/audio fixed in the vllm-gemma4-audio derived image (pinned via AUDIO_VLLM_IMAGE); the audio boot canary validates the runtime on switch.
+                    - image/audio/video fixed in the vllm-gemma4-audio derived image
+                      (pinned via AUDIO_VLLM_IMAGE); audio/video boot canaries validate
+                      the runtime on switch.
                     - GPU full-system certification has not been executed.
                   capabilities:
                     model_input:
                     - text
                     - image
                     - audio
+                    - video
                     deployed_input:
                     - text
                     - image
                     - audio
+                    - video
                     output:
                     - text
                     audio_enabled: true
+                    video_enabled: true
                   active: false
         '503':
           description: Admin Sidecar 연결 실패
@@ -8322,7 +8398,11 @@ paths:
       tags:
       - Runtime Control
       summary: 메인 모델 전환
-      description: "메인 모델 프로필을 비동기로 전환한다(202 + operation_id). `request_id`는 선택적 멱등 키다 — 진행 중이거나 방금 끝난 동일 작업이 있으면 새 전환을 시작하지 않고 그 작업을 반환하며 응답 `reused=true`로 표시한다(재시도 안전용이라 일정 시간 뒤에는 만료된다). 새 전환을 원하면 매번 고유한 `request_id`를 쓰거나 생략한다. 진행 상황은 응답 `operation_id`로 `GET /admin/main-model/operations/{operation_id}` 또는 `GET /admin/main-model`의 `last_operation`에서 확인한다."
+      description: 메인 모델 프로필을 비동기로 전환한다(202 + operation_id). `request_id`는 선택적 멱등
+        키다 — 진행 중이거나 방금 끝난 동일 작업이 있으면 새 전환을 시작하지 않고 그 작업을 반환하며 응답 `reused=true`로 표시한다(재시도
+        안전용이라 일정 시간 뒤에는 만료된다). 새 전환을 원하면 매번 고유한 `request_id`를 쓰거나 생략한다. 진행 상황은 응답
+        `operation_id`로 `GET /admin/main-model/operations/{operation_id}` 또는 `GET
+        /admin/main-model`의 `last_operation`에서 확인한다.
       operationId: switchMainModel
       requestBody:
         content:
@@ -8366,7 +8446,8 @@ paths:
                     format: uuid
                   status:
                     type: string
-                    description: operation 현재 stage/status. 새 전환은 pending으로 시작하고, 동일 request_id 재생 시 기존 작업의 status(예 completed)를 그대로 반환한다.
+                    description: 'operation 현재 stage/status. 새 전환은 pending으로 시작하고,
+                      동일 request_id 재생 시 기존 작업의 status(예: completed)를 그대로 반환한다.'
                   reused:
                     type: boolean
                     description: true면 동일 request_id의 기존 작업을 반환한 것이며 새 전환은 시작되지 않았다.
@@ -8867,23 +8948,27 @@ paths:
       tags:
       - Runtime Control
       summary: 메인 모델 전환 작업 조회
-      description: 비동기 전환 작업의 상태를 조회한다. `operation_id`는 `POST /admin/main-model/switch`의 202 응답에서 받은 값이며, `completed`·`failed`·`rollback_failed`에 도달할 때까지 폴링한다. 가장 최근 작업은 `GET /admin/main-model`의 `last_operation`으로도 확인할 수 있고, 진행 상태는 Grafana `Main-model Control` 대시보드의 Latest Operation State 패널에서 실시간으로 볼 수 있다.
+      description: 비동기 전환 작업의 상태를 조회한다. `operation_id`는 `POST /admin/main-model/switch`의
+        202 응답에서 받은 값이며, `completed`·`failed`·`rollback_failed`에 도달할 때까지 폴링한다. 가장
+        최근 작업은 `GET /admin/main-model`의 `last_operation`으로도 확인할 수 있고, 진행 상태는 Grafana
+        `Main-model Control` 대시보드의 Latest Operation State 패널에서 실시간으로 볼 수 있다.
       operationId: getMainModelOperation
-      parameters:
-      - name: operation_id
-        in: path
-        required: true
-        description: switch 202 응답의 `operation_id` (UUID).
-        schema:
-          type: string
-          format: uuid
-        example: 41cf50bb-60b2-4dbc-b38a-7dd07da91d97
+      security:
+      - adminBearerAuth: []
       responses:
         '200':
           description: 전환 작업 상태
           content:
             application/json:
               schema:
+                type: object
+                required:
+                - id
+                - requested_profile
+                - status
+                - stage
+                - created_at
+                - updated_at
                 properties:
                   id:
                     type: string
@@ -8936,16 +9021,43 @@ paths:
                     type: number
                   updated_at:
                     type: number
-                type: object
-                required:
-                - id
-                - requested_profile
-                - status
-                - stage
-                - created_at
-                - updated_at
+              examples:
+                in_progress:
+                  summary: 진행 중 (validating)
+                  value:
+                    id: 41cf50bb-60b2-4dbc-b38a-7dd07da91d97
+                    requested_profile: gemma4-12b-unified-fp8
+                    previous_profile: gemma4-26b-a4b-fp8
+                    client_request_id: ops-20260622-12b
+                    status: validating
+                    stage: validating
+                    created_at: 1782086105.78
+                    updated_at: 1782086230.12
+                completed:
+                  summary: 완료
+                  value:
+                    id: 41cf50bb-60b2-4dbc-b38a-7dd07da91d97
+                    requested_profile: gemma4-12b-unified-fp8
+                    previous_profile: gemma4-26b-a4b-fp8
+                    client_request_id: ops-20260622-12b
+                    status: completed
+                    stage: completed
+                    created_at: 1782086105.78
+                    updated_at: 1782086258.2
+                failed:
+                  summary: 실패 후 이전 프로필로 rollback
+                  value:
+                    id: 41cf50bb-60b2-4dbc-b38a-7dd07da91d97
+                    requested_profile: gemma4-12b-unified-fp8
+                    previous_profile: gemma4-26b-a4b-fp8
+                    client_request_id: ops-20260622-12b
+                    status: failed
+                    stage: validating
+                    error: 'runtime validation failed: /v1/models did not report local-main'
+                    created_at: 1782086105.78
+                    updated_at: 1782086240.55
         '404':
-          description: operation 없음
+          description: operation 없음 (id 오타이거나 만료/미존재)
         '503':
           description: Admin Sidecar 연결 실패
         '401':
@@ -9008,8 +9120,15 @@ paths:
                         type:
                         - string
                         - 'null'
-      security:
-      - adminBearerAuth: []
+      parameters:
+      - name: operation_id
+        in: path
+        required: true
+        description: switch 202 응답의 `operation_id` (UUID).
+        schema:
+          type: string
+          format: uuid
+        example: 41cf50bb-60b2-4dbc-b38a-7dd07da91d97
 components:
   schemas: {}
   securitySchemes:
