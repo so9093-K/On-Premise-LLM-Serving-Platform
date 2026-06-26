@@ -127,7 +127,7 @@ RETIRED_ENV_KEYS = {
     "RISK_SIREN_QUEUE_TIMEOUT_SECONDS",
 }
 
-STALE_MAX_REQUEST_BODY_BYTES = frozenset({"1250000", "10000000"})
+STALE_MAX_REQUEST_BODY_BYTES = frozenset({"1250000", "10000000", "40000000"})
 
 
 def preserve_existing_values(out_path: Path, *, force: bool) -> dict[str, str]:
@@ -300,19 +300,6 @@ def sync_env_keys(env_path: Path, *, dry_run: bool = False) -> int:
     added = [k for k in template_values if k not in existing and k not in RETIRED_ENV_KEYS]
     retired_found = [k for k in existing if k in RETIRED_ENV_KEYS]
 
-    if not added and not retired_found:
-        print(f"변경 없음: .env가 최신 상태입니다. (profile={profile})")
-        return 0
-
-    if added:
-        print(f"추가될 키 ({len(added)}개): {', '.join(sorted(added))}")
-    if retired_found:
-        print(f"제거될 키 ({len(retired_found)}개): {', '.join(sorted(retired_found))}")
-
-    if dry_run:
-        print("dry-run: 실제 변경 없음.")
-        return 0
-
     merged = {k: v for k, v in existing.items() if k not in RETIRED_ENV_KEYS}
     for k in added:
         merged[k] = template_values[k]
@@ -320,6 +307,28 @@ def sync_env_keys(env_path: Path, *, dry_run: bool = False) -> int:
     if merged.get("HF_TOKEN") and not merged.get("HUGGING_FACE_HUB_TOKEN"):
         merged["HUGGING_FACE_HUB_TOKEN"] = merged["HF_TOKEN"]
     normalize_request_body_limit(merged)
+
+    # Value migrations (e.g. stale MAX_REQUEST_BODY_BYTES) must propagate even when no
+    # template key is added or retired. Detect in-place value changes to preserved keys
+    # so a pure value bump is not silently dropped by an "all keys present" early return.
+    migrated = sorted(
+        k for k in existing if k not in RETIRED_ENV_KEYS and existing[k] != merged.get(k)
+    )
+
+    if not added and not retired_found and not migrated:
+        print(f"변경 없음: .env가 최신 상태입니다. (profile={profile})")
+        return 0
+
+    if added:
+        print(f"추가될 키 ({len(added)}개): {', '.join(sorted(added))}")
+    if retired_found:
+        print(f"제거될 키 ({len(retired_found)}개): {', '.join(sorted(retired_found))}")
+    if migrated:
+        print(f"값이 갱신될 키 ({len(migrated)}개): {', '.join(migrated)}")
+
+    if dry_run:
+        print("dry-run: 실제 변경 없음.")
+        return 0
 
     filtered_lines = [
         line for line in env_lines

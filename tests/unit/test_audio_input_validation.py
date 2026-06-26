@@ -29,7 +29,7 @@ VIDEO_LIMITS = dict(
     max_video_inputs=1,
     allowed_video_url_schemes=("data",),
     allowed_video_mime_types=("video/mp4", "video/webm", "video/quicktime", "video/jpeg"),
-    max_video_bytes=25_000_000,
+    max_video_bytes=50_000_000,
     max_video_frames=32,
     max_video_frame_pixels=6_422_528,
 )
@@ -204,15 +204,16 @@ def test_configured_video_mime_types_are_all_sniffable():
     assert configured <= SNIFFABLE_VIDEO_MIME_TYPES, configured - SNIFFABLE_VIDEO_MIME_TYPES
 
 
-def test_request_body_limit_can_carry_configured_audio_limit(monkeypatch):
-    # The raw HTTP cap must not reject valid max-size audio before decoded
-    # audio validation can return the precise contract error/success.
+def test_request_body_limit_can_carry_configured_media_limit(monkeypatch):
+    # The raw HTTP cap must not reject valid max-size media before decoded
+    # media validation can return the precise contract error/success.
     from ai_model_serving.settings import load_settings
 
     monkeypatch.delenv("MAX_REQUEST_BODY_BYTES", raising=False)
     settings = load_settings()
     assert settings.main_llm is not None
-    required_body_bytes = math.ceil(settings.main_llm.max_audio_bytes * 4 / 3) + 100_000
+    largest_decoded_media = max(settings.main_llm.max_audio_bytes, settings.main_llm.max_video_bytes)
+    required_body_bytes = math.ceil(largest_decoded_media * 4 / 3) + 100_000
     assert settings.max_request_body_bytes >= required_body_bytes
 
 

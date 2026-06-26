@@ -126,7 +126,7 @@ models:
         - video/webm
         - video/quicktime
         - video/jpeg
-        max_video_bytes: 25000000
+        max_video_bytes: 50000000
         max_video_frames: 32
         max_video_frame_pixels: 6422528
       degrade_action: return upstream error; do not fall back to risk or embedding
@@ -494,7 +494,7 @@ timeouts:
   vllm_request_seconds: 20
   risk_adapter_seconds: 15
 operational_limits:
-  max_request_body_bytes: 40000000
+  max_request_body_bytes: 100000000
   max_retrieval_documents: 32
   per_upstream_concurrency: 1
   queue_timeout_seconds: 2

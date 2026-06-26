@@ -25,7 +25,7 @@ def test_setup_env_generates_compose_env_with_local_open_defaults(tmp_path):
     assert 'FASTAPI_DOCS_ENABLED=true' in text
     assert 'VLLM_IMAGE=vllm/vllm-openai:gemma4-unified-cu129' in text
     assert 'RISK_VLLM_IMAGE=ai-model-serving-risk-vllm-kanana:' in text
-    assert 'MAX_REQUEST_BODY_BYTES=40000000' in text
+    assert 'MAX_REQUEST_BODY_BYTES=100000000' in text
     assert 'COLBERT_KO_MODEL_DIR' not in text
     assert 'PROMETHEUS_IMAGE=prom/prometheus:v3-distroless' in text
 
@@ -43,7 +43,7 @@ def test_setup_env_generates_local_open_profile(tmp_path):
     assert 'ADMIN_API_KEY_REQUIRED=false' in text
     assert 'INTERNAL_SERVICE_AUTH_REQUIRED=false' in text
     assert 'FASTAPI_DOCS_ENABLED=true' in text
-    assert 'MAX_REQUEST_BODY_BYTES=40000000' in text
+    assert 'MAX_REQUEST_BODY_BYTES=100000000' in text
 
 
 def test_setup_env_refuses_overwrite_without_force(tmp_path):
@@ -162,7 +162,7 @@ def test_setup_env_force_migrates_stale_request_body_limit(tmp_path):
     rc = setup_env.main(['--profile', 'compose', '--output', str(out), '--force'])
     assert rc == 0
     text = out.read_text(encoding='utf-8')
-    assert 'MAX_REQUEST_BODY_BYTES=40000000' in text
+    assert 'MAX_REQUEST_BODY_BYTES=100000000' in text
     assert 'MAX_REQUEST_BODY_BYTES=1250000' not in text
     assert 'HF_TOKEN=hf_existing' in text
 
@@ -177,9 +177,86 @@ def test_setup_env_force_migrates_image_only_request_body_limit(tmp_path):
     rc = setup_env.main(['--profile', 'compose', '--output', str(out), '--force'])
     assert rc == 0
     text = out.read_text(encoding='utf-8')
-    assert 'MAX_REQUEST_BODY_BYTES=40000000' in text
-    assert 'MAX_REQUEST_BODY_BYTES=10000000' not in text
+    lines = set(text.splitlines())
+    assert 'MAX_REQUEST_BODY_BYTES=100000000' in text
+    assert 'MAX_REQUEST_BODY_BYTES=10000000' not in lines
     assert 'HF_TOKEN=hf_existing' in text
+
+
+def test_setup_env_force_migrates_audio_only_request_body_limit(tmp_path):
+    out = tmp_path / '.env'
+    out.write_text(
+        'MAX_REQUEST_BODY_BYTES=40000000\n'
+        'HF_TOKEN=hf_existing\n',
+        encoding='utf-8',
+    )
+    rc = setup_env.main(['--profile', 'compose', '--output', str(out), '--force'])
+    assert rc == 0
+    text = out.read_text(encoding='utf-8')
+    lines = set(text.splitlines())
+    assert 'MAX_REQUEST_BODY_BYTES=100000000' in text
+    assert 'MAX_REQUEST_BODY_BYTES=40000000' not in lines
+    assert 'HF_TOKEN=hf_existing' in text
+
+
+def _set_env_value(path, key, value):
+    lines = path.read_text(encoding='utf-8').splitlines()
+    out = []
+    for line in lines:
+        if line.split('=', 1)[0] == key:
+            out.append(f'{key}={value}')
+        else:
+            out.append(line)
+    path.write_text('\n'.join(out) + '\n', encoding='utf-8')
+
+
+def test_sync_env_migrates_stale_request_body_limit_without_key_changes(tmp_path):
+    # A fully-generated .env has every template key present, so sync-env adds/retires
+    # nothing. The stale body cap must still migrate — this is the deploy path that left
+    # /opt/acl-ai-gateway/.env stuck at 1.25 MB across releases.
+    out = tmp_path / '.env'
+    assert setup_env.main(['--profile', 'compose', '--output', str(out), '--force']) == 0
+    _set_env_value(out, 'MAX_REQUEST_BODY_BYTES', '1250000')
+
+    rc = setup_env.main(['--sync-env', '--env-file', str(out)])
+
+    assert rc == 0
+    text = out.read_text(encoding='utf-8')
+    assert 'MAX_REQUEST_BODY_BYTES=100000000' in text
+    assert 'MAX_REQUEST_BODY_BYTES=1250000' not in text.splitlines()
+
+
+def test_sync_env_dry_run_does_not_write_but_reports_migration(tmp_path, capsys):
+    out = tmp_path / '.env'
+    assert setup_env.main(['--profile', 'compose', '--output', str(out), '--force']) == 0
+    _set_env_value(out, 'MAX_REQUEST_BODY_BYTES', '1250000')
+
+    rc = setup_env.main(['--sync-env', '--dry-run', '--env-file', str(out)])
+
+    assert rc == 0
+    assert 'MAX_REQUEST_BODY_BYTES' in capsys.readouterr().out
+    assert 'MAX_REQUEST_BODY_BYTES=1250000' in out.read_text(encoding='utf-8').splitlines()
+
+
+def test_sync_env_no_op_when_already_current(tmp_path, capsys):
+    out = tmp_path / '.env'
+    assert setup_env.main(['--profile', 'compose', '--output', str(out), '--force']) == 0
+
+    rc = setup_env.main(['--sync-env', '--env-file', str(out)])
+
+    assert rc == 0
+    assert '변경 없음' in capsys.readouterr().out
+
+
+def test_sync_env_preserves_operator_custom_request_body_limit(tmp_path):
+    out = tmp_path / '.env'
+    assert setup_env.main(['--profile', 'compose', '--output', str(out), '--force']) == 0
+    _set_env_value(out, 'MAX_REQUEST_BODY_BYTES', '8000000')
+
+    rc = setup_env.main(['--sync-env', '--env-file', str(out)])
+
+    assert rc == 0
+    assert 'MAX_REQUEST_BODY_BYTES=8000000' in out.read_text(encoding='utf-8')
 
 
 def test_setup_env_force_removes_retired_risk_siren_keys(tmp_path):
