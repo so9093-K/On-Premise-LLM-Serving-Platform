@@ -667,7 +667,14 @@ class MainModelManager:
         operation_id = str(uuid.uuid4())
         lock_context = self.state_store.operation_lock()
         lock_context.__enter__()
+        # The switch lock must span this synchronous accept and the asynchronous
+        # operation that completes the switch, so it cannot live in a `with` block
+        # scoped to this method. Ownership transfers to the background task once it
+        # is scheduled; until then every exit path (a failed state update, the
+        # idempotent reuse return, or a failed create_task) releases the lock
+        # through the finally below, so the lock can never leak.
         reused_operation_id: str | None = None
+        operation_started = False
         try:
             def mutate(value: dict[str, Any]) -> None:
                 nonlocal reused_operation_id
@@ -707,19 +714,19 @@ class MainModelManager:
                 stats = value.setdefault("stats", self._initial_stats())
                 stats["switch_requests"] = int(stats.get("switch_requests", 0)) + 1
             self.state_store.update(mutate)
-        except Exception:
-            lock_context.__exit__(None, None, None)
-            raise
-        if reused_operation_id is not None:
-            lock_context.__exit__(None, None, None)
-            return SwitchOutcome(reused_operation_id, True)
-        task = asyncio.create_task(
-            self._run(operation_id, lock_context, boot_reconcile=boot_reconcile),
-            name=operation_id,
-        )
-        self._tasks.add(task)
-        task.add_done_callback(self._tasks.discard)
-        return SwitchOutcome(operation_id, False)
+            if reused_operation_id is not None:
+                return SwitchOutcome(reused_operation_id, True)
+            task = asyncio.create_task(
+                self._run(operation_id, lock_context, boot_reconcile=boot_reconcile),
+                name=operation_id,
+            )
+            operation_started = True
+            self._tasks.add(task)
+            task.add_done_callback(self._tasks.discard)
+            return SwitchOutcome(operation_id, False)
+        finally:
+            if not operation_started:
+                lock_context.__exit__(None, None, None)
 
     def _set_operation(self, operation_id: str, status: str, **fields: Any) -> None:
         def mutate(state: dict[str, Any]) -> None:
@@ -782,7 +789,7 @@ class MainModelManager:
         target = self.catalog.profiles[operation["requested_profile"]]
         previous_id = operation.get("previous_profile")
         previous_gate = str(operation.get("previous_gate", "closed"))
-        replaced = False
+        entered_replace_phase = False
         try:
             self._set_operation(operation_id, "preparing")
             await self.backend.prepare(self.catalog, target)
@@ -793,13 +800,17 @@ class MainModelManager:
                     float(self.catalog.runtime.get("drain_timeout_seconds", 30))
                 )
             self._set_operation(operation_id, "stopping")
-            replaced = True
+            # Past this point the previous runtime is being torn down, so any
+            # later failure must roll back rather than just reopen the old gate.
+            # Set before replace() is awaited: a failure *during* replace has
+            # still entered the irreversible phase.
+            entered_replace_phase = True
             self._set_operation(operation_id, "starting")
             await self.backend.replace(self.catalog, target)
             self._set_operation(operation_id, "validating")
             await self.backend.validate(self.catalog, target)
         except Exception as exc:
-            if not replaced:
+            if not entered_replace_phase:
                 self._set_operation(operation_id, "failed", error=str(exc))
                 if previous_id:
                     self.state_store.update(
@@ -815,7 +826,7 @@ class MainModelManager:
                 self._record_terminal(operation_id, success=False)
                 return
             self._set_operation(operation_id, "rolling_back", error=str(exc))
-            if replaced and previous_id in self.catalog.profiles:
+            if entered_replace_phase and previous_id in self.catalog.profiles:
                 previous = self.catalog.profiles[previous_id]
                 try:
                     await self.backend.replace(self.catalog, previous)
@@ -843,7 +854,7 @@ class MainModelManager:
             self._record_terminal(
                 operation_id,
                 success=False,
-                rollback=replaced and previous_id in self.catalog.profiles,
+                rollback=entered_replace_phase and previous_id in self.catalog.profiles,
             )
             return
 
