@@ -108,9 +108,32 @@ def _validate_parameter_combinations(payload: dict[str, Any], policy: dict[str, 
         "logit_bias_with_tools": "logit_bias" in payload and "tools" in payload,
         "logprobs_with_stream": payload.get("logprobs") is True and payload.get("stream") is True,
     }
+    messages = {
+        "json_schema_with_tools": (
+            "response_format",
+            "response_format.type=json_schema cannot be used with tools for this model profile; remove tools or use response_format.type=text/json_object.",
+        ),
+        "json_schema_with_reasoning": (
+            "response_format",
+            "response_format.type=json_schema cannot be used with reasoning=true for this model profile; remove reasoning or use response_format.type=text/json_object.",
+        ),
+        "json_schema_with_logit_bias": (
+            "response_format",
+            "response_format.type=json_schema cannot be used with logit_bias for this model profile; remove logit_bias or use response_format.type=text/json_object.",
+        ),
+        "logit_bias_with_tools": (
+            "logit_bias",
+            "logit_bias cannot be used with tools for this model profile; remove logit_bias or remove tools.",
+        ),
+        "logprobs_with_stream": (
+            "logprobs",
+            "logprobs=true cannot be used with stream=true for this model profile; disable stream or omit logprobs.",
+        ),
+    }
     for name, active in checks.items():
         if active and _combination_mode(policy, name) == "reject":
-            raise _validation_error(name, f"request parameter combination is disabled by policy: {name}.")
+            param, message = messages[name]
+            raise _validation_error(param, message)
 
 
 def _validate_chat_parameters(payload: dict[str, Any], *, max_output_tokens: int | None, policy: dict[str, Any] | None) -> None:

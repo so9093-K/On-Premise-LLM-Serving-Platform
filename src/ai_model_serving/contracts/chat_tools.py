@@ -77,8 +77,10 @@ def _validate_tool_choice_matches_tools(payload: dict[str, Any]) -> None:
         raise _validation_error("tool_choice", "tool_choice requires a non-empty tools array unless it is 'none'.")
     if isinstance(choice, dict):
         name = choice.get("function", {}).get("name") if isinstance(choice.get("function"), dict) else None
-        if isinstance(name, str) and name not in _tool_names(tools):
-            raise _validation_error("tool_choice.function.name", f"tool_choice.function.name must match one of the provided tools: {name}.")
+        tool_names = _tool_names(tools)
+        if isinstance(name, str) and name not in tool_names:
+            allowed = ", ".join(sorted(tool_names)) or "none"
+            raise _validation_error("tool_choice.function.name", f"tool_choice.function.name is {name}; use one of the provided tools: {allowed}.")
 
 
 def _validate_tool_calls(tool_calls: Any) -> None:

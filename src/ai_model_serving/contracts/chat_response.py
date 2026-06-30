@@ -45,7 +45,7 @@ def _validate_response_json_content(
     try:
         parsed = json.loads(content)
     except json.JSONDecodeError as exc:
-        detail = f"chat upstream response choices[{choice_index}].message.content is not valid JSON for response_format={response_type}."
+        detail = f"chat upstream response choices[{choice_index}].message.content is not valid JSON for response_format={response_type}; increase max_tokens or simplify the prompt/schema."
         if choice.get("finish_reason") == "length":
             detail += " The response may have been truncated by max_tokens."
         raise ServiceError("UPSTREAM_SCHEMA_ERROR", detail, True, 502) from exc
@@ -61,14 +61,14 @@ def _validate_response_json_content(
     except SchemaError as exc:
         raise ServiceError("UPSTREAM_SCHEMA_ERROR", "Gateway response expectation contains an invalid JSON Schema.", True, 502) from exc
     except ValidationError as exc:
-        detail = f"chat upstream response choices[{choice_index}].message.content does not match response_format.json_schema."
+        detail = f"chat upstream response choices[{choice_index}].message.content does not match response_format.json_schema; simplify response_format.json_schema or increase max_tokens."
         if choice.get("finish_reason") == "length":
             detail += " The response may have been truncated by max_tokens."
         raise ServiceError("UPSTREAM_SCHEMA_ERROR", detail, True, 502) from exc
     except Exception as exc:
         raise ServiceError(
             "UPSTREAM_SCHEMA_ERROR",
-            "upstream response could not be validated against response_format.json_schema.",
+            "upstream response could not be validated against response_format.json_schema; check error.debug for the validation reason.",
             True,
             502,
         ) from exc

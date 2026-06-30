@@ -240,9 +240,19 @@ class GatewayService:
                         chunk_count += 1
                         byte_count += len(chunk)
                         if chunk_count > self.settings.streaming_max_chunks:
-                            raise ServiceError("STREAM_LIMIT_EXCEEDED", "stream chunk limit exceeded.", False, 504)
+                            raise ServiceError(
+                                "STREAM_LIMIT_EXCEEDED",
+                                f"stream emitted {chunk_count} chunks; limit is {self.settings.streaming_max_chunks}. Reduce max_tokens or retry without stream=true.",
+                                False,
+                                504,
+                            )
                         if byte_count > self.settings.streaming_max_bytes:
-                            raise ServiceError("STREAM_LIMIT_EXCEEDED", "stream byte limit exceeded.", False, 504)
+                            raise ServiceError(
+                                "STREAM_LIMIT_EXCEEDED",
+                                f"stream emitted {byte_count} bytes; limit is {self.settings.streaming_max_bytes}. Reduce max_tokens or retry without stream=true.",
+                                False,
+                                504,
+                            )
                         if not first_chunk_recorded:
                             first_chunk_recorded = True
                             self.metrics.record_streaming_first_chunk(target, time.monotonic() - start)
