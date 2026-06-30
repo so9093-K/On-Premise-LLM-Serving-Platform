@@ -14,6 +14,7 @@ class PublicModel:
     capabilities: tuple[str, ...]
     request_parameters: dict[str, dict[str, Any]]
     fixed_parameters: dict[str, Any]
+    input_modalities: tuple[str, ...] = ()
     object: str = "model"
 
     def as_response_item(self) -> dict[str, Any]:
@@ -24,6 +25,12 @@ class PublicModel:
             "capabilities": list(self.capabilities),
             "request_parameters": dict(self.request_parameters),
         }
+        # input_modalities is the input content types a client may send. The static
+        # listing carries the catalog default; the gateway overlays the *active*
+        # main-model profile's modalities at request time so this stays the single
+        # source clients can trust -- the same set the chat validator enforces.
+        if self.input_modalities:
+            item["input_modalities"] = list(self.input_modalities)
         if self.fixed_parameters:
             item["fixed_parameters"] = dict(self.fixed_parameters)
         return item
@@ -66,6 +73,7 @@ class ModelRecord:
             capabilities=self.capabilities,
             request_parameters=self.request_parameters,
             fixed_parameters=self.fixed_parameters,
+            input_modalities=self.input_modalities,
         )
 
 

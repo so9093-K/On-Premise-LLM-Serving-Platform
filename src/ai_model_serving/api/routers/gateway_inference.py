@@ -36,6 +36,21 @@ def _active_input_modalities(main_model: dict[str, Any]) -> tuple[str, ...] | No
     return tuple(deployed)
 
 
+async def _resolve_active_main_modalities(sidecar: "SidecarClient | None", settings: Any) -> tuple[str, ...]:
+    """Modalities the main model accepts right now, resolved from the same source the
+    chat validator uses: the active profile (sidecar snapshot) with the static catalog
+    default as fallback. Best-effort -- a sidecar outage falls back rather than failing
+    the listing, so /v1/models never depends on the control plane being up."""
+    static_default = tuple(settings.main_llm.allowed_input_modalities)
+    if sidecar is None:
+        return static_default
+    try:
+        main_model = await sidecar.main_model()
+    except SidecarUnavailableError:
+        return static_default
+    return _active_input_modalities(main_model) or static_default
+
+
 def build_router(
     api_dependencies: list,
     service: Any,
@@ -57,7 +72,16 @@ def build_router(
         description=_s.description,
     )
     async def models() -> dict[str, Any]:
-        return {"object": "list", "data": [dict(item) for item in settings.public_models]}
+        items = [dict(item) for item in settings.public_models]
+        # Overlay the active main-model profile's input modalities so the listing
+        # advertises what is actually servable now (e.g. audio/video on a multimodal
+        # profile), matching the chat validator instead of the static catalog default.
+        active_modalities = await _resolve_active_main_modalities(sidecar, settings)
+        main_model_id = settings.main_llm.model
+        for item in items:
+            if item.get("id") == main_model_id:
+                item["input_modalities"] = list(active_modalities)
+        return {"object": "list", "data": items}
 
     _s = _GW[("POST", "/v1/chat/completions")]
 

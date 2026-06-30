@@ -46,12 +46,12 @@ RISK_RESPONSE_REQUIRED_FIELDS = {
 def read_risk_prompt(payload: Any) -> str:
     payload = ensure_object(payload)
     if set(payload) != {"prompt"}:
-        raise ServiceError("VALIDATION_ERROR", "request body must contain only prompt.", False, 422)
+        raise ServiceError("VALIDATION_ERROR", "request body must contain only prompt.", False, 422, param="prompt")
     prompt = payload.get("prompt")
     if not isinstance(prompt, str) or not prompt.strip():
-        raise ServiceError("VALIDATION_ERROR", "prompt is required.", False, 422)
+        raise ServiceError("VALIDATION_ERROR", "prompt is required.", False, 422, param="prompt")
     if len(prompt) > MAX_RISK_PROMPT_LENGTH:
-        raise ServiceError("VALIDATION_ERROR", "prompt must be 20000 characters or fewer.", False, 422)
+        raise ServiceError("VALIDATION_ERROR", "prompt must be 20000 characters or fewer.", False, 422, param="prompt")
     return prompt
 
 

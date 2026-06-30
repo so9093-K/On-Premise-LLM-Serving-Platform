@@ -4,9 +4,10 @@ from collections.abc import AsyncIterator, Callable, Awaitable
 from contextlib import asynccontextmanager
 from typing import Any
 
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import HTMLResponse, JSONResponse
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from .docs_ui import scalar_html
 from .errors import ServiceError, default_code_for_status, error_response, request_id_from_headers, service_error_debug
@@ -133,14 +134,33 @@ def install_exception_handlers(
             service_error_debug(exc),
         )
 
-    @app.exception_handler(HTTPException)
-    async def http_error_handler(request: Request, exc: HTTPException) -> JSONResponse:
+    # Register on the Starlette base class so unmatched-route 404s and 405s (raised by
+    # the router as the base HTTPException, not FastAPI's subclass) also get the
+    # platform error envelope -- with code and request_id -- instead of Starlette's
+    # bare {"detail": ...}. FastAPI's HTTPException subclasses this, so in-route
+    # raises keep flowing through here unchanged.
+    @app.exception_handler(StarletteHTTPException)
+    async def http_error_handler(request: Request, exc: StarletteHTTPException) -> JSONResponse:
         code = default_code_for_status(exc.status_code)
         return error_response(code, str(exc.detail), False, exc.status_code, request_id_from_headers(request.headers))
 
     @app.exception_handler(RequestValidationError)
     async def validation_error_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
         errors = exc.errors()
+        # A body that fails JSON parsing surfaces as a single json_invalid error whose
+        # loc is the byte offset of the syntax error, not a field. Treating that offset
+        # as a field path produced a meaningless param (e.g. "22") and a cryptic
+        # "22: JSON decode error" message, so handle it explicitly: name the parse
+        # reason and leave param unset (no field is identifiable).
+        if len(errors) == 1 and errors[0].get("type") == "json_invalid":
+            reason = (errors[0].get("ctx") or {}).get("error") or errors[0].get("msg", "invalid JSON")
+            return error_response(
+                "VALIDATION_ERROR",
+                f"Request body is not valid JSON: {reason}.",
+                False,
+                422,
+                request_id_from_headers(request.headers),
+            )
         parts = [
             f"{_field_path(e.get('loc', ())) or 'request'}: {e.get('msg', '')}"
             for e in errors

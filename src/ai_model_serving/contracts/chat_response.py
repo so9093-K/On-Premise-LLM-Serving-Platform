@@ -11,7 +11,7 @@ from .chat_common import ChatResponseExpectations
 from .chat_tools import _validate_tool_calls
 from .common import ensure_object, is_int, is_number
 
-def _validate_assistant_response_message(message: Any, *, choice_index: int) -> None:
+def _validate_assistant_response_message(message: Any, *, choice_index: int, finish_reason: Any = None) -> None:
     if not isinstance(message, dict) or message.get("role") != "assistant":
         raise ServiceError("UPSTREAM_SCHEMA_ERROR", f"chat upstream response choices[{choice_index}].message must contain an assistant message.", True, 502)
     content = message.get("content")
@@ -24,7 +24,15 @@ def _validate_assistant_response_message(message: Any, *, choice_index: int) -> 
     if content is None and tool_calls:
         _validate_tool_calls(tool_calls)
         return
-    raise ServiceError("UPSTREAM_SCHEMA_ERROR", f"chat upstream response choices[{choice_index}].message must contain assistant text content or tool_calls.", True, 502)
+    detail = f"chat upstream response choices[{choice_index}].message must contain assistant text content or tool_calls."
+    # finish_reason="length" with no content means generation hit max_tokens before
+    # emitting any answer -- a request-side budget problem, not a malformed upstream
+    # response. This is common with reasoning=true, where the thinking phase can
+    # consume the whole budget. Name the cause and the fix so a bare retry (which
+    # would fail identically at the same max_tokens) is not the obvious next step.
+    if finish_reason == "length":
+        detail += " The response was truncated by max_tokens before any content was emitted; increase max_tokens (reasoning requests need extra budget for the thinking phase)."
+    raise ServiceError("UPSTREAM_SCHEMA_ERROR", detail, True, 502)
 
 
 def _validate_response_json_content(
@@ -132,7 +140,7 @@ def validate_chat_response(
     for index, choice in enumerate(choices):
         if not isinstance(choice, dict):
             raise ServiceError("UPSTREAM_SCHEMA_ERROR", f"chat upstream response choices[{index}] must be an object.", True, 502)
-        _validate_assistant_response_message(choice.get("message"), choice_index=index)
+        _validate_assistant_response_message(choice.get("message"), choice_index=index, finish_reason=choice.get("finish_reason"))
         if expectations is not None:
             _validate_response_json_content(choice, choice_index=index, expectations=expectations)
             if expectations.expect_logprobs and not expectations.stream:

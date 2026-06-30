@@ -55,6 +55,13 @@
               ]
             }
           },
+          "input_modalities": {
+            "type": "array",
+            "description": "현재 활성 모델 프로파일이 입력으로 허용하는 content 종류입니다. chat 요청 검증이 강제하는 집합과 동일하며, 프로파일 전환에 따라 달라질 수 있습니다.",
+            "items": {
+              "type": "string"
+            }
+          },
           "request_parameters": {
             "type": "object",
             "description": "모델별 사용자 조정 가능 request parameter와 제약 조건입니다. prompt/messages/input 같은 필수 입력 본문은 여기에 포함하지 않습니다.",

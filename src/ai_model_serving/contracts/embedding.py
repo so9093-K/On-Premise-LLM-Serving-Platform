@@ -16,21 +16,21 @@ def validate_embedding_request(
 ) -> dict[str, Any]:
     payload = ensure_object(payload)
     if payload.get("model") != expected_model:
-        raise ServiceError("VALIDATION_ERROR", f"model must be {expected_model}.", False, 422)
+        raise ServiceError("VALIDATION_ERROR", f"model must be {expected_model}.", False, 422, param="model")
 
     policy = request_parameter_policy or {}
     if policy.get("allow_unlisted_parameters") is False:
         allowed = {"model", "input"}.union(set(policy.get("supported_parameters", [])))
         unknown = sorted(set(payload) - allowed)
         if unknown:
-            raise ServiceError("VALIDATION_ERROR", f"Unsupported embedding field(s): {', '.join(unknown)}.", False, 422)
+            raise ServiceError("VALIDATION_ERROR", f"Unsupported embedding field(s): {', '.join(unknown)}.", False, 422, param=unknown[0])
 
     input_value = payload.get("input")
     valid_input = isinstance(input_value, str) or (
         isinstance(input_value, list) and bool(input_value) and all(isinstance(item, str) for item in input_value)
     )
     if not valid_input:
-        raise ServiceError("VALIDATION_ERROR", "input must be a string or non-empty string array.", False, 422)
+        raise ServiceError("VALIDATION_ERROR", "input must be a string or non-empty string array.", False, 422, param="input")
 
     supported_dimensions = set(policy.get("dimensions", EMBEDDING_DIMENSIONS))
     dimensions = payload.get("dimensions")
@@ -40,14 +40,15 @@ def validate_embedding_request(
             f"dimensions must be one of {sorted(supported_dimensions)}.",
             False,
             422,
+            param="dimensions",
         )
     if "encoding_format" in payload and payload["encoding_format"] != "float":
-        raise ServiceError("VALIDATION_ERROR", "encoding_format must be float.", False, 422)
+        raise ServiceError("VALIDATION_ERROR", "encoding_format must be float.", False, 422, param="encoding_format")
     if "truncate_prompt_tokens" in payload:
         value = payload["truncate_prompt_tokens"]
         max_tokens = int(policy.get("max_truncate_prompt_tokens", 2048))
         if not is_int(value) or not (value == -1 or 1 <= value <= max_tokens):
-            raise ServiceError("VALIDATION_ERROR", f"truncate_prompt_tokens must be -1 or an integer between 1 and {max_tokens}.", False, 422)
+            raise ServiceError("VALIDATION_ERROR", f"truncate_prompt_tokens must be -1 or an integer between 1 and {max_tokens}.", False, 422, param="truncate_prompt_tokens")
     return payload
 
 
