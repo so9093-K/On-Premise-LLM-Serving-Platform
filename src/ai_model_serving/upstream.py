@@ -8,7 +8,7 @@ from urllib.parse import urlsplit, urlunsplit
 
 import httpx
 
-from .errors import ERROR_STATUS, ServiceError
+from .errors import DEBUG_VALUE_LIMIT, ERROR_STATUS, ServiceError
 from .settings import RuntimeEndpoint
 
 
@@ -69,7 +69,23 @@ def _platform_error_from_response(response: httpx.Response) -> ServiceError | No
         retryable,
         response.status_code,
         request_id if isinstance(request_id, str) else None,
+        debug={
+            "upstream_status": response.status_code,
+            **({"upstream_request_id": request_id} if isinstance(request_id, str) else {}),
+        },
     )
+
+
+def _upstream_response_debug(response: httpx.Response) -> dict[str, Any]:
+    raw_body = response.content[:DEBUG_VALUE_LIMIT]
+    body = raw_body.decode(response.encoding or "utf-8", errors="replace")
+    if len(response.content) > DEBUG_VALUE_LIMIT:
+        body = f"{body}... [truncated]"
+    return {
+        "upstream_status": response.status_code,
+        "upstream_reason": response.reason_phrase,
+        "upstream_body": body,
+    }
 
 
 def _http_status_to_service_error(endpoint: RuntimeEndpoint, response_or_status: httpx.Response | int) -> ServiceError:
@@ -78,20 +94,23 @@ def _http_status_to_service_error(endpoint: RuntimeEndpoint, response_or_status:
         if platform_error is not None:
             return platform_error
         status = response_or_status.status_code
+        debug = _upstream_response_debug(response_or_status)
     else:
         status = response_or_status
+        debug = {"upstream_status": status}
     if status == 429:
-        return ServiceError("RATE_LIMITED", f"Upstream rate limited: {endpoint.logical_id}", True, 429)
+        return ServiceError("RATE_LIMITED", f"Upstream rate limited: {endpoint.logical_id}", True, 429, debug=debug)
     if status in {400, 404, 422}:
         return ServiceError(
             "VALIDATION_ERROR",
-            f"Upstream rejected the request for {endpoint.logical_id} with HTTP {status}; check the Gateway-supported request contract.",
+            f"Upstream rejected the request for {endpoint.logical_id} with HTTP {status}; check error.debug.upstream_body for the runtime reason and adjust the request.",
             False,
             422,
+            debug=debug,
         )
     if status in {401, 403}:
-        return ServiceError("UPSTREAM_ERROR", f"Upstream authorization failed: {endpoint.logical_id}", True, 502)
-    return ServiceError("UPSTREAM_ERROR", f"Upstream failed: {endpoint.logical_id}", True, 502)
+        return ServiceError("UPSTREAM_ERROR", f"Upstream authorization failed: {endpoint.logical_id}", True, 502, debug=debug)
+    return ServiceError("UPSTREAM_ERROR", f"Upstream failed: {endpoint.logical_id}", True, 502, debug=debug)
 
 class VLLMClient:
     def __init__(self, endpoint: RuntimeEndpoint) -> None:

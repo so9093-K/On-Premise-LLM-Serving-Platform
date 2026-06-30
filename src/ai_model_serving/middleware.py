@@ -15,7 +15,7 @@ WRITE_METHODS = {"POST", "PUT", "PATCH"}
 def _too_large_response(request: Request, max_body_bytes: int) -> Response:
     return error_response(
         "REQUEST_TOO_LARGE",
-        f"Request body exceeds {max_body_bytes} bytes.",
+        f"Request body exceeds {max_body_bytes} bytes. Limit applies to the full JSON body, including base64 media; reduce media size or split the request.",
         False,
         413,
         request_id_from_headers(request.headers),

@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import json
+from dataclasses import replace
+
 from .helpers import *  # noqa: F401,F403
 
 def test_gateway_rejects_invalid_payloads_before_upstream_call():
@@ -207,6 +210,30 @@ def test_gateway_streaming_emits_sse_error_after_partial_chunk():
     assert 'streaming_errors_total{code="UPSTREAM_TIMEOUT",phase="mid_stream",service="gateway",target="local-main"} 1.0' in metrics
 
 
+def test_gateway_streaming_limit_exceeded_is_not_retryable():
+    clients = FakeGatewayClients()
+    clients.main_llm.stream_chunks = [
+        b'data: {"choices":[{"delta":{"content":"first"}}]}\n\n',
+        b'data: {"choices":[{"delta":{"content":"second"}}]}\n\n',
+    ]
+    client = TestClient(create_gateway_app(replace(settings(), streaming_max_chunks=1), clients))
+
+    response = client.post(
+        "/v1/chat/completions",
+        headers=auth_headers(),
+        json={"model": "local-main", "stream": True, "messages": [{"role": "user", "content": "hello"}]},
+    )
+
+    body = response.content.decode()
+    assert response.status_code == 200
+    assert "event: error" in body
+    error_event = body.split("event: error", 1)[1]
+    error_line = next(line for line in error_event.splitlines() if line.startswith("data: {"))
+    payload = json.loads(error_line.removeprefix("data: "))
+    assert payload["error"]["code"] == "STREAM_LIMIT_EXCEEDED"
+    assert payload["error"]["retryable"] is False
+
+
 def test_gateway_accepts_upstream_tool_call_response_schema():
     clients = FakeGatewayClients()
     clients.main_llm = FakeRuntimeClient({
@@ -292,4 +319,3 @@ def test_gateway_logprobs_logit_bias_and_stream_contracts():
     )
     assert stream.status_code == 200
     assert '"logprobs"' in stream.content.decode()
-

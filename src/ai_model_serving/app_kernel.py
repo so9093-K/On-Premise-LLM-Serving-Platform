@@ -9,7 +9,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import HTMLResponse, JSONResponse
 
 from .docs_ui import scalar_html
-from .errors import ServiceError, default_code_for_status, error_response, request_id_from_headers
+from .errors import ServiceError, default_code_for_status, error_response, request_id_from_headers, service_error_debug
 from .logging_policy import safe_request_logging_middleware
 from .metrics import Metrics
 from .middleware import enforce_request_body_limit
@@ -130,6 +130,7 @@ def install_exception_handlers(
             exc.status_code,
             request_id_from_headers(request.headers),
             exc.param,
+            service_error_debug(exc),
         )
 
     @app.exception_handler(HTTPException)

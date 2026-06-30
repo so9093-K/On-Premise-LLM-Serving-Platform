@@ -577,14 +577,14 @@ def validate_multimodal_chat_and_token_caps() -> None:
         'image_url.url scheme must be one of',
         'max_tokens must be less than or equal to',
         'at most {max_image_inputs} image',
-        'decoded image must be',
+        'decoded image is',
         'image dimensions',
-        'MIME type must be one of',
+        'MIME type is',
         'valid base64',
-        'input_audio.format must be one of',
+        'input_audio.format is',
         'video_url.url scheme must be one of',
         'at most {max_video_inputs} video',
-        'video_url decoded video must be',
+        'video_url decoded video is',
     ]:
         if phrase not in validation:
             raise SystemExit(f'runtime contract validators must enforce multimodal bounds and token caps: {phrase}')

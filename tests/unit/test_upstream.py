@@ -20,6 +20,19 @@ def test_upstream_client_request_errors_are_validation_errors_not_502() -> None:
         assert not _counts_as_upstream_failure(exc)
 
 
+def test_upstream_http_error_preserves_status_and_body_debug() -> None:
+    response = httpx.Response(400, text="audio decoder failed")
+
+    exc = _http_status_to_service_error(endpoint(), response)
+
+    assert exc.code == "VALIDATION_ERROR"
+    assert exc.debug == {
+        "upstream_status": 400,
+        "upstream_reason": "Bad Request",
+        "upstream_body": "audio decoder failed",
+    }
+
+
 def test_upstream_platform_error_payload_is_preserved_for_gateway_risk_forwarding() -> None:
     response = httpx.Response(
         410,
@@ -39,6 +52,7 @@ def test_upstream_platform_error_payload_is_preserved_for_gateway_risk_forwardin
     assert exc.status_code == 410
     assert exc.retryable is False
     assert exc.request_id == "req_disabled"
+    assert exc.debug == {"upstream_status": 410, "upstream_request_id": "req_disabled"}
     assert not _counts_as_upstream_failure(exc)
 
 

@@ -2,14 +2,20 @@ from __future__ import annotations
 
 import pytest
 
+from ai_model_serving.contracts.chat_request import validate_chat_request
 from ai_model_serving.contracts.chat_response_format import _validate_response_format
 from ai_model_serving.contracts.common import reject_unknown_fields
 from ai_model_serving.contracts.media import _validate_input_audio
-from ai_model_serving.errors import ServiceError, default_code_for_status, error_payload
+from ai_model_serving.errors import ServiceError, default_code_for_status, error_payload, service_error_debug
 
 # Permissive policy so the response_format validator reaches a field-level rejection
 # rather than the "not enabled" gate (either way param must name response_format).
 _RF_POLICY = {"response_format": {"enabled": True, "types": ["text", "json_schema"]}}
+_STRICT_CHAT_POLICY = {
+    "allow_unlisted_parameters": False,
+    "supported_parameters": ["stream", "stream_options", "max_tokens", "tools", "tool_choice"],
+    "tool_calling": {"enabled": True, "max_tools": 2},
+}
 
 
 def _raise(fn) -> ServiceError:
@@ -52,9 +58,106 @@ def test_wrong_response_format_and_wrong_data_format_are_distinguishable():
     assert rf.param != df.param
 
 
+def test_response_format_json_schema_error_carries_schema_param():
+    exc = _raise(
+        lambda: validate_chat_request(
+            {
+                "model": "local-main",
+                "messages": [{"role": "user", "content": "Return JSON."}],
+                "response_format": {
+                    "type": "json_schema",
+                    "json_schema": {
+                        "name": "answer",
+                        "schema": {"type": "array"},
+                    },
+                },
+            },
+            expected_model="local-main",
+            request_parameter_policy={
+                "allow_unlisted_parameters": False,
+                "supported_parameters": ["response_format"],
+                "response_format": {"enabled": True, "types": ["json_schema"]},
+            },
+        )
+    )
+
+    assert exc.code == "VALIDATION_ERROR"
+    assert exc.param == "response_format.json_schema.schema"
+
+
 def test_reject_unknown_fields_sets_param_from_context():
     exc = _raise(lambda: reject_unknown_fields({"junk": 1}, {"data"}, "input_audio"))
     assert exc.param == "input_audio"
+
+
+@pytest.mark.parametrize(
+    ("payload", "param"),
+    [
+        ({"model": "wrong", "messages": [{"role": "user", "content": "hi"}]}, "model"),
+        ({"model": "local-main"}, "messages"),
+        ({"model": "local-main", "stream": "true", "messages": [{"role": "user", "content": "hi"}]}, "stream"),
+        (
+            {
+                "model": "local-main",
+                "stream_options": {"include_usage": True},
+                "messages": [{"role": "user", "content": "hi"}],
+            },
+            "stream_options",
+        ),
+        ({"model": "local-main", "max_tokens": 0, "messages": [{"role": "user", "content": "hi"}]}, "max_tokens"),
+        ({"model": "local-main", "foo": 1, "messages": [{"role": "user", "content": "hi"}]}, "foo"),
+        ({"model": "local-main", "messages": [{"role": "bad", "content": "hi"}]}, "messages[0].role"),
+    ],
+)
+def test_chat_validation_errors_carry_actionable_param(payload, param):
+    exc = _raise(
+        lambda: validate_chat_request(
+            payload,
+            expected_model="local-main",
+            max_output_tokens=1024,
+            request_parameter_policy=_STRICT_CHAT_POLICY,
+        )
+    )
+    assert exc.code == "VALIDATION_ERROR"
+    assert exc.param == param
+
+
+def test_chat_audio_disabled_error_points_to_audio_part():
+    exc = _raise(
+        lambda: validate_chat_request(
+            {
+                "model": "local-main",
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "input_audio", "input_audio": {"data": "AAAA", "format": "mp3"}},
+                        ],
+                    }
+                ],
+            },
+            expected_model="local-main",
+            allowed_input_modalities=("text", "image"),
+            request_parameter_policy=_STRICT_CHAT_POLICY,
+        )
+    )
+    assert exc.param == "input_audio"
+    assert "active main model profile" in exc.message
+
+
+def test_chat_tool_errors_carry_tool_param():
+    exc = _raise(
+        lambda: validate_chat_request(
+            {
+                "model": "local-main",
+                "messages": [{"role": "user", "content": "hi"}],
+                "tool_choice": {"type": "function", "function": {"name": "missing"}},
+            },
+            expected_model="local-main",
+            request_parameter_policy=_STRICT_CHAT_POLICY,
+        )
+    )
+    assert exc.param == "tool_choice"
 
 
 def test_default_code_for_status_does_not_contradict_status():
@@ -109,3 +212,42 @@ def test_error_payload_omits_param_when_absent_and_includes_when_present():
     assert "param" not in without
     with_param = error_payload("VALIDATION_ERROR", "x", False, param="input_audio.format")["error"]
     assert with_param["param"] == "input_audio.format"
+
+
+def test_error_payload_includes_bounded_debug_when_present():
+    payload = error_payload(
+        "UPSTREAM_ERROR",
+        "upstream failed",
+        True,
+        debug={"cause_type": "HTTPStatusError", "cause_message": "x" * 2100, "upstream_status": 400},
+    )["error"]
+
+    assert payload["debug"]["cause_type"] == "HTTPStatusError"
+    assert payload["debug"]["upstream_status"] == 400
+    assert payload["debug"]["cause_message"].endswith("... [truncated]")
+
+
+def test_service_error_debug_uses_original_cause_when_available():
+    captured: ServiceError | None = None
+    try:
+        try:
+            raise ValueError("decoder failed")
+        except ValueError as cause:
+            raise ServiceError(
+                "VALIDATION_ERROR",
+                "media decode failed",
+                False,
+                422,
+                debug={"upstream_status": 400},
+            ) from cause
+    except ServiceError as exc:
+        captured = exc
+
+    assert captured is not None
+    exc = captured
+    debug = service_error_debug(exc)
+    assert debug == {
+        "upstream_status": 400,
+        "cause_type": "ValueError",
+        "cause_message": "decoder failed",
+    }

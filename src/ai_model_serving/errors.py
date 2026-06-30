@@ -4,7 +4,6 @@ from dataclasses import dataclass
 from typing import Any
 from uuid import uuid4
 
-from fastapi import HTTPException
 from fastapi.responses import JSONResponse
 
 ERROR_STATUS = {
@@ -31,6 +30,8 @@ ERROR_STATUS = {
     "MAIN_MODEL_CONTROL_UNAVAILABLE": 503,
     "MAIN_MODEL_SWITCH_IN_PROGRESS": 503,
 }
+
+DEBUG_VALUE_LIMIT = 2_000
 
 # Default platform error code for a bare HTTP status. ``HTTPException`` carries only
 # a status, so the error handler needs a representative code that does not contradict
@@ -73,12 +74,49 @@ def request_id_from_headers(headers: Any) -> str | None:
     return request_id
 
 
+def _bounded_debug_string(value: Any) -> str:
+    text = str(value)
+    if len(text) <= DEBUG_VALUE_LIMIT:
+        return text
+    return f"{text[:DEBUG_VALUE_LIMIT]}... [truncated]"
+
+
+def _bounded_debug_value(value: Any) -> Any:
+    if isinstance(value, str):
+        return _bounded_debug_string(value)
+    if isinstance(value, (bool, int, float)) or value is None:
+        return value
+    return _bounded_debug_string(value)
+
+
+def exception_debug(exc: BaseException | None) -> dict[str, Any] | None:
+    """Return a bounded, response-safe summary of the original exception."""
+    if exc is None:
+        return None
+    return {
+        "cause_type": type(exc).__name__,
+        "cause_message": _bounded_debug_string(exc),
+    }
+
+
+def service_error_debug(exc: "ServiceError") -> dict[str, Any] | None:
+    debug = dict(exc.debug or {})
+    cause_debug = exception_debug(exc.__cause__)
+    if cause_debug:
+        for key, value in cause_debug.items():
+            debug.setdefault(key, value)
+    if not debug:
+        return None
+    return {str(key): _bounded_debug_value(value) for key, value in debug.items()}
+
+
 def error_payload(
     code: str,
     message: str,
     retryable: bool,
     request_id: str | None = None,
     param: str | None = None,
+    debug: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     error: dict[str, Any] = {
         "code": code,
@@ -92,6 +130,8 @@ def error_payload(
     # responses without a field source stay byte-identical to before.
     if param is not None:
         error["param"] = param
+    if debug:
+        error["debug"] = {str(key): _bounded_debug_value(value) for key, value in debug.items()}
     return {"error": error}
 
 
@@ -102,9 +142,10 @@ def error_response(
     status_code: int | None = None,
     request_id: str | None = None,
     param: str | None = None,
+    debug: dict[str, Any] | None = None,
 ) -> JSONResponse:
     return JSONResponse(
-        error_payload(code, message, retryable, request_id, param),
+        error_payload(code, message, retryable, request_id, param, debug),
         status_code=status_code or ERROR_STATUS.get(code, 500),
     )
 
@@ -117,17 +158,20 @@ class ServiceError(Exception):
     status_code: int | None = None
     request_id: str | None = None
     param: str | None = None
+    debug: dict[str, Any] | None = None
 
     def to_payload(self) -> dict[str, Any]:
-        return error_payload(self.code, self.message, self.retryable, self.request_id, self.param)
+        return error_payload(
+            self.code,
+            self.message,
+            self.retryable,
+            self.request_id,
+            self.param,
+            service_error_debug(self),
+        )
 
     def to_response(self) -> JSONResponse:
         return JSONResponse(
             self.to_payload(),
             status_code=self.status_code or ERROR_STATUS.get(self.code, 500),
         )
-
-
-def http_exception_to_error(exc: HTTPException) -> JSONResponse:
-    code = "UNAUTHORIZED" if exc.status_code == 401 else "VALIDATION_ERROR"
-    return error_response(code, str(exc.detail), False, exc.status_code)

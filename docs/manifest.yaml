@@ -438,6 +438,9 @@ documents:
     source_of_truth:
       - src/ai_model_serving/errors.py
       - configs/error_catalog.yaml
+      - src/ai_model_serving/contracts/chat_request.py
+      - src/ai_model_serving/contracts/chat_tools.py
+      - src/ai_model_serving/contracts/media.py
     verified_by:
       - tests/contract/test_error_catalog.py
       - scripts/render_runtime_assets.py

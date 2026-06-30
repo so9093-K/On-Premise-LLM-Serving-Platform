@@ -24,6 +24,32 @@ def test_gateway_unhandled_exception_uses_common_error_schema():
     Draft202012Validator(error_schema()).validate(response.json())
 
 
+def test_gateway_service_error_response_includes_original_cause_debug():
+    class CauseRuntimeClient(FakeRuntimeClient):
+        async def post_json(self, path, payload, **kwargs):
+            try:
+                raise ValueError("audio decoder failed")
+            except ValueError as cause:
+                raise ServiceError("VALIDATION_ERROR", "Upstream rejected local-main.", False, 422) from cause
+
+    clients = FakeGatewayClients()
+    clients.main_llm = CauseRuntimeClient(endpoint=clients.main_llm.endpoint)
+    client = TestClient(create_gateway_app(settings(), clients))
+
+    response = client.post(
+        "/v1/chat/completions",
+        headers=auth_headers(),
+        json={"model": "local-main", "messages": [{"role": "user", "content": "hello"}]},
+    )
+
+    assert response.status_code == 422
+    body = response.json()
+    assert body["error"]["code"] == "VALIDATION_ERROR"
+    assert body["error"]["debug"]["cause_type"] == "ValueError"
+    assert body["error"]["debug"]["cause_message"] == "audio decoder failed"
+    Draft202012Validator(error_schema()).validate(body)
+
+
 def test_gateway_rejects_oversized_request_body():
     cfg = settings()
     cfg = AppSettings(

@@ -51,7 +51,7 @@ errors:
     meaning: "upstream 런타임이 오류를 반환했거나 통신에 실패했다."
     action: "잠시 후 재시도한다. 반복되면 런타임 로그를 확인한다."
   UPSTREAM_SCHEMA_ERROR:
-    retryable: false
+    retryable: true
     meaning: "structured output 생성이 요청한 json_schema 를 만족하지 못했다."
     action: "response_format.json_schema 를 단순화하거나 max_tokens 를 늘린다."
   RATE_LIMITED:
@@ -75,7 +75,7 @@ errors:
     meaning: "런타임이 아직 기동/준비 중이다."
     action: "준비 완료 후 재시도한다(/health 와 런타임 상태 확인)."
   PARSE_ERROR:
-    retryable: false
+    retryable: true
     meaning: "upstream 응답을 파싱할 수 없었다(유효하지 않은 형식)."
     action: "반복되면 런타임 상태·로그를 확인한다."
   INTERNAL_ERROR:

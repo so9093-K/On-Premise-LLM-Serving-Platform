@@ -125,13 +125,13 @@ curl -sN http://localhost:9400/v1/chat/completions \
 - proxy(Nginx, Ingress) 앞단이 있으면 `proxy_buffering off` 설정이 필요하다. 상세는 `docs/operations/streaming_runtime_operations.md`를 참고한다.
 - streaming 중 upstream 오류가 발생하면 정상 JSON error envelope 대신 `event: error` SSE event가 온다. Gateway stream guard가 chunk/byte limit을 초과한 경우도 같은 SSE error event로 전달되며 code는 `STREAM_LIMIT_EXCEEDED`다.
 
-## 공통 Error Code
+## Chat Error Reference
 
-`CommonErrorResponse.error.code` enum은 `src/ai_model_serving/errors.py`의 `ERROR_STATUS`와 Gateway/Risk Adapter OpenAPI에 동시에 고정된다. `DETECTOR_DISABLED`는 Risk Adapter에서 detector가 설정되지 않았을 때 410으로 발생하며, Gateway가 Risk Adapter의 공통 error envelope를 받은 경우 410과 code를 보존한다.
+`CommonErrorResponse.error.code` enum은 `src/ai_model_serving/errors.py`의 `ERROR_STATUS`와 Gateway/Risk Adapter OpenAPI에 동시에 고정된다. 다만 이 문서에서 연결하는 레퍼런스는 Chat API 호출자가 바로 해석해야 하는 오류를 우선 설명한다.
 
-각 `code`의 의미·HTTP status·retryable·권장 조치는 **[에러 코드 레퍼런스](error_reference.md)** 표를 따른다(생성 문서, 단일 소스: `errors.py` + `configs/error_catalog.yaml`). 생성 OpenAPI는 각 에러 응답에 그 status로 올 수 있는 code만 enum으로 노출하고 description에 의미를 함께 보여주므로, Scalar에서 status→code→의미를 바로 확인할 수 있다.
+`/v1/chat/completions`에서 사용자가 실제로 마주치는 입력 검증, capability, streaming, upstream 응답 오류의 의미·HTTP status·retryable·권장 조치는 **[Chat API 에러 레퍼런스](error_reference.md)** 를 따른다. 통합 에러 코드 카탈로그는 별도 정리 대상으로 두고, 생성 OpenAPI는 각 에러 응답에 그 status로 올 수 있는 code만 enum으로 노출하고 description에 의미를 함께 보여준다.
 
-검증 오류(`VALIDATION_ERROR`)는 `error.param`에 문제 필드 경로를 담는다. 잘못된 출력 스펙은 `param`이 `response_format`/`response_format.json_schema`로, 잘못된 입력 데이터 포맷은 `input_audio.format`/`image_url`/`video_url`로 나오므로, 클라이언트는 message를 파싱하지 않고 두 오류 출처를 구분할 수 있다(OpenAI 호환 필드). 필드 범위가 아닌 오류에서는 생략된다.
+Chat 검증 오류(`VALIDATION_ERROR`)는 `error.param`에 문제 필드 경로를 담는다. 잘못된 출력 스펙은 `response_format`, 메시지 구조 문제는 `messages` 또는 `messages[0].role`, 멀티모달 입력 문제는 `input_audio`/`image_url`/`video_url`, tool 호출 문제는 `tools` 또는 `tool_choice`로 나오므로, 클라이언트는 message를 파싱하지 않고 오류 출처를 구분할 수 있다(OpenAI 호환 필드). 필드 범위가 아닌 오류에서는 생략된다. 운영·내부 개발자 진단을 위해 원본 exception cause나 upstream status/body snippet이 있으면 `error.debug`에 함께 제공된다.
 
 ## Health/readiness 노출 제약
 

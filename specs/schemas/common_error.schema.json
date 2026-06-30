@@ -62,6 +62,13 @@
         },
         "operation_status": {
           "type": ["string", "null"]
+        },
+        "debug": {
+          "description": "Diagnostic details for operators and internal developers. Values are bounded strings/scalars and may include the original exception summary or upstream status/body snippet.",
+          "type": "object",
+          "additionalProperties": {
+            "type": ["string", "number", "integer", "boolean", "null"]
+          }
         }
       }
     }

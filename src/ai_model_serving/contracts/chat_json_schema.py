@@ -9,6 +9,7 @@ from jsonschema import Draft202012Validator, SchemaError
 
 from ..errors import ServiceError
 from .chat_common import _chat_policy
+from .common import field_param
 
 JSON_SCHEMA_NAME_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 SCHEMA_VALUE_KEYS = {
@@ -96,6 +97,7 @@ def _total_schema_string_length(value: Any) -> int:
     return 0
 
 
+@field_param("response_format.json_schema.schema")
 def _validate_json_schema_subset(schema: dict[str, Any], *, policy: dict[str, Any]) -> None:
     disallowed = set(policy.get("disallowed_keywords", []))
     for obj in _iter_schema_objects(schema):
@@ -106,7 +108,7 @@ def _validate_json_schema_subset(schema: dict[str, Any], *, policy: dict[str, An
             if not isinstance(ref, str) or not ref.startswith("#"):
                 raise ServiceError(
                     "VALIDATION_ERROR",
-                    "response_format.json_schema.schema only supports local $ref values that start with '#'.",
+                    "response_format.json_schema.schema only supports local $ref values that start with '#'; replace external refs with local $defs.",
                     False,
                     422,
                 )
@@ -132,7 +134,7 @@ def _validate_json_schema_subset(schema: dict[str, Any], *, policy: dict[str, An
     if _schema_depth(schema) > max_depth:
         raise ServiceError("VALIDATION_ERROR", f"response_format.json_schema.schema depth must be {max_depth} or fewer.", False, 422)
     if policy.get("require_root_object", True) is True and schema.get("type") != "object":
-        raise ServiceError("VALIDATION_ERROR", "response_format.json_schema.schema root type must be object.", False, 422)
+        raise ServiceError("VALIDATION_ERROR", "response_format.json_schema.schema root type must be object; wrap the response fields in an object schema.", False, 422)
     root_disallowed = set(policy.get("root_disallowed_keywords", ["anyOf"]))
     for keyword in root_disallowed:
         if keyword in schema:
@@ -159,7 +161,7 @@ def _validate_json_schema_subset(schema: dict[str, Any], *, policy: dict[str, An
         properties = obj.get("properties")
         is_object_schema = obj.get("type") == "object" or isinstance(properties, dict)
         if is_object_schema and policy.get("require_additional_properties_false", True) is True and obj.get("additionalProperties") is not False:
-            raise ServiceError("VALIDATION_ERROR", "every object schema in response_format.json_schema.schema must set additionalProperties:false.", False, 422)
+            raise ServiceError("VALIDATION_ERROR", "every object schema in response_format.json_schema.schema must set additionalProperties:false; add additionalProperties:false to each object schema.", False, 422)
         if isinstance(properties, dict):
             count = len(properties)
             total_properties += count
@@ -173,7 +175,7 @@ def _validate_json_schema_subset(schema: dict[str, Any], *, policy: dict[str, An
             if not isinstance(required, list):
                 raise ServiceError(
                     "VALIDATION_ERROR",
-                    "every object schema with properties must define required as an array.",
+                    "every object schema with properties must define required as an array; include every property name in required.",
                     False,
                     422,
                 )
@@ -187,7 +189,7 @@ def _validate_json_schema_subset(schema: dict[str, Any], *, policy: dict[str, An
             if set(required) != set(properties):
                 raise ServiceError(
                     "VALIDATION_ERROR",
-                    "every object schema must list all properties in required; use nullable type unions to emulate optional fields.",
+                    "every object schema must list all properties in required; use nullable type unions like ['string','null'] to emulate optional fields.",
                     False,
                     422,
                 )
