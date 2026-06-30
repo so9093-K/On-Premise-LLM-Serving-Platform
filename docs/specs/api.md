@@ -129,6 +129,10 @@ curl -sN http://localhost:9400/v1/chat/completions \
 
 `CommonErrorResponse.error.code` enum은 `src/ai_model_serving/errors.py`의 `ERROR_STATUS`와 Gateway/Risk Adapter OpenAPI에 동시에 고정된다. `DETECTOR_DISABLED`는 Risk Adapter에서 detector가 설정되지 않았을 때 410으로 발생하며, Gateway가 Risk Adapter의 공통 error envelope를 받은 경우 410과 code를 보존한다.
 
+각 `code`의 의미·HTTP status·retryable·권장 조치는 **[에러 코드 레퍼런스](error_reference.md)** 표를 따른다(생성 문서, 단일 소스: `errors.py` + `configs/error_catalog.yaml`). 생성 OpenAPI는 각 에러 응답에 그 status로 올 수 있는 code만 enum으로 노출하고 description에 의미를 함께 보여주므로, Scalar에서 status→code→의미를 바로 확인할 수 있다.
+
+검증 오류(`VALIDATION_ERROR`)는 `error.param`에 문제 필드 경로를 담는다. 잘못된 출력 스펙은 `param`이 `response_format`/`response_format.json_schema`로, 잘못된 입력 데이터 포맷은 `input_audio.format`/`image_url`/`video_url`로 나오므로, 클라이언트는 message를 파싱하지 않고 두 오류 출처를 구분할 수 있다(OpenAI 호환 필드). 필드 범위가 아닌 오류에서는 생략된다.
+
 ## Health/readiness 노출 제약
 
 `/health`는 liveness 확인용으로 공개 가능하다. `/ready`와 `/metrics`는 admin auth 또는 internal network 보호가 필요하다. staging/production 성격의 환경에서는 외부 ingress에서 internal network 접근 정책을 함께 적용한다.

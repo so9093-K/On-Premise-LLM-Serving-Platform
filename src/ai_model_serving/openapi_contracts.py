@@ -34,6 +34,63 @@ def _json_error_response(description: str, schema: dict[str, Any]) -> dict[str, 
     }
 
 
+def _status_to_codes() -> dict[str, list[str]]:
+    """Reverse ERROR_STATUS into {http_status: [platform codes]} for per-status enums."""
+    from .errors import ERROR_STATUS
+
+    mapping: dict[str, list[str]] = {}
+    for code, status in ERROR_STATUS.items():
+        mapping.setdefault(str(status), []).append(code)
+    return mapping
+
+
+def _load_error_catalog() -> dict[str, dict[str, Any]]:
+    """Load configs/error_catalog.yaml (code -> meaning/retryable/action), best-effort."""
+    try:
+        root = find_project_root()
+        import yaml
+
+        data = yaml.safe_load((root / "configs" / "error_catalog.yaml").read_text(encoding="utf-8"))
+        errors = data.get("errors", {}) if isinstance(data, dict) else {}
+        return errors if isinstance(errors, dict) else {}
+    except Exception:
+        return {}
+
+
+def _error_code_gloss(codes: list[str], catalog: dict[str, dict[str, Any]]) -> str:
+    """Markdown gloss listing which codes a status returns, with meaning + retryable.
+
+    Scalar/Swagger render the response description as markdown, so a reader sees the
+    exact status -> code -> meaning mapping instead of the full code enum on every
+    response.
+    """
+    lines = []
+    for code in sorted(codes):
+        meta = catalog.get(code, {})
+        meaning = str(meta.get("meaning", "")).strip()
+        retry = "재시도 가능" if meta.get("retryable") else "재시도 불가"
+        lines.append(f"- `{code}` — {meaning} ({retry})" if meaning else f"- `{code}` ({retry})")
+    return "\n\n이 status로 올 수 있는 `error.code`:\n" + "\n".join(lines)
+
+
+def _narrowed_error_schema(
+    common_error_schema: dict[str, Any], status: str, status_codes: dict[str, list[str]]
+) -> dict[str, Any]:
+    """Deep-copy the common error schema and narrow code enum to this status' codes.
+
+    Keeps title and every other property (incl. ``param``) so contract tests that
+    assert ``CommonErrorResponse`` still pass; only the ``code`` enum is scoped.
+    """
+    schema = copy.deepcopy(common_error_schema)
+    allowed = status_codes.get(status)
+    if allowed:
+        try:
+            schema["properties"]["error"]["properties"]["code"]["enum"] = sorted(allowed)
+        except (KeyError, TypeError):
+            pass
+    return schema
+
+
 def _inject_standard_error_responses(document: dict[str, Any], common_error_schema: dict[str, Any]) -> None:
     """Expose the same error surface in generated OpenAPI as in checked-in specs.
 
@@ -42,7 +99,19 @@ def _inject_standard_error_responses(document: dict[str, Any], common_error_sche
     upstream timeouts, circuit-breaker/admission errors, and uncaught exceptions to
     the checked-in ``common_error`` contract.  Injecting those responses here keeps
     ``/docs`` from being weaker than ``specs/openapi.*.yaml``.
+
+    Each error response is scoped to the codes that status actually returns (rather
+    than the full enum) and its description glosses those codes, so a reader can map
+    status -> code -> meaning directly in Scalar.
     """
+    status_codes = _status_to_codes()
+    catalog = _load_error_catalog()
+
+    def with_gloss(status: str, existing: str | None) -> str:
+        base = existing or STANDARD_ERROR_DESCRIPTIONS[status]
+        gloss_codes = status_codes.get(status)
+        return base + _error_code_gloss(gloss_codes, catalog) if gloss_codes else base
+
     for path_item in document.get("paths", {}).values():
         if not isinstance(path_item, dict):
             continue
@@ -64,17 +133,14 @@ def _inject_standard_error_responses(document: dict[str, Any], common_error_sche
             for code in codes:
                 if code == "401" and not operation.get("security"):
                     continue
-                response = responses.setdefault(
-                    code,
-                    {"description": STANDARD_ERROR_DESCRIPTIONS[code]},
-                )
-                response["description"] = response.get("description") or STANDARD_ERROR_DESCRIPTIONS[code]
+                response = responses.setdefault(code, {})
+                response["description"] = with_gloss(code, response.get("description"))
                 content = response.setdefault("content", {}).setdefault("application/json", {})
-                content["schema"] = copy.deepcopy(common_error_schema)
+                content["schema"] = _narrowed_error_schema(common_error_schema, code, status_codes)
             # Inject schema for any 410 responses that are explicitly declared (e.g. retired endpoints).
             if "410" in responses and "content" not in responses["410"]:
                 content = responses["410"].setdefault("content", {}).setdefault("application/json", {})
-                content["schema"] = copy.deepcopy(common_error_schema)
+                content["schema"] = _narrowed_error_schema(common_error_schema, "410", status_codes)
 
 def find_project_root(start: Path | None = None) -> Path:
     """Locate the repository/config root that contains the JSON contract schemas."""

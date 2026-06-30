@@ -9,7 +9,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import HTMLResponse, JSONResponse
 
 from .docs_ui import scalar_html
-from .errors import ServiceError, error_response, request_id_from_headers
+from .errors import ServiceError, default_code_for_status, error_response, request_id_from_headers
 from .logging_policy import safe_request_logging_middleware
 from .metrics import Metrics
 from .middleware import enforce_request_body_limit
@@ -17,6 +17,17 @@ from .security import require_admin_bearer_auth
 from .settings import AppSettings
 
 ValidationReasonResolver = Callable[[ServiceError], str | None]
+
+# Pydantic prefixes every body field location with the request part ("body"), which
+# is noise to an API client. Strip it so the param/message name the actual field.
+_LOC_PART_MARKERS = {"body", "query", "path", "header", "cookie"}
+
+
+def _field_path(loc: Any) -> str | None:
+    parts = [str(part) for part in loc]
+    if parts and parts[0] in _LOC_PART_MARKERS:
+        parts = parts[1:]
+    return ".".join(parts) if parts else None
 
 
 @asynccontextmanager
@@ -118,22 +129,27 @@ def install_exception_handlers(
             exc.retryable,
             exc.status_code,
             request_id_from_headers(request.headers),
+            exc.param,
         )
 
     @app.exception_handler(HTTPException)
     async def http_error_handler(request: Request, exc: HTTPException) -> JSONResponse:
-        code = "UNAUTHORIZED" if exc.status_code == 401 else "VALIDATION_ERROR"
+        code = default_code_for_status(exc.status_code)
         return error_response(code, str(exc.detail), False, exc.status_code, request_id_from_headers(request.headers))
 
     @app.exception_handler(RequestValidationError)
     async def validation_error_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
         errors = exc.errors()
         parts = [
-            f"{'.'.join(str(loc) for loc in e.get('loc', ()))}: {e.get('msg', '')}"
+            f"{_field_path(e.get('loc', ())) or 'request'}: {e.get('msg', '')}"
             for e in errors
         ]
         message = "; ".join(parts) if parts else str(exc)
-        return error_response("VALIDATION_ERROR", message, False, 422, request_id_from_headers(request.headers))
+        # Surface the first offending field as param so a client can branch on the
+        # error source without parsing the joined message (same field-pointer the
+        # contract validators set on ServiceError).
+        param = _field_path(errors[0].get("loc", ())) if errors else None
+        return error_response("VALIDATION_ERROR", message, False, 422, request_id_from_headers(request.headers), param)
 
     @app.exception_handler(Exception)
     async def unhandled_error_handler(request: Request, exc: Exception) -> JSONResponse:

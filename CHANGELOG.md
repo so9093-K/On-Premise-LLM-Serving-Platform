@@ -6,6 +6,9 @@
 
 ### Added
 
+- 에러 응답에 `error.param`(OpenAI 호환)을 추가했다. 검증 오류 시 문제 필드 경로를 담아, 클라이언트가 message를 파싱하지 않고 오류 출처를 구분할 수 있다 — 잘못된 출력 스펙은 `response_format`/`response_format.json_schema`, 잘못된 입력 데이터 포맷은 `input_audio.format`/`image_url`/`video_url`. 두 오류가 모두 `VALIDATION_ERROR 422`라 코드만으로는 구분되지 않던 피드백을 해소한다. 필드 범위가 아닌 오류에서는 생략되어 기존 응답과 호환된다.
+- 생성 문서 `docs/specs/error_reference.md`(code·HTTP·retryable·의미·권장 조치 표)와 그 단일 소스 `configs/error_catalog.yaml`을 추가했다. status 권위는 `errors.py`의 `ERROR_STATUS`이며 contract 테스트가 양쪽 code 집합 일치를 고정한다.
+
 - `local-main` 외부 alias를 유지하면서 Gemma 4 26B A4B FP8과 Gemma 4 12B Unified FP8 중 하나를 선택하는 메인 모델 프로필 제어를 추가했다. `GET /admin/main-model`, `GET /admin/main-model/profiles`, `POST /admin/main-model/switch`, operation 조회 API를 제공하며, 전환 상태와 마지막 정상 프로필을 atomic state file에 영속화한다. ([ADR-0017](docs/adr/0017-selectable-main-model-runtime.md))
 - 메인 모델 전환에 drain, container recreate, health, `/v1/models`, 실제 text canary, last-known-good rollback 절차를 추가했다. 활성 프로필, 고정 model revision/runtime image, request gate, 전환·rollback 결과는 Gateway Prometheus metric으로 확인할 수 있다. 12B는 현재 고정 revision과 pinned derived runtime image 기준 1차 검증을 완료해 compatibility를 `verified`로 제공하며, audio/video 제품 입력은 active profile의 `deployed_input`과 media boot canary 통과 여부로 gate한다. ([ADR-0017](docs/adr/0017-selectable-main-model-runtime.md), [ADR-0018](docs/adr/0018-gpu-vram-admission-and-per-profile-runtime-image.md))
 - 단일 GPU에서 메인·보조 모델의 VRAM을 단일 예산으로 보고 모든 모델 로드를 admission으로 통합했다. 비용은 정적 `gpu_memory_utilization` 합, 천장은 `configs/gpu_budgets.yaml`의 `avoid_above`(현재 0.93)이며 메인도 참가자(non-evictable)다. 초과 시 거부 + 축출 계획을 `409`로 반환하고 `force`로 자동 축출하며, 축출 순서는 `resource_control.criticality` 기반(임베딩 → risk, 메인 보존)이다. `GET /admin/runtimes`·`GET /gpu-budget`에 예산 스냅샷을 노출한다. ([ADR-0018](docs/adr/0018-gpu-vram-admission-and-per-profile-runtime-image.md))
@@ -19,6 +22,7 @@
 
 ### Changed
 
+- 생성 OpenAPI의 각 에러 응답이 전체 code enum 대신 해당 HTTP status로 실제 올 수 있는 code만 노출하고, description에 각 code의 의미·retryable을 함께 보여주도록 했다. Scalar/`/docs`에서 status→code→의미를 바로 읽을 수 있어 해석성이 개선된다. status↔code 매핑은 `errors.py`의 `ERROR_STATUS`에서 도출하므로 새 진실 소스를 만들지 않는다.
 - Main LLM 부팅 정책을 locked profile → 마지막 성공 active profile → 설치 기본 profile 순으로 정의했다. 기본 profile은 기존 26B이며 `MAIN_LLM_PROFILE_LOCKED=true` 배포에서는 Runtime Control 변경을 거절한다. 전환 중 신규 chat 요청은 `503`과 `Retry-After`를 반환하고 rollback까지 실패하면 fail-closed 상태를 유지한다. ([ADR-0017](docs/adr/0017-selectable-main-model-runtime.md))
 - 메인 모델 `gpu_memory_utilization`을 `MAIN_LLM_GPU_MEMORY_UTILIZATION`(optional, (0,1])로 호스트별 오버라이드할 수 있게 했다. 카탈로그 값은 기준 호스트 기본값이며, override는 런타임 command와 admission 비용(`vram_fraction`)에 동시 반영되어 둘이 어긋나지 않는다. fraction은 호스트 VRAM 비율이므로 더 작은 GPU는 더 큰 값을 설정한다. ([ADR-0018](docs/adr/0018-gpu-vram-admission-and-per-profile-runtime-image.md))
 - vLLM 이미지를 `gemma4-0505-cu129`(custom feature-branch 빌드)에서 `gemma4-unified-cu129`(vLLM main 기반, 2026-06-03)로 교체했다. `gemma4-0505-cu129`는 `StructuredOutputsConfig.disable_any_whitespace` 필드를 지원하지 않아 컨테이너가 exit code 2로 종료됐다. `gemma4-unified-cu129`에서 `Gemma4ForCausalLM` 아키텍처 지원 및 신규 API 적용을 확인했다. ([ADR-0016](docs/adr/0016-xgrammar-disable-any-whitespace.md))
@@ -42,6 +46,7 @@
 
 ### Fixed
 
+- `HTTPException` 기반 응답이 401이 아니면 무조건 `code: VALIDATION_ERROR`로 나가 status와 code가 모순되던 문제를 수정했다(예: 404가 `VALIDATION_ERROR`, 503이 `VALIDATION_ERROR`). `errors.py`의 `STATUS_DEFAULT_CODE`로 status에 맞는 code(404→`NOT_FOUND`, 403→`FORBIDDEN`, 503→`MODEL_UNAVAILABLE` 등)를 매핑한다. pydantic 검증 오류 메시지의 `body.` 위치 접두사도 제거해 필드명만 노출한다.
 - `json_schema` structured output 요청에서 whitespace가 `max_tokens`까지 반복 생성되던 버그를 수정했다. xgrammar의 `any_whitespace` 기능이 중첩 배열 닫는 `]` 이후 `}` 전이를 막아 stuck state에 진입하던 문제다(vLLM PR #12744, #15316). non-stream 요청은 502 `UPSTREAM_SCHEMA_ERROR`, stream 요청은 200이지만 invalid JSON으로 나타났다. `StructuredOutputsConfig`의 `disable_any_whitespace: true` 필드로 해결했다. ([ADR-0016](docs/adr/0016-xgrammar-disable-any-whitespace.md))
 - Main LLM `max_output_tokens`를 4096 → 8192로 상향했다. 복잡한 JSON Schema를 사용하는 structured output 요청이 `finish_reason: length`로 잘려 `UPSTREAM_SCHEMA_ERROR` 502를 유발하던 문제다. configs, model card, OpenAPI spec, JSON Schema, test 6개 파일에 분산된 하드코딩을 일괄 반영했다.
 - `make validate` 중 OpenAPI contract 검증이 `ADMIN_API_KEY_REQUIRED` 미설정 환경에서 admin endpoint의 401 응답을 누락 감지하던 문제를 수정했다. validator가 strict auth env를 임시 적용해 spec을 생성한 후 복원한다.

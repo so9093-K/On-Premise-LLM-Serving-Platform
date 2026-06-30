@@ -32,6 +32,32 @@ ERROR_STATUS = {
     "MAIN_MODEL_SWITCH_IN_PROGRESS": 503,
 }
 
+# Default platform error code for a bare HTTP status. ``HTTPException`` carries only
+# a status, so the error handler needs a representative code that does not contradict
+# it (previously every non-401 collapsed to VALIDATION_ERROR, e.g. a 404 returned
+# code=VALIDATION_ERROR). For statuses that map to several codes, this names the most
+# general one; a handler raising a specific code should use ServiceError instead.
+STATUS_DEFAULT_CODE = {
+    401: "UNAUTHORIZED",
+    403: "FORBIDDEN",
+    404: "NOT_FOUND",
+    410: "DETECTOR_DISABLED",
+    413: "REQUEST_TOO_LARGE",
+    422: "VALIDATION_ERROR",
+    429: "RATE_LIMITED",
+    500: "INTERNAL_ERROR",
+    502: "UPSTREAM_ERROR",
+    503: "MODEL_UNAVAILABLE",
+    504: "UPSTREAM_TIMEOUT",
+}
+
+
+def default_code_for_status(status_code: int) -> str:
+    """Map a bare HTTP status to a platform error code that matches the status."""
+    if status_code in STATUS_DEFAULT_CODE:
+        return STATUS_DEFAULT_CODE[status_code]
+    return "INTERNAL_ERROR" if status_code >= 500 else "VALIDATION_ERROR"
+
 
 def new_request_id() -> str:
     return f"req_{uuid4().hex}"
@@ -47,15 +73,26 @@ def request_id_from_headers(headers: Any) -> str | None:
     return request_id
 
 
-def error_payload(code: str, message: str, retryable: bool, request_id: str | None = None) -> dict[str, Any]:
-    return {
-        "error": {
-            "code": code,
-            "message": message,
-            "retryable": retryable,
-            "request_id": request_id or new_request_id(),
-        }
+def error_payload(
+    code: str,
+    message: str,
+    retryable: bool,
+    request_id: str | None = None,
+    param: str | None = None,
+) -> dict[str, Any]:
+    error: dict[str, Any] = {
+        "code": code,
+        "message": message,
+        "retryable": retryable,
+        "request_id": request_id or new_request_id(),
     }
+    # ``param`` names the offending request field (e.g. "response_format.json_schema"
+    # vs "input_audio.format"), so a client can tell a wrong output spec from a wrong
+    # input data format without parsing the message. Omitted when not field-scoped, so
+    # responses without a field source stay byte-identical to before.
+    if param is not None:
+        error["param"] = param
+    return {"error": error}
 
 
 def error_response(
@@ -64,9 +101,10 @@ def error_response(
     retryable: bool,
     status_code: int | None = None,
     request_id: str | None = None,
+    param: str | None = None,
 ) -> JSONResponse:
     return JSONResponse(
-        error_payload(code, message, retryable, request_id),
+        error_payload(code, message, retryable, request_id, param),
         status_code=status_code or ERROR_STATUS.get(code, 500),
     )
 
@@ -78,9 +116,10 @@ class ServiceError(Exception):
     retryable: bool = False
     status_code: int | None = None
     request_id: str | None = None
+    param: str | None = None
 
     def to_payload(self) -> dict[str, Any]:
-        return error_payload(self.code, self.message, self.retryable, self.request_id)
+        return error_payload(self.code, self.message, self.retryable, self.request_id, self.param)
 
     def to_response(self) -> JSONResponse:
         return JSONResponse(

@@ -510,7 +510,10 @@ def build_router(
                 if actual != "running":
                     return JSONResponse({"service_key": service_key, "state": "stopped", "changed": False})
             if current_state == RuntimeState.starting:
-                raise HTTPException(409, detail="runtime is currently starting; wait and retry")
+                # Transient "not ready yet, retry" — 503 maps to a retryable platform
+                # code (MODEL_UNAVAILABLE). A 409 has no platform code and would fall
+                # back to VALIDATION_ERROR, contradicting the status.
+                raise HTTPException(503, detail="runtime is currently starting; wait and retry")
             if sidecar is None:
                 raise HTTPException(503, detail="admin sidecar is not configured (ADMIN_SIDECAR_URL missing)")
             await state_store.set(

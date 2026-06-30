@@ -5,7 +5,7 @@ from typing import Any
 from ..errors import ServiceError
 from .chat_common import _chat_policy
 from .chat_json_schema import JSON_SCHEMA_NAME_RE, _schema_policy, _validate_json_schema_subset
-from .common import reject_unknown_fields
+from .common import field_param, reject_unknown_fields
 
 def _message_text(value: Any) -> str:
     if isinstance(value, str):
@@ -26,6 +26,7 @@ def _messages_contain_json_instruction(payload: dict[str, Any]) -> bool:
     return any("json" in _message_text(message.get("content")).lower() for message in messages if isinstance(message, dict))
 
 
+@field_param("response_format")
 def _validate_response_format(value: Any, payload: dict[str, Any], policy: dict[str, Any] | None) -> None:
     response_policy = _chat_policy(policy).get("response_format", {})
     if not isinstance(response_policy, dict) or response_policy.get("enabled") is not True:

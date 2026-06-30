@@ -7,7 +7,7 @@ from typing import Any
 from urllib.parse import urlparse
 
 from ..errors import ServiceError
-from .common import reject_unknown_fields
+from .common import field_param, reject_unknown_fields
 
 
 def _decode_media_base64(data: str) -> bytes:
@@ -279,6 +279,7 @@ def _image_dimensions(decoded: bytes) -> tuple[int, int] | None:
     return None
 
 
+@field_param("image_url")
 def _validate_data_image_url(
     url: str,
     *,
@@ -363,6 +364,7 @@ def _audio_format_matches(fmt: str, decoded: bytes) -> bool:
     return False
 
 
+@field_param("input_audio")
 def _validate_input_audio(
     part: Any,
     *,
@@ -501,6 +503,7 @@ def _validate_data_video_url(
         raise ServiceError("VALIDATION_ERROR", f"video_url.data does not look like a valid {media_type} stream.", False, 422)
 
 
+@field_param("video_url")
 def _validate_video_url(
     part: Any,
     *,
@@ -562,15 +565,15 @@ def _validate_content_part(
             raise ServiceError("VALIDATION_ERROR", "image content parts are not enabled for this model.", False, 422)
         image_url = part.get("image_url")
         if not isinstance(image_url, dict) or not isinstance(image_url.get("url"), str):
-            raise ServiceError("VALIDATION_ERROR", "image_url content parts require image_url.url.", False, 422)
+            raise ServiceError("VALIDATION_ERROR", "image_url content parts require image_url.url.", False, 422, param="image_url")
         reject_unknown_fields(image_url, {"url", "detail"}, "image_url")
         if "detail" in image_url and image_url["detail"] not in {"auto", "low", "high"}:
-            raise ServiceError("VALIDATION_ERROR", "image_url.detail must be auto, low, or high when provided.", False, 422)
+            raise ServiceError("VALIDATION_ERROR", "image_url.detail must be auto, low, or high when provided.", False, 422, param="image_url.detail")
         url = image_url["url"]
         scheme = _image_url_scheme(url)
         if scheme not in allowed_image_url_schemes:
             allowed = ", ".join(sorted(allowed_image_url_schemes)) or "none"
-            raise ServiceError("VALIDATION_ERROR", f"image_url.url scheme must be one of: {allowed}.", False, 422)
+            raise ServiceError("VALIDATION_ERROR", f"image_url.url scheme must be one of: {allowed}.", False, 422, param="image_url.url")
         if scheme == "data":
             _validate_data_image_url(
                 url,

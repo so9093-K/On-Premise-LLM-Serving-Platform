@@ -428,6 +428,19 @@ documents:
     verified_by:
       - tests/contract/test_document_source_of_truth.py
       - scripts/validation/validate_contracts.py
+  - path: docs/specs/error_reference.md
+    type: reference
+    lifecycle: generated
+    owner: api-platform
+    disposition: generated
+    generator: scripts/render_runtime_assets.py
+    do_not_edit: true
+    source_of_truth:
+      - src/ai_model_serving/errors.py
+      - configs/error_catalog.yaml
+    verified_by:
+      - tests/contract/test_error_catalog.py
+      - scripts/render_runtime_assets.py
   - path: docs/specs/api_docs_reference.md
     type: reference
     lifecycle: reference

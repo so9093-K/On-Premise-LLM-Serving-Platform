@@ -41,6 +41,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
 from ai_model_serving.domain import ModelRegistry  # noqa: E402
+from ai_model_serving.errors import ERROR_STATUS  # noqa: E402
 from ai_model_serving.monitoring_projection import prometheus_scrape_config_document  # noqa: E402
 
 _GENERATED_HEADER_YAML = (
@@ -96,6 +97,49 @@ def render_runtime_validation_matrix_yaml(registry: ModelRegistry) -> str:
     doc = registry.runtime_validation_matrix_document()
     body = yaml.dump(doc, allow_unicode=True, default_flow_style=False, sort_keys=False)
     return _GENERATED_HEADER_YAML + body
+
+
+def render_error_reference_md() -> str:
+    """code별 의미·retryable·조치 레퍼런스. errors.py(status)+error_catalog.yaml(서술) 단일 소스.
+
+    입력(ERROR_STATUS, error_catalog.yaml)은 항상 실제 repo ROOT에서 읽는다(registry가
+    실제 configs에서 로드되는 것과 동일). 출력 경로만 get_artifacts의 root를 따른다.
+    """
+    catalog = (_load_yaml(ROOT / "configs/error_catalog.yaml") or {}).get("errors", {})
+    by_status: dict[int, list[str]] = {}
+    for code, status in ERROR_STATUS.items():
+        by_status.setdefault(status, []).append(code)
+    lines = [
+        "<!-- GENERATED FILE. DO NOT EDIT MANUALLY. -->",
+        "<!-- Source: src/ai_model_serving/errors.py (ERROR_STATUS) + configs/error_catalog.yaml -->",
+        "<!-- Command: make render-runtime-assets -->",
+        "",
+        "# 에러 코드 레퍼런스",
+        "",
+        "Gateway·Risk Adapter의 모든 에러는 동일한 봉투를 따른다:",
+        "",
+        "```json",
+        '{ "error": { "code": "...", "message": "...", "param": "...",'
+        ' "retryable": false, "request_id": "req_..." } }',
+        "```",
+        "",
+        "- `code` — 안정적 기계 판독 식별자(아래 표). HTTP status와 항상 일치한다.",
+        "- `param` — 오류를 일으킨 요청 필드. 예: 잘못된 출력 스펙은 `response_format.json_schema`,"
+        " 잘못된 입력 데이터 포맷은 `input_audio.format`. 필드 범위 검증 오류에만 존재한다(OpenAI 호환).",
+        "- `retryable` — 재시도 권장 여부. 응답값이 권위이며 아래 표는 일반값이다.",
+        "- `request_id` — 지원 문의 시 인용한다.",
+        "",
+        "| code | HTTP | retryable | 의미 | 권장 조치 |",
+        "|---|---:|:---:|---|---|",
+    ]
+    for status in sorted(by_status):
+        for code in sorted(by_status[status]):
+            meta = catalog.get(code, {}) if isinstance(catalog, dict) else {}
+            retry = "✓" if meta.get("retryable") else "✗"
+            meaning = str(meta.get("meaning", "")).strip()
+            action = str(meta.get("action", "")).strip()
+            lines.append(f"| `{code}` | {status} | {retry} | {meaning} | {action} |")
+    return "\n".join(lines) + "\n"
 
 
 def render_runtime_targets_block(registry: ModelRegistry) -> str:
@@ -198,6 +242,7 @@ def get_artifacts(
             root / "harness/runtime_validation_matrix.yaml",
             render_runtime_validation_matrix_yaml(registry),
         ),
+        (root / "docs/specs/error_reference.md", render_error_reference_md()),
     ]
 
 

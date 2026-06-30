@@ -47,6 +47,10 @@
         "message": {
           "type": "string"
         },
+        "param": {
+          "description": "The request field that caused the error (e.g. 'response_format.json_schema' for a wrong output spec vs 'input_audio.format' for a wrong input data format). Present only for field-scoped validation errors; OpenAI-compatible.",
+          "type": ["string", "null"]
+        },
         "retryable": {
           "type": "boolean"
         },
