@@ -84,7 +84,9 @@
     "allowed_image_mime_types": [
       "image/jpeg",
       "image/png",
-      "image/webp"
+      "image/webp",
+      "image/gif",
+      "image/bmp"
     ],
     "runtime_features": {
       "prefix_caching": {

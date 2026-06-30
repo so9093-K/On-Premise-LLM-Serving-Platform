@@ -239,7 +239,7 @@ def settings() -> AppSettings:
             allowed_image_url_schemes=("data",),
             max_image_bytes=200,
             max_image_pixels=4,
-            allowed_image_mime_types=("image/png", "image/jpeg", "image/webp"),
+            allowed_image_mime_types=("image/png", "image/jpeg", "image/webp", "image/gif", "image/bmp"),
         ),
         embedding=RuntimeEndpoint("local-embed", "http://embed/v1", "local-embed", 1, request_parameter_policy=_PRODUCTION_EMBEDDING_POLICY),
         embedding_ko=RuntimeEndpoint("local-embed-ko", "http://embed-ko/v1", "local-embed-ko", 1, request_parameter_policy=_PRODUCTION_EMBEDDING_KO_POLICY),
@@ -376,7 +376,7 @@ def tool_calling_settings() -> AppSettings:
         allowed_image_url_schemes=("data",),
         max_image_bytes=200,
         max_image_pixels=4,
-        allowed_image_mime_types=("image/png", "image/jpeg", "image/webp"),
+        allowed_image_mime_types=("image/png", "image/jpeg", "image/webp", "image/gif", "image/bmp"),
         request_parameter_policy={
             "allow_unlisted_parameters": False,
             "supported_parameters": [

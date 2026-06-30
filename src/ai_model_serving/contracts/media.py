@@ -83,8 +83,93 @@ def _webp_dimensions(decoded: bytes) -> tuple[int, int] | None:
     return None
 
 
+def _gif_metadata(decoded: bytes) -> tuple[int, int, int] | None:
+    if len(decoded) < 14 or decoded[:6] not in {b"GIF87a", b"GIF89a"}:
+        return None
+    width = int.from_bytes(decoded[6:8], "little")
+    height = int.from_bytes(decoded[8:10], "little")
+    packed = decoded[10]
+    index = 13
+    if packed & 0x80:
+        index += 3 * (2 ** ((packed & 0x07) + 1))
+    if index > len(decoded):
+        return None
+    frames = 0
+    while index < len(decoded):
+        marker = decoded[index]
+        index += 1
+        if marker == 0x3B:
+            break
+        if marker == 0x21:
+            if index >= len(decoded):
+                return None
+            index += 1
+            while index < len(decoded):
+                block_size = decoded[index]
+                index += 1
+                if block_size == 0:
+                    break
+                index += block_size
+            if index > len(decoded):
+                return None
+            continue
+        if marker == 0x2C:
+            if index + 9 > len(decoded):
+                return None
+            frame_width = int.from_bytes(decoded[index + 4:index + 6], "little")
+            frame_height = int.from_bytes(decoded[index + 6:index + 8], "little")
+            if frame_width < 1 or frame_height < 1:
+                return None
+            frames += 1
+            local_packed = decoded[index + 8]
+            index += 9
+            if local_packed & 0x80:
+                index += 3 * (2 ** ((local_packed & 0x07) + 1))
+            if index >= len(decoded):
+                return None
+            index += 1
+            while index < len(decoded):
+                block_size = decoded[index]
+                index += 1
+                if block_size == 0:
+                    break
+                index += block_size
+            if index > len(decoded):
+                return None
+            continue
+        return None
+    return (width, height, frames)
+
+
+def _gif_dimensions(decoded: bytes) -> tuple[int, int] | None:
+    metadata = _gif_metadata(decoded)
+    if metadata is None:
+        return None
+    width, height, _frames = metadata
+    return width, height
+
+
+def _bmp_dimensions(decoded: bytes) -> tuple[int, int] | None:
+    if len(decoded) < 26 or not decoded.startswith(b"BM"):
+        return None
+    dib_header_size = int.from_bytes(decoded[14:18], "little")
+    if dib_header_size == 12:
+        if len(decoded) < 26:
+            return None
+        width = int.from_bytes(decoded[18:20], "little")
+        height = int.from_bytes(decoded[20:22], "little")
+        return width, height
+    if dib_header_size >= 40:
+        if len(decoded) < 26:
+            return None
+        width = int.from_bytes(decoded[18:22], "little", signed=True)
+        height = int.from_bytes(decoded[22:26], "little", signed=True)
+        return width, abs(height)
+    return None
+
+
 def _image_dimensions(decoded: bytes) -> tuple[int, int] | None:
-    for parser in (_jpeg_dimensions, _png_dimensions, _webp_dimensions):
+    for parser in (_jpeg_dimensions, _png_dimensions, _webp_dimensions, _gif_dimensions, _bmp_dimensions):
         result = parser(decoded)
         if result is not None:
             return result
@@ -128,7 +213,15 @@ def _validate_data_image_url(
 # format allowed in config but absent here would always fail the magic check and
 # be silently rejected. Extend both together.
 SNIFFABLE_AUDIO_FORMATS: frozenset[str] = frozenset({"wav", "flac", "ogg", "mp3", "m4a", "mp4", "aac"})
-SNIFFABLE_VIDEO_MIME_TYPES: frozenset[str] = frozenset({"video/mp4", "video/webm", "video/quicktime", "video/jpeg"})
+SNIFFABLE_VIDEO_MIME_TYPES: frozenset[str] = frozenset({
+    "video/mp4",
+    "video/webm",
+    "video/quicktime",
+    "video/jpeg",
+    "video/x-msvideo",
+    "video/avi",
+    "video/gif",
+})
 
 
 def _is_iso_bmff(decoded: bytes) -> bool:
@@ -201,6 +294,10 @@ def _video_format_matches(media_type: str, decoded: bytes) -> bool:
         return decoded.startswith(b"\x1a\x45\xdf\xa3")
     if media_type == "video/jpeg":
         return _jpeg_dimensions(decoded) is not None
+    if media_type in {"video/x-msvideo", "video/avi"}:
+        return len(decoded) >= 12 and decoded.startswith(b"RIFF") and decoded[8:12] == b"AVI "
+    if media_type == "video/gif":
+        return _gif_metadata(decoded) is not None
     return False
 
 
@@ -265,6 +362,25 @@ def _validate_data_video_url(
         raise ServiceError("VALIDATION_ERROR", "video_url data video must not be empty.", False, 422)
     if max_video_bytes and len(decoded) > max_video_bytes:
         raise ServiceError("VALIDATION_ERROR", f"video_url decoded video must be {max_video_bytes} bytes or fewer.", False, 422)
+    if media_type == "video/gif":
+        metadata = _gif_metadata(decoded)
+        if metadata is None:
+            raise ServiceError("VALIDATION_ERROR", "video_url.data does not look like a valid video/gif stream.", False, 422)
+        width, height, frame_count = metadata
+        if frame_count < 1:
+            raise ServiceError("VALIDATION_ERROR", "video_url GIF must contain at least one frame.", False, 422)
+        if max_video_frames and frame_count > max_video_frames:
+            raise ServiceError("VALIDATION_ERROR", f"video_url must contain {max_video_frames} frame(s) or fewer.", False, 422)
+        if width < 1 or height < 1:
+            raise ServiceError("VALIDATION_ERROR", "video_url GIF dimensions must be positive.", False, 422)
+        if max_video_frame_pixels and width * height > max_video_frame_pixels:
+            raise ServiceError(
+                "VALIDATION_ERROR",
+                f"video_url GIF dimensions must contain {max_video_frame_pixels} pixels or fewer.",
+                False,
+                422,
+            )
+        return
     if not _video_format_matches(media_type, decoded):
         raise ServiceError("VALIDATION_ERROR", f"video_url.data does not look like a valid {media_type} stream.", False, 422)
 

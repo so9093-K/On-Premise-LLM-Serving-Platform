@@ -79,7 +79,7 @@
                           "properties": {
                             "url": {
                               "type": "string",
-                              "pattern": "^data:image/(png|jpeg|webp);base64,"
+                              "pattern": "^data:image/(png|jpeg|webp|gif|bmp);base64,"
                             },
                             "detail": {
                               "type": "string",
@@ -152,7 +152,7 @@
                           "properties": {
                             "url": {
                               "type": "string",
-                              "pattern": "^data:video/(mp4|webm|quicktime|jpeg);base64,"
+                              "pattern": "^data:video/(mp4|webm|quicktime|jpeg|x-msvideo|avi|gif);base64,"
                             }
                           }
                         }

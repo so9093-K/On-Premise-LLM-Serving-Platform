@@ -38,10 +38,24 @@ def test_gateway_accepts_bounded_multimodal_chat_and_enforces_model_token_cap():
     )
     assert invalid_base64.status_code == 422
 
+    supported_gif = client.post(
+        "/v1/chat/completions",
+        headers=auth_headers(),
+        json={"model": "local-main", "messages": [{"role": "user", "content": [{"type": "image_url", "image_url": {"url": "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw=="}}]}]},
+    )
+    assert supported_gif.status_code == 200
+
+    supported_bmp = client.post(
+        "/v1/chat/completions",
+        headers=auth_headers(),
+        json={"model": "local-main", "messages": [{"role": "user", "content": [{"type": "image_url", "image_url": {"url": "data:image/bmp;base64,Qk1GAAAAAAAAADYAAAAoAAAAAQAAAAEAAAABABgAAAAAABAAAADEDgAAxA4AAAAAAAAAAAAA////AA=="}}]}]},
+    )
+    assert supported_bmp.status_code == 200
+
     unsupported_mime = client.post(
         "/v1/chat/completions",
         headers=auth_headers(),
-        json={"model": "local-main", "messages": [{"role": "user", "content": [{"type": "image_url", "image_url": {"url": "data:image/gif;base64,AA=="}}]}]},
+        json={"model": "local-main", "messages": [{"role": "user", "content": [{"type": "image_url", "image_url": {"url": "data:image/tiff;base64,AA=="}}]}]},
     )
     assert unsupported_mime.status_code == 422
 
@@ -270,4 +284,3 @@ def test_gateway_allows_advanced_combinations_and_models_projection():
 
     models = client.get("/v1/models", headers=auth_headers()).json()["data"][0]["request_parameters"]
     assert {"response_format", "logprobs", "top_logprobs", "logit_bias"}.issubset(models)
-

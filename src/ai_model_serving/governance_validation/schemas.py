@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import re
 from pathlib import Path
 from typing import Any
 
@@ -38,6 +39,47 @@ def walk_refs(obj: Any):
     elif isinstance(obj, list):
         for v in obj:
             yield from walk_refs(v)
+
+def walk_objects(obj: Any):
+    if isinstance(obj, dict):
+        yield obj
+        for v in obj.values():
+            yield from walk_objects(v)
+    elif isinstance(obj, list):
+        for v in obj:
+            yield from walk_objects(v)
+
+def _data_url_pattern_suffixes(schema: dict[str, Any], media_kind: str) -> set[str]:
+    patterns = [
+        value
+        for obj in walk_objects(schema)
+        if isinstance((value := obj.get('pattern')), str) and value.startswith(f'^data:{media_kind}/')
+    ]
+    if len(patterns) != 1:
+        raise SystemExit(f'chat completion schema must define exactly one data:{media_kind} pattern, found {patterns}')
+    match = re.fullmatch(rf'\^data:{media_kind}/\(([^)]+)\);base64,', patterns[0])
+    if not match:
+        raise SystemExit(f'chat completion schema has an unexpected data:{media_kind} pattern: {patterns[0]}')
+    return set(match.group(1).split('|'))
+
+def _validate_chat_schema_media_policy(chat_schema: dict[str, Any]) -> None:
+    limits = read_yaml('configs/model_serving.yaml')['models']['main_llm']['resource_control']['request_limits']
+    expected_image_suffixes = {str(item).removeprefix('image/') for item in limits.get('allowed_image_mime_types', [])}
+    expected_video_suffixes = {str(item).removeprefix('video/') for item in limits.get('allowed_video_mime_types', [])}
+    expected_audio_formats = set(str(item) for item in limits.get('allowed_audio_formats', []))
+
+    if _data_url_pattern_suffixes(chat_schema, 'image') != expected_image_suffixes:
+        raise SystemExit('chat completion image data URL pattern must match configured allowed_image_mime_types')
+    if _data_url_pattern_suffixes(chat_schema, 'video') != expected_video_suffixes:
+        raise SystemExit('chat completion video data URL pattern must match configured allowed_video_mime_types')
+
+    format_enums = [
+        set(value)
+        for obj in walk_objects(chat_schema)
+        if isinstance((value := obj.get('enum')), list) and all(isinstance(item, str) for item in value)
+    ]
+    if expected_audio_formats not in format_enums:
+        raise SystemExit('chat completion input_audio.format enum must match configured allowed_audio_formats')
 
 def validate_openapi_refs() -> None:
     for path in ['specs/openapi.gateway.yaml', 'specs/openapi.risk-adapter.yaml']:
@@ -110,6 +152,7 @@ def validate_request_schemas() -> None:
         Draft202012Validator(schema).validate(sample)
 
     chat_schema = read_json('specs/schemas/chat_completion_request.schema.json')
+    _validate_chat_schema_media_policy(chat_schema)
     chat_validator = Draft202012Validator(chat_schema)
     accepted_chat_stream_sample = {'model': 'local-main', 'stream': True, 'stream_options': {'include_usage': True}, 'messages': [{'role': 'user', 'content': 'hello'}]}
     if list(chat_validator.iter_errors(accepted_chat_stream_sample)):

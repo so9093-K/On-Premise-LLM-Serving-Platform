@@ -91,6 +91,8 @@ models:
       - image/jpeg
       - image/png
       - image/webp
+      - image/gif
+      - image/bmp
       runtime_features:
         prefix_caching:
           enabled: true

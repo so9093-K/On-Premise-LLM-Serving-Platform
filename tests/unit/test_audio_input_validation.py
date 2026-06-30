@@ -25,10 +25,25 @@ AUDIO_LIMITS = dict(
     allowed_audio_formats=("wav", "mp3", "flac", "ogg", "m4a", "mp4", "aac"),
     max_audio_bytes=25_000_000,
 )
+IMAGE_LIMITS = dict(
+    max_image_inputs=1,
+    allowed_image_url_schemes=("data",),
+    max_image_bytes=7_000_000,
+    max_image_pixels=6_422_528,
+    allowed_image_mime_types=("image/jpeg", "image/png", "image/webp", "image/gif", "image/bmp"),
+)
 VIDEO_LIMITS = dict(
     max_video_inputs=1,
     allowed_video_url_schemes=("data",),
-    allowed_video_mime_types=("video/mp4", "video/webm", "video/quicktime", "video/jpeg"),
+    allowed_video_mime_types=(
+        "video/mp4",
+        "video/webm",
+        "video/quicktime",
+        "video/jpeg",
+        "video/x-msvideo",
+        "video/avi",
+        "video/gif",
+    ),
     max_video_bytes=50_000_000,
     max_video_frames=32,
     max_video_frame_pixels=6_422_528,
@@ -36,6 +51,13 @@ VIDEO_LIMITS = dict(
 TEXT_IMAGE = ("text", "image")
 TEXT_IMAGE_AUDIO = ("text", "image", "audio")
 TEXT_IMAGE_AUDIO_VIDEO = ("text", "image", "audio", "video")
+TINY_GIF_1X1_B64 = "R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw=="
+TINY_BMP_1X1_B64 = "Qk1GAAAAAAAAADYAAAAoAAAAAQAAAAEAAAABABgAAAAAABAAAADEDgAAxA4AAAAAAAAAAAAA////AA=="
+ANIMATED_GIF_3_FRAME_B64 = (
+    "R0lGODlhEAAQAIEAAP8AAAAAAAAAAAAAACH/C05FVFNDQVBFMi4wAwEAAAAh+QQACgAAACwAAAAAEAAQAAAIHQABCBxIsKDBgwgTKlzIsKHDhxAjSpxI"
+    "saLFgQEBACH5BAEKAAEALAAAAAAQABAAgQD/AAAAAAAAAAAAAAgdAAEIHEiwoMGDCBMqXMiwocOHECNKnEixosWBAQEAIfkEAQoAAQAsAAAAABAAEACB"
+    "AAD/AAAAAAAAAAAACB0AAQgcSLCgwYMIEypcyLChw4cQI0qcSLGixYEBAQA7"
+)
 
 
 def _wav_b64(seconds: float = 0.1) -> str:
@@ -65,7 +87,7 @@ def _validate(payload, modalities):
         payload,
         expected_model="local-main",
         allowed_input_modalities=modalities,
-        max_image_inputs=1,
+        **IMAGE_LIMITS,
         **AUDIO_LIMITS,
         **VIDEO_LIMITS,
     )
@@ -197,9 +219,50 @@ def test_mp4_video_container_is_accepted_when_magic_matches():
     _validate(_video_payload(url), TEXT_IMAGE_AUDIO_VIDEO)
 
 
+@pytest.mark.parametrize("mime,b64", [
+    ("image/gif", TINY_GIF_1X1_B64),
+    ("image/bmp", TINY_BMP_1X1_B64),
+])
+def test_gif_and_bmp_image_parts_are_accepted(mime, b64):
+    payload = {
+        "model": "local-main",
+        "messages": [
+            {"role": "user", "content": [{"type": "image_url", "image_url": {"url": f"data:{mime};base64,{b64}"}}]}
+        ],
+    }
+
+    _validate(payload, TEXT_IMAGE_AUDIO_VIDEO)
+
+
+def test_animated_gif_is_accepted_as_video_gif():
+    _validate(_video_payload(f"data:video/gif;base64,{ANIMATED_GIF_3_FRAME_B64}"), TEXT_IMAGE_AUDIO_VIDEO)
+
+
+def test_image_gif_is_not_a_video_url_contract():
+    with pytest.raises(ServiceError) as exc:
+        _validate(_video_payload(f"data:image/gif;base64,{ANIMATED_GIF_3_FRAME_B64}"), TEXT_IMAGE_AUDIO_VIDEO)
+    assert exc.value.status_code == 422
+    assert "video_url.url scheme" in str(exc.value) or "valid data:video URL" in str(exc.value)
+
+
+@pytest.mark.parametrize("mime", ["video/x-msvideo", "video/avi"])
+def test_avi_video_container_is_accepted_when_magic_matches(mime):
+    raw = b"RIFF\x20\x00\x00\x00AVI LIST"
+    url = f"data:{mime};base64," + base64.b64encode(raw).decode("ascii")
+    _validate(_video_payload(url), TEXT_IMAGE_AUDIO_VIDEO)
+
+
+def test_avi_video_container_rejected_when_magic_does_not_match():
+    url = "data:video/x-msvideo;base64," + base64.b64encode(b"not an avi").decode("ascii")
+    with pytest.raises(ServiceError) as exc:
+        _validate(_video_payload(url), TEXT_IMAGE_AUDIO_VIDEO)
+    assert exc.value.status_code == 422
+    assert "valid video/x-msvideo stream" in str(exc.value)
+
+
 def test_video_mime_must_be_allowed():
     with pytest.raises(ServiceError) as exc:
-        _validate(_video_payload(f"data:video/avi;base64,{TINY_JPEG_1X1_B64}"), TEXT_IMAGE_AUDIO_VIDEO)
+        _validate(_video_payload(f"data:video/x-matroska;base64,{TINY_JPEG_1X1_B64}"), TEXT_IMAGE_AUDIO_VIDEO)
     assert exc.value.status_code == 422
     assert "video_url MIME type" in str(exc.value)
 

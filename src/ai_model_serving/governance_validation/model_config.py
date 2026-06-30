@@ -328,8 +328,12 @@ def validate_model_resource_control_policy() -> None:
         raise SystemExit('local-main image input policy must allow exactly one data:image input by default')
     if int(main_policy.get('max_image_bytes', 0)) <= 0 or int(main_policy.get('max_image_pixels', 0)) <= 0:
         raise SystemExit('local-main image input policy must define decoded byte and pixel limits')
-    if set(main_policy.get('allowed_image_mime_types', [])) != {'image/jpeg', 'image/png', 'image/webp'}:
-        raise SystemExit('local-main image input policy must define MIME limits')
+    expected_image_mime_types = set(serving['models']['main_llm']['resource_control']['request_limits'].get('allowed_image_mime_types', []))
+    if set(main_policy.get('allowed_image_mime_types', [])) != expected_image_mime_types:
+        raise SystemExit(
+            'local-main image input policy MIME limits must match '
+            'configs/model_serving.yaml local-main request_limits.allowed_image_mime_types'
+        )
 
 def validate_model_lifecycle_docs_and_cli() -> None:
     doc = (ROOT / 'docs/operations/model_runtime_control.md').read_text(encoding='utf-8')

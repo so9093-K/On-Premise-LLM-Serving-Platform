@@ -97,6 +97,8 @@ models:
         - image/jpeg
         - image/png
         - image/webp
+        - image/gif
+        - image/bmp
         audio_input_note: Audio is enforced only when the ACTIVE main-model profile
           deploys the audio modality (deployed_input includes audio); these are the
           static safety bounds applied in that case. The 26B profile does not deploy
@@ -126,6 +128,9 @@ models:
         - video/webm
         - video/quicktime
         - video/jpeg
+        - video/x-msvideo
+        - video/avi
+        - video/gif
         max_video_bytes: 50000000
         max_video_frames: 32
         max_video_frame_pixels: 6422528

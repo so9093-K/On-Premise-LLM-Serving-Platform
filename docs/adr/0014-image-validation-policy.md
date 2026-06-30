@@ -54,14 +54,14 @@ def _image_dimensions(decoded: bytes, media_type: str) -> tuple[int, int] | None
 
 # 변경 후: magic bytes sequential detection
 def _image_dimensions(decoded: bytes) -> tuple[int, int] | None:
-    for parser in (_jpeg_dimensions, _png_dimensions, _webp_dimensions):
+    for parser in (_jpeg_dimensions, _png_dimensions, _webp_dimensions, _gif_dimensions, _bmp_dimensions):
         result = parser(decoded)
         if result is not None:
             return result
     return None
 ```
 
-MIME type allowlist 검사(`image/jpeg`, `image/png`, `image/webp` 중 하나여야 함)는 유지된다. 변경 대상은 "MIME type으로 파서를 선택하는 것"이며, "MIME type을 검증하는 것"은 아니다.
+MIME type allowlist 검사(`image/jpeg`, `image/png`, `image/webp`, `image/gif`, `image/bmp` 중 하나여야 함)는 유지된다. 변경 대상은 "MIME type으로 파서를 선택하는 것"이며, "MIME type을 검증하는 것"은 아니다. `image/gif`는 정적 image contract로 취급하고, animated GIF 전체의 시간적 변화는 `video/gif` `video_url` contract에서 다룬다.
 
 ### 단일 source-of-truth
 
