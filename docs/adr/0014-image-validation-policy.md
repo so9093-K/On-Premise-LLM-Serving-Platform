@@ -61,7 +61,7 @@ def _image_dimensions(decoded: bytes) -> tuple[int, int] | None:
     return None
 ```
 
-MIME type allowlist 검사(`image/jpeg`, `image/png`, `image/webp`, `image/avif`, `image/jp2`, `image/gif`, `image/bmp`, `image/tiff`, `image/x-tiff` 중 하나여야 함)는 유지된다. 변경 대상은 "MIME type으로 파서를 선택하는 것"이며, "MIME type을 검증하는 것"은 아니다. `image/gif`와 TIFF는 정적 image contract로 취급하고, animated GIF 전체의 시간적 변화는 `video/gif` `video_url` contract에서 다룬다. Multi-page TIFF는 정적 단일 이미지 계약 밖으로 보고 Gateway lightweight validator에서 거부한다.
+MIME type allowlist 검사(`image/jpeg`, `image/png`, `image/webp`, `image/avif`, `image/jp2`, `image/gif`, `image/bmp`, `image/tiff`, `image/x-tiff` 중 하나여야 함)는 유지된다. 변경 대상은 "MIME type으로 파서를 선택하는 것"이며, "MIME type을 검증하는 것"은 아니다. 정적 `image/gif`와 TIFF는 정적 image contract로 취급하고, animated GIF 전체의 시간적 변화는 `video/gif` `video_url` contract에서 다룬다. Animated GIF가 `image_url`로 들어오면 Gateway는 422로 거부하고 `video_url` + `data:video/gif` 사용을 안내한다. Multi-page TIFF는 정적 단일 이미지 계약 밖으로 보고 Gateway lightweight validator에서 거부한다.
 
 ### 단일 source-of-truth
 

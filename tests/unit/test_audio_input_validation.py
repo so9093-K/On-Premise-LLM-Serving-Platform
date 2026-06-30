@@ -272,6 +272,23 @@ def test_multi_image_tiff_image_part_is_rejected_as_static_image_contract(b64):
     assert "image dimensions could not be read safely" in str(exc.value)
 
 
+def test_animated_gif_image_part_points_client_to_video_gif():
+    payload = {
+        "model": "local-main",
+        "messages": [
+            {
+                "role": "user",
+                "content": [{"type": "image_url", "image_url": {"url": f"data:image/gif;base64,{ANIMATED_GIF_3_FRAME_B64}"}}],
+            }
+        ],
+    }
+
+    with pytest.raises(ServiceError) as exc:
+        _validate(payload, TEXT_IMAGE_AUDIO_VIDEO)
+    assert exc.value.status_code == 422
+    assert "use video_url with data:video/gif" in str(exc.value)
+
+
 def test_animated_gif_is_accepted_as_video_gif():
     _validate(_video_payload(f"data:video/gif;base64,{ANIMATED_GIF_3_FRAME_B64}"), TEXT_IMAGE_AUDIO_VIDEO)
 

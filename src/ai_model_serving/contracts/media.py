@@ -301,6 +301,18 @@ def _validate_data_image_url(
         raise ServiceError("VALIDATION_ERROR", "image_url data image must contain valid base64.", False, 422) from exc
     if max_image_bytes and len(decoded) > max_image_bytes:
         raise ServiceError("VALIDATION_ERROR", f"image_url decoded image must be {max_image_bytes} bytes or fewer.", False, 422)
+    if media_type == "image/gif":
+        metadata = _gif_metadata(decoded)
+        if metadata is None:
+            raise ServiceError("VALIDATION_ERROR", "image_url image dimensions could not be read safely.", False, 422)
+        _width, _height, frame_count = metadata
+        if frame_count > 1:
+            raise ServiceError(
+                "VALIDATION_ERROR",
+                "animated image/gif is not supported as image input; use video_url with data:video/gif for motion analysis.",
+                False,
+                422,
+            )
     dimensions = _image_dimensions(decoded)
     if dimensions is None:
         raise ServiceError("VALIDATION_ERROR", "image_url image dimensions could not be read safely.", False, 422)
