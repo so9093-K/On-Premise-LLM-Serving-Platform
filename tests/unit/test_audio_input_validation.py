@@ -30,7 +30,17 @@ IMAGE_LIMITS = dict(
     allowed_image_url_schemes=("data",),
     max_image_bytes=7_000_000,
     max_image_pixels=6_422_528,
-    allowed_image_mime_types=("image/jpeg", "image/png", "image/webp", "image/gif", "image/bmp"),
+    allowed_image_mime_types=(
+        "image/jpeg",
+        "image/png",
+        "image/webp",
+        "image/avif",
+        "image/jp2",
+        "image/gif",
+        "image/bmp",
+        "image/tiff",
+        "image/x-tiff",
+    ),
 )
 VIDEO_LIMITS = dict(
     max_video_inputs=1,
@@ -38,6 +48,7 @@ VIDEO_LIMITS = dict(
     allowed_video_mime_types=(
         "video/mp4",
         "video/webm",
+        "video/x-matroska",
         "video/quicktime",
         "video/jpeg",
         "video/x-msvideo",
@@ -53,6 +64,11 @@ TEXT_IMAGE_AUDIO = ("text", "image", "audio")
 TEXT_IMAGE_AUDIO_VIDEO = ("text", "image", "audio", "video")
 TINY_GIF_1X1_B64 = "R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw=="
 TINY_BMP_1X1_B64 = "Qk1GAAAAAAAAADYAAAAoAAAAAQAAAAEAAAABABgAAAAAABAAAADEDgAAxA4AAAAAAAAAAAAA////AA=="
+TINY_AVIF_1X1_B64 = "AAAAGGZ0eXBhdmlmAAAAAGF2aWZtaWYxAAAAFGlzcGUAAAAAAAAAAQAAAAE="
+TINY_JP2_1X1_B64 = "AAAADGpQICANCocKAAAAFGZ0eXBqcDIgAAAAAGpwMiAAAAAeanAyaAAAABZpaGRyAAAAAQAAAAEAAwcHAAAAAA=="
+TINY_TIFF_1X1_B64 = "SUkqAAgAAAACAAABBAABAAAAAQAAAAEBBAABAAAAAQAAAAAAAAA="
+MULTIPAGE_TIFF_1X1_B64 = "SUkqAAgAAAACAAABBAABAAAAAQAAAAEBBAABAAAAAQAAAAgAAAA="
+SUBIFD_TIFF_1X1_B64 = "SUkqAAgAAAADAAABBAABAAAAAQAAAAEBBAABAAAAAQAAAEoBBAABAAAAgAAAAAAAAAA="
 ANIMATED_GIF_3_FRAME_B64 = (
     "R0lGODlhEAAQAIEAAP8AAAAAAAAAAAAAACH/C05FVFNDQVBFMi4wAwEAAAAh+QQACgAAACwAAAAAEAAQAAAIHQABCBxIsKDBgwgTKlzIsKHDhxAjSpxI"
     "saLFgQEBACH5BAEKAAEALAAAAAAQABAAgQD/AAAAAAAAAAAAAAgdAAEIHEiwoMGDCBMqXMiwocOHECNKnEixosWBAQEAIfkEAQoAAQAsAAAAABAAEACB"
@@ -220,10 +236,14 @@ def test_mp4_video_container_is_accepted_when_magic_matches():
 
 
 @pytest.mark.parametrize("mime,b64", [
+    ("image/avif", TINY_AVIF_1X1_B64),
+    ("image/jp2", TINY_JP2_1X1_B64),
     ("image/gif", TINY_GIF_1X1_B64),
     ("image/bmp", TINY_BMP_1X1_B64),
+    ("image/tiff", TINY_TIFF_1X1_B64),
+    ("image/x-tiff", TINY_TIFF_1X1_B64),
 ])
-def test_gif_and_bmp_image_parts_are_accepted(mime, b64):
+def test_additional_static_image_parts_are_accepted(mime, b64):
     payload = {
         "model": "local-main",
         "messages": [
@@ -232,6 +252,24 @@ def test_gif_and_bmp_image_parts_are_accepted(mime, b64):
     }
 
     _validate(payload, TEXT_IMAGE_AUDIO_VIDEO)
+
+
+@pytest.mark.parametrize("b64", [MULTIPAGE_TIFF_1X1_B64, SUBIFD_TIFF_1X1_B64])
+def test_multi_image_tiff_image_part_is_rejected_as_static_image_contract(b64):
+    payload = {
+        "model": "local-main",
+        "messages": [
+            {
+                "role": "user",
+                "content": [{"type": "image_url", "image_url": {"url": f"data:image/tiff;base64,{b64}"}}],
+            }
+        ],
+    }
+
+    with pytest.raises(ServiceError) as exc:
+        _validate(payload, TEXT_IMAGE_AUDIO_VIDEO)
+    assert exc.value.status_code == 422
+    assert "image dimensions could not be read safely" in str(exc.value)
 
 
 def test_animated_gif_is_accepted_as_video_gif():
@@ -252,6 +290,14 @@ def test_avi_video_container_is_accepted_when_magic_matches(mime):
     _validate(_video_payload(url), TEXT_IMAGE_AUDIO_VIDEO)
 
 
+@pytest.mark.parametrize(("mime", "raw"), [
+    ("video/x-matroska", b"\x1a\x45\xdf\xa3"),
+])
+def test_additional_video_containers_are_accepted_when_magic_matches(mime, raw):
+    url = f"data:{mime};base64," + base64.b64encode(raw).decode("ascii")
+    _validate(_video_payload(url), TEXT_IMAGE_AUDIO_VIDEO)
+
+
 def test_avi_video_container_rejected_when_magic_does_not_match():
     url = "data:video/x-msvideo;base64," + base64.b64encode(b"not an avi").decode("ascii")
     with pytest.raises(ServiceError) as exc:
@@ -262,7 +308,7 @@ def test_avi_video_container_rejected_when_magic_does_not_match():
 
 def test_video_mime_must_be_allowed():
     with pytest.raises(ServiceError) as exc:
-        _validate(_video_payload(f"data:video/x-matroska;base64,{TINY_JPEG_1X1_B64}"), TEXT_IMAGE_AUDIO_VIDEO)
+        _validate(_video_payload(f"data:video/x-flv;base64,{TINY_JPEG_1X1_B64}"), TEXT_IMAGE_AUDIO_VIDEO)
     assert exc.value.status_code == 422
     assert "video_url MIME type" in str(exc.value)
 

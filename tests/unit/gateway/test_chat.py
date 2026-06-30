@@ -52,10 +52,38 @@ def test_gateway_accepts_bounded_multimodal_chat_and_enforces_model_token_cap():
     )
     assert supported_bmp.status_code == 200
 
+    supported_avif = client.post(
+        "/v1/chat/completions",
+        headers=auth_headers(),
+        json={"model": "local-main", "messages": [{"role": "user", "content": [{"type": "image_url", "image_url": {"url": "data:image/avif;base64,AAAAGGZ0eXBhdmlmAAAAAGF2aWZtaWYxAAAAFGlzcGUAAAAAAAAAAQAAAAE="}}]}]},
+    )
+    assert supported_avif.status_code == 200
+
+    supported_jp2 = client.post(
+        "/v1/chat/completions",
+        headers=auth_headers(),
+        json={"model": "local-main", "messages": [{"role": "user", "content": [{"type": "image_url", "image_url": {"url": "data:image/jp2;base64,AAAADGpQICANCocKAAAAFGZ0eXBqcDIgAAAAAGpwMiAAAAAeanAyaAAAABZpaGRyAAAAAQAAAAEAAwcHAAAAAA=="}}]}]},
+    )
+    assert supported_jp2.status_code == 200
+
+    supported_tiff = client.post(
+        "/v1/chat/completions",
+        headers=auth_headers(),
+        json={"model": "local-main", "messages": [{"role": "user", "content": [{"type": "image_url", "image_url": {"url": "data:image/tiff;base64,SUkqAAgAAAACAAABBAABAAAAAQAAAAEBBAABAAAAAQAAAAAAAAA="}}]}]},
+    )
+    assert supported_tiff.status_code == 200
+
+    supported_x_tiff = client.post(
+        "/v1/chat/completions",
+        headers=auth_headers(),
+        json={"model": "local-main", "messages": [{"role": "user", "content": [{"type": "image_url", "image_url": {"url": "data:image/x-tiff;base64,SUkqAAgAAAACAAABBAABAAAAAQAAAAEBBAABAAAAAQAAAAAAAAA="}}]}]},
+    )
+    assert supported_x_tiff.status_code == 200
+
     unsupported_mime = client.post(
         "/v1/chat/completions",
         headers=auth_headers(),
-        json={"model": "local-main", "messages": [{"role": "user", "content": [{"type": "image_url", "image_url": {"url": "data:image/tiff;base64,AA=="}}]}]},
+        json={"model": "local-main", "messages": [{"role": "user", "content": [{"type": "image_url", "image_url": {"url": "data:image/svg+xml;base64,AA=="}}]}]},
     )
     assert unsupported_mime.status_code == 422
 

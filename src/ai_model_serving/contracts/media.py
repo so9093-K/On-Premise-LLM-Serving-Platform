@@ -83,6 +83,49 @@ def _webp_dimensions(decoded: bytes) -> tuple[int, int] | None:
     return None
 
 
+def _avif_dimensions(decoded: bytes) -> tuple[int, int] | None:
+    if not _is_iso_bmff(decoded):
+        return None
+    ftyp_size = int.from_bytes(decoded[:4], "big")
+    if ftyp_size < 16 or ftyp_size > len(decoded) or decoded[8:12] not in {b"avif", b"avis"}:
+        return None
+    brands = decoded[8:ftyp_size]
+    if b"avif" not in brands and b"avis" not in brands:
+        return None
+
+    search_from = 0
+    while True:
+        marker = decoded.find(b"ispe", search_from)
+        if marker < 4:
+            return None
+        box_start = marker - 4
+        box_size = int.from_bytes(decoded[box_start:marker], "big")
+        if box_size >= 20 and box_start + box_size <= len(decoded):
+            width = int.from_bytes(decoded[marker + 8:marker + 12], "big")
+            height = int.from_bytes(decoded[marker + 12:marker + 16], "big")
+            return width, height
+        search_from = marker + 4
+
+
+def _jp2_dimensions(decoded: bytes) -> tuple[int, int] | None:
+    if decoded.startswith(b"\x00\x00\x00\x0cjP  \r\n\x87\n"):
+        marker = decoded.find(b"ihdr")
+        if marker >= 4:
+            box_start = marker - 4
+            box_size = int.from_bytes(decoded[box_start:marker], "big")
+            if box_size >= 22 and box_start + box_size <= len(decoded):
+                height = int.from_bytes(decoded[marker + 4:marker + 8], "big")
+                width = int.from_bytes(decoded[marker + 8:marker + 12], "big")
+                return width, height
+    if decoded.startswith(b"\xff\x4f\xff\x51") and len(decoded) >= 42:
+        xsiz = int.from_bytes(decoded[8:12], "big")
+        ysiz = int.from_bytes(decoded[12:16], "big")
+        xosiz = int.from_bytes(decoded[16:20], "big")
+        yosiz = int.from_bytes(decoded[20:24], "big")
+        return xsiz - xosiz, ysiz - yosiz
+    return None
+
+
 def _gif_metadata(decoded: bytes) -> tuple[int, int, int] | None:
     if len(decoded) < 14 or decoded[:6] not in {b"GIF87a", b"GIF89a"}:
         return None
@@ -168,8 +211,68 @@ def _bmp_dimensions(decoded: bytes) -> tuple[int, int] | None:
     return None
 
 
+def _tiff_dimensions(decoded: bytes) -> tuple[int, int] | None:
+    if len(decoded) < 8:
+        return None
+    if decoded[:4] == b"II*\x00":
+        byteorder = "little"
+    elif decoded[:4] == b"MM\x00*":
+        byteorder = "big"
+    else:
+        return None
+
+    ifd_offset = int.from_bytes(decoded[4:8], byteorder)
+    if ifd_offset < 8 or ifd_offset + 2 > len(decoded):
+        return None
+    entry_count = int.from_bytes(decoded[ifd_offset:ifd_offset + 2], byteorder)
+    entries_start = ifd_offset + 2
+    entries_end = entries_start + entry_count * 12
+    next_ifd_offset_position = entries_end
+    if entries_end > len(decoded) or next_ifd_offset_position + 4 > len(decoded):
+        return None
+
+    width: int | None = None
+    height: int | None = None
+    for index in range(entry_count):
+        offset = entries_start + index * 12
+        tag = int.from_bytes(decoded[offset:offset + 2], byteorder)
+        field_type = int.from_bytes(decoded[offset + 2:offset + 4], byteorder)
+        count = int.from_bytes(decoded[offset + 4:offset + 8], byteorder)
+        value_field = decoded[offset + 8:offset + 12]
+        if tag == 330:
+            return None
+        if tag not in {256, 257} or count != 1:
+            continue
+        if field_type == 3:
+            value = int.from_bytes(value_field[:2], byteorder)
+        elif field_type == 4:
+            value = int.from_bytes(value_field, byteorder)
+        else:
+            return None
+        if tag == 256:
+            width = value
+        else:
+            height = value
+
+    next_ifd_offset = int.from_bytes(decoded[next_ifd_offset_position:next_ifd_offset_position + 4], byteorder)
+    if next_ifd_offset != 0:
+        return None
+    if width is None or height is None:
+        return None
+    return width, height
+
+
 def _image_dimensions(decoded: bytes) -> tuple[int, int] | None:
-    for parser in (_jpeg_dimensions, _png_dimensions, _webp_dimensions, _gif_dimensions, _bmp_dimensions):
+    for parser in (
+        _jpeg_dimensions,
+        _png_dimensions,
+        _webp_dimensions,
+        _avif_dimensions,
+        _jp2_dimensions,
+        _gif_dimensions,
+        _bmp_dimensions,
+        _tiff_dimensions,
+    ):
         result = parser(decoded)
         if result is not None:
             return result
@@ -216,6 +319,7 @@ SNIFFABLE_AUDIO_FORMATS: frozenset[str] = frozenset({"wav", "flac", "ogg", "mp3"
 SNIFFABLE_VIDEO_MIME_TYPES: frozenset[str] = frozenset({
     "video/mp4",
     "video/webm",
+    "video/x-matroska",
     "video/quicktime",
     "video/jpeg",
     "video/x-msvideo",
@@ -290,7 +394,7 @@ def _video_url_scheme(url: str) -> str:
 def _video_format_matches(media_type: str, decoded: bytes) -> bool:
     if media_type in {"video/mp4", "video/quicktime"}:
         return _is_iso_bmff(decoded)
-    if media_type == "video/webm":
+    if media_type in {"video/webm", "video/x-matroska"}:
         return decoded.startswith(b"\x1a\x45\xdf\xa3")
     if media_type == "video/jpeg":
         return _jpeg_dimensions(decoded) is not None

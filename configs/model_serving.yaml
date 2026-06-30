@@ -97,8 +97,12 @@ models:
         - image/jpeg
         - image/png
         - image/webp
+        - image/avif
+        - image/jp2
         - image/gif
         - image/bmp
+        - image/tiff
+        - image/x-tiff
         audio_input_note: Audio is enforced only when the ACTIVE main-model profile
           deploys the audio modality (deployed_input includes audio); these are the
           static safety bounds applied in that case. The 26B profile does not deploy
@@ -126,6 +130,7 @@ models:
         allowed_video_mime_types:
         - video/mp4
         - video/webm
+        - video/x-matroska
         - video/quicktime
         - video/jpeg
         - video/x-msvideo
