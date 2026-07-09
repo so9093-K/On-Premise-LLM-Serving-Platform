@@ -963,13 +963,17 @@ fi
 # app-restart set ever catches dashboard/rule edits. A container also keeps the
 # release path it was created with, so flipping `current` alone leaves them serving
 # the previous release's config. Independent of deploy mode, recreate them when their
-# mounted config differs from the previous release. Skipped on first deploy (no
-# previous release; the initial bring-up already starts them fresh).
+# mounted config differs from the previous release, or when a running container still
+# points at an older release context.
 if [[ -n "${PREVIOUS_RELEASE:-}" && -d "${PREVIOUS_RELEASE}" ]]; then
   _config_service_dirs=(
     "ops/grafana/dashboards"
     "ops/grafana/provisioning"
     "ops/prometheus"
+  )
+  _config_services=(
+    "grafana"
+    "prometheus"
   )
   _config_services_changed=0
   for relative_path in "${_config_service_dirs[@]}"; do
@@ -980,8 +984,27 @@ if [[ -n "${PREVIOUS_RELEASE:-}" && -d "${PREVIOUS_RELEASE}" ]]; then
       break
     fi
   done
-  if [[ ${_config_services_changed} -eq 1 ]]; then
-    echo "[deploy] grafana/prometheus config changed — force-recreating"
+  _config_services_stale=0
+  _expected_working_dir="${RELEASE_PATH}/ops/compose"
+  for service in "${_config_services[@]}"; do
+    _container_id="$(compose_run ps -q "${service}" 2>/dev/null || true)"
+    if [[ -z "${_container_id}" ]]; then
+      _config_services_stale=1
+      echo "[deploy] ${service} is not running in the target compose project"
+      break
+    fi
+    _running_working_dir="$(
+      docker inspect -f '{{ index .Config.Labels "com.docker.compose.project.working_dir" }}' \
+        "${_container_id}" 2>/dev/null || true
+    )"
+    if [[ "${_running_working_dir}" != "${_expected_working_dir}" ]]; then
+      _config_services_stale=1
+      echo "[deploy] ${service} uses stale release context: ${_running_working_dir:-unknown}"
+      break
+    fi
+  done
+  if [[ ${_config_services_changed} -eq 1 || ${_config_services_stale} -eq 1 ]]; then
+    echo "[deploy] grafana/prometheus bind-mounted config requires refresh — force-recreating"
     if ! compose_run up -d --no-deps --force-recreate grafana prometheus; then
       fail_after_env_backup "deploy restart failed for grafana/prometheus"
     fi
