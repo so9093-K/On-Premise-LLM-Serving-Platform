@@ -16,7 +16,8 @@ note: "이 문서는 특정 시점의 handoff 요약이다. 최신 package versi
 - first-run, clean/delete, package flow의 과거 감사 snapshot은 `reports/archive/refactor_audits/first_run_clean_package_audit.md`에 보존한다.
 - `local-main`은 chat/sampling/tool 관련 사용자 조정 가능 parameter를 노출한다.
 - `local-embed`는 `dimensions`, `encoding_format`, `truncate_prompt_tokens`를 노출한다.
-- `risk-prompt`, `risk-siren`은 사용자가 조정할 수 있는 parameter가 없으므로 `request_parameters: {}`로 노출한다.
+- `risk-prompt`는 사용자가 조정할 수 있는 parameter가 없으므로 `request_parameters: {}`로 노출한다.
+- `risk-siren`은 retired 상태이며 `/v1/models` active listing에는 노출하지 않는다. 호환 route는 410 Gone 정책으로 유지한다.
 - risk adapter가 detector 호출 시 내부 고정하는 `max_tokens=1`, `temperature=0`은 `fixed_parameters`로 분리해 사용자 입력 form과 구분했다.
 - `ModelRegistry`, `specs/schemas/model_list_response.schema.json`, generated OpenAPI, API 문서, endpoint 참조, FastAPI Docs UX 기준을 같은 정책으로 맞췄다.
 - `docs/operations/model_parameter_discovery.md`를 추가해 클라이언트 UI와 운영자 변경 절차를 문서화했다.

@@ -97,13 +97,13 @@ Streaming은 일반 JSON 응답보다 HTTP 연결을 오래 유지한다. 다음
 
 | 계층 | 설정 | 권장 원칙 |
 |---|---|---|
-| Gateway admission | `*_QUEUE_TIMEOUT_SECONDS` | 포화 상태에서 빠르게 실패하도록 짧게 유지 |
+| Gateway admission | `*_QUEUE_TIMEOUT_SECONDS` | 정상 동시 요청은 즉시 실패시키지 않도록 main LLM은 운영 대기 시간을 둔다. 보조/분류 runtime은 짧게 유지해도 된다. |
 | vLLM read timeout | `*_TIMEOUT_SECONDS` / model `timeout_seconds` | 토큰 생성 중 idle gap을 견딜 수 있게 설정 |
 | Gateway global timeout | `REQUEST_TIMEOUT_SECONDS` | non-stream JSON request budget. streaming은 upstream read timeout과 proxy idle timeout이 더 중요 |
 | Reverse proxy idle timeout | Ingress/Nginx read timeout | 최장 생성 시간보다 길게 설정 |
 | Client timeout | fetch/requests timeout | streaming read loop가 idle timeout을 별도로 갖도록 설정 |
 
-장문 생성이 많으면 `main_llm.timeout_seconds`, proxy read timeout, client read timeout을 같이 늘린다. 반대로 queue timeout은 concurrency 보호를 위해 길게 늘리지 않는다.
+장문 생성이 많으면 `main_llm.timeout_seconds`, proxy read timeout, client read timeout을 같이 늘린다. Main LLM queue timeout은 사용자 요청을 vLLM scheduler queue로 넘길 수 있을 만큼 확보하되, 무제한 대기는 피한다. 보조 runtime의 queue timeout은 빠른 실패와 재시도 정책에 맞춰 짧게 유지한다.
 
 ## 운영 smoke check
 

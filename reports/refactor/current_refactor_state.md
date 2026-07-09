@@ -32,7 +32,8 @@ note: "이 문서는 특정 시점의 리팩터링 상태를 요약한 current_s
 
 - `local-main`: chat/sampling/tool/streaming 관련 parameter를 `request_parameters`에 노출한다.
 - `local-embed`: embedding dimension/truncation 관련 parameter를 `request_parameters`에 노출한다.
-- `risk-prompt`, `risk-siren`: 사용자 조정 가능 parameter 없음. `request_parameters`는 `{}`이고 detector 내부 고정값은 `fixed_parameters`다.
+- `risk-prompt`: 사용자 조정 가능 parameter 없음. `request_parameters`는 `{}`이고 detector 내부 고정값은 `fixed_parameters`다.
+- `risk-siren`: retired 상태이며 `/v1/models` active listing에는 포함하지 않는다. 호환 route는 410 Gone 정책으로 유지한다.
 - `stream_options`는 `stream=true`와 함께 사용할 때만 유효하다.
 - serving/runtime 하이퍼파라미터는 사용자 API에서 조정하지 않는다.
 
