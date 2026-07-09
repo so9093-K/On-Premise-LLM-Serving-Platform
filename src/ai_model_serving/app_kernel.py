@@ -132,6 +132,7 @@ def install_exception_handlers(
             request_id_from_headers(request.headers),
             exc.param,
             service_error_debug(exc),
+            exc.retry_after_seconds,
         )
 
     # Register on the Starlette base class so unmatched-route 404s and 405s (raised by

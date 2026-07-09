@@ -1407,7 +1407,7 @@ paths:
                         - string
                         - 'null'
         '503':
-          description: 메인 모델 전환 중 또는 control plane 불가
+          description: "메인 모델 전환 중, control plane 불가, 또는 upstream 동시성/circuit breaker로 인한 일시적 admission 거부(error.code: MAIN_MODEL_SWITCH_IN_PROGRESS, MAIN_MODEL_CONTROL_UNAVAILABLE, QUEUE_TIMEOUT, CIRCUIT_OPEN)"
           headers:
             Retry-After:
               description: 재시도 전 대기 시간(초)

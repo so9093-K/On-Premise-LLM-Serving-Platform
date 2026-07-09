@@ -4,7 +4,13 @@ import httpx
 
 from ai_model_serving.errors import ServiceError
 from ai_model_serving.settings import RuntimeEndpoint
-from ai_model_serving.upstream import VLLMClient, _counts_as_upstream_failure, _http_status_to_service_error
+from ai_model_serving.upstream import (
+    QUEUE_TIMEOUT_RETRY_AFTER_SECONDS,
+    CircuitBreaker,
+    VLLMClient,
+    _counts_as_upstream_failure,
+    _http_status_to_service_error,
+)
 
 
 def endpoint() -> RuntimeEndpoint:
@@ -65,6 +71,49 @@ def test_upstream_client_supports_root_relative_paths_for_vllm_non_v1_endpoints(
     client = VLLMClient(endpoint())
     assert client._url("score") == "http://runtime/v1/score"
     assert client._url("/pooling") == "http://runtime/pooling"
+
+
+def test_circuit_open_error_carries_retry_after_close_to_remaining_cooldown() -> None:
+    breaker = CircuitBreaker(failure_threshold=1, reset_seconds=15.0)
+    breaker.record_failure()
+
+    try:
+        breaker.before_request("local-main")
+        raise AssertionError("expected CIRCUIT_OPEN")
+    except ServiceError as exc:
+        assert exc.code == "CIRCUIT_OPEN"
+        assert exc.retry_after_seconds is not None
+        # Just tripped, so remaining cooldown should be at (not past) reset_seconds.
+        assert 14.0 < exc.retry_after_seconds <= 15.0
+        headers = exc.to_response().headers
+        assert headers["retry-after"] == "15"
+
+
+def test_queue_timeout_error_carries_fixed_retry_after_hint() -> None:
+    ep = RuntimeEndpoint("local-main", "http://runtime/v1", "local-main", 1, max_concurrency=1, queue_timeout_seconds=0.01)
+    client = VLLMClient(ep)
+
+    import anyio
+
+    async def run() -> ServiceError:
+        await client._semaphore.acquire()  # hold the only admission slot
+        try:
+            await client.post_json("chat/completions", {})
+        except ServiceError as exc:
+            return exc
+        raise AssertionError("expected QUEUE_TIMEOUT")
+
+    exc = anyio.run(run)
+    assert exc.code == "QUEUE_TIMEOUT"
+    assert exc.status_code == 503
+    assert exc.retry_after_seconds == QUEUE_TIMEOUT_RETRY_AFTER_SECONDS
+    headers = exc.to_response().headers
+    assert headers["retry-after"] == "5"
+
+
+def test_service_error_without_retry_after_omits_header() -> None:
+    exc = ServiceError("VALIDATION_ERROR", "bad request", False, 422)
+    assert "retry-after" not in exc.to_response().headers
 
 
 def test_readiness_probe_bypasses_open_circuit_breaker() -> None:

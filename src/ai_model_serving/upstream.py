@@ -11,6 +11,13 @@ import httpx
 from .errors import DEBUG_VALUE_LIMIT, ERROR_STATUS, ServiceError
 from .settings import RuntimeEndpoint
 
+# Retry-After hint for QUEUE_TIMEOUT: deliberately larger than the admission
+# queue_timeout_seconds itself (typically 1-2s), so a client that retries on the
+# hint doesn't immediately re-collide with whatever request still holds the
+# admission slot. Matches the fixed hint already used for
+# MAIN_MODEL_SWITCH_IN_PROGRESS / MAIN_MODEL_CONTROL_UNAVAILABLE.
+QUEUE_TIMEOUT_RETRY_AFTER_SECONDS = 5.0
+
 
 class CircuitBreaker:
     def __init__(self, *, failure_threshold: int, reset_seconds: float) -> None:
@@ -20,12 +27,14 @@ class CircuitBreaker:
         self.open_until = 0.0
 
     def before_request(self, target: str) -> None:
-        if time.monotonic() < self.open_until:
+        now = time.monotonic()
+        if now < self.open_until:
             raise ServiceError(
                 "CIRCUIT_OPEN",
                 f"Upstream circuit is open: {target}",
                 True,
                 503,
+                retry_after_seconds=self.open_until - now,
             )
 
     def record_success(self) -> None:
@@ -160,6 +169,7 @@ class VLLMClient:
                 f"Timed out waiting for upstream capacity: {self.endpoint.logical_id}",
                 True,
                 503,
+                retry_after_seconds=QUEUE_TIMEOUT_RETRY_AFTER_SECONDS,
             ) from exc
         try:
             try:
@@ -209,6 +219,7 @@ class VLLMClient:
                 f"Timed out waiting for upstream capacity: {self.endpoint.logical_id}",
                 True,
                 503,
+                retry_after_seconds=QUEUE_TIMEOUT_RETRY_AFTER_SECONDS,
             ) from exc
 
         url = self._url(path)

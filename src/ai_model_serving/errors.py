@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from typing import Any
 from uuid import uuid4
@@ -135,6 +136,17 @@ def error_payload(
     return {"error": error}
 
 
+def retry_after_header(retry_after_seconds: float | None) -> dict[str, str] | None:
+    """Build a ``Retry-After`` header mapping, or None when there is nothing to suggest.
+
+    HTTP Retry-After is whole seconds, and always rounds up so a client never
+    retries earlier than the hinted window (e.g. 0.4s -> "1", not "0").
+    """
+    if retry_after_seconds is None:
+        return None
+    return {"Retry-After": str(max(1, math.ceil(retry_after_seconds)))}
+
+
 def error_response(
     code: str,
     message: str,
@@ -143,10 +155,12 @@ def error_response(
     request_id: str | None = None,
     param: str | None = None,
     debug: dict[str, Any] | None = None,
+    retry_after_seconds: float | None = None,
 ) -> JSONResponse:
     return JSONResponse(
         error_payload(code, message, retryable, request_id, param, debug),
         status_code=status_code or ERROR_STATUS.get(code, 500),
+        headers=retry_after_header(retry_after_seconds),
     )
 
 
@@ -159,6 +173,11 @@ class ServiceError(Exception):
     request_id: str | None = None
     param: str | None = None
     debug: dict[str, Any] | None = None
+    # Seconds a retryable caller should wait before retrying (e.g. remaining
+    # circuit-breaker cooldown, or a fixed hint for admission-queue rejection).
+    # Surfaced as the HTTP Retry-After header, not the JSON body, so it stays a
+    # transport-level hint clients can read without parsing the payload.
+    retry_after_seconds: float | None = None
 
     def to_payload(self) -> dict[str, Any]:
         return error_payload(
@@ -174,4 +193,5 @@ class ServiceError(Exception):
         return JSONResponse(
             self.to_payload(),
             status_code=self.status_code or ERROR_STATUS.get(self.code, 500),
+            headers=retry_after_header(self.retry_after_seconds),
         )

@@ -125,7 +125,7 @@ profiles:
     - --max-model-len
     - "20000"
     - --max-num-seqs
-    - "1"
+    - "2"
     - --max-num-batched-tokens
     - "20000"
     - --optimization-level
