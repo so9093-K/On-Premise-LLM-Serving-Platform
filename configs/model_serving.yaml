@@ -101,8 +101,8 @@ models:
         image_input_note: Gemma 4 26B-A4B supports image input; Gateway allows one bounded
           base64 data:image content part, validates MIME, decoded size, and image
           dimensions, and does not allow arbitrary remote image fetch by default.
-        max_image_bytes: 7000000
-        max_image_pixels: 6422528
+        max_image_bytes: 25000000
+        max_image_pixels: 12845056
         allowed_image_mime_types:
         - image/jpeg
         - image/png

@@ -63,7 +63,7 @@ Tool calling을 사용할 때는 `tools`에 function tool을 포함하고 `tool_
 
 | 입력 | Content part | 허용 형식 | 전송 형태 | 제한 |
 |---|---|---|---|---|
-| 이미지 | `image_url` | `image/jpeg`, `image/png`, `image/webp`, `image/avif`, `image/jp2`, `image/gif`, `image/bmp`, `image/tiff`, `image/x-tiff` | `data:image/...;base64,...` | 1개, decoded ≤ 7,000,000 bytes, pixels ≤ 6,422,528 |
+| 이미지 | `image_url` | `image/jpeg`, `image/png`, `image/webp`, `image/avif`, `image/jp2`, `image/gif`, `image/bmp`, `image/tiff`, `image/x-tiff` | `data:image/...;base64,...` | 1개, decoded ≤ 25,000,000 bytes, pixels ≤ 12,845,056 |
 | 오디오 | `input_audio` | `wav`, `mp3`, `flac`, `ogg`, `m4a`, `mp4`, `aac` | raw base64 + `format` 필드 | 1개, decoded ≤ 25,000,000 bytes |
 | 비디오 | `video_url` | `video/mp4`, `video/webm`, `video/x-matroska`, `video/quicktime`, `video/jpeg`, `video/x-msvideo`, `video/avi`, `video/gif` | `data:video/...;base64,...` | 1개, decoded ≤ 50,000,000 bytes; `video/jpeg` frame sequence와 `video/gif`는 최대 32 frames, frame당 pixels ≤ 6,422,528 |
 
