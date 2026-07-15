@@ -171,6 +171,7 @@ class GatewayService:
             max_video_bytes=self.settings.main_llm.max_video_bytes,
             max_video_frames=self.settings.main_llm.max_video_frames,
             max_video_frame_pixels=self.settings.main_llm.max_video_frame_pixels,
+            max_video_duration_seconds=self.settings.main_llm.max_video_duration_seconds,
             request_parameter_policy=self.settings.main_llm.request_parameter_policy,
         )
 

@@ -56,8 +56,9 @@ VIDEO_LIMITS = dict(
         "video/gif",
     ),
     max_video_bytes=50_000_000,
-    max_video_frames=32,
-    max_video_frame_pixels=6_422_528,
+    max_video_frames=60,
+    max_video_frame_pixels=12_845_056,
+    max_video_duration_seconds=60,
 )
 TEXT_IMAGE = ("text", "image")
 TEXT_IMAGE_AUDIO = ("text", "image", "audio")
@@ -291,6 +292,63 @@ def test_animated_gif_image_part_points_client_to_video_gif():
 
 def test_animated_gif_is_accepted_as_video_gif():
     _validate(_video_payload(f"data:video/gif;base64,{ANIMATED_GIF_3_FRAME_B64}"), TEXT_IMAGE_AUDIO_VIDEO)
+
+
+def _build_gif(frame_count: int, delay_centiseconds: int, *, width: int = 1, height: int = 1) -> bytes:
+    """Build a minimal (structurally valid, not necessarily viewable) GIF89a with
+    `frame_count` frames, each preceded by a Graphic Control Extension with the
+    given delay (1/100s). Image data is a dummy sub-block -- _gif_metadata only
+    reads structure (dimensions, frame count, delay), never decodes pixels."""
+    header = b"GIF89a"
+    lsd = width.to_bytes(2, "little") + height.to_bytes(2, "little") + bytes([0x00, 0x00, 0x00])
+    frames = bytearray()
+    for _ in range(frame_count):
+        gce = bytes([0x21, 0xF9, 0x04, 0x00]) + delay_centiseconds.to_bytes(2, "little") + bytes([0x00, 0x00])
+        image_descriptor = (
+            bytes([0x2C])
+            + (0).to_bytes(2, "little")
+            + (0).to_bytes(2, "little")
+            + width.to_bytes(2, "little")
+            + height.to_bytes(2, "little")
+            + bytes([0x80])
+        )
+        local_color_table = bytes([0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF])
+        image_data = bytes([0x02, 0x01, 0x00, 0x00])
+        frames += gce + image_descriptor + local_color_table + image_data
+    return header + lsd + bytes(frames) + bytes([0x3B])
+
+
+def _gif_b64(frame_count: int, delay_centiseconds: int) -> str:
+    return base64.b64encode(_build_gif(frame_count, delay_centiseconds)).decode("ascii")
+
+
+def test_gif_video_rejected_when_duration_exceeds_limit():
+    # 10 frames x 7s delay each = 70s, over the 60s max_video_duration_seconds.
+    url = f"data:video/gif;base64,{_gif_b64(10, 700)}"
+    with pytest.raises(ServiceError) as exc:
+        _validate(_video_payload(url), TEXT_IMAGE_AUDIO_VIDEO)
+    assert exc.value.status_code == 422
+    assert "plays for" in str(exc.value)
+
+
+def test_gif_video_accepted_when_short_duration_despite_many_frames():
+    # A short high-frame-rate clip: 100 frames x 0.05s = 5s total, well under
+    # 60s, even though the raw frame count (100) is far above the old flat
+    # 32-frame cap. Duration, not frame count, is the real gate now.
+    url = f"data:video/gif;base64,{_gif_b64(100, 5)}"
+    _validate(_video_payload(url), TEXT_IMAGE_AUDIO_VIDEO)
+
+
+def test_gif_video_rejected_by_frame_count_backstop_despite_short_duration():
+    # A degenerate encoding: 2000 near-zero-delay frames computes to ~0s
+    # duration but still costs real decode work downstream -- the frame-count
+    # backstop (max_video_duration_seconds * fps ceiling = 60*30 = 1800) must
+    # still catch this even though the duration check alone would pass it.
+    url = f"data:video/gif;base64,{_gif_b64(2000, 0)}"
+    with pytest.raises(ServiceError) as exc:
+        _validate(_video_payload(url), TEXT_IMAGE_AUDIO_VIDEO)
+    assert exc.value.status_code == 422
+    assert "frame(s)" in str(exc.value)
 
 
 def test_image_gif_is_not_a_video_url_contract():

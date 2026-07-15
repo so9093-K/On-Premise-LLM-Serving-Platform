@@ -58,19 +58,6 @@
 
 ## ADR 인덱스
 
-| ID | 제목 | Status |
-|---|---|---|
-| ADR-0002 | Signal-only Risk Contract | Accepted |
-| ADR-0003 | All Major Models as vLLM Runtime | Superseded by ADR-0010 |
-| ADR-0004 | 외부 진입 포트 9400 정책 | Accepted |
-| ADR-0010 | ColBERT 제거와 Dense Korean Retrieval 전환 | Accepted |
-| ADR-0011 | 문서 Source-of-Truth와 Generated Block 정책 | Accepted |
-| [ADR-0012](0012-auth-ownership-and-compose-exposure-source-of-truth.md) | Auth 소유권과 Compose Exposure Profile Source-of-Truth 분리 | Accepted |
-| [ADR-0013](0013-env-lifecycle-non-destructive-sync.md) | .env 비파괴 동기화 정책 | Accepted |
-| [ADR-0014](0014-image-validation-policy.md) | Vision 이미지 검증 정책 — 한도 상향과 MIME type 독립 파서 탐지 | Accepted |
-| [ADR-0015](0015-main-llm-20k-o3-runtime-target.md) | Main LLM 20K O3 Runtime Target | Accepted |
-| [ADR-0016](0016-xgrammar-disable-any-whitespace.md) | xgrammar disable-any-whitespace Structured Output Backend | Accepted |
-| [ADR-0017](0017-selectable-main-model-runtime.md) | Selectable Gemma 4 Main-model Runtime | Accepted |
-| [ADR-0018](0018-gpu-vram-admission-and-per-profile-runtime-image.md) | 통합 GPU VRAM Admission과 Per-profile 런타임 이미지 | Accepted |
+개별 ADR 목록과 Status는 여기서 중복 관리하지 않는다. 전체 목록은 [`docs/02_decision_register.md`](../02_decision_register.md)가 유일한 index이며, 새 ADR을 추가하거나 Status를 바꾸면 그 파일만 갱신한다.
 
 전체 결정의 canonical record는 이 `docs/adr/` 디렉터리의 파일이며, `docs/02_decision_register.md`는 ADR index와 legacy D-xxx 매핑을 제공한다.

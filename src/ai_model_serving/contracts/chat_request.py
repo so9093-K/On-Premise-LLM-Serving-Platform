@@ -208,6 +208,7 @@ def validate_chat_request(
     max_video_bytes: int = 0,
     max_video_frames: int = 0,
     max_video_frame_pixels: int = 0,
+    max_video_duration_seconds: float = 0,
     request_parameter_policy: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     payload = ensure_object(payload)
@@ -312,6 +313,7 @@ def validate_chat_request(
             max_video_bytes=max_video_bytes,
             max_video_frames=max_video_frames,
             max_video_frame_pixels=max_video_frame_pixels,
+            max_video_duration_seconds=max_video_duration_seconds,
         )
         image_count += message_images
         audio_count += message_audio

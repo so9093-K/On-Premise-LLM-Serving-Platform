@@ -65,7 +65,7 @@ Tool calling을 사용할 때는 `tools`에 function tool을 포함하고 `tool_
 |---|---|---|---|---|
 | 이미지 | `image_url` | `image/jpeg`, `image/png`, `image/webp`, `image/avif`, `image/jp2`, `image/gif`, `image/bmp`, `image/tiff`, `image/x-tiff` | `data:image/...;base64,...` | 1개, decoded ≤ 25,000,000 bytes, pixels ≤ 12,845,056 |
 | 오디오 | `input_audio` | `wav`, `mp3`, `flac`, `ogg`, `m4a`, `mp4`, `aac` | raw base64 + `format` 필드 | 1개, decoded ≤ 25,000,000 bytes |
-| 비디오 | `video_url` | `video/mp4`, `video/webm`, `video/x-matroska`, `video/quicktime`, `video/jpeg`, `video/x-msvideo`, `video/avi`, `video/gif` | `data:video/...;base64,...` | 1개, decoded ≤ 50,000,000 bytes; `video/jpeg` frame sequence와 `video/gif`는 최대 32 frames, frame당 pixels ≤ 6,422,528 |
+| 비디오 | `video_url` | `video/mp4`, `video/webm`, `video/x-matroska`, `video/quicktime`, `video/jpeg`, `video/x-msvideo`, `video/avi`, `video/gif` | `data:video/...;base64,...` | 1개, decoded ≤ 50,000,000 bytes, frame당 pixels ≤ 12,845,056; `video/jpeg` frame sequence는 최대 60 frames; `video/gif`는 재생시간(프레임 delay 합) ≤ 60초가 기준이며 frame 수는 보조 상한(60초 × 30fps = 1800)만 적용 |
 
 `input_audio.data`는 raw base64 문자열이며(`image_url`/`video_url`과 달리 `data:` URL 접두사를 붙이지 않는다), 개행·공백 포함 base64(예: `base64` CLI 기본 출력)도 허용된다.
 

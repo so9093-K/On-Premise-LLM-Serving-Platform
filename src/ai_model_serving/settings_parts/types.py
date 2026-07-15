@@ -53,6 +53,7 @@ class RuntimeEndpoint:
     max_video_bytes: int = 0
     max_video_frames: int = 0
     max_video_frame_pixels: int = 0
+    max_video_duration_seconds: float = 0
     request_parameter_policy: dict[str, Any] | None = None
     runtime_features: dict[str, Any] | None = None
 

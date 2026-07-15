@@ -126,7 +126,15 @@ def _jp2_dimensions(decoded: bytes) -> tuple[int, int] | None:
     return None
 
 
-def _gif_metadata(decoded: bytes) -> tuple[int, int, int] | None:
+def _gif_metadata(decoded: bytes) -> tuple[int, int, int, float] | None:
+    """Return (width, height, frame_count, duration_seconds), or None if unparseable.
+
+    duration_seconds sums each frame's Graphic Control Extension delay (label
+    0xF9, 1/100s units) -- the animation's actual playback time, independent of
+    how many raw frames the encoder used to represent it. A short clip encoded
+    at a high frame rate has many frames but a small duration; frame count alone
+    is not a proxy for playback time.
+    """
     if len(decoded) < 14 or decoded[:6] not in {b"GIF87a", b"GIF89a"}:
         return None
     width = int.from_bytes(decoded[6:8], "little")
@@ -138,6 +146,7 @@ def _gif_metadata(decoded: bytes) -> tuple[int, int, int] | None:
     if index > len(decoded):
         return None
     frames = 0
+    duration_centiseconds = 0
     while index < len(decoded):
         marker = decoded[index]
         index += 1
@@ -146,12 +155,17 @@ def _gif_metadata(decoded: bytes) -> tuple[int, int, int] | None:
         if marker == 0x21:
             if index >= len(decoded):
                 return None
+            label = decoded[index]
             index += 1
             while index < len(decoded):
                 block_size = decoded[index]
                 index += 1
                 if block_size == 0:
                     break
+                # Graphic Control Extension data is [packed, delay_lo, delay_hi,
+                # transparent_index]; delay (1/100s) precedes the next image it applies to.
+                if label == 0xF9 and block_size >= 4 and index + 4 <= len(decoded):
+                    duration_centiseconds += int.from_bytes(decoded[index + 1:index + 3], "little")
                 index += block_size
             if index > len(decoded):
                 return None
@@ -181,14 +195,14 @@ def _gif_metadata(decoded: bytes) -> tuple[int, int, int] | None:
                 return None
             continue
         return None
-    return (width, height, frames)
+    return (width, height, frames, duration_centiseconds / 100.0)
 
 
 def _gif_dimensions(decoded: bytes) -> tuple[int, int] | None:
     metadata = _gif_metadata(decoded)
     if metadata is None:
         return None
-    width, height, _frames = metadata
+    width, height, _frames, _duration_seconds = metadata
     return width, height
 
 
@@ -306,7 +320,7 @@ def _validate_data_image_url(
         metadata = _gif_metadata(decoded)
         if metadata is None:
             raise ServiceError("VALIDATION_ERROR", "image_url image dimensions could not be read safely; send a supported single static image.", False, 422)
-        _width, _height, frame_count = metadata
+        _width, _height, frame_count, _duration_seconds = metadata
         if frame_count > 1:
             raise ServiceError(
                 "VALIDATION_ERROR",
@@ -432,6 +446,16 @@ def _decode_video_frame_sequence(encoded: str) -> list[bytes]:
     return frames
 
 
+# GIF frame count alone does not indicate playback duration (encoders vary
+# frame rate freely), so it cannot gate on "not too long" the way
+# max_video_duration_seconds does. It still serves as a coarse decode-cost
+# backstop against a degenerate encoding (near-zero delays, many frames) that
+# would otherwise pass a duration-only check. This ceiling is generous enough
+# that a legitimate max_video_duration_seconds-length clip at a normal
+# animation frame rate never trips it -- the duration check is the real gate.
+_GIF_FRAME_COUNT_FPS_CEILING = 30
+
+
 def _validate_data_video_url(
     url: str,
     *,
@@ -439,6 +463,7 @@ def _validate_data_video_url(
     max_video_bytes: int,
     max_video_frames: int,
     max_video_frame_pixels: int,
+    max_video_duration_seconds: float,
 ) -> None:
     header, sep, encoded = url.partition(",")
     if sep != "," or not header.startswith("data:video/"):
@@ -485,11 +510,21 @@ def _validate_data_video_url(
         metadata = _gif_metadata(decoded)
         if metadata is None:
             raise ServiceError("VALIDATION_ERROR", "video_url.data does not look like a valid video/gif stream; send GIF bytes with MIME video/gif.", False, 422)
-        width, height, frame_count = metadata
+        width, height, frame_count, duration_seconds = metadata
         if frame_count < 1:
             raise ServiceError("VALIDATION_ERROR", "video_url GIF must contain at least one frame.", False, 422)
-        if max_video_frames and frame_count > max_video_frames:
-            raise ServiceError("VALIDATION_ERROR", f"video_url contains {frame_count} frame(s); reduce it to {max_video_frames} frame(s) or fewer.", False, 422)
+        if max_video_duration_seconds and duration_seconds > max_video_duration_seconds:
+            raise ServiceError(
+                "VALIDATION_ERROR",
+                f"video_url GIF plays for {duration_seconds:.1f}s; reduce it to {max_video_duration_seconds}s or fewer.",
+                False,
+                422,
+            )
+        frame_count_backstop = (
+            int(max_video_duration_seconds * _GIF_FRAME_COUNT_FPS_CEILING) if max_video_duration_seconds else max_video_frames
+        )
+        if frame_count_backstop and frame_count > frame_count_backstop:
+            raise ServiceError("VALIDATION_ERROR", f"video_url contains {frame_count} frame(s); reduce it to {frame_count_backstop} frame(s) or fewer.", False, 422)
         if width < 1 or height < 1:
             raise ServiceError("VALIDATION_ERROR", "video_url GIF dimensions must be positive.", False, 422)
         if max_video_frame_pixels and width * height > max_video_frame_pixels:
@@ -513,6 +548,7 @@ def _validate_video_url(
     max_video_bytes: int,
     max_video_frames: int,
     max_video_frame_pixels: int,
+    max_video_duration_seconds: float = 0,
 ) -> None:
     reject_unknown_fields(part, {"type", "video_url"}, "video_url content part")
     video_url = part.get("video_url")
@@ -531,6 +567,7 @@ def _validate_video_url(
             max_video_bytes=max_video_bytes,
             max_video_frames=max_video_frames,
             max_video_frame_pixels=max_video_frame_pixels,
+            max_video_duration_seconds=max_video_duration_seconds,
         )
 
 
@@ -549,6 +586,7 @@ def _validate_content_part(
     max_video_bytes: int,
     max_video_frames: int,
     max_video_frame_pixels: int,
+    max_video_duration_seconds: float = 0,
 ) -> str:
     if not isinstance(part, dict):
         raise ServiceError("VALIDATION_ERROR", "message content parts must be objects.", False, 422, param="messages.content")
@@ -602,6 +640,7 @@ def _validate_content_part(
             max_video_bytes=max_video_bytes,
             max_video_frames=max_video_frames,
             max_video_frame_pixels=max_video_frame_pixels,
+            max_video_duration_seconds=max_video_duration_seconds,
         )
         return "video"
     allowed_types = "text or image_url"
@@ -630,6 +669,7 @@ def validate_message_content(
     max_video_bytes: int = 0,
     max_video_frames: int = 0,
     max_video_frame_pixels: int = 0,
+    max_video_duration_seconds: float = 0,
 ) -> tuple[int, int, int]:
     if isinstance(content, str):
         if "text" not in allowed_modalities:
@@ -655,6 +695,7 @@ def validate_message_content(
             max_video_bytes=max_video_bytes,
             max_video_frames=max_video_frames,
             max_video_frame_pixels=max_video_frame_pixels,
+            max_video_duration_seconds=max_video_duration_seconds,
         )
         if modality == "image":
             image_count += 1

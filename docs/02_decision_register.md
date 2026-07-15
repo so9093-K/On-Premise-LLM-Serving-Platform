@@ -29,6 +29,7 @@
 | ADR-0015 | [docs/adr/0015-main-llm-20k-o3-runtime-target.md](adr/0015-main-llm-20k-o3-runtime-target.md) | Main LLM 20K O3 Runtime Target | Accepted |
 | ADR-0016 | [docs/adr/0016-xgrammar-disable-any-whitespace.md](adr/0016-xgrammar-disable-any-whitespace.md) | xgrammar disable-any-whitespace Structured Output Backend | Accepted |
 | ADR-0017 | [docs/adr/0017-selectable-main-model-runtime.md](adr/0017-selectable-main-model-runtime.md) | Selectable Gemma 4 Main-model Runtime | Accepted |
+| ADR-0018 | [docs/adr/0018-gpu-vram-admission-and-per-profile-runtime-image.md](adr/0018-gpu-vram-admission-and-per-profile-runtime-image.md) | 통합 GPU VRAM Admission과 Per-profile 런타임 이미지 | Accepted |
 
 ---
 

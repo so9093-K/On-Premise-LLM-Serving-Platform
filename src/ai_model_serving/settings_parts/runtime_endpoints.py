@@ -73,6 +73,7 @@ def build_runtime_endpoint(
         max_video_bytes=int(request_limits.get("max_video_bytes", 0)),
         max_video_frames=int(request_limits.get("max_video_frames", 0)),
         max_video_frame_pixels=int(request_limits.get("max_video_frame_pixels", 0)),
+        max_video_duration_seconds=float(request_limits.get("max_video_duration_seconds", 0)),
         request_parameter_policy=cfg.get("request_parameter_policy", {}),
         runtime_features=cfg.get("runtime_features", {}),
     )

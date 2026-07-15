@@ -102,6 +102,12 @@ def test_governance_model_config_validation_covers_catalog_models() -> None:
 
 
 def test_adr_index_and_readme_match_adr_files() -> None:
+    # docs/02_decision_register.md is the single canonical ADR index (see
+    # docs/adr/README.md and ADR-0011); docs/adr/README.md intentionally does
+    # not keep its own copy of the ADR table, so every ADR file must be
+    # indexed here and only here -- a second, independently-maintained table
+    # is what let ADR-0018 go missing from one list while ADR-0002-0011 were
+    # missing from the other, with neither file catching the drift.
     index_text = read_text("docs/02_decision_register.md")
     readme_text = read_text("docs/adr/README.md")
 
@@ -113,9 +119,11 @@ def test_adr_index_and_readme_match_adr_files() -> None:
         status = status_match.group(1).strip()
         adr_id = f"ADR-{adr_file.name[:4]}"
 
-        assert stem in index_text or stem in readme_text, f"{adr_file.name} is not indexed"
-        assert adr_id in readme_text, f"docs/adr/README.md does not include {adr_id}"
-        assert status in readme_text, f"docs/adr/README.md status for {adr_id} is stale"
+        assert stem in index_text, f"{adr_file.name} is not indexed in docs/02_decision_register.md"
+        assert adr_id in index_text, f"docs/02_decision_register.md does not include {adr_id}"
+        assert status in index_text, f"docs/02_decision_register.md status for {adr_id} is stale"
+
+    assert "02_decision_register" in readme_text, "docs/adr/README.md must point to the canonical index"
 
 
 def test_adr_status_policy_and_supersede_contract() -> None:

@@ -109,6 +109,28 @@ MIME type allowlist 검사(`image/jpeg`, `image/png`, `image/webp`, `image/avif`
 
 동기화 대상: `configs/gpu_budgets.yaml`, `configs/model_catalog.yaml`, `configs/model_serving.yaml`, `model_cards/local-main.json`, `docs/specs/api.md`.
 
+### 비디오 한도 (`max_video_frames`, `max_video_frame_pixels`) 재검토
+
+비디오 프레임은 동일한 이미지 프로세서를 거치는 정지 이미지로 취급되므로(`contracts/media.py`의 `video/jpeg` frame sequence·`video/gif` 검증이 각 프레임에 `_jpeg_dimensions` 등 이미지와 같은 픽셀 체크를 적용), 프레임당 픽셀 한도는 위 이미지 재검토와 같은 논리를 따른다: `max_video_frame_pixels`를 6,422,528 → **12,845,056**으로 올린다(픽셀 자체는 이미지와 동일 근거).
+
+프레임 수(`max_video_frames`)는 이미지와 다른 근거로 접근했다. Google 공식 개발자 문서(ai.google.dev)에 따르면 Gemma 4는 **최대 60초 클립을 초당 1프레임(1fps)까지 처리**하도록 설계되어 있다. 즉 모델의 실제 처리 설계 지점은 "60초 @ 1fps = 최대 60프레임"이며, 기존 32는 이 설계 지점보다 낮게 잡혀 있었다. 이에 따라 `max_video_frames`를 32 → **60**으로 올려 모델의 실제 처리 창(window)에 맞춘다.
+
+**주의 — 이미지와 달리 두 값은 요청당 곱셈으로 작용한다.** 이미지는 요청 하나에 정지 이미지 1장의 디코드 비용만 발생하지만, 비디오는 `프레임 수 × 프레임당 픽셀`만큼 전처리가 반복된다. 이번 변경으로 요청 하나의 최악 전처리 총량은 기존(32 × 6,422,528 ≈ 2.05억 px) 대비 새 값(60 × 12,845,056 ≈ 7.71억 px)으로 **약 3.75배** 늘어난다. 이는 main_llm 동시성 슬롯을 더 오래 점유시켜 다른 요청의 큐잉/503 확률에 영향을 줄 수 있는 트레이드오프이며, 실제 사용량(32프레임 한도에 자주 걸리는지)을 관찰하며 필요시 재조정한다.
+
+동기화 대상: `configs/model_serving.yaml`, `docs/specs/api.md`. (비디오 한도는 이미지와 달리 `gpu_budgets.yaml`/`model_catalog.yaml`/`model_cards/local-main.json`에 별도 미러링되어 있지 않다 — 이미지처럼 별도 source-of-truth 통합이 되어 있지 않은 상태로, 향후 정리 대상.)
+
+### `video/gif`는 프레임 수가 아니라 재생시간으로 게이트해야 한다
+
+`max_video_frames`를 `video/gif`에 그대로 적용하면 실제로 잘못된 걸 측정한다. GIF는 인코딩 fps가 자유롭기 때문에, 예를 들어 10초짜리 클립을 15fps로 인코딩하면 raw 프레임 수가 150개가 되어 60프레임 상한에 걸려 거부된다 — 재생시간은 모델 설계 한도(60초)의 1/6밖에 안 되는데도. 반대로 60초 클립을 1fps로 인코딩하면 정확히 60프레임이라 통과한다. 즉 기존 체크는 "재생시간이 60초 이내인가"가 아니라 "GIF 파일 안에 인코딩된 프레임이 60장 이내인가"를 보고 있었다.
+
+**수정**: `_gif_metadata`가 각 프레임의 Graphic Control Extension(label `0xF9`)에 있는 delay(1/100초 단위)를 합산해 실제 재생시간을 계산하도록 확장했다. `video/gif`는 이제:
+1. **재생시간이 `max_video_duration_seconds`(60초) 이내인지**를 1차로 검사한다 — 이게 모델의 실제 1fps×60초 설계와 맞는 진짜 기준이다.
+2. **프레임 수가 `max_video_duration_seconds × 30fps`(=1800) 이내인지**를 보조로 검사한다 — delay를 0에 가깝게 인코딩해 재생시간은 짧아 보이지만 실제로는 프레임이 매우 많은 degenerate 인코딩(디코드 비용 우회 목적)을 잡기 위한 backstop이다. 30fps는 통상적인 부드러운 애니메이션 GIF가 쓰는 상한선 근처 값으로 임의 선택했다(`contracts/media.py`의 `_GIF_FRAME_COUNT_FPS_CEILING`).
+
+`video/jpeg`(클라이언트가 직접 프레임을 나열하는 형식)는 타이밍 메타데이터가 없어 이 재생시간 개념이 적용되지 않으므로 변경하지 않았다 — 기존처럼 `max_video_frames`(60)가 그대로 직접 적용된다.
+
+새 설정 `max_video_duration_seconds: 60`을 `configs/model_serving.yaml`에 추가했다(현재 이미지처럼 별도 source-of-truth 미러링은 하지 않음, 위와 동일한 이유).
+
 ## Related
 
 - `configs/gpu_budgets.yaml` — 이미지 한도 single source-of-truth

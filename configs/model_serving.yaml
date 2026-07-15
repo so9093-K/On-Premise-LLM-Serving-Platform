@@ -147,8 +147,16 @@ models:
         - video/avi
         - video/gif
         max_video_bytes: 50000000
-        max_video_frames: 32
-        max_video_frame_pixels: 6422528
+        # max_video_frames gates the video/jpeg pre-extracted frame sequence
+        # path directly (client-controlled item count, no timing metadata).
+        # For video/gif, the real gate is max_video_duration_seconds (summed
+        # frame delay); max_video_frames only matters there as a fallback if
+        # max_video_duration_seconds is unset -- see
+        # contracts/media.py:_GIF_FRAME_COUNT_FPS_CEILING for the derived
+        # backstop used when max_video_duration_seconds is set.
+        max_video_frames: 60
+        max_video_frame_pixels: 12845056
+        max_video_duration_seconds: 60
       degrade_action: return upstream error; do not fall back to risk or embedding
         models
     runtime_features:
