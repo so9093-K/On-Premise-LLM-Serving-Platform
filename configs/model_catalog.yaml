@@ -68,11 +68,10 @@ models:
       optimization_level: 3
       gpu_memory_utilization: 0.76
       trust_remote_code: true
-      policy_reason: 20K context and optimization level 3 runtime target for
-        RedHatAI preliminary FP8 checkpoint on RTX 6000 Ada; upstream example
-        uses 96K context on B200/vLLM main, so this platform requires local
-        tokenizer, boot, quality, latency, and soak validation before production
-        claims
+      policy_reason: RTX 6000 Ada에서 RedHatAI preliminary FP8 checkpoint에 대한
+        20K context, optimization level 3 런타임 target이다; upstream 예시는
+        B200/vLLM main 기준 96K context를 사용하므로, 이 플랫폼은 production을
+        주장하기 전에 로컬 tokenizer, boot, 품질, 지연시간, soak 검증이 필요하다
       max_output_tokens: 8192
       input_modalities:
       - text
@@ -82,9 +81,9 @@ models:
       max_image_inputs: 1
       allowed_image_url_schemes:
       - data
-      image_url_policy_reason: avoid arbitrary server-side URL fetch by default; validate
-        MIME, decoded image bytes, and image dimensions; external HTTPS image fetch
-        should be enabled only behind an egress policy
+      image_url_policy_reason: 기본값으로 임의 server-side URL fetch를 피한다;
+        MIME, 디코드된 image bytes, image dimensions를 검증한다; 외부 HTTPS image
+        fetch는 egress 정책 뒤에서만 활성화해야 한다
       max_image_bytes: 25000000
       max_image_pixels: 12845056
       allowed_image_mime_types:
@@ -197,8 +196,8 @@ models:
       max_num_seqs: 2
       max_num_batched_tokens: 2048
       gpu_memory_utilization: 0.04
-      policy_reason: serve EmbeddingGemma through the platform embedding API while
-        preserving model-card token and dimension limits
+      policy_reason: model card의 token·dimension 한도를 유지하면서 플랫폼 embedding
+        API로 EmbeddingGemma를 서빙한다
     retrieval:
       backend: dense_embedding
       score_function: cosine
@@ -280,9 +279,9 @@ models:
       - dense_cosine
       chunking_recommended: true
       sentence_transformers_ranking_parity_required: true
-      policy_reason: project caps runtime context at 2048 and keeps dimensions fixed
-        at 1024 for chunk-based Korean dense retrieval stability; model card 8192
-        context remains a source fact.
+      policy_reason: 프로젝트는 chunk 기반 한국어 dense retrieval 안정성을 위해
+        runtime context를 2048로 제한하고 dimension을 1024로 고정한다; model card의
+        8192 context는 source fact로 남긴다.
     retrieval:
       backend: dense_embedding
       score_function: cosine
@@ -363,8 +362,8 @@ models:
       max_output_tokens: 1
       temperature: 0
       prompt_format: chat_template-compatible user message
-      policy_reason: model card defines one-token classification output and example
-        generation uses max_new_tokens=1
+      policy_reason: model card는 1-token classification 출력을 정의하고, 예시
+        생성은 max_new_tokens=1을 사용한다
       runtime_features:
         tool_calling:
           enabled: false

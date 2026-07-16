@@ -19,6 +19,7 @@
 - `make sync-env` — `git pull` 이후 `.env`를 템플릿과 동기화한다. 누락 키를 추가하고 폐기 키를 제거하되, 기존 크리덴셜·이미지 태그·커스텀 값은 모두 보존한다. 시크릿을 재생성하지 않는다.
 - `setup_env.py --env-file <path>` — `--sync-env` 실행 시 프로젝트 루트가 아닌 다른 경로의 `.env`를 대상으로 지정할 수 있다. 별도 배포 디렉터리의 `.env` 동기화에 사용한다.
 - 문서 lifecycle, ownership, source-of-truth, 검증 방식을 추적하는 `docs/manifest.yaml`을 추가했다.
+- 업스트림 admission 대기열 초과(`QUEUE_TIMEOUT`)와 circuit breaker 개방(`CIRCUIT_OPEN`) 503 응답에 `Retry-After` 헤더를 추가했다. `QUEUE_TIMEOUT`은 고정 5초, `CIRCUIT_OPEN`은 실제 남은 cooldown 시간을 반환한다. 이전에는 클라이언트가 재시도 시점을 추측해야 했다.
 
 ### Changed
 
@@ -46,6 +47,8 @@
 - 설명형 request examples 문서를 `docs/examples/requests.md`로 이동했다.
 - `reports/refactor/current_*`에는 실제 current state, handoff, inventory만 남기고 과거 audit snapshot은 archive로 분리했다.
 - `deploy_gitlab_compose.sh`가 배포 성공 직후 digest로 핀된 이미지(platform, vllm-gemma4-audio)에 안정적인 cosmetic `:deployed` 태그를 부여한다. digest pin은 `docker images`에서 `<none>`으로 보여 on-box 식별이 어려웠는데, 런타임 핀(`.env`의 `@sha256`)은 그대로 두고 표시용 태그만 매 배포마다 현재 이미지로 옮겨 단다(이전 이미지는 태그를 잃고 dangling prune으로 회수). 동작 영향 없는 가독성 개선이다.
+- `request_validation_rejections_total`의 `reason` 라벨이 image/audio/video 요청 거부를 bytes·pixels·mime·frames·duration 단위로 세분화하도록 `validation_reason()`을 확장했다(이전엔 video/audio 거부가 전부 `request`로 뭉뚱그려 집계됨). Usage Today 대시보드의 "Rejected Requests" 패널을 단일 합계에서 reason별 breakdown으로 바꾸고, `upstream_errors_total`을 target·code별로 보여주는 "Upstream Errors by Code" 패널을 신규 추가했다.
+- 12B(`gemma4-12b-unified-fp8`) 프로필의 `--max-model-len`/`--max-num-batched-tokens`를 20000 → 50000으로 올렸다. `--max-num-seqs`(2)·`--gpu-memory-utilization`(0.76)은 그대로 두고 실제 배포 서버에서 boot/health/`/metrics` 검증까지 완료했다. profiling이 커진 배치만큼 activation 메모리를 더 확보하면서 KV cache pool(`num_gpu_blocks`)이 20707→16638로 줄어, 엔진 VRAM 사용량은 오히려 35.2GiB→30.2GiB로 감소했다. ([ADR-0015](docs/adr/0015-main-llm-20k-o3-runtime-target.md))
 
 ### Fixed
 

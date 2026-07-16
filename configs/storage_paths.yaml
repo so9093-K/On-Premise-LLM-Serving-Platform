@@ -101,22 +101,22 @@ external_host_paths:
     path: /
     mount: /rootfs:ro
     service: cadvisor
-    reason: Container filesystem telemetry.
+    reason: 컨테이너 파일시스템 텔레메트리.
   docker_socket_state:
     path: /var/run
     mount: /var/run:ro
     service: cadvisor
-    reason: Docker/container telemetry.
+    reason: Docker/컨테이너 텔레메트리.
   sysfs:
     path: /sys
     mount: /sys:ro
     service: cadvisor
-    reason: Host/container resource telemetry.
+    reason: Host/컨테이너 리소스 텔레메트리.
   docker_lib:
     path: /var/lib/docker
     mount: /var/lib/docker:ro
     service: cadvisor
-    reason: Container storage telemetry.
+    reason: 컨테이너 스토리지 텔레메트리.
 cleanup_flags:
   PURGE_MODEL_CACHE:
     default: "0"

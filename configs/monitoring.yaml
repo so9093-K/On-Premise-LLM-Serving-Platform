@@ -24,8 +24,8 @@ monitoring_stack:
     allow_ui_updates_policy:
       reference_release: false
       local_experiment: true
-      reason: Provisioned dashboards are Git-managed artifacts; UI edits in Grafana
-        DB do not write back to JSON sources.
+      reason: 프로비저닝된 대시보드는 Git으로 관리되는 아티팩트이며, Grafana DB에서의 UI
+        수정은 JSON 원본에 반영되지 않는다.
     dashboard_language_policy: Korean-first titles with English metric terms; PromQL
       metric names and label values stay ASCII/English.
     dashboard_variable_scope: Minimum common variable list; datasource/window are required
@@ -53,9 +53,9 @@ monitoring_stack:
   dcgm_exporter:
     enabled: true
     port: 9412
-    reason: GPU memory and utilization telemetry are required for runtime validation;
-      compose exposes host port 9412 while Prometheus scrapes dcgm-exporter:9400 inside
-      the compose network.
+    reason: GPU 메모리·사용률 텔레메트리는 런타임 검증에 필요하다; compose는 host port
+      9412를 노출하고, Prometheus는 compose 네트워크 내부에서 dcgm-exporter:9400을
+      스크레이프한다.
     internal_port: 9400
     host_port: 9412
     default_metrics_path: /metrics
@@ -64,12 +64,12 @@ monitoring_stack:
     port: 9413
     internal_port: 8080
     default_metrics_path: /metrics
-    reason: Container-level CPU, host RAM, network, and restart telemetry are required
-      to distinguish per-vLLM software pressure from single-GPU hardware pressure.
+    reason: 컨테이너 단위 CPU, host RAM, 네트워크, 재시작 텔레메트리는 vLLM별 소프트웨어
+      부하와 단일 GPU 하드웨어 부하를 구분하는 데 필요하다.
   alertmanager:
     port: null
     enabled_for_reference: false
-    reason: Alert routing requires operational ownership and on-call policy.
+    reason: Alert 라우팅에는 운영 소유권과 on-call 정책이 필요하다.
 metric_sources:
   gateway:
     public_port: 9400

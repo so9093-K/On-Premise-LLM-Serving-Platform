@@ -74,15 +74,15 @@ canonical_commands:
 aliases:
   up:
     canonical: start
-    reason: Docker Compose compatibility alias
+    reason: Docker Compose 호환 alias
     make_target_required: true
   down:
     canonical: stop
-    reason: Docker Compose compatibility alias
+    reason: Docker Compose 호환 alias
     make_target_required: true
   check-ready:
     canonical: ready
-    reason: explicit readiness wording alias
+    reason: 명시적 readiness 용어 alias
     make_target_required: true
 reserved_terms:
   deploy: apply artifacts to a target environment; not local startup

@@ -19,15 +19,20 @@ profiles:
     compatibility:
       status: verified
       reasons:
-      - Current RTX 6000 Ada 48 GiB deployment is running the 26B model with this 20K runtime policy.
-      - The model revision and runtime image digest were captured when this profile was added.
+      - 현재 RTX 6000 Ada 48GiB 배포 환경은 이 20K 런타임 정책으로 26B 모델을 운영 중이다.
+      - 이 프로필을 추가할 때 모델 revision과 런타임 이미지 digest를 기록했다.
+      - 12B(50K) 검증 직후 실제로 이 프로필로 전환해 재확인했다. local-main 자체 35,940
+        MiB(35.1 GiB), 전체(embed/embed-ko/risk-prompt 포함) 41.5 GiB 사용, headroom
+        5.8 GiB. /metrics에서 num_gpu_blocks=10812, block_size=16 (KV cache 172,992
+        tokens) 확인 -- 현재 설정(seq=1, 20K = 최소 필요 20,000 tokens) 대비 약 8.6배
+        여유가 있다.
       validation:
         gpu: NVIDIA RTX 6000 Ada Generation
         compute_capability: "8.9"
         vram_mib: 49140
         context_tokens: 20000
         concurrency: 1
-        validated_at: "2026-06-18"
+        validated_at: "2026-07-16"
     capabilities:
       model_input: [text, image]
       deployed_input: [text, image]
@@ -85,28 +90,45 @@ profiles:
     # fixes 12B multimodal (see capabilities). CI/deploy injects its immutable digest
     # into AUDIO_VLLM_IMAGE (like compose's ${RISK_VLLM_IMAGE}); when unset the loader
     # falls back to the shared base and the media boot canaries keep 12B from going live.
+    # stock base에서는 image/audio가 깨진다 -- vision_embedder.patch_dense의 FP8
+    # ignore-list prefix 불일치로 pad 출력만 나오고, feature_extractor.fft_length가
+    # 없어서 audio warmup이 죽는다. 2026-06-25에 upstream vLLM/transformers 버그로
+    # root-cause를 확인했고 이 파생 이미지에서 고쳤다. audio/video boot canary가 매
+    # 전환마다 이걸 재검증하므로, 고쳐진 이미지 없이는 canary가 실패하고 롤백된다.
     image: ${AUDIO_VLLM_IMAGE}
     compatibility:
       status: verified
       reasons:
-      - Command changed from the last live-validated command (--max-model-len/--max-num-batched-tokens
-        20000 -> 50000); --max-num-seqs (2) and --gpu-memory-utilization (0.76) are
-        unchanged. Promoted to verified by explicit operator decision, not by a
-        live boot at this exact command -- there is no boot/soak record for 50K
-        the way there is for the 20K baseline below.
-      - Live /metrics on the previously-running 20K engine reported num_gpu_blocks=20707
-        at block_size=16 (331,312 tokens of KV cache capacity) against a 20K/seq=2
-        need of 40,000 tokens -- roughly 8x headroom. 2x50,000=100,000 tokens is
-        ~30% of that measured pool, so this is expected to boot without touching
-        gpu_memory_utilization, but that is an estimate, not a live-validated fact.
-      - This profile ID was merged in place from a separate gemma4-12b-unified-fp8-50k
-        candidate before that candidate had actually been switched to on the
-        deployed server. There is no longer a distinct known-good profile ID for
-        the previously-verified 20K command -- if this 50K command fails to boot
-        or misbehaves, restoring 20K requires manually reverting this file (e.g.
-        via git) rather than an automatic rollback to a separate profile ID.
-      - First host validation for this model_id/revision/runtime image combination
-        was completed 2026-06-25 at 20K context; see git history for that record.
+      - 마지막으로 live-validated된 커맨드에서 --max-model-len/--max-num-batched-tokens만
+        20000 -> 50000으로 바뀌었다; --max-num-seqs(2)와 --gpu-memory-utilization(0.76)은
+        그대로다.
+      - 직전 20K 엔진의 실측 /metrics에서 num_gpu_blocks=20707, block_size=16 (KV cache
+        용량 331,312 tokens)이 확인됐다. 20K/seq=2 기준 필요량은 40,000 tokens로 약 8배
+        여유가 있었고, 이 여유를 근거로 50K를 실제 배포 서버에서 전환(switch)해 부팅
+        성공을 확인했다 (아래 validation 참고).
+      - 부팅 후 실측 /metrics에서 num_gpu_blocks=16638 (KV cache 용량 266,208 tokens)로
+        재확인됐다 -- 20K 때보다 줄었는데, --max-num-batched-tokens가 커지면서 profiling
+        시 activation 메모리 추정치가 커져 KV cache 몫이 줄어든 것으로 보인다. 그래도
+        2x50,000=100,000 tokens 대비 약 2.7배 여유가 남아 gpu_memory_utilization은
+        건드리지 않았다.
+      - 이 프로필 ID는 별도로 만들었던 gemma4-12b-unified-fp8-50k 후보를 이 자리로 합친
+        것이다. 그 결과 이전에 verified였던 20K 커맨드를 가리키는 별도의 known-good
+        프로필 ID는 더 이상 없다 -- 이후 50K 커맨드가 이상 동작하면, 별도 프로필로의 자동
+        롤백이 아니라 이 파일을(예를 들어 git으로) 수동으로 되돌려야 20K로 복구된다.
+      - 이 model_id/revision/런타임 이미지 조합의 최초 호스트 검증은 2026-06-25에 20K
+        context에서 완료됐다; 해당 기록은 git history를 참고한다.
+      - --max-num-seqs를 2 -> 3으로 올렸다. 50K/seq=2 실측 pool(266,208 tokens, KV cache
+        용량 --max-num-batched-tokens=50000 기준) 대비 seq=3 필요량은 3x50,000=150,000
+        tokens로 pool의 약 56%, 여유 약 1.77배(116,208 tokens)다. seq=2->50K 때(8배 여유)
+        보다는 타이트하지만 여전히 안전한 수준으로 판단해 운영자 결정으로 반영했다. 이
+        정확한 커맨드(seq=3)의 실제 boot/`/metrics` 재확인은 아직 없다.
+      validation:
+        gpu: NVIDIA RTX 6000 Ada Generation
+        compute_capability: "8.9"
+        vram_mib: 49140
+        context_tokens: 50000
+        concurrency: 2
+        validated_at: "2026-07-16"
     capabilities:
       model_input: [text, image, audio, video]
       # Full multimodal, served by the pinned derived image (image rides in
@@ -133,7 +155,7 @@ profiles:
     - --max-model-len
     - "50000"
     - --max-num-seqs
-    - "2"
+    - "3"
     - --max-num-batched-tokens
     - "50000"
     - --optimization-level
