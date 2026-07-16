@@ -87,6 +87,22 @@ def test_gateway_records_safe_validation_rejection_metric_for_image_errors():
     assert 'request_validation_rejections_total{reason="image_input",service="gateway"}' in metrics
 
 
+def test_gateway_records_specific_validation_rejection_reason_for_image_pixels():
+    # Minimal 24-byte PNG header (signature + IHDR + 3x3 dimensions, no real
+    # pixel data): _png_dimensions only reads the header, and settings() caps
+    # max_image_pixels at 4, so 3x3=9 trips the pixel limit specifically
+    # (distinct from the generic "image_input" bucket covered above).
+    png_b64 = "iVBORw0KGgoAAAAASUhEUgAAAAMAAAAD"
+    client = TestClient(create_gateway_app(settings(), FakeGatewayClients()))
+    client.post(
+        "/v1/chat/completions",
+        headers=auth_headers(),
+        json={"model": "local-main", "messages": [{"role": "user", "content": [{"type": "image_url", "image_url": {"url": f"data:image/png;base64,{png_b64}"}}]}]},
+    )
+    metrics = client.get("/metrics").text
+    assert 'request_validation_rejections_total{reason="image_pixels",service="gateway"}' in metrics
+
+
 def test_access_log_records_client_ip_hash_without_metric_label_style_ip():
     request = Request({
         "type": "http",

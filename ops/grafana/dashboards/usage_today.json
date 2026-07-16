@@ -124,7 +124,7 @@
     },
     {
       "id": 3,
-      "type": "stat",
+      "type": "bargauge",
       "title": "Rejected Requests",
       "datasource": {
         "type": "prometheus",
@@ -138,16 +138,16 @@
       },
       "targets": [
         {
-          "expr": "sum(increase(request_validation_rejections_total[$window]))",
+          "expr": "sum by (reason) (increase(request_validation_rejections_total[$window]))",
           "refId": "A",
-          "legendFormat": "rejected"
+          "legendFormat": "{{reason}}"
         }
       ],
       "options": {
-        "colorMode": "background",
-        "graphMode": "none",
-        "justifyMode": "center",
-        "textMode": "value"
+        "displayMode": "gradient",
+        "orientation": "horizontal",
+        "showUnfilled": true,
+        "valueMode": "color"
       },
       "fieldConfig": {
         "defaults": {
@@ -169,7 +169,7 @@
         },
         "overrides": []
       },
-      "description": "선택 window 동안 검증에서 거부된 요청 수. Healthy: 0 — 정상. Attention: 1 이상 — 클라이언트 입력/한도/통합을 확인한다(거부율 SLO가 정해지면 Action 기준을 추가한다). No Data: check gateway scrape."
+      "description": "선택 window 동안 검증에서 거부된 요청 수를 사유(reason)별로 본다. Healthy: 값 없음 — 정상. Attention: 항목이 보이면 어떤 사유(image_bytes/video_duration 등)인지 바로 확인해 클라이언트 입력/한도/통합을 점검한다(거부율 SLO가 정해지면 Action 기준을 추가한다). No Data: check gateway scrape."
     },
     {
       "id": 4,
@@ -255,6 +255,55 @@
         "overrides": []
       },
       "description": "모델별 요청량이 시간에 따라 어떻게 변하는지 본다(상단 Top Models 스냅샷의 추세 짝). Healthy: 의도한 모델 분포가 유지됨. Attention: 특정 모델이 갑자기 치솟거나 꺾이면 원인을 본다. No Data: 트래픽이 없거나 gateway scrape를 확인한다."
+    },
+    {
+      "id": 6,
+      "type": "bargauge",
+      "title": "Upstream Errors by Code",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 19,
+        "w": 24,
+        "h": 7
+      },
+      "targets": [
+        {
+          "expr": "sum by (target, code) (increase(upstream_errors_total[$window]))",
+          "refId": "A",
+          "legendFormat": "{{target}}: {{code}}"
+        }
+      ],
+      "options": {
+        "displayMode": "gradient",
+        "orientation": "horizontal",
+        "showUnfilled": true,
+        "valueMode": "color"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "description": "선택 window 동안 upstream(vLLM/risk-adapter) 호출이 target별·code별로 얼마나 실패했는지 본다(QUEUE_TIMEOUT, CIRCUIT_OPEN, GATEWAY_TIMEOUT 등). Healthy: 값 없음 — 정상. Attention: 항목이 보이면 어느 target에서 어떤 code로 실패하는지 바로 보고 admission/circuit breaker/모델 상태를 확인한다. No Data: check gateway scrape."
     }
   ],
   "refresh": "30s",

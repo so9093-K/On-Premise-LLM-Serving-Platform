@@ -147,7 +147,29 @@ def create_gateway_app(settings: AppSettings | None = None, clients: GatewayClie
     def validation_reason(exc: ServiceError) -> str:
         message = exc.message.lower()
         if "image_url" in message:
+            if "byte" in message:
+                return "image_bytes"
+            if "pixel" in message:
+                return "image_pixels"
+            if "mime" in message:
+                return "image_mime"
             return "image_input"
+        if "input_audio" in message:
+            if "byte" in message:
+                return "audio_bytes"
+            if "format" in message:
+                return "audio_format"
+            return "audio_input"
+        if "video_url" in message:
+            if "play" in message:
+                return "video_duration"
+            if "frame" in message:
+                return "video_frames"
+            if "byte" in message:
+                return "video_bytes"
+            if "mime" in message:
+                return "video_mime"
+            return "video_input"
         if "max_tokens" in message:
             return "max_tokens"
         if "messages" in message:
