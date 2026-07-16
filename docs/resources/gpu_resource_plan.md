@@ -4,6 +4,11 @@
 
 본 문서는 RTX 6000 Ada 48GB 단일 GPU에서 enabled vLLM 모델 4개를 동시에 상주시킬 때의 보수적 리소스 배분 기준을 정의한다. `risk-siren`은 retired 상태이며 기본 runtime budget 합계에서 제외한다.
 
+> **2026-07-16 갱신**: 아래 2~8절은 Main LLM을 26B 하나로 고정된 모델로 전제하고 작성됐다.
+> [ADR-0017](../adr/0017-selectable-main-model-runtime.md) 이후 Main LLM은 26B/12B 중
+> 선택 가능한 프로필이며, 각 프로필의 실제 VRAM 사용량은 서로 다르다. 최신 실측치는 **9절**
+> 참고.
+
 ## 2. 모델별 Budget
 
 | 모델 | 역할 | 권장 Budget |
@@ -99,3 +104,18 @@ budget id: `single_a6000_conservative` / 설정된 enabled `gpu_memory_utilizati
 Tuning order: concurrency 축소 → max tokens/batch token 조정 순서를 따른다.
 
 Fixed constraints: risk detector max_output_tokens은 1로 고정, model fallback은 허용하지 않는다, 각 모델은 독립 vLLM process와 port를 유지한다.
+
+## 9. Selectable Main LLM 프로필 반영 (2026-07-16 갱신)
+
+[ADR-0017](../adr/0017-selectable-main-model-runtime.md) 이후 `local-main`은 `configs/main_model_profiles.yaml`의 `gemma4-26b-a4b-fp8`(기본)/`gemma4-12b-unified-fp8`(대안) 중 하나로 전환된다. 위 2~8절의 "Main LLM = 20K, seq=1" 서술은 활성 프로필이 26B일 때만 유효하다.
+
+실제 배포 서버에서 두 프로필을 각각 활성화해 실측한 결과([ADR-0015](../adr/0015-main-llm-20k-o3-runtime-target.md) Update 참고):
+
+| 프로필 | context/concurrency | 실제 VRAM (local-main) | KV cache pool |
+|---|---|---:|---|
+| `gemma4-26b-a4b-fp8` | 20K, seq=1 | 35.1 GiB | 172,992 tokens (필요량 대비 약 8.6배 여유) |
+| `gemma4-12b-unified-fp8` | 50K, seq=2 | 30.2 GiB | 266,208 tokens (필요량 대비 약 2.7배 여유) |
+
+12B는 context가 더 크고 audio/video까지 지원하지만, weight 자체가 26B보다 작아 실제 VRAM은 오히려 더 적게 쓴다. `gpu_memory_utilization`(0.76)이 아니라 `--max-num-batched-tokens`가 부팅 시 KV cache pool 크기를 좌우하는 실제 요인이라는 점도 확인됐다 — 자세한 메커니즘은 ADR-0015 Update 참고.
+
+**조정 순서(8절) 관련 실무 노트**: "이론상 여유가 있어 보인다"와 "실제로 확인됐다"는 다르다. 어느 프로필이 실제로 얼마나 쓰는지는 `nvidia-smi`와 vLLM `/metrics`(`vllm:cache_config_info`)로 부팅 후 직접 확인하는 게 원칙이며, 이 문서의 고정 budget 표(2절)를 근거로 삼지 않는다.

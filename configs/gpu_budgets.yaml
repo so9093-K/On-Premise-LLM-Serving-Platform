@@ -23,6 +23,14 @@ budgets:
   # runtime reservation is the active profile's --gpu-memory-utilization, which a
   # host may override via MAIN_LLM_GPU_MEMORY_UTILIZATION; GPU admission reads that
   # live value, not this block. See ADR-0018.
+  #
+  # target_gib/range_gib below are the 26B(default_profile) reference figures only.
+  # main_llm is a switchable identity since ADR-0017 -- the 12B profile's real
+  # measured footprint differs and does not fall in this range. Live-measured
+  # (2026-07-16, docs/adr/0015 Update): 26B(seq=1, 20K) actual ~35.1 GiB; 12B(seq=2,
+  # 50K) actual ~30.2 GiB. Do not read this block as "the" Main LLM footprint
+  # regardless of active profile -- check nvidia-smi/vllm:cache_config_info for the
+  # currently active one.
   main_llm:
     target_gib: 34.6
     range_gib:

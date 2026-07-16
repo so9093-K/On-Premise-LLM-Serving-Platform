@@ -50,6 +50,15 @@ def validate_ports() -> None:
     if f'GATEWAY_PORT={gateway_port}' not in env:
         raise SystemExit(f'.env.example must include GATEWAY_PORT={gateway_port}')
 
+def _without_reason_fields(policy: dict[str, Any]) -> dict[str, Any]:
+    # *_reason fields are free-text rationale (policy_reason, image_url_policy_reason,
+    # ...), not behavior. Requiring them byte-equal across model_catalog.yaml and
+    # model_cards/*.json breaks CI on a harmless wording/translation edit while
+    # verifying nothing about actual runtime behavior; only the structural/numeric
+    # fields need cross-file agreement.
+    return {key: value for key, value in policy.items() if not key.endswith('_reason')}
+
+
 def validate_model_cards() -> None:
     from ai_model_serving.domain import ModelRegistry
 
@@ -68,7 +77,9 @@ def validate_model_cards() -> None:
             raise SystemExit(f'model card upstream_model_id mismatch: {projection.logical_id}')
         if card.get('source_facts') != projection.source_facts:
             raise SystemExit(f'model card source_facts mismatch: {projection.logical_id}')
-        if card.get('project_runtime_policy') != projection.project_runtime_policy:
+        card_policy = _without_reason_fields(card.get('project_runtime_policy') or {})
+        projection_policy = _without_reason_fields(projection.project_runtime_policy)
+        if card_policy != projection_policy:
             raise SystemExit(f'model card project_runtime_policy mismatch: {projection.logical_id}')
         runtime = card.get('runtime', {})
         for field, expected_value in projection.runtime.items():

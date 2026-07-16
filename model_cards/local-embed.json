@@ -51,7 +51,7 @@
     "max_num_seqs": 2,
     "max_num_batched_tokens": 2048,
     "gpu_memory_utilization": 0.04,
-    "policy_reason": "serve EmbeddingGemma through the platform embedding API while preserving model-card token and dimension limits"
+    "policy_reason": "model card의 token·dimension 한도를 유지하면서 플랫폼 embedding API로 EmbeddingGemma를 서빙한다"
   },
   "request_parameters": {
     "dimensions": {

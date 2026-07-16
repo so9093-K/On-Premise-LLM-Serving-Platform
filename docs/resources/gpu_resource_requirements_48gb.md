@@ -11,6 +11,11 @@
 | 작성 목적 | enabled runtime 기준 VRAM budget, 설정 조건, 운영 가능 범위, 리스크를 정리한다. |
 | 기준일 | 2026-05-12 |
 
+> **2026-07-16 갱신**: 이 문서는 원래 Main LLM을 26B 하나로 고정된 모델로 전제하고 작성됐다.
+> [ADR-0017](../adr/0017-selectable-main-model-runtime.md) 이후 Main LLM은 26B/12B 중
+> 선택 가능한 프로필이 되었고, 각 프로필의 실제 VRAM 사용량은 서로 다르다. 아래 본문(1~8절)은
+> 26B 단일 모델 기준 원본 그대로 두고, 12B를 포함한 최신 실측치는 **9절**에 별도로 정리했다.
+
 ## 1. 문서 목적
 
 본 문서는 48GB VRAM 단일 GPU 환경에서 현재 기본 enabled vLLM runtime 4개를 동시에 상주시킬 때 필요한 GPU 리소스 요구사항을 정의한다.
@@ -101,3 +106,18 @@ Prefix caching은 반복 prefix가 있는 multi-turn, tool, RAG prompt에서 pre
 
 
 이 구성은 registry-driven runtime, detector registry, prompt-only aggregate, retired `risk-siren` policy를 전제로 한다. 운영 확정 전에는 RTX 6000 Ada 환경에서 boot log, idle VRAM, p95 TTFT, decode tok/s, restart/OOM 0을 기록해야 한다.
+
+## 9. Selectable Main LLM 프로필 반영 (2026-07-16 갱신)
+
+[ADR-0017](../adr/0017-selectable-main-model-runtime.md)/[ADR-0018](../adr/0018-gpu-vram-admission-and-per-profile-runtime-image.md) 이후 "Main LLM"은 `configs/main_model_profiles.yaml`의 프로필(`gemma4-26b-a4b-fp8` 기본 / `gemma4-12b-unified-fp8` 대안) 중 하나로 전환되는 identity다. 1~8절은 26B 단일 모델을 전제로 한 원본이며, 그 전제가 더 이상 유효하지 않다.
+
+실제 배포 서버에서 두 프로필을 각각 활성화해 실측한 결과([ADR-0015](../adr/0015-main-llm-20k-o3-runtime-target.md) Update 참고):
+
+| 프로필 | context/concurrency | local-main 자체 VRAM | 전체 GPU 사용량 | KV cache pool (`num_gpu_blocks`) |
+|---|---|---:|---:|---|
+| `gemma4-26b-a4b-fp8` (기본) | 20K, seq=1 | 35.1 GiB | 41.5 GiB | 10812 blocks (172,992 tokens) |
+| `gemma4-12b-unified-fp8` | 50K, seq=2 | 30.2 GiB | 36.6 GiB | 16638 blocks (266,208 tokens) |
+
+즉 12B가 26B보다 context가 2.5배 크고 audio/video까지 지원하는데도 실제 VRAM은 오히려 더 적게 씁니다 — 26B는 weight 자체가 더 크기 때문입니다. 두 경우 다 `gpu_memory_utilization=0.76`으로 boot에 필요한 최소량 대비 8배 안팎의 여유가 있었다.
+
+**실무 시사점**: 1~8절의 "Main LLM canary context는 20K, seq 1"이라는 서술은 활성 프로필이 26B일 때만 맞다. 어느 프로필이 실제로 얼마나 VRAM을 쓰는지는 이 문서의 고정 표가 아니라, 부팅 후 `nvidia-smi`와 vLLM `/metrics`(`vllm:cache_config_info`의 `num_gpu_blocks`)로 확인하는 게 원칙이다 — 이론 계산이 실측과 크게 어긋난 전례([ADR-0015](../adr/0015-main-llm-20k-o3-runtime-target.md) Context의 32K 실패 사례)가 있다.

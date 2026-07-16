@@ -37,7 +37,7 @@
     "score_modes": ["dense_cosine"],
     "chunking_recommended": true,
     "sentence_transformers_ranking_parity_required": true,
-    "policy_reason": "project caps runtime context at 2048 and keeps dimensions fixed at 1024 for chunk-based Korean dense retrieval stability; model card 8192 context remains a source fact."
+    "policy_reason": "프로젝트는 chunk 기반 한국어 dense retrieval 안정성을 위해 runtime context를 2048로 제한하고 dimension을 1024로 고정한다; model card의 8192 context는 source fact로 남긴다."
   },
   "retrieval": {
     "backend": "dense_embedding",
