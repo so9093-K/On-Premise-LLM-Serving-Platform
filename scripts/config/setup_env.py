@@ -106,11 +106,19 @@ GENERATED_SECRET_KEYS = {
 # so they are created on first init, but excluded from ALWAYS_REFRESH_KEYS so they
 # are NOT rotated on --force re-runs. Changing these after first init destroys all
 # stored secrets (Infisical cannot decrypt with a different key).
+# EXPOSURE_AUDIENCE must always refresh alongside EXPOSURE_MODE (in
+# GENERATED_SECRET_KEYS below): generated_values() validates them as a pair
+# (e.g. local_open requires master_open + private_lan), but that validation
+# only covers the freshly generated dict. If EXPOSURE_AUDIENCE were preserved
+# from an old .env while EXPOSURE_MODE refreshes, main()'s
+# `base_values | generated | preserved_values` merge would silently write
+# a pair that was never validated together.
 ALWAYS_REFRESH_KEYS = {
     "PROJECT_VERSION",
     "APP_ENV",
     "BUILD_PROFILE",
     "SECRETS_GENERATED_AT",
+    "EXPOSURE_AUDIENCE",
     *AUTH_PROFILE_ENV_KEYS,
 } | (GENERATED_SECRET_KEYS - {"INFISICAL_AUTH_SECRET", "INFISICAL_ENCRYPTION_KEY"})
 

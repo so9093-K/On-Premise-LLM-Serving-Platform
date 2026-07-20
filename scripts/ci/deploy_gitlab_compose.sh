@@ -430,10 +430,17 @@ configure_release_context() {
     fi
     _state_file="${DEPLOY_PATH}/.runtime/main-model/main-model-state.json"
     if [[ -f "${_state_file}" && ! -r "${_state_file}" ]]; then
-      echo "[deploy] ERROR: main-model state file exists but is not readable by the deploy user." >&2
-      echo "[deploy]   Fix: sudo chmod o+r ${_state_file}" >&2
-      echo "[deploy]   This happens when the admin-sidecar container wrote the file as a different user." >&2
-      return 1
+      # Same class of issue as ensure_gateway_runtime_dir: the admin-sidecar container
+      # wrote this file as its non-root appuser, and the deploy user can't read it back.
+      # Repair it the same way — from inside the platform image, as the UID that
+      # actually owns the file — instead of failing and asking for a manual chmod.
+      echo "[deploy] main-model state file is not readable by the deploy user; repairing ownership..." >&2
+      if ! docker run --rm -v "$(dirname "${_state_file}"):/mnt" --entrypoint sh "${PLATFORM_IMAGE_TO_DEPLOY}" \
+        -c "chmod o+r /mnt/$(basename "${_state_file}")"; then
+        echo "[deploy] ERROR: main-model state file exists but is not readable by the deploy user." >&2
+        echo "[deploy]   Automatic repair failed. Fix: sudo chmod o+r ${_state_file}" >&2
+        return 1
+      fi
     fi
     if ! MAIN_MODEL_BOOT_PROFILE="$(
       "${_PYTHON_BIN}" scripts/models/render_main_model_boot_override.py \
@@ -867,6 +874,19 @@ fi
 # Docker Compose gives shell environment variables precedence over --env-file.
 # Export the mutated remote .env so process env values cannot shadow required compose variables.
 export_compose_env_from_file
+
+# The synced .env can carry stale cross-var invariants (e.g. REQUEST_TIMEOUT_SECONDS
+# left below MAIN_LLM_TIMEOUT_SECONDS after a timeout was bumped) that only fail
+# once the gateway process actually boots, inside settings.load_settings() via
+# validate_timeout_budget(). Left unchecked, that failure surfaces only after
+# compose recreates the service and the 600s /health wait below times out. Running
+# the same app-creation path here, against the freshly synced .env, catches it
+# before any container is touched.
+echo "[deploy] validating gateway settings against synced .env..."
+if ! docker run --rm --env-file "${DEPLOY_PATH}/.env" --entrypoint python "${PLATFORM_IMAGE_TO_DEPLOY}" \
+  -c "from ai_model_serving.apps.gateway import create_gateway_app; create_gateway_app()"; then
+  fail_after_env_backup "gateway settings failed to load from synced .env — check timeout/limit invariants (REQUEST_TIMEOUT_SECONDS, MAIN_LLM_TIMEOUT_SECONDS, RISK_ADAPTER_TIMEOUT_SECONDS) before retrying"
+fi
 
 if ! configure_release_context "${RELEASE_PATH}"; then
   fail_after_env_backup "candidate release context is invalid"
