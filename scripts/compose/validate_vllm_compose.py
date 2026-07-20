@@ -221,7 +221,7 @@ def validate_alignment(
             if cfg.get("max_output_tokens") != 1:
                 errors.append(f"{service_name}: risk detector max_output_tokens must remain 1")
 
-        # Keep the three runtime policy sources aligned where they all declare the value.
+        # 세 개의 runtime policy 소스가 모두 값을 선언하는 경우 서로 일치하는지 확인.
         for key in RUNTIME_POLICY_FIELDS:
             for source_name, source in [("model_catalog", catalog_policy), ("model_card", card_policy)]:
                 if key in source and key not in cfg:

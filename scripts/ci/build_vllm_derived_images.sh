@@ -1,27 +1,27 @@
 #!/usr/bin/env bash
-# Builds the vLLM-derived runtime images for CI (risk-vllm-kanana and
-# vllm-gemma4-audio) in one job so the large (~25 GB) vLLM base is pulled once.
+# CI에서 vLLM 기반 런타임 이미지(risk-vllm-kanana, vllm-gemma4-audio)를 한 job에서
+# 빌드해, 큰 용량(~25 GB)의 vLLM base를 한 번만 pull하도록 한다.
 #
-# Required environment (set by GitLab CI job context):
-#   VLLM_BASE_IMAGE              canonical base image for all vLLM-derived builds
-#   RISK_VLLM_IMAGE_SHA          full registry ref (SHA tag) for risk-vllm-kanana
-#   RISK_VLLM_IMAGE_REF          full registry ref (branch/ref tag) for risk-vllm-kanana
-#   AUDIO_VLLM_IMAGE_SHA         full registry ref (SHA tag) for vllm-gemma4-audio
-#   AUDIO_VLLM_IMAGE_REF         full registry ref (branch/ref tag) for vllm-gemma4-audio
-#   CI_REGISTRY_IMAGE            GitLab project container registry prefix
+# 필수 환경변수 (GitLab CI job context에서 설정):
+#   VLLM_BASE_IMAGE              모든 vLLM 파생 빌드가 공유하는 canonical base image
+#   RISK_VLLM_IMAGE_SHA          risk-vllm-kanana의 전체 registry ref (SHA 태그)
+#   RISK_VLLM_IMAGE_REF          risk-vllm-kanana의 전체 registry ref (branch/ref 태그)
+#   AUDIO_VLLM_IMAGE_SHA         vllm-gemma4-audio의 전체 registry ref (SHA 태그)
+#   AUDIO_VLLM_IMAGE_REF         vllm-gemma4-audio의 전체 registry ref (branch/ref 태그)
+#   CI_REGISTRY_IMAGE            GitLab 프로젝트 container registry prefix
 #
-# Optional:
-#   RISK_VLLM_BASE_IMAGE             legacy fallback for VLLM_BASE_IMAGE
-#   RISK_VLLM_TRANSFORMERS_MIN_VERSION   (default: configs/recommended_images.yaml)
-#   CI_COMMIT_TAG                    if non-empty, also pushes <image>:$CI_COMMIT_TAG
+# 선택:
+#   RISK_VLLM_BASE_IMAGE             VLLM_BASE_IMAGE의 legacy fallback
+#   RISK_VLLM_TRANSFORMERS_MIN_VERSION   (기본값: configs/recommended_images.yaml)
+#   CI_COMMIT_TAG                    비어있지 않으면 <image>:$CI_COMMIT_TAG도 push
 #
-# Output:
+# 출력:
 #   build/audio-image.env            AUDIO_VLLM_IMAGE_DIGEST=<immutable digest>,
-#                                    to pin into the 12B profile's image override.
+#                                    12B 프로필의 image override에 고정(pin)하는 용도.
 
 set -euo pipefail
 
-# ── Preflight: required env vars ───────────────────────────────────────────────
+# ── Preflight: 필수 환경변수 확인 ───────────────────────────────────────────────
 : "${VLLM_BASE_IMAGE:?VLLM_BASE_IMAGE is required — define in .gitlab-ci.yml variables or CI/CD override}"
 : "${RISK_VLLM_IMAGE_SHA:?RISK_VLLM_IMAGE_SHA is required}"
 : "${RISK_VLLM_IMAGE_REF:?RISK_VLLM_IMAGE_REF is required}"
@@ -29,7 +29,7 @@ set -euo pipefail
 : "${AUDIO_VLLM_IMAGE_REF:?AUDIO_VLLM_IMAGE_REF is required}"
 : "${CI_REGISTRY_IMAGE:?CI_REGISTRY_IMAGE is required (predefined GitLab CI variable)}"
 
-# ── Resolve common base image ──────────────────────────────────────────────────
+# ── 공통 base image 결정 ──────────────────────────────────────────────────
 RESOLVED_VLLM_BASE_IMAGE="${VLLM_BASE_IMAGE}"
 echo "[build] vLLM base image : ${RESOLVED_VLLM_BASE_IMAGE}"
 echo "[build] risk-vllm-kanana: ${RISK_VLLM_IMAGE_SHA}"
@@ -37,15 +37,15 @@ RISK_VLLM_TRANSFORMERS_MIN_VERSION="${RISK_VLLM_TRANSFORMERS_MIN_VERSION:-$(
   python3 scripts/models/print_risk_vllm_compatibility.py
 )}"
 
-# ── Pre-build disk status ──────────────────────────────────────────────────────
+# ── 빌드 전 디스크 상태 ──────────────────────────────────────────────────────
 echo "[build] disk status (pre-build):"
 docker system df -v || true
 
-# ── Pull base image once; both builds share the daemon layer cache ─────────────
+# ── base image를 한 번만 pull; 두 빌드가 daemon layer cache를 공유 ─────────────
 echo "[build] pulling base image..."
 docker pull "${RESOLVED_VLLM_BASE_IMAGE}"
 
-# ── Build risk-vllm-kanana ─────────────────────────────────────────────────────
+# ── risk-vllm-kanana 빌드 ─────────────────────────────────────────────────────
 echo "[build] building risk-vllm-kanana..."
 docker build \
   --cache-from "${RESOLVED_VLLM_BASE_IMAGE}" \
@@ -56,16 +56,16 @@ docker build \
   -t "${RISK_VLLM_IMAGE_REF}" \
   .
 
-# ── Post-build disk status ─────────────────────────────────────────────────────
+# ── 빌드 후 디스크 상태 ─────────────────────────────────────────────────────
 echo "[build] disk status (post-build):"
 docker system df -v || true
 
-# ── Push image after build succeeds ────────────────────────────────────────────
+# ── 빌드 성공 후 이미지 push ────────────────────────────────────────────
 echo "[build] pushing risk-vllm-kanana..."
 docker push "${RISK_VLLM_IMAGE_SHA}"
 docker push "${RISK_VLLM_IMAGE_REF}"
 
-# ── Tag push on CI_COMMIT_TAG ──────────────────────────────────────────────────
+# ── CI_COMMIT_TAG 기준 태그 push ──────────────────────────────────────────────────
 if [ -n "${CI_COMMIT_TAG:-}" ]; then
   RISK_VLLM_TAG="${CI_REGISTRY_IMAGE}/risk-vllm-kanana:${CI_COMMIT_TAG}"
   echo "[build] tagging risk-vllm-kanana as ${RISK_VLLM_TAG}..."
@@ -73,9 +73,9 @@ if [ -n "${CI_COMMIT_TAG:-}" ]; then
   docker push "${RISK_VLLM_TAG}"
 fi
 
-# ── Build vllm-gemma4-audio (same base + media decode deps) ─────────────────────
-# Reuses the already-pulled base layers; adds the audited audio/container decode
-# stack plus Gemma4 multimodal patches. Pinned into the 12B profile image.
+# ── vllm-gemma4-audio 빌드 (동일 base + media decode 의존성) ─────────────────────
+# 이미 pull된 base layer를 재사용하며, 검증된 audio/container decode 스택과
+# Gemma4 멀티모달 패치를 추가한다. 12B 프로필 이미지에 고정(pin)된다.
 echo "[build] building vllm-gemma4-audio: ${AUDIO_VLLM_IMAGE_SHA}"
 docker build \
   --cache-from "${RESOLVED_VLLM_BASE_IMAGE}" \
@@ -96,7 +96,7 @@ if [ -n "${CI_COMMIT_TAG:-}" ]; then
   docker push "${AUDIO_VLLM_TAG}"
 fi
 
-# ── Emit immutable digest to pin into the 12B profile's image override ──────────
+# ── 12B 프로필의 image override에 고정할 immutable digest 출력 ──────────
 docker pull "${AUDIO_VLLM_IMAGE_SHA}"
 mkdir -p build
 AUDIO_VLLM_IMAGE_DIGEST="$(docker image inspect "${AUDIO_VLLM_IMAGE_SHA}" --format '{{index .RepoDigests 0}}')"

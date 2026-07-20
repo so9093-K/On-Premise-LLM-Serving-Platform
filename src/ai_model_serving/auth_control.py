@@ -12,9 +12,9 @@ from .settings_parts.env import env as _env
 
 
 # ---------------------------------------------------------------------------
-# Load auth profiles from YAML — configs/auth_profiles.yaml is the source of truth.
-# AUTH_MODE_EXPECTATIONS is derived from the YAML at module startup; it is NOT
-# a hand-maintained dict. Any change to auth semantics goes in the YAML first.
+# YAML에서 auth 프로필을 로드한다 — configs/auth_profiles.yaml이 source of truth다.
+# AUTH_MODE_EXPECTATIONS는 모듈 시작 시 이 YAML에서 파생되며, 수동으로
+# 관리하는 dict가 아니다. auth 의미론 변경은 반드시 YAML을 먼저 수정한다.
 # ---------------------------------------------------------------------------
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -352,7 +352,7 @@ def diagnose_auth(settings: AppSettings, project_root: Path) -> list[AuthFinding
     if settings.security.admin_endpoints_internal_only and not settings.security.admin_api_key_required:
         findings.append(AuthFinding("WARN", "ADMIN_INTERNAL_ONLY_NOT_APP_ENFORCED", "ADMIN_ENDPOINTS_INTERNAL_ONLY=true는 배포/networking 선언이며 app-level CIDR enforcement는 아직 구현되지 않았습니다."))
 
-    # Exposure-aware diagnostics — driven by structured diagnostics fields, not free-text strings.
+    # Exposure-aware 진단 — 자유 텍스트가 아니라 구조화된 진단 필드로 판단한다.
     exposure_mode = _exposure_mode_from_env()
     data = _read_yaml(project_root / "configs" / "exposure_profiles.yaml")
     canonical_mode = _resolve_exposure_mode(data, exposure_mode)
@@ -471,7 +471,7 @@ def diagnose_auth(settings: AppSettings, project_root: Path) -> list[AuthFinding
                         "Setting this on a public network exposes vLLM APIs and operations endpoints without Gateway auth.",
                     ))
 
-    # Legacy compose-based checks (still useful for private-network base compose)
+    # Legacy compose 기반 체크 (private-network base compose에서는 여전히 유용)
     published = set(_compose_host_port_services(project_root))
     exposure_published = set(exposure_profile_data.get("host_published", []))
     if "risk-adapter" in published and "risk_adapter" not in exposure_published:

@@ -198,8 +198,8 @@ def validate_generated_openapi_contract_schemas() -> None:
     from ai_model_serving.apps.risk_adapter import create_risk_adapter_app
     from ai_model_serving.openapi_contracts import load_contract_schema
 
-    # Generate with strict auth to validate the full error surface (401 on all POST endpoints).
-    # This matches the env used to generate specs/openapi.gateway.yaml.
+    # 전체 오류 surface(모든 POST 엔드포인트의 401)를 검증하기 위해 strict auth로 생성한다.
+    # specs/openapi.gateway.yaml을 생성할 때 사용한 env와 동일하다.
     _strict = {
         'ADMIN_API_KEY_REQUIRED': 'true',
         'ADMIN_API_KEYS': 'validate-admin-key',

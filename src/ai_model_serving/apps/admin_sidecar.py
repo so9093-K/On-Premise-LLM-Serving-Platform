@@ -56,9 +56,9 @@ CONTROLLABLE: frozenset[str] = _TOPOLOGY.controllable_services
 _HEALTH_PORT: dict[str, int] = dict(_TOPOLOGY.health_port_by_service)
 _START_PREREQUISITES: dict[str, list[str]] = dict(_TOPOLOGY.start_prerequisites_by_service)
 _VRAM_FRACTION: dict[str, float] = dict(_TOPOLOGY.vram_fraction_by_service)
-# Canonical GPU VRAM budget lives in configs/gpu_budgets.yaml (single source of
-# truth, also consumed by modelctl/runtime_validation). The admission ceiling is
-# its policy "avoid_above" fraction.
+# 표준 GPU VRAM 예산은 configs/gpu_budgets.yaml에 있다(단일 소스이며
+# modelctl/runtime_validation에서도 함께 사용된다). admission ceiling은
+# 그 정책의 "avoid_above" 비율 값이다.
 _gpu_budgets_path = APP_CONFIG_ROOT / "configs/gpu_budgets.yaml"
 _gpu_budgets_cfg = (
     yaml.safe_load(_gpu_budgets_path.read_text(encoding="utf-8"))
@@ -72,9 +72,9 @@ _GPU_BUDGET_CEILING = float(
 )
 
 _CRITICALITY: dict[str, str] = dict(_TOPOLOGY.criticality_by_service)
-# Eviction policy by criticality: higher priority is evicted LATER. The primary
-# user path (main) is never auto-evicted; the risk/safety path is kept longer than
-# retrieval support. Unknown roles fall in the default evictable tier.
+# criticality별 eviction 정책: priority가 높을수록 더 나중에 evict된다. 주 사용자
+# 경로(primary user path, main)는 절대 자동 evict되지 않으며, risk/safety 경로는
+# retrieval support보다 더 오래 유지된다. 알 수 없는 role은 기본 evictable tier에 속한다.
 _CRITICALITY_PRIORITY: dict[str, tuple[int, bool]] = {
     "primary_user_path": (100, False),
     "risk_signal_path": (60, True),
@@ -123,7 +123,7 @@ async def _container_status(service: str) -> str:
         containers = resp.json()
         if not containers:
             return "not_found"
-        return containers[0]["State"]  # "running", "exited", "paused", etc.
+        return containers[0]["State"]  # "running", "exited", "paused" 등
 
 
 async def _do_stop(container_id: str) -> None:
@@ -185,10 +185,10 @@ _main_model_manager = MainModelManager(
 _MAIN_SERVICE = str(_catalog.runtime["compose_service"])
 _initialization_error: str | None = None
 _initialized = asyncio.Event()
-# Hold strong references to background tasks so they are not garbage collected
-# mid-flight (asyncio only keeps weak references to scheduled tasks).
+# 백그라운드 task가 실행 도중 가비지 컬렉션되지 않도록 strong reference를 유지한다
+# (asyncio는 스케줄된 task에 대해 weak reference만 유지한다).
 _BACKGROUND_TASKS: set[asyncio.Task[Any]] = set()
-# Serializes GPU-budget admission decisions so two activations cannot both pass.
+# 두 activation이 동시에 통과할 수 없도록 GPU-budget admission 판단을 직렬화한다.
 _budget_lock = asyncio.Lock()
 
 
@@ -211,8 +211,8 @@ async def _build_participants() -> list[Participant]:
         )
     snapshot = _main_model_manager.snapshot()
     active_profile = snapshot.get("active_profile") or {}
-    # Fall back to the boot profile's reservation (not a generic 0.9) when no active
-    # profile is recorded yet, so the ledger reflects the real main-model cost.
+    # 아직 active profile이 기록되지 않았을 때는(일반적인 0.9가 아니라) boot profile의
+    # 예약값으로 폴백하여, ledger가 실제 main-model 비용을 반영하도록 한다.
     _boot_fraction = _catalog.profiles[_main_model_manager.boot_profile].vram_fraction
     main_fraction = float(active_profile.get("vram_fraction") or _boot_fraction)
     main_status = await _container_status(_MAIN_SERVICE)
@@ -285,7 +285,7 @@ async def _run_initialize() -> None:
     global _initialization_error
     try:
         await _main_model_manager.initialize()
-    except Exception as exc:  # noqa: BLE001 - surfaced via /health, must not crash the loop
+    except Exception as exc:  # noqa: BLE001 - /health를 통해 노출되며, 루프를 죽여서는 안 된다
         _initialization_error = str(exc)
     finally:
         _initialized.set()
@@ -294,13 +294,13 @@ async def _run_initialize() -> None:
 @asynccontextmanager
 async def _lifespan(app: FastAPI):
     del app
-    # Main-model reconciliation can block up to startup_timeout_seconds (600s)
-    # waiting for the main-llm runtime to become healthy. Awaiting it here would
-    # delay uvicorn's startup, leaving /health unreachable past the container's
-    # ~40s healthcheck budget on a cold deploy -> the sidecar is marked unhealthy
-    # and the Gateway's depends_on(service_healthy) fails the whole rollout.
-    # The sidecar is a control plane: its liveness is independent of main-llm
-    # boot, which is tracked by the gate (read by the Gateway) instead.
+    # main-model reconciliation은 main-llm 런타임이 healthy 상태가 될 때까지
+    # 최대 startup_timeout_seconds(600초)까지 블록될 수 있다. 여기서 이를 await하면
+    # uvicorn의 시작이 지연되어, cold deploy 시 컨테이너의 약 40초 healthcheck
+    # 예산을 넘겨 /health에 도달할 수 없게 되고 -> sidecar가 unhealthy로 표시되어
+    # Gateway의 depends_on(service_healthy)이 전체 rollout을 실패시킨다.
+    # sidecar는 control plane이다: 그 liveness는 main-llm 부팅과 무관하며,
+    # main-llm 부팅 상태는 대신 gate(Gateway가 읽는다)로 추적된다.
     init_task = asyncio.create_task(_run_initialize())
     _BACKGROUND_TASKS.add(init_task)
     init_task.add_done_callback(_BACKGROUND_TASKS.discard)
@@ -324,10 +324,10 @@ app = FastAPI(
 
 @app.get("/health")
 async def health() -> dict[str, str]:
-    # Control-plane liveness is intentionally decoupled from main-llm boot.
-    # While reconciliation is still in progress the sidecar is healthy and the
-    # gate stays closed (the Gateway fails closed on local-main). Only a
-    # *definitive* reconciliation failure is surfaced as unhealthy.
+    # control-plane의 liveness는 main-llm 부팅과 의도적으로 분리되어 있다.
+    # reconciliation이 진행 중인 동안에는 sidecar가 healthy 상태를 유지하고
+    # gate는 닫힌 채로 있다(Gateway는 local-main에 대해 fail closed된다). 오직
+    # *확정적인* reconciliation 실패만 unhealthy로 노출된다.
     if _initialized.is_set() and _initialization_error:
         raise HTTPException(503, detail=f"main model reconciliation failed: {_initialization_error}")
     return {"status": "ok"}
@@ -356,10 +356,11 @@ async def gpu_budget(authorization: str | None = Header(default=None)) -> JSONRe
 async def main_model(authorization: str | None = Header(default=None)) -> JSONResponse:
     await _require_sidecar_token(authorization)
     try:
-        # jsonable_encoder coerces date/datetime (and other non-JSON-native types)
-        # to serializable forms. Without it a single date value in the profile
-        # catalog (e.g. an unquoted validated_at) makes this endpoint 500, which the
-        # Gateway reads as SidecarUnavailable and fails every main-model request.
+        # jsonable_encoder는 date/datetime(및 그 외 JSON 네이티브가 아닌 타입)을
+        # 직렬화 가능한 형태로 변환한다. 이것이 없으면 profile catalog 안의 date
+        # 값 하나(예: quote되지 않은 validated_at)만으로도 이 엔드포인트가 500을
+        # 반환하게 되고, Gateway는 이를 SidecarUnavailable로 인식하여 모든
+        # main-model 요청을 실패시킨다.
         return JSONResponse(jsonable_encoder(_main_model_manager.snapshot()))
     except MainModelStateError as exc:
         raise HTTPException(503, detail=str(exc)) from exc
@@ -384,10 +385,10 @@ async def switch_main_model(
     target_profile = _catalog.profiles.get(profile_id)
     try:
         async with _budget_lock:
-            # Refuse (with an eviction plan) if the target profile would oversubscribe
-            # the GPU. Switching to a same-or-smaller profile fits in the main slot;
-            # a larger one tells the operator what to stop first. (No auto-evict here:
-            # a profile change is deliberate, so freeing room is an explicit step.)
+            # target profile이 GPU를 초과 사용하게 될 경우 (eviction plan과 함께) 거부한다.
+            # 같거나 더 작은 profile로 전환하면 main slot에 그대로 들어맞지만, 더 큰 profile은
+            # 운영자에게 먼저 무엇을 stop해야 하는지 알려준다. (여기서는 auto-evict를 하지
+            # 않는다: profile 변경은 의도적인 행위이므로, 공간 확보는 명시적인 단계여야 한다.)
             if target_profile is not None:
                 await _admit_or_raise(_MAIN_SERVICE, target_profile.vram_fraction, force=False)
             outcome = _main_model_manager.request_switch(
@@ -400,9 +401,9 @@ async def switch_main_model(
             exc.status_code,
             detail={"code": exc.code, "message": str(exc)},
         ) from exc
-    # Self-describing response: report the operation's REAL status (a fresh switch
-    # is "pending"; an idempotent replay carries the prior operation's status) and
-    # say plainly whether a new switch actually started and where to watch it.
+    # 스스로 설명하는 응답: operation의 실제 상태를 보고한다(새 switch는 "pending"이고,
+    # idempotent replay는 이전 operation의 상태를 그대로 갖는다) 그리고 새로운 switch가
+    # 실제로 시작되었는지, 어디서 확인할 수 있는지를 명확히 알려준다.
     operation = _main_model_manager.operation(outcome.operation_id) or {}
     status = str(operation.get("status", "pending"))
     if outcome.reused:
@@ -498,11 +499,10 @@ async def start_container(
     evicted: list[str] = []
 
     async with _budget_lock:
-        # Admit the whole set being brought up (service + any not-yet-running
-        # prerequisites) against the shared GPU budget before touching anything.
-        # Keep the lock through the actual start/health sequence so another
-        # concurrent activation cannot pass admission against the same pre-start
-        # snapshot and overcommit VRAM.
+        # 아무것도 건드리기 전에, 함께 기동되는 전체 집합(service + 아직 실행 중이 아닌
+        # prerequisite들)을 공유 GPU budget에 대해 admit한다. 실제 start/health
+        # 시퀀스 동안에도 lock을 유지하여, 다른 동시 activation이 동일한 pre-start
+        # snapshot을 기준으로 admission을 통과해 VRAM을 overcommit하는 일이 없도록 한다.
         to_start = [
             prereq
             for prereq in _START_PREREQUISITES.get(service, [])
@@ -514,7 +514,7 @@ async def start_container(
         if target_fraction > 0:
             evicted = await _admit_or_raise(service, target_fraction, force=force)
 
-        # Start prerequisites in order (serial GPU memory profiling).
+        # prerequisite들을 순서대로 시작한다(GPU 메모리 프로파일링을 순차적으로 진행).
         for prereq in _START_PREREQUISITES.get(service, []):
             prereq_port = _HEALTH_PORT[prereq]
             status = await _container_status(prereq)

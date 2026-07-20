@@ -266,8 +266,8 @@ def main(argv: list[str] | None = None) -> int:
                 min_token_count=args.min_token_count,
             )
         except Exception as exc:
-            # Always dump the full chain so CI logs expose the root ImportError,
-            # not just the transformers lazy-module wrapper message.
+            # transformers lazy-module wrapper 메시지만 남기지 않고 CI 로그에서
+            # 근본 ImportError가 드러나도록 항상 전체 exception chain을 출력함.
             traceback.print_exception(exc, file=sys.stderr)
             root_cause = exc
             while root_cause.__cause__ is not None:

@@ -97,22 +97,21 @@ GENERATED_SECRET_KEYS = {
     "INFISICAL_AUTH_SECRET",
     "INFISICAL_ENCRYPTION_KEY",
 }
-# GRAFANA_ADMIN_PASSWORD is intentionally excluded from GENERATED_SECRET_KEYS.
-# It is a human-facing credential set once on first init and preserved across
-# bootstrap re-runs. Service-to-service tokens (above) rotate on each bootstrap;
-# a Grafana admin password should not silently change under an operator's session.
+# GRAFANA_ADMIN_PASSWORD는 GENERATED_SECRET_KEYS에서 의도적으로 제외됩니다.
+# 최초 init 시 한 번 설정되고 이후 bootstrap을 다시 돌려도 보존되는, 사람이 쓰는
+# 자격 증명이기 때문입니다. 서비스 간 토큰(위 목록)은 bootstrap마다 재발급되지만,
+# Grafana admin 비밀번호는 운영자의 세션 도중 조용히 바뀌면 안 됩니다.
 #
-# INFISICAL_AUTH_SECRET and INFISICAL_ENCRYPTION_KEY are in GENERATED_SECRET_KEYS
-# so they are created on first init, but excluded from ALWAYS_REFRESH_KEYS so they
-# are NOT rotated on --force re-runs. Changing these after first init destroys all
-# stored secrets (Infisical cannot decrypt with a different key).
-# EXPOSURE_AUDIENCE must always refresh alongside EXPOSURE_MODE (in
-# GENERATED_SECRET_KEYS below): generated_values() validates them as a pair
-# (e.g. local_open requires master_open + private_lan), but that validation
-# only covers the freshly generated dict. If EXPOSURE_AUDIENCE were preserved
-# from an old .env while EXPOSURE_MODE refreshes, main()'s
-# `base_values | generated | preserved_values` merge would silently write
-# a pair that was never validated together.
+# INFISICAL_AUTH_SECRET, INFISICAL_ENCRYPTION_KEY는 GENERATED_SECRET_KEYS에 포함되어
+# 최초 init 시 생성되지만, ALWAYS_REFRESH_KEYS에서는 제외되어 --force로 재실행해도
+# 재발급되지 않습니다. 최초 init 이후 이 값들을 변경하면 저장된 모든 시크릿이
+# 사라집니다(Infisical이 다른 키로는 복호화할 수 없기 때문).
+# EXPOSURE_AUDIENCE는 항상 EXPOSURE_MODE와 함께 갱신되어야 합니다(아래
+# GENERATED_SECRET_KEYS에서): generated_values()가 둘을 쌍으로 검증하지만
+# (예: local_open은 master_open + private_lan을 요구), 이 검증은 새로 생성된
+# dict에만 적용됩니다. EXPOSURE_MODE는 갱신되는데 EXPOSURE_AUDIENCE가 기존 .env
+# 값으로 보존된다면, main()의 `base_values | generated | preserved_values` 병합이
+# 한 번도 함께 검증된 적 없는 쌍을 조용히 기록하게 됩니다.
 ALWAYS_REFRESH_KEYS = {
     "PROJECT_VERSION",
     "APP_ENV",
@@ -128,12 +127,12 @@ RETIRED_ENV_KEYS = {
     "RISK_SIREN_TIMEOUT_SECONDS",
     "RISK_SIREN_MAX_CONCURRENCY",
     "RISK_SIREN_QUEUE_TIMEOUT_SECONDS",
-    # MAX_REQUEST_BODY_BYTES is a uniform size policy owned by
-    # configs/model_serving.yaml (operational_limits.max_request_body_bytes).
-    # It was previously duplicated into .env templates where it shadowed the yaml
-    # value and silently drifted (deployed .env stuck at 1.25 MB across releases).
-    # Retiring it strips the key from existing .env on sync-env so the yaml value
-    # becomes authoritative; settings.py still honors an explicit env override.
+    # MAX_REQUEST_BODY_BYTES는 configs/model_serving.yaml
+    # (operational_limits.max_request_body_bytes)이 소유하는 단일 크기 정책입니다.
+    # 과거에는 .env 템플릿에도 중복 정의되어 yaml 값을 가려버리고 조용히 드리프트를
+    # 일으켰습니다(배포된 .env가 릴리스마다 1.25MB로 고정되는 문제).
+    # 이 키를 폐기함으로써 sync-env 시 기존 .env에서 제거되어 yaml 값이 기준이 되며,
+    # settings.py는 여전히 명시적인 env override는 존중합니다.
     "MAX_REQUEST_BODY_BYTES",
 }
 
@@ -243,8 +242,8 @@ def write_runtime_secrets(values: dict[str, str]) -> None:
             ) from exc
     secret_path.write_text(admin_key + "\n", encoding="utf-8")
     try:
-        # The distroless Prometheus image runs as a non-root UID, so the
-        # compose-mounted bearer token must be readable beyond the host owner.
+        # distroless Prometheus 이미지는 non-root UID로 실행되므로
+        # compose에 마운트된 bearer token은 호스트 소유자 이외에도 읽을 수 있어야 합니다.
         secret_path.chmod(0o644)
     except OSError:
         pass

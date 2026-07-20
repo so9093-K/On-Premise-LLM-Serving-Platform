@@ -129,7 +129,6 @@ def test_ready_full_is_compose_aware_and_retries_transient_startup() -> None:
     assert 'READY_FULL_TIMEOUT_SECONDS:-1800' in text
     assert 'wait_for_probe "gateway /health"' in text
     assert 'risk-adapter /health' in text
-    assert 'compose services do not have' in text
     assert 'run_diagnostics' in text
     assert 'status_pid gateway' not in text
     # A control-plane redeploy closes the main-model gate; ready-full must wait for

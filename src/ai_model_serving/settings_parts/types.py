@@ -144,9 +144,9 @@ class AppSettings:
                 request_parameter_policy=self.embedding.request_parameter_policy or {},
             )
             object.__setattr__(self, "embedding_profiles", {profile.model: profile})
-            # Legacy AppSettings construction path: older tests/extensions may
-            # supply only one embedding endpoint. Synthesize a matching profile
-            # and align defaults so validation still has one source of truth.
+            # Legacy AppSettings 구성 경로: 오래된 테스트/확장은 embedding
+            # endpoint를 하나만 제공할 수 있다. 검증 로직이 여전히 단일 source
+            # of truth를 갖도록 매칭되는 프로필을 합성하고 기본값을 맞춘다.
             if self.default_embedding_model not in {profile.model}:
                 object.__setattr__(self, "default_embedding_model", profile.model)
             if self.default_retrieval_model not in {profile.model}:

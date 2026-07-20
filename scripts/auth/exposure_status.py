@@ -15,7 +15,7 @@ try:
 except ModuleNotFoundError:
     raise SystemExit("Missing dependency: PyYAML. Run `python -m pip install --requirement requirements.lock`.")
 
-# Import resolver so exposure_status uses the same supported-mode check as compose_up.sh.
+# exposure_status가 compose_up.sh와 동일한 supported-mode 검사를 쓰도록 resolver를 import
 sys.path.insert(0, str(ROOT))
 from scripts.compose.resolve_exposure_mode import load_exposure_data, resolve  # noqa: E402
 sys.path.insert(0, str(ROOT / "src"))
@@ -121,7 +121,7 @@ def main() -> int:
         print(json.dumps(doc, ensure_ascii=False, indent=2))
         return 0
 
-    # human-readable output
+    # 사람이 읽기 쉬운 출력
     print(f"EXPOSURE_MODE: {canonical_mode}")
 
     print(f"설명: {profile.get('description', '').strip()}")

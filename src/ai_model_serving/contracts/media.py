@@ -70,7 +70,7 @@ def _webp_dimensions(decoded: bytes) -> tuple[int, int] | None:
         height = 1 + int.from_bytes(decoded[27:30], "little")
         return width, height
     if chunk == b"VP8 " and len(decoded) >= 30:
-        # Lossy bitstream frame header starts after the 20-byte RIFF/VP8 chunk header.
+        # 손실(lossy) 비트스트림 프레임 헤더는 20바이트 RIFF/VP8 청크 헤더 뒤에서 시작한다.
         if decoded[23:26] == b"\x9d\x01*":
             width = int.from_bytes(decoded[26:28], "little") & 0x3FFF
             height = int.from_bytes(decoded[28:30], "little") & 0x3FFF
@@ -162,8 +162,8 @@ def _gif_metadata(decoded: bytes) -> tuple[int, int, int, float] | None:
                 index += 1
                 if block_size == 0:
                     break
-                # Graphic Control Extension data is [packed, delay_lo, delay_hi,
-                # transparent_index]; delay (1/100s) precedes the next image it applies to.
+                # Graphic Control Extension 데이터는 [packed, delay_lo, delay_hi,
+                # transparent_index] 형태이다; delay(1/100초 단위)는 적용 대상인 다음 이미지보다 앞에 온다.
                 if label == 0xF9 and block_size >= 4 and index + 4 <= len(decoded):
                     duration_centiseconds += int.from_bytes(decoded[index + 1:index + 3], "little")
                 index += block_size
@@ -338,10 +338,10 @@ def _validate_data_image_url(
         raise ServiceError("VALIDATION_ERROR", f"image_url image has {width * height} pixels; resize it to {max_image_pixels} pixels or fewer.", False, 422)
 
 
-# Formats whose magic bytes _audio_format_matches() can verify. The configured
-# `allowed_audio_formats` (model_serving.yaml) MUST stay a subset of this set: a
-# format allowed in config but absent here would always fail the magic check and
-# be silently rejected. Extend both together.
+# _audio_format_matches()가 magic byte로 검증할 수 있는 포맷들. 설정된
+# `allowed_audio_formats`(model_serving.yaml)는 반드시 이 집합의 부분집합으로
+# 유지되어야 한다: config에서는 허용되지만 여기에 없는 포맷은 magic check에서
+# 항상 실패하여 조용히 거부된다. 두 곳을 함께 확장해야 한다.
 SNIFFABLE_AUDIO_FORMATS: frozenset[str] = frozenset({"wav", "flac", "ogg", "mp3", "m4a", "mp4", "aac"})
 SNIFFABLE_VIDEO_MIME_TYPES: frozenset[str] = frozenset({
     "video/mp4",
@@ -399,8 +399,9 @@ def _validate_input_audio(
     if not isinstance(data, str) or not data:
         raise ServiceError("VALIDATION_ERROR", "input_audio.data must be a non-empty raw base64 string.", False, 422)
     if data.lstrip().startswith("data:"):
-        # input_audio.data is raw base64, unlike image_url/video_url which carry a
-        # data: URL. A data: prefix here is a field-shape mistake, not bad base64.
+        # input_audio.data는 data: URL을 포함하는 image_url/video_url과 달리 raw
+        # base64이다. 여기에 data: 접두사가 있으면 base64가 잘못된 것이 아니라
+        # 필드 형식 자체가 잘못된 것이다.
         raise ServiceError("VALIDATION_ERROR", "input_audio.data must be raw base64 (no data: URL prefix).", False, 422)
     try:
         decoded = _decode_media_base64(data)
@@ -446,13 +447,13 @@ def _decode_video_frame_sequence(encoded: str) -> list[bytes]:
     return frames
 
 
-# GIF frame count alone does not indicate playback duration (encoders vary
-# frame rate freely), so it cannot gate on "not too long" the way
-# max_video_duration_seconds does. It still serves as a coarse decode-cost
-# backstop against a degenerate encoding (near-zero delays, many frames) that
-# would otherwise pass a duration-only check. This ceiling is generous enough
-# that a legitimate max_video_duration_seconds-length clip at a normal
-# animation frame rate never trips it -- the duration check is the real gate.
+# GIF 프레임 수만으로는 재생 시간을 알 수 없으므로(인코더는 frame rate를 자유롭게
+# 다르게 설정할 수 있다), max_video_duration_seconds처럼 "너무 길지 않은지"를
+# 판단하는 게이트로 쓸 수 없다. 다만 duration-only 체크만으로는 걸러지지 않는
+# 퇴화된(degenerate) 인코딩(거의 0에 가까운 delay, 많은 프레임 수)에 대한 대략적인
+# decode-cost 안전장치 역할은 한다. 이 상한값은 정상적인 애니메이션 frame rate로
+# max_video_duration_seconds 길이만큼 인코딩된 정상적인 클립은 절대 걸리지 않을
+# 만큼 넉넉하다 -- 실제 게이트는 duration 체크다.
 _GIF_FRAME_COUNT_FPS_CEILING = 30
 
 

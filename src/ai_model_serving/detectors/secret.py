@@ -10,7 +10,7 @@ from ..risk import assessment_response
 SOURCE_MODEL = "secret-scanner"
 
 # --------------------------------------------------------------------------
-# Regex patterns: (compiled_re, entity_label)
+# 정규식 패턴: (compiled_re, entity_label)
 # --------------------------------------------------------------------------
 
 _ALLOWLIST_GENERIC: frozenset[str] = frozenset(
@@ -29,40 +29,40 @@ _ALLOWLIST_GENERIC: frozenset[str] = frozenset(
 )
 
 _PATTERNS: list[tuple[re.Pattern[str], str]] = [
-    # OpenAI API key
+    # OpenAI API 키
     (re.compile(r"sk-[A-Za-z0-9]{20}T3BlbkFJ[A-Za-z0-9]{20}"), "OPENAI_API_KEY"),
-    # OpenAI new-format key (sk-proj-, sk-svcacct-)
+    # OpenAI 신규 포맷 키 (sk-proj-, sk-svcacct-)
     (re.compile(r"sk-(?:proj|svcacct)-[A-Za-z0-9_\-]{30,}"), "OPENAI_API_KEY"),
-    # Anthropic / Claude API key (sk-ant-api03-...)
+    # Anthropic / Claude API 키 (sk-ant-api03-...)
     (re.compile(r"sk-ant-[A-Za-z0-9_\-]{10,}"), "ANTHROPIC_API_KEY"),
-    # AWS Access Key ID
+    # AWS 액세스 키 ID
     (re.compile(r"(?<![A-Z0-9])(AKIA[0-9A-Z]{16})(?![A-Z0-9])"), "AWS_ACCESS_KEY_ID"),
-    # GitHub personal access token (classic: ghp_, fine-grained: github_pat_)
+    # GitHub 개인 액세스 토큰 (classic: ghp_, fine-grained: github_pat_)
     (re.compile(r"(?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9]{36}"), "GITHUB_TOKEN"),
     (re.compile(r"github_pat_[A-Za-z0-9_]{82}"), "GITHUB_TOKEN"),
-    # GitLab personal/group/project token
+    # GitLab personal/group/project 토큰
     (re.compile(r"glpat-[A-Za-z0-9\-_]{20}"), "GITLAB_TOKEN"),
-    # HuggingFace token
+    # HuggingFace 토큰
     (re.compile(r"hf_[A-Za-z0-9]{34}"), "HUGGINGFACE_TOKEN"),
-    # JWT: three base64url segments separated by dots
+    # JWT: 점으로 구분된 세 개의 base64url 세그먼트
     (re.compile(r"eyJ[A-Za-z0-9_-]{5,}\.eyJ[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_\-=+/]{10,}"), "JWT"),
-    # PEM private key block
+    # PEM 개인키 블록
     (re.compile(r"-----BEGIN (?:RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----"), "PRIVATE_KEY_BLOCK"),
-    # Database connection URL
+    # 데이터베이스 연결 URL
     (re.compile(
         r"(?:mysql|postgresql|postgres|mongodb(?:\+srv)?|redis|amqp|amqps|mariadb)://"
         r"[A-Za-z0-9_.%~!$&'()*+,;=:@\-]+:[A-Za-z0-9_.%~!$&'()*+,;=:@\-]+@"
         r"[A-Za-z0-9.\-]+"
     ), "DATABASE_URL"),
-    # Password assignment patterns
+    # 비밀번호 할당 패턴
     (re.compile(
         r'(?i)(?:password|passwd|secret|api[_\-]?key|token|auth[_\-]?token)\s*[:=]\s*'
-        r'(?!["\']?\s*["\'])'      # not empty value
+        r'(?!["\']?\s*["\'])'      # 값이 비어있지 않음
         r'(["\']?)([^\s,;\'"]{6,})(\1)'
     ), "PASSWORD_ASSIGNMENT"),
 ]
 
-# High-entropy generic secret candidate
+# 고엔트로피 일반 시크릿 후보
 _GENERIC_CANDIDATE_RE = re.compile(r"[A-Za-z0-9+/=_\-]{32,}")
 _GENERIC_ENTROPY_THRESHOLD = 4.5
 
@@ -77,7 +77,7 @@ def _shannon_entropy(s: str) -> float:
 
 def _find_generic_candidates(text: str) -> int:
     """Count high-entropy strings that aren't matched by named patterns."""
-    # Remove known-pattern matches to avoid double-counting
+    # 중복 카운트를 방지하기 위해 기명 패턴에 매칭된 부분을 제거
     cleaned = text
     for pattern, _ in _PATTERNS:
         cleaned = pattern.sub("", cleaned)

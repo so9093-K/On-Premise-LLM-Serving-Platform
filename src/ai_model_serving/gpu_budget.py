@@ -17,8 +17,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 DEFAULT_CEILING = 0.95
-# Tolerance so float arithmetic on fractions (e.g. 0.85 - 0.785) doesn't spuriously
-# demand an extra victim or reject an exact fit.
+# fraction에 대한 float 연산(예: 0.85 - 0.785)이 오차로 인해 불필요한 victim을
+# 추가로 요구하거나 정확히 맞는 경우를 거부하지 않도록 두는 허용 오차.
 _EPS = 1e-9
 
 
@@ -27,13 +27,13 @@ class Participant:
     key: str
     vram_fraction: float
     active: bool
-    # Higher priority is evicted later. The main model is highest and is never
-    # auto-evicted to make room for another model (evictable=False).
+    # priority가 높을수록 나중에 축출된다. main 모델이 가장 높으며 다른 모델을 위한
+    # 공간 확보를 위해 자동 축출되지 않는다(evictable=False).
     priority: int = 0
     evictable: bool = True
-    # Descriptive role (resource_control.criticality), surfaced in the budget view
-    # so operators see what a candidate eviction would degrade. Not used by the
-    # planner itself (which orders by priority/fraction).
+    # 서술적 역할(resource_control.criticality). budget view에 노출되어 운영자가
+    # 축출 후보가 무엇을 저하시킬지 알 수 있게 한다. planner 자체는(priority/fraction
+    # 순으로 정렬하므로) 이 값을 사용하지 않는다.
     criticality: str | None = None
 
 

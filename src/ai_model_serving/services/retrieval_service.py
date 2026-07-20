@@ -104,9 +104,10 @@ class RetrievalService:
         if mode == "prefix":
             return f"{policy.get('prefix', '')}{text}"
         if mode == "sentence_transformers_prompt_name":
-            # TODO: vLLM /v1/embeddings does not accept prompt_name; this branch uses
-            # fallback_prefix only. fallback_prefix="" is a no-op. No active profile uses
-            # this mode — prefer explicit prefix mode for new profiles.
+            # TODO: vLLM /v1/embeddings는 prompt_name을 받지 않으므로, 이 분기는
+            # fallback_prefix만 사용한다. fallback_prefix=""는 no-op이다. 현재
+            # 이 모드를 사용하는 active 프로필은 없다 — 새 프로필에는 명시적
+            # prefix 모드를 사용할 것.
             return f"{policy.get('fallback_prefix', '')}{text}"
         return text
 

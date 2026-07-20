@@ -51,11 +51,11 @@ def validate_ports() -> None:
         raise SystemExit(f'.env.example must include GATEWAY_PORT={gateway_port}')
 
 def _without_reason_fields(policy: dict[str, Any]) -> dict[str, Any]:
-    # *_reason fields are free-text rationale (policy_reason, image_url_policy_reason,
-    # ...), not behavior. Requiring them byte-equal across model_catalog.yaml and
-    # model_cards/*.json breaks CI on a harmless wording/translation edit while
-    # verifying nothing about actual runtime behavior; only the structural/numeric
-    # fields need cross-file agreement.
+    # *_reason 필드(policy_reason, image_url_policy_reason, ...)는 동작이 아니라
+    # 자유 텍스트 설명이다. model_catalog.yaml과 model_cards/*.json 사이에서
+    # byte 단위로 동일할 것을 요구하면 실제 런타임 동작을 전혀 검증하지 못한 채
+    # 무해한 문구/번역 수정만으로 CI가 깨진다; cross-file 일치가 필요한 것은
+    # 구조적/수치 필드뿐이다.
     return {key: value for key, value in policy.items() if not key.endswith('_reason')}
 
 

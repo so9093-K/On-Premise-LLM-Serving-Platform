@@ -376,14 +376,14 @@ def main() -> int:
                 f"docs/archive에만 'make {ref}' 참조가 있음 (legacy command — 등록 불필요 시 무시)"
             )
 
-    # ── 9. features/*.yaml commands → registry drift ────────────────────────
+    # ── 9. features/*.yaml commands → registry drift 확인 ────────────────────
     feature_cmds = _collect_feature_commands()
     for fname, targets in feature_cmds.items():
         for t in targets:
             if t not in registry_targets:
                 errors.append(f"features/{fname} 의 'make {t}'가 registry에 없음")
 
-    # ── 10. operator_guide.py commands → registry drift ──────────────────────
+    # ── 10. operator_guide.py commands → registry drift 확인 ─────────────────
     guide_cmds = _collect_operator_guide_commands()
     for t in guide_cmds:
         if t not in registry_targets and t not in defined_targets:

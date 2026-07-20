@@ -14,31 +14,32 @@ ADMIN_API_KEY="$(local_env_first_value "$ENV_FILE" ADMIN_API_KEY ADMIN_API_KEYS 
 API_KEY="$(local_env_first_value "$ENV_FILE" API_KEY API_KEYS || true)"
 
 PYTHON_BIN="${PYTHON_BIN:-$(command -v python3.12 || command -v python3 || command -v python)}"
-# Health probes target the host-published Gateway bind address. When Gateway binds
-# to 0.0.0.0, localhost is valid; when it binds to a private interface IP, localhost
-# is not listening and the probe must use that explicit bind address.
+# Health probe는 host에 노출된 Gateway bind address를 대상으로 한다. Gateway가
+# 0.0.0.0으로 bind하면 localhost도 유효하지만, private interface IP로 bind한 경우
+# localhost는 listen하지 않으므로 probe는 그 명시적인 bind address를 사용해야 한다.
 GATEWAY_PROBE_HOST="${GATEWAY_PROBE_HOST:-${GATEWAY_BIND_ADDR:-localhost}}"
 if [[ -z "$GATEWAY_PROBE_HOST" || "$GATEWAY_PROBE_HOST" == "0.0.0.0" ]]; then
   GATEWAY_PROBE_HOST="localhost"
 fi
 GATEWAY_BASE_URL="http://${GATEWAY_PROBE_HOST}:${GATEWAY_PORT:-9400}"
-# RISK_ADAPTER_BASE_URL is the internal service-to-service URL (e.g.
-# http://risk-adapter:9405 in compose) and must not be used for host-side checks.
+# RISK_ADAPTER_BASE_URL은 서비스 간 내부 통신용 URL이므로(예: compose에서
+# http://risk-adapter:9405) host 측 점검에는 사용하면 안 된다.
 RISK_ADAPTER_BASE_URL="http://localhost:${RISK_ADAPTER_PORT:-9405}"
 READY_FULL_TIMEOUT_SECONDS="${READY_FULL_TIMEOUT_SECONDS:-1800}"
 READY_FULL_INTERVAL_SECONDS="${READY_FULL_INTERVAL_SECONDS:-10}"
-# After /ready 200, vLLM may transiently 503 on first inference requests before
-# its engine is fully accepting work. This warmup step polls a lightweight inference
-# endpoint until it succeeds — separating "stack is up" from "inference is serving".
+# /ready가 200이 된 이후에도 vLLM 엔진이 완전히 요청을 받아들이기 전까지는
+# 첫 inference 요청이 일시적으로 503을 반환할 수 있다. 이 warmup 단계는 가벼운
+# inference endpoint를 성공할 때까지 폴링해 "스택이 떴다"와 "inference가 실제로
+# 서빙 중이다"를 구분한다.
 READY_FULL_INFERENCE_WARMUP_SECONDS="${READY_FULL_INFERENCE_WARMUP_SECONDS:-120}"
-# Recreating the admin-sidecar (every deploy bumps PLATFORM_IMAGE) closes the
-# main-model inference gate; the gateway 503s local-main chat until the boot
-# reconcile revalidates the persisted profile. /ready does not reflect this gate,
-# so ready-full waits for chat to actually serve before the strict smoke gate.
-# Budget matches the model-load budget (READY_FULL_TIMEOUT_SECONDS): when the boot
-# reconcile has to swap the main model (observed != persisted target), the gate
-# stays closed for a full model reload, not just a few seconds. The fast path
-# (gate already open) returns immediately regardless of the cap.
+# admin-sidecar를 재생성하면(배포마다 PLATFORM_IMAGE가 bump됨) main-model inference
+# gate가 닫힌다. boot reconcile이 persisted profile을 재검증할 때까지 gateway는
+# local-main chat에 503을 반환한다. /ready에는 이 gate 상태가 반영되지 않으므로,
+# ready-full은 엄격한 smoke gate 전에 chat이 실제로 서빙될 때까지 기다린다.
+# 이 budget은 model-load budget(READY_FULL_TIMEOUT_SECONDS)과 동일하게 맞춘다:
+# boot reconcile이 main model을 교체해야 하는 경우(observed != persisted target)
+# gate는 단 몇 초가 아니라 모델 전체 reload 시간만큼 닫혀 있기 때문이다. fast path
+# (gate가 이미 열려 있는 경우)는 이 상한과 무관하게 즉시 반환된다.
 READY_FULL_MAIN_MODEL_TIMEOUT_SECONDS="${READY_FULL_MAIN_MODEL_TIMEOUT_SECONDS:-${READY_FULL_TIMEOUT_SECONDS}}"
 SMOKE_SKIP_RUNTIMES="${SMOKE_SKIP_RUNTIMES:-}"
 
@@ -177,10 +178,10 @@ PY
   done
 }
 
-# Wait (fatal) for the main-model inference gate to reopen after a control-plane
-# redeploy. The gateway returns 503 (MAIN_MODEL_SWITCH_IN_PROGRESS) for local-main
-# chat while the gate is closed; we poll the real chat path until it serves 200.
-# A gate-closed 503 just means "keep waiting"; only a true timeout fails the deploy.
+# control-plane 재배포 후 main-model inference gate가 다시 열리기를 기다린다(실패 시
+# fatal). gate가 닫혀 있는 동안 gateway는 local-main chat에 503(MAIN_MODEL_SWITCH_IN_PROGRESS)을
+# 반환하므로, 실제 chat 경로를 200이 나올 때까지 폴링한다. gate-closed 503은 그저
+# "계속 기다려라"는 의미일 뿐이며, 진짜 timeout이 발생했을 때만 배포를 실패 처리한다.
 wait_for_main_model_ready() {
   local url="$GATEWAY_BASE_URL/v1/chat/completions"
   local body='{"model":"local-main","messages":[{"role":"user","content":"ok"}],"max_tokens":1,"temperature":0}'
@@ -200,11 +201,11 @@ wait_for_main_model_ready() {
       echo "[ready-full] main-model chat serving (${elapsed}s, attempt ${attempt})"
       return 0
     fi
-    # Surface the gateway's error so failures are diagnosable inline. A
-    # MAIN_MODEL_CONTROL_UNAVAILABLE here means the gateway cannot read the gate
-    # from the admin-sidecar (e.g. the sidecar /main-model is erroring) — check the
-    # admin-sidecar logs in the diagnostics below. MAIN_MODEL_SWITCH_IN_PROGRESS
-    # means the gate is genuinely still reopening; keep waiting.
+    # 실패를 그 자리에서 진단할 수 있도록 gateway의 에러를 그대로 노출한다.
+    # 여기서 MAIN_MODEL_CONTROL_UNAVAILABLE은 gateway가 admin-sidecar로부터 gate
+    # 상태를 읽지 못한다는 의미이므로(예: sidecar의 /main-model이 에러를 내는 경우)
+    # 아래 diagnostics에서 admin-sidecar 로그를 확인해야 한다. MAIN_MODEL_SWITCH_IN_PROGRESS는
+    # gate가 아직 정상적으로 재개방되는 중이라는 의미이므로 계속 기다리면 된다.
     detail="$(tr '\n' ' ' < "$tmp" 2>/dev/null | cut -c1-300)"
     if (( SECONDS >= deadline )); then
       echo "[ready-full] main-model chat not serving after ${READY_FULL_MAIN_MODEL_TIMEOUT_SECONDS}s (last HTTP ${code:-000}): ${detail}" >&2
@@ -217,10 +218,10 @@ wait_for_main_model_ready() {
   done
 }
 
-# Best-effort warm a single inference endpoint until it serves or the budget
-# elapses. A freshly (re)started vLLM may report /ready 200 yet transiently 503
-# its first inference requests; warming absorbs that race before the smoke gate.
-# This is NOT a gate — callers ignore failures so warmup can never abort a deploy.
+# 단일 inference endpoint를 서빙되거나 budget이 소진될 때까지 best-effort로 데운다.
+# 갓 (재)기동된 vLLM은 /ready가 200이어도 첫 inference 요청을 일시적으로 503으로
+# 반환할 수 있는데, warming으로 smoke gate 이전에 그 race를 흡수한다.
+# 이것은 gate가 아니다 — 호출자는 실패를 무시하므로 warmup이 배포를 abort시키는 일은 없다.
 warm_one_endpoint() {
   local name="$1" url="$2" body="$3" bearer="${4:-}"
   local deadline=$((SECONDS + READY_FULL_INFERENCE_WARMUP_SECONDS))
@@ -252,9 +253,9 @@ skip_runtime() {
   esac
 }
 
-# Best-effort warm of the remaining inference paths so the strict smoke gate does
-# not race a freshly (re)started vLLM's first-request 503. Never fatal: the chat
-# gate is handled by wait_for_main_model_ready above, and smoke is the real gate.
+# 나머지 inference 경로들을 best-effort로 데워서, 엄격한 smoke gate가 갓 (재)기동된
+# vLLM의 첫 요청 503과 race하지 않도록 한다. 절대 fatal하지 않다: chat gate는 위의
+# wait_for_main_model_ready가 처리하며, 실제 gate는 smoke이다.
 warm_inference_paths_best_effort() {
   echo "[ready-full] warming inference paths (best-effort, up to ${READY_FULL_INFERENCE_WARMUP_SECONDS}s each)..."
   if ! skip_runtime risk_prompt; then
@@ -282,10 +283,10 @@ else
 fi
 
 # /health 통과 후 vLLM upstream이 모두 로드될 때까지 /ready를 기다린다.
-# compose services do not have local run/*.pid files; readiness is polled via HTTP.
+# compose 서비스에는 로컬 run/*.pid 파일이 없으므로, readiness는 HTTP로 폴링한다.
 wait_for_gateway_ready "$GATEWAY_BASE_URL/ready" "$ADMIN_API_KEY"
 
-# Print readiness dependencies before the strict smoke gate.
+# 엄격한 smoke gate 전에 readiness dependency 목록을 출력한다.
 bash scripts/ops/status_services.sh --full || true
 
 # control-plane 재배포 후 admin-sidecar가 main-model gate를 닫았다가 boot reconcile로

@@ -140,13 +140,13 @@ class GatewayService:
         *,
         active_modalities: tuple[str, ...] | None = None,
     ) -> dict[str, Any]:
-        # The set of accepted input modalities tracks the ACTIVE main-model profile
-        # (deployed_input from the sidecar snapshot) when available, falling back to
-        # the static registry value. This keeps the current model's behavior
-        # unchanged (its profile resolves to the same modalities) while letting a
-        # switched-in profile (e.g. audio-capable) widen what is accepted -- without
-        # ever advertising a modality the running model cannot serve. The per-modality
-        # safety limits remain static policy from the registry.
+        # 허용되는 입력 modality 집합은 가능하면 ACTIVE main-model 프로필(sidecar
+        # snapshot의 deployed_input)을 따르고, 없으면 정적 registry 값으로
+        # 폴백한다. 이렇게 하면 현재 모델의 동작은 그대로 유지되면서(해당
+        # 프로필이 동일한 modality로 resolve되므로), switch된 프로필(예: 오디오
+        # 지원)이 허용 범위를 넓힐 수 있다 -- 실행 중인 모델이 서빙할 수 없는
+        # modality를 광고하는 일은 절대 없다. modality별 안전 한도는 registry의
+        # 정적 정책으로 유지된다.
         allowed_input_modalities = (
             active_modalities
             if active_modalities is not None

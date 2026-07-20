@@ -25,10 +25,11 @@ class PublicModel:
             "capabilities": list(self.capabilities),
             "request_parameters": dict(self.request_parameters),
         }
-        # input_modalities is the input content types a client may send. The static
-        # listing carries the catalog default; the gateway overlays the *active*
-        # main-model profile's modalities at request time so this stays the single
-        # source clients can trust -- the same set the chat validator enforces.
+        # input_modalities는 클라이언트가 보낼 수 있는 입력 콘텐츠 타입이다. 정적
+        # listing은 catalog 기본값을 담고 있으며, gateway가 요청 시점에 *active*
+        # main-model 프로필의 modality를 덮어써서, 클라이언트가 신뢰할 수 있는
+        # 유일한 소스로 유지되도록 한다 -- chat validator가 강제하는 것과 동일한
+        # 집합이다.
         if self.input_modalities:
             item["input_modalities"] = list(self.input_modalities)
         if self.fixed_parameters:

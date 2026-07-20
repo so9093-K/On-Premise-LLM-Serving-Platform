@@ -37,7 +37,7 @@ def find_docs(root: Path) -> list[Path]:
     adr_dir = docs_dir / "adr"
     return sorted(
         p for p in docs_dir.rglob("*.md")
-        # ADRs are historical decision records — they intentionally reference past names and fields
+        # ADR은 과거 결정을 기록한 문서이므로 의도적으로 과거 이름/필드를 참조함
         if not p.is_relative_to(adr_dir)
     )
 

@@ -46,14 +46,14 @@ from ..runtime_topology import load_runtime_topology
 
 # TODO(playground): /playground 구현 시 /v1/models[].request_parameters를 읽어
 # model-aware form을 동적으로 구성한다. 아래 grouping을 참고한다:
-# - Basic generation: max_tokens, temperature, top_p
-# - Advanced sampling: top_k, min_p, presence_penalty, frequency_penalty, repetition_penalty, seed, n
-# - Streaming: stream, stream_options
-# - Tools: tools, tool_choice, parallel_tool_calls
+# - 기본 생성: max_tokens, temperature, top_p
+# - 고급 샘플링: top_k, min_p, presence_penalty, frequency_penalty, repetition_penalty, seed, n
+# - 스트리밍: stream, stream_options
+# - 도구: tools, tool_choice, parallel_tool_calls
 # - Structured Outputs: response_format
-# - Diagnostics: logprobs, top_logprobs
-# - Advanced token control: logit_bias
-# - Vision: image_url content part
+# - 진단: logprobs, top_logprobs
+# - 고급 토큰 제어: logit_bias
+# - 비전: image_url content part
 # 이번 PR에서 /playground 실제 구현은 하지 않는다.
 
 
@@ -91,10 +91,10 @@ class GatewayClients:
                 base_url=settings.risk_adapter_base_url,
                 model="risk-adapter",
                 timeout_seconds=settings.risk_adapter_timeout_seconds,
-                # Allow risk forwarding requests and readiness probes to proceed
-                # concurrently. The risk_adapter service enforces its own
-                # admission control; the gateway semaphore here only needs to
-                # prevent readiness probes from queuing behind user requests.
+                # risk forwarding 요청과 readiness probe가 동시에 진행되도록
+                # 허용한다. risk_adapter 서비스가 자체적으로 admission control을
+                # 수행하므로, 여기 gateway semaphore는 readiness probe가 사용자
+                # 요청 뒤에서 대기열에 밀리지 않도록 막는 역할만 하면 된다.
                 max_concurrency=4,
             )
         )

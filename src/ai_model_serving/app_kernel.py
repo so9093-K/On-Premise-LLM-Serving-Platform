@@ -19,8 +19,9 @@ from .settings import AppSettings
 
 ValidationReasonResolver = Callable[[ServiceError], str | None]
 
-# Pydantic prefixes every body field location with the request part ("body"), which
-# is noise to an API client. Strip it so the param/message name the actual field.
+# Pydantic은 모든 body 필드 위치 앞에 request part("body")를 붙이는데, 이는
+# API 클라이언트 입장에서는 노이즈다. 이를 제거하여 param/message가 실제 필드
+# 이름을 그대로 나타내도록 한다.
 _LOC_PART_MARKERS = {"body", "query", "path", "header", "cookie"}
 
 
@@ -135,11 +136,11 @@ def install_exception_handlers(
             exc.retry_after_seconds,
         )
 
-    # Register on the Starlette base class so unmatched-route 404s and 405s (raised by
-    # the router as the base HTTPException, not FastAPI's subclass) also get the
-    # platform error envelope -- with code and request_id -- instead of Starlette's
-    # bare {"detail": ...}. FastAPI's HTTPException subclasses this, so in-route
-    # raises keep flowing through here unchanged.
+    # Starlette 기본 클래스에 등록하여, 매칭되지 않은 route에서 발생하는 404/405도
+    # (router가 FastAPI의 서브클래스가 아니라 기본 HTTPException으로 raise한다)
+    # Starlette의 그냥 {"detail": ...} 대신 code와 request_id가 포함된 platform
+    # error envelope를 받도록 한다. FastAPI의 HTTPException이 이를 서브클래싱하므로,
+    # route 내부에서 발생하는 raise는 변경 없이 그대로 여기를 거쳐 흐른다.
     @app.exception_handler(StarletteHTTPException)
     async def http_error_handler(request: Request, exc: StarletteHTTPException) -> JSONResponse:
         code = default_code_for_status(exc.status_code)
@@ -148,11 +149,11 @@ def install_exception_handlers(
     @app.exception_handler(RequestValidationError)
     async def validation_error_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
         errors = exc.errors()
-        # A body that fails JSON parsing surfaces as a single json_invalid error whose
-        # loc is the byte offset of the syntax error, not a field. Treating that offset
-        # as a field path produced a meaningless param (e.g. "22") and a cryptic
-        # "22: JSON decode error" message, so handle it explicitly: name the parse
-        # reason and leave param unset (no field is identifiable).
+        # JSON 파싱에 실패한 body는 단일 json_invalid 에러로 나타나며, 그 loc는
+        # 필드가 아니라 syntax error의 byte offset이다. 이 offset을 필드 경로로
+        # 취급하면 의미 없는 param(예: "22")과 알아보기 힘든 "22: JSON decode error"
+        # 메시지가 나오므로, 명시적으로 처리한다: parse 실패 사유를 이름으로 남기고
+        # param은 비워둔다(식별 가능한 필드가 없으므로).
         if len(errors) == 1 and errors[0].get("type") == "json_invalid":
             reason = (errors[0].get("ctx") or {}).get("error") or errors[0].get("msg", "invalid JSON")
             return error_response(
@@ -167,9 +168,9 @@ def install_exception_handlers(
             for e in errors
         ]
         message = "; ".join(parts) if parts else str(exc)
-        # Surface the first offending field as param so a client can branch on the
-        # error source without parsing the joined message (same field-pointer the
-        # contract validators set on ServiceError).
+        # 클라이언트가 합쳐진 메시지를 파싱하지 않고도 에러 원인을 기준으로 분기할
+        # 수 있도록, 첫 번째로 문제가 된 필드를 param으로 노출한다(contract
+        # validator가 ServiceError에 설정하는 것과 동일한 field-pointer다).
         param = _field_path(errors[0].get("loc", ())) if errors else None
         return error_response("VALIDATION_ERROR", message, False, 422, request_id_from_headers(request.headers), param)
 

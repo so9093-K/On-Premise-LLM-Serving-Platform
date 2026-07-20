@@ -1,44 +1,44 @@
 #!/usr/bin/env bash
-# CI deployment script: 111(runner) → 175(GPU runtime)
+# CI 배포 스크립트: 111(runner) → 175(GPU runtime)
 #
-# Required environment variables (set as GitLab CI/CD variables):
-#   PLATFORM_IMAGE_TO_DEPLOY   full image ref to deploy (e.g. registry.../platform:sha)
-#   DEPLOY_HOST                175 server IP or hostname
-#   DEPLOY_USER                SSH user on 175
-#   DEPLOY_PATH                deployment root on 175 (e.g. /opt/acl-ai-gateway)
-#   CI_REGISTRY                GitLab Container Registry host
+# 필수 환경 변수 (GitLab CI/CD 변수로 설정):
+#   PLATFORM_IMAGE_TO_DEPLOY   배포할 전체 이미지 참조 (예: registry.../platform:sha)
+#   DEPLOY_HOST                175 서버 IP 또는 hostname
+#   DEPLOY_USER                175의 SSH 사용자
+#   DEPLOY_PATH                175의 배포 루트 (예: /opt/acl-ai-gateway)
+#   CI_REGISTRY                GitLab Container Registry 호스트
 #   REGISTRY_DEPLOY_USER / REGISTRY_DEPLOY_PASSWORD
-#                              preferred read_registry deploy token credentials
-#                              (falls back to CI_REGISTRY_USER / CI_REGISTRY_PASSWORD)
+#                              우선 사용되는 read_registry 배포 토큰 자격 증명
+#                              (CI_REGISTRY_USER / CI_REGISTRY_PASSWORD로 폴백)
 #
-# Optional:
-#   RISK_VLLM_IMAGE_TO_DEPLOY         full runtime deploy override for RISK_VLLM_IMAGE;
-#                                     allowed only when DEPLOY_MODE=full
-#   RISK_VLLM_IMAGE_SHA               default risk-vllm-kanana image when DEPLOY_MODE=full
-#   DEPLOY_COMPOSE_FILE               compose file relative to DEPLOY_PATH
-#                              default: ops/compose/full-stack.private-network.yaml
-#   DEPLOY_MODE                auto-detected (rolling unless vLLM image changes or
-#                              runtime-sensitive files change); can be forced to full.
-#                              A full deploy converges per-service: it recreates only
-#                              the services whose image ID changed (or whose mounted
-#                              runtime config changed), leaving unchanged vLLM models
-#                              serving instead of cold-restarting the whole fleet.
-#   GATEWAY_HEALTH_URL         explicit post-deploy health URL.
-#                              Default is derived from 175 .env:
-#                              GATEWAY_BIND_ADDR/GATEWAY_PORT, with 0.0.0.0 -> localhost.
-#   RUN_READY_SMOKE            1 (default) or 0 — run gateway /health check after deploy
-#   RUN_READY_FULL_SMOKE       compatibility variable. Full deploy requires 1
-#                              and always runs make ready-full after /health.
-#   PRUNE_DANGLING_IMAGES      1 (default) or 0 — prune dangling images after a successful deploy
-#   DEPLOY_RELEASE_ID          immutable release directory name; defaults to CI_COMMIT_SHA
-#   RELEASES_TO_KEEP           successful release directories to retain (default: 5)
-#   DEPLOY_RUNTIME_PROFILE     runtime startup profile from configs/deploy_profiles.yaml
-#                              (for example: full_hot, main_only, retrieval_ready).
-#   DEPLOY_DEFERRED_RUNTIMES   comma-separated controllable runtime keys or compose services
-#                              to keep stopped after deploy (for example:
-#                              embedding,embedding_ko,risk_prompt). Full deploy creates
-#                              their containers without starting them. When set, this
-#                              explicit list overrides DEPLOY_RUNTIME_PROFILE.
+# 선택:
+#   RISK_VLLM_IMAGE_TO_DEPLOY         RISK_VLLM_IMAGE를 덮어쓰는 전체 런타임 배포 override;
+#                                     DEPLOY_MODE=full일 때만 허용
+#   RISK_VLLM_IMAGE_SHA               DEPLOY_MODE=full일 때 기본 risk-vllm-kanana 이미지
+#   DEPLOY_COMPOSE_FILE               DEPLOY_PATH 기준 상대 compose 파일 경로
+#                              기본값: ops/compose/full-stack.private-network.yaml
+#   DEPLOY_MODE                자동 감지 (vLLM 이미지가 바뀌거나 런타임 민감 파일이
+#                              바뀌지 않으면 rolling); full로 강제 지정 가능.
+#                              full 배포는 서비스 단위로 수렴한다: 이미지 ID가 바뀐
+#                              서비스(또는 마운트된 런타임 설정이 바뀐 서비스)만
+#                              재생성하고, 나머지 vLLM 모델은 전체 재기동 없이 계속
+#                              서빙 상태를 유지한다.
+#   GATEWAY_HEALTH_URL         배포 후 헬스체크에 쓸 명시적 URL.
+#                              기본값은 175의 .env에서 파생됨:
+#                              GATEWAY_BIND_ADDR/GATEWAY_PORT, 0.0.0.0은 localhost로 치환.
+#   RUN_READY_SMOKE            1(기본) 또는 0 — 배포 후 gateway /health 체크 실행 여부
+#   RUN_READY_FULL_SMOKE       호환성 유지용 변수. full 배포는 반드시 1이어야 하며
+#                              /health 이후 항상 make ready-full을 실행한다.
+#   PRUNE_DANGLING_IMAGES      1(기본) 또는 0 — 배포 성공 후 dangling 이미지 정리 여부
+#   DEPLOY_RELEASE_ID          불변 release 디렉터리 이름; 기본값은 CI_COMMIT_SHA
+#   RELEASES_TO_KEEP           보관할 성공한 release 디렉터리 개수 (기본값: 5)
+#   DEPLOY_RUNTIME_PROFILE     configs/deploy_profiles.yaml의 런타임 시작 프로필
+#                              (예: full_hot, main_only, retrieval_ready).
+#   DEPLOY_DEFERRED_RUNTIMES   배포 후 정지 상태로 유지할, 콤마로 구분된 controllable
+#                              런타임 키 또는 compose 서비스 (예:
+#                              embedding,embedding_ko,risk_prompt). full 배포는 이
+#                              컨테이너들을 시작하지 않고 생성만 한다. 이 값이 설정되면
+#                              DEPLOY_RUNTIME_PROFILE보다 우선한다.
 set -euo pipefail
 
 : "${PLATFORM_IMAGE_TO_DEPLOY:?Required: full platform image ref}"
@@ -60,9 +60,9 @@ RELEASES_TO_KEEP="${RELEASES_TO_KEEP:-5}"
 RELEASE_ID="${DEPLOY_RELEASE_ID:-${CI_COMMIT_SHA:-}}"
 SSH_TARGET="${DEPLOY_USER}@${DEPLOY_HOST}"
 
-# Auto-detect deploy mode. Full deploy is required when a vLLM image override is
-# provided; otherwise default to rolling (platform-only restart, no vLLM downtime).
-# DEPLOY_MODE can still be set explicitly to force full when needed.
+# 배포 모드 자동 감지. vLLM 이미지 override가 제공되면 full 배포가 필요하고,
+# 그렇지 않으면 기본값은 rolling(platform만 재시작, vLLM 다운타임 없음)이다.
+# 필요하면 DEPLOY_MODE를 명시적으로 지정해 full로 강제할 수 있다.
 _vllm_image_override="${RISK_VLLM_IMAGE_TO_DEPLOY:-${RISK_VLLM_IMAGE_SHA:-}}"
 if [[ -z "${DEPLOY_MODE:-}" ]]; then
   if [[ -n "${_vllm_image_override}" ]]; then
@@ -119,7 +119,7 @@ if [[ "${DEPLOY_MODE}" == "full" ]]; then
   fi
 fi
 
-# ── 1. stage immutable release files ────────────────────────────────────────
+# ── 1. 불변 release 파일 스테이징 ────────────────────────────────────────
 echo "[deploy] preparing release directory ${SSH_TARGET}:${RELEASE_PATH}/"
 ssh "${SSH_TARGET}" \
   DEPLOY_PATH="${DEPLOY_PATH}" \
@@ -154,7 +154,7 @@ rsync -az --delete \
   ./ \
   "${SSH_TARGET}:${RELEASE_PATH}/"
 
-# ── 2. remote: validate candidate, deploy, then atomically switch current ──
+# ── 2. 원격: candidate 검증 → 배포 → current를 원자적으로 전환 ──
 ssh "${SSH_TARGET}" \
   PLATFORM_IMAGE_TO_DEPLOY="${PLATFORM_IMAGE_TO_DEPLOY}" \
   RISK_VLLM_IMAGE_TO_DEPLOY="${RISK_VLLM_IMAGE_TO_DEPLOY:-}" \
@@ -178,11 +178,11 @@ ssh "${SSH_TARGET}" \
   bash -s <<'REMOTE'
 set -euo pipefail
 
-# The gateway container bind-mounts this directory and writes runtime-state.json
-# as the image's non-root appuser. If we mkdir it as the (often root) deploy
-# user, appuser can't write to it and the gateway container fails at startup
-# with a PermissionError. Creating it from inside the platform image instead
-# means it's always owned by whatever UID that image actually runs as.
+# gateway 컨테이너는 이 디렉터리를 bind-mount해서 이미지의 non-root appuser 권한으로
+# runtime-state.json을 쓴다. 이걸 (대개 root인) 배포 사용자 권한으로 mkdir하면
+# appuser가 쓸 수 없어서 gateway 컨테이너가 PermissionError로 기동에 실패한다.
+# 대신 platform 이미지 내부에서 생성하면 그 이미지가 실제로 실행되는 UID로
+# 항상 소유권이 잡힌다.
 ensure_gateway_runtime_dir() {
   local dir="$1"
   local parent
@@ -317,12 +317,13 @@ if [[ "${DEPLOY_MODE}" != "full" &&
   exit 2
 fi
 
-# Guard against silently shipping a STALE derived image. GitLab 12.1.1 cannot auto-build
-# on source change (no rule engine), so the ~25 GB build is a manual opt-in — meaning an
-# operator can edit the vllm-gemma4-audio Dockerfile/patch and forget to rebuild. If the
-# image source changed since the previous release but no fresh digest is being deployed
-# (build-vllm-derived did not run -> AUDIO_VLLM_IMAGE_TO_DEPLOY empty here, before the
-# preflight's current-.env fallback), the old image would deploy. Fail loudly instead.
+# STALE된 derived 이미지가 조용히 배포되는 걸 막는 가드. GitLab 12.1.1은 소스 변경 시
+# 자동 빌드를 못 하므로(rule engine 없음), ~25GB짜리 빌드는 수동 opt-in이다 — 즉
+# 운영자가 vllm-gemma4-audio Dockerfile/patch를 고치고 재빌드를 깜빡할 수 있다. 이전
+# release 이후 이미지 소스가 바뀌었는데 새 digest가 배포되지 않는 상태라면
+# (build-vllm-derived가 안 돌아서 -> 여기서 AUDIO_VLLM_IMAGE_TO_DEPLOY가 비어 있음,
+# preflight의 current-.env 폴백 이전) 기존 이미지가 그대로 배포돼 버린다. 조용히
+# 넘어가지 말고 확실하게 실패시킨다.
 if [[ -n "${PREVIOUS_RELEASE}" && -d "${PREVIOUS_RELEASE}" ]]; then
   _audio_image_source=(
     "ops/images/vllm-gemma4-audio/Dockerfile"
@@ -344,7 +345,7 @@ if [[ -n "${PREVIOUS_RELEASE}" && -d "${PREVIOUS_RELEASE}" ]]; then
   fi
 fi
 
-# registry login with read-only deploy token
+# read-only 배포 토큰으로 registry 로그인
 echo "${REGISTRY_PASSWORD}" | \
   docker login "${CI_REGISTRY}" -u "${REGISTRY_USER}" --password-stdin
 
@@ -430,10 +431,10 @@ configure_release_context() {
     fi
     _state_file="${DEPLOY_PATH}/.runtime/main-model/main-model-state.json"
     if [[ -f "${_state_file}" && ! -r "${_state_file}" ]]; then
-      # Same class of issue as ensure_gateway_runtime_dir: the admin-sidecar container
-      # wrote this file as its non-root appuser, and the deploy user can't read it back.
-      # Repair it the same way — from inside the platform image, as the UID that
-      # actually owns the file — instead of failing and asking for a manual chmod.
+      # ensure_gateway_runtime_dir와 같은 종류의 문제: admin-sidecar 컨테이너가
+      # non-root appuser 권한으로 이 파일을 썼기 때문에 배포 사용자가 다시 읽을 수 없다.
+      # 실패시키고 수동 chmod를 요구하는 대신, 같은 방식으로 — platform 이미지 내부에서
+      # 실제 파일 소유 UID로 — 복구한다.
       echo "[deploy] main-model state file is not readable by the deploy user; repairing ownership..." >&2
       if ! docker run --rm -v "$(dirname "${_state_file}"):/mnt" --entrypoint sh "${PLATFORM_IMAGE_TO_DEPLOY}" \
         -c "chmod o+r /mnt/$(basename "${_state_file}")"; then
@@ -538,21 +539,21 @@ apply_deferred_runtime_state() {
   echo "[deploy] gateway desired runtime state updated: ${state_path}"
 }
 
-# Print the Compose services whose image changed (or that are not running).
+# 이미지가 바뀌었거나(또는 실행 중이 아닌) Compose 서비스를 출력한다.
 #
-# Why image identity and not Compose's config-hash: every service loads the
-# shared .env via `env_file: ../../.env`, and that file changes on every deploy
-# (PLATFORM_IMAGE digest, DEPLOY_RELEASE_ID, ...). Compose folds the whole
-# resolved environment into each service's config-hash, so config-hash rehashes
-# the entire fleet every release and cannot scope recreation. The resolved image
-# ID is the signal that actually reflects "this service's payload changed": it
-# ignores .env churn, and comparing IDs (not refs) also catches a moved tag
-# (e.g. risk-vllm-kanana:release rebuilt to a new digest) after `compose pull`.
-# A service whose image ID is unchanged keeps serving instead of cold-restarting
-# the whole fleet and racing a multi-minute serial healthcheck chain.
+# Compose의 config-hash 대신 이미지 identity를 쓰는 이유: 모든 서비스가
+# `env_file: ../../.env`로 공유 .env를 로드하는데, 이 파일은 매 배포마다 바뀐다
+# (PLATFORM_IMAGE digest, DEPLOY_RELEASE_ID, ...). Compose는 이 resolve된 환경
+# 전체를 각 서비스의 config-hash에 포함시키므로, config-hash는 매 release마다
+# 전체 fleet을 다시 해싱하게 되어 재생성 범위를 좁힐 수 없다. resolve된 이미지 ID야말로
+# "이 서비스의 payload가 실제로 바뀌었는지"를 정확히 반영하는 신호다: .env 변동을
+# 무시하고, ref가 아니라 ID를 비교하기 때문에 `compose pull` 이후 태그가 옮겨진
+# 경우(예: risk-vllm-kanana:release가 새 digest로 재빌드된 경우)도 잡아낸다.
+# 이미지 ID가 안 바뀐 서비스는 전체 fleet을 cold-restart하고 여러 분 걸리는
+# 순차 healthcheck 체인과 경합하는 대신 계속 서빙 상태를 유지한다.
 #
-# Config-content changes (chat template, model profile) do not change the image;
-# compute_recreate_set() adds the services that actually mount them.
+# 설정 내용 변경(chat template, model profile)은 이미지를 바꾸지 않는다;
+# compute_recreate_set()이 실제로 이 파일들을 마운트하는 서비스를 추가로 잡아낸다.
 list_services_needing_recreate() {
   local svc cref cid runid candid
   while read -r svc cref; do
@@ -574,18 +575,18 @@ list_services_needing_recreate() {
   )
 }
 
-# Echo the unique set of services to (re)create so the running stack converges to
-# the compose context configured in the current working directory. Combines:
-#   - image-ID changes / not-running services (list_services_needing_recreate)
-#   - config-content changes vs the ${1} baseline release tree, mapped to the
-#     services that actually consume each file:
+# 실행 중인 스택이 현재 작업 디렉터리에 설정된 compose 컨텍스트로 수렴하도록,
+# (재)생성해야 할 서비스 집합을 중복 없이 출력한다. 다음을 합친다:
+#   - 이미지 ID 변경 / 실행 중이 아닌 서비스 (list_services_needing_recreate)
+#   - ${1} baseline release 트리 대비 설정 내용 변경분을, 실제로 그 파일을
+#     쓰는 서비스로 매핑:
 #       * configs/main_model_profiles.yaml, configs/gemma4_chat_template.jinja
-#         -> main-llm-vllm (the only model that mounts configs/ and the template)
-#       * the compose file itself -> every service (a structural change can alter
-#         any service definition, and image-ID alone would not detect it)
-# Pass an empty baseline to skip the config diff (e.g. first deployment).
-# The comparison is symmetric, so the same call drives both forward deploy
-# (baseline = previous release) and rollback (baseline = failed candidate).
+#         -> main-llm-vllm (configs/와 template을 마운트하는 유일한 모델)
+#       * compose 파일 자체 -> 모든 서비스 (구조적 변경은 어떤 서비스 정의든
+#         바꿀 수 있고, 이미지 ID만으로는 감지할 수 없다)
+# baseline을 빈 값으로 넘기면 설정 diff를 건너뛴다(예: 최초 배포).
+# 비교가 대칭적이라서 forward 배포(baseline = 이전 release)와
+# rollback(baseline = 실패한 candidate) 양쪽에 같은 함수를 쓸 수 있다.
 compute_recreate_set() {
   local baseline="$1" rel
   {
@@ -624,17 +625,17 @@ pull_preflight_image() {
   echo "[deploy] ${label} image verified: ${image}"
 }
 
-# ── preflight: verify images can be pulled before touching .env ───────────────
+# ── preflight: .env를 건드리기 전에 이미지를 pull할 수 있는지 확인 ───────────────
 pull_preflight_image "platform" "${PLATFORM_IMAGE_TO_DEPLOY}"
 
 if [[ "${DEPLOY_MODE}" == "full" ]]; then
   pull_preflight_image "risk-vllm-kanana" "${RISK_VLLM_IMAGE_TO_DEPLOY}"
 
-  # The 12B multimodal image is per-profile (not a compose service), so compose
-  # never pulls it and the sidecar's /containers/create does not auto-pull — it must
-  # already be on the box or a switch to 12B fails with "No such image". Pre-pull the
-  # digest the box will use (the fresh build, else the current .env pin) here, while
-  # the current chat model is still serving, instead of mid-switch with the gate closed.
+  # 12B 멀티모달 이미지는 (compose 서비스가 아니라) 프로필 단위라서 compose가
+  # 절대 pull하지 않고, sidecar의 /containers/create도 자동 pull하지 않는다 — 미리
+  # 박스에 있지 않으면 12B로 전환할 때 "No such image"로 실패한다. gate가 닫힌 채로
+  # 전환 도중에 하지 말고, 지금 채팅 모델이 아직 서빙 중일 때 박스가 쓸 digest를
+  # (새 빌드가 있으면 그것, 없으면 현재 .env pin을) 미리 pull해 둔다.
   if [[ -z "${AUDIO_VLLM_IMAGE_TO_DEPLOY:-}" ]]; then
     AUDIO_VLLM_IMAGE_TO_DEPLOY="$(get_env_value AUDIO_VLLM_IMAGE)"
   fi
@@ -653,7 +654,7 @@ set_env_value() {
   fi
 }
 
-# back up .env before modifying image refs
+# 이미지 참조를 수정하기 전에 .env를 백업
 ENV_BACKUP_PATH="${DEPLOY_PATH}/.env.bak.$(date +%Y%m%d%H%M%S)"
 ENV_BACKUP="${ENV_BACKUP_PATH}"
 cp "${COMPOSE_ENV_FILE}" "${ENV_BACKUP}"
@@ -766,10 +767,10 @@ restore_previous_release() {
         echo "[deploy] ERROR: restored compose config is invalid" >&2
         restore_failed=1
       elif [[ "${DEPLOY_MODE}" == "full" ]]; then
-        # Symmetric rollback: revert only the services that now differ from the
-        # previous release — the same image-ID + config-content set the forward
-        # deploy used, computed against the failed candidate (RELEASE_PATH) as the
-        # baseline. Never cold-restart vLLM models that were left untouched.
+        # 대칭적 rollback: 지금 이전 release와 달라진 서비스만 되돌린다 — forward
+        # 배포가 썼던 것과 동일한 이미지-ID + 설정-내용 집합을, 실패한 candidate
+        # (RELEASE_PATH)를 baseline으로 계산한다. 건드리지 않은 vLLM 모델은 절대
+        # cold-restart하지 않는다.
         local _rollback_services
         mapfile -t _rollback_services < <(compute_recreate_set "${RELEASE_PATH}")
         if [[ ${#_rollback_services[@]} -eq 0 ]]; then
@@ -831,28 +832,28 @@ unexpected_failure_after_env_backup() {
 }
 trap unexpected_failure_after_env_backup ERR
 
-# update PLATFORM_IMAGE in .env
+# .env에 PLATFORM_IMAGE 갱신
 set_env_value PLATFORM_IMAGE "${PLATFORM_IMAGE_TO_DEPLOY}"
 echo "[deploy] PLATFORM_IMAGE set to ${PLATFORM_IMAGE_TO_DEPLOY}"
 set_env_value DEPLOY_RELEASE_ID "${RELEASE_ID}"
 echo "[deploy] DEPLOY_RELEASE_ID set to ${RELEASE_ID}"
 
-# optionally update RISK_VLLM_IMAGE
+# 필요 시 RISK_VLLM_IMAGE 갱신
 if [[ -n "${RISK_VLLM_IMAGE_TO_DEPLOY:-}" ]]; then
   set_env_value RISK_VLLM_IMAGE "${RISK_VLLM_IMAGE_TO_DEPLOY}"
   echo "[deploy] RISK_VLLM_IMAGE set to ${RISK_VLLM_IMAGE_TO_DEPLOY}"
 fi
 
-# optionally update AUDIO_VLLM_IMAGE — the derived multimodal runtime pinned by the
-# 12B profile via ${AUDIO_VLLM_IMAGE} (configs/main_model_profiles.yaml). The build
-# job emits its immutable digest; absent a fresh build the existing .env value (and
-# thus the current pin) is preserved, so routine deploys never repin by hand.
+# 필요 시 AUDIO_VLLM_IMAGE 갱신 — 12B 프로필이 ${AUDIO_VLLM_IMAGE}로 pin하는
+# (configs/main_model_profiles.yaml) derived 멀티모달 런타임이다. 빌드 job이 불변
+# digest를 만들어내며, 새 빌드가 없으면 기존 .env 값(=현재 pin)이 그대로 유지되므로
+# 일상적인 배포에서는 수동으로 repin할 일이 없다.
 if [[ -n "${AUDIO_VLLM_IMAGE_TO_DEPLOY:-}" ]]; then
   set_env_value AUDIO_VLLM_IMAGE "${AUDIO_VLLM_IMAGE_TO_DEPLOY}"
   echo "[deploy] AUDIO_VLLM_IMAGE set to ${AUDIO_VLLM_IMAGE_TO_DEPLOY}"
 fi
 
-# sync any new template keys added since last deploy (preserves existing values)
+# 마지막 배포 이후 template에 추가된 새 키를 동기화(기존 값은 보존)
 echo "[deploy] syncing .env template keys..."
 if ! make sync-env; then
   fail_after_env_backup "sync-env failed"
@@ -865,25 +866,33 @@ if [[ -n "${AUTH_MODE:-}" ]]; then
   fi
 fi
 
-# sync Prometheus bearer token from current .env (excluded from rsync)
+# 현재 .env에서 Prometheus bearer token 동기화(rsync 제외 대상)
 echo "[deploy] syncing runtime secrets..."
 if ! make sync-runtime-secrets; then
   fail_after_env_backup "runtime secret sync failed"
 fi
 
-# Docker Compose gives shell environment variables precedence over --env-file.
-# Export the mutated remote .env so process env values cannot shadow required compose variables.
+# Docker Compose는 shell 환경변수를 --env-file보다 우선시킨다.
+# 변경된 원격 .env를 export해서, 프로세스 env 값이 필수 compose 변수를 가리지 못하게 한다.
 export_compose_env_from_file
 
-# The synced .env can carry stale cross-var invariants (e.g. REQUEST_TIMEOUT_SECONDS
-# left below MAIN_LLM_TIMEOUT_SECONDS after a timeout was bumped) that only fail
-# once the gateway process actually boots, inside settings.load_settings() via
-# validate_timeout_budget(). Left unchecked, that failure surfaces only after
-# compose recreates the service and the 600s /health wait below times out. Running
-# the same app-creation path here, against the freshly synced .env, catches it
-# before any container is touched.
+# 동기화된 .env는 stale한 크로스 변수 불변식(예: 타임아웃 값을 올렸는데
+# REQUEST_TIMEOUT_SECONDS가 MAIN_LLM_TIMEOUT_SECONDS보다 낮게 남아있는 경우)을
+# 갖고 있을 수 있는데, 이건 gateway 프로세스가 실제로 부팅되어
+# settings.load_settings() 내부의 validate_timeout_budget()을 거칠 때만 실패로
+# 드러난다. 이걸 확인하지 않고 넘어가면, compose가 서비스를 재생성하고 아래
+# 600초 /health 대기가 타임아웃난 뒤에야 문제가 드러난다. 방금 동기화된 .env에
+# 대해 여기서 동일한 app-creation 경로를 실행해두면, 어떤 컨테이너도 건드리기 전에
+# 미리 잡아낼 수 있다.
 echo "[deploy] validating gateway settings against synced .env..."
-if ! docker run --rm --env-file "${DEPLOY_PATH}/.env" --entrypoint python "${PLATFORM_IMAGE_TO_DEPLOY}" \
+# APP_CONFIG_ROOT는 그 자체로 .env 키가 아니다 — compose가 env_file이 아니라
+# gateway 서비스의 `environment:` 블록(ops/compose/full-stack.private-network.yaml)을
+# 통해 주입한다. 이게 없으면 GatewayClients가 Path(__file__).parents[3]로 폴백하는데,
+# 이게 설치된 이미지 안에서는 /app이 아니라 site-packages 아래로 resolve되어
+# load_runtime_topology()가 configs/model_serving.yaml에서 (본질과 무관한 이유로)
+# 404를 낸다. 이 검증이 진짜 설정 문제일 때만 실패하도록 명시적으로 값을 지정한다.
+if ! docker run --rm --env-file "${DEPLOY_PATH}/.env" -e APP_CONFIG_ROOT=/app \
+  --entrypoint python "${PLATFORM_IMAGE_TO_DEPLOY}" \
   -c "from ai_model_serving.apps.gateway import create_gateway_app; create_gateway_app()"; then
   fail_after_env_backup "gateway settings failed to load from synced .env — check timeout/limit invariants (REQUEST_TIMEOUT_SECONDS, MAIN_LLM_TIMEOUT_SECONDS, RISK_ADAPTER_TIMEOUT_SECONDS) before retrying"
 fi
@@ -941,9 +950,9 @@ if [[ "${DEPLOY_MODE}" == "full" ]]; then
   if ! compose_run pull; then
     fail_after_env_backup "image pull failed during full deploy. If vLLM-derived images are new, confirm build-vllm-derived succeeded or set an existing RISK_VLLM_IMAGE_TO_DEPLOY ref."
   fi
-  # Converge only the services whose image or resolved config actually changed.
-  # Unchanged vLLM models keep serving, so the readiness gate only races the one
-  # service that was genuinely replaced — not a fleet-wide serial cold start.
+  # 이미지 또는 resolve된 설정이 실제로 바뀐 서비스만 수렴시킨다.
+  # 안 바뀐 vLLM 모델은 계속 서빙 상태를 유지하므로, readiness gate는 실제로
+  # 교체된 그 서비스 하나와만 경합한다 — fleet 전체 순차 cold start가 아니다.
   echo "[deploy] full deploy: computing changed services..."
   mapfile -t CHANGED_SERVICES < <(compute_recreate_set "${PREVIOUS_RELEASE}")
 
@@ -961,10 +970,10 @@ if [[ "${DEPLOY_MODE}" == "full" ]]; then
     done
     echo "[deploy] full deploy: recreating changed services: ${ACTIVE_CHANGED_SERVICES[*]:-(none)}"
     SERVICES_MUTATED=1
-    # --no-deps is essential: without it, `up -d gateway` pulls in gateway's
-    # depends_on graph, and because the shared .env changed every service's
-    # config-hash, Compose would recreate the whole vLLM fleet anyway. With
-    # --no-deps only the listed (genuinely changed) services are touched.
+    # --no-deps는 필수다: 이게 없으면 `up -d gateway`가 gateway의 depends_on
+    # 그래프를 끌고 오는데, 공유 .env가 바뀌어 모든 서비스의 config-hash가 바뀌었기
+    # 때문에 결국 Compose가 vLLM fleet 전체를 재생성해버린다. --no-deps를 쓰면
+    # 목록에 있는(진짜로 바뀐) 서비스만 건드린다.
     if [[ ${#ACTIVE_CHANGED_SERVICES[@]} -gt 0 ]] &&
       ! compose_run up -d --no-deps --remove-orphans "${ACTIVE_CHANGED_SERVICES[@]}"; then
       fail_after_env_backup "compose up failed for changed services: ${ACTIVE_CHANGED_SERVICES[*]}"
@@ -977,15 +986,15 @@ if [[ "${DEPLOY_MODE}" == "full" ]]; then
     fi
   fi
 else
-  # Pull the application/control-plane images only. Gateway and Admin Sidecar
-  # implement one management API and must be deployed at the same revision.
+  # application/control-plane 이미지만 pull한다. Gateway와 Admin Sidecar는
+  # 하나의 관리 API를 구현하므로 반드시 같은 revision으로 배포해야 한다.
   echo "[deploy] rolling deploy: pulling app/control-plane images..."
   if ! compose_run pull gateway admin-sidecar risk-adapter; then
     fail_after_env_backup "rolling deploy image pull failed for gateway/admin-sidecar/risk-adapter"
   fi
 
-  # Keep vLLM intact. Bring the sidecar up first so the new Gateway never
-  # targets an older control-plane implementation.
+  # vLLM은 건드리지 않는다. 새 Gateway가 구버전 control-plane 구현을 바라보는
+  # 일이 없도록 sidecar를 먼저 올린다.
   echo "[deploy] rolling deploy: restarting app/control-plane services..."
   SERVICES_MUTATED=1
   if ! compose_run up -d --no-deps admin-sidecar; then
@@ -996,13 +1005,12 @@ else
   fi
 fi
 
-# Grafana and Prometheus are bind-mount config services: their container image never
-# changes, so neither the full-deploy image-based convergence nor the rolling
-# app-restart set ever catches dashboard/rule edits. A container also keeps the
-# release path it was created with, so flipping `current` alone leaves them serving
-# the previous release's config. Independent of deploy mode, recreate them when their
-# mounted config differs from the previous release, or when a running container still
-# points at an older release context.
+# Grafana와 Prometheus는 bind-mount 설정 서비스다: 컨테이너 이미지가 절대 안
+# 바뀌므로, full 배포의 이미지 기반 수렴도 rolling의 app-restart 대상도 대시보드/
+# rule 수정을 잡아내지 못한다. 컨테이너는 또한 생성될 때의 release 경로를 그대로
+# 유지하므로, `current`만 바꿔서는 이전 release의 설정을 계속 서빙하게 된다.
+# 배포 모드와 무관하게, 마운트된 설정이 이전 release와 다르거나 실행 중인
+# 컨테이너가 여전히 오래된 release 컨텍스트를 가리키고 있으면 재생성한다.
 if [[ -n "${PREVIOUS_RELEASE:-}" && -d "${PREVIOUS_RELEASE}" ]]; then
   _config_service_dirs=(
     "ops/grafana/dashboards"
@@ -1122,17 +1130,18 @@ if [[ -n "${RUNTIME_STATE_BACKUP:-}" ]] && ! rm -f "${RUNTIME_STATE_BACKUP}"; th
   echo "[deploy] WARNING: failed to remove runtime state backup: ${RUNTIME_STATE_BACKUP}" >&2
 fi
 
-# Apply a stable, cosmetic ':deployed' tag to the digest-pinned images so `docker images`
-# is human-readable on the box (digest pins otherwise show up as <none>). This never
-# changes what compose runs — .env keeps the @sha256 pin. The tag is re-pointed to the
-# current image every deploy, so the previous image loses it and is reclaimed by the
-# dangling prune below. Cosmetic only: failures never fail the deploy.
+# digest로 pin된 이미지에 안정적인 눈요기용 ':deployed' 태그를 붙여서 박스에서
+# `docker images`가 사람이 읽기 좋게 나오도록 한다(digest pin만 있으면 <none>으로
+# 보인다). compose가 실제로 무엇을 실행하는지는 절대 안 바뀐다 — .env는 여전히
+# @sha256 pin을 유지한다. 이 태그는 매 배포마다 현재 이미지로 다시 옮겨지므로,
+# 이전 이미지는 태그를 잃고 아래의 dangling prune 대상이 된다. 순전히 눈요기용:
+# 실패해도 배포 자체를 실패시키지 않는다.
 tag_deployed() {
   local ref="$1"
   [[ -n "${ref}" ]] || return 0
-  local repo="${ref%@*}"             # drop @sha256:... digest if present
+  local repo="${ref%@*}"             # @sha256:... digest가 있으면 제거
   local last="${repo##*/}"
-  if [[ "${last}" == *:* ]]; then    # drop :tag but keep registry host:port
+  if [[ "${last}" == *:* ]]; then    # :tag는 제거하되 registry host:port는 유지
     repo="${repo%/*}/${last%%:*}"
   fi
   if ! docker tag "${ref}" "${repo}:deployed"; then

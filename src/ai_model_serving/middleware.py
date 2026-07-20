@@ -29,7 +29,7 @@ def _content_length_exceeds_limit(request: Request, max_body_bytes: int) -> bool
     try:
         return int(raw_value) > max_body_bytes
     except ValueError:
-        # Let the ASGI server/framework handle malformed Content-Length values.
+        # 잘못된 형식의 Content-Length 값은 ASGI 서버/프레임워크가 처리하도록 둔다.
         return False
 
 
@@ -85,9 +85,9 @@ async def enforce_request_body_limit(
     if body is None:
         return _too_large_response(request, max_body_bytes)
 
-    # Starlette's function-style middleware wraps requests in a cached request
-    # object. Populate the cache after incremental reading so downstream request
-    # parsing can consume the same validated body without touching the original
-    # receive channel again.
+    # Starlette의 함수형 미들웨어는 request를 캐시된 request 객체로 감싼다.
+    # 점진적 읽기가 끝난 후 캐시를 채워서, downstream request 파싱이 원본
+    # receive 채널을 다시 건드리지 않고도 동일하게 검증된 body를 사용할 수
+    # 있게 한다.
     setattr(request, "_body", body)
     return await call_next(request)

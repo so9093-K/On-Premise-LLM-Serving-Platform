@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 
-# Resolve the shared Docker Compose execution context.
+# 공유되는 Docker Compose 실행 컨텍스트를 확정합니다.
 #
-# Precedence:
-#   process COMPOSE_PROJECT_NAME
+# 우선순위:
+#   프로세스 COMPOSE_PROJECT_NAME
 #   -> ENV_FILE COMPOSE_PROJECT_NAME
 #   -> compose
 #
-# Callers may append exposure or generated override files to
-# COMPOSE_CONTEXT_FILE_ARGS before invoking Docker Compose.
+# 호출하는 쪽에서는 Docker Compose를 실행하기 전에 exposure나 생성된 override
+# 파일을 COMPOSE_CONTEXT_FILE_ARGS에 추가할 수 있습니다.
 compose_context_init() {
   local root="${1:?project root required}"
   local python_bin="${PYTHON_BIN:-$(command -v python3.12 || command -v python3 || command -v python)}"

@@ -34,11 +34,12 @@ ERROR_STATUS = {
 
 DEBUG_VALUE_LIMIT = 2_000
 
-# Default platform error code for a bare HTTP status. ``HTTPException`` carries only
-# a status, so the error handler needs a representative code that does not contradict
-# it (previously every non-401 collapsed to VALIDATION_ERROR, e.g. a 404 returned
-# code=VALIDATION_ERROR). For statuses that map to several codes, this names the most
-# general one; a handler raising a specific code should use ServiceError instead.
+# 순수 HTTP status만 있을 때 사용할 기본 플랫폼 오류 코드. ``HTTPException``은
+# status만 가지고 있으므로, 오류 핸들러는 그 status와 모순되지 않는 대표 코드가
+# 필요하다 (이전에는 401이 아닌 모든 경우가 VALIDATION_ERROR로 뭉뚱그려져서,
+# 예를 들어 404가 code=VALIDATION_ERROR로 반환되었다). 여러 코드로 매핑될 수
+# 있는 status는 가장 일반적인 코드를 지정하며, 특정 코드를 발생시켜야 하는
+# 핸들러는 대신 ServiceError를 사용해야 한다.
 STATUS_DEFAULT_CODE = {
     401: "UNAUTHORIZED",
     403: "FORBIDDEN",
@@ -125,10 +126,11 @@ def error_payload(
         "retryable": retryable,
         "request_id": request_id or new_request_id(),
     }
-    # ``param`` names the offending request field (e.g. "response_format.json_schema"
-    # vs "input_audio.format"), so a client can tell a wrong output spec from a wrong
-    # input data format without parsing the message. Omitted when not field-scoped, so
-    # responses without a field source stay byte-identical to before.
+    # ``param``은 문제가 된 요청 필드명을 담는다 (예: "response_format.json_schema"
+    # vs "input_audio.format"). 이를 통해 클라이언트는 메시지를 파싱하지 않고도
+    # 잘못된 출력 스펙과 잘못된 입력 데이터 포맷을 구분할 수 있다. 필드로
+    # 특정되지 않는 경우에는 생략되어, 필드 출처가 없는 응답은 이전과 byte 단위로
+    # 동일하게 유지된다.
     if param is not None:
         error["param"] = param
     if debug:
@@ -173,10 +175,10 @@ class ServiceError(Exception):
     request_id: str | None = None
     param: str | None = None
     debug: dict[str, Any] | None = None
-    # Seconds a retryable caller should wait before retrying (e.g. remaining
-    # circuit-breaker cooldown, or a fixed hint for admission-queue rejection).
-    # Surfaced as the HTTP Retry-After header, not the JSON body, so it stays a
-    # transport-level hint clients can read without parsing the payload.
+    # 재시도 가능한 호출자가 재시도 전에 대기해야 할 초 단위 시간 (예: 남은
+    # circuit-breaker 쿨다운, 또는 admission-queue 거부에 대한 고정 힌트).
+    # JSON body가 아니라 HTTP Retry-After 헤더로 노출되므로, 클라이언트는
+    # payload를 파싱하지 않고도 읽을 수 있는 transport 레벨 힌트로 남는다.
     retry_after_seconds: float | None = None
 
     def to_payload(self) -> dict[str, Any]:

@@ -8,7 +8,7 @@ from ..risk import assessment_response
 
 DETECTOR_SOURCE = "pii-protection"
 
-# Entity label -> D-code mapping
+# 엔티티 라벨 -> D-code 매핑
 _ENTITY_CODE: dict[str, str] = {
     "KR_RRN": "D1",
     "KR_FRN": "D1",
@@ -23,9 +23,9 @@ _ENTITY_CODE: dict[str, str] = {
     "URL": "D5",
 }
 
-# Presidio built-in entities to request.
-# PERSON and ADDRESS are NLP/NER-based; en_core_web_sm on Korean text produces
-# false positives for PERSON and no recognizer exists for ADDRESS in English.
+# 요청할 Presidio 내장 엔티티 목록.
+# PERSON과 ADDRESS는 NLP/NER 기반이다; en_core_web_sm을 한국어 텍스트에 적용하면
+# PERSON에서 false positive가 발생하고, 영어용 ADDRESS 인식기는 존재하지 않는다.
 _PRESIDIO_ENTITIES = [
     "EMAIL_ADDRESS",
     "PHONE_NUMBER",
@@ -59,13 +59,13 @@ class EntitySummary:
     span_count: int
 
 
-# --- Korean custom recognizer patterns (no context required for strong patterns) ---
+# --- 한국어 커스텀 인식기 패턴 (강한 패턴이라 컨텍스트 불필요) ---
 
 _KR_RRN_RE = re.compile(r"(?<!\d)\d{6}-[1-4]\d{6}(?!\d)")
 _KR_FRN_RE = re.compile(r"(?<!\d)\d{6}-[5-8]\d{6}(?!\d)")
 _KR_PASSPORT_RE = re.compile(r"(?<![A-Z0-9])[MR][A-Z]\d{7}(?![A-Z0-9])")
 _KR_DRIVER_LICENSE_RE = re.compile(r"(?<!\d)\d{2}-\d{2}-\d{6}-\d{2}(?!\d)")
-# RFC 5321 local-part + domain — ASCII lookarounds handle mixed Korean/ASCII boundaries.
+# RFC 5321 local-part + domain — ASCII lookaround으로 한글/ASCII가 섞인 경계를 처리한다.
 _EMAIL_RE = re.compile(r"[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}")
 _KR_PHONE_RE = re.compile(
     r"(?<!\d)(?:"
@@ -76,9 +76,9 @@ _KR_PHONE_RE = re.compile(
 )
 _IP_ADDRESS_RE = re.compile(r"(?<!\d)(?:\d{1,3}\.){3}\d{1,3}(?!\d)")
 
-# Entities that supersede PHONE_NUMBER when they occupy the same span.
-# Presidio's phone recognizer catches dotted-decimal patterns (IP addresses,
-# Korean identifiers formatted with dashes) as false positives.
+# 동일한 span을 차지할 때 PHONE_NUMBER를 대체(supersede)하는 엔티티들.
+# Presidio의 전화번호 인식기는 dotted-decimal 패턴(IP 주소, 대시로 구분된
+# 한국 식별자 형식)을 false positive로 잡아낸다.
 _SUPERSEDES_PHONE_NUMBER: frozenset[str] = frozenset(
     {"KR_RRN", "KR_FRN", "KR_DRIVER_LICENSE", "IP_ADDRESS"}
 )
@@ -148,14 +148,14 @@ def _is_nested_duplicate(preferred: EntitySpan, candidate: EntitySpan) -> bool:
     ):
         return _same_span(preferred, candidate)
     if preferred.entity == "EMAIL_ADDRESS" and candidate.entity == "URL":
-        # Two suppression cases for URLs that co-locate with an email:
-        # 1) URL is inside email (e.g. domain "example.com" ⊆ "hong@example.com"):
+        # 이메일과 같은 위치에 겹치는 URL에 대한 두 가지 억제(suppression) 케이스:
+        # 1) URL이 이메일 안에 포함된 경우(예: 도메인 "example.com" ⊆ "hong@example.com"):
         #    candidate.end <= preferred.end
-        # 2) URL wraps email due to SpaCy extending past Korean boundary
-        #    (e.g. "hong@example.com이고" → URL=[9,28) vs EMAIL=[9,25)):
+        # 2) SpaCy가 한글 경계를 넘어 확장하여 URL이 이메일을 감싸는 경우
+        #    (예: "hong@example.com이고" → URL=[9,28) vs EMAIL=[9,25)):
         #    candidate.start == preferred.start
-        # A URL that starts *inside* the email span and extends *beyond* it is a
-        # distinct entity (different semantics) and must be kept.
+        # 이메일 span *내부*에서 시작해서 *바깥으로* 확장되는 URL은 별개의
+        # 엔티티(의미가 다름)이므로 반드시 유지해야 한다.
         return candidate.start == preferred.start or candidate.end <= preferred.end
     return False
 
@@ -172,8 +172,8 @@ def _reconcile_spans(spans: list[EntitySpan]) -> list[EntitySpan]:
         ),
     )
 
-    # Only the exact same entity and exact same range is a duplicate. Partial
-    # overlap is preserved because the reconciler does not infer meaning.
+    # 정확히 동일한 엔티티이면서 정확히 동일한 range일 때만 duplicate로 본다. 부분
+    # overlap은 reconciler가 의미를 추론하지 않으므로 그대로 보존한다.
     deduplicated: list[EntitySpan] = []
     for candidate in candidates:
         if any(

@@ -6,7 +6,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'src'))
 
-# Compatibility marker for release-hygiene tests: validate_vllm_compose.py
+# release-hygiene 테스트를 위한 호환성 마커: validate_vllm_compose.py
 from ai_model_serving.governance_validation.cli import main
 
 

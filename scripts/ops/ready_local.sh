@@ -11,8 +11,8 @@ load_local_env "$ENV_FILE"
 PYTHON_BIN="${PYTHON_BIN:-$(command -v python3.12 || command -v python3 || command -v python)}"
 "$PYTHON_BIN" scripts/build/check_python.py --context ready-local >/dev/null
 
-# ready_local always checks localhost regardless of RISK_ADAPTER_BASE_URL, which
-# may be a compose internal hostname (http://risk-adapter:9405) in compose .env files.
+# ready_local은 RISK_ADAPTER_BASE_URL과 무관하게 항상 localhost를 확인한다.
+# compose .env 파일에서는 이 값이 compose 내부 hostname(http://risk-adapter:9405)일 수 있다.
 GATEWAY_BASE_URL="http://localhost:${GATEWAY_PORT:-9400}"
 RISK_ADAPTER_BASE_URL="http://localhost:${RISK_ADAPTER_PORT:-9405}"
 

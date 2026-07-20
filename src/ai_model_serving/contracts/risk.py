@@ -68,11 +68,11 @@ def _validate_risk_category(category: Any, *, index: int) -> bool:
     label = category.get("label")
 
     if code is None:
-        # Safe category: detected must be False
+        # Safe 카테고리: detected는 반드시 False여야 함
         if category["detected"] is not False:
             raise ServiceError("UPSTREAM_SCHEMA_ERROR", f"risk response categories[{index}] safe category is inconsistent.", True, 502)
-        # For prompt_attack safe categories, label must be "<SAFE>"
-        # For data_exposure safe categories, label may be None
+        # prompt_attack safe 카테고리는 label이 반드시 "<SAFE>"여야 함
+        # data_exposure safe 카테고리는 label이 None일 수 있음
         if family == "prompt_attack" and label != "<SAFE>":
             raise ServiceError("UPSTREAM_SCHEMA_ERROR", f"risk response categories[{index}] prompt safe label must be <SAFE>.", True, 502)
         if family not in {"prompt_attack", "policy_risk", "data_exposure"}:
@@ -86,28 +86,28 @@ def _validate_risk_category(category: Any, *, index: int) -> bool:
     elif code in DATA_EXPOSURE_CODES:
         if family != "data_exposure":
             raise ServiceError("UPSTREAM_SCHEMA_ERROR", f"risk response categories[{index}] data exposure code must have family=data_exposure.", True, 502)
-        # label is an entity label (e.g. "KR_RRN", "EMAIL_ADDRESS") — must be non-empty string when detected
+        # label은 entity label이다 (예: "KR_RRN", "EMAIL_ADDRESS") — detected일 때는 반드시 비어있지 않은 문자열이어야 함
         if category["detected"] and (not isinstance(label, str) or not label):
             raise ServiceError("UPSTREAM_SCHEMA_ERROR", f"risk response categories[{index}] detected data_exposure category must have a non-empty label.", True, 502)
-        # span_count is optional: None or int >= 0
+        # span_count는 선택 항목: None 또는 int >= 0
         span_count = category.get("span_count")
         if span_count is not None and (not isinstance(span_count, int) or span_count < 0):
             raise ServiceError("UPSTREAM_SCHEMA_ERROR", f"risk response categories[{index}].span_count must be a non-negative integer or null.", True, 502)
     else:
         raise ServiceError("UPSTREAM_SCHEMA_ERROR", f"risk response categories[{index}].code is not supported.", True, 502)
 
-    # source_model validation: required field for all detector-produced categories (vLLM or local)
-    # For safe prompt categories the field exists but may vary; for data_exposure it must be present and non-empty.
+    # source_model 검증: detector가 생성한 모든 카테고리(vLLM 또는 local)에 필수 필드
+    # safe prompt 카테고리는 필드가 존재하되 값이 달라질 수 있음; data_exposure는 반드시 존재하고 비어있지 않아야 함.
     if "source_model" in category:
         sm = category["source_model"]
         if sm is not None and (not isinstance(sm, str) or not sm):
             raise ServiceError("UPSTREAM_SCHEMA_ERROR", f"risk response categories[{index}].source_model must be a non-empty string or null.", True, 502)
     if code in DATA_EXPOSURE_CODES:
-        # source_model is required for data_exposure categories
+        # data_exposure 카테고리는 source_model이 필수
         if "source_model" not in category or not isinstance(category.get("source_model"), str) or not category["source_model"]:
             raise ServiceError("UPSTREAM_SCHEMA_ERROR", f"risk response categories[{index}].source_model must be a non-empty string for data_exposure.", True, 502)
     elif code is not None:
-        # For A/I codes: source_model must be present and non-empty
+        # A/I 코드의 경우: source_model이 반드시 존재하고 비어있지 않아야 함
         if not isinstance(category.get("source_model"), str) or not category["source_model"]:
             raise ServiceError("UPSTREAM_SCHEMA_ERROR", f"risk response categories[{index}].source_model must be a non-empty string.", True, 502)
 

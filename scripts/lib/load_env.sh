@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Load local .env values for developer scripts without overriding values already exported by the caller.
+# 호출자가 이미 export한 값은 덮어쓰지 않으면서, 개발자 스크립트를 위해 로컬 .env 값을 로드합니다.
 load_local_env() {
   local env_file="${1:-.env}"
   [[ -f "$env_file" ]] || return 0

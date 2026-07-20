@@ -12,10 +12,10 @@ compose_context_init "$ROOT"
 
 if [[ -f "$COMPOSE_FILE_ABS" ]]; then
   echo "[down] stopping compose stack: ${COMPOSE_FILE_ABS} (project=${COMPOSE_PROJECT_NAME_EFFECTIVE})"
-  # Compose file uses :? for required vars; pass --env-file explicitly so
-  # missing-var errors are avoided when .env has the values.
-  # If compose down still fails (e.g. .env missing required image vars),
-  # fall back to stopping containers by project label.
+  # compose 파일은 필수 변수에 :?를 사용하므로, .env에 값이 있을 때 missing-var
+  # 에러가 나지 않도록 --env-file을 명시적으로 넘긴다.
+  # compose down이 그래도 실패하면(예: .env에 필수 image 변수가 없는 경우),
+  # project label 기준으로 컨테이너를 중지하는 방식으로 fallback한다.
   if ! compose_context_run down --remove-orphans 2>/dev/null; then
     echo "[down] compose down failed (missing env vars); stopping containers by project label"
     project="$COMPOSE_PROJECT_NAME_EFFECTIVE"

@@ -5,7 +5,7 @@ from typing import Any
 from .media_samples import TINY_MP4_VIDEO_B64
 
 # ---------------------------------------------------------------------------
-# Base request value fixtures (reused in Body() and install_contract_openapi)
+# 기본 요청 값 픽스처 (Body()와 install_contract_openapi에서 재사용)
 # ---------------------------------------------------------------------------
 
 CHAT_EXAMPLE: dict[str, Any] = {
@@ -23,7 +23,7 @@ RISK_EXAMPLE: dict[str, Any] = {
 }
 
 # ---------------------------------------------------------------------------
-# Gateway readiness response examples
+# Gateway readiness 응답 예시
 # ---------------------------------------------------------------------------
 
 READY_RESPONSE_EXAMPLE: dict[str, Any] = {
@@ -75,7 +75,7 @@ LOADING_RESPONSE_EXAMPLE: dict[str, Any] = {
 }
 
 # ---------------------------------------------------------------------------
-# Gateway install_contract_openapi request examples
+# Gateway install_contract_openapi 요청 예시
 # ---------------------------------------------------------------------------
 
 GATEWAY_CHAT_REQUEST_EXAMPLES: dict[str, Any] = {
@@ -338,7 +338,7 @@ GATEWAY_RISK_AGGREGATE_REQUEST_EXAMPLES: dict[str, Any] = {
 }
 
 # ---------------------------------------------------------------------------
-# Gateway retrieval request examples
+# Gateway retrieval 요청 예시
 # ---------------------------------------------------------------------------
 
 GATEWAY_RETRIEVAL_RERANK_REQUEST_EXAMPLES: dict[str, Any] = {
@@ -356,7 +356,7 @@ GATEWAY_RETRIEVAL_SCORE_REQUEST_EXAMPLES: dict[str, Any] = {
 }
 
 # ---------------------------------------------------------------------------
-# Risk Adapter request examples
+# Risk Adapter 요청 예시
 # ---------------------------------------------------------------------------
 
 PROMPT_EXAMPLES: dict[str, Any] = {
@@ -458,7 +458,7 @@ SECRET_EXAMPLES: dict[str, Any] = {
 }
 
 # ---------------------------------------------------------------------------
-# Risk Adapter readiness response examples
+# Risk Adapter readiness 응답 예시
 # ---------------------------------------------------------------------------
 
 RISK_READY_RESPONSE_EXAMPLE: dict[str, Any] = {
@@ -495,7 +495,7 @@ RISK_LOADING_RESPONSE_EXAMPLE: dict[str, Any] = {
 }
 
 # ---------------------------------------------------------------------------
-# Runtime Control response examples
+# Runtime Control 응답 예시
 # ---------------------------------------------------------------------------
 
 RUNTIME_LIST_RESPONSE_EXAMPLE: dict[str, Any] = {
@@ -604,9 +604,10 @@ RUNTIME_ERROR_404_EXAMPLE: dict[str, Any] = {
     "detail": "runtime endpoint not found: embedding_ko",
 }
 
-# Illustrative: activating a runtime that does not fit (e.g. switching main to a
-# larger profile). Secondaries are active (0.165); ceiling 0.93 leaves 0.765 for
-# main, short of 0.85, so the response lists what to stop first.
+# 예시: 들어맞지 않는 런타임을 활성화하는 경우 (예: main을 더 큰 프로필로
+# 전환). Secondary들이 active 상태이고(0.165), ceiling 0.93에서 main에
+# 남는 여유는 0.765로 0.85에 못 미치므로, 응답에 먼저 중지해야 할 대상 목록이
+# 담긴다.
 RUNTIME_BUDGET_EXCEEDED_EXAMPLE: dict[str, Any] = {
     "detail": {
         "code": "GPU_BUDGET_EXCEEDED",

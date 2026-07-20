@@ -81,9 +81,9 @@ def render_boot_override(
     return profile_id, {
         "services": {
             str(catalog.runtime["compose_service"]): {
-                # Boot into the resolved image for this profile (a profile may pin
-                # its own runtime, e.g. an audio-capable build). The loader
-                # guarantees profile.image is digest-pinned and non-empty.
+                # 이 프로필에 대해 resolve된 image로 boot한다 (프로필이 자체
+                # runtime을 고정할 수 있다, 예: audio-capable 빌드). loader가
+                # profile.image가 digest-pinned이며 비어있지 않음을 보장한다.
                 "image": str(profile.image),
                 "command": list(profile.command),
             }

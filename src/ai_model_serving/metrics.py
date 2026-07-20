@@ -253,10 +253,10 @@ class Metrics:
         self.streaming_time_to_first_chunk.labels(self.service, target).observe(elapsed_seconds)
 
     def record_streaming_completed(self, target: str, status: str, elapsed_seconds: float, chunk_count: int) -> None:
-        # Normalize to categorical contract: completed, error, client_disconnect.
-        # Uppercase raw codes were used in older callers; map them to the canonical
-        # category so dashboard queries on status=~"completed|error|client_disconnect"
-        # remain stable across the migration period.
+        # categorical contract로 정규화: completed, error, client_disconnect.
+        # 이전 호출자들은 대문자 raw 코드를 사용했으므로, dashboard 쿼리인
+        # status=~"completed|error|client_disconnect"가 마이그레이션 기간 동안
+        # 안정적으로 유지되도록 canonical 카테고리로 매핑한다.
         _CATEGORY_MAP = {
             "completed": "completed",
             "error": "error",

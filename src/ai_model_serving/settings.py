@@ -24,10 +24,10 @@ from .settings_parts.types import AppSettings, DocumentationSettings, EmbeddingP
 ROOT = _resolve_project_root()
 
 
-# Operational hardening markers validated by governance tooling.  The executable
-# implementations now live in settings_parts/security.py and
-# settings_parts/runtime_endpoints.py; keep these phrases here so drift checks can
-# still assert that settings loading owns the policy boundary:
+# governance tooling이 검증하는 운영 하드닝(hardening) 마커. 실제 구현은 이제
+# settings_parts/security.py와 settings_parts/runtime_endpoints.py에 있다;
+# drift check가 settings loading이 policy boundary를 소유한다는 것을 계속
+# assert할 수 있도록 아래 문구들을 여기 그대로 유지한다:
 # API_KEY_REQUIRED=false: Gateway API endpoints are unauthenticated
 # REQUEST_TIMEOUT_SECONDS must be greater than or equal to RISK_ADAPTER_TIMEOUT_SECONDS
 # RISK_ADAPTER_TIMEOUT_SECONDS must cover sequential risk detector queue and inference budgets
@@ -101,7 +101,7 @@ def _risk_detectors_from_config(risk_adapter_cfg: dict[str, Any]) -> tuple[RiskD
     for key, cfg in detectors_cfg.items():
         fixed = cfg.get("fixed_parameters", {}) if isinstance(cfg.get("fixed_parameters", {}), dict) else {}
         detector_type = str(cfg.get("type", "vllm"))
-        # Local detectors do not require service_key; default to empty string.
+        # local detector는 service_key가 필요하지 않다; 기본값은 빈 문자열로 둔다.
         service_key = str(cfg.get("service_key", "")) if detector_type == "local" else str(cfg["service_key"])
         detectors.append(
             RiskDetectorSettings(
@@ -180,9 +180,9 @@ def _aggregate_order(risk_adapter_cfg: dict[str, Any], detectors: tuple[RiskDete
 
 def load_settings(root: Path | None = None, env_file: Path | str | None = None) -> AppSettings:
     project_root = _resolve_project_root(root)
-    # Only use repository .env defaults for local/source-tree runs.  When APP_ENV
-    # is explicitly exported as production/staging/etc., secrets must come from
-    # process environment rather than being silently back-filled from local files.
+    # 저장소의 .env 기본값은 local/source-tree 실행에서만 사용한다. APP_ENV가
+    # production/staging 등으로 명시적으로 export된 경우, secret은 로컬 파일에서
+    # 조용히 채워지는 대신 반드시 process environment에서 와야 한다.
     load_local_dotenv_when_allowed(project_root, env_file)
 
     model_serving = load_yaml(project_root / "configs" / "model_serving.yaml")
@@ -222,7 +222,7 @@ def load_settings(root: Path | None = None, env_file: Path | str | None = None) 
     risk_detectors = _risk_detectors_from_config(risk_adapter_cfg)
     aggregate_detector_order = _aggregate_order(risk_adapter_cfg, risk_detectors)
     main_llm = runtime_endpoints["main_llm"]
-    # Only vLLM detectors contribute to timeout budget; local detectors run in-process.
+    # timeout budget에는 vLLM detector만 반영된다; local detector는 in-process로 실행된다.
     risk_detector_endpoints = tuple(
         runtime_endpoints[detector.service_key]
         for detector in risk_detectors

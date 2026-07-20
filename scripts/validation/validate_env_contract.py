@@ -60,7 +60,7 @@ def expand_required_keys(contract: dict[str, Any], key_set_names: list[str]) -> 
             sub = name.split(".", 1)[1]
             required.extend(contract.get("exposure_mode_requirements", {}).get(sub, []))
         else:
-            # Direct list from contract top level
+            # contract 최상위의 직접 목록
             val = contract.get(name)
             if isinstance(val, list):
                 required.extend(val)
@@ -89,26 +89,26 @@ def validate(root: Path = ROOT, strict: bool = False) -> list[str]:
         violations.extend(parse_result.errors)
         present_keys = parse_env_keys(file_path)
         key_set_names: list[str] = cfg.get("required_key_sets", [])
-        required_keys = list(dict.fromkeys(expand_required_keys(contract, key_set_names)))  # dedup, order-preserving
+        required_keys = list(dict.fromkeys(expand_required_keys(contract, key_set_names)))  # 중복 제거, 순서 유지
 
         for key in required_keys:
             if key not in present_keys:
                 violations.append(f"{filename}: missing required key {key!r}")
 
     if strict:
-        # Verify EXPOSURE_MODE canonical values match exposure_profiles.yaml
+        # EXPOSURE_MODE canonical 값이 exposure_profiles.yaml과 일치하는지 확인
         exposure_path = root / "configs" / "exposure_profiles.yaml"
         if not exposure_path.exists():
             violations.append("configs/exposure_profiles.yaml not found — cannot verify EXPOSURE_MODE values")
         else:
             exposure_data = load_yaml(exposure_path)
             canonical_modes: list[str] = exposure_data.get("canonical_modes", [])
-            # Check that canonical_modes appear in exposure_mode_requirements
+            # canonical_modes가 exposure_mode_requirements에 나타나는지 확인
             req_any = contract.get("exposure_mode_requirements", {}).get("any", [])
             if "EXPOSURE_MODE" not in req_any:
                 violations.append("env_contract.yaml: exposure_mode_requirements.any does not include EXPOSURE_MODE")
 
-            # Check that exposure_mode_requirements has an entry for each non-base canonical mode
+            # base가 아닌 canonical mode마다 exposure_mode_requirements에 항목이 있는지 확인
             mode_reqs: dict = contract.get("exposure_mode_requirements", {})
             non_base_modes = [
                 m for m in canonical_modes

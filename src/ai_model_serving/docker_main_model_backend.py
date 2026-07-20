@@ -34,17 +34,17 @@ _STRUCTURED_OUTPUT_WARMUP_SCHEMA = {
 _AUDIO_CANARY_M4A_B64 = TINY_M4A_AAC_B64
 _VIDEO_CANARY_MP4_B64 = TINY_MP4_VIDEO_B64
 
-# Docker Engine API HTTP-call timeouts (seconds). These bound the request to the
-# local docker socket only; the model lifecycle (drain/stop/startup) is governed
-# by the profile's own timeouts in catalog.runtime.
-_DOCKER_INSPECT_TIMEOUT = 5          # cheap list/inspect GET
-_DOCKER_API_TIMEOUT = 30             # create / start container
-_DOCKER_DELETE_TIMEOUT = 10          # delete container
-_DOCKER_STOP_TIMEOUT_BUFFER = 10     # stop HTTP timeout = docker stop grace + this
-_DRAIN_POLL_CLIENT_TIMEOUT = 3       # each drain-status poll request
-_DRAIN_POLL_INTERVAL_SECONDS = 0.25  # between drain-status polls
-_HEALTH_POLL_INTERVAL_SECONDS = 3    # between container health polls
-_RUNTIME_HTTP_TIMEOUT = 30           # HTTP to the vLLM runtime (/v1/models, canary)
+# Docker Engine API HTTP 호출 타임아웃(초 단위). 이 값들은 로컬 docker 소켓에 대한
+# 요청만을 제한하며, 모델 lifecycle(drain/stop/startup)은 catalog.runtime에 있는
+# 프로필 자체의 타임아웃으로 관리된다.
+_DOCKER_INSPECT_TIMEOUT = 5          # 가벼운 list/inspect GET
+_DOCKER_API_TIMEOUT = 30             # 컨테이너 create / start
+_DOCKER_DELETE_TIMEOUT = 10          # 컨테이너 delete
+_DOCKER_STOP_TIMEOUT_BUFFER = 10     # stop HTTP 타임아웃 = docker stop grace + 이 값
+_DRAIN_POLL_CLIENT_TIMEOUT = 3       # drain-status poll 요청 1회당
+_DRAIN_POLL_INTERVAL_SECONDS = 0.25  # drain-status poll 사이 간격
+_HEALTH_POLL_INTERVAL_SECONDS = 3    # 컨테이너 health poll 사이 간격
+_RUNTIME_HTTP_TIMEOUT = 30           # vLLM 런타임으로의 HTTP 요청(/v1/models, canary)
 
 
 class DockerMainModelBackend:
@@ -70,10 +70,11 @@ class DockerMainModelBackend:
         self.internal_headers = (
             {"Authorization": f"Bearer {internal_token}"} if internal_token else {}
         )
-        # Hugging Face stores repos under the *hub* cache (HF_HOME/hub), which is
-        # where vLLM looks them up. snapshot_download(cache_dir=X) writes to
-        # X/models--..., so cache_dir must be the hub dir, not HF_HOME, or the
-        # prepared snapshot lands one level above where the runtime resolves it.
+        # Hugging Face는 저장소를 *hub* 캐시(HF_HOME/hub) 아래에 저장하며, vLLM도
+        # 이 위치에서 조회한다. snapshot_download(cache_dir=X)는 X/models--...에
+        # 기록하므로, cache_dir은 HF_HOME이 아니라 반드시 hub 디렉터리여야 한다.
+        # 그렇지 않으면 준비된 snapshot이 런타임이 resolve하는 위치보다 한 단계 위에
+        # 놓이게 된다.
         _hf_home = os.environ.get("HF_HOME", "/root/.cache/huggingface")
         self.cache_dir = Path(
             cache_dir
@@ -287,9 +288,9 @@ class DockerMainModelBackend:
             raise RuntimeError("main runtime container template is unavailable")
 
         payload = copy.deepcopy(self._template["config"])
-        # Use the active profile's resolved image (a profile may pin its own
-        # runtime, e.g. an audio-capable build) rather than the shared default.
-        # The loader guarantees profile.image is digest-pinned and non-empty.
+        # 공유 기본 이미지 대신 active profile의 resolve된 이미지를 사용한다(프로필이
+        # 자체 런타임을 고정할 수 있다, 예: audio 지원 빌드). loader는 profile.image가
+        # digest로 고정되어 있고 비어있지 않음을 보장한다.
         payload["Image"] = str(profile.image)
         payload["Cmd"] = list(profile.command)
         payload["HostConfig"] = copy.deepcopy(self._template["host_config"])
@@ -350,15 +351,15 @@ class DockerMainModelBackend:
             choices = body.get("choices", [])
             if not choices or not choices[0].get("message", {}).get("content"):
                 raise RuntimeError("main runtime inference canary returned no content")
-            # Best-effort structured-output warmup: vLLM JIT-compiles the xgrammar
-            # constrained-decoding Triton kernel (apply_token_bitmask_inplace_kernel)
-            # on its first invocation. The text canary above never sets
-            # response_format, so without this call that compile lands on whichever
-            # real request happens to be the first to use response_format=json_schema,
-            # showing up as an unexplained slow/truncated "first attempt" for
-            # structured-output clients. This call only pre-pays that cost; it must
-            # not fail the switch (a slow/failed warmup is not a reason to roll back
-            # an otherwise-working profile), so exceptions are logged, not raised.
+            # Best-effort structured-output warmup: vLLM는 xgrammar 제약 디코딩
+            # Triton 커널(apply_token_bitmask_inplace_kernel)을 최초 호출 시 JIT
+            # 컴파일한다. 위의 text canary는 response_format을 설정하지 않으므로,
+            # 이 호출이 없으면 그 컴파일 비용은 response_format=json_schema를 처음
+            # 사용하는 실제 요청이 떠안게 되어, structured-output 클라이언트 입장에서
+            # 원인 불명의 느리거나 잘린 "첫 시도"로 나타난다. 이 호출은 그 비용을
+            # 미리 지불할 뿐이므로 switch를 실패시켜서는 안 되며(warmup이 느리거나
+            # 실패한다고 해서 정상 동작하는 profile을 rollback할 이유는 없다),
+            # 예외는 raise하지 않고 로그만 남긴다.
             try:
                 await client.post(
                     base + str(catalog.runtime["chat_path"]),
@@ -372,10 +373,10 @@ class DockerMainModelBackend:
                 )
             except httpx.HTTPError as exc:
                 _logger.warning("structured-output warmup canary failed (non-fatal): %s", exc)
-            # Media boot canaries: only for profiles that actually deploy the
-            # modality. These prove the runtime can decode container media before
-            # the gate opens, so an advertised-but-broken modality rolls back
-            # instead of 500-ing live requests.
+            # Media boot canary: 해당 modality를 실제로 배포하는 profile에 대해서만
+            # 수행한다. gate가 열리기 전에 런타임이 컨테이너 media를 디코드할 수
+            # 있음을 증명하여, 지원한다고 표시되었지만 실제로는 깨진 modality가
+            # 실제 요청에서 500을 내는 대신 rollback되도록 한다.
             if profile.capabilities.get("audio_enabled"):
                 audio_canary = await client.post(
                     base + str(catalog.runtime["chat_path"]),

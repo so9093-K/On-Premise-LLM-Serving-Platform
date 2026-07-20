@@ -45,14 +45,14 @@ from ai_model_serving.errors import ERROR_STATUS  # noqa: E402
 from ai_model_serving.monitoring_projection import prometheus_scrape_config_document  # noqa: E402
 
 _GENERATED_HEADER_YAML = (
-    "# GENERATED FILE. DO NOT EDIT MANUALLY.\n"
-    "# Source: configs/model_catalog.yaml + configs/model_serving.yaml\n"
-    "# Command: make render-runtime-assets\n"
+    "# 자동 생성 파일입니다. 직접 수정하지 마세요.\n"
+    "# 소스: configs/model_catalog.yaml + configs/model_serving.yaml\n"
+    "# 명령: make render-runtime-assets\n"
 )
 _GENERATED_HEADER_YAML_WITH_MONITORING = (
-    "# GENERATED FILE. DO NOT EDIT MANUALLY.\n"
-    "# Source: configs/model_catalog.yaml + configs/model_serving.yaml + configs/monitoring.yaml\n"
-    "# Command: make render-runtime-assets\n"
+    "# 자동 생성 파일입니다. 직접 수정하지 마세요.\n"
+    "# 소스: configs/model_catalog.yaml + configs/model_serving.yaml + configs/monitoring.yaml\n"
+    "# 명령: make render-runtime-assets\n"
 )
 
 RUNTIME_TARGETS_BEGIN = "<!-- BEGIN GENERATED RUNTIME TARGETS -->"

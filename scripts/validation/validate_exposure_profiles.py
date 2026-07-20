@@ -44,10 +44,10 @@ _DIAGNOSTIC_REQUIRED_CATEGORY_COVERAGE = (
     "visualization",
 )
 
-# Required fields per profile
+# 프로필별 필수 필드
 _PROFILE_REQUIRED_FIELDS = ("class", "diagnostics", "host_published", "description")
 
-# Required diagnostics boolean fields
+# 필수 diagnostics boolean 필드
 _DIAGNOSTICS_FIELDS = (
     "gateway_bypass_possible",
     "direct_model_runtime_access",
@@ -108,13 +108,13 @@ def validate(data: dict, strict: bool = False, services: dict | None = None) -> 
     """Return list of violation messages. Empty → valid."""
     violations: list[str] = []
 
-    # 1. canonical_modes field
+    # 1. canonical_modes 필드
     canonical_modes: list[str] = data.get("canonical_modes", [])
     if not canonical_modes:
         violations.append("canonical_modes field is missing or empty")
-        return violations  # cannot continue meaningfully
+        return violations  # 더 이상 의미 있게 진행할 수 없음
 
-    # 2. profiles.keys() must exactly match canonical_modes
+    # 2. profiles.keys()는 canonical_modes와 정확히 일치해야 함
     profiles: dict = data.get("profiles", {})
     if "services" in data:
         violations.append(
@@ -131,7 +131,7 @@ def validate(data: dict, strict: bool = False, services: dict | None = None) -> 
         if missing:
             violations.append(f"canonical_modes has modes not in profiles: {sorted(missing)}")
 
-    # 3. Each profile must have required fields and valid class
+    # 3. 각 프로필은 필수 필드와 유효한 class를 가져야 함
     classes_found: dict[str, list[str]] = {}
     for mode, profile in profiles.items():
         if not isinstance(profile, dict):
@@ -141,7 +141,7 @@ def validate(data: dict, strict: bool = False, services: dict | None = None) -> 
             if field not in profile:
                 violations.append(f"profiles.{mode} missing required field: {field!r}")
 
-        # diagnostics block completeness
+        # diagnostics 블록 완전성
         diag = profile.get("diagnostics", {})
         if not isinstance(diag, dict):
             violations.append(f"profiles.{mode}.diagnostics is not a mapping")
@@ -150,11 +150,11 @@ def validate(data: dict, strict: bool = False, services: dict | None = None) -> 
                 if df not in diag:
                     violations.append(f"profiles.{mode}.diagnostics missing field: {df!r}")
 
-        # class field
+        # class 필드
         cls = profile.get("class", "")
         classes_found.setdefault(cls, []).append(mode)
 
-    # 4. Exactly one default_private and one diagnostic_full_stack
+    # 4. default_private와 diagnostic_full_stack은 각각 정확히 1개여야 함
     default_private_modes = classes_found.get("default_private", [])
     diagnostic_full_stack_modes = classes_found.get("diagnostic_full_stack", [])
 
@@ -167,7 +167,7 @@ def validate(data: dict, strict: bool = False, services: dict | None = None) -> 
             f"Expected exactly 1 profile with class=diagnostic_full_stack, found {len(diagnostic_full_stack_modes)}: {diagnostic_full_stack_modes}"
         )
 
-    # 5. Service registry covers all referenced service names and categories.
+    # 5. 서비스 레지스트리가 참조되는 모든 서비스명과 카테고리를 포함하는지 확인
     services = services if services is not None else load_services(ROOT / "configs" / "services.yaml")
     for svc_name, service in services.items():
         if not isinstance(service, dict):
@@ -190,7 +190,7 @@ def validate(data: dict, strict: bool = False, services: dict | None = None) -> 
                     f"profiles.{mode}.host_published references service {svc!r} not defined in configs/services.yaml"
                 )
 
-    # 6. default_private must not expose blocked service categories
+    # 6. default_private는 차단된 서비스 카테고리를 노출하면 안 됨
     for mode in default_private_modes:
         profile = profiles.get(mode, {})
         published = set(profile.get("host_published", []))
@@ -207,7 +207,7 @@ def validate(data: dict, strict: bool = False, services: dict | None = None) -> 
                     f"profiles.{mode} (default_private) has diagnostics.{dangerous}=true — not allowed for default_private class"
                 )
 
-    # 7. diagnostic_full_stack must expose category coverage and every model runtime
+    # 7. diagnostic_full_stack은 카테고리 커버리지와 모든 model runtime을 노출해야 함
     for mode in diagnostic_full_stack_modes:
         profile = profiles.get(mode, {})
         published = set(profile.get("host_published", []))
@@ -234,7 +234,7 @@ def validate(data: dict, strict: bool = False, services: dict | None = None) -> 
                 f"profiles.{mode} (diagnostic_full_stack) must have diagnostics.requires_exposure_audience=true"
             )
 
-    # 8. Service registry port fields stay numeric.
+    # 8. 서비스 레지스트리 port 필드는 숫자 형식을 유지해야 함
     for svc_name, service in services.items():
         if not isinstance(service, dict):
             continue

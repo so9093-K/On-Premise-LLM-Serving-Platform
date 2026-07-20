@@ -8,8 +8,9 @@ ENV_FILE="${ENV_FILE:-.env}"
 load_local_env "$ENV_FILE"
 
 PYTHON_BIN="${PYTHON_BIN:-$(command -v python3.12 || command -v python3 || command -v python)}"
-# Smoke tests always probe host-published ports; RISK_ADAPTER_BASE_URL in .env is the
-# compose-internal URL (http://risk-adapter:9405) and must not be used here.
+# Smoke test는 항상 host에 노출된 포트를 대상으로 probe한다. .env의
+# RISK_ADAPTER_BASE_URL은 compose 내부용 URL(http://risk-adapter:9405)이므로
+# 여기서 사용하면 안 된다.
 GATEWAY_PROBE_HOST="${GATEWAY_PROBE_HOST:-${GATEWAY_BIND_ADDR:-localhost}}"
 if [[ -z "$GATEWAY_PROBE_HOST" || "$GATEWAY_PROBE_HOST" == "0.0.0.0" ]]; then
   GATEWAY_PROBE_HOST="localhost"
@@ -137,7 +138,7 @@ if check == "health":
     require(isinstance(doc.get("service"), str) and doc["service"], "service is required")
 elif check == "ready":
     allowed = {"ready"}
-    # Smoke tests are deployment gates. They fail on degraded/not_ready unless explicitly relaxed.
+    # Smoke test는 배포 gate이다. 명시적으로 완화하지 않는 한 degraded/not_ready에서는 실패한다.
     import os
     if os.getenv("SMOKE_ALLOW_DEGRADED_READY") == "1":
         allowed.add("degraded")

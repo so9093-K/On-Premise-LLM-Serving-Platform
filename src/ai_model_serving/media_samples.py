@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-# Tiny, valid media fixtures used only for OpenAPI examples and boot canaries.
-# They are deliberately checked in so examples/canaries do not depend on ffmpeg
-# or PyAV at Gateway import time.
+# OpenAPI 예시와 boot canary에서만 사용하는 아주 작은 유효 미디어 픽스처들.
+# Gateway import 시점에 examples/canary가 ffmpeg나 PyAV에 의존하지 않도록
+# 의도적으로 checked in되어 있다.
 TINY_JPEG_1X1_B64 = (
     "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////"
     "2wBDAf//////////////////////////////////////////////////////////////////////////////////////"

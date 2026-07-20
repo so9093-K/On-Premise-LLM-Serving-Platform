@@ -7544,7 +7544,7 @@ paths:
                 detail: 'runtime endpoint not found: embedding_ko'
           description: Not Found
         '409':
-          description: 런타임이 전환 중이거나 GPU 예산 초과(정지 계획 반환). force=true로 자동 축출.
+          description: GPU 예산 초과(정지 계획 반환). force=true로 자동 축출.
           content:
             application/json:
               examples:
@@ -7561,10 +7561,6 @@ paths:
                         stop:
                         - risk-prompt-vllm
                         - embedding-ko-vllm
-                in_progress:
-                  summary: 전환 중
-                  value:
-                    detail: runtime is currently starting; wait and retry
         '503':
           content:
             application/json:
@@ -7577,6 +7573,10 @@ paths:
                   summary: sidecar 연결 실패
                   value:
                     detail: 'sidecar unavailable: Connection refused http://admin-sidecar:8080'
+                in_progress:
+                  summary: 전환 중 (재시도 가능)
+                  value:
+                    detail: runtime is currently starting; wait and retry
               schema:
                 $schema: https://json-schema.org/draft/2020-12/schema
                 title: CommonErrorResponse

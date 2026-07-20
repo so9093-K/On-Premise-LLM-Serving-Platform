@@ -28,9 +28,9 @@ def _active_input_modalities(main_model: dict[str, Any]) -> tuple[str, ...] | No
     if not isinstance(capabilities, dict):
         return None
     deployed = capabilities.get("deployed_input")
-    # An empty/malformed list falls back to the static default rather than
-    # collapsing to "no modalities" (which would reject even plain text and break
-    # all chat on a misconfigured profile).
+    # 비어있거나 형식이 잘못된 리스트는 "no modalities"로 축소되지 않고(그렇게
+    # 되면 plain text조차 거부되어 잘못 설정된 프로필에서 전체 chat이 깨진다)
+    # 정적 기본값으로 폴백한다.
     if not isinstance(deployed, list) or not deployed or not all(isinstance(item, str) for item in deployed):
         return None
     return tuple(deployed)
@@ -73,9 +73,9 @@ def build_router(
     )
     async def models() -> dict[str, Any]:
         items = [dict(item) for item in settings.public_models]
-        # Overlay the active main-model profile's input modalities so the listing
-        # advertises what is actually servable now (e.g. audio/video on a multimodal
-        # profile), matching the chat validator instead of the static catalog default.
+        # active main-model 프로필의 입력 modality를 덮어써서, listing이 정적
+        # catalog 기본값이 아니라 chat validator와 동일하게 지금 실제로 서빙
+        # 가능한 것(예: 멀티모달 프로필의 audio/video)을 알리도록 한다.
         active_modalities = await _resolve_active_main_modalities(sidecar, settings)
         main_model_id = settings.main_llm.model
         for item in items:

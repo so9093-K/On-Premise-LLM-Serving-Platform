@@ -137,11 +137,11 @@ for current, dirnames, filenames in os.walk(src):
         target_file.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(source_file, target_file)
 
-# Runtime validation reports are intentionally excluded from release packages.
-# If a developer ran release/runtime validation before packaging, the copied
-# live_evidence_bundle may point at an excluded timestamped runtime report.
-# Re-render it inside the staging tree as a static placeholder so packaged docs
-# remain internally consistent and never reference missing generated evidence.
+# runtime validation report는 release 패키지에서 의도적으로 제외된다.
+# 개발자가 패키징 전에 release/runtime validation을 실행했다면, 복사된
+# live_evidence_bundle이 제외된 timestamped runtime report를 가리킬 수 있다.
+# 패키징된 문서가 내부적으로 항상 일관되고 누락된 generated evidence를 참조하지
+# 않도록, staging tree 안에서 이를 static placeholder로 다시 렌더링한다.
 operator_bundle = dst / 'reports/runtime/operator_status_bundle.json'
 if operator_bundle.exists():
     sys.path.insert(0, str(dst / 'src'))
@@ -161,18 +161,18 @@ if operator_bundle.exists():
     for cache_dir in dst.rglob('__pycache__'):
         shutil.rmtree(cache_dir, ignore_errors=True)
 
-# Re-render the packaged inventory from the staged tree after all package-time
-# rewrites/exclusions, so the inventory is a source of truth for the ZIP itself.
+# package-time rewrite/exclusion이 모두 끝난 뒤 staged tree를 기준으로 packaged
+# inventory를 다시 렌더링한다. 그래야 inventory가 ZIP 자체에 대한 source of truth가 된다.
 sys.path.insert(0, str(dst / 'src'))
 from ai_model_serving.project_inventory import write_inventory_reports
 
 write_inventory_reports(dst)
 PYCODE
 
-# Contract hygiene markers retained for static validation. The staging copier above enforces these
-# exclusions/inclusions before zipping the stable PACKAGE_ROOT.
+# static validation을 위해 남겨둔 contract hygiene marker. 위의 staging copier가
+# 안정적인 PACKAGE_ROOT를 압축하기 전에 이 exclusion/inclusion을 강제 적용한다.
 # Exclude markers: "$BASE/.env.*" "$BASE/model_cache/*" "$BASE/models/*" "$BASE/logs/*" "$BASE/dist/*" "$BASE/run/*" "$BASE/**/*.pyc" "$BASE/**/*.egg-info/*"
-# Runtime report exclude markers: reports/runtime/runtime_validation_*.json reports/runtime/runtime_validation_*.md; staged live_evidence_bundle is regenerated without timestamped runtime evidence
+# Runtime report exclude markers: reports/runtime/runtime_validation_*.json reports/runtime/runtime_validation_*.md; staged live_evidence_bundle은 timestamped runtime evidence 없이 재생성됨
 # Safe env include markers: "$BASE/.env.example" "$BASE/.env.local.example" "$BASE/.env.compose.example"
 
 "$PYTHON_BIN" - "$STAGE/$PACKAGE_ROOT" "$TMP_OUT" <<'PYZIP'
@@ -181,7 +181,7 @@ import os, sys, zipfile
 from pathlib import Path
 
 src = Path(sys.argv[1])   # staging/$PACKAGE_ROOT
-out = sys.argv[2]          # dist/.<package>.zip.tmp.<pid>
+out = sys.argv[2]          # dist/.<package>.zip.tmp.<pid> (임시 출력 경로)
 pkg = src.name             # ai_model_serving_platform
 
 _EPOCH = (1980, 1, 1, 0, 0, 0)

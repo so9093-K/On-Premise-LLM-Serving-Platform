@@ -125,10 +125,10 @@ def _inject_standard_error_responses(document: dict[str, Any], common_error_sche
             if method.lower() in ("post", "patch", "put"):
                 codes.extend(POST_STANDARD_ERROR_CODES)
             elif operation.get("security"):
-                # FastAPI routes that use Depends(auth) do not emit a per-operation
-                # "security" field in the generated spec, so this branch only fires
-                # when a route explicitly sets security= (currently none). GET routes
-                # with admin auth declare their own 401 response directly in the router.
+                # Depends(auth)를 사용하는 FastAPI 라우트는 생성된 spec에 오퍼레이션별
+                # "security" 필드를 만들지 않으므로, 이 분기는 라우트가 명시적으로
+                # security=를 설정한 경우에만 실행된다(현재는 없음). admin auth를
+                # 사용하는 GET 라우트는 라우터에서 직접 자체 401 응답을 선언한다.
                 codes.append("401")
             for code in codes:
                 if code == "401" and not operation.get("security"):
@@ -137,7 +137,7 @@ def _inject_standard_error_responses(document: dict[str, Any], common_error_sche
                 response["description"] = with_gloss(code, response.get("description"))
                 content = response.setdefault("content", {}).setdefault("application/json", {})
                 content["schema"] = _narrowed_error_schema(common_error_schema, code, status_codes)
-            # Inject schema for any 410 responses that are explicitly declared (e.g. retired endpoints).
+            # 명시적으로 선언된 410 응답에 스키마를 주입한다 (예: retired 엔드포인트).
             if "410" in responses and "content" not in responses["410"]:
                 content = responses["410"].setdefault("content", {}).setdefault("application/json", {})
                 content["schema"] = _narrowed_error_schema(common_error_schema, "410", status_codes)

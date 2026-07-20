@@ -17,7 +17,7 @@ def _validate_assistant_response_message(message: Any, *, choice_index: int, fin
     content = message.get("content")
     tool_calls = message.get("tool_calls")
     if isinstance(content, str):
-        # vLLM often returns tool_calls: [] when no tools were used; treat empty list as absent.
+        # vLLM은 tool을 사용하지 않았을 때 tool_calls: []를 반환하는 경우가 많다; 빈 리스트는 없는 것으로 취급한다.
         if tool_calls:
             _validate_tool_calls(tool_calls)
         return
@@ -25,11 +25,12 @@ def _validate_assistant_response_message(message: Any, *, choice_index: int, fin
         _validate_tool_calls(tool_calls)
         return
     detail = f"chat upstream response choices[{choice_index}].message must contain assistant text content or tool_calls."
-    # finish_reason="length" with no content means generation hit max_tokens before
-    # emitting any answer -- a request-side budget problem, not a malformed upstream
-    # response. This is common with reasoning=true, where the thinking phase can
-    # consume the whole budget. Name the cause and the fix so a bare retry (which
-    # would fail identically at the same max_tokens) is not the obvious next step.
+    # content 없이 finish_reason="length"인 경우는 생성이 답을 하나도 emit하기
+    # 전에 max_tokens에 도달했다는 뜻이다 -- 이는 upstream 응답 오류가 아니라
+    # request 쪽 budget 문제다. reasoning=true일 때 흔히 발생하는데, thinking
+    # 단계가 budget 전체를 소비할 수 있기 때문이다. 원인과 해결책을 명시해서
+    # 단순 재시도(동일한 max_tokens에서 동일하게 실패할 것이다)가 뻔한
+    # 다음 단계가 되지 않도록 한다.
     if finish_reason == "length":
         detail += " The response was truncated by max_tokens before any content was emitted; increase max_tokens (reasoning requests need extra budget for the thinking phase)."
     raise ServiceError("UPSTREAM_SCHEMA_ERROR", detail, True, 502)

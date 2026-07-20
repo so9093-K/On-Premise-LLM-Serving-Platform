@@ -86,7 +86,7 @@ def check_promql(prometheus_url: str, expr: str) -> QueryResult:
           ok=False, no_data=False — HTTP error or network failure
     """
     query = substitute_variables(expr)
-    # Omit 'time' parameter — Prometheus uses the current server time by default.
+    # 'time' 파라미터는 생략 — Prometheus는 기본적으로 현재 서버 시간을 사용함.
     encoded = urllib.parse.urlencode({"query": query})
     url = f"{prometheus_url}/api/v1/query?{encoded}"
     try:

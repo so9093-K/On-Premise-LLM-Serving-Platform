@@ -30,9 +30,9 @@ import yaml
 
 _REVISION_RE = re.compile(r"^[0-9a-f]{40}$")
 _DIGEST_IMAGE_RE = re.compile(r"^.+@sha256:[0-9a-f]{64}$")
-# A profile image may be a literal digest or a single ${ENV_VAR} reference that
-# CI/deploy resolves to one — mirrors compose's `${RISK_VLLM_IMAGE}`, so a derived
-# runtime (e.g. the audio/multimodal image) is pinned by the pipeline, not by hand.
+# 프로필 이미지는 리터럴 digest이거나 CI/deploy가 이를 resolve하는 단일 ${ENV_VAR} 참조일 수 있다 —
+# compose의 `${RISK_VLLM_IMAGE}`와 동일한 방식으로, 파생 런타임(예: audio/multimodal 이미지)이
+# 수동이 아니라 파이프라인에 의해 고정(pin)된다.
 _IMAGE_ENV_REF_RE = re.compile(r"^\$\{([A-Z_][A-Z0-9_]*)\}$")
 _COMPATIBILITY = frozenset({"verified", "likely", "unverified", "incompatible", "unknown"})
 _TERMINAL_STATES = frozenset({"completed", "failed", "rollback_failed"})
@@ -64,15 +64,14 @@ class MainModelProfile:
     command: tuple[str, ...]
     compatibility: dict[str, Any]
     capabilities: dict[str, Any]
-    # Resolved runtime image for this profile: a profile-level override when the
-    # profile pins its own image (e.g. an audio-capable runtime), otherwise the
-    # shared runtime.image. Required (the loader is the only constructor and
-    # always resolves it to a digest-pinned value) so an empty image can never
-    # reach the Docker boundary. The runtime capability (e.g. audio decode libs)
-    # thus travels with the active profile.
+    # 이 프로필에 대해 resolve된 런타임 이미지: 프로필이 자체 이미지를 고정하는 경우
+    # (예: audio 지원 런타임) 프로필 레벨 오버라이드이고, 그렇지 않으면 공유된
+    # runtime.image이다. 필수 값이며(loader가 유일한 생성자이고 항상 digest로 고정된
+    # 값으로 resolve하므로) 빈 이미지가 Docker 경계까지 도달하는 일은 절대 없다.
+    # 따라서 런타임 capability(예: audio 디코드 라이브러리)는 활성 프로필과 함께 이동한다.
     image: str
-    # Fraction of total GPU VRAM this profile reserves (its
-    # --gpu-memory-utilization). Used by the shared GPU budget / admission planner.
+    # 이 프로필이 예약하는 전체 GPU VRAM의 비율
+    # (--gpu-memory-utilization). 공유 GPU budget / admission planner에서 사용된다.
     vram_fraction: float = 0.9
 
     def public_view(self) -> dict[str, Any]:
@@ -107,10 +106,10 @@ def _parse_gpu_fraction(command: list[str]) -> float:
     return 0.9
 
 
-# Per-host override for the main model's --gpu-memory-utilization. The catalog
-# value is the reference-host default; a host with a different GPU sets this so
-# the same profiles fit without editing the shared catalog. It is a fraction of
-# *that host's* VRAM, so a smaller GPU sets a larger fraction.
+# main model의 --gpu-memory-utilization에 대한 호스트별 오버라이드. catalog 값은
+# 기준 호스트(reference-host)의 기본값이며, GPU가 다른 호스트는 공유 catalog를 수정하지
+# 않고도 동일한 프로필이 맞도록 이 값을 설정한다. 이는 *해당 호스트*의 VRAM 대비 비율이므로,
+# GPU가 작을수록 더 큰 비율을 설정하게 된다.
 GPU_UTIL_OVERRIDE_ENV = "MAIN_LLM_GPU_MEMORY_UTILIZATION"
 
 
@@ -223,15 +222,15 @@ def load_main_model_catalog(
             raise MainModelConfigurationError(f"profile {profile_id} command alias does not match")
         if "--revision" not in command or command[command.index("--revision") + 1] != revision:
             raise MainModelConfigurationError(f"profile {profile_id} command must use its pinned revision")
-        # Apply the per-host gpu-memory-utilization override (if any) so the
-        # runtime command and the parsed vram_fraction stay in lockstep.
+        # 호스트별 gpu-memory-utilization 오버라이드가 있으면 적용하여
+        # 런타임 커맨드와 파싱된 vram_fraction이 항상 서로 일치하도록 한다.
         command = _apply_util_override(command, gpu_memory_utilization_override)
         compatibility = item.get("compatibility", {})
         if compatibility.get("status") not in _COMPATIBILITY:
             raise MainModelConfigurationError(f"profile {profile_id} has invalid compatibility status")
-        # A profile may pin its own runtime image (e.g. a multimodal build) as a
-        # literal digest or a ${ENV} reference resolved by CI/deploy; absent that it
-        # inherits the shared runtime.image. Either way the resolved image is a digest.
+        # 프로필은 자체 런타임 이미지(예: multimodal 빌드)를 리터럴 digest나 CI/deploy가
+        # resolve하는 ${ENV} 참조로 고정할 수 있다; 지정하지 않으면 공유된 runtime.image를
+        # 상속한다. 어느 쪽이든 resolve된 이미지는 digest 값이다.
         resolved_image = _resolve_profile_image(item.get("image"), image, env, str(profile_id))
         profiles[str(profile_id)] = MainModelProfile(
             profile_id=str(profile_id),
@@ -419,12 +418,13 @@ class MainModelManager:
         self.backend = backend
         self.profile_locked = profile_locked
         if idempotency_ttl_seconds is None:
-            # A request_id is a retry-safety key, not a permanent record. A switch
-            # can run up to startup_timeout_seconds (vLLM load + validate), so the
-            # window must outlast that for an in-flight retry to dedup, plus an equal
-            # grace for a caller to retry just after it settles — hence twice the
-            # startup timeout. Beyond this a re-used request_id is a new intent, not a
-            # replay, so it no longer hijacks a fresh switch.
+            # request_id는 재시도 안전을 위한 키일 뿐, 영구적으로 보관되는 기록이 아니다.
+            # switch는 최대 startup_timeout_seconds(vLLM load + validate)까지 실행될 수
+            # 있으므로, 진행 중인 재시도를 중복 제거(dedup)하려면 이 시간을 넘어서는 창(window)이
+            # 필요하고, 여기에 더해 종료 직후 호출자가 재시도할 수 있도록 동일한 유예 시간을
+            # 추가한다 — 그래서 startup timeout의 두 배가 된다. 이 시간을 넘어서 재사용된
+            # request_id는 재전송(replay)이 아니라 새로운 의도로 간주되어, 더 이상 새로운
+            # switch를 가로채지 않는다.
             startup = float(catalog.runtime.get("startup_timeout_seconds", 600))
             idempotency_ttl_seconds = 2.0 * startup
         self._idempotency_ttl = float(idempotency_ttl_seconds)
@@ -453,9 +453,9 @@ class MainModelManager:
             "boot_profile": self.boot_profile,
             "last_operation": state.get("last_operation"),
             "stats": state.get("stats", {}),
-            # The image actually backing the live runtime is the active profile's
-            # (which may override the shared runtime.image); fall back to the
-            # shared image when no profile is active yet.
+            # 실제로 살아있는 런타임을 지원하는 이미지는 active profile의 이미지이며
+            # (공유된 runtime.image를 오버라이드할 수 있다); 아직 활성 프로필이 없으면
+            # 공유 이미지로 폴백한다.
             "runtime_image": active.image if active else self.catalog.runtime.get("image"),
             "state_recovery_error": state.get("state_recovery_error"),
         }
@@ -485,7 +485,7 @@ class MainModelManager:
                 await self.backend.wait_for_drain(
                     float(self.catalog.runtime.get("drain_timeout_seconds", 30))
                 )
-            except Exception:  # noqa: BLE001 - deliberate stop proceeds even if drain times out
+            except Exception:  # noqa: BLE001 - drain이 타임아웃되어도 의도적으로 stop을 진행한다
                 pass
             await self.backend.stop(self.catalog)
             self.state_store.update(lambda s: s.update(runtime_state="stopped"))
@@ -512,8 +512,8 @@ class MainModelManager:
 
     async def initialize(self) -> None:
         if self.state_store.read().get("runtime_state") == "stopped":
-            # Respect a deliberate operator stop across restarts: leave the main
-            # runtime down and the gate closed instead of reconciling it up.
+            # 재시작 간에도 운영자가 의도적으로 내린 stop을 존중한다: 다시 끌어올려
+            # reconcile하는 대신 main 런타임을 내려간 상태로, gate를 닫힌 상태로 둔다.
             self.state_store.update(lambda s: s.update(gate="closed"))
             return
         observed = await self.backend.observed_profile(self.catalog)
@@ -526,11 +526,11 @@ class MainModelManager:
             await self.backend.validate(self.catalog, self.catalog.profiles[target])
             self._commit_boot(target)
             return
-        # During compose startup, first let the statically declared baseline
-        # container become healthy. Replacing it while Compose is still waiting
-        # on that container can invalidate dependency orchestration. Once the
-        # baseline is observable, close the gate and reconcile in the background;
-        # Gateway will fail closed until the persisted target validates.
+        # compose 시작 과정에서는 먼저 정적으로 선언된 baseline 컨테이너가 healthy
+        # 상태가 되도록 둔다. Compose가 아직 해당 컨테이너를 기다리는 동안 교체하면
+        # dependency orchestration이 무효화될 수 있다. baseline이 관측 가능해지면
+        # gate를 닫고 백그라운드에서 reconcile한다; Gateway는 persisted target이
+        # validate될 때까지 fail closed 상태를 유지한다.
         if observed in self.catalog.profiles:
             await self.backend.validate(self.catalog, self.catalog.profiles[observed])
         self.state_store.update(lambda state: state.update(gate="closed"))
@@ -667,12 +667,11 @@ class MainModelManager:
         operation_id = str(uuid.uuid4())
         lock_context = self.state_store.operation_lock()
         lock_context.__enter__()
-        # The switch lock must span this synchronous accept and the asynchronous
-        # operation that completes the switch, so it cannot live in a `with` block
-        # scoped to this method. Ownership transfers to the background task once it
-        # is scheduled; until then every exit path (a failed state update, the
-        # idempotent reuse return, or a failed create_task) releases the lock
-        # through the finally below, so the lock can never leak.
+        # switch lock은 이 동기적인 accept 구간과 switch를 완료하는 비동기 operation
+        # 구간에 걸쳐 유지되어야 하므로, 이 메서드 범위의 `with` 블록 안에 둘 수 없다.
+        # 소유권은 백그라운드 task가 스케줄된 시점에 그쪽으로 넘어간다; 그 전까지는
+        # 모든 종료 경로(state 업데이트 실패, idempotent reuse 반환, create_task 실패)가
+        # 아래 finally를 통해 lock을 해제하므로 lock이 새어나갈(leak) 일은 없다.
         reused_operation_id: str | None = None
         operation_started = False
         try:
@@ -800,10 +799,10 @@ class MainModelManager:
                     float(self.catalog.runtime.get("drain_timeout_seconds", 30))
                 )
             self._set_operation(operation_id, "stopping")
-            # Past this point the previous runtime is being torn down, so any
-            # later failure must roll back rather than just reopen the old gate.
-            # Set before replace() is awaited: a failure *during* replace has
-            # still entered the irreversible phase.
+            # 이 지점을 지나면 이전 런타임이 해체(teardown)되는 중이므로, 이후에
+            # 실패가 발생하면 이전 gate를 그냥 다시 여는 것이 아니라 반드시 rollback해야
+            # 한다. replace()가 await되기 전에 설정한다: replace *도중* 실패해도
+            # 이미 되돌릴 수 없는(irreversible) 단계에 진입한 것으로 본다.
             entered_replace_phase = True
             self._set_operation(operation_id, "starting")
             await self.backend.replace(self.catalog, target)

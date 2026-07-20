@@ -2,10 +2,10 @@
 """Generate the endpoint registry matrix block for endpoint_reference.md.
 
 Usage:
-    # Print generated block to stdout (dry-run)
+    # 생성된 블록을 stdout에 출력 (dry-run)
     python3 scripts/generate_endpoint_matrix.py
 
-    # Update docs/operations/endpoint_reference.md in-place
+    # docs/operations/endpoint_reference.md를 직접 업데이트
     python3 scripts/generate_endpoint_matrix.py --update
 """
 from __future__ import annotations

@@ -308,7 +308,7 @@ def build_router(
                 "state": state,
                 "container_status": c_status,
                 "vram_fraction": _budget_fraction(budget, container),
-                # role this runtime serves; what an eviction here would degrade
+                # 이 런타임이 담당하는 역할; 여기서 축출이 발생하면 무엇이 저하되는지
                 "criticality": (sk_participant or {}).get("criticality"),
             }
             if record is not None:
@@ -319,7 +319,7 @@ def build_router(
                 if record.updated_at:
                     runtime["state_updated_at"] = record.updated_at
             runtimes.append(runtime)
-        # The main chat model is a first-class participant in the shared GPU budget.
+        # 메인 채팅 모델은 공유 GPU 예산에서 1급 참여자다.
         if main_model is not None:
             active_profile = main_model.get("active_profile") or {}
             main_participant = _main_participant(budget, set(container_to_key))
@@ -368,15 +368,15 @@ def build_router(
             }}}},
             404: {"content": {"application/json": {"example": RUNTIME_ERROR_404_EXAMPLE}}},
             409: {
-                "description": "런타임이 전환 중이거나 GPU 예산 초과(정지 계획 반환). force=true로 자동 축출.",
+                "description": "GPU 예산 초과(정지 계획 반환). force=true로 자동 축출.",
                 "content": {"application/json": {"examples": {
                     "budget_exceeded": {"summary": "GPU 예산 초과 + 정지 계획", "value": RUNTIME_BUDGET_EXCEEDED_EXAMPLE},
-                    "in_progress": {"summary": "전환 중", "value": {"detail": "runtime is currently starting; wait and retry"}},
                 }}},
             },
             503: {"content": {"application/json": {"examples": {
                 "no_sidecar": {"summary": "sidecar 미설정", "value": RUNTIME_ERROR_503_NO_SIDECAR_EXAMPLE},
                 "sidecar_unavailable": {"summary": "sidecar 연결 실패", "value": RUNTIME_ERROR_503_SIDECAR_UNAVAILABLE_EXAMPLE},
+                "in_progress": {"summary": "전환 중 (재시도 가능)", "value": {"detail": "runtime is currently starting; wait and retry"}},
             }}}},
             **_ADMIN_401,
         },
@@ -389,10 +389,10 @@ def build_router(
             raise HTTPException(422, detail="desired_state must be 'active' or 'stopped'")
         force = bool(payload.get("force")) if isinstance(payload, dict) else False
 
-        # The main chat model is a budget participant in the same fleet, so it is
-        # stopped/started through the same desired_state verb. Its profile change
-        # remains the main-only POST /admin/main-model/switch. The drain/gate/canary
-        # semantics live in the sidecar; here we just dispatch.
+        # 메인 채팅 모델도 동일 fleet의 예산 참여자이므로, 동일한 desired_state
+        # verb로 정지/시작된다. 프로필 변경은 여전히 main 전용 POST
+        # /admin/main-model/switch가 담당한다. drain/gate/canary 의미론은
+        # sidecar에 있으며, 여기서는 단순히 dispatch만 한다.
         if service_key == "main":
             if sidecar is None:
                 raise HTTPException(503, detail="admin sidecar is not configured (ADMIN_SIDECAR_URL missing)")
@@ -410,7 +410,7 @@ def build_router(
                             )
                 else:
                     result = await sidecar.main_stop()
-            except SidecarRequestError as exc:  # GPU-budget admission rejection
+            except SidecarRequestError as exc:  # GPU 예산 admission 거부
                 raise HTTPException(exc.status_code, detail=exc.detail) from exc
             except SidecarUnavailableError as exc:
                 raise HTTPException(503, detail=str(exc)) from exc
@@ -438,7 +438,11 @@ def build_router(
                 if actual == "running":
                     return JSONResponse({"service_key": service_key, "state": "active", "changed": False})
             if current_state == RuntimeState.starting:
-                return JSONResponse({"service_key": service_key, "state": "active", "changed": False})
+                # stop 경로(아래)와 동일한 근거: 503은 재시도 가능한 플랫폼 코드
+                # (MODEL_UNAVAILABLE)로 매핑된다. 실제 컨테이너 상태를 재확인하지
+                # 않고 "active"라고 응답하면 아직 준비되지 않은 런타임을 준비된
+                # 것처럼 노출하게 된다.
+                raise HTTPException(503, detail="runtime is currently starting; wait and retry")
             if sidecar is None:
                 raise HTTPException(503, detail="admin sidecar is not configured (ADMIN_SIDECAR_URL missing)")
             await state_store.set(
@@ -450,7 +454,7 @@ def build_router(
             try:
                 result = await sidecar.start(container, force=force)
             except SidecarRequestError as exc:
-                # GPU-budget admission rejection: surface the status + eviction plan.
+                # GPU 예산 admission 거부: 상태 코드와 축출 계획을 그대로 노출한다.
                 await state_store.set(
                     service_key,
                     RuntimeState.stopped,
@@ -510,9 +514,9 @@ def build_router(
                 if actual != "running":
                     return JSONResponse({"service_key": service_key, "state": "stopped", "changed": False})
             if current_state == RuntimeState.starting:
-                # Transient "not ready yet, retry" — 503 maps to a retryable platform
-                # code (MODEL_UNAVAILABLE). A 409 has no platform code and would fall
-                # back to VALIDATION_ERROR, contradicting the status.
+                # 일시적인 "아직 준비 안 됨, 재시도" 상태 — 503은 재시도 가능한 플랫폼
+                # 코드(MODEL_UNAVAILABLE)로 매핑된다. 409는 플랫폼 코드가 없어
+                # VALIDATION_ERROR로 폴백되므로 상태와 모순된다.
                 raise HTTPException(503, detail="runtime is currently starting; wait and retry")
             if sidecar is None:
                 raise HTTPException(503, detail="admin sidecar is not configured (ADMIN_SIDECAR_URL missing)")
@@ -760,9 +764,9 @@ def build_router(
         except SidecarUnavailableError as exc:
             raise HTTPException(503, detail=str(exc)) from exc
 
-    # Main stop/start are NOT separate endpoints: the main model is a budget
-    # participant and is stopped/started through the uniform fleet verb
-    # PATCH /admin/runtimes/main {desired_state}. Only the main-specific profile
-    # change (switch) lives under /admin/main-model.
+    # 메인 정지/시작은 별도 엔드포인트가 아니다: 메인 모델도 예산 참여자이며
+    # 통일된 fleet verb인 PATCH /admin/runtimes/main {desired_state}로
+    # 정지/시작된다. main 전용 프로필 변경(switch)만 /admin/main-model
+    # 아래에 있다.
 
     return router

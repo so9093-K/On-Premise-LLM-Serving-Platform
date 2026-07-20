@@ -17,8 +17,8 @@ SYSTEM_CODE_PRIORITY = [
     "PARSE_ERROR",
     "TRUNCATED_INPUT",
 ]
-# D4 (Secret/Credential) is the strongest data exposure signal, ranked before prompt attacks.
-# D1-D3 and D5 follow prompt attacks (A1, A2) in priority order.
+# D4(Secret/Credential)는 가장 강력한 data exposure 신호이며, prompt attack보다
+# 우선순위가 높다. D1-D3와 D5는 prompt attack(A1, A2) 다음 우선순위를 따른다.
 MODEL_CODE_PRIORITY = ["D4", "A1", "A2", "D1", "D2", "D3", "D5"]
 
 

@@ -11,11 +11,11 @@ import httpx
 from .errors import DEBUG_VALUE_LIMIT, ERROR_STATUS, ServiceError
 from .settings import RuntimeEndpoint
 
-# Retry-After hint for QUEUE_TIMEOUT: deliberately larger than the admission
-# queue_timeout_seconds itself (typically 1-2s), so a client that retries on the
-# hint doesn't immediately re-collide with whatever request still holds the
-# admission slot. Matches the fixed hint already used for
-# MAIN_MODEL_SWITCH_IN_PROGRESS / MAIN_MODEL_CONTROL_UNAVAILABLE.
+# QUEUE_TIMEOUT에 대한 Retry-After 힌트: admission queue_timeout_seconds
+# 자체(보통 1-2초)보다 의도적으로 크게 잡아서, 힌트대로 재시도하는 클라이언트가
+# 여전히 admission slot을 점유 중인 요청과 곧바로 다시 충돌하지 않도록 한다.
+# MAIN_MODEL_SWITCH_IN_PROGRESS / MAIN_MODEL_CONTROL_UNAVAILABLE에 이미
+# 사용 중인 고정 힌트값과 일치시킨다.
 QUEUE_TIMEOUT_RETRY_AFTER_SECONDS = 5.0
 
 

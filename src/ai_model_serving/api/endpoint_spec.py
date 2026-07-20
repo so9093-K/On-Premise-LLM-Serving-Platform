@@ -10,17 +10,17 @@ class EndpointSpec:
     method: str         # "GET" | "POST"
     path: str
     operation_id: str
-    tag: str            # OpenAPI tag name
+    tag: str            # OpenAPI 태그 이름
     summary: str
     description: str
     auth: str           # "none" | "admin" | "public_api" | "internal_service"
     exposure: str       # "public_gateway" | "internal_only" | "operations_network"
                         # | "internal_service" | "internal_or_lb_probe" | "not_served"
     lifecycle: str      # "stable" | "retired" | "removed"
-    status_code: int    # canonical success status (200/202 for stable, 410 for retired)
-    replacement: str | None          # replacement path for retired endpoints
-    request_schema: str | None       # e.g. "chat_completion_request.schema.json"
-    response_schema: str | None      # e.g. "chat_completion_response.schema.json"
+    status_code: int    # 정상 상태 코드 (stable은 200/202, retired는 410)
+    replacement: str | None          # retired 엔드포인트의 대체 경로
+    request_schema: str | None       # 예: "chat_completion_request.schema.json"
+    response_schema: str | None      # 예: "chat_completion_response.schema.json"
 
 
 _SKIP_SCHEMA_LIFECYCLES: frozenset[str] = frozenset({"removed", "retired"})
@@ -50,7 +50,7 @@ def schema_maps_from_specs(
 
 
 # ---------------------------------------------------------------------------
-# Gateway endpoints (port 9400)
+# Gateway 엔드포인트 (port 9400)
 # ---------------------------------------------------------------------------
 
 GATEWAY_ENDPOINTS: list[EndpointSpec] = [
@@ -338,7 +338,7 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
         request_schema="retrieval_score_request.schema.json",
         response_schema="retrieval_score_response.schema.json",
     ),
-    # ------------------------------------------------------------------ admin runtime control
+    # ------------------------------------------------------------------ 관리자 런타임 제어
     EndpointSpec(
         service="gateway",
         method="GET",
@@ -460,7 +460,7 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
 ]
 
 # ---------------------------------------------------------------------------
-# Risk Adapter endpoints (port 9405)
+# Risk Adapter 엔드포인트 (port 9405)
 # ---------------------------------------------------------------------------
 
 RISK_ADAPTER_ENDPOINTS: list[EndpointSpec] = [

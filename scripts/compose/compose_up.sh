@@ -39,11 +39,11 @@ fi
 EXPOSURE_MODE_EFFECTIVE="${EXPOSURE_MODE:-$(_env_value EXPOSURE_MODE)}"
 EXPOSURE_MODE_EFFECTIVE="${EXPOSURE_MODE_EFFECTIVE:-master_open}"
 
-# Resolve EXPOSURE_MODE to canonical mode via YAML source-of-truth.
-# Unknown modes exit with code 2 and a clear message listing canonical modes.
+# EXPOSURE_MODE를 YAML source-of-truth 기준 canonical mode로 확정합니다.
+# 알 수 없는 mode는 code 2로 종료하며 canonical mode 목록을 안내합니다.
 CANONICAL_MODE="$("$PYTHON_BIN" scripts/compose/resolve_exposure_mode.py "$EXPOSURE_MODE_EFFECTIVE")"
 
-# Determine compose override file from the canonical mode.
+# canonical mode로부터 compose override 파일을 결정합니다.
 COMPOSE_OVERRIDE="$("$PYTHON_BIN" scripts/compose/resolve_exposure_mode.py "$EXPOSURE_MODE_EFFECTIVE" --print-override-file)"
 
 if [[ -n "$COMPOSE_OVERRIDE" && ! -f "$COMPOSE_OVERRIDE" ]]; then

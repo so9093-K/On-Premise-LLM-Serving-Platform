@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Resolve and repair the dedicated Kanana risk vLLM image tag.
+# 전용 Kanana risk vLLM 이미지 태그를 확정하고 복구합니다.
 #
-# The risk detector must not run directly on the generic/base vLLM image. Kanana
-# Prompt 2.1B has an explicit head_dim shape that requires a pinned runtime
-# stack. Older .env files, or stale exported shell variables, may still set
-# RISK_VLLM_IMAGE to VLLM_IMAGE. Treat that state as a migration target and
-# repair it automatically instead of asking operators to run sed by hand.
+# risk detector는 범용/base vLLM 이미지에서 직접 실행되면 안 됩니다. Kanana
+# Prompt 2.1B는 명시적인 head_dim shape를 가지고 있어 고정된 런타임 스택이
+# 필요합니다. 오래된 .env 파일이나 남아 있는 export된 shell 변수가 여전히
+# RISK_VLLM_IMAGE를 VLLM_IMAGE로 설정하고 있을 수 있습니다. 이 상태를 마이그레이션
+# 대상으로 간주하고, 운영자가 수동으로 sed를 돌리게 하는 대신 자동으로 복구합니다.
 
 risk_vllm_default_image() {
   local version
@@ -88,8 +88,8 @@ print(cfg['images']['vllm']['default'])
   file_base="$(risk_vllm_env_file_value "$env_file" RISK_VLLM_BASE_IMAGE 2>/dev/null || true)"
   file_main="$(risk_vllm_env_file_value "$env_file" VLLM_IMAGE 2>/dev/null || true)"
 
-  # Prefer exported custom overrides for ad-hoc builds, but never allow the
-  # dangerous shared/base-image value to survive.
+  # 임시 빌드를 위해 export된 custom override 값을 우선 사용하되, 위험한
+  # shared/base-image 값이 그대로 남아있는 것은 절대 허용하지 않습니다.
   VLLM_IMAGE_RESOLVED="${VLLM_IMAGE:-${file_main:-$default_main}}"
   RISK_VLLM_BASE_IMAGE_RESOLVED="${RISK_VLLM_BASE_IMAGE:-${file_base:-$VLLM_IMAGE_RESOLVED}}"
   RISK_VLLM_IMAGE_RESOLVED="${RISK_VLLM_IMAGE:-${file_risk:-$default_risk}}"

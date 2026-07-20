@@ -15,8 +15,8 @@ if ! docker info >/dev/null 2>&1; then
   exit 2
 fi
 
-# Select a supported system interpreter before deleting an active/stale .venv.
-# Prefer an explicit PYTHON_BIN, then the recommended production minor.
+# 활성/stale .venv를 삭제하기 전에 지원되는 system interpreter를 선택한다.
+# 명시적인 PYTHON_BIN을 우선하고, 그 다음 권장 production minor 버전을 사용한다.
 SYSTEM_PYTHON=""
 python_candidates=()
 if [[ -n "${PYTHON_BIN:-}" ]]; then
@@ -53,9 +53,9 @@ echo "[bootstrap] installing dependencies"
 "$VENV_PYTHON" -m pip install --no-deps -e ".[contract]" -q
 
 echo "[bootstrap] initializing .env"
-# Read the current auth/exposure modes before init-env-compose-force resets them.
-# This lets bootstrap preserve non-default modes across re-runs without requiring
-# the caller to pass them every time.
+# init-env-compose-force가 초기화하기 전에 현재 auth/exposure mode를 읽어둔다.
+# 이렇게 하면 재실행 시마다 호출자가 매번 값을 넘기지 않아도, bootstrap이
+# 기본값이 아닌 mode를 유지할 수 있다.
 _prior_auth_mode=""
 if [[ -z "${AUTH_MODE:-}" && -f .env ]]; then
   _prior_auth_mode="$(grep -E '^AUTH_MODE=' .env | cut -d= -f2- || true)"
@@ -73,22 +73,22 @@ else
   PYTHON_BIN="$VENV_PYTHON" make init-env-compose
 fi
 
-# Apply auth mode after .env re-init:
-#   1. Explicit AUTH_MODE env var takes priority.
-#   2. Mode preserved from the previous .env is restored when not overridden.
-#   3. No mode means keep whatever setup_env generated (local_open by default).
-#   Note: private_network is not assumed as a "compose default" — it is treated
-#   like any other named profile and applied explicitly if set.
+# .env 재초기화 이후 auth mode를 적용한다:
+#   1. 명시적인 AUTH_MODE 환경변수가 최우선이다.
+#   2. override되지 않으면 이전 .env에서 보존된 mode를 복원한다.
+#   3. mode가 없으면 setup_env가 생성한 값을 그대로 유지한다(기본값 local_open).
+#   참고: private_network는 "compose 기본값"으로 가정하지 않는다 — 다른 named
+#   profile과 동일하게 취급되며, 설정된 경우에만 명시적으로 적용된다.
 _apply_mode="${AUTH_MODE:-${_prior_auth_mode}}"
 if [[ -n "$_apply_mode" && "$_apply_mode" != "custom" ]]; then
   echo "[bootstrap] applying AUTH_MODE=$_apply_mode"
   "$VENV_PYTHON" scripts/auth/auth_apply.py --mode "$_apply_mode" --yes
 fi
 
-# Apply exposure mode after .env re-init:
-#   1. Explicit EXPOSURE_MODE env var takes priority.
-#   2. Mode preserved from the previous .env is restored when not overridden.
-#   3. Empty means keep whatever setup_env generated
+# .env 재초기화 이후 exposure mode를 적용한다:
+#   1. 명시적인 EXPOSURE_MODE 환경변수가 최우선이다.
+#   2. override되지 않으면 이전 .env에서 보존된 mode를 복원한다.
+#   3. 비어있으면 setup_env가 생성한 값을 그대로 유지한다
 #      (local_open => master_open/private_lan).
 _apply_exposure="${EXPOSURE_MODE:-${_prior_exposure_mode}}"
 if [[ -n "$_apply_exposure" ]]; then
@@ -101,14 +101,14 @@ if [[ -n "$_apply_exposure" ]]; then
   fi
 fi
 
-# Inject HF_TOKEN whenever the caller passes one — always override, not only when empty.
+# 호출자가 HF_TOKEN을 넘길 때마다 주입한다 — 비어있을 때만이 아니라 항상 override한다.
 if [[ -n "${HF_TOKEN:-}" ]]; then
   echo "[bootstrap] injecting HF_TOKEN from environment into .env"
   sed -i "s|^HF_TOKEN=.*|HF_TOKEN=${HF_TOKEN}|" .env
   sed -i "s|^HUGGING_FACE_HUB_TOKEN=.*|HUGGING_FACE_HUB_TOKEN=${HF_TOKEN}|" .env
 fi
 
-# Warn if HF_TOKEN is still empty — compose-up will fail at model pull.
+# HF_TOKEN이 여전히 비어있으면 경고한다 — compose-up이 model pull 단계에서 실패한다.
 resolved_token="$(grep -E '^HF_TOKEN=' .env | cut -d= -f2- || true)"
 if [[ -z "$resolved_token" ]]; then
   echo ""
