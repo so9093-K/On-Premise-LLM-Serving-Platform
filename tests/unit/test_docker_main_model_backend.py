@@ -143,3 +143,19 @@ def test_observed_profile_accepts_matching_command_and_runtime_image(monkeypatch
     monkeypatch.setattr(backend, "_inspect", fake_inspect)
 
     assert asyncio.run(backend.observed_profile(catalog)) == profile.profile_id
+
+
+def test_structured_output_warmup_schema_is_a_valid_strict_json_schema_response_format():
+    # The text canary in validate() never sets response_format, so without a
+    # dedicated warmup call the xgrammar/Triton constrained-decoding kernel is
+    # never JIT-compiled until a real client sends the first
+    # response_format=json_schema request post-switch. This locks the warmup
+    # payload's shape so it keeps matching the OpenAI-compatible contract that
+    # normalize_chat_request_for_runtime/validate_chat_request expect.
+    schema = backend_module._STRUCTURED_OUTPUT_WARMUP_SCHEMA
+    assert schema["type"] == "json_schema"
+    json_schema = schema["json_schema"]
+    assert json_schema["strict"] is True
+    assert json_schema["schema"]["type"] == "object"
+    assert json_schema["schema"]["additionalProperties"] is False
+    assert set(json_schema["schema"]["required"]) <= set(json_schema["schema"]["properties"])

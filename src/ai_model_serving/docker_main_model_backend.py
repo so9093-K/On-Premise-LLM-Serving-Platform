@@ -9,9 +9,26 @@ from typing import Any
 
 import httpx
 
+from .logging_policy import service_logger
 from .main_model_control import MainModelCatalog, MainModelProfile
 from .media_samples import TINY_M4A_AAC_B64, TINY_MP4_VIDEO_B64
 from .model_cache import prepare_model_snapshot
+
+_logger = service_logger("main_model_control")
+
+_STRUCTURED_OUTPUT_WARMUP_SCHEMA = {
+    "type": "json_schema",
+    "json_schema": {
+        "name": "warmup",
+        "schema": {
+            "type": "object",
+            "properties": {"ok": {"type": "boolean"}},
+            "required": ["ok"],
+            "additionalProperties": False,
+        },
+        "strict": True,
+    },
+}
 
 
 _AUDIO_CANARY_M4A_B64 = TINY_M4A_AAC_B64
@@ -333,6 +350,28 @@ class DockerMainModelBackend:
             choices = body.get("choices", [])
             if not choices or not choices[0].get("message", {}).get("content"):
                 raise RuntimeError("main runtime inference canary returned no content")
+            # Best-effort structured-output warmup: vLLM JIT-compiles the xgrammar
+            # constrained-decoding Triton kernel (apply_token_bitmask_inplace_kernel)
+            # on its first invocation. The text canary above never sets
+            # response_format, so without this call that compile lands on whichever
+            # real request happens to be the first to use response_format=json_schema,
+            # showing up as an unexplained slow/truncated "first attempt" for
+            # structured-output clients. This call only pre-pays that cost; it must
+            # not fail the switch (a slow/failed warmup is not a reason to roll back
+            # an otherwise-working profile), so exceptions are logged, not raised.
+            try:
+                await client.post(
+                    base + str(catalog.runtime["chat_path"]),
+                    json={
+                        "model": catalog.public_model,
+                        "messages": [{"role": "user", "content": "Reply with {\"ok\": true}."}],
+                        "max_tokens": 16,
+                        "temperature": 0,
+                        "response_format": _STRUCTURED_OUTPUT_WARMUP_SCHEMA,
+                    },
+                )
+            except httpx.HTTPError as exc:
+                _logger.warning("structured-output warmup canary failed (non-fatal): %s", exc)
             # Media boot canaries: only for profiles that actually deploy the
             # modality. These prove the runtime can decode container media before
             # the gate opens, so an advertised-but-broken modality rolls back

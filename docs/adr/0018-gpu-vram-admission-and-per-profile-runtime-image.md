@@ -111,3 +111,32 @@ Audio/video는 0017과 동일하게 기본 inert다. 활성화는 게이트된 �
   산출되어 12B 프로필 핀에 사용된다.
 - admission·메인 상태·전환 결과는 기존 Gateway Prometheus metric(`main_model_operation_state`,
   request gate, switch/rollback totals, 마지막 전환 시간)으로 관측한다.
+
+## Update (2026-07-20)
+
+- 배포 서버 로그에서, 메인 모델 전환/재부팅 직후 `response_format: json_schema`를 쓰는 실제
+  요청마다 다음 경고가 관측됐다: `jit_monitor: Triton kernel JIT compilation during inference:
+  apply_token_bitmask_inplace_kernel`(xgrammar 기반 constrained decoding에 쓰이는 커널).
+  `DockerMainModelBackend.validate()`의 text canary(`max_tokens=8`, `response_format` 없음)는
+  이 경로를 태우지 않으므로, 관측된 로그상으로는 이 커널이 웜업 중에 예열되지 않고 있었다.
+  vLLM 공식 문서상 최신 `warmup_kernels()`는 합성 `GrammarOutput`으로 이 bitmask 커널까지
+  부팅 웜업에 포함시킨다고 설명하지만([vLLM warmup 문서](https://docs.vllm.ai/en/latest/api/vllm/v1/worker/gpu/warmup/)),
+  현재 배포 버전(`0.1.dev17235+gf52870f26.d20260603`)에서 이 경로가 실제 요청에서 JIT되는
+  게 로그로 확인됐다 — 버전 차이인지 엔진 설정 때문인지는 미확인.
+- text canary 직후에 `response_format: json_schema`(strict, minimal schema)를 쓰는 best-effort
+  웜업 호출을 추가했다. 이 호출은 실패해도 `validate()` 전체를 실패시키지 않는다(순수 JIT
+  예열이 목적이라, 느리거나 실패해도 이미 정상 동작하는 프로필을 롤백할 이유가 아니다).
+  `validate()`는 명시적 전환·`initialize()`의 boot reconcile·`_recover_interrupted()` 세
+  경로에서 모두 호출되므로 이 한 곳의 수정으로 세 경로가 함께 커버된다.
+- 알려진 잔여 gap: `validate()`는 **admin-sidecar 프로세스가 (재)시작할 때**만
+  `initialize()`를 거쳐 실행된다. main-llm-vllm 컨테이너만 단독으로(`docker restart`) 재시작하는
+  운영 조치는 admin-sidecar를 건드리지 않으므로 이 웜업을 타지 않는다 — 그런 경우 이어서
+  admin-sidecar도 재시작해 `initialize()`를 재트리거하거나, `make ready-full`을 수동 실행해야
+  한다.
+- **범위 한정**: 이 웜업은 로그에서 직접 관측된 JIT 이벤트에 대한 예방 조치이며, 별도로
+  신고된 CSO classifier 클라이언트의 타임아웃 사고와는 무관하다. 그 사고는 실제 재현
+  테스트(`finish_reason: length`, 응답 content 직접 확인)로 원인이 확정됐다 — 클라이언트
+  프롬프트가 스키마에 없는 필드(`matched_keywords`, `confidence`)를 요구해 그 의도가
+  `evidence` 배열로 흘러들어갔고, `temperature=0.1` + 배열 길이 제한(`maxItems`) 부재로
+  동일 항목을 무한 반복하며 끝내지 못했다. JIT 컴파일 지연과는 별개의 문제이므로, 이 웜업
+  fix가 그 사고를 예방하지는 않는다.

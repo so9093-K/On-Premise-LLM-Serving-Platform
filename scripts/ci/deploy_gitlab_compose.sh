@@ -178,6 +178,23 @@ ssh "${SSH_TARGET}" \
   bash -s <<'REMOTE'
 set -euo pipefail
 
+# The gateway container bind-mounts this directory and writes runtime-state.json
+# as the image's non-root appuser. If we mkdir it as the (often root) deploy
+# user, appuser can't write to it and the gateway container fails at startup
+# with a PermissionError. Creating it from inside the platform image instead
+# means it's always owned by whatever UID that image actually runs as.
+ensure_gateway_runtime_dir() {
+  local dir="$1"
+  local parent
+  parent="$(dirname "${dir}")"
+  mkdir -p "${parent}"
+  if [[ -d "${dir}" ]]; then
+    return 0
+  fi
+  docker run --rm -v "${parent}:/mnt" --entrypoint sh "${PLATFORM_IMAGE_TO_DEPLOY}" \
+    -c "mkdir -p /mnt/$(basename "${dir}")"
+}
+
 if [[ ! -d "${RELEASE_PATH}" ]]; then
   echo "[deploy] ERROR: staged release not found: ${RELEASE_PATH}" >&2
   exit 1
@@ -189,6 +206,7 @@ if [[ ! -f "${DEPLOY_PATH}/.env" ]]; then
   exit 1
 fi
 mkdir -p "${DEPLOY_PATH}/.runtime" "${DEPLOY_PATH}/ops/compose/model_cache"
+ensure_gateway_runtime_dir "${DEPLOY_PATH}/.runtime/gateway"
 
 PREVIOUS_RELEASE=""
 LEGACY_RELEASE_CREATED=""
@@ -489,7 +507,7 @@ is_deferred_service() {
 apply_deferred_runtime_state() {
   [[ ${#DEFERRED_RUNTIME_KEYS[@]} -gt 0 ]] || return 0
   local state_path="${DEPLOY_PATH}/.runtime/gateway/runtime-state.json"
-  mkdir -p "$(dirname "${state_path}")"
+  ensure_gateway_runtime_dir "$(dirname "${state_path}")"
   if [[ "${RUNTIME_STATE_MUTATED}" != "1" ]]; then
     RUNTIME_STATE_BACKUP="${DEPLOY_PATH}/.runtime/gateway/runtime-state.json.bak.$(date +%Y%m%d%H%M%S)"
     if [[ -f "${state_path}" ]]; then
