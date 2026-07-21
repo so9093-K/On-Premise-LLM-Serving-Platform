@@ -54,12 +54,6 @@ class RuntimeValidator:
     def headers(self, *, internal: bool = False, admin: bool = False) -> dict[str, str]:
         return self.http.headers(internal=internal, admin=admin)
 
-    def http_json(self, *args, **kwargs):  # type: ignore[no-untyped-def]
-        return self.http.json(*args, **kwargs)
-
-    def http_text(self, *args, **kwargs):  # type: ignore[no-untyped-def]
-        return self.http.text(*args, **kwargs)
-
     def record(self, result: CheckResult) -> None:
         self.results.append(result)
         marker = "PASS" if result.passed else "FAIL"
@@ -150,9 +144,6 @@ class RuntimeValidator:
 
     def sample_gpu(self, name: str) -> CheckResult:
         return sample_gpu_check(self.config, self.gpu_budgets, name)
-
-    def run_soak_once(self, index: int) -> dict[str, object]:
-        return self.soak_runner.run_once(index)
 
     def run_soak(self) -> CheckResult:
         return self.soak_runner.run()

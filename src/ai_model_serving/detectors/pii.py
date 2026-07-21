@@ -136,10 +136,6 @@ def _same_span(left: EntitySpan, right: EntitySpan) -> bool:
     return left.start == right.start and left.end == right.end
 
 
-def _contains(container: EntitySpan, nested: EntitySpan) -> bool:
-    return container.start <= nested.start and nested.end <= container.end
-
-
 def _is_nested_duplicate(preferred: EntitySpan, candidate: EntitySpan) -> bool:
     """Return true only for known recognizer duplication, not general overlap."""
     if (

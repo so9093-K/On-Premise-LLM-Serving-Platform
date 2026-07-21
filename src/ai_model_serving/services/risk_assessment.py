@@ -50,9 +50,6 @@ class RiskAssessmentService:
         self.aggregate_detector_order = aggregate_detector_order or tuple(self.detector_specs)
         self.local_detectors: dict[str, RiskDetector] = local_detectors or {}
 
-    async def assess_prompt(self, prompt: str) -> dict[str, Any]:
-        return await self.assess_detector_key("prompt", prompt)
-
     async def assess_aggregate(self, prompt: str) -> dict[str, Any]:
         start = time.monotonic()
         results = [await self.assess_detector_key(detector_key, prompt) for detector_key in self.aggregate_detector_order]

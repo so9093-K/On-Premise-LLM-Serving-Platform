@@ -182,9 +182,6 @@ class AppSettings:
         except KeyError as exc:
             raise KeyError(f"runtime endpoint is not configured or enabled: {key}") from exc
 
-    def optional_runtime(self, key: str) -> RuntimeEndpoint | None:
-        return self.runtime_endpoints.get(key)
-
     def enabled_risk_detectors(self) -> tuple[RiskDetectorSettings, ...]:
         return tuple(detector for detector in self.risk_detectors if detector.enabled)
 

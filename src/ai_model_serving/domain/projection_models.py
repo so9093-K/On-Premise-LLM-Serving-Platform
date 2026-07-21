@@ -82,16 +82,6 @@ class ModelCardProjection:
     project_runtime_policy: dict[str, Any]
     capabilities: tuple[str, ...]
 
-    def comparable_fields(self) -> dict[str, Any]:
-        return {
-            "logical_id": self.logical_id,
-            "upstream_model_id": self.upstream_model_id,
-            "runtime": dict(self.runtime),
-            "source_facts": dict(self.source_facts),
-            "project_runtime_policy": dict(self.project_runtime_policy),
-            "capabilities": list(self.capabilities),
-        }
-
 
 @dataclass(frozen=True)
 class RuntimeValidationTarget:

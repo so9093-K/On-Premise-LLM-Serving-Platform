@@ -108,16 +108,6 @@ class ModelRegistry:
     def public_model_response_items(self) -> tuple[dict[str, Any], ...]:
         return tuple(model.as_response_item() for model in self.iter_public_models())
 
-    def capability_values(self) -> tuple[str, ...]:
-        from .projections import capability_values
-
-        return capability_values(self)
-
-    def capability_values_in_catalog_order(self) -> tuple[str, ...]:
-        from .projections import capability_values_in_catalog_order
-
-        return capability_values_in_catalog_order(self)
-
     def model_list_schema_projection(self) -> ModelListSchemaProjection:
         from .projections import model_list_schema_projection
 

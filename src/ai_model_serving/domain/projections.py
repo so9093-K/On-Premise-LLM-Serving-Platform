@@ -16,12 +16,6 @@ if TYPE_CHECKING:
     )
 
 
-def capability_values(registry: "ModelRegistry") -> tuple[str, ...]:
-    """Return a stable capability enum derived from catalog listings."""
-    values = {capability for record in registry.iter_records() if record.public_enabled for capability in record.capabilities}
-    return tuple(sorted(values))
-
-
 def capability_values_in_catalog_order(registry: "ModelRegistry") -> tuple[str, ...]:
     """Return capability values in first-seen catalog order for schema readability."""
     ordered: list[str] = []

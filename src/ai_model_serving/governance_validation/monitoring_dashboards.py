@@ -61,15 +61,6 @@ def _iter_panels(panels: list[dict[str, object]]) -> object:
         yield from _iter_panels(panel.get('panels', []))  # type: ignore[arg-type]
 
 
-def _dashboard_contract(path: str) -> dict[str, object]:
-    monitoring = read_yaml('configs/monitoring.yaml')
-    contracts = monitoring.get('monitoring_stack', {}).get('grafana', {}).get('dashboard_contracts', [])
-    for contract in contracts:
-        if contract.get('path') == path:
-            return contract
-    raise SystemExit(f'monitoring config missing grafana dashboard contract: {path}')
-
-
 def _validate_collapsed_detail_rows(path: str, dashboard: dict[str, object], contract: dict[str, object]) -> None:
     expected_rows = {str(title) for title in contract.get('collapsed_detail_rows', [])}
     if not expected_rows:

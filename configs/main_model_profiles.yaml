@@ -10,6 +10,7 @@ runtime:
   image: vllm/vllm-openai@sha256:f4492643056969529a74238f71dd66dc3097c0d433156a4f4478456bf84bd276
   drain_timeout_seconds: 30
   startup_timeout_seconds: 600
+  stop_timeout_seconds: 30
 profiles:
   gemma4-26b-a4b-fp8:
     display_name: Gemma 4 26B A4B FP8

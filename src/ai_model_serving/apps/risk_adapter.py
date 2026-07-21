@@ -133,7 +133,7 @@ def create_risk_adapter_app(settings: AppSettings | None = None, clients: RiskCl
     register_scalar_docs(app, settings=settings, title="Risk Adapter")
     register_health(app, service="risk-adapter", operation_id="getRiskAdapterHealth")
 
-    app.include_router(_build_ops_router(admin_dependencies, clients, metrics))
+    app.include_router(_build_ops_router(admin_dependencies, clients, metrics, settings))
     app.include_router(_build_risk_router(api_dependencies, service))
 
     _request_schemas, _response_schemas = schema_maps_from_specs(RISK_ADAPTER_ENDPOINTS)

@@ -13,9 +13,17 @@ IMAGE="$RISK_VLLM_IMAGE_RESOLVED"
 PYTHON_IN_IMAGE="${RISK_VLLM_IMAGE_PYTHON:-python3}"
 MODELS=("${@:-}")
 if [[ ${#MODELS[@]} -eq 0 || -z "${MODELS[0]:-}" ]]; then
-  MODELS=(
-    "kakaocorp/kanana-safeguard-prompt-2.1b"
-  )
+  default_risk_model="$(python3 -c "
+import yaml
+from pathlib import Path
+cfg = yaml.safe_load((Path('$ROOT') / 'configs/model_catalog.yaml').read_text())
+print(cfg['models']['risk-prompt']['upstream_model_id'])
+" 2>/dev/null || true)"
+  if [[ -z "${default_risk_model}" ]]; then
+    echo "[risk-vllm-config] ERROR: could not read risk-prompt upstream_model_id from configs/model_catalog.yaml" >&2
+    exit 2
+  fi
+  MODELS=("${default_risk_model}")
 fi
 
 LOCAL_FILES_ONLY_ARGS=()

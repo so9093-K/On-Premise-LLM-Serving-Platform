@@ -13,7 +13,12 @@ from ...services.readiness import DependencyProbe, collect_readiness
 _RA = {(s.method, s.path): s for s in RISK_ADAPTER_ENDPOINTS}
 
 
-async def _readiness(clients: Any, metrics: Any = None) -> dict[str, Any]:
+async def _readiness(
+    clients: Any,
+    metrics: Any = None,
+    *,
+    timeout_seconds: float = 2.0,
+) -> dict[str, Any]:
     probes = [
         DependencyProbe(f"risk_{key}_vllm", client, "models")
         for key, client in clients.detectors.items()
@@ -22,10 +27,11 @@ async def _readiness(clients: Any, metrics: Any = None) -> dict[str, Any]:
         service="risk-adapter",
         probes=probes,
         metrics=metrics,
+        timeout_seconds=timeout_seconds,
     )
 
 
-def build_router(admin_dependencies: list, clients: Any, metrics: Any) -> APIRouter:
+def build_router(admin_dependencies: list, clients: Any, metrics: Any, settings: Any) -> APIRouter:
     router = APIRouter()
 
     _s = _RA[("GET", "/ready")]
@@ -50,7 +56,11 @@ def build_router(admin_dependencies: list, clients: Any, metrics: Any) -> APIRou
         },
     )
     async def ready() -> JSONResponse:
-        body = await _readiness(clients, metrics)
+        body = await _readiness(
+            clients,
+            metrics,
+            timeout_seconds=settings.readiness_probe_timeout_seconds,
+        )
         return readiness_response(body)
 
     _s = _RA[("GET", "/metrics")]
