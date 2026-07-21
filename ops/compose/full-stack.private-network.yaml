@@ -7,6 +7,7 @@ name: ${COMPOSE_PROJECT_NAME:-compose}
 services:
   gateway:
     image: ${PLATFORM_IMAGE:?Set PLATFORM_IMAGE to a tested platform image tag}
+    restart: unless-stopped
     command:
     - python
     - -m
@@ -29,16 +30,22 @@ services:
       ADMIN_SIDECAR_URL: http://admin-sidecar:8080
       GATEWAY_RUNTIME_STATE_PATH: /var/lib/ai-model-serving/runtime-state.json
     depends_on:
-      admin-sidecar:
-        condition: service_healthy
       risk-adapter:
         condition: service_healthy
       main-llm-vllm:
         condition: service_healthy
+      # admin-sidecar는 의도적으로 하드 의존에서 뺐다: gateway_inference.py의
+      # sidecar 호출은 이미 SidecarUnavailableError를 잡아 main-model 관련
+      # 요청만 503으로 낙제시키고(gateway_ops.py의 /metrics도 동일하게 낙제),
+      # embeddings/risk 경로는 sidecar를 아예 쓰지 않는다. admin-sidecar가
+      # 계속 crash-loop해도(예: 상태 경로 권한 문제) gateway 전체가
+      # "Created" 상태로 영원히 멈추는 단일 장애점을 만들지 않기 위함이다
+      # — 2026-07-21 장애의 근본 원인.
     volumes:
     - ../../.runtime/gateway:/var/lib/ai-model-serving
   risk-adapter:
     image: ${PLATFORM_IMAGE:?Set PLATFORM_IMAGE to a tested platform image tag}
+    restart: unless-stopped
     command:
     - python
     - -m
@@ -61,6 +68,7 @@ services:
     - '9405'
   main-llm-vllm:
     image: vllm/vllm-openai@sha256:f4492643056969529a74238f71dd66dc3097c0d433156a4f4478456bf84bd276
+    restart: unless-stopped
     command:
     - --model
     - RedHatAI/gemma-4-26B-A4B-it-FP8-Dynamic
@@ -125,6 +133,7 @@ services:
             - gpu
   embedding-vllm:
     image: ${VLLM_IMAGE:?Set VLLM_IMAGE to a tested vLLM OpenAI image tag}
+    restart: unless-stopped
     command:
     - --model
     - google/embeddinggemma-300m
@@ -172,6 +181,7 @@ services:
             - gpu
   embedding-ko-vllm:
     image: ${EMBEDDING_KO_VLLM_IMAGE:?Set EMBEDDING_KO_VLLM_IMAGE to a tested vLLM OpenAI image tag}
+    restart: unless-stopped
     command:
     - --model
     - dragonkue/snowflake-arctic-embed-l-v2.0-ko
@@ -221,6 +231,7 @@ services:
   risk-prompt-vllm:
     image: ${RISK_VLLM_IMAGE:?Set RISK_VLLM_IMAGE to a tested vLLM OpenAI image tag
       for risk models}
+    restart: unless-stopped
     command:
     - --model
     - kakaocorp/kanana-safeguard-prompt-2.1b
@@ -280,6 +291,7 @@ services:
   dcgm-exporter:
     image: ${DCGM_EXPORTER_IMAGE:?Set DCGM_EXPORTER_IMAGE to a tested NVIDIA dcgm-exporter
       image tag}
+    restart: unless-stopped
     user: 0:0
     privileged: true
     cap_add:
@@ -295,6 +307,7 @@ services:
             - gpu
   cadvisor:
     image: ${CADVISOR_IMAGE:?Set CADVISOR_IMAGE to a tested cAdvisor image tag}
+    restart: unless-stopped
     privileged: true
     expose:
     - '8080'
@@ -308,6 +321,7 @@ services:
     - /dev/kmsg:/dev/kmsg
   prometheus:
     image: ${PROMETHEUS_IMAGE:?Set PROMETHEUS_IMAGE to a tested Prometheus image tag}
+    restart: unless-stopped
     depends_on:
     - gateway
     - risk-adapter
@@ -327,6 +341,7 @@ services:
     - '9090'
   grafana:
     image: ${GRAFANA_IMAGE:?Set GRAFANA_IMAGE to a tested Grafana image tag}
+    restart: unless-stopped
     depends_on:
     - prometheus
     ports:
@@ -350,6 +365,7 @@ services:
   # -------------------------------------------------------------------------
   admin-sidecar:
     image: ${PLATFORM_IMAGE:?Set PLATFORM_IMAGE to a tested platform image tag}
+    restart: unless-stopped
     user: 0:0
     command:
     - python

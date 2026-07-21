@@ -199,6 +199,9 @@ def test_validate_calls_structured_output_warmup_and_survives_its_failure(monkey
     # must actually send the response_format=json_schema warmup request (not
     # just define the schema constant), and a failing warmup must not fail the
     # whole validate() call (it's pure JIT pre-warming, not a correctness gate).
+    # Also guards the 2026-07-21 raise_for_status() fix: a 4xx/5xx warmup response
+    # must be detected and logged, not silently treated as success (httpx does not
+    # raise on error status codes unless raise_for_status() is called explicitly).
     catalog = load_main_model_catalog(ROOT / "configs/main_model_profiles.yaml")
     profile = catalog.profiles["gemma4-26b-a4b-fp8"]
     backend = DockerMainModelBackend("/var/run/docker.sock")
@@ -211,6 +214,13 @@ def test_validate_calls_structured_output_warmup_and_survives_its_failure(monkey
 
     monkeypatch.setattr(backend, "_container_id", fake_container_id)
     monkeypatch.setattr(backend, "_inspect", fake_inspect)
+
+    warnings: list[str] = []
+    monkeypatch.setattr(
+        backend_module._logger,
+        "warning",
+        lambda msg, *args: warnings.append(msg % args if args else msg),
+    )
 
     requests: list[httpx.Request] = []
 
@@ -244,6 +254,7 @@ def test_validate_calls_structured_output_warmup_and_survives_its_failure(monkey
     assert len(structured_output_calls) == 1
     sent_body = json.loads(structured_output_calls[0].content)
     assert sent_body["response_format"] == backend_module._STRUCTURED_OUTPUT_WARMUP_SCHEMA
+    assert any("structured-output warmup canary failed" in message for message in warnings)
 
 
 def test_tool_call_warmup_tools_shape_is_a_valid_function_tool():
@@ -264,7 +275,8 @@ def test_tool_call_warmup_tools_shape_is_a_valid_function_tool():
 def test_validate_calls_tool_calling_warmup_and_survives_its_failure(monkeypatch):
     # Same regression shape as the structured-output warmup test above: validate()
     # must actually send a tool_choice-forced warmup request, and a failure must
-    # not fail validate() as a whole.
+    # not fail validate() as a whole. Also guards the raise_for_status() fix
+    # (see the structured-output test above for why this matters).
     catalog = load_main_model_catalog(ROOT / "configs/main_model_profiles.yaml")
     profile = catalog.profiles["gemma4-26b-a4b-fp8"]
     backend = DockerMainModelBackend("/var/run/docker.sock")
@@ -277,6 +289,13 @@ def test_validate_calls_tool_calling_warmup_and_survives_its_failure(monkeypatch
 
     monkeypatch.setattr(backend, "_container_id", fake_container_id)
     monkeypatch.setattr(backend, "_inspect", fake_inspect)
+
+    warnings: list[str] = []
+    monkeypatch.setattr(
+        backend_module._logger,
+        "warning",
+        lambda msg, *args: warnings.append(msg % args if args else msg),
+    )
 
     requests: list[httpx.Request] = []
 
@@ -311,3 +330,4 @@ def test_validate_calls_tool_calling_warmup_and_survives_its_failure(monkeypatch
     sent_body = json.loads(tool_call_warmup_calls[0].content)
     assert sent_body["tools"] == backend_module._TOOL_CALL_WARMUP_TOOLS
     assert sent_body["tool_choice"] == {"type": "function", "function": {"name": "warmup"}}
+    assert any("tool-calling warmup canary failed" in message for message in warnings)

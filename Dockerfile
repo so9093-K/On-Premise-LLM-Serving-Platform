@@ -1,4 +1,7 @@
-FROM python:3.12.13-slim
+# digest 고정: vLLM 계열 이미지들과 동일한 원칙(태그는 재푸시로 바뀔 수 있음).
+# 최신 3.12.13-slim으로 갱신하려면: docker pull python:3.12.13-slim &&
+# docker image inspect python:3.12.13-slim --format '{{index .RepoDigests 0}}'
+FROM python:3.12.13-slim@sha256:57cd7c3a7a273101a6485ba99423ee568157882804b1124b4dd04266317710de
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \

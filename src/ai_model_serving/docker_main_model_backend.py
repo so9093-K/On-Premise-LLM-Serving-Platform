@@ -399,7 +399,7 @@ class DockerMainModelBackend:
             # 실패한다고 해서 정상 동작하는 profile을 rollback할 이유는 없다),
             # 예외는 raise하지 않고 로그만 남긴다.
             try:
-                await client.post(
+                warmup_response = await client.post(
                     base + str(catalog.runtime["chat_path"]),
                     json={
                         "model": catalog.public_model,
@@ -409,6 +409,10 @@ class DockerMainModelBackend:
                         "response_format": _STRUCTURED_OUTPUT_WARMUP_SCHEMA,
                     },
                 )
+                # raise_for_status()가 없으면 4xx/5xx도 "성공"으로 조용히 넘어간다 —
+                # 특히 4xx는 보통 샘플링 단계 전 요청 검증에서 막히므로, 정작 예열하려던
+                # bitmask 커널을 태우지도 못한 채 웜업이 됐다고 착각하게 된다.
+                warmup_response.raise_for_status()
             except httpx.HTTPError as exc:
                 _logger.warning("structured-output warmup canary failed (non-fatal): %s", exc)
             # Best-effort tool-calling warmup: 위 json_schema 웜업과 같은 이유(별개의
@@ -417,7 +421,7 @@ class DockerMainModelBackend:
             # (그냥 tools만 실어 보내면 모델이 tool을 안 쓰고 일반 텍스트로 답할 수 있어
             # 이 경로를 타지 않을 수 있다).
             try:
-                await client.post(
+                tool_warmup_response = await client.post(
                     base + str(catalog.runtime["chat_path"]),
                     json={
                         "model": catalog.public_model,
@@ -428,6 +432,7 @@ class DockerMainModelBackend:
                         "tool_choice": {"type": "function", "function": {"name": "warmup"}},
                     },
                 )
+                tool_warmup_response.raise_for_status()
             except httpx.HTTPError as exc:
                 _logger.warning("tool-calling warmup canary failed (non-fatal): %s", exc)
             # Media boot canary: 해당 modality를 실제로 배포하는 profile에 대해서만

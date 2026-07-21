@@ -120,9 +120,10 @@ Audio/video는 0017과 동일하게 기본 inert다. 활성화는 게이트된 �
   `DockerMainModelBackend.validate()`의 text canary(`max_tokens=8`, `response_format` 없음)는
   이 경로를 태우지 않으므로, 관측된 로그상으로는 이 커널이 웜업 중에 예열되지 않고 있었다.
   vLLM 공식 문서상 최신 `warmup_kernels()`는 합성 `GrammarOutput`으로 이 bitmask 커널까지
-  부팅 웜업에 포함시킨다고 설명하지만([vLLM warmup 문서](https://docs.vllm.ai/en/latest/api/vllm/v1/worker/gpu/warmup/)),
-  현재 배포 버전(`0.1.dev17235+gf52870f26.d20260603`)에서 이 경로가 실제 요청에서 JIT되는
-  게 로그로 확인됐다 — 버전 차이인지 엔진 설정 때문인지는 미확인.
+  부팅 웜업에 포함시킨다고 설명하는데([vLLM warmup 문서](https://docs.vllm.ai/en/latest/api/vllm/v1/worker/gpu/warmup/)),
+  이건 **Model Runner V2 한정** 설명이다. 현재 배포 버전(`0.1.dev17235+gf52870f26.d20260603`)은
+  V1 model runner로 뜨고 있어서(아래 "근본 원인 확정" 참고) 이 경로를 안 타고, 그래서
+  이 커널이 실제 요청에서 JIT되는 게 로그로 확인됐다.
 - text canary 직후에 `response_format: json_schema`(strict, minimal schema)를 쓰는 best-effort
   웜업 호출을 추가했다. 이 호출은 실패해도 `validate()` 전체를 실패시키지 않는다(순수 JIT
   예열이 목적이라, 느리거나 실패해도 이미 정상 동작하는 프로필을 롤백할 이유가 아니다).
@@ -156,10 +157,12 @@ Audio/video는 0017과 동일하게 기본 inert다. 활성화는 게이트된 �
   Docker `State.StartedAt`을 관측해, 마지막으로 `validate()`가 성공했을 때 기록해둔
   값(`last_validated_container_started_at`, state store에 영속화)과 다르면 admin-sidecar가
   전혀 모르는 사이에 컨테이너가 재시작된 것으로 간주하고 `validate()`를 다시 돈다.
-  **gate는 닫지 않기로 결정했다** — 닫아도 노출 창이 poll 간격이 아니라 웜업 호출
-  자체의 소요 시간(수 초) 수준으로 짧아, 그 몇 초 동안 요청이 깨끗한 503을 받는 것과
-  느리거나 잘린 200을 받는 것의 차이일 뿐이고, 지금까지는 그 몇 초조차 전혀 못 잡던
-  상태에서 순개선이라는 판단이다. 진행 중인 전환·복구 작업과는 기존 `self._lock`을
+  **gate는 재웜업 중에 닫지 않기로 결정했다** — 재시작~재웜업 완료까지의 전체 노출 창
+  자체는 poll 간격(최대 10초) + validate() 소요 시간으로, 이 전체가 짧다는 뜻은 아니다.
+  gate를 닫는다고 줄어드는 건 이 중 validate() 소요 시간(수 초)뿐이라, 그 몇 초 동안
+  요청이 깨끗한 503을 받는 것과 느리거나 잘린 200을 받는 것의 차이일 뿐이고, 지금까지는
+  전체 노출 창(무한대)조차 전혀 못 잡던 상태에서 "최대 10초"로 줄인 것 자체가 순개선이라는
+  판단이다. 진행 중인 전환·복구 작업과는 기존 `self._lock`을
   그대로 재사용해 경합하지 않는다. poll 간격은 tick당 비용이 lock 획득 + inspect
   하나뿐이라 부담이 없어 짧게(10초) 잡았다 — 이제 raw `docker`/`compose restart`도
   최대 10초 이내에 자동으로 재검증된다. 위의 "제어 API만 사용" 운영 규율은 여전히
@@ -180,3 +183,55 @@ Audio/video는 0017과 동일하게 기본 inert다. 활성화는 게이트된 �
   `evidence` 배열로 흘러들어갔고, `temperature=0.1` + 배열 길이 제한(`maxItems`) 부재로
   동일 항목을 무한 반복하며 끝내지 못했다. JIT 컴파일 지연과는 별개의 문제이므로, 이 웜업
   fix가 그 사고를 예방하지는 않는다.
+- **근본 원인 확정** (위 "미확인" 정정): 배포 중인 `compose-main-llm-vllm-1` 컨테이너에 직접
+  접속해 설치된 vLLM 소스를 읽고 부팅 로그로 실행 조건을 대조했다. `GPUWorker.compile_or_warm_up_model()`
+  (`vllm/v1/worker/gpu_worker.py:688`)은 `self.use_v2_model_runner`가 참일 때만 합성
+  `GrammarOutput`으로 bitmask 커널을 실제로 태우는 `warmup_kernels()`
+  (`vllm/v1/worker/gpu/warmup.py`)를 부른다; 거짓이면 `elif` 분기로 빠져 샘플러만 데우는
+  `_dummy_sampler_run()`을 부르고 `GrammarOutput`은 아예 만들지 않는다. `use_v2_model_runner`는
+  `VllmConfig._is_default_v2_model_runner_model()` (`vllm/config/vllm.py:544`)에서
+  `not model_config.is_quantized`를 요구하는데, 부팅 로그에 찍힌 엔진 설정이
+  `quantization=compressed-tensors`(gemma-4-12B-it FP8-Dynamic)임을 확인했다 — 즉 이 모델은
+  양자화돼 있어 구조적으로 V2 model runner 후보에서 제외되고, V1 경로로 강제되며, V1의 웜업
+  루틴에는 애초에 구조화 출력 커널 예열이 없다. 워밍업 함수 맨 끝에서 `activate_triton_jit_monitor()`가
+  호출되는데(V1/V2 분기 직후), 이게 "이 시점 이후의 JIT 컴파일은 비정상"이라고 감시를 시작하는
+  지점이라 — bitmask 커널이 웜업에서 빠진 채로 감시가 시작되고, 첫 실제 구조화 출력 요청이
+  그 커널을 처음 건드리는 순간 정확히 위에서 관측된 `jit_monitor` 경고가 뜨는 구조까지 소스
+  레벨로 확인됐다. vLLM 버그가 아니라 "Model Runner V2가 아직 양자화 모델을 지원하지 않는다"는
+  알려진 아키텍처 제약이며, 애플리케이션 레벨 웜업(json_schema/tool-calling)은 이 제약이 있는
+  한 계속 필요하다 — vLLM이 V2에서 양자화 모델을 지원하거나 V1 경로에 GrammarOutput 웜업을
+  추가하기 전까지는 저절로 사라질 gap이 아니다.
+- **위 근본 원인을 boot 로그로 직접 재확인했다** (소스 추론에서 확정으로): vLLM은
+  `use_v2_model_runner`가 참일 때만 `logger.info_once("Using V2 Model Runner")`를 찍고
+  V1일 때는 대응 로그가 없다(`gpu_worker.py:291`). `docker logs compose-main-llm-vllm-1`
+  전체에 "Using V2 Model Runner"가 0건 — V1으로 떴다는 직접 증거다. 같은 로그에서
+  `jit_monitor` 활성화(07:55:59) 이후 실제 추론 중 `apply_token_bitmask_inplace_kernel`
+  JIT(07:56:31)를 포함해 `_compute_slot_mapping_kernel`, `kernel_unified_attention`도
+  함께 JIT된 것을 확인했다 — 뒤 두 개는 이 웜업 fix의 범위 밖(다른 shape/커널이라 별도
+  조사가 필요하며, 여기서는 기록만 해둔다).
+- **JIT와 "응답 짤림"의 인과관계를 정정한다**: JIT 커널 자체가 토큰을 자르지 않는다. 실제
+  경로는 JIT → 지연(첫 토큰 및 전체 응답 시간 증가) → 2차 효과다. `gateway_service.py`의
+  비스트리밍 경로(195-203행)는 `gateway_timeout_seconds` 초과 시 깔끔한 504를 반환할 뿐
+  "짤림"은 아니다. 스트리밍 경로(236-282행)는 이미 청크를 여러 개 내보낸 상태에서
+  `streaming_max_duration_seconds` 타임아웃이 나면 그 시점까지의 부분 응답 뒤에 SSE
+  error event가 붙어 나가는데, 이게 클라이언트 입장에서 "잘린 것처럼" 보이는 현상의 실체다
+  — 즉 "지연/짤림"은 JIT의 두 가지 직접 결과가 아니라, JIT가 만든 지연이 스트리밍 타임아웃
+  경로를 통해 짤림처럼 보이는 형태로 이어지는 것이다.
+- **웜업 호출의 4xx/5xx 미탐지 버그를 고쳤다**: `docker_main_model_backend.py`의
+  json_schema/tool-calling 웜업 호출이 `response.raise_for_status()`를 부르지 않고 있었다
+  — httpx는 4xx/5xx에서 예외를 던지지 않으므로(명시적으로 `raise_for_status()`를 불러야
+  던진다), 웜업이 400/500을 받아도 `except httpx.HTTPError`가 안 걸려 조용히 "성공"으로
+  넘어가고 있었다. 특히 4xx는 보통 요청 검증 단계에서 막혀 샘플링 코드까지 못 가므로,
+  정작 예열하려던 bitmask 커널을 태우지도 못한 채 웜업이 됐다고 착각하는 상황이 가능했다.
+  두 호출 모두에 `raise_for_status()`를 추가했고(non-fatal 정책은 유지, `httpx.HTTPError`로
+  잡혀 경고 로그만 남긴다), 회귀 테스트에 실패 시 경고 로그가 실제로 찍히는지 검증하는
+  assertion을 추가했다(`test_docker_main_model_backend.py`).
+- **재시작~재웜업 노출 창 설명을 정정했다**: 기존 문구가 "gate를 닫았을 때 줄어드는 창"(수 초)과
+  "실제 전체 노출 창"(poll 간격 최대 10초 + validate() 소요 시간)을 섞어 써서, 마치 전체
+  노출 창이 수 초인 것처럼 읽힐 수 있었다. `reconcile_if_restarted()` docstring과 위
+  단락을 정정했다 — 이 루프가 하는 일은 노출 창을 "무한대"에서 "최대 10초+α"로 줄이는
+  것이지, 그 자체를 수 초로 줄이는 게 아니다. 곁들여 `main_model_control.py:533-540`의
+  "fingerprint가 None이면 baseline만 기록"하는 경로에, `_validate_and_record()`의
+  fingerprint 기록 단계만 간헐적으로 계속 실패하면 이 필드가 영구히 None으로 남아 재웜업이
+  트리거되지 않는 잠재 리스크가 있다는 코드 주석을 남겨뒀다 — 두 실패가 겹쳐야 하는 좁은
+  경우라 지금은 문서화만 하고 별도 상태 머신 변경은 하지 않았다.

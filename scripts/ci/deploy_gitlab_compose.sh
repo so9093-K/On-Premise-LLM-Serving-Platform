@@ -431,10 +431,10 @@ configure_release_context() {
     fi
     _state_file="${DEPLOY_PATH}/.runtime/main-model/main-model-state.json"
     if [[ -f "${_state_file}" && ! -r "${_state_file}" ]]; then
-      # ensure_gateway_runtime_dir와 같은 종류의 문제: admin-sidecar 컨테이너가
-      # non-root appuser 권한으로 이 파일을 썼기 때문에 배포 사용자가 다시 읽을 수 없다.
-      # 실패시키고 수동 chmod를 요구하는 대신, 같은 방식으로 — platform 이미지 내부에서
-      # 실제 파일 소유 UID로 — 복구한다.
+      # ensure_gateway_runtime_dir와 같은 종류의 문제: admin-sidecar 컨테이너는
+      # (docker.sock을 다루므로) user: 0:0으로 돌기 때문에 이 파일은 root 소유로
+      # 쓰여지고, 배포 사용자가 다시 읽을 수 없다. 실패시키고 수동 chmod를 요구하는
+      # 대신, 같은 방식으로 — platform 이미지 내부에서 root 권한으로 — 복구한다.
       echo "[deploy] main-model state file is not readable by the deploy user; repairing ownership..." >&2
       if ! docker run --rm -v "$(dirname "${_state_file}"):/mnt" --entrypoint sh "${PLATFORM_IMAGE_TO_DEPLOY}" \
         -c "chmod o+r /mnt/$(basename "${_state_file}")"; then

@@ -445,6 +445,20 @@ class MainModelManager:
             locked=profile_locked,
             persisted_profile=persisted,
         )
+        configured = boot_profile or catalog.default_profile
+        if not profile_locked and persisted and persisted != configured:
+            # ADR-0017 부트 우선순위(lock > 마지막으로 커밋된 활성 프로파일 >
+            # MAIN_LLM_BOOT_PROFILE)에 따른 의도된 동작이지, 에러가 아니다 — .env의
+            # MAIN_LLM_BOOT_PROFILE을 안 바꿔도 전환은 재시작을 넘어 유지된다. 그래도
+            # .env만 보고 판단하는 운영자가 헷갈리지 않도록 로그는 남긴다.
+            _logger.warning(
+                "main-llm-vllm boot profile diverges from MAIN_LLM_BOOT_PROFILE "
+                "(configured=%s, persisted state active_profile=%s); booting the "
+                "persisted profile since it takes precedence (ADR-0017 boot "
+                "priority — this is expected, not an error)",
+                configured,
+                persisted,
+            )
         self._lock = asyncio.Lock()
         self._tasks: set[asyncio.Task[None]] = set()
 
@@ -509,9 +523,18 @@ class MainModelManager:
         of the admin API) and re-run validate() so structured-output/media warmup
         still happens. Intended to be polled periodically in the background.
 
-        Does not close the gate: the exposure window this closes is only as long
-        as validate()'s own HTTP calls take (a few seconds), not the poll
-        interval, so the extra downtime from gating was judged not worth it.
+        Total exposure window (restart to re-warm) is bounded by the poll
+        interval plus validate()'s own duration — up to
+        `_RECONCILE_POLL_INTERVAL_SECONDS` + a few seconds, not just the few
+        seconds validate() itself takes. A real request can land in that
+        earlier, larger window and hit the cold JIT path directly; this loop
+        only shrinks that window from "forever" to "one poll interval," it
+        does not eliminate it.
+
+        Does not close the gate while re-warming: gating would only shrink the
+        window by the few seconds validate() itself takes (not by the poll
+        interval), so the extra downtime from gating every re-warm was judged
+        not worth it relative to that small a reduction.
         """
         async with self._lock:
             state = self.state_store.read()
@@ -534,6 +557,13 @@ class MainModelManager:
             if last_validated is None:
                 # 이 필드가 아직 없는 상태(신규 배포 직후)이거나 최초 관측 —
                 # drift로 취급해 불필요한 웜업을 트리거하지 않고 기준선만 기록한다.
+                # 잠재 리스크: _validate_and_record()의 fingerprint 기록 단계(관측
+                # 호출)만 계속 실패하고 validate() 자체는 계속 성공하는 상황이 생기면,
+                # 이 필드가 영원히 None으로 남아 매 tick마다 이 분기로 빠져 재웜업이
+                # 트리거되지 않는다. 두 실패가 겹쳐야 하는 좁은 경우이고, 위
+                # observed_started_at() 호출이 같은 backend 메서드를 쓰므로 지속적인
+                # 장애라면 그 호출도 함께 실패해 이 분기에 도달하기 전에 걸러지지만,
+                # 간헐적 실패 패턴에서는 이 분기가 계속 반복될 수 있다.
                 self.state_store.update(
                     lambda s: s.update(last_validated_container_started_at=observed_started_at)
                 )

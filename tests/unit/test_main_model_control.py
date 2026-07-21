@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
+from contextlib import contextmanager
 from dataclasses import replace
 from pathlib import Path
 
@@ -164,6 +166,72 @@ def test_boot_precedence_and_lock():
             locked=True,
             persisted_profile=None,
         )
+
+
+@contextmanager
+def _collect_records(logger_name: str):
+    # service_logger()가 propagate=False로 설정하므로(logging_policy.py)
+    # caplog도 capsys/capfd도 이 로거의 레코드를 못 잡는다 — caplog는 root
+    # logger로의 propagation에 의존하고, 모듈 레벨 StreamHandler는 import
+    # 시점에 sys.stderr를 한 번 바인딩해서 테스트별 capture fixture보다 먼저
+    # 고정돼버린다. 대신 이 로거에 핸들러를 직접 붙인다.
+    records: list[logging.LogRecord] = []
+
+    class _ListHandler(logging.Handler):
+        def emit(self, record: logging.LogRecord) -> None:
+            records.append(record)
+
+    logger = logging.getLogger(logger_name)
+    handler = _ListHandler()
+    logger.addHandler(handler)
+    try:
+        yield records
+    finally:
+        logger.removeHandler(handler)
+
+
+def test_manager_init_warns_when_persisted_profile_overrides_configured(tmp_path):
+    # 실제 장애 상황 회귀 테스트: persisted active_profile이 MAIN_LLM_BOOT_PROFILE과
+    # 달라 재시작 시 서빙 모델이 바뀌었는데 운영자가 눈치챌 방법이 없었다.
+    # resolve_boot_profile의 우선순위(persisted가 configured를 이긴다 — ADR-0017
+    # "부트 우선순위", test_boot_precedence_and_lock 참고)는 의도된 설계다 — 마지막
+    # 운영 결정을 재시작 후에도 유지하기 위함. 다만 그 사실이 조용히 넘어가면 안 된다.
+    loaded = catalog()
+    store = MainModelStateStore(tmp_path / "state.json", loaded.default_profile)
+    state = store.read()
+    state["active_profile"] = "gemma4-12b-unified-fp8"
+    store.write(state)
+
+    with _collect_records("ai_model_serving.main_model_control") as records:
+        manager = MainModelManager(
+            loaded,
+            store,
+            FakeBackend(),
+            boot_profile="gemma4-26b-a4b-fp8",
+        )
+
+    assert manager.boot_profile == "gemma4-12b-unified-fp8"
+    assert any("boot profile diverges" in record.getMessage() for record in records)
+
+
+def test_manager_init_locked_boot_profile_does_not_warn(tmp_path):
+    loaded = catalog()
+    store = MainModelStateStore(tmp_path / "state.json", loaded.default_profile)
+    state = store.read()
+    state["active_profile"] = "gemma4-12b-unified-fp8"
+    store.write(state)
+
+    with _collect_records("ai_model_serving.main_model_control") as records:
+        manager = MainModelManager(
+            loaded,
+            store,
+            FakeBackend(),
+            boot_profile="gemma4-26b-a4b-fp8",
+            profile_locked=True,
+        )
+
+    assert manager.boot_profile == "gemma4-26b-a4b-fp8"
+    assert not any("boot profile diverges" in record.getMessage() for record in records)
 
 
 def test_state_store_atomic_round_trip_and_corruption(tmp_path):
