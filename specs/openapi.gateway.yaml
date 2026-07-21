@@ -7572,7 +7572,11 @@ paths:
                 sidecar_unavailable:
                   summary: sidecar 연결 실패
                   value:
-                    detail: 'sidecar unavailable: Connection refused http://admin-sidecar:8080'
+                    error:
+                      code: MAIN_MODEL_CONTROL_UNAVAILABLE
+                      message: 'sidecar unavailable: Connection refused http://admin-sidecar:8080'
+                      retryable: true
+                      request_id: req_00000000000000000000000000000000
                 in_progress:
                   summary: 전환 중 (재시도 가능)
                   value:

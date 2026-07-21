@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Body, HTTPException
+from fastapi import APIRouter, Body
 
 from ..endpoint_spec import GATEWAY_ENDPOINTS
 from ...errors import ServiceError

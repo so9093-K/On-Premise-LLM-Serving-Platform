@@ -244,3 +244,70 @@ def test_validate_calls_structured_output_warmup_and_survives_its_failure(monkey
     assert len(structured_output_calls) == 1
     sent_body = json.loads(structured_output_calls[0].content)
     assert sent_body["response_format"] == backend_module._STRUCTURED_OUTPUT_WARMUP_SCHEMA
+
+
+def test_tool_call_warmup_tools_shape_is_a_valid_function_tool():
+    # --enable-auto-tool-choice --tool-call-parser gemma4 also goes through
+    # xgrammar constrained decoding, so it may hit the same Triton JIT cost as
+    # response_format=json_schema on an unwarmed engine. Locks the shape so it
+    # keeps matching the OpenAI-compatible `tools` contract (contracts/chat_tools.py).
+    tools = backend_module._TOOL_CALL_WARMUP_TOOLS
+    assert len(tools) == 1
+    tool = tools[0]
+    assert tool["type"] == "function"
+    function = tool["function"]
+    assert isinstance(function["name"], str) and function["name"]
+    assert function["parameters"]["type"] == "object"
+    assert set(function["parameters"]["required"]) <= set(function["parameters"]["properties"])
+
+
+def test_validate_calls_tool_calling_warmup_and_survives_its_failure(monkeypatch):
+    # Same regression shape as the structured-output warmup test above: validate()
+    # must actually send a tool_choice-forced warmup request, and a failure must
+    # not fail validate() as a whole.
+    catalog = load_main_model_catalog(ROOT / "configs/main_model_profiles.yaml")
+    profile = catalog.profiles["gemma4-26b-a4b-fp8"]
+    backend = DockerMainModelBackend("/var/run/docker.sock")
+
+    async def fake_container_id(service):
+        return "container-1"
+
+    async def fake_inspect(_container_id):
+        return {"State": {"Health": {"Status": "healthy"}}}
+
+    monkeypatch.setattr(backend, "_container_id", fake_container_id)
+    monkeypatch.setattr(backend, "_inspect", fake_inspect)
+
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        if request.url.path == str(catalog.runtime["models_path"]):
+            return httpx.Response(200, json={"data": [{"id": catalog.public_model}]})
+        payload = json.loads(request.content)
+        if "tool_choice" in payload:
+            # Simulate the tool-calling warmup itself failing — validate() must
+            # swallow this too, exactly like the structured-output warmup.
+            return httpx.Response(500, json={"error": "boom"})
+        return httpx.Response(200, json={"choices": [{"message": {"content": "OK"}}]})
+
+    real_async_client = httpx.AsyncClient
+
+    def fake_async_client(*args, **kwargs):
+        kwargs["transport"] = httpx.MockTransport(handler)
+        return real_async_client(*args, **kwargs)
+
+    monkeypatch.setattr(backend_module.httpx, "AsyncClient", fake_async_client)
+
+    asyncio.run(backend.validate(catalog, profile))  # must not raise
+
+    tool_call_warmup_calls = [
+        request
+        for request in requests
+        if request.url.path == str(catalog.runtime["chat_path"])
+        and "tool_choice" in json.loads(request.content)
+    ]
+    assert len(tool_call_warmup_calls) == 1
+    sent_body = json.loads(tool_call_warmup_calls[0].content)
+    assert sent_body["tools"] == backend_module._TOOL_CALL_WARMUP_TOOLS
+    assert sent_body["tool_choice"] == {"type": "function", "function": {"name": "warmup"}}

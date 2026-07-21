@@ -27,13 +27,6 @@ STANDARD_ERROR_DESCRIPTIONS: dict[str, str] = {
 POST_STANDARD_ERROR_CODES = ("401", "413", "422", "429", "500", "502", "503", "504")
 
 
-def _json_error_response(description: str, schema: dict[str, Any]) -> dict[str, Any]:
-    return {
-        "description": description,
-        "content": {"application/json": {"schema": copy.deepcopy(schema)}},
-    }
-
-
 def _status_to_codes() -> dict[str, list[str]]:
     """Reverse ERROR_STATUS into {http_status: [platform codes]} for per-status enums."""
     from .errors import ERROR_STATUS

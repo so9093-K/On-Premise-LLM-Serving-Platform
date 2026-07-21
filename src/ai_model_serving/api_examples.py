@@ -624,5 +624,10 @@ RUNTIME_ERROR_503_NO_SIDECAR_EXAMPLE: dict[str, Any] = {
 }
 
 RUNTIME_ERROR_503_SIDECAR_UNAVAILABLE_EXAMPLE: dict[str, Any] = {
-    "detail": "sidecar unavailable: Connection refused http://admin-sidecar:8080",
+    "error": {
+        "code": "MAIN_MODEL_CONTROL_UNAVAILABLE",
+        "message": "sidecar unavailable: Connection refused http://admin-sidecar:8080",
+        "retryable": True,
+        "request_id": "req_00000000000000000000000000000000",
+    },
 }

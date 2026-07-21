@@ -44,18 +44,18 @@
               },
               {
                 "color": "orange",
-                "value": 2684354560
+                "value": 3758096384
               },
               {
                 "color": "green",
-                "value": 3758096384
+                "value": 4294967296
               }
             ]
           }
         },
         "overrides": []
       },
-      "description": "Healthy: observed live headroom stays above 3.5GiB. Attention: 2.5-3.5GiB means reserve is thinning. Action Required: below 2.5GiB is red and needs load/context review. No Data: check dcgm-exporter scrape."
+      "description": "Healthy: observed live headroom stays above 4GiB (configs/gpu_budgets.yaml reserve_gib.watch_below). Attention: 3.5-4GiB means reserve is thinning. Action Required: below 3.5GiB is red (reserve_gib.hard_minimum) and needs load/context review. No Data: check dcgm-exporter scrape."
     },
     {
       "id": 2,
@@ -96,14 +96,14 @@
               },
               {
                 "color": "red",
-                "value": 48855252992
+                "value": 47781511168
               }
             ]
           }
         },
         "overrides": []
       },
-      "description": "Healthy: observed live VRAM stays below 44GiB. Attention: 44-45.5GiB is close to the configured reserve floor. Action Required: above 45.5GiB is red and needs immediate load/context review. No Data: check dcgm-exporter scrape."
+      "description": "Healthy: observed live VRAM stays below 44GiB. Attention: 44-44.5GiB is close to the configured reserve floor. Action Required: above 44.5GiB is red and needs immediate load/context review. No Data: check dcgm-exporter scrape."
     },
     {
       "id": 10,

@@ -27,6 +27,7 @@ COMPOSE_SCALAR_ARGS = (
     "model",
     "served_model_name",
     "port",
+    "revision",
     "max_model_len",
     "max_num_seqs",
     "max_num_batched_tokens",
@@ -145,8 +146,8 @@ def validate_production_compose_image_policy(
         if "build" in svc:
             errors.append(
                 f"ops/compose/full-stack.private-network.yaml service '{svc_name}' has a "
-                f"'build' block. Build blocks are only allowed in "
-                f"ops/compose/full-stack.local-build.yaml."
+                f"'build' block. Use `make build-image` (scripts/build/build_platform_image.sh) "
+                f"to build locally instead."
             )
 
     return errors

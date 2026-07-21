@@ -24,7 +24,6 @@ from ..detectors.protocol import RiskDetector
 from ..services.risk_assessment import RiskAssessmentService
 from ..security import require_bearer_auth
 from ..settings import AppSettings, SecuritySettings, load_settings
-from ..settings_parts.types import RiskDetectorSettings
 from ..upstream import VLLMClient
 from ..api_descriptions import RISK_ADAPTER_DESCRIPTION_TEMPLATE, RISK_ADAPTER_TAGS_METADATA
 from ..api_examples import AGGREGATE_EXAMPLES, PROMPT_EXAMPLES, PII_EXAMPLES, SECRET_EXAMPLES

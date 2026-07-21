@@ -7,6 +7,7 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
 
 from ..endpoint_spec import GATEWAY_ENDPOINTS
+from ...errors import error_payload
 from ...api_examples import (
     RUNTIME_BUDGET_EXCEEDED_EXAMPLE,
     RUNTIME_ERROR_404_EXAMPLE,
@@ -199,6 +200,20 @@ _DESIRED_STATE_SCHEMA = {
 
 def _container_name(base_url: str) -> str:
     return urlparse(base_url).hostname or ""
+
+
+def _sidecar_unavailable_response(exc: SidecarUnavailableError) -> JSONResponse:
+    # gateway_inference.py의 SidecarUnavailableError 처리와 동일한 code/retryable로
+    # 맞춘다. 이전에는 이 파일 전체가 raise HTTPException(503, ...)만 썼는데,
+    # StarletteHTTPException 제네릭 핸들러(app_kernel.py)는 retryable=False +
+    # code=MODEL_UNAVAILABLE로 나가서, 동일한 sidecar 장애가 /v1/chat/completions에서는
+    # retryable=True(Retry-After 포함)로, /admin/runtimes 계열에서는 retryable=False로
+    # 클라이언트에 다르게 보였다.
+    return JSONResponse(
+        error_payload("MAIN_MODEL_CONTROL_UNAVAILABLE", str(exc), True),
+        status_code=503,
+        headers={"Retry-After": "5"},
+    )
 
 
 def _budget_participant(budget: dict[str, Any] | None, key: str) -> dict[str, Any] | None:
@@ -413,7 +428,7 @@ def build_router(
             except SidecarRequestError as exc:  # GPU 예산 admission 거부
                 raise HTTPException(exc.status_code, detail=exc.detail) from exc
             except SidecarUnavailableError as exc:
-                raise HTTPException(503, detail=str(exc)) from exc
+                return _sidecar_unavailable_response(exc)
             return JSONResponse({
                 "service_key": "main",
                 "state": result.get("runtime_state", desired_state),
@@ -434,7 +449,7 @@ def build_router(
                 try:
                     actual = (await sidecar.get_status()).get(container)
                 except SidecarUnavailableError as exc:
-                    raise HTTPException(503, detail=str(exc)) from exc
+                    return _sidecar_unavailable_response(exc)
                 if actual == "running":
                     return JSONResponse({"service_key": service_key, "state": "active", "changed": False})
             if current_state == RuntimeState.starting:
@@ -469,7 +484,7 @@ def build_router(
                     reason="start_sidecar_unavailable",
                     source="runtime_control",
                 )
-                raise HTTPException(503, detail=str(exc)) from exc
+                return _sidecar_unavailable_response(exc)
             started_containers = list(result.get("started", []))
             evicted_containers = list(result.get("evicted", []))
             for evicted_container in evicted_containers:
@@ -510,7 +525,7 @@ def build_router(
                 try:
                     actual = (await sidecar.get_status()).get(container)
                 except SidecarUnavailableError as exc:
-                    raise HTTPException(503, detail=str(exc)) from exc
+                    return _sidecar_unavailable_response(exc)
                 if actual != "running":
                     return JSONResponse({"service_key": service_key, "state": "stopped", "changed": False})
             if current_state == RuntimeState.starting:
@@ -535,7 +550,7 @@ def build_router(
                     reason="stop_sidecar_unavailable",
                     source="runtime_control",
                 )
-                raise HTTPException(503, detail=str(exc)) from exc
+                return _sidecar_unavailable_response(exc)
             return JSONResponse({
                 "service_key": service_key,
                 "state": "stopped",
@@ -591,7 +606,7 @@ def build_router(
         try:
             return JSONResponse(await client.main_model())
         except SidecarUnavailableError as exc:
-            raise HTTPException(503, detail=str(exc)) from exc
+            return _sidecar_unavailable_response(exc)
 
     @router.get(
         "/admin/main-model/profiles",
@@ -646,7 +661,7 @@ def build_router(
         try:
             return JSONResponse({"profiles": await client.main_model_profiles()})
         except SidecarUnavailableError as exc:
-            raise HTTPException(503, detail=str(exc)) from exc
+            return _sidecar_unavailable_response(exc)
 
     @router.post(
         "/admin/main-model/switch",
@@ -732,7 +747,7 @@ def build_router(
         except SidecarRequestError as exc:
             raise HTTPException(exc.status_code, detail=exc.detail) from exc
         except SidecarUnavailableError as exc:
-            raise HTTPException(503, detail=str(exc)) from exc
+            return _sidecar_unavailable_response(exc)
 
     @router.get(
         "/admin/main-model/operations/{operation_id}",
@@ -762,7 +777,7 @@ def build_router(
         try:
             return JSONResponse(await client.main_model_operation(operation_id))
         except SidecarUnavailableError as exc:
-            raise HTTPException(503, detail=str(exc)) from exc
+            return _sidecar_unavailable_response(exc)
 
     # 메인 정지/시작은 별도 엔드포인트가 아니다: 메인 모델도 예산 참여자이며
     # 통일된 fleet verb인 PATCH /admin/runtimes/main {desired_state}로

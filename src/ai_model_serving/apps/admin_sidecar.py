@@ -62,17 +62,15 @@ _VRAM_FRACTION: dict[str, float] = dict(_TOPOLOGY.vram_fraction_by_service)
 # 표준 GPU VRAM 예산은 configs/gpu_budgets.yaml에 있다(단일 소스이며
 # modelctl/runtime_validation에서도 함께 사용된다). admission ceiling은
 # 그 정책의 "avoid_above" 비율 값이다.
+#
+# 의도적으로 strict하게 읽는다(누락/오타 시 기본값으로 조용히 폴백하지 않고
+# 바로 실패): 여기서 default(0.95)로 폴백하면 실제 정책값(0.93)보다 느슨한
+# ceiling으로 admission이 동작하게 되어, GPU 예산 초과를 막아야 할 안전장치가
+# 설정 오타 하나로 fail-open이 된다. runtime_validation/config_checks.py의
+# 동일 키 검증(strict bracket access)과 동작을 맞춘다.
 _gpu_budgets_path = APP_CONFIG_ROOT / "configs/gpu_budgets.yaml"
-_gpu_budgets_cfg = (
-    yaml.safe_load(_gpu_budgets_path.read_text(encoding="utf-8"))
-    if _gpu_budgets_path.exists()
-    else {}
-)
-_GPU_BUDGET_CEILING = float(
-    ((_gpu_budgets_cfg.get("gpu") or {}).get("total_gpu_memory_utilization") or {}).get(
-        "avoid_above", 0.95
-    )
-)
+_gpu_budgets_cfg = yaml.safe_load(_gpu_budgets_path.read_text(encoding="utf-8"))
+_GPU_BUDGET_CEILING = float(_gpu_budgets_cfg["gpu"]["total_gpu_memory_utilization"]["avoid_above"])
 
 _CRITICALITY: dict[str, str] = dict(_TOPOLOGY.criticality_by_service)
 # criticality별 eviction 정책: priority가 높을수록 더 나중에 evict된다. 주 사용자
@@ -295,9 +293,9 @@ async def _run_initialize() -> None:
 
 
 # main-llm-vllm이 admin-sidecar 제어 API를 거치지 않고 재시작됐는지(예: 운영자의 수동
-# `docker restart`) 주기적으로 감지하는 간격. 짧을수록 놓치는 창이 줄지만, 매 tick마다
-# Docker inspect 호출 하나뿐이라 30초 정도로도 부담은 미미하다.
-_RECONCILE_POLL_INTERVAL_SECONDS = 30
+# `docker restart`) 주기적으로 감지하는 간격. 매 tick마다 lock 획득 + Docker inspect
+# 호출 하나뿐이라 부담이 사실상 없어서, 놓치는 창을 줄이는 쪽으로 짧게 잡았다.
+_RECONCILE_POLL_INTERVAL_SECONDS = 10
 
 
 async def _run_reconciliation_loop() -> None:

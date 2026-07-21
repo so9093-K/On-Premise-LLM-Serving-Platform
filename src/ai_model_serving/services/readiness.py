@@ -7,7 +7,7 @@ from typing import Any
 
 from ..errors import ServiceError
 from ..metrics import Metrics
-from ..status import NOT_READY, PHASE_SERVING, PHASE_WAITING_FOR_DEPENDENCIES, READY, overall_readiness, readiness_phase
+from ..status import NOT_READY, READY, overall_readiness, readiness_phase
 
 ReadinessEvaluator = Callable[[dict[str, Any]], tuple[str, str | None]]
 

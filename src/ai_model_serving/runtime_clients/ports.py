@@ -32,8 +32,3 @@ class StreamingRuntimeClient(JsonRuntimeClient, Protocol):
         headers: Mapping[str, str] | None = None,
     ) -> AsyncIterator[bytes]:
         ...
-
-
-class ClosableRuntimeClient(Protocol):
-    async def aclose(self) -> None:
-        ...

@@ -586,30 +586,37 @@ class MainModelManager:
             self.state_store.update(commit)
 
     async def initialize(self) -> None:
-        if self.state_store.read().get("runtime_state") == "stopped":
-            # 재시작 간에도 운영자가 의도적으로 내린 stop을 존중한다: 다시 끌어올려
-            # reconcile하는 대신 main 런타임을 내려간 상태로, gate를 닫힌 상태로 둔다.
-            self.state_store.update(lambda s: s.update(gate="closed"))
-            return
-        observed = await self.backend.observed_profile(self.catalog)
-        interrupted = self.state_store.read().get("last_operation")
-        if interrupted and interrupted.get("status") not in _TERMINAL_STATES:
-            await self._recover_interrupted(interrupted, observed)
-            return
-        target = self.boot_profile
-        if observed == target:
-            await self._validate_and_record(self.catalog.profiles[target])
-            self._commit_boot(target)
-            return
-        # compose 시작 과정에서는 먼저 정적으로 선언된 baseline 컨테이너가 healthy
-        # 상태가 되도록 둔다. Compose가 아직 해당 컨테이너를 기다리는 동안 교체하면
-        # dependency orchestration이 무효화될 수 있다. baseline이 관측 가능해지면
-        # gate를 닫고 백그라운드에서 reconcile한다; Gateway는 persisted target이
-        # validate될 때까지 fail closed 상태를 유지한다.
-        if observed in self.catalog.profiles:
-            await self._validate_and_record(self.catalog.profiles[observed])
-        self.state_store.update(lambda state: state.update(gate="closed"))
-        self.request_switch(target, confirm_unverified=True, boot_reconcile=True)
+        # self._lock을 잡는다 — 안 그러면 이 부팅 시퀀스(자체적으로 validate()를 여러
+        # 번 호출할 수 있어 수십 초가 걸릴 수 있다)가 진행되는 동안 reconcile_if_restarted()의
+        # 첫 tick이 같은 컨테이너에 대해 동시에 또 다른 validate()를 돌릴 수 있었다
+        # (reconcile은 락을 잡지만 initialize()는 원래 안 잡고 있었다). request_switch()는
+        # 동기적으로 background task만 스케줄하고 반환하므로(락은 그 task 안에서 잡는다),
+        # 여기서 호출해도 데드락은 없다.
+        async with self._lock:
+            if self.state_store.read().get("runtime_state") == "stopped":
+                # 재시작 간에도 운영자가 의도적으로 내린 stop을 존중한다: 다시 끌어올려
+                # reconcile하는 대신 main 런타임을 내려간 상태로, gate를 닫힌 상태로 둔다.
+                self.state_store.update(lambda s: s.update(gate="closed"))
+                return
+            observed = await self.backend.observed_profile(self.catalog)
+            interrupted = self.state_store.read().get("last_operation")
+            if interrupted and interrupted.get("status") not in _TERMINAL_STATES:
+                await self._recover_interrupted(interrupted, observed)
+                return
+            target = self.boot_profile
+            if observed == target:
+                await self._validate_and_record(self.catalog.profiles[target])
+                self._commit_boot(target)
+                return
+            # compose 시작 과정에서는 먼저 정적으로 선언된 baseline 컨테이너가 healthy
+            # 상태가 되도록 둔다. Compose가 아직 해당 컨테이너를 기다리는 동안 교체하면
+            # dependency orchestration이 무효화될 수 있다. baseline이 관측 가능해지면
+            # gate를 닫고 백그라운드에서 reconcile한다; Gateway는 persisted target이
+            # validate될 때까지 fail closed 상태를 유지한다.
+            if observed in self.catalog.profiles:
+                await self._validate_and_record(self.catalog.profiles[observed])
+            self.state_store.update(lambda state: state.update(gate="closed"))
+            self.request_switch(target, confirm_unverified=True, boot_reconcile=True)
 
     async def _recover_interrupted(
         self, operation: dict[str, Any], observed: str | None

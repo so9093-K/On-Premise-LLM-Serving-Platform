@@ -30,6 +30,27 @@ _STRUCTURED_OUTPUT_WARMUP_SCHEMA = {
     },
 }
 
+# --enable-auto-tool-choice --tool-call-parser gemma4도 xgrammar 기반 제약 디코딩을
+# 거치므로, 위 json_schema 웜업과 같은 Triton JIT 이슈(apply_token_bitmask_inplace_kernel)를
+# 별도로 겪을 수 있다 — 다만 두 경로가 같은 커널을 공유한다면(Triton JIT은 보통 커널
+# 단위로 캐싱되지 스키마 내용 단위가 아니다) 이미 위 웜업으로 예열됐을 수도 있다.
+# 실제로 별개인지는 미확인이라, 이 호출 자체가 가장 싼 검증 수단이기도 하다: 배포
+# 로그에 새 JIT 이벤트가 뜨면 별개였다는 뜻이고, 안 뜨면 이미 커버되고 있었다는 뜻이다.
+_TOOL_CALL_WARMUP_TOOLS = [
+    {
+        "type": "function",
+        "function": {
+            "name": "warmup",
+            "description": "Warmup no-op tool.",
+            "parameters": {
+                "type": "object",
+                "properties": {"ok": {"type": "boolean"}},
+                "required": ["ok"],
+            },
+        },
+    }
+]
+
 
 _AUDIO_CANARY_M4A_B64 = TINY_M4A_AAC_B64
 _VIDEO_CANARY_MP4_B64 = TINY_MP4_VIDEO_B64
@@ -390,6 +411,25 @@ class DockerMainModelBackend:
                 )
             except httpx.HTTPError as exc:
                 _logger.warning("structured-output warmup canary failed (non-fatal): %s", exc)
+            # Best-effort tool-calling warmup: 위 json_schema 웜업과 같은 이유(별개의
+            # JIT 이벤트일 수도, 이미 커버됐을 수도 있음 — _TOOL_CALL_WARMUP_TOOLS 주석
+            # 참고). tool_choice를 특정 함수로 강제해 실제로 제약 디코딩 경로를 태운다
+            # (그냥 tools만 실어 보내면 모델이 tool을 안 쓰고 일반 텍스트로 답할 수 있어
+            # 이 경로를 타지 않을 수 있다).
+            try:
+                await client.post(
+                    base + str(catalog.runtime["chat_path"]),
+                    json={
+                        "model": catalog.public_model,
+                        "messages": [{"role": "user", "content": "Call the warmup tool."}],
+                        "max_tokens": 16,
+                        "temperature": 0,
+                        "tools": _TOOL_CALL_WARMUP_TOOLS,
+                        "tool_choice": {"type": "function", "function": {"name": "warmup"}},
+                    },
+                )
+            except httpx.HTTPError as exc:
+                _logger.warning("tool-calling warmup canary failed (non-fatal): %s", exc)
             # Media boot canary: 해당 modality를 실제로 배포하는 profile에 대해서만
             # 수행한다. gate가 열리기 전에 런타임이 컨테이너 media를 디코드할 수
             # 있음을 증명하여, 지원한다고 표시되었지만 실제로는 깨진 modality가

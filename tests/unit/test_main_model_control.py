@@ -696,6 +696,46 @@ def test_reconcile_if_restarted_propagates_validate_failure_without_updating_fin
     assert store.read()["last_validated_container_started_at"] == "boot-0"
 
 
+def test_initialize_and_reconcile_do_not_validate_concurrently(tmp_path):
+    # Regression guard: initialize() used to run unlocked, so a reconcile tick
+    # firing while a slow boot-time validate() was still in flight could kick
+    # off a second, fully concurrent validate() against the same container.
+    # Both now take self._lock, so at most one backend.validate() call is ever
+    # in flight at a time. Whichever of the two runs second also benefits from
+    # re-reading state *after* acquiring the lock: by the time it gets in, the
+    # first one has already recorded the new container fingerprint, so it sees
+    # no more drift and skips re-validating entirely — proving both mutual
+    # exclusion (max_concurrent == 1) and no redundant duplicate work
+    # (validate() ends up called exactly once, not twice).
+    loaded = catalog()
+    store = _active_store(tmp_path, loaded, started_at="boot-0")
+    backend = FakeBackend(loaded.default_profile, started_at="boot-1")
+    manager = MainModelManager(loaded, store, backend)
+
+    concurrent = 0
+    max_concurrent = 0
+    real_validate = backend.validate
+
+    async def tracking_validate(catalog_, profile):
+        nonlocal concurrent, max_concurrent
+        concurrent += 1
+        max_concurrent = max(max_concurrent, concurrent)
+        await asyncio.sleep(0.02)  # force an await point where an unlocked race would show up
+        await real_validate(catalog_, profile)
+        concurrent -= 1
+
+    backend.validate = tracking_validate
+
+    async def run_both():
+        await asyncio.gather(manager.initialize(), manager.reconcile_if_restarted())
+
+    asyncio.run(run_both())
+
+    assert len(backend.validate_calls) == 1
+    assert max_concurrent == 1
+    assert store.read()["last_validated_container_started_at"] == "boot-1"
+
+
 def test_initialize_respects_deliberate_stop(tmp_path):
     loaded = catalog()
     store = MainModelStateStore(tmp_path / "state.json", loaded.default_profile)

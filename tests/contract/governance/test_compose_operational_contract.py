@@ -256,5 +256,5 @@ def test_production_compose_files_have_no_build_blocks() -> None:
         for svc_name, svc in compose["services"].items():
             assert "build" not in svc, (
                 f"{rel}: service '{svc_name}' must not have a 'build' block. "
-                f"Use ops/compose/full-stack.local-build.yaml for local builds."
+                f"Use `make build-image` (scripts/build/build_platform_image.sh) for local builds."
             )

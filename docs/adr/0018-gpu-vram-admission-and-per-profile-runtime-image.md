@@ -150,19 +150,29 @@ Audio/video는 0017과 동일하게 기본 inert다. 활성화는 게이트된 �
   `docker restart` 자체를 막는 유일한 방법은 여전히 위 운영 규율(제어 API만 사용)이다 —
   `ready-full`은 CI 배포 경로의 방어선일 뿐, 운영자가 배포 파이프라인 밖에서 수동으로
   재시작한 뒤 `ready-full`을 안 돌리면 여전히 못 잡는다.
-- **근본 해법도 같은 날 구현했다**: admin-sidecar에 30초 간격 reconciliation 루프
+- **근본 해법도 같은 날 구현했다**: admin-sidecar에 10초 간격 reconciliation 루프
   (`_run_reconciliation_loop` → `MainModelManager.reconcile_if_restarted()`)를 추가했다.
   매 tick마다 `DockerMainModelBackend.observed_started_at()`으로 컨테이너의 실제
   Docker `State.StartedAt`을 관측해, 마지막으로 `validate()`가 성공했을 때 기록해둔
   값(`last_validated_container_started_at`, state store에 영속화)과 다르면 admin-sidecar가
   전혀 모르는 사이에 컨테이너가 재시작된 것으로 간주하고 `validate()`를 다시 돈다.
-  **gate는 닫지 않기로 결정했다** — 닫아도 노출 창이 poll 간격(30초)이 아니라 웜업 호출
+  **gate는 닫지 않기로 결정했다** — 닫아도 노출 창이 poll 간격이 아니라 웜업 호출
   자체의 소요 시간(수 초) 수준으로 짧아, 그 몇 초 동안 요청이 깨끗한 503을 받는 것과
   느리거나 잘린 200을 받는 것의 차이일 뿐이고, 지금까지는 그 몇 초조차 전혀 못 잡던
   상태에서 순개선이라는 판단이다. 진행 중인 전환·복구 작업과는 기존 `self._lock`을
-  그대로 재사용해 경합하지 않는다. 이제 raw `docker`/`compose restart`도 최대 30초
-  이내에 자동으로 재검증된다 — 위의 "제어 API만 사용" 운영 규율은 여전히 권장이지만,
-  더 이상 유일한 방어선은 아니다.
+  그대로 재사용해 경합하지 않는다. poll 간격은 tick당 비용이 lock 획득 + inspect
+  하나뿐이라 부담이 없어 짧게(10초) 잡았다 — 이제 raw `docker`/`compose restart`도
+  최대 10초 이내에 자동으로 재검증된다. 위의 "제어 API만 사용" 운영 규율은 여전히
+  권장이지만, 더 이상 유일한 방어선은 아니다.
+- **tool-calling 웜업도 추가했다**: main-llm 커맨드의 `--enable-auto-tool-choice
+  --tool-call-parser gemma4`도 xgrammar 기반 제약 디코딩을 거치므로, 위
+  `response_format:json_schema`와 같은 Triton JIT 이슈를 별도로 겪을 수 있다는
+  가설로 `validate()`에 `tool_choice`를 특정 함수로 강제하는 best-effort 웜업 호출을
+  하나 더 추가했다(`_TOOL_CALL_WARMUP_TOOLS`). 다만 Triton JIT 캐시는 보통 스키마
+  내용이 아니라 커널 단위로 캐싱되므로, 두 경로가 같은 `apply_token_bitmask_inplace_kernel`을
+  공유한다면 이미 json_schema 웜업만으로 예열됐을 가능성도 있다 — 실제로 별개의 JIT
+  이벤트인지는 로그로 미확인이며, 이 웜업 호출 자체가 가장 싼 검증 수단이다(배포
+  로그에 새 JIT 이벤트가 뜨면 별개, 안 뜨면 이미 커버되고 있었다는 뜻).
 - **범위 한정**: 이 웜업은 로그에서 직접 관측된 JIT 이벤트에 대한 예방 조치이며, 별도로
   신고된 CSO classifier 클라이언트의 타임아웃 사고와는 무관하다. 그 사고는 실제 재현
   테스트(`finish_reason: length`, 응답 content 직접 확인)로 원인이 확정됐다 — 클라이언트

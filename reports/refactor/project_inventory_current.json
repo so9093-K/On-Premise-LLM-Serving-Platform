@@ -86,8 +86,8 @@
         "category": "OpenAPI/JSON schema contract",
         "owner": "api-contracts",
         "management": "managed by root project metadata",
-        "size_bytes": 343101,
-        "line_count": 9184,
+        "size_bytes": 343299,
+        "line_count": 9188,
         "role": "structured-data",
         "review_note": "supporting project file"
       },
@@ -97,7 +97,7 @@
         "category": "current handoff/review report",
         "owner": "handoff-reporting",
         "management": "generated/curated for handoff review",
-        "size_bytes": 192661,
+        "size_bytes": 192662,
         "line_count": 5389,
         "role": "structured-data",
         "review_note": "handoff/review artifact; avoid stale phase snapshots in active package"
@@ -141,10 +141,21 @@
         "category": "application/control-plane source",
         "owner": "application",
         "management": "managed by package source layout",
-        "size_bytes": 40045,
-        "line_count": 870,
+        "size_bytes": 45044,
+        "line_count": 952,
         "role": "python-source",
         "review_note": "application code; preserve public API behavior and compatibility facades"
+      },
+      {
+        "path": "tests/unit/test_main_model_control.py",
+        "area": "tests",
+        "category": "test suite",
+        "owner": "quality",
+        "management": "managed by test strategy",
+        "size_bytes": 33584,
+        "line_count": 897,
+        "role": "python-source",
+        "review_note": "test coverage; keep deterministic and avoid live GPU dependency"
       },
       {
         "path": "src/ai_model_serving/api/routers/gateway_runtime_control.py",
@@ -152,8 +163,8 @@
         "category": "application/control-plane source",
         "owner": "application",
         "management": "managed by package source layout",
-        "size_bytes": 35439,
-        "line_count": 772,
+        "size_bytes": 36159,
+        "line_count": 787,
         "role": "python-source",
         "review_note": "application code; preserve public API behavior and compatibility facades"
       },
@@ -167,17 +178,6 @@
         "line_count": 762,
         "role": "python-source",
         "review_note": "operator/developer command; expose through Makefile/help if user-facing"
-      },
-      {
-        "path": "tests/unit/test_main_model_control.py",
-        "area": "tests",
-        "category": "test suite",
-        "owner": "quality",
-        "management": "managed by test strategy",
-        "size_bytes": 26788,
-        "line_count": 741,
-        "role": "python-source",
-        "review_note": "test coverage; keep deterministic and avoid live GPU dependency"
       },
       {
         "path": "src/ai_model_serving/contracts/media.py",
@@ -207,10 +207,21 @@
         "category": "compose/monitoring/runtime ops template",
         "owner": "operations",
         "management": "managed by operator templates",
-        "size_bytes": 17810,
+        "size_bytes": 17884,
         "line_count": 700,
         "role": "structured-data",
         "review_note": "supporting project file"
+      },
+      {
+        "path": "src/ai_model_serving/api_examples.py",
+        "area": "src",
+        "category": "application/control-plane source",
+        "owner": "application",
+        "management": "managed by package source layout",
+        "size_bytes": 23616,
+        "line_count": 633,
+        "role": "python-source",
+        "review_note": "application code; preserve public API behavior and compatibility facades"
       },
       {
         "path": "src/ai_model_serving/api/endpoint_spec.py",
@@ -219,17 +230,6 @@
         "owner": "application",
         "management": "managed by package source layout",
         "size_bytes": 27095,
-        "line_count": 628,
-        "role": "python-source",
-        "review_note": "application code; preserve public API behavior and compatibility facades"
-      },
-      {
-        "path": "src/ai_model_serving/api_examples.py",
-        "area": "src",
-        "category": "application/control-plane source",
-        "owner": "application",
-        "management": "managed by package source layout",
-        "size_bytes": 23450,
         "line_count": 628,
         "role": "python-source",
         "review_note": "application code; preserve public API behavior and compatibility facades"
@@ -452,8 +452,8 @@
       "category": "project metadata",
       "owner": "project-maintenance",
       "management": "managed by root project metadata",
-      "size_bytes": 23075,
-      "line_count": 83,
+      "size_bytes": 24046,
+      "line_count": 84,
       "role": "documentation",
       "review_note": "supporting project file"
     },
@@ -980,8 +980,8 @@
       "category": "architecture decision record",
       "owner": "documentation",
       "management": "managed by documentation map",
-      "size_bytes": 11883,
-      "line_count": 163,
+      "size_bytes": 13773,
+      "line_count": 182,
       "role": "documentation",
       "review_note": "documentation; keep relative links valid and avoid duplicating current command flow"
     },
@@ -1651,7 +1651,7 @@
       "category": "compose/monitoring/runtime ops template",
       "owner": "operations",
       "management": "managed by operator templates",
-      "size_bytes": 17810,
+      "size_bytes": 17884,
       "line_count": 700,
       "role": "structured-data",
       "review_note": "supporting project file"
@@ -1849,7 +1849,7 @@
       "category": "current handoff/review report",
       "owner": "handoff-reporting",
       "management": "generated/curated for handoff review",
-      "size_bytes": 94795,
+      "size_bytes": 94796,
       "line_count": 467,
       "role": "structured-data",
       "review_note": "handoff/review artifact; avoid stale phase snapshots in active package"
@@ -1860,7 +1860,7 @@
       "category": "current handoff/review report",
       "owner": "handoff-reporting",
       "management": "generated/curated for handoff review",
-      "size_bytes": 192661,
+      "size_bytes": 192662,
       "line_count": 5389,
       "role": "structured-data",
       "review_note": "handoff/review artifact; avoid stale phase snapshots in active package"
@@ -1893,8 +1893,8 @@
       "category": "runtime/operator generated report",
       "owner": "handoff-reporting",
       "management": "generated by operator report commands",
-      "size_bytes": 1723,
-      "line_count": 69,
+      "size_bytes": 12557,
+      "line_count": 441,
       "role": "structured-data",
       "review_note": "generated operator report; regenerate through make operator-reports before handoff"
     },
@@ -1904,8 +1904,8 @@
       "category": "runtime/operator generated report",
       "owner": "handoff-reporting",
       "management": "generated by operator report commands",
-      "size_bytes": 1734,
-      "line_count": 46,
+      "size_bytes": 2250,
+      "line_count": 61,
       "role": "documentation",
       "review_note": "generated operator report; regenerate through make operator-reports before handoff"
     },
@@ -2234,8 +2234,8 @@
       "category": "operator/developer command surface",
       "owner": "operator-ux",
       "management": "managed by Makefile command UX",
-      "size_bytes": 16215,
-      "line_count": 415,
+      "size_bytes": 15989,
+      "line_count": 405,
       "role": "python-source",
       "review_note": "operator/developer command; expose through Makefile/help if user-facing"
     },
@@ -2344,8 +2344,8 @@
       "category": "operator/developer command surface",
       "owner": "operator-ux",
       "management": "managed by Makefile command UX",
-      "size_bytes": 11349,
-      "line_count": 276,
+      "size_bytes": 11380,
+      "line_count": 277,
       "role": "python-source",
       "review_note": "operator/developer command; expose through Makefile/help if user-facing"
     },
@@ -2960,8 +2960,8 @@
       "category": "OpenAPI/JSON schema contract",
       "owner": "api-contracts",
       "management": "managed by root project metadata",
-      "size_bytes": 343101,
-      "line_count": 9184,
+      "size_bytes": 343299,
+      "line_count": 9188,
       "role": "structured-data",
       "review_note": "supporting project file"
     },
@@ -3213,7 +3213,7 @@
       "category": "application/control-plane source",
       "owner": "application",
       "management": "managed by package source layout",
-      "size_bytes": 4447,
+      "size_bytes": 4432,
       "line_count": 127,
       "role": "python-source",
       "review_note": "application code; preserve public API behavior and compatibility facades"
@@ -3224,8 +3224,8 @@
       "category": "application/control-plane source",
       "owner": "application",
       "management": "managed by package source layout",
-      "size_bytes": 35439,
-      "line_count": 772,
+      "size_bytes": 36159,
+      "line_count": 787,
       "role": "python-source",
       "review_note": "application code; preserve public API behavior and compatibility facades"
     },
@@ -3268,8 +3268,8 @@
       "category": "application/control-plane source",
       "owner": "application",
       "management": "managed by package source layout",
-      "size_bytes": 23450,
-      "line_count": 628,
+      "size_bytes": 23616,
+      "line_count": 633,
       "role": "python-source",
       "review_note": "application code; preserve public API behavior and compatibility facades"
     },
@@ -3301,8 +3301,8 @@
       "category": "application/control-plane source",
       "owner": "application",
       "management": "managed by package source layout",
-      "size_bytes": 22378,
-      "line_count": 547,
+      "size_bytes": 24278,
+      "line_count": 573,
       "role": "python-source",
       "review_note": "application code; preserve public API behavior and compatibility facades"
     },
@@ -3334,8 +3334,8 @@
       "category": "application/control-plane source",
       "owner": "application",
       "management": "managed by package source layout",
-      "size_bytes": 6154,
-      "line_count": 152,
+      "size_bytes": 6098,
+      "line_count": 151,
       "role": "python-source",
       "review_note": "application code; preserve public API behavior and compatibility facades"
     },
@@ -3356,8 +3356,8 @@
       "category": "application/control-plane source",
       "owner": "application",
       "management": "managed by package source layout",
-      "size_bytes": 25804,
-      "line_count": 542,
+      "size_bytes": 25794,
+      "line_count": 541,
       "role": "python-source",
       "review_note": "application code; preserve public API behavior and compatibility facades"
     },
@@ -3554,8 +3554,8 @@
       "category": "application/control-plane source",
       "owner": "application",
       "management": "managed by package source layout",
-      "size_bytes": 19671,
-      "line_count": 431,
+      "size_bytes": 22787,
+      "line_count": 488,
       "role": "python-source",
       "review_note": "application code; preserve public API behavior and compatibility facades"
     },
@@ -3807,8 +3807,8 @@
       "category": "application/control-plane source",
       "owner": "application",
       "management": "managed by package source layout",
-      "size_bytes": 40045,
-      "line_count": 870,
+      "size_bytes": 45044,
+      "line_count": 952,
       "role": "python-source",
       "review_note": "application code; preserve public API behavior and compatibility facades"
     },
@@ -3884,8 +3884,8 @@
       "category": "application/control-plane source",
       "owner": "application",
       "management": "managed by package source layout",
-      "size_bytes": 12883,
-      "line_count": 273,
+      "size_bytes": 12664,
+      "line_count": 266,
       "role": "python-source",
       "review_note": "application code; preserve public API behavior and compatibility facades"
     },
@@ -3972,8 +3972,8 @@
       "category": "application/control-plane source",
       "owner": "application",
       "management": "managed by package source layout",
-      "size_bytes": 815,
-      "line_count": 39,
+      "size_bytes": 726,
+      "line_count": 34,
       "role": "python-source",
       "review_note": "application code; preserve public API behavior and compatibility facades"
     },
@@ -4192,7 +4192,7 @@
       "category": "application/control-plane source",
       "owner": "application",
       "management": "managed by package source layout",
-      "size_bytes": 3211,
+      "size_bytes": 3164,
       "line_count": 85,
       "role": "python-source",
       "review_note": "application code; preserve public API behavior and compatibility facades"
@@ -4247,8 +4247,8 @@
       "category": "application/control-plane source",
       "owner": "application",
       "management": "managed by package source layout",
-      "size_bytes": 13999,
-      "line_count": 289,
+      "size_bytes": 13891,
+      "line_count": 285,
       "role": "python-source",
       "review_note": "application code; preserve public API behavior and compatibility facades"
     },
@@ -4555,7 +4555,7 @@
       "category": "test suite",
       "owner": "quality",
       "management": "managed by test strategy",
-      "size_bytes": 11958,
+      "size_bytes": 11977,
       "line_count": 260,
       "role": "python-source",
       "review_note": "test coverage; keep deterministic and avoid live GPU dependency"
@@ -5083,8 +5083,8 @@
       "category": "test suite",
       "owner": "quality",
       "management": "managed by test strategy",
-      "size_bytes": 8587,
-      "line_count": 216,
+      "size_bytes": 12817,
+      "line_count": 313,
       "role": "python-source",
       "review_note": "test coverage; keep deterministic and avoid live GPU dependency"
     },
@@ -5171,8 +5171,8 @@
       "category": "test suite",
       "owner": "quality",
       "management": "managed by test strategy",
-      "size_bytes": 26788,
-      "line_count": 741,
+      "size_bytes": 33584,
+      "line_count": 897,
       "role": "python-source",
       "review_note": "test coverage; keep deterministic and avoid live GPU dependency"
     },

@@ -148,16 +148,6 @@ def _build_scan_paths(strict: bool) -> list[Path]:
     return scan_paths
 
 
-def _is_archive_path(path: Path) -> bool:
-    for archive_dir in DOCS_ARCHIVE_DIRS:
-        try:
-            path.relative_to(archive_dir)
-            return True
-        except ValueError:
-            pass
-    return False
-
-
 def _collect_make_refs_in_docs(strict: bool) -> tuple[set[str], set[str]]:
     """(strict 검사 대상 refs, archive-only refs) 반환."""
     scan_paths = _build_scan_paths(strict)
