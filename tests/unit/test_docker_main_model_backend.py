@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import asyncio
+import json
+
+import httpx
 
 import ai_model_serving.docker_main_model_backend as backend_module
 from ai_model_serving.docker_main_model_backend import DockerMainModelBackend
@@ -145,6 +148,36 @@ def test_observed_profile_accepts_matching_command_and_runtime_image(monkeypatch
     assert asyncio.run(backend.observed_profile(catalog)) == profile.profile_id
 
 
+def test_observed_started_at_returns_container_state_started_at(monkeypatch):
+    catalog = load_main_model_catalog(ROOT / "configs/main_model_profiles.yaml")
+    backend = DockerMainModelBackend("/var/run/docker.sock")
+
+    async def fake_container_id(service):
+        assert service == catalog.runtime["compose_service"]
+        return "container-1"
+
+    async def fake_inspect(_container_id):
+        return {"State": {"Status": "running", "StartedAt": "2026-07-21T00:00:00.123456789Z"}}
+
+    monkeypatch.setattr(backend, "_container_id", fake_container_id)
+    monkeypatch.setattr(backend, "_inspect", fake_inspect)
+
+    result = asyncio.run(backend.observed_started_at(catalog))
+    assert result == "2026-07-21T00:00:00.123456789Z"
+
+
+def test_observed_started_at_returns_none_when_container_absent(monkeypatch):
+    catalog = load_main_model_catalog(ROOT / "configs/main_model_profiles.yaml")
+    backend = DockerMainModelBackend("/var/run/docker.sock")
+
+    async def fake_container_id(service):
+        return None
+
+    monkeypatch.setattr(backend, "_container_id", fake_container_id)
+
+    assert asyncio.run(backend.observed_started_at(catalog)) is None
+
+
 def test_structured_output_warmup_schema_is_a_valid_strict_json_schema_response_format():
     # The text canary in validate() never sets response_format, so without a
     # dedicated warmup call the xgrammar/Triton constrained-decoding kernel is
@@ -159,3 +192,55 @@ def test_structured_output_warmup_schema_is_a_valid_strict_json_schema_response_
     assert json_schema["schema"]["type"] == "object"
     assert json_schema["schema"]["additionalProperties"] is False
     assert set(json_schema["schema"]["required"]) <= set(json_schema["schema"]["properties"])
+
+
+def test_validate_calls_structured_output_warmup_and_survives_its_failure(monkeypatch):
+    # Regression guard for the fix in ADR-0018's 2026-07-20 update: validate()
+    # must actually send the response_format=json_schema warmup request (not
+    # just define the schema constant), and a failing warmup must not fail the
+    # whole validate() call (it's pure JIT pre-warming, not a correctness gate).
+    catalog = load_main_model_catalog(ROOT / "configs/main_model_profiles.yaml")
+    profile = catalog.profiles["gemma4-26b-a4b-fp8"]
+    backend = DockerMainModelBackend("/var/run/docker.sock")
+
+    async def fake_container_id(service):
+        return "container-1"
+
+    async def fake_inspect(_container_id):
+        return {"State": {"Health": {"Status": "healthy"}}}
+
+    monkeypatch.setattr(backend, "_container_id", fake_container_id)
+    monkeypatch.setattr(backend, "_inspect", fake_inspect)
+
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        if request.url.path == str(catalog.runtime["models_path"]):
+            return httpx.Response(200, json={"data": [{"id": catalog.public_model}]})
+        payload = json.loads(request.content)
+        if payload.get("response_format", {}).get("type") == "json_schema":
+            # Simulate the warmup call itself failing (e.g. transient 500) —
+            # validate() must swallow this, not propagate it.
+            return httpx.Response(500, json={"error": "boom"})
+        return httpx.Response(200, json={"choices": [{"message": {"content": "OK"}}]})
+
+    real_async_client = httpx.AsyncClient
+
+    def fake_async_client(*args, **kwargs):
+        kwargs["transport"] = httpx.MockTransport(handler)
+        return real_async_client(*args, **kwargs)
+
+    monkeypatch.setattr(backend_module.httpx, "AsyncClient", fake_async_client)
+
+    asyncio.run(backend.validate(catalog, profile))  # must not raise
+
+    structured_output_calls = [
+        request
+        for request in requests
+        if request.url.path == str(catalog.runtime["chat_path"])
+        and json.loads(request.content).get("response_format", {}).get("type") == "json_schema"
+    ]
+    assert len(structured_output_calls) == 1
+    sent_body = json.loads(structured_output_calls[0].content)
+    assert sent_body["response_format"] == backend_module._STRUCTURED_OUTPUT_WARMUP_SCHEMA

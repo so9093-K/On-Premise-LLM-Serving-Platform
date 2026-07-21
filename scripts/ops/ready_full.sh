@@ -256,8 +256,19 @@ skip_runtime() {
 # 나머지 inference 경로들을 best-effort로 데워서, 엄격한 smoke gate가 갓 (재)기동된
 # vLLM의 첫 요청 503과 race하지 않도록 한다. 절대 fatal하지 않다: chat gate는 위의
 # wait_for_main_model_ready가 처리하며, 실제 gate는 smoke이다.
+#
+# structured-output 웜업은 DockerMainModelBackend.validate()가 이미 admin-sidecar
+# 제어 API 경로(전환/시작)에서 수행하는 것과 동일한 목적이다 — xgrammar 제약 디코딩
+# Triton 커널(apply_token_bitmask_inplace_kernel)이 response_format:json_schema
+# 요청에서 최초 1회 JIT 컴파일되므로, compose가 main-llm-vllm만 recreate하고
+# admin-sidecar는 안 건드리는 배포 경로(예: main_model_profiles.yaml 변경으로 인한
+# rolling->full 자동 승격)에서는 admin-sidecar의 validate()가 재실행되지 않아 이
+# 웜업을 놓친다. 여기서 한 번 더 쏴서 그 경로를 커버한다(ADR-0018 Update 참고).
 warm_inference_paths_best_effort() {
   echo "[ready-full] warming inference paths (best-effort, up to ${READY_FULL_INFERENCE_WARMUP_SECONDS}s each)..."
+  warm_one_endpoint "main-llm structured output (json_schema)" "$GATEWAY_BASE_URL/v1/chat/completions" \
+    '{"model":"local-main","messages":[{"role":"user","content":"Reply with {\"ok\": true}."}],"max_tokens":16,"temperature":0,"response_format":{"type":"json_schema","json_schema":{"name":"warmup","schema":{"type":"object","properties":{"ok":{"type":"boolean"}},"required":["ok"],"additionalProperties":false},"strict":true}}}' \
+    "$API_KEY" || true
   if ! skip_runtime risk_prompt; then
     warm_one_endpoint "risk" "$GATEWAY_BASE_URL/v1/risk/assessments" \
       '{"prompt":"warmup"}' "$API_KEY" || true

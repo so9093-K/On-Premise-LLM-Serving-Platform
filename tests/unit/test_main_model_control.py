@@ -27,6 +27,7 @@ class FakeBackend:
         fail_profile: str | None = None,
         fail_drain: bool = False,
         fail_prepare: bool = False,
+        started_at: str | None = "boot-0",
     ) -> None:
         self.observed = observed
         self.fail_profile = fail_profile
@@ -38,6 +39,12 @@ class FakeBackend:
         self.stopped = 0
         self.started = 0
         self.running = observed is not None
+        # 컨테이너의 관측된 Docker State.StartedAt을 흉내낸다. 테스트가 외부에서
+        # main-llm-vllm이 재시작된 상황(admin-sidecar 제어 API를 안 거친 경우)을
+        # 시뮬레이션하려면 validate() 호출 사이에 이 값을 바꿔주면 된다.
+        self.started_at = started_at
+        self.observed_started_at_calls = 0
+        self.validate_calls: list[str] = []
 
     async def observed_profile(self, catalog):
         return self.observed
@@ -68,8 +75,13 @@ class FakeBackend:
             raise RuntimeError("drain timed out")
 
     async def validate(self, catalog, profile):
+        self.validate_calls.append(profile.profile_id)
         if profile.profile_id == self.fail_profile:
             raise RuntimeError("validation failed")
+
+    async def observed_started_at(self, catalog):
+        self.observed_started_at_calls += 1
+        return self.started_at
 
 
 def catalog():
@@ -578,6 +590,110 @@ def test_start_main_recreates_container_when_observed_profile_does_not_match(tmp
     assert snap["active_profile"]["id"] == "gemma4-12b-unified-fp8"
     assert snap["runtime_state"] == "active"
     assert snap["gate"] == "open"
+
+
+def _active_store(tmp_path, loaded, *, started_at: str | None = "boot-0"):
+    store = MainModelStateStore(tmp_path / "state.json", loaded.default_profile)
+    store.write({
+        **store.read(),
+        "active_profile": loaded.default_profile,
+        "gate": "open",
+        "runtime_state": "active",
+        "last_validated_container_started_at": started_at,
+    })
+    return store
+
+
+def test_reconcile_if_restarted_noop_when_container_fingerprint_unchanged(tmp_path):
+    loaded = catalog()
+    store = _active_store(tmp_path, loaded, started_at="boot-0")
+    backend = FakeBackend(loaded.default_profile, started_at="boot-0")
+    manager = MainModelManager(loaded, store, backend)
+
+    asyncio.run(manager.reconcile_if_restarted())
+
+    assert backend.validate_calls == []
+    assert manager.snapshot()["gate"] == "open"
+
+
+def test_reconcile_if_restarted_records_baseline_without_warmup_on_first_observation(tmp_path):
+    # A state file written before this feature existed has no
+    # last_validated_container_started_at yet. The first tick must record a
+    # baseline instead of treating "no prior fingerprint" as drift — otherwise
+    # every existing deployment would get one spurious extra warmup on upgrade.
+    loaded = catalog()
+    store = _active_store(tmp_path, loaded, started_at=None)
+    backend = FakeBackend(loaded.default_profile, started_at="boot-0")
+    manager = MainModelManager(loaded, store, backend)
+
+    asyncio.run(manager.reconcile_if_restarted())
+
+    assert backend.validate_calls == []
+    assert manager.snapshot()  # still readable
+    state = store.read()
+    assert state["last_validated_container_started_at"] == "boot-0"
+
+
+def test_reconcile_if_restarted_rewarms_without_closing_gate_on_drift(tmp_path):
+    # Simulates an operator running `docker restart main-llm-vllm` directly:
+    # the container's observed StartedAt moves without this controller ever
+    # calling start()/replace(). reconcile_if_restarted() must catch this,
+    # re-run validate() (which re-triggers the structured-output/media
+    # warmup), and must NOT close the gate while doing so.
+    loaded = catalog()
+    store = _active_store(tmp_path, loaded, started_at="boot-0")
+    backend = FakeBackend(loaded.default_profile, started_at="boot-1")
+    manager = MainModelManager(loaded, store, backend)
+
+    asyncio.run(manager.reconcile_if_restarted())
+
+    assert backend.validate_calls == [loaded.default_profile]
+    state = store.read()
+    assert state["last_validated_container_started_at"] == "boot-1"
+    assert state["gate"] == "open"
+
+
+def test_reconcile_if_restarted_skips_when_runtime_stopped(tmp_path):
+    loaded = catalog()
+    store = _active_store(tmp_path, loaded, started_at="boot-0")
+    store.update(lambda s: s.update(runtime_state="stopped"))
+    backend = FakeBackend(loaded.default_profile, started_at="boot-1")
+    manager = MainModelManager(loaded, store, backend)
+
+    asyncio.run(manager.reconcile_if_restarted())
+
+    assert backend.observed_started_at_calls == 0
+    assert backend.validate_calls == []
+
+
+def test_reconcile_if_restarted_skips_while_operation_in_progress(tmp_path):
+    loaded = catalog()
+    store = _active_store(tmp_path, loaded, started_at="boot-0")
+    store.update(lambda s: s.update(last_operation={"id": "op-1", "status": "starting"}))
+    backend = FakeBackend(loaded.default_profile, started_at="boot-1")
+    manager = MainModelManager(loaded, store, backend)
+
+    asyncio.run(manager.reconcile_if_restarted())
+
+    assert backend.validate_calls == []
+
+
+def test_reconcile_if_restarted_propagates_validate_failure_without_updating_fingerprint(tmp_path):
+    # A failing re-validate must not silently mark the new (still JIT-cold, or
+    # possibly broken) container as validated — the caller (the background
+    # reconciliation loop) is responsible for catching this and retrying on
+    # the next tick.
+    loaded = catalog()
+    store = _active_store(tmp_path, loaded, started_at="boot-0")
+    backend = FakeBackend(
+        loaded.default_profile, started_at="boot-1", fail_profile=loaded.default_profile
+    )
+    manager = MainModelManager(loaded, store, backend)
+
+    with pytest.raises(RuntimeError, match="validation failed"):
+        asyncio.run(manager.reconcile_if_restarted())
+
+    assert store.read()["last_validated_container_started_at"] == "boot-0"
 
 
 def test_initialize_respects_deliberate_stop(tmp_path):

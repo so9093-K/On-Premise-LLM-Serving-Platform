@@ -130,9 +130,39 @@ Audio/video는 0017과 동일하게 기본 inert다. 활성화는 게이트된 �
   경로에서 모두 호출되므로 이 한 곳의 수정으로 세 경로가 함께 커버된다.
 - 알려진 잔여 gap: `validate()`는 **admin-sidecar 프로세스가 (재)시작할 때**만
   `initialize()`를 거쳐 실행된다. main-llm-vllm 컨테이너만 단독으로(`docker restart`) 재시작하는
-  운영 조치는 admin-sidecar를 건드리지 않으므로 이 웜업을 타지 않는다 — 그런 경우 이어서
-  admin-sidecar도 재시작해 `initialize()`를 재트리거하거나, `make ready-full`을 수동 실행해야
-  한다.
+  운영 조치는 admin-sidecar를 건드리지 않으므로 이 웜업을 타지 않는다.
+  **main-llm-vllm 재시작은 반드시 admin-sidecar 제어 API(`PATCH /admin/runtimes/main`,
+  `MainModelManager.start_main()`)로만 수행한다** — 이 경로는 매번 `validate()`를 호출해
+  웜업이 정확히 돈다. raw `docker`/`compose restart`로 직접 건드리는 건 금지 대상이다.
+
+## Update (2026-07-21)
+
+- 위 gap 중 "compose가 main-llm-vllm만 recreate하는 배포 경로"(예: `configs/main_model_profiles.yaml`
+  변경으로 인한 rolling→full 자동 승격, `main-llm-vllm`만 `compute_recreate_set`에 걸리고
+  admin-sidecar 이미지는 안 바뀌는 경우)는 admin-sidecar 제어 API를 거치지 않으므로 여전히
+  구멍이었다. `scripts/ops/ready_full.sh`의 `warm_inference_paths_best_effort()`에
+  `response_format: json_schema` 웜업 호출을 추가해 이 경로를 커버했다 — `DockerMainModelBackend`가
+  쓰는 것과 동일한 스키마(`{"type":"object","properties":{"ok":{"type":"boolean"}},...,"strict":true}`)이며
+  best-effort(실패해도 `ready-full`을 abort시키지 않음)다.
+- 이전 버전이 대안으로 제시했던 "`make ready-full`을 수동 실행해도 된다"는 **틀린 정보였다** —
+  `ready-full`은 이 업데이트 전까지 risk/embedding/embedding_ko만 데웠고 structured output은
+  전혀 건드리지 않았다. 이제는 사실이 됐지만, admin-sidecar를 건드리지 않는 완전 수동
+  `docker restart` 자체를 막는 유일한 방법은 여전히 위 운영 규율(제어 API만 사용)이다 —
+  `ready-full`은 CI 배포 경로의 방어선일 뿐, 운영자가 배포 파이프라인 밖에서 수동으로
+  재시작한 뒤 `ready-full`을 안 돌리면 여전히 못 잡는다.
+- **근본 해법도 같은 날 구현했다**: admin-sidecar에 30초 간격 reconciliation 루프
+  (`_run_reconciliation_loop` → `MainModelManager.reconcile_if_restarted()`)를 추가했다.
+  매 tick마다 `DockerMainModelBackend.observed_started_at()`으로 컨테이너의 실제
+  Docker `State.StartedAt`을 관측해, 마지막으로 `validate()`가 성공했을 때 기록해둔
+  값(`last_validated_container_started_at`, state store에 영속화)과 다르면 admin-sidecar가
+  전혀 모르는 사이에 컨테이너가 재시작된 것으로 간주하고 `validate()`를 다시 돈다.
+  **gate는 닫지 않기로 결정했다** — 닫아도 노출 창이 poll 간격(30초)이 아니라 웜업 호출
+  자체의 소요 시간(수 초) 수준으로 짧아, 그 몇 초 동안 요청이 깨끗한 503을 받는 것과
+  느리거나 잘린 200을 받는 것의 차이일 뿐이고, 지금까지는 그 몇 초조차 전혀 못 잡던
+  상태에서 순개선이라는 판단이다. 진행 중인 전환·복구 작업과는 기존 `self._lock`을
+  그대로 재사용해 경합하지 않는다. 이제 raw `docker`/`compose restart`도 최대 30초
+  이내에 자동으로 재검증된다 — 위의 "제어 API만 사용" 운영 규율은 여전히 권장이지만,
+  더 이상 유일한 방어선은 아니다.
 - **범위 한정**: 이 웜업은 로그에서 직접 관측된 JIT 이벤트에 대한 예방 조치이며, 별도로
   신고된 CSO classifier 클라이언트의 타임아웃 사고와는 무관하다. 그 사고는 실제 재현
   테스트(`finish_reason: length`, 응답 content 직접 확인)로 원인이 확정됐다 — 클라이언트

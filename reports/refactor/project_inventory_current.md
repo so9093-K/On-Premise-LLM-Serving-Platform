@@ -69,19 +69,19 @@ Command:
 | 경로 | 줄 수 | 담당 | 검토 메모 |
 |---|---:|---|---|
 | `specs/openapi.gateway.yaml` | 9184 | api-contracts | supporting project file |
-| `reports/refactor/project_inventory_current.json` | 5268 | handoff-reporting | handoff/review artifact; avoid stale phase snapshots in active package |
+| `reports/refactor/project_inventory_current.json` | 5389 | handoff-reporting | handoff/review artifact; avoid stale phase snapshots in active package |
 | `specs/openapi.risk-adapter.yaml` | 3538 | api-contracts | supporting project file |
 | `configs/command_registry.yaml` | 2150 | configuration | configuration source; validate through governance and projection checks after edits |
-| `scripts/ci/deploy_gitlab_compose.sh` | 1160 | operator-ux | operator/developer command; expose through Makefile/help if user-facing |
-| `src/ai_model_serving/main_model_control.py` | 871 | application | application code; preserve public API behavior and compatibility facades |
-| `src/ai_model_serving/api/routers/gateway_runtime_control.py` | 768 | application | application code; preserve public API behavior and compatibility facades |
+| `scripts/ci/deploy_gitlab_compose.sh` | 1162 | operator-ux | operator/developer command; expose through Makefile/help if user-facing |
+| `src/ai_model_serving/main_model_control.py` | 870 | application | application code; preserve public API behavior and compatibility facades |
+| `src/ai_model_serving/api/routers/gateway_runtime_control.py` | 772 | application | application code; preserve public API behavior and compatibility facades |
 | `scripts/render_runtime_assets.py` | 762 | operator-ux | operator/developer command; expose through Makefile/help if user-facing |
 | `tests/unit/test_main_model_control.py` | 741 | quality | test coverage; keep deterministic and avoid live GPU dependency |
-| `src/ai_model_serving/contracts/media.py` | 712 | api-contracts | application code; preserve public API behavior and compatibility facades |
+| `src/ai_model_serving/contracts/media.py` | 713 | api-contracts | application code; preserve public API behavior and compatibility facades |
 | `reports/runtime/operator_status_bundle.json` | 710 | handoff-reporting | generated operator report; regenerate through make operator-reports before handoff |
 | `ops/grafana/dashboards/gpu_capacity_and_oom_risk.json` | 700 | operations | supporting project file |
 | `src/ai_model_serving/api/endpoint_spec.py` | 628 | application | application code; preserve public API behavior and compatibility facades |
-| `src/ai_model_serving/api_examples.py` | 627 | application | application code; preserve public API behavior and compatibility facades |
+| `src/ai_model_serving/api_examples.py` | 628 | application | application code; preserve public API behavior and compatibility facades |
 | `tests/unit/gateway/helpers.py` | 597 | quality | test coverage; keep deterministic and avoid live GPU dependency |
 
 ## 관리 해석

@@ -128,6 +128,23 @@ class DockerMainModelBackend:
         inspected = await self._inspect(container_id)
         return inspected.get("State", {}).get("Status") == "running"
 
+    async def observed_started_at(self, catalog: MainModelCatalog) -> str | None:
+        """Return the running container's Docker State.StartedAt, or None if absent.
+
+        Used by MainModelManager.reconcile_if_restarted() to detect a container
+        restart that bypassed this controller entirely (e.g. `docker restart`
+        run directly instead of through the admin API) — such a restart resets
+        the vLLM process's Triton JIT cache but this controller would otherwise
+        never notice and never re-run the warmup in validate().
+        """
+        service = str(catalog.runtime["compose_service"])
+        container_id = await self._container_id(service)
+        if container_id is None:
+            return None
+        inspected = await self._inspect(container_id)
+        started_at = inspected.get("State", {}).get("StartedAt")
+        return str(started_at) if started_at else None
+
     async def stop(self, catalog: MainModelCatalog) -> None:
         """Stop (but keep) the main runtime container to reclaim its VRAM."""
         service = str(catalog.runtime["compose_service"])

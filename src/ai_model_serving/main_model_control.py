@@ -13,6 +13,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, NamedTuple, Protocol
 
+from .logging_policy import service_logger
+
+_logger = service_logger("main_model_control")
+
 
 class SwitchOutcome(NamedTuple):
     """Result of request_switch.
@@ -287,6 +291,11 @@ class MainModelStateStore:
             "gate": "closed",
             "runtime_state": "active",
             "last_operation": None,
+            # DockerMainModelBackend.observed_started_at()가 관측한, 마지막으로 validate()가
+            # 성공했을 때의 컨테이너 State.StartedAt. reconcile_if_restarted()가 이 값과
+            # 현재 관측값을 비교해 admin-sidecar를 거치지 않은 외부 재시작(예: 수동
+            # `docker restart`)을 감지한다.
+            "last_validated_container_started_at": None,
             "operations": [],
             "stats": {
                 "switch_requests": 0,
@@ -400,6 +409,7 @@ class MainModelRuntimeBackend(Protocol):
     async def stop(self, catalog: MainModelCatalog) -> None: ...
     async def start(self, catalog: MainModelCatalog) -> None: ...
     async def is_running(self, catalog: MainModelCatalog) -> bool: ...
+    async def observed_started_at(self, catalog: MainModelCatalog) -> str | None: ...
 
 
 class MainModelManager:
@@ -473,6 +483,71 @@ class MainModelManager:
                 return operation
         return None
 
+    async def _validate_and_record(self, profile: MainModelProfile) -> None:
+        """Run backend.validate() and record the container instance it validated.
+
+        Every validate() call site should go through this instead of calling
+        backend.validate() directly, so reconcile_if_restarted() has an accurate
+        "last known-good container" fingerprint to diff against. Recording is
+        best-effort: a failure to fetch/store the fingerprint must never turn a
+        successful validate() into a failure for the caller (switch/start/etc).
+        """
+        await self.backend.validate(self.catalog, profile)
+        try:
+            started_at = await self.backend.observed_started_at(self.catalog)
+        except Exception as exc:  # noqa: BLE001 - 순수 부기(bookkeeping)이며 validate() 성공을 뒤집으면 안 된다
+            _logger.warning("failed to record container fingerprint after validate(): %s", exc)
+            return
+        if started_at is not None:
+            self.state_store.update(
+                lambda s: s.update(last_validated_container_started_at=started_at)
+            )
+
+    async def reconcile_if_restarted(self) -> None:
+        """Detect a main-llm-vllm restart that bypassed this controller entirely
+        (e.g. an operator running `docker restart main-llm-vllm` directly instead
+        of the admin API) and re-run validate() so structured-output/media warmup
+        still happens. Intended to be polled periodically in the background.
+
+        Does not close the gate: the exposure window this closes is only as long
+        as validate()'s own HTTP calls take (a few seconds), not the poll
+        interval, so the extra downtime from gating was judged not worth it.
+        """
+        async with self._lock:
+            state = self.state_store.read()
+            if state.get("runtime_state") == "stopped":
+                return
+            last_operation = state.get("last_operation")
+            if last_operation and last_operation.get("status") not in _TERMINAL_STATES:
+                return  # 진행 중인 전환/복구와 경합하지 않는다
+            active_id = state.get("active_profile")
+            if active_id not in self.catalog.profiles:
+                return
+            try:
+                observed_started_at = await self.backend.observed_started_at(self.catalog)
+            except Exception as exc:  # noqa: BLE001 - 다음 tick에 다시 시도한다
+                _logger.warning("reconciliation could not observe container start time: %s", exc)
+                return
+            if observed_started_at is None:
+                return  # 컨테이너가 없음 — initialize()/start_main()이 처리할 문제
+            last_validated = state.get("last_validated_container_started_at")
+            if last_validated is None:
+                # 이 필드가 아직 없는 상태(신규 배포 직후)이거나 최초 관측 —
+                # drift로 취급해 불필요한 웜업을 트리거하지 않고 기준선만 기록한다.
+                self.state_store.update(
+                    lambda s: s.update(last_validated_container_started_at=observed_started_at)
+                )
+                return
+            if observed_started_at == last_validated:
+                return  # 컨테이너가 그대로임 — 조치 불필요
+            _logger.warning(
+                "main-llm-vllm container restarted outside admin-sidecar control "
+                "(observed StartedAt=%s, last validated=%s); re-warming without closing the gate",
+                observed_started_at,
+                last_validated,
+            )
+            await self._validate_and_record(self.catalog.profiles[active_id])
+
     async def stop_main(self) -> None:
         """Drain and stop the main runtime to reclaim its VRAM.
 
@@ -502,7 +577,7 @@ class MainModelManager:
             observed = await self.backend.observed_profile(self.catalog)
             if observed != active_id:
                 await self.backend.replace(self.catalog, profile)
-            await self.backend.validate(self.catalog, profile)
+            await self._validate_and_record(profile)
 
             def commit(state: dict[str, Any]) -> None:
                 state["runtime_state"] = "active"
@@ -523,7 +598,7 @@ class MainModelManager:
             return
         target = self.boot_profile
         if observed == target:
-            await self.backend.validate(self.catalog, self.catalog.profiles[target])
+            await self._validate_and_record(self.catalog.profiles[target])
             self._commit_boot(target)
             return
         # compose 시작 과정에서는 먼저 정적으로 선언된 baseline 컨테이너가 healthy
@@ -532,7 +607,7 @@ class MainModelManager:
         # gate를 닫고 백그라운드에서 reconcile한다; Gateway는 persisted target이
         # validate될 때까지 fail closed 상태를 유지한다.
         if observed in self.catalog.profiles:
-            await self.backend.validate(self.catalog, self.catalog.profiles[observed])
+            await self._validate_and_record(self.catalog.profiles[observed])
         self.state_store.update(lambda state: state.update(gate="closed"))
         self.request_switch(target, confirm_unverified=True, boot_reconcile=True)
 
@@ -543,7 +618,7 @@ class MainModelManager:
         requested = operation.get("requested_profile")
         previous = operation.get("previous_profile")
         if observed == requested and requested in self.catalog.profiles:
-            await self.backend.validate(self.catalog, self.catalog.profiles[requested])
+            await self._validate_and_record(self.catalog.profiles[requested])
             def commit(state: dict[str, Any]) -> None:
                 if previous and previous != requested:
                     state["previous_known_good_profile"] = previous
@@ -555,7 +630,7 @@ class MainModelManager:
             self._record_terminal(operation_id, success=True)
             return
         if observed == previous and previous in self.catalog.profiles:
-            await self.backend.validate(self.catalog, self.catalog.profiles[previous])
+            await self._validate_and_record(self.catalog.profiles[previous])
             def rollback_commit(state: dict[str, Any]) -> None:
                 state["active_profile"] = previous
                 state["last_known_good_profile"] = previous
@@ -807,7 +882,7 @@ class MainModelManager:
             self._set_operation(operation_id, "starting")
             await self.backend.replace(self.catalog, target)
             self._set_operation(operation_id, "validating")
-            await self.backend.validate(self.catalog, target)
+            await self._validate_and_record(target)
         except Exception as exc:
             if not entered_replace_phase:
                 self._set_operation(operation_id, "failed", error=str(exc))
@@ -829,7 +904,7 @@ class MainModelManager:
                 previous = self.catalog.profiles[previous_id]
                 try:
                     await self.backend.replace(self.catalog, previous)
-                    await self.backend.validate(self.catalog, previous)
+                    await self._validate_and_record(previous)
                 except Exception as rollback_exc:
                     self._set_operation(
                         operation_id,

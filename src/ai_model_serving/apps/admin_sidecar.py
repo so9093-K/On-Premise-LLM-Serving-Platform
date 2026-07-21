@@ -16,6 +16,7 @@ from fastapi.responses import JSONResponse
 
 from ..docker_main_model_backend import DockerMainModelBackend
 from ..gpu_budget import Participant, budget_snapshot, plan_activation
+from ..logging_policy import service_logger
 from ..main_model_control import (
     MainModelManager,
     MainModelStateError,
@@ -25,6 +26,8 @@ from ..main_model_control import (
     load_main_model_catalog,
 )
 from ..runtime_topology import load_runtime_topology
+
+_logger = service_logger("admin_sidecar")
 
 # --------------------------------------------------------------------- config
 
@@ -291,6 +294,25 @@ async def _run_initialize() -> None:
         _initialized.set()
 
 
+# main-llm-vllm이 admin-sidecar 제어 API를 거치지 않고 재시작됐는지(예: 운영자의 수동
+# `docker restart`) 주기적으로 감지하는 간격. 짧을수록 놓치는 창이 줄지만, 매 tick마다
+# Docker inspect 호출 하나뿐이라 30초 정도로도 부담은 미미하다.
+_RECONCILE_POLL_INTERVAL_SECONDS = 30
+
+
+async def _run_reconciliation_loop() -> None:
+    # reconcile_if_restarted() 자체가 예상 가능한 실패(inspect 실패 등)는 내부에서
+    # 처리하고 다음 tick으로 넘어가므로, 여기서 잡히는 예외는 프로그래밍 오류에
+    # 가깝다. 그래도 루프를 죽이지 않는다 — 죽으면 이후 재시작 감지가 프로세스
+    # 수명 내내 영구히 멈춘다.
+    while True:
+        await asyncio.sleep(_RECONCILE_POLL_INTERVAL_SECONDS)
+        try:
+            await _main_model_manager.reconcile_if_restarted()
+        except Exception as exc:  # noqa: BLE001
+            _logger.warning("main-model reconciliation tick failed: %s", exc)
+
+
 @asynccontextmanager
 async def _lifespan(app: FastAPI):
     del app
@@ -304,10 +326,16 @@ async def _lifespan(app: FastAPI):
     init_task = asyncio.create_task(_run_initialize())
     _BACKGROUND_TASKS.add(init_task)
     init_task.add_done_callback(_BACKGROUND_TASKS.discard)
+    # 이 루프는 initialize()와 달리 main-llm이 healthy해지길 기다리지 않는다 —
+    # 그냥 30초마다 자고 관측만 하므로 sidecar startup을 절대 지연시키지 않는다.
+    reconcile_task = asyncio.create_task(_run_reconciliation_loop())
+    _BACKGROUND_TASKS.add(reconcile_task)
+    reconcile_task.add_done_callback(_BACKGROUND_TASKS.discard)
     try:
         yield
     finally:
         init_task.cancel()
+        reconcile_task.cancel()
 
 
 # --------------------------------------------------------------------- app
