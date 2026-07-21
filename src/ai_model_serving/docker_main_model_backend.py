@@ -9,7 +9,7 @@ from typing import Any
 
 import httpx
 
-from .logging_policy import service_logger
+from .service_logging import service_logger
 from .main_model_control import MainModelCatalog, MainModelProfile
 from .media_samples import TINY_M4A_AAC_B64, TINY_MP4_VIDEO_B64
 from .model_cache import prepare_model_snapshot

@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, NamedTuple, Protocol
 
-from .logging_policy import service_logger
+from .service_logging import service_logger
 
 _logger = service_logger("main_model_control")
 

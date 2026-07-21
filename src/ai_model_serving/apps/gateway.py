@@ -15,7 +15,7 @@ from ..app_kernel import (
     register_scalar_docs,
 )
 from ..errors import ServiceError
-from ..logging_policy import service_logger
+from ..service_logging import service_logger
 from ..metrics import Metrics
 from ..openapi_contracts import install_contract_openapi
 from ..security import require_bearer_auth

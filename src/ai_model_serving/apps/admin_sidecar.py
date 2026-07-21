@@ -16,7 +16,7 @@ from fastapi.responses import JSONResponse
 
 from ..docker_main_model_backend import DockerMainModelBackend
 from ..gpu_budget import Participant, budget_snapshot, plan_activation
-from ..logging_policy import service_logger
+from ..service_logging import service_logger
 from ..main_model_control import (
     MainModelManager,
     MainModelStateError,

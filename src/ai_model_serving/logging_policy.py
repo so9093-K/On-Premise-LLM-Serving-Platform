@@ -10,42 +10,18 @@ from starlette.requests import Request
 from starlette.responses import Response
 
 from .errors import request_id_from_headers
+# service_logger/scrub_for_log은 starlette 없이도 써야 하는 호출부(예: 순수 YAML/카탈로그
+# 검증 스크립트가 도는 최소 venv)가 있어 service_logging.py로 분리했다 — 여기서는
+# 하위호환을 위해 재수출만 한다.
+from .service_logging import scrub_for_log, service_logger
 
-SENSITIVE_KEYS = {
-    "prompt",
-    "raw_prompt",
-    "messages",
-    "input",
-    "authorization",
-    "api_key",
-    "token",
-    "password",
-    "secret",
-    "generated_text",
-    "model_output",
-}
-
-
-def scrub_for_log(value: Any) -> Any:
-    if isinstance(value, dict):
-        return {
-            key: "[REDACTED]" if key.lower() in SENSITIVE_KEYS else scrub_for_log(item)
-            for key, item in value.items()
-        }
-    if isinstance(value, list):
-        return [scrub_for_log(item) for item in value]
-    return value
-
-
-def service_logger(service: str) -> logging.Logger:
-    logger = logging.getLogger(f"ai_model_serving.{service}")
-    if not logger.handlers:
-        handler = logging.StreamHandler()
-        handler.setFormatter(logging.Formatter("%(message)s"))
-        logger.addHandler(handler)
-    logger.propagate = False
-    logger.setLevel(logging.INFO)
-    return logger
+__all__ = [
+    "scrub_for_log",
+    "service_logger",
+    "safe_request_log_record",
+    "log_request_completion",
+    "safe_request_logging_middleware",
+]
 
 
 def _first_forwarded_for(headers: Any) -> str | None:
