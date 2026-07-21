@@ -1,12 +1,17 @@
 #!/usr/bin/env python3
 """Carry two local fixes for Gemma 4 *unified* multimodal on the pinned
-``vllm/vllm-openai:gemma4-unified-cu129`` + transformers stack.
+``vllm/vllm-openai:v0.25.1-cu129`` + transformers stack.
 
-Both are upstream bugs reproduced on this exact image (vLLM
-``0.1.dev17235+gf52870f26.d20260603`` / transformers ``5.10.1``); this image carries
-the fix until they land upstream. Each edit is guarded by an ``assert`` on the
-upstream layout, so a base-image bump that invalidates a patch fails the build
-loudly instead of shipping a silently broken runtime.
+원래는 vLLM ``0.1.dev17235+gf52870f26.d20260603`` / transformers ``5.10.1``
+기준으로 작성됐다. vLLM ``0.25.1``(transformers ``5.13.1``)로 올리면서 같은
+생성자 호출에 ``prefix=`` 인자가 추가돼 FIX 1의 anchor를 갱신했다 — 실제 GPU
+로드(12B FP8 프로필, 구조화 출력 요청)로 이 버전에서 ``Using V2 Model Runner``가
+선택되고, 이 프로젝트의 웜업 우회 코드가 존재하는 이유였던
+``apply_token_bitmask_inplace_kernel`` JIT 갭이 더 이상 재현되지 않는 것까지
+확인했다. 그래도 여전히 upstream 버그라 정식으로 고쳐질 때까지 이미지가 로컬
+fix를 들고 있는 것이다. 각 수정은 upstream 레이아웃에 대한 ``assert``로
+보호되어 있어서, base 이미지가 바뀌어 패치가 안 맞으면 조용히 깨진 런타임을
+띄우는 대신 빌드가 시끄럽게 실패한다.
 
 Without these, ``gemma4-12b-unified-fp8`` serves text correctly but:
   * image requests return pad-only output (``finish_reason=length``); and
@@ -41,6 +46,7 @@ src = open(gemma4_unified).read()
 needle = (
     "            bias=True,\n"
     "            quant_config=quant_config,\n"
+    "            prefix=f\"{prefix}.patch_dense\",\n"
     "            gather_output=True,"
 )
 assert needle in src, "patch_dense block not found — vLLM gemma4_unified.py layout changed"
@@ -49,6 +55,7 @@ patched = src.replace(
     (
         "            bias=True,\n"
         "            quant_config=None,  # LOCAL FIX: ignore-list prefix mismatch else FP8-corrupts vision proj\n"
+        "            prefix=f\"{prefix}.patch_dense\",\n"
         "            gather_output=True,"
     ),
     1,

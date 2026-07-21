@@ -11,10 +11,18 @@ variables:
   PYTEST_DISABLE_PLUGIN_AUTOLOAD: "1"
   PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
   DOCKER_BUILDKIT: "1"
-  # Common base image for all vLLM-derived runtime images
-  # (risk-vllm-kanana and vllm-gemma4-audio).
-  # Override via CI/CD variable VLLM_BASE_IMAGE to switch base without editing this file.
+  # risk-vllm-kanana(다른 모델, 별도 검증 없이 올리지 말 것)가 쓰는 base image.
+  # CI/CD 변수 VLLM_BASE_IMAGE로 이 파일을 안 고치고도 base를 바꿀 수 있다.
   VLLM_BASE_IMAGE: "vllm/vllm-openai@sha256:f4492643056969529a74238f71dd66dc3097c0d433156a4f4478456bf84bd276"
+  # vllm-gemma4-audio(unified encoder-free 멀티모달 계열) 전용 base image.
+  # VLLM_BASE_IMAGE와 분리해둬서 한쪽을 올려도 다른 쪽이 조용히 같이 딸려오지 않게 했다.
+  # v0.25.1에서는 dense 양자화 모델에 Model Runner V2가 기본 적용돼, 이전에 고정해뒀던
+  # dev 빌드에서 겪던 구조화 출력 JIT-웜업 갭이 닫힌다 — 실제 GPU 로드로 검증함
+  # (ops/patches/apply_gemma4_multimodal_patches.py 참고).
+  # MoE 아키텍처(Gemma4ForConditionalGeneration)에는 적용 안 됨(vLLM
+  # DEFAULT_V2_MODEL_RUNNER_ARCHITECTURES 화이트리스트에 없음) — 그 계열은 계속
+  # VLLM_BASE_IMAGE를 쓴다.
+  AUDIO_VLLM_BASE_IMAGE: "vllm/vllm-openai@sha256:6a090ed9d4a3739813ce355cbd63d4c34c987a25c8409796f24912ba71c2d4a4"
 
   PLATFORM_IMAGE_SHA: "$CI_REGISTRY_IMAGE/platform:$CI_COMMIT_SHORT_SHA"
   PLATFORM_IMAGE_REF: "$CI_REGISTRY_IMAGE/platform:$CI_COMMIT_REF_SLUG"

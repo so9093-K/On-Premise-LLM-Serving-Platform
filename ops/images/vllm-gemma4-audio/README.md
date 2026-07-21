@@ -1,7 +1,7 @@
 # Gemma 4 unified 12B multimodal — build & activation runbook
 
 `gemma4-12b-unified-fp8` cannot serve image **or** audio on the stock
-`vllm/vllm-openai:gemma4-unified-cu129` base — only text works there. This derived
+`vllm/vllm-openai:v0.25.1-cu129` base — only text works there. This derived
 image fixes all three blockers (each reproduced and verified live on 2026-06-25):
 
 1. **media I/O** — the base lacks the audited decode stack (`libsndfile1` +
@@ -21,6 +21,15 @@ asserts on the upstream layout, so a base bump fails the build) — please repor
 upstream so the patches can be dropped. The patches touch only the `gemma4_unified`
 code path and the decode libs are otherwise unused, so 26B (a different `gemma4`
 architecture) behaves identically on this image — it is safe as a per-profile override.
+
+`v0.25.1-cu129`로의 교체(2026-07-21)는 별개의 추가 수정이다: Model Runner V2가 dense
+양자화 모델에 기본 적용되면서, 이 프로필의 `docker_main_model_backend.py` 웜업
+우회 코드가 존재하는 이유였던 구조화 출력 JIT-웜업 갭이 닫힌다 — 실제 GPU 로드로
+검증함(부팅 로그에 `Using V2 Model Runner`가 찍히고, 구조화 출력 요청 시
+`apply_token_bitmask_inplace_kernel`이 더 이상 JIT 컴파일되지 않음). MoE인 26B
+프로필에는 적용 안 됨(아키텍처 `Gemma4ForConditionalGeneration`이 vLLM
+`DEFAULT_V2_MODEL_RUNNER_ARCHITECTURES` 화이트리스트에 없음) — 그래서 26B는 이
+교체를 따라오지 않고 계속 별도의 `VLLM_BASE_IMAGE`(`.gitlab-ci.yml` 참고)를 쓴다.
 
 Activation needs **no digest pin and no config flip** — the 12B profile already declares
 `image: ${AUDIO_VLLM_IMAGE}` and full `deployed_input: [text, image, audio, video]`. The one

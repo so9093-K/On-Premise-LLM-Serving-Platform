@@ -1,6 +1,6 @@
 # Multimodal-enabling vLLM runtime for the Gemma 4 *unified* family (12B).
 #
-# The stock `vllm/vllm-openai:gemma4-unified-cu129` base cannot actually serve the
+# The stock `vllm/vllm-openai:v0.25.1-cu129` base cannot actually serve the
 # 12B unified model's image OR audio input; on it `gemma4-12b-unified-fp8` serves
 # text correctly but image requests return pad-only output and audio warmup crashes.
 # This image fixes all three blockers on top of the pinned base:
@@ -14,7 +14,7 @@
 # The patches touch only the gemma4_unified path and the decode libs are otherwise
 # unused, so 26B (a different gemma4 architecture, text+image) behaves identically on
 # this image — safe as a per-profile override. Build/push/activate is gated; see README.md.
-ARG BASE_IMAGE=vllm/vllm-openai:gemma4-unified-cu129
+ARG BASE_IMAGE=vllm/vllm-openai:v0.25.1-cu129
 FROM ${BASE_IMAGE}
 
 # libsndfile1 is the native backend soundfile binds to.
