@@ -53,14 +53,18 @@
       },
       "transformations": [
         {
-          "id": "labelsToFields",
-          "options": {}
+          "id": "extractFields",
+          "options": {
+            "source": "Line",
+            "format": "json",
+            "replace": false
+          }
         },
         {
           "id": "organize",
           "options": {
             "excludeByName": {
-              "Line": true,
+              "labels": true,
               "tsNs": true,
               "id": true,
               "labelTypes": true,
@@ -107,14 +111,18 @@
       },
       "transformations": [
         {
-          "id": "labelsToFields",
-          "options": {}
+          "id": "extractFields",
+          "options": {
+            "source": "Line",
+            "format": "json",
+            "replace": false
+          }
         },
         {
           "id": "organize",
           "options": {
             "excludeByName": {
-              "Line": true,
+              "labels": true,
               "tsNs": true,
               "id": true,
               "labelTypes": true,
@@ -160,7 +168,7 @@
     {
       "id": 4,
       "type": "logs",
-      "title": "Raw Container Log (직접 접속 흔적 확인용)",
+      "title": "Raw Container Log",
       "datasource": {
         "type": "loki",
         "uid": "${datasource}"
@@ -182,7 +190,7 @@
         "wrapLogMessage": true,
         "sortOrder": "Descending"
       },
-      "description": "특정 컨테이너의 원본 로그를 그대로 본다. main-llm-vllm 등 vLLM 컨테이너를 골라서 uvicorn access 로그의 소스 IP를 보면, 게이트웨이(내부 docker 네트워크 IP)를 거쳤는지 외부 IP가 9401 등에 직접 접속했는지 구분할 수 있다(예: 이번 세션에서 172.18.0.x는 게이트웨이 경유, 192.168.0.x가 직접 찍히면 직통 접속). container_id 변수는 `docker ps --no-trunc`로 확인한 전체 컨테이너 ID를 넣는다 -- docker.sock을 안 써서 이름으로는 못 고른다."
+      "description": "특정 컨테이너의 원본 로그를 그대로 본다 — 구조화 로그로 안 잡히는 것(컨테이너 시작 실패, 크래시, 예상 밖 동작 등)을 확인할 때 범용으로 쓴다. 예: main-llm-vllm 등 vLLM 컨테이너를 골라 uvicorn access 로그의 소스 IP를 보면 게이트웨이(내부 docker 네트워크 IP) 경유인지 외부 IP가 직접 접속한 건지 구분할 수 있다. container_id 변수는 `docker ps --no-trunc`로 확인한 전체 컨테이너 ID를 넣는다 -- docker.sock을 안 써서 이름으로는 못 고른다."
     }
   ],
   "refresh": "30s",
@@ -322,6 +330,6 @@
   "timezone": "browser",
   "title": "Request Log Explorer",
   "uid": "request_log_explorer",
-  "version": 4,
+  "version": 5,
   "weekStart": ""
 }
