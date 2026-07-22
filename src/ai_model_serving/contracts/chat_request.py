@@ -231,7 +231,7 @@ def validate_chat_request(
             raise _validation_error(unsupported_fields[0], f"Unsupported chat completion field(s): {names}.")
     else:
         tool_policy = _chat_policy(request_parameter_policy).get("tool_calling", {})
-        max_tools = int(tool_policy.get("max_tools", 16)) if isinstance(tool_policy, dict) else 16
+        max_tools = int(tool_policy.get("max_tools", 64)) if isinstance(tool_policy, dict) else 64
         if "tools" in payload:
             _validate_tools(payload["tools"], max_tools=max_tools)
         if "tool_choice" in payload:

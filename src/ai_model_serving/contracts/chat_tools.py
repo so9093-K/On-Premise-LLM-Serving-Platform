@@ -10,7 +10,7 @@ def _validation_error(param: str, message: str) -> ServiceError:
     return ServiceError("VALIDATION_ERROR", message, False, 422, param=param)
 
 
-def _validate_tools(tools: Any, *, max_tools: int = 16) -> None:
+def _validate_tools(tools: Any, *, max_tools: int = 64) -> None:
     if not isinstance(tools, list) or not tools:
         raise _validation_error("tools", "tools must be a non-empty array when provided.")
     if len(tools) > max_tools:

@@ -202,7 +202,11 @@ models:
       max_n: 1
       tool_calling:
         enabled: true
-        max_tools: 16
+        # gemma4 tool parser/chat template엔 tool 개수 하드 리밋이 없고, tool 1개당
+        # 실측 ~140 token(예: 64개 tools ≈ 8,913 tokens)이라 max_model_len(20,000) 대비
+        # 여유가 크다. Open WebUI 기본 native tool 구성만으로도 22~31개가 붙고 외부
+        # MCP/OpenAPI tool을 더 연결할 여지가 있어 64로 잡는다.
+        max_tools: 64
         allow_parallel_tool_calls: false
       reasoning:
         enabled: true
