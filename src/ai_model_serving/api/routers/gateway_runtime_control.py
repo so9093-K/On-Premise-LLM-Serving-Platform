@@ -7,7 +7,7 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
 
 from ..endpoint_spec import GATEWAY_ENDPOINTS
-from ...errors import error_payload
+from ...errors import error_payload, error_response_headers
 from ...api_examples import (
     RUNTIME_BUDGET_EXCEEDED_EXAMPLE,
     RUNTIME_ERROR_404_EXAMPLE,
@@ -209,10 +209,11 @@ def _sidecar_unavailable_response(exc: SidecarUnavailableError) -> JSONResponse:
     # code=MODEL_UNAVAILABLE로 나가서, 동일한 sidecar 장애가 /v1/chat/completions에서는
     # retryable=True(Retry-After 포함)로, /admin/runtimes 계열에서는 retryable=False로
     # 클라이언트에 다르게 보였다.
+    payload = error_payload("MAIN_MODEL_CONTROL_UNAVAILABLE", str(exc), True)
     return JSONResponse(
-        error_payload("MAIN_MODEL_CONTROL_UNAVAILABLE", str(exc), True),
+        payload,
         status_code=503,
-        headers={"Retry-After": "5"},
+        headers=error_response_headers("MAIN_MODEL_CONTROL_UNAVAILABLE", payload, retry_after_seconds=5),
     )
 
 

@@ -8,30 +8,39 @@ description: >
   GPU Capacity and OOM Risk + Usage Today Grafana dashboard와 Prometheus scrape, recording rule을 제공한다.
   ModelRegistry와 monitoring config에서 monitoring projection을 자동 생성한다.
   Git-managed JSON이 source of truth다. gpu_capacity_and_oom_risk가 운영 안전 대시보드,
-  usage_today가 사용량(glanceable) 대시보드다.
+  usage_today가 사용량(glanceable) 대시보드다. request_log_explorer는 Loki 기반 요청 단위
+  로그 조회 대시보드로, 앞의 둘과 달리 monitoring projection이 생성하지 않고 손으로 관리하지만,
+  ops/grafana/dashboards/ 아래 파일이라 이 매니페스트의 dashboard_files/dashboard_count가
+  같이 추적한다.
 
 source_files:
   - src/ai_model_serving/monitoring_projection.py
   - src/ai_model_serving/domain/model_registry.py
   - scripts/reports/monitoring_projection_report.py
   - src/ai_model_serving/governance_validation/monitoring_dashboards.py
+  - src/ai_model_serving/errors.py (X-Error-Code/X-Request-Id 응답 헤더 — request_log_explorer의 error_code_filter/request_id_filter가 여기서 나온다)
+  - src/ai_model_serving/logging_policy.py (접근 로그의 error_code/request_id 필드 — request_log_explorer가 파싱하는 필드의 소스)
 
 config_files:
   - configs/monitoring.yaml
   - configs/model_catalog.yaml
   - ops/prometheus/prometheus.yml
   - ops/prometheus/rules/model_runtime.rules.yml
+  - ops/loki/loki-config.yml
+  - ops/promtail/promtail-config.yml
 
 dashboard_files:
   - ops/grafana/dashboards/gpu_capacity_and_oom_risk.json
   - ops/grafana/dashboards/usage_today.json
+  - ops/grafana/dashboards/request_log_explorer.json
 
-dashboard_count: 2
+dashboard_count: 3
 
 docs:
   - docs/operations/monitoring_ux.md
   - docs/operations/endpoint_reference.md
   - docs/START_HERE.md
+  - docs/operations/full_stack_runtime.md
 
 commands:
   - make monitoring-projection
@@ -57,11 +66,12 @@ package_impact:
 
 release_checklist_impact:
   - make monitoring-projection 실행 확인
-  - dashboard JSON이 2개(gpu_capacity_and_oom_risk, usage_today)인지 확인
+  - dashboard JSON이 3개(gpu_capacity_and_oom_risk, usage_today, request_log_explorer)인지 확인
   - Prometheus/Grafana 포트 (9410/9411) 확인
+  - Loki 포트 (9414, master_open에서만 host-published) 확인
 
 notes:
-  - "dashboard 수: 2개 (ops/grafana/dashboards/ 기준)"
+  - "dashboard 수: 3개 (ops/grafana/dashboards/ 기준, request_log_explorer는 Loki 기반이라 dashboard_contracts 대상 아님)"
   - "Schema version: configs/monitoring.yaml version 필드 (package version과 독립)"
   - "dashboard panel datasource는 ${datasource} variable 사용 필수"
   - "운영자가 Grafana UI에서 저장한 변경은 JSON source로 자동 반영되지 않는다"

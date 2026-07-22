@@ -7,7 +7,7 @@ from fastapi import APIRouter, Body
 from fastapi.responses import JSONResponse, StreamingResponse
 
 from ..endpoint_spec import GATEWAY_ENDPOINTS
-from ...errors import ServiceError, error_payload
+from ...errors import ServiceError, error_payload, error_response_headers
 from ...services.runtime_state import RuntimeState, RuntimeStateStore
 from ...services.sidecar_client import SidecarClient, SidecarUnavailableError
 from ...services.main_model_inflight import MainModelInFlight
@@ -119,10 +119,13 @@ def build_router(
                 except SidecarUnavailableError as exc:
                     if tracking is not None:
                         await tracking.__aexit__(None, None, None)
+                    payload = error_payload("MAIN_MODEL_CONTROL_UNAVAILABLE", str(exc), True)
                     return JSONResponse(
-                        error_payload("MAIN_MODEL_CONTROL_UNAVAILABLE", str(exc), True),
+                        payload,
                         status_code=503,
-                        headers={"Retry-After": "5"},
+                        headers=error_response_headers(
+                            "MAIN_MODEL_CONTROL_UNAVAILABLE", payload, retry_after_seconds=5
+                        ),
                     )
                 if main_model.get("gate") != "open":
                     operation = main_model.get("last_operation") or {}
@@ -138,7 +141,9 @@ def build_router(
                     return JSONResponse(
                         body,
                         status_code=503,
-                        headers={"Retry-After": "5"},
+                        headers=error_response_headers(
+                            "MAIN_MODEL_SWITCH_IN_PROGRESS", body, retry_after_seconds=5
+                        ),
                     )
                 active_modalities = _active_input_modalities(main_model)
         except Exception:

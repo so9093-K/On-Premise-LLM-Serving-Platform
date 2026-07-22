@@ -214,7 +214,6 @@ paths:
                         - FORBIDDEN
                         - NOT_FOUND
                         - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
                         - MODEL_CAPABILITY_MISMATCH
                         - UPSTREAM_TIMEOUT
                         - UPSTREAM_ERROR
@@ -312,7 +311,6 @@ paths:
                         - FORBIDDEN
                         - NOT_FOUND
                         - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
                         - MODEL_CAPABILITY_MISMATCH
                         - UPSTREAM_TIMEOUT
                         - UPSTREAM_ERROR
@@ -447,7 +445,6 @@ paths:
                         - FORBIDDEN
                         - NOT_FOUND
                         - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
                         - MODEL_CAPABILITY_MISMATCH
                         - UPSTREAM_TIMEOUT
                         - UPSTREAM_ERROR
@@ -1375,7 +1372,6 @@ paths:
                         - FORBIDDEN
                         - NOT_FOUND
                         - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
                         - MODEL_CAPABILITY_MISMATCH
                         - UPSTREAM_TIMEOUT
                         - UPSTREAM_ERROR
@@ -1441,7 +1437,6 @@ paths:
                         - FORBIDDEN
                         - NOT_FOUND
                         - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
                         - MODEL_CAPABILITY_MISMATCH
                         - UPSTREAM_TIMEOUT
                         - UPSTREAM_ERROR
@@ -1501,7 +1496,6 @@ paths:
                         - FORBIDDEN
                         - NOT_FOUND
                         - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
                         - MODEL_CAPABILITY_MISMATCH
                         - UPSTREAM_TIMEOUT
                         - UPSTREAM_ERROR
@@ -1561,7 +1555,6 @@ paths:
                         - FORBIDDEN
                         - NOT_FOUND
                         - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
                         - MODEL_CAPABILITY_MISMATCH
                         - UPSTREAM_TIMEOUT
                         - UPSTREAM_ERROR
@@ -1621,7 +1614,6 @@ paths:
                         - FORBIDDEN
                         - NOT_FOUND
                         - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
                         - MODEL_CAPABILITY_MISMATCH
                         - UPSTREAM_TIMEOUT
                         - UPSTREAM_ERROR
@@ -1681,7 +1673,6 @@ paths:
                         - FORBIDDEN
                         - NOT_FOUND
                         - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
                         - MODEL_CAPABILITY_MISMATCH
                         - UPSTREAM_TIMEOUT
                         - UPSTREAM_ERROR
@@ -1741,7 +1732,6 @@ paths:
                         - FORBIDDEN
                         - NOT_FOUND
                         - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
                         - MODEL_CAPABILITY_MISMATCH
                         - UPSTREAM_TIMEOUT
                         - UPSTREAM_ERROR
@@ -1801,7 +1791,6 @@ paths:
                         - FORBIDDEN
                         - NOT_FOUND
                         - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
                         - MODEL_CAPABILITY_MISMATCH
                         - UPSTREAM_TIMEOUT
                         - UPSTREAM_ERROR
@@ -2011,7 +2000,6 @@ paths:
                         - FORBIDDEN
                         - NOT_FOUND
                         - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
                         - MODEL_CAPABILITY_MISMATCH
                         - UPSTREAM_TIMEOUT
                         - UPSTREAM_ERROR
@@ -2071,7 +2059,6 @@ paths:
                         - FORBIDDEN
                         - NOT_FOUND
                         - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
                         - MODEL_CAPABILITY_MISMATCH
                         - UPSTREAM_TIMEOUT
                         - UPSTREAM_ERROR
@@ -2131,7 +2118,6 @@ paths:
                         - FORBIDDEN
                         - NOT_FOUND
                         - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
                         - MODEL_CAPABILITY_MISMATCH
                         - UPSTREAM_TIMEOUT
                         - UPSTREAM_ERROR
@@ -2191,7 +2177,6 @@ paths:
                         - FORBIDDEN
                         - NOT_FOUND
                         - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
                         - MODEL_CAPABILITY_MISMATCH
                         - UPSTREAM_TIMEOUT
                         - UPSTREAM_ERROR
@@ -2251,7 +2236,6 @@ paths:
                         - FORBIDDEN
                         - NOT_FOUND
                         - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
                         - MODEL_CAPABILITY_MISMATCH
                         - UPSTREAM_TIMEOUT
                         - UPSTREAM_ERROR
@@ -2311,7 +2295,6 @@ paths:
                         - FORBIDDEN
                         - NOT_FOUND
                         - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
                         - MODEL_CAPABILITY_MISMATCH
                         - UPSTREAM_TIMEOUT
                         - UPSTREAM_ERROR
@@ -2371,7 +2354,6 @@ paths:
                         - FORBIDDEN
                         - NOT_FOUND
                         - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
                         - MODEL_CAPABILITY_MISMATCH
                         - UPSTREAM_TIMEOUT
                         - UPSTREAM_ERROR
@@ -2431,7 +2413,6 @@ paths:
                         - FORBIDDEN
                         - NOT_FOUND
                         - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
                         - MODEL_CAPABILITY_MISMATCH
                         - UPSTREAM_TIMEOUT
                         - UPSTREAM_ERROR
@@ -2787,7 +2768,6 @@ paths:
                         - FORBIDDEN
                         - NOT_FOUND
                         - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
                         - MODEL_CAPABILITY_MISMATCH
                         - UPSTREAM_TIMEOUT
                         - UPSTREAM_ERROR
@@ -2847,7 +2827,6 @@ paths:
                         - FORBIDDEN
                         - NOT_FOUND
                         - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
                         - MODEL_CAPABILITY_MISMATCH
                         - UPSTREAM_TIMEOUT
                         - UPSTREAM_ERROR
@@ -2907,7 +2886,6 @@ paths:
                         - FORBIDDEN
                         - NOT_FOUND
                         - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
                         - MODEL_CAPABILITY_MISMATCH
                         - UPSTREAM_TIMEOUT
                         - UPSTREAM_ERROR
@@ -2967,7 +2945,6 @@ paths:
                         - FORBIDDEN
                         - NOT_FOUND
                         - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
                         - MODEL_CAPABILITY_MISMATCH
                         - UPSTREAM_TIMEOUT
                         - UPSTREAM_ERROR
@@ -3027,7 +3004,6 @@ paths:
                         - FORBIDDEN
                         - NOT_FOUND
                         - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
                         - MODEL_CAPABILITY_MISMATCH
                         - UPSTREAM_TIMEOUT
                         - UPSTREAM_ERROR
@@ -3087,7 +3063,6 @@ paths:
                         - FORBIDDEN
                         - NOT_FOUND
                         - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
                         - MODEL_CAPABILITY_MISMATCH
                         - UPSTREAM_TIMEOUT
                         - UPSTREAM_ERROR
@@ -3147,7 +3122,6 @@ paths:
                         - FORBIDDEN
                         - NOT_FOUND
                         - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
                         - MODEL_CAPABILITY_MISMATCH
                         - UPSTREAM_TIMEOUT
                         - UPSTREAM_ERROR
@@ -3207,7 +3181,6 @@ paths:
                         - FORBIDDEN
                         - NOT_FOUND
                         - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
                         - MODEL_CAPABILITY_MISMATCH
                         - UPSTREAM_TIMEOUT
                         - UPSTREAM_ERROR
@@ -3580,7 +3553,6 @@ paths:
                         - FORBIDDEN
                         - NOT_FOUND
                         - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
                         - MODEL_CAPABILITY_MISMATCH
                         - UPSTREAM_TIMEOUT
                         - UPSTREAM_ERROR
@@ -3640,7 +3612,6 @@ paths:
                         - FORBIDDEN
                         - NOT_FOUND
                         - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
                         - MODEL_CAPABILITY_MISMATCH
                         - UPSTREAM_TIMEOUT
                         - UPSTREAM_ERROR
@@ -3700,7 +3671,6 @@ paths:
                         - FORBIDDEN
                         - NOT_FOUND
                         - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
                         - MODEL_CAPABILITY_MISMATCH
                         - UPSTREAM_TIMEOUT
                         - UPSTREAM_ERROR
@@ -3760,7 +3730,6 @@ paths:
                         - FORBIDDEN
                         - NOT_FOUND
                         - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
                         - MODEL_CAPABILITY_MISMATCH
                         - UPSTREAM_TIMEOUT
                         - UPSTREAM_ERROR
@@ -3820,7 +3789,6 @@ paths:
                         - FORBIDDEN
                         - NOT_FOUND
                         - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
                         - MODEL_CAPABILITY_MISMATCH
                         - UPSTREAM_TIMEOUT
                         - UPSTREAM_ERROR
@@ -3880,7 +3848,6 @@ paths:
                         - FORBIDDEN
                         - NOT_FOUND
                         - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
                         - MODEL_CAPABILITY_MISMATCH
                         - UPSTREAM_TIMEOUT
                         - UPSTREAM_ERROR
@@ -3940,7 +3907,6 @@ paths:
                         - FORBIDDEN
                         - NOT_FOUND
                         - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
                         - MODEL_CAPABILITY_MISMATCH
                         - UPSTREAM_TIMEOUT
                         - UPSTREAM_ERROR
@@ -4000,7 +3966,6 @@ paths:
                         - FORBIDDEN
                         - NOT_FOUND
                         - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
                         - MODEL_CAPABILITY_MISMATCH
                         - UPSTREAM_TIMEOUT
                         - UPSTREAM_ERROR
@@ -4391,7 +4356,6 @@ paths:
                         - FORBIDDEN
                         - NOT_FOUND
                         - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
                         - MODEL_CAPABILITY_MISMATCH
                         - UPSTREAM_TIMEOUT
                         - UPSTREAM_ERROR
@@ -4451,7 +4415,6 @@ paths:
                         - FORBIDDEN
                         - NOT_FOUND
                         - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
                         - MODEL_CAPABILITY_MISMATCH
                         - UPSTREAM_TIMEOUT
                         - UPSTREAM_ERROR
@@ -4511,7 +4474,6 @@ paths:
                         - FORBIDDEN
                         - NOT_FOUND
                         - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
                         - MODEL_CAPABILITY_MISMATCH
                         - UPSTREAM_TIMEOUT
                         - UPSTREAM_ERROR
@@ -4571,7 +4533,6 @@ paths:
                         - FORBIDDEN
                         - NOT_FOUND
                         - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
                         - MODEL_CAPABILITY_MISMATCH
                         - UPSTREAM_TIMEOUT
                         - UPSTREAM_ERROR
@@ -4631,7 +4592,6 @@ paths:
                         - FORBIDDEN
                         - NOT_FOUND
                         - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
                         - MODEL_CAPABILITY_MISMATCH
                         - UPSTREAM_TIMEOUT
                         - UPSTREAM_ERROR
@@ -4691,7 +4651,6 @@ paths:
                         - FORBIDDEN
                         - NOT_FOUND
                         - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
                         - MODEL_CAPABILITY_MISMATCH
                         - UPSTREAM_TIMEOUT
                         - UPSTREAM_ERROR
@@ -4751,7 +4710,6 @@ paths:
                         - FORBIDDEN
                         - NOT_FOUND
                         - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
                         - MODEL_CAPABILITY_MISMATCH
                         - UPSTREAM_TIMEOUT
                         - UPSTREAM_ERROR
@@ -4811,7 +4769,6 @@ paths:
                         - FORBIDDEN
                         - NOT_FOUND
                         - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
                         - MODEL_CAPABILITY_MISMATCH
                         - UPSTREAM_TIMEOUT
                         - UPSTREAM_ERROR
@@ -4890,7 +4847,6 @@ paths:
                         - FORBIDDEN
                         - NOT_FOUND
                         - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
                         - MODEL_CAPABILITY_MISMATCH
                         - UPSTREAM_TIMEOUT
                         - UPSTREAM_ERROR
@@ -4950,7 +4906,6 @@ paths:
                         - FORBIDDEN
                         - NOT_FOUND
                         - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
                         - MODEL_CAPABILITY_MISMATCH
                         - UPSTREAM_TIMEOUT
                         - UPSTREAM_ERROR
@@ -5010,7 +4965,6 @@ paths:
                         - FORBIDDEN
                         - NOT_FOUND
                         - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
                         - MODEL_CAPABILITY_MISMATCH
                         - UPSTREAM_TIMEOUT
                         - UPSTREAM_ERROR
@@ -5070,7 +5024,6 @@ paths:
                         - FORBIDDEN
                         - NOT_FOUND
                         - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
                         - MODEL_CAPABILITY_MISMATCH
                         - UPSTREAM_TIMEOUT
                         - UPSTREAM_ERROR
@@ -5130,7 +5083,6 @@ paths:
                         - FORBIDDEN
                         - NOT_FOUND
                         - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
                         - MODEL_CAPABILITY_MISMATCH
                         - UPSTREAM_TIMEOUT
                         - UPSTREAM_ERROR
@@ -5190,7 +5142,6 @@ paths:
                         - FORBIDDEN
                         - NOT_FOUND
                         - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
                         - MODEL_CAPABILITY_MISMATCH
                         - UPSTREAM_TIMEOUT
                         - UPSTREAM_ERROR
@@ -5250,7 +5201,6 @@ paths:
                         - FORBIDDEN
                         - NOT_FOUND
                         - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
                         - MODEL_CAPABILITY_MISMATCH
                         - UPSTREAM_TIMEOUT
                         - UPSTREAM_ERROR
@@ -5310,7 +5260,6 @@ paths:
                         - FORBIDDEN
                         - NOT_FOUND
                         - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
                         - MODEL_CAPABILITY_MISMATCH
                         - UPSTREAM_TIMEOUT
                         - UPSTREAM_ERROR
@@ -5664,7 +5613,6 @@ paths:
                         - FORBIDDEN
                         - NOT_FOUND
                         - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
                         - MODEL_CAPABILITY_MISMATCH
                         - UPSTREAM_TIMEOUT
                         - UPSTREAM_ERROR
@@ -5724,7 +5672,6 @@ paths:
                         - FORBIDDEN
                         - NOT_FOUND
                         - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
                         - MODEL_CAPABILITY_MISMATCH
                         - UPSTREAM_TIMEOUT
                         - UPSTREAM_ERROR
@@ -5784,7 +5731,6 @@ paths:
                         - FORBIDDEN
                         - NOT_FOUND
                         - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
                         - MODEL_CAPABILITY_MISMATCH
                         - UPSTREAM_TIMEOUT
                         - UPSTREAM_ERROR
@@ -5844,7 +5790,6 @@ paths:
                         - FORBIDDEN
                         - NOT_FOUND
                         - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
                         - MODEL_CAPABILITY_MISMATCH
                         - UPSTREAM_TIMEOUT
                         - UPSTREAM_ERROR
@@ -5904,7 +5849,6 @@ paths:
                         - FORBIDDEN
                         - NOT_FOUND
                         - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
                         - MODEL_CAPABILITY_MISMATCH
                         - UPSTREAM_TIMEOUT
                         - UPSTREAM_ERROR
@@ -5964,7 +5908,6 @@ paths:
                         - FORBIDDEN
                         - NOT_FOUND
                         - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
                         - MODEL_CAPABILITY_MISMATCH
                         - UPSTREAM_TIMEOUT
                         - UPSTREAM_ERROR
@@ -6024,7 +5967,6 @@ paths:
                         - FORBIDDEN
                         - NOT_FOUND
                         - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
                         - MODEL_CAPABILITY_MISMATCH
                         - UPSTREAM_TIMEOUT
                         - UPSTREAM_ERROR
@@ -6084,7 +6026,6 @@ paths:
                         - FORBIDDEN
                         - NOT_FOUND
                         - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
                         - MODEL_CAPABILITY_MISMATCH
                         - UPSTREAM_TIMEOUT
                         - UPSTREAM_ERROR
@@ -6255,7 +6196,6 @@ paths:
                         - FORBIDDEN
                         - NOT_FOUND
                         - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
                         - MODEL_CAPABILITY_MISMATCH
                         - UPSTREAM_TIMEOUT
                         - UPSTREAM_ERROR
@@ -6315,7 +6255,6 @@ paths:
                         - FORBIDDEN
                         - NOT_FOUND
                         - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
                         - MODEL_CAPABILITY_MISMATCH
                         - UPSTREAM_TIMEOUT
                         - UPSTREAM_ERROR
@@ -6375,7 +6314,6 @@ paths:
                         - FORBIDDEN
                         - NOT_FOUND
                         - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
                         - MODEL_CAPABILITY_MISMATCH
                         - UPSTREAM_TIMEOUT
                         - UPSTREAM_ERROR
@@ -6435,7 +6373,6 @@ paths:
                         - FORBIDDEN
                         - NOT_FOUND
                         - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
                         - MODEL_CAPABILITY_MISMATCH
                         - UPSTREAM_TIMEOUT
                         - UPSTREAM_ERROR
@@ -6495,7 +6432,6 @@ paths:
                         - FORBIDDEN
                         - NOT_FOUND
                         - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
                         - MODEL_CAPABILITY_MISMATCH
                         - UPSTREAM_TIMEOUT
                         - UPSTREAM_ERROR
@@ -6555,7 +6491,6 @@ paths:
                         - FORBIDDEN
                         - NOT_FOUND
                         - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
                         - MODEL_CAPABILITY_MISMATCH
                         - UPSTREAM_TIMEOUT
                         - UPSTREAM_ERROR
@@ -6615,7 +6550,6 @@ paths:
                         - FORBIDDEN
                         - NOT_FOUND
                         - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
                         - MODEL_CAPABILITY_MISMATCH
                         - UPSTREAM_TIMEOUT
                         - UPSTREAM_ERROR
@@ -6675,7 +6609,6 @@ paths:
                         - FORBIDDEN
                         - NOT_FOUND
                         - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
                         - MODEL_CAPABILITY_MISMATCH
                         - UPSTREAM_TIMEOUT
                         - UPSTREAM_ERROR
@@ -6837,7 +6770,6 @@ paths:
                         - FORBIDDEN
                         - NOT_FOUND
                         - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
                         - MODEL_CAPABILITY_MISMATCH
                         - UPSTREAM_TIMEOUT
                         - UPSTREAM_ERROR
@@ -6897,7 +6829,6 @@ paths:
                         - FORBIDDEN
                         - NOT_FOUND
                         - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
                         - MODEL_CAPABILITY_MISMATCH
                         - UPSTREAM_TIMEOUT
                         - UPSTREAM_ERROR
@@ -6957,7 +6888,6 @@ paths:
                         - FORBIDDEN
                         - NOT_FOUND
                         - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
                         - MODEL_CAPABILITY_MISMATCH
                         - UPSTREAM_TIMEOUT
                         - UPSTREAM_ERROR
@@ -7017,7 +6947,6 @@ paths:
                         - FORBIDDEN
                         - NOT_FOUND
                         - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
                         - MODEL_CAPABILITY_MISMATCH
                         - UPSTREAM_TIMEOUT
                         - UPSTREAM_ERROR
@@ -7077,7 +7006,6 @@ paths:
                         - FORBIDDEN
                         - NOT_FOUND
                         - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
                         - MODEL_CAPABILITY_MISMATCH
                         - UPSTREAM_TIMEOUT
                         - UPSTREAM_ERROR
@@ -7137,7 +7065,6 @@ paths:
                         - FORBIDDEN
                         - NOT_FOUND
                         - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
                         - MODEL_CAPABILITY_MISMATCH
                         - UPSTREAM_TIMEOUT
                         - UPSTREAM_ERROR
@@ -7197,7 +7124,6 @@ paths:
                         - FORBIDDEN
                         - NOT_FOUND
                         - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
                         - MODEL_CAPABILITY_MISMATCH
                         - UPSTREAM_TIMEOUT
                         - UPSTREAM_ERROR
@@ -7257,7 +7183,6 @@ paths:
                         - FORBIDDEN
                         - NOT_FOUND
                         - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
                         - MODEL_CAPABILITY_MISMATCH
                         - UPSTREAM_TIMEOUT
                         - UPSTREAM_ERROR
@@ -7412,7 +7337,6 @@ paths:
                         - FORBIDDEN
                         - NOT_FOUND
                         - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
                         - MODEL_CAPABILITY_MISMATCH
                         - UPSTREAM_TIMEOUT
                         - UPSTREAM_ERROR
@@ -7606,7 +7530,6 @@ paths:
                         - FORBIDDEN
                         - NOT_FOUND
                         - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
                         - MODEL_CAPABILITY_MISMATCH
                         - UPSTREAM_TIMEOUT
                         - UPSTREAM_ERROR
@@ -7667,7 +7590,6 @@ paths:
                         - FORBIDDEN
                         - NOT_FOUND
                         - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
                         - MODEL_CAPABILITY_MISMATCH
                         - UPSTREAM_TIMEOUT
                         - UPSTREAM_ERROR
@@ -7727,7 +7649,6 @@ paths:
                         - FORBIDDEN
                         - NOT_FOUND
                         - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
                         - MODEL_CAPABILITY_MISMATCH
                         - UPSTREAM_TIMEOUT
                         - UPSTREAM_ERROR
@@ -7787,7 +7708,6 @@ paths:
                         - FORBIDDEN
                         - NOT_FOUND
                         - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
                         - MODEL_CAPABILITY_MISMATCH
                         - UPSTREAM_TIMEOUT
                         - UPSTREAM_ERROR
@@ -7847,7 +7767,6 @@ paths:
                         - FORBIDDEN
                         - NOT_FOUND
                         - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
                         - MODEL_CAPABILITY_MISMATCH
                         - UPSTREAM_TIMEOUT
                         - UPSTREAM_ERROR
@@ -7907,7 +7826,6 @@ paths:
                         - FORBIDDEN
                         - NOT_FOUND
                         - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
                         - MODEL_CAPABILITY_MISMATCH
                         - UPSTREAM_TIMEOUT
                         - UPSTREAM_ERROR
@@ -7967,7 +7885,6 @@ paths:
                         - FORBIDDEN
                         - NOT_FOUND
                         - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
                         - MODEL_CAPABILITY_MISMATCH
                         - UPSTREAM_TIMEOUT
                         - UPSTREAM_ERROR
@@ -8027,7 +7944,6 @@ paths:
                         - FORBIDDEN
                         - NOT_FOUND
                         - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
                         - MODEL_CAPABILITY_MISMATCH
                         - UPSTREAM_TIMEOUT
                         - UPSTREAM_ERROR
@@ -8235,7 +8151,6 @@ paths:
                         - FORBIDDEN
                         - NOT_FOUND
                         - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
                         - MODEL_CAPABILITY_MISMATCH
                         - UPSTREAM_TIMEOUT
                         - UPSTREAM_ERROR
@@ -8366,7 +8281,6 @@ paths:
                         - FORBIDDEN
                         - NOT_FOUND
                         - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
                         - MODEL_CAPABILITY_MISMATCH
                         - UPSTREAM_TIMEOUT
                         - UPSTREAM_ERROR
@@ -8495,7 +8409,6 @@ paths:
                         - FORBIDDEN
                         - NOT_FOUND
                         - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
                         - MODEL_CAPABILITY_MISMATCH
                         - UPSTREAM_TIMEOUT
                         - UPSTREAM_ERROR
@@ -8555,7 +8468,6 @@ paths:
                         - FORBIDDEN
                         - NOT_FOUND
                         - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
                         - MODEL_CAPABILITY_MISMATCH
                         - UPSTREAM_TIMEOUT
                         - UPSTREAM_ERROR
@@ -8615,7 +8527,6 @@ paths:
                         - FORBIDDEN
                         - NOT_FOUND
                         - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
                         - MODEL_CAPABILITY_MISMATCH
                         - UPSTREAM_TIMEOUT
                         - UPSTREAM_ERROR
@@ -8675,7 +8586,6 @@ paths:
                         - FORBIDDEN
                         - NOT_FOUND
                         - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
                         - MODEL_CAPABILITY_MISMATCH
                         - UPSTREAM_TIMEOUT
                         - UPSTREAM_ERROR
@@ -8735,7 +8645,6 @@ paths:
                         - FORBIDDEN
                         - NOT_FOUND
                         - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
                         - MODEL_CAPABILITY_MISMATCH
                         - UPSTREAM_TIMEOUT
                         - UPSTREAM_ERROR
@@ -8795,7 +8704,6 @@ paths:
                         - FORBIDDEN
                         - NOT_FOUND
                         - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
                         - MODEL_CAPABILITY_MISMATCH
                         - UPSTREAM_TIMEOUT
                         - UPSTREAM_ERROR
@@ -8855,7 +8763,6 @@ paths:
                         - FORBIDDEN
                         - NOT_FOUND
                         - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
                         - MODEL_CAPABILITY_MISMATCH
                         - UPSTREAM_TIMEOUT
                         - UPSTREAM_ERROR
@@ -8915,7 +8822,6 @@ paths:
                         - FORBIDDEN
                         - NOT_FOUND
                         - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
                         - MODEL_CAPABILITY_MISMATCH
                         - UPSTREAM_TIMEOUT
                         - UPSTREAM_ERROR
@@ -9094,7 +9000,6 @@ paths:
                         - FORBIDDEN
                         - NOT_FOUND
                         - MODEL_UNAVAILABLE
-                        - MODEL_PARKED
                         - MODEL_CAPABILITY_MISMATCH
                         - UPSTREAM_TIMEOUT
                         - UPSTREAM_ERROR

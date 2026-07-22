@@ -19,13 +19,15 @@
 | `request_id` | 로그 추적과 운영 문의용 ID. |
 | `debug` | 원본 cause/upstream 상태 요약. 운영·내부 개발자가 즉시 원인 확인에 사용한다. 없을 수 있다. |
 
+모든 에러 응답은 `code`/`request_id`를 각각 `X-Error-Code`/`X-Request-Id` 응답 헤더로도 그대로 반환한다(`x-request-id`를 안 보낸 요청도 에러 시 새로 발급된 request_id가 헤더로 에코되어 바디와 항상 일치한다). 운영 로그(구조화 접근 로그)도 이 헤더 값을 그대로 남기므로, 클라이언트가 보고한 `request_id`나 `code`로 로그를 직접 검색할 수 있다.
+
 ## 판단 기준
 
 | 유형 | 대표 code | 사용자/클라이언트 행동 |
 |---|---|---|
 | 요청 수정 | `VALIDATION_ERROR`, `MODEL_CAPABILITY_MISMATCH`, `REQUEST_TOO_LARGE` | `param` 기준으로 payload를 고친다. |
 | 인증/권한 | `UNAUTHORIZED`, `FORBIDDEN` | API key, token, 권한을 확인한다. |
-| 모델 준비 | `MODEL_UNAVAILABLE`, `MODEL_PARKED`, `RUNTIME_NOT_READY`, `MAIN_MODEL_*` | `Retry-After`가 있으면 기다렸다가 재시도한다. |
+| 모델 준비 | `MODEL_UNAVAILABLE`, `RUNTIME_NOT_READY`, `MAIN_MODEL_*` | `Retry-After`가 있으면 기다렸다가 재시도한다. |
 | 모델/stream 처리 | `UPSTREAM_TIMEOUT`, `UPSTREAM_ERROR`, `UPSTREAM_SCHEMA_ERROR`, `PARSE_ERROR`, `STREAM_LIMIT_EXCEEDED` | `retryable=true`면 백오프 재시도. 반복되면 runtime/log/payload를 확인한다. |
 | 내부 오류 | `INTERNAL_ERROR` | `request_id`로 운영 로그를 추적한다. |
 
@@ -441,7 +443,6 @@ data: {"error":{"code":"STREAM_LIMIT_EXCEEDED","message":"stream emitted 1048577
 | `CIRCUIT_OPEN` | 503 | ✓ | 연속 실패로 upstream 서킷이 열려 일시적으로 차단 중이다. | 잠시 후 재시도한다. |
 | `MAIN_MODEL_CONTROL_UNAVAILABLE` | 503 | ✓ | 메인 모델 control plane(admin sidecar)을 사용할 수 없다. | 잠시 후 재시도한다. 반복되면 sidecar 상태를 확인한다. |
 | `MAIN_MODEL_SWITCH_IN_PROGRESS` | 503 | ✓ | 메인 모델 프로파일 전환이 진행 중이다. | 전환 완료(operation 상태) 후 재시도한다. |
-| `MODEL_PARKED` | 503 | ✓ | 모델이 park(대기) 상태라 즉시 서빙할 수 없다. | 모델을 활성화하거나 잠시 후 재시도한다. |
 | `MODEL_UNAVAILABLE` | 503 | ✓ | 대상 모델 런타임을 현재 사용할 수 없다(미기동·축출 등). | 잠시 후 재시도하거나 런타임 상태(/admin/runtimes)를 확인한다. |
 | `QUEUE_TIMEOUT` | 503 | ✓ | 동시 처리 한도로 대기열에서 시간이 초과됐다. | 잠시 후 재시도하고 동시 요청 수를 줄인다. |
 | `RUNTIME_NOT_READY` | 503 | ✓ | 런타임이 아직 기동/준비 중이다. | 준비 완료 후 재시도한다(/health 와 런타임 상태 확인). |

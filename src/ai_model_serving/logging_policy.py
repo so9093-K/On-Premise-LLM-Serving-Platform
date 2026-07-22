@@ -44,6 +44,8 @@ def safe_request_log_record(
     request: Request,
     status_code: int,
     elapsed_seconds: float,
+    error_code: str | None = None,
+    response_request_id: str | None = None,
 ) -> dict[str, Any]:
     route_obj = request.scope.get("route")
     route = getattr(route_obj, "path", None) or request.url.path
@@ -53,7 +55,12 @@ def safe_request_log_record(
     record = {
         "event": "http_request_completed",
         "service": service,
-        "request_id": request_id_from_headers(request.headers),
+        # 에러 응답은 요청에 x-request-id가 없어도 error_payload가 request_id를 새로
+        # 발급하고 그 값을 X-Request-Id 응답 헤더로 에코한다(errors.py의
+        # error_response_headers). 그 값을 우선해야 클라이언트가 실제로 받은
+        # request_id와 로그의 request_id가 항상 일치한다 — 아니면 x-request-id를
+        # 안 보낸 클라이언트의 에러는 로그에서 request_id로 절대 못 찾는다.
+        "request_id": response_request_id or request_id_from_headers(request.headers),
         "method": request.method,
         "route": route,
         "status_code": status_code,
@@ -63,6 +70,8 @@ def safe_request_log_record(
         "forwarded_for_present": forwarded_for is not None,
         "forwarded_proto": request.headers.get("x-forwarded-proto"),
     }
+    if error_code:
+        record["error_code"] = error_code
     return scrub_for_log(record)
 
 
@@ -73,12 +82,16 @@ def log_request_completion(
     request: Request,
     status_code: int,
     elapsed_seconds: float,
+    error_code: str | None = None,
+    response_request_id: str | None = None,
 ) -> None:
     record = safe_request_log_record(
         service=service,
         request=request,
         status_code=status_code,
         elapsed_seconds=elapsed_seconds,
+        error_code=error_code,
+        response_request_id=response_request_id,
     )
     logger.info(json.dumps(record, ensure_ascii=False, sort_keys=True))
 
@@ -92,9 +105,13 @@ async def safe_request_logging_middleware(
 ) -> Response:
     start = time.monotonic()
     status_code = 500
+    error_code: str | None = None
+    response_request_id: str | None = None
     try:
         response = await call_next(request)
         status_code = response.status_code
+        error_code = response.headers.get("x-error-code")
+        response_request_id = response.headers.get("x-request-id")
         return response
     finally:
         log_request_completion(
@@ -103,4 +120,6 @@ async def safe_request_logging_middleware(
             request=request,
             status_code=status_code,
             elapsed_seconds=time.monotonic() - start,
+            error_code=error_code,
+            response_request_id=response_request_id,
         )

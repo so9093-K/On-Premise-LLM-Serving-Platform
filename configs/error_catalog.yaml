@@ -34,10 +34,6 @@ errors:
     retryable: true
     meaning: "대상 모델 런타임을 현재 사용할 수 없다(미기동·축출 등)."
     action: "잠시 후 재시도하거나 런타임 상태(/admin/runtimes)를 확인한다."
-  MODEL_PARKED:
-    retryable: true
-    meaning: "모델이 park(대기) 상태라 즉시 서빙할 수 없다."
-    action: "모델을 활성화하거나 잠시 후 재시도한다."
   MODEL_CAPABILITY_MISMATCH:
     retryable: false
     meaning: "요청이 활성 모델이 지원하지 않는 기능을 요구한다(예 - 비활성 모달리티)."

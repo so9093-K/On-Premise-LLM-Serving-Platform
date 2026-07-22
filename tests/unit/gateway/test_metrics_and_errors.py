@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import io
+import logging
+
 from .helpers import *  # noqa: F401,F403
 from starlette.requests import Request
 from ai_model_serving.logging_policy import safe_request_log_record
@@ -10,6 +13,22 @@ def test_gateway_error_uses_incoming_request_id():
     response = client.get("/v1/models", headers={"x-request-id": "req_from_client"})
     assert response.status_code == 401
     assert response.json()["error"]["request_id"] == "req_from_client"
+    assert response.headers["x-request-id"] == "req_from_client"
+    assert response.headers["x-error-code"] == "UNAUTHORIZED"
+
+
+def test_gateway_error_without_incoming_request_id_echoes_minted_id_in_header():
+    # x-request-id를 안 보낸 클라이언트도, error_payload가 새로 발급한 request_id가
+    # 응답 바디와 X-Request-Id 헤더에서 반드시 일치해야 접근 로그(logging_policy.py)가
+    # 같은 값을 남길 수 있다 — 안 그러면 클라이언트가 보고한 request_id로 로그를
+    # 절대 못 찾는다.
+    client = TestClient(create_gateway_app(settings(), FakeGatewayClients()))
+    response = client.get("/v1/models")
+    assert response.status_code == 401
+    body_request_id = response.json()["error"]["request_id"]
+    assert body_request_id
+    assert response.headers["x-request-id"] == body_request_id
+    assert response.headers["x-error-code"] == "UNAUTHORIZED"
 
 
 def test_gateway_unhandled_exception_uses_common_error_schema():
@@ -133,6 +152,74 @@ def test_access_log_records_client_ip_hash_without_metric_label_style_ip():
     assert record["forwarded_for_present"] is True
     assert record["forwarded_proto"] == "https"
     assert "203.0.113.10" not in json.dumps(record)
+
+
+def _bare_request() -> Request:
+    return Request({
+        "type": "http",
+        "method": "GET",
+        "path": "/v1/models",
+        "headers": [],
+        "client": ("10.0.0.10", 12345),
+        "server": ("testserver", 80),
+        "scheme": "http",
+        "root_path": "",
+        "query_string": b"",
+        "path_params": {},
+    })
+
+
+def test_access_log_records_error_code_and_response_echoed_request_id():
+    # error_code/response_request_id는 응답 헤더(X-Error-Code/X-Request-Id)에서 온다 —
+    # status_code 하나(예: 503)에 여러 code가 몰려도 로그에서 바로 구분하고,
+    # x-request-id를 안 보낸 클라이언트의 에러도 로그의 request_id가 응답 바디와 일치하게 하려는 목적.
+    record = safe_request_log_record(
+        service="gateway",
+        request=_bare_request(),
+        status_code=503,
+        elapsed_seconds=0.02,
+        error_code="CIRCUIT_OPEN",
+        response_request_id="req_minted_abc",
+    )
+
+    assert record["error_code"] == "CIRCUIT_OPEN"
+    assert record["request_id"] == "req_minted_abc"
+
+
+def test_access_log_omits_error_code_field_for_success_responses():
+    record = safe_request_log_record(
+        service="gateway",
+        request=_bare_request(),
+        status_code=200,
+        elapsed_seconds=0.01,
+    )
+
+    assert "error_code" not in record
+
+
+def test_access_log_middleware_emits_error_code_and_request_id_from_response_headers():
+    # gateway 로거는 service_logger()가 propagate=False로 자체 StreamHandler를 붙여서
+    # 쓰기 때문에, pytest caplog(root logger 기반)가 아니라 이 로거에 직접 핸들러를
+    # 붙여 실제 미들웨어(safe_request_logging_middleware)가 응답 헤더의
+    # X-Error-Code/X-Request-Id를 로그 레코드로 옮기는지 end-to-end로 검증한다.
+    stream = io.StringIO()
+    handler = logging.StreamHandler(stream)
+    logger = logging.getLogger("ai_model_serving.gateway")
+    logger.addHandler(handler)
+    try:
+        client = TestClient(create_gateway_app(settings(), FakeGatewayClients()))
+        response = client.get("/v1/models")
+    finally:
+        logger.removeHandler(handler)
+
+    assert response.status_code == 401
+    body_request_id = response.json()["error"]["request_id"]
+
+    lines = [json.loads(line) for line in stream.getvalue().splitlines() if line.startswith("{")]
+    completed = [r for r in lines if r.get("event") == "http_request_completed"]
+    assert completed, f"no http_request_completed log record captured: {stream.getvalue()}"
+    assert completed[-1]["error_code"] == "UNAUTHORIZED"
+    assert completed[-1]["request_id"] == body_request_id
 
 
 def test_main_model_metrics_restore_persistent_state_without_operation_id_labels():

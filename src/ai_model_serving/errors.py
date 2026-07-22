@@ -13,7 +13,6 @@ ERROR_STATUS = {
     "FORBIDDEN": 403,
     "NOT_FOUND": 404,
     "MODEL_UNAVAILABLE": 503,
-    "MODEL_PARKED": 503,
     "MODEL_CAPABILITY_MISMATCH": 422,
     "UPSTREAM_TIMEOUT": 504,
     "UPSTREAM_ERROR": 502,
@@ -149,6 +148,24 @@ def retry_after_header(retry_after_seconds: float | None) -> dict[str, str] | No
     return {"Retry-After": str(max(1, math.ceil(retry_after_seconds)))}
 
 
+def error_response_headers(
+    code: str,
+    payload: dict[str, Any],
+    retry_after_seconds: float | None = None,
+) -> dict[str, str]:
+    # 클라이언트가 x-request-id를 안 보낸 요청은 error_payload가 request_id를
+    # 새로 발급하는데, 그 값을 응답 헤더로도 에코해야 접근 로그(logging_policy.py)가
+    # 같은 request_id를 남길 수 있다 — 안 그러면 로그의 request_id는 항상 None이라
+    # 클라이언트가 보고한 request_id로는 로그를 절대 못 찾는다. X-Error-Code는
+    # status만으로는 구분 안 되는 code(예: 503 하나에 MODEL_UNAVAILABLE/QUEUE_TIMEOUT/
+    # CIRCUIT_OPEN 등 여러 code가 몰림)를 접근 로그에서 바로 구분하기 위함이다.
+    headers = {"X-Error-Code": code, "X-Request-Id": payload["error"]["request_id"]}
+    retry_header = retry_after_header(retry_after_seconds)
+    if retry_header:
+        headers.update(retry_header)
+    return headers
+
+
 def error_response(
     code: str,
     message: str,
@@ -159,10 +176,11 @@ def error_response(
     debug: dict[str, Any] | None = None,
     retry_after_seconds: float | None = None,
 ) -> JSONResponse:
+    payload = error_payload(code, message, retryable, request_id, param, debug)
     return JSONResponse(
-        error_payload(code, message, retryable, request_id, param, debug),
+        payload,
         status_code=status_code or ERROR_STATUS.get(code, 500),
-        headers=retry_after_header(retry_after_seconds),
+        headers=error_response_headers(code, payload, retry_after_seconds),
     )
 
 
@@ -192,8 +210,9 @@ class ServiceError(Exception):
         )
 
     def to_response(self) -> JSONResponse:
+        payload = self.to_payload()
         return JSONResponse(
-            self.to_payload(),
+            payload,
             status_code=self.status_code or ERROR_STATUS.get(self.code, 500),
-            headers=retry_after_header(self.retry_after_seconds),
+            headers=error_response_headers(self.code, payload, self.retry_after_seconds),
         )
