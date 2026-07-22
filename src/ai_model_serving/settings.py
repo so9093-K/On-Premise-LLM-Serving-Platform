@@ -15,7 +15,7 @@ from .settings_parts.env import (
 )
 from .settings_parts.runtime_endpoints import build_runtime_endpoint, validate_timeout_budget
 from .settings_parts.security import build_security_settings
-from .settings_parts.types import AppSettings, DocumentationSettings, EmbeddingProfile, RiskDetectorSettings, RuntimeEndpoint, SecuritySettings
+from .settings_parts.types import AppSettings, CorsSettings, DocumentationSettings, EmbeddingProfile, RiskDetectorSettings, RuntimeEndpoint, SecuritySettings
 
 ROOT = _resolve_project_root()
 
@@ -52,6 +52,16 @@ def _documentation_settings(documentation_cfg: dict[str, Any]) -> DocumentationS
         redoc_url=_env("FASTAPI_REDOC_URL", str(documentation_cfg.get("redoc_url", "/redoc"))),
         openapi_url=_env("OPENAPI_URL", str(documentation_cfg.get("openapi_url", "/openapi.json"))),
     )
+
+
+def _cors_settings() -> CorsSettings:
+    # 이 프로젝트의 기본 auth profile(local_open)이 API 키 인증까지 기본으로 끄고
+    # "네트워크 경계가 접근 제어를 소유한다"는 철학이라(configs/auth_profiles.yaml),
+    # CORS만 기본으로 닫아두는 건 오히려 이 프로젝트 기조와 어긋난다. vLLM 자체도
+    # 기본이 allow_origins=["*"]다 — 그것과 동일하게 맞춘다. 더 엄격한 프로필로
+    # 운영하려면 CORS_ALLOWED_ORIGINS를 명시적으로 좁히거나 빈 값으로 두면 된다.
+    origins = tuple(origin.strip() for origin in _env("CORS_ALLOWED_ORIGINS", "*").split(",") if origin.strip())
+    return CorsSettings(allowed_origins=origins)
 
 
 def _env_name(model_key: str, suffix: str) -> str:
@@ -192,6 +202,7 @@ def load_settings(root: Path | None = None, env_file: Path | str | None = None) 
     models = model_serving["models"]
 
     documentation = _documentation_settings(documentation_cfg)
+    cors = _cors_settings()
     app_env = _env("APP_ENV", "local")
     security = build_security_settings(app_env=app_env, security_cfg=security_cfg)
 
@@ -276,6 +287,7 @@ def load_settings(root: Path | None = None, env_file: Path | str | None = None) 
         risk_input_max_chars=risk_input_max_chars,
         public_models=_public_models_from_registry(model_catalog, model_serving),
         documentation=documentation,
+        cors=cors,
         readiness_probe_timeout_seconds=float(operational_limits.get("readiness_probe_timeout_seconds", 2.0)),
         streaming_max_duration_seconds=float(streaming_cfg.get("max_duration_seconds", 300.0)),
         streaming_max_chunks=int(streaming_cfg.get("max_chunks", 20_000)),

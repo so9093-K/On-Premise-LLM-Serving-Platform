@@ -6,6 +6,7 @@ from typing import Any
 
 from fastapi import Depends, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
@@ -105,6 +106,30 @@ def install_common_middleware(
             logger=logger,
             service=metrics.service,
         )
+
+
+def install_cors_middleware(app: FastAPI, *, settings: AppSettings) -> None:
+    """Allow a browser-based client (e.g. a chat webui) on another origin to call this API.
+
+    `CORS_ALLOWED_ORIGINS` 기본값은 전체 허용("*")이다 — 이 프로젝트의 기본 auth
+    profile(local_open)이 API 키 인증까지 기본으로 끄고 "네트워크 경계가 접근 제어를
+    소유한다"는 전제라, CORS만 기본으로 닫아두는 게 오히려 기조에 안 맞는다. vLLM
+    자체도 기본이 이렇다(`allow_origins=["*"]`). 인증은 쿠키가 아니라 Bearer 토큰이라
+    `allow_credentials`는 안 쓴다(그 조합은 CORS 스펙상 `allow_origins=["*"]`와 같이
+    못 쓰기도 하고, 이 프로젝트 인증 방식엔 애초에 불필요하다). `CORS_ALLOWED_ORIGINS`를
+    빈 값으로 두면 미들웨어 자체를 안 붙여서 cross-origin을 전부 막을 수 있다(더 엄격한
+    프로필용). 반드시 `install_common_middleware` 이후에 호출해야 가장 바깥쪽에 위치해,
+    preflight(OPTIONS)가 요청 크기 가드/메트릭/접근 로그보다 먼저 처리된다.
+    """
+    if not settings.cors.allowed_origins:
+        return
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=list(settings.cors.allowed_origins),
+        allow_credentials=False,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
 
 def install_exception_handlers(

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import dataclasses
 import io
 import logging
 
@@ -8,6 +9,7 @@ from starlette.requests import Request
 from ai_model_serving.logging_policy import safe_request_log_record
 from ai_model_serving.metrics import Metrics
 from ai_model_serving.errors import error_payload, error_response_headers
+from ai_model_serving.settings import CorsSettings
 
 def test_gateway_error_uses_incoming_request_id():
     client = TestClient(create_gateway_app(settings(), FakeGatewayClients()))
@@ -279,3 +281,50 @@ def test_main_model_metrics_restore_persistent_state_without_operation_id_labels
     assert 'main_model_switch_operations{result="failure",service="gateway"} 2.0' in text
     assert "sensitive-operation-id" not in text
     assert "sensitive error text" not in text
+
+
+def test_cors_default_allows_any_origin():
+    # 기본값(CorsSettings())은 전체 허용("*")이다 — local_open의 "네트워크 경계가
+    # 접근 제어를 소유한다" 기조 및 vLLM 자체 기본값과 맞춘 것이라, 별도 설정 없이도
+    # 어떤 origin이든 cross-origin 응답을 받을 수 있어야 한다.
+    client = TestClient(create_gateway_app(settings(), FakeGatewayClients()))
+    response = client.get("/v1/models", headers={"Origin": "http://example-webui.test"})
+    assert response.headers["access-control-allow-origin"] == "*"
+
+
+def test_cors_disabled_when_explicitly_empty():
+    # 더 엄격한 배포에서는 CORS_ALLOWED_ORIGINS를 빈 값으로 둬서 CORSMiddleware
+    # 자체를 안 붙이는 옵트아웃이 가능해야 한다.
+    cors_settings = dataclasses.replace(settings(), cors=CorsSettings(allowed_origins=()))
+    client = TestClient(create_gateway_app(cors_settings, FakeGatewayClients()))
+    response = client.get("/v1/models", headers={"Origin": "http://example-webui.test"})
+    assert "access-control-allow-origin" not in response.headers
+
+
+def test_cors_allows_configured_origin_only():
+    cors_settings = dataclasses.replace(settings(), cors=CorsSettings(allowed_origins=("http://example-webui.test",)))
+    client = TestClient(create_gateway_app(cors_settings, FakeGatewayClients()))
+
+    allowed = client.get("/v1/models", headers={"Origin": "http://example-webui.test"})
+    assert allowed.headers["access-control-allow-origin"] == "http://example-webui.test"
+
+    other = client.get("/v1/models", headers={"Origin": "http://not-allowed.test"})
+    assert "access-control-allow-origin" not in other.headers
+
+
+def test_cors_preflight_allows_authorization_header_for_configured_origin():
+    cors_settings = dataclasses.replace(settings(), cors=CorsSettings(allowed_origins=("http://example-webui.test",)))
+    client = TestClient(create_gateway_app(cors_settings, FakeGatewayClients()))
+
+    preflight = client.request(
+        "OPTIONS",
+        "/v1/chat/completions",
+        headers={
+            "Origin": "http://example-webui.test",
+            "Access-Control-Request-Method": "POST",
+            "Access-Control-Request-Headers": "authorization,content-type",
+        },
+    )
+    assert preflight.status_code == 200
+    assert preflight.headers["access-control-allow-origin"] == "http://example-webui.test"
+    assert "authorization" in preflight.headers["access-control-allow-headers"].lower()

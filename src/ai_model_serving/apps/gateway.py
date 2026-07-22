@@ -10,6 +10,7 @@ from ..app_kernel import (
     admin_dependencies as build_admin_dependencies,
     create_service_app,
     install_common_middleware,
+    install_cors_middleware,
     install_exception_handlers,
     register_health,
     register_scalar_docs,
@@ -143,6 +144,7 @@ def create_gateway_app(settings: AppSettings | None = None, clients: GatewayClie
     )
 
     install_common_middleware(app, settings=settings, metrics=metrics, logger=logger)
+    install_cors_middleware(app, settings=settings)
 
     def validation_reason(exc: ServiceError) -> str:
         message = exc.message.lower()

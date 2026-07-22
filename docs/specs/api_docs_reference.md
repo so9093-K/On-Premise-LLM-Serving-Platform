@@ -99,6 +99,12 @@ API 문서는 “사용자가 조정할 수 있는 parameter”와 “운영자�
 - `/playground`는 `/v1/models`를 읽어 model-aware form을 구성한다.
 - 포함할 요소: model selector, capability badge, parameter group, request JSON preview, curl/code copy, streaming viewer, json_schema editor, logprobs/logit_bias advanced section.
 
+`/playground`든 별도 workspace의 webui든, 브라우저에서 이 API를 다른 origin으로 호출하려면
+CORS가 필요하다. Gateway는 `CORS_ALLOWED_ORIGINS`(콤마 구분 origin 목록, 기본값 `*`)로
+`fastapi.middleware.cors.CORSMiddleware`를 설정한다(`app_kernel.py`의 `install_cors_middleware`).
+vLLM 런타임(직접 접속 진단 모드, `master_open`에서만 host-published)은 자체적으로 이미
+`allow_origins=["*"]`가 기본값이라 별도 설정 없이도 브라우저에서 바로 호출 가능하다.
+
 ## 4. docs asset CDN/self-host 운영 정책
 
 현재 Scalar UI는 CDN에서 `@scalar/api-reference`를 로드한다.

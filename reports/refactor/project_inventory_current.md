@@ -10,7 +10,7 @@ Command:
 
 이 리포트는 현재 source tree에서 생성되며 로컬 runtime/cache/build 디렉터리는 제외한다.
 
-- 검토 파일 수: **466**
+- 검토 파일 수: **463**
 - CSV matrix: `reports/refactor/project_inventory_current.csv`
 - JSON matrix: `reports/refactor/project_inventory_current.json`
 
@@ -18,7 +18,6 @@ Command:
 
 | 영역 | 수 |
 |---|---:|
-| `.claude` | 1 |
 | `.dockerignore` | 1 |
 | `.env` | 1 |
 | `.env.compose.example` | 1 |
@@ -27,7 +26,6 @@ Command:
 | `.github` | 1 |
 | `.gitignore` | 1 |
 | `.gitlab-ci.yml` | 1 |
-| `.other` | 7 |
 | `.python-version` | 1 |
 | `CHANGELOG.md` | 1 |
 | `Dockerfile` | 1 |
@@ -41,14 +39,14 @@ Command:
 | `features` | 3 |
 | `harness` | 2 |
 | `model_cards` | 4 |
-| `ops` | 15 |
+| `ops` | 19 |
 | `pyproject.toml` | 1 |
 | `reports` | 20 |
 | `requirements.lock` | 1 |
 | `requirements.runtime.lock` | 1 |
 | `scripts` | 85 |
 | `specs` | 15 |
-| `src` | 113 |
+| `src` | 114 |
 | `tests` | 92 |
 | `version_manifest.json` | 1 |
 
@@ -68,21 +66,21 @@ Command:
 
 | 경로 | 줄 수 | 담당 | 검토 메모 |
 |---|---:|---|---|
-| `specs/openapi.gateway.yaml` | 9188 | api-contracts | supporting project file |
-| `reports/refactor/project_inventory_current.json` | 5389 | handoff-reporting | handoff/review artifact; avoid stale phase snapshots in active package |
-| `specs/openapi.risk-adapter.yaml` | 3538 | api-contracts | supporting project file |
+| `specs/openapi.gateway.yaml` | 9093 | api-contracts | supporting project file |
+| `reports/refactor/project_inventory_current.json` | 5488 | handoff-reporting | handoff/review artifact; avoid stale phase snapshots in active package |
+| `specs/openapi.risk-adapter.yaml` | 3504 | api-contracts | supporting project file |
 | `configs/command_registry.yaml` | 2150 | configuration | configuration source; validate through governance and projection checks after edits |
 | `scripts/ci/deploy_gitlab_compose.sh` | 1162 | operator-ux | operator/developer command; expose through Makefile/help if user-facing |
-| `src/ai_model_serving/main_model_control.py` | 952 | application | application code; preserve public API behavior and compatibility facades |
-| `tests/unit/test_main_model_control.py` | 897 | quality | test coverage; keep deterministic and avoid live GPU dependency |
-| `src/ai_model_serving/api/routers/gateway_runtime_control.py` | 787 | application | application code; preserve public API behavior and compatibility facades |
-| `scripts/render_runtime_assets.py` | 762 | operator-ux | operator/developer command; expose through Makefile/help if user-facing |
+| `src/ai_model_serving/main_model_control.py` | 982 | application | application code; preserve public API behavior and compatibility facades |
+| `tests/unit/test_main_model_control.py` | 965 | quality | test coverage; keep deterministic and avoid live GPU dependency |
+| `src/ai_model_serving/api/routers/gateway_runtime_control.py` | 788 | application | application code; preserve public API behavior and compatibility facades |
+| `scripts/render_runtime_assets.py` | 768 | operator-ux | operator/developer command; expose through Makefile/help if user-facing |
 | `src/ai_model_serving/contracts/media.py` | 713 | api-contracts | application code; preserve public API behavior and compatibility facades |
 | `reports/runtime/operator_status_bundle.json` | 710 | handoff-reporting | generated operator report; regenerate through make operator-reports before handoff |
 | `ops/grafana/dashboards/gpu_capacity_and_oom_risk.json` | 700 | operations | supporting project file |
 | `src/ai_model_serving/api_examples.py` | 633 | application | application code; preserve public API behavior and compatibility facades |
+| `tests/unit/gateway/test_json_schema.py` | 631 | quality | test coverage; keep deterministic and avoid live GPU dependency |
 | `src/ai_model_serving/api/endpoint_spec.py` | 628 | application | application code; preserve public API behavior and compatibility facades |
-| `tests/unit/gateway/helpers.py` | 597 | quality | test coverage; keep deterministic and avoid live GPU dependency |
 
 ## 관리 해석
 

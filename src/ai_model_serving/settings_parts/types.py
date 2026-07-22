@@ -25,6 +25,17 @@ class DocumentationSettings:
 
 
 @dataclass(frozen=True)
+class CorsSettings:
+    # 브라우저 기반 webui가 다른 origin에서 이 API를 호출할 때 필요. 기본값은 전체
+    # 허용("*") — 이 프로젝트의 기본 auth profile(local_open)이 이미 "네트워크 경계가
+    # 접근 제어를 소유한다"는 전제로 API 키 인증까지 기본으로 끄고 있고, vLLM 자체도
+    # 기본이 allow_origins=["*"]라 그것과 맞춘다. Bearer 토큰 인증(쿠키 아님)이라
+    # allow_credentials는 안 쓴다. 더 엄격한 프로필에서는 CORS_ALLOWED_ORIGINS를
+    # 명시적으로 좁히거나 빈 값으로 두면 미들웨어 자체가 안 붙는다.
+    allowed_origins: tuple[str, ...] = ("*",)
+
+
+@dataclass(frozen=True)
 class RuntimeEndpoint:
     logical_id: str
     base_url: str
@@ -111,6 +122,7 @@ class AppSettings:
     risk_input_max_chars: int = 7_936
     public_models: tuple[dict[str, Any], ...] = ()
     documentation: DocumentationSettings = DocumentationSettings()
+    cors: CorsSettings = CorsSettings()
     readiness_probe_timeout_seconds: float = 2.0
     streaming_max_duration_seconds: float = 300.0
     streaming_max_chunks: int = 20_000

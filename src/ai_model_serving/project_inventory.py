@@ -12,6 +12,9 @@ EXCLUDED_PARTS = {
     '.git', '.cache', '.mypy_cache', '.pytest_cache', '.ruff_cache', '.runtime', '.tox',
     '.venv', 'venv', '__pycache__', 'dist', 'logs', 'model_cache',
     'outputs', 'run', 'node_modules',
+    # .gitignore의 "Local AI/dev-agent tool state"/".other" 항목과 맞춤 — 개인 스크래치·
+    # 에이전트 상태 디렉터리라 프로젝트 구조 인벤토리에 안 잡혀야 한다.
+    '.other', '.agents', '.codex', '.claude', '.cursor',
 }
 TOP_LEVEL_EXCLUDED_PARTS = {'build', 'env', 'models'}
 EXCLUDED_SUFFIXES = {'.pyc', '.pyo'}
