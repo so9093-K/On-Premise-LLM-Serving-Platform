@@ -71,6 +71,36 @@ def test_compose_env_example_has_reviewed_image_defaults() -> None:
     assert 'Replace mutable tags with validated immutable digests before production promotion.' in env
 
 
+def test_compose_main_llm_vllm_image_matches_default_profile_bootstrap_image() -> None:
+    """main-llm-vllm의 compose image는 admin-sidecar가 최초 부트스트랩 이후 항상
+    active profile의 image로 덮어쓰므로(docker_main_model_backend.py의
+    payload["Image"] = str(profile.image)) 실제 서빙에는 쓰이지 않는다. 다만
+    admin-sidecar가 한 번도 안 돈 최초 `docker compose up` 시점에는 이 값으로
+    컨테이너가 뜨므로, main_model_profiles.yaml의 default_profile이 resolve하는
+    image와 어긋나면 최초 부트스트랩이 깨진 이미지로 시작할 수 있다. 이 테스트는
+    그 드리프트를 잡는다 -- compose 값을 손으로 갱신하는 걸 깜빡해도 여기서 실패한다.
+    """
+    compose = yaml.safe_load((ROOT / "ops/compose/full-stack.private-network.yaml").read_text(encoding="utf-8"))
+    catalog = yaml.safe_load((ROOT / "configs/main_model_profiles.yaml").read_text(encoding="utf-8"))
+
+    compose_image = compose["services"]["main-llm-vllm"]["image"]
+    default_profile_id = catalog["default_profile"]
+    default_profile = catalog["profiles"][default_profile_id]
+    assert "image" not in default_profile, (
+        f"default_profile '{default_profile_id}' now overrides its own image; "
+        "update this test to compare against that override instead of runtime.image."
+    )
+    expected_image = catalog["runtime"]["image"]
+
+    assert compose_image == expected_image, (
+        f"ops/compose/full-stack.private-network.yaml main-llm-vllm.image ({compose_image}) "
+        f"no longer matches the default_profile ('{default_profile_id}') bootstrap image "
+        f"({expected_image}) from configs/main_model_profiles.yaml. This placeholder is "
+        "overwritten by admin-sidecar after the first reconcile, but a stale value can still "
+        "break the very first `docker compose up` before that happens."
+    )
+
+
 def test_compose_up_syncs_runtime_secrets_before_docker_compose() -> None:
     script = (ROOT / "scripts/compose/compose_up.sh").read_text(encoding="utf-8")
     makefile = (ROOT / "Makefile").read_text(encoding="utf-8")

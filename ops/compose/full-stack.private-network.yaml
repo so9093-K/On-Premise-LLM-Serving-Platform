@@ -67,6 +67,15 @@ services:
     expose:
     - '9405'
   main-llm-vllm:
+    # 이 image/command는 최초 `docker compose up` 부트스트랩 전용 placeholder다.
+    # admin-sidecar가 뜬 뒤에는 configs/main_model_profiles.yaml의 active profile
+    # 기준으로 항상 컨테이너를 stop/재생성하며 image도 그때마다 덮어쓴다
+    # (docker_main_model_backend.py의 replace(): payload["Image"] = profile.image).
+    # 실제 서빙 이미지는 이 값이 아니라 항상 그쪽을 봐야 한다. 이 값은
+    # default_profile이 resolve하는 image와 일치해야 하며(최초 부팅 시 이 값으로
+    # 뜬 컨테이너가 healthy해야 admin-sidecar의 첫 reconcile까지 갈 수 있다),
+    # 어긋나면 tests/contract/governance/test_compose_operational_contract.py의
+    # test_compose_main_llm_vllm_image_matches_default_profile_bootstrap_image가 잡는다.
     image: vllm/vllm-openai@sha256:f4492643056969529a74238f71dd66dc3097c0d433156a4f4478456bf84bd276
     restart: unless-stopped
     command:
