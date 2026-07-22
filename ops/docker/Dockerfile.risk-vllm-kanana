@@ -5,7 +5,7 @@
 # head_dim=128). Some Transformers/vLLM combinations reject this config when
 # Llama architecture validation ignores explicit head_dim. This image keeps the
 # workaround isolated from the main Gemma4 runtime and records patch metadata.
-ARG BASE_IMAGE=vllm/vllm-openai:gemma4-0505-cu129
+ARG BASE_IMAGE=vllm/vllm-openai:v0.25.1-cu129
 FROM ${BASE_IMAGE}
 
 ARG TRANSFORMERS_MIN_VERSION=4.52.4

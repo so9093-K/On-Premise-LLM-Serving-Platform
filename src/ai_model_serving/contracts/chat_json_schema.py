@@ -55,11 +55,31 @@ def _schema_limit(policy: dict[str, Any], key: str, default: int) -> int:
 
 
 def _schema_depth(value: Any) -> int:
-    if isinstance(value, dict):
-        return 1 + max((_schema_depth(item) for item in value.values()), default=0)
-    if isinstance(value, list):
-        return 1 + max((_schema_depth(item) for item in value), default=0)
-    return 1
+    """스키마 자체의 중첩 깊이. `type`/`required`처럼 중첩을 뜻하지 않는 키까지 세면
+    실제로는 의미 있는 중첩 2단계짜리 스키마도 raw depth로는 10을 넘어가버려서,
+    max_depth 정책 숫자가 사용자에게 실제보다 훨씬 인색하게 느껴진다(3단계짜리 평범한
+    중첩 객체가 depth 12로 잡혀 max_depth=8 기본값에 걸린 사례로 확인됨). `_iter_schema_objects`와
+    동일한 키 집합만 따라 내려가, "진짜 스키마가 중첩된 깊이"만 센다."""
+    if not isinstance(value, dict):
+        return 0
+    child_depths = [0]
+    for key in SCHEMA_VALUE_KEYS:
+        item = value.get(key)
+        if isinstance(item, dict):
+            child_depths.append(_schema_depth(item))
+    for key in SCHEMA_ARRAY_KEYS:
+        items = value.get(key)
+        if isinstance(items, list):
+            for item in items:
+                if isinstance(item, dict):
+                    child_depths.append(_schema_depth(item))
+    for key in SCHEMA_MAP_VALUE_KEYS:
+        items = value.get(key)
+        if isinstance(items, dict):
+            for item in items.values():
+                if isinstance(item, dict):
+                    child_depths.append(_schema_depth(item))
+    return 1 + max(child_depths)
 
 
 def _iter_schema_objects(value: Any) -> Iterator[dict[str, Any]]:
