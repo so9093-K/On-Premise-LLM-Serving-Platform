@@ -47,6 +47,18 @@ RISK_VLLM_TRANSFORMERS_MIN_VERSION="${RISK_VLLM_TRANSFORMERS_MIN_VERSION:-$(
 echo "[build] disk status (pre-build):"
 docker system df -v || true
 
+# base가 둘로 갈라진 뒤(AUDIO_VLLM_BASE_IMAGE 분리, v0.25.1 업그레이드) 이 job이
+# ~25GB base를 두 개(다르면) pull해야 해서 peak 디스크 사용량이 이전(base 공유,
+# 1개만 pull)의 약 2배가 됐다 -- 실제로 runner에서 "no space left on device"로
+# 재현됨(두 번째 base pull 도중 Verifying Checksum 단계에서 실패). 안 쓰는 이미지를
+# 미리 비워 그 여유를 확보한다. -a는 아직 어떤 컨테이너도 참조 안 하는 이미지까지
+# 지우므로 현재 실행 중인 컨테이너에는 영향 없다; until=24h로 최근 캐시는
+# 살려둬 반복 빌드의 layer 재사용 이점을 크게 잃지 않는다.
+echo "[build] pruning unused images older than 24h to make room for base pull(s)..."
+docker image prune -af --filter "until=24h" || true
+echo "[build] disk status (post-prune):"
+docker system df -v || true
+
 # ── base image pull. 두 base가 같으면 daemon layer cache를 공유하고,
 #    다르면(예: gemma4-audio만 새 버전으로 올릴 때) 각각 pull한다 ─────────────
 echo "[build] pulling base image(s)..."

@@ -89,6 +89,88 @@ def test_gateway_json_schema_validation_and_subset_limits():
     assert client.post("/v1/chat/completions", headers=auth_headers(), json={"model": "local-main", "messages": [{"role": "user", "content": "Return JSON."}], "response_format": missing_additional}).status_code == 422
 
 
+def _chat_response(content: str) -> dict:
+    return {
+        "id": "chatcmpl-1",
+        "object": "chat.completion",
+        "model": "local-main",
+        "choices": [{"index": 0, "finish_reason": "stop", "message": {"role": "assistant", "content": content}}],
+    }
+
+
+def test_gateway_retries_once_on_truncated_structured_output_then_succeeds():
+    call_count = 0
+
+    def post_response(path, payload, **kwargs):
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            return _chat_response('{"answer": "cut off mid ge')
+        return _chat_response('{"answer": "ok"}')
+
+    clients = FakeGatewayClients()
+    clients.main_llm.post_response = post_response
+    client = TestClient(create_gateway_app(advanced_chat_settings(), clients))
+
+    response = client.post(
+        "/v1/chat/completions",
+        headers=auth_headers(),
+        json={"model": "local-main", "messages": [{"role": "user", "content": "Return JSON."}], "response_format": _json_schema_format()},
+    )
+    assert response.status_code == 200
+    assert response.json()["choices"][0]["message"]["content"] == '{"answer": "ok"}'
+    assert call_count == 2
+
+
+def test_gateway_gives_up_after_one_retry_on_repeated_truncation():
+    call_count = 0
+
+    def post_response(path, payload, **kwargs):
+        nonlocal call_count
+        call_count += 1
+        return _chat_response('{"answer": "still cut off')
+
+    clients = FakeGatewayClients()
+    clients.main_llm.post_response = post_response
+    client = TestClient(create_gateway_app(advanced_chat_settings(), clients))
+
+    response = client.post(
+        "/v1/chat/completions",
+        headers=auth_headers(),
+        json={"model": "local-main", "messages": [{"role": "user", "content": "Return JSON."}], "response_format": _json_schema_format()},
+    )
+    assert response.status_code == 502
+    assert response.json()["error"]["code"] == "UPSTREAM_SCHEMA_ERROR"
+    assert call_count == 2
+
+
+def test_gateway_does_not_retry_truncation_without_structured_output():
+    call_count = 0
+
+    def post_response(path, payload, **kwargs):
+        nonlocal call_count
+        call_count += 1
+        return {
+            "id": "chatcmpl-1",
+            "object": "chat.completion",
+            "model": "local-main",
+            "choices": [{"index": 0, "finish_reason": "length", "message": {"role": "assistant", "content": None}}],
+        }
+
+    clients = FakeGatewayClients()
+    clients.main_llm.post_response = post_response
+    client = TestClient(create_gateway_app(advanced_chat_settings(), clients))
+
+    response = client.post(
+        "/v1/chat/completions",
+        headers=auth_headers(),
+        json={"model": "local-main", "messages": [{"role": "user", "content": "hello"}]},
+    )
+    assert response.status_code == 502
+    assert response.json()["error"]["code"] == "UPSTREAM_SCHEMA_ERROR"
+    assert call_count == 1
+
+
 def test_gateway_rejects_invalid_json_schema_request_shapes_and_requires_all_properties():
     clients = FakeGatewayClients()
     clients.main_llm.post_response["choices"][0]["message"]["content"] = "{\"answer\":\"ok\",\"note\":null}"
