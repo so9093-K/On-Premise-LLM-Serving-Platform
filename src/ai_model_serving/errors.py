@@ -148,6 +148,18 @@ def retry_after_header(retry_after_seconds: float | None) -> dict[str, str] | No
     return {"Retry-After": str(max(1, math.ceil(retry_after_seconds)))}
 
 
+ERROR_MESSAGE_HEADER_LIMIT = 500
+
+
+def _header_safe_message(message: str) -> str:
+    # message에는 클라이언트가 보낸 값이 그대로 섞여 들어갈 수 있다(예: 잘못된
+    # response_format.type 값 자체). 이걸 그대로 응답 헤더에 실으면 클라이언트가
+    # CRLF를 주입해 헤더를 추가로 밀어넣을 수 있으므로, 출력 가능한 ASCII만 남기고
+    # 나머지는 전부 버린 뒤 적당한 길이로 자른다.
+    safe = "".join(ch for ch in message if " " <= ch <= "~")
+    return safe[:ERROR_MESSAGE_HEADER_LIMIT]
+
+
 def error_response_headers(
     code: str,
     payload: dict[str, Any],
@@ -159,7 +171,15 @@ def error_response_headers(
     # 클라이언트가 보고한 request_id로는 로그를 절대 못 찾는다. X-Error-Code는
     # status만으로는 구분 안 되는 code(예: 503 하나에 MODEL_UNAVAILABLE/QUEUE_TIMEOUT/
     # CIRCUIT_OPEN 등 여러 code가 몰림)를 접근 로그에서 바로 구분하기 위함이다.
-    headers = {"X-Error-Code": code, "X-Request-Id": payload["error"]["request_id"]}
+    # X-Error-Message는 code만으로는 안 보이는 실제 원인 설명(예: 어떤 필드가 왜
+    # 잘못됐는지)까지 로그에서 바로 읽을 수 있게 한다 — code 하나만 봐서는 "무슨
+    # 종류의 에러인지"는 알아도 "정확히 뭐가 잘못됐는지"는 여전히 서버에 들어가서
+    # 찾아야 했다.
+    headers = {
+        "X-Error-Code": code,
+        "X-Request-Id": payload["error"]["request_id"],
+        "X-Error-Message": _header_safe_message(payload["error"]["message"]),
+    }
     retry_header = retry_after_header(retry_after_seconds)
     if retry_header:
         headers.update(retry_header)

@@ -7,6 +7,7 @@ from .helpers import *  # noqa: F401,F403
 from starlette.requests import Request
 from ai_model_serving.logging_policy import safe_request_log_record
 from ai_model_serving.metrics import Metrics
+from ai_model_serving.errors import error_payload, error_response_headers
 
 def test_gateway_error_uses_incoming_request_id():
     client = TestClient(create_gateway_app(settings(), FakeGatewayClients()))
@@ -122,16 +123,16 @@ def test_gateway_records_specific_validation_rejection_reason_for_image_pixels()
     assert 'request_validation_rejections_total{reason="image_pixels",service="gateway"}' in metrics
 
 
-def test_access_log_records_client_ip_hash_without_metric_label_style_ip():
+def test_access_log_records_client_host_and_drops_unused_proxy_fields():
+    # client_ip_hash/forwarded_for_present/forwarded_proto는 이 배포에 reverse
+    # proxy가 없어서 실제로는 항상 같은(무의미한) 값만 찍히던 죽은 필드라 제거했다.
+    # client_host가 실제 연결 피어를 그대로 담고 있으면 충분하다 — 회귀 방지용으로
+    # 제거된 필드가 다시 안 생기는지도 같이 확인한다.
     request = Request({
         "type": "http",
         "method": "GET",
         "path": "/v1/models",
-        "headers": [
-            (b"x-request-id", b"req_123"),
-            (b"x-forwarded-for", b"203.0.113.10, 10.0.0.1"),
-            (b"x-forwarded-proto", b"https"),
-        ],
+        "headers": [(b"x-request-id", b"req_123")],
         "client": ("10.0.0.10", 12345),
         "server": ("testserver", 80),
         "scheme": "http",
@@ -148,10 +149,9 @@ def test_access_log_records_client_ip_hash_without_metric_label_style_ip():
     )
 
     assert record["client_host"] == "10.0.0.10"
-    assert record["client_ip_hash"]
-    assert record["forwarded_for_present"] is True
-    assert record["forwarded_proto"] == "https"
-    assert "203.0.113.10" not in json.dumps(record)
+    assert "client_ip_hash" not in record
+    assert "forwarded_for_present" not in record
+    assert "forwarded_proto" not in record
 
 
 def _bare_request() -> Request:
@@ -179,14 +179,16 @@ def test_access_log_records_error_code_and_response_echoed_request_id():
         status_code=503,
         elapsed_seconds=0.02,
         error_code="CIRCUIT_OPEN",
+        error_message="upstream circuit is open; retry after cooldown.",
         response_request_id="req_minted_abc",
     )
 
     assert record["error_code"] == "CIRCUIT_OPEN"
+    assert record["error_message"] == "upstream circuit is open; retry after cooldown."
     assert record["request_id"] == "req_minted_abc"
 
 
-def test_access_log_omits_error_code_field_for_success_responses():
+def test_access_log_omits_error_fields_for_success_responses():
     record = safe_request_log_record(
         service="gateway",
         request=_bare_request(),
@@ -195,6 +197,7 @@ def test_access_log_omits_error_code_field_for_success_responses():
     )
 
     assert "error_code" not in record
+    assert "error_message" not in record
 
 
 def test_access_log_middleware_emits_error_code_and_request_id_from_response_headers():
@@ -220,6 +223,24 @@ def test_access_log_middleware_emits_error_code_and_request_id_from_response_hea
     assert completed, f"no http_request_completed log record captured: {stream.getvalue()}"
     assert completed[-1]["error_code"] == "UNAUTHORIZED"
     assert completed[-1]["request_id"] == body_request_id
+    assert completed[-1]["error_message"] == response.json()["error"]["message"]
+
+
+def test_error_response_headers_strip_crlf_from_client_supplied_message():
+    # message에는 클라이언트가 보낸 값이 그대로 들어갈 수 있다(예: 잘못된
+    # response_format.type이 에러 메시지에 그대로 echo됨 — chat_response_format.py 참고).
+    # CRLF를 주입해 헤더를 밀어넣으려는 시도가 있어도 X-Error-Message 헤더에는 절대
+    # 원본 CRLF가 남으면 안 된다(HTTP header injection).
+    payload = error_payload(
+        "VALIDATION_ERROR",
+        "response_format.type is bogus\r\nX-Injected: evil; use one of: json_object.",
+        False,
+    )
+    headers = error_response_headers("VALIDATION_ERROR", payload)
+    assert "\r" not in headers["X-Error-Message"]
+    assert "\n" not in headers["X-Error-Message"]
+    assert "X-Injected" not in headers
+    assert "bogus" in headers["X-Error-Message"]
 
 
 def test_main_model_metrics_restore_persistent_state_without_operation_id_labels():

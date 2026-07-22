@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import logging
-import hashlib
 import time
 from typing import Any
 
@@ -24,20 +23,6 @@ __all__ = [
 ]
 
 
-def _first_forwarded_for(headers: Any) -> str | None:
-    value = headers.get("x-forwarded-for") if hasattr(headers, "get") else None
-    if not isinstance(value, str):
-        return None
-    first = value.split(",", 1)[0].strip()
-    return first or None
-
-
-def _client_ip_hash(value: str | None) -> str | None:
-    if not value:
-        return None
-    return hashlib.sha256(value.encode("utf-8")).hexdigest()[:16]
-
-
 def safe_request_log_record(
     *,
     service: str,
@@ -45,13 +30,12 @@ def safe_request_log_record(
     status_code: int,
     elapsed_seconds: float,
     error_code: str | None = None,
+    error_message: str | None = None,
     response_request_id: str | None = None,
 ) -> dict[str, Any]:
     route_obj = request.scope.get("route")
     route = getattr(route_obj, "path", None) or request.url.path
     peer_host = request.client.host if request.client else None
-    forwarded_for = _first_forwarded_for(request.headers)
-    client_ip_for_correlation = forwarded_for or peer_host
     record = {
         "event": "http_request_completed",
         "service": service,
@@ -66,12 +50,11 @@ def safe_request_log_record(
         "status_code": status_code,
         "latency_ms": round(elapsed_seconds * 1000, 3),
         "client_host": peer_host,
-        "client_ip_hash": _client_ip_hash(client_ip_for_correlation),
-        "forwarded_for_present": forwarded_for is not None,
-        "forwarded_proto": request.headers.get("x-forwarded-proto"),
     }
     if error_code:
         record["error_code"] = error_code
+    if error_message:
+        record["error_message"] = error_message
     return scrub_for_log(record)
 
 
@@ -83,6 +66,7 @@ def log_request_completion(
     status_code: int,
     elapsed_seconds: float,
     error_code: str | None = None,
+    error_message: str | None = None,
     response_request_id: str | None = None,
 ) -> None:
     record = safe_request_log_record(
@@ -91,6 +75,7 @@ def log_request_completion(
         status_code=status_code,
         elapsed_seconds=elapsed_seconds,
         error_code=error_code,
+        error_message=error_message,
         response_request_id=response_request_id,
     )
     logger.info(json.dumps(record, ensure_ascii=False, sort_keys=True))
@@ -106,11 +91,13 @@ async def safe_request_logging_middleware(
     start = time.monotonic()
     status_code = 500
     error_code: str | None = None
+    error_message: str | None = None
     response_request_id: str | None = None
     try:
         response = await call_next(request)
         status_code = response.status_code
         error_code = response.headers.get("x-error-code")
+        error_message = response.headers.get("x-error-message")
         response_request_id = response.headers.get("x-request-id")
         return response
     finally:
@@ -121,5 +108,6 @@ async def safe_request_logging_middleware(
             status_code=status_code,
             elapsed_seconds=time.monotonic() - start,
             error_code=error_code,
+            error_message=error_message,
             response_request_id=response_request_id,
         )

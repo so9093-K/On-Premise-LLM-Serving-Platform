@@ -155,10 +155,12 @@ def render_error_reference_md() -> str:
         "| `request_id` | 로그 추적과 운영 문의용 ID. |",
         "| `debug` | 원본 cause/upstream 상태 요약. 운영·내부 개발자가 즉시 원인 확인에 사용한다. 없을 수 있다. |",
         "",
-        "모든 에러 응답은 `code`/`request_id`를 각각 `X-Error-Code`/`X-Request-Id` 응답 헤더로도 그대로 반환한다"
-        "(`x-request-id`를 안 보낸 요청도 에러 시 새로 발급된 request_id가 헤더로 에코되어 바디와 항상 일치한다)."
+        "모든 에러 응답은 `code`/`request_id`/`message`를 각각 `X-Error-Code`/`X-Request-Id`/"
+        "`X-Error-Message` 응답 헤더로도 그대로 반환한다"
+        "(`x-request-id`를 안 보낸 요청도 에러 시 새로 발급된 request_id가 헤더로 에코되어 바디와 항상 일치한다."
+        " `X-Error-Message`는 헤더 인젝션 방지를 위해 출력 가능한 ASCII만 남기고 500자로 자른 값이다)."
         " 운영 로그(구조화 접근 로그)도 이 헤더 값을 그대로 남기므로, 클라이언트가 보고한 `request_id`나"
-        " `code`로 로그를 직접 검색할 수 있다.",
+        " `code`, 에러 메시지로 로그를 직접 검색할 수 있다.",
         "",
         "## 판단 기준",
         "",
