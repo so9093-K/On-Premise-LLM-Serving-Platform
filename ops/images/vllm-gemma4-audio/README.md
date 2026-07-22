@@ -27,9 +27,11 @@ architecture) behaves identically on this image — it is safe as a per-profile 
 우회 코드가 존재하는 이유였던 구조화 출력 JIT-웜업 갭이 닫힌다 — 실제 GPU 로드로
 검증함(부팅 로그에 `Using V2 Model Runner`가 찍히고, 구조화 출력 요청 시
 `apply_token_bitmask_inplace_kernel`이 더 이상 JIT 컴파일되지 않음). MoE인 26B
-프로필에는 적용 안 됨(아키텍처 `Gemma4ForConditionalGeneration`이 vLLM
-`DEFAULT_V2_MODEL_RUNNER_ARCHITECTURES` 화이트리스트에 없음) — 그래서 26B는 이
-교체를 따라오지 않고 계속 별도의 `VLLM_BASE_IMAGE`(`.gitlab-ci.yml` 참고)를 쓴다.
+프로필에는 이 JIT 갭 해소 효과가 적용 안 됨(아키텍처 `Gemma4ForConditionalGeneration`이
+vLLM `DEFAULT_V2_MODEL_RUNNER_ARCHITECTURES` 화이트리스트에 없음) — 별개 이슈로 남는다.
+다만 base 자체(`.gitlab-ci.yml`의 `VLLM_BASE_IMAGE`)는 risk-vllm-kanana와 이
+이미지가 공유하며 둘 다 실 GPU로 검증됐다; 26B의 `runtime.image`는 이 CI
+변수와 무관한 별도 값(`configs/main_model_profiles.yaml`)이라 이 교체와 상관없다.
 
 Activation needs **no digest pin and no config flip** — the 12B profile already declares
 `image: ${AUDIO_VLLM_IMAGE}` and full `deployed_input: [text, image, audio, video]`. The one
