@@ -11,7 +11,7 @@ canonical_modes:
 profiles:
   private_network:
     class: default_private
-    description: "Gateway와 Grafana만 host-published. vLLM, Risk Adapter, Prometheus, DCGM, cAdvisor는 compose 내부망만."
+    description: "Gateway와 Grafana만 host-published. vLLM, Risk Adapter, Prometheus, DCGM, cAdvisor, Loki, Promtail은 compose 내부망만."
     host_published:
       - gateway
       - grafana
@@ -23,13 +23,16 @@ profiles:
       requires_exposure_audience: false
     note: >
       Standard production topology. vLLM runtimes, Risk Adapter, Prometheus,
-      DCGM exporter, and cAdvisor are compose-network only (expose, no ports).
+      DCGM exporter, cAdvisor, Loki, and Promtail are compose-network only
+      (expose, no ports). Promtail has no queryable API and is never
+      host-published in any profile.
 
   master_open:
     class: diagnostic_full_stack
     description: >
       전체 stack host-published. 외부 접근이 차단된 신뢰된 사내망에서
-      Gateway와 vLLM runtime, Risk Adapter, Prometheus, DCGM, cAdvisor를 직접 사용한다.
+      Gateway와 vLLM runtime, Risk Adapter, Prometheus, DCGM, cAdvisor, Loki를
+      직접 사용한다. Promtail은 조회 API가 없어 여기서도 host-published 대상이 아니다.
     host_published:
       - gateway
       - main_llm_vllm
@@ -41,6 +44,7 @@ profiles:
       - grafana
       - dcgm_exporter
       - cadvisor
+      - loki
     diagnostics:
       gateway_bypass_possible: true
       direct_model_runtime_access: true

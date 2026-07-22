@@ -51,6 +51,19 @@ images:
     purpose: Container resource advisor exposing per-container CPU and system RAM metrics.
     mutable: true
     source: Google cAdvisor v0.49.x stable release
+  loki:
+    default: grafana/loki:3.3.2
+    purpose: Log aggregation backend for the Grafana request-log-explorer dashboard.
+      Filesystem storage, short retention (LOKI_RETENTION_HOURS).
+    mutable: true
+    source: Grafana Loki 3.3.x Docker tag family
+  promtail:
+    default: grafana/promtail:3.3.2
+    purpose: Ships docker json-file container logs to Loki. Reads log files directly
+      (no docker.sock) to keep that access limited to admin-sidecar. Version paired
+      with the loki image above.
+    mutable: true
+    source: Grafana Promtail 3.3.x Docker tag family
   infisical:
     default: infisical/infisical:latest-postgres
     purpose: Self-hosted secrets management UI and API (ops/compose/infisical.yaml).

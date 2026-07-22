@@ -34,6 +34,8 @@ _ModelRegistry projection에서 자동 생성. 수정 시 `configs/model_catalog
 
 Prometheus/Grafana/DCGM/cAdvisor는 처음부터 기본 활성화한다. 사용 여부를 조기에 막지 않고, 실제 운영 관찰 후 축소 여부를 결정한다. Infisical은 선택 서비스로 별도 compose 파일(`ops/compose/infisical.yaml`)로 분리되어 있으며 메인 스택 운영에 영향을 주지 않는다.
 
+Loki/Promtail은 요청 단위 로그 조회(누가/언제/무엇을/어떻게)용이다. Prometheus는 집계(메트릭)만 가능해 요청 한 줄 단위 이력은 못 보여주는데, 이 gap을 메운다. `private_network`(기본)에서는 Prometheus와 동일하게 compose 내부망(`expose`)만 쓰고, `master_open`에서만 host-published된다(Loki만; Promtail은 조회 API가 없어 어떤 프로필에서도 host-published 대상이 아니다). Promtail은 admin-sidecar에만 의도적으로 열어둔 docker.sock 접근 경계를 지키기 위해 Docker service discovery 대신 `/var/lib/docker/containers/*/*-json.log`를 정적 경로로 직접 읽는다 — 그 결과 컨테이너 이름 라벨은 못 붙지만, gateway/risk-adapter의 구조화 JSON 로그는 이미 `service` 필드를 자체적으로 갖고 있어 Grafana의 `Request Log Explorer` 대시보드에서 LogQL `| json` 파싱으로 구분한다. 둘 다 어떤 앱 서비스의 `depends_on`에도 안 걸려 있어(Grafana만 datasource로 참조), 죽어도 다른 서비스 기동에 영향 없다. 보존 기간은 `LOKI_RETENTION_HOURS`(기본 168시간=7일)로 조정한다 — 단일 노드·filesystem storage라 짧은 보존에서는 리소스 부담이 없다.
+
 Gateway `/ready`는 main LLM, embedding, Risk Adapter readiness를 확인한다. Risk Adapter `/ready`가 admin auth를 요구하는 환경에서는 Gateway가 내부 admin token을 전달한다. Risk Adapter가 `status: not_ready`를 반환하면 Gateway는 해당 dependency를 `not_ready`로 반영한다. `/ready`는 dependency가 준비되지 않았을 때 body를 유지하면서 HTTP 503을 반환하므로, Kubernetes/readinessProbe 같은 HTTP status 기반 gate도 실패로 처리할 수 있다.
 
 ## 직접 compose 명령

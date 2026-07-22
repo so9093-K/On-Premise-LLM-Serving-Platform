@@ -1,0 +1,202 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "Usage Today",
+      "tooltip": "Usage Today — 집계(메트릭) 관점의 사용량/에러 대시보드",
+      "type": "link",
+      "url": "/d/usage_today/usage-today"
+    }
+  ],
+  "liveNow": false,
+  "panels": [
+    {
+      "id": 1,
+      "type": "table",
+      "title": "Gateway Request Log",
+      "datasource": {
+        "type": "loki",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 10
+      },
+      "targets": [
+        {
+          "expr": "{job=\"docker\"} | json | service=\"${service}\" | event=\"http_request_completed\"",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "displayName": "Time",
+            "desc": true
+          }
+        ]
+      },
+      "description": "게이트웨이/risk-adapter의 구조화 JSON 로그를 요청 한 줄 = 테이블 한 행으로 본다(언제/누가(client_host)/어디로(route)/결과(status_code)/얼마나 걸렸는지(latency_ms)). service 변수로 gateway/risk-adapter를 고른다. Promtail이 docker.sock 없이 정적 경로로만 로그를 읽어서 컨테이너 이름 라벨은 없지만, 로그 본문 자체에 이미 service 필드가 있어 그걸로 구분한다. 보존 기간(LOKI_RETENTION_HOURS, 기본 7일)이 지난 로그는 안 보인다."
+    },
+    {
+      "id": 2,
+      "type": "table",
+      "title": "Errors (status_code >= 400)",
+      "datasource": {
+        "type": "loki",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 10,
+        "w": 24,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "{job=\"docker\"} | json | event=\"http_request_completed\" | status_code >= 400",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "displayName": "Time",
+            "desc": true
+          }
+        ]
+      },
+      "description": "모든 service(gateway/risk-adapter)를 통틀어 4xx/5xx만 모아서 본다. 값이 없으면 정상(Healthy). 503이 몰려 있으면 대개 admission/circuit breaker/main-model switch 진행 중(의도된 동작)인지 먼저 확인하고, 500(INTERNAL_ERROR)이 하나라도 보이면 처리 안 된 예외라는 뜻이라 바로 원인을 봐야 한다."
+    },
+    {
+      "id": 3,
+      "type": "logs",
+      "title": "Raw Container Log (직접 접속 흔적 확인용)",
+      "datasource": {
+        "type": "loki",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 18,
+        "w": 24,
+        "h": 10
+      },
+      "targets": [
+        {
+          "expr": "{job=\"docker\", container_id=\"${container_id}\"}",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "wrapLogMessage": true,
+        "sortOrder": "Descending"
+      },
+      "description": "특정 컨테이너의 원본 로그를 그대로 본다. main-llm-vllm 등 vLLM 컨테이너를 골라서 uvicorn access 로그의 소스 IP를 보면, 게이트웨이(내부 docker 네트워크 IP)를 거쳤는지 외부 IP가 9401 등에 직접 접속했는지 구분할 수 있다(예: 이번 세션에서 172.18.0.x는 게이트웨이 경유, 192.168.0.x가 직접 찍히면 직통 접속). container_id 변수는 `docker ps --no-trunc`로 확인한 전체 컨테이너 ID를 넣는다 -- docker.sock을 안 써서 이름으로는 못 고른다."
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "style": "dark",
+  "tags": [
+    "ops",
+    "logs",
+    "korean-titles"
+  ],
+  "templating": {
+    "list": [
+      {
+        "current": {
+          "selected": false,
+          "text": "Loki",
+          "value": "loki"
+        },
+        "hide": 0,
+        "includeAll": false,
+        "label": "Datasource",
+        "multi": false,
+        "name": "datasource",
+        "options": [],
+        "query": "loki",
+        "refresh": 1,
+        "regex": "",
+        "type": "datasource"
+      },
+      {
+        "current": {
+          "selected": true,
+          "text": "gateway",
+          "value": "gateway"
+        },
+        "hide": 0,
+        "includeAll": false,
+        "label": "Service",
+        "multi": false,
+        "name": "service",
+        "options": [
+          {
+            "selected": true,
+            "text": "gateway",
+            "value": "gateway"
+          },
+          {
+            "selected": false,
+            "text": "risk-adapter",
+            "value": "risk-adapter"
+          }
+        ],
+        "query": "gateway,risk-adapter",
+        "type": "custom"
+      },
+      {
+        "current": {
+          "selected": false,
+          "text": "",
+          "value": ""
+        },
+        "datasource": {
+          "type": "loki",
+          "uid": "${datasource}"
+        },
+        "definition": "label_values(container_id)",
+        "hide": 0,
+        "includeAll": false,
+        "label": "Container ID",
+        "multi": false,
+        "name": "container_id",
+        "options": [],
+        "query": "label_values(container_id)",
+        "refresh": 1,
+        "regex": "",
+        "type": "query"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Request Log Explorer",
+  "uid": "request_log_explorer",
+  "version": 1,
+  "weekStart": ""
+}

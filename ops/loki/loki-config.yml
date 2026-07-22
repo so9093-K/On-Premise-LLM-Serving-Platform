@@ -1,0 +1,57 @@
+# 단일 노드, 짧은 보존(기본 7일) 전용 설정. 이 규모에서는 S3/GCS 같은 object storage
+# 대신 filesystem storage로 충분하다 -- 노드가 여러 개로 늘어나거나 보존 기간이
+# 훨씬 길어지면 그때 object storage 이전을 검토한다(확장성 트레이드오프를 지금
+# 미리 감수하지 않는다).
+#
+# -config.expand-env=true(compose 커맨드에서 지정)로 떠서, 아래 ${LOKI_RETENTION_HOURS}
+# 같은 표현이 컨테이너 기동 시 실제 값으로 치환된다.
+auth_enabled: false
+
+server:
+  http_listen_port: 3100
+  grpc_listen_port: 9096
+  log_level: warn
+
+common:
+  path_prefix: /loki
+  storage:
+    filesystem:
+      chunks_directory: /loki/chunks
+      rules_directory: /loki/rules
+  replication_factor: 1
+  ring:
+    kvstore:
+      store: inmemory
+
+schema_config:
+  configs:
+  - from: 2024-01-01
+    store: tsdb
+    object_store: filesystem
+    schema: v13
+    index:
+      prefix: index_
+      period: 24h
+
+limits_config:
+  # 보존 기간 자체는 여기서 정의하지만, 실제로 지워지는 건 compactor가 켜져 있어야
+  # 한다(아래 compactor.retention_enabled) -- 이거 하나 빠뜨리면 설정만 있고 계속
+  # 쌓이기만 하는 흔한 실수가 된다.
+  retention_period: ${LOKI_RETENTION_HOURS}h
+  reject_old_samples: true
+  reject_old_samples_max_age: 168h
+  ingestion_rate_mb: 16
+  ingestion_burst_size_mb: 32
+
+compactor:
+  working_directory: /loki/compactor
+  retention_enabled: true
+  retention_delete_delay: 2h
+  delete_request_store: filesystem
+
+ruler:
+  storage:
+    type: local
+    local:
+      directory: /loki/rules
+  rule_path: /loki/rules-tmp

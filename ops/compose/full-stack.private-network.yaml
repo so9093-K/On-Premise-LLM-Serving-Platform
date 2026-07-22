@@ -348,11 +348,47 @@ services:
       target: admin_api_key
     expose:
     - '9090'
+  # -------------------------------------------------------------------------
+  # Loki + Promtail — 요청 단위 로그 조회(누가/언제/무엇을/어떻게)용. Promtail은
+  # docker.sock을 쓰지 않는다(admin-sidecar에만 의도적으로 열어둔 보안 경계를
+  # 지키기 위함) — 대신 docker json-file 로그를 정적 경로로 직접 tail한다.
+  # 둘 다 어떤 앱 서비스의 depends_on에도 안 걸려 있어(Grafana만 datasource로
+  # 참조), 죽어도 다른 서비스 기동에 영향 없다.
+  # -------------------------------------------------------------------------
+  loki:
+    image: ${LOKI_IMAGE:?Set LOKI_IMAGE to a tested Grafana Loki image tag}
+    restart: unless-stopped
+    user: 0:0
+    command:
+    - -config.file=/etc/loki/loki-config.yml
+    - -config.expand-env=true
+    environment:
+      LOKI_RETENTION_HOURS: ${LOKI_RETENTION_HOURS:-168}
+    volumes:
+    - ../loki/loki-config.yml:/etc/loki/loki-config.yml:ro
+    - ../../.runtime/loki:/loki
+    expose:
+    - '3100'
+    ports: []
+  promtail:
+    image: ${PROMTAIL_IMAGE:?Set PROMTAIL_IMAGE to a tested Grafana Promtail image tag}
+    restart: unless-stopped
+    user: 0:0
+    depends_on:
+    - loki
+    command:
+    - -config.file=/etc/promtail/promtail-config.yml
+    volumes:
+    - ../promtail/promtail-config.yml:/etc/promtail/promtail-config.yml:ro
+    - /var/lib/docker/containers:/var/lib/docker/containers:ro
+    - ../../.runtime/promtail:/var/lib/promtail
+    ports: []
   grafana:
     image: ${GRAFANA_IMAGE:?Set GRAFANA_IMAGE to a tested Grafana image tag}
     restart: unless-stopped
     depends_on:
     - prometheus
+    - loki
     ports:
     - ${GRAFANA_BIND_ADDR:-0.0.0.0}:${GRAFANA_PORT:-9411}:3000
     environment:

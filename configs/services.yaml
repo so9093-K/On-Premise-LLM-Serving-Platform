@@ -116,3 +116,15 @@ services:
       - operations_endpoint
       - metrics_exporter
       - container_metrics
+
+  loki:
+    compose_service: loki
+    container_port: 3100
+    host_env_port: LOKI_PORT
+    default_host_port: 9414
+    host_env_bind: LOKI_BIND_ADDR
+    default_bind: "0.0.0.0"
+    # promtail은 조회 API가 없어 어떤 프로필에서도 host-published 대상이 아니다.
+    categories:
+      - operations_endpoint
+      - log_backend

@@ -23,15 +23,41 @@ def grafana_contract(path: str) -> dict:
     raise AssertionError(f"missing grafana dashboard contract: {path}")
 
 
-def test_monitoring_dashboards_are_the_two_curated_boards() -> None:
+LOG_DASHBOARD = "ops/grafana/dashboards/request_log_explorer.json"
+
+
+def test_monitoring_dashboards_are_the_curated_boards() -> None:
+    # gpu_capacity_and_oom_risk / usage_today는 Prometheus 메트릭 기반이라
+    # configs/monitoring.yaml의 dashboard_contracts(required_panels)로 관리된다.
+    # request_log_explorer는 Loki 로그 기반이라 "패널에 대응하는 메트릭이 있는가"라는
+    # 이 계약의 전제 자체가 안 맞아 그 계약 시스템에는 안 넣는다 — 대신 파일
+    # 존재 여부만 이 테스트에서 같이 확인한다.
     dashboards = {path.name for path in (ROOT / "ops/grafana/dashboards").glob("*.json")}
-    assert dashboards == {"gpu_capacity_and_oom_risk.json", "usage_today.json"}
+    assert dashboards == {
+        "gpu_capacity_and_oom_risk.json",
+        "usage_today.json",
+        "request_log_explorer.json",
+    }
     monitoring = yaml.safe_load((ROOT / "configs/monitoring.yaml").read_text(encoding="utf-8"))
     assert "operator_status_ux" not in monitoring
     contracts = monitoring["monitoring_stack"]["grafana"]["dashboard_contracts"]
     assert {contract["path"] for contract in contracts} == {GPU_DASHBOARD, USAGE_DASHBOARD}
     ux_ids = {item["id"] for item in monitoring["ux_dashboards"]}
     assert ux_ids == {"gpu_capacity_and_oom_risk", "usage_today"}
+
+
+def test_log_dashboard_is_loki_backed_and_links_to_usage_today() -> None:
+    dashboard = json.loads((ROOT / LOG_DASHBOARD).read_text(encoding="utf-8"))
+    assert dashboard["uid"] == "request_log_explorer"
+    variables = {item["name"] for item in dashboard["templating"]["list"]}
+    assert {"datasource", "container_id"}.issubset(variables)
+    for panel in iter_panels(dashboard["panels"]):
+        assert panel.get("datasource", {}).get("type") == "loki", (
+            f"Panel '{panel.get('title')}' in {LOG_DASHBOARD} must use the Loki datasource"
+        )
+        assert panel.get("description"), f"Panel '{panel.get('title')}' in {LOG_DASHBOARD} needs a description"
+    links = {link["url"] for link in dashboard.get("links", [])}
+    assert any("/d/usage_today" in url for url in links)
 
 
 def test_usage_dashboard_required_panels_present_and_glanceable() -> None:
@@ -125,12 +151,15 @@ def test_monitoring_ux_has_ttft_metric_as_current_dashboard_metric() -> None:
 
 
 def test_dashboard_panel_datasource_uses_variable() -> None:
+    # request_log_explorer는 Loki 기반이라 datasource type만 다르다; 그 외
+    # (metrics) 대시보드는 계속 Prometheus로 고정한다.
     for path in (ROOT / "ops/grafana/dashboards").glob("*.json"):
+        expected_type = "loki" if path.name == "request_log_explorer.json" else "prometheus"
         dashboard = json.loads(path.read_text(encoding="utf-8"))
         for panel in iter_panels(dashboard["panels"]):
-            assert panel.get("datasource") == {"type": "prometheus", "uid": "${datasource}"}, (
+            assert panel.get("datasource") == {"type": expected_type, "uid": "${datasource}"}, (
                 f"Panel '{panel.get('title')}' in {path.name} "
-                f"must use datasource {{\"type\":\"prometheus\",\"uid\":\"${{datasource}}\"}}"
+                f"must use datasource {{\"type\":\"{expected_type}\",\"uid\":\"${{datasource}}\"}}"
             )
 
 

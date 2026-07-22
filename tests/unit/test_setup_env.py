@@ -29,6 +29,8 @@ def test_setup_env_generates_compose_env_with_local_open_defaults(tmp_path):
     assert not any(line.startswith('MAX_REQUEST_BODY_BYTES=') for line in text.splitlines())
     assert 'COLBERT_KO_MODEL_DIR' not in text
     assert 'PROMETHEUS_IMAGE=prom/prometheus:v3-distroless' in text
+    assert 'LOKI_IMAGE=grafana/loki:' in text
+    assert 'PROMTAIL_IMAGE=grafana/promtail:' in text
 
 
 def test_setup_env_generates_local_open_profile(tmp_path):

@@ -1,0 +1,34 @@
+# docker.sock을 안 쓴다 -- admin-sidecar에만 의도적으로 열어둔 보안 경계를
+# 지키기 위함. 그래서 docker_sd_configs(컨테이너 자동 탐색 + 이름 라벨링) 대신
+# 정적 경로 글롭으로 docker json-file 로그를 직접 tail한다. 그 결과 라벨은
+# 컨테이너 ID까지만 붙고 사람이 읽는 서비스 이름(예: gateway)은 못 붙인다 --
+# 대신 gateway/risk-adapter의 구조화 JSON 로그 본문이 이미 "service" 필드를
+# 자체적으로 갖고 있어서, LogQL의 `| json` 파싱으로 쿼리 시점에 구분하면 된다.
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+
+positions:
+  filename: /var/lib/promtail/positions.yaml
+
+clients:
+- url: http://loki:3100/loki/api/v1/push
+
+scrape_configs:
+- job_name: docker_containers
+  static_configs:
+  - targets:
+    - localhost
+    labels:
+      job: docker
+      __path__: /var/lib/docker/containers/*/*-json.log
+  pipeline_stages:
+  # docker json-file 로그 포맷({"log":"...","stream":"stdout","time":"..."})을
+  # 전용 스테이지로 파싱 -- 실제 로그 라인은 log 필드 안에 있다.
+  - docker: {}
+  - regex:
+      source: filename
+      expression: '.*/(?P<container_id>[0-9a-f]{64})/.*'
+  - labels:
+      container_id:
+      stream:
