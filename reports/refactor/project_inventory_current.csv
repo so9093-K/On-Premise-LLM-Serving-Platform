@@ -28,7 +28,7 @@ configs/gpu_budgets.yaml,configs,configuration source of truth,configuration,man
 configs/logging_policy.yaml,configs,configuration source of truth,configuration,managed by configuration lifecycle,328,21,structured-data,configuration source; validate through governance and projection checks after edits
 configs/main_model_profiles.yaml,configs,configuration source of truth,configuration,managed by configuration lifecycle,7809,184,structured-data,configuration source; validate through governance and projection checks after edits
 configs/model_catalog.yaml,configs,configuration source of truth,configuration,managed by configuration lifecycle,12761,392,structured-data,configuration source; validate through governance and projection checks after edits
-configs/model_serving.yaml,configs,configuration source of truth,configuration,managed by configuration lifecycle,16380,538,structured-data,configuration source; validate through governance and projection checks after edits
+configs/model_serving.yaml,configs,configuration source of truth,configuration,managed by configuration lifecycle,17936,556,structured-data,configuration source; validate through governance and projection checks after edits
 configs/monitoring.yaml,configs,configuration source of truth,configuration,managed by configuration lifecycle,8467,243,structured-data,configuration source; validate through governance and projection checks after edits
 configs/recommended_images.yaml,configs,configuration source of truth,configuration,managed by configuration lifecycle,3644,85,structured-data,configuration source; validate through governance and projection checks after edits
 configs/retired_source_cleanup_policy.yaml,configs,configuration source of truth,configuration,managed by configuration lifecycle,2374,69,structured-data,configuration source; validate through governance and projection checks after edits
@@ -40,7 +40,7 @@ contracts/api_contract_matrix.csv,contracts,contract registry,project-maintenanc
 contracts/model_contracts.yaml,contracts,contract registry,project-maintenance,managed by root project metadata,710,24,structured-data,supporting project file
 docs/00_executive_summary.md,docs,documentation,documentation,managed by documentation map,1739,45,documentation,documentation; keep relative links valid and avoid duplicating current command flow
 docs/01_project_background.md,docs,documentation,documentation,managed by documentation map,1105,20,documentation,documentation; keep relative links valid and avoid duplicating current command flow
-docs/02_decision_register.md,docs,documentation,documentation,managed by documentation map,4572,56,documentation,documentation; keep relative links valid and avoid duplicating current command flow
+docs/02_decision_register.md,docs,documentation,documentation,managed by documentation map,4789,57,documentation,documentation; keep relative links valid and avoid duplicating current command flow
 docs/06_architecture.md,docs,documentation,documentation,managed by documentation map,1434,34,documentation,documentation; keep relative links valid and avoid duplicating current command flow
 docs/07_project_structure.md,docs,documentation,documentation,managed by documentation map,1261,19,documentation,documentation; keep relative links valid and avoid duplicating current command flow
 docs/README.md,docs,documentation,documentation,managed by documentation map,9531,133,entrypoint,primary navigation or current-state entrypoint; keep synchronized with Makefile and reports
@@ -57,6 +57,7 @@ docs/adr/0015-main-llm-20k-o3-runtime-target.md,docs,architecture decision recor
 docs/adr/0016-xgrammar-disable-any-whitespace.md,docs,architecture decision record,documentation,managed by documentation map,5430,78,documentation,documentation; keep relative links valid and avoid duplicating current command flow
 docs/adr/0017-selectable-main-model-runtime.md,docs,architecture decision record,documentation,managed by documentation map,8425,107,documentation,documentation; keep relative links valid and avoid duplicating current command flow
 docs/adr/0018-gpu-vram-admission-and-per-profile-runtime-image.md,docs,architecture decision record,documentation,managed by documentation map,19701,237,documentation,documentation; keep relative links valid and avoid duplicating current command flow
+docs/adr/0019-audio-video-real-processing-ceiling-vs-spec.md,docs,architecture decision record,documentation,managed by documentation map,7734,102,documentation,documentation; keep relative links valid and avoid duplicating current command flow
 docs/adr/README.md,docs,architecture decision record,documentation,managed by documentation map,1816,63,documentation,documentation; keep relative links valid and avoid duplicating current command flow
 docs/archive/changelog/maintenance_journal_0.1.0-rc.1.md,docs,historical documentation archive,documentation,managed by documentation map,15640,164,documentation,documentation; keep relative links valid and avoid duplicating current command flow
 docs/archive/reviews/gemma4_31b_awq_review.md,docs,historical documentation archive,documentation,managed by documentation map,1290,27,documentation,documentation; keep relative links valid and avoid duplicating current command flow
@@ -72,7 +73,7 @@ docs/governance/document_management.md,docs,documentation,documentation,managed 
 docs/governance/policies/command_terminology_policy.md,docs,documentation,documentation,managed by documentation map,1635,28,documentation,documentation; keep relative links valid and avoid duplicating current command flow
 docs/governance/policies/retired_source_cleanup_policy.md,docs,documentation,documentation,managed by documentation map,1908,26,documentation,documentation; keep relative links valid and avoid duplicating current command flow
 docs/governance/terminology.md,docs,documentation,documentation,managed by documentation map,1250,19,documentation,documentation; keep relative links valid and avoid duplicating current command flow
-docs/manifest.yaml,docs,documentation,documentation,managed by documentation map,16097,560,structured-data,documentation; keep relative links valid and avoid duplicating current command flow
+docs/manifest.yaml,docs,documentation,documentation,managed by documentation map,16311,567,structured-data,documentation; keep relative links valid and avoid duplicating current command flow
 docs/models/model_cards.md,docs,documentation,documentation,managed by documentation map,1206,23,documentation,documentation; keep relative links valid and avoid duplicating current command flow
 docs/models/model_runtime_source_review.md,docs,documentation,documentation,managed by documentation map,1054,18,documentation,documentation; keep relative links valid and avoid duplicating current command flow
 docs/operations/admin_metrics_docs_exposure_policy.md,docs,documentation,documentation,managed by documentation map,7980,133,documentation,documentation; keep relative links valid and avoid duplicating current command flow
@@ -99,7 +100,7 @@ docs/release/versioning_policy.md,docs,documentation,documentation,managed by do
 docs/resources/README.md,docs,documentation,documentation,managed by documentation map,329,8,documentation,documentation; keep relative links valid and avoid duplicating current command flow
 docs/resources/gpu_resource_plan.md,docs,documentation,documentation,managed by documentation map,6035,121,documentation,documentation; keep relative links valid and avoid duplicating current command flow
 docs/resources/gpu_resource_requirements_48gb.md,docs,documentation,documentation,managed by documentation map,9096,123,documentation,documentation; keep relative links valid and avoid duplicating current command flow
-docs/specs/api.md,docs,documentation,documentation,managed by documentation map,16191,138,documentation,documentation; keep relative links valid and avoid duplicating current command flow
+docs/specs/api.md,docs,documentation,documentation,managed by documentation map,16638,143,documentation,documentation; keep relative links valid and avoid duplicating current command flow
 docs/specs/api_docs_reference.md,docs,documentation,documentation,managed by documentation map,7921,139,documentation,documentation; keep relative links valid and avoid duplicating current command flow
 docs/specs/configuration.md,docs,documentation,documentation,managed by documentation map,2198,40,documentation,documentation; keep relative links valid and avoid duplicating current command flow
 docs/specs/error_reference.md,docs,documentation,documentation,managed by documentation map,15468,450,documentation,documentation; keep relative links valid and avoid duplicating current command flow
@@ -118,7 +119,7 @@ ops/compose/infisical.yaml,ops,compose/monitoring/runtime ops template,operation
 ops/compose/overrides/exposure.master-open.yaml,ops,compose/monitoring/runtime ops template,operations,managed by operator templates,1752,41,structured-data,supporting project file
 ops/docker/Dockerfile.risk-vllm-kanana,ops,compose/monitoring/runtime ops template,operations,managed by operator templates,2864,66,supporting-file,supporting project file
 ops/grafana/dashboards/gpu_capacity_and_oom_risk.json,ops,compose/monitoring/runtime ops template,operations,managed by operator templates,17884,700,structured-data,supporting project file
-ops/grafana/dashboards/request_log_explorer.json,ops,compose/monitoring/runtime ops template,operations,managed by operator templates,11278,335,structured-data,supporting project file
+ops/grafana/dashboards/request_log_explorer.json,ops,compose/monitoring/runtime ops template,operations,managed by operator templates,14599,419,structured-data,supporting project file
 ops/grafana/dashboards/usage_today.json,ops,compose/monitoring/runtime ops template,operations,managed by operator templates,10569,385,structured-data,supporting project file
 ops/grafana/provisioning/dashboards/dashboards.yml,ops,compose/monitoring/runtime ops template,operations,managed by operator templates,353,13,structured-data,supporting project file
 ops/grafana/provisioning/datasources/loki.yml,ops,compose/monitoring/runtime ops template,operations,managed by operator templates,157,10,structured-data,supporting project file
@@ -139,9 +140,9 @@ reports/archive/refactor_audits/first_run_clean_package_audit.md,reports,histori
 reports/archive/refactor_audits/full_file_hygiene_audit.md,reports,historical report archive,handoff-reporting,managed by root project metadata,5620,96,documentation,supporting project file
 reports/refactor/current_handoff_summary.md,reports,current handoff/review report,handoff-reporting,generated/curated for handoff review,6901,98,documentation,handoff/review artifact; avoid stale phase snapshots in active package
 reports/refactor/current_refactor_state.md,reports,current handoff/review report,handoff-reporting,generated/curated for handoff review,4174,73,entrypoint,primary navigation or current-state entrypoint; keep synchronized with Makefile and reports
-reports/refactor/project_inventory_current.csv,reports,current handoff/review report,handoff-reporting,generated/curated for handoff review,96347,476,structured-data,handoff/review artifact; avoid stale phase snapshots in active package
-reports/refactor/project_inventory_current.json,reports,current handoff/review report,handoff-reporting,generated/curated for handoff review,195942,5488,structured-data,handoff/review artifact; avoid stale phase snapshots in active package
-reports/refactor/project_inventory_current.md,reports,current handoff/review report,handoff-reporting,generated/curated for handoff review,5522,99,documentation,handoff/review artifact; avoid stale phase snapshots in active package
+reports/refactor/project_inventory_current.csv,reports,current handoff/review report,handoff-reporting,generated/curated for handoff review,94359,464,structured-data,handoff/review artifact; avoid stale phase snapshots in active package
+reports/refactor/project_inventory_current.json,reports,current handoff/review report,handoff-reporting,generated/curated for handoff review,191622,5354,structured-data,handoff/review artifact; avoid stale phase snapshots in active package
+reports/refactor/project_inventory_current.md,reports,current handoff/review report,handoff-reporting,generated/curated for handoff review,5486,97,documentation,handoff/review artifact; avoid stale phase snapshots in active package
 reports/runtime/README.md,reports,runtime/operator generated report,handoff-reporting,generated by operator report commands,961,14,documentation,generated operator report; regenerate through make operator-reports before handoff
 reports/runtime/live_evidence_bundle.json,reports,runtime/operator generated report,handoff-reporting,generated by operator report commands,1723,69,structured-data,generated operator report; regenerate through make operator-reports before handoff
 reports/runtime/live_evidence_bundle.md,reports,runtime/operator generated report,handoff-reporting,generated by operator report commands,1734,46,documentation,generated operator report; regenerate through make operator-reports before handoff
@@ -388,7 +389,7 @@ tests/contract/governance/test_ci_release_contract.py,tests,test suite,quality,m
 tests/contract/governance/test_command_terminology.py,tests,test suite,quality,managed by test strategy,1473,30,python-source,test coverage; keep deterministic and avoid live GPU dependency
 tests/contract/governance/test_compose_operational_contract.py,tests,test suite,quality,managed by test strategy,13910,290,python-source,test coverage; keep deterministic and avoid live GPU dependency
 tests/contract/governance/test_image_and_build_policy.py,tests,test suite,quality,managed by test strategy,5959,108,python-source,test coverage; keep deterministic and avoid live GPU dependency
-tests/contract/governance/test_monitoring_dashboards.py,tests,test suite,quality,managed by test strategy,9609,195,python-source,test coverage; keep deterministic and avoid live GPU dependency
+tests/contract/governance/test_monitoring_dashboards.py,tests,test suite,quality,managed by test strategy,10234,203,python-source,test coverage; keep deterministic and avoid live GPU dependency
 tests/contract/governance/test_runtime_docs_and_harness.py,tests,test suite,quality,managed by test strategy,6691,151,python-source,test coverage; keep deterministic and avoid live GPU dependency
 tests/contract/manifests/env_examples.yaml,tests,test suite,quality,managed by test strategy,478,12,structured-data,test coverage; keep deterministic and avoid live GPU dependency
 tests/contract/test_architecture_boundaries.py,tests,test suite,quality,managed by test strategy,3223,102,python-source,test coverage; keep deterministic and avoid live GPU dependency

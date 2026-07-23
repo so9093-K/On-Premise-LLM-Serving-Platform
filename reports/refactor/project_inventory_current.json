@@ -1,6 +1,6 @@
 {
   "summary": {
-    "total_files": 463,
+    "total_files": 464,
     "by_area": {
       ".dockerignore": 1,
       ".env": 1,
@@ -19,7 +19,7 @@
       "assets": 3,
       "configs": 20,
       "contracts": 2,
-      "docs": 66,
+      "docs": 67,
       "features": 3,
       "harness": 2,
       "model_cards": 4,
@@ -37,7 +37,7 @@
     "by_category": {
       "OpenAPI/JSON schema contract": 15,
       "application/control-plane source": 114,
-      "architecture decision record": 13,
+      "architecture decision record": 14,
       "compose/monitoring/runtime ops template": 19,
       "configuration source of truth": 20,
       "contract registry": 2,
@@ -57,7 +57,7 @@
       "api-contracts": 28,
       "application": 71,
       "configuration": 20,
-      "documentation": 66,
+      "documentation": 67,
       "domain-registry": 6,
       "governance-validation": 10,
       "handoff-reporting": 20,
@@ -69,7 +69,7 @@
     },
     "by_role": {
       "build-command": 2,
-      "documentation": 78,
+      "documentation": 79,
       "entrypoint": 9,
       "environment-template": 5,
       "python-source": 260,
@@ -95,8 +95,8 @@
         "category": "current handoff/review report",
         "owner": "handoff-reporting",
         "management": "generated/curated for handoff review",
-        "size_bytes": 195942,
-        "line_count": 5488,
+        "size_bytes": 191622,
+        "line_count": 5354,
         "role": "structured-data",
         "review_note": "handoff/review artifact; avoid stale phase snapshots in active package"
       },
@@ -582,8 +582,8 @@
       "category": "configuration source of truth",
       "owner": "configuration",
       "management": "managed by configuration lifecycle",
-      "size_bytes": 16380,
-      "line_count": 538,
+      "size_bytes": 17936,
+      "line_count": 556,
       "role": "structured-data",
       "review_note": "configuration source; validate through governance and projection checks after edits"
     },
@@ -714,8 +714,8 @@
       "category": "documentation",
       "owner": "documentation",
       "management": "managed by documentation map",
-      "size_bytes": 4572,
-      "line_count": 56,
+      "size_bytes": 4789,
+      "line_count": 57,
       "role": "documentation",
       "review_note": "documentation; keep relative links valid and avoid duplicating current command flow"
     },
@@ -896,6 +896,17 @@
       "review_note": "documentation; keep relative links valid and avoid duplicating current command flow"
     },
     {
+      "path": "docs/adr/0019-audio-video-real-processing-ceiling-vs-spec.md",
+      "area": "docs",
+      "category": "architecture decision record",
+      "owner": "documentation",
+      "management": "managed by documentation map",
+      "size_bytes": 7734,
+      "line_count": 102,
+      "role": "documentation",
+      "review_note": "documentation; keep relative links valid and avoid duplicating current command flow"
+    },
+    {
       "path": "docs/adr/README.md",
       "area": "docs",
       "category": "architecture decision record",
@@ -1066,8 +1077,8 @@
       "category": "documentation",
       "owner": "documentation",
       "management": "managed by documentation map",
-      "size_bytes": 16097,
-      "line_count": 560,
+      "size_bytes": 16311,
+      "line_count": 567,
       "role": "structured-data",
       "review_note": "documentation; keep relative links valid and avoid duplicating current command flow"
     },
@@ -1363,8 +1374,8 @@
       "category": "documentation",
       "owner": "documentation",
       "management": "managed by documentation map",
-      "size_bytes": 16191,
-      "line_count": 138,
+      "size_bytes": 16638,
+      "line_count": 143,
       "role": "documentation",
       "review_note": "documentation; keep relative links valid and avoid duplicating current command flow"
     },
@@ -1572,8 +1583,8 @@
       "category": "compose/monitoring/runtime ops template",
       "owner": "operations",
       "management": "managed by operator templates",
-      "size_bytes": 11278,
-      "line_count": 335,
+      "size_bytes": 14599,
+      "line_count": 419,
       "role": "structured-data",
       "review_note": "supporting project file"
     },
@@ -1803,8 +1814,8 @@
       "category": "current handoff/review report",
       "owner": "handoff-reporting",
       "management": "generated/curated for handoff review",
-      "size_bytes": 96347,
-      "line_count": 476,
+      "size_bytes": 94359,
+      "line_count": 464,
       "role": "structured-data",
       "review_note": "handoff/review artifact; avoid stale phase snapshots in active package"
     },
@@ -1814,8 +1825,8 @@
       "category": "current handoff/review report",
       "owner": "handoff-reporting",
       "management": "generated/curated for handoff review",
-      "size_bytes": 195942,
-      "line_count": 5488,
+      "size_bytes": 191622,
+      "line_count": 5354,
       "role": "structured-data",
       "review_note": "handoff/review artifact; avoid stale phase snapshots in active package"
     },
@@ -1825,8 +1836,8 @@
       "category": "current handoff/review report",
       "owner": "handoff-reporting",
       "management": "generated/curated for handoff review",
-      "size_bytes": 5522,
-      "line_count": 99,
+      "size_bytes": 5486,
+      "line_count": 97,
       "role": "documentation",
       "review_note": "handoff/review artifact; avoid stale phase snapshots in active package"
     },
@@ -4542,8 +4553,8 @@
       "category": "test suite",
       "owner": "quality",
       "management": "managed by test strategy",
-      "size_bytes": 9609,
-      "line_count": 195,
+      "size_bytes": 10234,
+      "line_count": 203,
       "role": "python-source",
       "review_note": "test coverage; keep deterministic and avoid live GPU dependency"
     },

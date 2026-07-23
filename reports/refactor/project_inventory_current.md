@@ -10,7 +10,7 @@ Command:
 
 이 리포트는 현재 source tree에서 생성되며 로컬 runtime/cache/build 디렉터리는 제외한다.
 
-- 검토 파일 수: **463**
+- 검토 파일 수: **464**
 - CSV matrix: `reports/refactor/project_inventory_current.csv`
 - JSON matrix: `reports/refactor/project_inventory_current.json`
 
@@ -35,7 +35,7 @@ Command:
 | `assets` | 3 |
 | `configs` | 20 |
 | `contracts` | 2 |
-| `docs` | 66 |
+| `docs` | 67 |
 | `features` | 3 |
 | `harness` | 2 |
 | `model_cards` | 4 |
@@ -67,7 +67,7 @@ Command:
 | 경로 | 줄 수 | 담당 | 검토 메모 |
 |---|---:|---|---|
 | `specs/openapi.gateway.yaml` | 9093 | api-contracts | supporting project file |
-| `reports/refactor/project_inventory_current.json` | 5488 | handoff-reporting | handoff/review artifact; avoid stale phase snapshots in active package |
+| `reports/refactor/project_inventory_current.json` | 5354 | handoff-reporting | handoff/review artifact; avoid stale phase snapshots in active package |
 | `specs/openapi.risk-adapter.yaml` | 3504 | api-contracts | supporting project file |
 | `configs/command_registry.yaml` | 2150 | configuration | configuration source; validate through governance and projection checks after edits |
 | `scripts/ci/deploy_gitlab_compose.sh` | 1162 | operator-ux | operator/developer command; expose through Makefile/help if user-facing |
