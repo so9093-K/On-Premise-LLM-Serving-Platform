@@ -118,7 +118,12 @@ models:
           static safety bounds applied in that case. The 26B profile does not deploy
           audio, so these limits are unreachable while it is active. Gateway accepts
           one bounded base64 input_audio content part of an allowed format and bounded
-          decoded size; duration is enforced by the runtime.
+          decoded size. The real processing ceiling is ~30 seconds (matches Gemma 4's
+          official spec at ai.google.dev/gemma/docs/core/model_card_4); audio beyond
+          that is silently truncated by the runtime (not sampled, not rejected, no
+          warning surfaced) -- verified live, see ADR-0019. max_audio_bytes does not
+          bound duration for compressed formats, so Gateway cannot reject over-length
+          audio before it reaches the runtime today; this gap is accepted, not fixed.
         max_audio_inputs: 1
         allowed_audio_formats:
         - wav
@@ -133,7 +138,16 @@ models:
           deploys the video modality (deployed_input includes video). Gateway accepts
           one bounded base64 video_url content part for vLLM/OpenAI-compatible video
           input, validates allowed data URL containers or pre-extracted JPEG frames,
-          and gates container decode support with runtime boot canaries.
+          and gates container decode support with runtime boot canaries. Gemma 4's
+          official spec supports 60 seconds/60 frames at 1fps
+          (ai.google.dev/gemma/docs/core/model_card_4); this deployment's vLLM 0.25.1
+          only actually samples 32 frames uniformly across the full clip regardless
+          of how many are sent -- verified live, see ADR-0019. max_video_frames (60)
+          reflects the official spec, not the currently-delivered capacity (32);
+          raising real capacity needs a vLLM patch and is deferred. Real video
+          containers (mp4/webm/mkv/mov/avi) get no frame-count or duration
+          validation from Gateway today -- max_video_frames/max_video_duration_seconds
+          only apply to the video/jpeg raw-frame-array path and GIF respectively.
         max_video_inputs: 1
         allowed_video_url_schemes:
         - data

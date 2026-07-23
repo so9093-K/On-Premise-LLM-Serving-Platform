@@ -69,6 +69,11 @@ Tool calling을 사용할 때는 `tools`에 function tool을 포함하고 `tool_
 
 `input_audio.data`는 raw base64 문자열이며(`image_url`/`video_url`과 달리 `data:` URL 접두사를 붙이지 않는다), 개행·공백 포함 base64(예: `base64` CLI 기본 출력)도 허용된다.
 
+위 표의 byte 상한은 실제 모델이 처리하는 길이와 다르다. 오디오는 실제로 ~30초 이후가
+조용히 잘리고(에러·경고 없음), 비디오는 공식 스펙(60초/60프레임 @ 1fps)과 달리 이
+배포에서는 32프레임까지만 실제로 처리된다 — 자세한 근거와 raw byte 상한이 이를 막지
+못하는 이유는 `ADR-0019`(결정 기록 index: `docs/02_decision_register.md`)를 참고한다.
+
 Reasoning/thinking은 기본값이 `false`다. 복잡한 디버깅·분석 요청에서만 `reasoning: true`를 명시하면 Gateway가 vLLM 전용 `chat_template_kwargs.enable_thinking=true`로 변환해 전달한다. 이 모드는 latency와 출력 토큰 사용량을 늘릴 수 있으며, 응답에는 runtime 버전에 따라 `message.reasoning` 또는 legacy `message.reasoning_content`가 포함될 수 있다. 최종 답변은 `message.content`를 사용한다.
 
 상세 schema는 `specs/openapi.gateway.yaml`, `specs/openapi.risk-adapter.yaml`, `specs/schemas/*.json`을 기준으로 한다. Gateway/Risk Adapter의 generated OpenAPI는 `src/ai_model_serving/openapi_contracts.py`를 통해 동일한 checked-in JSON schema를 request/response body에 주입한다. 따라서 `/docs`와 `/openapi.json`에서 보이는 schema는 runtime contract validation과 같은 원천을 바라본다.
