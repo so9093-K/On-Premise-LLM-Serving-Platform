@@ -129,6 +129,10 @@ def test_dashboard_navigation_links_resolve_to_existing_uids() -> None:
     for name, dashboard in dashboards.items():
         for link in dashboard.get("links", []):
             url = link.get("url", "")
+            if url.startswith("/a/"):
+                # Grafana app plugin page (e.g. the bundled Logs Drilldown app), not
+                # another dashboard -- no dashboard uid to resolve against.
+                continue
             assert "/d/" in url, f"Dashboard '{name}' link has unexpected URL format: {url}"
             target_uid = url.split("/d/")[-1].split("/")[0]
             assert target_uid in valid_uids, (

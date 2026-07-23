@@ -18,6 +18,18 @@
       "tooltip": "Usage Today — 집계(메트릭) 관점의 사용량/에러 대시보드",
       "type": "link",
       "url": "/d/usage_today/usage-today"
+    },
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": false,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": true,
+      "title": "Logs Drilldown (자유 탐색)",
+      "tooltip": "이 대시보드는 gateway/risk-adapter의 구조화 로그만 큐레이션한다. LogQL 없이 label/field를 클릭하며 자유롭게 파고들거나, 여기 없는 컨테이너/필드를 보려면 Grafana 공식 Logs Drilldown 앱(grafana-lokiexplore-app)을 쓴다.",
+      "type": "link",
+      "url": "/a/grafana-lokiexplore-app/explore"
     }
   ],
   "liveNow": false,
@@ -73,7 +85,19 @@
               "container_id": true,
               "event": true
             },
-            "indexByName": {},
+            "indexByName": {
+              "Time": 0,
+              "status_code": 1,
+              "method": 2,
+              "route": 3,
+              "latency_ms": 4,
+              "client_host": 5,
+              "request_id": 6,
+              "error_code": 7,
+              "error_message": 8,
+              "service": 9,
+              "Line": 20
+            },
             "renameByName": {}
           }
         }
@@ -131,7 +155,19 @@
               "container_id": true,
               "event": true
             },
-            "indexByName": {},
+            "indexByName": {
+              "Time": 0,
+              "status_code": 1,
+              "method": 2,
+              "route": 3,
+              "latency_ms": 4,
+              "client_host": 5,
+              "request_id": 6,
+              "error_code": 7,
+              "error_message": 8,
+              "service": 9,
+              "Line": 20
+            },
             "renameByName": {}
           }
         }
@@ -330,6 +366,6 @@
   "timezone": "browser",
   "title": "Request Log Explorer",
   "uid": "request_log_explorer",
-  "version": 6,
+  "version": 7,
   "weekStart": ""
 }
