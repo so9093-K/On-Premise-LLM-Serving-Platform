@@ -189,7 +189,7 @@
     "max_tokens": {
       "type": "integer",
       "minimum": 1,
-      "maximum": 8192
+      "maximum": 13000
     },
     "top_p": {
       "type": "number",

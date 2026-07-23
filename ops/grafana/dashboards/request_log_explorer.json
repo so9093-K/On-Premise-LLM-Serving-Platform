@@ -264,6 +264,26 @@
           }
         ]
       },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": {"id": "byName", "options": "client_host"},
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "이 client_host로 필터링",
+                    "url": "/d/request_log_explorer?var-client_host_filter=${__value.raw}&${__url_time_range}",
+                    "targetBlank": false
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
       "transformations": [
         {
           "id": "extractFields",
@@ -329,7 +349,7 @@
         "wrapLogMessage": true,
         "sortOrder": "Descending"
       },
-      "description": "컨테이너 원본 로그 전체(구조화 로그로 안 잡히는 시작 실패/크래시 등 확인용).\n\n- 위 **Service** 필터 영향 안 받음(모든 컨테이너 대상)\n- 로그 줄 펼쳐서 **container_id** 옆 돋보기(+) 클릭 -> 전 패널에 ad-hoc filter 적용(container_id로 좁히는 유일한 진입점)\n- docker.sock 미사용 -> 컨테이너 이름 아닌 container_id(해시)로만 구분"
+      "description": "컨테이너 원본 로그 전체(구조화 로그로 안 잡히는 시작 실패/크래시 등 확인용).\n\n- 이 호스트의 모든 컨테이너 대상(Grafana 자신 포함) -> 위 **Service** 필터 영향 안 받음\n- 로그 줄 펼쳐서 **container_id** 옆 돋보기(+) 클릭 -> 전 패널에 ad-hoc filter 적용(container_id로 좁히는 유일한 진입점)\n- docker.sock 미사용 -> 컨테이너 이름 아닌 container_id(해시)로만 구분"
     }
   ],
   "refresh": "30s",
@@ -447,6 +467,6 @@
   "timezone": "browser",
   "title": "Request Log Explorer",
   "uid": "request_log_explorer",
-  "version": 15,
+  "version": 16,
   "weekStart": ""
 }

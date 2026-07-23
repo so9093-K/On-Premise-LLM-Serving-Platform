@@ -72,7 +72,7 @@ models:
         20K context, optimization level 3 런타임 target이다; upstream 예시는
         B200/vLLM main 기준 96K context를 사용하므로, 이 플랫폼은 production을
         주장하기 전에 로컬 tokenizer, boot, 품질, 지연시간, soak 검증이 필요하다
-      max_output_tokens: 8192
+      max_output_tokens: 13000
       input_modalities:
       - text
       - image

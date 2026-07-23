@@ -146,7 +146,7 @@ def test_model_registry_projects_openapi_schema_and_monitoring_labels():
     ]
     assert "request_parameters" in item_properties
     public_models = {item["id"]: item for item in registry.public_model_response_items()}
-    assert public_models["local-main"]["request_parameters"]["max_tokens"] == {"type": "integer", "min": 1, "max": 8192}
+    assert public_models["local-main"]["request_parameters"]["max_tokens"] == {"type": "integer", "min": 1, "max": 13000}
     assert public_models["local-main"]["request_parameters"]["top_p"] == {"type": "number", "min_exclusive": 0, "max": 1}
     assert public_models["local-main"]["request_parameters"]["n"] == {"type": "integer", "min": 1, "max": 1}
     assert public_models["local-main"]["request_parameters"]["reasoning"] == {"type": "boolean", "default": False, "mode": "request_opt_in"}
