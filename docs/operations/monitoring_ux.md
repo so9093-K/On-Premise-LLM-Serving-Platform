@@ -205,6 +205,66 @@ Grafana UI에서 저장한 provisioned dashboard 변경은 JSON source로 자동
 - No Runtime Data: exporter 또는 scrape가 없을 때 gray 상태로 표시한다.
 - Healthy / Attention / Action Required: 모든 panel description은 정상, 주의, 조치 필요, No Data 해석을 포함한다.
 
+## Request Log Explorer (Loki 기반 로그 대시보드)
+
+`ops/grafana/dashboards/request_log_explorer.json`은 Prometheus 집계가 아니라 Loki 원본
+로그를 요청 단위로 조회하는 대시보드다. `gpu_capacity_and_oom_risk`/`usage_today`와 달리
+panel description은 운영자가 화면에서 바로 훑을 수 있는 짧은 요약만 담고, 설계 근거는
+여기 문서에 둔다(패널 description을 문단형 근거 설명으로 채우면 좁은 hover 툴팁에서 아무도
+안 읽는다는 걸 실사용 리뷰로 확인함).
+
+**패널 구성**
+
+- `Gateway Request Log`: gateway/risk-adapter 구조화 JSON 로그 전체 요청.
+- `Errors (status_code >= 400)`: 위와 같은 소스에서 4xx/5xx만.
+- `Non-JSON Container Errors`: vLLM 등 uvicorn access log(JSON 아님)의 4xx/5xx를 텍스트
+  파싱해서 본다.
+- `Raw Container Log`: 파싱 없는 원본 전체.
+
+**request_id/error_code/error_message가 `Gateway Request Log`엔 없고 `Errors`에만 있는 이유**
+
+`X-Request-Id`/`X-Error-Code`/`X-Error-Message` 응답 헤더는 에러 응답에서만 채워진다
+(`errors.py`의 `error_response_headers`). 200 성공 응답은 클라이언트가 직접
+`x-request-id`를 보내지 않는 한 이 값들이 항상 비어있다(`logging_policy.py`). 전체 요청을
+보여주는 `Gateway Request Log`에 이 세 컬럼을 넣으면 대부분 빈 칸이라, 실제로 채워지는
+`Errors` 패널에만 남겼다.
+
+**`/metrics`, `/health`를 `route_filter` 기본값이 아니라 쿼리에 고정 제외한 이유**
+
+Loki(LogQL)의 정규식 엔진은 Go RE2라 부정 lookahead(`(?!...)`)를 지원하지 않는다. 그래서
+"route_filter 기본값으로 이 두 라우트만 제외"는 애초에 못 만든다. 대신 쿼리에
+`| route != "/metrics" | route != "/health"`를 고정 조건으로 추가했다 — `route_filter`
+자체는 그대로 편집 가능하고, 이 두 라우트가 실패하면 status_code와 무관하게 `Errors`
+패널에서 그대로 잡힌다.
+
+**`Non-JSON Container Errors`의 RegExp 포맷: 슬래시로 감싸야 한다**
+
+Grafana "Extract fields" 트랜스폼의 RegExp 포맷은 정규식을 `/pattern/`처럼 슬래시로 감싸야
+named capturing group(`(?<name>...)`)을 인식한다. 슬래시 없이 넣으면 파싱이 조용히 깨져서
+모든 필드가 `NewField`라는 이름 하나로 합쳐진 채 원본 Line 전체가 복사된다(에러 메시지 없이
+실패하므로 스크래치 환경에서 직접 렌더링을 확인하지 않으면 알아채기 어렵다).
+
+**`route`/`error_code`는 Loki 라벨이 아니라서 드롭다운으로 못 바꾼다**
+
+두 필드 다 `| json`으로 로그 내용에서 그때그때 뽑아내는 파생 필드지, Loki가 인덱싱한 실제
+라벨이 아니다(`/loki/api/v1/labels`로 확인 가능한 라벨은 `container_id`, `filename`,
+`job`, `service_name`, `stream`뿐). Grafana 대시보드 변수 편집기의 "Label values" 쿼리
+타입은 실제 인덱싱된 라벨만 선택지로 보여주므로(직접 만들어서 확인함), route/error_code를
+드롭다운 변수로 만들려면 Promtail 쪽에서 이 필드들을 실제 라벨로 승격시키는 pipeline stage
+변경이 필요하다 — 저카디널리티라 안전할 가능성이 높지만 스트림 분할(카디널리티) 영향을
+별도로 검토해야 하는 인프라 변경이라 보류 중이다. 지금은 `route_filter`/`error_code_filter`
+모두 자유 입력 regex textbox다.
+
+**`container_id`는 전용 변수가 아니라 Grafana 기본 ad-hoc filter로 좁힌다**
+
+`Raw Container Log` 패널에서 로그 줄을 펼쳐 `container_id` 필드 옆 돋보기(+) 아이콘을
+누르면 모든 패널에 공통 적용되는 ad-hoc filter로 좁혀진다. 전용 template 변수를 따로 두지
+않는다 — 같은 라벨에 서로 다른 값을 요구하는 ad-hoc filter와 전용 변수가 동시에 걸리면
+충돌해서 아무것도 안 보이는 문제가 있었다(운영 중 실제로 발생, 수정 완료). `Non-JSON
+Container Errors`는 테이블 타입으로 바뀌면서 이 돋보기 아이콘 자체가 없어져,
+container_id로 좁히는 진입점은 `Raw Container Log` 하나뿐이다. docker.sock을 쓰지 않아서
+컨테이너 이름이 아니라 container_id(전체 해시)로만 구분 가능하다.
+
 ## Monitoring Projection 흐름
 
 ModelRegistry와 monitoring config에서 Prometheus/Grafana 운영 산출물을 자동 생성한다. 운영자가 dashboard 설정을 수동으로 맞추지 않도록, 다음 값을 projection한다.

@@ -104,6 +104,9 @@
               "stream": true,
               "container_id": true,
               "event": true,
+              "detected_level": true,
+              "service_name": true,
+              "filename": true,
               "request_id": true,
               "error_code": true,
               "error_message": true
@@ -122,7 +125,7 @@
           }
         }
       ],
-      "description": "게이트웨이/risk-adapter의 구조화 JSON 로그를 요청 한 줄 = 테이블 한 행으로 본다(언제/누가(client_host)/어디로(route)/결과(status_code)/얼마나 걸렸는지(latency_ms)). service 변수로 gateway/risk-adapter를 고른다. request_id_filter/client_host_filter/route_filter/error_code_filter 변수(정규식, 기본값 .*)로 특정 요청 하나·특정 IP·특정 route·특정 error code만 좁혀볼 수 있다(컬럼에 안 보여도 필터는 그대로 적용된다). request_id/error_code/error_message는 이 패널에서 컬럼으로 안 보인다 — X-Request-Id/X-Error-Code/X-Error-Message 응답 헤더는 에러 응답에서만 채워지고(errors.py error_response_headers) 200 성공 응답은 클라이언트가 직접 x-request-id를 보내지 않는 한 항상 비어있어서(logging_policy.py), 전체 요청을 보는 이 패널에선 대부분 빈 칸으로 화면만 낭비한다. 세 필드 모두 실제 값이 채워지는 아래 'Errors' 패널에서 본다 — error_code는 같은 status_code(예: 503)에 묶인 여러 code(MODEL_UNAVAILABLE/QUEUE_TIMEOUT/CIRCUIT_OPEN 등)를 구분하고, error_message는 error_code만으론 안 보이는 실제 원인 문장을 보여주고, request_id는 gateway↔risk-adapter 로그 상관관계 추적이나 사용자가 보고한 값 그대로 검색할 때 쓴다. Promtail이 docker.sock 없이 정적 경로로만 로그를 읽어서 컨테이너 이름 라벨은 없지만, 로그 본문 자체에 이미 service 필드가 있어 그걸로 구분한다. 보존 기간(LOKI_RETENTION_HOURS, 기본 7일)이 지난 로그는 안 보인다. `/metrics`(Prometheus 스크레이프)·`/health`(도커 헬스체크)는 트래픽이 적을 때 화면을 도배하는 배경 노이즈라 route_filter 값과 무관하게 이 패널에서 항상 제외한다(LogQL이 Go RE2 엔진이라 route_filter 기본값으로 부정 lookahead를 못 써서 별도 고정 조건으로 뺐다) — 이 두 라우트가 실패하면 status_code와 무관하게 아래 'Errors' 패널에서 그대로 잡힌다."
+      "description": "게이트웨이/risk-adapter 전체 요청 로그(요청 한 줄 = 테이블 한 행).\n\n- 이 대시보드는 gateway/risk-adapter 구조화 로그 + vLLM 등 컨테이너 원본 로그를 함께 다룬다(아래 **Non-JSON Container Errors**/**Raw Container Log**)\n- **client_host** 클릭 시 그 IP로 필터링\n- request_id/error_code/error_message는 여기 없음 -> 아래 **Errors** 패널 참고(에러에서만 채워지는 필드)\n- `/metrics`, `/health`는 노이즈라 항상 제외"
     },
     {
       "id": 2,
@@ -140,7 +143,7 @@
       },
       "targets": [
         {
-          "expr": "{job=\"docker\"} | json | event=\"http_request_completed\" | status_code >= 400 | request_id=~\"${request_id_filter}\" | client_host=~\"${client_host_filter}\" | route=~\"${route_filter}\" | error_code=~\"${error_code_filter}\"",
+          "expr": "{job=\"docker\"} | json | service=\"${service}\" | event=\"http_request_completed\" | status_code >= 400 | request_id=~\"${request_id_filter}\" | client_host=~\"${client_host_filter}\" | route=~\"${route_filter}\" | error_code=~\"${error_code_filter}\"",
           "refId": "A"
         }
       ],
@@ -208,7 +211,10 @@
               "job": true,
               "stream": true,
               "container_id": true,
-              "event": true
+              "event": true,
+              "detected_level": true,
+              "service_name": true,
+              "filename": true
             },
             "indexByName": {
               "Time": 0,
@@ -227,7 +233,7 @@
           }
         }
       ],
-      "description": "모든 service(gateway/risk-adapter)를 통틀어 4xx/5xx만 모아서 본다. 값이 없으면 정상(Healthy). error_code 컬럼으로 같은 status_code에 묶인 여러 code(예: 503의 MODEL_UNAVAILABLE/QUEUE_TIMEOUT/CIRCUIT_OPEN/MAIN_MODEL_SWITCH_IN_PROGRESS 등)를 status만으로는 구분 못 하던 것을 바로 구분한다 — error_code=INTERNAL_ERROR가 하나라도 보이면 처리 안 된 예외라는 뜻이라 바로 원인을 봐야 하고, 나머지 503 계열은 대개 admission/circuit breaker/main-model switch 진행 중(의도된 동작)이다. error_code만 봐서는 정확히 뭐가 잘못됐는지 안 보이므로, error_message 컬럼(요청 검증 실패 사유 등 실제 원인 문장)을 같이 본다. 이 패널은 gateway/risk-adapter의 구조화 JSON 로그만 잡는다 — vLLM 컨테이너처럼 JSON이 아닌 access log를 쓰는 서비스의 에러는 아래 'Non-JSON Container Errors' 패널을 같이 봐야 한다. request_id_filter/client_host_filter/route_filter/error_code_filter로 위 패널과 동일하게 좁혀볼 수 있다(error_code_filter=INTERNAL_ERROR처럼 정확한 code만 골라볼 수도 있다)."
+      "description": "위 Service 선택 기준 4xx/5xx만. 값 없음 = 정상(Healthy).\n\n- **request_id**/**client_host** 클릭 시 그 값으로 필터링\n- **error_code**: 같은 status_code(예: 503)에 묶인 원인 구분(INTERNAL_ERROR는 처리 안 된 예외)\n- **error_message**: error_code만으론 안 보이는 실제 원인 문장\n- vLLM 등 JSON 아닌 로그의 에러는 아래 **Non-JSON Container Errors** 참고"
     },
     {
       "id": 3,
@@ -296,7 +302,7 @@
           }
         }
       ],
-      "description": "uvicorn access log(JSON 아님)를 쓰는 컨테이너의 4xx/5xx를 텍스트 패턴(`\"<method> <path> HTTP/1.1\" <status>`)으로 파싱해 method/route/status_code/client_host 컬럼으로 본다 — 주로 vLLM 계열이 대상이지만, gateway도 자체 JSON 로그와 별개로 이 uvicorn 패턴을 함께 남기므로 위 'Errors' 패널과 일부 겹칠 수 있다(완전히 배타적인 뷰는 아니다). request_id 같은 구조화 필드가 없어 정규식/패턴 매칭이라 완벽하진 않다(best-effort, 패턴이 안 맞는 줄은 컬럼이 비어 보일 수 있다). 테이블로 바뀌면서 로그 줄을 펼쳐 container_id 옆 돋보기(+)로 드릴다운하던 상호작용은 이 패널에서 더는 못 쓴다 — 특정 컨테이너로 좁히려면 아래 'Raw Container Log' 패널에서 같은 시각대 로그를 펼쳐 그 아이콘을 누른다."
+      "description": "uvicorn access log(JSON 아님)의 4xx/5xx를 텍스트 파싱해 컬럼으로 본다(주로 vLLM 계열, best-effort).\n\n- 위 **Service** 필터 영향 안 받음(모든 컨테이너 대상)\n- gateway도 이 포맷을 같이 남겨서 위 **Errors**와 일부 겹칠 수 있음\n- 이 패널은 테이블이라 container_id 돋보기(+) 드릴다운 없음 -> 아래 **Raw Container Log**에서"
     },
     {
       "id": 4,
@@ -323,7 +329,7 @@
         "wrapLogMessage": true,
         "sortOrder": "Descending"
       },
-      "description": "컨테이너의 원본 로그를 그대로 본다 — 구조화 로그로 안 잡히는 것(컨테이너 시작 실패, 크래시, 예상 밖 동작 등)을 확인할 때 범용으로 쓴다. 예: main-llm-vllm 등 vLLM 컨테이너를 골라 uvicorn access 로그의 소스 IP를 보면 게이트웨이(내부 docker 네트워크 IP) 경유인지 외부 IP가 직접 접속한 건지 구분할 수 있다. 이 패널에서 로그 줄을 펼쳐 container_id 필드 옆 돋보기(+) 아이콘을 누르면 상단에 Filters로 표시되고 이 패널이 그 컨테이너로 좁혀진다(모든 패널에 공통 적용되는 ad-hoc filter라 Container ID 드롭다운은 따로 두지 않는다 -- 별도 변수를 두면 같은 라벨에 서로 다른 값을 동시에 요구하는 충돌이 생겨 오히려 아무것도 안 보이는 문제가 있었다). 'Non-JSON Container Errors' 패널은 테이블 타입이라 이 드릴다운 아이콘 자체가 없다 — container_id로 좁히는 진입점은 이제 이 패널 하나뿐이다. docker.sock을 안 써서 컨테이너 이름으로는 못 고르고 container_id(전체 해시)로만 구분한다."
+      "description": "컨테이너 원본 로그 전체(구조화 로그로 안 잡히는 시작 실패/크래시 등 확인용).\n\n- 위 **Service** 필터 영향 안 받음(모든 컨테이너 대상)\n- 로그 줄 펼쳐서 **container_id** 옆 돋보기(+) 클릭 -> 전 패널에 ad-hoc filter 적용(container_id로 좁히는 유일한 진입점)\n- docker.sock 미사용 -> 컨테이너 이름 아닌 container_id(해시)로만 구분"
     }
   ],
   "refresh": "30s",
@@ -332,7 +338,7 @@
   "tags": [
     "ops",
     "logs",
-    "korean-titles"
+    "english-titles"
   ],
   "templating": {
     "list": [
@@ -386,7 +392,7 @@
           "value": ".*"
         },
         "hide": 0,
-        "label": "Request ID (regex)",
+        "label": "Request ID (regex, 예: req_abc.*)",
         "name": "request_id_filter",
         "options": [],
         "query": ".*",
@@ -399,7 +405,7 @@
           "value": ".*"
         },
         "hide": 0,
-        "label": "Client Host (regex)",
+        "label": "Client Host (regex, 예: 192.168.*)",
         "name": "client_host_filter",
         "options": [],
         "query": ".*",
@@ -412,7 +418,7 @@
           "value": ".*"
         },
         "hide": 0,
-        "label": "Route (regex)",
+        "label": "Route (regex, 예: /v1/chat.*)",
         "name": "route_filter",
         "options": [],
         "query": ".*",
@@ -425,7 +431,7 @@
           "value": ".*"
         },
         "hide": 0,
-        "label": "Error Code (regex)",
+        "label": "Error Code (regex, 예: NOT_FOUND)",
         "name": "error_code_filter",
         "options": [],
         "query": ".*",
@@ -441,6 +447,6 @@
   "timezone": "browser",
   "title": "Request Log Explorer",
   "uid": "request_log_explorer",
-  "version": 12,
+  "version": 15,
   "weekStart": ""
 }
