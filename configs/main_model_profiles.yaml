@@ -149,6 +149,9 @@ profiles:
         context_tokens: 50000
         concurrency: 3
         validated_at: "2026-07-23"
+        note: context_tokens(50000)은 마지막으로 실측 확인된 커맨드 기준이다 -- 현재
+          command의 --max-model-len/--max-num-batched-tokens는 58192로 이미 올라가
+          있고 이 값 자체는 아직 재부팅/재측정 전이다(위 reasons 참고).
     capabilities:
       model_input: [text, image, audio, video]
       # Full multimodal, served by the pinned derived image (image rides in

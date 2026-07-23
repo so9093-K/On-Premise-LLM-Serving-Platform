@@ -82,4 +82,3 @@ images:
 validation_policy:
   require_digest_before_production: true
   generated_by: scripts/config/setup_env.py
-  last_reviewed: 2026-05-06

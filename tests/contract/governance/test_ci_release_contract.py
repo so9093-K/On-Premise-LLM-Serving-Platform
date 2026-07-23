@@ -116,8 +116,6 @@ def test_gitlab_ci_deployment_contract_is_documented_and_operationally_safe() ->
     )
     assert 'compose_run up -d --no-deps admin-sidecar' in deploy
     assert "previous release, .env, services, and release links restored" in deploy
-    assert "legacy live tree detected; snapshotting it" in deploy
-    assert 'LEGACY_RELEASE_CREATED="${DEPLOY_PATH}/releases/legacy-' in deploy
     assert "restore_release_links()" in deploy
     assert 'unset "${COMPOSE_EXPORTED_KEYS[@]}"' in deploy
     assert 'done < "${COMPOSE_ENV_FILE}"' in deploy

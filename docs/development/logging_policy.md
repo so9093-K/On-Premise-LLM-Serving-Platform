@@ -21,4 +21,5 @@
 - HF token
 - secret file 내용
 
-`LOG_PROMPT_BODY=false`, `LOG_MODEL_RAW_OUTPUT=false`가 기본이다. 운영 환경에서 원문 로깅을 켜지 않는다.
+prompt/생성 결과 등은 끌 수 있는 옵션이 아니라 `service_logging.py`의 `SENSITIVE_KEYS`
+기준으로 항상 무조건 `[REDACTED]` 처리된다(`scrub_for_log`).

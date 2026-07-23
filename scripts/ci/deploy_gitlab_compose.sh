@@ -209,7 +209,6 @@ mkdir -p "${DEPLOY_PATH}/.runtime" "${DEPLOY_PATH}/ops/compose/model_cache"
 ensure_gateway_runtime_dir "${DEPLOY_PATH}/.runtime/gateway"
 
 PREVIOUS_RELEASE=""
-LEGACY_RELEASE_CREATED=""
 if [[ -L "${DEPLOY_PATH}/current" ]]; then
   if ! PREVIOUS_RELEASE="$(readlink -f "${DEPLOY_PATH}/current")" ||
     [[ ! -d "${PREVIOUS_RELEASE}" ]]; then
@@ -217,37 +216,6 @@ if [[ -L "${DEPLOY_PATH}/current" ]]; then
     rm -rf "${RELEASE_PATH}"
     exit 1
   fi
-elif [[ -f "${DEPLOY_PATH}/Makefile" && -f "${DEPLOY_PATH}/${COMPOSE_FILE}" ]]; then
-  LEGACY_RELEASE_CREATED="${DEPLOY_PATH}/releases/legacy-$(date -u +%Y%m%dT%H%M%SZ)-$$"
-  echo "[deploy] legacy live tree detected; snapshotting it to ${LEGACY_RELEASE_CREATED}"
-  mkdir "${LEGACY_RELEASE_CREATED}"
-  if ! rsync -a --delete \
-    --exclude "/releases/" \
-    --exclude "/current" \
-    --exclude "/runtime-current" \
-    --exclude "/.env" \
-    --exclude "/.env.bak.*" \
-    --exclude "/.runtime/" \
-    --exclude "/ops/compose/model_cache/" \
-    "${DEPLOY_PATH}/" "${LEGACY_RELEASE_CREATED}/"; then
-    rm -rf "${LEGACY_RELEASE_CREATED}" "${RELEASE_PATH}"
-    echo "[deploy] ERROR: failed to snapshot legacy live tree" >&2
-    exit 1
-  fi
-  ln -s "${DEPLOY_PATH}/.env" "${LEGACY_RELEASE_CREATED}/.env"
-  ln -s "${DEPLOY_PATH}/.runtime" "${LEGACY_RELEASE_CREATED}/.runtime"
-  mkdir -p "${LEGACY_RELEASE_CREATED}/ops/compose"
-  ln -s "${DEPLOY_PATH}/ops/compose/model_cache" \
-    "${LEGACY_RELEASE_CREATED}/ops/compose/model_cache"
-  ln -s "releases/$(basename "${LEGACY_RELEASE_CREATED}")" \
-    "${DEPLOY_PATH}/.current.legacy.$$"
-  mv -Tf "${DEPLOY_PATH}/.current.legacy.$$" "${DEPLOY_PATH}/current"
-  ln -s "releases/$(basename "${LEGACY_RELEASE_CREATED}")" \
-    "${DEPLOY_PATH}/.runtime-current.legacy.$$"
-  mv -Tf "${DEPLOY_PATH}/.runtime-current.legacy.$$" \
-    "${DEPLOY_PATH}/runtime-current"
-  PREVIOUS_RELEASE="${LEGACY_RELEASE_CREATED}"
-  echo "[deploy] legacy snapshot activated as the initial release-directory baseline"
 fi
 RUNTIME_RELEASE=""
 if [[ -L "${DEPLOY_PATH}/runtime-current" ]]; then
