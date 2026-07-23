@@ -63,6 +63,41 @@
           }
         ]
       },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": {"id": "byName", "options": "request_id"},
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "이 request_id로 필터링",
+                    "url": "/d/request_log_explorer?var-request_id_filter=${__value.raw}&${__url_time_range}",
+                    "targetBlank": false
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {"id": "byName", "options": "client_host"},
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "이 client_host로 필터링",
+                    "url": "/d/request_log_explorer?var-client_host_filter=${__value.raw}&${__url_time_range}",
+                    "targetBlank": false
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
       "transformations": [
         {
           "id": "extractFields",
@@ -133,6 +168,41 @@
           }
         ]
       },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": {"id": "byName", "options": "request_id"},
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "이 request_id로 필터링",
+                    "url": "/d/request_log_explorer?var-request_id_filter=${__value.raw}&${__url_time_range}",
+                    "targetBlank": false
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {"id": "byName", "options": "client_host"},
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "이 client_host로 필터링",
+                    "url": "/d/request_log_explorer?var-client_host_filter=${__value.raw}&${__url_time_range}",
+                    "targetBlank": false
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
       "transformations": [
         {
           "id": "extractFields",
@@ -199,7 +269,7 @@
         "wrapLogMessage": true,
         "sortOrder": "Descending"
       },
-      "description": "vLLM 등 uvicorn access log(JSON 아님)를 쓰는 컨테이너의 4xx/5xx를 텍스트 패턴(`\"<method> <path> HTTP/1.1\" <status>`)으로 잡는 catch-all 패널이다. gateway/risk-adapter는 이 패턴을 남기지 않으니 위 'Errors' 패널과 중복되지 않는다. request_id 같은 구조화 필드가 없어 정규식 매칭이라 완벽하진 않다(best-effort) — 여기서 의심 가는 컨테이너를 찾으면 아래 'Raw Container Log' 패널에서 container_id를 골라 원본을 그대로 본다."
+      "description": "vLLM 등 uvicorn access log(JSON 아님)를 쓰는 컨테이너의 4xx/5xx를 텍스트 패턴(`\"<method> <path> HTTP/1.1\" <status>`)으로 잡는 catch-all 패널이다. gateway/risk-adapter는 이 패턴을 남기지 않으니 위 'Errors' 패널과 중복되지 않는다. request_id 같은 구조화 필드가 없어 정규식 매칭이라 완벽하진 않다(best-effort) — 여기서 의심 가는 로그 줄을 펼쳐 container_id 필드 옆 돋보기(+) 아이콘을 누르면 아래 'Raw Container Log' 패널이 그 컨테이너로 바로 좁혀진다."
     },
     {
       "id": 4,
@@ -217,7 +287,7 @@
       },
       "targets": [
         {
-          "expr": "{job=\"docker\", container_id=\"${container_id}\"}",
+          "expr": "{job=\"docker\"}",
           "refId": "A"
         }
       ],
@@ -226,7 +296,7 @@
         "wrapLogMessage": true,
         "sortOrder": "Descending"
       },
-      "description": "특정 컨테이너의 원본 로그를 그대로 본다 — 구조화 로그로 안 잡히는 것(컨테이너 시작 실패, 크래시, 예상 밖 동작 등)을 확인할 때 범용으로 쓴다. 예: main-llm-vllm 등 vLLM 컨테이너를 골라 uvicorn access 로그의 소스 IP를 보면 게이트웨이(내부 docker 네트워크 IP) 경유인지 외부 IP가 직접 접속한 건지 구분할 수 있다. container_id 변수는 `docker ps --no-trunc`로 확인한 전체 컨테이너 ID를 넣는다 -- docker.sock을 안 써서 이름으로는 못 고른다."
+      "description": "컨테이너의 원본 로그를 그대로 본다 — 구조화 로그로 안 잡히는 것(컨테이너 시작 실패, 크래시, 예상 밖 동작 등)을 확인할 때 범용으로 쓴다. 예: main-llm-vllm 등 vLLM 컨테이너를 골라 uvicorn access 로그의 소스 IP를 보면 게이트웨이(내부 docker 네트워크 IP) 경유인지 외부 IP가 직접 접속한 건지 구분할 수 있다. 이 패널이나 위 'Non-JSON Container Errors' 패널에서 로그 줄을 펼쳐 container_id 필드 옆 돋보기(+) 아이콘을 누르면 상단에 Filters로 표시되고 이 패널이 그 컨테이너로 좁혀진다(모든 패널에 공통 적용되는 ad-hoc filter라 Container ID 드롭다운은 따로 두지 않는다 -- 별도 변수를 두면 같은 라벨에 서로 다른 값을 동시에 요구하는 충돌이 생겨 오히려 아무것도 안 보이는 문제가 있었다). docker.sock을 안 써서 컨테이너 이름으로는 못 고르고 container_id(전체 해시)로만 구분한다."
     }
   ],
   "refresh": "30s",
@@ -333,28 +403,6 @@
         "options": [],
         "query": ".*",
         "type": "textbox"
-      },
-      {
-        "current": {
-          "selected": false,
-          "text": "",
-          "value": ""
-        },
-        "datasource": {
-          "type": "loki",
-          "uid": "${datasource}"
-        },
-        "definition": "label_values(container_id)",
-        "hide": 0,
-        "includeAll": false,
-        "label": "Container ID",
-        "multi": false,
-        "name": "container_id",
-        "options": [],
-        "query": "label_values(container_id)",
-        "refresh": 1,
-        "regex": "",
-        "type": "query"
       }
     ]
   },
@@ -366,6 +414,6 @@
   "timezone": "browser",
   "title": "Request Log Explorer",
   "uid": "request_log_explorer",
-  "version": 7,
+  "version": 9,
   "weekStart": ""
 }

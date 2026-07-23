@@ -50,7 +50,11 @@ def test_log_dashboard_is_loki_backed_and_links_to_usage_today() -> None:
     dashboard = json.loads((ROOT / LOG_DASHBOARD).read_text(encoding="utf-8"))
     assert dashboard["uid"] == "request_log_explorer"
     variables = {item["name"] for item in dashboard["templating"]["list"]}
-    assert {"datasource", "container_id"}.issubset(variables)
+    assert {"datasource"}.issubset(variables)
+    # container_id로 좁히는 건 전용 template 변수가 아니라 Loki 기본 ad-hoc filter(로그 줄의
+    # container_id 필드 옆 "+" 아이콘)로 한다 -- 전용 변수를 따로 두면 같은 라벨에 서로 다른
+    # 값을 요구하는 ad-hoc filter와 충돌해서 Raw Container Log가 아무것도 안 보였다.
+    # request_log_explorer.json의 Raw Container Log 패널 description 참고.
     for panel in iter_panels(dashboard["panels"]):
         assert panel.get("datasource", {}).get("type") == "loki", (
             f"Panel '{panel.get('title')}' in {LOG_DASHBOARD} must use the Loki datasource"
