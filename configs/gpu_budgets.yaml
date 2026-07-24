@@ -85,7 +85,7 @@ budgets:
       fixed_generation_budget:
         max_output_tokens: 1
 limits:
-  risk_max_model_len: 2048
+  risk_max_model_len: 8192
   risk_max_num_seqs: 1
   risk_execution: sequential
   rag_bulk_indexing_initial: disabled_or_throttled

@@ -420,15 +420,16 @@ models:
     load_format: bitsandbytes
     dtype: bfloat16
     trust_remote_code: true
-    max_model_len: 2048
+    max_model_len: 8192
     max_num_seqs: 1
-    max_num_batched_tokens: 2048
+    max_num_batched_tokens: 8192
     max_output_tokens: 1
     timeout_seconds: 5
     gpu_memory_utilization: 0.065
     enforce_eager: true
     runtime_policy_source: model card single-token classification; max_output_tokens
-      must remain 1
+      must remain 1. max_model_len 8192 = 실제 모델 max_position_embeddings(HF
+      config.json) 그대로 -- 2026-07-25 이전 2048에서 상향.
     resource_control:
       criticality: risk_signal_path
       isolation: dedicated_vllm_process
@@ -437,7 +438,7 @@ models:
         queue_timeout_seconds: 2
       request_limits:
         input_modality: text
-        max_model_len: 2048
+        max_model_len: 8192
         max_output_tokens: 1
       degrade_action: return system signal; do not make policy decisions
     runtime_features:
@@ -500,7 +501,7 @@ risk_adapter:
     execution: sequential
   timeout_seconds: 15
   input_policy:
-    max_prompt_chars: 7936
+    max_prompt_chars: 32512
     char_budget_source: detector_min_max_model_len_minus_64_tokens_times_4_chars
     overflow_signal: TRUNCATED_INPUT
     overflow_action: return_system_signal_without_detector_call

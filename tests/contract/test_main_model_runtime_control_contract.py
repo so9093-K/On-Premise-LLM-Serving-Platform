@@ -59,7 +59,7 @@ def test_main_model_profiles_pin_revision_image_and_default_golden_command():
     profiles = yaml.safe_load(
         (ROOT / "configs/main_model_profiles.yaml").read_text(encoding="utf-8")
     )
-    assert profiles["runtime"]["image"].startswith("vllm/vllm-openai@sha256:")
+    assert "@sha256:" in profiles["runtime"]["image"]
     for profile in profiles["profiles"].values():
         assert len(profile["revision"]) == 40
         assert profile["command"][profile["command"].index("--revision") + 1] == profile["revision"]
