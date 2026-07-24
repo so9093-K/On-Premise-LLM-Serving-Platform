@@ -150,23 +150,50 @@ profiles:
         릴리스(50000/seq=3)로 정상 복구됐다. 위 1.88배 여유 계산(seq=3 기준)은
         --max-num-batched-tokens=50000일 때의 activation 메모리 프로파일 기준이라
         58192로 올리면 무효였다는 뜻이다.
-      - 크래시 로그의 실측값(18.65 GiB 필요/16.28 GiB 가용, seq=3·58192 기준)으로
-        역산했다 -- 이 가용량은 --max-num-batched-tokens=58192의 activation 메모리
-        프로파일 결과라 seq 수를 낮춰도 안 바뀐다. --max-num-seqs를 3 -> 2로
-        낮추면 필요량이 18.65 * 2/3 ≈ 12.44 GiB로 줄어 가용 16.28 GiB 대비 약
-        1.31배 여유가 생긴다는 계산 하에 seq=2/max-model-len=58192로 반영한다.
-        이 조합 자체의 실제 boot/`/metrics` 재확인은 아직 없다 -- 배포 전 재부팅
-        후 재측정 필요.
+      - 크래시 로그의 실측값(18.65 GiB 필요/16.28 GiB 가용, seq=3·58192 기준)을
+        seq 비례로 역산해 --max-num-seqs를 3 -> 2로 낮추면 필요량이 18.65 * 2/3
+        ≈ 12.44 GiB로 줄어 여유가 생길 거라 예상하고 seq=2/max-model-len=58192로
+        반영했었다.
+      - 2026-07-24 실제 배포에서 seq=2/58192 조합도 boot 자체가 실패했다 -- 크래시
+        로그가 seq=3 때와 **완전히 동일**하다(18.65 GiB 필요/16.28 GiB 가용).
+        원인은 위 seq 비례 계산이 틀렸다는 것 -- vLLM 에러 메시지는 "to serve at
+        least one request with the model's max seq len"이라고 명시하는데, 이는
+        max_model_len 하나짜리 시퀀스 1개의 요구량이라 --max-num-seqs와 무관하다
+        -- seq를 낮춰도 이 체크는 전혀 바뀌지 않는다. 배포 스크립트가 다시 자동
+        롤백해 50000/seq=3으로 정상 복구됐다(같은 날 확인).
+      - gpu_memory_utilization 상향과 `configs/gpu_budgets.yaml`의
+        `total_gpu_memory_utilization` 재분배도 검토했다 -- avoid_above(0.93)까지
+        다른 3개 서비스를 전부 tuning_range 최저치로 눌러도 main_llm이 받을 수
+        있는 최댓값은 0.81 근처로, 18.65 GiB 요구량 대비 마진이 사실상 0이다.
+        `avoid_above` 자체가 `reserve_gib.hard_minimum`(3.5 GiB)에서 역산된
+        값이라 더 올리는 것도 하드 미니멈을 깎아먹는 것과 같다. 즉 이 카드에서
+        58192는 다른 3개 모델과 공존하는 한 안전 마진을 확보할 방법이 없다고
+        판단해 --max-model-len/--max-num-batched-tokens/--max-num-seqs를
+        50000/50000/3으로 되돌린다.
+      - 참고 -- 위 "266,208/282,144/331,312 tokens" 식의 과거 기록은
+        num_gpu_blocks x block_size(16)로 계산한 값인데, 이 model(Gemma4
+        heterogeneous head dim, TRITON_ATTN)에서는 이 공식이 실제 용량과 안
+        맞는다 -- 실측 `vllm:cache_config_info`의 `kv_cache_size_tokens`는
+        50000 커맨드에서 53,722(= "Available KV cache memory -- 17.22 GiB"와
+        일치), num_gpu_blocks(17634) x 16 = 282,144와는 다르다. 앞으로 이
+        model의 KV 캐시 용량은 num_gpu_blocks 곱셈이 아니라 `kv_cache_size_tokens`
+        또는 부팅 로그의 "Available KV cache memory" GiB 값으로 확인한다.
+      - max-model-len을 50000으로 되돌렸지만 게이트웨이 max_output_tokens 정책은
+        13000 그대로 뒀다 -- 위(2026-07-23 항목)에서 미뤄뒀던 입력/출력 공유
+        트레이드오프가 58192 때(입력 여유 45192)보다 더 타이트하게(입력 여유
+        50000-13000=37000) 재적용된다는 뜻이다. max_model_len 관점에서는 여전히
+        유효한 설정(13000 < 50000)이라 boot를 막지는 않으나, 출력이 13000을 다
+        쓰는 요청은 입력 37000 안에서만 허용된다는 걸 gateway 정책 결정으로
+        의식하고 있어야 한다 -- 별도 결정 없이는 이 상태 유지.
       validation:
         gpu: NVIDIA RTX 6000 Ada Generation
         compute_capability: "8.9"
         vram_mib: 49140
         context_tokens: 50000
         concurrency: 3
-        validated_at: "2026-07-23"
-        note: 위 필드는 마지막으로 실제 부팅에 성공한 커맨드(50000, seq=3) 기준이다
-          -- 현재 command는 58192/seq=2로 바뀌었고, 이 조합은 크래시 로그 실측값을
-          근거로 계산만 했을 뿐 아직 실제 재부팅/재측정 전이다(위 reasons 참고).
+        validated_at: "2026-07-24"
+        kv_cache_size_tokens: 53722
+        kv_cache_max_concurrency: 1.07
     capabilities:
       model_input: [text, image, audio, video]
       # Full multimodal, served by the pinned derived image (image rides in
@@ -191,11 +218,11 @@ profiles:
     - --port
     - "9401"
     - --max-model-len
-    - "58192"
+    - "50000"
     - --max-num-seqs
-    - "2"
+    - "3"
     - --max-num-batched-tokens
-    - "58192"
+    - "50000"
     - --optimization-level
     - "3"
     # Per-host capacity knob: override at deploy time via

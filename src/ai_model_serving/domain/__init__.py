@@ -5,6 +5,7 @@ from .model_records import (
     PublicModel,
     RegistryIssue,
     RuntimeService,
+    resolve_catalog_max_output_tokens,
 )
 from .model_registry import (
     ModelRegistry,
@@ -30,4 +31,5 @@ __all__ = [
     "RuntimeService",
     "RuntimeValidationTarget",
     "RuntimeValidationMatrixCheck",
+    "resolve_catalog_max_output_tokens",
 ]

@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from .domain import ModelRegistry
+from .domain import ModelRegistry, resolve_catalog_max_output_tokens
 from .project_paths import resolve_project_root as _resolve_project_root
 from .settings_parts.env import (
     as_bool as _as_bool,
@@ -81,7 +81,6 @@ def _build_runtime_endpoints(
         if cfg.get("enabled", True) is not True:
             continue
         catalog_entry = catalog_models.get(cfg.get("served_model_name"), {})
-        catalog_policy = catalog_entry.get("project_runtime_policy", {})
         endpoints[str(model_key)] = build_runtime_endpoint(
             model_key=str(model_key),
             env_url=_env_name(str(model_key), "BASE_URL"),
@@ -89,7 +88,7 @@ def _build_runtime_endpoints(
             timeout=timeout,
             models=models,
             operational_limits=operational_limits,
-            catalog_max_output_tokens=catalog_policy.get("max_output_tokens"),
+            catalog_max_output_tokens=resolve_catalog_max_output_tokens(catalog_entry),
         )
     return endpoints
 

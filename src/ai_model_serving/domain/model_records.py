@@ -5,6 +5,18 @@ from typing import Any
 from urllib.parse import urlparse
 
 
+def resolve_catalog_max_output_tokens(catalog_entry: dict[str, Any]) -> int | None:
+    """catalog 항목 하나(``configs/model_catalog.yaml``의 모델 하나)에서
+    ``runtime`` -> ``project_runtime_policy`` 순으로 max_output_tokens를 찾는다.
+
+    serving config가 이 값을 갖고 있으면 그게 우선이며, 그 판단은 호출자 몫이다.
+    """
+    runtime = catalog_entry.get("runtime", {})
+    policy = catalog_entry.get("project_runtime_policy", {})
+    value = runtime.get("max_output_tokens", policy.get("max_output_tokens"))
+    return int(value) if value is not None else None
+
+
 @dataclass(frozen=True)
 class PublicModel:
     """Gateway가 노출하는 OpenAI 호환 model listing projection."""

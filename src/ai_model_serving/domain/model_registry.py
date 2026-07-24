@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from .model_records import ModelRecord, PublicModel, RegistryIssue, RuntimeService
+from .model_records import ModelRecord, PublicModel, RegistryIssue, RuntimeService, resolve_catalog_max_output_tokens
 from .projection_models import (
     ModelCardProjection,
     ModelContractProjection,
@@ -63,7 +63,7 @@ class ModelRegistry:
             capabilities = listing.get("capabilities") or [cfg.get("primary_capability")]
             backend = str(listing.get("backend", runtime.get("backend", serving_cfg.get("backend", "runtime"))))
             max_model_len = serving_cfg.get("max_model_len", policy.get("max_model_len"))
-            max_output_tokens = serving_cfg.get("max_output_tokens", runtime.get("max_output_tokens", policy.get("max_output_tokens")))
+            max_output_tokens = serving_cfg.get("max_output_tokens", resolve_catalog_max_output_tokens(cfg))
             capabilities_tuple = tuple(str(item) for item in capabilities if item)
             request_parameters, fixed_parameters = _request_parameter_surface(
                 capabilities=capabilities_tuple,

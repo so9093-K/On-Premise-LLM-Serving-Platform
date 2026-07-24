@@ -116,10 +116,10 @@ Prefix caching은 반복 prefix가 있는 multi-turn, tool, RAG prompt에서 pre
 | 프로필 | context/concurrency | local-main 자체 VRAM | 전체 GPU 사용량 | KV cache pool (`num_gpu_blocks`) |
 |---|---|---:|---:|---|
 | `gemma4-26b-a4b-fp8` (기본) | 20K, seq=1 | 35.1 GiB | 41.5 GiB | 10812 blocks (172,992 tokens) |
-| `gemma4-12b-unified-fp8` | 50K, seq=3 | 31.2 GiB | 37.6 GiB | 17634 blocks (282,144 tokens) |
+| `gemma4-12b-unified-fp8` | 50K, seq=3 | 31.9 GiB | 38.3 GiB | kv_cache_size_tokens 53,722 |
 
-즉 12B가 26B보다 context가 2.5배 크고 audio/video까지 지원하는데도 실제 VRAM은 오히려 더 적게 씁니다 — 26B는 weight 자체가 더 크기 때문입니다. 두 경우 다 `gpu_memory_utilization=0.76`으로 boot에 필요한 최소량 대비 8배 안팎의 여유가 있었다.
+즉 12B가 26B보다 context가 2.5배 크고 audio/video까지 지원하는데도 실제 VRAM은 오히려 더 적게 씁니다 — 26B는 weight 자체가 더 크기 때문입니다. 두 경우 다 `gpu_memory_utilization=0.76`으로 boot에 필요한 최소량 대비 여유가 있었다.
 
-12B 행은 2026-07-23에 `nvidia-smi`/`vllm:cache_config_info`로 재측정한 seq=3 기준 수치다(seq=2 때의 30.2 GiB/36.6 GiB/16638 blocks에서 갱신). `configs/main_model_profiles.yaml`은 이미 `--max-model-len`/`--max-num-batched-tokens`를 50000→58192로 올려뒀지만, 이 커맨드로 실제 재부팅한 뒤의 수치는 아직 없다 — 위 표는 여전히 50K 기준이다.
+12B 행은 2026-07-24에 `nvidia-smi`/`vllm:cache_config_info`로 재측정한 50K/seq=3 수치다. `configs/main_model_profiles.yaml`이 한때 `--max-model-len`/`--max-num-batched-tokens`를 58192로, `--max-num-seqs`를 2로 올렸었지만 실제 배포에서 두 번(seq=3·58192, seq=2·58192) 다 KV cache 부족으로 boot가 실패했고(둘 다 "18.65 GiB 필요/16.28 GiB 가용"로 동일 — max_num_seqs는 이 체크와 무관함이 확인됨), 자동 롤백 후 50000/seq=3으로 되돌렸다. 이전 행에 있던 "num_gpu_blocks x block_size(16) = tokens" 계산식(예: 282,144 tokens)은 이 model의 hybrid attention 구조에서 실제 용량과 맞지 않는 것으로 확인되어, 앞으로는 `vllm:cache_config_info`의 `kv_cache_size_tokens` 또는 부팅 로그의 "Available KV cache memory" GiB 값을 기준으로 삼는다. 자세한 내용은 `configs/main_model_profiles.yaml`의 `gemma4-12b-unified-fp8` compatibility.reasons 참고.
 
 **실무 시사점**: 1~8절의 "Main LLM canary context는 20K, seq 1"이라는 서술은 활성 프로필이 26B일 때만 맞다. 어느 프로필이 실제로 얼마나 VRAM을 쓰는지는 이 문서의 고정 표가 아니라, 부팅 후 `nvidia-smi`와 vLLM `/metrics`(`vllm:cache_config_info`의 `num_gpu_blocks`)로 확인하는 게 원칙이다 — 이론 계산이 실측과 크게 어긋난 전례([ADR-0015](../adr/0015-main-llm-20k-o3-runtime-target.md) Context의 32K 실패 사례)가 있다.
