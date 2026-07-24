@@ -48,13 +48,15 @@ def replace_platform_image_tag(path: Path, version: str) -> None:
     path.write_text(text, encoding='utf-8')
 
 
-def replace_risk_vllm_image_tag(path: Path, version: str) -> None:
+def replace_vllm_unified_image_tag(path: Path, version: str) -> None:
     text = path.read_text(encoding='utf-8')
+    # vllm/embedding_ko_vllm/risk_vllm 세 항목 모두 같은 unified 이미지를 가리키므로
+    # count=0(전체 치환)으로 한 번에 갱신한다.
     text = re.sub(
-        r'(?m)^(\s*default:\s*ai-model-serving-risk-vllm-kanana:).+$',
+        r'(?m)^(\s*default:\s*ai-model-serving-vllm-unified:).+$',
         rf'\g<1>{version}',
         text,
-        count=1,
+        count=0,
     )
     path.write_text(text, encoding='utf-8')
 
@@ -69,8 +71,18 @@ def replace_plain_version_references(path: Path, version: str) -> None:
         text,
     )
     text = re.sub(
-        r'(?m)^RISK_VLLM_IMAGE=ai-model-serving-risk-vllm-kanana:.+$',
-        f'RISK_VLLM_IMAGE=ai-model-serving-risk-vllm-kanana:{version}',
+        r'(?m)^VLLM_IMAGE=ai-model-serving-vllm-unified:.+$',
+        f'VLLM_IMAGE=ai-model-serving-vllm-unified:{version}',
+        text,
+    )
+    text = re.sub(
+        r'(?m)^EMBEDDING_KO_VLLM_IMAGE=ai-model-serving-vllm-unified:.+$',
+        f'EMBEDDING_KO_VLLM_IMAGE=ai-model-serving-vllm-unified:{version}',
+        text,
+    )
+    text = re.sub(
+        r'(?m)^RISK_VLLM_IMAGE=ai-model-serving-vllm-unified:.+$',
+        f'RISK_VLLM_IMAGE=ai-model-serving-vllm-unified:{version}',
         text,
     )
     text = re.sub(r'(?m)^version: .+$', f'version: {version}', text, count=1)
@@ -100,7 +112,7 @@ def main() -> None:
     if 'image_tags' not in manifest:
         manifest['image_tags'] = {}
     manifest['image_tags']['platform'] = f'ai-model-serving-platform:{version}'
-    manifest['image_tags']['risk_vllm'] = f'ai-model-serving-risk-vllm-kanana:{version}'
+    manifest['image_tags']['risk_vllm'] = f'ai-model-serving-vllm-unified:{version}'
     manifest['version_reset'] = True
     manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
 
@@ -122,7 +134,7 @@ def main() -> None:
     image_config = ROOT / 'configs/recommended_images.yaml'
     if image_config.exists():
         replace_platform_image_tag(image_config, version)
-        replace_risk_vllm_image_tag(image_config, version)
+        replace_vllm_unified_image_tag(image_config, version)
 
     print(f'version reset to {version}')
 

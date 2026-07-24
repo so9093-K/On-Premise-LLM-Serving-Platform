@@ -5,31 +5,40 @@ images:
     mutable: false
     source: local docker build
   vllm:
-    default: vllm/vllm-openai:gemma4-unified-cu129
-    purpose: vLLM OpenAI-compatible runtime with Gemma4 support.
-    mutable: true
-    source: Docker Hub vllm/vllm-openai Gemma4 Unified CUDA 12.9 tag
-    fallback: vllm/vllm-openai:gemma4
-  embedding_ko_vllm:
-    default: vllm/vllm-openai:gemma4-unified-cu129
-    purpose: vLLM pooling runtime for local-embed-ko Korean dense retrieval embeddings.
-    mutable: true
-    source: Docker Hub vllm/vllm-openai Gemma4 Unified CUDA 12.9 tag
-    base_image_default: vllm/vllm-openai:gemma4-unified-cu129
-  risk_vllm:
-    default: ai-model-serving-risk-vllm-kanana:0.0.1
-    purpose: Dedicated vLLM runtime for Kakao Kanana risk detectors; keeps Gemma4
-      runtime changes isolated from Kanana Llama config compatibility patch metadata.
+    default: ai-model-serving-vllm-unified:0.0.1
+    purpose: vLLM OpenAI-compatible runtime for all served models (main-LLM 26B/12B,
+      embedding, embedding-ko, risk-prompt) -- one image, two independent patch
+      sets that are no-ops for the models that don't need them. Merged 2026-07-24
+      from the former separate vllm-gemma4-audio and risk-vllm-kanana images.
     mutable: false
-    source: local docker build from ops/docker/Dockerfile.risk-vllm-kanana
+    source: local docker build from ops/images/vllm-unified/Dockerfile
     base_image_default: vllm/vllm-openai@sha256:6a090ed9d4a3739813ce355cbd63d4c34c987a25c8409796f24912ba71c2d4a4
     compatibility_pins:
       transformers: 4.52.4
       transformers_min: 4.52.4
     patch_lifecycle:
-      patch_id: transformers_llama_head_dim_guard
-      metadata_path: /usr/local/share/ai-model-serving/patches/transformers_llama_head_dim_guard.json
-      removal_condition: upstream Transformers/vLLM honors explicit Llama head_dim without image patch
+      patches:
+      - patch_id: apply_gemma4_multimodal_patches
+        removal_condition: upstream vLLM/Transformers fix the patch_dense FP8
+          ignore-list mismatch and Gemma4UnifiedAudioFeatureExtractor.fft_length
+      - patch_id: transformers_llama_head_dim_guard
+        metadata_path: /usr/local/share/ai-model-serving/patches/transformers_llama_head_dim_guard.json
+        removal_condition: upstream Transformers/vLLM honors explicit Llama head_dim without image patch
+  embedding_ko_vllm:
+    default: ai-model-serving-vllm-unified:0.0.1
+    purpose: vLLM pooling runtime for local-embed-ko Korean dense retrieval embeddings.
+    mutable: false
+    source: same image as vllm.default
+    base_image_default: vllm/vllm-openai@sha256:6a090ed9d4a3739813ce355cbd63d4c34c987a25c8409796f24912ba71c2d4a4
+  risk_vllm:
+    default: ai-model-serving-vllm-unified:0.0.1
+    purpose: vLLM runtime for Kakao Kanana risk detectors -- same image as vllm.default.
+    mutable: false
+    source: same image as vllm.default
+    base_image_default: vllm/vllm-openai@sha256:6a090ed9d4a3739813ce355cbd63d4c34c987a25c8409796f24912ba71c2d4a4
+    compatibility_pins:
+      transformers: 4.52.4
+      transformers_min: 4.52.4
   dcgm_exporter:
     default: nvcr.io/nvidia/k8s/dcgm-exporter:4.5.2-4.8.1-distroless
     purpose: NVIDIA GPU metrics exporter for Prometheus.

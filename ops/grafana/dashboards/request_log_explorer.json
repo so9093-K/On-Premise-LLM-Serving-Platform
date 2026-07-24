@@ -380,7 +380,7 @@
         "wrapLogMessage": true,
         "sortOrder": "Descending"
       },
-      "description": "HTTP 상태 코드가 안 붙는 크래시(엔진 초기화 실패, Python traceback 등)를 키워드로 찾는다 -- 위 **Non-JSON Container Errors**는 uvicorn access log(4xx/5xx)만 잡아서, vLLM 엔진이 요청을 받기 전에 죽는 이런 크래시는 거기 안 걸린다.\n\n- 이 호스트의 모든 컨테이너 대상 -> 위 **Service** 필터 영향 안 받음\n- 위 **Search Text**로 추가로 좁힐 수 있음(예: 특정 모델/에러 문구)\n- Traceback은 stdout 한 줄마다 별도 로그 라인으로 저장돼 여러 줄에 걸쳐 나타남 -- container_id 돋보기(+)로 좁혀서 순서대로 읽는다\n- best-effort 키워드 매칭이라 놓치는 크래시가 있을 수 있음 -> 안 잡히면 **Raw Container Log**에서 시간대로 직접 확인"
+      "description": "HTTP 상태 코드 없이 죽는 크래시(엔진 초기화 실패, Python traceback 등)를 키워드로 찾는다.\n\n- 이 호스트의 모든 컨테이너 대상 -> 위 **Service** 필터 영향 안 받음\n- 위 **Search Text**로 추가로 좁힐 수 있음(예: 특정 모델/에러 문구)\n- Traceback은 stdout 한 줄마다 별도 로그 라인으로 저장돼 여러 줄에 걸쳐 나타남 -- container_id 돋보기(+)로 좁혀서 순서대로 읽는다\n- best-effort 키워드 매칭이라 놓치는 크래시가 있을 수 있음 -> 안 잡히면 **Raw Container Log**에서 시간대로 직접 확인"
     }
   ],
   "refresh": "30s",

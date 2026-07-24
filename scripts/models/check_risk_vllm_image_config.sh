@@ -3,11 +3,11 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT"
-source scripts/lib/risk_vllm_image.sh
+source scripts/lib/vllm_unified_image.sh
 source scripts/lib/load_env.sh
 ENV_FILE="${ENV_FILE:-.env}"
 load_local_env "$ENV_FILE"
-risk_vllm_resolve_images "$ENV_FILE"
+vllm_unified_resolve_images "$ENV_FILE"
 
 IMAGE="$RISK_VLLM_IMAGE_RESOLVED"
 PYTHON_IN_IMAGE="${RISK_VLLM_IMAGE_PYTHON:-python3}"
@@ -36,9 +36,9 @@ if ! command -v docker >/dev/null 2>&1; then
   exit 2
 fi
 
-if [[ "$IMAGE" == ai-model-serving-risk-vllm-kanana:* ]] && ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
-  echo "[risk-vllm-config] missing local risk vLLM image: $IMAGE" >&2
-  echo "[risk-vllm-config] build it with: make rebuild-risk-vllm" >&2
+if [[ "$IMAGE" == ai-model-serving-vllm-unified:* ]] && ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
+  echo "[risk-vllm-config] missing local vLLM unified image: $IMAGE" >&2
+  echo "[risk-vllm-config] build it with: make build-vllm-unified-image" >&2
   exit 2
 fi
 
@@ -46,7 +46,7 @@ if [[ "${SKIP_RISK_VLLM_PATCH_VERIFY:-0}" != "1" ]]; then
   patch_label="$(docker image inspect --format '{{ index .Config.Labels "ai_model_serving.patch.transformers_llama_head_dim_guard" }}' "$IMAGE" 2>/dev/null || true)"
   if [[ "$patch_label" != "true" ]]; then
     echo "[risk-vllm-config] missing Kanana head_dim patch label on $IMAGE" >&2
-    echo "[risk-vllm-config] rebuild it with: make rebuild-risk-vllm" >&2
+    echo "[risk-vllm-config] rebuild it with: make build-vllm-unified-image" >&2
     exit 2
   fi
   echo "[risk-vllm-config] verifying Kanana head_dim patch metadata inside ${IMAGE}"

@@ -50,7 +50,7 @@ REQUIRED_FILES = [
     'docs/operations/project_management_workflow.md',
     'docs/operations/risk_vllm_patch_lifecycle.md',
     'scripts/models/model_inventory.py',
-    'ops/docker/Dockerfile.risk-vllm-kanana',
+    'ops/images/vllm-unified/Dockerfile',
     'ops/patches/README.md',
     'ops/patches/transformers_llama_head_dim_guard.py',
     'scripts/reports/operator_guide.py',

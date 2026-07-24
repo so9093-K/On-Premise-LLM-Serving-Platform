@@ -22,7 +22,7 @@ Risk detector image는 main Gemma4 vLLM image와 분리되어 있다. Kanana Pro
 ## 운영자 흐름
 
 ```bash
-make rebuild-risk-vllm
+make rebuild-vllm-unified
 make risk-vllm-config-check
 make risk-vllm-patch-removal-check
 ```

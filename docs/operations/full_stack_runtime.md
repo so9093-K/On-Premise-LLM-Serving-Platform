@@ -52,7 +52,7 @@ make compose-up
 make compose-down
 ```
 
-`RISK_VLLM_IMAGE` 빌드와 image 내부 Kanana config check는 기본적으로 `make first-run`/`make bootstrap`에 포함된다. risk image만 수동 재빌드할 때는 `make rebuild-risk-vllm && make risk-vllm-config-check`를 실행한다.
+`RISK_VLLM_IMAGE` 빌드와 image 내부 Kanana config check는 기본적으로 `make first-run`/`make bootstrap`에 포함된다. risk image만 수동 재빌드할 때는 `make rebuild-vllm-unified && make risk-vllm-config-check`를 실행한다.
 
 `make compose-up`은 기본적으로 `make preflight-compose`를 먼저 수행하고, `.env`, `.runtime/prometheus/admin_api_key`, 그리고 `RISK_VLLM_IMAGE` 내부 Kanana config 로딩을 사전 점검한다. `.runtime` 파일이 지워져도 `.env`를 덮어쓰지 않고 bearer-token 파일만 복구한다. Prometheus bearer token은 Compose secret으로 `/run/secrets/admin_api_key`에 마운트되며, host 파일은 non-root Prometheus process가 읽을 수 있도록 일반 파일 `0644` 권한이어야 한다.
 

@@ -293,7 +293,7 @@ CI job과 로컬 make target은 목적이 다르며 독립적으로 실행된다
 | 목적 | CI job / 로컬 명령 | 변수 기반 |
 |---|---|---|
 | Platform 이미지 빌드 + push | `build-platform` (CI) | `CI_REGISTRY_IMAGE` 등 CI 변수 |
-| 로컬 risk vLLM 이미지 빌드 | `make build-risk-vllm-image` | `.env`의 `RISK_VLLM_BASE_IMAGE`, `RISK_VLLM_IMAGE` |
+| 로컬 risk vLLM 이미지 빌드 | `make build-vllm-unified-image` | `.env`의 `RISK_VLLM_BASE_IMAGE`, `RISK_VLLM_IMAGE` |
 | 12B multimodal derived 이미지 빌드/push | `build-vllm-derived` 또는 `ops/images/vllm-gemma4-audio/README.md` 수동 fallback | `VLLM_BASE_IMAGE`, `AUDIO_VLLM_IMAGE_*` |
 
 

@@ -101,7 +101,7 @@ make compose-up
 | 플랫폼 이미지 빌드 | `make build-image` | 아니오 |
 | 통합 파이프라인 빌드 | `make build-pipeline` / `make build` | 아니오 |
 | 앱 이미지만 재빌드 | `make rebuild-app` / `make build-image` | 아니오 |
-| risk vLLM 이미지만 재빌드 | `make rebuild-risk-vllm` / `make build-risk-vllm-image` | 아니오 |
+| risk vLLM 이미지만 재빌드 | `make rebuild-vllm-unified` / `make build-vllm-unified-image` | 아니오 |
 | 전체 재빌드 | `make rebuild-full` / `make bootstrap` | 아니오 |
 | 로컬 app-only 기동 | `make start` | 예 |
 | full-stack compose 기동 | `make compose-up` | 예 |

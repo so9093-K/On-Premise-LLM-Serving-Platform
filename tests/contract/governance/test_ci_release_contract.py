@@ -235,11 +235,9 @@ def test_gitlab_ci_vllm_derived_build_contract() -> None:
     assert "set -euo pipefail" in build_script, (
         "scripts/ci/build_vllm_derived_images.sh must use 'set -euo pipefail'"
     )
-    assert "Dockerfile.risk-vllm-kanana" in build_script, (
-        "scripts/ci/build_vllm_derived_images.sh must reference ops/docker/Dockerfile.risk-vllm-kanana"
-    )
-    assert "ops/images/vllm-gemma4-audio/Dockerfile" in build_script, (
-        "scripts/ci/build_vllm_derived_images.sh must build the 12B multimodal audio runtime image"
+    assert "ops/images/vllm-unified/Dockerfile" in build_script, (
+        "scripts/ci/build_vllm_derived_images.sh must build the single vLLM unified runtime image "
+        "(Gemma4 multimodal + Kanana head_dim patches, merged 2026-07-24)"
     )
     assert "docker pull \"${RESOLVED_VLLM_BASE_IMAGE}\"" in build_script, (
         "scripts/ci/build_vllm_derived_images.sh must pull the resolved shared vLLM base image once "

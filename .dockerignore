@@ -27,8 +27,9 @@ dist
 docs
 tests
 ops/*
-!ops/docker/
-!ops/docker/Dockerfile.risk-vllm-kanana
+!ops/images/
+!ops/images/vllm-unified/
+!ops/images/vllm-unified/Dockerfile
 !ops/patches/
 !ops/patches/transformers_llama_head_dim_guard.py
 !ops/patches/apply_gemma4_multimodal_patches.py

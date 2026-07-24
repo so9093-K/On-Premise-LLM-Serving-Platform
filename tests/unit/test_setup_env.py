@@ -23,8 +23,8 @@ def test_setup_env_generates_compose_env_with_local_open_defaults(tmp_path):
     assert 'API_KEY=ams_gateway_' in text
     assert 'INTERNAL_SERVICE_TOKEN=ams_internal_' in text
     assert 'FASTAPI_DOCS_ENABLED=true' in text
-    assert 'VLLM_IMAGE=vllm/vllm-openai:gemma4-unified-cu129' in text
-    assert 'RISK_VLLM_IMAGE=ai-model-serving-risk-vllm-kanana:' in text
+    assert 'VLLM_IMAGE=ai-model-serving-vllm-unified:' in text
+    assert 'RISK_VLLM_IMAGE=ai-model-serving-vllm-unified:' in text
     # MAX_REQUEST_BODY_BYTES is yaml-owned; it must not be an active .env assignment.
     assert not any(line.startswith('MAX_REQUEST_BODY_BYTES=') for line in text.splitlines())
     assert 'COLBERT_KO_MODEL_DIR' not in text
@@ -122,9 +122,13 @@ def test_setup_env_preserves_operator_values_on_force_but_rotates_generated_secr
     assert 'API_KEYS=old-secret' not in text
 
 
-def test_setup_env_force_migrates_stale_shared_risk_vllm_image(tmp_path):
+def test_setup_env_force_keeps_risk_vllm_image_equal_to_main_image(tmp_path):
+    # 2026-07-24부터 VLLM_IMAGE와 RISK_VLLM_IMAGE가 같은 vLLM unified 이미지를
+    # 가리키는 게 정상 상태다(Gemma4 멀티모달 + Kanana head_dim 패치가 한
+    # 이미지에 같이 있고, 각 patch는 무관한 모델에는 no-op이다). 예전엔 이 상태를
+    # "shared/base image로의 실수"로 보고 강제로 되돌렸는데, 이제는 그대로 둔다.
     out = tmp_path / '.env'
-    shared = 'vllm/vllm-openai:gemma4-0505-cu129'
+    shared = 'gitlab.example.com/registry/vllm-unified:custom'
     out.write_text(
         f'VLLM_IMAGE={shared}\n'
         f'RISK_VLLM_IMAGE={shared}\n'
@@ -135,15 +139,23 @@ def test_setup_env_force_migrates_stale_shared_risk_vllm_image(tmp_path):
     assert rc == 0
     text = out.read_text(encoding='utf-8')
     assert f'VLLM_IMAGE={shared}' in text
-    assert f'RISK_VLLM_IMAGE={shared}' not in text
-    assert 'RISK_VLLM_IMAGE=ai-model-serving-risk-vllm-kanana:' in text
+    assert f'RISK_VLLM_IMAGE={shared}' in text
     assert 'HF_TOKEN=hf_existing' in text
+
+
+def test_setup_env_fills_default_risk_vllm_image_when_unset(tmp_path):
+    out = tmp_path / '.env'
+    out.write_text('HF_TOKEN=hf_existing\n', encoding='utf-8')
+    rc = setup_env.main(['--profile', 'compose', '--output', str(out), '--force'])
+    assert rc == 0
+    text = out.read_text(encoding='utf-8')
+    assert 'RISK_VLLM_IMAGE=ai-model-serving-vllm-unified:' in text
 
 
 def test_setup_env_force_migrates_stale_risk_vllm_transformers_pin(tmp_path):
     out = tmp_path / '.env'
     out.write_text(
-        'RISK_VLLM_IMAGE=ai-model-serving-risk-vllm-kanana:0.1.0-rc.1\n'
+        'RISK_VLLM_IMAGE=ai-model-serving-vllm-unified:0.1.0-rc.1\n'
         'RISK_VLLM_TRANSFORMERS_VERSION=4.51.3\n'
         'HF_TOKEN=hf_existing\n',
         encoding='utf-8',

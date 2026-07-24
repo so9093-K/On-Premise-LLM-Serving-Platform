@@ -5,7 +5,7 @@ from .helpers import *  # noqa: F401,F403
 def test_build_ux_separates_build_from_runtime_startup() -> None:
     makefile = (ROOT / 'Makefile').read_text(encoding='utf-8')
     assert 'make build         # build artifacts/images only; does not start or keep services alive' in makefile
-    for target in ['start:', 'up:', 'ready:', 'check-ready:', 'status:', 'stop:', 'down:', 'logs:', 'build-pipeline:', 'first-run:', 'rebuild-full:', 'rebuild-app:', 'rebuild-risk-vllm:', 'remove-plan:']:
+    for target in ['start:', 'up:', 'ready:', 'check-ready:', 'status:', 'stop:', 'down:', 'logs:', 'build-pipeline:', 'first-run:', 'rebuild-full:', 'rebuild-app:', 'rebuild-vllm-unified:', 'remove-plan:']:
         assert target in makefile
 
     build_doc = (ROOT / 'docs/development/build_ux.md').read_text(encoding='utf-8')
@@ -34,36 +34,36 @@ def test_env_bootstrap_and_image_tag_automation_are_present() -> None:
     import os
     setup = ROOT / 'scripts/config/setup_env.py'
     build_image = ROOT / 'scripts/build/build_platform_image.sh'
-    build_risk_image = ROOT / 'scripts/build/build_risk_vllm_image.sh'
+    build_unified_image = ROOT / 'scripts/build/build_vllm_unified_image.sh'
     check_risk_image = ROOT / 'scripts/models/check_risk_vllm_image_config.sh'
     assert setup.exists()
     assert build_image.exists()
-    assert build_risk_image.exists()
+    assert build_unified_image.exists()
     assert check_risk_image.exists()
     assert os.access(setup, os.X_OK)
     assert os.access(build_image, os.X_OK)
-    assert os.access(build_risk_image, os.X_OK)
+    assert os.access(build_unified_image, os.X_OK)
     assert os.access(check_risk_image, os.X_OK)
 
     makefile = (ROOT / 'Makefile').read_text(encoding='utf-8')
-    for target in ['init-env:', 'init-env-local:', 'init-env-compose:', 'show-image-tags:', 'build-image:', 'build-risk-vllm-image:', 'risk-vllm-config-check:', 'compose-up:', 'compose-down:']:
+    for target in ['init-env:', 'init-env-local:', 'init-env-compose:', 'show-image-tags:', 'build-image:', 'build-vllm-unified-image:', 'risk-vllm-config-check:', 'compose-up:', 'compose-down:']:
         assert target in makefile
 
     images = yaml.safe_load((ROOT / 'configs/recommended_images.yaml').read_text(encoding='utf-8'))['images']
     assert images['platform']['default'] == f"ai-model-serving-platform:{(ROOT / 'VERSION').read_text(encoding='utf-8').strip()}"
-    assert images['vllm']['default'].startswith('vllm/vllm-openai:gemma4')
-    assert images['risk_vllm']['default'].startswith('ai-model-serving-risk-vllm-kanana:')
+    assert images['vllm']['default'].startswith('ai-model-serving-vllm-unified:')
+    assert images['risk_vllm']['default'].startswith('ai-model-serving-vllm-unified:')
     assert images['risk_vllm']['compatibility_pins']['transformers'] == '4.52.4'
     assert images['dcgm_exporter']['default'].startswith('nvcr.io/nvidia/k8s/dcgm-exporter:')
     assert images['prometheus']['default'].startswith('prom/prometheus:v3')
     assert images['grafana']['default'].startswith('grafana/grafana:12.2')
-    build_script = (ROOT / 'scripts/build/build_risk_vllm_image.sh').read_text(encoding='utf-8')
+    build_script = (ROOT / 'scripts/build/build_vllm_unified_image.sh').read_text(encoding='utf-8')
     assert "print_risk_vllm_compatibility.py" in build_script
     assert 'load_local_env "$ENV_FILE"' in build_script
     assert 'below the Kanana minimum' in build_script
     dockerignore = (ROOT / '.dockerignore').read_text(encoding='utf-8')
     assert 'ops/*' in dockerignore
-    assert '!ops/docker/Dockerfile.risk-vllm-kanana' in dockerignore
+    assert '!ops/images/vllm-unified/Dockerfile' in dockerignore
     assert '!ops/patches/transformers_llama_head_dim_guard.py' in dockerignore
 
 

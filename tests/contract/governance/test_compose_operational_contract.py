@@ -60,10 +60,10 @@ def test_compose_env_example_has_reviewed_image_defaults() -> None:
     version = (ROOT / 'VERSION').read_text(encoding='utf-8').strip()
     env = (ROOT / '.env.compose.example').read_text(encoding='utf-8')
     assert f'PLATFORM_IMAGE=ai-model-serving-platform:{version}' in env
-    assert 'VLLM_IMAGE=vllm/vllm-openai:gemma4' in env
-    assert 'RISK_VLLM_IMAGE=ai-model-serving-risk-vllm-kanana:' in env
+    assert 'VLLM_IMAGE=ai-model-serving-vllm-unified:' in env
+    assert 'RISK_VLLM_IMAGE=ai-model-serving-vllm-unified:' in env
     assert 'RISK_VLLM_TRANSFORMERS_VERSION=4.52.4' in env
-    assert 'EMBEDDING_KO_VLLM_IMAGE=vllm/vllm-openai:' in env
+    assert 'EMBEDDING_KO_VLLM_IMAGE=ai-model-serving-vllm-unified:' in env
     assert 'COLBERT_KO' not in env
     assert 'DCGM_EXPORTER_IMAGE=nvcr.io/nvidia/k8s/dcgm-exporter:' in env
     assert 'PROMETHEUS_IMAGE=prom/prometheus:v3-distroless' in env

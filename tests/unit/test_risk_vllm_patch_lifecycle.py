@@ -40,7 +40,7 @@ def test_patch_script_applies_and_verifies_temp_llama_config(tmp_path: Path) -> 
 
 
 def test_patch_lifecycle_is_not_inline_in_dockerfile() -> None:
-    dockerfile = (ROOT / "ops/docker/Dockerfile.risk-vllm-kanana").read_text(encoding="utf-8")
+    dockerfile = (ROOT / "ops/images/vllm-unified/Dockerfile").read_text(encoding="utf-8")
     assert "COPY ops/patches/transformers_llama_head_dim_guard.py" in dockerfile
     assert "ai_model_serving.patch.transformers_llama_head_dim_guard" in dockerfile
     assert "src.replace" not in dockerfile

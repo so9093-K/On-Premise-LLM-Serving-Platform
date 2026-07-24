@@ -92,7 +92,7 @@ python3 scripts/models/check_hf_model_config.py --model kakaocorp/kanana-safegua
 호스트 venv에서 통과한 뒤에는 반드시 실제 risk runtime image 내부에서도 같은 검사를 수행한다. 일반 경로에서는 `make first-run`/`make bootstrap`과 `make preflight-compose`가 이 검사를 자동 수행한다. 수동으로 image만 재검증할 때는 다음을 실행한다.
 
 ```bash
-make rebuild-risk-vllm
+make rebuild-vllm-unified
 make risk-vllm-config-check
 ```
 
@@ -100,7 +100,7 @@ make risk-vllm-config-check
 
 반면 `classification=CONFIG_VALIDATION_HIDDEN_HEAD_MISMATCH`로 실패하는 경우, image 내부에 transformers 4.52.0–4.52.3 이 설치되어 있을 가능성이 높다. 이 버전 범위는 explicit `head_dim`이 있어도 divisibility를 강제하는 버그가 있었으며 4.52.4에서 수정됐다.
 
-근본 원인: `huggingface_hub >= 1.13.0`은 `init_with_validate` 강화로 `AutoConfig.from_pretrained` 시점에 `validate_architecture`를 호출한다. 기반 vLLM image(2026년 5월 릴리스)는 이미 `huggingface_hub >= 1.x`를 포함하므로, transformers 4.52.0–4.52.3과 조합하면 반드시 이 오류가 발생한다. **`huggingface_hub`를 0.x로 다운그레이드하는 것은 major version regression이며 잘못된 해결책이다.** `make rebuild-risk-vllm`로 transformers >= 4.52.4로 재빌드하는 것이 올바른 조치다.
+근본 원인: `huggingface_hub >= 1.13.0`은 `init_with_validate` 강화로 `AutoConfig.from_pretrained` 시점에 `validate_architecture`를 호출한다. 기반 vLLM image(2026년 5월 릴리스)는 이미 `huggingface_hub >= 1.x`를 포함하므로, transformers 4.52.0–4.52.3과 조합하면 반드시 이 오류가 발생한다. **`huggingface_hub`를 0.x로 다운그레이드하는 것은 major version regression이며 잘못된 해결책이다.** `make rebuild-vllm-unified`로 transformers >= 4.52.4로 재빌드하는 것이 올바른 조치다.
 
 이 상태에서 vLLM 컨테이너만 `hidden size ... attention heads`로 실패하면 `bitsandbytes`보다 vLLM image 내부의 Transformers 버전을 우선 의심한다.
 

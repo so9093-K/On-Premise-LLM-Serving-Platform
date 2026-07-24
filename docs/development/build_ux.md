@@ -32,16 +32,16 @@ make bootstrap      = 전체 재빌드 (.venv + 의존성 + .env + 검증 + 플�
 | Day-0 / 전체 설정 | `make first-run` / `make bootstrap` | .venv + 플랫폼 이미지 + risk vLLM 이미지 + config check | 예 (기본값) |
 | CI / 릴리스 파이프라인 | `make build-pipeline` / `make build` | validate + test + 플랫폼 이미지 + 패키징만 | 아니오 |
 | 타깃 재빌드 | `make rebuild-app` / `make build-image` | 플랫폼 이미지만 | 아니오 |
-| 타깃 재빌드 | `make rebuild-risk-vllm` / `make build-risk-vllm-image` | Risk vLLM 이미지만 | 예 (이것만) |
+| 타깃 재빌드 | `make rebuild-vllm-unified` / `make build-vllm-unified-image` | Risk vLLM 이미지만 | 예 (이것만) |
 | CI derived 이미지 | `build-vllm-derived` | risk-vllm-kanana + vllm-gemma4-audio build/push | 예 (명시 opt-in) |
 
-**`make build`와 `make build-pipeline`은 risk vLLM 이미지를 빌드하지 않는다.** CI와 릴리스 파이프라인은 vLLM runtime에 의존하지 않고 플랫폼 아티팩트만 재현 가능하게 생성해야 하기 때문이다. Risk vLLM 이미지는 `make first-run`, `make bootstrap`, `make rebuild-risk-vllm`, `make build-risk-vllm-image`로만 생성된다.
+**`make build`와 `make build-pipeline`은 risk vLLM 이미지를 빌드하지 않는다.** CI와 릴리스 파이프라인은 vLLM runtime에 의존하지 않고 플랫폼 아티팩트만 재현 가능하게 생성해야 하기 때문이다. Risk vLLM 이미지는 `make first-run`, `make bootstrap`, `make rebuild-vllm-unified`, `make build-vllm-unified-image`로만 생성된다.
 
 **`embedding-ko-vllm`은 별도 derived Dockerfile 빌드 대상이 아니다.** `EMBEDDING_KO_VLLM_IMAGE` 환경 변수로 지정한 표준 vLLM 이미지를 사용한다. derived image build가 필요한 runtime은 risk-vllm-kanana(`ops/docker/Dockerfile.risk-vllm-kanana`)와 12B multimodal profile용 `vllm-gemma4-audio`(`ops/images/vllm-gemma4-audio/Dockerfile`)뿐이다. 로컬 make target은 risk image만 직접 빌드하고, 12B multimodal image는 CI `build-vllm-derived` 또는 `ops/images/vllm-gemma4-audio/README.md`의 수동 fallback 절차로 빌드·push·pin한다.
 
 ### Risk vLLM 이미지를 다시 빌드해야 하는 시점
 
-다음 중 하나가 변경됐을 때만 `make rebuild-risk-vllm` 또는 `make build-risk-vllm-image`가 필요하다.
+다음 중 하나가 변경됐을 때만 `make rebuild-vllm-unified` 또는 `make build-vllm-unified-image`가 필요하다.
 
 - `ops/docker/Dockerfile.risk-vllm-kanana` 수정
 - `ops/patches/transformers_llama_head_dim_guard.py` 수정
@@ -85,8 +85,8 @@ SKIP_RISK_VLLM_IMAGE_BUILD=1 make rebuild-full
 | `make build` | validate + test + 플랫폼 이미지 빌드 + 패키징 | 서비스 유지 없음 | 아니오 | 릴리스 / CI |
 | `make rebuild-app` | `make build-image` 별칭. 플랫폼 이미지만 재빌드 | 아니오 | 아니오 | 개발자 / 운영자 |
 | `make build-image` | 플랫폼 Docker 이미지만 빌드. validate·test·패키징은 생략하며 `make bootstrap` 내부에서도 호출됨 | 아니오 | 아니오 | 개발자 / 운영자 |
-| `make rebuild-risk-vllm` | `make build-risk-vllm-image` 별칭. Risk vLLM 이미지만 재빌드 | 아니오 | Docker image만 필요 | 운영자 / 디버깅 |
-| `make build-risk-vllm-image` | Kanana risk detector 전용 vLLM image만 빌드하는 고급 target. 일반 운영자는 `make first-run`/`make bootstrap` 사용 | 아니오 | Docker image만 필요 | 운영자 / 디버깅 |
+| `make rebuild-vllm-unified` | `make build-vllm-unified-image` 별칭. Risk vLLM 이미지만 재빌드 | 아니오 | Docker image만 필요 | 운영자 / 디버깅 |
+| `make build-vllm-unified-image` | Kanana risk detector 전용 vLLM image만 빌드하는 고급 target. 일반 운영자는 `make first-run`/`make bootstrap` 사용 | 아니오 | Docker image만 필요 | 운영자 / 디버깅 |
 | `make package` | 정적 검증 통과 후 릴리스 ZIP 생성 | 아니오 | 아니오 | 릴리스 / CI |
 | `make start` | 로컬 app-only Gateway·Risk Adapter 기동 | 예 | 아니오 | 개발자 |
 | `make ready-local` | 로컬 Gateway·Risk Adapter `/health` 엄격 확인 | 아니오 | 아니오 | 개발자 |
@@ -155,8 +155,8 @@ SKIP_RISK_VLLM_IMAGE_BUILD=auto AUTH_MODE=local_open make rebuild-full
 make rebuild-app
 ```
 
-Dockerfile.risk-vllm-kanana, `ops/patches/`, `RISK_VLLM_TRANSFORMERS_MIN_VERSION`이 변경된 경우에는 `SKIP_RISK_VLLM_IMAGE_BUILD=auto`를 사용하지 않고 전체 `make first-run`을 실행하거나 `make rebuild-risk-vllm`를 직접 호출한다.
-`ops/images/vllm-gemma4-audio/` 또는 Gemma4 multimodal patch가 변경된 경우에는 로컬 `make rebuild-risk-vllm`이 아니라 release/tag pipeline의 `build-vllm-derived`를 `BUILD_VLLM_DERIVED=1` 또는 `DEPLOY_MODE=full`로 실행해 새 12B multimodal digest를 만들고 배포 `.env`의 `AUDIO_VLLM_IMAGE`에 pin한다.
+Dockerfile.risk-vllm-kanana, `ops/patches/`, `RISK_VLLM_TRANSFORMERS_MIN_VERSION`이 변경된 경우에는 `SKIP_RISK_VLLM_IMAGE_BUILD=auto`를 사용하지 않고 전체 `make first-run`을 실행하거나 `make rebuild-vllm-unified`를 직접 호출한다.
+`ops/images/vllm-gemma4-audio/` 또는 Gemma4 multimodal patch가 변경된 경우에는 로컬 `make rebuild-vllm-unified`이 아니라 release/tag pipeline의 `build-vllm-derived`를 `BUILD_VLLM_DERIVED=1` 또는 `DEPLOY_MODE=full`로 실행해 새 12B multimodal digest를 만들고 배포 `.env`의 `AUDIO_VLLM_IMAGE`에 pin한다.
 
 ### 전체 초기화 + 재빌드
 
@@ -229,4 +229,4 @@ make operator-reports # 운영 산출물 통합 생성
 
 ## Risk vLLM patch metadata
 
-`make rebuild-risk-vllm` / `make build-risk-vllm-image`는 `ops/patches/`의 감사 가능한 Kanana `head_dim` patch를 적용한다. `make risk-vllm-config-check`는 image label, patch metadata, 두 Kanana config를 함께 검증한다. 자세한 내용은 [Risk vLLM patch lifecycle](../operations/risk_vllm_patch_lifecycle.md)을 기준으로 본다.
+`make rebuild-vllm-unified` / `make build-vllm-unified-image`는 `ops/patches/`의 감사 가능한 Kanana `head_dim` patch를 적용한다. `make risk-vllm-config-check`는 image label, patch metadata, 두 Kanana config를 함께 검증한다. 자세한 내용은 [Risk vLLM patch lifecycle](../operations/risk_vllm_patch_lifecycle.md)을 기준으로 본다.

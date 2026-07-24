@@ -76,7 +76,7 @@ services:
     # 뜬 컨테이너가 healthy해야 admin-sidecar의 첫 reconcile까지 갈 수 있다),
     # 어긋나면 tests/contract/governance/test_compose_operational_contract.py의
     # test_compose_main_llm_vllm_image_matches_default_profile_bootstrap_image가 잡는다.
-    image: vllm/vllm-openai@sha256:f4492643056969529a74238f71dd66dc3097c0d433156a4f4478456bf84bd276
+    image: vllm/vllm-openai@sha256:6a090ed9d4a3739813ce355cbd63d4c34c987a25c8409796f24912ba71c2d4a4
     restart: unless-stopped
     command:
     - --model

@@ -3,8 +3,8 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT"
-source scripts/lib/risk_vllm_image.sh
-risk_vllm_resolve_images .env
+source scripts/lib/vllm_unified_image.sh
+vllm_unified_resolve_images .env
 
 IMAGE="$RISK_VLLM_IMAGE_RESOLVED"
 PYTHON_IN_IMAGE="${RISK_VLLM_IMAGE_PYTHON:-python3}"
@@ -14,9 +14,9 @@ if ! command -v docker >/dev/null 2>&1; then
   exit 2
 fi
 
-if [[ "$IMAGE" == ai-model-serving-risk-vllm-kanana:* ]] && ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
-  echo "[risk-vllm-patch-removal] local risk vLLM image가 없습니다: $IMAGE" >&2
-  echo "[risk-vllm-patch-removal] 먼저 실행: make rebuild-risk-vllm" >&2
+if [[ "$IMAGE" == ai-model-serving-vllm-unified:* ]] && ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
+  echo "[risk-vllm-patch-removal] local vLLM unified image가 없습니다: $IMAGE" >&2
+  echo "[risk-vllm-patch-removal] 먼저 실행: make build-vllm-unified-image" >&2
   exit 2
 fi
 

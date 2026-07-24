@@ -49,7 +49,7 @@ make guide
 | Docker/GPU 서버에서 전체 runtime 확인 | full-stack | `HF_TOKEN=hf_xxx make first-run` → `make compose-up` → `make ready-full` |
 | CI/릴리스 아티팩트만 생성 | pipeline build | `make build-pipeline` 또는 `make build` |
 | 앱 이미지만 빠르게 다시 빌드 | app rebuild | `make rebuild-app` |
-| Risk vLLM 이미지만 다시 빌드 | risk image rebuild | `make rebuild-risk-vllm` |
+| Risk vLLM 이미지만 다시 빌드 | risk image rebuild | `make rebuild-vllm-unified` |
 | 삭제 범위를 먼저 보고 싶음 | plan | `make remove-plan` |
 | 전체 제거/초기화 | reset | `make reset` |
 | 전체 재빌드 | full rebuild | `make rebuild-full` 또는 `make bootstrap` |
@@ -113,7 +113,7 @@ make compose-down
 | 테스트 | `make test` | 아니오 | deterministic pytest wrapper |
 | 통합 파이프라인 빌드 | `make build-pipeline` / `make build` | 아니오 | validate + test + platform image + package |
 | 플랫폼 이미지만 재빌드 | `make rebuild-app` / `make build-image` | 아니오 | 앱 코드 반복 수정 시 사용 |
-| Risk vLLM 이미지만 재빌드 | `make rebuild-risk-vllm` / `make build-risk-vllm-image` | 아니오 | Dockerfile/Transformers/vLLM patch 변경 시 사용 |
+| Risk vLLM 이미지만 재빌드 | `make rebuild-vllm-unified` / `make build-vllm-unified-image` | 아니오 | Dockerfile/Transformers/vLLM patch 변경 시 사용 |
 | 전체 재빌드 | `make rebuild-full` / `make bootstrap` | 아니오 | .venv부터 risk image check까지 |
 | 삭제 미리 보기 | `make remove-plan` / `make cleanup-plan` | 아니오 | 실제 삭제 없음 |
 | 일반 산출물 제거 | `make clean` | 아니오 | 이미지·모델 캐시·시크릿 보존 |
@@ -189,7 +189,7 @@ Gateway/Risk Adapter generated OpenAPI는 FastAPI 기본 schema만 믿지 않고
 Risk vLLM image는 Kanana explicit `head_dim` 호환을 위해 auditable vendor patch를 사용한다. 이 patch는 장기 fork가 아니라 임시 compatibility bridge다.
 
 ```bash
-make rebuild-risk-vllm
+make rebuild-vllm-unified
 make risk-vllm-config-check
 make risk-vllm-patch-removal-check
 ```

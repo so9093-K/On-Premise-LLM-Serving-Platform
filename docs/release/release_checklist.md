@@ -29,7 +29,7 @@ operator report는 runtime target, storage path, monitoring projection, operator
 Docker/GPU/vLLM이 있는 target host에서 실행한다.
 
 ```bash
-make rebuild-risk-vllm
+make rebuild-vllm-unified
 make risk-vllm-config-check
 make compose-up
 make ready-full

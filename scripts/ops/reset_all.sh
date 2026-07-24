@@ -69,17 +69,15 @@ if [[ -f "$ENV_FILE" ]]; then
   VLLM_IMAGE="$(env_value VLLM_IMAGE || true)"
 fi
 if [[ -z "$RISK_VLLM_IMAGE" && -f VERSION ]]; then
-  RISK_VLLM_IMAGE="ai-model-serving-risk-vllm-kanana:$(cat VERSION)"
-fi
-if [[ -n "$RISK_VLLM_IMAGE" ]]; then
-  if [[ "$RISK_VLLM_IMAGE" == "$RISK_VLLM_BASE_IMAGE" || "$RISK_VLLM_IMAGE" == "$VLLM_IMAGE" ]]; then
-    echo "[reset] preserving shared/base risk vLLM image: ${RISK_VLLM_IMAGE}"
-  else
-    remove_image_and_containers "$RISK_VLLM_IMAGE" "risk vLLM image"
-  fi
+  RISK_VLLM_IMAGE="ai-model-serving-vllm-unified:$(cat VERSION)"
 fi
 
+# 2026-07-24부터 RISK_VLLM_IMAGE/VLLM_IMAGE는 같은 vLLM unified 이미지를 가리키는
+# 게 정상이다(risk-prompt 전용 이미지가 아니라 26B/12B/embedding/embedding-ko와
+# 공유). 그래서 PURGE_BASE_IMAGES 게이트 하나로 같이 다룬다 -- 예전처럼 "shared면
+# 보존"할 이유가 없다(그게 지금은 항상 참인 정상 상태이기 때문).
 if [[ "${PURGE_BASE_IMAGES:-0}" == "1" ]]; then
+  remove_image_and_containers "$RISK_VLLM_IMAGE" "vLLM unified image"
   remove_image_and_containers "$RISK_VLLM_BASE_IMAGE" "risk vLLM base image"
   remove_image_and_containers "$VLLM_IMAGE" "main vLLM base image"
 else

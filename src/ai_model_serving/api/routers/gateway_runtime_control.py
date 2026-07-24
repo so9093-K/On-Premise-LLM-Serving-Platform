@@ -636,7 +636,7 @@ def build_router(
                                         "status": "verified",
                                         "reasons": [
                                             "First host validation completed for this exact revision and pinned derived runtime image.",
-                                            "image/audio/video fixed in the vllm-gemma4-audio derived image (pinned via AUDIO_VLLM_IMAGE); audio/video boot canaries validate the runtime on switch.",
+                                            "image/audio/video fixed in the vllm-unified derived image (pinned via AUDIO_VLLM_IMAGE); audio/video boot canaries validate the runtime on switch.",
                                             "No 24 GiB hardware claim is made without an exact-system validation record.",
                                         ],
                                     },

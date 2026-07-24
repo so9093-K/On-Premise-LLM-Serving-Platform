@@ -56,7 +56,7 @@ def _make_project(tmp_path: Path, version: str = OLD_VERSION) -> None:
     (tmp_path / ".env.compose.example").write_text(
         f"PROJECT_VERSION={version}\n"
         f"PLATFORM_IMAGE=ai-model-serving-platform:{version}\n"
-        f"RISK_VLLM_IMAGE=ai-model-serving-risk-vllm-kanana:{version}\n",
+        f"RISK_VLLM_IMAGE=ai-model-serving-vllm-unified:{version}\n",
         encoding="utf-8",
     )
 
@@ -64,7 +64,7 @@ def _make_project(tmp_path: Path, version: str = OLD_VERSION) -> None:
     configs.mkdir()
     (configs / "recommended_images.yaml").write_text(
         f"platform:\n  default: ai-model-serving-platform:{version}\n"
-        f"risk_vllm:\n  default: ai-model-serving-risk-vllm-kanana:{version}\n",
+        f"risk_vllm:\n  default: ai-model-serving-vllm-unified:{version}\n",
         encoding="utf-8",
     )
     (configs / "runtime_compatibility.yaml").write_text(
@@ -89,7 +89,7 @@ def _make_project(tmp_path: Path, version: str = OLD_VERSION) -> None:
                 "python_package_version": version,
                 "image_tags": {
                     "platform": f"ai-model-serving-platform:{version}",
-                    "risk_vllm": f"ai-model-serving-risk-vllm-kanana:{version}",
+                    "risk_vllm": f"ai-model-serving-vllm-unified:{version}",
                 },
                 "config_schema_versions": {"model_catalog": "0.1.0"},
                 "release_stage": "release",
@@ -180,15 +180,15 @@ class TestResetVersionStable:
 
     def test_recommended_images_risk_vllm_updated(self):
         text = (self.root / "configs/recommended_images.yaml").read_text(encoding="utf-8")
-        assert f"ai-model-serving-risk-vllm-kanana:{NEW_VERSION}" in text
+        assert f"ai-model-serving-vllm-unified:{NEW_VERSION}" in text
 
     def test_manifest_risk_vllm_updated(self):
         m = json.loads((self.root / "version_manifest.json").read_text(encoding="utf-8"))
-        assert m["image_tags"]["risk_vllm"] == f"ai-model-serving-risk-vllm-kanana:{NEW_VERSION}"
+        assert m["image_tags"]["risk_vllm"] == f"ai-model-serving-vllm-unified:{NEW_VERSION}"
 
     def test_env_compose_risk_vllm_image(self):
         text = (self.root / ".env.compose.example").read_text(encoding="utf-8")
-        assert f"RISK_VLLM_IMAGE=ai-model-serving-risk-vllm-kanana:{NEW_VERSION}" in text
+        assert f"RISK_VLLM_IMAGE=ai-model-serving-vllm-unified:{NEW_VERSION}" in text
 
     def test_versioning_policy_current_block(self):
         text = (self.root / "docs/release/versioning_policy.md").read_text(encoding="utf-8")
@@ -230,8 +230,8 @@ class TestResetVersionRC:
 
     def test_manifest_image_tags_risk_vllm_rc(self):
         m = json.loads((self.root / "version_manifest.json").read_text(encoding="utf-8"))
-        assert m["image_tags"]["risk_vllm"] == f"ai-model-serving-risk-vllm-kanana:{NEW_RC_VERSION}"
+        assert m["image_tags"]["risk_vllm"] == f"ai-model-serving-vllm-unified:{NEW_RC_VERSION}"
 
     def test_env_compose_risk_vllm_image_rc(self):
         text = (self.root / ".env.compose.example").read_text(encoding="utf-8")
-        assert f"RISK_VLLM_IMAGE=ai-model-serving-risk-vllm-kanana:{NEW_RC_VERSION}" in text
+        assert f"RISK_VLLM_IMAGE=ai-model-serving-vllm-unified:{NEW_RC_VERSION}" in text

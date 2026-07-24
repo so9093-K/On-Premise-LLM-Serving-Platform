@@ -7,7 +7,7 @@ runtime:
   health_path: /health
   models_path: /v1/models
   chat_path: /v1/chat/completions
-  image: vllm/vllm-openai@sha256:f4492643056969529a74238f71dd66dc3097c0d433156a4f4478456bf84bd276
+  image: vllm/vllm-openai@sha256:6a090ed9d4a3739813ce355cbd63d4c34c987a25c8409796f24912ba71c2d4a4
   drain_timeout_seconds: 30
   startup_timeout_seconds: 600
   stop_timeout_seconds: 30
@@ -27,13 +27,25 @@ profiles:
         5.8 GiB. /metrics에서 num_gpu_blocks=10812, block_size=16 (KV cache 172,992
         tokens) 확인 -- 현재 설정(seq=1, 20K = 최소 필요 20,000 tokens) 대비 약 8.6배
         여유가 있다.
+      - 2026-07-24, `runtime.image`를 `gemma4-unified-cu129`(vLLM main 브랜치
+        2026-06-03 dev snapshot)에서 `v0.25.1` 정식 릴리스 digest로 바꿨다 --
+        12B/risk-prompt 파생 이미지는 이미 이 릴리스를 베이스로 쓰고 있었고, 26B만
+        구버전 dev snapshot에 남아 있던 걸 맞춘 것.
+      - 같은 날 실제로 12B(당시 라이브)를 잠깐 내리고 이 이미지로 26B를 부팅해
+        재검증했다 -- healthy, `/v1/models`/`/v1/chat/completions` 실제 호출
+        정상. `gpu_worker.py` 실측 -- Available KV cache memory 6.6 GiB, GPU KV cache
+        size 31,438 tokens, 20,000 tokens 요청 기준 max concurrency 1.57x(20K
+        단일 요청 대비 여유, 12B의 현재 1.07x보다 넉넉함). 검증 후 그 시점 라이브
+        상태(12B)로 복귀했다 -- 26B를 실제 기본으로 올릴지는 별도 결정 필요.
       validation:
         gpu: NVIDIA RTX 6000 Ada Generation
         compute_capability: "8.9"
         vram_mib: 49140
         context_tokens: 20000
         concurrency: 1
-        validated_at: "2026-07-16"
+        validated_at: "2026-07-24"
+        kv_cache_size_tokens: 31438
+        kv_cache_max_concurrency: 1.57
     capabilities:
       model_input: [text, image]
       deployed_input: [text, image]

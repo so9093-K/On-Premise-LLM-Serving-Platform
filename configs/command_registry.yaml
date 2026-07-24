@@ -1396,14 +1396,14 @@ commands:
       - docs/README.md
     tests: []
 
-  - make_target: rebuild-risk-vllm
-    title: Risk vLLM 이미지 재빌드 (별칭)
+  - make_target: rebuild-vllm-unified
+    title: vLLM unified 이미지 재빌드 (별칭)
     category: validate_test_build
     audience: [developer]
-    description: "risk vLLM 이미지만 재빌드한다. make build-risk-vllm-image의 별칭."
-    command: make rebuild-risk-vllm
+    description: "vLLM unified 이미지(26B/12B/embedding/embedding-ko/risk-prompt 공용)를 재빌드한다. make build-vllm-unified-image의 별칭."
+    command: make rebuild-vllm-unified
     kind: alias
-    canonical: build-risk-vllm-image
+    canonical: build-vllm-unified-image
     safety: builds_images
     requires:
       python: false
@@ -1675,12 +1675,12 @@ commands:
       - docs/operations/configuration_lifecycle.md
     tests: []
 
-  - make_target: build-risk-vllm-image
-    title: Risk vLLM 이미지 빌드
+  - make_target: build-vllm-unified-image
+    title: vLLM unified 이미지 빌드
     category: validate_test_build
     audience: [developer, operator]
-    description: "Kanana risk detector 전용 vLLM 이미지만 빌드한다. 일반 운영자는 make first-run 또는 make bootstrap을 사용한다."
-    command: make build-risk-vllm-image
+    description: "26B/12B/embedding/embedding-ko/risk-prompt가 공용으로 쓰는 vLLM 이미지를 빌드한다. 일반 운영자는 make first-run 또는 make bootstrap을 사용한다."
+    command: make build-vllm-unified-image
     kind: public
     safety: builds_images
     requires:

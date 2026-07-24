@@ -276,11 +276,11 @@ def validate_vllm_compose_contract() -> None:
         raise SystemExit(output or 'vLLM compose validation failed')
 
 def validate_risk_vllm_patch_lifecycle() -> None:
-    dockerfile = (ROOT / 'ops/docker/Dockerfile.risk-vllm-kanana').read_text(encoding='utf-8')
+    dockerfile = (ROOT / 'ops/images/vllm-unified/Dockerfile').read_text(encoding='utf-8')
     patch_script = (ROOT / 'ops/patches/transformers_llama_head_dim_guard.py').read_text(encoding='utf-8')
     patch_doc = (ROOT / 'ops/patches/README.md').read_text(encoding='utf-8')
     lifecycle_doc = (ROOT / 'docs/operations/risk_vllm_patch_lifecycle.md').read_text(encoding='utf-8')
-    build_script = (ROOT / 'scripts/build/build_risk_vllm_image.sh').read_text(encoding='utf-8')
+    build_script = (ROOT / 'scripts/build/build_vllm_unified_image.sh').read_text(encoding='utf-8')
     check_script = (ROOT / 'scripts/models/check_risk_vllm_image_config.sh').read_text(encoding='utf-8')
     dockerignore = (ROOT / '.dockerignore').read_text(encoding='utf-8')
 
@@ -312,10 +312,10 @@ def validate_risk_vllm_patch_lifecycle() -> None:
         '--build-arg "TRANSFORMERS_MIN_VERSION=',
     ]:
         if phrase not in build_script:
-            raise SystemExit(f'build_risk_vllm_image.sh missing compatibility phrase: {phrase}')
+            raise SystemExit(f'build_vllm_unified_image.sh missing compatibility phrase: {phrase}')
     for phrase in [
         'ops/*',
-        '!ops/docker/Dockerfile.risk-vllm-kanana',
+        '!ops/images/vllm-unified/Dockerfile',
         '!ops/patches/transformers_llama_head_dim_guard.py',
     ]:
         if phrase not in dockerignore:

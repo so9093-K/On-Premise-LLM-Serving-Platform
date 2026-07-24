@@ -287,15 +287,17 @@ fi
 
 # STALE된 derived 이미지가 조용히 배포되는 걸 막는 가드. GitLab 12.1.1은 소스 변경 시
 # 자동 빌드를 못 하므로(rule engine 없음), ~25GB짜리 빌드는 수동 opt-in이다 — 즉
-# 운영자가 vllm-gemma4-audio Dockerfile/patch를 고치고 재빌드를 깜빡할 수 있다. 이전
+# 운영자가 vllm-unified Dockerfile/patch를 고치고 재빌드를 깜빡할 수 있다. 이전
 # release 이후 이미지 소스가 바뀌었는데 새 digest가 배포되지 않는 상태라면
 # (build-vllm-derived가 안 돌아서 -> 여기서 AUDIO_VLLM_IMAGE_TO_DEPLOY가 비어 있음,
 # preflight의 current-.env 폴백 이전) 기존 이미지가 그대로 배포돼 버린다. 조용히
-# 넘어가지 말고 확실하게 실패시킨다.
+# 넘어가지 말고 확실하게 실패시킨다. 2026-07-24부터 risk-vllm-kanana도 같은
+# 이미지라 Kanana head_dim patch도 이 목록에 포함한다.
 if [[ -n "${PREVIOUS_RELEASE}" && -d "${PREVIOUS_RELEASE}" ]]; then
   _audio_image_source=(
-    "ops/images/vllm-gemma4-audio/Dockerfile"
+    "ops/images/vllm-unified/Dockerfile"
     "ops/patches/apply_gemma4_multimodal_patches.py"
+    "ops/patches/transformers_llama_head_dim_guard.py"
   )
   _audio_src_changed=false
   for relative_path in "${_audio_image_source[@]}"; do

@@ -70,17 +70,18 @@ def validate_version_alignment() -> None:
     compose_env = (ROOT / '.env.compose.example').read_text(encoding='utf-8')
     if f'PLATFORM_IMAGE=ai-model-serving-platform:{version}' not in compose_env:
         raise SystemExit('.env.compose.example PLATFORM_IMAGE is not aligned with VERSION')
-    if f'RISK_VLLM_IMAGE=ai-model-serving-risk-vllm-kanana:{version}' not in compose_env:
+    if f'RISK_VLLM_IMAGE=ai-model-serving-vllm-unified:{version}' not in compose_env:
         raise SystemExit('.env.compose.example RISK_VLLM_IMAGE is not aligned with VERSION')
     images = read_yaml('configs/recommended_images.yaml')['images']
     if images['platform']['default'] != f'ai-model-serving-platform:{version}':
         raise SystemExit('configs/recommended_images.yaml platform image is not aligned with VERSION')
-    if images['risk_vllm']['default'] != f'ai-model-serving-risk-vllm-kanana:{version}':
-        raise SystemExit('configs/recommended_images.yaml risk_vllm image is not aligned with VERSION')
+    for key in ('vllm', 'embedding_ko_vllm', 'risk_vllm'):
+        if images[key]['default'] != f'ai-model-serving-vllm-unified:{version}':
+            raise SystemExit(f'configs/recommended_images.yaml {key} image is not aligned with VERSION')
     manifest_images = manifest.get('image_tags', {})
     if manifest_images.get('platform') != f'ai-model-serving-platform:{version}':
         raise SystemExit('version_manifest.json image_tags.platform is not aligned with VERSION')
-    if manifest_images.get('risk_vllm') != f'ai-model-serving-risk-vllm-kanana:{version}':
+    if manifest_images.get('risk_vllm') != f'ai-model-serving-vllm-unified:{version}':
         raise SystemExit('version_manifest.json image_tags.risk_vllm is not aligned with VERSION')
 
 def validate_python_compatibility() -> None:

@@ -126,7 +126,7 @@ def expected_compose_args(cfg: dict[str, Any], runtime: Any) -> dict[str, str]:
 
 _LOCAL_ONLY_IMAGE_PREFIXES = (
     "ai-model-serving-platform:",
-    "ai-model-serving-risk-vllm-kanana:",
+    "ai-model-serving-vllm-unified:",
 )
 
 

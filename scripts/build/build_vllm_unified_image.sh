@@ -3,11 +3,11 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT"
-source scripts/lib/risk_vllm_image.sh
+source scripts/lib/vllm_unified_image.sh
 source scripts/lib/load_env.sh
 ENV_FILE="${ENV_FILE:-.env}"
 load_local_env "$ENV_FILE"
-risk_vllm_resolve_images "$ENV_FILE"
+vllm_unified_resolve_images "$ENV_FILE"
 
 VERSION="$(cat VERSION)"
 PYTHON_BIN="${PYTHON_BIN:-$(command -v python3.12 || command -v python3 || command -v python)}"
@@ -43,19 +43,19 @@ version_lt "$TRANSFORMERS_MIN_VERSION" "$MIN_TRANSFORMERS_VERSION"
 version_cmp_rc=$?
 set -e
 if [[ "$version_cmp_rc" == "2" ]]; then
-  echo "[risk-vllm-image] invalid RISK_VLLM_TRANSFORMERS_MIN_VERSION=${TRANSFORMERS_MIN_VERSION}; using ${MIN_TRANSFORMERS_VERSION}" >&2
+  echo "[vllm-unified-image] invalid RISK_VLLM_TRANSFORMERS_MIN_VERSION=${TRANSFORMERS_MIN_VERSION}; using ${MIN_TRANSFORMERS_VERSION}" >&2
   TRANSFORMERS_MIN_VERSION="$MIN_TRANSFORMERS_VERSION"
 elif [[ "$version_cmp_rc" == "0" ]]; then
-  echo "[risk-vllm-image] requested transformers minimum=${TRANSFORMERS_MIN_VERSION} is below the Kanana minimum ${MIN_TRANSFORMERS_VERSION}; using ${MIN_TRANSFORMERS_VERSION}" >&2
+  echo "[vllm-unified-image] requested transformers minimum=${TRANSFORMERS_MIN_VERSION} is below the Kanana minimum ${MIN_TRANSFORMERS_VERSION}; using ${MIN_TRANSFORMERS_VERSION}" >&2
   TRANSFORMERS_MIN_VERSION="$MIN_TRANSFORMERS_VERSION"
 fi
 
-echo "[risk-vllm-image] building ${IMAGE}"
-echo "[risk-vllm-image] base=${BASE_IMAGE} transformers_min=${TRANSFORMERS_MIN_VERSION}"
+echo "[vllm-unified-image] building ${IMAGE}"
+echo "[vllm-unified-image] base=${BASE_IMAGE} transformers_min=${TRANSFORMERS_MIN_VERSION}"
 docker build \
-  --file ops/docker/Dockerfile.risk-vllm-kanana \
+  --file ops/images/vllm-unified/Dockerfile \
   --build-arg "BASE_IMAGE=${BASE_IMAGE}" \
   --build-arg "TRANSFORMERS_MIN_VERSION=${TRANSFORMERS_MIN_VERSION}" \
   --tag "$IMAGE" \
   .
-echo "[risk-vllm-image] built ${IMAGE}"
+echo "[vllm-unified-image] built ${IMAGE}"

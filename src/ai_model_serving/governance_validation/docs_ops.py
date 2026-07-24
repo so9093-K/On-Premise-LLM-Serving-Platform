@@ -300,7 +300,7 @@ def _validate_operator_workflow_targets_in_registry(root: Path) -> None:
 
 def validate_build_ux_roles() -> None:
     makefile = (ROOT / 'Makefile').read_text(encoding='utf-8')
-    for target in ['guide:', 'start:', 'up:', 'ready:', 'check-ready:', 'runtime-targets:', 'storage-paths:', 'project-inventory:', 'monitoring-projection:', 'operator-status:', 'operator-reports:', 'live-evidence:', 'release-check:', 'release-check-full:', 'status:', 'stop:', 'down:', 'logs:', 'cleanup-plan:', 'remove-plan:', 'build-pipeline:', 'first-run:', 'rebuild-full:', 'rebuild-app:', 'rebuild-risk-vllm:']:
+    for target in ['guide:', 'start:', 'up:', 'ready:', 'check-ready:', 'runtime-targets:', 'storage-paths:', 'project-inventory:', 'monitoring-projection:', 'operator-status:', 'operator-reports:', 'live-evidence:', 'release-check:', 'release-check-full:', 'status:', 'stop:', 'down:', 'logs:', 'cleanup-plan:', 'remove-plan:', 'build-pipeline:', 'first-run:', 'rebuild-full:', 'rebuild-app:', 'rebuild-vllm-unified:']:
         if target not in makefile:
             raise SystemExit(f'Makefile missing runtime UX target: {target}')
     if 'scripts/validation/run_tests.py' not in makefile:

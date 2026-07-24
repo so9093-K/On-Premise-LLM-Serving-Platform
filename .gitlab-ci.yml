@@ -11,15 +11,20 @@ variables:
   PYTEST_DISABLE_PLUGIN_AUTOLOAD: "1"
   PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
   DOCKER_BUILDKIT: "1"
-  # risk-vllm-kanana와 vllm-gemma4-audio(12B unified)가 공유하는 base image.
-  # CI/CD 변수 VLLM_BASE_IMAGE로 이 파일을 안 고치고도 base를 바꿀 수 있다.
+  # 모든 served model(26B/12B main-LLM, embedding, embedding-ko, risk-prompt)이 공유하는
+  # base image. CI/CD 변수 VLLM_BASE_IMAGE로 이 파일을 안 고치고도 base를 바꿀 수 있다.
   # v0.25.1에서는 dense 양자화 모델에 Model Runner V2가 기본 적용돼, 이전에 고정해뒀던
   # dev 빌드에서 겪던 12B의 구조화 출력 JIT-웜업 갭이 닫힌다 — 실제 GPU 로드로 검증함
-  # (ops/patches/apply_gemma4_multimodal_patches.py 참고). risk-vllm-kanana도 같은 base로
+  # (ops/patches/apply_gemma4_multimodal_patches.py 참고). risk-prompt도 같은 base로
   # 실 GPU 부팅+추론 검증 완료(PII/중립 입력 모두 구버전과 동일 출력, bitsandbytes
-  # 양자화 정상). 한때 별도 AUDIO_VLLM_BASE_IMAGE로 분리했었는데, risk-vllm-kanana를
-  # 검증 없이 내린 결정이었고 CI job이 base 두 개를 pull해야 해서 디스크 부족·빌드
-  # 시간 증가만 낳았다 — 검증 후 다시 하나로 합쳤다.
+  # 양자화 정상).
+  #
+  # 2026-07-24: Gemma4 멀티모달 패치(12B 전용)와 Kanana Llama head_dim 패치
+  # (risk-prompt 전용)가 파일이 안 겹쳐 하나의 이미지(ops/images/vllm-unified)로
+  # 합쳐졌다 — 각 patch는 그걸 필요로 하지 않는 모델에 no-op이라 26B/embedding/
+  # embedding-ko도 이 이미지를 그대로 쓴다. RISK_VLLM_IMAGE_*/AUDIO_VLLM_IMAGE_*는
+  # 하위 호환을 위해 이름은 남겨뒀지만 이제 같은 빌드 결과를 가리키는 두 개의
+  # registry 태그일 뿐이다(build_vllm_derived_images.sh 참고).
   VLLM_BASE_IMAGE: "vllm/vllm-openai@sha256:6a090ed9d4a3739813ce355cbd63d4c34c987a25c8409796f24912ba71c2d4a4"
 
   PLATFORM_IMAGE_SHA: "$CI_REGISTRY_IMAGE/platform:$CI_COMMIT_SHORT_SHA"
@@ -137,9 +142,10 @@ build-platform:
       - build/platform-image.env
     expire_in: 7 days
 
-# vLLM-derived 런타임 이미지(risk-vllm-kanana, vllm-gemma4-audio)를 하나의 job에서
-# 빌드해서 큰(~25 GB) vLLM base 이미지를 한 번만 pull하도록 한다.
-# embedding-ko-vllm은 EMBEDDING_KO_VLLM_IMAGE를 쓰므로 별도 빌드가 필요 없다.
+# vLLM unified 런타임 이미지를 한 번 빌드해서 risk-vllm-kanana/vllm-gemma4-audio
+# 두 registry 태그로 push한다(실제로는 같은 이미지) — 큰(~25 GB) vLLM base
+# 이미지도 한 번만 pull한다. embedding-ko-vllm은 EMBEDDING_KO_VLLM_IMAGE를 쓰므로
+# 별도 빌드가 필요 없다.
 # BUILD_VLLM_DERIVED=1 또는 DEPLOY_MODE=full일 때 release/tag 파이프라인에서 자동 실행된다.
 # Rolling 방식의 control-plane 배포는 이 job을 아예 건너뛴다 — vLLM 재빌드가 필요 없기 때문.
 # allow_failure: false — job이 실행됐는데 실패하면 release 실패로 취급한다.

@@ -225,16 +225,16 @@ def test_image_tags_are_package_version_aligned() -> None:
     image_tags = manifest.get('image_tags', {})
     assert image_tags.get('platform') == f'ai-model-serving-platform:{version}', \
         f"version_manifest image_tags.platform mismatch: {image_tags.get('platform')} != ai-model-serving-platform:{version}"
-    assert image_tags.get('risk_vllm') == f'ai-model-serving-risk-vllm-kanana:{version}', \
-        f"version_manifest image_tags.risk_vllm mismatch: {image_tags.get('risk_vllm')} != ai-model-serving-risk-vllm-kanana:{version}"
+    assert image_tags.get('risk_vllm') == f'ai-model-serving-vllm-unified:{version}', \
+        f"version_manifest image_tags.risk_vllm mismatch: {image_tags.get('risk_vllm')} != ai-model-serving-vllm-unified:{version}"
 
     import yaml as _yaml
     images = _yaml.safe_load((ROOT / 'configs/recommended_images.yaml').read_text(encoding='utf-8'))['images']
     assert images['platform']['default'] == f'ai-model-serving-platform:{version}', \
         f"recommended_images platform mismatch: {images['platform']['default']}"
-    assert images['risk_vllm']['default'] == f'ai-model-serving-risk-vllm-kanana:{version}', \
+    assert images['risk_vllm']['default'] == f'ai-model-serving-vllm-unified:{version}', \
         f"recommended_images risk_vllm mismatch: {images['risk_vllm']['default']}"
 
     compose_env = (ROOT / '.env.compose.example').read_text(encoding='utf-8')
     assert f'PLATFORM_IMAGE=ai-model-serving-platform:{version}' in compose_env
-    assert f'RISK_VLLM_IMAGE=ai-model-serving-risk-vllm-kanana:{version}' in compose_env
+    assert f'RISK_VLLM_IMAGE=ai-model-serving-vllm-unified:{version}' in compose_env

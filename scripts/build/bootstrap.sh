@@ -134,16 +134,16 @@ if [[ "${SKIP_RISK_VLLM_IMAGE_BUILD:-0}" == "1" ]]; then
 elif [[ "${SKIP_RISK_VLLM_IMAGE_BUILD:-0}" == "auto" && -f .env ]]; then
   source scripts/lib/load_env.sh
   load_local_env .env
-  risk_image="${RISK_VLLM_IMAGE:-ai-model-serving-risk-vllm-kanana:$(cat VERSION)}"
+  risk_image="${RISK_VLLM_IMAGE:-ai-model-serving-vllm-unified:$(cat VERSION)}"
   if docker image inspect "$risk_image" >/dev/null 2>&1; then
     echo "[bootstrap] risk vLLM image already exists: ${risk_image}"
   else
     echo "[bootstrap] building risk vLLM docker image"
-    PYTHON_BIN="$VENV_PYTHON" make rebuild-risk-vllm
+    PYTHON_BIN="$VENV_PYTHON" make rebuild-vllm-unified
   fi
 else
   echo "[bootstrap] building risk vLLM docker image"
-  PYTHON_BIN="$VENV_PYTHON" make rebuild-risk-vllm
+  PYTHON_BIN="$VENV_PYTHON" make rebuild-vllm-unified
 fi
 
 if [[ "${SKIP_RISK_VLLM_CONFIG_CHECK:-0}" == "1" ]]; then

@@ -38,7 +38,7 @@ make build-pipeline
 make first-run
 make rebuild-full
 make rebuild-app
-make rebuild-risk-vllm
+make rebuild-vllm-unified
 make remove-plan
 make reset
 ```
