@@ -300,4 +300,5 @@ def load_settings(root: Path | None = None, env_file: Path | str | None = None) 
         streaming_max_bytes=int(streaming_cfg.get("max_bytes", 104_857_600)),
         admin_sidecar_url=_env("ADMIN_SIDECAR_URL", ""),
         deploy_release_id=_env("DEPLOY_RELEASE_ID", ""),
+        log_request_response_body=_as_bool(_env("LOG_REQUEST_RESPONSE_BODY", "false"), False),
     )

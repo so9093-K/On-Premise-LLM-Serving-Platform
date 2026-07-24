@@ -55,6 +55,15 @@ def safe_request_log_record(
         record["error_code"] = error_code
     if error_message:
         record["error_message"] = error_message
+    # LOG_REQUEST_RESPONSE_BODY=true일 때만 채워진다(gateway_inference.py의
+    # chat_completions, non-streaming 한정). 이미 masking.mask_sensitive_text로
+    # PII/secret을 치환한 텍스트라 scrub_for_log가 추가로 지우지 않는다.
+    request_body = getattr(request.state, "request_body_masked", None)
+    if request_body is not None:
+        record["request_body"] = request_body
+    response_body = getattr(request.state, "response_body_masked", None)
+    if response_body is not None:
+        record["response_body"] = response_body
     return scrub_for_log(record)
 
 

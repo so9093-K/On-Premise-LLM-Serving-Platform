@@ -190,6 +190,36 @@ def test_access_log_records_error_code_and_response_echoed_request_id():
     assert record["request_id"] == "req_minted_abc"
 
 
+def test_access_log_includes_masked_request_response_body_when_set_on_request_state():
+    request = _bare_request()
+    request.state.request_body_masked = "user: 이메일은 [EMAIL_ADDRESS]입니다"
+    request.state.response_body_masked = "안녕하세요, 도와드릴까요?"
+
+    record = safe_request_log_record(
+        service="gateway",
+        request=request,
+        status_code=200,
+        elapsed_seconds=0.01,
+    )
+
+    assert record["request_body"] == "user: 이메일은 [EMAIL_ADDRESS]입니다"
+    assert record["response_body"] == "안녕하세요, 도와드릴까요?"
+
+
+def test_access_log_omits_request_response_body_when_not_set_on_request_state():
+    # LOG_REQUEST_RESPONSE_BODY=false(기본값)일 때 gateway_inference.py는
+    # request.state에 아무것도 안 남기므로, 이 필드들은 로그에 아예 없어야 한다.
+    record = safe_request_log_record(
+        service="gateway",
+        request=_bare_request(),
+        status_code=200,
+        elapsed_seconds=0.01,
+    )
+
+    assert "request_body" not in record
+    assert "response_body" not in record
+
+
 def test_access_log_omits_error_fields_for_success_responses():
     record = safe_request_log_record(
         service="gateway",

@@ -75,37 +75,39 @@ def _shannon_entropy(s: str) -> float:
     return -sum((c / length) * math.log2(c / length) for c in freq.values())
 
 
-def _find_generic_candidates(text: str) -> int:
-    """Count high-entropy strings that aren't matched by named patterns."""
-    # 중복 카운트를 방지하기 위해 기명 패턴에 매칭된 부분을 제거
-    cleaned = text
-    for pattern, _ in _PATTERNS:
-        cleaned = pattern.sub("", cleaned)
+def _scan_spans(text: str) -> list[tuple[int, int, str]]:
+    """Return (start, end, label) for every detected secret span in original-text offsets."""
+    spans: list[tuple[int, int, str]] = []
+    for pattern, label in _PATTERNS:
+        for match in pattern.finditer(text):
+            spans.append((match.start(), match.end(), label))
 
-    count = 0
-    for match in _GENERIC_CANDIDATE_RE.finditer(cleaned):
+    named_ranges = [(start, end) for start, end, _ in spans]
+    for match in _GENERIC_CANDIDATE_RE.finditer(text):
+        start, end = match.start(), match.end()
+        if any(start < named_end and end > named_start for named_start, named_end in named_ranges):
+            continue  # 기명 패턴과 겹치는 구간은 중복 집계하지 않는다
         candidate = match.group(0)
         if candidate in _ALLOWLIST_GENERIC:
             continue
         if _shannon_entropy(candidate) >= _GENERIC_ENTROPY_THRESHOLD:
-            count += 1
-    return count
+            spans.append((start, end, "GENERIC_SECRET_CANDIDATE"))
+    return spans
 
 
 def _scan_text(text: str) -> dict[str, int]:
     """Scan text for secrets; return entity_label -> span_count, without raw values."""
     counts: dict[str, int] = {}
-
-    for pattern, label in _PATTERNS:
-        matches = pattern.findall(text)
-        if matches:
-            counts[label] = counts.get(label, 0) + len(matches)
-
-    generic = _find_generic_candidates(text)
-    if generic > 0:
-        counts["GENERIC_SECRET_CANDIDATE"] = counts.get("GENERIC_SECRET_CANDIDATE", 0) + generic
-
+    for _, _, label in _scan_spans(text):
+        counts[label] = counts.get(label, 0) + 1
     return counts
+
+
+def mask_secrets(text: str) -> str:
+    """탐지된 secret span을 라벨로 치환한 텍스트를 반환한다(디버그 로깅 전용)."""
+    for start, end, label in sorted(_scan_spans(text), key=lambda item: item[0], reverse=True):
+        text = text[:start] + f"[{label}]" + text[end:]
+    return text
 
 _LABEL_CODE: dict[str, str] = {
     "OPENAI_API_KEY": "D4",

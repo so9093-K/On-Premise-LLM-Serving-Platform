@@ -1,6 +1,74 @@
 from __future__ import annotations
 
+import dataclasses
+import io
+import json
+import logging
+
 from .helpers import *  # noqa: F401,F403
+
+
+def test_chat_completion_logs_masked_request_response_body_when_flag_enabled():
+    # LOG_REQUEST_RESPONSE_BODY=true일 때 gateway_inference.py가 request.state에
+    # 마스킹된 텍스트를 남기고, safe_request_logging_middleware가 이를 실제
+    # http_request_completed 로그 레코드로 옮기는지 end-to-end로 검증한다.
+    clients = FakeGatewayClients()
+    clients.main_llm.post_response["choices"][0]["message"]["content"] = (
+        "연락처는 hong@example.com 입니다"
+    )
+    cfg = dataclasses.replace(settings(), log_request_response_body=True)
+
+    stream = io.StringIO()
+    handler = logging.StreamHandler(stream)
+    logger = logging.getLogger("ai_model_serving.gateway")
+    logger.addHandler(handler)
+    try:
+        client = TestClient(create_gateway_app(cfg, clients))
+        response = client.post(
+            "/v1/chat/completions",
+            headers=auth_headers(),
+            json={
+                "model": "local-main",
+                "messages": [{"role": "user", "content": "제 이메일은 test@example.com 입니다"}],
+            },
+        )
+    finally:
+        logger.removeHandler(handler)
+
+    assert response.status_code == 200
+    lines = [json.loads(line) for line in stream.getvalue().splitlines() if line.startswith("{")]
+    completed = [r for r in lines if r.get("event") == "http_request_completed"]
+    assert completed, f"no http_request_completed log record captured: {stream.getvalue()}"
+    record = completed[-1]
+    assert "test@example.com" not in record["request_body"]
+    assert "[EMAIL_ADDRESS]" in record["request_body"]
+    assert "hong@example.com" not in record["response_body"]
+    assert "[EMAIL_ADDRESS]" in record["response_body"]
+
+
+def test_chat_completion_omits_request_response_body_when_flag_disabled():
+    clients = FakeGatewayClients()
+    stream = io.StringIO()
+    handler = logging.StreamHandler(stream)
+    logger = logging.getLogger("ai_model_serving.gateway")
+    logger.addHandler(handler)
+    try:
+        client = TestClient(create_gateway_app(settings(), clients))
+        response = client.post(
+            "/v1/chat/completions",
+            headers=auth_headers(),
+            json={"model": "local-main", "messages": [{"role": "user", "content": "hello"}]},
+        )
+    finally:
+        logger.removeHandler(handler)
+
+    assert response.status_code == 200
+    lines = [json.loads(line) for line in stream.getvalue().splitlines() if line.startswith("{")]
+    completed = [r for r in lines if r.get("event") == "http_request_completed"]
+    assert completed
+    assert "request_body" not in completed[-1]
+    assert "response_body" not in completed[-1]
+
 
 def test_gateway_accepts_bounded_multimodal_chat_and_enforces_model_token_cap():
     clients = FakeGatewayClients()

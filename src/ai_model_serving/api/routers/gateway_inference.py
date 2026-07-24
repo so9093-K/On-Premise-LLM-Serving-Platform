@@ -3,16 +3,54 @@ from __future__ import annotations
 from collections.abc import AsyncIterator
 from typing import Any
 
-from fastapi import APIRouter, Body
+from fastapi import APIRouter, Body, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 
 from ..endpoint_spec import GATEWAY_ENDPOINTS
+from ...detectors.masking import mask_sensitive_text
 from ...errors import ServiceError, error_payload, error_response_headers
 from ...services.runtime_state import RuntimeState, RuntimeStateStore
 from ...services.sidecar_client import SidecarClient, SidecarUnavailableError
 from ...services.main_model_inflight import MainModelInFlight
 
 _GW = {(s.method, s.path): s for s in GATEWAY_ENDPOINTS}
+
+
+def _chat_text_preview(payload: dict[str, Any]) -> str:
+    """messages[].content에서 텍스트만 뽑아 사람이 읽을 수 있는 프리뷰로 합친다.
+
+    image_url/input_audio/video_url 같은 non-text content part는 제외한다(용량이
+    크고 마스킹 대상도 아님).
+    """
+    lines: list[str] = []
+    for message in payload.get("messages", []):
+        if not isinstance(message, dict):
+            continue
+        role = message.get("role", "")
+        content = message.get("content")
+        if isinstance(content, str):
+            text = content
+        elif isinstance(content, list):
+            text = " ".join(
+                str(part.get("text", ""))
+                for part in content
+                if isinstance(part, dict) and part.get("type") == "text"
+            )
+        else:
+            text = ""
+        lines.append(f"{role}: {text}")
+    return "\n".join(lines)
+
+
+def _chat_response_preview(response: dict[str, Any]) -> str:
+    parts = []
+    for choice in response.get("choices", []):
+        if not isinstance(choice, dict):
+            continue
+        content = choice.get("message", {}).get("content")
+        if isinstance(content, str):
+            parts.append(content)
+    return "\n".join(parts)
 
 
 def _active_input_modalities(main_model: dict[str, Any]) -> tuple[str, ...] | None:
@@ -106,6 +144,7 @@ def build_router(
         },
     )
     async def chat_completions(
+        request: Request,
         payload: dict[str, Any] = Body(...),
     ) -> Any:
         tracking = main_model_inflight.track() if main_model_inflight is not None else None
@@ -174,11 +213,16 @@ def build_router(
                 },
             )
         if tracking is None:
-            return await service.create_chat_completion(payload, active_modalities=active_modalities)
-        try:
-            return await service.create_chat_completion(payload, active_modalities=active_modalities)
-        finally:
-            await tracking.__aexit__(None, None, None)
+            result = await service.create_chat_completion(payload, active_modalities=active_modalities)
+        else:
+            try:
+                result = await service.create_chat_completion(payload, active_modalities=active_modalities)
+            finally:
+                await tracking.__aexit__(None, None, None)
+        if settings.log_request_response_body:
+            request.state.request_body_masked = mask_sensitive_text(_chat_text_preview(payload))
+            request.state.response_body_masked = mask_sensitive_text(_chat_response_preview(result))
+        return result
 
     _s = _GW[("POST", "/v1/embeddings")]
 

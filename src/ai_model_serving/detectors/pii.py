@@ -277,6 +277,18 @@ def _build_assessment(categories: list[dict[str, Any]]) -> dict[str, Any]:
     )
 
 
+def mask_pii(text: str) -> str:
+    """탐지된 PII span을 라벨로 치환한 텍스트를 반환한다.
+
+    assess()와 달리 원문 offset을 실제로 텍스트에 적용한다 -- 디버그 로깅처럼
+    사람이 읽을 원문이 필요한 소비처 전용이며, risk 판정 경로(assess)와는 분리된다.
+    """
+    spans = _reconcile_spans(_collect_recognizer_spans(text))
+    for span in sorted(spans, key=lambda item: item.start, reverse=True):
+        text = text[: span.start] + f"[{span.entity}]" + text[span.end :]
+    return text
+
+
 class PIIProtectionDetector:
     """Coordinate recognition, technical deduplication, classification, and output.
 

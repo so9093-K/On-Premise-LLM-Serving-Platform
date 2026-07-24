@@ -129,6 +129,7 @@ class AppSettings:
     streaming_max_bytes: int = 104_857_600
     admin_sidecar_url: str = ""
     deploy_release_id: str = ""
+    log_request_response_body: bool = False
 
     def __post_init__(self) -> None:
         if not self.runtime_endpoints:

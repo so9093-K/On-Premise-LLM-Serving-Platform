@@ -20,6 +20,7 @@ from ai_model_serving.detectors.secret import (
     _scan_text,
     _build_categories,
     _shannon_entropy,
+    mask_secrets,
 )
 
 
@@ -235,3 +236,27 @@ class TestSecretExposureDetector:
         detector = SecretExposureDetector()
         response = self._run(detector.assess("test"))
         assert response["assessment_id"].startswith("risk_")
+
+
+class TestMaskSecrets:
+    def test_replaces_named_pattern_with_label(self):
+        masked = mask_secrets(f"key={OPENAI_KEY}")
+        assert OPENAI_KEY not in masked
+        assert "[OPENAI_API_KEY]" in masked
+
+    def test_multiple_secrets_masked_without_offset_corruption(self):
+        masked = mask_secrets(f"a={AWS_ACCESS_KEY} b={GITHUB_TOKEN}")
+        assert AWS_ACCESS_KEY not in masked
+        assert GITHUB_TOKEN not in masked
+        assert "[AWS_ACCESS_KEY_ID]" in masked
+        assert "[GITHUB_TOKEN]" in masked
+
+    def test_scan_text_count_matches_scan_spans_count(self):
+        # _scan_text와 mask_secrets가 같은 _scan_spans를 쓰므로 개수가 일치해야 한다
+        text = f"a={OPENAI_KEY} b={AWS_ACCESS_KEY}"
+        counts = _scan_text(text)
+        assert sum(counts.values()) == 2
+
+    def test_text_without_secrets_is_unchanged(self):
+        text = "오늘 날씨가 좋습니다"
+        assert mask_secrets(text) == text

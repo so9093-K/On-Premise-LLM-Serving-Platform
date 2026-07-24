@@ -26,6 +26,7 @@ from ai_model_serving.detectors.pii import (
     _classify_spans,
     _reconcile_spans,
     _run_custom_span_recognizers,
+    mask_pii,
 )
 
 
@@ -368,3 +369,21 @@ class TestPresidioEmailDetection:
         response = self._run(detector.assess(f"연락처: {email}"))
         import json
         assert email not in json.dumps(response)
+
+
+class TestMaskPii:
+    def test_replaces_detected_span_with_entity_label(self):
+        masked = mask_pii("이메일은 hong@example.com입니다")
+        assert "hong@example.com" not in masked
+        assert "[EMAIL_ADDRESS]" in masked
+
+    def test_multiple_spans_masked_without_offset_corruption(self):
+        masked = mask_pii("이메일 hong@example.com 전화 010-1234-5678")
+        assert "hong@example.com" not in masked
+        assert "010-1234-5678" not in masked
+        assert "[EMAIL_ADDRESS]" in masked
+        assert "[PHONE_NUMBER]" in masked
+
+    def test_text_without_pii_is_unchanged(self):
+        text = "오늘 날씨가 좋습니다"
+        assert mask_pii(text) == text

@@ -327,6 +327,18 @@ def test_load_settings_can_disable_fastapi_docs_explicitly(monkeypatch):
     assert settings.documentation.enabled is False
 
 
+def test_load_settings_log_request_response_body_defaults_to_false(monkeypatch):
+    monkeypatch.delenv("LOG_REQUEST_RESPONSE_BODY", raising=False)
+    settings = load_settings()
+    assert settings.log_request_response_body is False
+
+
+def test_load_settings_can_enable_log_request_response_body(monkeypatch):
+    monkeypatch.setenv("LOG_REQUEST_RESPONSE_BODY", "true")
+    settings = load_settings()
+    assert settings.log_request_response_body is True
+
+
 def test_load_settings_can_read_explicit_env_file_outside_repo(tmp_path, monkeypatch):
     env_path = tmp_path / "candidate.env"
     env_path.write_text(

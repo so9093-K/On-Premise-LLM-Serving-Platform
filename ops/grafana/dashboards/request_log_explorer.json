@@ -109,7 +109,9 @@
               "filename": true,
               "request_id": true,
               "error_code": true,
-              "error_message": true
+              "error_message": true,
+              "request_body": true,
+              "response_body": true
             },
             "indexByName": {
               "Time": 0,
@@ -125,7 +127,7 @@
           }
         }
       ],
-      "description": "게이트웨이/risk-adapter 전체 요청 로그(요청 한 줄 = 테이블 한 행).\n\n- 이 대시보드는 gateway/risk-adapter 구조화 로그 + vLLM 등 컨테이너 원본 로그를 함께 다룬다(아래 **Non-JSON Container Errors**/**Raw Container Log**)\n- **client_host** 클릭 시 그 IP로 필터링\n- request_id/error_code/error_message는 여기 없음 -> 아래 **Errors** 패널 참고(에러에서만 채워지는 필드)\n- `/metrics`, `/health`는 노이즈라 항상 제외"
+      "description": "게이트웨이/risk-adapter 전체 요청 로그(요청 한 줄 = 테이블 한 행).\n\n- 이 대시보드는 gateway/risk-adapter 구조화 로그 + vLLM 등 컨테이너 원본 로그를 함께 다룬다(아래 **Non-JSON Container Errors**/**Raw Container Log**)\n- **client_host** 클릭 시 그 IP로 필터링\n- request_id/error_code/error_message는 여기 없음 -> 아래 **Errors** 패널 참고(에러에서만 채워지는 필드)\n- `/metrics`, `/health`는 노이즈라 항상 제외\n- `LOG_REQUEST_RESPONSE_BODY=true`일 때만 마스킹된 요청/응답 원문이 존재 -> 컬럼엔 없고 **Line** 펼쳐서 확인"
     },
     {
       "id": 2,
@@ -214,7 +216,9 @@
               "event": true,
               "detected_level": true,
               "service_name": true,
-              "filename": true
+              "filename": true,
+              "request_body": true,
+              "response_body": true
             },
             "indexByName": {
               "Time": 0,
@@ -467,6 +471,6 @@
   "timezone": "browser",
   "title": "Request Log Explorer",
   "uid": "request_log_explorer",
-  "version": 16,
+  "version": 17,
   "weekStart": ""
 }
