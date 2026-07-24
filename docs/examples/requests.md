@@ -310,7 +310,7 @@ curl -s http://127.0.0.1:9405/v1/risk/detectors/secret/assessments \
 
 `/v1/risk/detectors/siren/assessments`는 retired endpoint다. 현재 이 route는 **410 Gone**을 반환한다.
 
-active policy_risk(I1–I4) detector는 현재 배포되어 있지 않다. 아래는 route lifecycle 확인용 참고 예시다.
+active policy_risk detector는 현재 배포되어 있지 않다. 아래는 route lifecycle 확인용 참고 예시다.
 
 ```bash
 # 예상 응답: 410 Gone — Gateway(9400) route lifecycle 확인용
@@ -320,7 +320,4 @@ curl -s -o /dev/null -w "%{http_code}" \
   -H "Content-Type: application/json" \
   -d '{"prompt":"테스트"}'
 ```
-
-policy_risk family code: I1(연령 제한), I2(전문 조언), I3(개인정보), I4(지식재산권)  
-출처: `configs/risk_taxonomy.yaml`
 

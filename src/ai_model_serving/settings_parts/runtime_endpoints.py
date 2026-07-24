@@ -14,6 +14,7 @@ def build_runtime_endpoint(
     timeout: float,
     models: dict[str, Any],
     operational_limits: dict[str, Any],
+    catalog_max_output_tokens: int | None = None,
 ) -> RuntimeEndpoint:
     cfg = models[model_key]
     env_prefix = model_key.upper()
@@ -56,7 +57,11 @@ def build_runtime_endpoint(
         ),
         http_max_connections=as_int("HTTP_MAX_CONNECTIONS", default_max_connections),
         http_max_keepalive_connections=as_int("HTTP_MAX_KEEPALIVE_CONNECTIONS", default_keepalive),
-        max_output_tokens=(int(cfg["max_output_tokens"]) if "max_output_tokens" in cfg else None),
+        max_output_tokens=(
+            int(cfg["max_output_tokens"])
+            if "max_output_tokens" in cfg
+            else (int(catalog_max_output_tokens) if catalog_max_output_tokens is not None else None)
+        ),
         max_model_len=(int(cfg["max_model_len"]) if "max_model_len" in cfg else None),
         allowed_input_modalities=tuple(str(item) for item in request_limits.get("input_modalities", [request_limits.get("input_modality", "text")])),
         max_image_inputs=int(request_limits.get("max_image_inputs", 0)),

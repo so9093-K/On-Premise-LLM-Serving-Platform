@@ -73,11 +73,15 @@ def _build_runtime_endpoints(
     models: dict[str, Any],
     timeout: float,
     operational_limits: dict[str, Any],
+    model_catalog: dict[str, Any],
 ) -> dict[str, RuntimeEndpoint]:
+    catalog_models = model_catalog.get("models", {})
     endpoints: dict[str, RuntimeEndpoint] = {}
     for model_key, cfg in models.items():
         if cfg.get("enabled", True) is not True:
             continue
+        catalog_entry = catalog_models.get(cfg.get("served_model_name"), {})
+        catalog_policy = catalog_entry.get("project_runtime_policy", {})
         endpoints[str(model_key)] = build_runtime_endpoint(
             model_key=str(model_key),
             env_url=_env_name(str(model_key), "BASE_URL"),
@@ -85,6 +89,7 @@ def _build_runtime_endpoints(
             timeout=timeout,
             models=models,
             operational_limits=operational_limits,
+            catalog_max_output_tokens=catalog_policy.get("max_output_tokens"),
         )
     return endpoints
 
@@ -222,6 +227,7 @@ def load_settings(root: Path | None = None, env_file: Path | str | None = None) 
         models=models,
         timeout=vllm_timeout,
         operational_limits=operational_limits,
+        model_catalog=model_catalog,
     )
     embedding_profiles = _embedding_profiles_from_config(model_serving)
     embedding_model_routes = {model_id: profile.service_key for model_id, profile in embedding_profiles.items()}

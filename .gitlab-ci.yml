@@ -137,25 +137,26 @@ build-platform:
       - build/platform-image.env
     expire_in: 7 days
 
-# Builds vLLM-derived runtime images (risk-vllm-kanana and vllm-gemma4-audio)
-# in a single job so the large (~25 GB) vLLM base image is pulled only once.
-# embedding-ko-vllm uses EMBEDDING_KO_VLLM_IMAGE and does not require a dedicated build.
-# Runs automatically on release/tag pipelines when BUILD_VLLM_DERIVED=1 or DEPLOY_MODE=full.
-# Rolling control-plane deploys skip this job entirely — no vLLM rebuild is needed.
-# allow_failure: false — if the job runs and fails, it is a release failure.
+# vLLM-derived 런타임 이미지(risk-vllm-kanana, vllm-gemma4-audio)를 하나의 job에서
+# 빌드해서 큰(~25 GB) vLLM base 이미지를 한 번만 pull하도록 한다.
+# embedding-ko-vllm은 EMBEDDING_KO_VLLM_IMAGE를 쓰므로 별도 빌드가 필요 없다.
+# BUILD_VLLM_DERIVED=1 또는 DEPLOY_MODE=full일 때 release/tag 파이프라인에서 자동 실행된다.
+# Rolling 방식의 control-plane 배포는 이 job을 아예 건너뛴다 — vLLM 재빌드가 필요 없기 때문.
+# allow_failure: false — job이 실행됐는데 실패하면 release 실패로 취급한다.
 build-vllm-derived:
   extends: .docker-build
   stage: build
   script:
     - bash scripts/ci/build_vllm_derived_images.sh
-  # The derived-image build is a DELIBERATE manual opt-in, not an accident:
-  # test_gitlab_ci_vllm_derived_build_contract requires the BUILD_VLLM_DERIVED /
-  # DEPLOY_MODE=full trigger so this expensive (~25 GB) build only runs when an operator
-  # explicitly asks. (GitLab 12.1.1 also lacks the modern rule engine, so source-change
-  # auto-build is not even available.) Auto-building on source change is a team decision — it
-  # means changing that governance contract, not just this job. The deploy guard in
-  # deploy_gitlab_compose.sh makes the manual policy safe: it fails loudly if the image
-  # source changed but no rebuild was run, so a stale image is never shipped silently.
+  # derived 이미지 빌드는 실수가 아니라 의도적인 수동 opt-in이다 -- 이 비용이 큰
+  # (~25 GB) 빌드가 운영자가 명시적으로 요청할 때만 실행되도록
+  # test_gitlab_ci_vllm_derived_build_contract가 BUILD_VLLM_DERIVED /
+  # DEPLOY_MODE=full 트리거를 요구한다. (GitLab 12.1.1은 최신 rule 엔진이 없어서
+  # source-change 기반 자동 빌드 자체가 불가능하기도 하다.) source 변경 시 자동 빌드로
+  # 바꾸는 건 팀 차원의 결정이다 -- 이 job 하나가 아니라 이 governance contract 자체를
+  # 바꾸는 일이다. deploy_gitlab_compose.sh의 배포 가드가 이 수동 정책을 안전하게
+  # 만든다 -- 이미지 source는 바뀌었는데 재빌드가 안 됐으면 크게 실패시켜서, 오래된
+  # 이미지가 조용히 배포되는 일이 없도록 한다.
   only:
     refs:
       - release
@@ -165,44 +166,44 @@ build-vllm-derived:
       - $DEPLOY_MODE == "full"
   allow_failure: false
   artifacts:
-    # Immutable digest of vllm-gemma4-audio, to pin into the 12B profile's image
-    # override (configs/main_model_profiles.yaml).
+    # vllm-gemma4-audio의 immutable digest -- 12B 프로필의 image override
+    # (configs/main_model_profiles.yaml)에 고정하는 데 쓰인다.
     paths:
       - build/audio-image.env
     expire_in: 7 days
 
-# Manual deployment to the 175 GPU runtime server.
-# Rolling deploy (default): restarts gateway + admin-sidecar + risk-adapter; skips vLLM rebuild.
-# Full runtime deploy: set DEPLOY_MODE=full when triggering the pipeline —
-#   build-vllm-derived runs automatically before this job.
-#   DEPLOY_MODE=full uses the current pipeline SHA image as RISK default.
-# Required CI/CD variables:
-#   SSH_PRIVATE_KEY      file-type variable; private key for DEPLOY_USER on 175
-#   DEPLOY_KNOWN_HOSTS   output of: ssh-keyscan <175-host>
-#   DEPLOY_HOST          175 internal DNS/IP
-#   DEPLOY_USER          deploy user on 175
+# 175 GPU 런타임 서버로의 수동 배포.
+# Rolling 배포(기본값): gateway + admin-sidecar + risk-adapter만 재시작, vLLM 재빌드는 건너뜀.
+# Full 런타임 배포: 파이프라인 트리거 시 DEPLOY_MODE=full로 설정 —
+#   이 job 전에 build-vllm-derived가 자동 실행된다.
+#   DEPLOY_MODE=full은 현재 파이프라인의 SHA 이미지를 RISK 기본값으로 쓴다.
+# 필수 CI/CD 변수:
+#   SSH_PRIVATE_KEY      file 타입 변수; 175의 DEPLOY_USER용 private key
+#   DEPLOY_KNOWN_HOSTS   `ssh-keyscan <175-host>` 출력값
+#   DEPLOY_HOST          175 내부 DNS/IP
+#   DEPLOY_USER          175의 배포 사용자
 #   DEPLOY_PATH          /opt/acl-ai-gateway
-#   REGISTRY_DEPLOY_USER GitLab Deploy Token username with read_registry
-#   REGISTRY_DEPLOY_PASSWORD GitLab Deploy Token password/token with read_registry
-# Optional variables:
-#   BUILD_VLLM_DERIVED   set to "1" to build/push vLLM-derived images only; deploy mode stays rolling unless DEPLOY_MODE is set
+#   REGISTRY_DEPLOY_USER read_registry 권한을 가진 GitLab Deploy Token 사용자명
+#   REGISTRY_DEPLOY_PASSWORD read_registry 권한을 가진 GitLab Deploy Token 비밀번호/토큰
+# 선택 변수:
+#   BUILD_VLLM_DERIVED   "1"로 설정하면 vLLM-derived 이미지만 빌드/push; DEPLOY_MODE를 따로 안 정하면 배포 모드는 rolling 유지
 #   DEPLOY_COMPOSE_FILE  ops/compose/full-stack.private-network.yaml
-#   DEPLOY_MODE          auto-detected (rolling for platform-only; full when vLLM image
-#                        or runtime-sensitive files change). Set explicitly to force.
-#   GATEWAY_BIND_ADDR    175 interface address for gateway host publish
-#   GATEWAY_HEALTH_URL   explicit post-deploy health URL
-#   RUN_READY_SMOKE      1 or 0; default 1
-#   PRUNE_DANGLING_IMAGES 1 or 0; default 1, prune untagged images after successful deploy
-#   RISK_VLLM_IMAGE_TO_DEPLOY  full deploy only; override RISK_VLLM_IMAGE in 175 .env
-#   DEPLOY_RUNTIME_PROFILE     full deploy runtime startup profile (full_hot, main_only, retrieval_ready)
-#   DEPLOY_DEFERRED_RUNTIMES   explicit comma-separated deferred runtime override; wins over DEPLOY_RUNTIME_PROFILE
+#   DEPLOY_MODE          자동 감지(platform만 바뀌면 rolling; vLLM 이미지나 런타임에
+#                        민감한 파일이 바뀌면 full). 명시적으로 지정하면 그 값을 강제한다.
+#   GATEWAY_BIND_ADDR    gateway host publish용 175 인터페이스 주소
+#   GATEWAY_HEALTH_URL   배포 후 확인할 명시적 health URL
+#   RUN_READY_SMOKE      1 또는 0; 기본값 1
+#   PRUNE_DANGLING_IMAGES 1 또는 0; 기본값 1, 배포 성공 후 untagged 이미지 정리
+#   RISK_VLLM_IMAGE_TO_DEPLOY  full 배포 전용; 175 .env의 RISK_VLLM_IMAGE를 override
+#   DEPLOY_RUNTIME_PROFILE     full 배포 런타임 시작 프로필(full_hot, main_only, retrieval_ready)
+#   DEPLOY_DEFERRED_RUNTIMES   콤마로 구분한 deferred runtime 명시적 override; DEPLOY_RUNTIME_PROFILE보다 우선
 deploy-gpu-175:
   stage: deploy
   image: alpine:3.20
   dependencies:
     - build-platform
-    # build-vllm-derived only runs on full/BUILD_VLLM_DERIVED pipelines; its
-    # build/audio-image.env artifact is absent on rolling deploys (handled below).
+    # build-vllm-derived는 full/BUILD_VLLM_DERIVED 파이프라인에서만 실행되므로,
+    # rolling 배포에서는 build/audio-image.env 아티팩트가 없다(아래에서 처리).
     - build-vllm-derived
   tags:
     - ai-serving
@@ -231,8 +232,8 @@ deploy-gpu-175:
       else
         _risk_vllm="${RISK_VLLM_IMAGE_TO_DEPLOY:-}"
       fi
-      # Pin the freshly-built 12B multimodal image when build-vllm-derived ran;
-      # otherwise leave AUDIO_VLLM_IMAGE untouched (deploy preserves the current pin).
+      # build-vllm-derived가 실행됐으면 방금 빌드한 12B 멀티모달 이미지로 고정하고,
+      # 아니면 AUDIO_VLLM_IMAGE를 그대로 둔다(배포가 현재 고정값을 유지).
       _audio_vllm="${AUDIO_VLLM_IMAGE_TO_DEPLOY:-}"
       if [ -f build/audio-image.env ]; then
         . build/audio-image.env
