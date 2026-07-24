@@ -142,6 +142,21 @@ profiles:
         여유는 50000이 아니라 58192-13000=45192로 줄어든다. 원래 의도한 50000 입력
         여유를 그대로 지키려면 max-model-len도 63000(=50000+13000)으로 같이 올려야 하나,
         아직 그렇게 하지 않았다 -- 이 트레이드오프는 의도적으로 미룬 것이며 결정 대기 중.
+      - 58192/seq=3를 실제로 배포했다가 boot 자체가 실패했다(2026-07-23, 실제 배포 로그
+        확인). vLLM 엔진이 초기화 단계에서 `ValueError` -- To serve at least one request
+        with the model's max seq len (58192), (18.65 GiB KV cache is needed, which
+        is larger than the available KV cache memory (16.28 GiB) -- 로 죽었고, vLLM
+        자신이 계산한 안전 상한은 50800이었다. 배포 스크립트가 자동 롤백해 이전
+        릴리스(50000/seq=3)로 정상 복구됐다. 위 1.88배 여유 계산(seq=3 기준)은
+        --max-num-batched-tokens=50000일 때의 activation 메모리 프로파일 기준이라
+        58192로 올리면 무효였다는 뜻이다.
+      - 크래시 로그의 실측값(18.65 GiB 필요/16.28 GiB 가용, seq=3·58192 기준)으로
+        역산했다 -- 이 가용량은 --max-num-batched-tokens=58192의 activation 메모리
+        프로파일 결과라 seq 수를 낮춰도 안 바뀐다. --max-num-seqs를 3 -> 2로
+        낮추면 필요량이 18.65 * 2/3 ≈ 12.44 GiB로 줄어 가용 16.28 GiB 대비 약
+        1.31배 여유가 생긴다는 계산 하에 seq=2/max-model-len=58192로 반영한다.
+        이 조합 자체의 실제 boot/`/metrics` 재확인은 아직 없다 -- 배포 전 재부팅
+        후 재측정 필요.
       validation:
         gpu: NVIDIA RTX 6000 Ada Generation
         compute_capability: "8.9"
@@ -149,9 +164,9 @@ profiles:
         context_tokens: 50000
         concurrency: 3
         validated_at: "2026-07-23"
-        note: context_tokens(50000)은 마지막으로 실측 확인된 커맨드 기준이다 -- 현재
-          command의 --max-model-len/--max-num-batched-tokens는 58192로 이미 올라가
-          있고 이 값 자체는 아직 재부팅/재측정 전이다(위 reasons 참고).
+        note: 위 필드는 마지막으로 실제 부팅에 성공한 커맨드(50000, seq=3) 기준이다
+          -- 현재 command는 58192/seq=2로 바뀌었고, 이 조합은 크래시 로그 실측값을
+          근거로 계산만 했을 뿐 아직 실제 재부팅/재측정 전이다(위 reasons 참고).
     capabilities:
       model_input: [text, image, audio, video]
       # Full multimodal, served by the pinned derived image (image rides in
@@ -178,7 +193,7 @@ profiles:
     - --max-model-len
     - "58192"
     - --max-num-seqs
-    - "3"
+    - "2"
     - --max-num-batched-tokens
     - "58192"
     - --optimization-level
