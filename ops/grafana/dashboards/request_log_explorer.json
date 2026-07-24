@@ -237,7 +237,7 @@
           }
         }
       ],
-      "description": "위 Service 선택 기준 4xx/5xx만. 값 없음 = 정상(Healthy).\n\n- **request_id**/**client_host** 클릭 시 그 값으로 필터링\n- **error_code**: 같은 status_code(예: 503)에 묶인 원인 구분(INTERNAL_ERROR는 처리 안 된 예외)\n- **error_message**: error_code만으론 안 보이는 실제 원인 문장\n- vLLM 등 JSON 아닌 로그의 에러는 아래 **Non-JSON Container Errors** 참고"
+      "description": "위 Service 선택 기준 4xx/5xx만. 값 없음 = 정상(Healthy).\n\n- **request_id**/**client_host** 클릭 시 그 값으로 필터링\n- **error_code**: 같은 status_code(예: 503)에 묶인 원인 구분(INTERNAL_ERROR는 처리 안 된 예외)\n- **error_message**: error_code만으론 안 보이는 실제 원인 문장\n- vLLM 등 JSON 아닌 로그의 에러는 아래 **Non-JSON Container Errors** 참고\n- `LOG_REQUEST_RESPONSE_BODY=true`일 때만 마스킹된 요청/응답 원문이 존재 -> 컬럼엔 없고 **Line** 펼쳐서 확인"
     },
     {
       "id": 3,
