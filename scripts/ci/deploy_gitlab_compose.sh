@@ -812,6 +812,12 @@ echo "[deploy] DEPLOY_RELEASE_ID set to ${RELEASE_ID}"
 if [[ -n "${RISK_VLLM_IMAGE_TO_DEPLOY:-}" ]]; then
   set_env_value RISK_VLLM_IMAGE "${RISK_VLLM_IMAGE_TO_DEPLOY}"
   echo "[deploy] RISK_VLLM_IMAGE set to ${RISK_VLLM_IMAGE_TO_DEPLOY}"
+
+  # VLLM_IMAGE/EMBEDDING_KO_VLLM_IMAGE도 같은 vllm-unified 이미지를 쓰므로 같이 갱신한다.
+  set_env_value VLLM_IMAGE "${RISK_VLLM_IMAGE_TO_DEPLOY}"
+  echo "[deploy] VLLM_IMAGE set to ${RISK_VLLM_IMAGE_TO_DEPLOY}"
+  set_env_value EMBEDDING_KO_VLLM_IMAGE "${RISK_VLLM_IMAGE_TO_DEPLOY}"
+  echo "[deploy] EMBEDDING_KO_VLLM_IMAGE set to ${RISK_VLLM_IMAGE_TO_DEPLOY}"
 fi
 
 # 필요 시 AUDIO_VLLM_IMAGE 갱신 — 12B 프로필이 ${AUDIO_VLLM_IMAGE}로 pin하는
