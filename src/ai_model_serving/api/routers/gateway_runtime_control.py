@@ -154,7 +154,7 @@ _MAIN_MODEL_STATUS_EXAMPLE = {
             "audio_enabled": False,
             "video_enabled": False,
         },
-        "runtime_image": "vllm/vllm-openai@sha256:f4492643056969529a74238f71dd66dc3097c0d433156a4f4478456bf84bd276",
+        "runtime_image": "gitlab.wizvera.com:4567/acl-ai-system/acl-ai-gateway/vllm-gemma4-audio@sha256:cf547528af18c15105d66ea767a49d21702dc90a26189be061a36edeebcf777d",
         "vram_fraction": 0.76,
     },
     "last_known_good_profile": "gemma4-26b-a4b-fp8",

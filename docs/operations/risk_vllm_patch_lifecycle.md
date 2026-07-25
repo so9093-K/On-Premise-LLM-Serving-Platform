@@ -1,6 +1,11 @@
 # Risk vLLM patch lifecycle 관리
 
-Risk detector image는 main Gemma4 vLLM image와 분리되어 있다. Kanana Prompt detector는 explicit Llama `head_dim` config를 사용하며, 일부 Transformers/vLLM 조합은 runtime 시작 전 config validation 단계에서 이를 거부할 수 있다. 현재 patch는 이 호환성 문제를 넘기기 위한 **임시 compatibility bridge**이며, 영구 fork 전략이 아니다.
+2026-07-24부터 risk detector image는 main Gemma4 vLLM image와 같은 이미지다
+(`ops/images/vllm-unified`) -- Gemma4 멀티모달 패치와 이 patch가 파일이 안 겹쳐
+하나로 병합됐다. Kanana Prompt detector는 explicit Llama `head_dim` config를
+사용하며, 일부 Transformers/vLLM 조합은 runtime 시작 전 config validation 단계에서
+이를 거부할 수 있다. 현재 patch는 이 호환성 문제를 넘기기 위한 **임시 compatibility
+bridge**이며, 영구 fork 전략이 아니다.
 
 ## 결론
 
@@ -13,10 +18,10 @@ Risk detector image는 main Gemma4 vLLM image와 분리되어 있다. Kanana Pro
 
 | 파일 | 역할 |
 |---|---|
-| `ops/docker/Dockerfile.risk-vllm-kanana` | dedicated risk vLLM image를 만들고 patch OCI label을 선언한다. |
+| `ops/images/vllm-unified/Dockerfile` | 공용 vLLM 이미지를 만들고 이 patch OCI label을 선언한다(Gemma4 멀티모달 패치와 병합). |
 | `ops/patches/transformers_llama_head_dim_guard.py` | `head_dim` validation guard patch를 적용하고 검증한다. |
 | `ops/patches/README.md` | patch 이유, lifecycle, 제거 조건을 설명한다. |
-| `scripts/build/build_risk_vllm_image.sh` | Docker build에 compatibility floor 값을 전달한다. |
+| `scripts/build/build_vllm_unified_image.sh` | Docker build에 compatibility floor 값을 전달한다. |
 | `scripts/models/check_risk_vllm_image_config.sh` | image label, patch metadata, Kanana HF config load를 image 내부에서 확인한다. |
 
 ## 운영자 흐름

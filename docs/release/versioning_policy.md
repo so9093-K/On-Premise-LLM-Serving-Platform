@@ -10,7 +10,7 @@
 ```
 Package version:     0.0.1
 Platform image:      ai-model-serving-platform:0.0.1
-Risk vLLM image:     ai-model-serving-risk-vllm-kanana:0.0.1
+vLLM unified image:     ai-model-serving-vllm-unified:0.0.1
 Config schema version: 0.1.0  ← package version과 독립
 ```
 
@@ -98,10 +98,10 @@ Config schema version: 0.1.0  ← package version과 독립
 | `version_manifest.json.python_package_version` | PEP 440 (`x.y.zrcN`) |
 | `version_manifest.json.api_contract_version` | 동일 |
 | `version_manifest.json.image_tags.platform` | `ai-model-serving-platform:x.y.z` |
-| `version_manifest.json.image_tags.risk_vllm` | `ai-model-serving-risk-vllm-kanana:x.y.z` |
+| `version_manifest.json.image_tags.risk_vllm` | `ai-model-serving-vllm-unified:x.y.z` |
 | `pyproject.toml` | PEP 440 |
 | Docker image tag (platform) | `ai-model-serving-platform:x.y.z` |
-| Docker image tag (risk_vllm) | `ai-model-serving-risk-vllm-kanana:x.y.z` |
+| Docker image tag (risk_vllm) | `ai-model-serving-vllm-unified:x.y.z` |
 | OpenAPI `info.version` | 동일 |
 | ZIP 이름 | `ai_model_serving_platform_x.y.z.zip` |
 

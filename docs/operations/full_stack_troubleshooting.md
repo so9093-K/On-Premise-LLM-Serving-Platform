@@ -143,11 +143,16 @@ enabled risk 모델(`risk-prompt-vllm`)에는 다음 설정이 적용된다. `ri
 - `python scripts/validation/runtime_validation.py --soak-seconds 1800 --concurrency 1`
 - Python 3.12/3.13/3.14별 app/control-plane test와 full-stack image compatibility 확인
 
-## risk vLLM image 분리 정책
+## risk vLLM image 점검
 
-`RISK_VLLM_IMAGE`는 main `VLLM_IMAGE`와 별도 운영 단위다. Prompt 2.1B는 explicit `head_dim`이 필요한 Llama 변형이므로, preflight는 enabled risk 모델을 image 내부에서 검사한다.
+`RISK_VLLM_IMAGE`는 2026-07-24부터 `VLLM_IMAGE`와 같은 vLLM unified 이미지를
+가리킨다(Gemma4 멀티모달 패치 + Kanana Llama head_dim 패치가 한 이미지에 병합됨).
+Prompt 2.1B는 explicit `head_dim`이 필요한 Llama 변형이므로, preflight는 enabled
+risk 모델을 image 내부에서 검사한다.
 
-기본값은 `ai-model-serving-risk-vllm-kanana:<version>`이며 `make first-run`/`make bootstrap`이 생성하고 검증한다. host venv에서 `check_hf_model_config.py`가 통과했더라도 compose 전 image 내부 config check가 통과해야 한다.
+기본값은 `ai-model-serving-vllm-unified:<version>`이며 `make first-run`/`make bootstrap`이
+생성하고 검증한다. host venv에서 `check_hf_model_config.py`가 통과했더라도 compose 전
+image 내부 config check가 통과해야 한다.
 
 
 ## Patch lifecycle 참조

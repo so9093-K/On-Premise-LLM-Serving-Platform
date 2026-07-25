@@ -61,11 +61,6 @@ DOCS_STRICT_GLOBS = [
     (ROOT / "docs" / "development", "*.md"),
     (ROOT / "docs" / "release", "*.md"),
 ]
-DOCS_ARCHIVE_DIRS = {
-    ROOT / "docs" / "archive",
-    ROOT / "reports" / "archive",
-}
-
 # non-strict 검사 대상 (기존 범위)
 DOCS_DEFAULT = [
     ROOT / "README.md",
@@ -148,22 +143,9 @@ def _build_scan_paths(strict: bool) -> list[Path]:
     return scan_paths
 
 
-def _collect_make_refs_in_docs(strict: bool) -> tuple[set[str], set[str]]:
-    """(strict 검사 대상 refs, archive-only refs) 반환."""
+def _collect_make_refs_in_docs(strict: bool) -> set[str]:
     scan_paths = _build_scan_paths(strict)
-    refs = _collect_make_refs_from_paths(scan_paths)
-
-    # archive 경로에만 등장하는 ref 감지
-    archive_paths: list[Path] = []
-    for d in DOCS_ARCHIVE_DIRS:
-        if d.is_dir():
-            archive_paths.extend(d.rglob("*.md"))
-    archive_only_refs: set[str] = set()
-    if archive_paths:
-        archive_refs = _collect_make_refs_from_paths(archive_paths)
-        archive_only_refs = archive_refs - refs
-
-    return refs, archive_only_refs
+    return _collect_make_refs_from_paths(scan_paths)
 
 
 def _collect_feature_commands() -> dict[str, list[str]]:
@@ -342,7 +324,7 @@ def main() -> int:
                 )
 
     # ── 8. docs make 참조 → registry drift ─────────────────────────────────
-    doc_refs, archive_only_refs = _collect_make_refs_in_docs(strict)
+    doc_refs = _collect_make_refs_in_docs(strict)
 
     for ref in sorted(doc_refs):
         if re.search(r"[<>]", ref):
@@ -357,14 +339,6 @@ def main() -> int:
                 errors.append(msg)
             else:
                 warnings.append(f"{msg} (등록 권장)")
-
-    for ref in sorted(archive_only_refs):
-        if re.search(r"[<>]", ref):
-            continue
-        if ref not in registry_targets:
-            warnings.append(
-                f"docs/archive에만 'make {ref}' 참조가 있음 (legacy command — 등록 불필요 시 무시)"
-            )
 
     # ── 9. features/*.yaml commands → registry drift 확인 ────────────────────
     feature_cmds = _collect_feature_commands()

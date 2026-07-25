@@ -199,14 +199,7 @@ def test_command_check_strict_no_warnings():
     assert result.returncode == 0, (
         f"validate_command_registry.py --strict 실패:\n{result.stdout}\n{result.stderr}"
     )
-    # docs/archive에만 있는 legacy command 참조는 checker 자신도 "등록 불필요 시
-    # 무시"라고 명시하는 정보성 경고다 -- 과거 기록은 그 시점에 실제 존재했던
-    # 이름을 그대로 남겨야 하므로(예: make target 이름 변경) 고치지 않는다.
-    warning_lines = [
-        l
-        for l in result.stdout.splitlines()
-        if l.startswith("WARNING:") and "docs/archive에만" not in l
-    ]
+    warning_lines = [l for l in result.stdout.splitlines() if l.startswith("WARNING:")]
     assert not warning_lines, (
         f"strict 모드에서 WARNING이 남아 있습니다:\n" + "\n".join(warning_lines)
     )

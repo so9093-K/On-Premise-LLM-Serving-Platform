@@ -126,7 +126,7 @@ Risk detector의 `bitsandbytes` 설정은 운영 기본값이다. 원인 분리�
 ## Kanana risk vLLM image 점검
 
 - `make first-run` / `make bootstrap`: platform image와 dedicated `RISK_VLLM_IMAGE`를 만들고, image 내부 Kanana config check를 실행한다.
-- `make rebuild-vllm-unified` / `make build-vllm-unified-image`: `ops/docker/Dockerfile.risk-vllm-kanana`에서 dedicated `RISK_VLLM_IMAGE`만 빌드하는 고급/수동 target이다.
+- `make rebuild-vllm-unified` / `make build-vllm-unified-image`: `ops/images/vllm-unified/Dockerfile`에서 `RISK_VLLM_IMAGE`(26B/12B/embedding/embedding-ko와 공용 vLLM unified 이미지)를 빌드하는 고급/수동 target이다.
 - `make risk-vllm-config-check`: `RISK_VLLM_IMAGE` 안에서 label, metadata, Kanana risk model config load를 확인한다.
 - `SKIP_RISK_VLLM_IMAGE_CONFIG_CHECK=1 make preflight-compose`: image-internal config check만 건너뛴다. production 승격용으로 쓰지 않는다.
 

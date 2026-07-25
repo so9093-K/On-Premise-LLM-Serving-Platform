@@ -35,7 +35,7 @@ GitLab 12.1.1-ee 호환 구성이다. `workflow:`, `needs:`, `rules:`,
 - `BUILD_VLLM_DERIVED=1`
 - `DEPLOY_MODE=full`
 
-`build-vllm-derived`는 risk-vllm-kanana와 12B multimodal profile용 `vllm-gemma4-audio`를 함께 빌드·push한다. `embedding-ko-vllm`은 derived Dockerfile 빌드 대상이 아니라 `EMBEDDING_KO_VLLM_IMAGE`로 지정한 표준 vLLM 이미지를 사용한다. 실행된 job이 실패하면 release 실패로 처리된다(`allow_failure: false`). 빌드 로직은 `scripts/ci/build_vllm_derived_images.sh`에서 관리한다.
+`build-vllm-derived`는 vLLM unified 이미지(26B/12B/embedding/embedding-ko/risk-prompt 공용)를 한 번 빌드해 risk-vllm-kanana와 `vllm-gemma4-audio` 두 registry 이름으로 push한다(내용은 같은 이미지). `embedding-ko-vllm`도 이 이미지를 쓰지만 별도 빌드 없이 `EMBEDDING_KO_VLLM_IMAGE` 태그만 가리킨다. 실행된 job이 실패하면 release 실패로 처리된다(`allow_failure: false`). 빌드 로직은 `scripts/ci/build_vllm_derived_images.sh`에서 관리한다.
 
 Platform image는 commit tag와 branch tag를 항상 push한다. `release` branch 또는 tag pipeline에서는 `VERSION` 파일을 읽어 `platform:release_<VERSION>` tag도 push한다.
 
@@ -119,7 +119,7 @@ full deploy 없이 registry image만 미리 만들 때 사용한다. deploy mode
 
 1. `release` branch 또는 tag pipeline을 `BUILD_VLLM_DERIVED=1`로 시작
 2. `build-vllm-derived` 자동 실행
-3. risk-vllm-kanana와 `vllm-gemma4-audio`를 build/push. audio image digest는 `build/audio-image.env`에 남긴다. `embedding-ko-vllm`은 표준 vLLM 이미지(`EMBEDDING_KO_VLLM_IMAGE`)를 사용하므로 별도 build 없음
+3. vLLM unified 이미지를 한 번 build해 risk-vllm-kanana/`vllm-gemma4-audio` 두 이름으로 push. digest는 `build/audio-image.env`에 남긴다. `embedding-ko-vllm`도 같은 이미지를 쓰지만(`EMBEDDING_KO_VLLM_IMAGE`) 별도 build 없음
 4. deploy mode는 바뀌지 않는다
 5. full deploy까지 하려면 `DEPLOY_MODE=full`을 사용해야 한다
 
@@ -293,12 +293,12 @@ CI job과 로컬 make target은 목적이 다르며 독립적으로 실행된다
 | 목적 | CI job / 로컬 명령 | 변수 기반 |
 |---|---|---|
 | Platform 이미지 빌드 + push | `build-platform` (CI) | `CI_REGISTRY_IMAGE` 등 CI 변수 |
-| 로컬 risk vLLM 이미지 빌드 | `make build-vllm-unified-image` | `.env`의 `RISK_VLLM_BASE_IMAGE`, `RISK_VLLM_IMAGE` |
-| 12B multimodal derived 이미지 빌드/push | `build-vllm-derived` 또는 `ops/images/vllm-gemma4-audio/README.md` 수동 fallback | `VLLM_BASE_IMAGE`, `AUDIO_VLLM_IMAGE_*` |
+| 로컬 vLLM unified 이미지 빌드 | `make build-vllm-unified-image` | `.env`의 `RISK_VLLM_BASE_IMAGE`, `RISK_VLLM_IMAGE` |
+| vLLM unified 이미지 빌드/push(CI) | `build-vllm-derived` 또는 `ops/images/vllm-unified/README.md` 수동 fallback | `VLLM_BASE_IMAGE`, `AUDIO_VLLM_IMAGE_*` |
 
 
 
-derived Dockerfile: `ops/docker/Dockerfile.risk-vllm-kanana`(risk-vllm-kanana 전용), `ops/images/vllm-gemma4-audio/Dockerfile`(12B multimodal image/audio/video profile 전용). `embedding-ko-vllm`은 표준 vLLM 이미지를 사용하며 derived Dockerfile이 없다.
+derived Dockerfile: `ops/images/vllm-unified/Dockerfile` 하나뿐이다(26B/12B/embedding/embedding-ko/risk-prompt 공용, Gemma4 멀티모달 패치 + Kanana Llama head_dim 패치 병합) -- CI는 이 한 번의 빌드 결과를 `risk-vllm-kanana`/`vllm-gemma4-audio` 두 registry 이름으로 push한다(내용은 동일). `embedding-ko-vllm`도 이 이미지를 쓰지만 `EMBEDDING_KO_VLLM_IMAGE` 태그만 가리키고 별도 빌드는 하지 않는다.
 
 운영 원칙:
 

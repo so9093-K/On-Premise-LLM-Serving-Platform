@@ -70,7 +70,7 @@ fallback하지 않고 기동을 중단한다.
 active profile의 `deployed_input`과 boot canary 결과로 gate한다. 26B active
 상태에서는 audio/video가 422로 거부되고, 12B 전환은 image/audio/video가 고정
 runtime image에서 canary를 통과해야 open된다. audio/video 런타임 이미지는
-`ops/images/vllm-gemma4-audio/README.md`에 문서화돼 있다.
+`ops/images/vllm-unified/README.md`에 문서화돼 있다.
 
 ## 메인 모델 정지/시작 (VRAM 회수)
 
