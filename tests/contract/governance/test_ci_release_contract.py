@@ -243,25 +243,31 @@ def test_gitlab_ci_vllm_derived_build_contract() -> None:
         "scripts/ci/build_vllm_derived_images.sh must pull the resolved shared vLLM base image once "
         "before building derived runtime images"
     )
-    for image_var in [
-        "RISK_VLLM_IMAGE_SHA",
-        "RISK_VLLM_IMAGE_REF",
-        "AUDIO_VLLM_IMAGE_SHA",
-        "AUDIO_VLLM_IMAGE_REF",
-    ]:
-        assert f'docker push "${{{image_var}}}"' in build_script, (
-            f"scripts/ci/build_vllm_derived_images.sh must push {image_var}"
-        )
-
-    assert "risk-vllm-kanana:${CI_COMMIT_TAG}" in build_script, (
-        "scripts/ci/build_vllm_derived_images.sh must push risk-vllm-kanana:<tag> on CI_COMMIT_TAG pipelines"
+    # 2026-07-25부터 RISK_VLLM_IMAGE_*/AUDIO_VLLM_IMAGE_*는 같은 vllm-unified 태그를
+    # 가리켜야 하고(.gitlab-ci.yml에서 보장), 빌드 스크립트는 한 번만 push한다 --
+    # 두 이름으로 중복 push하던 걸 없앴다.
+    assert 'docker push "${IMAGE_SHA}"' in build_script, (
+        "scripts/ci/build_vllm_derived_images.sh must push the resolved vllm-unified SHA tag"
     )
-    assert "vllm-gemma4-audio:${CI_COMMIT_TAG}" in build_script, (
-        "scripts/ci/build_vllm_derived_images.sh must push vllm-gemma4-audio:<tag> on CI_COMMIT_TAG pipelines"
+    assert 'docker push "${IMAGE_REF}"' in build_script, (
+        "scripts/ci/build_vllm_derived_images.sh must push the resolved vllm-unified ref tag"
+    )
+    assert "AUDIO_VLLM_IMAGE_SHA}\" != \"${RISK_VLLM_IMAGE_SHA}" in build_script, (
+        "scripts/ci/build_vllm_derived_images.sh must guard that both variables resolve to the same tag"
+    )
+    assert "vllm-unified:${CI_COMMIT_TAG}" in build_script, (
+        "scripts/ci/build_vllm_derived_images.sh must push vllm-unified:<tag> on CI_COMMIT_TAG pipelines"
     )
     assert "AUDIO_VLLM_IMAGE_DIGEST" in build_script and "build/audio-image.env" in build_script, (
         "scripts/ci/build_vllm_derived_images.sh must emit the audio image digest artifact"
     )
+    ci_vars = ci_parsed.get("variables", {})
+    assert ci_vars.get("RISK_VLLM_IMAGE_SHA") == ci_vars.get("AUDIO_VLLM_IMAGE_SHA"), (
+        ".gitlab-ci.yml RISK_VLLM_IMAGE_SHA and AUDIO_VLLM_IMAGE_SHA must resolve to the same vllm-unified tag"
+    )
+    assert ci_vars.get("RISK_VLLM_IMAGE_REF") == ci_vars.get("AUDIO_VLLM_IMAGE_REF"), (
+        ".gitlab-ci.yml RISK_VLLM_IMAGE_REF and AUDIO_VLLM_IMAGE_REF must resolve to the same vllm-unified tag"
+    )
     deploy = (ROOT / "scripts/ci/deploy_gitlab_compose.sh").read_text(encoding="utf-8")
-    assert 'pull_preflight_image "risk-vllm-kanana" "${RISK_VLLM_IMAGE_TO_DEPLOY}"' in deploy
+    assert 'pull_preflight_image "risk-prompt vLLM (vllm-unified)" "${RISK_VLLM_IMAGE_TO_DEPLOY}"' in deploy
     assert "set_env_value RISK_VLLM_IMAGE" in deploy

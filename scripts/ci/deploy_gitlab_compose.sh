@@ -599,7 +599,7 @@ pull_preflight_image() {
 pull_preflight_image "platform" "${PLATFORM_IMAGE_TO_DEPLOY}"
 
 if [[ "${DEPLOY_MODE}" == "full" ]]; then
-  pull_preflight_image "risk-vllm-kanana" "${RISK_VLLM_IMAGE_TO_DEPLOY}"
+  pull_preflight_image "risk-prompt vLLM (vllm-unified)" "${RISK_VLLM_IMAGE_TO_DEPLOY}"
 
   # 12B 멀티모달 이미지는 (compose 서비스가 아니라) 프로필 단위라서 compose가
   # 절대 pull하지 않고, sidecar의 /containers/create도 자동 pull하지 않는다 — 미리
@@ -610,7 +610,7 @@ if [[ "${DEPLOY_MODE}" == "full" ]]; then
     AUDIO_VLLM_IMAGE_TO_DEPLOY="$(get_env_value AUDIO_VLLM_IMAGE)"
   fi
   if [[ -n "${AUDIO_VLLM_IMAGE_TO_DEPLOY}" ]]; then
-    pull_preflight_image "vllm-gemma4-audio" "${AUDIO_VLLM_IMAGE_TO_DEPLOY}"
+    pull_preflight_image "12B main-LLM vLLM (vllm-unified)" "${AUDIO_VLLM_IMAGE_TO_DEPLOY}"
   fi
 fi
 

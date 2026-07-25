@@ -22,17 +22,22 @@ variables:
   # 2026-07-24: Gemma4 멀티모달 패치(12B 전용)와 Kanana Llama head_dim 패치
   # (risk-prompt 전용)가 파일이 안 겹쳐 하나의 이미지(ops/images/vllm-unified)로
   # 합쳐졌다 — 각 patch는 그걸 필요로 하지 않는 모델에 no-op이라 26B/embedding/
-  # embedding-ko도 이 이미지를 그대로 쓴다. RISK_VLLM_IMAGE_*/AUDIO_VLLM_IMAGE_*는
-  # 하위 호환을 위해 이름은 남겨뒀지만 이제 같은 빌드 결과를 가리키는 두 개의
-  # registry 태그일 뿐이다(build_vllm_derived_images.sh 참고).
+  # embedding-ko도 이 이미지를 그대로 쓴다.
+  #
+  # 2026-07-25: RISK_VLLM_IMAGE_*/AUDIO_VLLM_IMAGE_*는 (배포 스크립트가 소비하는
+  # 방식이 서로 달라 -- risk-prompt-vllm은 compose가 정적으로 pull하는 서비스,
+  # main-llm-vllm의 12B 프로필은 admin-sidecar가 동적으로 pin하는 이미지라서
+  # 여전히 별도 변수다) 남겨뒀지만, registry 이름은 vllm-unified 하나로 합쳤다 --
+  # 예전엔 같은 빌드 결과를 risk-vllm-kanana/vllm-gemma4-audio 두 이름으로
+  # 각각 push해서 registry 저장공간과 push 시간을 낭비했다(build_vllm_derived_images.sh 참고).
   VLLM_BASE_IMAGE: "vllm/vllm-openai@sha256:6a090ed9d4a3739813ce355cbd63d4c34c987a25c8409796f24912ba71c2d4a4"
 
   PLATFORM_IMAGE_SHA: "$CI_REGISTRY_IMAGE/platform:$CI_COMMIT_SHORT_SHA"
   PLATFORM_IMAGE_REF: "$CI_REGISTRY_IMAGE/platform:$CI_COMMIT_REF_SLUG"
-  RISK_VLLM_IMAGE_SHA: "$CI_REGISTRY_IMAGE/risk-vllm-kanana:$CI_COMMIT_SHORT_SHA"
-  RISK_VLLM_IMAGE_REF: "$CI_REGISTRY_IMAGE/risk-vllm-kanana:$CI_COMMIT_REF_SLUG"
-  AUDIO_VLLM_IMAGE_SHA: "$CI_REGISTRY_IMAGE/vllm-gemma4-audio:$CI_COMMIT_SHORT_SHA"
-  AUDIO_VLLM_IMAGE_REF: "$CI_REGISTRY_IMAGE/vllm-gemma4-audio:$CI_COMMIT_REF_SLUG"
+  RISK_VLLM_IMAGE_SHA: "$CI_REGISTRY_IMAGE/vllm-unified:$CI_COMMIT_SHORT_SHA"
+  RISK_VLLM_IMAGE_REF: "$CI_REGISTRY_IMAGE/vllm-unified:$CI_COMMIT_REF_SLUG"
+  AUDIO_VLLM_IMAGE_SHA: "$CI_REGISTRY_IMAGE/vllm-unified:$CI_COMMIT_SHORT_SHA"
+  AUDIO_VLLM_IMAGE_REF: "$CI_REGISTRY_IMAGE/vllm-unified:$CI_COMMIT_REF_SLUG"
 
 .default-python:
   image: python:3.12.13-slim

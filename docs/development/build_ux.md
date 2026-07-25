@@ -33,7 +33,7 @@ make bootstrap      = 전체 재빌드 (.venv + 의존성 + .env + 검증 + 플�
 | CI / 릴리스 파이프라인 | `make build-pipeline` / `make build` | validate + test + 플랫폼 이미지 + 패키징만 | 아니오 |
 | 타깃 재빌드 | `make rebuild-app` / `make build-image` | 플랫폼 이미지만 | 아니오 |
 | 타깃 재빌드 | `make rebuild-vllm-unified` / `make build-vllm-unified-image` | vLLM unified 이미지(26B/12B/embedding/embedding-ko/risk-prompt 공용) | 예 (이것만) |
-| CI derived 이미지 | `build-vllm-derived` | vLLM unified 이미지를 한 번 빌드해 risk-vllm-kanana/vllm-gemma4-audio 두 이름으로 push | 예 (명시 opt-in) |
+| CI derived 이미지 | `build-vllm-derived` | vLLM unified 이미지(`vllm-unified`) 빌드/push | 예 (명시 opt-in) |
 
 **`make build`와 `make build-pipeline`은 vLLM unified 이미지를 빌드하지 않는다.** CI와 릴리스 파이프라인은 vLLM runtime에 의존하지 않고 플랫폼 아티팩트만 재현 가능하게 생성해야 하기 때문이다. vLLM unified 이미지는 `make first-run`, `make bootstrap`, `make rebuild-vllm-unified`, `make build-vllm-unified-image`로만 생성된다.
 
