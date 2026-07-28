@@ -8,12 +8,12 @@ def test_build_ux_separates_build_from_runtime_startup() -> None:
     for target in ['start:', 'up:', 'ready:', 'check-ready:', 'status:', 'stop:', 'down:', 'logs:', 'build-pipeline:', 'first-run:', 'rebuild-full:', 'rebuild-app:', 'rebuild-vllm-unified:', 'remove-plan:']:
         assert target in makefile
 
+    # build_ux.md의 역할 구분 문구(configs/command_terminology_policy.yaml의
+    # required_documentation_phrases)는 governance_validation.docs_ops
+    # .validate_command_terminology_policy()(make validate)와
+    # tests/contract/governance/test_command_terminology.py가 이미 검증한다 --
+    # 같은 문장을 여기 세 번째로 하드코딩해서 관리할 이유가 없다.
     build_doc = (ROOT / 'docs/development/build_ux.md').read_text(encoding='utf-8')
-    assert 'build, start, readiness, deploy, release는 서로 다른 동작이다.' in build_doc
-    assert '`make build`는 artifact/image를 생성하고 검증한다.' in build_doc
-    assert '`make start`는 local service 또는 compose stack을 시작한다.' in build_doc
-    assert '`make ready`는 live stack readiness를 증명한다.' in build_doc
-
     scripts_doc = (ROOT / 'scripts/README.md').read_text(encoding='utf-8')
     assert 'build와 runtime은 다른 단계다' in scripts_doc
     assert '`make build`는 서비스를 시작하지 않는다' in scripts_doc

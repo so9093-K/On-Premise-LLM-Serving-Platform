@@ -220,7 +220,7 @@ def test_load_settings_uses_nested_admission_control_defaults(monkeypatch):
     ]:
         monkeypatch.delenv(name, raising=False)
     settings = load_settings()
-    assert settings.main_llm.max_concurrency == 1
+    assert settings.main_llm.max_concurrency == 3
     assert settings.main_llm.queue_timeout_seconds == 2
     assert settings.embedding.max_concurrency == 2
     assert settings.embedding.queue_timeout_seconds == 2

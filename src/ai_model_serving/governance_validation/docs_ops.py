@@ -314,10 +314,9 @@ def validate_build_ux_roles() -> None:
             raise SystemExit(f'missing runtime UX script: {script}')
         if not os.access(path, os.X_OK):
             raise SystemExit(f'runtime UX script must be executable: {script}')
-    build_doc = (ROOT / 'docs/development/build_ux.md').read_text(encoding='utf-8')
-    for phrase in ['build, start, readiness, deploy, release는 서로 다른 동작이다.', '`make build`는 artifact/image를 생성하고 검증한다.', '`make start`는 local service 또는 compose stack을 시작한다.', '`make ready`는 live stack readiness를 증명한다.']:
-        if phrase not in build_doc:
-            raise SystemExit(f'build UX doc missing role phrase: {phrase}')
+    # build_ux.md의 역할 구분 문구는 configs/command_terminology_policy.yaml의
+    # required_documentation_phrases + validate_command_terminology_policy()가 이미
+    # 검증한다 -- 같은 문장을 여기 또 하드코딩해서 두 곳을 따로 관리할 이유가 없다.
     scripts_doc = (ROOT / 'scripts/README.md').read_text(encoding='utf-8')
     for phrase in ['build와 runtime은 다른 단계다', '`make build`는 서비스를 시작하지 않는다', 'make start', 'make ready', 'make guide', 'make storage-paths', 'make project-inventory', 'make monitoring-projection', 'make operator-status', 'make operator-reports', 'make live-evidence', 'make release-check', 'make cleanup-plan', 'make remove-plan', 'make build-pipeline', 'make first-run', 'make rebuild-full']:
         if phrase not in scripts_doc:

@@ -8,12 +8,10 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 def test_redundant_origin_adr_removed_but_decision_retained() -> None:
+    # decision_register/source_review의 D-001/ADR-0001 문구 보존 여부는
+    # governance_validation.docs_ops.validate_doc_invariants()(make validate)가
+    # 이미 검증한다 -- 같은 파일의 같은 문구를 여기서 또 하드코딩할 이유가 없다.
     assert not (ROOT / 'docs/adr/0001-origin-transition.md').exists()
-    decision_register = (ROOT / 'docs/02_decision_register.md').read_text(encoding='utf-8')
-    source_review = (ROOT / 'docs/01_project_background.md').read_text(encoding='utf-8')
-    assert 'D-001' in decision_register
-    assert '과거 원천 프로젝트 코드는 포함하지 않는다' in decision_register
-    assert 'ADR-0001은 별도 파일로 유지하지 않는다' in source_review
 
 def test_retired_source_cleanup_policy_exists_and_is_enforced() -> None:
     policy_doc = ROOT / 'docs/governance/policies/retired_source_cleanup_policy.md'

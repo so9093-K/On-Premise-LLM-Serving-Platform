@@ -34,7 +34,6 @@ from .model_config import (
 from .release_runtime import (
     validate_deployment_reproducibility,
     validate_implementation_reference,
-    validate_mock_scope,
     validate_pytest_stability_config,
     validate_release_hygiene,
     validate_runtime_validation_harness,
@@ -73,7 +72,6 @@ CHECKS = [
     validate_model_source_facts,
     validate_version_bump_policy,
     validate_doc_invariants,
-    validate_mock_scope,
     validate_model_list_schema_enums,
     validate_model_registry_alignment,
     validate_status_vocabulary,

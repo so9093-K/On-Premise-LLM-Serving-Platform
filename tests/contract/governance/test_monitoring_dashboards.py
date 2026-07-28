@@ -14,15 +14,6 @@ def iter_panels(panels: list[dict]) -> Iterator[dict]:
         yield from iter_panels(panel.get("panels", []))
 
 
-def grafana_contract(path: str) -> dict:
-    monitoring = yaml.safe_load((ROOT / "configs/monitoring.yaml").read_text(encoding="utf-8"))
-    contracts = monitoring["monitoring_stack"]["grafana"]["dashboard_contracts"]
-    for contract in contracts:
-        if contract["path"] == path:
-            return contract
-    raise AssertionError(f"missing grafana dashboard contract: {path}")
-
-
 LOG_DASHBOARD = "ops/grafana/dashboards/request_log_explorer.json"
 
 
@@ -64,64 +55,18 @@ def test_log_dashboard_is_loki_backed_and_links_to_usage_today() -> None:
     assert any("/d/usage_today" in url for url in links)
 
 
-def test_usage_dashboard_required_panels_present_and_glanceable() -> None:
-    dashboard = json.loads((ROOT / USAGE_DASHBOARD).read_text(encoding="utf-8"))
-    assert dashboard["uid"] == "usage_today"
-    assert " / " not in dashboard["title"]
-    variables = {item["name"] for item in dashboard["templating"]["list"]}
-    assert {"datasource", "window"}.issubset(variables)
-    required = set(grafana_contract(USAGE_DASHBOARD)["required_panels"])
-    titles = {panel["title"] for panel in iter_panels(dashboard["panels"])}
-    assert required.issubset(titles)
-    for panel in iter_panels(dashboard["panels"]):
-        description = panel.get("description", "")
-        assert description
-        assert any(
-            token in description
-            for token in ["Healthy", "Attention", "Action Required", "No Runtime Data", "No Data", "Action"]
-        )
-
-
-def test_gpu_dashboard_required_panels_present() -> None:
+def test_gpu_dashboard_is_variable_backed_and_uses_typed_panel_options() -> None:
+    # uid/title/variables/필수 패널/패널 description/backend_restart_total 등
+    # 폐기 metric 부재는 governance_validation.monitoring_dashboards
+    # .validate_grafana_dashboard_templates()(make validate)가 이미 configs/monitoring.yaml
+    # dashboard_contracts 기준으로 GPU/USAGE 대시보드 전체를 검증한다. 여기서는 거기서
+    # 다루지 않는 stat/timeseries 패널 옵션(colorMode/graphMode/legend)만 확인한다.
     dashboard = json.loads((ROOT / GPU_DASHBOARD).read_text(encoding="utf-8"))
-    required = set(grafana_contract(GPU_DASHBOARD)["required_panels"])
-    assert required.issubset({panel["title"] for panel in iter_panels(dashboard["panels"])})
-
-
-def test_gpu_dashboard_panels_include_operator_descriptions() -> None:
-    dashboard = json.loads((ROOT / GPU_DASHBOARD).read_text(encoding="utf-8"))
-    for panel in iter_panels(dashboard["panels"]):
-        description = panel.get("description", "")
-        assert description
-        assert any(
-            token in description
-            for token in ["Healthy", "Attention", "Action Required", "No Runtime Data", "No Data", "Action"]
-        )
-
-
-def test_gpu_dashboard_is_english_titled_and_variable_backed() -> None:
-    dashboard = json.loads((ROOT / GPU_DASHBOARD).read_text(encoding="utf-8"))
-    assert " / " not in dashboard["title"]
-    variables = {item["name"] for item in dashboard["templating"]["list"]}
-    assert {"datasource", "window"}.issubset(variables)
-    assert dashboard["panels"]
     for panel in dashboard["panels"]:
         if panel["type"] == "stat" and panel.get("options", {}).get("colorMode") == "background":
             assert panel["options"].get("graphMode") == "none"
         if panel["type"] == "timeseries":
             assert panel.get("options", {}).get("legend", {}).get("showLegend") is True
-    gpu_text = json.dumps(dashboard, ensure_ascii=False)
-    assert "backend_restart_total" not in gpu_text
-    assert "gpu_oom_events_total" not in gpu_text
-    assert "container_oom_events_total" in gpu_text
-    assert "container_start_time_seconds" in gpu_text
-
-
-def test_endpoint_reference_lists_gpu_dashboard() -> None:
-    endpoint_doc = (ROOT / "docs/operations/endpoint_reference.md").read_text(encoding="utf-8")
-    assert "`gpu_capacity_and_oom_risk`" in endpoint_doc
-    assert "clamp_min(sum(rate(http_requests_total" not in endpoint_doc
-    assert "allowUiUpdates=false" in endpoint_doc
 
 
 def test_dashboard_navigation_links_resolve_to_existing_uids() -> None:
@@ -152,23 +97,24 @@ def test_monitoring_ux_streaming_label_is_status_not_result() -> None:
         "monitoring_ux.md must use 'status' label, not 'result', for streaming metrics"
 
 
-def test_monitoring_ux_has_ttft_metric_as_current_dashboard_metric() -> None:
-    monitoring_ux = (ROOT / "docs/operations/monitoring_ux.md").read_text(encoding="utf-8")
-    assert "streaming_time_to_first_chunk_seconds_bucket" in monitoring_ux, \
-        "monitoring_ux.md must document streaming_time_to_first_chunk_seconds_bucket"
+# streaming_time_to_first_chunk_seconds_bucket가 monitoring_ux.md에 있는지는
+# governance_validation.docs_ops.validate_monitoring_reference()(make validate)가
+# 이미 검증한다.
 
 
-def test_dashboard_panel_datasource_uses_variable() -> None:
-    # request_log_explorer는 Loki 기반이라 datasource type만 다르다; 그 외
-    # (metrics) 대시보드는 계속 Prometheus로 고정한다.
-    for path in (ROOT / "ops/grafana/dashboards").glob("*.json"):
-        expected_type = "loki" if path.name == "request_log_explorer.json" else "prometheus"
-        dashboard = json.loads(path.read_text(encoding="utf-8"))
-        for panel in iter_panels(dashboard["panels"]):
-            assert panel.get("datasource") == {"type": expected_type, "uid": "${datasource}"}, (
-                f"Panel '{panel.get('title')}' in {path.name} "
-                f"must use datasource {{\"type\":\"{expected_type}\",\"uid\":\"${{datasource}}\"}}"
-            )
+def test_log_dashboard_panels_use_loki_datasource_variable() -> None:
+    # GPU/USAGE(Prometheus) 대시보드의 패널 datasource 변수 사용은
+    # governance_validation.monitoring_dashboards
+    # .validate_grafana_dashboard_templates()(make validate)가 검증한다. 여기서는
+    # request_log_explorer(Loki)만 확인한다 -- datasource.type=="loki"인 것은
+    # test_log_dashboard_is_loki_backed_and_links_to_usage_today가 이미 보지만,
+    # uid가 하드코딩이 아니라 "${datasource}" 변수를 쓰는지는 여기서만 확인한다.
+    dashboard = json.loads((ROOT / LOG_DASHBOARD).read_text(encoding="utf-8"))
+    for panel in iter_panels(dashboard["panels"]):
+        assert panel.get("datasource") == {"type": "loki", "uid": "${datasource}"}, (
+            f"Panel '{panel.get('title')}' in {LOG_DASHBOARD} "
+            'must use datasource {"type":"loki","uid":"${datasource}"}'
+        )
 
 
 def test_dashboard_json_has_no_raw_prompt_or_generated_text_in_exprs() -> None:

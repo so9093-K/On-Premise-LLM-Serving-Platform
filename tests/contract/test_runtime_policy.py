@@ -3,8 +3,6 @@ from __future__ import annotations
 import ast
 import csv
 import json
-import re
-import tomllib
 from pathlib import Path
 
 import yaml
@@ -19,49 +17,30 @@ def python_package_version(version: str) -> str:
     return version
 
 
-def test_python_default_and_supported_range_are_aligned() -> None:
-    assert (ROOT / '.python-version').read_text(encoding='utf-8').strip() == '3.12.13'
-    pyproject = tomllib.loads((ROOT / 'pyproject.toml').read_text(encoding='utf-8'))
-    assert pyproject['project']['requires-python'] == '>=3.12,<3.15'
-    version = (ROOT / 'VERSION').read_text(encoding='utf-8').strip()
-    assert pyproject['project']['version'] == python_package_version(version)
-    compat = yaml.safe_load((ROOT / 'configs/runtime_compatibility.yaml').read_text(encoding='utf-8'))
-    assert compat['python']['default_version'] == '3.12.13'
-    assert compat['python']['supported_range'] == '>=3.12,<3.15'
-
-
 def test_monitoring_ports_and_privacy_settings_are_aligned() -> None:
+    # prometheus/grafana/dcgm_exporter의 monitoring.yaml<->services.yaml 포트 일치와
+    # privacy_and_security forbidden 플래그는 governance_validation.docs_ops
+    # .validate_monitoring_reference()(make validate)가 이미 검증한다. cadvisor 포트와
+    # metric_sources label 정책은 거기서 다루지 않아 여기 남긴다.
     monitoring = yaml.safe_load((ROOT / 'configs/monitoring.yaml').read_text(encoding='utf-8'))
     services = yaml.safe_load((ROOT / 'configs/services.yaml').read_text(encoding='utf-8'))['services']
     ports = {name: service['default_host_port'] for name, service in services.items()}
-    assert monitoring['monitoring_stack']['prometheus']['port'] == ports['prometheus'] == 9410
-    assert monitoring['monitoring_stack']['grafana']['port'] == ports['grafana'] == 9411
-    assert monitoring['monitoring_stack']['dcgm_exporter']['port'] == ports['dcgm_exporter'] == 9412
     assert monitoring['monitoring_stack']['cadvisor']['port'] == ports['cadvisor'] == 9413
     assert monitoring['metric_sources']['vllm_instances']['label_policy']['model'].startswith('logical served model name')
     assert monitoring['metric_sources']['vllm_containers']['compose_service_label'] == 'container_label_com_docker_compose_service'
-    privacy = monitoring['privacy_and_security']
-    assert privacy['raw_prompt_in_metrics'] == 'forbidden'
-    assert privacy['user_text_labels'] == 'forbidden'
-    assert privacy['model_output_text_labels'] == 'forbidden'
 
 
 def test_version_metadata_records_current_package_metadata() -> None:
-    version = (ROOT / 'VERSION').read_text(encoding='utf-8').strip()
+    # VERSION 형식, manifest.version, package_profile, gateway.py/risk_adapter.py
+    # 존재 여부는 governance_validation.versioning/release_runtime(make validate)이
+    # 이미 검증한다. package_contract.scope는 거기서 다루지 않는 유일한 필드다.
     manifest = json.loads((ROOT / 'version_manifest.json').read_text(encoding='utf-8'))
-    assert re.fullmatch(r'\d+\.\d+\.\d+(-rc\.\d+)?', version), f'unexpected VERSION format: {version}'
-    assert manifest['version'] == version
-    assert manifest['package_profile'] == 'platform'
     assert manifest['package_contract']['scope'] == 'platform service package'
-    assert (ROOT / 'src/ai_model_serving/apps/gateway.py').exists()
-    assert (ROOT / 'src/ai_model_serving/apps/risk_adapter.py').exists()
 
 
 def test_model_source_facts_and_runtime_policy_are_separated() -> None:
     catalog = yaml.safe_load((ROOT / 'configs/model_catalog.yaml').read_text(encoding='utf-8'))['models']
-    serving = yaml.safe_load((ROOT / 'configs/model_serving.yaml').read_text(encoding='utf-8'))['models']
     main = catalog['local-main']
-    serving_main_limits = serving['main_llm']['resource_control']['request_limits']
     assert main['source_facts']['upstream_example']['tensor_parallel_size'] == 1
     # RedHatAI's 12B FP8-Dynamic eval example uses a $MAX_MODEL_LEN placeholder
     # (no concrete suggested value), unlike gemma4-26b-a4b-fp8's card which gives
@@ -75,15 +54,10 @@ def test_model_source_facts_and_runtime_policy_are_separated() -> None:
     assert main['project_runtime_policy']['max_num_batched_tokens'] == 50000
     assert main['project_runtime_policy']['optimization_level'] == 3
     assert main['project_runtime_policy']['gpu_memory_utilization'] == 0.76
-    assert main['project_runtime_policy']['max_image_inputs'] == 1
-    assert set(main['project_runtime_policy']['allowed_image_mime_types']) == set(serving_main_limits['allowed_image_mime_types'])
-    prompt = catalog['risk-prompt']
-    assert prompt['source_facts']['model_card_max_new_tokens'] == 1
-    for rel in ['local-main', 'local-embed', 'risk-prompt']:
-        card = json.loads((ROOT / f'model_cards/{rel}.json').read_text(encoding='utf-8'))
-        assert ('validation' + '_status') not in card
-        assert 'source_facts' in card
-        assert 'project_runtime_policy' in card
+    # max_image_inputs/allowed_image_mime_types 일치, risk-prompt의
+    # model_card_max_new_tokens==1, model_cards의 validation_status 금지 +
+    # source_facts/project_runtime_policy 존재는 governance_validation.model_config
+    # (make validate)이 이미 검증한다.
 
 
 def test_api_contract_matrix_has_auth_schema_and_exposure_columns() -> None:

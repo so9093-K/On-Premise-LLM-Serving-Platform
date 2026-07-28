@@ -136,7 +136,10 @@ def validate_version_bump_policy() -> None:
         )
     policy = (ROOT / 'docs/release/versioning_policy.md').read_text(encoding='utf-8')
     pkg_version = python_package_version(version)
-    required = list(dict.fromkeys([version, pkg_version, '운영 전', 'patch version 남발 금지', 'When not to bump VERSION']))
+    # '운영 전 ... patch version 남발 금지' 같은 정확한 문장 스냅샷 대신, 그 절이 속한
+    # 섹션 제목('When not to bump VERSION')만 요구한다 -- 실제 지켜야 할 것은 "이 규칙이
+    # 문서화돼 있다"는 것이지 문장의 정확한 표현이 아니다.
+    required = list(dict.fromkeys([version, pkg_version, 'When not to bump VERSION']))
     for phrase in required:
         if phrase not in policy:
             raise SystemExit(f'versioning policy missing required phrase: {phrase}')

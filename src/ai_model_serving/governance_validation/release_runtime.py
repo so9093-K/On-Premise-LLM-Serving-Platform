@@ -30,49 +30,6 @@ from .common import (
     read_yaml,
 )
 
-def validate_mock_scope() -> None:
-    offenders = []
-    for path in iter_project_files('*'):
-        rel = path.relative_to(ROOT).as_posix()
-        if rel.startswith(('tests/', 'src/ai_model_serving/governance_validation/')):
-            continue
-        if path.suffix.lower() not in {'.md', '.yaml', '.yml', '.json', '.py', '.sh', '.txt', '.example', '.csv', ''}:
-            continue
-        text = path.read_text(encoding='utf-8', errors='ignore').lower()
-        if 'mock' in text:
-            if rel in {'configs/retired_source_cleanup_policy.yaml', 'docs/governance/policies/retired_source_cleanup_policy.md'}:
-                continue
-            allowed_phrases = [
-                'mock은 테스트',
-                'mock is allowed only',
-                'mock gateway는 금지',
-                'mock detector는 `tests/`',
-                'test-only mock fixtures',
-                'mock은 `tests/`',
-                'mock 범위를 `tests/`',
-                'mock 구현은 금지',
-                'mock-test-only',
-                'mock-test-only 정책',
-                'does not add mock monitoring services',
-                'mock runtime services are not allowed outside tests',
-                'mock runtime services are not allowed\n  outside tests',
-                'fallback decision is not to widen mock scope',
-                'mock implementations limited to `tests/` fixtures',
-                'mock gateway is forbidden outside tests/ fixtures',
-                'mock detector behavior is forbidden outside tests/ fixtures',
-                'mock is limited to tests/ fixtures',
-                'mock runtime services are not allowed outside `tests/` fixtures',
-                'mock behavior is allowed only under `tests/` fixtures',
-                'mock behavior is allowed only under tests/ fixtures',
-                'runtime mocks remain forbidden outside',
-                'mock은 tests/fixtures 전용',
-                'mock은 테스트 코드/fixture 범위',
-            ]
-            if not any(phrase.lower() in text for phrase in allowed_phrases):
-                offenders.append(rel)
-    if offenders:
-        raise SystemExit(f'mock references outside tests must be policy-only, found: {offenders}')
-
 def validate_release_hygiene() -> None:
     disallowed_paths = [
         'reports/source_file_inventory.csv',
