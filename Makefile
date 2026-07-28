@@ -8,7 +8,7 @@ AUTH_ENV ?= $(if $(ENV_FILE),$(ENV_FILE),$(ENV))
 AUTH_ENV_ARG = $(if $(AUTH_ENV),--env $(AUTH_ENV),)
 
 
-.PHONY: help help-full help-json command-check guide init-env init-env-local init-env-compose init-env-local-force init-env-compose-force sync-runtime-secrets sync-env show-image-tags validate test test-full build build-pipeline build-image build-vllm-unified-image rebuild-app rebuild-vllm-unified package start up compose-up compose-up-master compose-up-private compose-down-private preflight-compose compose-config ready ready-local ready-full check-ready smoke runtime-validate runtime-targets storage-paths project-inventory refresh-generated-reports auth-status auth-doctor auth-plan auth-apply exposure-status exposure-plan exposure-apply monitoring-projection operator-status operator-reports live-evidence release-check release-check-full vllm-commands hf-config-check main-model-prepare risk-vllm-config-check risk-vllm-patch-removal-check model-inventory model-list model-status model-validate model-diff model-propose-add model-propose-remove status stop down compose-down compose-restart compose-logs logs compose-diagnostics clean clean-dry-run cleanup-plan remove-plan clean-all reset bootstrap first-run rebuild-full doctor reset-version infisical-up infisical-down infisical-logs infisical-init secrets-push secrets-push-sensitive secrets-pull secrets-status validate-docs docs-check reports-check feature-check feature-plan render-runtime-assets check-runtime-assets
+.PHONY: help help-full help-json command-check guide init-env init-env-local init-env-compose init-env-local-force init-env-compose-force sync-runtime-secrets sync-env show-image-tags validate test test-full build build-pipeline build-image build-vllm-unified-image rebuild-app rebuild-vllm-unified package start up compose-up compose-up-master compose-up-private compose-down-private preflight-compose compose-config ready ready-local ready-full check-ready smoke runtime-validate runtime-targets storage-paths project-inventory refresh-generated-reports auth-status auth-doctor auth-plan auth-apply exposure-status exposure-plan exposure-apply monitoring-projection operator-status operator-reports live-evidence release-check release-check-full vllm-commands hf-config-check main-model-prepare risk-vllm-config-check risk-vllm-patch-removal-check model-inventory model-list model-status model-validate model-diff model-propose-add model-propose-remove status stop down compose-down compose-restart compose-logs logs compose-diagnostics clean clean-dry-run cleanup-plan remove-plan clean-all reset bootstrap first-run rebuild-full doctor reset-version validate-docs docs-check reports-check feature-check feature-plan render-runtime-assets check-runtime-assets
 
 help:
 	@$(PYTHON) scripts/commands/render_command_help.py
@@ -272,54 +272,6 @@ doctor:
 reset-version:
 	@if [[ -z "$(NEW_VERSION)" ]]; then echo "Usage: make reset-version NEW_VERSION=0.1.0"; exit 2; fi
 	$(PYTHON) scripts/build/reset_version.py "$(NEW_VERSION)"
-
-# ── 시크릿 관리 (Infisical) ──────────────────────────────────────────────
-infisical-up:
-	@if [[ ! -f .env ]]; then \
-		echo "오류: .env 파일이 없습니다. make init-env-compose 를 먼저 실행하세요."; \
-		exit 2; \
-	fi
-	docker compose -f ops/compose/infisical.yaml --env-file .env up -d
-	@echo ""
-	@echo "Infisical 웹 UI: http://localhost:$$(grep '^INFISICAL_PORT=' .env | cut -d= -f2 || echo 9420)"
-
-infisical-down:
-	docker compose -f ops/compose/infisical.yaml --env-file .env down
-
-infisical-logs:
-	docker compose -f ops/compose/infisical.yaml --env-file .env logs -f --tail=100
-
-infisical-init:
-	@echo "=== Infisical Machine Identity 설정 가이드 ==="
-	@echo ""
-	@echo "사전 조건: make infisical-up 이 완료된 상태"
-	@echo ""
-	@echo "1. http://localhost:9420 접속 → 관리자 계정 생성"
-	@echo "2. Organization 생성 (예: ai-model-serving)"
-	@echo "3. Project 생성 (예: platform) — staging 환경 포함"
-	@echo "4. 좌측 사이드바 → Organization → Machine Identities → Create"
-	@echo "   - Universal Auth 선택"
-	@echo "   - Client ID, Client Secret 복사"
-	@echo "5. Project → Access Control → Machine Identities → Add"
-	@echo "   - 생성한 Machine Identity 추가 (Developer 이상 권한)"
-	@echo "6. Project → Settings → Project ID 복사"
-	@echo "7. .env 에 값 입력:"
-	@echo "   INFISICAL_CLIENT_ID=<4번에서 복사>"
-	@echo "   INFISICAL_CLIENT_SECRET=<4번에서 복사>"
-	@echo "   INFISICAL_PROJECT_ID=<6번에서 복사>"
-	@echo "8. make secrets-push 로 현재 .env 시크릿 동기화"
-
-secrets-push:
-	$(PYTHON) scripts/config/infisical_sync.py push
-
-secrets-push-sensitive:
-	$(PYTHON) scripts/config/infisical_sync.py push --secrets-only
-
-secrets-pull:
-	$(PYTHON) scripts/config/infisical_sync.py pull
-
-secrets-status:
-	$(PYTHON) scripts/config/infisical_sync.py status
 
 validate-docs:
 	$(PYTHON) scripts/validation/check_docs_links.py

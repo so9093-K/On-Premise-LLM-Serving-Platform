@@ -73,21 +73,6 @@ images:
       with the loki image above.
     mutable: true
     source: Grafana Promtail 3.3.x Docker tag family
-  infisical:
-    default: infisical/infisical:latest-postgres
-    purpose: Self-hosted secrets management UI and API (ops/compose/infisical.yaml).
-    mutable: true
-    source: Infisical Docker Hub latest-postgres tag
-  infisical_db:
-    default: postgres:16-alpine
-    purpose: PostgreSQL backend for Infisical.
-    mutable: true
-    source: Docker Hub official postgres 16 alpine
-  infisical_redis:
-    default: redis:7-alpine
-    purpose: Redis cache for Infisical.
-    mutable: true
-    source: Docker Hub official redis 7 alpine
 validation_policy:
   require_digest_before_production: true
   generated_by: scripts/config/setup_env.py

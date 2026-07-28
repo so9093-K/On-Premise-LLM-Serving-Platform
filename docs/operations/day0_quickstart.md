@@ -80,7 +80,6 @@ make ready-full
 
 bootstrap 완료 후 자동으로 수행되는 동작:
 - 스택이 이미 실행 중이면 `gateway`, `risk-adapter`를 재시작해 갱신된 토큰을 반영한다.
-- Infisical이 설정되어 있으면 새 시크릿을 Infisical에 자동 push한다.
 - `.env`에 `SECRETS_GENERATED_AT` 타임스탬프를 기록해 마지막 갱신 시각을 추적한다.
 
 `make ready-full`은 실제 upstream vLLM까지 준비되어야 성공한다. app-only 개발 환경에서는 실패가 정상이다.
@@ -189,42 +188,6 @@ make remove-plan     # 또는 make cleanup-plan
 `make remove-plan`과 `make cleanup-plan`은 `make clean-dry-run`의 읽기 쉬운 alias다.
 
 
-## 6. 시크릿 관리 Infisical (선택)
-
-API 토큰·비밀번호를 웹 UI에서 조회·관리하고 감사 로그를 남기고 싶다면 Infisical 자체 호스팅 스택을 추가로 기동한다. 메인 AI 서빙 스택과 분리된 독립 스택이므로, 설정하지 않아도 서비스 운영에 영향이 없다.
-
-### 초기 설정 (최초 1회)
-
-```bash
-# 1. compose용 .env 생성
-#    INFISICAL_AUTH_SECRET / INFISICAL_ENCRYPTION_KEY 는 여기서 자동 생성된다.
-make init-env-compose
-
-# 2. Infisical 스택 기동
-make infisical-up
-# → 웹 UI: http://localhost:9420
-
-# 3. 웹 UI에서 계정·프로젝트·Machine Identity 설정
-make infisical-init     # 단계별 가이드 출력
-
-# 4. .env에 CLIENT_ID, CLIENT_SECRET, PROJECT_ID 입력 후 동기화
-make secrets-push
-```
-
-> **주의:** `INFISICAL_AUTH_SECRET`, `INFISICAL_ENCRYPTION_KEY`는 최초 생성 후 절대 변경하지 않는다. 변경 시 기존 시크릿 복호화 불가.
-
-### 일상 운영
-
-```bash
-make secrets-status     # .env vs Infisical 상태 비교
-make secrets-push       # 토큰 갱신 후 Infisical에 반영
-make secrets-pull       # Infisical에서 .env 갱신
-```
-
-`make first-run`/`make bootstrap` 실행 시 Infisical이 설정되어 있으면 토큰 갱신 → `.env` 기록 → Infisical 자동 push → `gateway`/`risk-adapter` 재시작까지 한 번에 처리된다.
-
----
-
-## 7. Runtime secret directory와 테스트
+## 6. Runtime secret directory와 테스트
 
 `make init-env-compose`는 `.runtime/prometheus/admin_api_key`를 생성합니다. `.runtime/`은 로컬 compose secret directory이므로 작업 트리에 존재할 수 있습니다. `make clean-all`은 안전을 위해 기본적으로 `.runtime`을 보존합니다. 완전 재생성이 필요할 때만 `PURGE_RUNTIME_SECRETS=1 make clean-all`을 사용하세요. 릴리스 ZIP과 source handoff ZIP에는 `.runtime/`이 포함되면 안 됩니다.

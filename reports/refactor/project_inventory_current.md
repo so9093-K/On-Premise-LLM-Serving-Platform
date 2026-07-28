@@ -10,7 +10,7 @@ Command:
 
 이 리포트는 현재 source tree에서 생성되며 로컬 runtime/cache/build 디렉터리는 제외한다.
 
-- 검토 파일 수: **466**
+- 검토 파일 수: **464**
 - CSV matrix: `reports/refactor/project_inventory_current.csv`
 - JSON matrix: `reports/refactor/project_inventory_current.json`
 
@@ -39,12 +39,12 @@ Command:
 | `features` | 3 |
 | `harness` | 2 |
 | `model_cards` | 4 |
-| `ops` | 18 |
+| `ops` | 17 |
 | `pyproject.toml` | 1 |
 | `reports` | 20 |
 | `requirements.lock` | 1 |
 | `requirements.runtime.lock` | 1 |
-| `scripts` | 86 |
+| `scripts` | 85 |
 | `specs` | 15 |
 | `src` | 115 |
 | `tests` | 94 |
@@ -69,7 +69,7 @@ Command:
 | `specs/openapi.gateway.yaml` | 7072 | api-contracts | supporting project file |
 | `reports/refactor/project_inventory_current.json` | 5387 | handoff-reporting | handoff/review artifact; avoid stale phase snapshots in active package |
 | `specs/openapi.risk-adapter.yaml` | 2436 | api-contracts | supporting project file |
-| `configs/command_registry.yaml` | 2173 | configuration | configuration source; validate through governance and projection checks after edits |
+| `configs/command_registry.yaml` | 1992 | configuration | configuration source; validate through governance and projection checks after edits |
 | `scripts/ci/deploy_gitlab_compose.sh` | 1138 | operator-ux | operator/developer command; expose through Makefile/help if user-facing |
 | `src/ai_model_serving/main_model_control.py` | 1027 | application | application code; preserve public API behavior and compatibility facades |
 | `tests/unit/test_main_model_control.py` | 993 | quality | test coverage; keep deterministic and avoid live GPU dependency |

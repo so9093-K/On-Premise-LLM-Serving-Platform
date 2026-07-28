@@ -26,7 +26,6 @@
 | GPU 없이 코드·API만 확인하고 싶다 | [operations/day0_quickstart.md §1](operations/day0_quickstart.md#1-app-only-확인) |
 | GPU 서버에서 full-stack을 올리고 싶다 | [operations/day0_quickstart.md §2](operations/day0_quickstart.md#2-full-stack-확인) |
 | 전체 초기화·재빌드를 하고 싶다 | [operations/day0_quickstart.md §4](operations/day0_quickstart.md#4-전체-초기화--재빌드-ux) |
-| **시크릿·API 토큰을 웹 UI로 관리하고 싶다** | [operations/day0_quickstart.md §6](operations/day0_quickstart.md#6-시크릿-관리-infisical-선택) |
 | 인증·admin/metrics/docs 노출 정책을 보고 싶다 | [operations/auth_control_plane.md](operations/auth_control_plane.md), [operations/admin_metrics_docs_exposure_policy.md](operations/admin_metrics_docs_exposure_policy.md) |
 | runtime validation URL/env 우선순위를 확인하고 싶다 | [operations/runtime_validation_operations.md#설정-우선순위](operations/runtime_validation_operations.md#설정-우선순위) |
 | 상황별 명령을 고르고 싶다 | [operations/operator_workflows.md](operations/operator_workflows.md) |
@@ -126,8 +125,6 @@ make start         # 로컬 app-only 기동
 make compose-up    # full-stack compose 기동
 make ready-local   # 로컬 health 확인
 make ready-full    # full-stack readiness 확인
-make infisical-up  # 시크릿 관리 UI 기동 (선택)
-make secrets-push  # .env → Infisical 동기화
 make project-inventory # 전체 파일·문서·관리 inventory 생성
 make operator-reports # 운영 산출물 통합 생성
 ```

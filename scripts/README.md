@@ -34,7 +34,7 @@ make stop
 | `build/` | bootstrap, image build, package, Python/version checks |
 | `ci/` | GitLab CI/CD deploy entrypoint |
 | `compose/` | full-stack compose preflight, up, diagnostics, compose validation |
-| `config/` | `.env` 생성과 Infisical 동기화 |
+| `config/` | `.env` 생성 |
 | `models/` | model registry CLI, vLLM command rendering, HF/risk image checks |
 | `ops/` | start/stop/status/ready/smoke/reset/clean 같은 운영 명령 |
 | `reports/` | runtime target, storage path, monitoring, operator status/evidence reports, feature plan |

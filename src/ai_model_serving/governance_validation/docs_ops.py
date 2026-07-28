@@ -45,16 +45,12 @@ def validate_doc_invariants() -> None:
     if 'ADR-0001' not in source_review or '별도 파일로 유지하지 않는다' not in source_review:
         raise SystemExit('project background must explain ADR-0001 cleanup decision')
     day0 = (ROOT / 'docs/operations/day0_quickstart.md').read_text(encoding='utf-8')
-    if '.env.infisical.example' in day0 or '.env.infisical' in day0:
-        raise SystemExit('day0 quickstart must use generated .env for Infisical, not stale Infisical-only env files')
     for phrase in [
-        '## 6. 시크릿 관리 Infisical (선택)',
         'make init-env-compose',
-        'INFISICAL_AUTH_SECRET / INFISICAL_ENCRYPTION_KEY 는 여기서 자동 생성된다',
-        '## 7. Runtime secret directory와 테스트',
+        '## 6. Runtime secret directory와 테스트',
     ]:
         if phrase not in day0:
-            raise SystemExit(f'day0 quickstart missing current Infisical/runtime-secret phrase: {phrase}')
+            raise SystemExit(f'day0 quickstart missing current runtime-secret phrase: {phrase}')
     for rel in ['reports/refactor/current_refactor_state.md', 'reports/refactor/current_handoff_summary.md']:
         if not (ROOT / rel).exists():
             raise SystemExit(f'current handoff entrypoint missing: {rel}')

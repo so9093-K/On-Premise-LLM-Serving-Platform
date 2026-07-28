@@ -96,18 +96,12 @@ GENERATED_SECRET_KEYS = {
     "INTERNAL_SERVICE_AUTH_REQUIRED",
     "AUTH_MODE",
     "EXPOSURE_MODE",
-    "INFISICAL_AUTH_SECRET",
-    "INFISICAL_ENCRYPTION_KEY",
 }
 # GRAFANA_ADMIN_PASSWORD는 GENERATED_SECRET_KEYS에서 의도적으로 제외됩니다.
 # 최초 init 시 한 번 설정되고 이후 bootstrap을 다시 돌려도 보존되는, 사람이 쓰는
 # 자격 증명이기 때문입니다. 서비스 간 토큰(위 목록)은 bootstrap마다 재발급되지만,
 # Grafana admin 비밀번호는 운영자의 세션 도중 조용히 바뀌면 안 됩니다.
 #
-# INFISICAL_AUTH_SECRET, INFISICAL_ENCRYPTION_KEY는 GENERATED_SECRET_KEYS에 포함되어
-# 최초 init 시 생성되지만, ALWAYS_REFRESH_KEYS에서는 제외되어 --force로 재실행해도
-# 재발급되지 않습니다. 최초 init 이후 이 값들을 변경하면 저장된 모든 시크릿이
-# 사라집니다(Infisical이 다른 키로는 복호화할 수 없기 때문).
 # EXPOSURE_AUDIENCE는 항상 EXPOSURE_MODE와 함께 갱신되어야 합니다(아래
 # GENERATED_SECRET_KEYS에서): generated_values()가 둘을 쌍으로 검증하지만
 # (예: local_open은 master_open + private_lan을 요구), 이 검증은 새로 생성된
@@ -121,7 +115,7 @@ ALWAYS_REFRESH_KEYS = {
     "SECRETS_GENERATED_AT",
     "EXPOSURE_AUDIENCE",
     *AUTH_PROFILE_ENV_KEYS,
-} | (GENERATED_SECRET_KEYS - {"INFISICAL_AUTH_SECRET", "INFISICAL_ENCRYPTION_KEY"})
+} | GENERATED_SECRET_KEYS
 
 RETIRED_ENV_KEYS = {
     "RISK_SIREN_BASE_URL",
@@ -384,8 +378,6 @@ def generated_values(
             "BUILD_PROFILE": "compose",
             "GRAFANA_ADMIN_USER": "admin",
             "GRAFANA_ANONYMOUS_ENABLED": "false",
-            "INFISICAL_AUTH_SECRET": secrets.token_hex(32),
-            "INFISICAL_ENCRYPTION_KEY": secrets.token_hex(16),
         })
         values.update(auth_profile_env_values(effective_auth_mode))
         values.update(recommended_images())

@@ -17,14 +17,12 @@
 | **Grafana** | `http://localhost:9411` | 운영 대시보드 |
 | **Prometheus** | compose 내부 전용 (내부 9090, SSH 포워딩 시 호스트 9410) | Metrics 수집·쿼리 |
 | DCGM Exporter | compose 내부 전용 (9400, DCGM 기본 포트 — host publish 없음) | GPU raw metrics |
-| **Infisical** | `http://localhost:9420` | 시크릿 관리 웹 UI (선택) |
 
 > `full-stack.private-network.yaml` 기준: vLLM runtime(main-llm-vllm 9401, embedding-vllm 9402, risk-prompt-vllm 9403, embedding-ko-vllm 9406), Risk Adapter(9405), Prometheus, cAdvisor, DCGM Exporter는 compose 내부 네트워크 전용이며 host에서 직접 접근하지 않는다.  
 > `master_open`에서는 신뢰된 사내망의 직접 사용을 위해 이 포트들을 host-publish하므로 Gateway 인증,
 > request validation, rate limit, access logging을 우회할 수 있다. 일반 사용자
 > API가 아니며 `EXPOSURE_AUDIENCE`와 interface bind로 접근 범위를 제한한다.
-> Prometheus에 직접 접근하려면 SSH 포트 포워딩(`ssh -L 9410:localhost:9090 <host>`)을 사용한다. Grafana는 Prometheus 데이터를 UI로 제공하므로 대부분의 metrics 조회는 Grafana를 통한다.  
-> Infisical은 선택 서비스로 `make infisical-up`으로 별도 기동한다.
+> Prometheus에 직접 접근하려면 SSH 포트 포워딩(`ssh -L 9410:localhost:9090 <host>`)을 사용한다. Grafana는 Prometheus 데이터를 UI로 제공하므로 대부분의 metrics 조회는 Grafana를 통한다.
 
 ---
 
@@ -200,32 +198,6 @@ sum(increase(http_requests_total{service="gateway",status_code=~"5.."}[5m]))
 ```
 
 Prometheus 자체 `/targets` 페이지에서 scrape 상태를 확인한다 (포트 포워딩 후 `http://localhost:9410/targets`).
-
----
-
-## 시크릿 관리 (Infisical)
-
-Infisical은 선택적 자체 호스팅 시크릿 관리 서비스다. 웹 UI에서 API 토큰·비밀번호를 조회·관리하고 감사 로그를 확인할 수 있다.
-
-```bash
-# Infisical 스택 기동
-make infisical-up           # → http://localhost:9420
-
-# 초기 설정 가이드
-make infisical-init
-
-# .env 시크릿 → Infisical 동기화
-make secrets-push           # 전체 동기화
-make secrets-push-sensitive # 토큰·비밀번호 등 민감 값만
-
-# Infisical → .env 갱신
-make secrets-pull
-
-# 현재 동기화 상태 확인
-make secrets-status
-```
-
-Infisical 없이도 `.env`만으로 정상 운영된다. `make first-run`/`make bootstrap` 실행 시 Infisical이 설정되어 있으면 자동으로 push까지 처리한다.
 
 ---
 

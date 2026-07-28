@@ -182,14 +182,6 @@ if compose_context_run ps --status running --quiet 2>/dev/null | grep -q .; then
   echo "[bootstrap] gateway/admin-sidecar/risk-adapter 재시작 완료"
 fi
 
-if [[ -f .env ]]; then
-  infisical_client_id="$(grep -E '^INFISICAL_CLIENT_ID=' .env | cut -d= -f2- || true)"
-  if [[ -n "$infisical_client_id" ]]; then
-    echo "[bootstrap] Infisical에 갱신된 시크릿을 동기화합니다"
-    "$VENV_PYTHON" scripts/config/infisical_sync.py push || echo "[bootstrap] Infisical 동기화 실패 (비필수 — 스택은 정상 기동됩니다)" >&2
-  fi
-fi
-
 echo ""
 echo "[bootstrap] done."
 if [[ -z "$resolved_token" ]]; then

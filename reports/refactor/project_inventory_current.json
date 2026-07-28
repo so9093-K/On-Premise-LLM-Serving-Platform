@@ -1,6 +1,6 @@
 {
   "summary": {
-    "total_files": 466,
+    "total_files": 464,
     "by_area": {
       ".dockerignore": 1,
       ".env": 1,
@@ -23,12 +23,12 @@
       "features": 3,
       "harness": 2,
       "model_cards": 4,
-      "ops": 18,
+      "ops": 17,
       "pyproject.toml": 1,
       "reports": 20,
       "requirements.lock": 1,
       "requirements.runtime.lock": 1,
-      "scripts": 86,
+      "scripts": 85,
       "specs": 15,
       "src": 115,
       "tests": 94,
@@ -38,7 +38,7 @@
       "OpenAPI/JSON schema contract": 15,
       "application/control-plane source": 115,
       "architecture decision record": 14,
-      "compose/monitoring/runtime ops template": 18,
+      "compose/monitoring/runtime ops template": 17,
       "configuration source of truth": 19,
       "contract registry": 2,
       "current handoff/review report": 5,
@@ -47,7 +47,7 @@
       "historical documentation archive": 3,
       "historical report archive": 4,
       "model card metadata": 4,
-      "operator/developer command surface": 86,
+      "operator/developer command surface": 85,
       "project metadata": 24,
       "runtime validation harness plan/matrix": 2,
       "runtime/operator generated report": 11,
@@ -61,8 +61,8 @@
       "domain-registry": 6,
       "governance-validation": 10,
       "handoff-reporting": 20,
-      "operations": 18,
-      "operator-ux": 86,
+      "operations": 17,
+      "operator-ux": 85,
       "project-maintenance": 32,
       "quality": 94,
       "runtime-validation": 14
@@ -72,9 +72,9 @@
       "documentation": 79,
       "entrypoint": 9,
       "environment-template": 5,
-      "python-source": 263,
+      "python-source": 262,
       "shell-command": 30,
-      "structured-data": 67,
+      "structured-data": 66,
       "supporting-file": 11
     },
     "large_files_by_line_count": [
@@ -95,7 +95,7 @@
         "category": "current handoff/review report",
         "owner": "handoff-reporting",
         "management": "generated/curated for handoff review",
-        "size_bytes": 192850,
+        "size_bytes": 192849,
         "line_count": 5387,
         "role": "structured-data",
         "review_note": "handoff/review artifact; avoid stale phase snapshots in active package"
@@ -117,8 +117,8 @@
         "category": "configuration source of truth",
         "owner": "configuration",
         "management": "managed by configuration lifecycle",
-        "size_bytes": 58294,
-        "line_count": 2173,
+        "size_bytes": 53610,
+        "line_count": 1992,
         "role": "structured-data",
         "review_note": "configuration source; validate through governance and projection checks after edits"
       },
@@ -285,8 +285,8 @@
       "category": "project metadata",
       "owner": "project-maintenance",
       "management": "managed by root project metadata",
-      "size_bytes": 9714,
-      "line_count": 195,
+      "size_bytes": 9032,
+      "line_count": 181,
       "role": "environment-template",
       "review_note": "supporting project file"
     },
@@ -384,8 +384,8 @@
       "category": "project metadata",
       "owner": "project-maintenance",
       "management": "managed by root project metadata",
-      "size_bytes": 12675,
-      "line_count": 351,
+      "size_bytes": 10589,
+      "line_count": 303,
       "role": "build-command",
       "review_note": "supporting project file"
     },
@@ -461,8 +461,8 @@
       "category": "configuration source of truth",
       "owner": "configuration",
       "management": "managed by configuration lifecycle",
-      "size_bytes": 58294,
-      "line_count": 2173,
+      "size_bytes": 53610,
+      "line_count": 1992,
       "role": "structured-data",
       "review_note": "configuration source; validate through governance and projection checks after edits"
     },
@@ -593,8 +593,8 @@
       "category": "configuration source of truth",
       "owner": "configuration",
       "management": "managed by configuration lifecycle",
-      "size_bytes": 4165,
-      "line_count": 93,
+      "size_bytes": 3631,
+      "line_count": 78,
       "role": "structured-data",
       "review_note": "configuration source; validate through governance and projection checks after edits"
     },
@@ -736,8 +736,8 @@
       "category": "documentation",
       "owner": "documentation",
       "management": "managed by documentation map",
-      "size_bytes": 9531,
-      "line_count": 133,
+      "size_bytes": 9256,
+      "line_count": 130,
       "role": "entrypoint",
       "review_note": "primary navigation or current-state entrypoint; keep synchronized with Makefile and reports"
     },
@@ -1132,8 +1132,8 @@
       "category": "documentation",
       "owner": "documentation",
       "management": "managed by documentation map",
-      "size_bytes": 10049,
-      "line_count": 230,
+      "size_bytes": 8571,
+      "line_count": 193,
       "role": "entrypoint",
       "review_note": "primary navigation or current-state entrypoint; keep synchronized with Makefile and reports"
     },
@@ -1143,8 +1143,8 @@
       "category": "documentation",
       "owner": "documentation",
       "management": "managed by documentation map",
-      "size_bytes": 17461,
-      "line_count": 259,
+      "size_bytes": 16509,
+      "line_count": 231,
       "role": "documentation",
       "review_note": "documentation; keep relative links valid and avoid duplicating current command flow"
     },
@@ -1154,8 +1154,8 @@
       "category": "documentation",
       "owner": "documentation",
       "management": "managed by documentation map",
-      "size_bytes": 11008,
-      "line_count": 256,
+      "size_bytes": 10913,
+      "line_count": 255,
       "role": "documentation",
       "review_note": "documentation; keep relative links valid and avoid duplicating current command flow"
     },
@@ -1165,8 +1165,8 @@
       "category": "documentation",
       "owner": "documentation",
       "management": "managed by documentation map",
-      "size_bytes": 11534,
-      "line_count": 103,
+      "size_bytes": 11292,
+      "line_count": 102,
       "role": "documentation",
       "review_note": "documentation; keep relative links valid and avoid duplicating current command flow"
     },
@@ -1523,17 +1523,6 @@
       "review_note": "supporting project file"
     },
     {
-      "path": "ops/compose/infisical.yaml",
-      "area": "ops",
-      "category": "compose/monitoring/runtime ops template",
-      "owner": "operations",
-      "management": "managed by operator templates",
-      "size_bytes": 2199,
-      "line_count": 69,
-      "role": "structured-data",
-      "review_note": "supporting project file"
-    },
-    {
       "path": "ops/compose/overrides/exposure.master-open.yaml",
       "area": "ops",
       "category": "compose/monitoring/runtime ops template",
@@ -1792,7 +1781,7 @@
       "category": "current handoff/review report",
       "owner": "handoff-reporting",
       "management": "generated/curated for handoff review",
-      "size_bytes": 95014,
+      "size_bytes": 95013,
       "line_count": 467,
       "role": "structured-data",
       "review_note": "handoff/review artifact; avoid stale phase snapshots in active package"
@@ -1803,7 +1792,7 @@
       "category": "current handoff/review report",
       "owner": "handoff-reporting",
       "management": "generated/curated for handoff review",
-      "size_bytes": 192850,
+      "size_bytes": 192849,
       "line_count": 5387,
       "role": "structured-data",
       "review_note": "handoff/review artifact; avoid stale phase snapshots in active package"
@@ -1968,7 +1957,7 @@
       "category": "operator/developer command surface",
       "owner": "operator-ux",
       "management": "managed by Makefile command UX",
-      "size_bytes": 13352,
+      "size_bytes": 13329,
       "line_count": 169,
       "role": "documentation",
       "review_note": "operator/developer command; expose through Makefile/help if user-facing"
@@ -2067,8 +2056,8 @@
       "category": "operator/developer command surface",
       "owner": "operator-ux",
       "management": "managed by Makefile command UX",
-      "size_bytes": 8530,
-      "line_count": 200,
+      "size_bytes": 8131,
+      "line_count": 192,
       "role": "shell-command",
       "review_note": "operator/developer command; expose through Makefile/help if user-facing"
     },
@@ -2304,24 +2293,13 @@
       "review_note": "operator/developer command; expose through Makefile/help if user-facing"
     },
     {
-      "path": "scripts/config/infisical_sync.py",
-      "area": "scripts",
-      "category": "operator/developer command surface",
-      "owner": "operator-ux",
-      "management": "managed by Makefile command UX",
-      "size_bytes": 9054,
-      "line_count": 253,
-      "role": "python-source",
-      "review_note": "operator/developer command; expose through Makefile/help if user-facing"
-    },
-    {
       "path": "scripts/config/setup_env.py",
       "area": "scripts",
       "category": "operator/developer command surface",
       "owner": "operator-ux",
       "management": "managed by Makefile command UX",
-      "size_bytes": 22485,
-      "line_count": 520,
+      "size_bytes": 21859,
+      "line_count": 512,
       "role": "python-source",
       "review_note": "operator/developer command; expose through Makefile/help if user-facing"
     },
@@ -3651,8 +3629,8 @@
       "category": "application/control-plane source",
       "owner": "governance-validation",
       "management": "managed by package source layout",
-      "size_bytes": 39997,
-      "line_count": 610,
+      "size_bytes": 39653,
+      "line_count": 606,
       "role": "python-source",
       "review_note": "application code; preserve public API behavior and compatibility facades"
     },
