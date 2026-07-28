@@ -116,7 +116,7 @@ make auth-doctor
 make exposure-status
 make exposure-status EXPOSURE_MODE=master_open
 make preflight-compose
-make release-check
+make validate
 ```
 
 `make auth-status`는 docs/openapi, admin endpoint, observability host-published service 상태와 EXPOSURE_MODE 정보를 보여준다. `make auth-doctor`는 non-local 환경에서 공개/admin/내부 endpoint가 열리는 위험 조합과 exposure diagnostics를 경고 또는 실패로 표시한다.

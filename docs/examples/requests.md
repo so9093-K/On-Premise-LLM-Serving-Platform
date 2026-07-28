@@ -227,7 +227,7 @@ curl -s http://127.0.0.1:9405/v1/risk/detectors/prompt/assessments \
 ## PII Protection Detector 검증
 
 `/v1/risk/detectors/pii/assessments` — 개인정보 노출 탐지 (D1, D2, D3, D5)  
-로컬 탐지: Presidio Analyzer(optional) + Korean custom recognizer
+로컬 탐지: 한국형 식별자·이메일·전화번호·IP 정규식
 
 ### D1 — 주민등록번호 탐지 (Personal Identifier)
 
@@ -320,4 +320,3 @@ curl -s -o /dev/null -w "%{http_code}" \
   -H "Content-Type: application/json" \
   -d '{"prompt":"테스트"}'
 ```
-

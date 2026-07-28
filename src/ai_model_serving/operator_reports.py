@@ -31,7 +31,7 @@ def runtime_targets_markdown(document: dict[str, Any]) -> str:
         "- configs/model_serving.yaml",
         "Command:",
         "- make runtime-targets",
-        "- make release-check",
+        "- make validate",
         "-->",
         "",
         "# 런타임 대상 인벤토리",

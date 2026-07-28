@@ -7,14 +7,14 @@
 ```bash
 make guide
 make operator-reports
-make release-check
+make validate
 ```
 
 | 목적 | 명령 | 산출물 |
 |---|---|---|
 | 상황별 명령 선택 | `make guide` | 터미널 가이드 |
 | 운영 report 통합 갱신 | `make operator-reports` | `reports/runtime/*.json`, `reports/runtime/*.md` |
-| 정적 릴리스 gate | `make release-check` | contract/projection/evidence 검증 |
+| 실행 전 정적 검증 | `make validate` | contract/projection/evidence 검증 |
 
 ## 2. 관리 기준 문서
 
@@ -34,8 +34,8 @@ make release-check
 문서를 수정한 뒤에는 다음을 실행한다.
 
 ```bash
-python scripts/validation/validate_contracts.py
-python scripts/validation/release_check.py
+make validate
+make test
 ```
 
 필수 원칙:
@@ -50,7 +50,7 @@ python scripts/validation/release_check.py
 
 ```bash
 make operator-reports   # runtime/storage/monitoring/status/evidence 상태
-make release-check      # 정적 release gate
+make validate           # 실행 전 정적 검증
 ```
 
 GPU 서버에서 runtime까지 갱신하는 경우:
@@ -58,10 +58,10 @@ GPU 서버에서 runtime까지 갱신하는 경우:
 ```bash
 make runtime-validate
 make operator-reports
-make release-check
+make validate
 ```
 
-`make release-check-full`은 deterministic tests까지 포함하므로 CI나 장시간 실행 가능한 서버에서 사용한다.
+`make validate`와 `make test`는 각각 독립 실행할 수 있으며, CI와 릴리스에서는 두 명령을 모두 실행한다.
 
 ## 5. 정리 기준
 

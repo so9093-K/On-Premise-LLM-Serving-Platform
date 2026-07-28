@@ -18,7 +18,7 @@ Risk Adapter와 detector endpoint는 위험 신호만 반환한다. `decision`, 
 
 | Detector | 유형 | Risk Codes |
 |---|---|---|
-| PII Protection (`pii`) | local (presidio + regex) | D1, D2, D3, D5 |
+| PII Protection (`pii`) | local (regex) | D1, D2, D3, D5 |
 | Secret Exposure (`secret`) | local (regex + entropy) | D4, D5 |
 | Prompt (`risk-prompt`) | vLLM | A1, A2 |
 
@@ -37,5 +37,5 @@ Risk Adapter와 detector endpoint는 위험 신호만 반환한다. `decision`, 
 | signal과 policy action의 책임이 분리됨 | Product policy는 별도 구현 필요 |
 | 테스트가 명확함 | Gateway만으로 차단 정책을 제공하지 않음 |
 | 정책 책임 분리 | 사용자 요구 시 별도 policy 문서 필요 |
-| PII/Secret 탐지가 같은 aggregate contract 안에서 동작 | Presidio 미설치 시 Korean custom recognizer만 동작 |
+| PII/Secret 탐지가 같은 aggregate contract 안에서 동작 | PII는 정규식으로 표현 가능한 신호만 탐지 |
 | 원문 민감값이 응답/로그에 남지 않음 | — |

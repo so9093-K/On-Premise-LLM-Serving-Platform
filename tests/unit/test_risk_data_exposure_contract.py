@@ -41,7 +41,7 @@ def _data_exposure_category(
     label: str | None,
     detected: bool,
     span_count: int | None = 0,
-    source_model: str = "presidio-analyzer",
+    source_model: str = "pii-protection",
 ) -> dict:
     return {
         "code": code,
@@ -105,7 +105,7 @@ class TestDataExposureCategoryValidator:
             "family": "prompt_attack",  # wrong family
             "detected": True,
             "confidence": None,
-            "source_model": "presidio-analyzer",
+            "source_model": "pii-protection",
             "label": "KR_RRN",
             "span_count": 1,
         }
@@ -205,7 +205,7 @@ class TestValidateRiskResponseWithDataExposure:
 
     def test_d1_through_d5_are_all_valid_strongest_codes(self):
         for code in ["D1", "D2", "D3", "D4", "D5"]:
-            source = "presidio-analyzer" if code != "D4" else "secret-scanner"
+            source = "pii-protection" if code != "D4" else "secret-scanner"
             label_map = {"D1": "KR_RRN", "D2": "EMAIL_ADDRESS", "D3": "CREDIT_CARD",
                          "D4": "OPENAI_API_KEY", "D5": "IP_ADDRESS"}
             cat = _data_exposure_category(code, label_map[code], True, span_count=1, source_model=source)

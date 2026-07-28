@@ -2,7 +2,7 @@
 
 테스트는 validator와 생성 산출물 검사를 먼저 두고, pytest는 source-of-truth invariant와
 핵심 decision function을 검증하는 쪽으로 유지한다. 운영 환경을 실제로 쓰는 검증은
-정적 release gate와 분리한다.
+실행 전 정적 검증과 분리한다.
 
 ## Unit test / 단위 테스트
 
@@ -29,7 +29,7 @@ Exposure policy처럼 service classification이 필요한 검증은 `configs/ser
 ## Smoke test / 스모크
 
 `make smoke`는 배포된 서비스의 핵심 API 경로를 빠르게 확인한다. running service가 필요하므로
-정적 release gate나 기본 pytest에 섞지 않는다.
+실행 전 정적 검증이나 기본 pytest에 섞지 않는다.
 
 ## Runtime validation / 런타임 검증
 
@@ -100,20 +100,18 @@ PII Protection과 Secret Exposure Signal은 다음 테스트로 검증한다.
 
 | 목적 | 명령 | 포함 |
 |---|---|---|
-| 빠른 개발 루프 | `make test` | 결정론적 pytest, `slow/runtime/docker/gpu` 제외 |
-| 전체 결정론적 pytest | `make test-full` | `runtime/docker/gpu` 제외, `slow` 포함 |
-| 정적 릴리스 gate | `make release-check` | source drift, docs/env/compose/runtime config-only |
-| 정적 gate + 결정론적 pytest | `make release-check-full` | `release-check` + `make test-full` 상당 |
+| 실행 전 정적 검증 | `make validate` | source drift, docs/env/compose/runtime config-only |
+| 결정론적 pytest | `make test` | unit·contract pytest, `runtime/docker/gpu` 제외 |
 | live 운영 증빙 | `make runtime-validate` | live service, Docker/GPU/vLLM 환경 |
 
-## Release gate 역할
+## 정적 검증 역할
 
-`make release-check`는 source-of-truth drift, generated artifact drift, docs exposure
+`make validate`는 source-of-truth drift, generated artifact drift, docs exposure
 semantic drift, env contract, OpenAPI snapshot, runtime config-only 정합성을 확인한다.
 Docker/GPU는 필요하지 않다.
 
-`make release-check-full`은 정적 gate 뒤 deterministic pytest를 실행한다. live GPU나
-live vLLM을 가정하지 않는다.
+`make test`는 unit·contract deterministic pytest를 실행한다. live GPU나 live vLLM을
+가정하지 않는다.
 
 `make runtime-validate`는 live services와 Docker/GPU/vLLM 상태를 운영 증빙으로 남기는
 별도 단계다.

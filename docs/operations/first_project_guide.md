@@ -62,7 +62,6 @@ GPU/vLLM 없이 Gateway와 Risk Adapter process만 확인한다.
 ```bash
 python3.12 -m venv .venv
 source .venv/bin/activate
-python3.12 -m pip install --upgrade pip
 python3.12 -m pip install --requirement requirements.lock
 python3.12 -m pip install --no-deps -e ".[contract]"
 
@@ -93,7 +92,8 @@ make compose-up
 make ready-full
 make runtime-validate
 make operator-reports
-make release-check-full
+make validate
+make test
 make compose-down
 ```
 
@@ -181,7 +181,7 @@ make validate
 python scripts/validation/openapi_snapshot_diff.py
 ```
 
-Gateway/Risk Adapter generated OpenAPI는 FastAPI 기본 schema만 믿지 않고 checked-in schema를 주입한다. request/response schema, security, summary, description drift는 release gate에서 잡아야 한다.
+Gateway/Risk Adapter generated OpenAPI는 FastAPI 기본 schema만 믿지 않고 checked-in schema를 주입한다. request/response schema, security, summary, description drift는 정적 검증에서 잡아야 한다.
 
 ## 9. Risk vLLM patch lifecycle 확인
 
@@ -222,7 +222,8 @@ make compose-diagnostics
 ## 11. 릴리스/패키징 전 확인
 
 ```bash
-make release-check-full
+make validate
+make test
 make package
 ```
 
@@ -245,7 +246,7 @@ make package
 - [ ] `make auth-status`, `make auth-doctor`로 인증 상태를 확인했다.
 - [ ] `make model-status`, `make model-validate`로 모델 registry 상태를 확인했다.
 - [ ] `make remove-plan`으로 삭제 범위를 먼저 봤다.
-- [ ] 릴리스 전 `make release-check-full`, `make package`를 실행했다.
+- [ ] 릴리스 전 `make validate`, `make test`, `make package`를 실행했다.
 
 
 ## 노출 정책과 runtime 검증 설정

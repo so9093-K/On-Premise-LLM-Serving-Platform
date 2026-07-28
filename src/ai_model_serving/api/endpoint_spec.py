@@ -218,12 +218,11 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
         tag="Risk",
         summary="PII Protection 탐지 신호",
         description=(
-            "**PII Protection detector** — Presidio Analyzer(optional) + Korean custom recognizer 기반 로컬 탐지.\n\n"
+            "**PII Protection detector** — 한국형 식별자·이메일·전화번호·IP 정규식 기반 로컬 탐지.\n\n"
             "탐지 코드:\n"
-            "- **D1** Personal Identifier: KR_RRN, KR_FRN, KR_PASSPORT, KR_DRIVER_LICENSE, PERSON\n"
-            "- **D2** Contact and Location: EMAIL_ADDRESS, PHONE_NUMBER, ADDRESS\n"
-            "- **D3** Financial Identifier: CREDIT_CARD\n"
-            "- **D5** Network/Infrastructure: IP_ADDRESS, URL\n\n"
+            "- **D1** Personal Identifier: KR_RRN, KR_FRN, KR_PASSPORT, KR_DRIVER_LICENSE\n"
+            "- **D2** Contact: EMAIL_ADDRESS, PHONE_NUMBER\n"
+            "- **D5** Network/Infrastructure: IP_ADDRESS\n\n"
             "원문 PII 값은 응답에 포함되지 않습니다. `span_count`로 entity별 탐지 개수를 제공합니다.\n"
             "탐지 결과는 최종 정책 판단이 아닌 진단 signal로 취급합니다."
         ),
@@ -548,12 +547,11 @@ RISK_ADAPTER_ENDPOINTS: list[EndpointSpec] = [
         tag="Risk Signal",
         summary="PII Protection detector 신호 — 개인정보 노출 탐지",
         description=(
-            "**PII Protection detector** — Presidio Analyzer(optional) + Korean custom recognizer 기반 로컬 탐지.\n\n"
+            "**PII Protection detector** — 한국형 식별자·이메일·전화번호·IP 정규식 기반 로컬 탐지.\n\n"
             "탐지 코드:\n"
-            "- **D1** Personal Identifier: KR_RRN, KR_FRN, KR_PASSPORT, KR_DRIVER_LICENSE, PERSON\n"
-            "- **D2** Contact and Location: EMAIL_ADDRESS, PHONE_NUMBER, ADDRESS\n"
-            "- **D3** Financial Identifier: CREDIT_CARD\n"
-            "- **D5** Network/Infrastructure: IP_ADDRESS, URL\n\n"
+            "- **D1** Personal Identifier: KR_RRN, KR_FRN, KR_PASSPORT, KR_DRIVER_LICENSE\n"
+            "- **D2** Contact: EMAIL_ADDRESS, PHONE_NUMBER\n"
+            "- **D5** Network/Infrastructure: IP_ADDRESS\n\n"
             "응답에 원문 PII 값을 포함하지 않습니다. `span_count`로 entity별 탐지 개수를 제공합니다.\n"
             "탐지 결과는 최종 정책 판단이 아닌 진단 signal로 취급합니다."
         ),

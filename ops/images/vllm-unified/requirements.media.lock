@@ -1,0 +1,16 @@
+# Exact media decode dependency closure verified in the deployed vLLM unified image.
+audioread==3.1.0
+av==17.1.0
+decorator==5.3.1
+joblib==1.5.3
+lazy-loader==0.5
+librosa==0.10.2.post1
+msgpack==1.2.1
+narwhals==2.24.0
+platformdirs==4.11.0
+pooch==1.9.0
+scikit-learn==1.9.0
+scipy==1.18.0
+soundfile==0.12.1
+soxr==1.1.0
+threadpoolctl==3.6.0

@@ -21,7 +21,7 @@ Chat, Embedding, Retrieval, Risk Signal 기능을 Gateway 하나로 제공하는
 | GPU 서버에서 전체 model runtime 실행 | [Full-stack](#full-stack-gpu-서버에서-전체-runtime-실행) | `make ready-full` |
 | 모델 구성 확인 | Model registry | `make model-status` |
 | 운영 리포트 생성 | Runtime reports | `make runtime-validate` → `make operator-reports` |
-| 릴리스 검증 | Release gate | `make release-check-full` |
+| 릴리스 검증 | Static validation + tests | `make validate` → `make test` |
 | 전체 명령 확인 | Command guide | `make help` → `make guide` |
 
 App-only는 Python 환경만으로 Gateway와 Risk Adapter를 확인한다. Full-stack은 NVIDIA GPU, Docker, NVIDIA Container Toolkit, Hugging Face token이 필요하다.
@@ -37,7 +37,6 @@ Gateway와 Risk Adapter만 로컬 process로 실행한다. vLLM model runtime은
 ```bash
 python3.12 -m venv .venv
 source .venv/bin/activate
-python3.12 -m pip install --upgrade pip
 python3.12 -m pip install --requirement requirements.lock
 python3.12 -m pip install --no-deps -e ".[contract]"
 
@@ -91,7 +90,7 @@ Grafana dashboard 접근 가능
 | compose 설정 검증 | `make compose-config` |
 | runtime validation 실행 | `make runtime-validate` |
 | 운영 리포트 생성 | `make operator-reports` |
-| full-stack release gate | `make release-check-full` |
+| static validation + tests | `make validate` → `make test` |
 | compose 종료 | `make compose-down` |
 
 `HF_TOKEN`이 없거나 모델 사용 조건에 동의하지 않은 경우 일부 Hugging Face 모델 다운로드가 실패하고 `make ready-full`이 실패할 수 있다.
@@ -370,7 +369,7 @@ Dashboard와 metric 기준은 `docs/operations/monitoring_ux.md`, `ops/grafana/p
 | Full-stack 시작/종료 | `make compose-up`, `make compose-down` |
 | Full-stack readiness | `make ready-full` |
 | 진단 | `make doctor`, `make compose-diagnostics` |
-| 릴리스 검증 | `make release-check`, `make release-check-full` |
+| 릴리스 검증 | `make validate`, `make test` |
 | 패키징 | `make package` |
 
 상황별 명령은 `make guide`와 `docs/operations/operator_workflows.md`를 기준으로 한다.
@@ -397,11 +396,12 @@ Dashboard와 metric 기준은 `docs/operations/monitoring_ux.md`, `ops/grafana/p
 ## 패키징
 
 ```bash
-make release-check
+make validate
+make test
 make package
 ```
 
-패키지는 `dist/` 아래에 생성된다. Full-stack 릴리스 전에는 target host에서 `make runtime-validate`, `make operator-reports`, `make release-check-full`을 실행한다.
+패키지는 `dist/` 아래에 생성된다. Full-stack 릴리스 전에는 target host에서 `make runtime-validate`, `make operator-reports`, `make validate`, `make test`를 실행한다.
 
 ## 새 host 또는 runtime 조합 적용 전 확인
 

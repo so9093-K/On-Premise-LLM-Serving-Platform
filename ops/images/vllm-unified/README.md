@@ -8,8 +8,8 @@ to touch disjoint files (see `Dockerfile` header comment).
 
 Two independent patch sets, each a no-op for the models that don't need it:
 
-1. **Gemma4-unified multimodal** (12B only) — media decode stack (libsndfile1
-   + soundfile + librosa + PyAV), the `vision_embedder.patch_dense` FP8
+1. **Gemma4-unified multimodal** (12B only) — media decode stack (base image의
+   `libsndfile1` + soundfile + librosa + PyAV), the `vision_embedder.patch_dense` FP8
    mis-quant fix, and the audio warmup `fft_length` fix. 26B is a different
    `gemma4` architecture and never exercises this code path, so it behaves
    identically on this image.
@@ -36,9 +36,9 @@ loudly instead of shipping silently broken.
 
 Manual fallback (CI unavailable):
 ```bash
-docker build --build-arg BASE_IMAGE="$(yq '.runtime.image' configs/main_model_profiles.yaml)" \
-  -t gitlab.wizvera.com:4567/acl-ai-system/acl-ai-gateway/vllm-unified:<tag> \
-  -f ops/images/vllm-unified/Dockerfile .
+RISK_VLLM_BASE_IMAGE='vllm/vllm-openai@sha256:6a090ed9d4a3739813ce355cbd63d4c34c987a25c8409796f24912ba71c2d4a4' \
+RISK_VLLM_IMAGE='gitlab.wizvera.com:4567/acl-ai-system/acl-ai-gateway/vllm-unified:<tag>' \
+make build-vllm-unified-image
 docker push gitlab.wizvera.com:4567/acl-ai-system/acl-ai-gateway/vllm-unified:<tag>
 ```
 

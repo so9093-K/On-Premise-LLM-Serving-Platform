@@ -48,7 +48,6 @@ echo "[bootstrap] creating .venv with $SYSTEM_PYTHON"
 VENV_PYTHON="$ROOT/.venv/bin/python"
 
 echo "[bootstrap] installing dependencies"
-"$VENV_PYTHON" -m pip install --upgrade pip -q
 "$VENV_PYTHON" -m pip install --requirement requirements.lock -q
 "$VENV_PYTHON" -m pip install --no-deps -e ".[contract]" -q
 

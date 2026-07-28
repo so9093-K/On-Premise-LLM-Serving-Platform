@@ -8,7 +8,7 @@ build, start, readiness, deploy, release는 서로 다른 동작이다.
 
 ```text
 make build-pipeline = 통합 파이프라인 빌드 (make build 별칭, 서비스 기동 없음)
-make build          = 정적 release gate·결정론적 테스트·플랫폼 이미지·패키지 생성
+make build          = 정적 검증·결정론적 테스트·플랫폼 이미지·패키지 생성
 make start          = 로컬 app-only 서비스 기동
 make ready-full     = 운영 스택이 실제로 준비됐음을 검증
 make reset          = 통합 제거/초기화 (서비스 중지 + 플랫폼/risk 이미지 + 아티팩트)
@@ -30,7 +30,7 @@ make bootstrap      = 전체 재빌드 (.venv + 의존성 + .env + 검증 + 플�
 | 계층 | 명령 | 대상 | Runtime-derived 이미지 포함? |
 |---|---|---|:---:|
 | Day-0 / 전체 설정 | `make first-run` / `make bootstrap` | .venv + 플랫폼 이미지 + vLLM unified 이미지 + config check | 예 (기본값) |
-| CI / 릴리스 파이프라인 | `make build-pipeline` / `make build` | 정적 release gate + 결정론적 테스트 + 패키징 + 플랫폼 이미지 | 아니오 |
+| CI / 릴리스 파이프라인 | `make build-pipeline` / `make build` | 정적 검증 + 결정론적 테스트 + 패키징 + 플랫폼 이미지 | 아니오 |
 | 타깃 재빌드 | `make rebuild-app` / `make build-image` | 플랫폼 이미지만 | 아니오 |
 | 타깃 재빌드 | `make rebuild-vllm-unified` / `make build-vllm-unified-image` | vLLM unified 이미지(26B/12B/embedding/embedding-ko/risk-prompt 공용) | 예 (이것만) |
 | CI derived 이미지 | `build-vllm-derived` | vLLM unified 이미지(`vllm-unified`) 빌드/push | 예 (명시 opt-in) |
@@ -79,11 +79,10 @@ SKIP_RISK_VLLM_IMAGE_BUILD=1 make rebuild-full
 
 | 명령 | 역할 | 서비스 기동? | vLLM 필요? | 주 사용자 |
 |---|---|:---:|:---:|---|
-| `make validate` | API·모델 설정 계약의 정적 검증 | 아니오 | 아니오 | 개발자 / CI |
-| `make test` | 빠른 단위 테스트 (`slow/runtime/docker/gpu` 제외) | 아니오 | 아니오 | 개발자 |
-| `make test-full` | 단위·계약 테스트 (`runtime/docker/gpu` 제외) | 아니오 | 아니오 | CI / 릴리스 |
-| `make build-pipeline` | `make build` 별칭. 정적 release gate + 결정론적 테스트 + 패키징 + 플랫폼 이미지 빌드 | 서비스 유지 없음 | 아니오 | 릴리스 / CI |
-| `make build` | 정적 release gate + 결정론적 테스트 + 패키징 + 플랫폼 이미지 빌드 | 서비스 유지 없음 | 아니오 | 릴리스 / CI |
+| `make validate` | 실행 전 계약·설정·생성물 drift 정적 검증 | 아니오 | 아니오 | 개발자 / CI |
+| `make test` | unit·contract 테스트 (`runtime/docker/gpu` 제외) | 아니오 | 아니오 | 개발자 / CI |
+| `make build-pipeline` | `make build` 별칭. 정적 검증 + 결정론적 테스트 + 패키징 + 플랫폼 이미지 빌드 | 서비스 유지 없음 | 아니오 | 릴리스 / CI |
+| `make build` | 정적 검증 + 결정론적 테스트 + 패키징 + 플랫폼 이미지 빌드 | 서비스 유지 없음 | 아니오 | 릴리스 / CI |
 | `make rebuild-app` | `make build-image` 별칭. 플랫폼 이미지만 재빌드 | 아니오 | 아니오 | 개발자 / 운영자 |
 | `make build-image` | 플랫폼 Docker 이미지만 빌드. validate·test·패키징은 생략하며 `make bootstrap` 내부에서도 호출됨 | 아니오 | 아니오 | 개발자 / 운영자 |
 | `make rebuild-vllm-unified` | `make build-vllm-unified-image` 별칭. Risk vLLM 이미지만 재빌드 | 아니오 | Docker image만 필요 | 운영자 / 디버깅 |
@@ -177,7 +176,8 @@ make ready-full
 ### 릴리스 패키징
 
 ```bash
-make release-check-full
+make validate
+make test
 make package
 ```
 

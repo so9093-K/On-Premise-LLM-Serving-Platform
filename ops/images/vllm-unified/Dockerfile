@@ -25,7 +25,7 @@
 # safe because they edit disjoint files (vllm/model_executor/models/gemma4_unified.py
 # + transformers' Gemma4UnifiedAudioFeatureExtractor vs. transformers'
 # configuration_llama.py) -- verified by inspection, 2026-07-24.
-ARG BASE_IMAGE=vllm/vllm-openai:v0.25.1-cu129
+ARG BASE_IMAGE=vllm/vllm-openai@sha256:6a090ed9d4a3739813ce355cbd63d4c34c987a25c8409796f24912ba71c2d4a4
 FROM ${BASE_IMAGE}
 
 ARG TRANSFORMERS_VERSION=5.13.1
@@ -44,15 +44,15 @@ LABEL ai_model_serving.huggingface_hub_version="${HUGGINGFACE_HUB_VERSION}"
 LABEL ai_model_serving.transformers_min_version="${TRANSFORMERS_MIN_VERSION}"
 
 # ── Gemma4-unified multimodal: media decode stack ──────────────────────────
-# libsndfile1 is the native backend soundfile binds to.
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends libsndfile1 \
-    && rm -rf /var/lib/apt/lists/*
+# The pinned upstream base already includes libsndfile1, the native backend
+# soundfile binds to.  Verify it locally rather than running apt-get update:
+# re-fetching mutable Ubuntu/PPA metadata makes a derived-image rebuild depend
+# on CI network state without changing the resulting dependency.
+RUN dpkg-query -W -f='libsndfile1=${Version}\n' libsndfile1
 
-RUN python3 -m pip install --no-cache-dir \
-    "soundfile==0.12.1" \
-    "librosa==0.10.2.post1" \
-    "av==17.1.0"
+COPY ops/images/vllm-unified/requirements.media.lock /tmp/requirements.media.lock
+RUN python3 -m pip install --no-cache-dir --no-deps --requirement /tmp/requirements.media.lock \
+    && rm /tmp/requirements.media.lock
 
 RUN python3 -c "import av, soundfile, librosa; print('media decode ok', soundfile.__version__, librosa.__version__, av.__version__)"
 

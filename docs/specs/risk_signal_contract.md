@@ -14,14 +14,13 @@ PII Protection과 Secret Exposure Signal 두 계층으로 구성된다. 탐지 �
 
 엔드포인트: `/v1/risk/detectors/pii/assessments`
 
-구현: Presidio Analyzer(optional) + Korean custom recognizer 기반 로컬 탐지. 외부 모델 호출 없음.
+구현: 한국형 식별자·이메일·전화번호·IP 정규식 기반 로컬 탐지. 외부 모델 호출 없음.
 
 | Risk Code | 설명 | Entity Labels |
 |---|---|---|
-| **D1** Personal Identifier | 개인 식별자 | KR_RRN, KR_FRN, KR_PASSPORT, KR_DRIVER_LICENSE, PERSON |
-| **D2** Contact and Location | 연락처·위치 | EMAIL_ADDRESS, PHONE_NUMBER, ADDRESS |
-| **D3** Financial Identifier | 금융 식별자 | CREDIT_CARD, KR_BRN, BANK_ACCOUNT_CANDIDATE |
-| **D5** Network/Infrastructure | 네트워크 식별자 | IP_ADDRESS, URL |
+| **D1** Personal Identifier | 개인 식별자 | KR_RRN, KR_FRN, KR_PASSPORT, KR_DRIVER_LICENSE |
+| **D2** Contact | 연락처 | EMAIL_ADDRESS, PHONE_NUMBER |
+| **D5** Network/Infrastructure | 네트워크 식별자 | IP_ADDRESS |
 
 #### Secret Exposure detector (`secret`)
 

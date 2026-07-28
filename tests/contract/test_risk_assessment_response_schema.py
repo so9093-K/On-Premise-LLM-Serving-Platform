@@ -36,7 +36,7 @@ def _base_response(**kwargs) -> dict:
     return base
 
 
-def _data_exposure_cat(code, label, detected=True, span_count=1, source_model="presidio-analyzer"):
+def _data_exposure_cat(code, label, detected=True, span_count=1, source_model="pii-protection"):
     return {
         "code": code,
         "family": "data_exposure",
@@ -99,7 +99,7 @@ class TestDataExposureSchemaValidation:
             "family": "data_exposure",
             "detected": False,
             "confidence": None,
-            "source_model": "presidio-analyzer",
+            "source_model": "pii-protection",
             "label": None,
             "span_count": 0,
         }
@@ -136,7 +136,7 @@ class TestDataExposureSchemaValidation:
             "family": "prompt_attack",  # wrong family for D code
             "detected": True,
             "confidence": None,
-            "source_model": "presidio-analyzer",
+            "source_model": "pii-protection",
             "label": "KR_RRN",
             "span_count": 1,
         }
@@ -148,7 +148,7 @@ class TestDataExposureSchemaValidation:
 
     def test_all_d_codes_in_strongest_code_pass(self, validator):
         for code in ["D1", "D2", "D3", "D4", "D5"]:
-            src = "secret-scanner" if code in ("D4", "D5") else "presidio-analyzer"
+            src = "secret-scanner" if code in ("D4", "D5") else "pii-protection"
             label_map = {"D1": "KR_RRN", "D2": "EMAIL_ADDRESS", "D3": "CREDIT_CARD",
                          "D4": "OPENAI_API_KEY", "D5": "DATABASE_URL"}
             cat = _data_exposure_cat(code, label_map[code], source_model=src)

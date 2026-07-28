@@ -80,13 +80,13 @@ reports/runtime/live_evidence_bundle.json
 서비스 기동 없이 계약, 설정, projection, evidence bundle을 검증한다.
 
 ```bash
-make release-check
-make release-check-full
+make validate
+make test
 make package
 ```
 
-- `make release-check`: 정적 계약, config-only runtime harness, compose validation, operator projection을 확인한다.
-- `make release-check-full`: `release-check`에 deterministic test suite를 추가한다.
+- `make validate`: 정적 계약, config-only runtime harness, compose validation, operator projection을 확인한다.
+- `make test`: deterministic unit·contract test suite를 실행한다.
 - `make package`: release ZIP을 만든다.
 
 이 흐름은 대상 GPU 서버 live runtime gate를 대체하지 않는다.

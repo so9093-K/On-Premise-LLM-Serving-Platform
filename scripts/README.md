@@ -38,7 +38,7 @@ make stop
 | `models/` | model registry CLI, vLLM command rendering, HF/risk image checks |
 | `ops/` | start/stop/status/ready/smoke/reset/clean 같은 운영 명령 |
 | `reports/` | runtime target, storage path, monitoring, operator status/evidence reports, feature plan |
-| `validation/` | contract validation, release gate, deterministic test runner, live runtime validation, docs link check |
+| `validation/` | contract validation, static validation, deterministic test runner, live runtime validation |
 | `lib/` | shell/python shared helpers |
 
 ## 주요 스크립트
@@ -49,7 +49,7 @@ make stop
 | `config/setup_env.py` | `.env`를 생성한다. 기본 target은 기존 `.env`를 덮어쓰지 않는다. `local_open`은 `master_open/private_lan` 전체-stack 사내망 정책과 함께 생성한다. |
 | `sync-runtime-secrets` / `config/setup_env.py --sync-runtime-secrets` | `.env`의 `ADMIN_API_KEY`를 `.runtime/prometheus/admin_api_key`로 다시 기록한다. |
 | `auth/auth_plan.py` / `auth/auth_apply.py` | secret을 출력하지 않고 auth profile 변경 계획을 보여주거나 managed auth flag만 적용한다. |
-| `auth/auth_profile_sanity.py` | `config/setup_env.py`가 생성하는 local/compose auth profile이 `AUTH_MODE` 기대값과 일치하는지 release gate에서 검증한다. |
+| `auth/auth_profile_sanity.py` | `config/setup_env.py`가 생성하는 local/compose auth profile이 `AUTH_MODE` 기대값과 일치하는지 정적 검증에서 확인한다. |
 | `validation/validate_contracts.py` | OpenAPI refs, generated OpenAPI schema injection, JSON Schema, config, release hygiene 정책을 검증한다. |
 | `validation/run_tests.py` | 외부 pytest plugin autoload를 끄고 unit/contract test를 실행한다. |
 | `build/check_python.py` | 현재 interpreter가 `>=3.12,<3.15`인지 fail-fast로 확인한다. |
@@ -65,7 +65,7 @@ make stop
 | `reports/monitoring_projection_report.py` | ModelRegistry와 monitoring config에서 Prometheus scrape, recording rule, Grafana variable projection JSON/Markdown을 생성한다. |
 | `reports/operator_status_bundle.py` | runtime target, model inventory, GPU budget, monitoring label, readiness vocabulary를 하나의 operator status bundle로 생성한다. |
 | `reports/live_evidence_bundle.py` | operator status bundle과 runtime validation report를 sanitised evidence bundle로 결합한다. 결과는 운영 증빙용이며 release package에는 포함하지 않는다. |
-| `validation/release_check.py` | 서비스 기동 없는 정적 릴리스 gate를 실행한다. 각 step에는 timeout이 있어 hang 시 실패 step을 명확히 표시한다. |
+| `validation/release_check.py` | 서비스 기동 없는 정적 검증 단계를 실행한다. 각 step에는 timeout이 있어 hang 시 실패 step을 명확히 표시한다. |
 | `models/check_hf_model_config.py` | Docker/GPU 없이 Transformers `AutoConfig`만 로드해 vLLM·bitsandbytes 이전 config loader 문제를 분리한다. |
 | `build/package_release.sh` | 배포 ZIP을 만들고 secret, log, cache, egg-info, generated runtime report를 제외한다. ZIP root는 항상 `ai_model_serving_platform/`로 고정한다. |
 | `ops/clean_all.sh` | build 산출물, egg-info와 log를 정리한다. 실행 중 local service가 있으면 중단한다. `--dry-run`으로 삭제 대상을 먼저 볼 수 있다. 모델 cache는 `PURGE_MODEL_CACHE=1`, runtime secret은 `PURGE_RUNTIME_SECRETS=1`일 때만 삭제한다. |
@@ -78,7 +78,7 @@ make stop
 - `make start`는 vLLM을 시작하지 않는다. app-only 확인용이다.
 - app-only 확인은 `make ready-local`, strict full-stack 확인은 `make ready-full`을 사용한다.
 - full-stack 검증은 Docker/GPU/vLLM이 있는 host에서 `make preflight-compose && make compose-up`으로 수행한다.
-- 운영 산출물은 개별 명령(`make runtime-targets`, `make storage-paths`, `make monitoring-projection`, `make operator-status`, `make live-evidence`) 또는 통합 명령 `make operator-reports`로 생성한다. 라이브 검증은 `make runtime-validate`, 릴리스 전 정적 게이트는 `make release-check`로 수행한다. 장시간 환경에서는 `RELEASE_CHECK_STEP_TIMEOUT_SECONDS` 또는 `--step-timeout-seconds`로 step timeout을 조정한다.
+- 운영 산출물은 개별 명령(`make runtime-targets`, `make storage-paths`, `make monitoring-projection`, `make operator-status`, `make live-evidence`) 또는 통합 명령 `make operator-reports`로 생성한다. 라이브 검증은 `make runtime-validate`, 실행 전 정적 검증은 `make validate`로 수행한다.
 - 삭제 전에는 `make remove-plan`으로 삭제 대상을 확인할 수 있다. `make clean-dry-run`의 읽기 쉬운 alias다.
 
 - `.runtime/`은 정상적인 로컬 runtime state다. `make init-env-compose` 이후 존재할 수 있으며, `make clean-all`은 기본적으로 보존한다. 테스트와 패키징 정책은 `.runtime`의 로컬 존재가 아니라 release/source ZIP 포함 여부를 검사해야 한다.
@@ -99,7 +99,7 @@ make stop
 - make monitoring-projection
 - make operator-status
 - make live-evidence
-- make release-check
+- make validate
 - make operator-reports
 - make remove-plan
 - make build-pipeline

@@ -1,8 +1,6 @@
 """PII Protection detector unit tests.
 
-Tests cover Korean custom recognizers (always available), Presidio built-in
-recognizers (presidio-analyzer is a runtime dependency), and the entity->D-code
-mapping.
+Tests cover deterministic local recognizers and the entity->D-code mapping.
 
 Validated invariants:
 - D1~D5 schema compatibility of output categories
@@ -14,17 +12,12 @@ Validated invariants:
 from __future__ import annotations
 
 import asyncio
-from unittest.mock import patch
-
 import pytest
 
 from ai_model_serving.detectors.pii import (
-    EntitySpan,
     EntitySummary,
     PIIProtectionDetector,
     _categories_from_summaries,
-    _classify_spans,
-    _reconcile_spans,
     _run_custom_span_recognizers,
     mask_pii,
 )
@@ -38,7 +31,7 @@ def _custom_counts(text: str) -> dict[str, int]:
 
 
 # ---------------------------------------------------------------------------
-# Custom recognizer tests (no presidio dependency)
+# Local recognizer tests
 # ---------------------------------------------------------------------------
 
 class TestKoreanCustomRecognizers:
@@ -91,60 +84,6 @@ class TestKoreanCustomRecognizers:
 
 
 # ---------------------------------------------------------------------------
-# Span reconciliation tests
-# ---------------------------------------------------------------------------
-
-class TestSpanReconciliation:
-    def test_email_suppresses_url_inside_its_domain(self):
-        email = EntitySpan("EMAIL_ADDRESS", 7, 23, "custom")
-        url = EntitySpan("URL", 12, 23, "presidio")
-        assert _reconcile_spans([email, url]) == [email]
-
-    def test_independent_email_and_url_are_both_preserved(self):
-        email = EntitySpan("EMAIL_ADDRESS", 0, 16, "custom")
-        url = EntitySpan("URL", 21, 32, "presidio")
-        assert _reconcile_spans([email, url]) == [email, url]
-
-    def test_same_email_from_two_recognizers_counts_once(self):
-        custom = EntitySpan("EMAIL_ADDRESS", 7, 23, "custom")
-        presidio = EntitySpan("EMAIL_ADDRESS", 7, 23, "presidio")
-        assert _reconcile_spans([presidio, custom]) == [custom]
-
-    def test_partial_overlap_of_same_entity_is_preserved(self):
-        first = EntitySpan("URL", 0, 12, "custom")
-        second = EntitySpan("URL", 5, 18, "presidio")
-        assert _reconcile_spans([first, second]) == [first, second]
-
-    def test_ip_address_suppresses_phone_at_same_span(self):
-        ip = EntitySpan("IP_ADDRESS", 4, 15, "custom")
-        phone = EntitySpan("PHONE_NUMBER", 4, 15, "presidio")
-        assert _reconcile_spans([ip, phone]) == [ip]
-
-    def test_partially_overlapping_url_is_not_suppressed_by_email(self):
-        email = EntitySpan("EMAIL_ADDRESS", 7, 23, "custom")
-        url = EntitySpan("URL", 12, 28, "presidio")
-        assert _reconcile_spans([email, url]) == [email, url]
-
-
-# ---------------------------------------------------------------------------
-# Classification and response-category tests
-# ---------------------------------------------------------------------------
-
-class TestClassification:
-    def test_classifier_only_maps_reconciled_spans_to_taxonomy(self):
-        summaries = _classify_spans(
-            [
-                EntitySpan("CREDIT_CARD", 0, 19, "presidio"),
-                EntitySpan("EMAIL_ADDRESS", 20, 36, "custom"),
-            ]
-        )
-        assert summaries == [
-            EntitySummary("CREDIT_CARD", "D3", 1),
-            EntitySummary("EMAIL_ADDRESS", "D2", 1),
-        ]
-
-
-# ---------------------------------------------------------------------------
 # Category builder tests
 # ---------------------------------------------------------------------------
 
@@ -176,12 +115,6 @@ class TestBuildCategories:
         assert cats[0]["code"] == "D2"
         assert cats[0]["label"] == "EMAIL_ADDRESS"
 
-    def test_d3_credit_card_category(self):
-        cats = _categories_from_summaries(
-            [EntitySummary("CREDIT_CARD", "D3", 1)]
-        )
-        assert cats[0]["code"] == "D3"
-
     def test_d5_ip_address_category(self):
         cats = _categories_from_summaries(
             [EntitySummary("IP_ADDRESS", "D5", 3)]
@@ -208,9 +141,8 @@ class TestBuildCategories:
                 if isinstance(value, str):
                     # label is entity type name, NOT a raw PII value
                     assert value in {"KR_RRN", "KR_FRN", "KR_PASSPORT", "KR_DRIVER_LICENSE",
-                                     "EMAIL_ADDRESS", "PHONE_NUMBER", "ADDRESS", "CREDIT_CARD",
-                                     "IP_ADDRESS", "URL", "data_exposure",
-                                     "pii-protection", "D1", "D2", "D3", "D5", None}
+                                     "EMAIL_ADDRESS", "PHONE_NUMBER", "IP_ADDRESS", "data_exposure",
+                                     "pii-protection", "D1", "D2", "D5", None}
 
 
 # ---------------------------------------------------------------------------
@@ -265,15 +197,6 @@ class TestPIIProtectionDetector:
         d1_cats = [c for c in response["categories"] if c.get("code") == "D1"]
         if d1_cats:
             assert d1_cats[0]["span_count"] >= 1
-
-    def test_presidio_not_installed_graceful_fallback(self):
-        with patch.dict("sys.modules", {"presidio_analyzer": None}):
-            detector = PIIProtectionDetector()
-            # Should still work with Korean custom recognizers
-            response = self._run(detector.assess("주민번호: 901201-1234567"))
-            # May or may not detect depending on import state; should not raise
-            assert isinstance(response, dict)
-            assert "risk_detected" in response
 
     def test_source_model_field_present_and_non_empty(self):
         detector = PIIProtectionDetector()

@@ -4,6 +4,7 @@ import os
 import subprocess
 from pathlib import Path
 
+import yaml
 
 _ISOLATED_KEYS = ("VLLM_IMAGE", "RISK_VLLM_IMAGE", "RISK_VLLM_BASE_IMAGE")
 
@@ -46,6 +47,12 @@ def _expected_unified_image() -> str:
     return f'ai-model-serving-vllm-unified:{version}'
 
 
+def _canonical_base_image() -> str:
+    root = Path(__file__).resolve().parents[2]
+    document = yaml.safe_load((root / "configs/recommended_images.yaml").read_text(encoding="utf-8"))
+    return str(document["images"]["vllm"]["base_image_default"])
+
+
 def test_vllm_unified_image_resolver_keeps_risk_image_equal_to_main_image(tmp_path):
     # 2026-07-24부터 VLLM_IMAGE == RISK_VLLM_IMAGE는 정상 상태다(같은 이미지,
     # Gemma4 멀티모달 + Kanana head_dim 패치가 서로 무관한 모델에는 no-op이다) --
@@ -81,6 +88,36 @@ def test_vllm_unified_image_resolver_defaults_when_unset(tmp_path):
     expected = _expected_unified_image()
     assert result.returncode == 0, result.stderr
     assert result.stdout.strip() == expected
+
+
+def test_vllm_unified_image_resolver_default_base_matches_canonical_image_config(tmp_path):
+    repo = copy_minimal_repo(tmp_path)
+    result = run_bash(
+        repo,
+        'source scripts/lib/vllm_unified_image.sh; '
+        'vllm_unified_resolve_images .env; '
+        'printf "%s\\n" "$RISK_VLLM_BASE_IMAGE_RESOLVED"',
+    )
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == _canonical_base_image()
+
+    dockerfile = (Path(__file__).resolve().parents[2] / "ops/images/vllm-unified/Dockerfile").read_text(encoding="utf-8")
+    assert f"ARG BASE_IMAGE={_canonical_base_image()}" in dockerfile
+
+
+def test_vllm_unified_media_dependencies_use_the_verified_lock_without_resolving_transitives():
+    root = Path(__file__).resolve().parents[2]
+    lock = root / "ops/images/vllm-unified/requirements.media.lock"
+    entries = {
+        line.strip()
+        for line in lock.read_text(encoding="utf-8").splitlines()
+        if line.strip() and not line.startswith("#")
+    }
+    assert {"soundfile==0.12.1", "librosa==0.10.2.post1", "av==17.1.0"} <= entries
+
+    dockerfile = (root / "ops/images/vllm-unified/Dockerfile").read_text(encoding="utf-8")
+    assert "requirements.media.lock" in dockerfile
+    assert "--no-deps --requirement /tmp/requirements.media.lock" in dockerfile
 
 
 def test_vllm_unified_image_resolver_preserves_custom_exported_image(tmp_path):

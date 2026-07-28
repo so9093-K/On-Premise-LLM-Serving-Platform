@@ -7,7 +7,7 @@ runtime:
   health_path: /health
   models_path: /v1/models
   chat_path: /v1/chat/completions
-  image: gitlab.wizvera.com:4567/acl-ai-system/acl-ai-gateway/vllm-gemma4-audio@sha256:cf547528af18c15105d66ea767a49d21702dc90a26189be061a36edeebcf777d
+  image: gitlab.wizvera.com:4567/acl-ai-system/acl-ai-gateway/vllm-unified@sha256:57f8dc4b64c189e0656ead65fbf7444971c74158b8fbdd9106886ed7353b1981
   drain_timeout_seconds: 30
   startup_timeout_seconds: 600
   stop_timeout_seconds: 30
@@ -106,7 +106,7 @@ profiles:
     model_id: RedHatAI/gemma-4-12B-it-FP8-Dynamic
     revision: 67e53491df7a281623fa740de61307d5c542b7f4
     served_model_name: local-main
-    # Per-profile runtime image: the derived ops/images/vllm-gemma4-audio build that
+    # Per-profile runtime image: the derived ops/images/vllm-unified build that
     # fixes 12B multimodal (see capabilities). CI/deploy injects its immutable digest
     # into AUDIO_VLLM_IMAGE (like compose's ${RISK_VLLM_IMAGE}); when unset the loader
     # falls back to the shared base and the media boot canaries keep 12B from going live.

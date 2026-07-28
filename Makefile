@@ -8,7 +8,7 @@ AUTH_ENV ?= $(if $(ENV_FILE),$(ENV_FILE),$(ENV))
 AUTH_ENV_ARG = $(if $(AUTH_ENV),--env $(AUTH_ENV),)
 
 
-.PHONY: help help-full help-json command-check guide init-env-local init-env-compose init-env-local-force init-env-compose-force sync-runtime-secrets sync-env show-image-tags validate test test-full build build-pipeline build-image build-vllm-unified-image rebuild-app rebuild-vllm-unified package start compose-up compose-up-master compose-up-private compose-down-private preflight-compose compose-config ready-local ready-full smoke runtime-validate runtime-targets storage-paths auth-status auth-doctor auth-plan auth-apply exposure-status exposure-plan exposure-apply monitoring-projection operator-status operator-reports live-evidence release-check release-check-full vllm-commands hf-config-check main-model-prepare risk-vllm-config-check risk-vllm-patch-removal-check model-inventory model-list model-status model-validate model-diff model-propose-add model-propose-remove status stop compose-down compose-restart compose-logs logs compose-diagnostics clean clean-dry-run remove-plan clean-all reset bootstrap first-run rebuild-full doctor reset-version render-runtime-assets check-runtime-assets
+.PHONY: help help-full help-json command-check guide init-env-local init-env-compose init-env-local-force init-env-compose-force sync-runtime-secrets sync-env show-image-tags validate test build build-pipeline build-image build-vllm-unified-image rebuild-app rebuild-vllm-unified package start compose-up compose-up-master compose-up-private compose-down-private preflight-compose compose-config ready-local ready-full smoke runtime-validate runtime-targets storage-paths auth-status auth-doctor auth-plan auth-apply exposure-status exposure-plan exposure-apply monitoring-projection operator-status operator-reports live-evidence vllm-commands hf-config-check main-model-prepare risk-vllm-config-check risk-vllm-patch-removal-check model-inventory model-list model-status model-validate model-diff model-propose-add model-propose-remove status stop compose-down compose-restart compose-logs logs compose-diagnostics clean clean-dry-run remove-plan clean-all reset bootstrap first-run rebuild-full doctor reset-version render-runtime-assets check-runtime-assets
 
 help:
 	@$(PYTHON) scripts/commands/render_command_help.py
@@ -47,14 +47,10 @@ show-image-tags:
 	$(PYTHON) scripts/config/setup_env.py --show-image-tags
 
 validate:
-	$(PYTHON) scripts/build/check_python.py --context validate >/dev/null
-	$(PYTHON) scripts/validation/validate_contracts.py
+	PYTHON_BIN="$(PYTHON)" bash scripts/validation/run_validate.sh
 
 test:
-	PYTHONDONTWRITEBYTECODE=1 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 $(PYTHON) scripts/validation/run_tests.py -q tests/unit -m "not docker and not runtime and not gpu and not slow"
-
-test-full:
-	PYTHONDONTWRITEBYTECODE=1 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 $(PYTHON) scripts/validation/run_tests.py -q tests/unit tests/contract -m "not runtime and not docker and not gpu"
+	PYTHON_BIN="$(PYTHON)" bash scripts/validation/run_test.sh
 
 build:
 	bash scripts/build/build_all.sh
@@ -150,14 +146,6 @@ operator-reports: runtime-targets storage-paths auth-status auth-doctor monitori
 
 live-evidence: operator-status
 	$(PYTHON) scripts/reports/live_evidence_bundle.py
-
-release-check:
-	$(PYTHON) scripts/build/check_python.py --context validate >/dev/null
-	$(PYTHON) scripts/validation/release_check.py
-
-release-check-full:
-	$(PYTHON) scripts/build/check_python.py --context validate >/dev/null
-	$(PYTHON) scripts/validation/release_check.py --include-tests
 
 vllm-commands:
 	$(PYTHON) scripts/models/render_vllm_commands.py

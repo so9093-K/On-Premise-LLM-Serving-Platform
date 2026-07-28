@@ -164,10 +164,10 @@ commands:
       - tests/unit/test_setup_env.py
 
   - make_target: validate
-    title: 정적 계약·설정 검증
+    title: 정적 사전 검증
     category: validate_test_build
     audience: [developer, release_engineer]
-    description: "API·모델 설정 계약의 정적 검증을 실행한다. 서비스 기동 없음."
+    description: "실행 전 계약·설정·생성물 drift를 검증한다. 서비스 기동 없음."
     command: make validate
     kind: public
     safety: read_only
@@ -187,10 +187,10 @@ commands:
       - tests/contract/governance/
 
   - make_target: test
-    title: 빠른 결정론적 테스트
+    title: 결정론적 테스트
     category: validate_test_build
     audience: [developer]
-    description: "slow/runtime/docker/gpu 제외 pytest를 실행한다."
+    description: "unit·contract pytest를 실행한다. runtime/docker/gpu 테스트는 별도 명령으로 분리한다."
     command: make test
     kind: public
     safety: read_only
@@ -212,7 +212,7 @@ commands:
     title: 통합 파이프라인 빌드
     category: validate_test_build
     audience: [developer, release_engineer]
-    description: "정적 release gate + 결정론적 테스트 + 패키징 + 이미지 빌드를 실행한다. 서비스 기동 없음."
+    description: "정적 검증 + 결정론적 테스트 + 패키징 + 이미지 빌드를 실행한다. 서비스 기동 없음."
     command: make build
     kind: public
     safety: builds_images
@@ -528,52 +528,6 @@ commands:
     owner: operations
     docs: []
     tests: []
-
-  - make_target: release-check
-    title: 정적 릴리스 gate
-    category: release
-    audience: [release_engineer]
-    description: "서비스 기동 없는 정적 릴리스 gate를 실행한다."
-    command: make release-check
-    kind: public
-    safety: read_only
-    requires:
-      python: true
-      docker: false
-      gpu: false
-      live_services: false
-      secrets: false
-      env_file: false
-    writes_files: []
-    outputs: [stdout]
-    owner: release_engineer
-    docs:
-      - docs/release/release_checklist.md
-    tests:
-      - tests/contract/test_release_hygiene_static.py
-
-  - make_target: release-check-full
-    title: 전체 릴리스 gate (테스트 포함)
-    category: release
-    audience: [release_engineer]
-    description: "release-check + deterministic tests를 실행한다."
-    command: make release-check-full
-    kind: public
-    safety: read_only
-    requires:
-      python: true
-      docker: false
-      gpu: false
-      live_services: false
-      secrets: false
-      env_file: false
-    writes_files: []
-    outputs: [stdout]
-    owner: release_engineer
-    docs:
-      - docs/release/release_checklist.md
-    tests:
-      - tests/contract/test_release_hygiene_static.py
 
   - make_target: auth-status
     title: 인증 상태 표시
@@ -1513,28 +1467,6 @@ commands:
       - docs/development/build_ux.md
       - docs/operations/configuration_lifecycle.md
       - docs/operations/first_project_guide.md
-    tests: []
-
-  - make_target: test-full
-    title: 전체 결정론적 테스트
-    category: validate_test_build
-    audience: [developer]
-    description: "runtime/docker/gpu 제외하되 slow 포함 pytest를 실행한다."
-    command: make test-full
-    kind: public
-    safety: read_only
-    requires:
-      python: true
-      docker: false
-      gpu: false
-      live_services: false
-      secrets: false
-      env_file: false
-    writes_files: []
-    outputs: [stdout]
-    owner: operations
-    docs:
-      - docs/development/test_strategy.md
     tests: []
 
   - make_target: clean-dry-run

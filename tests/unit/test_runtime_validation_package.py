@@ -444,7 +444,7 @@ def test_live_evidence_bundle_combines_static_and_runtime_reports(tmp_path: Path
     assert doc["runtime_category_summary"]["vllm-runtime"] == {"passed": 1, "failed": 0}
     markdown = live_evidence_bundle_markdown(doc)
     assert "# 라이브 증빙 번들" in markdown
-    assert "make release-check" in markdown
+    assert "make validate" in markdown
     json_path, md_path = write_live_evidence_bundle(doc, tmp_path)
     assert json_path.exists()
     assert md_path.exists()

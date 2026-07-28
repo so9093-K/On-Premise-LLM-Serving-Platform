@@ -107,10 +107,6 @@ Unsupported keyword 제한은 schema object keyword에만 적용되고 JSON outp
 변경 후 최소 검증:
 
 ```bash
-python scripts/validation/validate_contracts.py
-python scripts/validation/openapi_snapshot_diff.py
-python scripts/models/modelctl.py validate
-python scripts/models/modelctl.py diff
-python scripts/validation/run_tests.py -q
-python scripts/validation/release_check.py --step-timeout-seconds 60
+make validate
+make test
 ```

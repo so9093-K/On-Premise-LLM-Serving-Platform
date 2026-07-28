@@ -50,10 +50,6 @@ def _write_yaml(data: dict[str, Any]) -> str:
     return f.name
 
 
-def test_openapi_snapshot_diff_passes_for_strict_auth_surface() -> None:
-    assert main() == 0
-
-
 def test_compare_info_description_mismatch_is_detected() -> None:
     generated = _minimal_openapi(description="생성된 설명")
     static = _minimal_openapi(description="다른 설명")

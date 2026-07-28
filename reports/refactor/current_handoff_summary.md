@@ -38,7 +38,7 @@ note: "이 문서는 특정 시점의 handoff 요약이다. 최신 package versi
 | Monitoring/Grafana | `ops/grafana/dashboards/*.json`, `docs/operations/monitoring_ux.md`, `configs/monitoring.yaml` |
 | 빌드/제거/재빌드 | `make build-pipeline`, `make first-run`, `make rebuild-full`, `make remove-plan`, `make reset` |
 | 운영 산출물 | `make operator-reports` |
-| 릴리스 gate | `make release-check`, `make release-check-full`, `scripts/validation/openapi_snapshot_diff.py` |
+| 릴리스 전 검증 | `make validate`, `make test`, `scripts/validation/openapi_snapshot_diff.py` |
 | 현 상태 문서 | `docs/operations/project_maintainability_status.md`, `reports/refactor/current_refactor_state.md` |
 
 ## 범위
@@ -64,17 +64,8 @@ note: "이 문서는 특정 시점의 handoff 요약이다. 최신 package versi
 ## 현재 검증 기준선
 
 ```bash
-python scripts/validation/validate_contracts.py
-python scripts/validation/openapi_snapshot_diff.py
-python scripts/validation/runtime_validation.py --config-only
-python scripts/compose/validate_vllm_compose.py
-python scripts/auth/auth_profile_sanity.py
-python scripts/models/modelctl.py validate
-python scripts/models/modelctl.py diff
-python scripts/validation/run_tests.py -q
-python scripts/validation/release_check.py --step-timeout-seconds 60
-python -m compileall -q src scripts tests
-bash -n scripts/*.sh scripts/lib/*.sh
+make validate
+make test
 ```
 
 ## Target host 후속 검증
@@ -89,7 +80,8 @@ make compose-up
 make ready-full
 make runtime-validate
 make operator-reports
-make release-check-full
+make validate
+make test
 ```
 
 ## 남은 비차단 과제

@@ -57,47 +57,6 @@ def registry(catalog: dict[str, Any], serving: dict[str, Any]) -> ModelRegistry:
     return ModelRegistry(catalog, serving)
 
 
-# ── 현재 파일 drift 없음 확인 ─────────────────────────────────────────────────
-
-def test_prometheus_yml_up_to_date(registry: ModelRegistry, monitoring: dict[str, Any]) -> None:
-    expected = render_prometheus_yml(registry, monitoring)
-    assert compare_artifact(ROOT / "ops/prometheus/prometheus.yml", expected), (
-        "ops/prometheus/prometheus.yml 이 drift 되었습니다. make render-runtime-assets 를 실행하세요."
-    )
-
-
-def test_model_contracts_up_to_date(registry: ModelRegistry) -> None:
-    expected = render_model_contracts_yaml(registry)
-    assert compare_artifact(ROOT / "contracts/model_contracts.yaml", expected), (
-        "contracts/model_contracts.yaml 이 drift 되었습니다. make render-runtime-assets 를 실행하세요."
-    )
-
-
-def test_model_list_schema_up_to_date(registry: ModelRegistry) -> None:
-    expected = render_model_list_schema_json(registry)
-    assert compare_artifact(ROOT / "specs/schemas/model_list_response.schema.json", expected), (
-        "specs/schemas/model_list_response.schema.json 이 drift 되었습니다. make render-runtime-assets 를 실행하세요."
-    )
-
-
-def test_runtime_validation_matrix_up_to_date(registry: ModelRegistry) -> None:
-    expected = render_runtime_validation_matrix_yaml(registry)
-    assert compare_artifact(ROOT / "harness/runtime_validation_matrix.yaml", expected), (
-        "harness/runtime_validation_matrix.yaml 이 drift 되었습니다. make render-runtime-assets 를 실행하세요."
-    )
-
-
-def test_full_stack_runtime_doc_block_up_to_date(registry: ModelRegistry) -> None:
-    block = render_runtime_targets_block(registry)
-    assert compare_doc_block(
-        ROOT / "docs/operations/full_stack_runtime.md",
-        RUNTIME_TARGETS_BEGIN,
-        RUNTIME_TARGETS_END,
-        block,
-    ), (
-        "docs/operations/full_stack_runtime.md 의 generated block 이 drift 되었습니다. "
-        "make render-runtime-assets 를 실행하세요."
-    )
 
 
 # ── 포트 변경 시 산출물 전파 ──────────────────────────────────────────────────

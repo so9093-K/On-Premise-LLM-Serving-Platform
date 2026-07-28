@@ -42,7 +42,8 @@ Risk vLLM patch verify는 production 승격에서 skip하지 않는다.
 ## 패키지 gate
 
 ```bash
-make release-check-full
+make validate
+make test
 make package
 ```
 

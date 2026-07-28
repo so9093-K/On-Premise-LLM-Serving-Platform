@@ -47,17 +47,8 @@ Phase 31은 API path, 기존 request schema 의미, model id, compose service to
 ## 검증 기준
 
 ```bash
-python scripts/validation/validate_contracts.py
-python scripts/validation/openapi_snapshot_diff.py
-python scripts/validation/runtime_validation.py --config-only
-python scripts/compose/validate_vllm_compose.py
-python scripts/auth/auth_profile_sanity.py
-python scripts/models/modelctl.py validate
-python scripts/models/modelctl.py diff
-python scripts/validation/run_tests.py -q
-python scripts/validation/release_check.py --step-timeout-seconds 60
-python -m compileall -q src scripts tests
-bash -n scripts/*.sh scripts/lib/*.sh
+make validate
+make test
 ```
 
 ## 대상 서버 후속 검증
@@ -72,5 +63,6 @@ make compose-up
 make ready-full
 make runtime-validate
 make operator-reports
-make release-check-full
+make validate
+make test
 ```

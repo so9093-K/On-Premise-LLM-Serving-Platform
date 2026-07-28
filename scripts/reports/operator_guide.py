@@ -88,15 +88,15 @@ WORKFLOWS: list[Workflow] = [
     ),
     Workflow(
         key="release",
-        title="릴리스 전 정적 gate",
+        title="릴리스 전 검증",
         when="서비스 기동 없이 계약, 설정, projection, evidence bundle을 검증한다.",
         commands=[
-            "make release-check",
-            "make release-check-full",
+            "make validate",
+            "make test",
             "make package",
         ],
         notes=[
-            "make release-check는 live GPU 검증을 대체하지 않는다.",
+            "make validate는 live GPU 검증을 대체하지 않는다.",
             "대상 GPU 서버에서는 별도로 make runtime-validate를 실행한다.",
         ],
     ),

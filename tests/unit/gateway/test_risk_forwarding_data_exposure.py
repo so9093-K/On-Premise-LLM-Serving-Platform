@@ -12,7 +12,7 @@ from __future__ import annotations
 from .helpers import *  # noqa: F401,F403
 
 
-def _make_data_exposure_response(code: str, label: str, source_model: str = "presidio-analyzer") -> dict:
+def _make_data_exposure_response(code: str, label: str, source_model: str = "pii-protection") -> dict:
     """Build a valid data_exposure risk response for gateway mock."""
     return {
         "assessment_id": "risk_testde01",
@@ -56,7 +56,7 @@ def _safe_data_exposure_response() -> dict:
                 "family": "data_exposure",
                 "detected": False,
                 "confidence": None,
-                "source_model": "presidio-analyzer",
+                "source_model": "pii-protection",
                 "label": None,
                 "span_count": 0,
             }
@@ -212,7 +212,7 @@ class TestGatewayPIIForwarding:
             "family": "data_exposure",
             "detected": True,
             "confidence": None,
-            "source_model": "presidio-analyzer",
+            "source_model": "pii-protection",
             "label": "EMAIL_ADDRESS",
             "span_count": 3,
         }

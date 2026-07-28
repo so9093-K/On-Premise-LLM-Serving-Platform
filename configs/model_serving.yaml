@@ -479,7 +479,6 @@ risk_adapter:
       allowed_codes:
       - D1
       - D2
-      - D3
       - D5
     secret:
       type: local

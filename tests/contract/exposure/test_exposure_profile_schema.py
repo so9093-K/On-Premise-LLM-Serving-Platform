@@ -21,16 +21,6 @@ def test_resolve_exposure_mode_fails_on_unknown_mode() -> None:
     assert exc_info.value.code == 2
 
 
-def test_validate_exposure_profiles_strict_passes_on_current_yaml() -> None:
-    sys.path.insert(0, str(ROOT))
-    from scripts.validation.validate_exposure_profiles import load, validate
-    data = load(EXPOSURE_PROFILES_YAML)
-    violations = validate(data, strict=True)
-    assert violations == [], (
-        "validate_exposure_profiles (strict) found violations:\n" + "\n".join(violations)
-    )
-
-
 def test_exposure_validator_requires_service_categories() -> None:
     sys.path.insert(0, str(ROOT))
     from scripts.validation.validate_exposure_profiles import validate
@@ -86,4 +76,3 @@ def test_exposure_validator_requires_diagnostic_visualization_category() -> None
         "diagnostic_full_stack profile must host-publish at least one visualization service" in violation
         for violation in violations
     )
-

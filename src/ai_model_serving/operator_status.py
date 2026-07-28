@@ -111,7 +111,7 @@ def operator_status_bundle_document(
             "operator_status": "make operator-status",
             "runtime_validate": "make runtime-validate",
             "live_evidence": "make live-evidence",
-            "release_check": "make release-check",
+            "validate": "make validate",
             "status": "make status READY_MODE=full",
         },
     }
@@ -222,7 +222,7 @@ def operator_status_bundle_markdown(document: dict[str, Any]) -> str:
         f"- 운영 상태 번들: `{commands.get('operator_status', '')}`",
         f"- Live runtime 검증: `{commands.get('runtime_validate', '')}`",
         f"- Live evidence 번들: `{commands.get('live_evidence', '')}`",
-        f"- 릴리스 gate: `{commands.get('release_check', '')}`",
+        f"- 실행 전 정적 검증: `{commands.get('validate', '')}`",
         f"- 전체 상태 확인: `{commands.get('status', '')}`",
         "",
         "## 운영 해석",
@@ -231,7 +231,7 @@ def operator_status_bundle_markdown(document: dict[str, Any]) -> str:
         "",
         "모델 추가·제거는 단일 YAML 수정으로 끝나지 않는다. catalog, serving config, contract, model card, runtime validation matrix, monitoring projection, test가 함께 맞아야 하므로 현재 `modelctl`은 read-only 검증에 머문다.",
         "",
-        "운영자가 이 파일에서 먼저 확인할 항목은 세 가지다. 첫째, 모델 ID와 runtime service 이름이 기대와 같은지 본다. 둘째, GPU utilization 합계가 회피 기준을 넘지 않는지 본다. 셋째, monitoring label과 readiness vocabulary가 dashboard와 release gate에서 같은 의미로 쓰이는지 본다. 이 세 가지가 맞지 않으면 full-stack을 올리기 전에 정적 설정을 먼저 고친다.",
+        "운영자가 이 파일에서 먼저 확인할 항목은 세 가지다. 첫째, 모델 ID와 runtime service 이름이 기대와 같은지 본다. 둘째, GPU utilization 합계가 회피 기준을 넘지 않는지 본다. 셋째, monitoring label과 readiness vocabulary가 dashboard와 정적 검증에서 같은 의미로 쓰이는지 본다. 이 세 가지가 맞지 않으면 full-stack을 올리기 전에 정적 설정을 먼저 고친다.",
     ])
     return "\n".join(lines) + "\n"
 

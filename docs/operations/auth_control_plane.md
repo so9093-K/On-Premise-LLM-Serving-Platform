@@ -130,7 +130,7 @@ python scripts/auth/auth_profile_sanity.py
 4. plan이 맞으면 `make auth-apply MODE=strict`로 flag만 적용한다.
 5. compose topology 변경이 필요하면 `make compose-up EXPOSURE_MODE=master_open`처럼 EXPOSURE_MODE를 지정한다.
 6. `make auth-doctor`로 위험 조합이 남았는지 확인한다.
-7. 릴리스 전에는 `make release-check`가 profile generation sanity를 다시 검증한다.
+7. 릴리스 전에는 `make validate`가 profile generation sanity를 다시 검증한다.
 
 ## 현재 한계와 후속 작업
 

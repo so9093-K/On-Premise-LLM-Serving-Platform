@@ -14,23 +14,10 @@ _ENTITY_CODE: dict[str, str] = {
     "KR_FRN": "D1",
     "KR_PASSPORT": "D1",
     "KR_DRIVER_LICENSE": "D1",
-    "PERSON": "D1",
     "EMAIL_ADDRESS": "D2",
     "PHONE_NUMBER": "D2",
-    "ADDRESS": "D2",
-    "CREDIT_CARD": "D3",
     "IP_ADDRESS": "D5",
-    "URL": "D5",
 }
-
-# 요청할 Presidio 내장 엔티티 목록.
-# PERSON과 ADDRESS는 NLP/NER 기반이다; en_core_web_sm을 한국어 텍스트에 적용하면
-# PERSON에서 false positive가 발생하고, 영어용 ADDRESS 인식기는 존재하지 않는다.
-_PRESIDIO_ENTITIES = [
-    "PHONE_NUMBER",
-    "CREDIT_CARD",
-    "IP_ADDRESS",
-]
 
 
 @dataclass(frozen=True)
@@ -74,14 +61,6 @@ _KR_PHONE_RE = re.compile(
 )
 _IP_ADDRESS_RE = re.compile(r"(?<!\d)(?:\d{1,3}\.){3}\d{1,3}(?!\d)")
 
-# 동일한 span을 차지할 때 PHONE_NUMBER를 대체(supersede)하는 엔티티들.
-# Presidio의 전화번호 인식기는 dotted-decimal 패턴(IP 주소, 대시로 구분된
-# 한국 식별자 형식)을 false positive로 잡아낸다.
-_SUPERSEDES_PHONE_NUMBER: frozenset[str] = frozenset(
-    {"KR_RRN", "KR_FRN", "KR_DRIVER_LICENSE", "IP_ADDRESS"}
-)
-
-
 def _regex_spans(
     text: str,
     entity: str,
@@ -110,54 +89,8 @@ def _run_custom_span_recognizers(text: str) -> list[EntitySpan]:
     return spans
 
 
-def _try_presidio_span_analysis(text: str) -> list[EntitySpan] | None:
-    """Run Presidio while retaining offsets needed for reconciliation."""
-    try:
-        from presidio_analyzer import AnalyzerEngine  # type: ignore[import-untyped]
-    except ImportError:
-        return None
-
-    try:
-        engine = _get_analyzer()
-        results = engine.analyze(text=text, language="en", entities=_PRESIDIO_ENTITIES)
-    except OSError:
-        # Presidio delegates URL recognition to tldextract, which may try to
-        # create a cache file on a read-only host. PII masking must never make
-        # a Gateway request fail; the local recognizers remain available.
-        return None
-    return [
-        EntitySpan(
-            entity=result.entity_type,
-            start=int(result.start),
-            end=int(result.end),
-            source="presidio",
-        )
-        for result in results
-    ]
-
-
 def _same_span(left: EntitySpan, right: EntitySpan) -> bool:
     return left.start == right.start and left.end == right.end
-
-
-def _is_nested_duplicate(preferred: EntitySpan, candidate: EntitySpan) -> bool:
-    """Return true only for known recognizer duplication, not general overlap."""
-    if (
-        preferred.entity in _SUPERSEDES_PHONE_NUMBER
-        and candidate.entity == "PHONE_NUMBER"
-    ):
-        return _same_span(preferred, candidate)
-    if preferred.entity == "EMAIL_ADDRESS" and candidate.entity == "URL":
-        # 이메일과 같은 위치에 겹치는 URL에 대한 두 가지 억제(suppression) 케이스:
-        # 1) URL이 이메일 안에 포함된 경우(예: 도메인 "example.com" ⊆ "hong@example.com"):
-        #    candidate.end <= preferred.end
-        # 2) SpaCy가 한글 경계를 넘어 확장하여 URL이 이메일을 감싸는 경우
-        #    (예: "hong@example.com이고" → URL=[9,28) vs EMAIL=[9,25)):
-        #    candidate.start == preferred.start
-        # 이메일 span *내부*에서 시작해서 *바깥으로* 확장되는 URL은 별개의
-        # 엔티티(의미가 다름)이므로 반드시 유지해야 한다.
-        return candidate.start == preferred.start or candidate.end <= preferred.end
-    return False
 
 
 def _reconcile_spans(spans: list[EntitySpan]) -> list[EntitySpan]:
@@ -183,14 +116,7 @@ def _reconcile_spans(spans: list[EntitySpan]) -> list[EntitySpan]:
             continue
         deduplicated.append(candidate)
 
-    return [
-        candidate
-        for candidate in deduplicated
-        if not any(
-            other is not candidate and _is_nested_duplicate(other, candidate)
-            for other in deduplicated
-        )
-    ]
+    return deduplicated
 
 
 def _count_spans(spans: list[EntitySpan]) -> dict[str, int]:
@@ -207,24 +133,6 @@ def _classify_spans(spans: list[EntitySpan]) -> list[EntitySummary]:
         for entity, count in sorted(_count_spans(spans).items())
         if entity in _ENTITY_CODE
     ]
-
-
-_analyzer_instance: Any = None
-
-_SPACY_MODEL = "en_core_web_sm"
-
-
-def _get_analyzer() -> Any:
-    global _analyzer_instance
-    if _analyzer_instance is None:
-        from presidio_analyzer import AnalyzerEngine  # type: ignore[import-untyped]
-        from presidio_analyzer.nlp_engine import NlpEngineProvider  # type: ignore[import-untyped]
-        nlp_engine = NlpEngineProvider(nlp_configuration={
-            "nlp_engine_name": "spacy",
-            "models": [{"lang_code": "en", "model_name": _SPACY_MODEL}],
-        }).create_engine()
-        _analyzer_instance = AnalyzerEngine(nlp_engine=nlp_engine)
-    return _analyzer_instance
 
 
 def _safe_category() -> dict[str, Any]:

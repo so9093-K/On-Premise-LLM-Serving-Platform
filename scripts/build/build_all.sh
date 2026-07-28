@@ -5,11 +5,11 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT"
 PYTHON_BIN="${PYTHON_BIN:-$(command -v python3.12 || command -v python3 || command -v python)}"
 
-echo "[build] running static release gate"
-PYTHON_BIN="$PYTHON_BIN" make release-check
+echo "[build] running static validation"
+PYTHON_BIN="$PYTHON_BIN" make validate
 
 echo "[build] running deterministic tests"
-PYTHON_BIN="$PYTHON_BIN" make test-full
+PYTHON_BIN="$PYTHON_BIN" make test
 
 echo "[build] packaging release"
 bash scripts/build/package_release.sh

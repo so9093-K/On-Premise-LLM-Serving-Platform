@@ -16,7 +16,7 @@ info:
 
     |---|---|---|---|
 
-    | **PII Protection** | local (presidio + regex) | 개인정보 노출 | D1, D2, D3, D5 |
+    | **PII Protection** | local (regex) | 개인정보 노출 | D1, D2, D3, D5 |
 
     | **Secret Exposure** | local (regex + entropy) | 시크릿·자격증명 노출 | D4, D5 |
 
@@ -793,20 +793,17 @@ paths:
       tags:
       - Risk Signal
       summary: PII Protection detector 신호 — 개인정보 노출 탐지
-      description: '**PII Protection detector** — Presidio Analyzer(optional) + Korean
-        custom recognizer 기반 로컬 탐지.
+      description: '**PII Protection detector** — 한국형 식별자·이메일·전화번호·IP 정규식 기반
+        로컬 탐지.
 
 
         탐지 코드:
 
-        - **D1** Personal Identifier: KR_RRN, KR_FRN, KR_PASSPORT, KR_DRIVER_LICENSE,
-        PERSON
+        - **D1** Personal Identifier: KR_RRN, KR_FRN, KR_PASSPORT, KR_DRIVER_LICENSE
 
-        - **D2** Contact and Location: EMAIL_ADDRESS, PHONE_NUMBER, ADDRESS
+        - **D2** Contact: EMAIL_ADDRESS, PHONE_NUMBER
 
-        - **D3** Financial Identifier: CREDIT_CARD
-
-        - **D5** Network/Infrastructure: IP_ADDRESS, URL
+        - **D5** Network/Infrastructure: IP_ADDRESS
 
 
         응답에 원문 PII 값을 포함하지 않습니다. `span_count`로 entity별 탐지 개수를 제공합니다.
@@ -2426,7 +2423,7 @@ tags:
 
     **Sensitive Data Protection**:
 
-    - **PII Protection** (D1-D3, D5) — Presidio + Korean recognizer 기반 개인정보 탐지
+    - **PII Protection** (D1-D3, D5) — 로컬 정규식 기반 개인정보 탐지
 
     - **Secret Exposure** (D4, D5) — regex/entropy 기반 시크릿·자격증명 탐지
 

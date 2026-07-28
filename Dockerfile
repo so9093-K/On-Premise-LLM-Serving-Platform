@@ -5,20 +5,19 @@ FROM python:3.12.13-slim@sha256:57cd7c3a7a273101a6485ba99423ee568157882804b1124b
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PIP_NO_CACHE_DIR=1
+    PIP_NO_CACHE_DIR=1 \
+    APP_CONFIG_ROOT=/app
 
 WORKDIR /app
 
 # runtime image는 runtime lock만 설치한다. 계약·운영 스크립트와 명세 파일은
 # CI/release artifact의 책임이며 application image에 넣지 않는다.
-COPY pyproject.toml requirements.runtime.lock README.md ./
+COPY pyproject.toml requirements.runtime.lock README.md VERSION ./
 COPY src ./src
 COPY configs ./configs
 
-RUN python -m pip install --upgrade pip \
-    && python -m pip install --requirement requirements.runtime.lock \
+RUN python -m pip install --requirement requirements.runtime.lock \
     && python -m pip install --no-deps . \
-    && python -m spacy download en_core_web_sm \
     && useradd --create-home --shell /usr/sbin/nologin appuser \
     && chown -R appuser:appuser /app
 

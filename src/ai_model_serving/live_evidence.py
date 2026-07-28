@@ -220,7 +220,7 @@ def live_evidence_bundle_document(
             "generate_static_bundle": "make operator-status",
             "run_live_validation": "make runtime-validate",
             "generate_live_evidence": "make live-evidence",
-            "run_release_gate": "make release-check",
+            "run_static_validation": "make validate",
         },
     }
 
@@ -235,7 +235,7 @@ def live_evidence_bundle_markdown(document: dict[str, Any]) -> str:
         "- reports/runtime/operator_status_bundle.json",
         "Command:",
         "- make live-evidence",
-        "- make release-check",
+        "- make validate",
         "-->",
         "",
         "# 라이브 증빙 번들",
@@ -275,7 +275,7 @@ def live_evidence_bundle_markdown(document: dict[str, Any]) -> str:
         f"- 정적 번들: `{commands.get('generate_static_bundle', '')}`",
         f"- 라이브 runtime 검증: `{commands.get('run_live_validation', '')}`",
         f"- 라이브 증빙 번들: `{commands.get('generate_live_evidence', '')}`",
-        f"- 릴리스 gate: `{commands.get('run_release_gate', '')}`",
+        f"- 실행 전 정적 검증: `{commands.get('run_static_validation', '')}`",
         "",
         "## 운영 해석",
         "",

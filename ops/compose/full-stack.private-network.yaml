@@ -79,7 +79,7 @@ services:
     # 참조라서, main_model_control.py의 _resolve_profile_image()와 동일한 폴백
     # (env 비어있으면 shared runtime.image)을 Compose의 ${VAR:-default} 문법으로
     # 그대로 표현한다.
-    image: ${AUDIO_VLLM_IMAGE:-gitlab.wizvera.com:4567/acl-ai-system/acl-ai-gateway/vllm-gemma4-audio@sha256:cf547528af18c15105d66ea767a49d21702dc90a26189be061a36edeebcf777d}
+    image: ${AUDIO_VLLM_IMAGE:-gitlab.wizvera.com:4567/acl-ai-system/acl-ai-gateway/vllm-unified@sha256:57f8dc4b64c189e0656ead65fbf7444971c74158b8fbdd9106886ed7353b1981}
     restart: unless-stopped
     command:
     - --model

@@ -13,7 +13,6 @@ vLLM/GPU 없이 Gateway와 Risk Adapter process만 확인한다.
 ```bash
 python3.12 -m venv .venv
 source .venv/bin/activate
-python3.12 -m pip install --upgrade pip
 python3.12 -m pip install --requirement requirements.lock
 python3.12 -m pip install --no-deps -e ".[contract]"
 

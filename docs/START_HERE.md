@@ -188,12 +188,12 @@ make auth-doctor              # 인증 설정 위험 조합 확인
 ### 릴리스 패키지를 만들고 싶다
 
 ```bash
-make release-check            # 정적 gate (파일 생성 없음)
-make release-check-full       # 정적 gate + deterministic test
+make validate                 # 실행 전 정적 검증 (파일 생성 없음)
+make test                     # deterministic unit·contract test
 make package                  # refresh → validate → dist/ ZIP 생성
 ```
 
-> `make release-check`는 서비스 호출이나 report 파일 생성을 하지 않는다. live 증빙은 `make runtime-validate`로만 생성한다.
+> `make validate`는 서비스 호출이나 report 파일 생성을 하지 않는다. live 증빙은 `make runtime-validate`로만 생성한다.
 
 - 📄 [release/release_checklist.md](release/release_checklist.md)
 - 📄 [development/build_ux.md](development/build_ux.md)
@@ -222,7 +222,7 @@ make reset-version NEW_VERSION=0.1.0
 ```bash
 make operator-reports         # 전체 운영 리포트 갱신
 make validate                 # API·모델 설정 계약 정적 검증
-make release-check            # 릴리스 gate 전체 실행
+make test                     # unit·contract 테스트
 ```
 
 - 📄 [operations/project_management_workflow.md](operations/project_management_workflow.md)
@@ -252,6 +252,6 @@ make release-check            # 릴리스 gate 전체 실행
 | 상황별 추천 | `make guide` |
 | 정적 검증 | `make validate` |
 | 테스트 | `make test` |
-| 릴리스 gate | `make release-check` |
+| 릴리스 전 정적 검증 | `make validate` |
 | 운영 리포트 생성 | `make operator-reports` |
 | 릴리스 ZIP | `make package` |

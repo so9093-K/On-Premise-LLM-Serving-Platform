@@ -98,7 +98,7 @@ def render_storage_report_markdown(document: dict[str, Any]) -> str:
         "- configs/storage_paths.yaml",
         "Command:",
         "- make storage-paths",
-        "- make release-check",
+        "- make validate",
         "-->",
         "",
         "# 로컬 저장소 경로 리포트",

@@ -103,7 +103,7 @@ RISK_ADAPTER_TAGS_METADATA = [
             "내부 detector 호출 결과를 signal-only response로 정규화합니다. 최종 정책 결정 필드는 반환하지 않습니다.\n\n"
             "HTTP 200 응답의 `status=failed` 또는 `assessment_complete=false`는 detector 실패이며, `risk_detected=false`만으로 안전 판정하면 안 됩니다.\n\n"
             "**Sensitive Data Protection**:\n"
-            "- **PII Protection** (D1-D3, D5) — Presidio + Korean recognizer 기반 개인정보 탐지\n"
+            "- **PII Protection** (D1-D3, D5) — 로컬 정규식 기반 개인정보 탐지\n"
             "- **Secret Exposure** (D4, D5) — regex/entropy 기반 시크릿·자격증명 탐지\n\n"
             "**Prompt detector** — Prompt Injection / Leaking 탐지:\n"
             "지시 무시, system prompt 탈취, roleplay jailbreak, 간접 injection, tool abuse"
@@ -120,7 +120,7 @@ RISK_ADAPTER_DESCRIPTION_TEMPLATE = """
 
 | Detector | 유형 | 담당 신호 | Risk 코드 |
 |---|---|---|---|
-| **PII Protection** | local (presidio + regex) | 개인정보 노출 | D1, D2, D3, D5 |
+| **PII Protection** | local (regex) | 개인정보 노출 | D1, D2, D3, D5 |
 | **Secret Exposure** | local (regex + entropy) | 시크릿·자격증명 노출 | D4, D5 |
 | **Prompt** | vLLM (`risk-prompt`) | Prompt Injection / Prompt Leaking | A1, A2 |
 
