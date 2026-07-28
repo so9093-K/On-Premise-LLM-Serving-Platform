@@ -31,7 +31,7 @@
 | request/response schema | `specs/schemas/*.json` |
 | monitoring target | `configs/monitoring.yaml` |
 | compose service | `ops/compose/*.yaml` |
-| build target | `Makefile`, `scripts/`, `configs/command_terminology_policy.yaml` |
+| build target | `Makefile`, `scripts/` |
 | architectural decision | `docs/adr/*.md` |
 | 문서 lifecycle/owner/verification | `docs/manifest.yaml` |
 | release history | `CHANGELOG.md` |
@@ -74,7 +74,7 @@
 
 `reports/runtime/`은 generated runtime evidence다. generator나 source-of-truth를 고치지 않고 결과 파일만 수동 패치하지 않는다.
 
-`reports/refactor/`에는 현재 상태를 대표하는 `current_refactor_state.md`, `current_handoff_summary.md`, `project_inventory_current.*`만 둔다. 과거 audit/review/snapshot은 `reports/archive/` 또는 `docs/archive/`로 이동한다.
+`reports/refactor/`에는 현재 상태를 대표하는 `current_refactor_state.md`, `current_handoff_summary.md`만 둔다. 과거 audit/review/snapshot은 `reports/archive/` 또는 `docs/archive/`로 이동한다.
 
 `docs/archive/`와 `reports/archive/`는 historical context다. active guide에서 archive 문서를 현재 운영 기준처럼 링크하지 않는다.
 

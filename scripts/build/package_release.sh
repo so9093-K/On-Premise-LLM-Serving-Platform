@@ -161,12 +161,6 @@ if operator_bundle.exists():
     for cache_dir in dst.rglob('__pycache__'):
         shutil.rmtree(cache_dir, ignore_errors=True)
 
-# package-time rewrite/exclusion이 모두 끝난 뒤 staged tree를 기준으로 packaged
-# inventory를 다시 렌더링한다. 그래야 inventory가 ZIP 자체에 대한 source of truth가 된다.
-sys.path.insert(0, str(dst / 'src'))
-from ai_model_serving.project_inventory import write_inventory_reports
-
-write_inventory_reports(dst)
 PYCODE
 
 # static validation을 위해 남겨둔 contract hygiene marker. 위의 staging copier가
@@ -216,14 +210,12 @@ PYZIP
 "$PYTHON_BIN" - "$TMP_OUT" "$PACKAGE_ROOT" <<'PYSELF'
 from __future__ import annotations
 
-import csv
 import fnmatch
 import sys
 import zipfile
 
 out = sys.argv[1]
 pkg = sys.argv[2]
-inventory_name = f"{pkg}/reports/refactor/project_inventory_current.csv"
 safe_env_examples = {".env.example", ".env.local.example", ".env.compose.example"}
 forbidden_release_dirs = {".other", ".agents", ".codex", ".claude", ".cursor"}
 
@@ -234,28 +226,13 @@ with zipfile.ZipFile(out) as zf:
         for name in names
         if name.startswith(f"{pkg}/") and not name.endswith("/")
     }
-    if inventory_name not in names:
-        raise SystemExit(f"Missing packaged inventory: {inventory_name}")
-    rows = list(csv.DictReader(zf.read(inventory_name).decode("utf-8").splitlines()))
-
-inventory_paths = {row["path"] for row in rows}
-for path in sorted(inventory_paths):
+for path in sorted(file_paths):
     parts = path.split("/")
     if any(part in forbidden_release_dirs for part in parts):
-        raise SystemExit(f"Packaged inventory contains forbidden tool/private directory: {path}")
+        raise SystemExit(f"Release ZIP contains forbidden tool/private directory: {path}")
     name = path.rsplit("/", 1)[-1]
     if name not in safe_env_examples and (name == ".env" or fnmatch.fnmatch(name, ".env.*")):
-        raise SystemExit(f"Packaged inventory contains excluded environment file: {path}")
-
-missing_from_zip = sorted(inventory_paths - file_paths)
-missing_from_inventory = sorted(file_paths - inventory_paths)
-if missing_from_zip or missing_from_inventory:
-    lines = ["Packaged inventory does not match ZIP file list."]
-    if missing_from_zip:
-        lines.append("Inventory-only paths: " + ", ".join(missing_from_zip[:20]))
-    if missing_from_inventory:
-        lines.append("ZIP-only paths: " + ", ".join(missing_from_inventory[:20]))
-    raise SystemExit("\n".join(lines))
+        raise SystemExit(f"Release ZIP contains excluded environment file: {path}")
 
 for name in names:
     rel = name[len(pkg) + 1 :] if name.startswith(f"{pkg}/") else name

@@ -160,5 +160,4 @@ Phase 0/1/2 exposure decision, effective compose port parsing, diagnostics ì¶œë 
 - `scripts/validation/validate_env_contract.py`
 - `docs/operations/auth_control_plane.md`
 - `docs/operations/admin_metrics_docs_exposure_policy.md`
-- `features/security_profiles.yaml`
 - `tests/contract/exposure/`

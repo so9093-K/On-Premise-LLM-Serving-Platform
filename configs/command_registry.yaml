@@ -45,7 +45,7 @@ commands:
       - docs/START_HERE.md
       - docs/README.md
     tests:
-      - tests/contract/test_command_registry.py
+      - tests/contract/test_architecture_boundaries.py
 
   - make_target: help-full
     title: 전체 도움말 출력
@@ -68,7 +68,7 @@ commands:
     docs:
       - docs/START_HERE.md
     tests:
-      - tests/contract/test_command_registry.py
+      - tests/contract/test_architecture_boundaries.py
 
   - make_target: help-json
     title: 도움말 JSON 출력
@@ -90,7 +90,7 @@ commands:
     owner: operations
     docs: []
     tests:
-      - tests/contract/test_command_registry.py
+      - tests/contract/test_architecture_boundaries.py
 
   - make_target: guide
     title: 상황별 명령 추천 가이드
@@ -167,7 +167,7 @@ commands:
     title: 정적 계약·설정 검증
     category: validate_test_build
     audience: [developer, release_engineer]
-    description: "계약·스키마·정책·문서 정적 검증을 실행한다. 서비스 기동 없음."
+    description: "API·모델 설정 계약의 정적 검증을 실행한다. 서비스 기동 없음."
     command: make validate
     kind: public
     safety: read_only
@@ -226,9 +226,6 @@ commands:
     writes_files:
       - dist/
       - reports/runtime/
-      - reports/refactor/project_inventory_current.csv
-      - reports/refactor/project_inventory_current.json
-      - reports/refactor/project_inventory_current.md
     outputs: [dist/]
     owner: operations
     docs:
@@ -261,7 +258,7 @@ commands:
     title: 릴리스 ZIP 생성
     category: validate_test_build
     audience: [release_engineer]
-    description: "generated report를 static placeholder로 재생성한 뒤 dist/ 릴리스 ZIP을 생성한다."
+    description: "라이브 runtime evidence를 제외한 재현 가능한 dist/ 릴리스 ZIP을 생성한다."
     command: make package
     kind: public
     safety: writes_generated
@@ -272,9 +269,7 @@ commands:
       live_services: false
       secrets: false
       env_file: false
-    writes_files:
-      - dist/
-      - reports/runtime/
+    writes_files: [dist/]
     outputs:
       - dist/ai_model_serving_platform_<version>.zip
     owner: release_engineer
@@ -304,28 +299,6 @@ commands:
     owner: operations
     docs:
       - docs/operations/day0_quickstart.md
-    tests: []
-
-  - make_target: up
-    title: 로컬 서비스 기동 (별칭)
-    category: start_stop
-    audience: [developer]
-    description: "make start의 Docker Compose 친화 별칭."
-    command: make up
-    kind: alias
-    canonical: start
-    safety: starts_services
-    requires:
-      python: true
-      docker: false
-      gpu: false
-      live_services: false
-      secrets: false
-      env_file: true
-    writes_files: []
-    outputs: []
-    owner: operations
-    docs: []
     tests: []
 
   - make_target: compose-up
@@ -418,7 +391,7 @@ commands:
     docs:
       - docs/README.md
     tests:
-      - tests/contract/test_command_registry.py
+      - tests/contract/test_architecture_boundaries.py
 
   - make_target: stop
     title: 서비스 종료
@@ -427,28 +400,6 @@ commands:
     description: "로컬 서비스 및 compose 스택을 종료한다."
     command: make stop
     kind: public
-    safety: stops_services
-    requires:
-      python: false
-      docker: false
-      gpu: false
-      live_services: false
-      secrets: false
-      env_file: false
-    writes_files: []
-    outputs: []
-    owner: operations
-    docs: []
-    tests: []
-
-  - make_target: down
-    title: 서비스 종료 (별칭)
-    category: start_stop
-    audience: [developer, operator]
-    description: "make stop의 Docker Compose 친화 별칭."
-    command: make down
-    kind: alias
-    canonical: stop
     safety: stops_services
     requires:
       python: false
@@ -484,28 +435,6 @@ commands:
     docs:
       - docs/START_HERE.md
       - docs/operations/day0_quickstart.md
-    tests: []
-
-  - make_target: ready
-    title: Full-stack readiness 확인
-    category: readiness
-    audience: [operator]
-    description: "full-stack readiness를 확인한다. make ready-full 별칭."
-    command: make ready
-    kind: public
-    safety: diagnostic
-    requires:
-      python: false
-      docker: true
-      gpu: true
-      live_services: true
-      secrets: false
-      env_file: false
-    writes_files: []
-    outputs: [stdout]
-    owner: operations
-    docs:
-      - docs/START_HERE.md
     tests: []
 
   - make_target: ready-full
@@ -578,7 +507,7 @@ commands:
     title: 운영 산출물 번들 생성
     category: reports
     audience: [operator, release_engineer]
-    description: "runtime-targets, storage-paths, project-inventory, auth-status/doctor, monitoring-projection, operator-status, live-evidence를 한 번에 실행한다."
+    description: "runtime-targets, storage-paths, auth-status/doctor, monitoring-projection, operator-status, live-evidence를 한 번에 실행한다."
     command: make operator-reports
     kind: public
     safety: writes_generated
@@ -1105,7 +1034,7 @@ commands:
     title: Command registry 검증
     category: docs
     audience: [developer, release_engineer]
-    description: "command_registry.yaml 무결성과 Makefile·docs·features drift를 검증한다."
+    description: "command_registry.yaml과 Makefile의 실행 가능한 명령 정합성을 검증한다."
     command: make command-check
     kind: public
     safety: read_only
@@ -1121,9 +1050,7 @@ commands:
     owner: operations
     docs: []
     tests:
-      - tests/contract/test_command_registry.py
-
-  # ── features/*.yaml + README.md/START_HERE.md 참조 targets ─────────────────
+      - tests/contract/test_architecture_boundaries.py
 
   - make_target: monitoring-projection
     title: Prometheus/Grafana projection 생성
@@ -1399,30 +1326,6 @@ commands:
     docs: []
     tests: []
 
-  - make_target: project-inventory
-    title: 전체 파일·문서·관리 ownership inventory 생성
-    category: reports
-    audience: [operator, release_engineer]
-    description: "전체 파일/문서/관리 ownership inventory를 생성한다."
-    command: make project-inventory
-    kind: public
-    safety: writes_generated
-    requires:
-      python: true
-      docker: false
-      gpu: false
-      live_services: false
-      secrets: false
-      env_file: false
-    writes_files:
-      - reports/refactor/
-    outputs:
-      - reports/refactor/project_inventory_current.md
-    owner: operations
-    docs:
-      - docs/START_HERE.md
-    tests: []
-
   - make_target: runtime-targets
     title: Runtime target inventory 생성
     category: reports
@@ -1492,38 +1395,14 @@ commands:
     docs: []
     tests: []
 
-  - make_target: cleanup-plan
-    title: 삭제 대상 미리 보기
-    category: maintenance
-    audience: [developer, operator]
-    description: "make clean-dry-run의 별칭이다."
-    command: make cleanup-plan
-    kind: alias
-    canonical: clean-dry-run
-    safety: read_only
-    requires:
-      python: false
-      docker: false
-      gpu: false
-      live_services: false
-      secrets: false
-      env_file: false
-    writes_files: []
-    outputs: [stdout]
-    owner: operations
-    docs:
-      - docs/development/build_ux.md
-      - docs/operations/day0_quickstart.md
-    tests: []
-
   - make_target: remove-plan
     title: 삭제 대상 미리 보기 (별칭)
     category: maintenance
     audience: [developer, operator]
-    description: "삭제 대상을 미리 본다. make cleanup-plan의 별칭."
+    description: "삭제 대상을 미리 본다. 실제 삭제는 수행하지 않는다."
     command: make remove-plan
     kind: alias
-    canonical: cleanup-plan
+    canonical: clean-dry-run
     safety: read_only
     requires:
       python: false
@@ -1665,7 +1544,7 @@ commands:
     title: 삭제 대상 미리 보기 (dry-run)
     category: maintenance
     audience: [developer, operator]
-    description: "삭제 대상을 실제로 삭제하지 않고 미리 확인한다. cleanup-plan/remove-plan의 canonical target."
+    description: "삭제 대상을 실제로 삭제하지 않고 미리 확인한다."
     command: make clean-dry-run
     kind: public
     safety: read_only
@@ -1855,18 +1734,12 @@ commands:
 # registry가 아닌 내부 helper, alias, implementation detail target을 명시적으로 관리한다.
 # 각 항목은 target, owner, reason이 모두 있어야 한다.
 allow_unregistered_make_targets:
-  - target: init-env
-    owner: operations
-    reason: "alias for init-env-compose; docs는 항상 init-env-compose를 직접 참조하므로 별도 등록 불필요"
   - target: init-env-local-force
     owner: operations
     reason: "강제 재생성 advanced variant; user-facing 문서에 안내하지 않음 — 필요 시 init-env-local 재실행 권장"
   - target: show-image-tags
     owner: operations
     reason: "setup_env.py --show-image-tags 래퍼; 내부 setup 흐름에서만 사용, user-facing 문서 없음"
-  - target: check-ready
-    owner: operations
-    reason: "ready_full.sh backward-compat alias; docs는 ready-full을 직접 참조"
   - target: compose-down-private
     owner: operations
     reason: "private_network compose 전용 종료; compose-down으로 동일 목적 달성 가능, user-facing 문서 없음"

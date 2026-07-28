@@ -37,6 +37,7 @@ fi
 
 source scripts/lib/compose_context.sh
 compose_context_init "$ROOT"
+compose_context_assert_mutation_safe
 
 _env_value() {
   local key="$1"

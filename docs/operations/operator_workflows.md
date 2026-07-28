@@ -24,7 +24,7 @@ make stop
 ```
 
 주의:
-- app-only 모드에서는 `make ready` 대신 `make ready-local`을 사용한다.
+- app-only 모드에서는 `make ready-full` 대신 `make ready-local`을 사용한다.
 - `make init-env-compose`로 만든 `.env`는 compose 내부 hostname을 사용하므로 app-only health 확인에 맞지 않는다.
 
 ## 2. GPU/vLLM full-stack 검증
@@ -58,7 +58,6 @@ make operator-reports
 ```bash
 make runtime-targets
 make storage-paths
-make project-inventory
 make monitoring-projection
 make operator-status
 make live-evidence
@@ -69,7 +68,6 @@ make live-evidence
 ```text
 reports/runtime/runtime_targets.json
 reports/runtime/storage_paths.json
-reports/refactor/project_inventory_current.csv
 reports/runtime/monitoring_projection.json
 reports/runtime/operator_status_bundle.json
 reports/runtime/live_evidence_bundle.json
@@ -105,7 +103,7 @@ make remove-plan
 
 | 목적 | 명령 |
 |---|---|
-| 삭제 대상 미리 보기 | `make remove-plan` / `make cleanup-plan` |
+| 삭제 대상 미리 보기 | `make remove-plan` |
 | build/dist/cache/run 산출물 삭제 | `make clean` |
 | 일반 산출물 + logs 삭제 | `make clean-all` |
 | 모델 캐시까지 삭제 | `PURGE_MODEL_CACHE=1 make clean-all` |

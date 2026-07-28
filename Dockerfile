@@ -9,13 +9,11 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-COPY pyproject.toml requirements.lock requirements.runtime.lock README.md VERSION ./
+# runtime image는 runtime lock만 설치한다. 계약·운영 스크립트와 명세 파일은
+# CI/release artifact의 책임이며 application image에 넣지 않는다.
+COPY pyproject.toml requirements.runtime.lock README.md ./
 COPY src ./src
 COPY configs ./configs
-COPY specs ./specs
-COPY contracts ./contracts
-COPY model_cards ./model_cards
-COPY scripts ./scripts
 
 RUN python -m pip install --upgrade pip \
     && python -m pip install --requirement requirements.runtime.lock \

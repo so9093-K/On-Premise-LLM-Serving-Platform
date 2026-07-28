@@ -3,7 +3,7 @@
 # Risk Adapter, Prometheus, cAdvisor, DCGM exporter are not host-published (expose only, no ports).
 # Grafana host publish default is 0.0.0.0; restrict with GRAFANA_BIND_ADDR (e.g. 127.0.0.1 for SSH-only access).
 # Start through `make compose-up`; it validates and adds the generated main-model boot projection.
-name: ${COMPOSE_PROJECT_NAME:-compose}
+name: ${COMPOSE_PROJECT_NAME:-ai-model-serving-platform}
 services:
   gateway:
     image: ${PLATFORM_IMAGE:?Set PLATFORM_IMAGE to a tested platform image tag}
@@ -74,8 +74,7 @@ services:
     # 실제 서빙 이미지는 이 값이 아니라 항상 그쪽을 봐야 한다. 이 값은
     # default_profile이 resolve하는 image와 일치해야 하며(최초 부팅 시 이 값으로
     # 뜬 컨테이너가 healthy해야 admin-sidecar의 첫 reconcile까지 갈 수 있다),
-    # 어긋나면 tests/contract/governance/test_compose_operational_contract.py의
-    # test_compose_main_llm_vllm_image_matches_default_profile_bootstrap_image가 잡는다.
+    # 어긋나면 scripts/compose/validate_vllm_compose.py가 정적 계약 검증에서 잡는다.
     # default_profile(gemma4-12b-unified-fp8)의 image는 ${AUDIO_VLLM_IMAGE}
     # 참조라서, main_model_control.py의 _resolve_profile_image()와 동일한 폴백
     # (env 비어있으면 shared runtime.image)을 Compose의 ${VAR:-default} 문법으로

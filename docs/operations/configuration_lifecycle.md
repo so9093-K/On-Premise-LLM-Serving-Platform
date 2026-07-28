@@ -123,7 +123,6 @@ make operator-reports
 |---|---|
 | runtime target inventory | `make runtime-targets` |
 | local storage/cache/secret path inventory | `make storage-paths` |
-| project/file inventory | `make project-inventory` |
 | Prometheus/Grafana projection | `make monitoring-projection` |
 | static operator bundle | `make operator-status` |
 | live evidence bundle | `make live-evidence` |
@@ -134,7 +133,7 @@ make operator-reports
 
 | 범위 | 명령 | 보존되는 것 |
 |---|---|---|
-| 미리 보기 | `make remove-plan` / `make cleanup-plan` | 실제 삭제 없음 |
+| 미리 보기 | `make remove-plan` | 실제 삭제 없음 |
 | 일반 산출물 | `make clean` | logs, model cache, `.runtime`, Docker image. timestamp runtime validation report는 정리 |
 | 산출물 + logs | `make clean-all` | model cache, `.runtime`, Docker image |
 | 모델 캐시 포함 | `PURGE_MODEL_CACHE=1 make clean-all` | `.runtime`, Docker image |
@@ -144,14 +143,14 @@ make operator-reports
 
 `model_cache/`와 `.runtime/`은 실수 삭제 비용이 크므로 기본 보존한다. compose의 Hugging Face 다운로드 캐시는 기본적으로 `HF_CACHE_DIR=./model_cache/huggingface`에 모으며, vLLM 컨테이너 내부 `/root/.cache/huggingface`로 mount한다.
 
-Compose resource namespace는 `.env`의 `COMPOSE_PROJECT_NAME`으로 고정한다. 기본값
-`compose`는 기존 설치와의 호환을 위한 값이다. 같은 Docker host에 여러 설치를
-둘 때는 설치마다 고유한 이름을 지정한다.
+Compose resource namespace는 `.env`의 `COMPOSE_PROJECT_NAME`으로 고정한다. 새 개발
+환경의 기본값은 `ai-model-serving-platform`이며, 기존 배포가 쓰는 `compose`와 분리한다.
+같은 Docker host에 여러 개발 clone을 둘 때는 설치마다 고유한 이름을 지정한다.
 
 Full-stack Compose 명령은 `ENV_FILE`, `COMPOSE_FILE`,
 `COMPOSE_PROJECT_NAME`을 하나의 실행 context로 해석한다. `ENV_FILE`은 Compose
 변수 보간뿐 아니라 컨테이너의 `env_file`에도 같은 절대경로로 전달된다. project
-이름 우선순위는 process environment, `ENV_FILE`, 기본값 `compose` 순서이며
+이름 우선순위는 process environment, `ENV_FILE`, 기본값 `ai-model-serving-platform` 순서이며
 up/down/logs/config/diagnostics와 CI 배포가 같은 값을 사용한다. 따라서 custom
 환경은 직접 `docker compose`를 조합하지 말고 다음처럼 project 명령을 사용한다.
 
@@ -169,7 +168,6 @@ make compose-up
 make guide          # 지금 상황에서 어떤 명령을 쓸지 확인
 make first-run      # 처음 full-stack 준비
 make rebuild-full   # 전체 재빌드
-make project-inventory # 파일·문서·관리 inventory 갱신
 make operator-reports # 운영 산출물 갱신
 ```
 

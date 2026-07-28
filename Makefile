@@ -8,7 +8,7 @@ AUTH_ENV ?= $(if $(ENV_FILE),$(ENV_FILE),$(ENV))
 AUTH_ENV_ARG = $(if $(AUTH_ENV),--env $(AUTH_ENV),)
 
 
-.PHONY: help help-full help-json command-check guide init-env init-env-local init-env-compose init-env-local-force init-env-compose-force sync-runtime-secrets sync-env show-image-tags validate test test-full build build-pipeline build-image build-vllm-unified-image rebuild-app rebuild-vllm-unified package start up compose-up compose-up-master compose-up-private compose-down-private preflight-compose compose-config ready ready-local ready-full check-ready smoke runtime-validate runtime-targets storage-paths project-inventory auth-status auth-doctor auth-plan auth-apply exposure-status exposure-plan exposure-apply monitoring-projection operator-status operator-reports live-evidence release-check release-check-full vllm-commands hf-config-check main-model-prepare risk-vllm-config-check risk-vllm-patch-removal-check model-inventory model-list model-status model-validate model-diff model-propose-add model-propose-remove status stop down compose-down compose-restart compose-logs logs compose-diagnostics clean clean-dry-run cleanup-plan remove-plan clean-all reset bootstrap first-run rebuild-full doctor reset-version render-runtime-assets check-runtime-assets
+.PHONY: help help-full help-json command-check guide init-env-local init-env-compose init-env-local-force init-env-compose-force sync-runtime-secrets sync-env show-image-tags validate test test-full build build-pipeline build-image build-vllm-unified-image rebuild-app rebuild-vllm-unified package start compose-up compose-up-master compose-up-private compose-down-private preflight-compose compose-config ready-local ready-full smoke runtime-validate runtime-targets storage-paths auth-status auth-doctor auth-plan auth-apply exposure-status exposure-plan exposure-apply monitoring-projection operator-status operator-reports live-evidence release-check release-check-full vllm-commands hf-config-check main-model-prepare risk-vllm-config-check risk-vllm-patch-removal-check model-inventory model-list model-status model-validate model-diff model-propose-add model-propose-remove status stop compose-down compose-restart compose-logs logs compose-diagnostics clean clean-dry-run remove-plan clean-all reset bootstrap first-run rebuild-full doctor reset-version render-runtime-assets check-runtime-assets
 
 help:
 	@$(PYTHON) scripts/commands/render_command_help.py
@@ -24,8 +24,6 @@ command-check:
 
 guide:
 	$(PYTHON) scripts/reports/operator_guide.py
-
-init-env: init-env-compose
 
 init-env-local:
 	$(PYTHON) scripts/config/setup_env.py --profile local
@@ -75,14 +73,10 @@ rebuild-vllm-unified: build-vllm-unified-image
 
 
 package:
-	$(PYTHON) scripts/build/check_python.py --context package >/dev/null
-	$(PYTHON) scripts/validation/validate_contracts.py
 	bash scripts/build/package_release.sh
 
 start:
-	bash scripts/ops/start_services.sh
-
-up: start
+	bash scripts/ops/up_services.sh
 
 compose-up:
 	bash scripts/compose/compose_up.sh
@@ -103,15 +97,11 @@ compose-config:
 preflight-compose:
 	bash scripts/compose/preflight_compose.sh
 
-ready: ready-full
-
 ready-local:
 	bash scripts/ops/ready_local.sh
 
 ready-full:
 	bash scripts/ops/ready_full.sh
-
-check-ready: ready-full
 
 smoke:
 	bash scripts/ops/smoke_test.sh
@@ -124,9 +114,6 @@ runtime-targets:
 
 storage-paths:
 	$(PYTHON) scripts/reports/storage_paths_report.py
-
-project-inventory:
-	$(PYTHON) scripts/reports/project_inventory_report.py
 
 auth-status:
 	$(PYTHON) scripts/auth/auth_status.py $(AUTH_ENV_ARG)
@@ -159,7 +146,7 @@ monitoring-projection:
 operator-status:
 	$(PYTHON) scripts/reports/operator_status_bundle.py
 
-operator-reports: runtime-targets storage-paths project-inventory auth-status auth-doctor monitoring-projection operator-status live-evidence
+operator-reports: runtime-targets storage-paths auth-status auth-doctor monitoring-projection operator-status live-evidence
 
 live-evidence: operator-status
 	$(PYTHON) scripts/reports/live_evidence_bundle.py
@@ -215,9 +202,7 @@ status:
 	@if [[ "$(READY_MODE)" == "full" ]]; then bash scripts/ops/status_services.sh --full; else bash scripts/ops/status_services.sh --local; fi
 
 stop:
-	bash scripts/ops/stop_services.sh
-
-down: stop
+	bash scripts/ops/down_services.sh
 
 compose-down:
 	bash scripts/ops/down_services.sh
@@ -241,9 +226,7 @@ clean:
 clean-dry-run:
 	bash scripts/ops/clean_all.sh --dry-run
 
-cleanup-plan: clean-dry-run
-
-remove-plan: cleanup-plan
+remove-plan: clean-dry-run
 
 clean-all:
 	bash scripts/ops/clean_all.sh --all

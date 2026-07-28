@@ -157,6 +157,7 @@ COMPOSE_FILE="${COMPOSE_FILE:-ops/compose/full-stack.private-network.yaml}"
 ENV_FILE=.env
 source scripts/lib/compose_context.sh
 compose_context_init "$ROOT"
+compose_context_assert_mutation_safe
 if compose_context_run ps --status running --quiet 2>/dev/null | grep -q .; then
   echo "[bootstrap] 실행 중인 스택에서 gateway/admin-sidecar/risk-adapter를 재시작합니다"
   _exposure_mode="$("$VENV_PYTHON" scripts/env/env_get.py --env-file .env EXPOSURE_MODE --default private_network)"

@@ -256,8 +256,13 @@ def load_settings(root: Path | None = None, env_file: Path | str | None = None) 
     )
 
     risk_input_policy = risk_adapter_cfg.get("input_policy", {})
-    detector_windows = [endpoint.max_model_len or 2048 for endpoint in risk_detector_endpoints]
-    detector_context_chars = max(1, (min(detector_windows or [2048]) - 64) * 4)
+    detector_windows = [endpoint.max_model_len for endpoint in risk_detector_endpoints]
+    if any(window is None for window in detector_windows):
+        raise RuntimeError("Each enabled vLLM risk detector must declare max_model_len in configs/model_serving.yaml.")
+    if detector_windows:
+        detector_context_chars = max(1, (min(int(window) for window in detector_windows) - 64) * 4)
+    else:
+        detector_context_chars = _as_int("RISK_INPUT_MAX_CHARS", int(risk_input_policy["max_prompt_chars"]), minimum=1)
     risk_input_max_chars = _as_int(
         "RISK_INPUT_MAX_CHARS",
         int(risk_input_policy.get("max_prompt_chars", detector_context_chars)),

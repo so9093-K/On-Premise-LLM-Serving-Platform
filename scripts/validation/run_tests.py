@@ -35,7 +35,4 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    code = main()
-    sys.stdout.flush()
-    sys.stderr.flush()
-    os._exit(code)
+    raise SystemExit(main())

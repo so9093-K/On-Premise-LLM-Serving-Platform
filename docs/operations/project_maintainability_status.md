@@ -96,7 +96,7 @@ Docker/GPU/vLLM이 필요한 live 검증과 서비스 기동 없는 static relea
 - 날짜가 붙은 `current_refactor_state_*.md`와 `project_inventory_phase*.*`는 active handoff에 남기지 않는다.
 - `reports/refactor/phase*_summary_*`, validation summary snapshot, documentation consistency snapshot, removed-legacy marker report는 active source tree에서 제거된 상태를 유지한다.
 - 과거 version rebaseline 보고서 `reports/maintenance_version_rebaseline_0.1.0-rc.1_2026-05-06.md`는 active source tree에서 제거했다. 해당 결정은 현재 `CHANGELOG.md`, `VERSION`, `version_manifest.json`, `docs/release/versioning_policy.md`가 담당한다.
-- `src/ai_model_serving/validation.py`, `scripts/validation/runtime_validation.py`, `make ready`, `make build`, `make bootstrap` 같은 compatibility facade는 legacy debris가 아니라 하위 호환 entrypoint다. 제거하려면 별도 migration plan과 deprecation window가 필요하다.
+- `src/ai_model_serving/validation.py`, `scripts/validation/runtime_validation.py`, `make build`, `make bootstrap`은 현재 실행 경로가 있는 entrypoint다. 사용처 없는 별칭은 남기지 않는다.
 - `.runtime/`은 로컬 secret/runtime state이며 release package에는 포함하지 않는다. 로컬 존재 자체를 오류로 보지 않는다.
 
 ## 유지보수 관점의 남은 위험

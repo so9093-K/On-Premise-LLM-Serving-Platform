@@ -154,7 +154,10 @@ _MAIN_MODEL_STATUS_EXAMPLE = {
             "audio_enabled": True,
             "video_enabled": True,
         },
-        "runtime_image": "gitlab.wizvera.com:4567/acl-ai-system/acl-ai-gateway/vllm-unified@sha256:57f8dc4b64c189e0656ead65fbf7444971c74158b8fbdd9106886ed7353b1981",
+        # 이 예시는 API 형식만 보여준다. 실제 runtime image는 활성 profile과
+        # 배포 시 주입되는 immutable digest에서 결정되므로 특정 배포 registry/digest를
+        # OpenAPI 예시에 고정하지 않는다.
+        "runtime_image": "registry.example.com/vllm-unified@sha256:" + "0" * 64,
         "vram_fraction": 0.76,
     },
     "last_known_good_profile": "gemma4-12b-unified-fp8",

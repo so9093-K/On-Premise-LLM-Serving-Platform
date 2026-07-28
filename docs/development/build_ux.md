@@ -9,8 +9,8 @@ build, start, readiness, deploy, release는 서로 다른 동작이다.
 ```text
 make build-pipeline = 통합 파이프라인 빌드 (make build 별칭, 서비스 기동 없음)
 make build          = 아티팩트·플랫폼 이미지 생성 및 검증
-make start          = 로컬 서비스 또는 compose 스택 기동
-make ready          = 운영 스택이 실제로 준비됐음을 검증
+make start          = 로컬 app-only 서비스 기동
+make ready-full     = 운영 스택이 실제로 준비됐음을 검증
 make reset          = 통합 제거/초기화 (서비스 중지 + 플랫폼/risk 이미지 + 아티팩트)
 make first-run      = 처음 full-stack 준비 (make bootstrap 별칭)
 make rebuild-full   = 전체 재빌드 (make bootstrap 별칭)
@@ -20,8 +20,8 @@ make bootstrap      = 전체 재빌드 (.venv + 의존성 + .env + 검증 + 플�
 `make first-run`, `make rebuild-full`, `make build-pipeline`은 새 담당자가 의미를 바로 이해하기 위한 alias다. 기존 자동화와 하위 호환을 위해 `make bootstrap`, `make build`도 계속 유지한다.
 
 `make build`는 플랫폼 Docker image까지 포함하는 명령이므로 Docker CLI와 daemon이
-필수다. Docker 없이 ZIP만 만들려면 `make package`를 사용한다. `make build`와
-`make package`는 모두 패키징 전에 generated report를 갱신한다.
+필수다. Docker 없이 ZIP만 만들려면 `make package`를 사용한다. 패키징은 Python
+호환성과 API·모델 계약을 검증한 뒤, 소스와 정적 설정만 포함한 ZIP을 만든다.
 
 ## 빌드 계층
 
@@ -79,8 +79,9 @@ SKIP_RISK_VLLM_IMAGE_BUILD=1 make rebuild-full
 
 | 명령 | 역할 | 서비스 기동? | vLLM 필요? | 주 사용자 |
 |---|---|:---:|:---:|---|
-| `make validate` | 계약·스키마·정책·문서 정적 검증 | 아니오 | 아니오 | 개발자 / CI |
-| `make test` | 단위·계약 테스트 (pytest 결정론적 실행) | 아니오 | 아니오 | 개발자 / CI |
+| `make validate` | API·모델 설정 계약의 정적 검증 | 아니오 | 아니오 | 개발자 / CI |
+| `make test` | 빠른 단위 테스트 (`slow/runtime/docker/gpu` 제외) | 아니오 | 아니오 | 개발자 |
+| `make test-full` | 단위·계약 테스트 (`runtime/docker/gpu` 제외) | 아니오 | 아니오 | CI / 릴리스 |
 | `make build-pipeline` | `make build` 별칭. validate + test + 플랫폼 이미지 빌드 + 패키징 | 서비스 유지 없음 | 아니오 | 릴리스 / CI |
 | `make build` | validate + test + 플랫폼 이미지 빌드 + 패키징 | 서비스 유지 없음 | 아니오 | 릴리스 / CI |
 | `make rebuild-app` | `make build-image` 별칭. 플랫폼 이미지만 재빌드 | 아니오 | 아니오 | 개발자 / 운영자 |
@@ -90,14 +91,12 @@ SKIP_RISK_VLLM_IMAGE_BUILD=1 make rebuild-full
 | `make package` | 정적 검증 통과 후 릴리스 ZIP 생성 | 아니오 | 아니오 | 릴리스 / CI |
 | `make start` | 로컬 app-only Gateway·Risk Adapter 기동 | 예 | 아니오 | 개발자 |
 | `make ready-local` | 로컬 Gateway·Risk Adapter `/health` 엄격 확인 | 아니오 | 아니오 | 개발자 |
-| `make ready` | 전체 스택 readiness의 하위 호환 alias | 아니오 | 예 | 운영자 / CI |
 | `make ready-full` | 실제 upstream vLLM까지 포함한 엄격 readiness + smoke | 아니오 | 예 | 운영자 / CI |
 | `make status` | 로컬 상태 정보 표시; `READY_MODE=full`로 의존성 상세 확인 | 아니오 | 선택 | 개발자 / 운영자 |
 | `make stop` | 로컬 서비스 종료; compose 스택도 함께 종료 | 아니오 | 아니오 | 개발자 |
 | `make clean` | 생성 아티팩트 제거; 트래킹된 서비스 실행 중이면 거부 | 아니오 | 아니오 | 개발자 / CI |
 | `make clean-all` | 아티팩트·로그·선택적 대형 캐시 제거 | 아니오 | 아니오 | 개발자 / CI |
-| `make cleanup-plan` | 삭제 대상 미리 보기 (`make clean-dry-run` alias) | 아니오 | 아니오 | 개발자 / 운영자 |
-| `make remove-plan` | `make cleanup-plan` 별칭. 삭제 대상 미리 보기 | 아니오 | 아니오 | 개발자 / 운영자 |
+| `make remove-plan` | 삭제 대상 미리 보기 (`make clean-dry-run` alias) | 아니오 | 아니오 | 개발자 / 운영자 |
 | `make reset` | 통합 제거/초기화. 서비스 중지 + 플랫폼 이미지 + 로컬 risk vLLM 이미지 삭제 + clean-all; 플래그로 model cache, runtime secret, venv, base image까지 확장 가능 | 아니오 | 아니오 | 개발자 / 운영자 |
 | `make first-run` | `make bootstrap` 별칭. 처음 full-stack 준비 | 아니오 | Docker image 필요 | 운영자 |
 | `make rebuild-full` | `make bootstrap` 별칭. 전체 재빌드 | 아니오 | Docker image 필요 | 개발자 / 운영자 |
@@ -113,7 +112,7 @@ SKIP_RISK_VLLM_IMAGE_BUILD=1 make rebuild-full
 
 **`ready`는 `health`가 아니다.** 로컬 app-only health 확인은 Gateway·Risk Adapter 프로세스가 살아 있음만 증명한다. full-stack readiness는 설정된 vLLM upstream이 도달 가능하고 smoke 검증이 통과함을 증명한다. 이 때문에 `make ready-local`과 `make ready-full`을 분리했다.
 
-**`reset`은 `clean`보다 강하다.** `make clean`은 Docker 이미지를 지우지 않는다. 플랫폼/risk image까지 정리하려면 `make reset`을 사용하고, 실행 전에는 `make remove-plan` 또는 `make cleanup-plan`으로 삭제 범위를 확인한다.
+**`reset`은 `clean`보다 강하다.** `make clean`은 Docker 이미지를 지우지 않는다. 플랫폼/risk image까지 정리하려면 `make reset`을 사용하고, 실행 전에는 `make remove-plan`으로 삭제 범위를 확인한다.
 
 `make package`는 Python 호환성 및 API·모델 계약 검증이 통과한 뒤 ZIP을 만든다.
 
@@ -210,8 +209,7 @@ make package
 - build, start, readiness, deploy, release는 서로 다른 동작이다.
 - `make build`는 artifact/image를 생성하고 검증한다.
 - `make start`는 local service 또는 compose stack을 시작한다.
-- `make ready`는 live stack readiness를 증명한다.
-- `make up`은 Docker Compose 친화 alias로 유지한다.
+- `make ready-full`은 live stack readiness를 증명한다.
 
 ## 단순화된 operator entrypoint
 

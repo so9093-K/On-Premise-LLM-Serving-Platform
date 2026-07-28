@@ -240,20 +240,6 @@ documents:
       - tests/contract/test_document_structure.py
     review_required_on:
       - docs_structure_change
-  - path: docs/governance/policies/command_terminology_policy.md
-    type: governance
-    lifecycle: active
-    owner: platform
-    disposition: keep
-    verified_by:
-      - tests/contract/test_document_structure.py
-  - path: docs/governance/policies/retired_source_cleanup_policy.md
-    type: governance
-    lifecycle: active
-    owner: platform
-    disposition: keep
-    verified_by:
-      - tests/contract/test_document_structure.py
   - path: docs/governance/terminology.md
     type: governance
     lifecycle: active
@@ -517,13 +503,6 @@ documents:
     lifecycle: active
     owner: platform
     disposition: keep
-  - path: reports/refactor/project_inventory_current.md
-    type: report
-    lifecycle: generated
-    owner: platform
-    disposition: generated
-    generator: scripts/reports/project_inventory_report.py
-    do_not_edit: true
   - path: reports/runtime/README.md
     type: report
     lifecycle: active

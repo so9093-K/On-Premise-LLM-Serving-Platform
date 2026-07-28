@@ -22,6 +22,7 @@ SERVING_PATH = ROOT / "configs/model_serving.yaml"
 CATALOG_PATH = ROOT / "configs/model_catalog.yaml"
 GPU_BUDGETS_PATH = ROOT / "configs/gpu_budgets.yaml"
 MODEL_CARD_DIR = ROOT / "model_cards"
+MAIN_MODEL_PROFILES_PATH = ROOT / "configs/main_model_profiles.yaml"
 
 COMPOSE_SCALAR_ARGS = (
     "model",
@@ -153,6 +154,38 @@ def validate_production_compose_image_policy(
     return errors
 
 
+def validate_main_llm_bootstrap_image(compose: dict[str, Any]) -> list[str]:
+    """Keep the static Compose bootstrap image aligned with the model-profile fallback.
+
+    Compose needs an image before admin-sidecar can apply the active profile.  The
+    profile catalog is the source of that fallback; the Compose interpolation is
+    deliberately a projection so an empty AUDIO_VLLM_IMAGE has identical meaning
+    in both paths.
+    """
+    errors: list[str] = []
+    catalog = load_yaml(MAIN_MODEL_PROFILES_PATH)
+    default_profile_id = catalog.get("default_profile")
+    runtime_image = catalog.get("runtime", {}).get("image")
+    profile = catalog.get("profiles", {}).get(default_profile_id, {})
+    profile_image = profile.get("image")
+    compose_image = compose.get("services", {}).get("main-llm-vllm", {}).get("image")
+
+    if not isinstance(default_profile_id, str) or not isinstance(runtime_image, str):
+        return ["configs/main_model_profiles.yaml must declare default_profile and runtime.image"]
+    if profile_image != "${AUDIO_VLLM_IMAGE}":
+        errors.append(
+            f"default main-model profile {default_profile_id} must use ${{AUDIO_VLLM_IMAGE}} "
+            "so CI/deploy can inject its immutable image digest"
+        )
+    expected_compose_image = f"${{AUDIO_VLLM_IMAGE:-{runtime_image}}}"
+    if compose_image != expected_compose_image:
+        errors.append(
+            "main-llm-vllm.image must project the default profile fallback exactly: "
+            f"expected {expected_compose_image!r}, got {compose_image!r}"
+        )
+    return errors
+
+
 def validate_alignment(
     compose_path: Path = COMPOSE_PATH,
     *,
@@ -169,6 +202,7 @@ def validate_alignment(
     total_gpu_util = 0.0
 
     errors.extend(validate_production_compose_image_policy(compose_path))
+    errors.extend(validate_main_llm_bootstrap_image(compose))
 
     for runtime in registry.iter_runtime_services():
         if runtime.backend != "vllm":

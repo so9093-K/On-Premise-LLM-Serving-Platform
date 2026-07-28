@@ -26,7 +26,7 @@ Chat, Embedding, Retrieval, Risk Signal 기능을 Gateway 하나로 제공하는
 
 App-only는 Python 환경만으로 Gateway와 Risk Adapter를 확인한다. Full-stack은 NVIDIA GPU, Docker, NVIDIA Container Toolkit, Hugging Face token이 필요하다.
 
-`make ready`는 full-stack compose 전용이다. app-only에서는 `make ready-local`을 사용한다.
+full-stack readiness는 `make ready-full`로, app-only health는 `make ready-local`로 확인한다.
 
 ## 빠른 시작
 
@@ -291,7 +291,7 @@ validate → test → package → build → deploy
 | stage | 역할 |
 |---|---|
 | validate | 설정, model registry, compose, runtime validation config 검증 |
-| test | generated report 갱신 후 test suite 실행 |
+| test | 단위·계약 테스트 실행 |
 | package | 릴리스 ZIP 생성 |
 | build | platform image 빌드, opt-in pipeline에서 runtime-derived image 빌드 |
 | deploy | GitLab CI/CD variables로 지정한 GPU runtime host에 수동 배포 |

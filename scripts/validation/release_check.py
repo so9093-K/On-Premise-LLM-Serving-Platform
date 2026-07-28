@@ -28,7 +28,7 @@ STATIC_STEPS: list[tuple[str, list[str], dict[str, str] | None]] = [
 
 TEST_STEP = (
     "deterministic tests",
-    [PYTHON, "scripts/validation/run_tests.py", "-q", "tests/unit", "-m", "not docker and not runtime and not gpu and not slow"],
+    [PYTHON, "scripts/validation/run_tests.py", "-q", "tests/unit", "tests/contract", "-m", "not runtime and not docker and not gpu"],
     {"PYTHONDONTWRITEBYTECODE": "1", "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1"},
 )
 
@@ -107,7 +107,4 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    code = main()
-    sys.stdout.flush()
-    sys.stderr.flush()
-    os._exit(code)
+    raise SystemExit(main())

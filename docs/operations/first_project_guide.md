@@ -79,7 +79,7 @@ make stop
 정상 기준:
 
 - `make ready-local`이 Gateway/Risk Adapter `/health`를 확인한다.
-- app-only에서는 vLLM이 없으므로 strict `/ready`가 `not_ready`일 수 있다. 이때 `make ready`가 아니라 `make ready-local`을 사용한다.
+- app-only에서는 vLLM이 없으므로 strict `/ready`가 `not_ready`일 수 있다. 이때 `make ready-full`이 아니라 `make ready-local`을 사용한다.
 - `make init-env-compose`로 만든 `.env`는 compose hostname을 담기 때문에 app-only 확인에는 맞지 않는다.
 
 ## 4. Full-stack 경로
@@ -114,7 +114,7 @@ make compose-down
 | 플랫폼 이미지만 재빌드 | `make rebuild-app` / `make build-image` | 아니오 | 앱 코드 반복 수정 시 사용 |
 | Risk vLLM 이미지만 재빌드 | `make rebuild-vllm-unified` / `make build-vllm-unified-image` | 아니오 | Dockerfile/Transformers/vLLM patch 변경 시 사용 |
 | 전체 재빌드 | `make rebuild-full` / `make bootstrap` | 아니오 | .venv부터 risk image check까지 |
-| 삭제 미리 보기 | `make remove-plan` / `make cleanup-plan` | 아니오 | 실제 삭제 없음 |
+| 삭제 미리 보기 | `make remove-plan` | 아니오 | 실제 삭제 없음 |
 | 일반 산출물 제거 | `make clean` | 아니오 | 이미지·모델 캐시·시크릿 보존 |
 | 로그 포함 산출물 제거 | `make clean-all` | 아니오 | 기본적으로 `.runtime`, model cache 보존 |
 | 통합 제거/초기화 | `make reset` | 아니오 | 서비스 중지 + platform/risk image + 산출물 제거 |
@@ -212,7 +212,7 @@ make compose-diagnostics
 
 | 증상 | 먼저 볼 것 |
 |---|---|
-| app-only에서 `make ready` 실패 | `make ready-local` 사용 여부, `.env` profile |
+| app-only에서 `make ready-full` 실패 | `make ready-local` 사용 여부, `.env` profile |
 | compose에서 Risk Adapter 접근 실패 | `make compose-diagnostics`, compose service 상태 |
 | embedding model pull 실패 | `HF_TOKEN`, Gemma 라이선스 동의 |
 | Prometheus admin token 오류 | `make sync-runtime-secrets` |
@@ -244,7 +244,7 @@ make package
 - [ ] full-stack이면 `HF_TOKEN`과 GPU/Docker 접근 권한을 확인했다.
 - [ ] `make auth-status`, `make auth-doctor`로 인증 상태를 확인했다.
 - [ ] `make model-status`, `make model-validate`로 모델 registry 상태를 확인했다.
-- [ ] `make remove-plan` 또는 `make cleanup-plan`으로 삭제 범위를 먼저 봤다.
+- [ ] `make remove-plan`으로 삭제 범위를 먼저 봤다.
 - [ ] 릴리스 전 `make release-check-full`, `make package`를 실행했다.
 
 

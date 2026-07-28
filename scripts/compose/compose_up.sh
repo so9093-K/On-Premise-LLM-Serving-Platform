@@ -9,6 +9,7 @@ ENV_FILE="${ENV_FILE:-.env}"
 COMPOSE_FILE="${COMPOSE_FILE:-ops/compose/full-stack.private-network.yaml}"
 source scripts/lib/compose_context.sh
 compose_context_init "$ROOT"
+compose_context_assert_mutation_safe
 PROM_SECRET=".runtime/prometheus/admin_api_key"
 MAIN_MODEL_BOOT_OVERRIDE="$(mktemp "${TMPDIR:-/tmp}/main-model-boot.XXXXXX.yaml")"
 trap 'rm -f "$MAIN_MODEL_BOOT_OVERRIDE"' EXIT

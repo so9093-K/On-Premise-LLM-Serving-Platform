@@ -53,10 +53,9 @@ make stop
 | `validation/validate_contracts.py` | OpenAPI refs, generated OpenAPI schema injection, JSON Schema, config, release hygiene 정책을 검증한다. |
 | `validation/run_tests.py` | 외부 pytest plugin autoload를 끄고 unit/contract test를 실행한다. |
 | `build/check_python.py` | 현재 interpreter가 `>=3.12,<3.15`인지 fail-fast로 확인한다. |
-| `ops/start_services.sh` | 로컬 app-only Gateway/Risk Adapter를 실행하고 `/health`를 기다린다. |
+| `ops/up_services.sh` | 로컬 app-only Gateway/Risk Adapter를 실행하고 `/health`를 기다린다. |
 | `ops/ready_local.sh` | app-only `/health` 상태를 strict하게 확인한다. app service가 내려가 있으면 실패하며 vLLM은 요구하지 않는다. |
 | `ops/ready_full.sh` | strict `/ready`와 smoke test를 실행한다. 실제 vLLM runtime이 필요하다. |
-| `ops/ready_check.sh` | backward-compatible alias로 `ready_full.sh`를 호출한다. |
 | `compose/preflight_compose.sh` | full-stack compose 전 exposure config를 먼저 검증하고, 통과한 뒤 Docker, GPU 표시, effective compose host-published port, secret 상태를 점검한다. compose 내부 `expose` ports는 host port 검사 대상이 아니다. host bind와 port는 `docker compose config` 결과를 따른다. |
 | `ops/doctor.sh` | Python, 계약, bash syntax, `.env`, local status를 한 번에 진단한다. |
 | `validation/runtime_validation.py` | 실제 runtime 검증 결과를 `reports/runtime/` 아래에 기록한다. |
@@ -66,10 +65,9 @@ make stop
 | `reports/monitoring_projection_report.py` | ModelRegistry와 monitoring config에서 Prometheus scrape, recording rule, Grafana variable projection JSON/Markdown을 생성한다. |
 | `reports/operator_status_bundle.py` | runtime target, model inventory, GPU budget, monitoring label, readiness vocabulary를 하나의 operator status bundle로 생성한다. |
 | `reports/live_evidence_bundle.py` | operator status bundle과 runtime validation report를 sanitised evidence bundle로 결합한다. `--static-placeholder`는 package용으로 timestamped runtime report를 연결하지 않는다. |
-| `reports/refresh_generated_reports.py` | package 전 current generated report를 재생성한다. runtime validation timestamp report는 만들지 않고 static live evidence placeholder를 생성한다. |
 | `validation/release_check.py` | 서비스 기동 없는 정적 릴리스 gate를 실행한다. 각 step에는 timeout이 있어 hang 시 실패 step을 명확히 표시한다. |
 | `models/check_hf_model_config.py` | Docker/GPU 없이 Transformers `AutoConfig`만 로드해 vLLM·bitsandbytes 이전 config loader 문제를 분리한다. |
-| `build/package_release.sh` | 배포 ZIP을 만들고 secret, log, cache, egg-info, generated runtime report를 제외한다. `make package`는 이 스크립트 전에 `reports/refresh_generated_reports.py`를 실행한다. ZIP root는 항상 `ai_model_serving_platform/`로 고정한다. |
+| `build/package_release.sh` | 배포 ZIP을 만들고 secret, log, cache, egg-info, generated runtime report를 제외한다. ZIP root는 항상 `ai_model_serving_platform/`로 고정한다. |
 | `ops/clean_all.sh` | build 산출물, egg-info와 log를 정리한다. 실행 중 local service가 있으면 중단한다. `--dry-run`으로 삭제 대상을 먼저 볼 수 있다. 모델 cache는 `PURGE_MODEL_CACHE=1`, runtime secret은 `PURGE_RUNTIME_SECRETS=1`일 때만 삭제한다. |
 | `build/reset_version.py` | VERSION, OpenAPI, pyproject, env 예시, platform image tag를 같은 버전으로 맞춘다. |
 
@@ -81,7 +79,7 @@ make stop
 - app-only 확인은 `make ready-local`, strict full-stack 확인은 `make ready-full`을 사용한다.
 - full-stack 검증은 Docker/GPU/vLLM이 있는 host에서 `make preflight-compose && make compose-up`으로 수행한다.
 - 운영 산출물은 개별 명령(`make runtime-targets`, `make storage-paths`, `make monitoring-projection`, `make operator-status`, `make live-evidence`) 또는 통합 명령 `make operator-reports`로 생성한다. 라이브 검증은 `make runtime-validate`, 릴리스 전 정적 게이트는 `make release-check`로 수행한다. 장시간 환경에서는 `RELEASE_CHECK_STEP_TIMEOUT_SECONDS` 또는 `--step-timeout-seconds`로 step timeout을 조정한다.
-- 삭제 전에는 `make remove-plan` 또는 `make cleanup-plan`으로 삭제 대상을 확인할 수 있다. 두 명령은 `make clean-dry-run`의 읽기 쉬운 alias다.
+- 삭제 전에는 `make remove-plan`으로 삭제 대상을 확인할 수 있다. `make clean-dry-run`의 읽기 쉬운 alias다.
 
 - `.runtime/`은 정상적인 로컬 runtime state다. `make init-env-compose` 이후 존재할 수 있으며, `make clean-all`은 기본적으로 보존한다. 테스트와 패키징 정책은 `.runtime`의 로컬 존재가 아니라 release/source ZIP 포함 여부를 검사해야 한다.
 - `package_release.sh`는 `.runtime`, `.venv`, `venv`, `env`, `.tox`, logs, run, cache, pycache, egg-info를 제외한다.
@@ -93,7 +91,6 @@ make stop
 - build와 runtime은 다른 단계다
 - `make build`는 서비스를 시작하지 않는다
 - make start
-- make ready
 - make ready-local
 - make ready-full
 - make guide
@@ -104,7 +101,6 @@ make stop
 - make live-evidence
 - make release-check
 - make operator-reports
-- make cleanup-plan
 - make remove-plan
 - make build-pipeline
 - make first-run
@@ -127,15 +123,6 @@ Risk detector의 `bitsandbytes` 설정은 운영 기본값이다. 원인 분리�
 - `make rebuild-vllm-unified` / `make build-vllm-unified-image`: `ops/images/vllm-unified/Dockerfile`에서 `RISK_VLLM_IMAGE`(26B/12B/embedding/embedding-ko와 공용 vLLM unified 이미지)를 빌드하는 고급/수동 target이다.
 - `make risk-vllm-config-check`: `RISK_VLLM_IMAGE` 안에서 label, metadata, Kanana risk model config load를 확인한다.
 - `SKIP_RISK_VLLM_IMAGE_CONFIG_CHECK=1 make preflight-compose`: image-internal config check만 건너뛴다. production 승격용으로 쓰지 않는다.
-
-## 프로젝트 관리 inventory
-
-```bash
-make project-inventory
-python scripts/reports/project_inventory_report.py
-```
-
-`reports/refactor/project_inventory_current.*`를 생성한다. 이 파일은 handoff와 관리 UX 검토를 위한 현재 파일/문서/ownership inventory다.
 
 ## 인증 제어 플레인 점검
 

@@ -29,7 +29,7 @@ Accepted
 | request/response schema | `specs/schemas/*.json` |
 | monitoring target | `configs/monitoring.yaml` |
 | compose service | `ops/compose/*.yaml` |
-| build target | `Makefile`, `scripts/`, `configs/command_terminology_policy.yaml` |
+| build target | `Makefile`, `scripts/` |
 | architectural decision | `docs/adr/*.md` |
 
 추가 원칙:

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from .filesystem import validate_json_and_yaml_parse, validate_required_files
+from .filesystem import validate_json_and_yaml_parse
 from .model_config import (
     validate_model_cards,
     validate_model_contracts_cross_reference,
@@ -26,7 +26,6 @@ from .versioning import (
 
 
 CHECKS = [
-    validate_required_files,
     validate_json_and_yaml_parse,
     validate_vllm_compose_contract,
     validate_version_alignment,

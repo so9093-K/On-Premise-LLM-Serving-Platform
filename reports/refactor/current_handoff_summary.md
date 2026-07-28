@@ -37,7 +37,7 @@ note: "이 문서는 특정 시점의 handoff 요약이다. 최신 package versi
 | Streaming Chat API | `POST /v1/chat/completions` with `stream=true`, `docs/operations/streaming_runtime_operations.md` |
 | Monitoring/Grafana | `ops/grafana/dashboards/*.json`, `docs/operations/monitoring_ux.md`, `configs/monitoring.yaml` |
 | 빌드/제거/재빌드 | `make build-pipeline`, `make first-run`, `make rebuild-full`, `make remove-plan`, `make reset` |
-| 운영 산출물 | `make operator-reports`, `make refresh-generated-reports` |
+| 운영 산출물 | `make operator-reports` |
 | 릴리스 gate | `make release-check`, `make release-check-full`, `scripts/validation/openapi_snapshot_diff.py` |
 | 현 상태 문서 | `docs/operations/project_maintainability_status.md`, `reports/refactor/current_refactor_state.md` |
 

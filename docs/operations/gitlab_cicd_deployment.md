@@ -86,8 +86,10 @@ Platform image는 commit tag와 branch tag를 항상 push한다. `release` branc
   처리한다. 배포 대상 host의 모델 다운로드는 원격 `.env`의 `HF_TOKEN`을 사용한다.
 
 배포 파일은 운영 root를 직접 덮어쓰지 않는다. 새 소스는 먼저
-`releases/<commit>`에 동기화되고 해당 디렉터리의 Compose·스크립트로 검증 및
-기동된다. readiness가 성공한 뒤에만 `current` symlink를 원자적으로 교체한다.
+`releases/<commit>`에 동기화되고 해당 디렉터리에서 후보 Compose 설정을 검증한다.
+검증 뒤 실제 컨테이너를 변경하기 전에 `current` symlink를 원자적으로 전환하며,
+그 이후의 pull·재생성·readiness는 항상 `current` 경로의 Compose context에서 실행한다.
+실패하면 이전 `current` link와 해당 context의 서비스를 함께 복원한다.
 Full 배포는 실제 vLLM 파일 세대를 나타내는 `runtime-current`도 함께 갱신한다.
 실패하면 공유 `.env`, 서비스, `current`, `runtime-current`를 모두 이전 release로
 복원한 후 후보 디렉터리를 삭제한다.

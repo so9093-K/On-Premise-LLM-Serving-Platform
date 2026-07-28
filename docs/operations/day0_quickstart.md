@@ -8,7 +8,7 @@
 
 vLLM/GPU 없이 Gateway와 Risk Adapter process만 확인한다.
 
-**반드시 `make init-env-local`을 사용한다.** `make init-env-compose`로 만든 `.env`는 `RISK_ADAPTER_BASE_URL=http://risk-adapter:9405` 같은 compose 내부 hostname을 사용하므로, app-only 모드에서 `make ready`가 실패한다. app-only readiness는 `make ready-local`만 사용한다.
+**반드시 `make init-env-local`을 사용한다.** `make init-env-compose`로 만든 `.env`는 `RISK_ADAPTER_BASE_URL=http://risk-adapter:9405` 같은 compose 내부 hostname을 사용하므로, app-only 모드에서 `make ready-full`이 실패한다. app-only readiness는 `make ready-local`만 사용한다.
 
 ```bash
 python3.12 -m venv .venv
@@ -93,7 +93,7 @@ READY_MODE=full make status
 ```
 
 - `python` 명령이 없으면 `python3.12`를 사용한다. Makefile은 자동으로 탐지한다.
-- `make ready`가 `risk-adapter /health: unavailable HTTP 000`을 반환하면 compose hostname 충돌이다. app-only 모드에서는 `make ready-local`을 사용한다.
+- `make ready-full`이 `risk-adapter /health: unavailable HTTP 000`을 반환하면 compose hostname 충돌일 수 있다. app-only 모드에서는 `make ready-local`을 사용한다.
 - 포트가 busy면 기존 process를 종료하거나 `.env`의 port를 조정한다.
 - `.runtime/prometheus/admin_api_key`만 없으면 `.env`를 재생성하지 말고 `make sync-runtime-secrets`를 실행한다.
 
@@ -182,10 +182,10 @@ make ready-full
 
 삭제 전 미리 보기:
 ```bash
-make remove-plan     # 또는 make cleanup-plan
+make remove-plan
 ```
 
-`make remove-plan`과 `make cleanup-plan`은 `make clean-dry-run`의 읽기 쉬운 alias다.
+`make remove-plan`은 `make clean-dry-run`의 읽기 쉬운 alias다.
 
 
 ## 6. Runtime secret directory와 테스트

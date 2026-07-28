@@ -136,7 +136,7 @@ def render_storage_report_markdown(document: dict[str, Any]) -> str:
         "",
         "이 리포트는 어떤 파일이 source artifact이고 어떤 파일이 로컬 runtime state인지 구분하기 위한 문서다. `.runtime/`은 compose 실행에 필요한 로컬 secret state이므로 작업 트리에 생길 수 있지만, release package에는 들어가면 안 된다. 모델 cache와 logs도 재생성 가능한 환경 산출물이므로 배포 ZIP에 포함하지 않는다.",
         "",
-        "정리 작업 전에는 `make cleanup-plan`으로 삭제 대상을 먼저 확인하고, 모델 cache나 runtime secret처럼 비용이 큰 항목은 명시적인 purge flag를 사용할 때만 삭제한다.",
+        "정리 작업 전에는 `make remove-plan`으로 삭제 대상을 먼저 확인하고, 모델 cache나 runtime secret처럼 비용이 큰 항목은 명시적인 purge flag를 사용할 때만 삭제한다.",
     ])
     return "\n".join(lines) + "\n"
 

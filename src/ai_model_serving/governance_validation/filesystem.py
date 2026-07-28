@@ -22,7 +22,6 @@ except ImportError as exc:
 
 from .common import (
     FORBIDDEN_RESPONSE_FIELDS,
-    REQUIRED_FILES,
     ROOT,
     iter_project_files,
     read_json,
@@ -37,8 +36,3 @@ def validate_json_and_yaml_parse() -> None:
         yaml.safe_load(path.read_text(encoding='utf-8'))
     for path in iter_project_files('*.yml'):
         yaml.safe_load(path.read_text(encoding='utf-8'))
-
-def validate_required_files() -> None:
-    missing = [path for path in REQUIRED_FILES if not (ROOT / path).exists()]
-    if missing:
-        raise SystemExit(f'missing required files: {missing}')

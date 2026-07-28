@@ -72,6 +72,21 @@ def test_main_model_profiles_pin_revision_image_and_default_golden_command():
     ]["command"]
 
 
+def test_main_model_compose_bootstrap_image_matches_default_profile_fallback():
+    """Compose starts before sidecar reconciliation, so this projection must not drift."""
+    profiles = yaml.safe_load(
+        (ROOT / "configs/main_model_profiles.yaml").read_text(encoding="utf-8")
+    )
+    compose = yaml.safe_load(
+        (ROOT / "ops/compose/full-stack.private-network.yaml").read_text(encoding="utf-8")
+    )
+    default_profile = profiles["profiles"][profiles["default_profile"]]
+    assert default_profile["image"] == "${AUDIO_VLLM_IMAGE}"
+    assert compose["services"]["main-llm-vllm"]["image"] == (
+        "${AUDIO_VLLM_IMAGE:-" + profiles["runtime"]["image"] + "}"
+    )
+
+
 def test_env_templates_follow_catalog_default_profile():
     profiles = yaml.safe_load(
         (ROOT / "configs/main_model_profiles.yaml").read_text(encoding="utf-8")
@@ -83,12 +98,16 @@ def test_env_templates_follow_catalog_default_profile():
 
 def test_ci_deploys_gateway_and_sidecar_together_and_exports_image_digest():
     pipeline = (ROOT / ".gitlab-ci.yml").read_text(encoding="utf-8")
+    pipeline_doc = yaml.safe_load(pipeline)
     deploy = (ROOT / "scripts/ci/deploy_gitlab_compose.sh").read_text(encoding="utf-8")
     assert "PLATFORM_IMAGE_DIGEST" in pipeline
     assert "admin-sidecar" in deploy
     assert "compose_run up -d --no-deps admin-sidecar" in deploy
     assert "render_main_model_boot_override.py" in deploy
     assert "ai_model_serving.model_cache_cli" in deploy
+    assert "configure_release_context \"${DEPLOY_PATH}/current\"" in deploy
+    assert "activating release ${RELEASE_ID} before Compose convergence" in deploy
+    assert pipeline_doc["deploy-gpu-175"]["resource_group"] == "acl-ai-gateway-gpu-175"
 
 
 def test_boot_projection_is_temporary_and_sidecar_default_is_catalog_driven():

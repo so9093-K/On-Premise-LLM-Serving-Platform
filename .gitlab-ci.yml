@@ -74,16 +74,10 @@ validate:
   extends: .default-python
   stage: validate
   script:
-    - make validate
-    - python scripts/models/modelctl.py validate
-    - python scripts/models/modelctl.py diff
-    - python scripts/render_runtime_assets.py --check
-    - python scripts/compose/validate_vllm_compose.py
-    - python scripts/validation/runtime_validation.py --config-only
-    - python -m pytest -q tests/unit/test_main_model_control.py tests/unit/test_docker_main_model_backend.py tests/unit/gateway/test_main_model_control.py
+    - make release-check
     - bash -n scripts/ci/*.sh scripts/compose/*.sh scripts/ops/*.sh
 
-hf-main-model-profiles-canary:
+hf-main-model-profiles:
   extends: .default-python
   stage: validate
   script:
@@ -92,7 +86,7 @@ hf-main-model-profiles-canary:
       trap 'rm -rf "$HF_CANARY_VENV"' EXIT
       python -m venv "$HF_CANARY_VENV"
       "$HF_CANARY_VENV/bin/python" -m pip install \
-        "transformers[sentencepiece]>=4.52.4" \
+        "transformers[sentencepiece]==4.52.4" \
         "huggingface_hub==1.13.0" \
         "PyYAML==6.0.3"
       "$HF_CANARY_VENV/bin/python" scripts/models/check_main_model_profiles.py
@@ -101,8 +95,7 @@ unit-test:
   extends: .default-python
   stage: test
   script:
-    - make refresh-generated-reports
-    - make test
+    - make test-full
 
 package-release:
   extends: .default-python
@@ -210,6 +203,9 @@ build-vllm-derived:
 #   DEPLOY_DEFERRED_RUNTIMES   콤마로 구분한 deferred runtime 명시적 override; DEPLOY_RUNTIME_PROFILE보다 우선
 deploy-gpu-175:
   stage: deploy
+  # 같은 GPU host를 향한 두 pipeline의 deploy가 release link/.env/Compose를
+  # 동시에 바꾸지 않도록 직렬화한다.
+  resource_group: acl-ai-gateway-gpu-175
   image: alpine:3.20
   dependencies:
     - build-platform

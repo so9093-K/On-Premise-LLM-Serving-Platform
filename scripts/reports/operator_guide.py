@@ -47,7 +47,7 @@ WORKFLOWS: list[Workflow] = [
             "make stop",
         ],
         notes=[
-            "app-only 모드에서는 make ready 대신 make ready-local을 사용한다.",
+            "app-only 모드에서는 make ready-full 대신 make ready-local을 사용한다.",
             "make init-env-compose로 만든 .env는 compose 내부 hostname을 사용한다.",
         ],
     ),
@@ -76,14 +76,12 @@ WORKFLOWS: list[Workflow] = [
         commands=[
             "make runtime-targets",
             "make storage-paths",
-            "make project-inventory",
             "make monitoring-projection",
             "make operator-status",
             "make live-evidence",
         ],
         notes=[
             "같은 작업을 한 번에 실행하려면 make operator-reports를 사용한다.",
-            "파일·문서·관리 inventory는 make project-inventory를 사용한다.",
             "model/cache/report/secret 경로를 확인하려면 make storage-paths를 사용한다.",
             "make live-evidence는 가장 최신 live runtime validation report를 우선 사용한다.",
         ],

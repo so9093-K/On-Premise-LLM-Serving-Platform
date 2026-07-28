@@ -361,7 +361,7 @@ def _phase2(canonical_mode: str, exposure_data: dict[str, Any]) -> int:
     compose_path = (
         compose_path if compose_path.is_absolute() else (ROOT / compose_path).resolve()
     )
-    project_name = _env_value("COMPOSE_PROJECT_NAME", "compose") or "compose"
+    project_name = _env_value("COMPOSE_PROJECT_NAME", "ai-model-serving-platform") or "ai-model-serving-platform"
     os.environ["COMPOSE_PROJECT_NAME"] = project_name
     os.environ["COMPOSE_SERVICE_ENV_FILE"] = str(env_path)
     override = override_file_for(canonical_mode)

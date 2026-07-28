@@ -22,7 +22,6 @@ except ImportError as exc:
 
 from .common import (
     FORBIDDEN_RESPONSE_FIELDS,
-    REQUIRED_FILES,
     ROOT,
     iter_project_files,
     read_json,

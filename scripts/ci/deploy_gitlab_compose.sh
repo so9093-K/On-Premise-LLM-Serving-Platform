@@ -897,6 +897,29 @@ if [[ -z "${COMPOSE_PROJECT_EFFECTIVE}" ]]; then
   fail_after_env_backup "effective Compose project name is empty"
 fi
 
+# 후보 release의 compose config 검증이 끝난 뒤, 실제 컨테이너를 변경하기 전에
+# current/runtime-current를 원자적으로 전환한다. 이후 모든 Compose 명령은
+# release 절대경로가 아니라 안정적인 current 경로에서 실행한다. 그래야 같은
+# Compose project의 컨테이너가 release마다 서로 다른 working_dir label을 남기지
+# 않고, rollback도 previous current link를 복원한 뒤 같은 context에서 수행된다.
+echo "[deploy] activating release ${RELEASE_ID} before Compose convergence..."
+CURRENT_LINK_TMP="${DEPLOY_PATH}/.current.${RELEASE_ID}.$$"
+LINKS_MUTATED=1
+ln -s "releases/${RELEASE_ID}" "${CURRENT_LINK_TMP}"
+mv -Tf "${CURRENT_LINK_TMP}" "${DEPLOY_PATH}/current"
+echo "[deploy] current -> releases/${RELEASE_ID}"
+if [[ "${DEPLOY_MODE}" == "full" ]]; then
+  RUNTIME_LINK_TMP="${DEPLOY_PATH}/.runtime-current.${RELEASE_ID}.$$"
+  ln -s "releases/${RELEASE_ID}" "${RUNTIME_LINK_TMP}"
+  mv -Tf "${RUNTIME_LINK_TMP}" "${DEPLOY_PATH}/runtime-current"
+  RUNTIME_RELEASE="${RELEASE_PATH}"
+  echo "[deploy] runtime-current -> releases/${RELEASE_ID}"
+fi
+
+if ! configure_release_context "${DEPLOY_PATH}/current"; then
+  fail_after_env_backup "activated release context is invalid"
+fi
+
 if [[ "${DEPLOY_MODE}" == "full" ]]; then
   HF_CACHE_HOST="$(
     "${_PYTHON_BIN}" scripts/models/resolve_hf_cache_dir.py \
@@ -1064,21 +1087,6 @@ if [[ "${DEPLOY_MODE}" == "full" ]]; then
     make compose-diagnostics || true
     fail_after_env_backup "full runtime readiness failed"
   fi
-fi
-
-echo "[deploy] activating release ${RELEASE_ID}..."
-CURRENT_LINK_TMP="${DEPLOY_PATH}/.current.${RELEASE_ID}.$$"
-RUNTIME_LINK_TMP=""
-LINKS_MUTATED=1
-ln -s "releases/${RELEASE_ID}" "${CURRENT_LINK_TMP}"
-mv -Tf "${CURRENT_LINK_TMP}" "${DEPLOY_PATH}/current"
-echo "[deploy] current -> releases/${RELEASE_ID}"
-if [[ "${DEPLOY_MODE}" == "full" ]]; then
-  RUNTIME_LINK_TMP="${DEPLOY_PATH}/.runtime-current.${RELEASE_ID}.$$"
-  ln -s "releases/${RELEASE_ID}" "${RUNTIME_LINK_TMP}"
-  mv -Tf "${RUNTIME_LINK_TMP}" "${DEPLOY_PATH}/runtime-current"
-  RUNTIME_RELEASE="${RELEASE_PATH}"
-  echo "[deploy] runtime-current -> releases/${RELEASE_ID}"
 fi
 
 trap - ERR

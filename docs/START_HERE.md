@@ -39,7 +39,7 @@ make ready-local
 - GPU 없이 동작한다.
 - `/health`가 성공하면 정상이다.
 - 📄 [operations/day0_quickstart.md](operations/day0_quickstart.md)
-- ⚠️ app-only에서 `make ready`(full-stack 전용)를 쓰면 실패한다. 반드시 `make ready-local`을 사용한다.
+- ⚠️ app-only에서는 full-stack gate인 `make ready-full` 대신 반드시 `make ready-local`을 사용한다.
 
 ---
 
@@ -188,12 +188,12 @@ make auth-doctor              # 인증 설정 위험 조합 확인
 ### 릴리스 패키지를 만들고 싶다
 
 ```bash
-make release-check            # 정적 gate (파일 생성 포함)
+make release-check            # 정적 gate (파일 생성 없음)
 make release-check-full       # 정적 gate + deterministic test
 make package                  # refresh → validate → dist/ ZIP 생성
 ```
 
-> `make release-check`는 현재 report generator를 포함하므로 완전한 read-only가 아니다.
+> `make release-check`는 서비스 호출이나 report 파일 생성을 하지 않는다. live 증빙은 `make runtime-validate`로만 생성한다.
 
 - 📄 [release/release_checklist.md](release/release_checklist.md)
 - 📄 [development/build_ux.md](development/build_ux.md)
@@ -220,14 +220,13 @@ make reset-version NEW_VERSION=0.1.0
 ### 문서/리포트 drift를 확인하고 싶다
 
 ```bash
-make project-inventory        # 파일/문서/ownership inventory 생성
 make operator-reports         # 전체 운영 리포트 갱신
-make validate                 # 계약·스키마·정책·문서 정적 검증
+make validate                 # API·모델 설정 계약 정적 검증
 make release-check            # 릴리스 gate 전체 실행
 ```
 
 - 📄 [operations/project_management_workflow.md](operations/project_management_workflow.md)
-- 📊 생성 report: `reports/refactor/project_inventory_current.md`
+- 📊 생성 report: `reports/runtime/*.json`, `reports/runtime/*.md`
 
 ---
 
@@ -240,7 +239,7 @@ make release-check            # 릴리스 gate 전체 실행
 | **examples** | `docs/examples/` | 설명형 API examples. 실행 가능한 sample payload가 추가되면 root `examples/`에 둔다 |
 | **archive** | `docs/archive/` | historical context. 현재 운영 기준으로 쓰지 않는다 |
 | **generated** | `reports/runtime/` | 스크립트가 생성하는 runtime evidence. 직접 수정하지 않는다 |
-| **handoff** | `reports/refactor/current_*`, `reports/refactor/project_inventory_current.*` | 현재 상태/handoff/inventory artifact |
+| **handoff** | `reports/refactor/current_*` | 현재 상태/handoff 요약 |
 | **changelog** | `CHANGELOG.md` | root의 짧은 버전별 릴리스 노트 |
 
 ---

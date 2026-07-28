@@ -13,7 +13,7 @@
 | **examples** | `docs/examples/` | 설명형 API examples. 실행 가능한 sample payload가 추가되면 root `examples/`에 둔다 |
 | **archive** | `docs/archive/` | historical context. 현재 운영 기준으로 쓰지 않는다 |
 | **generated** | `reports/runtime/` | 스크립트가 생성하는 runtime evidence. 직접 수정하지 않는다 |
-| **handoff** | `reports/refactor/current_*`, `reports/refactor/project_inventory_current.*` | 현재 상태/handoff/inventory artifact |
+| **handoff** | `reports/refactor/current_*` | 현재 상태와 handoff 요약 |
 | **release history** | `CHANGELOG.md` | root의 짧은 버전별 릴리스 노트 |
 
 ## 운영자 (Operators)
@@ -125,6 +125,5 @@ make start         # 로컬 app-only 기동
 make compose-up    # full-stack compose 기동
 make ready-local   # 로컬 health 확인
 make ready-full    # full-stack readiness 확인
-make project-inventory # 전체 파일·문서·관리 inventory 생성
 make operator-reports # 운영 산출물 통합 생성
 ```

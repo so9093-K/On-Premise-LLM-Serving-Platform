@@ -9,8 +9,8 @@ echo "[build] validating project"
 "$PYTHON_BIN" scripts/build/check_python.py --context validate >/dev/null
 "$PYTHON_BIN" scripts/validation/validate_contracts.py
 
-echo "[build] running unit tests"
-PYTHONDONTWRITEBYTECODE=1 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 "$PYTHON_BIN" scripts/validation/run_tests.py -q tests/unit -m "not docker and not runtime and not gpu and not slow"
+echo "[build] running deterministic tests"
+PYTHON_BIN="$PYTHON_BIN" make test-full
 
 if ! command -v docker >/dev/null 2>&1; then
   echo "[build] docker CLI is required because make build includes the platform image." >&2

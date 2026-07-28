@@ -10,12 +10,6 @@ load_local_env "$ENV_FILE"
 
 mkdir -p run logs
 
-if [[ -f compose.yaml || -f compose.yml || -f docker-compose.yml ]]; then
-  echo "[up] compose file found; starting compose stack"
-  docker compose up -d
-  exit 0
-fi
-
 PYTHON_BIN="${PYTHON_BIN:-$(command -v python3.12 || command -v python3 || command -v python)}"
 "$PYTHON_BIN" scripts/build/check_python.py --context start >/dev/null
 GATEWAY_HOST="${GATEWAY_HOST:-127.0.0.1}"

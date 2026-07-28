@@ -9,6 +9,7 @@ ENV_FILE="${ENV_FILE:-.env}"
 PYTHON_BIN="${PYTHON_BIN:-$(command -v python3.12 || command -v python3 || command -v python)}"
 source scripts/lib/compose_context.sh
 compose_context_init "$ROOT"
+compose_context_assert_mutation_safe
 
 if [[ -f "$COMPOSE_FILE_ABS" ]]; then
   echo "[down] stopping compose stack: ${COMPOSE_FILE_ABS} (project=${COMPOSE_PROJECT_NAME_EFFECTIVE})"

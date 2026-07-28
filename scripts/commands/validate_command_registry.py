@@ -49,28 +49,6 @@ OWNER_DOCS_REQUIRED_SAFETY = {"writes_env", "starts_services", "deploys_remote",
 # deletes_files는 docs 또는 tests 또는 writes_files가 있어야 한다
 DELETES_FILES_METADATA_REQUIRED = {"deletes_files"}
 
-# strict 검사 대상 docs 경로 (non-strict는 operations/** 만)
-DOCS_STRICT = [
-    ROOT / "README.md",
-    ROOT / "docs" / "README.md",
-    ROOT / "docs" / "START_HERE.md",
-    ROOT / "scripts" / "README.md",
-]
-DOCS_STRICT_GLOBS = [
-    (ROOT / "docs" / "operations", "*.md"),
-    (ROOT / "docs" / "development", "*.md"),
-    (ROOT / "docs" / "release", "*.md"),
-]
-# non-strict 검사 대상 (기존 범위)
-DOCS_DEFAULT = [
-    ROOT / "README.md",
-    ROOT / "docs" / "README.md",
-    ROOT / "docs" / "START_HERE.md",
-]
-DOCS_DEFAULT_GLOBS = [
-    (ROOT / "docs" / "operations", "*.md"),
-]
-
 
 def _load_registry() -> dict:
     try:
@@ -119,57 +97,6 @@ def _parse_makefile_targets() -> tuple[set[str], set[str]]:
     return defined_targets, phony_only
 
 
-def _collect_make_refs_from_paths(paths: list[Path]) -> set[str]:
-    """지정된 파일 목록에서 make <target> 참조를 수집한다."""
-    pattern = re.compile(r"\bmake\s+([A-Za-z0-9_][A-Za-z0-9_.-]*)(?:\s|$|`|'|\")")
-    refs: set[str] = set()
-    for path in paths:
-        if not path.exists():
-            continue
-        text = path.read_text(encoding="utf-8")
-        for m in pattern.finditer(text):
-            refs.add(m.group(1))
-    return refs
-
-
-def _build_scan_paths(strict: bool) -> list[Path]:
-    base_docs = DOCS_STRICT if strict else DOCS_DEFAULT
-    base_globs = DOCS_STRICT_GLOBS if strict else DOCS_DEFAULT_GLOBS
-
-    scan_paths = [p for p in base_docs if p.exists()]
-    for directory, pattern in base_globs:
-        if directory.is_dir():
-            scan_paths.extend(directory.rglob(pattern))
-    return scan_paths
-
-
-def _collect_make_refs_in_docs(strict: bool) -> set[str]:
-    scan_paths = _build_scan_paths(strict)
-    return _collect_make_refs_from_paths(scan_paths)
-
-
-def _collect_feature_commands() -> dict[str, list[str]]:
-    result: dict[str, list[str]] = {}
-    features_dir = ROOT / "features"
-    if not features_dir.is_dir():
-        return result
-    for path in sorted(features_dir.glob("*.yaml")):
-        try:
-            data = yaml.safe_load(path.read_text(encoding="utf-8"))
-        except Exception:
-            continue
-        commands = data.get("commands", []) if isinstance(data, dict) else []
-        targets = []
-        for cmd in commands:
-            cmd_str = str(cmd)
-            m = re.match(r"make\s+([A-Za-z0-9_][A-Za-z0-9_.-]*)", cmd_str)
-            if m:
-                targets.append(m.group(1))
-        if targets:
-            result[path.name] = targets
-    return result
-
-
 def _collect_operator_guide_commands() -> list[str]:
     guide_path = ROOT / "scripts" / "reports" / "operator_guide.py"
     if not guide_path.exists():
@@ -212,7 +139,7 @@ def _validate_allow_unregistered(
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="command_registry.yaml 무결성 검증 — Makefile drift, docs drift, features drift를 검사합니다."
+        description="command_registry.yaml과 Makefile의 실행 가능한 명령 정합성을 검증합니다."
     )
     parser.add_argument(
         "--strict",

@@ -31,7 +31,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--soak-interval-seconds", type=float, default=1.0)
     parser.add_argument("--concurrency", type=int, default=1)
     parser.add_argument("--skip-soak", action="store_true")
-    parser.add_argument("--config-only", action="store_true", help="live service를 호출하지 않고 harness 설정만 검증합니다.")
+    parser.add_argument("--config-only", action="store_true", help="live service나 report 파일을 만들지 않고 harness 설정만 검증합니다.")
     parser.add_argument("--allow-failures", action="store_true", help="live check가 실패해도 report를 기록하고 exit code 0으로 종료합니다.")
     return parser
 
@@ -44,8 +44,8 @@ def main() -> int:
         validator.run_config_only()
     else:
         validator.run_live()
-    json_path, md_path = validator.write_reports()
-    print(f"wrote {json_path}")
-    print(f"wrote {md_path}")
+        json_path, md_path = validator.write_reports()
+        print(f"wrote {json_path}")
+        print(f"wrote {md_path}")
     failed = [item for item in validator.results if not item.passed]
     return 0 if config.allow_failures or not failed else 1
