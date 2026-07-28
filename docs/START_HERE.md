@@ -190,12 +190,10 @@ make auth-doctor              # 인증 설정 위험 조합 확인
 ```bash
 make release-check            # 정적 gate (파일 생성 포함)
 make release-check-full       # 정적 gate + deterministic test
-make refresh-generated-reports # generated report 재생성
 make package                  # refresh → validate → dist/ ZIP 생성
 ```
 
 > `make release-check`는 현재 report generator를 포함하므로 완전한 read-only가 아니다.
-> `make package`를 실행하기 전 `make refresh-generated-reports`는 자동 실행된다.
 
 - 📄 [release/release_checklist.md](release/release_checklist.md)
 - 📄 [development/build_ux.md](development/build_ux.md)

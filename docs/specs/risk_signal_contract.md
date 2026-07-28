@@ -163,3 +163,15 @@ Gateway는 Risk Adapter 응답을 다시 검증해 forbidden field가 들어오�
 ## Forbidden response fields 전체 목록
 
 `allow`, `review`, `block`, `decision`, `action`, `safe_to_send`, `final_decision`, `final_decision_owner`, `policy_overrides`는 모두 금지한다.
+# Risk system signal 운영 가이드
+
+Risk API는 detector 실패를 HTTP 오류로만 표현하지 않는다. HTTP `200`이어도 `status="failed"` 또는 `assessment_complete=false`이면 **안전 판정이 아니라 detector 실패**다. `risk_detected=false`만으로 요청을 allow 처리하면 안 된다.
+
+| system signal | 재시도 | 조치 |
+|---|---|---|
+| `INFERENCE_TIMEOUT`, `INFERENCE_QUEUE_TIMEOUT` | 가능 | backoff 후 재시도하고 queue/runtime 상태를 확인한다. |
+| `INFERENCE_ERROR` | 상황별 | `assessment_id`와 요청 시각으로 risk-adapter/risk-prompt 로그를 확인한다. |
+| `PARSE_ERROR` | 가능 | risk-prompt 출력 및 adapter contract를 확인한다. |
+| `TRUNCATED_INPUT` | 불가 | 입력을 토큰 기준으로 분할하거나 제한을 조정한다. |
+
+`safe`로 간주할 수 있는 최소 조건은 `status="completed"`, `assessment_complete=true`, `system_signal_detected=false`, `risk_detected=false`를 모두 만족하는 경우다.

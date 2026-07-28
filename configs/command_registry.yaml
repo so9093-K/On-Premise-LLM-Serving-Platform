@@ -1050,90 +1050,6 @@ commands:
     docs: []
     tests: []
 
-  - make_target: docs-check
-    title: 문서 링크 유효성 검사
-    category: docs
-    audience: [developer, release_engineer]
-    description: "Markdown 링크 유효성을 검사한다. 파일 수정 없음."
-    command: make docs-check
-    kind: public
-    safety: read_only
-    requires:
-      python: true
-      docker: false
-      gpu: false
-      live_services: false
-      secrets: false
-      env_file: false
-    writes_files: []
-    outputs: [stdout]
-    owner: operations
-    docs: []
-    tests: []
-
-  - make_target: reports-check
-    title: Generated report 점검
-    category: docs
-    audience: [developer, release_engineer]
-    description: "generated report 헤딩·내용·배너·버전 레이블을 점검한다. 파일 수정 없음."
-    command: make reports-check
-    kind: public
-    safety: read_only
-    requires:
-      python: true
-      docker: false
-      gpu: false
-      live_services: false
-      secrets: false
-      env_file: false
-    writes_files: []
-    outputs: [stdout]
-    owner: operations
-    docs: []
-    tests: []
-
-  - make_target: feature-check
-    title: Features 매니페스트 정합성 점검
-    category: docs
-    audience: [developer, release_engineer]
-    description: "features/*.yaml 매니페스트 정합성을 점검한다. 파일 수정 없음."
-    command: make feature-check
-    kind: public
-    safety: read_only
-    requires:
-      python: true
-      docker: false
-      gpu: false
-      live_services: false
-      secrets: false
-      env_file: false
-    writes_files: []
-    outputs: [stdout]
-    owner: operations
-    docs: []
-    tests: []
-
-  - make_target: feature-plan
-    title: 기능 변경 대상 파일 출력
-    category: docs
-    audience: [developer]
-    description: "기능 변경 시 갱신 대상 파일/테스트/명령을 출력한다. maintainer용."
-    command: make feature-plan
-    kind: public
-    safety: read_only
-    requires:
-      python: true
-      docker: false
-      gpu: false
-      live_services: false
-      secrets: false
-      env_file: false
-    writes_files: []
-    outputs: [stdout]
-    owner: operations
-    docs: []
-    tests: []
-
   - make_target: render-runtime-assets
     title: Runtime asset 재생성
     category: docs
@@ -1253,30 +1169,6 @@ commands:
       - reports/runtime/operator_status_bundle.md
     owner: operations
     docs: []
-    tests: []
-
-  - make_target: refresh-generated-reports
-    title: Generated report 재생성
-    category: reports
-    audience: [release_engineer]
-    description: "package 전 current generated report를 재생성한다."
-    command: make refresh-generated-reports
-    kind: public
-    safety: writes_generated
-    requires:
-      python: true
-      docker: false
-      gpu: false
-      live_services: false
-      secrets: false
-      env_file: false
-    writes_files:
-      - reports/runtime/
-    outputs:
-      - reports/runtime/
-    owner: release_engineer
-    docs:
-      - docs/release/release_checklist.md
     tests: []
 
   - make_target: reset-version
@@ -1987,6 +1879,3 @@ allow_unregistered_make_targets:
   - target: model-inventory
     owner: operations
     reason: "modelctl 내부 inventory helper; model-list/model-status/model-validate가 user-facing entrypoint"
-  - target: validate-docs
-    owner: release-engineering
-    reason: "make validate의 내부 step (check_docs_links + check_reports + check_features); user-facing으로 직접 안내하지 않음"

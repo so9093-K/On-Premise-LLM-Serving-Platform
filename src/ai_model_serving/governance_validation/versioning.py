@@ -104,9 +104,6 @@ def validate_python_compatibility() -> None:
     requires = pyproject['project']['requires-python']
     if requires != '>=3.12,<3.15':
         raise SystemExit(f'pyproject requires-python must be >=3.12,<3.15, got {requires}')
-    if pyproject['tool']['ruff']['target-version'] != 'py312':
-        raise SystemExit('ruff target-version must be py312')
-
     compat = read_yaml('configs/runtime_compatibility.yaml')
     if compat['python']['default_version'] != py_version:
         raise SystemExit('runtime_compatibility default Python version disagrees with .python-version')

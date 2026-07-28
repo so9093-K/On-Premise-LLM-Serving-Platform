@@ -115,7 +115,7 @@ SKIP_RISK_VLLM_IMAGE_BUILD=1 make rebuild-full
 
 **`reset`은 `clean`보다 강하다.** `make clean`은 Docker 이미지를 지우지 않는다. 플랫폼/risk image까지 정리하려면 `make reset`을 사용하고, 실행 전에는 `make remove-plan` 또는 `make cleanup-plan`으로 삭제 범위를 확인한다.
 
-**`package`는 generated report drift와 계약 검증을 우회할 수 없다.** `make package`는 먼저 `make refresh-generated-reports`로 current inventory, runtime target, monitoring projection, operator status, static live evidence placeholder를 재생성한다. 그 다음 정적 검증이 통과된 후에만 ZIP을 만든다. 따라서 오래된 report가 패키지에 섞이거나 거버넌스 파일 손상·필수 문서 누락·패키지 위생 위반·스키마 드리프트가 아티팩트 생성 뒤에 발견되는 흐름을 피한다.
+`make package`는 Python 호환성 및 API·모델 계약 검증이 통과한 뒤 ZIP을 만든다.
 
 ## 사용자 시나리오
 

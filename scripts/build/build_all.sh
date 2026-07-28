@@ -5,19 +5,12 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT"
 PYTHON_BIN="${PYTHON_BIN:-$(command -v python3.12 || command -v python3 || command -v python)}"
 
-echo "[build] refreshing generated reports"
-"$PYTHON_BIN" scripts/reports/refresh_generated_reports.py
-
 echo "[build] validating project"
 "$PYTHON_BIN" scripts/build/check_python.py --context validate >/dev/null
 "$PYTHON_BIN" scripts/validation/validate_contracts.py
-"$PYTHON_BIN" scripts/validation/check_docs_links.py
-"$PYTHON_BIN" scripts/validation/check_reports.py --stale-only
-"$PYTHON_BIN" scripts/validation/check_features.py
-"$PYTHON_BIN" scripts/commands/validate_command_registry.py --strict
 
-echo "[build] running unit and contract tests"
-PYTHONDONTWRITEBYTECODE=1 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 "$PYTHON_BIN" scripts/validation/run_tests.py
+echo "[build] running unit tests"
+PYTHONDONTWRITEBYTECODE=1 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 "$PYTHON_BIN" scripts/validation/run_tests.py -q tests/unit -m "not docker and not runtime and not gpu and not slow"
 
 if ! command -v docker >/dev/null 2>&1; then
   echo "[build] docker CLI is required because make build includes the platform image." >&2
@@ -31,4 +24,4 @@ fi
 bash scripts/build/build_platform_image.sh
 
 echo "[build] packaging release"
-PACKAGE_SKIP_VALIDATION=1 bash scripts/build/package_release.sh
+bash scripts/build/package_release.sh

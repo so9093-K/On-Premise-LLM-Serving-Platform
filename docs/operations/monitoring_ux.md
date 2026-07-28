@@ -70,6 +70,13 @@ sum(increase(risk_signal_detected_total[$window]))
 clamp_min(sum(increase(risk_assessments_total[$window])), 1)
 ```
 
+Risk detector 실패는 HTTP 200 응답 안의 system signal로도 반환될 수 있어 `status_code >= 400` 패널만으로는 보이지 않는다. 대시보드에는 아래 두 쿼리를 별도 오류 패널로 둔다.
+
+```promql
+sum by (detector, status) (increase(risk_assessments_total{status=~"failed|partial"}[$window]))
+sum by (system_signal_code) (increase(risk_adapter_system_signal_total[$window]))
+```
+
 Recording rule은 장기 trend와 alert rule에서 `rate()`를 계속 사용할 수 있다. Dashboard는 운영자가 최근 window 내 이벤트 수를 직관적으로 읽는 것을 우선한다.
 
 ## 모델별 vLLM 관측성

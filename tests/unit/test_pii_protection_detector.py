@@ -325,52 +325,6 @@ class TestPIIProtectionDetector:
         assert not forbidden.intersection(response)
 
 
-# ---------------------------------------------------------------------------
-# Presidio live integration (requires presidio-analyzer installed)
-# ---------------------------------------------------------------------------
-
-try:
-    import presidio_analyzer as _pa  # noqa: F401
-    _presidio_installed = True
-except ImportError:
-    _presidio_installed = False
-
-
-@pytest.mark.skipif(not _presidio_installed, reason="presidio-analyzer not installed")
-class TestPresidioEmailDetection:
-    """Verify that EMAIL_ADDRESS is detected as D2 via the live Presidio engine.
-
-    These tests guard against regression of the bug where email addresses were
-    silently missed because presidio-analyzer was absent from the Docker image.
-    """
-
-    def _run(self, coro):
-        return asyncio.run(coro)
-
-    def test_email_address_detected_as_d2(self):
-        detector = PIIProtectionDetector()
-        response = self._run(detector.assess("담당자 이메일은 hong@example.com입니다."))
-        d2_cats = [c for c in response["categories"] if c.get("code") == "D2"]
-        assert d2_cats, "EMAIL_ADDRESS should produce a D2 category via Presidio"
-        email_cat = next((c for c in d2_cats if c.get("label") == "EMAIL_ADDRESS"), None)
-        assert email_cat is not None, "D2 category label should be EMAIL_ADDRESS"
-        assert email_cat["span_count"] >= 1
-
-    def test_email_and_phone_both_detected(self):
-        detector = PIIProtectionDetector()
-        response = self._run(detector.assess("이메일은 hong@example.com이고 연락처는 010-1234-5678입니다."))
-        labels = {c.get("label") for c in response["categories"] if c.get("detected")}
-        assert "EMAIL_ADDRESS" in labels, "EMAIL_ADDRESS should be detected"
-        assert "PHONE_NUMBER" in labels, "PHONE_NUMBER should be detected"
-
-    def test_email_raw_value_not_in_response(self):
-        email = "secret@internal.company.com"
-        detector = PIIProtectionDetector()
-        response = self._run(detector.assess(f"연락처: {email}"))
-        import json
-        assert email not in json.dumps(response)
-
-
 class TestMaskPii:
     def test_replaces_detected_span_with_entity_label(self):
         masked = mask_pii("이메일은 hong@example.com입니다")

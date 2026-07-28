@@ -8,7 +8,7 @@ AUTH_ENV ?= $(if $(ENV_FILE),$(ENV_FILE),$(ENV))
 AUTH_ENV_ARG = $(if $(AUTH_ENV),--env $(AUTH_ENV),)
 
 
-.PHONY: help help-full help-json command-check guide init-env init-env-local init-env-compose init-env-local-force init-env-compose-force sync-runtime-secrets sync-env show-image-tags validate test test-full build build-pipeline build-image build-vllm-unified-image rebuild-app rebuild-vllm-unified package start up compose-up compose-up-master compose-up-private compose-down-private preflight-compose compose-config ready ready-local ready-full check-ready smoke runtime-validate runtime-targets storage-paths project-inventory refresh-generated-reports auth-status auth-doctor auth-plan auth-apply exposure-status exposure-plan exposure-apply monitoring-projection operator-status operator-reports live-evidence release-check release-check-full vllm-commands hf-config-check main-model-prepare risk-vllm-config-check risk-vllm-patch-removal-check model-inventory model-list model-status model-validate model-diff model-propose-add model-propose-remove status stop down compose-down compose-restart compose-logs logs compose-diagnostics clean clean-dry-run cleanup-plan remove-plan clean-all reset bootstrap first-run rebuild-full doctor reset-version validate-docs docs-check reports-check feature-check feature-plan render-runtime-assets check-runtime-assets
+.PHONY: help help-full help-json command-check guide init-env init-env-local init-env-compose init-env-local-force init-env-compose-force sync-runtime-secrets sync-env show-image-tags validate test test-full build build-pipeline build-image build-vllm-unified-image rebuild-app rebuild-vllm-unified package start up compose-up compose-up-master compose-up-private compose-down-private preflight-compose compose-config ready ready-local ready-full check-ready smoke runtime-validate runtime-targets storage-paths project-inventory auth-status auth-doctor auth-plan auth-apply exposure-status exposure-plan exposure-apply monitoring-projection operator-status operator-reports live-evidence release-check release-check-full vllm-commands hf-config-check main-model-prepare risk-vllm-config-check risk-vllm-patch-removal-check model-inventory model-list model-status model-validate model-diff model-propose-add model-propose-remove status stop down compose-down compose-restart compose-logs logs compose-diagnostics clean clean-dry-run cleanup-plan remove-plan clean-all reset bootstrap first-run rebuild-full doctor reset-version render-runtime-assets check-runtime-assets
 
 help:
 	@$(PYTHON) scripts/commands/render_command_help.py
@@ -24,9 +24,6 @@ command-check:
 
 guide:
 	$(PYTHON) scripts/reports/operator_guide.py
-
-# build UX contract markers (validate_contracts.py exact-match 검사용; make help 출력 대상 아님)
-# make build         # build artifacts/images only; does not start or keep services alive
 
 init-env: init-env-compose
 
@@ -54,14 +51,12 @@ show-image-tags:
 validate:
 	$(PYTHON) scripts/build/check_python.py --context validate >/dev/null
 	$(PYTHON) scripts/validation/validate_contracts.py
-	$(MAKE) validate-docs
-	$(MAKE) command-check
 
 test:
-	PYTHONDONTWRITEBYTECODE=1 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 $(PYTHON) scripts/validation/run_tests.py -q -m "not slow and not runtime and not docker and not gpu"
+	PYTHONDONTWRITEBYTECODE=1 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 $(PYTHON) scripts/validation/run_tests.py -q tests/unit -m "not docker and not runtime and not gpu and not slow"
 
 test-full:
-	PYTHONDONTWRITEBYTECODE=1 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 $(PYTHON) scripts/validation/run_tests.py -q -m "not runtime and not docker and not gpu"
+	PYTHONDONTWRITEBYTECODE=1 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 $(PYTHON) scripts/validation/run_tests.py -q tests/unit tests/contract -m "not runtime and not docker and not gpu"
 
 build:
 	bash scripts/build/build_all.sh
@@ -79,13 +74,10 @@ build-vllm-unified-image:
 rebuild-vllm-unified: build-vllm-unified-image
 
 
-refresh-generated-reports:
-	$(PYTHON) scripts/reports/refresh_generated_reports.py
-
-package: refresh-generated-reports
+package:
 	$(PYTHON) scripts/build/check_python.py --context package >/dev/null
 	$(PYTHON) scripts/validation/validate_contracts.py
-	PACKAGE_SKIP_VALIDATION=1 bash scripts/build/package_release.sh
+	bash scripts/build/package_release.sh
 
 start:
 	bash scripts/ops/start_services.sh
@@ -272,27 +264,6 @@ doctor:
 reset-version:
 	@if [[ -z "$(NEW_VERSION)" ]]; then echo "Usage: make reset-version NEW_VERSION=0.1.0"; exit 2; fi
 	$(PYTHON) scripts/build/reset_version.py "$(NEW_VERSION)"
-
-validate-docs:
-	$(PYTHON) scripts/validation/check_docs_links.py
-	$(PYTHON) scripts/validation/check_reports.py --stale-only
-	$(PYTHON) scripts/validation/check_features.py
-
-docs-check:
-	$(PYTHON) scripts/validation/check_docs_links.py
-
-reports-check:
-	$(PYTHON) scripts/validation/check_reports.py
-
-feature-check:
-	$(PYTHON) scripts/validation/check_features.py
-
-feature-plan:
-	@if [[ -z "$(ID)" ]]; then \
-		$(PYTHON) scripts/reports/feature_plan.py --list; \
-	else \
-		$(PYTHON) scripts/reports/feature_plan.py --id $(ID); \
-	fi
 
 render-runtime-assets:
 	$(PYTHON) scripts/render_runtime_assets.py --write

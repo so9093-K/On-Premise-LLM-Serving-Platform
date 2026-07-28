@@ -124,9 +124,12 @@ class RiskAssessmentService:
             response = assessment_response(categories=[category], system_signals=[], status="completed", message=message)
         except ServiceError as exc:
             code = system_signal_code(exc)
+            detail = exc.message
+            if "check error.debug.upstream_body" in detail:
+                detail = "Detector upstream rejected the request. Check risk-adapter and risk-prompt logs with the assessment time."
             response = assessment_response(
                 categories=[],
-                system_signals=[system_signal(code, exc.message, detector.source_model, exc.retryable)],
+                system_signals=[system_signal(code, detail, detector.source_model, exc.retryable)],
                 status="failed",
                 message="Detector inference failed." if code != "PARSE_ERROR" else "Detector output could not be parsed.",
             )

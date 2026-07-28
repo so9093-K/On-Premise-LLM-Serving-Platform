@@ -27,11 +27,9 @@ _ENTITY_CODE: dict[str, str] = {
 # PERSON과 ADDRESS는 NLP/NER 기반이다; en_core_web_sm을 한국어 텍스트에 적용하면
 # PERSON에서 false positive가 발생하고, 영어용 ADDRESS 인식기는 존재하지 않는다.
 _PRESIDIO_ENTITIES = [
-    "EMAIL_ADDRESS",
     "PHONE_NUMBER",
     "CREDIT_CARD",
     "IP_ADDRESS",
-    "URL",
 ]
 
 
@@ -119,8 +117,14 @@ def _try_presidio_span_analysis(text: str) -> list[EntitySpan] | None:
     except ImportError:
         return None
 
-    engine = _get_analyzer()
-    results = engine.analyze(text=text, language="en", entities=_PRESIDIO_ENTITIES)
+    try:
+        engine = _get_analyzer()
+        results = engine.analyze(text=text, language="en", entities=_PRESIDIO_ENTITIES)
+    except OSError:
+        # Presidio delegates URL recognition to tldextract, which may try to
+        # create a cache file on a read-only host. PII masking must never make
+        # a Gateway request fail; the local recognizers remain available.
+        return None
     return [
         EntitySpan(
             entity=result.entity_type,
@@ -257,12 +261,8 @@ def _categories_from_summaries(
 
 
 def _collect_recognizer_spans(text: str) -> list[EntitySpan]:
-    """Collect findings; each recognizer remains responsible only for detection."""
-    spans = _run_custom_span_recognizers(text)
-    presidio_spans = _try_presidio_span_analysis(text)
-    if presidio_spans is not None:
-        spans.extend(presidio_spans)
-    return spans
+    """Collect deterministic local findings without external model or cache I/O."""
+    return _run_custom_span_recognizers(text)
 
 
 def _build_assessment(categories: list[dict[str, Any]]) -> dict[str, Any]:

@@ -125,7 +125,6 @@ REQUIRED_FILES = [
     'src/ai_model_serving/governance_validation/versioning.py',
     'src/ai_model_serving/governance_validation/schemas.py',
     'src/ai_model_serving/governance_validation/model_config.py',
-    'src/ai_model_serving/governance_validation/docs_ops.py',
     'src/ai_model_serving/governance_validation/monitoring_dashboards.py',
     'src/ai_model_serving/governance_validation/release_runtime.py',
     'src/ai_model_serving/errors.py',
@@ -142,7 +141,6 @@ REQUIRED_FILES = [
     'tests/unit/gateway/test_risk.py',
     'tests/unit/test_openapi_contracts.py',
     'tests/unit/test_risk_adapter_app.py',
-    'tests/unit/test_governance_validation_package.py',
     'tests/unit/test_model_registry.py',
     'tests/unit/test_runtime_validation_package.py',
 ]

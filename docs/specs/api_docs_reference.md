@@ -31,6 +31,7 @@
 - `local-main`, `local-embed`, `local-embed-ko`, `risk-prompt` logical model id
 - `/v1/models`에서 모델별 `capabilities`, `request_parameters`, `fixed_parameters`를 확인할 수 있다는 점
 - Risk API는 signal-only이며 최종 policy decision을 반환하지 않는다는 점
+- Risk 응답이 HTTP `200`이어도 `status=failed` 또는 `assessment_complete=false`이면 detector 실패이며, `safe`가 아니라는 점
 
 태그는 영어(`Operations`, `Monitoring`, `Models`, `Chat`, `Embeddings`, `Risk`), endpoint 설명은 한국어로 작성한다. ReDoc은 tag 설명과 endpoint description을 통해 “언제 사용하는 endpoint인지”를 먼저 보여준다.
 
@@ -51,6 +52,7 @@ Risk Adapter 문서는 내부 API이지만 다음을 분명히 설명해야 한�
 - Gateway 또는 내부 호출자만 `/v1/risk/*`를 호출한다.
 - `/ready`는 detector vLLM runtime 준비 상태를 보여준다.
 - detector failure는 system signal로 표현되며 최종 allow/block 판단으로 바꾸지 않는다.
+- `INFERENCE_ERROR`, `INFERENCE_TIMEOUT`, `INFERENCE_QUEUE_TIMEOUT`, `PARSE_ERROR`, `TRUNCATED_INPUT`의 조치 기준은 `docs/specs/risk_signal_contract.md`를 따른다.
 
 
 ## 3.1 Generated OpenAPI 계약 정렬

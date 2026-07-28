@@ -252,4 +252,4 @@ make package
 
 - Admin, metrics, docs 노출 정책은 [`admin_metrics_docs_exposure_policy.md`](admin_metrics_docs_exposure_policy.md)를 기준으로 본다.
 - `runtime_validation.py`의 host URL/env 우선순위는 [`runtime_validation_operations.md#설정-우선순위`](runtime_validation_operations.md#설정-우선순위)를 기준으로 본다.
-- 패키징 전 generated report는 `make package`가 `make refresh-generated-reports`를 먼저 실행해 current report drift를 줄인다.
+- 패키징 전에는 `make validate`로 API·모델 계약을 확인한다.

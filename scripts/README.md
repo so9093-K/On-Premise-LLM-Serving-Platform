@@ -46,8 +46,6 @@ make stop
 | 파일 | 용도 |
 |---|---|
 | `reports/operator_guide.py` | 상황별 operator workflow guide를 출력한다. `make guide`에서 호출한다. |
-| `reports/feature_plan.py` | 기능 변경 시 갱신해야 할 파일/테스트/명령을 출력한다. `make feature-plan ID=<id>` 또는 `make feature-plan`(목록). maintainer용. |
-| `validation/check_docs_links.py` | Markdown 상대 링크 유효성 검사. `make docs-check`에서 호출한다. |
 | `config/setup_env.py` | `.env`를 생성한다. 기본 target은 기존 `.env`를 덮어쓰지 않는다. `local_open`은 `master_open/private_lan` 전체-stack 사내망 정책과 함께 생성한다. |
 | `sync-runtime-secrets` / `config/setup_env.py --sync-runtime-secrets` | `.env`의 `ADMIN_API_KEY`를 `.runtime/prometheus/admin_api_key`로 다시 기록한다. |
 | `auth/auth_plan.py` / `auth/auth_apply.py` | secret을 출력하지 않고 auth profile 변경 계획을 보여주거나 managed auth flag만 적용한다. |

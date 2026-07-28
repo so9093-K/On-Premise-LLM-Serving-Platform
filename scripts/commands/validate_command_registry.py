@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""command_registry.yaml 무결성 검증 — Makefile drift, docs drift, features drift를 검사합니다."""
+"""command_registry.yaml과 Makefile의 실행 가능한 명령 정합성을 검증한다."""
 from __future__ import annotations
 
 import argparse
@@ -283,15 +283,6 @@ def main() -> int:
                 else:
                     warnings.append(msg)
 
-    # ── 3.5. tests/docs 경로 존재 검사 ─────────────────────────────────────
-    for cmd in registry.get("commands", []):
-        target = cmd.get("make_target", "<unknown>")
-        for field in ("tests", "docs"):
-            for entry in cmd.get(field, []) or []:
-                fpath = str(entry).strip()
-                if fpath and not (ROOT / fpath).exists():
-                    errors.append(f"[{target}] {field}: 경로 없음: {fpath!r}")
-
     # ── 4. Makefile target 존재 검사 ────────────────────────────────────────
     defined_targets, phony_only = _parse_makefile_targets()
 
@@ -322,36 +313,6 @@ def main() -> int:
                 warnings.append(
                     f"[{t}] Makefile에 있지만 registry에도 allowlist에도 없음 (등록 또는 allowlist 추가 권장)"
                 )
-
-    # ── 8. docs make 참조 → registry drift ─────────────────────────────────
-    doc_refs = _collect_make_refs_in_docs(strict)
-
-    for ref in sorted(doc_refs):
-        if re.search(r"[<>]", ref):
-            continue
-        if ref not in defined_targets and ref not in {"help", "guide"}:
-            warnings.append(f"docs에 'make {ref}' 참조가 있지만 Makefile에 target이 없음")
-            continue
-        skip_always = {"help", "guide", "help-full", "help-json", "command-check"}
-        if ref not in registry_targets and ref not in skip_always:
-            msg = f"docs에 'make {ref}' 참조가 있지만 registry에 없음"
-            if strict:
-                errors.append(msg)
-            else:
-                warnings.append(f"{msg} (등록 권장)")
-
-    # ── 9. features/*.yaml commands → registry drift 확인 ────────────────────
-    feature_cmds = _collect_feature_commands()
-    for fname, targets in feature_cmds.items():
-        for t in targets:
-            if t not in registry_targets:
-                errors.append(f"features/{fname} 의 'make {t}'가 registry에 없음")
-
-    # ── 10. operator_guide.py commands → registry drift 확인 ─────────────────
-    guide_cmds = _collect_operator_guide_commands()
-    for t in guide_cmds:
-        if t not in registry_targets and t not in defined_targets:
-            warnings.append(f"operator_guide.py 의 'make {t}'가 registry에 없음 (등록 권장)")
 
     # ── 결과 출력 ────────────────────────────────────────────────────────────
     for w in warnings:

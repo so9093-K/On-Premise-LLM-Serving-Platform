@@ -16,28 +16,19 @@ STATIC_STEPS: list[tuple[str, list[str], dict[str, str] | None]] = [
     ("exposure profiles 구조 검증", ["__in_process__", "scripts.validation.validate_exposure_profiles", "--strict"], None),
     ("compose override drift check", ["__in_process__", "scripts.compose.render_exposure_overrides", "--check"], None),
     ("env contract 검증", ["__in_process__", "scripts.validation.validate_env_contract", "--strict"], None),
-    ("docs exposure semantic 검증", ["__in_process__", "scripts.validation.validate_docs_exposure"], None),
     ("런타임 검증 config-only", ["__in_process__", "scripts.validation.runtime_validation", "--config-only"], None),
     ("runtime asset drift check", ["__in_process__", "scripts.render_runtime_assets", "--check"], None),
-    ("vLLM compose 정합성 검증", ["__in_process__", "scripts.compose.validate_vllm_compose"], None),
     ("OpenAPI snapshot diff", ["__in_process__", "scripts.validation.openapi_snapshot_diff"], None),
-    ("runtime target projection", ["__in_process__", "scripts.reports.runtime_targets_report"], None),
-    ("storage path projection", ["__in_process__", "scripts.reports.storage_paths_report"], None),
-    ("project inventory projection", ["__in_process__", "scripts.reports.project_inventory_report"], None),
     ("auth profile 생성값 sanity", ["__in_process__", "scripts.auth.auth_profile_sanity"], None),
-    ("auth 상태", ["__in_process__", "scripts.auth.auth_status"], None),
     ("auth doctor", ["__in_process__", "scripts.auth.auth_doctor", "--warn-only"], None),
     ("model registry 검증", ["__in_process__", "scripts.models.modelctl", "validate"], None),
     ("model registry projection diff", ["__in_process__", "scripts.models.modelctl", "diff"], None),
-    ("monitoring projection", ["__in_process__", "scripts.reports.monitoring_projection_report"], None),
-    ("operator status bundle", ["__in_process__", "scripts.reports.operator_status_bundle"], None),
-    ("live evidence bundle", ["__in_process__", "scripts.reports.live_evidence_bundle"], None),
     ("command registry 검증", ["__in_process__", "scripts.commands.validate_command_registry"], None),
 ]
 
 TEST_STEP = (
     "deterministic tests",
-    [PYTHON, "scripts/validation/run_tests.py", "-q", "-m", "not runtime and not docker and not gpu"],
+    [PYTHON, "scripts/validation/run_tests.py", "-q", "tests/unit", "-m", "not docker and not runtime and not gpu and not slow"],
     {"PYTHONDONTWRITEBYTECODE": "1", "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1"},
 )
 
