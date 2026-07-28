@@ -174,7 +174,7 @@ def validate_model_source_facts() -> None:
         raise SystemExit('local-embed-ko serving port must match model runtime port')
 
     compatibility_floor = str(
-        read_yaml('configs/recommended_images.yaml')['images']['risk_vllm'][
+        read_yaml('configs/recommended_images.yaml')['images']['vllm'][
             'compatibility_pins'
         ]['transformers_min']
     )

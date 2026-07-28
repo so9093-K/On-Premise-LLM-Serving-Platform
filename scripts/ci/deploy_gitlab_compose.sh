@@ -29,7 +29,6 @@
 #   RUN_READY_SMOKE            1(기본) 또는 0 — 배포 후 gateway /health 체크 실행 여부
 #   RUN_READY_FULL_SMOKE       호환성 유지용 변수. full 배포는 반드시 1이어야 하며
 #                              /health 이후 항상 make ready-full을 실행한다.
-#   PRUNE_DANGLING_IMAGES      1(기본) 또는 0 — 배포 성공 후 dangling 이미지 정리 여부
 #   DEPLOY_RELEASE_ID          불변 release 디렉터리 이름; 기본값은 CI_COMMIT_SHA
 #   RELEASES_TO_KEEP           보관할 성공한 release 디렉터리 개수 (기본값: 5)
 #   DEPLOY_RUNTIME_PROFILE     configs/deploy_profiles.yaml의 런타임 시작 프로필
@@ -55,7 +54,6 @@ REGISTRY_PASSWORD="${REGISTRY_DEPLOY_PASSWORD:-${CI_REGISTRY_PASSWORD:-}}"
 COMPOSE_FILE="${DEPLOY_COMPOSE_FILE:-ops/compose/full-stack.private-network.yaml}"
 RUN_READY_SMOKE="${RUN_READY_SMOKE:-1}"
 RUN_READY_FULL_SMOKE="${RUN_READY_FULL_SMOKE:-1}"
-PRUNE_DANGLING_IMAGES="${PRUNE_DANGLING_IMAGES:-1}"
 RELEASES_TO_KEEP="${RELEASES_TO_KEEP:-5}"
 RELEASE_ID="${DEPLOY_RELEASE_ID:-${CI_COMMIT_SHA:-}}"
 SSH_TARGET="${DEPLOY_USER}@${DEPLOY_HOST}"
@@ -171,7 +169,6 @@ ssh "${SSH_TARGET}" \
   GATEWAY_HEALTH_URL="${GATEWAY_HEALTH_URL:-}" \
   RUN_READY_SMOKE="${RUN_READY_SMOKE}" \
   RUN_READY_FULL_SMOKE="${RUN_READY_FULL_SMOKE}" \
-  PRUNE_DANGLING_IMAGES="${PRUNE_DANGLING_IMAGES}" \
   DEPLOY_RUNTIME_PROFILE="${DEPLOY_RUNTIME_PROFILE:-}" \
   DEPLOY_DEFERRED_RUNTIMES="${DEPLOY_DEFERRED_RUNTIMES:-}" \
   AUTH_MODE="${AUTH_MODE:-}" \
@@ -545,6 +542,27 @@ list_services_needing_recreate() {
   )
 }
 
+# Release directory는 매번 바뀌지만 Compose context는 current로 고정한다. 과거
+# release 경로를 label로 가진 컨테이너는 새 current symlink를 따라가지 않으므로,
+# 다음 full deploy에서 한 번 재생성해 안정 경로로 수렴시킨다.
+list_services_with_stale_compose_context() {
+  local expected_context="${DEPLOY_PATH}/current/ops/compose"
+  local service container_id actual_context
+  while read -r service; do
+    [[ -n "${service}" ]] || continue
+    container_id="$(compose_run ps -q "${service}" 2>/dev/null || true)"
+    [[ -n "${container_id}" ]] || continue
+    actual_context="$(
+      docker inspect -f '{{ index .Config.Labels "com.docker.compose.project.working_dir" }}' \
+        "${container_id}" 2>/dev/null || true
+    )"
+    if [[ "${actual_context}" != "${expected_context}" ]]; then
+      echo "[deploy] ${service} uses stale Compose context: ${actual_context:-unknown}" >&2
+      echo "${service}"
+    fi
+  done < <(compose_run config --services)
+}
+
 # 실행 중인 스택이 현재 작업 디렉터리에 설정된 compose 컨텍스트로 수렴하도록,
 # (재)생성해야 할 서비스 집합을 중복 없이 출력한다. 다음을 합친다:
 #   - 이미지 ID 변경 / 실행 중이 아닌 서비스 (list_services_needing_recreate)
@@ -561,6 +579,7 @@ compute_recreate_set() {
   local baseline="$1" rel
   {
     list_services_needing_recreate
+    list_services_with_stale_compose_context
     if [[ -n "${baseline}" && -d "${baseline}" ]]; then
       for rel in configs/main_model_profiles.yaml configs/gemma4_chat_template.jinja; do
         if ! cmp -s "${baseline}/${rel}" "${PWD}/${rel}" 2>/dev/null; then
@@ -1030,7 +1049,7 @@ if [[ -n "${PREVIOUS_RELEASE:-}" && -d "${PREVIOUS_RELEASE}" ]]; then
     fi
   done
   _config_services_stale=0
-  _expected_working_dir="${RELEASE_PATH}/ops/compose"
+  _expected_working_dir="${DEPLOY_PATH}/current/ops/compose"
   for service in "${_config_services[@]}"; do
     _container_id="$(compose_run ps -q "${service}" 2>/dev/null || true)"
     if [[ -z "${_container_id}" ]]; then
@@ -1112,34 +1131,6 @@ if ! rm -f "${ENV_BACKUP}"; then
 fi
 if [[ -n "${RUNTIME_STATE_BACKUP:-}" ]] && ! rm -f "${RUNTIME_STATE_BACKUP}"; then
   echo "[deploy] WARNING: failed to remove runtime state backup: ${RUNTIME_STATE_BACKUP}" >&2
-fi
-
-# digest로 pin된 이미지에 안정적인 눈요기용 ':deployed' 태그를 붙여서 박스에서
-# `docker images`가 사람이 읽기 좋게 나오도록 한다(digest pin만 있으면 <none>으로
-# 보인다). compose가 실제로 무엇을 실행하는지는 절대 안 바뀐다 — .env는 여전히
-# @sha256 pin을 유지한다. 이 태그는 매 배포마다 현재 이미지로 다시 옮겨지므로,
-# 이전 이미지는 태그를 잃고 아래의 dangling prune 대상이 된다. 순전히 눈요기용:
-# 실패해도 배포 자체를 실패시키지 않는다.
-tag_deployed() {
-  local ref="$1"
-  [[ -n "${ref}" ]] || return 0
-  local repo="${ref%@*}"             # @sha256:... digest가 있으면 제거
-  local last="${repo##*/}"
-  if [[ "${last}" == *:* ]]; then    # :tag는 제거하되 registry host:port는 유지
-    repo="${repo%/*}/${last%%:*}"
-  fi
-  if ! docker tag "${ref}" "${repo}:deployed"; then
-    echo "[deploy] WARNING: failed to apply cosmetic ${repo}:deployed tag" >&2
-  fi
-}
-tag_deployed "$(get_env_value PLATFORM_IMAGE)"
-tag_deployed "$(get_env_value AUDIO_VLLM_IMAGE)"
-
-if [[ "${PRUNE_DANGLING_IMAGES}" == "1" ]]; then
-  echo "[deploy] pruning dangling docker images..."
-  if ! docker image prune -f --filter dangling=true >/dev/null; then
-    echo "[deploy] WARNING: dangling docker image prune failed after successful deploy" >&2
-  fi
 fi
 
 echo "[deploy] done"

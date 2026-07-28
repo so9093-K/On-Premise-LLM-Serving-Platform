@@ -14,7 +14,10 @@ images:
     source: local docker build from ops/images/vllm-unified/Dockerfile
     base_image_default: vllm/vllm-openai@sha256:6a090ed9d4a3739813ce355cbd63d4c34c987a25c8409796f24912ba71c2d4a4
     compatibility_pins:
-      transformers: 4.52.4
+      # Exact packages in base_image_default.  The derived image verifies these
+      # values; it does not replace vLLM's curated dependency set.
+      transformers: 5.13.1
+      huggingface_hub: 1.23.0
       transformers_min: 4.52.4
     patch_lifecycle:
       patches:
@@ -36,9 +39,6 @@ images:
     mutable: false
     source: same image as vllm.default
     base_image_default: vllm/vllm-openai@sha256:6a090ed9d4a3739813ce355cbd63d4c34c987a25c8409796f24912ba71c2d4a4
-    compatibility_pins:
-      transformers: 4.52.4
-      transformers_min: 4.52.4
   dcgm_exporter:
     default: nvcr.io/nvidia/k8s/dcgm-exporter:4.5.2-4.8.1-distroless
     purpose: NVIDIA GPU metrics exporter for Prometheus.

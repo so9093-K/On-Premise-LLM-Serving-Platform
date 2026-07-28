@@ -86,8 +86,8 @@ hf-main-model-profiles:
       trap 'rm -rf "$HF_CANARY_VENV"' EXIT
       python -m venv "$HF_CANARY_VENV"
       "$HF_CANARY_VENV/bin/python" -m pip install \
-        "transformers[sentencepiece]==4.52.4" \
-        "huggingface_hub==1.13.0" \
+        "transformers[sentencepiece]==$(python scripts/models/print_vllm_unified_compatibility.py --key transformers)" \
+        "huggingface_hub==$(python scripts/models/print_vllm_unified_compatibility.py --key huggingface_hub)" \
         "PyYAML==6.0.3"
       "$HF_CANARY_VENV/bin/python" scripts/models/check_main_model_profiles.py
 
@@ -197,7 +197,6 @@ build-vllm-derived:
 #   GATEWAY_BIND_ADDR    gateway host publish용 175 인터페이스 주소
 #   GATEWAY_HEALTH_URL   배포 후 확인할 명시적 health URL
 #   RUN_READY_SMOKE      1 또는 0; 기본값 1
-#   PRUNE_DANGLING_IMAGES 1 또는 0; 기본값 1, 배포 성공 후 untagged 이미지 정리
 #   RISK_VLLM_IMAGE_TO_DEPLOY  full 배포 전용; 175 .env의 RISK_VLLM_IMAGE를 override
 #   DEPLOY_RUNTIME_PROFILE     full 배포 런타임 시작 프로필(full_hot, main_only, retrieval_ready)
 #   DEPLOY_DEFERRED_RUNTIMES   콤마로 구분한 deferred runtime 명시적 override; DEPLOY_RUNTIME_PROFILE보다 우선

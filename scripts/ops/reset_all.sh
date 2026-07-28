@@ -84,9 +84,6 @@ else
   echo "[reset] preserving upstream/base vLLM images (set PURGE_BASE_IMAGES=1 to delete them)"
 fi
 
-echo "[reset] pruning dangling images"
-docker image prune -f >/dev/null
-
 echo "[reset] cleaning artifacts (PURGE_MODEL_CACHE=${PURGE_MODEL_CACHE:-0}, PURGE_RUNTIME_SECRETS=${PURGE_RUNTIME_SECRETS:-0})"
 FORCE_CLEAN_RUNNING=1 \
   PURGE_MODEL_CACHE="${PURGE_MODEL_CACHE:-0}" \

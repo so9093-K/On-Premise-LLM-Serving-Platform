@@ -45,7 +45,7 @@ make bootstrap      = 전체 재빌드 (.venv + 의존성 + .env + 검증 + 플�
 
 - `ops/images/vllm-unified/Dockerfile` 수정
 - `ops/patches/transformers_llama_head_dim_guard.py` 또는 `ops/patches/apply_gemma4_multimodal_patches.py` 수정
-- `RISK_VLLM_TRANSFORMERS_MIN_VERSION` 또는 `RISK_VLLM_BASE_IMAGE` 변경
+- `configs/recommended_images.yaml`의 unified-image compatibility pin 또는 `RISK_VLLM_BASE_IMAGE` 변경
 - vLLM base 이미지 교체
 
 앱 코드만 변경한 경우 vLLM unified 이미지는 그대로 사용할 수 있다.
@@ -154,7 +154,7 @@ SKIP_RISK_VLLM_IMAGE_BUILD=auto AUTH_MODE=local_open make rebuild-full
 make rebuild-app
 ```
 
-`ops/images/vllm-unified/Dockerfile`, `ops/patches/`, `RISK_VLLM_TRANSFORMERS_MIN_VERSION`이 변경된 경우에는 `SKIP_RISK_VLLM_IMAGE_BUILD=auto`를 사용하지 않고 전체 `make first-run`을 실행하거나 `make rebuild-vllm-unified`를 직접 호출한다.
+`ops/images/vllm-unified/Dockerfile`, `ops/patches/`, `configs/recommended_images.yaml`의 unified-image compatibility pin이 변경된 경우에는 `SKIP_RISK_VLLM_IMAGE_BUILD=auto`를 사용하지 않고 전체 `make first-run`을 실행하거나 `make rebuild-vllm-unified`를 직접 호출한다.
 main-LLM(26B/12B)이 쓰는 digest를 갱신해야 하는 경우에는 로컬 `make rebuild-vllm-unified`가 아니라 release/tag pipeline의 `build-vllm-derived`를 `BUILD_VLLM_DERIVED=1` 또는 `DEPLOY_MODE=full`로 실행해 새 digest를 만들고 배포 `.env`의 `AUDIO_VLLM_IMAGE`(및 `VLLM_IMAGE`/`RISK_VLLM_IMAGE`/`EMBEDDING_KO_VLLM_IMAGE`)에 pin한다.
 
 ### 전체 초기화 + 재빌드

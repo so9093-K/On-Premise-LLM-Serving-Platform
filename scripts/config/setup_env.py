@@ -37,14 +37,6 @@ def read_yaml(path: Path) -> dict[str, Any]:
     return yaml.safe_load(path.read_text(encoding="utf-8"))
 
 
-def minimum_risk_vllm_transformers_version() -> str:
-    return str(
-        read_yaml(IMAGE_CONFIG)["images"]["risk_vllm"]["compatibility_pins"][
-            "transformers_min"
-        ]
-    )
-
-
 def recommended_images() -> dict[str, str]:
     images = read_yaml(IMAGE_CONFIG)["images"]
     return {
@@ -168,42 +160,6 @@ def normalize_risk_vllm_image(values: dict[str, str], *, explicit_override: bool
     risk_image = values.get("RISK_VLLM_IMAGE", "").strip()
     if not risk_image:
         values["RISK_VLLM_IMAGE"] = recommended
-
-
-def _version_tuple(value: str) -> tuple[int, int, int] | None:
-    parts = value.strip().split(".")
-    if len(parts) < 2 or len(parts) > 3:
-        return None
-    numbers: list[int] = []
-    for part in parts:
-        if not part.isdigit():
-            return None
-        numbers.append(int(part))
-    while len(numbers) < 3:
-        numbers.append(0)
-    return tuple(numbers)
-
-
-def normalize_risk_vllm_transformers_pin(values: dict[str, str]) -> None:
-    """Repair stale Kanana risk image build pins preserved by older .env files.
-
-    ``--force`` intentionally preserves operator-owned values, but compatibility
-    pins are part of the project's runtime contract.  Keeping an old
-    RISK_VLLM_TRANSFORMERS_VERSION / RISK_VLLM_TRANSFORMERS_MIN_VERSION can rebuild the dedicated Kanana image with a
-    config loader that rejects explicit ``head_dim`` models.
-    """
-    minimum_version = minimum_risk_vllm_transformers_version()
-    minimum_tuple = _version_tuple(minimum_version)
-    for key in ("RISK_VLLM_TRANSFORMERS_VERSION", "RISK_VLLM_TRANSFORMERS_MIN_VERSION"):
-        current = values.get(key, "").strip()
-        current_tuple = _version_tuple(current) if current else None
-        if current_tuple is None or minimum_tuple is None or current_tuple < minimum_tuple:
-            if current:
-                print(
-                    f"migrated {key} from {current} to {minimum_version}",
-                    file=sys.stderr,
-                )
-            values[key] = minimum_version
 
 
 def write_runtime_secrets(values: dict[str, str]) -> None:
@@ -486,7 +442,6 @@ def main(argv: list[str] | None = None) -> int:
     values = base_values | generated | preserved_values
     if args.profile == "compose":
         normalize_risk_vllm_image(values, explicit_override=bool(args.risk_vllm_image))
-        normalize_risk_vllm_transformers_pin(values)
     if values.get("HF_TOKEN") and not values.get("HUGGING_FACE_HUB_TOKEN"):
         values["HUGGING_FACE_HUB_TOKEN"] = values["HF_TOKEN"]
     write_env(lines, values, out_path)

@@ -21,8 +21,6 @@
 #   AUDIO_VLLM_IMAGE_REF         RISK_VLLM_IMAGE_REF와 동일한 값이어야 한다(.gitlab-ci.yml에서 보장)
 #   CI_REGISTRY_IMAGE            GitLab 프로젝트 container registry prefix
 #
-# 선택:
-#   RISK_VLLM_TRANSFORMERS_MIN_VERSION   (기본값: configs/recommended_images.yaml)
 #   CI_COMMIT_TAG                    비어있지 않으면 <image>:$CI_COMMIT_TAG도 push
 #
 # 출력:
@@ -51,9 +49,9 @@ IMAGE_REF="${RISK_VLLM_IMAGE_REF}"
 # ── 공통 base image 결정 ──────────────────────────────────────────────────
 RESOLVED_VLLM_BASE_IMAGE="${VLLM_BASE_IMAGE}"
 echo "[build] vLLM base image : ${RESOLVED_VLLM_BASE_IMAGE}"
-RISK_VLLM_TRANSFORMERS_MIN_VERSION="${RISK_VLLM_TRANSFORMERS_MIN_VERSION:-$(
-  python3 scripts/models/print_risk_vllm_compatibility.py
-)}"
+TRANSFORMERS_VERSION="$(python3 scripts/models/print_vllm_unified_compatibility.py --key transformers)"
+HUGGINGFACE_HUB_VERSION="$(python3 scripts/models/print_vllm_unified_compatibility.py --key huggingface_hub)"
+TRANSFORMERS_MIN_VERSION="$(python3 scripts/models/print_vllm_unified_compatibility.py --key transformers_min)"
 
 # ── 빌드 전 디스크 상태 ──────────────────────────────────────────────────────
 echo "[build] disk status (pre-build):"
@@ -69,7 +67,9 @@ docker build \
   --cache-from "${RESOLVED_VLLM_BASE_IMAGE}" \
   -f ops/images/vllm-unified/Dockerfile \
   --build-arg BASE_IMAGE="${RESOLVED_VLLM_BASE_IMAGE}" \
-  --build-arg TRANSFORMERS_MIN_VERSION="${RISK_VLLM_TRANSFORMERS_MIN_VERSION}" \
+  --build-arg TRANSFORMERS_VERSION="${TRANSFORMERS_VERSION}" \
+  --build-arg HUGGINGFACE_HUB_VERSION="${HUGGINGFACE_HUB_VERSION}" \
+  --build-arg TRANSFORMERS_MIN_VERSION="${TRANSFORMERS_MIN_VERSION}" \
   -t "${IMAGE_SHA}" \
   -t "${IMAGE_REF}" \
   .

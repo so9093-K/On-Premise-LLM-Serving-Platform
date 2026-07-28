@@ -106,6 +106,23 @@ def test_ci_deploys_gateway_and_sidecar_together_and_exports_image_digest():
     assert "ai_model_serving.model_cache_cli" in deploy
     assert "configure_release_context \"${DEPLOY_PATH}/current\"" in deploy
     assert "activating release ${RELEASE_ID} before Compose convergence" in deploy
+    assert 'expected_context="${DEPLOY_PATH}/current/ops/compose"' in deploy
+    assert "docker image prune" not in deploy
+
+
+def test_vllm_unified_dependency_pins_have_one_canonical_source():
+    images = yaml.safe_load(
+        (ROOT / "configs/recommended_images.yaml").read_text(encoding="utf-8")
+    )["images"]
+    pins = images["vllm"]["compatibility_pins"]
+    assert pins == {
+        "transformers": "5.13.1",
+        "huggingface_hub": "1.23.0",
+        "transformers_min": "4.52.4",
+    }
+    assert "compatibility_pins" not in images["risk_vllm"]
+    pipeline = (ROOT / ".gitlab-ci.yml").read_text(encoding="utf-8")
+    assert "print_vllm_unified_compatibility.py" in pipeline
 
 
 def test_boot_projection_is_temporary_and_sidecar_default_is_catalog_driven():

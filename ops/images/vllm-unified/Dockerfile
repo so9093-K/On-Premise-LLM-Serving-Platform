@@ -28,6 +28,8 @@
 ARG BASE_IMAGE=vllm/vllm-openai:v0.25.1-cu129
 FROM ${BASE_IMAGE}
 
+ARG TRANSFORMERS_VERSION=5.13.1
+ARG HUGGINGFACE_HUB_VERSION=1.23.0
 ARG TRANSFORMERS_MIN_VERSION=4.52.4
 
 LABEL org.opencontainers.image.title="ai-model-serving-vllm-unified"
@@ -37,6 +39,8 @@ LABEL ai_model_serving.patch.transformers_llama_head_dim_guard="true"
 LABEL ai_model_serving.patch.reason="Kanana explicit head_dim compatibility"
 LABEL ai_model_serving.patch.remove_when="Upstream Transformers/vLLM honors explicit Llama head_dim without image patch"
 LABEL ai_model_serving.patch.metadata_path="/usr/local/share/ai-model-serving/patches/transformers_llama_head_dim_guard.json"
+LABEL ai_model_serving.transformers_version="${TRANSFORMERS_VERSION}"
+LABEL ai_model_serving.huggingface_hub_version="${HUGGINGFACE_HUB_VERSION}"
 LABEL ai_model_serving.transformers_min_version="${TRANSFORMERS_MIN_VERSION}"
 
 # ── Gemma4-unified multimodal: media decode stack ──────────────────────────
@@ -57,19 +61,20 @@ COPY ops/patches/apply_gemma4_multimodal_patches.py /tmp/apply_gemma4_multimodal
 RUN python3 /tmp/apply_gemma4_multimodal_patches.py \
     && rm /tmp/apply_gemma4_multimodal_patches.py
 
-# ── Kanana risk-prompt: Transformers minimum-version floor ──────────────────
-# The base image may ship a newer Transformers release, but the image must
-# not fall below the known Kanana compatibility floor.
-RUN python3 - <<'PY'
+# ── Kanana risk-prompt: verified base dependency pair ───────────────────────
+# The pinned base image is the dependency source of truth.  Do not pip-install
+# over its curated vLLM stack: verify the exact known-good pair instead.
+RUN python3 - "$TRANSFORMERS_VERSION" "$HUGGINGFACE_HUB_VERSION" "$TRANSFORMERS_MIN_VERSION" <<'PY'
 from __future__ import annotations
 
-import os
 import sys
 
+import huggingface_hub
 import transformers
 
-minimum = os.environ.get("TRANSFORMERS_MIN_VERSION", "4.52.4")
+expected_transformers, expected_hub, minimum = sys.argv[1:]
 actual = transformers.__version__
+actual_hub = huggingface_hub.__version__
 
 
 def parse(value: str) -> tuple[int, int, int]:
@@ -83,10 +88,18 @@ def parse(value: str) -> tuple[int, int, int]:
         nums.append(0)
     return tuple(nums)
 
-if parse(actual) < parse(minimum):
-    print(f"transformers {actual} is below Kanana minimum {minimum}", file=sys.stderr)
+if actual != expected_transformers or actual_hub != expected_hub:
+    print(
+        "vLLM base dependency mismatch: "
+        f"transformers={actual} (expected {expected_transformers}), "
+        f"huggingface_hub={actual_hub} (expected {expected_hub})",
+        file=sys.stderr,
+    )
     sys.exit(1)
-print(f"vllm-unified transformers={actual} minimum={minimum}")
+if parse(actual) < parse(minimum):
+    print(f"transformers {actual} is below Kanana floor {minimum}", file=sys.stderr)
+    sys.exit(1)
+print(f"vllm-unified transformers={actual} huggingface_hub={actual_hub} minimum={minimum}")
 PY
 
 # ── Kanana risk-prompt: Llama head_dim guard ────────────────────────────────

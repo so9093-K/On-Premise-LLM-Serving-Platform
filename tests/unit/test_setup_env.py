@@ -152,21 +152,6 @@ def test_setup_env_fills_default_risk_vllm_image_when_unset(tmp_path):
     assert 'RISK_VLLM_IMAGE=ai-model-serving-vllm-unified:' in text
 
 
-def test_setup_env_force_migrates_stale_risk_vllm_transformers_pin(tmp_path):
-    out = tmp_path / '.env'
-    out.write_text(
-        'RISK_VLLM_IMAGE=ai-model-serving-vllm-unified:0.1.0-rc.1\n'
-        'RISK_VLLM_TRANSFORMERS_VERSION=4.51.3\n'
-        'HF_TOKEN=hf_existing\n',
-        encoding='utf-8',
-    )
-    rc = setup_env.main(['--profile', 'compose', '--output', str(out), '--force'])
-    assert rc == 0
-    text = out.read_text(encoding='utf-8')
-    assert 'RISK_VLLM_TRANSFORMERS_VERSION=4.52.4' in text
-    assert 'HF_TOKEN=hf_existing' in text
-
-
 def test_setup_env_force_omits_max_request_body_bytes(tmp_path):
     # MAX_REQUEST_BODY_BYTES is yaml-owned (model_serving.yaml). It must not be written
     # as an active .env assignment, so it can never shadow the yaml value again.

@@ -61,7 +61,6 @@ Platform image는 commit tag와 branch tag를 항상 push한다. `release` branc
 - `RUN_READY_SMOKE`: `1` 또는 `0`, 기본값 `1`
 - `RUN_READY_FULL_SMOKE`: 호환성 변수이며 기본값은 `1`이다. `DEPLOY_MODE=full`에서는
   반드시 `1`이어야 하고 `make ready-full`을 항상 실행한다. `0`이면 배포 시작 전에 거절한다.
-- `PRUNE_DANGLING_IMAGES`: `1` 또는 `0`, 기본값 `1`. 성공한 배포 뒤 태그가 사라진 dangling image만 정리
 - `RISK_VLLM_IMAGE_TO_DEPLOY`: `DEPLOY_MODE=full`에서만 사용. risk vLLM image override가 필요할 때 175 `.env`의 `RISK_VLLM_IMAGE`를 해당 값으로 덮어쓴다
 - `DEPLOY_RELEASE_ID`: `releases/<id>`에 사용할 immutable release ID. CI에서는 commit SHA를 사용한다.
 - `RELEASES_TO_KEEP`: 보존할 성공 release 수, 기본값 `5`
@@ -101,7 +100,7 @@ Full 배포는 실제 vLLM 파일 세대를 나타내는 `runtime-current`도 �
 
 175의 `.env`에는 shared/staging 환경 기준으로 `GATEWAY_BIND_ADDR=<175 내부 IP>`를 명시하는 편이 안전하다. 전체 interface publish가 의도된 경우에만 `GATEWAY_BIND_ADDR=0.0.0.0`을 사용하고 firewall/network policy로 내부 CIDR만 허용한다. deploy smoke는 `GATEWAY_HEALTH_URL`이 없으면 175 `.env`의 `GATEWAY_BIND_ADDR`와 `GATEWAY_PORT`로 health URL을 만든다. `GATEWAY_BIND_ADDR=0.0.0.0`일 때만 `localhost`로 fallback한다. Rolling 배포는 `RUN_READY_SMOKE=1`로 Gateway `/health`를 확인하고, Full 배포는 추가로 `make ready-full`을 반드시 통과해야 한다.
 
-배포 스크립트는 health check가 통과한 뒤 기본적으로 `docker image prune -f --filter dangling=true`를 실행한다. `release`처럼 같은 태그를 새 이미지가 덮어쓰면 이전 이미지가 `<none>` 상태로 남을 수 있는데, 이 단계는 실행 중인 컨테이너가 참조하지 않는 untagged image만 제거한다. 장애 분석이나 수동 롤백 때문에 보존이 필요하면 `PRUNE_DANGLING_IMAGES=0`으로 끈다.
+배포 스크립트는 Docker 이미지 정리나 임의의 `:deployed` 태그 생성을 하지 않는다. 배포 대상 host가 다른 Compose 프로젝트와 Docker daemon을 공유할 수 있으므로, 전역 dangling-image 정리는 해당 host의 운영자가 대상과 보존 기간을 확인한 뒤 별도로 수행한다.
 
 ## 배포 흐름
 
@@ -132,7 +131,7 @@ vllm-unified digest를 새로 pin하거나(risk-prompt-vllm/main-llm 12B 프로�
 1. pipeline을 `DEPLOY_MODE=full` 변수로 시작
 3. `deploy-gpu-175` 수동 실행, `DEPLOY_MODE=full` 설정
    - preflight 실패 시 `.env`를 수정하지 않고 실패; `build-vllm-derived` 먼저 실행하라는 안내 출력
-5. 변경된 service만 수렴한다. deferred 런타임은 `docker compose create`로 컨테이너만 준비하고 시작하지 않는다.
+5. 이미지·마운트 설정이 바뀐 service만 수렴한다. 다만 과거 release 절대경로를 Compose working directory로 가진 컨테이너는 이번 Full 배포에서 한 번 재생성해 안정적인 `current/ops/compose` context로 수렴한다. deferred 런타임은 `docker compose create`로 컨테이너만 준비하고 시작하지 않는다.
    - 배포 전 `.runtime/main-model/main-model-state.json`과 profile catalog를 검증한다.
    - locked profile 또는 저장된 active profile을 boot projection으로 생성한다.
    - 선택 profile의 고정 HF revision을 공용 cache에 준비한 뒤, 해당 profile로
@@ -301,6 +300,8 @@ CI job과 로컬 make target은 목적이 다르며 독립적으로 실행된다
 
 
 derived Dockerfile: `ops/images/vllm-unified/Dockerfile` 하나뿐이다(26B/12B/embedding/embedding-ko/risk-prompt 공용, Gemma4 멀티모달 패치 + Kanana Llama head_dim 패치 병합) -- CI는 이 이미지를 `vllm-unified` registry 이름 하나로 빌드/push한다. `embedding-ko-vllm`도 이 이미지를 쓰지만 `EMBEDDING_KO_VLLM_IMAGE` 태그만 가리키고 별도 빌드는 하지 않는다.
+
+`configs/recommended_images.yaml`의 `images.vllm.compatibility_pins`가 unified base dependency의 단일 기준이다. 현재 pinned base digest는 `transformers 5.13.1`과 `huggingface_hub 1.23.0`을 제공하며, Dockerfile build와 HF canary는 이 정확한 쌍을 검증한다. `transformers_min 4.52.4`는 Kanana 모델의 과거 최소 호환 조건일 뿐, 설치할 패키지 버전이 아니다.
 
 운영 원칙:
 
