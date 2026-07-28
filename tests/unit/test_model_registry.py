@@ -23,8 +23,8 @@ def test_model_registry_normalizes_public_models_and_serving_records():
     main = registry.record("local-main")
     assert main.serving_key == "main_llm"
     assert main.port == 9401
-    assert main.max_model_len == 20000
-    assert main.input_modalities == ("text", "image")
+    assert main.max_model_len == 50000
+    assert main.input_modalities == ("text", "image", "audio", "video")
     assert "chat.completions.tools" in main.capabilities
 
     embedding = registry.record("local-embed")
@@ -96,7 +96,7 @@ def test_model_registry_projects_operator_inventory_without_role_mapping():
 
     rows = {row.id: row.as_dict() for row in registry.inventory_rows()}
     assert rows["local-main"]["port"] == 9401
-    assert rows["local-main"]["input_modalities"] == "text,image"
+    assert rows["local-main"]["input_modalities"] == "text,image,audio,video"
     assert rows["local-main"]["max_images"] == 1
     assert rows["local-embed"]["max_model_len"] == 2048
 
@@ -109,10 +109,10 @@ def test_model_registry_projects_model_cards_and_runtime_validation_matrix():
 
     card = registry.model_card_projection("local-main")
     assert card.logical_id == "local-main"
-    assert card.upstream_model_id == "RedHatAI/gemma-4-26B-A4B-it-FP8-Dynamic"
+    assert card.upstream_model_id == "RedHatAI/gemma-4-12B-it-FP8-Dynamic"
     assert card.runtime["port"] == 9401
-    assert card.source_facts["base_model_id"] == "google/gemma-4-26B-A4B-it"
-    assert card.project_runtime_policy["max_model_len"] == 20000
+    assert card.source_facts["base_model_id"] == "google/gemma-4-12B-it"
+    assert card.project_runtime_policy["max_model_len"] == 50000
     assert card.project_runtime_policy["optimization_level"] == 3
     assert "chat.completions.tools" in card.capabilities
 

@@ -63,19 +63,16 @@ def test_model_source_facts_and_runtime_policy_are_separated() -> None:
     main = catalog['local-main']
     serving_main_limits = serving['main_llm']['resource_control']['request_limits']
     assert main['source_facts']['upstream_example']['tensor_parallel_size'] == 1
-    assert main['source_facts']['upstream_example']['max_model_len'] == 96000
-    assert main['source_facts']['upstream_context_length_tokens'] == {
-        'vllm_recipe': 131072,
-        'redhat_card_example_max_model_len': 96000,
-        'project_runtime_cap': 20000,
-    }
-    assert main['source_facts']['parameter_summary'] == {
-        'vllm_recipe': '26B total / 4B active',
-        'hf_display': '27B params',
-    }
+    # RedHatAI's 12B FP8-Dynamic eval example uses a $MAX_MODEL_LEN placeholder
+    # (no concrete suggested value), unlike gemma4-26b-a4b-fp8's card which gives
+    # 96000 explicitly -- so there is no upstream_example.max_model_len to assert.
+    assert 'max_model_len' not in main['source_facts']['upstream_example']
+    assert main['source_facts']['upstream_context_length_tokens']['official_spec_tokens'] == 262144
+    assert main['source_facts']['upstream_context_length_tokens']['project_runtime_cap'] == 50000
+    assert main['source_facts']['parameter_summary']['hf_display'] == '~11.95B params'
     assert main['project_runtime_policy']['tensor_parallel_size'] == 1
-    assert main['project_runtime_policy']['max_model_len'] == 20000
-    assert main['project_runtime_policy']['max_num_batched_tokens'] == 20000
+    assert main['project_runtime_policy']['max_model_len'] == 50000
+    assert main['project_runtime_policy']['max_num_batched_tokens'] == 50000
     assert main['project_runtime_policy']['optimization_level'] == 3
     assert main['project_runtime_policy']['gpu_memory_utilization'] == 0.76
     assert main['project_runtime_policy']['max_image_inputs'] == 1
@@ -310,14 +307,14 @@ def test_embedding_pooling_runtime_has_valid_batch_token_budget() -> None:
     assert int(args['max_num_batched_tokens']) >= int(args['max_model_len'])
 
 
-def test_main_runtime_compose_has_20k_o3_runtime_policy() -> None:
+def test_main_runtime_compose_has_50k_o3_runtime_policy() -> None:
     serving = yaml.safe_load((ROOT / 'configs/model_serving.yaml').read_text(encoding='utf-8'))['models']['main_llm']
     catalog = yaml.safe_load((ROOT / 'configs/model_catalog.yaml').read_text(encoding='utf-8'))['models']['local-main']
     card = json.loads((ROOT / 'model_cards/local-main.json').read_text(encoding='utf-8'))
     args = _compose_command_args('main-llm-vllm')
 
-    assert serving['max_model_len'] == 20000
-    assert serving['max_num_batched_tokens'] == 20000
+    assert serving['max_model_len'] == 50000
+    assert serving['max_num_batched_tokens'] == 50000
     assert serving['optimization_level'] == 3
     assert serving['gpu_memory_utilization'] == 0.76
     for source in [catalog['project_runtime_policy'], card['project_runtime_policy']]:

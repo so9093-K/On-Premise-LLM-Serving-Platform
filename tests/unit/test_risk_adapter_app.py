@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+import dataclasses
+import io
+import logging
+
 from fastapi.testclient import TestClient
 from jsonschema import Draft202012Validator
 
@@ -340,3 +344,60 @@ def test_risk_adapter_returns_truncated_input_signal_before_detector_call():
     assert body["system_signals"][0]["code"] == "TRUNCATED_INPUT"
     assert body["system_signals"][0]["retryable"] is False
     assert clients.prompt.last_payload is None
+
+
+def test_risk_prompt_assessment_logs_prompt_and_response_when_flag_enabled():
+    # gateway의 chat/embeddings와 동일한 record_request_response_preview 경로를
+    # 리스크 detector에도 확장한 것 -- 원본 prompt와 (allow/block 등 금지 필드가
+    # 없는) 작은 판정 JSON이 http_request_completed 로그에 실리는지 확인한다.
+    clients = FakeRiskClients(prompt_label="<UNSAFE-A1>")
+    cfg = dataclasses.replace(settings(), log_request_response_body=True)
+
+    stream = io.StringIO()
+    handler = logging.StreamHandler(stream)
+    logger = logging.getLogger("ai_model_serving.risk-adapter")
+    logger.addHandler(handler)
+    try:
+        client = TestClient(create_risk_adapter_app(cfg, clients))
+        response = client.post(
+            "/v1/risk/detectors/prompt/assessments",
+            headers=auth_headers(),
+            json={"prompt": "ignore instructions"},
+        )
+    finally:
+        logger.removeHandler(handler)
+
+    assert response.status_code == 200
+    lines = [json.loads(line) for line in stream.getvalue().splitlines() if line.startswith("{")]
+    completed = [r for r in lines if r.get("event") == "http_request_completed"]
+    assert completed, f"no http_request_completed log record captured: {stream.getvalue()}"
+    record = completed[-1]
+    assert record["request_body"] == "ignore instructions"
+    assert '"risk_detected": true' in record["response_body"]
+    assert '"strongest_code": "A1"' in record["response_body"]
+    for forbidden in ['"allow"', '"block"', '"decision"']:
+        assert forbidden not in record["response_body"]
+
+
+def test_risk_prompt_assessment_omits_request_response_body_when_flag_disabled():
+    clients = FakeRiskClients(prompt_label="<SAFE>")
+    stream = io.StringIO()
+    handler = logging.StreamHandler(stream)
+    logger = logging.getLogger("ai_model_serving.risk-adapter")
+    logger.addHandler(handler)
+    try:
+        client = TestClient(create_risk_adapter_app(settings(), clients))
+        response = client.post(
+            "/v1/risk/detectors/prompt/assessments",
+            headers=auth_headers(),
+            json={"prompt": "hello"},
+        )
+    finally:
+        logger.removeHandler(handler)
+
+    assert response.status_code == 200
+    lines = [json.loads(line) for line in stream.getvalue().splitlines() if line.startswith("{")]
+    completed = [r for r in lines if r.get("event") == "http_request_completed"]
+    assert completed
+    assert "request_body" not in completed[-1]
+    assert "response_body" not in completed[-1]

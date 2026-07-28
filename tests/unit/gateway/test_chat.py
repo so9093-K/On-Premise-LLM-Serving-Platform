@@ -46,6 +46,43 @@ def test_chat_completion_logs_masked_request_response_body_when_flag_enabled():
     assert "[EMAIL_ADDRESS]" in record["response_body"]
 
 
+def test_chat_completion_logs_token_usage_regardless_of_body_flag():
+    # 토큰 개수는 프롬프트/응답 원문과 달리 민감정보가 아니라
+    # LOG_REQUEST_RESPONSE_BODY와 무관하게 항상 로그에 실려야 한다(latency_ms와
+    # 동급). 여기서는 플래그를 기본값(false)으로 둔 채로 확인한다.
+    clients = FakeGatewayClients()
+    clients.main_llm.post_response["usage"] = {
+        "prompt_tokens": 12,
+        "completion_tokens": 34,
+        "total_tokens": 46,
+    }
+
+    stream = io.StringIO()
+    handler = logging.StreamHandler(stream)
+    logger = logging.getLogger("ai_model_serving.gateway")
+    logger.addHandler(handler)
+    try:
+        client = TestClient(create_gateway_app(settings(), clients))
+        response = client.post(
+            "/v1/chat/completions",
+            headers=auth_headers(),
+            json={"model": "local-main", "messages": [{"role": "user", "content": "hello"}]},
+        )
+    finally:
+        logger.removeHandler(handler)
+
+    assert response.status_code == 200
+    lines = [json.loads(line) for line in stream.getvalue().splitlines() if line.startswith("{")]
+    completed = [r for r in lines if r.get("event") == "http_request_completed"]
+    assert completed, f"no http_request_completed log record captured: {stream.getvalue()}"
+    record = completed[-1]
+    assert record["prompt_tokens"] == 12
+    assert record["completion_tokens"] == 34
+    assert record["total_tokens"] == 46
+    assert "request_body" not in record
+    assert "response_body" not in record
+
+
 def test_chat_completion_omits_request_response_body_when_flag_disabled():
     clients = FakeGatewayClients()
     stream = io.StringIO()

@@ -47,8 +47,8 @@ embedding_profiles:
         mode: none
 models:
   main_llm:
-    name: RedHatAI/gemma-4-26B-A4B-it-FP8-Dynamic
-    revision: 8edbb9269ec9c3faad538ee1208a07eb46051f34
+    name: RedHatAI/gemma-4-12B-it-FP8-Dynamic
+    revision: 67e53491df7a281623fa740de61307d5c542b7f4
     served_model_name: local-main
     backend: vllm
     port: 9401
@@ -61,22 +61,23 @@ models:
     tensor_parallel_size: 1
     model_card_example_tensor_parallel_size: 1
     trust_remote_code: true
-    max_model_len: 20000
-    max_num_seqs: 1
-    max_num_batched_tokens: 20000
+    max_model_len: 50000
+    max_num_seqs: 3
+    max_num_batched_tokens: 50000
     optimization_level: 3
     gpu_memory_utilization: 0.76
     timeout_seconds: 120
-    runtime_policy_source: 20K context and optimization level 3 runtime target
-      for RedHatAI preliminary FP8 checkpoint on RTX 6000 Ada; upstream card
-      uses B200/vLLM main with 96K context, so this platform requires local
-      tokenizer, boot, quality, latency, and soak validation before production
-      claims
+    runtime_policy_source: 50K context, seq=3, optimization level 3 runtime target
+      for RedHatAI preliminary FP8 checkpoint on RTX 6000 Ada (2026-07-28 default
+      profile, see configs/main_model_profiles.yaml gemma4-12b-unified-fp8
+      compatibility.reasons for the live boot/KV-cache validation history and
+      docs/adr/0017 Update); this platform requires local tokenizer, boot,
+      quality, latency, and soak validation before production claims
     resource_control:
       criticality: primary_user_path
       isolation: dedicated_vllm_process
       # This declared value must stay in lockstep with the default profile's
-      # (gemma4-26b-a4b-fp8) actual --max-num-seqs -- see
+      # (gemma4-12b-unified-fp8) actual --max-num-seqs -- see
       # validate_model_resource_control_policy and
       # scripts/compose/validate_vllm_compose.py, which cross-check this
       # against configs/main_model_profiles.yaml and
@@ -86,17 +87,19 @@ models:
       # (settings_parts/runtime_endpoints.py) instead to change the gateway's
       # admission ceiling independent of the declared default profile.
       admission_control:
-        max_concurrency: 1
+        max_concurrency: 3
         queue_timeout_seconds: 2
       request_limits:
-        max_model_len: 20000
+        max_model_len: 50000
         input_modalities:
         - text
         - image
+        - audio
+        - video
         max_image_inputs: 1
         allowed_image_url_schemes:
         - data
-        image_input_note: Gemma 4 26B-A4B supports image input; Gateway allows one bounded
+        image_input_note: Gemma 4 12B Unified supports image input; Gateway allows one bounded
           base64 data:image content part, validates MIME, decoded size, and image
           dimensions, and does not allow arbitrary remote image fetch by default.
         max_image_bytes: 25000000
@@ -113,15 +116,19 @@ models:
         - image/x-tiff
         audio_input_note: Audio is enforced only when the ACTIVE main-model profile
           deploys the audio modality (deployed_input includes audio); these are the
-          static safety bounds applied in that case. The 26B profile does not deploy
-          audio, so these limits are unreachable while it is active. Gateway accepts
-          one bounded base64 input_audio content part of an allowed format and bounded
-          decoded size. The real processing ceiling is ~30 seconds (matches Gemma 4's
-          official spec at ai.google.dev/gemma/docs/core/model_card_4); audio beyond
-          that is silently truncated by the runtime (not sampled, not rejected, no
-          warning surfaced) -- verified live, see ADR-0019. max_audio_bytes does not
-          bound duration for compressed formats, so Gateway cannot reject over-length
-          audio before it reaches the runtime today; this gap is accepted, not fixed.
+          static safety bounds applied in that case. The 2026-07-28 default profile
+          (gemma4-12b-unified-fp8) deploys audio, so these limits are live and
+          enforced -- unlike gemma4-26b-a4b-fp8 (still selectable via admin API),
+          which does not deploy audio, so these limits are unreachable while that
+          profile is active. Gateway accepts one bounded base64 input_audio content
+          part of an allowed format and bounded decoded size. The real processing
+          ceiling is ~30 seconds (matches Gemma 4's official spec at
+          ai.google.dev/gemma/docs/core/model_card_4); audio beyond that is silently
+          truncated by the runtime (not sampled, not rejected, no warning surfaced)
+          -- verified live against this exact profile, see ADR-0019. max_audio_bytes
+          does not bound duration for compressed formats, so Gateway cannot reject
+          over-length audio before it reaches the runtime today; this gap is
+          accepted, not fixed.
         max_audio_inputs: 1
         allowed_audio_formats:
         - wav
@@ -133,19 +140,23 @@ models:
         - aac
         max_audio_bytes: 25000000
         video_input_note: Video is enforced only when the ACTIVE main-model profile
-          deploys the video modality (deployed_input includes video). Gateway accepts
-          one bounded base64 video_url content part for vLLM/OpenAI-compatible video
-          input, validates allowed data URL containers or pre-extracted JPEG frames,
-          and gates container decode support with runtime boot canaries. Gemma 4's
-          official spec supports 60 seconds/60 frames at 1fps
+          deploys the video modality (deployed_input includes video). The 2026-07-28
+          default profile (gemma4-12b-unified-fp8) deploys video, so these limits are
+          live and enforced -- unlike gemma4-26b-a4b-fp8 (still selectable via admin
+          API), which does not deploy video. Gateway accepts one bounded base64
+          video_url content part for vLLM/OpenAI-compatible video input, validates
+          allowed data URL containers or pre-extracted JPEG frames, and gates
+          container decode support with runtime boot canaries. Gemma 4's official
+          spec supports 60 seconds/60 frames at 1fps
           (ai.google.dev/gemma/docs/core/model_card_4); this deployment's vLLM 0.25.1
           only actually samples 32 frames uniformly across the full clip regardless
-          of how many are sent -- verified live, see ADR-0019. max_video_frames (60)
-          reflects the official spec, not the currently-delivered capacity (32);
-          raising real capacity needs a vLLM patch and is deferred. Real video
-          containers (mp4/webm/mkv/mov/avi) get no frame-count or duration
-          validation from Gateway today -- max_video_frames/max_video_duration_seconds
-          only apply to the video/jpeg raw-frame-array path and GIF respectively.
+          of how many are sent -- verified live against this exact profile, see
+          ADR-0019. max_video_frames (60) reflects the official spec, not the
+          currently-delivered capacity (32); raising real capacity needs a vLLM patch
+          and is deferred. Real video containers (mp4/webm/mkv/mov/avi) get no
+          frame-count or duration validation from Gateway today --
+          max_video_frames/max_video_duration_seconds only apply to the video/jpeg
+          raw-frame-array path and GIF respectively.
         max_video_inputs: 1
         allowed_video_url_schemes:
         - data

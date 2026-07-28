@@ -72,25 +72,47 @@ def test_compose_env_example_has_reviewed_image_defaults() -> None:
 
 
 def test_compose_main_llm_vllm_image_matches_default_profile_bootstrap_image() -> None:
-    """main-llm-vllm의 compose image는 admin-sidecar가 최초 부트스트랩 이후 항상
-    active profile의 image로 덮어쓰므로(docker_main_model_backend.py의
-    payload["Image"] = str(profile.image)) 실제 서빙에는 쓰이지 않는다. 다만
-    admin-sidecar가 한 번도 안 돈 최초 `docker compose up` 시점에는 이 값으로
-    컨테이너가 뜨므로, main_model_profiles.yaml의 default_profile이 resolve하는
-    image와 어긋나면 최초 부트스트랩이 깨진 이미지로 시작할 수 있다. 이 테스트는
-    그 드리프트를 잡는다 -- compose 값을 손으로 갱신하는 걸 깜빡해도 여기서 실패한다.
+    """main-llm-vllm의 compose image/command는 admin-sidecar가 최초 부트스트랩
+    이후 항상 active profile 기준으로 덮어쓰므로(docker_main_model_backend.py의
+    replace(): payload["Image"]/payload["Cmd"] = profile.image/profile.command)
+    실제 서빙에는 쓰이지 않는다. 다만 admin-sidecar가 한 번도 안 돈 최초
+    `docker compose up` 시점에는 이 값으로 컨테이너가 뜨므로, default_profile이
+    resolve하는 image/command와 어긋나면 최초 부트스트랩이 깨진 상태로 시작할 수
+    있다. 이 테스트는 그 드리프트를 잡는다 -- compose 값을 손으로 갱신하는 걸
+    깜빡해도 여기서 실패한다.
+
+    2026-07-28: default_profile을 12b로 바꾸는 과정에서 image만 비교하고
+    command는 비교 안 하던 이전 버전이 command 드리프트를 못 잡는다는 게
+    드러났다(실제로는 image/command가 항상 같은 profile을 가리켜야 하므로
+    한쪽만 검증하면 다른 쪽의 수동 갱신 누락을 놓친다) -- command도 같이
+    검증하도록 확장한다.
     """
+    from ai_model_serving.main_model_control import _IMAGE_ENV_REF_RE
+
     compose = yaml.safe_load((ROOT / "ops/compose/full-stack.private-network.yaml").read_text(encoding="utf-8"))
     catalog = yaml.safe_load((ROOT / "configs/main_model_profiles.yaml").read_text(encoding="utf-8"))
 
-    compose_image = compose["services"]["main-llm-vllm"]["image"]
+    main_llm_service = compose["services"]["main-llm-vllm"]
+    compose_image = main_llm_service["image"]
     default_profile_id = catalog["default_profile"]
     default_profile = catalog["profiles"][default_profile_id]
-    assert "image" not in default_profile, (
-        f"default_profile '{default_profile_id}' now overrides its own image; "
-        "update this test to compare against that override instead of runtime.image."
-    )
-    expected_image = catalog["runtime"]["image"]
+    shared_image = catalog["runtime"]["image"]
+
+    # image: default_profile이 shared runtime.image를 그대로 쓰면(override 없음)
+    # compose도 그 리터럴 digest를 그대로 쓴다. ${ENV} 참조로 override하면
+    # (main_model_control.py의 _resolve_profile_image가 env 비어있을 때
+    # shared_image로 폴백하는 것과 똑같이) compose도 Docker Compose의
+    # ${VAR:-<shared_image>} 문법으로 같은 폴백을 표현해야 한다.
+    profile_image = default_profile.get("image")
+    if profile_image is None:
+        expected_image = shared_image
+    else:
+        ref = _IMAGE_ENV_REF_RE.match(profile_image)
+        assert ref is not None, (
+            f"default_profile '{default_profile_id}' image {profile_image!r} must be "
+            "a sha256 digest or a ${ENV} reference"
+        )
+        expected_image = f"${{{ref.group(1)}:-{shared_image}}}"
 
     assert compose_image == expected_image, (
         f"ops/compose/full-stack.private-network.yaml main-llm-vllm.image ({compose_image}) "
@@ -98,6 +120,14 @@ def test_compose_main_llm_vllm_image_matches_default_profile_bootstrap_image() -
         f"({expected_image}) from configs/main_model_profiles.yaml. This placeholder is "
         "overwritten by admin-sidecar after the first reconcile, but a stale value can still "
         "break the very first `docker compose up` before that happens."
+    )
+
+    compose_command = main_llm_service["command"]
+    expected_command = default_profile["command"]
+    assert compose_command == expected_command, (
+        "ops/compose/full-stack.private-network.yaml main-llm-vllm.command no longer matches "
+        f"the default_profile ('{default_profile_id}') command from configs/main_model_profiles.yaml. "
+        f"compose={compose_command!r} catalog={expected_command!r}"
     )
 
 

@@ -1,6 +1,6 @@
 version: 1
 public_model: local-main
-default_profile: gemma4-26b-a4b-fp8
+default_profile: gemma4-12b-unified-fp8
 runtime:
   compose_service: main-llm-vllm
   container_port: 9401

@@ -97,8 +97,15 @@ def validate_model_source_facts() -> None:
     main = catalog['local-main']
     source = main['source_facts']['upstream_example']
     policy = main['project_runtime_policy']
-    if not source.get('tensor_parallel_size') or not source.get('max_model_len'):
-        raise SystemExit('local-main source_facts must preserve upstream example tensor_parallel_size and max_model_len')
+    # max_model_len 자체는 없을 수 있다(예: gemma4-12b-unified-fp8의 RedHatAI 카드는
+    # $MAX_MODEL_LEN 플레이스홀더만 주고 구체적 예시값을 안 준다) -- 그 경우에도
+    # 왜 없는지 note로 명시했는지는 강제해서, 값을 깜빡 빠뜨린 것과 의도적으로
+    # 없는 것을 구분한다.
+    if not source.get('tensor_parallel_size') or not (source.get('max_model_len') or source.get('note')):
+        raise SystemExit(
+            'local-main source_facts.upstream_example must preserve tensor_parallel_size, and '
+            'either max_model_len or a note explaining why the upstream card has no concrete example'
+        )
     if policy['tensor_parallel_size'] != serving['main_llm']['tensor_parallel_size']:
         raise SystemExit('local-main tensor_parallel_size mismatch between catalog policy and serving config')
     if policy['max_model_len'] != serving['main_llm']['max_model_len']:
@@ -327,8 +334,12 @@ def validate_model_resource_control_policy() -> None:
         if phrase not in allocation_text:
             raise SystemExit(f'gpu_resource_plan.md missing phrase: {phrase}')
     main_policy = catalog['local-main']['project_runtime_policy']
-    if set(main_policy.get('input_modalities', [])) != {'text', 'image'}:
-        raise SystemExit('local-main project runtime policy must define text+image input modalities')
+    if set(main_policy.get('input_modalities', [])) != {'text', 'image', 'audio', 'video'}:
+        raise SystemExit(
+            'local-main project runtime policy must define text+image+audio+video input '
+            'modalities (matches the 2026-07-28 default profile gemma4-12b-unified-fp8; '
+            'see docs/adr/0017 Update)'
+        )
     if int(main_policy.get('max_image_inputs', 0)) != 1 or main_policy.get('allowed_image_url_schemes') != ['data']:
         raise SystemExit('local-main image input policy must allow exactly one data:image input by default')
     if int(main_policy.get('max_image_bytes', 0)) <= 0 or int(main_policy.get('max_image_pixels', 0)) <= 0:

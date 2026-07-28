@@ -7,8 +7,8 @@ from fastapi import APIRouter, Body, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 
 from ..endpoint_spec import GATEWAY_ENDPOINTS
-from ...detectors.masking import mask_sensitive_text
 from ...errors import ServiceError, error_payload, error_response_headers
+from ...logging_policy import record_request_response_preview, record_token_usage
 from ...services.runtime_state import RuntimeState, RuntimeStateStore
 from ...services.sidecar_client import SidecarClient, SidecarUnavailableError
 from ...services.main_model_inflight import MainModelInFlight
@@ -51,6 +51,30 @@ def _chat_response_preview(response: dict[str, Any]) -> str:
         if isinstance(content, str):
             parts.append(content)
     return "\n".join(parts)
+
+
+def _embedding_input_preview(payload: dict[str, Any]) -> str:
+    """embeddings 요청의 input을 사람이 읽을 프리뷰로 합친다(문자열 또는 문자열 리스트)."""
+    raw = payload.get("input")
+    if isinstance(raw, str):
+        return raw
+    if isinstance(raw, list):
+        return " | ".join(str(item) for item in raw)
+    return ""
+
+
+def _embedding_response_summary(response: dict[str, Any]) -> str:
+    """임베딩 응답은 float 벡터라 원문을 그대로 남기면 못 읽고 크기만 커진다 --
+    개수/차원/모델 요약만 남긴다."""
+    data = response.get("data")
+    count = len(data) if isinstance(data, list) else 0
+    dim = 0
+    if isinstance(data, list) and data and isinstance(data[0], dict):
+        embedding = data[0].get("embedding")
+        if isinstance(embedding, list):
+            dim = len(embedding)
+    model = response.get("model", "")
+    return f"{count} embeddings returned, dim={dim}, model={model}"
 
 
 def _active_input_modalities(main_model: dict[str, Any]) -> tuple[str, ...] | None:
@@ -219,9 +243,13 @@ def build_router(
                 result = await service.create_chat_completion(payload, active_modalities=active_modalities)
             finally:
                 await tracking.__aexit__(None, None, None)
+        record_token_usage(request, result.get("usage"))
         if settings.log_request_response_body:
-            request.state.request_body_masked = mask_sensitive_text(_chat_text_preview(payload))
-            request.state.response_body_masked = mask_sensitive_text(_chat_response_preview(result))
+            record_request_response_preview(
+                request,
+                request_text=_chat_text_preview(payload),
+                response_text=_chat_response_preview(result),
+            )
         return result
 
     _s = _GW[("POST", "/v1/embeddings")]
@@ -236,6 +264,7 @@ def build_router(
         responses={401: {"description": "API Bearer token 필요"}},
     )
     async def embeddings(
+        request: Request,
         payload: dict[str, Any] = Body(...),
     ) -> dict[str, Any]:
         if state_store is not None:
@@ -249,6 +278,14 @@ def build_router(
                     True,
                     503,
                 )
-        return await service.create_embedding(payload)
+        result = await service.create_embedding(payload)
+        record_token_usage(request, result.get("usage"))
+        if settings.log_request_response_body:
+            record_request_response_preview(
+                request,
+                request_text=_embedding_input_preview(payload),
+                response_text=_embedding_response_summary(result),
+            )
+        return result
 
     return router

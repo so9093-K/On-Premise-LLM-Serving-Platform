@@ -1,6 +1,120 @@
 from __future__ import annotations
 
+import dataclasses
+import io
+import json
+import logging
+
 from .helpers import *  # noqa: F401,F403
+
+
+def test_embeddings_logs_token_usage_regardless_of_body_flag():
+    clients = FakeGatewayClients()
+    clients.embedding_clients["local-embed"].post_response["usage"] = {
+        "prompt_tokens": 6,
+        "total_tokens": 6,
+    }
+
+    stream = io.StringIO()
+    handler = logging.StreamHandler(stream)
+    logger = logging.getLogger("ai_model_serving.gateway")
+    logger.addHandler(handler)
+    try:
+        client = TestClient(create_gateway_app(settings(), clients))
+        response = client.post(
+            "/v1/embeddings",
+            headers=auth_headers(),
+            json={"model": "local-embed", "input": "안녕하세요"},
+        )
+    finally:
+        logger.removeHandler(handler)
+
+    assert response.status_code == 200
+    lines = [json.loads(line) for line in stream.getvalue().splitlines() if line.startswith("{")]
+    completed = [r for r in lines if r.get("event") == "http_request_completed"]
+    assert completed, f"no http_request_completed log record captured: {stream.getvalue()}"
+    record = completed[-1]
+    assert record["prompt_tokens"] == 6
+    assert record["total_tokens"] == 6
+    # embeddings에는 completion_tokens 개념이 없다 -- usage에 없는 필드는 안 실려야 한다.
+    assert "completion_tokens" not in record
+    assert "request_body" not in record
+
+
+def test_embeddings_logs_input_preview_and_vector_summary_when_flag_enabled():
+    # 임베딩 응답은 float 벡터라 원문을 그대로 로그에 남기지 않는다 -- 개수/차원/
+    # 모델 요약(_embedding_response_summary)만 response_body에 실려야 한다.
+    clients = FakeGatewayClients()
+    cfg = dataclasses.replace(settings(), log_request_response_body=True)
+
+    stream = io.StringIO()
+    handler = logging.StreamHandler(stream)
+    logger = logging.getLogger("ai_model_serving.gateway")
+    logger.addHandler(handler)
+    try:
+        client = TestClient(create_gateway_app(cfg, clients))
+        response = client.post(
+            "/v1/embeddings",
+            headers=auth_headers(),
+            json={"model": "local-embed", "input": "안녕하세요"},
+        )
+    finally:
+        logger.removeHandler(handler)
+
+    assert response.status_code == 200
+    lines = [json.loads(line) for line in stream.getvalue().splitlines() if line.startswith("{")]
+    completed = [r for r in lines if r.get("event") == "http_request_completed"]
+    assert completed, f"no http_request_completed log record captured: {stream.getvalue()}"
+    record = completed[-1]
+    assert record["request_body"] == "안녕하세요"
+    assert record["response_body"] == "1 embeddings returned, dim=768, model=local-embed"
+
+
+def test_embeddings_omits_request_response_body_when_flag_disabled():
+    clients = FakeGatewayClients()
+    stream = io.StringIO()
+    handler = logging.StreamHandler(stream)
+    logger = logging.getLogger("ai_model_serving.gateway")
+    logger.addHandler(handler)
+    try:
+        client = TestClient(create_gateway_app(settings(), clients))
+        response = client.post(
+            "/v1/embeddings",
+            headers=auth_headers(),
+            json={"model": "local-embed", "input": ["안녕하세요"]},
+        )
+    finally:
+        logger.removeHandler(handler)
+
+    assert response.status_code == 200
+    lines = [json.loads(line) for line in stream.getvalue().splitlines() if line.startswith("{")]
+    completed = [r for r in lines if r.get("event") == "http_request_completed"]
+    assert completed
+    assert "request_body" not in completed[-1]
+    assert "response_body" not in completed[-1]
+
+
+def test_embedding_input_preview_joins_list_input():
+    from ai_model_serving.api.routers.gateway_inference import (
+        _embedding_input_preview,
+        _embedding_response_summary,
+    )
+
+    assert _embedding_input_preview({"input": "안녕하세요"}) == "안녕하세요"
+    assert _embedding_input_preview({"input": ["첫 문장", "두 번째 문장"]}) == "첫 문장 | 두 번째 문장"
+    assert _embedding_input_preview({}) == ""
+
+    summary = _embedding_response_summary(
+        {
+            "model": "local-embed-ko",
+            "data": [
+                {"embedding": [0.1] * 1024, "index": 0},
+                {"embedding": [0.2] * 1024, "index": 1},
+            ],
+        }
+    )
+    assert summary == "2 embeddings returned, dim=1024, model=local-embed-ko"
+
 
 def test_gateway_forwards_chat_and_embeddings_to_vllm_paths():
     clients = FakeGatewayClients()

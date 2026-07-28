@@ -764,6 +764,34 @@ def test_reconcile_if_restarted_propagates_validate_failure_without_updating_fin
     assert store.read()["last_validated_container_started_at"] == "boot-0"
 
 
+def test_reconcile_if_restarted_backs_off_after_repeated_validate_failures(tmp_path):
+    # 2026-07-28 실제 사고 재현: active_profile과 실제 컨테이너가 어긋난 채로
+    # 남으면(예: canary가 계속 실패), backoff 없이는 매 poll tick(10초)마다
+    # 똑같은 validate()를 영구 반복해 GPU 엔진에 무의미한 요청을 계속 보낸다.
+    # 이 테스트는 실패 직후의 재시도가 즉시 재시도가 아니라 건너뛰어짐을 확인한다.
+    loaded = catalog()
+    store = _active_store(tmp_path, loaded, started_at="boot-0")
+    backend = FakeBackend(
+        loaded.default_profile, started_at="boot-1", fail_profile=loaded.default_profile
+    )
+    manager = MainModelManager(loaded, store, backend)
+
+    with pytest.raises(RuntimeError, match="validation failed"):
+        asyncio.run(manager.reconcile_if_restarted())
+    assert len(backend.validate_calls) == 1
+
+    # 같은 drift가 남아있는 채로 바로 다음 tick이 와도, backoff 창 안이므로
+    # validate()를 다시 호출하지 않고 조용히 넘어가야 한다(예외도 안 남).
+    asyncio.run(manager.reconcile_if_restarted())
+    assert len(backend.validate_calls) == 1
+
+    # backoff가 지난 뒤에는 다시 시도한다.
+    manager._reconcile_backoff_until = 0.0
+    with pytest.raises(RuntimeError, match="validation failed"):
+        asyncio.run(manager.reconcile_if_restarted())
+    assert len(backend.validate_calls) == 2
+
+
 def test_initialize_and_reconcile_do_not_validate_concurrently(tmp_path):
     # Regression guard: initialize() used to run unlocked, so a reconcile tick
     # firing while a slow boot-time validate() was still in flight could kick

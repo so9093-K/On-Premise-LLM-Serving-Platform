@@ -76,13 +76,17 @@ services:
     # 뜬 컨테이너가 healthy해야 admin-sidecar의 첫 reconcile까지 갈 수 있다),
     # 어긋나면 tests/contract/governance/test_compose_operational_contract.py의
     # test_compose_main_llm_vllm_image_matches_default_profile_bootstrap_image가 잡는다.
-    image: gitlab.wizvera.com:4567/acl-ai-system/acl-ai-gateway/vllm-gemma4-audio@sha256:cf547528af18c15105d66ea767a49d21702dc90a26189be061a36edeebcf777d
+    # default_profile(gemma4-12b-unified-fp8)의 image는 ${AUDIO_VLLM_IMAGE}
+    # 참조라서, main_model_control.py의 _resolve_profile_image()와 동일한 폴백
+    # (env 비어있으면 shared runtime.image)을 Compose의 ${VAR:-default} 문법으로
+    # 그대로 표현한다.
+    image: ${AUDIO_VLLM_IMAGE:-gitlab.wizvera.com:4567/acl-ai-system/acl-ai-gateway/vllm-gemma4-audio@sha256:cf547528af18c15105d66ea767a49d21702dc90a26189be061a36edeebcf777d}
     restart: unless-stopped
     command:
     - --model
-    - RedHatAI/gemma-4-26B-A4B-it-FP8-Dynamic
+    - RedHatAI/gemma-4-12B-it-FP8-Dynamic
     - --revision
-    - 8edbb9269ec9c3faad538ee1208a07eb46051f34
+    - 67e53491df7a281623fa740de61307d5c542b7f4
     - --served-model-name
     - local-main
     - --host
@@ -90,11 +94,11 @@ services:
     - --port
     - '9401'
     - --max-model-len
-    - '20000'
+    - '50000'
     - --max-num-seqs
-    - '1'
+    - '3'
     - --max-num-batched-tokens
-    - '20000'
+    - '50000'
     - --optimization-level
     - '3'
     - --gpu-memory-utilization

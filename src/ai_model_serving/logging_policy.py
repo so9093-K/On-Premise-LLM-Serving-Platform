@@ -8,6 +8,7 @@ from typing import Any
 from starlette.requests import Request
 from starlette.responses import Response
 
+from .detectors.masking import mask_sensitive_text
 from .errors import request_id_from_headers
 # service_logger/scrub_for_log은 starlette 없이도 써야 하는 호출부(예: 순수 YAML/카탈로그
 # 검증 스크립트가 도는 최소 venv)가 있어 service_logging.py로 분리했다 — 여기서는
@@ -20,7 +21,38 @@ __all__ = [
     "safe_request_log_record",
     "log_request_completion",
     "safe_request_logging_middleware",
+    "record_request_response_preview",
+    "record_token_usage",
 ]
+
+
+def record_request_response_preview(request: Request, *, request_text: str, response_text: str) -> None:
+    """request.state에 마스킹된 요청/응답 프리뷰를 남긴다.
+
+    `LOG_REQUEST_RESPONSE_BODY=true`일 때만 호출해야 한다 -- 플래그 확인은
+    호출자 책임이다(safe_request_log_record가 이 값이 있을 때만 로그 레코드에
+    싣는다). 어떤 엔드포인트든 같은 마스킹 규칙(mask_sensitive_text)을 거치므로,
+    각 라우터가 `request.state.request_body_masked = ...`를 직접 대입하며
+    코드를 복제하지 않게 한다.
+    """
+    request.state.request_body_masked = mask_sensitive_text(request_text)
+    request.state.response_body_masked = mask_sensitive_text(response_text)
+
+
+def record_token_usage(request: Request, usage: Any) -> None:
+    """request.state에 토큰 사용량(prompt/completion/total)을 남긴다.
+
+    프롬프트/응답 원문과 달리 토큰 개수는 민감정보가 아니므로
+    `LOG_REQUEST_RESPONSE_BODY`와 무관하게 latency_ms와 동급으로 항상 호출한다
+    -- 호출자가 플래그를 확인할 필요 없음. usage가 없거나(예: 업스트림이
+    응답에 안 실은 경우) 모양이 안 맞으면 조용히 아무것도 안 남긴다.
+    """
+    if not isinstance(usage, dict):
+        return
+    for field in ("prompt_tokens", "completion_tokens", "total_tokens"):
+        value = usage.get(field)
+        if isinstance(value, int):
+            setattr(request.state, field, value)
 
 
 def safe_request_log_record(
@@ -55,6 +87,12 @@ def safe_request_log_record(
         record["error_code"] = error_code
     if error_message:
         record["error_message"] = error_message
+    # 토큰 개수는 민감정보가 아니라 LOG_REQUEST_RESPONSE_BODY와 무관하게 항상
+    # 채워질 수 있다(record_token_usage가 usage를 실은 엔드포인트에 한해).
+    for field in ("prompt_tokens", "completion_tokens", "total_tokens"):
+        value = getattr(request.state, field, None)
+        if value is not None:
+            record[field] = value
     # LOG_REQUEST_RESPONSE_BODY=true일 때만 채워진다(gateway_inference.py의
     # chat_completions, non-streaming 한정). 이미 masking.mask_sensitive_text로
     # PII/secret을 치환한 텍스트라 scrub_for_log가 추가로 지우지 않는다.

@@ -113,11 +113,14 @@ def test_p2_runtime_validation_harness_is_packaged() -> None:
         cwd=ROOT,
         text=True,
     )
+    # 튜닝 수치(max-model-len/max-num-batched-tokens/optimization-level/
+    # gpu-memory-utilization)는 active profile이 바뀔 때마다 달라지는 값이라
+    # 여기서 하드코딩하지 않는다 -- 그 정합성은
+    # test_runtime_policy.py::test_main_runtime_compose_has_50k_o3_runtime_policy가
+    # model_serving.yaml/catalog/model_card/compose 4곳을 직접 비교해서 이미
+    # 전담한다. 이 테스트의 목적은 harness가 "패키징돼 있는지"(스크립트 존재,
+    # 실행권한, 구조적으로 안정된 플래그가 렌더링되는지)를 확인하는 것이다.
     assert "--served-model-name local-main" in output
-    assert "--max-model-len 20000" in output
-    assert "--max-num-batched-tokens 20000" in output
-    assert "--optimization-level 3" in output
-    assert "--gpu-memory-utilization 0.76" in output
     assert "--enable-prefix-caching" in output
     assert "--prefix-caching-hash-algo sha256_cbor" in output
     assert "--enable-auto-tool-choice" in output

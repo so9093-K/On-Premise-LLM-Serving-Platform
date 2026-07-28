@@ -19,23 +19,23 @@ gpu:
   profile_rule: Use conservative defaults until live vLLM/GPU measurements prove headroom
     for a specific increase.
 budgets:
-  # Reference-host (48 GiB) capacity-planning figures, NOT the live cost. The
-  # runtime reservation is the active profile's --gpu-memory-utilization, which a
-  # host may override via MAIN_LLM_GPU_MEMORY_UTILIZATION; GPU admission reads that
-  # live value, not this block. See ADR-0018.
+  # 참고용 호스트(48 GiB) 용량 계획 수치이며, 실제 라이브 비용이 아니다. 실제
+  # 예약량은 active profile의 --gpu-memory-utilization이고(호스트는
+  # MAIN_LLM_GPU_MEMORY_UTILIZATION으로 override 가능), GPU admission은 이
+  # 블록이 아니라 그 live 값을 읽는다. ADR-0018 참고.
   #
-  # target_gib/range_gib below are the 26B(default_profile) reference figures only.
-  # main_llm is a switchable identity since ADR-0017 -- the 12B profile's real
-  # measured footprint differs and does not fall in this range. Live-measured
-  # (2026-07-16, docs/adr/0015 Update): 26B(seq=1, 20K) actual ~35.1 GiB; 12B(seq=2,
-  # 50K) actual ~30.2 GiB. Do not read this block as "the" Main LLM footprint
-  # regardless of active profile -- check nvidia-smi/vllm:cache_config_info for the
-  # currently active one.
+  # 아래 target_gib/range_gib는 12B(2026-07-28부터 default_profile, docs/adr/0017
+  # Update 참고) 기준 참고 수치다. main_llm은 ADR-0017 이후 전환 가능한 identity라
+  # -- 26B(admin API로 전환 가능한 대안)의 실측 footprint는 다르고 이 범위 밖이다.
+  # 실측값(docs/adr/0015 Update, 현재 배포된 seq=3/50K 커맨드 기준): 12B 실측
+  # ~31.9 GiB; 26B(seq=1, 20K) 실측 ~35.1 GiB. 어떤 프로필이 active든 이 블록을
+  # "the" Main LLM footprint로 읽지 말 것 -- 현재 active 프로필의 실제 값은
+  # nvidia-smi/vllm:cache_config_info로 확인한다.
   main_llm:
-    target_gib: 34.6
+    target_gib: 32
     range_gib:
-    - 34
-    - 35
+    - 31
+    - 33
     gpu_memory_utilization: 0.76
     tuning_range:
       gpu_memory_utilization:

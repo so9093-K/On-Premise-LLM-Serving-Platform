@@ -109,14 +109,14 @@ Prefix caching은 반복 prefix가 있는 multi-turn, tool, RAG prompt에서 pre
 
 ## 9. Selectable Main LLM 프로필 반영 (2026-07-16 갱신)
 
-[ADR-0017](../adr/0017-selectable-main-model-runtime.md)/[ADR-0018](../adr/0018-gpu-vram-admission-and-per-profile-runtime-image.md) 이후 "Main LLM"은 `configs/main_model_profiles.yaml`의 프로필(`gemma4-26b-a4b-fp8` 기본 / `gemma4-12b-unified-fp8` 대안) 중 하나로 전환되는 identity다. 1~8절은 26B 단일 모델을 전제로 한 원본이며, 그 전제가 더 이상 유효하지 않다.
+[ADR-0017](../adr/0017-selectable-main-model-runtime.md)/[ADR-0018](../adr/0018-gpu-vram-admission-and-per-profile-runtime-image.md) 이후 "Main LLM"은 `configs/main_model_profiles.yaml`의 프로필(`gemma4-12b-unified-fp8`, 2026-07-28부터 기본 / `gemma4-26b-a4b-fp8`, admin API로 전환 가능한 대안) 중 하나로 전환되는 identity다. 1~8절은 26B 단일 모델을 전제로 한 원본이며, 그 전제가 더 이상 유효하지 않다.
 
 실제 배포 서버에서 두 프로필을 각각 활성화해 실측한 결과([ADR-0015](../adr/0015-main-llm-20k-o3-runtime-target.md) Update 참고):
 
 | 프로필 | context/concurrency | local-main 자체 VRAM | 전체 GPU 사용량 | KV cache pool (`num_gpu_blocks`) |
 |---|---|---:|---:|---|
-| `gemma4-26b-a4b-fp8` (기본) | 20K, seq=1 | 35.1 GiB | 41.5 GiB | 10812 blocks (172,992 tokens) |
-| `gemma4-12b-unified-fp8` | 50K, seq=3 | 31.9 GiB | 38.3 GiB | kv_cache_size_tokens 53,722 |
+| `gemma4-26b-a4b-fp8` (대안) | 20K, seq=1 | 35.1 GiB | 41.5 GiB | 10812 blocks (172,992 tokens) |
+| `gemma4-12b-unified-fp8` (기본) | 50K, seq=3 | 31.9 GiB | 38.3 GiB | kv_cache_size_tokens 53,722 |
 
 즉 12B가 26B보다 context가 2.5배 크고 audio/video까지 지원하는데도 실제 VRAM은 오히려 더 적게 씁니다 — 26B는 weight 자체가 더 크기 때문입니다. 두 경우 다 `gpu_memory_utilization=0.76`으로 boot에 필요한 최소량 대비 여유가 있었다.
 

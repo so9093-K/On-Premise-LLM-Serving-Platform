@@ -193,7 +193,7 @@ def create_gateway_app(settings: AppSettings | None = None, clients: GatewayClie
             clients.main_model_inflight,
         )
     )
-    app.include_router(_build_risk_router(api_dependencies, service, clients.runtime_state))
+    app.include_router(_build_risk_router(api_dependencies, service, settings, clients.runtime_state))
     app.include_router(_build_retrieval_router(api_dependencies, admin_dependencies, service, settings, clients.runtime_state))
     app.include_router(_build_runtime_control_router(admin_dependencies, clients.runtime_state, clients.sidecar, settings))
 

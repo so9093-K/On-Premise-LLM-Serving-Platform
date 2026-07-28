@@ -105,3 +105,41 @@ Gateway는 인증된 공개 관리 경계로서 프로파일 ID만 프록시합�
 전체 Compose 시작은 잠금/설정/영속화된 부트 의도를 임시 생성 Compose 파일로 투영합니다. 이 파일은 추가 상태 저장소가 아니며, 활성 프로파일로 편집되지 않고, Compose 커맨드 완료 시 제거됩니다. Compose 설정 검증 전에 카탈로그, `.env` 잠금 정책, 원자적 사이드카 상태에서 재생성됩니다.
 
 선택된 프로파일 스냅샷은 런타임 전환이 추론 게이트를 닫기 전 `preparing` 단계에서 공유 Hugging Face 캐시에 준비됩니다. 전체 배포도 서비스 변경 전에 동일한 준비를 수행합니다. 손상된 상태, 알 수 없는 영속 프로파일, 캐시 준비 실패, 또는 유효하지 않은 Compose 설정은 설치 기본값으로 조용히 부팅하는 대신 fail-closed됩니다.
+
+## Update (2026-07-28)
+
+`default_profile`을 `gemma4-26b-a4b-fp8`에서 `gemma4-12b-unified-fp8`로 바꿨다 -- 위
+"설치 기본값은 gemma4-26b-a4b-fp8을 유지"라는 결정을 뒤집는다. 운영상 12B를 계속
+서빙해야 하는 상황이 됐고, `default_profile`은 admin-sidecar가 한 번도 안 돈
+최초 `docker compose up` 부트스트랩 시점에만 쓰이는 값이라(부트 우선순위 3번,
+`MAIN_LLM_BOOT_PROFILE`) 실제로 12B를 계속 쓴다면 이 값도 12B와 일치해야 한다 --
+어긋나면 최초 부트스트랩이나 compose가 main-llm-vllm을 재생성해야 하는 상황(예:
+`docker compose up -d <다른 서비스>`가 `depends_on`으로 main-llm-vllm까지 함께
+재생성하는 경우)마다 조용히 26B로 되돌아간다.
+
+실제로 이 어긋남이 사고로 이어진 적이 있다: `MAIN_LLM_PROFILE_LOCKED=false`
+상태에서 admin-sidecar 없이 compose가 main-llm-vllm을 재생성하면서(운영 실수로
+`--no-deps` 없이 `docker compose up -d gateway`를 실행, `depends_on`으로
+main-llm-vllm까지 재생성됨), 당시 아직 26B였던 `default_profile`의 compose
+bootstrap placeholder로 컨테이너가 뜨는 바람에, `main-model-state.json`이 여전히
+가리키던 12B(실제 서빙 의도)와 실제 컨테이너(26B)가 어긋났다. 그 결과
+`reconcile_if_restarted()`가 매 10초 poll tick마다 12B 기준 audio canary를 이미
+26B로 떠버린 컨테이너에 계속 보내 실패를 반복했다(`ValueError: ... does not have
+an audio tower`) -- validate() 실패 시 backoff가 없어서 무한 재시도였다. 이 사고를
+계기로 다음을 같이 고쳤다:
+
+- `default_profile`을 실제로 계속 서빙할 프로필(12B)과 일치시킨다(이 Update).
+- `ops/compose/full-stack.private-network.yaml`의 main-llm-vllm bootstrap
+  placeholder(image/command)를 12B 기준으로 갱신하고, 이 placeholder가
+  `default_profile`의 image/command와 항상 일치하는지 검증하는 governance
+  테스트를 command까지 검사하도록 강화했다(이전엔 image만 비교해 command
+  드리프트를 못 잡았다).
+- `reconcile_if_restarted()`의 validate() 실패에 지수 backoff(10초 -> 최대
+  5분)를 추가했다 -- drift 자체를 막지는 못해도, drift가 남아있는 동안 GPU
+  엔진에 매 poll tick마다 무의미한 canary 요청을 영구히 반복하지는 않는다.
+- 단일 서비스만 골라 재기동하는 `make compose-restart`(기본 `--no-deps`)를
+  추가해, 관련 없는 서비스를 재기동하려다 `depends_on`으로 main-llm-vllm까지
+  딸려 재생성되는 경로 자체를 없앴다.
+
+`gemma4-26b-a4b-fp8`은 여전히 카탈로그에 `verified` 상태로 남아 있고 admin API로
+전환 가능하다 -- 폐기된 게 아니라 기본값이 아니게 됐을 뿐이다.

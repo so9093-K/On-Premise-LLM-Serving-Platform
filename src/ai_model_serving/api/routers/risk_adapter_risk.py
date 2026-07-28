@@ -1,17 +1,32 @@
 from __future__ import annotations
 
+import json
 from typing import Any
 
-from fastapi import APIRouter, Body
+from fastapi import APIRouter, Body, Request
 
 from ..endpoint_spec import RISK_ADAPTER_ENDPOINTS
 from ...contracts import read_risk_prompt
+from ...logging_policy import record_request_response_preview
+from ...settings import AppSettings
 
 _RA = {(s.method, s.path): s for s in RISK_ADAPTER_ENDPOINTS}
 
 
-def build_router(api_dependencies: list, service: Any) -> APIRouter:
+def _risk_response_preview(response: dict[str, Any]) -> str:
+    return json.dumps(response, ensure_ascii=False, sort_keys=True)
+
+
+def build_router(api_dependencies: list, service: Any, settings: AppSettings) -> APIRouter:
     router = APIRouter()
+
+    def _record_if_enabled(request: Request, *, prompt: str, response: dict[str, Any]) -> None:
+        if settings.log_request_response_body:
+            record_request_response_preview(
+                request,
+                request_text=prompt,
+                response_text=_risk_response_preview(response),
+            )
 
     _s = _RA[("POST", "/v1/risk/detectors/prompt/assessments")]
 
@@ -25,10 +40,13 @@ def build_router(api_dependencies: list, service: Any) -> APIRouter:
         responses={401: {"description": "Internal Bearer token 필요"}},
     )
     async def prompt_assessment(
+        request: Request,
         payload: dict[str, Any] = Body(...),
     ) -> dict[str, Any]:
         prompt = read_risk_prompt(payload)
-        return await service.assess_detector_key("prompt", prompt)
+        result = await service.assess_detector_key("prompt", prompt)
+        _record_if_enabled(request, prompt=prompt, response=result)
+        return result
 
     _s = _RA[("POST", "/v1/risk/detectors/pii/assessments")]
 
@@ -42,10 +60,13 @@ def build_router(api_dependencies: list, service: Any) -> APIRouter:
         responses={401: {"description": "Internal Bearer token 필요"}},
     )
     async def pii_assessment(
+        request: Request,
         payload: dict[str, Any] = Body(...),
     ) -> dict[str, Any]:
         prompt = read_risk_prompt(payload)
-        return await service.assess_detector_key("pii", prompt)
+        result = await service.assess_detector_key("pii", prompt)
+        _record_if_enabled(request, prompt=prompt, response=result)
+        return result
 
     _s = _RA[("POST", "/v1/risk/detectors/secret/assessments")]
 
@@ -59,10 +80,13 @@ def build_router(api_dependencies: list, service: Any) -> APIRouter:
         responses={401: {"description": "Internal Bearer token 필요"}},
     )
     async def secret_assessment(
+        request: Request,
         payload: dict[str, Any] = Body(...),
     ) -> dict[str, Any]:
         prompt = read_risk_prompt(payload)
-        return await service.assess_detector_key("secret", prompt)
+        result = await service.assess_detector_key("secret", prompt)
+        _record_if_enabled(request, prompt=prompt, response=result)
+        return result
 
     _s = _RA[("POST", "/v1/risk/assessments")]
 
@@ -76,9 +100,12 @@ def build_router(api_dependencies: list, service: Any) -> APIRouter:
         responses={401: {"description": "Internal Bearer token 필요"}},
     )
     async def aggregate(
+        request: Request,
         payload: dict[str, Any] = Body(...),
     ) -> dict[str, Any]:
         prompt = read_risk_prompt(payload)
-        return await service.assess_aggregate(prompt)
+        result = await service.assess_aggregate(prompt)
+        _record_if_enabled(request, prompt=prompt, response=result)
+        return result
 
     return router

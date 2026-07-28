@@ -40,6 +40,13 @@ _DIGEST_IMAGE_RE = re.compile(r"^.+@sha256:[0-9a-f]{64}$")
 _IMAGE_ENV_REF_RE = re.compile(r"^\$\{([A-Z_][A-Z0-9_]*)\}$")
 _COMPATIBILITY = frozenset({"verified", "likely", "unverified", "incompatible", "unknown"})
 _TERMINAL_STATES = frozenset({"completed", "failed", "rollback_failed"})
+# reconcile_if_restarted()의 재시도 backoff. admin_sidecar.py의 10초 poll
+# 간격을 기준 단위로 2배씩 늘리다 최대 5분에서 멈춘다 -- validate()가 계속
+# 실패하는 동안(예: active_profile과 실제 컨테이너가 어긋난 채로 남는 drift)
+# GPU 엔진에 매 poll tick마다 무의미한 canary 요청을 영구히 반복하지 않기
+# 위함이다.
+_RECONCILE_BACKOFF_BASE_SECONDS = 10.0
+_RECONCILE_BACKOFF_MAX_SECONDS = 300.0
 _CLIENT_REQUEST_RE = re.compile(r"^[A-Za-z0-9._:-]{1,128}$")
 
 
@@ -461,6 +468,13 @@ class MainModelManager:
             )
         self._lock = asyncio.Lock()
         self._tasks: set[asyncio.Task[None]] = set()
+        # reconcile_if_restarted()가 validate() 실패를 반복할 때(예: 2026-07-28
+        # 사고처럼 active_profile과 실제 컨테이너가 어긋난 채로 남는 경우) 매
+        # poll tick(10초)마다 똑같이 재시도해 GPU 엔진에 무의미한 canary 요청을
+        # 영구히 반복하는 걸 막기 위한 backoff 상태. 재시작마다 초기화되는
+        # in-memory 값으로 충분하다 -- 드리프트가 해소되면(성공) 바로 리셋된다.
+        self._reconcile_failure_streak = 0
+        self._reconcile_backoff_until: float = 0.0
 
     def snapshot(self) -> dict[str, Any]:
         state = self.state_store.read()
@@ -535,6 +549,14 @@ class MainModelManager:
         window by the few seconds validate() itself takes (not by the poll
         interval), so the extra downtime from gating every re-warm was judged
         not worth it relative to that small a reduction.
+
+        validate()가 계속 실패하면(예: active_profile이 가리키는 프로필과 실제
+        컨테이너가 어긋난 채로 남는 drift -- 2026-07-28 실제 사고) 이 메서드는
+        매 poll tick마다 똑같은 재검증을 무한 반복하지 않는다. 실패할 때마다
+        `_RECONCILE_BACKOFF_BASE_SECONDS`에서 시작해 지수적으로 물러나며
+        `_RECONCILE_BACKOFF_MAX_SECONDS`에서 멈춘다 -- drift 자체(원인)는 안
+        고치지만, 고쳐질 때까지 GPU 엔진에 무의미한 canary 요청을 영구히
+        퍼붓는 건 막는다. 성공하거나 drift가 해소되면 즉시 리셋된다.
         """
         async with self._lock:
             state = self.state_store.read()
@@ -569,14 +591,37 @@ class MainModelManager:
                 )
                 return
             if observed_started_at == last_validated:
+                self._reconcile_failure_streak = 0
+                self._reconcile_backoff_until = 0.0
                 return  # 컨테이너가 그대로임 — 조치 불필요
+            now = asyncio.get_running_loop().time()
+            if now < self._reconcile_backoff_until:
+                return  # backoff 중 — 이번 tick은 건너뛴다
             _logger.warning(
                 "main-llm-vllm container restarted outside admin-sidecar control "
                 "(observed StartedAt=%s, last validated=%s); re-warming without closing the gate",
                 observed_started_at,
                 last_validated,
             )
-            await self._validate_and_record(self.catalog.profiles[active_id])
+            try:
+                await self._validate_and_record(self.catalog.profiles[active_id])
+            except Exception:
+                self._reconcile_failure_streak += 1
+                backoff = min(
+                    _RECONCILE_BACKOFF_BASE_SECONDS * (2 ** self._reconcile_failure_streak),
+                    _RECONCILE_BACKOFF_MAX_SECONDS,
+                )
+                self._reconcile_backoff_until = now + backoff
+                _logger.warning(
+                    "main-llm-vllm reconcile validate() failed (streak=%d); backing off %.0fs "
+                    "before the next attempt instead of retrying every poll tick",
+                    self._reconcile_failure_streak,
+                    backoff,
+                )
+                raise
+            else:
+                self._reconcile_failure_streak = 0
+                self._reconcile_backoff_until = 0.0
 
     async def stop_main(self) -> None:
         """Drain and stop the main runtime to reclaim its VRAM.

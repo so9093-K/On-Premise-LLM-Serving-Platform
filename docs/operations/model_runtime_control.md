@@ -45,10 +45,11 @@ profile로 rollback한다. rollback도 실패하면 gate를 닫은 fail-closed �
 유지한다. 이 과정은 무중단 전환이 아니다.
 
 부팅 우선순위는 locked profile, 마지막 성공 active profile, 설치 기본
-profile 순서다. 기본값은 기존 26B를 보존한다.
+profile 순서다. 설치 기본값은 2026-07-28부터 12B다(`ADR-0017` Update 참고) —
+26B는 admin API로 여전히 전환 가능한 대안 프로필이다.
 
 ```dotenv
-MAIN_LLM_BOOT_PROFILE=gemma4-26b-a4b-fp8
+MAIN_LLM_BOOT_PROFILE=gemma4-12b-unified-fp8
 MAIN_LLM_PROFILE_LOCKED=false
 ```
 
@@ -60,8 +61,8 @@ projection을 원자적으로 생성한다. projection은 해당 Compose 명령�
 삭제되며 영구 active-state나 운영자 편집 대상이 아니다. Compose는 projection의
 profile command로 main model을 처음부터 부팅하고, Admin Sidecar는 실제 container
 command를 확인해 상태를 검증한다.
-상태 JSON이 손상됐거나 저장 profile이 현재 catalog에 없으면 기본 26B로 조용히
-fallback하지 않고 기동을 중단한다.
+상태 JSON이 손상됐거나 저장 profile이 현재 catalog에 없으면 설치 기본 profile로
+조용히 fallback하지 않고 기동을 중단한다.
 
 12B compatibility는 현재 고정 revision과 pinned derived runtime image 기준으로
 `verified`다. 이 검증은 현재 호스트의 1차 검증 결과이며, 별도 exact-system evidence

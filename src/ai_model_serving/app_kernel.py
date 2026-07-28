@@ -11,7 +11,14 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from .docs_ui import scalar_html
-from .errors import ServiceError, default_code_for_status, error_response, request_id_from_headers, service_error_debug
+from .errors import (
+    ServiceError,
+    default_code_for_status,
+    error_response,
+    exception_debug,
+    request_id_from_headers,
+    service_error_debug,
+)
 from .logging_policy import safe_request_logging_middleware
 from .metrics import Metrics
 from .middleware import enforce_request_body_limit
@@ -202,7 +209,14 @@ def install_exception_handlers(
     @app.exception_handler(Exception)
     async def unhandled_error_handler(request: Request, exc: Exception) -> JSONResponse:
         logger.exception("unhandled exception", exc_info=exc)
-        return error_response("INTERNAL_ERROR", "Internal server error.", False, 500, request_id_from_headers(request.headers))
+        return error_response(
+            "INTERNAL_ERROR",
+            "Internal server error.",
+            False,
+            500,
+            request_id_from_headers(request.headers),
+            debug=exception_debug(exc),
+        )
 
 
 def register_scalar_docs(app: FastAPI, *, settings: AppSettings, title: str) -> None:

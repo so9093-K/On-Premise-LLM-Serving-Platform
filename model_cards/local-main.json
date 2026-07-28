@@ -1,8 +1,8 @@
 {
   "logical_id": "local-main",
-  "upstream_model_id": "RedHatAI/gemma-4-26B-A4B-it-FP8-Dynamic",
-  "upstream_revision": "8edbb9269ec9c3faad538ee1208a07eb46051f34",
-  "base_model_id": "google/gemma-4-26B-A4B-it",
+  "upstream_model_id": "RedHatAI/gemma-4-12B-it-FP8-Dynamic",
+  "upstream_revision": "67e53491df7a281623fa740de61307d5c542b7f4",
+  "base_model_id": "google/gemma-4-12B-it",
   "role": "main_chat_completion",
   "license": "gemma",
   "runtime": {
@@ -14,66 +14,70 @@
     "weight_precision": "fp8_dynamic",
     "configured_tensor_parallel_size": 1,
     "model_card_example_tensor_parallel_size": 1,
-    "max_model_len": 20000,
+    "max_model_len": 50000,
     "python_default": "3.12.13",
     "max_output_tokens": 13000
   },
   "sources": [
-    "https://huggingface.co/RedHatAI/gemma-4-26B-A4B-it-FP8-Dynamic",
-    "https://huggingface.co/google/gemma-4-26B-A4B-it",
+    "https://huggingface.co/RedHatAI/gemma-4-12B-it-FP8-Dynamic",
+    "https://huggingface.co/google/gemma-4-12B-it",
+    "https://ai.google.dev/gemma/docs/core/model_card_4",
     "https://docs.vllm.ai/projects/recipes/en/latest/Google/Gemma4.html"
   ],
   "source_facts": {
-    "base_model_id": "google/gemma-4-26B-A4B-it",
-    "quantization": "offline FP8 checkpoint for vLLM, stored as compressed-tensors",
-    "vllm_min_version": "0.19.0",
-    "transformers_min_version": "5.5.0",
+    "base_model_id": "google/gemma-4-12B-it",
+    "quantization": "RedHatAI FP8-Dynamic checkpoint quantized with llm-compressor (FP8_Dynamic + iMatrix); vision/audio embedding layers excluded from quantization per the RedHatAI card",
+    "vllm_min_version": "no pinned stable release published as of 2026-07-28; RedHatAI's card states the checkpoint is validated against vLLM nightly builds only, not a specific release (unlike gemma4-26b-a4b-fp8's 0.19.0)",
+    "transformers_min_version": "not pinned by the RedHatAI card as of 2026-07-28",
     "release_status": "preliminary upstream checkpoint; subject to change",
     "tokenizer_artifacts": [
       "tokenizer.json",
       "tokenizer_config.json"
     ],
-    "cuda_runtime_note": "RedHatAI card validates on B200 and says to run on vLLM main; RTX 6000 Ada requires local boot, tokenizer canary, and runtime validation before production claims",
+    "cuda_runtime_note": "RedHatAI card states nightly-vLLM validation only; RTX 6000 Ada requires local boot, tokenizer canary, and runtime validation before production claims -- see configs/main_model_profiles.yaml gemma4-12b-unified-fp8.compatibility for the actual host validation history",
     "upstream_example": {
+      "note": "RedHatAI's own eval command uses a $MAX_MODEL_LEN placeholder (no concrete suggested value), unlike gemma4-26b-a4b-fp8's card which gives 96000 explicitly",
       "tensor_parallel_size": 1,
-      "max_model_len": 96000,
-      "trust_remote_code": true,
-      "enable_auto_tool_choice": true,
-      "tool_call_parser": "gemma4",
-      "reasoning_parser": "gemma4",
-      "chat_template": "/app/configs/gemma4_chat_template.jinja",
+      "gpu_memory_utilization": 0.85,
       "dtype": "auto",
+      "add_bos_token": true,
       "quantization": "model_config compressed-tensors; do not pass --quantization fp8"
     },
     "supported_modalities": [
       "text",
-      "image"
+      "image",
+      "audio",
+      "video"
     ],
+    "modality_architecture_note": "Encoder-free unified multimodal architecture -- image/audio/video project directly into the LLM embedding space with no separate vision/audio towers (unlike gemma4-26b-a4b-fp8, which supports only text+image). Source -- ai.google.dev/gemma/docs/core/model_card_4.",
     "upstream_context_length_tokens": {
-      "vllm_recipe": 131072,
-      "redhat_card_example_max_model_len": 96000,
-      "project_runtime_cap": 20000
+      "official_spec_tokens": 262144,
+      "official_spec_source": "ai.google.dev Gemma 4 model card, \"12B Unified\" row (256K)",
+      "vllm_recipe_note": "docs.vllm.ai/projects/recipes/.../Gemma4.html lists E2B/E4B/26B-A4B/31B but has no 12B entry as of 2026-07-28, so there is no vLLM-recipe reference number the way gemma4-26b-a4b-fp8 has 131072",
+      "project_runtime_cap": 50000
     },
     "parameter_summary": {
-      "vllm_recipe": "26B total / 4B active",
-      "hf_display": "27B params"
+      "architecture": "dense -- no MoE, unlike gemma4-26b-a4b-fp8's 26B-total/4B-active split; all parameters are active during inference",
+      "hf_display": "~11.95B params"
     }
   },
   "project_runtime_policy": {
     "tensor_parallel_size": 1,
-    "max_model_len": 20000,
-    "max_num_seqs": 1,
-    "max_num_batched_tokens": 20000,
+    "max_model_len": 50000,
+    "max_num_seqs": 3,
+    "max_num_batched_tokens": 50000,
     "optimization_level": 3,
     "gpu_memory_utilization": 0.76,
     "trust_remote_code": true,
-    "policy_reason": "RTX 6000 Ada에서 RedHatAI preliminary FP8 checkpoint에 대한 20K context, optimization level 3 런타임 target이다; upstream 예시는 B200/vLLM main 기준 96K context를 사용하므로, 이 플랫폼은 production을 주장하기 전에 로컬 tokenizer, boot, 품질, 지연시간, soak 검증이 필요하다",
+    "policy_reason": "RTX 6000 Ada에서 RedHatAI preliminary FP8 checkpoint에 대한 50K context, seq=3, optimization level 3 런타임 target이다(2026-07-28 default profile; 실측 boot/KV-cache 검증 이력은 configs/main_model_profiles.yaml의 gemma4-12b-unified-fp8.compatibility 참고). 공식 스펙은 256K context이므로, 이 플랫폼은 production을 주장하기 전에 로컬 tokenizer, boot, 품질, 지연시간, soak 검증이 필요하다",
     "max_output_tokens": 13000,
     "input_modalities": [
       "text",
-      "image"
+      "image",
+      "audio",
+      "video"
     ],
-    "chat_content_contract": "OpenAI chat content string or content parts with text and image_url",
+    "chat_content_contract": "OpenAI chat content string or content parts with text, image_url, input_audio, and video_url",
     "max_image_inputs": 1,
     "allowed_image_url_schemes": [
       "data"

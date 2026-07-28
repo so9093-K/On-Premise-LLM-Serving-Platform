@@ -1,12 +1,15 @@
 from __future__ import annotations
 
+import json
 from typing import Any
 
-from fastapi import APIRouter, Body
+from fastapi import APIRouter, Body, Request
 
 from ..endpoint_spec import GATEWAY_ENDPOINTS
 from ...errors import ServiceError
+from ...logging_policy import record_request_response_preview
 from ...services.runtime_state import RuntimeState, RuntimeStateStore
+from ...settings import AppSettings
 
 _GW = {(s.method, s.path): s for s in GATEWAY_ENDPOINTS}
 
@@ -14,9 +17,18 @@ _GW = {(s.method, s.path): s for s in GATEWAY_ENDPOINTS}
 def build_router(
     api_dependencies: list,
     service: Any,
+    settings: AppSettings,
     state_store: RuntimeStateStore | None = None,
 ) -> APIRouter:
     router = APIRouter()
+
+    def _record_if_enabled(request: Request, *, payload: dict[str, Any], response: dict[str, Any]) -> None:
+        if settings.log_request_response_body:
+            record_request_response_preview(
+                request,
+                request_text=str(payload.get("prompt", "")),
+                response_text=json.dumps(response, ensure_ascii=False, sort_keys=True),
+            )
 
     _s = _GW[("POST", "/v1/risk/detectors/prompt/assessments")]
 
@@ -30,6 +42,7 @@ def build_router(
         responses={401: {"description": "API Bearer token 필요"}},
     )
     async def risk_prompt_assessment(
+        request: Request,
         payload: dict[str, Any] = Body(...),
     ) -> dict[str, Any]:
         if state_store is not None:
@@ -42,7 +55,9 @@ def build_router(
                     True,
                     503,
                 )
-        return await service.forward_risk_assessment("/v1/risk/detectors/prompt/assessments", payload)
+        result = await service.forward_risk_assessment("/v1/risk/detectors/prompt/assessments", payload)
+        _record_if_enabled(request, payload=payload, response=result)
+        return result
 
     _s = _GW[("POST", "/v1/risk/detectors/pii/assessments")]
 
@@ -56,9 +71,12 @@ def build_router(
         responses={401: {"description": "API Bearer token 필요"}},
     )
     async def risk_pii_assessment(
+        request: Request,
         payload: dict[str, Any] = Body(...),
     ) -> dict[str, Any]:
-        return await service.forward_risk_assessment("/v1/risk/detectors/pii/assessments", payload)
+        result = await service.forward_risk_assessment("/v1/risk/detectors/pii/assessments", payload)
+        _record_if_enabled(request, payload=payload, response=result)
+        return result
 
     _s = _GW[("POST", "/v1/risk/detectors/secret/assessments")]
 
@@ -72,9 +90,12 @@ def build_router(
         responses={401: {"description": "API Bearer token 필요"}},
     )
     async def risk_secret_assessment(
+        request: Request,
         payload: dict[str, Any] = Body(...),
     ) -> dict[str, Any]:
-        return await service.forward_risk_assessment("/v1/risk/detectors/secret/assessments", payload)
+        result = await service.forward_risk_assessment("/v1/risk/detectors/secret/assessments", payload)
+        _record_if_enabled(request, payload=payload, response=result)
+        return result
 
     _s = _GW[("POST", "/v1/risk/detectors/siren/assessments")]
 
@@ -110,6 +131,7 @@ def build_router(
         responses={401: {"description": "API Bearer token 필요"}},
     )
     async def risk_assessment(
+        request: Request,
         payload: dict[str, Any] = Body(...),
     ) -> dict[str, Any]:
         if state_store is not None:
@@ -122,6 +144,8 @@ def build_router(
                     True,
                     503,
                 )
-        return await service.forward_risk_assessment("/v1/risk/assessments", payload)
+        result = await service.forward_risk_assessment("/v1/risk/assessments", payload)
+        _record_if_enabled(request, payload=payload, response=result)
+        return result
 
     return router

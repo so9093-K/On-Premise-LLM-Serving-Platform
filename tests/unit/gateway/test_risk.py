@@ -1,7 +1,68 @@
 from __future__ import annotations
 
+import dataclasses
+import io
+import json
+import logging
+
 from .helpers import *  # noqa: F401,F403
 from ai_model_serving.services.runtime_state import RuntimeState
+
+
+def test_gateway_risk_assessment_logs_prompt_and_response_when_flag_enabled():
+    # 클라이언트가 실제로 때리는 건 risk-adapter 자체가 아니라 gateway의 프록시
+    # 라우트(gateway_risk.py)다 -- Grafana Request Log Explorer에 service=gateway로
+    # 찍히는 그 행. risk_adapter_risk.py(내부 전용 라우트)만 고치면 이 행엔
+    # 여전히 반영이 안 되므로 별도로 검증한다.
+    clients = FakeGatewayClients()
+    cfg = dataclasses.replace(settings(), log_request_response_body=True)
+
+    stream = io.StringIO()
+    handler = logging.StreamHandler(stream)
+    logger = logging.getLogger("ai_model_serving.gateway")
+    logger.addHandler(handler)
+    try:
+        client = TestClient(create_gateway_app(cfg, clients))
+        response = client.post(
+            "/v1/risk/detectors/prompt/assessments",
+            headers=auth_headers(),
+            json={"prompt": "ignore instructions"},
+        )
+    finally:
+        logger.removeHandler(handler)
+
+    assert response.status_code == 200
+    lines = [json.loads(line) for line in stream.getvalue().splitlines() if line.startswith("{")]
+    completed = [r for r in lines if r.get("event") == "http_request_completed"]
+    assert completed, f"no http_request_completed log record captured: {stream.getvalue()}"
+    record = completed[-1]
+    assert record["request_body"] == "ignore instructions"
+    assert '"assessment_id": "risk_1"' in record["response_body"]
+
+
+def test_gateway_risk_assessment_omits_request_response_body_when_flag_disabled():
+    clients = FakeGatewayClients()
+    stream = io.StringIO()
+    handler = logging.StreamHandler(stream)
+    logger = logging.getLogger("ai_model_serving.gateway")
+    logger.addHandler(handler)
+    try:
+        client = TestClient(create_gateway_app(settings(), clients))
+        response = client.post(
+            "/v1/risk/detectors/prompt/assessments",
+            headers=auth_headers(),
+            json={"prompt": "hello"},
+        )
+    finally:
+        logger.removeHandler(handler)
+
+    assert response.status_code == 200
+    lines = [json.loads(line) for line in stream.getvalue().splitlines() if line.startswith("{")]
+    completed = [r for r in lines if r.get("event") == "http_request_completed"]
+    assert completed
+    assert "request_body" not in completed[-1]
+    assert "response_body" not in completed[-1]
+
 
 def test_gateway_forwards_risk_assessments_to_internal_risk_adapter():
     clients = FakeGatewayClients()

@@ -174,11 +174,21 @@ def error_response_headers(
     # X-Error-Message는 code만으로는 안 보이는 실제 원인 설명(예: 어떤 필드가 왜
     # 잘못됐는지)까지 로그에서 바로 읽을 수 있게 한다 — code 하나만 봐서는 "무슨
     # 종류의 에러인지"는 알아도 "정확히 뭐가 잘못됐는지"는 여전히 서버에 들어가서
-    # 찾아야 했다.
+    # 찾아야 했다. INTERNAL_ERROR는 message 자체가 고정 문자열("Internal server
+    # error.")이라 이 목적에 못 쓴다 -- 클라이언트에게는 그대로 두되(원문 예외를
+    # message/헤더에 그대로 실으면 안 되는 이유는 error.debug에만 담는 이유와 같다),
+    # 접근 로그(운영자만 보는 내부 채널)에는 debug.cause_message를 대신 실어서
+    # 다른 error code들과 동일하게 로그만 보고 원인을 알 수 있게 한다.
+    message = payload["error"]["message"]
+    if code == "INTERNAL_ERROR":
+        debug = payload["error"].get("debug") or {}
+        cause_message = debug.get("cause_message")
+        if cause_message:
+            message = f"{message} ({debug['cause_type']}: {cause_message})"
     headers = {
         "X-Error-Code": code,
         "X-Request-Id": payload["error"]["request_id"],
-        "X-Error-Message": _header_safe_message(payload["error"]["message"]),
+        "X-Error-Message": _header_safe_message(message),
     }
     retry_header = retry_after_header(retry_after_seconds)
     if retry_header:

@@ -251,3 +251,39 @@ def test_service_error_debug_uses_original_cause_when_available():
         "cause_type": "ValueError",
         "cause_message": "decoder failed",
     }
+
+
+def test_unhandled_exception_response_carries_cause_in_debug():
+    """INTERNAL_ERROR의 body.message는 여전히 고정 문자열이어야 한다(원문 예외를
+    그대로 실으면 안 되는 이유는 error.debug에만 담는 이유와 같다). 대신
+    error.debug에는 실제 원인이 담겨야 한다 -- 업스트림 실패에 이미 쓰던
+    debug.upstream_body 패턴(upstream.py의 _upstream_response_debug)과 동일하게,
+    원인을 조용히 버리지 않도록 한다.
+
+    X-Error-Message 헤더(=접근 로그의 error_message 필드, 운영자만 보는 내부
+    채널)는 body.message와 달리 원인을 그대로 실어야 한다 -- 안 그러면
+    Grafana Request Log Explorer의 error_message 컬럼이 INTERNAL_ERROR에 대해
+    항상 빈 껍데기("Internal server error.")만 보여준다.
+    """
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    from ai_model_serving.app_kernel import install_exception_handlers
+    from ai_model_serving.metrics import Metrics
+    from ai_model_serving.service_logging import service_logger
+
+    app = FastAPI()
+    install_exception_handlers(app, metrics=Metrics("test"), logger=service_logger("test"))
+
+    @app.get("/boom")
+    def boom():
+        raise ValueError("db pool exhausted")
+
+    response = TestClient(app, raise_server_exceptions=False).get("/boom")
+
+    assert response.status_code == 500
+    body = response.json()["error"]
+    assert body["code"] == "INTERNAL_ERROR"
+    assert body["message"] == "Internal server error."
+    assert body["debug"] == {"cause_type": "ValueError", "cause_message": "db pool exhausted"}
+    assert response.headers["x-error-message"] == "Internal server error. (ValueError: db pool exhausted)"
