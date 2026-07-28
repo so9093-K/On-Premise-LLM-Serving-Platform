@@ -12,7 +12,10 @@ note: "이 문서는 특정 시점의 handoff 요약이다. 최신 package versi
 - `/v1/models` 응답에 모델별 `request_parameters`를 추가했다.
 - `/v1/chat/completions`는 `stream=true`를 공식 request parameter로 허용하고 Gateway SSE fast path로 upstream vLLM chunk를 relay한다.
 - `stream_options.include_usage=true`는 `stream=true`와 함께 사용할 때만 허용한다.
-- Grafana는 실제 운영 산출물 기준 **2개 dashboard** (`gpu_capacity_and_oom_risk`, `usage_today`)로 구성된다. dashboard JSON은 `ops/grafana/dashboards/*.json`이 source of truth이며, 과거 6개 baseline 표현은 현재 산출물과 맞지 않는 stale 문구다.
+- Grafana는 실제 운영 산출물 기준 **3개 dashboard** (`gpu_capacity_and_oom_risk`, `usage_today`, `request_log_explorer`)로 구성된다. dashboard JSON은 `ops/grafana/dashboards/*.json`이 source of truth다.
+- Main LLM 기본 프로필은 `gemma4-12b-unified-fp8`다(`configs/main_model_profiles.yaml`). `gemma4-26b-a4b-fp8`는 admin API로 전환 가능한 대안 프로필로 유지한다.
+- `LOG_REQUEST_RESPONSE_BODY`는 chat completions(non-streaming)/embeddings/risk detector 요청·응답까지 커버한다. 토큰 사용량(prompt/completion/total_tokens)은 이 플래그와 무관하게 항상 로그에 기록된다.
+- `INTERNAL_ERROR` 응답의 `error.debug`와 접근 로그의 `error_message`에 실제 예외 원인이 실린다(이전엔 고정 문구만 남았다).
 - first-run, clean/delete, package flow의 과거 감사 snapshot은 `reports/archive/refactor_audits/first_run_clean_package_audit.md`에 보존한다.
 - `local-main`은 chat/sampling/tool 관련 사용자 조정 가능 parameter를 노출한다.
 - `local-embed`는 `dimensions`, `encoding_format`, `truncate_prompt_tokens`를 노출한다.
@@ -51,7 +54,7 @@ note: "이 문서는 특정 시점의 handoff 요약이다. 최신 package versi
 | OpenAPI | checked-in schema injection + generated error surface + snapshot diff로 FastAPI loose docs 회귀 방지 | 강화됨 |
 | `/v1/models` discovery | 모델별 capability와 사용자 조정 가능 `request_parameters`를 함께 노출 | 강화됨 |
 | Streaming API | `stream=true` SSE relay, `stream_options.include_usage`, error event/usage metric 정책 | 강화됨 |
-| Grafana/Prometheus | 2개 dashboard (`gpu_capacity_and_oom_risk`, `usage_today`), Git-managed provisioning, dashboard JSON source of truth | 강화됨 |
+| Grafana/Prometheus | 3개 dashboard (`gpu_capacity_and_oom_risk`, `usage_today`, `request_log_explorer`), Git-managed provisioning, dashboard JSON source of truth | 강화됨 |
 | Risk vLLM patch | vendor patch는 임시 bridge로 문서화, metadata/label/verify/removal-check 유지 | 관리 필요 |
 | 모델 관리 | `modelctl`은 read-only + plan-only 상태로 lifecycle/projection/GPU budget/변경 영향 확인 | 안전 |
 | generated report | runtime/operator/evidence Markdown이 한국어 중심으로 재생성 | 유지 |

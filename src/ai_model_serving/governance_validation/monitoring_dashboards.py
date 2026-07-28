@@ -47,11 +47,18 @@ def _validate_gpu_dashboard() -> None:
     gpu = read_json(GPU_DASHBOARD)
     gpu_text = json.dumps(gpu, ensure_ascii=False)
     if 'backend_restart_total' in gpu_text or 'gpu_oom_events_total' in gpu_text:
-        raise SystemExit('GPU/OOM dashboard must use documented cAdvisor OOM/restart source metrics')
+        raise SystemExit(
+            f'{GPU_DASHBOARD} still references retired metric names (backend_restart_total/'
+            'gpu_oom_events_total) -- it must use the documented cAdvisor metrics '
+            '(container_oom_events_total/container_start_time_seconds) instead'
+        )
     if 'container_oom_events_total' not in gpu_text or 'container_start_time_seconds' not in gpu_text:
-        raise SystemExit('GPU/OOM dashboard missing cAdvisor OOM/restart source metrics')
+        raise SystemExit(
+            f'{GPU_DASHBOARD} is missing the cAdvisor OOM/restart source metrics '
+            '(container_oom_events_total and/or container_start_time_seconds)'
+        )
     if 'Home dashboard — GPU' in gpu_text or 'Home dashboard - GPU' in gpu_text:
-        raise SystemExit('GPU/OOM dashboard has stale GPU home tooltip')
+        raise SystemExit(f'{GPU_DASHBOARD} has a stale "Home dashboard — GPU" tooltip string left in it')
     _validate_oom_restart_sources(gpu_text)
 
 
@@ -122,9 +129,17 @@ def _validate_oom_restart_sources(gpu_text: str) -> None:
     vllm_containers = monitoring.get('metric_sources', {}).get('vllm_containers', {})
     container_sources = monitoring.get('metric_sources', {}).get('container_signal_sources', {})
     if container_sources.get('critical_container_regex') != critical_regex:
-        raise SystemExit('container signal critical regex must match monitoring projection')
+        raise SystemExit(
+            f'configs/monitoring.yaml metric_sources.container_signal_sources.critical_container_regex'
+            f'={container_sources.get("critical_container_regex")!r} does not match the projected '
+            f'critical_container_signal_regex={critical_regex!r} (derived from ModelRegistry)'
+        )
     if container_sources.get('vllm_container_regex') != vllm_regex:
-        raise SystemExit('container signal vLLM regex must match monitoring projection')
+        raise SystemExit(
+            f'configs/monitoring.yaml metric_sources.container_signal_sources.vllm_container_regex'
+            f'={container_sources.get("vllm_container_regex")!r} does not match the projected '
+            f'vllm_container_regex={vllm_regex!r} (derived from ModelRegistry)'
+        )
     cadvisor_metrics = set(vllm_containers.get('required_metrics', []))
     source_metrics = set(container_sources.get('source_metrics', []))
     rules_text = (ROOT / 'ops/prometheus/rules/model_runtime.rules.yml').read_text(encoding='utf-8')
@@ -134,7 +149,10 @@ def _validate_oom_restart_sources(gpu_text: str) -> None:
         if metric not in defined and metric not in rules_text and metric not in docs_text:
             raise SystemExit(f'OOM/restart dashboard metric lacks source definition: {metric}')
     if critical_regex not in gpu_text:
-        raise SystemExit('GPU/OOM dashboard OOM/restart regex must match critical_container_signal_regex')
+        raise SystemExit(
+            f'{GPU_DASHBOARD} does not contain the projected critical_container_signal_regex '
+            f'{critical_regex!r} (from configs/monitoring.yaml via ModelRegistry) -- its panel query regex is stale'
+        )
     for metric in required:
         if metric not in gpu_text or metric not in docs_text:
             raise SystemExit(f'{metric} must appear in the GPU/OOM dashboard and docs')

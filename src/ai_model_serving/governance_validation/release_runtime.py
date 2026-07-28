@@ -229,7 +229,10 @@ def validate_deployment_reproducibility() -> None:
             raise SystemExit(f'bootstrap.sh must install from lockfile before editable package install: {phrase}')
     makefile = (ROOT / 'Makefile').read_text(encoding='utf-8')
     if 'PYTHON ?= $(if $(PYTHON_BIN)' not in makefile:
-        raise SystemExit('Makefile must honor caller-provided PYTHON_BIN for bootstrap/CI validation.')
+        raise SystemExit(
+            "Makefile must define PYTHON via 'PYTHON ?= $(if $(PYTHON_BIN)...)' so callers can override "
+            'the interpreter with PYTHON_BIN (needed for bootstrap/CI validation) -- that exact line was not found'
+        )
 
     serving_cfg = read_yaml('configs/model_serving.yaml')['server']
     compose_port_checks = {

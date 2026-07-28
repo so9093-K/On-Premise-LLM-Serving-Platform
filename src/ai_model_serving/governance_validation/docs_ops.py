@@ -188,7 +188,10 @@ def validate_runtime_validation_yaml() -> None:
     registry = ModelRegistry(read_yaml('configs/model_catalog.yaml'), read_yaml('configs/model_serving.yaml'))
     expected_matrix = registry.runtime_validation_matrix_document()
     if matrix.get('validation_policy') != 'runtime_validation_required':
-        raise SystemExit('runtime validation matrix must require runtime validation')
+        raise SystemExit(
+            f"harness/runtime_validation_matrix.yaml: validation_policy must be "
+            f'"runtime_validation_required", got {matrix.get("validation_policy")!r}'
+        )
     checks = {check['id']: check for check in matrix['validation_checks']}
     expected_checks = {check['id']: check for check in expected_matrix['validation_checks']}
     required = {'gateway-runtime', 'risk-adapter-runtime', 'vllm-runtime', 'gpu-capacity', 'monitoring-scrape', 'grafana-dashboard-render'}
@@ -347,9 +350,15 @@ def validate_command_terminology_policy() -> None:
     policy_doc = (ROOT / 'docs/governance/policies/command_terminology_policy.md').read_text(encoding='utf-8')
     policy = read_yaml('configs/command_terminology_policy.yaml')
     if policy.get('policy_name') != 'command_terminology_policy':
-        raise SystemExit('command terminology policy config missing policy_name')
+        raise SystemExit(
+            f"configs/command_terminology_policy.yaml: policy_name must be 'command_terminology_policy', "
+            f'got {policy.get("policy_name")!r}'
+        )
     if policy.get('principle') != 'standard_command_semantics':
-        raise SystemExit('command terminology policy must define standard command semantics')
+        raise SystemExit(
+            f"configs/command_terminology_policy.yaml: principle must be 'standard_command_semantics', "
+            f'got {policy.get("principle")!r}'
+        )
 
     makefile = (ROOT / 'Makefile').read_text(encoding='utf-8')
     commands = policy.get('canonical_commands', {})
@@ -357,9 +366,15 @@ def validate_command_terminology_policy() -> None:
         if spec.get('make_target_required') is True and f'{command}:' not in makefile:
             raise SystemExit(f'Makefile missing canonical command target: {command}')
         if command == 'build' and spec.get('starts_services') is not False:
-            raise SystemExit('build command must not start services')
+            raise SystemExit(
+                f"configs/command_terminology_policy.yaml: canonical_commands.build.starts_services "
+                f'must be false, got {spec.get("starts_services")!r}'
+            )
         if command == 'start' and spec.get('starts_services') is not True:
-            raise SystemExit('start command must be the service-starting command')
+            raise SystemExit(
+                f"configs/command_terminology_policy.yaml: canonical_commands.start.starts_services "
+                f'must be true, got {spec.get("starts_services")!r}'
+            )
 
     aliases = policy.get('aliases', {})
     for alias, spec in aliases.items():

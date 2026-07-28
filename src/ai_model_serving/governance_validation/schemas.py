@@ -155,8 +155,13 @@ def validate_request_schemas() -> None:
     _validate_chat_schema_media_policy(chat_schema)
     chat_validator = Draft202012Validator(chat_schema)
     accepted_chat_stream_sample = {'model': 'local-main', 'stream': True, 'stream_options': {'include_usage': True}, 'messages': [{'role': 'user', 'content': 'hello'}]}
-    if list(chat_validator.iter_errors(accepted_chat_stream_sample)):
-        raise SystemExit('chat completion schema rejected supported stream=true sample')
+    stream_errors = list(chat_validator.iter_errors(accepted_chat_stream_sample))
+    if stream_errors:
+        details = '; '.join(f'{".".join(str(p) for p in e.path)}: {e.message}' for e in stream_errors)
+        raise SystemExit(
+            f'specs/schemas/chat_completion_request.schema.json rejects a supported '
+            f'stream=true+stream_options.include_usage sample: {details}'
+        )
     accepted_advanced_chat_samples = [
         {'model': 'local-main', 'messages': [{'role': 'user', 'content': 'Return JSON.'}], 'response_format': {'type': 'json_object'}},
         {'model': 'local-main', 'messages': [{'role': 'user', 'content': 'Return JSON.'}], 'response_format': {'type': 'json_schema', 'json_schema': {'name': 'answer', 'strict': True, 'schema': {'type': 'object', 'additionalProperties': False, 'properties': {'answer': {'type': 'string'}}, 'required': ['answer']}}}},

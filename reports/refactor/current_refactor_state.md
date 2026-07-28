@@ -9,7 +9,7 @@ note: "이 문서는 특정 시점의 리팩터링 상태를 요약한 current_s
 
 ## 현재 기준
 
-현재 기준선은 streaming, Grafana 운영 UX, 문서 정합성, first-run/clean/package 재감사 상태다. `/v1/models` parameter discovery 위에 `stream=true` SSE relay, `stream_options.include_usage`, 실제 운영 산출물 기준 2개 Grafana dashboard, 그리고 package hygiene guard가 포함된다.
+현재 기준선은 streaming, Grafana 운영 UX, 문서 정합성, first-run/clean/package 재감사, main-llm 12B 기본 프로필, 요청/응답/토큰 로깅 확장 상태다. `/v1/models` parameter discovery 위에 `stream=true` SSE relay, `stream_options.include_usage`, 실제 운영 산출물 기준 3개 Grafana dashboard, package hygiene guard가 포함된다.
 
 > **Historical note:** 이 문서를 작성할 당시의 내부 작업 tag는 `0.1.0-rc.1`이었으나, 현재 package version은 `VERSION` 파일을 기준으로 한다. config schema version(0.1.0)은 package version과 독립적으로 관리되며, platform/risk_vllm image tag 기본값은 package version과 정렬된다. 상세 내용은 `docs/release/versioning_policy.md`를 참조한다.
 
@@ -23,10 +23,13 @@ note: "이 문서는 특정 시점의 리팩터링 상태를 요약한 current_s
 | 모델 관리 | `ModelRegistry`가 model list, runtime target, monitoring projection, contract projection, operator report를 파생 |
 | 모델 parameter discovery | `/v1/models`가 `capabilities`, `request_parameters`, risk `fixed_parameters`를 반환 |
 | Streaming API | `stream=true` SSE relay, `stream_options.include_usage`, streaming error event/metrics 정책 유지 |
-| Monitoring/Grafana | 2개 dashboard (`gpu_capacity_and_oom_risk`, `usage_today`), Korean-first 운영 문서, Git-managed provisioning, dashboard JSON source of truth |
+| Monitoring/Grafana | 3개 dashboard (`gpu_capacity_and_oom_risk`, `usage_today`, `request_log_explorer`), Korean-first 운영 문서, Git-managed provisioning, dashboard JSON source of truth |
 | Risk vLLM patch | Dockerfile inline patch 제거, `ops/patches` script/metadata/label/verify/removal-check로 lifecycle 관리 |
 | 문서 | 한국어 중심 단일 문서 흐름 유지, Day-0 가이드와 운영 문서 최신화 |
 | 패키징 | `make package` 전 generated report 재생성, secret/cache/timestamped runtime report 제외 |
+| Main LLM 프로필 | `configs/main_model_profiles.yaml` default_profile = `gemma4-12b-unified-fp8`, admin API로 `gemma4-26b-a4b-fp8` 전환 가능, reconcile 실패 시 지수 backoff |
+| 요청/응답/토큰 로깅 | `LOG_REQUEST_RESPONSE_BODY`가 chat completions(non-streaming)/embeddings/risk detector까지 커버, 토큰 사용량은 플래그와 무관하게 상시 기록 |
+| 에러 진단 | `INTERNAL_ERROR` 응답/접근 로그에 실제 예외 원인(`error.debug`, `X-Error-Message`) 노출 |
 
 ## `/v1/models` 현재 응답 정책
 

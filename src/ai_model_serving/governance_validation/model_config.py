@@ -107,19 +107,45 @@ def validate_model_source_facts() -> None:
             'either max_model_len or a note explaining why the upstream card has no concrete example'
         )
     if policy['tensor_parallel_size'] != serving['main_llm']['tensor_parallel_size']:
-        raise SystemExit('local-main tensor_parallel_size mismatch between catalog policy and serving config')
+        raise SystemExit(
+            f"local-main tensor_parallel_size mismatch: configs/model_catalog.yaml "
+            f'project_runtime_policy={policy["tensor_parallel_size"]!r} vs '
+            f'configs/model_serving.yaml main_llm={serving["main_llm"]["tensor_parallel_size"]!r}'
+        )
     if policy['max_model_len'] != serving['main_llm']['max_model_len']:
-        raise SystemExit('local-main max_model_len mismatch between catalog policy and serving config')
+        raise SystemExit(
+            f"local-main max_model_len mismatch: configs/model_catalog.yaml "
+            f'project_runtime_policy={policy["max_model_len"]!r} vs '
+            f'configs/model_serving.yaml main_llm={serving["main_llm"]["max_model_len"]!r}'
+        )
     if policy['max_num_batched_tokens'] != serving['main_llm']['max_num_batched_tokens']:
-        raise SystemExit('local-main max_num_batched_tokens mismatch between catalog policy and serving config')
+        raise SystemExit(
+            f"local-main max_num_batched_tokens mismatch: configs/model_catalog.yaml "
+            f'project_runtime_policy={policy["max_num_batched_tokens"]!r} vs '
+            f'configs/model_serving.yaml main_llm={serving["main_llm"]["max_num_batched_tokens"]!r}'
+        )
     if policy.get('optimization_level') != serving['main_llm'].get('optimization_level'):
-        raise SystemExit('local-main optimization_level mismatch between catalog policy and serving config')
+        raise SystemExit(
+            f"local-main optimization_level mismatch: configs/model_catalog.yaml "
+            f'project_runtime_policy={policy.get("optimization_level")!r} vs '
+            f'configs/model_serving.yaml main_llm={serving["main_llm"].get("optimization_level")!r}'
+        )
     if main['source_facts']['upstream_context_length_tokens'].get('project_runtime_cap') != policy['max_model_len']:
-        raise SystemExit('local-main project_runtime_cap must match project runtime max_model_len')
+        raise SystemExit(
+            f"configs/model_catalog.yaml local-main: source_facts.upstream_context_length_tokens."
+            f'project_runtime_cap={main["source_facts"]["upstream_context_length_tokens"].get("project_runtime_cap")!r} '
+            f'must match project_runtime_policy.max_model_len={policy["max_model_len"]!r}'
+        )
     if 'max_output_tokens' in serving['main_llm']:
-        raise SystemExit('local-main serving config must not redeclare max_output_tokens; settings.py falls back to catalog policy')
+        raise SystemExit(
+            'configs/model_serving.yaml main_llm must not redeclare max_output_tokens '
+            '(settings.py falls back to configs/model_catalog.yaml project_runtime_policy.max_output_tokens)'
+        )
     if serving['main_llm'].get('runtime_policy_source') is None:
-        raise SystemExit('local-main serving config must document the source/policy distinction')
+        raise SystemExit(
+            'configs/model_serving.yaml main_llm is missing runtime_policy_source '
+            '(free-text field documenting why this policy was chosen, see other models for examples)'
+        )
 
     embed = catalog['local-embed']
     facts = embed['source_facts']
@@ -205,12 +231,18 @@ def validate_model_list_schema_enums() -> None:
     registry = ModelRegistry(read_yaml('configs/model_catalog.yaml'), read_yaml('configs/model_serving.yaml'))
     projected_schema = registry.model_list_schema_document()
     if schema != projected_schema:
-        raise SystemExit('model_list_response.schema.json must match ModelRegistry.model_list_schema_document()')
+        raise SystemExit(
+            'specs/schemas/model_list_response.schema.json is stale vs '
+            'ModelRegistry.model_list_schema_document() -- run `make render-runtime-assets` to regenerate it'
+        )
 
     gateway_source = (ROOT / 'src/ai_model_serving/apps/gateway.py').read_text(encoding='utf-8')
     settings_source = (ROOT / 'src/ai_model_serving/settings.py').read_text(encoding='utf-8')
     if 'MODEL_LIST' in gateway_source:
-        raise SystemExit('gateway.py must not define a hardcoded MODEL_LIST')
+        raise SystemExit(
+            'src/ai_model_serving/apps/gateway.py must not define a hardcoded MODEL_LIST constant '
+            '-- the model list must come from ModelRegistry instead'
+        )
 def validate_model_registry_alignment() -> None:
     from ai_model_serving.domain import ModelRegistry
 
@@ -222,10 +254,18 @@ def validate_model_registry_alignment() -> None:
     catalog = read_yaml('configs/model_catalog.yaml')['models']
     expected_public = {logical_id for logical_id, cfg in catalog.items() if cfg.get('gateway_listing', {}).get('enabled', True) is True}
     if set(registry.public_logical_ids()) != expected_public:
-        raise SystemExit('ModelRegistry public logical ids must match enabled gateway listings')
+        raise SystemExit(
+            f'ModelRegistry.public_logical_ids()={sorted(registry.public_logical_ids())!r} does not match '
+            f'configs/model_catalog.yaml models with gateway_listing.enabled=true '
+            f'(or default true)={sorted(expected_public)!r}'
+        )
     settings_text = (ROOT / 'src/ai_model_serving/settings.py').read_text(encoding='utf-8')
     if '_public_models_from_registry(model_catalog, model_serving)' not in settings_text:
-        raise SystemExit('settings.py must build Gateway model list through ModelRegistry with serving alignment')
+        raise SystemExit(
+            'src/ai_model_serving/settings.py must call _public_models_from_registry(model_catalog, '
+            'model_serving) to build the Gateway model list -- it must not read model_catalog.yaml/'
+            'model_serving.yaml separately without going through ModelRegistry'
+        )
 
 def validate_resource_requirements_doc() -> None:
     resource = (ROOT / 'docs/resources/gpu_resource_requirements_48gb.md').read_text(encoding='utf-8')
@@ -234,7 +274,10 @@ def validate_resource_requirements_doc() -> None:
             raise SystemExit(f'GPU resource requirements doc missing phrase: {phrase}')
     reference = (ROOT / 'docs/resources/gpu_resource_plan.md').read_text(encoding='utf-8')
     if 'runtime' not in reference.lower() or 'runtime validation report' not in reference.lower():
-        raise SystemExit('GPU resource reference must keep runtime validation report language')
+        raise SystemExit(
+            "docs/resources/gpu_resource_plan.md must contain the phrase 'runtime validation report' "
+            "(case-insensitive) -- it currently doesn't"
+        )
 
 def validate_risk_detector_generation_budget() -> None:
     serving = read_yaml('configs/model_serving.yaml')['models']
@@ -262,21 +305,36 @@ def validate_risk_detector_generation_budget() -> None:
     expected_upper_bound = (min_detector_window - 64) * 4
     if max_prompt_chars <= 0 or max_prompt_chars > expected_upper_bound:
         raise SystemExit(
-            'risk_adapter.input_policy.max_prompt_chars must be a positive detector-context guard ' 
-            f'not exceeding {expected_upper_bound} chars'
+            f'configs/model_serving.yaml risk_adapter.input_policy.max_prompt_chars={max_prompt_chars} '
+            f'must be > 0 and <= {expected_upper_bound} '
+            f'(= (min detector max_model_len {min_detector_window} - 64) * 4 chars/token)'
         )
     if input_policy.get('overflow_signal') != 'TRUNCATED_INPUT':
-        raise SystemExit('risk_adapter.input_policy.overflow_signal must be TRUNCATED_INPUT')
+        raise SystemExit(
+            f'configs/model_serving.yaml risk_adapter.input_policy.overflow_signal must be '
+            f'"TRUNCATED_INPUT", got {input_policy.get("overflow_signal")!r}'
+        )
     if input_policy.get('overflow_action') != 'return_system_signal_without_detector_call':
-        raise SystemExit('risk_adapter.input_policy.overflow_action must avoid detector calls for overflow input')
+        raise SystemExit(
+            f'configs/model_serving.yaml risk_adapter.input_policy.overflow_action must be '
+            f'"return_system_signal_without_detector_call", got {input_policy.get("overflow_action")!r}'
+        )
 
     risk_text = (ROOT / 'src/ai_model_serving/apps/risk_adapter.py').read_text(encoding='utf-8')
     risk_service_text = (ROOT / 'src/ai_model_serving/services/risk_assessment.py').read_text(encoding='utf-8')
     risk_input_text = (ROOT / 'src/ai_model_serving/risk_input.py').read_text(encoding='utf-8')
     if '"max_tokens": detector.max_output_tokens' not in risk_service_text:
-        raise SystemExit('risk adapter detector calls must use configured single-token detector budget')
+        raise SystemExit(
+            'src/ai_model_serving/services/risk_assessment.py must call detectors with '
+            '"max_tokens": detector.max_output_tokens (the configured single-token detector budget) '
+            '-- that exact snippet was not found'
+        )
     if 'RiskInputPolicy' not in risk_service_text or 'TRUNCATED_INPUT' not in risk_input_text:
-        raise SystemExit('risk adapter must guard detector context overflow with TRUNCATED_INPUT system signal')
+        raise SystemExit(
+            'risk adapter context-overflow guard missing: expected "RiskInputPolicy" in '
+            'src/ai_model_serving/services/risk_assessment.py and "TRUNCATED_INPUT" in '
+            'src/ai_model_serving/risk_input.py'
+        )
 
 def validate_model_contracts_cross_reference() -> None:
     from ai_model_serving.domain import ModelRegistry

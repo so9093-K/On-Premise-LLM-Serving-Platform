@@ -126,9 +126,14 @@ def validate_version_bump_policy() -> None:
     validate_project_version_format(version)
     manifest = read_json('version_manifest.json')
     if manifest.get('package_profile') != 'platform':
-        raise SystemExit('manifest package_profile must be platform')
+        raise SystemExit(
+            f'version_manifest.json: package_profile must be "platform", got {manifest.get("package_profile")!r}'
+        )
     if manifest.get('release_stage') not in ('pre-production release candidate', 'release'):
-        raise SystemExit('manifest release_stage must be "release" or "pre-production release candidate"')
+        raise SystemExit(
+            f'version_manifest.json: release_stage must be "release" or "pre-production release candidate", '
+            f'got {manifest.get("release_stage")!r}'
+        )
     policy = (ROOT / 'docs/release/versioning_policy.md').read_text(encoding='utf-8')
     pkg_version = python_package_version(version)
     required = list(dict.fromkeys([version, pkg_version, '운영 전', 'patch version 남발 금지', 'When not to bump VERSION']))
