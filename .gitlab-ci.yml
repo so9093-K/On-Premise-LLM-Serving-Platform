@@ -203,9 +203,6 @@ build-vllm-derived:
 #   DEPLOY_DEFERRED_RUNTIMES   콤마로 구분한 deferred runtime 명시적 override; DEPLOY_RUNTIME_PROFILE보다 우선
 deploy-gpu-175:
   stage: deploy
-  # 같은 GPU host를 향한 두 pipeline의 deploy가 release link/.env/Compose를
-  # 동시에 바꾸지 않도록 직렬화한다.
-  resource_group: acl-ai-gateway-gpu-175
   image: alpine:3.20
   dependencies:
     - build-platform

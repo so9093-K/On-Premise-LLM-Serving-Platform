@@ -98,7 +98,6 @@ def test_env_templates_follow_catalog_default_profile():
 
 def test_ci_deploys_gateway_and_sidecar_together_and_exports_image_digest():
     pipeline = (ROOT / ".gitlab-ci.yml").read_text(encoding="utf-8")
-    pipeline_doc = yaml.safe_load(pipeline)
     deploy = (ROOT / "scripts/ci/deploy_gitlab_compose.sh").read_text(encoding="utf-8")
     assert "PLATFORM_IMAGE_DIGEST" in pipeline
     assert "admin-sidecar" in deploy
@@ -107,7 +106,6 @@ def test_ci_deploys_gateway_and_sidecar_together_and_exports_image_digest():
     assert "ai_model_serving.model_cache_cli" in deploy
     assert "configure_release_context \"${DEPLOY_PATH}/current\"" in deploy
     assert "activating release ${RELEASE_ID} before Compose convergence" in deploy
-    assert pipeline_doc["deploy-gpu-175"]["resource_group"] == "acl-ai-gateway-gpu-175"
 
 
 def test_boot_projection_is_temporary_and_sidecar_default_is_catalog_driven():
