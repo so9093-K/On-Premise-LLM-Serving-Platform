@@ -64,7 +64,7 @@ make stop
 | `reports/storage_paths_report.py` | `configs/storage_paths.yaml`에서 로컬 저장소/cache/report/secret 경로 inventory JSON/Markdown을 생성한다. |
 | `reports/monitoring_projection_report.py` | ModelRegistry와 monitoring config에서 Prometheus scrape, recording rule, Grafana variable projection JSON/Markdown을 생성한다. |
 | `reports/operator_status_bundle.py` | runtime target, model inventory, GPU budget, monitoring label, readiness vocabulary를 하나의 operator status bundle로 생성한다. |
-| `reports/live_evidence_bundle.py` | operator status bundle과 runtime validation report를 sanitised evidence bundle로 결합한다. `--static-placeholder`는 package용으로 timestamped runtime report를 연결하지 않는다. |
+| `reports/live_evidence_bundle.py` | operator status bundle과 runtime validation report를 sanitised evidence bundle로 결합한다. 결과는 운영 증빙용이며 release package에는 포함하지 않는다. |
 | `validation/release_check.py` | 서비스 기동 없는 정적 릴리스 gate를 실행한다. 각 step에는 timeout이 있어 hang 시 실패 step을 명확히 표시한다. |
 | `models/check_hf_model_config.py` | Docker/GPU 없이 Transformers `AutoConfig`만 로드해 vLLM·bitsandbytes 이전 config loader 문제를 분리한다. |
 | `build/package_release.sh` | 배포 ZIP을 만들고 secret, log, cache, egg-info, generated runtime report를 제외한다. ZIP root는 항상 `ai_model_serving_platform/`로 고정한다. |

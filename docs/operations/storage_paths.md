@@ -29,7 +29,7 @@ reports/runtime/storage_paths.md
 |---|---|---|
 | `.env` | 로컬/compose runtime 설정과 secret | 삭제하지 않음 |
 | `.runtime/` | Prometheus bearer token 등 runtime secret file | 기본 보존, `PURGE_RUNTIME_SECRETS=1`일 때만 삭제 |
-| `reports/runtime/` | runtime/operator/status/evidence report | static report는 유지, timestamped runtime validation report는 release 제외 |
+| `reports/runtime/` | runtime/operator/status/evidence report | host별 생성 산출물이며 release package에서 제외 |
 | `logs/` | local app-only log | `make clean-all`에서 삭제 |
 | `run/` | local process pid tracking | `make clean`에서 삭제 |
 | `dist/` | release ZIP | `make clean`에서 삭제 |

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import os
 import subprocess
 import zipfile
@@ -70,15 +69,11 @@ def test_release_package_zip_hygiene_is_isolated(package_zip: Path) -> None:
 
 
 @pytest.mark.slow
-def test_release_package_static_evidence_and_model_docs(package_zip: Path) -> None:
+def test_release_package_excludes_runtime_reports_and_keeps_model_docs(package_zip: Path) -> None:
     with zipfile.ZipFile(package_zip) as zf:
         names = set(zf.namelist())
-        evidence = json.loads(zf.read(f"{PACKAGE_ROOT}/reports/runtime/live_evidence_bundle.json"))
 
-    assert not any("/reports/runtime/runtime_validation_" in name for name in names)
-    assert evidence["runtime_report"]["path"] is None
-    assert evidence["runtime_report"]["mode"] == "missing"
-    assert evidence["evidence_status"] == "excluded_from_release_package"
+    assert not any(name.startswith(f"{PACKAGE_ROOT}/reports/runtime/") for name in names)
 
     assert f"{PACKAGE_ROOT}/docs/models/model_cards.md" in names
     assert f"{PACKAGE_ROOT}/docs/archive/reviews/gemma4_31b_awq_review.md" in names

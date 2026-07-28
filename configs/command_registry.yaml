@@ -212,7 +212,7 @@ commands:
     title: 통합 파이프라인 빌드
     category: validate_test_build
     audience: [developer, release_engineer]
-    description: "validate + test + 이미지 빌드 + 패키징을 실행한다. 서비스 기동 없음."
+    description: "정적 release gate + 결정론적 테스트 + 패키징 + 이미지 빌드를 실행한다. 서비스 기동 없음."
     command: make build
     kind: public
     safety: builds_images
@@ -225,7 +225,6 @@ commands:
       env_file: true
     writes_files:
       - dist/
-      - reports/runtime/
     outputs: [dist/]
     owner: operations
     docs:
@@ -537,7 +536,7 @@ commands:
     description: "서비스 기동 없는 정적 릴리스 gate를 실행한다."
     command: make release-check
     kind: public
-    safety: writes_generated
+    safety: read_only
     requires:
       python: true
       docker: false
@@ -545,8 +544,7 @@ commands:
       live_services: false
       secrets: false
       env_file: false
-    writes_files:
-      - reports/runtime/
+    writes_files: []
     outputs: [stdout]
     owner: release_engineer
     docs:
@@ -561,7 +559,7 @@ commands:
     description: "release-check + deterministic tests를 실행한다."
     command: make release-check-full
     kind: public
-    safety: writes_generated
+    safety: read_only
     requires:
       python: true
       docker: false
@@ -569,8 +567,7 @@ commands:
       live_services: false
       secrets: false
       env_file: false
-    writes_files:
-      - reports/runtime/
+    writes_files: []
     outputs: [stdout]
     owner: release_engineer
     docs:

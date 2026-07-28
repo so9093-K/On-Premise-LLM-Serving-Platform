@@ -65,8 +65,7 @@ make release-check
 
 ## 5. 정리 기준
 
-- `reports/runtime/runtime_validation_*.json|md`는 timestamped live evidence이므로 release package에는 포함하지 않는다.
-- `reports/runtime/operator_status_bundle.*`, `storage_paths.*`, `monitoring_projection.*`, `runtime_targets.*`는 static operator projection이므로 handoff package에 포함할 수 있다.
+- `reports/runtime/` 전체는 host·GPU·현재 운영 상태에 따라 달라지는 생성 산출물이므로 release package에는 포함하지 않는다. 운영 인수인계가 필요하면 대상 서버에서 별도로 생성·보관한다.
 - `reports/refactor/validation/*.log` 같은 과거 중간 validation log는 active handoff source가 아니다. 새 검증 결과는 `current_handoff_summary.md`와 필요한 phase 설계 문서로 압축한다.
 
 

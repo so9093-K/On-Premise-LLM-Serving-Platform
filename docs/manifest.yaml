@@ -509,38 +509,3 @@ documents:
     owner: operations
     disposition: keep
     do_not_edit: false
-  - path: reports/runtime/live_evidence_bundle.md
-    type: report
-    lifecycle: generated
-    owner: operations
-    disposition: generated
-    generator: scripts/reports/live_evidence_bundle.py
-    do_not_edit: true
-  - path: reports/runtime/monitoring_projection.md
-    type: report
-    lifecycle: generated
-    owner: operations
-    disposition: generated
-    generator: scripts/reports/monitoring_projection_report.py
-    do_not_edit: true
-  - path: reports/runtime/operator_status_bundle.md
-    type: report
-    lifecycle: generated
-    owner: operations
-    disposition: generated
-    generator: scripts/reports/operator_status_bundle.py
-    do_not_edit: true
-  - path: reports/runtime/runtime_targets.md
-    type: report
-    lifecycle: generated
-    owner: operations
-    disposition: generated
-    generator: scripts/reports/runtime_targets_report.py
-    do_not_edit: true
-  - path: reports/runtime/storage_paths.md
-    type: report
-    lifecycle: generated
-    owner: operations
-    disposition: generated
-    generator: scripts/reports/storage_paths_report.py
-    do_not_edit: true

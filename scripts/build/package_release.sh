@@ -28,7 +28,6 @@ fi
 from __future__ import annotations
 
 import fnmatch
-import json
 import os
 import shutil
 import sys
@@ -84,6 +83,8 @@ safe_env_examples = {'.env.example', '.env.local.example', '.env.compose.example
 def skip_dir(rel_parts: tuple[str, ...], name: str) -> bool:
     top = rel_parts[0] if rel_parts else name
     return (
+        rel_parts[:2] == ('reports', 'runtime')
+        or
         name.endswith('.egg-info')
         or top in exclude_top_level_dirs
         or name in exclude_tree_dirs
@@ -97,15 +98,17 @@ def skip_file(rel_parts: tuple[str, ...], name: str) -> bool:
         return True
     if any(part in exclude_tree_dirs or part.endswith('.egg-info') for part in rel_parts[:-1]):
         return True
+    # Runtime/operator reports are host-specific generated evidence.  They are
+    # gitignored, so including any of them would make the release ZIP depend on
+    # the packager's local state and differ from a clean CI checkout.
+    if len(rel_parts) >= 2 and rel_parts[0] == 'reports' and rel_parts[1] == 'runtime':
+        return True
     if name in safe_env_examples:
         return False
     if name.endswith(exclude_suffixes):
         return True
     if any(fnmatch.fnmatch(name, pattern) for pattern in exclude_file_patterns):
         return True
-    if len(rel_parts) >= 3 and rel_parts[0] == 'reports' and rel_parts[1] == 'runtime':
-        if fnmatch.fnmatch(name, 'runtime_validation_*.json') or fnmatch.fnmatch(name, 'runtime_validation_*.md'):
-            return True
     return False
 
 
@@ -137,37 +140,7 @@ for current, dirnames, filenames in os.walk(src):
         target_file.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(source_file, target_file)
 
-# runtime validation report는 release 패키지에서 의도적으로 제외된다.
-# 개발자가 패키징 전에 release/runtime validation을 실행했다면, 복사된
-# live_evidence_bundle이 제외된 timestamped runtime report를 가리킬 수 있다.
-# 패키징된 문서가 내부적으로 항상 일관되고 누락된 generated evidence를 참조하지
-# 않도록, staging tree 안에서 이를 static placeholder로 다시 렌더링한다.
-operator_bundle = dst / 'reports/runtime/operator_status_bundle.json'
-if operator_bundle.exists():
-    sys.path.insert(0, str(dst / 'src'))
-    from ai_model_serving.live_evidence import live_evidence_bundle_document, write_live_evidence_bundle
-
-    operator_status = json.loads(operator_bundle.read_text(encoding='utf-8'))
-    version_file = dst / 'VERSION'
-    version = version_file.read_text(encoding='utf-8').strip() if version_file.exists() else ''
-    document = live_evidence_bundle_document(
-        operator_status=operator_status,
-        runtime_report=None,
-        runtime_report_path=None,
-        version=version,
-        is_package_placeholder=True,
-    )
-    write_live_evidence_bundle(document, dst / 'reports/runtime')
-    for cache_dir in dst.rglob('__pycache__'):
-        shutil.rmtree(cache_dir, ignore_errors=True)
-
 PYCODE
-
-# static validation을 위해 남겨둔 contract hygiene marker. 위의 staging copier가
-# 안정적인 PACKAGE_ROOT를 압축하기 전에 이 exclusion/inclusion을 강제 적용한다.
-# Exclude markers: "$BASE/.env.*" "$BASE/model_cache/*" "$BASE/models/*" "$BASE/logs/*" "$BASE/dist/*" "$BASE/run/*" "$BASE/**/*.pyc" "$BASE/**/*.egg-info/*"
-# Runtime report exclude markers: reports/runtime/runtime_validation_*.json reports/runtime/runtime_validation_*.md; staged live_evidence_bundle은 timestamped runtime evidence 없이 재생성됨
-# Safe env include markers: "$BASE/.env.example" "$BASE/.env.local.example" "$BASE/.env.compose.example"
 
 "$PYTHON_BIN" - "$STAGE/$PACKAGE_ROOT" "$TMP_OUT" <<'PYZIP'
 from __future__ import annotations
