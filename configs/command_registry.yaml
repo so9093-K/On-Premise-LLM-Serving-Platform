@@ -374,6 +374,29 @@ commands:
     docs: []
     tests: []
 
+  - make_target: compose-restart
+    title: 단일 서비스 재기동
+    category: start_stop
+    audience: [operator]
+    description: "SERVICE로 지정한 서비스만 --no-deps로 재기동한다(기본). 같은 env_file을 공유하는 depends_on 서비스까지 함께 갱신하려면 WITH_DEPS=1을 명시한다."
+    command: SERVICE="gateway" make compose-restart
+    kind: public
+    safety: starts_services
+    requires:
+      python: true
+      docker: true
+      gpu: false
+      live_services: true
+      secrets: false
+      env_file: true
+    writes_files: []
+    outputs: []
+    owner: operations
+    docs:
+      - docs/operations/full_stack_runtime.md
+    tests:
+      - tests/contract/governance/test_compose_restart_contract.py
+
   - make_target: compose-diagnostics
     title: Compose 진단
     category: start_stop

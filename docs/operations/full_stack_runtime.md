@@ -63,6 +63,28 @@ Prometheus 내부 scrape target은 `dcgm-exporter:9400`과 `cadvisor:8080`을 �
 GitLab CI/CD에서 175로 배포할 때는 [GitLab CI/CD 배포 가이드](./gitlab_cicd_deployment.md)를 따른다. 기본 배포 job은 Docker executor Runner와 rolling app deploy를 전제로 하며, 초기 구축 또는 stack drift 정렬에는 `DEPLOY_MODE=full`을 사용한다.
 
 
+## 단일 서비스 재기동
+
+`.env` 값 하나만 바꾸고 특정 서비스만 반영하고 싶을 때 `docker compose up -d <service>`를 직접 실행하지 않는다. `full-stack.private-network.yaml`의 gateway/risk-adapter/vLLM 서비스들은 `env_file`로 `.env` 전체를 공유하므로, `.env`를 수정하면 이 서비스들 전부의 설정 해시가 바뀐 것으로 감지된다. 대상 서비스가 `depends_on`으로 다른 서비스(예: gateway → main-llm-vllm, risk-adapter)를 물고 있으면, compose는 그 의존 서비스들도 최신 설정으로 함께 재생성한다 — GPU에 모델이 이미 올라간 vLLM 서비스가 의도치 않게 재로딩될 수 있다.
+
+```bash
+SERVICE="gateway" make compose-restart
+```
+
+기본값은 `--no-deps`로 지정한 서비스만 재기동하고 의존 서비스는 건드리지 않는다. 여러 서비스를 한 번에 재기동하려면 공백으로 구분한다(`SERVICE="gateway risk-adapter"`). 의존 서비스까지 최신 `.env` 값으로 함께 갱신하려면 `WITH_DEPS=1`을 명시한다 — 이 경우 GPU 모델을 올리는 vLLM 서비스가 재생성 대상에 포함될 수 있으므로 재로딩 시간을 감안해야 한다.
+
+`depends_on` 그래프는 `gateway → risk-adapter, main-llm-vllm`, `embedding-vllm → main-llm-vllm`, `embedding-ko-vllm → embedding-vllm`, `risk-prompt-vllm → embedding-vllm, embedding-ko-vllm`이다(vLLM 엔진끼리도 4단으로 체인이 걸려 있다). `--no-deps`는 지정한 서비스가 물고 있는 의존 대상 방향만 막는다 — 지정한 서비스에 의존하는 다른 서비스(예: prometheus가 gateway에 의존)는 `--no-deps` 여부와 무관하게 `up -d`가 원래 건드리지 않는다.
+
+| 명령어 | 재기동 대상 | 유지 |
+|---|---|---|
+| `SERVICE="gateway" make compose-restart` | gateway | risk-adapter, main-llm-vllm(gateway의 의존 대상), prometheus(gateway에 의존하는 쪽) |
+| `SERVICE="main-llm-vllm" make compose-restart` | main-llm-vllm(모델 리로드 불가피 — 대상 자체를 바꾸는 것이므로) | embedding-vllm/embedding-ko-vllm/risk-prompt-vllm(main-llm-vllm에 의존하는 쪽) |
+| `SERVICE="embedding-vllm" make compose-restart` | embedding-vllm | main-llm-vllm(embedding-vllm의 의존 대상) — `--no-deps` 없이 실행했다면 `.env` 변경 시 딸려왔을 케이스 |
+| `SERVICE="risk-prompt-vllm" make compose-restart` | risk-prompt-vllm | embedding-vllm, embedding-ko-vllm(둘 다 risk-prompt-vllm의 의존 대상) |
+| `SERVICE="gateway risk-adapter" make compose-restart` | gateway, risk-adapter | main-llm-vllm 등 나머지 전부 |
+| `WITH_DEPS=1 SERVICE="risk-prompt-vllm" make compose-restart` | risk-prompt-vllm + `.env`가 바뀐 embedding-vllm, embedding-ko-vllm + 체인을 타고 main-llm-vllm까지 연쇄 재생성 가능 | (의도적 전체 갱신이므로 없음) |
+
+
 ## Readiness UX
 
 - `make ready-local`: app-only `/health` strict 확인. Gateway/Risk Adapter 중 하나라도 내려가 있으면 non-zero로 실패한다. vLLM runtime은 요구하지 않는다.
