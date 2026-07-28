@@ -506,7 +506,7 @@ commands:
     title: 운영 산출물 번들 생성
     category: reports
     audience: [operator, release_engineer]
-    description: "runtime-targets, storage-paths, auth-status/doctor, monitoring-projection, operator-status, live-evidence를 한 번에 실행한다."
+    description: "runtime-targets, auth-status/doctor, monitoring-projection, operator-status, live-evidence를 한 번에 실행한다."
     command: make operator-reports
     kind: public
     safety: writes_generated
@@ -521,7 +521,6 @@ commands:
       - reports/runtime/
     outputs:
       - reports/runtime/runtime_targets.md
-      - reports/runtime/storage_paths.md
       - reports/runtime/operator_status_bundle.md
       - reports/runtime/monitoring_projection.md
       - reports/runtime/live_evidence_bundle.md
@@ -1300,29 +1299,6 @@ commands:
     docs: []
     tests: []
 
-  - make_target: storage-paths
-    title: Storage path inventory 생성
-    category: reports
-    audience: [operator]
-    description: "로컬 저장소/cache/report/secret 경로 inventory를 생성한다."
-    command: make storage-paths
-    kind: public
-    safety: writes_generated
-    requires:
-      python: true
-      docker: false
-      gpu: false
-      live_services: false
-      secrets: false
-      env_file: false
-    writes_files:
-      - reports/runtime/storage_paths.md
-    outputs:
-      - reports/runtime/storage_paths.md
-    owner: operations
-    docs: []
-    tests: []
-
   - make_target: live-evidence
     title: Live evidence 번들 생성
     category: reports
@@ -1538,7 +1514,6 @@ commands:
     owner: operations
     docs:
       - docs/operations/full_stack_runtime.md
-      - docs/operations/storage_paths.md
       - docs/operations/admin_metrics_docs_exposure_policy.md
     tests: []
 

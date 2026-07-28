@@ -170,7 +170,7 @@ curl -s http://127.0.0.1:9400/v1/risk/assessments \
 ## Prompt Detector 검증
 
 `/v1/risk/detectors/prompt/assessments` — Prompt Injection / Prompt Leaking 탐지  
-active detector code: **A1**, **A2** (출처: `configs/risk_taxonomy.yaml`)
+active detector code: **A1**, **A2** (출처: `configs/model_serving.yaml`)
 
 > 직접 호출 시 `INTERNAL_SERVICE_TOKEN`을 사용한다.
 
@@ -226,7 +226,7 @@ curl -s http://127.0.0.1:9405/v1/risk/detectors/prompt/assessments \
 
 ## PII Protection Detector 검증
 
-`/v1/risk/detectors/pii/assessments` — 개인정보 노출 탐지 (D1, D2, D3, D5)  
+`/v1/risk/detectors/pii/assessments` — 개인정보 노출 탐지 (D1, D2, D5)
 로컬 탐지: 한국형 식별자·이메일·전화번호·IP 정규식
 
 ### D1 — 주민등록번호 탐지 (Personal Identifier)
@@ -250,19 +250,6 @@ curl -s http://127.0.0.1:9405/v1/risk/detectors/pii/assessments \
 ```
 
 예상: `risk_detected: true`, D2 categories 포함 (EMAIL_ADDRESS, PHONE_NUMBER)
-
-### D3 — 사업자등록번호 탐지 (Financial Identifier)
-
-```bash
-curl -s http://127.0.0.1:9405/v1/risk/detectors/pii/assessments \
-  -H "Authorization: Bearer $INTERNAL_SERVICE_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"prompt":"사업자 번호 123-45-67890으로 세금계산서를 발행해주세요."}'
-```
-
-예상: `risk_detected: true`, `categories[0].code: "D3"`, `categories[0].label: "KR_BRN"`
-
----
 
 ## Secret Exposure Detector 검증
 

@@ -14,7 +14,6 @@
 | auth profile | `configs/auth_profiles.yaml` | AUTH_MODE 기대값, auth-plan/apply, auth_control.py drift check |
 | exposure profile | `configs/exposure_profiles.yaml` | EXPOSURE_MODE별 profile, host-published service reference, diagnostics, compose override |
 | env contract | `.env.*.example` | enabled model runtime env key 완전성 검증 |
-| local storage path | `configs/storage_paths.yaml` | storage path report, cleanup/package policy review |
 | project inventory | source tree + documentation entrypoints | file ownership, management UX, handoff review matrix |
 | runtime matrix | `harness/runtime_validation_matrix.yaml` | runtime validation config-only checks |
 | secret/env | `.env` generated from `.env.*.example` | local/compose runtime behavior |
@@ -122,12 +121,11 @@ make operator-reports
 | 산출물 | 명령 |
 |---|---|
 | runtime target inventory | `make runtime-targets` |
-| local storage/cache/secret path inventory | `make storage-paths` |
 | Prometheus/Grafana projection | `make monitoring-projection` |
 | static operator bundle | `make operator-status` |
 | live evidence bundle | `make live-evidence` |
 
-로컬 저장 위치와 cleanup 정책을 확인하려면 `make storage-paths`를 먼저 본다. GPU 서버의 최신 live evidence가 필요하면 `make runtime-validate`를 먼저 실행한다.
+GPU 서버의 최신 live evidence가 필요하면 `make runtime-validate`를 먼저 실행한다.
 
 ## 5. 삭제와 초기화
 

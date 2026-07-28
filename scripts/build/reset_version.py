@@ -125,7 +125,6 @@ def main() -> None:
         ROOT / '.env.example',
         ROOT / '.env.local.example',
         ROOT / '.env.compose.example',
-        ROOT / 'configs/runtime_compatibility.yaml',
         ROOT / 'docs/release/versioning_policy.md',
     ]:
         if path.exists():

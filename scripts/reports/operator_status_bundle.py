@@ -13,7 +13,6 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from ai_model_serving.domain import ModelRegistry  # noqa: E402
 from ai_model_serving.operator_status import operator_status_bundle_document, write_operator_status_bundle  # noqa: E402
-from ai_model_serving.storage_paths import StorageRegistry  # noqa: E402
 
 
 def load_yaml(path: Path) -> dict[str, Any]:
@@ -35,7 +34,6 @@ def main() -> int:
         monitoring=load_yaml(root / "configs/monitoring.yaml"),
         gpu_budgets=load_yaml(root / "configs/gpu_budgets.yaml"),
         version=(root / "VERSION").read_text(encoding="utf-8").strip(),
-        storage_paths=StorageRegistry.from_yaml(root / "configs/storage_paths.yaml").as_report_document(),
     )
     json_path, md_path = write_operator_status_bundle(document, root / args.output_dir)
     print(f"wrote {json_path}")

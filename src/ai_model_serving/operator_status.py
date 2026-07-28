@@ -53,7 +53,6 @@ def operator_status_bundle_document(
     monitoring: dict[str, Any],
     gpu_budgets: dict[str, Any],
     version: str,
-    storage_paths: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Build a single registry-backed operator status/control-plane bundle.
 
@@ -70,7 +69,6 @@ def operator_status_bundle_document(
             "configs/model_serving.yaml",
             "configs/gpu_budgets.yaml",
             "configs/monitoring.yaml",
-            "configs/storage_paths.yaml",
             "src/ai_model_serving/status.py",
         ],
         "privacy_contract": {
@@ -99,14 +97,12 @@ def operator_status_bundle_document(
         "model_inventory": [row.as_dict() for row in registry.inventory_rows()],
         "runtime_validation_matrix": registry.runtime_validation_matrix_document()["validation_checks"],
         "gpu_budget_summary": _gpu_budget_summary(gpu_budgets, registry),
-        "storage_paths": storage_paths or {},
         "monitoring_summary": {
             "model_labels": list(registry.monitoring_model_labels()),
             "runtime_service_labels": list(registry.monitoring_compose_service_labels()),
         },
         "operator_commands": {
             "runtime_targets": "make runtime-targets",
-            "storage_paths": "make storage-paths",
             "monitoring_projection": "make monitoring-projection",
             "operator_status": "make operator-status",
             "runtime_validate": "make runtime-validate",
@@ -189,17 +185,6 @@ def operator_status_bundle_markdown(document: dict[str, Any]) -> str:
         f"Compose 서비스 정규식: `{document.get('compose_service_regex', '')}`",
         f"Prometheus scrape job: `{', '.join(document.get('monitoring_projection', {}).get('prometheus_scrape_jobs', []))}`",
         "",
-        "## 저장소 경로",
-        "",
-        "| 키 | 경로 | 종류 | 정리 방식 | 릴리스 패키지 포함 |",
-        "|---|---|---|---|---|",
-    ])
-    for path in document.get("storage_paths", {}).get("paths", []):
-        lines.append(
-            "| {key} | {path} | {kind} | {cleanup} | {release_package} |".format(**path)
-        )
-
-    lines.extend([
         "",
         "## 런타임 검증 matrix",
         "",
@@ -217,7 +202,6 @@ def operator_status_bundle_markdown(document: dict[str, Any]) -> str:
         "## 운영 명령",
         "",
         f"- 런타임 대상: `{commands.get('runtime_targets', '')}`",
-        f"- 저장소 경로: `{commands.get('storage_paths', '')}`",
         f"- 모니터링 projection: `{commands.get('monitoring_projection', '')}`",
         f"- 운영 상태 번들: `{commands.get('operator_status', '')}`",
         f"- Live runtime 검증: `{commands.get('runtime_validate', '')}`",
@@ -227,7 +211,7 @@ def operator_status_bundle_markdown(document: dict[str, Any]) -> str:
         "",
         "## 운영 해석",
         "",
-        "이 번들은 현재 모델 registry, GPU budget, monitoring label, readiness vocabulary, storage path를 한 번에 보는 운영자용 상태판이다. 장애 대응 시에는 먼저 이 파일에서 어떤 runtime service와 모델 ID가 기대 상태인지 확인하고, live 검증이 필요하면 `make runtime-validate`를 실행한 뒤 `make operator-reports`로 evidence를 갱신한다.",
+        "이 번들은 현재 모델 registry, GPU budget, monitoring label, readiness vocabulary를 한 번에 보는 운영자용 상태판이다. 장애 대응 시에는 먼저 이 파일에서 어떤 runtime service와 모델 ID가 기대 상태인지 확인하고, live 검증이 필요하면 `make runtime-validate`를 실행한 뒤 `make operator-reports`로 evidence를 갱신한다.",
         "",
         "모델 추가·제거는 단일 YAML 수정으로 끝나지 않는다. catalog, serving config, contract, model card, runtime validation matrix, monitoring projection, test가 함께 맞아야 하므로 현재 `modelctl`은 read-only 검증에 머문다.",
         "",

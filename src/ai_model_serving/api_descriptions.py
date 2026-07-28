@@ -36,7 +36,7 @@ GATEWAY_TAGS_METADATA = [
             "최종 허용·차단 결정은 Gateway 밖 product policy layer가 담당합니다.\n\n"
             "응답이 HTTP 200이어도 `status=failed` 또는 `assessment_complete=false`이면 detector 실패입니다. 이 경우 `risk_detected=false`를 안전 판정으로 해석하지 마세요.\n\n"
             "**Sensitive Data Protection** — PII Protection + Secret Exposure Signal:\n"
-            "- **PII Protection** (D1-D3, D5): 주민등록번호, 이메일, 전화번호, 신용카드, IP 주소 탐지\n"
+            "- **PII Protection** (D1, D2, D5): 주민등록번호, 이메일, 전화번호, IP 주소 탐지\n"
             "- **Secret Exposure** (D4, D5): API 키, JWT, private key, 비밀번호, DB URL 탐지\n\n"
             "**Prompt detector** (`risk-prompt`) — Prompt Injection / Prompt Leaking 탐지:\n"
             "- system/developer instruction 무시 유도\n"
@@ -103,7 +103,7 @@ RISK_ADAPTER_TAGS_METADATA = [
             "내부 detector 호출 결과를 signal-only response로 정규화합니다. 최종 정책 결정 필드는 반환하지 않습니다.\n\n"
             "HTTP 200 응답의 `status=failed` 또는 `assessment_complete=false`는 detector 실패이며, `risk_detected=false`만으로 안전 판정하면 안 됩니다.\n\n"
             "**Sensitive Data Protection**:\n"
-            "- **PII Protection** (D1-D3, D5) — 로컬 정규식 기반 개인정보 탐지\n"
+            "- **PII Protection** (D1, D2, D5) — 로컬 정규식 기반 개인정보 탐지\n"
             "- **Secret Exposure** (D4, D5) — regex/entropy 기반 시크릿·자격증명 탐지\n\n"
             "**Prompt detector** — Prompt Injection / Leaking 탐지:\n"
             "지시 무시, system prompt 탈취, roleplay jailbreak, 간접 injection, tool abuse"
@@ -120,7 +120,7 @@ RISK_ADAPTER_DESCRIPTION_TEMPLATE = """
 
 | Detector | 유형 | 담당 신호 | Risk 코드 |
 |---|---|---|---|
-| **PII Protection** | local (regex) | 개인정보 노출 | D1, D2, D3, D5 |
+| **PII Protection** | local (regex) | 개인정보 노출 | D1, D2, D5 |
 | **Secret Exposure** | local (regex + entropy) | 시크릿·자격증명 노출 | D4, D5 |
 | **Prompt** | vLLM (`risk-prompt`) | Prompt Injection / Prompt Leaking | A1, A2 |
 

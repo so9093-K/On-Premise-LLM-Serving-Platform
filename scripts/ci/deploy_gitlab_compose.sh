@@ -245,6 +245,8 @@ trap cleanup_staged_candidate EXIT
 
 cd "${RELEASE_PATH}"
 COMPOSE_ENV_FILE="${DEPLOY_PATH}/.env"
+source scripts/lib/deploy_recreate_policy.sh
+source scripts/lib/deploy_env.sh
 
 if [[ "${DEPLOY_MODE}" == "rolling" ]]; then
   if [[ -z "${PREVIOUS_RELEASE}" || ! -d "${PREVIOUS_RELEASE}" ]]; then
@@ -252,25 +254,16 @@ if [[ "${DEPLOY_MODE}" == "rolling" ]]; then
     rm -rf "${RELEASE_PATH}"
     exit 2
   fi
-  runtime_sensitive_files=(
-    "ops/compose/full-stack.private-network.yaml"
-    "configs/main_model_profiles.yaml"
-    "configs/gemma4_chat_template.jinja"
-  )
-  _changed_sensitive=()
-  for relative_path in "${runtime_sensitive_files[@]}"; do
-    if ! cmp -s \
-      "${PREVIOUS_RELEASE}/${relative_path}" \
-      "${RELEASE_PATH}/${relative_path}"; then
-      _changed_sensitive+=("${relative_path}")
-    fi
-  done
+  mapfile -t _changed_sensitive < <(deploy_changed_files "${PREVIOUS_RELEASE}" "${RELEASE_PATH}" \
+    "ops/compose/full-stack.private-network.yaml" \
+    "configs/main_model_profiles.yaml" \
+    "configs/gemma4_chat_template.jinja")
   if [[ ${#_changed_sensitive[@]} -gt 0 ]]; then
     echo "[deploy] runtime-sensitive files changed — auto-upgrading to full deploy:"
     for _f in "${_changed_sensitive[@]}"; do echo "[deploy]   ${_f}"; done
     DEPLOY_MODE="full"
     if [[ -z "${RISK_VLLM_IMAGE_TO_DEPLOY:-}" ]]; then
-      RISK_VLLM_IMAGE_TO_DEPLOY="$(get_env_value RISK_VLLM_IMAGE)"
+      RISK_VLLM_IMAGE_TO_DEPLOY="$(deploy_env_value RISK_VLLM_IMAGE)"
       echo "[deploy] keeping current RISK_VLLM_IMAGE: ${RISK_VLLM_IMAGE_TO_DEPLOY}"
     fi
   fi
@@ -296,13 +289,8 @@ if [[ -n "${PREVIOUS_RELEASE}" && -d "${PREVIOUS_RELEASE}" ]]; then
     "ops/patches/apply_gemma4_multimodal_patches.py"
     "ops/patches/transformers_llama_head_dim_guard.py"
   )
-  _audio_src_changed=false
-  for relative_path in "${_audio_image_source[@]}"; do
-    if ! cmp -s "${PREVIOUS_RELEASE}/${relative_path}" "${RELEASE_PATH}/${relative_path}"; then
-      _audio_src_changed=true
-    fi
-  done
-  if [[ "${_audio_src_changed}" == "true" && -z "${AUDIO_VLLM_IMAGE_TO_DEPLOY:-}" ]]; then
+  mapfile -t _changed_audio_source < <(deploy_changed_files "${PREVIOUS_RELEASE}" "${RELEASE_PATH}" "${_audio_image_source[@]}")
+  if [[ ${#_changed_audio_source[@]} -gt 0 && -z "${AUDIO_VLLM_IMAGE_TO_DEPLOY:-}" ]]; then
     echo "[deploy] ERROR: vllm-gemma4-audio image source changed but build-vllm-derived did not run." >&2
     echo "[deploy]   No fresh AUDIO_VLLM_IMAGE digest — deploying now would ship the previous image." >&2
     echo "[deploy]   Re-trigger the pipeline with DEPLOY_MODE=full (or BUILD_VLLM_DERIVED=1) so the" >&2
@@ -316,26 +304,7 @@ fi
 echo "${REGISTRY_PASSWORD}" | \
   docker login "${CI_REGISTRY}" -u "${REGISTRY_USER}" --password-stdin
 
-get_env_value() {
-  local key="$1"
-  awk -F= -v key="$key" '$1 == key { sub(/^[^=]*=/, ""); print; exit }' \
-    "${COMPOSE_ENV_FILE}"
-}
-
 COMPOSE_EXPORTED_KEYS=()
-export_compose_env_from_file() {
-  local key value
-  if ((${#COMPOSE_EXPORTED_KEYS[@]})); then
-    unset "${COMPOSE_EXPORTED_KEYS[@]}"
-  fi
-  COMPOSE_EXPORTED_KEYS=()
-  while IFS='=' read -r key value; do
-    [[ "${key}" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || continue
-    export "${key}=${value}"
-    COMPOSE_EXPORTED_KEYS+=("${key}")
-  done < "${COMPOSE_ENV_FILE}"
-  echo "[deploy] compose environment exported from ${COMPOSE_ENV_FILE}"
-}
 
 _PYTHON_BIN="$(command -v python3.12 || command -v python3 || command -v python)"
 _exposure_mode=""
@@ -576,22 +545,17 @@ list_services_with_stale_compose_context() {
 # 비교가 대칭적이라서 forward 배포(baseline = 이전 release)와
 # rollback(baseline = 실패한 candidate) 양쪽에 같은 함수를 쓸 수 있다.
 compute_recreate_set() {
-  local baseline="$1" rel
+  local baseline="$1"
   {
     list_services_needing_recreate
     list_services_with_stale_compose_context
-    if [[ -n "${baseline}" && -d "${baseline}" ]]; then
-      for rel in configs/main_model_profiles.yaml configs/gemma4_chat_template.jinja; do
-        if ! cmp -s "${baseline}/${rel}" "${PWD}/${rel}" 2>/dev/null; then
-          echo "[deploy] runtime config changed: ${rel} -> main-llm-vllm" >&2
-          echo "main-llm-vllm"
-          break
-        fi
-      done
-      if ! cmp -s "${baseline}/${COMPOSE_FILE}" "${PWD}/${COMPOSE_FILE}" 2>/dev/null; then
+    if deploy_runtime_config_changed "${baseline}" "${PWD}"; then
+      echo "[deploy] main-model runtime configuration changed -> main-llm-vllm" >&2
+      echo "main-llm-vllm"
+    fi
+    if deploy_compose_config_changed "${baseline}" "${PWD}" "${COMPOSE_FILE}"; then
         echo "[deploy] compose file changed -> reconverging all services" >&2
         compose_run config --services 2>/dev/null
-      fi
     fi
   } | awk 'NF && !seen[$0]++'
 }
@@ -626,22 +590,12 @@ if [[ "${DEPLOY_MODE}" == "full" ]]; then
   # 전환 도중에 하지 말고, 지금 채팅 모델이 아직 서빙 중일 때 박스가 쓸 digest를
   # (새 빌드가 있으면 그것, 없으면 현재 .env pin을) 미리 pull해 둔다.
   if [[ -z "${AUDIO_VLLM_IMAGE_TO_DEPLOY:-}" ]]; then
-    AUDIO_VLLM_IMAGE_TO_DEPLOY="$(get_env_value AUDIO_VLLM_IMAGE)"
+    AUDIO_VLLM_IMAGE_TO_DEPLOY="$(deploy_env_value AUDIO_VLLM_IMAGE)"
   fi
   if [[ -n "${AUDIO_VLLM_IMAGE_TO_DEPLOY}" ]]; then
     pull_preflight_image "12B main-LLM vLLM (vllm-unified)" "${AUDIO_VLLM_IMAGE_TO_DEPLOY}"
   fi
 fi
-
-set_env_value() {
-  local key="$1"
-  local value="$2"
-  if grep -qE "^${key}=" "${COMPOSE_ENV_FILE}"; then
-    sed -i "s|^${key}=.*|${key}=${value}|" "${COMPOSE_ENV_FILE}"
-  else
-    printf '\n%s=%s\n' "${key}" "${value}" >> "${COMPOSE_ENV_FILE}"
-  fi
-}
 
 # 이미지 참조를 수정하기 전에 .env를 백업
 ENV_BACKUP_PATH="${DEPLOY_PATH}/.env.bak.$(date +%Y%m%d%H%M%S)"
@@ -738,7 +692,8 @@ restore_previous_release() {
     restore_failed=1
   else
     cd "${PREVIOUS_RELEASE}"
-    export_compose_env_from_file
+    deploy_export_compose_env
+    echo "[deploy] compose environment exported from ${COMPOSE_ENV_FILE}"
     RESTORING_RELEASE=1
     if ! configure_release_context "${PREVIOUS_RELEASE}"; then
       echo "[deploy] ERROR: failed to configure previous release context" >&2
@@ -822,20 +777,20 @@ unexpected_failure_after_env_backup() {
 trap unexpected_failure_after_env_backup ERR
 
 # .env에 PLATFORM_IMAGE 갱신
-set_env_value PLATFORM_IMAGE "${PLATFORM_IMAGE_TO_DEPLOY}"
+deploy_set_env_value PLATFORM_IMAGE "${PLATFORM_IMAGE_TO_DEPLOY}"
 echo "[deploy] PLATFORM_IMAGE set to ${PLATFORM_IMAGE_TO_DEPLOY}"
-set_env_value DEPLOY_RELEASE_ID "${RELEASE_ID}"
+deploy_set_env_value DEPLOY_RELEASE_ID "${RELEASE_ID}"
 echo "[deploy] DEPLOY_RELEASE_ID set to ${RELEASE_ID}"
 
 # 필요 시 RISK_VLLM_IMAGE 갱신
 if [[ -n "${RISK_VLLM_IMAGE_TO_DEPLOY:-}" ]]; then
-  set_env_value RISK_VLLM_IMAGE "${RISK_VLLM_IMAGE_TO_DEPLOY}"
+  deploy_set_env_value RISK_VLLM_IMAGE "${RISK_VLLM_IMAGE_TO_DEPLOY}"
   echo "[deploy] RISK_VLLM_IMAGE set to ${RISK_VLLM_IMAGE_TO_DEPLOY}"
 
   # VLLM_IMAGE/EMBEDDING_KO_VLLM_IMAGE도 같은 vllm-unified 이미지를 쓰므로 같이 갱신한다.
-  set_env_value VLLM_IMAGE "${RISK_VLLM_IMAGE_TO_DEPLOY}"
+  deploy_set_env_value VLLM_IMAGE "${RISK_VLLM_IMAGE_TO_DEPLOY}"
   echo "[deploy] VLLM_IMAGE set to ${RISK_VLLM_IMAGE_TO_DEPLOY}"
-  set_env_value EMBEDDING_KO_VLLM_IMAGE "${RISK_VLLM_IMAGE_TO_DEPLOY}"
+  deploy_set_env_value EMBEDDING_KO_VLLM_IMAGE "${RISK_VLLM_IMAGE_TO_DEPLOY}"
   echo "[deploy] EMBEDDING_KO_VLLM_IMAGE set to ${RISK_VLLM_IMAGE_TO_DEPLOY}"
 fi
 
@@ -844,7 +799,7 @@ fi
 # digest를 만들어내며, 새 빌드가 없으면 기존 .env 값(=현재 pin)이 그대로 유지되므로
 # 일상적인 배포에서는 수동으로 repin할 일이 없다.
 if [[ -n "${AUDIO_VLLM_IMAGE_TO_DEPLOY:-}" ]]; then
-  set_env_value AUDIO_VLLM_IMAGE "${AUDIO_VLLM_IMAGE_TO_DEPLOY}"
+  deploy_set_env_value AUDIO_VLLM_IMAGE "${AUDIO_VLLM_IMAGE_TO_DEPLOY}"
   echo "[deploy] AUDIO_VLLM_IMAGE set to ${AUDIO_VLLM_IMAGE_TO_DEPLOY}"
 fi
 
@@ -869,7 +824,8 @@ fi
 
 # Docker Compose는 shell 환경변수를 --env-file보다 우선시킨다.
 # 변경된 원격 .env를 export해서, 프로세스 env 값이 필수 compose 변수를 가리지 못하게 한다.
-export_compose_env_from_file
+deploy_export_compose_env
+echo "[deploy] compose environment exported from ${COMPOSE_ENV_FILE}"
 
 # 동기화된 .env는 stale한 크로스 변수 불변식(예: 타임아웃 값을 올렸는데
 # REQUEST_TIMEOUT_SECONDS가 MAIN_LLM_TIMEOUT_SECONDS보다 낮게 남아있는 경우)을
@@ -1077,9 +1033,9 @@ fi
 
 if [[ "${RUN_READY_SMOKE}" == "1" ]]; then
   echo "[deploy] waiting for gateway /health (up to 600s)..."
-  GATEWAY_PORT="${GATEWAY_PORT:-$(get_env_value GATEWAY_PORT)}"
+  GATEWAY_PORT="${GATEWAY_PORT:-$(deploy_env_value GATEWAY_PORT)}"
   GATEWAY_PORT="${GATEWAY_PORT:-9400}"
-  GATEWAY_PROBE_HOST="${GATEWAY_BIND_ADDR:-$(get_env_value GATEWAY_BIND_ADDR)}"
+  GATEWAY_PROBE_HOST="${GATEWAY_BIND_ADDR:-$(deploy_env_value GATEWAY_BIND_ADDR)}"
   if [[ -z "${GATEWAY_PROBE_HOST}" || "${GATEWAY_PROBE_HOST}" == "0.0.0.0" ]]; then
     GATEWAY_PROBE_HOST="localhost"
   fi

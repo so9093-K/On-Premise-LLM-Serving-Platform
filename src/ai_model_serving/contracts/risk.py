@@ -18,8 +18,8 @@ FORBIDDEN_RISK_RESPONSE_FIELDS = {
     "policy_overrides",
 }
 RISK_RESPONSE_STATUS = {"completed", "partial", "failed"}
-MODEL_RISK_CODES = {"A1", "A2", "I1", "I2", "I3", "I4", "D1", "D2", "D3", "D4", "D5"}
-DATA_EXPOSURE_CODES = {"D1", "D2", "D3", "D4", "D5"}
+MODEL_RISK_CODES = {"A1", "A2", "I1", "I2", "I3", "I4", "D1", "D2", "D4", "D5"}
+DATA_EXPOSURE_CODES = {"D1", "D2", "D4", "D5"}
 SYSTEM_RISK_CODES = {
     "GPU_MEMORY_PRESSURE",
     "INFERENCE_TIMEOUT",

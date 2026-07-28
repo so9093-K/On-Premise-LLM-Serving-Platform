@@ -77,13 +77,12 @@ PII Protection과 Secret Exposure Signal 두 계층으로 구성된다. 탐지 �
 | A2 | prompt_attack | Prompt Leaking |
 | D1 | data_exposure | Personal Identifier |
 | D2 | data_exposure | Contact and Location Information |
-| D3 | data_exposure | Financial Identifier |
 | D4 | data_exposure | Secret or Credential |
 | D5 | data_exposure | Network or Infrastructure Identifier |
 
 ### Strongest code 우선순위
 
-`D4 > A1 > A2 > D1 > D2 > D3 > D5`
+`D4 > A1 > A2 > D1 > D2 > D5`
 
 D4(Secret/Credential)는 가장 강한 signal로 취급된다.
 

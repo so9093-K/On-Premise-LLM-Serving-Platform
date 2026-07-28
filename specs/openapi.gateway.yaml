@@ -2115,10 +2115,6 @@ paths:
                 summary: 주민등록번호 노출 (D1)
                 value:
                   prompt: '주민등록번호: 901201-1234567 로 조회해주세요.'
-              credit_card:
-                summary: 신용카드 번호 노출 (D3)
-                value:
-                  prompt: 카드 번호 4111-1111-1111-1111 로 결제해주세요.
               ip_address:
                 summary: IP 주소 노출 (D5)
                 value:
@@ -3659,7 +3655,7 @@ paths:
       - Risk
       summary: 통합 Risk 신호
       description: 'configured enabled detectors 결과를 aggregate한 통합 risk assessment입니다.
-        PII Protection(D1-D3, D5), Secret Exposure(D4, D5), Prompt Injection(A1, A2)
+        PII Protection(D1, D2, D5), Secret Exposure(D4, D5), Prompt Injection(A1, A2)
         신호를 통합합니다. enabled detector 중 하나라도 위험 신호를 탐지하면 `risk_detected: true`를 반환합니다.'
       operationId: assessRisk
       requestBody:
@@ -7051,7 +7047,7 @@ tags:
 
     **Sensitive Data Protection** — PII Protection + Secret Exposure Signal:
 
-    - **PII Protection** (D1-D3, D5): 주민등록번호, 이메일, 전화번호, 신용카드, IP 주소 탐지
+    - **PII Protection** (D1, D2, D5): 주민등록번호, 이메일, 전화번호, IP 주소 탐지
 
     - **Secret Exposure** (D4, D5): API 키, JWT, private key, 비밀번호, DB URL 탐지
 

@@ -61,7 +61,6 @@ make stop
 | `validation/runtime_validation.py` | 실제 runtime 검증 결과를 `reports/runtime/` 아래에 기록한다. |
 | `reports/runtime_targets_report.py` | ModelRegistry projection에서 runtime target inventory JSON/Markdown을 생성한다. |
 | `models/modelctl.py` | model control plane이다. `list`, `status`, `validate`, `diff`는 읽기 전용이고 `propose-add`, `propose-remove`는 파일 쓰기 없는 변경 계획을 출력한다. |
-| `reports/storage_paths_report.py` | `configs/storage_paths.yaml`에서 로컬 저장소/cache/report/secret 경로 inventory JSON/Markdown을 생성한다. |
 | `reports/monitoring_projection_report.py` | ModelRegistry와 monitoring config에서 Prometheus scrape, recording rule, Grafana variable projection JSON/Markdown을 생성한다. |
 | `reports/operator_status_bundle.py` | runtime target, model inventory, GPU budget, monitoring label, readiness vocabulary를 하나의 operator status bundle로 생성한다. |
 | `reports/live_evidence_bundle.py` | operator status bundle과 runtime validation report를 sanitised evidence bundle로 결합한다. 결과는 운영 증빙용이며 release package에는 포함하지 않는다. |
@@ -78,7 +77,7 @@ make stop
 - `make start`는 vLLM을 시작하지 않는다. app-only 확인용이다.
 - app-only 확인은 `make ready-local`, strict full-stack 확인은 `make ready-full`을 사용한다.
 - full-stack 검증은 Docker/GPU/vLLM이 있는 host에서 `make preflight-compose && make compose-up`으로 수행한다.
-- 운영 산출물은 개별 명령(`make runtime-targets`, `make storage-paths`, `make monitoring-projection`, `make operator-status`, `make live-evidence`) 또는 통합 명령 `make operator-reports`로 생성한다. 라이브 검증은 `make runtime-validate`, 실행 전 정적 검증은 `make validate`로 수행한다.
+- 운영 산출물은 개별 명령(`make runtime-targets`, `make monitoring-projection`, `make operator-status`, `make live-evidence`) 또는 통합 명령 `make operator-reports`로 생성한다. 라이브 검증은 `make runtime-validate`, 실행 전 정적 검증은 `make validate`로 수행한다.
 - 삭제 전에는 `make remove-plan`으로 삭제 대상을 확인할 수 있다. `make clean-dry-run`의 읽기 쉬운 alias다.
 
 - `.runtime/`은 정상적인 로컬 runtime state다. `make init-env-compose` 이후 존재할 수 있으며, `make clean-all`은 기본적으로 보존한다. 테스트와 패키징 정책은 `.runtime`의 로컬 존재가 아니라 release/source ZIP 포함 여부를 검사해야 한다.
@@ -95,7 +94,6 @@ make stop
 - make ready-full
 - make guide
 - make runtime-targets
-- make storage-paths
 - make monitoring-projection
 - make operator-status
 - make live-evidence

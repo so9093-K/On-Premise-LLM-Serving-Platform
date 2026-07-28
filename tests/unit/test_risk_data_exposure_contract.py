@@ -65,11 +65,6 @@ class TestDataExposureCategoryValidator:
         result = _validate_risk_category(cat, index=0)
         assert result is True
 
-    def test_d3_category_passes(self):
-        cat = _data_exposure_category("D3", "CREDIT_CARD", True, span_count=1)
-        result = _validate_risk_category(cat, index=0)
-        assert result is True
-
     def test_d4_category_passes(self):
         cat = _data_exposure_category("D4", "OPENAI_API_KEY", True, span_count=1, source_model="secret-scanner")
         result = _validate_risk_category(cat, index=0)
@@ -203,11 +198,10 @@ class TestValidateRiskResponseWithDataExposure:
                 validate_risk_response(response)
             assert "forbidden" in exc_info.value.message.lower() or field in exc_info.value.message
 
-    def test_d1_through_d5_are_all_valid_strongest_codes(self):
-        for code in ["D1", "D2", "D3", "D4", "D5"]:
+    def test_supported_data_exposure_codes_are_valid_strongest_codes(self):
+        for code in ["D1", "D2", "D4", "D5"]:
             source = "pii-protection" if code != "D4" else "secret-scanner"
-            label_map = {"D1": "KR_RRN", "D2": "EMAIL_ADDRESS", "D3": "CREDIT_CARD",
-                         "D4": "OPENAI_API_KEY", "D5": "IP_ADDRESS"}
+            label_map = {"D1": "KR_RRN", "D2": "EMAIL_ADDRESS", "D4": "OPENAI_API_KEY", "D5": "IP_ADDRESS"}
             cat = _data_exposure_category(code, label_map[code], True, span_count=1, source_model=source)
             response = _base_response(
                 risk_detected=True,

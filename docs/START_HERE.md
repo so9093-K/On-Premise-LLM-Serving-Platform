@@ -211,7 +211,7 @@ make reset-version NEW_VERSION=0.1.0
 
 다음이 함께 변경된다: `VERSION`, `version_manifest.json`, `pyproject.toml`, `specs/openapi.*.yaml`, `README.md`, `.env.example`, `.env.local.example`, `.env.compose.example`, `configs/recommended_images.yaml`(platform/risk_vllm 이미지 tag), `docs/release/versioning_policy.md`
 
-변경되지 않는다: config schema version(`configs/model_catalog.yaml`, `configs/monitoring.yaml`, `configs/storage_paths.yaml`의 `version: 0.1.0`), CHANGELOG 과거 항목, historical reports
+변경되지 않는다: config schema version(`configs/model_catalog.yaml`, `configs/monitoring.yaml`의 `version: 0.1.0`), CHANGELOG 과거 항목, historical reports
 
 - 📄 [release/versioning_policy.md](release/versioning_policy.md)
 
@@ -239,7 +239,7 @@ make test                     # unit·contract 테스트
 | **examples** | `docs/examples/` | 설명형 API examples. 실행 가능한 sample payload가 추가되면 root `examples/`에 둔다 |
 | **archive** | `docs/archive/` | historical context. 현재 운영 기준으로 쓰지 않는다 |
 | **generated** | `reports/runtime/` | 스크립트가 생성하는 runtime evidence. 직접 수정하지 않는다 |
-| **handoff** | `reports/refactor/current_*` | 현재 상태/handoff 요약 |
+| **maintenance status** | `docs/operations/project_maintainability_status.md` | 현재 유지보수 상태와 남은 위험 |
 | **changelog** | `CHANGELOG.md` | root의 짧은 버전별 릴리스 노트 |
 
 ---

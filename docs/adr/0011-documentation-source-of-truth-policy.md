@@ -24,7 +24,7 @@ Accepted
 |---|---|
 | 모델 목록 | `configs/model_catalog.yaml`, `model_cards/*.json` |
 | 모델 runtime 구성 | `configs/model_serving.yaml` |
-| risk code | `configs/risk_taxonomy.yaml` |
+| risk code | `src/ai_model_serving/contracts/risk.py`, `configs/model_serving.yaml` |
 | API endpoint | `src/ai_model_serving/api/endpoint_spec.py`, `specs/openapi.gateway.yaml` |
 | request/response schema | `specs/schemas/*.json` |
 | monitoring target | `configs/monitoring.yaml` |
@@ -34,7 +34,7 @@ Accepted
 
 추가 원칙:
 
-- examples는 API contract sample이다. risk code는 `configs/risk_taxonomy.yaml`에 존재하는 code만 사용한다.
+- examples는 API contract sample이다. risk code는 response contract와 enabled detector 설정에 존재하는 code만 사용한다.
 - retired endpoint는 active 검증 예시로 작성하지 않는다.
 - Tier 1 reference 문서는 generated block 또는 governance test로 source-of-truth와의 일치를 보호한다.
 - `docs/adr/`는 canonical decision record다. `docs/02_decision_register.md`는 ADR index로 운영한다.
@@ -71,4 +71,5 @@ Accepted
 - `tests/contract/test_document_structure.py`
 - `tests/contract/test_document_source_of_truth.py`
 - `tests/contract/test_document_stale_markers.py`
-- `configs/risk_taxonomy.yaml`
+- `src/ai_model_serving/contracts/risk.py`
+- `configs/model_serving.yaml`

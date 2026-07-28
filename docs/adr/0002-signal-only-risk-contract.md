@@ -18,7 +18,7 @@ Risk Adapter와 detector endpoint는 위험 신호만 반환한다. `decision`, 
 
 | Detector | 유형 | Risk Codes |
 |---|---|---|
-| PII Protection (`pii`) | local (regex) | D1, D2, D3, D5 |
+| PII Protection (`pii`) | local (regex) | D1, D2, D5 |
 | Secret Exposure (`secret`) | local (regex + entropy) | D4, D5 |
 | Prompt (`risk-prompt`) | vLLM | A1, A2 |
 

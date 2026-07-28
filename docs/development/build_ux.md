@@ -223,7 +223,7 @@ make remove-plan      # 삭제 대상 미리 보기
 make operator-reports # 운영 산출물 통합 생성
 ```
 
-`make operator-reports`는 서비스를 기동하지 않고 `runtime-targets`, `storage-paths`, `monitoring-projection`, `operator-status`, `live-evidence`를 순서대로 실행한다. 최신 GPU live evidence가 필요하면 이 명령 전에 대상 서버에서 `make runtime-validate`를 실행한다.
+`make operator-reports`는 서비스를 기동하지 않고 `runtime-targets`, `monitoring-projection`, `operator-status`, `live-evidence`를 순서대로 실행한다. 최신 GPU live evidence가 필요하면 이 명령 전에 대상 서버에서 `make runtime-validate`를 실행한다.
 
 ## Risk vLLM patch metadata
 

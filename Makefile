@@ -8,7 +8,7 @@ AUTH_ENV ?= $(if $(ENV_FILE),$(ENV_FILE),$(ENV))
 AUTH_ENV_ARG = $(if $(AUTH_ENV),--env $(AUTH_ENV),)
 
 
-.PHONY: help help-full help-json command-check guide init-env-local init-env-compose init-env-local-force init-env-compose-force sync-runtime-secrets sync-env show-image-tags validate test build build-pipeline build-image build-vllm-unified-image rebuild-app rebuild-vllm-unified package start compose-up compose-up-master compose-up-private compose-down-private preflight-compose compose-config ready-local ready-full smoke runtime-validate runtime-targets storage-paths auth-status auth-doctor auth-plan auth-apply exposure-status exposure-plan exposure-apply monitoring-projection operator-status operator-reports live-evidence vllm-commands hf-config-check main-model-prepare risk-vllm-config-check risk-vllm-patch-removal-check model-inventory model-list model-status model-validate model-diff model-propose-add model-propose-remove status stop compose-down compose-restart compose-logs logs compose-diagnostics clean clean-dry-run remove-plan clean-all reset bootstrap first-run rebuild-full doctor reset-version render-runtime-assets check-runtime-assets
+.PHONY: help help-full help-json command-check guide init-env-local init-env-compose init-env-local-force init-env-compose-force sync-runtime-secrets sync-env show-image-tags validate test build build-pipeline build-image build-vllm-unified-image rebuild-app rebuild-vllm-unified package start compose-up compose-up-master compose-up-private compose-down-private preflight-compose compose-config ready-local ready-full smoke runtime-validate runtime-targets auth-status auth-doctor auth-plan auth-apply exposure-status exposure-plan exposure-apply monitoring-projection operator-status operator-reports live-evidence vllm-commands hf-config-check main-model-prepare risk-vllm-config-check risk-vllm-patch-removal-check model-inventory model-list model-status model-validate model-diff model-propose-add model-propose-remove status stop compose-down compose-restart compose-logs logs compose-diagnostics clean clean-dry-run remove-plan clean-all reset bootstrap first-run rebuild-full doctor reset-version render-runtime-assets check-runtime-assets
 
 help:
 	@$(PYTHON) scripts/commands/render_command_help.py
@@ -108,9 +108,6 @@ runtime-validate:
 runtime-targets:
 	$(PYTHON) scripts/reports/runtime_targets_report.py
 
-storage-paths:
-	$(PYTHON) scripts/reports/storage_paths_report.py
-
 auth-status:
 	$(PYTHON) scripts/auth/auth_status.py $(AUTH_ENV_ARG)
 
@@ -142,7 +139,7 @@ monitoring-projection:
 operator-status:
 	$(PYTHON) scripts/reports/operator_status_bundle.py
 
-operator-reports: runtime-targets storage-paths auth-status auth-doctor monitoring-projection operator-status live-evidence
+operator-reports: runtime-targets auth-status auth-doctor monitoring-projection operator-status live-evidence
 
 live-evidence: operator-status
 	$(PYTHON) scripts/reports/live_evidence_bundle.py

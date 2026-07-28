@@ -103,12 +103,6 @@ def validate_python_compatibility() -> None:
     requires = pyproject['project']['requires-python']
     if requires != '>=3.12,<3.15':
         raise SystemExit(f'pyproject requires-python must be >=3.12,<3.15, got {requires}')
-    compat = read_yaml('configs/runtime_compatibility.yaml')
-    if compat['python']['default_version'] != py_version:
-        raise SystemExit('runtime_compatibility default Python version disagrees with .python-version')
-    if compat['python']['supported_range'] != requires:
-        raise SystemExit('runtime_compatibility supported_range disagrees with pyproject')
-
     env = (ROOT / '.env.example').read_text(encoding='utf-8')
     if f'PYTHON_VERSION={py_version}' not in env:
         raise SystemExit(f'.env.example must include PYTHON_VERSION={py_version}')

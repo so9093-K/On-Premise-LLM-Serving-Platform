@@ -75,14 +75,12 @@ WORKFLOWS: list[Workflow] = [
         when="서비스를 새로 띄우지 않고 registry 기반 runtime/monitoring/status/evidence 산출물을 갱신한다.",
         commands=[
             "make runtime-targets",
-            "make storage-paths",
             "make monitoring-projection",
             "make operator-status",
             "make live-evidence",
         ],
         notes=[
             "같은 작업을 한 번에 실행하려면 make operator-reports를 사용한다.",
-            "model/cache/report/secret 경로를 확인하려면 make storage-paths를 사용한다.",
             "make live-evidence는 가장 최신 live runtime validation report를 우선 사용한다.",
         ],
     ),

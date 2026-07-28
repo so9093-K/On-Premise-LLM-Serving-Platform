@@ -57,7 +57,6 @@ make operator-reports
 
 ```bash
 make runtime-targets
-make storage-paths
 make monitoring-projection
 make operator-status
 make live-evidence
@@ -67,7 +66,6 @@ make live-evidence
 
 ```text
 reports/runtime/runtime_targets.json
-reports/runtime/storage_paths.json
 reports/runtime/monitoring_projection.json
 reports/runtime/operator_status_bundle.json
 reports/runtime/live_evidence_bundle.json

@@ -17,7 +17,7 @@ Config schema version: 0.1.0  ← package version과 독립
 - `VERSION` 파일이 package version의 authoritative source다.
 - `PLATFORM_IMAGE`와 `RISK_VLLM_IMAGE`는 기본적으로 package version aligned다.
 - `make reset-version`은 platform image와 risk_vllm image를 함께 갱신한다.
-- config schema version (`configs/model_catalog.yaml`, `configs/monitoring.yaml`, `configs/storage_paths.yaml`의 `version` 필드)은 package version과 독립적이다.
+- config schema version (`configs/model_catalog.yaml`, `configs/monitoring.yaml`의 `version` 필드)은 package version과 독립적이다.
 - historical report나 changelog의 과거 버전은 reset-version 대상이 아니다.
 
 ## 버전 의미론 — 각 버전의 역할
@@ -31,16 +31,15 @@ Config schema version: 0.1.0  ← package version과 독립
 | API contract version | `VERSION` 파생 | ✅ |
 | Platform image tag | `VERSION` 파생 (package-aligned) | ✅ |
 | Risk vLLM image tag | `VERSION` 파생 (package-aligned) | ✅ |
-| Config schema version | `configs/model_catalog.yaml`, `configs/monitoring.yaml`, `configs/storage_paths.yaml` 내 `version` 필드 | ❌ |
+| Config schema version | `configs/model_catalog.yaml`, `configs/monitoring.yaml` 내 `version` 필드 | ❌ |
 | Report format version | 생성 script | ❌ |
 | Artifact schema version (날짜) | `version_manifest.json` | ❌ |
 
-> **config schema version** (`configs/model_catalog.yaml`, `configs/monitoring.yaml`, `configs/storage_paths.yaml`의 `version` 필드)은
+> **config schema version** (`configs/model_catalog.yaml`, `configs/monitoring.yaml`의 `version` 필드)은
 > 각 config 파일의 schema 버전이며 package version과 다를 수 있다. 해당 config의 필드 구조가 바뀔 때만 올린다.
 >
 > **예시:** Package version `0.0.1`, Config schema version `0.1.0`은 정상적인 조합이다.
-> **runtime compatibility baseline** (`configs/runtime_compatibility.yaml`의 `version` 필드)은 package-aligned 기준선이다.
-> `make reset-version` 실행 시 package version과 함께 갱신된다.
+> Python 기본 버전은 `.python-version`, 지원 범위는 `pyproject.toml`에서 관리한다.
 
 ## 핵심 원칙
 
@@ -84,9 +83,9 @@ Config schema version: 0.1.0  ← package version과 독립
 - `docs/release/versioning_policy.md` (`## 1. Current package version` 블록)
 
 변경되지 않는 대상 (의도적 제외):
-- `configs/model_catalog.yaml`, `configs/monitoring.yaml`, `configs/storage_paths.yaml` — config schema version
+- `configs/model_catalog.yaml`, `configs/monitoring.yaml` — config schema version
 - `CHANGELOG.md` 과거 항목 — historical changelog
-- `reports/refactor/` historical audit notes — 역사적 기록
+- `reports/archive/` historical audit notes — 역사적 기록
 - `version_manifest.json`의 `config_schema_versions` 필드
 
 ## 표기 형식

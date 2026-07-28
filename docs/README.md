@@ -13,7 +13,7 @@
 | **examples** | `docs/examples/` | 설명형 API examples. 실행 가능한 sample payload가 추가되면 root `examples/`에 둔다 |
 | **archive** | `docs/archive/` | historical context. 현재 운영 기준으로 쓰지 않는다 |
 | **generated** | `reports/runtime/` | 스크립트가 생성하는 runtime evidence. 직접 수정하지 않는다 |
-| **handoff** | `reports/refactor/current_*` | 현재 상태와 handoff 요약 |
+| **maintenance status** | `docs/operations/project_maintainability_status.md` | 현재 유지보수 상태와 남은 위험 |
 | **release history** | `CHANGELOG.md` | root의 짧은 버전별 릴리스 노트 |
 
 ## 운영자 (Operators)
@@ -31,7 +31,6 @@
 | 상황별 명령을 고르고 싶다 | [operations/operator_workflows.md](operations/operator_workflows.md) |
 | 통합 설정·관리·빌드·제거 흐름을 보고 싶다 | [operations/configuration_lifecycle.md](operations/configuration_lifecycle.md) |
 | 통합 프로젝트 관리 흐름을 보고 싶다 | [operations/project_management_workflow.md](operations/project_management_workflow.md) |
-| 로컬 저장 경로·모델 캐시 위치를 보고 싶다 | [operations/storage_paths.md](operations/storage_paths.md) |
 | 장애가 났다 / 서비스가 안 뜬다 | [operations/full_stack_troubleshooting.md](operations/full_stack_troubleshooting.md) |
 | GitLab CI/CD로 175 GPU 서버에 배포하고 싶다 | [operations/gitlab_cicd_deployment.md](operations/gitlab_cicd_deployment.md) |
 | Grafana·Prometheus 모니터링을 설정한다 | [operations/monitoring_ux.md](operations/monitoring_ux.md) |
@@ -77,7 +76,6 @@ docs/
 │   ├── operator_workflows.md        ← 상황별 명령 선택 가이드
 │   ├── configuration_lifecycle.md   ← 설정·관리·빌드·제거 통합 UX
 │   ├── project_management_workflow.md
-│   ├── storage_paths.md             ← 로컬 저장소·모델 캐시·cleanup 정책
 │   ├── full_stack_runtime.md        ← 전체 서비스 컴포넌트 목록
 │   ├── gitlab_cicd_deployment.md    ← GitLab CI/CD와 175 배포 가이드
 │   ├── full_stack_troubleshooting.md

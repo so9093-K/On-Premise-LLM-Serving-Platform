@@ -404,10 +404,6 @@ PII_EXAMPLES: dict[str, Any] = {
         "summary": "주민등록번호 노출 (D1)",
         "value": {"prompt": "주민등록번호: 901201-1234567 로 조회해주세요."},
     },
-    "credit_card": {
-        "summary": "신용카드 번호 노출 (D3)",
-        "value": {"prompt": "카드 번호 4111-1111-1111-1111 로 결제해주세요."},
-    },
     "ip_address": {
         "summary": "IP 주소 노출 (D5)",
         "value": {"prompt": "서버 IP 192.168.1.100에 접속하세요."},

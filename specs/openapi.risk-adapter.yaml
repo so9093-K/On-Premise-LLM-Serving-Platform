@@ -16,7 +16,7 @@ info:
 
     |---|---|---|---|
 
-    | **PII Protection** | local (regex) | 개인정보 노출 | D1, D2, D3, D5 |
+    | **PII Protection** | local (regex) | 개인정보 노출 | D1, D2, D5 |
 
     | **Secret Exposure** | local (regex + entropy) | 시크릿·자격증명 노출 | D4, D5 |
 
@@ -824,10 +824,6 @@ paths:
                 summary: 주민등록번호 노출 (D1)
                 value:
                   prompt: '주민등록번호: 901201-1234567 로 조회해주세요.'
-              credit_card:
-                summary: 신용카드 번호 노출 (D3)
-                value:
-                  prompt: 카드 번호 4111-1111-1111-1111 로 결제해주세요.
               ip_address:
                 summary: IP 주소 노출 (D5)
                 value:
@@ -1886,7 +1882,7 @@ paths:
         판단 없이 system signal로 표현됩니다.
 
 
-        PII Protection(D1-D3, D5)과 Secret Exposure(D4, D5) 신호를 Prompt Injection(A1,
+        PII Protection(D1, D2, D5)과 Secret Exposure(D4, D5) 신호를 Prompt Injection(A1,
         A2)과 함께 통합합니다.'
       operationId: assessRiskAggregate
       requestBody:
@@ -2423,7 +2419,7 @@ tags:
 
     **Sensitive Data Protection**:
 
-    - **PII Protection** (D1-D3, D5) — 로컬 정규식 기반 개인정보 탐지
+    - **PII Protection** (D1, D2, D5) — 로컬 정규식 기반 개인정보 탐지
 
     - **Secret Exposure** (D4, D5) — regex/entropy 기반 시크릿·자격증명 탐지
 

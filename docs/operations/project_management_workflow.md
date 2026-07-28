@@ -23,10 +23,8 @@ make validate
 | 처음 시작 | `docs/operations/day0_quickstart.md` |
 | 상황별 운영 흐름 | `docs/operations/operator_workflows.md` |
 | 설정·빌드·삭제 lifecycle | `docs/operations/configuration_lifecycle.md` |
-| 로컬 저장 경로·모델 캐시 | `docs/operations/storage_paths.md` |
 | 문서 관리 정책 | `docs/governance/document_management.md` |
-| 리팩토링 현재 상태 | `reports/refactor/current_refactor_state.md` |
-| 현재 handoff 요약 | `reports/refactor/current_handoff_summary.md` |
+| 현재 유지보수 상태 | `docs/operations/project_maintainability_status.md` |
 | 릴리스 gate | `docs/release/release_checklist.md` |
 
 ## 3. 문서 정합성 UX
@@ -42,7 +40,7 @@ make test
 
 - 새 사용자 진입점은 `README.md`, `docs/README.md`, `make help`, `make guide` 중 최소 하나에서 찾을 수 있어야 한다.
 - 사용자-facing 명령을 추가하면 `Makefile help`, `scripts/README.md`, 관련 operations 문서를 함께 갱신한다.
-- phase별 오래된 중간 report를 active package에 계속 쌓지 않는다. 현재 handoff는 `reports/refactor/current_refactor_state.md`, `reports/refactor/current_handoff_summary.md`를 기준으로 한다.
+- phase별 오래된 중간 report를 active package에 계속 쌓지 않는다. 현재 유지보수 상태와 남은 위험은 `docs/operations/project_maintainability_status.md`에서 관리한다.
 
 ## 5. 통합 관리 UX
 
@@ -66,7 +64,7 @@ make validate
 ## 5. 정리 기준
 
 - `reports/runtime/` 전체는 host·GPU·현재 운영 상태에 따라 달라지는 생성 산출물이므로 release package에는 포함하지 않는다. 운영 인수인계가 필요하면 대상 서버에서 별도로 생성·보관한다.
-- `reports/refactor/validation/*.log` 같은 과거 중간 validation log는 active handoff source가 아니다. 새 검증 결과는 `current_handoff_summary.md`와 필요한 phase 설계 문서로 압축한다.
+- 과거 중간 validation log는 active 유지보수 문서가 아니다. 새 검증 결과는 필요한 운영 문서와 대상 서버의 runtime evidence로 확인한다.
 
 
 ## 인증 제어 플레인 점검

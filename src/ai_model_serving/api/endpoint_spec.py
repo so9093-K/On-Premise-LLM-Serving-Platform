@@ -286,7 +286,7 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
         summary="통합 Risk 신호",
         description=(
             "configured enabled detectors 결과를 aggregate한 통합 risk assessment입니다. "
-            "PII Protection(D1-D3, D5), Secret Exposure(D4, D5), Prompt Injection(A1, A2) 신호를 통합합니다. "
+            "PII Protection(D1, D2, D5), Secret Exposure(D4, D5), Prompt Injection(A1, A2) 신호를 통합합니다. "
             "enabled detector 중 하나라도 위험 신호를 탐지하면 `risk_detected: true`를 반환합니다."
         ),
         auth="public_api",
@@ -613,7 +613,7 @@ RISK_ADAPTER_ENDPOINTS: list[EndpointSpec] = [
             "enabled detector registry 순서(pii → secret → prompt)대로 호출하고 결과를 aggregate합니다.\n\n"
             "어느 한 detector가 신호를 탐지하면 `risk_detected: true`를 반환합니다. "
             "detector 실패는 policy 판단 없이 system signal로 표현됩니다.\n\n"
-            "PII Protection(D1-D3, D5)과 Secret Exposure(D4, D5) 신호를 Prompt Injection(A1, A2)과 함께 통합합니다."
+            "PII Protection(D1, D2, D5)과 Secret Exposure(D4, D5) 신호를 Prompt Injection(A1, A2)과 함께 통합합니다."
         ),
         auth="internal_service",
         exposure="internal_service",

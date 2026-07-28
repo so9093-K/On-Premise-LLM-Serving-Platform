@@ -18,8 +18,8 @@ SYSTEM_CODE_PRIORITY = [
     "TRUNCATED_INPUT",
 ]
 # D4(Secret/Credential)는 가장 강력한 data exposure 신호이며, prompt attack보다
-# 우선순위가 높다. D1-D3와 D5는 prompt attack(A1, A2) 다음 우선순위를 따른다.
-MODEL_CODE_PRIORITY = ["D4", "A1", "A2", "D1", "D2", "D3", "D5"]
+# 우선순위가 높다. D1, D2와 D5는 prompt attack(A1, A2) 다음 우선순위를 따른다.
+MODEL_CODE_PRIORITY = ["D4", "A1", "A2", "D1", "D2", "D5"]
 
 
 @dataclass(frozen=True)

@@ -1,6 +1,6 @@
 """JSON Schema contract tests for risk_assessment_response.schema.json.
 
-Tests cover D1-D5 data_exposure codes, span_count field, and the existing
+Tests cover supported data_exposure codes, span_count field, and the existing
 A1/A2/I1-I4 code invariants. Also verifies forbidden fields remain blocked.
 """
 from __future__ import annotations
@@ -66,14 +66,6 @@ class TestDataExposureSchemaValidation:
         response = _base_response(
             risk_detected=True, attention_required=True, model_risk_detected=True,
             strongest_code="D2", categories=[cat],
-        )
-        validator.validate(response)
-
-    def test_d3_credit_card_passes(self, validator):
-        cat = _data_exposure_cat("D3", "CREDIT_CARD")
-        response = _base_response(
-            risk_detected=True, attention_required=True, model_risk_detected=True,
-            strongest_code="D3", categories=[cat],
         )
         validator.validate(response)
 
@@ -147,10 +139,9 @@ class TestDataExposureSchemaValidation:
         assert list(validator.iter_errors(response))
 
     def test_all_d_codes_in_strongest_code_pass(self, validator):
-        for code in ["D1", "D2", "D3", "D4", "D5"]:
+        for code in ["D1", "D2", "D4", "D5"]:
             src = "secret-scanner" if code in ("D4", "D5") else "pii-protection"
-            label_map = {"D1": "KR_RRN", "D2": "EMAIL_ADDRESS", "D3": "CREDIT_CARD",
-                         "D4": "OPENAI_API_KEY", "D5": "DATABASE_URL"}
+            label_map = {"D1": "KR_RRN", "D2": "EMAIL_ADDRESS", "D4": "OPENAI_API_KEY", "D5": "DATABASE_URL"}
             cat = _data_exposure_cat(code, label_map[code], source_model=src)
             response = _base_response(
                 risk_detected=True, attention_required=True, model_risk_detected=True,

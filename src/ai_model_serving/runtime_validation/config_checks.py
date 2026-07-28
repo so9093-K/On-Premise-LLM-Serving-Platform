@@ -9,7 +9,6 @@ from ai_model_serving.domain import ModelRegistry
 from ai_model_serving.monitoring_projection import monitoring_projection_document
 from ai_model_serving.operator_reports import runtime_targets_document
 from ai_model_serving.operator_status import operator_status_bundle_document
-from ai_model_serving.storage_paths import StorageRegistry
 
 from .config import RuntimeValidationConfig
 from .results import CheckResult
@@ -44,8 +43,8 @@ class ConfigOnlyChecks:
         ))
 
         self._record_model_list_schema_projection()
-        runtime_report, storage_document = self._record_operator_projections(runtime_services)
-        self._record_status_bundle(runtime_report, storage_document)
+        runtime_report = self._record_operator_projections(runtime_services)
+        self._record_status_bundle(runtime_report)
         self._record_monitoring_projection()
         self._record_vllm_command_projection(runtime_services)
         self._record_resource_control(runtime_services)
@@ -66,7 +65,7 @@ class ConfigOnlyChecks:
             },
         ))
 
-    def _record_operator_projections(self, runtime_services: tuple[Any, ...]) -> tuple[dict[str, Any], dict[str, Any]]:
+    def _record_operator_projections(self, runtime_services: tuple[Any, ...]) -> dict[str, Any]:
         runtime_report = runtime_targets_document(self.registry)
         report_ok = (
             len(runtime_report["runtime_targets"]) == len(runtime_services)
@@ -82,28 +81,14 @@ class ConfigOnlyChecks:
             },
         ))
 
-        storage_registry = StorageRegistry.from_yaml(self.root / "configs/storage_paths.yaml")
-        storage_document = storage_registry.as_report_document()
-        storage_ok = (
-            any(path.get("key") == "model_cache_dir" and path.get("env") == "HF_CACHE_DIR" for path in storage_document["paths"])
-            and any(path.get("key") == "runtime_secret_dir" for path in storage_document["paths"])
-            and storage_document["cleanup_flags"].get("PURGE_MODEL_CACHE", {}).get("default") == "0"
-        )
-        self.record(CheckResult(
-            "operator-storage-paths",
-            "local storage/cache/report path registry",
-            "pass" if storage_ok else "fail",
-            details={"paths": storage_document["paths"], "cleanup_flags": storage_document["cleanup_flags"]},
-        ))
-        return runtime_report, storage_document
+        return runtime_report
 
-    def _record_status_bundle(self, runtime_report: dict[str, Any], storage_document: dict[str, Any]) -> None:
+    def _record_status_bundle(self, runtime_report: dict[str, Any]) -> None:
         status_bundle = operator_status_bundle_document(
             registry=self.registry,
             monitoring=self.monitoring,
             gpu_budgets=self.gpu_budgets,
             version=self.config.version,
-            storage_paths=storage_document,
         )
         bundle_ok = (
             status_bundle["runtime_targets"] == runtime_report["runtime_targets"]
@@ -115,7 +100,6 @@ class ConfigOnlyChecks:
                 "authorization_header_included": False,
             }
             and len(status_bundle["runtime_validation_matrix"]) == len(self.registry.runtime_validation_matrix_checks())
-            and status_bundle["storage_paths"] == storage_document
         )
         self.record(CheckResult(
             "operator-status-bundle",

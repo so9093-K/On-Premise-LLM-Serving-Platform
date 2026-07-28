@@ -26,7 +26,7 @@
 |---|---|
 | 모델 목록 | `configs/model_catalog.yaml`, `model_cards/*.json` |
 | 모델 runtime 구성 | `configs/model_serving.yaml` |
-| risk code | `configs/risk_taxonomy.yaml` |
+| risk code | `src/ai_model_serving/contracts/risk.py`, `configs/model_serving.yaml` |
 | API endpoint | `src/ai_model_serving/api/endpoint_spec.py`, `specs/openapi.gateway.yaml` |
 | request/response schema | `specs/schemas/*.json` |
 | monitoring target | `configs/monitoring.yaml` |
@@ -43,7 +43,7 @@
 
 설명형 examples 문서는 `docs/examples/`에 둔다. 실행 가능한 sample payload나 script가 추가되면 root `examples/`에 두며, 설명형 README는 두지 않는다.
 
-- risk code는 `configs/risk_taxonomy.yaml`에 존재하는 code만 사용한다.
+- risk code는 `src/ai_model_serving/contracts/risk.py`의 응답 계약과 `configs/model_serving.yaml`의 enabled detector 범위를 따른다.
 - retired endpoint는 active 검증 예시로 작성하지 않는다.
 - expected response는 현재 schema와 route lifecycle을 따른다.
 - examples는 `tests/contract/test_document_source_of_truth.py`와 `tests/contract/test_document_stale_markers.py`로 검증한다.
@@ -74,7 +74,7 @@
 
 `reports/runtime/`은 generated runtime evidence다. generator나 source-of-truth를 고치지 않고 결과 파일만 수동 패치하지 않는다.
 
-`reports/refactor/`에는 현재 상태를 대표하는 `current_refactor_state.md`, `current_handoff_summary.md`만 둔다. 과거 audit/review/snapshot은 `reports/archive/` 또는 `docs/archive/`로 이동한다.
+현재 유지보수 상태와 남은 위험은 `docs/operations/project_maintainability_status.md`에서 관리한다. 과거 audit/review/snapshot은 `reports/archive/` 또는 `docs/archive/`로 이동한다.
 
 `docs/archive/`와 `reports/archive/`는 historical context다. active guide에서 archive 문서를 현재 운영 기준처럼 링크하지 않는다.
 
@@ -109,11 +109,11 @@ CI 테스트는 구조와 source-of-truth 정합성을 강하게 검증한다. P
 |---|---|
 | model change | `configs/model_catalog.yaml`, `configs/model_serving.yaml`, `model_cards/*.json`, `docs/models/model_cards.md`, `docs/operations/model_parameter_discovery.md`, `docs/specs/api.md`, `README.md`, `reports/runtime/*`, governance tests |
 | endpoint/schema change | `src/ai_model_serving/api/endpoint_spec.py`, `specs/openapi.gateway.yaml`, `specs/schemas/*.json`, `docs/operations/endpoint_reference.md`, `docs/specs/api.md`, `docs/examples/requests.md`, `examples/**/*.json`, governance tests |
-| risk taxonomy change | `configs/risk_taxonomy.yaml`, `docs/specs/risk_signal_contract.md`, `docs/examples/requests.md`, risk schemas, governance tests |
+| risk detector/code change | `src/ai_model_serving/contracts/risk.py`, `configs/model_serving.yaml`, `docs/specs/risk_signal_contract.md`, `docs/examples/requests.md`, risk schemas, governance tests |
 | runtime/port/compose change | `configs/services.yaml`, `configs/model_serving.yaml`, `ops/compose/*.yaml`, `.env.*.example`, `docs/operations/full_stack_runtime.md`, `docs/operations/day0_quickstart.md`, `reports/runtime/*`, governance tests |
 | monitoring/Grafana change | `configs/monitoring.yaml`, `ops/prometheus/**`, `ops/grafana/**`, `docs/operations/monitoring_ux.md`, `reports/runtime/monitoring_projection.*`, governance tests |
 | CI/CD change | `.gitlab-ci.yml`, `.github/pull_request_template.md`, `Makefile`, `scripts/validation/*`, `docs/operations/gitlab_cicd_deployment.md`, `docs/development/build_ux.md`, governance tests |
 | architecture decision change | `docs/adr/*.md`, `docs/adr/README.md`, `docs/02_decision_register.md`, `docs/governance/document_management.md` |
 | release/version change | `VERSION`, `pyproject.toml`, `version_manifest.json`, `CHANGELOG.md`, `docs/release/versioning_policy.md`, `docs/release/release_checklist.md`, package scripts |
-| examples change | `docs/examples/requests.md`, `examples/**/*.json`, `specs/schemas/*.json`, `configs/risk_taxonomy.yaml`, governance tests |
+| examples change | `docs/examples/requests.md`, `examples/**/*.json`, `specs/schemas/*.json`, risk contracts, governance tests |
 | docs structure change | `docs/README.md`, `docs/START_HERE.md`, `docs/governance/document_management.md`, `docs/manifest.yaml`, `.github/pull_request_template.md`, governance tests |

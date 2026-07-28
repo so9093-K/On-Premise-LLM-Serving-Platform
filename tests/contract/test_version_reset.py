@@ -67,11 +67,7 @@ def _make_project(tmp_path: Path, version: str = OLD_VERSION) -> None:
         f"risk_vllm:\n  default: ai-model-serving-vllm-unified:{version}\n",
         encoding="utf-8",
     )
-    (configs / "runtime_compatibility.yaml").write_text(
-        f"version: {version}\nsource_of_truth: configs/runtime_compatibility.yaml\n",
-        encoding="utf-8",
-    )
-    for cfg in ("model_catalog.yaml", "monitoring.yaml", "storage_paths.yaml"):
+    for cfg in ("model_catalog.yaml", "monitoring.yaml"):
         (configs / cfg).write_text("version: 0.1.0\nschema: placeholder\n", encoding="utf-8")
 
     docs_release = tmp_path / "docs" / "release"
@@ -195,7 +191,7 @@ class TestResetVersionStable:
         assert NEW_VERSION in text
 
     def test_config_schema_versions_unchanged(self):
-        for cfg in ("model_catalog.yaml", "monitoring.yaml", "storage_paths.yaml"):
+        for cfg in ("model_catalog.yaml", "monitoring.yaml"):
             text = (self.root / "configs" / cfg).read_text(encoding="utf-8")
             assert "version: 0.1.0" in text
 

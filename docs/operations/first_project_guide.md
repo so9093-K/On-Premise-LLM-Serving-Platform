@@ -36,7 +36,7 @@ make guide
 | `configs/model_catalog.yaml` | 모델 catalog source of truth |
 | `configs/model_serving.yaml` | runtime service/source of truth |
 | `specs/`, `contracts/` | API/schema/contract source of truth |
-| `reports/refactor/current_refactor_state.md` | 현재 handoff 상태 |
+| `docs/operations/project_maintainability_status.md` | 현재 유지보수 상태와 남은 위험 |
 
 릴리스 ZIP에는 실제 `.env`, `.runtime/`, `model_cache/`, `dist/`, `__pycache__`, timestamped live runtime report가 포함되면 안 된다.
 

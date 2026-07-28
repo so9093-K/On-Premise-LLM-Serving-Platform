@@ -8,7 +8,7 @@
 
 | 원천 | 현재 플랫폼에 남긴 것 | 현재 위치 |
 |---|---|---|
-| Prompt Risk Signal API | signal-only 원칙, prompt-only request, fail-safe system signal, privacy logging | `docs/specs/risk_signal_contract.md`, `configs/risk_taxonomy.yaml` |
+| Prompt Risk Signal API | signal-only 원칙, prompt-only request, fail-safe system signal, privacy logging | `docs/specs/risk_signal_contract.md`, `configs/model_serving.yaml` |
 | llm-deploy | vLLM OpenAI-compatible endpoint, embedding runtime, monitoring/harness 운영 의도 | `configs/model_serving.yaml`, `ops/`, `harness/` |
 
 ## 3. 제외한 항목

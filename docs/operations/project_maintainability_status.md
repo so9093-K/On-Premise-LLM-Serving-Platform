@@ -1,6 +1,6 @@
 # 프로젝트 유지보수 상태
 
-이 문서는 현재 패키지를 사람이 운영·유지보수할 수 있는지 **기능 UX 흐름, 문서 정합성, 레거시 제거 상태** 관점에서 정리한 active 상태 문서다. 실제 운영 판단은 이 문서와 `reports/refactor/current_refactor_state.md`, `reports/refactor/current_handoff_summary.md`를 기준으로 한다.
+이 문서는 현재 패키지를 사람이 운영·유지보수할 수 있는지 **기능 UX 흐름, 문서 정합성, 레거시 제거 상태** 관점에서 정리한 현재 상태 문서다. 실제 운영 판단은 이 문서와 설정 source-of-truth, 대상 서버에서 생성한 runtime evidence를 기준으로 한다.
 
 ## 현재 상태 요약
 
@@ -94,8 +94,7 @@ Docker/GPU/vLLM이 필요한 live 검증과 서비스 기동 없는 정적 검�
 
 ## 오류·레거시 식별 결과
 
-- 날짜가 붙은 `current_refactor_state_*.md`와 `project_inventory_phase*.*`는 active handoff에 남기지 않는다.
-- `reports/refactor/phase*_summary_*`, validation summary snapshot, documentation consistency snapshot, removed-legacy marker report는 active source tree에서 제거된 상태를 유지한다.
+- 날짜가 붙은 phase summary, validation summary snapshot, documentation consistency snapshot, removed-legacy marker report는 active source tree에 남기지 않는다.
 - 과거 version rebaseline 보고서 `reports/maintenance_version_rebaseline_0.1.0-rc.1_2026-05-06.md`는 active source tree에서 제거했다. 해당 결정은 현재 `CHANGELOG.md`, `VERSION`, `version_manifest.json`, `docs/release/versioning_policy.md`가 담당한다.
 - `src/ai_model_serving/validation.py`, `scripts/validation/runtime_validation.py`, `make build`, `make bootstrap`은 현재 실행 경로가 있는 entrypoint다. 사용처 없는 별칭은 남기지 않는다.
 - `.runtime/`은 로컬 secret/runtime state이며 release package에는 포함하지 않는다. 로컬 존재 자체를 오류로 보지 않는다.

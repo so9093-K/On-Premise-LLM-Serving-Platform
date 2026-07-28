@@ -226,7 +226,8 @@ documents:
     owner: platform
     disposition: keep
     source_of_truth:
-      - configs/risk_taxonomy.yaml
+      - src/ai_model_serving/contracts/risk.py
+      - configs/model_serving.yaml
       - specs/schemas
     verified_by:
       - tests/contract/test_document_source_of_truth.py
@@ -357,11 +358,6 @@ documents:
     owner: operations
     disposition: keep
     previous_path: docs/operations/runtime_validation_workplan.md
-  - path: docs/operations/storage_paths.md
-    type: operations
-    lifecycle: active
-    owner: operations
-    disposition: keep
   - path: docs/operations/streaming_runtime_operations.md
     type: operations
     lifecycle: active
@@ -493,16 +489,6 @@ documents:
     lifecycle: historical
     owner: platform
     disposition: archive
-  - path: reports/refactor/current_handoff_summary.md
-    type: handoff
-    lifecycle: active
-    owner: platform
-    disposition: keep
-  - path: reports/refactor/current_refactor_state.md
-    type: handoff
-    lifecycle: active
-    owner: platform
-    disposition: keep
   - path: reports/runtime/README.md
     type: report
     lifecycle: active
