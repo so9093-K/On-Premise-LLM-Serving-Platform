@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI
+import yaml
 
 ContractRouteKey = tuple[str, str]
 SchemaMap = Mapping[ContractRouteKey, str]
@@ -28,7 +29,7 @@ POST_STANDARD_ERROR_CODES = ("401", "413", "422", "429", "500", "502", "503", "5
 
 
 def _status_to_codes() -> dict[str, list[str]]:
-    """Reverse ERROR_STATUS into {http_status: [platform codes]} for per-status enums."""
+    """상태별 오류 코드 enum을 위해 ``ERROR_STATUS``를 HTTP status 기준으로 역변환한다."""
     from .errors import ERROR_STATUS
 
     mapping: dict[str, list[str]] = {}
@@ -38,20 +39,20 @@ def _status_to_codes() -> dict[str, list[str]]:
 
 
 def _load_error_catalog() -> dict[str, dict[str, Any]]:
-    """Load configs/error_catalog.yaml (code -> meaning/retryable/action), best-effort."""
+    """API 오류 가이드를 렌더링하는 데 필요한 오류 catalog를 읽는다."""
     try:
         root = find_project_root()
-        import yaml
-
         data = yaml.safe_load((root / "configs" / "error_catalog.yaml").read_text(encoding="utf-8"))
         errors = data.get("errors", {}) if isinstance(data, dict) else {}
-        return errors if isinstance(errors, dict) else {}
-    except Exception:
-        return {}
+        if not isinstance(errors, dict) or not errors:
+            raise ValueError("errors must be a non-empty mapping")
+        return errors
+    except (OSError, ValueError, yaml.YAMLError) as exc:
+        raise RuntimeError("cannot load configs/error_catalog.yaml required for OpenAPI error guidance") from exc
 
 
 def _error_code_gloss(codes: list[str], catalog: dict[str, dict[str, Any]]) -> str:
-    """Markdown gloss listing which codes a status returns, with meaning + retryable.
+    """상태별 오류 코드의 의미와 재시도 가능 여부를 담은 Markdown 설명을 만든다.
 
     Scalar/Swagger render the response description as markdown, so a reader sees the
     exact status -> code -> meaning mapping instead of the full code enum on every
@@ -69,7 +70,7 @@ def _error_code_gloss(codes: list[str], catalog: dict[str, dict[str, Any]]) -> s
 def _narrowed_error_schema(
     common_error_schema: dict[str, Any], status: str, status_codes: dict[str, list[str]]
 ) -> dict[str, Any]:
-    """Deep-copy the common error schema and narrow code enum to this status' codes.
+    """공통 오류 스키마를 복사해 해당 status가 반환하는 코드로 enum을 좁힌다.
 
     Keeps title and every other property (incl. ``param``) so contract tests that
     assert ``CommonErrorResponse`` still pass; only the ``code`` enum is scoped.
@@ -85,7 +86,7 @@ def _narrowed_error_schema(
 
 
 def _inject_standard_error_responses(document: dict[str, Any], common_error_schema: dict[str, Any]) -> None:
-    """Expose the same error surface in generated OpenAPI as in checked-in specs.
+    """생성 OpenAPI에도 checked-in 명세와 같은 오류 응답 표면을 노출한다.
 
     FastAPI's default generated OpenAPI only documents route-local 200/422
     responses.  The platform runtime maps auth failures, request-size rejection,
@@ -136,7 +137,7 @@ def _inject_standard_error_responses(document: dict[str, Any], common_error_sche
                 content["schema"] = _narrowed_error_schema(common_error_schema, "410", status_codes)
 
 def find_project_root(start: Path | None = None) -> Path:
-    """Locate the repository/config root that contains the JSON contract schemas."""
+    """JSON 계약 스키마가 있는 저장소·설정 root를 찾는다."""
     candidates: list[Path] = []
     if start is not None:
         candidates.append(start)
@@ -150,7 +151,7 @@ def find_project_root(start: Path | None = None) -> Path:
 
 
 def load_contract_schema(schema_name: str, *, root: Path | None = None) -> dict[str, Any]:
-    """Load a JSON schema and inline external file references for generated OpenAPI.
+    """JSON 스키마를 읽고 생성 OpenAPI용으로 외부 파일 참조를 인라인화한다.
 
     The checked-in contract schemas are the source of truth for runtime request and
     response validation.  FastAPI routes intentionally accept ``dict[str, Any]`` so
@@ -208,7 +209,7 @@ def install_contract_openapi(
     request_examples: ExamplesMap | None = None,
     root: Path | None = None,
 ) -> None:
-    """Patch a FastAPI app's generated OpenAPI with checked-in contract schemas."""
+    """FastAPI 생성 OpenAPI에 checked-in 계약 스키마를 반영한다."""
     request_schemas = request_schemas or {}
     response_schemas = response_schemas or {}
     request_examples = request_examples or {}

@@ -69,11 +69,10 @@ _RUNTIME_HTTP_TIMEOUT = 30           # vLLM 런타임으로의 HTTP 요청(/v1/m
 
 
 class DockerMainModelBackend:
-    """Recreate only the allowlisted Compose main-model container.
+    """허용 목록에 있는 Compose main-model 컨테이너만 재생성한다.
 
-    The backend never accepts a caller-supplied image, command, container name,
-    project name, mount, or network. Those values come from the profile catalog
-    or the inspected allowlisted Compose container.
+    호출자가 image, command, 컨테이너명, project명, mount, network를 지정할 수 없게
+    하며, 이 값들은 profile catalog 또는 검사한 허용 Compose 컨테이너에서만 가져온다.
     """
 
     def __init__(
@@ -150,13 +149,10 @@ class DockerMainModelBackend:
         return inspected.get("State", {}).get("Status") == "running"
 
     async def observed_started_at(self, catalog: MainModelCatalog) -> str | None:
-        """Return the running container's Docker State.StartedAt, or None if absent.
+        """실행 중인 컨테이너의 Docker ``State.StartedAt``을 반환하고 없으면 ``None``을 반환한다.
 
-        Used by MainModelManager.reconcile_if_restarted() to detect a container
-        restart that bypassed this controller entirely (e.g. `docker restart`
-        run directly instead of through the admin API) — such a restart resets
-        the vLLM process's Triton JIT cache but this controller would otherwise
-        never notice and never re-run the warmup in validate().
+        관리자 API를 거치지 않은 컨테이너 재시작을 감지하는 데 사용한다. 이런 재시작은
+        vLLM의 Triton JIT cache를 초기화하므로, 이후 warmup을 다시 수행해야 한다.
         """
         service = str(catalog.runtime["compose_service"])
         container_id = await self._container_id(service)
@@ -167,7 +163,7 @@ class DockerMainModelBackend:
         return str(started_at) if started_at else None
 
     async def stop(self, catalog: MainModelCatalog) -> None:
-        """Stop (but keep) the main runtime container to reclaim its VRAM."""
+        """컨테이너는 유지한 채 main runtime을 중지해 VRAM을 회수한다."""
         service = str(catalog.runtime["compose_service"])
         container_id = await self._container_id(service)
         if container_id is None:
@@ -183,7 +179,7 @@ class DockerMainModelBackend:
                 stopped.raise_for_status()
 
     async def start(self, catalog: MainModelCatalog) -> None:
-        """Start the existing (stopped) main runtime container with its profile."""
+        """기존에 중지된 main runtime 컨테이너를 저장된 프로필로 시작한다."""
         service = str(catalog.runtime["compose_service"])
         container_id = await self._container_id(service)
         if container_id is None:

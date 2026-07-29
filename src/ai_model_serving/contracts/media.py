@@ -11,7 +11,7 @@ from .common import field_param, reject_unknown_fields
 
 
 def _decode_media_base64(data: str) -> bytes:
-    """Decode media base64 with the same tolerance as the downstream runtime.
+    """다운스트림 runtime과 같은 허용 범위로 미디어 base64를 디코드한다.
 
     The validating gateway must not be stricter than vLLM: standard base64
     decoders ignore insignificant whitespace, so newline-wrapped payloads (the
@@ -127,7 +127,7 @@ def _jp2_dimensions(decoded: bytes) -> tuple[int, int] | None:
 
 
 def _gif_metadata(decoded: bytes) -> tuple[int, int, int, float] | None:
-    """Return (width, height, frame_count, duration_seconds), or None if unparseable.
+    """파싱 가능하면 ``(너비, 높이, 프레임 수, 재생 시간)``을, 아니면 ``None``을 반환한다.
 
     duration_seconds sums each frame's Graphic Control Extension delay (label
     0xF9, 1/100s units) -- the animation's actual playback time, independent of
@@ -360,7 +360,7 @@ def _is_iso_bmff(decoded: bytes) -> bool:
 
 
 def _audio_format_matches(fmt: str, decoded: bytes) -> bool:
-    """Best-effort magic-byte sniff so a declared format cannot misrepresent bytes."""
+    """선언한 포맷과 실제 바이트가 다르게 위장되지 않도록 magic byte를 확인한다."""
     if fmt == "wav":
         return len(decoded) >= 12 and decoded.startswith(b"RIFF") and decoded[8:12] == b"WAVE"
     if fmt == "flac":

@@ -77,7 +77,7 @@ def _safe_details(details: Any) -> dict[str, Any]:
 
 
 def _runtime_report_mode(path: Path) -> str:
-    """Read a runtime-validation report mode without exposing report payloads."""
+    """보고서 본문을 노출하지 않고 runtime-validation 보고서 mode를 읽는다."""
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
@@ -91,7 +91,7 @@ def latest_runtime_validation_report(
     *,
     prefer_live: bool = True,
 ) -> Path | None:
-    """Return the newest runtime_validation_*.json report.
+    """가장 최신 ``runtime_validation_*.json`` 보고서를 반환한다.
 
     By default this prefers the newest non-``config-only`` report when one is
     present. This prevents a static release check from creating a newer

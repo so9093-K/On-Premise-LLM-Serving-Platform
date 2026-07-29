@@ -64,3 +64,12 @@ def test_generated_openapi_scopes_error_code_enum_per_status():
         # Narrowed, not the full catalog dumped onto every response.
         assert len(enum) < len(ERROR_STATUS)
         assert schema.get("title") == "CommonErrorResponse"
+
+
+def test_runtime_control_409_documents_the_standard_budget_error_shape():
+    doc = create_gateway_app(gateway_settings(), FakeGatewayClients()).openapi()
+    response = doc["paths"]["/admin/runtimes/{service_key}"]["patch"]["responses"]["409"]
+
+    example = response["content"]["application/json"]["examples"]["budget_exceeded"]["value"]
+    assert example["error"]["code"] == "GPU_BUDGET_EXCEEDED"
+    assert example["error"]["details"]["plan"]["stop"]

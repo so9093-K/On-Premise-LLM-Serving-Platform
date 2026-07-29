@@ -102,21 +102,17 @@ def _service_error_codes_from_source() -> set[str]:
     return codes
 
 
-def _common_error_enums(document: object) -> list[set[str]]:
-    enums: list[set[str]] = []
+def _common_error_schema_refs(document: object) -> list[str]:
+    refs: list[str] = []
     if isinstance(document, dict):
-        error = document.get('properties', {}).get('error') if isinstance(document.get('properties'), dict) else None
-        if isinstance(error, dict):
-            code = error.get('properties', {}).get('code') if isinstance(error.get('properties'), dict) else None
-            enum = code.get('enum') if isinstance(code, dict) else None
-            if isinstance(enum, list) and all(isinstance(item, str) for item in enum):
-                enums.append(set(enum))
+        if document.get('$ref') == './schemas/common_error.schema.json':
+            refs.append('./schemas/common_error.schema.json')
         for value in document.values():
-            enums.extend(_common_error_enums(value))
+            refs.extend(_common_error_schema_refs(value))
     elif isinstance(document, list):
         for item in document:
-            enums.extend(_common_error_enums(item))
-    return enums
+            refs.extend(_common_error_schema_refs(item))
+    return refs
 
 
 def test_service_error_status_schema_and_openapi_enums_do_not_drift() -> None:
@@ -138,13 +134,11 @@ def test_service_error_status_schema_and_openapi_enums_do_not_drift() -> None:
 
     for rel in ('specs/openapi.gateway.yaml', 'specs/openapi.risk-adapter.yaml'):
         openapi = yaml.safe_load((ROOT / rel).read_text(encoding='utf-8'))
-        enums = _common_error_enums(openapi)
-        assert enums, f'{rel} does not expose CommonErrorResponse code enum'
-        drift = [
-            enum for enum in enums
-            if enum != schema_codes
-        ]
-        assert not drift, f'{rel} CommonErrorResponse enum drift from common_error.schema.json'
+        refs = _common_error_schema_refs(openapi)
+        assert refs, f'{rel} does not reference common_error.schema.json'
+        assert 'title: CommonErrorResponse' not in (ROOT / rel).read_text(encoding='utf-8'), (
+            f'{rel} retains an inline CommonErrorResponse copy'
+        )
 
 
 def test_model_catalog_and_model_contracts_are_cross_checked() -> None:

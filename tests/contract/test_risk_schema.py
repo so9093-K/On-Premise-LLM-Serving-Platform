@@ -42,6 +42,16 @@ def test_valid_completed_risk_sample_passes() -> None:
     validator.validate(valid_completed_sample())
 
 
+def test_usage_is_optional_but_must_be_complete_when_present() -> None:
+    validator = Draft202012Validator(load_schema('risk_assessment_response.schema.json'))
+    sample = valid_completed_sample() | {
+        'usage': {'prompt_tokens': 139, 'completion_tokens': 1, 'total_tokens': 140}
+    }
+    validator.validate(sample)
+    incomplete = valid_completed_sample() | {'usage': {'prompt_tokens': 139}}
+    assert list(validator.iter_errors(incomplete))
+
+
 def test_policy_decision_fields_are_forbidden() -> None:
     validator = Draft202012Validator(load_schema('risk_assessment_response.schema.json'))
     forbidden = {

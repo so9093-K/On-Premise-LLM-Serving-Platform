@@ -59,7 +59,7 @@ def generate_block(schema_dir: Path | None = None) -> str:
 
 
 def update_doc(doc_path: Path, schema_dir: Path | None = None) -> bool:
-    """Return True if the file was changed."""
+    """파일 내용이 변경되었으면 ``True``를 반환한다."""
     content = doc_path.read_text(encoding="utf-8")
     begin_idx = content.find(BEGIN_MARKER)
     end_idx = content.find(END_MARKER)

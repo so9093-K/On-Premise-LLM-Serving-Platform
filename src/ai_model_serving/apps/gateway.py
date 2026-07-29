@@ -45,19 +45,6 @@ from ..services.sidecar_client import SidecarClient
 from ..services.main_model_inflight import MainModelInFlight
 from ..runtime_topology import load_runtime_topology
 
-# TODO(playground): /playground 구현 시 /v1/models[].request_parameters를 읽어
-# model-aware form을 동적으로 구성한다. 아래 grouping을 참고한다:
-# - 기본 생성: max_tokens, temperature, top_p
-# - 고급 샘플링: top_k, min_p, presence_penalty, frequency_penalty, repetition_penalty, seed, n
-# - 스트리밍: stream, stream_options
-# - 도구: tools, tool_choice, parallel_tool_calls
-# - Structured Outputs: response_format
-# - 진단: logprobs, top_logprobs
-# - 고급 토큰 제어: logit_bias
-# - 비전: image_url content part
-# 이번 PR에서 /playground 실제 구현은 하지 않는다.
-
-
 class GatewayClients:
     def __init__(self, settings: AppSettings) -> None:
         state_path = os.environ.get("GATEWAY_RUNTIME_STATE_PATH")

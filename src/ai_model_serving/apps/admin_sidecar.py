@@ -4,10 +4,9 @@ import asyncio
 import json
 import os
 from contextlib import asynccontextmanager
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
-
-import yaml
+from typing import Any, Mapping
 
 import httpx
 from fastapi import FastAPI, Header, HTTPException
@@ -15,6 +14,7 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 
 from ..docker_main_model_backend import DockerMainModelBackend
+from ..configuration import load_yaml_mapping
 from ..gpu_budget import Participant, budget_snapshot, plan_activation
 from ..service_logging import service_logger
 from ..main_model_control import (
@@ -31,25 +31,53 @@ _logger = service_logger("admin_sidecar")
 
 # --------------------------------------------------------------------- config
 
-DOCKER_SOCKET = os.environ.get("DOCKER_SOCKET", "/var/run/docker.sock")
-COMPOSE_PROJECT = os.environ.get("COMPOSE_PROJECT", "")
-APP_CONFIG_ROOT = Path(os.environ.get("APP_CONFIG_ROOT", "/app"))
-_using_local_config = False
-if not (APP_CONFIG_ROOT / "configs/main_model_profiles.yaml").exists():
-    APP_CONFIG_ROOT = Path(__file__).resolve().parents[3]
-    _using_local_config = True
-_default_state_path = (
-    APP_CONFIG_ROOT / ".runtime/main-model/main-model-state.json"
-    if _using_local_config
-    else Path("/var/lib/ai-model-serving/main-model-state.json")
-)
-MAIN_MODEL_STATE_PATH = Path(os.environ.get("MAIN_MODEL_STATE_PATH", str(_default_state_path)))
-MAIN_LLM_BOOT_PROFILE = os.environ.get("MAIN_LLM_BOOT_PROFILE")
-MAIN_LLM_PROFILE_LOCKED = os.environ.get("MAIN_LLM_PROFILE_LOCKED", "false").lower() == "true"
-MAIN_LLM_SWITCH_IDEMPOTENCY_TTL_SECONDS = os.environ.get(
-    "MAIN_LLM_SWITCH_IDEMPOTENCY_TTL_SECONDS"
-)
-SIDECAR_TOKEN = os.environ.get("INTERNAL_SERVICE_TOKEN", "")
+@dataclass(frozen=True)
+class SidecarConfig:
+    docker_socket: str
+    compose_project: str
+    config_root: Path
+    state_path: Path
+    boot_profile: str | None
+    profile_locked: bool
+    idempotency_ttl_seconds: str | None
+    internal_service_token: str
+    gateway_internal_url: str
+
+
+def load_sidecar_config(
+    environment: Mapping[str, str], *, source_path: Path | None = None
+) -> SidecarConfig:
+    """Docker import나 백그라운드 작업 시작 없이 sidecar 설정을 해석한다."""
+    configured_root = Path(environment.get("APP_CONFIG_ROOT", "/app"))
+    using_local_config = not (configured_root / "configs/main_model_profiles.yaml").exists()
+    config_root = (source_path or Path(__file__)).resolve().parents[3] if using_local_config else configured_root
+    default_state_path = (
+        config_root / ".runtime/main-model/main-model-state.json"
+        if using_local_config
+        else Path("/var/lib/ai-model-serving/main-model-state.json")
+    )
+    return SidecarConfig(
+        docker_socket=environment.get("DOCKER_SOCKET", "/var/run/docker.sock"),
+        compose_project=environment.get("COMPOSE_PROJECT", ""),
+        config_root=config_root,
+        state_path=Path(environment.get("MAIN_MODEL_STATE_PATH", str(default_state_path))),
+        boot_profile=environment.get("MAIN_LLM_BOOT_PROFILE") or None,
+        profile_locked=environment.get("MAIN_LLM_PROFILE_LOCKED", "false").lower() == "true",
+        idempotency_ttl_seconds=environment.get("MAIN_LLM_SWITCH_IDEMPOTENCY_TTL_SECONDS") or None,
+        internal_service_token=environment.get("INTERNAL_SERVICE_TOKEN", ""),
+        gateway_internal_url=environment.get("GATEWAY_INTERNAL_URL", "http://gateway:9400"),
+    )
+
+
+_CONFIG = load_sidecar_config(os.environ)
+DOCKER_SOCKET = _CONFIG.docker_socket
+COMPOSE_PROJECT = _CONFIG.compose_project
+APP_CONFIG_ROOT = _CONFIG.config_root
+MAIN_MODEL_STATE_PATH = _CONFIG.state_path
+MAIN_LLM_BOOT_PROFILE = _CONFIG.boot_profile
+MAIN_LLM_PROFILE_LOCKED = _CONFIG.profile_locked
+MAIN_LLM_SWITCH_IDEMPOTENCY_TTL_SECONDS = _CONFIG.idempotency_ttl_seconds
+SIDECAR_TOKEN = _CONFIG.internal_service_token
 
 _TOPOLOGY = load_runtime_topology(
     APP_CONFIG_ROOT,
@@ -69,7 +97,7 @@ _VRAM_FRACTION: dict[str, float] = dict(_TOPOLOGY.vram_fraction_by_service)
 # 설정 오타 하나로 fail-open이 된다. runtime_validation/config_checks.py의
 # 동일 키 검증(strict bracket access)과 동작을 맞춘다.
 _gpu_budgets_path = APP_CONFIG_ROOT / "configs/gpu_budgets.yaml"
-_gpu_budgets_cfg = yaml.safe_load(_gpu_budgets_path.read_text(encoding="utf-8"))
+_gpu_budgets_cfg = load_yaml_mapping(_gpu_budgets_path)
 _GPU_BUDGET_CEILING = float(_gpu_budgets_cfg["gpu"]["total_gpu_memory_utilization"]["avoid_above"])
 
 _CRITICALITY: dict[str, str] = dict(_TOPOLOGY.criticality_by_service)
@@ -143,16 +171,19 @@ async def _do_start(container_id: str) -> None:
 
 async def _wait_healthy(service: str, port: int, timeout: float = 120.0) -> bool:
     url = f"http://{service}:{port}/health"
-    deadline = asyncio.get_event_loop().time() + timeout
+    deadline = asyncio.get_running_loop().time() + timeout
+    last_detail = "no response"
     async with httpx.AsyncClient(timeout=2.0) as client:
-        while asyncio.get_event_loop().time() < deadline:
+        while asyncio.get_running_loop().time() < deadline:
             try:
                 resp = await client.get(url)
                 if resp.status_code == 200:
                     return True
-            except Exception:
-                pass
+                last_detail = f"HTTP {resp.status_code}"
+            except httpx.HTTPError as exc:
+                last_detail = type(exc).__name__
             await asyncio.sleep(3.0)
+    _logger.warning("runtime health check timed out: service=%s url=%s last_result=%s", service, url, last_detail)
     return False
 
 
@@ -172,7 +203,7 @@ _main_model_manager = MainModelManager(
     DockerMainModelBackend(
         DOCKER_SOCKET,
         COMPOSE_PROJECT,
-        gateway_url=os.environ.get("GATEWAY_INTERNAL_URL", "http://gateway:9400"),
+        gateway_url=_CONFIG.gateway_internal_url,
         internal_token=SIDECAR_TOKEN,
     ),
     boot_profile=MAIN_LLM_BOOT_PROFILE,
@@ -194,7 +225,7 @@ _budget_lock = asyncio.Lock()
 
 
 async def _build_participants() -> list[Participant]:
-    """Current GPU-budget participants: secondaries + the main model."""
+    """현재 GPU 예산 참여자(보조 런타임과 main model)를 구성한다."""
     participants: list[Participant] = []
     for service, fraction in _VRAM_FRACTION.items():
         status = await _container_status(service)
@@ -231,7 +262,7 @@ async def _build_participants() -> list[Participant]:
 
 
 async def _admit_or_raise(target_key: str, target_fraction: float, *, force: bool) -> list[str]:
-    """Admit an activation against the shared GPU budget.
+    """공유 GPU 예산 안에서 런타임 활성화를 허용하거나 거부한다.
 
     Returns the list of victims stopped (empty if it already fit). Raises 409 with
     a plan when it does not fit (and force is False) or is impossible.
@@ -247,6 +278,7 @@ async def _admit_or_raise(target_key: str, target_fraction: float, *, force: boo
             409,
             detail={
                 "code": "GPU_BUDGET_EXCEEDED",
+                "message": "GPU budget does not allow this activation.",
                 "feasible": False,
                 "required": round(result.required, 4),
                 "available": round(result.available, 4),
@@ -259,6 +291,7 @@ async def _admit_or_raise(target_key: str, target_fraction: float, *, force: boo
             409,
             detail={
                 "code": "GPU_BUDGET_EXCEEDED",
+                "message": "GPU budget does not allow this activation.",
                 "feasible": True,
                 "required": round(result.required, 4),
                 "available": round(result.available, 4),
@@ -469,7 +502,7 @@ async def main_model_operation(
 
 @app.post("/main-model/stop")
 async def main_model_stop(authorization: str | None = Header(default=None)) -> JSONResponse:
-    """Drain and stop the main runtime to reclaim its VRAM (chat fails closed)."""
+    """VRAM 회수를 위해 main runtime을 drain 후 중지하고 chat 요청은 fail-closed 처리한다."""
     await _require_sidecar_token(authorization)
     await _main_model_manager.stop_main()
     return JSONResponse({"action": "stop", "service": _MAIN_SERVICE, "runtime_state": "stopped"})
@@ -480,7 +513,7 @@ async def main_model_start(
     force: bool = False,
     authorization: str | None = Header(default=None),
 ) -> JSONResponse:
-    """Admit against the GPU budget, then start and validate the main runtime."""
+    """GPU 예산을 확인한 뒤 main runtime을 시작하고 검증한다."""
     await _require_sidecar_token(authorization)
     snapshot = _main_model_manager.snapshot()
     active_profile = snapshot.get("active_profile") or {}

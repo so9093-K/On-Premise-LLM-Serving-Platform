@@ -5,12 +5,12 @@ from dataclasses import dataclass
 from typing import Any
 from uuid import uuid4
 
+from .contracts.common import TOKEN_USAGE_FIELDS, normalize_complete_token_usage
 from .errors import ServiceError
 
 RISK_LABEL_RE = re.compile(r"<(?P<label>SAFE|UNSAFE-(?P<code>A[12]))>")
 PROMPT_CODES = {"A1", "A2"}
 SYSTEM_CODE_PRIORITY = [
-    "GPU_MEMORY_PRESSURE",
     "INFERENCE_TIMEOUT",
     "INFERENCE_QUEUE_TIMEOUT",
     "INFERENCE_ERROR",
@@ -101,11 +101,12 @@ def assessment_response(
     system_signals: list[dict[str, Any]],
     status: str,
     message: str,
+    usage: dict[str, int] | None = None,
 ) -> dict[str, Any]:
     model_risk_detected = any(item.get("detected") for item in categories)
     system_signal_detected = any(item.get("detected") for item in system_signals)
     strongest_code = choose_strongest_code(categories, system_signals)
-    return {
+    response = {
         "assessment_id": f"risk_{uuid4().hex}",
         "status": status,
         "risk_detected": model_risk_detected,
@@ -118,6 +119,29 @@ def assessment_response(
         "categories": categories,
         "system_signals": system_signals,
     }
+    # 모델이 실제로 반환한 usage만 선택적으로 보존한다. local detector, 입력
+    # 제한 사전 차단, upstream 실패에는 만들어 낸 토큰 값을 넣지 않는다.
+    normalized_usage = normalize_complete_token_usage(usage)
+    if normalized_usage is not None:
+        response["usage"] = normalized_usage
+    return response
+
+
+def token_usage_from_upstream(response: dict[str, Any]) -> dict[str, int] | None:
+    """vLLM chat completion의 완전한 usage만 외부 Risk 계약에 전달한다."""
+    return normalize_complete_token_usage(response.get("usage"))
+
+
+def combine_token_usage(responses: list[dict[str, Any]]) -> dict[str, int] | None:
+    """통합 Risk 평가에서 실제 모델 호출들의 usage를 합산한다."""
+    usages = [
+        usage
+        for response in responses
+        if (usage := normalize_complete_token_usage(response.get("usage"))) is not None
+    ]
+    if not usages:
+        return None
+    return {field: sum(usage[field] for usage in usages) for field in TOKEN_USAGE_FIELDS}
 
 
 def choose_strongest_code(categories: list[dict[str, Any]], system_signals: list[dict[str, Any]]) -> str | None:

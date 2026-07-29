@@ -5,8 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-import yaml
-
+from ai_model_serving.configuration import load_yaml_mapping
 from ai_model_serving.domain import ModelRegistry
 
 from .env import load_dotenv
@@ -26,7 +25,7 @@ def _explicit_arg(args: Any, name: str) -> str:
 
 
 def _url_value(args: Any, attr: str, env_name: str, default: str) -> str:
-    """Resolve runtime validation endpoint with explicit operator intent first.
+    """운영자가 명시한 값을 우선해 runtime validation endpoint를 결정한다.
 
     우선순위는 CLI 인자 > process/.env 환경변수 > built-in 기본값이다.
     ``load_dotenv``는 이미 process env를 덮어쓰지 않으므로 exported env가
@@ -71,10 +70,10 @@ def _first_csv_value(value: str) -> str:
 def load_runtime_config(args: Any) -> RuntimeValidationConfig:
     root = Path(args.root).resolve()
     load_dotenv(root)
-    model_serving = yaml.safe_load((root / "configs/model_serving.yaml").read_text(encoding="utf-8"))
-    model_catalog = yaml.safe_load((root / "configs/model_catalog.yaml").read_text(encoding="utf-8"))
-    monitoring = yaml.safe_load((root / "configs/monitoring.yaml").read_text(encoding="utf-8"))
-    gpu_budgets = yaml.safe_load((root / "configs/gpu_budgets.yaml").read_text(encoding="utf-8"))
+    model_serving = load_yaml_mapping(root / "configs/model_serving.yaml")
+    model_catalog = load_yaml_mapping(root / "configs/model_catalog.yaml")
+    monitoring = load_yaml_mapping(root / "configs/monitoring.yaml")
+    gpu_budgets = load_yaml_mapping(root / "configs/gpu_budgets.yaml")
     registry = ModelRegistry(model_catalog, model_serving)
 
     api_key = args.api_key or os.getenv("API_KEY", "") or _first_csv_value(os.getenv("API_KEYS", ""))

@@ -11,8 +11,10 @@ from ..risk import (
     DetectorSpec,
     assessment_response,
     extract_generation_text,
+    combine_token_usage,
     parse_detector_label,
     system_signal,
+    token_usage_from_upstream,
 )
 
 if TYPE_CHECKING:
@@ -64,7 +66,13 @@ class RiskAssessmentService:
             message = "Risk assessment completed with system signals."
         else:
             message = "No model risk signal detected."
-        response = assessment_response(categories=categories, system_signals=system_signals, status=status, message=message)
+        response = assessment_response(
+            categories=categories,
+            system_signals=system_signals,
+            status=status,
+            message=message,
+            usage=combine_token_usage(results),
+        )
         if self.metrics is not None:
             self.metrics.record_risk_assessment(
                 "aggregate",
@@ -80,7 +88,7 @@ class RiskAssessmentService:
         if detector_key not in self.detector_specs:
             raise ServiceError("DETECTOR_DISABLED", f"Risk detector is not enabled: {detector_key}", False, 410)
 
-        # Local detectors bypass the vLLM client
+        # local detector는 vLLM client를 거치지 않고 process 안에서 바로 실행한다.
         if detector_key in self.local_detectors:
             return await self._assess_local_detector(detector_key, prompt)
 
@@ -112,6 +120,7 @@ class RiskAssessmentService:
 
     async def assess_detector(self, client: JsonRuntimeClient, detector: DetectorSpec, prompt: str) -> dict[str, Any]:
         start = time.monotonic()
+        usage: dict[str, int] | None = None
         try:
             if self.input_policy is not None and self.input_policy.overflowed(prompt):
                 response = self.input_policy.system_signal_response(
@@ -119,9 +128,19 @@ class RiskAssessmentService:
                     source_model=detector.source_model,
                 )
                 return self._record_detector_result(detector.name, start, response)
-            category = await self._call_detector(client, detector, prompt)
+            upstream_response = await self._call_detector(client, detector, prompt)
+            # 라벨 파싱이 실패해도 모델 호출 자체의 토큰 사용량은 진단에 유효하다.
+            usage = token_usage_from_upstream(upstream_response)
+            text = extract_generation_text(upstream_response, expected_model=client.endpoint.model)
+            category = parse_detector_label(text, detector)
             message = "Risk signal detected." if category["detected"] else "No model risk signal detected."
-            response = assessment_response(categories=[category], system_signals=[], status="completed", message=message)
+            response = assessment_response(
+                categories=[category],
+                system_signals=[],
+                status="completed",
+                message=message,
+                usage=usage,
+            )
         except ServiceError as exc:
             code = system_signal_code(exc)
             detail = exc.message
@@ -132,6 +151,7 @@ class RiskAssessmentService:
                 system_signals=[system_signal(code, detail, detector.source_model, exc.retryable)],
                 status="failed",
                 message="Detector inference failed." if code != "PARSE_ERROR" else "Detector output could not be parsed.",
+                usage=usage,
             )
         return self._record_detector_result(detector.name, start, response)
 
@@ -147,7 +167,12 @@ class RiskAssessmentService:
             )
         return response
 
-    async def _call_detector(self, client: JsonRuntimeClient, detector: DetectorSpec, prompt: str) -> dict[str, Any]:
+    async def _call_detector(
+        self,
+        client: JsonRuntimeClient,
+        detector: DetectorSpec,
+        prompt: str,
+    ) -> dict[str, Any]:
         payload = {
             "model": client.endpoint.model,
             "messages": [{"role": "user", "content": prompt}],
@@ -164,8 +189,7 @@ class RiskAssessmentService:
         finally:
             if self.metrics is not None:
                 self.metrics.record_upstream_request(detector.source_model, "chat/completions", time.monotonic() - start)
-        text = extract_generation_text(response, expected_model=client.endpoint.model)
-        return parse_detector_label(text, detector)
+        return response
 
 
 def system_signal_code(exc: ServiceError) -> str:

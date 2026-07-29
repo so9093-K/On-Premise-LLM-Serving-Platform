@@ -11,10 +11,10 @@
 - upstream logical id
 - error code
 - 토큰 사용량(prompt_tokens/completion_tokens/total_tokens) — 개수일 뿐 내용이
-  아니라 민감정보가 아니다. `/v1/chat/completions`, `/v1/embeddings` 응답의
-  `usage`를 `logging_policy.record_token_usage()`가 항상 옮긴다 —
+  아니라 민감정보가 아니다. `/v1/chat/completions`, `/v1/embeddings`, vLLM-backed
+  prompt detector 응답의 `usage`를 `logging_policy.record_token_usage()`가 항상 옮긴다 —
   `LOG_REQUEST_RESPONSE_BODY`와 무관하게 latency와 동급으로 상시 기록된다.
-  usage가 없는 응답(리스크 detector 등)은 조용히 생략된다.
+  usage가 없는 local detector·입력 제한 사전 차단·실패 응답은 조용히 생략된다.
 
 ## 남기면 안 되는 정보
 

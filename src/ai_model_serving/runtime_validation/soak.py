@@ -10,7 +10,7 @@ from .results import CheckResult
 
 
 class SoakRunner:
-    """Concurrent smoke loop used by live runtime validation."""
+    """live runtime validation에서 사용하는 동시성 smoke loop다."""
 
     def __init__(self, *, config: RuntimeValidationConfig, http: RuntimeValidationHttpClient) -> None:
         self.config = config

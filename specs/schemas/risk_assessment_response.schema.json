@@ -48,10 +48,25 @@
         "string",
         "null"
       ],
-      "pattern": "^(A[12]|I[1-4]|D[1-5]|PARSE_ERROR|INFERENCE_ERROR|INFERENCE_TIMEOUT|TRUNCATED_INPUT|INFERENCE_QUEUE_TIMEOUT|GPU_MEMORY_PRESSURE)$"
+    "pattern": "^(A[12]|I[1-4]|D[1-5]|PARSE_ERROR|INFERENCE_ERROR|INFERENCE_TIMEOUT|TRUNCATED_INPUT|INFERENCE_QUEUE_TIMEOUT)$"
     },
     "message": {
       "type": "string"
+    },
+    "usage": {
+      "description": "Present only when a vLLM-backed detector completed and returned token accounting. Aggregate assessments sum the vLLM-backed detector calls included in that response.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "prompt_tokens",
+        "completion_tokens",
+        "total_tokens"
+      ],
+      "properties": {
+        "prompt_tokens": {"type": "integer", "minimum": 0},
+        "completion_tokens": {"type": "integer", "minimum": 0},
+        "total_tokens": {"type": "integer", "minimum": 0}
+      }
     },
     "categories": {
       "type": "array",
@@ -193,8 +208,7 @@
               "INFERENCE_ERROR",
               "INFERENCE_TIMEOUT",
               "TRUNCATED_INPUT",
-              "INFERENCE_QUEUE_TIMEOUT",
-              "GPU_MEMORY_PRESSURE"
+              "INFERENCE_QUEUE_TIMEOUT"
             ]
           },
           "detected": {

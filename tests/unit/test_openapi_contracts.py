@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from fastapi import FastAPI
+import pytest
 
 from ai_model_serving.apps.gateway import create_gateway_app
 from ai_model_serving.apps.risk_adapter import create_risk_adapter_app
@@ -8,6 +9,14 @@ from ai_model_serving.openapi_contracts import install_contract_openapi, load_co
 
 from tests.unit.gateway.helpers import FakeGatewayClients, settings as gateway_settings
 from tests.unit.test_risk_adapter_app import FakeRiskClients, settings as risk_settings
+
+
+def test_error_catalog_loading_fails_explicitly_when_required_catalog_is_missing(tmp_path, monkeypatch):
+    import ai_model_serving.openapi_contracts as contracts
+
+    monkeypatch.setattr(contracts, "find_project_root", lambda: tmp_path)
+    with pytest.raises(RuntimeError, match="error_catalog.yaml"):
+        contracts._load_error_catalog()
 
 
 def test_gateway_generated_openapi_uses_checked_in_request_contracts():

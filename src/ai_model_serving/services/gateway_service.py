@@ -43,7 +43,7 @@ def normalize_chat_request_for_runtime(
     runtime_features: dict[str, Any] | None,
     policy: dict[str, Any] | None,
 ) -> tuple[dict[str, Any], ChatResponseExpectations]:
-    """Map Gateway-facing controls to vLLM request extensions and response checks."""
+    """Gateway 제어 값을 vLLM 요청 확장과 응답 검증 규칙으로 변환한다."""
     del runtime_features, policy
     response_format = payload.get("response_format")
     response_format_type = response_format.get("type") if isinstance(response_format, dict) else None
@@ -66,7 +66,7 @@ def normalize_chat_request_for_runtime(
 
 
 def _stream_error_event(exc: ServiceError) -> bytes:
-    """Return a bounded SSE error event for streaming transport failures.
+    """streaming 전송 실패에 대해 크기를 제한한 SSE 오류 event를 반환한다.
 
     Once the Gateway has selected the SSE transport, some failures may happen
     after response headers are committed.  In that phase the service cannot
@@ -82,7 +82,7 @@ def _stream_error_event(exc: ServiceError) -> bytes:
 
 
 class StreamingUsageObserver:
-    """Inspect relayed SSE bytes for usage objects without buffering content.
+    """본문을 버퍼링하지 않고 전달 중인 SSE 바이트에서 usage 객체를 확인한다.
 
     vLLM/OpenAI-compatible streaming may include `usage` on a final or near-final
     chunk.  The Gateway relays the original bytes unchanged and only counts that
@@ -123,7 +123,7 @@ class GatewayClientSet(Protocol):
 
 
 class GatewayService:
-    """Use-case layer for public Gateway operations.
+    """공개 Gateway 작업을 담당하는 use-case 계층이다.
 
     FastAPI handlers should remain responsible for transport concerns only:
     routing, auth dependencies, examples, and response metadata.  This service

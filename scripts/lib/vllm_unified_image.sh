@@ -14,6 +14,13 @@ vllm_unified_default_image() {
   printf 'ai-model-serving-vllm-unified:%s\n' "$version"
 }
 
+vllm_unified_canonical_base_image() {
+  local root python_bin
+  root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+  python_bin="${PYTHON_BIN:-$(command -v python3.12 || command -v python3 || command -v python)}"
+  "$python_bin" "$root/scripts/models/print_vllm_unified_compatibility.py" --key base_image
+}
+
 vllm_unified_env_file_value() {
   local env_file="${1:-.env}"
   local key="${2:?env key required}"
@@ -37,6 +44,8 @@ vllm_unified_resolve_images() {
   local env_file="${1:-.env}"
   local default_image
   default_image="$(vllm_unified_default_image)"
+  local canonical_base_image
+  canonical_base_image="$(vllm_unified_canonical_base_image)"
 
   local file_risk file_base file_main
   file_risk="$(vllm_unified_env_file_value "$env_file" RISK_VLLM_IMAGE 2>/dev/null || true)"
@@ -44,7 +53,9 @@ vllm_unified_resolve_images() {
   file_main="$(vllm_unified_env_file_value "$env_file" VLLM_IMAGE 2>/dev/null || true)"
 
   VLLM_IMAGE_RESOLVED="${VLLM_IMAGE:-${file_main:-$default_image}}"
-  RISK_VLLM_BASE_IMAGE_RESOLVED="${RISK_VLLM_BASE_IMAGE:-${file_base:-vllm/vllm-openai@sha256:6a090ed9d4a3739813ce355cbd63d4c34c987a25c8409796f24912ba71c2d4a4}}"
+  # 환경 변수/.env 값은 운영 환경의 명시적 override로만 허용한다. 값이 없을 때는
+  # recommended_images.yaml의 immutable digest 하나를 모든 경로가 사용한다.
+  RISK_VLLM_BASE_IMAGE_RESOLVED="${RISK_VLLM_BASE_IMAGE:-${file_base:-$canonical_base_image}}"
   RISK_VLLM_IMAGE_RESOLVED="${RISK_VLLM_IMAGE:-${file_risk:-$default_image}}"
 
   export VLLM_IMAGE_RESOLVED

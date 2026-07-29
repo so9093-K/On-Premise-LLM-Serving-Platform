@@ -198,7 +198,7 @@ def validate_request_schemas() -> None:
 
 
 def validate_generated_openapi_contract_schemas() -> None:
-    """Ensure FastAPI-generated OpenAPI surfaces the checked-in JSON contracts."""
+    """FastAPI 생성 OpenAPI가 checked-in JSON 계약을 노출하는지 확인한다."""
     from ai_model_serving.apps.gateway import create_gateway_app
     from ai_model_serving.apps.risk_adapter import create_risk_adapter_app
     from ai_model_serving.openapi_contracts import load_contract_schema

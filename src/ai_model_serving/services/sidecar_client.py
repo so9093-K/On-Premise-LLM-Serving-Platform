@@ -15,7 +15,7 @@ class SidecarRequestError(Exception):
 
 
 class SidecarClient:
-    """HTTP client for the admin-sidecar container lifecycle API.
+    """admin-sidecar 컨테이너 lifecycle API용 HTTP client다.
 
     The sidecar runs inside the compose network and is never exposed publicly.
     Timeouts are generous because container start includes health-wait loops.
@@ -26,7 +26,7 @@ class SidecarClient:
         self._headers = {"Authorization": f"Bearer {token}"} if token else {}
 
     async def get_status(self) -> dict[str, str]:
-        """Returns {container_name: status_string} for all controllable containers."""
+        """제어 가능한 모든 컨테이너의 ``{이름: 상태}`` 매핑을 반환한다."""
         try:
             async with httpx.AsyncClient(timeout=5.0) as client:
                 resp = await client.get(f"{self._base}/containers/status", headers=self._headers)
@@ -36,7 +36,7 @@ class SidecarClient:
             raise SidecarUnavailableError(f"sidecar unreachable: {exc}") from exc
 
     async def stop(self, container: str) -> list[str]:
-        """Stops container. Returns list of containers actually stopped."""
+        """컨테이너를 중지하고 실제로 중지한 컨테이너 목록을 반환한다."""
         try:
             async with httpx.AsyncClient(timeout=35.0) as client:
                 resp = await client.post(
@@ -48,7 +48,7 @@ class SidecarClient:
             raise SidecarUnavailableError(f"sidecar stop failed: {exc}") from exc
 
     async def start(self, container: str, *, force: bool = False) -> dict:
-        """Starts container (and any prerequisites). Returns the sidecar result.
+        """컨테이너와 필요한 선행 컨테이너를 시작하고 sidecar 결과를 반환한다.
 
         A 409 GPU-budget rejection is surfaced as SidecarRequestError (carrying the
         eviction plan); connection/other failures remain SidecarUnavailableError.
@@ -96,7 +96,7 @@ class SidecarClient:
             raise SidecarUnavailableError(f"sidecar main-model stop failed: {exc}") from exc
 
     async def main_start(self, *, force: bool = False) -> dict:
-        """Starts the main runtime. 409 (budget) -> SidecarRequestError with plan."""
+        """main runtime을 시작한다. 예산 부족 409는 계획을 포함한 오류로 변환한다."""
         try:
             async with httpx.AsyncClient(timeout=180.0) as client:
                 resp = await client.post(

@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Any
 
 from .domain import ModelRegistry, resolve_catalog_max_output_tokens
+from .configuration import load_yaml_mapping
 from .project_paths import resolve_project_root as _resolve_project_root
 from .settings_parts.env import (
     as_bool as _as_bool,
@@ -11,7 +12,6 @@ from .settings_parts.env import (
     as_int as _as_int,
     env as _env,
     load_local_dotenv_when_allowed,
-    load_yaml,
 )
 from .settings_parts.runtime_endpoints import build_runtime_endpoint, validate_timeout_budget
 from .settings_parts.security import build_security_settings
@@ -143,6 +143,19 @@ def _embedding_profiles_from_config(model_serving: dict[str, Any]) -> dict[str, 
         request_policy = cfg.get("request_parameter_policy")
         if not isinstance(request_policy, dict):
             request_policy = runtime_cfg.get("request_parameter_policy", {})
+        prompt_policy = dict(cfg.get("prompt_policy", {})) if isinstance(cfg.get("prompt_policy", {}), dict) else {}
+        for role, policy in prompt_policy.items():
+            if not isinstance(policy, dict):
+                raise RuntimeError(f"embedding_profiles.{model_id}.prompt_policy.{role} must be an object")
+            mode = str(policy.get("mode", "none"))
+            if mode not in {"none", "prefix"}:
+                raise RuntimeError(
+                    f"embedding_profiles.{model_id}.prompt_policy.{role}.mode must be 'none' or 'prefix'"
+                )
+            if mode == "prefix" and not isinstance(policy.get("prefix", ""), str):
+                raise RuntimeError(
+                    f"embedding_profiles.{model_id}.prompt_policy.{role}.prefix must be a string"
+                )
         profiles[str(model_id)] = EmbeddingProfile(
             model=str(cfg.get("served_model_name", model_id)),
             service_key=service_key,
@@ -153,7 +166,7 @@ def _embedding_profiles_from_config(model_serving: dict[str, Any]) -> dict[str, 
             retrieval_enabled=retrieval.get("enabled", False) is True,
             retrieval_default=retrieval.get("default", False) is True,
             score_modes=tuple(str(item) for item in retrieval.get("score_modes", [])),
-            prompt_policy=dict(cfg.get("prompt_policy", {})) if isinstance(cfg.get("prompt_policy", {}), dict) else {},
+            prompt_policy=prompt_policy,
             request_parameter_policy=dict(request_policy) if isinstance(request_policy, dict) else {},
         )
     if profiles:
@@ -195,8 +208,8 @@ def load_settings(root: Path | None = None, env_file: Path | str | None = None) 
     # 조용히 채워지는 대신 반드시 process environment에서 와야 한다.
     load_local_dotenv_when_allowed(project_root, env_file)
 
-    model_serving = load_yaml(project_root / "configs" / "model_serving.yaml")
-    model_catalog = load_yaml(project_root / "configs" / "model_catalog.yaml")
+    model_serving = load_yaml_mapping(project_root / "configs" / "model_serving.yaml")
+    model_catalog = load_yaml_mapping(project_root / "configs" / "model_catalog.yaml")
     version = (project_root / "VERSION").read_text(encoding="utf-8").strip()
 
     security_cfg = model_serving.get("security", {})

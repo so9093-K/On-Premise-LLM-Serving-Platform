@@ -76,7 +76,7 @@ def _shannon_entropy(s: str) -> float:
 
 
 def _scan_spans(text: str) -> list[tuple[int, int, str]]:
-    """Return (start, end, label) for every detected secret span in original-text offsets."""
+    """원문 기준 offset으로 모든 secret span의 ``(시작, 끝, 라벨)``을 반환한다."""
     spans: list[tuple[int, int, str]] = []
     for pattern, label in _PATTERNS:
         for match in pattern.finditer(text):
@@ -96,7 +96,7 @@ def _scan_spans(text: str) -> list[tuple[int, int, str]]:
 
 
 def _scan_text(text: str) -> dict[str, int]:
-    """Scan text for secrets; return entity_label -> span_count, without raw values."""
+    """원문 값 없이 secret을 검사해 ``entity_label → span_count``를 반환한다."""
     counts: dict[str, int] = {}
     for _, _, label in _scan_spans(text):
         counts[label] = counts.get(label, 0) + 1
@@ -156,7 +156,7 @@ def _build_categories(entity_counts: dict[str, int]) -> list[dict[str, Any]]:
 
 
 class SecretExposureDetector:
-    """Secret/credential exposure detector using curated regex, entropy, and context keywords.
+    """선별한 정규식, entropy, 문맥 키워드로 secret·credential 노출을 탐지한다.
 
     No external CLI tools (Gitleaks, TruffleHog) are invoked at request time.
     Original secret values are never included in the response.

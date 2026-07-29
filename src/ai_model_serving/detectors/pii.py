@@ -22,7 +22,7 @@ _ENTITY_CODE: dict[str, str] = {
 
 @dataclass(frozen=True)
 class EntitySpan:
-    """One recognizer finding before duplicate removal.
+    """중복 제거 전 recognizer가 발견한 엔티티 하나를 표현한다.
 
     Raw matched text is intentionally not stored. Character offsets are retained
     only in-process so multiple recognizers can be deduplicated without exposing
@@ -37,7 +37,7 @@ class EntitySpan:
 
 @dataclass(frozen=True)
 class EntitySummary:
-    """Classified count produced after recognizer reconciliation."""
+    """recognizer 결과를 정리한 뒤 생성한 분류별 탐지 개수다."""
 
     entity: str
     code: str
@@ -73,7 +73,7 @@ def _regex_spans(
 
 
 def _run_custom_span_recognizers(text: str) -> list[EntitySpan]:
-    """Return strong local recognizer findings with their character offsets."""
+    """신뢰도 높은 local recognizer 결과와 문자 offset을 반환한다."""
     spans: list[EntitySpan] = []
     for entity, pattern in (
         ("KR_RRN", _KR_RRN_RE),
@@ -94,7 +94,7 @@ def _same_span(left: EntitySpan, right: EntitySpan) -> bool:
 
 
 def _reconcile_spans(spans: list[EntitySpan]) -> list[EntitySpan]:
-    """Remove technical duplicates while preserving independent findings."""
+    """서로 독립적인 탐지는 보존하면서 기술적 중복만 제거한다."""
     candidates = sorted(
         spans,
         key=lambda span: (
@@ -127,7 +127,7 @@ def _count_spans(spans: list[EntitySpan]) -> dict[str, int]:
 
 
 def _classify_spans(spans: list[EntitySpan]) -> list[EntitySummary]:
-    """Map reconciled entity spans to the public D-code taxonomy."""
+    """정리된 엔티티 span을 공개 D-code 분류 체계에 매핑한다."""
     return [
         EntitySummary(entity=entity, code=_ENTITY_CODE[entity], span_count=count)
         for entity, count in sorted(_count_spans(spans).items())
@@ -150,7 +150,7 @@ def _safe_category() -> dict[str, Any]:
 def _categories_from_summaries(
     summaries: list[EntitySummary],
 ) -> list[dict[str, Any]]:
-    """Build contract categories without performing recognition or reconciliation."""
+    """인식·중복 정리 없이 이미 분류된 결과로 계약 category를 만든다."""
     if not summaries:
         return [_safe_category()]
 
@@ -169,12 +169,12 @@ def _categories_from_summaries(
 
 
 def _collect_recognizer_spans(text: str) -> list[EntitySpan]:
-    """Collect deterministic local findings without external model or cache I/O."""
+    """외부 모델이나 cache I/O 없이 결정적인 local 탐지 결과를 수집한다."""
     return _run_custom_span_recognizers(text)
 
 
 def _build_assessment(categories: list[dict[str, Any]]) -> dict[str, Any]:
-    """Build the external assessment contract from already classified categories."""
+    """이미 분류된 category로 외부 assessment 계약 응답을 만든다."""
     detected = any(category["detected"] for category in categories)
     message = "Data exposure signal detected." if detected else "No PII signal detected."
     return assessment_response(
@@ -198,7 +198,7 @@ def mask_pii(text: str) -> str:
 
 
 class PIIProtectionDetector:
-    """Coordinate recognition, technical deduplication, classification, and output.
+    """인식, 기술적 중복 제거, 분류, 응답 생성을 순서대로 조율한다.
 
     Each stage is implemented separately. The detector does not validate whether
     an identifier exists or belongs to a real person or business.

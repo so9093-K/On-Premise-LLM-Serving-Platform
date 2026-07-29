@@ -1,15 +1,14 @@
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from typing import Any
 
 from .main_model_control import (
-    MainModelStateError,
     gpu_util_override_from_mapping,
     load_main_model_catalog,
     resolve_boot_profile,
 )
+from .main_model_state import read_active_profile
 from .settings_parts.dotenv_parser import load_strict_env_file
 
 
@@ -35,25 +34,6 @@ def _strict_bool(value: str, *, key: str) -> bool:
     raise ValueError(f"{key} must be true or false, got: {value!r}")
 
 
-def read_persisted_active_profile(path: Path) -> str | None:
-    if not path.exists():
-        return None
-    try:
-        state = json.loads(path.read_text(encoding="utf-8"))
-    except PermissionError as exc:
-        raise MainModelStateError(
-            f"main model state is not readable (permission denied): {path}"
-        ) from exc
-    except (OSError, json.JSONDecodeError) as exc:
-        raise MainModelStateError(f"main model state is corrupt: {path}") from exc
-    if not isinstance(state, dict) or state.get("schema_version") != 1:
-        raise MainModelStateError("unsupported main model state schema")
-    active = state.get("active_profile")
-    if active is not None and not isinstance(active, str):
-        raise MainModelStateError("active_profile must be a string or null")
-    return active
-
-
 def render_boot_override(
     *,
     catalog_path: Path,
@@ -75,7 +55,7 @@ def render_boot_override(
         catalog,
         configured_profile=configured,
         locked=locked,
-        persisted_profile=read_persisted_active_profile(state_path),
+        persisted_profile=read_active_profile(state_path),
     )
     profile = catalog.profiles[profile_id]
     return profile_id, {

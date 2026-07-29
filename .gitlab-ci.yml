@@ -12,7 +12,8 @@ variables:
   PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
   DOCKER_BUILDKIT: "1"
   # 모든 served model(26B/12B main-LLM, embedding, embedding-ko, risk-prompt)이 공유하는
-  # base image. CI/CD 변수 VLLM_BASE_IMAGE로 이 파일을 안 고치고도 base를 바꿀 수 있다.
+  # base image는 configs/recommended_images.yaml이 단일 기준이다. 기본값을 바꿀
+  # 필요가 있는 특별한 pipeline만 CI/CD 변수 VLLM_BASE_IMAGE로 명시적으로 override한다.
   # v0.25.1에서는 dense 양자화 모델에 Model Runner V2가 기본 적용돼, 이전에 고정해뒀던
   # dev 빌드에서 겪던 12B의 구조화 출력 JIT-웜업 갭이 닫힌다 — 실제 GPU 로드로 검증함
   # (ops/patches/apply_gemma4_multimodal_patches.py 참고). risk-prompt도 같은 base로
@@ -24,14 +25,8 @@ variables:
   # 합쳐졌다 — 각 patch는 그걸 필요로 하지 않는 모델에 no-op이라 26B/embedding/
   # embedding-ko도 이 이미지를 그대로 쓴다.
   #
-  # 2026-07-25: RISK_VLLM_IMAGE_*/AUDIO_VLLM_IMAGE_*는 (배포 스크립트가 소비하는
-  # 방식이 서로 달라 -- risk-prompt-vllm은 compose가 정적으로 pull하는 서비스,
-  # main-llm-vllm의 12B 프로필은 admin-sidecar가 동적으로 pin하는 이미지라서
-  # 여전히 별도 변수다) 남겨뒀지만, registry 이름은 vllm-unified 하나로 합쳤다 --
-  # 예전엔 같은 빌드 결과를 risk-vllm-kanana/vllm-gemma4-audio 두 이름으로
-  # 각각 push해서 registry 저장공간과 push 시간을 낭비했다(build_vllm_derived_images.sh 참고).
-  VLLM_BASE_IMAGE: "vllm/vllm-openai@sha256:6a090ed9d4a3739813ce355cbd63d4c34c987a25c8409796f24912ba71c2d4a4"
-
+  # risk-prompt와 12B profile은 배포 경로가 달라 별도 변수명을 사용하지만, 두 값은
+  # 같은 vllm-unified image를 가리킨다.
   PLATFORM_IMAGE_SHA: "$CI_REGISTRY_IMAGE/platform:$CI_COMMIT_SHORT_SHA"
   PLATFORM_IMAGE_REF: "$CI_REGISTRY_IMAGE/platform:$CI_COMMIT_REF_SLUG"
   RISK_VLLM_IMAGE_SHA: "$CI_REGISTRY_IMAGE/vllm-unified:$CI_COMMIT_SHORT_SHA"
@@ -137,10 +132,9 @@ build-platform:
       - build/platform-image.env
     expire_in: 7 days
 
-# vLLM unified 런타임 이미지를 한 번 빌드해서 risk-vllm-kanana/vllm-gemma4-audio
-# 두 registry 태그로 push한다(실제로는 같은 이미지) — 큰(~25 GB) vLLM base
-# 이미지도 한 번만 pull한다. embedding-ko-vllm은 EMBEDDING_KO_VLLM_IMAGE를 쓰므로
-# 별도 빌드가 필요 없다.
+# vLLM unified 런타임 이미지를 한 번 빌드해 단일 registry 경로에 push한다. 큰(~25 GB)
+# vLLM base 이미지도 한 번만 pull한다. embedding-ko-vllm은 EMBEDDING_KO_VLLM_IMAGE를
+# 쓰므로 별도 빌드가 필요 없다.
 # BUILD_VLLM_DERIVED=1 또는 DEPLOY_MODE=full일 때 release/tag 파이프라인에서 자동 실행된다.
 # Rolling 방식의 control-plane 배포는 이 job을 아예 건너뛴다 — vLLM 재빌드가 필요 없기 때문.
 # allow_failure: false — job이 실행됐는데 실패하면 release 실패로 취급한다.
@@ -167,7 +161,7 @@ build-vllm-derived:
       - $DEPLOY_MODE == "full"
   allow_failure: false
   artifacts:
-    # vllm-gemma4-audio의 immutable digest -- 12B 프로필의 image override
+    # unified 이미지의 immutable digest -- 12B 프로필의 image override
     # (configs/main_model_profiles.yaml)에 고정하는 데 쓰인다.
     paths:
       - build/audio-image.env

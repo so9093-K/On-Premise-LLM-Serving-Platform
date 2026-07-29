@@ -42,7 +42,7 @@ def _field_path(loc: Any) -> str | None:
 
 @asynccontextmanager
 async def managed_lifespan(*resources: Any) -> AsyncIterator[None]:
-    """Close app-owned resources that expose an async ``close`` method.
+    """비동기 ``close`` 메서드를 제공하는 앱 소유 자원을 종료한다.
 
     Gateway and Risk Adapter have the same lifecycle shape: construct clients
     during app creation and close them on shutdown.  Keeping that lifecycle in
@@ -67,7 +67,7 @@ def create_service_app(
     tags_metadata: list[dict[str, Any]],
     lifespan_resources: tuple[Any, ...] = (),
 ) -> FastAPI:
-    """Create a FastAPI app with platform-wide documentation defaults."""
+    """플랫폼 공통 문서화 기본값을 적용한 FastAPI 앱을 생성한다."""
     return FastAPI(
         title=title,
         version=version,
@@ -82,7 +82,7 @@ def create_service_app(
 
 
 def admin_dependencies(settings: AppSettings) -> list[Depends]:
-    """Return admin auth dependencies without changing auth/non-auth mode semantics."""
+    """인증 모드 의미를 바꾸지 않고 관리자 인증 dependency를 반환한다."""
     return [Depends(require_admin_bearer_auth(settings.security))] if settings.security.admin_api_key_required else []
 
 
@@ -93,7 +93,7 @@ def install_common_middleware(
     metrics: Metrics,
     logger: Any,
 ) -> None:
-    """Install request-size guard, HTTP metrics, and safe access logging."""
+    """요청 크기 제한, HTTP metric, 안전한 접근 로그 미들웨어를 설치한다."""
 
     @app.middleware("http")
     async def request_size_guard(request: Request, call_next: Callable[[Request], Awaitable[Any]]) -> Any:
@@ -116,7 +116,7 @@ def install_common_middleware(
 
 
 def install_cors_middleware(app: FastAPI, *, settings: AppSettings) -> None:
-    """Allow a browser-based client (e.g. a chat webui) on another origin to call this API.
+    """다른 origin의 브라우저 클라이언트가 이 API를 호출하도록 CORS를 설정한다.
 
     `CORS_ALLOWED_ORIGINS` 기본값은 전체 허용("*")이다 — 이 프로젝트의 기본 auth
     profile(local_open)이 API 키 인증까지 기본으로 끄고 "네트워크 경계가 접근 제어를
@@ -146,7 +146,7 @@ def install_exception_handlers(
     logger: Any,
     validation_reason: ValidationReasonResolver | None = None,
 ) -> None:
-    """Install platform-standard JSON error handlers.
+    """플랫폼 표준 JSON 오류 처리기를 설치한다.
 
     Services can provide a small validation reason resolver to keep their
     service-specific metric labels without copying the handler implementation.
@@ -220,7 +220,7 @@ def install_exception_handlers(
 
 
 def register_scalar_docs(app: FastAPI, *, settings: AppSettings, title: str) -> None:
-    """Register the Scalar documentation endpoint when docs are enabled."""
+    """문서가 활성화된 경우 Scalar 문서 엔드포인트를 등록한다."""
     if not settings.documentation.enabled:
         return
 
@@ -233,7 +233,7 @@ def register_scalar_docs(app: FastAPI, *, settings: AppSettings, title: str) -> 
 
 
 def register_health(app: FastAPI, *, service: str, operation_id: str | None = None) -> None:
-    """Register the standard liveness endpoint."""
+    """표준 liveness 엔드포인트를 등록한다."""
     kwargs: dict[str, Any] = {"tags": ["Operations"], "summary": "Liveness 확인"}
     if operation_id is not None:
         kwargs["operation_id"] = operation_id
@@ -244,6 +244,6 @@ def register_health(app: FastAPI, *, service: str, operation_id: str | None = No
 
 
 def readiness_response(body: dict[str, Any]) -> JSONResponse:
-    """Return the platform readiness body using 200/503 semantics."""
+    """200/503 의미론에 맞는 플랫폼 readiness 응답 본문을 반환한다."""
     status_code = 200 if body.get("status") == "ready" else 503
     return JSONResponse(body, status_code=status_code)

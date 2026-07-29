@@ -19,7 +19,7 @@ CheckFn = Callable[[], CheckResult]
 
 
 class RuntimeValidator:
-    """Orchestrate runtime validation checks and report collection.
+    """runtime validation 검사 실행과 보고서 수집을 조율한다.
 
     Individual responsibilities live in smaller modules:
     - ``http_client``: auth headers, request encoding, latency measurement
@@ -66,7 +66,7 @@ class RuntimeValidator:
         except Exception as exc:  # noqa: BLE001 - runtime validation should capture all failures.
             self.record(CheckResult(category, name, "fail", detail=f"{type(exc).__name__}: {exc}"))
 
-    # Backward-compatible wrappers for scripts/tests that call individual checks.
+    # 개별 검사를 직접 호출하는 기존 script·test와의 호환을 위한 wrapper다.
     def check_gateway_health(self) -> CheckResult:
         return self.live_checks.check_gateway_health()
 

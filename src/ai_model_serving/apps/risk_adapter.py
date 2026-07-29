@@ -50,7 +50,7 @@ class RiskClients:
 
 
 def _build_local_detectors(settings: AppSettings) -> dict[str, RiskDetector]:
-    """Instantiate local (in-process) detectors for each configured local detector key."""
+    """설정된 각 local detector key에 대해 in-process detector를 생성한다."""
     local: dict[str, RiskDetector] = {}
     for detector in settings.enabled_risk_detectors():
         if detector.detector_type != "local":

@@ -2,9 +2,6 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Any
-
-import yaml
 
 from .dotenv_parser import load_strict_env_file
 
@@ -61,10 +58,6 @@ def load_local_dotenv_when_allowed(project_root: Path, env_file: Path | str | No
     exported_app_env = os.getenv("APP_ENV")
     if exported_app_env is None or exported_app_env.lower() in {"local", "test", "development"}:
         load_dotenv(project_root)
-
-
-def load_yaml(path: Path) -> dict[str, Any]:
-    return yaml.safe_load(path.read_text(encoding="utf-8"))
 
 
 def as_int(name: str, default: int, *, minimum: int = 1) -> int:

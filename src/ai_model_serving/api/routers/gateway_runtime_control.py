@@ -7,7 +7,7 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
 
 from ..endpoint_spec import GATEWAY_ENDPOINTS
-from ...errors import error_payload, error_response_headers
+from ...errors import default_code_for_status, error_payload, error_response_headers
 from ...api_examples import (
     RUNTIME_BUDGET_EXCEEDED_EXAMPLE,
     RUNTIME_ERROR_404_EXAMPLE,
@@ -220,6 +220,38 @@ def _sidecar_unavailable_response(exc: SidecarUnavailableError) -> JSONResponse:
     )
 
 
+def _sidecar_request_error_response(exc: SidecarRequestError) -> JSONResponse:
+    """Sidecar의 구조화된 작업 거부를 Gateway 표준 오류 envelope로 전달한다."""
+    detail = exc.detail
+    raw_detail = detail if isinstance(detail, dict) else {}
+    specific_code = raw_detail.get("code") if isinstance(raw_detail.get("code"), str) else None
+    message = raw_detail.get("message") if isinstance(raw_detail.get("message"), str) else str(detail)
+
+    # GPU 예산 거부는 호출자가 plan.stop을 읽어 다음 동작을 결정해야 하므로 독립된
+    # 플랫폼 code로 승격한다. 나머지 409(전환 lock·확인 필요·멱등 키 충돌)는
+    # 공통 CONFLICT와 details.reason 조합으로 표현해, 내부 sidecar code를 외부
+    # 플랫폼 code 집합에 무분별하게 늘리지 않는다.
+    if exc.status_code == 409:
+        code = "GPU_BUDGET_EXCEEDED" if specific_code == "GPU_BUDGET_EXCEEDED" else "CONFLICT"
+    else:
+        # main-model switch의 profile 없음(404)·입력/호환성 오류(422)도 같은
+        # sidecar client를 거친다. 409 전용 CONFLICT를 붙이면 HTTP 상태와 code의
+        # canonical status가 다시 불일치하므로, 그 외에는 공통 status 매핑을 따른다.
+        code = default_code_for_status(exc.status_code)
+    details: dict[str, Any] = {}
+    if specific_code and code != "GPU_BUDGET_EXCEEDED":
+        details["reason"] = specific_code
+    for key, value in raw_detail.items():
+        if key not in {"code", "message"}:
+            details[key] = value
+    payload = error_payload(code, message, False, details=details or None)
+    return JSONResponse(
+        payload,
+        status_code=exc.status_code,
+        headers=error_response_headers(code, payload),
+    )
+
+
 def _budget_participant(budget: dict[str, Any] | None, key: str) -> dict[str, Any] | None:
     for participant in (budget or {}).get("participants", []):
         if participant.get("key") == key:
@@ -235,7 +267,7 @@ def _budget_fraction(budget: dict[str, Any] | None, key: str) -> float | None:
 def _main_participant(
     budget: dict[str, Any] | None, secondary_containers: set[str]
 ) -> dict[str, Any] | None:
-    """The non-secondary budget participant (the main model), if present."""
+    """존재하면 보조 런타임이 아닌 main model 예산 참여자를 반환한다."""
     for participant in (budget or {}).get("participants", []):
         if participant.get("key") not in secondary_containers:
             return participant
@@ -387,7 +419,7 @@ def build_router(
             }}}},
             404: {"content": {"application/json": {"example": RUNTIME_ERROR_404_EXAMPLE}}},
             409: {
-                "description": "GPU 예산 초과(정지 계획 반환). force=true로 자동 축출.",
+                "description": "GPU 예산 초과. 표준 error.code=GPU_BUDGET_EXCEEDED와 error.details.plan.stop을 반환한다. force=true로 자동 축출.",
                 "content": {"application/json": {"examples": {
                     "budget_exceeded": {"summary": "GPU 예산 초과 + 정지 계획", "value": RUNTIME_BUDGET_EXCEEDED_EXAMPLE},
                 }}},
@@ -430,7 +462,7 @@ def build_router(
                 else:
                     result = await sidecar.main_stop()
             except SidecarRequestError as exc:  # GPU 예산 admission 거부
-                raise HTTPException(exc.status_code, detail=exc.detail) from exc
+                return _sidecar_request_error_response(exc)
             except SidecarUnavailableError as exc:
                 return _sidecar_unavailable_response(exc)
             return JSONResponse({
@@ -480,7 +512,7 @@ def build_router(
                     reason="start_rejected",
                     source="runtime_control",
                 )
-                raise HTTPException(exc.status_code, detail=exc.detail) from exc
+                return _sidecar_request_error_response(exc)
             except SidecarUnavailableError as exc:
                 await state_store.set(
                     service_key,
@@ -742,7 +774,7 @@ def build_router(
             )
             return JSONResponse(result, status_code=202)
         except SidecarRequestError as exc:
-            raise HTTPException(exc.status_code, detail=exc.detail) from exc
+            return _sidecar_request_error_response(exc)
         except SidecarUnavailableError as exc:
             return _sidecar_unavailable_response(exc)
 

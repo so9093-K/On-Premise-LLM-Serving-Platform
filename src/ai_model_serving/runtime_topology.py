@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
-import yaml
+from .configuration import load_yaml_mapping
 
 
 @dataclass(frozen=True)
@@ -34,13 +34,9 @@ def service_from_endpoint(endpoint: str) -> str:
     return service
 
 
-def _load_yaml(path: Path) -> dict[str, Any]:
-    return yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-
-
 def load_runtime_topology(config_root: Path, *, compose_path: Path | None = None) -> RuntimeTopology:
-    model_serving = _load_yaml(config_root / "configs/model_serving.yaml")
-    main_profiles = _load_yaml(config_root / "configs/main_model_profiles.yaml")
+    model_serving = load_yaml_mapping(config_root / "configs/model_serving.yaml")
+    main_profiles = load_yaml_mapping(config_root / "configs/main_model_profiles.yaml")
     main_service = str((main_profiles.get("runtime") or {}).get("compose_service", ""))
     if not main_service:
         raise ValueError("main_model_profiles.yaml runtime.compose_service is required")
@@ -65,7 +61,7 @@ def load_runtime_topology(config_root: Path, *, compose_path: Path | None = None
 
     start_prerequisites_by_service: dict[str, list[str]] = {}
     if compose_path is not None and compose_path.exists():
-        compose = _load_yaml(compose_path)
+        compose = load_yaml_mapping(compose_path)
         controllable = set(service_by_key.values())
         for service in controllable:
             depends = ((compose.get("services") or {}).get(service) or {}).get("depends_on") or {}

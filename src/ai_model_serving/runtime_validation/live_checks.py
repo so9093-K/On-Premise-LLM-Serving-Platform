@@ -14,7 +14,7 @@ from .results import CheckResult
 
 
 class LiveRuntimeChecks:
-    """Live service and monitoring checks for runtime validation."""
+    """runtime validation을 위한 live 서비스·모니터링 검사다."""
 
     def __init__(
         self,

@@ -14,7 +14,7 @@
 # 선택:
 #   RISK_VLLM_IMAGE_TO_DEPLOY         RISK_VLLM_IMAGE를 덮어쓰는 전체 런타임 배포 override;
 #                                     DEPLOY_MODE=full일 때만 허용
-#   RISK_VLLM_IMAGE_SHA               DEPLOY_MODE=full일 때 기본 risk-vllm-kanana 이미지
+#   RISK_VLLM_IMAGE_SHA               DEPLOY_MODE=full일 때 기본 vllm-unified 이미지
 #   DEPLOY_COMPOSE_FILE               DEPLOY_PATH 기준 상대 compose 파일 경로
 #                              기본값: ops/compose/full-stack.private-network.yaml
 #   DEPLOY_MODE                자동 감지 (vLLM 이미지가 바뀌거나 런타임 민감 파일이

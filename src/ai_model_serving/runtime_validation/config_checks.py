@@ -18,7 +18,7 @@ RecordFn = Callable[[CheckResult], None]
 
 
 class ConfigOnlyChecks:
-    """Static/projection checks for runtime validation without live services."""
+    """실행 중인 서비스 없이 수행하는 runtime validation 정적·projection 검사다."""
 
     def __init__(self, *, config: RuntimeValidationConfig, registry: ModelRegistry, record: RecordFn) -> None:
         self.config = config
@@ -173,7 +173,7 @@ class ConfigOnlyChecks:
 
     def _record_fixed_detector_budget(self) -> None:
         fixed = self.gpu_budgets.get("resource_management", {}).get("fixed_constraints", [])
-        # Only vLLM detectors have a service_key; local detectors are in-process and have no GPU budget.
+        # service_key와 GPU 예산은 vLLM detector에만 있다. local detector는 process 안에서 실행된다.
         detector_service_keys = [
             str(detector["service_key"])
             for detector in self.model_serving.get("risk_adapter", {}).get("detectors", {}).values()

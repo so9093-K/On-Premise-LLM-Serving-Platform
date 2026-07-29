@@ -66,7 +66,7 @@ def plan_activation(
     *,
     ceiling: float = DEFAULT_CEILING,
 ) -> AdmissionResult:
-    """Decide whether ``target_key`` (costing ``target_fraction``) can be active.
+    """``target_key``가 ``target_fraction``만큼의 GPU를 사용해도 되는지 판단한다.
 
     The target's own current residency does not count against it (so reloading or
     replacing an already-active runtime is feasible in place). If it does not fit,
@@ -126,7 +126,7 @@ def plan_activation(
 def budget_snapshot(
     participants: list[Participant], *, ceiling: float = DEFAULT_CEILING
 ) -> dict:
-    """Operator-facing ledger view: per-participant cost/state + budget totals."""
+    """참여자별 비용·상태와 전체 예산을 포함한 운영자용 ledger를 반환한다."""
     used = sum(p.vram_fraction for p in participants if p.active)
     return {
         "ceiling": ceiling,

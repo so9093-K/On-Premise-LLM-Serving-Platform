@@ -7,14 +7,13 @@
 # 안 겹쳐 한 이미지에 같이 들어있고, 각 patch는 그걸 필요로 하지 않는 모델에는
 # no-op이기 때문이다(둘 다 실제로 검증됨).
 #
-# 2026-07-25부터 registry 이름도 하나(vllm-unified)로 합쳤다 -- RISK_VLLM_IMAGE_SHA/REF와
-# AUDIO_VLLM_IMAGE_SHA/REF는 (deploy_gitlab_compose.sh가 risk-prompt-vllm/12B 프로필을
-# 서로 다른 방식으로 pin하므로) 변수 자체는 남겨뒀지만, .gitlab-ci.yml에서 이미 같은
-# 문자열로 정의돼 있다. 예전엔 같은 빌드 결과를 risk-vllm-kanana/vllm-gemma4-audio
-# 두 registry 이름으로 각각 push해서 ~25GB짜리 push/저장공간을 두 배로 썼다.
+# RISK_VLLM_IMAGE_SHA/REF와 AUDIO_VLLM_IMAGE_SHA/REF는 risk-prompt-vllm과 12B
+# 프로필의 배포 경로가 달라 별도 변수명을 쓴다. .gitlab-ci.yml은 둘을 같은
+# vllm-unified registry ref로 고정한다.
 #
 # 필수 환경변수 (GitLab CI job context에서 설정):
-#   VLLM_BASE_IMAGE              모든 vLLM 파생 빌드가 공유하는 canonical base image
+#   VLLM_BASE_IMAGE              선택 사항. 설정 기본값을 교체해야 할 때만 사용하는
+#                                명시적 CI/CD override
 #   RISK_VLLM_IMAGE_SHA          vllm-unified의 registry ref (SHA 태그)
 #   RISK_VLLM_IMAGE_REF          vllm-unified의 registry ref (branch/ref 태그)
 #   AUDIO_VLLM_IMAGE_SHA         RISK_VLLM_IMAGE_SHA와 동일한 값이어야 한다(.gitlab-ci.yml에서 보장)
@@ -30,7 +29,6 @@
 set -euo pipefail
 
 # ── Preflight: 필수 환경변수 확인 ───────────────────────────────────────────────
-: "${VLLM_BASE_IMAGE:?VLLM_BASE_IMAGE is required — define in .gitlab-ci.yml variables or CI/CD override}"
 : "${RISK_VLLM_IMAGE_SHA:?RISK_VLLM_IMAGE_SHA is required}"
 : "${RISK_VLLM_IMAGE_REF:?RISK_VLLM_IMAGE_REF is required}"
 : "${AUDIO_VLLM_IMAGE_SHA:?AUDIO_VLLM_IMAGE_SHA is required}"
@@ -47,7 +45,7 @@ IMAGE_SHA="${RISK_VLLM_IMAGE_SHA}"
 IMAGE_REF="${RISK_VLLM_IMAGE_REF}"
 
 # ── 공통 base image 결정 ──────────────────────────────────────────────────
-RESOLVED_VLLM_BASE_IMAGE="${VLLM_BASE_IMAGE}"
+RESOLVED_VLLM_BASE_IMAGE="${VLLM_BASE_IMAGE:-$(python3 scripts/models/print_vllm_unified_compatibility.py --key base_image)}"
 echo "[build] vLLM base image : ${RESOLVED_VLLM_BASE_IMAGE}"
 TRANSFORMERS_VERSION="$(python3 scripts/models/print_vllm_unified_compatibility.py --key transformers)"
 HUGGINGFACE_HUB_VERSION="$(python3 scripts/models/print_vllm_unified_compatibility.py --key huggingface_hub)"

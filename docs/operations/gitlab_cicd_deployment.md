@@ -294,14 +294,14 @@ CI job과 로컬 make target은 목적이 다르며 독립적으로 실행된다
 | 목적 | CI job / 로컬 명령 | 변수 기반 |
 |---|---|---|
 | Platform 이미지 빌드 + push | `build-platform` (CI) | `CI_REGISTRY_IMAGE` 등 CI 변수 |
-| 로컬 vLLM unified 이미지 빌드 | `make build-vllm-unified-image` | `.env`의 `RISK_VLLM_BASE_IMAGE`, `RISK_VLLM_IMAGE` |
-| vLLM unified 이미지 빌드/push(CI) | `build-vllm-derived` 또는 `ops/images/vllm-unified/README.md` 수동 fallback | `VLLM_BASE_IMAGE`, `AUDIO_VLLM_IMAGE_*` |
+| 로컬 vLLM unified 이미지 빌드 | `make build-vllm-unified-image` | `configs/recommended_images.yaml` 기본값, 필요 시 `.env`의 `RISK_VLLM_BASE_IMAGE`, `RISK_VLLM_IMAGE` |
+| vLLM unified 이미지 빌드/push(CI) | `build-vllm-derived` 또는 `ops/images/vllm-unified/README.md` 수동 fallback | `configs/recommended_images.yaml` 기본값, 필요 시 `VLLM_BASE_IMAGE` override, `AUDIO_VLLM_IMAGE_*` |
 
 
 
 derived Dockerfile: `ops/images/vllm-unified/Dockerfile` 하나뿐이다(26B/12B/embedding/embedding-ko/risk-prompt 공용, Gemma4 멀티모달 패치 + Kanana Llama head_dim 패치 병합) -- CI는 이 이미지를 `vllm-unified` registry 이름 하나로 빌드/push한다. `embedding-ko-vllm`도 이 이미지를 쓰지만 `EMBEDDING_KO_VLLM_IMAGE` 태그만 가리키고 별도 빌드는 하지 않는다.
 
-`configs/recommended_images.yaml`의 `images.vllm.compatibility_pins`가 unified base dependency의 단일 기준이다. 현재 pinned base digest는 `transformers 5.13.1`과 `huggingface_hub 1.23.0`을 제공하며, Dockerfile build와 HF canary는 이 정확한 쌍을 검증한다. `transformers_min 4.52.4`는 Kanana 모델의 과거 최소 호환 조건일 뿐, 설치할 패키지 버전이 아니다.
+`configs/recommended_images.yaml`의 `images.vllm.base_image_default`와 `compatibility_pins`가 unified base image와 dependency의 단일 기준이다. 현재 pinned base digest는 `transformers 5.13.1`과 `huggingface_hub 1.23.0`을 제공하며, Dockerfile build와 HF canary는 이 정확한 쌍을 검증한다. `transformers_min 4.52.4`는 Kanana 모델의 과거 최소 호환 조건일 뿐, 설치할 패키지 버전이 아니다.
 
 운영 원칙:
 

@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from ..errors import ServiceError
-from .common import ensure_object
+from .common import ensure_object, normalize_complete_token_usage
 
 MAX_RISK_PROMPT_LENGTH = 20_000
 FORBIDDEN_RISK_RESPONSE_FIELDS = {
@@ -21,7 +21,6 @@ RISK_RESPONSE_STATUS = {"completed", "partial", "failed"}
 MODEL_RISK_CODES = {"A1", "A2", "I1", "I2", "I3", "I4", "D1", "D2", "D4", "D5"}
 DATA_EXPOSURE_CODES = {"D1", "D2", "D4", "D5"}
 SYSTEM_RISK_CODES = {
-    "GPU_MEMORY_PRESSURE",
     "INFERENCE_TIMEOUT",
     "INFERENCE_QUEUE_TIMEOUT",
     "INFERENCE_ERROR",
@@ -130,7 +129,7 @@ def _validate_risk_system_signal(signal: Any, *, index: int) -> bool:
 
 
 def validate_risk_response(payload: Any) -> dict[str, Any]:
-    """Validate the internal Risk Adapter response before exposing it at Gateway.
+    """내부 Risk Adapter 응답을 Gateway에 노출하기 전에 계약에 맞는지 검증한다.
 
     This mirrors the signal-only contract without adding jsonschema as a runtime
     dependency. It prevents an internal service or future code path from leaking
@@ -153,6 +152,17 @@ def validate_risk_response(payload: Any) -> dict[str, Any]:
         raise ServiceError("UPSTREAM_SCHEMA_ERROR", "risk response status is not supported.", True, 502)
     if not isinstance(payload.get("message"), str):
         raise ServiceError("UPSTREAM_SCHEMA_ERROR", "risk response message must be a string.", True, 502)
+    if "usage" in payload:
+        usage = normalize_complete_token_usage(payload["usage"], reject_extra_fields=True)
+        if usage is None:
+            raise ServiceError(
+                "UPSTREAM_SCHEMA_ERROR",
+                "risk response usage must contain non-negative integer prompt_tokens, completion_tokens, and total_tokens only.",
+                True,
+                502,
+            )
+        # 값 자체도 정규화해 이후 로그와 HTTP 응답이 같은 객체 계약을 따른다.
+        payload["usage"] = usage
 
     categories = payload.get("categories")
     system_signals = payload.get("system_signals")

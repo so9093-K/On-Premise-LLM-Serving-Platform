@@ -32,13 +32,11 @@ images:
     purpose: vLLM pooling runtime for local-embed-ko Korean dense retrieval embeddings.
     mutable: false
     source: same image as vllm.default
-    base_image_default: vllm/vllm-openai@sha256:6a090ed9d4a3739813ce355cbd63d4c34c987a25c8409796f24912ba71c2d4a4
   risk_vllm:
     default: ai-model-serving-vllm-unified:0.0.1
     purpose: vLLM runtime for Kakao Kanana risk detectors -- same image as vllm.default.
     mutable: false
     source: same image as vllm.default
-    base_image_default: vllm/vllm-openai@sha256:6a090ed9d4a3739813ce355cbd63d4c34c987a25c8409796f24912ba71c2d4a4
   dcgm_exporter:
     default: nvcr.io/nvidia/k8s/dcgm-exporter:4.5.2-4.8.1-distroless
     purpose: NVIDIA GPU metrics exporter for Prometheus.

@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 
 
 def capability_values_in_catalog_order(registry: "ModelRegistry") -> tuple[str, ...]:
-    """Return capability values in first-seen catalog order for schema readability."""
+    """스키마 가독성을 위해 catalog에서 처음 등장한 순서로 capability 값을 반환한다."""
     ordered: list[str] = []
     seen: set[str] = set()
     for record in registry.iter_records():
@@ -40,7 +40,7 @@ def model_list_schema_projection(registry: "ModelRegistry") -> "ModelListSchemaP
 
 
 def iter_runtime_services(registry: "ModelRegistry") -> tuple["RuntimeService", ...]:
-    """Return runtime services in model_serving.yaml order with catalog context."""
+    """catalog 문맥을 포함해 ``model_serving.yaml`` 순서대로 runtime 서비스를 반환한다."""
     from .model_records import RuntimeService
 
     records_by_served_name = {record.served_model_name: record for record in registry.iter_records()}
@@ -69,7 +69,7 @@ def iter_runtime_services(registry: "ModelRegistry") -> tuple["RuntimeService", 
 
 
 def model_contract_projections(registry: "ModelRegistry") -> tuple["ModelContractProjection", ...]:
-    """Derive the model contract inventory from catalog runtime metadata."""
+    """catalog runtime 메타데이터에서 모델 계약 inventory를 파생한다."""
     from .projection_models import ModelContractProjection
 
     projections: list[ModelContractProjection] = []
@@ -94,7 +94,7 @@ def model_contract_projections(registry: "ModelRegistry") -> tuple["ModelContrac
 
 
 def inventory_rows(registry: "ModelRegistry") -> tuple["ModelInventoryRow", ...]:
-    """Return operator-facing model inventory rows without role-specific branching."""
+    """역할별 분기 없이 운영자용 모델 inventory 행을 반환한다."""
     from .projection_models import ModelInventoryRow
 
     rows: list[ModelInventoryRow] = []
@@ -127,7 +127,7 @@ def inventory_rows(registry: "ModelRegistry") -> tuple["ModelInventoryRow", ...]
 
 
 def model_card_projections(registry: "ModelRegistry") -> tuple["ModelCardProjection", ...]:
-    """Return catalog-derived expectations for model card governance."""
+    """model card 거버넌스에 필요한 catalog 기반 기대값을 반환한다."""
     from .projection_models import ModelCardProjection
 
     projections: list[ModelCardProjection] = []
@@ -149,7 +149,7 @@ def model_card_projections(registry: "ModelRegistry") -> tuple["ModelCardProject
 
 
 def runtime_validation_targets(registry: "ModelRegistry") -> tuple["RuntimeValidationTarget", ...]:
-    """Return one validation target per configured runtime service."""
+    """설정된 runtime 서비스마다 검증 대상 하나를 반환한다."""
     from .projection_models import RuntimeValidationTarget
 
     records_by_id = {record.logical_id: record for record in registry.iter_records()}
@@ -173,7 +173,7 @@ def runtime_validation_targets(registry: "ModelRegistry") -> tuple["RuntimeValid
 
 
 def monitoring_targets(registry: "ModelRegistry") -> tuple["MonitoringTargetProjection", ...]:
-    """Return Prometheus/Grafana model/runtime label expectations."""
+    """Prometheus/Grafana에서 기대하는 모델·runtime label을 반환한다."""
     from .projection_models import MonitoringTargetProjection
 
     return tuple(
@@ -188,7 +188,7 @@ def monitoring_targets(registry: "ModelRegistry") -> tuple["MonitoringTargetProj
 
 
 def runtime_validation_matrix_checks(registry: "ModelRegistry") -> tuple["RuntimeValidationMatrixCheck", ...]:
-    """Derive the runtime validation matrix from the model registry."""
+    """모델 registry에서 runtime validation matrix를 파생한다."""
     from .projection_models import RuntimeValidationMatrixCheck
 
     all_models = registry.public_logical_ids()

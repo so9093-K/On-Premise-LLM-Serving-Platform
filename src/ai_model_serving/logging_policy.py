@@ -10,6 +10,7 @@ from starlette.responses import Response
 
 from .detectors.masking import mask_sensitive_text
 from .errors import request_id_from_headers
+from .contracts.common import is_int
 # service_logger/scrub_for_log은 starlette 없이도 써야 하는 호출부(예: 순수 YAML/카탈로그
 # 검증 스크립트가 도는 최소 venv)가 있어 service_logging.py로 분리했다 — 여기서는
 # 하위호환을 위해 재수출만 한다.
@@ -51,7 +52,7 @@ def record_token_usage(request: Request, usage: Any) -> None:
         return
     for field in ("prompt_tokens", "completion_tokens", "total_tokens"):
         value = usage.get(field)
-        if isinstance(value, int):
+        if is_int(value) and value >= 0:
             setattr(request.state, field, value)
 
 

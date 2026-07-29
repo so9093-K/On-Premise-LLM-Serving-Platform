@@ -42,7 +42,7 @@ _REQUIRED_FIELDS = _BOOL_FIELDS + _SEMANTIC_FIELDS
 
 
 def _load_auth_profiles(yaml_path: Path) -> dict[str, dict[str, Any]]:
-    """Load configs/auth_profiles.yaml and return the profiles dict."""
+    """`configs/auth_profiles.yaml`을 읽어 인증 프로필 매핑을 반환한다."""
     if not yaml_path.exists():
         raise FileNotFoundError(
             f"configs/auth_profiles.yaml not found at {yaml_path}. "
@@ -55,7 +55,7 @@ def _load_auth_profiles(yaml_path: Path) -> dict[str, dict[str, Any]]:
 
 
 def _build_expectations(profiles: dict[str, dict[str, Any]]) -> dict[str, dict[str, bool | str]]:
-    """Project YAML profiles into the AUTH_MODE_EXPECTATIONS format."""
+    """YAML 프로필을 ``AUTH_MODE_EXPECTATIONS`` 형식으로 변환한다."""
     result: dict[str, dict[str, bool | str]] = {}
     for mode, profile in profiles.items():
         entry: dict[str, bool | str] = {}
@@ -84,7 +84,7 @@ AUTH_PROFILE_ENV_KEYS = (
 
 
 def auth_profile_env_values(mode: str) -> dict[str, str]:
-    """Return concrete env flag values for a managed auth profile.
+    """관리되는 인증 프로필에 대응하는 구체적인 환경 변수 값을 반환한다.
 
     Secrets are intentionally not included. This helper is used by setup_env,
     auth-plan/apply tooling, tests, and docs so profile behavior does not drift
@@ -104,7 +104,7 @@ def auth_profile_env_values(mode: str) -> dict[str, str]:
 
 
 def auth_profile_exposure_values(mode: str) -> dict[str, str]:
-    """Return exposure defaults explicitly owned by an auth profile."""
+    """인증 프로필이 직접 소유하는 기본 exposure 값을 반환한다."""
     expected = AUTH_MODE_EXPECTATIONS.get(mode)
     if expected is None or mode == "custom":
         raise ValueError(f"{mode!r} is not a managed auth profile")
@@ -124,7 +124,7 @@ def auth_profile_summary(mode: str) -> str:
 
 
 def verify_auth_profiles_yaml_consistency(project_root: Path) -> list[str]:
-    """Validate configs/auth_profiles.yaml structural completeness.
+    """`configs/auth_profiles.yaml`의 구조적 완전성을 검증한다.
 
     Checks that each non-custom profile has all required semantic and bool fields.
     Returns a list of violation messages. Empty list means the YAML is structurally valid.
@@ -186,7 +186,7 @@ def _exposure_mode_from_env() -> str:
 
 
 def _resolve_exposure_mode(data: dict[str, Any], mode: str) -> str:
-    """Return a supported exposure mode name, or the unknown input unchanged."""
+    """지원하는 exposure mode 이름을 반환하고, 알 수 없는 값은 그대로 반환한다."""
     canonical = data.get("canonical_modes", [])
     return mode if mode in canonical else mode
 
@@ -219,7 +219,7 @@ def _compose_host_port_services(project_root: Path) -> list[str]:
 
 
 def _exposure_host_published_services(project_root: Path, exposure_mode: str | None = None) -> list[str]:
-    """Return list of service names that are host-published for the given exposure profile."""
+    """지정한 exposure 프로필에서 host port를 공개하는 서비스 이름 목록을 반환한다."""
     profile = _exposure_profile(project_root, exposure_mode)
     return list(profile.get("host_published", []))
 

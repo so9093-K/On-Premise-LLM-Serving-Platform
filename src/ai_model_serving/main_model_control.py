@@ -1,25 +1,21 @@
 from __future__ import annotations
 
 import asyncio
-import fcntl
-import json
-import os
 import re
-import tempfile
 import time
 import uuid
-from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, NamedTuple, Protocol
 
+from .main_model_state import MainModelStateError, MainModelStateStore, MainModelSwitchLockError
 from .service_logging import service_logger
 
 _logger = service_logger("main_model_control")
 
 
 class SwitchOutcome(NamedTuple):
-    """Result of request_switch.
+    """``request_switch`` 요청 결과다.
 
     reused=True means the supplied request_id already mapped to an existing
     operation, so that operation was returned and NO new switch was started.
@@ -51,10 +47,6 @@ _CLIENT_REQUEST_RE = re.compile(r"^[A-Za-z0-9._:-]{1,128}$")
 
 
 class MainModelConfigurationError(ValueError):
-    pass
-
-
-class MainModelStateError(RuntimeError):
     pass
 
 
@@ -108,7 +100,7 @@ class MainModelCatalog:
 
 
 def _parse_gpu_fraction(command: list[str]) -> float:
-    """Extract --gpu-memory-utilization from a profile command (vLLM default 0.9)."""
+    """프로필 명령에서 ``--gpu-memory-utilization`` 값을 추출한다(vLLM 기본값 0.9)."""
     if "--gpu-memory-utilization" in command:
         try:
             return float(command[command.index("--gpu-memory-utilization") + 1])
@@ -125,7 +117,7 @@ GPU_UTIL_OVERRIDE_ENV = "MAIN_LLM_GPU_MEMORY_UTILIZATION"
 
 
 def gpu_util_override_from_mapping(mapping: dict[str, str]) -> float | None:
-    """Parse the per-host gpu-memory-utilization override, or None when unset."""
+    """호스트별 gpu-memory-utilization override를 파싱하고 없으면 ``None``을 반환한다."""
     raw = (mapping.get(GPU_UTIL_OVERRIDE_ENV) or "").strip()
     if not raw:
         return None
@@ -141,7 +133,7 @@ def gpu_util_override_from_mapping(mapping: dict[str, str]) -> float | None:
 
 
 def _apply_util_override(command: list[str], override: float | None) -> list[str]:
-    """Return command with --gpu-memory-utilization set to the per-host override."""
+    """호스트별 override가 반영된 ``--gpu-memory-utilization`` 명령을 반환한다."""
     if override is None:
         return command
     rendered = f"{override:g}"
@@ -158,7 +150,7 @@ def _resolve_profile_image(
     env: dict[str, str] | None,
     profile_id: str,
 ) -> str:
-    """Resolve a profile's runtime image to a digest-pinned value.
+    """프로필 runtime image를 digest로 고정된 값으로 해석한다.
 
     - ``None`` inherits the shared ``runtime.image``.
     - ``"${VAR}"`` is resolved from ``env`` (set by CI/deploy, like compose's
@@ -281,132 +273,6 @@ def resolve_boot_profile(
     return configured
 
 
-class MainModelStateStore:
-    def __init__(self, path: Path, default_profile: str) -> None:
-        self.path = path
-        self.lock_path = path.with_suffix(path.suffix + ".lock")
-        self.operation_lock_path = path.with_suffix(path.suffix + ".operation.lock")
-        self.default_profile = default_profile
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-
-    def _initial(self) -> dict[str, Any]:
-        return {
-            "schema_version": 1,
-            "active_profile": None,
-            "last_known_good_profile": None,
-            "previous_known_good_profile": None,
-            "gate": "closed",
-            "runtime_state": "active",
-            "last_operation": None,
-            # DockerMainModelBackend.observed_started_at()가 관측한, 마지막으로 validate()가
-            # 성공했을 때의 컨테이너 State.StartedAt. reconcile_if_restarted()가 이 값과
-            # 현재 관측값을 비교해 admin-sidecar를 거치지 않은 외부 재시작(예: 수동
-            # `docker restart`)을 감지한다.
-            "last_validated_container_started_at": None,
-            "operations": [],
-            "stats": {
-                "switch_requests": 0,
-                "switch_successes": 0,
-                "switch_failures": 0,
-                "rollbacks": 0,
-                "rollback_failures": 0,
-                "last_switch_timestamp": 0,
-                "last_switch_duration_seconds": 0,
-            },
-            "state_recovery_error": None,
-        }
-
-    def _read_unlocked(self) -> dict[str, Any]:
-        if not self.path.exists():
-            return self._initial()
-        try:
-            value = json.loads(self.path.read_text(encoding="utf-8"))
-        except PermissionError as exc:
-            raise MainModelStateError(
-                f"main model state is not readable (permission denied): {self.path}"
-            ) from exc
-        except (OSError, json.JSONDecodeError) as exc:
-            raise MainModelStateError(f"main model state is corrupt: {self.path}") from exc
-        if not isinstance(value, dict) or value.get("schema_version") != 1:
-            raise MainModelStateError("unsupported main model state schema")
-        return value
-
-    def _write_unlocked(self, state: dict[str, Any]) -> None:
-        fd, temp_name = tempfile.mkstemp(
-            prefix=f".{self.path.name}.", suffix=".tmp", dir=self.path.parent
-        )
-        try:
-            with os.fdopen(fd, "w", encoding="utf-8") as handle:
-                json.dump(state, handle, ensure_ascii=False, indent=2, sort_keys=True)
-                handle.write("\n")
-                handle.flush()
-                os.fsync(handle.fileno())
-            os.chmod(temp_name, 0o644)
-            os.replace(temp_name, self.path)
-            directory_fd = os.open(self.path.parent, os.O_RDONLY)
-            try:
-                os.fsync(directory_fd)
-            finally:
-                os.close(directory_fd)
-        finally:
-            if os.path.exists(temp_name):
-                os.unlink(temp_name)
-
-    def read(self) -> dict[str, Any]:
-        self.lock_path.touch(exist_ok=True)
-        with self.lock_path.open("r+", encoding="utf-8") as lock:
-            fcntl.flock(lock.fileno(), fcntl.LOCK_SH)
-            return self._read_unlocked()
-
-    def write(self, state: dict[str, Any]) -> None:
-        self.lock_path.touch(exist_ok=True)
-        with self.lock_path.open("r+", encoding="utf-8") as lock:
-            fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
-            self._write_unlocked(state)
-
-    def update(self, mutate: Any) -> dict[str, Any]:
-        """Atomically read, mutate, and replace state under one process lock."""
-        self.lock_path.touch(exist_ok=True)
-        with self.lock_path.open("r+", encoding="utf-8") as lock:
-            fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
-            state = self._read_unlocked()
-            mutate(state)
-            self._write_unlocked(state)
-            return state
-
-    def quarantine_corrupt_state(self, reason: str) -> Path | None:
-        """Move an unreadable state aside and create a fail-closed initial state."""
-        self.lock_path.touch(exist_ok=True)
-        with self.lock_path.open("r+", encoding="utf-8") as lock:
-            fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
-            quarantined: Path | None = None
-            if self.path.exists():
-                quarantined = self.path.with_name(
-                    f"{self.path.name}.corrupt.{int(time.time())}"
-                )
-                os.replace(self.path, quarantined)
-            state = self._initial()
-            state["state_recovery_error"] = reason
-            self._write_unlocked(state)
-            return quarantined
-
-    @contextmanager
-    def operation_lock(self):
-        """Hold the global switch lock across the complete async operation."""
-        self.operation_lock_path.touch(exist_ok=True)
-        handle = self.operation_lock_path.open("r+", encoding="utf-8")
-        try:
-            try:
-                fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-            except BlockingIOError as exc:
-                raise MainModelSwitchError(
-                    "MODEL_SWITCH_IN_PROGRESS", "another model switch process holds the lock"
-                ) from exc
-            yield
-        finally:
-            handle.close()
-
-
 class MainModelRuntimeBackend(Protocol):
     async def observed_profile(self, catalog: MainModelCatalog) -> str | None: ...
     async def prepare(self, catalog: MainModelCatalog, profile: MainModelProfile) -> None: ...
@@ -512,13 +378,10 @@ class MainModelManager:
         return None
 
     async def _validate_and_record(self, profile: MainModelProfile) -> None:
-        """Run backend.validate() and record the container instance it validated.
+        """``backend.validate()``를 실행하고 검증한 컨테이너 instance를 기록한다.
 
-        Every validate() call site should go through this instead of calling
-        backend.validate() directly, so reconcile_if_restarted() has an accurate
-        "last known-good container" fingerprint to diff against. Recording is
-        best-effort: a failure to fetch/store the fingerprint must never turn a
-        successful validate() into a failure for the caller (switch/start/etc).
+        모든 validate 호출은 이 메서드를 거쳐야 재시작 감지가 비교할 마지막 정상
+        컨테이너 fingerprint를 남긴다. 기록 실패는 이미 성공한 검증을 실패로 바꾸지 않는다.
         """
         await self.backend.validate(self.catalog, profile)
         try:
@@ -624,10 +487,10 @@ class MainModelManager:
                 self._reconcile_backoff_until = 0.0
 
     async def stop_main(self) -> None:
-        """Drain and stop the main runtime to reclaim its VRAM.
+        """VRAM 회수를 위해 main runtime을 drain 후 중지한다.
 
-        The gate closes (chat fails closed / 503) and the persisted runtime_state
-        becomes "stopped" so a later restart does not auto-start it.
+        gate를 닫아 chat 요청은 503으로 fail-closed 처리하며, 재시작 후 자동 기동하지 않도록
+        저장된 ``runtime_state``를 ``stopped``로 바꾼다.
         """
         async with self._lock:
             self.state_store.update(lambda s: s.update(gate="closed"))
@@ -641,9 +504,9 @@ class MainModelManager:
             self.state_store.update(lambda s: s.update(runtime_state="stopped"))
 
     async def start_main(self) -> None:
-        """Start the (stopped) main runtime with its persisted profile and validate.
+        """중지된 main runtime을 저장된 프로필로 시작하고 검증한다.
 
-        Admission against the shared GPU budget is the caller's responsibility.
+        공유 GPU 예산 admission은 호출자가 먼저 완료해야 한다.
         """
         async with self._lock:
             await self.backend.start(self.catalog)
@@ -751,14 +614,11 @@ class MainModelManager:
         profile_id: str,
         now: float,
     ) -> dict[str, Any] | None:
-        """Return the prior operation a request_id idempotently maps to, if any.
+        """request_id가 idempotent하게 가리키는 기존 작업이 있으면 반환한다.
 
-        A request_id is a bounded-lifetime retry key, not a permanent ledger entry.
-        A prior is a live match only while it is still in flight, or for
-        ``_idempotency_ttl`` seconds after it reached a terminal state. Expired
-        priors are ignored entirely (neither replayed nor treated as a conflict),
-        so re-using the same id after the window starts a fresh switch instead of
-        resurrecting a long-past operation.
+        request_id는 영구 ledger가 아닌 유효 기간이 제한된 재시도 키다. 기존 작업은 진행 중이거나
+        terminal 상태가 된 뒤 ``_idempotency_ttl``초 동안에만 일치한다. 만료된 작업은 재생하거나
+        충돌로 처리하지 않으므로, 유효 기간 뒤 같은 ID를 쓰면 과거 작업을 되살리지 않고 새 전환을 시작한다.
         """
         for prior in operations:
             if prior.get("client_request_id") != client_request_id:
@@ -823,7 +683,12 @@ class MainModelManager:
                 return SwitchOutcome(str(prior["id"]), True)
         operation_id = str(uuid.uuid4())
         lock_context = self.state_store.operation_lock()
-        lock_context.__enter__()
+        try:
+            lock_context.__enter__()
+        except MainModelSwitchLockError as exc:
+            raise MainModelSwitchError(
+                "MODEL_SWITCH_IN_PROGRESS", "another model switch process holds the lock"
+            ) from exc
         # switch lock은 이 동기적인 accept 구간과 switch를 완료하는 비동기 operation
         # 구간에 걸쳐 유지되어야 하므로, 이 메서드 범위의 `with` 블록 안에 둘 수 없다.
         # 소유권은 백그라운드 task가 스케줄된 시점에 그쪽으로 넘어간다; 그 전까지는

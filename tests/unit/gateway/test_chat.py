@@ -5,6 +5,10 @@ import io
 import json
 import logging
 
+from starlette.requests import Request
+
+from ai_model_serving.logging_policy import record_token_usage, safe_request_log_record
+
 from .helpers import *  # noqa: F401,F403
 
 
@@ -81,6 +85,35 @@ def test_chat_completion_logs_token_usage_regardless_of_body_flag():
     assert record["total_tokens"] == 46
     assert "request_body" not in record
     assert "response_body" not in record
+
+
+def test_request_log_ignores_negative_or_boolean_token_usage():
+    request = Request(
+        {
+            "type": "http",
+            "method": "POST",
+            "path": "/v1/chat/completions",
+            "headers": [],
+            "scheme": "http",
+            "server": ("testserver", 80),
+            "client": ("127.0.0.1", 1234),
+        }
+    )
+
+    record_token_usage(
+        request,
+        {"prompt_tokens": -1, "completion_tokens": True, "total_tokens": 3},
+    )
+    record = safe_request_log_record(
+        service="gateway",
+        request=request,
+        status_code=200,
+        elapsed_seconds=0.01,
+    )
+
+    assert record["total_tokens"] == 3
+    assert "prompt_tokens" not in record
+    assert "completion_tokens" not in record
 
 
 def test_chat_completion_omits_request_response_body_when_flag_disabled():

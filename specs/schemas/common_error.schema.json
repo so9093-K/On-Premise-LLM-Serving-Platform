@@ -24,6 +24,8 @@
             "UNAUTHORIZED",
             "FORBIDDEN",
             "NOT_FOUND",
+            "CONFLICT",
+            "GPU_BUDGET_EXCEEDED",
             "MODEL_UNAVAILABLE",
             "MODEL_CAPABILITY_MISMATCH",
             "UPSTREAM_TIMEOUT",
@@ -68,6 +70,11 @@
           "additionalProperties": {
             "type": ["string", "number", "integer", "boolean", "null"]
           }
+        },
+        "details": {
+          "description": "Structured recovery information for an operation-specific error. For GPU_BUDGET_EXCEEDED, includes feasible, required, available, ceiling, and optionally plan.stop.",
+          "type": "object",
+          "additionalProperties": true
         }
       }
     }

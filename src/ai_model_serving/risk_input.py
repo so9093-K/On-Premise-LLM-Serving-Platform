@@ -8,7 +8,7 @@ from .risk import assessment_response, system_signal
 
 @dataclass(frozen=True)
 class RiskInputPolicy:
-    """Detector input guard used before calling risk vLLM runtimes.
+    """risk vLLM runtime 호출 전에 적용하는 detector 입력 guard다.
 
     The public request contract still accepts a larger JSON body/prompt limit.
     This policy protects the smaller detector context window and reports an

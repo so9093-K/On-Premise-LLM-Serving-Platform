@@ -174,7 +174,7 @@ def _request_parameter_surface(
     serving_cfg: dict[str, Any],
     max_output_tokens: int | None,
 ) -> tuple[dict[str, dict[str, Any]], dict[str, Any]]:
-    """Return (user-adjustable parameters, runtime-fixed parameters) for model discovery."""
+    """모델 조회용으로 사용자 조정 가능 parameter와 runtime 고정 parameter를 반환한다."""
     policy = serving_cfg.get("request_parameter_policy", {}) if isinstance(serving_cfg.get("request_parameter_policy", {}), dict) else {}
     if any(capability.startswith("risk.") for capability in capabilities):
         fixed = policy.get("fixed_parameters", {}) if isinstance(policy.get("fixed_parameters", {}), dict) else {}

@@ -24,7 +24,7 @@ class RetrievalClientSet(Protocol):
 
 
 class RetrievalService:
-    """Use-case layer for dense retrieval scoring and reranking."""
+    """dense retrieval 점수 계산과 reranking을 담당하는 use-case 계층이다."""
 
     def __init__(self, settings: AppSettings, clients: RetrievalClientSet, metrics: Metrics) -> None:
         self.settings = settings
@@ -103,12 +103,6 @@ class RetrievalService:
         mode = policy.get("mode", "none")
         if mode == "prefix":
             return f"{policy.get('prefix', '')}{text}"
-        if mode == "sentence_transformers_prompt_name":
-            # TODO: vLLM /v1/embeddings는 prompt_name을 받지 않으므로, 이 분기는
-            # fallback_prefix만 사용한다. fallback_prefix=""는 no-op이다. 현재
-            # 이 모드를 사용하는 active 프로필은 없다 — 새 프로필에는 명시적
-            # prefix 모드를 사용할 것.
-            return f"{policy.get('fallback_prefix', '')}{text}"
         return text
 
     async def _embed_texts(

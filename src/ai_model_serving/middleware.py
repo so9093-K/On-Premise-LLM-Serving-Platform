@@ -34,7 +34,7 @@ def _content_length_exceeds_limit(request: Request, max_body_bytes: int) -> bool
 
 
 async def _read_limited_body(request: Request, *, max_body_bytes: int) -> bytes | None:
-    """Read the request body up to ``max_body_bytes``.
+    """``max_body_bytes``까지 요청 body를 읽는다.
 
     Returns ``None`` as soon as the limit is exceeded. This avoids buffering an
     arbitrarily large request body in memory before rejecting it, while still
@@ -68,7 +68,7 @@ async def enforce_request_body_limit(
     *,
     max_body_bytes: int,
 ) -> Response:
-    """Reject oversized write requests based on actual body size.
+    """실제 body 크기를 기준으로 너무 큰 write 요청을 거부한다.
 
     Content-Length is used as a fast rejection path when available. Chunked or
     missing-length bodies are read incrementally and rejected as soon as the

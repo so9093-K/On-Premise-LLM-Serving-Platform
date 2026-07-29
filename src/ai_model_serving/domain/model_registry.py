@@ -18,11 +18,10 @@ from .request_surfaces import _request_parameter_surface
 
 @dataclass(frozen=True)
 class ModelRegistry:
-    """Read model catalog data through explicit domain methods.
+    """명시적인 domain 메서드로 모델 catalog 데이터를 읽는다.
 
-    This keeps Gateway/API code from depending on the raw YAML layout and gives
-    model add/remove workflows one place to validate catalog, serving config,
-    model cards, schemas, and runtime harness expectations.
+    Gateway/API 코드가 원본 YAML 구조에 직접 의존하지 않게 하며, 모델 추가·제거 시
+    catalog, serving 설정, model card, schema, runtime harness 기대값을 한곳에서 검증한다.
     """
 
     catalog: dict[str, Any]
@@ -184,11 +183,10 @@ class ModelRegistry:
 
 
     def alignment_issues(self) -> tuple[RegistryIssue, ...]:
-        """Return non-fatal catalog/serving alignment issues.
+        """배포를 즉시 막지는 않는 catalog/serving 정합성 문제를 반환한다.
 
-        This intentionally does not prescribe deployment security or runtime
-        topology.  It only checks that the model registry and model serving
-        stanzas describe the same logical models.
+        배포 보안이나 runtime topology를 판단하지 않고, model registry와 model serving
+        stanza가 같은 logical model을 설명하는지만 확인한다.
         """
         issues: list[RegistryIssue] = []
         catalog_ids = set(self.logical_ids())

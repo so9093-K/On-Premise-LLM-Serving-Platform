@@ -36,11 +36,13 @@ loudly instead of shipping silently broken.
 
 Manual fallback (CI unavailable):
 ```bash
-RISK_VLLM_BASE_IMAGE='vllm/vllm-openai@sha256:6a090ed9d4a3739813ce355cbd63d4c34c987a25c8409796f24912ba71c2d4a4' \
 RISK_VLLM_IMAGE='gitlab.wizvera.com:4567/acl-ai-system/acl-ai-gateway/vllm-unified:<tag>' \
 make build-vllm-unified-image
 docker push gitlab.wizvera.com:4567/acl-ai-system/acl-ai-gateway/vllm-unified:<tag>
 ```
+
+기본 base image와 호환성 pin은 `configs/recommended_images.yaml`에서 읽는다. 검증용
+base 교체가 필요한 경우에만 `RISK_VLLM_BASE_IMAGE=<immutable digest>`를 명시한다.
 
 ## Switch & validate (main-LLM profile)
 

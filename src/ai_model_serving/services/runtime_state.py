@@ -29,10 +29,7 @@ class RuntimeStateRecord:
 
 def _default_controllable_keys() -> frozenset[str]:
     root = Path(os.environ.get("APP_CONFIG_ROOT", Path(__file__).resolve().parents[3]))
-    try:
-        return load_runtime_topology(root).controllable_keys
-    except Exception:
-        return frozenset()
+    return load_runtime_topology(root).controllable_keys
 
 
 class RuntimeStateStore:

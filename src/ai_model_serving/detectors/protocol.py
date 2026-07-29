@@ -5,7 +5,7 @@ from typing import Any, Protocol, runtime_checkable
 
 @runtime_checkable
 class RiskDetector(Protocol):
-    """Local risk detector protocol.
+    """in-process local risk detector가 구현해야 하는 protocol이다.
 
     Implementors return a complete assessment_response dict directly, without
     going through a vLLM runtime. The response must satisfy the same

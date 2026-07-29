@@ -78,7 +78,7 @@ def _embedding_response_summary(response: dict[str, Any]) -> str:
 
 
 def _active_input_modalities(main_model: dict[str, Any]) -> tuple[str, ...] | None:
-    """Input modalities the *currently active* main-model profile actually serves.
+    """현재 활성 main-model 프로필이 실제로 제공하는 입력 modality를 반환한다.
 
     Returned to the validation layer so accepted modalities track the running model
     (e.g. an audio-capable profile) instead of a static registry value. None means
@@ -99,7 +99,7 @@ def _active_input_modalities(main_model: dict[str, Any]) -> tuple[str, ...] | No
 
 
 async def _resolve_active_main_modalities(sidecar: "SidecarClient | None", settings: Any) -> tuple[str, ...]:
-    """Modalities the main model accepts right now, resolved from the same source the
+    """현재 main model이 받을 수 있는 modality를 동일한 기준 원천에서 해석한다.
     chat validator uses: the active profile (sidecar snapshot) with the static catalog
     default as fallback. Best-effort -- a sidecar outage falls back rather than failing
     the listing, so /v1/models never depends on the control plane being up."""

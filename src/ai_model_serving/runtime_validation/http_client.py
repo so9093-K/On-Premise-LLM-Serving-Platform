@@ -10,7 +10,7 @@ from .config import RuntimeValidationConfig
 
 
 class RuntimeValidationHttpClient:
-    """Small HTTP helper shared by live validation checks.
+    """live validation 검사에서 공통으로 쓰는 작은 HTTP helper다.
 
     The validator keeps orchestration/reporting responsibility while this class
     owns auth header selection, JSON request encoding, plain text scrapes, and
@@ -81,7 +81,7 @@ class RuntimeValidationHttpClient:
         admin: bool = False,
         grafana: bool = False,
     ) -> tuple[int, str, int, list[str], bool]:
-        """Read a bounded SSE stream and report first-chunk latency.
+        """크기가 제한된 SSE stream을 읽고 첫 chunk 도착 지연 시간을 반환한다.
 
         The returned event lines are intentionally capped to protocol metadata
         checks.  The validator only inspects SSE framing, first chunk timing, and

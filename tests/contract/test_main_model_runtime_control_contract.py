@@ -121,8 +121,14 @@ def test_vllm_unified_dependency_pins_have_one_canonical_source():
         "transformers_min": "4.52.4",
     }
     assert "compatibility_pins" not in images["risk_vllm"]
+    assert "base_image_default" not in images["risk_vllm"]
+    assert "base_image_default" not in images["embedding_ko_vllm"]
     pipeline = (ROOT / ".gitlab-ci.yml").read_text(encoding="utf-8")
     assert "print_vllm_unified_compatibility.py" in pipeline
+    assert "VLLM_BASE_IMAGE:" not in pipeline
+    ci_build = (ROOT / "scripts/ci/build_vllm_derived_images.sh").read_text(encoding="utf-8")
+    assert "--key base_image" in ci_build
+    assert str(images["vllm"]["base_image_default"]) not in ci_build
 
 
 def test_boot_projection_is_temporary_and_sidecar_default_is_catalog_driven():

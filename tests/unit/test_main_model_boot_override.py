@@ -92,3 +92,21 @@ def test_corrupt_state_fails_instead_of_falling_back(tmp_path):
             state_path=state,
             env_path=env,
         )
+
+
+def test_invalid_persisted_profile_type_fails_instead_of_falling_back(tmp_path):
+    env = tmp_path / ".env"
+    state = tmp_path / "state.json"
+    _env(env, profile="gemma4-26b-a4b-fp8", locked=False)
+    _state(state, None)
+    state.write_text(
+        json.dumps({"schema_version": 1, "active_profile": ["not-a-profile"]}),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(MainModelStateError, match="active_profile"):
+        render_boot_override(
+            catalog_path=CATALOG,
+            state_path=state,
+            env_path=env,
+        )

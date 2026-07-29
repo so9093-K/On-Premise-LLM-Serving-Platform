@@ -12,6 +12,8 @@ ERROR_STATUS = {
     "UNAUTHORIZED": 401,
     "FORBIDDEN": 403,
     "NOT_FOUND": 404,
+    "CONFLICT": 409,
+    "GPU_BUDGET_EXCEEDED": 409,
     "MODEL_UNAVAILABLE": 503,
     "MODEL_CAPABILITY_MISMATCH": 422,
     "UPSTREAM_TIMEOUT": 504,
@@ -43,6 +45,7 @@ STATUS_DEFAULT_CODE = {
     401: "UNAUTHORIZED",
     403: "FORBIDDEN",
     404: "NOT_FOUND",
+    409: "CONFLICT",
     410: "DETECTOR_DISABLED",
     413: "REQUEST_TOO_LARGE",
     422: "VALIDATION_ERROR",
@@ -55,7 +58,7 @@ STATUS_DEFAULT_CODE = {
 
 
 def default_code_for_status(status_code: int) -> str:
-    """Map a bare HTTP status to a platform error code that matches the status."""
+    """오류 코드가 없는 HTTP status를 상태와 맞는 플랫폼 오류 코드로 매핑한다."""
     if status_code in STATUS_DEFAULT_CODE:
         return STATUS_DEFAULT_CODE[status_code]
     return "INTERNAL_ERROR" if status_code >= 500 else "VALIDATION_ERROR"
@@ -91,7 +94,7 @@ def _bounded_debug_value(value: Any) -> Any:
 
 
 def exception_debug(exc: BaseException | None) -> dict[str, Any] | None:
-    """Return a bounded, response-safe summary of the original exception."""
+    """원본 예외에서 응답에 노출해도 되는 길이 제한 요약을 반환한다."""
     if exc is None:
         return None
     return {
@@ -118,6 +121,7 @@ def error_payload(
     request_id: str | None = None,
     param: str | None = None,
     debug: dict[str, Any] | None = None,
+    details: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     error: dict[str, Any] = {
         "code": code,
@@ -134,11 +138,16 @@ def error_payload(
         error["param"] = param
     if debug:
         error["debug"] = {str(key): _bounded_debug_value(value) for key, value in debug.items()}
+    # ``details``는 오류 code만으로 표현할 수 없는 구조화된 복구 정보를 담는다.
+    # 현재는 관리자 런타임 제어의 GPU 예산 거부에서 ``plan.stop`` 등을 전달한다.
+    # 문자열 message를 다시 파싱하는 대신 이 필드를 사용해야 한다.
+    if details:
+        error["details"] = details
     return {"error": error}
 
 
 def retry_after_header(retry_after_seconds: float | None) -> dict[str, str] | None:
-    """Build a ``Retry-After`` header mapping, or None when there is nothing to suggest.
+    """재시도 대기 시간이 있으면 ``Retry-After`` 헤더를 만들고, 없으면 ``None``을 반환한다.
 
     HTTP Retry-After is whole seconds, and always rounds up so a client never
     retries earlier than the hinted window (e.g. 0.4s -> "1", not "0").
@@ -205,8 +214,9 @@ def error_response(
     param: str | None = None,
     debug: dict[str, Any] | None = None,
     retry_after_seconds: float | None = None,
+    details: dict[str, Any] | None = None,
 ) -> JSONResponse:
-    payload = error_payload(code, message, retryable, request_id, param, debug)
+    payload = error_payload(code, message, retryable, request_id, param, debug, details)
     return JSONResponse(
         payload,
         status_code=status_code or ERROR_STATUS.get(code, 500),

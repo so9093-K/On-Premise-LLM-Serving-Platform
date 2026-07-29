@@ -31,7 +31,7 @@ RouteKey = tuple[str, str]  # (method, path)
 def schema_maps_from_specs(
     endpoints: Sequence[EndpointSpec],
 ) -> tuple[dict[RouteKey, str], dict[RouteKey, str]]:
-    """Derive request_schemas and response_schemas dicts from an EndpointSpec list.
+    """EndpointSpec 목록에서 요청·응답 스키마 매핑을 파생한다.
 
     Retired endpoints always return 410 (handled by the error-response injector),
     and removed endpoints have no route, so both are excluded from the maps.

@@ -100,60 +100,7 @@ paths:
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
-                title: CommonErrorResponse
-                type: object
-                required:
-                - error
-                additionalProperties: false
-                properties:
-                  error:
-                    type: object
-                    required:
-                    - code
-                    - message
-                    - retryable
-                    - request_id
-                    additionalProperties: false
-                    properties:
-                      code:
-                        type: string
-                        enum:
-                        - VALIDATION_ERROR
-                        - UNAUTHORIZED
-                        - FORBIDDEN
-                        - NOT_FOUND
-                        - MODEL_UNAVAILABLE
-                        - MODEL_CAPABILITY_MISMATCH
-                        - UPSTREAM_TIMEOUT
-                        - UPSTREAM_ERROR
-                        - UPSTREAM_SCHEMA_ERROR
-                        - RATE_LIMITED
-                        - PARSE_ERROR
-                        - INTERNAL_ERROR
-                        - QUEUE_TIMEOUT
-                        - CIRCUIT_OPEN
-                        - REQUEST_TOO_LARGE
-                        - RUNTIME_NOT_READY
-                        - DETECTOR_RETIRED
-                        - DETECTOR_DISABLED
-                        - STREAM_LIMIT_EXCEEDED
-                        - MAIN_MODEL_CONTROL_UNAVAILABLE
-                        - MAIN_MODEL_SWITCH_IN_PROGRESS
-                      message:
-                        type: string
-                      retryable:
-                        type: boolean
-                      request_id:
-                        type: string
-                      operation_id:
-                        type:
-                        - string
-                        - 'null'
-                      operation_status:
-                        type:
-                        - string
-                        - 'null'
+                $ref: ./schemas/common_error.schema.json
         '503':
           description: 하나 이상의 detector runtime이 아직 로딩 중이거나 사용할 수 없음
           content:
@@ -194,60 +141,7 @@ paths:
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
-                title: CommonErrorResponse
-                type: object
-                required:
-                - error
-                additionalProperties: false
-                properties:
-                  error:
-                    type: object
-                    required:
-                    - code
-                    - message
-                    - retryable
-                    - request_id
-                    additionalProperties: false
-                    properties:
-                      code:
-                        type: string
-                        enum:
-                        - VALIDATION_ERROR
-                        - UNAUTHORIZED
-                        - FORBIDDEN
-                        - NOT_FOUND
-                        - MODEL_UNAVAILABLE
-                        - MODEL_CAPABILITY_MISMATCH
-                        - UPSTREAM_TIMEOUT
-                        - UPSTREAM_ERROR
-                        - UPSTREAM_SCHEMA_ERROR
-                        - RATE_LIMITED
-                        - PARSE_ERROR
-                        - INTERNAL_ERROR
-                        - QUEUE_TIMEOUT
-                        - CIRCUIT_OPEN
-                        - REQUEST_TOO_LARGE
-                        - RUNTIME_NOT_READY
-                        - DETECTOR_RETIRED
-                        - DETECTOR_DISABLED
-                        - STREAM_LIMIT_EXCEEDED
-                        - MAIN_MODEL_CONTROL_UNAVAILABLE
-                        - MAIN_MODEL_SWITCH_IN_PROGRESS
-                      message:
-                        type: string
-                      retryable:
-                        type: boolean
-                      request_id:
-                        type: string
-                      operation_id:
-                        type:
-                        - string
-                        - 'null'
-                      operation_status:
-                        type:
-                        - string
-                        - 'null'
+                $ref: ./schemas/common_error.schema.json
       security:
       - adminBearerAuth: []
   /v1/risk/detectors/prompt/assessments:
@@ -317,473 +211,49 @@ paths:
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
-                title: CommonErrorResponse
-                type: object
-                required:
-                - error
-                additionalProperties: false
-                properties:
-                  error:
-                    type: object
-                    required:
-                    - code
-                    - message
-                    - retryable
-                    - request_id
-                    additionalProperties: false
-                    properties:
-                      code:
-                        type: string
-                        enum:
-                        - VALIDATION_ERROR
-                        - UNAUTHORIZED
-                        - FORBIDDEN
-                        - NOT_FOUND
-                        - MODEL_UNAVAILABLE
-                        - MODEL_CAPABILITY_MISMATCH
-                        - UPSTREAM_TIMEOUT
-                        - UPSTREAM_ERROR
-                        - UPSTREAM_SCHEMA_ERROR
-                        - RATE_LIMITED
-                        - PARSE_ERROR
-                        - INTERNAL_ERROR
-                        - QUEUE_TIMEOUT
-                        - CIRCUIT_OPEN
-                        - REQUEST_TOO_LARGE
-                        - RUNTIME_NOT_READY
-                        - DETECTOR_RETIRED
-                        - DETECTOR_DISABLED
-                        - STREAM_LIMIT_EXCEEDED
-                        - MAIN_MODEL_CONTROL_UNAVAILABLE
-                        - MAIN_MODEL_SWITCH_IN_PROGRESS
-                      message:
-                        type: string
-                      retryable:
-                        type: boolean
-                      request_id:
-                        type: string
-                      operation_id:
-                        type:
-                        - string
-                        - 'null'
-                      operation_status:
-                        type:
-                        - string
-                        - 'null'
+                $ref: ./schemas/common_error.schema.json
         '422':
           description: Validation Error
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
-                title: CommonErrorResponse
-                type: object
-                required:
-                - error
-                additionalProperties: false
-                properties:
-                  error:
-                    type: object
-                    required:
-                    - code
-                    - message
-                    - retryable
-                    - request_id
-                    additionalProperties: false
-                    properties:
-                      code:
-                        type: string
-                        enum:
-                        - VALIDATION_ERROR
-                        - UNAUTHORIZED
-                        - FORBIDDEN
-                        - NOT_FOUND
-                        - MODEL_UNAVAILABLE
-                        - MODEL_CAPABILITY_MISMATCH
-                        - UPSTREAM_TIMEOUT
-                        - UPSTREAM_ERROR
-                        - UPSTREAM_SCHEMA_ERROR
-                        - RATE_LIMITED
-                        - PARSE_ERROR
-                        - INTERNAL_ERROR
-                        - QUEUE_TIMEOUT
-                        - CIRCUIT_OPEN
-                        - REQUEST_TOO_LARGE
-                        - RUNTIME_NOT_READY
-                        - DETECTOR_RETIRED
-                        - DETECTOR_DISABLED
-                        - STREAM_LIMIT_EXCEEDED
-                        - MAIN_MODEL_CONTROL_UNAVAILABLE
-                        - MAIN_MODEL_SWITCH_IN_PROGRESS
-                      message:
-                        type: string
-                      retryable:
-                        type: boolean
-                      request_id:
-                        type: string
-                      operation_id:
-                        type:
-                        - string
-                        - 'null'
-                      operation_status:
-                        type:
-                        - string
-                        - 'null'
+                $ref: ./schemas/common_error.schema.json
         '413':
           description: 요청 body가 너무 큼
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
-                title: CommonErrorResponse
-                type: object
-                required:
-                - error
-                additionalProperties: false
-                properties:
-                  error:
-                    type: object
-                    required:
-                    - code
-                    - message
-                    - retryable
-                    - request_id
-                    additionalProperties: false
-                    properties:
-                      code:
-                        type: string
-                        enum:
-                        - VALIDATION_ERROR
-                        - UNAUTHORIZED
-                        - FORBIDDEN
-                        - NOT_FOUND
-                        - MODEL_UNAVAILABLE
-                        - MODEL_CAPABILITY_MISMATCH
-                        - UPSTREAM_TIMEOUT
-                        - UPSTREAM_ERROR
-                        - UPSTREAM_SCHEMA_ERROR
-                        - RATE_LIMITED
-                        - PARSE_ERROR
-                        - INTERNAL_ERROR
-                        - QUEUE_TIMEOUT
-                        - CIRCUIT_OPEN
-                        - REQUEST_TOO_LARGE
-                        - RUNTIME_NOT_READY
-                        - DETECTOR_RETIRED
-                        - DETECTOR_DISABLED
-                        - STREAM_LIMIT_EXCEEDED
-                        - MAIN_MODEL_CONTROL_UNAVAILABLE
-                        - MAIN_MODEL_SWITCH_IN_PROGRESS
-                      message:
-                        type: string
-                      retryable:
-                        type: boolean
-                      request_id:
-                        type: string
-                      operation_id:
-                        type:
-                        - string
-                        - 'null'
-                      operation_status:
-                        type:
-                        - string
-                        - 'null'
+                $ref: ./schemas/common_error.schema.json
         '429':
           description: Upstream rate limit 또는 local admission timeout
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
-                title: CommonErrorResponse
-                type: object
-                required:
-                - error
-                additionalProperties: false
-                properties:
-                  error:
-                    type: object
-                    required:
-                    - code
-                    - message
-                    - retryable
-                    - request_id
-                    additionalProperties: false
-                    properties:
-                      code:
-                        type: string
-                        enum:
-                        - VALIDATION_ERROR
-                        - UNAUTHORIZED
-                        - FORBIDDEN
-                        - NOT_FOUND
-                        - MODEL_UNAVAILABLE
-                        - MODEL_CAPABILITY_MISMATCH
-                        - UPSTREAM_TIMEOUT
-                        - UPSTREAM_ERROR
-                        - UPSTREAM_SCHEMA_ERROR
-                        - RATE_LIMITED
-                        - PARSE_ERROR
-                        - INTERNAL_ERROR
-                        - QUEUE_TIMEOUT
-                        - CIRCUIT_OPEN
-                        - REQUEST_TOO_LARGE
-                        - RUNTIME_NOT_READY
-                        - DETECTOR_RETIRED
-                        - DETECTOR_DISABLED
-                        - STREAM_LIMIT_EXCEEDED
-                        - MAIN_MODEL_CONTROL_UNAVAILABLE
-                        - MAIN_MODEL_SWITCH_IN_PROGRESS
-                      message:
-                        type: string
-                      retryable:
-                        type: boolean
-                      request_id:
-                        type: string
-                      operation_id:
-                        type:
-                        - string
-                        - 'null'
-                      operation_status:
-                        type:
-                        - string
-                        - 'null'
+                $ref: ./schemas/common_error.schema.json
         '500':
           description: 내부 서버 오류
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
-                title: CommonErrorResponse
-                type: object
-                required:
-                - error
-                additionalProperties: false
-                properties:
-                  error:
-                    type: object
-                    required:
-                    - code
-                    - message
-                    - retryable
-                    - request_id
-                    additionalProperties: false
-                    properties:
-                      code:
-                        type: string
-                        enum:
-                        - VALIDATION_ERROR
-                        - UNAUTHORIZED
-                        - FORBIDDEN
-                        - NOT_FOUND
-                        - MODEL_UNAVAILABLE
-                        - MODEL_CAPABILITY_MISMATCH
-                        - UPSTREAM_TIMEOUT
-                        - UPSTREAM_ERROR
-                        - UPSTREAM_SCHEMA_ERROR
-                        - RATE_LIMITED
-                        - PARSE_ERROR
-                        - INTERNAL_ERROR
-                        - QUEUE_TIMEOUT
-                        - CIRCUIT_OPEN
-                        - REQUEST_TOO_LARGE
-                        - RUNTIME_NOT_READY
-                        - DETECTOR_RETIRED
-                        - DETECTOR_DISABLED
-                        - STREAM_LIMIT_EXCEEDED
-                        - MAIN_MODEL_CONTROL_UNAVAILABLE
-                        - MAIN_MODEL_SWITCH_IN_PROGRESS
-                      message:
-                        type: string
-                      retryable:
-                        type: boolean
-                      request_id:
-                        type: string
-                      operation_id:
-                        type:
-                        - string
-                        - 'null'
-                      operation_status:
-                        type:
-                        - string
-                        - 'null'
+                $ref: ./schemas/common_error.schema.json
         '502':
           description: Upstream 오류 또는 유효하지 않은 upstream 응답
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
-                title: CommonErrorResponse
-                type: object
-                required:
-                - error
-                additionalProperties: false
-                properties:
-                  error:
-                    type: object
-                    required:
-                    - code
-                    - message
-                    - retryable
-                    - request_id
-                    additionalProperties: false
-                    properties:
-                      code:
-                        type: string
-                        enum:
-                        - VALIDATION_ERROR
-                        - UNAUTHORIZED
-                        - FORBIDDEN
-                        - NOT_FOUND
-                        - MODEL_UNAVAILABLE
-                        - MODEL_CAPABILITY_MISMATCH
-                        - UPSTREAM_TIMEOUT
-                        - UPSTREAM_ERROR
-                        - UPSTREAM_SCHEMA_ERROR
-                        - RATE_LIMITED
-                        - PARSE_ERROR
-                        - INTERNAL_ERROR
-                        - QUEUE_TIMEOUT
-                        - CIRCUIT_OPEN
-                        - REQUEST_TOO_LARGE
-                        - RUNTIME_NOT_READY
-                        - DETECTOR_RETIRED
-                        - DETECTOR_DISABLED
-                        - STREAM_LIMIT_EXCEEDED
-                        - MAIN_MODEL_CONTROL_UNAVAILABLE
-                        - MAIN_MODEL_SWITCH_IN_PROGRESS
-                      message:
-                        type: string
-                      retryable:
-                        type: boolean
-                      request_id:
-                        type: string
-                      operation_id:
-                        type:
-                        - string
-                        - 'null'
-                      operation_status:
-                        type:
-                        - string
-                        - 'null'
+                $ref: ./schemas/common_error.schema.json
         '503':
           description: Runtime 또는 dependency를 사용할 수 없음
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
-                title: CommonErrorResponse
-                type: object
-                required:
-                - error
-                additionalProperties: false
-                properties:
-                  error:
-                    type: object
-                    required:
-                    - code
-                    - message
-                    - retryable
-                    - request_id
-                    additionalProperties: false
-                    properties:
-                      code:
-                        type: string
-                        enum:
-                        - VALIDATION_ERROR
-                        - UNAUTHORIZED
-                        - FORBIDDEN
-                        - NOT_FOUND
-                        - MODEL_UNAVAILABLE
-                        - MODEL_CAPABILITY_MISMATCH
-                        - UPSTREAM_TIMEOUT
-                        - UPSTREAM_ERROR
-                        - UPSTREAM_SCHEMA_ERROR
-                        - RATE_LIMITED
-                        - PARSE_ERROR
-                        - INTERNAL_ERROR
-                        - QUEUE_TIMEOUT
-                        - CIRCUIT_OPEN
-                        - REQUEST_TOO_LARGE
-                        - RUNTIME_NOT_READY
-                        - DETECTOR_RETIRED
-                        - DETECTOR_DISABLED
-                        - STREAM_LIMIT_EXCEEDED
-                        - MAIN_MODEL_CONTROL_UNAVAILABLE
-                        - MAIN_MODEL_SWITCH_IN_PROGRESS
-                      message:
-                        type: string
-                      retryable:
-                        type: boolean
-                      request_id:
-                        type: string
-                      operation_id:
-                        type:
-                        - string
-                        - 'null'
-                      operation_status:
-                        type:
-                        - string
-                        - 'null'
+                $ref: ./schemas/common_error.schema.json
         '504':
           description: Upstream timeout
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
-                title: CommonErrorResponse
-                type: object
-                required:
-                - error
-                additionalProperties: false
-                properties:
-                  error:
-                    type: object
-                    required:
-                    - code
-                    - message
-                    - retryable
-                    - request_id
-                    additionalProperties: false
-                    properties:
-                      code:
-                        type: string
-                        enum:
-                        - VALIDATION_ERROR
-                        - UNAUTHORIZED
-                        - FORBIDDEN
-                        - NOT_FOUND
-                        - MODEL_UNAVAILABLE
-                        - MODEL_CAPABILITY_MISMATCH
-                        - UPSTREAM_TIMEOUT
-                        - UPSTREAM_ERROR
-                        - UPSTREAM_SCHEMA_ERROR
-                        - RATE_LIMITED
-                        - PARSE_ERROR
-                        - INTERNAL_ERROR
-                        - QUEUE_TIMEOUT
-                        - CIRCUIT_OPEN
-                        - REQUEST_TOO_LARGE
-                        - RUNTIME_NOT_READY
-                        - DETECTOR_RETIRED
-                        - DETECTOR_DISABLED
-                        - STREAM_LIMIT_EXCEEDED
-                        - MAIN_MODEL_CONTROL_UNAVAILABLE
-                        - MAIN_MODEL_SWITCH_IN_PROGRESS
-                      message:
-                        type: string
-                      retryable:
-                        type: boolean
-                      request_id:
-                        type: string
-                      operation_id:
-                        type:
-                        - string
-                        - 'null'
-                      operation_status:
-                        type:
-                        - string
-                        - 'null'
+                $ref: ./schemas/common_error.schema.json
       security:
       - bearerAuth: []
       x-contract-schema: risk_assessment_request.schema.json
@@ -845,473 +315,49 @@ paths:
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
-                title: CommonErrorResponse
-                type: object
-                required:
-                - error
-                additionalProperties: false
-                properties:
-                  error:
-                    type: object
-                    required:
-                    - code
-                    - message
-                    - retryable
-                    - request_id
-                    additionalProperties: false
-                    properties:
-                      code:
-                        type: string
-                        enum:
-                        - VALIDATION_ERROR
-                        - UNAUTHORIZED
-                        - FORBIDDEN
-                        - NOT_FOUND
-                        - MODEL_UNAVAILABLE
-                        - MODEL_CAPABILITY_MISMATCH
-                        - UPSTREAM_TIMEOUT
-                        - UPSTREAM_ERROR
-                        - UPSTREAM_SCHEMA_ERROR
-                        - RATE_LIMITED
-                        - PARSE_ERROR
-                        - INTERNAL_ERROR
-                        - QUEUE_TIMEOUT
-                        - CIRCUIT_OPEN
-                        - REQUEST_TOO_LARGE
-                        - RUNTIME_NOT_READY
-                        - DETECTOR_RETIRED
-                        - DETECTOR_DISABLED
-                        - STREAM_LIMIT_EXCEEDED
-                        - MAIN_MODEL_CONTROL_UNAVAILABLE
-                        - MAIN_MODEL_SWITCH_IN_PROGRESS
-                      message:
-                        type: string
-                      retryable:
-                        type: boolean
-                      request_id:
-                        type: string
-                      operation_id:
-                        type:
-                        - string
-                        - 'null'
-                      operation_status:
-                        type:
-                        - string
-                        - 'null'
+                $ref: ./schemas/common_error.schema.json
         '422':
           description: Validation Error
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
-                title: CommonErrorResponse
-                type: object
-                required:
-                - error
-                additionalProperties: false
-                properties:
-                  error:
-                    type: object
-                    required:
-                    - code
-                    - message
-                    - retryable
-                    - request_id
-                    additionalProperties: false
-                    properties:
-                      code:
-                        type: string
-                        enum:
-                        - VALIDATION_ERROR
-                        - UNAUTHORIZED
-                        - FORBIDDEN
-                        - NOT_FOUND
-                        - MODEL_UNAVAILABLE
-                        - MODEL_CAPABILITY_MISMATCH
-                        - UPSTREAM_TIMEOUT
-                        - UPSTREAM_ERROR
-                        - UPSTREAM_SCHEMA_ERROR
-                        - RATE_LIMITED
-                        - PARSE_ERROR
-                        - INTERNAL_ERROR
-                        - QUEUE_TIMEOUT
-                        - CIRCUIT_OPEN
-                        - REQUEST_TOO_LARGE
-                        - RUNTIME_NOT_READY
-                        - DETECTOR_RETIRED
-                        - DETECTOR_DISABLED
-                        - STREAM_LIMIT_EXCEEDED
-                        - MAIN_MODEL_CONTROL_UNAVAILABLE
-                        - MAIN_MODEL_SWITCH_IN_PROGRESS
-                      message:
-                        type: string
-                      retryable:
-                        type: boolean
-                      request_id:
-                        type: string
-                      operation_id:
-                        type:
-                        - string
-                        - 'null'
-                      operation_status:
-                        type:
-                        - string
-                        - 'null'
+                $ref: ./schemas/common_error.schema.json
         '413':
           description: 요청 body가 너무 큼
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
-                title: CommonErrorResponse
-                type: object
-                required:
-                - error
-                additionalProperties: false
-                properties:
-                  error:
-                    type: object
-                    required:
-                    - code
-                    - message
-                    - retryable
-                    - request_id
-                    additionalProperties: false
-                    properties:
-                      code:
-                        type: string
-                        enum:
-                        - VALIDATION_ERROR
-                        - UNAUTHORIZED
-                        - FORBIDDEN
-                        - NOT_FOUND
-                        - MODEL_UNAVAILABLE
-                        - MODEL_CAPABILITY_MISMATCH
-                        - UPSTREAM_TIMEOUT
-                        - UPSTREAM_ERROR
-                        - UPSTREAM_SCHEMA_ERROR
-                        - RATE_LIMITED
-                        - PARSE_ERROR
-                        - INTERNAL_ERROR
-                        - QUEUE_TIMEOUT
-                        - CIRCUIT_OPEN
-                        - REQUEST_TOO_LARGE
-                        - RUNTIME_NOT_READY
-                        - DETECTOR_RETIRED
-                        - DETECTOR_DISABLED
-                        - STREAM_LIMIT_EXCEEDED
-                        - MAIN_MODEL_CONTROL_UNAVAILABLE
-                        - MAIN_MODEL_SWITCH_IN_PROGRESS
-                      message:
-                        type: string
-                      retryable:
-                        type: boolean
-                      request_id:
-                        type: string
-                      operation_id:
-                        type:
-                        - string
-                        - 'null'
-                      operation_status:
-                        type:
-                        - string
-                        - 'null'
+                $ref: ./schemas/common_error.schema.json
         '429':
           description: Upstream rate limit 또는 local admission timeout
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
-                title: CommonErrorResponse
-                type: object
-                required:
-                - error
-                additionalProperties: false
-                properties:
-                  error:
-                    type: object
-                    required:
-                    - code
-                    - message
-                    - retryable
-                    - request_id
-                    additionalProperties: false
-                    properties:
-                      code:
-                        type: string
-                        enum:
-                        - VALIDATION_ERROR
-                        - UNAUTHORIZED
-                        - FORBIDDEN
-                        - NOT_FOUND
-                        - MODEL_UNAVAILABLE
-                        - MODEL_CAPABILITY_MISMATCH
-                        - UPSTREAM_TIMEOUT
-                        - UPSTREAM_ERROR
-                        - UPSTREAM_SCHEMA_ERROR
-                        - RATE_LIMITED
-                        - PARSE_ERROR
-                        - INTERNAL_ERROR
-                        - QUEUE_TIMEOUT
-                        - CIRCUIT_OPEN
-                        - REQUEST_TOO_LARGE
-                        - RUNTIME_NOT_READY
-                        - DETECTOR_RETIRED
-                        - DETECTOR_DISABLED
-                        - STREAM_LIMIT_EXCEEDED
-                        - MAIN_MODEL_CONTROL_UNAVAILABLE
-                        - MAIN_MODEL_SWITCH_IN_PROGRESS
-                      message:
-                        type: string
-                      retryable:
-                        type: boolean
-                      request_id:
-                        type: string
-                      operation_id:
-                        type:
-                        - string
-                        - 'null'
-                      operation_status:
-                        type:
-                        - string
-                        - 'null'
+                $ref: ./schemas/common_error.schema.json
         '500':
           description: 내부 서버 오류
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
-                title: CommonErrorResponse
-                type: object
-                required:
-                - error
-                additionalProperties: false
-                properties:
-                  error:
-                    type: object
-                    required:
-                    - code
-                    - message
-                    - retryable
-                    - request_id
-                    additionalProperties: false
-                    properties:
-                      code:
-                        type: string
-                        enum:
-                        - VALIDATION_ERROR
-                        - UNAUTHORIZED
-                        - FORBIDDEN
-                        - NOT_FOUND
-                        - MODEL_UNAVAILABLE
-                        - MODEL_CAPABILITY_MISMATCH
-                        - UPSTREAM_TIMEOUT
-                        - UPSTREAM_ERROR
-                        - UPSTREAM_SCHEMA_ERROR
-                        - RATE_LIMITED
-                        - PARSE_ERROR
-                        - INTERNAL_ERROR
-                        - QUEUE_TIMEOUT
-                        - CIRCUIT_OPEN
-                        - REQUEST_TOO_LARGE
-                        - RUNTIME_NOT_READY
-                        - DETECTOR_RETIRED
-                        - DETECTOR_DISABLED
-                        - STREAM_LIMIT_EXCEEDED
-                        - MAIN_MODEL_CONTROL_UNAVAILABLE
-                        - MAIN_MODEL_SWITCH_IN_PROGRESS
-                      message:
-                        type: string
-                      retryable:
-                        type: boolean
-                      request_id:
-                        type: string
-                      operation_id:
-                        type:
-                        - string
-                        - 'null'
-                      operation_status:
-                        type:
-                        - string
-                        - 'null'
+                $ref: ./schemas/common_error.schema.json
         '502':
           description: Upstream 오류 또는 유효하지 않은 upstream 응답
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
-                title: CommonErrorResponse
-                type: object
-                required:
-                - error
-                additionalProperties: false
-                properties:
-                  error:
-                    type: object
-                    required:
-                    - code
-                    - message
-                    - retryable
-                    - request_id
-                    additionalProperties: false
-                    properties:
-                      code:
-                        type: string
-                        enum:
-                        - VALIDATION_ERROR
-                        - UNAUTHORIZED
-                        - FORBIDDEN
-                        - NOT_FOUND
-                        - MODEL_UNAVAILABLE
-                        - MODEL_CAPABILITY_MISMATCH
-                        - UPSTREAM_TIMEOUT
-                        - UPSTREAM_ERROR
-                        - UPSTREAM_SCHEMA_ERROR
-                        - RATE_LIMITED
-                        - PARSE_ERROR
-                        - INTERNAL_ERROR
-                        - QUEUE_TIMEOUT
-                        - CIRCUIT_OPEN
-                        - REQUEST_TOO_LARGE
-                        - RUNTIME_NOT_READY
-                        - DETECTOR_RETIRED
-                        - DETECTOR_DISABLED
-                        - STREAM_LIMIT_EXCEEDED
-                        - MAIN_MODEL_CONTROL_UNAVAILABLE
-                        - MAIN_MODEL_SWITCH_IN_PROGRESS
-                      message:
-                        type: string
-                      retryable:
-                        type: boolean
-                      request_id:
-                        type: string
-                      operation_id:
-                        type:
-                        - string
-                        - 'null'
-                      operation_status:
-                        type:
-                        - string
-                        - 'null'
+                $ref: ./schemas/common_error.schema.json
         '503':
           description: Runtime 또는 dependency를 사용할 수 없음
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
-                title: CommonErrorResponse
-                type: object
-                required:
-                - error
-                additionalProperties: false
-                properties:
-                  error:
-                    type: object
-                    required:
-                    - code
-                    - message
-                    - retryable
-                    - request_id
-                    additionalProperties: false
-                    properties:
-                      code:
-                        type: string
-                        enum:
-                        - VALIDATION_ERROR
-                        - UNAUTHORIZED
-                        - FORBIDDEN
-                        - NOT_FOUND
-                        - MODEL_UNAVAILABLE
-                        - MODEL_CAPABILITY_MISMATCH
-                        - UPSTREAM_TIMEOUT
-                        - UPSTREAM_ERROR
-                        - UPSTREAM_SCHEMA_ERROR
-                        - RATE_LIMITED
-                        - PARSE_ERROR
-                        - INTERNAL_ERROR
-                        - QUEUE_TIMEOUT
-                        - CIRCUIT_OPEN
-                        - REQUEST_TOO_LARGE
-                        - RUNTIME_NOT_READY
-                        - DETECTOR_RETIRED
-                        - DETECTOR_DISABLED
-                        - STREAM_LIMIT_EXCEEDED
-                        - MAIN_MODEL_CONTROL_UNAVAILABLE
-                        - MAIN_MODEL_SWITCH_IN_PROGRESS
-                      message:
-                        type: string
-                      retryable:
-                        type: boolean
-                      request_id:
-                        type: string
-                      operation_id:
-                        type:
-                        - string
-                        - 'null'
-                      operation_status:
-                        type:
-                        - string
-                        - 'null'
+                $ref: ./schemas/common_error.schema.json
         '504':
           description: Upstream timeout
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
-                title: CommonErrorResponse
-                type: object
-                required:
-                - error
-                additionalProperties: false
-                properties:
-                  error:
-                    type: object
-                    required:
-                    - code
-                    - message
-                    - retryable
-                    - request_id
-                    additionalProperties: false
-                    properties:
-                      code:
-                        type: string
-                        enum:
-                        - VALIDATION_ERROR
-                        - UNAUTHORIZED
-                        - FORBIDDEN
-                        - NOT_FOUND
-                        - MODEL_UNAVAILABLE
-                        - MODEL_CAPABILITY_MISMATCH
-                        - UPSTREAM_TIMEOUT
-                        - UPSTREAM_ERROR
-                        - UPSTREAM_SCHEMA_ERROR
-                        - RATE_LIMITED
-                        - PARSE_ERROR
-                        - INTERNAL_ERROR
-                        - QUEUE_TIMEOUT
-                        - CIRCUIT_OPEN
-                        - REQUEST_TOO_LARGE
-                        - RUNTIME_NOT_READY
-                        - DETECTOR_RETIRED
-                        - DETECTOR_DISABLED
-                        - STREAM_LIMIT_EXCEEDED
-                        - MAIN_MODEL_CONTROL_UNAVAILABLE
-                        - MAIN_MODEL_SWITCH_IN_PROGRESS
-                      message:
-                        type: string
-                      retryable:
-                        type: boolean
-                      request_id:
-                        type: string
-                      operation_id:
-                        type:
-                        - string
-                        - 'null'
-                      operation_status:
-                        type:
-                        - string
-                        - 'null'
+                $ref: ./schemas/common_error.schema.json
       security:
       - bearerAuth: []
       x-contract-schema: risk_assessment_request.schema.json
@@ -1398,473 +444,49 @@ paths:
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
-                title: CommonErrorResponse
-                type: object
-                required:
-                - error
-                additionalProperties: false
-                properties:
-                  error:
-                    type: object
-                    required:
-                    - code
-                    - message
-                    - retryable
-                    - request_id
-                    additionalProperties: false
-                    properties:
-                      code:
-                        type: string
-                        enum:
-                        - VALIDATION_ERROR
-                        - UNAUTHORIZED
-                        - FORBIDDEN
-                        - NOT_FOUND
-                        - MODEL_UNAVAILABLE
-                        - MODEL_CAPABILITY_MISMATCH
-                        - UPSTREAM_TIMEOUT
-                        - UPSTREAM_ERROR
-                        - UPSTREAM_SCHEMA_ERROR
-                        - RATE_LIMITED
-                        - PARSE_ERROR
-                        - INTERNAL_ERROR
-                        - QUEUE_TIMEOUT
-                        - CIRCUIT_OPEN
-                        - REQUEST_TOO_LARGE
-                        - RUNTIME_NOT_READY
-                        - DETECTOR_RETIRED
-                        - DETECTOR_DISABLED
-                        - STREAM_LIMIT_EXCEEDED
-                        - MAIN_MODEL_CONTROL_UNAVAILABLE
-                        - MAIN_MODEL_SWITCH_IN_PROGRESS
-                      message:
-                        type: string
-                      retryable:
-                        type: boolean
-                      request_id:
-                        type: string
-                      operation_id:
-                        type:
-                        - string
-                        - 'null'
-                      operation_status:
-                        type:
-                        - string
-                        - 'null'
+                $ref: ./schemas/common_error.schema.json
         '422':
           description: Validation Error
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
-                title: CommonErrorResponse
-                type: object
-                required:
-                - error
-                additionalProperties: false
-                properties:
-                  error:
-                    type: object
-                    required:
-                    - code
-                    - message
-                    - retryable
-                    - request_id
-                    additionalProperties: false
-                    properties:
-                      code:
-                        type: string
-                        enum:
-                        - VALIDATION_ERROR
-                        - UNAUTHORIZED
-                        - FORBIDDEN
-                        - NOT_FOUND
-                        - MODEL_UNAVAILABLE
-                        - MODEL_CAPABILITY_MISMATCH
-                        - UPSTREAM_TIMEOUT
-                        - UPSTREAM_ERROR
-                        - UPSTREAM_SCHEMA_ERROR
-                        - RATE_LIMITED
-                        - PARSE_ERROR
-                        - INTERNAL_ERROR
-                        - QUEUE_TIMEOUT
-                        - CIRCUIT_OPEN
-                        - REQUEST_TOO_LARGE
-                        - RUNTIME_NOT_READY
-                        - DETECTOR_RETIRED
-                        - DETECTOR_DISABLED
-                        - STREAM_LIMIT_EXCEEDED
-                        - MAIN_MODEL_CONTROL_UNAVAILABLE
-                        - MAIN_MODEL_SWITCH_IN_PROGRESS
-                      message:
-                        type: string
-                      retryable:
-                        type: boolean
-                      request_id:
-                        type: string
-                      operation_id:
-                        type:
-                        - string
-                        - 'null'
-                      operation_status:
-                        type:
-                        - string
-                        - 'null'
+                $ref: ./schemas/common_error.schema.json
         '413':
           description: 요청 body가 너무 큼
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
-                title: CommonErrorResponse
-                type: object
-                required:
-                - error
-                additionalProperties: false
-                properties:
-                  error:
-                    type: object
-                    required:
-                    - code
-                    - message
-                    - retryable
-                    - request_id
-                    additionalProperties: false
-                    properties:
-                      code:
-                        type: string
-                        enum:
-                        - VALIDATION_ERROR
-                        - UNAUTHORIZED
-                        - FORBIDDEN
-                        - NOT_FOUND
-                        - MODEL_UNAVAILABLE
-                        - MODEL_CAPABILITY_MISMATCH
-                        - UPSTREAM_TIMEOUT
-                        - UPSTREAM_ERROR
-                        - UPSTREAM_SCHEMA_ERROR
-                        - RATE_LIMITED
-                        - PARSE_ERROR
-                        - INTERNAL_ERROR
-                        - QUEUE_TIMEOUT
-                        - CIRCUIT_OPEN
-                        - REQUEST_TOO_LARGE
-                        - RUNTIME_NOT_READY
-                        - DETECTOR_RETIRED
-                        - DETECTOR_DISABLED
-                        - STREAM_LIMIT_EXCEEDED
-                        - MAIN_MODEL_CONTROL_UNAVAILABLE
-                        - MAIN_MODEL_SWITCH_IN_PROGRESS
-                      message:
-                        type: string
-                      retryable:
-                        type: boolean
-                      request_id:
-                        type: string
-                      operation_id:
-                        type:
-                        - string
-                        - 'null'
-                      operation_status:
-                        type:
-                        - string
-                        - 'null'
+                $ref: ./schemas/common_error.schema.json
         '429':
           description: Upstream rate limit 또는 local admission timeout
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
-                title: CommonErrorResponse
-                type: object
-                required:
-                - error
-                additionalProperties: false
-                properties:
-                  error:
-                    type: object
-                    required:
-                    - code
-                    - message
-                    - retryable
-                    - request_id
-                    additionalProperties: false
-                    properties:
-                      code:
-                        type: string
-                        enum:
-                        - VALIDATION_ERROR
-                        - UNAUTHORIZED
-                        - FORBIDDEN
-                        - NOT_FOUND
-                        - MODEL_UNAVAILABLE
-                        - MODEL_CAPABILITY_MISMATCH
-                        - UPSTREAM_TIMEOUT
-                        - UPSTREAM_ERROR
-                        - UPSTREAM_SCHEMA_ERROR
-                        - RATE_LIMITED
-                        - PARSE_ERROR
-                        - INTERNAL_ERROR
-                        - QUEUE_TIMEOUT
-                        - CIRCUIT_OPEN
-                        - REQUEST_TOO_LARGE
-                        - RUNTIME_NOT_READY
-                        - DETECTOR_RETIRED
-                        - DETECTOR_DISABLED
-                        - STREAM_LIMIT_EXCEEDED
-                        - MAIN_MODEL_CONTROL_UNAVAILABLE
-                        - MAIN_MODEL_SWITCH_IN_PROGRESS
-                      message:
-                        type: string
-                      retryable:
-                        type: boolean
-                      request_id:
-                        type: string
-                      operation_id:
-                        type:
-                        - string
-                        - 'null'
-                      operation_status:
-                        type:
-                        - string
-                        - 'null'
+                $ref: ./schemas/common_error.schema.json
         '500':
           description: 내부 서버 오류
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
-                title: CommonErrorResponse
-                type: object
-                required:
-                - error
-                additionalProperties: false
-                properties:
-                  error:
-                    type: object
-                    required:
-                    - code
-                    - message
-                    - retryable
-                    - request_id
-                    additionalProperties: false
-                    properties:
-                      code:
-                        type: string
-                        enum:
-                        - VALIDATION_ERROR
-                        - UNAUTHORIZED
-                        - FORBIDDEN
-                        - NOT_FOUND
-                        - MODEL_UNAVAILABLE
-                        - MODEL_CAPABILITY_MISMATCH
-                        - UPSTREAM_TIMEOUT
-                        - UPSTREAM_ERROR
-                        - UPSTREAM_SCHEMA_ERROR
-                        - RATE_LIMITED
-                        - PARSE_ERROR
-                        - INTERNAL_ERROR
-                        - QUEUE_TIMEOUT
-                        - CIRCUIT_OPEN
-                        - REQUEST_TOO_LARGE
-                        - RUNTIME_NOT_READY
-                        - DETECTOR_RETIRED
-                        - DETECTOR_DISABLED
-                        - STREAM_LIMIT_EXCEEDED
-                        - MAIN_MODEL_CONTROL_UNAVAILABLE
-                        - MAIN_MODEL_SWITCH_IN_PROGRESS
-                      message:
-                        type: string
-                      retryable:
-                        type: boolean
-                      request_id:
-                        type: string
-                      operation_id:
-                        type:
-                        - string
-                        - 'null'
-                      operation_status:
-                        type:
-                        - string
-                        - 'null'
+                $ref: ./schemas/common_error.schema.json
         '502':
           description: Upstream 오류 또는 유효하지 않은 upstream 응답
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
-                title: CommonErrorResponse
-                type: object
-                required:
-                - error
-                additionalProperties: false
-                properties:
-                  error:
-                    type: object
-                    required:
-                    - code
-                    - message
-                    - retryable
-                    - request_id
-                    additionalProperties: false
-                    properties:
-                      code:
-                        type: string
-                        enum:
-                        - VALIDATION_ERROR
-                        - UNAUTHORIZED
-                        - FORBIDDEN
-                        - NOT_FOUND
-                        - MODEL_UNAVAILABLE
-                        - MODEL_CAPABILITY_MISMATCH
-                        - UPSTREAM_TIMEOUT
-                        - UPSTREAM_ERROR
-                        - UPSTREAM_SCHEMA_ERROR
-                        - RATE_LIMITED
-                        - PARSE_ERROR
-                        - INTERNAL_ERROR
-                        - QUEUE_TIMEOUT
-                        - CIRCUIT_OPEN
-                        - REQUEST_TOO_LARGE
-                        - RUNTIME_NOT_READY
-                        - DETECTOR_RETIRED
-                        - DETECTOR_DISABLED
-                        - STREAM_LIMIT_EXCEEDED
-                        - MAIN_MODEL_CONTROL_UNAVAILABLE
-                        - MAIN_MODEL_SWITCH_IN_PROGRESS
-                      message:
-                        type: string
-                      retryable:
-                        type: boolean
-                      request_id:
-                        type: string
-                      operation_id:
-                        type:
-                        - string
-                        - 'null'
-                      operation_status:
-                        type:
-                        - string
-                        - 'null'
+                $ref: ./schemas/common_error.schema.json
         '503':
           description: Runtime 또는 dependency를 사용할 수 없음
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
-                title: CommonErrorResponse
-                type: object
-                required:
-                - error
-                additionalProperties: false
-                properties:
-                  error:
-                    type: object
-                    required:
-                    - code
-                    - message
-                    - retryable
-                    - request_id
-                    additionalProperties: false
-                    properties:
-                      code:
-                        type: string
-                        enum:
-                        - VALIDATION_ERROR
-                        - UNAUTHORIZED
-                        - FORBIDDEN
-                        - NOT_FOUND
-                        - MODEL_UNAVAILABLE
-                        - MODEL_CAPABILITY_MISMATCH
-                        - UPSTREAM_TIMEOUT
-                        - UPSTREAM_ERROR
-                        - UPSTREAM_SCHEMA_ERROR
-                        - RATE_LIMITED
-                        - PARSE_ERROR
-                        - INTERNAL_ERROR
-                        - QUEUE_TIMEOUT
-                        - CIRCUIT_OPEN
-                        - REQUEST_TOO_LARGE
-                        - RUNTIME_NOT_READY
-                        - DETECTOR_RETIRED
-                        - DETECTOR_DISABLED
-                        - STREAM_LIMIT_EXCEEDED
-                        - MAIN_MODEL_CONTROL_UNAVAILABLE
-                        - MAIN_MODEL_SWITCH_IN_PROGRESS
-                      message:
-                        type: string
-                      retryable:
-                        type: boolean
-                      request_id:
-                        type: string
-                      operation_id:
-                        type:
-                        - string
-                        - 'null'
-                      operation_status:
-                        type:
-                        - string
-                        - 'null'
+                $ref: ./schemas/common_error.schema.json
         '504':
           description: Upstream timeout
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
-                title: CommonErrorResponse
-                type: object
-                required:
-                - error
-                additionalProperties: false
-                properties:
-                  error:
-                    type: object
-                    required:
-                    - code
-                    - message
-                    - retryable
-                    - request_id
-                    additionalProperties: false
-                    properties:
-                      code:
-                        type: string
-                        enum:
-                        - VALIDATION_ERROR
-                        - UNAUTHORIZED
-                        - FORBIDDEN
-                        - NOT_FOUND
-                        - MODEL_UNAVAILABLE
-                        - MODEL_CAPABILITY_MISMATCH
-                        - UPSTREAM_TIMEOUT
-                        - UPSTREAM_ERROR
-                        - UPSTREAM_SCHEMA_ERROR
-                        - RATE_LIMITED
-                        - PARSE_ERROR
-                        - INTERNAL_ERROR
-                        - QUEUE_TIMEOUT
-                        - CIRCUIT_OPEN
-                        - REQUEST_TOO_LARGE
-                        - RUNTIME_NOT_READY
-                        - DETECTOR_RETIRED
-                        - DETECTOR_DISABLED
-                        - STREAM_LIMIT_EXCEEDED
-                        - MAIN_MODEL_CONTROL_UNAVAILABLE
-                        - MAIN_MODEL_SWITCH_IN_PROGRESS
-                      message:
-                        type: string
-                      retryable:
-                        type: boolean
-                      request_id:
-                        type: string
-                      operation_id:
-                        type:
-                        - string
-                        - 'null'
-                      operation_status:
-                        type:
-                        - string
-                        - 'null'
+                $ref: ./schemas/common_error.schema.json
       security:
       - bearerAuth: []
       x-contract-schema: risk_assessment_request.schema.json
@@ -1923,473 +545,49 @@ paths:
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
-                title: CommonErrorResponse
-                type: object
-                required:
-                - error
-                additionalProperties: false
-                properties:
-                  error:
-                    type: object
-                    required:
-                    - code
-                    - message
-                    - retryable
-                    - request_id
-                    additionalProperties: false
-                    properties:
-                      code:
-                        type: string
-                        enum:
-                        - VALIDATION_ERROR
-                        - UNAUTHORIZED
-                        - FORBIDDEN
-                        - NOT_FOUND
-                        - MODEL_UNAVAILABLE
-                        - MODEL_CAPABILITY_MISMATCH
-                        - UPSTREAM_TIMEOUT
-                        - UPSTREAM_ERROR
-                        - UPSTREAM_SCHEMA_ERROR
-                        - RATE_LIMITED
-                        - PARSE_ERROR
-                        - INTERNAL_ERROR
-                        - QUEUE_TIMEOUT
-                        - CIRCUIT_OPEN
-                        - REQUEST_TOO_LARGE
-                        - RUNTIME_NOT_READY
-                        - DETECTOR_RETIRED
-                        - DETECTOR_DISABLED
-                        - STREAM_LIMIT_EXCEEDED
-                        - MAIN_MODEL_CONTROL_UNAVAILABLE
-                        - MAIN_MODEL_SWITCH_IN_PROGRESS
-                      message:
-                        type: string
-                      retryable:
-                        type: boolean
-                      request_id:
-                        type: string
-                      operation_id:
-                        type:
-                        - string
-                        - 'null'
-                      operation_status:
-                        type:
-                        - string
-                        - 'null'
+                $ref: ./schemas/common_error.schema.json
         '422':
           description: Validation Error
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
-                title: CommonErrorResponse
-                type: object
-                required:
-                - error
-                additionalProperties: false
-                properties:
-                  error:
-                    type: object
-                    required:
-                    - code
-                    - message
-                    - retryable
-                    - request_id
-                    additionalProperties: false
-                    properties:
-                      code:
-                        type: string
-                        enum:
-                        - VALIDATION_ERROR
-                        - UNAUTHORIZED
-                        - FORBIDDEN
-                        - NOT_FOUND
-                        - MODEL_UNAVAILABLE
-                        - MODEL_CAPABILITY_MISMATCH
-                        - UPSTREAM_TIMEOUT
-                        - UPSTREAM_ERROR
-                        - UPSTREAM_SCHEMA_ERROR
-                        - RATE_LIMITED
-                        - PARSE_ERROR
-                        - INTERNAL_ERROR
-                        - QUEUE_TIMEOUT
-                        - CIRCUIT_OPEN
-                        - REQUEST_TOO_LARGE
-                        - RUNTIME_NOT_READY
-                        - DETECTOR_RETIRED
-                        - DETECTOR_DISABLED
-                        - STREAM_LIMIT_EXCEEDED
-                        - MAIN_MODEL_CONTROL_UNAVAILABLE
-                        - MAIN_MODEL_SWITCH_IN_PROGRESS
-                      message:
-                        type: string
-                      retryable:
-                        type: boolean
-                      request_id:
-                        type: string
-                      operation_id:
-                        type:
-                        - string
-                        - 'null'
-                      operation_status:
-                        type:
-                        - string
-                        - 'null'
+                $ref: ./schemas/common_error.schema.json
         '413':
           description: 요청 body가 너무 큼
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
-                title: CommonErrorResponse
-                type: object
-                required:
-                - error
-                additionalProperties: false
-                properties:
-                  error:
-                    type: object
-                    required:
-                    - code
-                    - message
-                    - retryable
-                    - request_id
-                    additionalProperties: false
-                    properties:
-                      code:
-                        type: string
-                        enum:
-                        - VALIDATION_ERROR
-                        - UNAUTHORIZED
-                        - FORBIDDEN
-                        - NOT_FOUND
-                        - MODEL_UNAVAILABLE
-                        - MODEL_CAPABILITY_MISMATCH
-                        - UPSTREAM_TIMEOUT
-                        - UPSTREAM_ERROR
-                        - UPSTREAM_SCHEMA_ERROR
-                        - RATE_LIMITED
-                        - PARSE_ERROR
-                        - INTERNAL_ERROR
-                        - QUEUE_TIMEOUT
-                        - CIRCUIT_OPEN
-                        - REQUEST_TOO_LARGE
-                        - RUNTIME_NOT_READY
-                        - DETECTOR_RETIRED
-                        - DETECTOR_DISABLED
-                        - STREAM_LIMIT_EXCEEDED
-                        - MAIN_MODEL_CONTROL_UNAVAILABLE
-                        - MAIN_MODEL_SWITCH_IN_PROGRESS
-                      message:
-                        type: string
-                      retryable:
-                        type: boolean
-                      request_id:
-                        type: string
-                      operation_id:
-                        type:
-                        - string
-                        - 'null'
-                      operation_status:
-                        type:
-                        - string
-                        - 'null'
+                $ref: ./schemas/common_error.schema.json
         '429':
           description: Upstream rate limit 또는 local admission timeout
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
-                title: CommonErrorResponse
-                type: object
-                required:
-                - error
-                additionalProperties: false
-                properties:
-                  error:
-                    type: object
-                    required:
-                    - code
-                    - message
-                    - retryable
-                    - request_id
-                    additionalProperties: false
-                    properties:
-                      code:
-                        type: string
-                        enum:
-                        - VALIDATION_ERROR
-                        - UNAUTHORIZED
-                        - FORBIDDEN
-                        - NOT_FOUND
-                        - MODEL_UNAVAILABLE
-                        - MODEL_CAPABILITY_MISMATCH
-                        - UPSTREAM_TIMEOUT
-                        - UPSTREAM_ERROR
-                        - UPSTREAM_SCHEMA_ERROR
-                        - RATE_LIMITED
-                        - PARSE_ERROR
-                        - INTERNAL_ERROR
-                        - QUEUE_TIMEOUT
-                        - CIRCUIT_OPEN
-                        - REQUEST_TOO_LARGE
-                        - RUNTIME_NOT_READY
-                        - DETECTOR_RETIRED
-                        - DETECTOR_DISABLED
-                        - STREAM_LIMIT_EXCEEDED
-                        - MAIN_MODEL_CONTROL_UNAVAILABLE
-                        - MAIN_MODEL_SWITCH_IN_PROGRESS
-                      message:
-                        type: string
-                      retryable:
-                        type: boolean
-                      request_id:
-                        type: string
-                      operation_id:
-                        type:
-                        - string
-                        - 'null'
-                      operation_status:
-                        type:
-                        - string
-                        - 'null'
+                $ref: ./schemas/common_error.schema.json
         '500':
           description: 내부 서버 오류
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
-                title: CommonErrorResponse
-                type: object
-                required:
-                - error
-                additionalProperties: false
-                properties:
-                  error:
-                    type: object
-                    required:
-                    - code
-                    - message
-                    - retryable
-                    - request_id
-                    additionalProperties: false
-                    properties:
-                      code:
-                        type: string
-                        enum:
-                        - VALIDATION_ERROR
-                        - UNAUTHORIZED
-                        - FORBIDDEN
-                        - NOT_FOUND
-                        - MODEL_UNAVAILABLE
-                        - MODEL_CAPABILITY_MISMATCH
-                        - UPSTREAM_TIMEOUT
-                        - UPSTREAM_ERROR
-                        - UPSTREAM_SCHEMA_ERROR
-                        - RATE_LIMITED
-                        - PARSE_ERROR
-                        - INTERNAL_ERROR
-                        - QUEUE_TIMEOUT
-                        - CIRCUIT_OPEN
-                        - REQUEST_TOO_LARGE
-                        - RUNTIME_NOT_READY
-                        - DETECTOR_RETIRED
-                        - DETECTOR_DISABLED
-                        - STREAM_LIMIT_EXCEEDED
-                        - MAIN_MODEL_CONTROL_UNAVAILABLE
-                        - MAIN_MODEL_SWITCH_IN_PROGRESS
-                      message:
-                        type: string
-                      retryable:
-                        type: boolean
-                      request_id:
-                        type: string
-                      operation_id:
-                        type:
-                        - string
-                        - 'null'
-                      operation_status:
-                        type:
-                        - string
-                        - 'null'
+                $ref: ./schemas/common_error.schema.json
         '502':
           description: Upstream 오류 또는 유효하지 않은 upstream 응답
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
-                title: CommonErrorResponse
-                type: object
-                required:
-                - error
-                additionalProperties: false
-                properties:
-                  error:
-                    type: object
-                    required:
-                    - code
-                    - message
-                    - retryable
-                    - request_id
-                    additionalProperties: false
-                    properties:
-                      code:
-                        type: string
-                        enum:
-                        - VALIDATION_ERROR
-                        - UNAUTHORIZED
-                        - FORBIDDEN
-                        - NOT_FOUND
-                        - MODEL_UNAVAILABLE
-                        - MODEL_CAPABILITY_MISMATCH
-                        - UPSTREAM_TIMEOUT
-                        - UPSTREAM_ERROR
-                        - UPSTREAM_SCHEMA_ERROR
-                        - RATE_LIMITED
-                        - PARSE_ERROR
-                        - INTERNAL_ERROR
-                        - QUEUE_TIMEOUT
-                        - CIRCUIT_OPEN
-                        - REQUEST_TOO_LARGE
-                        - RUNTIME_NOT_READY
-                        - DETECTOR_RETIRED
-                        - DETECTOR_DISABLED
-                        - STREAM_LIMIT_EXCEEDED
-                        - MAIN_MODEL_CONTROL_UNAVAILABLE
-                        - MAIN_MODEL_SWITCH_IN_PROGRESS
-                      message:
-                        type: string
-                      retryable:
-                        type: boolean
-                      request_id:
-                        type: string
-                      operation_id:
-                        type:
-                        - string
-                        - 'null'
-                      operation_status:
-                        type:
-                        - string
-                        - 'null'
+                $ref: ./schemas/common_error.schema.json
         '503':
           description: Runtime 또는 dependency를 사용할 수 없음
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
-                title: CommonErrorResponse
-                type: object
-                required:
-                - error
-                additionalProperties: false
-                properties:
-                  error:
-                    type: object
-                    required:
-                    - code
-                    - message
-                    - retryable
-                    - request_id
-                    additionalProperties: false
-                    properties:
-                      code:
-                        type: string
-                        enum:
-                        - VALIDATION_ERROR
-                        - UNAUTHORIZED
-                        - FORBIDDEN
-                        - NOT_FOUND
-                        - MODEL_UNAVAILABLE
-                        - MODEL_CAPABILITY_MISMATCH
-                        - UPSTREAM_TIMEOUT
-                        - UPSTREAM_ERROR
-                        - UPSTREAM_SCHEMA_ERROR
-                        - RATE_LIMITED
-                        - PARSE_ERROR
-                        - INTERNAL_ERROR
-                        - QUEUE_TIMEOUT
-                        - CIRCUIT_OPEN
-                        - REQUEST_TOO_LARGE
-                        - RUNTIME_NOT_READY
-                        - DETECTOR_RETIRED
-                        - DETECTOR_DISABLED
-                        - STREAM_LIMIT_EXCEEDED
-                        - MAIN_MODEL_CONTROL_UNAVAILABLE
-                        - MAIN_MODEL_SWITCH_IN_PROGRESS
-                      message:
-                        type: string
-                      retryable:
-                        type: boolean
-                      request_id:
-                        type: string
-                      operation_id:
-                        type:
-                        - string
-                        - 'null'
-                      operation_status:
-                        type:
-                        - string
-                        - 'null'
+                $ref: ./schemas/common_error.schema.json
         '504':
           description: Upstream timeout
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
-                title: CommonErrorResponse
-                type: object
-                required:
-                - error
-                additionalProperties: false
-                properties:
-                  error:
-                    type: object
-                    required:
-                    - code
-                    - message
-                    - retryable
-                    - request_id
-                    additionalProperties: false
-                    properties:
-                      code:
-                        type: string
-                        enum:
-                        - VALIDATION_ERROR
-                        - UNAUTHORIZED
-                        - FORBIDDEN
-                        - NOT_FOUND
-                        - MODEL_UNAVAILABLE
-                        - MODEL_CAPABILITY_MISMATCH
-                        - UPSTREAM_TIMEOUT
-                        - UPSTREAM_ERROR
-                        - UPSTREAM_SCHEMA_ERROR
-                        - RATE_LIMITED
-                        - PARSE_ERROR
-                        - INTERNAL_ERROR
-                        - QUEUE_TIMEOUT
-                        - CIRCUIT_OPEN
-                        - REQUEST_TOO_LARGE
-                        - RUNTIME_NOT_READY
-                        - DETECTOR_RETIRED
-                        - DETECTOR_DISABLED
-                        - STREAM_LIMIT_EXCEEDED
-                        - MAIN_MODEL_CONTROL_UNAVAILABLE
-                        - MAIN_MODEL_SWITCH_IN_PROGRESS
-                      message:
-                        type: string
-                      retryable:
-                        type: boolean
-                      request_id:
-                        type: string
-                      operation_id:
-                        type:
-                        - string
-                        - 'null'
-                      operation_status:
-                        type:
-                        - string
-                        - 'null'
+                $ref: ./schemas/common_error.schema.json
       security:
       - bearerAuth: []
       x-contract-schema: risk_assessment_request.schema.json

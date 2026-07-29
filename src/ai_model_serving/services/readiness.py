@@ -29,7 +29,7 @@ async def collect_readiness(
     metrics: Metrics | None = None,
     timeout_seconds: float = 2.0,
 ) -> dict[str, Any]:
-    """Probe dependency readiness and return the platform readiness body."""
+    """의존성 readiness를 확인하고 플랫폼 readiness 본문을 반환한다."""
 
     async def _probe_one(probe: DependencyProbe) -> dict[str, Any]:
         endpoint = f"{probe.client.endpoint.base_url.rstrip('/')}/{probe.path.lstrip('/')}"

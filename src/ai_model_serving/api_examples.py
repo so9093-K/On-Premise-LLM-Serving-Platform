@@ -597,7 +597,12 @@ RUNTIME_TRANSITION_NOOP_EXAMPLE: dict[str, Any] = {
 }
 
 RUNTIME_ERROR_404_EXAMPLE: dict[str, Any] = {
-    "detail": "runtime endpoint not found: embedding_ko",
+    "error": {
+        "code": "NOT_FOUND",
+        "message": "runtime endpoint not found: embedding_ko",
+        "retryable": False,
+        "request_id": "req_00000000000000000000000000000000",
+    },
 }
 
 # 예시: 들어맞지 않는 런타임을 활성화하는 경우 (예: main을 더 큰 프로필로
@@ -605,14 +610,19 @@ RUNTIME_ERROR_404_EXAMPLE: dict[str, Any] = {
 # 남는 여유는 0.765로 0.85에 못 미치므로, 응답에 먼저 중지해야 할 대상 목록이
 # 담긴다.
 RUNTIME_BUDGET_EXCEEDED_EXAMPLE: dict[str, Any] = {
-    "detail": {
+    "error": {
         "code": "GPU_BUDGET_EXCEEDED",
-        "feasible": True,
-        "required": 0.85,
-        "available": 0.765,
-        "ceiling": 0.93,
-        "plan": {"stop": ["risk-prompt-vllm", "embedding-ko-vllm"]},
-    }
+        "message": "GPU budget does not allow this activation.",
+        "retryable": False,
+        "request_id": "req_00000000000000000000000000000000",
+        "details": {
+            "feasible": True,
+            "required": 0.85,
+            "available": 0.765,
+            "ceiling": 0.93,
+            "plan": {"stop": ["risk-prompt-vllm", "embedding-ko-vllm"]},
+        },
+    },
 }
 
 RUNTIME_ERROR_503_NO_SIDECAR_EXAMPLE: dict[str, Any] = {

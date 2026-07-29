@@ -3,7 +3,20 @@ from __future__ import annotations
 import asyncio
 import json
 
-from ai_model_serving.services.runtime_state import RuntimeState, RuntimeStateRecord, RuntimeStateStore
+import pytest
+
+from ai_model_serving.services.runtime_state import (
+    RuntimeState,
+    RuntimeStateRecord,
+    RuntimeStateStore,
+    _default_controllable_keys,
+)
+
+
+def test_default_controllable_keys_fails_when_runtime_topology_is_unavailable(tmp_path, monkeypatch):
+    monkeypatch.setenv("APP_CONFIG_ROOT", str(tmp_path))
+    with pytest.raises(RuntimeError, match="cannot load configuration"):
+        _default_controllable_keys()
 
 
 def test_runtime_state_store_persists_desired_state(tmp_path):

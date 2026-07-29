@@ -39,7 +39,7 @@ Gateway는 외부 애플리케이션의 단일 진입점이다.
 | `local-main` | `temperature`, `max_tokens`, `top_p`, `top_k`, `min_p`, `presence_penalty`, `frequency_penalty`, `repetition_penalty`, `stop`, `seed`, `n`, `tools`, `tool_choice`, `parallel_tool_calls`, `stream`, `stream_options`, `reasoning`, `response_format`, `logprobs`, `top_logprobs`, `logit_bias` | `stream=true`는 SSE relay fast path로 지원하고 `stream_options.include_usage`는 `stream=true`와 함께 사용할 때 upstream이 지원하는 최종 usage chunk를 요청한다. `n`은 `1`만 허용. tool call은 Gemma4 parser 설정 범위에서만 허용. `reasoning=true`는 요청별 Gemma4 thinking opt-in이다 |
 | `local-embed` | `dimensions`, `encoding_format`, `truncate_prompt_tokens` | `dimensions`는 `768`, `512`, `256`, `128` 중 하나. `encoding_format`은 `float`로 고정. token-array input과 base64 encoding_format은 smoke 미검증으로 지원하지 않는다. `user`는 embedding request schema에서 accept하지만 `/v1/models` `request_parameters` projection에는 포함하지 않는다. |
 | `local-embed-ko` | `dimensions`, `encoding_format`, `truncate_prompt_tokens` | Korean dense retrieval 기본 모델. `dimensions`는 `1024` 고정이며 retrieval은 `dense_cosine`만 지원한다. `user`는 embedding request schema에서 accept하지만 `/v1/models` `request_parameters` projection에는 포함하지 않는다. |
-| `risk-prompt` | 없음 | risk API는 `prompt`만 입력받고 detector parameter는 adapter가 `fixed_parameters`로 고정 |
+| `risk-prompt` | 없음 | risk API는 `prompt`만 입력받고 detector parameter는 adapter가 `fixed_parameters`로 고정. vLLM prompt detector가 반환한 경우에만 응답 `usage`에 `prompt_tokens`·`completion_tokens`·`total_tokens`를 포함한다. |
 
 Retrieval 기본 모델은 `local-embed-ko`다. `model`을 생략하면 `local-embed-ko`, `score_mode`를 생략하면 `dense_cosine`을 사용한다. 기존 late-interaction runtime은 유지보수 비용, token-level 응답 크기, 전용 artifact 운영 복잡도를 줄이기 위해 제거했다.
 

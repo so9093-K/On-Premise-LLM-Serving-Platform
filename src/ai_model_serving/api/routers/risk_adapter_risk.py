@@ -7,7 +7,7 @@ from fastapi import APIRouter, Body, Request
 
 from ..endpoint_spec import RISK_ADAPTER_ENDPOINTS
 from ...contracts import read_risk_prompt
-from ...logging_policy import record_request_response_preview
+from ...logging_policy import record_request_response_preview, record_token_usage
 from ...settings import AppSettings
 
 _RA = {(s.method, s.path): s for s in RISK_ADAPTER_ENDPOINTS}
@@ -21,6 +21,7 @@ def build_router(api_dependencies: list, service: Any, settings: AppSettings) ->
     router = APIRouter()
 
     def _record_if_enabled(request: Request, *, prompt: str, response: dict[str, Any]) -> None:
+        record_token_usage(request, response.get("usage"))
         if settings.log_request_response_body:
             record_request_response_preview(
                 request,

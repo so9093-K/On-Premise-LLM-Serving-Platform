@@ -33,9 +33,19 @@ def copy_minimal_repo(tmp_path: Path) -> Path:
     root = Path(__file__).resolve().parents[2]
     repo = tmp_path / 'repo'
     (repo / 'scripts' / 'lib').mkdir(parents=True)
+    (repo / 'scripts' / 'models').mkdir(parents=True)
+    (repo / 'configs').mkdir(parents=True)
     (repo / 'VERSION').write_text((root / 'VERSION').read_text(encoding='utf-8'), encoding='utf-8')
     (repo / 'scripts' / 'lib' / 'vllm_unified_image.sh').write_text(
         (root / 'scripts' / 'lib' / 'vllm_unified_image.sh').read_text(encoding='utf-8'),
+        encoding='utf-8',
+    )
+    (repo / 'scripts' / 'models' / 'print_vllm_unified_compatibility.py').write_text(
+        (root / 'scripts' / 'models' / 'print_vllm_unified_compatibility.py').read_text(encoding='utf-8'),
+        encoding='utf-8',
+    )
+    (repo / 'configs' / 'recommended_images.yaml').write_text(
+        (root / 'configs' / 'recommended_images.yaml').read_text(encoding='utf-8'),
         encoding='utf-8',
     )
     return repo
@@ -102,7 +112,8 @@ def test_vllm_unified_image_resolver_default_base_matches_canonical_image_config
     assert result.stdout.strip() == _canonical_base_image()
 
     dockerfile = (Path(__file__).resolve().parents[2] / "ops/images/vllm-unified/Dockerfile").read_text(encoding="utf-8")
-    assert f"ARG BASE_IMAGE={_canonical_base_image()}" in dockerfile
+    assert "ARG BASE_IMAGE\n" in dockerfile
+    assert _canonical_base_image() not in dockerfile
 
 
 def test_vllm_unified_media_dependencies_use_the_verified_lock_without_resolving_transitives():

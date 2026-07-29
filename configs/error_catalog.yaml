@@ -30,6 +30,14 @@ errors:
     retryable: false
     meaning: "요청한 리소스(엔드포인트, operation 등)가 존재하지 않는다."
     action: "요청 경로와 식별자를 확인한다."
+  CONFLICT:
+    retryable: false
+    meaning: "현재 리소스 상태와 요청이 충돌해 작업을 수행할 수 없다."
+    action: "error.details.reason 또는 message를 확인한 뒤, 진행 중인 작업 완료·명시적 확인 등 충돌 원인을 해결한다."
+  GPU_BUDGET_EXCEEDED:
+    retryable: false
+    meaning: "요청한 런타임을 시작할 GPU VRAM 예산이 부족하다."
+    action: "error.details.plan.stop의 런타임을 정지한 뒤 재시도하거나 force=true로 자동 축출을 요청한다."
   MODEL_UNAVAILABLE:
     retryable: true
     meaning: "대상 모델 런타임을 현재 사용할 수 없다(미기동·축출 등)."

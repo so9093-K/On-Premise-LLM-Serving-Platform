@@ -38,8 +38,7 @@ profiles:
         단일 요청 대비 여유, 12B의 현재 1.07x보다 넉넉함). 검증 후 그 시점 라이브
         상태(12B)로 복귀했다 -- 26B를 실제 기본으로 올릴지는 별도 결정 필요.
       - 2026-07-25, `runtime.image`가 이제 Gemma4 멀티모달 패치 + Kanana Llama
-        head_dim 패치가 병합된 `vllm-unified` 이미지를 가리킨다(risk-vllm-kanana/
-        vllm-gemma4-audio 두 registry 태그 모두 같은 digest). 12B/embedding/
+        head_dim 패치가 병합된 `vllm-unified` 이미지를 가리킨다. 12B/embedding/
         embedding-ko/risk-prompt 재부팅 검증 직후 26B로도 다시 전환해
         재확인했다 -- healthy, 텍스트/이미지 입력 둘 다 정상(두 patch 모두
         26B의 코드 경로와 안 겹쳐 no-op이라는 설계 그대로 확인됨). 검증 후
@@ -206,9 +205,7 @@ profiles:
         의식하고 있어야 한다 -- 별도 결정 없이는 이 상태 유지.
       - 2026-07-25, `${AUDIO_VLLM_IMAGE}`가 resolve하는 image 값이 이제 Gemma4
         멀티모달 패치 + Kanana Llama head_dim 패치가 병합된 vllm-unified 이미지를
-        가리킨다
-        (risk-vllm-kanana/vllm-gemma4-audio 두 registry 태그 모두 같은 digest,
-        build-vllm-derived가 CI에서 실제로 빌드/push함). 실제 이 이미지로
+        가리킨다(build-vllm-derived가 CI에서 실제로 빌드/push함). 실제 이 이미지로
         재부팅 -- healthy, 텍스트 채팅 정상, 이미지 입력도 정상 응답(패치가
         여전히 유효함을 확인).
       validation:

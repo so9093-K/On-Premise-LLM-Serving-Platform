@@ -166,6 +166,7 @@ def test_default_code_for_status_does_not_contradict_status():
     assert default_code_for_status(401) == "UNAUTHORIZED"
     assert default_code_for_status(403) == "FORBIDDEN"
     assert default_code_for_status(404) == "NOT_FOUND"
+    assert default_code_for_status(409) == "CONFLICT"
     assert default_code_for_status(413) == "REQUEST_TOO_LARGE"
     assert default_code_for_status(503) == "MODEL_UNAVAILABLE"
     assert default_code_for_status(504) == "UPSTREAM_TIMEOUT"
@@ -225,6 +226,17 @@ def test_error_payload_includes_bounded_debug_when_present():
     assert payload["debug"]["cause_type"] == "HTTPStatusError"
     assert payload["debug"]["upstream_status"] == 400
     assert payload["debug"]["cause_message"].endswith("... [truncated]")
+
+
+def test_error_payload_preserves_operation_details_without_message_parsing():
+    payload = error_payload(
+        "GPU_BUDGET_EXCEEDED",
+        "GPU budget does not allow this activation.",
+        False,
+        details={"plan": {"stop": ["risk-prompt-vllm"]}},
+    )["error"]
+
+    assert payload["details"] == {"plan": {"stop": ["risk-prompt-vllm"]}}
 
 
 def test_service_error_debug_uses_original_cause_when_available():

@@ -118,9 +118,11 @@ curl -H "Authorization: Bearer $ADMIN_API_KEY" \
 계획을 반환한다.
 
 ```json
-{"detail": {"code": "GPU_BUDGET_EXCEEDED", "feasible": true,
+{"error": {"code": "GPU_BUDGET_EXCEEDED",
+  "message": "GPU budget does not allow this activation.", "retryable": false,
+  "request_id": "req_...", "details": {"feasible": true,
   "required": 0.85, "available": 0.765, "ceiling": 0.93,
-  "plan": {"stop": ["risk-prompt-vllm", "embedding-ko-vllm"]}}}
+  "plan": {"stop": ["risk-prompt-vllm", "embedding-ko-vllm"]}}}}
 ```
 
 계획대로 직접 정지한 뒤 다시 시도하거나, 보조 시작/메인 시작은 `force=true`로
