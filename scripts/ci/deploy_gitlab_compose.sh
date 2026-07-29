@@ -60,50 +60,17 @@ RELEASES_TO_KEEP="${RELEASES_TO_KEEP:-5}"
 RELEASE_ID="${DEPLOY_RELEASE_ID:-${CI_COMMIT_SHA:-}}"
 SSH_TARGET="${DEPLOY_USER}@${DEPLOY_HOST}"
 
-# 배포 모드 자동 감지. vLLM 이미지 override가 제공되면 full 배포가 필요하고,
-# 그렇지 않으면 기본값은 rolling(platform만 재시작, vLLM 다운타임 없음)이다.
-# 필요하면 DEPLOY_MODE를 명시적으로 지정해 full로 강제할 수 있다.
-_vllm_image_override="${RISK_VLLM_IMAGE_TO_DEPLOY:-${VLLM_UNIFIED_IMAGE_SHA:-}}"
-if [[ -z "${DEPLOY_MODE:-}" ]]; then
-  if [[ -n "${_vllm_image_override}" ]]; then
-    DEPLOY_MODE="full"
-    echo "[deploy] auto mode: full (vLLM image override provided)"
-  else
-    DEPLOY_MODE="rolling"
-    echo "[deploy] auto mode: rolling (platform-only change)"
-  fi
+source scripts/lib/deploy_request_policy.sh
+deploy_resolve_mode
+if [[ -n "${DEPLOY_MODE_REASON:-}" ]]; then
+  echo "[deploy] auto mode: ${DEPLOY_MODE} (${DEPLOY_MODE_REASON})"
 fi
 
 if [[ -z "${RELEASE_ID}" ]]; then
   RELEASE_ID="$(date -u +%Y%m%dT%H%M%SZ)"
 fi
-if [[ ! "${RELEASE_ID}" =~ ^[A-Za-z0-9._-]{1,128}$ ]]; then
-  echo "[deploy] ERROR: DEPLOY_RELEASE_ID must contain only A-Za-z0-9._- and be <=128 chars." >&2
-  exit 2
-fi
-if [[ ! "${RELEASES_TO_KEEP}" =~ ^[1-9][0-9]*$ ]]; then
-  echo "[deploy] ERROR: RELEASES_TO_KEEP must be a positive integer." >&2
-  exit 2
-fi
+deploy_validate_request "${RELEASE_ID}" "${RELEASES_TO_KEEP}"
 RELEASE_PATH="${DEPLOY_PATH}/releases/${RELEASE_ID}"
-
-case "${DEPLOY_MODE}" in
-  rolling|full) ;;
-  *)
-    echo "[deploy] ERROR: DEPLOY_MODE must be rolling or full, got: ${DEPLOY_MODE}" >&2
-    exit 2
-    ;;
-esac
-if [[ "${DEPLOY_MODE}" == "full" && "${RUN_READY_FULL_SMOKE}" != "1" ]]; then
-  echo "[deploy] ERROR: full deploy requires RUN_READY_FULL_SMOKE=1 so make ready-full cannot be skipped." >&2
-  exit 2
-fi
-if [[ "${DEPLOY_MODE}" != "full" &&
-  ( -n "${DEPLOY_RUNTIME_PROFILE:-}" || -n "${DEPLOY_DEFERRED_RUNTIMES:-}" ) ]]; then
-  echo "[deploy] ERROR: DEPLOY_RUNTIME_PROFILE/DEPLOY_DEFERRED_RUNTIMES require DEPLOY_MODE=full." >&2
-  echo "[deploy] Runtime startup policy mutates Gateway desired runtime state and must not run in rolling deploys." >&2
-  exit 2
-fi
 
 echo "[deploy] target: ${SSH_TARGET}:${DEPLOY_PATH}"
 echo "[deploy] platform image: ${PLATFORM_IMAGE_TO_DEPLOY}"
@@ -111,17 +78,7 @@ echo "[deploy] compose file: ${COMPOSE_FILE}"
 echo "[deploy] mode: ${DEPLOY_MODE}"
 echo "[deploy] release: ${RELEASE_ID}"
 
-if [[ "${DEPLOY_MODE}" == "full" ]]; then
-  RISK_VLLM_IMAGE_TO_DEPLOY="${RISK_VLLM_IMAGE_TO_DEPLOY:-${VLLM_UNIFIED_IMAGE_TO_DEPLOY:-${VLLM_UNIFIED_IMAGE_SHA:-}}}"
-  if [[ -z "${RISK_VLLM_IMAGE_TO_DEPLOY}" ]]; then
-    echo "[deploy] ERROR: full deploy requires RISK_VLLM_IMAGE_TO_DEPLOY or VLLM_UNIFIED_IMAGE_SHA." >&2
-    exit 2
-  fi
-  # unified 이미지는 risk-prompt와 12B profile이 함께 소비한다. 호출자가 12B 전용
-  # override를 명시하지 않았다면 risk 경로와 같은 immutable ref를 사용해야 한쪽만
-  # 새 patch/runtime으로 바뀌는 drift가 생기지 않는다.
-  AUDIO_VLLM_IMAGE_TO_DEPLOY="${AUDIO_VLLM_IMAGE_TO_DEPLOY:-${RISK_VLLM_IMAGE_TO_DEPLOY}}"
-fi
+deploy_resolve_full_runtime_images
 
 # ── 1. 불변 release 파일 스테이징 ────────────────────────────────────────
 echo "[deploy] preparing release directory ${SSH_TARGET}:${RELEASE_PATH}/"
@@ -244,11 +201,6 @@ ln -s "${DEPLOY_PATH}/.runtime" "${RELEASE_PATH}/.runtime"
 mkdir -p "${RELEASE_PATH}/ops/compose"
 ln -s "${DEPLOY_PATH}/ops/compose/model_cache" \
   "${RELEASE_PATH}/ops/compose/model_cache"
-
-cleanup_staged_candidate() {
-  rm -rf "${RELEASE_PATH}"
-}
-trap cleanup_staged_candidate EXIT
 
 cd "${RELEASE_PATH}"
 COMPOSE_ENV_FILE="${DEPLOY_PATH}/.env"
@@ -1063,7 +1015,9 @@ if [[ "${RUN_READY_SMOKE}" == "1" ]]; then
   fi
   HEALTH_URL="${GATEWAY_HEALTH_URL:-http://${GATEWAY_PROBE_HOST}:${GATEWAY_PORT}/health}"
   for i in $(seq 1 60); do
-    if curl -sf "${HEALTH_URL}" >/dev/null 2>&1; then
+    # 연결 또는 응답이 멈춰도 한 probe가 무한정 대기하면 안 된다. 이 제한이 있어야
+    # 아래 60회 × 10초 재시도 안내가 실제 최대 대기 시간과 일치한다.
+    if curl -sf --connect-timeout 3 --max-time 5 "${HEALTH_URL}" >/dev/null 2>&1; then
       echo "[deploy] gateway /health OK"
       break
     fi

@@ -12,12 +12,10 @@ from ai_model_serving.runtime_validation.results import CheckResult
 ROOT = Path(__file__).resolve().parents[2]
 
 def _clear_runtime_endpoint_env(monkeypatch) -> None:
-    # Keep runtime validation unit tests hermetic even when a developer has
-    # generated a local .env via bootstrap/init-env-compose. load_runtime_config
-    # intentionally reads .env, and python-dotenv does not override existing
-    # environment keys by default. Setting empty strings therefore prevents .env
-    # values from leaking in while still allowing the config loader's `or default`
-    # fallback behavior to be exercised.
+    # 개발자가 bootstrap/init-env-compose로 .env를 만들었어도 단위 테스트는
+    # 외부 설정에 영향을 받지 않아야 한다. 프로젝트 dotenv loader는 이미 process
+    # environment를 덮어쓰지 않으므로, 빈 문자열을 먼저 넣어 .env 값 유입을 막되
+    # config loader의 `or default` fallback은 그대로 검증한다.
     for key in [
         "GATEWAY_BASE_URL",
         "RISK_ADAPTER_BASE_URL",
