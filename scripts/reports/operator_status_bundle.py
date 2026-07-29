@@ -32,6 +32,7 @@ def main() -> int:
     document = operator_status_bundle_document(
         registry=registry,
         monitoring=load_yaml(root / "configs/monitoring.yaml"),
+        services=load_yaml(root / "configs/services.yaml")["services"],
         gpu_budgets=load_yaml(root / "configs/gpu_budgets.yaml"),
         version=(root / "VERSION").read_text(encoding="utf-8").strip(),
     )

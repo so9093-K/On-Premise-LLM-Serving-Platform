@@ -32,6 +32,7 @@ def main() -> int:
     document = monitoring_projection_document(
         registry=registry,
         monitoring=load_yaml(root / "configs/monitoring.yaml"),
+        services=load_yaml(root / "configs/services.yaml")["services"],
     )
     json_path, md_path = write_monitoring_projection_report(document, root / args.output_dir)
     print(f"wrote {json_path}")

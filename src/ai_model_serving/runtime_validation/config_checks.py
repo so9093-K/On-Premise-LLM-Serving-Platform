@@ -25,6 +25,7 @@ class ConfigOnlyChecks:
         self.root = config.root
         self.model_serving = config.model_serving
         self.monitoring = config.monitoring
+        self.services = config.services
         self.gpu_budgets = config.gpu_budgets
         self.registry = registry
         self.record = record
@@ -87,6 +88,7 @@ class ConfigOnlyChecks:
         status_bundle = operator_status_bundle_document(
             registry=self.registry,
             monitoring=self.monitoring,
+            services=self.services,
             gpu_budgets=self.gpu_budgets,
             version=self.config.version,
         )
@@ -114,7 +116,7 @@ class ConfigOnlyChecks:
         ))
 
     def _record_monitoring_projection(self) -> None:
-        monitoring_projection = monitoring_projection_document(registry=self.registry, monitoring=self.monitoring)
+        monitoring_projection = monitoring_projection_document(registry=self.registry, monitoring=self.monitoring, services=self.services)
         prometheus_path = self.root / "ops/prometheus/prometheus.yml"
         prometheus_document = yaml.safe_load(prometheus_path.read_text(encoding="utf-8"))
         monitoring_ok = (

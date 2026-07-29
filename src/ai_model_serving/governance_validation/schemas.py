@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 import re
 from pathlib import Path
 from typing import Any
@@ -195,80 +194,6 @@ def validate_request_schemas() -> None:
     for code in error_codes:
         if f'\"{code}\"' not in errors_py:
             raise SystemExit(f'common error schema code missing from errors.py ERROR_STATUS: {code}')
-
-
-def validate_generated_openapi_contract_schemas() -> None:
-    """FastAPI 생성 OpenAPI가 checked-in JSON 계약을 노출하는지 확인한다."""
-    from ai_model_serving.apps.gateway import create_gateway_app
-    from ai_model_serving.apps.risk_adapter import create_risk_adapter_app
-    from ai_model_serving.openapi_contracts import load_contract_schema
-
-    # 전체 오류 surface(모든 POST 엔드포인트의 401)를 검증하기 위해 strict auth로 생성한다.
-    # specs/openapi.gateway.yaml을 생성할 때 사용한 env와 동일하다.
-    _strict = {
-        'ADMIN_API_KEY_REQUIRED': 'true',
-        'ADMIN_API_KEYS': 'validate-admin-key',
-    }
-    _saved = {k: os.environ.get(k) for k in _strict}
-    os.environ.update(_strict)
-    try:
-        gateway = create_gateway_app().openapi()
-        risk_adapter = create_risk_adapter_app().openapi()
-    finally:
-        for k, v in _saved.items():
-            if v is None:
-                os.environ.pop(k, None)
-            else:
-                os.environ[k] = v
-
-    expected_gateway_requests = {
-        '/v1/chat/completions': 'chat_completion_request.schema.json',
-        '/v1/embeddings': 'embedding_request.schema.json',
-        '/v1/risk/detectors/prompt/assessments': 'risk_assessment_request.schema.json',
-        '/v1/risk/assessments': 'risk_assessment_request.schema.json',
-        '/v1/retrieval/rerank': 'retrieval_rerank_request.schema.json',
-        '/v1/retrieval/score': 'retrieval_score_request.schema.json',
-    }
-    expected_gateway_responses = {
-        '/v1/models': ('get', 'model_list_response.schema.json'),
-        '/v1/chat/completions': ('post', 'chat_completion_response.schema.json'),
-        '/v1/embeddings': ('post', 'embedding_response.schema.json'),
-        '/v1/risk/detectors/prompt/assessments': ('post', 'risk_assessment_response.schema.json'),
-        '/v1/risk/assessments': ('post', 'risk_assessment_response.schema.json'),
-        '/v1/retrieval/rerank': ('post', 'retrieval_rerank_response.schema.json'),
-        '/v1/retrieval/score': ('post', 'retrieval_score_response.schema.json'),
-    }
-    expected_risk_requests = {
-        '/v1/risk/detectors/prompt/assessments': 'risk_assessment_request.schema.json',
-        '/v1/risk/assessments': 'risk_assessment_request.schema.json',
-    }
-
-    for path, schema_name in expected_gateway_requests.items():
-        actual = gateway['paths'][path]['post']['requestBody']['content']['application/json']['schema']
-        if actual != load_contract_schema(schema_name, root=ROOT):
-            raise SystemExit(f'generated Gateway OpenAPI request schema drift: {path} != {schema_name}')
-    for path, (method, schema_name) in expected_gateway_responses.items():
-        actual = gateway['paths'][path][method]['responses']['200']['content']['application/json']['schema']
-        if actual != load_contract_schema(schema_name, root=ROOT):
-            raise SystemExit(f'generated Gateway OpenAPI response schema drift: {path} != {schema_name}')
-    for path, schema_name in expected_risk_requests.items():
-        actual = risk_adapter['paths'][path]['post']['requestBody']['content']['application/json']['schema']
-        if actual != load_contract_schema(schema_name, root=ROOT):
-            raise SystemExit(f'generated Risk Adapter OpenAPI request schema drift: {path} != {schema_name}')
-        response = risk_adapter['paths'][path]['post']['responses']['200']['content']['application/json']['schema']
-        if response != load_contract_schema('risk_assessment_response.schema.json', root=ROOT):
-            raise SystemExit(f'generated Risk Adapter OpenAPI response schema drift: {path}')
-
-    expected_post_error_codes = {'401', '413', '422', '429', '500', '502', '503', '504'}
-    for name, doc in {'Gateway': gateway, 'Risk Adapter': risk_adapter}.items():
-        for path, methods in doc.get('paths', {}).items():
-            post = methods.get('post') if isinstance(methods, dict) else None
-            if not post:
-                continue
-            statuses = set(post.get('responses', {}))
-            missing = expected_post_error_codes - statuses
-            if missing:
-                raise SystemExit(f'generated {name} OpenAPI post error surface drift: {path} missing {sorted(missing)}')
 
 
 def validate_common_error_codes() -> None:

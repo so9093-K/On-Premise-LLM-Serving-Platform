@@ -7,7 +7,9 @@ from typing import Any
 from ai_model_serving.domain import ModelRegistry
 
 
-def prometheus_scrape_config_document(*, registry: ModelRegistry, monitoring: dict[str, Any]) -> dict[str, Any]:
+def prometheus_scrape_config_document(
+    *, registry: ModelRegistry, monitoring: dict[str, Any], services: dict[str, Any]
+) -> dict[str, Any]:
     """Build the reference Prometheus scrape config from registry/config projections.
 
     This is intentionally a static projection for the reference compose topology.
@@ -21,6 +23,12 @@ def prometheus_scrape_config_document(*, registry: ModelRegistry, monitoring: di
     vllm = metric_sources.get("vllm_instances", {})
     dcgm = stack.get("dcgm_exporter", {})
     cadvisor = stack.get("cadvisor", {})
+    # configs/services.yaml이 compose 서비스명의 source_of_truth다 -- 여기서 리터럴
+    # 문자열로 다시 하드코딩하면 서비스명이 바뀌어도 drift를 잡을 방법이 없다.
+    gateway_service = str(services["gateway"]["compose_service"])
+    risk_service = str(services["risk_adapter"]["compose_service"])
+    dcgm_service = str(services["dcgm_exporter"]["compose_service"])
+    cadvisor_service = str(services["cadvisor"]["compose_service"])
     static_vllm_configs = [
         {
             "targets": [f"{target.compose_service_name}:{target.port}"],
@@ -43,13 +51,13 @@ def prometheus_scrape_config_document(*, registry: ModelRegistry, monitoring: di
                 "job_name": "gateway",
                 "metrics_path": gateway.get("metrics_path", "/metrics"),
                 "bearer_token_file": "/run/secrets/admin_api_key",
-                "static_configs": [{"targets": [f"gateway:{gateway.get('public_port', 9400)}"]}],
+                "static_configs": [{"targets": [f"{gateway_service}:{gateway.get('public_port', 9400)}"]}],
             },
             {
                 "job_name": "risk-adapter",
                 "metrics_path": risk.get("metrics_path", "/metrics"),
                 "bearer_token_file": "/run/secrets/admin_api_key",
-                "static_configs": [{"targets": [f"risk-adapter:{risk.get('public_port', 9405)}"]}],
+                "static_configs": [{"targets": [f"{risk_service}:{risk.get('public_port', 9405)}"]}],
             },
             {
                 "job_name": vllm.get("scrape_job", "vllm-runtimes"),
@@ -59,12 +67,12 @@ def prometheus_scrape_config_document(*, registry: ModelRegistry, monitoring: di
             {
                 "job_name": "dcgm-exporter",
                 "metrics_path": dcgm.get("default_metrics_path", "/metrics"),
-                "static_configs": [{"targets": [f"dcgm-exporter:{dcgm.get('internal_port', 9400)}"]}],
+                "static_configs": [{"targets": [f"{dcgm_service}:{dcgm.get('internal_port', 9400)}"]}],
             },
             {
                 "job_name": "cadvisor",
                 "metrics_path": cadvisor.get("default_metrics_path", "/metrics"),
-                "static_configs": [{"targets": [f"cadvisor:{cadvisor.get('internal_port', 8080)}"]}],
+                "static_configs": [{"targets": [f"{cadvisor_service}:{cadvisor.get('internal_port', 8080)}"]}],
             },
         ],
     }
@@ -144,7 +152,9 @@ def grafana_variable_projection(*, registry: ModelRegistry, monitoring: dict[str
     }
 
 
-def monitoring_projection_document(*, registry: ModelRegistry, monitoring: dict[str, Any]) -> dict[str, Any]:
+def monitoring_projection_document(
+    *, registry: ModelRegistry, monitoring: dict[str, Any], services: dict[str, Any]
+) -> dict[str, Any]:
     """Build a consolidated monitoring projection for operators and governance."""
     return {
         "version": str(monitoring.get("version", registry.catalog.get("version", ""))),
@@ -152,6 +162,7 @@ def monitoring_projection_document(*, registry: ModelRegistry, monitoring: dict[
             "configs/model_catalog.yaml",
             "configs/model_serving.yaml",
             "configs/monitoring.yaml",
+            "configs/services.yaml",
             "src/ai_model_serving/domain/model_registry.py",
         ],
         "privacy_contract": {
@@ -160,7 +171,7 @@ def monitoring_projection_document(*, registry: ModelRegistry, monitoring: dict[
             "model_output_included": False,
             "authorization_header_included": False,
         },
-        "prometheus_scrape_config": prometheus_scrape_config_document(registry=registry, monitoring=monitoring),
+        "prometheus_scrape_config": prometheus_scrape_config_document(registry=registry, monitoring=monitoring, services=services),
         "recording_rules": recording_rule_projection(registry=registry),
         "observability_trust": observability_trust_projection(registry=registry),
         "container_signals": container_signal_projection(registry=registry, monitoring=monitoring),

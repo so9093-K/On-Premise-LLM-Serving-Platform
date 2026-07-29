@@ -122,6 +122,13 @@ RETIRED_ENV_KEYS = {
     # 이 키를 폐기함으로써 sync-env 시 기존 .env에서 제거되어 yaml 값이 기준이 되며,
     # settings.py는 여전히 명시적인 env override는 존중합니다.
     "MAX_REQUEST_BODY_BYTES",
+    # HTTP_MAX_CONNECTIONS/HTTP_MAX_KEEPALIVE_CONNECTIONS는 MAX_REQUEST_BODY_BYTES와 같은
+    # 이유로 폐기합니다 -- configs/model_serving.yaml의
+    # operational_limits.http_client.max_connections/max_keepalive_connections가 단일
+    # 소스이고, .env 템플릿에 동일 값이 uncommented로 중복돼 있으면 같은 shadow drift
+    # 위험이 재발합니다.
+    "HTTP_MAX_CONNECTIONS",
+    "HTTP_MAX_KEEPALIVE_CONNECTIONS",
 }
 
 

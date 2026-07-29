@@ -306,6 +306,7 @@ def test_operator_status_bundle_report_is_registry_backed(tmp_path: Path) -> Non
     document = operator_status_bundle_document(
         registry=registry,
         monitoring=yaml.safe_load((ROOT / "configs/monitoring.yaml").read_text(encoding="utf-8")),
+        services=yaml.safe_load((ROOT / "configs/services.yaml").read_text(encoding="utf-8"))["services"],
         gpu_budgets=yaml.safe_load((ROOT / "configs/gpu_budgets.yaml").read_text(encoding="utf-8")),
         version="0.1.0-test",
     )
@@ -374,11 +375,12 @@ def test_monitoring_projection_report_is_registry_backed(tmp_path: Path) -> None
         yaml.safe_load((ROOT / "configs/model_serving.yaml").read_text(encoding="utf-8")),
     )
     monitoring = yaml.safe_load((ROOT / "configs/monitoring.yaml").read_text(encoding="utf-8"))
-    projected_prometheus = prometheus_scrape_config_document(registry=registry, monitoring=monitoring)
+    services = yaml.safe_load((ROOT / "configs/services.yaml").read_text(encoding="utf-8"))["services"]
+    projected_prometheus = prometheus_scrape_config_document(registry=registry, monitoring=monitoring, services=services)
     actual_prometheus = yaml.safe_load((ROOT / "ops/prometheus/prometheus.yml").read_text(encoding="utf-8"))
     assert projected_prometheus == actual_prometheus
 
-    document = monitoring_projection_document(registry=registry, monitoring=monitoring)
+    document = monitoring_projection_document(registry=registry, monitoring=monitoring, services=services)
     assert document["recording_rules"]["compose_service_regex"] == "main-llm-vllm|embedding-vllm|embedding-ko-vllm|risk-prompt-vllm"
     assert document["grafana_variables"]["model_values"] == ["local-main", "local-embed", "local-embed-ko", "risk-prompt"]
     assert document["privacy_contract"] == {

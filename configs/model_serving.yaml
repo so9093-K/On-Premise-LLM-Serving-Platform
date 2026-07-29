@@ -76,16 +76,15 @@ models:
     resource_control:
       criticality: primary_user_path
       isolation: dedicated_vllm_process
-      # This declared value must stay in lockstep with the default profile's
-      # (gemma4-12b-unified-fp8) actual --max-num-seqs -- see
-      # validate_model_resource_control_policy and
-      # scripts/compose/validate_vllm_compose.py, which cross-check this
-      # against configs/main_model_profiles.yaml and
-      # ops/compose/full-stack.private-network.yaml. Do not bump this to raise
-      # gateway concurrency without also promoting a validated higher-concurrency
-      # profile to default_profile; use the MAIN_LLM_MAX_CONCURRENCY env override
-      # (settings_parts/runtime_endpoints.py) instead to change the gateway's
-      # admission ceiling independent of the declared default profile.
+      # 이 선언값은 기본 프로필(gemma4-12b-unified-fp8)의 실제 --max-num-seqs와
+      # 항상 일치해야 한다 -- scripts/compose/validate_vllm_compose.py의
+      # validate_main_llm_bootstrap_image가 max_model_len/max_num_seqs/
+      # max_num_batched_tokens/optimization_level/gpu_memory_utilization을
+      # configs/main_model_profiles.yaml과 대조해 강제한다. gateway 동시성을
+      # 올리려고 이 값만 올리지 말 것 -- 더 높은 동시성으로 검증된 프로필을
+      # default_profile로 승격하지 않는 한, MAIN_LLM_MAX_CONCURRENCY env override
+      # (settings_parts/runtime_endpoints.py)로 선언된 기본 프로필과 별개로
+      # gateway의 admission ceiling만 올리는 걸 대신 쓴다.
       admission_control:
         max_concurrency: 3
         queue_timeout_seconds: 2

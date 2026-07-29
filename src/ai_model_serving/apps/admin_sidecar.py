@@ -13,7 +13,7 @@ from fastapi import FastAPI, Header, HTTPException
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 
-from ..docker_main_model_backend import DockerMainModelBackend
+from ..docker_main_model_backend import DEFAULT_GATEWAY_URL, DockerMainModelBackend
 from ..configuration import load_yaml_mapping
 from ..gpu_budget import Participant, budget_snapshot, plan_activation
 from ..service_logging import service_logger
@@ -65,7 +65,7 @@ def load_sidecar_config(
         profile_locked=environment.get("MAIN_LLM_PROFILE_LOCKED", "false").lower() == "true",
         idempotency_ttl_seconds=environment.get("MAIN_LLM_SWITCH_IDEMPOTENCY_TTL_SECONDS") or None,
         internal_service_token=environment.get("INTERNAL_SERVICE_TOKEN", ""),
-        gateway_internal_url=environment.get("GATEWAY_INTERNAL_URL", "http://gateway:9400"),
+        gateway_internal_url=environment.get("GATEWAY_INTERNAL_URL", DEFAULT_GATEWAY_URL),
     )
 
 

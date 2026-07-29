@@ -25,7 +25,6 @@ from .common import (
     ROOT,
     iter_project_files,
     read_json,
-    read_runtime_contract_text,
     read_yaml,
 )
 

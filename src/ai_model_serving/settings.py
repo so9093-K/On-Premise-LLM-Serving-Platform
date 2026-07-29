@@ -198,12 +198,12 @@ def load_settings(root: Path | None = None, env_file: Path | str | None = None) 
     vllm_timeout = _as_float("VLLM_TIMEOUT_SECONDS", float(timeouts.get("vllm_request_seconds", 20)), minimum=0.1)
     gateway_timeout_seconds = _as_float(
         "REQUEST_TIMEOUT_SECONDS",
-        float(timeouts.get("gateway_request_seconds", 30)),
+        float(timeouts.get("gateway_request_seconds", 125)),
         minimum=0.1,
     )
     risk_adapter_timeout_seconds = _as_float(
         "RISK_ADAPTER_TIMEOUT_SECONDS",
-        float(timeouts.get("risk_adapter_seconds", 10)),
+        float(timeouts.get("risk_adapter_seconds", 15)),
         minimum=0.1,
     )
 

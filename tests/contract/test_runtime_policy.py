@@ -18,14 +18,18 @@ def python_package_version(version: str) -> str:
 
 
 def test_monitoring_ports_and_privacy_settings_are_aligned() -> None:
-    # prometheus/grafana/dcgm_exporter의 monitoring.yaml<->services.yaml 포트 일치와
-    # privacy_and_security forbidden 플래그는 governance_validation.docs_ops
-    # .validate_monitoring_reference()(make validate)가 이미 검증한다. cadvisor 포트와
-    # metric_sources label 정책은 거기서 다루지 않아 여기 남긴다.
     monitoring = yaml.safe_load((ROOT / 'configs/monitoring.yaml').read_text(encoding='utf-8'))
     services = yaml.safe_load((ROOT / 'configs/services.yaml').read_text(encoding='utf-8'))['services']
     ports = {name: service['default_host_port'] for name, service in services.items()}
+    assert monitoring['monitoring_stack']['prometheus']['port'] == ports['prometheus'] == 9410
+    assert monitoring['monitoring_stack']['grafana']['port'] == ports['grafana'] == 9411
+    assert monitoring['monitoring_stack']['dcgm_exporter']['host_port'] == ports['dcgm_exporter'] == 9412
+    assert monitoring['monitoring_stack']['dcgm_exporter']['internal_port'] == services['dcgm_exporter']['container_port'] == 9400
     assert monitoring['monitoring_stack']['cadvisor']['port'] == ports['cadvisor'] == 9413
+    privacy = monitoring['privacy_and_security']
+    assert privacy['raw_prompt_in_metrics'] == 'forbidden'
+    assert privacy['user_text_labels'] == 'forbidden'
+    assert privacy['model_output_text_labels'] == 'forbidden'
     assert monitoring['metric_sources']['vllm_instances']['label_policy']['model'].startswith('logical served model name')
     assert monitoring['metric_sources']['vllm_containers']['compose_service_label'] == 'container_label_com_docker_compose_service'
 

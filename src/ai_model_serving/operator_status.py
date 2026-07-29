@@ -51,6 +51,7 @@ def operator_status_bundle_document(
     *,
     registry: ModelRegistry,
     monitoring: dict[str, Any],
+    services: dict[str, Any],
     gpu_budgets: dict[str, Any],
     version: str,
 ) -> dict[str, Any]:
@@ -61,7 +62,7 @@ def operator_status_bundle_document(
     output, Authorization headers, or secret values.
     """
     runtime_targets = runtime_targets_document(registry)
-    monitoring_projection = monitoring_projection_document(registry=registry, monitoring=monitoring)
+    monitoring_projection = monitoring_projection_document(registry=registry, monitoring=monitoring, services=services)
     return {
         "version": version,
         "source_of_truth": [
@@ -69,6 +70,7 @@ def operator_status_bundle_document(
             "configs/model_serving.yaml",
             "configs/gpu_budgets.yaml",
             "configs/monitoring.yaml",
+            "configs/services.yaml",
             "src/ai_model_serving/status.py",
         ],
         "privacy_contract": {

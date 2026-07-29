@@ -50,6 +50,7 @@ class RuntimeValidationConfig:
     model_serving: dict[str, Any]
     model_catalog: dict[str, Any]
     monitoring: dict[str, Any]
+    services: dict[str, Any]
     gpu_budgets: dict[str, Any]
     version: str
 
@@ -131,6 +132,7 @@ def load_runtime_config(args: Any) -> RuntimeValidationConfig:
         model_serving=model_serving,
         model_catalog=model_catalog,
         monitoring=monitoring,
+        services=services,
         gpu_budgets=gpu_budgets,
         version=(root / "VERSION").read_text(encoding="utf-8").strip(),
     )

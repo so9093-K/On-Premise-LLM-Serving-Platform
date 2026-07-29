@@ -263,7 +263,7 @@ if [[ -n "${PREVIOUS_RELEASE}" && -d "${PREVIOUS_RELEASE}" ]]; then
       exit "${_config_compare_status}"
     fi
   fi
-  if [[ ${#_changed_unified_image_source[@]} -gt 0 && ! deploy_has_fresh_unified_image_artifact "${VLLM_UNIFIED_IMAGE_TO_DEPLOY:-}" ]]; then
+  if [[ ${#_changed_unified_image_source[@]} -gt 0 ]] && ! deploy_has_fresh_unified_image_artifact "${VLLM_UNIFIED_IMAGE_TO_DEPLOY:-}"; then
     echo "[deploy] ERROR: vllm-unified image source changed but build-vllm-derived did not run." >&2
     echo "[deploy]   No fresh immutable unified image artifact — deploying now would ship the previous image." >&2
     printf '[deploy]   Changed source: %s\n' "${_changed_unified_image_source[@]}" >&2

@@ -53,6 +53,11 @@ def monitoring() -> dict[str, Any]:
 
 
 @pytest.fixture(scope="module")
+def services() -> dict[str, Any]:
+    return _load_yaml(ROOT / "configs/services.yaml")["services"]
+
+
+@pytest.fixture(scope="module")
 def registry(catalog: dict[str, Any], serving: dict[str, Any]) -> ModelRegistry:
     return ModelRegistry(catalog, serving)
 
@@ -62,13 +67,13 @@ def registry(catalog: dict[str, Any], serving: dict[str, Any]) -> ModelRegistry:
 # ── 포트 변경 시 산출물 전파 ──────────────────────────────────────────────────
 
 def test_port_change_propagates_to_prometheus(
-    catalog: dict[str, Any], serving: dict[str, Any], monitoring: dict[str, Any]
+    catalog: dict[str, Any], serving: dict[str, Any], monitoring: dict[str, Any], services: dict[str, Any]
 ) -> None:
     serving2 = copy.deepcopy(serving)
     serving2["models"]["main_llm"]["port"] = 9999
     serving2["models"]["main_llm"]["endpoint"] = "http://main-llm-vllm:9999/v1"
     registry2 = ModelRegistry(catalog, serving2)
-    rendered = render_prometheus_yml(registry2, monitoring)
+    rendered = render_prometheus_yml(registry2, monitoring, services)
     assert "main-llm-vllm:9999" in rendered
     assert "main-llm-vllm:9401" not in rendered
 
@@ -220,12 +225,12 @@ def test_compare_doc_block_returns_false_when_no_markers(tmp_path: Path) -> None
 # ── --write 후 --check clean 상태 (tmp_path isolation) ────────────────────────
 
 def test_write_then_check_is_clean(
-    tmp_path: Path, catalog: dict[str, Any], serving: dict[str, Any], monitoring: dict[str, Any]
+    tmp_path: Path, catalog: dict[str, Any], serving: dict[str, Any], monitoring: dict[str, Any], services: dict[str, Any]
 ) -> None:
     """tmp 디렉토리에서 --write를 흉내 낸 뒤 compare_artifact가 True를 반환하는지 확인한다."""
     registry = ModelRegistry(catalog, serving)
 
-    artifacts = get_artifacts(registry, monitoring, tmp_path)
+    artifacts = get_artifacts(registry, monitoring, services, tmp_path)
     for path, content in artifacts:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(content, encoding="utf-8")

@@ -44,8 +44,7 @@ commands:
     docs:
       - docs/START_HERE.md
       - docs/README.md
-    tests:
-      - tests/contract/test_architecture_boundaries.py
+    tests: []
 
   - make_target: help-full
     title: 전체 도움말 출력
@@ -67,8 +66,7 @@ commands:
     owner: operations
     docs:
       - docs/START_HERE.md
-    tests:
-      - tests/contract/test_architecture_boundaries.py
+    tests: []
 
   - make_target: help-json
     title: 도움말 JSON 출력
@@ -89,8 +87,7 @@ commands:
     outputs: [stdout]
     owner: operations
     docs: []
-    tests:
-      - tests/contract/test_architecture_boundaries.py
+    tests: []
 
   - make_target: guide
     title: 상황별 명령 추천 가이드
@@ -388,8 +385,7 @@ commands:
     owner: operations
     docs:
       - docs/README.md
-    tests:
-      - tests/contract/test_architecture_boundaries.py
+    tests: []
 
   - make_target: stop
     title: 서비스 종료
@@ -998,8 +994,7 @@ commands:
     outputs: [stdout]
     owner: operations
     docs: []
-    tests:
-      - tests/contract/test_architecture_boundaries.py
+    tests: []
 
   - make_target: monitoring-projection
     title: Prometheus/Grafana projection 생성

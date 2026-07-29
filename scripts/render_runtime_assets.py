@@ -65,19 +65,20 @@ def _load_yaml(path: Path) -> dict[str, Any]:
     return yaml.safe_load(path.read_text(encoding="utf-8"))
 
 
-def _load_registry_and_monitoring(root: Path) -> tuple[ModelRegistry, dict[str, Any]]:
+def _load_registry_and_monitoring(root: Path) -> tuple[ModelRegistry, dict[str, Any], dict[str, Any]]:
     registry = ModelRegistry(
         _load_yaml(root / "configs/model_catalog.yaml"),
         _load_yaml(root / "configs/model_serving.yaml"),
     )
     monitoring = _load_yaml(root / "configs/monitoring.yaml")
-    return registry, monitoring
+    services = _load_yaml(root / "configs/services.yaml")["services"]
+    return registry, monitoring, services
 
 
 # ── renderers ──────────────────────────────────────────────────────────────────
 
-def render_prometheus_yml(registry: ModelRegistry, monitoring: dict[str, Any]) -> str:
-    doc = prometheus_scrape_config_document(registry=registry, monitoring=monitoring)
+def render_prometheus_yml(registry: ModelRegistry, monitoring: dict[str, Any], services: dict[str, Any]) -> str:
+    doc = prometheus_scrape_config_document(registry=registry, monitoring=monitoring, services=services)
     body = yaml.dump(doc, allow_unicode=True, default_flow_style=False, sort_keys=False)
     return _GENERATED_HEADER_YAML_WITH_MONITORING + body
 
@@ -667,11 +668,11 @@ def patch_doc_block(content: str, begin_marker: str, end_marker: str, new_block:
 # ── artifact map ───────────────────────────────────────────────────────────────
 
 def get_artifacts(
-    registry: ModelRegistry, monitoring: dict[str, Any], root: Path
+    registry: ModelRegistry, monitoring: dict[str, Any], services: dict[str, Any], root: Path
 ) -> list[tuple[Path, str]]:
     """(파일 경로, expected 내용) 목록을 반환한다."""
     return [
-        (root / "ops/prometheus/prometheus.yml", render_prometheus_yml(registry, monitoring)),
+        (root / "ops/prometheus/prometheus.yml", render_prometheus_yml(registry, monitoring, services)),
         (root / "contracts/model_contracts.yaml", render_model_contracts_yaml(registry)),
         (
             root / "specs/schemas/model_list_response.schema.json",
@@ -718,8 +719,8 @@ def main() -> int:
     args = parser.parse_args()
 
     root = Path(args.root).resolve()
-    registry, monitoring = _load_registry_and_monitoring(root)
-    artifacts = get_artifacts(registry, monitoring, root)
+    registry, monitoring, services = _load_registry_and_monitoring(root)
+    artifacts = get_artifacts(registry, monitoring, services, root)
     doc_patches = get_doc_patches(registry, root)
 
     if args.write:

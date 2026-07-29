@@ -67,6 +67,11 @@ _DRAIN_POLL_INTERVAL_SECONDS = 0.25  # drain-status poll 사이 간격
 _HEALTH_POLL_INTERVAL_SECONDS = 3    # 컨테이너 health poll 사이 간격
 _RUNTIME_HTTP_TIMEOUT = 30           # vLLM 런타임으로의 HTTP 요청(/v1/models, canary)
 
+# gateway compose 서비스의 내부 network alias/port 기본값. GATEWAY_INTERNAL_URL env로
+# 오버라이드되지 않았을 때만 쓰인다 -- apps/admin_sidecar.py가 이 상수를 가져와 자기 fallback으로
+# 재사용해서, 같은 값이 두 파일에 독립적으로 하드코딩돼 갈라지는 걸 막는다.
+DEFAULT_GATEWAY_URL = "http://gateway:9400"
+
 
 class DockerMainModelBackend:
     """허용 목록에 있는 Compose main-model 컨테이너만 재생성한다.
@@ -80,7 +85,7 @@ class DockerMainModelBackend:
         docker_socket: str,
         compose_project: str = "",
         *,
-        gateway_url: str = "http://gateway:9400",
+        gateway_url: str = DEFAULT_GATEWAY_URL,
         internal_token: str = "",
         cache_dir: str | None = None,
     ) -> None:

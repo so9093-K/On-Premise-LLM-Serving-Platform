@@ -59,19 +59,3 @@ def read_json(path: str) -> Any:
 
 def read_yaml(path: str) -> Any:
     return yaml.safe_load((ROOT / path).read_text(encoding='utf-8'))
-
-
-def read_runtime_contract_text() -> str:
-    paths = [
-        'src/ai_model_serving/contracts/chat.py',
-        'src/ai_model_serving/contracts/chat_common.py',
-        'src/ai_model_serving/contracts/chat_json_schema.py',
-        'src/ai_model_serving/contracts/chat_response_format.py',
-        'src/ai_model_serving/contracts/chat_tools.py',
-        'src/ai_model_serving/contracts/chat_request.py',
-        'src/ai_model_serving/contracts/chat_response.py',
-        'src/ai_model_serving/contracts/embedding.py',
-        'src/ai_model_serving/contracts/media.py',
-        'src/ai_model_serving/contracts/risk.py',
-    ]
-    return "\n".join((ROOT / path).read_text(encoding='utf-8') for path in paths)
