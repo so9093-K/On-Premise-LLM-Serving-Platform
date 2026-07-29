@@ -89,7 +89,9 @@ package-release:
   extends: .default-python
   stage: package
   script:
-    - bash scripts/build/package_release.sh
+    # validate stage가 성공한 뒤에만 package stage가 시작된다. package 단독 실행의
+    # 자체 검증은 유지하되 CI에서는 같은 계약 검증을 다시 실행하지 않는다.
+    - PACKAGE_SKIP_VALIDATION=1 PYTHON_BIN=python bash scripts/build/package_release.sh
   artifacts:
     when: always
     expire_in: 7 days
@@ -104,7 +106,11 @@ build-platform:
   stage: build
   script:
     - APP_VERSION="$(tr -d '\r\n' < VERSION)"
-    - docker build --pull -t "$PLATFORM_IMAGE_SHA" -t "$PLATFORM_IMAGE_REF" .
+    # DinD daemon은 job마다 새로 시작한다. 이전 ref image가 있으면 source-only
+    # 변경에서도 Dockerfile의 runtime dependency layer를 재사용한다. 첫 pipeline이나
+    # registry cache miss는 빌드를 막지 않는다.
+    - docker pull "$PLATFORM_IMAGE_REF" || true
+    - docker build --pull --cache-from "$PLATFORM_IMAGE_REF" --build-arg BUILDKIT_INLINE_CACHE=1 -t "$PLATFORM_IMAGE_SHA" -t "$PLATFORM_IMAGE_REF" .
     - docker run --rm --entrypoint python "$PLATFORM_IMAGE_SHA" -c "from ai_model_serving.apps.gateway import create_gateway_app; from ai_model_serving.apps.risk_adapter import create_risk_adapter_app; create_gateway_app(); create_risk_adapter_app()"
     - docker push "$PLATFORM_IMAGE_SHA"
     - docker push "$PLATFORM_IMAGE_REF"

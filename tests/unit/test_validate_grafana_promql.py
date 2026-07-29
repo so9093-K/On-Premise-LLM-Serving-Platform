@@ -184,6 +184,7 @@ def _run_main(argv: list[str], dashboard_dir: Path | None = None) -> tuple[int, 
 
 
 def test_config_only_exits_zero():
+    assert vgp.default_prometheus_url() == "http://localhost:9410"
     code, out = _run_main(["--config-only"])
     assert code == 0
     assert "Config-only check passed" in out

@@ -93,15 +93,6 @@ def test_setup_env_sync_rejects_quoted_existing_env(tmp_path, capsys):
     assert "quoted values are not supported" in capsys.readouterr().err
 
 
-def test_setup_env_show_image_tags(capsys):
-    rc = setup_env.main(['--show-image-tags'])
-    assert rc == 0
-    captured = capsys.readouterr().out
-    assert 'vllm:' in captured
-    assert 'risk_vllm:' in captured
-    assert 'grafana:' in captured
-
-
 def test_setup_env_preserves_operator_values_on_force_but_rotates_generated_secrets(tmp_path):
     out = tmp_path / '.env'
     out.write_text(

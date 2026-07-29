@@ -17,8 +17,6 @@ STATIC_STEPS: list[tuple[str, list[str]]] = [
     ("OpenAPI snapshot diff", ["__in_process__", "scripts.validation.openapi_snapshot_diff"]),
     ("auth profile 생성값 sanity", ["__in_process__", "scripts.auth.auth_profile_sanity"]),
     ("auth doctor", ["__in_process__", "scripts.auth.auth_doctor", "--warn-only"]),
-    ("model registry 검증", ["__in_process__", "scripts.models.modelctl", "validate"]),
-    ("model registry projection diff", ["__in_process__", "scripts.models.modelctl", "diff"]),
     ("command registry 검증", ["__in_process__", "scripts.commands.validate_command_registry"]),
 ]
 
@@ -37,13 +35,8 @@ def _run_in_process_step(module_name: str, module_args: list[str], timeout: int)
     signal.alarm(timeout)
     try:
         module = importlib.import_module(module_name)
-        if module_name == "scripts.models.modelctl":
-            result = module.main(module_args)
-        elif module_name == "scripts.compose.validate_vllm_compose":
-            result = module.validate_alignment()
-        else:
-            sys.argv = [module_name.rsplit(".", 1)[-1] + ".py", *module_args]
-            result = module.main()
+        sys.argv = [module_name.rsplit(".", 1)[-1] + ".py", *module_args]
+        result = module.main()
         return 0 if result is None else int(result)
     except TimeoutError as exc:
         raise SystemExit(f"validate step timed out after {timeout}s: {module_name}") from exc

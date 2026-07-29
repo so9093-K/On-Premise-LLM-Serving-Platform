@@ -29,6 +29,8 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
+import yaml
+
 ROOT = Path(__file__).resolve().parents[2]
 
 VARIABLE_DEFAULTS = {
@@ -39,6 +41,21 @@ VARIABLE_DEFAULTS = {
     "route": "/v1/chat/completions",
     "status_code": "200",
 }
+
+
+def default_prometheus_url() -> str:
+    """services.yaml의 Prometheus host 기본 포트를 optional 검사에도 적용한다."""
+    try:
+        document = yaml.safe_load((ROOT / "configs/services.yaml").read_text(encoding="utf-8"))
+        if not isinstance(document, dict):
+            raise TypeError("services.yaml root is not a mapping")
+        services = document["services"]
+        port = int(services["prometheus"]["default_host_port"])
+    except (OSError, KeyError, TypeError, ValueError, yaml.YAMLError) as exc:
+        raise RuntimeError(
+            "configs/services.yaml must define services.prometheus.default_host_port"
+        ) from exc
+    return f"http://localhost:{port}"
 
 
 def substitute_variables(expr: str) -> str:
@@ -112,8 +129,8 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument(
         "--prometheus-url",
-        default=os.environ.get("PROMETHEUS_BASE_URL", "http://localhost:9410"),
-        help="Prometheus base URL (default: $PROMETHEUS_BASE_URL or http://localhost:9410)",
+        default=os.environ.get("PROMETHEUS_BASE_URL", default_prometheus_url()),
+        help="Prometheus base URL (default: $PROMETHEUS_BASE_URL or services.yaml host port)",
     )
     parser.add_argument(
         "--dashboards-dir",

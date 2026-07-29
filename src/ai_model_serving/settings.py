@@ -95,18 +95,8 @@ def _build_runtime_endpoints(
 
 def _risk_detectors_from_config(risk_adapter_cfg: dict[str, Any]) -> tuple[RiskDetectorSettings, ...]:
     detectors_cfg = risk_adapter_cfg.get("detectors")
-    if not isinstance(detectors_cfg, dict):
-        detectors_cfg = {
-            "prompt": {
-                "type": "vllm",
-                "enabled": True,
-                "route": "/v1/risk/detectors/prompt/assessments",
-                "service_key": "risk_prompt",
-                "source_model": "risk-prompt",
-                "family": "prompt_attack",
-                "allowed_codes": ["A1", "A2"],
-            },
-        }
+    if not isinstance(detectors_cfg, dict) or not detectors_cfg:
+        raise RuntimeError("risk_adapter.detectors must be a non-empty mapping in configs/model_serving.yaml")
     detectors: list[RiskDetectorSettings] = []
     for key, cfg in detectors_cfg.items():
         fixed = cfg.get("fixed_parameters", {}) if isinstance(cfg.get("fixed_parameters", {}), dict) else {}
@@ -132,8 +122,8 @@ def _risk_detectors_from_config(risk_adapter_cfg: dict[str, Any]) -> tuple[RiskD
 
 def _embedding_profiles_from_config(model_serving: dict[str, Any]) -> dict[str, EmbeddingProfile]:
     profiles_cfg = model_serving.get("embedding_profiles")
-    if not isinstance(profiles_cfg, dict):
-        profiles_cfg = {}
+    if not isinstance(profiles_cfg, dict) or not profiles_cfg:
+        raise RuntimeError("embedding_profiles must be a non-empty mapping in configs/model_serving.yaml")
     models = model_serving.get("models", {})
     profiles: dict[str, EmbeddingProfile] = {}
     for model_id, cfg in profiles_cfg.items():
@@ -168,24 +158,6 @@ def _embedding_profiles_from_config(model_serving: dict[str, Any]) -> dict[str, 
             score_modes=tuple(str(item) for item in retrieval.get("score_modes", [])),
             prompt_policy=prompt_policy,
             request_parameter_policy=dict(request_policy) if isinstance(request_policy, dict) else {},
-        )
-    if profiles:
-        return profiles
-
-    embedding_cfg = models.get("embedding", {}) if isinstance(models.get("embedding", {}), dict) else {}
-    if embedding_cfg:
-        model = str(embedding_cfg.get("served_model_name", "local-embed"))
-        profiles[model] = EmbeddingProfile(
-            model=model,
-            service_key="embedding",
-            upstream_model_id=str(embedding_cfg.get("name", "")),
-            dimensions=tuple(int(item) for item in embedding_cfg.get("embedding_dimension_supported", [768, 512, 256, 128])),
-            default_dimensions=int(embedding_cfg.get("embedding_dimension_default", 768)),
-            purpose="general",
-            retrieval_enabled=True,
-            retrieval_default=False,
-            score_modes=("dense_cosine",),
-            request_parameter_policy=dict(embedding_cfg.get("request_parameter_policy", {})),
         )
     return profiles
 
@@ -243,7 +215,9 @@ def load_settings(root: Path | None = None, env_file: Path | str | None = None) 
     )
     embedding_profiles = _embedding_profiles_from_config(model_serving)
     embedding_model_routes = {model_id: profile.service_key for model_id, profile in embedding_profiles.items()}
-    risk_adapter_cfg = model_serving.get("risk_adapter", {})
+    risk_adapter_cfg = model_serving.get("risk_adapter")
+    if not isinstance(risk_adapter_cfg, dict):
+        raise RuntimeError("risk_adapter must be configured in configs/model_serving.yaml")
     risk_detectors = _risk_detectors_from_config(risk_adapter_cfg)
     aggregate_detector_order = _aggregate_order(risk_adapter_cfg, risk_detectors)
     main_llm = runtime_endpoints["main_llm"]

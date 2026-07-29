@@ -46,14 +46,14 @@ make guide
 |---|---|---|
 | GPU 없이 코드와 API docs만 확인 | app-only | `make init-env-local` → `make start` → `make ready-local` |
 | Docker/GPU 서버에서 전체 runtime 확인 | full-stack | `HF_TOKEN=hf_xxx make first-run` → `make compose-up` → `make ready-full` |
-| CI/릴리스 아티팩트만 생성 | pipeline build | `make build-pipeline` 또는 `make build` |
+| CI/릴리스와 같은 정적 산출물 생성 | 통합 빌드 | `make build` |
 | 앱 이미지만 빠르게 다시 빌드 | app rebuild | `make rebuild-app` |
 | unified vLLM 이미지 재빌드 | unified image rebuild | `make rebuild-vllm-unified` |
 | 삭제 범위를 먼저 보고 싶음 | plan | `make remove-plan` |
 | 전체 제거/초기화 | reset | `make reset` |
 | 전체 재빌드 | full rebuild | `make rebuild-full` 또는 `make bootstrap` |
 
-`make first-run`, `make rebuild-full`은 `make bootstrap`의 읽기 쉬운 alias다. `make build-pipeline`은 `make build`의 alias이며 서비스를 기동하지 않는다.
+`make first-run`, `make rebuild-full`은 `make bootstrap`의 읽기 쉬운 alias다. `make build`는 서비스를 기동하지 않는다.
 
 ## 3. App-only 경로
 
@@ -110,7 +110,7 @@ make compose-down
 |---|---|:---:|---|
 | 정적 검증 | `make validate` | 아니오 | 계약·문서·정책·projection 검사 |
 | 테스트 | `make test` | 아니오 | deterministic pytest wrapper |
-| 통합 파이프라인 빌드 | `make build-pipeline` / `make build` | 아니오 | validate + test + platform image + package |
+| 통합 빌드 | `make build` | 아니오 | validate + test + platform image + package |
 | 플랫폼 이미지만 재빌드 | `make rebuild-app` / `make build-image` | 아니오 | 앱 코드 반복 수정 시 사용 |
 | unified vLLM 이미지 재빌드 | `make rebuild-vllm-unified` / `make build-vllm-unified-image` | 아니오 | Dockerfile/Transformers/vLLM patch 변경 시 사용 |
 | 전체 재빌드 | `make rebuild-full` / `make bootstrap` | 아니오 | .venv부터 unified image/Kanana config check까지 |

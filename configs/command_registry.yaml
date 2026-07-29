@@ -231,28 +231,6 @@ commands:
       - docs/development/build_ux.md
     tests: []
 
-  - make_target: build-pipeline
-    title: 통합 파이프라인 빌드 (별칭)
-    category: validate_test_build
-    audience: [developer, release_engineer]
-    description: "make build의 별칭이다."
-    command: make build-pipeline
-    kind: alias
-    canonical: build
-    safety: builds_images
-    requires:
-      python: true
-      docker: true
-      gpu: false
-      live_services: false
-      secrets: false
-      env_file: true
-    writes_files: [dist/]
-    outputs: [dist/]
-    owner: operations
-    docs: []
-    tests: []
-
   - make_target: package
     title: 릴리스 ZIP 생성
     category: validate_test_build
@@ -368,6 +346,27 @@ commands:
       - docs/operations/full_stack_runtime.md
     tests:
       - tests/contract/governance/test_compose_restart_contract.py
+
+  - make_target: compose-logs
+    title: Full-stack compose 로그 확인
+    category: start_stop
+    audience: [operator]
+    description: "현재 compose context의 로그를 계속 출력한다. 종료하려면 Ctrl+C를 누른다."
+    command: make compose-logs
+    kind: public
+    safety: diagnostic
+    requires:
+      python: true
+      docker: true
+      gpu: false
+      live_services: false
+      secrets: false
+      env_file: true
+    writes_files: []
+    outputs: [stdout]
+    owner: operations
+    docs: []
+    tests: []
 
   - make_target: compose-diagnostics
     title: Compose 진단
@@ -1638,21 +1637,6 @@ commands:
 # registry가 아닌 내부 helper, alias, implementation detail target을 명시적으로 관리한다.
 # 각 항목은 target, owner, reason이 모두 있어야 한다.
 allow_unregistered_make_targets:
-  - target: init-env-local-force
-    owner: operations
-    reason: "강제 재생성 advanced variant; user-facing 문서에 안내하지 않음 — 필요 시 init-env-local 재실행 권장"
-  - target: show-image-tags
-    owner: operations
-    reason: "setup_env.py --show-image-tags 래퍼; 내부 setup 흐름에서만 사용, user-facing 문서 없음"
-  - target: compose-down-private
-    owner: operations
-    reason: "private_network compose 전용 종료; compose-down으로 동일 목적 달성 가능, user-facing 문서 없음"
-  - target: compose-logs
-    owner: operations
-    reason: "docker compose logs 래퍼; 일반 운영자는 docker compose logs 또는 make logs 사용, user-facing 문서 없음"
   - target: logs
     owner: operations
     reason: "tail -f gateway.log risk_adapter.log 래퍼; local app-only 디버깅용, user-facing 문서 없음"
-  - target: model-inventory
-    owner: operations
-    reason: "modelctl 내부 inventory helper; model-list/model-status/model-validate가 user-facing entrypoint"

@@ -100,7 +100,7 @@ make stop
 - make validate
 - make operator-reports
 - make remove-plan
-- make build-pipeline
+- make build
 - make first-run
 - make rebuild-full
 

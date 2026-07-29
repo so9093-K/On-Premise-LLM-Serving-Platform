@@ -48,13 +48,12 @@ GATEWAY_BASE_URL=http://staging-gateway:9400 python scripts/validation/runtime_v
 
 | Runtime target | CLI 인자 | 환경변수 | 기본값 |
 |---|---|---|---|
-| Gateway | `--gateway-base` | `GATEWAY_BASE_URL` | `http://localhost:9400` |
-| Risk Adapter | `--risk-base` | `RISK_ADAPTER_BASE_URL` | `http://localhost:9405` |
-| Main LLM vLLM | `--main-llm-base` | `MAIN_LLM_BASE_URL` | `http://localhost:9401/v1` |
-| Embedding vLLM | `--embedding-base` | `EMBEDDING_BASE_URL` | `http://localhost:9402/v1` |
-| Embedding-ko vLLM | `--embedding-ko-base` | `EMBEDDING_KO_BASE_URL` | `http://localhost:9406/v1` |
-| Risk Prompt vLLM | `--risk-prompt-base` | `RISK_PROMPT_BASE_URL` | `http://localhost:9403/v1` |
-| Risk Siren vLLM | `--risk-siren-base` | `RISK_SIREN_BASE_URL` | retired compatibility option. active runtime이 아니며 enabled runtime일 때만 사용 |
-| Prometheus | `--prometheus-base` | `PROMETHEUS_BASE_URL` | `http://localhost:9410` |
+| Gateway | `--gateway-base` | `GATEWAY_BASE_URL` | `services.yaml`의 gateway `default_host_port` |
+| Risk Adapter | `--risk-base` | `RISK_ADAPTER_BASE_URL` | `services.yaml`의 risk_adapter `default_host_port` |
+| Main LLM vLLM | `--main-llm-base` | `MAIN_LLM_BASE_URL` | `services.yaml`의 main-llm-vllm `default_host_port` + `/v1` |
+| Embedding vLLM | `--embedding-base` | `EMBEDDING_BASE_URL` | `services.yaml`의 embedding-vllm `default_host_port` + `/v1` |
+| Embedding-ko vLLM | `--embedding-ko-base` | `EMBEDDING_KO_BASE_URL` | `services.yaml`의 embedding-ko-vllm `default_host_port` + `/v1` |
+| Risk Prompt vLLM | `--risk-prompt-base` | `RISK_PROMPT_BASE_URL` | `services.yaml`의 risk-prompt-vllm `default_host_port` + `/v1` |
+| Prometheus | `--prometheus-base` | `PROMETHEUS_BASE_URL` | `services.yaml`의 prometheus `default_host_port` |
 
 `API_KEY`, `ADMIN_API_KEY`, `INTERNAL_SERVICE_TOKEN` 같은 secret은 명령 출력과 report에 노출하지 않는다.

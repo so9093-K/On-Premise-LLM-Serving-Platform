@@ -6,10 +6,26 @@ import platform
 import sys
 import traceback
 from dataclasses import asdict, dataclass
+from pathlib import Path
 from typing import Any
 
+import yaml
 
-DEFAULT_MODEL = "kakaocorp/kanana-safeguard-prompt-2.1b"
+ROOT = Path(__file__).resolve().parents[2]
+
+
+def default_model_id() -> str:
+    """진단 기본 모델을 catalog의 risk-prompt 항목에서 읽는다."""
+    try:
+        document = yaml.safe_load(
+            (ROOT / "configs" / "model_catalog.yaml").read_text(encoding="utf-8")
+        )
+        value = document["models"]["risk-prompt"]["upstream_model_id"]
+    except (OSError, KeyError, TypeError, yaml.YAMLError) as exc:
+        raise RuntimeError("cannot read risk-prompt model from configs/model_catalog.yaml") from exc
+    if not isinstance(value, str) or not value.strip():
+        raise RuntimeError("configs/model_catalog.yaml risk-prompt upstream_model_id is invalid")
+    return value
 
 
 @dataclass(frozen=True)
@@ -172,7 +188,7 @@ def build_parser() -> argparse.ArgumentParser:
             "This separates config-loader failures from vLLM, bitsandbytes, GPU, and KV-cache failures."
         )
     )
-    parser.add_argument("--model", default=DEFAULT_MODEL)
+    parser.add_argument("--model", default=default_model_id())
     parser.add_argument(
         "--revision",
         default=None,

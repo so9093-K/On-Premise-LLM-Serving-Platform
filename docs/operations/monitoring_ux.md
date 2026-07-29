@@ -187,9 +187,11 @@ ai_critical_metric_freshness_seconds{metric,job}
 
 ```bash
 python3 scripts/validation/validate_grafana_promql.py \
-  --prometheus-url http://localhost:9410 \
   --allow-no-data
 ```
+
+기본 URL은 `configs/services.yaml`의 Prometheus host 포트를 사용한다. 다른 환경은
+`PROMETHEUS_BASE_URL` 또는 `--prometheus-url`로 명시한다.
 
 Idle/dev 환경에서는 traffic이 없어 일부 panel query가 no-data를 반환할 수 있으므로 `--allow-no-data`로 datasource 연결과 PromQL syntax를 먼저 확인한다.
 운영 traffic이 있는 환경에서 no-data까지 실패로 보고 싶으면 `--allow-no-data` 없이 실행한다.

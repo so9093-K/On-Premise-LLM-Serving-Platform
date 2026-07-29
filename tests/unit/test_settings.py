@@ -164,7 +164,7 @@ def test_load_settings_falls_back_to_catalog_max_output_tokens(tmp_path):
     assert settings.main_llm.max_output_tokens == catalog_value + 1
 
 
-def test_load_settings_rejects_unsupported_embedding_prompt_policy_mode(tmp_path):
+def test_load_settings_rejects_invalid_or_missing_required_model_configuration(tmp_path):
     from pathlib import Path
     import shutil
     import yaml
@@ -184,6 +184,18 @@ def test_load_settings_rejects_unsupported_embedding_prompt_policy_mode(tmp_path
     serving_path.write_text(yaml.safe_dump(serving, allow_unicode=True), encoding="utf-8")
 
     with pytest.raises(RuntimeError, match="must be 'none' or 'prefix'"):
+        load_settings(root)
+
+    serving = yaml.safe_load((repo / "configs" / "model_serving.yaml").read_text(encoding="utf-8"))
+    serving.pop("embedding_profiles")
+    serving_path.write_text(yaml.safe_dump(serving, allow_unicode=True), encoding="utf-8")
+    with pytest.raises(RuntimeError, match="embedding_profiles must be a non-empty mapping"):
+        load_settings(root)
+
+    serving = yaml.safe_load((repo / "configs" / "model_serving.yaml").read_text(encoding="utf-8"))
+    serving["risk_adapter"].pop("detectors")
+    serving_path.write_text(yaml.safe_dump(serving, allow_unicode=True), encoding="utf-8")
+    with pytest.raises(RuntimeError, match="risk_adapter.detectors must be a non-empty mapping"):
         load_settings(root)
 
 

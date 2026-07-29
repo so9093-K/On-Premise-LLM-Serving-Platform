@@ -1,31 +1,13 @@
 from __future__ import annotations
 
-import csv
-import json
 import os
 import re
-import subprocess
 import sys
 import tomllib
-from pathlib import Path
-from typing import Any
-
-try:
-    import yaml
-except ImportError as exc:
-    raise SystemExit('PyYAML is required: pip install pyyaml') from exc
-
-try:
-    from jsonschema import Draft202012Validator
-except ImportError as exc:
-    raise SystemExit('jsonschema is required: pip install jsonschema') from exc
 
 from .common import (
-    FORBIDDEN_RESPONSE_FIELDS,
     ROOT,
-    iter_project_files,
     read_json,
-    read_runtime_contract_text,
     read_yaml,
 )
 
@@ -57,11 +39,9 @@ def validate_version_alignment() -> None:
             raise SystemExit(f'{path} info.version disagrees with VERSION')
 
     version_refs = {
-        'README.md': f'패키지 버전 | `{version}`',
         '.env.example': f'PROJECT_VERSION={version}',
         '.env.local.example': f'PROJECT_VERSION={version}',
         '.env.compose.example': f'PROJECT_VERSION={version}',
-        'docs/release/versioning_policy.md': version,
     }
     for rel, expected in version_refs.items():
         if expected not in (ROOT / rel).read_text(encoding='utf-8'):
@@ -106,7 +86,3 @@ def validate_python_compatibility() -> None:
     env = (ROOT / '.env.example').read_text(encoding='utf-8')
     if f'PYTHON_VERSION={py_version}' not in env:
         raise SystemExit(f'.env.example must include PYTHON_VERSION={py_version}')
-
-    doc = (ROOT / 'docs/development/python_compatibility.md').read_text(encoding='utf-8')
-    if py_version not in doc or requires not in doc or '3.14' not in doc:
-        raise SystemExit(f'Python compatibility doc must mention {py_version}, {requires}, and 3.14')

@@ -12,12 +12,20 @@ WORKDIR /app
 
 # runtime image는 runtime lock만 설치한다. 계약·운영 스크립트와 명세 파일은
 # CI/release artifact의 책임이며 application image에 넣지 않는다.
-COPY pyproject.toml requirements.runtime.lock README.md VERSION ./
+COPY pyproject.toml requirements.runtime.lock VERSION ./
+
+# runtime lock과 build backend가 바뀌지 않는 한 애플리케이션 소스 수정은 이
+# 의존성 레이어를 재실행하지 않는다. slim base에는 setuptools가 없으므로,
+# pyproject.toml의 build-system pin을 여기서 명시적으로 설치하고 아래 source
+# layer는 build isolation 없이 wheel을 만든다. 소스만 바뀔 때 PyPI에서 build
+# backend를 다시 받지 않아 로컬·CI 빌드가 같은 고정 backend를 사용한다.
+RUN python -m pip install --requirement requirements.runtime.lock \
+    && python -m pip install "setuptools==83.0.0"
+
 COPY src ./src
 COPY configs ./configs
 
-RUN python -m pip install --requirement requirements.runtime.lock \
-    && python -m pip install --no-deps . \
+RUN python -m pip install --no-deps --no-build-isolation . \
     && useradd --create-home --shell /usr/sbin/nologin appuser \
     && chown -R appuser:appuser /app
 

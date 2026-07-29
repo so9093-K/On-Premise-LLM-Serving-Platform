@@ -349,22 +349,12 @@ def generated_values(
     return values
 
 
-def show_image_tags() -> None:
-    images = read_yaml(IMAGE_CONFIG)["images"]
-    for name, cfg in images.items():
-        print(f"{name}: {cfg['default']}")
-        if cfg.get("fallback"):
-            print(f"  fallback: {cfg['fallback']}")
-        print(f"  purpose: {cfg.get('purpose', '')}")
-
-
 def build_parser() -> KoreanArgumentParser:
     parser = KoreanArgumentParser(description="한국어 운영자를 위한 .env 생성기입니다. 기존 .env는 기본적으로 덮어쓰지 않습니다.")
     parser.add_argument("--profile", choices=["local", "compose"], default="compose")
     parser.add_argument("--app-env", help="APP_ENV를 덮어씁니다. 기본값은 local profile은 local, compose profile은 local입니다.")
     parser.add_argument("--output", default=".env", help="출력할 env 경로입니다. repository root 기준 상대 경로 또는 절대 경로를 사용할 수 있습니다.")
     parser.add_argument("--force", action="store_true", help="기존 출력 파일을 덮어씁니다.")
-    parser.add_argument("--show-image-tags", action="store_true", help="권장 compose image tag를 출력하고 종료합니다.")
     parser.add_argument("--sync-runtime-secrets", action="store_true", help=".env를 다시 쓰지 않고 현재 env 파일에서 .runtime secret file만 동기화합니다.")
     parser.add_argument("--sync-env", action="store_true", help="템플릿과 기존 .env를 비교해 누락 키를 추가하고 폐기 키를 제거합니다. 시크릿은 재생성하지 않습니다.")
     parser.add_argument("--dry-run", action="store_true", help="--sync-env 미리보기. 실제 변경 없음.")
@@ -383,9 +373,6 @@ def build_parser() -> KoreanArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-    if args.show_image_tags:
-        show_image_tags()
-        return 0
     out_path = Path(args.output)
     if not out_path.is_absolute():
         out_path = ROOT / out_path

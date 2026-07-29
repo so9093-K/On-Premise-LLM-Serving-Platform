@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
+import scripts.models.check_hf_model_config as hf_config_check
 from scripts.models.check_hf_model_config import (
     build_parser,
     classify_exception,
@@ -11,7 +12,18 @@ from scripts.models.check_hf_model_config import (
 )
 
 
-def test_parser_accepts_pinned_revision() -> None:
+def test_parser_accepts_pinned_revision_and_reads_default_model_from_catalog(tmp_path, monkeypatch) -> None:
+    catalog = tmp_path / "configs" / "model_catalog.yaml"
+    catalog.parent.mkdir()
+    catalog.write_text(
+        "models:\n  risk-prompt:\n    upstream_model_id: example/risk-prompt\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(hf_config_check, "ROOT", tmp_path)
+
+    default_args = build_parser().parse_args([])
+    assert default_args.model == "example/risk-prompt"
+
     args = build_parser().parse_args(
         ["--model", "org/model", "--revision", "a" * 40]
     )

@@ -7,7 +7,7 @@
 | 영역 | 상태 | 판단 |
 |---|---|---|
 | 처음 프로젝트 진입 | 개선됨 | `docs/operations/first_project_guide.md`, `make help`, `make guide`로 Day-0 흐름을 따라갈 수 있음 |
-| 빌드/제거/재빌드 | 개선됨 | `make build-pipeline`, `make first-run`, `make rebuild-full`, `make remove-plan`, `make reset`으로 목적별 진입점 정리 |
+| 빌드/제거/재빌드 | 개선됨 | `make build`, `make first-run`, `make rebuild-full`, `make remove-plan`, `make reset`으로 목적별 진입점 정리 |
 | 인증 제어 | 개선됨 | `auth-status`/`auth-doctor`/`auth-plan`/`auth-apply`와 `ENV=<path>` 후보 env 진단으로 사람이 profile 단위 관리 가능 |
 | 비인증 모드 | 개선됨 | `local_open`은 `master_open/private_lan` 사내망 정책으로 고정되고, 불일치 조합은 doctor/preflight가 실패 처리 |
 | OpenAPI | 개선됨 | checked-in schema injection, generated error surface, snapshot diff 정적 검증으로 FastAPI loose schema 회귀 위험 축소 |
@@ -34,7 +34,7 @@ make ready-local
 ### 2. 빌드·제거·재빌드
 
 ```bash
-make build-pipeline
+make build
 make first-run
 make rebuild-full
 make rebuild-app
@@ -43,7 +43,7 @@ make remove-plan
 make reset
 ```
 
-`make build-pipeline`은 서비스를 기동하지 않는 통합 파이프라인 빌드다. `make first-run`과 `make rebuild-full`은 `make bootstrap`의 읽기 쉬운 alias다. `make remove-plan`은 삭제 대상 미리 보기이며, 실제 통합 제거는 `make reset`으로 수행한다.
+`make build`는 서비스를 기동하지 않는 통합 빌드다. `make first-run`과 `make rebuild-full`은 `make bootstrap`의 읽기 쉬운 alias다. `make remove-plan`은 삭제 대상 미리 보기이며, 실제 통합 제거는 `make reset`으로 수행한다.
 
 ### 3. 인증 확인과 변경
 
@@ -96,7 +96,7 @@ Docker/GPU/vLLM이 필요한 live 검증과 서비스 기동 없는 정적 검�
 
 - 날짜가 붙은 phase summary, validation summary snapshot, documentation consistency snapshot, removed-legacy marker report는 active source tree에 남기지 않는다.
 - 과거 version rebaseline 보고서 `reports/maintenance_version_rebaseline_0.1.0-rc.1_2026-05-06.md`는 active source tree에서 제거했다. 해당 결정은 현재 `CHANGELOG.md`, `VERSION`, `version_manifest.json`, `docs/release/versioning_policy.md`가 담당한다.
-- `src/ai_model_serving/validation.py`, `scripts/validation/runtime_validation.py`, `make build`, `make bootstrap`은 현재 실행 경로가 있는 entrypoint다. 사용처 없는 별칭은 남기지 않는다.
+- `scripts/validation/runtime_validation.py`, `make build`, `make bootstrap`은 현재 실행 경로가 있는 entrypoint다. 사용처 없는 별칭은 남기지 않는다.
 - `.runtime/`은 로컬 secret/runtime state이며 release package에는 포함하지 않는다. 로컬 존재 자체를 오류로 보지 않는다.
 
 ## 유지보수 관점의 남은 위험

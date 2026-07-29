@@ -2,13 +2,15 @@ SHELL := /usr/bin/env bash
 PROJECT_NAME := ai_model_serving_platform
 CURRENT_VERSION := $(shell cat VERSION 2>/dev/null || echo 0.0.0)
 
-PYTHON ?= $(if $(PYTHON_BIN),$(PYTHON_BIN),$(shell command -v python3.12 || command -v python3 || command -v python))
+# bootstrap이 만든 lock-file 기반 .venv가 있으면 로컬 Make 명령은 이를 우선한다.
+# CI와 호출자가 PYTHON_BIN으로 지정한 interpreter는 항상 그보다 우선한다.
+PYTHON ?= $(if $(PYTHON_BIN),$(PYTHON_BIN),$(if $(wildcard $(CURDIR)/.venv/bin/python),$(CURDIR)/.venv/bin/python,$(shell command -v python3.12 || command -v python3 || command -v python)))
 export PYTHON_BIN := $(PYTHON)
 AUTH_ENV ?= $(if $(ENV_FILE),$(ENV_FILE),$(ENV))
 AUTH_ENV_ARG = $(if $(AUTH_ENV),--env $(AUTH_ENV),)
 
 
-.PHONY: help help-full help-json command-check guide init-env-local init-env-compose init-env-local-force init-env-compose-force sync-runtime-secrets sync-env show-image-tags validate test build build-pipeline build-image build-vllm-unified-image rebuild-app rebuild-vllm-unified package start compose-up compose-up-master compose-up-private compose-down-private preflight-compose compose-config ready-local ready-full smoke runtime-validate runtime-targets auth-status auth-doctor auth-plan auth-apply exposure-status exposure-plan exposure-apply monitoring-projection operator-status operator-reports live-evidence vllm-commands hf-config-check main-model-prepare risk-vllm-config-check risk-vllm-patch-removal-check model-inventory model-list model-status model-validate model-diff model-propose-add model-propose-remove status stop compose-down compose-restart compose-logs logs compose-diagnostics clean clean-dry-run remove-plan clean-all reset bootstrap first-run rebuild-full doctor reset-version render-runtime-assets check-runtime-assets
+.PHONY: help help-full help-json command-check guide init-env-local init-env-compose init-env-compose-force sync-runtime-secrets sync-env validate test build build-image build-vllm-unified-image rebuild-app rebuild-vllm-unified package start compose-up compose-up-master compose-up-private preflight-compose compose-config ready-local ready-full smoke runtime-validate runtime-targets auth-status auth-doctor auth-plan auth-apply exposure-status exposure-plan exposure-apply monitoring-projection operator-status operator-reports live-evidence vllm-commands hf-config-check main-model-prepare risk-vllm-config-check risk-vllm-patch-removal-check model-list model-status model-validate model-diff model-propose-add model-propose-remove status stop compose-down compose-restart compose-logs logs compose-diagnostics clean clean-dry-run remove-plan clean-all reset bootstrap first-run rebuild-full doctor reset-version render-runtime-assets check-runtime-assets
 
 help:
 	@$(PYTHON) scripts/commands/render_command_help.py
@@ -31,9 +33,6 @@ init-env-local:
 init-env-compose:
 	$(PYTHON) scripts/config/setup_env.py --profile compose
 
-init-env-local-force:
-	$(PYTHON) scripts/config/setup_env.py --profile local --force
-
 init-env-compose-force:
 	$(PYTHON) scripts/config/setup_env.py --profile compose --force
 
@@ -43,9 +42,6 @@ sync-runtime-secrets:
 sync-env:
 	$(PYTHON) scripts/config/setup_env.py --sync-env --env-file "$${ENV_FILE:-.env}"
 
-show-image-tags:
-	$(PYTHON) scripts/config/setup_env.py --show-image-tags
-
 validate:
 	PYTHON_BIN="$(PYTHON)" bash scripts/validation/run_validate.sh
 
@@ -54,8 +50,6 @@ test:
 
 build:
 	bash scripts/build/build_all.sh
-
-build-pipeline: build
 
 build-image:
 	bash scripts/build/build_platform_image.sh
@@ -83,9 +77,6 @@ compose-up-master:
 compose-up-private:
 	@if [[ ! -f "$${ENV_FILE:-.env}" ]]; then echo "오류: $${ENV_FILE:-.env} 파일이 없습니다. make init-env-compose 를 먼저 실행하세요." >&2; exit 2; fi
 	SKIP_PREFLIGHT=1 EXPOSURE_MODE=private_network bash scripts/compose/compose_up.sh
-
-compose-down-private:
-	COMPOSE_FILE="$${COMPOSE_FILE:-ops/compose/full-stack.private-network.yaml}" ENV_FILE="$${ENV_FILE:-.env}" bash scripts/ops/down_services.sh
 
 compose-config:
 	@bash scripts/compose/compose_config.sh
@@ -159,9 +150,6 @@ risk-vllm-config-check:
 
 risk-vllm-patch-removal-check:
 	bash scripts/models/risk_vllm_patch_removal_check.sh
-
-model-inventory:
-	$(PYTHON) scripts/models/model_inventory.py
 
 model-list:
 	$(PYTHON) scripts/models/modelctl.py list

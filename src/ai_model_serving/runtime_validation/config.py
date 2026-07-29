@@ -11,14 +11,6 @@ from ai_model_serving.domain import ModelRegistry
 from .env import load_dotenv
 
 
-DEFAULT_BASE_URLS = {
-    "gateway": "http://localhost:9400",
-    "risk": "http://localhost:9405",
-    "prometheus": "http://localhost:9410",
-    "grafana": "http://localhost:9411",
-}
-
-
 def _explicit_arg(args: Any, name: str) -> str:
     value = getattr(args, name, None)
     return str(value).strip() if value is not None and str(value).strip() else ""
@@ -67,6 +59,15 @@ def _first_csv_value(value: str) -> str:
     return values[0] if values else ""
 
 
+def _localhost_base(service: dict[str, Any], suffix: str = "") -> str:
+    """services.yaml의 host 기본 포트로 로컬 검증 endpoint를 만든다."""
+    try:
+        port = int(service["default_host_port"])
+    except (KeyError, TypeError, ValueError) as exc:
+        raise ValueError("service registry entry requires default_host_port") from exc
+    return f"http://localhost:{port}{suffix}"
+
+
 def load_runtime_config(args: Any) -> RuntimeValidationConfig:
     root = Path(args.root).resolve()
     load_dotenv(root)
@@ -74,7 +75,28 @@ def load_runtime_config(args: Any) -> RuntimeValidationConfig:
     model_catalog = load_yaml_mapping(root / "configs/model_catalog.yaml")
     monitoring = load_yaml_mapping(root / "configs/monitoring.yaml")
     gpu_budgets = load_yaml_mapping(root / "configs/gpu_budgets.yaml")
+    services = load_yaml_mapping(root / "configs/services.yaml")["services"]
     registry = ModelRegistry(model_catalog, model_serving)
+    services_by_compose_name = {
+        str(service["compose_service"]): service
+        for service in services.values()
+    }
+
+    def service_base(service_id: str, suffix: str = "") -> str:
+        try:
+            return _localhost_base(services[service_id], suffix)
+        except KeyError as exc:
+            raise ValueError(f"configs/services.yaml is missing {service_id}") from exc
+
+    def runtime_base(service: Any) -> str:
+        try:
+            service_config = services_by_compose_name[service.compose_service_name]
+        except KeyError as exc:
+            raise ValueError(
+                "configs/services.yaml has no entry for runtime compose service "
+                f"{service.compose_service_name!r}"
+            ) from exc
+        return _localhost_base(service_config, "/v1")
 
     api_key = args.api_key or os.getenv("API_KEY", "") or _first_csv_value(os.getenv("API_KEYS", ""))
     admin_api_key = args.admin_api_key or os.getenv("ADMIN_API_KEY", "") or _first_csv_value(os.getenv("ADMIN_API_KEYS", ""))
@@ -91,10 +113,10 @@ def load_runtime_config(args: Any) -> RuntimeValidationConfig:
         api_key=api_key,
         admin_api_key=admin_api_key,
         internal_service_token=os.getenv("INTERNAL_SERVICE_TOKEN", ""),
-        gateway_base=_url_value(args, "gateway_base", "GATEWAY_BASE_URL", DEFAULT_BASE_URLS["gateway"]),
-        risk_base=_url_value(args, "risk_base", "RISK_ADAPTER_BASE_URL", DEFAULT_BASE_URLS["risk"]),
-        prometheus_base=_url_value(args, "prometheus_base", "PROMETHEUS_BASE_URL", DEFAULT_BASE_URLS["prometheus"]),
-        grafana_base=_url_value(args, "grafana_base", "GRAFANA_BASE_URL", DEFAULT_BASE_URLS["grafana"]),
+        gateway_base=_url_value(args, "gateway_base", "GATEWAY_BASE_URL", service_base("gateway")),
+        risk_base=_url_value(args, "risk_base", "RISK_ADAPTER_BASE_URL", service_base("risk_adapter")),
+        prometheus_base=_url_value(args, "prometheus_base", "PROMETHEUS_BASE_URL", service_base("prometheus")),
+        grafana_base=_url_value(args, "grafana_base", "GRAFANA_BASE_URL", service_base("grafana")),
         grafana_admin_user=_explicit_arg(args, "grafana_user") or os.getenv("GRAFANA_ADMIN_USER", "admin"),
         grafana_admin_password=_explicit_arg(args, "grafana_password") or os.getenv("GRAFANA_ADMIN_PASSWORD", "admin"),
         vllm_bases={
@@ -102,7 +124,7 @@ def load_runtime_config(args: Any) -> RuntimeValidationConfig:
                 args,
                 f"{service.service_key}_base",
                 f"{service.service_key.upper()}_BASE_URL",
-                f"http://localhost:{service.port}/v1",
+                runtime_base(service),
             )
             for service in registry.iter_runtime_services()
         },

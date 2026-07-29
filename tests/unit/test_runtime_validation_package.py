@@ -5,6 +5,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from ai_model_serving.runtime_validation import RuntimeValidator, load_runtime_config, render_vllm_command
+from ai_model_serving.runtime_validation.config import _localhost_base
 from ai_model_serving.runtime_validation.reporting import write_reports
 from ai_model_serving.runtime_validation.results import CheckResult
 
@@ -40,7 +41,6 @@ def test_runtime_validation_config_only_runner_records_expected_checks(monkeypat
         main_llm_base="http://localhost:9401/v1",
         embedding_base="http://localhost:9402/v1",
         risk_prompt_base="http://localhost:9403/v1",
-        risk_siren_base="http://localhost:9404/v1",
         prometheus_base="http://localhost:9410",
         api_key="",
         admin_api_key="",
@@ -83,7 +83,6 @@ def test_runtime_validation_endpoint_priority_cli_env_default(monkeypatch) -> No
         main_llm_base=None,
         embedding_base=None,
         risk_prompt_base=None,
-        risk_siren_base=None,
         prometheus_base=None,
         api_key="",
         admin_api_key="",
@@ -103,6 +102,7 @@ def test_runtime_validation_endpoint_priority_cli_env_default(monkeypatch) -> No
     config = load_runtime_config(args)
     assert config.gateway_base == "http://env-gateway:9999"
     assert config.risk_base == "http://localhost:9405"
+    assert _localhost_base({"default_host_port": 19400}, "/v1") == "http://localhost:19400/v1"
 
 
 def test_render_vllm_command_stays_openai_compatible() -> None:
@@ -204,7 +204,6 @@ def test_runtime_validation_uses_model_registry_projection_for_model_expectation
         main_llm_base="http://localhost:9401/v1",
         embedding_base="http://localhost:9402/v1",
         risk_prompt_base="http://localhost:9403/v1",
-        risk_siren_base="http://localhost:9404/v1",
         prometheus_base="http://localhost:9410",
         api_key="",
         admin_api_key="",
@@ -232,7 +231,6 @@ def test_runtime_validation_live_mode_registers_runtime_canaries(monkeypatch) ->
         main_llm_base="http://localhost:9401/v1",
         embedding_base="http://localhost:9402/v1",
         risk_prompt_base="http://localhost:9403/v1",
-        risk_siren_base="http://localhost:9404/v1",
         prometheus_base="http://localhost:9410",
         api_key="",
         admin_api_key="",

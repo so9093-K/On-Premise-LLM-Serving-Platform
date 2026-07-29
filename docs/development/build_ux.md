@@ -7,8 +7,7 @@ build, start, readiness, deploy, release는 서로 다른 동작이다.
 ## 핵심 역할
 
 ```text
-make build-pipeline = 통합 파이프라인 빌드 (make build 별칭, 서비스 기동 없음)
-make build          = 정적 검증·결정론적 테스트·플랫폼 이미지·패키지 생성
+make build          = 통합 빌드 (정적 검증·결정론적 테스트·플랫폼 이미지·패키지 생성, 서비스 기동 없음)
 make start          = 로컬 app-only 서비스 기동
 make ready-full     = 운영 스택이 실제로 준비됐음을 검증
 make reset          = 통합 제거/초기화 (서비스 중지 + 플랫폼/risk 이미지 + 아티팩트)
@@ -17,11 +16,17 @@ make rebuild-full   = 전체 재빌드 (make bootstrap 별칭)
 make bootstrap      = 전체 재빌드 (.venv + 의존성 + .env + 검증 + 플랫폼/risk 이미지 + risk config check)
 ```
 
-`make first-run`, `make rebuild-full`, `make build-pipeline`은 새 담당자가 의미를 바로 이해하기 위한 alias다. 기존 자동화와 하위 호환을 위해 `make bootstrap`, `make build`도 계속 유지한다.
+`make first-run`, `make rebuild-full`은 새 담당자가 목적을 바로 이해하기 위한 alias다. `make build`는 CI의 릴리스 경로와 같은 검증·패키징·플랫폼 이미지 빌드 범위를 로컬에서 한 번에 실행하는 단일 진입점이다. 일반 branch CI는 패키지 artifact를 만들지 않고 validate·test·플랫폼 이미지 빌드만 수행한다.
 
 `make build`는 플랫폼 Docker image까지 포함하는 명령이므로 Docker CLI와 daemon이
 필수다. Docker 없이 ZIP만 만들려면 `make package`를 사용한다. 패키징은 Python
 호환성과 API·모델 계약을 검증한 뒤, 소스와 정적 설정만 포함한 ZIP을 만든다.
+
+`make bootstrap`을 실행한 작업 트리에서는 Make가 `.venv/bin/python`을 우선 사용한다.
+따라서 이후 `make validate`, `make test`, `make build`는 bootstrap이 `requirements.lock`으로
+만든 동일한 Python 환경에서 실행된다. CI는 별도 깨끗한 Python 3.12 이미지에 같은 lock을
+설치한 뒤 같은 검증 wrapper를 실행한다. 필요할 때만 `PYTHON_BIN=/path/to/python make test`처럼
+명시적으로 interpreter를 바꿀 수 있다.
 
 ## 빌드 계층
 
@@ -30,12 +35,12 @@ make bootstrap      = 전체 재빌드 (.venv + 의존성 + .env + 검증 + 플�
 | 계층 | 명령 | 대상 | Runtime-derived 이미지 포함? |
 |---|---|---|:---:|
 | Day-0 / 전체 설정 | `make first-run` / `make bootstrap` | .venv + 플랫폼 이미지 + vLLM unified 이미지 + config check | 예 (기본값) |
-| CI / 릴리스 파이프라인 | `make build-pipeline` / `make build` | 정적 검증 + 결정론적 테스트 + 패키징 + 플랫폼 이미지 | 아니오 |
+| CI / 릴리스 공통 빌드 | `make build` | 정적 검증 + 결정론적 테스트 + 패키징 + 플랫폼 이미지 | 아니오 |
 | 타깃 재빌드 | `make rebuild-app` / `make build-image` | 플랫폼 이미지만 | 아니오 |
 | 타깃 재빌드 | `make rebuild-vllm-unified` / `make build-vllm-unified-image` | vLLM unified 이미지(26B/12B/embedding/embedding-ko/risk-prompt 공용) | 예 (이것만) |
 | CI derived 이미지 | `build-vllm-derived` | vLLM unified 이미지(`vllm-unified`) 빌드/push | 예 (명시 opt-in) |
 
-**`make build`와 `make build-pipeline`은 vLLM unified 이미지를 빌드하지 않는다.** CI와 릴리스 파이프라인은 vLLM runtime에 의존하지 않고 플랫폼 아티팩트만 재현 가능하게 생성해야 하기 때문이다. vLLM unified 이미지는 `make first-run`, `make bootstrap`, `make rebuild-vllm-unified`, `make build-vllm-unified-image`로만 생성된다.
+**`make build`는 vLLM unified 이미지를 빌드하지 않는다.** CI와 릴리스 파이프라인은 vLLM runtime에 의존하지 않고 플랫폼 아티팩트만 재현 가능하게 생성해야 하기 때문이다. vLLM unified 이미지는 `make first-run`, `make bootstrap`, `make rebuild-vllm-unified`, `make build-vllm-unified-image`로만 생성된다.
 
 **`embedding-ko-vllm`은 별도 derived Dockerfile 빌드 대상이 아니다.** `EMBEDDING_KO_VLLM_IMAGE` 환경 변수로 지정한 vLLM unified 이미지를 그대로 쓴다(별도 build 없음). 2026-07-24부터 derived Dockerfile은 `ops/images/vllm-unified/Dockerfile` 하나뿐이며, 26B/12B main-LLM/risk-prompt/embedding/embedding-ko가 전부 이 이미지를 쓴다. 로컬 make target(`make build-vllm-unified-image`)은 이 이미지를 직접 빌드하고, CI에서는 `build-vllm-derived` 또는 `ops/images/vllm-unified/README.md`의 수동 fallback 절차로 빌드·push·pin한다.
 
@@ -81,7 +86,6 @@ SKIP_RISK_VLLM_IMAGE_BUILD=1 make rebuild-full
 |---|---|:---:|:---:|---|
 | `make validate` | 실행 전 계약·설정·생성물 drift 정적 검증 | 아니오 | 아니오 | 개발자 / CI |
 | `make test` | unit·contract 테스트 (`runtime/docker/gpu` 제외) | 아니오 | 아니오 | 개발자 / CI |
-| `make build-pipeline` | `make build` 별칭. 정적 검증 + 결정론적 테스트 + 패키징 + 플랫폼 이미지 빌드 | 서비스 유지 없음 | 아니오 | 릴리스 / CI |
 | `make build` | 정적 검증 + 결정론적 테스트 + 패키징 + 플랫폼 이미지 빌드 | 서비스 유지 없음 | 아니오 | 릴리스 / CI |
 | `make rebuild-app` | `make build-image` 별칭. 플랫폼 이미지만 재빌드 | 아니오 | 아니오 | 개발자 / 운영자 |
 | `make build-image` | 플랫폼 Docker 이미지만 빌드. validate·test·패키징은 생략하며 `make bootstrap` 내부에서도 호출됨 | 아니오 | 아니오 | 개발자 / 운영자 |
@@ -218,7 +222,7 @@ make package
 ```bash
 make guide            # 상황별 명령 선택
 make first-run        # 처음 full-stack 준비
-make build-pipeline   # CI/릴리스 파이프라인 빌드
+make build            # CI/릴리스 공통 빌드
 make remove-plan      # 삭제 대상 미리 보기
 make operator-reports # 운영 산출물 통합 생성
 ```

@@ -63,7 +63,6 @@ def read_yaml(path: str) -> Any:
 
 def read_runtime_contract_text() -> str:
     paths = [
-        'src/ai_model_serving/validation.py',
         'src/ai_model_serving/contracts/chat.py',
         'src/ai_model_serving/contracts/chat_common.py',
         'src/ai_model_serving/contracts/chat_json_schema.py',

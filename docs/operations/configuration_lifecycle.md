@@ -98,7 +98,7 @@ make compose-up
 | 정적 검증 | `make validate` | 아니오 |
 | 테스트 | `make test` | 아니오 |
 | 플랫폼 이미지 빌드 | `make build-image` | 아니오 |
-| 통합 파이프라인 빌드 | `make build-pipeline` / `make build` | 아니오 |
+| 통합 빌드 | `make build` | 아니오 |
 | 앱 이미지만 재빌드 | `make rebuild-app` / `make build-image` | 아니오 |
 | unified vLLM 이미지 재빌드 | `make rebuild-vllm-unified` / `make build-vllm-unified-image` | 아니오 |
 | 전체 재빌드 | `make rebuild-full` / `make bootstrap` | 아니오 |
@@ -106,7 +106,7 @@ make compose-up
 | full-stack compose 기동 | `make compose-up` | 예 |
 | readiness 확인 | `make ready-local` / `make ready-full` | 아니오 |
 
-`make build-pipeline`/`make build`와 `make package`는 서비스를 남기지 않는다. 운영 스택 기동은 `make compose-up`, 로컬 app-only 기동은 `make start`로 분리한다.
+`make build`와 `make package`는 서비스를 남기지 않는다. 운영 스택 기동은 `make compose-up`, 로컬 app-only 기동은 `make start`로 분리한다.
 
 ## 4. 운영 산출물 관리
 
