@@ -126,9 +126,21 @@ def test_vllm_unified_dependency_pins_have_one_canonical_source():
     pipeline = (ROOT / ".gitlab-ci.yml").read_text(encoding="utf-8")
     assert "print_vllm_unified_compatibility.py" in pipeline
     assert "VLLM_BASE_IMAGE:" not in pipeline
+    assert "VLLM_UNIFIED_IMAGE_SHA" in pipeline
+    assert "VLLM_UNIFIED_IMAGE_REF" in pipeline
+    assert "RISK_VLLM_IMAGE_SHA" not in pipeline
+    assert "AUDIO_VLLM_IMAGE_SHA" not in pipeline
     ci_build = (ROOT / "scripts/ci/build_vllm_derived_images.sh").read_text(encoding="utf-8")
     assert "--key base_image" in ci_build
     assert str(images["vllm"]["base_image_default"]) not in ci_build
+    assert "build/vllm-unified-image.env" in ci_build
+    assert "full deploy requires build/vllm-unified-image.env" in pipeline
+    deploy_policy = (ROOT / "scripts/lib/deploy_recreate_policy.sh").read_text(encoding="utf-8")
+    deploy = (ROOT / "scripts/ci/deploy_gitlab_compose.sh").read_text(encoding="utf-8")
+    assert "deploy_has_fresh_unified_image_artifact" in deploy_policy
+    assert '"ops/images/vllm-unified/requirements.media.lock"' in deploy
+    assert "VLLM_UNIFIED_IMAGE_TO_DEPLOY" in deploy
+    assert 'VLLM_UNIFIED_IMAGE_TO_DEPLOY="${VLLM_UNIFIED_IMAGE_TO_DEPLOY:-}" \\' in deploy
 
 
 def test_boot_projection_is_temporary_and_sidecar_default_is_catalog_driven():

@@ -25,14 +25,10 @@ variables:
   # 합쳐졌다 — 각 patch는 그걸 필요로 하지 않는 모델에 no-op이라 26B/embedding/
   # embedding-ko도 이 이미지를 그대로 쓴다.
   #
-  # risk-prompt와 12B profile은 배포 경로가 달라 별도 변수명을 사용하지만, 두 값은
-  # 같은 vllm-unified image를 가리킨다.
   PLATFORM_IMAGE_SHA: "$CI_REGISTRY_IMAGE/platform:$CI_COMMIT_SHORT_SHA"
   PLATFORM_IMAGE_REF: "$CI_REGISTRY_IMAGE/platform:$CI_COMMIT_REF_SLUG"
-  RISK_VLLM_IMAGE_SHA: "$CI_REGISTRY_IMAGE/vllm-unified:$CI_COMMIT_SHORT_SHA"
-  RISK_VLLM_IMAGE_REF: "$CI_REGISTRY_IMAGE/vllm-unified:$CI_COMMIT_REF_SLUG"
-  AUDIO_VLLM_IMAGE_SHA: "$CI_REGISTRY_IMAGE/vllm-unified:$CI_COMMIT_SHORT_SHA"
-  AUDIO_VLLM_IMAGE_REF: "$CI_REGISTRY_IMAGE/vllm-unified:$CI_COMMIT_REF_SLUG"
+  VLLM_UNIFIED_IMAGE_SHA: "$CI_REGISTRY_IMAGE/vllm-unified:$CI_COMMIT_SHORT_SHA"
+  VLLM_UNIFIED_IMAGE_REF: "$CI_REGISTRY_IMAGE/vllm-unified:$CI_COMMIT_REF_SLUG"
 
 .default-python:
   image: python:3.12.13-slim@sha256:57cd7c3a7a273101a6485ba99423ee568157882804b1124b4dd04266317710de
@@ -161,17 +157,17 @@ build-vllm-derived:
       - $DEPLOY_MODE == "full"
   allow_failure: false
   artifacts:
-    # unified 이미지의 immutable digest -- 12B 프로필의 image override
-    # (configs/main_model_profiles.yaml)에 고정하는 데 쓰인다.
+    # unified 이미지의 immutable digest. 배포 시 risk-prompt와 12B profile에
+    # 같은 digest를 투영한다.
     paths:
-      - build/audio-image.env
+      - build/vllm-unified-image.env
     expire_in: 7 days
 
 # 175 GPU 런타임 서버로의 수동 배포.
 # Rolling 배포(기본값): gateway + admin-sidecar + risk-adapter만 재시작, vLLM 재빌드는 건너뜀.
 # Full 런타임 배포: 파이프라인 트리거 시 DEPLOY_MODE=full로 설정 —
 #   이 job 전에 build-vllm-derived가 자동 실행된다.
-#   DEPLOY_MODE=full은 현재 파이프라인의 SHA 이미지를 RISK 기본값으로 쓴다.
+#   DEPLOY_MODE=full은 현재 파이프라인의 unified vLLM 이미지를 쓴다.
 # 필수 CI/CD 변수:
 #   SSH_PRIVATE_KEY      file 타입 변수; 175의 DEPLOY_USER용 private key
 #   DEPLOY_KNOWN_HOSTS   `ssh-keyscan <175-host>` 출력값
@@ -197,7 +193,7 @@ deploy-gpu-175:
   dependencies:
     - build-platform
     # build-vllm-derived는 full/BUILD_VLLM_DERIVED 파이프라인에서만 실행되므로,
-    # rolling 배포에서는 build/audio-image.env 아티팩트가 없다(아래에서 처리).
+    # rolling 배포에서는 unified vLLM artifact가 없다(아래에서 처리).
     - build-vllm-derived
   tags:
     - ai-serving
@@ -221,23 +217,34 @@ deploy-gpu-175:
           exit 1
           ;;
       esac
-      if [ "${DEPLOY_MODE:-rolling}" = "full" ]; then
-        _risk_vllm="${RISK_VLLM_IMAGE_TO_DEPLOY:-${RISK_VLLM_IMAGE_SHA}}"
-      else
-        _risk_vllm="${RISK_VLLM_IMAGE_TO_DEPLOY:-}"
-      fi
-      # build-vllm-derived가 실행됐으면 방금 빌드한 12B 멀티모달 이미지로 고정하고,
-      # 아니면 AUDIO_VLLM_IMAGE를 그대로 둔다(배포가 현재 고정값을 유지).
-      _audio_vllm="${AUDIO_VLLM_IMAGE_TO_DEPLOY:-}"
-      if [ -f build/audio-image.env ]; then
-        . build/audio-image.env
-        case "${AUDIO_VLLM_IMAGE_DIGEST:-}" in
-          *"@sha256:"*) _audio_vllm="${AUDIO_VLLM_IMAGE_DIGEST}" ;;
-          *) echo "build/audio-image.env present but AUDIO_VLLM_IMAGE_DIGEST is not a digest" >&2; exit 1 ;;
+      _fresh_unified_vllm=""
+      # build-vllm-derived artifact가 있을 때만 "이번 pipeline에서 새로 만든
+      # unified 이미지"로 취급한다. 이 값은 source 변경 stale-image 가드의 근거다.
+      # 일반 rolling 배포와 artifact 없는 설정-only full 배포에는 비워 둔다.
+      if [ -f build/vllm-unified-image.env ]; then
+        . build/vllm-unified-image.env
+        case "${VLLM_UNIFIED_IMAGE_DIGEST:-}" in
+          *"@sha256:"*) _fresh_unified_vllm="${VLLM_UNIFIED_IMAGE_DIGEST}" ;;
+          *) echo "build/vllm-unified-image.env present but VLLM_UNIFIED_IMAGE_DIGEST is not a digest" >&2; exit 1 ;;
         esac
       fi
+      if [ "${DEPLOY_MODE:-rolling}" = "full" ]; then
+        _unified_vllm="${RISK_VLLM_IMAGE_TO_DEPLOY:-${_fresh_unified_vllm}}"
+        if [ -z "${_unified_vllm}" ]; then
+          echo "full deploy requires build/vllm-unified-image.env or RISK_VLLM_IMAGE_TO_DEPLOY" >&2
+          exit 1
+        fi
+      else
+        _unified_vllm="${RISK_VLLM_IMAGE_TO_DEPLOY:-}"
+      fi
+      _audio_vllm="${AUDIO_VLLM_IMAGE_TO_DEPLOY:-}"
+      if [ -n "${_fresh_unified_vllm}" ]; then
+        _unified_vllm="${_fresh_unified_vllm}"
+        _audio_vllm="${_fresh_unified_vllm}"
+      fi
       PLATFORM_IMAGE_TO_DEPLOY="${PLATFORM_IMAGE_DIGEST}" \
-      RISK_VLLM_IMAGE_TO_DEPLOY="${_risk_vllm}" \
+      VLLM_UNIFIED_IMAGE_TO_DEPLOY="${_fresh_unified_vllm}" \
+      RISK_VLLM_IMAGE_TO_DEPLOY="${_unified_vllm}" \
       AUDIO_VLLM_IMAGE_TO_DEPLOY="${_audio_vllm}" \
       DEPLOY_RELEASE_ID="${CI_COMMIT_SHA}" \
       bash scripts/ci/deploy_gitlab_compose.sh

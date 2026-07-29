@@ -48,7 +48,7 @@ make guide
 | Docker/GPU 서버에서 전체 runtime 확인 | full-stack | `HF_TOKEN=hf_xxx make first-run` → `make compose-up` → `make ready-full` |
 | CI/릴리스 아티팩트만 생성 | pipeline build | `make build-pipeline` 또는 `make build` |
 | 앱 이미지만 빠르게 다시 빌드 | app rebuild | `make rebuild-app` |
-| Risk vLLM 이미지만 다시 빌드 | risk image rebuild | `make rebuild-vllm-unified` |
+| unified vLLM 이미지 재빌드 | unified image rebuild | `make rebuild-vllm-unified` |
 | 삭제 범위를 먼저 보고 싶음 | plan | `make remove-plan` |
 | 전체 제거/초기화 | reset | `make reset` |
 | 전체 재빌드 | full rebuild | `make rebuild-full` 또는 `make bootstrap` |
@@ -99,7 +99,7 @@ make compose-down
 
 정상 기준:
 
-- `make first-run`은 `.venv`, dependency, `.env`, validate, test, platform image, Risk vLLM image, image 내부 Kanana config check를 수행한다.
+- `make first-run`은 `.venv`, dependency, `.env`, validate, test, platform image, unified vLLM image, image 내부 Kanana config check를 수행한다.
 - `make ready-full`은 실제 vLLM upstream과 smoke까지 통과해야 성공한다.
 - `make runtime-validate`는 GPU/vLLM live evidence를 `reports/runtime/`에 생성한다.
 - 생성된 live evidence는 운영 서버의 증빙이고, source handoff ZIP에는 timestamped runtime report를 포함하지 않는다.
@@ -112,12 +112,12 @@ make compose-down
 | 테스트 | `make test` | 아니오 | deterministic pytest wrapper |
 | 통합 파이프라인 빌드 | `make build-pipeline` / `make build` | 아니오 | validate + test + platform image + package |
 | 플랫폼 이미지만 재빌드 | `make rebuild-app` / `make build-image` | 아니오 | 앱 코드 반복 수정 시 사용 |
-| Risk vLLM 이미지만 재빌드 | `make rebuild-vllm-unified` / `make build-vllm-unified-image` | 아니오 | Dockerfile/Transformers/vLLM patch 변경 시 사용 |
-| 전체 재빌드 | `make rebuild-full` / `make bootstrap` | 아니오 | .venv부터 risk image check까지 |
+| unified vLLM 이미지 재빌드 | `make rebuild-vllm-unified` / `make build-vllm-unified-image` | 아니오 | Dockerfile/Transformers/vLLM patch 변경 시 사용 |
+| 전체 재빌드 | `make rebuild-full` / `make bootstrap` | 아니오 | .venv부터 unified image/Kanana config check까지 |
 | 삭제 미리 보기 | `make remove-plan` | 아니오 | 실제 삭제 없음 |
 | 일반 산출물 제거 | `make clean` | 아니오 | 이미지·모델 캐시·시크릿 보존 |
 | 로그 포함 산출물 제거 | `make clean-all` | 아니오 | 기본적으로 `.runtime`, model cache 보존 |
-| 통합 제거/초기화 | `make reset` | 아니오 | 서비스 중지 + platform/risk image + 산출물 제거 |
+| 통합 제거/초기화 | `make reset` | 아니오 | 서비스 중지 + platform/unified vLLM image + 산출물 제거 |
 
 완전 초기화가 필요할 때만 다음을 사용한다.
 

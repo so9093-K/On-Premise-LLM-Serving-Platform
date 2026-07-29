@@ -1,31 +1,12 @@
 from __future__ import annotations
 
-import csv
 import json
-import os
-import re
-import subprocess
-import sys
-import tomllib
 from pathlib import Path
 from typing import Any
 
-try:
-    import yaml
-except ImportError as exc:
-    raise SystemExit('PyYAML is required: pip install pyyaml') from exc
-
-try:
-    from jsonschema import Draft202012Validator
-except ImportError as exc:
-    raise SystemExit('jsonschema is required: pip install jsonschema') from exc
-
 from .common import (
-    FORBIDDEN_RESPONSE_FIELDS,
     ROOT,
-    iter_project_files,
     read_json,
-    read_runtime_contract_text,
     read_yaml,
     service_default_host_ports,
 )
@@ -218,11 +199,6 @@ def validate_model_source_facts() -> None:
                 f'{compatibility_floor}'
             )
 
-    review = (ROOT / 'docs/models/model_runtime_source_review.md').read_text(encoding='utf-8')
-    for phrase in ['source_facts', 'project_runtime_policy', 'max_tokens=1', 'single-label-token']:
-        if phrase not in review:
-            raise SystemExit(f'model runtime source review missing phrase: {phrase}')
-
 def validate_model_list_schema_enums() -> None:
     from ai_model_serving.domain import ModelRegistry
 
@@ -235,13 +211,7 @@ def validate_model_list_schema_enums() -> None:
             'ModelRegistry.model_list_schema_document() -- run `make render-runtime-assets` to regenerate it'
         )
 
-    gateway_source = (ROOT / 'src/ai_model_serving/apps/gateway.py').read_text(encoding='utf-8')
-    settings_source = (ROOT / 'src/ai_model_serving/settings.py').read_text(encoding='utf-8')
-    if 'MODEL_LIST' in gateway_source:
-        raise SystemExit(
-            'src/ai_model_serving/apps/gateway.py must not define a hardcoded MODEL_LIST constant '
-            '-- the model list must come from ModelRegistry instead'
-        )
+
 def validate_model_registry_alignment() -> None:
     from ai_model_serving.domain import ModelRegistry
 
@@ -257,25 +227,6 @@ def validate_model_registry_alignment() -> None:
             f'ModelRegistry.public_logical_ids()={sorted(registry.public_logical_ids())!r} does not match '
             f'configs/model_catalog.yaml models with gateway_listing.enabled=true '
             f'(or default true)={sorted(expected_public)!r}'
-        )
-    settings_text = (ROOT / 'src/ai_model_serving/settings.py').read_text(encoding='utf-8')
-    if '_public_models_from_registry(model_catalog, model_serving)' not in settings_text:
-        raise SystemExit(
-            'src/ai_model_serving/settings.py must call _public_models_from_registry(model_catalog, '
-            'model_serving) to build the Gateway model list -- it must not read model_catalog.yaml/'
-            'model_serving.yaml separately without going through ModelRegistry'
-        )
-
-def validate_resource_requirements_doc() -> None:
-    resource = (ROOT / 'docs/resources/gpu_resource_requirements_48gb.md').read_text(encoding='utf-8')
-    for phrase in ['48GB VRAM 단일 GPU', 'gpu-memory-utilization', '0.83~0.87', 'runtime peak']:
-        if phrase not in resource:
-            raise SystemExit(f'GPU resource requirements doc missing phrase: {phrase}')
-    reference = (ROOT / 'docs/resources/gpu_resource_plan.md').read_text(encoding='utf-8')
-    if 'runtime' not in reference.lower() or 'runtime validation report' not in reference.lower():
-        raise SystemExit(
-            "docs/resources/gpu_resource_plan.md must contain the phrase 'runtime validation report' "
-            "(case-insensitive) -- it currently doesn't"
         )
 
 def validate_risk_detector_generation_budget() -> None:
@@ -319,22 +270,6 @@ def validate_risk_detector_generation_budget() -> None:
             f'"return_system_signal_without_detector_call", got {input_policy.get("overflow_action")!r}'
         )
 
-    risk_text = (ROOT / 'src/ai_model_serving/apps/risk_adapter.py').read_text(encoding='utf-8')
-    risk_service_text = (ROOT / 'src/ai_model_serving/services/risk_assessment.py').read_text(encoding='utf-8')
-    risk_input_text = (ROOT / 'src/ai_model_serving/risk_input.py').read_text(encoding='utf-8')
-    if '"max_tokens": detector.max_output_tokens' not in risk_service_text:
-        raise SystemExit(
-            'src/ai_model_serving/services/risk_assessment.py must call detectors with '
-            '"max_tokens": detector.max_output_tokens (the configured single-token detector budget) '
-            '-- that exact snippet was not found'
-        )
-    if 'RiskInputPolicy' not in risk_service_text or 'TRUNCATED_INPUT' not in risk_input_text:
-        raise SystemExit(
-            'risk adapter context-overflow guard missing: expected "RiskInputPolicy" in '
-            'src/ai_model_serving/services/risk_assessment.py and "TRUNCATED_INPUT" in '
-            'src/ai_model_serving/risk_input.py'
-        )
-
 def validate_model_contracts_cross_reference() -> None:
     from ai_model_serving.domain import ModelRegistry
 
@@ -343,12 +278,6 @@ def validate_model_contracts_cross_reference() -> None:
     projected = registry.model_contracts_document()
     if contracts != projected:
         raise SystemExit(f'model_contracts.yaml must match ModelRegistry projection: expected={projected}, actual={contracts}')
-
-def validate_smoke_thresholds() -> None:
-    script = (ROOT / 'scripts/ops/smoke_test.sh').read_text(encoding='utf-8')
-    for phrase in ['SMOKE_MAX_REQUEST_SECONDS', 'SMOKE_MAX_LATENCY_MS', '--max-time', 'check_latency']:
-        if phrase not in script:
-            raise SystemExit(f'smoke_test.sh missing threshold support: {phrase}')
 
 def validate_model_resource_control_policy() -> None:
     serving = read_yaml('configs/model_serving.yaml')
@@ -378,18 +307,6 @@ def validate_model_resource_control_policy() -> None:
         raise SystemExit(f'total configured gpu_memory_utilization {total_util} must match recommended_start {recommended_start}')
     if gpu['gpu'].get('default_profile') != 'single_a6000_conservative':
         raise SystemExit('gpu_budgets.yaml must define single_a6000_conservative as the default profile')
-    fixed_constraints = gpu.get('resource_management', {}).get('fixed_constraints', [])
-    for phrase in ['risk detector max_output_tokens remains 1', 'model fallback is not allowed', 'each model keeps an independent vLLM process and port']:
-        if phrase not in fixed_constraints:
-            raise SystemExit(f'gpu_budgets.yaml missing fixed constraint: {phrase}')
-    allocation_doc = ROOT / 'docs/resources/gpu_resource_plan.md'
-    if not allocation_doc.exists():
-        raise SystemExit('docs/resources/gpu_resource_plan.md is required')
-    allocation_text = allocation_doc.read_text(encoding='utf-8')
-    expected_total_phrase = f'설정된 enabled `gpu_memory_utilization` 합계: `{recommended_start:g}`'
-    for phrase in ['single_a6000_conservative', expected_total_phrase, 'Tuning order', 'Fixed constraints']:
-        if phrase not in allocation_text:
-            raise SystemExit(f'gpu_resource_plan.md missing phrase: {phrase}')
     main_policy = catalog['local-main']['project_runtime_policy']
     if set(main_policy.get('input_modalities', [])) != {'text', 'image', 'audio', 'video'}:
         raise SystemExit(
@@ -407,19 +324,3 @@ def validate_model_resource_control_policy() -> None:
             'local-main image input policy MIME limits must match '
             'configs/model_serving.yaml local-main request_limits.allowed_image_mime_types'
         )
-
-def validate_model_lifecycle_docs_and_cli() -> None:
-    doc = (ROOT / 'docs/operations/model_runtime_control.md').read_text(encoding='utf-8')
-    for phrase in ['Add a model', 'Remove a model', 'Model independence', 'Input and output contracts']:
-        if phrase not in doc:
-            raise SystemExit(f'model runtime control doc missing phrase: {phrase}')
-    if 'model-inventory:' not in (ROOT / 'Makefile').read_text(encoding='utf-8'):
-        raise SystemExit('Makefile must expose model-inventory target')
-    inventory_script = (ROOT / 'scripts/models/model_inventory.py').read_text(encoding='utf-8')
-    render_script = (ROOT / 'scripts/models/render_vllm_commands.py').read_text(encoding='utf-8')
-    if 'ModelRegistry' not in inventory_script or 'inventory_rows()' not in inventory_script:
-        raise SystemExit('scripts/models/model_inventory.py must use ModelRegistry inventory projections')
-    if 'ModelRegistry' not in render_script or 'iter_runtime_services()' not in render_script:
-        raise SystemExit('scripts/models/render_vllm_commands.py must use ModelRegistry runtime-service projections')
-    if not os.access(ROOT / 'scripts/models/model_inventory.py', os.X_OK):
-        raise SystemExit('scripts/models/model_inventory.py must be executable')

@@ -18,7 +18,7 @@
 
 ## Kanana Risk Runtime 규칙
 
-Risk detector vLLM image는 dedicated `RISK_VLLM_IMAGE`를 사용한다. `make risk-vllm-config-check`는 image label, patch metadata, Kanana Prompt config load를 확인해야 한다. production 승격 시 patch verify를 skip하면 안 된다.
+Risk detector는 다른 served model과 같은 unified vLLM 이미지를 사용하며, `RISK_VLLM_IMAGE`는 그 이미지의 risk-prompt 소비 경로다. `make risk-vllm-config-check`는 image label, patch metadata, Kanana Prompt config load를 확인해야 한다. production 승격 시 patch verify를 skip하면 안 된다.
 
 ## 계약 검증용 marker
 

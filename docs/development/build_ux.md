@@ -58,22 +58,22 @@ CI/CD와 로컬 실행의 경계:
 - Local: CI 없이 build/test/compose 재현
 - Shared: Dockerfile, compose validation, model contract
 
-### `make bootstrap`의 risk vLLM 이미지 빌드 제어
+### `make bootstrap`의 unified vLLM 이미지 빌드 제어
 
 `bootstrap`/`first-run`/`rebuild-full`은 세 가지 동작 모드를 제공한다.
 
 ```bash
-# 기본: risk vLLM 이미지를 항상 재빌드
+# 기본: unified vLLM 이미지를 항상 재빌드
 make first-run
 
-# auto: risk vLLM 이미지가 이미 존재하면 skip — 개발 반복 재빌드용
+# auto: unified vLLM 이미지가 이미 존재하면 skip — 개발 반복 재빌드용
 SKIP_RISK_VLLM_IMAGE_BUILD=auto make rebuild-full
 
-# 강제 skip: risk vLLM 이미지 빌드를 항상 건너뜀 (이미지 직접 관리할 때)
+# 강제 skip: unified vLLM 이미지 빌드를 항상 건너뜀 (이미지 직접 관리할 때)
 SKIP_RISK_VLLM_IMAGE_BUILD=1 make rebuild-full
 ```
 
-`SKIP_RISK_VLLM_IMAGE_BUILD=auto`는 이미지 존재 여부를 `.env`의 `RISK_VLLM_IMAGE` 태그로 확인한다. 이미지가 있으면 config check는 수행하지만 빌드는 건너뛴다. Risk vLLM 이미지 빌드는 첫 10–20분의 가장 긴 단계이므로, 앱 코드만 반복 수정할 때는 이 옵션을 사용한다.
+`SKIP_RISK_VLLM_IMAGE_BUILD=auto`는 이미지 존재 여부를 `.env`의 `RISK_VLLM_IMAGE` 태그로 확인한다. 이 변수는 unified 이미지의 소비 경로 중 하나다. 이미지가 있으면 config check는 수행하지만 빌드는 건너뛴다. unified 이미지 빌드는 첫 10–20분의 가장 긴 단계이므로, 앱 코드만 반복 수정할 때는 이 옵션을 사용한다.
 
 ## 명령 경계
 
@@ -85,8 +85,8 @@ SKIP_RISK_VLLM_IMAGE_BUILD=1 make rebuild-full
 | `make build` | 정적 검증 + 결정론적 테스트 + 패키징 + 플랫폼 이미지 빌드 | 서비스 유지 없음 | 아니오 | 릴리스 / CI |
 | `make rebuild-app` | `make build-image` 별칭. 플랫폼 이미지만 재빌드 | 아니오 | 아니오 | 개발자 / 운영자 |
 | `make build-image` | 플랫폼 Docker 이미지만 빌드. validate·test·패키징은 생략하며 `make bootstrap` 내부에서도 호출됨 | 아니오 | 아니오 | 개발자 / 운영자 |
-| `make rebuild-vllm-unified` | `make build-vllm-unified-image` 별칭. Risk vLLM 이미지만 재빌드 | 아니오 | Docker image만 필요 | 운영자 / 디버깅 |
-| `make build-vllm-unified-image` | Kanana risk detector 전용 vLLM image만 빌드하는 고급 target. 일반 운영자는 `make first-run`/`make bootstrap` 사용 | 아니오 | Docker image만 필요 | 운영자 / 디버깅 |
+| `make rebuild-vllm-unified` | `make build-vllm-unified-image` 별칭. 모든 served model이 공유하는 unified vLLM 이미지를 재빌드 | 아니오 | Docker image만 필요 | 운영자 / 디버깅 |
+| `make build-vllm-unified-image` | 26B/12B/embedding/embedding-ko/risk-prompt 공용 vLLM 이미지를 빌드하는 고급 target. 일반 운영자는 `make first-run`/`make bootstrap` 사용 | 아니오 | Docker image만 필요 | 운영자 / 디버깅 |
 | `make package` | 정적 검증 통과 후 릴리스 ZIP 생성 | 아니오 | 아니오 | 릴리스 / CI |
 | `make start` | 로컬 app-only Gateway·Risk Adapter 기동 | 예 | 아니오 | 개발자 |
 | `make ready-local` | 로컬 Gateway·Risk Adapter `/health` 엄격 확인 | 아니오 | 아니오 | 개발자 |
@@ -96,10 +96,10 @@ SKIP_RISK_VLLM_IMAGE_BUILD=1 make rebuild-full
 | `make clean` | 생성 아티팩트 제거; 트래킹된 서비스 실행 중이면 거부 | 아니오 | 아니오 | 개발자 / CI |
 | `make clean-all` | 아티팩트·로그·선택적 대형 캐시 제거 | 아니오 | 아니오 | 개발자 / CI |
 | `make remove-plan` | 삭제 대상 미리 보기 (`make clean-dry-run` alias) | 아니오 | 아니오 | 개발자 / 운영자 |
-| `make reset` | 통합 제거/초기화. 서비스 중지 + 플랫폼 이미지 + 로컬 risk vLLM 이미지 삭제 + clean-all; 플래그로 model cache, runtime secret, venv, base image까지 확장 가능 | 아니오 | 아니오 | 개발자 / 운영자 |
+| `make reset` | 통합 제거/초기화. 서비스 중지 + 플랫폼 이미지 + 로컬 unified vLLM 이미지 삭제 + clean-all; 플래그로 model cache, runtime secret, venv, base image까지 확장 가능 | 아니오 | 아니오 | 개발자 / 운영자 |
 | `make first-run` | `make bootstrap` 별칭. 처음 full-stack 준비 | 아니오 | Docker image 필요 | 운영자 |
 | `make rebuild-full` | `make bootstrap` 별칭. 전체 재빌드 | 아니오 | Docker image 필요 | 개발자 / 운영자 |
-| `make bootstrap` | `.venv` 생성 + 의존성 설치 + `.env` 초기화 + validate + test + 플랫폼 이미지 빌드 + Kanana risk vLLM 이미지 빌드 + image 내부 config check | 아니오 | Docker image 필요 | 개발자 / 운영자 |
+| `make bootstrap` | `.venv` 생성 + 의존성 설치 + `.env` 초기화 + validate + test + 플랫폼 이미지 빌드 + unified vLLM 이미지 빌드 + Kanana config check | 아니오 | Docker image 필요 | 개발자 / 운영자 |
 | `make compose-up` | runtime secret 동기화 + preflight 후 full-stack compose 기동 | 예 | 예 | 운영자 |
 | `make compose-down` | full-stack compose 스택 종료 | 아니오 | 아니오 | 운영자 |
 | `make guide` | 상황별 명령 추천 가이드 출력 | 아니오 | 아니오 | 개발자 / 운영자 |
@@ -111,7 +111,7 @@ SKIP_RISK_VLLM_IMAGE_BUILD=1 make rebuild-full
 
 **`ready`는 `health`가 아니다.** 로컬 app-only health 확인은 Gateway·Risk Adapter 프로세스가 살아 있음만 증명한다. full-stack readiness는 설정된 vLLM upstream이 도달 가능하고 smoke 검증이 통과함을 증명한다. 이 때문에 `make ready-local`과 `make ready-full`을 분리했다.
 
-**`reset`은 `clean`보다 강하다.** `make clean`은 Docker 이미지를 지우지 않는다. 플랫폼/risk image까지 정리하려면 `make reset`을 사용하고, 실행 전에는 `make remove-plan`으로 삭제 범위를 확인한다.
+**`reset`은 `clean`보다 강하다.** `make clean`은 Docker 이미지를 지우지 않는다. 플랫폼/unified vLLM image까지 정리하려면 `make reset`을 사용하고, 실행 전에는 `make remove-plan`으로 삭제 범위를 확인한다.
 
 `make package`는 Python 호환성 및 API·모델 계약 검증이 통과한 뒤 ZIP을 만든다.
 
@@ -169,9 +169,9 @@ make compose-up
 make ready-full
 ```
 
-`make reset`은 `.env`와 upstream/base vLLM 이미지는 보존하고, 이 프로젝트가 만든 platform image와 local `RISK_VLLM_IMAGE`는 삭제한다. base image까지 지워야 할 때만 `PURGE_BASE_IMAGES=1 make reset`을 사용한다.
+`make reset`은 `.env`와 upstream/base vLLM 이미지는 보존하고, 이 프로젝트가 만든 platform image와 local unified vLLM image는 삭제한다. base image까지 지워야 할 때만 `PURGE_BASE_IMAGES=1 make reset`을 사용한다.
 
-`make bootstrap`은 `.env`의 `HF_TOKEN`을 확인하고, 없으면 경고를 출력한 후 계속 진행한다. 토큰 누락 시 `make compose-up` 단계에서 모델 pull이 실패한다. 기본 동작은 risk vLLM 이미지 빌드와 image 내부 Kanana config check까지 포함한다.
+`make bootstrap`은 `.env`의 `HF_TOKEN`을 확인하고, 없으면 경고를 출력한 후 계속 진행한다. 토큰 누락 시 `make compose-up` 단계에서 모델 pull이 실패한다. 기본 동작은 unified vLLM 이미지 빌드와 image 내부 Kanana config check까지 포함한다.
 
 ### 릴리스 패키징
 

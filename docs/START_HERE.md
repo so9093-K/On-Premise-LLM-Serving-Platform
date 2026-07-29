@@ -209,7 +209,7 @@ make package                  # refresh → validate → dist/ ZIP 생성
 make reset-version NEW_VERSION=0.1.0
 ```
 
-다음이 함께 변경된다: `VERSION`, `version_manifest.json`, `pyproject.toml`, `specs/openapi.*.yaml`, `README.md`, `.env.example`, `.env.local.example`, `.env.compose.example`, `configs/recommended_images.yaml`(platform/risk_vllm 이미지 tag), `docs/release/versioning_policy.md`
+다음이 함께 변경된다: `VERSION`, `version_manifest.json`, `pyproject.toml`, `specs/openapi.*.yaml`, `README.md`, `.env.example`, `.env.local.example`, `.env.compose.example`, `configs/recommended_images.yaml`(platform/unified vLLM 이미지 tag), `docs/release/versioning_policy.md`
 
 변경되지 않는다: config schema version(`configs/model_catalog.yaml`, `configs/monitoring.yaml`의 `version: 0.1.0`), CHANGELOG 과거 항목, historical reports
 

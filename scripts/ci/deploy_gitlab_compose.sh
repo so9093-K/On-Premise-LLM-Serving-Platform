@@ -14,7 +14,9 @@
 # 선택:
 #   RISK_VLLM_IMAGE_TO_DEPLOY         RISK_VLLM_IMAGE를 덮어쓰는 전체 런타임 배포 override;
 #                                     DEPLOY_MODE=full일 때만 허용
-#   RISK_VLLM_IMAGE_SHA               DEPLOY_MODE=full일 때 기본 vllm-unified 이미지
+#   VLLM_UNIFIED_IMAGE_SHA            DEPLOY_MODE=full일 때 사용할 vllm-unified tag
+#   VLLM_UNIFIED_IMAGE_TO_DEPLOY      이번 pipeline에서 새로 만든 immutable digest;
+#                                     unified source 변경 full 배포에서는 필수
 #   DEPLOY_COMPOSE_FILE               DEPLOY_PATH 기준 상대 compose 파일 경로
 #                              기본값: ops/compose/full-stack.private-network.yaml
 #   DEPLOY_MODE                자동 감지 (vLLM 이미지가 바뀌거나 런타임 민감 파일이
@@ -61,7 +63,7 @@ SSH_TARGET="${DEPLOY_USER}@${DEPLOY_HOST}"
 # 배포 모드 자동 감지. vLLM 이미지 override가 제공되면 full 배포가 필요하고,
 # 그렇지 않으면 기본값은 rolling(platform만 재시작, vLLM 다운타임 없음)이다.
 # 필요하면 DEPLOY_MODE를 명시적으로 지정해 full로 강제할 수 있다.
-_vllm_image_override="${RISK_VLLM_IMAGE_TO_DEPLOY:-${RISK_VLLM_IMAGE_SHA:-}}"
+_vllm_image_override="${RISK_VLLM_IMAGE_TO_DEPLOY:-${VLLM_UNIFIED_IMAGE_SHA:-}}"
 if [[ -z "${DEPLOY_MODE:-}" ]]; then
   if [[ -n "${_vllm_image_override}" ]]; then
     DEPLOY_MODE="full"
@@ -110,11 +112,15 @@ echo "[deploy] mode: ${DEPLOY_MODE}"
 echo "[deploy] release: ${RELEASE_ID}"
 
 if [[ "${DEPLOY_MODE}" == "full" ]]; then
-  RISK_VLLM_IMAGE_TO_DEPLOY="${RISK_VLLM_IMAGE_TO_DEPLOY:-${RISK_VLLM_IMAGE_SHA:-}}"
+  RISK_VLLM_IMAGE_TO_DEPLOY="${RISK_VLLM_IMAGE_TO_DEPLOY:-${VLLM_UNIFIED_IMAGE_TO_DEPLOY:-${VLLM_UNIFIED_IMAGE_SHA:-}}}"
   if [[ -z "${RISK_VLLM_IMAGE_TO_DEPLOY}" ]]; then
-    echo "[deploy] ERROR: full deploy requires RISK_VLLM_IMAGE_TO_DEPLOY or RISK_VLLM_IMAGE_SHA." >&2
+    echo "[deploy] ERROR: full deploy requires RISK_VLLM_IMAGE_TO_DEPLOY or VLLM_UNIFIED_IMAGE_SHA." >&2
     exit 2
   fi
+  # unified 이미지는 risk-prompt와 12B profile이 함께 소비한다. 호출자가 12B 전용
+  # override를 명시하지 않았다면 risk 경로와 같은 immutable ref를 사용해야 한쪽만
+  # 새 patch/runtime으로 바뀌는 drift가 생기지 않는다.
+  AUDIO_VLLM_IMAGE_TO_DEPLOY="${AUDIO_VLLM_IMAGE_TO_DEPLOY:-${RISK_VLLM_IMAGE_TO_DEPLOY}}"
 fi
 
 # ── 1. 불변 release 파일 스테이징 ────────────────────────────────────────
@@ -155,6 +161,7 @@ rsync -az --delete \
 # ── 2. 원격: candidate 검증 → 배포 → current를 원자적으로 전환 ──
 ssh "${SSH_TARGET}" \
   PLATFORM_IMAGE_TO_DEPLOY="${PLATFORM_IMAGE_TO_DEPLOY}" \
+  VLLM_UNIFIED_IMAGE_TO_DEPLOY="${VLLM_UNIFIED_IMAGE_TO_DEPLOY:-}" \
   RISK_VLLM_IMAGE_TO_DEPLOY="${RISK_VLLM_IMAGE_TO_DEPLOY:-}" \
   AUDIO_VLLM_IMAGE_TO_DEPLOY="${AUDIO_VLLM_IMAGE_TO_DEPLOY:-}" \
   CI_REGISTRY="${CI_REGISTRY}" \
@@ -268,6 +275,11 @@ if [[ "${DEPLOY_MODE}" == "rolling" ]]; then
     fi
   fi
 fi
+# rolling에서 full로 승격됐을 때도, 명시적 12B override가 없다면 동일한 unified
+# image를 사용한다. 설정-only 변경은 current image를 재사용할 수 있다.
+if [[ "${DEPLOY_MODE}" == "full" && -n "${RISK_VLLM_IMAGE_TO_DEPLOY:-}" ]]; then
+  AUDIO_VLLM_IMAGE_TO_DEPLOY="${AUDIO_VLLM_IMAGE_TO_DEPLOY:-${RISK_VLLM_IMAGE_TO_DEPLOY}}"
+fi
 if [[ "${DEPLOY_MODE}" != "full" &&
   ( -n "${DEPLOY_RUNTIME_PROFILE:-}" || -n "${DEPLOY_DEFERRED_RUNTIMES:-}" ) ]]; then
   echo "[deploy] ERROR: DEPLOY_RUNTIME_PROFILE/DEPLOY_DEFERRED_RUNTIMES require DEPLOY_MODE=full." >&2
@@ -279,20 +291,30 @@ fi
 # 자동 빌드를 못 하므로(rule engine 없음), ~25GB짜리 빌드는 수동 opt-in이다 — 즉
 # 운영자가 vllm-unified Dockerfile/patch를 고치고 재빌드를 깜빡할 수 있다. 이전
 # release 이후 이미지 소스가 바뀌었는데 새 digest가 배포되지 않는 상태라면
-# (build-vllm-derived가 안 돌아서 -> 여기서 AUDIO_VLLM_IMAGE_TO_DEPLOY가 비어 있음,
+# (build-vllm-derived가 안 돌아서 -> 여기서 unified image override가 비어 있음,
 # preflight의 current-.env 폴백 이전) 기존 이미지가 그대로 배포돼 버린다. 조용히
-# 넘어가지 말고 확실하게 실패시킨다. 2026-07-24부터 risk-vllm-kanana도 같은
-# 이미지라 Kanana head_dim patch도 이 목록에 포함한다.
+# 넘어가지 말고 확실하게 실패시킨다. Kanana head_dim patch도 이 목록에 포함한다.
 if [[ -n "${PREVIOUS_RELEASE}" && -d "${PREVIOUS_RELEASE}" ]]; then
-  _audio_image_source=(
+  _unified_image_source=(
     "ops/images/vllm-unified/Dockerfile"
+    "ops/images/vllm-unified/requirements.media.lock"
     "ops/patches/apply_gemma4_multimodal_patches.py"
     "ops/patches/transformers_llama_head_dim_guard.py"
   )
-  mapfile -t _changed_audio_source < <(deploy_changed_files "${PREVIOUS_RELEASE}" "${RELEASE_PATH}" "${_audio_image_source[@]}")
-  if [[ ${#_changed_audio_source[@]} -gt 0 && -z "${AUDIO_VLLM_IMAGE_TO_DEPLOY:-}" ]]; then
-    echo "[deploy] ERROR: vllm-gemma4-audio image source changed but build-vllm-derived did not run." >&2
-    echo "[deploy]   No fresh AUDIO_VLLM_IMAGE digest — deploying now would ship the previous image." >&2
+  mapfile -t _changed_unified_image_source < <(deploy_changed_files "${PREVIOUS_RELEASE}" "${RELEASE_PATH}" "${_unified_image_source[@]}")
+  if deploy_unified_image_config_changed "${PREVIOUS_RELEASE}" "${RELEASE_PATH}"; then
+    _changed_unified_image_source+=("configs/recommended_images.yaml (images.vllm build inputs)")
+  else
+    _config_compare_status=$?
+    if [[ ${_config_compare_status} -ne 1 ]]; then
+      rm -rf "${RELEASE_PATH}"
+      exit "${_config_compare_status}"
+    fi
+  fi
+  if [[ ${#_changed_unified_image_source[@]} -gt 0 && ! deploy_has_fresh_unified_image_artifact "${VLLM_UNIFIED_IMAGE_TO_DEPLOY:-}" ]]; then
+    echo "[deploy] ERROR: vllm-unified image source changed but build-vllm-derived did not run." >&2
+    echo "[deploy]   No fresh immutable unified image artifact — deploying now would ship the previous image." >&2
+    printf '[deploy]   Changed source: %s\n' "${_changed_unified_image_source[@]}" >&2
     echo "[deploy]   Re-trigger the pipeline with DEPLOY_MODE=full (or BUILD_VLLM_DERIVED=1) so the" >&2
     echo "[deploy]   image is rebuilt before deploy." >&2
     rm -rf "${RELEASE_PATH}"

@@ -35,7 +35,7 @@ GitLab 12.1.1-ee 호환 구성이다. `workflow:`, `needs:`, `rules:`,
 - `BUILD_VLLM_DERIVED=1`
 - `DEPLOY_MODE=full`
 
-`build-vllm-derived`는 vLLM unified 이미지(26B/12B/embedding/embedding-ko/risk-prompt 공용)를 `vllm-unified` registry 이름 하나로 빌드/push한다. `RISK_VLLM_IMAGE_*`/`AUDIO_VLLM_IMAGE_*` 변수는 (risk-prompt-vllm은 compose가 정적 pull, main-llm-vllm의 12B 프로필은 admin-sidecar가 동적 pin이라 소비 방식이 달라서) 그대로 남아있지만 둘 다 같은 `vllm-unified` 태그를 가리킨다(`.gitlab-ci.yml`에서 보장). `embedding-ko-vllm`도 이 이미지를 쓰지만 별도 빌드 없이 `EMBEDDING_KO_VLLM_IMAGE` 태그만 가리킨다. 실행된 job이 실패하면 release 실패로 처리된다(`allow_failure: false`). 빌드 로직은 `scripts/ci/build_vllm_derived_images.sh`에서 관리한다.
+`build-vllm-derived`는 vLLM unified 이미지(26B/12B/embedding/embedding-ko/risk-prompt 공용)를 `vllm-unified` registry 이름 하나로 빌드/push한다. CI의 `VLLM_UNIFIED_IMAGE_*`가 유일한 build ref이며, 생성된 immutable digest를 배포 단계에서 risk-prompt와 12B profile에 투영한다. `embedding-ko-vllm`도 이 이미지를 쓰지만 별도 빌드 없이 `EMBEDDING_KO_VLLM_IMAGE` 태그만 가리킨다. 실행된 job이 실패하면 release 실패로 처리된다(`allow_failure: false`). 빌드 로직은 `scripts/ci/build_vllm_derived_images.sh`에서 관리한다.
 
 Platform image는 commit tag와 branch tag를 항상 push한다. `release` branch 또는 tag pipeline에서는 `VERSION` 파일을 읽어 `platform:release_<VERSION>` tag도 push한다.
 
@@ -120,7 +120,7 @@ full deploy 없이 registry image만 미리 만들 때 사용한다. deploy mode
 
 1. `release` branch 또는 tag pipeline을 `BUILD_VLLM_DERIVED=1`로 시작
 2. `build-vllm-derived` 자동 실행
-3. vLLM unified 이미지를 `vllm-unified` 이름으로 build/push. digest는 `build/audio-image.env`에 남긴다. `embedding-ko-vllm`도 같은 이미지를 쓰지만(`EMBEDDING_KO_VLLM_IMAGE`) 별도 build 없음
+3. vLLM unified 이미지를 `vllm-unified` 이름으로 build/push. digest는 `build/vllm-unified-image.env`에 남긴다. `embedding-ko-vllm`도 같은 이미지를 쓰지만(`EMBEDDING_KO_VLLM_IMAGE`) 별도 build 없음
 4. deploy mode는 바뀌지 않는다
 5. full deploy까지 하려면 `DEPLOY_MODE=full`을 사용해야 한다
 
@@ -295,7 +295,7 @@ CI job과 로컬 make target은 목적이 다르며 독립적으로 실행된다
 |---|---|---|
 | Platform 이미지 빌드 + push | `build-platform` (CI) | `CI_REGISTRY_IMAGE` 등 CI 변수 |
 | 로컬 vLLM unified 이미지 빌드 | `make build-vllm-unified-image` | `configs/recommended_images.yaml` 기본값, 필요 시 `.env`의 `RISK_VLLM_BASE_IMAGE`, `RISK_VLLM_IMAGE` |
-| vLLM unified 이미지 빌드/push(CI) | `build-vllm-derived` 또는 `ops/images/vllm-unified/README.md` 수동 fallback | `configs/recommended_images.yaml` 기본값, 필요 시 `VLLM_BASE_IMAGE` override, `AUDIO_VLLM_IMAGE_*` |
+| vLLM unified 이미지 빌드/push(CI) | `build-vllm-derived` 또는 `ops/images/vllm-unified/README.md` 수동 fallback | `configs/recommended_images.yaml` 기본값, 필요 시 `VLLM_BASE_IMAGE` override, `VLLM_UNIFIED_IMAGE_*` |
 
 
 

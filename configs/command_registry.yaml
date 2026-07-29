@@ -885,7 +885,7 @@ commands:
     title: 통합 제거·초기화
     category: maintenance
     audience: [operator]
-    description: "서비스 중지 + 플랫폼/risk vLLM 이미지 삭제 + dangling image prune + clean-all을 실행한다. PURGE_VENV=1 시 .venv 삭제."
+    description: "서비스 중지 + 플랫폼/unified vLLM 이미지 삭제 + dangling image prune + clean-all을 실행한다. PURGE_VENV=1 시 .venv 삭제."
     command: make reset
     kind: public
     safety: deletes_files
@@ -1351,7 +1351,7 @@ commands:
     title: 전체 재빌드·초기화
     category: init
     audience: [developer, operator]
-    description: ".venv 생성 + 의존성 설치 + .env 초기화 + 검증 + 플랫폼·risk vLLM 이미지 빌드 + image config check를 한 번에 실행한다."
+    description: ".venv 생성 + 의존성 설치 + .env 초기화 + 검증 + 플랫폼·unified vLLM 이미지 빌드 + Kanana config check를 한 번에 실행한다."
     command: make bootstrap
     kind: public
     safety: builds_images

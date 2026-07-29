@@ -32,7 +32,7 @@ Docker, NVIDIA runtime, 실제 vLLM 모델 runtime이 있는 host에서 수행�
 
 ```bash
 # .venv 생성 + 의존성 설치 + .env 초기화 + validate + test
-# + 플랫폼 이미지 빌드 + Kanana risk vLLM 이미지 빌드 + risk config check
+# + 플랫폼 이미지 빌드 + unified vLLM 이미지 빌드 + Kanana config check
 # google/embeddinggemma-300m은 Gemma 라이선스 동의 필요 → HF_TOKEN 필수
 HF_TOKEN=hf_xxx make first-run
 
@@ -75,7 +75,7 @@ make compose-up
 make ready-full
 ```
 
-`make first-run`은 `make bootstrap`의 alias다. `make bootstrap`은 `.venv` 생성부터 플랫폼 이미지와 Kanana risk 전용 vLLM 이미지 빌드, image 내부 Kanana config check까지 한 번에 처리한다. 기존 `.env`에 `HF_TOKEN`이 이미 있어도 `HF_TOKEN=hf_xxx`를 명시하면 항상 덮어쓴다.
+`make first-run`은 `make bootstrap`의 alias다. `make bootstrap`은 `.venv` 생성부터 플랫폼 이미지와 모든 served model이 공유하는 unified vLLM 이미지 빌드, image 내부 Kanana config check까지 한 번에 처리한다. 기존 `.env`에 `HF_TOKEN`이 이미 있어도 `HF_TOKEN=hf_xxx`를 명시하면 항상 덮어쓴다.
 
 bootstrap 완료 후 자동으로 수행되는 동작:
 - 스택이 이미 실행 중이면 `gateway`, `risk-adapter`를 재시작해 갱신된 토큰을 반영한다.
@@ -102,7 +102,7 @@ READY_MODE=full make status
 
 `make reset`은 compose service와 platform image까지 지우므로 Docker daemon 접근 권한이 필요하다. `docker info`가 permission denied이면 먼저 Docker 권한을 복구한다. 이 상태에서 reset을 계속하면 컨테이너/이미지는 남고 `.venv`, `.runtime`, `model_cache`만 지워지는 partial reset이 될 수 있으므로, reset script는 Docker 접근 실패 시 로컬 파일 삭제 전에 중단한다.
 
-`make first-run`/`make rebuild-full`/`make bootstrap`은 마지막에 platform image와 Kanana risk vLLM image를 빌드하므로 Docker daemon 접근 권한이 필요하다. Docker 권한이 없으면 venv를 새로 만들기 전에 중단한다.
+`make first-run`/`make rebuild-full`/`make bootstrap`은 마지막에 platform image와 unified vLLM image를 빌드하므로 Docker daemon 접근 권한이 필요하다. Docker 권한이 없으면 venv를 새로 만들기 전에 중단한다.
 
 ### 재빌드 절차
 
@@ -161,7 +161,7 @@ make ready-full
 | `PURGE_VENV=1` | 0 | `.venv/` |
 | `PURGE_BASE_IMAGES=1` | 0 | upstream/base vLLM images |
 
-로컬 `RISK_VLLM_IMAGE`는 `make reset`이 삭제한다. upstream/base vLLM 이미지는 수십 GB이므로 기본 보존하며, 필요할 때만 `PURGE_BASE_IMAGES=1 make reset`으로 삭제한다.
+로컬 unified vLLM image는 `make reset`이 삭제한다. upstream/base vLLM 이미지는 수십 GB이므로 기본 보존하며, 필요할 때만 `PURGE_BASE_IMAGES=1 make reset`으로 삭제한다.
 
 ## 5. 삭제 UX
 

@@ -118,7 +118,7 @@ make build-pipeline # 통합 파이프라인 빌드 (서비스 기동 없음)
 make remove-plan   # 삭제 대상 미리 보기
 make reset         # 통합 제거/초기화 (서비스·플랫폼/risk 이미지·아티팩트)
 make first-run     # 처음 full-stack 준비 (make bootstrap 별칭)
-make rebuild-full  # 전체 재빌드 (.venv·deps·env·validate·test·platform/risk image)
+make rebuild-full  # 전체 재빌드 (.venv·deps·env·validate·test·platform/unified vLLM image)
 make start         # 로컬 app-only 기동
 make compose-up    # full-stack compose 기동
 make ready-local   # 로컬 health 확인

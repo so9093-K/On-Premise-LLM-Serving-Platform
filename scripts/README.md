@@ -35,7 +35,7 @@ make stop
 | `ci/` | GitLab CI/CD deploy entrypoint |
 | `compose/` | full-stack compose preflight, up, diagnostics, compose validation |
 | `config/` | `.env` 생성 |
-| `models/` | model registry CLI, vLLM command rendering, HF/risk image checks |
+| `models/` | model registry CLI, vLLM command rendering, HF/unified image checks |
 | `ops/` | start/stop/status/ready/smoke/reset/clean 같은 운영 명령 |
 | `reports/` | runtime target, storage path, monitoring, operator status/evidence reports, feature plan |
 | `validation/` | contract validation, static validation, deterministic test runner, live runtime validation |
@@ -115,10 +115,10 @@ make stop
 
 Risk detector의 `bitsandbytes` 설정은 운영 기본값이다. 원인 분리를 위한 A/B 테스트는 별도 override에서 수행하고, 기본 compose에서 임의 제거하지 않는다.
 
-## Kanana risk vLLM image 점검
+## Unified vLLM 이미지와 Kanana patch 점검
 
-- `make first-run` / `make bootstrap`: platform image와 dedicated `RISK_VLLM_IMAGE`를 만들고, image 내부 Kanana config check를 실행한다.
-- `make rebuild-vllm-unified` / `make build-vllm-unified-image`: `ops/images/vllm-unified/Dockerfile`에서 `RISK_VLLM_IMAGE`(26B/12B/embedding/embedding-ko와 공용 vLLM unified 이미지)를 빌드하는 고급/수동 target이다.
+- `make first-run` / `make bootstrap`: platform image와 모든 served model이 공유하는 unified vLLM image를 만들고, image 내부 Kanana config check를 실행한다.
+- `make rebuild-vllm-unified` / `make build-vllm-unified-image`: `ops/images/vllm-unified/Dockerfile`에서 26B/12B/embedding/embedding-ko/risk-prompt 공용 vLLM unified 이미지를 빌드하는 고급/수동 target이다.
 - `make risk-vllm-config-check`: `RISK_VLLM_IMAGE` 안에서 label, metadata, Kanana risk model config load를 확인한다.
 - `SKIP_RISK_VLLM_IMAGE_CONFIG_CHECK=1 make preflight-compose`: image-internal config check만 건너뛴다. production 승격용으로 쓰지 않는다.
 
@@ -141,7 +141,7 @@ python scripts/models/modelctl.py propose-remove local-main
 
 ## Risk vLLM patch 생명주기
 
-`build_risk_vllm_image.sh`는 `ops/patches/` 아래 patch script를 포함한 dedicated Kanana risk image를 빌드한다. `check_risk_vllm_image_config.sh`는 image label, metadata, Kanana config loading을 검증한다. 자세한 내용은 `docs/operations/risk_vllm_patch_lifecycle.md`를 본다.
+`build_vllm_unified_image.sh`는 `ops/patches/` 아래 patch script를 포함한 unified 이미지를 빌드한다. `check_risk_vllm_image_config.sh`는 그 안의 Kanana patch label, metadata, config loading을 검증한다. 자세한 내용은 `docs/operations/risk_vllm_patch_lifecycle.md`를 본다.
 
 ## OpenAPI snapshot diff
 
@@ -149,4 +149,4 @@ python scripts/models/modelctl.py propose-remove local-main
 
 ## Risk vLLM patch removal check
 
-`scripts/models/risk_vllm_patch_removal_check.sh`는 risk image 내부 patch 제거 후보 상태를 점검한다. 이미 patch가 적용된 image만으로 제거 가능성을 증명할 수 없으므로 patch 없는 candidate image에서 config canary와 smoke를 별도로 통과해야 한다.
+`scripts/models/risk_vllm_patch_removal_check.sh`는 unified 이미지 내부 Kanana patch 제거 후보 상태를 점검한다. 이미 patch가 적용된 image만으로 제거 가능성을 증명할 수 없으므로 patch 없는 candidate image에서 config canary와 smoke를 별도로 통과해야 한다.

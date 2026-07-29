@@ -12,7 +12,7 @@
 
 ## 작업 순서
 
-1. `HF_TOKEN=hf_xxx make first-run`으로 `.venv`, dependency, `.env`, validate, test, platform image, Kanana risk vLLM image, image 내부 config check를 한 번에 완료한다. 기존 `.env`에 토큰이 있으면 `HF_TOKEN=`은 생략한다.
+1. `HF_TOKEN=hf_xxx make first-run`으로 `.venv`, dependency, `.env`, validate, test, platform image, unified vLLM image, image 내부 Kanana config check를 한 번에 완료한다. 기존 `.env`에 토큰이 있으면 `HF_TOKEN=`은 생략한다.
 2. `make preflight-compose`로 Docker, GPU 표시, host-published port, runtime secret, risk image config check를 확인한다.
 3. `make compose-up`으로 full-stack을 기동한다.
 4. `make ready-full`로 Gateway/Risk Adapter/vLLM readiness와 smoke를 확인한다.

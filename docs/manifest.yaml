@@ -469,26 +469,6 @@ documents:
     verified_by:
       - tests/contract/test_document_source_of_truth.py
       - scripts/validation/validate_contracts.py
-  - path: reports/archive/refactor_audits/end_to_end_flow_audit.md
-    type: archive
-    lifecycle: historical
-    owner: platform
-    disposition: archive
-  - path: reports/archive/refactor_audits/feature_ux_full_audit.md
-    type: archive
-    lifecycle: historical
-    owner: platform
-    disposition: archive
-  - path: reports/archive/refactor_audits/first_run_clean_package_audit.md
-    type: archive
-    lifecycle: historical
-    owner: platform
-    disposition: archive
-  - path: reports/archive/refactor_audits/full_file_hygiene_audit.md
-    type: archive
-    lifecycle: historical
-    owner: platform
-    disposition: archive
   - path: reports/runtime/README.md
     type: report
     lifecycle: active

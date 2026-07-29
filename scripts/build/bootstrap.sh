@@ -5,7 +5,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT"
 
 if ! command -v docker >/dev/null 2>&1; then
-  echo "[bootstrap] docker CLI is required because bootstrap builds the platform and risk vLLM images." >&2
+  echo "[bootstrap] docker CLI is required because bootstrap builds the platform and unified vLLM images." >&2
   exit 2
 fi
 

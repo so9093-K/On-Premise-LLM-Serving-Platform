@@ -29,10 +29,10 @@ loudly instead of shipping silently broken.
    automatic on source change.
 2. **`build-vllm-derived`** builds & pushes `vllm-unified` and writes the
    immutable digest to the **`build/vllm-unified-image.env`** artifact.
-3. **`deploy-gpu-175`** reads that digest, pre-pulls the image, and sets
-   `VLLM_UNIFIED_IMAGE=<digest>` in the 175 `.env`. `main_model_profiles.yaml`
-   (26B `runtime.image`, 12B `image:`), `VLLM_IMAGE`, `EMBEDDING_KO_VLLM_IMAGE`,
-   and `RISK_VLLM_IMAGE` all resolve to this one pin.
+3. **`deploy-gpu-175`** reads that digest, pre-pulls the image, and writes the
+   same pin to `VLLM_IMAGE`, `EMBEDDING_KO_VLLM_IMAGE`, `RISK_VLLM_IMAGE`, and
+   `AUDIO_VLLM_IMAGE` in the 175 `.env`. `main_model_profiles.yaml` uses the
+   latter for the 12B profile override.
 
 Manual fallback (CI unavailable):
 ```bash

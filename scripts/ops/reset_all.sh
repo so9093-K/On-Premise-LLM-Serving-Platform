@@ -34,7 +34,7 @@ remove_image_and_containers() {
 
 echo "[reset] stopping services"
 if ! command -v docker >/dev/null 2>&1; then
-  echo "[reset] docker CLI is required because reset stops compose services and removes the platform/risk images." >&2
+  echo "[reset] docker CLI is required because reset stops compose services and removes the platform/unified vLLM images." >&2
   echo "[reset] Use 'make clean-all' for local artifacts only." >&2
   exit 2
 fi

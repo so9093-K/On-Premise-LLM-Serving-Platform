@@ -70,8 +70,8 @@ VRAM을 단일 예산으로 보고 모든 모델 로드를 그 예산에 대한 
 
 Audio/video는 0017과 동일하게 기본 inert다. 활성화는 게이트된 운영 절차다:
 
-1. `vllm-gemma4-audio` 이미지를 `build-vllm-derived` CI 잡으로 빌드·push하고 immutable
-   digest를 산출한다(`build/audio-image.env`). base는 메인 런타임 digest + 디코드 스택뿐.
+1. `vllm-unified` 이미지를 `build-vllm-derived` CI 잡으로 빌드·push하고 immutable
+   digest를 산출한다(`build/vllm-unified-image.env`). base는 메인 런타임 digest + 디코드 스택뿐.
 2. 그 digest를 `gemma4-12b-unified-fp8` 프로필 `image`에 핀하고 caps를 flip한다
    (`deployed_input`에 audio/video 추가, `audio_enabled: true`, `video_enabled: true`).
 3. 12B로 switch하면 `validate()`가 media boot canaries를 실행한다. 디코드 실패 시 26B로
@@ -106,9 +106,9 @@ Audio/video는 0017과 동일하게 기본 inert다. 활성화는 게이트된 �
 
 ## 배포 통합
 
-- `build-vllm-derived` CI 잡이 risk-vllm-kanana와 `vllm-gemma4-audio`를 한 잡에서 빌드한다
-  (~25 GiB vLLM base를 한 번만 pull). 오디오 digest는 `build/audio-image.env` 아티팩트로
-  산출되어 12B 프로필 핀에 사용된다.
+- `build-vllm-derived` CI 잡이 공용 `vllm-unified` 이미지를 한 번 빌드한다
+  (~25 GiB vLLM base를 한 번만 pull). unified digest는 `build/vllm-unified-image.env`
+  아티팩트로 산출되어 risk-prompt와 12B 프로필 핀에 함께 사용된다.
 - admission·메인 상태·전환 결과는 기존 Gateway Prometheus metric(`main_model_operation_state`,
   request gate, switch/rollback totals, 마지막 전환 시간)으로 관측한다.
 
