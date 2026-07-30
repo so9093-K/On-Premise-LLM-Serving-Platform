@@ -224,43 +224,54 @@ def install_contract_openapi(
     def contract_openapi() -> dict[str, Any]:
         if app.openapi_schema:
             return app.openapi_schema
-        document = original_openapi()
-        paths = document.setdefault("paths", {})
-        for (method, path), schema_name in request_schemas.items():
-            operation = paths.get(path, {}).get(method.lower())
-            if not isinstance(operation, dict):
-                continue
-            content = operation.setdefault("requestBody", {}).setdefault("content", {}).setdefault("application/json", {})
-            content["schema"] = schema_for(schema_name)
-            if examples := request_examples.get((method, path)):
-                content["examples"] = copy.deepcopy(examples)
-            operation["requestBody"]["required"] = True
-            operation.setdefault("x-contract-schema", schema_name)
-        for (method, path), schema_name in response_schemas.items():
-            operation = paths.get(path, {}).get(method.lower())
-            if not isinstance(operation, dict):
-                continue
-            responses = operation.setdefault("responses", {})
-            response = responses.setdefault("200", {"description": "성공 응답"})
-            if path == "/v1/chat/completions" and method.upper() == "POST":
-                response["description"] = "Main LLM runtime에서 반환한 OpenAI 호환 chat completion 응답. stream=true일 때는 text/event-stream SSE 응답을 반환한다."
-            content = response.setdefault("content", {}).setdefault("application/json", {})
-            content["schema"] = schema_for(schema_name)
-            if path == "/v1/chat/completions" and method.upper() == "POST":
-                stream_content = response.setdefault("content", {}).setdefault("text/event-stream", {})
-                stream_content.setdefault(
-                    "schema",
-                    {
-                        "type": "string",
-                        "description": "OpenAI 호환 SSE 스트림. 스트리밍 전송 오류 시 Gateway는 SSE error 이벤트를 먼저 전송하고 data: [DONE]으로 종료합니다.",
-                    },
-                )
-            operation.setdefault("x-response-contract-schema", schema_name)
-        _inject_standard_error_responses(document, schema_for("common_error.schema.json"))
-        schemas = document.get("components", {}).get("schemas")
-        if isinstance(schemas, dict):
-            schemas.pop("HTTPValidationError", None)
-            schemas.pop("ValidationError", None)
+        try:
+            document = original_openapi()
+            paths = document.setdefault("paths", {})
+            for (method, path), schema_name in request_schemas.items():
+                operation = paths.get(path, {}).get(method.lower())
+                if not isinstance(operation, dict):
+                    continue
+                content = operation.setdefault("requestBody", {}).setdefault("content", {}).setdefault("application/json", {})
+                content["schema"] = schema_for(schema_name)
+                if examples := request_examples.get((method, path)):
+                    content["examples"] = copy.deepcopy(examples)
+                operation["requestBody"]["required"] = True
+                operation.setdefault("x-contract-schema", schema_name)
+            for (method, path), schema_name in response_schemas.items():
+                operation = paths.get(path, {}).get(method.lower())
+                if not isinstance(operation, dict):
+                    continue
+                responses = operation.setdefault("responses", {})
+                response = responses.setdefault("200", {"description": "성공 응답"})
+                if path == "/v1/chat/completions" and method.upper() == "POST":
+                    response["description"] = "Main LLM runtime에서 반환한 OpenAI 호환 chat completion 응답. stream=true일 때는 text/event-stream SSE 응답을 반환한다."
+                content = response.setdefault("content", {}).setdefault("application/json", {})
+                content["schema"] = schema_for(schema_name)
+                if path == "/v1/chat/completions" and method.upper() == "POST":
+                    stream_content = response.setdefault("content", {}).setdefault("text/event-stream", {})
+                    stream_content.setdefault(
+                        "schema",
+                        {
+                            "type": "string",
+                            "description": "OpenAI 호환 SSE 스트림. 스트리밍 전송 오류 시 Gateway는 SSE error 이벤트를 먼저 전송하고 data: [DONE]으로 종료합니다.",
+                        },
+                    )
+                operation.setdefault("x-response-contract-schema", schema_name)
+            _inject_standard_error_responses(document, schema_for("common_error.schema.json"))
+            schemas = document.get("components", {}).get("schemas")
+            if isinstance(schemas, dict):
+                schemas.pop("HTTPValidationError", None)
+                schemas.pop("ValidationError", None)
+        except Exception:
+            # original_openapi()가 FastAPI 기본 app.openapi()라서, 위 enrichment
+            # 도중 실패해도 그 호출의 부작용으로 app.openapi_schema에 이미 가공 전
+            # raw 스키마가 캐싱돼 있을 수 있다. 그 상태로 두면 다음 요청부터
+            # `if app.openapi_schema:`가 그 raw 값을 계약 없이 영구 반환해버려서
+            # (examples/실제 schema 없이 조용히 "정상"처럼 200을 계속 준다)
+            # 에러가 처음 한 번만 나고 사라진다. 캐시를 지워서 원인이 고쳐질 때까지
+            # 매 요청 실패로 계속 드러나게 한다.
+            app.openapi_schema = None
+            raise
         app.openapi_schema = document
         return document
 

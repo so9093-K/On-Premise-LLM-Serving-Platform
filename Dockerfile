@@ -10,8 +10,13 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# runtime image는 runtime lock만 설치한다. 계약·운영 스크립트와 명세 파일은
-# CI/release artifact의 책임이며 application image에 넣지 않는다.
+# runtime image는 runtime lock만 설치한다. 운영 스크립트(scripts/)와 governance
+# 문서용 명세(specs/openapi.*.yaml, contracts/, model_cards/)는 CI/release
+# artifact의 책임이며 application image에 넣지 않는다. specs/schemas만 예외 --
+# openapi_contracts.py::load_contract_schema()가 /docs(Scalar) 렌더링 시 이
+# JSON 스키마를 런타임에 직접 읽어 request schema/examples를 주입하므로, 여기
+# 빠지면 /docs가 계약 스키마 대신 FastAPI의 제네릭 dict 스키마로 조용히
+# degrade된다.
 COPY pyproject.toml requirements.runtime.lock VERSION ./
 
 # runtime lock과 build backend가 바뀌지 않는 한 애플리케이션 소스 수정은 이
@@ -26,6 +31,7 @@ RUN python -m pip install --requirement requirements.runtime.lock \
 
 COPY src ./src
 COPY configs ./configs
+COPY specs/schemas ./specs/schemas
 
 RUN python -m pip install --no-deps --no-build-isolation . \
     && useradd --create-home --shell /usr/sbin/nologin appuser \
