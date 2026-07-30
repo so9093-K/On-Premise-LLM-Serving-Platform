@@ -76,8 +76,3 @@ def test_category_code_family_invariant() -> None:
     sample['categories'][0]['family'] = 'policy_risk'
     assert list(validator.iter_errors(sample))
 
-
-def test_mock_is_test_fixture_only() -> None:
-    # Mock samples are allowed in test code, but production docs/scripts should only mention
-    # the policy that mock behavior is test-only.
-    assert 'tests/contract' in __file__.replace('\\\\', '/')

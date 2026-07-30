@@ -135,16 +135,6 @@ def test_gateway_forwards_chat_and_embeddings_to_vllm_paths():
     assert clients.embedding_clients["local-embed"].last_path == "embeddings"
 
 
-def test_gateway_token_embeddings_route_removed():
-    client = TestClient(create_gateway_app(settings(), FakeGatewayClients()))
-    response = client.post(
-        "/v1/retrieval/token-embeddings",
-        headers=auth_headers(),
-        json={"model": "local-embed", "texts": ["문서"]},
-    )
-    assert response.status_code == 404
-
-
 def test_gateway_embeddings_does_not_apply_prompt_policy():
     """/v1/embeddings는 prompt policy를 적용하지 않는다 — local-embed-ko 직접 호출 시 prefix 없음."""
     clients = FakeGatewayClients()

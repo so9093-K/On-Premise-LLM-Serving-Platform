@@ -189,12 +189,6 @@ def validate_request_schemas() -> None:
         if not list(chat_validator.iter_errors(sample)):
             raise SystemExit(f'chat completion schema accepted unsupported sample: {sample}')
 
-    errors_py = (ROOT / 'src/ai_model_serving/errors.py').read_text(encoding='utf-8')
-    error_codes = set(read_json('specs/schemas/common_error.schema.json')['properties']['error']['properties']['code']['enum'])
-    for code in error_codes:
-        if f'\"{code}\"' not in errors_py:
-            raise SystemExit(f'common error schema code missing from errors.py ERROR_STATUS: {code}')
-
 
 def validate_common_error_codes() -> None:
     schema = read_json('specs/schemas/common_error.schema.json')

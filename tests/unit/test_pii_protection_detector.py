@@ -195,8 +195,8 @@ class TestPIIProtectionDetector:
         # Two separate RRNs
         response = self._run(detector.assess("첫번째 901201-1234567 두번째 820315-2345678"))
         d1_cats = [c for c in response["categories"] if c.get("code") == "D1"]
-        if d1_cats:
-            assert d1_cats[0]["span_count"] >= 1
+        assert len(d1_cats) == 1
+        assert d1_cats[0]["span_count"] == 2
 
     def test_source_model_field_present_and_non_empty(self):
         detector = PIIProtectionDetector()

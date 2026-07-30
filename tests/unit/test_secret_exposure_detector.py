@@ -202,8 +202,8 @@ class TestSecretExposureDetector:
         detector = SecretExposureDetector()
         response = self._run(detector.assess(f"첫번째: {JWT} 두번째: {JWT}"))
         d4_cats = [c for c in response["categories"] if c.get("code") == "D4" and c.get("label") == "JWT"]
-        if d4_cats:
-            assert d4_cats[0]["span_count"] >= 1
+        assert len(d4_cats) == 1
+        assert d4_cats[0]["span_count"] == 2
 
     def test_boolean_consistency_when_detected(self):
         detector = SecretExposureDetector()

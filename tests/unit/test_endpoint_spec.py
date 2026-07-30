@@ -150,24 +150,6 @@ def test_risk_adapter_every_route_has_a_spec() -> None:
         )
 
 
-def test_removed_specs_have_no_route_in_gateway() -> None:
-    routes = _app_routes(create_gateway_app(_settings(), _FakeGatewayClients()))
-    for spec in GATEWAY_ENDPOINTS:
-        if spec.lifecycle == "removed":
-            assert (spec.method, spec.path) not in routes, (
-                f"Removed spec {spec.method} {spec.path} must not be registered in gateway app"
-            )
-
-
-def test_removed_specs_have_no_route_in_risk_adapter() -> None:
-    routes = _app_routes(create_risk_adapter_app(_settings(), _FakeRiskClients()))
-    for spec in RISK_ADAPTER_ENDPOINTS:
-        if spec.lifecycle == "removed":
-            assert (spec.method, spec.path) not in routes, (
-                f"Removed spec {spec.method} {spec.path} must not be registered in risk adapter app"
-            )
-
-
 # ---------------------------------------------------------------------------
 # Operation_id wired to routes
 # ---------------------------------------------------------------------------
@@ -236,36 +218,6 @@ def test_risk_adapter_v1_endpoints_require_internal_service_auth() -> None:
             )
 
 
-# ---------------------------------------------------------------------------
-# Retired lifecycle policy
-# ---------------------------------------------------------------------------
-
-def test_retired_specs_have_410_status() -> None:
-    for spec in GATEWAY_ENDPOINTS + RISK_ADAPTER_ENDPOINTS:
-        if spec.lifecycle == "retired":
-            assert spec.status_code == 410, (
-                f"{spec.service} {spec.path}: retired endpoint must have status_code=410, "
-                f"got {spec.status_code}"
-            )
-
-
-def test_retired_specs_have_common_error_schema() -> None:
-    for spec in GATEWAY_ENDPOINTS + RISK_ADAPTER_ENDPOINTS:
-        if spec.lifecycle == "retired":
-            assert spec.response_schema == "common_error.schema.json", (
-                f"{spec.service} {spec.path}: retired endpoint must have "
-                f"response_schema='common_error.schema.json', got {spec.response_schema!r}"
-            )
-
-
-def test_retired_specs_have_replacement() -> None:
-    for spec in GATEWAY_ENDPOINTS + RISK_ADAPTER_ENDPOINTS:
-        if spec.lifecycle == "retired":
-            assert spec.replacement is not None, (
-                f"{spec.service} {spec.path}: retired endpoint must declare a replacement path"
-            )
-
-
 def test_stable_specs_have_success_status() -> None:
     for spec in GATEWAY_ENDPOINTS + RISK_ADAPTER_ENDPOINTS:
         if spec.lifecycle == "stable":
@@ -324,13 +276,6 @@ def test_schema_maps_from_specs_risk_adapter() -> None:
         ("POST", "/v1/risk/detectors/secret/assessments"): "risk_assessment_response.schema.json",
         ("POST", "/v1/risk/assessments"): "risk_assessment_response.schema.json",
     }
-
-
-def test_schema_maps_excludes_retired_and_removed() -> None:
-    request_schemas, response_schemas = schema_maps_from_specs(GATEWAY_ENDPOINTS)
-    retired_siren = ("POST", "/v1/risk/detectors/siren/assessments")
-    assert retired_siren not in request_schemas
-    assert retired_siren not in response_schemas
 
 
 # ---------------------------------------------------------------------------

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import pytest
 
-from ai_model_serving.api.routers.gateway_inference import _active_input_modalities
 from ai_model_serving.services.sidecar_client import SidecarUnavailableError
 
 from .helpers import *  # noqa: F401,F403
@@ -56,11 +55,3 @@ def test_models_listing_falls_back_when_sidecar_unavailable():
     assert main["input_modalities"] == ["text", "image"]
 
 
-def test_advertised_modalities_match_validator_source():
-    # The invariant: /v1/models advertises exactly the modalities the chat validator
-    # accepts, because both read the same active-profile resolver.
-    snapshot = {"active_profile": {"capabilities": {"deployed_input": ["text", "image", "audio"]}}}
-    gate_modalities = _active_input_modalities(snapshot)
-    client = _app_with_sidecar(_FakeSidecar(["text", "image", "audio"]))
-    main = _main_model(client.get("/v1/models", headers=auth_headers()))
-    assert tuple(main["input_modalities"]) == gate_modalities

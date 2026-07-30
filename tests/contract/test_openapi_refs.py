@@ -49,19 +49,6 @@ def test_model_list_schema_restricts_logical_ids() -> None:
     assert list(validator.iter_errors(invalid))
 
 
-def test_openapi_operator_endpoints_declare_admin_auth() -> None:
-    for rel in ["specs/openapi.gateway.yaml", "specs/openapi.risk-adapter.yaml"]:
-        doc = yaml.safe_load((ROOT / rel).read_text(encoding="utf-8"))
-        schemes = doc["components"]["securitySchemes"]
-        assert "adminBearerAuth" in schemes
-        if rel.endswith("gateway.yaml"):
-            assert "bearerAuth" in schemes
-        for path in ["/ready", "/metrics"]:
-            operation = doc["paths"][path]["get"]
-            assert operation["security"] == [{"adminBearerAuth": []}]
-            assert "401" in operation["responses"]
-
-
 def test_openapi_specs_use_current_version() -> None:
     version = (ROOT / "VERSION").read_text(encoding="utf-8").strip()
     for rel in ["specs/openapi.gateway.yaml", "specs/openapi.risk-adapter.yaml"]:

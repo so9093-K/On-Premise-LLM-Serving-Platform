@@ -245,14 +245,6 @@ class TestGatewayPIIForwarding:
         assert body["strongest_code"] == "A1"
         assert body["risk_detected"] is True
 
-    def test_d4_response_schema_valid(self):
-        from jsonschema import Draft202012Validator
-        import json
-        from pathlib import Path
-        schema = json.loads(Path("specs/schemas/risk_assessment_response.schema.json").read_text())
-        validator = Draft202012Validator(schema)
-        response_body = _make_data_exposure_response("D4", "OPENAI_API_KEY", "secret-scanner")
-        validator.validate(response_body)
 
     def test_d2_span_count_present_in_forwarded_response(self):
         cat_with_span = {

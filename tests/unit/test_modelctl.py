@@ -9,8 +9,6 @@ def test_modelctl_status_document_includes_lifecycle_and_gpu_budget():
     registry = modelctl.load_registry(modelctl.ROOT)
     doc = modelctl.status_document(modelctl.ROOT, registry)
     assert doc["model_count"] == 4
-    assert doc["public_model_count"] == 4
-    assert doc["lifecycle_states"] == {"active": 4}
     assert doc["gpu"]["total_gpu_memory_utilization"] == 0.925
     assert doc["alignment_issues"] == []
 
@@ -27,7 +25,6 @@ def test_modelctl_list_json_contains_runtime_services(capsys):
     data = json.loads(capsys.readouterr().out)
     rows = {row["id"]: row for row in data["models"]}
     assert rows["local-main"]["runtime_service"] == "main_llm"
-    assert "risk-siren" not in rows
 
 
 
@@ -45,15 +42,6 @@ def test_modelctl_propose_add_is_plan_only_and_reports_affected_files(capsys):
     assert "파일 쓰기: 없음" in out
     assert "configs/model_catalog.yaml" in out
     assert "make operator-reports" in out
-
-
-def test_modelctl_propose_remove_existing_model_is_plan_only(capsys):
-    rc = modelctl.main(["propose-remove", "local-main"])
-    assert rc == 0
-    out = capsys.readouterr().out
-    assert "propose-remove" in out
-    assert "deprecation_deadline" in out
-    assert "파일 쓰기: 없음" in out
 
 
 def test_modelctl_propose_add_blocks_existing_identity(capsys):

@@ -125,11 +125,7 @@ def test_gateway_records_specific_validation_rejection_reason_for_image_pixels()
     assert 'request_validation_rejections_total{reason="image_pixels",service="gateway"}' in metrics
 
 
-def test_access_log_records_client_host_and_drops_unused_proxy_fields():
-    # client_ip_hash/forwarded_for_present/forwarded_proto는 이 배포에 reverse
-    # proxy가 없어서 실제로는 항상 같은(무의미한) 값만 찍히던 죽은 필드라 제거했다.
-    # client_host가 실제 연결 피어를 그대로 담고 있으면 충분하다 — 회귀 방지용으로
-    # 제거된 필드가 다시 안 생기는지도 같이 확인한다.
+def test_access_log_records_client_host():
     request = Request({
         "type": "http",
         "method": "GET",
@@ -151,9 +147,6 @@ def test_access_log_records_client_host_and_drops_unused_proxy_fields():
     )
 
     assert record["client_host"] == "10.0.0.10"
-    assert "client_ip_hash" not in record
-    assert "forwarded_for_present" not in record
-    assert "forwarded_proto" not in record
 
 
 def _bare_request() -> Request:

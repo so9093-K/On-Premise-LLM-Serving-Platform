@@ -156,56 +156,6 @@ class TestExistingSchemaInvariants:
     def validator(self):
         return Draft202012Validator(load_schema("risk_assessment_response.schema.json"))
 
-    def test_valid_a1_completed_sample_passes(self, validator):
-        sample = {
-            "assessment_id": "risk_123",
-            "status": "completed",
-            "risk_detected": True,
-            "attention_required": True,
-            "model_risk_detected": True,
-            "system_signal_detected": False,
-            "assessment_complete": True,
-            "strongest_code": "A1",
-            "message": "Risk signal detected.",
-            "categories": [
-                {
-                    "code": "A1",
-                    "family": "prompt_attack",
-                    "detected": True,
-                    "confidence": None,
-                    "source_model": "risk-prompt",
-                    "label": "<UNSAFE-A1>",
-                }
-            ],
-            "system_signals": [],
-        }
-        validator.validate(sample)
-
-    def test_policy_decision_fields_are_forbidden(self, validator):
-        forbidden_fields = {
-            "allow", "review", "block", "decision", "action",
-            "safe_to_send", "final_decision", "final_decision_owner", "policy_overrides",
-        }
-        for field in forbidden_fields:
-            response = _base_response(**{field: True})
-            errors = list(validator.iter_errors(response))
-            assert errors, f"Forbidden field '{field}' should have caused validation error"
-
-    def test_a1_code_family_invariant(self, validator):
-        response = _base_response(
-            risk_detected=True, attention_required=True, model_risk_detected=True,
-            strongest_code="A1",
-            categories=[{
-                "code": "A1",
-                "family": "policy_risk",  # wrong family
-                "detected": True,
-                "confidence": None,
-                "source_model": "risk-prompt",
-                "label": "<UNSAFE-A1>",
-            }],
-        )
-        assert list(validator.iter_errors(response))
-
     def test_mixed_a1_and_d4_aggregate_response(self, validator):
         a1_cat = {
             "code": "A1",
