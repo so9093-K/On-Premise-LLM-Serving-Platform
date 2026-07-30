@@ -304,7 +304,9 @@ commands:
     title: Full-stack compose 종료
     category: start_stop
     audience: [operator]
-    description: "full-stack compose 스택을 종료한다."
+    description: "full-stack compose 스택을 종료한다. scripts/ops/down_services.sh를
+      호출하며, 로컬 gateway/risk_adapter 프로세스가 떠 있으면 그것도 함께 종료한다
+      (stop과 동일한 스크립트, 동일한 동작)."
     command: make compose-down
     kind: public
     safety: stops_services

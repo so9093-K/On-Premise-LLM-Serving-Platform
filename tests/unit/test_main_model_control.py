@@ -120,18 +120,6 @@ def test_main_model_snapshot_serializes_through_endpoint_encoder(tmp_path) -> No
     json.dumps(jsonable_encoder(manager.snapshot()))
 
 
-def wait_for_operation(manager: MainModelManager, operation_id: str) -> dict:
-    async def wait():
-        for _ in range(100):
-            operation = manager.operation(operation_id)
-            if operation and operation["status"] in {"completed", "failed", "rollback_failed"}:
-                return operation
-            await asyncio.sleep(0.01)
-        raise AssertionError("operation did not finish")
-
-    return asyncio.run(wait())
-
-
 def test_profile_catalog_is_pinned_and_preserves_public_alias():
     loaded = catalog()
     assert set(loaded.profiles) == {

@@ -12,11 +12,17 @@ WORKDIR /app
 
 # runtime image는 runtime lock만 설치한다. 운영 스크립트(scripts/)와 governance
 # 문서용 명세(specs/openapi.*.yaml, contracts/, model_cards/)는 CI/release
-# artifact의 책임이며 application image에 넣지 않는다. specs/schemas만 예외 --
-# openapi_contracts.py::load_contract_schema()가 /docs(Scalar) 렌더링 시 이
-# JSON 스키마를 런타임에 직접 읽어 request schema/examples를 주입하므로, 여기
-# 빠지면 /docs가 계약 스키마 대신 FastAPI의 제네릭 dict 스키마로 조용히
-# degrade된다.
+# artifact의 책임이며 application image에 넣지 않는다. 아래 두 파일만 예외다:
+# - specs/schemas: openapi_contracts.py::load_contract_schema()가 /docs(Scalar)
+#   렌더링 시 이 JSON 스키마를 런타임에 직접 읽어 request schema/examples를
+#   주입한다. 빠지면 /docs가 계약 스키마 대신 FastAPI의 제네릭 dict 스키마로
+#   조용히 degrade된다.
+# - ops/compose/full-stack.private-network.yaml: admin-sidecar가
+#   runtime_topology.py::load_runtime_topology()에서 이 파일의 depends_on을
+#   읽어 공유 GPU에서 vLLM 컨테이너 기동 순서(prerequisite serialization)와
+#   VRAM admission budget을 계산한다. 빠지면 compose_path.exists()가 False라
+#   에러 없이 start_prerequisites_by_service가 조용히 빈 dict가 되어, 순차
+#   기동 가드가 아무 경고 없이 비활성화된다.
 COPY pyproject.toml requirements.runtime.lock VERSION ./
 
 # runtime lock과 build backend가 바뀌지 않는 한 애플리케이션 소스 수정은 이
@@ -32,6 +38,7 @@ RUN python -m pip install --requirement requirements.runtime.lock \
 COPY src ./src
 COPY configs ./configs
 COPY specs/schemas ./specs/schemas
+COPY ops/compose/full-stack.private-network.yaml ./ops/compose/full-stack.private-network.yaml
 
 RUN python -m pip install --no-deps --no-build-isolation . \
     && useradd --create-home --shell /usr/sbin/nologin appuser \

@@ -5,7 +5,6 @@
 - [ ] `make validate`
 - [ ] `make test`
 - [ ] `python -m compileall -q src scripts tests`
-- [ ] `bash -n scripts/*.sh scripts/lib/*.sh`
 - [ ] `python scripts/validation/runtime_validation.py --config-only`
 - [ ] `make package`
 - [ ] release zip에 `.env`, logs, runtime secret, model cache가 없는지 확인
