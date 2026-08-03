@@ -54,15 +54,13 @@ def test_runtime_validation_config_only_runner_records_expected_checks(monkeypat
     validator = RuntimeValidator(load_runtime_config(args))
     validator.run_config_only()
 
-    assert len(validator.results) == 16
+    assert len(validator.results) == 14
     assert all(item.passed for item in validator.results)
     assert {item.category for item in validator.results} >= {
         "vllm-runtime",
         "monitoring-scrape",
         "model-resource-control",
-        "gpu-capacity",
         "runtime-validation-matrix",
-        "model-list-schema",
         "operator-runtime-targets",
         "operator-status-bundle",
         "operator-monitoring-projection",

@@ -2,10 +2,9 @@
 
 릴리스 전 다음 항목을 확인한다.
 
-- [ ] `make validate`
+- [ ] `make validate` (계약 검증, runtime validation config-only, vLLM compose 검증을 모두 포함한다)
 - [ ] `make test`
 - [ ] `python -m compileall -q src scripts tests`
-- [ ] `python scripts/validation/runtime_validation.py --config-only`
 - [ ] `make package`
 - [ ] release zip에 `.env`, logs, runtime secret, model cache가 없는지 확인
 - [ ] Gateway `/docs`, `/redoc`, `/openapi.json` 접근 확인

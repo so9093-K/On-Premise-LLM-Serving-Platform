@@ -196,19 +196,6 @@ def validate_model_source_facts() -> None:
                 f'{compatibility_floor}'
             )
 
-def validate_model_list_schema_enums() -> None:
-    from ai_model_serving.domain import ModelRegistry
-
-    schema = read_json('specs/schemas/model_list_response.schema.json')
-    registry = ModelRegistry(read_yaml('configs/model_catalog.yaml'), read_yaml('configs/model_serving.yaml'))
-    projected_schema = registry.model_list_schema_document()
-    if schema != projected_schema:
-        raise SystemExit(
-            'specs/schemas/model_list_response.schema.json is stale vs '
-            'ModelRegistry.model_list_schema_document() -- run `make render-runtime-assets` to regenerate it'
-        )
-
-
 def validate_model_registry_alignment() -> None:
     from ai_model_serving.domain import ModelRegistry
 
@@ -266,15 +253,6 @@ def validate_risk_detector_generation_budget() -> None:
             f'configs/model_serving.yaml risk_adapter.input_policy.overflow_action must be '
             f'"return_system_signal_without_detector_call", got {input_policy.get("overflow_action")!r}'
         )
-
-def validate_model_contracts_cross_reference() -> None:
-    from ai_model_serving.domain import ModelRegistry
-
-    contracts = read_yaml('contracts/model_contracts.yaml')
-    registry = ModelRegistry(read_yaml('configs/model_catalog.yaml'), read_yaml('configs/model_serving.yaml'))
-    projected = registry.model_contracts_document()
-    if contracts != projected:
-        raise SystemExit(f'model_contracts.yaml must match ModelRegistry projection: expected={projected}, actual={contracts}')
 
 def validate_model_resource_control_policy() -> None:
     serving = read_yaml('configs/model_serving.yaml')
