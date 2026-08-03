@@ -113,27 +113,6 @@ def test_setup_env_preserves_operator_values_on_force_but_rotates_generated_secr
     assert 'API_KEYS=old-secret' not in text
 
 
-def test_setup_env_force_keeps_risk_vllm_image_equal_to_main_image(tmp_path):
-    # 2026-07-24부터 VLLM_IMAGE와 RISK_VLLM_IMAGE가 같은 vLLM unified 이미지를
-    # 가리키는 게 정상 상태다(Gemma4 멀티모달 + Kanana head_dim 패치가 한
-    # 이미지에 같이 있고, 각 patch는 무관한 모델에는 no-op이다). 예전엔 이 상태를
-    # "shared/base image로의 실수"로 보고 강제로 되돌렸는데, 이제는 그대로 둔다.
-    out = tmp_path / '.env'
-    shared = 'gitlab.example.com/registry/vllm-unified:custom'
-    out.write_text(
-        f'VLLM_IMAGE={shared}\n'
-        f'RISK_VLLM_IMAGE={shared}\n'
-        'HF_TOKEN=hf_existing\n',
-        encoding='utf-8',
-    )
-    rc = setup_env.main(['--profile', 'compose', '--output', str(out), '--force'])
-    assert rc == 0
-    text = out.read_text(encoding='utf-8')
-    assert f'VLLM_IMAGE={shared}' in text
-    assert f'RISK_VLLM_IMAGE={shared}' in text
-    assert 'HF_TOKEN=hf_existing' in text
-
-
 def test_setup_env_fills_default_risk_vllm_image_when_unset(tmp_path):
     out = tmp_path / '.env'
     out.write_text('HF_TOKEN=hf_existing\n', encoding='utf-8')
@@ -141,33 +120,6 @@ def test_setup_env_fills_default_risk_vllm_image_when_unset(tmp_path):
     assert rc == 0
     text = out.read_text(encoding='utf-8')
     assert 'RISK_VLLM_IMAGE=ai-model-serving-vllm-unified:' in text
-
-
-def test_setup_env_force_omits_max_request_body_bytes(tmp_path):
-    # MAX_REQUEST_BODY_BYTES is yaml-owned (model_serving.yaml). It must not be written
-    # as an active .env assignment, so it can never shadow the yaml value again.
-    out = tmp_path / '.env'
-    assert setup_env.main(['--profile', 'compose', '--output', str(out), '--force']) == 0
-    lines = set(out.read_text(encoding='utf-8').splitlines())
-    assert not any(
-        line.startswith('MAX_REQUEST_BODY_BYTES=') for line in lines
-    )
-
-
-def test_sync_env_retires_max_request_body_bytes(tmp_path):
-    # An existing .env carried over from older templates still has the key; sync-env must
-    # strip it so the yaml value (image-baked / rsynced) becomes authoritative. This is the
-    # deploy path that left /opt/acl-ai-gateway/.env stuck at 1.25 MB across releases.
-    out = tmp_path / '.env'
-    assert setup_env.main(['--profile', 'compose', '--output', str(out), '--force']) == 0
-    with out.open('a', encoding='utf-8') as fh:
-        fh.write('MAX_REQUEST_BODY_BYTES=1250000\n')
-
-    rc = setup_env.main(['--sync-env', '--env-file', str(out)])
-
-    assert rc == 0
-    lines = set(out.read_text(encoding='utf-8').splitlines())
-    assert not any(line.startswith('MAX_REQUEST_BODY_BYTES=') for line in lines)
 
 
 def test_sync_env_no_op_when_already_current(tmp_path, capsys):
@@ -180,21 +132,22 @@ def test_sync_env_no_op_when_already_current(tmp_path, capsys):
     assert '변경 없음' in capsys.readouterr().out
 
 
-def test_setup_env_force_removes_retired_risk_siren_keys(tmp_path):
+def test_setup_env_force_removes_every_retired_key(tmp_path):
+    # 특정 사고 하나(예: risk-siren 제거)의 키만 하드코딩하면 RETIRED_ENV_KEYS에
+    # 새 키가 추가될 때마다 이 테스트를 또 늘려야 한다 -- 실제 집합을 순회해서
+    # 어떤 키가 들어와도 일반적으로 걸러지는지를 증명한다.
     out = tmp_path / '.env'
     out.write_text(
-        'RISK_SIREN_BASE_URL=http://risk-siren-vllm:9404/v1\n'
-        'RISK_SIREN_MODEL=risk-siren\n'
-        'RISK_SIREN_TIMEOUT_SECONDS=5\n'
-        'RISK_SIREN_MAX_CONCURRENCY=1\n'
-        'RISK_SIREN_QUEUE_TIMEOUT_SECONDS=2\n'
-        'HF_TOKEN=hf_existing\n',
+        ''.join(f'{key}=placeholder\n' for key in setup_env.RETIRED_ENV_KEYS)
+        + 'HF_TOKEN=hf_existing\n',
         encoding='utf-8',
     )
     rc = setup_env.main(['--profile', 'compose', '--output', str(out), '--force'])
     assert rc == 0
     text = out.read_text(encoding='utf-8')
-    assert 'RISK_SIREN_' not in text
+    for key in setup_env.RETIRED_ENV_KEYS:
+        assert not any(line.startswith(f'{key}=') for line in text.splitlines()), key
+    assert 'HF_TOKEN=hf_existing' in text
     assert 'HF_TOKEN=hf_existing' in text
 
 

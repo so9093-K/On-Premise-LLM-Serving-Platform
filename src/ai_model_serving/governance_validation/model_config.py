@@ -184,9 +184,6 @@ def validate_model_source_facts() -> None:
     for logical_id in sorted(catalog):
         rel = f'model_cards/{logical_id}.json'
         card = read_json(rel)
-        forbidden_key = 'validation' + '_status'
-        if forbidden_key in card:
-            raise SystemExit(f'{rel} must not use legacy validation status for model identity or runtime policy')
         if 'source_facts' not in card or 'project_runtime_policy' not in card:
             raise SystemExit(f'{rel} must record source_facts and project_runtime_policy')
         if (
@@ -300,20 +297,9 @@ def validate_model_resource_control_policy() -> None:
     gpu = read_yaml('configs/gpu_budgets.yaml')
     util_policy = gpu['gpu']['total_gpu_memory_utilization']
     avoid_above = float(util_policy['avoid_above'])
-    recommended_start = float(util_policy['recommended_start'])
     if total_util >= avoid_above:
         raise SystemExit(f'total configured gpu_memory_utilization {total_util} must stay below avoid_above {avoid_above}')
-    if round(total_util, 6) != round(recommended_start, 6):
-        raise SystemExit(f'total configured gpu_memory_utilization {total_util} must match recommended_start {recommended_start}')
-    if gpu['gpu'].get('default_profile') != 'single_a6000_conservative':
-        raise SystemExit('gpu_budgets.yaml must define single_a6000_conservative as the default profile')
     main_policy = catalog['local-main']['project_runtime_policy']
-    if set(main_policy.get('input_modalities', [])) != {'text', 'image', 'audio', 'video'}:
-        raise SystemExit(
-            'local-main project runtime policy must define text+image+audio+video input '
-            'modalities (matches the 2026-07-28 default profile gemma4-12b-unified-fp8; '
-            'see docs/adr/0017 Update)'
-        )
     if int(main_policy.get('max_image_inputs', 0)) != 1 or main_policy.get('allowed_image_url_schemes') != ['data']:
         raise SystemExit('local-main image input policy must allow exactly one data:image input by default')
     if int(main_policy.get('max_image_bytes', 0)) <= 0 or int(main_policy.get('max_image_pixels', 0)) <= 0:

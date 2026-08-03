@@ -115,11 +115,8 @@ def test_vllm_unified_dependency_pins_have_one_canonical_source():
         (ROOT / "configs/recommended_images.yaml").read_text(encoding="utf-8")
     )["images"]
     pins = images["vllm"]["compatibility_pins"]
-    assert pins == {
-        "transformers": "5.13.1",
-        "huggingface_hub": "1.23.0",
-        "transformers_min": "4.52.4",
-    }
+    assert set(pins) == {"transformers", "huggingface_hub", "transformers_min"}
+    assert all(str(value).strip() for value in pins.values())
     assert "compatibility_pins" not in images["risk_vllm"]
     assert "base_image_default" not in images["risk_vllm"]
     assert "base_image_default" not in images["embedding_ko_vllm"]

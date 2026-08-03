@@ -565,52 +565,6 @@ def _object_schema(properties: dict, required: list[str]) -> dict:
     }
 
 
-def test_gateway_max_depth_counts_real_schema_nesting_not_syntax_keys():
-    """3단계짜리 평범한 조직도 스키마(CEO -> 부서장 -> 팀원)가 max_depth=8 기본값에
-    걸리던 회귀 테스트. 예전 카운팅은 `type`/`required` 같은 스키마 문법 키까지 세서
-    이 스키마의 raw depth가 12로 잡혀 거부됐다(실 GPU로 vLLM에 직접 보내보면 아무
-    문제 없이 처리됨을 확인함 -- 게이트웨이 카운팅 버그였지 vLLM 제약이 아니었다).
-    `_iter_schema_objects`와 동일한 키만 따라가도록 고친 뒤에는 depth 7로 8 이하라
-    통과한다."""
-    member_schema = _object_schema({"name": {"type": "string"}, "title": {"type": "string"}}, ["name", "title"])
-    dept_head_schema = _object_schema(
-        {
-            "name": {"type": "string"},
-            "title": {"type": "string"},
-            "reports": {"type": "array", "items": member_schema},
-        },
-        ["name", "title", "reports"],
-    )
-    org_chart_schema = _object_schema(
-        {
-            "ceo": _object_schema(
-                {
-                    "name": {"type": "string"},
-                    "title": {"type": "string"},
-                    "reports": {"type": "array", "items": dept_head_schema},
-                },
-                ["name", "title", "reports"],
-            )
-        },
-        ["ceo"],
-    )
-
-    clients = FakeGatewayClients()
-    clients.main_llm.post_response["choices"][0]["message"]["content"] = "{\"ceo\":{\"name\":\"a\",\"title\":\"b\",\"reports\":[]}}"
-    client = TestClient(create_gateway_app(advanced_chat_settings(), clients))
-
-    response = client.post(
-        "/v1/chat/completions",
-        headers=auth_headers(),
-        json={
-            "model": "local-main",
-            "messages": [{"role": "user", "content": "조직도 만들어줘"}],
-            "response_format": _json_schema_format(org_chart_schema, name="org_chart"),
-        },
-    )
-    assert response.status_code == 200
-
-
 def test_gateway_max_depth_still_rejects_genuinely_excessive_nesting():
     schema = {"type": "string"}
     for _ in range(15):

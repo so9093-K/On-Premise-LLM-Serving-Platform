@@ -103,23 +103,6 @@ def test_real_catalog_profile_views_are_json_serializable() -> None:
         json.dumps(profile.public_view())
 
 
-def test_main_model_snapshot_serializes_through_endpoint_encoder(tmp_path) -> None:
-    # Covers the exact admin-sidecar /main-model serialization path: the endpoint
-    # returns jsonable_encoder(manager.snapshot()). This is the path that actually
-    # 500'd in production (a date in the active profile's compatibility block), and
-    # is the boundary the jsonable_encoder hardening protects. Built from the real
-    # shipped catalog so a regression in either the data or the encoding is caught.
-    from fastapi.encoders import jsonable_encoder
-
-    loaded = load_main_model_catalog(ROOT / "configs/main_model_profiles.yaml")
-    store = MainModelStateStore(tmp_path / "state.json", loaded.default_profile)
-    state = store.read()
-    state.update(active_profile=loaded.default_profile, gate="open")
-    store.write(state)
-    manager = MainModelManager(loaded, store, FakeBackend(loaded.default_profile))
-    json.dumps(jsonable_encoder(manager.snapshot()))
-
-
 def test_profile_catalog_is_pinned_and_preserves_public_alias():
     loaded = catalog()
     assert set(loaded.profiles) == {

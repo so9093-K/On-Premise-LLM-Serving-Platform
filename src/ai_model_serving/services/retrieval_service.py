@@ -34,11 +34,6 @@ class RetrievalService:
     def _resolve_retrieval_mode(self, payload: dict[str, Any]) -> tuple[str, str]:
         model = str(payload.get("model") or self.settings.default_retrieval_model)
         score_mode = str(payload.get("score_mode") or "dense_cosine")
-        profile = self.settings.embedding_profiles.get(model)
-        if profile is None or not profile.retrieval_enabled:
-            raise ServiceError("MODEL_CAPABILITY_MISMATCH", f"Unsupported retrieval model: {model}", False, 422)
-        if score_mode != "dense_cosine" or score_mode not in profile.score_modes:
-            raise ServiceError("MODEL_CAPABILITY_MISMATCH", f"{model} only supports dense_cosine score_mode.", False, 422)
         return model, score_mode
 
     def _retrieval_backend(self, model: str) -> str:
@@ -46,11 +41,6 @@ class RetrievalService:
         return "dense_embedding" if profile and profile.retrieval_enabled else "unknown"
 
     def _validate_query_documents_payload(self, payload: dict[str, Any], *, operation: str) -> RetrievalPayload:
-        if isinstance(payload, dict):
-            if payload.get("model") == "local-colbert-ko":
-                raise ServiceError("MODEL_CAPABILITY_MISMATCH", "local-colbert-ko has been removed; use local-embed-ko or local-embed with dense_cosine.", False, 422)
-            if payload.get("score_mode") == "late_interaction_maxsim":
-                raise ServiceError("MODEL_CAPABILITY_MISMATCH", "late_interaction_maxsim has been removed; only dense_cosine is supported.", False, 422)
         payload = (
             validate_retrieval_rerank_request(payload)
             if operation == "rerank"

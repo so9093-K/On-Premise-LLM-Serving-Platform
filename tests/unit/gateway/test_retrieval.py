@@ -173,7 +173,10 @@ def test_gateway_dense_retrieval_rejects_invalid_embedding_upstream_response():
     assert response.json()["error"]["code"] == "UPSTREAM_SCHEMA_ERROR"
 
 
-def test_gateway_rejects_removed_colbert_ko_model():
+def test_gateway_rejects_unsupported_retrieval_model():
+    # model/score_mode는 specs/schemas/retrieval_*_request.schema.json의 enum이
+    # 스키마 레벨에서 먼저 걸러낸다 -- RetrievalService._resolve_retrieval_mode의
+    # MODEL_CAPABILITY_MISMATCH 분기까지 도달하지 않는다.
     clients = FakeGatewayClients()
     client = TestClient(create_gateway_app(settings(), clients))
 
@@ -181,15 +184,15 @@ def test_gateway_rejects_removed_colbert_ko_model():
         response = client.post(
             endpoint,
             headers=auth_headers(),
-            json={"model": "local-colbert-ko", "query": "test", "documents": ["doc"]},
+            json={"model": "not-a-retrieval-model", "query": "test", "documents": ["doc"]},
         )
-        assert response.status_code == 422, f"{endpoint} should reject local-colbert-ko"
-        assert response.json()["error"]["code"] == "MODEL_CAPABILITY_MISMATCH"
+        assert response.status_code == 422, f"{endpoint} should reject an unknown model"
+        assert response.json()["error"]["code"] == "VALIDATION_ERROR"
         assert clients.embedding_clients["local-embed"].last_path is None
         assert clients.embedding_clients["local-embed-ko"].last_path is None
 
 
-def test_gateway_rejects_removed_late_interaction_maxsim():
+def test_gateway_rejects_unsupported_score_mode():
     clients = FakeGatewayClients()
     client = TestClient(create_gateway_app(settings(), clients))
 
@@ -197,10 +200,10 @@ def test_gateway_rejects_removed_late_interaction_maxsim():
         response = client.post(
             endpoint,
             headers=auth_headers(),
-            json={"score_mode": "late_interaction_maxsim", "query": "test", "documents": ["doc"]},
+            json={"score_mode": "not-a-score-mode", "query": "test", "documents": ["doc"]},
         )
-        assert response.status_code == 422, f"{endpoint} should reject late_interaction_maxsim"
-        assert response.json()["error"]["code"] == "MODEL_CAPABILITY_MISMATCH"
+        assert response.status_code == 422, f"{endpoint} should reject an unknown score_mode"
+        assert response.json()["error"]["code"] == "VALIDATION_ERROR"
 
 
 def test_gateway_retrieval_default_model_is_embed_ko():

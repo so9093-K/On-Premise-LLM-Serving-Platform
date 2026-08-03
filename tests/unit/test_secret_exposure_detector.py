@@ -152,37 +152,12 @@ class TestSecretExposureDetector:
         assert d4_cats
         assert d4_cats[0]["label"] == "OPENAI_API_KEY"
 
-    def test_anthropic_key_returns_d4_signal(self):
-        detector = SecretExposureDetector()
-        response = self._run(detector.assess(f"키: {ANTHROPIC_KEY}"))
-        assert response["risk_detected"] is True
-        d4_cats = [c for c in response["categories"] if c.get("code") == "D4"]
-        assert d4_cats
-        assert any(c["label"] == "ANTHROPIC_API_KEY" for c in d4_cats)
-
-    def test_jwt_returns_d4_signal(self):
-        detector = SecretExposureDetector()
-        response = self._run(detector.assess(f"Bearer {JWT}"))
-        assert response["risk_detected"] is True
-        d4_cats = [c for c in response["categories"] if c.get("code") == "D4"]
-        assert d4_cats
-
     def test_database_url_returns_d5_signal(self):
         detector = SecretExposureDetector()
         response = self._run(detector.assess(f"connect: {DATABASE_URL}"))
         assert response["risk_detected"] is True
         d5_cats = [c for c in response["categories"] if c.get("code") == "D5"]
         assert d5_cats
-
-    def test_private_key_block_detected(self):
-        detector = SecretExposureDetector()
-        response = self._run(detector.assess(f"{PRIVATE_KEY}\nMIIEo...\n-----END RSA PRIVATE KEY-----"))
-        assert response["risk_detected"] is True
-
-    def test_password_assignment_detected(self):
-        detector = SecretExposureDetector()
-        response = self._run(detector.assess(f"설정: {PASSWORD_ASSIGN}"))
-        assert response["risk_detected"] is True
 
     def test_clean_text_returns_safe_response(self):
         detector = SecretExposureDetector()

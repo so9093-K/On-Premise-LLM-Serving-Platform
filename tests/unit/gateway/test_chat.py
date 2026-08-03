@@ -176,47 +176,16 @@ def test_gateway_accepts_bounded_multimodal_chat_and_enforces_model_token_cap():
     )
     assert invalid_base64.status_code == 422
 
+    # avif/jp2/gif/bmp/tiff/x-tiff 전체 포맷 매트릭스는 test_audio_input_validation.py에서
+    # 게이트웨이가 호출하는 것과 동일한 validate_chat_request()를 대상으로 이미 다 검증한다 --
+    # 여기서 전체 앱을 통해 포맷마다 다시 보내봐야 같은 사실을 한 번 더 증명할 뿐 추가로 잡히는
+    # 위험은 없다. 게이트웨이가 설정된 MIME 허용목록을 실제로 연결했는지는 대표로 하나면 충분하다.
     supported_gif = client.post(
         "/v1/chat/completions",
         headers=auth_headers(),
         json={"model": "local-main", "messages": [{"role": "user", "content": [{"type": "image_url", "image_url": {"url": "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw=="}}]}]},
     )
     assert supported_gif.status_code == 200
-
-    supported_bmp = client.post(
-        "/v1/chat/completions",
-        headers=auth_headers(),
-        json={"model": "local-main", "messages": [{"role": "user", "content": [{"type": "image_url", "image_url": {"url": "data:image/bmp;base64,Qk1GAAAAAAAAADYAAAAoAAAAAQAAAAEAAAABABgAAAAAABAAAADEDgAAxA4AAAAAAAAAAAAA////AA=="}}]}]},
-    )
-    assert supported_bmp.status_code == 200
-
-    supported_avif = client.post(
-        "/v1/chat/completions",
-        headers=auth_headers(),
-        json={"model": "local-main", "messages": [{"role": "user", "content": [{"type": "image_url", "image_url": {"url": "data:image/avif;base64,AAAAGGZ0eXBhdmlmAAAAAGF2aWZtaWYxAAAAFGlzcGUAAAAAAAAAAQAAAAE="}}]}]},
-    )
-    assert supported_avif.status_code == 200
-
-    supported_jp2 = client.post(
-        "/v1/chat/completions",
-        headers=auth_headers(),
-        json={"model": "local-main", "messages": [{"role": "user", "content": [{"type": "image_url", "image_url": {"url": "data:image/jp2;base64,AAAADGpQICANCocKAAAAFGZ0eXBqcDIgAAAAAGpwMiAAAAAeanAyaAAAABZpaGRyAAAAAQAAAAEAAwcHAAAAAA=="}}]}]},
-    )
-    assert supported_jp2.status_code == 200
-
-    supported_tiff = client.post(
-        "/v1/chat/completions",
-        headers=auth_headers(),
-        json={"model": "local-main", "messages": [{"role": "user", "content": [{"type": "image_url", "image_url": {"url": "data:image/tiff;base64,SUkqAAgAAAACAAABBAABAAAAAQAAAAEBBAABAAAAAQAAAAAAAAA="}}]}]},
-    )
-    assert supported_tiff.status_code == 200
-
-    supported_x_tiff = client.post(
-        "/v1/chat/completions",
-        headers=auth_headers(),
-        json={"model": "local-main", "messages": [{"role": "user", "content": [{"type": "image_url", "image_url": {"url": "data:image/x-tiff;base64,SUkqAAgAAAACAAABBAABAAAAAQAAAAEBBAABAAAAAQAAAAAAAAA="}}]}]},
-    )
-    assert supported_x_tiff.status_code == 200
 
     unsupported_mime = client.post(
         "/v1/chat/completions",

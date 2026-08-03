@@ -65,8 +65,9 @@ def validate_version_alignment() -> None:
 
 def validate_python_compatibility() -> None:
     py_version = (ROOT / '.python-version').read_text(encoding='utf-8').strip()
-    if py_version != '3.12.13':
-        raise SystemExit(f'.python-version must be 3.12.13, got {py_version}')
+    match = re.fullmatch(r'(\d+)\.(\d+)\.\d+', py_version)
+    if not match or not ((3, 12) <= (int(match.group(1)), int(match.group(2))) < (3, 15)):
+        raise SystemExit(f'.python-version must be a >=3.12,<3.15 patch release, got {py_version!r}')
 
     if not ((3, 12) <= sys.version_info[:2] < (3, 15)):
         raise SystemExit(

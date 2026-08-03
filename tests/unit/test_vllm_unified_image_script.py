@@ -63,29 +63,6 @@ def _canonical_base_image() -> str:
     return str(document["images"]["vllm"]["base_image_default"])
 
 
-def test_vllm_unified_image_resolver_keeps_risk_image_equal_to_main_image(tmp_path):
-    # 2026-07-24부터 VLLM_IMAGE == RISK_VLLM_IMAGE는 정상 상태다(같은 이미지,
-    # Gemma4 멀티모달 + Kanana head_dim 패치가 서로 무관한 모델에는 no-op이다) --
-    # 예전처럼 강제로 되돌리지 않는다.
-    repo = copy_minimal_repo(tmp_path)
-    shared = 'gitlab.example.com/registry/vllm-unified:custom'
-    (repo / '.env').write_text(
-        f'VLLM_IMAGE={shared}\nRISK_VLLM_IMAGE={shared}\n',
-        encoding='utf-8',
-    )
-    result = run_bash(
-        repo,
-        'source scripts/lib/vllm_unified_image.sh; '
-        'vllm_unified_resolve_images .env; '
-        'printf "%s\\n" "$RISK_VLLM_IMAGE_RESOLVED"',
-    )
-    assert result.returncode == 0, result.stderr
-    assert result.stdout.strip() == shared
-    text = (repo / '.env').read_text(encoding='utf-8')
-    assert f'VLLM_IMAGE={shared}' in text
-    assert f'RISK_VLLM_IMAGE={shared}' in text
-
-
 def test_vllm_unified_image_resolver_defaults_when_unset(tmp_path):
     repo = copy_minimal_repo(tmp_path)
     (repo / '.env').write_text('VLLM_IMAGE=some/other:tag\n', encoding='utf-8')

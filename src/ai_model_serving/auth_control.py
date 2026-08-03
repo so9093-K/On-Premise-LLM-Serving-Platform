@@ -185,17 +185,11 @@ def _exposure_mode_from_env() -> str:
     return _env("EXPOSURE_MODE", "master_open")
 
 
-def _resolve_exposure_mode(data: dict[str, Any], mode: str) -> str:
-    """지원하는 exposure mode 이름을 반환하고, 알 수 없는 값은 그대로 반환한다."""
-    canonical = data.get("canonical_modes", [])
-    return mode if mode in canonical else mode
-
-
 def _exposure_profile(project_root: Path, exposure_mode: str | None = None) -> dict[str, Any]:
     if exposure_mode is None:
         exposure_mode = _exposure_mode_from_env()
     data = _read_yaml(project_root / "configs" / "exposure_profiles.yaml")
-    canonical_mode = _resolve_exposure_mode(data, exposure_mode)
+    canonical_mode = exposure_mode
     profiles = data.get("profiles", {})
     return profiles.get(canonical_mode, profiles.get("private_network", {}))
 
@@ -230,7 +224,7 @@ def auth_status_document(settings: AppSettings, project_root: Path, env_path: Pa
     exposure_mode = _exposure_mode_from_env()
 
     data = _read_yaml(project_root / "configs" / "exposure_profiles.yaml")
-    canonical_mode = _resolve_exposure_mode(data, exposure_mode)
+    canonical_mode = exposure_mode
     exposure_published = _exposure_host_published_services(project_root, canonical_mode)
     profile = _exposure_profile(project_root, canonical_mode)
 
@@ -354,7 +348,7 @@ def diagnose_auth(settings: AppSettings, project_root: Path) -> list[AuthFinding
     # Exposure-aware 진단 — 자유 텍스트가 아니라 구조화된 진단 필드로 판단한다.
     exposure_mode = _exposure_mode_from_env()
     data = _read_yaml(project_root / "configs" / "exposure_profiles.yaml")
-    canonical_mode = _resolve_exposure_mode(data, exposure_mode)
+    canonical_mode = exposure_mode
     exposure_profile_data = _exposure_profile(project_root, canonical_mode)
     diagnostics = exposure_profile_data.get("diagnostics", {})
     exposure_audience = _env("EXPOSURE_AUDIENCE", "").strip()
