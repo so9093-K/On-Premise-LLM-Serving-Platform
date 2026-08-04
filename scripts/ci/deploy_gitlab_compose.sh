@@ -19,8 +19,8 @@
 #                                     unified source 변경 full 배포에서는 필수
 #   DEPLOY_COMPOSE_FILE               DEPLOY_PATH 기준 상대 compose 파일 경로
 #                              기본값: ops/compose/full-stack.private-network.yaml
-#   DEPLOY_MODE                자동 감지 (vLLM 이미지가 바뀌거나 런타임 민감 파일이
-#                              바뀌지 않으면 rolling); full로 강제 지정 가능.
+#   DEPLOY_MODE                기본값 full. 빠른 platform-only 배포에만 Run pipeline에서
+#                              rolling으로 명시한다.
 #                              full 배포는 서비스 단위로 수렴한다: 이미지 ID가 바뀐
 #                              서비스(또는 마운트된 런타임 설정이 바뀐 서비스)만
 #                              재생성하고, 나머지 vLLM 모델은 전체 재기동 없이 계속

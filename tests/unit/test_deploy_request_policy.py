@@ -41,31 +41,21 @@ def run_policy(command: str, **environment: str) -> subprocess.CompletedProcess[
     )
 
 
-def test_resolve_mode_defaults_to_rolling_without_vllm_override():
+def test_resolve_mode_defaults_to_full_without_explicit_mode():
     result = run_policy('deploy_resolve_mode; printf "%s|%s" "$DEPLOY_MODE" "$DEPLOY_MODE_REASON"')
 
     assert result.returncode == 0
-    assert result.stdout == "rolling|platform-only change"
+    assert result.stdout == "full|default full deployment policy"
 
 
-def test_resolve_mode_ignores_unbuilt_vllm_expected_tag():
+def test_resolve_mode_keeps_explicit_rolling_override():
     result = run_policy(
         'deploy_resolve_mode; printf "%s|%s" "$DEPLOY_MODE" "$DEPLOY_MODE_REASON"',
-        VLLM_UNIFIED_IMAGE_SHA="registry.example/vllm@sha256:" + "a" * 64,
+        DEPLOY_MODE="rolling",
     )
 
     assert result.returncode == 0
-    assert result.stdout == "rolling|platform-only change"
-
-
-def test_resolve_mode_uses_full_for_fresh_vllm_artifact():
-    result = run_policy(
-        'deploy_resolve_mode; printf "%s|%s" "$DEPLOY_MODE" "$DEPLOY_MODE_REASON"',
-        VLLM_UNIFIED_IMAGE_TO_DEPLOY="registry.example/vllm@sha256:" + "a" * 64,
-    )
-
-    assert result.returncode == 0
-    assert result.stdout == "full|vLLM image override provided"
+    assert result.stdout == "rolling|"
 
 
 def test_rolling_deploy_rejects_runtime_startup_policy():

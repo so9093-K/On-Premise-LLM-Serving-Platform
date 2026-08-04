@@ -29,6 +29,10 @@ variables:
   PLATFORM_IMAGE_REF: "$CI_REGISTRY_IMAGE/platform:$CI_COMMIT_REF_SLUG"
   VLLM_UNIFIED_IMAGE_SHA: "$CI_REGISTRY_IMAGE/vllm-unified:$CI_COMMIT_SHORT_SHA"
   VLLM_UNIFIED_IMAGE_REF: "$CI_REGISTRY_IMAGE/vllm-unified:$CI_COMMIT_REF_SLUG"
+  # Registry를 정리해도 release 배포가 누락된 vLLM image로 실패하지 않도록 full을
+  # 기본으로 둔다. platform-only 배포가 필요한 경우 Run pipeline에서
+  # DEPLOY_MODE=rolling을 명시한다.
+  DEPLOY_MODE: "full"
 
 .default-python:
   image: python:3.12.13-slim@sha256:57cd7c3a7a273101a6485ba99423ee568157882804b1124b4dd04266317710de
@@ -137,23 +141,17 @@ build-platform:
 # vLLM unified 런타임 이미지를 한 번 빌드해 단일 registry 경로에 push한다. 큰(~25 GB)
 # vLLM base 이미지도 한 번만 pull한다. embedding-ko-vllm은 EMBEDDING_KO_VLLM_IMAGE를
 # 쓰므로 별도 빌드가 필요 없다.
-# BUILD_VLLM_DERIVED=1 또는 DEPLOY_MODE=full일 때 release/tag 파이프라인에서 자동 실행된다.
-# Rolling 방식의 control-plane 배포는 이 job을 아예 건너뛴다 — vLLM 재빌드가 필요 없기 때문.
+# 기본 full 또는 BUILD_VLLM_DERIVED=1일 때 release/tag 파이프라인에서 자동 실행된다.
+# 명시적 rolling control-plane 배포는 이 job을 건너뛴다.
 # allow_failure: false — job이 실행됐는데 실패하면 release 실패로 취급한다.
 build-vllm-derived:
   extends: .docker-build
   stage: build
   script:
     - bash scripts/ci/build_vllm_derived_images.sh
-  # derived 이미지 빌드는 실수가 아니라 의도적인 수동 opt-in이다 -- 이 비용이 큰
-  # (~25 GB) 빌드가 운영자가 명시적으로 요청할 때만 실행되도록
-  # test_gitlab_ci_vllm_derived_build_contract가 BUILD_VLLM_DERIVED /
-  # DEPLOY_MODE=full 트리거를 요구한다. (GitLab 12.1.1은 최신 rule 엔진이 없어서
-  # source-change 기반 자동 빌드 자체가 불가능하기도 하다.) source 변경 시 자동 빌드로
-  # 바꾸는 건 팀 차원의 결정이다 -- 이 job 하나가 아니라 이 governance contract 자체를
-  # 바꾸는 일이다. deploy_gitlab_compose.sh의 배포 가드가 이 수동 정책을 안전하게
-  # 만든다 -- 이미지 source는 바뀌었는데 재빌드가 안 됐으면 크게 실패시켜서, 오래된
-  # 이미지가 조용히 배포되는 일이 없도록 한다.
+  # Registry를 정리하는 운영 정책에서는 release의 기본 full 빌드가 배포 가능 이미지를
+  # 다시 만든다. 빠른 platform-only 배포만 Run pipeline에서 DEPLOY_MODE=rolling으로
+  # 명시해 이 job을 건너뛴다.
   only:
     refs:
       - release
@@ -170,10 +168,10 @@ build-vllm-derived:
     expire_in: 7 days
 
 # 175 GPU 런타임 서버로의 수동 배포.
-# Rolling 배포(기본값): gateway + admin-sidecar + risk-adapter만 재시작, vLLM 재빌드는 건너뜀.
-# Full 런타임 배포: 파이프라인 트리거 시 DEPLOY_MODE=full로 설정 —
-#   이 job 전에 build-vllm-derived가 자동 실행된다.
-#   DEPLOY_MODE=full은 현재 파이프라인의 unified vLLM 이미지를 쓴다.
+# Full 런타임 배포(기본값): 이 job 전에 build-vllm-derived가 자동 실행되고,
+#   현재 파이프라인의 unified vLLM 이미지를 쓴다.
+# Rolling 배포: Run pipeline에서 DEPLOY_MODE=rolling을 명시하면 gateway,
+#   admin-sidecar, risk-adapter만 재시작한다.
 # 필수 CI/CD 변수:
 #   SSH_PRIVATE_KEY      file 타입 변수; 175의 DEPLOY_USER용 private key
 #   DEPLOY_KNOWN_HOSTS   `ssh-keyscan <175-host>` 출력값
@@ -183,10 +181,10 @@ build-vllm-derived:
 #   REGISTRY_DEPLOY_USER read_registry 권한을 가진 GitLab Deploy Token 사용자명
 #   REGISTRY_DEPLOY_PASSWORD read_registry 권한을 가진 GitLab Deploy Token 비밀번호/토큰
 # 선택 변수:
-#   BUILD_VLLM_DERIVED   "1"로 설정하면 vLLM-derived 이미지만 빌드/push; DEPLOY_MODE를 따로 안 정하면 배포 모드는 rolling 유지
+#   BUILD_VLLM_DERIVED   "1"로 설정하면 vLLM-derived 이미지를 빌드/push
 #   DEPLOY_COMPOSE_FILE  ops/compose/full-stack.private-network.yaml
-#   DEPLOY_MODE          자동 감지(platform만 바뀌면 rolling; vLLM 이미지나 런타임에
-#                        민감한 파일이 바뀌면 full). 명시적으로 지정하면 그 값을 강제한다.
+#   DEPLOY_MODE          기본값 full. 빠른 platform-only 배포는 Run pipeline에서
+#                        rolling으로 명시한다.
 #   GATEWAY_BIND_ADDR    gateway host publish용 175 인터페이스 주소
 #   GATEWAY_HEALTH_URL   배포 후 확인할 명시적 health URL
 #   RUN_READY_SMOKE      1 또는 0; 기본값 1
@@ -234,7 +232,7 @@ deploy-gpu-175:
           *) echo "build/vllm-unified-image.env present but VLLM_UNIFIED_IMAGE_DIGEST is not a digest" >&2; exit 1 ;;
         esac
       fi
-      if [ "${DEPLOY_MODE:-rolling}" = "full" ]; then
+      if [ "${DEPLOY_MODE:-full}" = "full" ]; then
         _unified_vllm="${RISK_VLLM_IMAGE_TO_DEPLOY:-${_fresh_unified_vllm}}"
         if [ -z "${_unified_vllm}" ]; then
           echo "full deploy requires build/vllm-unified-image.env or RISK_VLLM_IMAGE_TO_DEPLOY" >&2

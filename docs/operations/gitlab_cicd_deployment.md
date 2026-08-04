@@ -30,15 +30,15 @@ GitLab 12.1.1-ee 호환 구성이다. `workflow:`, `needs:`, `rules:`,
 `dependencies: [build-platform]`으로 내려받아 명시적으로 읽는다.
 
 - `master`: `validate`, `unit-test`, `build-platform`
-- `release` (rolling): `validate`, `unit-test`, `package-release`, `build-platform`, manual `deploy-gpu-175`
-- `release` (vLLM-derived image build only): pipeline을 `BUILD_VLLM_DERIVED=1`로 시작 → `build-vllm-derived` 자동 포함, deploy mode는 바뀌지 않음
-- `release` (full runtime deploy 준비): pipeline을 `DEPLOY_MODE=full`로 시작 → `build-vllm-derived` 자동 포함
-- tag: `validate`, `unit-test`, `package-release`, `build-platform` + (`BUILD_VLLM_DERIVED=1` 또는 `DEPLOY_MODE=full`이면 `build-vllm-derived`)
+- `release` (기본 full): `validate`, `unit-test`, `package-release`, `build-platform`, `build-vllm-derived`, manual `deploy-gpu-175`
+- `release` (명시적 rolling): Run pipeline에서 `DEPLOY_MODE=rolling` → `build-vllm-derived` 생략, manual `deploy-gpu-175`
+- `release` (vLLM-derived image build only): pipeline을 `BUILD_VLLM_DERIVED=1`로 시작 → `build-vllm-derived` 자동 포함
+- tag: 기본 full 경로로 실행되며, `DEPLOY_MODE=rolling`을 지정하면 `build-vllm-derived`를 생략한다.
 
 `build-vllm-derived`는 `release`/tag ref에서 다음 중 하나가 설정된 pipeline에서 자동 실행된다.
 
 - `BUILD_VLLM_DERIVED=1`
-- `DEPLOY_MODE=full`
+- 기본값 `DEPLOY_MODE=full`
 
 `build-vllm-derived`는 vLLM unified 이미지(26B/12B/embedding/embedding-ko/risk-prompt 공용)를 `vllm-unified` registry 이름 하나로 빌드/push한다. CI의 `VLLM_UNIFIED_IMAGE_*`가 유일한 build ref이며, 생성된 immutable digest를 배포 단계에서 risk-prompt와 12B profile에 투영한다. `embedding-ko-vllm`도 이 이미지를 쓰지만 별도 빌드 없이 `EMBEDDING_KO_VLLM_IMAGE` 태그만 가리킨다. 실행된 job이 실패하면 release 실패로 처리된다(`allow_failure: false`). 빌드 로직은 `scripts/ci/build_vllm_derived_images.sh`에서 관리한다.
 
@@ -59,7 +59,7 @@ Platform image는 commit tag와 branch tag를 항상 push한다. `release` branc
 ## 선택 변수
 
 - `DEPLOY_COMPOSE_FILE`: 기본값 `ops/compose/full-stack.private-network.yaml`
-- `DEPLOY_MODE`: `rolling` 또는 `full`, 기본값 `rolling`
+- `DEPLOY_MODE`: `rolling` 또는 `full`, 기본값 `full`. 빠른 platform-only 배포만 Run pipeline에서 `rolling`으로 지정한다.
 - `AUTH_MODE`: 배포 시 auth profile 적용. `local_open`, `private_network`, `strict` 등. 미설정 시 175 `.env` 현재값 유지
 - `GATEWAY_BIND_ADDR`: Gateway host publish bind 주소
 - `GATEWAY_HEALTH_URL`: 배포 후 health check URL
@@ -109,13 +109,13 @@ Full 배포는 실제 vLLM 파일 세대를 나타내는 `runtime-current`도 �
 
 ## 배포 흐름
 
-### Rolling app deploy (일반)
+### Rolling app deploy (명시적 예외)
 
 platform app 변경만 반영할 때 사용한다. vLLM-derived image는 재빌드하지 않는다.
 
-1. `release` branch에 push → pipeline 자동 시작 (pipeline 변수 추가 없음)
-2. `build-vllm-derived` 스킵 — `BUILD_VLLM_DERIVED` / `DEPLOY_MODE=full` 없으므로 조건 불충족
-3. `deploy-gpu-175` 수동 실행 (기본 `DEPLOY_MODE=rolling`)
+1. GitLab **Run pipeline**에서 `DEPLOY_MODE=rolling`을 지정해 `release` pipeline을 시작
+2. `build-vllm-derived` 스킵 — 명시적 rolling이므로 조건 불충족
+3. `deploy-gpu-175` 수동 실행
 4. 175에서 `gateway`, `admin-sidecar`, `risk-adapter` image만 pull 후 재시작
 5. vLLM 컨테이너는 건드리지 않으므로 GPU 모델 reload downtime 없음
 
@@ -133,7 +133,7 @@ full deploy 없이 registry image만 미리 만들 때 사용한다. deploy mode
 
 vllm-unified digest를 새로 pin하거나(risk-prompt-vllm/main-llm 12B 프로필 둘 다 영향) `EMBEDDING_KO_VLLM_IMAGE`(표준 vLLM 이미지)를 갱신할 때 사용한다.
 
-1. pipeline을 `DEPLOY_MODE=full` 변수로 시작
+1. `release` branch push 또는 Run pipeline으로 시작한다. 기본값이 `DEPLOY_MODE=full`이다.
 3. `deploy-gpu-175` 수동 실행, `DEPLOY_MODE=full` 설정
    - preflight 실패 시 `.env`를 수정하지 않고 실패; `build-vllm-derived` 먼저 실행하라는 안내 출력
 5. 이미지·마운트 설정이 바뀐 service만 수렴한다. 다만 과거 release 절대경로를 Compose working directory로 가진 컨테이너는 이번 Full 배포에서 한 번 재생성해 안정적인 `current/ops/compose` context로 수렴한다. deferred 런타임은 `docker compose create`로 컨테이너만 준비하고 시작하지 않는다.
@@ -217,13 +217,13 @@ GATEWAY_PORT=9400
 PLATFORM_IMAGE=<registry>/platform:<validated tag>
 ```
 
-초기 전체 기동은 `DEPLOY_MODE=full` 또는 175 로컬에서 다음 명령을 사용한다.
+초기 전체 기동은 기본 CI full 배포 또는 175 로컬에서 다음 명령을 사용한다.
 
 ```bash
 make compose-up-private
 ```
 
-평상시 platform app 변경 배포는 GitLab `deploy-gpu-175` job에서 `DEPLOY_MODE=rolling`을 사용한다.
+기존 vLLM image를 재사용하는 빠른 platform app 변경 배포만 GitLab Run pipeline에서 `DEPLOY_MODE=rolling`을 지정한다.
 
 ## Dense retrieval-ko Artifact Runbook
 

@@ -7,24 +7,14 @@
 # 호출하고, 실패 시 반환 코드를 그대로 배포 실패로 처리한다.
 
 deploy_resolve_mode() {
-  # vLLM 이미지 변경은 platform rolling만으로 반영할 수 없으므로 full이 기본이다.
-  # 명시한 DEPLOY_MODE는 자동 판단보다 우선한다.
+  # Registry를 정리하는 운영 환경에서는 필요한 unified image가 없을 수 있으므로
+  # full이 기본이다. 빠른 platform-only 배포만 DEPLOY_MODE=rolling으로 명시한다.
   if [[ -n "${DEPLOY_MODE:-}" ]]; then
     return 0
   fi
 
-  # VLLM_UNIFIED_IMAGE_SHA는 CI가 build job에 전달하는 예상 tag일 뿐이다.
-  # build-vllm-derived가 skip되면 registry에 존재하지 않을 수 있으므로 배포 모드
-  # 판단에 쓰면 platform-only pipeline도 full deploy로 잘못 승격된다. 실제 build
-  # artifact digest 또는 운영자가 명시한 override만 full deploy의 근거다.
-  local vllm_image_override="${RISK_VLLM_IMAGE_TO_DEPLOY:-${VLLM_UNIFIED_IMAGE_TO_DEPLOY:-}}"
-  if [[ -n "${vllm_image_override}" ]]; then
-    DEPLOY_MODE="full"
-    DEPLOY_MODE_REASON="vLLM image override provided"
-  else
-    DEPLOY_MODE="rolling"
-    DEPLOY_MODE_REASON="platform-only change"
-  fi
+  DEPLOY_MODE="full"
+  DEPLOY_MODE_REASON="default full deployment policy"
 }
 
 deploy_validate_request() {
