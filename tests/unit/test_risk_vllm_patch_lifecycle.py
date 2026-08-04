@@ -1,3 +1,7 @@
+"""Kanana risk 모델용 transformers head_dim 가드 패치 스크립트의 생애주기를
+검증한다: 패치 적용/검증, Dockerfile에 인라인이 아니라 별도 스크립트로 COPY돼
+있는지, 패치가 이미 적용된 상태에서 제거 가능 여부 판정."""
+
 from __future__ import annotations
 
 import importlib.util

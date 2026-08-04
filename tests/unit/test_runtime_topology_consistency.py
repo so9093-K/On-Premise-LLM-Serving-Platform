@@ -1,4 +1,4 @@
-"""Drift guards for the projected vLLM runtime topology."""
+"""projected vLLM runtime topology에 대한 drift 가드."""
 
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ def _load_yaml(rel: str) -> dict:
 
 
 def _vllm_services() -> dict[str, str]:
-    """logical model key -> compose service name, for every vLLM model."""
+    """모든 vLLM 모델에 대해 logical model key -> compose service name."""
     cfg = _load_yaml("configs/model_serving.yaml")
     services: dict[str, str] = {}
     for key, model in (cfg.get("models") or {}).items():
@@ -26,7 +26,7 @@ def _vllm_services() -> dict[str, str]:
 
 
 def _controllable() -> dict[str, str]:
-    """Single source of truth: every vLLM model except the main runtime."""
+    """단일 source of truth: main runtime을 제외한 모든 vLLM 모델."""
     main_service = str(_load_yaml("configs/main_model_profiles.yaml")["runtime"]["compose_service"])
     return {key: svc for key, svc in _vllm_services().items() if svc != main_service}
 
@@ -52,8 +52,8 @@ def test_gateway_controllable_keys_match_model_serving():
 
 
 def test_controllable_key_and_service_views_are_one_to_one(monkeypatch):
-    # The gateway (logical keys) and the sidecar (compose service names) must
-    # describe the same set of runtimes, just in their own naming domain.
+    # gateway(logical key)와 sidecar(compose service name)는 각자의 명명
+    # 체계로 표현할 뿐, 같은 runtime 집합을 나타내야 한다.
     sidecar = _sidecar(monkeypatch)
     from ai_model_serving.runtime_topology import load_runtime_topology
 
@@ -73,10 +73,10 @@ def test_start_prerequisites_match_compose_secondary_edges(monkeypatch):
     for service in controllable:
         depends = (compose["services"].get(service) or {}).get("depends_on") or {}
         names = depends.keys() if isinstance(depends, dict) else depends
-        # Only secondary<->secondary edges. The root edge to main-llm-vllm exists
-        # in compose for cold-boot serialization, but the runtime sequencer omits
-        # it on purpose: under GPU admission the main model may be deliberately
-        # stopped, so starting a secondary must not wait on main health.
+        # secondary<->secondary edge만 대상이다. main-llm-vllm으로 가는 root edge는
+        # compose엔 cold-boot 직렬화를 위해 존재하지만, runtime sequencer는 이를
+        # 의도적으로 빼둔다: GPU admission 하에서는 main model이 의도적으로
+        # 중지될 수 있으므로, secondary 시작이 main health를 기다리면 안 된다.
         prereqs = sorted(n for n in names if n in controllable)
         if prereqs:
             expected[service] = prereqs

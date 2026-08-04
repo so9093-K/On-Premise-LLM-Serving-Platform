@@ -1,3 +1,6 @@
+"""prepare_model_snapshot이 정확한 revision을 먼저 내려받고 로컬 캐시로
+재검증하는 2단계 흐름(local_files_only=False 다음 True)을 따르는지 검증한다."""
+
 from __future__ import annotations
 
 from pathlib import Path

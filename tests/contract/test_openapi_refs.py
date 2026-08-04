@@ -1,3 +1,7 @@
+"""OpenAPI 스펙 자체의 구조적 정합성을 검증한다: $ref가 전부 로컬 파일로 풀리는지,
+model_list 응답 스키마가 알려진 logical_id로만 제한돼 있는지, 문서에 적힌
+version이 VERSION 파일과 일치하는지."""
+
 from __future__ import annotations
 
 from pathlib import Path

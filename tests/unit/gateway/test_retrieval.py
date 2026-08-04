@@ -1,3 +1,7 @@
+"""/v1/retrieval/score, /v1/retrieval/rerank의 dense retrieval 동작을 검증한다:
+모델별 query/document prefix 정책, truncate_prompt_tokens 전달, top_n 제한,
+기본 모델 선택(local-embed-ko), embedding 런타임 중지 시 503 처리."""
+
 from __future__ import annotations
 
 from .helpers import *  # noqa: F401,F403

@@ -1,3 +1,7 @@
+"""risk_assessment_response.schema.json 자체의 구조적 불변식을 검증한다:
+usage 필드가 있으면 완전해야 함, allow/block 같은 정책 결정 필드는 금지,
+code와 family 조합이 일치해야 함."""
+
 from __future__ import annotations
 
 import json

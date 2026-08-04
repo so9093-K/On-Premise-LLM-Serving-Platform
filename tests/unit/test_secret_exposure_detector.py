@@ -1,12 +1,12 @@
-"""Secret Exposure detector unit tests.
+"""Secret Exposure detector 단위 테스트.
 
-Tests cover curated regex patterns, entropy-based generic candidate detection,
-and the entity->D-code mapping. All tests confirm that:
-- Raw secret values do NOT appear in response
-- span_count represents detection count
-- D4/D5 codes are correctly assigned
-- boolean consistency holds
-- forbidden fields are absent
+정제된 정규식 패턴, 엔트로피 기반 범용 후보 탐지, entity->D-code 매핑을
+다룬다. 모든 테스트가 다음을 확인한다:
+- 원본 secret 값이 response에 절대 나타나지 않는다
+- span_count가 탐지 개수를 나타낸다
+- D4/D5 코드가 올바르게 부여된다
+- boolean 일관성이 유지된다
+- forbidden 필드가 없다
 """
 from __future__ import annotations
 
@@ -25,7 +25,7 @@ from ai_model_serving.detectors.secret import (
 
 
 # ---------------------------------------------------------------------------
-# Fixture texts containing real-looking secret patterns
+# 실제와 비슷한 secret 패턴을 담은 픽스처 텍스트
 # ---------------------------------------------------------------------------
 
 OPENAI_KEY = "sk-proj-abcdefghijklmnopqrstuvwxyz12345678901234ABCDE"
@@ -202,7 +202,7 @@ class TestSecretExposureDetector:
             assert cat["source_model"]
 
     def test_d4_has_higher_priority_than_a_codes_in_strongest_code(self):
-        # D4 should appear as strongest_code when detected
+        # 탐지되면 D4가 strongest_code로 나와야 한다
         detector = SecretExposureDetector()
         response = self._run(detector.assess(f"key={OPENAI_KEY}"))
         assert response["strongest_code"] == "D4"

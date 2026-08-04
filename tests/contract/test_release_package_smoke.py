@@ -1,3 +1,9 @@
+"""실제로 package_release.sh를 실행해 만든 릴리스 ZIP의 위생을 검증하는 smoke 테스트.
+
+캐시/시크릿/개발 도구(.git, .claude 등) 미포함, 타임스탬프 정규화, 운영 리포트
+제외 등 "ZIP에 뭐가 들어있으면 안 되는지"를 실제 산출물을 열어서 확인한다.
+"""
+
 from __future__ import annotations
 
 import os

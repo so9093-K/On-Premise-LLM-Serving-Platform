@@ -1,3 +1,7 @@
+"""chat completion 요청/응답 검증(사전 거부), SSE 스트리밍(사용량/청크 메트릭,
+중간에 실패해도 SSE 에러 이벤트로 끝맺음, chunk 상한), tool_calls/logprobs/
+logit_bias 조합을 검증한다."""
+
 from __future__ import annotations
 
 import json

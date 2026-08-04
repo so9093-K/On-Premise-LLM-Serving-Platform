@@ -1,3 +1,6 @@
+"""/v1/embeddings의 로깅, upstream 응답 스키마 검증, user 필드 정책(허용되지만
+upstream엔 안 실림), encoding_format 지원 범위를 검증한다."""
+
 from __future__ import annotations
 
 import dataclasses

@@ -1,3 +1,6 @@
+"""gateway의 인증(bearer token 필수 여부)과 FastAPI 문서(/docs, /redoc, /openapi.json)
+노출 정책을 검증한다: public/admin 엔드포인트별 보안 스키마가 실제로 다른지 확인한다."""
+
 from __future__ import annotations
 
 from .helpers import *  # noqa: F401,F403

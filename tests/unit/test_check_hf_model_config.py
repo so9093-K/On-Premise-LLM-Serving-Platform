@@ -1,3 +1,7 @@
+"""scripts/models/check_hf_model_config.py를 검증한다: HuggingFace config의
+hidden_size/attention_heads 불일치 같은 예외를 분류하는 로직, tokenizer가
+실제로 온전한지(vocab 크기/실제 토큰화 결과) 판별하는 canary."""
+
 from __future__ import annotations
 
 from types import SimpleNamespace

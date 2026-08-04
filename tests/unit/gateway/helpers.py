@@ -1,3 +1,9 @@
+"""gateway 단위 테스트 전체가 공유하는 fake client/설정 픽스처 모음.
+
+FakeGatewayClients/FakeRuntimeClient로 실제 vLLM/risk-adapter 없이 gateway
+앱을 띄우고, settings()/tool_calling_settings()/advanced_chat_settings() 등으로
+각 테스트가 필요한 정책 조합을 만든다."""
+
 from __future__ import annotations
 
 import asyncio

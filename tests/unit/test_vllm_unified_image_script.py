@@ -1,3 +1,7 @@
+"""scripts/lib/vllm_unified_image.sh(통합 vLLM 이미지 resolver)를 검증한다:
+기본값/커스텀 이미지 해석, base image가 recommended_images.yaml과 일치하는지,
+media 의존성(soundfile/librosa/av)이 검증된 lock 파일을 그대로 쓰는지."""
+
 from __future__ import annotations
 
 import os

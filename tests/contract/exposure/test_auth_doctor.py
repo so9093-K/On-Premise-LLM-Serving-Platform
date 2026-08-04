@@ -1,3 +1,9 @@
+"""auth-doctor(diagnose_auth) 진단 규칙에 대한 계약 테스트.
+
+internal_trusted/custom 같은 인증 모드가 요구하는 증거 필드, exposure_audience
+선언, bind 주소와 exposure_audience 조합에 따른 오탐/실탐 여부를 검증한다.
+"""
+
 from __future__ import annotations
 
 from .helpers import *  # noqa: F401,F403
@@ -135,7 +141,7 @@ def test_auth_doctor_allows_non_local_local_open_on_trusted_lan(
 
 
 def test_exposure_audience_allowed_values_declared_in_yaml() -> None:
-    """exposure_profiles.yaml must declare exposure_audience.allowed_values."""
+    """exposure_profiles.yaml은 exposure_audience.allowed_values를 선언해야 한다."""
     data = _load_exposure()
     allowed = data.get("exposure_audience", {}).get("allowed_values", [])
     assert isinstance(allowed, list) and len(allowed) >= 1, (
@@ -147,7 +153,7 @@ def test_exposure_audience_allowed_values_declared_in_yaml() -> None:
 
 
 def test_auth_doctor_rejects_invalid_exposure_audience(monkeypatch) -> None:
-    """auth-doctor must FAIL for EXPOSURE_AUDIENCE with an arbitrary invalid value."""
+    """auth-doctor는 EXPOSURE_AUDIENCE가 임의의 잘못된 값이면 FAIL해야 한다."""
     sys.path.insert(0, str(ROOT / "src"))
     from ai_model_serving.auth_control import diagnose_auth
 
@@ -164,7 +170,7 @@ def test_auth_doctor_rejects_invalid_exposure_audience(monkeypatch) -> None:
 
 
 def test_auth_doctor_rejects_local_only_with_open_bind(monkeypatch) -> None:
-    """auth-doctor must FAIL when local_only is declared but services bind to 0.0.0.0."""
+    """local_only로 선언됐는데 서비스가 0.0.0.0에 bind되면 auth-doctor는 FAIL해야 한다."""
     sys.path.insert(0, str(ROOT / "src"))
     from ai_model_serving.auth_control import diagnose_auth
 
@@ -186,7 +192,7 @@ def test_auth_doctor_rejects_local_only_with_open_bind(monkeypatch) -> None:
 
 
 def test_auth_doctor_passes_local_only_with_loopback_bind(monkeypatch) -> None:
-    """auth-doctor must NOT produce EXPOSURE_LOCAL_ONLY_BIND_MISMATCH when all binds are 127.0.0.1."""
+    """모든 bind가 127.0.0.1이면 auth-doctor는 EXPOSURE_LOCAL_ONLY_BIND_MISMATCH를 내면 안 된다."""
     sys.path.insert(0, str(ROOT / "src"))
     from ai_model_serving.auth_control import diagnose_auth
 
@@ -194,7 +200,7 @@ def test_auth_doctor_passes_local_only_with_loopback_bind(monkeypatch) -> None:
 
     monkeypatch.setenv("EXPOSURE_MODE", "master_open")
     monkeypatch.setenv("EXPOSURE_AUDIENCE", "local_only")
-    # Set all host_env_bind vars to loopback
+    # 모든 host_env_bind 변수를 loopback으로 설정한다
     for svc in services.values():
         bind_env = svc.get("host_env_bind", "")
         if bind_env:
@@ -209,13 +215,13 @@ def test_auth_doctor_passes_local_only_with_loopback_bind(monkeypatch) -> None:
 
 
 def test_auth_doctor_passes_private_lan_with_open_bind(monkeypatch) -> None:
-    """auth-doctor must NOT produce bind mismatch for EXPOSURE_AUDIENCE=private_lan + 0.0.0.0."""
+    """EXPOSURE_AUDIENCE=private_lan + 0.0.0.0 조합에는 auth-doctor가 bind mismatch를 내면 안 된다."""
     sys.path.insert(0, str(ROOT / "src"))
     from ai_model_serving.auth_control import diagnose_auth
 
     monkeypatch.setenv("EXPOSURE_MODE", "master_open")
     monkeypatch.setenv("EXPOSURE_AUDIENCE", "private_lan")
-    # 0.0.0.0 bind is intentional for private_lan — gateway/VPN controls access
+    # private_lan에서 0.0.0.0 bind는 의도된 것이다 — 접근 제어는 gateway/VPN이 담당한다
 
     findings = diagnose_auth(_make_local_settings(), ROOT)  # type: ignore[arg-type]
     codes = [f.code for f in findings if f.level == "FAIL"]

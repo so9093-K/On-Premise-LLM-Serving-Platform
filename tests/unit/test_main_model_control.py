@@ -1,3 +1,12 @@
+"""main-model 핫스왑 상태 머신(MainModelManager/MainModelStateStore)을 검증한다.
+
+프로필 전환의 커밋/롤백 순서, 부팅 시점 우선순위(persisted가 configured를
+이긴다), 컨테이너가 이 컨트롤러를 거치지 않고 외부에서 재시작됐을 때의
+재검증(reconcile_if_restarted, 락과 backoff 포함), state store의 원자적
+읽기/쓰기와 동시 프로세스 안전성, 이미지 pin/override 해석을 다룬다.
+gateway 쪽 프록시 라우트는 tests/unit/gateway/test_main_model_control.py가
+별도로 다룬다."""
+
 from __future__ import annotations
 
 import asyncio
@@ -93,11 +102,11 @@ def catalog():
 
 
 def test_real_catalog_profile_views_are_json_serializable() -> None:
-    # The admin-sidecar GET /main-model serializes profile snapshots with the
-    # stdlib JSON encoder. A non-serializable value (e.g. an unquoted YAML date
-    # parsed as datetime.date) makes that endpoint return 500, which the Gateway
-    # reads as SidecarUnavailable and then 503s every main-model request — a
-    # deploy-breaking failure. Guard the shipped catalog directly.
+    # admin-sidecar의 GET /main-model은 프로필 스냅샷을 stdlib JSON 인코더로
+    # 직렬화한다. 직렬화 불가능한 값(예: 따옴표 없는 YAML 날짜가 datetime.date로
+    # 파싱된 경우)이 있으면 이 엔드포인트가 500을 반환하고, Gateway는 이를
+    # SidecarUnavailable로 읽어 모든 main-model 요청에 503을 낸다 — 배포를
+    # 깨뜨리는 장애다. 실제 배포되는 카탈로그를 직접 가드한다.
     loaded = load_main_model_catalog(ROOT / "configs/main_model_profiles.yaml")
     for profile in loaded.profiles.values():
         json.dumps(profile.public_view())
@@ -466,8 +475,8 @@ def test_request_id_retry_is_idempotent(tmp_path):
 def test_request_id_starts_fresh_switch_after_ttl_expires(tmp_path):
     loaded = catalog()
     store = MainModelStateStore(tmp_path / "state.json", loaded.default_profile)
-    # ttl=0 means a request_id expires as soon as its operation settles, so a
-    # re-send of the same id is a new intent rather than a replay of the old one.
+    # ttl=0은 request_id가 해당 operation이 끝나자마자 만료된다는 뜻이다 — 그래서
+    # 같은 id를 다시 보내면 이전 요청의 재전송이 아니라 새 의도로 취급된다.
     manager = MainModelManager(
         loaded, store, FakeBackend(), idempotency_ttl_seconds=0.0
     )
@@ -656,10 +665,10 @@ def test_reconcile_if_restarted_noop_when_container_fingerprint_unchanged(tmp_pa
 
 
 def test_reconcile_if_restarted_records_baseline_without_warmup_on_first_observation(tmp_path):
-    # A state file written before this feature existed has no
-    # last_validated_container_started_at yet. The first tick must record a
-    # baseline instead of treating "no prior fingerprint" as drift — otherwise
-    # every existing deployment would get one spurious extra warmup on upgrade.
+    # 이 기능이 생기기 전에 쓰인 state 파일에는 아직
+    # last_validated_container_started_at이 없다. 첫 tick은 "이전 지문 없음"을
+    # drift로 취급하지 말고 baseline으로 기록해야 한다 — 안 그러면 업그레이드
+    # 시 기존 배포 전부가 불필요한 추가 warmup을 한 번씩 겪게 된다.
     loaded = catalog()
     store = _active_store(tmp_path, loaded, started_at=None)
     backend = FakeBackend(loaded.default_profile, started_at="boot-0")
@@ -668,17 +677,17 @@ def test_reconcile_if_restarted_records_baseline_without_warmup_on_first_observa
     asyncio.run(manager.reconcile_if_restarted())
 
     assert backend.validate_calls == []
-    assert manager.snapshot()  # still readable
+    assert manager.snapshot()  # 여전히 읽을 수 있다
     state = store.read()
     assert state["last_validated_container_started_at"] == "boot-0"
 
 
 def test_reconcile_if_restarted_rewarms_without_closing_gate_on_drift(tmp_path):
-    # Simulates an operator running `docker restart main-llm-vllm` directly:
-    # the container's observed StartedAt moves without this controller ever
-    # calling start()/replace(). reconcile_if_restarted() must catch this,
-    # re-run validate() (which re-triggers the structured-output/media
-    # warmup), and must NOT close the gate while doing so.
+    # 운영자가 직접 `docker restart main-llm-vllm`을 실행한 상황을 시뮬레이션한다:
+    # 이 컨트롤러가 start()/replace()를 한 번도 호출하지 않았는데도 컨테이너의
+    # 관측된 StartedAt이 바뀐다. reconcile_if_restarted()는 이를 감지해
+    # validate()를 다시 실행해야 하고(structured-output/media warmup을 재트리거),
+    # 그러는 동안 gate를 닫아서는 안 된다.
     loaded = catalog()
     store = _active_store(tmp_path, loaded, started_at="boot-0")
     backend = FakeBackend(loaded.default_profile, started_at="boot-1")
@@ -718,10 +727,9 @@ def test_reconcile_if_restarted_skips_while_operation_in_progress(tmp_path):
 
 
 def test_reconcile_if_restarted_propagates_validate_failure_without_updating_fingerprint(tmp_path):
-    # A failing re-validate must not silently mark the new (still JIT-cold, or
-    # possibly broken) container as validated — the caller (the background
-    # reconciliation loop) is responsible for catching this and retrying on
-    # the next tick.
+    # re-validate가 실패했는데도 (아직 JIT-cold이거나 고장났을 수 있는) 새
+    # 컨테이너를 조용히 검증 완료로 표시하면 안 된다 — 호출자(백그라운드
+    # reconciliation loop)가 이를 잡아서 다음 tick에 재시도할 책임이 있다.
     loaded = catalog()
     store = _active_store(tmp_path, loaded, started_at="boot-0")
     backend = FakeBackend(
@@ -764,16 +772,14 @@ def test_reconcile_if_restarted_backs_off_after_repeated_validate_failures(tmp_p
 
 
 def test_initialize_and_reconcile_do_not_validate_concurrently(tmp_path):
-    # Regression guard: initialize() used to run unlocked, so a reconcile tick
-    # firing while a slow boot-time validate() was still in flight could kick
-    # off a second, fully concurrent validate() against the same container.
-    # Both now take self._lock, so at most one backend.validate() call is ever
-    # in flight at a time. Whichever of the two runs second also benefits from
-    # re-reading state *after* acquiring the lock: by the time it gets in, the
-    # first one has already recorded the new container fingerprint, so it sees
-    # no more drift and skips re-validating entirely — proving both mutual
-    # exclusion (max_concurrent == 1) and no redundant duplicate work
-    # (validate() ends up called exactly once, not twice).
+    # 회귀 가드: initialize()가 예전엔 락 없이 돌아서, 느린 부팅 시점 validate()가
+    # 아직 진행 중일 때 reconcile tick이 겹치면 같은 컨테이너에 대해 완전히
+    # 동시적인 두 번째 validate()가 나갈 수 있었다. 이제 둘 다 self._lock을
+    # 잡으므로 backend.validate() 호출은 항상 최대 하나만 동시에 진행된다.
+    # 나중에 락을 잡는 쪽도 락을 잡은 *뒤에* state를 다시 읽는 덕을 본다 — 그때쯤엔
+    # 먼저 실행된 쪽이 이미 새 컨테이너 지문을 기록해놔서, drift가 더 없다고 보고
+    # 재검증을 아예 건너뛴다 — 상호 배제(max_concurrent == 1)와 중복 작업 없음
+    # (validate()가 두 번이 아니라 정확히 한 번만 호출됨) 둘 다 증명한다.
     loaded = catalog()
     store = _active_store(tmp_path, loaded, started_at="boot-0")
     backend = FakeBackend(loaded.default_profile, started_at="boot-1")
@@ -787,7 +793,7 @@ def test_initialize_and_reconcile_do_not_validate_concurrently(tmp_path):
         nonlocal concurrent, max_concurrent
         concurrent += 1
         max_concurrent = max(max_concurrent, concurrent)
-        await asyncio.sleep(0.02)  # force an await point where an unlocked race would show up
+        await asyncio.sleep(0.02)  # 락 없이 돌았다면 race가 드러났을 await 지점을 강제로 만든다
         await real_validate(catalog_, profile)
         concurrent -= 1
 
@@ -817,7 +823,7 @@ def test_initialize_respects_deliberate_stop(tmp_path):
 
     asyncio.run(manager.initialize())
 
-    # A deliberately-stopped main is not auto-started on boot.
+    # 의도적으로 중지된 main은 부팅 시 자동으로 시작되지 않는다.
     assert backend.started == 0
     assert backend.replaced == []
     assert manager.snapshot()["gate"] == "closed"
@@ -872,7 +878,7 @@ def _write_catalog(tmp_path, *, audio_image: str | None, env: dict[str, str] | N
 
 
 def test_profile_image_env_ref_resolves_from_env(tmp_path):
-    # CI/deploy injects the immutable digest; the profile pins ${AUDIO_VLLM_IMAGE}.
+    # CI/배포가 불변 digest를 주입한다; 프로필은 ${AUDIO_VLLM_IMAGE}를 고정 참조한다.
     loaded = _write_catalog(
         tmp_path, audio_image="${AUDIO_VLLM_IMAGE}", env={"AUDIO_VLLM_IMAGE": _AUDIO_IMAGE}
     )
@@ -881,8 +887,9 @@ def test_profile_image_env_ref_resolves_from_env(tmp_path):
 
 
 def test_profile_image_env_ref_falls_back_to_shared_when_unset(tmp_path):
-    # No digest built yet -> the env is unset -> the profile inherits the shared base,
-    # so the sidecar still boots (the media boot canary, not the pin, gates go-live).
+    # 아직 digest가 빌드되지 않음 -> env가 비어있음 -> 프로필이 공유 base를
+    # 상속한다, 그래도 sidecar는 부팅된다(go-live를 막는 건 pin이 아니라
+    # media boot canary다).
     loaded = _write_catalog(tmp_path, audio_image="${AUDIO_VLLM_IMAGE}", env={})
     assert loaded.profiles["audio"].image == _SHARED_IMAGE
 
@@ -898,8 +905,8 @@ def test_profile_image_env_ref_rejects_non_digest_value(tmp_path):
 
 def test_profile_without_image_inherits_shared_runtime_image(tmp_path):
     loaded = _write_catalog(tmp_path, audio_image=None)
-    # Neither profile pins an image -> both resolve to the shared runtime.image,
-    # so a profile switch never silently changes the runtime backing 26b.
+    # 어느 프로필도 이미지를 고정하지 않음 -> 둘 다 공유 runtime.image로
+    # 귀결된다, 그래서 프로필 전환이 26b를 받치는 runtime을 조용히 바꾸는 일은 없다.
     assert loaded.profiles["base"].image == _SHARED_IMAGE
     assert loaded.profiles["audio"].image == _SHARED_IMAGE
     assert loaded.profiles["base"].public_view()["runtime_image"] == _SHARED_IMAGE
@@ -907,7 +914,7 @@ def test_profile_without_image_inherits_shared_runtime_image(tmp_path):
 
 def test_profile_image_override_travels_with_profile(tmp_path):
     loaded = _write_catalog(tmp_path, audio_image=_AUDIO_IMAGE)
-    # The audio profile pins its own runtime; the base profile is untouched.
+    # audio 프로필은 자신만의 runtime을 고정한다; base 프로필은 영향받지 않는다.
     assert loaded.profiles["base"].image == _SHARED_IMAGE
     assert loaded.profiles["audio"].image == _AUDIO_IMAGE
 
@@ -922,7 +929,7 @@ def test_snapshot_runtime_image_reflects_active_profile(tmp_path):
     store = MainModelStateStore(tmp_path / "state.json", loaded.default_profile)
     store.write({**store.read(), "active_profile": "audio", "gate": "open"})
     manager = MainModelManager(loaded, store, FakeBackend("audio"))
-    # The live runtime image follows the active profile, not the shared default.
+    # 실제 runtime 이미지는 공유 기본값이 아니라 active profile을 따라간다.
     assert manager.snapshot()["runtime_image"] == _AUDIO_IMAGE
 
 
@@ -930,8 +937,8 @@ def test_gpu_util_override_rewrites_command_and_fraction():
     from ai_model_serving.main_model_control import load_main_model_catalog as _load
 
     loaded = _load(ROOT / "configs/main_model_profiles.yaml", gpu_memory_utilization_override=0.55)
-    # Override flows to both the runtime command and the parsed budget cost, in
-    # lockstep, for every profile (a per-host capacity knob).
+    # override는 모든 프로필에 대해 runtime command와 파싱된 budget cost 양쪽에
+    # 동시에(lockstep) 반영된다 (호스트별 용량 조절 손잡이).
     for profile in loaded.profiles.values():
         cmd = list(profile.command)
         assert cmd[cmd.index("--gpu-memory-utilization") + 1] == "0.55"
@@ -944,7 +951,7 @@ def test_gpu_util_override_absent_keeps_catalog_value():
 
 
 def test_gpu_util_override_appends_when_command_omits_flag(tmp_path):
-    # The base/audio fixtures carry no --gpu-memory-utilization; the override adds it.
+    # base/audio 픽스처에는 --gpu-memory-utilization이 없다; override가 이를 추가한다.
     loaded = load_main_model_catalog(
         _write_catalog_path(tmp_path), gpu_memory_utilization_override=0.5
     )

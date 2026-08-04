@@ -1,3 +1,7 @@
+"""FastAPI가 생성하는 OpenAPI 문서가 checked-in JSON Schema 계약을 그대로
+쓰는지(수기로 느슨해진 사본이 따로 없는지), 보안 스키마가 실제 인증 설정과
+일치하는지, 공통 에러 응답 표면이 포함돼 있는지 검증한다."""
+
 from __future__ import annotations
 
 from fastapi import FastAPI

@@ -1,14 +1,14 @@
-"""Data exposure contract validator unit tests.
+"""Data exposure contract validator 단위 테스트.
 
-Tests validate_risk_response() and _validate_risk_category() behavior for
-D1-D5 data_exposure categories. Confirms:
-- D1~D5 + data_exposure family passes validator
-- span_count: None or int >= 0 is accepted
-- forbidden fields still blocked
-- safe data_exposure category (code=None) passes
-- original PII/Secret values rejected by contract guard (not a field, structural check)
-- boolean consistency verified
-- existing A1/A2 prompt detector behavior unchanged
+D1-D5 data_exposure category에 대한 validate_risk_response()와
+_validate_risk_category() 동작을 테스트한다. 확인하는 것:
+- D1~D5 + data_exposure family가 validator를 통과함
+- span_count: None 또는 int >= 0이 허용됨
+- forbidden 필드는 여전히 차단됨
+- 안전한 data_exposure category(code=None)가 통과함
+- 원본 PII/Secret 값은 contract guard가 거부함(필드가 아니라 구조적 체크)
+- boolean 일관성 검증됨
+- 기존 A1/A2 prompt detector 동작은 그대로임
 """
 from __future__ import annotations
 
@@ -97,7 +97,7 @@ class TestDataExposureCategoryValidator:
     def test_data_exposure_wrong_family_raises(self):
         cat = {
             "code": "D1",
-            "family": "prompt_attack",  # wrong family
+            "family": "prompt_attack",  # 잘못된 family
             "detected": True,
             "confidence": None,
             "source_model": "pii-protection",
@@ -185,7 +185,7 @@ class TestValidateRiskResponseWithDataExposure:
             risk_detected=True,
             attention_required=True,
             model_risk_detected=True,
-            strongest_code="D4",  # D4 takes priority over A1
+            strongest_code="D4",  # D4가 A1보다 우선한다
             categories=[d4_cat, a1_cat],
         )
         validate_risk_response(response)
@@ -214,7 +214,7 @@ class TestValidateRiskResponseWithDataExposure:
 
     def test_boolean_consistency_enforced(self):
         cat = _data_exposure_category("D1", "KR_RRN", True, span_count=1)
-        # risk_detected=False but category has detected=True — inconsistent
+        # risk_detected=False인데 category는 detected=True — 불일치
         response = _base_response(
             risk_detected=False,  # wrong
             attention_required=True,
@@ -229,7 +229,7 @@ class TestValidateRiskResponseWithDataExposure:
         cat = _data_exposure_category("D2", "EMAIL_ADDRESS", True, span_count=1)
         response = _base_response(
             status="partial",
-            assessment_complete=True,  # wrong: partial -> must be False
+            assessment_complete=True,  # 잘못됨: partial이면 False여야 한다
             risk_detected=True,
             attention_required=True,
             model_risk_detected=True,

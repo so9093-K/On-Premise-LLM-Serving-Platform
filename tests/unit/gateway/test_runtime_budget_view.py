@@ -1,4 +1,4 @@
-"""Unit tests for the unified /admin/runtimes budget aggregation helpers."""
+"""통합 /admin/runtimes budget aggregation 헬퍼에 대한 단위 테스트."""
 
 from __future__ import annotations
 

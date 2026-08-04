@@ -1,3 +1,8 @@
+"""VLLMClient/CircuitBreaker(upstream vLLM 호출 계층)를 검증한다: HTTP 상태를
+플랫폼 에러 코드로 매핑, circuit breaker의 open/retry-after, admission
+큐가 가득 찼을 때의 QUEUE_TIMEOUT, readiness probe가 circuit breaker를
+우회하는지."""
+
 from __future__ import annotations
 
 import httpx
@@ -83,7 +88,7 @@ def test_circuit_open_error_carries_retry_after_close_to_remaining_cooldown() ->
     except ServiceError as exc:
         assert exc.code == "CIRCUIT_OPEN"
         assert exc.retry_after_seconds is not None
-        # Just tripped, so remaining cooldown should be at (not past) reset_seconds.
+        # 방금 막 트립됐으니, 남은 cooldown은 reset_seconds를 넘지 않고 그 근처여야 한다.
         assert 14.0 < exc.retry_after_seconds <= 15.0
         headers = exc.to_response().headers
         assert headers["retry-after"] == "15"
@@ -96,7 +101,7 @@ def test_queue_timeout_error_carries_fixed_retry_after_hint() -> None:
     import anyio
 
     async def run() -> ServiceError:
-        await client._semaphore.acquire()  # hold the only admission slot
+        await client._semaphore.acquire()  # 유일한 admission slot을 붙잡아둔다
         try:
             await client.post_json("chat/completions", {})
         except ServiceError as exc:

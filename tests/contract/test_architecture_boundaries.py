@@ -1,3 +1,9 @@
+"""레이어 간 금지된 import를 막는 아키텍처 경계 테스트.
+
+domain/contracts는 런타임 프레임워크(fastapi/httpx)나 상위 계층(apps/api/services)을
+몰라야 한다 -- 이 경계가 무너지면 순수 계약/도메인 로직이 실행 환경에 종속돼버린다.
+"""
+
 from __future__ import annotations
 
 import ast

@@ -1,3 +1,9 @@
+"""exposure mode 해석기와 validate_exposure_profiles의 구조적 검증 규칙을 테스트한다.
+
+resolve_exposure_mode가 canonical mode를 그대로 돌려주는지/모르는 mode를 거부하는지,
+그리고 exposure_profiles.yaml의 각 프로필이 필수 카테고리·서비스를 실제로
+host_publish하는지를 검증한다."""
+
 from __future__ import annotations
 
 from .helpers import *  # noqa: F401,F403

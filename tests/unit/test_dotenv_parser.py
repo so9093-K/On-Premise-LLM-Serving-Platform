@@ -1,3 +1,7 @@
+"""엄격한 .env 파서(dotenv_parser)와 scripts/lib/load_env.sh, scripts/env/env_validate.py를
+검증한다: 중복 키, 따옴표 값, 콜론/공백 형식 오류를 traceback 없이 명확한
+에러로 거부하는지."""
+
 from __future__ import annotations
 
 import subprocess

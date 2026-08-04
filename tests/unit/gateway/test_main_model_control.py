@@ -1,3 +1,8 @@
+"""gateway가 노출하는 main-model 제어 admin 라우트(/admin/main-model/*)를
+검증한다. 상태 머신 자체(전환/롤백/락)는 tests/unit/test_main_model_control.py가
+sidecar 쪽에서 직접 다루고, 여기는 gateway가 그 API를 올바르게 프록시하는지만
+본다(예: fail-closed 응답, profile_id만 넘기고 임의 명령은 거부)."""
+
 from __future__ import annotations
 
 from .helpers import *  # noqa: F401,F403

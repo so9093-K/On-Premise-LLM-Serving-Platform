@@ -1,3 +1,9 @@
+"""runtime_validation 패키지(runtime_validation.py --config-only가 실제로 실행하는
+코드)를 검증한다: config-only 실행 시 나오는 체크 목록/개수, endpoint 우선순위
+(CLI > env > 기본값), 리포트 파일 작성 형식. model-list-schema/GPU 예산처럼
+governance_validation·render_runtime_assets와 겹치던 체크는 이미 여기서
+제거했다(2026-08-03, registry_projection_drift.py로 단일화)."""
+
 from __future__ import annotations
 
 import json

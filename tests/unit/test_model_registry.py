@@ -1,3 +1,9 @@
+"""ModelRegistry(도메인 객체) 자체의 프로젝션 로직을 실제 config로 단위 테스트한다:
+catalog/serving 정규화, drift 탐지(alignment_issues), 런타임 서비스/계약/모델
+카드/OpenAPI 스키마/모니터링 타겟으로의 각 프로젝션. 이 프로젝션이 checked-in
+파일과 실제로 일치하는지는 governance_validation과 render_runtime_assets가
+별도로 검증한다 -- 여기는 프로젝션 계산 자체가 올바른지만 본다."""
+
 from __future__ import annotations
 
 import yaml

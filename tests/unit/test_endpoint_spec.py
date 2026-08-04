@@ -1,3 +1,7 @@
+"""EndpointSpec 레지스트리(GATEWAY_ENDPOINTS/RISK_ADAPTER_ENDPOINTS)가 실제 FastAPI
+라우트와 1:1로 맞는지 검증한다: operation_id 유일성, 스펙에 있는데 라우트가
+없거나 그 반대인 경우, auth scope 정책, 선언된 schema 파일이 실제로 존재하는지."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -16,7 +20,7 @@ from ai_model_serving.settings import AppSettings, RuntimeEndpoint, SecuritySett
 
 
 # ---------------------------------------------------------------------------
-# App factories (minimal settings, no HTTP calls made)
+# App factory (최소 settings, HTTP 호출 없음)
 # ---------------------------------------------------------------------------
 
 class _FakeClient:
@@ -71,7 +75,7 @@ _INFRA_PREFIXES = ("/docs", "/openapi", "/scalar", "/redoc")
 
 
 def _app_routes(app) -> dict[tuple[str, str], APIRoute]:
-    """Return {(method, path): route} for business APIRoutes (excludes docs/openapi infra)."""
+    """비즈니스 APIRoute에 대해 {(method, path): route}를 반환한다(docs/openapi 인프라는 제외)."""
     result: dict[tuple[str, str], APIRoute] = {}
     for route in app.routes:
         if isinstance(route, APIRoute) and not any(
@@ -83,7 +87,7 @@ def _app_routes(app) -> dict[tuple[str, str], APIRoute]:
 
 
 # ---------------------------------------------------------------------------
-# operation_id uniqueness
+# operation_id 유일성
 # ---------------------------------------------------------------------------
 
 def test_gateway_operation_ids_are_unique() -> None:
@@ -107,7 +111,7 @@ def test_risk_adapter_operation_ids_are_unique() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Route ↔ spec consistency
+# Route ↔ spec 일관성
 # ---------------------------------------------------------------------------
 
 def test_gateway_every_non_removed_spec_has_a_route() -> None:
@@ -151,7 +155,7 @@ def test_risk_adapter_every_route_has_a_spec() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Operation_id wired to routes
+# Operation_id가 route에 실제로 연결됐는지
 # ---------------------------------------------------------------------------
 
 def test_gateway_operation_ids_wired_to_routes() -> None:
@@ -161,7 +165,7 @@ def test_gateway_operation_ids_wired_to_routes() -> None:
             continue
         key = (spec.method, spec.path)
         if key not in routes:
-            continue  # already caught by route-consistency test
+            continue  # route-consistency 테스트에서 이미 잡힌다
         assert routes[key].operation_id == spec.operation_id, (
             f"{spec.method} {spec.path}: route has operation_id={routes[key].operation_id!r} "
             f"but spec declares {spec.operation_id!r}"
@@ -183,7 +187,7 @@ def test_risk_adapter_operation_ids_wired_to_routes() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Auth scope policy
+# Auth scope 정책
 # ---------------------------------------------------------------------------
 
 def test_health_endpoints_have_no_auth() -> None:
@@ -228,7 +232,7 @@ def test_stable_specs_have_success_status() -> None:
 
 
 # ---------------------------------------------------------------------------
-# schema_maps_from_specs helper (Phase 4)
+# schema_maps_from_specs 헬퍼 (Phase 4)
 # ---------------------------------------------------------------------------
 
 def test_schema_maps_from_specs_gateway_request() -> None:
@@ -279,11 +283,11 @@ def test_schema_maps_from_specs_risk_adapter() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Strict schema file existence validation (CI gate)
+# schema 파일 존재 여부 엄격 검증 (CI 게이트)
 # ---------------------------------------------------------------------------
 
 def test_spec_schema_files_exist() -> None:
-    """Every schema filename declared in any EndpointSpec must exist on disk."""
+    """EndpointSpec에 선언된 모든 schema 파일명은 디스크에 실제로 존재해야 한다."""
     schema_dir = find_project_root() / "specs" / "schemas"
     missing: list[str] = []
     for spec in GATEWAY_ENDPOINTS + RISK_ADAPTER_ENDPOINTS:

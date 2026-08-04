@@ -1,4 +1,4 @@
-"""Unit tests for scripts/validation/validate_grafana_promql.py."""
+"""scripts/validation/validate_grafana_promql.py에 대한 단위 테스트."""
 from __future__ import annotations
 
 import importlib.util
@@ -26,7 +26,7 @@ vgp = _load_module()
 
 
 # ---------------------------------------------------------------------------
-# iter_panels — nested traversal
+# iter_panels — 중첩 순회
 # ---------------------------------------------------------------------------
 
 def test_iter_panels_flat():
@@ -79,7 +79,7 @@ def test_extract_expressions_skips_empty_expr():
 
 
 # ---------------------------------------------------------------------------
-# substitute_variables
+# substitute_variables — 변수 치환
 # ---------------------------------------------------------------------------
 
 def test_substitute_variables_dollar_brace():
@@ -97,7 +97,7 @@ def test_substitute_variables_dollar_plain():
 
 
 # ---------------------------------------------------------------------------
-# check_promql — Prometheus response classification
+# check_promql — Prometheus 응답 분류
 # ---------------------------------------------------------------------------
 
 def _mock_response(body: dict, status: int = 200):
@@ -143,7 +143,7 @@ def test_check_promql_network_failure():
 
 
 # ---------------------------------------------------------------------------
-# URL must not contain time=now
+# URL에 time=now가 들어가면 안 된다
 # ---------------------------------------------------------------------------
 
 def test_check_promql_url_has_no_time_now():
@@ -163,11 +163,11 @@ def test_check_promql_url_has_no_time_now():
 
 
 # ---------------------------------------------------------------------------
-# main() — allow-no-data flag
+# main() — allow-no-data 플래그
 # ---------------------------------------------------------------------------
 
 def _run_main(argv: list[str], dashboard_dir: Path | None = None) -> tuple[int, str]:
-    """Run main() with patched sys.argv and capture stdout."""
+    """sys.argv를 패치해서 main()을 실행하고 stdout을 캡처한다."""
     import io
 
     if dashboard_dir is None:
@@ -223,7 +223,7 @@ def test_no_allow_no_data_treats_empty_as_error(tmp_path):
 
 
 def test_allow_failures_does_not_print_all_passed_on_failures(tmp_path):
-    """--allow-failures must not claim 'All expressions passed' when failures occurred."""
+    """--allow-failures는 실패가 있었는데도 'All expressions passed'라고 주장하면 안 된다."""
     dashboard = {
         "uid": "test_dash",
         "title": "Test",

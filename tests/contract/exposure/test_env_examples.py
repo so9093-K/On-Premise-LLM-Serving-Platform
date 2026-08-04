@@ -1,3 +1,6 @@
+"""`.env.example`/`.env.compose.example`이 env_contract/exposure 요구사항에
+필요한 키를 실제로 다 담고 있는지 검증한다."""
+
 from __future__ import annotations
 
 import pytest

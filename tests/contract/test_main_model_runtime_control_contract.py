@@ -1,3 +1,11 @@
+"""main-llm 프로필/부팅/제어 관련 계약 테스트.
+
+compose bootstrap 이미지가 default profile의 값과 일치하는지 등, main-model
+runtime control이 여러 config/compose 파일에 걸쳐 정합성을 유지하는지 검증한다.
+compose는 sidecar reconciliation보다 먼저 시작되므로 이 투영이 어긋나면
+콜드 부팅 시점에 바로 문제가 된다.
+"""
+
 from __future__ import annotations
 
 import json
@@ -73,7 +81,7 @@ def test_main_model_profiles_pin_revision_image_and_default_golden_command():
 
 
 def test_main_model_compose_bootstrap_image_matches_default_profile_fallback():
-    """Compose starts before sidecar reconciliation, so this projection must not drift."""
+    """compose는 sidecar reconciliation보다 먼저 시작되므로, 이 projection은 drift가 없어야 한다."""
     profiles = yaml.safe_load(
         (ROOT / "configs/main_model_profiles.yaml").read_text(encoding="utf-8")
     )

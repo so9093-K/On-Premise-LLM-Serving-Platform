@@ -1,3 +1,7 @@
+"""load_settings()가 env/.env/config yaml을 올바른 우선순위로 합치고, 운영
+환경(non-local)에서 위험한 기본값(플레이스홀더 secret, 내부 토큰 없음, admin
+key 없음 등)을 거부하는지 검증한다."""
+
 from __future__ import annotations
 
 import pytest
@@ -397,9 +401,9 @@ def test_load_settings_can_read_explicit_env_file_outside_repo(tmp_path, monkeyp
 
 
 def test_load_settings_uses_yaml_max_request_body_bytes_when_env_unset():
-    # MAX_REQUEST_BODY_BYTES is yaml-owned (operational_limits.max_request_body_bytes).
-    # With the env var absent (the isolate fixture clears it), settings must read the
-    # yaml value so a single source of truth drives the deployed body cap.
+    # MAX_REQUEST_BODY_BYTES는 yaml이 소유한다(operational_limits.max_request_body_bytes).
+    # env 변수가 없을 때(isolate fixture가 지워버림), settings는 yaml 값을 읽어야
+    # 배포된 body 상한을 단일 source of truth가 결정하게 된다.
     from pathlib import Path
 
     import yaml

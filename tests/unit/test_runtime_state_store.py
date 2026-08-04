@@ -1,3 +1,7 @@
+"""RuntimeStateStore(secondary 런타임의 active/stopped 상태 영속화)를 검증한다:
+알 수 없거나 깨진 값의 안전한 폴백, controllable_keys 제약, reason/source
+메타데이터 기록."""
+
 from __future__ import annotations
 
 import asyncio

@@ -1,13 +1,13 @@
-"""PII Protection detector unit tests.
+"""PII Protection detector 단위 테스트.
 
-Tests cover deterministic local recognizers and the entity->D-code mapping.
+결정적(deterministic) local recognizer와 entity->D-code 매핑을 다룬다.
 
-Validated invariants:
-- D1~D5 schema compatibility of output categories
-- data_exposure family validator pass
-- span_count represents detection count
-- original PII values NOT present in response
-- boolean consistency (risk_detected == model_risk_detected == any detected category)
+검증하는 불변식:
+- 출력 category의 D1~D5 스키마 호환성
+- data_exposure family validator 통과
+- span_count가 탐지 개수를 나타냄
+- 원본 PII 값이 response에 없음
+- boolean 일관성(risk_detected == model_risk_detected == 탐지된 category 존재 여부)
 """
 from __future__ import annotations
 
@@ -31,7 +31,7 @@ def _custom_counts(text: str) -> dict[str, int]:
 
 
 # ---------------------------------------------------------------------------
-# Local recognizer tests
+# Local recognizer 테스트
 # ---------------------------------------------------------------------------
 
 class TestKoreanCustomRecognizers:
@@ -84,7 +84,7 @@ class TestKoreanCustomRecognizers:
 
 
 # ---------------------------------------------------------------------------
-# Category builder tests
+# Category builder 테스트
 # ---------------------------------------------------------------------------
 
 class TestBuildCategories:
@@ -139,14 +139,14 @@ class TestBuildCategories:
         for cat in cats:
             for key, value in cat.items():
                 if isinstance(value, str):
-                    # label is entity type name, NOT a raw PII value
+                    # label은 entity 타입 이름이지, 원본 PII 값이 아니다
                     assert value in {"KR_RRN", "KR_FRN", "KR_PASSPORT", "KR_DRIVER_LICENSE",
                                      "EMAIL_ADDRESS", "PHONE_NUMBER", "IP_ADDRESS", "data_exposure",
                                      "pii-protection", "D1", "D2", "D5", None}
 
 
 # ---------------------------------------------------------------------------
-# Detector integration tests
+# Detector 통합 테스트
 # ---------------------------------------------------------------------------
 
 class TestPIIProtectionDetector:
@@ -192,7 +192,7 @@ class TestPIIProtectionDetector:
 
     def test_span_count_reflects_multiple_detections(self):
         detector = PIIProtectionDetector()
-        # Two separate RRNs
+        # 서로 다른 주민번호 2개
         response = self._run(detector.assess("첫번째 901201-1234567 두번째 820315-2345678"))
         d1_cats = [c for c in response["categories"] if c.get("code") == "D1"]
         assert len(d1_cats) == 1

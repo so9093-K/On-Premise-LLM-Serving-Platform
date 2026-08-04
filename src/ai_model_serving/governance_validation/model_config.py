@@ -255,8 +255,12 @@ def validate_risk_detector_generation_budget() -> None:
         )
 
 def validate_model_resource_control_policy() -> None:
+    from ai_model_serving.domain import ModelRegistry
+    from ai_model_serving.registry_projection_drift import gpu_budget_status
+
     serving = read_yaml('configs/model_serving.yaml')
-    catalog = read_yaml('configs/model_catalog.yaml')['models']
+    catalog_document = read_yaml('configs/model_catalog.yaml')
+    catalog = catalog_document['models']
     for key, cfg in serving['models'].items():
         if cfg.get('enabled', True) is not True:
             continue
@@ -271,12 +275,13 @@ def validate_model_resource_control_policy() -> None:
             raise SystemExit(f'{key} resource control concurrency should track max_num_seqs')
         if float(cfg.get('gpu_memory_utilization', 0)) <= 0 or float(cfg.get('gpu_memory_utilization', 0)) >= 1:
             raise SystemExit(f'{key} gpu_memory_utilization must be between 0 and 1')
-    total_util = sum(float(cfg['gpu_memory_utilization']) for cfg in serving['models'].values() if cfg.get('enabled', True) is True)
-    gpu = read_yaml('configs/gpu_budgets.yaml')
-    util_policy = gpu['gpu']['total_gpu_memory_utilization']
-    avoid_above = float(util_policy['avoid_above'])
-    if total_util >= avoid_above:
-        raise SystemExit(f'total configured gpu_memory_utilization {total_util} must stay below avoid_above {avoid_above}')
+    registry = ModelRegistry(catalog_document, serving)
+    budget = gpu_budget_status(registry, read_yaml('configs/gpu_budgets.yaml'))
+    if budget['over_avoid_threshold']:
+        raise SystemExit(
+            f'total configured gpu_memory_utilization {budget["total_gpu_memory_utilization"]} '
+            f'must stay below avoid_above {budget["avoid_above"]}'
+        )
     main_policy = catalog['local-main']['project_runtime_policy']
     if int(main_policy.get('max_image_inputs', 0)) != 1 or main_policy.get('allowed_image_url_schemes') != ['data']:
         raise SystemExit('local-main image input policy must allow exactly one data:image input by default')

@@ -1,3 +1,7 @@
+"""scripts/lib/deploy_recreate_policy.sh를 검증한다: 컨테이너 재생성이 필요한
+조건(불변 digest로 새 이미지가 준비됐는지, recommended_images.yaml의 빌드
+입력이 실제로 바뀌었는지)을 셸 함수 단위로 확인한다."""
+
 from __future__ import annotations
 
 import subprocess

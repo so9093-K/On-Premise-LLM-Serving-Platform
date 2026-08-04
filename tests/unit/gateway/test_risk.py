@@ -1,3 +1,6 @@
+"""gateway가 risk-adapter로 A1(prompt_attack) 판정을 포워딩하는 경로를 검증한다:
+로깅, 페이로드 전달, 런타임 중지 시 503, forbidden 필드/스키마 위반 거부."""
+
 from __future__ import annotations
 
 import dataclasses

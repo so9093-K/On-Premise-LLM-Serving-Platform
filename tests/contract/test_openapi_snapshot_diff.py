@@ -1,3 +1,7 @@
+"""scripts/validation/openapi_snapshot_diff.py의 비교 로직(_compare_one)에 대한
+단위 테스트. 실제 앱이 아니라 최소 OpenAPI 문서 fixture로, description/예시
+불일치 같은 각 항목을 개별적으로 검출하는지 확인한다."""
+
 from __future__ import annotations
 
 import copy

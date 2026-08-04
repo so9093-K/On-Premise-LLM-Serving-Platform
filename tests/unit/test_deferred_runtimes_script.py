@@ -1,3 +1,7 @@
+"""scripts/runtime/deferred_runtimes.py를 검증한다: --runtimes/--profile로 지정한
+런타임이 올바른 service key/compose service로 풀리는지, 명시적 --runtimes가
+--profile을 덮어쓰는지, --apply-state로 runtime-state.json에 제대로 기록되는지."""
+
 from __future__ import annotations
 
 import json

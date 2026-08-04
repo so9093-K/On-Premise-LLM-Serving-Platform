@@ -1,3 +1,7 @@
+"""scripts/models/check_main_model_profiles.py가 카탈로그의 모든 프로필을
+빠짐없이 순회하며 canary 명령을 실행하는지(프로필 하나를 빠뜨리지 않는지)
+검증한다."""
+
 from __future__ import annotations
 
 from pathlib import Path

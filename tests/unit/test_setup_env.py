@@ -1,3 +1,7 @@
+"""scripts/config/setup_env.py(.env 최초 생성/동기화 CLI)를 검증한다: 프로필별
+기본값 생성, 강제 덮어쓰기 시 운영자 값 보존과 secret 로테이션, 폐기된 키
+일괄 제거, runtime secret 파일 동기화/복구."""
+
 from __future__ import annotations
 
 import shutil
@@ -25,7 +29,7 @@ def test_setup_env_generates_compose_env_with_local_open_defaults(tmp_path):
     assert 'FASTAPI_DOCS_ENABLED=true' in text
     assert 'VLLM_IMAGE=ai-model-serving-vllm-unified:' in text
     assert 'RISK_VLLM_IMAGE=ai-model-serving-vllm-unified:' in text
-    # MAX_REQUEST_BODY_BYTES is yaml-owned; it must not be an active .env assignment.
+    # MAX_REQUEST_BODY_BYTES는 yaml이 소유한다; .env에 활성 할당으로 남아있으면 안 된다.
     assert not any(line.startswith('MAX_REQUEST_BODY_BYTES=') for line in text.splitlines())
     assert 'COLBERT_KO_MODEL_DIR' not in text
     assert 'PROMETHEUS_IMAGE=prom/prometheus:v3-distroless' in text

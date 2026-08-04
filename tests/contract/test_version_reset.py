@@ -32,7 +32,7 @@ def _load_module(tmp_root: Path):
 
 
 def _make_project(tmp_path: Path, version: str = OLD_VERSION) -> None:
-    """Minimal file tree matching what reset_version.py modifies."""
+    """reset_version.py가 수정하는 것과 맞춘 최소 파일 트리."""
     (tmp_path / "VERSION").write_text(version + "\n", encoding="utf-8")
 
     specs = tmp_path / "specs"
@@ -111,7 +111,7 @@ def _run_reset(tmp_path: Path, version: str) -> None:
 
 
 class TestResetVersionStable:
-    """Stable version x.y.z reset."""
+    """안정 버전 x.y.z reset."""
 
     @pytest.fixture(autouse=True)
     def setup(self, tmp_path):
@@ -201,7 +201,7 @@ class TestResetVersionStable:
 
 
 class TestResetVersionRC:
-    """Release candidate x.y.z-rc.n reset."""
+    """Release candidate x.y.z-rc.n reset 검증."""
 
     @pytest.fixture(autouse=True)
     def setup(self, tmp_path):

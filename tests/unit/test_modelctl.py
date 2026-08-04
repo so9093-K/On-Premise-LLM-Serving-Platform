@@ -1,3 +1,7 @@
+"""scripts/models/modelctl.py(운영자용 registry 조회/검증/변경제안 CLI)를
+검증한다: status/validate/list 출력, propose-add의 충돌 차단과 plan-only
+동작(실제 파일을 안 건드리고 예상 변경만 보고)."""
+
 from __future__ import annotations
 
 import json

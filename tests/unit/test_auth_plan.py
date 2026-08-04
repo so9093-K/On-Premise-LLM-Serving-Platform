@@ -1,3 +1,7 @@
+"""scripts/auth의 auth_plan/auth_apply/exposure_plan/exposure_apply CLI를 검증한다:
+모드 전환 시 secret을 마스킹해서 보여주는지, .env에 실제로 올바른 값을 쓰는지,
+잘못된 env 파일을 traceback 없이 명확한 에러로 보고하는지."""
+
 from __future__ import annotations
 
 from scripts.auth import auth_apply, auth_plan, exposure_apply, exposure_plan

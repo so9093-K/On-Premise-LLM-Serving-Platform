@@ -1,3 +1,6 @@
+"""/health, /ready, /v1/models의 readiness 판정을 검증한다: 필수 의존성이 죽으면
+503, stopped(의도적 중지)로 표시된 optional 런타임은 그냥 ready 처리되는지 등."""
+
 from __future__ import annotations
 
 from .helpers import *  # noqa: F401,F403

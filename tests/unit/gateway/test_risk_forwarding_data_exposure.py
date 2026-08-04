@@ -1,11 +1,11 @@
-"""Gateway forwarding tests for PII and Secret detector endpoints.
+"""PII/Secret detector 엔드포인트에 대한 Gateway 포워딩 테스트.
 
-Tests confirm:
-- Gateway forwards /v1/risk/detectors/pii/assessments to Risk Adapter
-- Gateway forwards /v1/risk/detectors/secret/assessments to Risk Adapter
-- Gateway aggregate forwards to /v1/risk/assessments and includes D1-D5 categories
-- forbidden fields in Risk Adapter response are still rejected
-- A1/A2 prompt detector behavior is unchanged
+확인하는 것:
+- Gateway가 /v1/risk/detectors/pii/assessments를 Risk Adapter로 포워딩함
+- Gateway가 /v1/risk/detectors/secret/assessments를 Risk Adapter로 포워딩함
+- Gateway aggregate가 /v1/risk/assessments로 포워딩하고 D1-D5 category를 포함함
+- Risk Adapter 응답의 forbidden 필드는 여전히 거부됨
+- A1/A2 prompt detector 동작은 그대로임
 """
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ from .helpers import *  # noqa: F401,F403
 
 
 def _make_data_exposure_response(code: str, label: str, source_model: str = "pii-protection") -> dict:
-    """Build a valid data_exposure risk response for gateway mock."""
+    """gateway mock용으로 유효한 data_exposure risk 응답을 만든다."""
     return {
         "assessment_id": "risk_testde01",
         "status": "completed",

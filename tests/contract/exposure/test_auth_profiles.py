@@ -1,3 +1,9 @@
+"""configs/auth_profiles.yaml이 auth mode 정책의 유일한 source of truth인지 검증한다.
+
+YAML 자체의 구조적 완전성과, 코드의 AUTH_MODE_EXPECTATIONS가 이 YAML에서
+도출되지 별도로 하드코딩되지 않았는지를 확인한다.
+"""
+
 from __future__ import annotations
 
 from .helpers import *  # noqa: F401,F403
@@ -7,7 +13,7 @@ def test_auth_profiles_yaml_exists() -> None:
 
 
 def test_auth_profiles_yaml_is_structurally_complete() -> None:
-    """verify_auth_profiles_yaml_consistency validates YAML completeness, not drift."""
+    """verify_auth_profiles_yaml_consistency는 drift가 아니라 YAML 완전성을 검증한다."""
     sys.path.insert(0, str(ROOT / "src"))
     from ai_model_serving.auth_control import verify_auth_profiles_yaml_consistency
 
@@ -19,7 +25,7 @@ def test_auth_profiles_yaml_is_structurally_complete() -> None:
 
 
 def test_auth_mode_expectations_derived_from_yaml() -> None:
-    """AUTH_MODE_EXPECTATIONS must be derived from configs/auth_profiles.yaml, not hardcoded."""
+    """AUTH_MODE_EXPECTATIONS는 하드코딩이 아니라 configs/auth_profiles.yaml에서 도출되어야 한다."""
     sys.path.insert(0, str(ROOT / "src"))
     import importlib
     import ai_model_serving.auth_control as auth_control

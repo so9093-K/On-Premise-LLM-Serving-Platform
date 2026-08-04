@@ -1,3 +1,7 @@
+"""response_format=json_object/json_schema 제약 디코딩 계약을 검증한다:
+스키마 subset 제한(허용/금지 키워드), 재귀 $ref, 외부 $ref 거부, truncation
+재시도 1회, 최대 깊이 제한 등 constrained decoding 관련 엣지 케이스 전체."""
+
 from __future__ import annotations
 
 from .helpers import *  # noqa: F401,F403

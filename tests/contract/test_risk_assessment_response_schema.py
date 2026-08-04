@@ -1,7 +1,7 @@
-"""JSON Schema contract tests for risk_assessment_response.schema.json.
+"""risk_assessment_response.schema.json에 대한 JSON Schema 계약 테스트.
 
-Tests cover supported data_exposure codes, span_count field, and the existing
-A1/A2/I1-I4 code invariants. Also verifies forbidden fields remain blocked.
+지원되는 data_exposure 코드, span_count 필드, 기존 A1/A2/I1-I4 코드 불변식을
+다룬다. forbidden 필드가 계속 차단되는지도 검증한다.
 """
 from __future__ import annotations
 
@@ -125,7 +125,7 @@ class TestDataExposureSchemaValidation:
     def test_d_code_wrong_family_fails(self, validator):
         cat = {
             "code": "D1",
-            "family": "prompt_attack",  # wrong family for D code
+            "family": "prompt_attack",  # D code에는 잘못된 family
             "detected": True,
             "confidence": None,
             "source_model": "pii-protection",
@@ -168,7 +168,7 @@ class TestExistingSchemaInvariants:
         d4_cat = _data_exposure_cat("D4", "OPENAI_API_KEY", source_model="secret-scanner")
         response = _base_response(
             risk_detected=True, attention_required=True, model_risk_detected=True,
-            strongest_code="D4",  # D4 prioritized over A1
+            strongest_code="D4",  # D4가 A1보다 우선한다
             categories=[d4_cat, a1_cat],
         )
         validator.validate(response)

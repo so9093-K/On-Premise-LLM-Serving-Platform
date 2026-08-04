@@ -1,3 +1,7 @@
+"""VALIDATION_ERROR가 어떤 필드 때문인지(error.param) 실제로 구분되는지, HTTP
+상태 코드와 error.code 기본 매핑이 서로 모순되지 않는지, error.debug/헤더에
+원인이 안전하게(CRLF 주입 없이) 실리는지 검증한다."""
+
 from __future__ import annotations
 
 import pytest
@@ -8,8 +12,8 @@ from ai_model_serving.contracts.common import reject_unknown_fields
 from ai_model_serving.contracts.media import _validate_input_audio
 from ai_model_serving.errors import ServiceError, default_code_for_status, error_payload, service_error_debug
 
-# Permissive policy so the response_format validator reaches a field-level rejection
-# rather than the "not enabled" gate (either way param must name response_format).
+# response_format validator가 "활성화 안 됨" 게이트가 아니라 필드 단위 거부까지
+# 도달하도록 관대한 policy를 쓴다(어느 쪽이든 param은 response_format을 가리켜야 한다).
 _RF_POLICY = {"response_format": {"enabled": True, "types": ["text", "json_schema"]}}
 _STRICT_CHAT_POLICY = {
     "allow_unlisted_parameters": False,
@@ -43,8 +47,8 @@ def test_input_audio_error_carries_input_audio_param():
 
 
 def test_wrong_response_format_and_wrong_data_format_are_distinguishable():
-    """The reported feedback: a client could not tell a wrong output spec from a wrong
-    input data format because both are VALIDATION_ERROR. error.param now separates them."""
+    """접수된 피드백: 클라이언트가 잘못된 출력 스펙과 잘못된 입력 데이터 포맷을
+    구분할 수 없었다, 둘 다 VALIDATION_ERROR였기 때문이다. 이제 error.param이 이 둘을 구분한다."""
     rf = _raise(lambda: _validate_response_format({"type": "bogus"}, {"messages": []}, _RF_POLICY))
     df = _raise(
         lambda: _validate_input_audio(
@@ -161,8 +165,8 @@ def test_chat_tool_errors_carry_tool_param():
 
 
 def test_default_code_for_status_does_not_contradict_status():
-    # Previously every non-401 HTTPException collapsed to VALIDATION_ERROR (a 404 body
-    # said code=VALIDATION_ERROR). The code must now match the status.
+    # 예전엔 401이 아닌 모든 HTTPException이 VALIDATION_ERROR로 뭉개졌다(404 바디에도
+    # code=VALIDATION_ERROR가 찍혔다). 이제 code는 status와 일치해야 한다.
     assert default_code_for_status(401) == "UNAUTHORIZED"
     assert default_code_for_status(403) == "FORBIDDEN"
     assert default_code_for_status(404) == "NOT_FOUND"
@@ -174,9 +178,9 @@ def test_default_code_for_status_does_not_contradict_status():
 
 
 def test_status_default_code_is_consistent_with_error_status():
-    # Every status->code default must round-trip: ERROR_STATUS[code] == status. Otherwise
-    # a HTTPException would carry a code whose own canonical status differs from the one
-    # actually returned.
+    # 모든 status->code 기본값은 왕복되어야 한다: ERROR_STATUS[code] == status.
+    # 안 그러면 HTTPException이 실제로 반환한 status와 그 code의 정식 status가
+    # 서로 다른 채로 나갈 수 있다.
     from ai_model_serving.errors import ERROR_STATUS, STATUS_DEFAULT_CODE
 
     for status, code in STATUS_DEFAULT_CODE.items():
@@ -184,10 +188,10 @@ def test_status_default_code_is_consistent_with_error_status():
 
 
 def test_platform_envelope_http_statuses_have_non_contradictory_default():
-    # Only apps that install the platform error handlers (gateway, risk-adapter, and
-    # their routers) map HTTPException via default_code_for_status. apps/admin_sidecar.py
-    # is an internal service-token app on a plain FastAPI() with the default {"detail"}
-    # shape, so its statuses (e.g. a legitimate 409 eviction conflict) are out of scope.
+    # platform error handler를 설치한 앱(gateway, risk-adapter, 그리고 그 라우터들)만
+    # default_code_for_status로 HTTPException을 매핑한다. apps/admin_sidecar.py는
+    # 순수 FastAPI() 위에 기본 {"detail"} 형태를 쓰는 internal service-token
+    # 앱이라, 그 status들(예: 정당한 409 eviction 충돌)은 이 검사 대상이 아니다.
     import re
     from pathlib import Path
 

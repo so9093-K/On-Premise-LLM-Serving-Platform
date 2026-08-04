@@ -1,3 +1,8 @@
+"""/v1/chat/completions의 요청/응답 로깅과 멀티모달·tool calling·reasoning
+동작을 검증한다. 이미지 포맷 전체 매트릭스는 test_audio_input_validation.py가
+validate_chat_request()를 직접 대상으로 이미 검증하므로 여기서는 대표 케이스만
+앱을 통해 확인한다."""
+
 from __future__ import annotations
 
 import dataclasses

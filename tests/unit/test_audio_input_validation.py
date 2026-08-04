@@ -1,9 +1,9 @@
-"""Audio input validation + dynamic per-profile modality guards.
+"""Audio 입력 검증 + 프로필별 동적 modality 가드.
 
-Audio is accepted ONLY when the active main-model profile deploys it. The
-single most important guarantee here is the negative one: with the current
-text+image model active (no `audio` modality), an `input_audio` part is rejected
-exactly as before -- the audio feature is inert until a profile deploys it.
+audio는 active main-model 프로필이 실제로 배포한 경우에만 허용된다. 여기서
+가장 중요한 보장은 부정적인 쪽이다: 현재 text+image 모델이 active인 상태(no
+`audio` modality)에서는 `input_audio` part가 예전과 똑같이 거부된다 -- audio
+기능은 어떤 프로필이 실제로 배포하기 전까지는 비활성 상태다.
 """
 
 from __future__ import annotations
@@ -115,7 +115,7 @@ def test_audio_part_accepted_when_profile_deploys_audio():
 
 
 def test_audio_part_rejected_when_audio_not_deployed():
-    # The current text+image model: audio must be refused, unchanged behavior.
+    # 현재 text+image 모델: audio는 거부되어야 한다, 기존과 동일한 동작.
     with pytest.raises(ServiceError) as exc:
         _validate(_audio_payload(_wav_b64()), TEXT_IMAGE)
     assert exc.value.status_code == 422
@@ -159,14 +159,14 @@ def test_audio_oversize_rejected():
             max_image_inputs=1,
             max_audio_inputs=1,
             allowed_audio_formats=("wav",),
-            max_audio_bytes=16,  # smaller than the canary
+            max_audio_bytes=16,  # canary보다 작게
         )
     assert exc.value.status_code == 422
     assert "bytes or fewer" in str(exc.value)
 
 
 def test_audio_magic_must_match_declared_format():
-    # Valid WAV bytes but declared as mp3 -> magic mismatch is rejected.
+    # 유효한 WAV 바이트지만 mp3로 선언됨 -> magic 불일치로 거부된다.
     with pytest.raises(ServiceError) as exc:
         _validate(_audio_payload(_wav_b64(), fmt="mp3"), TEXT_IMAGE_AUDIO)
     assert exc.value.status_code == 422
@@ -181,8 +181,8 @@ def test_invalid_base64_audio_rejected():
 
 
 def test_newline_wrapped_base64_audio_accepted():
-    # `base64 file.wav` (CLI) and MIME encoders wrap at 76 columns. The gateway
-    # must tolerate this exactly like the downstream runtime, not 422 it.
+    # `base64 file.wav`(CLI)와 MIME 인코더는 76컬럼에서 줄바꿈한다. gateway는
+    # 이를 downstream runtime과 똑같이 허용해야 하고, 422로 거부하면 안 된다.
     clean = _wav_b64()
     wrapped = "\n".join(clean[i:i + 76] for i in range(0, len(clean), 76))
     assert "\n" in wrapped
@@ -194,8 +194,8 @@ def test_whitespace_padded_base64_audio_accepted():
 
 
 def test_unpadded_base64_audio_still_rejected():
-    # Missing '=' padding is non-standard and the runtime decoder also rejects it;
-    # the gate stays strict here so the error surfaces early and clearly.
+    # '=' 패딩 누락은 표준이 아니고 runtime 디코더도 이를 거부한다;
+    # 그래서 여기 gate도 엄격하게 유지해 에러가 일찍, 명확하게 드러나게 한다.
     with pytest.raises(ServiceError) as exc:
         _validate(_audio_payload(_wav_b64().rstrip("="), fmt="wav"), TEXT_IMAGE_AUDIO)
     assert exc.value.status_code == 422
@@ -203,7 +203,7 @@ def test_unpadded_base64_audio_still_rejected():
 
 
 def test_data_url_prefix_in_input_audio_data_rejected_with_specific_error():
-    # input_audio.data is raw base64 (unlike image_url/video_url data: URLs).
+    # input_audio.data는 raw base64다(image_url/video_url의 data: URL과 다르다).
     with pytest.raises(ServiceError) as exc:
         _validate(_audio_payload("data:audio/wav;base64," + _wav_b64(), fmt="wav"), TEXT_IMAGE_AUDIO)
     assert exc.value.status_code == 422
@@ -295,10 +295,10 @@ def test_animated_gif_is_accepted_as_video_gif():
 
 
 def _build_gif(frame_count: int, delay_centiseconds: int, *, width: int = 1, height: int = 1) -> bytes:
-    """Build a minimal (structurally valid, not necessarily viewable) GIF89a with
-    `frame_count` frames, each preceded by a Graphic Control Extension with the
-    given delay (1/100s). Image data is a dummy sub-block -- _gif_metadata only
-    reads structure (dimensions, frame count, delay), never decodes pixels."""
+    """구조적으로는 유효하지만 실제로 볼 수 있는 건 아닌 최소한의 GIF89a를 만든다.
+    `frame_count`개 프레임 각각의 앞에 주어진 delay(1/100초)를 담은 Graphic
+    Control Extension을 붙인다. 이미지 데이터는 dummy sub-block이다 -- _gif_metadata는
+    구조(크기, 프레임 수, delay)만 읽고 픽셀은 절대 디코드하지 않는다."""
     header = b"GIF89a"
     lsd = width.to_bytes(2, "little") + height.to_bytes(2, "little") + bytes([0x00, 0x00, 0x00])
     frames = bytearray()
@@ -323,7 +323,7 @@ def _gif_b64(frame_count: int, delay_centiseconds: int) -> str:
 
 
 def test_gif_video_rejected_when_duration_exceeds_limit():
-    # 10 frames x 7s delay each = 70s, over the 60s max_video_duration_seconds.
+    # 프레임 10개 x 각 7초 delay = 70초, 60초인 max_video_duration_seconds 초과.
     url = f"data:video/gif;base64,{_gif_b64(10, 700)}"
     with pytest.raises(ServiceError) as exc:
         _validate(_video_payload(url), TEXT_IMAGE_AUDIO_VIDEO)
@@ -332,18 +332,18 @@ def test_gif_video_rejected_when_duration_exceeds_limit():
 
 
 def test_gif_video_accepted_when_short_duration_despite_many_frames():
-    # A short high-frame-rate clip: 100 frames x 0.05s = 5s total, well under
-    # 60s, even though the raw frame count (100) is far above the old flat
-    # 32-frame cap. Duration, not frame count, is the real gate now.
+    # 짧고 프레임률이 높은 클립: 100프레임 x 0.05초 = 총 5초, 60초에 훨씬
+    # 못 미친다 — 원시 프레임 수(100)는 예전의 고정 32프레임 상한을 훨씬
+    # 넘는데도 그렇다. 이제 진짜 게이트는 프레임 수가 아니라 재생 시간이다.
     url = f"data:video/gif;base64,{_gif_b64(100, 5)}"
     _validate(_video_payload(url), TEXT_IMAGE_AUDIO_VIDEO)
 
 
 def test_gif_video_rejected_by_frame_count_backstop_despite_short_duration():
-    # A degenerate encoding: 2000 near-zero-delay frames computes to ~0s
-    # duration but still costs real decode work downstream -- the frame-count
-    # backstop (max_video_duration_seconds * fps ceiling = 60*30 = 1800) must
-    # still catch this even though the duration check alone would pass it.
+    # 퇴화된 인코딩: delay가 거의 0인 2000프레임은 재생 시간이 ~0초로 계산되지만
+    # downstream에서 실제 디코드 비용은 여전히 든다 -- duration 체크만으로는
+    # 통과하겠지만, 프레임 수 backstop(max_video_duration_seconds * fps 상한 =
+    # 60*30 = 1800)이 이걸 여전히 잡아내야 한다.
     url = f"data:video/gif;base64,{_gif_b64(2000, 0)}"
     with pytest.raises(ServiceError) as exc:
         _validate(_video_payload(url), TEXT_IMAGE_AUDIO_VIDEO)
@@ -397,12 +397,12 @@ def test_too_many_video_parts_rejected():
 
 def test_text_only_request_unaffected_by_audio_params():
     payload = {"model": "local-main", "messages": [{"role": "user", "content": "hello"}]}
-    _validate(payload, TEXT_IMAGE)  # must not raise
+    _validate(payload, TEXT_IMAGE)  # 예외가 나면 안 된다
 
 
 def test_configured_audio_formats_are_all_sniffable():
-    # Guards the coupling: every format allowed in model_serving.yaml must have a
-    # magic-byte check, or it would be silently rejected at runtime.
+    # 결합 관계를 가드한다: model_serving.yaml에서 허용된 포맷은 전부
+    # magic-byte 체크가 있어야 한다, 안 그러면 runtime에서 조용히 거부된다.
     from ai_model_serving.contracts.media import SNIFFABLE_AUDIO_FORMATS
     from ai_model_serving.settings import load_settings
 
@@ -419,8 +419,8 @@ def test_configured_video_mime_types_are_all_sniffable():
 
 
 def test_request_body_limit_can_carry_configured_media_limit(monkeypatch):
-    # The raw HTTP cap must not reject valid max-size media before decoded
-    # media validation can return the precise contract error/success.
+    # 디코딩된 미디어 검증이 정확한 계약 위반/성공을 판단하기도 전에, 원시 HTTP
+    # 크기 상한이 유효한 최대 크기 미디어를 먼저 거부해서는 안 된다.
     from ai_model_serving.settings import load_settings
 
     monkeypatch.delenv("MAX_REQUEST_BODY_BYTES", raising=False)
@@ -437,8 +437,8 @@ def test_active_input_modalities_extracts_deployed_input():
 
 
 def test_backend_audio_canary_is_a_valid_input_audio_part():
-    # The boot canary the backend sends must itself satisfy the gateway's audio
-    # validation (format/magic/size), or validation and runtime would disagree.
+    # backend가 보내는 boot canary 자체가 gateway의 audio 검증(format/magic/size)을
+    # 만족해야 한다, 안 그러면 검증과 runtime이 서로 어긋나게 된다.
     from ai_model_serving.docker_main_model_backend import _AUDIO_CANARY_M4A_B64
 
     _validate(_audio_payload(_AUDIO_CANARY_M4A_B64, fmt="m4a"), TEXT_IMAGE_AUDIO)

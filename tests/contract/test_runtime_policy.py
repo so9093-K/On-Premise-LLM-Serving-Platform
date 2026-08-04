@@ -1,3 +1,8 @@
+"""모니터링/버전/모델 정책/에러 코드 등 여러 config·spec 파일이 서로 어긋나지
+않았는지 확인하는 교차 검증 모음. governance_validation(make validate)이 이미
+다루는 사실은 대상에서 제외한다 -- 각 테스트 안 주석에 그 경계를 명시해뒀다.
+"""
+
 from __future__ import annotations
 
 import ast
@@ -46,9 +51,9 @@ def test_model_source_facts_and_runtime_policy_are_separated() -> None:
     catalog = yaml.safe_load((ROOT / 'configs/model_catalog.yaml').read_text(encoding='utf-8'))['models']
     main = catalog['local-main']
     assert main['source_facts']['upstream_example']['tensor_parallel_size'] == 1
-    # RedHatAI's 12B FP8-Dynamic eval example uses a $MAX_MODEL_LEN placeholder
-    # (no concrete suggested value), unlike gemma4-26b-a4b-fp8's card which gives
-    # 96000 explicitly -- so there is no upstream_example.max_model_len to assert.
+    # RedHatAI의 12B FP8-Dynamic eval 예시는 $MAX_MODEL_LEN 플레이스홀더를 쓴다
+    # (구체적인 권장값 없음), 반면 gemma4-26b-a4b-fp8의 카드는 96000을 명시적으로
+    # 준다 -- 그래서 검증할 upstream_example.max_model_len 자체가 없다.
     assert 'max_model_len' not in main['source_facts']['upstream_example']
     assert main['source_facts']['upstream_context_length_tokens']['official_spec_tokens'] == 262144
     assert main['source_facts']['upstream_context_length_tokens']['project_runtime_cap'] == 50000

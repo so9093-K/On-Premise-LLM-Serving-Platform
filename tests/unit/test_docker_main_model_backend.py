@@ -1,3 +1,8 @@
+"""DockerMainModelBackend를 검증한다: 컨테이너 재생성 시 허용 목록 필드만
+복사하는지, 프로필 전환 시 캐시/이미지 정합성, structured-output/tool-calling
+warmup이 실제로 나가고 그 실패가 validate() 전체를 막지 않는지. `docker` 마커가
+붙어 있어 `make test`(마커 not docker) 기본 실행에는 포함되지 않는다."""
+
 from __future__ import annotations
 
 import pytest
@@ -183,12 +188,12 @@ def test_observed_started_at_returns_none_when_container_absent(monkeypatch):
 
 
 def test_structured_output_warmup_schema_is_a_valid_strict_json_schema_response_format():
-    # The text canary in validate() never sets response_format, so without a
-    # dedicated warmup call the xgrammar/Triton constrained-decoding kernel is
-    # never JIT-compiled until a real client sends the first
-    # response_format=json_schema request post-switch. This locks the warmup
-    # payload's shape so it keeps matching the OpenAI-compatible contract that
-    # normalize_chat_request_for_runtime/validate_chat_request expect.
+    # validate()의 text canary는 response_format을 절대 설정하지 않는다, 그래서
+    # 전용 warmup 호출이 없으면 xgrammar/Triton constrained-decoding 커널은
+    # 전환 후 실제 클라이언트가 첫 response_format=json_schema 요청을 보낼
+    # 때까지 절대 JIT-컴파일되지 않는다. warmup payload의 모양을
+    # normalize_chat_request_for_runtime/validate_chat_request가 기대하는
+    # OpenAI 호환 계약과 계속 맞도록 여기서 고정한다.
     schema = backend_module._STRUCTURED_OUTPUT_WARMUP_SCHEMA
     assert schema["type"] == "json_schema"
     json_schema = schema["json_schema"]
@@ -199,13 +204,14 @@ def test_structured_output_warmup_schema_is_a_valid_strict_json_schema_response_
 
 
 def test_validate_calls_structured_output_warmup_and_survives_its_failure(monkeypatch):
-    # Regression guard for the fix in ADR-0018's 2026-07-20 update: validate()
-    # must actually send the response_format=json_schema warmup request (not
-    # just define the schema constant), and a failing warmup must not fail the
-    # whole validate() call (it's pure JIT pre-warming, not a correctness gate).
-    # Also guards the 2026-07-21 raise_for_status() fix: a 4xx/5xx warmup response
-    # must be detected and logged, not silently treated as success (httpx does not
-    # raise on error status codes unless raise_for_status() is called explicitly).
+    # ADR-0018의 2026-07-20 업데이트 수정에 대한 회귀 가드: validate()는
+    # (스키마 상수만 정의하는 게 아니라) response_format=json_schema warmup
+    # 요청을 실제로 보내야 하고, warmup 실패가 validate() 호출 전체를 실패시키면
+    # 안 된다(순수 JIT 사전 예열일 뿐 정확성 게이트가 아니다). 2026-07-21
+    # raise_for_status() 수정도 함께 가드한다: 4xx/5xx warmup 응답은 감지해서
+    # 로그로 남겨야 하고, 조용히 성공으로 처리되면 안 된다(httpx는
+    # raise_for_status()를 명시적으로 호출하지 않으면 에러 상태 코드에도
+    # 예외를 던지지 않는다).
     catalog = load_main_model_catalog(ROOT / "configs/main_model_profiles.yaml")
     profile = catalog.profiles["gemma4-26b-a4b-fp8"]
     backend = DockerMainModelBackend("/var/run/docker.sock")
@@ -234,8 +240,8 @@ def test_validate_calls_structured_output_warmup_and_survives_its_failure(monkey
             return httpx.Response(200, json={"data": [{"id": catalog.public_model}]})
         payload = json.loads(request.content)
         if payload.get("response_format", {}).get("type") == "json_schema":
-            # Simulate the warmup call itself failing (e.g. transient 500) —
-            # validate() must swallow this, not propagate it.
+            # warmup 호출 자체가 실패하는 상황(예: 일시적 500)을 시뮬레이션한다 —
+            # validate()는 이걸 삼켜야 하고 전파하면 안 된다.
             return httpx.Response(500, json={"error": "boom"})
         return httpx.Response(200, json={"choices": [{"message": {"content": "OK"}}]})
 
@@ -247,7 +253,7 @@ def test_validate_calls_structured_output_warmup_and_survives_its_failure(monkey
 
     monkeypatch.setattr(backend_module.httpx, "AsyncClient", fake_async_client)
 
-    asyncio.run(backend.validate(catalog, profile))  # must not raise
+    asyncio.run(backend.validate(catalog, profile))  # 예외가 나면 안 된다
 
     structured_output_calls = [
         request
@@ -262,10 +268,11 @@ def test_validate_calls_structured_output_warmup_and_survives_its_failure(monkey
 
 
 def test_tool_call_warmup_tools_shape_is_a_valid_function_tool():
-    # --enable-auto-tool-choice --tool-call-parser gemma4 also goes through
-    # xgrammar constrained decoding, so it may hit the same Triton JIT cost as
-    # response_format=json_schema on an unwarmed engine. Locks the shape so it
-    # keeps matching the OpenAI-compatible `tools` contract (contracts/chat_tools.py).
+    # --enable-auto-tool-choice --tool-call-parser gemma4도 xgrammar
+    # constrained decoding을 거치므로, 예열 안 된 엔진에서
+    # response_format=json_schema와 같은 Triton JIT 비용을 겪을 수 있다. 이
+    # 모양을 OpenAI 호환 `tools` 계약(contracts/chat_tools.py)과 계속 맞도록
+    # 여기서 고정한다.
     tools = backend_module._TOOL_CALL_WARMUP_TOOLS
     assert len(tools) == 1
     tool = tools[0]
@@ -277,10 +284,10 @@ def test_tool_call_warmup_tools_shape_is_a_valid_function_tool():
 
 
 def test_validate_calls_tool_calling_warmup_and_survives_its_failure(monkeypatch):
-    # Same regression shape as the structured-output warmup test above: validate()
-    # must actually send a tool_choice-forced warmup request, and a failure must
-    # not fail validate() as a whole. Also guards the raise_for_status() fix
-    # (see the structured-output test above for why this matters).
+    # 위 structured-output warmup 테스트와 같은 회귀 형태다: validate()는
+    # tool_choice를 강제한 warmup 요청을 실제로 보내야 하고, 실패해도 validate()
+    # 전체가 실패하면 안 된다. raise_for_status() 수정도 함께 가드한다(왜
+    # 중요한지는 위 structured-output 테스트 참고).
     catalog = load_main_model_catalog(ROOT / "configs/main_model_profiles.yaml")
     profile = catalog.profiles["gemma4-26b-a4b-fp8"]
     backend = DockerMainModelBackend("/var/run/docker.sock")
@@ -309,8 +316,8 @@ def test_validate_calls_tool_calling_warmup_and_survives_its_failure(monkeypatch
             return httpx.Response(200, json={"data": [{"id": catalog.public_model}]})
         payload = json.loads(request.content)
         if "tool_choice" in payload:
-            # Simulate the tool-calling warmup itself failing — validate() must
-            # swallow this too, exactly like the structured-output warmup.
+            # tool-calling warmup 자체가 실패하는 상황을 시뮬레이션한다 —
+            # structured-output warmup과 마찬가지로 validate()가 이것도 삼켜야 한다.
             return httpx.Response(500, json={"error": "boom"})
         return httpx.Response(200, json={"choices": [{"message": {"content": "OK"}}]})
 
@@ -322,7 +329,7 @@ def test_validate_calls_tool_calling_warmup_and_survives_its_failure(monkeypatch
 
     monkeypatch.setattr(backend_module.httpx, "AsyncClient", fake_async_client)
 
-    asyncio.run(backend.validate(catalog, profile))  # must not raise
+    asyncio.run(backend.validate(catalog, profile))  # 예외가 나면 안 된다
 
     tool_call_warmup_calls = [
         request

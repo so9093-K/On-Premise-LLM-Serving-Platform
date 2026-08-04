@@ -1,3 +1,6 @@
+"""HF 캐시 경로 해석(resolve_compose_relative_path)이 compose 파일 기준 상대
+경로와 절대 경로를 모두 올바르게 처리하는지 검증한다."""
+
 from __future__ import annotations
 
 from pathlib import Path

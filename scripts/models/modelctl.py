@@ -17,6 +17,10 @@ if str(ROOT / "src") not in sys.path:
 
 from scripts.lib.cli_kr import KoreanArgumentParser  # noqa: E402
 from ai_model_serving.domain import ModelRegistry  # noqa: E402
+from ai_model_serving.registry_projection_drift import (  # noqa: E402
+    gpu_budget_status,
+    registry_artifact_diffs,
+)
 
 
 MODEL_LIFECYCLE_FILES = [
@@ -37,10 +41,6 @@ def load_yaml(path: Path) -> dict[str, Any]:
     return yaml.safe_load(path.read_text(encoding="utf-8"))
 
 
-def load_json(path: Path) -> dict[str, Any]:
-    return json.loads(path.read_text(encoding="utf-8"))
-
-
 def load_registry(root: Path) -> ModelRegistry:
     return ModelRegistry(
         load_yaml(root / "configs/model_catalog.yaml"),
@@ -49,16 +49,7 @@ def load_registry(root: Path) -> ModelRegistry:
 
 
 def gpu_summary(root: Path, registry: ModelRegistry) -> dict[str, Any]:
-    budgets = load_yaml(root / "configs/gpu_budgets.yaml")
-    total = round(sum(float(service.config.get("gpu_memory_utilization", 0)) for service in registry.iter_runtime_services()), 6)
-    policy = budgets["gpu"]["total_gpu_memory_utilization"]
-    return {
-        "profile": budgets["gpu"].get("default_profile"),
-        "total_gpu_memory_utilization": total,
-        "recommended_start": policy.get("recommended_start"),
-        "avoid_above": policy.get("avoid_above"),
-        "over_avoid_threshold": total > float(policy.get("avoid_above", 1.0)),
-    }
+    return gpu_budget_status(registry, load_yaml(root / "configs/gpu_budgets.yaml"))
 
 
 def model_rows(registry: ModelRegistry) -> list[dict[str, Any]]:
@@ -100,28 +91,7 @@ def status_document(root: Path, registry: ModelRegistry) -> dict[str, Any]:
 
 
 def projection_diffs(root: Path, registry: ModelRegistry) -> list[dict[str, Any]]:
-    checks: list[tuple[str, Any, Any]] = []
-    checks.append((
-        "contracts/model_contracts.yaml",
-        load_yaml(root / "contracts/model_contracts.yaml"),
-        registry.model_contracts_document(),
-    ))
-    checks.append((
-        "specs/schemas/model_list_response.schema.json",
-        load_json(root / "specs/schemas/model_list_response.schema.json"),
-        registry.model_list_schema_document(),
-    ))
-    matrix_path = root / "harness/runtime_validation_matrix.yaml"
-    if matrix_path.exists():
-        checks.append((
-            "harness/runtime_validation_matrix.yaml",
-            load_yaml(matrix_path),
-            registry.runtime_validation_matrix_document(),
-        ))
-    diffs = []
-    for path, actual, expected in checks:
-        diffs.append({"path": path, "status": "ok" if actual == expected else "diff"})
-    return diffs
+    return registry_artifact_diffs(root, registry)
 
 
 def validate_document(root: Path, registry: ModelRegistry) -> dict[str, Any]:

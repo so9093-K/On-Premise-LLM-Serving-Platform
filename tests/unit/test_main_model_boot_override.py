@@ -1,3 +1,7 @@
+"""render_boot_override()가 부팅 시점에 persisted state와 MAIN_LLM_BOOT_PROFILE/
+MAIN_LLM_PROFILE_LOCKED를 올바르게 합쳐 compose command/image override를
+만드는지, state 파일이 깨져 있으면 조용히 넘어가지 않고 실패하는지 검증한다."""
+
 from __future__ import annotations
 
 import json

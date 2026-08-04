@@ -1,3 +1,7 @@
+"""auth_control 모듈(auth_status_document/diagnose_auth)과 그 CLI(auth_status.py/
+auth_doctor.py)를 검증한다: 인증 모드별 상태 요약, 위험한 조합(내부 인증 비활성
+등) 탐지, exposure mode를 명시적 env 파일에서 읽는 우선순위."""
+
 from __future__ import annotations
 
 import json

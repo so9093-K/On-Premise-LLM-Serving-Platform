@@ -1,3 +1,7 @@
+"""Risk Adapter 앱 자체(gateway를 거치지 않고 직접)를 검증한다: readiness,
+내부 서비스 토큰 인증(gateway 인증과 독립적), prompt detector 응답 파싱
+(안전/위험/파싱실패), aggregate의 partial 처리, usage 보존, 메트릭 기록."""
+
 from __future__ import annotations
 
 import dataclasses

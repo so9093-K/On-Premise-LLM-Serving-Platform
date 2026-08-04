@@ -1,3 +1,6 @@
+"""mask_sensitive_text가 PII와 secret을 한 번에 마스킹하는지, 민감정보 없는
+텍스트는 그대로 두는지 검증한다."""
+
 from __future__ import annotations
 
 from ai_model_serving.detectors.masking import mask_sensitive_text

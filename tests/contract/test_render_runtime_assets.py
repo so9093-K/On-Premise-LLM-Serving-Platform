@@ -35,7 +35,7 @@ def _load_yaml(path: Path) -> dict[str, Any]:
     return yaml.safe_load(path.read_text(encoding="utf-8"))
 
 
-# ── fixtures ───────────────────────────────────────────────────────────────────
+# ── 픽스처 ───────────────────────────────────────────────────────────────────
 
 @pytest.fixture(scope="module")
 def catalog() -> dict[str, Any]:

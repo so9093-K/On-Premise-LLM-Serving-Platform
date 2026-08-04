@@ -1,3 +1,7 @@
+"""GatewayClients가 embedding_model_routes 설정만으로 런타임 클라이언트를
+올바르게 구성/중복제거하는지 검증한다 -- 새 embedding 라우트가 코드 변경 없이
+설정만으로 반영돼야 한다는 계약이다."""
+
 from __future__ import annotations
 
 from .helpers import *  # noqa: F401,F403

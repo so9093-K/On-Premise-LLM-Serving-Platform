@@ -1,3 +1,6 @@
+"""/metrics 노출, request_id/에러코드 접근 로그 기록, request body 크기 제한,
+CORS 정책을 검증한다."""
+
 from __future__ import annotations
 
 import dataclasses
@@ -110,10 +113,10 @@ def test_gateway_records_safe_validation_rejection_metric_for_image_errors():
 
 
 def test_gateway_records_specific_validation_rejection_reason_for_image_pixels():
-    # Minimal 24-byte PNG header (signature + IHDR + 3x3 dimensions, no real
-    # pixel data): _png_dimensions only reads the header, and settings() caps
-    # max_image_pixels at 4, so 3x3=9 trips the pixel limit specifically
-    # (distinct from the generic "image_input" bucket covered above).
+    # 최소 24바이트 PNG 헤더(signature + IHDR + 3x3 크기, 실제 픽셀 데이터 없음):
+    # _png_dimensions는 헤더만 읽고, settings()는 max_image_pixels를 4로
+    # 제한하므로 3x3=9가 픽셀 한도를 구체적으로 건드린다(위에서 다룬 범용
+    # "image_input" 버킷과는 구분된다).
     png_b64 = "iVBORw0KGgoAAAAASUhEUgAAAAMAAAAD"
     client = TestClient(create_gateway_app(settings(), FakeGatewayClients()))
     client.post(

@@ -1,12 +1,14 @@
+"""bootstrap.sh가 compose 기동 전에 auth mode를 올바르게 적용하는지 검증한다."""
+
 from __future__ import annotations
 
 from .helpers import *  # noqa: F401,F403
 
 def test_bootstrap_does_not_skip_any_named_auth_mode() -> None:
-    """bootstrap.sh must apply all named profiles, not skip specific ones by name."""
+    """bootstrap.sh는 특정 이름을 콕 집어 건너뛰지 않고 모든 named profile을 적용해야 한다."""
     text = (ROOT / "scripts/build/bootstrap.sh").read_text(encoding="utf-8")
-    # No profile name should be hardcoded as a skip condition
-    # The only skip allowed is for AUTH_MODE=custom (operator-managed)
+    # 어떤 profile 이름도 skip 조건으로 하드코딩되면 안 된다
+    # 유일하게 허용되는 skip은 AUTH_MODE=custom(운영자가 직접 관리)뿐이다
     auth_yaml = _load_auth()
     for mode in auth_yaml.get("profiles", {}):
         if mode == "custom":
