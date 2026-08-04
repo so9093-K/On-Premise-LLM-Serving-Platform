@@ -1,13 +1,10 @@
-"""DockerMainModelBackend를 검증한다: 컨테이너 재생성 시 허용 목록 필드만
-복사하는지, 프로필 전환 시 캐시/이미지 정합성, structured-output/tool-calling
-warmup이 실제로 나가고 그 실패가 validate() 전체를 막지 않는지. `docker` 마커가
-붙어 있어 `make test`(마커 not docker) 기본 실행에는 포함되지 않는다."""
+"""DockerMainModelBackend의 결정론적 단위 테스트.
+
+Docker daemon을 띄우지 않고 inspect·HTTP 요청을 fake로 대체한다. 컨테이너 재생성
+정책과 warmup 실패 격리라는 핵심 decision을 보호하므로 기본 `make test`에 포함한다.
+"""
 
 from __future__ import annotations
-
-import pytest
-
-pytestmark = pytest.mark.docker
 
 import asyncio
 import json

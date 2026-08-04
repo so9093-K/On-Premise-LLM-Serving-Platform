@@ -215,7 +215,7 @@ def operator_status_bundle_markdown(document: dict[str, Any]) -> str:
         "",
         "이 번들은 현재 모델 registry, GPU budget, monitoring label, readiness vocabulary를 한 번에 보는 운영자용 상태판이다. 장애 대응 시에는 먼저 이 파일에서 어떤 runtime service와 모델 ID가 기대 상태인지 확인하고, live 검증이 필요하면 `make runtime-validate`를 실행한 뒤 `make operator-reports`로 evidence를 갱신한다.",
         "",
-        "모델 추가·제거는 단일 YAML 수정으로 끝나지 않는다. catalog, serving config, contract, model card, runtime validation matrix, monitoring projection, test가 함께 맞아야 하므로 현재 `modelctl`은 read-only 검증에 머문다.",
+        "모델 추가·제거는 단일 YAML 수정으로 끝나지 않는다. catalog, serving config, contract, registry 기반 runtime validation plan, monitoring projection, test를 함께 갱신하고 필요한 모델 카드는 운영 문서로 검토해야 하므로 현재 `modelctl`은 read-only 검증에 머문다.",
         "",
         "운영자가 이 파일에서 먼저 확인할 항목은 세 가지다. 첫째, 모델 ID와 runtime service 이름이 기대와 같은지 본다. 둘째, GPU utilization 합계가 회피 기준을 넘지 않는지 본다. 셋째, monitoring label과 readiness vocabulary가 dashboard와 정적 검증에서 같은 의미로 쓰이는지 본다. 이 세 가지가 맞지 않으면 full-stack을 올리기 전에 정적 설정을 먼저 고친다.",
     ])

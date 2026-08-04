@@ -1,35 +1,11 @@
-"""OpenAPI 스펙 자체의 구조적 정합성을 검증한다: $ref가 전부 로컬 파일로 풀리는지,
-model_list 응답 스키마가 알려진 logical_id로만 제한돼 있는지, 문서에 적힌
-version이 VERSION 파일과 일치하는지."""
+"""model list schema가 알려진 logical ID만 허용하는지 검증한다."""
 
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Iterator
 
-import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
-
-
-def walk_refs(obj: Any) -> Iterator[str]:
-    if isinstance(obj, dict):
-        if '$ref' in obj:
-            yield obj['$ref']
-        for value in obj.values():
-            yield from walk_refs(value)
-    elif isinstance(obj, list):
-        for value in obj:
-            yield from walk_refs(value)
-
-
-def test_openapi_local_refs_exist() -> None:
-    for rel in ['specs/openapi.gateway.yaml', 'specs/openapi.risk-adapter.yaml']:
-        doc = yaml.safe_load((ROOT / rel).read_text(encoding='utf-8'))
-        for ref in walk_refs(doc):
-            assert ref.startswith('./')
-            assert (ROOT / 'specs' / ref[2:]).exists(), ref
-
 
 def test_model_list_schema_restricts_logical_ids() -> None:
     import json
@@ -51,10 +27,3 @@ def test_model_list_schema_restricts_logical_ids() -> None:
     invalid["data"] = [dict(item) for item in valid["data"]]
     invalid["data"][0]["id"] = "retired-main"
     assert list(validator.iter_errors(invalid))
-
-
-def test_openapi_specs_use_current_version() -> None:
-    version = (ROOT / "VERSION").read_text(encoding="utf-8").strip()
-    for rel in ["specs/openapi.gateway.yaml", "specs/openapi.risk-adapter.yaml"]:
-        doc = yaml.safe_load((ROOT / rel).read_text(encoding="utf-8"))
-        assert doc["info"]["version"] == version

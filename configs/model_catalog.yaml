@@ -151,15 +151,6 @@ models:
       added_at: 2026-05-10
       deprecation_deadline: null
       removal_ticket: null
-      add_or_remove_via:
-      - configs/model_catalog.yaml
-      - configs/model_serving.yaml
-      - contracts/model_contracts.yaml
-      - model_cards/<logical-id>.json
-      - specs/schemas/model_list_response.schema.json
-      - tests/contract/test_runtime_policy.py
-      removal_rule: remove from catalog, serving config, model contract, model card,
-        public model schema enum, and runtime validation expectations in one change
     selectable_runtime_profiles:
       source: configs/main_model_profiles.yaml
       profiles:
@@ -239,15 +230,6 @@ models:
       added_at: 2026-05-10
       deprecation_deadline: null
       removal_ticket: null
-      add_or_remove_via:
-      - configs/model_catalog.yaml
-      - configs/model_serving.yaml
-      - contracts/model_contracts.yaml
-      - model_cards/<logical-id>.json
-      - specs/schemas/model_list_response.schema.json
-      - tests/contract/test_runtime_policy.py
-      removal_rule: remove from catalog, serving config, model contract, model card,
-        public model schema enum, and runtime validation expectations in one change
   local-embed-ko:
     role: embedding
     upstream_model_id: dragonkue/snowflake-arctic-embed-l-v2.0-ko
@@ -323,15 +305,6 @@ models:
       added_at: 2026-05-20
       deprecation_deadline: null
       removal_ticket: null
-      add_or_remove_via:
-      - configs/model_catalog.yaml
-      - configs/model_serving.yaml
-      - contracts/model_contracts.yaml
-      - model_cards/<logical-id>.json
-      - specs/schemas/model_list_response.schema.json
-      - tests/contract/test_runtime_policy.py
-      removal_rule: remove from catalog, serving config, model contract, model card,
-        public model schema enum, and runtime validation expectations in one change
   risk-prompt:
     role: risk_prompt_detector
     upstream_model_id: kakaocorp/kanana-safeguard-prompt-2.1b
@@ -404,12 +377,3 @@ models:
       added_at: 2026-05-10
       deprecation_deadline: null
       removal_ticket: null
-      add_or_remove_via:
-      - configs/model_catalog.yaml
-      - configs/model_serving.yaml
-      - contracts/model_contracts.yaml
-      - model_cards/<logical-id>.json
-      - specs/schemas/model_list_response.schema.json
-      - tests/contract/test_runtime_policy.py
-      removal_rule: remove from catalog, serving config, model contract, model card,
-        public model schema enum, and runtime validation expectations in one change

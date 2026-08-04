@@ -4,13 +4,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-import yaml
-
 from ai_model_serving.domain import ModelRegistry
-
-
-def _read_yaml(path: Path) -> Any:
-    return yaml.safe_load(path.read_text(encoding="utf-8"))
 
 
 def _read_json(path: Path) -> Any:
@@ -28,23 +22,11 @@ def registry_projected_artifacts(root: Path, registry: ModelRegistry) -> list[tu
     """
     checks: list[tuple[str, Any, Any]] = [
         (
-            "contracts/model_contracts.yaml",
-            _read_yaml(root / "contracts/model_contracts.yaml"),
-            registry.model_contracts_document(),
-        ),
-        (
             "specs/schemas/model_list_response.schema.json",
             _read_json(root / "specs/schemas/model_list_response.schema.json"),
             registry.model_list_schema_document(),
         ),
     ]
-    matrix_path = root / "harness/runtime_validation_matrix.yaml"
-    if matrix_path.exists():
-        checks.append((
-            "harness/runtime_validation_matrix.yaml",
-            _read_yaml(matrix_path),
-            registry.runtime_validation_matrix_document(),
-        ))
     return checks
 
 

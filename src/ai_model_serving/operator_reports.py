@@ -77,7 +77,7 @@ def runtime_targets_markdown(document: dict[str, Any]) -> str:
         "",
         "## 운영 해석",
         "",
-        "이 리포트는 ModelRegistry가 실제 runtime target, compose service, monitoring label과 어떻게 연결되는지 보여준다. 모델이 추가되거나 제거되면 이 목록과 model list schema, runtime validation matrix, monitoring projection이 함께 바뀌어야 한다.",
+        "이 리포트는 ModelRegistry가 실제 runtime target, compose service, monitoring label과 어떻게 연결되는지 보여준다. 모델이 추가되거나 제거되면 이 목록과 model list schema, registry 기반 runtime validation plan, monitoring projection이 함께 바뀐다.",
         "",
         "이 리포트에는 원문 프롬프트, 사용자 텍스트, 모델 출력, Authorization 헤더, secret 값을 포함하지 않는다.",
     ])

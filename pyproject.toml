@@ -29,12 +29,6 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 pythonpath = ["src", "."]
 addopts = "-p no:cacheprovider -p no:ddtrace -p no:asyncio --strict-markers"
-markers = [
-  "runtime: live service validation requiring a running stack",
-  "docker: validation requiring Docker or docker compose",
-  "gpu: validation requiring visible GPU runtime capability",
-  "slow: deterministic test excluded from the fast default suite",
-]
 
 [build-system]
 requires = ["setuptools==83.0.0"]

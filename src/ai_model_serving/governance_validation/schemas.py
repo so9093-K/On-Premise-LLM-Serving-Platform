@@ -125,6 +125,12 @@ def validate_risk_schema() -> None:
     partial_sample = {**valid_sample, 'status': 'partial', 'assessment_complete': False, 'risk_detected': False, 'model_risk_detected': False, 'system_signal_detected': True, 'strongest_code': 'INFERENCE_TIMEOUT', 'categories': [], 'system_signals': [{'code': 'INFERENCE_TIMEOUT', 'detected': True, 'retryable': True}]}
     validator.validate(partial_sample)
 
+    usage_sample = {**valid_sample, 'usage': {'prompt_tokens': 1, 'completion_tokens': 1, 'total_tokens': 2}}
+    validator.validate(usage_sample)
+    incomplete_usage = {**valid_sample, 'usage': {'prompt_tokens': 1}}
+    if not list(validator.iter_errors(incomplete_usage)):
+        raise SystemExit('risk schema must reject an incomplete usage object')
+
     configured = set(read_yaml('configs/model_serving.yaml')['risk_adapter']['forbidden_response_fields'])
     if configured != FORBIDDEN_RESPONSE_FIELDS:
         raise SystemExit(f'forbidden field list mismatch: config={configured}, expected={FORBIDDEN_RESPONSE_FIELDS}')

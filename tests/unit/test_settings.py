@@ -32,7 +32,6 @@ def isolate_settings_environment(monkeypatch):
         "EMBEDDING_MAX_CONCURRENCY",
         "EMBEDDING_QUEUE_TIMEOUT_SECONDS",
         "RISK_PROMPT_TIMEOUT_SECONDS",
-        "RISK_SIREN_TIMEOUT_SECONDS",
         "RISK_ADAPTER_TIMEOUT_SECONDS",
     ]:
         monkeypatch.delenv(name, raising=False)
@@ -247,7 +246,6 @@ def test_load_settings_supports_per_model_timeout_overrides(monkeypatch):
     monkeypatch.setenv("RISK_ADAPTER_TIMEOUT_SECONDS", "10")
     settings = load_settings()
     assert settings.risk_prompt.timeout_seconds == 3
-    assert "risk_siren" not in settings.runtime_endpoints
 
 
 def test_load_settings_uses_nested_admission_control_defaults(monkeypatch):

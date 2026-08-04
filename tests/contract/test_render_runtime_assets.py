@@ -23,11 +23,8 @@ from scripts.render_runtime_assets import (  # noqa: E402
     get_artifacts,
     get_doc_patches,
     patch_doc_block,
-    render_model_contracts_yaml,
-    render_model_list_schema_json,
     render_prometheus_yml,
     render_runtime_targets_block,
-    render_runtime_validation_matrix_yaml,
 )
 
 
@@ -78,19 +75,6 @@ def test_port_change_propagates_to_prometheus(
     assert "main-llm-vllm:9401" not in rendered
 
 
-def test_port_change_propagates_to_contracts(
-    catalog: dict[str, Any], serving: dict[str, Any]
-) -> None:
-    catalog2 = copy.deepcopy(catalog)
-    catalog2["models"]["local-main"]["runtime"]["port"] = 9999
-    serving2 = copy.deepcopy(serving)
-    serving2["models"]["main_llm"]["port"] = 9999
-    registry2 = ModelRegistry(catalog2, serving2)
-    rendered = render_model_contracts_yaml(registry2)
-    doc = yaml.safe_load(rendered)
-    assert doc["models"]["local-main"]["port"] == 9999
-
-
 def test_port_change_propagates_to_runtime_targets_block(
     catalog: dict[str, Any], serving: dict[str, Any]
 ) -> None:
@@ -103,33 +87,9 @@ def test_port_change_propagates_to_runtime_targets_block(
     assert "9401" not in block
 
 
-# ── served_model_name 변경 시 전파 ────────────────────────────────────────────
+# ── 새 서비스 추가 시 registry runtime target 수 증가 ─────────────────────────
 
-def test_served_model_name_change_in_runtime_targets(
-    catalog: dict[str, Any], serving: dict[str, Any]
-) -> None:
-    """served_model_name은 runtime targets block에 반영된다."""
-    registry = ModelRegistry(catalog, serving)
-    block = render_runtime_targets_block(registry)
-    assert "local-main" in block
-    assert "local-embed" in block
-    assert "local-embed-ko" in block
-    assert "risk-prompt" in block
-
-
-def test_model_list_schema_contains_public_logical_ids(registry: ModelRegistry) -> None:
-    """model_list_schema는 catalog의 public logical_id를 enum으로 갖는다."""
-    schema = json.loads(render_model_list_schema_json(registry))
-    ids = schema["properties"]["data"]["items"]["properties"]["id"]["enum"]
-    assert "local-main" in ids
-    assert "local-embed" in ids
-    assert "local-embed-ko" in ids
-    assert "risk-prompt" in ids
-
-
-# ── 새 서비스 추가 시 matrix/monitoring target 수 증가 ────────────────────────
-
-def test_new_service_increases_matrix_runtime_services(
+def test_new_service_increases_registry_runtime_services(
     catalog: dict[str, Any], serving: dict[str, Any]
 ) -> None:
     catalog2 = copy.deepcopy(catalog)
@@ -161,9 +121,10 @@ def test_new_service_increases_matrix_runtime_services(
     registry2 = ModelRegistry(catalog2, serving2)
     orig_registry = ModelRegistry(catalog, serving)
 
-    matrix_doc = yaml.safe_load(render_runtime_validation_matrix_yaml(registry2))
     vllm_check = next(
-        c for c in matrix_doc["validation_checks"] if c["id"] == "vllm-runtime"
+        c.as_yaml_item()
+        for c in registry2.runtime_validation_matrix_checks()
+        if c.id == "vllm-runtime"
     )
     assert "test_llm" in vllm_check["runtime_services"]
 

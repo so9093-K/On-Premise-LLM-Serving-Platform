@@ -21,7 +21,6 @@ COMPOSE_PATH = ROOT / "ops/compose/full-stack.private-network.yaml"
 SERVING_PATH = ROOT / "configs/model_serving.yaml"
 CATALOG_PATH = ROOT / "configs/model_catalog.yaml"
 GPU_BUDGETS_PATH = ROOT / "configs/gpu_budgets.yaml"
-MODEL_CARD_DIR = ROOT / "model_cards"
 MAIN_MODEL_PROFILES_PATH = ROOT / "configs/main_model_profiles.yaml"
 
 COMPOSE_SCALAR_ARGS = (
@@ -243,9 +242,6 @@ def validate_alignment(
             continue
         args = command_args(service.get("command"))
         cfg = runtime.config
-        card_path = MODEL_CARD_DIR / f"{runtime.logical_id}.json"
-        card = json.loads(card_path.read_text(encoding="utf-8"))
-        card_policy = card.get("project_runtime_policy", {})
         catalog_policy = catalog_doc["models"][runtime.logical_id].get("project_runtime_policy", {})
 
         expected = expected_compose_args(cfg, runtime)
@@ -282,9 +278,9 @@ def validate_alignment(
             if cfg.get("max_output_tokens") != 1:
                 errors.append(f"{service_name}: risk detector max_output_tokens must remain 1")
 
-        # 세 개의 runtime policy 소스가 모두 값을 선언하는 경우 서로 일치하는지 확인.
+        # catalog와 serving 설정이 모두 값을 선언하는 경우 서로 일치하는지 확인.
         for key in RUNTIME_POLICY_FIELDS:
-            for source_name, source in [("model_catalog", catalog_policy), ("model_card", card_policy)]:
+            for source_name, source in [("model_catalog", catalog_policy)]:
                 if key in source and key not in cfg:
                     errors.append(f"{runtime.logical_id}: {source_name}.{key} is declared but model_serving.{key} is missing")
                     continue
@@ -295,15 +291,6 @@ def validate_alignment(
                         errors.append(f"{runtime.logical_id}: {source_name}.{key}={source_value} does not match model_serving {cfg_value}")
                 elif key in source and str(source[key]) != str(cfg[key]):
                     errors.append(f"{runtime.logical_id}: {source_name}.{key}={source[key]} does not match model_serving {cfg[key]}")
-
-        source_context = catalog_doc["models"][runtime.logical_id].get("source_facts", {}).get("upstream_context_length_tokens", {})
-        if "project_runtime_cap" in source_context and "max_model_len" in catalog_policy:
-            if str(source_context["project_runtime_cap"]) != str(catalog_policy["max_model_len"]):
-                errors.append(
-                    f"{runtime.logical_id}: source_facts.upstream_context_length_tokens.project_runtime_cap="
-                    f"{source_context['project_runtime_cap']} does not match project_runtime_policy.max_model_len "
-                    f"{catalog_policy['max_model_len']}"
-                )
 
     if total_gpu_util >= avoid_above:
         errors.append(

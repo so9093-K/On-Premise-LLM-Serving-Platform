@@ -1,8 +1,8 @@
-"""runtime_validation 패키지(runtime_validation.py --config-only가 실제로 실행하는
-코드)를 검증한다: config-only 실행 시 나오는 체크 목록/개수, endpoint 우선순위
-(CLI > env > 기본값), 리포트 파일 작성 형식. model-list-schema/GPU 예산처럼
-governance_validation·render_runtime_assets와 겹치던 체크는 이미 여기서
-제거했다(2026-08-03, registry_projection_drift.py로 단일화)."""
+"""runtime_validation 패키지의 독립적인 결정 함수만 검증한다.
+
+config-only 실행 결과와 operator report projection은 ``make validate``가 실제 설정으로
+매번 실행하므로 여기서 snapshot으로 반복하지 않는다.
+"""
 
 from __future__ import annotations
 
@@ -28,49 +28,9 @@ def _clear_runtime_endpoint_env(monkeypatch) -> None:
         "MAIN_LLM_BASE_URL",
         "EMBEDDING_BASE_URL",
         "RISK_PROMPT_BASE_URL",
-        "RISK_SIREN_BASE_URL",
         "PROMETHEUS_BASE_URL",
     ]:
         monkeypatch.setenv(key, "")
-
-
-def test_runtime_validation_config_only_runner_records_expected_checks(monkeypatch) -> None:
-    _clear_runtime_endpoint_env(monkeypatch)
-
-    args = SimpleNamespace(
-        root=str(ROOT),
-        output_dir="reports/runtime",
-        gateway_base="http://localhost:9400",
-        risk_base="http://localhost:9405",
-        main_llm_base="http://localhost:9401/v1",
-        embedding_base="http://localhost:9402/v1",
-        risk_prompt_base="http://localhost:9403/v1",
-        prometheus_base="http://localhost:9410",
-        api_key="",
-        admin_api_key="",
-        timeout_seconds=30,
-        soak_seconds=1800,
-        soak_interval_seconds=1.0,
-        concurrency=1,
-        skip_soak=False,
-        config_only=True,
-        allow_failures=False,
-    )
-
-    validator = RuntimeValidator(load_runtime_config(args))
-    validator.run_config_only()
-
-    assert len(validator.results) == 14
-    assert all(item.passed for item in validator.results)
-    assert {item.category for item in validator.results} >= {
-        "vllm-runtime",
-        "monitoring-scrape",
-        "model-resource-control",
-        "runtime-validation-matrix",
-        "operator-runtime-targets",
-        "operator-status-bundle",
-        "operator-monitoring-projection",
-    }
 
 
 def test_runtime_validation_endpoint_priority_cli_env_default(monkeypatch) -> None:
@@ -197,32 +157,6 @@ def test_runtime_validation_report_summarizes_degraded_features(tmp_path: Path) 
     assert "Degraded features: json_schema_with_reasoning" in md_path.read_text(encoding="utf-8")
 
 
-def test_runtime_validation_uses_model_registry_projection_for_model_expectations() -> None:
-    args = SimpleNamespace(
-        root=str(ROOT),
-        output_dir="reports/runtime",
-        gateway_base="http://localhost:9400",
-        risk_base="http://localhost:9405",
-        main_llm_base="http://localhost:9401/v1",
-        embedding_base="http://localhost:9402/v1",
-        risk_prompt_base="http://localhost:9403/v1",
-        prometheus_base="http://localhost:9410",
-        api_key="",
-        admin_api_key="",
-        timeout_seconds=30,
-        soak_seconds=1800,
-        soak_interval_seconds=1.0,
-        concurrency=1,
-        skip_soak=False,
-        config_only=True,
-        allow_failures=False,
-    )
-    validator = RuntimeValidator(load_runtime_config(args))
-
-    assert validator.registry.public_logical_ids() == ("local-main", "local-embed", "local-embed-ko", "risk-prompt")
-    assert "risk_siren" not in validator.config.vllm_bases
-
-
 def test_runtime_validation_live_mode_registers_runtime_canaries(monkeypatch) -> None:
     _clear_runtime_endpoint_env(monkeypatch)
     args = SimpleNamespace(
@@ -271,71 +205,6 @@ def test_runtime_validation_live_mode_registers_runtime_canaries(monkeypatch) ->
     assert matrix_ids == expected_canaries
 
 
-def test_operator_runtime_targets_report_is_registry_backed(tmp_path: Path) -> None:
-    import yaml
-
-    from ai_model_serving.domain import ModelRegistry
-    from ai_model_serving.operator_reports import runtime_targets_document, runtime_targets_markdown, write_runtime_targets_report
-
-    registry = ModelRegistry(
-        yaml.safe_load((ROOT / "configs/model_catalog.yaml").read_text(encoding="utf-8")),
-        yaml.safe_load((ROOT / "configs/model_serving.yaml").read_text(encoding="utf-8")),
-    )
-    document = runtime_targets_document(registry)
-    assert document["compose_service_regex"] == "main-llm-vllm|embedding-vllm|embedding-ko-vllm|risk-prompt-vllm"
-    assert document["runtime_targets"][0]["logical_id"] == "local-main"
-    markdown = runtime_targets_markdown(document)
-    assert "# 런타임 대상 인벤토리" in markdown
-    assert "원문 프롬프트" in markdown
-
-    json_path, md_path = write_runtime_targets_report(registry, tmp_path)
-    assert json_path.exists()
-    assert md_path.exists()
-
-
-def test_operator_status_bundle_report_is_registry_backed(tmp_path: Path) -> None:
-    import yaml
-
-    from ai_model_serving.domain import ModelRegistry
-    from ai_model_serving.operator_status import (
-        operator_status_bundle_document,
-        operator_status_bundle_markdown,
-        write_operator_status_bundle,
-    )
-
-    registry = ModelRegistry(
-        yaml.safe_load((ROOT / "configs/model_catalog.yaml").read_text(encoding="utf-8")),
-        yaml.safe_load((ROOT / "configs/model_serving.yaml").read_text(encoding="utf-8")),
-    )
-    document = operator_status_bundle_document(
-        registry=registry,
-        monitoring=yaml.safe_load((ROOT / "configs/monitoring.yaml").read_text(encoding="utf-8")),
-        services=yaml.safe_load((ROOT / "configs/services.yaml").read_text(encoding="utf-8"))["services"],
-        gpu_budgets=yaml.safe_load((ROOT / "configs/gpu_budgets.yaml").read_text(encoding="utf-8")),
-        version="0.1.0-test",
-    )
-
-    assert document["privacy_contract"] == {
-        "raw_prompt_included": False,
-        "user_text_included": False,
-        "model_output_included": False,
-        "authorization_header_included": False,
-    }
-    assert document["operator_commands"]["operator_status"] == "make operator-status"
-    assert document["gpu_budget_summary"]["runtime_service_count"] == 4
-    assert document["gpu_budget_summary"]["reserve_gib_hard_minimum"] == 3.5
-    assert document["monitoring_summary"]["model_labels"] == ["local-main", "local-embed", "local-embed-ko", "risk-prompt"]
-    markdown = operator_status_bundle_markdown(document)
-    assert "# 운영 상태 번들" in markdown
-    assert "make runtime-validate" in markdown
-    assert "reserve hard minimum GiB" in markdown
-    assert "원문 프롬프트" in markdown
-
-    json_path, md_path = write_operator_status_bundle(document, tmp_path)
-    assert json_path.exists()
-    assert md_path.exists()
-
-
 def test_gpu_check_uses_hard_minimum_with_legacy_fallback(monkeypatch) -> None:
     from ai_model_serving.runtime_validation.gpu_checks import sample_gpu
     from types import SimpleNamespace
@@ -361,46 +230,6 @@ def test_gpu_check_uses_hard_minimum_with_legacy_fallback(monkeypatch) -> None:
     )
     assert legacy_result.status == "pass"
     assert legacy_result.details["minimum_reserve_gib"] == 3.0
-
-
-def test_monitoring_projection_report_is_registry_backed(tmp_path: Path) -> None:
-    import yaml
-
-    from ai_model_serving.domain import ModelRegistry
-    from ai_model_serving.monitoring_projection import (
-        monitoring_projection_document,
-        monitoring_projection_markdown,
-        prometheus_scrape_config_document,
-        write_monitoring_projection_report,
-    )
-
-    registry = ModelRegistry(
-        yaml.safe_load((ROOT / "configs/model_catalog.yaml").read_text(encoding="utf-8")),
-        yaml.safe_load((ROOT / "configs/model_serving.yaml").read_text(encoding="utf-8")),
-    )
-    monitoring = yaml.safe_load((ROOT / "configs/monitoring.yaml").read_text(encoding="utf-8"))
-    services = yaml.safe_load((ROOT / "configs/services.yaml").read_text(encoding="utf-8"))["services"]
-    projected_prometheus = prometheus_scrape_config_document(registry=registry, monitoring=monitoring, services=services)
-    actual_prometheus = yaml.safe_load((ROOT / "ops/prometheus/prometheus.yml").read_text(encoding="utf-8"))
-    assert projected_prometheus == actual_prometheus
-
-    document = monitoring_projection_document(registry=registry, monitoring=monitoring, services=services)
-    assert document["recording_rules"]["compose_service_regex"] == "main-llm-vllm|embedding-vllm|embedding-ko-vllm|risk-prompt-vllm"
-    assert document["grafana_variables"]["model_values"] == ["local-main", "local-embed", "local-embed-ko", "risk-prompt"]
-    assert document["privacy_contract"] == {
-        "raw_prompt_included": False,
-        "user_text_included": False,
-        "model_output_included": False,
-        "authorization_header_included": False,
-    }
-    markdown = monitoring_projection_markdown(document)
-    assert "# 모니터링 Projection" in markdown
-    assert "Prometheus scrape job" in markdown
-    assert "원문 프롬프트" in markdown
-
-    json_path, md_path = write_monitoring_projection_report(document, tmp_path)
-    assert json_path.exists()
-    assert md_path.exists()
 
 
 def test_live_evidence_bundle_combines_static_and_runtime_reports(tmp_path: Path) -> None:

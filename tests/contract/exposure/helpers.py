@@ -109,62 +109,6 @@ def _category_validator_fixture() -> tuple[dict, dict]:
     return data, services
 
 
-def _env_required_model_runtime_keys() -> list[str]:
-    """model serving 설정에서 도출한 필수 env 키 목록을 반환한다."""
-    # model_serving.yaml이 있으면 거기서 읽고, 없으면 알려진 runtime 집합을 쓴다.
-    model_serving_path = ROOT / "configs" / "model_serving.yaml"
-    if not model_serving_path.exists():
-        return [
-            "EMBEDDING_KO_BASE_URL",
-            "EMBEDDING_KO_MODEL",
-            "EMBEDDING_KO_TIMEOUT_SECONDS",
-            "EMBEDDING_KO_MAX_CONCURRENCY",
-            "EMBEDDING_KO_QUEUE_TIMEOUT_SECONDS",
-        ]
-    data = yaml.safe_load(model_serving_path.read_text(encoding="utf-8"))
-    runtimes = data.get("runtimes", {})
-    keys = []
-    for runtime_name, runtime in runtimes.items():
-        if not isinstance(runtime, dict) or not runtime.get("enabled", True):
-            continue
-        prefix = runtime.get("env_prefix", "")
-        if not prefix:
-            continue
-        for suffix in ("BASE_URL", "MODEL", "TIMEOUT_SECONDS", "MAX_CONCURRENCY", "QUEUE_TIMEOUT_SECONDS"):
-            key = f"{prefix}_{suffix}"
-            if key not in keys:
-                keys.append(key)
-    return keys if keys else [
-        "EMBEDDING_KO_BASE_URL",
-        "EMBEDDING_KO_MODEL",
-        "EMBEDDING_KO_TIMEOUT_SECONDS",
-        "EMBEDDING_KO_MAX_CONCURRENCY",
-        "EMBEDDING_KO_QUEUE_TIMEOUT_SECONDS",
-    ]
-
-
-def _env_required_exposure_bind_keys() -> list[str]:
-    """source registry에서 도출한, host-published 서비스들의 bind addr 키를 반환한다."""
-    data = _load_exposure()
-    services = _load_services()
-    all_published: set[str] = set()
-    for profile in data.get("profiles", {}).values():
-        if isinstance(profile, dict):
-            all_published.update(profile.get("host_published", []))
-    keys = []
-    for svc_name in sorted(all_published):
-        svc = services.get(svc_name, {})
-        bind_env = svc.get("host_env_bind", "")
-        if bind_env and bind_env not in keys:
-            keys.append(bind_env)
-    return keys
-
-
-def _check_env_file(path: Path, keys: list[str]) -> list[str]:
-    text = path.read_text(encoding="utf-8")
-    return [k for k in keys if k not in text]
-
-
 def _make_local_settings():
     """최소한의 local auth를 가진 MockSettings를 반환한다(운영 민감 정보 아님)."""
     class MockSecurity:

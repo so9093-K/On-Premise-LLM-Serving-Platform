@@ -23,8 +23,6 @@ documents:
     source_of_truth:
       - docs/README.md
       - docs/START_HERE.md
-    verified_by:
-      - tests/contract/test_document_structure.py
   - path: CHANGELOG.md
     type: release
     lifecycle: active
@@ -32,8 +30,6 @@ documents:
     disposition: keep
     source_of_truth:
       - VERSION
-    verified_by:
-      - tests/contract/test_document_source_of_truth.py
   - path: docs/00_executive_summary.md
     type: guide
     lifecycle: active
@@ -49,8 +45,6 @@ documents:
     disposition: keep
     source_of_truth:
       - docs/adr/*.md
-    verified_by:
-      - tests/contract/test_document_source_of_truth.py
   - path: docs/06_architecture.md
     type: guide
     lifecycle: active
@@ -166,30 +160,21 @@ documents:
     disposition: keep
     source_of_truth: true
     status_source: adr_status
-    verified_by:
-      - tests/contract/test_document_structure.py
-      - tests/contract/test_document_source_of_truth.py
   - path: docs/archive/changelog/maintenance_journal_0.1.0-rc.1.md
     type: archive
     lifecycle: historical
     owner: platform
     disposition: archive
-    verified_by:
-      - tests/contract/test_document_structure.py
   - path: docs/archive/reviews/gemma4_31b_awq_review.md
     type: review
     lifecycle: historical
     owner: model-platform
     disposition: archive
-    verified_by:
-      - tests/contract/test_document_structure.py
   - path: docs/archive/reviews/ux_ui_review.md
     type: review
     lifecycle: historical
     owner: operations
     disposition: archive
-    verified_by:
-      - tests/contract/test_document_structure.py
   - path: docs/development/README.md
     type: development
     lifecycle: active
@@ -229,16 +214,11 @@ documents:
       - src/ai_model_serving/contracts/risk.py
       - configs/model_serving.yaml
       - specs/schemas
-    verified_by:
-      - tests/contract/test_document_source_of_truth.py
-      - tests/contract/test_document_stale_markers.py
   - path: docs/governance/document_management.md
     type: governance
     lifecycle: active
     owner: platform
     disposition: keep
-    verified_by:
-      - tests/contract/test_document_structure.py
     review_required_on:
       - docs_structure_change
   - path: docs/governance/terminology.md
@@ -246,8 +226,6 @@ documents:
     lifecycle: active
     owner: platform
     disposition: keep
-    verified_by:
-      - tests/contract/test_document_structure.py
   - path: docs/models/model_cards.md
     type: reference
     lifecycle: reference
@@ -257,7 +235,6 @@ documents:
       - model_cards/*.json
       - configs/model_catalog.yaml
     verified_by:
-      - tests/contract/test_document_source_of_truth.py
       - python scripts/models/modelctl.py validate
   - path: docs/models/model_runtime_source_review.md
     type: reference
@@ -268,7 +245,6 @@ documents:
       - model_cards/*.json
       - configs/model_catalog.yaml
     verified_by:
-      - tests/contract/test_document_source_of_truth.py
       - python scripts/models/modelctl.py validate
   - path: docs/operations/admin_metrics_docs_exposure_policy.md
     type: operations
@@ -415,7 +391,6 @@ documents:
       - specs/openapi.gateway.yaml
       - specs/schemas/*.json
     verified_by:
-      - tests/contract/test_document_source_of_truth.py
       - scripts/validation/validate_contracts.py
   - path: docs/specs/error_reference.md
     type: reference
@@ -443,7 +418,6 @@ documents:
       - specs/openapi.gateway.yaml
       - specs/schemas/*.json
     verified_by:
-      - tests/contract/test_document_source_of_truth.py
       - scripts/validation/validate_contracts.py
   - path: docs/specs/configuration.md
     type: reference
@@ -455,7 +429,6 @@ documents:
       - specs/openapi.gateway.yaml
       - specs/schemas/*.json
     verified_by:
-      - tests/contract/test_document_source_of_truth.py
       - scripts/validation/validate_contracts.py
   - path: docs/specs/risk_signal_contract.md
     type: reference
@@ -467,7 +440,6 @@ documents:
       - specs/openapi.gateway.yaml
       - specs/schemas/*.json
     verified_by:
-      - tests/contract/test_document_source_of_truth.py
       - scripts/validation/validate_contracts.py
   - path: reports/runtime/README.md
     type: report

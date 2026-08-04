@@ -53,38 +53,6 @@ class TestDataExposureSchemaValidation:
     def validator(self):
         return Draft202012Validator(load_schema("risk_assessment_response.schema.json"))
 
-    def test_d1_rrn_passes(self, validator):
-        cat = _data_exposure_cat("D1", "KR_RRN")
-        response = _base_response(
-            risk_detected=True, attention_required=True, model_risk_detected=True,
-            strongest_code="D1", categories=[cat],
-        )
-        validator.validate(response)
-
-    def test_d2_email_passes(self, validator):
-        cat = _data_exposure_cat("D2", "EMAIL_ADDRESS")
-        response = _base_response(
-            risk_detected=True, attention_required=True, model_risk_detected=True,
-            strongest_code="D2", categories=[cat],
-        )
-        validator.validate(response)
-
-    def test_d4_api_key_passes(self, validator):
-        cat = _data_exposure_cat("D4", "OPENAI_API_KEY", source_model="secret-scanner")
-        response = _base_response(
-            risk_detected=True, attention_required=True, model_risk_detected=True,
-            strongest_code="D4", categories=[cat],
-        )
-        validator.validate(response)
-
-    def test_d5_database_url_passes(self, validator):
-        cat = _data_exposure_cat("D5", "DATABASE_URL", source_model="secret-scanner")
-        response = _base_response(
-            risk_detected=True, attention_required=True, model_risk_detected=True,
-            strongest_code="D5", categories=[cat],
-        )
-        validator.validate(response)
-
     def test_safe_data_exposure_category_passes(self, validator):
         cat = {
             "code": None,

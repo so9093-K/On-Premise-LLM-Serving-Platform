@@ -49,9 +49,7 @@ Accepted
 
 ## Operational impact
 
-- `tests/contract/test_document_structure.py`는 문서 홈, manifest, archive/current 분리 같은 구조 정책을 검증한다.
-- `tests/contract/test_document_source_of_truth.py`는 source-of-truth와 문서의 정합성을 검증한다.
-- `tests/contract/test_document_stale_markers.py`는 재발하면 위험한 retired marker만 제한적으로 검증한다.
+- 일반 문서는 리뷰로 정확성을 확인한다. 생성 산출물만 generator의 `--check`로 정합성을 확인한다.
 - Tier 1 문서(`endpoint_reference.md`, `model_cards.md`, `model_parameter_discovery.md`)의 generated block 전환은 migration plan으로 별도 추적한다.
 
 ## Migration notes
@@ -68,8 +66,5 @@ Accepted
 
 - ADR-0010: ColBERT 제거와 Dense Korean Retrieval 전환
 - `docs/governance/document_management.md`
-- `tests/contract/test_document_structure.py`
-- `tests/contract/test_document_source_of_truth.py`
-- `tests/contract/test_document_stale_markers.py`
 - `src/ai_model_serving/contracts/risk.py`
 - `configs/model_serving.yaml`

@@ -61,7 +61,7 @@ CI/CD와 로컬 실행의 경계:
 
 - CI/CD: release, registry push, deploy orchestration
 - Local: CI 없이 build/test/compose 재현
-- Shared: Dockerfile, compose validation, model contract
+- Shared: Dockerfile, compose validation, public model-list schema
 
 ### `make bootstrap`의 unified vLLM 이미지 빌드 제어
 

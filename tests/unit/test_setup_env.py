@@ -1,6 +1,6 @@
 """scripts/config/setup_env.py(.env 최초 생성/동기화 CLI)를 검증한다: 프로필별
-기본값 생성, 강제 덮어쓰기 시 운영자 값 보존과 secret 로테이션, 폐기된 키
-일괄 제거, runtime secret 파일 동기화/복구."""
+기본값 생성, 강제 덮어쓰기 시 운영자 값 보존과 secret 로테이션, YAML 소유 설정의
+중복 env override 제거, runtime secret 파일 동기화/복구."""
 
 from __future__ import annotations
 
@@ -136,20 +136,19 @@ def test_sync_env_no_op_when_already_current(tmp_path, capsys):
     assert '변경 없음' in capsys.readouterr().out
 
 
-def test_setup_env_force_removes_every_retired_key(tmp_path):
-    # 특정 사고 하나(예: risk-siren 제거)의 키만 하드코딩하면 RETIRED_ENV_KEYS에
-    # 새 키가 추가될 때마다 이 테스트를 또 늘려야 한다 -- 실제 집합을 순회해서
-    # 어떤 키가 들어와도 일반적으로 걸러지는지를 증명한다.
+def test_setup_env_force_removes_yaml_owned_env_overrides(tmp_path):
+    # YAML이 source-of-truth인 운영 한도에 오래된 .env 값이 남으면 YAML 변경을
+    # 조용히 가릴 수 있다. YAML_OWNED_ENV_KEYS 전체를 순회해 이 관계만 보호한다.
     out = tmp_path / '.env'
     out.write_text(
-        ''.join(f'{key}=placeholder\n' for key in setup_env.RETIRED_ENV_KEYS)
+        ''.join(f'{key}=placeholder\n' for key in setup_env.YAML_OWNED_ENV_KEYS)
         + 'HF_TOKEN=hf_existing\n',
         encoding='utf-8',
     )
     rc = setup_env.main(['--profile', 'compose', '--output', str(out), '--force'])
     assert rc == 0
     text = out.read_text(encoding='utf-8')
-    for key in setup_env.RETIRED_ENV_KEYS:
+    for key in setup_env.YAML_OWNED_ENV_KEYS:
         assert not any(line.startswith(f'{key}=') for line in text.splitlines()), key
     assert 'HF_TOKEN=hf_existing' in text
     assert 'HF_TOKEN=hf_existing' in text
@@ -222,21 +221,3 @@ def test_setup_env_refuses_non_empty_runtime_secret_directory(tmp_path, monkeypa
     assert rc == 2
     assert 'must be a file, but it is a non-empty directory' in capsys.readouterr().err
     shutil.rmtree(secret_path)
-
-
-def test_reset_version_updates_recommended_platform_image(tmp_path):
-    from scripts.build import reset_version
-
-    config = tmp_path / 'recommended_images.yaml'
-    config.write_text('images:\n  platform:\n    default: ai-model-serving-platform:0.1.13\n', encoding='utf-8')
-    reset_version.replace_platform_image_tag(config, '9.8.7')
-    assert 'ai-model-serving-platform:9.8.7' in config.read_text(encoding='utf-8')
-
-
-def test_reset_version_converts_rc_to_pep440_package_version():
-    from scripts.build import reset_version
-
-    assert reset_version.python_package_version('0.1.0-rc.1') == '0.1.0rc1'
-    assert reset_version.python_package_version('0.1.0') == '0.1.0'
-    assert reset_version.is_valid_project_version('0.1.0-rc.1') is True
-    assert reset_version.is_valid_project_version('0.1.0rc1') is False

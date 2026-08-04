@@ -26,7 +26,7 @@
   },
   "package_contract": {
     "scope": "platform service package",
-    "reason": "Gateway, Risk Adapter, contract, test, runtime validation tooling을 포함하는 플랫폼 service package다.",
+    "reason": "Gateway, Risk Adapter와 운영·런타임 검증 도구를 포함하는 플랫폼 service package다. 테스트 소스는 build-time 품질 게이트에서만 사용하며 배포 ZIP에는 포함하지 않는다.",
     "runtime_reports": "live service 실행 시 scripts/validation/runtime_validation.py로 수집한다."
   },
   "version_reset": true

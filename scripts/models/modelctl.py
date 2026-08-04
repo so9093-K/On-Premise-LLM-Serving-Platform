@@ -27,9 +27,7 @@ MODEL_LIFECYCLE_FILES = [
     "configs/model_catalog.yaml",
     "configs/model_serving.yaml",
     "model_cards/<model-id>.json",
-    "contracts/model_contracts.yaml",
     "specs/schemas/model_list_response.schema.json",
-    "harness/runtime_validation_matrix.yaml",
     "ops/compose/full-stack.private-network.yaml",
     "ops/prometheus/prometheus.yml",
     "reports/runtime/runtime_targets.*",
@@ -161,9 +159,9 @@ def propose_add_document(args: argparse.Namespace, root: Path, registry: ModelRe
     steps = [
         "configs/model_catalog.yaml에 logical model, lifecycle, gateway_listing, runtime 정책을 추가",
         "configs/model_serving.yaml에 runtime service stanza와 resource_control을 추가",
-        "model_cards/<model-id>.json을 catalog projection과 맞춰 추가",
+        "model_cards/<model-id>.json에 upstream 사실과 운영 배경을 문서화",
         "python scripts/models/modelctl.py validate/diff로 registry projection 확인",
-        "python scripts/validation/runtime_validation.py --config-only로 runtime matrix 확인",
+        "python scripts/validation/runtime_validation.py --config-only로 registry 기반 runtime validation plan 확인",
         "make operator-reports로 runtime targets/monitoring/project inventory 재생성",
         "Docker/GPU 서버에서 readiness와 vLLM smoke를 확인",
     ]
@@ -301,7 +299,7 @@ def render_patch_scaffold(doc: dict[str, Any]) -> str:
             "```",
             "",
             "## model_cards 후보",
-            f"- `model_cards/{requested['id']}.json`를 catalog projection에 맞춰 추가하세요.",
+            f"- `model_cards/{requested['id']}.json`에 upstream 사실과 운영 배경을 문서화하세요.",
         ])
     elif doc.get("current_model"):
         row = doc["current_model"]

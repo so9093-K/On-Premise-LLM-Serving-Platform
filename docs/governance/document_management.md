@@ -46,7 +46,7 @@
 - risk code는 `src/ai_model_serving/contracts/risk.py`의 응답 계약과 `configs/model_serving.yaml`의 enabled detector 범위를 따른다.
 - retired endpoint는 active 검증 예시로 작성하지 않는다.
 - expected response는 현재 schema와 route lifecycle을 따른다.
-- examples는 `tests/contract/test_document_source_of_truth.py`와 `tests/contract/test_document_stale_markers.py`로 검증한다.
+- examples는 해당 API schema와 route lifecycle을 기준으로 리뷰한다.
 
 ## 6. ADR 정책
 
@@ -89,17 +89,12 @@
 - `docs/operations/model_parameter_discovery.md` — 모델별 파라미터
 - `docs/specs/api.md` — API 요약
 
-Generator 전환 전까지는 `tests/contract/test_document_source_of_truth.py`가 source-of-truth와의 일치를 검증한다.
+생성 block은 각 generator의 `--check`가 있을 때만 자동 정합성 검증 대상이다.
 
-## 10. Documentation Test 역할
+## 10. 문서 검토 역할
 
-문서 테스트는 문서 정리의 대체물이 아니라, 정리된 구조와 source-of-truth 정합성을 지키는 안전장치다.
-
-- `tests/contract/test_document_structure.py`: 문서 홈, manifest coverage, archive/current 분리처럼 구조 정책을 검증한다.
-- `tests/contract/test_document_source_of_truth.py`: risk taxonomy, model catalog, model cards, runtime port, ADR index, CHANGELOG/VERSION처럼 실제 source-of-truth와 문서의 정합성을 검증한다.
-- `tests/contract/test_document_stale_markers.py`: ColBERT active runtime, retired Siren active 예시, 존재하지 않는 Dockerfile/Make target처럼 재발 위험이 큰 marker만 검사한다.
-
-CI 테스트는 구조와 source-of-truth 정합성을 강하게 검증한다. PR checklist와 리뷰는 문서의 의도, 독자, 설명 품질, 문체를 검토한다. 테스트는 표현을 과도하게 고정하지 않고, 문서가 모델 목록, endpoint, risk code, runtime 구성, build target 같은 source-of-truth를 새로 발명하지 않는지만 강하게 막는다.
+문서의 의도·독자·설명 품질·문체는 PR 리뷰에서 판단한다. 생성 산출물만 generator의
+`--check`로 정합성을 확인하며, 일반 설명 문서는 테스트가 표현이나 현재값을 고정하지 않는다.
 
 ## 11. Change Impact Matrix
 

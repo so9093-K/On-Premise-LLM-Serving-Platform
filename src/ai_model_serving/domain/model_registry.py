@@ -5,8 +5,6 @@ from typing import Any
 
 from .model_records import ModelRecord, PublicModel, RegistryIssue, RuntimeService, resolve_catalog_max_output_tokens
 from .projection_models import (
-    ModelCardProjection,
-    ModelContractProjection,
     ModelInventoryRow,
     ModelListSchemaProjection,
     MonitoringTargetProjection,
@@ -21,7 +19,7 @@ class ModelRegistry:
     """명시적인 domain 메서드로 모델 catalog 데이터를 읽는다.
 
     Gateway/API 코드가 원본 YAML 구조에 직접 의존하지 않게 하며, 모델 추가·제거 시
-    catalog, serving 설정, model card, schema, runtime harness 기대값을 한곳에서 검증한다.
+    catalog, serving 설정, schema, runtime harness 기대값을 한곳에서 검증한다.
     """
 
     catalog: dict[str, Any]
@@ -126,31 +124,10 @@ class ModelRegistry:
                 return service
         raise KeyError(service_key)
 
-    def model_contract_projections(self) -> tuple[ModelContractProjection, ...]:
-        from .projections import model_contract_projections
-
-        return model_contract_projections(self)
-
-    def model_contracts_document(self) -> dict[str, Any]:
-        return {
-            "models": {item.logical_id: item.as_yaml_item() for item in self.model_contract_projections()}
-        }
-
     def inventory_rows(self) -> tuple[ModelInventoryRow, ...]:
         from .projections import inventory_rows
 
         return inventory_rows(self)
-
-    def model_card_projections(self) -> tuple[ModelCardProjection, ...]:
-        from .projections import model_card_projections
-
-        return model_card_projections(self)
-
-    def model_card_projection(self, logical_id: str) -> ModelCardProjection:
-        for projection in self.model_card_projections():
-            if projection.logical_id == logical_id:
-                return projection
-        raise KeyError(logical_id)
 
     def runtime_validation_targets(self) -> tuple[RuntimeValidationTarget, ...]:
         from .projections import runtime_validation_targets

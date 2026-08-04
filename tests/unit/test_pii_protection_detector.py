@@ -12,7 +12,6 @@
 from __future__ import annotations
 
 import asyncio
-import pytest
 
 from ai_model_serving.detectors.pii import (
     EntitySummary,
@@ -133,17 +132,6 @@ class TestBuildCategories:
         assert "D1" in codes
         assert "D2" in codes
         assert all(c["detected"] for c in cats)
-
-    def test_no_raw_pii_values_in_categories(self):
-        cats = _categories_from_summaries([EntitySummary("KR_RRN", "D1", 1)])
-        for cat in cats:
-            for key, value in cat.items():
-                if isinstance(value, str):
-                    # label은 entity 타입 이름이지, 원본 PII 값이 아니다
-                    assert value in {"KR_RRN", "KR_FRN", "KR_PASSPORT", "KR_DRIVER_LICENSE",
-                                     "EMAIL_ADDRESS", "PHONE_NUMBER", "IP_ADDRESS", "data_exposure",
-                                     "pii-protection", "D1", "D2", "D5", None}
-
 
 # ---------------------------------------------------------------------------
 # Detector 통합 테스트

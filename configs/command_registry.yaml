@@ -930,7 +930,7 @@ commands:
     title: Runtime asset 재생성
     category: docs
     audience: [developer, release_engineer]
-    description: "prometheus.yml, model_contracts, schema, matrix, doc block을 재생성한다."
+    description: "prometheus.yml, model-list schema, doc block을 재생성한다."
     command: make render-runtime-assets
     kind: public
     safety: writes_generated
@@ -943,13 +943,10 @@ commands:
       env_file: false
     writes_files:
       - ops/prometheus/prometheus.yml
-      - contracts/model_contracts.yaml
       - specs/schemas/model_list_response.schema.json
-      - harness/runtime_validation_matrix.yaml
       - docs/operations/full_stack_runtime.md
     outputs:
       - ops/prometheus/prometheus.yml
-      - contracts/model_contracts.yaml
     owner: operations
     docs: []
     tests:

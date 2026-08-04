@@ -14,6 +14,5 @@ PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python scripts/validation/run_tests.py
 
 - OpenAPI `$ref` 정합성
 - Risk signal schema와 금지 field
-- retired source/report 재유입 방지
 - monitoring 기본 활성화 정책
 - `.env`와 runtime secret 동기화 UX

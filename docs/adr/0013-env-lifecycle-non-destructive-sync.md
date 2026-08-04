@@ -20,7 +20,7 @@ Accepted
 
 - 기존 `.env`의 `BUILD_PROFILE` 값으로 참조 템플릿을 자동 감지한다.
 - 템플릿에만 있고 `.env`에 없는 키를 템플릿 기본값으로 추가한다.
-- `RETIRED_ENV_KEYS`에 등록된 폐기 키를 제거한다.
+- `YAML_OWNED_ENV_KEYS`에 등록된 YAML 소유 키를 제거한다.
 - `ALWAYS_REFRESH_KEYS`·`GENERATED_SECRET_KEYS` 여부와 무관하게 **기존 값은 모두 보존한다.** 시크릿을 재생성하지 않는다.
 - `--env-file <path>` 옵션으로 프로젝트 루트 밖의 `.env`(별도 배포 디렉터리 등)도 대상으로 지정할 수 있다.
 - `--dry-run`으로 실제 변경 없이 추가·제거 대상 키를 미리 확인할 수 있다.
@@ -34,7 +34,7 @@ CI/CD 배포(`deploy_gitlab_compose.sh`)는 `.env` 이미지 참조 업데이트
 | Positive | Negative |
 |---|---|
 | `git pull` 이후 크리덴셜 재생성 없이 `.env` 최신화 가능 | 신규 키 기본값이 환경에 맞지 않으면 운영자가 수동으로 수정해야 한다 |
-| CI/CD 배포 시 서버 `.env` 크리덴셜 보존 보장 | `RETIRED_ENV_KEYS` 관리가 필요하다 — 폐기 키를 등록하지 않으면 `.env`에 남는다 |
+| CI/CD 배포 시 서버 `.env` 크리덴셜 보존 보장 | `YAML_OWNED_ENV_KEYS` 관리가 필요하다 — YAML 소유 키를 등록하지 않으면 `.env`에 남는다 |
 | `rebuild-full` 시 EXPOSURE_MODE 설정이 초기화되지 않음 | |
 | `--env-file`로 외부 `.env` 동기화 가능 | |
 
@@ -57,5 +57,5 @@ CI/CD 파이프라인에서는 `deploy_gitlab_compose.sh`가 자동으로 `make 
 ## Related
 
 - [ADR-0012](0012-auth-ownership-and-compose-exposure-source-of-truth.md) — Auth·Exposure profile source-of-truth 정책 (EXPOSURE_MODE 보존 배경)
-- `scripts/config/setup_env.py` — `sync_env_keys()`, `RETIRED_ENV_KEYS`, `ALWAYS_REFRESH_KEYS`
+- `scripts/config/setup_env.py` — `sync_env_keys()`, `YAML_OWNED_ENV_KEYS`, `ALWAYS_REFRESH_KEYS`
 - `docs/operations/configuration_lifecycle.md` — `.env` 환경 파일 선택 및 동기화 UX

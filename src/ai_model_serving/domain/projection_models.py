@@ -5,25 +5,6 @@ from typing import Any
 
 
 @dataclass(frozen=True)
-class ModelContractProjection:
-    """governance와 documentation tool이 사용하는 파생 model-contract row."""
-
-    logical_id: str
-    runtime: str
-    port: int
-    public_endpoint: str
-    runtime_endpoint: str
-
-    def as_yaml_item(self) -> dict[str, Any]:
-        return {
-            "runtime": self.runtime,
-            "port": self.port,
-            "public_endpoint": self.public_endpoint,
-            "runtime_endpoint": self.runtime_endpoint,
-        }
-
-
-@dataclass(frozen=True)
 class ModelInventoryRow:
     """script와 report에서 사용하는 운영자-facing inventory projection."""
 
@@ -63,24 +44,6 @@ class ModelInventoryRow:
             "lifecycle_state": self.lifecycle_state,
             "exposure": self.exposure,
         }
-
-
-@dataclass(frozen=True)
-class ModelCardProjection:
-    """Catalog-derived expectation for a model_cards/<logical-id>.json file.
-
-    Model cards may keep a more human-facing ``role`` label than the runtime
-    catalog, so this projection focuses on fields that must remain aligned for
-    add/remove/update workflows: identity, runtime surface, source facts, and
-    project runtime policy.
-    """
-
-    logical_id: str
-    upstream_model_id: str
-    runtime: dict[str, Any]
-    source_facts: dict[str, Any]
-    project_runtime_policy: dict[str, Any]
-    capabilities: tuple[str, ...]
 
 
 @dataclass(frozen=True)

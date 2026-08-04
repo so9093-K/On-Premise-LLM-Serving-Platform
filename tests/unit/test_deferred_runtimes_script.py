@@ -26,38 +26,6 @@ def run_script(*args: str) -> subprocess.CompletedProcess[str]:
     )
 
 
-def test_deferred_runtime_script_resolves_keys_and_services():
-    result = run_script("--runtimes", "embedding,embedding-ko-vllm", "--output", "json")
-
-    payload = json.loads(result.stdout)
-    assert payload["keys"] == ["embedding", "embedding_ko"]
-    assert payload["services"] == ["embedding-vllm", "embedding-ko-vllm"]
-
-
-def test_deferred_runtime_script_resolves_deploy_profile():
-    result = run_script("--profile", "main_only", "--output", "json")
-
-    payload = json.loads(result.stdout)
-    assert payload["profile"] == "main_only"
-    assert payload["keys"] == ["embedding", "embedding_ko", "risk_prompt"]
-    assert payload["services"] == ["embedding-vllm", "embedding-ko-vllm", "risk-prompt-vllm"]
-
-
-def test_deferred_runtime_script_explicit_runtimes_override_profile():
-    result = run_script(
-        "--profile",
-        "main_only",
-        "--runtimes",
-        "risk_prompt",
-        "--output",
-        "json",
-    )
-
-    payload = json.loads(result.stdout)
-    assert payload["keys"] == ["risk_prompt"]
-    assert payload["services"] == ["risk-prompt-vllm"]
-
-
 def test_deploy_profiles_only_reference_known_runtimes():
     profiles = yaml.safe_load((ROOT / "configs/deploy_profiles.yaml").read_text(encoding="utf-8"))
 

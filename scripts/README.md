@@ -137,7 +137,7 @@ python scripts/models/modelctl.py propose-add --id new-main --role main_llm --up
 python scripts/models/modelctl.py propose-remove local-main
 ```
 
-`modelctl.py`의 `list/status/validate/diff`는 read-only다. `propose-add/propose-remove`도 파일을 쓰지 않고 영향 파일, 차단 조건, GPU budget 경고, 후속 검증 절차만 출력한다. 실제 모델 add/remove는 catalog, serving config, contracts, model cards, schemas, runtime validation, monitoring projection, tests를 함께 바꾸는 리뷰 대상이다.
+`modelctl.py`의 `list/status/validate/diff`는 read-only다. `propose-add/propose-remove`도 파일을 쓰지 않고 영향 파일, 차단 조건, GPU budget 경고, 후속 검증 절차만 출력한다. 실제 모델 add/remove는 catalog, serving config, contracts, schemas, runtime validation, monitoring projection, tests를 함께 바꾸는 리뷰 대상이며, model card는 필요한 운영 설명을 검토해 갱신한다.
 
 ## Risk vLLM patch 생명주기
 

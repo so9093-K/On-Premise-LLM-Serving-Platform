@@ -67,6 +67,88 @@ _SERVICE_REQUIRED_FIELDS = (
 )
 
 
+def _published_compose_services(document: object) -> set[str]:
+    """Return services that actually declare a non-empty host-port mapping.
+
+    `ports: []` is deliberately treated as private.  The exposure profile is the
+    source of truth; this check only verifies that the base compose file and the
+    generated override project that intent without requiring Docker Compose.
+    """
+    if not isinstance(document, dict):
+        return set()
+    services = document.get("services", {})
+    if not isinstance(services, dict):
+        return set()
+    return {
+        str(name)
+        for name, service in services.items()
+        if isinstance(service, dict) and bool(service.get("ports"))
+    }
+
+
+def validate_compose_exposure_projection(data: dict, services: dict) -> list[str]:
+    """Ensure checked-in compose port mappings equal the exposure profiles.
+
+    This replaces tests that invoked `docker compose config` only to compare
+    published service names.  Value-level override drift remains owned by
+    render_exposure_overrides.py --check, which renders from the same registry.
+    """
+    profiles = data.get("profiles", {})
+    base_modes = [
+        mode
+        for mode, profile in profiles.items()
+        if isinstance(profile, dict) and profile.get("class") == "default_private"
+    ]
+    if len(base_modes) != 1:
+        return []  # validate() reports the malformed profile definition.
+
+    base_mode = base_modes[0]
+    base_profile = profiles[base_mode]
+    expected_base = {
+        str(services[name]["compose_service"])
+        for name in base_profile.get("host_published", [])
+        if name in services
+    }
+    base_compose_path = ROOT / "ops" / "compose" / "full-stack.private-network.yaml"
+    try:
+        base_compose = yaml.safe_load(base_compose_path.read_text(encoding="utf-8"))
+    except (OSError, yaml.YAMLError) as exc:
+        return [f"cannot read base compose exposure projection: {exc}"]
+
+    violations: list[str] = []
+    actual_base = _published_compose_services(base_compose)
+    if actual_base != expected_base:
+        violations.append(
+            "base compose host-published services disagree with "
+            f"profiles.{base_mode}.host_published: expected={sorted(expected_base)}, "
+            f"actual={sorted(actual_base)}"
+        )
+
+    base_published = set(base_profile.get("host_published", []))
+    for mode, profile in profiles.items():
+        if mode == base_mode or not isinstance(profile, dict):
+            continue
+        expected_extra = {
+            str(services[name]["compose_service"])
+            for name in set(profile.get("host_published", [])) - base_published
+            if name in services
+        }
+        override = ROOT / "ops" / "compose" / "overrides" / f"exposure.{mode.replace('_', '-')}.yaml"
+        try:
+            override_doc = yaml.safe_load(override.read_text(encoding="utf-8"))
+        except (OSError, yaml.YAMLError) as exc:
+            violations.append(f"cannot read {override.relative_to(ROOT)}: {exc}")
+            continue
+        actual_extra = _published_compose_services(override_doc)
+        if actual_extra != expected_extra:
+            violations.append(
+                f"{override.relative_to(ROOT)} host-published services disagree with "
+                f"profiles.{mode}.host_published: expected={sorted(expected_extra)}, "
+                f"actual={sorted(actual_extra)}"
+            )
+    return violations
+
+
 def load(path: Path) -> dict:
     if not path.exists():
         print(f"FAIL: configs/exposure_profiles.yaml not found at {path}", file=sys.stderr)
@@ -260,6 +342,8 @@ def main() -> int:
     data = load(ROOT / "configs" / "exposure_profiles.yaml")
     services = load_services(ROOT / "configs" / "services.yaml")
     violations = validate(data, strict=args.strict, services=services)
+    if args.strict and not violations:
+        violations.extend(validate_compose_exposure_projection(data, services))
 
     if violations:
         for v in violations:

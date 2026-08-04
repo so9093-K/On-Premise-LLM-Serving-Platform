@@ -5,9 +5,7 @@ ModelRegistry projection에서 정적 artifact를 생성한다.
 
 생성 대상:
   ops/prometheus/prometheus.yml
-  contracts/model_contracts.yaml
   specs/schemas/model_list_response.schema.json
-  harness/runtime_validation_matrix.yaml
   docs/operations/full_stack_runtime.md  (generated block만 갱신)
 
 생성 제외 대상:
@@ -83,21 +81,9 @@ def render_prometheus_yml(registry: ModelRegistry, monitoring: dict[str, Any], s
     return _GENERATED_HEADER_YAML_WITH_MONITORING + body
 
 
-def render_model_contracts_yaml(registry: ModelRegistry) -> str:
-    doc = registry.model_contracts_document()
-    body = yaml.dump(doc, allow_unicode=True, default_flow_style=False, sort_keys=False)
-    return _GENERATED_HEADER_YAML + body
-
-
 def render_model_list_schema_json(registry: ModelRegistry) -> str:
     doc = registry.model_list_schema_document()
     return json.dumps(doc, indent=2, ensure_ascii=False) + "\n"
-
-
-def render_runtime_validation_matrix_yaml(registry: ModelRegistry) -> str:
-    doc = registry.runtime_validation_matrix_document()
-    body = yaml.dump(doc, allow_unicode=True, default_flow_style=False, sort_keys=False)
-    return _GENERATED_HEADER_YAML + body
 
 
 def render_error_reference_md() -> str:
@@ -673,14 +659,9 @@ def get_artifacts(
     """(파일 경로, expected 내용) 목록을 반환한다."""
     return [
         (root / "ops/prometheus/prometheus.yml", render_prometheus_yml(registry, monitoring, services)),
-        (root / "contracts/model_contracts.yaml", render_model_contracts_yaml(registry)),
         (
             root / "specs/schemas/model_list_response.schema.json",
             render_model_list_schema_json(registry),
-        ),
-        (
-            root / "harness/runtime_validation_matrix.yaml",
-            render_runtime_validation_matrix_yaml(registry),
         ),
         (root / "docs/specs/error_reference.md", render_error_reference_md()),
     ]

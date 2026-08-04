@@ -15,4 +15,4 @@
 
 ## Contract phrase 기준
 
-`source_facts`는 upstream 모델 카드나 공개 예시의 사실을 기록한다. `project_runtime_policy`는 이 프로젝트가 적용하는 timeout, concurrency, token cap을 기록한다. risk detector는 `max_tokens=1`과 `single-label-token` 출력을 기준으로 검증한다.
+`source_facts`는 upstream 모델 카드나 공개 예시의 사실을 기록한다. `project_runtime_policy`는 이 프로젝트가 적용하는 timeout, concurrency, token cap을 기록한다. risk detector의 runtime `max_output_tokens=1`은 배포 설정 정합성 검증으로 보호한다.

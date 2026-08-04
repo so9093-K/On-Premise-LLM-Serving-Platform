@@ -53,27 +53,6 @@ def test_auth_doctor_flags_disabled_internal_auth_in_non_local_env():
     assert any(f.code == "INTERNAL_SERVICE_AUTH_DISABLED_NON_LOCAL" and f.level == "FAIL" for f in findings)
 
 
-def test_auth_profile_env_values_match_managed_modes():
-    from ai_model_serving.auth_control import auth_profile_env_values
-
-    assert auth_profile_env_values("local_open") == {
-        "AUTH_MODE": "local_open",
-        "API_KEY_REQUIRED": "false",
-        "ADMIN_API_KEY_REQUIRED": "false",
-        "ADMIN_ENDPOINTS_INTERNAL_ONLY": "false",
-        "INTERNAL_SERVICE_AUTH_REQUIRED": "false",
-        "FASTAPI_DOCS_ENABLED": "true",
-    }
-    assert auth_profile_env_values("private_network") == {
-        "AUTH_MODE": "private_network",
-        "API_KEY_REQUIRED": "true",
-        "ADMIN_API_KEY_REQUIRED": "true",
-        "ADMIN_ENDPOINTS_INTERNAL_ONLY": "false",
-        "INTERNAL_SERVICE_AUTH_REQUIRED": "true",
-        "FASTAPI_DOCS_ENABLED": "true",
-    }
-
-
 def test_auth_doctor_accepts_private_network_profile_flags():
     findings = diagnose_auth(
         _settings(

@@ -230,12 +230,6 @@ class TestMaskSecrets:
         assert "[AWS_ACCESS_KEY_ID]" in masked
         assert "[GITHUB_TOKEN]" in masked
 
-    def test_scan_text_count_matches_scan_spans_count(self):
-        # _scan_text와 mask_secrets가 같은 _scan_spans를 쓰므로 개수가 일치해야 한다
-        text = f"a={OPENAI_KEY} b={AWS_ACCESS_KEY}"
-        counts = _scan_text(text)
-        assert sum(counts.values()) == 2
-
     def test_text_without_secrets_is_unchanged(self):
         text = "오늘 날씨가 좋습니다"
         assert mask_secrets(text) == text

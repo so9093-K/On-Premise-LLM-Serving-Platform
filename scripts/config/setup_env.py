@@ -109,12 +109,7 @@ ALWAYS_REFRESH_KEYS = {
     *AUTH_PROFILE_ENV_KEYS,
 } | GENERATED_SECRET_KEYS
 
-RETIRED_ENV_KEYS = {
-    "RISK_SIREN_BASE_URL",
-    "RISK_SIREN_MODEL",
-    "RISK_SIREN_TIMEOUT_SECONDS",
-    "RISK_SIREN_MAX_CONCURRENCY",
-    "RISK_SIREN_QUEUE_TIMEOUT_SECONDS",
+YAML_OWNED_ENV_KEYS = {
     # MAX_REQUEST_BODY_BYTES는 configs/model_serving.yaml
     # (operational_limits.max_request_body_bytes)이 소유하는 단일 크기 정책입니다.
     # 과거에는 .env 템플릿에도 중복 정의되어 yaml 값을 가려버리고 조용히 드리프트를
@@ -145,7 +140,7 @@ def preserve_existing_values(out_path: Path, *, force: bool) -> dict[str, str]:
     preserved = {
         key: value
         for key, value in existing.items()
-        if value and key not in ALWAYS_REFRESH_KEYS and key not in RETIRED_ENV_KEYS
+        if value and key not in ALWAYS_REFRESH_KEYS and key not in YAML_OWNED_ENV_KEYS
     }
     if "HF_TOKEN" in preserved and "HUGGING_FACE_HUB_TOKEN" not in preserved:
         preserved["HUGGING_FACE_HUB_TOKEN"] = preserved["HF_TOKEN"]
@@ -236,23 +231,23 @@ def sync_env_keys(env_path: Path, *, dry_run: bool = False) -> int:
     template_path = profile_template(profile)
     _, template_values = parse_env_template(template_path)
 
-    added = [k for k in template_values if k not in existing and k not in RETIRED_ENV_KEYS]
-    retired_found = [k for k in existing if k in RETIRED_ENV_KEYS]
+    added = [k for k in template_values if k not in existing and k not in YAML_OWNED_ENV_KEYS]
+    yaml_owned_overrides = [k for k in existing if k in YAML_OWNED_ENV_KEYS]
 
-    if not added and not retired_found:
+    if not added and not yaml_owned_overrides:
         print(f"변경 없음: .env가 최신 상태입니다. (profile={profile})")
         return 0
 
     if added:
         print(f"추가될 키 ({len(added)}개): {', '.join(sorted(added))}")
-    if retired_found:
-        print(f"제거될 키 ({len(retired_found)}개): {', '.join(sorted(retired_found))}")
+    if yaml_owned_overrides:
+        print(f"제거될 YAML 소유 키 ({len(yaml_owned_overrides)}개): {', '.join(sorted(yaml_owned_overrides))}")
 
     if dry_run:
         print("dry-run: 실제 변경 없음.")
         return 0
 
-    merged = {k: v for k, v in existing.items() if k not in RETIRED_ENV_KEYS}
+    merged = {k: v for k, v in existing.items() if k not in YAML_OWNED_ENV_KEYS}
     for k in added:
         merged[k] = template_values[k]
 
@@ -265,7 +260,7 @@ def sync_env_keys(env_path: Path, *, dry_run: bool = False) -> int:
             line.strip()
             and not line.strip().startswith("#")
             and "=" in line.strip()
-            and line.strip().split("=", 1)[0] in RETIRED_ENV_KEYS
+            and line.strip().split("=", 1)[0] in YAML_OWNED_ENV_KEYS
         )
     ]
 

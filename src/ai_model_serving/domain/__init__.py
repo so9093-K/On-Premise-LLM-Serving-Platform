@@ -11,7 +11,6 @@ from .model_registry import (
     ModelRegistry,
 )
 from .projection_models import (
-    ModelContractProjection,
     ModelInventoryRow,
     ModelListSchemaProjection,
     MonitoringTargetProjection,
@@ -20,7 +19,6 @@ from .projection_models import (
 )
 
 __all__ = [
-    "ModelContractProjection",
     "ModelInventoryRow",
     "ModelListSchemaProjection",
     "ModelRecord",

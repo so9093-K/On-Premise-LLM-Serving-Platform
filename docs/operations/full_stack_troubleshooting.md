@@ -133,7 +133,7 @@ enabled risk 모델(`risk-prompt-vllm`)에는 다음 설정이 적용된다. `ri
 - Embedding pooling runtime의 `max_num_batched_tokens >= max_model_len`
 - risk detector의 `bitsandbytes` 양자화 기본값 유지
 - `RISK_VLLM_IMAGE` 내부에서 enabled Kanana Prompt 2.1B HF config 파싱 검증
-- model catalog, model card, serving config의 핵심 runtime policy 정합성
+- model catalog와 serving config의 핵심 runtime policy 정합성
 - conservative single-GPU profile의 총 `gpu_memory_utilization` 상한
 
 ## 운영 확정 전 남은 검증

@@ -6,8 +6,6 @@ if TYPE_CHECKING:
     from .model_records import RuntimeService
     from .model_registry import ModelRegistry
     from .projection_models import (
-        ModelCardProjection,
-        ModelContractProjection,
         ModelInventoryRow,
         ModelListSchemaProjection,
         MonitoringTargetProjection,
@@ -68,31 +66,6 @@ def iter_runtime_services(registry: "ModelRegistry") -> tuple["RuntimeService", 
     return tuple(services)
 
 
-def model_contract_projections(registry: "ModelRegistry") -> tuple["ModelContractProjection", ...]:
-    """catalog runtime 메타데이터에서 모델 계약 inventory를 파생한다."""
-    from .projection_models import ModelContractProjection
-
-    projections: list[ModelContractProjection] = []
-    for record in registry.iter_records():
-        runtime = registry._catalog_models()[record.logical_id].get("runtime", {})
-        runtime_endpoint = str(runtime.get("endpoint") or runtime.get("internal_endpoint") or "")
-        public_endpoint = str(runtime.get("endpoint") or runtime.get("public_adapter_endpoint") or runtime_endpoint)
-        if runtime.get("production_vllm_native") is True:
-            runtime_kind = "vllm_native"
-        else:
-            runtime_kind = "vllm+adapter" if public_endpoint != runtime_endpoint else "vllm"
-        projections.append(
-            ModelContractProjection(
-                logical_id=record.logical_id,
-                runtime=runtime_kind,
-                port=int(runtime.get("port", record.port or 0)),
-                public_endpoint=public_endpoint,
-                runtime_endpoint=runtime_endpoint,
-            )
-        )
-    return tuple(projections)
-
-
 def inventory_rows(registry: "ModelRegistry") -> tuple["ModelInventoryRow", ...]:
     """역할별 분기 없이 운영자용 모델 inventory 행을 반환한다."""
     from .projection_models import ModelInventoryRow
@@ -124,28 +97,6 @@ def inventory_rows(registry: "ModelRegistry") -> tuple["ModelInventoryRow", ...]
             )
         )
     return tuple(rows)
-
-
-def model_card_projections(registry: "ModelRegistry") -> tuple["ModelCardProjection", ...]:
-    """model card 거버넌스에 필요한 catalog 기반 기대값을 반환한다."""
-    from .projection_models import ModelCardProjection
-
-    projections: list[ModelCardProjection] = []
-    for record in registry.iter_records():
-        cfg = registry._catalog_models()[record.logical_id]
-        runtime = dict(cfg.get("runtime", {}))
-        runtime.pop("served_model_name", None)
-        projections.append(
-            ModelCardProjection(
-                logical_id=record.logical_id,
-                upstream_model_id=record.upstream_model_id,
-                runtime=runtime,
-                source_facts=dict(cfg.get("source_facts", {})),
-                project_runtime_policy=dict(cfg.get("project_runtime_policy", {})),
-                capabilities=record.capabilities,
-            )
-        )
-    return tuple(projections)
 
 
 def runtime_validation_targets(registry: "ModelRegistry") -> tuple["RuntimeValidationTarget", ...]:

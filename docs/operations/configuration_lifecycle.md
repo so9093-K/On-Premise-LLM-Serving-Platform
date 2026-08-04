@@ -6,7 +6,7 @@
 
 | 영역 | 원천 | 생성/검증 대상 |
 |---|---|---|
-| 모델 catalog | `configs/model_catalog.yaml` | model cards, model contracts, model-list schema projection |
+| 모델 catalog | `configs/model_catalog.yaml` | model-list schema projection; model card 설명의 기준 정보 |
 | runtime service | `configs/model_serving.yaml` | vLLM command, runtime target report, compose validation |
 | service/port registry | `configs/services.yaml` | compose service name, host/container port projection, bind env mapping, exposure category |
 | GPU 예산 | `configs/gpu_budgets.yaml` | operator status bundle, resource docs |
@@ -15,7 +15,7 @@
 | exposure profile | `configs/exposure_profiles.yaml` | EXPOSURE_MODE별 profile, host-published service reference, diagnostics, compose override |
 | env contract | `.env.*.example` | enabled model runtime env key 완전성 검증 |
 | project inventory | source tree + documentation entrypoints | file ownership, management UX, handoff review matrix |
-| runtime matrix | `harness/runtime_validation_matrix.yaml` | runtime validation config-only checks |
+| runtime validation plan | `ModelRegistry` runtime projection | runtime validation config-only checks |
 | secret/env | `.env` generated from `.env.*.example` | local/compose runtime behavior |
 
 모델과 runtime 관련 해석은 코드에서 직접 YAML을 반복 해석하지 않고 `ModelRegistry` projection을 우선 사용한다.

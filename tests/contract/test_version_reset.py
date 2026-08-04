@@ -1,8 +1,7 @@
-"""reset_version.py 동작 검증.
+"""`reset_version.py`의 공개 결과만 검증한다.
 
-make reset-version NEW_VERSION=x.y.z 후 package version, API contract version,
-platform/risk_vllm image tag, env example, recommended image 대상이 새 버전으로 갱신되고,
-변경 제외 대상(config schema version, CHANGELOG, historical reports)은 변경되지 않아야 한다.
+버전 변경은 하나의 원자적 release 작업이다. 파일마다 test를 늘리는 대신 stable/RC
+두 결과를 한 번씩 확인해, 변경 대상과 변경 금지 대상을 함께 보호한다.
 """
 from __future__ import annotations
 
@@ -11,55 +10,37 @@ import json
 import sys
 from pathlib import Path
 
-import pytest
-
 ROOT = Path(__file__).resolve().parents[2]
 RESET_SCRIPT = ROOT / "scripts/build/reset_version.py"
-
-OLD_VERSION = "0.0.1"
-NEW_VERSION = "0.9.0"
-NEW_PY_VERSION = "0.9.0"
-NEW_RC_VERSION = "0.9.0-rc.1"
-NEW_RC_PY_VERSION = "0.9.0rc1"
 
 
 def _load_module(tmp_root: Path):
     spec = importlib.util.spec_from_file_location("reset_version_mod", RESET_SCRIPT)
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    mod.ROOT = tmp_root
-    return mod
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    module.ROOT = tmp_root
+    return module
 
 
-def _make_project(tmp_path: Path, version: str = OLD_VERSION) -> None:
-    """reset_version.py가 수정하는 것과 맞춘 최소 파일 트리."""
+def _make_project(tmp_path: Path, version: str = "0.0.1") -> None:
     (tmp_path / "VERSION").write_text(version + "\n", encoding="utf-8")
-
     specs = tmp_path / "specs"
     specs.mkdir()
     for name in ("openapi.gateway.yaml", "openapi.risk-adapter.yaml"):
-        (specs / name).write_text(
-            f"info:\n  version: {version}\n  title: test\n", encoding="utf-8"
-        )
-
+        (specs / name).write_text(f"info:\n  version: {version}\n", encoding="utf-8")
     (tmp_path / "pyproject.toml").write_text(
-        f'[project]\nname = "ai-model-serving"\nversion = "{version}"\n', encoding="utf-8"
+        f'[project]\nversion = "{version}"\n', encoding="utf-8"
     )
-
-    (tmp_path / "README.md").write_text(
-        f"| 패키지 버전 | `{version}` |\n", encoding="utf-8"
-    )
-
+    (tmp_path / "README.md").write_text(f"| 패키지 버전 | `{version}` |\n", encoding="utf-8")
     for name in (".env.example", ".env.local.example"):
         (tmp_path / name).write_text(f"PROJECT_VERSION={version}\n", encoding="utf-8")
-
     (tmp_path / ".env.compose.example").write_text(
         f"PROJECT_VERSION={version}\n"
         f"PLATFORM_IMAGE=ai-model-serving-platform:{version}\n"
         f"RISK_VLLM_IMAGE=ai-model-serving-vllm-unified:{version}\n",
         encoding="utf-8",
     )
-
     configs = tmp_path / "configs"
     configs.mkdir()
     (configs / "recommended_images.yaml").write_text(
@@ -67,16 +48,15 @@ def _make_project(tmp_path: Path, version: str = OLD_VERSION) -> None:
         f"risk_vllm:\n  default: ai-model-serving-vllm-unified:{version}\n",
         encoding="utf-8",
     )
-    for cfg in ("model_catalog.yaml", "monitoring.yaml"):
-        (configs / cfg).write_text("version: 0.1.0\nschema: placeholder\n", encoding="utf-8")
-
-    docs_release = tmp_path / "docs" / "release"
-    docs_release.mkdir(parents=True)
-    (docs_release / "versioning_policy.md").write_text(
-        f"# 버전 정책\n\n## 1. Current package version\n\n```text\n{version}\n```\n",
+    for name in ("model_catalog.yaml", "monitoring.yaml"):
+        (configs / name).write_text("version: 0.1.0\n", encoding="utf-8")
+    policy = tmp_path / "docs" / "release"
+    policy.mkdir(parents=True)
+    (policy / "versioning_policy.md").write_text(
+        "# 버전 정책\n\n## 1. Current package version\n\n```text\n"
+        f"{version}\n```\n",
         encoding="utf-8",
     )
-
     (tmp_path / "version_manifest.json").write_text(
         json.dumps(
             {
@@ -88,146 +68,57 @@ def _make_project(tmp_path: Path, version: str = OLD_VERSION) -> None:
                     "risk_vllm": f"ai-model-serving-vllm-unified:{version}",
                 },
                 "config_schema_versions": {"model_catalog": "0.1.0"},
-                "release_stage": "release",
-            },
-            indent=2,
+            }
         ),
         encoding="utf-8",
     )
-
-    (tmp_path / "CHANGELOG.md").write_text(
-        f"## [{version}] - 2026-01-01\n\n- Initial release.\n", encoding="utf-8"
-    )
+    (tmp_path / "CHANGELOG.md").write_text("0.0.1\n", encoding="utf-8")
 
 
 def _run_reset(tmp_path: Path, version: str) -> None:
-    mod = _load_module(tmp_path)
-    old_argv = sys.argv[:]
+    module = _load_module(tmp_path)
+    previous_argv = sys.argv[:]
     try:
         sys.argv = ["reset_version.py", version]
-        mod.main()
+        module.main()
     finally:
-        sys.argv = old_argv
+        sys.argv = previous_argv
 
 
-class TestResetVersionStable:
-    """안정 버전 x.y.z reset."""
-
-    @pytest.fixture(autouse=True)
-    def setup(self, tmp_path):
-        _make_project(tmp_path, OLD_VERSION)
-        _run_reset(tmp_path, NEW_VERSION)
-        self.root = tmp_path
-
-    def test_version_file(self):
-        assert (self.root / "VERSION").read_text(encoding="utf-8").strip() == NEW_VERSION
-
-    def test_manifest_version(self):
-        m = json.loads((self.root / "version_manifest.json").read_text(encoding="utf-8"))
-        assert m["version"] == NEW_VERSION
-
-    def test_manifest_python_package_version(self):
-        m = json.loads((self.root / "version_manifest.json").read_text(encoding="utf-8"))
-        assert m["python_package_version"] == NEW_PY_VERSION
-
-    def test_manifest_api_contract_version(self):
-        m = json.loads((self.root / "version_manifest.json").read_text(encoding="utf-8"))
-        assert m["api_contract_version"] == NEW_VERSION
-
-    def test_manifest_image_tags_platform(self):
-        m = json.loads((self.root / "version_manifest.json").read_text(encoding="utf-8"))
-        assert m["image_tags"]["platform"] == f"ai-model-serving-platform:{NEW_VERSION}"
-
-    def test_manifest_config_schema_versions_unchanged(self):
-        m = json.loads((self.root / "version_manifest.json").read_text(encoding="utf-8"))
-        assert m["config_schema_versions"]["model_catalog"] == "0.1.0"
-
-    def test_pyproject_toml(self):
-        text = (self.root / "pyproject.toml").read_text(encoding="utf-8")
-        assert f'version = "{NEW_PY_VERSION}"' in text
-
-    def test_openapi_gateway(self):
-        text = (self.root / "specs/openapi.gateway.yaml").read_text(encoding="utf-8")
-        assert f"  version: {NEW_VERSION}" in text
-
-    def test_openapi_risk_adapter(self):
-        text = (self.root / "specs/openapi.risk-adapter.yaml").read_text(encoding="utf-8")
-        assert f"  version: {NEW_VERSION}" in text
-
-    def test_readme(self):
-        text = (self.root / "README.md").read_text(encoding="utf-8")
-        assert f"`{NEW_VERSION}`" in text
-
-    def test_env_example_project_version(self):
-        text = (self.root / ".env.example").read_text(encoding="utf-8")
-        assert f"PROJECT_VERSION={NEW_VERSION}" in text
-
-    def test_env_compose_project_version(self):
-        text = (self.root / ".env.compose.example").read_text(encoding="utf-8")
-        assert f"PROJECT_VERSION={NEW_VERSION}" in text
-
-    def test_env_compose_platform_image(self):
-        text = (self.root / ".env.compose.example").read_text(encoding="utf-8")
-        assert f"PLATFORM_IMAGE=ai-model-serving-platform:{NEW_VERSION}" in text
-
-    def test_recommended_images_platform(self):
-        text = (self.root / "configs/recommended_images.yaml").read_text(encoding="utf-8")
-        assert f"ai-model-serving-platform:{NEW_VERSION}" in text
-
-    def test_recommended_images_risk_vllm_updated(self):
-        text = (self.root / "configs/recommended_images.yaml").read_text(encoding="utf-8")
-        assert f"ai-model-serving-vllm-unified:{NEW_VERSION}" in text
-
-    def test_manifest_risk_vllm_updated(self):
-        m = json.loads((self.root / "version_manifest.json").read_text(encoding="utf-8"))
-        assert m["image_tags"]["risk_vllm"] == f"ai-model-serving-vllm-unified:{NEW_VERSION}"
-
-    def test_env_compose_risk_vllm_image(self):
-        text = (self.root / ".env.compose.example").read_text(encoding="utf-8")
-        assert f"RISK_VLLM_IMAGE=ai-model-serving-vllm-unified:{NEW_VERSION}" in text
-
-    def test_versioning_policy_current_block(self):
-        text = (self.root / "docs/release/versioning_policy.md").read_text(encoding="utf-8")
-        assert NEW_VERSION in text
-
-    def test_config_schema_versions_unchanged(self):
-        for cfg in ("model_catalog.yaml", "monitoring.yaml"):
-            text = (self.root / "configs" / cfg).read_text(encoding="utf-8")
-            assert "version: 0.1.0" in text
-
-    def test_changelog_unchanged(self):
-        text = (self.root / "CHANGELOG.md").read_text(encoding="utf-8")
-        assert OLD_VERSION in text
+def _assert_release_files(root: Path, version: str, python_version: str) -> None:
+    manifest = json.loads((root / "version_manifest.json").read_text(encoding="utf-8"))
+    assert (root / "VERSION").read_text(encoding="utf-8").strip() == version
+    assert manifest["version"] == manifest["api_contract_version"] == version
+    assert manifest["python_package_version"] == python_version
+    assert manifest["image_tags"] == {
+        "platform": f"ai-model-serving-platform:{version}",
+        "risk_vllm": f"ai-model-serving-vllm-unified:{version}",
+    }
+    assert f'version = "{python_version}"' in (root / "pyproject.toml").read_text(encoding="utf-8")
+    for path in ("specs/openapi.gateway.yaml", "specs/openapi.risk-adapter.yaml"):
+        assert f"version: {version}" in (root / path).read_text(encoding="utf-8")
+    for path in (".env.example", ".env.local.example", ".env.compose.example"):
+        assert f"PROJECT_VERSION={version}" in (root / path).read_text(encoding="utf-8")
+    compose = (root / ".env.compose.example").read_text(encoding="utf-8")
+    images = (root / "configs/recommended_images.yaml").read_text(encoding="utf-8")
+    assert f"PLATFORM_IMAGE=ai-model-serving-platform:{version}" in compose
+    assert f"RISK_VLLM_IMAGE=ai-model-serving-vllm-unified:{version}" in compose
+    assert f"ai-model-serving-platform:{version}" in images
+    assert f"ai-model-serving-vllm-unified:{version}" in images
+    assert version in (root / "README.md").read_text(encoding="utf-8")
+    assert version in (root / "docs/release/versioning_policy.md").read_text(encoding="utf-8")
+    assert "version: 0.1.0" in (root / "configs/model_catalog.yaml").read_text(encoding="utf-8")
+    assert "version: 0.1.0" in (root / "configs/monitoring.yaml").read_text(encoding="utf-8")
+    assert (root / "CHANGELOG.md").read_text(encoding="utf-8") == "0.0.1\n"
 
 
-class TestResetVersionRC:
-    """Release candidate x.y.z-rc.n reset 검증."""
+def test_reset_version_updates_one_stable_release_atomically(tmp_path: Path) -> None:
+    _make_project(tmp_path)
+    _run_reset(tmp_path, "0.9.0")
+    _assert_release_files(tmp_path, "0.9.0", "0.9.0")
 
-    @pytest.fixture(autouse=True)
-    def setup(self, tmp_path):
-        _make_project(tmp_path, OLD_VERSION)
-        _run_reset(tmp_path, NEW_RC_VERSION)
-        self.root = tmp_path
 
-    def test_version_file(self):
-        assert (self.root / "VERSION").read_text(encoding="utf-8").strip() == NEW_RC_VERSION
-
-    def test_manifest_python_package_version_pep440(self):
-        m = json.loads((self.root / "version_manifest.json").read_text(encoding="utf-8"))
-        assert m["python_package_version"] == NEW_RC_PY_VERSION
-
-    def test_pyproject_toml_pep440(self):
-        text = (self.root / "pyproject.toml").read_text(encoding="utf-8")
-        assert f'version = "{NEW_RC_PY_VERSION}"' in text
-
-    def test_manifest_image_tags_platform_rc(self):
-        m = json.loads((self.root / "version_manifest.json").read_text(encoding="utf-8"))
-        assert m["image_tags"]["platform"] == f"ai-model-serving-platform:{NEW_RC_VERSION}"
-
-    def test_manifest_image_tags_risk_vllm_rc(self):
-        m = json.loads((self.root / "version_manifest.json").read_text(encoding="utf-8"))
-        assert m["image_tags"]["risk_vllm"] == f"ai-model-serving-vllm-unified:{NEW_RC_VERSION}"
-
-    def test_env_compose_risk_vllm_image_rc(self):
-        text = (self.root / ".env.compose.example").read_text(encoding="utf-8")
-        assert f"RISK_VLLM_IMAGE=ai-model-serving-vllm-unified:{NEW_RC_VERSION}" in text
+def test_reset_version_converts_release_candidate_to_pep440(tmp_path: Path) -> None:
+    _make_project(tmp_path)
+    _run_reset(tmp_path, "0.9.0-rc.1")
+    _assert_release_files(tmp_path, "0.9.0-rc.1", "0.9.0rc1")

@@ -307,7 +307,7 @@ derived Dockerfile: `ops/images/vllm-unified/Dockerfile` 하나뿐이다(26B/12B
 
 - CI/CD: release, registry push, deploy orchestration
 - Local: CI 없이 build/test/compose 재현
-- Shared: Dockerfile, compose validation, model contract
+- Shared: Dockerfile, compose validation, public model-list schema
 
 로컬 빌드 명령과 CI/릴리스 빌드 절차 전반은 [`docs/development/build_ux.md`](../development/build_ux.md)를 기준으로 한다.
 

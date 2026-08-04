@@ -65,6 +65,10 @@ exclude_top_level_dirs = {
     'models',
     'outputs',
     'run',
+    # 테스트는 build-time 품질 게이트의 입력이며 서비스 실행에는 필요하지 않다.
+    # 배포 ZIP에 포함하면 운영 artifact의 크기·공격 표면만 늘리고, 어느 테스트가
+    # 실제 배포본을 보증했는지도 불명확해진다.
+    'tests',
 }
 exclude_suffixes = (
     '.pyc',
@@ -190,10 +194,11 @@ import zipfile
 out = sys.argv[1]
 pkg = sys.argv[2]
 safe_env_examples = {".env.example", ".env.local.example", ".env.compose.example"}
-forbidden_release_dirs = {".other", ".agents", ".codex", ".claude", ".cursor"}
+forbidden_release_dirs = {".other", ".agents", ".codex", ".claude", ".cursor", "tests"}
 
 with zipfile.ZipFile(out) as zf:
     names = zf.namelist()
+    infos = zf.infolist()
     file_paths = {
         name[len(pkg) + 1 :]
         for name in names
@@ -212,6 +217,10 @@ for name in names:
     parts = [part for part in rel.split("/") if part]
     if any(part in forbidden_release_dirs for part in parts):
         raise SystemExit(f"Release ZIP contains forbidden tool/private directory: {name}")
+
+epoch = (1980, 1, 1, 0, 0, 0)
+if any(info.date_time != epoch for info in infos):
+    raise SystemExit("Release ZIP contains non-reproducible timestamps")
 PYSELF
 
 "$PYTHON_BIN" - "$TMP_OUT" "$OUT" <<'PYREPLACE'
