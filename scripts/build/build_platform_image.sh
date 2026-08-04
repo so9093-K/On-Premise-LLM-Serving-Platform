@@ -7,6 +7,35 @@ ENV_FILE="${ENV_FILE:-.env}"
 load_local_env "$ENV_FILE"
 VERSION="$(cat VERSION)"
 IMAGE="${PLATFORM_IMAGE:-ai-model-serving-platform:${VERSION}}"
+EXTRA_TAGS="${PLATFORM_IMAGE_EXTRA_TAGS:-}"
+CACHE_FROM="${PLATFORM_IMAGE_CACHE_FROM:-}"
+PULL_BASE_IMAGE="${PLATFORM_IMAGE_PULL:-0}"
+INLINE_CACHE="${PLATFORM_IMAGE_INLINE_CACHE:-0}"
+
+# 로컬과 CI는 이 스크립트로 같은 Dockerfile build와 image 내부 app 초기화를
+# 확인한다. CI만 cache/tag/push/digest 수집을 환경 변수와 후속 단계로 덧붙인다.
+build_args=()
+if [[ "$PULL_BASE_IMAGE" == "1" ]]; then
+  build_args+=(--pull)
+fi
+if [[ -n "$CACHE_FROM" ]]; then
+  echo "[image] loading cache image ${CACHE_FROM}"
+  docker pull "$CACHE_FROM" || true
+  build_args+=(--cache-from "$CACHE_FROM")
+fi
+if [[ "$INLINE_CACHE" == "1" ]]; then
+  build_args+=(--build-arg BUILDKIT_INLINE_CACHE=1)
+fi
+
+build_args+=(-t "$IMAGE")
+for tag in $EXTRA_TAGS; do
+  build_args+=(-t "$tag")
+done
+
 echo "[image] building platform image ${IMAGE}"
-docker build -t "$IMAGE" .
-echo "[image] built ${IMAGE}"
+docker build "${build_args[@]}" .
+
+echo "[image] verifying platform image imports"
+docker run --rm --entrypoint python "$IMAGE" -c \
+  "from ai_model_serving.apps.gateway import create_gateway_app; from ai_model_serving.apps.risk_adapter import create_risk_adapter_app; create_gateway_app(); create_risk_adapter_app()"
+echo "[image] built and verified ${IMAGE}"

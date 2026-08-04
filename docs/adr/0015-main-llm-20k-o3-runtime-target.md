@@ -44,7 +44,7 @@ Runtime 값을 수동 복제하지 않도록 `render_vllm_command()`와 compose 
 
 ## Operational impact
 
-- 필수 static/config 검증: `make validate`, `modelctl validate/diff`, `validate_vllm_compose.py`, `runtime_validation.py --config-only`, unit/contract tests, `render_vllm_commands.py --service main_llm`.
+- 필수 static/config 검증: `make validate`, `modelctl validate/diff`, `validate_vllm_compose.py`, unit/contract tests, `render_vllm_commands.py --service main_llm`.
 - 필수 GPU 검증: known-good baseline(`16K + O2`)과 active target(`20K + O3 + gpu_memory_utilization 0.76`)을 비교한다.
 - Active target 실패 또는 품질/성능 회귀가 보일 때만 fallback diagnosis profile을 사용한다: `16K + O3`, `16K + O2`.
 - Prefix caching 효과는 반복 prefix가 있는 요청에서 주로 기대하며, runtime report에서 reuse/hit 관련 지표를 별도 확인한다.

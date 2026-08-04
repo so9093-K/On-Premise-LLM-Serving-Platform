@@ -2,7 +2,7 @@
 
 릴리스 전 다음 항목을 확인한다.
 
-- [ ] `make validate` (계약 검증, runtime validation config-only, vLLM compose 검증을 모두 포함한다)
+- [ ] `make validate` (계약 검증, vLLM compose 검증을 포함한다)
 - [ ] `make test`
 - [ ] `python -m compileall -q src scripts tests`
 - [ ] `make package`

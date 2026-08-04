@@ -220,7 +220,7 @@ PLATFORM_IMAGE=<registry>/platform:<validated tag>
 초기 전체 기동은 기본 CI full 배포 또는 175 로컬에서 다음 명령을 사용한다.
 
 ```bash
-make compose-up-private
+make compose-up
 ```
 
 기존 vLLM image를 재사용하는 빠른 platform app 변경 배포만 GitLab Run pipeline에서 `DEPLOY_MODE=rolling`을 지정한다.

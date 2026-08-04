@@ -15,7 +15,7 @@
 | exposure profile | `configs/exposure_profiles.yaml` | EXPOSURE_MODE별 profile, host-published service reference, diagnostics, compose override |
 | env contract | `.env.*.example` | enabled model runtime env key 완전성 검증 |
 | project inventory | source tree + documentation entrypoints | file ownership, management UX, handoff review matrix |
-| runtime validation plan | `ModelRegistry` runtime projection | runtime validation config-only checks |
+| runtime validation plan | `ModelRegistry` runtime projection | live runtime validation 대상 설명 |
 | secret/env | `.env` generated from `.env.*.example` | local/compose runtime behavior |
 
 모델과 runtime 관련 해석은 코드에서 직접 YAML을 반복 해석하지 않고 `ModelRegistry` projection을 우선 사용한다.

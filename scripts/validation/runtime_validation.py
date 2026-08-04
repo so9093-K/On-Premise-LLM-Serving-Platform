@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
-"""src/ai_model_serving/runtime_validation 패키지(라이브 런타임 검증 하네스)를
-실행하는 CLI 진입점. `--config-only`로 부르면 서비스 기동 없이 registry
-projection/리소스 정책만 검사한다(make validate가 이 모드로 사용)."""
+"""실제 서비스와 GPU/vLLM 경계를 확인하는 runtime validation CLI 진입점."""
 
 from __future__ import annotations
 

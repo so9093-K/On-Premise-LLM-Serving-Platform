@@ -32,7 +32,7 @@
 
 ## 설정 우선순위
 
-`python scripts/validation/runtime_validation.py`는 live runtime 검증과 config-only 검증을 모두 담당한다. 운영자가 후보 endpoint를 임시로 바꿔 검증할 수 있어야 하므로, host URL 계열 설정은 아래 우선순위를 따른다.
+`python scripts/validation/runtime_validation.py`는 live runtime 검증을 담당한다. 운영자가 후보 endpoint를 임시로 바꿔 검증할 수 있어야 하므로, host URL 계열 설정은 아래 우선순위를 따른다.
 
 ```text
 CLI 인자 > process env / .env > built-in 기본값

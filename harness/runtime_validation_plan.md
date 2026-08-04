@@ -11,7 +11,6 @@
 | Gate | 명령 | Runtime 필요 |
 |---|---|---|
 | 정적 계약 검증 | `make validate` | 아니오 |
-| 설정 전용 runtime validation | `python scripts/validation/runtime_validation.py --config-only` | 아니오 |
 | full-stack readiness | `make ready-full` | 예 |
 | live runtime validation | `make runtime-validate` | 예 |
 | operator evidence 생성 | `make operator-reports` | 선택, 최신 live report가 있으면 반영 |

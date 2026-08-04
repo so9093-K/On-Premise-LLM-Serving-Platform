@@ -83,7 +83,7 @@ make test
 make package
 ```
 
-- `make validate`: 정적 계약, config-only runtime harness, compose validation, operator projection을 확인한다.
+- `make validate`: 정적 계약과 compose validation을 확인한다.
 - `make test`: deterministic unit·contract test suite를 실행한다.
 - `make package`: release ZIP을 만든다.
 

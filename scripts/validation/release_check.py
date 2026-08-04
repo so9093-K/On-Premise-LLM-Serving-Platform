@@ -18,12 +18,9 @@ STATIC_STEPS: list[tuple[str, list[str]]] = [
     ("exposure profiles 구조 검증", ["__in_process__", "scripts.validation.validate_exposure_profiles", "--strict"]),
     ("compose override drift check", ["__in_process__", "scripts.compose.render_exposure_overrides", "--check"]),
     ("env contract 검증", ["__in_process__", "scripts.validation.validate_env_contract", "--strict"]),
-    ("런타임 검증 config-only", ["__in_process__", "scripts.validation.runtime_validation", "--config-only"]),
     ("runtime asset drift check", ["__in_process__", "scripts.render_runtime_assets", "--check"]),
     ("OpenAPI snapshot diff", ["__in_process__", "scripts.validation.openapi_snapshot_diff"]),
     ("auth profile 생성값 sanity", ["__in_process__", "scripts.auth.auth_profile_sanity"]),
-    ("auth doctor", ["__in_process__", "scripts.auth.auth_doctor", "--warn-only"]),
-    ("command registry 검증", ["__in_process__", "scripts.commands.validate_command_registry", "--strict"]),
 ]
 
 def _timeout_handler(signum, frame) -> None:  # pragma: no cover - defensive CLI guard

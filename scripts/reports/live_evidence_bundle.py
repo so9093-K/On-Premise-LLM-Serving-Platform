@@ -22,8 +22,7 @@ def main() -> int:
     parser.add_argument("--root", default=str(ROOT))
     parser.add_argument("--output-dir", default="reports/runtime")
     parser.add_argument("--operator-bundle", default="reports/runtime/operator_status_bundle.json")
-    parser.add_argument("--runtime-report", default="", help="Runtime validation JSON report 경로입니다. 기본값은 존재하는 최신 non-config-only reports/runtime/runtime_validation_*.json입니다.")
-    parser.add_argument("--latest-any", action="store_true", help="config-only report라도 최신 runtime validation report를 사용합니다.")
+    parser.add_argument("--runtime-report", default="", help="Runtime validation JSON report 경로입니다. 기본값은 최신 reports/runtime/runtime_validation_*.json입니다.")
     args = parser.parse_args()
 
     root = Path(args.root).resolve()
@@ -32,7 +31,7 @@ def main() -> int:
     if not operator_bundle_path.exists():
         raise SystemExit(f"operator status bundle not found: {operator_bundle_path}. Run make operator-status first.")
 
-    runtime_report_path = (root / args.runtime_report).resolve() if args.runtime_report else latest_runtime_validation_report(root, args.output_dir, prefer_live=not args.latest_any)
+    runtime_report_path = (root / args.runtime_report).resolve() if args.runtime_report else latest_runtime_validation_report(root, args.output_dir)
     runtime_report = load_json(runtime_report_path) if runtime_report_path and runtime_report_path.exists() else None
     document = live_evidence_bundle_document(
         operator_status=load_json(operator_bundle_path),

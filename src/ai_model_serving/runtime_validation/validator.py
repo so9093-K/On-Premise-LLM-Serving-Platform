@@ -7,7 +7,6 @@ from typing import Callable
 from ai_model_serving.domain import ModelRegistry
 
 from .config import RuntimeValidationConfig
-from .config_checks import ConfigOnlyChecks
 from .gpu_checks import sample_gpu as sample_gpu_check
 from .http_client import RuntimeValidationHttpClient
 from .live_checks import LiveRuntimeChecks
@@ -148,9 +147,6 @@ class RuntimeValidator:
     def run_soak(self) -> CheckResult:
         return self.soak_runner.run()
 
-    def run_config_only(self) -> None:
-        ConfigOnlyChecks(config=self.config, registry=self.registry, record=self.record).run()
-
     def run_live(self) -> None:
         self.safe_check("gateway-runtime", "gateway /health", self.check_gateway_health)
         self.safe_check("gateway-runtime", "gateway /ready", self.check_gateway_ready)
@@ -200,6 +196,6 @@ class RuntimeValidator:
             output_dir=self.config.output_dir,
             version=self.config.version,
             session_started=self.session_started,
-            mode="config-only" if self.config.config_only else "live",
+            mode="live",
             results=self.results,
         )

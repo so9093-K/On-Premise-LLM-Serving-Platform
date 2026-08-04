@@ -35,7 +35,6 @@ class RuntimeValidationConfig:
     soak_interval_seconds: float
     concurrency: int
     skip_soak: bool
-    config_only: bool
     allow_failures: bool
     api_key: str
     admin_api_key: str
@@ -109,7 +108,6 @@ def load_runtime_config(args: Any) -> RuntimeValidationConfig:
         soak_interval_seconds=args.soak_interval_seconds,
         concurrency=args.concurrency,
         skip_soak=args.skip_soak,
-        config_only=args.config_only,
         allow_failures=args.allow_failures,
         api_key=api_key,
         admin_api_key=admin_api_key,

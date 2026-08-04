@@ -1,8 +1,4 @@
-"""runtime_validation 패키지의 독립적인 결정 함수만 검증한다.
-
-config-only 실행 결과와 operator report projection은 ``make validate``가 실제 설정으로
-매번 실행하므로 여기서 snapshot으로 반복하지 않는다.
-"""
+"""runtime_validation 패키지의 실제 live validation 보조 결정 함수만 검증한다."""
 
 from __future__ import annotations
 
@@ -10,7 +6,7 @@ import json
 from pathlib import Path
 from types import SimpleNamespace
 
-from ai_model_serving.runtime_validation import RuntimeValidator, load_runtime_config, render_vllm_command
+from ai_model_serving.runtime_validation import load_runtime_config, render_vllm_command
 from ai_model_serving.runtime_validation.config import _localhost_base
 from ai_model_serving.runtime_validation.reporting import write_reports
 from ai_model_serving.runtime_validation.results import CheckResult
@@ -53,7 +49,6 @@ def test_runtime_validation_endpoint_priority_cli_env_default(monkeypatch) -> No
         soak_interval_seconds=1.0,
         concurrency=1,
         skip_soak=False,
-        config_only=True,
         allow_failures=False,
     )
 
@@ -126,7 +121,7 @@ def test_runtime_validation_report_does_not_store_raw_model_text(tmp_path: Path)
         output_dir="reports/runtime",
         version="0.1.0-test",
         session_started="2026-05-09T00:00:00+00:00",
-        mode="config-only",
+        mode="live",
         results=[CheckResult("gateway-runtime", "gateway /health", "pass", detail="ok")],
     )
     payload = json.loads(json_path.read_text(encoding="utf-8"))
@@ -155,54 +150,6 @@ def test_runtime_validation_report_summarizes_degraded_features(tmp_path: Path) 
     payload = json.loads(json_path.read_text(encoding="utf-8"))
     assert payload["summary"]["degraded_features"] == ["json_schema_with_reasoning"]
     assert "Degraded features: json_schema_with_reasoning" in md_path.read_text(encoding="utf-8")
-
-
-def test_runtime_validation_live_mode_registers_runtime_canaries(monkeypatch) -> None:
-    _clear_runtime_endpoint_env(monkeypatch)
-    args = SimpleNamespace(
-        root=str(ROOT),
-        output_dir="reports/runtime",
-        gateway_base="http://localhost:9400",
-        risk_base="http://localhost:9405",
-        main_llm_base="http://localhost:9401/v1",
-        embedding_base="http://localhost:9402/v1",
-        risk_prompt_base="http://localhost:9403/v1",
-        prometheus_base="http://localhost:9410",
-        api_key="",
-        admin_api_key="",
-        timeout_seconds=30,
-        soak_seconds=1800,
-        soak_interval_seconds=1.0,
-        concurrency=1,
-        skip_soak=False,
-        config_only=False,
-        allow_failures=False,
-    )
-    validator = RuntimeValidator(load_runtime_config(args))
-    registered: list[tuple[str, str]] = []
-    validator.safe_check = lambda category, name, fn: registered.append((category, name))  # type: ignore[method-assign]
-
-    validator.run_live()
-
-    categories = {category for category, _name in registered}
-    expected_canaries = {
-        "response-format-text-canary",
-        "response-format-json-object-canary",
-        "response-format-json-schema-canary",
-        "logprobs-non-stream-canary",
-        "logprobs-stream-canary",
-        "logit-bias-shape-canary",
-        "json-schema-with-tools-canary",
-        "json-schema-with-reasoning-canary",
-        "gemma4-reasoning-parser-structured-outputs-canary",
-    }
-    matrix_ids = {
-        item["id"]
-        for item in validator.registry.runtime_validation_matrix_document()["validation_checks"]
-        if item["id"].endswith("-canary")
-    }
-    assert expected_canaries.issubset(categories)
-    assert matrix_ids == expected_canaries
 
 
 def test_gpu_check_uses_hard_minimum_with_legacy_fallback(monkeypatch) -> None:
@@ -282,8 +229,7 @@ def test_live_evidence_bundle_combines_static_and_runtime_reports(tmp_path: Path
     report_dir = tmp_path / "reports/runtime"
     report_dir.mkdir(parents=True)
     live_report = report_dir / "runtime_validation_20260509T000000Z.json"
-    config_only_report = report_dir / "runtime_validation_20260509T010000Z.json"
+    latest_report = report_dir / "runtime_validation_20260509T010000Z.json"
     live_report.write_text('{"mode":"live"}', encoding="utf-8")
-    config_only_report.write_text('{"mode":"config-only"}', encoding="utf-8")
-    assert latest_runtime_validation_report(tmp_path) == live_report
-    assert latest_runtime_validation_report(tmp_path, prefer_live=False) == config_only_report
+    latest_report.write_text('{"mode":"live"}', encoding="utf-8")
+    assert latest_runtime_validation_report(tmp_path) == latest_report

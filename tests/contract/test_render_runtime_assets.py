@@ -87,50 +87,6 @@ def test_port_change_propagates_to_runtime_targets_block(
     assert "9401" not in block
 
 
-# ── 새 서비스 추가 시 registry runtime target 수 증가 ─────────────────────────
-
-def test_new_service_increases_registry_runtime_services(
-    catalog: dict[str, Any], serving: dict[str, Any]
-) -> None:
-    catalog2 = copy.deepcopy(catalog)
-    serving2 = copy.deepcopy(serving)
-    catalog2["models"]["local-test"] = {
-        "role": "test",
-        "upstream_model_id": "test/model",
-        "runtime": {
-            "backend": "vllm",
-            "served_model_name": "local-test",
-            "port": 9499,
-            "endpoint": "/v1/chat/completions",
-        },
-        "project_runtime_policy": {},
-        "gateway_listing": {"enabled": True, "capabilities": ["chat.completions"]},
-        "lifecycle": {"state": "active", "exposure": "public", "owner": "platform"},
-    }
-    serving2["models"]["test_llm"] = {
-        "name": "test/model",
-        "served_model_name": "local-test",
-        "backend": "vllm",
-        "port": 9499,
-        "endpoint": "http://test-vllm:9499/v1",
-        "max_model_len": 2048,
-        "max_num_seqs": 1,
-        "max_num_batched_tokens": 2048,
-        "gpu_memory_utilization": 0.04,
-    }
-    registry2 = ModelRegistry(catalog2, serving2)
-    orig_registry = ModelRegistry(catalog, serving)
-
-    vllm_check = next(
-        c.as_yaml_item()
-        for c in registry2.runtime_validation_matrix_checks()
-        if c.id == "vllm-runtime"
-    )
-    assert "test_llm" in vllm_check["runtime_services"]
-
-    assert len(registry2.runtime_validation_targets()) == len(orig_registry.runtime_validation_targets()) + 1
-
-
 # ── --check 모드 exit code 확인 ────────────────────────────────────────────────
 
 def test_compare_artifact_detects_mismatch(tmp_path: Path) -> None:

@@ -8,8 +8,8 @@
 make validate
 ```
 
-`make validate`는 계약 검증(`validate_contracts.py`), runtime validation config-only(`runtime_validation.py --config-only`),
-vLLM compose 검증(`validate_vllm_compose.py`)을 포함한 정적 검증 단계를 모두 실행한다. 검증 대상은
+`make validate`는 계약 검증(`validate_contracts.py`), vLLM compose 검증(`validate_vllm_compose.py`)을
+포함한 정적 검증 단계를 실행한다. 검증 대상은
 OpenAPI refs, generated OpenAPI schema injection, JSON Schema, YAML, 포트, forbidden field invariant,
 compose/model registry 정합성이다.
 

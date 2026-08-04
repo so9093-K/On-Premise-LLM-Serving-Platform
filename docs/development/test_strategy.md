@@ -34,8 +34,8 @@ Exposure policy처럼 service classification이 필요한 검증은 `configs/ser
 ## Runtime validation / 런타임 검증
 
 `scripts/validation/runtime_validation.py`는 실제 live service와 vLLM endpoint를 호출한다.
-Docker/GPU가 없는 환경에서는 `--config-only`로 설정 정합성만 확인한다. Docker compose,
-GPU 표시, live vLLM 증빙은 `runtime`, `docker`, `gpu` 계층이며 명시적으로 실행한다.
+Docker compose, GPU 표시, live vLLM 증빙은 `runtime`, `docker`, `gpu` 계층이며
+명시적으로 실행한다.
 
 ## Sensitive Data Protection 테스트 계층
 
@@ -124,14 +124,14 @@ source-of-truth projection처럼 Docker daemon 없이 검증 가능한 관계는
 
 | 목적 | 명령 | 포함 |
 |---|---|---|
-| 실행 전 정적 검증 | `make validate` | source drift, docs/env/compose/runtime config-only |
+| 실행 전 정적 검증 | `make validate` | source drift, docs/env/compose |
 | 결정론적 pytest | `make test` | unit·contract pytest 전체 |
 | live 운영 증빙 | `make runtime-validate` | live service, Docker/GPU/vLLM 환경 |
 
 ## 정적 검증 역할
 
 `make validate`는 source-of-truth drift, generated artifact drift, docs exposure
-semantic drift, env contract, OpenAPI snapshot, runtime config-only 정합성을 확인한다.
+semantic drift, env contract, OpenAPI snapshot 정합성을 확인한다.
 Docker/GPU는 필요하지 않다.
 
 `make test`는 unit·contract deterministic pytest를 실행한다. live GPU나 live vLLM을

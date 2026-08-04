@@ -76,37 +76,14 @@ def _safe_details(details: Any) -> dict[str, Any]:
     return safe
 
 
-def _runtime_report_mode(path: Path) -> str:
-    """보고서 본문을 노출하지 않고 runtime-validation 보고서 mode를 읽는다."""
-    try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return "unknown"
-    return str(payload.get("mode", "unknown"))
-
-
 def latest_runtime_validation_report(
     root: Path,
     output_dir: str = "reports/runtime",
-    *,
-    prefer_live: bool = True,
 ) -> Path | None:
-    """가장 최신 ``runtime_validation_*.json`` 보고서를 반환한다.
-
-    By default this prefers the newest non-``config-only`` report when one is
-    present. This prevents a static release check from creating a newer
-    config-only report and accidentally hiding an older GPU/live validation
-    artifact in the live-evidence bundle.
-    """
+    """가장 최신 live ``runtime_validation_*.json`` 보고서를 반환한다."""
     report_dir = root / output_dir
     candidates = sorted(report_dir.glob("runtime_validation_*.json"), key=lambda path: path.name)
-    if not candidates:
-        return None
-    if prefer_live:
-        for candidate in reversed(candidates):
-            if _runtime_report_mode(candidate) != "config-only":
-                return candidate
-    return candidates[-1]
+    return candidates[-1] if candidates else None
 
 
 def load_json(path: Path) -> dict[str, Any]:
@@ -173,8 +150,6 @@ def live_evidence_bundle_document(
     failed = int(runtime_summary.get("failed", len([item for item in runtime_results if item.get("status") != "pass"])))
     if not runtime_report:
         evidence_status = "missing_runtime_evidence"
-    elif runtime_mode == "config-only":
-        evidence_status = "static_only"
     elif failed:
         evidence_status = "live_failed"
     elif missing_categories:

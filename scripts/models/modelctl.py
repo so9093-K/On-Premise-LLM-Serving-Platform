@@ -161,7 +161,7 @@ def propose_add_document(args: argparse.Namespace, root: Path, registry: ModelRe
         "configs/model_serving.yaml에 runtime service stanza와 resource_control을 추가",
         "model_cards/<model-id>.json에 upstream 사실과 운영 배경을 문서화",
         "python scripts/models/modelctl.py validate/diff로 registry projection 확인",
-        "python scripts/validation/runtime_validation.py --config-only로 registry 기반 runtime validation plan 확인",
+        "make validate로 registry와 generated artifact 정합성 확인",
         "make operator-reports로 runtime targets/monitoring/project inventory 재생성",
         "Docker/GPU 서버에서 readiness와 vLLM smoke를 확인",
     ]
@@ -190,7 +190,7 @@ def propose_remove_document(model_id: str, root: Path, registry: ModelRegistry) 
         "2단계: gateway_listing.enabled=false 또는 lifecycle.exposure=hidden으로 public listing에서 제거",
         "3단계: 운영 공지와 client migration window를 끝낸 뒤 runtime service를 제거",
         "4단계: model card를 archive하거나 removed 상태로 남겨 감사 추적을 보존",
-        "5단계: modelctl validate/diff, runtime_validation --config-only, operator-reports를 재실행",
+        "5단계: modelctl validate/diff, make validate, operator-reports를 재실행",
         "6단계: 실제 Docker/GPU 서버에서 readiness, monitoring label, dashboard variable을 확인",
     ]
     warnings = [
@@ -256,7 +256,7 @@ def render_patch_scaffold(doc: dict[str, Any]) -> str:
         f"# Patch scaffold: {slug}",
         "",
         "이 파일은 적용용 patch가 아니라 운영자가 검토할 변경 초안입니다.",
-        "source 파일은 자동 수정하지 않으며, 변경 전후에 `modelctl validate`, `modelctl diff`, `runtime_validation --config-only`를 실행하세요.",
+        "source 파일은 자동 수정하지 않으며, 변경 전후에 `modelctl validate`, `modelctl diff`, `make validate`를 실행하세요.",
         "",
         "## 영향 파일",
     ]

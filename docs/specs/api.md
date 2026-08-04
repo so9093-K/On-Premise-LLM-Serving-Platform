@@ -105,12 +105,8 @@ SDK/client generation을 위해 주요 route에 명시적 `operation_id`가 지�
 
 `make runtime-validate`는 현재 merge gate가 아니다. live vLLM runtime 환경 준비 후 별도 단계에서 실행한다.
 
-config-only validation은 runtime 없이 실행 가능하다:
-```bash
-python scripts/validation/runtime_validation.py --config-only --allow-failures
-```
-
-live mode는 running stack이 필요하다. CI에서는 `make validate` (config/contract/docs validation만)를 사용한다.
+runtime validation은 running stack이 필요하다. CI에서는 `make validate`로
+config/contract/docs 정적 검증만 수행한다.
 
 ## Chat Streaming
 
