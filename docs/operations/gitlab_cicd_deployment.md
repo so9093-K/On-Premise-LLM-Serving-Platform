@@ -10,6 +10,11 @@
 - tags: `ai-serving`, `docker-build`
 - privileged: `true`
 - Docker registry push 가능
+- vLLM derived image build용 DinD Docker storage 및 inode 여유
+
+`build-vllm-derived`는 base image pull 직후 DinD daemon 내부 filesystem의 디스크·inode
+사용량과 Docker layer/cache 사용량을 job log에 남긴다. CI job에서 자동 prune하거나
+임의의 고정 여유 공간 기준으로 실패시키지 않으며, runner storage 정리는 runner 운영 정책으로 관리한다.
 
 Shell executor Runner를 사용할 때는 다음 조건을 맞춘다.
 
