@@ -48,10 +48,20 @@ def test_resolve_mode_defaults_to_rolling_without_vllm_override():
     assert result.stdout == "rolling|platform-only change"
 
 
-def test_resolve_mode_uses_full_when_vllm_image_changes():
+def test_resolve_mode_ignores_unbuilt_vllm_expected_tag():
     result = run_policy(
         'deploy_resolve_mode; printf "%s|%s" "$DEPLOY_MODE" "$DEPLOY_MODE_REASON"',
         VLLM_UNIFIED_IMAGE_SHA="registry.example/vllm@sha256:" + "a" * 64,
+    )
+
+    assert result.returncode == 0
+    assert result.stdout == "rolling|platform-only change"
+
+
+def test_resolve_mode_uses_full_for_fresh_vllm_artifact():
+    result = run_policy(
+        'deploy_resolve_mode; printf "%s|%s" "$DEPLOY_MODE" "$DEPLOY_MODE_REASON"',
+        VLLM_UNIFIED_IMAGE_TO_DEPLOY="registry.example/vllm@sha256:" + "a" * 64,
     )
 
     assert result.returncode == 0

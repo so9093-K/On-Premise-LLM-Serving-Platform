@@ -13,7 +13,11 @@ deploy_resolve_mode() {
     return 0
   fi
 
-  local vllm_image_override="${RISK_VLLM_IMAGE_TO_DEPLOY:-${VLLM_UNIFIED_IMAGE_SHA:-}}"
+  # VLLM_UNIFIED_IMAGE_SHA는 CI가 build job에 전달하는 예상 tag일 뿐이다.
+  # build-vllm-derived가 skip되면 registry에 존재하지 않을 수 있으므로 배포 모드
+  # 판단에 쓰면 platform-only pipeline도 full deploy로 잘못 승격된다. 실제 build
+  # artifact digest 또는 운영자가 명시한 override만 full deploy의 근거다.
+  local vllm_image_override="${RISK_VLLM_IMAGE_TO_DEPLOY:-${VLLM_UNIFIED_IMAGE_TO_DEPLOY:-}}"
   if [[ -n "${vllm_image_override}" ]]; then
     DEPLOY_MODE="full"
     DEPLOY_MODE_REASON="vLLM image override provided"
@@ -58,9 +62,9 @@ deploy_validate_request() {
 deploy_resolve_full_runtime_images() {
   [[ "${DEPLOY_MODE:-}" == "full" ]] || return 0
 
-  RISK_VLLM_IMAGE_TO_DEPLOY="${RISK_VLLM_IMAGE_TO_DEPLOY:-${VLLM_UNIFIED_IMAGE_TO_DEPLOY:-${VLLM_UNIFIED_IMAGE_SHA:-}}}"
+  RISK_VLLM_IMAGE_TO_DEPLOY="${RISK_VLLM_IMAGE_TO_DEPLOY:-${VLLM_UNIFIED_IMAGE_TO_DEPLOY:-}}"
   if [[ -z "${RISK_VLLM_IMAGE_TO_DEPLOY}" ]]; then
-    echo "[deploy] ERROR: full deploy requires RISK_VLLM_IMAGE_TO_DEPLOY or VLLM_UNIFIED_IMAGE_SHA." >&2
+    echo "[deploy] ERROR: full deploy requires RISK_VLLM_IMAGE_TO_DEPLOY or a fresh VLLM_UNIFIED_IMAGE_TO_DEPLOY digest." >&2
     return 2
   fi
 

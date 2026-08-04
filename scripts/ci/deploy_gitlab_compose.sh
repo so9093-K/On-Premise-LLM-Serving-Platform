@@ -14,7 +14,7 @@
 # 선택:
 #   RISK_VLLM_IMAGE_TO_DEPLOY         RISK_VLLM_IMAGE를 덮어쓰는 전체 런타임 배포 override;
 #                                     DEPLOY_MODE=full일 때만 허용
-#   VLLM_UNIFIED_IMAGE_SHA            DEPLOY_MODE=full일 때 사용할 vllm-unified tag
+#   VLLM_UNIFIED_IMAGE_SHA            build-vllm-derived 전용 예상 tag; 배포 image 선택에는 사용하지 않음
 #   VLLM_UNIFIED_IMAGE_TO_DEPLOY      이번 pipeline에서 새로 만든 immutable digest;
 #                                     unified source 변경 full 배포에서는 필수
 #   DEPLOY_COMPOSE_FILE               DEPLOY_PATH 기준 상대 compose 파일 경로
