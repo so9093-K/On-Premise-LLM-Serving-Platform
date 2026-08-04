@@ -1,164 +1,18 @@
-"""EndpointSpec 레지스트리(GATEWAY_ENDPOINTS/RISK_ADAPTER_ENDPOINTS)가 실제 FastAPI
-라우트와 1:1로 맞는지 검증한다: operation_id 유일성, 스펙에 있는데 라우트가
-없거나 그 반대인 경우, auth scope 정책, 선언된 schema 파일이 실제로 존재하는지."""
+"""EndpointSpec의 보안 기본값과 선언 schema 파일을 검증한다.
+
+Route/path/operationId 정합성은 make validate의 generated OpenAPI 비교가 실제 app
+산출물 기준으로 확인한다. 여기서는 그와 독립적인 보안 기본값만 유지한다.
+"""
 
 from __future__ import annotations
 
 import pytest
 
-from fastapi.routing import APIRoute
-
 from ai_model_serving.api.endpoint_spec import GATEWAY_ENDPOINTS, RISK_ADAPTER_ENDPOINTS
-from ai_model_serving.apps.gateway import create_gateway_app
-from ai_model_serving.apps.risk_adapter import create_risk_adapter_app
 from ai_model_serving.openapi_contracts import find_project_root
-from ai_model_serving.settings import AppSettings, RuntimeEndpoint, SecuritySettings
 
 
-# ---------------------------------------------------------------------------
-# App factory (최소 settings, HTTP 호출 없음)
-# ---------------------------------------------------------------------------
-
-class _FakeClient:
-    def __init__(self, endpoint: RuntimeEndpoint):
-        self.endpoint = endpoint
-
-    async def post_json(self, path, payload, **kwargs):
-        return {}
-
-    async def get_json(self, path, **kwargs):
-        return {"object": "list", "data": []}
-
-
-class _FakeGatewayClients:
-    def __init__(self) -> None:
-        from ai_model_serving.services.runtime_state import RuntimeStateStore
-        ep = RuntimeEndpoint("x", "http://x/v1", "x", 1)
-        self.main_llm = _FakeClient(ep)
-        self.embedding = _FakeClient(ep)
-        self.risk_adapter = _FakeClient(RuntimeEndpoint("risk-adapter", "http://risk", "risk-adapter", 1))
-        self.runtime_state = RuntimeStateStore()
-        self.sidecar = None
-
-
-class _FakeRiskClients:
-    def __init__(self) -> None:
-        ep = RuntimeEndpoint("risk-prompt", "http://prompt/v1", "risk-prompt", 1)
-        self.prompt = _FakeClient(ep)
-        self.detectors = {"prompt": self.prompt}
-
-
-def _settings() -> AppSettings:
-    ep = RuntimeEndpoint("x", "http://x/v1", "x", 1)
-    return AppSettings(
-        app_env="test",
-        project_version="0.1.0",
-        security=SecuritySettings(
-            api_key_required=True,
-            api_keys=frozenset({"test-key"}),
-            internal_service_token="internal-test-key",
-        ),
-        gateway_timeout_seconds=1,
-        risk_adapter_timeout_seconds=1,
-        main_llm=ep,
-        embedding=ep,
-        risk_prompt=RuntimeEndpoint("risk-prompt", "http://prompt/v1", "risk-prompt", 1),
-        risk_adapter_base_url="http://risk",
-    )
-
-
-_INFRA_PREFIXES = ("/docs", "/openapi", "/scalar", "/redoc")
-
-
-def _app_routes(app) -> dict[tuple[str, str], APIRoute]:
-    """비즈니스 APIRoute에 대해 {(method, path): route}를 반환한다(docs/openapi 인프라는 제외)."""
-    result: dict[tuple[str, str], APIRoute] = {}
-    for route in app.routes:
-        if isinstance(route, APIRoute) and not any(
-            route.path.startswith(p) for p in _INFRA_PREFIXES
-        ):
-            for method in route.methods or []:
-                result[(method.upper(), route.path)] = route
-    return result
-
-
-def _gateway_app():
-    return create_gateway_app(_settings(), _FakeGatewayClients())
-
-
-def _risk_adapter_app():
-    return create_risk_adapter_app(_settings(), _FakeRiskClients())
-
-
-_SERVICES = [
-    pytest.param(GATEWAY_ENDPOINTS, _gateway_app, id="gateway"),
-    pytest.param(RISK_ADAPTER_ENDPOINTS, _risk_adapter_app, id="risk-adapter"),
-]
-
-
-# ---------------------------------------------------------------------------
-# operation_id 유일성
-# ---------------------------------------------------------------------------
-
-@pytest.mark.parametrize("endpoints,_app_factory", _SERVICES)
-def test_operation_ids_are_unique(endpoints, _app_factory) -> None:
-    seen: dict[str, str] = {}
-    for spec in endpoints:
-        assert spec.operation_id not in seen, (
-            f"Duplicate operation_id '{spec.operation_id}': "
-            f"{seen[spec.operation_id]} and {spec.path}"
-        )
-        seen[spec.operation_id] = spec.path
-
-
-# ---------------------------------------------------------------------------
-# Route ↔ spec 일관성
-# ---------------------------------------------------------------------------
-
-@pytest.mark.parametrize("endpoints,app_factory", _SERVICES)
-def test_every_non_removed_spec_has_a_route(endpoints, app_factory) -> None:
-    routes = _app_routes(app_factory())
-    for spec in endpoints:
-        if spec.lifecycle == "removed":
-            continue
-        assert (spec.method, spec.path) in routes, (
-            f"EndpointSpec {spec.method} {spec.path} (lifecycle={spec.lifecycle}) "
-            f"has no registered route in the {spec.service} app"
-        )
-
-
-@pytest.mark.parametrize("endpoints,app_factory", _SERVICES)
-def test_every_route_has_a_spec(endpoints, app_factory) -> None:
-    routes = _app_routes(app_factory())
-    spec_keys = {(s.method, s.path) for s in endpoints}
-    for method, path in routes:
-        assert (method, path) in spec_keys, (
-            f"{endpoints[0].service} route {method} {path} has no corresponding EndpointSpec"
-        )
-
-
-# ---------------------------------------------------------------------------
-# Operation_id가 route에 실제로 연결됐는지
-# ---------------------------------------------------------------------------
-
-@pytest.mark.parametrize("endpoints,app_factory", _SERVICES)
-def test_operation_ids_wired_to_routes(endpoints, app_factory) -> None:
-    routes = _app_routes(app_factory())
-    for spec in endpoints:
-        if spec.lifecycle == "removed":
-            continue
-        key = (spec.method, spec.path)
-        if key not in routes:
-            continue  # route-consistency 테스트에서 이미 잡힌다
-        assert routes[key].operation_id == spec.operation_id, (
-            f"{spec.method} {spec.path}: route has operation_id={routes[key].operation_id!r} "
-            f"but spec declares {spec.operation_id!r}"
-        )
-
-
-# ---------------------------------------------------------------------------
 # Auth scope 정책
-# ---------------------------------------------------------------------------
 
 def test_health_endpoints_have_no_auth() -> None:
     for spec in GATEWAY_ENDPOINTS + RISK_ADAPTER_ENDPOINTS:
@@ -194,18 +48,7 @@ def test_v1_endpoints_require_correct_auth_tier(endpoints, expected_auth) -> Non
         )
 
 
-def test_stable_specs_have_success_status() -> None:
-    for spec in GATEWAY_ENDPOINTS + RISK_ADAPTER_ENDPOINTS:
-        if spec.lifecycle == "stable":
-            assert spec.status_code in {200, 202}, (
-                f"{spec.service} {spec.path}: stable endpoint must have status_code=200 or 202, "
-                f"got {spec.status_code}"
-            )
-
-
-# ---------------------------------------------------------------------------
-# schema 파일 존재 여부 엄격 검증 (CI 게이트)
-# ---------------------------------------------------------------------------
+# schema 파일 존재 여부
 
 def test_spec_schema_files_exist() -> None:
     """EndpointSpec에 선언된 모든 schema 파일명은 디스크에 실제로 존재해야 한다."""

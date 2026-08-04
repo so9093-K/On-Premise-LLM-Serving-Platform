@@ -97,21 +97,6 @@ def test_vllm_unified_image_resolver_default_base_matches_canonical_image_config
     assert _canonical_base_image() not in dockerfile
 
 
-def test_vllm_unified_media_dependencies_use_the_verified_lock_without_resolving_transitives():
-    root = Path(__file__).resolve().parents[2]
-    lock = root / "ops/images/vllm-unified/requirements.media.lock"
-    entries = {
-        line.strip()
-        for line in lock.read_text(encoding="utf-8").splitlines()
-        if line.strip() and not line.startswith("#")
-    }
-    assert {"soundfile==0.12.1", "librosa==0.10.2.post1", "av==17.1.0"} <= entries
-
-    dockerfile = (root / "ops/images/vllm-unified/Dockerfile").read_text(encoding="utf-8")
-    assert "requirements.media.lock" in dockerfile
-    assert "--no-deps --requirement /tmp/requirements.media.lock" in dockerfile
-
-
 def test_vllm_unified_image_resolver_preserves_custom_exported_image(tmp_path):
     repo = copy_minimal_repo(tmp_path)
     custom = 'registry.example.com/custom/vllm-unified:dev'

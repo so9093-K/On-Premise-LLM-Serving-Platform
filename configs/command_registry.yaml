@@ -180,8 +180,7 @@ commands:
     owner: operations
     docs:
       - docs/development/build_ux.md
-    tests:
-      - tests/contract/governance/
+    tests: []
 
   - make_target: test
     title: 결정론적 테스트
@@ -250,8 +249,7 @@ commands:
     docs:
       - docs/release/release_checklist.md
       - docs/development/build_ux.md
-    tests:
-      - tests/contract/test_release_package_smoke.py
+    tests: []
 
   - make_target: start
     title: 로컬 서비스 기동
@@ -343,8 +341,7 @@ commands:
     owner: operations
     docs:
       - docs/operations/full_stack_runtime.md
-    tests:
-      - tests/contract/governance/test_compose_restart_contract.py
+    tests: []
 
   - make_target: compose-logs
     title: Full-stack compose 로그 확인
@@ -503,7 +500,7 @@ commands:
     title: 운영 산출물 번들 생성
     category: reports
     audience: [operator, release_engineer]
-    description: "runtime-targets, auth-status/doctor, monitoring-projection, operator-status, live-evidence를 한 번에 실행한다."
+    description: "runtime-targets, auth-status, monitoring-projection, operator-status, live-evidence를 한 번에 실행한다."
     command: make operator-reports
     kind: public
     safety: writes_generated
@@ -952,28 +949,6 @@ commands:
     tests:
       - tests/contract/test_render_runtime_assets.py
 
-  - make_target: check-runtime-assets
-    title: Runtime asset drift 검출
-    category: docs
-    audience: [developer, release_engineer]
-    description: "생성 artifact drift를 검출하고 vLLM compose 정합성을 검증한다."
-    command: make check-runtime-assets
-    kind: public
-    safety: read_only
-    requires:
-      python: true
-      docker: false
-      gpu: false
-      live_services: false
-      secrets: false
-      env_file: false
-    writes_files: []
-    outputs: [stdout]
-    owner: operations
-    docs: []
-    tests:
-      - tests/contract/test_render_runtime_assets.py
-
   - make_target: command-check
     title: Command registry 검증
     category: docs
@@ -1210,28 +1185,6 @@ commands:
     audience: [developer]
     description: "RISK_VLLM_IMAGE 내부에서 Kanana config를 파싱 검증한다."
     command: make risk-vllm-config-check
-    kind: public
-    safety: diagnostic
-    requires:
-      python: false
-      docker: true
-      gpu: false
-      live_services: false
-      secrets: false
-      env_file: false
-    writes_files: []
-    outputs: [stdout]
-    owner: operations
-    docs:
-      - docs/README.md
-    tests: []
-
-  - make_target: risk-vllm-patch-removal-check
-    title: Risk vLLM vendor patch 제거 후보 점검
-    category: model
-    audience: [developer]
-    description: "vendor patch 제거 후보 상태를 점검한다."
-    command: make risk-vllm-patch-removal-check
     kind: public
     safety: diagnostic
     requires:

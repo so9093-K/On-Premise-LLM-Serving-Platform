@@ -141,12 +141,8 @@ python scripts/models/modelctl.py propose-remove local-main
 
 ## Risk vLLM patch 생명주기
 
-`build_vllm_unified_image.sh`는 `ops/patches/` 아래 patch script를 포함한 unified 이미지를 빌드한다. `check_risk_vllm_image_config.sh`는 그 안의 Kanana patch label, metadata, config loading을 검증한다. 자세한 내용은 `docs/operations/risk_vllm_patch_lifecycle.md`를 본다.
+`build_vllm_unified_image.sh`는 `ops/patches/` 아래 patch script를 포함한 unified 이미지를 빌드한다. `check_risk_vllm_image_config.sh`는 그 안의 Kanana patch label, metadata, config loading을 검증한다.
 
 ## OpenAPI snapshot diff
 
-`scripts/validation/openapi_snapshot_diff.py`는 strict auth 기준 generated OpenAPI와 checked-in static OpenAPI의 path/method/security/summary/description/operationId/response status/contract schema drift를 확인한다. `release_check.py`에도 포함되어 있다.
-
-## Risk vLLM patch removal check
-
-`scripts/models/risk_vllm_patch_removal_check.sh`는 unified 이미지 내부 Kanana patch 제거 후보 상태를 점검한다. 이미 patch가 적용된 image만으로 제거 가능성을 증명할 수 없으므로 patch 없는 candidate image에서 config canary와 smoke를 별도로 통과해야 한다.
+`scripts/validation/openapi_snapshot_diff.py`는 strict auth 기준 generated OpenAPI와 checked-in static OpenAPI의 path/method/security/operationId/response status/contract schema drift를 확인한다. `release_check.py`에도 포함되어 있다.

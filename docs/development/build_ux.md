@@ -231,4 +231,4 @@ make operator-reports # 운영 산출물 통합 생성
 
 ## Risk vLLM patch metadata
 
-`make rebuild-vllm-unified` / `make build-vllm-unified-image`는 `ops/patches/`의 감사 가능한 Kanana `head_dim` patch를 적용한다. `make risk-vllm-config-check`는 image label, patch metadata, 두 Kanana config를 함께 검증한다. 자세한 내용은 [Risk vLLM patch lifecycle](../operations/risk_vllm_patch_lifecycle.md)을 기준으로 본다.
+`make rebuild-vllm-unified` / `make build-vllm-unified-image`는 `ops/patches/`의 Kanana `head_dim` patch를 적용한다. `make risk-vllm-config-check`는 image label, patch metadata, 두 Kanana config를 함께 검증한다. patch 제거는 patch 없는 후보 image에서 이 검증과 실제 vLLM smoke를 통과했을 때만 검토한다.

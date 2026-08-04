@@ -181,21 +181,6 @@ ai_critical_metric_freshness_seconds{metric,job}
 
 `service_readiness_status`와 `overall_runtime_status`는 `/ready` 호출 시점에 갱신되는 readiness evidence다. warm residency를 더 강하게 신뢰하려면 readiness freshness(`ai_readiness_last_checked_timestamp_seconds`) 또는 synthetic probe metric이 필요하다.
 
-## Live PromQL validation
-
-`scripts/validation/validate_grafana_promql.py`는 dashboard JSON에서 PromQL을 추출하고 Prometheus `/api/v1/query`로 syntax check를 수행하는 선택적 runtime validation 도구다. live Prometheus가 필요하므로 기본 CI gate가 아니라 optional runtime validation으로 실행한다.
-
-```bash
-python3 scripts/validation/validate_grafana_promql.py \
-  --allow-no-data
-```
-
-기본 URL은 `configs/services.yaml`의 Prometheus host 포트를 사용한다. 다른 환경은
-`PROMETHEUS_BASE_URL` 또는 `--prometheus-url`로 명시한다.
-
-Idle/dev 환경에서는 traffic이 없어 일부 panel query가 no-data를 반환할 수 있으므로 `--allow-no-data`로 datasource 연결과 PromQL syntax를 먼저 확인한다.
-운영 traffic이 있는 환경에서 no-data까지 실패로 보고 싶으면 `--allow-no-data` 없이 실행한다.
-
 ## Provisioning 정책
 
 Reference release의 Grafana dashboard는 Git-managed artifact다.

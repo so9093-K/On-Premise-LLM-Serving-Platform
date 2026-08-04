@@ -181,7 +181,7 @@ make validate
 python scripts/validation/openapi_snapshot_diff.py
 ```
 
-Gateway/Risk Adapter generated OpenAPI는 FastAPI 기본 schema만 믿지 않고 checked-in schema를 주입한다. request/response schema, security, summary, description drift는 정적 검증에서 잡아야 한다.
+Gateway/Risk Adapter generated OpenAPI는 FastAPI 기본 schema만 믿지 않고 checked-in schema를 주입한다. request/response schema, security, operationId drift는 정적 검증에서 잡아야 한다.
 
 ## 9. Risk vLLM patch lifecycle 확인
 
@@ -190,14 +190,13 @@ Risk vLLM image는 Kanana explicit `head_dim` 호환을 위해 auditable vendor 
 ```bash
 make rebuild-vllm-unified
 make risk-vllm-config-check
-make risk-vllm-patch-removal-check
 ```
 
 정상 운영 기준:
 
 - Dockerfile inline site-packages patch가 아니라 `ops/patches/` script가 적용되어야 한다.
 - image label, patch metadata, hash verify가 있어야 한다.
-- upstream Transformers/vLLM 조합이 patch 없이 통과하는지 확인하기 전까지 patch를 제거하지 않는다.
+- patch 제거는 patch 없는 후보 image에서 config check와 실제 vLLM smoke가 통과했을 때만 검토한다.
 
 ## 10. 장애가 나면 보는 순서
 

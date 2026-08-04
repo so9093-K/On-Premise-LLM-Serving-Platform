@@ -40,7 +40,6 @@
 | 모델 구성·리소스 계획을 보고 싶다 | [models/model_cards.md](models/model_cards.md), [resources/gpu_resource_requirements_48gb.md](resources/gpu_resource_requirements_48gb.md) |
 | GPU 리소스 배분 기준을 보고 싶다 | [resources/gpu_resource_plan.md](resources/gpu_resource_plan.md) |
 | 모델 runtime 제어 기준을 보고 싶다 | [operations/model_runtime_control.md](operations/model_runtime_control.md) |
-| Risk vLLM patch 관리 정책을 보고 싶다 | [operations/risk_vllm_patch_lifecycle.md](operations/risk_vllm_patch_lifecycle.md) |
 | 전체 서비스 컴포넌트 목록을 보고 싶다 | [operations/full_stack_runtime.md](operations/full_stack_runtime.md) |
 | 릴리스 버전 정책을 확인하고 싶다 | [release/versioning_policy.md](release/versioning_policy.md) |
 | 릴리스 전 체크리스트를 보고 싶다 | [release/release_checklist.md](release/release_checklist.md) |
@@ -82,7 +81,6 @@ docs/
 │   ├── monitoring_ux.md
 │   ├── runtime_validation_operations.md
 │   ├── model_runtime_control.md     ← 모델 runtime 제어 기준
-│   ├── risk_vllm_patch_lifecycle.md ← Risk vLLM patch 관리 정책
 │   └── streaming_runtime_operations.md
 ├── development/                     ← 개발자 문서
 │   ├── README.md                    ← 개발 가이드 진입점

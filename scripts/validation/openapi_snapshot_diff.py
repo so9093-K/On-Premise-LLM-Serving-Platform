@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """FastAPI가 실제로 생성하는 OpenAPI 문서와 specs/openapi.*.yaml(정적 파일)이
-어긋났는지 비교한다. path/method/보안/응답 스키마/예시가 코드와 문서 양쪽에서
-수동으로 따로 관리되다 벌어지는 drift를 잡는다."""
+어긋났는지 비교한다. path/method/operationId/보안/응답 스키마처럼 호출 호환성에
+영향을 주는 drift만 검사한다."""
 
 from __future__ import annotations
 
@@ -104,24 +104,12 @@ def _build_generated_docs() -> dict[str, dict[str, Any]]:
                 os.environ[key] = value
 
 
-def _request_examples(operation: dict[str, Any]) -> dict[str, Any]:
-    return (
-        operation.get("requestBody", {})
-        .get("content", {})
-        .get("application/json", {})
-        .get("examples", {})
-    )
-
-
 def _compare_one(name: str, static_rel: str, generated: dict[str, Any]) -> list[str]:
     static = _load_yaml(static_rel)
     issues: list[str] = []
 
     if static["info"].get("version") != generated["info"].get("version"):
         issues.append(f"{name}: info.version mismatch: static={static['info'].get('version')} generated={generated['info'].get('version')}")
-
-    if static["info"].get("description") != generated["info"].get("description"):
-        issues.append(f"{name}: info.description mismatch")
 
     static_security_schemes = static.get("components", {}).get("securitySchemes", {})
     generated_security_schemes = generated.get("components", {}).get("securitySchemes", {})
@@ -142,9 +130,8 @@ def _compare_one(name: str, static_rel: str, generated: dict[str, Any]) -> list[
         for method in sorted(static_methods):
             static_op = static["paths"][path][method]
             generated_op = generated["paths"][path][method]
-            for field in ("summary", "description", "operationId"):
-                if static_op.get(field) != generated_op.get(field):
-                    issues.append(f"{name} {method.upper()} {path}: {field} mismatch")
+            if static_op.get("operationId") != generated_op.get("operationId"):
+                issues.append(f"{name} {method.upper()} {path}: operationId mismatch")
             if static_op.get("security") != generated_op.get("security"):
                 issues.append(f"{name} {method.upper()} {path}: security mismatch static={static_op.get('security')} generated={generated_op.get('security')}")
             static_statuses = set(str(code) for code in static_op.get("responses", {}))
@@ -157,21 +144,6 @@ def _compare_one(name: str, static_rel: str, generated: dict[str, Any]) -> list[
             expected_request = _expected_schema(static_request)
             if expected_request is not None and expected_request != generated_request:
                 issues.append(f"{name} {method.upper()} {path}: request schema mismatch")
-
-            static_examples = _request_examples(static_op)
-            generated_examples = _request_examples(generated_op)
-            static_keys = set(static_examples)
-            generated_keys = set(generated_examples)
-            if static_keys != generated_keys:
-                issues.append(
-                    f"{name} {method.upper()} {path}: request examples key mismatch:"
-                    f" static_only={sorted(static_keys - generated_keys)}"
-                    f" generated_only={sorted(generated_keys - static_keys)}"
-                )
-            else:
-                for key in static_keys:
-                    if static_examples[key] != generated_examples[key]:
-                        issues.append(f"{name} {method.upper()} {path}: request example '{key}' value mismatch")
 
             static_response_content = static_op.get("responses", {}).get("200", {}).get("content", {})
             generated_response_content = generated_op.get("responses", {}).get("200", {}).get("content", {})

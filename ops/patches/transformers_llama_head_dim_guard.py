@@ -127,60 +127,11 @@ def verify_patch(path: Path, metadata_path: Path | None = None) -> dict[str, Any
         result["metadata_status"] = "missing"
     return result
 
-
-
-def removal_check(path: Path) -> dict[str, Any]:
-    """Return an operator-facing removal assessment for the patch lifecycle.
-
-    이 검사는 현재 image 안의 Transformers 파일 모양만 보고 제거 후보 여부를
-    판단합니다. 이미 patch가 적용된 image에서는 upstream clean image의 동작을
-    증명할 수 없으므로, removal candidate가 되려면 patch 없는 image에서
-    Kanana config canary를 별도로 통과해야 합니다.
-    """
-    if not path.exists():
-        raise SystemExit(f"target file does not exist: {path}")
-    text = path.read_text(encoding="utf-8")
-    result: dict[str, Any] = {
-        "patch_id": PATCH_ID,
-        "target_path": str(path),
-        "transformers_version": read_version("transformers"),
-        "huggingface_hub_version": read_version("huggingface_hub"),
-        "removal_candidate": False,
-        "requires_unpatched_canary": True,
-    }
-    if NEW_SNIPPET in text:
-        result.update({
-            "status": "patch_present",
-            "message": "현재 image에는 Kanana head_dim patch가 적용되어 있습니다. 제거 여부는 patch 없는 upstream image에서 HF config canary를 통과해야 판단할 수 있습니다.",
-            "recommended_next_step": "Build/test an unpatched Transformers/vLLM candidate image and run make risk-vllm-config-check.",
-        })
-    elif OLD_SNIPPET in text:
-        result.update({
-            "status": "old_guard_present",
-            "message": "Transformers Llama config에 기존 hidden_size % num_attention_heads guard가 남아 있어 Kanana explicit head_dim 모델에는 patch가 필요합니다.",
-            "recommended_next_step": "Patch 유지 또는 upstream 버전 교체 후 재검증.",
-        })
-    elif "head_dim" in text and "num_attention_heads" in text:
-        result.update({
-            "status": "upstream_changed",
-            "removal_candidate": True,
-            "message": "기존 patch pattern은 없고 head_dim 관련 upstream 변경이 감지되었습니다. 제거 후보일 수 있습니다.",
-            "recommended_next_step": "Patch 없는 image에서 Prompt HF config canary와 실제 vLLM smoke를 통과한 뒤 patch 제거.",
-        })
-    else:
-        result.update({
-            "status": "unknown_transformers_shape",
-            "message": "Llama config validation 모양이 예상과 다릅니다. upstream 코드를 수동 검토해야 합니다.",
-            "recommended_next_step": "configuration_llama.py validate_architecture 경로를 점검하고 Kanana config canary를 실행.",
-        })
-    return result
-
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Apply or verify the Kanana Transformers Llama head_dim guard patch.")
     parser.add_argument("--target", help="Override path to configuration_llama.py; defaults to installed Transformers package.")
     parser.add_argument("--metadata", default=str(DEFAULT_METADATA_PATH), help="Patch metadata JSON path.")
     parser.add_argument("--verify", action="store_true", help="Verify the patch and metadata instead of applying it.")
-    parser.add_argument("--removal-check", action="store_true", help="Assess whether the patch may be removable in an upstream candidate image.")
     parser.add_argument("--dry-run", action="store_true", help="Report what would be patched without writing target file.")
     parser.add_argument("--json", action="store_true", help="Emit JSON only.")
     return parser
@@ -190,9 +141,7 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     target = target_path_from_args(args.target)
     metadata_path = Path(args.metadata) if args.metadata else DEFAULT_METADATA_PATH
-    if args.removal_check:
-        result = removal_check(target)
-    elif args.verify:
+    if args.verify:
         result = verify_patch(target, metadata_path)
     else:
         result = apply_patch(target, dry_run=args.dry_run)

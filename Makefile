@@ -10,7 +10,7 @@ AUTH_ENV ?= $(if $(ENV_FILE),$(ENV_FILE),$(ENV))
 AUTH_ENV_ARG = $(if $(AUTH_ENV),--env $(AUTH_ENV),)
 
 
-.PHONY: help help-full help-json command-check guide init-env-local init-env-compose init-env-compose-force sync-runtime-secrets sync-env validate test build build-image build-vllm-unified-image rebuild-app rebuild-vllm-unified package start compose-up compose-up-master preflight-compose compose-config ready-local ready-full smoke runtime-validate runtime-targets auth-status auth-doctor auth-plan auth-apply exposure-status exposure-plan exposure-apply monitoring-projection operator-status operator-reports live-evidence vllm-commands hf-config-check main-model-prepare risk-vllm-config-check risk-vllm-patch-removal-check model-list model-status model-validate model-diff model-propose-add model-propose-remove status stop compose-down compose-restart compose-logs logs compose-diagnostics clean clean-dry-run remove-plan clean-all reset bootstrap first-run rebuild-full doctor reset-version render-runtime-assets check-runtime-assets
+.PHONY: help help-full help-json command-check guide init-env-local init-env-compose init-env-compose-force sync-runtime-secrets sync-env validate test build build-image build-vllm-unified-image rebuild-app rebuild-vllm-unified package start compose-up compose-up-master preflight-compose compose-config ready-local ready-full smoke runtime-validate runtime-targets auth-status auth-doctor auth-plan auth-apply exposure-status exposure-plan exposure-apply monitoring-projection operator-status operator-reports live-evidence vllm-commands hf-config-check main-model-prepare risk-vllm-config-check model-list model-status model-validate model-diff model-propose-add model-propose-remove status stop compose-down compose-restart compose-logs logs compose-diagnostics clean clean-dry-run remove-plan clean-all reset bootstrap first-run rebuild-full doctor reset-version render-runtime-assets
 
 help:
 	@$(PYTHON) scripts/commands/render_command_help.py
@@ -126,7 +126,7 @@ monitoring-projection:
 operator-status:
 	$(PYTHON) scripts/reports/operator_status_bundle.py
 
-operator-reports: runtime-targets auth-status auth-doctor monitoring-projection operator-status live-evidence
+operator-reports: runtime-targets auth-status monitoring-projection operator-status live-evidence
 
 live-evidence: operator-status
 	$(PYTHON) scripts/reports/live_evidence_bundle.py
@@ -143,9 +143,6 @@ main-model-prepare:
 
 risk-vllm-config-check:
 	bash scripts/models/check_risk_vllm_image_config.sh
-
-risk-vllm-patch-removal-check:
-	bash scripts/models/risk_vllm_patch_removal_check.sh
 
 model-list:
 	$(PYTHON) scripts/models/modelctl.py list
@@ -219,8 +216,3 @@ reset-version:
 
 render-runtime-assets:
 	$(PYTHON) scripts/render_runtime_assets.py --write
-
-check-runtime-assets:
-	@# 생성 artifact drift 검출 + compose vLLM command drift 검증 (exit 1 on drift)
-	$(PYTHON) scripts/render_runtime_assets.py --check
-	$(PYTHON) scripts/compose/validate_vllm_compose.py

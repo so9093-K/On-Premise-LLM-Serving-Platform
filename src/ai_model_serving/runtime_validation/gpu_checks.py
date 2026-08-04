@@ -10,10 +10,7 @@ from .results import CheckResult
 
 def _reserve_hard_minimum(gpu_budgets: dict[str, Any]) -> float:
     reserve_policy = gpu_budgets["gpu"]["reserve_gib"]
-    value = reserve_policy.get("hard_minimum", reserve_policy.get("minimum"))
-    if value is None:
-        raise KeyError("hard_minimum")
-    return float(value)
+    return float(reserve_policy["hard_minimum"])
 
 
 def sample_gpu(config: RuntimeValidationConfig, gpu_budgets: dict[str, Any], name: str) -> CheckResult:

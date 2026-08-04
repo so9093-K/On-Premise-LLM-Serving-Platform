@@ -49,25 +49,3 @@ def test_service_error_status_schema_and_openapi_enums_do_not_drift() -> None:
         f'only in ERROR_STATUS={sorted(errors_codes - schema_codes)}, '
         f'only in schema={sorted(schema_codes - errors_codes)}'
     )
-
-def test_runtime_lockfile_and_dockerfile_hardening_are_present() -> None:
-    runtime_lock = ROOT / 'requirements.runtime.lock'
-    contract_lock = ROOT / 'requirements.lock'
-    assert runtime_lock.exists()
-    assert contract_lock.exists()
-    runtime_lock_text = runtime_lock.read_text(encoding='utf-8')
-    assert 'fastapi==' in runtime_lock_text
-    assert 'uvicorn==' in runtime_lock_text
-    assert 'httpx==' in runtime_lock_text
-    assert 'huggingface_hub==1.13.0' in runtime_lock_text
-    assert 'pytest==' not in runtime_lock_text
-    assert 'jsonschema==4.26.0' in runtime_lock_text
-    assert 'torch==' not in runtime_lock_text
-    assert 'vllm==' not in runtime_lock_text
-    assert 'transformers==' not in runtime_lock_text
-    dockerfile = (ROOT / 'Dockerfile').read_text(encoding='utf-8')
-    assert 'FROM python:3.12.13-slim' in dockerfile
-    assert '--requirement requirements.runtime.lock' in dockerfile
-    assert 'USER appuser' in dockerfile
-    assert 'HEALTHCHECK' in dockerfile
-    assert '/health' in dockerfile

@@ -66,7 +66,7 @@ service auth가 의도한 profile과 일치해야 한다.
 
 ## Generated OpenAPI 계약 gate
 
-FastAPI generated OpenAPI는 checked-in schema injection을 통해 수동 specs보다 느슨해지지 않아야 한다. request/response body, security state, docs description drift를 수정할 때는 `validate_contracts.py`와 관련 테스트를 함께 갱신한다.
+FastAPI generated OpenAPI는 checked-in schema injection을 통해 수동 specs보다 느슨해지지 않아야 한다. request/response body, security state, operationId를 수정할 때는 `validate_contracts.py`와 관련 계약을 함께 갱신한다.
 
 ## 계약 검증용 marker
 

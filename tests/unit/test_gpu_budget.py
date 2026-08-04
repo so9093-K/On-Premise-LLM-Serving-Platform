@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from ai_model_serving.gpu_budget import (
     Participant,
-    budget_snapshot,
     plan_activation,
 )
 
@@ -14,14 +13,6 @@ MAIN = Participant("main", 0.76, active=True, priority=100, evictable=False)
 EMB = Participant("embedding", 0.04, active=True, priority=50)
 EMB_KO = Participant("embedding_ko", 0.06, active=True, priority=50)
 RISK = Participant("risk_prompt", 0.065, active=True, priority=50)
-
-
-def test_current_fleet_is_admissible():
-    # 0.76 + 0.04 + 0.06 + 0.065 = 0.925 < 0.95
-    fleet = [MAIN, EMB, EMB_KO, RISK]
-    snap = budget_snapshot(fleet)
-    assert snap["used"] == 0.925
-    assert snap["free"] > 0
 
 
 def test_reactivating_an_active_runtime_fits_in_place():

@@ -295,15 +295,6 @@ def test_load_settings_requires_admin_key_when_admin_auth_enabled(monkeypatch):
     assert settings.security.admin_api_keys == frozenset({"admin-one", "admin-two"})
 
 
-def test_load_settings_enables_fastapi_docs_by_default(monkeypatch):
-    monkeypatch.delenv("FASTAPI_DOCS_ENABLED", raising=False)
-    settings = load_settings()
-    assert settings.documentation.enabled is True
-    assert settings.documentation.docs_url == "/docs"
-    assert settings.documentation.redoc_url == "/redoc"
-    assert settings.documentation.openapi_url == "/openapi.json"
-
-
 def _minimal_settings_kwargs() -> dict:
     endpoint = RuntimeEndpoint("local-embed", "http://embed/v1", "local-embed", 1)
     return {

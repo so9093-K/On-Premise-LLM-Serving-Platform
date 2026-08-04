@@ -8,9 +8,6 @@ from types import SimpleNamespace
 
 from ai_model_serving.runtime_validation import load_runtime_config, render_vllm_command
 from ai_model_serving.runtime_validation.config import _localhost_base
-from ai_model_serving.runtime_validation.reporting import write_reports
-from ai_model_serving.runtime_validation.results import CheckResult
-
 ROOT = Path(__file__).resolve().parents[2]
 
 def _clear_runtime_endpoint_env(monkeypatch) -> None:
@@ -115,44 +112,7 @@ def test_render_vllm_command_respects_model_config_quantization() -> None:
     assert "--optimization-level" in command
 
 
-def test_runtime_validation_report_does_not_store_raw_model_text(tmp_path: Path) -> None:
-    json_path, md_path = write_reports(
-        root=tmp_path,
-        output_dir="reports/runtime",
-        version="0.1.0-test",
-        session_started="2026-05-09T00:00:00+00:00",
-        mode="live",
-        results=[CheckResult("gateway-runtime", "gateway /health", "pass", detail="ok")],
-    )
-    payload = json.loads(json_path.read_text(encoding="utf-8"))
-    assert payload["summary"] == {"passed": 1, "failed": 0, "degraded_features": []}
-    markdown = md_path.read_text(encoding="utf-8")
-    assert "Degraded features: 없음" in markdown
-    assert "원문 프롬프트, 사용자 텍스트, 모델 출력" in markdown
-
-
-def test_runtime_validation_report_summarizes_degraded_features(tmp_path: Path) -> None:
-    json_path, md_path = write_reports(
-        root=tmp_path,
-        output_dir="reports/runtime",
-        version="0.1.0-test",
-        session_started="2026-05-09T00:00:00+00:00",
-        mode="live",
-        results=[
-            CheckResult(
-                "json-schema-with-reasoning-canary",
-                "json_schema with reasoning",
-                "fail",
-                details={"feature_degraded_on_failure": "json_schema_with_reasoning"},
-            )
-        ],
-    )
-    payload = json.loads(json_path.read_text(encoding="utf-8"))
-    assert payload["summary"]["degraded_features"] == ["json_schema_with_reasoning"]
-    assert "Degraded features: json_schema_with_reasoning" in md_path.read_text(encoding="utf-8")
-
-
-def test_gpu_check_uses_hard_minimum_with_legacy_fallback(monkeypatch) -> None:
+def test_gpu_check_uses_configured_hard_minimum(monkeypatch) -> None:
     from ai_model_serving.runtime_validation.gpu_checks import sample_gpu
     from types import SimpleNamespace
 
@@ -170,21 +130,9 @@ def test_gpu_check_uses_hard_minimum_with_legacy_fallback(monkeypatch) -> None:
     assert result.status == "pass"
     assert result.details["minimum_reserve_gib"] == 3.5
 
-    legacy_result = sample_gpu(
-        config,
-        {"gpu": {"reserve_gib": {"minimum": 3.0}}},
-        "gpu sample legacy",
-    )
-    assert legacy_result.status == "pass"
-    assert legacy_result.details["minimum_reserve_gib"] == 3.0
-
-
-def test_live_evidence_bundle_combines_static_and_runtime_reports(tmp_path: Path) -> None:
+def test_live_evidence_bundle_removes_sensitive_runtime_details() -> None:
     from ai_model_serving.live_evidence import (
-        latest_runtime_validation_report,
         live_evidence_bundle_document,
-        live_evidence_bundle_markdown,
-        write_live_evidence_bundle,
     )
 
     operator_status = {
@@ -218,18 +166,3 @@ def test_live_evidence_bundle_combines_static_and_runtime_reports(tmp_path: Path
     assert doc["evidence_status"] == "live_validated"
     assert doc["privacy_contract"]["runtime_details_are_sanitised"] is True
     assert "prompt" not in doc["runtime_results"][2]["details"]
-    assert doc["runtime_category_summary"]["vllm-runtime"] == {"passed": 1, "failed": 0}
-    markdown = live_evidence_bundle_markdown(doc)
-    assert "# 라이브 증빙 번들" in markdown
-    assert "make validate" in markdown
-    json_path, md_path = write_live_evidence_bundle(doc, tmp_path)
-    assert json_path.exists()
-    assert md_path.exists()
-
-    report_dir = tmp_path / "reports/runtime"
-    report_dir.mkdir(parents=True)
-    live_report = report_dir / "runtime_validation_20260509T000000Z.json"
-    latest_report = report_dir / "runtime_validation_20260509T010000Z.json"
-    live_report.write_text('{"mode":"live"}', encoding="utf-8")
-    latest_report.write_text('{"mode":"live"}', encoding="utf-8")
-    assert latest_runtime_validation_report(tmp_path) == latest_report

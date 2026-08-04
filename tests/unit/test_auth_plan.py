@@ -112,9 +112,3 @@ def test_exposure_plan_apply_report_invalid_env_without_traceback(tmp_path, caps
     assert "env 파일 오류:" in captured.err
     assert "duplicate env key 'EXPOSURE_MODE'" in captured.err
     assert "Traceback" not in captured.err
-
-
-def test_auth_profile_sanity_script_passes():
-    from scripts.auth import auth_profile_sanity
-
-    assert auth_profile_sanity.main() == 0

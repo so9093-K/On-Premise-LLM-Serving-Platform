@@ -11,7 +11,7 @@
 | 인증 제어 | 개선됨 | `auth-status`/`auth-doctor`/`auth-plan`/`auth-apply`와 `ENV=<path>` 후보 env 진단으로 사람이 profile 단위 관리 가능 |
 | 비인증 모드 | 개선됨 | `local_open`은 `master_open/private_lan` 사내망 정책으로 고정되고, 불일치 조합은 doctor/preflight가 실패 처리 |
 | OpenAPI | 개선됨 | checked-in schema injection, generated error surface, snapshot diff 정적 검증으로 FastAPI loose schema 회귀 위험 축소 |
-| Risk vLLM patch | 관리 가능하지만 장기 위험 | metadata/label/verify/removal-check는 있으나 vendor patch이므로 제거 조건 추적 필요 |
+| Risk vLLM patch | 관리 가능하지만 장기 위험 | metadata/label/config check는 있으나 vendor patch이므로 upstream upgrade 때 후보 image 검증 필요 |
 | 모델 관리 | read-only + plan-only | `modelctl list/status/validate/diff`와 `propose-add/propose-remove`로 상태와 변경 영향 파악 가능, write-mode apply는 아직 보류 |
 | 모델 파라미터 discovery | 완료 | `/v1/models`가 모델별 `capabilities`, 사용자 조정 가능 `request_parameters`, risk `fixed_parameters`를 노출 |
 | 문서 | 한국어 중심 단일 흐름 | 별도 한국어판/영어판을 나누지 않고, 명령어/API path/env var/schema field만 원문 identifier 유지 |
@@ -101,14 +101,13 @@ Docker/GPU/vLLM이 필요한 live 검증과 서비스 기동 없는 정적 검�
 
 ## 유지보수 관점의 남은 위험
 
-1. Risk vLLM vendor patch는 upstream 변경에 취약하다. `make risk-vllm-patch-removal-check`와 patch 없는 candidate image smoke로 제거 조건을 계속 추적해야 한다.
+1. Risk vLLM vendor patch는 upstream 변경에 취약하다. upstream upgrade 때 patch 없는 후보 image에서 config check와 smoke를 수행해야 한다.
 2. 모델 add/remove는 아직 write-mode가 아니며, 실제 파일 변경 자동화 전에는 proposal plan과 reviewer checklist를 먼저 고정해야 한다.
 3. admin endpoint의 network-only 보호는 app-level CIDR enforcement가 아직 없다.
-4. OpenAPI snapshot diff는 request examples까지 비교하지만, tags는 아직 비교 대상이 아니다.
+4. OpenAPI snapshot diff는 호출 호환성에 영향을 주는 항목만 비교한다. 설명·예시·tags는 문서 리뷰 대상이다.
 5. generated runtime report는 명령 재실행 시 갱신되므로 source 문서와 generated evidence의 역할을 계속 분리해야 한다.
 
 ## 다음 권장 작업
 
-- OpenAPI snapshot diff 비교 범위에 tags를 추가한다.
 - admin endpoint CIDR allowlist 또는 `ADMIN_AUTH_MODE`를 설계한다.
 - Risk vLLM patch 없는 candidate image에서 Kanana config canary와 실제 vLLM smoke를 수행해 제거 가능성을 확인한다.

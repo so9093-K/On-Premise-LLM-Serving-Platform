@@ -11,7 +11,7 @@ from ai_model_serving.operator_reports import runtime_targets_document
 
 
 def _reserve_hard_minimum(reserve_policy: dict[str, Any]) -> float | None:
-    value = reserve_policy.get("hard_minimum", reserve_policy.get("minimum"))
+    value = reserve_policy.get("hard_minimum")
     return float(value) if value is not None else None
 
 

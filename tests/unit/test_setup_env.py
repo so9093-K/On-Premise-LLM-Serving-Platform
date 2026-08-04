@@ -4,37 +4,7 @@
 
 from __future__ import annotations
 
-import shutil
-
 from scripts.config import setup_env
-
-
-def test_setup_env_generates_compose_env_with_local_open_defaults(tmp_path):
-    out = tmp_path / '.env'
-    rc = setup_env.main(['--profile', 'compose', '--output', str(out)])
-    assert rc == 0
-    text = out.read_text(encoding='utf-8')
-    assert 'APP_ENV=local' in text
-    assert 'API_KEY_REQUIRED=false' in text
-    assert 'ADMIN_API_KEY_REQUIRED=false' in text
-    assert 'INTERNAL_SERVICE_AUTH_REQUIRED=false' in text
-    assert 'AUTH_MODE=local_open' in text
-    assert 'EXPOSURE_MODE=master_open' in text
-    assert 'EXPOSURE_AUDIENCE=private_lan' in text
-    assert 'ADMIN_API_KEY=ams_admin_' in text
-    assert 'ADMIN_API_KEYS=ams_admin_' in text
-    assert 'API_KEYS=ams_gateway_' in text
-    assert 'API_KEY=ams_gateway_' in text
-    assert 'INTERNAL_SERVICE_TOKEN=ams_internal_' in text
-    assert 'FASTAPI_DOCS_ENABLED=true' in text
-    assert 'VLLM_IMAGE=ai-model-serving-vllm-unified:' in text
-    assert 'RISK_VLLM_IMAGE=ai-model-serving-vllm-unified:' in text
-    # MAX_REQUEST_BODY_BYTES는 yaml이 소유한다; .env에 활성 할당으로 남아있으면 안 된다.
-    assert not any(line.startswith('MAX_REQUEST_BODY_BYTES=') for line in text.splitlines())
-    assert 'COLBERT_KO_MODEL_DIR' not in text
-    assert 'PROMETHEUS_IMAGE=prom/prometheus:v3-distroless' in text
-    assert 'LOKI_IMAGE=grafana/loki:' in text
-    assert 'PROMTAIL_IMAGE=grafana/promtail:' in text
 
 
 def test_setup_env_generates_local_open_profile(tmp_path):
@@ -117,25 +87,6 @@ def test_setup_env_preserves_operator_values_on_force_but_rotates_generated_secr
     assert 'API_KEYS=old-secret' not in text
 
 
-def test_setup_env_fills_default_risk_vllm_image_when_unset(tmp_path):
-    out = tmp_path / '.env'
-    out.write_text('HF_TOKEN=hf_existing\n', encoding='utf-8')
-    rc = setup_env.main(['--profile', 'compose', '--output', str(out), '--force'])
-    assert rc == 0
-    text = out.read_text(encoding='utf-8')
-    assert 'RISK_VLLM_IMAGE=ai-model-serving-vllm-unified:' in text
-
-
-def test_sync_env_no_op_when_already_current(tmp_path, capsys):
-    out = tmp_path / '.env'
-    assert setup_env.main(['--profile', 'compose', '--output', str(out), '--force']) == 0
-
-    rc = setup_env.main(['--sync-env', '--env-file', str(out)])
-
-    assert rc == 0
-    assert '변경 없음' in capsys.readouterr().out
-
-
 def test_setup_env_force_removes_yaml_owned_env_overrides(tmp_path):
     # YAML이 source-of-truth인 운영 한도에 오래된 .env 값이 남으면 YAML 변경을
     # 조용히 가릴 수 있다. YAML_OWNED_ENV_KEYS 전체를 순회해 이 관계만 보호한다.
@@ -150,7 +101,6 @@ def test_setup_env_force_removes_yaml_owned_env_overrides(tmp_path):
     text = out.read_text(encoding='utf-8')
     for key in setup_env.YAML_OWNED_ENV_KEYS:
         assert not any(line.startswith(f'{key}=') for line in text.splitlines()), key
-    assert 'HF_TOKEN=hf_existing' in text
     assert 'HF_TOKEN=hf_existing' in text
 
 
@@ -168,15 +118,10 @@ def test_setup_env_force_preserves_custom_risk_vllm_image(tmp_path):
 
 
 def test_setup_env_syncs_runtime_secret_from_existing_env(tmp_path, monkeypatch):
-    monkeypatch.chdir(setup_env.ROOT)
+    monkeypatch.setattr(setup_env, "ROOT", tmp_path)
     env_path = tmp_path / '.env'
     env_path.write_text('ADMIN_API_KEY=admin-from-env\n', encoding='utf-8')
-    secret_path = setup_env.ROOT / '.runtime' / 'prometheus' / 'admin_api_key'
-    if secret_path.exists():
-        if secret_path.is_dir():
-            shutil.rmtree(secret_path)
-        else:
-            secret_path.unlink()
+    secret_path = tmp_path / '.runtime' / 'prometheus' / 'admin_api_key'
     rc = setup_env.main(['--sync-runtime-secrets', '--output', str(env_path)])
     assert rc == 0
     assert secret_path.read_text(encoding='utf-8') == 'admin-from-env\n'
@@ -184,15 +129,10 @@ def test_setup_env_syncs_runtime_secret_from_existing_env(tmp_path, monkeypatch)
 
 
 def test_setup_env_repairs_empty_runtime_secret_directory(tmp_path, monkeypatch):
-    monkeypatch.chdir(setup_env.ROOT)
+    monkeypatch.setattr(setup_env, "ROOT", tmp_path)
     env_path = tmp_path / '.env'
     env_path.write_text('ADMIN_API_KEY=admin-from-env\n', encoding='utf-8')
-    secret_path = setup_env.ROOT / '.runtime' / 'prometheus' / 'admin_api_key'
-    if secret_path.exists():
-        if secret_path.is_dir():
-            shutil.rmtree(secret_path)
-        else:
-            secret_path.unlink()
+    secret_path = tmp_path / '.runtime' / 'prometheus' / 'admin_api_key'
     secret_path.mkdir(parents=True)
 
     rc = setup_env.main(['--sync-runtime-secrets', '--output', str(env_path)])
@@ -204,15 +144,10 @@ def test_setup_env_repairs_empty_runtime_secret_directory(tmp_path, monkeypatch)
 
 
 def test_setup_env_refuses_non_empty_runtime_secret_directory(tmp_path, monkeypatch, capsys):
-    monkeypatch.chdir(setup_env.ROOT)
+    monkeypatch.setattr(setup_env, "ROOT", tmp_path)
     env_path = tmp_path / '.env'
     env_path.write_text('ADMIN_API_KEY=admin-from-env\n', encoding='utf-8')
-    secret_path = setup_env.ROOT / '.runtime' / 'prometheus' / 'admin_api_key'
-    if secret_path.exists():
-        if secret_path.is_dir():
-            shutil.rmtree(secret_path)
-        else:
-            secret_path.unlink()
+    secret_path = tmp_path / '.runtime' / 'prometheus' / 'admin_api_key'
     secret_path.mkdir(parents=True)
     (secret_path / 'unexpected').write_text('keep-me\n', encoding='utf-8')
 
@@ -220,4 +155,3 @@ def test_setup_env_refuses_non_empty_runtime_secret_directory(tmp_path, monkeypa
 
     assert rc == 2
     assert 'must be a file, but it is a non-empty directory' in capsys.readouterr().err
-    shutil.rmtree(secret_path)

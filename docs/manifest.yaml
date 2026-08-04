@@ -323,11 +323,6 @@ documents:
     owner: platform
     disposition: keep
     previous_path: docs/operations/project_management_ux.md
-  - path: docs/operations/risk_vllm_patch_lifecycle.md
-    type: operations
-    lifecycle: active
-    owner: operations
-    disposition: keep
   - path: docs/operations/runtime_validation_operations.md
     type: operations
     lifecycle: active

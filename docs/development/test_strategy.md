@@ -54,7 +54,6 @@ PII Protection과 Secret Exposure Signal은 다음 테스트로 검증한다.
 
 | 파일 | 검증 대상 |
 |---|---|
-| `tests/contract/test_risk_assessment_response_schema.py` | data-exposure JSON Schema의 범위·span_count·family consistency와 prompt detector 호환성 |
 
 ### 핵심 검증 불변식
 
@@ -72,6 +71,7 @@ PII Protection과 Secret Exposure Signal은 다음 테스트로 검증한다.
 
 - 기존 validator가 source와 artifact를 함께 읽어 판단할 수 없는가?
 - 기존 parameterized invariant로 표현할 수 없는가?
+- 다음 변경에도 같은 손실을 막는 재사용 가능한 불변식인가? 특정 작업의 완료·삭제 여부나 운영 안내를 확인하는 일회용 검사는 만들지 않는다.
 - 과거 버그 이름을 영구화하지 않는가?
 - source-of-truth invariant 또는 핵심 decision function을 검증하는가?
 - 실패 메시지가 운영자에게 원인과 수정 경로를 알려주는가?
@@ -90,6 +90,7 @@ PII Protection과 Secret Exposure Signal은 다음 테스트로 검증한다.
 - 현재 포트·모델 ID·기본값처럼 바뀔 수 있는 값을 그대로 암기할 뿐, 값이 바뀌었을 때의 손실을 설명하지 못한다.
 - 구현 함수 호출 순서, private helper, 문자열 존재만 확인한다.
 - 기본 품질 게이트에서 실행되지 않고, 실행 명령·담당자·릴리스 판단 기준도 없다.
+- 실제 판정 능력 없이 “제거 후보”, “준비됨”처럼 상태만 설명하는 진단이다. 필요한 후보 환경에서 실제 config check 또는 smoke를 실행한다.
 
 테스트를 지울 때는 "무엇이 이 위험을 대신 막는가"를 PR 설명 또는 커밋 메시지에 적는다.
 테스트가 아닌 정적 검증으로 옮긴 경우에는 해당 validator가 단일 소유자가 된다.

@@ -29,4 +29,4 @@ make build-vllm-unified-image
 make risk-vllm-config-check
 ```
 
-자세한 운영 문서는 `docs/operations/risk_vllm_patch_lifecycle.md`를 따른다.
+실제 image 검증은 `make risk-vllm-config-check`가 담당한다. patch 제거는 patch 없는 후보 image에서 이 검증과 실제 vLLM smoke를 통과한 경우에만 수행한다.

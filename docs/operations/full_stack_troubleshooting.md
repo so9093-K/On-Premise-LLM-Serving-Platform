@@ -155,6 +155,6 @@ risk 모델을 image 내부에서 검사한다.
 image 내부 config check가 통과해야 한다.
 
 
-## Patch lifecycle 참조
+## Patch 확인
 
-Risk vLLM image patch metadata와 제거 조건은 [Risk vLLM patch 생명주기](./risk_vllm_patch_lifecycle.md)에서 추적한다.
+Risk vLLM image의 patch label, metadata, Kanana config loading은 `make risk-vllm-config-check`로 확인한다.

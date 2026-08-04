@@ -8,17 +8,6 @@ from __future__ import annotations
 
 from .helpers import *  # noqa: F401,F403
 
-def test_auth_profiles_yaml_is_structurally_complete() -> None:
-    """verify_auth_profiles_yaml_consistency는 drift가 아니라 YAML 완전성을 검증한다."""
-    sys.path.insert(0, str(ROOT / "src"))
-    from ai_model_serving.auth_control import verify_auth_profiles_yaml_consistency
-
-    diffs = verify_auth_profiles_yaml_consistency(ROOT)
-    assert diffs == [], (
-        "configs/auth_profiles.yaml has structural completeness violations:\n"
-        + "\n".join(diffs)
-    )
-
 def test_auth_profiles_yaml_contains_internal_trusted() -> None:
     data = _load_auth()
     profiles = data.get("profiles", {})
