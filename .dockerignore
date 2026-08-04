@@ -27,6 +27,8 @@ dist
 docs
 tests
 ops/*
+!ops/compose/
+!ops/compose/full-stack.private-network.yaml
 !ops/images/
 !ops/images/vllm-unified/
 !ops/images/vllm-unified/Dockerfile
