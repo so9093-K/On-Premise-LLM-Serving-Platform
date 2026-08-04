@@ -86,10 +86,6 @@ errors:
     retryable: false
     meaning: "Gateway 내부 처리 중 예기치 못한 오류가 발생했다."
     action: "request_id 와 함께 운영자에게 문의한다."
-  DETECTOR_RETIRED:
-    retryable: false
-    meaning: "요청한 risk detector 가 폐기되어 더 이상 제공되지 않는다."
-    action: "현행 detector/엔드포인트로 전환한다."
   DETECTOR_DISABLED:
     retryable: false
     meaning: "요청한 risk detector 가 현재 설정에서 비활성이다."

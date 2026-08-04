@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
-"""Validate that every shell script in the repo parses cleanly with `bash -n`.
+"""저장소의 모든 셸 스크립트가 `bash -n`으로 구문 오류 없이 파싱되는지 검증한다.
 
-Checks:
-- Every scripts/**/*.sh and ops/**/*.sh file has valid bash syntax.
-- scripts/ci/deploy_gitlab_compose.sh's embedded `bash -s <<'REMOTE' ... REMOTE`
-  block is extracted and syntax-checked separately -- the outer file's own
-  `bash -n` never parses inside a quoted heredoc body, so a syntax error there
-  is otherwise invisible until an actual remote deploy runs it.
+체크 항목:
+- scripts/**/*.sh, ops/**/*.sh 전체가 유효한 bash 구문인지.
+- scripts/ci/deploy_gitlab_compose.sh 안에 내장된 `bash -s <<'REMOTE' ... REMOTE`
+  블록은 따로 추출해서 별도로 구문 검사한다 -- 바깥 파일 자체의 `bash -n`은
+  따옴표 있는 heredoc 본문 안쪽을 절대 파싱하지 않으므로, 안 그러면 그 안의
+  구문 오류가 실제 원격 배포가 실행될 때까지 안 보인다.
 
-Usage:
+사용법:
   python scripts/validation/validate_shell_syntax.py
 """
 from __future__ import annotations

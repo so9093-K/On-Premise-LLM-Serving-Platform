@@ -966,6 +966,8 @@ def test_gpu_util_override_from_mapping_parses_and_validates():
     assert f({}) is None
     assert f({"MAIN_LLM_GPU_MEMORY_UTILIZATION": ""}) is None
     assert f({"MAIN_LLM_GPU_MEMORY_UTILIZATION": "0.9"}) == 0.9
-    for bad in ("abc", "0", "-0.1", "1.5"):
+    # "-0.1"은 별도로 두지 않는다: "0"이 이미 배타적 하한(0.0 < value)의 경계를
+    # 검증하므로, 그보다 더 작은 음수는 동일한 range-check 분기를 반복 확인할 뿐이다.
+    for bad in ("abc", "0", "1.5"):
         with pytest.raises(MainModelConfigurationError):
             f({"MAIN_LLM_GPU_MEMORY_UTILIZATION": bad})

@@ -13,6 +13,7 @@ from ...api_examples import (
     RUNTIME_ERROR_404_EXAMPLE,
     RUNTIME_ERROR_503_NO_SIDECAR_EXAMPLE,
     RUNTIME_ERROR_503_SIDECAR_UNAVAILABLE_EXAMPLE,
+    RUNTIME_ERROR_503_TRANSITIONING_EXAMPLE,
     RUNTIME_LIST_MIXED_STATE_EXAMPLE,
     RUNTIME_LIST_RESPONSE_EXAMPLE,
     RUNTIME_TRANSITION_NOOP_EXAMPLE,
@@ -217,6 +218,21 @@ def _sidecar_unavailable_response(exc: SidecarUnavailableError) -> JSONResponse:
         payload,
         status_code=503,
         headers=error_response_headers("MAIN_MODEL_CONTROL_UNAVAILABLE", payload, retry_after_seconds=5),
+    )
+
+
+def _runtime_transitioning_response() -> JSONResponse:
+    # 위 _sidecar_unavailable_response와 같은 이유로 raise HTTPException(503, ...)을
+    # 쓰지 않는다: 제네릭 핸들러는 retryable=False로 응답하는데, 이 메시지("wait and
+    # retry")와 code(MODEL_UNAVAILABLE, 카탈로그 기준 retryable=true)는 둘 다 재시도를
+    # 전제로 한다 -- retryable=False로 나가면 메시지와 machine-readable 필드가 서로
+    # 모순된다.
+    message = "runtime is currently starting; wait and retry"
+    payload = error_payload("MODEL_UNAVAILABLE", message, True)
+    return JSONResponse(
+        payload,
+        status_code=503,
+        headers=error_response_headers("MODEL_UNAVAILABLE", payload, retry_after_seconds=5),
     )
 
 
@@ -427,7 +443,7 @@ def build_router(
             503: {"content": {"application/json": {"examples": {
                 "no_sidecar": {"summary": "sidecar 미설정", "value": RUNTIME_ERROR_503_NO_SIDECAR_EXAMPLE},
                 "sidecar_unavailable": {"summary": "sidecar 연결 실패", "value": RUNTIME_ERROR_503_SIDECAR_UNAVAILABLE_EXAMPLE},
-                "in_progress": {"summary": "전환 중 (재시도 가능)", "value": {"detail": "runtime is currently starting; wait and retry"}},
+                "in_progress": {"summary": "전환 중 (재시도 가능)", "value": RUNTIME_ERROR_503_TRANSITIONING_EXAMPLE},
             }}}},
             **_ADMIN_401,
         },
@@ -489,11 +505,11 @@ def build_router(
                 if actual == "running":
                     return JSONResponse({"service_key": service_key, "state": "active", "changed": False})
             if current_state == RuntimeState.starting:
-                # stop 경로(아래)와 동일한 근거: 503은 재시도 가능한 플랫폼 코드
-                # (MODEL_UNAVAILABLE)로 매핑된다. 실제 컨테이너 상태를 재확인하지
+                # stop 경로(아래)와 동일한 근거: 실제 컨테이너 상태를 재확인하지
                 # 않고 "active"라고 응답하면 아직 준비되지 않은 런타임을 준비된
-                # 것처럼 노출하게 된다.
-                raise HTTPException(503, detail="runtime is currently starting; wait and retry")
+                # 것처럼 노출하게 된다. retryable=True가 실제로 나가야 하므로
+                # _runtime_transitioning_response()를 쓴다(위 주석 참고).
+                return _runtime_transitioning_response()
             if sidecar is None:
                 raise HTTPException(503, detail="admin sidecar is not configured (ADMIN_SIDECAR_URL missing)")
             await state_store.set(
@@ -565,10 +581,9 @@ def build_router(
                 if actual != "running":
                     return JSONResponse({"service_key": service_key, "state": "stopped", "changed": False})
             if current_state == RuntimeState.starting:
-                # 일시적인 "아직 준비 안 됨, 재시도" 상태 — 503은 재시도 가능한 플랫폼
-                # 코드(MODEL_UNAVAILABLE)로 매핑된다. 409는 플랫폼 코드가 없어
-                # VALIDATION_ERROR로 폴백되므로 상태와 모순된다.
-                raise HTTPException(503, detail="runtime is currently starting; wait and retry")
+                # 일시적인 "아직 준비 안 됨, 재시도" 상태. retryable=True가 실제로
+                # 나가야 하므로 _runtime_transitioning_response()를 쓴다(위 주석 참고).
+                return _runtime_transitioning_response()
             if sidecar is None:
                 raise HTTPException(503, detail="admin sidecar is not configured (ADMIN_SIDECAR_URL missing)")
             await state_store.set(

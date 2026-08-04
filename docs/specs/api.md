@@ -23,7 +23,6 @@ Gateway는 외부 애플리케이션의 단일 진입점이다.
 | `POST /v1/retrieval/rerank` | `local-embed-ko` / `local-embed` retrieval rerank |
 | `POST /v1/retrieval/score` | `local-embed-ko` / `local-embed` retrieval score (입력 순서 유지) |
 | `POST /v1/risk/detectors/prompt/assessments` | prompt risk signal |
-| `POST /v1/risk/detectors/siren/assessments` | retired siren endpoint, 410 Gone |
 | `POST /v1/risk/assessments` | aggregate risk signal |
 
 사용자 API는 `Authorization: Bearer <API_KEY>`를 요구한다. admin endpoint가 보호되는 환경에서는 `Authorization: Bearer <ADMIN_API_KEY>`를 사용한다.
@@ -93,7 +92,6 @@ SDK/client generation을 위해 주요 route에 명시적 `operation_id`가 지�
 | `rerankDocuments` | POST | `/v1/retrieval/rerank` | Gateway |
 | `scoreDocuments` | POST | `/v1/retrieval/score` | Gateway |
 | `assessPromptRisk` | POST | `/v1/risk/detectors/prompt/assessments` | Gateway |
-| `assessRetiredSirenRisk` | POST | `/v1/risk/detectors/siren/assessments` | Gateway |
 | `assessRisk` | POST | `/v1/risk/assessments` | Gateway |
 | `getRiskAdapterHealth` | GET | `/health` | Risk Adapter |
 | `getRiskAdapterReadiness` | GET | `/ready` | Risk Adapter |

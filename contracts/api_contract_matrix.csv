@@ -6,7 +6,7 @@ Gateway,9400,/v1/models,local catalog,none,model list,not defined,true,none,publ
 Gateway,9400,/v1/chat/completions,:9401/v1/chat/completions,messages[],OpenAI-compatible chat envelope,not defined,true,none,public_gateway,chat_completion_request.schema.json,chat_completion_response.schema.json
 Gateway,9400,/v1/embeddings,:9402/v1/embeddings,input,OpenAI-compatible embedding envelope,not defined,true,none,public_gateway,embedding_request.schema.json,embedding_response.schema.json
 Gateway,9400,/v1/risk/detectors/prompt/assessments,:9405/v1/risk/detectors/prompt/assessments,prompt,Risk signal,not defined,true,none,public_gateway,risk_assessment_request.schema.json,risk_assessment_response.schema.json
-Gateway,9400,/v1/risk/detectors/siren/assessments,none_retired_410,none,410 Gone (DETECTOR_RETIRED),not defined,true,none,public_gateway,none,common_error.schema.json
+Gateway,9400,/v1/risk/detectors/siren/assessments,none_not_served,none,not served (route removed),not defined,false,none,not_served,none,none
 Gateway,9400,/v1/risk/assessments,:9405/v1/risk/assessments,prompt,Aggregate risk signal,not defined,true,none,public_gateway,risk_assessment_request.schema.json,risk_assessment_response.schema.json
 Risk Adapter,9405,/health,local,none,health status,not defined,false,none,internal_only,none,none
 Risk Adapter,9405,/ready,local + dependencies,none,readiness status,not defined,false,conditional(ADMIN_API_KEY_REQUIRED),internal_only,none,readiness_response.schema.json

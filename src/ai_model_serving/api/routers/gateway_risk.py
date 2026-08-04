@@ -98,28 +98,6 @@ def build_router(
         _record_if_enabled(request, payload=payload, response=result)
         return result
 
-    _s = _GW[("POST", "/v1/risk/detectors/siren/assessments")]
-
-    @router.post(
-        "/v1/risk/detectors/siren/assessments",
-        status_code=_s.status_code,
-        response_model=None,
-        dependencies=api_dependencies,
-        tags=[_s.tag],
-        summary=_s.summary,
-        operation_id=_s.operation_id,
-        description=_s.description,
-        responses={401: {"description": "API Bearer token 필요"}, 410: {"description": "Detector 사용 중단"}},
-    )
-    async def risk_siren_assessment() -> None:
-        raise ServiceError(
-            "DETECTOR_RETIRED",
-            "risk-siren detector는 retired 상태입니다. "
-            "/v1/risk/detectors/prompt/assessments 또는 /v1/risk/assessments를 사용하세요.",
-            False,
-            410,
-        )
-
     _s = _GW[("POST", "/v1/risk/assessments")]
 
     @router.post(

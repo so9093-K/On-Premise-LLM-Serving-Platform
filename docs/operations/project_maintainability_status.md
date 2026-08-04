@@ -104,12 +104,11 @@ Docker/GPU/vLLM이 필요한 live 검증과 서비스 기동 없는 정적 검�
 1. Risk vLLM vendor patch는 upstream 변경에 취약하다. `make risk-vllm-patch-removal-check`와 patch 없는 candidate image smoke로 제거 조건을 계속 추적해야 한다.
 2. 모델 add/remove는 아직 write-mode가 아니며, 실제 파일 변경 자동화 전에는 proposal plan과 reviewer checklist를 먼저 고정해야 한다.
 3. admin endpoint의 network-only 보호는 app-level CIDR enforcement가 아직 없다.
-4. OpenAPI snapshot diff는 정적 검증에 포함되었지만, examples/tags까지 더 넓히면 문서 drift를 더 빨리 잡을 수 있다.
+4. OpenAPI snapshot diff는 request examples까지 비교하지만, tags는 아직 비교 대상이 아니다.
 5. generated runtime report는 명령 재실행 시 갱신되므로 source 문서와 generated evidence의 역할을 계속 분리해야 한다.
 
 ## 다음 권장 작업
 
-- `modelctl propose-add/propose-remove` 결과를 파일로 저장하는 plan artifact schema를 추가한다.
-- OpenAPI snapshot diff 범위를 examples/tags까지 확장한다.
+- OpenAPI snapshot diff 비교 범위에 tags를 추가한다.
 - admin endpoint CIDR allowlist 또는 `ADMIN_AUTH_MODE`를 설계한다.
 - Risk vLLM patch 없는 candidate image에서 Kanana config canary와 실제 vLLM smoke를 수행해 제거 가능성을 확인한다.

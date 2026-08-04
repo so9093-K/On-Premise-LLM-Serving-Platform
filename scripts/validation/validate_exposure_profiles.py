@@ -1,21 +1,21 @@
 #!/usr/bin/env python3
-"""Validate configs/exposure_profiles.yaml structural invariants.
+"""configs/exposure_profiles.yaml의 구조적 불변식을 검증한다.
 
-Checks:
-- canonical_modes field exists and is non-empty
-- profiles.keys() exactly matches canonical_modes
-- each profile has class, diagnostics, host_published
-- exactly one profile has class: default_private
-- exactly one profile has class: diagnostic_full_stack
-- default_private profile does not expose blocked service categories
-- diagnostic_full_stack profile covers required service categories and every model runtime
-- configs/services.yaml covers all services referenced in profiles.host_published
-- service registry fields are complete for generated compose and diagnostics consumers
+체크 항목:
+- canonical_modes 필드가 존재하고 비어있지 않은지
+- profiles.keys()가 canonical_modes와 정확히 일치하는지
+- 각 프로필이 class, diagnostics, host_published를 갖는지
+- class: default_private인 프로필이 정확히 1개인지
+- class: diagnostic_full_stack인 프로필이 정확히 1개인지
+- default_private 프로필이 차단된 서비스 카테고리를 노출하지 않는지
+- diagnostic_full_stack 프로필이 필수 서비스 카테고리와 모든 model runtime을 커버하는지
+- configs/services.yaml이 profiles.host_published가 참조하는 모든 서비스를 커버하는지
+- 생성된 compose/diagnostics 소비자를 위해 서비스 레지스트리 필드가 완전한지
 
-Generated compose override drift is checked separately by:
+생성된 compose override의 drift는 별도로 아래에서 검사한다:
   PYTHONPATH=src python scripts/compose/render_exposure_overrides.py --check
 
-Usage:
+사용법:
   PYTHONPATH=src python scripts/validation/validate_exposure_profiles.py
   PYTHONPATH=src python scripts/validation/validate_exposure_profiles.py --strict
 """
@@ -105,7 +105,7 @@ def _services_with_category(services: dict, category: str) -> set[str]:
 
 
 def validate(data: dict, strict: bool = False, services: dict | None = None) -> list[str]:
-    """Return list of violation messages. Empty → valid."""
+    """위반 메시지 목록을 반환한다. 비어있으면 유효하다는 뜻."""
     violations: list[str] = []
 
     # 1. canonical_modes 필드
@@ -253,7 +253,7 @@ def main() -> int:
     parser.add_argument(
         "--strict",
         action="store_true",
-        help="Verify extended source-of-truth invariants; generated override drift is checked by render_exposure_overrides.py --check.",
+        help="확장된 source-of-truth 불변식을 검증합니다; 생성된 override의 drift는 render_exposure_overrides.py --check가 검사합니다.",
     )
     args = parser.parse_args()
 

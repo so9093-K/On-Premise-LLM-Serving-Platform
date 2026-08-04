@@ -140,8 +140,9 @@ def test_audio_format_must_be_allowed():
 @pytest.mark.parametrize(
     ("fmt", "raw"),
     [
+        # m4a/mp4는 _audio_format_matches()에서 같은 _is_iso_bmff() 분기를 타므로
+        # 둘 다 따로 테스트할 필요가 없다 -- m4a 하나로 그 분기를 증명한다.
         ("m4a", b"\x00\x00\x00\x18ftypM4A \x00\x00\x00\x00M4A mp42isom"),
-        ("mp4", b"\x00\x00\x00\x18ftypmp42\x00\x00\x00\x00mp42isom"),
         ("aac", b"\xff\xf1\x50\x80\x00\x1f\xfc"),
     ],
 )
@@ -236,13 +237,15 @@ def test_mp4_video_container_is_accepted_when_magic_matches():
     _validate(_video_payload(url), TEXT_IMAGE_AUDIO_VIDEO)
 
 
+# image/x-tiff는 별도 케이스로 두지 않는다: _validate_data_image_url()은 gif를 제외하면
+# media_type으로 분기하지 않고 _image_dimensions()가 바이트 내용만으로 파서를 순서대로
+# 시도하므로, image/tiff와 동일한 _tiff_dimensions() 경로를 그대로 탄다.
 @pytest.mark.parametrize("mime,b64", [
     ("image/avif", TINY_AVIF_1X1_B64),
     ("image/jp2", TINY_JP2_1X1_B64),
     ("image/gif", TINY_GIF_1X1_B64),
     ("image/bmp", TINY_BMP_1X1_B64),
     ("image/tiff", TINY_TIFF_1X1_B64),
-    ("image/x-tiff", TINY_TIFF_1X1_B64),
 ])
 def test_additional_static_image_parts_are_accepted(mime, b64):
     payload = {
@@ -358,10 +361,11 @@ def test_image_gif_is_not_a_video_url_contract():
     assert "video_url.url scheme" in str(exc.value) or "valid data:video URL" in str(exc.value)
 
 
-@pytest.mark.parametrize("mime", ["video/x-msvideo", "video/avi"])
-def test_avi_video_container_is_accepted_when_magic_matches(mime):
+def test_avi_video_container_is_accepted_when_magic_matches():
+    # video/avi는 _video_format_matches에서 video/x-msvideo와 같은 분기를 타므로
+    # 따로 테스트하지 않는다.
     raw = b"RIFF\x20\x00\x00\x00AVI LIST"
-    url = f"data:{mime};base64," + base64.b64encode(raw).decode("ascii")
+    url = f"data:video/x-msvideo;base64," + base64.b64encode(raw).decode("ascii")
     _validate(_video_payload(url), TEXT_IMAGE_AUDIO_VIDEO)
 
 

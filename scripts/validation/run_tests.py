@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+"""pytest를 프로젝트 표준 환경(PYTHONDONTWRITEBYTECODE, APP_ENV=test 등)으로 실행하는
+얇은 wrapper. `make test`(scripts/validation/run_test.sh)가 이걸 호출한다."""
+
 from __future__ import annotations
 
 import os

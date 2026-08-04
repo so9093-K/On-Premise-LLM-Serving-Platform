@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+"""`make validate`(scripts/validation/run_validate.sh)가 실제로 실행하는 오케스트레이터.
+
+STATIC_STEPS에 나열된 개별 검증기를 순서대로 in-process로 부른다. 하나가
+실패해도 나머지를 계속 실행해, 한 위반이 다른 위반을 가리지 않게 한다."""
+
 from __future__ import annotations
 
 import argparse

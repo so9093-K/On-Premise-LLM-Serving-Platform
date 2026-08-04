@@ -290,20 +290,3 @@ curl -s http://127.0.0.1:9405/v1/risk/detectors/secret/assessments \
 예상: `risk_detected: true`, `categories[0].code: "D5"`, `categories[0].label: "DATABASE_URL"`
 
 > **보안 주의:** 원문 시크릿 값은 응답에 포함되지 않는다. `label`은 entity type 이름, `span_count`는 탐지 개수.
-
----
-
-## Siren Detector (Retired)
-
-`/v1/risk/detectors/siren/assessments`는 retired endpoint다. 현재 이 route는 **410 Gone**을 반환한다.
-
-active policy_risk detector는 현재 배포되어 있지 않다. 아래는 route lifecycle 확인용 참고 예시다.
-
-```bash
-# 예상 응답: 410 Gone — Gateway(9400) route lifecycle 확인용
-curl -s -o /dev/null -w "%{http_code}" \
-  http://127.0.0.1:9400/v1/risk/detectors/siren/assessments \
-  -H "Authorization: Bearer $API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"prompt":"테스트"}'
-```

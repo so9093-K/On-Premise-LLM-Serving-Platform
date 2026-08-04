@@ -261,21 +261,17 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
         service="gateway",
         method="POST",
         path="/v1/risk/detectors/siren/assessments",
-        operation_id="assessRetiredSirenRisk",
+        operation_id="assessSirenDetector",
         tag="Risk",
-        summary="Retired Siren detector 신호",
-        description=(
-            "`risk-siren` detector는 retired 상태입니다. "
-            "이 endpoint는 항상 410 Gone을 반환합니다. "
-            "`/v1/risk/detectors/prompt/assessments` 또는 `/v1/risk/assessments`를 사용하세요."
-        ),
-        auth="public_api",
-        exposure="public_gateway",
-        lifecycle="retired",
-        status_code=410,
+        summary="Siren detector 신호 (제거됨)",
+        description="이 route는 제거되었습니다. Gateway에서 siren detector는 serving되지 않습니다.",
+        auth="none",
+        exposure="not_served",
+        lifecycle="removed",
+        status_code=200,
         replacement="/v1/risk/detectors/prompt/assessments",
         request_schema=None,
-        response_schema="common_error.schema.json",
+        response_schema=None,
     ),
     EndpointSpec(
         service="gateway",

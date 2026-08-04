@@ -637,3 +637,12 @@ RUNTIME_ERROR_503_SIDECAR_UNAVAILABLE_EXAMPLE: dict[str, Any] = {
         "request_id": "req_00000000000000000000000000000000",
     },
 }
+
+RUNTIME_ERROR_503_TRANSITIONING_EXAMPLE: dict[str, Any] = {
+    "error": {
+        "code": "MODEL_UNAVAILABLE",
+        "message": "runtime is currently starting; wait and retry",
+        "retryable": True,
+        "request_id": "req_00000000000000000000000000000000",
+    },
+}

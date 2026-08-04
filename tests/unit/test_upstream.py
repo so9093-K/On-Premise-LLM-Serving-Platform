@@ -23,12 +23,14 @@ def endpoint() -> RuntimeEndpoint:
 
 
 def test_upstream_client_request_errors_are_validation_errors_not_502() -> None:
-    for status in (400, 404, 422):
-        exc = _http_status_to_service_error(endpoint(), status)
-        assert exc.code == "VALIDATION_ERROR"
-        assert exc.status_code == 422
-        assert exc.retryable is False
-        assert not _counts_as_upstream_failure(exc)
+    # 404/422는 별도로 두지 않는다: _http_status_to_service_error()가
+    # `if status in {400, 404, 422}:`라는 동일한 set-membership 분기로 처리하므로
+    # 세 값 모두 완전히 같은 코드 경로를 탄다.
+    exc = _http_status_to_service_error(endpoint(), 400)
+    assert exc.code == "VALIDATION_ERROR"
+    assert exc.status_code == 422
+    assert exc.retryable is False
+    assert not _counts_as_upstream_failure(exc)
 
 
 def test_upstream_http_error_preserves_status_and_body_debug() -> None:

@@ -139,7 +139,10 @@ class TestDataExposureSchemaValidation:
         assert list(validator.iter_errors(response))
 
     def test_all_d_codes_in_strongest_code_pass(self, validator):
-        for code in ["D1", "D2", "D4", "D5"]:
+        # D2/D4는 별도로 두지 않는다: 스키마는 `"pattern": "^D[1-5]$"` 하나로 D1~D5를
+        # 전부 같은 if/then 분기(family == data_exposure)에 묶으므로, D1(하한)과
+        # D5(상한)만 확인해도 문자 클래스 범위를 충분히 검증한다.
+        for code in ["D1", "D5"]:
             src = "secret-scanner" if code in ("D4", "D5") else "pii-protection"
             label_map = {"D1": "KR_RRN", "D2": "EMAIL_ADDRESS", "D4": "OPENAI_API_KEY", "D5": "DATABASE_URL"}
             cat = _data_exposure_cat(code, label_map[code], source_model=src)

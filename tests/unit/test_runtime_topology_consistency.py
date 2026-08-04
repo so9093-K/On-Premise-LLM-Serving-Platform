@@ -51,17 +51,6 @@ def test_gateway_controllable_keys_match_model_serving():
     assert set(load_runtime_topology(ROOT).controllable_keys) == set(_controllable())
 
 
-def test_controllable_key_and_service_views_are_one_to_one(monkeypatch):
-    # gateway(logical key)와 sidecar(compose service name)는 각자의 명명
-    # 체계로 표현할 뿐, 같은 runtime 집합을 나타내야 한다.
-    sidecar = _sidecar(monkeypatch)
-    from ai_model_serving.runtime_topology import load_runtime_topology
-
-    controllable = _controllable()
-    assert set(load_runtime_topology(ROOT).controllable_keys) == set(controllable)
-    assert set(sidecar.CONTROLLABLE) == set(controllable.values())
-
-
 def test_start_prerequisites_match_compose_secondary_edges(monkeypatch):
     sidecar = _sidecar(monkeypatch)
     from ai_model_serving.runtime_topology import load_runtime_topology

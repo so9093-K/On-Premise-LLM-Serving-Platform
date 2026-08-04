@@ -1,22 +1,22 @@
 #!/usr/bin/env python3
-"""validate_grafana_promql.py — optional runtime PromQL syntax checker.
+"""validate_grafana_promql.py — 선택적 런타임 PromQL 구문 검사기.
 
-Extracts PromQL expressions from ops/grafana/dashboards/*.json,
-substitutes variable defaults, and checks syntax via Prometheus /api/v1/query.
+ops/grafana/dashboards/*.json에서 PromQL 표현식을 추출하고, 변수 기본값을
+치환한 뒤 Prometheus /api/v1/query로 구문을 확인한다.
 
-This is NOT a required CI gate. Run it against a live Prometheus instance
-for optional validation only.
+이건 필수 CI gate가 아니다. 실제 Prometheus 인스턴스가 있어야 하므로 선택적
+검증 용도로만 돌린다.
 
-Usage:
+사용법:
     python3 scripts/validation/validate_grafana_promql.py \\
         --prometheus-url http://localhost:9410 \\
         [--allow-no-data] \\
         [--allow-failures] \\
         [--dashboards-dir ops/grafana/dashboards]
 
-Exit codes:
-    0  all expressions OK (or all failures suppressed by --allow-failures)
-    1  hard errors present (syntax errors, JSON parse failures)
+종료 코드:
+    0  모든 표현식 OK (또는 --allow-failures로 모든 실패가 억제됨)
+    1  치명적 오류 존재 (구문 오류, JSON 파싱 실패)
 """
 from __future__ import annotations
 
@@ -66,14 +66,14 @@ def substitute_variables(expr: str) -> str:
 
 
 def iter_panels(panels: list[dict]) -> object:
-    """Recursively yield all panels, including nested panels under row panels."""
+    """row panel 아래 중첩된 panel까지 포함해 모든 panel을 재귀적으로 순회한다."""
     for panel in panels:
         yield panel
         yield from iter_panels(panel.get("panels", []))
 
 
 def extract_expressions(dashboard: dict) -> list[tuple[str, str, str]]:
-    """Return (panel_title, refId, expr) tuples for all non-empty PromQL targets."""
+    """비어있지 않은 모든 PromQL target에 대해 (panel_title, refId, expr) 튜플을 반환한다."""
     results = []
     for panel in iter_panels(dashboard.get("panels", [])):
         panel_title = panel.get("title", "unknown")
@@ -85,7 +85,7 @@ def extract_expressions(dashboard: dict) -> list[tuple[str, str, str]]:
 
 
 class QueryResult:
-    """Result of a single PromQL query attempt."""
+    """PromQL 쿼리 한 번 시도한 결과."""
 
     def __init__(self, ok: bool, no_data: bool, error_msg: str) -> None:
         self.ok = ok
@@ -94,13 +94,13 @@ class QueryResult:
 
 
 def check_promql(prometheus_url: str, expr: str) -> QueryResult:
-    """Query Prometheus /api/v1/query and classify the result.
+    """Prometheus /api/v1/query에 질의하고 결과를 분류한다.
 
-    Returns:
-        QueryResult with:
-          ok=True, no_data=False  — success with data
-          ok=True,  no_data=True  — success but empty result set
-          ok=False, no_data=False — HTTP error or network failure
+    반환값:
+        QueryResult로:
+          ok=True, no_data=False  — 성공, 데이터 있음
+          ok=True, no_data=True   — 성공했지만 결과셋이 비어있음
+          ok=False, no_data=False — HTTP 오류 또는 네트워크 실패
     """
     query = substitute_variables(expr)
     # 'time' 파라미터는 생략 — Prometheus는 기본적으로 현재 서버 시간을 사용함.
@@ -130,34 +130,34 @@ def main() -> int:
     parser.add_argument(
         "--prometheus-url",
         default=os.environ.get("PROMETHEUS_BASE_URL", default_prometheus_url()),
-        help="Prometheus base URL (default: $PROMETHEUS_BASE_URL or services.yaml host port)",
+        help="Prometheus base URL (기본값: $PROMETHEUS_BASE_URL 또는 services.yaml host port)",
     )
     parser.add_argument(
         "--dashboards-dir",
         default="ops/grafana/dashboards",
-        help="Path to Grafana dashboard JSON directory (relative to project root)",
+        help="Grafana dashboard JSON 디렉터리 경로 (project root 기준 상대경로)",
     )
     parser.add_argument(
         "--allow-no-data",
         action="store_true",
         help=(
-            "Treat empty Prometheus result sets as warnings instead of errors. "
-            "Without this flag, a query that succeeds syntactically but returns no data "
-            "is counted as an error."
+            "빈 Prometheus 결과셋을 오류가 아니라 경고로 취급합니다. "
+            "이 플래그가 없으면, 구문은 성공했지만 데이터가 없는 쿼리도 "
+            "오류로 집계됩니다."
         ),
     )
     parser.add_argument(
         "--config-only",
         action="store_true",
-        help="Validate dashboard JSON structure only; skip all Prometheus queries.",
+        help="dashboard JSON 구조만 검증하고 Prometheus 쿼리는 전부 건너뜁니다.",
     )
     parser.add_argument(
         "--allow-failures",
         action="store_true",
         help=(
-            "Suppress all query failures (connection errors, syntax errors, no-data) "
-            "and exit 0. Final summary clearly shows warning count — "
-            "does NOT print 'All expressions passed' when failures were suppressed."
+            "모든 쿼리 실패(연결 오류, 구문 오류, no-data)를 억제하고 exit 0으로 "
+            "종료합니다. 최종 요약에는 경고 개수가 명확히 표시됩니다 — "
+            "실패가 억제된 경우 'All expressions passed'라고 출력하지 않습니다."
         ),
     )
     args = parser.parse_args()

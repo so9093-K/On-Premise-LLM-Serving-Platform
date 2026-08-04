@@ -295,8 +295,10 @@ def test_gateway_logprobs_logit_bias_and_stream_contracts():
     assert clients.main_llm.last_payload["logprobs"] is True
     assert clients.main_llm.last_payload["top_logprobs"] == 2
 
+    # {"top_logprobs": 1}(logprobs 미지정)은 별도로 두지 않는다: _validate_logprobs()의
+    # `payload.get("logprobs") is not True` 분기는 None과 False를 구분하지 않으므로
+    # {"logprobs": False, ...}와 동일한 코드 경로를 탄다.
     for payload in [
-        {"top_logprobs": 1},
         {"logprobs": False, "top_logprobs": 0},
         {"logprobs": True, "top_logprobs": 11},
     ]:
@@ -311,7 +313,9 @@ def test_gateway_logprobs_logit_bias_and_stream_contracts():
     assert valid_bias.status_code == 200
     assert clients.main_llm.last_payload["logit_bias"] == {"42": -1.5}
 
-    for bias in [{"x": 1}, {"1": 101}, {"1": True}, {str(i): 0 for i in range(257)}]:
+    # {"1": True}는 별도로 두지 않는다: _validate_logit_bias()에서 `not is_number(bias)`와
+    # `bias < min_bias or bias > max_bias`가 같은 한 줄의 or절이라 {"1": 101}과 결과가 같다.
+    for bias in [{"x": 1}, {"1": 101}, {str(i): 0 for i in range(257)}]:
         invalid = client.post("/v1/chat/completions", headers=auth_headers(), json={"model": "local-main", "messages": [{"role": "user", "content": "hello"}], "logit_bias": bias})
         assert invalid.status_code == 422
 

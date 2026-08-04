@@ -1,4 +1,8 @@
 #!/usr/bin/env python3
+"""FastAPI가 실제로 생성하는 OpenAPI 문서와 specs/openapi.*.yaml(정적 파일)이
+어긋났는지 비교한다. path/method/보안/응답 스키마/예시가 코드와 문서 양쪽에서
+수동으로 따로 관리되다 벌어지는 drift를 잡는다."""
+
 from __future__ import annotations
 
 import copy

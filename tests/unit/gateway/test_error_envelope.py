@@ -92,7 +92,9 @@ def test_embedding_validation_errors_carry_actionable_param(payload, expected_pa
     assert exc.param == expected_param
 
 
-@pytest.mark.parametrize("payload", [{"input": "hi"}, {"prompt": "  "}, {}])
+# {"input": "hi"}는 별도 케이스로 두지 않는다: read_risk_prompt()는
+# `set(payload) != {"prompt"}`라는 동일한 한 줄 분기를 타므로 {}와 결과가 같다.
+@pytest.mark.parametrize("payload", [{"prompt": "  "}, {}])
 def test_risk_prompt_errors_carry_prompt_param(payload):
     with pytest.raises(ServiceError) as excinfo:
         read_risk_prompt(payload)

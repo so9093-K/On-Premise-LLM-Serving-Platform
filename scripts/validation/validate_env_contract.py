@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Validate that .env example files contain all keys declared in configs/env_contract.yaml.
+"""`.env` 예시 파일들이 configs/env_contract.yaml에 선언된 키를 전부 갖고 있는지 검증한다.
 
-Checks:
-- .env.example, .env.local.example, .env.compose.example each contain their required key sets
-- Required key sets: always_required, auth_mode_keys, model_runtime prefixed keys, exposure keys
-- EXPOSURE_MODE allowed values comment matches canonical_modes from exposure_profiles.yaml
+체크 항목:
+- .env.example, .env.local.example, .env.compose.example 각각 필요한 키 집합을 포함하는지
+- 필요한 키 집합: always_required, auth_mode_keys, model_runtime 접두사 키, exposure 키
+- EXPOSURE_MODE 허용값 주석이 exposure_profiles.yaml의 canonical_modes와 일치하는지
 
-Usage:
+사용법:
   python scripts/validation/validate_env_contract.py
   python scripts/validation/validate_env_contract.py --strict
 """
@@ -38,12 +38,12 @@ def load_yaml(path: Path) -> dict[str, Any]:
 
 
 def parse_env_keys(path: Path) -> set[str]:
-    """Return the set of keys defined (key=...) in an env example file."""
+    """env 예시 파일에 정의된(key=...) 키 집합을 반환한다."""
     return set(parse_env_file(path).values)
 
 
 def expand_required_keys(contract: dict[str, Any], key_set_names: list[str]) -> list[str]:
-    """Expand a list of key_set references from env_contract.yaml into concrete key names."""
+    """env_contract.yaml의 key_set 참조 목록을 실제 키 이름들로 펼친다."""
     required: list[str] = []
 
     for name in key_set_names:
@@ -126,7 +126,7 @@ def validate(root: Path = ROOT, strict: bool = False) -> list[str]:
 def main() -> int:
     import argparse
     parser = argparse.ArgumentParser(description="Validate .env examples against configs/env_contract.yaml.")
-    parser.add_argument("--strict", action="store_true", help="Also verify EXPOSURE_MODE values match exposure_profiles.yaml")
+    parser.add_argument("--strict", action="store_true", help="EXPOSURE_MODE 값이 exposure_profiles.yaml과 일치하는지도 검증합니다")
     args = parser.parse_args()
 
     violations = validate(ROOT, strict=args.strict)

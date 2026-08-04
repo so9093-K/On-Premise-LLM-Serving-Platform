@@ -55,11 +55,9 @@ PII Protection과 Secret Exposure Signal 두 계층으로 구성된다. 탐지 �
 
 ---
 
-### Retired Siren detector (`risk-siren-vllm`)
+### 제거된 Siren detector (`risk-siren-vllm`)
 
-엔드포인트: `/v1/risk/detectors/siren/assessments`
-
-`risk-siren`은 현재 retired 상태이며 기본 compose, readiness, `/v1/models`, aggregate execution에서 제외된다. 호환 route는 410 Gone 정책으로 유지한다.
+`risk-siren`은 기본 compose, readiness, `/v1/models`, aggregate execution에서 제외되며, `/v1/risk/detectors/siren/assessments` route 자체가 제거되어 일반 404를 반환한다(호환용 410 tombstone은 유지하지 않는다).
 
 ---
 
