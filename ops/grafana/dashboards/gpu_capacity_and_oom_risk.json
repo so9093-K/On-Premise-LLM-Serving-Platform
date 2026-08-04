@@ -39,23 +39,15 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "red",
-                "value": null
-              },
-              {
-                "color": "orange",
-                "value": 3758096384
-              },
-              {
                 "color": "green",
-                "value": 4294967296
+                "value": null
               }
             ]
           }
         },
         "overrides": []
       },
-      "description": "Healthy: observed live headroom stays above 4GiB (configs/gpu_budgets.yaml reserve_gib.watch_below). Attention: 3.5-4GiB means reserve is thinning. Action Required: below 3.5GiB is red (reserve_gib.hard_minimum) and needs load/context review. No Data: check dcgm-exporter scrape."
+      "description": "DCGM이 관측한 실제 GPU headroom입니다. admission plan이나 설정상 VRAM 비율과 혼용하지 않습니다. 정책 판단은 Gateway /admin/runtimes의 budget과 configs/gpu_budgets.yaml을 함께 확인합니다. No Data: check dcgm-exporter scrape."
     },
     {
       "id": 2,
@@ -89,21 +81,13 @@
               {
                 "color": "green",
                 "value": null
-              },
-              {
-                "color": "orange",
-                "value": 47244640256
-              },
-              {
-                "color": "red",
-                "value": 47781511168
               }
             ]
           }
         },
         "overrides": []
       },
-      "description": "Healthy: observed live VRAM stays below 44GiB. Attention: 44-44.5GiB is close to the configured reserve floor. Action Required: above 44.5GiB is red and needs immediate load/context review. No Data: check dcgm-exporter scrape."
+      "description": "DCGM이 관측한 실제 GPU VRAM 사용량입니다. 이 값은 vLLM admission plan의 예약 비율과 같을 필요가 없습니다. No Data: check dcgm-exporter scrape."
     },
     {
       "id": 10,
@@ -318,7 +302,7 @@
     {
       "id": 4,
       "type": "timeseries",
-      "title": "VRAM Used vs Budget",
+      "title": "Actual GPU VRAM",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -339,16 +323,6 @@
           "expr": "DCGM_FI_DEV_FB_TOTAL{} * 1024 * 1024",
           "refId": "B",
           "legendFormat": "total gpu{{gpu_index}}"
-        },
-        {
-          "expr": "vector(44 * 1024 * 1024 * 1024)",
-          "refId": "C",
-          "legendFormat": "warning 44GiB"
-        },
-        {
-          "expr": "vector(45.5 * 1024 * 1024 * 1024)",
-          "refId": "D",
-          "legendFormat": "action 45.5GiB"
         }
       ],
       "options": {
@@ -365,7 +339,7 @@
         },
         "overrides": []
       },
-      "description": "Trend view. warning=44GiB and action=45.5GiB reference lines shown. Healthy: stable below 44GiB. Attention: approaching 44GiB. Action Required: above 45.5GiB. No Data: check dcgm-exporter scrape."
+      "description": "DCGM이 관측한 실제 VRAM 사용량과 총량입니다. 고정 capacity 기준선이나 설정상 admission plan을 겹쳐 표시하지 않습니다. No Data: check dcgm-exporter scrape."
     },
     {
       "id": 5,
