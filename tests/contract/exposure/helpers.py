@@ -32,15 +32,8 @@ ROOT = _repo_root()
 EXPOSURE_PROFILES_YAML = ROOT / "configs" / "exposure_profiles.yaml"
 
 
-SERVICES_YAML = ROOT / "configs" / "services.yaml"
-
-
 def _load_exposure() -> dict:
     return yaml.safe_load(EXPOSURE_PROFILES_YAML.read_text(encoding="utf-8"))
-
-
-def _load_services() -> dict:
-    return yaml.safe_load(SERVICES_YAML.read_text(encoding="utf-8")).get("services", {})
 
 
 def _canonical_modes(data: dict) -> list[str]:

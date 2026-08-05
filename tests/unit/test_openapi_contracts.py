@@ -12,7 +12,7 @@ from ai_model_serving.apps.risk_adapter import create_risk_adapter_app
 from ai_model_serving.openapi_contracts import install_contract_openapi, load_contract_schema
 
 from tests.unit.gateway.helpers import FakeGatewayClients, settings as gateway_settings
-from tests.unit.test_risk_adapter_app import FakeRiskClients, settings as risk_settings
+from tests.support.risk_adapter import FakeRiskClients, settings as risk_settings
 
 
 def test_error_catalog_loading_fails_explicitly_when_required_catalog_is_missing(tmp_path, monkeypatch):

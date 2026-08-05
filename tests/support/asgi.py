@@ -1,5 +1,4 @@
-"""전역 pytest conftest. 샌드박스에서 anyio 백그라운드 스레드가 멈추는 문제를
-피하려고 FastAPI TestClient를 InlineASGITestClient로 교체한다."""
+"""스레드 portal 없이 ASGI 앱을 호출하는 테스트용 HTTP client."""
 
 from __future__ import annotations
 
@@ -7,17 +6,10 @@ from typing import Any
 
 import anyio
 import httpx
-from fastapi import testclient as fastapi_testclient
 
 
 class InlineASGITestClient:
-    """anyio의 백그라운드 스레드 portal을 피하는 작은 TestClient 대체품.
-
-    자동 리뷰에 쓰이는 샌드박스는 스레드 간 event-loop wakeup을 막을 수 있어서,
-    Starlette의 TestClient가 앱 호출 전에 멈춰버릴 수 있다. 이 저장소의 단위
-    테스트는 단순한 ASGI request/response 실행만 필요하므로, httpx.ASGITransport를
-    통해 각 요청을 현재 스레드에서 실행한다.
-    """
+    """FastAPI ``TestClient``가 동작하지 않는 sandbox용 명시적 대체 client."""
 
     __test__ = False
 
@@ -50,6 +42,3 @@ class InlineASGITestClient:
 
     def post(self, url: str, **kwargs: Any) -> httpx.Response:
         return self.request("POST", url, **kwargs)
-
-
-fastapi_testclient.TestClient = InlineASGITestClient

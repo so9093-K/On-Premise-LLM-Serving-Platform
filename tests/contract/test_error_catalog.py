@@ -14,8 +14,6 @@ import yaml
 from ai_model_serving.apps.gateway import create_gateway_app
 from ai_model_serving.errors import ERROR_STATUS
 
-from tests.unit.gateway.helpers import FakeGatewayClients, settings as gateway_settings
-
 ROOT = Path(__file__).resolve().parents[2]
 
 
@@ -34,7 +32,7 @@ def test_catalog_code_set_matches_error_status():
 
 
 def test_generated_openapi_scopes_error_code_enum_per_status():
-    doc = create_gateway_app(gateway_settings(), FakeGatewayClients()).openapi()
+    doc = create_gateway_app().openapi()
     responses = doc["paths"]["/v1/chat/completions"]["post"]["responses"]
     status_codes: dict[str, set[str]] = {}
     for code, status in ERROR_STATUS.items():

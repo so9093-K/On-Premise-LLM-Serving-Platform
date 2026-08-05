@@ -16,7 +16,7 @@ import importlib
 
 import pytest
 from fastapi import HTTPException
-from fastapi.testclient import TestClient
+from tests.support.asgi import InlineASGITestClient as TestClient
 
 
 def _load_sidecar(tmp_path, monkeypatch):

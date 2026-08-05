@@ -15,7 +15,7 @@ import json
 from pathlib import Path
 
 
-from fastapi.testclient import TestClient
+from tests.support.asgi import InlineASGITestClient as TestClient
 
 
 from jsonschema import Draft202012Validator

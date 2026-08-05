@@ -282,7 +282,7 @@ def test_unhandled_exception_response_carries_cause_in_debug():
     항상 빈 껍데기("Internal server error.")만 보여준다.
     """
     from fastapi import FastAPI
-    from fastapi.testclient import TestClient
+    from tests.support.asgi import InlineASGITestClient as TestClient
 
     from ai_model_serving.app_kernel import install_exception_handlers
     from ai_model_serving.metrics import Metrics
