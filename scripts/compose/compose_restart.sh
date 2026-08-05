@@ -81,5 +81,6 @@ else
   echo "[compose-restart] --no-deps 기본 적용 — ${SERVICES[*]}만 재기동합니다(의존 서비스는 건드리지 않음)." >&2
 fi
 
-echo "[compose-restart] restarting: ${SERVICES[*]} (EXPOSURE_MODE=$CANONICAL_MODE)"
-docker compose "${COMPOSE_ARGS[@]}" --env-file "$ENV_FILE_ABS" up -d "${DEPS_FLAG[@]}" "${SERVICES[@]}"
+echo "[compose-restart] force-recreating: ${SERVICES[*]} (EXPOSURE_MODE=$CANONICAL_MODE)"
+docker compose "${COMPOSE_ARGS[@]}" --env-file "$ENV_FILE_ABS" \
+  up -d --force-recreate "${DEPS_FLAG[@]}" "${SERVICES[@]}"

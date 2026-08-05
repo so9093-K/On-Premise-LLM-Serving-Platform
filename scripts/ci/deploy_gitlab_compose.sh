@@ -160,6 +160,7 @@ if [[ ! -d "${RELEASE_PATH}" ]]; then
   echo "[deploy] ERROR: staged release not found: ${RELEASE_PATH}" >&2
   exit 1
 fi
+source "${RELEASE_PATH}/scripts/lib/bind_mounted_config.sh"
 if [[ ! -f "${DEPLOY_PATH}/.env" ]]; then
   echo "[deploy] ERROR: shared .env not found at ${DEPLOY_PATH}/.env" >&2
   echo "[deploy] Run bootstrap on the deployment root before the first CI deployment." >&2
@@ -953,55 +954,78 @@ else
   fi
 fi
 
-# Grafana와 Prometheus는 bind-mount 설정 서비스다: 컨테이너 이미지가 절대 안
-# 바뀌므로, full 배포의 이미지 기반 수렴도 rolling의 app-restart 대상도 대시보드/
-# rule 수정을 잡아내지 못한다. 컨테이너는 또한 생성될 때의 release 경로를 그대로
-# 유지하므로, `current`만 바꿔서는 이전 release의 설정을 계속 서빙하게 된다.
-# 배포 모드와 무관하게, 마운트된 설정이 이전 release와 다르거나 실행 중인
-# 컨테이너가 여전히 오래된 release 컨텍스트를 가리키고 있으면 재생성한다.
+# bind-mount 설정 서비스는 이미지가 바뀌지 않아도 설정 파일 변경 시 재생성이
+# 필요하다. 컨테이너는 생성 시점 release의 bind mount를 유지하므로 `current`만
+# 바꾸면 이전 설정을 계속 서빙한다. 배포 모드와 무관하게 각 서비스의 설정 경로가
+# 바뀌었거나 release context가 오래됐을 때, 해당 서비스만 재생성한다.
+CONFIG_SERVICES_TO_REFRESH=()
+CONFIG_SERVICE_STATE_FILES=()
+CONFIG_SERVICE_FINGERPRINTS=()
+_config_state_dir="${DEPLOY_PATH}/.runtime/deploy-state/bind-mounted-config"
+mkdir -p "${_config_state_dir}"
+_has_previous_release=0
 if [[ -n "${PREVIOUS_RELEASE:-}" && -d "${PREVIOUS_RELEASE}" ]]; then
-  _config_service_dirs=(
-    "ops/grafana/dashboards"
-    "ops/grafana/provisioning"
-    "ops/prometheus"
-  )
-  _config_services=(
-    "grafana"
-    "prometheus"
-  )
-  _config_services_changed=0
-  for relative_path in "${_config_service_dirs[@]}"; do
-    if ! diff -rq \
-      "${PREVIOUS_RELEASE}/${relative_path}" \
-      "${RELEASE_PATH}/${relative_path}" >/dev/null 2>&1; then
-      _config_services_changed=1
-      break
-    fi
-  done
-  _config_services_stale=0
-  _expected_working_dir="${DEPLOY_PATH}/current/ops/compose"
-  for service in "${_config_services[@]}"; do
-    _container_id="$(compose_run ps -q "${service}" 2>/dev/null || true)"
-    if [[ -z "${_container_id}" ]]; then
-      _config_services_stale=1
-      echo "[deploy] ${service} is not running in the target compose project"
-      break
-    fi
+  _has_previous_release=1
+fi
+_expected_working_dir="${DEPLOY_PATH}/current/ops/compose"
+for _config_service_spec in "${BIND_MOUNTED_CONFIG_SERVICE_SPECS[@]}"; do
+  _config_service="${_config_service_spec%%:*}"
+  _config_paths="${_config_service_spec#*:}"
+  _config_service_changed=0
+  read -r -a _config_path_array <<< "${_config_paths}"
+  if [[ ${_has_previous_release} -eq 1 ]]; then
+    for _config_relative_path in "${_config_path_array[@]}"; do
+      if ! diff -rq \
+        "${PREVIOUS_RELEASE}/${_config_relative_path}" \
+        "${RELEASE_PATH}/${_config_relative_path}" >/dev/null 2>&1; then
+        _config_service_changed=1
+        break
+      fi
+    done
+  fi
+
+  _config_fingerprint="$(bind_mounted_config_fingerprint "${RELEASE_PATH}" "${_config_path_array[@]}")"
+  _config_state_file="${_config_state_dir}/${_config_service}.sha256"
+  _applied_fingerprint="$(cat "${_config_state_file}" 2>/dev/null || true)"
+
+  # 최초 full 배포는 앞선 compose up이 컨테이너를 새 release 설정으로 만들었으므로
+  # 여기서 다시 재시작하지 않고, 성공 완료 시 적용 fingerprint만 초기화한다.
+  if [[ ${_has_previous_release} -eq 0 ]]; then
+    CONFIG_SERVICE_STATE_FILES+=("${_config_state_file}")
+    CONFIG_SERVICE_FINGERPRINTS+=("${_config_fingerprint}")
+    continue
+  fi
+
+  _config_service_stale=0
+  if [[ "${_applied_fingerprint}" != "${_config_fingerprint}" ]]; then
+    _config_service_stale=1
+    echo "[deploy] ${_config_service} bind-mounted config is not applied to the running service"
+  fi
+  _container_id="$(compose_run ps -q "${_config_service}" 2>/dev/null || true)"
+  if [[ -z "${_container_id}" ]]; then
+    _config_service_stale=1
+    echo "[deploy] ${_config_service} is not running in the target compose project"
+  else
     _running_working_dir="$(
       docker inspect -f '{{ index .Config.Labels "com.docker.compose.project.working_dir" }}' \
         "${_container_id}" 2>/dev/null || true
     )"
     if [[ "${_running_working_dir}" != "${_expected_working_dir}" ]]; then
-      _config_services_stale=1
-      echo "[deploy] ${service} uses stale release context: ${_running_working_dir:-unknown}"
-      break
+      _config_service_stale=1
+      echo "[deploy] ${_config_service} uses stale release context: ${_running_working_dir:-unknown}"
     fi
-  done
-  if [[ ${_config_services_changed} -eq 1 || ${_config_services_stale} -eq 1 ]]; then
-    echo "[deploy] grafana/prometheus bind-mounted config requires refresh — force-recreating"
-    if ! compose_run up -d --no-deps --force-recreate grafana prometheus; then
-      fail_after_env_backup "deploy restart failed for grafana/prometheus"
-    fi
+  fi
+
+  if [[ ${_config_service_changed} -eq 1 || ${_config_service_stale} -eq 1 ]]; then
+    CONFIG_SERVICES_TO_REFRESH+=("${_config_service}")
+    CONFIG_SERVICE_STATE_FILES+=("${_config_state_file}")
+    CONFIG_SERVICE_FINGERPRINTS+=("${_config_fingerprint}")
+  fi
+done
+if [[ ${#CONFIG_SERVICES_TO_REFRESH[@]} -gt 0 ]]; then
+  echo "[deploy] bind-mounted config requires refresh — force-recreating: ${CONFIG_SERVICES_TO_REFRESH[*]}"
+  if ! compose_run up -d --no-deps --force-recreate "${CONFIG_SERVICES_TO_REFRESH[@]}"; then
+    fail_after_env_backup "deploy restart failed for bind-mounted config services: ${CONFIG_SERVICES_TO_REFRESH[*]}"
   fi
 fi
 
@@ -1064,6 +1088,14 @@ fi
 if [[ -n "${RUNTIME_STATE_BACKUP:-}" ]] && ! rm -f "${RUNTIME_STATE_BACKUP}"; then
   echo "[deploy] WARNING: failed to remove runtime state backup: ${RUNTIME_STATE_BACKUP}" >&2
 fi
+
+# 성공한 배포만 실제 적용 fingerprint를 기록한다. 다음 release는 이 상태와 비교해
+# bind-mounted 설정이 파일에는 반영됐지만 실행 중 컨테이너에는 미적용인 경우를
+# 감지하고 해당 서비스만 재생성한다.
+for _config_state_index in "${!CONFIG_SERVICE_STATE_FILES[@]}"; do
+  printf '%s\n' "${CONFIG_SERVICE_FINGERPRINTS[${_config_state_index}]}" \
+    > "${CONFIG_SERVICE_STATE_FILES[${_config_state_index}]}"
+done
 
 echo "[deploy] done"
 REMOTE

@@ -8,6 +8,7 @@ PYTHON_BIN="${PYTHON_BIN:-$(command -v python3.12 || command -v python3 || comma
 ENV_FILE="${ENV_FILE:-.env}"
 COMPOSE_FILE="${COMPOSE_FILE:-ops/compose/full-stack.private-network.yaml}"
 source scripts/lib/compose_context.sh
+source scripts/lib/bind_mounted_config.sh
 compose_context_init "$ROOT"
 compose_context_assert_mutation_safe
 PROM_SECRET=".runtime/prometheus/admin_api_key"
@@ -116,4 +117,41 @@ PYTHONPATH="$ROOT/src${PYTHONPATH:+:$PYTHONPATH}" \
     --profile "$MAIN_MODEL_BOOT_PROFILE"
 
 echo "[compose-up] starting stack (EXPOSURE_MODE=$CANONICAL_MODE, profile=$MAIN_MODEL_BOOT_PROFILE)"
+# Compose는 bind-mounted 파일의 내용 변경만으로는 기존 컨테이너를 바꾸지 않는다.
+# 일반 source는 이미지 재빌드로 수렴하지만, 아래 목록은 각 프로세스가 호스트
+# 설정을 직접 읽으므로 이전 적용 fingerprint와 다르면 해당 서비스만 재생성한다.
+BIND_CONFIG_STATE_DIR=".runtime/compose-state/bind-mounted-config"
+CONFIG_SERVICES_TO_REFRESH=()
+CONFIG_SERVICE_STATE_FILES=()
+CONFIG_SERVICE_FINGERPRINTS=()
+mkdir -p "$BIND_CONFIG_STATE_DIR"
+for config_service_spec in "${BIND_MOUNTED_CONFIG_SERVICE_SPECS[@]}"; do
+  config_service="${config_service_spec%%:*}"
+  config_paths="${config_service_spec#*:}"
+  read -r -a config_path_array <<< "${config_paths}"
+  config_fingerprint="$(bind_mounted_config_fingerprint "$ROOT" "${config_path_array[@]}")"
+  config_state_file="${BIND_CONFIG_STATE_DIR}/${config_service}.sha256"
+  applied_fingerprint="$(cat "${config_state_file}" 2>/dev/null || true)"
+  existing_container_id="$(docker compose "${COMPOSE_ARGS[@]}" --env-file "$ENV_FILE_ABS" ps -q "$config_service" 2>/dev/null || true)"
+
+  # 처음 생성되는 서비스는 아래 compose up이 최신 설정으로 시작한다. 반면 이미
+  # 존재하고 적용 fingerprint가 없거나 다르면, up 뒤 명시적으로 재생성한다.
+  if [[ -n "$existing_container_id" && "$applied_fingerprint" != "$config_fingerprint" ]]; then
+    CONFIG_SERVICES_TO_REFRESH+=("$config_service")
+    echo "[compose-up] ${config_service} bind-mounted config requires refresh"
+  fi
+  CONFIG_SERVICE_STATE_FILES+=("$config_state_file")
+  CONFIG_SERVICE_FINGERPRINTS+=("$config_fingerprint")
+done
 docker compose "${COMPOSE_ARGS[@]}" --env-file "$ENV_FILE_ABS" up -d
+
+if [[ ${#CONFIG_SERVICES_TO_REFRESH[@]} -gt 0 ]]; then
+  echo "[compose-up] force-recreating changed config services: ${CONFIG_SERVICES_TO_REFRESH[*]}"
+  docker compose "${COMPOSE_ARGS[@]}" --env-file "$ENV_FILE_ABS" \
+    up -d --no-deps --force-recreate "${CONFIG_SERVICES_TO_REFRESH[@]}"
+fi
+
+for config_state_index in "${!CONFIG_SERVICE_STATE_FILES[@]}"; do
+  printf '%s\n' "${CONFIG_SERVICE_FINGERPRINTS[${config_state_index}]}" \
+    > "${CONFIG_SERVICE_STATE_FILES[${config_state_index}]}"
+done
