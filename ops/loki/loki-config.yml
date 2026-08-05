@@ -10,6 +10,12 @@ auth_enabled: false
 server:
   http_listen_port: 3100
   grpc_listen_port: 9096
+  # Query frontend와 querier가 같은 단일 Loki 안에서 gRPC로 결과를 주고받는다.
+  # 기본 4 MiB는 실제 Request Log Explorer 결과(약 4.85 MiB)를 전달하지 못해
+  # ResourceExhausted를 냈다. 송수신을 같은 16 MiB로 맞춰 한쪽만 더 작은
+  # 비대칭 한도로 다시 막히지 않게 한다.
+  grpc_server_max_recv_msg_size: 16777216
+  grpc_server_max_send_msg_size: 16777216
   log_level: warn
 
 common:
