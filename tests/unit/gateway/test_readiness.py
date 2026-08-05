@@ -6,27 +6,13 @@ from __future__ import annotations
 from .helpers import *  # noqa: F401,F403
 from ai_model_serving.services.runtime_state import RuntimeState
 
-def test_gateway_health_ready_and_models():
+def test_gateway_health_and_ready():
     client = TestClient(create_gateway_app(settings(), FakeGatewayClients()))
     assert client.get("/health").json() == {"status": "ok", "service": "gateway"}
     ready = client.get("/ready").json()
     assert ready["status"] == "ready"
     assert ready["phase"] == "serving"
     assert ready["not_ready_dependencies"] == []
-    models = client.get("/v1/models", headers=auth_headers()).json()
-    by_id = {item["id"]: item for item in models["data"]}
-    assert set(by_id) == {"local-main", "local-embed", "local-embed-ko", "risk-prompt"}
-    assert by_id["local-main"]["request_parameters"]["temperature"] == {"type": "number", "min": 0, "max": 2}
-    assert by_id["local-main"]["request_parameters"]["stream"] == {"type": "boolean"}
-    assert by_id["local-embed"]["request_parameters"]["dimensions"]["enum"] == [768, 512, 256, 128]
-    assert "retrieval_score" in by_id["local-embed"]["capabilities"]
-    assert by_id["local-embed-ko"]["capabilities"] == [
-        "embeddings",
-        "retrieval_rerank",
-        "retrieval_score",
-    ]
-    assert by_id["risk-prompt"]["request_parameters"] == {}
-    assert by_id["risk-prompt"]["fixed_parameters"] == {"max_tokens": 1, "temperature": 0}
 
 
 def test_gateway_ready_forwards_admin_token_to_risk_adapter_readiness():

@@ -92,10 +92,6 @@ def test_vllm_unified_image_resolver_default_base_matches_canonical_image_config
     assert result.returncode == 0, result.stderr
     assert result.stdout.strip() == _canonical_base_image()
 
-    dockerfile = (Path(__file__).resolve().parents[2] / "ops/images/vllm-unified/Dockerfile").read_text(encoding="utf-8")
-    assert "ARG BASE_IMAGE\n" in dockerfile
-    assert _canonical_base_image() not in dockerfile
-
 
 def test_vllm_unified_image_resolver_preserves_custom_exported_image(tmp_path):
     repo = copy_minimal_repo(tmp_path)

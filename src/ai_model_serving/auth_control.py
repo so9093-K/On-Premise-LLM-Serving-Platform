@@ -38,9 +38,6 @@ _OPTIONAL_POLICY_FIELDS = (
     "default_exposure_audience",
 )
 
-_REQUIRED_FIELDS = _BOOL_FIELDS + _SEMANTIC_FIELDS
-
-
 def _load_auth_profiles(yaml_path: Path) -> dict[str, dict[str, Any]]:
     """`configs/auth_profiles.yaml`을 읽어 인증 프로필 매핑을 반환한다."""
     if not yaml_path.exists():
@@ -123,45 +120,10 @@ def auth_profile_summary(mode: str) -> str:
     return str(expected.get("scope", "운영자가 직접 관리하는 custom flag 조합"))
 
 
-def verify_auth_profiles_yaml_consistency(project_root: Path) -> list[str]:
-    """`configs/auth_profiles.yaml`의 구조적 완전성을 검증한다.
-
-    Checks that each non-custom profile has all required semantic and bool fields.
-    Returns a list of violation messages. Empty list means the YAML is structurally valid.
-
-    After the switch to YAML-as-source-of-truth, this function is a semantic completeness
-    validator rather than a drift check between two parallel representations.
-    """
-    yaml_path = project_root / "configs" / "auth_profiles.yaml"
-    if not yaml_path.exists():
-        return [f"configs/auth_profiles.yaml not found at {yaml_path}"]
-
-    try:
-        data = yaml.safe_load(yaml_path.read_text(encoding="utf-8"))
-    except Exception as exc:
-        return [f"configs/auth_profiles.yaml YAML parse error: {exc}"]
-
-    profiles = data.get("profiles", {}) if isinstance(data, dict) else {}
-    violations: list[str] = []
-
-    for mode, profile in profiles.items():
-        if mode == "custom":
-            continue
-        if not isinstance(profile, dict):
-            violations.append(f"auth_profiles.yaml[{mode}] is not a mapping")
-            continue
-        for field in _REQUIRED_FIELDS:
-            if field not in profile:
-                violations.append(f"auth_profiles.yaml[{mode}] missing required field: {field!r}")
-
-    return violations
-
-
 NON_LOCAL_ENVS = {"staging", "production", "prod"}
 INTERNAL_TRUSTED_EVIDENCE_ENV = "INTERNAL_TRUSTED_AUTH_EVIDENCE"
 CUSTOM_AUTH_RISK_ACCEPTED_ENV = "CUSTOM_AUTH_RISK_ACCEPTED"
 CUSTOM_AUTH_RISK_TICKET_ENV = "CUSTOM_AUTH_RISK_TICKET"
-PRIVATE_NETWORK_WARNING_PORTS = {"risk-adapter", "prometheus", "grafana", "cadvisor"}
 
 
 @dataclass(frozen=True)
@@ -200,18 +162,6 @@ def _exposure_services(project_root: Path) -> dict[str, Any]:
     return services if isinstance(services, dict) else {}
 
 
-def _compose_host_port_services(project_root: Path) -> list[str]:
-    compose = _read_yaml(project_root / "ops" / "compose" / "full-stack.private-network.yaml")
-    services = compose.get("services", {})
-    published: list[str] = []
-    if not isinstance(services, dict):
-        return published
-    for name, cfg in services.items():
-        if isinstance(cfg, dict) and cfg.get("ports"):
-            published.append(str(name))
-    return published
-
-
 def _exposure_host_published_services(project_root: Path, exposure_mode: str | None = None) -> list[str]:
     """지정한 exposure 프로필에서 host port를 공개하는 서비스 이름 목록을 반환한다."""
     profile = _exposure_profile(project_root, exposure_mode)
@@ -220,7 +170,6 @@ def _exposure_host_published_services(project_root: Path, exposure_mode: str | N
 
 def auth_status_document(settings: AppSettings, project_root: Path, env_path: Path | None = None) -> dict[str, Any]:
     env_path = env_path or (project_root / ".env")
-    published_services = _compose_host_port_services(project_root)
     exposure_mode = _exposure_mode_from_env()
 
     data = _read_yaml(project_root / "configs" / "exposure_profiles.yaml")
@@ -254,10 +203,6 @@ def auth_status_document(settings: AppSettings, project_root: Path, env_path: Pa
         },
         "internal_services": {
             "gateway_to_risk_adapter": "internal_token_required" if settings.security.internal_service_auth_required else "unauthenticated",
-            "risk_adapter_host_port_published": "risk-adapter" in published_services,
-        },
-        "observability": {
-            "published_compose_services": [name for name in published_services if name in PRIVATE_NETWORK_WARNING_PORTS],
         },
         "exposure": {
             "exposure_mode": exposure_mode,
@@ -464,15 +409,6 @@ def diagnose_auth(settings: AppSettings, project_root: Path) -> list[AuthFinding
                         "Setting this on a public network exposes vLLM APIs and operations endpoints without Gateway auth.",
                     ))
 
-    # Legacy compose 기반 체크 (private-network base compose에서는 여전히 유용)
-    published = set(_compose_host_port_services(project_root))
-    exposure_published = set(exposure_profile_data.get("host_published", []))
-    if "risk-adapter" in published and "risk_adapter" not in exposure_published:
-        findings.append(AuthFinding("WARN", "RISK_ADAPTER_HOST_PORT_PUBLISHED", "reference compose 파일에서 Risk Adapter host port가 published 상태입니다. private network 또는 firewall로 보호하세요."))
-    for service in sorted(published & {"prometheus", "grafana", "cadvisor"}):
-        if service not in exposure_published:
-            findings.append(AuthFinding("WARN", "OBSERVABILITY_HOST_PORT_PUBLISHED", f"{service} host port가 reference compose 파일에서 published 상태입니다. shared 환경에서는 접근을 제한하세요."))
-
     if not findings:
         findings.append(AuthFinding("OK", "AUTH_POLICY_OK", "인증 제어 플레인에서 발견된 문제가 없습니다."))
     return findings
@@ -498,10 +434,6 @@ def render_auth_status(settings: AppSettings, project_root: Path, env_path: Path
     lines.append(f"  app CIDR enforcement  {doc['admin_endpoints']['app_level_cidr_enforcement']}")
     lines.extend(["", "Internal service"])
     lines.append(f"  Gateway -> Risk Adapter {doc['internal_services']['gateway_to_risk_adapter']}")
-    lines.append(f"  Risk Adapter host port  {'published' if doc['internal_services']['risk_adapter_host_port_published'] else 'not_published'}")
-    lines.extend(["", "Observability"])
-    published = doc["observability"]["published_compose_services"]
-    lines.append(f"  Host-published service {', '.join(published) if published else 'none'}")
     lines.extend(["", "Exposure"])
     exposure = doc["exposure"]
     canonical = exposure["canonical_mode"]

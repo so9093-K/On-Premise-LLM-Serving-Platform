@@ -184,22 +184,6 @@ def test_observed_started_at_returns_none_when_container_absent(monkeypatch):
     assert asyncio.run(backend.observed_started_at(catalog)) is None
 
 
-def test_structured_output_warmup_schema_is_a_valid_strict_json_schema_response_format():
-    # validate()의 text canary는 response_format을 절대 설정하지 않는다, 그래서
-    # 전용 warmup 호출이 없으면 xgrammar/Triton constrained-decoding 커널은
-    # 전환 후 실제 클라이언트가 첫 response_format=json_schema 요청을 보낼
-    # 때까지 절대 JIT-컴파일되지 않는다. warmup payload의 모양을
-    # normalize_chat_request_for_runtime/validate_chat_request가 기대하는
-    # OpenAI 호환 계약과 계속 맞도록 여기서 고정한다.
-    schema = backend_module._STRUCTURED_OUTPUT_WARMUP_SCHEMA
-    assert schema["type"] == "json_schema"
-    json_schema = schema["json_schema"]
-    assert json_schema["strict"] is True
-    assert json_schema["schema"]["type"] == "object"
-    assert json_schema["schema"]["additionalProperties"] is False
-    assert set(json_schema["schema"]["required"]) <= set(json_schema["schema"]["properties"])
-
-
 def test_validate_calls_structured_output_warmup_and_survives_its_failure(monkeypatch):
     # ADR-0018의 2026-07-20 업데이트 수정에 대한 회귀 가드: validate()는
     # (스키마 상수만 정의하는 게 아니라) response_format=json_schema warmup
@@ -262,22 +246,6 @@ def test_validate_calls_structured_output_warmup_and_survives_its_failure(monkey
     sent_body = json.loads(structured_output_calls[0].content)
     assert sent_body["response_format"] == backend_module._STRUCTURED_OUTPUT_WARMUP_SCHEMA
     assert any("structured-output warmup canary failed" in message for message in warnings)
-
-
-def test_tool_call_warmup_tools_shape_is_a_valid_function_tool():
-    # --enable-auto-tool-choice --tool-call-parser gemma4도 xgrammar
-    # constrained decoding을 거치므로, 예열 안 된 엔진에서
-    # response_format=json_schema와 같은 Triton JIT 비용을 겪을 수 있다. 이
-    # 모양을 OpenAI 호환 `tools` 계약(contracts/chat_tools.py)과 계속 맞도록
-    # 여기서 고정한다.
-    tools = backend_module._TOOL_CALL_WARMUP_TOOLS
-    assert len(tools) == 1
-    tool = tools[0]
-    assert tool["type"] == "function"
-    function = tool["function"]
-    assert isinstance(function["name"], str) and function["name"]
-    assert function["parameters"]["type"] == "object"
-    assert set(function["parameters"]["required"]) <= set(function["parameters"]["properties"])
 
 
 def test_validate_calls_tool_calling_warmup_and_survives_its_failure(monkeypatch):

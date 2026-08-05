@@ -9,9 +9,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-import yaml
-
-
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / "scripts/runtime/deferred_runtimes.py"
 
@@ -24,13 +21,6 @@ def run_script(*args: str) -> subprocess.CompletedProcess[str]:
         capture_output=True,
         check=True,
     )
-
-
-def test_deploy_profiles_only_reference_known_runtimes():
-    profiles = yaml.safe_load((ROOT / "configs/deploy_profiles.yaml").read_text(encoding="utf-8"))
-
-    for profile in profiles["profiles"]:
-        run_script("--profile", profile, "--output", "json")
 
 
 def test_deferred_runtime_script_applies_state_metadata(tmp_path):

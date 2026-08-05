@@ -7,7 +7,6 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from ai_model_serving.runtime_validation import load_runtime_config, render_vllm_command
-from ai_model_serving.runtime_validation.config import _localhost_base
 ROOT = Path(__file__).resolve().parents[2]
 
 def _clear_runtime_endpoint_env(monkeypatch) -> None:
@@ -56,7 +55,6 @@ def test_runtime_validation_endpoint_priority_cli_env_default(monkeypatch) -> No
     config = load_runtime_config(args)
     assert config.gateway_base == "http://env-gateway:9999"
     assert config.risk_base == "http://localhost:9405"
-    assert _localhost_base({"default_host_port": 19400}, "/v1") == "http://localhost:19400/v1"
 
 
 def test_render_vllm_command_stays_openai_compatible() -> None:

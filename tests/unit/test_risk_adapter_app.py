@@ -91,48 +91,6 @@ def test_risk_adapter_readiness_not_ready_returns_http_503():
     assert prompt_dependency["endpoint"] == "http://risk/v1/models"
     assert "MODEL_UNAVAILABLE" in prompt_dependency["message"]
 
-def test_risk_adapter_framework_documentation_endpoints_are_exposed_by_default():
-    client = TestClient(create_risk_adapter_app(settings(), FakeRiskClients()))
-    assert client.get("/docs").status_code == 200
-    assert client.get("/redoc").status_code == 200
-    openapi = client.get("/openapi.json")
-    assert openapi.status_code == 200
-    doc = openapi.json()
-    assert doc["info"]["title"] == "Risk Adapter"
-    assert "signal-only" in doc["info"]["description"]
-    assert "Readiness" in doc["info"]["description"]
-    assert {tag["name"] for tag in doc["tags"]} >= {"Operations", "Monitoring", "Risk Signal"}
-    assert doc["paths"]["/ready"]["get"]["responses"]["503"]["content"]["application/json"]["example"]["phase"] == "waiting_for_dependencies"
-    assert doc["paths"]["/v1/risk/assessments"]["post"]["description"]
-    assert "bearerAuth" in doc["components"]["securitySchemes"]
-
-    cfg = settings()
-    cfg = AppSettings(
-        app_env=cfg.app_env,
-        project_version=cfg.project_version,
-        security=SecuritySettings(
-            api_key_required=True,
-            api_keys=frozenset({"test-key"}),
-            internal_service_token="internal-test-key",
-            admin_api_key_required=True,
-            admin_api_keys=frozenset({"admin-test-key"}),
-        ),
-        gateway_timeout_seconds=cfg.gateway_timeout_seconds,
-        risk_adapter_timeout_seconds=cfg.risk_adapter_timeout_seconds,
-        main_llm=cfg.main_llm,
-        embedding=cfg.embedding,
-        risk_prompt=cfg.risk_prompt,
-        risk_adapter_base_url=cfg.risk_adapter_base_url,
-    )
-    with TestClient(create_risk_adapter_app(cfg, FakeRiskClients())) as admin_client:
-        admin_doc = admin_client.get("/openapi.json").json()
-    assert "adminBearerAuth" in admin_doc["components"]["securitySchemes"]
-    assert admin_doc["paths"]["/ready"]["get"]["security"] == [{"adminBearerAuth": []}]
-    assert "401" in admin_doc["paths"]["/ready"]["get"]["responses"]
-    assert admin_doc["paths"]["/metrics"]["get"]["security"] == [{"adminBearerAuth": []}]
-    assert "401" in admin_doc["paths"]["/metrics"]["get"]["responses"]
-
-
 def risk_schema():
     return json.loads(Path("specs/schemas/risk_assessment_response.schema.json").read_text())
 

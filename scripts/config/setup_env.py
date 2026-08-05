@@ -148,8 +148,8 @@ def preserve_existing_values(out_path: Path, *, force: bool) -> dict[str, str]:
 
 
 
-def normalize_risk_vllm_image(values: dict[str, str], *, explicit_override: bool = False) -> None:
-    """Fill in RISK_VLLM_IMAGE when unset.
+def ensure_risk_vllm_image(values: dict[str, str]) -> None:
+    """Fill in RISK_VLLM_IMAGE only when it is unset.
 
     2026-07-24부터 VLLM_IMAGE/RISK_VLLM_IMAGE는 같은 vLLM unified 이미지를
     가리키는 게 정상이다(Gemma4 멀티모달 패치 + Kanana head_dim 패치가 한
@@ -157,7 +157,6 @@ def normalize_risk_vllm_image(values: dict[str, str], *, explicit_override: bool
     둘이 같으면 "shared/base image로의 실수"로 보고 강제로 되돌리는 마이그레이션
     가드가 있었는데, 지금은 정확히 그 상태가 의도된 정상 상태라 제거했다.
     """
-    del explicit_override
     recommended = recommended_images()["RISK_VLLM_IMAGE"]
     risk_image = values.get("RISK_VLLM_IMAGE", "").strip()
     if not risk_image:
@@ -430,7 +429,7 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     values = base_values | generated | preserved_values
     if args.profile == "compose":
-        normalize_risk_vllm_image(values, explicit_override=bool(args.risk_vllm_image))
+        ensure_risk_vllm_image(values)
     if values.get("HF_TOKEN") and not values.get("HUGGING_FACE_HUB_TOKEN"):
         values["HUGGING_FACE_HUB_TOKEN"] = values["HF_TOKEN"]
     write_env(lines, values, out_path)

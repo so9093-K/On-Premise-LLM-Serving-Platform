@@ -97,15 +97,6 @@ def _parse_makefile_targets() -> tuple[set[str], set[str]]:
     return defined_targets, phony_only
 
 
-def _collect_operator_guide_commands() -> list[str]:
-    guide_path = ROOT / "scripts" / "reports" / "operator_guide.py"
-    if not guide_path.exists():
-        return []
-    text = guide_path.read_text(encoding="utf-8")
-    pattern = re.compile(r'"make\s+([A-Za-z0-9_][A-Za-z0-9_.-]*)')
-    return list({m.group(1) for m in pattern.finditer(text)})
-
-
 def _validate_allow_unregistered(
     registry: dict,
     defined_targets: set[str],

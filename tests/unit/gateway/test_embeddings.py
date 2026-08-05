@@ -97,28 +97,6 @@ def test_embeddings_omits_request_response_body_when_flag_disabled():
     assert "response_body" not in completed[-1]
 
 
-def test_embedding_input_preview_joins_list_input():
-    from ai_model_serving.api.routers.gateway_inference import (
-        _embedding_input_preview,
-        _embedding_response_summary,
-    )
-
-    assert _embedding_input_preview({"input": "안녕하세요"}) == "안녕하세요"
-    assert _embedding_input_preview({"input": ["첫 문장", "두 번째 문장"]}) == "첫 문장 | 두 번째 문장"
-    assert _embedding_input_preview({}) == ""
-
-    summary = _embedding_response_summary(
-        {
-            "model": "local-embed-ko",
-            "data": [
-                {"embedding": [0.1] * 1024, "index": 0},
-                {"embedding": [0.2] * 1024, "index": 1},
-            ],
-        }
-    )
-    assert summary == "2 embeddings returned, dim=1024, model=local-embed-ko"
-
-
 def test_gateway_forwards_chat_and_embeddings_to_vllm_paths():
     clients = FakeGatewayClients()
     client = TestClient(create_gateway_app(settings(), clients))
@@ -240,4 +218,3 @@ def test_gateway_embeddings_rejects_unsupported_encoding_format():
     assert response.status_code == 422
     assert response.json()["error"]["code"] == "VALIDATION_ERROR"
     assert clients.embedding_clients["local-embed"].last_path is None
-

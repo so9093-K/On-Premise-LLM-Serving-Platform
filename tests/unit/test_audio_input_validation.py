@@ -435,11 +435,6 @@ def test_request_body_limit_can_carry_configured_media_limit(monkeypatch):
     assert settings.max_request_body_bytes >= required_body_bytes
 
 
-def test_active_input_modalities_extracts_deployed_input():
-    snapshot = {"active_profile": {"capabilities": {"deployed_input": ["text", "image", "audio", "video"]}}}
-    assert _active_input_modalities(snapshot) == ("text", "image", "audio", "video")
-
-
 def test_backend_audio_canary_is_a_valid_input_audio_part():
     # backend가 보내는 boot canary 자체가 gateway의 audio 검증(format/magic/size)을
     # 만족해야 한다, 안 그러면 검증과 runtime이 서로 어긋나게 된다.

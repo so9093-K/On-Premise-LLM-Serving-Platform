@@ -6,10 +6,6 @@
 
 검증 항목:
 - validator 통합을 통한 configs/exposure_profiles.yaml 구조적 불변식
-- configs/auth_profiles.yaml 완전성 (verify_auth_profiles_yaml_consistency 경유)
-- auth_control.AUTH_MODE_EXPECTATIONS가 (별도 하드코딩 dict가 아니라) YAML에서 도출됨
-- env 예시 파일이 env_contract 필수 키를 모두 포함함
-- bootstrap.sh가 private_network 전용 skip 없이 named auth mode를 적용함
 """
 
 from __future__ import annotations
@@ -33,9 +29,6 @@ def _repo_root() -> Path:
 ROOT = _repo_root()
 
 
-AUTH_PROFILES_YAML = ROOT / "configs" / "auth_profiles.yaml"
-
-
 EXPOSURE_PROFILES_YAML = ROOT / "configs" / "exposure_profiles.yaml"
 
 
@@ -44,10 +37,6 @@ SERVICES_YAML = ROOT / "configs" / "services.yaml"
 
 def _load_exposure() -> dict:
     return yaml.safe_load(EXPOSURE_PROFILES_YAML.read_text(encoding="utf-8"))
-
-
-def _load_auth() -> dict:
-    return yaml.safe_load(AUTH_PROFILES_YAML.read_text(encoding="utf-8"))
 
 
 def _load_services() -> dict:
@@ -107,27 +96,6 @@ def _category_validator_fixture() -> tuple[dict, dict]:
         },
     }
     return data, services
-
-
-def _make_local_settings():
-    """최소한의 local auth를 가진 MockSettings를 반환한다(운영 민감 정보 아님)."""
-    class MockSecurity:
-        auth_mode = "local_open"
-        api_key_required = False
-        admin_api_key_required = False
-        admin_endpoints_internal_only = False
-        internal_service_auth_required = False
-        docs_enabled = True
-
-    class MockDocumentation:
-        enabled = True
-
-    class MockSettings:
-        security = MockSecurity()
-        app_env = "local"
-        documentation = MockDocumentation()
-
-    return MockSettings()
 
 
 __all__ = [name for name in globals() if not name.startswith("__")]

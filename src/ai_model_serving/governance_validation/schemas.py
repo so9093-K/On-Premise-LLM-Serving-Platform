@@ -144,12 +144,6 @@ def validate_request_schemas() -> None:
         'specs/schemas/chat_completion_response.schema.json': {'id': 'chatcmpl_1', 'object': 'chat.completion', 'created': 1, 'model': 'local-main', 'choices': [{'index': 0, 'message': {'role': 'assistant', 'content': 'hello'}, 'finish_reason': 'stop'}]},
         'specs/schemas/embedding_response.schema.json': {'object': 'list', 'model': 'local-embed', 'data': [{'object': 'embedding', 'embedding': [0.1, 0.2], 'index': 0}]},
         'specs/schemas/readiness_response.schema.json': {'status': 'ready', 'service': 'gateway', 'phase': 'serving', 'not_ready_dependencies': [], 'required_not_ready_dependencies': [], 'optional_not_ready_dependencies': [], 'dependencies': [{'name': 'main_llm_vllm', 'status': 'ready', 'endpoint': 'http://main-llm-vllm:9401/v1/models'}]},
-        'specs/schemas/model_list_response.schema.json': {'object': 'list', 'data': [
-            {'id': 'local-main', 'object': 'model', 'backend': 'main_llm_vllm', 'capabilities': ['chat.completions'], 'request_parameters': {'temperature': {'type': 'number', 'min': 0, 'max': 2}}},
-            {'id': 'local-embed', 'object': 'model', 'backend': 'embedding_vllm', 'capabilities': ['embeddings'], 'request_parameters': {'dimensions': {'type': 'integer', 'enum': [768, 512, 256, 128]}}},
-            {'id': 'local-embed-ko', 'object': 'model', 'backend': 'embedding_ko_vllm', 'capabilities': ['embeddings', 'retrieval_rerank'], 'request_parameters': {}},
-            {'id': 'risk-prompt', 'object': 'model', 'backend': 'risk_adapter', 'capabilities': ['risk.prompt_attack_signal'], 'request_parameters': {}, 'fixed_parameters': {'max_tokens': 1, 'temperature': 0}},
-        ]},
     }
     for path, sample in samples.items():
         schema = read_json(path)

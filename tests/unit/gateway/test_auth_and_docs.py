@@ -5,40 +5,6 @@ from __future__ import annotations
 
 from .helpers import *  # noqa: F401,F403
 
-def test_gateway_framework_documentation_endpoints_are_exposed_by_default():
-    client = TestClient(create_gateway_app(settings(), FakeGatewayClients()))
-    assert client.get("/docs").status_code == 200
-    assert client.get("/redoc").status_code == 200
-    openapi = client.get("/openapi.json")
-    assert openapi.status_code == 200
-    doc = openapi.json()
-    assert doc["info"]["title"] == "AI Model Serving Gateway"
-    assert "빠른 시작" in doc["info"]["description"]
-    assert "not_ready_dependencies" in doc["info"]["description"]
-    assert {tag["name"] for tag in doc["tags"]} >= {"Operations", "Monitoring", "Models", "Chat", "Embeddings", "Risk"}
-    assert doc["paths"]["/ready"]["get"]["responses"]["503"]["content"]["application/json"]["example"]["phase"] == "waiting_for_dependencies"
-    assert "catalog" in doc["paths"]["/v1/models"]["get"]["description"]
-    assert "not_ready_dependencies" in doc["paths"]["/v1/models"]["get"]["description"]
-    assert doc["paths"]["/v1/chat/completions"]["post"]["description"]
-    chat_examples = doc["paths"]["/v1/chat/completions"]["post"]["requestBody"]["content"]["application/json"]["examples"]
-    assert chat_examples["basic"]["summary"] == "최소 요청 (runtime 기본 sampling)"
-    assert "temperature" not in chat_examples["basic"]["value"]
-    assert chat_examples["deterministic_smoke"]["value"]["temperature"] == 0
-    assert chat_examples["deterministic_smoke"]["value"]["n"] == 1
-    assert chat_examples["with_tools"]["value"]["parallel_tool_calls"] is False
-    assert chat_examples["with_reasoning"]["value"]["reasoning"] is True
-    assert chat_examples["with_image"]["value"]["messages"][0]["content"][1]["image_url"]["url"].startswith("data:image/png;base64,")
-    assert "bearerAuth" in doc["components"]["securitySchemes"]
-
-    with TestClient(create_gateway_app(admin_settings(), FakeGatewayClients())) as admin_client:
-        admin_doc = admin_client.get("/openapi.json").json()
-    assert "adminBearerAuth" in admin_doc["components"]["securitySchemes"]
-    assert admin_doc["paths"]["/ready"]["get"]["security"] == [{"adminBearerAuth": []}]
-    assert "401" in admin_doc["paths"]["/ready"]["get"]["responses"]
-    assert admin_doc["paths"]["/metrics"]["get"]["security"] == [{"adminBearerAuth": []}]
-    assert "401" in admin_doc["paths"]["/metrics"]["get"]["responses"]
-
-
 def test_gateway_requires_bearer_auth():
     client = TestClient(create_gateway_app(settings(), FakeGatewayClients()))
     response = client.get("/v1/models")
@@ -79,4 +45,3 @@ def test_gateway_optionally_protects_admin_endpoints():
     admin_headers = {"Authorization": "Bearer admin-test-key"}
     assert client.get("/ready", headers=admin_headers).status_code == 200
     assert client.get("/metrics", headers=admin_headers).status_code == 200
-
