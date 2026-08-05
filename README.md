@@ -212,6 +212,11 @@ Gateway는 브라우저 기반 API 문서와 운영 대시보드를 함께 제�
   <img src="assets/screenshots/grafana_runtime_dashboard.jpg" alt="Grafana Runtime Dashboard" width="48%">
 </p>
 
+<p align="center">
+  <img src="assets/screenshots/request_log_explorer_overview.png" alt="Grafana Request Log Explorer overview" width="48%">
+  <img src="assets/screenshots/request_log_explorer_raw_logs.png" alt="Grafana Request Log Explorer raw logs and engine errors" width="48%">
+</p>
+
 스크린샷은 예시 화면이며, 실제 수치와 표시 항목은 실행 환경과 시점에 따라 달라질 수 있다.
 
 ## 필수 설정
