@@ -13,11 +13,13 @@ class FakeDetectorClient:
         ready: bool = True,
         fail: bool = False,
         usage: dict[str, int] | None = None,
+        top_logprobs: list[dict] | None = None,
     ) -> None:
         self.label = label
         self.ready = ready
         self.fail = fail
         self.usage = usage
+        self.top_logprobs = top_logprobs
         self.last_payload = None
         self.endpoint = RuntimeEndpoint("risk", "http://risk/v1", "risk", 1)
 
@@ -40,6 +42,10 @@ class FakeDetectorClient:
         }
         if self.usage is not None:
             response["usage"] = self.usage
+        if self.top_logprobs is not None:
+            response["choices"][0]["logprobs"] = {
+                "content": [{"token": self.label, "logprob": 0.0, "top_logprobs": self.top_logprobs}]
+            }
         return response
 
     async def get_json(self, path):
@@ -54,8 +60,14 @@ class FakeRiskClients:
         prompt_label: str = "<SAFE>",
         prompt_fail: bool = False,
         prompt_usage: dict[str, int] | None = None,
+        prompt_top_logprobs: list[dict] | None = None,
     ) -> None:
-        self.prompt = FakeDetectorClient(prompt_label, fail=prompt_fail, usage=prompt_usage)
+        self.prompt = FakeDetectorClient(
+            prompt_label,
+            fail=prompt_fail,
+            usage=prompt_usage,
+            top_logprobs=prompt_top_logprobs,
+        )
 
 
 def settings() -> AppSettings:

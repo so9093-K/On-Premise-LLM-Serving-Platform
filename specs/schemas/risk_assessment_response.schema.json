@@ -118,6 +118,29 @@
               "null"
             ]
           },
+          "top_probabilities": {
+            "description": "Optional first-token candidates returned by a vLLM-backed detector. Each value is exp(upstream logprob), not a calibrated confidence score.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "token",
+                "probability"
+              ],
+              "properties": {
+                "token": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "probability": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                }
+              }
+            }
+          },
           "span_count": {
             "type": [
               "integer",

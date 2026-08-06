@@ -96,7 +96,12 @@ D4(Secret/Credential)는 가장 강한 signal로 취급된다.
   "detected": true,
   "confidence": null,
   "source_model": "risk-prompt",
-  "label": "<UNSAFE-A1>"
+  "label": "<UNSAFE-A1>",
+  "top_probabilities": [
+    {"token": "<SAFE>", "probability": 0.03},
+    {"token": "<UNSAFE-A1>", "probability": 0.94},
+    {"token": "<UNSAFE-A2>", "probability": 0.03}
+  ]
 }
 ```
 
@@ -115,6 +120,7 @@ D4(Secret/Credential)는 가장 강한 signal로 취급된다.
 
 - `label`: entity type 이름 (`<UNSAFE-Dx>` 형식이 아님)
 - `span_count`: 해당 entity type의 탐지된 span 개수 (null 또는 0 이상의 integer)
+- `top_probabilities`: vLLM prompt detector 첫 출력 토큰의 후보 확률. upstream `logprob`를 `exp(logprob)`로 변환한 값이며, 보정된 confidence가 아니다. 반환되지 않은 후보는 0으로 채우지 않는다.
 - 원문 값은 포함하지 않는다
 
 ### Safe (미탐지)

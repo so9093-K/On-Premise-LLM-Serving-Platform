@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import re
 from dataclasses import dataclass
 from typing import Any
@@ -62,7 +63,12 @@ def extract_generation_text(response: dict[str, Any], *, expected_model: str | N
     raise ServiceError("PARSE_ERROR", "Detector response does not contain text content.", True, 502)
 
 
-def parse_detector_label(text: str, detector: DetectorSpec) -> dict[str, Any]:
+def parse_detector_label(
+    text: str,
+    detector: DetectorSpec,
+    *,
+    top_probabilities: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
     stripped = text.strip()
     matches = list(RISK_LABEL_RE.finditer(stripped))
     if len(matches) != 1 or matches[0].group(0) != stripped:
@@ -71,7 +77,7 @@ def parse_detector_label(text: str, detector: DetectorSpec) -> dict[str, Any]:
     code = match.group("code")
     label = match.group(0)
     if code is None:
-        return {
+        category = {
             "code": None,
             "family": detector.family,
             "detected": False,
@@ -79,16 +85,55 @@ def parse_detector_label(text: str, detector: DetectorSpec) -> dict[str, Any]:
             "source_model": detector.source_model,
             "label": label,
         }
-    if code not in detector.allowed_codes:
-        raise ServiceError("PARSE_ERROR", f"Detector returned code outside family: {code}", True, 502)
-    return {
-        "code": code,
-        "family": detector.family,
-        "detected": True,
-        "confidence": None,
-        "source_model": detector.source_model,
-        "label": label,
-    }
+    else:
+        if code not in detector.allowed_codes:
+            raise ServiceError("PARSE_ERROR", f"Detector returned code outside family: {code}", True, 502)
+        category = {
+            "code": code,
+            "family": detector.family,
+            "detected": True,
+            "confidence": None,
+            "source_model": detector.source_model,
+            "label": label,
+        }
+    if top_probabilities is not None:
+        category["top_probabilities"] = top_probabilities
+    return category
+
+
+def first_token_top_probabilities(response: dict[str, Any]) -> list[dict[str, Any]] | None:
+    """vLLM 첫 생성 토큰의 top logprob를 사람이 읽는 확률로 투영한다.
+
+    진단 정보가 없는 응답은 기존 risk 판정에 영향을 주지 않는다. top 후보 일부만
+    반환되는 OpenAI-compatible API 특성상, 호출자가 받지 못한 라벨을 0으로 만들지 않는다.
+    """
+    choices = response.get("choices")
+    if not isinstance(choices, list) or not choices or not isinstance(choices[0], dict):
+        return None
+    logprobs = choices[0].get("logprobs")
+    if not isinstance(logprobs, dict):
+        return None
+    content = logprobs.get("content")
+    if not isinstance(content, list) or not content or not isinstance(content[0], dict):
+        return None
+    candidates = content[0].get("top_logprobs")
+    if not isinstance(candidates, list):
+        return None
+
+    probabilities: list[dict[str, Any]] = []
+    for candidate in candidates:
+        if not isinstance(candidate, dict):
+            continue
+        token = candidate.get("token")
+        logprob = candidate.get("logprob")
+        if not isinstance(token, str) or not isinstance(logprob, (int, float)) or isinstance(logprob, bool):
+            continue
+        if not math.isfinite(logprob):
+            continue
+        probability = math.exp(logprob)
+        if 0 <= probability <= 1:
+            probabilities.append({"token": token, "probability": probability})
+    return probabilities or None
 
 
 def system_signal(code: str, message: str, source: str, retryable: bool = True) -> dict[str, Any]:

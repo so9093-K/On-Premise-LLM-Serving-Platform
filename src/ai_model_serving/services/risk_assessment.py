@@ -11,6 +11,7 @@ from ..risk import (
     DetectorSpec,
     assessment_response,
     extract_generation_text,
+    first_token_top_probabilities,
     combine_token_usage,
     parse_detector_label,
     system_signal,
@@ -132,7 +133,11 @@ class RiskAssessmentService:
             # 라벨 파싱이 실패해도 모델 호출 자체의 토큰 사용량은 진단에 유효하다.
             usage = token_usage_from_upstream(upstream_response)
             text = extract_generation_text(upstream_response, expected_model=client.endpoint.model)
-            category = parse_detector_label(text, detector)
+            category = parse_detector_label(
+                text,
+                detector,
+                top_probabilities=first_token_top_probabilities(upstream_response),
+            )
             message = "Risk signal detected." if category["detected"] else "No model risk signal detected."
             response = assessment_response(
                 categories=[category],
@@ -178,6 +183,9 @@ class RiskAssessmentService:
             "messages": [{"role": "user", "content": prompt}],
             "max_tokens": detector.max_output_tokens,
             "temperature": detector.temperature,
+            "logprobs": True,
+            # SAFE와 detector가 허용하는 위험 code의 후보 수에서 계산한다.
+            "top_logprobs": 1 + len(detector.allowed_codes),
         }
         start = time.monotonic()
         try:

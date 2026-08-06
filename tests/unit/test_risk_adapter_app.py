@@ -8,6 +8,7 @@ import dataclasses
 import io
 import logging
 
+import pytest
 from jsonschema import Draft202012Validator
 
 from ai_model_serving.apps.risk_adapter import create_risk_adapter_app
@@ -101,6 +102,31 @@ def test_risk_adapter_uses_single_token_generation_budget():
     assert response.status_code == 200
     assert clients.prompt.last_payload["max_tokens"] == 1
     assert clients.prompt.last_payload["temperature"] == 0
+    assert clients.prompt.last_payload["logprobs"] is True
+    assert clients.prompt.last_payload["top_logprobs"] == 3
+
+
+def test_risk_adapter_projects_first_token_logprobs_as_probabilities():
+    clients = FakeRiskClients(
+        prompt_label="<SAFE>",
+        prompt_top_logprobs=[
+            {"token": "<SAFE>", "logprob": 0.0},
+            {"token": "<UNSAFE-A1>", "logprob": -2.0},
+            {"token": "<UNSAFE-A2>", "logprob": -4.0},
+        ],
+    )
+    client = TestClient(create_risk_adapter_app(settings(), clients))
+
+    response = client.post("/v1/risk/detectors/prompt/assessments", headers=auth_headers(), json={"prompt": "hello"})
+
+    assert response.status_code == 200
+    body = response.json()
+    Draft202012Validator(risk_schema()).validate(body)
+    probabilities = body["categories"][0]["top_probabilities"]
+    assert probabilities[0] == {"token": "<SAFE>", "probability": 1.0}
+    assert probabilities[1]["token"] == "<UNSAFE-A1>"
+    assert probabilities[1]["probability"] == pytest.approx(0.1353352832)
+    assert probabilities[2]["token"] == "<UNSAFE-A2>"
 
 
 def test_risk_adapter_preserves_upstream_usage_in_response_and_request_log():
