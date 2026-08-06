@@ -28,7 +28,7 @@ fi
 echo "[diagnostics] docker compose ps"
 compose_context_run ps || true
 
-services=(gateway risk-adapter main-llm-vllm embedding-vllm embedding-ko-vllm risk-prompt-vllm prometheus grafana dcgm-exporter cadvisor loki promtail)
+services=(gateway risk-adapter main-llm-vllm embedding-vllm embedding-ko-vllm risk-prompt-vllm prometheus grafana dcgm-exporter cadvisor loki alloy)
 for service in "${services[@]}"; do
   echo
   echo "[diagnostics] logs --tail=${TAIL_LINES} ${service}"

@@ -143,7 +143,9 @@ for config_service_spec in "${BIND_MOUNTED_CONFIG_SERVICE_SPECS[@]}"; do
   CONFIG_SERVICE_STATE_FILES+=("$config_state_file")
   CONFIG_SERVICE_FINGERPRINTS+=("$config_fingerprint")
 done
-docker compose "${COMPOSE_ARGS[@]}" --env-file "$ENV_FILE_ABS" up -d
+# 현재 Compose 정의에 없는 이전 collector 같은 orphan을 함께 정리한다. 남겨두면
+# 구 수집기와 새 수집기가 같은 json-file을 동시에 Loki로 보내 drift를 만든다.
+docker compose "${COMPOSE_ARGS[@]}" --env-file "$ENV_FILE_ABS" up -d --remove-orphans
 
 if [[ ${#CONFIG_SERVICES_TO_REFRESH[@]} -gt 0 ]]; then
   echo "[compose-up] force-recreating changed config services: ${CONFIG_SERVICES_TO_REFRESH[*]}"

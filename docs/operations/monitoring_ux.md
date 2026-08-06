@@ -242,12 +242,10 @@ named capturing group(`(?<name>...)`)을 인식한다. 슬래시 없이 넣으�
 
 두 필드 다 `| json`으로 로그 내용에서 그때그때 뽑아내는 파생 필드지, Loki가 인덱싱한 실제
 라벨이 아니다(`/loki/api/v1/labels`로 확인 가능한 라벨은 `container_id`, `filename`,
-`job`, `service_name`, `stream`뿐). Grafana 대시보드 변수 편집기의 "Label values" 쿼리
-타입은 실제 인덱싱된 라벨만 선택지로 보여주므로(직접 만들어서 확인함), route/error_code를
-드롭다운 변수로 만들려면 Promtail 쪽에서 이 필드들을 실제 라벨로 승격시키는 pipeline stage
-변경이 필요하다 — 저카디널리티라 안전할 가능성이 높지만 스트림 분할(카디널리티) 영향을
-별도로 검토해야 하는 인프라 변경이라 보류 중이다. 지금은 `route_filter`/`error_code_filter`
-모두 자유 입력 regex textbox다.
+`job`, `service`, `stream`뿐). `service`는 admin-sidecar가 Compose
+metadata에서 target label로 부여하므로, Request Log Explorer의 서비스별 패널은 JSON 파싱
+전에 해당 스트림만 찾는다. `route`/`error_code`는 요청마다 값이 달라질 수 있어 여전히 본문
+JSON 필드로 남기며, 지금처럼 자유 입력 regex textbox로 좁힌다.
 
 **`container_id`는 전용 변수가 아니라 Grafana 기본 ad-hoc filter로 좁힌다**
 
@@ -256,8 +254,15 @@ named capturing group(`(?<name>...)`)을 인식한다. 슬래시 없이 넣으�
 않는다 — 같은 라벨에 서로 다른 값을 요구하는 ad-hoc filter와 전용 변수가 동시에 걸리면
 충돌해서 아무것도 안 보이는 문제가 있었다(운영 중 실제로 발생, 수정 완료). `Non-JSON
 Container Errors`는 테이블 타입으로 바뀌면서 이 돋보기 아이콘 자체가 없어져,
-container_id로 좁히는 진입점은 `Raw Container Log` 하나뿐이다. docker.sock을 쓰지 않아서
-컨테이너 이름이 아니라 container_id(전체 해시)로만 구분 가능하다.
+container_id로 좁히는 진입점은 `Raw Container Log` 하나뿐이다. 컨테이너의 사람이 읽는
+이름 대신 Compose `service`와 container_id(전체 해시)를 함께 쓴다.
+
+**Alloy 전환 시 과거 로그가 보이는 범위**
+
+Alloy는 기존 Promtail이 이미 보낸 파일을 다시 넣지 않도록 새 target의 끝에서부터 읽는다.
+그래서 서비스 라벨을 사용하는 Request Log Explorer 패널은 Alloy 시작 이후 로그를 기준으로
+동작한다. 전환 전 7일 보존분은 label이 없는 기존 stream으로 남고, 보존 기간 동안은 `Raw
+Container Log`에서만 확인한다. 과거 데이터를 재수집하거나 새로운 label로 다시 쓰지 않는다.
 
 ## Monitoring Projection 흐름
 

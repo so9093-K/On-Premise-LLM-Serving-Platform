@@ -1024,7 +1024,10 @@ for _config_service_spec in "${BIND_MOUNTED_CONFIG_SERVICE_SPECS[@]}"; do
 done
 if [[ ${#CONFIG_SERVICES_TO_REFRESH[@]} -gt 0 ]]; then
   echo "[deploy] bind-mounted config requires refresh — force-recreating: ${CONFIG_SERVICES_TO_REFRESH[*]}"
-  if ! compose_run up -d --no-deps --force-recreate "${CONFIG_SERVICES_TO_REFRESH[@]}"; then
+  # 새 collector로 전환할 때 이전 collector가 orphan으로 남으면 같은 docker
+  # json-file을 계속 전송해 legacy stream과 새 stream이 함께 쌓인다. Compose
+  # 정의를 source of truth로 삼아 이 refresh 경로에서도 orphan을 정리한다.
+  if ! compose_run up -d --no-deps --force-recreate --remove-orphans "${CONFIG_SERVICES_TO_REFRESH[@]}"; then
     fail_after_env_backup "deploy restart failed for bind-mounted config services: ${CONFIG_SERVICES_TO_REFRESH[*]}"
   fi
 fi

@@ -64,13 +64,12 @@ images:
       Filesystem storage, short retention (LOKI_RETENTION_HOURS).
     mutable: true
     source: Grafana Loki 3.3.x Docker tag family
-  promtail:
-    default: grafana/promtail:3.3.2
-    purpose: Ships docker json-file container logs to Loki. Reads log files directly
-      (no docker.sock) to keep that access limited to admin-sidecar. Version paired
-      with the loki image above.
+  alloy:
+    default: grafana/alloy:v1.18.0
+    purpose: Ships docker json-file container logs to Loki from a read-only target
+      manifest projected by admin-sidecar. Alloy has no Docker API access.
     mutable: true
-    source: Grafana Promtail 3.3.x Docker tag family
+    source: Grafana Alloy v1.18.0 release image
 validation_policy:
   require_digest_before_production: true
   generated_by: scripts/config/setup_env.py

@@ -8,7 +8,7 @@ BIND_MOUNTED_CONFIG_SERVICE_SPECS=(
   "grafana:ops/grafana/dashboards ops/grafana/provisioning"
   "prometheus:ops/prometheus"
   "loki:ops/loki"
-  "promtail:ops/promtail"
+  "alloy:ops/alloy"
 )
 
 # 주어진 source root 아래의 설정 내용으로 안정적인 fingerprint를 만든다.

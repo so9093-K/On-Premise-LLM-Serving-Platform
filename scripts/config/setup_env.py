@@ -49,7 +49,7 @@ def recommended_images() -> dict[str, str]:
         "GRAFANA_IMAGE": str(images["grafana"]["default"]),
         "CADVISOR_IMAGE": str(images["cadvisor"]["default"]),
         "LOKI_IMAGE": str(images["loki"]["default"]),
-        "PROMTAIL_IMAGE": str(images["promtail"]["default"]),
+        "ALLOY_IMAGE": str(images["alloy"]["default"]),
     }
 
 

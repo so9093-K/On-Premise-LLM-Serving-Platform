@@ -25,6 +25,7 @@ from ..main_model_control import (
     gpu_util_override_from_mapping,
     load_main_model_catalog,
 )
+from ..log_target_manifest import build_targets, write_manifest
 from ..runtime_topology import load_runtime_topology
 
 _logger = service_logger("admin_sidecar")
@@ -42,6 +43,8 @@ class SidecarConfig:
     idempotency_ttl_seconds: str | None
     internal_service_token: str
     gateway_internal_url: str
+    log_target_manifest_path: Path
+    log_target_refresh_seconds: float
 
 
 def load_sidecar_config(
@@ -66,6 +69,13 @@ def load_sidecar_config(
         idempotency_ttl_seconds=environment.get("MAIN_LLM_SWITCH_IDEMPOTENCY_TTL_SECONDS") or None,
         internal_service_token=environment.get("INTERNAL_SERVICE_TOKEN", ""),
         gateway_internal_url=environment.get("GATEWAY_INTERNAL_URL", DEFAULT_GATEWAY_URL),
+        log_target_manifest_path=Path(
+            environment.get(
+                "LOG_TARGET_MANIFEST_PATH",
+                "/var/lib/ai-model-serving/log-targets/docker-containers.json",
+            )
+        ),
+        log_target_refresh_seconds=float(environment.get("LOG_TARGET_REFRESH_SECONDS", "15")),
     )
 
 
@@ -78,6 +88,8 @@ MAIN_LLM_BOOT_PROFILE = _CONFIG.boot_profile
 MAIN_LLM_PROFILE_LOCKED = _CONFIG.profile_locked
 MAIN_LLM_SWITCH_IDEMPOTENCY_TTL_SECONDS = _CONFIG.idempotency_ttl_seconds
 SIDECAR_TOKEN = _CONFIG.internal_service_token
+LOG_TARGET_MANIFEST_PATH = _CONFIG.log_target_manifest_path
+LOG_TARGET_REFRESH_SECONDS = _CONFIG.log_target_refresh_seconds
 
 _TOPOLOGY = load_runtime_topology(
     APP_CONFIG_ROOT,
@@ -127,6 +139,39 @@ def _label_filter(service: str) -> str:
     if COMPOSE_PROJECT:
         labels.append(f"com.docker.compose.project={COMPOSE_PROJECT}")
     return json.dumps({"label": labels})
+
+
+def _compose_project_filter() -> str:
+    return json.dumps({"label": [f"com.docker.compose.project={COMPOSE_PROJECT}"]})
+
+
+async def _refresh_log_targets() -> int:
+    """현재 Compose 프로젝트의 실행 컨테이너를 Alloy target manifest로 투영한다.
+
+    이 작업은 monitoring 보조 경로다. Docker API/파일 I/O 실패가 sidecar health나
+    model control plane을 실패시키지 않도록 호출자가 예외를 기록하고 재시도한다.
+    """
+    if not COMPOSE_PROJECT:
+        raise RuntimeError("COMPOSE_PROJECT is required for log target projection")
+    async with _docker_client() as dc:
+        listed = await dc.get(
+            "/containers/json",
+            params={"filters": _compose_project_filter()},
+            timeout=5.0,
+        )
+        listed.raise_for_status()
+        containers = listed.json()
+        inspected: list[Mapping[str, Any]] = []
+        for container in containers:
+            container_id = str(container.get("Id") or "")
+            if not container_id:
+                continue
+            response = await dc.get(f"/containers/{container_id}/json", timeout=5.0)
+            response.raise_for_status()
+            inspected.append(response.json())
+    targets = build_targets(inspected)
+    write_manifest(LOG_TARGET_MANIFEST_PATH, targets)
+    return len(targets)
 
 
 async def _find_container_id(service: str) -> str | None:
@@ -344,6 +389,16 @@ async def _run_reconciliation_loop() -> None:
             _logger.warning("main-model reconciliation tick failed: %s", exc)
 
 
+async def _run_log_target_projection_loop() -> None:
+    while True:
+        try:
+            target_count = await _refresh_log_targets()
+            _logger.debug("refreshed Alloy log targets: count=%s", target_count)
+        except Exception as exc:  # noqa: BLE001 - monitoring failure must not affect serving
+            _logger.warning("log target projection tick failed: %s", exc)
+        await asyncio.sleep(LOG_TARGET_REFRESH_SECONDS)
+
+
 @asynccontextmanager
 async def _lifespan(app: FastAPI):
     del app
@@ -362,11 +417,15 @@ async def _lifespan(app: FastAPI):
     reconcile_task = asyncio.create_task(_run_reconciliation_loop())
     _BACKGROUND_TASKS.add(reconcile_task)
     reconcile_task.add_done_callback(_BACKGROUND_TASKS.discard)
+    log_target_task = asyncio.create_task(_run_log_target_projection_loop())
+    _BACKGROUND_TASKS.add(log_target_task)
+    log_target_task.add_done_callback(_BACKGROUND_TASKS.discard)
     try:
         yield
     finally:
         init_task.cancel()
         reconcile_task.cancel()
+        log_target_task.cancel()
 
 
 # --------------------------------------------------------------------- app

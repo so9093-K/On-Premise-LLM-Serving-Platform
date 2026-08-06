@@ -352,9 +352,9 @@ services:
     expose:
     - '9090'
   # -------------------------------------------------------------------------
-  # Loki + Promtail — 요청 단위 로그 조회(누가/언제/무엇을/어떻게)용. Promtail은
-  # docker.sock을 쓰지 않는다(admin-sidecar에만 의도적으로 열어둔 보안 경계를
-  # 지키기 위함) — 대신 docker json-file 로그를 정적 경로로 직접 tail한다.
+  # Loki + Alloy — 요청 단위 로그 조회(누가/언제/무엇을/어떻게)용. Alloy는
+  # docker.sock을 쓰지 않는다. admin-sidecar만 Compose metadata와 Docker LogPath를
+  # target manifest로 투영하고, Alloy는 그 manifest와 docker json-file만 읽는다.
   # 둘 다 어떤 앱 서비스의 depends_on에도 안 걸려 있어(Grafana만 datasource로
   # 참조), 죽어도 다른 서비스 기동에 영향 없다.
   # -------------------------------------------------------------------------
@@ -373,18 +373,21 @@ services:
     expose:
     - '3100'
     ports: []
-  promtail:
-    image: ${PROMTAIL_IMAGE:?Set PROMTAIL_IMAGE to a tested Grafana Promtail image tag}
+  alloy:
+    image: ${ALLOY_IMAGE:?Set ALLOY_IMAGE to a tested Grafana Alloy image tag}
     restart: unless-stopped
     user: 0:0
     depends_on:
     - loki
     command:
-    - -config.file=/etc/promtail/promtail-config.yml
+    - run
+    - --storage.path=/var/lib/alloy/data
+    - /etc/alloy/config.alloy
     volumes:
-    - ../promtail/promtail-config.yml:/etc/promtail/promtail-config.yml:ro
+    - ../alloy/config.alloy:/etc/alloy/config.alloy:ro
     - /var/lib/docker/containers:/var/lib/docker/containers:ro
-    - ../../.runtime/promtail:/var/lib/promtail
+    - ../../.runtime/alloy:/var/lib/alloy/data
+    - ../../.runtime/log-targets:/var/lib/alloy/targets:ro
     ports: []
   grafana:
     image: ${GRAFANA_IMAGE:?Set GRAFANA_IMAGE to a tested Grafana image tag}
@@ -446,6 +449,7 @@ services:
     volumes:
     - /var/run/docker.sock:/var/run/docker.sock:ro
     - ../../.runtime/main-model:/var/lib/ai-model-serving
+    - ../../.runtime/log-targets:/var/lib/ai-model-serving/log-targets
     - ${HF_CACHE_DIR:-./model_cache/huggingface}:/root/.cache/huggingface
     expose:
     - '8080'
