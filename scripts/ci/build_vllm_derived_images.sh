@@ -44,27 +44,12 @@ TRANSFORMERS_VERSION="$(${PYTHON_BIN} scripts/models/print_vllm_unified_compatib
 HUGGINGFACE_HUB_VERSION="$(${PYTHON_BIN} scripts/models/print_vllm_unified_compatibility.py --key huggingface_hub)"
 TRANSFORMERS_MIN_VERSION="$(${PYTHON_BIN} scripts/models/print_vllm_unified_compatibility.py --key transformers_min)"
 
-# ── 빌드 전 디스크 상태 ──────────────────────────────────────────────────────
-docker_storage_report() {
-  local image="$1"
-  # Docker-in-Docker의 daemon data root는 job container와 다를 수 있다. 이 build가
-  # 이미 pull한 base image 안에서 df를 실행해 overlay filesystem의 공간과 inode를
-  # 기록한다. 진단만을 위한 별도 image/tag는 추가하지 않는다.
-  docker run --rm --entrypoint sh "${image}" -c '
-    echo "[build] Docker daemon filesystem:";
-    df -hP /;
-    echo "[build] Docker daemon inode usage:";
-    df -iP /;
-  '
-}
-
 echo "[build] disk status (pre-build):"
 docker system df -v || true
 
 # ── base image를 한 번만 pull ────────────────────────────────────────────
 echo "[build] pulling base image..."
 docker pull "${RESOLVED_VLLM_BASE_IMAGE}"
-docker_storage_report "${RESOLVED_VLLM_BASE_IMAGE}" || true
 
 # ── vllm-unified 빌드 (Gemma4 멀티모달 + Kanana Llama head_dim 패치 둘 다) ───
 echo "[build] building vllm-unified: ${IMAGE_SHA}"
@@ -81,7 +66,6 @@ docker build \
 
 echo "[build] disk status (post-build):"
 docker system df -v || true
-docker_storage_report "${RESOLVED_VLLM_BASE_IMAGE}" || true
 
 echo "[build] pushing vllm-unified..."
 docker push "${IMAGE_SHA}"

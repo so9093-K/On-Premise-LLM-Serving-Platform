@@ -1020,7 +1020,7 @@ commands:
     title: 버전 메타데이터 초기화
     category: maintenance
     audience: [release_engineer]
-    description: "프로젝트 버전 메타데이터를 초기화한다. NEW_VERSION= 필수."
+    description: "프로젝트 버전 메타데이터를 갱신하고 정적 정합성을 검증한다. NEW_VERSION= 필수."
     command: make reset-version NEW_VERSION=x.y.z
     kind: public
     safety: writes_generated
@@ -1039,8 +1039,7 @@ commands:
     owner: release_engineer
     docs:
       - docs/release/versioning_policy.md
-    tests:
-      - tests/contract/test_version_reset.py
+    tests: []
 
   - make_target: compose-up-master
     title: master_open compose 기동

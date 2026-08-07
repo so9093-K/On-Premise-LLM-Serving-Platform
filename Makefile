@@ -213,6 +213,7 @@ doctor:
 reset-version:
 	@if [[ -z "$(NEW_VERSION)" ]]; then echo "Usage: make reset-version NEW_VERSION=0.1.0"; exit 2; fi
 	$(PYTHON) scripts/build/reset_version.py "$(NEW_VERSION)"
+	$(MAKE) validate
 
 render-runtime-assets:
 	$(PYTHON) scripts/render_runtime_assets.py --write

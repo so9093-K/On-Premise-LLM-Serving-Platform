@@ -18,7 +18,10 @@ fi
 GATEWAY_BASE_URL="http://${GATEWAY_PROBE_HOST}:${GATEWAY_PORT:-9400}"
 RISK_ADAPTER_BASE_URL="http://localhost:${RISK_ADAPTER_PORT:-9405}"
 API_KEY="$(local_env_first_value "$ENV_FILE" API_KEY API_KEYS || true)"
-SMOKE_MAX_REQUEST_SECONDS="${SMOKE_MAX_REQUEST_SECONDS:-30}"
+# smoke는 일반 Gateway 경로를 그대로 호출한다. 별도 30초 상수를 두면 정상적인
+# admission queue 대기보다 먼저 실패해 배포 rollback의 원인이 된다. 명시적
+# SMOKE_MAX_REQUEST_SECONDS override가 없으면 Gateway의 기존 요청 예산을 쓴다.
+SMOKE_MAX_REQUEST_SECONDS="${SMOKE_MAX_REQUEST_SECONDS:-${REQUEST_TIMEOUT_SECONDS:-30}}"
 SMOKE_MAX_LATENCY_MS="${SMOKE_MAX_LATENCY_MS:-0}"
 SMOKE_RETRY_ATTEMPTS="${SMOKE_RETRY_ATTEMPTS:-3}"
 SMOKE_RETRY_DELAY_SECONDS="${SMOKE_RETRY_DELAY_SECONDS:-5}"
@@ -100,7 +103,7 @@ post_json() {
 }
 
 post_json_with_retry() {
-  local attempt
+  local name="$1" attempt
   for attempt in $(seq 1 "${SMOKE_RETRY_ATTEMPTS}"); do
     if post_json "$@"; then
       return 0
@@ -110,6 +113,7 @@ post_json_with_retry() {
       sleep "${SMOKE_RETRY_DELAY_SECONDS}"
     fi
   done
+  echo "[smoke] ${name}: failed after ${SMOKE_RETRY_ATTEMPTS} attempt(s); request deadline=${SMOKE_MAX_REQUEST_SECONDS}s" >&2
   return 1
 }
 

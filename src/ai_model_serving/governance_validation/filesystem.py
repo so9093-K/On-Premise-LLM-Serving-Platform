@@ -1,14 +1,6 @@
 from __future__ import annotations
 
-import csv
 import json
-import os
-import re
-import subprocess
-import sys
-import tomllib
-from pathlib import Path
-from typing import Any
 
 try:
     import yaml
@@ -21,11 +13,7 @@ except ImportError as exc:
     raise SystemExit('jsonschema is required: pip install jsonschema') from exc
 
 from .common import (
-    FORBIDDEN_RESPONSE_FIELDS,
-    ROOT,
     iter_project_files,
-    read_json,
-    read_yaml,
 )
 
 def validate_json_and_yaml_parse() -> None:

@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from pathlib import Path
-
 from .common import (
     ROOT,
     read_json,
@@ -119,7 +117,18 @@ def validate_model_resource_control_policy() -> None:
         raise SystemExit('local-main image input policy must allow exactly one data:image input by default')
     if int(main_policy.get('max_image_bytes', 0)) <= 0 or int(main_policy.get('max_image_pixels', 0)) <= 0:
         raise SystemExit('local-main image input policy must define decoded byte and pixel limits')
-    expected_image_mime_types = set(serving['models']['main_llm']['resource_control']['request_limits'].get('allowed_image_mime_types', []))
+    request_limits = serving['models']['main_llm']['resource_control']['request_limits']
+    for policy_field, limit_field in {
+        'max_image_inputs': 'max_image_inputs',
+        'max_image_bytes': 'max_image_bytes',
+        'max_image_pixels': 'max_image_pixels',
+    }.items():
+        if main_policy.get(policy_field) != request_limits.get(limit_field):
+            raise SystemExit(
+                f'local-main project_runtime_policy.{policy_field} must match '
+                f'main_llm resource_control.request_limits.{limit_field}'
+            )
+    expected_image_mime_types = set(request_limits.get('allowed_image_mime_types', []))
     if set(main_policy.get('allowed_image_mime_types', [])) != expected_image_mime_types:
         raise SystemExit(
             'local-main image input policy MIME limits must match '

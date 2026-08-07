@@ -7,28 +7,8 @@ code만 들어있어야 한다 -- ERROR_STATUS 전체를 모든 응답에 그대
 
 from __future__ import annotations
 
-from pathlib import Path
-
-import yaml
-
 from ai_model_serving.apps.gateway import create_gateway_app
 from ai_model_serving.errors import ERROR_STATUS
-
-ROOT = Path(__file__).resolve().parents[2]
-
-
-def _catalog() -> dict[str, dict]:
-    data = yaml.safe_load((ROOT / "configs/error_catalog.yaml").read_text(encoding="utf-8"))
-    return data["errors"]
-
-
-def test_catalog_code_set_matches_error_status():
-    catalog = set(_catalog())
-    status = set(ERROR_STATUS)
-    assert catalog == status, (
-        "configs/error_catalog.yaml 의 code 집합이 errors.py ERROR_STATUS 와 어긋남: "
-        f"catalog_only={sorted(catalog - status)} status_only={sorted(status - catalog)}"
-    )
 
 
 def test_generated_openapi_scopes_error_code_enum_per_status():

@@ -111,6 +111,7 @@ make reset-version NEW_VERSION=<version>
 ```
 
 `reset_version.py`는 package version, Python 패키징 버전, package-aligned image tag를 함께 갱신한다.
+`make reset-version`은 직후 `make validate`를 실행해 변경 결과의 정합성을 확인한다.
 config schema version과 historical changelog는 변경하지 않는다.
 
 ## 1. Current package version

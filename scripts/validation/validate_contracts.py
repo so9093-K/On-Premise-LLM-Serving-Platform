@@ -1,4 +1,4 @@
-"""governance_validation 패키지(계약 검증 17개 체크)를 실행하는 CLI 진입점.
+"""governance_validation 패키지의 계약 검증을 실행하는 CLI 진입점.
 실제 체크 목록은 src/ai_model_serving/governance_validation/cli.py의 CHECKS를 본다."""
 
 from __future__ import annotations

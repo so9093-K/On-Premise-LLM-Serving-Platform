@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 import re
 from pathlib import Path
 from typing import Any
@@ -204,6 +205,42 @@ def validate_common_error_codes() -> None:
     }
     if not required.issubset(codes):
         raise SystemExit(f'common error code enum missing: {required - codes}')
+
+    # ServiceError의 첫 인자는 실제 API 응답 error.code가 된다. 구현 전체를
+    # 문자열로 검사하는 것이 아니라, 이 공개 경계에 도달하는 literal만 수집해
+    # 에러 카탈로그/상태 정의 밖의 코드를 배포 전에 막는다.
+    emitted_codes: set[str] = set()
+    for path in (ROOT / 'src' / 'ai_model_serving').rglob('*.py'):
+        tree = ast.parse(path.read_text(encoding='utf-8'), filename=str(path))
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call) or not node.args:
+                continue
+            function = node.func
+            is_service_error = (
+                isinstance(function, ast.Name) and function.id == 'ServiceError'
+            ) or (
+                isinstance(function, ast.Attribute) and function.attr == 'ServiceError'
+            )
+            first_argument = node.args[0]
+            if is_service_error and isinstance(first_argument, ast.Constant) and isinstance(first_argument.value, str):
+                emitted_codes.add(first_argument.value)
+
+    from ai_model_serving.errors import ERROR_STATUS
+
+    catalog_codes = set(read_yaml('configs/error_catalog.yaml')['errors'])
+    known_codes = set(ERROR_STATUS)
+    if catalog_codes != known_codes:
+        raise SystemExit(
+            'error catalog and ERROR_STATUS disagree: '
+            f'catalog_only={sorted(catalog_codes - known_codes)}, '
+            f'status_only={sorted(known_codes - catalog_codes)}'
+        )
+    unknown_emitted = emitted_codes - known_codes
+    if unknown_emitted:
+        raise SystemExit(
+            'ServiceError emits code(s) absent from the public error catalog: '
+            + ', '.join(sorted(unknown_emitted))
+        )
 
 def validate_openapi_error_surface() -> None:
     required_post_errors = {'413', '429', '500', '502', '503', '504'}

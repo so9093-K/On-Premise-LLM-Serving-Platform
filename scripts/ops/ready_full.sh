@@ -41,6 +41,10 @@ READY_FULL_INFERENCE_WARMUP_SECONDS="${READY_FULL_INFERENCE_WARMUP_SECONDS:-120}
 # gate는 단 몇 초가 아니라 모델 전체 reload 시간만큼 닫혀 있기 때문이다. fast path
 # (gate가 이미 열려 있는 경우)는 이 상한과 무관하게 즉시 반환된다.
 READY_FULL_MAIN_MODEL_TIMEOUT_SECONDS="${READY_FULL_MAIN_MODEL_TIMEOUT_SECONDS:-${READY_FULL_TIMEOUT_SECONDS}}"
+# main-model gate probe도 일반 Gateway 경로를 통과한다. 이 probe만 30초로 고정하면
+# 정상적인 queue 대기보다 먼저 끊겨 readiness가 거짓 실패할 수 있으므로 Gateway
+# 요청 예산을 기본값으로 공유한다.
+READY_FULL_MAIN_MODEL_REQUEST_SECONDS="${READY_FULL_MAIN_MODEL_REQUEST_SECONDS:-${REQUEST_TIMEOUT_SECONDS:-30}}"
 SMOKE_SKIP_RUNTIMES="${SMOKE_SKIP_RUNTIMES:-}"
 
 "$PYTHON_BIN" scripts/build/check_python.py --context ready-full >/dev/null
@@ -188,10 +192,10 @@ wait_for_main_model_ready() {
   local start=$SECONDS deadline=$((SECONDS + READY_FULL_MAIN_MODEL_TIMEOUT_SECONDS))
   local attempt=0 code elapsed tmp detail
   tmp="$(mktemp)"
-  local curl_args=(-sS --max-time 30 -o "$tmp" -w '%{http_code}'
+  local curl_args=(-sS --max-time "$READY_FULL_MAIN_MODEL_REQUEST_SECONDS" -o "$tmp" -w '%{http_code}'
     -H 'Content-Type: application/json' -d "$body")
   [[ -n "$API_KEY" ]] && curl_args+=(-H "Authorization: Bearer ${API_KEY}")
-  echo "[ready-full] waiting for main-model gate to open (local-main chat, up to ${READY_FULL_MAIN_MODEL_TIMEOUT_SECONDS}s)..."
+  echo "[ready-full] waiting for main-model gate to open (local-main chat, up to ${READY_FULL_MAIN_MODEL_TIMEOUT_SECONDS}s; request deadline ${READY_FULL_MAIN_MODEL_REQUEST_SECONDS}s)..."
   while true; do
     attempt=$((attempt + 1))
     code="$(curl "${curl_args[@]}" "$url" 2>/dev/null || true)"

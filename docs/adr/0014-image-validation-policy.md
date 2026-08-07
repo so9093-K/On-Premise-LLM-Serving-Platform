@@ -66,7 +66,10 @@ MIME type allowlist 검사(`image/jpeg`, `image/png`, `image/webp`, `image/avif`
 
 ### 단일 source-of-truth
 
-이미지 한도 값의 source-of-truth는 `configs/gpu_budgets.yaml`이다. `model_catalog.yaml`, `model_serving.yaml`, `model_cards/local-main.json`은 이 값을 반영하며, 테스트(`tests/contract/test_runtime_policy.py`)는 cross-config 일치를 동적으로 검증한다.
+이미지 한도 값의 canonical policy는 `model_catalog.yaml`의 `local-main` 정책이다.
+`model_serving.yaml`의 실행 request limit은 이 값과 같아야 하며, 기존
+`make validate`의 model resource-control validator가 그 관계를 검사한다.
+`gpu_budgets.yaml`은 VRAM admission 정책이며 이미지 입력 한도의 source-of-truth가 아니다.
 
 ## Consequences
 
@@ -88,7 +91,8 @@ MIME type allowlist 검사(`image/jpeg`, `image/png`, `image/webp`, `image/avif`
 한도 변경 외 코드 변경 사항:
 
 - `src/ai_model_serving/contracts/media.py`: `_image_dimensions` 시그니처 변경 (인자 제거), 호출부도 동일하게 업데이트.
-- `tests/contract/test_runtime_policy.py`: 하드코딩된 `== 750000` 단언을 `gpu_budgets.yaml` 동적 cross-check로 교체. `max_image_pixels` 단언 추가.
+- 과거의 `tests/contract/test_runtime_policy.py`는 현재 코드 경계를 검증하지 않아 제거했다.
+  이미지 한도는 요청 검증 테스트와 설정을 소비하는 런타임 경로가 보호한다.
 
 ## Update (2026-07-09)
 
