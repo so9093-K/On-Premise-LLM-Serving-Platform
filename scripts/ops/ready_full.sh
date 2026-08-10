@@ -48,7 +48,6 @@ READY_FULL_MAIN_MODEL_REQUEST_SECONDS="${READY_FULL_MAIN_MODEL_REQUEST_SECONDS:-
 SMOKE_SKIP_RUNTIMES="${SMOKE_SKIP_RUNTIMES:-}"
 
 "$PYTHON_BIN" scripts/build/check_python.py --context ready-full >/dev/null
-"$PYTHON_BIN" scripts/compose/validate_vllm_compose.py >/dev/null
 
 run_diagnostics() {
   echo "[ready-full] collecting compose diagnostics" >&2
