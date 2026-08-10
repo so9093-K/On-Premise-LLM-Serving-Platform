@@ -7,7 +7,7 @@ build, start, readiness, deploy, release는 서로 다른 동작이다.
 ## 핵심 역할
 
 ```text
-make build          = 통합 빌드 (정적 검증·결정론적 테스트·플랫폼 이미지·패키지 생성, 서비스 기동 없음)
+make build          = 통합 빌드 (정적 검증·결정론적 테스트·플랫폼 이미지, 서비스 기동 없음)
 make start          = 로컬 app-only 서비스 기동
 make ready-full     = 운영 스택이 실제로 준비됐음을 검증
 make reset          = 통합 제거/초기화 (서비스 중지 + 플랫폼/risk 이미지 + 아티팩트)
@@ -16,7 +16,7 @@ make rebuild-full   = 전체 재빌드 (make bootstrap 별칭)
 make bootstrap      = 전체 재빌드 (.venv + 의존성 + .env + 검증 + 플랫폼/risk 이미지 + risk config check)
 ```
 
-`make first-run`, `make rebuild-full`은 새 담당자가 목적을 바로 이해하기 위한 alias다. `make build`는 CI의 릴리스 경로와 같은 검증·패키징·플랫폼 이미지 빌드 범위를 로컬에서 한 번에 실행하는 단일 진입점이다. 일반 branch CI는 패키지 artifact를 만들지 않고 validate·test·플랫폼 이미지 빌드만 수행한다.
+`make first-run`, `make rebuild-full`은 새 담당자가 목적을 바로 이해하기 위한 alias다. `make build`는 CI와 같은 정적 검증·테스트·플랫폼 이미지 빌드를 로컬에서 한 번에 실행하는 단일 진입점이다. release/handoff ZIP은 `make package`로 필요할 때만 만든다.
 
 `make build`는 플랫폼 Docker image까지 포함하는 명령이므로 Docker CLI와 daemon이
 필수다. Docker 없이 ZIP만 만들려면 `make package`를 사용한다. 패키징은 Python
@@ -35,7 +35,7 @@ make bootstrap      = 전체 재빌드 (.venv + 의존성 + .env + 검증 + 플�
 | 계층 | 명령 | 대상 | Runtime-derived 이미지 포함? |
 |---|---|---|:---:|
 | Day-0 / 전체 설정 | `make first-run` / `make bootstrap` | .venv + 플랫폼 이미지 + vLLM unified 이미지 + config check | 예 (기본값) |
-| CI / 릴리스 공통 빌드 | `make build` | 정적 검증 + 결정론적 테스트 + 패키징 + 플랫폼 이미지 | 아니오 |
+| CI / 릴리스 공통 빌드 | `make build` | 정적 검증 + 결정론적 테스트 + 플랫폼 이미지 | 아니오 |
 | 타깃 재빌드 | `make rebuild-app` / `make build-image` | 플랫폼 이미지만 | 아니오 |
 | 타깃 재빌드 | `make rebuild-vllm-unified` / `make build-vllm-unified-image` | vLLM unified 이미지(26B/12B/embedding/embedding-ko/risk-prompt 공용) | 예 (이것만) |
 | CI derived 이미지 | `build-vllm-derived` | vLLM unified 이미지(`vllm-unified`) 빌드/push | 예 (명시 opt-in) |
@@ -86,12 +86,12 @@ SKIP_RISK_VLLM_IMAGE_BUILD=1 make rebuild-full
 |---|---|:---:|:---:|---|
 | `make validate` | 실행 전 계약·설정·생성물 drift 정적 검증 | 아니오 | 아니오 | 개발자 / CI |
 | `make test` | unit·contract 테스트 (`runtime/docker/gpu` 제외) | 아니오 | 아니오 | 개발자 / CI |
-| `make build` | 정적 검증 + 결정론적 테스트 + 패키징 + 플랫폼 이미지 빌드 | 서비스 유지 없음 | 아니오 | 릴리스 / CI |
+| `make build` | 정적 검증 + 결정론적 테스트 + 플랫폼 이미지 빌드 | 서비스 유지 없음 | 아니오 | 릴리스 / CI |
 | `make rebuild-app` | `make build-image` 별칭. 플랫폼 이미지만 재빌드 | 아니오 | 아니오 | 개발자 / 운영자 |
 | `make build-image` | 플랫폼 Docker 이미지만 빌드. validate·test·패키징은 생략하며 `make bootstrap` 내부에서도 호출됨 | 아니오 | 아니오 | 개발자 / 운영자 |
 | `make rebuild-vllm-unified` | `make build-vllm-unified-image` 별칭. 모든 served model이 공유하는 unified vLLM 이미지를 재빌드 | 아니오 | Docker image만 필요 | 운영자 / 디버깅 |
 | `make build-vllm-unified-image` | 26B/12B/embedding/embedding-ko/risk-prompt 공용 vLLM 이미지를 빌드하는 고급 target. 일반 운영자는 `make first-run`/`make bootstrap` 사용 | 아니오 | Docker image만 필요 | 운영자 / 디버깅 |
-| `make package` | 정적 검증 통과 후 릴리스 ZIP 생성 | 아니오 | 아니오 | 릴리스 / CI |
+| `make package` | 정적 검증 통과 후 선택적 release/handoff ZIP 생성 | 아니오 | 아니오 | 릴리스 |
 | `make start` | 로컬 app-only Gateway·Risk Adapter 기동 | 예 | 아니오 | 개발자 |
 | `make ready-local` | 로컬 Gateway·Risk Adapter `/health` 엄격 확인 | 아니오 | 아니오 | 개발자 |
 | `make ready-full` | 실제 upstream vLLM까지 포함한 엄격 readiness + smoke | 아니오 | 예 | 운영자 / CI |
@@ -158,7 +158,7 @@ make rebuild-app
 ```
 
 `ops/images/vllm-unified/Dockerfile`, `ops/patches/`, `configs/recommended_images.yaml`의 unified-image base digest 또는 compatibility pin이 변경된 경우에는 `SKIP_RISK_VLLM_IMAGE_BUILD=auto`를 사용하지 않고 전체 `make first-run`을 실행하거나 `make rebuild-vllm-unified`를 직접 호출한다.
-main-LLM(26B/12B)이 쓰는 digest를 갱신해야 하는 경우에는 로컬 `make rebuild-vllm-unified`가 아니라 release/tag pipeline의 `build-vllm-derived`를 `BUILD_VLLM_DERIVED=1` 또는 `DEPLOY_MODE=full`로 실행해 새 digest를 만들고 배포 `.env`의 `AUDIO_VLLM_IMAGE`(및 `VLLM_IMAGE`/`RISK_VLLM_IMAGE`/`EMBEDDING_KO_VLLM_IMAGE`)에 pin한다.
+main-LLM(26B/12B)이 쓰는 digest를 갱신해야 하는 경우에는 로컬 `make rebuild-vllm-unified`가 아니라 release/tag pipeline의 `build-vllm-derived`를 `BUILD_VLLM_DERIVED=1`로 명시해 새 digest를 만들고 배포 `.env`의 `AUDIO_VLLM_IMAGE`(및 `VLLM_IMAGE`/`RISK_VLLM_IMAGE`/`EMBEDDING_KO_VLLM_IMAGE`)에 pin한다. 일반 `DEPLOY_MODE=full`은 기존 digest를 유지한다.
 
 ### 전체 초기화 + 재빌드
 

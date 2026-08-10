@@ -47,7 +47,7 @@ PII Protection과 Secret Exposure Signal은 다음 테스트로 검증한다.
 |---|---|
 | `tests/unit/test_pii_protection_detector.py` | Korean custom recognizer, entity→D-code 매핑, span_count, 원문값 미포함, boolean consistency |
 | `tests/unit/test_secret_exposure_detector.py` | regex 패턴, entropy-based generic candidate, D4/D5 매핑, 원문 secret 미포함 |
-| `tests/unit/test_risk_data_exposure_contract.py` | `_validate_risk_category()` D1-D5, span_count 검증, forbidden field 차단 |
+| `tests/unit/test_risk_data_exposure_contract.py` | 공개 `validate_risk_response()`의 D1-D5, boolean consistency, forbidden field 차단 |
 | `tests/unit/gateway/test_risk_forwarding_data_exposure.py` | Gateway PII/Secret forwarding, forbidden field rejection |
 
 ### Contract tests

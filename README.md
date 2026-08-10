@@ -289,7 +289,7 @@ Full-stack 실행 시 enabled model runtime은 위 모델 구성을 기준으로
 이 저장소는 `.gitlab-ci.yml` 기반 GitLab CI/CD pipeline을 포함한다. Pipeline은 검증, 테스트, 패키징, 이미지 빌드, 수동 GPU runtime 배포를 단계별로 분리한다.
 
 ```text
-validate → test → package → build → deploy
+validate → test → build → deploy
 ```
 
 | stage | 역할 |

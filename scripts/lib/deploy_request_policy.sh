@@ -52,13 +52,17 @@ deploy_validate_request() {
 deploy_resolve_full_runtime_images() {
   [[ "${DEPLOY_MODE:-}" == "full" ]] || return 0
 
-  RISK_VLLM_IMAGE_TO_DEPLOY="${RISK_VLLM_IMAGE_TO_DEPLOY:-${VLLM_UNIFIED_IMAGE_TO_DEPLOY:-}}"
-  if [[ -z "${RISK_VLLM_IMAGE_TO_DEPLOY}" ]]; then
-    echo "[deploy] ERROR: full deploy requires RISK_VLLM_IMAGE_TO_DEPLOY or a fresh VLLM_UNIFIED_IMAGE_TO_DEPLOY digest." >&2
-    return 2
+  # 일반 full 배포는 175 .env에 이미 pin된 immutable image를 유지한다. 새 unified
+  # artifact가 있을 때만 모든 unified 소비자의 pin을 함께 바꿔 의도적인 fleet
+  # 재기동을 만든다. image 입력 변경인데 artifact가 없는 경우는 원격의 source-drift
+  # guard가 배포 전에 거절한다.
+  if [[ -n "${VLLM_UNIFIED_IMAGE_TO_DEPLOY:-}" ]]; then
+    RISK_VLLM_IMAGE_TO_DEPLOY="${RISK_VLLM_IMAGE_TO_DEPLOY:-${VLLM_UNIFIED_IMAGE_TO_DEPLOY}}"
   fi
 
-  # unified 이미지는 risk-prompt와 12B profile이 함께 소비한다. 호출자가 12B 전용
-  # override를 명시하지 않았다면 같은 immutable ref를 써야 한쪽만 바뀌는 drift가 없다.
-  AUDIO_VLLM_IMAGE_TO_DEPLOY="${AUDIO_VLLM_IMAGE_TO_DEPLOY:-${RISK_VLLM_IMAGE_TO_DEPLOY}}"
+  if [[ -n "${RISK_VLLM_IMAGE_TO_DEPLOY:-}" ]]; then
+    # unified 이미지는 risk-prompt와 12B profile이 함께 소비한다. 호출자가 12B 전용
+    # override를 명시하지 않았다면 같은 immutable ref를 써야 한쪽만 바뀌는 drift가 없다.
+    AUDIO_VLLM_IMAGE_TO_DEPLOY="${AUDIO_VLLM_IMAGE_TO_DEPLOY:-${RISK_VLLM_IMAGE_TO_DEPLOY}}"
+  fi
 }

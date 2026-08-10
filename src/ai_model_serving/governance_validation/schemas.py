@@ -229,6 +229,12 @@ def validate_common_error_codes() -> None:
 
     catalog_codes = set(read_yaml('configs/error_catalog.yaml')['errors'])
     known_codes = set(ERROR_STATUS)
+    if codes != known_codes:
+        raise SystemExit(
+            'common error schema and ERROR_STATUS disagree: '
+            f'schema_only={sorted(codes - known_codes)}, '
+            f'status_only={sorted(known_codes - codes)}'
+        )
     if catalog_codes != known_codes:
         raise SystemExit(
             'error catalog and ERROR_STATUS disagree: '

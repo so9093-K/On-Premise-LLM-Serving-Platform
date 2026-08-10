@@ -110,7 +110,7 @@ make compose-down
 |---|---|:---:|---|
 | 정적 검증 | `make validate` | 아니오 | 계약·문서·정책·projection 검사 |
 | 테스트 | `make test` | 아니오 | deterministic pytest wrapper |
-| 통합 빌드 | `make build` | 아니오 | validate + test + platform image + package |
+| 통합 빌드 | `make build` | 아니오 | validate + test + platform image |
 | 플랫폼 이미지만 재빌드 | `make rebuild-app` / `make build-image` | 아니오 | 앱 코드 반복 수정 시 사용 |
 | unified vLLM 이미지 재빌드 | `make rebuild-vllm-unified` / `make build-vllm-unified-image` | 아니오 | Dockerfile/Transformers/vLLM patch 변경 시 사용 |
 | 전체 재빌드 | `make rebuild-full` / `make bootstrap` | 아니오 | .venv부터 unified image/Kanana config check까지 |

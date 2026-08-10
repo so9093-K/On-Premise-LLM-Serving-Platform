@@ -75,4 +75,3 @@ vLLM main LLM structured output backend를 `auto`(xgrammar)에서 `xgrammar` + `
 - `ops/compose/full-stack.private-network.yaml`
 - `configs/recommended_images.yaml`
 - `src/ai_model_serving/runtime_validation/vllm_commands.py`
-- `tests/contract/governance/test_runtime_docs_and_harness.py`

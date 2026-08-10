@@ -1,9 +1,9 @@
 # 에러 코드 카탈로그 — 사용자/운영자용 "의미 레이어"의 단일 소스.
 #
 # HTTP status의 런타임 권위는 src/ai_model_serving/errors.py 의 ERROR_STATUS 이며,
-# contract 테스트(tests/contract/test_error_catalog.py)가 이 파일의 code 집합 ==
-# ERROR_STATUS code 집합을 고정한다(어느 한쪽에만 있으면 실패). 따라서 status는 여기
-# 중복하지 않고, 이 파일은 code별 서술 메타데이터(meaning/retryable/action)만 담는다.
+# make validate의 validate_common_error_codes가 이 파일, ERROR_STATUS, public schema의
+# code 집합을 함께 검사한다. 따라서 status는 여기 중복하지 않고, 이 파일은 code별
+# 서술 메타데이터(meaning/retryable/action)만 담는다.
 #
 # 소비처:
 #  - docs/specs/error_reference.md                (생성: make render-runtime-assets)

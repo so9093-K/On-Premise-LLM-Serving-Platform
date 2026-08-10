@@ -77,3 +77,13 @@ def test_full_deploy_uses_one_unified_image_for_risk_and_audio():
     )
     assert result.returncode == 0
     assert result.stdout == f"{image}|{image}"
+
+
+def test_full_deploy_without_new_unified_image_keeps_remote_pins():
+    result = run_policy(
+        'DEPLOY_MODE=full; deploy_resolve_full_runtime_images; '
+        'printf "%s|%s" "${RISK_VLLM_IMAGE_TO_DEPLOY:-}" "${AUDIO_VLLM_IMAGE_TO_DEPLOY:-}"',
+    )
+
+    assert result.returncode == 0
+    assert result.stdout == "|"

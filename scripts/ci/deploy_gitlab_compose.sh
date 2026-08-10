@@ -268,8 +268,8 @@ if [[ -n "${PREVIOUS_RELEASE}" && -d "${PREVIOUS_RELEASE}" ]]; then
     echo "[deploy] ERROR: vllm-unified image source changed but build-vllm-derived did not run." >&2
     echo "[deploy]   No fresh immutable unified image artifact — deploying now would ship the previous image." >&2
     printf '[deploy]   Changed source: %s\n' "${_changed_unified_image_source[@]}" >&2
-    echo "[deploy]   Re-trigger the pipeline with DEPLOY_MODE=full (or BUILD_VLLM_DERIVED=1) so the" >&2
-    echo "[deploy]   image is rebuilt before deploy." >&2
+    echo "[deploy]   Re-trigger the pipeline with BUILD_VLLM_DERIVED=1 so the image is rebuilt" >&2
+    echo "[deploy]   before deploy." >&2
     rm -rf "${RELEASE_PATH}"
     exit 2
   fi
@@ -557,6 +557,11 @@ pull_preflight_image() {
 pull_preflight_image "platform" "${PLATFORM_IMAGE_TO_DEPLOY}"
 
 if [[ "${DEPLOY_MODE}" == "full" ]]; then
+  # 새 artifact가 없으면 기존 .env pin을 사용한다. 일반 full 배포도 strict
+  # readiness를 실행하지만, image까지 바꾸지는 않아 모델 fleet을 유지할 수 있다.
+  if [[ -z "${RISK_VLLM_IMAGE_TO_DEPLOY:-}" ]]; then
+    RISK_VLLM_IMAGE_TO_DEPLOY="$(deploy_env_value RISK_VLLM_IMAGE)"
+  fi
   pull_preflight_image "risk-prompt vLLM (vllm-unified)" "${RISK_VLLM_IMAGE_TO_DEPLOY}"
 
   # 12B 멀티모달 이미지는 (compose 서비스가 아니라) 프로필 단위라서 compose가

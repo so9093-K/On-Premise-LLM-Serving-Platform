@@ -91,8 +91,6 @@ MIME type allowlist 검사(`image/jpeg`, `image/png`, `image/webp`, `image/avif`
 한도 변경 외 코드 변경 사항:
 
 - `src/ai_model_serving/contracts/media.py`: `_image_dimensions` 시그니처 변경 (인자 제거), 호출부도 동일하게 업데이트.
-- 과거의 `tests/contract/test_runtime_policy.py`는 현재 코드 경계를 검증하지 않아 제거했다.
-  이미지 한도는 요청 검증 테스트와 설정을 소비하는 런타임 경로가 보호한다.
 
 ## Update (2026-07-09)
 

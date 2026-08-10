@@ -7,7 +7,7 @@
 ```bash
 make test
 # 또는
-PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python scripts/validation/run_tests.py
+PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 APP_ENV=test python -m pytest -q tests/unit tests/contract
 ```
 
 ## 포함 범위

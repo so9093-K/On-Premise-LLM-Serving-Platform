@@ -208,7 +208,7 @@ commands:
     title: 통합 파이프라인 빌드
     category: validate_test_build
     audience: [developer, release_engineer]
-    description: "정적 검증 + 결정론적 테스트 + 패키징 + 이미지 빌드를 실행한다. 서비스 기동 없음."
+    description: "정적 검증 + 결정론적 테스트 + 플랫폼 이미지 빌드를 실행한다. 서비스 기동 없음."
     command: make build
     kind: public
     safety: builds_images
