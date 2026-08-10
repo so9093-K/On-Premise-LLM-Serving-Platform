@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+import subprocess
+import sys
+
+from .common import ROOT
 from .filesystem import validate_json_and_yaml_parse
 from .model_config import (
     validate_model_registry_alignment,
@@ -7,7 +11,6 @@ from .model_config import (
     validate_ports,
     validate_risk_detector_generation_budget,
 )
-from .release_runtime import validate_vllm_compose_contract
 from .schemas import (
     validate_common_error_codes,
     validate_openapi_error_surface,
@@ -19,6 +22,18 @@ from .versioning import (
     validate_python_compatibility,
     validate_version_alignment,
 )
+
+
+def validate_vllm_compose_contract() -> None:
+    result = subprocess.run(
+        [sys.executable, str(ROOT / "scripts/compose/validate_vllm_compose.py")],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+    )
+    if result.returncode != 0:
+        output = (result.stdout + result.stderr).strip()
+        raise SystemExit(output or "vLLM compose validation failed")
 
 
 CHECKS = [
