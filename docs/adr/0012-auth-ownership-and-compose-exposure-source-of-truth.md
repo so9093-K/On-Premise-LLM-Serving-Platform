@@ -122,7 +122,7 @@ Phase 0/1/2 exposure decision, effective compose port parsing, diagnostics 출�
 
 ### Release gate
 
-`release_check.py`의 STATIC_STEPS에 다음이 포함된다:
+`make validate`의 정적 검증 단계에 다음이 포함된다:
 - `validate_exposure_profiles.py --strict`: canonical_modes ↔ profiles 정합성, compose override 서비스 검증
 - `render_exposure_overrides.py --check`: override 파일 drift 검사
 - `validate_env_contract.py`: .env example에 required key가 있는지 검사

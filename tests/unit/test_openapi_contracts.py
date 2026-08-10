@@ -1,6 +1,8 @@
-"""FastAPI가 생성하는 OpenAPI 문서가 checked-in JSON Schema 계약을 그대로
-쓰는지(수기로 느슨해진 사본이 따로 없는지), 보안 스키마가 실제 인증 설정과
-일치하는지, 공통 에러 응답 표면이 포함돼 있는지 검증한다."""
+"""OpenAPI의 동적 인증·예시 보존과 오류 경계를 검증한다.
+
+기본 request/response schema가 checked-in 계약과 일치하는지는 ``make validate``의
+OpenAPI snapshot diff가 Gateway와 Risk Adapter 전체에 대해 검사한다.
+"""
 
 from __future__ import annotations
 
@@ -21,55 +23,6 @@ def test_error_catalog_loading_fails_explicitly_when_required_catalog_is_missing
     monkeypatch.setattr(contracts, "find_project_root", lambda: tmp_path)
     with pytest.raises(RuntimeError, match="error_catalog.yaml"):
         contracts._load_error_catalog()
-
-
-def test_gateway_generated_openapi_uses_checked_in_request_contracts():
-    app = create_gateway_app(gateway_settings(), FakeGatewayClients())
-    document = app.openapi()
-
-    chat_schema = document["paths"]["/v1/chat/completions"]["post"]["requestBody"]["content"]["application/json"]["schema"]
-    embedding_schema = document["paths"]["/v1/embeddings"]["post"]["requestBody"]["content"]["application/json"]["schema"]
-    risk_schema = document["paths"]["/v1/risk/assessments"]["post"]["requestBody"]["content"]["application/json"]["schema"]
-
-    assert chat_schema == load_contract_schema("chat_completion_request.schema.json")
-    assert chat_schema["additionalProperties"] is False
-    assert chat_schema["required"] == ["model", "messages"]
-    assert "messages" in chat_schema["properties"]
-
-    assert embedding_schema == load_contract_schema("embedding_request.schema.json")
-    assert embedding_schema["additionalProperties"] is False
-    assert embedding_schema["required"] == ["model", "input"]
-
-    assert risk_schema == load_contract_schema("risk_assessment_request.schema.json")
-    assert risk_schema["additionalProperties"] is False
-    assert risk_schema["required"] == ["prompt"]
-
-
-def test_gateway_generated_openapi_uses_checked_in_response_contracts():
-    app = create_gateway_app(gateway_settings(), FakeGatewayClients())
-    document = app.openapi()
-
-    models_schema = document["paths"]["/v1/models"]["get"]["responses"]["200"]["content"]["application/json"]["schema"]
-    chat_schema = document["paths"]["/v1/chat/completions"]["post"]["responses"]["200"]["content"]["application/json"]["schema"]
-    risk_schema = document["paths"]["/v1/risk/assessments"]["post"]["responses"]["200"]["content"]["application/json"]["schema"]
-
-    assert models_schema == load_contract_schema("model_list_response.schema.json")
-    assert chat_schema == load_contract_schema("chat_completion_response.schema.json")
-    assert risk_schema == load_contract_schema("risk_assessment_response.schema.json")
-    assert "chat_completion_request.schema.json" not in str(chat_schema)
-
-
-def test_risk_adapter_generated_openapi_uses_checked_in_risk_contracts():
-    app = create_risk_adapter_app(risk_settings(), FakeRiskClients())
-    document = app.openapi()
-
-    request_schema = document["paths"]["/v1/risk/assessments"]["post"]["requestBody"]["content"]["application/json"]["schema"]
-    response_schema = document["paths"]["/v1/risk/assessments"]["post"]["responses"]["200"]["content"]["application/json"]["schema"]
-
-    assert request_schema == load_contract_schema("risk_assessment_request.schema.json")
-    assert response_schema == load_contract_schema("risk_assessment_response.schema.json")
-    assert request_schema["additionalProperties"] is False
-    assert response_schema["additionalProperties"] is False
 
 
 def test_contract_openapi_installer_preserves_existing_examples():

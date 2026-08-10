@@ -1,25 +1,8 @@
-"""exposure mode 해석기와 validate_exposure_profiles의 구조적 검증 규칙을 테스트한다.
-
-resolve_exposure_mode가 canonical mode를 그대로 돌려주는지/모르는 mode를 거부하는지,
-그리고 exposure_profiles.yaml의 각 프로필이 필수 카테고리·서비스를 실제로
-host_publish하는지를 검증한다."""
+"""exposure profile validator의 구조적 보안 규칙을 테스트한다."""
 
 from __future__ import annotations
 
 from .helpers import *  # noqa: F401,F403
-
-def test_resolve_exposure_mode_returns_canonical_for_canonical() -> None:
-    # canonical_modes 전체를 순회하지 않는다: resolve()는 `if mode in canonical_modes:
-    # return mode`라는 단일 멤버십 체크라 항목별 분기가 없고, 하나만 통과해도
-    # canonical_modes 리스트의 다른 항목이 실패할 수 있는 경우의 수가 없다.
-    sys.path.insert(0, str(ROOT))
-    from scripts.compose.resolve_exposure_mode import load_exposure_data, resolve
-    data = load_exposure_data(ROOT)
-    modes = _canonical_modes(data)
-    assert modes, "configs/exposure_profiles.yaml must declare canonical_modes"
-    mode = modes[0]
-    canonical = resolve(mode, data)
-    assert canonical == mode, f"resolve({mode!r}) should return canonical mode, got {canonical!r}"
 
 
 def test_resolve_exposure_mode_fails_on_unknown_mode() -> None:

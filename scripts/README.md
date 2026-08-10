@@ -64,7 +64,6 @@ make stop
 | `reports/monitoring_projection_report.py` | ModelRegistry와 monitoring config에서 Prometheus scrape, recording rule, Grafana variable projection JSON/Markdown을 생성한다. |
 | `reports/operator_status_bundle.py` | runtime target, model inventory, GPU budget, monitoring label, readiness vocabulary를 하나의 operator status bundle로 생성한다. |
 | `reports/live_evidence_bundle.py` | operator status bundle과 runtime validation report를 sanitised evidence bundle로 결합한다. 결과는 운영 증빙용이며 release package에는 포함하지 않는다. |
-| `validation/release_check.py` | 서비스 기동 없는 정적 검증 단계를 실행한다. 각 step에는 timeout이 있어 hang 시 실패 step을 명확히 표시한다. |
 | `models/check_hf_model_config.py` | Docker/GPU 없이 Transformers `AutoConfig`만 로드해 vLLM·bitsandbytes 이전 config loader 문제를 분리한다. |
 | `build/package_release.sh` | 배포 ZIP을 만들고 secret, log, cache, egg-info, generated runtime report를 제외한다. ZIP root는 항상 `ai_model_serving_platform/`로 고정한다. |
 | `ops/clean_all.sh` | build 산출물, egg-info와 log를 정리한다. 실행 중 local service가 있으면 중단한다. `--dry-run`으로 삭제 대상을 먼저 볼 수 있다. 모델 cache는 `PURGE_MODEL_CACHE=1`, runtime secret은 `PURGE_RUNTIME_SECRETS=1`일 때만 삭제한다. |
@@ -145,4 +144,4 @@ python scripts/models/modelctl.py propose-remove local-main
 
 ## OpenAPI snapshot diff
 
-`scripts/validation/openapi_snapshot_diff.py`는 strict auth 기준 generated OpenAPI와 checked-in static OpenAPI의 path/method/security/operationId/response status/contract schema drift를 확인한다. `release_check.py`에도 포함되어 있다.
+`scripts/validation/openapi_snapshot_diff.py`는 strict auth 기준 generated OpenAPI와 checked-in static OpenAPI의 path/method/security/operationId/response status/contract schema drift를 확인한다. `make validate`의 정적 검증 단계에 포함된다.

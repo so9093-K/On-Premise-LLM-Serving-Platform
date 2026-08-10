@@ -36,10 +36,6 @@ def _load_exposure() -> dict:
     return yaml.safe_load(EXPOSURE_PROFILES_YAML.read_text(encoding="utf-8"))
 
 
-def _canonical_modes(data: dict) -> list[str]:
-    return data.get("canonical_modes", [])
-
-
 def _profile_diagnostics(*, diagnostic: bool) -> dict[str, bool]:
     return {
         "gateway_bypass_possible": diagnostic,
