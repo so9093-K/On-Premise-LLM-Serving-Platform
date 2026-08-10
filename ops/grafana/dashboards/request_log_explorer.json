@@ -50,7 +50,7 @@
       },
       "targets": [
         {
-          "expr": "{job=\"docker\", service=\"${service}\"} | json event, request_id, client_host, route, error_code | event=\"http_request_completed\" | request_id=~\"${request_id_filter}\" | client_host=~\"${client_host_filter}\" | route=~\"${route_filter}\" | route != \"/metrics\" | route != \"/health\" | error_code=~\"${error_code_filter}\" | drop event, request_id, client_host, route, error_code",
+          "expr": "{job=\"docker\", service=\"${service}\"} | json event, request_id, client_host, route, error_code, status_code, method, latency_ms, prompt_tokens, completion_tokens, total_tokens | event=\"http_request_completed\" | request_id=~\"${request_id_filter}\" | client_host=~\"${client_host_filter}\" | route=~\"${route_filter}\" | route != \"/metrics\" | route != \"/health\" | error_code=~\"${error_code_filter}\" | line_format `{\"status_code\":\"{{.status_code}}\",\"method\":\"{{.method}}\",\"route\":\"{{.route}}\",\"latency_ms\":\"{{.latency_ms}}\",\"prompt_tokens\":\"{{.prompt_tokens}}\",\"completion_tokens\":\"{{.completion_tokens}}\",\"total_tokens\":\"{{.total_tokens}}\",\"client_host\":\"{{.client_host}}\",\"service\":\"{{.service}}\"}` | drop event, request_id, client_host, route, error_code, status_code, method, latency_ms, prompt_tokens, completion_tokens, total_tokens",
           "refId": "A"
         }
       ],
@@ -148,7 +148,7 @@
       },
       "targets": [
         {
-          "expr": "{job=\"docker\", service=\"${service}\"} | json event, status_code, request_id, client_host, route, error_code | event=\"http_request_completed\" | status_code >= 400 | request_id=~\"${request_id_filter}\" | client_host=~\"${client_host_filter}\" | route=~\"${route_filter}\" | error_code=~\"${error_code_filter}\" | drop event, status_code, request_id, client_host, route, error_code",
+          "expr": "{job=\"docker\", service=\"${service}\"} | json | event=\"http_request_completed\" | status_code >= 400 | request_id=~\"${request_id_filter}\" | client_host=~\"${client_host_filter}\" | route=~\"${route_filter}\" | error_code=~\"${error_code_filter}\"",
           "refId": "A"
         }
       ],
