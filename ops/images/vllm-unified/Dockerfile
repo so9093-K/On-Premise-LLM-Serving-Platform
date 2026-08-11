@@ -25,7 +25,7 @@
 # safe because they edit disjoint files (vllm/model_executor/models/gemma4_unified.py
 # + transformers' Gemma4UnifiedAudioFeatureExtractor vs. transformers'
 # configuration_llama.py) -- verified by inspection, 2026-07-24.
-# BASE_IMAGE는 Dockerfile의 숨은 기본값이 아니라 recommended_images.yaml에서
+# BASE_IMAGE는 Dockerfile의 숨은 기본값이 아니라 vllm_unified_build.yaml에서
 # build script가 명시적으로 전달한다. 직접 docker build도 이 인자를 줘야 한다.
 ARG BASE_IMAGE
 FROM ${BASE_IMAGE}

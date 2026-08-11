@@ -4,24 +4,7 @@ from __future__ import annotations
 import argparse
 import json
 from dataclasses import asdict, dataclass
-from pathlib import Path
 from typing import Iterable
-
-try:
-    import yaml as _yaml
-    _REGISTRY_PATH = Path(__file__).resolve().parents[2] / "configs" / "command_registry.yaml"
-
-    def _registry_descriptions() -> dict[str, str]:
-        """command_registry.yaml에서 make_target → description 맵을 반환한다."""
-        if not _REGISTRY_PATH.exists():
-            return {}
-        data = _yaml.safe_load(_REGISTRY_PATH.read_text(encoding="utf-8"))
-        return {cmd["make_target"]: cmd.get("description", "") for cmd in data.get("commands", [])}
-
-except ImportError:
-    def _registry_descriptions() -> dict[str, str]:  # type: ignore[misc]
-        return {}
-
 
 @dataclass(frozen=True)
 class Workflow:
@@ -131,7 +114,6 @@ def _select_workflows(keys: Iterable[str]) -> list[Workflow]:
 
 
 def render_markdown(workflows: list[Workflow]) -> str:
-    desc_map = _registry_descriptions()
     lines = [
         "# Operator Workflow Guide",
         "",
@@ -148,15 +130,7 @@ def render_markdown(workflows: list[Workflow]) -> str:
             "```bash",
         ])
         for cmd_str in workflow.commands:
-            import re as _re
-            m = _re.match(r"(?:.*\s)?make\s+([A-Za-z0-9_][A-Za-z0-9_.-]*)", cmd_str)
-            if m:
-                target = m.group(1)
-                registry_desc = desc_map.get(target, "")
-                suffix = f"  # {registry_desc}" if registry_desc else ""
-                lines.append(f"{cmd_str}{suffix}")
-            else:
-                lines.append(cmd_str)
+            lines.append(cmd_str)
         lines.extend([
             "```",
             "",

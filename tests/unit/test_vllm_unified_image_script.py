@@ -1,5 +1,5 @@
 """scripts/lib/vllm_unified_image.sh(통합 vLLM 이미지 resolver)를 검증한다:
-기본값/커스텀 이미지 해석, base image가 recommended_images.yaml과 일치하는지,
+기본값/커스텀 이미지 해석, base image가 vllm_unified_build.yaml과 일치하는지,
 media 의존성(soundfile/librosa/av)이 검증된 lock 파일을 그대로 쓰는지."""
 
 from __future__ import annotations
@@ -52,6 +52,10 @@ def copy_minimal_repo(tmp_path: Path) -> Path:
         (root / 'configs' / 'recommended_images.yaml').read_text(encoding='utf-8'),
         encoding='utf-8',
     )
+    (repo / 'configs' / 'vllm_unified_build.yaml').write_text(
+        (root / 'configs' / 'vllm_unified_build.yaml').read_text(encoding='utf-8'),
+        encoding='utf-8',
+    )
     return repo
 
 
@@ -63,8 +67,8 @@ def _expected_unified_image() -> str:
 
 def _canonical_base_image() -> str:
     root = Path(__file__).resolve().parents[2]
-    document = yaml.safe_load((root / "configs/recommended_images.yaml").read_text(encoding="utf-8"))
-    return str(document["images"]["vllm"]["base_image_default"])
+    document = yaml.safe_load((root / "configs/vllm_unified_build.yaml").read_text(encoding="utf-8"))
+    return str(document["base_image_default"])
 
 
 def test_vllm_unified_image_resolver_defaults_when_unset(tmp_path):

@@ -59,7 +59,7 @@ Prometheus 내부 scrape target은 `dcgm-exporter:9400`과 `cadvisor:8080`을 �
 
 `ops/compose/full-stack.private-network.yaml`은 Gateway host publish bind를 `GATEWAY_BIND_ADDR`로 제어한다. 175 shared/staging 배포에서는 `.env`에 175 내부 interface IP를 명시하고, 전체 interface publish가 필요한 경우에만 `GATEWAY_BIND_ADDR=0.0.0.0`을 사용한다.
 
-GitLab CI/CD에서 175로 배포할 때는 [GitLab CI/CD 배포 가이드](./gitlab_cicd_deployment.md)를 따른다. 기본 full deploy는 기존 vLLM digest를 유지하고 strict runtime readiness를 실행한다. vLLM Dockerfile/patch/compatibility 입력을 바꿔 새 image를 배포할 때만 `BUILD_VLLM_DERIVED=1`을 명시한다. app/control-plane만 빠르게 갱신할 때는 `DEPLOY_MODE=rolling`을 사용한다.
+GitLab CI/CD에서 175로 배포할 때는 [GitLab CI/CD 배포 가이드](./gitlab_cicd_deployment.md)를 따른다. 기본 full deploy는 기존 vLLM digest를 유지하고 strict runtime readiness를 실행한다. vLLM Dockerfile/patch/compatibility 입력 변경은 derived image를 자동 빌드하며, 그 artifact가 있으면 deploy는 full로 승격한다. app/control-plane만 빠르게 갱신할 때는 `DEPLOY_MODE=rolling`을 사용한다.
 
 
 ## 단일 서비스 재기동

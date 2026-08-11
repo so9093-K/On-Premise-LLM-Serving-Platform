@@ -124,20 +124,10 @@ def expected_compose_args(cfg: dict[str, Any], runtime: Any) -> dict[str, str]:
     return {key: str(value) for key, value in values.items()}
 
 
-_LOCAL_ONLY_IMAGE_PREFIXES = (
-    "ai-model-serving-platform:",
-    "ai-model-serving-vllm-unified:",
-)
-
-
-def validate_production_compose_image_policy(
+def validate_production_compose_no_build_blocks(
     compose_path: Path = COMPOSE_PATH,
 ) -> list[str]:
-    """
-    Ensure the production compose file does not contain local-only image fallbacks
-    or build blocks for any service.  Both are only permitted in the local-build
-    override compose.
-    """
+    """배포 compose가 source build 대신 사전 빌드 artifact만 소비하게 한다."""
     errors: list[str] = []
 
     compose = load_yaml(compose_path)
@@ -226,7 +216,7 @@ def validate_alignment(
     errors: list[str] = []
     total_gpu_util = 0.0
 
-    errors.extend(validate_production_compose_image_policy(compose_path))
+    errors.extend(validate_production_compose_no_build_blocks(compose_path))
     errors.extend(validate_main_llm_bootstrap_image(compose))
 
     for runtime in registry.iter_runtime_services():

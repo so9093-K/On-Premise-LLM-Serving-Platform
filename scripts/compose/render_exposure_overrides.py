@@ -26,8 +26,6 @@ try:
 except ModuleNotFoundError:
     raise SystemExit("Missing dependency: PyYAML.")
 
-OVERRIDES_DIR = ROOT / "ops" / "compose" / "overrides"
-
 _GENERATED_HEADER = """\
 # 자동 생성 파일 — 직접 수정하지 마세요.
 # 생성 명령: python scripts/compose/render_exposure_overrides.py

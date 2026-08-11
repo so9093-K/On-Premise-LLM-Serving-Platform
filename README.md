@@ -366,7 +366,7 @@ Dashboard와 metric 기준은 `docs/operations/monitoring_ux.md`, `ops/grafana/p
 
 | 목적 | 명령 |
 |---|---|
-| 명령 가이드 | `make help`, `make guide`, `make help-full` |
+| 명령 가이드 | `make help`, `make guide` |
 | 기본 검증 | `make validate` |
 | 테스트 | `make test` |
 | App-only 시작/종료 | `make start`, `make stop` |

@@ -1,5 +1,5 @@
 """scripts/lib/deploy_recreate_policy.sh를 검증한다: 컨테이너 재생성이 필요한
-조건(불변 digest로 새 이미지가 준비됐는지, recommended_images.yaml의 빌드
+조건(불변 digest로 새 이미지가 준비됐는지, vllm_unified_build.yaml의 빌드
 입력이 실제로 바뀌었는지)을 셸 함수 단위로 확인한다."""
 
 from __future__ import annotations
@@ -55,26 +55,19 @@ def _config_changed(before: Path, after: Path) -> bool:
     return _config_compare_status(before, after) == 0
 
 
-def test_unified_image_config_policy_ignores_unrelated_images_but_detects_build_inputs(tmp_path):
+def test_unified_image_config_policy_detects_build_inputs(tmp_path):
     before = tmp_path / "before"
     after = tmp_path / "after"
     for root in (before, after):
         (root / "configs").mkdir(parents=True)
-        (root / "configs" / "recommended_images.yaml").write_text(
-            (ROOT / "configs" / "recommended_images.yaml").read_text(encoding="utf-8"),
+        (root / "configs" / "vllm_unified_build.yaml").write_text(
+            (ROOT / "configs" / "vllm_unified_build.yaml").read_text(encoding="utf-8"),
             encoding="utf-8",
         )
 
-    document = yaml.safe_load((after / "configs" / "recommended_images.yaml").read_text(encoding="utf-8"))
-    document["images"]["grafana"]["default"] = "grafana/grafana:next"
-    (after / "configs" / "recommended_images.yaml").write_text(
-        yaml.safe_dump(document, allow_unicode=True, sort_keys=False),
-        encoding="utf-8",
-    )
-    assert not _config_changed(before, after)
-
-    document["images"]["vllm"]["compatibility_pins"]["transformers"] = "5.13.2"
-    (after / "configs" / "recommended_images.yaml").write_text(
+    document = yaml.safe_load((after / "configs" / "vllm_unified_build.yaml").read_text(encoding="utf-8"))
+    document["compatibility_pins"]["transformers"] = "5.13.2"
+    (after / "configs" / "vllm_unified_build.yaml").write_text(
         yaml.safe_dump(document, allow_unicode=True, sort_keys=False),
         encoding="utf-8",
     )

@@ -23,13 +23,13 @@ loudly instead of shipping silently broken.
 
 ## Build & activate
 
-1. Start the `release` pipeline with **`DEPLOY_MODE=full`** (or
-   `BUILD_VLLM_DERIVED=1`) — the expensive ~25 GB build is a deliberate
-   operator opt-in (`test_gitlab_ci_vllm_derived_build_contract`), not
-   automatic on source change.
+1. Push a `release` commit that changes a vLLM image input. CI automatically
+   runs **`build-vllm-derived`**. Use `BUILD_VLLM_DERIVED=1` only for an
+   intentional rebuild without a new input change or for a tag pipeline.
 2. **`build-vllm-derived`** builds & pushes `vllm-unified` and writes the
    immutable digest to the **`build/vllm-unified-image.env`** artifact.
-3. **`deploy-gpu-175`** reads that digest, pre-pulls the image, and writes the
+3. **`deploy-gpu-175`** reads that digest, switches to full deployment, pre-pulls
+   the image, and writes the
    same pin to `VLLM_IMAGE`, `EMBEDDING_KO_VLLM_IMAGE`, `RISK_VLLM_IMAGE`, and
    `AUDIO_VLLM_IMAGE` in the 175 `.env`. `main_model_profiles.yaml` uses the
    latter for the 12B profile override.
@@ -41,7 +41,7 @@ make build-vllm-unified-image
 docker push gitlab.wizvera.com:4567/acl-ai-system/acl-ai-gateway/vllm-unified:<tag>
 ```
 
-기본 base image와 호환성 pin은 `configs/recommended_images.yaml`에서 읽는다. 검증용
+기본 base image와 호환성 pin은 `configs/vllm_unified_build.yaml`에서 읽는다. 검증용
 base 교체가 필요한 경우에만 `RISK_VLLM_BASE_IMAGE=<immutable digest>`를 명시한다.
 
 ## Switch & validate (main-LLM profile)

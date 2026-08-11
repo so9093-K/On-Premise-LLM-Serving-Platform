@@ -401,7 +401,6 @@ documents:
       - src/ai_model_serving/contracts/chat_tools.py
       - src/ai_model_serving/contracts/media.py
     verified_by:
-      - tests/contract/test_error_catalog.py
       - scripts/render_runtime_assets.py
   - path: docs/specs/api_docs_reference.md
     type: reference

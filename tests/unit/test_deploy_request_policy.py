@@ -58,6 +58,18 @@ def test_resolve_mode_keeps_explicit_rolling_override():
     assert result.stdout == "rolling|"
 
 
+def test_fresh_unified_image_promotes_rolling_request_to_full():
+    image = "registry.example/vllm@sha256:" + "c" * 64
+    result = run_policy(
+        'deploy_resolve_mode; printf "%s|%s" "$DEPLOY_MODE" "$DEPLOY_MODE_REASON"',
+        DEPLOY_MODE="rolling",
+        VLLM_UNIFIED_IMAGE_TO_DEPLOY=image,
+    )
+
+    assert result.returncode == 0
+    assert result.stdout == "full|fresh unified vLLM image artifact"
+
+
 def test_rolling_deploy_rejects_runtime_startup_policy():
     result = run_policy(
         'DEPLOY_MODE=rolling; RUN_READY_FULL_SMOKE=1; DEPLOY_RUNTIME_PROFILE=full_hot; '

@@ -38,7 +38,7 @@ make bootstrap      = 전체 재빌드 (.venv + 의존성 + .env + 검증 + 플�
 | CI / 릴리스 공통 빌드 | `make build` | 정적 검증 + 결정론적 테스트 + 플랫폼 이미지 | 아니오 |
 | 타깃 재빌드 | `make rebuild-app` / `make build-image` | 플랫폼 이미지만 | 아니오 |
 | 타깃 재빌드 | `make rebuild-vllm-unified` / `make build-vllm-unified-image` | vLLM unified 이미지(26B/12B/embedding/embedding-ko/risk-prompt 공용) | 예 (이것만) |
-| CI derived 이미지 | `build-vllm-derived` | vLLM unified 이미지(`vllm-unified`) 빌드/push | 예 (명시 opt-in) |
+| CI derived 이미지 | `build-vllm-derived` | vLLM build 입력 변경 시 unified 이미지(`vllm-unified`) 자동 빌드/push | 예 |
 
 **`make build`는 vLLM unified 이미지를 빌드하지 않는다.** CI와 릴리스 파이프라인은 vLLM runtime에 의존하지 않고 플랫폼 아티팩트만 재현 가능하게 생성해야 하기 때문이다. vLLM unified 이미지는 `make first-run`, `make bootstrap`, `make rebuild-vllm-unified`, `make build-vllm-unified-image`로만 생성된다.
 
@@ -50,7 +50,7 @@ make bootstrap      = 전체 재빌드 (.venv + 의존성 + .env + 검증 + 플�
 
 - `ops/images/vllm-unified/Dockerfile` 수정
 - `ops/patches/transformers_llama_head_dim_guard.py` 또는 `ops/patches/apply_gemma4_multimodal_patches.py` 수정
-- `configs/recommended_images.yaml`의 unified-image base digest 또는 compatibility pin 변경
+- `configs/vllm_unified_build.yaml`의 base digest 또는 compatibility pin 변경
 - vLLM base 이미지 교체
 
 앱 코드만 변경한 경우 vLLM unified 이미지는 그대로 사용할 수 있다.
@@ -157,8 +157,8 @@ SKIP_RISK_VLLM_IMAGE_BUILD=auto AUTH_MODE=local_open make rebuild-full
 make rebuild-app
 ```
 
-`ops/images/vllm-unified/Dockerfile`, `ops/patches/`, `configs/recommended_images.yaml`의 unified-image base digest 또는 compatibility pin이 변경된 경우에는 `SKIP_RISK_VLLM_IMAGE_BUILD=auto`를 사용하지 않고 전체 `make first-run`을 실행하거나 `make rebuild-vllm-unified`를 직접 호출한다.
-main-LLM(26B/12B)이 쓰는 digest를 갱신해야 하는 경우에는 로컬 `make rebuild-vllm-unified`가 아니라 release/tag pipeline의 `build-vllm-derived`를 `BUILD_VLLM_DERIVED=1`로 명시해 새 digest를 만들고 배포 `.env`의 `AUDIO_VLLM_IMAGE`(및 `VLLM_IMAGE`/`RISK_VLLM_IMAGE`/`EMBEDDING_KO_VLLM_IMAGE`)에 pin한다. 일반 `DEPLOY_MODE=full`은 기존 digest를 유지한다.
+`ops/images/vllm-unified/Dockerfile`, 실제 patch, `configs/vllm_unified_build.yaml`의 base digest 또는 compatibility pin이 변경된 경우에는 `SKIP_RISK_VLLM_IMAGE_BUILD=auto`를 사용하지 않고 전체 `make first-run`을 실행하거나 `make rebuild-vllm-unified`를 직접 호출한다.
+main-LLM(26B/12B)이 쓰는 digest를 갱신하는 vLLM build 입력은 release commit에서 `build-vllm-derived`를 자동 실행한다. 생성된 artifact가 있으면 수동 deploy job은 full로 승격되어 새 digest를 `.env`의 `AUDIO_VLLM_IMAGE`(및 `VLLM_IMAGE`/`RISK_VLLM_IMAGE`/`EMBEDDING_KO_VLLM_IMAGE`)에 함께 pin한다. `BUILD_VLLM_DERIVED=1`은 입력 변경 없는 의도적 재빌드/tag build에만 사용한다. 일반 `DEPLOY_MODE=full`은 기존 digest를 유지한다.
 
 ### 전체 초기화 + 재빌드
 

@@ -240,23 +240,23 @@ if [[ "${DEPLOY_MODE}" != "full" &&
   exit 2
 fi
 
-# STALE된 derived 이미지가 조용히 배포되는 걸 막는 가드. GitLab 12.1.1은 소스 변경 시
-# 자동 빌드를 못 하므로(rule engine 없음), ~25GB짜리 빌드는 수동 opt-in이다 — 즉
-# 운영자가 vllm-unified Dockerfile/patch를 고치고 재빌드를 깜빡할 수 있다. 이전
-# release 이후 이미지 소스가 바뀌었는데 새 digest가 배포되지 않는 상태라면
-# (build-vllm-derived가 안 돌아서 -> 여기서 unified image override가 비어 있음,
-# preflight의 current-.env 폴백 이전) 기존 이미지가 그대로 배포돼 버린다. 조용히
-# 넘어가지 말고 확실하게 실패시킨다. Kanana head_dim patch도 이 목록에 포함한다.
+# source-drift 최종 가드. release commit의 일반 경로는 CI only:changes가 새
+# unified image를 자동 빌드하지만, 이전 배포 이후 여러 commit을 건너뛴 수동
+# pipeline까지 CI의 직전-commit diff만으로 완전히 판별할 수는 없다. 이 비교는
+# 그런 경우 기존 digest의 조용한 재사용을 배포 직전에 막는다.
 if [[ -n "${PREVIOUS_RELEASE}" && -d "${PREVIOUS_RELEASE}" ]]; then
   _unified_image_source=(
+    ".dockerignore"
     "ops/images/vllm-unified/Dockerfile"
     "ops/images/vllm-unified/requirements.media.lock"
     "ops/patches/apply_gemma4_multimodal_patches.py"
     "ops/patches/transformers_llama_head_dim_guard.py"
+    "scripts/ci/build_vllm_derived_images.sh"
+    "scripts/models/print_vllm_unified_compatibility.py"
   )
   mapfile -t _changed_unified_image_source < <(deploy_changed_files "${PREVIOUS_RELEASE}" "${RELEASE_PATH}" "${_unified_image_source[@]}")
   if deploy_unified_image_config_changed "${PREVIOUS_RELEASE}" "${RELEASE_PATH}"; then
-    _changed_unified_image_source+=("configs/recommended_images.yaml (images.vllm build inputs)")
+    _changed_unified_image_source+=("configs/vllm_unified_build.yaml")
   else
     _config_compare_status=$?
     if [[ ${_config_compare_status} -ne 1 ]]; then
@@ -268,8 +268,8 @@ if [[ -n "${PREVIOUS_RELEASE}" && -d "${PREVIOUS_RELEASE}" ]]; then
     echo "[deploy] ERROR: vllm-unified image source changed but build-vllm-derived did not run." >&2
     echo "[deploy]   No fresh immutable unified image artifact — deploying now would ship the previous image." >&2
     printf '[deploy]   Changed source: %s\n' "${_changed_unified_image_source[@]}" >&2
-    echo "[deploy]   Re-trigger the pipeline with BUILD_VLLM_DERIVED=1 so the image is rebuilt" >&2
-    echo "[deploy]   before deploy." >&2
+    echo "[deploy]   Push the vLLM input change through release so CI builds it automatically," >&2
+    echo "[deploy]   or re-trigger with BUILD_VLLM_DERIVED=1 for this historical source drift." >&2
     rm -rf "${RELEASE_PATH}"
     exit 2
   fi

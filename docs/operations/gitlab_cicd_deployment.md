@@ -32,10 +32,11 @@ GitLab 12.1.1-ee 호환 구성이다. `workflow:`, `needs:`, `rules:`,
 - `master`: `validate`, `unit-test`, `build-platform`
 - `release` (기본 full): `validate`, `unit-test`, `build-platform`, manual `deploy-gpu-175`. 기존 vLLM digest를 유지한 채 strict full readiness를 실행한다.
 - `release` (명시적 rolling): Run pipeline에서 `DEPLOY_MODE=rolling` → app/control-plane만 재시작, manual `deploy-gpu-175`
-- `release` (vLLM-derived image build only): pipeline을 `BUILD_VLLM_DERIVED=1`로 시작 → `build-vllm-derived` 자동 포함
+- `release` (vLLM image input 변경): `build-vllm-derived` 자동 실행 → fresh digest artifact 생성
+ `release`/tag (강제 재빌드): `BUILD_VLLM_DERIVED=1` → `build-vllm-derived-force` 실행
 - tag: platform/vLLM image artifact을 생성한다. GPU 배포 job은 `release` branch에만 있으므로 tag 자체는 배포하지 않는다.
 
-`build-vllm-derived`는 `release`/tag ref에서 `BUILD_VLLM_DERIVED=1`을 명시한 pipeline에서만 실행된다. 이는 vLLM Dockerfile, patch, base-image/compatibility 입력을 바꿔 새 digest를 배포하려는 명시적 작업이다.
+`build-vllm-derived`는 release commit에서 Dockerfile, 실제 patch, media lock, base-image/compatibility 입력과 build helper가 바뀌면 자동 실행된다. `BUILD_VLLM_DERIVED=1`은 입력 변경 없는 재빌드·tag build를 위한 `build-vllm-derived-force`에만 사용한다.
 
 `build-vllm-derived`는 vLLM unified 이미지(26B/12B/embedding/embedding-ko/risk-prompt 공용)를 `vllm-unified` registry 이름 하나로 빌드/push한다. CI의 `VLLM_UNIFIED_IMAGE_*`가 유일한 build ref이며, 생성된 immutable digest를 배포 단계에서 risk-prompt와 12B profile에 투영한다. `embedding-ko-vllm`도 이 이미지를 쓰지만 별도 빌드 없이 `EMBEDDING_KO_VLLM_IMAGE` 태그만 가리킨다. 실행된 job이 실패하면 release 실패로 처리된다(`allow_failure: false`). 빌드 로직은 `scripts/ci/build_vllm_derived_images.sh`에서 관리한다.
 
@@ -59,7 +60,7 @@ Platform image는 commit tag와 branch tag를 항상 push한다. `release` branc
 ## 선택 변수
 
 - `DEPLOY_COMPOSE_FILE`: 기본값 `ops/compose/full-stack.private-network.yaml`
-- `DEPLOY_MODE`: `rolling` 또는 `full`, 기본값 `full`. `full`은 기존 vLLM digest를 유지하며 strict readiness를 실행한다. 새 vLLM digest까지 배포할 때는 `BUILD_VLLM_DERIVED=1`을 함께 지정한다.
+- `DEPLOY_MODE`: `rolling` 또는 `full`, 기본값 `full`. `full`은 기존 vLLM digest를 유지하며 strict readiness를 실행한다. 이번 pipeline의 fresh unified digest가 있으면 지정값과 관계없이 full로 승격한다.
 - `AUTH_MODE`: 배포 시 auth profile 적용. `local_open`, `private_network`, `strict` 등. 미설정 시 175 `.env` 현재값 유지
 - `GATEWAY_BIND_ADDR`: Gateway host publish bind 주소
 - `GATEWAY_HEALTH_URL`: 배포 후 health check URL
@@ -182,7 +183,7 @@ runtime config(chat template·model profile·compose) 변경, 초기 구축, sta
 
 ### Full runtime deploy with a new vLLM image
 
-`ops/images/vllm-unified/Dockerfile`, `ops/patches/`, 또는 unified image compatibility 입력을 바꾼 경우에는 Run pipeline에서 `BUILD_VLLM_DERIVED=1`과 `DEPLOY_MODE=full`을 함께 지정한다. 새 immutable digest가 risk-prompt, main LLM, embedding, embedding-ko에 함께 pin되므로 이 경우에만 전체 vLLM fleet의 순차 cold start가 의도적으로 발생한다. image 입력이 바뀌었는데 artifact가 없으면 deploy는 현재 digest를 조용히 재사용하지 않고 컨테이너 변경 전에 실패한다.
+`ops/images/vllm-unified/Dockerfile`, 실제 patch, media lock, 또는 unified image compatibility 입력 변경은 release에서 자동 build된다. 새 immutable digest가 risk-prompt, main LLM, embedding, embedding-ko에 함께 pin되므로 이 경우에만 전체 vLLM fleet의 순차 cold start가 의도적으로 발생한다. artifact가 있으면 deploy는 full로 승격하며, image 입력이 바뀌었는데 artifact가 없으면 현재 digest를 조용히 재사용하지 않고 컨테이너 변경 전에 실패한다.
 
 > 참고: 모든 service가 `env_file: ../../.env`로 shared `.env`를 통째로 로드하기
 > 때문에, deploy마다 바뀌는 키(`PLATFORM_IMAGE` digest, `DEPLOY_RELEASE_ID` 등)로
@@ -303,14 +304,14 @@ CI job과 로컬 make target은 목적이 다르며 독립적으로 실행된다
 | 목적 | CI job / 로컬 명령 | 변수 기반 |
 |---|---|---|
 | Platform 이미지 빌드 + push | `build-platform` (CI) | `CI_REGISTRY_IMAGE` 등 CI 변수 |
-| 로컬 vLLM unified 이미지 빌드 | `make build-vllm-unified-image` | `configs/recommended_images.yaml` 기본값, 필요 시 `.env`의 `RISK_VLLM_BASE_IMAGE`, `RISK_VLLM_IMAGE` |
-| vLLM unified 이미지 빌드/push(CI) | `build-vllm-derived` 또는 `ops/images/vllm-unified/README.md` 수동 fallback | `configs/recommended_images.yaml` 기본값, 필요 시 `VLLM_BASE_IMAGE` override, `VLLM_UNIFIED_IMAGE_*` |
+| 로컬 vLLM unified 이미지 빌드 | `make build-vllm-unified-image` | `configs/vllm_unified_build.yaml`의 build 입력, 필요 시 `.env`의 `RISK_VLLM_BASE_IMAGE`, `RISK_VLLM_IMAGE` |
+| vLLM unified 이미지 빌드/push(CI) | `build-vllm-derived` 또는 `ops/images/vllm-unified/README.md` 수동 fallback | `configs/vllm_unified_build.yaml` 기본값, 필요 시 `VLLM_BASE_IMAGE` override, `VLLM_UNIFIED_IMAGE_*` |
 
 
 
 derived Dockerfile: `ops/images/vllm-unified/Dockerfile` 하나뿐이다(26B/12B/embedding/embedding-ko/risk-prompt 공용, Gemma4 멀티모달 패치 + Kanana Llama head_dim 패치 병합) -- CI는 이 이미지를 `vllm-unified` registry 이름 하나로 빌드/push한다. `embedding-ko-vllm`도 이 이미지를 쓰지만 `EMBEDDING_KO_VLLM_IMAGE` 태그만 가리키고 별도 빌드는 하지 않는다.
 
-`configs/recommended_images.yaml`의 `images.vllm.base_image_default`와 `compatibility_pins`가 unified base image와 dependency의 단일 기준이다. 현재 pinned base digest는 `transformers 5.13.1`과 `huggingface_hub 1.23.0`을 제공하며, Dockerfile build와 HF canary는 이 정확한 쌍을 검증한다. `transformers_min 4.52.4`는 Kanana 모델의 과거 최소 호환 조건일 뿐, 설치할 패키지 버전이 아니다.
+`configs/vllm_unified_build.yaml`의 `base_image_default`와 `compatibility_pins`가 unified base image와 dependency의 단일 기준이다. 현재 pinned base digest는 `transformers 5.13.1`과 `huggingface_hub 1.23.0`을 제공하며, Dockerfile build와 HF canary는 이 정확한 쌍을 검증한다. `transformers_min 4.52.4`는 Kanana 모델의 과거 최소 호환 조건일 뿐, 설치할 패키지 버전이 아니다.
 
 운영 원칙:
 

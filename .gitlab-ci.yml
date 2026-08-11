@@ -11,7 +11,7 @@ variables:
   PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
   DOCKER_BUILDKIT: "1"
   # 모든 served model(26B/12B main-LLM, embedding, embedding-ko, risk-prompt)이 공유하는
-  # base image는 configs/recommended_images.yaml이 단일 기준이다. 기본값을 바꿀
+  # base image와 호환성 pin은 configs/vllm_unified_build.yaml이 단일 기준이다. 기본값을 바꿀
   # 필요가 있는 특별한 pipeline만 CI/CD 변수 VLLM_BASE_IMAGE로 명시적으로 override한다.
   # v0.25.1에서는 dense 양자화 모델에 Model Runner V2가 기본 적용돼, 이전에 고정해뒀던
   # dev 빌드에서 겪던 12B의 구조화 출력 JIT-웜업 갭이 닫힌다 — 실제 GPU 로드로 검증함
@@ -121,11 +121,42 @@ build-platform:
 # vLLM unified 런타임 이미지를 한 번 빌드해 단일 registry 경로에 push한다. 큰(~25 GB)
 # vLLM base 이미지도 한 번만 pull한다. embedding-ko-vllm은 EMBEDDING_KO_VLLM_IMAGE를
 # 쓰므로 별도 빌드가 필요 없다.
-# Dockerfile/patch/호환성 입력을 바꿔 새 런타임 image를 배포할 때만
-# BUILD_VLLM_DERIVED=1로 명시적으로 실행한다. 일반 full 배포는 이미 pin된
-# digest를 유지하므로 GPU 모델 전체를 불필요하게 cold-start하지 않는다.
+# 실제 Docker build 입력이 바뀐 release commit에서만 자동 실행한다. 일반 full
+# 배포는 기존 pin을 유지하므로 GPU 모델 전체를 불필요하게 cold-start하지 않는다.
+# BUILD_VLLM_DERIVED=1은 source-drift guard가 잡은 과거 변경을 재빌드하거나,
+# tag에서 의도적으로 다시 만들 때만 아래 force job에 사용한다.
 # allow_failure: false — job이 실행됐는데 실패하면 release 실패로 취급한다.
 build-vllm-derived:
+  extends: .docker-build
+  stage: build
+  script:
+    - bash scripts/ci/build_vllm_derived_images.sh
+  only:
+    refs:
+      - release
+    changes:
+      - .dockerignore
+      - ops/images/vllm-unified/Dockerfile
+      - ops/images/vllm-unified/requirements.media.lock
+      - ops/patches/apply_gemma4_multimodal_patches.py
+      - ops/patches/transformers_llama_head_dim_guard.py
+      - configs/vllm_unified_build.yaml
+      - scripts/ci/build_vllm_derived_images.sh
+      - scripts/models/print_vllm_unified_compatibility.py
+  except:
+    variables:
+      - $BUILD_VLLM_DERIVED == "1"
+  allow_failure: false
+  artifacts:
+    # unified 이미지의 immutable digest. 배포 시 risk-prompt와 12B profile에
+    # 같은 digest를 투영한다.
+    paths:
+      - build/vllm-unified-image.env
+    expire_in: 7 days
+
+# 자동 변경 감지로 잡히지 않는 재배포/태그에만 명시적으로 사용한다.
+# 변경 commit에서는 자동 job만 실행되도록 위 job에서 BUILD_VLLM_DERIVED=1을 제외했다.
+build-vllm-derived-force:
   extends: .docker-build
   stage: build
   script:
@@ -138,15 +169,14 @@ build-vllm-derived:
       - $BUILD_VLLM_DERIVED == "1"
   allow_failure: false
   artifacts:
-    # unified 이미지의 immutable digest. 배포 시 risk-prompt와 12B profile에
-    # 같은 digest를 투영한다.
     paths:
       - build/vllm-unified-image.env
     expire_in: 7 days
 
 # 175 GPU 런타임 서버로의 수동 배포.
 # Full 런타임 배포(기본값): 기존에 pin된 vLLM image를 유지하며 실제 변경 서비스만
-#   수렴한다. vLLM image 입력을 바꾼 배포는 BUILD_VLLM_DERIVED=1을 함께 지정한다.
+#   수렴한다. 이번 pipeline에서 새 unified digest가 생기면 deploy script가 full로
+#   승격해 fleet 교체와 ready-full을 함께 수행한다.
 # Rolling 배포: Run pipeline에서 DEPLOY_MODE=rolling을 명시하면 gateway,
 #   admin-sidecar, risk-adapter만 재시작한다.
 # 필수 CI/CD 변수:
@@ -158,7 +188,7 @@ build-vllm-derived:
 #   REGISTRY_DEPLOY_USER read_registry 권한을 가진 GitLab Deploy Token 사용자명
 #   REGISTRY_DEPLOY_PASSWORD read_registry 권한을 가진 GitLab Deploy Token 비밀번호/토큰
 # 선택 변수:
-#   BUILD_VLLM_DERIVED   "1"로 설정하면 vLLM-derived 이미지를 빌드/push
+#   BUILD_VLLM_DERIVED   "1"이면 자동 감지 밖의 재빌드/tag build를 명시
 #   DEPLOY_COMPOSE_FILE  ops/compose/full-stack.private-network.yaml
 #   DEPLOY_MODE          기본값 full. 빠른 platform-only 배포는 Run pipeline에서
 #                        rolling으로 명시한다.
@@ -173,9 +203,10 @@ deploy-gpu-175:
   image: alpine:3.20
   dependencies:
     - build-platform
-    # build-vllm-derived는 BUILD_VLLM_DERIVED=1일 때만 실행된다. artifact가 없으면
-    # 배포 대상의 기존 immutable vLLM pin을 그대로 유지한다.
+    # 자동/force job 어느 쪽도 artifact가 없으면 배포 대상의 기존 immutable vLLM
+    # pin을 그대로 유지한다.
     - build-vllm-derived
+    - build-vllm-derived-force
   tags:
     - ai-serving
     - docker-build

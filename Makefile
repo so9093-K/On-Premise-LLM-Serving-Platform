@@ -10,19 +10,25 @@ AUTH_ENV ?= $(if $(ENV_FILE),$(ENV_FILE),$(ENV))
 AUTH_ENV_ARG = $(if $(AUTH_ENV),--env $(AUTH_ENV),)
 
 
-.PHONY: help help-full help-json command-check guide init-env-local init-env-compose init-env-compose-force sync-runtime-secrets sync-env validate test build build-image build-vllm-unified-image rebuild-app rebuild-vllm-unified package start compose-up compose-up-master preflight-compose compose-config ready-local ready-full smoke runtime-validate runtime-targets auth-status auth-doctor auth-plan auth-apply exposure-status exposure-plan exposure-apply monitoring-projection operator-status operator-reports live-evidence vllm-commands hf-config-check main-model-prepare risk-vllm-config-check model-list model-status model-validate model-diff model-propose-add model-propose-remove status stop compose-down compose-restart compose-logs logs compose-diagnostics clean clean-dry-run remove-plan clean-all reset bootstrap first-run rebuild-full doctor reset-version render-runtime-assets
+.PHONY: help guide init-env-local init-env-compose init-env-compose-force sync-runtime-secrets sync-env validate test build build-image build-vllm-unified-image rebuild-app rebuild-vllm-unified package start compose-up compose-up-master preflight-compose compose-config ready-local ready-full smoke runtime-validate runtime-targets auth-status auth-doctor auth-plan auth-apply exposure-status exposure-plan exposure-apply monitoring-projection operator-status operator-reports live-evidence vllm-commands hf-config-check main-model-prepare risk-vllm-config-check model-list model-status model-validate model-diff model-propose-add model-propose-remove status stop compose-down compose-restart compose-logs logs compose-diagnostics clean clean-dry-run remove-plan clean-all reset bootstrap first-run rebuild-full doctor reset-version render-runtime-assets
 
 help:
-	@$(PYTHON) scripts/commands/render_command_help.py
-
-help-full:
-	@$(PYTHON) scripts/commands/render_command_help.py --mode full
-
-help-json:
-	@$(PYTHON) scripts/commands/render_command_help.py --json
-
-command-check:
-	$(PYTHON) scripts/commands/validate_command_registry.py --strict
+	@echo "ai_model_serving_platform $(CURRENT_VERSION)"
+	@echo ""
+	@echo "  make validate             # 정적 계약·설정·생성물 drift 검증"
+	@echo "  make test                 # 결정론적 unit·contract 테스트"
+	@echo "  make build                # validate + test + platform image build"
+	@echo "  make package              # 릴리스 ZIP 생성"
+	@echo "  make init-env-local       # 로컬 app-only .env 생성"
+	@echo "  make start                # Gateway·Risk Adapter 기동"
+	@echo "  make ready-local          # app-only readiness"
+	@echo "  make compose-up           # GPU full-stack compose 기동"
+	@echo "  make ready-full           # vLLM 포함 readiness"
+	@echo "  make runtime-validate     # 실제 서비스·GPU 검증"
+	@echo "  make status               # 서비스 상태"
+	@echo "  make guide                # 상황별 실행 흐름"
+	@echo ""
+	@echo "상세 운영 문서: docs/README.md"
 
 guide:
 	$(PYTHON) scripts/reports/operator_guide.py

@@ -21,13 +21,12 @@ def main() -> int:
     )
     args = parser.parse_args()
     document = yaml.safe_load(
-        (ROOT / "configs/recommended_images.yaml").read_text(encoding="utf-8")
+        (ROOT / "configs/vllm_unified_build.yaml").read_text(encoding="utf-8")
     )
-    vllm = document["images"]["vllm"]
     value = (
-        vllm["base_image_default"]
+        document["base_image_default"]
         if args.key == "base_image"
-        else vllm["compatibility_pins"][args.key]
+        else document["compatibility_pins"][args.key]
     )
     print(str(value))
     return 0

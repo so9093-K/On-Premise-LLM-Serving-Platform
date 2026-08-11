@@ -36,13 +36,12 @@ deploy_has_fresh_unified_image_artifact() {
 }
 
 deploy_unified_image_config_changed() {
-  # recommended_images.yaml 전체가 아니라 unified Docker build가 실제로 읽는
-  # base digest와 compatibility pin만 비교한다. Grafana 같은 다른 이미지 설정 변경이
+  # unified Docker build의 단일 설정만 비교한다. 일반 runtime image tag 변경이
   # 비싼 vLLM 재빌드를 강제하지 않게 하면서, base/pin drift는 놓치지 않는다.
   local baseline="$1" current="$2" python_bin
   [[ -n "$baseline" && -d "$baseline" ]] || return 1
   python_bin="${PYTHON_BIN:-$(command -v python3.12 || command -v python3 || command -v python)}"
-  "$python_bin" - "$baseline/configs/recommended_images.yaml" "$current/configs/recommended_images.yaml" <<'PY'
+  "$python_bin" - "$baseline/configs/vllm_unified_build.yaml" "$current/configs/vllm_unified_build.yaml" <<'PY'
 from __future__ import annotations
 
 import sys
@@ -55,15 +54,9 @@ def relevant(path: Path) -> dict:
     document = yaml.safe_load(path.read_text(encoding="utf-8"))
     if not isinstance(document, dict):
         raise ValueError("configuration root must be an object")
-    images = document.get("images")
-    if not isinstance(images, dict):
-        raise ValueError("images must be an object")
-    vllm = images.get("vllm")
-    if not isinstance(vllm, dict):
-        raise ValueError("images.vllm must be an object")
     return {
-        "base_image_default": vllm.get("base_image_default"),
-        "compatibility_pins": vllm.get("compatibility_pins"),
+        "base_image_default": document.get("base_image_default"),
+        "compatibility_pins": document.get("compatibility_pins"),
     }
 
 

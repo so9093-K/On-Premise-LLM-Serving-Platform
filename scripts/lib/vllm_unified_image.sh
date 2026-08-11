@@ -54,7 +54,7 @@ vllm_unified_resolve_images() {
 
   VLLM_IMAGE_RESOLVED="${VLLM_IMAGE:-${file_main:-$default_image}}"
   # 환경 변수/.env 값은 운영 환경의 명시적 override로만 허용한다. 값이 없을 때는
-  # recommended_images.yaml의 immutable digest 하나를 모든 경로가 사용한다.
+  # vllm_unified_build.yaml의 immutable base digest 하나를 모든 경로가 사용한다.
   RISK_VLLM_BASE_IMAGE_RESOLVED="${RISK_VLLM_BASE_IMAGE:-${file_base:-$canonical_base_image}}"
   RISK_VLLM_IMAGE_RESOLVED="${RISK_VLLM_IMAGE:-${file_risk:-$default_image}}"
 
