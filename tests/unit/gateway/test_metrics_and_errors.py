@@ -9,7 +9,7 @@ import logging
 
 from .helpers import *  # noqa: F401,F403
 from starlette.requests import Request
-from ai_model_serving.logging_policy import safe_request_log_record
+from ai_model_serving.logging_policy import record_error_diagnosis, record_readiness_failure, safe_request_log_record
 from ai_model_serving.metrics import Metrics
 from ai_model_serving.errors import error_payload, error_response_headers
 from ai_model_serving.settings import CorsSettings
@@ -186,6 +186,45 @@ def test_access_log_records_error_code_and_response_echoed_request_id():
     assert record["request_id"] == "req_minted_abc"
 
 
+def test_access_log_records_allowlisted_error_diagnosis_only():
+    request = _bare_request()
+    record_error_diagnosis(
+        request,
+        code="UPSTREAM_ERROR",
+        retryable=True,
+        debug={"cause_type": "HTTPStatusError", "cause_message": "upstream rejected", "upstream_status": 502, "upstream_body": "do not log"},
+    )
+
+    record = safe_request_log_record(service="gateway", request=request, status_code=502, elapsed_seconds=0.02)
+
+    assert record["error_code"] == "UPSTREAM_ERROR"
+    assert record["error_retryable"] is True
+    assert record["error_cause_type"] == "HTTPStatusError"
+    assert record["error_cause_message"] == "upstream rejected"
+    assert record["error_upstream_status"] == 502
+    assert "upstream_body" not in record
+
+
+def test_access_log_records_readiness_failure_summary():
+    request = _bare_request()
+    record_readiness_failure(
+        request,
+        {
+            "status": "not_ready",
+            "dependencies": [
+                {"name": "main_llm_vllm", "status": "ready"},
+                {"name": "risk_prompt_vllm", "status": "not_ready", "message": "READINESS_TIMEOUT"},
+            ],
+        },
+    )
+
+    record = safe_request_log_record(service="gateway", request=request, status_code=503, elapsed_seconds=0.02)
+
+    assert record["readiness_status"] == "not_ready"
+    assert record["readiness_dependencies"] == "risk_prompt_vllm"
+    assert record["readiness_summary"] == "risk_prompt_vllm: READINESS_TIMEOUT"
+
+
 def test_access_log_includes_masked_request_response_body_when_set_on_request_state():
     request = _bare_request()
     request.state.request_body_masked = "user: 이메일은 [EMAIL_ADDRESS]입니다"
@@ -228,7 +267,7 @@ def test_access_log_omits_error_fields_for_success_responses():
     assert "error_message" not in record
 
 
-def test_access_log_middleware_emits_error_code_and_request_id_from_response_headers():
+def test_access_log_middleware_emits_api_error_diagnosis_and_request_id():
     # gateway 로거는 service_logger()가 propagate=False로 자체 StreamHandler를 붙여서
     # 쓰기 때문에, pytest caplog(root logger 기반)가 아니라 이 로거에 직접 핸들러를
     # 붙여 실제 미들웨어(safe_request_logging_middleware)가 응답 헤더의
@@ -250,8 +289,29 @@ def test_access_log_middleware_emits_error_code_and_request_id_from_response_hea
     completed = [r for r in lines if r.get("event") == "http_request_completed"]
     assert completed, f"no http_request_completed log record captured: {stream.getvalue()}"
     assert completed[-1]["error_code"] == "UNAUTHORIZED"
+    assert completed[-1]["error_retryable"] is False
     assert completed[-1]["request_id"] == body_request_id
     assert completed[-1]["error_message"] == response.json()["error"]["message"]
+
+
+def test_access_log_middleware_emits_readiness_dependency_summary():
+    stream = io.StringIO()
+    handler = logging.StreamHandler(stream)
+    logger = logging.getLogger("ai_model_serving.gateway")
+    logger.addHandler(handler)
+    try:
+        clients = FakeGatewayClients()
+        clients.main_llm.ready = False
+        response = TestClient(create_gateway_app(settings(), clients)).get("/ready")
+    finally:
+        logger.removeHandler(handler)
+
+    assert response.status_code == 503
+    lines = [json.loads(line) for line in stream.getvalue().splitlines() if line.startswith("{")]
+    completed = [r for r in lines if r.get("event") == "http_request_completed"]
+    assert completed[-1]["readiness_status"] == "not_ready"
+    assert completed[-1]["readiness_dependencies"] == "main_llm_vllm"
+    assert "MODEL_UNAVAILABLE" in completed[-1]["readiness_summary"]
 
 
 def test_error_response_headers_strip_crlf_from_client_supplied_message():

@@ -19,7 +19,7 @@ from .errors import (
     request_id_from_headers,
     service_error_debug,
 )
-from .logging_policy import safe_request_logging_middleware
+from .logging_policy import record_error_diagnosis, safe_request_logging_middleware
 from .metrics import Metrics
 from .middleware import enforce_request_body_limit
 from .security import require_admin_bearer_auth
@@ -157,6 +157,8 @@ def install_exception_handlers(
         if exc.code == "VALIDATION_ERROR":
             reason = validation_reason(exc) if validation_reason is not None else "request"
             metrics.record_validation_rejection(reason or "request")
+        debug = service_error_debug(exc)
+        record_error_diagnosis(request, code=exc.code, retryable=exc.retryable, debug=debug)
         return error_response(
             exc.code,
             exc.message,
@@ -164,7 +166,7 @@ def install_exception_handlers(
             exc.status_code,
             request_id_from_headers(request.headers),
             exc.param,
-            service_error_debug(exc),
+            debug,
             exc.retry_after_seconds,
         )
 
@@ -176,6 +178,7 @@ def install_exception_handlers(
     @app.exception_handler(StarletteHTTPException)
     async def http_error_handler(request: Request, exc: StarletteHTTPException) -> JSONResponse:
         code = default_code_for_status(exc.status_code)
+        record_error_diagnosis(request, code=code, retryable=False)
         return error_response(code, str(exc.detail), False, exc.status_code, request_id_from_headers(request.headers))
 
     @app.exception_handler(RequestValidationError)
@@ -188,6 +191,7 @@ def install_exception_handlers(
         # param은 비워둔다(식별 가능한 필드가 없으므로).
         if len(errors) == 1 and errors[0].get("type") == "json_invalid":
             reason = (errors[0].get("ctx") or {}).get("error") or errors[0].get("msg", "invalid JSON")
+            record_error_diagnosis(request, code="VALIDATION_ERROR", retryable=False)
             return error_response(
                 "VALIDATION_ERROR",
                 f"Request body is not valid JSON: {reason}.",
@@ -204,18 +208,21 @@ def install_exception_handlers(
         # 수 있도록, 첫 번째로 문제가 된 필드를 param으로 노출한다(contract
         # validator가 ServiceError에 설정하는 것과 동일한 field-pointer다).
         param = _field_path(errors[0].get("loc", ())) if errors else None
+        record_error_diagnosis(request, code="VALIDATION_ERROR", retryable=False)
         return error_response("VALIDATION_ERROR", message, False, 422, request_id_from_headers(request.headers), param)
 
     @app.exception_handler(Exception)
     async def unhandled_error_handler(request: Request, exc: Exception) -> JSONResponse:
         logger.exception("unhandled exception", exc_info=exc)
+        debug = exception_debug(exc)
+        record_error_diagnosis(request, code="INTERNAL_ERROR", retryable=False, debug=debug)
         return error_response(
             "INTERNAL_ERROR",
             "Internal server error.",
             False,
             500,
             request_id_from_headers(request.headers),
-            debug=exception_debug(exc),
+            debug=debug,
         )
 
 

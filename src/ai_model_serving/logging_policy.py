@@ -24,7 +24,78 @@ __all__ = [
     "safe_request_logging_middleware",
     "record_request_response_preview",
     "record_token_usage",
+    "record_error_diagnosis",
+    "record_readiness_failure",
 ]
+
+
+_DIAGNOSIS_TEXT_LIMIT = 500
+
+
+def _safe_diagnosis_text(value: Any) -> str | None:
+    """운영 로그에 남길 짧고 마스킹된 진단 문자열을 만든다."""
+    if not isinstance(value, str):
+        return None
+    text = mask_sensitive_text(value.strip())
+    if not text:
+        return None
+    return text[:_DIAGNOSIS_TEXT_LIMIT]
+
+
+def record_error_diagnosis(
+    request: Request,
+    *,
+    code: str,
+    retryable: bool,
+    debug: dict[str, Any] | None = None,
+) -> None:
+    """표준 API 오류의 안전한 진단 요약만 access log에 전달한다.
+
+    ``error.debug`` 전체에는 upstream body처럼 로그에 영구 보관하면 안 되는 값이
+    포함될 수 있다. 원인 type/message와 upstream HTTP 상태처럼 운영자가 바로
+    분류에 쓰는 allowlist만 별도 필드로 남긴다.
+    """
+    request.state.error_code = code
+    request.state.error_retryable = retryable
+    if not debug:
+        return
+    cause_type = _safe_diagnosis_text(debug.get("cause_type"))
+    cause_message = _safe_diagnosis_text(debug.get("cause_message"))
+    upstream_status = debug.get("upstream_status")
+    if cause_type:
+        request.state.error_cause_type = cause_type
+    if cause_message:
+        request.state.error_cause_message = cause_message
+    if is_int(upstream_status) and 100 <= upstream_status <= 599:
+        request.state.error_upstream_status = upstream_status
+
+
+def record_readiness_failure(request: Request, body: dict[str, Any]) -> None:
+    """503 readiness 응답의 dependency 원인을 access log에 요약한다.
+
+    readiness는 API error envelope가 아니므로 error_code로 억지 분류하지 않는다.
+    이미 관리자 응답 본문에 있는 dependency 이름과 마스킹된 상태 설명만 남겨
+    별도 운영 패널에서 즉시 원인을 확인할 수 있게 한다.
+    """
+    if body.get("status") == "ready":
+        return
+    dependencies = body.get("dependencies")
+    if not isinstance(dependencies, list):
+        return
+    names: list[str] = []
+    summaries: list[str] = []
+    for dependency in dependencies:
+        if not isinstance(dependency, dict) or dependency.get("status") == "ready":
+            continue
+        name = _safe_diagnosis_text(dependency.get("name"))
+        if not name:
+            continue
+        names.append(name)
+        detail = _safe_diagnosis_text(dependency.get("message")) or _safe_diagnosis_text(dependency.get("status"))
+        summaries.append(f"{name}: {detail}" if detail else name)
+    request.state.readiness_status = str(body.get("status") or "not_ready")
+    request.state.readiness_dependencies = ", ".join(names)
+    request.state.readiness_summary = "; ".join(summaries)
 
 
 def record_request_response_preview(request: Request, *, request_text: str, response_text: str) -> None:
@@ -84,10 +155,19 @@ def safe_request_log_record(
         "latency_ms": round(elapsed_seconds * 1000, 3),
         "client_host": peer_host,
     }
-    if error_code:
-        record["error_code"] = error_code
+    resolved_error_code = error_code or getattr(request.state, "error_code", None)
+    if resolved_error_code:
+        record["error_code"] = resolved_error_code
     if error_message:
         record["error_message"] = error_message
+    for field in ("error_retryable", "error_cause_type", "error_cause_message", "error_upstream_status"):
+        value = getattr(request.state, field, None)
+        if value is not None:
+            record[field] = value
+    for field in ("readiness_status", "readiness_dependencies", "readiness_summary"):
+        value = getattr(request.state, field, None)
+        if value:
+            record[field] = value
     # 토큰 개수는 민감정보가 아니라 LOG_REQUEST_RESPONSE_BODY와 무관하게 항상
     # 채워질 수 있다(record_token_usage가 usage를 실은 엔드포인트에 한해).
     for field in ("prompt_tokens", "completion_tokens", "total_tokens"):

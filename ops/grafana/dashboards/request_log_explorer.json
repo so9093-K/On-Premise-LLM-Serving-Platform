@@ -130,12 +130,12 @@
           }
         }
       ],
-      "description": "게이트웨이/risk-adapter 전체 요청 로그(요청 한 줄 = 테이블 한 행).\n\n- 이 대시보드는 gateway/risk-adapter 구조화 로그 + vLLM 등 컨테이너 원본 로그를 함께 다룬다(아래 **Non-JSON Container Errors**/**Raw Container Log**/**Engine Crash / Traceback**)\n- **prompt_tokens/completion_tokens/total_tokens**: upstream usage를 그대로 옮긴 값이다. `/v1/chat/completions`와 vLLM-backed prompt detector는 세 값이 모두 기록되며, `/v1/embeddings`는 completion_tokens가 없어 빈 값이다. 통합 Risk 평가는 포함된 vLLM detector 호출분을 합산한다. local detector·입력 제한 사전 차단·실패 응답은 셋 다 빈 값이다. `LOG_REQUEST_RESPONSE_BODY`와 무관하며 민감정보가 아니다.\n- **client_host** 클릭 시 그 IP로 필터링\n- request_id/error_code/error_message는 여기 없음 -> 아래 **Errors** 패널 참고(에러에서만 채워지는 필드)\n- `/metrics`, `/health`는 노이즈라 항상 제외\n- `LOG_REQUEST_RESPONSE_BODY=true`일 때 `/v1/chat/completions`(non-streaming), `/v1/embeddings`, `/v1/risk/detectors/*/assessments`·`/v1/risk/assessments`에서 마스킹된 요청/응답 원문(임베딩은 벡터 대신 개수/차원 요약)이 존재한다 -> 컬럼엔 없고 아래 **Request/Response 원문** 패널 참고"
+      "description": "게이트웨이/risk-adapter 전체 요청 로그(요청 한 줄 = 테이블 한 행).\n\n- 이 대시보드는 gateway/risk-adapter 구조화 로그 + vLLM 등 컨테이너 원본 로그를 함께 다룬다(아래 **Non-JSON Container Errors**/**Raw Container Log**/**Engine Crash / Traceback**)\n- **prompt_tokens/completion_tokens/total_tokens**: upstream usage를 그대로 옮긴 값이다. `/v1/chat/completions`와 vLLM-backed prompt detector는 세 값이 모두 기록되며, `/v1/embeddings`는 completion_tokens가 없어 빈 값이다. 통합 Risk 평가는 포함된 vLLM detector 호출분을 합산한다. local detector·입력 제한 사전 차단·실패 응답은 셋 다 빈 값이다. `LOG_REQUEST_RESPONSE_BODY`와 무관하며 민감정보가 아니다.\n- **client_host** 클릭 시 그 IP로 필터링\n- request_id/error_code/error_message는 여기 없음 -> 아래 **API Errors** 패널 참고(에러에서만 채워지는 필드)\n- `/metrics`, `/health`는 노이즈라 항상 제외\n- `LOG_REQUEST_RESPONSE_BODY=true`일 때 `/v1/chat/completions`(non-streaming), `/v1/embeddings`, `/v1/risk/detectors/*/assessments`·`/v1/risk/assessments`에서 마스킹된 요청/응답 원문(임베딩은 벡터 대신 개수/차원 요약)이 존재한다 -> 컬럼엔 없고 아래 **Request/Response 원문** 패널 참고"
     },
     {
       "id": 2,
       "type": "table",
-      "title": "Errors (status_code >= 400)",
+      "title": "API Errors (status_code >= 400)",
       "datasource": {
         "type": "loki",
         "uid": "${datasource}"
@@ -148,7 +148,7 @@
       },
       "targets": [
         {
-          "expr": "{job=\"docker\", service=\"${service}\"} | json | event=\"http_request_completed\" | status_code >= 400 | request_id=~\"${request_id_filter}\" | client_host=~\"${client_host_filter}\" | route=~\"${route_filter}\" | error_code=~\"${error_code_filter}\"",
+          "expr": "{job=\"docker\", service=\"${service}\"} | json | event=\"http_request_completed\" | status_code >= 400 | route != \"/ready\" | request_id=~\"${request_id_filter}\" | client_host=~\"${client_host_filter}\" | route=~\"${route_filter}\" | error_code=~\"${error_code_filter}\"",
           "refId": "A"
         }
       ],
@@ -233,14 +233,53 @@
               "request_id": 6,
               "error_code": 7,
               "error_message": 8,
-              "service": 9,
+              "error_retryable": 9,
+              "error_cause_type": 10,
+              "error_cause_message": 11,
+              "error_upstream_status": 12,
+              "service": 13,
               "Line": 20
             },
             "renameByName": {}
           }
         }
       ],
-      "description": "위 Service 선택 기준 4xx/5xx만. 값 없음 = 정상(Healthy).\n\n- **request_id**/**client_host** 클릭 시 그 값으로 필터링\n- **error_code**: 같은 status_code(예: 503)에 묶인 원인 구분(INTERNAL_ERROR는 처리 안 된 예외)\n- **error_message**: error_code만으론 안 보이는 실제 원인 문장(INTERNAL_ERROR도 실제 예외 타입/메시지가 붙는다)\n- vLLM 등 JSON 아닌 로그의 에러는 아래 **Non-JSON Container Errors** 참고\n- `LOG_REQUEST_RESPONSE_BODY=true`일 때 `/v1/chat/completions`(non-streaming), `/v1/embeddings`, 리스크 detector 엔드포인트에서 마스킹된 요청/응답 원문이 존재한다 -> 컬럼엔 없고 아래 **Request/Response 원문** 패널 참고"
+      "description": "외부 API 요청의 4xx/5xx입니다. `/ready`의 dependency 미준비는 아래 **Readiness Failures**에서 분리해 봅니다. 값 없음 = 정상(Healthy).\n\n- **error_code**: 같은 status_code(예: 503)에 묶인 API 오류 분류. error guide의 의미·조치 기준이다.\n- **error_message**: 코드만으로 부족한 요청별 설명\n- **error_cause_***: 예외 debug 전체가 아니라 allowlist된 원인 요약·upstream 상태만 기록한다.\n- **request_id**/**client_host** 클릭 시 그 값으로 필터링\n- vLLM 등 JSON 아닌 로그의 에러는 아래 **Non-JSON Container Errors** 참고"
+    },
+    {
+      "id": 7,
+      "type": "table",
+      "title": "Readiness Failures (/ready)",
+      "datasource": {"type": "loki", "uid": "${datasource}"},
+      "gridPos": {"x": 0, "y": 18, "w": 24, "h": 8},
+      "targets": [
+        {
+          "expr": "{job=\"docker\", service=\"${service}\"} | json | event=\"http_request_completed\" | route=\"/ready\" | status_code >= 400 | client_host=~\"${client_host_filter}\"",
+          "refId": "A"
+        }
+      ],
+      "options": {"showHeader": true, "sortBy": [{"displayName": "Time", "desc": true}]},
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": {"id": "byName", "options": "client_host"},
+            "properties": [{"id": "links", "value": [{"title": "이 client_host로 필터링", "url": "/d/request_log_explorer?var-client_host_filter=${__value.raw}&${__url_time_range}", "targetBlank": false}]}]
+          }
+        ]
+      },
+      "transformations": [
+        {"id": "extractFields", "options": {"source": "Line", "format": "json", "replace": false}},
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {"labels": true, "tsNs": true, "id": true, "labelTypes": true, "job": true, "stream": true, "container_id": true, "event": true, "detected_level": true, "service_name": true, "filename": true, "request_body": true, "response_body": true},
+            "indexByName": {"Time": 0, "status_code": 1, "readiness_status": 2, "readiness_dependencies": 3, "readiness_summary": 4, "latency_ms": 5, "client_host": 6, "service": 7, "Line": 20},
+            "renameByName": {}
+          }
+        }
+      ],
+      "description": "Gateway 또는 Risk Adapter가 준비되지 않았을 때의 `/ready` 503입니다. API 오류 코드가 아니라 dependency 상태를 보여 줍니다.\n\n- **readiness_dependencies**: 준비되지 않은 runtime/dependency\n- **readiness_summary**: dependency별 안전한 원인 요약\n- 모델 기동·재배포 중에는 일시적으로 생길 수 있습니다. 지속되면 summary의 dependency부터 확인하세요."
     },
     {
       "id": 3,
@@ -252,7 +291,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 18,
+        "y": 26,
         "w": 24,
         "h": 8
       },
@@ -329,7 +368,7 @@
           }
         }
       ],
-      "description": "uvicorn access log(JSON 아님)의 4xx/5xx를 텍스트 파싱해 컬럼으로 본다(주로 vLLM 계열, best-effort).\n\n- 위 **Service** 필터 영향 안 받음(모든 컨테이너 대상)\n- gateway도 이 포맷을 같이 남겨서 위 **Errors**와 일부 겹칠 수 있음\n- 이 패널은 테이블이라 container_id 돋보기(+) 드릴다운 없음 -> 아래 **Raw Container Log**에서"
+      "description": "uvicorn access log(JSON 아님)의 4xx/5xx를 텍스트 파싱해 컬럼으로 본다(주로 vLLM 계열, best-effort).\n\n- 위 **Service** 필터 영향 안 받음(모든 컨테이너 대상)\n- gateway도 이 포맷을 같이 남겨서 위 **API Errors**와 일부 겹칠 수 있음\n- 이 패널은 테이블이라 container_id 돋보기(+) 드릴다운 없음 -> 아래 **Raw Container Log**에서"
     },
     {
       "id": 4,
@@ -341,7 +380,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 26,
+        "y": 34,
         "w": 24,
         "h": 10
       },
@@ -368,7 +407,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 36,
+        "y": 44,
         "w": 24,
         "h": 10
       },
@@ -395,7 +434,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 46,
+        "y": 54,
         "w": 24,
         "h": 10
       },

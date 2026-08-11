@@ -2,10 +2,11 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
 from ...app_kernel import readiness_response
+from ...logging_policy import record_readiness_failure
 from ..endpoint_spec import GATEWAY_ENDPOINTS
 from ...api_examples import LOADING_RESPONSE_EXAMPLE, READY_RESPONSE_EXAMPLE
 from ...services.readiness import DependencyProbe, collect_readiness
@@ -110,7 +111,7 @@ def build_router(admin_dependencies: list, clients: Any, metrics: Any, settings:
             },
         },
     )
-    async def ready() -> JSONResponse:
+    async def ready(request: Request) -> JSONResponse:
         admin_token = next(iter(settings.security.admin_api_keys), None)
         body = await _readiness(
             clients,
@@ -119,6 +120,7 @@ def build_router(admin_dependencies: list, clients: Any, metrics: Any, settings:
             admin_token=admin_token,
             timeout_seconds=settings.readiness_probe_timeout_seconds,
         )
+        record_readiness_failure(request, body)
         return readiness_response(body)
 
     _s = _GW[("GET", "/metrics")]

@@ -210,25 +210,29 @@ panel description은 운영자가 화면에서 바로 훑을 수 있는 짧은 �
 **패널 구성**
 
 - `Gateway Request Log`: gateway/risk-adapter 구조화 JSON 로그 전체 요청.
-- `Errors (status_code >= 400)`: 위와 같은 소스에서 4xx/5xx만.
+- `API Errors (status_code >= 400)`: 외부 API의 4xx/5xx만. `/ready` 상태 실패는 포함하지 않는다.
+- `Readiness Failures (/ready)`: Gateway/Risk Adapter가 준비되지 않은 dependency와 안전한 원인 요약.
 - `Non-JSON Container Errors`: vLLM 등 uvicorn access log(JSON 아님)의 4xx/5xx를 텍스트
   파싱해서 본다.
 - `Raw Container Log`: 파싱 없는 원본 전체.
 
-**request_id/error_code/error_message가 `Gateway Request Log`엔 없고 `Errors`에만 있는 이유**
+**request_id/error_code/error_message가 `Gateway Request Log`엔 없고 `API Errors`에만 있는 이유**
 
 `X-Request-Id`/`X-Error-Code`/`X-Error-Message` 응답 헤더는 에러 응답에서만 채워진다
 (`errors.py`의 `error_response_headers`). 200 성공 응답은 클라이언트가 직접
 `x-request-id`를 보내지 않는 한 이 값들이 항상 비어있다(`logging_policy.py`). 전체 요청을
 보여주는 `Gateway Request Log`에 이 세 컬럼을 넣으면 대부분 빈 칸이라, 실제로 채워지는
-`Errors` 패널에만 남겼다.
+`API Errors` 패널에만 남겼다. 표준 오류 처리기는 `error_retryable`과 allowlist된
+`error_cause_*`/`error_upstream_status`도 남긴다. `error.debug` 전체나 upstream body는
+영구 로그에 복사하지 않는다. `/ready` 503은 오류 envelope가 아니라 dependency 상태
+응답이므로 `readiness_dependencies`/`readiness_summary`로 별도 패널에 표시한다.
 
 **`/metrics`, `/health`를 `route_filter` 기본값이 아니라 쿼리에 고정 제외한 이유**
 
 Loki(LogQL)의 정규식 엔진은 Go RE2라 부정 lookahead(`(?!...)`)를 지원하지 않는다. 그래서
 "route_filter 기본값으로 이 두 라우트만 제외"는 애초에 못 만든다. 대신 쿼리에
 `| route != "/metrics" | route != "/health"`를 고정 조건으로 추가했다 — `route_filter`
-자체는 그대로 편집 가능하고, 이 두 라우트가 실패하면 status_code와 무관하게 `Errors`
+자체는 그대로 편집 가능하고, 이 두 라우트가 실패하면 status_code와 무관하게 `API Errors`
 패널에서 그대로 잡힌다.
 
 **`Non-JSON Container Errors`의 RegExp 포맷: 슬래시로 감싸야 한다**

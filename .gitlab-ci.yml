@@ -81,6 +81,15 @@ hf-main-model-profiles:
         "huggingface_hub==$(python scripts/models/print_vllm_unified_compatibility.py --key huggingface_hub)" \
         "PyYAML==6.0.3"
       "$HF_CANARY_VENV/bin/python" scripts/models/check_main_model_profiles.py
+  # pinned Transformers/HF 버전으로 모델 config를 읽는 호환성 검사다. 일반 Gateway
+  # 코드·문서·대시보드 변경에는 입력이 전혀 없으므로, 실제 profile/호환성 입력 또는
+  # 검사 구현이 바뀐 pipeline에서만 실행한다.
+  only:
+    changes:
+      - configs/main_model_profiles.yaml
+      - configs/vllm_unified_build.yaml
+      - scripts/models/check_main_model_profiles.py
+      - scripts/models/print_vllm_unified_compatibility.py
 
 unit-test:
   extends: .default-python
