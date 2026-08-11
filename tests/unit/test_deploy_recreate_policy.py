@@ -74,10 +74,27 @@ def test_unified_image_config_policy_detects_build_inputs(tmp_path):
     assert _config_changed(before, after)
 
 
+def test_unified_image_config_policy_treats_missing_previous_config_as_change(tmp_path):
+    before = tmp_path / "before"
+    after = tmp_path / "after"
+    (before / "configs").mkdir(parents=True)
+    (after / "configs").mkdir(parents=True)
+    (after / "configs" / "vllm_unified_build.yaml").write_text(
+        (ROOT / "configs" / "vllm_unified_build.yaml").read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
+
+    assert _config_changed(before, after)
+
+
 def test_unified_image_config_policy_fails_closed_when_configuration_is_unreadable(tmp_path):
     before = tmp_path / "before"
     after = tmp_path / "after"
-    before.mkdir()
-    after.mkdir()
+    for root in (before, after):
+        (root / "configs").mkdir(parents=True)
+    (before / "configs" / "vllm_unified_build.yaml").write_text(
+        (ROOT / "configs" / "vllm_unified_build.yaml").read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
 
     assert _config_compare_status(before, after) == 2

@@ -38,10 +38,20 @@ deploy_has_fresh_unified_image_artifact() {
 deploy_unified_image_config_changed() {
   # unified Docker build의 단일 설정만 비교한다. 일반 runtime image tag 변경이
   # 비싼 vLLM 재빌드를 강제하지 않게 하면서, base/pin drift는 놓치지 않는다.
-  local baseline="$1" current="$2" python_bin
+  local baseline="$1" current="$2" before_path after_path python_bin
   [[ -n "$baseline" && -d "$baseline" ]] || return 1
+  before_path="$baseline/configs/vllm_unified_build.yaml"
+  after_path="$current/configs/vllm_unified_build.yaml"
+  # 이 파일을 새 source-of-truth로 도입한 첫 배포에서는 이전 release에만 파일이
+  # 없다. 이는 비교 불능 오류가 아니라 build 입력 변경이다. 호출자의 fresh-artifact
+  # guard가 새 derived digest를 요구하도록 changed(0)로 돌려준다.
+  [[ -f "$before_path" ]] || return 0
+  if [[ ! -f "$after_path" ]]; then
+    echo "[deploy] ERROR: current vLLM unified image configuration is missing: $after_path" >&2
+    return 2
+  fi
   python_bin="${PYTHON_BIN:-$(command -v python3.12 || command -v python3 || command -v python)}"
-  "$python_bin" - "$baseline/configs/vllm_unified_build.yaml" "$current/configs/vllm_unified_build.yaml" <<'PY'
+  "$python_bin" - "$before_path" "$after_path" <<'PY'
 from __future__ import annotations
 
 import sys
