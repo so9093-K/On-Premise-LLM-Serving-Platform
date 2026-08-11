@@ -3,13 +3,13 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from .main_model_control import (
+from .control import (
     gpu_util_override_from_mapping,
     load_main_model_catalog,
     resolve_boot_profile,
 )
-from .main_model_state import read_active_profile
-from .settings_parts.dotenv_parser import load_strict_env_file
+from .state import read_active_profile
+from ..settings_parts.dotenv_parser import load_strict_env_file
 
 
 def read_env_values(path: Path) -> dict[str, str]:

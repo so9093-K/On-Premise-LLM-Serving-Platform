@@ -176,7 +176,7 @@ def validate_main_llm_bootstrap_image(compose: dict[str, Any]) -> list[str]:
     # configs/model_serving.yaml의 resource_control 주석(예: "must stay in lockstep with
     # the default profile's actual --max-num-seqs")이 실제로 강제되도록, 기본 프로필의
     # 부팅 command와 model_serving.yaml의 선언값을 여기서 직접 대조한다. 이 값들은
-    # docker_main_model_backend.py가 실제로 컨테이너를 띄울 때 쓰는 값이라, 여기서
+    # main_model/docker_backend.py가 실제로 컨테이너를 띄울 때 쓰는 값이라, 여기서
     # 어긋나면 선언된 정책과 실제 부팅 동작이 조용히 갈라진다.
     serving = load_yaml(SERVING_PATH)
     main_llm_cfg = serving["models"]["main_llm"]

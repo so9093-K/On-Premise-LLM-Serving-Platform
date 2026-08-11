@@ -21,7 +21,7 @@ if str(ROOT) not in sys.path:
 if str(ROOT / "src") not in sys.path:
     sys.path.insert(0, str(ROOT / "src"))
 
-from ai_model_serving.main_model_boot import (  # noqa: E402
+from ai_model_serving.main_model.boot import (  # noqa: E402
     resolve_compose_relative_path,
 )
 from ai_model_serving.settings_parts.dotenv_parser import load_strict_env_file  # noqa: E402

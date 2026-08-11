@@ -1,3 +1,5 @@
+"""Pinned Hugging Face snapshot preparation for main-model profiles."""
+
 from __future__ import annotations
 
 import os

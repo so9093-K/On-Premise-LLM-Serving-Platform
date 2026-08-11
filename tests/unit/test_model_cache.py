@@ -7,7 +7,7 @@ from pathlib import Path
 
 import huggingface_hub
 
-from ai_model_serving.model_cache import prepare_model_snapshot
+from ai_model_serving.main_model.cache import prepare_model_snapshot
 
 
 def test_prepare_downloads_exact_revision_then_verifies_local_cache(

@@ -111,7 +111,7 @@ echo "[compose-up] preparing main-model cache for $MAIN_MODEL_BOOT_PROFILE"
 HF_TOKEN="$HF_TOKEN_EFFECTIVE" \
 HUGGING_FACE_HUB_TOKEN="${HUGGING_FACE_HUB_TOKEN_EFFECTIVE:-$HF_TOKEN_EFFECTIVE}" \
 PYTHONPATH="$ROOT/src${PYTHONPATH:+:$PYTHONPATH}" \
-  "$PYTHON_BIN" -m ai_model_serving.model_cache_cli \
+  "$PYTHON_BIN" -m ai_model_serving.main_model.cache_cli \
     --catalog configs/main_model_profiles.yaml \
     --cache-dir "$HF_CACHE_HOST" \
     --profile "$MAIN_MODEL_BOOT_PROFILE"

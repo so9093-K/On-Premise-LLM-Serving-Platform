@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from ai_model_serving.main_model_boot import resolve_compose_relative_path
+from ai_model_serving.main_model.boot import resolve_compose_relative_path
 
 
 def test_hf_cache_relative_path_uses_compose_file_directory(tmp_path):

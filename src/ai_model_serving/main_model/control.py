@@ -8,8 +8,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, NamedTuple, Protocol
 
-from .main_model_state import MainModelStateError, MainModelStateStore, MainModelSwitchLockError
-from .service_logging import service_logger
+from .state import MainModelStateError, MainModelStateStore, MainModelSwitchLockError
+from ..service_logging import service_logger
 
 _logger = service_logger("main_model_control")
 

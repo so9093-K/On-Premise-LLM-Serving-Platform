@@ -36,7 +36,7 @@
 - 공통 error code 계약에 `DETECTOR_DISABLED`, `STREAM_LIMIT_EXCEEDED`를 반영하고, Gateway가 Risk Adapter의 `DETECTOR_DISABLED` 410 envelope를 보존하도록 했다.
 - retrieval 내부 embedding 호출이 `truncate_prompt_tokens`를 전달하도록 정리했다. 확인되지 않은 `truncation_side`는 silent no-op 대신 422 validation error로 처리한다.
 - non-local `local_open`/`custom`/`internal_trusted` auth profile과 production `SKIP_PREFLIGHT=1` 경로의 운영 hard-fail 조건을 강화했다.
-- 운영 배포 동작 변경 없이 retrieval contract의 project root 탐색 의존을 runtime settings에서 분리하고, 계층 import boundary를 AST 계약 테스트로 고정했다.
+- 운영 배포 동작 변경 없이 retrieval contract의 project root 탐색 의존을 runtime settings에서 분리했다.
 - `bootstrap.sh`(`make rebuild-full`)이 `EXPOSURE_MODE`와 `EXPOSURE_AUDIENCE`를 기존 `.env`에서 읽어 재초기화 후 복원한다. 이전에는 `AUTH_MODE`만 보존되고 `EXPOSURE_MODE`는 초기화됐다.
 - `deploy_gitlab_compose.sh` CI/CD 배포 시 `.env` 이미지 참조 업데이트 직후 `make sync-env`를 호출해 신규 템플릿 키를 서버 `.env`에 자동 반영한다.
 - Grafana 운영 대시보드 UX를 Serving Home 중심 drill-down으로 정리했다. API/Risk/Runtime 상세 패널은 collapsed row로 내리고, idle 상태의 실패류 패널은 scrape가 살아 있으면 0으로 읽히도록 보정했다. Risk는 A1/A2 detection을 명시 카드로 분리하고 중복 Risk Types 상세 그래프를 제거했으며, Dashboard contract는 `configs/monitoring.yaml`에서 선언해 validator가 검증한다.

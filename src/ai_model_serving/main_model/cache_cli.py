@@ -4,8 +4,8 @@ import argparse
 import json
 from pathlib import Path
 
-from .main_model_control import load_main_model_catalog
-from .model_cache import prepare_model_snapshot
+from .control import load_main_model_catalog
+from .cache import prepare_model_snapshot
 
 
 def main(argv: list[str] | None = None) -> int:

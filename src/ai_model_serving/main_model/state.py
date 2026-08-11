@@ -1,3 +1,5 @@
+"""Persistent state for the main-model lifecycle."""
+
 from __future__ import annotations
 
 import fcntl

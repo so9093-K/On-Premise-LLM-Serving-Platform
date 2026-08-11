@@ -11,9 +11,9 @@ import json
 
 import httpx
 
-import ai_model_serving.docker_main_model_backend as backend_module
-from ai_model_serving.docker_main_model_backend import DockerMainModelBackend
-from ai_model_serving.main_model_control import load_main_model_catalog
+import ai_model_serving.main_model.docker_backend as backend_module
+from ai_model_serving.main_model.docker_backend import DockerMainModelBackend
+from ai_model_serving.main_model.control import load_main_model_catalog
 
 from pathlib import Path
 

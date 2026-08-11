@@ -10,12 +10,12 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT / "src") not in sys.path:
     sys.path.insert(0, str(ROOT / "src"))
 
-from ai_model_serving.main_model_control import load_main_model_catalog  # noqa: E402
-from ai_model_serving.main_model_boot import (  # noqa: E402
+from ai_model_serving.main_model.control import load_main_model_catalog  # noqa: E402
+from ai_model_serving.main_model.boot import (  # noqa: E402
     read_env_values,
     resolve_compose_relative_path,
 )
-from ai_model_serving.model_cache import prepare_model_snapshot  # noqa: E402
+from ai_model_serving.main_model.cache import prepare_model_snapshot  # noqa: E402
 
 
 def main(argv: list[str] | None = None) -> int:

@@ -893,7 +893,7 @@ if [[ "${DEPLOY_MODE}" == "full" ]]; then
     -e HF_HOME=/root/.cache/huggingface \
     -v "${HF_CACHE_HOST}:/root/.cache/huggingface" \
     "${PLATFORM_IMAGE_TO_DEPLOY}" \
-    -m ai_model_serving.model_cache_cli \
+    -m ai_model_serving.main_model.cache_cli \
     --profile "${MAIN_MODEL_BOOT_PROFILE}"; then
     fail_after_env_backup "main-model cache prepare failed for ${MAIN_MODEL_BOOT_PROFILE}"
   fi

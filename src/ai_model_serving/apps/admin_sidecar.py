@@ -13,11 +13,11 @@ from fastapi import FastAPI, Header, HTTPException
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 
-from ..docker_main_model_backend import DEFAULT_GATEWAY_URL, DockerMainModelBackend
+from ..main_model.docker_backend import DEFAULT_GATEWAY_URL, DockerMainModelBackend
 from ..configuration import load_yaml_mapping
 from ..gpu_budget import Participant, budget_snapshot, plan_activation
 from ..service_logging import service_logger
-from ..main_model_control import (
+from ..main_model.control import (
     MainModelManager,
     MainModelStateError,
     MainModelStateStore,

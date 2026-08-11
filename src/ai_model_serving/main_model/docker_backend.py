@@ -9,10 +9,10 @@ from typing import Any
 
 import httpx
 
-from .service_logging import service_logger
-from .main_model_control import MainModelCatalog, MainModelProfile
-from .media_samples import TINY_M4A_AAC_B64, TINY_MP4_VIDEO_B64
-from .model_cache import prepare_model_snapshot
+from ..service_logging import service_logger
+from .control import MainModelCatalog, MainModelProfile
+from ..media_samples import TINY_M4A_AAC_B64, TINY_MP4_VIDEO_B64
+from .cache import prepare_model_snapshot
 
 _logger = service_logger("main_model_control")
 

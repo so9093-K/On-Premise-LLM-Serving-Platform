@@ -438,13 +438,13 @@ def test_request_body_limit_can_carry_configured_media_limit(monkeypatch):
 def test_backend_audio_canary_is_a_valid_input_audio_part():
     # backend가 보내는 boot canary 자체가 gateway의 audio 검증(format/magic/size)을
     # 만족해야 한다, 안 그러면 검증과 runtime이 서로 어긋나게 된다.
-    from ai_model_serving.docker_main_model_backend import _AUDIO_CANARY_M4A_B64
+    from ai_model_serving.main_model.docker_backend import _AUDIO_CANARY_M4A_B64
 
     _validate(_audio_payload(_AUDIO_CANARY_M4A_B64, fmt="m4a"), TEXT_IMAGE_AUDIO)
 
 
 def test_backend_video_canary_is_a_valid_video_url_part():
-    from ai_model_serving.docker_main_model_backend import _VIDEO_CANARY_MP4_B64
+    from ai_model_serving.main_model.docker_backend import _VIDEO_CANARY_MP4_B64
 
     _validate(_video_payload(f"data:video/mp4;base64,{_VIDEO_CANARY_MP4_B64}"), TEXT_IMAGE_AUDIO_VIDEO)
 

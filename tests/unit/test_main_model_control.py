@@ -16,7 +16,7 @@ from pathlib import Path
 
 import pytest
 
-from ai_model_serving.main_model_control import (
+from ai_model_serving.main_model.control import (
     MainModelConfigurationError,
     MainModelManager,
     MainModelStateError,
@@ -853,7 +853,7 @@ def test_snapshot_runtime_image_reflects_active_profile(tmp_path):
 
 
 def test_gpu_util_override_rewrites_command_and_fraction():
-    from ai_model_serving.main_model_control import load_main_model_catalog as _load
+    from ai_model_serving.main_model.control import load_main_model_catalog as _load
 
     loaded = _load(ROOT / "configs/main_model_profiles.yaml", gpu_memory_utilization_override=0.55)
     # override는 모든 프로필에 대해 runtime command와 파싱된 budget cost 양쪽에
@@ -875,7 +875,7 @@ def test_gpu_util_override_appends_when_command_omits_flag(tmp_path):
 
 
 def test_gpu_util_override_from_mapping_parses_and_validates():
-    from ai_model_serving.main_model_control import gpu_util_override_from_mapping as f
+    from ai_model_serving.main_model.control import gpu_util_override_from_mapping as f
 
     assert f({}) is None
     assert f({"MAIN_LLM_GPU_MEMORY_UTILIZATION": ""}) is None

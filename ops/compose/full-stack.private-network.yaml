@@ -70,13 +70,13 @@ services:
     # 이 image/command는 최초 `docker compose up` 부트스트랩 전용 placeholder다.
     # admin-sidecar가 뜬 뒤에는 configs/main_model_profiles.yaml의 active profile
     # 기준으로 항상 컨테이너를 stop/재생성하며 image도 그때마다 덮어쓴다
-    # (docker_main_model_backend.py의 replace(): payload["Image"] = profile.image).
+    # (main_model/docker_backend.py의 replace(): payload["Image"] = profile.image).
     # 실제 서빙 이미지는 이 값이 아니라 항상 그쪽을 봐야 한다. 이 값은
     # default_profile이 resolve하는 image와 일치해야 하며(최초 부팅 시 이 값으로
     # 뜬 컨테이너가 healthy해야 admin-sidecar의 첫 reconcile까지 갈 수 있다),
     # 어긋나면 scripts/compose/validate_vllm_compose.py가 정적 계약 검증에서 잡는다.
     # default_profile(gemma4-12b-unified-fp8)의 image는 ${AUDIO_VLLM_IMAGE}
-    # 참조라서, main_model_control.py의 _resolve_profile_image()와 동일한 폴백
+    # 참조라서, main_model/control.py의 _resolve_profile_image()와 동일한 폴백
     # (env 비어있으면 shared runtime.image)을 Compose의 ${VAR:-default} 문법으로
     # 그대로 표현한다.
     image: ${AUDIO_VLLM_IMAGE:-gitlab.wizvera.com:4567/acl-ai-system/acl-ai-gateway/vllm-unified@sha256:57f8dc4b64c189e0656ead65fbf7444971c74158b8fbdd9106886ed7353b1981}

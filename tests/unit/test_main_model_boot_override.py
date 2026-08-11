@@ -10,8 +10,8 @@ from pathlib import Path
 import pytest
 import yaml
 
-from ai_model_serving.main_model_control import MainModelStateError
-from ai_model_serving.main_model_boot import render_boot_override
+from ai_model_serving.main_model.control import MainModelStateError
+from ai_model_serving.main_model.boot import render_boot_override
 
 ROOT = Path(__file__).resolve().parents[2]
 CATALOG = ROOT / "configs/main_model_profiles.yaml"
