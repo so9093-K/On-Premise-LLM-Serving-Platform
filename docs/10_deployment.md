@@ -440,6 +440,29 @@ RELEASES_TO_KEEP=5
 
 현재 애플리케이션 Release와 현재 Runtime Release는 보관 대상에 유지된다. 성공한 배포에서는 임시 `.env` 백업과 Runtime 상태 백업을 정리하고 모니터링 설정의 적용 상태를 기록한다.
 
+### 운영 중지와 재기동
+
+배포 서버의 중지는 로컬 개발 종료와 다르다. Gateway와 모델 Runtime을 함께 멈추므로, GPU 호스트 작업이나 계획된 점검처럼 서비스 중단이 허용된 경우에만 실행한다. 코드나 이미지 변경을 반영하려는 목적이라면 수동 재기동 대신 CI/CD 배포를 사용한다.
+
+항상 현재 Release 링크를 기준으로 실행한다. `releases/<id>`의 실제 경로에서 직접 실행하면 Compose가 다른 실행 컨텍스트로 인식할 수 있다.
+
+```bash
+cd -L /opt/acl-ai-gateway/current
+make compose-down
+```
+
+이 명령은 Compose 컨테이너와 네트워크를 중지·제거한다. 공유 `.env`, `.runtime`, 모델 cache, Docker volume, Release 보관본은 삭제하지 않는다. `make clean-all`, 임의의 `docker rm`, cache 삭제는 운영 중지 절차에 포함하지 않는다.
+
+점검이 끝난 뒤 같은 Release를 다시 올릴 때는 다음 순서로 실행한다.
+
+```bash
+cd -L /opt/acl-ai-gateway/current
+make compose-up
+make ready-full
+```
+
+`make compose-up`은 현재 `.env`, 노출 설정, 저장된 Main Model 부팅 프로필을 다시 확인한 뒤 Stack을 시작한다. `make ready-full`이 성공해야 Gateway뿐 아니라 필요한 Runtime이 준비된 상태로 본다. 중지·재기동 중 Compose 컨텍스트 오류나 Runtime 시작 실패가 나면 직접 컨테이너를 삭제하지 말고 `make compose-diagnostics` 결과와 배포 로그를 확인한다.
+
 ---
 
 ## 10.9 실패 시 확인 항목

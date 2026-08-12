@@ -6,11 +6,16 @@
 
 Accepted
 
+> **현재 운영 기준 (2026-08-12)**: GPU admission ceiling은 `configs/gpu_budgets.yaml`,
+> profile별 image·command·capability는 `configs/main_model_profiles.yaml`, Gateway 요청
+> 정책은 `configs/model_serving.yaml`을 기준으로 한다. 다음 상태 분석은 이 ADR이 해결하려던
+> 당시의 분리된 제어 구조와 제약을 보존하는 기록이다.
+
 [ADR-0017](0017-selectable-main-model-runtime.md)을 확장한다. 0017은 단일 고정
 런타임 이미지·`gpu_memory_utilization=0.76` 고정·오디오 inert를 전제했는데, 이 ADR이
 그 세 전제를 각각 진화시킨다.
 
-## 현재 상태 분석
+## 당시 상태 분석 (결정 시점)
 
 - 단일 RTX 6000 Ada(약 48 GiB)에서 메인 LLM·임베딩·임베딩-ko·risk-prompt가 VRAM을
   공유한다. 그런데 컨트롤 플레인이 둘로 쪼개져 있었다: 메인 핫스왑(프로필 교체)과 보조

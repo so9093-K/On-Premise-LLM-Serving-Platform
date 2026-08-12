@@ -39,7 +39,7 @@ Runtime 적용 / 배포
        ↓
 2. Source of Truth 수정
        ↓
-3. Schema / 생성 파일 / 연관 설정 반영
+3. 필요한 Schema / 생성 파일 / 연관 설정 반영
        ↓
 4. make validate / make test
        ↓
@@ -152,7 +152,7 @@ make build-image
 
 ## 13.4 설정 변경
 
-설정 변경은 해당 Source of Truth에서 시작하고, 그 설정을 사용하는 애플리케이션·Compose·생성 파일까지 함께 반영한다.
+설정 변경은 해당 Source of Truth에서 시작하고, 실제 consumer인 애플리케이션·Compose·생성 파일에만 반영한다. 모든 설정이 생성 파일을 갖는 것은 아니다.
 
 | 설정 | 주요 반영 대상 |
 |---|---|
@@ -181,7 +181,7 @@ Generated File
 Drift Validation
 ```
 
-설정 변경 후 생성 파일을 갱신한다.
+변경한 설정이 renderer 입력인 경우에만 생성 파일을 갱신한다. 생성 파일과 무관한 설정은 해당 consumer의 검증만 수행한다.
 
 ```bash
 make render-runtime-assets
@@ -512,7 +512,7 @@ make build
 |---|---|---|---|
 | Gateway / Risk Adapter Python | `make validate`, `make test` | `make ready-local` | Platform / Rolling 중심 |
 | API / Schema | `make validate`, `make test` | app-only 또는 full-stack | Platform Image |
-| 일반 Config | 생성 파일 갱신 + `make validate` | 영향 서비스 확인 | 변경 내용 기준 |
+| 일반 Config | `make validate` + 생성기 입력일 때만 생성 파일 갱신 | 영향 서비스 확인 | 변경 내용 기준 |
 | Main Model Profile | config/profile 검증 | model prepare + switch + `ready-full` | Main Model / Full 가능 |
 | Unified vLLM | Unified Image Build | `ready-full`, `runtime-validate` | Runtime Image / Full |
 | Compose / Exposure | `make validate`, `make compose-config` | `make ready-full` | Compose / Full 가능 |
@@ -556,7 +556,7 @@ make runtime-validate
 ### 변경 완료 전 최소 확인
 
 - 공개 API 계약을 바꿨다면 Router/contract와 함께 schema, checked-in OpenAPI, API Reference를 갱신한다.
-- Source of Truth 설정을 바꿨다면 생성 artifact를 갱신하고 `make validate`로 drift가 없는지 확인한다.
+- Source of Truth 설정이 생성기 입력이라면 생성 artifact를 갱신하고 `make validate`로 drift를 확인한다. 그렇지 않다면 해당 설정의 consumer와 영향 범위만 확인한다.
 - 일반 application 변경은 `make validate`, `make test`와 영향 범위의 app-only 또는 full-stack 확인을 한다.
 - vLLM image 입력 변경은 Unified derived image build와 `ready-full`, `runtime-validate`까지 연결한다.
 - 릴리스 ZIP이 필요한 경우에만 `make package`를 실행한다. package에는 `.env`, `.runtime`, 로그, model cache, test source가 포함되지 않아야 한다.

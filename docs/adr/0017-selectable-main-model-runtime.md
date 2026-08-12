@@ -6,11 +6,16 @@
 
 Accepted
 
+> **현재 운영 기준 (2026-08-12)**: Main Model의 기본 profile과 실제 실행 command는
+> `configs/main_model_profiles.yaml`을, Gateway serving limit은 `configs/model_serving.yaml`을
+> 기준으로 한다. 이 ADR의 다음 상태 분석은 선택형 profile 전환이 도입되기 전의 문제와
+> 설계 배경을 보존하는 기록이다.
+
 확장: [ADR-0018](0018-gpu-vram-admission-and-per-profile-runtime-image.md) — 통합 GPU
 VRAM admission, per-profile 런타임 이미지, per-host util override, 오디오 활성화 경로.
 0017의 "단일 고정 이미지·0.76 고정·오디오 inert" 전제를 갱신한다.
 
-## 현재 상태 분석
+## 당시 상태 분석 (결정 시점)
 
 - `main-llm-vllm`은 `ops/compose/full-stack.private-network.yaml`에서 시작하며, 26B 모델 커맨드는 현재 정적으로 고정되어 있습니다.
 - `local-main`은 공개 API 식별자입니다. `configs/model_catalog.yaml`, `configs/model_serving.yaml`, Gateway 설정, 스키마, 모델 카드, 테스트, vLLM `--served-model-name` 인수를 통해 표출됩니다.

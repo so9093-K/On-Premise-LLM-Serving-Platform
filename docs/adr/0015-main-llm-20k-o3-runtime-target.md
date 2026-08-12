@@ -2,7 +2,12 @@
 
 ## Status
 
-Accepted
+Superseded by ADR-0017 and ADR-0018
+
+> **현재 운영 기준 (2026-08-12)**: 기본 Main Model profile은
+> `configs/main_model_profiles.yaml`의 `gemma4-12b-unified-fp8`이며, 실제 serving limit은
+> `configs/model_serving.yaml`이 정한다. 이 ADR의 26B / 20K / seq=1 내용은 당시의 검증과
+> 실패·복구 근거를 보존하는 기록이며 현재 기본 runtime target이 아니다.
 
 ## Context
 
@@ -12,7 +17,7 @@ Accepted
 
 `kv_cache_dtype: fp8_e5m2`는 higher-context runtime target 검토 과정에서 canary 후보로 올렸지만, 현재 main LLM checkpoint와 runtime image 조합에서는 `fp8_e5m2 kv-cache is not supported with fp8 checkpoints` 오류로 boot 단계에서 거부됐다. 따라서 이 값은 active runtime target에서 제외한다.
 
-이후 `32K + O3` 조합은 같은 host budget에서 `To serve at least one request ... 6.88 GiB KV cache is needed ... available KV cache memory 2.72 GiB ... estimated maximum model length is 12928` 오류로 boot에 실패했다. 현재 active target은 known-good `16K + O2` baseline 위에서 상향한 `20K + O3 + gpu_memory_utilization 0.76`이다.
+이후 `32K + O3` 조합은 같은 host budget에서 `To serve at least one request ... 6.88 GiB KV cache is needed ... available KV cache memory 2.72 GiB ... estimated maximum model length is 12928` 오류로 boot에 실패했다. 당시 active target은 known-good `16K + O2` baseline 위에서 상향한 `20K + O3 + gpu_memory_utilization 0.76`이었다.
 
 ## Decision
 
@@ -63,8 +68,7 @@ Runtime 값을 수동 복제하지 않도록 `render_vllm_command()`와 compose 
 - [ADR-0014](0014-image-validation-policy.md) — Vision 이미지 검증 정책
 - `configs/model_serving.yaml`
 - `configs/model_catalog.yaml`
-- `docs/resources/gpu_resource_requirements_48gb.md`
-- `docs/resources/gpu_resource_plan.md`
+- `docs/resources/gpu_resource_requirements_48gb.md` — GPU 검증 이력
 
 ## Update (2026-07-16)
 

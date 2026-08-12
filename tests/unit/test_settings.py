@@ -140,7 +140,7 @@ def test_load_settings_ignores_local_dotenv_when_app_env_is_explicitly_non_local
     assert settings.security.admin_api_keys == frozenset({"admin-real-key"})
 
 
-def test_load_settings_uses_serving_max_output_tokens(tmp_path):
+def test_load_settings_uses_serving_runtime_defaults(tmp_path):
     from pathlib import Path
     import shutil
     import yaml
@@ -154,16 +154,31 @@ def test_load_settings_uses_serving_max_output_tokens(tmp_path):
 
     serving_path = root / "configs" / "model_serving.yaml"
     serving = yaml.safe_load(serving_path.read_text(encoding="utf-8"))
-    serving_value = serving["models"]["main_llm"]["max_output_tokens"]
+    main_llm = serving["models"]["main_llm"]
+    embedding = serving["models"]["embedding"]
+    main_admission = main_llm["resource_control"]["admission_control"]
+    embedding_admission = embedding["resource_control"]["admission_control"]
 
     settings = load_settings(root)
-    assert settings.main_llm.max_output_tokens == serving_value
+    assert settings.main_llm.max_output_tokens == main_llm["max_output_tokens"]
+    assert settings.main_llm.max_concurrency == main_admission["max_concurrency"]
+    assert settings.main_llm.queue_timeout_seconds == main_admission["queue_timeout_seconds"]
+    assert settings.embedding.max_concurrency == embedding_admission["max_concurrency"]
+    assert settings.embedding.queue_timeout_seconds == embedding_admission["queue_timeout_seconds"]
 
-    serving["models"]["main_llm"]["max_output_tokens"] = serving_value + 1
+    main_llm["max_output_tokens"] += 1
+    main_admission["max_concurrency"] += 1
+    main_admission["queue_timeout_seconds"] += 1
+    embedding_admission["max_concurrency"] += 1
+    embedding_admission["queue_timeout_seconds"] += 1
     serving_path.write_text(yaml.safe_dump(serving, allow_unicode=True), encoding="utf-8")
 
     settings = load_settings(root)
-    assert settings.main_llm.max_output_tokens == serving_value + 1
+    assert settings.main_llm.max_output_tokens == main_llm["max_output_tokens"]
+    assert settings.main_llm.max_concurrency == main_admission["max_concurrency"]
+    assert settings.main_llm.queue_timeout_seconds == main_admission["queue_timeout_seconds"]
+    assert settings.embedding.max_concurrency == embedding_admission["max_concurrency"]
+    assert settings.embedding.queue_timeout_seconds == embedding_admission["queue_timeout_seconds"]
 
 
 def test_load_settings_rejects_invalid_or_missing_required_model_configuration(tmp_path):
@@ -245,21 +260,6 @@ def test_load_settings_supports_per_model_timeout_overrides(monkeypatch):
     monkeypatch.setenv("RISK_ADAPTER_TIMEOUT_SECONDS", "10")
     settings = load_settings()
     assert settings.risk_prompt.timeout_seconds == 3
-
-
-def test_load_settings_uses_nested_admission_control_defaults(monkeypatch):
-    for name in [
-        "MAIN_LLM_MAX_CONCURRENCY",
-        "MAIN_LLM_QUEUE_TIMEOUT_SECONDS",
-        "EMBEDDING_MAX_CONCURRENCY",
-        "EMBEDDING_QUEUE_TIMEOUT_SECONDS",
-    ]:
-        monkeypatch.delenv(name, raising=False)
-    settings = load_settings()
-    assert settings.main_llm.max_concurrency == 3
-    assert settings.main_llm.queue_timeout_seconds == 2
-    assert settings.embedding.max_concurrency == 2
-    assert settings.embedding.queue_timeout_seconds == 2
 
 
 def test_load_settings_rejects_generated_placeholder_secrets_in_non_local_env(monkeypatch):

@@ -151,3 +151,7 @@ AI Model Serving Platform의 구조와 요청 처리, Runtime 운영, 개발·�
 - 주요 명령
 - Source of Truth
 - 주요 Repository 경로
+
+## 문서 관리
+
+API, 운영 절차, 배포 방식처럼 사용 방법이 바뀌면 관련 문서도 함께 갱신한다. 현재 설정과 실제 실행 상태는 문서가 아니라 설정 파일과 실행 환경에서 확인한다.

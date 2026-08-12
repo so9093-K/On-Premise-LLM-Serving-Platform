@@ -130,29 +130,13 @@
 
 ## D. Source of Truth
 
-| 영역 | Source of Truth | 역할 | 관련 문서 |
-|---|---|---|---|
-| 서비스 / 포트 | `configs/services.yaml` | 서비스 식별자, Container/Host port, bind metadata | [5. 설정 체계와 Source of Truth](./05_configuration.md) |
-| 모델 카탈로그 | `configs/model_catalog.yaml` | 사용 가능한 모델과 모델별 기본 Runtime 정보 | [5. 설정 체계와 Source of Truth](./05_configuration.md) |
-| Model Serving | `configs/model_serving.yaml` | 모델 endpoint, 요청 제한, timeout, routing 등 Serving 정책 | [5. 설정 체계와 Source of Truth](./05_configuration.md) |
-| Main Model Profile | `configs/main_model_profiles.yaml` | Main Model별 실행 프로파일 | [6. 모델 운영](./06_model_operations.md) |
-| GPU Budget | `configs/gpu_budgets.yaml` | Runtime 자원 판단에 사용하는 GPU 기준 | [5. 설정 체계와 Source of Truth](./05_configuration.md) |
-| Deploy Runtime Profile | `configs/deploy_profiles.yaml` | Full 배포 후 Secondary Runtime 초기 상태 | [10. 배포](./10_deployment.md) |
-| Exposure Profile | `configs/exposure_profiles.yaml` | 서비스별 Host 공개 범위 | [4. 실행 환경과 모드](./04_runtime_modes.md) |
-| Auth Profile | `configs/auth_profiles.yaml` | Gateway, Admin, 내부 서비스 인증 정책 | [5. 설정 체계와 Source of Truth](./05_configuration.md) |
-| Environment Example Contract | `configs/env_contract.yaml` | `.env` 예시 파일에 포함할 키 | [5. 설정 체계와 Source of Truth](./05_configuration.md) |
-| Error Catalog | `configs/error_catalog.yaml` | 외부 오류 코드와 오류 metadata | [API Reference](./reference/api_reference.md) |
-| Unified vLLM Build | `configs/vllm_unified_build.yaml` | vLLM base image와 compatibility/build 입력 | [7. 로컬 개발과 빌드](./07_local_dev_build.md) |
-| Monitoring | `configs/monitoring.yaml` | 모니터링 관련 기준 설정 | [11. 관측성](./11_observability.md) |
-| API Schema | `specs/schemas/` | 외부 API 데이터 형식과 제약 | [API Reference](./reference/api_reference.md) |
-| Gateway OpenAPI | `specs/openapi.gateway.yaml` | Gateway 외부 API 명세 | [API Reference](./reference/api_reference.md) |
-| Risk Adapter OpenAPI | `specs/openapi.risk-adapter.yaml` | Risk Adapter API 명세 | [API Reference](./reference/api_reference.md) |
-| Base Compose | `ops/compose/full-stack.private-network.yaml` | full-stack 기본 Container topology | [4. 실행 환경과 모드](./04_runtime_modes.md) |
-| Platform Build | `Dockerfile`, `scripts/build/build_platform_image.sh` | Platform Image 생성과 검증 | [7. 로컬 개발과 빌드](./07_local_dev_build.md) |
-| Unified vLLM Image | `ops/images/vllm-unified/` | 모델 Runtime Image 정의 | [7. 로컬 개발과 빌드](./07_local_dev_build.md) |
-| CI/CD Pipeline | `.gitlab-ci.yml` | Validate, Test, Build, Deploy Pipeline | [9. CI/CD](./09_cicd.md) |
+기준 파일 목록과 선언 정책·생성물·실제 운영 상태의 경계는 [5. 설정 체계와 Source of Truth](./05_configuration.md)만을 기준으로 한다. 이 부록에는 같은 표를 복제하지 않는다.
 
-설정 파일의 적용 우선순위와 환경변수 override 범위는 [5. 설정 체계와 Source of Truth](./05_configuration.md)에서 설명한다.
+빠른 탐색은 다음 링크를 사용한다.
+
+- 모델 실행 profile: [6. 모델 운영](./06_model_operations.md)
+- API 계약: [API Reference](./reference/api_reference.md)
+- 배포·CI: [9. CI/CD](./09_cicd.md), [10. 배포](./10_deployment.md)
 
 ---
 

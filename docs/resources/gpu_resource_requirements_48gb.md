@@ -1,24 +1,24 @@
-# 인프라 리소스 요구사항 분석서
+# 48GB GPU 리소스 검증 이력
 
 ## 48GB GPU 단일 환경에서의 enabled vLLM 모델 서빙 리소스 검토
 
 | 문서 항목 | 내용 |
 |---|---|
-| 산출물명 | 인프라 리소스 요구사항 분석서 |
+| 문서 성격 | 과거 26B 단일 runtime 및 이후 selectable profile 검증 이력 |
 | 프로젝트 구분 | AI 모델 서빙 인프라 검토 |
 | 검토 대상 | 48GB VRAM 단일 GPU 환경 |
 | 검토 범위 | Main LLM, Embedding, Prompt Risk 모델의 vLLM 기반 동시 상주 및 운영 제약 |
-| 작성 목적 | enabled runtime 기준 VRAM budget, 설정 조건, 운영 가능 범위, 리스크를 정리한다. |
+| 작성 목적 | GPU budget 판단에 사용한 가정·실측·실패 사례를 보존한다. 현재 운영값을 선언하지 않는다. |
 | 기준일 | 2026-05-12 |
 
-> **2026-07-16 갱신**: 이 문서는 원래 Main LLM을 26B 하나로 고정된 모델로 전제하고 작성됐다.
-> [ADR-0017](../adr/0017-selectable-main-model-runtime.md) 이후 Main LLM은 26B/12B 중
-> 선택 가능한 프로필이 되었고, 각 프로필의 실제 VRAM 사용량은 서로 다르다. 아래 본문(1~8절)은
-> 26B 단일 모델 기준 원본 그대로 두고, 12B를 포함한 최신 실측치는 **9절**에 별도로 정리했다.
+> **읽는 방법**: 1~8절은 26B 단일 모델을 전제로 한 당시 검증 기록이다. 현재 기본 profile,
+> GPU budget, request limit의 source-of-truth는 각각 `configs/main_model_profiles.yaml`,
+> `configs/gpu_budgets.yaml`, `configs/model_serving.yaml`이다. 12B를 포함한 프로필별 실측은
+> 9절에 보존돼 있으며, 배포 중인 실제 값은 boot log·`nvidia-smi`·vLLM `/metrics`로 확인한다.
 
 ## 1. 문서 목적
 
-본 문서는 48GB VRAM 단일 GPU 환경에서 현재 기본 enabled vLLM runtime 4개를 동시에 상주시킬 때 필요한 GPU 리소스 요구사항을 정의한다.
+본 문서는 48GB VRAM 단일 GPU 환경에서 26B 단일 Main Model을 기준으로 했던 resource 판단과, 이후 selectable profile 전환 뒤의 실측을 기록한다. 현재 운영 요구사항을 정의하지 않는다.
 
 이전 기준의 `QuantTrio/gemma-4-31B-it-AWQ`, 4개 runtime, `risk-siren` 상주, 총 utilization `0.83~0.87` 운영 reference는 폐기한다. `risk-siren`은 retired 상태이며 기본 compose, readiness, `/v1/models`, aggregate execution, runtime validation에서 제외된다.
 
@@ -87,7 +87,7 @@ vllm serve RedHatAI/gemma-4-26B-A4B-it-FP8-Dynamic \
   --chat-template /app/configs/gemma4_chat_template.jinja
 ```
 
-이 checkpoint는 model config의 `compressed-tensors` metadata로 FP8 quantization을 선언하므로 `--quantization fp8`을 추가하지 않는다. 추가하면 vLLM이 model config의 `compressed-tensors`와 CLI `fp8`을 서로 다른 quantization method로 보고 기동을 거부할 수 있다. 현재 runtime target은 `--optimization-level 3`을 포함한 20K context 검증이며, target GPU에서 boot, quality, latency, long-context soak를 확인한 뒤 production claim 여부를 판단한다.
+이 checkpoint는 model config의 `compressed-tensors` metadata로 FP8 quantization을 선언하므로 `--quantization fp8`을 추가하지 않는다. 추가하면 vLLM이 model config의 `compressed-tensors`와 CLI `fp8`을 서로 다른 quantization method로 보고 기동을 거부할 수 있다. 당시 runtime target은 `--optimization-level 3`을 포함한 20K context 검증이었으며, target GPU에서 boot, quality, latency, long-context soak를 확인한 뒤 production claim 여부를 판단했다.
 
 Prefix caching은 반복 prefix가 있는 multi-turn, tool, RAG prompt에서 prefill 재사용 가능성이 있을 때 주로 효과가 나며, prefix가 매번 달라지는 요청에서는 hit/reuse 지표로 실효성을 확인해야 한다.
 

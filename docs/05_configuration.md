@@ -61,7 +61,8 @@ YAML 파일은 모델, runtime, 서비스, 보안 정책 같은 **repository-lev
 | Authentication profile | `configs/auth_profiles.yaml` | `AUTH_MODE`별 인증·관리 endpoint 보호 정책 정의 |
 | Environment example contract | `configs/env_contract.yaml` | `.env` 예시 파일에 포함할 키 정의 |
 | Monitoring projection | `configs/monitoring.yaml` | monitoring target과 label projection 정의 |
-| vLLM derived image build | `configs/vllm_unified_build.yaml` | base image, compatibility pin, runtime patch lifecycle 정의 |
+| vLLM derived image build | `configs/vllm_unified_build.yaml` | base image와 compatibility pin 정의 |
+| vLLM runtime patch | `ops/images/vllm-unified/Dockerfile`, `ops/patches/` | derived image에 적용할 patch와 적용 조건 정의 |
 | 권장 container image | `configs/recommended_images.yaml` | platform 및 운영 component의 기본 image reference 정의 |
 | Error metadata | `configs/error_catalog.yaml` | error code의 의미, retry 권장 여부, operator action 정의 |
 | API endpoint | `src/ai_model_serving/api/endpoint_spec.py`, `specs/openapi.gateway.yaml` | 외부 API endpoint 계약 정의 |
@@ -72,6 +73,19 @@ YAML 파일은 모델, runtime, 서비스, 보안 정책 같은 **repository-lev
 같은 정보가 여러 파일에 보이더라도 위 Source of Truth를 기준으로 해석한다.
 
 예를 들어 기본 host port 숫자는 `configs/services.yaml`에서 관리하고, exposure profile은 해당 service ID를 참조해 공개 범위만 정의한다.
+
+### 현재값, 생성물, 문서의 경계
+
+문서는 설정을 복제해 현재값을 선언하지 않는다. 각 층위의 역할은 다음과 같다.
+
+| 층위 | 기준 | 역할 |
+|---|---|---|
+| 선언 정책 | `configs/`, 코드, Compose, CI | 다음 실행·배포에서 적용할 값과 계약 |
+| 생성물 | `.runtime/`, generated Compose/OpenAPI 등 | 선언 정책을 바탕으로 만든 projection. 원본 정책이 아님 |
+| 실제 운영 상태 | 배포 image digest, boot log, `nvidia-smi`, vLLM `/metrics` | 현재 배포되어 실제로 동작하는 사실 |
+| 문서 | `docs/` | 기준 파일·절차·결정 배경을 연결하는 안내 |
+
+ADR과 resource 문서는 결정 이유와 검증 이력을 보존한다. 이 문서의 표 또는 과거 실측값보다 현재 설정과 실제 운영 상태를 우선한다.
 
 ---
 

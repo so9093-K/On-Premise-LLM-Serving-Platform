@@ -27,7 +27,7 @@ Repository Change
 
 ---
 
-## 9.1 변경 유형별 Pipeline 흐름
+## 9.1 변경 유형별 파이프라인 흐름
 
 Pipeline은 변경이 발생한 branch와 build 입력에 따라 실행 범위가 달라진다.
 
@@ -41,7 +41,7 @@ Pipeline은 변경이 발생한 branch와 build 입력에 따라 실행 범위�
 | tag | Validate → Test → Platform Build | version tag가 추가된 Platform image |
 | tag + `BUILD_VLLM_DERIVED=1` | 위 단계 + Unified vLLM Build | Platform image + Unified vLLM image |
 
-### 일반 application 변경
+### 일반 애플리케이션 변경
 
 Gateway, Risk Adapter, Admin Sidecar 등 Platform code를 변경하고 `master` 또는 `release`에 반영하면 Platform image가 생성된다.
 
@@ -59,7 +59,7 @@ PLATFORM_IMAGE_DIGEST
 
 `release` Pipeline에서는 생성된 Platform digest를 사용해 수동 배포를 실행할 수 있다.
 
-### Unified vLLM runtime 변경
+### 통합 vLLM 런타임 변경
 
 Unified vLLM Dockerfile, dependency lock, compatibility patch 또는 build configuration이 변경된 `release` Pipeline에서는 Platform image와 함께 Unified vLLM image를 생성한다.
 
@@ -83,7 +83,7 @@ Manual Full Deploy
 
 ---
 
-## 9.2 Pipeline 구성
+## 9.2 파이프라인 구성
 
 현재 GitLab CI는 Validate, Test, Build, Deploy 단계로 구성된다.
 
@@ -128,11 +128,11 @@ Deploy Job
 
 ---
 
-## 9.3 Validate와 Test
+## 9.3 검증과 테스트
 
 Validate와 Test stage는 로컬에서 사용하는 검증 wrapper를 CI에서도 동일하게 실행한다.
 
-### Validate
+### 정적 검증
 
 ```bash
 PYTHON_BIN=python bash scripts/validation/run_validate.sh
@@ -149,7 +149,7 @@ PYTHON_BIN=python bash scripts/validation/run_validate.sh
 
 세부 검증 항목은 [8. 테스트와 검증](./08_testing_validation.md)을 참고한다.
 
-### Main Model Profile 호환성 확인
+### 메인 모델 프로필 호환성 확인
 
 `hf-main-model-profiles` job은 다음 입력이 변경된 Pipeline에서 실행된다.
 
@@ -160,7 +160,7 @@ PYTHON_BIN=python bash scripts/validation/run_validate.sh
 
 이 job은 Unified vLLM configuration에 고정된 Transformers / Hugging Face Hub 버전으로 Main Model configuration을 읽어 profile compatibility를 확인한다.
 
-### Test
+### 단위·계약 테스트
 
 ```bash
 PYTHON_BIN=python bash scripts/validation/run_test.sh
@@ -170,7 +170,7 @@ PYTHON_BIN=python bash scripts/validation/run_test.sh
 
 ---
 
-## 9.4 Platform Image Build
+## 9.4 플랫폼 이미지 빌드
 
 `build-platform`은 Gateway, Risk Adapter, Admin Sidecar 등 application/control-plane을 포함하는 Platform image를 생성한다.
 
@@ -194,7 +194,7 @@ scripts/build/build_platform_image.sh
 
 CI build에서는 registry cache, CI tag, registry push, digest 추출이 추가된다.
 
-### Image tag
+### 이미지 태그
 
 기본 image tag는 commit과 branch/ref를 기준으로 생성된다.
 
@@ -209,7 +209,7 @@ platform:<CI_COMMIT_REF_SLUG>
 platform:release_<VERSION>
 ```
 
-### Platform digest artifact
+### 플랫폼 다이제스트 산출물
 
 Registry push가 완료되면 실제 image content를 가리키는 digest를 추출한다.
 
@@ -227,7 +227,7 @@ Artifact 보관 기간은 7일이며, `release` deploy job은 이 digest를 Plat
 
 ---
 
-## 9.5 Unified vLLM Image Build
+## 9.5 통합 vLLM 이미지 빌드
 
 Main Model, Embedding, Korean Embedding, Prompt Risk runtime은 공통 Unified vLLM image를 사용한다.
 
@@ -253,15 +253,21 @@ vLLM Build Input Change
 - Unified vLLM build script
 - compatibility resolver
 
+GitLab의 `changes` 조건은 YAML 주석과 실제 build 입력을 구분하지 못한다. 따라서
+`configs/vllm_unified_build.yaml`만 바뀐 Pipeline에서는 build script가 이전 revision과
+현재의 base image·compatibility pin을 비교한다. 두 값이 같으면 job은 성공으로 끝나지만
+base image pull, Docker build, registry push와 새 digest 생성은 수행하지 않는다. Dockerfile,
+patch, media dependency처럼 다른 build 입력이 함께 바뀐 경우에는 항상 새 image를 만든다.
+
 실제 image build와 registry push는 다음 script에서 수행한다.
 
 ```text
 scripts/ci/build_vllm_derived_images.sh
 ```
 
-### Unified vLLM digest artifact
+### 통합 vLLM 다이제스트 산출물
 
-Build가 완료되면 다음 artifact가 생성된다.
+실제로 image build가 완료된 경우에만 다음 artifact가 생성된다.
 
 ```text
 build/vllm-unified-image.env
@@ -293,7 +299,7 @@ BUILD_VLLM_DERIVED=1
 
 ---
 
-## 9.6 Build Artifact와 Immutable Digest
+## 9.6 빌드 결과물과 불변 다이제스트
 
 Build stage에서 Deploy stage로 전달되는 핵심 값은 image digest다.
 
@@ -349,7 +355,7 @@ Unified vLLM artifact가 없는 Pipeline은 대상 환경에 설정된 기존 ru
 
 ---
 
-## 9.7 Deploy Pipeline
+## 9.7 배포 파이프라인
 
 `deploy-gpu-175` job은 `release` branch에서 수동으로 실행한다.
 
@@ -369,7 +375,7 @@ Target GPU Environment
 
 Deploy job은 `build/platform-image.env`를 필수 입력으로 사용한다. Unified vLLM artifact가 존재하면 함께 로드한다.
 
-### Deploy mode
+### 배포 방식
 
 기본 mode는 `full`이다.
 
@@ -395,7 +401,7 @@ Fresh Unified vLLM Digest
 
 ---
 
-## 9.8 Pipeline 실행 규칙
+## 9.8 파이프라인 실행 규칙
 
 주요 job의 실행 조건은 다음과 같다.
 
@@ -430,7 +436,7 @@ Tag
 
 ---
 
-## 9.9 Pipeline 입력과 Credentials
+## 9.9 파이프라인 입력과 자격 증명
 
 CI/CD Variable은 build와 deploy에 필요한 환경별 값을 Pipeline에 전달한다.
 
@@ -475,7 +481,7 @@ Pipeline 실패 시에는 실패 stage의 입력과 생성되어야 할 artifact
 | Manual Deploy 실행 대상 없음 | 현재 Pipeline이 `release` branch인지 확인 |
 | Deploy artifact loading 실패 | Platform / Unified vLLM digest artifact 형식 |
 
-### Build 재실행
+### 빌드 재실행
 
 Platform image는 대상 branch 또는 tag의 Pipeline을 다시 실행해 동일한 build script로 생성한다.
 
@@ -485,7 +491,7 @@ Unified vLLM image의 명시적 재생성에는 다음 variable을 사용한다.
 BUILD_VLLM_DERIVED=1
 ```
 
-### Deploy 재실행
+### 배포 재실행
 
 `deploy-gpu-175`는 수동 job이며 같은 Pipeline의 build artifact를 사용한다. 대상 환경에서의 배포 실패와 복구 절차는 [10. 배포](./10_deployment.md)를 참고한다.
 

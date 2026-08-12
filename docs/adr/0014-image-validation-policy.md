@@ -4,6 +4,12 @@
 
 Accepted
 
+> **현재 운영 기준 (2026-08-12)**: 이 ADR은 MIME 독립 파서 도입과 한도 변경의 결정 이력을
+> 보존한다. 현재 요청 한도와 허용 형식의 기준은 `configs/model_serving.yaml`의
+> `models.main_llm.resource_control.request_limits`이며, 실제 동작은
+> `src/ai_model_serving/contracts/media.py`가 결정한다. 아래의 당시 `model_catalog.yaml` 및
+> `gpu_budgets.yaml` 단일 기준 서술은 현재 기준으로 사용하지 않는다.
+
 ## Context
 
 Gateway의 Vision 이미지 검증은 세 계층으로 구성된다.
@@ -64,12 +70,12 @@ def _image_dimensions(decoded: bytes) -> tuple[int, int] | None:
 
 MIME type allowlist 검사(`image/jpeg`, `image/png`, `image/webp`, `image/avif`, `image/jp2`, `image/gif`, `image/bmp`, `image/tiff`, `image/x-tiff` 중 하나여야 함)는 유지된다. 변경 대상은 "MIME type으로 파서를 선택하는 것"이며, "MIME type을 검증하는 것"은 아니다. 정적 `image/gif`와 TIFF는 정적 image contract로 취급하고, animated GIF 전체의 시간적 변화는 `video/gif` `video_url` contract에서 다룬다. Animated GIF가 `image_url`로 들어오면 Gateway는 422로 거부하고 `video_url` + `data:video/gif` 사용을 안내한다. Multi-page TIFF는 정적 단일 이미지 계약 밖으로 보고 Gateway lightweight validator에서 거부한다.
 
-### 단일 source-of-truth
+### 현재 source-of-truth
 
-이미지 한도 값의 canonical policy는 `model_catalog.yaml`의 `local-main` 정책이다.
-`model_serving.yaml`의 실행 request limit은 이 값과 같아야 하며, 기존
-`make validate`의 model resource-control validator가 그 관계를 검사한다.
-`gpu_budgets.yaml`은 VRAM admission 정책이며 이미지 입력 한도의 source-of-truth가 아니다.
+이미지·오디오·비디오 요청 한도와 허용 형식의 canonical policy는
+`configs/model_serving.yaml`의 `models.main_llm.resource_control.request_limits`다.
+`model_catalog.yaml`은 모델 식별·capability registry이고, `gpu_budgets.yaml`은 VRAM
+admission 정책이다. 둘 다 media 입력 한도의 원본이 아니다.
 
 ## Consequences
 
@@ -78,7 +84,7 @@ MIME type allowlist 검사(`image/jpeg`, `image/png`, `image/webp`, `image/avif`
 | SigLIP2 아키텍처 상한까지 이미지를 처리할 수 있다 | 더 큰 이미지 허용으로 단일 요청 처리 시간이 늘어날 수 있다 |
 | MIME type 오선언 클라이언트의 불필요한 422 제거 | (없음) |
 | body 한도와 image/audio decoded 한도가 일관성 있게 정렬됐다 | |
-| gpu_budgets.yaml 한 곳만 수정하면 모든 설정이 따라온다 | |
+| request limit을 한 설정에서 확인할 수 있다 | 실제 처리 한계는 runtime canary와 함께 확인해야 한다 |
 
 ## Operational impact
 
@@ -109,7 +115,7 @@ MIME type allowlist 검사(`image/jpeg`, `image/png`, `image/webp`, `image/avif`
 
 **`max_image_bytes`는 750,000 → 7,000,000 → 25,000,000으로 재상향한다.** 이건 픽셀 상한과 무관한 별개 축이다 — 압축 효율이 낮은 인코딩(예: 무손실 PNG)이 픽셀 수는 한도 이내여도 파일 크기만 큰 경우를 수용하기 위함이다. 한도 일관성 재확인: 25,000,000 × 4/3 ≈ 33,333,334 + JSON overhead → 기존 `max_request_body_bytes: 100,000,000`으로 이미 충분히 수용되어 별도 조정 불필요.
 
-동기화 대상: `configs/gpu_budgets.yaml`, `configs/model_catalog.yaml`, `configs/model_serving.yaml`, `model_cards/local-main.json`, `../reference/api_reference.md`.
+현재 반영 대상: `configs/model_serving.yaml`, `src/ai_model_serving/contracts/media.py`, `../reference/api_reference.md`.
 
 ### 비디오 한도 (`max_video_frames`, `max_video_frame_pixels`) 재검토
 
@@ -135,7 +141,7 @@ MIME type allowlist 검사(`image/jpeg`, `image/png`, `image/webp`, `image/avif`
 
 ## Related
 
-- `configs/gpu_budgets.yaml` — 이미지 한도 single source-of-truth
+- `configs/model_serving.yaml` — media request limit source-of-truth
 - `src/ai_model_serving/contracts/media.py` — 파서 구현
 - `../reference/api_reference.md` — Vision 한도 API 문서 반영
 - ADR-0003: All Major Models as vLLM Runtime (vLLM이 PIL auto-detect를 사용하는 배경)
