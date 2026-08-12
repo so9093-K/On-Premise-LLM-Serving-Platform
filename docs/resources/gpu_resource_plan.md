@@ -94,7 +94,7 @@ Detector 출력 토큰 수, 모델 fallback 금지, 독립 vLLM process/port 원
 
 ## 리소스 할당 요약
 
-budget id: `single_a6000_conservative` / 설정된 enabled `gpu_memory_utilization` 합계: `0.925`
+설정된 enabled `gpu_memory_utilization` 합계: `0.925`
 
 | 모델 | 포트 | 역할 | `gpu_memory_utilization` | 기본 concurrency |
 |---|---:|---|---:|---:|
@@ -123,8 +123,8 @@ Fixed constraints: risk detector max_output_tokens은 1로 고정, model fallbac
 12B는 context가 더 크고 audio/video까지 지원하지만, weight 자체가 26B보다 작아 실제 VRAM은 오히려 더 적게 쓴다. `gpu_memory_utilization`(0.76)이 아니라 `--max-num-batched-tokens`가 부팅 시 KV cache pool 크기를 좌우하는 실제 요인이라는 점도 확인됐다 — 자세한 메커니즘은 ADR-0015 Update 참고.
 
 > 위 12B 행은 `seq=2` 시점 실측이다. 이후 `--max-num-seqs`가 2 -> 3으로 조정됐고(현재
-> 실제 배포 커맨드), 3에서도 여유가 확인됐다(자세한 실측 이력은
-> `configs/main_model_profiles.yaml`의 `gemma4-12b-unified-fp8.compatibility.reasons` 참고).
+> 실제 배포 커맨드), 3에서도 여유가 확인됐다. 자세한 실측과 변경 판단은
+> `configs/main_model_profiles.yaml` 하단 `description`을 참고한다.
 > `num_gpu_blocks x block_size`로 계산한 토큰 수 자체도 이 model(Gemma4 heterogeneous head
 > dim, TRITON_ATTN)에서는 실제 KV cache 용량과 안 맞는 것으로 확인됐다 -- 정확한 값은
 > `kv_cache_size_tokens` 또는 부팅 로그의 "Available KV cache memory" GiB를 봐야 한다.

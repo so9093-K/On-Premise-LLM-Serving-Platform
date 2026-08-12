@@ -186,12 +186,11 @@ def propose_remove_document(model_id: str, root: Path, registry: ModelRegistry) 
         blockers.append(f"존재하지 않는 model id입니다: {model_id}")
     row = rows.get(model_id)
     steps = [
-        "1단계: lifecycle.state=deprecated로 전환하고 deprecation_deadline/removal_ticket을 기록",
-        "2단계: gateway_listing.enabled=false 또는 lifecycle.exposure=hidden으로 public listing에서 제거",
-        "3단계: 운영 공지와 client migration window를 끝낸 뒤 runtime service를 제거",
-        "4단계: model card를 archive하거나 removed 상태로 남겨 감사 추적을 보존",
-        "5단계: modelctl validate/diff, make validate, operator-reports를 재실행",
-        "6단계: 실제 Docker/GPU 서버에서 readiness, monitoring label, dashboard variable을 확인",
+        "1단계: gateway_listing.enabled=false로 public listing에서 제거",
+        "2단계: 운영 공지와 client migration window를 끝낸 뒤 runtime service를 제거",
+        "3단계: model card는 upstream 사실과 변경 근거 보관용으로 유지",
+        "4단계: modelctl validate/diff, make validate, operator-reports를 재실행",
+        "5단계: 실제 Docker/GPU 서버에서 readiness, monitoring label, dashboard variable을 확인",
     ]
     warnings = [
         "write-mode 삭제가 아니라 plan-only입니다. 모델 제거는 단계적 deprecate/remove 절차로 진행해야 합니다.",
@@ -307,11 +306,6 @@ def render_patch_scaffold(doc: dict[str, Any]) -> str:
             "## 단계적 제거 후보",
             "```yaml",
             f"{doc['model_id']}:",
-            "  lifecycle:",
-            "    state: deprecated",
-            "    exposure: hidden",
-            "    deprecation_deadline: YYYY-MM-DD",
-            "    removal_ticket: TICKET-ID",
             "  gateway_listing:",
             "    enabled: false",
             "```",
@@ -425,7 +419,7 @@ def cmd_status(args: argparse.Namespace) -> int:
         print(f"모델: 전체 {doc['model_count']}개 / public {doc['public_model_count']}개")
         print(f"lifecycle: {doc['lifecycle_states']}")
         gpu = doc["gpu"]
-        print(f"GPU 예산: {gpu['total_gpu_memory_utilization']} / 회피 기준 {gpu['avoid_above']} ({gpu['profile']})")
+        print(f"GPU 예산: {gpu['total_gpu_memory_utilization']} / 회피 기준 {gpu['avoid_above']}")
         if doc["alignment_issues"]:
             print("정렬 문제:")
             for issue in doc["alignment_issues"]:

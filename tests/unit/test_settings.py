@@ -140,7 +140,7 @@ def test_load_settings_ignores_local_dotenv_when_app_env_is_explicitly_non_local
     assert settings.security.admin_api_keys == frozenset({"admin-real-key"})
 
 
-def test_load_settings_falls_back_to_catalog_max_output_tokens(tmp_path):
+def test_load_settings_uses_serving_max_output_tokens(tmp_path):
     from pathlib import Path
     import shutil
     import yaml
@@ -152,19 +152,18 @@ def test_load_settings_falls_back_to_catalog_max_output_tokens(tmp_path):
     shutil.copy(repo / "configs" / "model_catalog.yaml", root / "configs" / "model_catalog.yaml")
     shutil.copy(repo / "VERSION", root / "VERSION")
 
-    catalog = yaml.safe_load((root / "configs" / "model_catalog.yaml").read_text(encoding="utf-8"))
-    catalog_value = catalog["models"]["local-main"]["project_runtime_policy"]["max_output_tokens"]
-
-    settings = load_settings(root)
-    assert settings.main_llm.max_output_tokens == catalog_value
-
     serving_path = root / "configs" / "model_serving.yaml"
     serving = yaml.safe_load(serving_path.read_text(encoding="utf-8"))
-    serving["models"]["main_llm"]["max_output_tokens"] = catalog_value + 1
+    serving_value = serving["models"]["main_llm"]["max_output_tokens"]
+
+    settings = load_settings(root)
+    assert settings.main_llm.max_output_tokens == serving_value
+
+    serving["models"]["main_llm"]["max_output_tokens"] = serving_value + 1
     serving_path.write_text(yaml.safe_dump(serving, allow_unicode=True), encoding="utf-8")
 
     settings = load_settings(root)
-    assert settings.main_llm.max_output_tokens == catalog_value + 1
+    assert settings.main_llm.max_output_tokens == serving_value + 1
 
 
 def test_load_settings_rejects_invalid_or_missing_required_model_configuration(tmp_path):

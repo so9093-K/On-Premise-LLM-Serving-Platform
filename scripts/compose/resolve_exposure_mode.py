@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Resolve EXPOSURE_MODE to a supported canonical mode.
+"""EXPOSURE_MODE를 설정된 profile 이름으로 확인한다.
 
 Usage:
   python scripts/compose/resolve_exposure_mode.py [MODE]
@@ -33,14 +33,14 @@ def load_exposure_data(root: Path = ROOT) -> dict:
 
 
 def resolve(mode: str, data: dict) -> str:
-    """Return the canonical mode, or exit with code 2 if mode is unknown."""
-    canonical_modes: list[str] = data.get("canonical_modes", [])
-    if mode in canonical_modes:
+    """설정된 profile 이름을 반환하고, 없으면 종료한다."""
+    profiles = data.get("profiles", {})
+    if isinstance(profiles, dict) and mode in profiles:
         return mode
 
-    canonical_str = ", ".join(canonical_modes) if canonical_modes else "(none defined)"
+    supported_modes = ", ".join(profiles) if isinstance(profiles, dict) and profiles else "(none defined)"
     print(
-        f"Unknown EXPOSURE_MODE={mode!r}. Allowed canonical modes: {canonical_str}.",
+        f"Unknown EXPOSURE_MODE={mode!r}. Allowed modes: {supported_modes}.",
         file=sys.stderr,
     )
     raise SystemExit(2)

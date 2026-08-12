@@ -1496,16 +1496,10 @@ paths:
                       revision: 8edbb9269ec9c3faad538ee1208a07eb46051f34
                       compatibility:
                         status: verified
-                        reasons: []
                       capabilities:
-                        model_input:
-                        - text
-                        - image
                         deployed_input:
                         - text
                         - image
-                        output:
-                        - text
                         audio_enabled: false
                         video_enabled: false
                       runtime_image: gitlab.wizvera.com:4567/acl-ai-system/acl-ai-gateway/vllm-unified@sha256:57f8dc4b64c189e0656ead65fbf7444971c74158b8fbdd9106886ed7353b1981
@@ -1527,16 +1521,10 @@ paths:
                       revision: 8edbb9269ec9c3faad538ee1208a07eb46051f34
                       compatibility:
                         status: verified
-                        reasons: []
                       capabilities:
-                        model_input:
-                        - text
-                        - image
                         deployed_input:
                         - text
                         - image
-                        output:
-                        - text
                         audio_enabled: false
                         video_enabled: false
                       runtime_image: gitlab.wizvera.com:4567/acl-ai-system/acl-ai-gateway/vllm-unified@sha256:57f8dc4b64c189e0656ead65fbf7444971c74158b8fbdd9106886ed7353b1981
@@ -1558,16 +1546,10 @@ paths:
                       revision: 8edbb9269ec9c3faad538ee1208a07eb46051f34
                       compatibility:
                         status: verified
-                        reasons: []
                       capabilities:
-                        model_input:
-                        - text
-                        - image
                         deployed_input:
                         - text
                         - image
-                        output:
-                        - text
                         audio_enabled: false
                         video_enabled: false
                       runtime_image: gitlab.wizvera.com:4567/acl-ai-system/acl-ai-gateway/vllm-unified@sha256:57f8dc4b64c189e0656ead65fbf7444971c74158b8fbdd9106886ed7353b1981
@@ -1614,16 +1596,10 @@ paths:
                   revision: 8edbb9269ec9c3faad538ee1208a07eb46051f34
                   compatibility:
                     status: verified
-                    reasons: []
                   capabilities:
-                    model_input:
-                    - text
-                    - image
                     deployed_input:
                     - text
                     - image
-                    output:
-                    - text
                     audio_enabled: false
                     video_enabled: false
                   runtime_image: gitlab.wizvera.com:4567/acl-ai-system/acl-ai-gateway/vllm-unified@sha256:57f8dc4b64c189e0656ead65fbf7444971c74158b8fbdd9106886ed7353b1981
@@ -1636,27 +1612,12 @@ paths:
                   revision: 67e53491df7a281623fa740de61307d5c542b7f4
                   compatibility:
                     status: verified
-                    reasons:
-                    - First host validation completed for this exact revision and
-                      pinned derived runtime image.
-                    - image/audio/video fixed in the vllm-unified derived image
-                      (pinned via AUDIO_VLLM_IMAGE); audio/video boot canaries validate
-                      the runtime on switch.
-                    - No 24 GiB hardware claim is made without an exact-system validation
-                      record.
                   capabilities:
-                    model_input:
-                    - text
-                    - image
-                    - audio
-                    - video
                     deployed_input:
                     - text
                     - image
                     - audio
                     - video
-                    output:
-                    - text
                     audio_enabled: true
                     video_enabled: true
                   active: false

@@ -10,10 +10,7 @@ from .common import (
 def validate_ports() -> None:
     ports = service_default_host_ports()
     model_serving = read_yaml('configs/model_serving.yaml')
-    checks = {
-        'gateway': model_serving['server']['gateway']['port'],
-        'risk_adapter': model_serving['server']['risk_adapter']['port'],
-    }
+    checks = {}
     for key, cfg in model_serving['models'].items():
         if cfg.get('enabled', True) is True:
             checks[f'{key}_vllm'] = cfg['port']
@@ -21,7 +18,7 @@ def validate_ports() -> None:
         if ports.get(key) != value:
             raise SystemExit(f'port mismatch: {key} expected {value}, got {ports.get(key)}')
 
-    gateway_port = model_serving['server']['gateway']['port']
+    gateway_port = ports['gateway']
     env = (ROOT / '.env.example').read_text(encoding='utf-8')
     if f'GATEWAY_PORT={gateway_port}' not in env:
         raise SystemExit(f'.env.example must include GATEWAY_PORT={gateway_port}')
@@ -51,7 +48,6 @@ def validate_risk_detector_generation_budget() -> None:
         if detector.get('type', 'vllm') == 'local':
             continue
         logical_id = detector['source_model']
-        serving_key = detector['service_key']
         card = read_json(f'model_cards/{logical_id}.json')
         catalog_tokens = catalog[logical_id]['runtime']['max_output_tokens']
         card_tokens = card['runtime']['max_output_tokens']
@@ -73,16 +69,6 @@ def validate_risk_detector_generation_budget() -> None:
             f'must be > 0 and <= {expected_upper_bound} '
             f'(= (min detector max_model_len {min_detector_window} - 64) * 4 chars/token)'
         )
-    if input_policy.get('overflow_signal') != 'TRUNCATED_INPUT':
-        raise SystemExit(
-            f'configs/model_serving.yaml risk_adapter.input_policy.overflow_signal must be '
-            f'"TRUNCATED_INPUT", got {input_policy.get("overflow_signal")!r}'
-        )
-    if input_policy.get('overflow_action') != 'return_system_signal_without_detector_call':
-        raise SystemExit(
-            f'configs/model_serving.yaml risk_adapter.input_policy.overflow_action must be '
-            f'"return_system_signal_without_detector_call", got {input_policy.get("overflow_action")!r}'
-        )
 
 def validate_model_resource_control_policy() -> None:
     from ai_model_serving.domain import ModelRegistry
@@ -90,14 +76,13 @@ def validate_model_resource_control_policy() -> None:
 
     serving = read_yaml('configs/model_serving.yaml')
     catalog_document = read_yaml('configs/model_catalog.yaml')
-    catalog = catalog_document['models']
     for key, cfg in serving['models'].items():
         if cfg.get('enabled', True) is not True:
             continue
         control = cfg.get('resource_control')
         if not isinstance(control, dict):
             raise SystemExit(f'{key} missing resource_control')
-        for field in ['isolation', 'admission_control', 'request_limits', 'degrade_action']:
+        for field in ['isolation', 'admission_control', 'request_limits']:
             if field not in control:
                 raise SystemExit(f'{key} resource_control missing {field}')
         admission = control['admission_control']
@@ -112,25 +97,10 @@ def validate_model_resource_control_policy() -> None:
             f'total configured gpu_memory_utilization {budget["total_gpu_memory_utilization"]} '
             f'must stay below avoid_above {budget["avoid_above"]}'
         )
-    main_policy = catalog['local-main']['project_runtime_policy']
-    if int(main_policy.get('max_image_inputs', 0)) != 1 or main_policy.get('allowed_image_url_schemes') != ['data']:
-        raise SystemExit('local-main image input policy must allow exactly one data:image input by default')
-    if int(main_policy.get('max_image_bytes', 0)) <= 0 or int(main_policy.get('max_image_pixels', 0)) <= 0:
-        raise SystemExit('local-main image input policy must define decoded byte and pixel limits')
     request_limits = serving['models']['main_llm']['resource_control']['request_limits']
-    for policy_field, limit_field in {
-        'max_image_inputs': 'max_image_inputs',
-        'max_image_bytes': 'max_image_bytes',
-        'max_image_pixels': 'max_image_pixels',
-    }.items():
-        if main_policy.get(policy_field) != request_limits.get(limit_field):
-            raise SystemExit(
-                f'local-main project_runtime_policy.{policy_field} must match '
-                f'main_llm resource_control.request_limits.{limit_field}'
-            )
-    expected_image_mime_types = set(request_limits.get('allowed_image_mime_types', []))
-    if set(main_policy.get('allowed_image_mime_types', [])) != expected_image_mime_types:
-        raise SystemExit(
-            'local-main image input policy MIME limits must match '
-            'configs/model_serving.yaml local-main request_limits.allowed_image_mime_types'
-        )
+    if int(request_limits.get('max_image_inputs', 0)) != 1 or request_limits.get('allowed_image_url_schemes') != ['data']:
+        raise SystemExit('main_llm image input policy must allow exactly one data:image input by default')
+    if int(request_limits.get('max_image_bytes', 0)) <= 0 or int(request_limits.get('max_image_pixels', 0)) <= 0:
+        raise SystemExit('main_llm image input policy must define decoded byte and pixel limits')
+    if not request_limits.get('allowed_image_mime_types'):
+        raise SystemExit('main_llm image input policy must define allowed image MIME types')

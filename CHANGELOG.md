@@ -1,6 +1,6 @@
 # 변경 이력
 
-이 파일은 사용자와 운영자에게 의미 있는 버전별 릴리스 노트만 기록한다. 긴 내부 유지보수 기록은 `docs/archive/changelog/`에 보존한다.
+이 파일은 사용자와 운영자에게 의미 있는 버전별 릴리스 노트만 기록한다. 세부 내부 작업 이력은 Git commit history를 기준으로 확인한다.
 
 ## [Unreleased]
 
@@ -43,7 +43,6 @@
 - Model Runtime Deep Dive와 API Delay Details에 평균 응답 시간 패널을 추가했다. 평균은 histogram `_sum/_count` 기반으로 `$window`를 따르며, 기존 p95 패널은 tail latency 확인용으로 유지한다.
 - GPU Capacity and OOM Risk, Serving Home, Model Runtime Deep Dive의 token throughput 단위를 `tok/s`로 고치고, container CPU는 percentage가 아니라 `vLLM container CPU cores used`로 표시한다.
 - ADR canonical 위치를 `docs/adr/`로 통합하고 root `adr/`는 더 이상 사용하지 않는다.
-- 설명형 request examples 문서를 `docs/examples/requests.md`로 이동했다.
 - `reports/refactor/current_*`에는 실제 current state, handoff, inventory만 남기고 과거 audit snapshot은 archive로 분리했다.
 - `deploy_gitlab_compose.sh`가 배포 성공 직후 digest로 핀된 이미지(platform, vllm-gemma4-audio)에 안정적인 cosmetic `:deployed` 태그를 부여한다. digest pin은 `docker images`에서 `<none>`으로 보여 on-box 식별이 어려웠는데, 런타임 핀(`.env`의 `@sha256`)은 그대로 두고 표시용 태그만 매 배포마다 현재 이미지로 옮겨 단다(이전 이미지는 태그를 잃고 dangling prune으로 회수). 동작 영향 없는 가독성 개선이다.
 - `request_validation_rejections_total`의 `reason` 라벨이 image/audio/video 요청 거부를 bytes·pixels·mime·frames·duration 단위로 세분화하도록 `validation_reason()`을 확장했다(이전엔 video/audio 거부가 전부 `request`로 뭉뚱그려 집계됨). Usage Today 대시보드의 "Rejected Requests" 패널을 단일 합계에서 reason별 breakdown으로 바꾸고, `upstream_errors_total`을 target·code별로 보여주는 "Upstream Errors by Code" 패널을 신규 추가했다.
@@ -79,7 +78,7 @@
 
 ### Changed
 
-- CHANGELOG는 짧은 release history로 유지하고, 기존 `0.1.0-rc.1` 내부 maintenance 기록은 `docs/archive/changelog/maintenance_journal_0.1.0-rc.1.md`로 이동했다.
+- CHANGELOG는 짧은 release history로 유지한다.
 
 ### Security
 

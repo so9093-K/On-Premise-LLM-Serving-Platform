@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from .domain import ModelRegistry, resolve_catalog_max_output_tokens
+from .domain import ModelRegistry
 from .configuration import load_yaml_mapping
 from .project_paths import resolve_project_root as _resolve_project_root
 from .settings_parts.env import (
@@ -73,14 +73,11 @@ def _build_runtime_endpoints(
     models: dict[str, Any],
     timeout: float,
     operational_limits: dict[str, Any],
-    model_catalog: dict[str, Any],
 ) -> dict[str, RuntimeEndpoint]:
-    catalog_models = model_catalog.get("models", {})
     endpoints: dict[str, RuntimeEndpoint] = {}
     for model_key, cfg in models.items():
         if cfg.get("enabled", True) is not True:
             continue
-        catalog_entry = catalog_models.get(cfg.get("served_model_name"), {})
         endpoints[str(model_key)] = build_runtime_endpoint(
             model_key=str(model_key),
             env_url=_env_name(str(model_key), "BASE_URL"),
@@ -88,7 +85,6 @@ def _build_runtime_endpoints(
             timeout=timeout,
             models=models,
             operational_limits=operational_limits,
-            catalog_max_output_tokens=resolve_catalog_max_output_tokens(catalog_entry),
         )
     return endpoints
 
@@ -211,7 +207,6 @@ def load_settings(root: Path | None = None, env_file: Path | str | None = None) 
         models=models,
         timeout=vllm_timeout,
         operational_limits=operational_limits,
-        model_catalog=model_catalog,
     )
     embedding_profiles = _embedding_profiles_from_config(model_serving)
     embedding_model_routes = {model_id: profile.service_key for model_id, profile in embedding_profiles.items()}

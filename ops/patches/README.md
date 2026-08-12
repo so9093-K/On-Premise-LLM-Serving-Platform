@@ -5,12 +5,19 @@
 ## `transformers_llama_head_dim_guard.py`
 
 Kanana Prompt detector의 explicit Llama `head_dim` config가 일부 Transformers/vLLM 조합에서 config validation 단계에 막히는 문제를 우회한다.
+현재 unified base는 Transformers 5.13.1과 huggingface_hub 1.23.0 조합을 정확히 검증한다.
+과거 확인한 Transformers 하한 4.52.4는 호환성 이력일 뿐, exact pin보다 약한 빌드 입력으로
+중복 관리하지 않는다.
 
 ## `apply_gemma4_multimodal_patches.py`
 
 Gemma4-unified(12B) 모델의 이미지 FP8 오양자화, 오디오 warmup `fft_length` 누락을
 고친다. `gemma4_unified` 코드 경로에만 걸려서 그 경로를 안 타는 다른 served
 model에는 no-op이다.
+
+두 수정 모두 upstream에서 해결돼 patch 없는 후보 이미지가 image/audio boot canary와 실제
+vLLM smoke를 통과한 경우에만 제거한다. Kanana patch도 upstream이 explicit `head_dim`을
+image patch 없이 허용하는 조합에서 같은 검증을 통과한 경우에만 제거한다.
 
 ## 운영 원칙
 

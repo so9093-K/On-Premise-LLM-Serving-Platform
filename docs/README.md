@@ -1,125 +1,153 @@
-# 문서 안내
+# AI Model Serving Platform
 
-이 디렉터리는 ai_model_serving_platform의 전체 문서를 담는다.
+AI Model Serving Platform의 구조와 요청 처리, Runtime 운영, 개발·검증, CI/CD, 배포, 관측성, 장애 대응 및 변경 절차를 정리합니다.
 
-> **처음 왔다면:** [START_HERE.md](START_HERE.md)에서 상황을 골라 바로 이동하거나, 아래 표에서 목적에 맞는 문서를 열어라.
+외부 API의 요청·응답 형식과 사용 예시는 [API 인터페이스](reference/api_reference.md)에서, `/docs`·`/redoc`·`/openapi.json`의 운영 경계는 [API 문서 화면 Reference](reference/api_docs_reference.md)에서 확인할 수 있습니다.
 
-## 문서 유형
+## 목차
 
-| 유형 | 위치 | 설명 |
-|---|---|---|
-| **source** | `docs/` | 사람이 읽는 상세 문서의 단일 홈 |
-| **decision** | `docs/adr/` | canonical Architectural Decision Records |
-| **examples** | `docs/examples/` | 설명형 API examples. 실행 가능한 sample payload가 추가되면 root `examples/`에 둔다 |
-| **archive** | `docs/archive/` | historical context. 현재 운영 기준으로 쓰지 않는다 |
-| **generated** | `reports/runtime/` | 스크립트가 생성하는 runtime evidence. 직접 수정하지 않는다 |
-| **maintenance status** | `docs/operations/project_maintainability_status.md` | 현재 유지보수 상태와 남은 위험 |
-| **release history** | `CHANGELOG.md` | root의 짧은 버전별 릴리스 노트 |
+### [1. 프로젝트 개요](01_overview.md)
 
-## 운영자 (Operators)
+- 프로젝트 배경
+- 전체 시스템 구조
+- 주요 서비스와 역할
+- 제공 기능
+- 실행 및 운영 범위
 
-| 상황 | 문서 |
-|---|---|
-| **어디서 시작할지 모르겠다** | [START_HERE.md](START_HERE.md) |
-| 패키지를 처음 받았다 / 전체 흐름을 알고 싶다 | [operations/first_project_guide.md](operations/first_project_guide.md) |
-| 빠른 실행 명령만 보고 싶다 | [operations/day0_quickstart.md](operations/day0_quickstart.md) |
-| GPU 없이 코드·API만 확인하고 싶다 | [operations/day0_quickstart.md §1](operations/day0_quickstart.md#1-app-only-확인) |
-| GPU 서버에서 full-stack을 올리고 싶다 | [operations/day0_quickstart.md §2](operations/day0_quickstart.md#2-full-stack-확인) |
-| 전체 초기화·재빌드를 하고 싶다 | [operations/day0_quickstart.md §4](operations/day0_quickstart.md#4-전체-초기화--재빌드-ux) |
-| 인증·admin/metrics/docs 노출 정책을 보고 싶다 | [operations/auth_control_plane.md](operations/auth_control_plane.md), [operations/admin_metrics_docs_exposure_policy.md](operations/admin_metrics_docs_exposure_policy.md) |
-| runtime validation URL/env 우선순위를 확인하고 싶다 | [operations/runtime_validation_operations.md#설정-우선순위](operations/runtime_validation_operations.md#설정-우선순위) |
-| 상황별 명령을 고르고 싶다 | [operations/operator_workflows.md](operations/operator_workflows.md) |
-| 통합 설정·관리·빌드·제거 흐름을 보고 싶다 | [operations/configuration_lifecycle.md](operations/configuration_lifecycle.md) |
-| 통합 프로젝트 관리 흐름을 보고 싶다 | [operations/project_management_workflow.md](operations/project_management_workflow.md) |
-| 장애가 났다 / 서비스가 안 뜬다 | [operations/full_stack_troubleshooting.md](operations/full_stack_troubleshooting.md) |
-| GitLab CI/CD로 175 GPU 서버에 배포하고 싶다 | [operations/gitlab_cicd_deployment.md](operations/gitlab_cicd_deployment.md) |
-| Grafana·Prometheus 모니터링을 설정한다 | [operations/monitoring_ux.md](operations/monitoring_ux.md) |
-| **서비스 URL·API endpoint·모니터링 주소를 한눈에 보고 싶다** | [operations/endpoint_reference.md](operations/endpoint_reference.md) |
-| 사용자 조정 가능 모델 파라미터를 보고 싶다 | [operations/model_parameter_discovery.md](operations/model_parameter_discovery.md) |
-| `stream=true` 운영, proxy buffering, timeout 정책을 보고 싶다 | [operations/streaming_runtime_operations.md](operations/streaming_runtime_operations.md) |
-| 모델 구성·리소스 계획을 보고 싶다 | [models/model_cards.md](models/model_cards.md), [resources/gpu_resource_requirements_48gb.md](resources/gpu_resource_requirements_48gb.md) |
-| GPU 리소스 배분 기준을 보고 싶다 | [resources/gpu_resource_plan.md](resources/gpu_resource_plan.md) |
-| 모델 runtime 제어 기준을 보고 싶다 | [operations/model_runtime_control.md](operations/model_runtime_control.md) |
-| 전체 서비스 컴포넌트 목록을 보고 싶다 | [operations/full_stack_runtime.md](operations/full_stack_runtime.md) |
-| 릴리스 버전 정책을 확인하고 싶다 | [release/versioning_policy.md](release/versioning_policy.md) |
-| 릴리스 전 체크리스트를 보고 싶다 | [release/release_checklist.md](release/release_checklist.md) |
+### [2. 요청 처리 흐름](02_request_flow.md)
 
-## 개발자 (Developers)
+- 공통 요청 처리
+- 기능별 요청 흐름
+- 요청 검증과 오류 처리
+- 외부·내부 서비스 연결
+- 인증과 권한
 
-| 상황 | 문서 |
-|---|---|
-| API 스펙을 확인하고 싶다 | [specs/api.md](specs/api.md) |
-| API request 예시 설명을 보고 싶다 | [examples/requests.md](examples/requests.md) |
-| 빌드·패키징 명령 의미를 이해하고 싶다 | [development/build_ux.md](development/build_ux.md) |
-| Python 버전 호환성을 확인하고 싶다 | [development/python_compatibility.md](development/python_compatibility.md) |
-| 테스트 전략을 보고 싶다 | [development/test_strategy.md](development/test_strategy.md) |
-| 릴리스 전 체크리스트가 필요하다 | [development/final_checklist.md](development/final_checklist.md) |
-| 로깅 정책을 보고 싶다 | [development/logging_policy.md](development/logging_policy.md) |
-| 아키텍처·설계 배경을 알고 싶다 | [06_architecture.md](06_architecture.md), [01_project_background.md](01_project_background.md) |
-| 결정 기록(ADR)을 보고 싶다 | [02_decision_register.md](02_decision_register.md) (index) → [`docs/adr/`](adr/) (canonical) |
-| 문서 관리 정책을 보고 싶다 | [governance/document_management.md](governance/document_management.md) |
+### [3. 시스템 구성](03_system_components.md)
 
-## 디렉터리 구조
+- 전체 시스템 구성
+- 외부 요청 처리
+- 모델 실행 구조
+- 임베딩·검색·위험 탐지
+- 서비스 연결 관계
+- 모니터링 구성
+- 구성 요소별 책임
 
-```
-docs/
-├── README.md                        ← 지금 읽는 파일 (진입점)
-├── manifest.yaml                    ← 문서 lifecycle/owner/source-of-truth registry
-├── adr/                             ← canonical decision records
-├── examples/                        ← 설명형 API examples
-├── archive/                         ← historical context
-├── operations/                      ← 운영자 문서
-│   ├── first_project_guide.md       ← 처음 프로젝트를 받았을 때 전체 가이드
-│   ├── day0_quickstart.md           ← 빠른 시작 명령
-│   ├── endpoint_reference.md        ← 서비스 URL·API·모니터링 주소 모음
-│   ├── operator_workflows.md        ← 상황별 명령 선택 가이드
-│   ├── configuration_lifecycle.md   ← 설정·관리·빌드·제거 통합 UX
-│   ├── project_management_workflow.md
-│   ├── full_stack_runtime.md        ← 전체 서비스 컴포넌트 목록
-│   ├── gitlab_cicd_deployment.md    ← GitLab CI/CD와 175 배포 가이드
-│   ├── full_stack_troubleshooting.md
-│   ├── monitoring_ux.md
-│   ├── runtime_validation_operations.md
-│   ├── model_runtime_control.md     ← 모델 runtime 제어 기준
-│   └── streaming_runtime_operations.md
-├── development/                     ← 개발자 문서
-│   ├── README.md                    ← 개발 가이드 진입점
-│   ├── build_ux.md                  ← make 명령 의미론 및 빌드 흐름
-│   ├── python_compatibility.md      ← Python 버전 호환성
-│   ├── test_strategy.md             ← 테스트 전략
-│   ├── final_checklist.md           ← 개발 완료 체크리스트
-│   └── logging_policy.md            ← 로깅 정책
-├── specs/
-│   ├── api.md
-│   ├── configuration.md
-│   └── risk_signal_contract.md
-├── models/
-│   └── model_cards.md
-├── resources/
-│   ├── gpu_resource_requirements_48gb.md
-│   └── gpu_resource_plan.md         ← GPU 리소스 배분 기준
-├── release/
-│   ├── versioning_policy.md
-│   └── release_checklist.md         ← 릴리스 전 체크리스트
-└── governance/
-    ├── document_management.md
-    └── policies/
-```
+### [4. 실행 환경과 모드](04_runtime_modes.md)
 
-## 빠른 참조: 핵심 명령
+- 실행 환경 구성
+- 로컬 및 전체 실행 모드
+- 서비스 연결과 네트워크
+- 외부 공개 범위
+- 시작 순서와 준비 상태
+- GPU 기반 모델 실행
 
-```bash
-make help          # 전체 명령 목록
-make guide         # 상황별 명령 추천
-make doctor        # 환경 진단
-make build         # 통합 빌드 (서비스 기동 없음)
-make remove-plan   # 삭제 대상 미리 보기
-make reset         # 통합 제거/초기화 (서비스·플랫폼/risk 이미지·아티팩트)
-make first-run     # 처음 full-stack 준비 (make bootstrap 별칭)
-make rebuild-full  # 전체 재빌드 (.venv·deps·env·validate·test·platform/unified vLLM image)
-make start         # 로컬 app-only 기동
-make compose-up    # full-stack compose 기동
-make ready-local   # 로컬 health 확인
-make ready-full    # full-stack readiness 확인
-make operator-reports # 운영 산출물 통합 생성
-```
+### [5. 설정 체계와 Source of Truth](05_configuration.md)
+
+- 설정 구조
+- 서비스 및 모델 설정
+- GPU 자원 설정
+- 네트워크 및 접근 설정
+- 환경별 설정 적용
+- 설정 생성과 검증
+- 변경 영향
+
+### [6. 모델 운영](06_model_operations.md)
+
+- 모델 상태 확인
+- 모델 선택과 전환
+- GPU 자원 확인
+- 모델 시작과 중지
+- 전환 결과 확인
+- 실패 복구
+- 실행 정보와 지원 기능
+
+### [7. 로컬 개발과 빌드](07_local_dev_build.md)
+
+- 개발 환경 준비
+- 로컬 실행
+- 전체 서비스 실행
+- 애플리케이션 이미지 빌드
+- 모델 실행 이미지 빌드
+- 배포 패키지 생성
+- 초기화 및 재빌드
+
+### [8. 테스트와 검증](08_testing_validation.md)
+
+- 정적 검증
+- 자동화 테스트
+- 로컬 실행 검증
+- 전체 서비스 검증
+- 대표 API 확인
+- 실제 모델 실행 검증
+- 변경 유형별 검증 범위
+
+### [9. CI/CD](09_cicd.md)
+
+- 변경부터 배포까지의 흐름
+- 코드와 설정 검증
+- 애플리케이션 이미지 빌드
+- 모델 실행 이미지 빌드
+- 빌드 결과와 버전 식별
+- 배포 실행
+- Pipeline 실패 확인
+
+### [10. 배포](10_deployment.md)
+
+- 배포 방식
+- 배포 입력과 준비
+- 변경 서비스 적용
+- 모델 실행 환경 적용
+- 배포 완료 확인
+- 실패 복구
+- 배포 버전 관리
+
+### [11. 관측성](11_observability.md)
+
+- 모니터링 구성
+- 서비스 상태와 요청 지표
+- 모델 실행 상태
+- GPU 및 컨테이너 자원
+- 요청 로그와 오류 추적
+- Dashboard
+- 배포 후 상태 확인
+
+### [12. 운영 관리 및 장애 대응](12_operations.md)
+
+- 운영 상태 점검
+- 요청 오류 확인
+- 응답 지연과 GPU 문제
+- 모델 전환 문제
+- 배포 후 이상 상태
+- 로그·인증·노출 설정 확인
+- 복구 후 정상 상태 확인
+- 주요 운영 명령
+
+### [13. 변경 가이드](13_change_guide.md)
+
+- 변경 작업 흐름
+- API 및 애플리케이션 변경
+- 설정 변경
+- 모델 구성 변경
+- 모델 실행 환경 변경
+- 네트워크 구성 변경
+- 모니터링 변경
+- CI/CD 및 배포 변경
+- 변경 후 검증과 문서 반영
+
+### [API 인터페이스](reference/api_reference.md)
+
+- 공통 요청 규칙과 인증
+- 모델 목록과 대화 생성
+- 임베딩과 검색
+- 위험 탐지
+- 상태 확인과 운영 API
+- 오류 코드와 사용 예시
+- API 기준 명세
+
+### [부록](appendix.md)
+
+- 용어 정리
+- 서비스와 포트
+- 주요 명령
+- Source of Truth
+- 주요 Repository 경로

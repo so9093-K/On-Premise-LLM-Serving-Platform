@@ -1,10 +1,21 @@
 version: 0.1.0
-version_semantics: host-published service registry schema version, not package release version
+version_semantics: host 공개 서비스 레지스트리의 스키마 버전이며 패키지 배포 버전이 아니다.
 source_of_truth: configs/services.yaml
 
-# Canonical compose service, container port, host bind env mapping, and exposure category.
-# Exposure profiles reference these service ids from profiles.*.host_published.
+# Compose 서비스명·컨테이너 포트·host bind 환경변수의 단일 기준이다.
+# exposure_profiles.yaml의 profiles.*.host_published는 아래 서비스 ID만 참조한다.
+#
+# container_port: Compose 네트워크 안에서 서비스가 수신하는 고정 포트다.
+# host_env_port/default_host_port: host에 공개할 때 사용할 포트 환경변수와 기본값이다.
+# host_env_bind/default_bind: host 공개 주소 환경변수와 기본값이다. 실제 공개 여부는
+# exposure profile이 결정하며, 여기의 default_bind만으로 포트가 열리지는 않는다.
+# categories: exposure profile과 운영 도구가 서비스 역할을 분류하는 식별자다.
+#   gateway/public_entrypoint = 외부 API 진입점
+#   model_runtime/vllm_runtime = 모델 runtime, risk_model_runtime = risk 전용 모델
+#   operations_endpoint = 운영 endpoint, visualization = Grafana UI
+#   metrics_backend/metrics_exporter/gpu_metrics/container_metrics/log_backend = 관측성 역할
 services:
+  # 외부 요청을 받아 모델 runtime과 risk adapter로 전달하는 API 진입점.
   gateway:
     compose_service: gateway
     container_port: 9400
@@ -16,6 +27,7 @@ services:
       - gateway
       - public_entrypoint
 
+  # PII·secret·prompt detector를 제공하는 내부 risk 서비스.
   risk_adapter:
     compose_service: risk-adapter
     container_port: 9405
@@ -26,6 +38,7 @@ services:
     categories:
       - risk_adapter
 
+  # active main-model profile을 실행하는 주 대화 모델 runtime.
   main_llm_vllm:
     compose_service: main-llm-vllm
     container_port: 9401
@@ -37,6 +50,7 @@ services:
       - model_runtime
       - vllm_runtime
 
+  # 범용 embedding 및 retrieval용 runtime.
   embedding_vllm:
     compose_service: embedding-vllm
     container_port: 9402
@@ -48,6 +62,7 @@ services:
       - model_runtime
       - vllm_runtime
 
+  # 한국어 retrieval embedding용 runtime.
   embedding_ko_vllm:
     compose_service: embedding-ko-vllm
     container_port: 9406
@@ -59,6 +74,7 @@ services:
       - model_runtime
       - vllm_runtime
 
+  # prompt injection 탐지용 단일 token 분류 runtime.
   risk_prompt_vllm:
     compose_service: risk-prompt-vllm
     container_port: 9403
@@ -71,6 +87,7 @@ services:
       - vllm_runtime
       - risk_model_runtime
 
+  # metric 수집·rule 평가를 제공하는 Prometheus.
   prometheus:
     compose_service: prometheus
     container_port: 9090
@@ -82,6 +99,7 @@ services:
       - operations_endpoint
       - metrics_backend
 
+  # 운영 대시보드를 제공하는 Grafana.
   grafana:
     compose_service: grafana
     container_port: 3000
@@ -89,10 +107,11 @@ services:
     default_host_port: 9411
     host_env_bind: GRAFANA_BIND_ADDR
     default_bind: "0.0.0.0"
-    # private_network host-publishes Grafana; keep visualization separate from blocked operations endpoints.
+    # private_network에서도 Grafana는 host에 공개한다. 차단되는 운영 endpoint와 시각화 UI를 구분한다.
     categories:
       - visualization
 
+  # NVIDIA GPU metric exporter. Compose 내부 포트 9400과 host 기본 포트 9412는 의도적으로 다르다.
   dcgm_exporter:
     compose_service: dcgm-exporter
     container_port: 9400
@@ -105,6 +124,7 @@ services:
       - metrics_exporter
       - gpu_metrics
 
+  # container별 CPU·메모리·재시작 metric exporter.
   cadvisor:
     compose_service: cadvisor
     container_port: 8080
@@ -117,6 +137,7 @@ services:
       - metrics_exporter
       - container_metrics
 
+  # request log 저장·조회 backend. Alloy는 조회 API가 없으므로 이 목록에 없다.
   loki:
     compose_service: loki
     container_port: 3100

@@ -1,14 +1,8 @@
-server:
-  gateway:
-    host: 0.0.0.0
-    port: 9400
-    external: true
-  risk_adapter:
-    host: 0.0.0.0
-    port: 9405
-    external: false
+# Gateway가 요청을 검증하고 각 모델 runtime으로 전달할 때의 운영 정책이다.
+# 서비스 공개 포트와 bind 주소의 기준은 configs/services.yaml 및 exposure profile이다.
 default_embedding_model: local-embed
 default_retrieval_model: local-embed-ko
+# API 모델별 embedding·retrieval 목적과 입력 전처리 정책이다.
 embedding_profiles:
   local-embed:
     service_key: embedding
@@ -46,6 +40,7 @@ embedding_profiles:
       retrieval_document:
         mode: none
 models:
+  # 각 vLLM runtime의 기동 인자와 Gateway 요청 제한이다.
   main_llm:
     name: RedHatAI/gemma-4-12B-it-FP8-Dynamic
     revision: 67e53491df7a281623fa740de61307d5c542b7f4
@@ -56,35 +51,24 @@ models:
     runner: generation
     quantization: compressed-tensors
     quantization_source: model_config
-    weight_precision: fp8_dynamic
     dtype: auto
     tensor_parallel_size: 1
-    model_card_example_tensor_parallel_size: 1
     trust_remote_code: true
     max_model_len: 50000
+    max_output_tokens: 13000
     max_num_seqs: 3
     max_num_batched_tokens: 50000
     optimization_level: 3
     gpu_memory_utilization: 0.76
     timeout_seconds: 120
-    runtime_policy_source: 50K context, seq=3, optimization level 3 runtime target
-      for RedHatAI preliminary FP8 checkpoint on RTX 6000 Ada (2026-07-28 default
-      profile, see configs/main_model_profiles.yaml gemma4-12b-unified-fp8
-      compatibility.reasons for the live boot/KV-cache validation history and
-      docs/adr/0017 Update); this platform requires local tokenizer, boot,
-      quality, latency, and soak validation before production claims
+    # RTX 6000 Ada에서 검증한 기본 목표는 context 50K, seq=3, optimization level 3이다.
+    # 실제 boot/KV-cache 검증 이력은 main_model_profiles.yaml의 description을 따른다.
     resource_control:
       criticality: primary_user_path
       isolation: dedicated_vllm_process
-      # 이 선언값은 기본 프로필(gemma4-12b-unified-fp8)의 실제 --max-num-seqs와
-      # 항상 일치해야 한다 -- scripts/compose/validate_vllm_compose.py의
-      # validate_main_llm_bootstrap_image가 max_model_len/max_num_seqs/
-      # max_num_batched_tokens/optimization_level/gpu_memory_utilization을
-      # configs/main_model_profiles.yaml과 대조해 강제한다. gateway 동시성을
-      # 올리려고 이 값만 올리지 말 것 -- 더 높은 동시성으로 검증된 프로필을
-      # default_profile로 승격하지 않는 한, MAIN_LLM_MAX_CONCURRENCY env override
-      # (settings_parts/runtime_endpoints.py)로 선언된 기본 프로필과 별개로
-      # gateway의 admission ceiling만 올리는 걸 대신 쓴다.
+      # 아래 선언값은 기본 profile(gemma4-12b-unified-fp8)의 실제 vLLM 기동값과
+      # 정합성을 검사한다. Gateway 동시성만 높일 목적이라면 profile을 바꾸지 말고
+      # MAIN_LLM_MAX_CONCURRENCY 환경변수로 admission ceiling만 조정한다.
       admission_control:
         max_concurrency: 3
         queue_timeout_seconds: 2
@@ -98,9 +82,7 @@ models:
         max_image_inputs: 1
         allowed_image_url_schemes:
         - data
-        image_input_note: Gemma 4 12B Unified supports image input; Gateway allows one bounded
-          base64 data:image content part, validates MIME, decoded size, and image
-          dimensions, and does not allow arbitrary remote image fetch by default.
+        # 원격 URL은 허용하지 않는다. base64 data:image 하나만 MIME·복호화 크기·해상도로 제한한다.
         max_image_bytes: 25000000
         max_image_pixels: 12845056
         allowed_image_mime_types:
@@ -113,21 +95,12 @@ models:
         - image/bmp
         - image/tiff
         - image/x-tiff
-        audio_input_note: Audio is enforced only when the ACTIVE main-model profile
-          deploys the audio modality (deployed_input includes audio); these are the
-          static safety bounds applied in that case. The 2026-07-28 default profile
-          (gemma4-12b-unified-fp8) deploys audio, so these limits are live and
-          enforced -- unlike gemma4-26b-a4b-fp8 (still selectable via admin API),
-          which does not deploy audio, so these limits are unreachable while that
-          profile is active. Gateway accepts one bounded base64 input_audio content
-          part of an allowed format and bounded decoded size. The real processing
-          ceiling is ~30 seconds (matches Gemma 4's official spec at
-          ai.google.dev/gemma/docs/core/model_card_4); audio beyond that is silently
-          truncated by the runtime (not sampled, not rejected, no warning surfaced)
-          -- verified live against this exact profile, see ADR-0019. max_audio_bytes
-          does not bound duration for compressed formats, so Gateway cannot reject
-          over-length audio before it reaches the runtime today; this gap is
-          accepted, not fixed.
+        # audio는 active main-model profile이 audio를 배포할 때만 이 제한이 적용된다.
+        # 기본 profile(gemma4-12b-unified-fp8)은 audio를 배포하지만, admin API로 선택 가능한
+        # gemma4-26b-a4b-fp8은 배포하지 않는다. Gateway는 허용 형식의 base64 input_audio
+        # 하나와 복호화 크기만 제한한다. Gemma 4 공식 처리 상한은 약 30초이며, 이를 넘는
+        # 압축 audio는 runtime이 경고 없이 잘라낼 수 있다. max_audio_bytes만으로 길이를
+        # 사전 거부할 수 없는 현재 한계는 ADR-0019에 기록돼 있다.
         max_audio_inputs: 1
         allowed_audio_formats:
         - wav
@@ -138,27 +111,15 @@ models:
         - mp4
         - aac
         max_audio_bytes: 25000000
-        video_input_note: Video is enforced only when the ACTIVE main-model profile
-          deploys the video modality (deployed_input includes video). The 2026-07-28
-          default profile (gemma4-12b-unified-fp8) deploys video, so these limits are
-          live and enforced -- unlike gemma4-26b-a4b-fp8 (still selectable via admin
-          API), which does not deploy video. Gateway accepts one bounded base64
-          video_url content part for vLLM/OpenAI-compatible video input, validates
-          allowed data URL containers or pre-extracted JPEG frames, and gates
-          container decode support with runtime boot canaries. Gemma 4's official
-          spec supports 60 seconds/60 frames at 1fps
-          (ai.google.dev/gemma/docs/core/model_card_4); this deployment's vLLM 0.25.1
-          only actually samples 32 frames uniformly across the full clip regardless
-          of how many are sent -- verified live against this exact profile, see
-          ADR-0019. max_video_frames (60) reflects the official spec, not the
-          currently-delivered capacity (32); raising real capacity needs a vLLM patch
-          and is deferred. Real video containers (mp4/webm/mkv/mov/avi) get no
-          frame-count or duration validation from Gateway today --
-          max_video_frames/max_video_duration_seconds only apply to the video/jpeg
-          raw-frame-array path and GIF respectively.
         max_video_inputs: 1
         allowed_video_url_schemes:
         - data
+        # video도 active profile이 video를 배포할 때만 적용된다. Gateway는 허용 data URL
+        # container 또는 JPEG frame 배열 하나를 검증하고, container decode 가능 여부는 boot
+        # canary로 확인한다. Gemma 4 공식 스펙은 1fps 기준 60초/60 frame이지만, 이 배포의
+        # vLLM 0.25.1은 실제로 clip 전체에서 최대 32 frame만 균등 추출한다(ADR-0019 검증).
+        # 따라서 max_video_frames=60은 공식 입력 상한일 뿐 현재 실제 처리 용량 32를 뜻하지
+        # 않는다. mp4/webm/mkv/mov/avi는 Gateway가 frame 수·길이를 사전 검증하지 못한다.
         allowed_video_mime_types:
         - video/mp4
         - video/webm
@@ -169,18 +130,12 @@ models:
         - video/avi
         - video/gif
         max_video_bytes: 50000000
-        # max_video_frames gates the video/jpeg pre-extracted frame sequence
-        # path directly (client-controlled item count, no timing metadata).
-        # For video/gif, the real gate is max_video_duration_seconds (summed
-        # frame delay); max_video_frames only matters there as a fallback if
-        # max_video_duration_seconds is unset -- see
-        # contracts/media.py:_GIF_FRAME_COUNT_FPS_CEILING for the derived
-        # backstop used when max_video_duration_seconds is set.
+        # JPEG frame 배열은 client가 보낸 item 수를 직접 제한한다. GIF는 누적 frame delay로
+        # 재생 시간을 제한하며, frame 수는 duration 제한이 없을 때만 보조 상한으로 사용한다.
         max_video_frames: 60
         max_video_frame_pixels: 12845056
         max_video_duration_seconds: 60
-      degrade_action: return upstream error; do not fall back to risk or embedding
-        models
+      # main LLM 실패 시 embedding 또는 risk 모델로 대체하지 않고 upstream 오류를 반환한다.
     runtime_features:
       prefix_caching:
         enabled: true
@@ -191,6 +146,8 @@ models:
         tool_call_parser: gemma4
         reasoning_parser: gemma4
         allow_parallel_tool_calls: false
+        # Gemma 4의 tool·reasoning·멀티모달 prompt 형식이다. 변경 시 실제 요청 렌더링을
+        # 확인한 뒤 full 배포한다.
         chat_template: /app/configs/gemma4_chat_template.jinja
       structured_outputs:
         enabled: true
@@ -224,10 +181,9 @@ models:
       max_n: 1
       tool_calling:
         enabled: true
-        # gemma4 tool parser/chat template엔 tool 개수 하드 리밋이 없고, tool 1개당
-        # 실측 ~140 token(예: 64개 tools ≈ 8,913 tokens)이라 max_model_len(20,000) 대비
-        # 여유가 크다. Open WebUI 기본 native tool 구성만으로도 22~31개가 붙고 외부
-        # MCP/OpenAPI tool을 더 연결할 여지가 있어 64로 잡는다.
+        # parser/template에는 tool 개수 하드 리밋이 없다. tool 하나가 실측 약 140 token이고
+        # Open WebUI 기본 native tool만으로도 22~31개가 붙어, 외부 MCP/OpenAPI 연결 여지를
+        # 고려해 64개로 제한한다.
         max_tools: 64
         allow_parallel_tool_calls: false
       reasoning:
@@ -303,15 +259,15 @@ models:
           canary_required: true
         json_schema_with_logit_bias:
           mode: allow
-          note: constrained decoding may dominate token bias
+          # constrained decoding이 token bias보다 우선할 수 있다.
         logit_bias_with_tools:
           mode: allow
-          note: tool protocol/special tokens may dominate token bias
+          # tool protocol·special token이 token bias보다 우선할 수 있다.
         logprobs_with_stream:
           mode: allow
-      notes: Main LLM supports bounded vLLM/OpenAI chat sampling parameters, Gemma4
-        tool calling, and request-level Gemma4 thinking via reasoning=true. Streaming
-        is supported at Gateway through an SSE relay fast path; proxy buffering must remain disabled in front of the Gateway.
+      # Gateway는 제한된 vLLM/OpenAI sampling parameter, Gemma 4 tool calling,
+      # reasoning=true 요청을 지원한다. streaming은 SSE relay fast path이므로 Gateway 앞
+      # proxy의 buffering을 끈 상태를 유지해야 한다.
   embedding:
     name: google/embeddinggemma-300m
     served_model_name: local-embed
@@ -320,17 +276,10 @@ models:
     endpoint: http://embedding-vllm:9402/v1
     runner: pooling
     max_model_len: 2048
-    embedding_dimension_default: 768
-    embedding_dimension_supported:
-    - 768
-    - 512
-    - 256
-    - 128
     max_num_seqs: 2
     max_num_batched_tokens: 2048
     gpu_memory_utilization: 0.04
-    runtime_policy_source: model card token and embedding dimension limits; served
-      through vLLM pooling runner
+    # 모델 카드의 token·embedding dimension 제한을 vLLM pooling runner로 적용한다.
     resource_control:
       criticality: retrieval_support_path
       isolation: dedicated_vllm_process
@@ -345,11 +294,7 @@ models:
         - 512
         - 256
         - 128
-      degrade_action: return embedding upstream error only
-    retrieval:
-      backend: dense_embedding
-      score_function: cosine
-      score_mode: dense_cosine
+      # embedding upstream 실패는 해당 요청의 오류로 반환하며 다른 모델로 대체하지 않는다.
     request_parameter_policy:
       allow_unlisted_parameters: false
       supported_parameters:
@@ -375,17 +320,11 @@ models:
     runner: pooling
     trust_remote_code: true
     max_model_len: 2048
-    embedding_dimension_default: 1024
-    embedding_dimension_supported:
-    - 1024
     max_num_seqs: 2
     max_num_batched_tokens: 2048
     gpu_memory_utilization: 0.06
-    runtime_policy_source: Snowflake Arctic Embed L v2.0 Korean SentenceTransformer model served through vLLM pooling runner; project runtime caps context at 2048 for chunk-based retrieval stability.
-    retrieval:
-      backend: dense_embedding
-      score_function: cosine
-      score_mode: dense_cosine
+    # Korean SentenceTransformer 모델을 vLLM pooling runner로 제공하며, chunk 기반 retrieval
+    # 안정성을 위해 context를 2048로 제한한다.
     resource_control:
       criticality: retrieval_support_path
       isolation: dedicated_vllm_process
@@ -395,11 +334,9 @@ models:
       request_limits:
         input_modality: text
         max_model_len: 2048
-        max_docs_per_rerank: 32
-        max_chars_per_document: 4000
         embedding_dimensions:
         - 1024
-      degrade_action: return Korean retrieval embedding upstream error only
+      # Korean retrieval embedding upstream 실패는 해당 요청의 오류로 반환한다.
     request_parameter_policy:
       allow_unlisted_parameters: false
       supported_parameters:
@@ -437,9 +374,8 @@ models:
     timeout_seconds: 5
     gpu_memory_utilization: 0.065
     enforce_eager: true
-    runtime_policy_source: model card single-token classification; max_output_tokens
-      must remain 1. max_model_len 8192 = 실제 모델 max_position_embeddings(HF
-      config.json) 그대로 -- 2026-07-25 이전 2048에서 상향.
+    # 단일 token 분류 모델이다. max_output_tokens=1을 유지하고, context 8192는 실제
+    # model config의 max_position_embeddings 값이다(2026-07-25에 2048에서 상향).
     resource_control:
       criticality: risk_signal_path
       isolation: dedicated_vllm_process
@@ -450,7 +386,7 @@ models:
         input_modality: text
         max_model_len: 8192
         max_output_tokens: 1
-      degrade_action: return system signal; do not make policy decisions
+      # detector는 위험 신호만 반환하며 정책 결정이나 allow/block 판단을 대신하지 않는다.
     runtime_features:
       tool_calling:
         enabled: false
@@ -465,9 +401,8 @@ models:
         max_tokens: 1
         temperature: 0
 risk_adapter:
+  # PII·secret·prompt detector를 조합하는 내부 서비스 정책이다.
   endpoint: http://risk-adapter:9405
-  request_schema: prompt_only
-  aggregate_execution: sequential
   detectors:
     pii:
       type: local
@@ -502,7 +437,6 @@ risk_adapter:
         max_tokens: 1
         temperature: 0
   aggregate:
-    enabled: true
     detector_order:
     - pii
     - secret
@@ -510,10 +444,9 @@ risk_adapter:
     execution: sequential
   timeout_seconds: 15
   input_policy:
+    # 최소 enabled vLLM detector context에서 64 token을 뺀 값을 문자 수로 환산한 상한이다.
+    # 초과 입력은 detector를 호출하지 않고 코드에 고정된 TRUNCATED_INPUT 시스템 신호를 반환한다.
     max_prompt_chars: 32512
-    char_budget_source: detector_min_max_model_len_minus_64_tokens_times_4_chars
-    overflow_signal: TRUNCATED_INPUT
-    overflow_action: return_system_signal_without_detector_call
   forbidden_response_fields:
   - allow
   - review
@@ -526,28 +459,25 @@ risk_adapter:
   - policy_overrides
 
 documentation:
+  # FastAPI 문서 endpoint의 기본 경로다.
   enabled: true
   docs_url: /docs
   redoc_url: /redoc
   openapi_url: /openapi.json
-  default_policy: enabled_for_local_compose_staging_and_production_until_operator_policy_changes
-  language_policy: korean_first_with_api_identifiers_in_english
 security:
   auth_mode: local_open
   api_key_required: false
-  log_prompt_body: false
-  log_model_raw_output: false
-  cors_enabled: false
   admin_api_key_required: false
   internal_service_token: change-me-internal
   internal_service_auth_required: false
-  internal_service_auth: gateway_to_risk_adapter_only
   admin_endpoints_internal_only: false
 timeouts:
+  # 환경변수로 재정의할 수 있는 요청 시간 제한이다.
   gateway_request_seconds: 125
   vllm_request_seconds: 20
   risk_adapter_seconds: 15
 operational_limits:
+  # 모든 upstream client에 공통 적용하는 기본 제한이다.
   max_request_body_bytes: 100000000
   max_retrieval_documents: 32
   per_upstream_concurrency: 1
@@ -559,6 +489,7 @@ operational_limits:
     max_connections: 100
     max_keepalive_connections: 20
 streaming:
+  # Gateway SSE relay가 허용하는 스트림 상한이다.
   max_duration_seconds: 300
   max_chunks: 20000
   max_bytes: 104857600

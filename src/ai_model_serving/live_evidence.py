@@ -33,7 +33,6 @@ SAFE_DETAIL_KEYS = {
     "model_labels",
     "runtime_service_labels",
     "total_gpu_memory_utilization",
-    "recommended_start",
     "avoid_above",
     "profile",
     "fixed_constraints",

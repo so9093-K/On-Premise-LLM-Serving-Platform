@@ -12,12 +12,12 @@ ROOT = Path(__file__).resolve().parents[2]
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Print a vLLM unified-image build setting from its canonical config."
+        description="vLLM unified-image의 기준 설정에서 빌드 값을 출력합니다."
     )
     parser.add_argument(
         "--key",
-        choices=("base_image", "transformers", "huggingface_hub", "transformers_min"),
-        default="transformers_min",
+        choices=("base_image", "transformers", "huggingface_hub"),
+        default="transformers",
     )
     args = parser.parse_args()
     document = yaml.safe_load(

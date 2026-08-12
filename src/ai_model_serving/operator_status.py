@@ -25,10 +25,8 @@ def _gpu_budget_summary(gpu_budgets: dict[str, Any], registry: ModelRegistry) ->
     utilization_policy = gpu_budgets.get("gpu", {}).get("total_gpu_memory_utilization", {})
     reserve_policy = gpu_budgets.get("gpu", {}).get("reserve_gib", {})
     return {
-        "profile": gpu_budgets.get("gpu", {}).get("default_profile", ""),
         "runtime_service_count": len(runtime_services),
         "total_gpu_memory_utilization": total_utilization,
-        "recommended_start": utilization_policy.get("recommended_start"),
         "avoid_above": utilization_policy.get("avoid_above"),
         "reserve_gib_hard_minimum": _reserve_hard_minimum(reserve_policy),
         "per_runtime": [
@@ -157,9 +155,8 @@ def operator_status_bundle_markdown(document: dict[str, Any]) -> str:
         "",
         "## GPU/리소스 예산",
         "",
-        f"프로필: `{gpu.get('profile', '')}`",
         f"설정된 GPU memory utilization 합계: `{gpu.get('total_gpu_memory_utilization', '')}`",
-        f"권장 시작값: `{gpu.get('recommended_start', '')}` / 초과 회피 기준: `{gpu.get('avoid_above', '')}`",
+        f"초과 회피 기준: `{gpu.get('avoid_above', '')}`",
         f"reserve hard minimum GiB: `{gpu.get('reserve_gib_hard_minimum', '')}`",
         "",
         "| 서비스 키 | 모델 | Compose 서비스 | GPU utilization | max_model_len | max_num_batched_tokens | max_num_seqs | O level |",

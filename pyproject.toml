@@ -21,6 +21,7 @@ dependencies = [
 [project.optional-dependencies]
 contract = [
   "jsonschema==4.26.0",
+  "Jinja2==3.1.6",
   "pytest==8.4.2",
 ]
 

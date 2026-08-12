@@ -1,11 +1,10 @@
-version: 0.1.0
-version_semantics: monitoring config schema version, not package release version
+version: 0.0.1
+version_semantics: 모니터링 설정 스키마 버전이며 패키지 배포 버전이 아니다.
 source_of_truth: configs/monitoring.yaml
 monitoring_stack:
   default_state: enabled
-  default_policy: Keep Prometheus, Grafana, and DCGM exporter enabled by default for
-    local compose, staging, and production-like validation until an explicit operations
-    owner decides otherwise.
+  default_policy: 운영 소유자가 별도 결정을 내리기 전까지 local compose, staging, production과
+    유사한 검증 환경에서 Prometheus, Grafana, DCGM exporter를 기본 활성 상태로 유지한다.
   operator_note_ko: 지금 단계에서는 모니터링 포트를 막거나 비활성화하지 않는다. 운영 소유자와 보안 경계가 확정되면 노출 범위와 인증
     정책을 별도로 조정한다.
   prometheus:
@@ -26,10 +25,10 @@ monitoring_stack:
       local_experiment: true
       reason: 프로비저닝된 대시보드는 Git으로 관리되는 아티팩트이며, Grafana DB에서의 UI
         수정은 JSON 원본에 반영되지 않는다.
-    dashboard_language_policy: Korean-first titles with English metric terms; PromQL
-      metric names and label values stay ASCII/English.
-    dashboard_variable_scope: Minimum common variable list; datasource/window are required
-      for all dashboards.
+    dashboard_language_policy: 대시보드 제목은 한국어를 우선한다. PromQL metric 이름과 label
+      값은 ASCII/영문을 유지한다.
+    dashboard_variable_scope: 공통 변수는 최소로 유지하며, 모든 대시보드에 datasource와
+      window가 필요하다.
     dashboard_variables:
     - datasource
     - window
@@ -69,7 +68,7 @@ monitoring_stack:
   alertmanager:
     port: null
     enabled_for_reference: false
-    reason: Alert 라우팅에는 운영 소유권과 on-call 정책이 필요하다.
+    reason: Alert 라우팅에는 운영 소유권과 당직 대응 정책이 필요하다.
 metric_sources:
   gateway:
     public_port: 9400
@@ -105,8 +104,8 @@ metric_sources:
   vllm_instances:
     scrape_job: vllm-runtimes
     label_policy:
-      model: logical served model name such as local-main or risk-prompt
-      runtime_service: compose service name such as main-llm-vllm
+      model: local-main 또는 risk-prompt 같은 논리 served model 이름
+      runtime_service: main-llm-vllm 같은 Compose service 이름
     ports:
     - 9401
     - 9402
@@ -132,9 +131,9 @@ metric_sources:
     source: cadvisor_recording_rules
     oom_restart_source_metrics:
     - metric: container_oom_events_total
-      purpose: Container OOM event evidence for the GPU Capacity and OOM Risk dashboard.
+      purpose: GPU Capacity and OOM Risk 대시보드의 container OOM event 근거다.
     - metric: container_start_time_seconds
-      purpose: Container restart signal via changes() over the selected dashboard window.
+      purpose: 선택한 대시보드 시간 범위에서 changes()로 확인하는 container 재시작 신호다.
   container_signal_sources:
     exporter: cadvisor
     compose_service_label: container_label_com_docker_compose_service
@@ -156,8 +155,8 @@ metric_sources:
 ux_dashboards:
 - id: gpu_capacity_and_oom_risk
   audience: runtime_engineer
-  purpose: GPU/OOM drill-down for capacity, OOM/restart, VRAM budget line, utilization,
-    temperature, power, queue, KV cache, token throughput, and container resources.
+  purpose: 용량, OOM·재시작, VRAM 예산선, 사용률, 온도, 전력, queue, KV cache, token 처리량,
+    container 자원을 상세 확인한다.
   panels:
   - gpu_operator_guide
   - gpu_headroom
@@ -174,9 +173,8 @@ ux_dashboards:
   - container_cpu
 - id: usage_today
   audience: operator
-  purpose: Glanceable usage view — GPU workload, top models by requests, rejected
-    requests by reason, upstream errors by code, input/output token throughput,
-    and per-model request trend. Judgment is in color/title; no guide needed.
+  purpose: GPU workload, 요청 수 상위 모델, 사유별 거부 요청, 코드별 upstream 오류, 입력·출력
+    token 처리량, 모델별 요청 추이를 한눈에 보여준다. 색상과 제목만으로 판단할 수 있게 한다.
   panels:
   - gpu_workload
   - top_models_by_requests
@@ -200,10 +198,10 @@ privacy_and_security:
   - target
   - runtime_service
 reference_decisions:
-- Prometheus/Grafana UX is part of the contract reference.
-- Alert routing is configured separately after ownership and escalation are defined.
-- Dashboards may use static JSON templates, but mock runtime services are not allowed
-  outside tests.
+- Prometheus/Grafana UX는 계약 기준의 일부다.
+- Alert routing은 소유자와 escalation 절차를 정한 뒤 별도로 구성한다.
+- 대시보드는 정적 JSON template을 사용할 수 있지만, 테스트 밖에서 mock runtime service를
+  사용하지 않는다.
 resource_monitoring:
   model_labels:
   - local-main
@@ -218,16 +216,16 @@ resource_monitoring:
   - gpu_memory_headroom
   - kv_cache_usage_when_vllm_exports_it
   prometheus_label_contract:
-  - vLLM runtime scrape targets use one job, vllm-runtimes, plus model and runtime_service
-    labels.
-  - 'model label values must match public logical model ids where possible: local-main,
-    local-embed, risk-prompt.'
-  - cAdvisor panels must use compose service labels or recording rules, not raw generated
-    container names.
+  - vLLM runtime scrape target은 vllm-runtimes job 하나와 model, runtime_service label을
+    사용한다.
+  - '가능한 경우 model label 값은 공개 논리 모델 ID와 일치해야 한다: local-main, local-embed,
+    risk-prompt.'
+  - cAdvisor panel은 생성된 raw container 이름이 아니라 Compose service label 또는 recording
+    rule을 사용해야 한다.
   operator_rules:
-  - do not use raw prompt or generated text as metric labels
-  - gray/no-data panels are acceptable only when exporter metrics are absent
-  - recording rules must document external metric assumptions
+  - raw prompt 또는 생성 text를 metric label로 사용하지 않는다.
+  - exporter metric이 없을 때만 gray/no-data panel을 허용한다.
+  - recording rule에는 외부 metric에 대한 가정을 기록한다.
   streaming_current_metrics:
   - streaming_chunks_total
   - streaming_bytes_total

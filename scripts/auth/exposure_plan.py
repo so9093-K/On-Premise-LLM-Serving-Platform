@@ -31,12 +31,11 @@ def load_current(path: Path) -> dict[str, str]:
 def build_plan(current: dict[str, str], mode: str, audience: str | None) -> dict[str, Any]:
     data = load_exposure_data(ROOT)
     profiles = data.get("profiles", {})
-    canonical_modes: list[str] = data.get("canonical_modes", [])
     allowed_audiences: list[str] = data.get("exposure_audience", {}).get("allowed_values", [])
 
-    if mode not in canonical_modes:
+    if mode not in profiles:
         raise SystemExit(
-            f"지원하지 않는 EXPOSURE_MODE: {mode!r}. 지원값: {', '.join(canonical_modes)}"
+            f"지원하지 않는 EXPOSURE_MODE: {mode!r}. 지원값: {', '.join(profiles)}"
         )
 
     profile = profiles.get(mode, {})

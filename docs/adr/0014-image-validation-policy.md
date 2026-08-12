@@ -109,7 +109,7 @@ MIME type allowlist 검사(`image/jpeg`, `image/png`, `image/webp`, `image/avif`
 
 **`max_image_bytes`는 750,000 → 7,000,000 → 25,000,000으로 재상향한다.** 이건 픽셀 상한과 무관한 별개 축이다 — 압축 효율이 낮은 인코딩(예: 무손실 PNG)이 픽셀 수는 한도 이내여도 파일 크기만 큰 경우를 수용하기 위함이다. 한도 일관성 재확인: 25,000,000 × 4/3 ≈ 33,333,334 + JSON overhead → 기존 `max_request_body_bytes: 100,000,000`으로 이미 충분히 수용되어 별도 조정 불필요.
 
-동기화 대상: `configs/gpu_budgets.yaml`, `configs/model_catalog.yaml`, `configs/model_serving.yaml`, `model_cards/local-main.json`, `docs/specs/api.md`.
+동기화 대상: `configs/gpu_budgets.yaml`, `configs/model_catalog.yaml`, `configs/model_serving.yaml`, `model_cards/local-main.json`, `../reference/api_reference.md`.
 
 ### 비디오 한도 (`max_video_frames`, `max_video_frame_pixels`) 재검토
 
@@ -119,7 +119,7 @@ MIME type allowlist 검사(`image/jpeg`, `image/png`, `image/webp`, `image/avif`
 
 **주의 — 이미지와 달리 두 값은 요청당 곱셈으로 작용한다.** 이미지는 요청 하나에 정지 이미지 1장의 디코드 비용만 발생하지만, 비디오는 `프레임 수 × 프레임당 픽셀`만큼 전처리가 반복된다. 이번 변경으로 요청 하나의 최악 전처리 총량은 기존(32 × 6,422,528 ≈ 2.05억 px) 대비 새 값(60 × 12,845,056 ≈ 7.71억 px)으로 **약 3.75배** 늘어난다. 이는 main_llm 동시성 슬롯을 더 오래 점유시켜 다른 요청의 큐잉/503 확률에 영향을 줄 수 있는 트레이드오프이며, 실제 사용량(32프레임 한도에 자주 걸리는지)을 관찰하며 필요시 재조정한다.
 
-동기화 대상: `configs/model_serving.yaml`, `docs/specs/api.md`. (비디오 한도는 이미지와 달리 `gpu_budgets.yaml`/`model_catalog.yaml`/`model_cards/local-main.json`에 별도 미러링되어 있지 않다 — 이미지처럼 별도 source-of-truth 통합이 되어 있지 않은 상태로, 향후 정리 대상.)
+동기화 대상: `configs/model_serving.yaml`, `../reference/api_reference.md`. (비디오 한도는 이미지와 달리 `gpu_budgets.yaml`/`model_catalog.yaml`/`model_cards/local-main.json`에 별도 미러링되어 있지 않다 — 이미지처럼 별도 source-of-truth 통합이 되어 있지 않은 상태로, 향후 정리 대상.)
 
 ### `video/gif`는 프레임 수가 아니라 재생시간으로 게이트해야 한다
 
@@ -137,5 +137,5 @@ MIME type allowlist 검사(`image/jpeg`, `image/png`, `image/webp`, `image/avif`
 
 - `configs/gpu_budgets.yaml` — 이미지 한도 single source-of-truth
 - `src/ai_model_serving/contracts/media.py` — 파서 구현
-- `docs/specs/api.md` — Vision 한도 API 문서 반영
+- `../reference/api_reference.md` — Vision 한도 API 문서 반영
 - ADR-0003: All Major Models as vLLM Runtime (vLLM이 PIL auto-detect를 사용하는 배경)

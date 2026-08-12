@@ -3,8 +3,8 @@
 
 체크 항목:
 - .env.example, .env.local.example, .env.compose.example 각각 필요한 키 집합을 포함하는지
-- 필요한 키 집합: always_required, auth_mode_keys, model_runtime 접두사 키, exposure 키
-- EXPOSURE_MODE 허용값 주석이 exposure_profiles.yaml의 canonical_modes와 일치하는지
+- 필요한 키 집합: 공통 예시 키, 인증 키, runtime override 키, exposure 키
+- non-base exposure profile에 필요한 example key가 선언되어 있는지
 
 사용법:
   python scripts/validation/validate_env_contract.py
@@ -47,12 +47,12 @@ def expand_required_keys(contract: dict[str, Any], key_set_names: list[str]) -> 
     required: list[str] = []
 
     for name in key_set_names:
-        if name == "always_required":
-            required.extend(contract.get("always_required", []))
+        if name == "common_example_keys":
+            required.extend(contract.get("common_example_keys", []))
         elif name == "auth_mode_keys":
             required.extend(contract.get("auth_mode_keys", []))
-        elif name == "model_runtimes":
-            for runtime_cfg in contract.get("model_runtimes", {}).values():
+        elif name == "runtime_override_example_keys":
+            for runtime_cfg in contract.get("runtime_override_example_keys", {}).values():
                 prefix = runtime_cfg["env_prefix"]
                 for suffix in runtime_cfg["suffixes"]:
                     required.append(f"{prefix}_{suffix}")
@@ -102,22 +102,22 @@ def validate(root: Path = ROOT, strict: bool = False) -> list[str]:
             violations.append("configs/exposure_profiles.yaml not found — cannot verify EXPOSURE_MODE values")
         else:
             exposure_data = load_yaml(exposure_path)
-            canonical_modes: list[str] = exposure_data.get("canonical_modes", [])
-            # canonical_modes가 exposure_mode_requirements에 나타나는지 확인
+            profiles = exposure_data.get("profiles", {})
+            # EXPOSURE_MODE example key가 선언되어 있는지 확인
             req_any = contract.get("exposure_mode_requirements", {}).get("any", [])
             if "EXPOSURE_MODE" not in req_any:
                 violations.append("env_contract.yaml: exposure_mode_requirements.any does not include EXPOSURE_MODE")
 
-            # base가 아닌 canonical mode마다 exposure_mode_requirements에 항목이 있는지 확인
+            # base가 아닌 profile마다 exposure_mode_requirements에 항목이 있는지 확인
             mode_reqs: dict = contract.get("exposure_mode_requirements", {})
             non_base_modes = [
-                m for m in canonical_modes
-                if exposure_data.get("profiles", {}).get(m, {}).get("class") != "default_private"
+                m for m, profile in profiles.items()
+                if isinstance(profile, dict) and profile.get("class") != "default_private"
             ]
             for mode in non_base_modes:
                 if mode not in mode_reqs:
                     violations.append(
-                        f"env_contract.yaml: exposure_mode_requirements missing entry for canonical non-base mode {mode!r}"
+                        f"env_contract.yaml: exposure_mode_requirements missing entry for non-base profile {mode!r}"
                     )
 
     return violations

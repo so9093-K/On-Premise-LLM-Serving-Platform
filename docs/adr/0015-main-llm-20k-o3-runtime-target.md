@@ -69,8 +69,7 @@ Runtime 값을 수동 복제하지 않도록 `render_vllm_command()`와 compose 
 ## Update (2026-07-16)
 
 12B 프로필의 `--max-model-len`을 20K에서 50K로 올리는 과정에서(실제로 배포 서버에 전환해
-검증 완료, `configs/main_model_profiles.yaml`의 `gemma4-12b-unified-fp8.compatibility`
-참고), KV cache 용량을 실제로 좌우하는 게 `gpu_memory_utilization`만이 아니라
+검증 완료, `configs/main_model_profiles.yaml` 하단 `description` 참고), KV cache 용량을 실제로 좌우하는 게 `gpu_memory_utilization`만이 아니라
 `--max-num-batched-tokens`이기도 하다는 걸 실측으로 확인했다.
 
 - vLLM은 부팅 시 `--max-num-batched-tokens` 크기의 배치를 기준으로 activation 메모리를

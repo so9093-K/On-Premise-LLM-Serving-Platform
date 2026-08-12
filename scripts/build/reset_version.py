@@ -86,12 +86,6 @@ def replace_plain_version_references(path: Path, version: str) -> None:
         text,
     )
     text = re.sub(r'(?m)^version: .+$', f'version: {version}', text, count=1)
-    text = re.sub(
-        r'(?s)(## 1\. Current package version\n\n```text\n).*?(\n```)',
-        rf'\g<1>{version}\g<2>',
-        text,
-        count=1,
-    )
     path.write_text(text, encoding='utf-8')
 
 
@@ -125,7 +119,6 @@ def main() -> None:
         ROOT / '.env.example',
         ROOT / '.env.local.example',
         ROOT / '.env.compose.example',
-        ROOT / 'docs/release/versioning_policy.md',
     ]:
         if path.exists():
             replace_plain_version_references(path, version)

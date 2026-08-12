@@ -1,379 +1,62 @@
-version: 0.1.0
-version_semantics: "model catalog schema version, not package release version"
-source_of_truth: configs/model_catalog.yaml
+# Gateway가 인식하는 논리 모델과 공개 API listing의 기준이다.
+# 실행 정책은 model_serving.yaml, Main Model 전환·부팅은 main_model_profiles.yaml이 맡는다.
 models:
   local-main:
     role: main_llm
     upstream_model_id: RedHatAI/gemma-4-12B-it-FP8-Dynamic
     upstream_revision: 67e53491df7a281623fa740de61307d5c542b7f4
-    base_model_id: google/gemma-4-12B-it
-    provider: RedHatAI
-    family: Gemma 4
-    parameter_class: 12B Unified (dense)
-    license: gemma
-    access: public_huggingface
-    primary_capability: chat.completions
-    input_modalities:
-    - text
-    - image
-    - audio
-    - video
-    deployed_modalities:
-    - text
-    - image
-    - audio
-    - video
-    output_modalities:
-    - text
-    quantization: FP8 compressed-tensors
     runtime:
-      backend: vllm
       served_model_name: local-main
       port: 9401
       endpoint: /v1/chat/completions
-    source_facts:
-      base_model_id: google/gemma-4-12B-it
-      quantization: RedHatAI FP8-Dynamic checkpoint quantized with llm-compressor
-        (FP8_Dynamic + iMatrix); vision/audio embedding layers excluded from
-        quantization per the RedHatAI card
-      vllm_min_version: no pinned stable release published as of 2026-07-28;
-        RedHatAI's card states the checkpoint is validated against vLLM nightly
-        builds only, not a specific release (unlike gemma4-26b-a4b-fp8's 0.19.0)
-      transformers_min_version: not pinned by the RedHatAI card as of 2026-07-28
-      release_status: preliminary upstream checkpoint; subject to change
-      tokenizer_artifacts:
-      - tokenizer.json
-      - tokenizer_config.json
-      cuda_runtime_note: RedHatAI card states nightly-vLLM validation only; RTX
-        6000 Ada requires local boot, tokenizer canary, and runtime validation
-        before production claims -- see configs/main_model_profiles.yaml
-        gemma4-12b-unified-fp8.compatibility for the actual host validation
-        history
-      upstream_example:
-        note: RedHatAI's own eval command uses a $MAX_MODEL_LEN placeholder
-          (no concrete suggested value), unlike gemma4-26b-a4b-fp8's card which
-          gives 96000 explicitly
-        tensor_parallel_size: 1
-        gpu_memory_utilization: 0.85
-        dtype: auto
-        add_bos_token: true
-        quantization: model_config compressed-tensors; do not pass --quantization fp8
-      supported_modalities:
-      - text
-      - image
-      - audio
-      - video
-      modality_architecture_note: Encoder-free unified multimodal architecture --
-        image/audio/video project directly into the LLM embedding space with no
-        separate vision/audio towers (unlike gemma4-26b-a4b-fp8, which supports
-        only text+image). Source -- ai.google.dev/gemma/docs/core/model_card_4.
-      upstream_context_length_tokens:
-        official_spec_tokens: 262144
-        official_spec_source: ai.google.dev Gemma 4 model card, "12B Unified"
-          row (256K)
-        vllm_recipe_note: docs.vllm.ai/projects/recipes/.../Gemma4.html lists
-          E2B/E4B/26B-A4B/31B but has no 12B entry as of 2026-07-28, so there is
-          no vLLM-recipe reference number the way gemma4-26b-a4b-fp8 has 131072
-        project_runtime_cap: 50000
-      parameter_summary:
-        architecture: dense -- no MoE, unlike gemma4-26b-a4b-fp8's 26B-total/4B-active
-          split; all parameters are active during inference
-        hf_display: ~11.95B params
-    project_runtime_policy:
-      tensor_parallel_size: 1
-      max_model_len: 50000
-      max_num_seqs: 3
-      max_num_batched_tokens: 50000
-      optimization_level: 3
-      gpu_memory_utilization: 0.76
-      trust_remote_code: true
-      policy_reason: RTX 6000 Ada에서 RedHatAI preliminary FP8 checkpoint에 대한
-        50K context, seq=3, optimization level 3 런타임 target이다(2026-07-28
-        default profile; 실측 boot/KV-cache 검증 이력은
-        configs/main_model_profiles.yaml의 gemma4-12b-unified-fp8.compatibility
-        참고). 공식 스펙은 256K context이므로, 이 플랫폼은 production을 주장하기
-        전에 로컬 tokenizer, boot, 품질, 지연시간, soak 검증이 필요하다
-      max_output_tokens: 13000
-      input_modalities:
-      - text
-      - image
-      - audio
-      - video
-      chat_content_contract: OpenAI chat content string or content parts with text,
-        image_url, input_audio, and video_url
-      max_image_inputs: 1
-      allowed_image_url_schemes:
-      - data
-      image_url_policy_reason: 기본값으로 임의 server-side URL fetch를 피한다;
-        MIME, 디코드된 image bytes, image dimensions를 검증한다; 외부 HTTPS image
-        fetch는 egress 정책 뒤에서만 활성화해야 한다
-      max_image_bytes: 25000000
-      max_image_pixels: 12845056
-      allowed_image_mime_types:
-      - image/jpeg
-      - image/png
-      - image/webp
-      - image/avif
-      - image/jp2
-      - image/gif
-      - image/bmp
-      - image/tiff
-      - image/x-tiff
-      runtime_features:
-        prefix_caching:
-          enabled: true
-          hash_algo: sha256_cbor
-        tool_calling:
-          enabled: true
-          tool_call_parser: gemma4
-          reasoning_parser: gemma4
-          chat_template: /app/configs/gemma4_chat_template.jinja
-          allow_parallel_tool_calls: false
-        reasoning:
-          enabled: true
-          default: false
-          request_parameter: reasoning
-          upstream_chat_template_kwargs:
-            enable_thinking: true
-      request_parameter_policy: bounded allowlist in configs/model_serving.yaml; unknown
-        chat fields rejected at Gateway
+    # 정적 listing은 기본 profile 기준이며, 요청 검증은 active profile의 modality를 따른다.
+    deployed_modalities: [text, image, audio, video]
     gateway_listing:
       enabled: true
       backend: main_llm_vllm
-      capabilities:
-      - chat.completions
-      - chat.completions.vision
-      - chat.completions.tools
-    lifecycle:
-      state: active
-      exposure: public
-      owner: platform
-      added_at: 2026-05-10
-      deprecation_deadline: null
-      removal_ticket: null
-    selectable_runtime_profiles:
-      source: configs/main_model_profiles.yaml
-      profiles:
-      - gemma4-26b-a4b-fp8
-      - gemma4-12b-unified-fp8
-      selection_note: Both profiles preserve the public local-main alias; only one
-        main runtime is loaded at a time.
+      capabilities: [chat.completions, chat.completions.vision, chat.completions.tools]
+
   local-embed:
     role: embedding
     upstream_model_id: google/embeddinggemma-300m
-    provider: Google DeepMind
-    family: EmbeddingGemma
-    parameter_class: 300M
-    license: gemma
-    access: gated_terms_acceptance_required
-    primary_capability: embeddings
-    input_modalities:
-    - text
-    output_modalities:
-    - embedding
+    input_modalities: [text]
     embedding_dimensions:
-      default: 768
-      matryoshka_supported:
-      - 768
-      - 512
-      - 256
-      - 128
-    max_input_tokens: 2048
+      matryoshka_supported: [768, 512, 256, 128]
     runtime:
-      backend: vllm
-      runner: pooling
       served_model_name: local-embed
       port: 9402
       endpoint: /v1/embeddings
-    source_facts:
-      model_size: 300M parameters
-      license: gemma
-      access: public repository with usage-license acceptance required for files and
-        content
-      max_input_tokens: 2048
-      default_embedding_dimension: 768
-      matryoshka_dimensions:
-      - 768
-      - 512
-      - 256
-      - 128
-      intended_runtime_from_card: Sentence Transformers
-    project_runtime_policy:
-      runner: pooling
-      max_model_len: 2048
-      embedding_dimension_default: 768
-      embedding_dimension_supported:
-      - 768
-      - 512
-      - 256
-      - 128
-      max_num_seqs: 2
-      max_num_batched_tokens: 2048
-      gpu_memory_utilization: 0.04
-      policy_reason: model card의 token·dimension 한도를 유지하면서 플랫폼 embedding
-        API로 EmbeddingGemma를 서빙한다
-    retrieval:
-      backend: dense_embedding
-      score_function: cosine
-      score_mode: dense_cosine
     gateway_listing:
       enabled: true
       backend: embedding_vllm
-      capabilities:
-      - embeddings
-      - retrieval_rerank
-      - retrieval_score
-    lifecycle:
-      state: active
-      exposure: public
-      owner: platform
-      added_at: 2026-05-10
-      deprecation_deadline: null
-      removal_ticket: null
+      capabilities: [embeddings, retrieval_rerank, retrieval_score]
+
   local-embed-ko:
     role: embedding
     upstream_model_id: dragonkue/snowflake-arctic-embed-l-v2.0-ko
-    provider: dragonkue
-    family: Snowflake Arctic Embed L v2.0 Korean
-    parameter_class: unknown
-    license: apache-2.0
-    access: public_huggingface
-    primary_capability: embeddings
-    input_modalities:
-    - text
-    output_modalities:
-    - embedding
+    input_modalities: [text]
     embedding_dimensions:
-      default: 1024
-      matryoshka_supported:
-      - 1024
-    max_input_tokens: 8192
+      matryoshka_supported: [1024]
     runtime:
-      backend: vllm
-      runner: pooling
       served_model_name: local-embed-ko
       port: 9406
       endpoint: /v1/embeddings
-    source_facts:
-      model_type: SentenceTransformer
-      license: apache-2.0
-      access: public repository on Hugging Face
-      base_model: Snowflake/snowflake-arctic-embed-l-v2.0
-      output_dimensions: 1024
-      similarity: cosine
-      max_sequence_length: 8192
-      languages:
-      - Korean
-      - English
-      prompt_name_query: query
-      korean_retrieval_benchmark_note: upstream model card reports Korean retrieval benchmark improvements; validate against project corpus before parity claims.
-    project_runtime_policy:
-      runner: pooling
-      max_model_len: 2048
-      embedding_dimension_default: 1024
-      embedding_dimension_supported:
-      - 1024
-      max_num_seqs: 2
-      max_num_batched_tokens: 2048
-      gpu_memory_utilization: 0.06
-      trust_remote_code: true
-      max_docs_per_rerank: 32
-      max_chars_per_document: 4000
-      retrieval_default: true
-      score_modes:
-      - dense_cosine
-      chunking_recommended: true
-      sentence_transformers_ranking_parity_required: true
-      policy_reason: 프로젝트는 chunk 기반 한국어 dense retrieval 안정성을 위해
-        runtime context를 2048로 제한하고 dimension을 1024로 고정한다; model card의
-        8192 context는 source fact로 남긴다.
-    retrieval:
-      backend: dense_embedding
-      score_function: cosine
-      score_mode: dense_cosine
     gateway_listing:
       enabled: true
       backend: embedding_ko_vllm
-      capabilities:
-      - embeddings
-      - retrieval_rerank
-      - retrieval_score
-    lifecycle:
-      state: active
-      exposure: public
-      owner: platform
-      added_at: 2026-05-20
-      deprecation_deadline: null
-      removal_ticket: null
+      capabilities: [embeddings, retrieval_rerank, retrieval_score]
+
   risk-prompt:
     role: risk_prompt_detector
     upstream_model_id: kakaocorp/kanana-safeguard-prompt-2.1b
-    provider: Kakao Corp.
-    family: Kanana Safeguard-Prompt
-    parameter_class: 2.1B
-    license: apache-2.0
-    access: public_huggingface
-    primary_capability: risk.prompt_attack_signal
-    input_modalities:
-    - text
-    output_modalities:
-    - single_label_token
-    output_format:
-      safe: <SAFE>
-      unsafe_pattern: <UNSAFE-Ax>
-      known_codes:
-      - A1
-      - A2
+    input_modalities: [text]
     runtime:
-      backend: vllm
       served_model_name: risk-prompt
       port: 9403
       internal_endpoint: /v1/chat/completions
       public_adapter_endpoint: /v1/risk/detectors/prompt/assessments
       max_output_tokens: 1
-    source_facts:
-      single_label_token: true
-      safe_label: <SAFE>
-      unsafe_pattern: <UNSAFE-Ax>
-      known_codes:
-      - A1
-      - A2
-      languages:
-      - ko
-      - en
-      transformers_min_version: 4.52.4
-      config_shape:
-        model_type: llama
-        architecture: LlamaForCausalLM
-        hidden_size: 1792
-        num_attention_heads: 24
-        num_key_value_heads: 8
-        head_dim: 128
-        hidden_size_divisible_by_attention_heads: false
-        attention_projection_width: 3072
-        requires_runtime_head_dim_support: true
-      model_card_max_new_tokens: 1
-      evaluation_basis: first generated token
-    project_runtime_policy:
-      max_output_tokens: 1
-      temperature: 0
-      prompt_format: chat_template-compatible user message
-      policy_reason: model card는 1-token classification 출력을 정의하고, 예시
-        생성은 max_new_tokens=1을 사용한다
-      runtime_features:
-        tool_calling:
-          enabled: false
-        prefix_caching:
-          enabled: false
     gateway_listing:
       enabled: true
       backend: risk_adapter
-      capabilities:
-      - risk.prompt_attack_signal
-    lifecycle:
-      state: active
-      exposure: public
-      owner: platform
-      added_at: 2026-05-10
-      deprecation_deadline: null
-      removal_ticket: null
+      capabilities: [risk.prompt_attack_signal]

@@ -34,7 +34,7 @@
       "tokenizer.json",
       "tokenizer_config.json"
     ],
-    "cuda_runtime_note": "RedHatAI card states nightly-vLLM validation only; RTX 6000 Ada requires local boot, tokenizer canary, and runtime validation before production claims -- see configs/main_model_profiles.yaml gemma4-12b-unified-fp8.compatibility for the actual host validation history",
+    "cuda_runtime_note": "RedHatAI card states nightly-vLLM validation only; RTX 6000 Ada requires local boot, tokenizer canary, and runtime validation before production claims -- see configs/main_model_profiles.yaml description for the actual host validation history",
     "upstream_example": {
       "note": "RedHatAI's own eval command uses a $MAX_MODEL_LEN placeholder (no concrete suggested value), unlike gemma4-26b-a4b-fp8's card which gives 96000 explicitly",
       "tensor_parallel_size": 1,
@@ -69,7 +69,7 @@
     "optimization_level": 3,
     "gpu_memory_utilization": 0.76,
     "trust_remote_code": true,
-    "policy_reason": "RTX 6000 Ada에서 RedHatAI preliminary FP8 checkpoint에 대한 50K context, seq=3, optimization level 3 런타임 target이다(2026-07-28 default profile; 실측 boot/KV-cache 검증 이력은 configs/main_model_profiles.yaml의 gemma4-12b-unified-fp8.compatibility 참고). 공식 스펙은 256K context이므로, 이 플랫폼은 production을 주장하기 전에 로컬 tokenizer, boot, 품질, 지연시간, soak 검증이 필요하다",
+    "policy_reason": "RTX 6000 Ada에서 RedHatAI preliminary FP8 checkpoint에 대한 50K context, seq=3, optimization level 3 런타임 target이다(2026-07-28 default profile; 실측 boot/KV-cache 검증 이력은 configs/main_model_profiles.yaml description 참고). 공식 스펙은 256K context이므로, 이 플랫폼은 production을 주장하기 전에 로컬 tokenizer, boot, 품질, 지연시간, soak 검증이 필요하다",
     "max_output_tokens": 13000,
     "input_modalities": [
       "text",

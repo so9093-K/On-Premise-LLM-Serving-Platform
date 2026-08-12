@@ -30,7 +30,6 @@ _BOOL_FIELDS = (
 _SEMANTIC_FIELDS = (
     "auth_owner",
     "scope",
-    "allowed_in_production",
 )
 
 _OPTIONAL_POLICY_FIELDS = (
@@ -311,11 +310,12 @@ def diagnose_auth(settings: AppSettings, project_root: Path) -> list[AuthFinding
             )
         )
 
-    if data.get("canonical_modes") and canonical_mode not in data.get("profiles", {}):
+    profiles = data.get("profiles", {})
+    if isinstance(profiles, dict) and canonical_mode not in profiles:
         findings.append(AuthFinding(
             "FAIL",
             "EXPOSURE_MODE_UNKNOWN",
-            f"EXPOSURE_MODE={exposure_mode!r} is not supported. Allowed canonical modes: {', '.join(data.get('canonical_modes', []))}.",
+            f"EXPOSURE_MODE={exposure_mode!r} is not supported. Allowed modes: {', '.join(profiles)}.",
         ))
 
     if diagnostics.get("gateway_bypass_possible"):

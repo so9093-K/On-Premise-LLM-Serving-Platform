@@ -7,11 +7,6 @@ try:
 except ImportError as exc:
     raise SystemExit('PyYAML is required: pip install pyyaml') from exc
 
-try:
-    from jsonschema import Draft202012Validator
-except ImportError as exc:
-    raise SystemExit('jsonschema is required: pip install jsonschema') from exc
-
 from .common import (
     iter_project_files,
 )

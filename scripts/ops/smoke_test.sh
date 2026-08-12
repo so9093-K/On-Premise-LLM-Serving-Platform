@@ -159,6 +159,16 @@ elif check == "risk":
 elif check == "chat":
     require(doc.get("object") == "chat.completion", "object must be chat.completion")
     require(isinstance(doc.get("choices"), list) and doc["choices"], "choices must be non-empty")
+    choice = doc["choices"][0]
+    message = choice.get("message") if isinstance(choice, dict) else None
+    content = message.get("content") if isinstance(message, dict) else None
+    require(isinstance(content, str), "structured chat content must be a string")
+    try:
+        structured = json.loads(content)
+    except (TypeError, json.JSONDecodeError):
+        require(False, "structured chat content must be valid JSON")
+    require(isinstance(structured, dict), "structured chat content must be an object")
+    require(isinstance(structured.get("ok"), bool), "structured chat content must contain boolean ok")
 elif check == "embedding":
     require(doc.get("object") == "list", "object must be list")
     data = doc.get("data")
@@ -215,7 +225,7 @@ else
 fi
 
 post_json_with_retry chat "$GATEWAY_BASE_URL/v1/chat/completions" \
-  '{"model":"local-main","messages":[{"role":"user","content":"Say OK only."}],"max_tokens":1,"temperature":0}'
+  '{"model":"local-main","messages":[{"role":"user","content":"Return exactly a JSON object with boolean field ok."}],"max_tokens":16,"temperature":0,"response_format":{"type":"json_schema","json_schema":{"name":"smoke_result","strict":true,"schema":{"type":"object","properties":{"ok":{"type":"boolean"}},"required":["ok"],"additionalProperties":false}}}}'
 assert_json chat
 
 if skip_runtime embedding; then

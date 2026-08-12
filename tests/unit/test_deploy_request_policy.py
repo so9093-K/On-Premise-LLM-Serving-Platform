@@ -72,7 +72,7 @@ def test_fresh_unified_image_promotes_rolling_request_to_full():
 
 def test_rolling_deploy_rejects_runtime_startup_policy():
     result = run_policy(
-        'DEPLOY_MODE=rolling; RUN_READY_FULL_SMOKE=1; DEPLOY_RUNTIME_PROFILE=full_hot; '
+        'DEPLOY_MODE=rolling; RUN_READY_FULL_SMOKE=1; DEPLOY_RUNTIME_PROFILE=main_only; '
         'deploy_validate_request release-1 5',
     )
 

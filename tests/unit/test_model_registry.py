@@ -24,13 +24,11 @@ def _registry() -> ModelRegistry:
                     "endpoint": "/v1/chat/completions",
                     "max_output_tokens": 9,
                 },
-                "project_runtime_policy": {"max_model_len": 128, "max_output_tokens": 9},
                 "gateway_listing": {
                     "enabled": True,
                     "backend": "chat-runtime",
                     "capabilities": ["chat.completions"],
                 },
-                "source_facts": {"source": "fixture"},
                 "lifecycle": {"state": "active", "exposure": "public", "owner": "platform"},
             },
             "embed": {

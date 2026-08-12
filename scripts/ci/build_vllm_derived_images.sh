@@ -28,6 +28,54 @@ set -euo pipefail
 # 선택한 인터프리터를 그대로 따른다. 이미지 빌드 입력을 읽는 도구까지 서로 다른
 # Python 환경을 쓰면 로컬과 CI에서 같은 config가 다르게 해석될 여지가 생긴다.
 PYTHON_BIN="${PYTHON_BIN:-$(command -v python3.12 || command -v python3 || command -v python)}"
+source scripts/lib/deploy_recreate_policy.sh
+
+# GitLab only:changes는 YAML 주석과 실제 build input을 구분하지 못한다. 이 job이
+# config 파일 변경만으로 생성된 경우, 이전 commit과 base image·호환성 pin을 비교해
+# 같으면 대용량 base pull과 Docker build 없이 종료한다. Dockerfile·patch 등 다른
+# build input이 함께 바뀐 경우에는 항상 아래 빌드를 수행한다.
+if [[ -n "${CI_COMMIT_BEFORE_SHA:-}" && -n "${CI_COMMIT_SHA:-}" ]] \
+  && git cat-file -e "${CI_COMMIT_BEFORE_SHA}^{commit}" 2>/dev/null; then
+  mapfile -t _unified_build_inputs < <(vllm_unified_image_source_paths)
+  _unified_build_inputs+=(configs/vllm_unified_build.yaml)
+  mapfile -t _changed_unified_build_inputs < <(
+    git diff --name-only "${CI_COMMIT_BEFORE_SHA}" "${CI_COMMIT_SHA}" -- "${_unified_build_inputs[@]}"
+  )
+  if [[ "${_changed_unified_build_inputs[*]:-}" == "configs/vllm_unified_build.yaml" ]]; then
+    if "$PYTHON_BIN" - "${CI_COMMIT_BEFORE_SHA}:configs/vllm_unified_build.yaml" \
+      configs/vllm_unified_build.yaml <<'PY'
+from __future__ import annotations
+
+import subprocess
+import sys
+from pathlib import Path
+
+import yaml
+
+
+def read(path: str) -> dict:
+    if path.startswith("git:"):
+        _, revision, relative = path.split(":", 2)
+        text = subprocess.check_output(["git", "show", f"{revision}:{relative}"], text=True)
+    else:
+        text = Path(path).read_text(encoding="utf-8")
+    document = yaml.safe_load(text)
+    if not isinstance(document, dict):
+        raise ValueError("vLLM unified build config root must be a mapping")
+    return {
+        "base_image_default": document.get("base_image_default"),
+        "compatibility_pins": document.get("compatibility_pins"),
+    }
+
+
+raise SystemExit(0 if read(f"git:{sys.argv[1]}") == read(sys.argv[2]) else 1)
+PY
+    then
+      echo "[build] vLLM unified config explanation-only change; skipping image build"
+      exit 0
+    fi
+  fi
+fi
 
 # ── Preflight: 필수 환경변수 확인 ───────────────────────────────────────────────
 : "${VLLM_UNIFIED_IMAGE_SHA:?VLLM_UNIFIED_IMAGE_SHA is required}"
@@ -42,7 +90,6 @@ RESOLVED_VLLM_BASE_IMAGE="${VLLM_BASE_IMAGE:-$(${PYTHON_BIN} scripts/models/prin
 echo "[build] vLLM base image : ${RESOLVED_VLLM_BASE_IMAGE}"
 TRANSFORMERS_VERSION="$(${PYTHON_BIN} scripts/models/print_vllm_unified_compatibility.py --key transformers)"
 HUGGINGFACE_HUB_VERSION="$(${PYTHON_BIN} scripts/models/print_vllm_unified_compatibility.py --key huggingface_hub)"
-TRANSFORMERS_MIN_VERSION="$(${PYTHON_BIN} scripts/models/print_vllm_unified_compatibility.py --key transformers_min)"
 
 echo "[build] disk status (pre-build):"
 docker system df -v || true
@@ -59,7 +106,6 @@ docker build \
   --build-arg BASE_IMAGE="${RESOLVED_VLLM_BASE_IMAGE}" \
   --build-arg TRANSFORMERS_VERSION="${TRANSFORMERS_VERSION}" \
   --build-arg HUGGINGFACE_HUB_VERSION="${HUGGINGFACE_HUB_VERSION}" \
-  --build-arg TRANSFORMERS_MIN_VERSION="${TRANSFORMERS_MIN_VERSION}" \
   -t "${IMAGE_SHA}" \
   -t "${IMAGE_REF}" \
   .

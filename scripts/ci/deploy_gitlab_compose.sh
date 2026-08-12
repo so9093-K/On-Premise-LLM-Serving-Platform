@@ -34,7 +34,7 @@
 #   DEPLOY_RELEASE_ID          불변 release 디렉터리 이름; 기본값은 CI_COMMIT_SHA
 #   RELEASES_TO_KEEP           보관할 성공한 release 디렉터리 개수 (기본값: 5)
 #   DEPLOY_RUNTIME_PROFILE     configs/deploy_profiles.yaml의 런타임 시작 프로필
-#                              (예: full_hot, main_only, retrieval_ready).
+#                              (예: main_only, retrieval_ready).
 #   DEPLOY_DEFERRED_RUNTIMES   배포 후 정지 상태로 유지할, 콤마로 구분된 controllable
 #                              런타임 키 또는 compose 서비스 (예:
 #                              embedding,embedding_ko,risk_prompt). full 배포는 이
@@ -245,15 +245,7 @@ fi
 # pipeline까지 CI의 직전-commit diff만으로 완전히 판별할 수는 없다. 이 비교는
 # 그런 경우 기존 digest의 조용한 재사용을 배포 직전에 막는다.
 if [[ -n "${PREVIOUS_RELEASE}" && -d "${PREVIOUS_RELEASE}" ]]; then
-  _unified_image_source=(
-    ".dockerignore"
-    "ops/images/vllm-unified/Dockerfile"
-    "ops/images/vllm-unified/requirements.media.lock"
-    "ops/patches/apply_gemma4_multimodal_patches.py"
-    "ops/patches/transformers_llama_head_dim_guard.py"
-    "scripts/ci/build_vllm_derived_images.sh"
-    "scripts/models/print_vllm_unified_compatibility.py"
-  )
+  mapfile -t _unified_image_source < <(vllm_unified_image_source_paths)
   mapfile -t _changed_unified_image_source < <(deploy_changed_files "${PREVIOUS_RELEASE}" "${RELEASE_PATH}" "${_unified_image_source[@]}")
   if deploy_unified_image_config_changed "${PREVIOUS_RELEASE}" "${RELEASE_PATH}"; then
     _changed_unified_image_source+=("configs/vllm_unified_build.yaml")

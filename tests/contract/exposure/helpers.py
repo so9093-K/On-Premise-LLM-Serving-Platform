@@ -1,8 +1,8 @@
 """auth/exposure profile source-of-truth 일관성에 대한 계약 테스트.
 
 설계 원칙: 테스트는 특정 과거 실수의 mode 이름이 아니라 구조적 불변식과 정책
-제약을 검증한다. canonical mode 이름이 바뀌어도, 테스트는 canonical_modes가
-선언하는 값이 무엇이든 그 불변식을 계속 검증한다.
+제약을 검증한다. profile 이름이 바뀌어도, 테스트는 profile 구조가 선언하는
+불변식을 계속 검증한다.
 
 검증 항목:
 - validator 통합을 통한 configs/exposure_profiles.yaml 구조적 불변식
@@ -40,7 +40,6 @@ def _profile_diagnostics(*, diagnostic: bool) -> dict[str, bool]:
     return {
         "gateway_bypass_possible": diagnostic,
         "direct_model_runtime_access": diagnostic,
-        "direct_risk_adapter_access": diagnostic,
         "direct_operations_endpoints": diagnostic,
         "requires_exposure_audience": diagnostic,
     }
@@ -68,7 +67,6 @@ def _category_validator_fixture() -> tuple[dict, dict]:
         "view": _validator_service("visualization"),
     }
     data = {
-        "canonical_modes": ["private", "diagnostic"],
         "profiles": {
             "private": {
                 "class": "default_private",

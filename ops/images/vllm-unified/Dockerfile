@@ -32,7 +32,6 @@ FROM ${BASE_IMAGE}
 
 ARG TRANSFORMERS_VERSION=5.13.1
 ARG HUGGINGFACE_HUB_VERSION=1.23.0
-ARG TRANSFORMERS_MIN_VERSION=4.52.4
 
 LABEL org.opencontainers.image.title="ai-model-serving-vllm-unified"
 LABEL org.opencontainers.image.description="Single vLLM runtime for all served models: Gemma4 multimodal fixes + Kanana Llama head_dim guard"
@@ -43,7 +42,6 @@ LABEL ai_model_serving.patch.remove_when="Upstream Transformers/vLLM honors expl
 LABEL ai_model_serving.patch.metadata_path="/usr/local/share/ai-model-serving/patches/transformers_llama_head_dim_guard.json"
 LABEL ai_model_serving.transformers_version="${TRANSFORMERS_VERSION}"
 LABEL ai_model_serving.huggingface_hub_version="${HUGGINGFACE_HUB_VERSION}"
-LABEL ai_model_serving.transformers_min_version="${TRANSFORMERS_MIN_VERSION}"
 
 # ── Gemma4-unified multimodal: media decode stack ──────────────────────────
 # The pinned upstream base already includes libsndfile1, the native backend
@@ -66,7 +64,7 @@ RUN python3 /tmp/apply_gemma4_multimodal_patches.py \
 # ── Kanana risk-prompt: verified base dependency pair ───────────────────────
 # The pinned base image is the dependency source of truth.  Do not pip-install
 # over its curated vLLM stack: verify the exact known-good pair instead.
-RUN python3 - "$TRANSFORMERS_VERSION" "$HUGGINGFACE_HUB_VERSION" "$TRANSFORMERS_MIN_VERSION" <<'PY'
+RUN python3 - "$TRANSFORMERS_VERSION" "$HUGGINGFACE_HUB_VERSION" <<'PY'
 from __future__ import annotations
 
 import sys
@@ -74,21 +72,9 @@ import sys
 import huggingface_hub
 import transformers
 
-expected_transformers, expected_hub, minimum = sys.argv[1:]
+expected_transformers, expected_hub = sys.argv[1:]
 actual = transformers.__version__
 actual_hub = huggingface_hub.__version__
-
-
-def parse(value: str) -> tuple[int, int, int]:
-    core = value.split("+", 1)[0].split("-", 1)[0]
-    parts = core.split(".")[:3]
-    nums = []
-    for part in parts:
-        digits = "".join(ch for ch in part if ch.isdigit())
-        nums.append(int(digits or 0))
-    while len(nums) < 3:
-        nums.append(0)
-    return tuple(nums)
 
 if actual != expected_transformers or actual_hub != expected_hub:
     print(
@@ -98,10 +84,7 @@ if actual != expected_transformers or actual_hub != expected_hub:
         file=sys.stderr,
     )
     sys.exit(1)
-if parse(actual) < parse(minimum):
-    print(f"transformers {actual} is below Kanana floor {minimum}", file=sys.stderr)
-    sys.exit(1)
-print(f"vllm-unified transformers={actual} huggingface_hub={actual_hub} minimum={minimum}")
+print(f"vllm-unified transformers={actual} huggingface_hub={actual_hub}")
 PY
 
 # ── Kanana risk-prompt: Llama head_dim guard ────────────────────────────────

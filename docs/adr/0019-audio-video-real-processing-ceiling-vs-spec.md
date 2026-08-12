@@ -86,7 +86,7 @@ MIME 시그니처만 확인할 뿐 frame count나 duration을 전혀 검증하�
 ## Migration notes
 
 - `configs/model_serving.yaml`의 `audio_input_note`/`video_input_note` 갱신.
-- `docs/specs/api.md`의 오디오/비디오 테이블에 실제 처리 한계와 이 ADR 참조 추가.
+- `../reference/api_reference.md`의 오디오/비디오 섹션에 실제 처리 한계와 이 ADR 참조 추가.
 - 향후 vLLM 버전 업그레이드나 커스텀 이미지 패치로 비디오 60프레임을 실제로 지원하게
   되면, 이 ADR에 Update 섹션을 추가하고 `main_model_profiles.yaml`의
   `gemma4-12b-unified-fp8.compatibility`에 실측 근거(GPU headroom, boot 검증)를

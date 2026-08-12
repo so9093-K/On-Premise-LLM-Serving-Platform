@@ -60,7 +60,7 @@
 | Prompt Risk | `risk-prompt-vllm` | `0.065` | 단일 토큰 signal classifier |
 | 합계 (3모델 구성, Dense retrieval-ko 제외) | enabled vLLM total | `0.825` | 48GB 기준 약 39.6GiB 예약 |
 | 합계 (4모델 구성) | enabled vLLM total | `0.925` | 48GB 기준 약 44.4GiB 예약 |
-| reserve | system/runtime headroom | 3.5GiB hard minimum, 4~5GiB watch/comfortable target | 다운로드, warmup, allocator fragmentation, monitoring overhead 포함 |
+| reserve | system/runtime headroom | 3.5GiB hard minimum | 다운로드, warmup, allocator fragmentation, monitoring overhead 포함 |
 
 `runtime peak`는 각 요청 순간의 activation/workspace까지 포함한 최대 사용량이다. 단순 reserved budget이 낮아도 긴 prompt, vision input, warmup, CUDA allocator fragmentation이 겹치면 OOM이 날 수 있으므로, target GPU에서 boot smoke와 30분 soak를 별도로 통과해야 한다.
 
@@ -100,7 +100,7 @@ Prefix caching은 반복 prefix가 있는 multi-turn, tool, RAG prompt에서 pre
 | Functional smoke | `/health`, `/ready`, `/v1/models`, chat, streaming chat, image input, embeddings, retrieval rerank/score, prompt risk, aggregate |
 | Risk retired policy | `/v1/risk/detectors/siren/assessments`는 410 Gone 또는 제거 정책과 일치 |
 | Soak | 20K context, seq 1, mixed text/vision/risk workload 30분, restart/OOM 0 |
-| Monitoring | Prometheus scrape 정상, Grafana No Data 패널 없음, GPU reserve가 `hard_minimum` 3.5GiB 이상이며 `watch_below` 4GiB 이상이면 더 안전 |
+| Monitoring | Prometheus scrape 정상, Grafana No Data 패널 없음, GPU reserve가 `hard_minimum` 3.5GiB 이상 |
 
 ## 8. 결론
 
@@ -120,6 +120,6 @@ Prefix caching은 반복 prefix가 있는 multi-turn, tool, RAG prompt에서 pre
 
 즉 12B가 26B보다 context가 2.5배 크고 audio/video까지 지원하는데도 실제 VRAM은 오히려 더 적게 씁니다 — 26B는 weight 자체가 더 크기 때문입니다. 두 경우 다 `gpu_memory_utilization=0.76`으로 boot에 필요한 최소량 대비 여유가 있었다.
 
-12B 행은 2026-07-24에 `nvidia-smi`/`vllm:cache_config_info`로 재측정한 50K/seq=3 수치다. `configs/main_model_profiles.yaml`이 한때 `--max-model-len`/`--max-num-batched-tokens`를 58192로, `--max-num-seqs`를 2로 올렸었지만 실제 배포에서 두 번(seq=3·58192, seq=2·58192) 다 KV cache 부족으로 boot가 실패했고(둘 다 "18.65 GiB 필요/16.28 GiB 가용"로 동일 — max_num_seqs는 이 체크와 무관함이 확인됨), 자동 롤백 후 50000/seq=3으로 되돌렸다. 이전 행에 있던 "num_gpu_blocks x block_size(16) = tokens" 계산식(예: 282,144 tokens)은 이 model의 hybrid attention 구조에서 실제 용량과 맞지 않는 것으로 확인되어, 앞으로는 `vllm:cache_config_info`의 `kv_cache_size_tokens` 또는 부팅 로그의 "Available KV cache memory" GiB 값을 기준으로 삼는다. 자세한 내용은 `configs/main_model_profiles.yaml`의 `gemma4-12b-unified-fp8` compatibility.reasons 참고.
+12B 행은 2026-07-24에 `nvidia-smi`/`vllm:cache_config_info`로 재측정한 50K/seq=3 수치다. 58,192 context 시도와 자동 rollback, KV cache 수치 해석의 상세 근거는 `configs/main_model_profiles.yaml` 하단 `description`에 보관한다. 앞으로는 `num_gpu_blocks x block_size`가 아니라 `vllm:cache_config_info`의 `kv_cache_size_tokens` 또는 부팅 로그의 "Available KV cache memory" GiB를 기준으로 삼는다.
 
 **실무 시사점**: 1~8절의 "Main LLM canary context는 20K, seq 1"이라는 서술은 활성 프로필이 26B일 때만 맞다. 어느 프로필이 실제로 얼마나 VRAM을 쓰는지는 이 문서의 고정 표가 아니라, 부팅 후 `nvidia-smi`와 vLLM `/metrics`(`vllm:cache_config_info`의 `num_gpu_blocks`)로 확인하는 게 원칙이다 — 이론 계산이 실측과 크게 어긋난 전례([ADR-0015](../adr/0015-main-llm-20k-o3-runtime-target.md) Context의 32K 실패 사례)가 있다.

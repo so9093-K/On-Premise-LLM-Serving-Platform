@@ -2,8 +2,7 @@
 """configs/exposure_profiles.yaml의 구조적 불변식을 검증한다.
 
 체크 항목:
-- canonical_modes 필드가 존재하고 비어있지 않은지
-- profiles.keys()가 canonical_modes와 정확히 일치하는지
+- profiles가 존재하고 비어있지 않은지
 - 각 프로필이 class, diagnostics, host_published를 갖는지
 - class: default_private인 프로필이 정확히 1개인지
 - class: diagnostic_full_stack인 프로필이 정확히 1개인지
@@ -51,7 +50,6 @@ _PROFILE_REQUIRED_FIELDS = ("class", "diagnostics", "host_published", "descripti
 _DIAGNOSTICS_FIELDS = (
     "gateway_bypass_possible",
     "direct_model_runtime_access",
-    "direct_risk_adapter_access",
     "direct_operations_endpoints",
     "requires_exposure_audience",
 )
@@ -87,11 +85,11 @@ def _published_compose_services(document: object) -> set[str]:
 
 
 def validate_compose_exposure_projection(data: dict, services: dict) -> list[str]:
-    """Ensure checked-in compose port mappings equal the exposure profiles.
+    """Ensure the non-generated base Compose projection matches its profile.
 
-    This replaces tests that invoked `docker compose config` only to compare
-    published service names.  Value-level override drift remains owned by
-    render_exposure_overrides.py --check, which renders from the same registry.
+    Generated exposure override drift is owned exclusively by
+    render_exposure_overrides.py --check, which compares complete rendered
+    content rather than only the published-service set.
     """
     profiles = data.get("profiles", {})
     base_modes = [
@@ -124,28 +122,6 @@ def validate_compose_exposure_projection(data: dict, services: dict) -> list[str
             f"actual={sorted(actual_base)}"
         )
 
-    base_published = set(base_profile.get("host_published", []))
-    for mode, profile in profiles.items():
-        if mode == base_mode or not isinstance(profile, dict):
-            continue
-        expected_extra = {
-            str(services[name]["compose_service"])
-            for name in set(profile.get("host_published", [])) - base_published
-            if name in services
-        }
-        override = ROOT / "ops" / "compose" / "overrides" / f"exposure.{mode.replace('_', '-')}.yaml"
-        try:
-            override_doc = yaml.safe_load(override.read_text(encoding="utf-8"))
-        except (OSError, yaml.YAMLError) as exc:
-            violations.append(f"cannot read {override.relative_to(ROOT)}: {exc}")
-            continue
-        actual_extra = _published_compose_services(override_doc)
-        if actual_extra != expected_extra:
-            violations.append(
-                f"{override.relative_to(ROOT)} host-published services disagree with "
-                f"profiles.{mode}.host_published: expected={sorted(expected_extra)}, "
-                f"actual={sorted(actual_extra)}"
-            )
     return violations
 
 
@@ -190,29 +166,18 @@ def validate(data: dict, strict: bool = False, services: dict | None = None) -> 
     """위반 메시지 목록을 반환한다. 비어있으면 유효하다는 뜻."""
     violations: list[str] = []
 
-    # 1. canonical_modes 필드
-    canonical_modes: list[str] = data.get("canonical_modes", [])
-    if not canonical_modes:
-        violations.append("canonical_modes field is missing or empty")
+    # 1. profiles가 유일한 지원 EXPOSURE_MODE 목록이다.
+    profiles: dict = data.get("profiles", {})
+    if not isinstance(profiles, dict) or not profiles:
+        violations.append("profiles field is missing or empty")
         return violations  # 더 이상 의미 있게 진행할 수 없음
 
-    # 2. profiles.keys()는 canonical_modes와 정확히 일치해야 함
-    profiles: dict = data.get("profiles", {})
+    # 2. service/port mapping은 services.yaml에만 둔다.
     if "services" in data:
         violations.append(
             "configs/exposure_profiles.yaml must not define services; use configs/services.yaml "
             "for compose service/port/bind mapping"
         )
-    profile_names = set(profiles.keys())
-    canonical_set = set(canonical_modes)
-    if profile_names != canonical_set:
-        extra = profile_names - canonical_set
-        missing = canonical_set - profile_names
-        if extra:
-            violations.append(f"profiles has keys not in canonical_modes: {sorted(extra)}")
-        if missing:
-            violations.append(f"canonical_modes has modes not in profiles: {sorted(missing)}")
-
     # 3. 각 프로필은 필수 필드와 유효한 class를 가져야 함
     classes_found: dict[str, list[str]] = {}
     for mode, profile in profiles.items():
@@ -283,7 +248,7 @@ def validate(data: dict, strict: bool = False, services: dict | None = None) -> 
                     f"default_private profile must not host-publish {category} services: {', '.join(blocked)}"
                 )
         diag = profile.get("diagnostics", {})
-        for dangerous in ("gateway_bypass_possible", "direct_model_runtime_access", "direct_risk_adapter_access", "direct_operations_endpoints"):
+        for dangerous in ("gateway_bypass_possible", "direct_model_runtime_access", "direct_operations_endpoints"):
             if diag.get(dangerous):
                 violations.append(
                     f"profiles.{mode} (default_private) has diagnostics.{dangerous}=true — not allowed for default_private class"

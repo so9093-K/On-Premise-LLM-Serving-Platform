@@ -235,3 +235,12 @@ Audio/video는 0017과 동일하게 기본 inert다. 활성화는 게이트된 �
   fingerprint 기록 단계만 간헐적으로 계속 실패하면 이 필드가 영구히 None으로 남아 재웜업이
   트리거되지 않는 잠재 리스크가 있다는 코드 주석을 남겨뒀다 — 두 실패가 겹쳐야 하는 좁은
   경우라 지금은 문서화만 하고 별도 상태 머신 변경은 하지 않았다.
+
+## Update — 2026-08-11: ready-full 중복 warmup 제거
+
+`ready-full`의 실패를 무시하는 순차 warmup(risk/embedding/embedding-ko 및 별도
+structured-output 호출)을 제거한다. 뒤따르는 smoke가 같은 경로를 다시 엄격하게
+확인하고 있었으므로, warmup은 최대 수 분을 소비하면서도 실패를 배포 실패로 만들지 않는
+중복 계층이었다. Structured output은 일반 chat smoke에 `response_format: json_schema`를
+포함시키고 응답 JSON까지 검사하는 단일 strict gate로 승격한다. main-model 전환·재시작 시
+admin-sidecar backend의 수명주기 웜업은 별도 방어선으로 유지한다.

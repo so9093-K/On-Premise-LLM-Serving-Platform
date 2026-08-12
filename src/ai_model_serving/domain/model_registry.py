@@ -53,13 +53,12 @@ class ModelRegistry:
         for logical_id, cfg in self._catalog_models().items():
             listing = cfg.get("gateway_listing", {})
             runtime = cfg.get("runtime", {})
-            policy = cfg.get("project_runtime_policy", {})
             lifecycle = cfg.get("lifecycle", {})
             serving_key, serving_cfg = serving_by_id.get(str(logical_id), (None, {}))
             dimensions = cfg.get("embedding_dimensions", {}).get("matryoshka_supported", [])
             capabilities = listing.get("capabilities") or [cfg.get("primary_capability")]
             backend = str(listing.get("backend", runtime.get("backend", serving_cfg.get("backend", "runtime"))))
-            max_model_len = serving_cfg.get("max_model_len", policy.get("max_model_len"))
+            max_model_len = serving_cfg.get("max_model_len")
             max_output_tokens = serving_cfg.get("max_output_tokens", resolve_catalog_max_output_tokens(cfg))
             capabilities_tuple = tuple(str(item) for item in capabilities if item)
             request_parameters, fixed_parameters = _request_parameter_surface(

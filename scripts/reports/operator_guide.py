@@ -118,7 +118,7 @@ def render_markdown(workflows: list[Workflow]) -> str:
         "# Operator Workflow Guide",
         "",
         "상황별로 어떤 명령을 실행해야 하는지 빠르게 고르는 가이드다.",
-        "전체 명령 목록은 `make help`, 처음 프로젝트 전체 흐름은 `docs/operations/first_project_guide.md`, 상세 문서는 `docs/README.md`를 기준으로 본다.",
+        "전체 명령 목록과 실행 정의는 `make help`, `make guide`, `Makefile`을 기준으로 본다.",
         "",
     ]
     for workflow in workflows:

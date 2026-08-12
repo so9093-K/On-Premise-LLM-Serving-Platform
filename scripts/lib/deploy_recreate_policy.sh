@@ -1,6 +1,19 @@
 #!/usr/bin/env bash
 # Deploy recreate 판단의 순수 정책 함수. 호출자는 현재 release 디렉터리에서 실행한다.
 
+vllm_unified_image_source_paths() {
+  # configs/vllm_unified_build.yaml은 아래 semantic 비교 함수가 base image와
+  # compatibility pin만 따로 비교한다. 여기는 Dockerfile 자체와 그 직접 입력만 둔다.
+  printf '%s\n' \
+    .dockerignore \
+    ops/images/vllm-unified/Dockerfile \
+    ops/images/vllm-unified/requirements.media.lock \
+    ops/patches/apply_gemma4_multimodal_patches.py \
+    ops/patches/transformers_llama_head_dim_guard.py \
+    scripts/ci/build_vllm_derived_images.sh \
+    scripts/models/print_vllm_unified_compatibility.py
+}
+
 deploy_runtime_config_changed() {
   local baseline="$1" current="$2" rel
   [[ -n "$baseline" && -d "$baseline" ]] || return 1

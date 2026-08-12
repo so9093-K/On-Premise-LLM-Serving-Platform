@@ -13,6 +13,11 @@ try:
 except ImportError as exc:
     raise SystemExit("Missing dependency: PyYAML. Run: python -m pip install --requirement requirements.lock") from exc
 
+try:
+    from jinja2 import Environment, TemplateSyntaxError
+except ImportError as exc:
+    raise SystemExit("Missing dependency: Jinja2. Run: python -m pip install --requirement requirements.lock") from exc
+
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
@@ -22,6 +27,7 @@ SERVING_PATH = ROOT / "configs/model_serving.yaml"
 CATALOG_PATH = ROOT / "configs/model_catalog.yaml"
 GPU_BUDGETS_PATH = ROOT / "configs/gpu_budgets.yaml"
 MAIN_MODEL_PROFILES_PATH = ROOT / "configs/main_model_profiles.yaml"
+GEMMA4_CHAT_TEMPLATE_PATH = ROOT / "configs/gemma4_chat_template.jinja"
 
 COMPOSE_SCALAR_ARGS = (
     "model",
@@ -38,17 +44,6 @@ COMPOSE_SCALAR_ARGS = (
 COMPOSE_JSON_ARGS = (
     "compilation_config",
 )
-
-RUNTIME_POLICY_FIELDS = (
-    "max_model_len",
-    "max_num_seqs",
-    "max_num_batched_tokens",
-    "gpu_memory_utilization",
-    "optimization_level",
-    "compilation_config",
-)
-
-
 
 def load_yaml(path: Path) -> Any:
     return yaml.safe_load(path.read_text(encoding="utf-8"))
@@ -201,6 +196,20 @@ def validate_main_llm_bootstrap_image(compose: dict[str, Any]) -> list[str]:
     return errors
 
 
+def validate_gemma4_chat_template() -> list[str]:
+    """vLLM 기동 전 Gemma 4 템플릿의 Jinja 문법 오류를 확인한다."""
+    if not GEMMA4_CHAT_TEMPLATE_PATH.is_file():
+        return ["configs/gemma4_chat_template.jinja is missing"]
+    try:
+        Environment().from_string(GEMMA4_CHAT_TEMPLATE_PATH.read_text(encoding="utf-8"))
+    except TemplateSyntaxError as exc:
+        return [
+            "configs/gemma4_chat_template.jinja has invalid Jinja syntax: "
+            f"line {exc.lineno}: {exc.message}"
+        ]
+    return []
+
+
 def validate_alignment(
     compose_path: Path = COMPOSE_PATH,
     *,
@@ -218,6 +227,7 @@ def validate_alignment(
 
     errors.extend(validate_production_compose_no_build_blocks(compose_path))
     errors.extend(validate_main_llm_bootstrap_image(compose))
+    errors.extend(validate_gemma4_chat_template())
 
     for runtime in registry.iter_runtime_services():
         if runtime.backend != "vllm":
@@ -232,8 +242,6 @@ def validate_alignment(
             continue
         args = command_args(service.get("command"))
         cfg = runtime.config
-        catalog_policy = catalog_doc["models"][runtime.logical_id].get("project_runtime_policy", {})
-
         expected = expected_compose_args(cfg, runtime)
         for key, expected_value in expected.items():
             actual = str(args.get(key))
@@ -267,20 +275,6 @@ def validate_alignment(
                 errors.append(f"{service_name}: configs/model_serving.yaml must keep bitsandbytes for risk detectors")
             if cfg.get("max_output_tokens") != 1:
                 errors.append(f"{service_name}: risk detector max_output_tokens must remain 1")
-
-        # catalog와 serving 설정이 모두 값을 선언하는 경우 서로 일치하는지 확인.
-        for key in RUNTIME_POLICY_FIELDS:
-            for source_name, source in [("model_catalog", catalog_policy)]:
-                if key in source and key not in cfg:
-                    errors.append(f"{runtime.logical_id}: {source_name}.{key} is declared but model_serving.{key} is missing")
-                    continue
-                if key in source and key in COMPOSE_JSON_ARGS:
-                    source_value = json.dumps(source[key], separators=(",", ":"), sort_keys=True)
-                    cfg_value = json.dumps(cfg[key], separators=(",", ":"), sort_keys=True)
-                    if source_value != cfg_value:
-                        errors.append(f"{runtime.logical_id}: {source_name}.{key}={source_value} does not match model_serving {cfg_value}")
-                elif key in source and str(source[key]) != str(cfg[key]):
-                    errors.append(f"{runtime.logical_id}: {source_name}.{key}={source[key]} does not match model_serving {cfg[key]}")
 
     if total_gpu_util >= avoid_above:
         errors.append(

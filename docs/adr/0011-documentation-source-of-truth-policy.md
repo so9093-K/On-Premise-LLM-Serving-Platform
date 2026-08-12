@@ -37,7 +37,7 @@ Accepted
 - examples는 API contract sample이다. risk code는 response contract와 enabled detector 설정에 존재하는 code만 사용한다.
 - retired endpoint는 active 검증 예시로 작성하지 않는다.
 - Tier 1 reference 문서는 generated block 또는 governance test로 source-of-truth와의 일치를 보호한다.
-- `docs/adr/`는 canonical decision record다. `docs/02_decision_register.md`는 ADR index로 운영한다.
+- `docs/adr/`는 canonical decision record다. 번호가 매겨진 ADR 파일 목록 자체를 index로 운영한다.
 
 ## Consequences
 
@@ -54,17 +54,16 @@ Accepted
 
 ## Migration notes
 
-이 ADR 채택과 함께 다음 수정을 완료했다.
+이 ADR 채택 당시의 이전 문서 체계에서는 다음 정리를 완료했다. 아래는 이력이며, 현재 운영 문서의 경로를 뜻하지 않는다.
 
-- `docs/examples/requests.md`에서 A3/A4/A5/I5 제거, Siren active 예시를 retired 안내로 교체
-- `docs/models/model_cards.md`에 `local-embed-ko` 추가, `risk-siren` retained 거짓 문장 제거
-- `docs/operations/endpoint_reference.md`에서 `/v1/embeddings` local-embed 전용 주장 제거
-- `docs/development/build_ux.md`에서 존재하지 않는 embedding-ko 전용 build 참조 제거
-- `docs/operations/gitlab_cicd_deployment.md`에서 존재하지 않는 embedding-ko 전용 Dockerfile 참조 제거
+- risk code 예시에서 A3/A4/A5/I5를 제거하고 Siren active 예시를 retired 안내로 교체
+- 모델 목록에서 `local-embed-ko`를 반영하고 `risk-siren` retained 거짓 문장을 제거
+- `/v1/embeddings`의 local-embed 전용 주장을 제거
+- 존재하지 않는 embedding-ko 전용 build/Dockerfile 참조를 제거
 
 ## Related
 
 - ADR-0010: ColBERT 제거와 Dense Korean Retrieval 전환
-- `docs/governance/document_management.md`
+- `docs/README.md` — 현재 문서 탐색 구조
 - `src/ai_model_serving/contracts/risk.py`
 - `configs/model_serving.yaml`

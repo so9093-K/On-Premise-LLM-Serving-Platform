@@ -94,7 +94,6 @@ def render_override(mode: str, profile: dict, services: dict, base_published: se
 
 def generate(root: Path = ROOT, check: bool = False) -> int:
     data = load_data(root)
-    canonical_modes: list[str] = data.get("canonical_modes", [])
     profiles: dict = data.get("profiles", {})
     services = load_services(root)
 
@@ -106,7 +105,7 @@ def generate(root: Path = ROOT, check: bool = False) -> int:
     base_mode = base_modes[0]
 
     drift_found = False
-    for mode in canonical_modes:
+    for mode in profiles:
         if mode == base_mode:
             continue
         profile = profiles.get(mode, {})

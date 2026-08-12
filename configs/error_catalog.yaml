@@ -6,7 +6,6 @@
 # 서술 메타데이터(meaning/retryable/action)만 담는다.
 #
 # 소비처:
-#  - docs/specs/error_reference.md                (생성: make render-runtime-assets)
 #  - 생성 OpenAPI 에러 응답의 status별 code gloss   (src/ai_model_serving/openapi_contracts.py)
 #
 # retryable 은 해당 code 의 일반적/권장 값이다. 실제 응답의 error.retryable 이 권위이며

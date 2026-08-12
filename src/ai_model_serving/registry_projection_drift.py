@@ -47,9 +47,7 @@ def gpu_budget_status(registry: ModelRegistry, gpu_budgets: dict[str, Any]) -> d
     policy = gpu_budgets["gpu"]["total_gpu_memory_utilization"]
     avoid_above = float(policy.get("avoid_above", 1.0))
     return {
-        "profile": gpu_budgets["gpu"].get("default_profile"),
         "total_gpu_memory_utilization": total,
-        "recommended_start": policy.get("recommended_start"),
         "avoid_above": avoid_above,
         "over_avoid_threshold": total >= avoid_above,
     }

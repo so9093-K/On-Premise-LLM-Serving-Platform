@@ -58,4 +58,4 @@ CI/CD 파이프라인에서는 `deploy_gitlab_compose.sh`가 자동으로 `make 
 
 - [ADR-0012](0012-auth-ownership-and-compose-exposure-source-of-truth.md) — Auth·Exposure profile source-of-truth 정책 (EXPOSURE_MODE 보존 배경)
 - `scripts/config/setup_env.py` — `sync_env_keys()`, `YAML_OWNED_ENV_KEYS`, `ALWAYS_REFRESH_KEYS`
-- `docs/operations/configuration_lifecycle.md` — `.env` 환경 파일 선택 및 동기화 UX
+- `docs/05_configuration.md` — `.env` 환경 파일 선택 및 동기화 UX

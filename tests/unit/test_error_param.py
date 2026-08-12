@@ -46,22 +46,6 @@ def test_input_audio_error_carries_input_audio_param():
     assert exc.param == "input_audio"
 
 
-def test_wrong_response_format_and_wrong_data_format_are_distinguishable():
-    """접수된 피드백: 클라이언트가 잘못된 출력 스펙과 잘못된 입력 데이터 포맷을
-    구분할 수 없었다, 둘 다 VALIDATION_ERROR였기 때문이다. 이제 error.param이 이 둘을 구분한다."""
-    rf = _raise(lambda: _validate_response_format({"type": "bogus"}, {"messages": []}, _RF_POLICY))
-    df = _raise(
-        lambda: _validate_input_audio(
-            {"type": "input_audio", "input_audio": {"data": "AAAA", "format": "xyz"}},
-            allowed_audio_formats={"wav"},
-            max_audio_bytes=1000,
-        )
-    )
-    assert rf.param.split(".")[0] == "response_format"
-    assert df.param.split(".")[0] == "input_audio"
-    assert rf.param != df.param
-
-
 def test_response_format_json_schema_error_carries_schema_param():
     exc = _raise(
         lambda: validate_chat_request(

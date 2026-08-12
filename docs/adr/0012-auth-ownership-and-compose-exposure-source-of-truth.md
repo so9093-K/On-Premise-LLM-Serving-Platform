@@ -158,6 +158,6 @@ Phase 0/1/2 exposure decision, effective compose port parsing, diagnostics 출�
 - `scripts/compose/render_exposure_overrides.py`
 - `scripts/validation/validate_exposure_profiles.py`
 - `scripts/validation/validate_env_contract.py`
-- `docs/operations/auth_control_plane.md`
-- `docs/operations/admin_metrics_docs_exposure_policy.md`
+- `docs/05_configuration.md` — Auth·Exposure 설정과 Source of Truth
+- `docs/04_runtime_modes.md` — host 공개 범위와 exposure mode
 - `tests/contract/exposure/`
