@@ -433,14 +433,14 @@ Client
 
 Prompt detector는 Kanana Safeguard-Prompt가 생성한 단일 label을 A1 Prompt Injection, A2 Prompt Leaking signal로 변환한다.
 
-현재 `/v1/risk/*` endpoint group에는 Prompt Guard와 함께 local PII/Secret detector, aggregate endpoint가 구성되어 있다.
+현재 `/v1/risk/*` endpoint group에는 Prompt Guard와 함께 ~~local PII/Secret detector~~, aggregate endpoint가 구성되어 있다.
 
 | API | Backend |
 |---|---|
 | `/v1/risk/detectors/prompt/assessments` | Kanana `risk-prompt-vllm` |
-| `/v1/risk/detectors/pii/assessments` | Risk Adapter in-process PII detector |
-| `/v1/risk/detectors/secret/assessments` | Risk Adapter in-process Secret detector |
-| `/v1/risk/assessments` | PII → Secret → Prompt 순차 처리 |
+| ~~`/v1/risk/detectors/pii/assessments`~~ | Risk Adapter in-process PII detector |
+| ~~`/v1/risk/detectors/secret/assessments`~~ | Risk Adapter in-process Secret detector |
+| `/v1/risk/assessments` | ~~PII → Secret~~ → Prompt 순차 처리 |
 
 Aggregate 요청은 세 detector 결과를 하나의 signal response로 합친다. 응답은 탐지 결과와 system signal을 제공하며 최종 허용·차단 판단은 호출 측 policy layer가 담당한다.
 

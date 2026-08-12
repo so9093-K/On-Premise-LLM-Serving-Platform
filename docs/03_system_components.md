@@ -55,7 +55,7 @@ Client / Application
 | **Main Model Runtime** | `9401` | Chat / Multimodal inference |
 | **Embedding Runtime** | `9402` | 범용 text embedding |
 | **Korean Embedding Runtime** | `9406` | Korean retrieval embedding |
-| **Risk Adapter** | `9405` | PII / Secret / Prompt risk signal 정규화 |
+| **Risk Adapter** | `9405` | ~~PII / Secret 위험 탐지~~ / Prompt risk signal 정규화 |
 | **Prompt Risk Runtime** | `9403` | Prompt detector model inference |
 | **Prometheus** | `9090` | Metrics 수집·저장 |
 | **Grafana** | `3000` | Metrics / logs 시각화 |
@@ -562,8 +562,8 @@ Risk Adapter는 detector별 구현 차이를 숨기고 결과를 공통 **risk s
 
 | Detector | 실행 방식 | 주요 역할 |
 |---|---|---|
-| **PII** | Risk Adapter process 내부 local detector | 개인정보 노출 signal 탐지 |
-| **Secret** | Risk Adapter process 내부 local detector | credential / secret 노출 signal 탐지 |
+| ~~**PII**~~ | Risk Adapter process 내부 local detector | 개인정보 노출 signal 탐지 |
+| ~~**Secret**~~ | Risk Adapter process 내부 local detector | credential / secret 노출 signal 탐지 |
 | **Prompt** | `risk-prompt-vllm` 호출 | Prompt attack signal 탐지 |
 
 ### Local Detector와 Prompt Runtime

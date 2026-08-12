@@ -8,7 +8,7 @@ GPU 기반 AI 모델을 **OpenAI-compatible API**로 제공하고, Chat, Embeddi
 
 - OpenAI-compatible Chat / Embedding API
 - 한국어 Retrieval
-- Prompt / PII / Secret 위험 탐지
+- Prompt 위험 탐지 / ~~PII·Secret 위험 탐지~~
 - Main Model 시작·중지·전환
 - GPU 기반 vLLM 모델 실행
 - Prometheus / Grafana / Loki 기반 관측

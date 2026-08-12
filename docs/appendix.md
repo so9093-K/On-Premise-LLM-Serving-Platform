@@ -12,7 +12,7 @@
 | Main Model Runtime | Chat inference를 수행하는 vLLM Runtime. | [6. 모델 운영](./06_model_operations.md) |
 | Admin Sidecar | Main Model Runtime의 시작, 중지, 전환과 Docker lifecycle을 관리하는 내부 서비스. | [3. 시스템 구성](./03_system_components.md), [6. 모델 운영](./06_model_operations.md) |
 | Secondary Runtime | Embedding, 한국어 Embedding, Prompt Risk 등 Main Model 외 모델 Runtime. | [4. 실행 환경과 모드](./04_runtime_modes.md) |
-| Risk Adapter | PII, Secret, Prompt Risk 신호를 제공하는 서비스. PII와 Secret은 내부 detector를 사용하고 Prompt Risk는 별도 vLLM Runtime을 호출한다. | [3. 시스템 구성](./03_system_components.md) |
+| Risk Adapter | ~~PII·Secret 위험 탐지~~와 Prompt Risk 신호를 제공하는 서비스. PII와 Secret은 내부 detector를 사용하고 Prompt Risk는 별도 vLLM Runtime을 호출한다. | [3. 시스템 구성](./03_system_components.md) |
 | Main Model Profile | Main Model을 어떤 모델과 Runtime 설정으로 실행할지 정의하는 프로파일. | [5. 설정 체계와 Source of Truth](./05_configuration.md), [6. 모델 운영](./06_model_operations.md) |
 | Deploy Runtime Profile | Full 배포 후 Secondary Runtime의 초기 실행 상태를 정의하는 프로파일. | [5. 설정 체계와 Source of Truth](./05_configuration.md), [10. 배포](./10_deployment.md) |
 | Exposure Profile | 실행된 서비스 중 Host에 공개할 대상을 정의하는 프로파일. | [4. 실행 환경과 모드](./04_runtime_modes.md), [5. 설정 체계와 Source of Truth](./05_configuration.md) |
@@ -41,7 +41,7 @@
 | Main Model Runtime | `main-llm-vllm` | `9401` | `9401` | Chat inference |
 | Embedding Runtime | `embedding-vllm` | `9402` | `9402` | 일반 Embedding |
 | Prompt Risk Runtime | `risk-prompt-vllm` | `9403` | `9403` | Prompt Risk inference |
-| Risk Adapter | `risk-adapter` | `9405` | `9405` | PII, Secret, Prompt Risk 신호 처리 |
+| Risk Adapter | `risk-adapter` | `9405` | `9405` | ~~PII·Secret 위험 탐지~~, Prompt Risk 신호 처리 |
 | Korean Embedding Runtime | `embedding-ko-vllm` | `9406` | `9406` | Retrieval용 한국어 Embedding |
 | Admin Sidecar | `admin-sidecar` | `8080` | - | Main Model Runtime lifecycle 관리. Compose 내부에서 사용 |
 
