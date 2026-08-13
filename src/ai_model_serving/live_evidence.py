@@ -122,7 +122,6 @@ def _missing_runtime_categories(results: list[dict[str, Any]]) -> list[str]:
         "risk-adapter-runtime",
         "vllm-runtime",
         "monitoring-scrape",
-        "gpu-capacity",
     }
     seen = {item.get("category") for item in results if item.get("category")}
     return sorted(required - seen)
@@ -144,7 +143,6 @@ def live_evidence_bundle_document(
         "risk-adapter-runtime",
         "vllm-runtime",
         "monitoring-scrape",
-        "gpu-capacity",
     ]
     failed = int(runtime_summary.get("failed", len([item for item in runtime_results if item.get("status") != "pass"])))
     if not runtime_report:

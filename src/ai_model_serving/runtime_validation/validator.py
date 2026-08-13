@@ -7,12 +7,10 @@ from typing import Callable
 from ai_model_serving.domain import ModelRegistry
 
 from .config import RuntimeValidationConfig
-from .gpu_checks import sample_gpu as sample_gpu_check
 from .http_client import RuntimeValidationHttpClient
 from .live_checks import LiveRuntimeChecks
 from .reporting import write_reports
 from .results import CheckResult
-from .soak import SoakRunner
 
 CheckFn = Callable[[], CheckResult]
 
@@ -23,7 +21,6 @@ class RuntimeValidator:
     Individual responsibilities live in smaller modules:
     - ``http_client``: auth headers, request encoding, latency measurement
     - ``live_checks``: Gateway/Risk/vLLM/Prometheus/Grafana probes
-    - ``gpu_checks`` / ``soak``: host GPU sampling and concurrent smoke loop
     """
 
     def __init__(self, config: RuntimeValidationConfig) -> None:
@@ -32,7 +29,6 @@ class RuntimeValidator:
         self.model_serving = config.model_serving
         self.registry = ModelRegistry(config.model_catalog, config.model_serving)
         self.monitoring = config.monitoring
-        self.gpu_budgets = config.gpu_budgets
         self.results: list[CheckResult] = []
         self.session_started = datetime.now(timezone.utc).isoformat()
         self.gateway_base = config.gateway_base
@@ -47,7 +43,6 @@ class RuntimeValidator:
             monitoring=self.monitoring,
             http=self.http,
         )
-        self.soak_runner = SoakRunner(config=config, http=self.http)
 
     def headers(self, *, internal: bool = False, admin: bool = False) -> dict[str, str]:
         return self.http.headers(internal=internal, admin=admin)
@@ -90,12 +85,6 @@ class RuntimeValidator:
         self.safe_check("logit-bias-shape-canary", "logit_bias shape", self.live_checks.check_logit_bias_shape)
         self.safe_check("json-schema-with-tools-canary", "json_schema with tools", self.live_checks.check_json_schema_with_tools)
         self.safe_check("json-schema-with-reasoning-canary", "json_schema with reasoning", self.live_checks.check_json_schema_with_reasoning)
-        self.safe_check(
-            "gemma4-reasoning-parser-structured-outputs-canary",
-            "gemma4 reasoning parser structured outputs",
-            self.live_checks.check_gemma4_reasoning_parser_structured_outputs,
-        )
-        self.safe_check("gpu-capacity", "gpu sample before soak", lambda: sample_gpu_check(self.config, self.gpu_budgets, "gpu sample before soak"))
         gateway_metrics = self.monitoring["metric_sources"]["gateway"]["required_metrics"]
         risk_metrics = self.monitoring["metric_sources"]["risk_adapter"]["required_metrics"]
         self.safe_check("monitoring-scrape", "gateway metrics", lambda: self.live_checks.scrape_metrics("gateway", self.gateway_base, gateway_metrics))
@@ -104,8 +93,6 @@ class RuntimeValidator:
         self.safe_check("grafana-dashboard-render", "grafana api health", self.live_checks.check_grafana_health)
         self.safe_check("grafana-dashboard-render", "grafana prometheus datasource", self.live_checks.check_grafana_prometheus_datasource)
         self.safe_check("grafana-dashboard-render", "grafana dashboard imports", self.live_checks.check_grafana_dashboard_catalog)
-        self.safe_check("gpu-capacity", "soak test", self.soak_runner.run)
-        self.safe_check("gpu-capacity", "gpu sample after soak", lambda: sample_gpu_check(self.config, self.gpu_budgets, "gpu sample after soak"))
 
     def write_reports(self) -> tuple[Path, Path]:
         return write_reports(

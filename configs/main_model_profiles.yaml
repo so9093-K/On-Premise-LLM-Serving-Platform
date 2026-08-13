@@ -70,9 +70,9 @@ profiles:
     - --chat-template
     - /app/configs/gemma4_chat_template.jinja
     - --structured-outputs-config
-    # thinking은 Gemma4 reasoner가 종료 지점을 판별하고, 최종 답변에만 JSON schema를
-    # 적용한다. reasoning 단계까지 schema grammar를 강제하면 반복 후 token을 소진한다.
-    - '{"backend":"xgrammar","disable_any_whitespace":true,"enable_in_reasoning":false}'
+    # JSON schema grammar를 reasoning 단계부터 적용한다. 이 설정의 성능·호환성 영향은
+    # 동일 조건의 실제 runtime A/B 결과가 있기 전까지 단정하지 않는다.
+    - '{"backend":"xgrammar","disable_any_whitespace":true,"enable_in_reasoning":true}'
     # Profile 전환과 함께 Gateway가 적용할 모델별 API 계약이다. 공통 연결·timeout·
     # admission만 model_serving.yaml에 남기며, 요청 한도·기능은 여기서 결정한다.
     gateway_policy: &gemma4_gateway_policy
@@ -100,8 +100,8 @@ profiles:
           enabled: true
           backend: xgrammar
           disable_any_whitespace: true
-          # 내부 thinking에는 grammar를 강제하지 않고, reasoning 종료 후 최종 답변만 제약한다.
-          enable_in_reasoning: false
+          # JSON schema grammar를 내부 thinking 단계부터 적용한다.
+          enable_in_reasoning: true
       request_parameter_policy: &gemma4_request_parameter_policy
         allow_unlisted_parameters: false
         supported_parameters: [stream, stream_options, temperature, max_tokens, top_p, top_k, min_p, presence_penalty, frequency_penalty, repetition_penalty, stop, seed, n, tools, tool_choice, parallel_tool_calls, reasoning, response_format, logprobs, top_logprobs, logit_bias]
@@ -224,8 +224,8 @@ profiles:
     - --chat-template
     - /app/configs/gemma4_chat_template.jinja
     - --structured-outputs-config
-    # 26B와 동일하게 reasoning 종료 후 최종 답변에만 JSON schema를 적용한다.
-    - '{"backend":"xgrammar","disable_any_whitespace":true,"enable_in_reasoning":false}'
+    # 26B와 동일하게 JSON schema grammar를 reasoning 단계부터 적용한다.
+    - '{"backend":"xgrammar","disable_any_whitespace":true,"enable_in_reasoning":true}'
     # 26B와 공통인 API 기능은 재사용하되, 이 Profile이 실제 배포하는 media 한도만 확장한다.
     gateway_policy:
       <<: *gemma4_gateway_policy

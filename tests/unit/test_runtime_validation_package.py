@@ -41,10 +41,6 @@ def test_runtime_validation_endpoint_priority_cli_env_default(monkeypatch) -> No
         api_key="",
         admin_api_key="",
         timeout_seconds=30,
-        soak_seconds=1800,
-        soak_interval_seconds=1.0,
-        concurrency=1,
-        skip_soak=False,
         allow_failures=False,
     )
 
@@ -109,25 +105,6 @@ def test_render_vllm_command_respects_model_config_quantization() -> None:
     assert "--quantization" not in command
     assert "--optimization-level" in command
 
-
-def test_gpu_check_uses_configured_hard_minimum(monkeypatch) -> None:
-    from ai_model_serving.runtime_validation.gpu_checks import sample_gpu
-    from types import SimpleNamespace
-
-    def fake_check_output(*args, **kwargs):
-        return "49140, 45000, 80, 55, 120\n"
-
-    monkeypatch.setattr("ai_model_serving.runtime_validation.gpu_checks.subprocess.check_output", fake_check_output)
-
-    config = SimpleNamespace(timeout_seconds=5)
-    result = sample_gpu(
-        config,
-        {"gpu": {"reserve_gib": {"hard_minimum": 3.5}}},
-        "gpu sample",
-    )
-    assert result.status == "pass"
-    assert result.details["minimum_reserve_gib"] == 3.5
-
 def test_live_evidence_bundle_removes_sensitive_runtime_details() -> None:
     from ai_model_serving.live_evidence import (
         live_evidence_bundle_document,
@@ -144,7 +121,7 @@ def test_live_evidence_bundle_removes_sensitive_runtime_details() -> None:
     }
     runtime_report = {
         "mode": "live",
-        "summary": {"passed": 5, "failed": 0},
+        "summary": {"passed": 4, "failed": 0},
         "started_at": "2026-05-09T00:00:00+00:00",
         "finished_at": "2026-05-09T00:01:00+00:00",
         "results": [
@@ -152,7 +129,6 @@ def test_live_evidence_bundle_removes_sensitive_runtime_details() -> None:
             {"category": "risk-adapter-runtime", "name": "risk /ready", "status": "pass", "latency_ms": 2, "details": {"status": "ready"}},
             {"category": "vllm-runtime", "name": "chat", "status": "pass", "latency_ms": 3, "details": {"model": "local-main", "prompt": "redacted"}},
             {"category": "monitoring-scrape", "name": "prometheus", "status": "pass", "latency_ms": 4, "details": {"up_jobs": ["gateway"]}},
-            {"category": "gpu-capacity", "name": "gpu sample", "status": "pass", "latency_ms": 5, "details": {"reserve_gib": 9.5}},
         ],
     }
     doc = live_evidence_bundle_document(

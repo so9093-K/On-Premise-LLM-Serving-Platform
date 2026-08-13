@@ -309,40 +309,33 @@ class LiveRuntimeChecks:
     def check_json_schema_with_reasoning(self) -> CheckResult:
         payload = {
             "model": "local-main",
-            "messages": [{"role": "user", "content": "Reason briefly, then return JSON with exactly one string field named answer."}],
-            "max_tokens": 128,
+            # Gemma4 thinking은 final answer 이전에 별도 token을 사용한다. 128-token
+            # 요청은 정상 reasoning도 중간에 잘라 기능 실패처럼 보이므로, 실제 종료가
+            # 재현된 짧은 고정 문제와 충분한 상한을 사용한다.
+            "messages": [{"role": "user", "content": "What is the derivative of x^3 * ln(x)? Return it in the requested JSON."}],
+            "max_tokens": 4096,
             "temperature": 0,
             "reasoning": True,
             "response_format": self._structured_response_format(),
         }
         status, body, latency = self.http.json("POST", self._chat_url(), payload)
         schema_valid = self._content_matches_structured_schema(body)
-        ok = status == 200 and schema_valid
-        return CheckResult("json-schema-with-reasoning-canary", "json_schema with reasoning", "pass" if ok else "fail", latency, details={"status": status, "schema_valid": schema_valid, "reasoning_normalized_by_gateway": True, "feature_degraded_on_failure": "json_schema_with_reasoning"})
-
-    def check_gemma4_reasoning_parser_structured_outputs(self) -> CheckResult:
-        payload = {
-            "model": "local-main",
-            "messages": [{"role": "user", "content": "Return plain free text unless constrained. The only valid final answer is JSON with answer string."}],
-            "max_tokens": 96,
-            "temperature": 0,
-            "reasoning": False,
-            "response_format": self._structured_response_format(),
-        }
-        status, body, latency = self.http.json("POST", self._chat_url(), payload)
-        schema_valid = self._content_matches_structured_schema(body)
-        # active Profile의 parser/structured-output 계약은 sidecar snapshot에서 Gateway로
-        # 전달된다. 여기서는 정적 기본 설정을 다시 읽지 않고 실제 Gateway 결과만 확인한다.
-        ok = status == 200 and schema_valid
+        choice = self._choice(body)
+        message = choice.get("message") if isinstance(choice.get("message"), dict) else {}
+        reasoning = message.get("reasoning") if isinstance(message, dict) else None
+        ok = status == 200 and choice.get("finish_reason") == "stop" and isinstance(reasoning, str) and bool(reasoning) and schema_valid
         return CheckResult(
-            "gemma4-reasoning-parser-structured-outputs-canary",
-            "gemma4 reasoning parser structured outputs",
+            "json-schema-with-reasoning-canary",
+            "json_schema with reasoning",
             "pass" if ok else "fail",
             latency,
             details={
                 "status": status,
+                "finish_reason": choice.get("finish_reason"),
+                "has_reasoning": isinstance(reasoning, str) and bool(reasoning),
                 "schema_valid": schema_valid,
-                "feature_degraded_on_failure": "gemma4_reasoning_parser_structured_outputs",
+                "reasoning_normalized_by_gateway": True,
+                "feature_degraded_on_failure": "json_schema_with_reasoning",
             },
         )
 

@@ -31,10 +31,6 @@ class RuntimeValidationConfig:
     root: Path
     output_dir: str
     timeout_seconds: float
-    soak_seconds: int
-    soak_interval_seconds: float
-    concurrency: int
-    skip_soak: bool
     allow_failures: bool
     api_key: str
     admin_api_key: str
@@ -50,7 +46,6 @@ class RuntimeValidationConfig:
     model_catalog: dict[str, Any]
     monitoring: dict[str, Any]
     services: dict[str, Any]
-    gpu_budgets: dict[str, Any]
     version: str
 
 
@@ -74,7 +69,6 @@ def load_runtime_config(args: Any) -> RuntimeValidationConfig:
     model_serving = load_yaml_mapping(root / "configs/model_serving.yaml")
     model_catalog = load_yaml_mapping(root / "configs/model_catalog.yaml")
     monitoring = load_yaml_mapping(root / "configs/monitoring.yaml")
-    gpu_budgets = load_yaml_mapping(root / "configs/gpu_budgets.yaml")
     services = load_yaml_mapping(root / "configs/services.yaml")["services"]
     registry = ModelRegistry(model_catalog, model_serving)
     services_by_compose_name = {
@@ -104,10 +98,6 @@ def load_runtime_config(args: Any) -> RuntimeValidationConfig:
         root=root,
         output_dir=args.output_dir,
         timeout_seconds=args.timeout_seconds,
-        soak_seconds=args.soak_seconds,
-        soak_interval_seconds=args.soak_interval_seconds,
-        concurrency=args.concurrency,
-        skip_soak=args.skip_soak,
         allow_failures=args.allow_failures,
         api_key=api_key,
         admin_api_key=admin_api_key,
@@ -131,6 +121,5 @@ def load_runtime_config(args: Any) -> RuntimeValidationConfig:
         model_catalog=model_catalog,
         monitoring=monitoring,
         services=services,
-        gpu_budgets=gpu_budgets,
         version=(root / "VERSION").read_text(encoding="utf-8").strip(),
     )

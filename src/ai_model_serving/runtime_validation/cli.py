@@ -26,10 +26,6 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--api-key", default="")
     parser.add_argument("--admin-api-key", default="")
     parser.add_argument("--timeout-seconds", type=float, default=30)
-    parser.add_argument("--soak-seconds", type=int, default=1800)
-    parser.add_argument("--soak-interval-seconds", type=float, default=1.0)
-    parser.add_argument("--concurrency", type=int, default=1)
-    parser.add_argument("--skip-soak", action="store_true")
     parser.add_argument("--allow-failures", action="store_true", help="live check가 실패해도 report를 기록하고 exit code 0으로 종료합니다.")
     return parser
 

@@ -432,7 +432,7 @@ make smoke
 | 대표 API 확인 | `scripts/ops/smoke_test.sh` | 대표 API 요청 검증 |
 | Compose 진단 | `scripts/compose/compose_diagnostics.sh` | 서비스 상태와 주요 Runtime 오류 패턴 확인 |
 | Compose 로그 | `scripts/compose/compose_logs.sh` | full-stack 로그 조회 |
-| Runtime 검증 | `scripts/validation/runtime_validation.py` | GPU / vLLM 실제 실행 검증 |
+| Runtime 검증 | `scripts/validation/runtime_validation.py` | vLLM API·monitoring 실제 연결 검증 |
 | Runtime 제어 | Gateway Runtime Control API | Main / Secondary Runtime 상태 확인과 제어 |
 | 운영 상태 보고서 | `scripts/reports/operator_status_bundle.py` | 모델·GPU·모니터링 설정 상태 정리 |
 | 운영 검증 자료 | `scripts/reports/live_evidence_bundle.py` | 운영 상태와 Runtime 검증 결과 묶음 생성 |

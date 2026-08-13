@@ -515,7 +515,7 @@ make compose-config
 make exposure-status
 ```
 
-모델 runtime이나 GPU 설정 변경에는 static validation과 실제 GPU 환경의 runtime validation을 함께 수행한다. 세부 절차는 [6. 모델 운영](./06_model_operations.md)과 [8. 테스트와 검증](./08_testing_validation.md)에서 다룬다.
+모델 runtime이나 GPU 설정 변경에는 static validation과 full-stack readiness를 함께 수행한다. 실제 API 계약 확인이 필요한 경우 [8. 테스트와 검증](./08_testing_validation.md)의 runtime validation을 추가한다.
 
 ---
 
@@ -528,7 +528,7 @@ make exposure-status
 | 모델 metadata / capability | `model_catalog.yaml` | model listing, capability contract | `make validate`, 관련 API 검토 |
 | Gateway runtime 정책 | `model_serving.yaml` | endpoint, timeout, routing, admission | `make validate`, 대상 service 재기동 및 runtime 검증 |
 | Main Model profile | `main_model_profiles.yaml` | Main Model boot command, capability, Gateway API 정책 | `make validate`, model prepare / switch 검증 |
-| GPU budget | `gpu_budgets.yaml` | runtime admission, co-residency | `make validate`, GPU runtime 검증 |
+| GPU budget | `gpu_budgets.yaml` | runtime admission, co-residency | `make validate`, full-stack readiness |
 | Service / port | `services.yaml` | Compose / exposure / monitoring projection | `make validate`, `make compose-config` |
 | Exposure mode | `exposure_profiles.yaml` | host publish 범위 | `make validate`, exposure 적용, Compose 재적용 |
 | Deploy profile | `deploy_profiles.yaml` | secondary runtime 초기 상태 | full deploy 또는 runtime reconcile |

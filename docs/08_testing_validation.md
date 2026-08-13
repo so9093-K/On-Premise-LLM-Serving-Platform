@@ -25,7 +25,7 @@ make runtime-validate
 | `make validate` | 설정·계약·생성물이 서로 일치하는가? | Config, Schema, OpenAPI, Compose |
 | `make test` | application logic이 예상한 동작을 수행하는가? | Gateway, Risk, Auth, Runtime Control |
 | `ready-local` / `ready-full` | 현재 실행된 서비스가 요청을 받을 준비가 되었는가? | Process, Dependency, Inference Path |
-| `make runtime-validate` | 실제 GPU·vLLM·모니터링까지 운영 기준을 충족하는가? | Full-stack Runtime |
+| `make runtime-validate` | 실제 vLLM API·고급 요청·모니터링 연결이 동작하는가? | Full-stack Runtime |
 
 ---
 
@@ -40,7 +40,7 @@ API 변경
   ├─ Schema / OpenAPI 정합성    → make validate
   ├─ 요청 처리 동작             → make test
   ├─ 실행 중인 API              → ready / smoke
-  └─ 실제 GPU Runtime           → runtime-validate
+  └─ 실제 vLLM·모니터링 연결    → runtime-validate
 ```
 
 설정 변경도 같은 원칙을 따른다.
@@ -72,7 +72,7 @@ make ready-full
   → 지금 실행된 stack이 요청을 처리할 수 있는가?
 
 make runtime-validate
-  → target GPU 환경이 운영 기준까지 충족하는가?
+  → 실제 API 계약과 monitoring 연결이 동작하는가?
 ```
 
 설정의 Source of Truth와 generated artifact 관계는 [5. 설정 체계와 Source of Truth](./05_configuration.md)에서 설명한다.
@@ -335,7 +335,7 @@ Build 자체의 상세 흐름은 [7. 로컬 개발과 빌드](./07_local_dev_bui
 
 ## 8.5 Live Runtime 검증 — `make runtime-validate`
 
-`make runtime-validate`는 target GPU host의 실제 실행 상태를 더 넓게 검증하고 결과를 report로 남긴다.
+`make runtime-validate`는 full-stack의 실제 API 계약과 monitoring 연결을 확인하고 결과를 report로 남긴다.
 
 ```bash
 make runtime-validate
@@ -361,7 +361,7 @@ GATEWAY_BASE_URL=http://staging-gateway:9400 python scripts/validation/runtime_v
 
 `--gateway-base`, `--risk-base`, 각 vLLM runtime `--*-base`, `--prometheus-base`가 후보 endpoint 지정에 사용된다. API key, admin key, internal service token과 raw prompt·응답·token은 명령 출력과 runtime report에 남기지 않는다.
 
-배포 서버의 private-network 구성에서는 Gateway만 host에 공개되고 Risk·vLLM은 Compose 내부 DNS에서만 접근된다. 따라서 전체 API 검증은 Compose 네트워크에 연결된 실행 위치에서 service URL을 명시해 수행하고, `nvidia-smi`를 사용하는 GPU 표본은 host에서 수행한다. host 기본 URL만으로 내부 서비스를 검사해 발생하는 connection refused/DNS 실패는 서비스 장애 증거가 아니다.
+배포 서버의 private-network 구성에서는 Gateway만 host에 공개되고 Risk·vLLM은 Compose 내부 DNS에서만 접근된다. 따라서 전체 API 검증은 Compose 네트워크에 연결된 실행 위치에서 service URL을 명시해 수행한다. host 기본 URL만으로 내부 서비스를 검사해 발생하는 connection refused/DNS 실패는 서비스 장애 증거가 아니다.
 
 ### 검증 범위
 
@@ -372,13 +372,11 @@ GATEWAY_BASE_URL=http://staging-gateway:9400 python scripts/validation/runtime_v
 | vLLM Runtime | 각 runtime `/models`와 logical model 연결 |
 | Chat | 일반 Chat, streaming Chat |
 | Structured Output | text, `json_object`, `json_schema` |
-| Advanced Request | logprobs, logit bias, tools + JSON schema, reasoning 조합 |
+| Advanced Request | logprobs, logit bias, tools + JSON schema, reasoning + JSON schema |
 | Embedding | `local-embed`, `local-embed-ko` |
-| GPU | soak 전후 memory reserve와 GPU 상태 |
 | Metrics | Gateway / Risk Adapter metric scrape |
 | Prometheus | active scrape target |
 | Grafana | API health, Prometheus datasource, dashboard import |
-| Soak | 반복 Chat / Embedding / Risk 요청과 latency·error |
 
 이 단계는 단순 readiness보다 범위가 넓다.
 
@@ -387,18 +385,12 @@ ready-full
   → 서비스가 실제 요청을 처리할 준비가 되었는지 확인
 
 runtime-validate
-  → GPU, 고급 inference 기능, metrics, monitoring, soak까지 확인하고 증빙 생성
+  → 실제 API 계약과 monitoring 연결을 확인하고 증빙 생성
 ```
 
-### 빠른 Live 검증
+### Live 검증 결과 수집
 
-Soak를 제외한 live check를 수행할 때는 다음 옵션을 사용할 수 있다.
-
-```bash
-python scripts/validation/runtime_validation.py --skip-soak
-```
-
-실패 결과까지 report로 수집하는 조사 작업에서는 다음 옵션을 사용할 수 있다.
+실패 결과까지 report로 수집하는 조사 작업에서는 다음 옵션을 사용한다.
 
 ```bash
 python scripts/validation/runtime_validation.py --allow-failures
@@ -421,10 +413,10 @@ Runtime report는 check 결과와 latency·상태 정보를 중심으로 기록�
 | `.env.*.example` / env contract | `make validate` | app-only 또는 full-stack 기동 |
 | Compose / exposure | `make validate` → `make compose-config` | `make compose-up` → `make ready-full` |
 | Main Model profile | `make validate` → `make test` | Main Model 전환 / full-stack smoke |
-| GPU budget / runtime policy | `make validate` → `make test` | `make runtime-validate` |
+| GPU budget / runtime policy | `make validate` → `make test` | full-stack 기동 → `make ready-full` |
 | Platform `Dockerfile` / dependency | `make build-image` | image 실행 후 readiness |
 | Unified vLLM Dockerfile / compatibility / patch | Unified vLLM image build | full-stack → runtime validation |
-| Monitoring config / dashboard | `make validate` | `runtime-validate --skip-soak` |
+| Monitoring config / dashboard | `make validate` | `make runtime-validate` |
 | Release packaging logic | `make validate` → `make test` → `make package` | package artifact 확인 |
 
 ### 일반 Application 변경
@@ -506,13 +498,14 @@ Source of Truth와 여러 artifact의 관계를 비교하는 규칙은 validator
 
 실제 runtime 환경이 필요한 항목은 readiness, smoke, runtime validation에서 확인한다.
 
-- GPU memory reserve
 - 실제 vLLM model load
 - Hugging Face artifact compatibility
 - streaming response
 - Prometheus target 상태
 - Grafana datasource / dashboard import
-- inference latency와 soak 결과
+
+장시간 부하·GPU headroom 측정은 배포 승인용 runtime validation에 섞지 않는다. 이는
+명시적인 부하 시험으로 별도 계획·시간 상한·성공 기준을 정해 실행한다.
 
 ### 유지 기준
 
@@ -566,7 +559,7 @@ Source와 artifact 관계가 핵심이면 validator를 강화하고, application
 | `ready-local` | Gateway / Risk Adapter process 상태 |
 | Gateway `/ready` | dependency와 runtime loading 상태 |
 | Smoke Test | Chat / Risk / Embedding inference path |
-| Runtime Validation | GPU, vLLM, monitoring, advanced inference category |
+| Runtime Validation | vLLM, monitoring, advanced inference category |
 
 Generated artifact 갱신은 다음 흐름으로 수행한다.
 
@@ -592,7 +585,7 @@ make compose-logs
 | app-only process health | `make ready-local` |
 | full-stack readiness + smoke | `make ready-full` |
 | 대표 API smoke | `make smoke` |
-| GPU / vLLM / monitoring 운영 검증 | `make runtime-validate` |
+| vLLM / monitoring 운영 검증 | `make runtime-validate` |
 | Runtime artifact 재생성 | `make render-runtime-assets` |
 | Effective Compose 확인 | `make compose-config` |
 
@@ -611,7 +604,7 @@ make compose-logs
 | Local readiness | `scripts/ops/ready_local.sh` | app-only health gate |
 | Full readiness | `scripts/ops/ready_full.sh` | full-stack readiness + smoke |
 | Smoke | `scripts/ops/smoke_test.sh` | 대표 inference path |
-| Runtime validation | `scripts/validation/runtime_validation.py` | live GPU/vLLM/monitoring report |
+| Runtime validation | `scripts/validation/runtime_validation.py` | live vLLM/monitoring report |
 
 CI에서는 동일한 `run_validate.sh`와 `run_test.sh`를 기본 quality gate로 사용한다.
 Pipeline 구조와 배포 gate는 [9. CI/CD](./09_cicd.md), live failure 진단은 [11. 관측성과 장애 대응](./11_observability.md)에서 설명한다.
