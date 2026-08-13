@@ -319,15 +319,6 @@ class LiveRuntimeChecks:
         return CheckResult("json-schema-with-reasoning-canary", "json_schema with reasoning", "pass" if ok else "fail", latency, details={"status": status, "schema_valid": schema_valid, "reasoning_normalized_by_gateway": True, "feature_degraded_on_failure": "json_schema_with_reasoning"})
 
     def check_gemma4_reasoning_parser_structured_outputs(self) -> CheckResult:
-        main_cfg = self.config.model_serving.get("models", {}).get("main_llm", {})
-        features = main_cfg.get("runtime_features", {}) if isinstance(main_cfg, dict) else {}
-        tool_calling = features.get("tool_calling", {}) if isinstance(features.get("tool_calling", {}), dict) else {}
-        structured = features.get("structured_outputs", {}) if isinstance(features.get("structured_outputs", {}), dict) else {}
-        config_ready = (
-            tool_calling.get("reasoning_parser") == "gemma4"
-            and structured.get("enabled") is True
-            and structured.get("enable_in_reasoning") is True
-        )
         payload = {
             "model": "local-main",
             "messages": [{"role": "user", "content": "Return plain free text unless constrained. The only valid final answer is JSON with answer string."}],
@@ -338,7 +329,9 @@ class LiveRuntimeChecks:
         }
         status, body, latency = self.http.json("POST", self._chat_url(), payload)
         schema_valid = self._content_matches_structured_schema(body)
-        ok = config_ready and status == 200 and schema_valid
+        # active Profile의 parser/structured-output 계약은 sidecar snapshot에서 Gateway로
+        # 전달된다. 여기서는 정적 기본 설정을 다시 읽지 않고 실제 Gateway 결과만 확인한다.
+        ok = status == 200 and schema_valid
         return CheckResult(
             "gemma4-reasoning-parser-structured-outputs-canary",
             "gemma4 reasoning parser structured outputs",
@@ -346,7 +339,6 @@ class LiveRuntimeChecks:
             latency,
             details={
                 "status": status,
-                "config_ready": config_ready,
                 "schema_valid": schema_valid,
                 "feature_degraded_on_failure": "gemma4_reasoning_parser_structured_outputs",
             },

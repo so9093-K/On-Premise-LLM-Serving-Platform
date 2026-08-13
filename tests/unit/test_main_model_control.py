@@ -583,11 +583,11 @@ def test_reconcile_if_restarted_noop_when_container_fingerprint_unchanged(tmp_pa
     assert manager.snapshot()["gate"] == "open"
 
 
-def test_reconcile_if_restarted_records_baseline_without_warmup_on_first_observation(tmp_path):
+def test_reconcile_if_restarted_records_baseline_on_first_observation(tmp_path):
     # 이 기능이 생기기 전에 쓰인 state 파일에는 아직
     # last_validated_container_started_at이 없다. 첫 tick은 "이전 지문 없음"을
     # drift로 취급하지 말고 baseline으로 기록해야 한다 — 안 그러면 업그레이드
-    # 시 기존 배포 전부가 불필요한 추가 warmup을 한 번씩 겪게 된다.
+    # 시 기존 배포 전부가 불필요한 재검증을 한 번씩 겪게 된다.
     loaded = catalog()
     store = _active_store(tmp_path, loaded, started_at=None)
     backend = FakeBackend(loaded.default_profile, started_at="boot-0")
@@ -601,11 +601,11 @@ def test_reconcile_if_restarted_records_baseline_without_warmup_on_first_observa
     assert state["last_validated_container_started_at"] == "boot-0"
 
 
-def test_reconcile_if_restarted_rewarms_without_closing_gate_on_drift(tmp_path):
+def test_reconcile_if_restarted_revalidates_without_closing_gate_on_drift(tmp_path):
     # 운영자가 직접 `docker restart main-llm-vllm`을 실행한 상황을 시뮬레이션한다:
     # 이 컨트롤러가 start()/replace()를 한 번도 호출하지 않았는데도 컨테이너의
     # 관측된 StartedAt이 바뀐다. reconcile_if_restarted()는 이를 감지해
-    # validate()를 다시 실행해야 하고(structured-output/media warmup을 재트리거),
+    # validate()를 다시 실행해야 하고(active Profile의 runtime 계약을 재확인),
     # 그러는 동안 gate를 닫아서는 안 된다.
     loaded = catalog()
     store = _active_store(tmp_path, loaded, started_at="boot-0")

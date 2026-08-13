@@ -161,6 +161,7 @@
 | Operations Script | `scripts/ops/` | Readiness, smoke test 등 운영 확인 |
 | Reports | `scripts/reports/` | 운영 상태와 Runtime 검증 자료 생성 |
 | API Reference | `docs/reference/api_reference.md` | API 사용 방법, 요청·응답, 오류와 제약 설명 |
+| 모델 참고 자료 | `docs/reference/models/` | upstream 모델 사양, 라이선스, 알려진 제약 |
 | Screenshots | `assets/screenshots/` | GitLab, Grafana, Request Log 등 문서용 화면 |
 
 변경 작업별 영향 범위는 [13. 변경 가이드](./13_change_guide.md)에서 정리한다.

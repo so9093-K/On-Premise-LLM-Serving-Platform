@@ -1,15 +1,12 @@
 """DockerMainModelBackend의 결정론적 단위 테스트.
 
 Docker daemon을 띄우지 않고 inspect·HTTP 요청을 fake로 대체한다. 컨테이너 재생성
-정책과 warmup 실패 격리라는 핵심 decision을 보호하므로 기본 `make test`에 포함한다.
+정책과 Profile 기반 health·media canary 계약을 보호하므로 기본 `make test`에 포함한다.
 """
 
 from __future__ import annotations
 
 import asyncio
-import json
-
-import httpx
 
 import ai_model_serving.main_model.docker_backend as backend_module
 from ai_model_serving.main_model.docker_backend import DockerMainModelBackend
@@ -182,128 +179,3 @@ def test_observed_started_at_returns_none_when_container_absent(monkeypatch):
     monkeypatch.setattr(backend, "_container_id", fake_container_id)
 
     assert asyncio.run(backend.observed_started_at(catalog)) is None
-
-
-def test_validate_calls_structured_output_warmup_and_survives_its_failure(monkeypatch):
-    # ADR-0018의 2026-07-20 업데이트 수정에 대한 회귀 가드: validate()는
-    # (스키마 상수만 정의하는 게 아니라) response_format=json_schema warmup
-    # 요청을 실제로 보내야 하고, warmup 실패가 validate() 호출 전체를 실패시키면
-    # 안 된다(순수 JIT 사전 예열일 뿐 정확성 게이트가 아니다). 2026-07-21
-    # raise_for_status() 수정도 함께 가드한다: 4xx/5xx warmup 응답은 감지해서
-    # 로그로 남겨야 하고, 조용히 성공으로 처리되면 안 된다(httpx는
-    # raise_for_status()를 명시적으로 호출하지 않으면 에러 상태 코드에도
-    # 예외를 던지지 않는다).
-    catalog = load_main_model_catalog(ROOT / "configs/main_model_profiles.yaml")
-    profile = catalog.profiles["gemma4-26b-a4b-fp8"]
-    backend = DockerMainModelBackend("/var/run/docker.sock")
-
-    async def fake_container_id(service):
-        return "container-1"
-
-    async def fake_inspect(_container_id):
-        return {"State": {"Health": {"Status": "healthy"}}}
-
-    monkeypatch.setattr(backend, "_container_id", fake_container_id)
-    monkeypatch.setattr(backend, "_inspect", fake_inspect)
-
-    warnings: list[str] = []
-    monkeypatch.setattr(
-        backend_module._logger,
-        "warning",
-        lambda msg, *args: warnings.append(msg % args if args else msg),
-    )
-
-    requests: list[httpx.Request] = []
-
-    def handler(request: httpx.Request) -> httpx.Response:
-        requests.append(request)
-        if request.url.path == str(catalog.runtime["models_path"]):
-            return httpx.Response(200, json={"data": [{"id": catalog.public_model}]})
-        payload = json.loads(request.content)
-        if payload.get("response_format", {}).get("type") == "json_schema":
-            # warmup 호출 자체가 실패하는 상황(예: 일시적 500)을 시뮬레이션한다 —
-            # validate()는 이걸 삼켜야 하고 전파하면 안 된다.
-            return httpx.Response(500, json={"error": "boom"})
-        return httpx.Response(200, json={"choices": [{"message": {"content": "OK"}}]})
-
-    real_async_client = httpx.AsyncClient
-
-    def fake_async_client(*args, **kwargs):
-        kwargs["transport"] = httpx.MockTransport(handler)
-        return real_async_client(*args, **kwargs)
-
-    monkeypatch.setattr(backend_module.httpx, "AsyncClient", fake_async_client)
-
-    asyncio.run(backend.validate(catalog, profile))  # 예외가 나면 안 된다
-
-    structured_output_calls = [
-        request
-        for request in requests
-        if request.url.path == str(catalog.runtime["chat_path"])
-        and json.loads(request.content).get("response_format", {}).get("type") == "json_schema"
-    ]
-    assert len(structured_output_calls) == 1
-    sent_body = json.loads(structured_output_calls[0].content)
-    assert sent_body["response_format"] == backend_module._STRUCTURED_OUTPUT_WARMUP_SCHEMA
-    assert any("structured-output warmup canary failed" in message for message in warnings)
-
-
-def test_validate_calls_tool_calling_warmup_and_survives_its_failure(monkeypatch):
-    # 위 structured-output warmup 테스트와 같은 회귀 형태다: validate()는
-    # tool_choice를 강제한 warmup 요청을 실제로 보내야 하고, 실패해도 validate()
-    # 전체가 실패하면 안 된다. raise_for_status() 수정도 함께 가드한다(왜
-    # 중요한지는 위 structured-output 테스트 참고).
-    catalog = load_main_model_catalog(ROOT / "configs/main_model_profiles.yaml")
-    profile = catalog.profiles["gemma4-26b-a4b-fp8"]
-    backend = DockerMainModelBackend("/var/run/docker.sock")
-
-    async def fake_container_id(service):
-        return "container-1"
-
-    async def fake_inspect(_container_id):
-        return {"State": {"Health": {"Status": "healthy"}}}
-
-    monkeypatch.setattr(backend, "_container_id", fake_container_id)
-    monkeypatch.setattr(backend, "_inspect", fake_inspect)
-
-    warnings: list[str] = []
-    monkeypatch.setattr(
-        backend_module._logger,
-        "warning",
-        lambda msg, *args: warnings.append(msg % args if args else msg),
-    )
-
-    requests: list[httpx.Request] = []
-
-    def handler(request: httpx.Request) -> httpx.Response:
-        requests.append(request)
-        if request.url.path == str(catalog.runtime["models_path"]):
-            return httpx.Response(200, json={"data": [{"id": catalog.public_model}]})
-        payload = json.loads(request.content)
-        if "tool_choice" in payload:
-            # tool-calling warmup 자체가 실패하는 상황을 시뮬레이션한다 —
-            # structured-output warmup과 마찬가지로 validate()가 이것도 삼켜야 한다.
-            return httpx.Response(500, json={"error": "boom"})
-        return httpx.Response(200, json={"choices": [{"message": {"content": "OK"}}]})
-
-    real_async_client = httpx.AsyncClient
-
-    def fake_async_client(*args, **kwargs):
-        kwargs["transport"] = httpx.MockTransport(handler)
-        return real_async_client(*args, **kwargs)
-
-    monkeypatch.setattr(backend_module.httpx, "AsyncClient", fake_async_client)
-
-    asyncio.run(backend.validate(catalog, profile))  # 예외가 나면 안 된다
-
-    tool_call_warmup_calls = [
-        request
-        for request in requests
-        if request.url.path == str(catalog.runtime["chat_path"])
-        and "tool_choice" in json.loads(request.content)
-    ]
-    assert len(tool_call_warmup_calls) == 1
-    sent_body = json.loads(tool_call_warmup_calls[0].content)
-    assert sent_body["tools"] == backend_module._TOOL_CALL_WARMUP_TOOLS
-    assert sent_body["tool_choice"] == {"type": "function", "function": {"name": "warmup"}}
-    assert any("tool-calling warmup canary failed" in message for message in warnings)

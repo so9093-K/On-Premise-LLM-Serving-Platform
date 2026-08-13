@@ -26,7 +26,7 @@ from ai_model_serving.registry_projection_drift import (  # noqa: E402
 MODEL_LIFECYCLE_FILES = [
     "configs/model_catalog.yaml",
     "configs/model_serving.yaml",
-    "model_cards/<model-id>.json",
+    "docs/reference/models/<model-id>.md",
     "specs/schemas/model_list_response.schema.json",
     "ops/compose/full-stack.private-network.yaml",
     "ops/prometheus/prometheus.yml",
@@ -159,7 +159,7 @@ def propose_add_document(args: argparse.Namespace, root: Path, registry: ModelRe
     steps = [
         "configs/model_catalog.yaml에 logical model, lifecycle, gateway_listing, runtime 정책을 추가",
         "configs/model_serving.yaml에 runtime service stanza와 resource_control을 추가",
-        "model_cards/<model-id>.json에 upstream 사실과 운영 배경을 문서화",
+        "docs/reference/models/<model-id>.md에 upstream 사양과 알려진 제약을 문서화",
         "python scripts/models/modelctl.py validate/diff로 registry projection 확인",
         "make validate로 registry와 generated artifact 정합성 확인",
         "make operator-reports로 runtime targets/monitoring/project inventory 재생성",
@@ -188,7 +188,7 @@ def propose_remove_document(model_id: str, root: Path, registry: ModelRegistry) 
     steps = [
         "1단계: gateway_listing.enabled=false로 public listing에서 제거",
         "2단계: 운영 공지와 client migration window를 끝낸 뒤 runtime service를 제거",
-        "3단계: model card는 upstream 사실과 변경 근거 보관용으로 유지",
+        "3단계: 모델 참고 문서의 upstream 사양과 변경 이력을 검토",
         "4단계: modelctl validate/diff, make validate, operator-reports를 재실행",
         "5단계: 실제 Docker/GPU 서버에서 readiness, monitoring label, dashboard variable을 확인",
     ]
@@ -297,8 +297,8 @@ def render_patch_scaffold(doc: dict[str, Any]) -> str:
             "  # TODO: max_model_len, max_num_seqs, gpu_memory_utilization, resource_control을 capacity plan에 맞춰 채우세요.",
             "```",
             "",
-            "## model_cards 후보",
-            f"- `model_cards/{requested['id']}.json`에 upstream 사실과 운영 배경을 문서화하세요.",
+            "## 모델 참고 문서 후보",
+            f"- `docs/reference/models/{requested['id']}.md`에 upstream 사양과 알려진 제약을 문서화하세요.",
         ])
     elif doc.get("current_model"):
         row = doc["current_model"]

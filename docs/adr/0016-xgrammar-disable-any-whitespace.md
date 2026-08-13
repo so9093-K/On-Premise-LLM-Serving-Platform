@@ -4,6 +4,11 @@
 
 Accepted
 
+> **현재 운영 기준 (2026-08-13)**: Main Model의 structured output 설정은
+> `configs/main_model_profiles.yaml` 각 profile의 `gateway_policy.runtime_features`와 실제
+> vLLM command가 함께 소유한다. 아래 `model_serving.yaml`·Compose 이중 원천 및 개별
+> contract test 설명은 당시 구현 기록이며 현재 구조에는 적용하지 않는다.
+
 ## Context
 
 `local-main`(Gemma 4 26B-A4B FP8) vLLM runtime의 structured output backend는 `--structured-outputs-config '{"backend":"auto"}'`로 구동되며, `auto`는 xgrammar를 우선 선택한다.

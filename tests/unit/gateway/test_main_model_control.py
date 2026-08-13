@@ -50,6 +50,43 @@ class FakeMainModelSidecar:
         return {}
 
 
+def test_chat_uses_active_profile_request_limit() -> None:
+    """전환된 Profile의 API 한도가 정적 기본값보다 우선해야 한다."""
+    class ProfilePolicySidecar(FakeMainModelSidecar):
+        async def main_model(self):
+            return {
+                "gate": "open",
+                "active_profile": {
+                    "id": "small-context",
+                    "capabilities": {"deployed_input": ["text"]},
+                    "gateway_policy": {
+                        "max_output_tokens": 8,
+                        "request_limits": {"input_modalities": ["text"], "max_model_len": 32},
+                        "runtime_features": {},
+                        "request_parameter_policy": {
+                            "allow_unlisted_parameters": False,
+                            "supported_parameters": ["max_tokens"],
+                        },
+                    },
+                },
+            }
+
+    clients = FakeGatewayClients()
+    clients.sidecar = ProfilePolicySidecar()
+    client = TestClient(create_gateway_app(settings(), clients))
+    response = client.post(
+        "/v1/chat/completions",
+        headers=auth_headers(),
+        json={
+            "model": "local-main",
+            "max_tokens": 9,
+            "messages": [{"role": "user", "content": "hello"}],
+        },
+    )
+    assert response.status_code == 422
+    assert "max_tokens" in response.json()["error"]["message"]
+
+
 def test_chat_is_fail_closed_while_main_model_switches():
     clients = FakeGatewayClients()
     clients.sidecar = FakeMainModelSidecar(gate="closed")

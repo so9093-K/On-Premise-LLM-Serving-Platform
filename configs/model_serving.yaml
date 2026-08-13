@@ -40,7 +40,8 @@ embedding_profiles:
       retrieval_document:
         mode: none
 models:
-  # 각 vLLM runtime의 기동 인자와 Gateway 요청 제한이다.
+  # 각 runtime의 공통 연결·운영 설정이다. Main Model의 모델별 기동·Gateway 정책은
+  # main_model_profiles.yaml의 활성 Profile이 소유한다.
   main_llm:
     name: RedHatAI/gemma-4-12B-it-FP8-Dynamic
     revision: 67e53491df7a281623fa740de61307d5c542b7f4
@@ -48,226 +49,16 @@ models:
     backend: vllm
     port: 9401
     endpoint: http://main-llm-vllm:9401/v1
-    runner: generation
-    quantization: compressed-tensors
-    quantization_source: model_config
-    dtype: auto
-    tensor_parallel_size: 1
-    trust_remote_code: true
-    max_model_len: 50000
-    max_output_tokens: 13000
-    max_num_seqs: 3
-    max_num_batched_tokens: 50000
-    optimization_level: 3
     gpu_memory_utilization: 0.76
     timeout_seconds: 120
-    # RTX 6000 Ada에서 검증한 기본 목표는 context 50K, seq=3, optimization level 3이다.
-    # 실제 boot/KV-cache 검증 이력은 main_model_profiles.yaml의 description을 따른다.
     resource_control:
       criticality: primary_user_path
       isolation: dedicated_vllm_process
-      # 아래 선언값은 기본 profile(gemma4-12b-unified-fp8)의 실제 vLLM 기동값과
-      # 정합성을 검사한다. Gateway 동시성만 높일 목적이라면 profile을 바꾸지 말고
-      # MAIN_LLM_MAX_CONCURRENCY 환경변수로 admission ceiling만 조정한다.
+      # Gateway admission만 공통으로 유지한다. Profile별 vLLM 동시성은 해당 command가 소유한다.
       admission_control:
         max_concurrency: 3
         queue_timeout_seconds: 2
-      request_limits:
-        max_model_len: 50000
-        input_modalities:
-        - text
-        - image
-        - audio
-        - video
-        max_image_inputs: 1
-        allowed_image_url_schemes:
-        - data
-        # 원격 URL은 허용하지 않는다. base64 data:image 하나만 MIME·복호화 크기·해상도로 제한한다.
-        max_image_bytes: 25000000
-        max_image_pixels: 12845056
-        allowed_image_mime_types:
-        - image/jpeg
-        - image/png
-        - image/webp
-        - image/avif
-        - image/jp2
-        - image/gif
-        - image/bmp
-        - image/tiff
-        - image/x-tiff
-        # audio는 active main-model profile이 audio를 배포할 때만 이 제한이 적용된다.
-        # 기본 profile(gemma4-12b-unified-fp8)은 audio를 배포하지만, admin API로 선택 가능한
-        # gemma4-26b-a4b-fp8은 배포하지 않는다. Gateway는 허용 형식의 base64 input_audio
-        # 하나와 복호화 크기만 제한한다. Gemma 4 공식 처리 상한은 약 30초이며, 이를 넘는
-        # 압축 audio는 runtime이 경고 없이 잘라낼 수 있다. max_audio_bytes만으로 길이를
-        # 사전 거부할 수 없는 현재 한계는 ADR-0019에 기록돼 있다.
-        max_audio_inputs: 1
-        allowed_audio_formats:
-        - wav
-        - mp3
-        - flac
-        - ogg
-        - m4a
-        - mp4
-        - aac
-        max_audio_bytes: 25000000
-        max_video_inputs: 1
-        allowed_video_url_schemes:
-        - data
-        # video도 active profile이 video를 배포할 때만 적용된다. Gateway는 허용 data URL
-        # container 또는 JPEG frame 배열 하나를 검증하고, container decode 가능 여부는 boot
-        # canary로 확인한다. Gemma 4 공식 스펙은 1fps 기준 60초/60 frame이지만, 이 배포의
-        # vLLM 0.25.1은 실제로 clip 전체에서 최대 32 frame만 균등 추출한다(ADR-0019 검증).
-        # 따라서 max_video_frames=60은 공식 입력 상한일 뿐 현재 실제 처리 용량 32를 뜻하지
-        # 않는다. mp4/webm/mkv/mov/avi는 Gateway가 frame 수·길이를 사전 검증하지 못한다.
-        allowed_video_mime_types:
-        - video/mp4
-        - video/webm
-        - video/x-matroska
-        - video/quicktime
-        - video/jpeg
-        - video/x-msvideo
-        - video/avi
-        - video/gif
-        max_video_bytes: 50000000
-        # JPEG frame 배열은 client가 보낸 item 수를 직접 제한한다. GIF는 누적 frame delay로
-        # 재생 시간을 제한하며, frame 수는 duration 제한이 없을 때만 보조 상한으로 사용한다.
-        max_video_frames: 60
-        max_video_frame_pixels: 12845056
-        max_video_duration_seconds: 60
       # main LLM 실패 시 embedding 또는 risk 모델로 대체하지 않고 upstream 오류를 반환한다.
-    runtime_features:
-      prefix_caching:
-        enabled: true
-        hash_algo: sha256_cbor
-      tool_calling:
-        enabled: true
-        auto_tool_choice: true
-        tool_call_parser: gemma4
-        reasoning_parser: gemma4
-        allow_parallel_tool_calls: false
-        # Gemma 4의 tool·reasoning·멀티모달 prompt 형식이다. 변경 시 실제 요청 렌더링을
-        # 확인한 뒤 full 배포한다.
-        chat_template: /app/configs/gemma4_chat_template.jinja
-      structured_outputs:
-        enabled: true
-        backend: "xgrammar"
-        disable_any_whitespace: true
-        enable_in_reasoning: true
-    request_parameter_policy:
-      allow_unlisted_parameters: false
-      supported_parameters:
-      - stream
-      - stream_options
-      - temperature
-      - max_tokens
-      - top_p
-      - top_k
-      - min_p
-      - presence_penalty
-      - frequency_penalty
-      - repetition_penalty
-      - stop
-      - seed
-      - n
-      - tools
-      - tool_choice
-      - parallel_tool_calls
-      - reasoning
-      - response_format
-      - logprobs
-      - top_logprobs
-      - logit_bias
-      max_n: 1
-      tool_calling:
-        enabled: true
-        # parser/template에는 tool 개수 하드 리밋이 없다. tool 하나가 실측 약 140 token이고
-        # Open WebUI 기본 native tool만으로도 22~31개가 붙어, 외부 MCP/OpenAPI 연결 여지를
-        # 고려해 64개로 제한한다.
-        max_tools: 64
-        allow_parallel_tool_calls: false
-      reasoning:
-        enabled: true
-        default: false
-        mode: request_opt_in
-        upstream_chat_template_kwargs:
-          enable_thinking: true
-      response_format:
-        enabled: true
-        types:
-        - text
-        - json_object
-        - json_schema
-        json_object:
-          require_json_instruction: true
-        json_schema:
-          enabled: true
-          require_root_object: true
-          require_additional_properties_false: true
-          strict:
-            allowed: true
-            require_true: false
-          max_schema_bytes: 16384
-          max_depth: 8
-          max_total_properties: 64
-          max_properties_per_object: 32
-          max_required: 64
-          max_enum_values: 128
-          max_enum_string_length: 256
-          max_property_name_length: 64
-          max_total_schema_string_length: 32768
-          disallowed_keywords:
-          - allOf
-          - not
-          - if
-          - then
-          - else
-          - dependentRequired
-          - dependentSchemas
-          - patternProperties
-          - $dynamicRef
-          - $recursiveRef
-          - $dynamicAnchor
-          - $recursiveAnchor
-          - $id
-          - $anchor
-          root_disallowed_keywords:
-          - anyOf
-      logprobs:
-        enabled: true
-        default: false
-        allow_stream: true
-      top_logprobs:
-        min: 0
-        max: 10
-        requires_logprobs: true
-      logit_bias:
-        enabled: true
-        max_entries: 256
-        min_bias: -100
-        max_bias: 100
-        token_id_min: 0
-        token_id_semantics: served_model_tokenizer
-      combinations:
-        json_schema_with_tools:
-          mode: capability_gate
-          default: allow
-          canary_required: true
-        json_schema_with_reasoning:
-          mode: capability_gate
-          default: allow
-          canary_required: true
-        json_schema_with_logit_bias:
-          mode: allow
-          # constrained decoding이 token bias보다 우선할 수 있다.
-        logit_bias_with_tools:
-          mode: allow
-          # tool protocol·special token이 token bias보다 우선할 수 있다.
-        logprobs_with_stream:
-          mode: allow
-      # Gateway는 제한된 vLLM/OpenAI sampling parameter, Gemma 4 tool calling,
-      # reasoning=true 요청을 지원한다. streaming은 SSE relay fast path이므로 Gateway 앞
-      # proxy의 buffering을 끈 상태를 유지해야 한다.
   embedding:
     name: google/embeddinggemma-300m
     served_model_name: local-embed

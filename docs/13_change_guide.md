@@ -237,7 +237,7 @@ make model-propose-remove ID=<model-id>
 실제 모델 추가의 주요 반영 흐름은 다음과 같다.
 
 ```text
-Model Catalog / Model Card
+Model Catalog / 모델 참고 문서
         ↓
 Model Serving / Service Registry
         ↓
@@ -254,7 +254,7 @@ GPU / Runtime Validation
 
 - `configs/model_catalog.yaml`
 - `configs/model_serving.yaml`
-- `model_cards/<model-id>.json`
+- `docs/reference/models/<model-id>.md`
 - `configs/services.yaml`
 - `ops/compose/full-stack.private-network.yaml`
 - `configs/monitoring.yaml`
@@ -571,7 +571,7 @@ make runtime-validate
 | Request parameter | `model_serving.yaml` + contract/schema | 생성 파일 + validate/test | 대상 API |
 | Gateway logic | `src/ai_model_serving/` | validate/test | `make ready-local` |
 | Main Model Profile | `main_model_profiles.yaml` | config/profile 검증 | prepare + switch + readiness |
-| 모델 추가 | catalog + serving + model card + compose | `model-validate`, `model-diff`, validate | full-stack + runtime validation |
+| 모델 추가 | catalog + serving + 모델 참고 문서 + compose | `model-validate`, `model-diff`, validate | full-stack + runtime validation |
 | vLLM patch / Dockerfile | `ops/images/vllm-unified/`, `ops/patches/` | Unified Build | ready-full + runtime validation |
 | Service port | `services.yaml` | 생성 파일 + validate | compose-config + full-stack |
 | Exposure | `exposure_profiles.yaml` | Compose override 재생성 + validate | effective port 확인 |

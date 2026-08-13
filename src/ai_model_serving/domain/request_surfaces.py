@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 
-def _chat_request_parameters(policy: dict[str, Any], *, max_output_tokens: int | None) -> dict[str, dict[str, Any]]:
+def chat_request_parameter_surface(policy: dict[str, Any], *, max_output_tokens: int | None) -> dict[str, dict[str, Any]]:
     """사용자가 Gateway request에서 직접 조정할 수 있는 chat parameter surface."""
     supported = set(policy.get("supported_parameters", []))
     tool_policy = policy.get("tool_calling", {}) if isinstance(policy.get("tool_calling", {}), dict) else {}
@@ -180,7 +180,7 @@ def _request_parameter_surface(
         fixed = policy.get("fixed_parameters", {}) if isinstance(policy.get("fixed_parameters", {}), dict) else {}
         return {}, dict(fixed)
     if any(capability.startswith("chat.completions") for capability in capabilities):
-        return _chat_request_parameters(policy, max_output_tokens=max_output_tokens), {}
+        return chat_request_parameter_surface(policy, max_output_tokens=max_output_tokens), {}
     if "embeddings" in capabilities:
         return _embedding_request_parameters(policy), {}
     if any(cap in _RETRIEVAL_CAPABILITIES for cap in capabilities):

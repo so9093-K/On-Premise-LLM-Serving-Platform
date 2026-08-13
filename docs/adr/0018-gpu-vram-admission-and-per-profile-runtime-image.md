@@ -247,5 +247,14 @@ Audio/video는 0017과 동일하게 기본 inert다. 활성화는 게이트된 �
 structured-output 호출)을 제거한다. 뒤따르는 smoke가 같은 경로를 다시 엄격하게
 확인하고 있었으므로, warmup은 최대 수 분을 소비하면서도 실패를 배포 실패로 만들지 않는
 중복 계층이었다. Structured output은 일반 chat smoke에 `response_format: json_schema`를
-포함시키고 응답 JSON까지 검사하는 단일 strict gate로 승격한다. main-model 전환·재시작 시
-admin-sidecar backend의 수명주기 웜업은 별도 방어선으로 유지한다.
+포함시키고 응답 JSON까지 검사하는 단일 strict gate로 승격한다. 당시에는 main-model
+전환·재시작 시 admin-sidecar backend의 수명주기 웜업을 별도 방어선으로 유지했다.
+
+## Update — 2026-08-13: non-fatal backend warmup 제거
+
+이후 `DockerMainModelBackend`에 남아 있던 json_schema/tool-calling 사전 요청도 제거한다.
+두 호출은 실패를 전환 실패로 만들지 않아 runtime 호환성을 보장하지 못했고, 실제 요청의
+schema·토큰 크기별 JIT까지 대표할 수도 없었다. 전환과 재시작 재검증은 Docker health,
+`/v1/models`의 모델 식별, 일반 text 요청, 활성 프로필이 선언한 audio/video canary만
+strict하게 확인한다. 즉 실패를 무시하는 성능 예열은 없고, 실패가 전환 안전성에 의미 있는
+검증만 남긴다.

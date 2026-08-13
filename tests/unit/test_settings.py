@@ -84,6 +84,8 @@ def test_load_settings_reads_local_dotenv_without_overriding_exported_values(tmp
     repo = Path(__file__).resolve().parents[2]
     shutil.copy(repo / "configs" / "model_serving.yaml", root / "configs" / "model_serving.yaml")
     shutil.copy(repo / "configs" / "model_catalog.yaml", root / "configs" / "model_catalog.yaml")
+    shutil.copy(repo / "configs" / "main_model_profiles.yaml", root / "configs" / "main_model_profiles.yaml")
+    shutil.copy(repo / "configs" / "main_model_profiles.yaml", root / "configs" / "main_model_profiles.yaml")
     shutil.copy(repo / "VERSION", root / "VERSION")
     (root / ".env").write_text(
         "APP_ENV=local\nAPI_KEYS=dotenv-key\nMAX_REQUEST_BODY_BYTES=1234\nMAIN_LLM_MAX_CONCURRENCY=2\n",
@@ -114,6 +116,7 @@ def test_load_settings_ignores_local_dotenv_when_app_env_is_explicitly_non_local
     repo = Path(__file__).resolve().parents[2]
     shutil.copy(repo / "configs" / "model_serving.yaml", root / "configs" / "model_serving.yaml")
     shutil.copy(repo / "configs" / "model_catalog.yaml", root / "configs" / "model_catalog.yaml")
+    shutil.copy(repo / "configs" / "main_model_profiles.yaml", root / "configs" / "main_model_profiles.yaml")
     shutil.copy(repo / "VERSION", root / "VERSION")
     (root / ".env").write_text(
         "APP_ENV=local\n"
@@ -150,23 +153,25 @@ def test_load_settings_uses_serving_runtime_defaults(tmp_path):
     repo = Path(__file__).resolve().parents[2]
     shutil.copy(repo / "configs" / "model_serving.yaml", root / "configs" / "model_serving.yaml")
     shutil.copy(repo / "configs" / "model_catalog.yaml", root / "configs" / "model_catalog.yaml")
+    shutil.copy(repo / "configs" / "main_model_profiles.yaml", root / "configs" / "main_model_profiles.yaml")
     shutil.copy(repo / "VERSION", root / "VERSION")
 
     serving_path = root / "configs" / "model_serving.yaml"
     serving = yaml.safe_load(serving_path.read_text(encoding="utf-8"))
+    profiles = yaml.safe_load((root / "configs" / "main_model_profiles.yaml").read_text(encoding="utf-8"))
+    default_policy = profiles["profiles"][profiles["default_profile"]]["gateway_policy"]
     main_llm = serving["models"]["main_llm"]
     embedding = serving["models"]["embedding"]
     main_admission = main_llm["resource_control"]["admission_control"]
     embedding_admission = embedding["resource_control"]["admission_control"]
 
     settings = load_settings(root)
-    assert settings.main_llm.max_output_tokens == main_llm["max_output_tokens"]
+    assert settings.default_main_model_gateway_policy == default_policy
     assert settings.main_llm.max_concurrency == main_admission["max_concurrency"]
     assert settings.main_llm.queue_timeout_seconds == main_admission["queue_timeout_seconds"]
     assert settings.embedding.max_concurrency == embedding_admission["max_concurrency"]
     assert settings.embedding.queue_timeout_seconds == embedding_admission["queue_timeout_seconds"]
 
-    main_llm["max_output_tokens"] += 1
     main_admission["max_concurrency"] += 1
     main_admission["queue_timeout_seconds"] += 1
     embedding_admission["max_concurrency"] += 1
@@ -174,7 +179,7 @@ def test_load_settings_uses_serving_runtime_defaults(tmp_path):
     serving_path.write_text(yaml.safe_dump(serving, allow_unicode=True), encoding="utf-8")
 
     settings = load_settings(root)
-    assert settings.main_llm.max_output_tokens == main_llm["max_output_tokens"]
+    assert settings.default_main_model_gateway_policy == default_policy
     assert settings.main_llm.max_concurrency == main_admission["max_concurrency"]
     assert settings.main_llm.queue_timeout_seconds == main_admission["queue_timeout_seconds"]
     assert settings.embedding.max_concurrency == embedding_admission["max_concurrency"]
@@ -191,6 +196,7 @@ def test_load_settings_rejects_invalid_or_missing_required_model_configuration(t
     repo = Path(__file__).resolve().parents[2]
     shutil.copy(repo / "configs" / "model_serving.yaml", root / "configs" / "model_serving.yaml")
     shutil.copy(repo / "configs" / "model_catalog.yaml", root / "configs" / "model_catalog.yaml")
+    shutil.copy(repo / "configs" / "main_model_profiles.yaml", root / "configs" / "main_model_profiles.yaml")
     shutil.copy(repo / "VERSION", root / "VERSION")
 
     serving_path = root / "configs" / "model_serving.yaml"

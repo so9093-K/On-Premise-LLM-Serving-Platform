@@ -70,6 +70,101 @@ profiles:
     - /app/configs/gemma4_chat_template.jinja
     - --structured-outputs-config
     - '{"backend":"xgrammar","disable_any_whitespace":true,"enable_in_reasoning":true}'
+    # Profile 전환과 함께 Gateway가 적용할 모델별 API 계약이다. 공통 연결·timeout·
+    # admission만 model_serving.yaml에 남기며, 요청 한도·기능은 여기서 결정한다.
+    gateway_policy: &gemma4_gateway_policy
+      max_output_tokens: 13000
+      request_limits: &gemma4_text_image_limits
+        max_model_len: 20000
+        input_modalities: [text, image]
+        max_image_inputs: 1
+        allowed_image_url_schemes: [data]
+        max_image_bytes: 25000000
+        max_image_pixels: 12845056
+        allowed_image_mime_types: [image/jpeg, image/png, image/webp, image/avif, image/jp2, image/gif, image/bmp, image/tiff, image/x-tiff]
+      runtime_features: &gemma4_runtime_features
+        prefix_caching:
+          enabled: true
+          hash_algo: sha256_cbor
+        tool_calling:
+          enabled: true
+          auto_tool_choice: true
+          tool_call_parser: gemma4
+          reasoning_parser: gemma4
+          allow_parallel_tool_calls: false
+          chat_template: /app/configs/gemma4_chat_template.jinja
+        structured_outputs:
+          enabled: true
+          backend: xgrammar
+          disable_any_whitespace: true
+          enable_in_reasoning: true
+      request_parameter_policy: &gemma4_request_parameter_policy
+        allow_unlisted_parameters: false
+        supported_parameters: [stream, stream_options, temperature, max_tokens, top_p, top_k, min_p, presence_penalty, frequency_penalty, repetition_penalty, stop, seed, n, tools, tool_choice, parallel_tool_calls, reasoning, response_format, logprobs, top_logprobs, logit_bias]
+        max_n: 1
+        tool_calling:
+          enabled: true
+          max_tools: 64
+          allow_parallel_tool_calls: false
+        reasoning:
+          enabled: true
+          default: false
+          mode: request_opt_in
+          upstream_chat_template_kwargs:
+            enable_thinking: true
+        response_format:
+          enabled: true
+          types: [text, json_object, json_schema]
+          json_object:
+            require_json_instruction: true
+          json_schema:
+            enabled: true
+            require_root_object: true
+            require_additional_properties_false: true
+            strict:
+              allowed: true
+              require_true: false
+            max_schema_bytes: 16384
+            max_depth: 8
+            max_total_properties: 64
+            max_properties_per_object: 32
+            max_required: 64
+            max_enum_values: 128
+            max_enum_string_length: 256
+            max_property_name_length: 64
+            max_total_schema_string_length: 32768
+            disallowed_keywords: [allOf, not, if, then, else, dependentRequired, dependentSchemas, patternProperties, $dynamicRef, $recursiveRef, $dynamicAnchor, $recursiveAnchor, $id, $anchor]
+            root_disallowed_keywords: [anyOf]
+        logprobs:
+          enabled: true
+          default: false
+          allow_stream: true
+        top_logprobs:
+          min: 0
+          max: 10
+          requires_logprobs: true
+        logit_bias:
+          enabled: true
+          max_entries: 256
+          min_bias: -100
+          max_bias: 100
+          token_id_min: 0
+          token_id_semantics: served_model_tokenizer
+        combinations:
+          json_schema_with_tools:
+            mode: capability_gate
+            default: allow
+            canary_required: true
+          json_schema_with_reasoning:
+            mode: capability_gate
+            default: allow
+            canary_required: true
+          json_schema_with_logit_bias:
+            mode: allow
+          logit_bias_with_tools:
+            mode: allow
+          logprobs_with_stream:
+            mode: allow
   gemma4-12b-unified-fp8:
     display_name: Gemma 4 12B Unified FP8
     model_id: RedHatAI/gemma-4-12B-it-FP8-Dynamic
@@ -126,6 +221,24 @@ profiles:
     - /app/configs/gemma4_chat_template.jinja
     - --structured-outputs-config
     - '{"backend":"xgrammar","disable_any_whitespace":true,"enable_in_reasoning":true}'
+    # 26B와 공통인 API 기능은 재사용하되, 이 Profile이 실제 배포하는 media 한도만 확장한다.
+    gateway_policy:
+      <<: *gemma4_gateway_policy
+      request_limits:
+        <<: *gemma4_text_image_limits
+        max_model_len: 50000
+        input_modalities: [text, image, audio, video]
+        # audio/video는 이 Profile이 실제로 배포할 때만 허용된다.
+        max_audio_inputs: 1
+        allowed_audio_formats: [wav, mp3, flac, ogg, m4a, mp4, aac]
+        max_audio_bytes: 25000000
+        max_video_inputs: 1
+        allowed_video_url_schemes: [data]
+        allowed_video_mime_types: [video/mp4, video/webm, video/x-matroska, video/quicktime, video/jpeg, video/x-msvideo, video/avi, video/gif]
+        max_video_bytes: 50000000
+        max_video_frames: 60
+        max_video_frame_pixels: 12845056
+        max_video_duration_seconds: 60
 description: |
   이력은 현재 설정의 근거를 보존하기 위한 참고 정보다. 전환 로직은 각 profile의
   compatibility.status와 실행 canary만 사용한다.

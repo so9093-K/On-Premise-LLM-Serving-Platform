@@ -110,6 +110,9 @@ class AppSettings:
     risk_detectors: tuple[RiskDetectorSettings, ...] = ()
     aggregate_detector_order: tuple[str, ...] = ()
     main_llm: RuntimeEndpoint | None = None
+    # Sidecar 없이 Gateway를 단독 실행할 때 사용할 default profile의 정책이다.
+    # 실제 full-stack 요청은 active_profile snapshot의 정책으로 항상 덮어쓴다.
+    default_main_model_gateway_policy: dict[str, Any] = field(default_factory=dict)
     embedding: RuntimeEndpoint | None = None
     embedding_ko: RuntimeEndpoint | None = None
     risk_prompt: RuntimeEndpoint | None = None

@@ -537,9 +537,9 @@ Main Model 변경 작업은 다음 순서로 확인한다.
 
 | 영역 | 주요 파일 | 역할 |
 |---|---|---|
-| Main Model profile | `configs/main_model_profiles.yaml` | model, revision, image, vLLM command, capability, compatibility 정의 |
+| Main Model profile | `configs/main_model_profiles.yaml` | model, revision, image, vLLM command, capability, Gateway 요청 정책, compatibility 정의 |
 | GPU budget | `configs/gpu_budgets.yaml` | GPU admission ceiling과 runtime resource policy 정의 |
-| Runtime serving policy | `configs/model_serving.yaml` | Gateway runtime 연결, timeout, concurrency, request policy 정의 |
+| Runtime serving policy | `configs/model_serving.yaml` | Gateway runtime 연결, timeout, admission 정의 |
 | Deploy Runtime Profile | `configs/deploy_profiles.yaml` | 배포 후 secondary runtime 활성 구성 정의 |
 | Runtime topology | `ops/compose/full-stack.private-network.yaml` | Main / secondary runtime container 기본 topology 정의 |
 | Main Model state | `.runtime/main-model/main-model-state.json` 또는 deployment state path | active profile, gate, runtime state, switch operation 기록 |

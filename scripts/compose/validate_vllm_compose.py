@@ -168,31 +168,26 @@ def validate_main_llm_bootstrap_image(compose: dict[str, Any]) -> list[str]:
             f"expected {expected_compose_image!r}, got {compose_image!r}"
         )
 
-    # configs/model_serving.yaml의 resource_control 주석(예: "must stay in lockstep with
-    # the default profile's actual --max-num-seqs")이 실제로 강제되도록, 기본 프로필의
-    # 부팅 command와 model_serving.yaml의 선언값을 여기서 직접 대조한다. 이 값들은
-    # main_model/docker_backend.py가 실제로 컨테이너를 띄울 때 쓰는 값이라, 여기서
-    # 어긋나면 선언된 정책과 실제 부팅 동작이 조용히 갈라진다.
-    serving = load_yaml(SERVING_PATH)
-    main_llm_cfg = serving["models"]["main_llm"]
-    profile_args = command_args(profile.get("command", []))
-    for field in ("max_model_len", "max_num_seqs", "max_num_batched_tokens", "optimization_level"):
-        expected_value = str(main_llm_cfg.get(field))
-        actual_value = str(profile_args.get(field))
-        if actual_value != expected_value:
+    # 실제 command와 Gateway 계약은 같은 Profile이 소유한다. 모든 후보 Profile에서
+    # context 한도와 output 한도가 조용히 갈라지지 않는지만 확인한다.
+    for profile_id, item in catalog.get("profiles", {}).items():
+        if not isinstance(item, dict):
+            continue
+        policy = item.get("gateway_policy", {})
+        limits = policy.get("request_limits", {}) if isinstance(policy, dict) else {}
+        args = command_args(item.get("command", []))
+        if str(args.get("max_model_len")) != str(limits.get("max_model_len")):
             errors.append(
-                f"default main-model profile {default_profile_id} --{field.replace('_', '-')}="
-                f"{actual_value} does not match configs/model_serving.yaml models.main_llm.{field}="
-                f"{expected_value}"
+                f"main-model profile {profile_id} --max-model-len must match "
+                "gateway_policy.request_limits.max_model_len"
             )
-    expected_gpu_util = float(main_llm_cfg.get("gpu_memory_utilization", 0))
-    actual_gpu_util = float(profile_args.get("gpu_memory_utilization", 0))
-    if actual_gpu_util != expected_gpu_util:
-        errors.append(
-            f"default main-model profile {default_profile_id} --gpu-memory-utilization="
-            f"{actual_gpu_util} does not match configs/model_serving.yaml "
-            f"models.main_llm.gpu_memory_utilization={expected_gpu_util}"
-        )
+        try:
+            if int(policy.get("max_output_tokens", 0)) > int(limits.get("max_model_len", 0)):
+                errors.append(
+                    f"main-model profile {profile_id} gateway max_output_tokens exceeds max_model_len"
+                )
+        except (TypeError, ValueError):
+            errors.append(f"main-model profile {profile_id} gateway token limits must be integers")
     return errors
 
 

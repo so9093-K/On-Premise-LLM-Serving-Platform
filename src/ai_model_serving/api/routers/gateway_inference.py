@@ -8,6 +8,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 
 from ..endpoint_spec import GATEWAY_ENDPOINTS
 from ...errors import ServiceError, error_payload, error_response_headers
+from ...domain.request_surfaces import chat_request_parameter_surface
 from ...logging_policy import record_request_response_preview, record_token_usage
 from ...services.runtime_state import RuntimeState, RuntimeStateStore
 from ...services.sidecar_client import SidecarClient, SidecarUnavailableError
@@ -98,19 +99,13 @@ def _active_input_modalities(main_model: dict[str, Any]) -> tuple[str, ...] | No
     return tuple(deployed)
 
 
-async def _resolve_active_main_modalities(sidecar: "SidecarClient | None", settings: Any) -> tuple[str, ...]:
-    """현재 main model이 받을 수 있는 modality를 동일한 기준 원천에서 해석한다.
-    chat validator uses: the active profile (sidecar snapshot) with the static catalog
-    default as fallback. Best-effort -- a sidecar outage falls back rather than failing
-    the listing, so /v1/models never depends on the control plane being up."""
-    static_default = tuple(settings.main_llm.allowed_input_modalities)
-    if sidecar is None:
-        return static_default
-    try:
-        main_model = await sidecar.main_model()
-    except SidecarUnavailableError:
-        return static_default
-    return _active_input_modalities(main_model) or static_default
+def _active_gateway_policy(main_model: dict[str, Any]) -> dict[str, Any] | None:
+    """활성 Profile이 함께 공개한 Gateway 정책을 반환한다."""
+    profile = main_model.get("active_profile")
+    if not isinstance(profile, dict):
+        return None
+    policy = profile.get("gateway_policy")
+    return dict(policy) if isinstance(policy, dict) else None
 
 
 def build_router(
@@ -138,11 +133,30 @@ def build_router(
         # active main-model 프로필의 입력 modality를 덮어써서, listing이 정적
         # catalog 기본값이 아니라 chat validator와 동일하게 지금 실제로 서빙
         # 가능한 것(예: 멀티모달 프로필의 audio/video)을 알리도록 한다.
-        active_modalities = await _resolve_active_main_modalities(sidecar, settings)
+        active_policy = settings.default_main_model_gateway_policy
+        active_modalities = tuple(
+            str(item)
+            for item in active_policy.get("request_limits", {}).get(
+                "input_modalities", settings.main_llm.allowed_input_modalities
+            )
+        )
+        if sidecar is not None:
+            try:
+                active_snapshot = await sidecar.main_model()
+            except SidecarUnavailableError:
+                active_snapshot = None
+            if isinstance(active_snapshot, dict):
+                active_modalities = _active_input_modalities(active_snapshot) or active_modalities
+                active_policy = _active_gateway_policy(active_snapshot) or active_policy
         main_model_id = settings.main_llm.model
         for item in items:
             if item.get("id") == main_model_id:
                 item["input_modalities"] = list(active_modalities)
+                if active_policy:
+                    item["request_parameters"] = chat_request_parameter_surface(
+                        active_policy.get("request_parameter_policy", {}),
+                        max_output_tokens=int(active_policy.get("max_output_tokens", 0)) or None,
+                    )
         return {"object": "list", "data": items}
 
     _s = _GW[("POST", "/v1/chat/completions")]
@@ -175,6 +189,7 @@ def build_router(
         if tracking is not None:
             await tracking.__aenter__()
         active_modalities: tuple[str, ...] | None = None
+        gateway_policy: dict[str, Any] | None = None
         try:
             if sidecar is not None:
                 try:
@@ -209,13 +224,16 @@ def build_router(
                         ),
                     )
                 active_modalities = _active_input_modalities(main_model)
+                gateway_policy = _active_gateway_policy(main_model)
         except Exception:
             if tracking is not None:
                 await tracking.__aexit__(None, None, None)
             raise
         if payload.get("stream") is True:
             try:
-                upstream_stream = service.stream_chat_completion(payload, active_modalities=active_modalities)
+                upstream_stream = service.stream_chat_completion(
+                    payload, active_modalities=active_modalities, gateway_policy=gateway_policy
+                )
             except Exception:
                 if tracking is not None:
                     await tracking.__aexit__(None, None, None)
@@ -237,10 +255,14 @@ def build_router(
                 },
             )
         if tracking is None:
-            result = await service.create_chat_completion(payload, active_modalities=active_modalities)
+            result = await service.create_chat_completion(
+                payload, active_modalities=active_modalities, gateway_policy=gateway_policy
+            )
         else:
             try:
-                result = await service.create_chat_completion(payload, active_modalities=active_modalities)
+                result = await service.create_chat_completion(
+                    payload, active_modalities=active_modalities, gateway_policy=gateway_policy
+                )
             finally:
                 await tracking.__aexit__(None, None, None)
         record_token_usage(request, result.get("usage"))

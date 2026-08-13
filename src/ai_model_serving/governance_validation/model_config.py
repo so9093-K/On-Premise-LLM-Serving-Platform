@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from .common import (
     ROOT,
-    read_json,
     read_yaml,
     service_default_host_ports,
 )
@@ -48,11 +47,14 @@ def validate_risk_detector_generation_budget() -> None:
         if detector.get('type', 'vllm') == 'local':
             continue
         logical_id = detector['source_model']
-        card = read_json(f'model_cards/{logical_id}.json')
+        service_key = detector['service_key']
         catalog_tokens = catalog[logical_id]['runtime']['max_output_tokens']
-        card_tokens = card['runtime']['max_output_tokens']
-        if not (catalog_tokens == card_tokens == 1):
-            raise SystemExit(f'{logical_id} max_output_tokens must align at 1 across catalog and model card')
+        runtime_tokens = serving[service_key]['max_output_tokens']
+        fixed_tokens = detector.get('fixed_parameters', {}).get('max_tokens')
+        if not (catalog_tokens == runtime_tokens == fixed_tokens == 1):
+            raise SystemExit(
+                f'{logical_id} max_output_tokens must align at 1 across model catalog, runtime, and detector policy'
+            )
     risk_adapter_cfg = read_yaml('configs/model_serving.yaml')['risk_adapter']
     input_policy = risk_adapter_cfg.get('input_policy', {})
     max_prompt_chars = int(input_policy.get('max_prompt_chars', 0))
@@ -72,6 +74,7 @@ def validate_risk_detector_generation_budget() -> None:
 
 def validate_model_resource_control_policy() -> None:
     from ai_model_serving.domain import ModelRegistry
+    from ai_model_serving.main_model.control import load_main_model_catalog
     from ai_model_serving.registry_projection_drift import gpu_budget_status
 
     serving = read_yaml('configs/model_serving.yaml')
@@ -82,11 +85,14 @@ def validate_model_resource_control_policy() -> None:
         control = cfg.get('resource_control')
         if not isinstance(control, dict):
             raise SystemExit(f'{key} missing resource_control')
-        for field in ['isolation', 'admission_control', 'request_limits']:
+        required_fields = ['isolation', 'admission_control']
+        if key != 'main_llm':
+            required_fields.append('request_limits')
+        for field in required_fields:
             if field not in control:
                 raise SystemExit(f'{key} resource_control missing {field}')
         admission = control['admission_control']
-        if admission.get('max_concurrency') != int(cfg.get('max_num_seqs', admission.get('max_concurrency'))):
+        if key != 'main_llm' and admission.get('max_concurrency') != int(cfg.get('max_num_seqs', admission.get('max_concurrency'))):
             raise SystemExit(f'{key} resource control concurrency should track max_num_seqs')
         if float(cfg.get('gpu_memory_utilization', 0)) <= 0 or float(cfg.get('gpu_memory_utilization', 0)) >= 1:
             raise SystemExit(f'{key} gpu_memory_utilization must be between 0 and 1')
@@ -97,10 +103,15 @@ def validate_model_resource_control_policy() -> None:
             f'total configured gpu_memory_utilization {budget["total_gpu_memory_utilization"]} '
             f'must stay below avoid_above {budget["avoid_above"]}'
         )
-    request_limits = serving['models']['main_llm']['resource_control']['request_limits']
-    if int(request_limits.get('max_image_inputs', 0)) != 1 or request_limits.get('allowed_image_url_schemes') != ['data']:
-        raise SystemExit('main_llm image input policy must allow exactly one data:image input by default')
-    if int(request_limits.get('max_image_bytes', 0)) <= 0 or int(request_limits.get('max_image_pixels', 0)) <= 0:
-        raise SystemExit('main_llm image input policy must define decoded byte and pixel limits')
-    if not request_limits.get('allowed_image_mime_types'):
-        raise SystemExit('main_llm image input policy must define allowed image MIME types')
+    catalog = load_main_model_catalog(ROOT / 'configs' / 'main_model_profiles.yaml')
+    for profile in catalog.profiles.values():
+        if not profile.gateway_policy:
+            raise SystemExit(f'{profile.profile_id} must declare gateway_policy')
+        limits = profile.gateway_policy['request_limits']
+        if 'image' in profile.capabilities['deployed_input']:
+            if int(limits.get('max_image_inputs', 0)) != 1 or limits.get('allowed_image_url_schemes') != ['data']:
+                raise SystemExit(f'{profile.profile_id} image input policy must allow exactly one data:image input')
+            if int(limits.get('max_image_bytes', 0)) <= 0 or int(limits.get('max_image_pixels', 0)) <= 0:
+                raise SystemExit(f'{profile.profile_id} image input policy must define decoded byte and pixel limits')
+            if not limits.get('allowed_image_mime_types'):
+                raise SystemExit(f'{profile.profile_id} image input policy must define allowed image MIME types')

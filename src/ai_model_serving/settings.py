@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 from pathlib import Path
+import os
 from typing import Any
 
 from .domain import ModelRegistry
+from .main_model.control import load_main_model_catalog
 from .configuration import load_yaml_mapping
 from .project_paths import resolve_project_root as _resolve_project_root
 from .settings_parts.env import (
@@ -32,8 +34,22 @@ ROOT = _resolve_project_root()
 # admission_control.get("queue_timeout_seconds", default_queue_timeout)
 
 
-def _public_models_from_registry(model_catalog: dict[str, Any], model_serving: dict[str, Any]) -> tuple[dict[str, Any], ...]:
-    registry = ModelRegistry(model_catalog, model_serving)
+def _public_models_from_registry(
+    model_catalog: dict[str, Any],
+    model_serving: dict[str, Any],
+    default_main_model_gateway_policy: dict[str, Any],
+) -> tuple[dict[str, Any], ...]:
+    # ModelRegistry는 공개 목록의 공통 projection을 담당한다. main_llm의 API
+    # parameter 표면만은 default Profile에서 주입한다. 실제 요청 시에는 Gateway가
+    # active Profile snapshot으로 다시 덮어쓴다.
+    projected_serving = dict(model_serving)
+    projected_models = dict(model_serving.get("models", {}))
+    main_llm = dict(projected_models.get("main_llm", {}))
+    main_llm["max_output_tokens"] = default_main_model_gateway_policy["max_output_tokens"]
+    main_llm["request_parameter_policy"] = default_main_model_gateway_policy["request_parameter_policy"]
+    projected_models["main_llm"] = main_llm
+    projected_serving["models"] = projected_models
+    registry = ModelRegistry(model_catalog, projected_serving)
     issues = registry.alignment_issues()
     if issues:
         details = "; ".join(f"{issue.code}: {issue.message}" for issue in issues)
@@ -178,6 +194,10 @@ def load_settings(root: Path | None = None, env_file: Path | str | None = None) 
 
     model_serving = load_yaml_mapping(project_root / "configs" / "model_serving.yaml")
     model_catalog = load_yaml_mapping(project_root / "configs" / "model_catalog.yaml")
+    main_model_catalog = load_main_model_catalog(
+        project_root / "configs" / "main_model_profiles.yaml",
+        env=dict(os.environ),
+    )
     version = (project_root / "VERSION").read_text(encoding="utf-8").strip()
 
     security_cfg = model_serving.get("security", {})
@@ -264,6 +284,9 @@ def load_settings(root: Path | None = None, env_file: Path | str | None = None) 
         risk_detectors=risk_detectors,
         aggregate_detector_order=aggregate_detector_order,
         main_llm=runtime_endpoints.get("main_llm"),
+        default_main_model_gateway_policy=dict(
+            main_model_catalog.profiles[main_model_catalog.default_profile].gateway_policy
+        ),
         embedding=runtime_endpoints.get("embedding"),
         embedding_ko=runtime_endpoints.get("embedding_ko"),
         risk_prompt=runtime_endpoints.get("risk_prompt"),
@@ -277,7 +300,11 @@ def load_settings(root: Path | None = None, env_file: Path | str | None = None) 
         ),
         max_retrieval_documents=int(operational_limits.get("max_retrieval_documents", 32)),
         risk_input_max_chars=risk_input_max_chars,
-        public_models=_public_models_from_registry(model_catalog, model_serving),
+        public_models=_public_models_from_registry(
+            model_catalog,
+            model_serving,
+            main_model_catalog.profiles[main_model_catalog.default_profile].gateway_policy,
+        ),
         documentation=documentation,
         cors=cors,
         readiness_probe_timeout_seconds=float(operational_limits.get("readiness_probe_timeout_seconds", 2.0)),

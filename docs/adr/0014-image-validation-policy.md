@@ -5,8 +5,8 @@
 Accepted
 
 > **현재 운영 기준 (2026-08-12)**: 이 ADR은 MIME 독립 파서 도입과 한도 변경의 결정 이력을
-> 보존한다. 현재 요청 한도와 허용 형식의 기준은 `configs/model_serving.yaml`의
-> `models.main_llm.resource_control.request_limits`이며, 실제 동작은
+> 보존한다. 현재 요청 한도와 허용 형식의 기준은 `configs/main_model_profiles.yaml`의
+> 활성 profile `gateway_policy.request_limits`이며, 실제 동작은
 > `src/ai_model_serving/contracts/media.py`가 결정한다. 아래의 당시 `model_catalog.yaml` 및
 > `gpu_budgets.yaml` 단일 기준 서술은 현재 기준으로 사용하지 않는다.
 
@@ -73,7 +73,7 @@ MIME type allowlist 검사(`image/jpeg`, `image/png`, `image/webp`, `image/avif`
 ### 현재 source-of-truth
 
 이미지·오디오·비디오 요청 한도와 허용 형식의 canonical policy는
-`configs/model_serving.yaml`의 `models.main_llm.resource_control.request_limits`다.
+`configs/main_model_profiles.yaml`의 활성 profile `gateway_policy.request_limits`다.
 `model_catalog.yaml`은 모델 식별·capability registry이고, `gpu_budgets.yaml`은 VRAM
 admission 정책이다. 둘 다 media 입력 한도의 원본이 아니다.
 
@@ -141,7 +141,7 @@ admission 정책이다. 둘 다 media 입력 한도의 원본이 아니다.
 
 ## Related
 
-- `configs/model_serving.yaml` — media request limit source-of-truth
+- `configs/main_model_profiles.yaml` — 활성 profile의 media request limit source-of-truth
 - `src/ai_model_serving/contracts/media.py` — 파서 구현
 - `../reference/api_reference.md` — Vision 한도 API 문서 반영
 - ADR-0003: All Major Models as vLLM Runtime (vLLM이 PIL auto-detect를 사용하는 배경)

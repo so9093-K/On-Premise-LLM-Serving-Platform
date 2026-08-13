@@ -67,6 +67,10 @@ class MainModelProfile:
     command: tuple[str, ...]
     compatibility: dict[str, Any]
     capabilities: dict[str, Any]
+    # Gateway가 이 프로필을 실제로 서빙할 때 적용할 입력 한도·요청 파라미터·
+    # vLLM 기능 계약이다. active_profile snapshot에 함께 실어 Gateway가 전환된
+    # runtime과 다른 정적 정책을 쓰지 않게 한다.
+    gateway_policy: dict[str, Any]
     # 이 프로필에 대해 resolve된 런타임 이미지: 프로필이 자체 이미지를 고정하는 경우
     # (예: audio 지원 런타임) 프로필 레벨 오버라이드이고, 그렇지 않으면 공유된
     # runtime.image이다. 필수 값이며(loader가 유일한 생성자이고 항상 digest로 고정된
@@ -86,6 +90,7 @@ class MainModelProfile:
             "revision": self.revision,
             "compatibility": self.compatibility,
             "capabilities": self.capabilities,
+            "gateway_policy": self.gateway_policy,
             "runtime_image": self.image,
             "vram_fraction": self.vram_fraction,
         }
@@ -231,6 +236,47 @@ def load_main_model_catalog(
         compatibility = item.get("compatibility", {})
         if compatibility.get("status") not in _COMPATIBILITY:
             raise MainModelConfigurationError(f"profile {profile_id} has invalid compatibility status")
+        capabilities = item.get("capabilities", {"deployed_input": ["text"]})
+        if not isinstance(capabilities, dict):
+            raise MainModelConfigurationError(f"profile {profile_id} capabilities must be an object")
+        deployed_input = capabilities.get("deployed_input")
+        if (
+            not isinstance(deployed_input, list)
+            or not deployed_input
+            or not all(isinstance(value, str) for value in deployed_input)
+            or "text" not in deployed_input
+        ):
+            raise MainModelConfigurationError(
+                f"profile {profile_id} capabilities.deployed_input must be a non-empty list including text"
+            )
+        gateway_policy = item.get("gateway_policy", {})
+        if not isinstance(gateway_policy, dict):
+            raise MainModelConfigurationError(f"profile {profile_id} gateway_policy must be an object")
+        # 이전 catalog 형식은 image/boot resolution만 시험하는 최소 Profile을 허용했다.
+        # 실제 배포 catalog의 정책 존재는 governance validation에서 강제한다.
+        if gateway_policy:
+            request_limits = gateway_policy.get("request_limits")
+            if not isinstance(request_limits, dict):
+                raise MainModelConfigurationError(f"profile {profile_id} gateway_policy.request_limits must be an object")
+            if request_limits.get("input_modalities") != deployed_input:
+                raise MainModelConfigurationError(
+                    f"profile {profile_id} gateway_policy.request_limits.input_modalities must match capabilities.deployed_input"
+                )
+            if not isinstance(gateway_policy.get("request_parameter_policy"), dict):
+                raise MainModelConfigurationError(
+                    f"profile {profile_id} gateway_policy.request_parameter_policy must be an object"
+                )
+            if not isinstance(gateway_policy.get("runtime_features"), dict):
+                raise MainModelConfigurationError(
+                    f"profile {profile_id} gateway_policy.runtime_features must be an object"
+                )
+            try:
+                if int(gateway_policy.get("max_output_tokens", 0)) <= 0:
+                    raise ValueError
+            except (TypeError, ValueError) as exc:
+                raise MainModelConfigurationError(
+                    f"profile {profile_id} gateway_policy.max_output_tokens must be a positive integer"
+                ) from exc
         # 프로필은 자체 런타임 이미지(예: multimodal 빌드)를 리터럴 digest나 CI/deploy가
         # resolve하는 ${ENV} 참조로 고정할 수 있다; 지정하지 않으면 공유된 runtime.image를
         # 상속한다. 어느 쪽이든 resolve된 이미지는 digest 값이다.
@@ -243,7 +289,8 @@ def load_main_model_catalog(
             served_model_name=alias,
             command=tuple(command),
             compatibility=dict(compatibility),
-            capabilities=dict(item.get("capabilities", {})),
+            capabilities=dict(capabilities),
+            gateway_policy=dict(gateway_policy),
             image=resolved_image,
             vram_fraction=_parse_gpu_fraction(command),
         )
@@ -397,21 +444,13 @@ class MainModelManager:
     async def reconcile_if_restarted(self) -> None:
         """Detect a main-llm-vllm restart that bypassed this controller entirely
         (e.g. an operator running `docker restart main-llm-vllm` directly instead
-        of the admin API) and re-run validate() so structured-output/media warmup
-        still happens. Intended to be polled periodically in the background.
+        of the admin API) and re-run validate() so the active Profile's health,
+        model identity, and media capability remain verified. Intended to be
+        polled periodically in the background.
 
-        Total exposure window (restart to re-warm) is bounded by the poll
-        interval plus validate()'s own duration — up to
-        `_RECONCILE_POLL_INTERVAL_SECONDS` + a few seconds, not just the few
-        seconds validate() itself takes. A real request can land in that
-        earlier, larger window and hit the cold JIT path directly; this loop
-        only shrinks that window from "forever" to "one poll interval," it
-        does not eliminate it.
-
-        Does not close the gate while re-warming: gating would only shrink the
-        window by the few seconds validate() itself takes (not by the poll
-        interval), so the extra downtime from gating every re-warm was judged
-        not worth it relative to that small a reduction.
+        Does not close the gate while this verification runs. The controller
+        treats a restart as an observation problem, not as a reason to add
+        user-visible downtime.
 
         validate()가 계속 실패하면(예: active_profile이 가리키는 프로필과 실제
         컨테이너가 어긋난 채로 남는 drift -- 2026-07-28 실제 사고) 이 메서드는
@@ -441,10 +480,10 @@ class MainModelManager:
             last_validated = state.get("last_validated_container_started_at")
             if last_validated is None:
                 # 이 필드가 아직 없는 상태(신규 배포 직후)이거나 최초 관측 —
-                # drift로 취급해 불필요한 웜업을 트리거하지 않고 기준선만 기록한다.
+                # drift로 취급해 불필요한 재검증을 트리거하지 않고 기준선만 기록한다.
                 # 잠재 리스크: _validate_and_record()의 fingerprint 기록 단계(관측
                 # 호출)만 계속 실패하고 validate() 자체는 계속 성공하는 상황이 생기면,
-                # 이 필드가 영원히 None으로 남아 매 tick마다 이 분기로 빠져 재웜업이
+                # 이 필드가 영원히 None으로 남아 매 tick마다 이 분기로 빠져 재검증이
                 # 트리거되지 않는다. 두 실패가 겹쳐야 하는 좁은 경우이고, 위
                 # observed_started_at() 호출이 같은 backend 메서드를 쓰므로 지속적인
                 # 장애라면 그 호출도 함께 실패해 이 분기에 도달하기 전에 걸러지지만,
@@ -462,7 +501,7 @@ class MainModelManager:
                 return  # backoff 중 — 이번 tick은 건너뛴다
             _logger.warning(
                 "main-llm-vllm container restarted outside admin-sidecar control "
-                "(observed StartedAt=%s, last validated=%s); re-warming without closing the gate",
+                "(observed StartedAt=%s, last validated=%s); re-validating without closing the gate",
                 observed_started_at,
                 last_validated,
             )

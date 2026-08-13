@@ -23,6 +23,8 @@
 
 ### Changed
 
+- Main Model 전환·재시작 과정의 실패를 무시하던 structured-output/tool-calling 사전 요청과 전용 테스트를 제거했다. 전환 검증은 health, 모델 식별, text, 활성 프로필의 media canary처럼 실패 시 실제로 전환을 막아야 하는 계약만 확인한다.
+- Main Model의 요청 한도, 허용 입력, request parameter policy, runtime feature를 `model_serving.yaml`의 기본값에서 각 `main_model_profiles.yaml` profile의 `gateway_policy`로 이관했다. Gateway 요청 검증과 `/v1/models`의 `input_modalities`·`request_parameters`는 활성 profile을 따른다. 공통 endpoint, timeout, admission만 `model_serving.yaml`에 남긴다.
 - 생성 OpenAPI의 각 에러 응답이 전체 code enum 대신 해당 HTTP status로 실제 올 수 있는 code만 노출하고, description에 각 code의 의미·retryable을 함께 보여주도록 했다. Scalar/`/docs`에서 status→code→의미를 바로 읽을 수 있어 해석성이 개선된다. status↔code 매핑은 `errors.py`의 `ERROR_STATUS`에서 도출하므로 새 진실 소스를 만들지 않는다.
 - Main LLM 부팅 정책을 locked profile → 마지막 성공 active profile → 설치 기본 profile 순으로 정의했다. 기본 profile은 기존 26B이며 `MAIN_LLM_PROFILE_LOCKED=true` 배포에서는 Runtime Control 변경을 거절한다. 전환 중 신규 chat 요청은 `503`과 `Retry-After`를 반환하고 rollback까지 실패하면 fail-closed 상태를 유지한다. ([ADR-0017](docs/adr/0017-selectable-main-model-runtime.md))
 - 메인 모델 `gpu_memory_utilization`을 `MAIN_LLM_GPU_MEMORY_UTILIZATION`(optional, (0,1])로 호스트별 오버라이드할 수 있게 했다. 카탈로그 값은 기준 호스트 기본값이며, override는 런타임 command와 admission 비용(`vram_fraction`)에 동시 반영되어 둘이 어긋나지 않는다. fraction은 호스트 VRAM 비율이므로 더 작은 GPU는 더 큰 값을 설정한다. ([ADR-0018](docs/adr/0018-gpu-vram-admission-and-per-profile-runtime-image.md))

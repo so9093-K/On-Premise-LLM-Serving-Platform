@@ -4,6 +4,7 @@ import asyncio
 import json
 import time
 from collections.abc import AsyncIterator
+from dataclasses import replace
 from typing import Any, Protocol
 
 from ..errors import ServiceError
@@ -137,52 +138,87 @@ class GatewayService:
         self.metrics = metrics
         self.retrieval = RetrievalService(settings, clients, metrics)
 
+    def _main_llm_endpoint(
+        self,
+        gateway_policy: dict[str, Any] | None,
+        active_modalities: tuple[str, ...] | None,
+    ):
+        """공통 연결 설정에 활성 Profile의 API 정책만 합성한다."""
+        policy = gateway_policy or self.settings.default_main_model_gateway_policy
+        if not policy:
+            return replace(
+                self.settings.main_llm,
+                allowed_input_modalities=active_modalities or self.settings.main_llm.allowed_input_modalities,
+            )
+        limits = policy.get("request_limits", {}) if isinstance(policy, dict) else {}
+        modalities = active_modalities or tuple(str(item) for item in limits.get("input_modalities", ()))
+        if not modalities:
+            modalities = self.settings.main_llm.allowed_input_modalities
+        return replace(
+            self.settings.main_llm,
+            max_output_tokens=int(policy.get("max_output_tokens", self.settings.main_llm.max_output_tokens or 0)),
+            max_model_len=(int(limits["max_model_len"]) if "max_model_len" in limits else self.settings.main_llm.max_model_len),
+            allowed_input_modalities=modalities,
+            max_image_inputs=int(limits.get("max_image_inputs", 0)),
+            allowed_image_url_schemes=tuple(str(item) for item in limits.get("allowed_image_url_schemes", ())),
+            max_image_bytes=int(limits.get("max_image_bytes", 0)),
+            max_image_pixels=int(limits.get("max_image_pixels", 0)),
+            allowed_image_mime_types=tuple(str(item) for item in limits.get("allowed_image_mime_types", ())),
+            max_audio_inputs=int(limits.get("max_audio_inputs", 0)),
+            allowed_audio_formats=tuple(str(item) for item in limits.get("allowed_audio_formats", ())),
+            max_audio_bytes=int(limits.get("max_audio_bytes", 0)),
+            max_video_inputs=int(limits.get("max_video_inputs", 0)),
+            allowed_video_url_schemes=tuple(str(item) for item in limits.get("allowed_video_url_schemes", ())),
+            allowed_video_mime_types=tuple(str(item) for item in limits.get("allowed_video_mime_types", ())),
+            max_video_bytes=int(limits.get("max_video_bytes", 0)),
+            max_video_frames=int(limits.get("max_video_frames", 0)),
+            max_video_frame_pixels=int(limits.get("max_video_frame_pixels", 0)),
+            max_video_duration_seconds=float(limits.get("max_video_duration_seconds", 0)),
+            request_parameter_policy=dict(policy.get("request_parameter_policy", {})),
+            runtime_features=dict(policy.get("runtime_features", {})),
+        )
+
     def _validate_chat_payload(
         self,
         payload: dict[str, Any],
         *,
         active_modalities: tuple[str, ...] | None = None,
+        gateway_policy: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        # 허용되는 입력 modality 집합은 가능하면 ACTIVE main-model 프로필(sidecar
-        # snapshot의 deployed_input)을 따르고, 없으면 정적 registry 값으로
-        # 폴백한다. 이렇게 하면 현재 모델의 동작은 그대로 유지되면서(해당
-        # 프로필이 동일한 modality로 resolve되므로), switch된 프로필(예: 오디오
-        # 지원)이 허용 범위를 넓힐 수 있다 -- 실행 중인 모델이 서빙할 수 없는
-        # modality를 광고하는 일은 절대 없다. modality별 안전 한도는 registry의
-        # 정적 정책으로 유지된다.
-        allowed_input_modalities = (
-            active_modalities
-            if active_modalities is not None
-            else self.settings.main_llm.allowed_input_modalities
-        )
+        endpoint = self._main_llm_endpoint(gateway_policy, active_modalities)
         return validate_chat_request(
             payload,
-            expected_model=self.settings.main_llm.model,
-            max_output_tokens=self.settings.main_llm.max_output_tokens,
-            allowed_input_modalities=allowed_input_modalities,
-            max_image_inputs=self.settings.main_llm.max_image_inputs,
-            allowed_image_url_schemes=self.settings.main_llm.allowed_image_url_schemes,
-            max_image_bytes=self.settings.main_llm.max_image_bytes,
-            max_image_pixels=self.settings.main_llm.max_image_pixels,
-            allowed_image_mime_types=self.settings.main_llm.allowed_image_mime_types,
-            max_audio_inputs=self.settings.main_llm.max_audio_inputs,
-            allowed_audio_formats=self.settings.main_llm.allowed_audio_formats,
-            max_audio_bytes=self.settings.main_llm.max_audio_bytes,
-            max_video_inputs=self.settings.main_llm.max_video_inputs,
-            allowed_video_url_schemes=self.settings.main_llm.allowed_video_url_schemes,
-            allowed_video_mime_types=self.settings.main_llm.allowed_video_mime_types,
-            max_video_bytes=self.settings.main_llm.max_video_bytes,
-            max_video_frames=self.settings.main_llm.max_video_frames,
-            max_video_frame_pixels=self.settings.main_llm.max_video_frame_pixels,
-            max_video_duration_seconds=self.settings.main_llm.max_video_duration_seconds,
-            request_parameter_policy=self.settings.main_llm.request_parameter_policy,
+            expected_model=endpoint.model,
+            max_output_tokens=endpoint.max_output_tokens,
+            allowed_input_modalities=endpoint.allowed_input_modalities,
+            max_image_inputs=endpoint.max_image_inputs,
+            allowed_image_url_schemes=endpoint.allowed_image_url_schemes,
+            max_image_bytes=endpoint.max_image_bytes,
+            max_image_pixels=endpoint.max_image_pixels,
+            allowed_image_mime_types=endpoint.allowed_image_mime_types,
+            max_audio_inputs=endpoint.max_audio_inputs,
+            allowed_audio_formats=endpoint.allowed_audio_formats,
+            max_audio_bytes=endpoint.max_audio_bytes,
+            max_video_inputs=endpoint.max_video_inputs,
+            allowed_video_url_schemes=endpoint.allowed_video_url_schemes,
+            allowed_video_mime_types=endpoint.allowed_video_mime_types,
+            max_video_bytes=endpoint.max_video_bytes,
+            max_video_frames=endpoint.max_video_frames,
+            max_video_frame_pixels=endpoint.max_video_frame_pixels,
+            max_video_duration_seconds=endpoint.max_video_duration_seconds,
+            request_parameter_policy=endpoint.request_parameter_policy,
         )
 
-    def _chat_upstream_payload(self, payload: dict[str, Any]) -> tuple[dict[str, Any], ChatResponseExpectations]:
+    def _chat_upstream_payload(
+        self,
+        payload: dict[str, Any],
+        gateway_policy: dict[str, Any] | None,
+    ) -> tuple[dict[str, Any], ChatResponseExpectations]:
+        endpoint = self._main_llm_endpoint(gateway_policy, None)
         return normalize_chat_request_for_runtime(
             payload,
-            self.settings.main_llm.runtime_features,
-            self.settings.main_llm.request_parameter_policy,
+            endpoint.runtime_features,
+            endpoint.request_parameter_policy,
         )
 
     async def create_chat_completion(
@@ -190,9 +226,13 @@ class GatewayService:
         payload: dict[str, Any],
         *,
         active_modalities: tuple[str, ...] | None = None,
+        gateway_policy: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         payload, expectations = self._chat_upstream_payload(
-            self._validate_chat_payload(payload, active_modalities=active_modalities)
+            self._validate_chat_payload(
+                payload, active_modalities=active_modalities, gateway_policy=gateway_policy
+            ),
+            gateway_policy,
         )
         # 구조화 출력(json_schema/json_object) 응답이 콜드스타트 Triton JIT 지연 등으로
         # 중간에 잘리면 validate_chat_response가 UPSTREAM_SCHEMA_ERROR로 잡아낸다.
@@ -232,9 +272,13 @@ class GatewayService:
         payload: dict[str, Any],
         *,
         active_modalities: tuple[str, ...] | None = None,
+        gateway_policy: dict[str, Any] | None = None,
     ) -> AsyncIterator[bytes]:
         payload, _expectations = self._chat_upstream_payload(
-            self._validate_chat_payload(payload, active_modalities=active_modalities)
+            self._validate_chat_payload(
+                payload, active_modalities=active_modalities, gateway_policy=gateway_policy
+            ),
+            gateway_policy,
         )
         start = time.monotonic()
         target = self.settings.main_llm.logical_id

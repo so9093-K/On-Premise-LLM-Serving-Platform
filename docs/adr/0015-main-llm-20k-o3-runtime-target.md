@@ -6,7 +6,7 @@ Superseded by ADR-0017 and ADR-0018
 
 > **현재 운영 기준 (2026-08-12)**: 기본 Main Model profile은
 > `configs/main_model_profiles.yaml`의 `gemma4-12b-unified-fp8`이며, 실제 serving limit은
-> `configs/model_serving.yaml`이 정한다. 이 ADR의 26B / 20K / seq=1 내용은 당시의 검증과
+> 활성 profile의 `gateway_policy`가 정한다. 이 ADR의 26B / 20K / seq=1 내용은 당시의 검증과
 > 실패·복구 근거를 보존하는 기록이며 현재 기본 runtime target이 아니다.
 
 ## Context

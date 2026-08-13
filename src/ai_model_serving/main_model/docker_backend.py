@@ -9,48 +9,9 @@ from typing import Any
 
 import httpx
 
-from ..service_logging import service_logger
 from .control import MainModelCatalog, MainModelProfile
 from ..media_samples import TINY_M4A_AAC_B64, TINY_MP4_VIDEO_B64
 from .cache import prepare_model_snapshot
-
-_logger = service_logger("main_model_control")
-
-_STRUCTURED_OUTPUT_WARMUP_SCHEMA = {
-    "type": "json_schema",
-    "json_schema": {
-        "name": "warmup",
-        "schema": {
-            "type": "object",
-            "properties": {"ok": {"type": "boolean"}},
-            "required": ["ok"],
-            "additionalProperties": False,
-        },
-        "strict": True,
-    },
-}
-
-# --enable-auto-tool-choice --tool-call-parser gemma4도 xgrammar 기반 제약 디코딩을
-# 거치므로, 위 json_schema 웜업과 같은 Triton JIT 이슈(apply_token_bitmask_inplace_kernel)를
-# 별도로 겪을 수 있다 — 다만 두 경로가 같은 커널을 공유한다면(Triton JIT은 보통 커널
-# 단위로 캐싱되지 스키마 내용 단위가 아니다) 이미 위 웜업으로 예열됐을 수도 있다.
-# 실제로 별개인지는 미확인이라, 이 호출 자체가 가장 싼 검증 수단이기도 하다: 배포
-# 로그에 새 JIT 이벤트가 뜨면 별개였다는 뜻이고, 안 뜨면 이미 커버되고 있었다는 뜻이다.
-_TOOL_CALL_WARMUP_TOOLS = [
-    {
-        "type": "function",
-        "function": {
-            "name": "warmup",
-            "description": "Warmup no-op tool.",
-            "parameters": {
-                "type": "object",
-                "properties": {"ok": {"type": "boolean"}},
-                "required": ["ok"],
-            },
-        },
-    }
-]
-
 
 _AUDIO_CANARY_M4A_B64 = TINY_M4A_AAC_B64
 _VIDEO_CANARY_MP4_B64 = TINY_MP4_VIDEO_B64
@@ -156,8 +117,8 @@ class DockerMainModelBackend:
     async def observed_started_at(self, catalog: MainModelCatalog) -> str | None:
         """실행 중인 컨테이너의 Docker ``State.StartedAt``을 반환하고 없으면 ``None``을 반환한다.
 
-        관리자 API를 거치지 않은 컨테이너 재시작을 감지하는 데 사용한다. 이런 재시작은
-        vLLM의 Triton JIT cache를 초기화하므로, 이후 warmup을 다시 수행해야 한다.
+        관리자 API를 거치지 않은 컨테이너 재시작을 감지하고, 활성 Profile의 실제
+        health·모델 식별·입력 capability를 다시 검증하는 데 사용한다.
         """
         service = str(catalog.runtime["compose_service"])
         container_id = await self._container_id(service)
@@ -390,52 +351,6 @@ class DockerMainModelBackend:
             choices = body.get("choices", [])
             if not choices or not choices[0].get("message", {}).get("content"):
                 raise RuntimeError("main runtime inference canary returned no content")
-            # Best-effort structured-output warmup: vLLM는 xgrammar 제약 디코딩
-            # Triton 커널(apply_token_bitmask_inplace_kernel)을 최초 호출 시 JIT
-            # 컴파일한다. 위의 text canary는 response_format을 설정하지 않으므로,
-            # 이 호출이 없으면 그 컴파일 비용은 response_format=json_schema를 처음
-            # 사용하는 실제 요청이 떠안게 되어, structured-output 클라이언트 입장에서
-            # 원인 불명의 느리거나 잘린 "첫 시도"로 나타난다. 이 호출은 그 비용을
-            # 미리 지불할 뿐이므로 switch를 실패시켜서는 안 되며(warmup이 느리거나
-            # 실패한다고 해서 정상 동작하는 profile을 rollback할 이유는 없다),
-            # 예외는 raise하지 않고 로그만 남긴다.
-            try:
-                warmup_response = await client.post(
-                    base + str(catalog.runtime["chat_path"]),
-                    json={
-                        "model": catalog.public_model,
-                        "messages": [{"role": "user", "content": "Reply with {\"ok\": true}."}],
-                        "max_tokens": 16,
-                        "temperature": 0,
-                        "response_format": _STRUCTURED_OUTPUT_WARMUP_SCHEMA,
-                    },
-                )
-                # raise_for_status()가 없으면 4xx/5xx도 "성공"으로 조용히 넘어간다 —
-                # 특히 4xx는 보통 샘플링 단계 전 요청 검증에서 막히므로, 정작 예열하려던
-                # bitmask 커널을 태우지도 못한 채 웜업이 됐다고 착각하게 된다.
-                warmup_response.raise_for_status()
-            except httpx.HTTPError as exc:
-                _logger.warning("structured-output warmup canary failed (non-fatal): %s", exc)
-            # Best-effort tool-calling warmup: 위 json_schema 웜업과 같은 이유(별개의
-            # JIT 이벤트일 수도, 이미 커버됐을 수도 있음 — _TOOL_CALL_WARMUP_TOOLS 주석
-            # 참고). tool_choice를 특정 함수로 강제해 실제로 제약 디코딩 경로를 태운다
-            # (그냥 tools만 실어 보내면 모델이 tool을 안 쓰고 일반 텍스트로 답할 수 있어
-            # 이 경로를 타지 않을 수 있다).
-            try:
-                tool_warmup_response = await client.post(
-                    base + str(catalog.runtime["chat_path"]),
-                    json={
-                        "model": catalog.public_model,
-                        "messages": [{"role": "user", "content": "Call the warmup tool."}],
-                        "max_tokens": 16,
-                        "temperature": 0,
-                        "tools": _TOOL_CALL_WARMUP_TOOLS,
-                        "tool_choice": {"type": "function", "function": {"name": "warmup"}},
-                    },
-                )
-                tool_warmup_response.raise_for_status()
-            except httpx.HTTPError as exc:
-                _logger.warning("tool-calling warmup canary failed (non-fatal): %s", exc)
             # Media boot canary: 해당 modality를 실제로 배포하는 profile에 대해서만
             # 수행한다. gate가 열리기 전에 런타임이 컨테이너 media를 디코드할 수
             # 있음을 증명하여, 지원한다고 표시되었지만 실제로는 깨진 modality가

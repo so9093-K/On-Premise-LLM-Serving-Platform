@@ -51,9 +51,9 @@ YAML 파일은 모델, runtime, 서비스, 보안 정책 같은 **repository-lev
 
 | 영역 | Source of Truth | 역할 |
 |---|---|---|
-| 모델 목록과 capability | `configs/model_catalog.yaml`, `model_cards/*.json` | 논리 model ID, upstream model, modality, capability, model metadata 정의 |
-| Runtime serving 정책 | `configs/model_serving.yaml` | runtime endpoint, timeout, request limit, embedding/risk routing 및 serving 정책 정의 |
-| Main Model 실행 profile | `configs/main_model_profiles.yaml` | 선택 가능한 Main Model과 vLLM 실행 parameter 정의 |
+| 모델 목록과 capability | `configs/model_catalog.yaml` | 논리 model ID, upstream model, modality, capability 정의 |
+| Runtime serving 정책 | `configs/model_serving.yaml` | 공통 endpoint, timeout, admission, embedding/risk routing 정의 |
+| Main Model 실행·API profile | `configs/main_model_profiles.yaml` | 선택 가능한 Main Model의 vLLM command, capability, Gateway 요청 정책 정의 |
 | GPU resource budget | `configs/gpu_budgets.yaml` | runtime별 GPU budget과 admission 기준 정의 |
 | Service / port registry | `configs/services.yaml` | Compose service 이름, container/host port, bind env, exposure category 정의 |
 | Exposure mode | `configs/exposure_profiles.yaml` | 어떤 서비스를 host에 publish할지 정의 |
@@ -147,8 +147,8 @@ repository `.env` 자동 로딩은 local / test / development 환경에 적용�
 | 파일 | 질문 | 주요 역할 |
 |---|---|---|
 | `model_catalog.yaml` | **어떤 모델인가?** | model identity, upstream revision, capability, modality, public listing |
-| `model_serving.yaml` | **플랫폼이 이 runtime을 어떻게 사용할 것인가?** | endpoint, timeout, concurrency, routing, request policy |
-| `main_model_profiles.yaml` | **Main Model을 어떤 vLLM command로 실행할 것인가?** | model/revision/image, context, sequence, GPU utilization, capability |
+| `model_serving.yaml` | **플랫폼이 이 runtime에 어떻게 연결·운영할 것인가?** | endpoint, timeout, admission, routing |
+| `main_model_profiles.yaml` | **Main Model을 어떤 계약으로 서빙할 것인가?** | model/revision/image, vLLM command, capability, request limits, request parameter policy, runtime features |
 
 ### `configs/model_catalog.yaml`
 
@@ -164,6 +164,8 @@ repository `.env` 자동 로딩은 local / test / development 환경에 적용�
 - model-specific runtime policy와 lifecycle metadata
 
 Gateway의 model registry와 `/v1/models` projection은 이 catalog와 `model_serving.yaml`을 함께 사용한다.
+
+upstream 모델의 사양과 알려진 제약은 [모델 참고 자료](./reference/models/README.md)에 별도로 정리한다. 이 참고 자료는 실행 설정의 기준이 아니다.
 
 ### `configs/model_serving.yaml`
 
@@ -211,6 +213,8 @@ profile에는 주로 다음 정보가 들어간다.
 - `max_num_seqs`
 - `gpu_memory_utilization`
 - modality capability
+- Gateway request limits와 request parameter policy
+- runtime features(tool/reasoning/structured output 등)
 - compatibility status와 검증 이력
 
 Main Model 전환과 rollback 절차는 [6. 모델 운영](./06_model_operations.md)에서 설명한다.
@@ -522,8 +526,8 @@ make exposure-status
 | 변경 영역 | 대표 파일 | 주요 영향 | 일반적인 후속 작업 |
 |---|---|---|---|
 | 모델 metadata / capability | `model_catalog.yaml` | model listing, capability contract | `make validate`, 관련 API 검토 |
-| Gateway runtime 정책 | `model_serving.yaml` | endpoint, timeout, routing, request policy | `make validate`, 대상 service 재기동 및 runtime 검증 |
-| Main Model profile | `main_model_profiles.yaml` | Main Model boot command / capability | `make validate`, model prepare / switch 검증 |
+| Gateway runtime 정책 | `model_serving.yaml` | endpoint, timeout, routing, admission | `make validate`, 대상 service 재기동 및 runtime 검증 |
+| Main Model profile | `main_model_profiles.yaml` | Main Model boot command, capability, Gateway API 정책 | `make validate`, model prepare / switch 검증 |
 | GPU budget | `gpu_budgets.yaml` | runtime admission, co-residency | `make validate`, GPU runtime 검증 |
 | Service / port | `services.yaml` | Compose / exposure / monitoring projection | `make validate`, `make compose-config` |
 | Exposure mode | `exposure_profiles.yaml` | host publish 범위 | `make validate`, exposure 적용, Compose 재적용 |
@@ -544,8 +548,8 @@ make exposure-status
 | 변경하려는 항목 | 먼저 확인할 파일 |
 |---|---|
 | 모델 추가 / capability 변경 | `configs/model_catalog.yaml` |
-| Gateway runtime endpoint / timeout / request limit | `configs/model_serving.yaml` |
-| Main Model 교체 / vLLM parameter | `configs/main_model_profiles.yaml` |
+| Gateway runtime endpoint / timeout / admission | `configs/model_serving.yaml` |
+| Main Model 교체 / vLLM parameter / API capability·limit | `configs/main_model_profiles.yaml` |
 | GPU allocation | `configs/gpu_budgets.yaml` |
 | Service / port | `configs/services.yaml` |
 | Host 공개 범위 | `configs/exposure_profiles.yaml` |

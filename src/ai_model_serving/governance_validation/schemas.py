@@ -63,10 +63,21 @@ def _data_url_pattern_suffixes(schema: dict[str, Any], media_kind: str) -> set[s
     return set(match.group(1).split('|'))
 
 def _validate_chat_schema_media_policy(chat_schema: dict[str, Any]) -> None:
-    limits = read_yaml('configs/model_serving.yaml')['models']['main_llm']['resource_control']['request_limits']
-    expected_image_suffixes = {str(item).removeprefix('image/') for item in limits.get('allowed_image_mime_types', [])}
-    expected_video_suffixes = {str(item).removeprefix('video/') for item in limits.get('allowed_video_mime_types', [])}
-    expected_audio_formats = set(str(item) for item in limits.get('allowed_audio_formats', []))
+    profiles = read_yaml('configs/main_model_profiles.yaml').get('profiles', {})
+    limits = [
+        profile.get('gateway_policy', {}).get('request_limits', {})
+        for profile in profiles.values()
+        if isinstance(profile, dict)
+    ]
+    expected_image_suffixes = {
+        str(item).removeprefix('image/') for policy in limits for item in policy.get('allowed_image_mime_types', [])
+    }
+    expected_video_suffixes = {
+        str(item).removeprefix('video/') for policy in limits for item in policy.get('allowed_video_mime_types', [])
+    }
+    expected_audio_formats = {
+        str(item) for policy in limits for item in policy.get('allowed_audio_formats', [])
+    }
 
     if _data_url_pattern_suffixes(chat_schema, 'image') != expected_image_suffixes:
         raise SystemExit('chat completion image data URL pattern must match configured allowed_image_mime_types')

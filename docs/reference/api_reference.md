@@ -23,7 +23,7 @@ API 문서가 활성화된 환경에서는 다음 경로를 사용할 수 있다
 | `/redoc` | ReDoc |
 | `/openapi.json` | OpenAPI document |
 
-정적 요청·응답 JSON Schema는 `specs/schemas/`에 있으며, 실제 Runtime validation은 `src/ai_model_serving/contracts/`와 `configs/model_serving.yaml`의 정책을 적용한다.
+정적 요청·응답 JSON Schema는 `specs/schemas/`에 있으며, 실제 Runtime validation은 `src/ai_model_serving/contracts/`와 활성 Main Model profile의 `gateway_policy`를 적용한다. Embedding·Risk runtime 정책은 `configs/model_serving.yaml`을 따른다.
 
 ---
 
@@ -193,7 +193,7 @@ curl "$GATEWAY_URL/v1/models" \
 | `local-embed-ko` | Korean Embedding | Embedding, Retrieval |
 | `risk-prompt` | Prompt Guard model | Prompt attack signal |
 
-`local-main`의 `input_modalities`는 현재 활성 Main Model profile의 실제 `deployed_input`을 반영한다.
+`local-main`의 `input_modalities`와 `request_parameters`는 현재 활성 Main Model profile의 실제 capability·요청 정책을 반영한다.
 
 #### 응답 예시
 
@@ -1791,7 +1791,8 @@ Risk Adapter는 기본 Compose에서 `:9405`, Admin Sidecar는 `:8080` 내부 se
 | Endpoint 목록·lifecycle·auth | `src/ai_model_serving/api/endpoint_spec.py` |
 | Runtime route | `src/ai_model_serving/api/routers/` |
 | Runtime Request / Response validation | `src/ai_model_serving/contracts/` |
-| Runtime parameter policy | `configs/model_serving.yaml` |
+| Main Model parameter policy | `configs/main_model_profiles.yaml`의 활성 profile `gateway_policy` |
+| Embedding / Risk parameter policy | `configs/model_serving.yaml` |
 | 정적 JSON Schema / OpenAPI contract | `specs/schemas/` |
 | OpenAPI | `specs/openapi.gateway.yaml`, runtime `/openapi.json` |
 | Request example | `src/ai_model_serving/api_examples.py` |

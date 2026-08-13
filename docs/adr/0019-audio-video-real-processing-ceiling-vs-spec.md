@@ -4,6 +4,10 @@
 
 Accepted
 
+> **현재 운영 기준 (2026-08-13)**: Main Model의 media 요청 한도는
+> `configs/main_model_profiles.yaml` 활성 profile의 `gateway_policy.request_limits`가 소유한다.
+> 아래 Context의 `model_serving.yaml` 경로는 이 결정 당시의 구현을 기록한 것이다.
+
 ## Context
 
 Gateway의 `configs/model_serving.yaml` (`main_llm.request_limits`)는 오디오/비디오를
