@@ -36,6 +36,12 @@ echo "[image] building platform image ${IMAGE}"
 docker build "${build_args[@]}" .
 
 echo "[image] verifying platform image imports"
-docker run --rm --entrypoint python "$IMAGE" -c \
+# 이 smoke는 image 안에서 앱 factory를 import/초기화하는지만 확인한다. 배포 .env는
+# 컨테이너 실행 시 주입되므로, catalog의 digest 형식 해석에는 고정 fixture를 사용한다.
+IMAGE_SMOKE_VLLM="registry.example.com/vllm-unified@sha256:0000000000000000000000000000000000000000000000000000000000000000"
+docker run --rm \
+  --env "VLLM_IMAGE=${IMAGE_SMOKE_VLLM}" \
+  --env "AUDIO_VLLM_IMAGE=${IMAGE_SMOKE_VLLM}" \
+  --entrypoint python "$IMAGE" -c \
   "from ai_model_serving.apps.gateway import create_gateway_app; from ai_model_serving.apps.risk_adapter import create_risk_adapter_app; create_gateway_app(); create_risk_adapter_app()"
 echo "[image] built and verified ${IMAGE}"
