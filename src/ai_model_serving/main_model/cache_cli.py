@@ -25,7 +25,9 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    catalog = load_main_model_catalog(args.catalog)
+    # Cache 준비에는 pinned model_id/revision만 필요하다. runtime image는 Compose가
+    # 실제 컨테이너를 만들 때 해석하므로, 여기서 배포 digest를 요구하지 않는다.
+    catalog = load_main_model_catalog(args.catalog, resolve_runtime_images=False)
     try:
         profile = catalog.profiles[args.profile]
     except KeyError as exc:

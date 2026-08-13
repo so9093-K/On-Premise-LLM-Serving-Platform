@@ -202,7 +202,15 @@ def load_main_model_catalog(
     *,
     gpu_memory_utilization_override: float | None = None,
     env: dict[str, str] | None = None,
+    resolve_runtime_images: bool = True,
 ) -> MainModelCatalog:
+    """Main Model catalog를 읽는다.
+
+    Runtime을 생성하거나 관찰하는 호출자는 기본값 그대로, 모든 image 참조가
+    실제 digest로 해석된 catalog를 사용해야 한다. 반면 HF cache 준비는 model_id와
+    revision만 소비하므로, ``resolve_runtime_images=False``로 image 배포 환경과
+    독립적으로 metadata만 읽을 수 있다. 이 모드는 Docker/Compose 경계에 넘기면 안 된다.
+    """
     raw = yaml.safe_load(path.read_text(encoding="utf-8"))
     if not isinstance(raw, dict) or raw.get("version") != 1:
         raise MainModelConfigurationError("main model profile schema version must be 1")
@@ -212,10 +220,18 @@ def load_main_model_catalog(
     profiles_raw = raw.get("profiles")
     if not public_model or not isinstance(runtime, dict) or not isinstance(profiles_raw, dict):
         raise MainModelConfigurationError("public_model, runtime, and profiles are required")
+    runtime_image = runtime.get("image")
+    if not isinstance(runtime_image, str) or not runtime_image.strip():
+        raise MainModelConfigurationError("runtime image is required")
     # 공용 runtime image도 profile override와 같은 배포 pin을 사용한다. 이전에는
     # 여기만 과거 literal digest로 남아, image를 따로 선언하지 않은 26B 전환이
-    # Docker create의 "No such image"로 실패했다.
-    image = _resolve_profile_image(runtime.get("image"), None, env, "runtime")
+    # Docker create의 "No such image"로 실패했다. cache 준비만 이 값을 소비하지
+    # 않으므로, 그 경로에서는 env ref를 해석하지 않고 원문을 보존한다.
+    image = (
+        _resolve_profile_image(runtime_image, None, env, "runtime")
+        if resolve_runtime_images
+        else runtime_image
+    )
     runtime = {**runtime, "image": image}
 
     profiles: dict[str, MainModelProfile] = {}
@@ -291,8 +307,16 @@ def load_main_model_catalog(
                 ) from exc
         # 프로필은 자체 런타임 이미지(예: multimodal 빌드)를 리터럴 digest나 CI/deploy가
         # resolve하는 ${ENV} 참조로 고정할 수 있다; 지정하지 않으면 공유된 runtime.image를
-        # 상속한다. 어느 쪽이든 resolve된 이미지는 digest 값이다.
-        resolved_image = _resolve_profile_image(item.get("image"), image, env, str(profile_id))
+        # 상속한다. runtime 소비 경로에서는 반드시 digest로 해석한다. cache 준비는
+        # model/revision만 사용하므로 image ref를 그대로 두어 배포 env에 의존하지 않는다.
+        profile_image = item.get("image")
+        if profile_image is not None and (not isinstance(profile_image, str) or not profile_image.strip()):
+            raise MainModelConfigurationError(f"profile {profile_id} image must be a non-empty string")
+        resolved_image = (
+            _resolve_profile_image(profile_image, image, env, str(profile_id))
+            if resolve_runtime_images
+            else (profile_image or image)
+        )
         profiles[str(profile_id)] = MainModelProfile(
             profile_id=str(profile_id),
             display_name=str(item.get("display_name", profile_id)),

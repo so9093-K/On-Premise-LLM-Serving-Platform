@@ -34,7 +34,9 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    catalog = load_main_model_catalog(args.catalog)
+    # 이 명령은 cache만 준비하며 runtime을 만들지 않는다. image digest 해석은
+    # Compose/sidecar의 runtime 경계에서만 수행한다.
+    catalog = load_main_model_catalog(args.catalog, resolve_runtime_images=False)
     try:
         profile = catalog.profiles[args.profile]
     except KeyError as exc:

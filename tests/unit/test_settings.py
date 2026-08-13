@@ -49,6 +49,7 @@ def test_load_settings_rejects_default_api_key_in_non_local_env(monkeypatch):
 
 def test_load_settings_allows_non_default_api_key_in_non_local_env(monkeypatch):
     monkeypatch.setenv("APP_ENV", "production")
+    monkeypatch.setenv("API_KEY_REQUIRED", "true")
     monkeypatch.setenv("API_KEYS", "real-key")
     monkeypatch.setenv("INTERNAL_SERVICE_TOKEN", "internal-real-key")
     monkeypatch.setenv("ADMIN_API_KEY_REQUIRED", "true")
@@ -61,6 +62,7 @@ def test_load_settings_allows_non_default_api_key_in_non_local_env(monkeypatch):
 
 def test_load_settings_warns_on_open_admin_endpoints_in_non_local_env(monkeypatch):
     monkeypatch.setenv("APP_ENV", "production")
+    monkeypatch.setenv("API_KEY_REQUIRED", "true")
     monkeypatch.setenv("API_KEYS", "real-key")
     monkeypatch.setenv("INTERNAL_SERVICE_TOKEN", "internal-real-key")
     monkeypatch.setenv("ADMIN_API_KEY_REQUIRED", "false")
@@ -128,6 +130,7 @@ def test_load_settings_ignores_local_dotenv_when_app_env_is_explicitly_non_local
     )
 
     monkeypatch.setenv("APP_ENV", "production")
+    monkeypatch.setenv("API_KEY_REQUIRED", "true")
     monkeypatch.setenv("API_KEYS", "real-key")
     monkeypatch.setenv("INTERNAL_SERVICE_TOKEN", "internal-real-key")
     monkeypatch.setenv("INTERNAL_SERVICE_AUTH_REQUIRED", "true")
@@ -224,6 +227,7 @@ def test_load_settings_rejects_invalid_or_missing_required_model_configuration(t
 
 def test_load_settings_requires_internal_token_in_non_local_env(monkeypatch):
     monkeypatch.setenv("APP_ENV", "production")
+    monkeypatch.setenv("API_KEY_REQUIRED", "true")
     monkeypatch.setenv("API_KEYS", "real-key")
     monkeypatch.setenv("INTERNAL_SERVICE_AUTH_REQUIRED", "true")
     monkeypatch.delenv("INTERNAL_SERVICE_TOKEN", raising=False)
@@ -287,6 +291,7 @@ def test_load_settings_rejects_generated_placeholder_secrets_in_non_local_env(mo
 
 def test_load_settings_requires_admin_key_when_admin_auth_enabled(monkeypatch):
     monkeypatch.setenv("APP_ENV", "production")
+    monkeypatch.setenv("API_KEY_REQUIRED", "true")
     monkeypatch.setenv("API_KEYS", "real-key")
     monkeypatch.setenv("INTERNAL_SERVICE_TOKEN", "internal-real-key")
     monkeypatch.setenv("ADMIN_API_KEY_REQUIRED", "true")
