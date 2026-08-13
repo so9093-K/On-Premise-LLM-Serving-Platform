@@ -267,7 +267,6 @@ make build-image
 |---|---|
 | `make build` | `validate → test → Platform Image Build` |
 | `make build-image` | Platform Image Build + image 내부 application 확인 |
-| `make rebuild-app` | `make build-image` alias |
 
 `PLATFORM_IMAGE` 환경변수로 build tag를 지정할 수 있으며, 기본값은 `ai-model-serving-platform:<VERSION>`이다.
 
@@ -296,7 +295,7 @@ make build-vllm-unified-image
 동일한 작업은 다음 alias로도 실행할 수 있다.
 
 ```bash
-make rebuild-vllm-unified
+make build-vllm-unified-image
 ```
 
 Unified vLLM Image의 주요 build 입력은 다음과 같다.
@@ -328,12 +327,12 @@ Unified vLLM build 입력 변경을 CI가 감지하고 derived image를 만드�
 앱 코드만 반복 수정하고 이미 검증된 Unified vLLM image를 유지할 때는 다음 명령을 사용할 수 있다.
 
 ```bash
-SKIP_RISK_VLLM_IMAGE_BUILD=auto make rebuild-full
+SKIP_RISK_VLLM_IMAGE_BUILD=auto make first-run
 ```
 
 `auto`는 `.env`의 `RISK_VLLM_IMAGE` tag가 로컬에 있을 때만 Unified image build를 생략하고, 없으면 build한다. 명시적으로 image를 관리하는 경우에는 `SKIP_RISK_VLLM_IMAGE_BUILD=1`을 사용할 수 있다.
 
-이 최적화는 `Dockerfile`, patch, media dependency, base digest 또는 compatibility pin이 바뀌지 않았을 때만 사용한다. 이들 입력이 바뀌면 `make rebuild-vllm-unified` 또는 `make first-run`으로 새 image를 만들고 full-stack 검증을 수행한다.
+이 최적화는 `Dockerfile`, patch, media dependency, base digest 또는 compatibility pin이 바뀌지 않았을 때만 사용한다. 이들 입력이 바뀌면 `make build-vllm-unified-image` 또는 `make first-run`으로 새 image를 만들고 full-stack 검증을 수행한다.
 
 ---
 
@@ -380,7 +379,7 @@ Release ZIP은 배포에 필요한 artifact를 중심으로 구성하며, 개발
 HF_TOKEN=hf_xxx make first-run
 ```
 
-`make first-run`은 `make bootstrap`의 alias이며 다음 작업을 순서대로 수행한다.
+`make first-run`은 다음 작업을 순서대로 수행한다.
 
 ```text
 지원 Python 확인
@@ -409,10 +408,10 @@ Prompt Risk Runtime Config 확인
 전체 재구축에는 다음 alias를 사용할 수 있다.
 
 ```bash
-make rebuild-full
+make first-run
 ```
 
-`make first-run`, `make bootstrap`, `make rebuild-full`은 같은 bootstrap workflow를 사용한다.
+`make first-run`은 전체 bootstrap workflow를 사용한다.
 
 Bootstrap 완료 후 full-stack은 다음 순서로 실행한다.
 
@@ -479,7 +478,6 @@ make compose-logs
 | Platform image만 build | `make build-image` |
 | Unified vLLM image build | `make build-vllm-unified-image` |
 | 전체 bootstrap | `make first-run` |
-| 전체 재구축 | `make rebuild-full` |
 | Release ZIP 생성 | `make package` |
 
 ---

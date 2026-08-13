@@ -43,6 +43,13 @@ class LiveRuntimeChecks:
     def _chat_url(self) -> str:
         return f"{self.gateway_base}/v1/chat/completions"
 
+    def _main_model_name(self) -> str:
+        return str(self.config.model_serving["models"]["main_llm"]["served_model_name"])
+
+    def _embedding_profile(self, model_id: str) -> tuple[str, int]:
+        profile = self.config.model_serving["embedding_profiles"][model_id]
+        return str(profile["served_model_name"]), int(profile["default_dimensions"])
+
     def _structured_response_format(self) -> dict[str, Any]:
         return {
             "type": "json_schema",
@@ -131,7 +138,7 @@ class LiveRuntimeChecks:
 
     def check_chat(self) -> CheckResult:
         payload = {
-            "model": "local-main",
+            "model": self._main_model_name(),
             "messages": [{"role": "user", "content": "Say OK only."}],
             "max_tokens": 1,
             "temperature": 0,
@@ -142,7 +149,7 @@ class LiveRuntimeChecks:
 
     def check_streaming_chat(self) -> CheckResult:
         payload = {
-            "model": "local-main",
+            "model": self._main_model_name(),
             "messages": [{"role": "user", "content": "Say OK only."}],
             "max_tokens": 1,
             "temperature": 0,
@@ -169,26 +176,26 @@ class LiveRuntimeChecks:
         )
 
     def check_embedding(self) -> CheckResult:
-        # local-embed는 matryoshka 차원 축소를 지원하지 않는다. dimensions를 넣지
-        # 않아 runtime의 실제 기본 출력 차원을 검증한다.
-        payload = {"model": "local-embed", "input": ["runtime validation embedding"]}
+        model, dimensions = self._embedding_profile(str(self.config.model_serving["default_embedding_model"]))
+        payload = {"model": model, "input": ["runtime validation embedding"]}
         status, body, latency = self.http.json("POST", f"{self.gateway_base}/v1/embeddings", payload)
         data = body.get("data") or []
         vector = data[0].get("embedding") if data and isinstance(data[0], dict) else []
-        ok = status == 200 and body.get("object") == "list" and isinstance(vector, list) and len(vector) == 768
+        ok = status == 200 and body.get("object") == "list" and isinstance(vector, list) and len(vector) == dimensions
         return CheckResult("vllm-runtime", "gateway embedding", "pass" if ok else "fail", latency, details={"model": body.get("model"), "dimension": len(vector)})
 
     def check_embedding_ko(self) -> CheckResult:
-        payload = {"model": "local-embed-ko", "input": ["runtime validation Korean retrieval embedding"], "dimensions": 1024}
+        model, dimensions = self._embedding_profile(str(self.config.model_serving["default_retrieval_model"]))
+        payload = {"model": model, "input": ["runtime validation Korean retrieval embedding"], "dimensions": dimensions}
         status, body, latency = self.http.json("POST", f"{self.gateway_base}/v1/embeddings", payload)
         data = body.get("data") or []
         vector = data[0].get("embedding") if data and isinstance(data[0], dict) else []
-        ok = status == 200 and body.get("object") == "list" and isinstance(vector, list) and len(vector) == 1024
+        ok = status == 200 and body.get("object") == "list" and isinstance(vector, list) and len(vector) == dimensions
         return CheckResult("vllm-runtime", "gateway embedding-ko", "pass" if ok else "fail", latency, details={"model": body.get("model"), "dimension": len(vector)})
 
     def check_response_format_text(self) -> CheckResult:
         payload = {
-            "model": "local-main",
+            "model": self._main_model_name(),
             "messages": [{"role": "user", "content": "Say OK only."}],
             "max_tokens": 8,
             "temperature": 0,
@@ -200,7 +207,7 @@ class LiveRuntimeChecks:
 
     def check_response_format_json_object(self) -> CheckResult:
         payload = {
-            "model": "local-main",
+            "model": self._main_model_name(),
             "messages": [{"role": "user", "content": "Return a JSON object with key answer and string value OK."}],
             "max_tokens": 64,
             "temperature": 0,
@@ -219,7 +226,7 @@ class LiveRuntimeChecks:
 
     def check_response_format_json_schema(self) -> CheckResult:
         payload = {
-            "model": "local-main",
+            "model": self._main_model_name(),
             "messages": [{"role": "user", "content": "Return JSON with exactly one string field named answer."}],
             "max_tokens": 64,
             "temperature": 0,
@@ -232,7 +239,7 @@ class LiveRuntimeChecks:
 
     def check_logprobs_non_stream(self) -> CheckResult:
         payload = {
-            "model": "local-main",
+            "model": self._main_model_name(),
             "messages": [{"role": "user", "content": "Say OK only."}],
             "max_tokens": 4,
             "temperature": 0,
@@ -246,7 +253,7 @@ class LiveRuntimeChecks:
 
     def check_logprobs_stream(self) -> CheckResult:
         payload = {
-            "model": "local-main",
+            "model": self._main_model_name(),
             "messages": [{"role": "user", "content": "Say OK only."}],
             "max_tokens": 4,
             "temperature": 0,
@@ -266,7 +273,7 @@ class LiveRuntimeChecks:
 
     def check_logit_bias_shape(self) -> CheckResult:
         payload = {
-            "model": "local-main",
+            "model": self._main_model_name(),
             "messages": [{"role": "user", "content": "Say OK only."}],
             "max_tokens": 4,
             "temperature": 0,
@@ -278,7 +285,7 @@ class LiveRuntimeChecks:
 
     def check_json_schema_with_tools(self) -> CheckResult:
         payload = {
-            "model": "local-main",
+            "model": self._main_model_name(),
             "messages": [{"role": "user", "content": "Return JSON with answer, or call get_runtime_answer if needed."}],
             "max_tokens": 96,
             "temperature": 0,
@@ -308,7 +315,7 @@ class LiveRuntimeChecks:
 
     def check_json_schema_with_reasoning(self) -> CheckResult:
         payload = {
-            "model": "local-main",
+            "model": self._main_model_name(),
             # Gemma4 thinking은 final answer 이전에 별도 token을 사용한다. 128-token
             # 요청은 정상 reasoning도 중간에 잘라 기능 실패처럼 보인다. 실제 성공에
             # 440 token이 필요했던 고정 문제에 1,024 token 상한을 둔다.

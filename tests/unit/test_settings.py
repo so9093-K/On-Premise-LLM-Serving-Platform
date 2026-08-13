@@ -4,7 +4,11 @@ key 없음 등)을 거부하는지 검증한다."""
 
 from __future__ import annotations
 
+from pathlib import Path
+import shutil
+
 import pytest
+import yaml
 
 from ai_model_serving.settings import AppSettings, EmbeddingProfile, RuntimeEndpoint, SecuritySettings, load_settings
 
@@ -78,9 +82,6 @@ def test_load_settings_warns_on_open_admin_endpoints_in_non_local_env(monkeypatc
 
 
 def test_load_settings_reads_local_dotenv_without_overriding_exported_values(tmp_path, monkeypatch):
-    from pathlib import Path
-    import shutil
-
     root = tmp_path
     (root / "configs").mkdir()
     repo = Path(__file__).resolve().parents[2]
@@ -101,7 +102,13 @@ def test_load_settings_reads_local_dotenv_without_overriding_exported_values(tmp
     assert settings.security.api_keys == frozenset({"dotenv-key"})
     assert settings.max_request_body_bytes == 1234
     assert settings.main_llm.max_concurrency == 2
-    assert {item["id"] for item in settings.public_models} == {"local-main", "local-embed", "local-embed-ko", "risk-prompt"}
+    catalog = yaml.safe_load((root / "configs" / "model_catalog.yaml").read_text(encoding="utf-8"))
+    expected_public_ids = {
+        model_id
+        for model_id, metadata in catalog["models"].items()
+        if metadata.get("gateway_listing", {}).get("enabled", True) is True
+    }
+    assert {item["id"] for item in settings.public_models} == expected_public_ids
 
     monkeypatch.setenv("API_KEYS", "exported-key")
     settings = load_settings(root)
@@ -110,9 +117,6 @@ def test_load_settings_reads_local_dotenv_without_overriding_exported_values(tmp
 
 
 def test_load_settings_ignores_local_dotenv_when_app_env_is_explicitly_non_local(tmp_path, monkeypatch):
-    from pathlib import Path
-    import shutil
-
     root = tmp_path
     (root / "configs").mkdir()
     repo = Path(__file__).resolve().parents[2]
@@ -320,7 +324,17 @@ def _minimal_settings_kwargs() -> dict:
         "risk_adapter_base_url": "http://risk",
         "runtime_endpoints": {"embedding": endpoint},
         "embedding": endpoint,
+        "default_embedding_model": "local-embed",
+        "default_retrieval_model": "local-embed",
     }
+
+
+def test_app_settings_requires_explicit_embedding_configuration() -> None:
+    kwargs = _minimal_settings_kwargs()
+    kwargs.pop("default_embedding_model")
+    kwargs.pop("default_retrieval_model")
+    with pytest.raises(ValueError, match="embedding_profiles must be explicitly configured"):
+        AppSettings(**kwargs)
 
 
 def test_app_settings_validates_embedding_route_service_keys() -> None:
@@ -343,7 +357,11 @@ def test_app_settings_validates_embedding_route_service_keys() -> None:
 def test_app_settings_validates_default_embedding_models() -> None:
     with pytest.raises(ValueError, match="default_retrieval_model"):
         AppSettings(
-            **_minimal_settings_kwargs(),
+            **{
+                **_minimal_settings_kwargs(),
+                "default_embedding_model": "local-embed",
+                "default_retrieval_model": "missing",
+            },
             embedding_profiles={
                 "local-embed": EmbeddingProfile(
                     model="local-embed",
@@ -354,8 +372,6 @@ def test_app_settings_validates_default_embedding_models() -> None:
                 )
             },
             embedding_model_routes={"local-embed": "embedding"},
-            default_embedding_model="local-embed",
-            default_retrieval_model="missing",
         )
 
 

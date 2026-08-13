@@ -8,6 +8,7 @@ ENV_FILE="${ENV_FILE:-.env}"
 load_local_env "$ENV_FILE"
 
 PYTHON_BIN="${PYTHON_BIN:-$(command -v python3.12 || command -v python3 || command -v python)}"
+"$PYTHON_BIN" scripts/build/check_python.py --context smoke-test >/dev/null
 # Smoke test는 항상 host에 노출된 포트를 대상으로 probe한다. .env의
 # RISK_ADAPTER_BASE_URL은 compose 내부용 URL(http://risk-adapter:9405)이므로
 # 여기서 사용하면 안 된다.
@@ -15,8 +16,8 @@ GATEWAY_PROBE_HOST="${GATEWAY_PROBE_HOST:-${GATEWAY_BIND_ADDR:-localhost}}"
 if [[ -z "$GATEWAY_PROBE_HOST" || "$GATEWAY_PROBE_HOST" == "0.0.0.0" ]]; then
   GATEWAY_PROBE_HOST="localhost"
 fi
-GATEWAY_BASE_URL="http://${GATEWAY_PROBE_HOST}:${GATEWAY_PORT:-9400}"
-RISK_ADAPTER_BASE_URL="http://localhost:${RISK_ADAPTER_PORT:-9405}"
+GATEWAY_BASE_URL="http://${GATEWAY_PROBE_HOST}:${GATEWAY_PORT:-$(service_default_host_port gateway)}"
+RISK_ADAPTER_BASE_URL="http://localhost:${RISK_ADAPTER_PORT:-$(service_default_host_port risk_adapter)}"
 API_KEY="$(local_env_first_value "$ENV_FILE" API_KEY API_KEYS || true)"
 # smoke는 일반 Gateway 경로를 그대로 호출한다. 별도 30초 상수를 두면 정상적인
 # admission queue 대기보다 먼저 실패해 배포 rollback의 원인이 된다. 명시적
@@ -26,6 +27,66 @@ SMOKE_MAX_LATENCY_MS="${SMOKE_MAX_LATENCY_MS:-0}"
 SMOKE_RETRY_ATTEMPTS="${SMOKE_RETRY_ATTEMPTS:-3}"
 SMOKE_RETRY_DELAY_SECONDS="${SMOKE_RETRY_DELAY_SECONDS:-5}"
 SMOKE_SKIP_RUNTIMES="${SMOKE_SKIP_RUNTIMES:-}"
+
+# 모델 식별자는 운영 설정이 소유한다. 이 스크립트는 어떤 모델을 배포 gate로
+# 확인할지(대표 chat, 기본/검색 embedding, prompt risk)만 결정한다.
+while IFS=$'\t' read -r config_key config_value; do
+  case "$config_key" in
+    main_model) SMOKE_MAIN_MODEL="$config_value" ;;
+    default_embedding_model) SMOKE_DEFAULT_EMBEDDING_MODEL="$config_value" ;;
+    default_embedding_runtime) SMOKE_DEFAULT_EMBEDDING_RUNTIME="$config_value" ;;
+    default_retrieval_model) SMOKE_RETRIEVAL_MODEL="$config_value" ;;
+    retrieval_runtime) SMOKE_RETRIEVAL_RUNTIME="$config_value" ;;
+    risk_prompt_runtime) SMOKE_RISK_PROMPT_RUNTIME="$config_value" ;;
+    public_model_ids_json) SMOKE_PUBLIC_MODEL_IDS_JSON="$config_value" ;;
+    *) echo "[smoke] unknown model configuration key: $config_key" >&2; exit 2 ;;
+  esac
+done < <("$PYTHON_BIN" - <<'PY'
+import json
+from pathlib import Path
+
+import yaml
+
+catalog = yaml.safe_load(Path("configs/model_catalog.yaml").read_text(encoding="utf-8"))
+serving = yaml.safe_load(Path("configs/model_serving.yaml").read_text(encoding="utf-8"))
+models = catalog["models"]
+
+def required(value: object, label: str) -> str:
+    if not isinstance(value, str) or not value:
+        raise SystemExit(f"invalid or missing {label}")
+    return value
+
+public_ids = sorted(
+    model_id
+    for model_id, metadata in models.items()
+    if isinstance(metadata, dict)
+    and isinstance(metadata.get("gateway_listing"), dict)
+    and metadata["gateway_listing"].get("enabled") is True
+)
+if not public_ids:
+    raise SystemExit("model_catalog.yaml has no gateway_listing.enabled models")
+
+print("main_model\t" + required(serving["models"]["main_llm"]["served_model_name"], "models.main_llm.served_model_name"))
+default_embedding_model = required(serving["default_embedding_model"], "default_embedding_model")
+retrieval_model = required(serving["default_retrieval_model"], "default_retrieval_model")
+embedding_profiles = serving["embedding_profiles"]
+print("default_embedding_model\t" + default_embedding_model)
+print("default_embedding_runtime\t" + required(embedding_profiles[default_embedding_model]["service_key"], "default embedding service_key"))
+print("default_retrieval_model\t" + retrieval_model)
+print("retrieval_runtime\t" + required(embedding_profiles[retrieval_model]["service_key"], "retrieval embedding service_key"))
+print("risk_prompt_runtime\t" + required(serving["risk_adapter"]["detectors"]["prompt"]["service_key"], "risk_adapter.detectors.prompt.service_key"))
+print("public_model_ids_json\t" + json.dumps(public_ids, separators=(",", ":")))
+PY
+)
+
+: "${SMOKE_MAIN_MODEL:?failed to load main model from config}"
+: "${SMOKE_DEFAULT_EMBEDDING_MODEL:?failed to load default embedding model from config}"
+: "${SMOKE_DEFAULT_EMBEDDING_RUNTIME:?failed to load default embedding runtime from config}"
+: "${SMOKE_RETRIEVAL_MODEL:?failed to load retrieval model from config}"
+: "${SMOKE_RETRIEVAL_RUNTIME:?failed to load retrieval runtime from config}"
+: "${SMOKE_RISK_PROMPT_RUNTIME:?failed to load risk prompt runtime from config}"
+: "${SMOKE_PUBLIC_MODEL_IDS_JSON:?failed to load public model IDs from config}"
+export SMOKE_PUBLIC_MODEL_IDS_JSON
 
 AUTH_ARGS=()
 if [[ -n "$API_KEY" ]]; then
@@ -151,7 +212,9 @@ elif check == "ready":
 elif check == "models":
     require(doc.get("object") == "list", "object must be list")
     ids = {item.get("id") for item in doc.get("data", [])}
-    require({"local-main", "local-embed", "local-embed-ko", "risk-prompt"}.issubset(ids), "missing logical model id")
+    import os
+    expected = set(json.loads(os.environ["SMOKE_PUBLIC_MODEL_IDS_JSON"]))
+    require(expected.issubset(ids), f"missing public model id: {sorted(expected - ids)}")
 elif check == "risk":
     require(doc.get("assessment_id"), "assessment_id is required")
     require(doc.get("status") in {"completed", "partial", "failed"}, "invalid risk status")
@@ -195,8 +258,8 @@ assert_json ready
 get_json gateway-models "$GATEWAY_BASE_URL/v1/models"
 assert_json models
 
-if skip_runtime risk_prompt; then
-  echo "[smoke] risk-prompt runtime is deferred; skipping risk inference probes" >&2
+if skip_runtime "$SMOKE_RISK_PROMPT_RUNTIME"; then
+  echo "[smoke] ${SMOKE_RISK_PROMPT_RUNTIME} runtime is deferred; skipping risk inference probes" >&2
 else
   post_json_with_retry gateway-risk-aggregate "$GATEWAY_BASE_URL/v1/risk/assessments" \
     '{"prompt":"smoke test prompt"}'
@@ -205,7 +268,7 @@ fi
 
 # Private-network compose에서는 risk-adapter 포트가 host에 노출되지 않는다.
 # 접근 가능할 때만 직접 프로브를 실행하고, 아닐 경우 gateway 경유 테스트로 검증한다.
-if skip_runtime risk_prompt; then
+if skip_runtime "$SMOKE_RISK_PROMPT_RUNTIME"; then
   :
 elif curl -sS --max-time 3 -o /dev/null "$RISK_ADAPTER_BASE_URL/health" 2>/dev/null; then
   get_json risk-health "$RISK_ADAPTER_BASE_URL/health"
@@ -225,22 +288,24 @@ else
 fi
 
 post_json_with_retry chat "$GATEWAY_BASE_URL/v1/chat/completions" \
-  '{"model":"local-main","messages":[{"role":"user","content":"Return exactly a JSON object with boolean field ok."}],"max_tokens":16,"temperature":0,"response_format":{"type":"json_schema","json_schema":{"name":"smoke_result","strict":true,"schema":{"type":"object","properties":{"ok":{"type":"boolean"}},"required":["ok"],"additionalProperties":false}}}}'
+  "{\"model\":\"${SMOKE_MAIN_MODEL}\",\"messages\":[{\"role\":\"user\",\"content\":\"Return exactly a JSON object with boolean field ok.\"}],\"max_tokens\":16,\"temperature\":0,\"response_format\":{\"type\":\"json_schema\",\"json_schema\":{\"name\":\"smoke_result\",\"strict\":true,\"schema\":{\"type\":\"object\",\"properties\":{\"ok\":{\"type\":\"boolean\"}},\"required\":[\"ok\"],\"additionalProperties\":false}}}}"
 assert_json chat
 
-if skip_runtime embedding; then
-  echo "[smoke] embedding runtime is deferred; skipping local-embed probe" >&2
+if skip_runtime "$SMOKE_DEFAULT_EMBEDDING_RUNTIME"; then
+  echo "[smoke] embedding runtime is deferred; skipping ${SMOKE_DEFAULT_EMBEDDING_MODEL} probe" >&2
 else
   post_json_with_retry embedding "$GATEWAY_BASE_URL/v1/embeddings" \
-    '{"model":"local-embed","input":["smoke test embedding"]}'
+    "{\"model\":\"${SMOKE_DEFAULT_EMBEDDING_MODEL}\",\"input\":[\"smoke test embedding\"]}"
   assert_json embedding
 fi
 
-if skip_runtime embedding_ko; then
-  echo "[smoke] embedding_ko runtime is deferred; skipping local-embed-ko probe" >&2
+if [[ "$SMOKE_RETRIEVAL_MODEL" == "$SMOKE_DEFAULT_EMBEDDING_MODEL" ]]; then
+  echo "[smoke] retrieval model matches default embedding model; skipping duplicate embedding probe" >&2
+elif skip_runtime "$SMOKE_RETRIEVAL_RUNTIME"; then
+  echo "[smoke] ${SMOKE_RETRIEVAL_RUNTIME} runtime is deferred; skipping ${SMOKE_RETRIEVAL_MODEL} probe" >&2
 else
   post_json_with_retry embedding-ko "$GATEWAY_BASE_URL/v1/embeddings" \
-    '{"model":"local-embed-ko","input":["smoke test Korean retrieval embedding"]}'
+    "{\"model\":\"${SMOKE_RETRIEVAL_MODEL}\",\"input\":[\"smoke test Korean retrieval embedding\"]}"
   assert_json embedding
 fi
 

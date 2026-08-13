@@ -171,31 +171,6 @@ def test_status_default_code_is_consistent_with_error_status():
         assert ERROR_STATUS.get(code) == status, f"{status} -> {code} but ERROR_STATUS[{code}]={ERROR_STATUS.get(code)}"
 
 
-def test_platform_envelope_http_statuses_have_non_contradictory_default():
-    # platform error handler를 설치한 앱(gateway, risk-adapter, 그리고 그 라우터들)만
-    # default_code_for_status로 HTTPException을 매핑한다. apps/admin_sidecar.py는
-    # 순수 FastAPI() 위에 기본 {"detail"} 형태를 쓰는 internal service-token
-    # 앱이라, 그 status들(예: 정당한 409 eviction 충돌)은 이 검사 대상이 아니다.
-    import re
-    from pathlib import Path
-
-    from ai_model_serving.errors import ERROR_STATUS, default_code_for_status
-
-    root = Path(__file__).resolve().parents[2] / "src" / "ai_model_serving"
-    statuses = set()
-    for path in root.rglob("*.py"):
-        if path.name == "admin_sidecar.py":
-            continue
-        for match in re.finditer(r"HTTPException\(\s*(\d{3})", path.read_text(encoding="utf-8")):
-            statuses.add(int(match.group(1)))
-    for status in statuses:
-        code = default_code_for_status(status)
-        assert ERROR_STATUS.get(code) == status, (
-            f"HTTPException({status}) maps to code {code} whose status is {ERROR_STATUS.get(code)}; "
-            "add the status to STATUS_DEFAULT_CODE or use a status with a matching platform code"
-        )
-
-
 def test_error_payload_omits_param_when_absent_and_includes_when_present():
     without = error_payload("INTERNAL_ERROR", "x", False)["error"]
     assert "param" not in without

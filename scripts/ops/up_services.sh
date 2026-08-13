@@ -14,8 +14,8 @@ PYTHON_BIN="${PYTHON_BIN:-$(command -v python3.12 || command -v python3 || comma
 "$PYTHON_BIN" scripts/build/check_python.py --context start >/dev/null
 GATEWAY_HOST="${GATEWAY_HOST:-127.0.0.1}"
 RISK_ADAPTER_HOST="${RISK_ADAPTER_HOST:-127.0.0.1}"
-GATEWAY_PORT="${GATEWAY_PORT:-9400}"
-RISK_ADAPTER_PORT="${RISK_ADAPTER_PORT:-9405}"
+GATEWAY_PORT="${GATEWAY_PORT:-$(service_default_host_port gateway)}"
+RISK_ADAPTER_PORT="${RISK_ADAPTER_PORT:-$(service_default_host_port risk_adapter)}"
 STARTUP_WAIT_SECONDS="${STARTUP_WAIT_SECONDS:-90}"
 
 start_service() {

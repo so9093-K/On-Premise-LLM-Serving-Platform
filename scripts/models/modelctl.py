@@ -19,7 +19,6 @@ from scripts.lib.cli_kr import KoreanArgumentParser  # noqa: E402
 from ai_model_serving.domain import ModelRegistry  # noqa: E402
 from ai_model_serving.registry_projection_drift import (  # noqa: E402
     gpu_budget_status,
-    registry_artifact_diffs,
 )
 
 
@@ -30,8 +29,6 @@ MODEL_LIFECYCLE_FILES = [
     "specs/schemas/model_list_response.schema.json",
     "ops/compose/full-stack.private-network.yaml",
     "ops/prometheus/prometheus.yml",
-    "reports/runtime/runtime_targets.*",
-    "reports/runtime/monitoring_projection.*",
 ]
 
 
@@ -88,13 +85,8 @@ def status_document(root: Path, registry: ModelRegistry) -> dict[str, Any]:
     }
 
 
-def projection_diffs(root: Path, registry: ModelRegistry) -> list[dict[str, Any]]:
-    return registry_artifact_diffs(root, registry)
-
-
 def validate_document(root: Path, registry: ModelRegistry) -> dict[str, Any]:
     issues = [issue.__dict__ for issue in registry.alignment_issues()]
-    diffs = projection_diffs(root, registry)
     gpu = gpu_summary(root, registry)
     lifecycle_errors: list[dict[str, str]] = []
     for row in model_rows(registry):
@@ -103,9 +95,8 @@ def validate_document(root: Path, registry: ModelRegistry) -> dict[str, Any]:
         if row["exposure"] not in {"public", "internal", "hidden"}:
             lifecycle_errors.append({"model": row["id"], "error": f"unknown exposure {row['exposure']}"})
     return {
-        "ok": not issues and not lifecycle_errors and all(item["status"] == "ok" for item in diffs) and not gpu["over_avoid_threshold"],
+        "ok": not issues and not lifecycle_errors and not gpu["over_avoid_threshold"],
         "alignment_issues": issues,
-        "projection_diffs": diffs,
         "lifecycle_errors": lifecycle_errors,
         "gpu": gpu,
     }
@@ -160,9 +151,8 @@ def propose_add_document(args: argparse.Namespace, root: Path, registry: ModelRe
         "configs/model_catalog.yaml에 logical model, lifecycle, gateway_listing, runtime 정책을 추가",
         "configs/model_serving.yaml에 runtime service stanza와 resource_control을 추가",
         "docs/reference/models/<model-id>.md에 upstream 사양과 알려진 제약을 문서화",
-        "python scripts/models/modelctl.py validate/diff로 registry projection 확인",
-        "make validate로 registry와 generated artifact 정합성 확인",
-        "make operator-reports로 runtime targets/monitoring/project inventory 재생성",
+        "python scripts/models/modelctl.py validate로 registry 정합성 확인",
+        "make validate로 generated artifact 정합성 확인",
         "Docker/GPU 서버에서 readiness와 vLLM smoke를 확인",
     ]
     return {
@@ -189,7 +179,7 @@ def propose_remove_document(model_id: str, root: Path, registry: ModelRegistry) 
         "1단계: gateway_listing.enabled=false로 public listing에서 제거",
         "2단계: 운영 공지와 client migration window를 끝낸 뒤 runtime service를 제거",
         "3단계: 모델 참고 문서의 upstream 사양과 변경 이력을 검토",
-        "4단계: modelctl validate/diff, make validate, operator-reports를 재실행",
+        "4단계: modelctl validate와 make validate를 재실행",
         "5단계: 실제 Docker/GPU 서버에서 readiness, monitoring label, dashboard variable을 확인",
     ]
     warnings = [
@@ -255,7 +245,7 @@ def render_patch_scaffold(doc: dict[str, Any]) -> str:
         f"# Patch scaffold: {slug}",
         "",
         "이 파일은 적용용 patch가 아니라 운영자가 검토할 변경 초안입니다.",
-        "source 파일은 자동 수정하지 않으며, 변경 전후에 `modelctl validate`, `modelctl diff`, `make validate`를 실행하세요.",
+        "source 파일은 자동 수정하지 않으며, 변경 전후에 `modelctl validate`, `make validate`를 실행하세요.",
         "",
         "## 영향 파일",
     ]
@@ -439,7 +429,6 @@ def cmd_validate(args: argparse.Namespace) -> int:
         print("모델 registry 검증: " + ("PASS" if doc["ok"] else "FAIL"))
         printable_sections = {
             "alignment_issues": doc["alignment_issues"],
-            "projection_diffs": [item for item in doc["projection_diffs"] if item["status"] != "ok"],
             "lifecycle_errors": doc["lifecycle_errors"],
         }
         for section, items in printable_sections.items():
@@ -454,23 +443,11 @@ def cmd_validate(args: argparse.Namespace) -> int:
     return 0 if doc["ok"] else 1
 
 
-def cmd_diff(args: argparse.Namespace) -> int:
-    root = Path(args.root).resolve()
-    registry = load_registry(root)
-    diffs = projection_diffs(root, registry)
-    if args.format == "json":
-        print(json.dumps({"projection_diffs": diffs}, indent=2, ensure_ascii=False))
-    else:
-        for item in diffs:
-            print(f"{item['status'].upper():<4} {item['path']}")
-    return 0 if all(item["status"] == "ok" for item in diffs) else 1
-
-
 def build_parser() -> KoreanArgumentParser:
     parser = KoreanArgumentParser(description="운영자를 위한 model registry 제어 플레인입니다. 기본 명령은 읽기 전용이며 propose-*도 파일을 쓰지 않습니다.")
     parser.add_argument("--root", default=str(ROOT), help="프로젝트 root 경로입니다. 기본값은 현재 repository입니다.")
     sub = parser.add_subparsers(dest="command", required=True)
-    for name, fn in [("list", cmd_list), ("status", cmd_status), ("validate", cmd_validate), ("diff", cmd_diff)]:
+    for name, fn in [("list", cmd_list), ("status", cmd_status), ("validate", cmd_validate)]:
         command = sub.add_parser(name, help=f"model registry {name} 결과를 표시합니다.")
         command.add_argument("--format", choices=["table", "json"], default="table", help="출력 형식입니다.")
         command.set_defaults(func=fn)

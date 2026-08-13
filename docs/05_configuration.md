@@ -60,7 +60,7 @@ YAML 파일은 모델, runtime, 서비스, 보안 정책 같은 **repository-lev
 | Deploy Runtime Profile | `configs/deploy_profiles.yaml` | full deploy 후 어떤 secondary runtime을 deferred 상태로 둘지 정의 |
 | Authentication profile | `configs/auth_profiles.yaml` | `AUTH_MODE`별 인증·관리 endpoint 보호 정책 정의 |
 | Environment example contract | `configs/env_contract.yaml` | `.env` 예시 파일에 포함할 키 정의 |
-| Monitoring projection | `configs/monitoring.yaml` | monitoring target과 label projection 정의 |
+| Monitoring 설정 | `configs/monitoring.yaml` | Prometheus scrape와 live metric 검증 기준 정의 |
 | vLLM derived image build | `configs/vllm_unified_build.yaml` | base image와 compatibility pin 정의 |
 | vLLM runtime patch | `ops/images/vllm-unified/Dockerfile`, `ops/patches/` | derived image에 적용할 patch와 적용 조건 정의 |
 | 권장 container image | `configs/recommended_images.yaml` | platform 및 운영 component의 기본 image reference 정의 |
@@ -161,7 +161,7 @@ repository `.env` 자동 로딩은 local / test / development 환경에 적용�
 - model role과 capability
 - 지원 input / output modality
 - public model listing 정보
-- model-specific runtime policy와 lifecycle metadata
+- model-specific API metadata와 lifecycle metadata
 
 Gateway의 model registry와 `/v1/models` projection은 이 catalog와 `model_serving.yaml`을 함께 사용한다.
 
@@ -529,7 +529,7 @@ make exposure-status
 | Gateway runtime 정책 | `model_serving.yaml` | endpoint, timeout, routing, admission | `make validate`, 대상 service 재기동 및 runtime 검증 |
 | Main Model profile | `main_model_profiles.yaml` | Main Model boot command, capability, Gateway API 정책 | `make validate`, model prepare / switch 검증 |
 | GPU budget | `gpu_budgets.yaml` | runtime admission, co-residency | `make validate`, full-stack readiness |
-| Service / port | `services.yaml` | Compose / exposure / monitoring projection | `make validate`, `make compose-config` |
+| Service / port | `services.yaml` | Compose / exposure / Prometheus 생성 | `make validate`, `make compose-config` |
 | Exposure mode | `exposure_profiles.yaml` | host publish 범위 | `make validate`, exposure 적용, Compose 재적용 |
 | Deploy profile | `deploy_profiles.yaml` | secondary runtime 초기 상태 | full deploy 또는 runtime reconcile |
 | Auth profile | `auth_profiles.yaml` | API / Admin / internal auth 정책 | `make validate`, auth plan/apply/doctor |

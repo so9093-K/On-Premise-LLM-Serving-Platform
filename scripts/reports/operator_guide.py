@@ -44,27 +44,11 @@ WORKFLOWS: list[Workflow] = [
             "make compose-up",
             "make ready-full",
             "make runtime-validate",
-            "make operator-reports",
             "make compose-down",
         ],
         notes=[
             "이미 .env에 HF_TOKEN이 있으면 HF_TOKEN=... 주입은 생략 가능하다.",
-            "앱 코드만 반복 수정할 때는 SKIP_RISK_VLLM_IMAGE_BUILD=auto make rebuild-full을 사용한다.",
-        ],
-    ),
-    Workflow(
-        key="reports",
-        title="운영 산출물 생성",
-        when="서비스를 새로 띄우지 않고 registry 기반 runtime/monitoring/status/evidence 산출물을 갱신한다.",
-        commands=[
-            "make runtime-targets",
-            "make monitoring-projection",
-            "make operator-status",
-            "make live-evidence",
-        ],
-        notes=[
-            "같은 작업을 한 번에 실행하려면 make operator-reports를 사용한다.",
-            "make live-evidence는 가장 최신 live runtime validation report를 우선 사용한다.",
+            "앱 코드만 반복 수정할 때는 SKIP_RISK_VLLM_IMAGE_BUILD=auto make first-run을 사용한다.",
         ],
     ),
     Workflow(
@@ -143,7 +127,7 @@ def render_markdown(workflows: list[Workflow]) -> str:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="상황별 운영자 workflow 안내를 출력합니다.")
-    parser.add_argument("workflow", nargs="*", help="선택 workflow key입니다: local, full-stack, reports, release, cleanup")
+    parser.add_argument("workflow", nargs="*", help="선택 workflow key입니다: local, full-stack, release, cleanup")
     parser.add_argument("--json", action="store_true", help="기계가 읽기 쉬운 workflow data를 출력합니다.")
     args = parser.parse_args()
     workflows = _select_workflows(args.workflow)

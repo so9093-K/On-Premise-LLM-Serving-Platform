@@ -7,7 +7,6 @@ models:
     upstream_revision: 67e53491df7a281623fa740de61307d5c542b7f4
     runtime:
       served_model_name: local-main
-      port: 9401
       endpoint: /v1/chat/completions
     # 정적 listing은 기본 profile 기준이며, 요청 검증은 active profile의 modality를 따른다.
     deployed_modalities: [text, image, audio, video]
@@ -24,7 +23,6 @@ models:
       supported: [768]
     runtime:
       served_model_name: local-embed
-      port: 9402
       endpoint: /v1/embeddings
     gateway_listing:
       enabled: true
@@ -39,7 +37,6 @@ models:
       supported: [1024]
     runtime:
       served_model_name: local-embed-ko
-      port: 9406
       endpoint: /v1/embeddings
     gateway_listing:
       enabled: true
@@ -52,7 +49,6 @@ models:
     input_modalities: [text]
     runtime:
       served_model_name: risk-prompt
-      port: 9403
       internal_endpoint: /v1/chat/completions
       public_adapter_endpoint: /v1/risk/detectors/prompt/assessments
       max_output_tokens: 1

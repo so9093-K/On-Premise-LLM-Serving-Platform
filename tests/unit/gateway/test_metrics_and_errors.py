@@ -77,19 +77,7 @@ def test_gateway_service_error_response_includes_original_cause_debug():
 
 def test_gateway_rejects_oversized_request_body():
     cfg = settings()
-    cfg = AppSettings(
-        app_env=cfg.app_env,
-        project_version=cfg.project_version,
-        security=cfg.security,
-        gateway_timeout_seconds=cfg.gateway_timeout_seconds,
-        risk_adapter_timeout_seconds=cfg.risk_adapter_timeout_seconds,
-        main_llm=cfg.main_llm,
-        embedding=cfg.embedding,
-        risk_prompt=cfg.risk_prompt,
-        risk_adapter_base_url=cfg.risk_adapter_base_url,
-        max_request_body_bytes=32,
-        public_models=cfg.public_models,
-    )
+    cfg = dataclasses.replace(cfg, max_request_body_bytes=32)
     client = TestClient(create_gateway_app(cfg, FakeGatewayClients()))
     response = client.post(
         "/v1/chat/completions",

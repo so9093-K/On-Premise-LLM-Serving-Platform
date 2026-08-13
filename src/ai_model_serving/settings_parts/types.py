@@ -118,8 +118,8 @@ class AppSettings:
     risk_prompt: RuntimeEndpoint | None = None
     embedding_profiles: dict[str, EmbeddingProfile] = field(default_factory=dict)
     embedding_model_routes: dict[str, str] = field(default_factory=dict)
-    default_embedding_model: str = "local-embed"
-    default_retrieval_model: str = "local-embed-ko"
+    default_embedding_model: str = ""
+    default_retrieval_model: str = ""
     max_request_body_bytes: int = 100_000_000
     max_retrieval_documents: int = 32
     risk_input_max_chars: int = 7_936
@@ -147,28 +147,6 @@ class AppSettings:
                 if endpoint is not None
             }
             object.__setattr__(self, "runtime_endpoints", endpoints)
-        if not self.embedding_profiles and self.embedding is not None:
-            profile = EmbeddingProfile(
-                model=self.embedding.model,
-                service_key="embedding",
-                upstream_model_id="",
-                dimensions=tuple(int(item) for item in (self.embedding.request_parameter_policy or {}).get("dimensions", (768,))),
-                default_dimensions=768,
-                retrieval_enabled=True,
-                retrieval_default=False,
-                score_modes=("dense_cosine",),
-                request_parameter_policy=self.embedding.request_parameter_policy or {},
-            )
-            object.__setattr__(self, "embedding_profiles", {profile.model: profile})
-            # Legacy AppSettings 구성 경로: 오래된 테스트/확장은 embedding
-            # endpoint를 하나만 제공할 수 있다. 검증 로직이 여전히 단일 source
-            # of truth를 갖도록 매칭되는 프로필을 합성하고 기본값을 맞춘다.
-            if self.default_embedding_model not in {profile.model}:
-                object.__setattr__(self, "default_embedding_model", profile.model)
-            if self.default_retrieval_model not in {profile.model}:
-                object.__setattr__(self, "default_retrieval_model", profile.model)
-        if not self.embedding_model_routes and self.embedding_profiles:
-            object.__setattr__(self, "embedding_model_routes", {model: profile.service_key for model, profile in self.embedding_profiles.items()})
         self._validate_embedding_configuration()
         if not self.risk_detectors:
             detectors: list[RiskDetectorSettings] = []
@@ -202,8 +180,8 @@ class AppSettings:
         return tuple(detector for detector in self.risk_detectors if detector.enabled)
 
     def _validate_embedding_configuration(self) -> None:
-        if not self.embedding_profiles and not self.embedding_model_routes:
-            return
+        if not self.embedding_profiles:
+            raise ValueError("embedding_profiles must be explicitly configured")
         profile_keys = set(self.embedding_profiles)
         route_keys = set(self.embedding_model_routes)
         if profile_keys != route_keys:

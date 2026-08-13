@@ -114,3 +114,37 @@ local_env_first_value() {
   done
   return 1
 }
+
+service_default_host_port() {
+  local service_key="${1:?service key required}"
+  "${PYTHON_BIN:?PYTHON_BIN must be set before reading service defaults}" - "$service_key" <<'PY'
+from pathlib import Path
+import sys
+
+import yaml
+
+service_key = sys.argv[1]
+services = yaml.safe_load(Path("configs/services.yaml").read_text(encoding="utf-8"))["services"]
+try:
+    print(int(services[service_key]["default_host_port"]))
+except KeyError as exc:
+    raise SystemExit(f"services.yaml missing default_host_port for {service_key}") from exc
+PY
+}
+
+model_serving_runtime_model_name() {
+  local runtime_key="${1:?runtime key required}"
+  "${PYTHON_BIN:?PYTHON_BIN must be set before reading model defaults}" - "$runtime_key" <<'PY'
+from pathlib import Path
+import sys
+
+import yaml
+
+runtime_key = sys.argv[1]
+models = yaml.safe_load(Path("configs/model_serving.yaml").read_text(encoding="utf-8"))["models"]
+try:
+    print(str(models[runtime_key]["served_model_name"]))
+except KeyError as exc:
+    raise SystemExit(f"model_serving.yaml missing served_model_name for {runtime_key}") from exc
+PY
+}

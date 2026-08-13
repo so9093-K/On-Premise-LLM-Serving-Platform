@@ -39,7 +39,7 @@ for service in "${services[@]}"; do
     echo "[diagnostics] ${service}: detected invalid vLLM batching config; set max_num_batched_tokens >= max_model_len for this runtime."
   fi
   if grep -q "hidden size .* is not a multiple of the number of attention heads" "$service_log" 2>/dev/null; then
-    echo "[diagnostics] ${service}: detected LlamaConfig validate_architecture failure. 원인: transformers 4.52.0–4.52.3 버그 (explicit head_dim 모델 거부) + huggingface_hub >= 1.13.0의 init_with_validate 강화. 조치: RISK_VLLM_IMAGE를 transformers>=4.52.4로 재빌드하세요: make rebuild-vllm-unified"
+    echo "[diagnostics] ${service}: detected LlamaConfig validate_architecture failure. 원인: transformers 4.52.0–4.52.3 버그 (explicit head_dim 모델 거부) + huggingface_hub >= 1.13.0의 init_with_validate 강화. 조치: RISK_VLLM_IMAGE를 transformers>=4.52.4로 재빌드하세요: make build-vllm-unified-image"
   fi
   if grep -q "No available memory for the cache blocks" "$service_log" 2>/dev/null; then
     echo "[diagnostics] ${service}: detected KV-cache memory allocation failure; tune gpu_memory_utilization/context/batching or isolate this runtime."

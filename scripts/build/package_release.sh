@@ -105,7 +105,7 @@ def skip_file(rel_parts: tuple[str, ...], name: str) -> bool:
         return True
     if any(part in exclude_tree_dirs or part.endswith('.egg-info') for part in rel_parts[:-1]):
         return True
-    # Runtime/operator reports are host-specific generated evidence.  They are
+    # Runtime validation reports are host-specific generated evidence. They are
     # gitignored, so including any of them would make the release ZIP depend on
     # the packager's local state and differ from a clean CI checkout.
     if len(rel_parts) >= 2 and rel_parts[0] == 'reports' and rel_parts[1] == 'runtime':

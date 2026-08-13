@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 from .helpers import *  # noqa: F401,F403
 
 def test_gateway_requires_bearer_auth():
@@ -16,9 +18,8 @@ def test_gateway_requires_bearer_auth():
 
 def test_gateway_optionally_protects_admin_endpoints():
     cfg = settings()
-    cfg = AppSettings(
-        app_env=cfg.app_env,
-        project_version=cfg.project_version,
+    cfg = replace(
+        cfg,
         security=SecuritySettings(
             api_key_required=True,
             api_keys=frozenset({"test-key"}),
@@ -26,14 +27,6 @@ def test_gateway_optionally_protects_admin_endpoints():
             admin_api_key_required=True,
             admin_api_keys=frozenset({"admin-test-key"}),
         ),
-        gateway_timeout_seconds=cfg.gateway_timeout_seconds,
-        risk_adapter_timeout_seconds=cfg.risk_adapter_timeout_seconds,
-        main_llm=cfg.main_llm,
-        embedding=cfg.embedding,
-        risk_prompt=cfg.risk_prompt,
-        risk_adapter_base_url=cfg.risk_adapter_base_url,
-        max_request_body_bytes=cfg.max_request_body_bytes,
-        public_models=cfg.public_models,
     )
     client = TestClient(create_gateway_app(cfg, FakeGatewayClients()))
 

@@ -1032,7 +1032,15 @@ fi
 if [[ "${RUN_READY_SMOKE}" == "1" ]]; then
   echo "[deploy] waiting for gateway /health (up to 600s)..."
   GATEWAY_PORT="${GATEWAY_PORT:-$(deploy_env_value GATEWAY_PORT)}"
-  GATEWAY_PORT="${GATEWAY_PORT:-9400}"
+  if [[ -z "${GATEWAY_PORT}" ]]; then
+    GATEWAY_PORT="$("${_PYTHON_BIN}" - <<'PY'
+from pathlib import Path
+import yaml
+
+print(int(yaml.safe_load(Path("configs/services.yaml").read_text(encoding="utf-8"))["services"]["gateway"]["default_host_port"]))
+PY
+)"
+  fi
   GATEWAY_PROBE_HOST="${GATEWAY_BIND_ADDR:-$(deploy_env_value GATEWAY_BIND_ADDR)}"
   if [[ -z "${GATEWAY_PROBE_HOST}" || "${GATEWAY_PROBE_HOST}" == "0.0.0.0" ]]; then
     GATEWAY_PROBE_HOST="localhost"

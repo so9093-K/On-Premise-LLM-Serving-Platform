@@ -417,8 +417,6 @@ make smoke
 | 인증 상태 확인 | `make auth-status` |
 | 인증 진단 | `make auth-doctor` |
 | 네트워크 노출 상태 확인 | `make exposure-status` |
-| 운영 상태 보고서 생성 | `make operator-reports` |
-| 운영 상태와 Runtime 검증 자료 생성 | `make live-evidence` |
 
 명령의 검증 범위는 [8. 테스트와 검증](./08_testing_validation.md), 실행 환경별 차이는 [4. 실행 환경과 모드](./04_runtime_modes.md)를 참고한다.
 
@@ -434,8 +432,6 @@ make smoke
 | Compose 로그 | `scripts/compose/compose_logs.sh` | full-stack 로그 조회 |
 | Runtime 검증 | `scripts/validation/runtime_validation.py` | vLLM API·monitoring 실제 연결 검증 |
 | Runtime 제어 | Gateway Runtime Control API | Main / Secondary Runtime 상태 확인과 제어 |
-| 운영 상태 보고서 | `scripts/reports/operator_status_bundle.py` | 모델·GPU·모니터링 설정 상태 정리 |
-| 운영 검증 자료 | `scripts/reports/live_evidence_bundle.py` | 운영 상태와 Runtime 검증 결과 묶음 생성 |
 
 관련 문서는 다음과 연결된다.
 

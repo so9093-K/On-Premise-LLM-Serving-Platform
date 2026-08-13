@@ -292,8 +292,8 @@ def load_settings(root: Path | None = None, env_file: Path | str | None = None) 
         risk_prompt=runtime_endpoints.get("risk_prompt"),
         embedding_profiles=embedding_profiles,
         embedding_model_routes=embedding_model_routes,
-        default_embedding_model=str(model_serving.get("default_embedding_model", "local-embed")),
-        default_retrieval_model=str(model_serving.get("default_retrieval_model", "local-embed-ko")),
+        default_embedding_model=str(model_serving["default_embedding_model"]),
+        default_retrieval_model=str(model_serving["default_retrieval_model"]),
         max_request_body_bytes=_as_int(
             "MAX_REQUEST_BODY_BYTES",
             int(operational_limits.get("max_request_body_bytes", 100_000_000)),

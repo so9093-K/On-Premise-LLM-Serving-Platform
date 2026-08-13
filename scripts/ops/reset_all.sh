@@ -97,7 +97,7 @@ fi
 
 echo ""
 echo "[reset] done."
-echo "  run 'make rebuild-full' to rebuild from scratch."
+echo "  run 'make first-run' to rebuild from scratch."
 echo ""
 echo "  flags used this run:"
 echo "    PURGE_MODEL_CACHE=${PURGE_MODEL_CACHE:-0}     (set to 1 to delete model_cache/ and legacy ops/compose/model_cache/)"

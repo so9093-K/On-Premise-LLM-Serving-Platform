@@ -3,56 +3,8 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
-from types import SimpleNamespace
 
-from ai_model_serving.runtime_validation import load_runtime_config, render_vllm_command
-ROOT = Path(__file__).resolve().parents[2]
-
-def _clear_runtime_endpoint_env(monkeypatch) -> None:
-    # 개발자가 bootstrap/init-env-compose로 .env를 만들었어도 단위 테스트는
-    # 외부 설정에 영향을 받지 않아야 한다. 프로젝트 dotenv loader는 이미 process
-    # environment를 덮어쓰지 않으므로, 빈 문자열을 먼저 넣어 .env 값 유입을 막되
-    # config loader의 `or default` fallback은 그대로 검증한다.
-    for key in [
-        "RUNTIME_VALIDATION_GATEWAY_BASE_URL",
-        "RUNTIME_VALIDATION_RISK_BASE_URL",
-        "RUNTIME_VALIDATION_MAIN_LLM_BASE_URL",
-        "RUNTIME_VALIDATION_EMBEDDING_BASE_URL",
-        "RUNTIME_VALIDATION_EMBEDDING_KO_BASE_URL",
-        "RUNTIME_VALIDATION_RISK_PROMPT_BASE_URL",
-        "RUNTIME_VALIDATION_PROMETHEUS_BASE_URL",
-        "RUNTIME_VALIDATION_GRAFANA_BASE_URL",
-    ]:
-        monkeypatch.setenv(key, "")
-
-
-def test_runtime_validation_endpoint_priority_cli_env_default(monkeypatch) -> None:
-    _clear_runtime_endpoint_env(monkeypatch)
-    monkeypatch.setenv("RUNTIME_VALIDATION_GATEWAY_BASE_URL", "http://env-gateway:9999")
-
-    args = SimpleNamespace(
-        root=str(ROOT),
-        output_dir="reports/runtime",
-        gateway_base="http://cli-gateway:7777",
-        risk_base=None,
-        main_llm_base=None,
-        embedding_base=None,
-        risk_prompt_base=None,
-        prometheus_base=None,
-        api_key="",
-        admin_api_key="",
-        timeout_seconds=30,
-        allow_failures=False,
-    )
-
-    config = load_runtime_config(args)
-    assert config.gateway_base == "http://cli-gateway:7777"
-
-    args.gateway_base = None
-    config = load_runtime_config(args)
-    assert config.gateway_base == "http://env-gateway:9999"
-    assert config.risk_base == "http://localhost:9405"
+from ai_model_serving.runtime_validation import render_vllm_command
 
 
 def test_render_vllm_command_stays_openai_compatible() -> None:
@@ -106,39 +58,3 @@ def test_render_vllm_command_respects_model_config_quantization() -> None:
     command = render_vllm_command("main_llm", cfg)
     assert "--quantization" not in command
     assert "--optimization-level" in command
-
-def test_live_evidence_bundle_removes_sensitive_runtime_details() -> None:
-    from ai_model_serving.live_evidence import (
-        live_evidence_bundle_document,
-    )
-
-    operator_status = {
-        "runtime_targets": [
-            {"logical_id": "local-main", "service_key": "main_llm"},
-            {"logical_id": "local-embed", "service_key": "embedding"},
-        ],
-        "compose_service_regex": "main-llm-vllm|embedding-vllm",
-        "monitoring_projection": {"prometheus_scrape_jobs": ["gateway", "vllm-runtimes"]},
-        "readiness_vocabulary": {"statuses": ["ready", "degraded", "not_ready"]},
-    }
-    runtime_report = {
-        "mode": "live",
-        "summary": {"passed": 4, "failed": 0},
-        "started_at": "2026-05-09T00:00:00+00:00",
-        "finished_at": "2026-05-09T00:01:00+00:00",
-        "results": [
-            {"category": "gateway-runtime", "name": "gateway /health", "status": "pass", "latency_ms": 1, "details": {"status": "ok"}},
-            {"category": "risk-adapter-runtime", "name": "risk /ready", "status": "pass", "latency_ms": 2, "details": {"status": "ready"}},
-            {"category": "vllm-runtime", "name": "chat", "status": "pass", "latency_ms": 3, "details": {"model": "local-main", "prompt": "redacted"}},
-            {"category": "monitoring-scrape", "name": "prometheus", "status": "pass", "latency_ms": 4, "details": {"up_jobs": ["gateway"]}},
-        ],
-    }
-    doc = live_evidence_bundle_document(
-        operator_status=operator_status,
-        runtime_report=runtime_report,
-        runtime_report_path="reports/runtime/runtime_validation_live.json",
-        version="0.1.0-test",
-    )
-    assert doc["evidence_status"] == "live_validated"
-    assert doc["privacy_contract"]["runtime_details_are_sanitised"] is True
-    assert "prompt" not in doc["runtime_results"][2]["details"]

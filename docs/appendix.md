@@ -121,8 +121,6 @@
 | 인증 상태 확인 | `make auth-status` | [5. 설정 체계와 Source of Truth](./05_configuration.md) |
 | 인증 진단 | `make auth-doctor` | [12. 운영 관리 및 장애 대응](./12_operations.md) |
 | 서비스 노출 상태 확인 | `make exposure-status` | [4. 실행 환경과 모드](./04_runtime_modes.md) |
-| 운영 상태 보고서 생성 | `make operator-reports` | [12. 운영 관리 및 장애 대응](./12_operations.md) |
-| 운영 상태 + Runtime 검증 자료 생성 | `make live-evidence` | [12. 운영 관리 및 장애 대응](./12_operations.md) |
 
 전체 Make target은 `make help`에서 확인할 수 있다.
 

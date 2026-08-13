@@ -48,21 +48,14 @@ def error_schema():
 
 def test_risk_adapter_internal_auth_is_independent_from_public_api_auth():
     cfg = settings()
-    cfg = AppSettings(
-        app_env=cfg.app_env,
-        project_version=cfg.project_version,
+    cfg = dataclasses.replace(
+        cfg,
         security=SecuritySettings(
             api_key_required=False,
             api_keys=frozenset({"test-key"}),
             internal_service_token="internal-test-key",
             internal_service_auth_required=True,
         ),
-        gateway_timeout_seconds=cfg.gateway_timeout_seconds,
-        risk_adapter_timeout_seconds=cfg.risk_adapter_timeout_seconds,
-        main_llm=cfg.main_llm,
-        embedding=cfg.embedding,
-        risk_prompt=cfg.risk_prompt,
-        risk_adapter_base_url=cfg.risk_adapter_base_url,
     )
     client = TestClient(create_risk_adapter_app(cfg, FakeRiskClients()))
     unauthenticated = client.post("/v1/risk/assessments", json={"prompt": "hello"})
@@ -242,18 +235,7 @@ def test_risk_adapter_metrics_records_assessment_and_system_signals():
 
 def test_risk_adapter_rejects_oversized_request_body():
     cfg = settings()
-    cfg = AppSettings(
-        app_env=cfg.app_env,
-        project_version=cfg.project_version,
-        security=cfg.security,
-        gateway_timeout_seconds=cfg.gateway_timeout_seconds,
-        risk_adapter_timeout_seconds=cfg.risk_adapter_timeout_seconds,
-        main_llm=cfg.main_llm,
-        embedding=cfg.embedding,
-        risk_prompt=cfg.risk_prompt,
-        risk_adapter_base_url=cfg.risk_adapter_base_url,
-        max_request_body_bytes=32,
-    )
+    cfg = dataclasses.replace(cfg, max_request_body_bytes=32)
     client = TestClient(create_risk_adapter_app(cfg, FakeRiskClients()))
     response = client.post("/v1/risk/assessments", headers=auth_headers(), json={"prompt": "x" * 100})
     assert response.status_code == 413
@@ -301,18 +283,7 @@ def test_risk_adapter_rejects_whitespace_only_prompt():
 def test_risk_adapter_returns_truncated_input_signal_before_detector_call():
     clients = FakeRiskClients(prompt_label="<SAFE>")
     cfg = settings()
-    cfg = AppSettings(
-        app_env=cfg.app_env,
-        project_version=cfg.project_version,
-        security=cfg.security,
-        gateway_timeout_seconds=cfg.gateway_timeout_seconds,
-        risk_adapter_timeout_seconds=cfg.risk_adapter_timeout_seconds,
-        main_llm=cfg.main_llm,
-        embedding=cfg.embedding,
-        risk_prompt=cfg.risk_prompt,
-        risk_adapter_base_url=cfg.risk_adapter_base_url,
-        risk_input_max_chars=4,
-    )
+    cfg = dataclasses.replace(cfg, risk_input_max_chars=4)
     client = TestClient(create_risk_adapter_app(cfg, clients))
 
     response = client.post(

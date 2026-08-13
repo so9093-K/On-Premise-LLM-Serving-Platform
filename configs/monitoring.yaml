@@ -1,77 +1,19 @@
-version: 0.0.1
-version_semantics: 모니터링 설정 스키마 버전이며 패키지 배포 버전이 아니다.
-source_of_truth: configs/monitoring.yaml
+# Prometheus 생성과 live runtime validation이 실제로 소비하는 설정만 둔다.
 monitoring_stack:
-  default_state: enabled
-  default_policy: 운영 소유자가 별도 결정을 내리기 전까지 local compose, staging, production과
-    유사한 검증 환경에서 Prometheus, Grafana, DCGM exporter를 기본 활성 상태로 유지한다.
-  operator_note_ko: 지금 단계에서는 모니터링 포트를 막거나 비활성화하지 않는다. 운영 소유자와 보안 경계가 확정되면 노출 범위와 인증
-    정책을 별도로 조정한다.
   prometheus:
-    enabled: true
-    port: 9410
     scrape_interval: 15s
     scrape_timeout: 10s
-    retention_for_poc: 7d
     rule_files:
     - /etc/prometheus/rules/model_runtime.rules.yml
-  grafana:
-    enabled: true
-    port: 9411
-    dashboard_folder: ops/grafana/dashboards
-    provisioned_datasource_uid: prometheus
-    allow_ui_updates_policy:
-      reference_release: false
-      local_experiment: true
-      reason: 프로비저닝된 대시보드는 Git으로 관리되는 아티팩트이며, Grafana DB에서의 UI
-        수정은 JSON 원본에 반영되지 않는다.
-    dashboard_language_policy: 대시보드 제목은 한국어를 우선한다. PromQL metric 이름과 label
-      값은 ASCII/영문을 유지한다.
-    dashboard_variable_scope: 공통 변수는 최소로 유지하며, 모든 대시보드에 datasource와
-      window가 필요하다.
-    dashboard_variables:
-    - datasource
-    - window
-    dashboard_contracts:
-    - path: ops/grafana/dashboards/gpu_capacity_and_oom_risk.json
-      required_panels:
-      - GPU Headroom
-      - GPU Memory Used
-      - OOM / Restarts
-      - GPU Utilization
-      - VRAM Used vs Budget
-      - CPU Cores Used per Model
-    - path: ops/grafana/dashboards/usage_today.json
-      required_panels:
-      - GPU Workload
-      - Top Models by Requests
-      - Rejected Requests
-      - 'Token Throughput: Input vs Output'
-      - Requests by Model
-      - Upstream Errors by Code
   dcgm_exporter:
-    enabled: true
-    port: 9412
-    reason: GPU 메모리·사용률 텔레메트리는 런타임 검증에 필요하다; compose는 host port
-      9412를 노출하고, Prometheus는 compose 네트워크 내부에서 dcgm-exporter:9400을
-      스크레이프한다.
     internal_port: 9400
-    host_port: 9412
     default_metrics_path: /metrics
   cadvisor:
-    enabled: true
-    port: 9413
     internal_port: 8080
     default_metrics_path: /metrics
-    reason: 컨테이너 단위 CPU, host RAM, 네트워크, 재시작 텔레메트리는 vLLM별 소프트웨어
-      부하와 단일 GPU 하드웨어 부하를 구분하는 데 필요하다.
-  alertmanager:
-    port: null
-    enabled_for_reference: false
-    reason: Alert 라우팅에는 운영 소유권과 당직 대응 정책이 필요하다.
+
 metric_sources:
   gateway:
-    public_port: 9400
     metrics_path: /metrics
     required_metrics:
     - http_requests_total
@@ -92,7 +34,6 @@ metric_sources:
     - streaming_client_disconnects_total
     - request_validation_rejections_total
   risk_adapter:
-    public_port: 9405
     metrics_path: /metrics
     required_metrics:
     - risk_assessments_total
@@ -103,139 +44,4 @@ metric_sources:
     - service_readiness_status
   vllm_instances:
     scrape_job: vllm-runtimes
-    label_policy:
-      model: local-main 또는 risk-prompt 같은 논리 served model 이름
-      runtime_service: main-llm-vllm 같은 Compose service 이름
-    ports:
-    - 9401
-    - 9402
-    - 9403
-    - 9406
     metrics_path: /metrics
-    required_metric_families:
-    - request_rate
-    - request_latency
-    - token_throughput
-    - kv_cache_usage
-    - queue_wait_time
-    source: vllm_metrics_or_site_recording_rules
-  vllm_containers:
-    exporter: cadvisor
-    metrics_path: /metrics
-    compose_service_label: container_label_com_docker_compose_service
-    required_metrics:
-    - vllm_container_memory_usage_bytes
-    - vllm_container_cpu_cores_used
-    - container_oom_events_total
-    - container_start_time_seconds
-    source: cadvisor_recording_rules
-    oom_restart_source_metrics:
-    - metric: container_oom_events_total
-      purpose: GPU Capacity and OOM Risk 대시보드의 container OOM event 근거다.
-    - metric: container_start_time_seconds
-      purpose: 선택한 대시보드 시간 범위에서 changes()로 확인하는 container 재시작 신호다.
-  container_signal_sources:
-    exporter: cadvisor
-    compose_service_label: container_label_com_docker_compose_service
-    critical_container_regex: gateway|risk-adapter|main-llm-vllm|embedding-vllm|embedding-ko-vllm|risk-prompt-vllm
-    vllm_container_regex: main-llm-vllm|embedding-vllm|embedding-ko-vllm|risk-prompt-vllm
-    source_metrics:
-    - container_oom_events_total
-    - container_start_time_seconds
-  gpu_node:
-    exporter: dcgm-exporter_or_nvidia_smi_sidecar
-    required_metrics:
-    - gpu_memory_used_bytes
-    - gpu_memory_total_bytes
-    - gpu_utilization_ratio
-    - gpu_temperature_celsius
-    - gpu_power_watts
-    - gpu_memory_headroom_bytes
-    source: dcgm_exporter_or_site_recording_rules
-ux_dashboards:
-- id: gpu_capacity_and_oom_risk
-  audience: runtime_engineer
-  purpose: 용량, OOM·재시작, VRAM 예산선, 사용률, 온도, 전력, queue, KV cache, token 처리량,
-    container 자원을 상세 확인한다.
-  panels:
-  - gpu_operator_guide
-  - gpu_headroom
-  - gpu_memory_used
-  - gpu_utilization
-  - gpu_temperature
-  - gpu_power
-  - container_oom_restart_signals
-  - vram_used_vs_budget
-  - vllm_queue_depth
-  - kv_cache_usage
-  - token_throughput
-  - container_ram
-  - container_cpu
-- id: usage_today
-  audience: operator
-  purpose: GPU workload, 요청 수 상위 모델, 사유별 거부 요청, 코드별 upstream 오류, 입력·출력
-    token 처리량, 모델별 요청 추이를 한눈에 보여준다. 색상과 제목만으로 판단할 수 있게 한다.
-  panels:
-  - gpu_workload
-  - top_models_by_requests
-  - rejected_requests
-  - token_throughput_input_output
-  - requests_by_model
-  - upstream_errors_by_code
-privacy_and_security:
-  raw_prompt_in_metrics: forbidden
-  user_text_labels: forbidden
-  model_output_text_labels: forbidden
-  allowed_dimensions:
-  - endpoint
-  - service
-  - model_logical_id
-  - status_code
-  - risk_code
-  - system_signal_code
-  - reason
-  - field
-  - target
-  - runtime_service
-reference_decisions:
-- Prometheus/Grafana UX는 계약 기준의 일부다.
-- Alert routing은 소유자와 escalation 절차를 정한 뒤 별도로 구성한다.
-- 대시보드는 정적 JSON template을 사용할 수 있지만, 테스트 밖에서 mock runtime service를
-  사용하지 않는다.
-resource_monitoring:
-  model_labels:
-  - local-main
-  - local-embed
-  - local-embed-ko
-  - risk-prompt
-  must_show:
-  - traffic_by_model
-  - latency_by_model
-  - error_by_model
-  - queue_or_timeout_by_model
-  - gpu_memory_headroom
-  - kv_cache_usage_when_vllm_exports_it
-  prometheus_label_contract:
-  - vLLM runtime scrape target은 vllm-runtimes job 하나와 model, runtime_service label을
-    사용한다.
-  - '가능한 경우 model label 값은 공개 논리 모델 ID와 일치해야 한다: local-main, local-embed,
-    risk-prompt.'
-  - cAdvisor panel은 생성된 raw container 이름이 아니라 Compose service label 또는 recording
-    rule을 사용해야 한다.
-  operator_rules:
-  - raw prompt 또는 생성 text를 metric label로 사용하지 않는다.
-  - exporter metric이 없을 때만 gray/no-data panel을 허용한다.
-  - recording rule에는 외부 metric에 대한 가정을 기록한다.
-  streaming_current_metrics:
-  - streaming_chunks_total
-  - streaming_bytes_total
-  - streaming_usage_events_total
-  - streaming_errors_total
-  - streaming_requests_total
-  - streaming_time_to_first_chunk_seconds_bucket
-  - streaming_duration_seconds_bucket
-  - streaming_chunks_per_response_bucket
-  - streaming_client_disconnects_total
-  streaming_instrumentation_backlog:
-  - proxy_buffering_detection
-  - browser_level_stream_render_check

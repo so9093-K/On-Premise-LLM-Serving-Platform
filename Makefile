@@ -10,7 +10,7 @@ AUTH_ENV ?= $(if $(ENV_FILE),$(ENV_FILE),$(ENV))
 AUTH_ENV_ARG = $(if $(AUTH_ENV),--env $(AUTH_ENV),)
 
 
-.PHONY: help guide init-env-local init-env-compose init-env-compose-force sync-runtime-secrets sync-env validate test build build-image build-vllm-unified-image rebuild-app rebuild-vllm-unified package start compose-up compose-up-master preflight-compose compose-config ready-local ready-full smoke runtime-validate runtime-targets auth-status auth-doctor auth-plan auth-apply exposure-status exposure-plan exposure-apply monitoring-projection operator-status operator-reports live-evidence vllm-commands hf-config-check main-model-prepare risk-vllm-config-check model-list model-status model-validate model-diff model-propose-add model-propose-remove status stop compose-down compose-restart compose-logs logs compose-diagnostics clean clean-dry-run remove-plan clean-all reset bootstrap first-run rebuild-full doctor reset-version render-runtime-assets
+.PHONY: help guide init-env-local init-env-compose init-env-compose-force sync-runtime-secrets sync-env validate test build build-image build-vllm-unified-image package start compose-up preflight-compose compose-config ready-local ready-full smoke runtime-validate auth-status auth-doctor auth-plan auth-apply exposure-status exposure-plan exposure-apply vllm-commands hf-config-check main-model-prepare risk-vllm-config-check model-list model-status model-validate model-propose-add model-propose-remove status stop compose-down compose-restart compose-logs logs compose-diagnostics clean clean-dry-run remove-plan clean-all reset first-run doctor reset-version render-runtime-assets
 
 help:
 	@echo "ai_model_serving_platform $(CURRENT_VERSION)"
@@ -60,13 +60,8 @@ build:
 build-image:
 	bash scripts/build/build_platform_image.sh
 
-rebuild-app: build-image
-
 build-vllm-unified-image:
 	bash scripts/build/build_vllm_unified_image.sh
-
-rebuild-vllm-unified: build-vllm-unified-image
-
 
 package:
 	bash scripts/build/package_release.sh
@@ -76,9 +71,6 @@ start:
 
 compose-up:
 	bash scripts/compose/compose_up.sh
-
-compose-up-master:
-	EXPOSURE_MODE=master_open bash scripts/compose/compose_up.sh
 
 compose-config:
 	@bash scripts/compose/compose_config.sh
@@ -97,9 +89,6 @@ smoke:
 
 runtime-validate:
 	$(PYTHON) scripts/validation/runtime_validation.py
-
-runtime-targets:
-	$(PYTHON) scripts/reports/runtime_targets_report.py
 
 auth-status:
 	$(PYTHON) scripts/auth/auth_status.py $(AUTH_ENV_ARG)
@@ -126,17 +115,6 @@ exposure-apply:
 	@if [[ -z "$(MODE)" ]]; then echo "MODE=private_network|master_open 를 지정하세요" >&2; exit 2; fi
 	$(PYTHON) scripts/auth/exposure_apply.py $(AUTH_ENV_ARG) --mode $(MODE) $(if $(AUDIENCE),--audience $(AUDIENCE),) --yes
 
-monitoring-projection:
-	$(PYTHON) scripts/reports/monitoring_projection_report.py
-
-operator-status:
-	$(PYTHON) scripts/reports/operator_status_bundle.py
-
-operator-reports: runtime-targets auth-status monitoring-projection operator-status live-evidence
-
-live-evidence: operator-status
-	$(PYTHON) scripts/reports/live_evidence_bundle.py
-
 vllm-commands:
 	$(PYTHON) scripts/models/render_vllm_commands.py
 
@@ -158,9 +136,6 @@ model-status:
 
 model-validate:
 	$(PYTHON) scripts/models/modelctl.py validate
-
-model-diff:
-	$(PYTHON) scripts/models/modelctl.py diff
 
 model-propose-add:
 	@if [[ -z "$(ID)" || -z "$(PORT)" || -z "$(ENDPOINT)" || -z "$(UPSTREAM)" || -z "$(ROLE)" ]]; then echo "ID, PORT, ENDPOINT, UPSTREAM, ROLE을 지정하세요" >&2; exit 2; fi
@@ -206,12 +181,8 @@ clean-all:
 reset:
 	bash scripts/ops/reset_all.sh
 
-bootstrap:
+first-run:
 	bash scripts/build/bootstrap.sh
-
-first-run: bootstrap
-
-rebuild-full: bootstrap
 
 doctor:
 	bash scripts/ops/doctor.sh

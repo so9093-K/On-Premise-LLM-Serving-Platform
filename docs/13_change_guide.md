@@ -164,7 +164,7 @@ make build-image
 | `configs/deploy_profiles.yaml` | Secondary Runtime 초기 상태 |
 | `configs/gpu_budgets.yaml` | Runtime GPU 자원 판단 |
 | `configs/auth_profiles.yaml` | Authentication mode |
-| `configs/monitoring.yaml` | Monitoring target와 Dashboard contract |
+| `configs/monitoring.yaml` | Monitoring scrape와 live metric 검증 기준 |
 | `configs/env_contract.yaml` | `.env` 예시 파일 키 목록 |
 
 ### 생성 파일이 연결된 설정
@@ -263,7 +263,6 @@ GPU / Runtime Validation
 
 ```bash
 make model-validate
-make model-diff
 make render-runtime-assets
 make validate
 ```
@@ -446,12 +445,11 @@ Grafana
 
 ### 대시보드 변경
 
-프로비저닝된 Grafana Dashboard는 `ops/grafana/dashboards/*.json`에서 관리한다. `configs/monitoring.yaml`에는 Dashboard와 필수 panel contract가 정의되어 있다.
+프로비저닝된 Grafana Dashboard는 `ops/grafana/dashboards/*.json`에서 관리한다. Dashboard의 panel·query 계약은 JSON 자체가 소유하며, `configs/monitoring.yaml`에는 scrape와 live metric 검증에 필요한 값만 둔다.
 
 ```bash
 make render-runtime-assets
 make validate
-make monitoring-projection
 ```
 
 실제 데이터까지 확인할 경우:
@@ -571,11 +569,11 @@ make runtime-validate
 | Request parameter | `model_serving.yaml` + contract/schema | 생성 파일 + validate/test | 대상 API |
 | Gateway logic | `src/ai_model_serving/` | validate/test | `make ready-local` |
 | Main Model Profile | `main_model_profiles.yaml` | config/profile 검증 | prepare + switch + readiness |
-| 모델 추가 | catalog + serving + 모델 참고 문서 + compose | `model-validate`, `model-diff`, validate | full-stack + runtime validation |
+| 모델 추가 | catalog + serving + 모델 참고 문서 + compose | `model-validate`, validate | full-stack + runtime validation |
 | vLLM patch / Dockerfile | `ops/images/vllm-unified/`, `ops/patches/` | Unified Build | ready-full + runtime validation |
 | Service port | `services.yaml` | 생성 파일 + validate | compose-config + full-stack |
 | Exposure | `exposure_profiles.yaml` | Compose override 재생성 + validate | effective port 확인 |
-| Dashboard | `monitoring.yaml` + Dashboard JSON | validate + monitoring projection | Grafana / runtime validation |
+| Dashboard | Dashboard JSON | `make validate` | Grafana / runtime validation |
 | Pipeline | `.gitlab-ci.yml`, CI scripts | validate + 관련 build | Pipeline |
 | Deploy logic | deploy script / policy | validate | Release 배포 + readiness |
 

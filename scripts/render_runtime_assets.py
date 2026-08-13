@@ -15,10 +15,6 @@ ModelRegistry projection에서 정적 artifact를 생성한다.
     compose vLLM command drift는 make validate가
     validate_vllm_compose.py로 별도 검증한다.
 
-  reports/runtime/* (runtime_targets, monitoring_projection 등):
-    이 파일들은 이미 make runtime-targets, make monitoring-projection 등 별도 타겟으로
-    생성된다. render_runtime_assets는 이 파일들을 소유하지 않는다.
-
 Usage:
   python scripts/render_runtime_assets.py           # dry-run (drift 보고만, exit 0)
   python scripts/render_runtime_assets.py --check   # drift 있으면 exit 1

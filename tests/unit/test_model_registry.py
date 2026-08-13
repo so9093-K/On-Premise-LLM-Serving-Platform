@@ -105,7 +105,6 @@ def test_model_registry_projects_catalog_to_runtime_and_public_contracts() -> No
 
     targets = {target.service_key: target for target in registry.runtime_validation_targets()}
     assert targets["chat_runtime"].compose_service_name == "chat-vllm"
-    assert registry.monitoring_compose_service_regex() == "chat-vllm|embed-vllm"
 
 
 def test_model_registry_reports_catalog_serving_drift() -> None:
@@ -127,4 +126,4 @@ def test_model_registry_reports_catalog_serving_drift() -> None:
     }
 
     codes = {issue.code for issue in ModelRegistry(catalog, serving).alignment_issues()}
-    assert {"unknown_serving_model", "port_mismatch", "upstream_model_mismatch"}.issubset(codes)
+    assert {"unknown_serving_model", "upstream_model_mismatch"}.issubset(codes)

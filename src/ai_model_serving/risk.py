@@ -35,14 +35,6 @@ class DetectorSpec:
     temperature: float = 0
 
 
-PROMPT_DETECTOR = DetectorSpec(
-    name="prompt",
-    source_model="risk-prompt",
-    family="prompt_attack",
-    allowed_codes=frozenset(PROMPT_CODES),
-)
-
-
 def extract_generation_text(response: dict[str, Any], *, expected_model: str | None = None) -> str:
     if expected_model is not None and response.get("model") not in {expected_model, None}:
         raise ServiceError("UPSTREAM_SCHEMA_ERROR", f"Detector response model must be {expected_model}.", True, 502)

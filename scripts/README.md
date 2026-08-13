@@ -12,7 +12,6 @@ source .venv/bin/activate
 make compose-up
 make ready-full
 python scripts/validation/runtime_validation.py
-make operator-reports
 make compose-down
 ```
 
@@ -37,7 +36,7 @@ make stop
 | `config/` | `.env` 생성 |
 | `models/` | model registry CLI, vLLM command rendering, HF/unified image checks |
 | `ops/` | start/stop/status/ready/smoke/reset/clean 같은 운영 명령 |
-| `reports/` | runtime target, storage path, monitoring, operator status/evidence reports, feature plan |
+| `reports/` | 운영자 workflow 안내 |
 | `validation/` | contract validation, static validation, deterministic test runner, live runtime validation |
 | `lib/` | shell/python shared helpers |
 
@@ -59,11 +58,7 @@ make stop
 | `compose/preflight_compose.sh` | full-stack compose 전 exposure config를 먼저 검증하고, 통과한 뒤 Docker, GPU 표시, effective compose host-published port, secret 상태를 점검한다. compose 내부 `expose` ports는 host port 검사 대상이 아니다. host bind와 port는 `docker compose config` 결과를 따른다. |
 | `ops/doctor.sh` | Python, 계약, bash syntax, `.env`, local status를 한 번에 진단한다. |
 | `validation/runtime_validation.py` | 실제 runtime 검증 결과를 `reports/runtime/` 아래에 기록한다. |
-| `reports/runtime_targets_report.py` | ModelRegistry projection에서 runtime target inventory JSON/Markdown을 생성한다. |
-| `models/modelctl.py` | model control plane이다. `list`, `status`, `validate`, `diff`는 읽기 전용이고 `propose-add`, `propose-remove`는 파일 쓰기 없는 변경 계획을 출력한다. |
-| `reports/monitoring_projection_report.py` | ModelRegistry와 monitoring config에서 Prometheus scrape, recording rule, Grafana variable projection JSON/Markdown을 생성한다. |
-| `reports/operator_status_bundle.py` | runtime target, model inventory, GPU budget, monitoring label, readiness vocabulary를 하나의 operator status bundle로 생성한다. |
-| `reports/live_evidence_bundle.py` | operator status bundle과 runtime validation report를 sanitised evidence bundle로 결합한다. 결과는 운영 증빙용이며 release package에는 포함하지 않는다. |
+| `models/modelctl.py` | model control plane이다. `list`, `status`, `validate`는 읽기 전용이고 `propose-add`, `propose-remove`는 파일 쓰기 없는 변경 계획을 출력한다. |
 | `models/check_hf_model_config.py` | Docker/GPU 없이 Transformers `AutoConfig`만 로드해 vLLM·bitsandbytes 이전 config loader 문제를 분리한다. |
 | `build/package_release.sh` | 배포 ZIP을 만들고 secret, log, cache, egg-info, generated runtime report를 제외한다. ZIP root는 항상 `ai_model_serving_platform/`로 고정한다. |
 | `ops/clean_all.sh` | build 산출물, egg-info와 log를 정리한다. 실행 중 local service가 있으면 중단한다. `--dry-run`으로 삭제 대상을 먼저 볼 수 있다. 모델 cache는 `PURGE_MODEL_CACHE=1`, runtime secret은 `PURGE_RUNTIME_SECRETS=1`일 때만 삭제한다. |
@@ -76,7 +71,7 @@ make stop
 - `make start`는 vLLM을 시작하지 않는다. app-only 확인용이다.
 - app-only 확인은 `make ready-local`, strict full-stack 확인은 `make ready-full`을 사용한다.
 - full-stack 검증은 Docker/GPU/vLLM이 있는 host에서 `make preflight-compose && make compose-up`으로 수행한다.
-- 운영 산출물은 개별 명령(`make runtime-targets`, `make monitoring-projection`, `make operator-status`, `make live-evidence`) 또는 통합 명령 `make operator-reports`로 생성한다. 라이브 검증은 `make runtime-validate`, 실행 전 정적 검증은 `make validate`로 수행한다.
+- 라이브 검증은 `make runtime-validate`, 실행 전 정적 검증은 `make validate`로 수행한다.
 - 삭제 전에는 `make remove-plan`으로 삭제 대상을 확인할 수 있다. `make clean-dry-run`의 읽기 쉬운 alias다.
 
 - `.runtime/`은 정상적인 로컬 runtime state다. `make init-env-compose` 이후 존재할 수 있으며, `make clean-all`은 기본적으로 보존한다. 테스트와 패키징 정책은 `.runtime`의 로컬 존재가 아니라 release/source ZIP 포함 여부를 검사해야 한다.
@@ -92,16 +87,10 @@ make stop
 - make ready-local
 - make ready-full
 - make guide
-- make runtime-targets
-- make monitoring-projection
-- make operator-status
-- make live-evidence
 - make validate
-- make operator-reports
 - make remove-plan
 - make build
 - make first-run
-- make rebuild-full
 
 
 ## Full-stack 진단
@@ -116,8 +105,8 @@ Risk detector의 `bitsandbytes` 설정은 운영 기본값이다. 원인 분리�
 
 ## Unified vLLM 이미지와 Kanana patch 점검
 
-- `make first-run` / `make bootstrap`: platform image와 모든 served model이 공유하는 unified vLLM image를 만들고, image 내부 Kanana config check를 실행한다.
-- `make rebuild-vllm-unified` / `make build-vllm-unified-image`: `ops/images/vllm-unified/Dockerfile`에서 26B/12B/embedding/embedding-ko/risk-prompt 공용 vLLM unified 이미지를 빌드하는 고급/수동 target이다.
+- `make first-run`: platform image와 모든 served model이 공유하는 unified vLLM image를 만들고, image 내부 Kanana config check를 실행한다.
+- `make build-vllm-unified-image`: `ops/images/vllm-unified/Dockerfile`에서 26B/12B/embedding/embedding-ko/risk-prompt 공용 vLLM unified 이미지를 빌드하는 고급/수동 target이다.
 - `make risk-vllm-config-check`: `RISK_VLLM_IMAGE` 안에서 label, metadata, Kanana risk model config load를 확인한다.
 - `SKIP_RISK_VLLM_IMAGE_CONFIG_CHECK=1 make preflight-compose`: image-internal config check만 건너뛴다. production 승격용으로 쓰지 않는다.
 
@@ -131,12 +120,11 @@ Risk detector의 `bitsandbytes` 설정은 운영 기본값이다. 원인 분리�
 python scripts/models/modelctl.py list
 python scripts/models/modelctl.py status
 python scripts/models/modelctl.py validate
-python scripts/models/modelctl.py diff
 python scripts/models/modelctl.py propose-add --id new-main --role main_llm --upstream-model-id org/model --port 9499 --endpoint /v1/new-main
 python scripts/models/modelctl.py propose-remove local-main
 ```
 
-`modelctl.py`의 `list/status/validate/diff`는 read-only다. `propose-add/propose-remove`도 파일을 쓰지 않고 영향 파일, 차단 조건, GPU budget 경고, 후속 검증 절차만 출력한다. 실제 모델 add/remove는 catalog, serving config, contracts, schemas, runtime validation, monitoring projection, tests를 함께 바꾸는 리뷰 대상이며, 모델 참고 문서에는 upstream 사양과 알려진 제약만 갱신한다.
+`modelctl.py`의 `list/status/validate`는 read-only다. `propose-add/propose-remove`도 파일을 쓰지 않고 영향 파일, 차단 조건, GPU budget 경고, 후속 검증 절차만 출력한다. 실제 모델 add/remove는 catalog, serving config, contracts, schemas, generated Prometheus 설정, tests를 함께 바꾸는 리뷰 대상이며, 모델 참고 문서에는 upstream 사양과 알려진 제약만 갱신한다.
 
 ## Risk vLLM patch 생명주기
 

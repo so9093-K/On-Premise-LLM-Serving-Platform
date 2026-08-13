@@ -13,7 +13,7 @@ from fastapi import FastAPI, Header, HTTPException
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 
-from ..main_model.docker_backend import DEFAULT_GATEWAY_URL, DockerMainModelBackend
+from ..main_model.docker_backend import DockerMainModelBackend
 from ..configuration import load_yaml_mapping
 from ..gpu_budget import Participant, budget_snapshot, plan_activation
 from ..service_logging import service_logger
@@ -47,6 +47,12 @@ class SidecarConfig:
     log_target_refresh_seconds: float
 
 
+def _default_gateway_internal_url(config_root: Path) -> str:
+    services = load_yaml_mapping(config_root / "configs/services.yaml")["services"]
+    gateway = services["gateway"]
+    return f"http://{gateway['compose_service']}:{gateway['container_port']}"
+
+
 def load_sidecar_config(
     environment: Mapping[str, str], *, source_path: Path | None = None
 ) -> SidecarConfig:
@@ -68,7 +74,7 @@ def load_sidecar_config(
         profile_locked=environment.get("MAIN_LLM_PROFILE_LOCKED", "false").lower() == "true",
         idempotency_ttl_seconds=environment.get("MAIN_LLM_SWITCH_IDEMPOTENCY_TTL_SECONDS") or None,
         internal_service_token=environment.get("INTERNAL_SERVICE_TOKEN", ""),
-        gateway_internal_url=environment.get("GATEWAY_INTERNAL_URL", DEFAULT_GATEWAY_URL),
+        gateway_internal_url=environment.get("GATEWAY_INTERNAL_URL") or _default_gateway_internal_url(config_root),
         log_target_manifest_path=Path(
             environment.get(
                 "LOG_TARGET_MANIFEST_PATH",

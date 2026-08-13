@@ -97,6 +97,7 @@ def test_prepare_uses_profile_identity_and_shared_cache_path(tmp_path, monkeypat
     profile = catalog.profiles["gemma4-12b-unified-fp8"]
     backend = DockerMainModelBackend(
         "/var/run/docker.sock",
+        gateway_url="http://gateway:9400",
         cache_dir=str(tmp_path),
     )
     asyncio.run(backend.prepare(catalog, profile))
@@ -113,7 +114,7 @@ def test_prepare_uses_profile_identity_and_shared_cache_path(tmp_path, monkeypat
 def test_observed_profile_requires_matching_runtime_image(monkeypatch):
     catalog = load_main_model_catalog(ROOT / "configs/main_model_profiles.yaml")
     profile = catalog.profiles["gemma4-26b-a4b-fp8"]
-    backend = DockerMainModelBackend("/var/run/docker.sock")
+    backend = DockerMainModelBackend("/var/run/docker.sock", gateway_url="http://gateway:9400")
 
     async def fake_container_id(service):
         assert service == catalog.runtime["compose_service"]
@@ -136,7 +137,7 @@ def test_observed_profile_requires_matching_runtime_image(monkeypatch):
 def test_observed_profile_accepts_matching_command_and_runtime_image(monkeypatch):
     catalog = load_main_model_catalog(ROOT / "configs/main_model_profiles.yaml")
     profile = catalog.profiles["gemma4-26b-a4b-fp8"]
-    backend = DockerMainModelBackend("/var/run/docker.sock")
+    backend = DockerMainModelBackend("/var/run/docker.sock", gateway_url="http://gateway:9400")
 
     async def fake_container_id(service):
         assert service == catalog.runtime["compose_service"]
@@ -153,7 +154,7 @@ def test_observed_profile_accepts_matching_command_and_runtime_image(monkeypatch
 
 def test_observed_started_at_returns_container_state_started_at(monkeypatch):
     catalog = load_main_model_catalog(ROOT / "configs/main_model_profiles.yaml")
-    backend = DockerMainModelBackend("/var/run/docker.sock")
+    backend = DockerMainModelBackend("/var/run/docker.sock", gateway_url="http://gateway:9400")
 
     async def fake_container_id(service):
         assert service == catalog.runtime["compose_service"]
@@ -171,7 +172,7 @@ def test_observed_started_at_returns_container_state_started_at(monkeypatch):
 
 def test_observed_started_at_returns_none_when_container_absent(monkeypatch):
     catalog = load_main_model_catalog(ROOT / "configs/main_model_profiles.yaml")
-    backend = DockerMainModelBackend("/var/run/docker.sock")
+    backend = DockerMainModelBackend("/var/run/docker.sock", gateway_url="http://gateway:9400")
 
     async def fake_container_id(service):
         return None

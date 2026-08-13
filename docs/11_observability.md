@@ -324,7 +324,7 @@ Request ID / Error Code 확인
 
 | 영역 | 주요 파일 | 역할 |
 |---|---|---|
-| 모니터링 정책 | `configs/monitoring.yaml` | metric source, Dashboard contract, 수집 정책 정의 |
+| Prometheus / live metric 검증 | `configs/monitoring.yaml` | scrape 설정과 필수 service metric 정의 |
 | Prometheus | `ops/prometheus/prometheus.yml` | scrape target과 rule 연결 |
 | Recording Rule | `ops/prometheus/rules/model_runtime.rules.yml` | Runtime·GPU 운영 지표 계산 |
 | Grafana Dashboard | `ops/grafana/dashboards/*.json` | 운영 Dashboard 정의 |

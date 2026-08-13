@@ -13,8 +13,8 @@ PYTHON_BIN="${PYTHON_BIN:-$(command -v python3.12 || command -v python3 || comma
 
 # ready_local은 RISK_ADAPTER_BASE_URL과 무관하게 항상 localhost를 확인한다.
 # compose .env 파일에서는 이 값이 compose 내부 hostname(http://risk-adapter:9405)일 수 있다.
-GATEWAY_BASE_URL="http://localhost:${GATEWAY_PORT:-9400}"
-RISK_ADAPTER_BASE_URL="http://localhost:${RISK_ADAPTER_PORT:-9405}"
+GATEWAY_BASE_URL="http://localhost:${GATEWAY_PORT:-$(service_default_host_port gateway)}"
+RISK_ADAPTER_BASE_URL="http://localhost:${RISK_ADAPTER_PORT:-$(service_default_host_port risk_adapter)}"
 
 fail=0
 check_health() {

@@ -5,10 +5,7 @@ from typing import Any
 
 from .model_records import ModelRecord, PublicModel, RegistryIssue, RuntimeService, resolve_catalog_max_output_tokens
 from .projection_models import (
-    ModelInventoryRow,
     ModelListSchemaProjection,
-    MonitoringTargetProjection,
-    RuntimeValidationMatrixCheck,
     RuntimeValidationTarget,
 )
 from .request_surfaces import _request_parameter_surface
@@ -78,7 +75,7 @@ class ModelRegistry:
                     fixed_parameters=fixed_parameters,
                     public_enabled=listing.get("enabled", True) is True,
                     serving_key=serving_key,
-                    port=int(serving_cfg.get("port", runtime.get("port"))) if serving_cfg.get("port", runtime.get("port")) is not None else None,
+                    port=int(serving_cfg["port"]) if "port" in serving_cfg else None,
                     endpoint_path=str(runtime.get("endpoint", runtime.get("internal_endpoint", runtime.get("public_adapter_endpoint", ""))) or "") or None,
                     max_model_len=int(max_model_len) if max_model_len is not None else None,
                     max_output_tokens=int(max_output_tokens) if max_output_tokens is not None else None,
@@ -123,40 +120,10 @@ class ModelRegistry:
                 return service
         raise KeyError(service_key)
 
-    def inventory_rows(self) -> tuple[ModelInventoryRow, ...]:
-        from .projections import inventory_rows
-
-        return inventory_rows(self)
-
     def runtime_validation_targets(self) -> tuple[RuntimeValidationTarget, ...]:
         from .projections import runtime_validation_targets
 
         return runtime_validation_targets(self)
-
-    def monitoring_targets(self) -> tuple[MonitoringTargetProjection, ...]:
-        from .projections import monitoring_targets
-
-        return monitoring_targets(self)
-
-    def monitoring_model_labels(self) -> tuple[str, ...]:
-        return tuple(target.logical_id for target in self.monitoring_targets())
-
-    def monitoring_compose_service_labels(self) -> tuple[str, ...]:
-        return tuple(target.compose_service_name for target in self.monitoring_targets())
-
-    def monitoring_compose_service_regex(self) -> str:
-        return "|".join(self.monitoring_compose_service_labels())
-
-    def runtime_validation_matrix_checks(self) -> tuple[RuntimeValidationMatrixCheck, ...]:
-        from .projections import runtime_validation_matrix_checks
-
-        return runtime_validation_matrix_checks(self)
-
-    def runtime_validation_matrix_document(self) -> dict[str, Any]:
-        from .projections import runtime_validation_matrix_document
-
-        return runtime_validation_matrix_document(self)
-
 
     def alignment_issues(self) -> tuple[RegistryIssue, ...]:
         """배포를 즉시 막지는 않는 catalog/serving 정합성 문제를 반환한다.
@@ -176,9 +143,6 @@ class ModelRegistry:
             if record.serving_key is None:
                 continue
             serving_cfg = self._serving_models()[record.serving_key]
-            catalog_runtime = self._catalog_models()[record.logical_id].get("runtime", {})
-            if int(serving_cfg.get("port", -1)) != int(catalog_runtime.get("port", -1)):
-                issues.append(RegistryIssue("port_mismatch", f"{record.logical_id} catalog/runtime port disagrees with serving config."))
             if str(serving_cfg.get("name", "")) != record.upstream_model_id:
                 issues.append(RegistryIssue("upstream_model_mismatch", f"{record.logical_id} upstream model id disagrees between catalog and serving config."))
         return tuple(issues)

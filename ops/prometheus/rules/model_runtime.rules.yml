@@ -55,7 +55,7 @@ groups:
       # Observability trust signals — expected vs observed scrape target counts.
       # ai_expected_critical_targets reflects the reference topology (8 = gateway +
       # risk-adapter + 4 vllm-runtimes + dcgm-exporter + cadvisor). Update this value
-      # whenever the topology changes and re-run monitoring-projection.
+      # whenever the topology changes and re-render runtime assets.
       - record: ai_expected_critical_targets
         expr: vector(8)
       - record: ai_observed_critical_targets

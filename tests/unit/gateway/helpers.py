@@ -7,6 +7,7 @@ FakeGatewayClients/FakeRuntimeClient로 실제 vLLM/risk-adapter 없이 gateway
 from __future__ import annotations
 
 import asyncio
+from dataclasses import replace
 
 
 import json
@@ -260,6 +261,8 @@ def settings() -> AppSettings:
             ),
         },
         embedding_model_routes={"local-embed": "embedding", "local-embed-ko": "embedding_ko"},
+        default_embedding_model="local-embed",
+        default_retrieval_model="local-embed-ko",
     )
 
 
@@ -273,13 +276,8 @@ def _settings_with_embedding_routes(
     endpoints = dict(base.runtime_endpoints)
     if runtime_endpoints:
         endpoints.update(runtime_endpoints)
-    return AppSettings(
-        app_env=base.app_env,
-        project_version=base.project_version,
-        security=base.security,
-        gateway_timeout_seconds=base.gateway_timeout_seconds,
-        risk_adapter_timeout_seconds=base.risk_adapter_timeout_seconds,
-        risk_adapter_base_url=base.risk_adapter_base_url,
+    return replace(
+        base,
         runtime_endpoints=endpoints,
         main_llm=endpoints["main_llm"],
         embedding=endpoints.get("embedding"),
@@ -287,10 +285,6 @@ def _settings_with_embedding_routes(
         risk_prompt=endpoints.get("risk_prompt"),
         embedding_profiles=embedding_profiles,
         embedding_model_routes=embedding_model_routes,
-        default_embedding_model=base.default_embedding_model,
-        default_retrieval_model=base.default_retrieval_model,
-        max_request_body_bytes=base.max_request_body_bytes,
-        public_models=base.public_models,
     )
 
 
@@ -358,18 +352,10 @@ def tool_calling_settings() -> AppSettings:
             "reasoning": {"enabled": True, "default": False},
         },
     )
-    return AppSettings(
-        app_env=cfg.app_env,
-        project_version=cfg.project_version,
-        security=cfg.security,
-        gateway_timeout_seconds=cfg.gateway_timeout_seconds,
-        risk_adapter_timeout_seconds=cfg.risk_adapter_timeout_seconds,
+    return replace(
+        cfg,
         main_llm=main,
-        embedding=cfg.embedding,
-        risk_prompt=cfg.risk_prompt,
-        risk_adapter_base_url=cfg.risk_adapter_base_url,
-        max_request_body_bytes=cfg.max_request_body_bytes,
-        public_models=cfg.public_models,
+        runtime_endpoints={**cfg.runtime_endpoints, "main_llm": main},
     )
 
 
@@ -454,17 +440,10 @@ def advanced_chat_settings() -> AppSettings:
         request_parameter_policy=policy,
         runtime_features={"structured_outputs": {"enabled": True, "backend": "xgrammar", "disable_any_whitespace": True, "enable_in_reasoning": False}},
     )
-    return AppSettings(
-        app_env=cfg.app_env,
-        project_version=cfg.project_version,
-        security=cfg.security,
-        gateway_timeout_seconds=cfg.gateway_timeout_seconds,
-        risk_adapter_timeout_seconds=cfg.risk_adapter_timeout_seconds,
+    return replace(
+        cfg,
         main_llm=main,
-        embedding=cfg.embedding,
-        risk_prompt=cfg.risk_prompt,
-        risk_adapter_base_url=cfg.risk_adapter_base_url,
-        max_request_body_bytes=cfg.max_request_body_bytes,
+        runtime_endpoints={**cfg.runtime_endpoints, "main_llm": main},
         public_models=(
             {
                 "id": "local-main",
@@ -492,9 +471,8 @@ def error_schema():
 
 def admin_settings() -> AppSettings:
     cfg = settings()
-    return AppSettings(
-        app_env=cfg.app_env,
-        project_version=cfg.project_version,
+    return replace(
+        cfg,
         security=SecuritySettings(
             api_key_required=True,
             api_keys=frozenset({"test-key"}),
@@ -502,14 +480,6 @@ def admin_settings() -> AppSettings:
             admin_api_key_required=True,
             admin_api_keys=frozenset({"admin-test-key"}),
         ),
-        gateway_timeout_seconds=cfg.gateway_timeout_seconds,
-        risk_adapter_timeout_seconds=cfg.risk_adapter_timeout_seconds,
-        main_llm=cfg.main_llm,
-        embedding=cfg.embedding,
-        risk_prompt=cfg.risk_prompt,
-        risk_adapter_base_url=cfg.risk_adapter_base_url,
-        max_request_body_bytes=cfg.max_request_body_bytes,
-        public_models=cfg.public_models,
     )
 
 

@@ -138,11 +138,11 @@ elif [[ "${SKIP_RISK_VLLM_IMAGE_BUILD:-0}" == "auto" && -f .env ]]; then
     echo "[bootstrap] risk vLLM image already exists: ${risk_image}"
   else
     echo "[bootstrap] building risk vLLM docker image"
-    PYTHON_BIN="$VENV_PYTHON" make rebuild-vllm-unified
+    PYTHON_BIN="$VENV_PYTHON" make build-vllm-unified-image
   fi
 else
   echo "[bootstrap] building risk vLLM docker image"
-  PYTHON_BIN="$VENV_PYTHON" make rebuild-vllm-unified
+  PYTHON_BIN="$VENV_PYTHON" make build-vllm-unified-image
 fi
 
 if [[ "${SKIP_RISK_VLLM_CONFIG_CHECK:-0}" == "1" ]]; then

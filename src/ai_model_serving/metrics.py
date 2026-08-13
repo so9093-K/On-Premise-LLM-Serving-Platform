@@ -302,7 +302,7 @@ class Metrics:
             compatibility = active.get("compatibility", {})
             self.main_model_profile_info.labels(
                 self.service,
-                snapshot.get("public_model", "local-main"),
+                snapshot.get("public_model", "unknown"),
                 active.get("id", "unknown"),
                 active.get("upstream_model_id", "unknown"),
                 active.get("revision", "unknown"),
