@@ -210,7 +210,7 @@ def public_models():
 _PRODUCTION_EMBEDDING_POLICY = {
     "allow_unlisted_parameters": False,
     "supported_parameters": ["dimensions", "encoding_format", "truncate_prompt_tokens", "user"],
-    "drop_upstream_parameters": ["user"],
+    "drop_upstream_parameters": ["user", "dimensions"],
     "dimensions": [768, 512, 256, 128],
     "max_truncate_prompt_tokens": 2048,
 }

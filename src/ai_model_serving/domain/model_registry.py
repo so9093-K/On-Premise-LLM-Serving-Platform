@@ -55,7 +55,7 @@ class ModelRegistry:
             runtime = cfg.get("runtime", {})
             lifecycle = cfg.get("lifecycle", {})
             serving_key, serving_cfg = serving_by_id.get(str(logical_id), (None, {}))
-            dimensions = cfg.get("embedding_dimensions", {}).get("matryoshka_supported", [])
+            dimensions = cfg.get("embedding_dimensions", {}).get("supported", [])
             capabilities = listing.get("capabilities") or [cfg.get("primary_capability")]
             backend = str(listing.get("backend", runtime.get("backend", serving_cfg.get("backend", "runtime"))))
             max_model_len = serving_cfg.get("max_model_len")

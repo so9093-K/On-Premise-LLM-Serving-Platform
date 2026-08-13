@@ -114,6 +114,7 @@ def test_gateway_forwards_chat_and_embeddings_to_vllm_paths():
     )
     assert embed.status_code == 200
     assert clients.embedding_clients["local-embed"].last_path == "embeddings"
+    assert "dimensions" not in clients.embedding_clients["local-embed"].last_payload
 
 
 def test_gateway_embeddings_does_not_apply_prompt_policy():

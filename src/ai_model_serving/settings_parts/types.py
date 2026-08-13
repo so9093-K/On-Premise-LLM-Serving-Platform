@@ -152,7 +152,7 @@ class AppSettings:
                 model=self.embedding.model,
                 service_key="embedding",
                 upstream_model_id="",
-                dimensions=tuple(int(item) for item in (self.embedding.request_parameter_policy or {}).get("dimensions", (768, 512, 256, 128))),
+                dimensions=tuple(int(item) for item in (self.embedding.request_parameter_policy or {}).get("dimensions", (768,))),
                 default_dimensions=768,
                 retrieval_enabled=True,
                 retrieval_default=False,

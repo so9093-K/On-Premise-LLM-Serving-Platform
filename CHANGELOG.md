@@ -23,6 +23,8 @@
 
 ### Changed
 
+- Gemma4의 `reasoning=true + response_format=json_schema` 조합이 thinking 단계에서 JSON grammar에 묶여 token을 소진하던 문제를 수정했다. vLLM의 `enable_in_reasoning`을 `false`로 두어 reasoning 종료 후 최종 답변에만 schema를 적용한다.
+- `local-embed`이 실제로 지원하지 않는 matryoshka dimensions(128/256/512)를 API 계약에서 제거하고, 기본 768을 명시한 요청은 Gateway가 upstream으로 전달하지 않도록 정리했다. runtime validation과 soak도 실제 동작하는 요청만 사용한다.
 - Main Model 전환·재시작 과정의 실패를 무시하던 structured-output/tool-calling 사전 요청과 전용 테스트를 제거했다. 전환 검증은 health, 모델 식별, text, 활성 프로필의 media canary처럼 실패 시 실제로 전환을 막아야 하는 계약만 확인한다.
 - Main Model의 요청 한도, 허용 입력, request parameter policy, runtime feature를 `model_serving.yaml`의 기본값에서 각 `main_model_profiles.yaml` profile의 `gateway_policy`로 이관했다. Gateway 요청 검증과 `/v1/models`의 `input_modalities`·`request_parameters`는 활성 profile을 따른다. 공통 endpoint, timeout, admission만 `model_serving.yaml`에 남긴다.
 - 생성 OpenAPI의 각 에러 응답이 전체 code enum 대신 해당 HTTP status로 실제 올 수 있는 code만 노출하고, description에 각 code의 의미·retryable을 함께 보여주도록 했다. Scalar/`/docs`에서 status→code→의미를 바로 읽을 수 있어 해석성이 개선된다. status↔code 매핑은 `errors.py`의 `ERROR_STATUS`에서 도출하므로 새 진실 소스를 만들지 않는다.

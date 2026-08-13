@@ -62,6 +62,9 @@ exclude_top_level_dirs = {
     'env',
     'logs',
     'model_cache',
+    # 모델 카드는 docs/reference/models/로 이관됐다. 로컬에 남은 빈 레거시
+    # 디렉터리가 배포 ZIP에 섞이지 않게 한다.
+    'model_cards',
     'models',
     'outputs',
     'run',

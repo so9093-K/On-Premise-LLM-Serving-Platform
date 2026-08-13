@@ -21,7 +21,7 @@ class SoakRunner:
     def run_once(self, index: int) -> dict[str, Any]:
         started = time.monotonic()
         self.http.json("POST", f"{self.risk_base}/v1/risk/assessments", {"prompt": f"runtime validation prompt {index}"}, internal=True)
-        self.http.json("POST", f"{self.gateway_base}/v1/embeddings", {"model": "local-embed", "input": [f"embedding {index}"], "dimensions": 768})
+        self.http.json("POST", f"{self.gateway_base}/v1/embeddings", {"model": "local-embed", "input": [f"embedding {index}"]})
         self.http.json("POST", f"{self.gateway_base}/v1/chat/completions", {"model": "local-main", "messages": [{"role": "user", "content": "Say OK only."}], "max_tokens": 1, "temperature": 0})
         return {"iteration": index, "latency_ms": int((time.monotonic() - started) * 1000)}
 

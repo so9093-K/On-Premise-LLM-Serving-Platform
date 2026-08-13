@@ -41,7 +41,7 @@ def _registry() -> ModelRegistry:
                     "port": 9002,
                     "endpoint": "/v1/embeddings",
                 },
-                "embedding_dimensions": {"matryoshka_supported": [64, 32]},
+                "embedding_dimensions": {"supported": [64, 32]},
                 "gateway_listing": {
                     "enabled": True,
                     "backend": "embed-runtime",

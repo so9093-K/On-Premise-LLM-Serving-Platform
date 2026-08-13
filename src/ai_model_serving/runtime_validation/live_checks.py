@@ -169,11 +169,13 @@ class LiveRuntimeChecks:
         )
 
     def check_embedding(self) -> CheckResult:
-        payload = {"model": "local-embed", "input": ["runtime validation embedding"], "dimensions": 768}
+        # local-embed는 matryoshka 차원 축소를 지원하지 않는다. dimensions를 넣지
+        # 않아 runtime의 실제 기본 출력 차원을 검증한다.
+        payload = {"model": "local-embed", "input": ["runtime validation embedding"]}
         status, body, latency = self.http.json("POST", f"{self.gateway_base}/v1/embeddings", payload)
         data = body.get("data") or []
         vector = data[0].get("embedding") if data and isinstance(data[0], dict) else []
-        ok = status == 200 and body.get("object") == "list" and isinstance(vector, list) and len(vector) in {128, 256, 512, 768}
+        ok = status == 200 and body.get("object") == "list" and isinstance(vector, list) and len(vector) == 768
         return CheckResult("vllm-runtime", "gateway embedding", "pass" if ok else "fail", latency, details={"model": body.get("model"), "dimension": len(vector)})
 
     def check_embedding_ko(self) -> CheckResult:

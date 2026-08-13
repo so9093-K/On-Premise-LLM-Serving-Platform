@@ -80,3 +80,12 @@ vLLM main LLM structured output backend를 `auto`(xgrammar)에서 `xgrammar` + `
 - `ops/compose/full-stack.private-network.yaml`
 - `configs/recommended_images.yaml`
 - `src/ai_model_serving/runtime_validation/vllm_commands.py`
+
+## Update — 2026-08-13: reasoning 종료 후 schema 적용
+
+현재 Gemma4 profile에서 `enable_in_reasoning=true`는 최종 답변뿐 아니라 thinking 단계에도
+xgrammar JSON schema를 강제했다. 실제 vLLM 직접 요청에서 thinking과 json_schema를 함께
+사용하면 reasoning이 반복되고 `finish_reason=length`로 불완전 JSON이 반환된 반면, 각각을
+단독으로 사용하면 정상 동작했다. `enable_in_reasoning=false`로 바꿔 Gemma4 reasoner가
+thinking 종료를 먼저 판별하고 최종 답변에만 schema를 적용하도록 한다. 이는 warmup 문제가
+아니며, vLLM 기본값과 동일한 처리 경로다.

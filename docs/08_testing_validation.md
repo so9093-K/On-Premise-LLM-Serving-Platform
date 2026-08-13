@@ -361,6 +361,8 @@ GATEWAY_BASE_URL=http://staging-gateway:9400 python scripts/validation/runtime_v
 
 `--gateway-base`, `--risk-base`, 각 vLLM runtime `--*-base`, `--prometheus-base`가 후보 endpoint 지정에 사용된다. API key, admin key, internal service token과 raw prompt·응답·token은 명령 출력과 runtime report에 남기지 않는다.
 
+배포 서버의 private-network 구성에서는 Gateway만 host에 공개되고 Risk·vLLM은 Compose 내부 DNS에서만 접근된다. 따라서 전체 API 검증은 Compose 네트워크에 연결된 실행 위치에서 service URL을 명시해 수행하고, `nvidia-smi`를 사용하는 GPU 표본은 host에서 수행한다. host 기본 URL만으로 내부 서비스를 검사해 발생하는 connection refused/DNS 실패는 서비스 장애 증거가 아니다.
+
 ### 검증 범위
 
 | 영역 | 주요 확인 내용 |

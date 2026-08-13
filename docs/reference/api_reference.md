@@ -255,7 +255,7 @@ curl "$GATEWAY_URL/v1/models" \
 | `tools` | array | N | Runtime policy 최대 64개 | Function tool 정의 |
 | `tool_choice` | string / object | N | `auto`, `none`, `required`, function choice | Tool 선택 방식 |
 | `parallel_tool_calls` | boolean | N | `false` | 병렬 tool call 비활성 |
-| `reasoning` | boolean | N | 기본 `false` | Gemma4 thinking opt-in |
+| `reasoning` | boolean | N | 기본 `false` | Gemma4 thinking opt-in. `json_schema`와 함께 쓰면 thinking 종료 뒤 최종 답변이 schema를 따른다. |
 | `response_format` | object | N | `text`, `json_object`, `json_schema` | 출력 형식 |
 | `logprobs` | boolean | N | `true` / `false` | Token log probability |
 | `top_logprobs` | integer | N | `0`–`10` | `logprobs=true` 필요 |

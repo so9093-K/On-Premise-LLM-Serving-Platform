@@ -266,7 +266,7 @@ def runtime_validation_matrix_checks(registry: "ModelRegistry") -> tuple["Runtim
         RuntimeValidationMatrixCheck(
             id="gemma4-reasoning-parser-structured-outputs-canary",
             owner="model-runtime",
-            validation="Gemma4 reasoning parser plus structured outputs config enable_in_reasoning=true constrains json_schema output on the reasoning=false/default path and fails if free text bypasses grammar.",
+            validation="Gemma4 reasoner가 thinking 종료를 판별한 뒤 최종 답변에 json_schema grammar를 적용해 schema-valid JSON을 반환한다.",
             artifact_file="reports/runtime/gemma4-reasoning-parser-structured-outputs-canary.md",
             runtime_validation_required=True,
             operator_action="Keep Gateway surface compatible; report degradation and adjust runtime structured_outputs or combination policy after canary evidence.",

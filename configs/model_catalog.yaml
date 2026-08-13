@@ -21,7 +21,7 @@ models:
     upstream_model_id: google/embeddinggemma-300m
     input_modalities: [text]
     embedding_dimensions:
-      matryoshka_supported: [768, 512, 256, 128]
+      supported: [768]
     runtime:
       served_model_name: local-embed
       port: 9402

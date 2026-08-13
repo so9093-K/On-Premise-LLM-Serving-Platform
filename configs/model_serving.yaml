@@ -8,7 +8,9 @@ embedding_profiles:
     service_key: embedding
     served_model_name: local-embed
     upstream_model_id: google/embeddinggemma-300m
-    dimensions: [768, 512, 256, 128]
+    # 현재 vLLM pooling runtime은 dimensions 파라미터로 matryoshka 축소를 지원하지
+    # 않는다. 실제로 요청 가능한 기본 출력 차원만 공개한다.
+    dimensions: [768]
     default_dimensions: 768
     purpose: general
     retrieval:
@@ -82,9 +84,6 @@ models:
         max_model_len: 2048
         embedding_dimensions:
         - 768
-        - 512
-        - 256
-        - 128
       # embedding upstream 실패는 해당 요청의 오류로 반환하며 다른 모델로 대체하지 않는다.
     request_parameter_policy:
       allow_unlisted_parameters: false
@@ -95,6 +94,9 @@ models:
       - user
       drop_upstream_parameters:
       - user
+      # vLLM은 기본값(768)도 dimensions로 명시하면 거부한다. Gateway가 API 계약을
+      # 검증한 뒤 제거하고, 응답 차원은 원래 요청 기준으로 계속 확인한다.
+      - dimensions
       dimensions:
       - 768
       - 512
