@@ -83,9 +83,9 @@ vLLM main LLM structured output backend를 `auto`(xgrammar)에서 `xgrammar` + `
 
 ## Update — 2026-08-13: reasoning 종료 후 schema 적용
 
-현재 Gemma4 profile에서 `enable_in_reasoning=true`는 최종 답변뿐 아니라 thinking 단계에도
-xgrammar JSON schema를 강제했다. 실제 vLLM 직접 요청에서 thinking과 json_schema를 함께
-사용하면 reasoning이 반복되고 `finish_reason=length`로 불완전 JSON이 반환된 반면, 각각을
-단독으로 사용하면 정상 동작했다. `enable_in_reasoning=false`로 바꿔 Gemma4 reasoner가
-thinking 종료를 먼저 판별하고 최종 답변에만 schema를 적용하도록 한다. 이는 warmup 문제가
-아니며, vLLM 기본값과 동일한 처리 경로다.
+`enable_in_reasoning=true`는 최종 답변뿐 아니라 thinking 단계에도 xgrammar JSON schema를
+강제한다. 따라서 `enable_in_reasoning=false`로 두고 Gemma4 reasoner가 thinking 종료를 먼저
+판별한 뒤 최종 답변에만 schema를 적용한다. 이 경로가 성립하려면 custom chat template의
+thinking prefix가 모델 native template과 동일해야 한다. 2026-08-13에 `<|think|>` 뒤 개행이
+누락된 것을 수정했고, compose 정적 검증이 native prefix 렌더 결과를 확인한다. 이는 warmup
+문제가 아니라 vLLM 입력 프로토콜 계약이다.

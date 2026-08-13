@@ -192,15 +192,27 @@ def validate_main_llm_bootstrap_image(compose: dict[str, Any]) -> list[str]:
 
 
 def validate_gemma4_chat_template() -> list[str]:
-    """vLLM 기동 전 Gemma 4 템플릿의 Jinja 문법 오류를 확인한다."""
+    """vLLM 기동 전 Gemma 4 템플릿의 문법과 thinking 입력 형식을 확인한다."""
     if not GEMMA4_CHAT_TEMPLATE_PATH.is_file():
         return ["configs/gemma4_chat_template.jinja is missing"]
     try:
-        Environment().from_string(GEMMA4_CHAT_TEMPLATE_PATH.read_text(encoding="utf-8"))
+        template = Environment().from_string(GEMMA4_CHAT_TEMPLATE_PATH.read_text(encoding="utf-8"))
     except TemplateSyntaxError as exc:
         return [
             "configs/gemma4_chat_template.jinja has invalid Jinja syntax: "
             f"line {exc.lineno}: {exc.message}"
+        ]
+    rendered = template.render(
+        bos_token="<bos>",
+        messages=[{"role": "user", "content": "template contract"}],
+        tools=[],
+        add_generation_prompt=True,
+        enable_thinking=True,
+    )
+    if "<|turn>system\n<|think|>\n<turn|>\n" not in rendered:
+        return [
+            "configs/gemma4_chat_template.jinja must render the native Gemma4 "
+            "thinking prefix '<|think|>\\n<turn|>'"
         ]
     return []
 
