@@ -222,7 +222,13 @@ def validate_alignment(
     *,
     effective_compose: dict[str, Any] | None = None,
 ) -> None:
-    compose = effective_compose if effective_compose is not None else load_yaml(compose_path)
+    # main-llm bootstrap image의 `${AUDIO_VLLM_IMAGE:-${VLLM_IMAGE}}`는
+    # 원본 Compose가 보존해야 하는 projection 계약이다. `docker compose config`를
+    # 거친 effective Compose에서는 이 표현식이 실제 digest로 해석되므로, 그 값을
+    # 원본 표현식과 비교하면 정상 배포도 항상 실패한다. 반면 command/GPU 값은 실제
+    # 실행값을 봐야 하므로 아래의 `compose`는 계속 effective document를 사용한다.
+    source_compose = load_yaml(compose_path)
+    compose = effective_compose if effective_compose is not None else source_compose
     serving_doc = load_yaml(SERVING_PATH)
     catalog_doc = load_yaml(CATALOG_PATH)
     gpu_budgets = load_yaml(GPU_BUDGETS_PATH)
@@ -233,7 +239,7 @@ def validate_alignment(
     total_gpu_util = 0.0
 
     errors.extend(validate_production_compose_no_build_blocks(compose_path))
-    errors.extend(validate_main_llm_bootstrap_image(compose))
+    errors.extend(validate_main_llm_bootstrap_image(source_compose))
     errors.extend(validate_gemma4_chat_template())
 
     for runtime in registry.iter_runtime_services():
