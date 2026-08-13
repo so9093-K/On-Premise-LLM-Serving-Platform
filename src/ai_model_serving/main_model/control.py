@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 import re
 import time
 import uuid
@@ -151,7 +152,7 @@ def _apply_util_override(command: list[str], override: float | None) -> list[str
 
 def _resolve_profile_image(
     profile_image: object,
-    shared_image: str,
+    shared_image: str | None,
     env: dict[str, str] | None,
     profile_id: str,
 ) -> str:
@@ -168,13 +169,22 @@ def _resolve_profile_image(
     - A literal value must be a sha256 digest.
     """
     if profile_image is None:
-        return shared_image
+        if shared_image is not None:
+            return shared_image
+        raise MainModelConfigurationError(f"profile {profile_id} image is required")
     if isinstance(profile_image, str):
         ref = _IMAGE_ENV_REF_RE.match(profile_image)
         if ref is not None:
-            resolved = (env or {}).get(ref.group(1), "").strip()
-            if not resolved:
+            # 호출자가 env를 명시하지 않은 CLI/test 유틸리티도 Compose와 같은
+            # process environment를 해석한다. 명시 env={}는 의도적으로 빈 환경이다.
+            environment = os.environ if env is None else env
+            resolved = environment.get(ref.group(1), "").strip()
+            if not resolved and shared_image is not None:
                 return shared_image
+            if not resolved:
+                raise MainModelConfigurationError(
+                    f"profile {profile_id} image env {ref.group(1)} is empty"
+                )
             if _DIGEST_IMAGE_RE.fullmatch(resolved):
                 return resolved
             raise MainModelConfigurationError(
@@ -202,9 +212,11 @@ def load_main_model_catalog(
     profiles_raw = raw.get("profiles")
     if not public_model or not isinstance(runtime, dict) or not isinstance(profiles_raw, dict):
         raise MainModelConfigurationError("public_model, runtime, and profiles are required")
-    image = str(runtime.get("image", ""))
-    if not _DIGEST_IMAGE_RE.fullmatch(image):
-        raise MainModelConfigurationError("runtime image must be pinned by sha256 digest")
+    # 공용 runtime image도 profile override와 같은 배포 pin을 사용한다. 이전에는
+    # 여기만 과거 literal digest로 남아, image를 따로 선언하지 않은 26B 전환이
+    # Docker create의 "No such image"로 실패했다.
+    image = _resolve_profile_image(runtime.get("image"), None, env, "runtime")
+    runtime = {**runtime, "image": image}
 
     profiles: dict[str, MainModelProfile] = {}
     for profile_id, item in profiles_raw.items():

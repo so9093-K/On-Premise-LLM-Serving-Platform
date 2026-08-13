@@ -18,13 +18,15 @@ CATALOG = ROOT / "configs/main_model_profiles.yaml"
 
 
 _AUDIO_IMAGE = "registry.example.com/vllm-gemma4-audio@sha256:" + "a" * 64
+_RUNTIME_IMAGE = "registry.example.com/vllm-unified@sha256:" + "b" * 64
 
 
-def _env(path: Path, *, profile: str, locked: bool, audio_image: str = "") -> None:
+def _env(path: Path, *, profile: str, locked: bool, audio_image: str = "", runtime_image: str = _RUNTIME_IMAGE) -> None:
     path.write_text(
         f"MAIN_LLM_BOOT_PROFILE={profile}\n"
         f"MAIN_LLM_PROFILE_LOCKED={'true' if locked else 'false'}\n"
-        f"AUDIO_VLLM_IMAGE={audio_image}\n",
+        f"AUDIO_VLLM_IMAGE={audio_image}\n"
+        f"VLLM_IMAGE={runtime_image}\n",
         encoding="utf-8",
     )
 
@@ -67,9 +69,8 @@ def test_persisted_audio_profile_falls_back_to_shared_image_without_audio_pin(tm
         state_path=state,
         env_path=env,
     )
-    catalog = yaml.safe_load(CATALOG.read_text(encoding="utf-8"))
     assert profile == "gemma4-12b-unified-fp8"
-    assert override["services"]["main-llm-vllm"]["image"] == catalog["runtime"]["image"]
+    assert override["services"]["main-llm-vllm"]["image"] == _RUNTIME_IMAGE
 
 
 def test_locked_boot_profile_overrides_persisted_profile(tmp_path):

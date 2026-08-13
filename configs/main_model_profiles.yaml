@@ -10,8 +10,9 @@ runtime:
   container_port: 9401
   models_path: /v1/models
   chat_path: /v1/chat/completions
-  # profile별 image가 없을 때 쓰는 digest 고정 기본 이미지다.
-  image: gitlab.wizvera.com:4567/acl-ai-system/acl-ai-gateway/vllm-unified@sha256:57f8dc4b64c189e0656ead65fbf7444971c74158b8fbdd9106886ed7353b1981
+  # profile별 image가 없을 때 쓰는 unified runtime pin. CI/CD가 .env의 digest를
+  # 갱신하므로 선택 가능한 profile이 과거 고정 image를 상속하지 않는다.
+  image: ${VLLM_IMAGE}
   drain_timeout_seconds: 30
   startup_timeout_seconds: 600
   stop_timeout_seconds: 30

@@ -14,6 +14,8 @@ import json
 
 from pathlib import Path
 
+import yaml
+
 
 from tests.support.asgi import InlineASGITestClient as TestClient
 
@@ -40,6 +42,13 @@ from ai_model_serving.services.readiness import DependencyProbe, collect_readine
 
 
 from ai_model_serving.settings import AppSettings, EmbeddingProfile, RuntimeEndpoint, SecuritySettings
+from ai_model_serving.domain import ModelRegistry
+
+
+_ROOT = Path(__file__).resolve().parents[3]
+_MODEL_CATALOG = yaml.safe_load((_ROOT / "configs/model_catalog.yaml").read_text(encoding="utf-8"))
+_MODEL_SERVING = yaml.safe_load((_ROOT / "configs/model_serving.yaml").read_text(encoding="utf-8"))
+_EMBEDDING_PROFILES = _MODEL_SERVING["embedding_profiles"]
 
 
 class FakeRuntimeClient:
@@ -174,56 +183,13 @@ class FakeGatewayClients:
 
 
 def public_models():
-    return (
-        {
-            "id": "local-main",
-            "object": "model",
-            "backend": "main_llm_vllm",
-            "capabilities": ["chat.completions"],
-            "request_parameters": {"temperature": {"type": "number", "min": 0, "max": 2}, "stream": {"type": "boolean"}},
-        },
-        {
-            "id": "local-embed",
-            "object": "model",
-            "backend": "embedding_vllm",
-            "capabilities": ["embeddings", "retrieval_rerank", "retrieval_score"],
-            "request_parameters": {"dimensions": {"type": "integer", "enum": [768, 512, 256, 128]}},
-        },
-        {
-            "id": "local-embed-ko",
-            "object": "model",
-            "backend": "embedding_ko_vllm",
-            "capabilities": ["embeddings", "retrieval_rerank", "retrieval_score"],
-            "request_parameters": {"dimensions": {"type": "integer", "enum": [1024]}},
-        },
-        {
-            "id": "risk-prompt",
-            "object": "model",
-            "backend": "risk_adapter",
-            "capabilities": ["risk.prompt_attack_signal"],
-            "request_parameters": {},
-            "fixed_parameters": {"max_tokens": 1, "temperature": 0},
-        },
-    )
+    return ModelRegistry(_MODEL_CATALOG, _MODEL_SERVING).public_model_response_items()
 
 
-_PRODUCTION_EMBEDDING_POLICY = {
-    "allow_unlisted_parameters": False,
-    "supported_parameters": ["dimensions", "encoding_format", "truncate_prompt_tokens", "user"],
-    "drop_upstream_parameters": ["user", "dimensions"],
-    "dimensions": [768, 512, 256, 128],
-    "max_truncate_prompt_tokens": 2048,
-}
-
-
-_PRODUCTION_EMBEDDING_KO_POLICY = {
-    "allow_unlisted_parameters": False,
-    "supported_parameters": ["dimensions", "encoding_format", "truncate_prompt_tokens", "user"],
-    "drop_upstream_parameters": ["user", "dimensions"],
-    "dimensions": [1024],
-    "max_truncate_prompt_tokens": 2048,
-    "max_embedding_batch_size": 16,
-}
+# Gateway 테스트는 실제 운영 정책을 복사하지 않는다. 정책 자체의 정합성은
+# make validate가 맡고, 여기서는 그 정책을 소비할 때의 동작만 확인한다.
+_PRODUCTION_EMBEDDING_POLICY = _MODEL_SERVING["models"]["embedding"]["request_parameter_policy"]
+_PRODUCTION_EMBEDDING_KO_POLICY = _MODEL_SERVING["models"]["embedding_ko"]["request_parameter_policy"]
 
 
 def settings() -> AppSettings:
@@ -267,7 +233,7 @@ def settings() -> AppSettings:
                 model="local-embed",
                 service_key="embedding",
                 upstream_model_id="google/embeddinggemma-300m",
-                dimensions=(768, 512, 256, 128),
+                dimensions=tuple(_EMBEDDING_PROFILES["local-embed"]["dimensions"]),
                 default_dimensions=768,
                 retrieval_enabled=True,
                 score_modes=("dense_cosine",),
@@ -281,7 +247,7 @@ def settings() -> AppSettings:
                 model="local-embed-ko",
                 service_key="embedding_ko",
                 upstream_model_id="dragonkue/snowflake-arctic-embed-l-v2.0-ko",
-                dimensions=(1024,),
+                dimensions=tuple(_EMBEDDING_PROFILES["local-embed-ko"]["dimensions"]),
                 default_dimensions=1024,
                 retrieval_enabled=True,
                 retrieval_default=True,
@@ -341,42 +307,6 @@ class SpyVLLMClient(FakeRuntimeClient):
     async def aclose(self):
         self.closed = True
         self.__class__.closed_endpoints.append(self.endpoint.logical_id)
-
-
-def _settings_with_embedding_policy(policy: dict) -> AppSettings:
-    base = settings()
-    embed = RuntimeEndpoint(
-        "local-embed", "http://embed/v1", "local-embed", 1,
-        request_parameter_policy=policy,
-    )
-    return AppSettings(
-        app_env=base.app_env,
-        project_version=base.project_version,
-        security=base.security,
-        gateway_timeout_seconds=base.gateway_timeout_seconds,
-        risk_adapter_timeout_seconds=base.risk_adapter_timeout_seconds,
-        main_llm=base.main_llm,
-        embedding=embed,
-        embedding_ko=base.embedding_ko,
-        risk_prompt=base.risk_prompt,
-        risk_adapter_base_url=base.risk_adapter_base_url,
-        max_request_body_bytes=base.max_request_body_bytes,
-        public_models=base.public_models,
-        embedding_profiles={
-            **base.embedding_profiles,
-            "local-embed": EmbeddingProfile(
-                model="local-embed",
-                service_key="embedding",
-                upstream_model_id="google/embeddinggemma-300m",
-                dimensions=tuple(policy.get("dimensions", [768, 512, 256, 128])),
-                default_dimensions=768,
-                retrieval_enabled=True,
-                score_modes=("dense_cosine",),
-                request_parameter_policy=policy,
-            ),
-        },
-        embedding_model_routes=base.embedding_model_routes,
-    )
 
 
 def tool_calling_settings() -> AppSettings:

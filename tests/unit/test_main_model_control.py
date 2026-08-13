@@ -94,7 +94,10 @@ class FakeBackend:
 
 
 def catalog():
-    result = load_main_model_catalog(ROOT / "configs/main_model_profiles.yaml")
+    result = load_main_model_catalog(
+        ROOT / "configs/main_model_profiles.yaml",
+        env={"VLLM_IMAGE": _SHARED_IMAGE, "AUDIO_VLLM_IMAGE": _AUDIO_IMAGE},
+    )
     result.runtime["drain_timeout_seconds"] = 0
     return result
 
@@ -803,6 +806,17 @@ def test_profile_image_env_ref_resolves_from_env(tmp_path):
     )
     assert loaded.profiles["audio"].image == _AUDIO_IMAGE
     assert loaded.profiles["base"].image == _SHARED_IMAGE
+
+
+def test_runtime_image_env_ref_resolves_before_profiles_inherit_it(tmp_path):
+    path = _write_catalog_path(tmp_path, audio_image=None)
+    raw = path.read_text(encoding="utf-8").replace(
+        f"image: {_SHARED_IMAGE}", "image: ${VLLM_IMAGE}", 1
+    )
+    path.write_text(raw, encoding="utf-8")
+    loaded = load_main_model_catalog(path, env={"VLLM_IMAGE": _AUDIO_IMAGE})
+    assert loaded.runtime["image"] == _AUDIO_IMAGE
+    assert loaded.profiles["base"].image == _AUDIO_IMAGE
 
 
 def test_profile_image_env_ref_falls_back_to_shared_when_unset(tmp_path):

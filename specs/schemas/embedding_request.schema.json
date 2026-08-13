@@ -15,7 +15,7 @@
     "dimensions": {
       "type": "integer",
       "oneOf": [
-        {"enum": [768, 512, 256, 128]},
+        {"const": 768},
         {"const": 1024}
       ]
     },
@@ -45,7 +45,7 @@
       "if": {"properties": {"model": {"const": "local-embed"}}, "required": ["model"]},
       "then": {
         "properties": {
-          "dimensions": {"enum": [768, 512, 256, 128]}
+          "dimensions": {"const": 768}
         }
       }
     }

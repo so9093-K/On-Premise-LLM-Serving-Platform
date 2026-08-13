@@ -486,7 +486,7 @@ paths:
                   model: local-embed
                   input:
                   - 임베딩할 텍스트입니다.
-                  dimensions: 256
+                  dimensions: 768
               truncate_prompt_tokens:
                 summary: 긴 입력 truncation
                 value:

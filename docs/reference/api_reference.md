@@ -827,7 +827,7 @@ Video는 활성 Main Model profile의 `deployed_input`에 `video`가 포함된 �
 
 | Model | 기본 Dimension | 지원 Dimension |
 |---|---:|---|
-| `local-embed` | `768` | `768`, `512`, `256`, `128` |
+| `local-embed` | `768` | `768` |
 | `local-embed-ko` | `1024` | `1024` |
 
 ### 4.2 단일 입력
@@ -848,7 +848,7 @@ Video는 활성 Main Model profile의 `deployed_input`에 `video`가 포함된 �
     "첫 번째 문장",
     "두 번째 문장"
   ],
-  "dimensions": 256
+  "dimensions": 768
 }
 ```
 
@@ -885,7 +885,8 @@ Video는 활성 Main Model profile의 `deployed_input`에 `video`가 포함된 �
 }
 ```
 
-실제 `embedding` 배열 길이는 요청한 `dimensions` 또는 해당 model의 기본 dimension과 일치한다.
+실제 `embedding` 배열 길이는 모델별 지원 dimension과 일치한다. `local-embed`은
+`dimensions: 768`만 호환성 입력으로 허용하며 upstream에는 전달하지 않는다.
 
 ### 4.6 Embedding 오류 예시
 
@@ -895,7 +896,7 @@ Video는 활성 Main Model profile의 `deployed_input`에 `video`가 포함된 �
 {
   "error": {
     "code": "VALIDATION_ERROR",
-    "message": "dimensions must be one of [128, 256, 512, 768].",
+    "message": "dimensions must be one of [768].",
     "param": "dimensions",
     "retryable": false,
     "request_id": "req_..."

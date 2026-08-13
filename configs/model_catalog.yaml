@@ -36,7 +36,7 @@ models:
     upstream_model_id: dragonkue/snowflake-arctic-embed-l-v2.0-ko
     input_modalities: [text]
     embedding_dimensions:
-      matryoshka_supported: [1024]
+      supported: [1024]
     runtime:
       served_model_name: local-embed-ko
       port: 9406

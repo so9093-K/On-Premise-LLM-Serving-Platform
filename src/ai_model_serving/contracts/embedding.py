@@ -5,7 +5,9 @@ from typing import Any
 from ..errors import ServiceError
 from .common import ensure_object, is_int, is_number
 
-EMBEDDING_DIMENSIONS = {768, 512, 256, 128}
+# 기본 검증값은 현재 일반 embedding runtime이 실제로 보장하는 출력 차원이다.
+# 모델 자체의 Matryoshka 가능 여부와 Gateway가 공개하는 런타임 계약은 구분한다.
+EMBEDDING_DIMENSIONS = {768}
 
 
 def validate_embedding_request(

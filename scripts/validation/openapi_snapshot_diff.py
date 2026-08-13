@@ -28,6 +28,10 @@ STRICT_ENV = {
     "INTERNAL_SERVICE_AUTH_REQUIRED": "true",
     "INTERNAL_SERVICE_TOKEN": "snapshot-internal-token",
     "FASTAPI_DOCS_ENABLED": "true",
+    # OpenAPI 생성은 컨테이너를 실행하지 않지만 main-model catalog를 읽는다.
+    # runtime image는 digest 형식만 검증하므로 실제 배포 pin이 아닌 고정 fixture를 쓴다.
+    "VLLM_IMAGE": "registry.example.com/vllm-unified@sha256:" + "0" * 64,
+    "AUDIO_VLLM_IMAGE": "registry.example.com/vllm-unified@sha256:" + "1" * 64,
 }
 
 

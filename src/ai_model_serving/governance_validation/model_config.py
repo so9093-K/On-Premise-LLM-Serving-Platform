@@ -103,15 +103,19 @@ def validate_model_resource_control_policy() -> None:
             f'total configured gpu_memory_utilization {budget["total_gpu_memory_utilization"]} '
             f'must stay below avoid_above {budget["avoid_above"]}'
         )
-    catalog = load_main_model_catalog(ROOT / 'configs' / 'main_model_profiles.yaml')
-    for profile in catalog.profiles.values():
-        if not profile.gateway_policy:
-            raise SystemExit(f'{profile.profile_id} must declare gateway_policy')
-        limits = profile.gateway_policy['request_limits']
-        if 'image' in profile.capabilities['deployed_input']:
+    # 이 검증은 profile 정책 구조만 본다. image pin의 실제 해석은 .env를 읽는
+    # boot/admin 경로에서 수행하므로 여기서 runtime image env를 요구하지 않는다.
+    main_profiles = read_yaml('configs/main_model_profiles.yaml')['profiles']
+    for profile_id, profile in main_profiles.items():
+        policy = profile.get('gateway_policy', {})
+        if not policy:
+            raise SystemExit(f'{profile_id} must declare gateway_policy')
+        limits = policy['request_limits']
+        capabilities = profile.get('capabilities', {})
+        if 'image' in capabilities.get('deployed_input', []):
             if int(limits.get('max_image_inputs', 0)) != 1 or limits.get('allowed_image_url_schemes') != ['data']:
-                raise SystemExit(f'{profile.profile_id} image input policy must allow exactly one data:image input')
+                raise SystemExit(f'{profile_id} image input policy must allow exactly one data:image input')
             if int(limits.get('max_image_bytes', 0)) <= 0 or int(limits.get('max_image_pixels', 0)) <= 0:
-                raise SystemExit(f'{profile.profile_id} image input policy must define decoded byte and pixel limits')
+                raise SystemExit(f'{profile_id} image input policy must define decoded byte and pixel limits')
             if not limits.get('allowed_image_mime_types'):
                 raise SystemExit(f'{profile.profile_id} image input policy must define allowed image MIME types')
