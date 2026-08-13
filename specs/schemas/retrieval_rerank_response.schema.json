@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "GatewayRetrievalRerankResponse",
+  "type": "object",
+  "required": ["results", "model", "score_mode"],
+  "additionalProperties": false,
+  "properties": {
+    "model": {"enum": ["local-embed-ko", "local-embed"]},
+    "query": {"type": "string"},
+    "score_mode": {
+      "type": "string",
+      "enum": ["dense_cosine"]
+    },
+    "results": {
+      "type": "array",
+      "minItems": 0,
+      "items": {
+        "type": "object",
+        "required": ["index", "document", "score"],
+        "additionalProperties": false,
+        "properties": {
+          "index": {"type": "integer", "minimum": 0},
+          "document": {"type": "string"},
+          "score": {"type": "number"}
+        }
+      }
+    }
+  }
+}

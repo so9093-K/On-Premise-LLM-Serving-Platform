@@ -1,0 +1,31 @@
+// Docker API 권한은 없다. admin-sidecar가 Compose metadata와 Docker LogPath로
+// 만든 manifest만 읽고, 각 target에 이미 service label이 들어 있다.
+discovery.file "docker_targets" {
+  files            = ["/var/lib/alloy/targets/docker-containers.json"]
+  refresh_interval = "10s"
+}
+
+loki.source.file "docker_json" {
+  targets       = discovery.file.docker_targets.targets
+  forward_to    = [loki.process.docker_json.receiver]
+  tail_from_end = true
+}
+
+loki.process "docker_json" {
+  forward_to = [loki.write.local.receiver]
+
+  stage.docker {}
+
+  // docker json-file의 stdout/stderr 구분은 기존 Promtail label contract를 유지한다.
+  stage.labels {
+    values = {
+      stream = "",
+    }
+  }
+}
+
+loki.write "local" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+}

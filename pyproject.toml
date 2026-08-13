@@ -1,0 +1,39 @@
+[project]
+name = "ai-model-serving-platform"
+version = "0.0.1"
+description = "Gateway-centered vLLM AI model serving platform with chat, embedding, and risk signal APIs."
+requires-python = ">=3.12,<3.15"
+dependencies = [
+  "fastapi==0.128.2",
+  "anyio==4.9.0",
+  # 애플리케이션은 HTTP/SSE만 제공한다. reload·WebSocket·dotenv bundle 전체가 아닌
+  # production 서버에서 실제 사용하는 event loop와 HTTP parser만 명시한다.
+  "uvicorn==0.46.0",
+  "uvloop==0.22.1",
+  "httptools==0.7.1",
+  "httpx==0.28.1",
+  "huggingface_hub==1.13.0",
+  "prometheus-client==0.25.0",
+  "PyYAML==6.0.3",
+  "jsonschema==4.26.0",
+]
+
+[project.optional-dependencies]
+contract = [
+  "jsonschema==4.26.0",
+  "Jinja2==3.1.6",
+  "pytest==8.4.2",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests/unit", "tests/contract"]
+python_files = ["test_*.py"]
+pythonpath = ["src", "."]
+addopts = "-p no:cacheprovider -p no:ddtrace -p no:asyncio --strict-markers"
+
+[build-system]
+requires = ["setuptools==83.0.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]

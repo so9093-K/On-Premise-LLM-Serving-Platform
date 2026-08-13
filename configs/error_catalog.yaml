@@ -1,0 +1,103 @@
+# 에러 코드 카탈로그 — 사용자/운영자용 "의미 레이어"의 단일 소스.
+#
+# HTTP status의 런타임 권위는 src/ai_model_serving/errors.py 의 ERROR_STATUS 이며,
+# make validate의 validate_common_error_codes가 이 파일, ERROR_STATUS, public schema의
+# code 집합을 함께 검사한다. 따라서 status는 여기 중복하지 않고, 이 파일은 code별
+# 서술 메타데이터(meaning/retryable/action)만 담는다.
+#
+# 소비처:
+#  - 생성 OpenAPI 에러 응답의 status별 code gloss   (src/ai_model_serving/openapi_contracts.py)
+#
+# retryable 은 해당 code 의 일반적/권장 값이다. 실제 응답의 error.retryable 이 권위이며
+# 동일 code 라도 상황에 따라 다를 수 있다. meaning/action 값은 콜론을 포함할 수 있어
+# 모두 따옴표로 감싼다.
+schema_version: 1
+errors:
+  VALIDATION_ERROR:
+    retryable: false
+    meaning: "요청이 Gateway 입력 계약 검증을 통과하지 못했다."
+    action: "error.param 이 가리키는 필드를 message 지시대로 수정한다."
+  UNAUTHORIZED:
+    retryable: false
+    meaning: "API 키 또는 인증 정보가 없거나 유효하지 않다."
+    action: "유효한 Authorization 헤더(API 키)를 포함해 다시 호출한다."
+  FORBIDDEN:
+    retryable: false
+    meaning: "인증은 되었으나 해당 작업을 수행할 권한이 없다."
+    action: "필요한 권한/프로파일로 호출하거나 운영자에게 문의한다."
+  NOT_FOUND:
+    retryable: false
+    meaning: "요청한 리소스(엔드포인트, operation 등)가 존재하지 않는다."
+    action: "요청 경로와 식별자를 확인한다."
+  CONFLICT:
+    retryable: false
+    meaning: "현재 리소스 상태와 요청이 충돌해 작업을 수행할 수 없다."
+    action: "error.details.reason 또는 message를 확인한 뒤, 진행 중인 작업 완료·명시적 확인 등 충돌 원인을 해결한다."
+  GPU_BUDGET_EXCEEDED:
+    retryable: false
+    meaning: "요청한 런타임을 시작할 GPU VRAM 예산이 부족하다."
+    action: "error.details.plan.stop의 런타임을 정지한 뒤 재시도하거나 force=true로 자동 축출을 요청한다."
+  MODEL_UNAVAILABLE:
+    retryable: true
+    meaning: "대상 모델 런타임을 현재 사용할 수 없다(미기동·축출 등)."
+    action: "잠시 후 재시도하거나 런타임 상태(/admin/runtimes)를 확인한다."
+  MODEL_CAPABILITY_MISMATCH:
+    retryable: false
+    meaning: "요청이 활성 모델이 지원하지 않는 기능을 요구한다(예 - 비활성 모달리티)."
+    action: "활성 프로파일이 지원하는 입력/기능으로 요청을 맞춘다."
+  UPSTREAM_TIMEOUT:
+    retryable: true
+    meaning: "upstream 런타임 응답이 제한 시간을 초과했다."
+    action: "잠시 후 재시도하거나 요청 크기·복잡도를 줄인다."
+  UPSTREAM_ERROR:
+    retryable: true
+    meaning: "upstream 런타임이 오류를 반환했거나 통신에 실패했다."
+    action: "잠시 후 재시도한다. 반복되면 런타임 로그를 확인한다."
+  UPSTREAM_SCHEMA_ERROR:
+    retryable: true
+    meaning: "structured output 생성이 요청한 json_schema 를 만족하지 못했다."
+    action: "response_format.json_schema 를 단순화하거나 max_tokens 를 늘린다."
+  RATE_LIMITED:
+    retryable: true
+    meaning: "upstream rate limit 또는 로컬 admission 한도에 도달했다."
+    action: "Retry-After 를 존중해 백오프 후 재시도한다."
+  QUEUE_TIMEOUT:
+    retryable: true
+    meaning: "동시 처리 한도로 대기열에서 시간이 초과됐다."
+    action: "잠시 후 재시도하고 동시 요청 수를 줄인다."
+  CIRCUIT_OPEN:
+    retryable: true
+    meaning: "연속 실패로 upstream 서킷이 열려 일시적으로 차단 중이다."
+    action: "잠시 후 재시도한다."
+  REQUEST_TOO_LARGE:
+    retryable: false
+    meaning: "요청 body 가 허용 한도를 초과했다."
+    action: "payload(이미지·오디오·비디오·문서) 크기를 한도 이하로 줄인다."
+  RUNTIME_NOT_READY:
+    retryable: true
+    meaning: "런타임이 아직 기동/준비 중이다."
+    action: "준비 완료 후 재시도한다(/health 와 런타임 상태 확인)."
+  PARSE_ERROR:
+    retryable: true
+    meaning: "upstream 응답을 파싱할 수 없었다(유효하지 않은 형식)."
+    action: "반복되면 런타임 상태·로그를 확인한다."
+  INTERNAL_ERROR:
+    retryable: false
+    meaning: "Gateway 내부 처리 중 예기치 못한 오류가 발생했다."
+    action: "request_id 와 함께 운영자에게 문의한다."
+  DETECTOR_DISABLED:
+    retryable: false
+    meaning: "요청한 risk detector 가 현재 설정에서 비활성이다."
+    action: "운영자에게 활성화를 요청하거나 다른 detector 를 사용한다."
+  STREAM_LIMIT_EXCEEDED:
+    retryable: false
+    meaning: "스트리밍 응답이 chunk/byte 한도를 초과했다."
+    action: "출력 길이를 줄이거나 비스트리밍으로 재시도한다."
+  MAIN_MODEL_CONTROL_UNAVAILABLE:
+    retryable: true
+    meaning: "메인 모델 control plane(admin sidecar)을 사용할 수 없다."
+    action: "잠시 후 재시도한다. 반복되면 sidecar 상태를 확인한다."
+  MAIN_MODEL_SWITCH_IN_PROGRESS:
+    retryable: true
+    meaning: "메인 모델 프로파일 전환이 진행 중이다."
+    action: "전환 완료(operation 상태) 후 재시도한다."

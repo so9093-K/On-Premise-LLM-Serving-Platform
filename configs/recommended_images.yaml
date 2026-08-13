@@ -1,0 +1,59 @@
+images:
+  platform:
+    default: ai-model-serving-platform:0.0.1
+    purpose: 이 저장소에서 빌드하는 Gateway와 Risk Adapter 애플리케이션 이미지.
+    mutable: false
+    source: 로컬 Docker 빌드
+  vllm:
+    default: ai-model-serving-vllm-unified:0.0.1
+    purpose: 모든 제공 모델(main-LLM 26B/12B, embedding, embedding-ko, risk-prompt)을 위한
+      vLLM OpenAI 호환 runtime. 하나의 이미지에 두 patch 집합을 포함하며, 필요 없는 모델에서는
+      해당 patch가 동작하지 않는다. 2026-07-24에 기존 vllm-gemma4-audio와 risk-vllm-kanana
+      이미지를 통합했다.
+    mutable: false
+    source: ops/images/vllm-unified/Dockerfile을 사용하는 로컬 Docker 빌드
+  embedding_ko_vllm:
+    default: ai-model-serving-vllm-unified:0.0.1
+    purpose: local-embed-ko 한국어 dense retrieval embedding을 위한 vLLM pooling runtime.
+    mutable: false
+    source: vllm.default와 같은 이미지
+  risk_vllm:
+    default: ai-model-serving-vllm-unified:0.0.1
+    purpose: Kakao Kanana risk detector를 위한 vLLM runtime. vllm.default와 같은 이미지다.
+    mutable: false
+    source: vllm.default와 같은 이미지
+  dcgm_exporter:
+    default: nvcr.io/nvidia/k8s/dcgm-exporter:4.5.2-4.8.1-distroless
+    purpose: Prometheus용 NVIDIA GPU metric exporter.
+    mutable: true
+    source: NVIDIA dcgm-exporter release 예시
+  prometheus:
+    default: prom/prometheus:v3-distroless
+    purpose: 최소 distroless image variant를 사용하는 Prometheus metrics server.
+    mutable: true
+    source: Docker Hub prom/prometheus v3 distroless tag
+  grafana:
+    default: grafana/grafana:12.2.8
+    purpose: nightly/main tag 대신 안정적인 12.2.x에 고정한 Grafana dashboard UI.
+    mutable: true
+    source: Grafana 12.2.x Docker tag 계열
+  cadvisor:
+    default: gcr.io/cadvisor/cadvisor:v0.49.2
+    purpose: container별 CPU와 system RAM metric을 제공하는 resource advisor.
+    mutable: true
+    source: Google cAdvisor v0.49.x 안정 release
+  loki:
+    default: grafana/loki:3.3.2
+    purpose: Grafana request-log-explorer dashboard용 log aggregation backend. 파일시스템
+      저장소와 짧은 보존 기간(LOKI_RETENTION_HOURS)을 사용한다.
+    mutable: true
+    source: Grafana Loki 3.3.x Docker tag 계열
+  alloy:
+    default: grafana/alloy:v1.18.0
+    purpose: admin-sidecar가 생성한 읽기 전용 target manifest를 사용해 Docker json-file
+      container log를 Loki로 전송한다. Alloy에는 Docker API 접근 권한이 없다.
+    mutable: true
+    source: Grafana Alloy v1.18.0 release image
+validation_policy:
+  require_digest_before_production: true
+  generated_by: scripts/config/setup_env.py

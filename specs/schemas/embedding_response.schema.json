@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "GatewayEmbeddingResponse",
+  "type": "object",
+  "required": [
+    "object",
+    "data",
+    "model"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "object": {
+      "const": "list"
+    },
+    "model": {
+      "type": "string",
+      "enum": ["local-embed", "local-embed-ko"]
+    },
+    "data": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "object",
+          "embedding",
+          "index"
+        ],
+        "additionalProperties": true,
+        "properties": {
+          "object": {
+            "const": "embedding"
+          },
+          "embedding": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "number"
+            }
+          },
+          "index": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      }
+    },
+    "usage": {
+      "type": "object"
+    }
+  }
+}

@@ -1,0 +1,41 @@
+# 자동 생성 파일 — 직접 수정하지 마세요.
+# 생성 명령: python scripts/compose/render_exposure_overrides.py
+# 소스: configs/exposure_profiles.yaml profile: master_open
+#
+# 재생성: python scripts/compose/render_exposure_overrides.py
+# drift 확인: python scripts/compose/render_exposure_overrides.py --check
+#
+# 전체 stack host-published. 외부 접근이 차단된 신뢰된 사내망에서 Gateway와 vLLM runtime, Risk Adapter, Prometheus, DCGM, cAdvisor, Loki를 직접 사용한다. Alloy는 조회 API가 없어 여기서도 host-published 대상이 아니다.
+#
+# 이 프로필을 사용할 때는 EXPOSURE_AUDIENCE를 반드시 설정해야 합니다.
+# 허용값: local_only, private_lan, vpn, public
+# 구조화된 진단: configs/exposure_profiles.yaml profiles.master_open.diagnostics
+
+services:
+  main-llm-vllm:
+    ports:
+      - ${MAIN_LLM_VLLM_BIND_ADDR:-0.0.0.0}:${MAIN_LLM_VLLM_PORT:-9401}:9401
+  embedding-vllm:
+    ports:
+      - ${EMBEDDING_VLLM_BIND_ADDR:-0.0.0.0}:${EMBEDDING_VLLM_PORT:-9402}:9402
+  embedding-ko-vllm:
+    ports:
+      - ${EMBEDDING_KO_VLLM_BIND_ADDR:-0.0.0.0}:${EMBEDDING_KO_VLLM_PORT:-9406}:9406
+  risk-prompt-vllm:
+    ports:
+      - ${RISK_PROMPT_VLLM_BIND_ADDR:-0.0.0.0}:${RISK_PROMPT_VLLM_PORT:-9403}:9403
+  risk-adapter:
+    ports:
+      - ${RISK_ADAPTER_BIND_ADDR:-0.0.0.0}:${RISK_ADAPTER_PORT:-9405}:9405
+  prometheus:
+    ports:
+      - ${PROMETHEUS_BIND_ADDR:-0.0.0.0}:${PROMETHEUS_PORT:-9410}:9090
+  dcgm-exporter:
+    ports:
+      - ${DCGM_EXPORTER_BIND_ADDR:-0.0.0.0}:${DCGM_EXPORTER_PORT:-9412}:9400
+  cadvisor:
+    ports:
+      - ${CADVISOR_BIND_ADDR:-0.0.0.0}:${CADVISOR_PORT:-9413}:8080
+  loki:
+    ports:
+      - ${LOKI_BIND_ADDR:-0.0.0.0}:${LOKI_PORT:-9414}:3100

@@ -1,0 +1,55 @@
+# 자동 생성 파일입니다. 직접 수정하지 마세요.
+# 소스: configs/model_catalog.yaml + configs/model_serving.yaml + configs/monitoring.yaml
+# 명령: make render-runtime-assets
+global:
+  scrape_interval: 15s
+  scrape_timeout: 10s
+  evaluation_interval: 15s
+rule_files:
+- /etc/prometheus/rules/model_runtime.rules.yml
+scrape_configs:
+- job_name: gateway
+  metrics_path: /metrics
+  bearer_token_file: /run/secrets/admin_api_key
+  static_configs:
+  - targets:
+    - gateway:9400
+- job_name: risk-adapter
+  metrics_path: /metrics
+  bearer_token_file: /run/secrets/admin_api_key
+  static_configs:
+  - targets:
+    - risk-adapter:9405
+- job_name: vllm-runtimes
+  metrics_path: /metrics
+  static_configs:
+  - targets:
+    - main-llm-vllm:9401
+    labels:
+      model: local-main
+      runtime_service: main-llm-vllm
+  - targets:
+    - embedding-vllm:9402
+    labels:
+      model: local-embed
+      runtime_service: embedding-vllm
+  - targets:
+    - embedding-ko-vllm:9406
+    labels:
+      model: local-embed-ko
+      runtime_service: embedding-ko-vllm
+  - targets:
+    - risk-prompt-vllm:9403
+    labels:
+      model: risk-prompt
+      runtime_service: risk-prompt-vllm
+- job_name: dcgm-exporter
+  metrics_path: /metrics
+  static_configs:
+  - targets:
+    - dcgm-exporter:9400
+- job_name: cadvisor
+  metrics_path: /metrics
+  static_configs:
+  - targets:
+    - cadvisor:8080

@@ -1,0 +1,466 @@
+# Standalone private-network hardening compose file.
+# Gateway host bind is controlled by GATEWAY_BIND_ADDR. Use the 175 internal IP when possible, or 0.0.0.0 only with firewall/network policy.
+# Risk Adapter, Prometheus, cAdvisor, DCGM exporter are not host-published (expose only, no ports).
+# Grafana host publish default is 0.0.0.0; restrict with GRAFANA_BIND_ADDR (e.g. 127.0.0.1 for SSH-only access).
+# Start through `make compose-up`; it validates and adds the generated main-model boot projection.
+name: ${COMPOSE_PROJECT_NAME:-ai-model-serving-platform}
+services:
+  gateway:
+    image: ${PLATFORM_IMAGE:?Set PLATFORM_IMAGE to a tested platform image tag}
+    restart: unless-stopped
+    command:
+    - python
+    - -m
+    - uvicorn
+    - ai_model_serving.apps.gateway_asgi:app
+    - --host
+    - 0.0.0.0
+    - --port
+    - '9400'
+    ports:
+    - ${GATEWAY_BIND_ADDR:-0.0.0.0}:${GATEWAY_PORT:-9400}:9400
+    env_file: ${COMPOSE_SERVICE_ENV_FILE:?Set COMPOSE_SERVICE_ENV_FILE through the Compose command wrapper}
+    environment:
+      HEALTHCHECK_PORT: '9400'
+      APP_CONFIG_ROOT: /app
+      PYTHONPATH: /app/src
+      ADMIN_API_KEY_REQUIRED: '${ADMIN_API_KEY_REQUIRED:-true}'
+      ADMIN_ENDPOINTS_INTERNAL_ONLY: '${ADMIN_ENDPOINTS_INTERNAL_ONLY:-false}'
+      STRICT_ADMIN_ENDPOINT_SECURITY: '${STRICT_ADMIN_ENDPOINT_SECURITY:-true}'
+      ADMIN_SIDECAR_URL: http://admin-sidecar:8080
+      GATEWAY_RUNTIME_STATE_PATH: /var/lib/ai-model-serving/runtime-state.json
+    depends_on:
+      risk-adapter:
+        condition: service_healthy
+      main-llm-vllm:
+        condition: service_healthy
+      # admin-sidecar는 의도적으로 하드 의존에서 뺐다: gateway_inference.py의
+      # sidecar 호출은 이미 SidecarUnavailableError를 잡아 main-model 관련
+      # 요청만 503으로 낙제시키고(gateway_ops.py의 /metrics도 동일하게 낙제),
+      # embeddings/risk 경로는 sidecar를 아예 쓰지 않는다. admin-sidecar가
+      # 계속 crash-loop해도(예: 상태 경로 권한 문제) gateway 전체가
+      # "Created" 상태로 영원히 멈추는 단일 장애점을 만들지 않기 위함이다
+      # — 2026-07-21 장애의 근본 원인.
+    volumes:
+    - ../../.runtime/gateway:/var/lib/ai-model-serving
+  risk-adapter:
+    image: ${PLATFORM_IMAGE:?Set PLATFORM_IMAGE to a tested platform image tag}
+    restart: unless-stopped
+    command:
+    - python
+    - -m
+    - uvicorn
+    - ai_model_serving.apps.risk_adapter_asgi:app
+    - --host
+    - 0.0.0.0
+    - --port
+    - '9405'
+    ports: []
+    env_file: ${COMPOSE_SERVICE_ENV_FILE:?Set COMPOSE_SERVICE_ENV_FILE through the Compose command wrapper}
+    environment:
+      HEALTHCHECK_PORT: '9405'
+      APP_CONFIG_ROOT: /app
+      PYTHONPATH: /app/src
+      ADMIN_API_KEY_REQUIRED: '${ADMIN_API_KEY_REQUIRED:-true}'
+      ADMIN_ENDPOINTS_INTERNAL_ONLY: '${ADMIN_ENDPOINTS_INTERNAL_ONLY:-false}'
+      STRICT_ADMIN_ENDPOINT_SECURITY: '${STRICT_ADMIN_ENDPOINT_SECURITY:-true}'
+    expose:
+    - '9405'
+  main-llm-vllm:
+    # 이 image/command는 최초 `docker compose up` 부트스트랩 전용 placeholder다.
+    # admin-sidecar가 뜬 뒤에는 configs/main_model_profiles.yaml의 active profile
+    # 기준으로 항상 컨테이너를 stop/재생성하며 image도 그때마다 덮어쓴다
+    # (main_model/docker_backend.py의 replace(): payload["Image"] = profile.image).
+    # 실제 서빙 이미지는 이 값이 아니라 항상 그쪽을 봐야 한다. 이 값은
+    # default_profile이 resolve하는 image와 일치해야 하며(최초 부팅 시 이 값으로
+    # 뜬 컨테이너가 healthy해야 admin-sidecar의 첫 reconcile까지 갈 수 있다),
+    # 어긋나면 scripts/compose/validate_vllm_compose.py가 정적 계약 검증에서 잡는다.
+    # default_profile(gemma4-12b-unified-fp8)의 image는 ${AUDIO_VLLM_IMAGE}
+    # 참조라서, main_model/control.py의 _resolve_profile_image()와 동일한 폴백
+    # (env 비어있으면 shared VLLM_IMAGE)을 Compose의 ${VAR:-default} 문법으로
+    # 그대로 표현한다.
+    image: ${AUDIO_VLLM_IMAGE:-${VLLM_IMAGE}}
+    restart: unless-stopped
+    command:
+    - --model
+    - RedHatAI/gemma-4-12B-it-FP8-Dynamic
+    - --revision
+    - 67e53491df7a281623fa740de61307d5c542b7f4
+    - --served-model-name
+    - local-main
+    - --host
+    - 0.0.0.0
+    - --port
+    - '9401'
+    - --max-model-len
+    - '50000'
+    - --max-num-seqs
+    - '3'
+    - --max-num-batched-tokens
+    - '50000'
+    - --optimization-level
+    - '3'
+    - --gpu-memory-utilization
+    - '0.76'
+    - --tensor-parallel-size
+    - '1'
+    - --dtype
+    - auto
+    - --trust-remote-code
+    - --enable-prefix-caching
+    - --prefix-caching-hash-algo
+    - sha256_cbor
+    - --enable-auto-tool-choice
+    - --tool-call-parser
+    - gemma4
+    - --reasoning-parser
+    - gemma4
+    - --chat-template
+    - /app/configs/gemma4_chat_template.jinja
+    - --structured-outputs-config
+    - '{"backend":"xgrammar","disable_any_whitespace":true,"enable_in_reasoning":true}'
+    expose:
+    - '9401'
+    env_file: ${COMPOSE_SERVICE_ENV_FILE:?Set COMPOSE_SERVICE_ENV_FILE through the Compose command wrapper}
+    environment:
+      HF_TOKEN: ${HF_TOKEN:-}
+      HUGGING_FACE_HUB_TOKEN: ${HUGGING_FACE_HUB_TOKEN:-}
+      HF_HOME: /root/.cache/huggingface
+    volumes:
+    - ${HF_CACHE_DIR:-./model_cache/huggingface}:/root/.cache/huggingface
+    - ../../configs:/app/configs:ro
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - python3 -c "import urllib.request; urllib.request.urlopen('http://localhost:9401/health')"
+      interval: 30s
+      timeout: 10s
+      retries: 20
+      start_period: 300s
+    deploy:
+      resources:
+        reservations:
+          devices:
+          - capabilities:
+            - gpu
+  embedding-vllm:
+    image: ${VLLM_IMAGE:?Set VLLM_IMAGE to a tested vLLM OpenAI image tag}
+    restart: unless-stopped
+    command:
+    - --model
+    - google/embeddinggemma-300m
+    - --served-model-name
+    - local-embed
+    - --host
+    - 0.0.0.0
+    - --port
+    - '9402'
+    - --runner
+    - pooling
+    - --max-model-len
+    - '2048'
+    - --max-num-seqs
+    - '2'
+    - --max-num-batched-tokens
+    - '2048'
+    - --gpu-memory-utilization
+    - '0.04'
+    expose:
+    - '9402'
+    env_file: ${COMPOSE_SERVICE_ENV_FILE:?Set COMPOSE_SERVICE_ENV_FILE through the Compose command wrapper}
+    environment:
+      HF_TOKEN: ${HF_TOKEN:-}
+      HUGGING_FACE_HUB_TOKEN: ${HUGGING_FACE_HUB_TOKEN:-}
+      HF_HOME: /root/.cache/huggingface
+    volumes:
+    - ${HF_CACHE_DIR:-./model_cache/huggingface}:/root/.cache/huggingface
+    depends_on:
+      main-llm-vllm:
+        condition: service_healthy
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - python3 -c "import urllib.request; urllib.request.urlopen('http://localhost:9402/health')"
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 120s
+    deploy:
+      resources:
+        reservations:
+          devices:
+          - capabilities:
+            - gpu
+  embedding-ko-vllm:
+    image: ${EMBEDDING_KO_VLLM_IMAGE:?Set EMBEDDING_KO_VLLM_IMAGE to a tested vLLM OpenAI image tag}
+    restart: unless-stopped
+    command:
+    - --model
+    - dragonkue/snowflake-arctic-embed-l-v2.0-ko
+    - --served-model-name
+    - local-embed-ko
+    - --host
+    - 0.0.0.0
+    - --port
+    - '9406'
+    - --runner
+    - pooling
+    - --trust-remote-code
+    - --max-model-len
+    - '2048'
+    - --max-num-seqs
+    - '2'
+    - --max-num-batched-tokens
+    - '2048'
+    - --gpu-memory-utilization
+    - ${EMBEDDING_KO_GPU_MEMORY_UTILIZATION:-0.06}
+    expose:
+    - '9406'
+    env_file: ${COMPOSE_SERVICE_ENV_FILE:?Set COMPOSE_SERVICE_ENV_FILE through the Compose command wrapper}
+    environment:
+      HF_TOKEN: ${HF_TOKEN:-}
+      HUGGING_FACE_HUB_TOKEN: ${HUGGING_FACE_HUB_TOKEN:-}
+      HF_HOME: /root/.cache/huggingface
+    volumes:
+    - ${HF_CACHE_DIR:-./model_cache/huggingface}:/root/.cache/huggingface
+    depends_on:
+      embedding-vllm:
+        condition: service_healthy
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - python3 -c "import urllib.request; urllib.request.urlopen('http://localhost:9406/health')"
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 120s
+    deploy:
+      resources:
+        reservations:
+          devices:
+          - capabilities:
+            - gpu
+  risk-prompt-vllm:
+    image: ${RISK_VLLM_IMAGE:?Set RISK_VLLM_IMAGE to a tested vLLM OpenAI image tag
+      for risk models}
+    restart: unless-stopped
+    command:
+    - --model
+    - kakaocorp/kanana-safeguard-prompt-2.1b
+    - --served-model-name
+    - risk-prompt
+    - --host
+    - 0.0.0.0
+    - --port
+    - '9403'
+    - --max-model-len
+    - '8192'
+    - --max-num-seqs
+    - '1'
+    - --max-num-batched-tokens
+    - '8192'
+    - --gpu-memory-utilization
+    - '0.065'
+    - --dtype
+    - bfloat16
+    - --quantization
+    - bitsandbytes
+    - --load-format
+    - bitsandbytes
+    - --trust-remote-code
+    - --enforce-eager
+    depends_on:
+      embedding-vllm:
+        condition: service_healthy
+      # Keep vLLM runtime startup serialized on a shared GPU. vLLM profiles
+      # free memory during init, and concurrent embedding/risk startup can make
+      # that profiling fail even when steady-state GPU budget is valid.
+      embedding-ko-vllm:
+        condition: service_healthy
+    expose:
+    - '9403'
+    env_file: ${COMPOSE_SERVICE_ENV_FILE:?Set COMPOSE_SERVICE_ENV_FILE through the Compose command wrapper}
+    environment:
+      HF_TOKEN: ${HF_TOKEN:-}
+      HUGGING_FACE_HUB_TOKEN: ${HUGGING_FACE_HUB_TOKEN:-}
+      HF_HOME: /root/.cache/huggingface
+    volumes:
+    - ${HF_CACHE_DIR:-./model_cache/huggingface}:/root/.cache/huggingface
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - python3 -c "import urllib.request; urllib.request.urlopen('http://localhost:9403/health')"
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 120s
+    deploy:
+      resources:
+        reservations:
+          devices:
+          - capabilities:
+            - gpu
+  dcgm-exporter:
+    image: ${DCGM_EXPORTER_IMAGE:?Set DCGM_EXPORTER_IMAGE to a tested NVIDIA dcgm-exporter
+      image tag}
+    restart: unless-stopped
+    user: 0:0
+    privileged: true
+    cap_add:
+    - SYS_ADMIN
+    expose:
+    - '9400'
+    ports: []
+    deploy:
+      resources:
+        reservations:
+          devices:
+          - capabilities:
+            - gpu
+  cadvisor:
+    image: ${CADVISOR_IMAGE:?Set CADVISOR_IMAGE to a tested cAdvisor image tag}
+    restart: unless-stopped
+    privileged: true
+    expose:
+    - '8080'
+    ports: []
+    volumes:
+    - /:/rootfs:ro
+    - /var/run:/var/run:ro
+    - /sys:/sys:ro
+    - /var/lib/docker:/var/lib/docker:ro
+    devices:
+    - /dev/kmsg:/dev/kmsg
+  prometheus:
+    image: ${PROMETHEUS_IMAGE:?Set PROMETHEUS_IMAGE to a tested Prometheus image tag}
+    restart: unless-stopped
+    depends_on:
+    - gateway
+    - risk-adapter
+    - main-llm-vllm
+    - dcgm-exporter
+    - cadvisor
+    command:
+    - --config.file=/etc/prometheus/prometheus.yml
+    ports: []
+    volumes:
+    - ../prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    - ../prometheus/rules:/etc/prometheus/rules:ro
+    secrets:
+    - source: prometheus_admin_api_key
+      target: admin_api_key
+    expose:
+    - '9090'
+  # -------------------------------------------------------------------------
+  # Loki + Alloy — 요청 단위 로그 조회(누가/언제/무엇을/어떻게)용. Alloy는
+  # docker.sock을 쓰지 않는다. admin-sidecar만 Compose metadata와 Docker LogPath를
+  # target manifest로 투영하고, Alloy는 그 manifest와 docker json-file만 읽는다.
+  # 둘 다 어떤 앱 서비스의 depends_on에도 안 걸려 있어(Grafana만 datasource로
+  # 참조), 죽어도 다른 서비스 기동에 영향 없다.
+  # -------------------------------------------------------------------------
+  loki:
+    image: ${LOKI_IMAGE:?Set LOKI_IMAGE to a tested Grafana Loki image tag}
+    restart: unless-stopped
+    user: 0:0
+    command:
+    - -config.file=/etc/loki/loki-config.yml
+    - -config.expand-env=true
+    environment:
+      LOKI_RETENTION_HOURS: ${LOKI_RETENTION_HOURS:-168}
+    volumes:
+    - ../loki/loki-config.yml:/etc/loki/loki-config.yml:ro
+    - ../../.runtime/loki:/loki
+    expose:
+    - '3100'
+    ports: []
+  alloy:
+    image: ${ALLOY_IMAGE:?Set ALLOY_IMAGE to a tested Grafana Alloy image tag}
+    restart: unless-stopped
+    user: 0:0
+    depends_on:
+    - loki
+    command:
+    - run
+    - --storage.path=/var/lib/alloy/data
+    - /etc/alloy/config.alloy
+    volumes:
+    - ../alloy/config.alloy:/etc/alloy/config.alloy:ro
+    - /var/lib/docker/containers:/var/lib/docker/containers:ro
+    - ../../.runtime/alloy:/var/lib/alloy/data
+    - ../../.runtime/log-targets:/var/lib/alloy/targets:ro
+    ports: []
+  grafana:
+    image: ${GRAFANA_IMAGE:?Set GRAFANA_IMAGE to a tested Grafana image tag}
+    restart: unless-stopped
+    depends_on:
+    - prometheus
+    - loki
+    ports:
+    - ${GRAFANA_BIND_ADDR:-0.0.0.0}:${GRAFANA_PORT:-9411}:3000
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?GRAFANA_ADMIN_PASSWORD
+        must be generated by make init-env-compose}
+      GF_USERS_ALLOW_SIGN_UP: 'false'
+      GF_AUTH_ANONYMOUS_ENABLED: 'false'
+      GF_AUTH_ANONYMOUS_ORG_ROLE: ${GRAFANA_ANONYMOUS_ORG_ROLE:-Viewer}
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/gpu_capacity_and_oom_risk.json
+    volumes:
+    - ../grafana/dashboards:/var/lib/grafana/dashboards:ro
+    - ../grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
+    - ../grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
+  # -------------------------------------------------------------------------
+  # Admin sidecar — internal container lifecycle control.
+  # Docker socket is mounted here, NOT on gateway (security boundary).
+  # Port 8080 is expose-only; never publish to host.
+  # -------------------------------------------------------------------------
+  admin-sidecar:
+    image: ${PLATFORM_IMAGE:?Set PLATFORM_IMAGE to a tested platform image tag}
+    restart: unless-stopped
+    user: 0:0
+    command:
+    - python
+    - -m
+    - uvicorn
+    - ai_model_serving.apps.admin_sidecar:app
+    - --host
+    - 0.0.0.0
+    - --port
+    - '8080'
+    env_file: ${COMPOSE_SERVICE_ENV_FILE:?Set COMPOSE_SERVICE_ENV_FILE through the Compose command wrapper}
+    environment:
+      APP_CONFIG_ROOT: /app
+      PYTHONPATH: /app/src
+      DOCKER_SOCKET: /var/run/docker.sock
+      COMPOSE_PROJECT: ${COMPOSE_PROJECT_NAME:-compose}
+      GATEWAY_INTERNAL_URL: http://gateway:9400
+      MAIN_MODEL_STATE_PATH: /var/lib/ai-model-serving/main-model-state.json
+      MAIN_LLM_BOOT_PROFILE: ${MAIN_LLM_BOOT_PROFILE:-}
+      MAIN_LLM_PROFILE_LOCKED: ${MAIN_LLM_PROFILE_LOCKED:-false}
+      # Optional per-host override for the main model's --gpu-memory-utilization;
+      # empty = use the catalog default. A smaller GPU sets a higher fraction.
+      MAIN_LLM_GPU_MEMORY_UTILIZATION: ${MAIN_LLM_GPU_MEMORY_UTILIZATION:-}
+      HF_TOKEN: ${HF_TOKEN:-}
+      HUGGING_FACE_HUB_TOKEN: ${HUGGING_FACE_HUB_TOKEN:-}
+      HF_HOME: /root/.cache/huggingface
+    # Override DOCKER_GID if host docker group differs from 999 (getent group docker | cut -d: -f3)
+    group_add:
+    - "${DOCKER_GID:-999}"
+    volumes:
+    - /var/run/docker.sock:/var/run/docker.sock:ro
+    - ../../.runtime/main-model:/var/lib/ai-model-serving
+    - ../../.runtime/log-targets:/var/lib/ai-model-serving/log-targets
+    - ${HF_CACHE_DIR:-./model_cache/huggingface}:/root/.cache/huggingface
+    expose:
+    - '8080'
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - python3 -c "import urllib.request; urllib.request.urlopen('http://localhost:8080/health')"
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+secrets:
+  prometheus_admin_api_key:
+    file: ../../.runtime/prometheus/admin_api_key

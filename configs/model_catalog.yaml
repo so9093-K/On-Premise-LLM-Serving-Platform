@@ -1,0 +1,58 @@
+# Gateway가 인식하는 논리 모델과 공개 API listing의 기준이다.
+# 실행 정책은 model_serving.yaml, Main Model 전환·부팅은 main_model_profiles.yaml이 맡는다.
+models:
+  local-main:
+    role: main_llm
+    upstream_model_id: RedHatAI/gemma-4-12B-it-FP8-Dynamic
+    upstream_revision: 67e53491df7a281623fa740de61307d5c542b7f4
+    runtime:
+      served_model_name: local-main
+      endpoint: /v1/chat/completions
+    # 정적 listing은 기본 profile 기준이며, 요청 검증은 active profile의 modality를 따른다.
+    deployed_modalities: [text, image, audio, video]
+    gateway_listing:
+      enabled: true
+      backend: main_llm_vllm
+      capabilities: [chat.completions, chat.completions.vision, chat.completions.tools]
+
+  local-embed:
+    role: embedding
+    upstream_model_id: google/embeddinggemma-300m
+    input_modalities: [text]
+    embedding_dimensions:
+      supported: [768]
+    runtime:
+      served_model_name: local-embed
+      endpoint: /v1/embeddings
+    gateway_listing:
+      enabled: true
+      backend: embedding_vllm
+      capabilities: [embeddings, retrieval_rerank, retrieval_score]
+
+  local-embed-ko:
+    role: embedding
+    upstream_model_id: dragonkue/snowflake-arctic-embed-l-v2.0-ko
+    input_modalities: [text]
+    embedding_dimensions:
+      supported: [1024]
+    runtime:
+      served_model_name: local-embed-ko
+      endpoint: /v1/embeddings
+    gateway_listing:
+      enabled: true
+      backend: embedding_ko_vllm
+      capabilities: [embeddings, retrieval_rerank, retrieval_score]
+
+  risk-prompt:
+    role: risk_prompt_detector
+    upstream_model_id: kakaocorp/kanana-safeguard-prompt-2.1b
+    input_modalities: [text]
+    runtime:
+      served_model_name: risk-prompt
+      internal_endpoint: /v1/chat/completions
+      public_adapter_endpoint: /v1/risk/detectors/prompt/assessments
+      max_output_tokens: 1
+    gateway_listing:
+      enabled: true
+      backend: risk_adapter
+      capabilities: [risk.prompt_attack_signal]

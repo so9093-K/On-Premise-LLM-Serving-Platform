@@ -1,0 +1,101 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "GatewayChatCompletionResponse",
+  "type": "object",
+  "required": ["id", "object", "created", "model", "choices"],
+  "additionalProperties": true,
+  "properties": {
+    "id": {"type": "string", "minLength": 1},
+    "object": {"const": "chat.completion"},
+    "created": {"type": "integer", "minimum": 0},
+    "model": {"const": "local-main"},
+    "choices": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["index", "message", "finish_reason"],
+        "additionalProperties": true,
+        "properties": {
+          "index": {"type": "integer", "minimum": 0},
+          "message": {
+            "type": "object",
+            "required": ["role"],
+            "additionalProperties": true,
+            "properties": {
+              "role": {"const": "assistant"},
+              "content": {"type": ["string", "null"]},
+              "reasoning": {
+                "type": ["string", "null"],
+                "description": "Gemma4 reasoning text when the request used reasoning=true and the upstream vLLM parser emitted it."
+              },
+              "reasoning_content": {
+                "type": ["string", "null"],
+                "deprecated": true,
+                "description": "Legacy vLLM reasoning field name retained for older runtime compatibility."
+              },
+              "tool_calls": {
+                "type": "array",
+                "minItems": 1,
+                "items": {"$ref": "chat_completion_request.schema.json#/$defs/tool_call"}
+              },
+              "refusal": {"type": ["string", "null"]}
+            }
+          },
+          "finish_reason": {"type": ["string", "null"]},
+          "logprobs": {
+            "type": ["object", "null"],
+            "additionalProperties": true,
+            "properties": {
+              "content": {
+                "type": ["array", "null"],
+                "items": {"$ref": "#/$defs/logprob_item"}
+              },
+              "refusal": {
+                "type": ["array", "null"],
+                "items": {"$ref": "#/$defs/logprob_item"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "usage": {"type": "object"}
+  },
+  "$defs": {
+    "logprob_item": {
+      "type": "object",
+      "required": ["token", "logprob", "top_logprobs"],
+      "additionalProperties": true,
+      "properties": {
+        "token": {"type": "string"},
+        "logprob": {"type": "number"},
+        "bytes": {
+          "oneOf": [
+            {"type": "null"},
+            {"type": "array", "items": {"type": "integer", "minimum": 0, "maximum": 255}}
+          ]
+        },
+        "top_logprobs": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/top_logprob_item"}
+        }
+      }
+    },
+    "top_logprob_item": {
+      "type": "object",
+      "required": ["token", "logprob"],
+      "additionalProperties": true,
+      "properties": {
+        "token": {"type": "string"},
+        "logprob": {"type": "number"},
+        "bytes": {
+          "oneOf": [
+            {"type": "null"},
+            {"type": "array", "items": {"type": "integer", "minimum": 0, "maximum": 255}}
+          ]
+        }
+      }
+    }
+  }
+}

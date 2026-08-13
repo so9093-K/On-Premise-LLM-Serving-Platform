@@ -1,0 +1,65 @@
+# ── Secrets & env files ────────────────────────────────────────────────────
+# Exclude .env* from build context; explicit allowlist for committed example templates
+.env
+.env.*
+!.env.example
+!.env.local.example
+!.env.compose.example
+
+# ── VCS & IDE ──────────────────────────────────────────────────────────────
+.git
+.gitignore
+
+# ── Python artifacts ───────────────────────────────────────────────────────
+__pycache__
+*.pyc
+*.egg-info
+.pytest_cache
+.mypy_cache
+.ruff_cache
+.venv
+
+# ── Build & dist ───────────────────────────────────────────────────────────
+build
+dist
+
+# ── Not copied by Dockerfile ───────────────────────────────────────────────
+docs
+tests
+ops/*
+!ops/compose/
+!ops/compose/full-stack.private-network.yaml
+!ops/images/
+!ops/images/vllm-unified/
+!ops/images/vllm-unified/Dockerfile
+!ops/patches/
+!ops/patches/transformers_llama_head_dim_guard.py
+!ops/patches/apply_gemma4_multimodal_patches.py
+harness
+adr
+reports
+examples
+
+# ── Runtime & secrets ──────────────────────────────────────────────────────
+.runtime
+run
+logs
+outputs
+
+# ── Model data (large binary assets) ──────────────────────────────────────
+model_cache
+models
+
+# ── Credential files ───────────────────────────────────────────────────────
+*.secret
+*.pem
+*.key
+
+# ── Local AI/dev-agent tool state ───────────────────────────────────────────────
+.agents/
+.codex/
+.claude/
+.cursor/
+
+# ── Other ───────────────────────────────────────────────
+.other/

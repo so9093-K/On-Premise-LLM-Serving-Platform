@@ -1,0 +1,162 @@
+#!/usr/bin/env python3
+"""Generate compose override files from exposure profiles and service registry.
+
+Reads the canonical exposure profiles and generates
+ops/compose/overrides/exposure.<mode>.yaml for each non-base canonical mode.
+
+The base mode (class: default_private) uses the base compose file directly and
+does not need a generated override.
+
+Usage:
+  python scripts/compose/render_exposure_overrides.py           # generate
+  python scripts/compose/render_exposure_overrides.py --check   # verify no drift
+
+--check exits with code 1 if generated content differs from on-disk content.
+"""
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+from typing import Any
+
+ROOT = Path(__file__).resolve().parents[2]
+
+try:
+    import yaml
+except ModuleNotFoundError:
+    raise SystemExit("Missing dependency: PyYAML.")
+
+_GENERATED_HEADER = """\
+# 자동 생성 파일 — 직접 수정하지 마세요.
+# 생성 명령: python scripts/compose/render_exposure_overrides.py
+# 소스: configs/exposure_profiles.yaml profile: {mode}
+#
+# 재생성: python scripts/compose/render_exposure_overrides.py
+# drift 확인: python scripts/compose/render_exposure_overrides.py --check
+#
+# {description}
+#
+# 이 프로필을 사용할 때는 EXPOSURE_AUDIENCE를 반드시 설정해야 합니다.
+# 허용값: local_only, private_lan, vpn, public
+# 구조화된 진단: configs/exposure_profiles.yaml profiles.{mode}.diagnostics
+"""
+
+
+def load_data(root: Path = ROOT) -> dict[str, Any]:
+    path = root / "configs" / "exposure_profiles.yaml"
+    if not path.exists():
+        raise SystemExit(f"configs/exposure_profiles.yaml not found at {path}")
+    return yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+
+
+def load_services(root: Path = ROOT) -> dict[str, Any]:
+    path = root / "configs" / "services.yaml"
+    if not path.exists():
+        raise SystemExit(f"configs/services.yaml not found at {path}")
+    data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    return data.get("services", {})
+
+
+def render_override(mode: str, profile: dict, services: dict, base_published: set[str] | None = None) -> str:
+    """Generate the compose override YAML content for a diagnostic mode.
+
+    Only generates port entries for services NOT already in base_published (default_private profile).
+    Services in base_published are already handled by the base compose file.
+    """
+    description = str(profile.get("description", "")).strip()
+    lines = [_GENERATED_HEADER.format(mode=mode, description=description)]
+    lines.append("services:")
+
+    skip = base_published or set()
+    published = profile.get("host_published", [])
+    for svc_name in published:
+        if svc_name in skip:
+            continue  # base compose 파일에 이미 있음
+        svc = services.get(svc_name, {})
+        compose_svc = svc.get("compose_service", svc_name.replace("_", "-"))
+        if compose_svc == "gateway":
+            continue  # gateway는 base compose 파일에 있음
+        container_port = svc.get("container_port", "")
+        bind_env = svc.get("host_env_bind", "")
+        port_env = svc.get("host_env_port", "")
+        default_bind = svc.get("default_bind", "0.0.0.0")
+        default_port = svc.get("default_host_port", "")
+
+        bind_expr = f"${{{bind_env}:-{default_bind}}}" if bind_env else default_bind
+        port_expr = f"${{{port_env}:-{default_port}}}" if port_env else str(default_port)
+
+        lines.append(f"  {compose_svc}:")
+        lines.append("    ports:")
+        lines.append(f"      - {bind_expr}:{port_expr}:{container_port}")
+
+    return "\n".join(lines) + "\n"
+
+
+def generate(root: Path = ROOT, check: bool = False) -> int:
+    data = load_data(root)
+    profiles: dict = data.get("profiles", {})
+    services = load_services(root)
+
+    # base mode(default_private) 식별 — 이 모드는 override 파일을 생성하지 않음
+    base_modes = [m for m, p in profiles.items() if isinstance(p, dict) and p.get("class") == "default_private"]
+    if not base_modes:
+        print("FAIL: no default_private profile found in exposure_profiles.yaml", file=sys.stderr)
+        return 1
+    base_mode = base_modes[0]
+
+    drift_found = False
+    for mode in profiles:
+        if mode == base_mode:
+            continue
+        profile = profiles.get(mode, {})
+        if not isinstance(profile, dict):
+            continue
+
+        slug = mode.replace("_", "-")
+        output_path = root / "ops" / "compose" / "overrides" / f"exposure.{slug}.yaml"
+        base_published_set: set[str] = set(profiles.get(base_mode, {}).get("host_published", [])) if base_mode else set()
+        content = render_override(mode, profile, services, base_published=base_published_set)
+
+        if check:
+            if not output_path.exists():
+                print(f"DRIFT: {output_path} does not exist (would be generated)", file=sys.stderr)
+                drift_found = True
+            else:
+                existing = output_path.read_text(encoding="utf-8")
+                # 생성 헤더의 타임스탬프 차이는 무시하고 services 블록만 비교
+                if _services_block(existing) != _services_block(content):
+                    print(f"DRIFT: {output_path} services block differs from generated", file=sys.stderr)
+                    drift_found = True
+                else:
+                    print(f"OK: {output_path}")
+        else:
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            output_path.write_text(content, encoding="utf-8")
+            print(f"Generated: {output_path}")
+
+    return 1 if drift_found else 0
+
+
+def _services_block(text: str) -> str:
+    """Extract the services: block from yaml text for drift comparison."""
+    lines = text.splitlines()
+    in_services = False
+    result = []
+    for line in lines:
+        if line.startswith("services:"):
+            in_services = True
+        if in_services:
+            result.append(line)
+    return "\n".join(result)
+
+
+def main() -> int:
+    import argparse
+    parser = argparse.ArgumentParser(description="Generate compose overrides from exposure_profiles.yaml.")
+    parser.add_argument("--check", action="store_true", help="Check for drift without writing files")
+    args = parser.parse_args()
+    return generate(check=args.check)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

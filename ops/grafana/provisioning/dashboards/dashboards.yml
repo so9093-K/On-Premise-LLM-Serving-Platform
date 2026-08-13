@@ -1,0 +1,13 @@
+apiVersion: 1
+
+providers:
+  - name: AI Model Serving Platform
+    orgId: 1
+    folder: AI Model Serving Platform
+    type: file
+    disableDeletion: false
+    allowUiUpdates: false
+    updateIntervalSeconds: 30
+    # Reference release dashboards are Git-managed. Use local copies for UI experiments.
+    options:
+      path: /var/lib/grafana/dashboards

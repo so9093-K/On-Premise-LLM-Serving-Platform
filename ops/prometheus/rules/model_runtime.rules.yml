@@ -1,0 +1,92 @@
+groups:
+  - name: ai_model_serving_model_runtime
+    interval: 15s
+    rules:
+      - record: model_runtime_upstream_error_rate_5m
+        expr: sum by (target, code) (rate(upstream_errors_total[5m]))
+      - record: model_runtime_upstream_p95_latency_seconds
+        expr: histogram_quantile(0.95, sum by (le, target, path) (rate(upstream_request_duration_seconds_bucket[5m])))
+      - record: model_runtime_http_p95_latency_seconds
+        expr: histogram_quantile(0.95, sum by (le, service, route) (rate(http_request_duration_seconds_bucket[5m])))
+      - record: model_runtime_gateway_ready
+        expr: min by (service) (overall_runtime_status)
+      # GPU rules depend on DCGM exporter metric names. If the exporter is absent,
+      # these series remain absent so dashboards show No Data rather than fake zeros.
+      # Stat panels (worst-case single value) use the global aggregates below.
+      # Timeseries panels query the raw DCGM_FI_* metrics directly to retain gpu_index.
+      - record: gpu_memory_used_bytes
+        expr: max(DCGM_FI_DEV_FB_USED * 1024 * 1024)
+      - record: gpu_memory_total_bytes
+        expr: max(DCGM_FI_DEV_FB_TOTAL * 1024 * 1024)
+      - record: gpu_memory_headroom_bytes
+        expr: min(DCGM_FI_DEV_FB_FREE * 1024 * 1024)
+      - record: gpu_utilization_ratio
+        expr: max(DCGM_FI_DEV_GPU_UTIL) / 100
+      - record: gpu_temperature_celsius
+        expr: max(DCGM_FI_DEV_GPU_TEMP)
+      - record: gpu_power_watts
+        expr: max(DCGM_FI_DEV_POWER_USAGE)
+      # vLLM metric bridges. vLLM exposes colon-namespaced names (vllm:*)
+      # which dashboards cannot reference directly without these rules.
+      # Absent when vLLM exporter is not scraped → panels show No Data, not fake zeros.
+      # vLLM documents KV cache usage as a ratio where 1 means 100% usage.
+      # Normalize defensively because some runtime/exporter combinations have
+      # emitted 0-100 percent-like samples under the *_perc metric name.
+      # clamp_max(1) suppresses transient out-of-range spikes during model restart.
+      # Keep the scrape labels used by Grafana variables and drop exporter-specific extras.
+      - record: vllm_kv_cache_usage_ratio
+        expr: clamp_max(max by (instance, model, runtime_service) ((vllm:kv_cache_usage_perc <= 1) or ((vllm:kv_cache_usage_perc > 1) / 100)), 1)
+      - record: vllm_queue_depth
+        expr: vllm:num_requests_waiting
+      - record: vllm_token_throughput_per_second
+        expr: sum by (instance, model, runtime_service) (rate(vllm:generation_tokens_total[5m]) + rate(vllm:prompt_tokens_total[5m]))
+      # Input vs output token split for the usage dashboard. Same labels as the
+      # combined throughput rule so Grafana variables stay consistent.
+      - record: vllm_prompt_tokens_per_second
+        expr: sum by (instance, model, runtime_service) (rate(vllm:prompt_tokens_total[5m]))
+      - record: vllm_generation_tokens_per_second
+        expr: sum by (instance, model, runtime_service) (rate(vllm:generation_tokens_total[5m]))
+      # cAdvisor bridges for per-vLLM container host resources. Compose generated
+      # container names vary by project directory, so use the compose service label.
+      - record: vllm_container_memory_usage_bytes
+        expr: max by (container_label_com_docker_compose_service) (container_memory_usage_bytes{container_label_com_docker_compose_service=~"main-llm-vllm|embedding-vllm|embedding-ko-vllm|risk-prompt-vllm"})
+      - record: vllm_container_cpu_cores_used
+        expr: sum by (container_label_com_docker_compose_service) (rate(container_cpu_usage_seconds_total{container_label_com_docker_compose_service=~"main-llm-vllm|embedding-vllm|embedding-ko-vllm|risk-prompt-vllm"}[1m]))
+      # Observability trust signals — expected vs observed scrape target counts.
+      # ai_expected_critical_targets reflects the reference topology (8 = gateway +
+      # risk-adapter + 4 vllm-runtimes + dcgm-exporter + cadvisor). Update this value
+      # whenever the topology changes and re-render runtime assets.
+      - record: ai_expected_critical_targets
+        expr: vector(8)
+      - record: ai_observed_critical_targets
+        expr: count(up{job=~"gateway|risk-adapter|vllm-runtimes|dcgm-exporter|cadvisor"})
+      - record: ai_up_critical_targets
+        expr: sum(up{job=~"gateway|risk-adapter|vllm-runtimes|dcgm-exporter|cadvisor"})
+      - record: ai_missing_critical_targets
+        expr: ai_expected_critical_targets - ai_up_critical_targets
+      # Dynamic serving verdict code for the Serving Home banner.
+      # Priority (first non-absent match wins):
+      #   7 = USER_IMPACT    — 5xx rate above threshold
+      #   6 = CAPACITY_RISK  — GPU headroom < 3 GiB or OOM/restart detected
+      #   5 = OBS_DEGRADED   — fewer scrape targets than expected
+      #   4 = HEALTHY_ACTIVE — user traffic present
+      #   3 = IDLE_WARM      — readiness=1 and headroom ok, no traffic
+      #   2 = IDLE_COLD      — fallback when warm evidence is absent
+      # No Data (Grafana noValue) = verdict rule itself is absent.
+      # The trick: (expr > threshold) * 0 + code returns absent when condition is
+      # false/absent, and returns the code value when condition is true.
+      - record: ai_serving_verdict_code
+        expr: >
+          (sum(rate(http_requests_total{service="gateway",status_code=~"5.."}[5m])) > 0.01) * 0 + 7
+          or
+          ((min(gpu_memory_headroom_bytes) < 3221225472)
+          or
+          (sum(increase(container_oom_events_total{container_label_com_docker_compose_service=~"gateway|risk-adapter|main-llm-vllm|embedding-vllm|embedding-ko-vllm|risk-prompt-vllm"}[5m])) > 0)) * 0 + 6
+          or
+          (ai_up_critical_targets < ai_expected_critical_targets) * 0 + 5
+          or
+          (sum(increase(http_requests_total{service="gateway",route=~"/v1/chat/completions|/v1/embeddings|/v1/risk/.*|/v1/retrieval/.*",route!~"/health|/ready|/v1/models|/metrics|/docs|/openapi.json"}[5m])) > 0) * 0 + 4
+          or
+          (min(service_readiness_status) == 1) * 0 + 3
+          or
+          vector(2)

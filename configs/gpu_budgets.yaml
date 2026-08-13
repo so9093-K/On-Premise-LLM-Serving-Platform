@@ -1,0 +1,9 @@
+# 실제 GPU 안전 판단에만 사용하는 기준이다.
+gpu:
+  reserve_gib:
+    # runtime-validate는 실제 남은 VRAM이 이 값보다 작으면 실패한다.
+    hard_minimum: 3.5
+
+  total_gpu_memory_utilization:
+    # configured vLLM runtime 비율 합계가 이 값 이상이면 CI와 runtime admission이 차단한다.
+    avoid_above: 0.93

@@ -1,0 +1,98 @@
+# `.env*.example`에 빠지면 안 되는 키 목록이다.
+# 실제 실행값의 필수 여부와 유효성은 settings·compose preflight·auth 진단이 판단한다.
+common_example_keys:
+  - APP_ENV
+  - LOG_LEVEL
+  - GATEWAY_HOST
+  - GATEWAY_PORT
+  - GATEWAY_BIND_ADDR
+  - AUTH_MODE
+  - EXPOSURE_MODE
+  - COMPOSE_PROJECT_NAME
+
+# 인증 프로필을 선택하거나 설명하는 예시에 포함할 키.
+auth_mode_keys:
+  - API_KEY_REQUIRED
+  - ADMIN_API_KEY_REQUIRED
+  - ADMIN_ENDPOINTS_INTERNAL_ONLY
+  - INTERNAL_SERVICE_AUTH_REQUIRED
+
+# internal_trusted/custom에서만 조건부로 필요한 증빙 키.
+auth_evidence_keys:
+  - INTERNAL_TRUSTED_AUTH_EVIDENCE
+  - CUSTOM_AUTH_RISK_ACCEPTED
+  - CUSTOM_AUTH_RISK_TICKET
+
+# runtime별 override를 예시 파일에서 빠뜨리지 않기 위한 키 조합.
+runtime_override_example_keys:
+  main_llm:
+    env_prefix: MAIN_LLM
+    suffixes:
+      - BASE_URL
+      - MODEL
+      - TIMEOUT_SECONDS
+      - MAX_CONCURRENCY
+      - QUEUE_TIMEOUT_SECONDS
+      - BOOT_PROFILE
+      - PROFILE_LOCKED
+  embedding:
+    env_prefix: EMBEDDING
+    suffixes:
+      - BASE_URL
+      - MODEL
+      - TIMEOUT_SECONDS
+      - MAX_CONCURRENCY
+      - QUEUE_TIMEOUT_SECONDS
+  embedding_ko:
+    env_prefix: EMBEDDING_KO
+    suffixes:
+      - BASE_URL
+      - MODEL
+      - TIMEOUT_SECONDS
+      - MAX_CONCURRENCY
+      - QUEUE_TIMEOUT_SECONDS
+  risk_prompt:
+    env_prefix: RISK_PROMPT
+    suffixes:
+      - BASE_URL
+      - MODEL
+      - TIMEOUT_SECONDS
+      - MAX_CONCURRENCY
+      - QUEUE_TIMEOUT_SECONDS
+
+# master_open 예시에 필요한 host bind 키.
+exposure_mode_requirements:
+  any:
+    - EXPOSURE_MODE
+  master_open:
+    - EXPOSURE_AUDIENCE
+    - GRAFANA_BIND_ADDR
+    - PROMETHEUS_BIND_ADDR
+    - RISK_ADAPTER_BIND_ADDR
+    - DCGM_EXPORTER_BIND_ADDR
+    - CADVISOR_BIND_ADDR
+    - MAIN_LLM_VLLM_BIND_ADDR
+    - EMBEDDING_VLLM_BIND_ADDR
+    - EMBEDDING_KO_VLLM_BIND_ADDR
+    - RISK_PROMPT_VLLM_BIND_ADDR
+
+# env_examples: which example files must contain which key sets.
+env_examples:
+  .env.example:
+    required_key_sets:
+      - common_example_keys
+      - auth_mode_keys
+      - auth_evidence_keys
+      - runtime_override_example_keys
+      - exposure_mode_requirements.any
+  .env.local.example:
+    required_key_sets:
+      - runtime_override_example_keys
+  .env.compose.example:
+    required_key_sets:
+      - common_example_keys
+      - auth_mode_keys
+      - auth_evidence_keys
+      - runtime_override_example_keys
+      - exposure_mode_requirements.any
+      - exposure_mode_requirements.master_open

@@ -1,0 +1,46 @@
+# EXPOSURE_MODE는 아래 profile 이름 중 하나를 사용한다.
+# host_published는 실제 host 포트 공개 대상이며, diagnostics는 preflight·상태 안내에 쓰인다.
+profiles:
+  private_network:
+    class: default_private
+    description: "Gateway와 Grafana만 host-published. vLLM, Risk Adapter, Prometheus, DCGM, cAdvisor, Loki, Alloy는 compose 내부망만."
+    host_published:
+      - gateway
+      - grafana
+    diagnostics:
+      gateway_bypass_possible: false
+      direct_model_runtime_access: false
+      direct_operations_endpoints: false
+      requires_exposure_audience: false
+
+  master_open:
+    class: diagnostic_full_stack
+    description: >
+      전체 stack host-published. 외부 접근이 차단된 신뢰된 사내망에서
+      Gateway와 vLLM runtime, Risk Adapter, Prometheus, DCGM, cAdvisor, Loki를
+      직접 사용한다. Alloy는 조회 API가 없어 여기서도 host-published 대상이 아니다.
+    host_published:
+      - gateway
+      - main_llm_vllm
+      - embedding_vllm
+      - embedding_ko_vllm
+      - risk_prompt_vllm
+      - risk_adapter
+      - prometheus
+      - grafana
+      - dcgm_exporter
+      - cadvisor
+      - loki
+    diagnostics:
+      gateway_bypass_possible: true
+      direct_model_runtime_access: true
+      direct_operations_endpoints: true
+      requires_exposure_audience: true
+
+# master_open에서 접근 가능한 네트워크 범위. local_only는 모든 공개 포트가 127.0.0.1에 바인드되어야 한다.
+exposure_audience:
+  allowed_values:
+    - local_only
+    - private_lan
+    - vpn
+    - public

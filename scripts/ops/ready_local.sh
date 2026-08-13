@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+cd "$ROOT"
+
+source scripts/lib/load_env.sh
+ENV_FILE="${ENV_FILE:-.env}"
+load_local_env "$ENV_FILE"
+
+PYTHON_BIN="${PYTHON_BIN:-$(command -v python3.12 || command -v python3 || command -v python)}"
+"$PYTHON_BIN" scripts/build/check_python.py --context ready-local >/dev/null
+
+# ready_local은 RISK_ADAPTER_BASE_URL과 무관하게 항상 localhost를 확인한다.
+# compose .env 파일에서는 이 값이 compose 내부 hostname(http://risk-adapter:9405)일 수 있다.
+GATEWAY_BASE_URL="http://localhost:${GATEWAY_PORT:-$(service_default_host_port gateway)}"
+RISK_ADAPTER_BASE_URL="http://localhost:${RISK_ADAPTER_PORT:-$(service_default_host_port risk_adapter)}"
+
+fail=0
+check_health() {
+  local name="$1"
+  local url="$2"
+  if curl -fsS --max-time 3 "$url/health" >/dev/null 2>&1; then
+    echo "${name}: /health ok"
+  else
+    echo "${name}: /health unavailable" >&2
+    fail=1
+  fi
+}
+
+check_health gateway "$GATEWAY_BASE_URL"
+check_health risk_adapter "$RISK_ADAPTER_BASE_URL"
+
+if [[ "$fail" != "0" ]]; then
+  echo "ready-local failed: app-only services are not healthy. Run 'make start' or inspect 'make status'." >&2
+  exit 1
+fi
+
+echo "ready-local passed: app-only /health checks are healthy. Use 'make ready-full' for vLLM dependency readiness."

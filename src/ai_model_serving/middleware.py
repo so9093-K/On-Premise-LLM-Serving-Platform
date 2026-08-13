@@ -1,0 +1,93 @@
+from __future__ import annotations
+
+from collections.abc import Awaitable, Callable
+from typing import Any
+
+from starlette.requests import Request
+from starlette.responses import Response
+
+from .errors import error_response, request_id_from_headers
+
+
+WRITE_METHODS = {"POST", "PUT", "PATCH"}
+
+
+def _too_large_response(request: Request, max_body_bytes: int) -> Response:
+    return error_response(
+        "REQUEST_TOO_LARGE",
+        f"Request body exceeds {max_body_bytes} bytes. Limit applies to the full JSON body, including base64 media; reduce media size or split the request.",
+        False,
+        413,
+        request_id_from_headers(request.headers),
+    )
+
+
+def _content_length_exceeds_limit(request: Request, max_body_bytes: int) -> bool:
+    raw_value = request.headers.get("content-length")
+    if raw_value is None:
+        return False
+    try:
+        return int(raw_value) > max_body_bytes
+    except ValueError:
+        # 잘못된 형식의 Content-Length 값은 ASGI 서버/프레임워크가 처리하도록 둔다.
+        return False
+
+
+async def _read_limited_body(request: Request, *, max_body_bytes: int) -> bytes | None:
+    """``max_body_bytes``까지 요청 body를 읽는다.
+
+    Returns ``None`` as soon as the limit is exceeded. This avoids buffering an
+    arbitrarily large request body in memory before rejecting it, while still
+    replaying an already-validated body to downstream FastAPI handlers.
+    """
+    chunks: list[bytes] = []
+    total = 0
+    more_body = True
+
+    while more_body:
+        message: dict[str, Any] = await request.receive()
+        if message.get("type") == "http.disconnect":
+            return b""
+
+        chunk = message.get("body", b"")
+        if chunk:
+            total += len(chunk)
+            if total > max_body_bytes:
+                return None
+            chunks.append(chunk)
+
+        more_body = bool(message.get("more_body", False))
+
+    return b"".join(chunks)
+
+
+
+async def enforce_request_body_limit(
+    request: Request,
+    call_next: Callable[[Request], Awaitable[Response]],
+    *,
+    max_body_bytes: int,
+) -> Response:
+    """실제 body 크기를 기준으로 너무 큰 write 요청을 거부한다.
+
+    Content-Length is used as a fast rejection path when available. Chunked or
+    missing-length bodies are read incrementally and rejected as soon as the
+    configured limit is crossed, instead of calling ``request.body()`` and
+    buffering the entire oversized payload first.
+    """
+    if request.method not in WRITE_METHODS:
+        return await call_next(request)
+
+    if _content_length_exceeds_limit(request, max_body_bytes):
+        return _too_large_response(request, max_body_bytes)
+
+    body = await _read_limited_body(request, max_body_bytes=max_body_bytes)
+    if body is None:
+        return _too_large_response(request, max_body_bytes)
+
+    # Starlette의 함수형 미들웨어는 request를 캐시된 request 객체로 감싼다.
+    # 점진적 읽기가 끝난 후 캐시를 채워서, downstream request 파싱이 원본
+    # receive 채널을 다시 건드리지 않고도 동일하게 검증된 body를 사용할 수
+    # 있게 한다.
+    setattr(request, "_body", body)
+    return await call_next(request)

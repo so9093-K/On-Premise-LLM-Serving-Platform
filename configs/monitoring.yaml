@@ -1,0 +1,47 @@
+# Prometheus 생성과 live runtime validation이 실제로 소비하는 설정만 둔다.
+monitoring_stack:
+  prometheus:
+    scrape_interval: 15s
+    scrape_timeout: 10s
+    rule_files:
+    - /etc/prometheus/rules/model_runtime.rules.yml
+  dcgm_exporter:
+    internal_port: 9400
+    default_metrics_path: /metrics
+  cadvisor:
+    internal_port: 8080
+    default_metrics_path: /metrics
+
+metric_sources:
+  gateway:
+    metrics_path: /metrics
+    required_metrics:
+    - http_requests_total
+    - http_request_duration_seconds
+    - upstream_request_duration_seconds
+    - upstream_errors_total
+    - auth_failures_total
+    - service_readiness_status
+    - overall_runtime_status
+    - streaming_chunks_total
+    - streaming_bytes_total
+    - streaming_usage_events_total
+    - streaming_errors_total
+    - streaming_requests_total
+    - streaming_time_to_first_chunk_seconds_bucket
+    - streaming_duration_seconds_bucket
+    - streaming_chunks_per_response_bucket
+    - streaming_client_disconnects_total
+    - request_validation_rejections_total
+  risk_adapter:
+    metrics_path: /metrics
+    required_metrics:
+    - risk_assessments_total
+    - risk_assessment_duration_seconds
+    - risk_signal_detected_total
+    - risk_adapter_system_signal_total
+    - forbidden_response_field_total
+    - service_readiness_status
+  vllm_instances:
+    scrape_job: vllm-runtimes
+    metrics_path: /metrics
