@@ -54,13 +54,24 @@ def _first_csv_value(value: str) -> str:
     return values[0] if values else ""
 
 
-def _localhost_base(service: dict[str, Any], suffix: str = "") -> str:
-    """services.yaml의 host 기본 포트로 로컬 검증 endpoint를 만든다."""
+def _published_host(service: dict[str, Any]) -> str:
+    """검증을 실행하는 host에서 접속할 실제 publish 주소를 고른다.
+
+    Compose의 ``0.0.0.0``/``::``는 listen 주소이지 HTTP 접속 대상이 아니다. 구체적인
+    bind 주소가 있으면 그것을 사용하고, wildcard publish면 같은 host의 localhost를 쓴다.
+    """
+    bind_name = str(service.get("host_env_bind", ""))
+    bind = os.getenv(bind_name, "").strip()
+    return bind if bind and bind not in {"0.0.0.0", "::", "[::]"} else "localhost"
+
+
+def _host_base(service: dict[str, Any], suffix: str = "") -> str:
+    """services.yaml의 publish 주소와 host 기본 포트로 검증 endpoint를 만든다."""
     try:
         port = int(service["default_host_port"])
     except (KeyError, TypeError, ValueError) as exc:
         raise ValueError("service registry entry requires default_host_port") from exc
-    return f"http://localhost:{port}{suffix}"
+    return f"http://{_published_host(service)}:{port}{suffix}"
 
 
 def load_runtime_config(args: Any) -> RuntimeValidationConfig:
@@ -78,7 +89,7 @@ def load_runtime_config(args: Any) -> RuntimeValidationConfig:
 
     def service_base(service_id: str, suffix: str = "") -> str:
         try:
-            return _localhost_base(services[service_id], suffix)
+            return _host_base(services[service_id], suffix)
         except KeyError as exc:
             raise ValueError(f"configs/services.yaml is missing {service_id}") from exc
 
@@ -90,7 +101,7 @@ def load_runtime_config(args: Any) -> RuntimeValidationConfig:
                 "configs/services.yaml has no entry for runtime compose service "
                 f"{service.compose_service_name!r}"
             ) from exc
-        return _localhost_base(service_config, "/v1")
+        return _host_base(service_config, "/v1")
 
     api_key = args.api_key or os.getenv("API_KEY", "") or _first_csv_value(os.getenv("API_KEYS", ""))
     admin_api_key = args.admin_api_key or os.getenv("ADMIN_API_KEY", "") or _first_csv_value(os.getenv("ADMIN_API_KEYS", ""))
@@ -102,17 +113,19 @@ def load_runtime_config(args: Any) -> RuntimeValidationConfig:
         api_key=api_key,
         admin_api_key=admin_api_key,
         internal_service_token=os.getenv("INTERNAL_SERVICE_TOKEN", ""),
-        gateway_base=_url_value(args, "gateway_base", "GATEWAY_BASE_URL", service_base("gateway")),
-        risk_base=_url_value(args, "risk_base", "RISK_ADAPTER_BASE_URL", service_base("risk_adapter")),
-        prometheus_base=_url_value(args, "prometheus_base", "PROMETHEUS_BASE_URL", service_base("prometheus")),
-        grafana_base=_url_value(args, "grafana_base", "GRAFANA_BASE_URL", service_base("grafana")),
+        # *_BASE_URL은 application container가 Compose 내부 서비스에 접속하는 주소다.
+        # host에서 실행하는 검증이 이를 우선하면 내부 DNS가 해석되지 않아 실패한다.
+        gateway_base=_url_value(args, "gateway_base", "RUNTIME_VALIDATION_GATEWAY_BASE_URL", service_base("gateway")),
+        risk_base=_url_value(args, "risk_base", "RUNTIME_VALIDATION_RISK_BASE_URL", service_base("risk_adapter")),
+        prometheus_base=_url_value(args, "prometheus_base", "RUNTIME_VALIDATION_PROMETHEUS_BASE_URL", service_base("prometheus")),
+        grafana_base=_url_value(args, "grafana_base", "RUNTIME_VALIDATION_GRAFANA_BASE_URL", service_base("grafana")),
         grafana_admin_user=_explicit_arg(args, "grafana_user") or os.getenv("GRAFANA_ADMIN_USER", "admin"),
         grafana_admin_password=_explicit_arg(args, "grafana_password") or os.getenv("GRAFANA_ADMIN_PASSWORD", "admin"),
         vllm_bases={
             service.service_key: _url_value(
                 args,
                 f"{service.service_key}_base",
-                f"{service.service_key.upper()}_BASE_URL",
+                f"RUNTIME_VALIDATION_{service.service_key.upper()}_BASE_URL",
                 runtime_base(service),
             )
             for service in registry.iter_runtime_services()

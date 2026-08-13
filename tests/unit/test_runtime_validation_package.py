@@ -15,19 +15,21 @@ def _clear_runtime_endpoint_env(monkeypatch) -> None:
     # environment를 덮어쓰지 않으므로, 빈 문자열을 먼저 넣어 .env 값 유입을 막되
     # config loader의 `or default` fallback은 그대로 검증한다.
     for key in [
-        "GATEWAY_BASE_URL",
-        "RISK_ADAPTER_BASE_URL",
-        "MAIN_LLM_BASE_URL",
-        "EMBEDDING_BASE_URL",
-        "RISK_PROMPT_BASE_URL",
-        "PROMETHEUS_BASE_URL",
+        "RUNTIME_VALIDATION_GATEWAY_BASE_URL",
+        "RUNTIME_VALIDATION_RISK_BASE_URL",
+        "RUNTIME_VALIDATION_MAIN_LLM_BASE_URL",
+        "RUNTIME_VALIDATION_EMBEDDING_BASE_URL",
+        "RUNTIME_VALIDATION_EMBEDDING_KO_BASE_URL",
+        "RUNTIME_VALIDATION_RISK_PROMPT_BASE_URL",
+        "RUNTIME_VALIDATION_PROMETHEUS_BASE_URL",
+        "RUNTIME_VALIDATION_GRAFANA_BASE_URL",
     ]:
         monkeypatch.setenv(key, "")
 
 
 def test_runtime_validation_endpoint_priority_cli_env_default(monkeypatch) -> None:
     _clear_runtime_endpoint_env(monkeypatch)
-    monkeypatch.setenv("GATEWAY_BASE_URL", "http://env-gateway:9999")
+    monkeypatch.setenv("RUNTIME_VALIDATION_GATEWAY_BASE_URL", "http://env-gateway:9999")
 
     args = SimpleNamespace(
         root=str(ROOT),

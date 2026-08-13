@@ -81,12 +81,14 @@ vLLM main LLM structured output backend를 `auto`(xgrammar)에서 `xgrammar` + `
 - `configs/recommended_images.yaml`
 - `src/ai_model_serving/runtime_validation/vllm_commands.py`
 
-## Update — 2026-08-13: Gemma4 thinking template 정합성
+## Update — 2026-08-13: Gemma4 thinking template과 grammar 경계
 
-`enable_in_reasoning=true`는 최종 답변뿐 아니라 thinking 단계에도 xgrammar JSON schema를
-적용한다. 다만 이 설정이 Gemma4의 reasoning 반복 또는 token 소진을 일으킨다는 인과관계는
-확인되지 않았다. 따라서 profile 설정은 원래 값(`true`)을 유지하고, 해당 영향은 동일 모델·
-프롬프트·token 예산에서의 runtime A/B로 확인해야 한다.
+Gemma4는 `<|channel>thought ... <channel|>`으로 reasoning과 final answer를 구분한다.
+`enable_in_reasoning=false`는 종료 토큰 뒤 final answer에만 xgrammar JSON schema를 적용하는
+vLLM 기본 경로다. 현재 vLLM 0.25.1과 Gemma4 공식 reasoning+structured-output 예시를 기준으로
+이 값을 유지한다. 동일 모델·프롬프트·token 예산의 실측에서도 이 경로는 `stop`과 schema-valid
+JSON으로 종료했고, `true` 경로는 thinking 단계부터 grammar가 적용되어 장시간 생성 뒤 불완전
+JSON이 반환됐다.
 
 별개로 custom chat template의 thinking prefix는 모델 native template과 동일해야 한다.
 2026-08-13에 `<|think|>` 뒤 개행이 누락된 것을 직접 렌더 결과와 token ID로 비교해 수정했다.

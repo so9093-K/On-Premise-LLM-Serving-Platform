@@ -281,14 +281,6 @@ GATEWAY_EMBEDDING_REQUEST_EXAMPLES: dict[str, Any] = {
         "summary": "기본 요청 (단일 입력)",
         "value": EMBEDDING_EXAMPLE,
     },
-    "with_dimensions": {
-        "summary": "dimension 지정",
-        "value": {
-            "model": "local-embed",
-            "input": ["임베딩할 텍스트입니다."],
-            "dimensions": 256,
-        },
-    },
     "truncate_prompt_tokens": {
         "summary": "긴 입력 truncation",
         "value": {

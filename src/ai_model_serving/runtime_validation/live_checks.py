@@ -310,10 +310,10 @@ class LiveRuntimeChecks:
         payload = {
             "model": "local-main",
             # Gemma4 thinking은 final answer 이전에 별도 token을 사용한다. 128-token
-            # 요청은 정상 reasoning도 중간에 잘라 기능 실패처럼 보이므로, 실제 종료가
-            # 재현된 짧은 고정 문제와 충분한 상한을 사용한다.
+            # 요청은 정상 reasoning도 중간에 잘라 기능 실패처럼 보인다. 실제 성공에
+            # 440 token이 필요했던 고정 문제에 1,024 token 상한을 둔다.
             "messages": [{"role": "user", "content": "What is the derivative of x^3 * ln(x)? Return it in the requested JSON."}],
-            "max_tokens": 4096,
+            "max_tokens": 1024,
             "temperature": 0,
             "reasoning": True,
             "response_format": self._structured_response_format(),

@@ -56,7 +56,7 @@ def test_gateway_clients_dedupe_runtime_clients_by_service_key(monkeypatch):
         model="local-embed-alias",
         service_key="embedding",
         upstream_model_id="google/embeddinggemma-300m",
-        dimensions=(768, 512, 256, 128),
+        dimensions=(768,),
         default_dimensions=768,
         retrieval_enabled=True,
         score_modes=("dense_cosine",),
@@ -72,4 +72,3 @@ def test_gateway_clients_dedupe_runtime_clients_by_service_key(monkeypatch):
     assert clients.embedding_clients["local-embed-alias"] is clients.embedding_clients["local-embed"]
     created = [endpoint.logical_id for endpoint in SpyVLLMClient.created_endpoints]
     assert created.count("local-embed") == 1
-

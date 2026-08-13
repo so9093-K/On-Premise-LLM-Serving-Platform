@@ -348,18 +348,18 @@ make runtime-validate
 후보 환경을 검증할 때 runtime validation의 host URL은 다음 우선순위를 따른다.
 
 ```text
-CLI 인자 > process env / .env > services.yaml 기반 기본값
+CLI 인자 > `RUNTIME_VALIDATION_*_BASE_URL` > services.yaml의 host publish 주소
 ```
 
 ```bash
-# .env의 GATEWAY_BASE_URL보다 CLI 인자가 우선한다.
+# 검증 전용 환경변수보다 CLI 인자가 우선한다.
 python scripts/validation/runtime_validation.py --gateway-base http://candidate-gateway:9400
 
-# CLI 인자가 없으면 process env 또는 .env를 사용한다.
-GATEWAY_BASE_URL=http://staging-gateway:9400 python scripts/validation/runtime_validation.py
+# CLI 인자가 없으면 검증 전용 URL을 사용한다.
+RUNTIME_VALIDATION_GATEWAY_BASE_URL=http://staging-gateway:9400 python scripts/validation/runtime_validation.py
 ```
 
-`--gateway-base`, `--risk-base`, 각 vLLM runtime `--*-base`, `--prometheus-base`가 후보 endpoint 지정에 사용된다. API key, admin key, internal service token과 raw prompt·응답·token은 명령 출력과 runtime report에 남기지 않는다.
+`--gateway-base`, `--risk-base`, 각 vLLM runtime `--*-base`, `--prometheus-base`가 후보 endpoint 지정에 사용된다. application의 `*_BASE_URL`은 Compose 내부 서비스 연결용이므로 runtime validation override로 사용하지 않는다. API key, admin key, internal service token과 raw prompt·응답·token은 명령 출력과 runtime report에 남기지 않는다.
 
 배포 서버의 private-network 구성에서는 Gateway만 host에 공개되고 Risk·vLLM은 Compose 내부 DNS에서만 접근된다. 따라서 전체 API 검증은 Compose 네트워크에 연결된 실행 위치에서 service URL을 명시해 수행한다. host 기본 URL만으로 내부 서비스를 검사해 발생하는 connection refused/DNS 실패는 서비스 장애 증거가 아니다.
 

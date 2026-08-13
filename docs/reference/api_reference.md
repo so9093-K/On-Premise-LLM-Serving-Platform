@@ -847,8 +847,7 @@ Video는 활성 Main Model profile의 `deployed_input`에 `video`가 포함된 �
   "input": [
     "첫 번째 문장",
     "두 번째 문장"
-  ],
-  "dimensions": 768
+  ]
 }
 ```
 
@@ -1746,7 +1745,6 @@ Embedding:
 response = client.embeddings.create(
     model="local-embed",
     input=["첫 번째 문장", "두 번째 문장"],
-    dimensions=256,
 )
 
 print(len(response.data), len(response.data[0].embedding))

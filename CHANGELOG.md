@@ -23,8 +23,8 @@
 
 ### Changed
 
-- Gemma4의 `reasoning=true + response_format=json_schema` 조합에서 커스텀 chat template이 native thinking 입력과 달라 종료 표식을 만들지 못하던 문제를 수정했다. `<|think|>` 뒤 개행을 native template과 일치시켰다. `enable_in_reasoning`의 성능·호환성 영향은 동일 조건 runtime A/B로 확인하기 전까지 원인으로 단정하지 않는다.
-- `local-embed`이 실제로 지원하지 않는 matryoshka dimensions(128/256/512)를 API 계약에서 제거하고, 기본 768을 명시한 요청은 Gateway가 upstream으로 전달하지 않도록 정리했다.
+- Gemma4의 `reasoning=true + response_format=json_schema` 조합에서 커스텀 chat template의 `<|think|>` 뒤 개행을 native template과 일치시켰다. vLLM 기본 경로대로 `enable_in_reasoning=false`를 유지해 reasoning 종료 뒤에만 최종 JSON schema grammar를 적용한다. 실제 동일 요청에서 이 경로는 정상 종료했고, thinking 단계부터 grammar를 적용한 경로는 장시간 생성·불완전 JSON을 보였다.
+- `local-embed`이 실제로 지원하지 않는 matryoshka dimensions(128/256/512)를 API 계약에서 제거했다. Gateway는 기본 768만 호환성 입력으로 허용하고 upstream에는 전달하지 않는다.
 - Main Model 전환·재시작 과정의 실패를 무시하던 structured-output/tool-calling 사전 요청과 전용 테스트를 제거했다. 전환 검증은 health, 모델 식별, text, 활성 프로필의 media canary처럼 실패 시 실제로 전환을 막아야 하는 계약만 확인한다.
 - Main Model의 요청 한도, 허용 입력, request parameter policy, runtime feature를 `model_serving.yaml`의 기본값에서 각 `main_model_profiles.yaml` profile의 `gateway_policy`로 이관했다. Gateway 요청 검증과 `/v1/models`의 `input_modalities`·`request_parameters`는 활성 profile을 따른다. 공통 endpoint, timeout, admission만 `model_serving.yaml`에 남긴다.
 - 생성 OpenAPI의 각 에러 응답이 전체 code enum 대신 해당 HTTP status로 실제 올 수 있는 code만 노출하고, description에 각 code의 의미·retryable을 함께 보여주도록 했다. Scalar/`/docs`에서 status→code→의미를 바로 읽을 수 있어 해석성이 개선된다. status↔code 매핑은 `errors.py`의 `ERROR_STATUS`에서 도출하므로 새 진실 소스를 만들지 않는다.

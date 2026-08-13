@@ -117,6 +117,22 @@ def test_gateway_forwards_chat_and_embeddings_to_vllm_paths():
     assert "dimensions" not in clients.embedding_clients["local-embed"].last_payload
 
 
+def test_gateway_rejects_unsupported_embedding_dimension_before_upstream():
+    """local-embed는 768 외 차원을 축소하지 않으며, 502로 늦게 실패하면 안 된다."""
+    clients = FakeGatewayClients()
+    client = TestClient(create_gateway_app(settings(), clients))
+
+    response = client.post(
+        "/v1/embeddings",
+        headers=auth_headers(),
+        json={"model": "local-embed", "input": ["hello"], "dimensions": 512},
+    )
+
+    assert response.status_code == 422
+    assert response.json()["error"]["param"] == "dimensions"
+    assert clients.embedding_clients["local-embed"].last_path is None
+
+
 def test_gateway_embeddings_does_not_apply_prompt_policy():
     """/v1/embeddings는 prompt policy를 적용하지 않는다 — local-embed-ko 직접 호출 시 prefix 없음."""
     clients = FakeGatewayClients()

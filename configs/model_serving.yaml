@@ -99,9 +99,6 @@ models:
       - dimensions
       dimensions:
       - 768
-      - 512
-      - 256
-      - 128
       max_truncate_prompt_tokens: 2048
       max_embedding_batch_size: 16
   embedding_ko:
