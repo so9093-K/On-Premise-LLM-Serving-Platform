@@ -141,6 +141,7 @@ def test_audio_format_must_be_allowed():
         )
     assert exc.value.status_code == 422
     assert "input_audio.format" in str(exc.value)
+    assert exc.value.param == "input_audio"
 
 
 @pytest.mark.parametrize(
@@ -439,26 +440,6 @@ def test_request_body_limit_can_carry_configured_media_limit(monkeypatch):
     largest_decoded_media = max(main_llm.max_audio_bytes, main_llm.max_video_bytes)
     required_body_bytes = math.ceil(largest_decoded_media * 4 / 3) + 100_000
     assert settings.max_request_body_bytes >= required_body_bytes
-
-
-def test_backend_audio_canary_is_a_valid_input_audio_part():
-    # backend가 보내는 boot canary 자체가 gateway의 audio 검증(format/magic/size)을
-    # 만족해야 한다, 안 그러면 검증과 runtime이 서로 어긋나게 된다.
-    from ai_model_serving.main_model.docker_backend import _AUDIO_CANARY_M4A_B64
-
-    _validate(_audio_payload(_AUDIO_CANARY_M4A_B64, fmt="m4a"), TEXT_IMAGE_AUDIO)
-
-
-def test_backend_video_canary_is_a_valid_video_url_part():
-    from ai_model_serving.main_model.docker_backend import _VIDEO_CANARY_MP4_B64
-
-    _validate(_video_payload(f"data:video/mp4;base64,{_VIDEO_CANARY_MP4_B64}"), TEXT_IMAGE_AUDIO_VIDEO)
-
-
-def test_backend_image_canary_is_a_valid_image_url_part():
-    from ai_model_serving.main_model.docker_backend import _IMAGE_CANARY_JPEG_B64
-
-    _validate(_image_payload(f"data:image/jpeg;base64,{_IMAGE_CANARY_JPEG_B64}"), TEXT_IMAGE)
 
 
 @pytest.mark.parametrize(

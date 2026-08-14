@@ -18,6 +18,14 @@ def test_gateway_response_format_text_and_json_object_contracts():
     assert text.status_code == 200
     assert clients.main_llm.last_payload["response_format"] == {"type": "text"}
 
+    unsupported_type = client.post(
+        "/v1/chat/completions",
+        headers=auth_headers(),
+        json={"model": "local-main", "messages": [{"role": "user", "content": "hello"}], "response_format": {"type": "bogus"}},
+    )
+    assert unsupported_type.status_code == 422
+    assert unsupported_type.json()["error"]["param"] == "response_format"
+
     clients.main_llm.post_response["choices"][0]["message"]["content"] = "{\"answer\":\"ok\"}"
     json_object = client.post(
         "/v1/chat/completions",
@@ -489,4 +497,3 @@ def test_gateway_max_depth_still_rejects_genuinely_excessive_nesting():
     )
     assert response.status_code == 422
     assert "depth" in response.json()["error"]["message"]
-

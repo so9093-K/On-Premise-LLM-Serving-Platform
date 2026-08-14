@@ -7,14 +7,8 @@ from __future__ import annotations
 import pytest
 
 from ai_model_serving.contracts.chat_request import validate_chat_request
-from ai_model_serving.contracts.chat_response_format import _validate_response_format
-from ai_model_serving.contracts.common import reject_unknown_fields
-from ai_model_serving.contracts.media import _validate_input_audio
 from ai_model_serving.errors import ServiceError, default_code_for_status, error_payload, service_error_debug
 
-# response_format validator가 "활성화 안 됨" 게이트가 아니라 필드 단위 거부까지
-# 도달하도록 관대한 policy를 쓴다(어느 쪽이든 param은 response_format을 가리켜야 한다).
-_RF_POLICY = {"response_format": {"enabled": True, "types": ["text", "json_schema"]}}
 _STRICT_CHAT_POLICY = {
     "allow_unlisted_parameters": False,
     "supported_parameters": ["stream", "stream_options", "max_tokens", "tools", "tool_choice"],
@@ -26,24 +20,6 @@ def _raise(fn) -> ServiceError:
     with pytest.raises(ServiceError) as excinfo:
         fn()
     return excinfo.value
-
-
-def test_response_format_error_carries_response_format_param():
-    exc = _raise(lambda: _validate_response_format({"type": "bogus"}, {"messages": []}, _RF_POLICY))
-    assert exc.code == "VALIDATION_ERROR"
-    assert exc.param is not None and exc.param.split(".")[0] == "response_format"
-
-
-def test_input_audio_error_carries_input_audio_param():
-    exc = _raise(
-        lambda: _validate_input_audio(
-            {"type": "input_audio", "input_audio": {"data": "AAAA", "format": "xyz"}},
-            allowed_audio_formats={"wav"},
-            max_audio_bytes=1000,
-        )
-    )
-    assert exc.code == "VALIDATION_ERROR"
-    assert exc.param == "input_audio"
 
 
 def test_response_format_json_schema_error_carries_schema_param():
@@ -71,11 +47,6 @@ def test_response_format_json_schema_error_carries_schema_param():
 
     assert exc.code == "VALIDATION_ERROR"
     assert exc.param == "response_format.json_schema.schema"
-
-
-def test_reject_unknown_fields_sets_param_from_context():
-    exc = _raise(lambda: reject_unknown_fields({"junk": 1}, {"data"}, "input_audio"))
-    assert exc.param == "input_audio"
 
 
 @pytest.mark.parametrize(

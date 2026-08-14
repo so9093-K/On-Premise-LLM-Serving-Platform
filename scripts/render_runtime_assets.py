@@ -36,11 +36,6 @@ sys.path.insert(0, str(ROOT / "src"))
 from ai_model_serving.domain import ModelRegistry  # noqa: E402
 from ai_model_serving.monitoring_projection import prometheus_scrape_config_document  # noqa: E402
 
-_GENERATED_HEADER_YAML = (
-    "# 자동 생성 파일입니다. 직접 수정하지 마세요.\n"
-    "# 소스: configs/model_catalog.yaml + configs/model_serving.yaml\n"
-    "# 명령: make render-runtime-assets\n"
-)
 _GENERATED_HEADER_YAML_WITH_MONITORING = (
     "# 자동 생성 파일입니다. 직접 수정하지 마세요.\n"
     "# 소스: configs/model_catalog.yaml + configs/model_serving.yaml + configs/monitoring.yaml\n"

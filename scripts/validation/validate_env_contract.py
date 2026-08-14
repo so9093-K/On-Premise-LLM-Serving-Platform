@@ -96,18 +96,14 @@ def validate(root: Path = ROOT, strict: bool = False) -> list[str]:
                 violations.append(f"{filename}: missing required key {key!r}")
 
     if strict:
-        # EXPOSURE_MODE canonical 값이 exposure_profiles.yaml과 일치하는지 확인
+        # exposure profile마다 필요한 env key 묶음이 빠지지 않았는지 확인한다.
+        # 예시 파일의 실제 EXPOSURE_MODE 값 유효성은 compose preflight가 소유한다.
         exposure_path = root / "configs" / "exposure_profiles.yaml"
         if not exposure_path.exists():
             violations.append("configs/exposure_profiles.yaml not found — cannot verify EXPOSURE_MODE values")
         else:
             exposure_data = load_yaml(exposure_path)
             profiles = exposure_data.get("profiles", {})
-            # EXPOSURE_MODE example key가 선언되어 있는지 확인
-            req_any = contract.get("exposure_mode_requirements", {}).get("any", [])
-            if "EXPOSURE_MODE" not in req_any:
-                violations.append("env_contract.yaml: exposure_mode_requirements.any does not include EXPOSURE_MODE")
-
             # base가 아닌 profile마다 exposure_mode_requirements에 항목이 있는지 확인
             mode_reqs: dict = contract.get("exposure_mode_requirements", {})
             non_base_modes = [
@@ -139,7 +135,7 @@ def main() -> int:
 
     print("validate_env_contract: OK — .env examples match env_contract.yaml")
     if args.strict:
-        print("  (strict mode: EXPOSURE_MODE values verified against exposure_profiles.yaml)")
+        print("  (strict mode: exposure profile requirement coverage verified)")
     return 0
 
 

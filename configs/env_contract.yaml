@@ -62,8 +62,6 @@ runtime_override_example_keys:
 
 # master_open 예시에 필요한 host bind 키.
 exposure_mode_requirements:
-  any:
-    - EXPOSURE_MODE
   master_open:
     - EXPOSURE_AUDIENCE
     - GRAFANA_BIND_ADDR
@@ -84,7 +82,6 @@ env_examples:
       - auth_mode_keys
       - auth_evidence_keys
       - runtime_override_example_keys
-      - exposure_mode_requirements.any
   .env.local.example:
     required_key_sets:
       - runtime_override_example_keys
@@ -94,5 +91,4 @@ env_examples:
       - auth_mode_keys
       - auth_evidence_keys
       - runtime_override_example_keys
-      - exposure_mode_requirements.any
       - exposure_mode_requirements.master_open

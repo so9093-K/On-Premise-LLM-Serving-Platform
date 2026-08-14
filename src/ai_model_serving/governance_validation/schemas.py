@@ -155,7 +155,9 @@ def validate_request_schemas() -> None:
         'specs/schemas/common_error.schema.json': {'error': {'code': 'VALIDATION_ERROR', 'message': 'msg', 'retryable': False, 'request_id': 'req_1'}},
         'specs/schemas/chat_completion_response.schema.json': {'id': 'chatcmpl_1', 'object': 'chat.completion', 'created': 1, 'model': 'local-main', 'choices': [{'index': 0, 'message': {'role': 'assistant', 'content': 'hello'}, 'finish_reason': 'stop'}]},
         'specs/schemas/embedding_response.schema.json': {'object': 'list', 'model': 'local-embed', 'data': [{'object': 'embedding', 'embedding': [0.1, 0.2], 'index': 0}]},
-        'specs/schemas/readiness_response.schema.json': {'status': 'ready', 'service': 'gateway', 'phase': 'serving', 'not_ready_dependencies': [], 'required_not_ready_dependencies': [], 'optional_not_ready_dependencies': [], 'dependencies': [{'name': 'main_llm_vllm', 'status': 'ready', 'endpoint': 'http://main-llm-vllm:9401/v1/models'}]},
+        # 이 sample은 readiness schema의 URI 필드 형태만 검증한다. 실제 서비스명·포트는
+        # configs/services.yaml과 configs/model_serving.yaml의 정합성 검증이 소유한다.
+        'specs/schemas/readiness_response.schema.json': {'status': 'ready', 'service': 'gateway', 'phase': 'serving', 'not_ready_dependencies': [], 'required_not_ready_dependencies': [], 'optional_not_ready_dependencies': [], 'dependencies': [{'name': 'main_llm_vllm', 'status': 'ready', 'endpoint': 'http://runtime.invalid:1/v1/models'}]},
     }
     for path, sample in samples.items():
         schema = read_json(path)

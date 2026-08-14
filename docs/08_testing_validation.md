@@ -343,6 +343,13 @@ make runtime-validate
 
 기본 산출물은 `reports/runtime/` 아래에 JSON과 Markdown 형식으로 생성된다.
 
+Grafana datasource·dashboard 검증은 실행 중인 Grafana 관리자 인증정보가 필요하다. host의
+`.env` 값이 배포된 Grafana의 비밀번호와 다르면 해당 두 check는 `401 Unauthorized`으로
+실패할 수 있다. 이는 dashboard/import 자체의 실패로 단정하지 않는다. 배포 환경의 현재
+인증정보를 `GRAFANA_ADMIN_USER`/`GRAFANA_ADMIN_PASSWORD` 환경변수 또는
+`--grafana-user`/`--grafana-password` 인자로 전달해 재실행하고, 그 결과로 monitoring
+상태를 판단한다. validator는 Docker에서 비밀번호를 읽거나 `.env`를 자동 변경하지 않는다.
+
 ### 대상 URL 선택과 증빙 범위
 
 후보 환경을 검증할 때 runtime validation의 host URL은 다음 우선순위를 따른다.
