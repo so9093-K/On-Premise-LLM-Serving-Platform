@@ -150,8 +150,6 @@ _MAIN_MODEL_STATUS_EXAMPLE = {
         "compatibility": {"status": "verified"},
         "capabilities": {
             "deployed_input": ["text", "image", "audio", "video"],
-            "audio_enabled": True,
-            "video_enabled": True,
         },
         # 이 예시는 API 형식만 보여준다. 실제 runtime image는 활성 profile과
         # 배포 시 주입되는 immutable digest에서 결정되므로 특정 배포 registry/digest를
@@ -683,8 +681,6 @@ def build_router(
                                     "compatibility": {"status": "verified"},
                                     "capabilities": {
                                         "deployed_input": ["text", "image"],
-                                        "audio_enabled": False,
-                                        "video_enabled": False,
                                     },
                                     "active": False,
                                 },

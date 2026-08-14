@@ -99,6 +99,12 @@ def _video_payload(url: str, *, count: int = 1):
     return {"model": "local-main", "messages": [{"role": "user", "content": parts}]}
 
 
+def _image_payload(url: str, *, count: int = 1):
+    parts = [{"type": "text", "text": "describe this"}]
+    parts += [{"type": "image_url", "image_url": {"url": url}}] * count
+    return {"model": "local-main", "messages": [{"role": "user", "content": parts}]}
+
+
 def _validate(payload, modalities):
     return validate_chat_request(
         payload,
@@ -447,6 +453,12 @@ def test_backend_video_canary_is_a_valid_video_url_part():
     from ai_model_serving.main_model.docker_backend import _VIDEO_CANARY_MP4_B64
 
     _validate(_video_payload(f"data:video/mp4;base64,{_VIDEO_CANARY_MP4_B64}"), TEXT_IMAGE_AUDIO_VIDEO)
+
+
+def test_backend_image_canary_is_a_valid_image_url_part():
+    from ai_model_serving.main_model.docker_backend import _IMAGE_CANARY_JPEG_B64
+
+    _validate(_image_payload(f"data:image/jpeg;base64,{_IMAGE_CANARY_JPEG_B64}"), TEXT_IMAGE)
 
 
 @pytest.mark.parametrize(

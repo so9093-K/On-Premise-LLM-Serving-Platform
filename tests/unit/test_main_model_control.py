@@ -866,6 +866,37 @@ def test_snapshot_runtime_image_reflects_active_profile(tmp_path):
     assert manager.snapshot()["runtime_image"] == _AUDIO_IMAGE
 
 
+def test_deployed_input_rejects_unknown_modality(tmp_path):
+    # "imgae" 같은 오타가 loader를 통과하면 Gateway 모델 정보엔 노출되면서도
+    # switch-time canary는 정확한 문자열("image")만 알아서 절대 검증되지 않는 modality가
+    # "지원"으로 선언될 수 있다 -- 이 조합을 loader에서 막는다.
+    path = _write_catalog_path(tmp_path, audio_image=None)
+    raw = path.read_text(encoding="utf-8").replace(
+        "    compatibility:\n      status: verified\n    command: [--model, org/base,",
+        "    compatibility:\n      status: verified\n    capabilities:\n      deployed_input: [text, imgae]\n"
+        "    command: [--model, org/base,",
+        1,
+    )
+    path.write_text(raw, encoding="utf-8")
+    with pytest.raises(MainModelConfigurationError):
+        load_main_model_catalog(path)
+
+
+def test_capabilities_rejects_legacy_audio_video_enabled_keys(tmp_path):
+    # audio_enabled/video_enabled는 deployed_input과 중복되는 정보라 제거됐다 -- YAML에
+    # 다시 들어오면 두 source가 어긋날 수 있으므로 loader가 설정 오류로 거부해야 한다.
+    path = _write_catalog_path(tmp_path, audio_image=None)
+    raw = path.read_text(encoding="utf-8").replace(
+        "    compatibility:\n      status: verified\n    command: [--model, org/base,",
+        "    compatibility:\n      status: verified\n    capabilities:\n      deployed_input: [text]\n"
+        "      audio_enabled: false\n    command: [--model, org/base,",
+        1,
+    )
+    path.write_text(raw, encoding="utf-8")
+    with pytest.raises(MainModelConfigurationError):
+        load_main_model_catalog(path)
+
+
 def test_gpu_util_override_rewrites_command_and_fraction():
     from ai_model_serving.main_model.control import load_main_model_catalog as _load
 

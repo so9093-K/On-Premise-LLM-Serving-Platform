@@ -1500,8 +1500,6 @@ paths:
                         deployed_input:
                         - text
                         - image
-                        audio_enabled: false
-                        video_enabled: false
                       runtime_image: gitlab.wizvera.com:4567/acl-ai-system/acl-ai-gateway/vllm-unified@sha256:57f8dc4b64c189e0656ead65fbf7444971c74158b8fbdd9106886ed7353b1981
                       vram_fraction: 0.76
                     last_known_good_profile: gemma4-26b-a4b-fp8
@@ -1525,8 +1523,6 @@ paths:
                         deployed_input:
                         - text
                         - image
-                        audio_enabled: false
-                        video_enabled: false
                       runtime_image: gitlab.wizvera.com:4567/acl-ai-system/acl-ai-gateway/vllm-unified@sha256:57f8dc4b64c189e0656ead65fbf7444971c74158b8fbdd9106886ed7353b1981
                       vram_fraction: 0.76
                     last_known_good_profile: gemma4-26b-a4b-fp8
@@ -1550,8 +1546,6 @@ paths:
                         deployed_input:
                         - text
                         - image
-                        audio_enabled: false
-                        video_enabled: false
                       runtime_image: gitlab.wizvera.com:4567/acl-ai-system/acl-ai-gateway/vllm-unified@sha256:57f8dc4b64c189e0656ead65fbf7444971c74158b8fbdd9106886ed7353b1981
                       vram_fraction: 0.76
                     last_known_good_profile: gemma4-26b-a4b-fp8
@@ -1600,8 +1594,6 @@ paths:
                     deployed_input:
                     - text
                     - image
-                    audio_enabled: false
-                    video_enabled: false
                   runtime_image: gitlab.wizvera.com:4567/acl-ai-system/acl-ai-gateway/vllm-unified@sha256:57f8dc4b64c189e0656ead65fbf7444971c74158b8fbdd9106886ed7353b1981
                   vram_fraction: 0.76
                   active: true
@@ -1618,8 +1610,6 @@ paths:
                     - image
                     - audio
                     - video
-                    audio_enabled: true
-                    video_enabled: true
                   active: false
         '503':
           description: Admin Sidecar 연결 실패

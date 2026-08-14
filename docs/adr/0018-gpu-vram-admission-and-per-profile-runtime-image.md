@@ -77,8 +77,8 @@ Audio/video는 0017과 동일하게 기본 inert다. 활성화는 게이트된 �
 
 1. `vllm-unified` 이미지를 `build-vllm-derived` CI 잡으로 빌드·push하고 immutable
    digest를 산출한다(`build/vllm-unified-image.env`). base는 메인 런타임 digest + 디코드 스택뿐.
-2. 그 digest를 `gemma4-12b-unified-fp8` 프로필 `image`에 핀하고 caps를 flip한다
-   (`deployed_input`에 audio/video 추가, `audio_enabled: true`, `video_enabled: true`).
+2. 그 digest를 `gemma4-12b-unified-fp8` 프로필 `image`에 핀하고 `capabilities.deployed_input`에
+   audio/video를 추가한다 — 이 값이 media boot canary 실행 여부를 그대로 결정한다.
 3. 12B로 switch하면 `validate()`가 media boot canaries를 실행한다. 디코드 실패 시 26B로
    rollback되어 advertised modality가 반쪽 활성되지 않는다.
 

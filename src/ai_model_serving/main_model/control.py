@@ -36,6 +36,13 @@ _DIGEST_IMAGE_RE = re.compile(r"^.+@sha256:[0-9a-f]{64}$")
 # 수동이 아니라 파이프라인에 의해 고정(pin)된다.
 _IMAGE_ENV_REF_RE = re.compile(r"^\$\{([A-Z_][A-Z0-9_]*)\}$")
 _COMPATIBILITY = frozenset({"verified", "likely", "unverified", "incompatible", "unknown"})
+# switch-time media boot canary가 실제로 아는 modality 집합이다. deployed_input은 이
+# 값들로만 구성돼야 한다 -- 그래야 "선언한 modality는 반드시 canary된다"는 원칙이 오타나
+# 미지원 값(예: "imgae") 앞에서도 깨지지 않는다.
+_ALLOWED_MODALITIES = frozenset({"text", "image", "audio", "video"})
+# capabilities에 이 키만 허용한다. audio_enabled/video_enabled는 deployed_input과 중복되는
+# legacy 정보라 제거됐다 -- 다시 들어오면 두 소스가 어긋날 수 있으므로 설정 오류로 막는다.
+_ALLOWED_CAPABILITY_KEYS = frozenset({"deployed_input"})
 _TERMINAL_STATES = frozenset({"completed", "failed", "rollback_failed"})
 # reconcile_if_restarted()의 재시도 backoff. admin_sidecar.py의 10초 poll
 # 간격을 기준 단위로 2배씩 늘리다 최대 5분에서 멈춘다 -- validate()가 계속
@@ -267,15 +274,22 @@ def load_main_model_catalog(
         capabilities = item.get("capabilities", {"deployed_input": ["text"]})
         if not isinstance(capabilities, dict):
             raise MainModelConfigurationError(f"profile {profile_id} capabilities must be an object")
+        unknown_capability_keys = set(capabilities) - _ALLOWED_CAPABILITY_KEYS
+        if unknown_capability_keys:
+            raise MainModelConfigurationError(
+                f"profile {profile_id} capabilities has unsupported key(s): {sorted(unknown_capability_keys)}"
+            )
         deployed_input = capabilities.get("deployed_input")
         if (
             not isinstance(deployed_input, list)
             or not deployed_input
             or not all(isinstance(value, str) for value in deployed_input)
             or "text" not in deployed_input
+            or not set(deployed_input) <= _ALLOWED_MODALITIES
         ):
             raise MainModelConfigurationError(
-                f"profile {profile_id} capabilities.deployed_input must be a non-empty list including text"
+                f"profile {profile_id} capabilities.deployed_input must be a non-empty list including "
+                f"text, drawn only from {sorted(_ALLOWED_MODALITIES)}"
             )
         gateway_policy = item.get("gateway_policy", {})
         if not isinstance(gateway_policy, dict):

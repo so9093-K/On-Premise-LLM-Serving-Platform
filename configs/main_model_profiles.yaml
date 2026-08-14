@@ -27,10 +27,9 @@ profiles:
       # verified만 별도 확인 없이 전환할 수 있다.
       status: verified
     capabilities:
-      # Gateway 허용 입력. enabled=true이면 전환 시 실제 media canary도 실행한다.
+      # Gateway 허용 입력이자 switch-time media boot canary의 단일 source of truth다 --
+      # 여기 있는 modality마다 전환 시 실제 canary가 실행된다.
       deployed_input: [text, image]
-      audio_enabled: false
-      video_enabled: false
     # 컨테이너 재생성 시 그대로 적용할 vLLM 실행 인자다.
     command:
     - --model
@@ -180,10 +179,9 @@ profiles:
       # verified만 별도 확인 없이 전환할 수 있다.
       status: verified
     capabilities:
-      # Gateway 허용 입력. enabled=true이면 전환 시 실제 media canary도 실행한다.
+      # Gateway 허용 입력이자 switch-time media boot canary의 단일 source of truth다 --
+      # 여기 있는 modality마다 전환 시 실제 canary가 실행된다.
       deployed_input: [text, image, audio, video]
-      audio_enabled: true
-      video_enabled: true
     # 컨테이너 재생성 시 그대로 적용할 vLLM 실행 인자다.
     command:
     - --model
@@ -244,6 +242,73 @@ profiles:
         max_video_frames: 60
         max_video_frame_pixels: 12845056
         max_video_duration_seconds: 60
+  qwen2.5-omni-7b-thinker:
+    display_name: Qwen 2.5 Omni 7B (Thinker)
+    model_id: Qwen/Qwen2.5-Omni-7B
+    revision: ae9e1690543ffd5c0221dc27f79834d0294cba00
+    served_model_name: local-main
+    # 12B와 같은 media decode stack(soundfile/librosa/PyAV)이 필요해 같은 derived image를
+    # 공유한다. Gemma4 전용 패치(vision_embedder.patch_dense, feature_extractor.fft_length)는
+    # 이 모델의 코드 경로와 겹치지 않아 no-op일 것으로 예상하나, 3단계 실제 부팅에서 확인한다.
+    image: ${AUDIO_VLLM_IMAGE}
+    compatibility:
+      # 검증 전이라 confirm_unverified 없이는 전환할 수 없다.
+      status: unverified
+    capabilities:
+      # Gateway 허용 입력이자 switch-time media boot canary의 단일 source of truth다.
+      deployed_input: [text, image, audio, video]
+    # 0단계 조사 뒤 처음 추가하는 최소 커맨드다. Gemma 전용 tool/reasoning parser,
+    # chat-template, structured-output 옵션은 넣지 않는다. --max-model-len/--max-num-seqs/
+    # --gpu-memory-utilization은 실측 전 보수적 초기값이며 3단계 실측 후 재조정한다.
+    command:
+    - --model
+    - Qwen/Qwen2.5-Omni-7B
+    - --revision
+    - ae9e1690543ffd5c0221dc27f79834d0294cba00
+    - --served-model-name
+    - local-main
+    - --host
+    - 0.0.0.0
+    - --port
+    - "9401"
+    - --max-model-len
+    - "8192"
+    - --max-num-seqs
+    - "1"
+    - --gpu-memory-utilization
+    - "0.4"
+    # Qwen 전용 API 계약이다. tools/reasoning/response_format/logprobs는 canary 전까지
+    # supported_parameters에 넣지 않아 요청 시 거부된다.
+    gateway_policy:
+      max_output_tokens: 2048
+      request_limits:
+        max_model_len: 8192
+        input_modalities: [text, image, audio, video]
+        max_image_inputs: 1
+        allowed_image_url_schemes: [data]
+        # max_image_pixels는 Qwen2.5-Omni-7B preprocessor_config.json(Qwen2VLImageProcessor)의
+        # 실측 max_pixels다. 나머지 byte/mime 한도는 같은 decode stack을 쓰는 12B profile 값을
+        # 시작점으로 재사용한 것으로, Qwen 자체 canary(2, 3단계)로 재확인 전까지는 잠정치다.
+        max_image_bytes: 25000000
+        max_image_pixels: 12845056
+        allowed_image_mime_types: [image/jpeg, image/png, image/webp, image/avif, image/jp2, image/gif, image/bmp, image/tiff, image/x-tiff]
+        max_audio_inputs: 1
+        allowed_audio_formats: [wav, mp3, flac, ogg, m4a, mp4, aac]
+        max_audio_bytes: 25000000
+        max_video_inputs: 1
+        allowed_video_url_schemes: [data]
+        allowed_video_mime_types: [video/mp4, video/webm, video/x-matroska, video/quicktime, video/jpeg, video/x-msvideo, video/avi, video/gif]
+        max_video_bytes: 50000000
+        max_video_frames: 60
+        max_video_frame_pixels: 12845056
+        max_video_duration_seconds: 60
+      # tool_calling/reasoning/response_format/logprobs/logit_bias 정책 blocks는 아직
+      # 선언하지 않는다 -- 이 dict에 없는 기능은 Gateway가 기본적으로 거부한다.
+      runtime_features: {}
+      request_parameter_policy:
+        allow_unlisted_parameters: false
+        supported_parameters: [stream, stream_options, temperature, max_tokens, top_p, top_k, min_p, presence_penalty, frequency_penalty, repetition_penalty, stop, seed, n]
+        max_n: 1
 description: |
   이력은 현재 설정의 근거를 보존하기 위한 참고 정보다. 전환 로직은 각 profile의
   compatibility.status와 실행 canary만 사용한다.

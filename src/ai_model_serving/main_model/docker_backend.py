@@ -10,9 +10,10 @@ from typing import Any
 import httpx
 
 from .control import MainModelCatalog, MainModelProfile
-from ..media_samples import TINY_M4A_AAC_B64, TINY_MP4_VIDEO_B64
+from ..media_samples import TINY_JPEG_1X1_B64, TINY_M4A_AAC_B64, TINY_MP4_VIDEO_B64
 from .cache import prepare_model_snapshot
 
+_IMAGE_CANARY_JPEG_B64 = TINY_JPEG_1X1_B64
 _AUDIO_CANARY_M4A_B64 = TINY_M4A_AAC_B64
 _VIDEO_CANARY_MP4_B64 = TINY_MP4_VIDEO_B64
 
@@ -348,8 +349,38 @@ class DockerMainModelBackend:
             # Media boot canary: 해당 modality를 실제로 배포하는 profile에 대해서만
             # 수행한다. gate가 열리기 전에 런타임이 컨테이너 media를 디코드할 수
             # 있음을 증명하여, 지원한다고 표시되었지만 실제로는 깨진 modality가
-            # 실제 요청에서 500을 내는 대신 rollback되도록 한다.
-            if profile.capabilities.get("audio_enabled"):
+            # 실제 요청에서 500을 내는 대신 rollback되도록 한다. 입력 modality의
+            # 단일 source of truth는 capabilities.deployed_input이다 -- 별도
+            # audio_enabled/video_enabled 플래그는 이 값과 항상 일치해야 하는
+            # 중복 정보라 두지 않는다.
+            deployed_modalities = set(profile.capabilities.get("deployed_input", []))
+            if "image" in deployed_modalities:
+                image_canary = await client.post(
+                    base + str(catalog.runtime["chat_path"]),
+                    json={
+                        "model": catalog.public_model,
+                        "messages": [
+                            {
+                                "role": "user",
+                                "content": [
+                                    {"type": "text", "text": "Reply with OK only."},
+                                    {
+                                        "type": "image_url",
+                                        "image_url": {"url": f"data:image/jpeg;base64,{_IMAGE_CANARY_JPEG_B64}"},
+                                    },
+                                ],
+                            }
+                        ],
+                        "max_tokens": 8,
+                        "temperature": 0,
+                    },
+                )
+                image_canary.raise_for_status()
+                image_body = image_canary.json()
+                image_choices = image_body.get("choices", [])
+                if not image_choices or not image_choices[0].get("message", {}).get("content"):
+                    raise RuntimeError("main runtime image canary returned no content")
+            if "audio" in deployed_modalities:
                 audio_canary = await client.post(
                     base + str(catalog.runtime["chat_path"]),
                     json={
@@ -375,7 +406,7 @@ class DockerMainModelBackend:
                 audio_choices = audio_body.get("choices", [])
                 if not audio_choices or not audio_choices[0].get("message", {}).get("content"):
                     raise RuntimeError("main runtime audio canary returned no content")
-            if profile.capabilities.get("video_enabled"):
+            if "video" in deployed_modalities:
                 video_canary = await client.post(
                     base + str(catalog.runtime["chat_path"]),
                     json={
