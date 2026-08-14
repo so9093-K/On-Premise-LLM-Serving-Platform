@@ -252,8 +252,11 @@ profiles:
     # 이 모델의 코드 경로와 겹치지 않아 no-op일 것으로 예상하나, 3단계 실제 부팅에서 확인한다.
     image: ${AUDIO_VLLM_IMAGE}
     compatibility:
-      # 검증 전이라 confirm_unverified 없이는 전환할 수 없다.
-      status: unverified
+      # 2026-08-14: unverified -> likely. 독립된 재부팅 2회(fixture 수정 직후, 리소스 설정
+      # 변경 후) 모두 text/image/audio/video 4종 switch-time canary 전부 성공 -- deployed_input
+      # 전체 재현성 확인. 이 profile에서 활성화한 response_format/logprobs/logit_bias의
+      # Gateway 경유 검증과 운영 오류 경계 확인을 마쳐야 verified로 승격할 수 있다.
+      status: likely
     capabilities:
       # Gateway 허용 입력이자 switch-time media boot canary의 단일 source of truth다.
       deployed_input: [text, image, audio, video]
@@ -277,11 +280,10 @@ profiles:
     - "1"
     - --gpu-memory-utilization
     - "0.6"
-    # Qwen 전용 API 계약이다. tools/reasoning/logprobs는 canary 전까지 supported_parameters에
-    # 넣지 않아 요청 시 거부된다. response_format(json_object/json_schema)은 2026-08-14
-    # vLLM 직접 요청으로 실측 검증 후 활성화했다 -- Gemma와 달리 --structured-outputs-config
-    # 없이 vLLM 기본 xgrammar backend로 그대로 동작한다(strict schema 강제, 무효 schema는
-    # 400 거부 확인).
+    # Qwen 전용 API 계약이다. tool calling과 reasoning은 지원하지 않아 선언하지 않는다.
+    # response_format/logprobs/logit_bias는 vLLM 직접 요청으로 확인해 활성화했으며,
+    # verified 승격 전에는 Gateway 경유 계약도 같은 조합으로 확인한다. Gemma와 달리
+    # structured output은 별도 CLI 옵션 없이 vLLM 기본 xgrammar backend로 동작한다.
     gateway_policy:
       max_output_tokens: 2048
       request_limits:
@@ -305,16 +307,15 @@ profiles:
         max_video_frames: 60
         max_video_frame_pixels: 12845056
         max_video_duration_seconds: 60
-      # tool_calling/reasoning/logprobs/logit_bias 정책 blocks는 아직 선언하지 않는다 --
-      # 이 dict에 없는 기능은 Gateway가 기본적으로 거부한다. response_format은 실측
-      # 검증 후 활성화(아래).
+      # tool_calling/reasoning은 선언하지 않아 Gateway가 거부한다. 아래 세 기능은
+      # vLLM 직접 요청으로 확인했지만, verified 승격 전 Gateway 경유 실측이 남아 있다.
       runtime_features:
         structured_outputs:
           enabled: true
           backend: xgrammar
       request_parameter_policy:
         allow_unlisted_parameters: false
-        supported_parameters: [stream, stream_options, temperature, max_tokens, top_p, top_k, min_p, presence_penalty, frequency_penalty, repetition_penalty, stop, seed, n, response_format]
+        supported_parameters: [stream, stream_options, temperature, max_tokens, top_p, top_k, min_p, presence_penalty, frequency_penalty, repetition_penalty, stop, seed, n, response_format, logprobs, top_logprobs, logit_bias]
         max_n: 1
         response_format:
           enabled: true
@@ -339,6 +340,29 @@ profiles:
             max_total_schema_string_length: 32768
             disallowed_keywords: [allOf, not, if, then, else, dependentRequired, dependentSchemas, patternProperties, $dynamicRef, $recursiveRef, $dynamicAnchor, $recursiveAnchor, $id, $anchor]
             root_disallowed_keywords: [anyOf]
+        # 2026-08-14 vLLM 직접 요청으로 실측 검증: logprobs/top_logprobs 정상 응답,
+        # logit_bias는 양의 편향으로 특정 토큰 강제, 정확한 토큰 ID로 음의 편향 시 회피까지
+        # 확인(최초 시도는 토큰화 경계를 잘못 짚어 다른 토큰을 편향시킨 테스트 실수였음).
+        logprobs:
+          enabled: true
+          default: false
+          allow_stream: true
+        top_logprobs:
+          min: 0
+          max: 10
+          requires_logprobs: true
+        logit_bias:
+          enabled: true
+          max_entries: 256
+          min_bias: -100
+          max_bias: 100
+          token_id_min: 0
+          token_id_semantics: served_model_tokenizer
+        combinations:
+          json_schema_with_logit_bias:
+            mode: allow
+          logprobs_with_stream:
+            mode: allow
 description: |
   이력은 현재 설정의 근거를 보존하기 위한 참고 정보다. 전환 로직은 각 profile의
   compatibility.status와 실행 canary만 사용한다.
@@ -471,3 +495,35 @@ description: |
   검증값: gpu=NVIDIA RTX 6000 Ada Generation, compute_capability=8.9, vram_mib=49140,
   context_tokens=50000, concurrency=3, validated_at=2026-07-25,
   kv_cache_size_tokens=53722, kv_cache_max_concurrency=1.07.
+
+  [qwen2.5-omni-7b-thinker]
+  2026-08-14, 후보 profile로 처음 추가. 최초 커맨드(--max-model-len 8192,
+  --gpu-memory-utilization 0.4)로 전환 시도 -- text/image/audio canary는 성공했으나 video
+  canary가 vLLM 자체 Qwen2VLVideoBackend.compute_frames_index_to_sample에서
+  ZeroDivisionError로 실패, 자동 rollback으로 Gemma 12B 복귀. 원인은 vLLM/Qwen
+  호환성 문제가 아니라 우리 video canary fixture(TINY_MP4_VIDEO_B64)가 1 frame짜리
+  degenerate 영상이었던 것 -- total_frames_num=1이 temporal_patch_size(2) 나눗셈에서
+  n=0을 유발했다. fixture를 6 frame/2fps 영상으로 교체 후 재전환 -- text/image/audio/video
+  4종 전부 성공, 혼합 입력(image+audio+video 한 요청)도 성공, streaming도 정상.
+
+  같은 날, structured output(response_format: json_schema/json_object)을 vLLM 직접
+  요청으로 실측 검증 -- strict schema 강제(자유 대화 프롬프트에도 스키마 강제됨),
+  무효 schema는 400 거부 확인. Gemma와 달리 --structured-outputs-config 등 별도 커맨드
+  옵션 없이 vLLM 기본 xgrammar backend로 그대로 동작한다. gateway_policy에 반영 후
+  재전환(--max-model-len 8192->32768, --gpu-memory-utilization 0.4->0.6로 리소스 여유도
+  같이 반영) -- Gateway 경유 response_format 요청도 정상 확인.
+
+  검증값(2026-08-14, --max-model-len 32768/--gpu-memory-utilization 0.6 기준):
+  gpu=NVIDIA RTX 6000 Ada Generation, vram_mib=49140, kv_cache_size_tokens=209536,
+  kv_cache_max_concurrency=6.39, gpu_used_mib=35840(free=12671, embedding/embedding-ko/
+  risk-prompt 포함 전체 사용량).
+
+  리소스 설정 변경 재부팅 로그를 다시 확인한 결과, 재시작 감지 reconcile이 4종 canary를
+  다시 돌렸고(GET /v1/models -> text -> image -> audio -> video, 전부 200) 이 역시
+  성공했다 -- 즉 독립된 재부팅 2회(fixture 수정 직후, 리소스 설정 변경 후) 모두 4종 전부
+  성공해 재현성 조건을 충족한다. compatibility.status를 unverified -> likely로 승격했다.
+  use_audio_in_video와 다중 media 정책은 후속 실측으로 확인했다. response_format,
+  logprobs, logit_bias는 vLLM 직접 요청으로 확인해 policy에 반영했으며, verified 승격 전
+  Gateway 경유 logprobs/top_logprobs, logit_bias, stream+logprobs, json_schema+logit_bias
+  조합과 운영 오류 경계를 확인한다. tool calling은 안정적인 parser/template 경로가 없어
+  비활성, reasoning은 이 Thinker 경로의 기능이 아니다.
