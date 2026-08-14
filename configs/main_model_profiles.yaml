@@ -260,8 +260,8 @@ profiles:
       # Gateway 허용 입력이자 switch-time media boot canary의 단일 source of truth다.
       deployed_input: [text, image, audio, video]
     # 0단계 조사 뒤 처음 추가하는 최소 커맨드다. Gemma 전용 tool/reasoning parser,
-    # chat-template, structured-output 옵션은 넣지 않는다. --max-model-len/--max-num-seqs/
-    # --gpu-memory-utilization은 실측 전 보수적 초기값이며 3단계 실측 후 재조정한다.
+    # chat-template, structured-output 옵션은 넣지 않는다. max_num_seqs=4는 32K context
+    # 기준 실측 KV cache 동시성 6.39와 Gateway admission 4를 맞춘 값이다.
     command:
     - --model
     - Qwen/Qwen2.5-Omni-7B
@@ -276,7 +276,7 @@ profiles:
     - --max-model-len
     - "32768"
     - --max-num-seqs
-    - "1"
+    - "4"
     - --gpu-memory-utilization
     - "0.6"
     # Qwen 전용 API 계약이다. tool calling과 reasoning은 지원하지 않아 선언하지 않는다.
@@ -284,7 +284,11 @@ profiles:
     # verified 승격 전에는 Gateway 경유 계약도 같은 조합으로 확인한다. Gemma와 달리
     # structured output은 별도 CLI 옵션 없이 vLLM 기본 xgrammar backend로 동작한다.
     gateway_policy:
-      max_output_tokens: 2048
+      # 13,000-token 강제 생성도 약 59 tok/s로 HTTP 200을 완료했고 KV cache 최대
+      # 점유는 6.1%였다. production upstream timeout 300초 안에 드는 상한이다. 단,
+      # media가 차지한 prompt token과 출력은 32K context를 공유하므로 이 값은 보장량이
+      # 아닌 요청 상한이다(720p·60초·60-frame video는 prompt 약 21.6K tokens).
+      max_output_tokens: 13000
       request_limits:
         max_model_len: 32768
         input_modalities: [text, image, audio, video]
@@ -526,3 +530,11 @@ description: |
   logit_bias, stream+logprobs, json_schema+logit_bias가 모두 HTTP 200 및 기대 응답 형상을
   통과했다. 이 근거로 status를 verified로 승격했다. tool calling은 안정적인 parser/template
   경로가 없어 비활성, reasoning은 이 Thinker 경로의 기능이 아니다.
+
+  리소스 재검토로 --max-num-seqs를 1 -> 4, Gateway max_output_tokens를 2048 -> 13000으로
+  조정했다. 변경 전 실제 KV cache는 209,536 tokens(32,768 context 기준 6.39 seq), Gateway
+  admission은 4였고, 13,000-token 강제 생성은 약 59 tok/s로 HTTP 200을 완료했다(KV cache
+  최대 6.1%). 따라서 4 seq와 13,000 output은 각각 KV cache 여유와 production 300초 upstream
+  timeout 안의 사용점이다. 단, 입력과 출력은 32K context를 공유한다. 720p·60초·60-frame
+  video는 prompt 약 21.6K tokens를 소비해 13,000 output을 전부 보장할 수 없다. 다음 CICD
+  배포 후 text와 media를 섞은 4개 동시 요청 및 13,000-token 생성으로 재확인한다.

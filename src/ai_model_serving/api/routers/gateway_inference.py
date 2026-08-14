@@ -108,6 +108,22 @@ def _active_gateway_policy(main_model: dict[str, Any]) -> dict[str, Any] | None:
     return dict(policy) if isinstance(policy, dict) else None
 
 
+def _active_main_capabilities(
+    capabilities: list[Any],
+    modalities: tuple[str, ...],
+    policy: dict[str, Any],
+) -> list[str]:
+    """현재 profile이 실제로 받는 입력·파라미터에 맞춰 listing capability를 축소한다."""
+    active = [str(item) for item in capabilities]
+    if "image" not in modalities:
+        active = [item for item in active if item != "chat.completions.vision"]
+    parameters = policy.get("request_parameter_policy", {})
+    supported = parameters.get("supported_parameters", []) if isinstance(parameters, dict) else []
+    if "tools" not in supported:
+        active = [item for item in active if item != "chat.completions.tools"]
+    return active
+
+
 def build_router(
     api_dependencies: list,
     service: Any,
@@ -153,6 +169,9 @@ def build_router(
             if item.get("id") == main_model_id:
                 item["input_modalities"] = list(active_modalities)
                 if active_policy:
+                    item["capabilities"] = _active_main_capabilities(
+                        item.get("capabilities", []), active_modalities, active_policy
+                    )
                     item["request_parameters"] = chat_request_parameter_surface(
                         active_policy.get("request_parameter_policy", {}),
                         max_output_tokens=int(active_policy.get("max_output_tokens", 0)) or None,

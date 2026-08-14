@@ -24,6 +24,7 @@
 
 ### Changed
 
+- Qwen2.5-Omni-7B Thinker profile의 동시 실행 상한을 `1 → 4`, Gateway `max_output_tokens`를 `2,048 → 13,000`으로 조정했다. 32K context에서 실측 KV cache(209,536 tokens, full-context 6.39 seq)와 Gateway admission(4), 13,000-token 생성(약 59 tok/s, HTTP 200, KV cache 최대 6.1%)을 근거로 했다. 배포 뒤 4개 동시 멀티모달 요청과 긴 출력으로 재확인한다.
 - Gemma4의 `reasoning=true + response_format=json_schema` 조합에서 커스텀 chat template의 `<|think|>` 뒤 개행을 native template과 일치시켰다. vLLM 기본 경로대로 `enable_in_reasoning=false`를 유지해 reasoning 종료 뒤에만 최종 JSON schema grammar를 적용한다. 실제 동일 요청에서 이 경로는 정상 종료했고, thinking 단계부터 grammar를 적용한 경로는 장시간 생성·불완전 JSON을 보였다.
 - `local-embed`이 실제로 지원하지 않는 matryoshka dimensions(128/256/512)를 API 계약에서 제거했다. Gateway는 기본 768만 호환성 입력으로 허용하고 upstream에는 전달하지 않는다.
 - Main Model 전환·재시작 과정의 실패를 무시하던 structured-output/tool-calling 사전 요청과 전용 테스트를 제거했다. 전환 검증은 health, 모델 식별, text, 활성 프로필의 media canary처럼 실패 시 실제로 전환을 막아야 하는 계약만 확인한다.

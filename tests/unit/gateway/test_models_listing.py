@@ -14,10 +14,13 @@ from .helpers import *  # noqa: F401,F403
 class _FakeSidecar:
     """선택된 active-profile modality 집합을 보고하는 최소 sidecar."""
 
-    def __init__(self, deployed_input=None, *, available: bool = True):
+    def __init__(self, deployed_input=None, *, gateway_policy=None, available: bool = True):
         self._snapshot = {
             "gate": "open",
-            "active_profile": {"capabilities": {"deployed_input": list(deployed_input or [])}},
+            "active_profile": {
+                "capabilities": {"deployed_input": list(deployed_input or [])},
+                "gateway_policy": gateway_policy,
+            },
         }
         self._available = available
 
@@ -52,6 +55,15 @@ def test_models_listing_tracks_active_profile_modalities():
     # 이제 audio/video 지원 프로필이 static catalog 기본값 뒤에 숨지 않고
     # 그대로 광고된다.
     assert main["input_modalities"] == ["text", "image", "audio", "video"]
+
+
+def test_models_listing_does_not_advertise_tools_when_active_profile_rejects_them():
+    sidecar = _FakeSidecar(
+        ["text", "image", "audio", "video"],
+        gateway_policy={"request_parameter_policy": {"supported_parameters": ["max_tokens"]}},
+    )
+    main = _main_model(_app_with_sidecar(sidecar).get("/v1/models", headers=auth_headers()))
+    assert "chat.completions.tools" not in main["capabilities"]
 
 
 def test_models_listing_falls_back_when_sidecar_unavailable():
