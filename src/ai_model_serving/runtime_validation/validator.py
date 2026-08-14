@@ -49,20 +49,32 @@ class RuntimeValidator:
 
     def record(self, result: CheckResult) -> None:
         self.results.append(result)
-        marker = "PASS" if result.passed else "FAIL"
+        marker = "PASS" if result.passed else "SKIP" if result.status == "skip" else "FAIL"
         print(f"[{marker}] {result.category}::{result.name} {result.detail}")
 
-    def safe_check(self, category: str, name: str, fn: CheckFn) -> None:
+    def safe_check(self, category: str, name: str, fn: CheckFn) -> CheckResult:
         try:
             result = fn()
-            self.record(result)
         except Exception as exc:  # noqa: BLE001 - runtime validation should capture all failures.
-            self.record(CheckResult(category, name, "fail", detail=f"{type(exc).__name__}: {exc}"))
+            result = CheckResult(category, name, "fail", detail=f"{type(exc).__name__}: {exc}")
+        self.record(result)
+        return result
+
+    def skip_check(self, category: str, name: str, *, missing_parameters: set[str]) -> None:
+        self.record(
+            CheckResult(
+                category,
+                name,
+                "skip",
+                detail="active main-model profile does not expose required request parameter(s)",
+                details={"missing_parameters": sorted(missing_parameters)},
+            )
+        )
 
     def run_live(self) -> None:
         self.safe_check("gateway-runtime", "gateway /health", self.live_checks.check_gateway_health)
         self.safe_check("gateway-runtime", "gateway /ready", self.live_checks.check_gateway_ready)
-        self.safe_check("gateway-runtime", "gateway /v1/models", self.live_checks.check_models)
+        model_listing = self.safe_check("gateway-runtime", "gateway /v1/models", self.live_checks.check_models)
         self.safe_check("risk-adapter-runtime", "risk-adapter /health", self.live_checks.check_risk_health)
         self.safe_check("risk-adapter-runtime", "risk-adapter /ready", self.live_checks.check_risk_ready)
         for key, base in self.vllm_bases.items():
@@ -77,14 +89,38 @@ class RuntimeValidator:
         self.safe_check("vllm-runtime", "streaming chat", self.live_checks.check_streaming_chat)
         self.safe_check("vllm-runtime", "embedding", self.live_checks.check_embedding)
         self.safe_check("vllm-runtime", "embedding-ko", self.live_checks.check_embedding_ko)
-        self.safe_check("response-format-text-canary", "response_format text", self.live_checks.check_response_format_text)
-        self.safe_check("response-format-json-object-canary", "response_format json_object", self.live_checks.check_response_format_json_object)
-        self.safe_check("response-format-json-schema-canary", "response_format json_schema", self.live_checks.check_response_format_json_schema)
-        self.safe_check("logprobs-non-stream-canary", "logprobs non-stream", self.live_checks.check_logprobs_non_stream)
-        self.safe_check("logprobs-stream-canary", "logprobs stream", self.live_checks.check_logprobs_stream)
-        self.safe_check("logit-bias-shape-canary", "logit_bias shape", self.live_checks.check_logit_bias_shape)
-        self.safe_check("json-schema-with-tools-canary", "json_schema with tools", self.live_checks.check_json_schema_with_tools)
-        self.safe_check("json-schema-with-reasoning-canary", "json_schema with reasoning", self.live_checks.check_json_schema_with_reasoning)
+        parameters = model_listing.details.get("main_model_request_parameters", {})
+        supported = set(parameters) if isinstance(parameters, dict) else set()
+        response_format = parameters.get("response_format", {}) if isinstance(parameters, dict) else {}
+        response_types = set(response_format.get("allowed_types", [])) if isinstance(response_format, dict) else set()
+
+        def run_when_supported(
+            category: str,
+            name: str,
+            required: set[str],
+            fn: CheckFn,
+            *,
+            response_type: str | None = None,
+        ) -> None:
+            missing = required - supported
+            if response_type is not None and response_type not in response_types:
+                missing.add(f"response_format.type={response_type}")
+            if missing:
+                self.skip_check(category, name, missing_parameters=missing)
+            else:
+                self.safe_check(category, name, fn)
+
+        for category, name, required, fn, response_type in (
+            ("response-format-text-canary", "response_format text", {"response_format"}, self.live_checks.check_response_format_text, "text"),
+            ("response-format-json-object-canary", "response_format json_object", {"response_format"}, self.live_checks.check_response_format_json_object, "json_object"),
+            ("response-format-json-schema-canary", "response_format json_schema", {"response_format"}, self.live_checks.check_response_format_json_schema, "json_schema"),
+            ("logprobs-non-stream-canary", "logprobs non-stream", {"logprobs"}, self.live_checks.check_logprobs_non_stream, None),
+            ("logprobs-stream-canary", "logprobs stream", {"logprobs"}, self.live_checks.check_logprobs_stream, None),
+            ("logit-bias-shape-canary", "logit_bias shape", {"logit_bias"}, self.live_checks.check_logit_bias_shape, None),
+            ("json-schema-with-tools-canary", "json_schema with tools", {"response_format", "tools"}, self.live_checks.check_json_schema_with_tools, "json_schema"),
+            ("json-schema-with-reasoning-canary", "json_schema with reasoning", {"response_format", "reasoning"}, self.live_checks.check_json_schema_with_reasoning, "json_schema"),
+        ):
+            run_when_supported(category, name, required, fn, response_type=response_type)
         gateway_metrics = self.monitoring["metric_sources"]["gateway"]["required_metrics"]
         risk_metrics = self.monitoring["metric_sources"]["risk_adapter"]["required_metrics"]
         self.safe_check("monitoring-scrape", "gateway metrics", lambda: self.live_checks.scrape_metrics("gateway", self.gateway_base, gateway_metrics))

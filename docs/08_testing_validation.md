@@ -371,14 +371,16 @@ RUNTIME_VALIDATION_GATEWAY_BASE_URL=http://staging-gateway:9400 python scripts/v
 | Risk Adapter | health, readiness, enabled detector, aggregate assessment |
 | vLLM Runtime | 각 runtime `/models`와 logical model 연결 |
 | Chat | 일반 Chat, streaming Chat |
-| Structured Output | text, `json_object`, `json_schema` |
-| Advanced Request | logprobs, logit bias, tools + JSON schema, reasoning + JSON schema |
+| Structured Output | 활성 main profile이 `/v1/models`에 노출한 text, `json_object`, `json_schema` |
+| Advanced Request | 활성 main profile이 노출한 logprobs, logit bias, tools + JSON schema, reasoning + JSON schema |
 | Embedding | `local-embed`, `local-embed-ko` |
 | Metrics | Gateway / Risk Adapter metric scrape |
 | Prometheus | active scrape target |
 | Grafana | API health, Prometheus datasource, dashboard import |
 
 이 단계는 단순 readiness보다 범위가 넓다.
+
+활성 profile이 지원하지 않는 요청 파라미터는 실패로 취급하지 않고 report에 `skip`으로 남긴다. `/v1/models[].request_parameters`가 이 판단의 단일 기준이며, profile이 지원한다고 공개한 기능의 canary 실패만 runtime 검증 실패다.
 
 ```text
 ready-full

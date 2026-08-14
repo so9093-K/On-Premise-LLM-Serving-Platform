@@ -38,5 +38,5 @@ def main() -> int:
     json_path, md_path = validator.write_reports()
     print(f"wrote {json_path}")
     print(f"wrote {md_path}")
-    failed = [item for item in validator.results if not item.passed]
+    failed = [item for item in validator.results if item.failed]
     return 0 if config.allow_failures or not failed else 1

@@ -16,3 +16,7 @@ class CheckResult:
     @property
     def passed(self) -> bool:
         return self.status == "pass"
+
+    @property
+    def failed(self) -> bool:
+        return self.status == "fail"

@@ -23,7 +23,8 @@ def write_reports(
     json_path = out_dir / f"runtime_validation_{stamp}.json"
     md_path = out_dir / f"runtime_validation_{stamp}.md"
     passed = sum(1 for item in results if item.passed)
-    failed = len(results) - passed
+    failed = sum(1 for item in results if item.failed)
+    skipped = sum(1 for item in results if item.status == "skip")
     degraded_features = sorted(
         {
             str(item.details["feature_degraded_on_failure"])
@@ -36,7 +37,7 @@ def write_reports(
         "started_at": session_started,
         "finished_at": datetime.now(timezone.utc).isoformat(),
         "mode": mode,
-        "summary": {"passed": passed, "failed": failed, "degraded_features": degraded_features},
+        "summary": {"passed": passed, "failed": failed, "skipped": skipped, "degraded_features": degraded_features},
         "results": [item.__dict__ for item in results],
     }
     json_path.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
@@ -46,6 +47,7 @@ def write_reports(
         f"모드: `{payload['mode']}`",
         f"통과: {passed}",
         f"실패: {failed}",
+        f"건너뜀: {skipped}",
         "Degraded features: " + (", ".join(degraded_features) if degraded_features else "없음"),
         "",
         "| Category | 검증 항목 | 상태 | Latency ms | 상세 |",

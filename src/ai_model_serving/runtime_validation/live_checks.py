@@ -118,10 +118,25 @@ class LiveRuntimeChecks:
 
     def check_models(self) -> CheckResult:
         status, body, latency = self.http.json("GET", f"{self.gateway_base}/v1/models")
-        ids = {item.get("id") for item in body.get("data", [])}
+        models = body.get("data", [])
+        ids = {item.get("id") for item in models if isinstance(item, dict)}
         expected = set(self.registry.public_logical_ids())
         ok = status == 200 and expected.issubset(ids)
-        return CheckResult("gateway-runtime", "gateway /v1/models", "pass" if ok else "fail", latency, details={"ids": sorted(ids)})
+        main_parameters: dict[str, Any] = {}
+        for item in models:
+            if not isinstance(item, dict) or item.get("id") != self._main_model_name():
+                continue
+            value = item.get("request_parameters")
+            if isinstance(value, dict):
+                main_parameters = value
+            break
+        return CheckResult(
+            "gateway-runtime",
+            "gateway /v1/models",
+            "pass" if ok else "fail",
+            latency,
+            details={"ids": sorted(ids), "main_model_request_parameters": main_parameters},
+        )
 
     def check_vllm_models(self, key: str, base_url: str) -> CheckResult:
         status, body, latency = self.http.json("GET", f"{base_url}/models")

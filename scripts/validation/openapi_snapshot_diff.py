@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-import copy
 import json
 import os
 import sys
@@ -37,27 +36,6 @@ STRICT_ENV = {
 
 def _load_yaml(rel: str) -> dict[str, Any]:
     return yaml.safe_load((ROOT / rel).read_text(encoding="utf-8"))
-
-
-def _json_pointer(document: Any, pointer: str) -> Any:
-    current = document
-    for raw_part in pointer.lstrip("/").split("/") if pointer else []:
-        part = raw_part.replace("~1", "/").replace("~0", "~")
-        current = current[part]
-    return current
-
-
-def _resolve_refs(value: Any) -> Any:
-    if isinstance(value, dict):
-        ref = value.get("$ref")
-        if isinstance(ref, str) and ref.startswith("./"):
-            filename, _, pointer = ref[2:].partition("#")
-            external = json.loads((ROOT / "specs" / filename).read_text(encoding="utf-8"))
-            return _resolve_refs(copy.deepcopy(_json_pointer(external, pointer)))
-        return {key: _resolve_refs(item) for key, item in value.items()}
-    if isinstance(value, list):
-        return [_resolve_refs(item) for item in value]
-    return value
 
 
 def _method_set(doc: dict[str, Any], path: str) -> set[str]:

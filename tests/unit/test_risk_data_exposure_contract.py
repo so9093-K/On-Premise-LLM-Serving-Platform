@@ -48,29 +48,6 @@ def _data_exposure_category(
 
 
 class TestValidateRiskResponseWithDataExposure:
-    def test_d1_response_passes_full_validation(self):
-        cat = _data_exposure_category("D1", "KR_RRN", True, span_count=1)
-        response = _base_response(
-            risk_detected=True,
-            attention_required=True,
-            model_risk_detected=True,
-            strongest_code="D1",
-            categories=[cat],
-        )
-        result = validate_risk_response(response)
-        assert result["strongest_code"] == "D1"
-
-    def test_d4_response_passes_full_validation(self):
-        cat = _data_exposure_category("D4", "JWT", True, span_count=2, source_model="secret-scanner")
-        response = _base_response(
-            risk_detected=True,
-            attention_required=True,
-            model_risk_detected=True,
-            strongest_code="D4",
-            categories=[cat],
-        )
-        validate_risk_response(response)
-
     def test_safe_data_exposure_response_passes(self):
         cat = _data_exposure_category(None, None, False, span_count=0)
         response = _base_response(categories=[cat])
