@@ -252,11 +252,10 @@ profiles:
     # 이 모델의 코드 경로와 겹치지 않아 no-op일 것으로 예상하나, 3단계 실제 부팅에서 확인한다.
     image: ${AUDIO_VLLM_IMAGE}
     compatibility:
-      # 2026-08-14: unverified -> likely. 독립된 재부팅 2회(fixture 수정 직후, 리소스 설정
-      # 변경 후) 모두 text/image/audio/video 4종 switch-time canary 전부 성공 -- deployed_input
-      # 전체 재현성 확인. 이 profile에서 활성화한 response_format/logprobs/logit_bias의
-      # Gateway 경유 검증과 운영 오류 경계 확인을 마쳐야 verified로 승격할 수 있다.
-      status: likely
+      # 2026-08-14: 독립된 재부팅 2회에서 text/image/audio/video switch-time canary를 모두
+      # 통과했고, Gateway 경유 response_format/logprobs/top_logprobs/logit_bias/
+      # stream+logprobs/json_schema+logit_bias 계약까지 실측해 verified로 승격했다.
+      status: verified
     capabilities:
       # Gateway 허용 입력이자 switch-time media boot canary의 단일 source of truth다.
       deployed_input: [text, image, audio, video]
@@ -307,8 +306,8 @@ profiles:
         max_video_frames: 60
         max_video_frame_pixels: 12845056
         max_video_duration_seconds: 60
-      # tool_calling/reasoning은 선언하지 않아 Gateway가 거부한다. 아래 세 기능은
-      # vLLM 직접 요청으로 확인했지만, verified 승격 전 Gateway 경유 실측이 남아 있다.
+      # tool_calling/reasoning은 선언하지 않아 Gateway가 거부한다. 아래 세 기능은 vLLM
+      # 직접 요청과 Gateway 경유 계약을 모두 확인했다.
       runtime_features:
         structured_outputs:
           enabled: true
@@ -523,7 +522,7 @@ description: |
   성공했다 -- 즉 독립된 재부팅 2회(fixture 수정 직후, 리소스 설정 변경 후) 모두 4종 전부
   성공해 재현성 조건을 충족한다. compatibility.status를 unverified -> likely로 승격했다.
   use_audio_in_video와 다중 media 정책은 후속 실측으로 확인했다. response_format,
-  logprobs, logit_bias는 vLLM 직접 요청으로 확인해 policy에 반영했으며, verified 승격 전
-  Gateway 경유 logprobs/top_logprobs, logit_bias, stream+logprobs, json_schema+logit_bias
-  조합과 운영 오류 경계를 확인한다. tool calling은 안정적인 parser/template 경로가 없어
-  비활성, reasoning은 이 Thinker 경로의 기능이 아니다.
+  logprobs, logit_bias는 vLLM 직접 요청과 Gateway 경유에서 확인했다: logprobs/top_logprobs,
+  logit_bias, stream+logprobs, json_schema+logit_bias가 모두 HTTP 200 및 기대 응답 형상을
+  통과했다. 이 근거로 status를 verified로 승격했다. tool calling은 안정적인 parser/template
+  경로가 없어 비활성, reasoning은 이 Thinker 경로의 기능이 아니다.

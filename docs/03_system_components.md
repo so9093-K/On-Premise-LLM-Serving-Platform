@@ -305,8 +305,7 @@ local-main
    ▼
 Active Main Model Profile
    │
-   ├─ gemma4-12b-unified-fp8
-   └─ gemma4-26b-a4b-fp8
+   └─ `configs/main_model_profiles.yaml`의 catalog profile
 ```
 
 profile에는 실제 model revision, runtime image와 command, context, concurrency, modality 같은 deployment input이 연결된다.

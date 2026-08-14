@@ -1538,7 +1538,7 @@ curl "$GATEWAY_URL/admin/main-model/profiles" \
   -H "Authorization: Bearer $ADMIN_API_KEY"
 ```
 
-현재 profile에는 `gemma4-12b-unified-fp8`, `gemma4-26b-a4b-fp8`가 포함된다.
+반환되는 profile 목록은 `configs/main_model_profiles.yaml`을 권위로 하며 배포된 catalog에 따라 달라진다. 특정 profile ID를 이 문서에 고정하지 않는다.
 
 ### 8.5 POST `/admin/main-model/switch`
 
