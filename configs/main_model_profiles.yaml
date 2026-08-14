@@ -272,17 +272,20 @@ profiles:
     - --port
     - "9401"
     - --max-model-len
-    - "8192"
+    - "32768"
     - --max-num-seqs
     - "1"
     - --gpu-memory-utilization
-    - "0.4"
-    # Qwen 전용 API 계약이다. tools/reasoning/response_format/logprobs는 canary 전까지
-    # supported_parameters에 넣지 않아 요청 시 거부된다.
+    - "0.6"
+    # Qwen 전용 API 계약이다. tools/reasoning/logprobs는 canary 전까지 supported_parameters에
+    # 넣지 않아 요청 시 거부된다. response_format(json_object/json_schema)은 2026-08-14
+    # vLLM 직접 요청으로 실측 검증 후 활성화했다 -- Gemma와 달리 --structured-outputs-config
+    # 없이 vLLM 기본 xgrammar backend로 그대로 동작한다(strict schema 강제, 무효 schema는
+    # 400 거부 확인).
     gateway_policy:
       max_output_tokens: 2048
       request_limits:
-        max_model_len: 8192
+        max_model_len: 32768
         input_modalities: [text, image, audio, video]
         max_image_inputs: 1
         allowed_image_url_schemes: [data]
@@ -302,13 +305,40 @@ profiles:
         max_video_frames: 60
         max_video_frame_pixels: 12845056
         max_video_duration_seconds: 60
-      # tool_calling/reasoning/response_format/logprobs/logit_bias 정책 blocks는 아직
-      # 선언하지 않는다 -- 이 dict에 없는 기능은 Gateway가 기본적으로 거부한다.
-      runtime_features: {}
+      # tool_calling/reasoning/logprobs/logit_bias 정책 blocks는 아직 선언하지 않는다 --
+      # 이 dict에 없는 기능은 Gateway가 기본적으로 거부한다. response_format은 실측
+      # 검증 후 활성화(아래).
+      runtime_features:
+        structured_outputs:
+          enabled: true
+          backend: xgrammar
       request_parameter_policy:
         allow_unlisted_parameters: false
-        supported_parameters: [stream, stream_options, temperature, max_tokens, top_p, top_k, min_p, presence_penalty, frequency_penalty, repetition_penalty, stop, seed, n]
+        supported_parameters: [stream, stream_options, temperature, max_tokens, top_p, top_k, min_p, presence_penalty, frequency_penalty, repetition_penalty, stop, seed, n, response_format]
         max_n: 1
+        response_format:
+          enabled: true
+          types: [text, json_object, json_schema]
+          json_object:
+            require_json_instruction: true
+          json_schema:
+            enabled: true
+            require_root_object: true
+            require_additional_properties_false: true
+            strict:
+              allowed: true
+              require_true: false
+            max_schema_bytes: 16384
+            max_depth: 8
+            max_total_properties: 64
+            max_properties_per_object: 32
+            max_required: 64
+            max_enum_values: 128
+            max_enum_string_length: 256
+            max_property_name_length: 64
+            max_total_schema_string_length: 32768
+            disallowed_keywords: [allOf, not, if, then, else, dependentRequired, dependentSchemas, patternProperties, $dynamicRef, $recursiveRef, $dynamicAnchor, $recursiveAnchor, $id, $anchor]
+            root_disallowed_keywords: [anyOf]
 description: |
   이력은 현재 설정의 근거를 보존하기 위한 참고 정보다. 전환 로직은 각 profile의
   compatibility.status와 실행 canary만 사용한다.
