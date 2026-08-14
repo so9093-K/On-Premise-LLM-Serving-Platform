@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 
 import httpx
+import pytest
 
 import ai_model_serving.main_model.docker_backend as backend_module
 from ai_model_serving.main_model.docker_backend import DockerMainModelBackend
@@ -217,10 +218,11 @@ class _FakeAsyncClient:
     """validate()가 만드는 httpx.AsyncClient를 대신해, 실제 컨테이너 없이 어떤 modality
     canary가 실제로 발송됐는지 기록한다. 성공 응답은 항상 "OK" content를 준다."""
 
-    def __init__(self, calls, *, fail_kind=None, status_error_kind=None, public_model="local-main"):
+    def __init__(self, calls, *, fail_kind=None, status_error_kind=None, invalid_model_kind=None, public_model="local-main"):
         self.calls = calls
         self._fail_kind = fail_kind
         self._status_error_kind = status_error_kind
+        self._invalid_model_kind = invalid_model_kind
         self._public_model = public_model
 
     async def __aenter__(self):
@@ -237,9 +239,10 @@ class _FakeAsyncClient:
         self.calls.append(kind)
         if kind == self._status_error_kind:
             return _FakeResponse({}, status_error=True)
+        model = "unexpected-model" if kind == self._invalid_model_kind else self._public_model
         if kind == self._fail_kind:
-            return _FakeResponse({"choices": [{"message": {"content": ""}}]})
-        return _FakeResponse({"choices": [{"message": {"content": "OK"}}]})
+            return _FakeResponse({"model": model, "object": "chat.completion", "choices": [{"message": {"role": "assistant", "content": ""}}]})
+        return _FakeResponse({"model": model, "object": "chat.completion", "choices": [{"message": {"role": "assistant", "content": "OK"}}]})
 
 
 def _patch_healthy_container(monkeypatch, backend):
@@ -267,6 +270,23 @@ def test_validate_only_runs_canaries_for_deployed_modalities(monkeypatch):
     asyncio.run(backend.validate(catalog, profile))
 
     assert calls == ["text", "image"]
+
+
+def test_validate_rejects_canary_model_mismatch(monkeypatch):
+    catalog = load_main_model_catalog(ROOT / "configs/main_model_profiles.yaml")
+    profile = catalog.profiles["gemma4-26b-a4b-fp8"]
+    backend = DockerMainModelBackend("/var/run/docker.sock", gateway_url="http://gateway:9400")
+    _patch_healthy_container(monkeypatch, backend)
+
+    calls: list[str] = []
+    monkeypatch.setattr(
+        backend_module.httpx,
+        "AsyncClient",
+        lambda **_: _FakeAsyncClient(calls, invalid_model_kind="image"),
+    )
+
+    with pytest.raises(RuntimeError, match="image canary returned an invalid completion"):
+        asyncio.run(backend.validate(catalog, profile))
 
 
 def test_validate_runs_all_four_canaries_when_all_deployed(monkeypatch):

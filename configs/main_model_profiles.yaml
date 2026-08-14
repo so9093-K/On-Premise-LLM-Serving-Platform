@@ -536,5 +536,7 @@ description: |
   admission은 4였고, 13,000-token 강제 생성은 약 59 tok/s로 HTTP 200을 완료했다(KV cache
   최대 6.1%). 따라서 4 seq와 13,000 output은 각각 KV cache 여유와 production 300초 upstream
   timeout 안의 사용점이다. 단, 입력과 출력은 32K context를 공유한다. 720p·60초·60-frame
-  video는 prompt 약 21.6K tokens를 소비해 13,000 output을 전부 보장할 수 없다. 다음 CICD
-  배포 후 text와 media를 섞은 4개 동시 요청 및 13,000-token 생성으로 재확인한다.
+  video는 prompt 약 21.6K tokens를 소비해 13,000 output을 전부 보장할 수 없다. 후속 CICD
+  배포 후 Gateway 경유 13,000-token 생성은 217.09초/HTTP 200/length(13,000 completion tokens)로
+  완료했고, image·20초 audio·10초 video·3종 혼합 요청 4개 동시는 모두 200으로 완료했다.
+  이때 vLLM running=4, waiting=0, peak KV cache=1.879%였다.

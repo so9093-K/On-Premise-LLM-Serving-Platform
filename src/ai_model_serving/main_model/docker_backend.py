@@ -9,6 +9,8 @@ from typing import Any
 
 import httpx
 
+from ..contracts.chat_response import validate_chat_response
+from ..errors import ServiceError
 from .control import MainModelCatalog, MainModelProfile
 from ..media_samples import TINY_JPEG_1X1_B64, TINY_M4A_AAC_B64, TINY_MP4_VIDEO_B64
 from .cache import prepare_model_snapshot
@@ -28,6 +30,18 @@ _DRAIN_POLL_CLIENT_TIMEOUT = 3       # drain-status poll 요청 1회당
 _DRAIN_POLL_INTERVAL_SECONDS = 0.25  # drain-status poll 사이 간격
 _HEALTH_POLL_INTERVAL_SECONDS = 3    # 컨테이너 health poll 사이 간격
 _RUNTIME_HTTP_TIMEOUT = 30           # vLLM 런타임으로의 HTTP 요청(/v1/models, canary)
+
+
+def _validate_inference_canary(payload: object, *, expected_model: str, kind: str) -> None:
+    """전환 canary가 실제 Gateway 응답 계약의 최소 형태를 충족하는지 확인한다."""
+    try:
+        body = validate_chat_response(payload, expected_model=expected_model)
+    except ServiceError as exc:
+        raise RuntimeError(f"main runtime {kind} canary returned an invalid completion: {exc.message}") from exc
+    choices = body["choices"]
+    content = choices[0]["message"].get("content")
+    if not isinstance(content, str) or not content:
+        raise RuntimeError(f"main runtime {kind} canary returned no content")
 
 class DockerMainModelBackend:
     """허용 목록에 있는 Compose main-model 컨테이너만 재생성한다.
@@ -342,10 +356,7 @@ class DockerMainModelBackend:
                 },
             )
             canary.raise_for_status()
-            body = canary.json()
-            choices = body.get("choices", [])
-            if not choices or not choices[0].get("message", {}).get("content"):
-                raise RuntimeError("main runtime inference canary returned no content")
+            _validate_inference_canary(canary.json(), expected_model=catalog.public_model, kind="text")
             # Media boot canary: 해당 modality를 실제로 배포하는 profile에 대해서만
             # 수행한다. gate가 열리기 전에 런타임이 컨테이너 media를 디코드할 수
             # 있음을 증명하여, 지원한다고 표시되었지만 실제로는 깨진 modality가
@@ -376,10 +387,7 @@ class DockerMainModelBackend:
                     },
                 )
                 image_canary.raise_for_status()
-                image_body = image_canary.json()
-                image_choices = image_body.get("choices", [])
-                if not image_choices or not image_choices[0].get("message", {}).get("content"):
-                    raise RuntimeError("main runtime image canary returned no content")
+                _validate_inference_canary(image_canary.json(), expected_model=catalog.public_model, kind="image")
             if "audio" in deployed_modalities:
                 audio_canary = await client.post(
                     base + str(catalog.runtime["chat_path"]),
@@ -402,10 +410,7 @@ class DockerMainModelBackend:
                     },
                 )
                 audio_canary.raise_for_status()
-                audio_body = audio_canary.json()
-                audio_choices = audio_body.get("choices", [])
-                if not audio_choices or not audio_choices[0].get("message", {}).get("content"):
-                    raise RuntimeError("main runtime audio canary returned no content")
+                _validate_inference_canary(audio_canary.json(), expected_model=catalog.public_model, kind="audio")
             if "video" in deployed_modalities:
                 video_canary = await client.post(
                     base + str(catalog.runtime["chat_path"]),
@@ -428,7 +433,4 @@ class DockerMainModelBackend:
                     },
                 )
                 video_canary.raise_for_status()
-                video_body = video_canary.json()
-                video_choices = video_body.get("choices", [])
-                if not video_choices or not video_choices[0].get("message", {}).get("content"):
-                    raise RuntimeError("main runtime video canary returned no content")
+                _validate_inference_canary(video_canary.json(), expected_model=catalog.public_model, kind="video")
