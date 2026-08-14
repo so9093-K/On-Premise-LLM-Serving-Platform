@@ -26,7 +26,7 @@ contract = [
 ]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["tests/unit", "tests/contract"]
 python_files = ["test_*.py"]
 pythonpath = ["src", "."]
 addopts = "-p no:cacheprovider -p no:ddtrace -p no:asyncio --strict-markers"

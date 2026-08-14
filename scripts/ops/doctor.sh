@@ -22,8 +22,6 @@ check() {
 }
 
 check "python version" "$PYTHON_BIN" scripts/build/check_python.py --context doctor
-check "required files/contracts" "$PYTHON_BIN" scripts/validation/validate_contracts.py
-check "bash syntax" bash -c 'bash -n scripts/*.sh scripts/lib/*.sh'
 check "env file present" test -f "$ENV_FILE"
 check "status probe" env ENV_FILE="$ENV_FILE" bash scripts/ops/status_services.sh --local
 check "docker daemon accessible" docker info

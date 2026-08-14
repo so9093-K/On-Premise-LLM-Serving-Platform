@@ -95,7 +95,7 @@ def test_gateway_readiness_treats_stopped_runtime_as_optional():
     assert "embedding_ko_vllm" not in body["required_not_ready_dependencies"]
 
 
-def test_gateway_readiness_builds_embedding_probes_from_model_routes():
+def test_gateway_readiness_builds_embedding_probes_from_profiles():
     cfg = settings()
     clients = FakeGatewayClients()
 
@@ -111,15 +111,11 @@ def test_gateway_readiness_picks_up_new_embedding_route_without_code_change():
     extra_profile = EmbeddingProfile(
         model="local-embed-extra",
         service_key="embedding_extra",
-        upstream_model_id="example/embed-extra",
-        dimensions=(384,),
         default_dimensions=384,
         retrieval_enabled=True,
-        score_modes=("dense_cosine",),
     )
-    cfg = _settings_with_embedding_routes(
+    cfg = _settings_with_embedding_profiles(
         embedding_profiles={**base.embedding_profiles, "local-embed-extra": extra_profile},
-        embedding_model_routes={**base.embedding_model_routes, "local-embed-extra": "embedding_extra"},
         runtime_endpoints={"embedding_extra": extra_endpoint},
     )
     clients = FakeGatewayClients()

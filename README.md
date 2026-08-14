@@ -153,7 +153,7 @@ Platform Image는 애플리케이션 변경을 반영하고, 모델 실행 환�
 | 대표 API 확인 | `make smoke` |
 | Runtime 검증 | `make runtime-validate` |
 | Compose 진단 | `make compose-diagnostics` |
-| 전체 명령 안내 | `make help` / `make guide` |
+| 전체 명령 안내 | `make help` |
 
 개발 환경과 이미지 빌드는 [로컬 개발과 빌드](docs/07_local_dev_build.md), 검증 항목은 [테스트와 검증](docs/08_testing_validation.md)에서 설명한다.
 

@@ -147,17 +147,17 @@ class GatewayService:
         policy = gateway_policy or self.settings.default_main_model_gateway_policy
         if not policy:
             return replace(
-                self.settings.main_llm,
-                allowed_input_modalities=active_modalities or self.settings.main_llm.allowed_input_modalities,
+                self.settings.runtime("main_llm"),
+                allowed_input_modalities=active_modalities or self.settings.runtime("main_llm").allowed_input_modalities,
             )
         limits = policy.get("request_limits", {}) if isinstance(policy, dict) else {}
         modalities = active_modalities or tuple(str(item) for item in limits.get("input_modalities", ()))
         if not modalities:
-            modalities = self.settings.main_llm.allowed_input_modalities
+            modalities = self.settings.runtime("main_llm").allowed_input_modalities
         return replace(
-            self.settings.main_llm,
-            max_output_tokens=int(policy.get("max_output_tokens", self.settings.main_llm.max_output_tokens or 0)),
-            max_model_len=(int(limits["max_model_len"]) if "max_model_len" in limits else self.settings.main_llm.max_model_len),
+            self.settings.runtime("main_llm"),
+            max_output_tokens=int(policy.get("max_output_tokens", self.settings.runtime("main_llm").max_output_tokens or 0)),
+            max_model_len=(int(limits["max_model_len"]) if "max_model_len" in limits else self.settings.runtime("main_llm").max_model_len),
             allowed_input_modalities=modalities,
             max_image_inputs=int(limits.get("max_image_inputs", 0)),
             allowed_image_url_schemes=tuple(str(item) for item in limits.get("allowed_image_url_schemes", ())),
@@ -248,20 +248,20 @@ class GatewayService:
                         timeout=self.settings.gateway_timeout_seconds,
                     )
                     return validate_chat_response(
-                        response, expected_model=self.settings.main_llm.model, expectations=expectations
+                        response, expected_model=self.settings.runtime("main_llm").model, expectations=expectations
                     )
                 except ServiceError as exc:
                     if exc.code == "UPSTREAM_SCHEMA_ERROR" and attempt < attempts_allowed:
-                        self.metrics.record_upstream_error(self.settings.main_llm.logical_id, "UPSTREAM_SCHEMA_ERROR_RETRIED")
+                        self.metrics.record_upstream_error(self.settings.runtime("main_llm").logical_id, "UPSTREAM_SCHEMA_ERROR_RETRIED")
                         continue
-                    self.metrics.record_upstream_error(self.settings.main_llm.logical_id, exc.code)
+                    self.metrics.record_upstream_error(self.settings.runtime("main_llm").logical_id, exc.code)
                     raise
         except TimeoutError as exc:
-            self.metrics.record_upstream_error(self.settings.main_llm.logical_id, "GATEWAY_TIMEOUT")
+            self.metrics.record_upstream_error(self.settings.runtime("main_llm").logical_id, "GATEWAY_TIMEOUT")
             raise ServiceError("UPSTREAM_TIMEOUT", "Gateway request timed out before the chat runtime completed.", True, 504) from exc
         finally:
             self.metrics.record_upstream_request(
-                self.settings.main_llm.logical_id,
+                self.settings.runtime("main_llm").logical_id,
                 "chat/completions",
                 time.monotonic() - start,
             )
@@ -281,7 +281,7 @@ class GatewayService:
             gateway_policy,
         )
         start = time.monotonic()
-        target = self.settings.main_llm.logical_id
+        target = self.settings.runtime("main_llm").logical_id
 
         async def relay() -> AsyncIterator[bytes]:
             emitted_chunk = False

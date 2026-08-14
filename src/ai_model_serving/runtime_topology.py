@@ -10,7 +10,6 @@ from .configuration import load_yaml_mapping
 
 @dataclass(frozen=True)
 class RuntimeTopology:
-    main_service: str
     service_by_key: dict[str, str]
     health_port_by_service: dict[str, int]
     vram_fraction_by_service: dict[str, float]
@@ -71,7 +70,6 @@ def load_runtime_topology(config_root: Path, *, compose_path: Path | None = None
                 start_prerequisites_by_service[service] = prereqs
 
     return RuntimeTopology(
-        main_service=main_service,
         service_by_key=service_by_key,
         health_port_by_service=health_port_by_service,
         vram_fraction_by_service=vram_fraction_by_service,

@@ -1,4 +1,4 @@
-"""GatewayClients가 embedding_model_routes 설정만으로 런타임 클라이언트를
+"""GatewayClients가 embedding profile 설정만으로 런타임 클라이언트를
 올바르게 구성/중복제거하는지 검증한다 -- 새 embedding 라우트가 코드 변경 없이
 설정만으로 반영돼야 한다는 계약이다."""
 
@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from .helpers import *  # noqa: F401,F403
 
-def test_gateway_clients_build_embedding_clients_from_model_routes(monkeypatch):
+def test_gateway_clients_build_embedding_clients_from_profiles(monkeypatch):
     SpyVLLMClient.created_endpoints = []
     SpyVLLMClient.closed_endpoints = []
     monkeypatch.setattr(gateway_app_module, "VLLMClient", SpyVLLMClient)
@@ -29,15 +29,11 @@ def test_gateway_clients_pick_up_new_embedding_route_without_code_change(monkeyp
     extra_profile = EmbeddingProfile(
         model="local-embed-extra",
         service_key="embedding_extra",
-        upstream_model_id="example/embed-extra",
-        dimensions=(384,),
         default_dimensions=384,
         retrieval_enabled=True,
-        score_modes=("dense_cosine",),
     )
-    cfg = _settings_with_embedding_routes(
+    cfg = _settings_with_embedding_profiles(
         embedding_profiles={**base.embedding_profiles, "local-embed-extra": extra_profile},
-        embedding_model_routes={**base.embedding_model_routes, "local-embed-extra": "embedding_extra"},
         runtime_endpoints={"embedding_extra": extra_endpoint},
     )
 
@@ -55,16 +51,12 @@ def test_gateway_clients_dedupe_runtime_clients_by_service_key(monkeypatch):
     alias_profile = EmbeddingProfile(
         model="local-embed-alias",
         service_key="embedding",
-        upstream_model_id="google/embeddinggemma-300m",
-        dimensions=(768,),
         default_dimensions=768,
         retrieval_enabled=True,
-        score_modes=("dense_cosine",),
         request_parameter_policy=_PRODUCTION_EMBEDDING_POLICY,
     )
-    cfg = _settings_with_embedding_routes(
+    cfg = _settings_with_embedding_profiles(
         embedding_profiles={**base.embedding_profiles, "local-embed-alias": alias_profile},
-        embedding_model_routes={**base.embedding_model_routes, "local-embed-alias": "embedding"},
     )
 
     clients = GatewayClients(cfg)

@@ -2,21 +2,14 @@
 # 서비스 공개 포트와 bind 주소의 기준은 configs/services.yaml 및 exposure profile이다.
 default_embedding_model: local-embed
 default_retrieval_model: local-embed-ko
-# API 모델별 embedding·retrieval 목적과 입력 전처리 정책이다.
+# API 모델별 retrieval 지원 여부와 입력 전처리 정책이다.
 embedding_profiles:
   local-embed:
     service_key: embedding
     served_model_name: local-embed
-    upstream_model_id: google/embeddinggemma-300m
-    # 현재 vLLM pooling runtime은 dimensions 파라미터로 matryoshka 축소를 지원하지
-    # 않는다. 실제로 요청 가능한 기본 출력 차원만 공개한다.
-    dimensions: [768]
     default_dimensions: 768
-    purpose: general
     retrieval:
       enabled: true
-      default: false
-      score_modes: [dense_cosine]
     prompt_policy:
       retrieval_query:
         mode: prefix
@@ -27,14 +20,9 @@ embedding_profiles:
   local-embed-ko:
     service_key: embedding_ko
     served_model_name: local-embed-ko
-    upstream_model_id: dragonkue/snowflake-arctic-embed-l-v2.0-ko
-    dimensions: [1024]
     default_dimensions: 1024
-    purpose: korean_retrieval
     retrieval:
       enabled: true
-      default: true
-      score_modes: [dense_cosine]
     prompt_policy:
       retrieval_query:
         mode: prefix

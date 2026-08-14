@@ -161,13 +161,8 @@ def _embedding_profiles_from_config(model_serving: dict[str, Any]) -> dict[str, 
         profiles[str(model_id)] = EmbeddingProfile(
             model=str(cfg.get("served_model_name", model_id)),
             service_key=service_key,
-            upstream_model_id=str(cfg.get("upstream_model_id", runtime_cfg.get("name", ""))),
-            dimensions=tuple(int(item) for item in cfg.get("dimensions", [])),
-            default_dimensions=int(cfg.get("default_dimensions", cfg.get("dimensions", [0])[0])),
-            purpose=str(cfg.get("purpose", "")),
+            default_dimensions=int(cfg["default_dimensions"]),
             retrieval_enabled=retrieval.get("enabled", False) is True,
-            retrieval_default=retrieval.get("default", False) is True,
-            score_modes=tuple(str(item) for item in retrieval.get("score_modes", [])),
             prompt_policy=prompt_policy,
             request_parameter_policy=dict(request_policy) if isinstance(request_policy, dict) else {},
         )
@@ -229,7 +224,6 @@ def load_settings(root: Path | None = None, env_file: Path | str | None = None) 
         operational_limits=operational_limits,
     )
     embedding_profiles = _embedding_profiles_from_config(model_serving)
-    embedding_model_routes = {model_id: profile.service_key for model_id, profile in embedding_profiles.items()}
     risk_adapter_cfg = model_serving.get("risk_adapter")
     if not isinstance(risk_adapter_cfg, dict):
         raise RuntimeError("risk_adapter must be configured in configs/model_serving.yaml")
@@ -283,15 +277,10 @@ def load_settings(root: Path | None = None, env_file: Path | str | None = None) 
         runtime_endpoints=runtime_endpoints,
         risk_detectors=risk_detectors,
         aggregate_detector_order=aggregate_detector_order,
-        main_llm=runtime_endpoints.get("main_llm"),
         default_main_model_gateway_policy=dict(
             main_model_catalog.profiles[main_model_catalog.default_profile].gateway_policy
         ),
-        embedding=runtime_endpoints.get("embedding"),
-        embedding_ko=runtime_endpoints.get("embedding_ko"),
-        risk_prompt=runtime_endpoints.get("risk_prompt"),
         embedding_profiles=embedding_profiles,
-        embedding_model_routes=embedding_model_routes,
         default_embedding_model=str(model_serving["default_embedding_model"]),
         default_retrieval_model=str(model_serving["default_retrieval_model"]),
         max_request_body_bytes=_as_int(

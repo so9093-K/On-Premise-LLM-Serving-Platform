@@ -105,7 +105,6 @@ class RiskAssessmentService:
         try:
             if self.input_policy is not None and self.input_policy.overflowed(prompt):
                 response = self.input_policy.system_signal_response(
-                    detector_name=detector_key,
                     source_model=detector_key,
                 )
             else:
@@ -125,7 +124,6 @@ class RiskAssessmentService:
         try:
             if self.input_policy is not None and self.input_policy.overflowed(prompt):
                 response = self.input_policy.system_signal_response(
-                    detector_name=detector.name,
                     source_model=detector.source_model,
                 )
                 return self._record_detector_result(detector.name, start, response)

@@ -10,7 +10,6 @@ from .contracts.common import TOKEN_USAGE_FIELDS, normalize_complete_token_usage
 from .errors import ServiceError
 
 RISK_LABEL_RE = re.compile(r"<(?P<label>SAFE|UNSAFE-(?P<code>A[12]))>")
-PROMPT_CODES = {"A1", "A2"}
 SYSTEM_CODE_PRIORITY = [
     "INFERENCE_TIMEOUT",
     "INFERENCE_QUEUE_TIMEOUT",

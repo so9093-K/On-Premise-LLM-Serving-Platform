@@ -36,7 +36,6 @@ make stop
 | `config/` | `.env` 생성 |
 | `models/` | model registry CLI, vLLM command rendering, HF/unified image checks |
 | `ops/` | start/stop/status/ready/smoke/reset/clean 같은 운영 명령 |
-| `reports/` | 운영자 workflow 안내 |
 | `validation/` | contract validation, static validation, deterministic test runner, live runtime validation |
 | `lib/` | shell/python shared helpers |
 
@@ -44,7 +43,6 @@ make stop
 
 | 파일 | 용도 |
 |---|---|
-| `reports/operator_guide.py` | 상황별 operator workflow guide를 출력한다. `make guide`에서 호출한다. |
 | `config/setup_env.py` | `.env`를 생성한다. 기본 target은 기존 `.env`를 덮어쓰지 않는다. `local_open`은 `master_open/private_lan` 전체-stack 사내망 정책과 함께 생성한다. |
 | `sync-runtime-secrets` / `config/setup_env.py --sync-runtime-secrets` | `.env`의 `ADMIN_API_KEY`를 `.runtime/prometheus/admin_api_key`로 다시 기록한다. |
 | `auth/auth_plan.py` / `auth/auth_apply.py` | secret을 출력하지 않고 auth profile 변경 계획을 보여주거나 managed auth flag만 적용한다. |
@@ -56,7 +54,7 @@ make stop
 | `ops/ready_local.sh` | app-only `/health` 상태를 strict하게 확인한다. app service가 내려가 있으면 실패하며 vLLM은 요구하지 않는다. |
 | `ops/ready_full.sh` | strict `/ready`와 smoke test를 실행한다. 실제 vLLM runtime이 필요하다. |
 | `compose/preflight_compose.sh` | full-stack compose 전 exposure config를 먼저 검증하고, 통과한 뒤 Docker, GPU 표시, effective compose host-published port, secret 상태를 점검한다. compose 내부 `expose` ports는 host port 검사 대상이 아니다. host bind와 port는 `docker compose config` 결과를 따른다. |
-| `ops/doctor.sh` | Python, 계약, bash syntax, `.env`, local status를 한 번에 진단한다. |
+| `ops/doctor.sh` | Python, `.env`, local status, Docker, runtime secret 상태를 한 번에 진단한다. 정적 계약·shell 검증은 `make validate`가 담당한다. |
 | `validation/runtime_validation.py` | 실제 runtime 검증 결과를 `reports/runtime/` 아래에 기록한다. |
 | `models/modelctl.py` | model control plane이다. `list`, `status`, `validate`는 읽기 전용이고 `propose-add`, `propose-remove`는 파일 쓰기 없는 변경 계획을 출력한다. |
 | `models/check_hf_model_config.py` | Docker/GPU 없이 Transformers `AutoConfig`만 로드해 vLLM·bitsandbytes 이전 config loader 문제를 분리한다. |
@@ -86,7 +84,6 @@ make stop
 - make start
 - make ready-local
 - make ready-full
-- make guide
 - make validate
 - make remove-plan
 - make build

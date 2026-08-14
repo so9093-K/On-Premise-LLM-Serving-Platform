@@ -17,12 +17,11 @@ class RiskInputPolicy:
     """
 
     max_prompt_chars: int
-    source: str = "risk_input_policy"
 
     def overflowed(self, prompt: str) -> bool:
         return len(prompt) > self.max_prompt_chars
 
-    def system_signal_response(self, *, detector_name: str, source_model: str) -> dict[str, Any]:
+    def system_signal_response(self, *, source_model: str) -> dict[str, Any]:
         return assessment_response(
             categories=[],
             system_signals=[

@@ -67,7 +67,8 @@ class GatewayClients:
         self.main_llm = VLLMClient(settings.runtime("main_llm"))
         self.runtime_clients_by_service_key: dict[str, VLLMClient] = {}
         self.embedding_clients: dict[str, VLLMClient] = {}
-        for model_id, service_key in settings.embedding_model_routes.items():
+        for model_id, profile in settings.embedding_profiles.items():
+            service_key = profile.service_key
             client = self.runtime_clients_by_service_key.get(service_key)
             if client is None:
                 client = VLLMClient(settings.runtime(service_key))

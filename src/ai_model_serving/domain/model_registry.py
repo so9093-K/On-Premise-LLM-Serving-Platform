@@ -81,10 +81,8 @@ class ModelRegistry:
                     max_output_tokens=int(max_output_tokens) if max_output_tokens is not None else None,
                     embedding_dimensions=tuple(int(item) for item in dimensions),
                     input_modalities=tuple(str(item) for item in cfg.get("deployed_modalities", cfg.get("input_modalities", []))),
-                    output_modalities=tuple(str(item) for item in cfg.get("output_modalities", [])),
                     lifecycle_state=str(lifecycle.get("state", "active")),
                     exposure=str(lifecycle.get("exposure", "public" if listing.get("enabled", True) is True else "internal")),
-                    owner=str(lifecycle.get("owner", "platform")),
                 )
             )
         return tuple(records)

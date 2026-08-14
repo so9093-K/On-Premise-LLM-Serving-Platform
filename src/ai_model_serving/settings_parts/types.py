@@ -73,13 +73,8 @@ class RuntimeEndpoint:
 class EmbeddingProfile:
     model: str
     service_key: str
-    upstream_model_id: str
-    dimensions: tuple[int, ...]
     default_dimensions: int
-    purpose: str = "general"
     retrieval_enabled: bool = False
-    retrieval_default: bool = False
-    score_modes: tuple[str, ...] = ()
     prompt_policy: dict[str, Any] = field(default_factory=dict)
     request_parameter_policy: dict[str, Any] = field(default_factory=dict)
 
@@ -109,15 +104,10 @@ class AppSettings:
     runtime_endpoints: dict[str, RuntimeEndpoint] = field(default_factory=dict)
     risk_detectors: tuple[RiskDetectorSettings, ...] = ()
     aggregate_detector_order: tuple[str, ...] = ()
-    main_llm: RuntimeEndpoint | None = None
     # Sidecar 없이 Gateway를 단독 실행할 때 사용할 default profile의 정책이다.
     # 실제 full-stack 요청은 active_profile snapshot의 정책으로 항상 덮어쓴다.
     default_main_model_gateway_policy: dict[str, Any] = field(default_factory=dict)
-    embedding: RuntimeEndpoint | None = None
-    embedding_ko: RuntimeEndpoint | None = None
-    risk_prompt: RuntimeEndpoint | None = None
     embedding_profiles: dict[str, EmbeddingProfile] = field(default_factory=dict)
-    embedding_model_routes: dict[str, str] = field(default_factory=dict)
     default_embedding_model: str = ""
     default_retrieval_model: str = ""
     max_request_body_bytes: int = 100_000_000
@@ -135,22 +125,10 @@ class AppSettings:
     log_request_response_body: bool = False
 
     def __post_init__(self) -> None:
-        if not self.runtime_endpoints:
-            endpoints = {
-                key: endpoint
-                for key, endpoint in {
-                    "main_llm": self.main_llm,
-                    "embedding": self.embedding,
-                    "embedding_ko": self.embedding_ko,
-                    "risk_prompt": self.risk_prompt,
-                }.items()
-                if endpoint is not None
-            }
-            object.__setattr__(self, "runtime_endpoints", endpoints)
         self._validate_embedding_configuration()
         if not self.risk_detectors:
             detectors: list[RiskDetectorSettings] = []
-            if self.risk_prompt is not None:
+            if "risk_prompt" in self.runtime_endpoints:
                 detectors.append(
                     RiskDetectorSettings(
                         key="prompt",
@@ -182,29 +160,12 @@ class AppSettings:
     def _validate_embedding_configuration(self) -> None:
         if not self.embedding_profiles:
             raise ValueError("embedding_profiles must be explicitly configured")
-        profile_keys = set(self.embedding_profiles)
-        route_keys = set(self.embedding_model_routes)
-        if profile_keys != route_keys:
-            missing_routes = sorted(profile_keys - route_keys)
-            missing_profiles = sorted(route_keys - profile_keys)
-            details: list[str] = []
-            if missing_routes:
-                details.append(f"missing routes for embedding profiles: {', '.join(missing_routes)}")
-            if missing_profiles:
-                details.append(f"routes without embedding profiles: {', '.join(missing_profiles)}")
-            raise ValueError("; ".join(details))
         models_by_service_key: dict[str, set[str]] = {}
         for profile in self.embedding_profiles.values():
             models_by_service_key.setdefault(profile.service_key, set()).add(profile.model)
         for model_id, profile in self.embedding_profiles.items():
             if profile.model != model_id:
                 raise ValueError(f"embedding profile key {model_id!r} must match profile.model {profile.model!r}")
-            route_service_key = self.embedding_model_routes.get(model_id)
-            if route_service_key != profile.service_key:
-                raise ValueError(
-                    f"embedding route for {model_id!r} points to {route_service_key!r}, "
-                    f"but profile.service_key is {profile.service_key!r}"
-                )
             if profile.service_key not in self.runtime_endpoints:
                 raise ValueError(f"embedding profile {model_id!r} references unknown runtime service {profile.service_key!r}")
             runtime = self.runtime_endpoints[profile.service_key]

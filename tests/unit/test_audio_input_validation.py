@@ -410,7 +410,7 @@ def test_configured_audio_formats_are_all_sniffable():
     from ai_model_serving.contracts.media import SNIFFABLE_AUDIO_FORMATS
     from ai_model_serving.settings import load_settings
 
-    configured = set(load_settings().main_llm.allowed_audio_formats)
+    configured = set(load_settings().runtime("main_llm").allowed_audio_formats)
     assert configured <= SNIFFABLE_AUDIO_FORMATS, configured - SNIFFABLE_AUDIO_FORMATS
 
 
@@ -418,7 +418,7 @@ def test_configured_video_mime_types_are_all_sniffable():
     from ai_model_serving.contracts.media import SNIFFABLE_VIDEO_MIME_TYPES
     from ai_model_serving.settings import load_settings
 
-    configured = set(load_settings().main_llm.allowed_video_mime_types)
+    configured = set(load_settings().runtime("main_llm").allowed_video_mime_types)
     assert configured <= SNIFFABLE_VIDEO_MIME_TYPES, configured - SNIFFABLE_VIDEO_MIME_TYPES
 
 
@@ -429,8 +429,8 @@ def test_request_body_limit_can_carry_configured_media_limit(monkeypatch):
 
     monkeypatch.delenv("MAX_REQUEST_BODY_BYTES", raising=False)
     settings = load_settings()
-    assert settings.main_llm is not None
-    largest_decoded_media = max(settings.main_llm.max_audio_bytes, settings.main_llm.max_video_bytes)
+    main_llm = settings.runtime("main_llm")
+    largest_decoded_media = max(main_llm.max_audio_bytes, main_llm.max_video_bytes)
     required_body_bytes = math.ceil(largest_decoded_media * 4 / 3) + 100_000
     assert settings.max_request_body_bytes >= required_body_bytes
 

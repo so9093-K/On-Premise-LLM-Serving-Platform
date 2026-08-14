@@ -10,7 +10,7 @@ AUTH_ENV ?= $(if $(ENV_FILE),$(ENV_FILE),$(ENV))
 AUTH_ENV_ARG = $(if $(AUTH_ENV),--env $(AUTH_ENV),)
 
 
-.PHONY: help guide init-env-local init-env-compose init-env-compose-force sync-runtime-secrets sync-env validate test build build-image build-vllm-unified-image package start compose-up preflight-compose compose-config ready-local ready-full smoke runtime-validate auth-status auth-doctor auth-plan auth-apply exposure-status exposure-plan exposure-apply vllm-commands hf-config-check main-model-prepare risk-vllm-config-check model-list model-status model-validate model-propose-add model-propose-remove status stop compose-down compose-restart compose-logs logs compose-diagnostics clean clean-dry-run remove-plan clean-all reset first-run doctor reset-version render-runtime-assets
+.PHONY: help init-env-local init-env-compose init-env-compose-force sync-runtime-secrets sync-env validate test build build-image build-vllm-unified-image package start compose-up preflight-compose compose-config ready-local ready-full smoke runtime-validate auth-status auth-doctor auth-plan auth-apply exposure-status exposure-plan exposure-apply vllm-commands hf-config-check main-model-prepare risk-vllm-config-check model-list model-status model-validate model-propose-add model-propose-remove status stop compose-down compose-restart compose-logs logs compose-diagnostics clean clean-dry-run remove-plan clean-all reset first-run doctor reset-version render-runtime-assets
 
 help:
 	@echo "ai_model_serving_platform $(CURRENT_VERSION)"
@@ -26,12 +26,8 @@ help:
 	@echo "  make ready-full           # vLLM 포함 readiness"
 	@echo "  make runtime-validate     # 실제 서비스·GPU 검증"
 	@echo "  make status               # 서비스 상태"
-	@echo "  make guide                # 상황별 실행 흐름"
 	@echo ""
 	@echo "상세 운영 문서: docs/README.md"
-
-guide:
-	$(PYTHON) scripts/reports/operator_guide.py
 
 init-env-local:
 	$(PYTHON) scripts/config/setup_env.py --profile local

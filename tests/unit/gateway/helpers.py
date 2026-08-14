@@ -49,7 +49,6 @@ from ai_model_serving.domain import ModelRegistry
 _ROOT = Path(__file__).resolve().parents[3]
 _MODEL_CATALOG = yaml.safe_load((_ROOT / "configs/model_catalog.yaml").read_text(encoding="utf-8"))
 _MODEL_SERVING = yaml.safe_load((_ROOT / "configs/model_serving.yaml").read_text(encoding="utf-8"))
-_EMBEDDING_PROFILES = _MODEL_SERVING["embedding_profiles"]
 
 
 class FakeRuntimeClient:
@@ -195,49 +194,30 @@ _PRODUCTION_EMBEDDING_KO_POLICY = _MODEL_SERVING["models"]["embedding_ko"]["requ
 
 def settings() -> AppSettings:
     endpoint = RuntimeEndpoint("x", "http://runtime/v1", "x", 1)
+    main_llm = RuntimeEndpoint(
+        "local-main", "http://main/v1", "local-main", 1,
+        max_output_tokens=1024, allowed_input_modalities=("text", "image"),
+        max_image_inputs=1, allowed_image_url_schemes=("data",), max_image_bytes=200,
+        max_image_pixels=4,
+        allowed_image_mime_types=("image/png", "image/jpeg", "image/webp", "image/avif", "image/jp2", "image/gif", "image/bmp", "image/tiff", "image/x-tiff"),
+    )
+    embedding = RuntimeEndpoint("local-embed", "http://embed/v1", "local-embed", 1, request_parameter_policy=_PRODUCTION_EMBEDDING_POLICY)
+    embedding_ko = RuntimeEndpoint("local-embed-ko", "http://embed-ko/v1", "local-embed-ko", 1, request_parameter_policy=_PRODUCTION_EMBEDDING_KO_POLICY)
     return AppSettings(
         app_env="test",
         project_version="0.1.0",
         security=SecuritySettings(api_key_required=True, api_keys=frozenset({"test-key"}), internal_service_token="internal-test-key"),
         gateway_timeout_seconds=1,
         risk_adapter_timeout_seconds=1,
-        main_llm=RuntimeEndpoint(
-            "local-main",
-            "http://main/v1",
-            "local-main",
-            1,
-            max_output_tokens=1024,
-            allowed_input_modalities=("text", "image"),
-            max_image_inputs=1,
-            allowed_image_url_schemes=("data",),
-            max_image_bytes=200,
-            max_image_pixels=4,
-            allowed_image_mime_types=(
-                "image/png",
-                "image/jpeg",
-                "image/webp",
-                "image/avif",
-                "image/jp2",
-                "image/gif",
-                "image/bmp",
-                "image/tiff",
-                "image/x-tiff",
-            ),
-        ),
-        embedding=RuntimeEndpoint("local-embed", "http://embed/v1", "local-embed", 1, request_parameter_policy=_PRODUCTION_EMBEDDING_POLICY),
-        embedding_ko=RuntimeEndpoint("local-embed-ko", "http://embed-ko/v1", "local-embed-ko", 1, request_parameter_policy=_PRODUCTION_EMBEDDING_KO_POLICY),
-        risk_prompt=endpoint,
+        runtime_endpoints={"main_llm": main_llm, "embedding": embedding, "embedding_ko": embedding_ko, "risk_prompt": endpoint},
         risk_adapter_base_url="http://risk",
         public_models=public_models(),
         embedding_profiles={
             "local-embed": EmbeddingProfile(
                 model="local-embed",
                 service_key="embedding",
-                upstream_model_id="google/embeddinggemma-300m",
-                dimensions=tuple(_EMBEDDING_PROFILES["local-embed"]["dimensions"]),
                 default_dimensions=768,
                 retrieval_enabled=True,
-                score_modes=("dense_cosine",),
                 prompt_policy={
                     "retrieval_query": {"mode": "prefix", "prefix": "task: search result | query: "},
                     "retrieval_document": {"mode": "prefix", "prefix": "title: none | text: "},
@@ -247,12 +227,8 @@ def settings() -> AppSettings:
             "local-embed-ko": EmbeddingProfile(
                 model="local-embed-ko",
                 service_key="embedding_ko",
-                upstream_model_id="dragonkue/snowflake-arctic-embed-l-v2.0-ko",
-                dimensions=tuple(_EMBEDDING_PROFILES["local-embed-ko"]["dimensions"]),
                 default_dimensions=1024,
                 retrieval_enabled=True,
-                retrieval_default=True,
-                score_modes=("dense_cosine",),
                 prompt_policy={
                     "retrieval_query": {"mode": "prefix", "prefix": "query: "},
                     "retrieval_document": {"mode": "none"},
@@ -260,16 +236,14 @@ def settings() -> AppSettings:
                 request_parameter_policy=_PRODUCTION_EMBEDDING_KO_POLICY,
             ),
         },
-        embedding_model_routes={"local-embed": "embedding", "local-embed-ko": "embedding_ko"},
         default_embedding_model="local-embed",
         default_retrieval_model="local-embed-ko",
     )
 
 
-def _settings_with_embedding_routes(
+def _settings_with_embedding_profiles(
     *,
     embedding_profiles: dict[str, EmbeddingProfile],
-    embedding_model_routes: dict[str, str],
     runtime_endpoints: dict[str, RuntimeEndpoint] | None = None,
 ) -> AppSettings:
     base = settings()
@@ -279,12 +253,7 @@ def _settings_with_embedding_routes(
     return replace(
         base,
         runtime_endpoints=endpoints,
-        main_llm=endpoints["main_llm"],
-        embedding=endpoints.get("embedding"),
-        embedding_ko=endpoints.get("embedding_ko"),
-        risk_prompt=endpoints.get("risk_prompt"),
         embedding_profiles=embedding_profiles,
-        embedding_model_routes=embedding_model_routes,
     )
 
 
@@ -354,14 +323,13 @@ def tool_calling_settings() -> AppSettings:
     )
     return replace(
         cfg,
-        main_llm=main,
         runtime_endpoints={**cfg.runtime_endpoints, "main_llm": main},
     )
 
 
 def advanced_chat_settings() -> AppSettings:
     cfg = tool_calling_settings()
-    policy = dict(cfg.main_llm.request_parameter_policy or {})
+    policy = dict(cfg.runtime("main_llm").request_parameter_policy or {})
     supported = list(policy["supported_parameters"])
     for field in ["response_format", "logprobs", "top_logprobs", "logit_bias"]:
         if field not in supported:
@@ -426,23 +394,22 @@ def advanced_chat_settings() -> AppSettings:
         }
     )
     main = RuntimeEndpoint(
-        cfg.main_llm.logical_id,
-        cfg.main_llm.base_url,
-        cfg.main_llm.model,
-        cfg.main_llm.timeout_seconds,
-        max_output_tokens=cfg.main_llm.max_output_tokens,
-        allowed_input_modalities=cfg.main_llm.allowed_input_modalities,
-        max_image_inputs=cfg.main_llm.max_image_inputs,
-        allowed_image_url_schemes=cfg.main_llm.allowed_image_url_schemes,
-        max_image_bytes=cfg.main_llm.max_image_bytes,
-        max_image_pixels=cfg.main_llm.max_image_pixels,
-        allowed_image_mime_types=cfg.main_llm.allowed_image_mime_types,
+        cfg.runtime("main_llm").logical_id,
+        cfg.runtime("main_llm").base_url,
+        cfg.runtime("main_llm").model,
+        cfg.runtime("main_llm").timeout_seconds,
+        max_output_tokens=cfg.runtime("main_llm").max_output_tokens,
+        allowed_input_modalities=cfg.runtime("main_llm").allowed_input_modalities,
+        max_image_inputs=cfg.runtime("main_llm").max_image_inputs,
+        allowed_image_url_schemes=cfg.runtime("main_llm").allowed_image_url_schemes,
+        max_image_bytes=cfg.runtime("main_llm").max_image_bytes,
+        max_image_pixels=cfg.runtime("main_llm").max_image_pixels,
+        allowed_image_mime_types=cfg.runtime("main_llm").allowed_image_mime_types,
         request_parameter_policy=policy,
         runtime_features={"structured_outputs": {"enabled": True, "backend": "xgrammar", "disable_any_whitespace": True, "enable_in_reasoning": False}},
     )
     return replace(
         cfg,
-        main_llm=main,
         runtime_endpoints={**cfg.runtime_endpoints, "main_llm": main},
         public_models=(
             {

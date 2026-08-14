@@ -4,6 +4,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT"
 PYTHON_BIN="${PYTHON_BIN:-$(command -v python3.12 || command -v python3 || command -v python)}"
+export PYTHONDONTWRITEBYTECODE=1
 
 "$PYTHON_BIN" scripts/build/check_python.py --context validate >/dev/null
 

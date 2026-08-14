@@ -137,7 +137,7 @@ def build_router(
         active_modalities = tuple(
             str(item)
             for item in active_policy.get("request_limits", {}).get(
-                "input_modalities", settings.main_llm.allowed_input_modalities
+                "input_modalities", settings.runtime("main_llm").allowed_input_modalities
             )
         )
         if sidecar is not None:
@@ -148,7 +148,7 @@ def build_router(
             if isinstance(active_snapshot, dict):
                 active_modalities = _active_input_modalities(active_snapshot) or active_modalities
                 active_policy = _active_gateway_policy(active_snapshot) or active_policy
-        main_model_id = settings.main_llm.model
+        main_model_id = settings.runtime("main_llm").model
         for item in items:
             if item.get("id") == main_model_id:
                 item["input_modalities"] = list(active_modalities)
@@ -291,7 +291,8 @@ def build_router(
     ) -> dict[str, Any]:
         if state_store is not None:
             model = str(payload.get("model", settings.default_embedding_model))
-            service_key = settings.embedding_model_routes.get(model, "embedding")
+            profile = settings.embedding_profiles.get(model)
+            service_key = profile.service_key if profile is not None else "embedding"
             state = await state_store.get(service_key)
             if state in (RuntimeState.stopped, RuntimeState.starting):
                 raise ServiceError(

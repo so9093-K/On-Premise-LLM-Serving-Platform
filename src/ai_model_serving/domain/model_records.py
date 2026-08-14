@@ -71,10 +71,8 @@ class ModelRecord:
     max_output_tokens: int | None = None
     embedding_dimensions: tuple[int, ...] = ()
     input_modalities: tuple[str, ...] = ()
-    output_modalities: tuple[str, ...] = ()
     lifecycle_state: str = "active"
     exposure: str = "public"
-    owner: str = "platform"
 
     def public_model(self) -> PublicModel | None:
         if not self.public_enabled:

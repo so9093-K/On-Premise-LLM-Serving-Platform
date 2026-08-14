@@ -1,17 +1,10 @@
 from __future__ import annotations
 
 READY = "ready"
-DEGRADED = "degraded"
 NOT_READY = "not_ready"
-UNKNOWN = "unknown"
 
 PHASE_SERVING = "serving"
 PHASE_WAITING_FOR_DEPENDENCIES = "waiting_for_dependencies"
-
-READINESS_STATUSES = (READY, DEGRADED, NOT_READY)
-DEPENDENCY_STATUSES = (READY, DEGRADED, NOT_READY, UNKNOWN)
-READINESS_PHASES = (PHASE_SERVING, PHASE_WAITING_FOR_DEPENDENCIES)
-
 
 def is_dependency_ready(status: str) -> bool:
     return status == READY

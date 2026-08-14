@@ -19,9 +19,10 @@ async def _ensure_retrieval_runtime_available(
     if state_store is None:
         return
     model = str(payload.get("model") or settings.default_retrieval_model)
-    service_key = settings.embedding_model_routes.get(model)
-    if service_key is None:
+    profile = settings.embedding_profiles.get(model)
+    if profile is None:
         return
+    service_key = profile.service_key
     state = await state_store.get(service_key)
     if state in (RuntimeState.stopped, RuntimeState.starting):
         raise ServiceError(

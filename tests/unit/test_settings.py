@@ -88,7 +88,6 @@ def test_load_settings_reads_local_dotenv_without_overriding_exported_values(tmp
     shutil.copy(repo / "configs" / "model_serving.yaml", root / "configs" / "model_serving.yaml")
     shutil.copy(repo / "configs" / "model_catalog.yaml", root / "configs" / "model_catalog.yaml")
     shutil.copy(repo / "configs" / "main_model_profiles.yaml", root / "configs" / "main_model_profiles.yaml")
-    shutil.copy(repo / "configs" / "main_model_profiles.yaml", root / "configs" / "main_model_profiles.yaml")
     shutil.copy(repo / "VERSION", root / "VERSION")
     (root / ".env").write_text(
         "APP_ENV=local\nAPI_KEYS=dotenv-key\nMAX_REQUEST_BODY_BYTES=1234\nMAIN_LLM_MAX_CONCURRENCY=2\n",
@@ -101,7 +100,7 @@ def test_load_settings_reads_local_dotenv_without_overriding_exported_values(tmp
     settings = load_settings(root)
     assert settings.security.api_keys == frozenset({"dotenv-key"})
     assert settings.max_request_body_bytes == 1234
-    assert settings.main_llm.max_concurrency == 2
+    assert settings.runtime("main_llm").max_concurrency == 2
     catalog = yaml.safe_load((root / "configs" / "model_catalog.yaml").read_text(encoding="utf-8"))
     expected_public_ids = {
         model_id
@@ -174,10 +173,10 @@ def test_load_settings_uses_serving_runtime_defaults(tmp_path):
 
     settings = load_settings(root)
     assert settings.default_main_model_gateway_policy == default_policy
-    assert settings.main_llm.max_concurrency == main_admission["max_concurrency"]
-    assert settings.main_llm.queue_timeout_seconds == main_admission["queue_timeout_seconds"]
-    assert settings.embedding.max_concurrency == embedding_admission["max_concurrency"]
-    assert settings.embedding.queue_timeout_seconds == embedding_admission["queue_timeout_seconds"]
+    assert settings.runtime("main_llm").max_concurrency == main_admission["max_concurrency"]
+    assert settings.runtime("main_llm").queue_timeout_seconds == main_admission["queue_timeout_seconds"]
+    assert settings.runtime("embedding").max_concurrency == embedding_admission["max_concurrency"]
+    assert settings.runtime("embedding").queue_timeout_seconds == embedding_admission["queue_timeout_seconds"]
 
     main_admission["max_concurrency"] += 1
     main_admission["queue_timeout_seconds"] += 1
@@ -187,10 +186,10 @@ def test_load_settings_uses_serving_runtime_defaults(tmp_path):
 
     settings = load_settings(root)
     assert settings.default_main_model_gateway_policy == default_policy
-    assert settings.main_llm.max_concurrency == main_admission["max_concurrency"]
-    assert settings.main_llm.queue_timeout_seconds == main_admission["queue_timeout_seconds"]
-    assert settings.embedding.max_concurrency == embedding_admission["max_concurrency"]
-    assert settings.embedding.queue_timeout_seconds == embedding_admission["queue_timeout_seconds"]
+    assert settings.runtime("main_llm").max_concurrency == main_admission["max_concurrency"]
+    assert settings.runtime("main_llm").queue_timeout_seconds == main_admission["queue_timeout_seconds"]
+    assert settings.runtime("embedding").max_concurrency == embedding_admission["max_concurrency"]
+    assert settings.runtime("embedding").queue_timeout_seconds == embedding_admission["queue_timeout_seconds"]
 
 
 def test_load_settings_rejects_invalid_or_missing_required_model_configuration(tmp_path):
@@ -273,7 +272,7 @@ def test_load_settings_supports_per_model_timeout_overrides(monkeypatch):
     monkeypatch.setenv("RISK_PROMPT_TIMEOUT_SECONDS", "3")
     monkeypatch.setenv("RISK_ADAPTER_TIMEOUT_SECONDS", "10")
     settings = load_settings()
-    assert settings.risk_prompt.timeout_seconds == 3
+    assert settings.runtime("risk_prompt").timeout_seconds == 3
 
 
 def test_load_settings_rejects_generated_placeholder_secrets_in_non_local_env(monkeypatch):
@@ -323,7 +322,6 @@ def _minimal_settings_kwargs() -> dict:
         "risk_adapter_timeout_seconds": 1,
         "risk_adapter_base_url": "http://risk",
         "runtime_endpoints": {"embedding": endpoint},
-        "embedding": endpoint,
         "default_embedding_model": "local-embed",
         "default_retrieval_model": "local-embed",
     }
@@ -345,12 +343,9 @@ def test_app_settings_validates_embedding_route_service_keys() -> None:
                 "local-embed": EmbeddingProfile(
                     model="local-embed",
                     service_key="missing",
-                    upstream_model_id="example/embed",
-                    dimensions=(768,),
                     default_dimensions=768,
                 )
             },
-            embedding_model_routes={"local-embed": "missing"},
         )
 
 
@@ -366,12 +361,9 @@ def test_app_settings_validates_default_embedding_models() -> None:
                 "local-embed": EmbeddingProfile(
                     model="local-embed",
                     service_key="embedding",
-                    upstream_model_id="example/embed",
-                    dimensions=(768,),
                     default_dimensions=768,
                 )
             },
-            embedding_model_routes={"local-embed": "embedding"},
         )
 
 

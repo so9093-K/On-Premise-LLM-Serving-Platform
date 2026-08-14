@@ -42,7 +42,7 @@ def test_models_listing_exposes_static_input_modalities_without_sidecar():
     client = TestClient(create_gateway_app(cfg, FakeGatewayClients()))
     main = _main_model(client.get("/v1/models", headers=auth_headers()))
     # control plane이 없음 -> static catalog 기본값(text+image), 절대 에러 아님.
-    assert main["input_modalities"] == list(cfg.main_llm.allowed_input_modalities)
+    assert main["input_modalities"] == list(cfg.runtime("main_llm").allowed_input_modalities)
 
 
 def test_models_listing_tracks_active_profile_modalities():
@@ -60,5 +60,4 @@ def test_models_listing_falls_back_when_sidecar_unavailable():
     clients.sidecar = _FakeSidecar(available=False)
     client = TestClient(create_gateway_app(cfg, clients))
     main = _main_model(client.get("/v1/models", headers=auth_headers()))
-    assert main["input_modalities"] == list(cfg.main_llm.allowed_input_modalities)
-
+    assert main["input_modalities"] == list(cfg.runtime("main_llm").allowed_input_modalities)

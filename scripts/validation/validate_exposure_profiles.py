@@ -162,7 +162,7 @@ def _services_with_category(services: dict, category: str) -> set[str]:
     }
 
 
-def validate(data: dict, strict: bool = False, services: dict | None = None) -> list[str]:
+def validate(data: dict, services: dict | None = None) -> list[str]:
     """위반 메시지 목록을 반환한다. 비어있으면 유효하다는 뜻."""
     violations: list[str] = []
 
@@ -306,7 +306,7 @@ def main() -> int:
 
     data = load(ROOT / "configs" / "exposure_profiles.yaml")
     services = load_services(ROOT / "configs" / "services.yaml")
-    violations = validate(data, strict=args.strict, services=services)
+    violations = validate(data, services=services)
     if args.strict and not violations:
         violations.extend(validate_compose_exposure_projection(data, services))
 

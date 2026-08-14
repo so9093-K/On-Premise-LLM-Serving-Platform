@@ -73,6 +73,7 @@ class FakeRiskClients:
 def settings() -> AppSettings:
     endpoint = RuntimeEndpoint("x", "http://runtime/v1", "x", 1)
     embedding = RuntimeEndpoint("test-embed", "http://embed/v1", "test-embed", 1)
+    risk_prompt = RuntimeEndpoint("risk-prompt", "http://prompt/v1", "risk-prompt", 1)
     return AppSettings(
         app_env="test",
         project_version="0.1.0",
@@ -83,20 +84,15 @@ def settings() -> AppSettings:
         ),
         gateway_timeout_seconds=1,
         risk_adapter_timeout_seconds=1,
-        main_llm=endpoint,
-        embedding=embedding,
-        risk_prompt=RuntimeEndpoint("risk-prompt", "http://prompt/v1", "risk-prompt", 1),
+        runtime_endpoints={"main_llm": endpoint, "embedding": embedding, "risk_prompt": risk_prompt},
         risk_adapter_base_url="http://risk",
         embedding_profiles={
             "test-embed": EmbeddingProfile(
                 model="test-embed",
                 service_key="embedding",
-                upstream_model_id="test/embed",
-                dimensions=(1,),
                 default_dimensions=1,
             )
         },
-        embedding_model_routes={"test-embed": "embedding"},
         default_embedding_model="test-embed",
         default_retrieval_model="test-embed",
     )

@@ -55,7 +55,8 @@ async def _readiness(
 
     embedding_probes: list[DependencyProbe] = []
     seen_service_keys: set[str] = set()
-    for service_key in settings.embedding_model_routes.values():
+    for profile in settings.embedding_profiles.values():
+        service_key = profile.service_key
         if service_key in seen_service_keys:
             continue
         seen_service_keys.add(service_key)
