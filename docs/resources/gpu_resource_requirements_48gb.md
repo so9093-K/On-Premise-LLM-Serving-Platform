@@ -109,7 +109,7 @@ Prefix caching은 반복 prefix가 있는 multi-turn, tool, RAG prompt에서 pre
 
 ## 9. Selectable Main LLM 프로필 반영 (2026-07-16 갱신)
 
-[ADR-0017](../adr/0017-selectable-main-model-runtime.md)/[ADR-0018](../adr/0018-gpu-vram-admission-and-per-profile-runtime-image.md) 이후 "Main LLM"은 `configs/main_model_profiles.yaml`의 프로필(`gemma4-12b-unified-fp8`, 2026-07-28부터 기본 / `gemma4-26b-a4b-fp8`, admin API로 전환 가능한 대안) 중 하나로 전환되는 identity다. 1~8절은 26B 단일 모델을 전제로 한 원본이며, 그 전제가 더 이상 유효하지 않다.
+[ADR-0017](../adr/0017-selectable-main-model-runtime.md)/[ADR-0018](../adr/0018-gpu-vram-admission-and-per-profile-runtime-image.md) 이후 "Main LLM"은 `configs/main_model_profiles.yaml`의 profile 중 하나로 전환되는 identity다. 이 절의 표는 초기 Gemma 26B/12B 두 profile을 실제 배포 서버에서 측정한 이력일 뿐이며, 현재 선택 가능한 전체 profile 목록과 각각의 실행값·검증 근거는 catalog가 권위다. 1~8절은 26B 단일 모델을 전제로 한 원본이며, 그 전제가 더 이상 유효하지 않다.
 
 실제 배포 서버에서 두 프로필을 각각 활성화해 실측한 결과([ADR-0015](../adr/0015-main-llm-20k-o3-runtime-target.md) Update 참고):
 

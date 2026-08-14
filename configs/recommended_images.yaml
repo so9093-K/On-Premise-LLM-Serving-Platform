@@ -6,7 +6,7 @@ images:
     source: 로컬 Docker 빌드
   vllm:
     default: ai-model-serving-vllm-unified:0.0.1
-    purpose: 모든 제공 모델(main-LLM 26B/12B, embedding, embedding-ko, risk-prompt)을 위한
+    purpose: 선택 가능한 Main LLM profile과 embedding, embedding-ko, risk-prompt를 위한
       vLLM OpenAI 호환 runtime. 하나의 이미지에 두 patch 집합을 포함하며, 필요 없는 모델에서는
       해당 patch가 동작하지 않는다. 2026-07-24에 기존 vllm-gemma4-audio와 risk-vllm-kanana
       이미지를 통합했다.

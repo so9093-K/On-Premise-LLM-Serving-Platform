@@ -1544,12 +1544,17 @@ curl "$GATEWAY_URL/admin/main-model/profiles" \
 
 Main Model profile 전환을 비동기로 시작한다.
 
+전환할 ID는 먼저 `GET /admin/main-model/profiles`에서 확인한다. 배포된 카탈로그에 따라
+허용 profile은 달라질 수 있으므로, 아래 `PROFILE_ID`에 조회 결과의 `id`를 넣는다.
+
 ```bash
+PROFILE_ID="<GET /admin/main-model/profiles에서 확인한 profile id>"
+
 curl -X POST "$GATEWAY_URL/admin/main-model/switch" \
   -H "Authorization: Bearer $ADMIN_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
-    "profile":"gemma4-26b-a4b-fp8",
+    "profile":"'"$PROFILE_ID"'",
     "request_id":"switch-20260811-001"
   }'
 ```

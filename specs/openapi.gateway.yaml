@@ -1652,14 +1652,18 @@ paths:
               required:
               - profile
             examples:
-              switch_to_12b:
-                summary: 12B로 전환 (verified)
+              gemma4_12b:
+                summary: Gemma 4 12B (verified)
                 value:
                   profile: gemma4-12b-unified-fp8
-              switch_to_26b:
-                summary: 26B로 복귀 (verified)
+              gemma4_26b:
+                summary: Gemma 4 26B (verified)
                 value:
                   profile: gemma4-26b-a4b-fp8
+              qwen2_5_omni_7b_thinker:
+                summary: Qwen 2.5 Omni 7B Thinker (verified)
+                value:
+                  profile: qwen2.5-omni-7b-thinker
         required: true
       responses:
         '202':
