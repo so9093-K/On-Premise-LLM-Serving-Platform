@@ -30,6 +30,24 @@ __all__ = [
 
 
 _DIAGNOSIS_TEXT_LIMIT = 500
+# Docker json-file 드라이버는 로그 메시지를 16KiB에서 잘라 여러 줄로 쪼갠다. 쪼개진
+# 조각은 각각 유효한 JSON이 아니라서 Loki의 `| json`과 Grafana의 extractFields가
+# 레코드 전체를 잃는다. 실제로 12,616 token 응답 하나가 약 19KB 라인이 되어 3조각으로
+# 갈렸고, JSON 키가 알파벳 순이라 절단점 뒤의 prompt_tokens/route/status_code/
+# total_tokens가 통째로 사라졌다. 두 body를 합쳐도 한 줄이 그 한도 안에 들어오도록
+# 자른다. 한도는 문자 수가 아니라 UTF-8 바이트다 -- 한글은 문자당 3바이트라 문자 수로
+# 자르면 같은 한도에서 3배 커진다.
+_BODY_PREVIEW_LIMIT_BYTES = 4000
+_TRUNCATION_SUFFIX = "…(truncated)"
+
+
+def _truncate_preview(text: str) -> str:
+    """로그 한 줄이 Docker의 메시지 한도를 넘지 않도록 body preview를 자른다."""
+    encoded = text.encode("utf-8")
+    if len(encoded) <= _BODY_PREVIEW_LIMIT_BYTES:
+        return text
+    # multi-byte 문자 중간에서 잘린 꼬리는 버린다.
+    return encoded[:_BODY_PREVIEW_LIMIT_BYTES].decode("utf-8", errors="ignore") + _TRUNCATION_SUFFIX
 
 
 def _safe_diagnosis_text(value: Any) -> str | None:
@@ -107,8 +125,8 @@ def record_request_response_preview(request: Request, *, request_text: str, resp
     각 라우터가 `request.state.request_body_masked = ...`를 직접 대입하며
     코드를 복제하지 않게 한다.
     """
-    request.state.request_body_masked = mask_sensitive_text(request_text)
-    request.state.response_body_masked = mask_sensitive_text(response_text)
+    request.state.request_body_masked = _truncate_preview(mask_sensitive_text(request_text))
+    request.state.response_body_masked = _truncate_preview(mask_sensitive_text(response_text))
 
 
 def record_token_usage(request: Request, usage: Any) -> None:

@@ -98,3 +98,29 @@ def test_generated_openapi_uses_common_error_schema_for_server_failures():
         for path in paths:
             responses = doc["paths"][path]["post"]["responses"]
             assert responses["500"]["content"]["application/json"]["schema"]["title"] == "CommonErrorResponse"
+
+
+def test_main_model_switch_examples_cover_every_verified_profile():
+    """Scalar UI의 profile 전환 드롭다운은 이 examples 목록이다.
+
+    catalog에 verified profile을 추가하고 여기에 안 넣으면 UI에서 고를 수 없다 --
+    E4B가 실제로 그렇게 빠져 있었다. 목록을 catalog와 대조해 드리프트를 막는다.
+    """
+    from pathlib import Path
+
+    from ai_model_serving.main_model.control import load_main_model_catalog
+
+    root = Path(__file__).resolve().parents[2]
+    catalog = load_main_model_catalog(root / "configs/main_model_profiles.yaml", resolve_runtime_images=False)
+    verified = {
+        profile_id
+        for profile_id, profile in catalog.profiles.items()
+        if (profile.compatibility or {}).get("status") == "verified"
+    }
+
+    app = create_gateway_app(gateway_settings(), FakeGatewayClients())
+    examples = app.openapi()["paths"]["/admin/main-model/switch"]["post"]["requestBody"]["content"]["application/json"]["examples"]
+    advertised = {example["value"]["profile"] for example in examples.values()}
+
+    assert verified <= advertised, f"verified인데 Scalar 드롭다운에 없는 profile: {sorted(verified - advertised)}"
+    assert advertised <= set(catalog.profiles), f"catalog에 없는 profile이 예시에 있음: {sorted(advertised - set(catalog.profiles))}"

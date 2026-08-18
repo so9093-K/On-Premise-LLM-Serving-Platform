@@ -249,9 +249,11 @@ profiles:
     served_model_name: local-main
     image: ${AUDIO_VLLM_IMAGE}
     compatibility:
-      # 전환·Gateway 계약·streaming reasoning·structured output·tool call을 배포본에서
-      # 실측했고 12B/26B 회귀도 확인했다. 전환 실패 시 rollback 경로만 미검증이라 보류한다.
-      status: unverified
+      # 전환·Gateway 계약·streaming reasoning·structured output·tool call·media 4종을
+      # 배포본에서 실측했고, 12B/26B 회귀와 리소스 한도 확정(65K context, seqs=4,
+      # 15,000 출력)까지 끝냈다. 전환 실패 rollback은 세 profile이 공유하는 플랫폼
+      # 메커니즘이라 E4B 고유 조건에서 제외했다(12B/26B도 검증한 적 없음).
+      status: verified
     capabilities:
       # 이 집합은 Gateway 허용 입력과 switch-time media canary의 단일 기준이다.
       # 각 경로는 동일 immutable image의 직접 vLLM canary를 통과했다.

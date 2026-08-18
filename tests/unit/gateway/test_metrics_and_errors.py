@@ -5,11 +5,17 @@ from __future__ import annotations
 
 import dataclasses
 import io
+import json
 import logging
 
 from .helpers import *  # noqa: F401,F403
 from starlette.requests import Request
-from ai_model_serving.logging_policy import record_error_diagnosis, record_readiness_failure, safe_request_log_record
+from ai_model_serving.logging_policy import (
+    record_error_diagnosis,
+    record_readiness_failure,
+    record_request_response_preview,
+    safe_request_log_record,
+)
 from ai_model_serving.metrics import Metrics
 from ai_model_serving.errors import error_payload, error_response_headers
 from ai_model_serving.settings import CorsSettings
@@ -227,6 +233,25 @@ def test_access_log_includes_masked_request_response_body_when_set_on_request_st
 
     assert record["request_body"] == "user: 이메일은 [EMAIL_ADDRESS]입니다"
     assert record["response_body"] == "안녕하세요, 도와드릴까요?"
+
+
+def test_request_response_preview_is_truncated_so_the_log_line_stays_one_docker_message():
+    """긴 응답이 Docker의 16KiB 메시지 한도를 넘겨 로그 줄이 쪼개지면, 조각 각각이
+    유효한 JSON이 아니라서 prompt_tokens 같은 뒤쪽 필드가 통째로 사라진다."""
+    request = _bare_request()
+
+    record_request_response_preview(request, request_text="가" * 20000, response_text="나" * 20000)
+
+    record = safe_request_log_record(
+        service="gateway",
+        request=request,
+        status_code=200,
+        elapsed_seconds=0.01,
+    )
+
+    assert record["request_body"].endswith("…(truncated)")
+    assert record["response_body"].endswith("…(truncated)")
+    assert len(json.dumps(record, ensure_ascii=False).encode()) < 16 * 1024
 
 
 def test_access_log_omits_request_response_body_when_not_set_on_request_state():

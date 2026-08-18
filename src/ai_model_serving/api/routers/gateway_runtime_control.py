@@ -768,6 +768,12 @@ def build_router(
                                     "profile": "gemma4-26b-a4b-fp8",
                                 },
                             },
+                            "gemma4_e4b": {
+                                "summary": "Gemma 4 E4B IT (verified)",
+                                "value": {
+                                    "profile": "gemma4-e4b-it",
+                                },
+                            },
                             "qwen2_5_omni_7b_thinker": {
                                 "summary": "Qwen 2.5 Omni 7B Thinker (verified)",
                                 "value": {
