@@ -249,7 +249,8 @@ profiles:
     served_model_name: local-main
     image: ${AUDIO_VLLM_IMAGE}
     compatibility:
-      # 직접 vLLM 검증은 통과했지만, sidecar 전환·Gateway 계약은 아직 확인하지 않았다.
+      # sidecar 전환과 Gateway 계약은 확인했다. streaming reasoning 불일치는 chat template
+      # stub 제거와 parser patch로 고쳤으나 배포 후 실측과 rollback 확인이 남아 보류한다.
       status: unverified
     capabilities:
       # 이 집합은 Gateway 허용 입력과 switch-time media canary의 단일 기준이다.

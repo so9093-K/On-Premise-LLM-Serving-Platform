@@ -27,9 +27,21 @@ channel marker 없는 최종 답을 생성하면 이를 전부 `delta.reasoning`
 turn은 content 상태에서 시작하고, 실제로 열린 `<|channel>` prompt만 reasoning 상태로
 초기화한다.
 
-이 patch는 Gemma4 parser 파일의 pre-fix method 전체를 anchor로 검증한다. upstream base가
-수정을 포함하거나 레이아웃이 달라지면 build가 실패하므로, 그때 patch를 제거하고 parser
-streaming canary를 다시 통과시킨다.
+여기에 upstream에 없는 로컬 수정 하나를 함께 적용한다. parser는 turn을 닫는 `<turn|>`
+(vocab 106, parser가 이미 아는 여는 토큰 `<|turn>`과 다른 토큰)을 terminal로 선언한 적이
+없다. 위 backport로 turn이 `CONTENT` 상태에서 시작하게 되면서 이 토큰이 흡수되지 않고
+streaming 최종 답 끝에 그대로 노출됐다(비스트리밍에는 없었다). `TURN_END` terminal과
+`CONTENT`/`REASONING` 흡수 transition을 추가한다.
+
+이 patch는 각 anchor가 정확히 1회 나올 때만 치환한다. upstream base가 수정을 포함하거나
+레이아웃이 달라지면 build가 실패하므로, 그때 해당 부분을 제거하고 parser streaming canary를
+다시 통과시킨다. 두 부분은 독립적이라 upstream이 backport 쪽만 흡수하면 그 부분만 뺀다.
+
+관련 상위 결함이 하나 더 있다. thinking을 끈 generation prompt가 이미 닫힌 빈 thought
+channel로 끝나면 model이 여는 마커 없이 사고를 다시 시작해 streaming parser가 그것을
+content로 분류한다. 이건 parser가 아니라 prompt 문제라 patch가 아니라
+`configs/gemma4_chat_template.jinja`에서 해당 stub을 제거해 해결했고,
+`scripts/compose/validate_vllm_compose.py`가 재발을 막는다.
 
 ## 운영 원칙
 

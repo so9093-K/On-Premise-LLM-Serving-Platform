@@ -202,17 +202,27 @@ def validate_gemma4_chat_template() -> list[str]:
             "configs/gemma4_chat_template.jinja has invalid Jinja syntax: "
             f"line {exc.lineno}: {exc.message}"
         ]
-    rendered = template.render(
-        bos_token="<bos>",
-        messages=[{"role": "user", "content": "template contract"}],
-        tools=[],
-        add_generation_prompt=True,
-        enable_thinking=True,
-    )
-    if "<|turn>system\n<|think|>\n<turn|>\n" not in rendered:
+    def render(*, enable_thinking: bool) -> str:
+        return template.render(
+            bos_token="<bos>",
+            messages=[{"role": "user", "content": "template contract"}],
+            tools=[],
+            add_generation_prompt=True,
+            enable_thinking=enable_thinking,
+        )
+
+    if "<|turn>system\n<|think|>\n<turn|>\n" not in render(enable_thinking=True):
         return [
             "configs/gemma4_chat_template.jinja must render the native Gemma4 "
             "thinking prefix '<|think|>\\n<turn|>'"
+        ]
+    # thinking을 끈 generation prompt가 이미 닫힌 빈 thought channel로 끝나면, model이
+    # 여는 마커 없이 사고를 다시 시작해 streaming parser가 그것을 content로 분류한다.
+    # 비스트리밍은 전체 텍스트를 한 번에 보고 복구하므로 두 경로가 갈린다.
+    if "<|channel>" in render(enable_thinking=False):
+        return [
+            "configs/gemma4_chat_template.jinja must not open a thought channel when "
+            "thinking is disabled: the generation prompt has to stay incrementally parseable"
         ]
     return []
 
