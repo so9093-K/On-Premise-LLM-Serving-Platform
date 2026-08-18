@@ -327,8 +327,8 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
         tag="Runtime Control",
         summary="런타임 상태 조회",
         description=(
-            "공유 GPU 예산 위의 모든 vLLM 런타임(보조: embedding, embedding_ko, risk_prompt + "
-            "메인 `local-main`)의 현재 상태와 VRAM 점유를 반환합니다.\n\n"
+            "공유 GPU 예산 위의 모든 vLLM 런타임(보조: embedding, embedding_ko, risk_prompt; "
+            "메인: `local-main`)의 현재 상태와 VRAM 점유를 반환합니다.\n\n"
             "`state`: 런타임 상태 — `active`(서비스 중) / `stopped`(컨테이너 중지, VRAM 회수) / `starting`(전환 중, 일시적).\n\n"
             "`vram_fraction`: 각 런타임의 GPU VRAM 점유율(gpu_memory_utilization).\n\n"
             "`budget`: `{ceiling, used, free}` — 활성 런타임 점유율 합과 천장.\n\n"

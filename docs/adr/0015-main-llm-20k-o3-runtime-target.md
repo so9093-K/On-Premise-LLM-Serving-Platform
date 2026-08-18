@@ -94,3 +94,10 @@ Runtime 값을 수동 복제하지 않도록 `render_vllm_command()`와 compose 
   실제 `/metrics`의 `vllm:cache_config_info{num_gpu_blocks=...}`를 부팅 후 직접 읽는 게
   가장 신뢰도 높은 확인 방법이다. `configs/gpu_budgets.yaml`의 `live_tuning_order`
   정책(측정 먼저, 이후 조정)과 일치한다.
+
+## Update (2026-08-18)
+
+`render_vllm_commands.py`/`make vllm-commands`는 제거됐다. selectable Main Model은
+`model_serving.yaml`이 아니라 `main_model_profiles.yaml`의 활성 profile command로 실행되므로,
+이전 renderer는 실제 기동 명령을 재현하지 못했다. 현재 실행·관측 기준은
+`GET /admin/main-model`과 해당 profile catalog다.

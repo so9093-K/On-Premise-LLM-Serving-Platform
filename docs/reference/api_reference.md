@@ -1511,7 +1511,7 @@ GPU Budget 초과 응답:
 
 ### 8.3 GET `/admin/main-model`
 
-현재 `local-main`의 profile, gate, runtime state와 최근 switch operation을 조회한다.
+마지막 검증 control-plane 상태와 Docker에서 조회 시점에 관측한 `local-main` 상태를 함께 조회한다.
 
 ```bash
 curl "$GATEWAY_URL/admin/main-model" \
@@ -1523,11 +1523,12 @@ curl "$GATEWAY_URL/admin/main-model" \
 | 필드 | 설명 |
 |---|---|
 | `public_model` | 외부 model ID `local-main` |
-| `active_profile` | 현재 실행 profile |
+| `active_profile` | 마지막으로 검증을 통과해 기록된 control-plane profile |
 | `gate` | `open` / `closed` |
-| `runtime_state` | Main runtime 상태 |
+| `runtime_state` | control-plane에 기록된 lifecycle 상태 (`active` / `stopped`) |
 | `last_known_good_profile` | 마지막 검증 완료 profile |
 | `last_operation` | 최근 전환 작업 |
+| `observed_runtime` | 실제 Docker 관측값. `status=ready`와 `health=healthy`일 때만 런타임 준비 상태로 판단한다. `unknown`이면 Docker 관측 실패이므로 `error`를 확인한다. |
 
 ### 8.4 GET `/admin/main-model/profiles`
 

@@ -62,7 +62,7 @@ Runtime 적용 / 배포
 | Gateway / Risk Adapter 로직 | `src/ai_model_serving/` | Platform 서비스 | app-only + Platform Build |
 | 모델 정책·제한값 | `configs/model_serving.yaml` | Gateway + 모델 정책 | 생성 파일 + 정적 검증 |
 | Main Model Profile | `configs/main_model_profiles.yaml` | Main Model Runtime | Profile + 모델 전환 검증 |
-| 모델 추가·제거 | Model Registry 관련 설정 | API 목록, Runtime, 모니터링 | `modelctl` + full-stack |
+| 모델 추가·제거 | Model Registry 관련 설정 | API 목록, Runtime, 모니터링 | `make validate` + full-stack |
 | Unified vLLM | Dockerfile, patch, build 설정 | vLLM Runtime | Unified Image + Runtime 검증 |
 | 서비스 / 포트 | `configs/services.yaml` | Compose, 노출, 모니터링 | 생성 파일 + Compose 확인 |
 | 네트워크 / 노출 | Exposure profile, Compose | Host 공개 범위 | Compose + full-stack |
@@ -215,25 +215,6 @@ make validate
 
 모델 추가는 Model Registry뿐 아니라 API 모델 목록, Runtime topology, Compose, Monitoring까지 연결된다.
 
-변경 전 영향 범위는 plan-only 명령으로 확인할 수 있다.
-
-```bash
-make model-propose-add \
-  ID=<model-id> \
-  ROLE=<role> \
-  UPSTREAM=<upstream-model-id> \
-  PORT=<port> \
-  ENDPOINT=<endpoint>
-```
-
-모델 제거 계획:
-
-```bash
-make model-propose-remove ID=<model-id>
-```
-
-이 명령들은 Source 파일을 직접 수정하지 않고 변경 계획을 출력한다.
-
 실제 모델 추가의 주요 반영 흐름은 다음과 같다.
 
 ```text
@@ -262,7 +243,6 @@ GPU / Runtime Validation
 변경 후 registry와 생성 파일을 확인한다.
 
 ```bash
-make model-validate
 make render-runtime-assets
 make validate
 ```
@@ -569,7 +549,7 @@ make runtime-validate
 | Request parameter | `model_serving.yaml` + contract/schema | 생성 파일 + validate/test | 대상 API |
 | Gateway logic | `src/ai_model_serving/` | validate/test | `make ready-local` |
 | Main Model Profile | `main_model_profiles.yaml` | config/profile 검증 | prepare + switch + readiness |
-| 모델 추가 | catalog + serving + 모델 참고 문서 + compose | `model-validate`, validate | full-stack + runtime validation |
+| 모델 추가 | catalog + serving + 모델 참고 문서 + compose | `validate` | full-stack + runtime validation |
 | vLLM patch / Dockerfile | `ops/images/vllm-unified/`, `ops/patches/` | Unified Build | ready-full + runtime validation |
 | Service port | `services.yaml` | 생성 파일 + validate | compose-config + full-stack |
 | Exposure | `exposure_profiles.yaml` | Compose override 재생성 + validate | effective port 확인 |

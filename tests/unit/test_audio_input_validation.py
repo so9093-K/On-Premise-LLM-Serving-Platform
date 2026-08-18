@@ -15,7 +15,6 @@ import wave
 
 import pytest
 
-from ai_model_serving.api.routers.gateway_inference import _active_input_modalities
 from ai_model_serving.contracts.chat_request import validate_chat_request
 from ai_model_serving.errors import ServiceError
 from ai_model_serving.media_samples import TINY_JPEG_1X1_B64
@@ -440,17 +439,3 @@ def test_request_body_limit_can_carry_configured_media_limit(monkeypatch):
     largest_decoded_media = max(main_llm.max_audio_bytes, main_llm.max_video_bytes)
     required_body_bytes = math.ceil(largest_decoded_media * 4 / 3) + 100_000
     assert settings.max_request_body_bytes >= required_body_bytes
-
-
-@pytest.mark.parametrize(
-    "snapshot",
-    [
-        {},
-        {"active_profile": None},
-        {"active_profile": {"capabilities": {}}},
-        {"active_profile": {"capabilities": {"deployed_input": "text"}}},
-        {"active_profile": {"capabilities": {"deployed_input": ["text", 3]}}},
-    ],
-)
-def test_active_input_modalities_returns_none_on_malformed(snapshot):
-    assert _active_input_modalities(snapshot) is None

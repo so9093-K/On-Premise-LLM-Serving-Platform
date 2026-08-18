@@ -85,8 +85,6 @@
 | 자동화 테스트 | `make test` | [8. 테스트와 검증](./08_testing_validation.md) |
 | 대표 API 요청 확인 | `make smoke` | [8. 테스트와 검증](./08_testing_validation.md) |
 | GPU / vLLM Runtime 검증 | `make runtime-validate` | [8. 테스트와 검증](./08_testing_validation.md) |
-| 모델 설정 검증 | `make model-validate` | [13. 변경 가이드](./13_change_guide.md) |
-| Hugging Face / Main Model 설정 확인 | `make hf-config-check` | [6. 모델 운영](./06_model_operations.md) |
 
 ### 빌드와 패키징
 
@@ -103,11 +101,6 @@
 
 | 목적 | 명령 | 관련 문서 |
 |---|---|---|
-| 모델 목록 확인 | `make model-list` | [6. 모델 운영](./06_model_operations.md) |
-| 모델 상태 확인 | `make model-status` | [6. 모델 운영](./06_model_operations.md) |
-| 모델 추가 계획 생성 | `make model-propose-add ID=... PORT=... ENDPOINT=... UPSTREAM=... ROLE=...` | [13. 변경 가이드](./13_change_guide.md) |
-| 모델 제거 계획 생성 | `make model-propose-remove ID=...` | [13. 변경 가이드](./13_change_guide.md) |
-| vLLM 실행 명령 확인 | `make vllm-commands` | [6. 모델 운영](./06_model_operations.md) |
 
 ### 운영과 진단
 

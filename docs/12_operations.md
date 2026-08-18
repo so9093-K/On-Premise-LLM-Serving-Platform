@@ -139,11 +139,8 @@ GPU 메모리 여유
 Runtime 로그
 ```
 
-Runtime 기동 명령과 GPU 자원 정책은 [6. 모델 운영](./06_model_operations.md)에 정리되어 있다. 현재 vLLM 실행 명령과 프로파일 적용 결과는 다음 명령으로 확인한다.
-
-```bash
-make vllm-commands
-```
+Runtime 기동 명령과 GPU 자원 정책은 [6. 모델 운영](./06_model_operations.md)에 정리되어 있다. 실제
+Main Model profile·gate·컨테이너 관측 상태는 `GET /admin/main-model`에서 확인한다.
 
 ### OOM 또는 컨테이너 재시작
 
@@ -413,7 +410,6 @@ make smoke
 | app-only 준비 상태 | `make ready-local` |
 | full-stack 상태 요약 | `READY_MODE=full make status` |
 | app-only 로그 조회 | `make logs` |
-| vLLM 실행 명령 확인 | `make vllm-commands` |
 | 인증 상태 확인 | `make auth-status` |
 | 인증 진단 | `make auth-doctor` |
 | 네트워크 노출 상태 확인 | `make exposure-status` |

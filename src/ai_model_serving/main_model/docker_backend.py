@@ -137,6 +137,59 @@ class DockerMainModelBackend:
         started_at = inspected.get("State", {}).get("StartedAt")
         return str(started_at) if started_at else None
 
+    @staticmethod
+    def _profile_from_inspected(
+        catalog: MainModelCatalog, inspected: dict[str, Any]
+    ) -> str | None:
+        config = inspected.get("Config", {})
+        command = list(config.get("Cmd") or [])
+        image = config.get("Image")
+        model = command[command.index("--model") + 1] if "--model" in command else None
+        revision = command[command.index("--revision") + 1] if "--revision" in command else None
+        for profile in catalog.profiles.values():
+            if (
+                profile.model_id == model
+                and (revision is None or revision == profile.revision)
+                and image == profile.image
+            ):
+                return profile.profile_id
+        return None
+
+    async def observe_runtime(self, catalog: MainModelCatalog) -> dict[str, Any]:
+        """Docker inspect 한 번으로 실제 main runtime 상태를 읽는다."""
+        service = str(catalog.runtime["compose_service"])
+        container_id = await self._container_id(service)
+        if container_id is None:
+            return {
+                "status": "unavailable",
+                "container_state": "not_found",
+                "health": None,
+                "profile_id": None,
+                "error": None,
+            }
+        inspected = await self._inspect(container_id)
+        state = inspected.get("State", {})
+        container_state = str(state.get("Status") or "unknown")
+        health_value = state.get("Health", {}).get("Status")
+        health = str(health_value) if health_value is not None else None
+        if container_state != "running":
+            status = "stopped"
+        elif health == "healthy":
+            status = "ready"
+        elif health == "starting":
+            status = "starting"
+        elif health == "unhealthy":
+            status = "unavailable"
+        else:
+            status = "unknown"
+        return {
+            "status": status,
+            "container_state": container_state,
+            "health": health,
+            "profile_id": self._profile_from_inspected(catalog, inspected),
+            "error": None,
+        }
+
     async def stop(self, catalog: MainModelCatalog) -> None:
         """컨테이너는 유지한 채 main runtime을 중지해 VRAM을 회수한다."""
         service = str(catalog.runtime["compose_service"])
@@ -170,19 +223,7 @@ class DockerMainModelBackend:
         if container_id is None:
             return None
         inspected = await self._inspect(container_id)
-        config = inspected.get("Config", {})
-        command = list(config.get("Cmd") or [])
-        image = config.get("Image")
-        model = command[command.index("--model") + 1] if "--model" in command else None
-        revision = command[command.index("--revision") + 1] if "--revision" in command else None
-        for profile in catalog.profiles.values():
-            if (
-                profile.model_id == model
-                and (revision is None or revision == profile.revision)
-                and image == profile.image
-            ):
-                return profile.profile_id
-        return None
+        return self._profile_from_inspected(catalog, inspected)
 
     async def prepare(
         self, catalog: MainModelCatalog, profile: MainModelProfile

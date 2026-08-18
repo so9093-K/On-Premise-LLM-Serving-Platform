@@ -119,7 +119,10 @@ class SidecarClient:
 
     async def main_model(self) -> dict:
         try:
-            async with httpx.AsyncClient(timeout=5.0) as client:
+            # Sidecar는 이 조회에서 Docker inspect(최대 5초)를 수행한다. 동일한
+            # 5초 timeout을 Gateway에도 적용하면 응답 직전에 gateway가 먼저
+            # 끊길 수 있으므로 transport 여유를 둔다.
+            async with httpx.AsyncClient(timeout=10.0) as client:
                 resp = await client.get(f"{self._base}/main-model", headers=self._headers)
                 resp.raise_for_status()
                 return resp.json()

@@ -56,7 +56,6 @@ make stop
 | `compose/preflight_compose.sh` | full-stack compose 전 exposure config를 먼저 검증하고, 통과한 뒤 Docker, GPU 표시, effective compose host-published port, secret 상태를 점검한다. compose 내부 `expose` ports는 host port 검사 대상이 아니다. host bind와 port는 `docker compose config` 결과를 따른다. |
 | `ops/doctor.sh` | Python, `.env`, local status, Docker, runtime secret 상태를 한 번에 진단한다. 정적 계약·shell 검증은 `make validate`가 담당한다. |
 | `validation/runtime_validation.py` | 실제 runtime 검증 결과를 `reports/runtime/` 아래에 기록한다. |
-| `models/modelctl.py` | model control plane이다. `list`, `status`, `validate`는 읽기 전용이고 `propose-add`, `propose-remove`는 파일 쓰기 없는 변경 계획을 출력한다. |
 | `models/check_hf_model_config.py` | Docker/GPU 없이 Transformers `AutoConfig`만 로드해 vLLM·bitsandbytes 이전 config loader 문제를 분리한다. |
 | `build/package_release.sh` | 배포 ZIP을 만들고 secret, log, cache, egg-info, generated runtime report를 제외한다. ZIP root는 항상 `ai_model_serving_platform/`로 고정한다. |
 | `ops/clean_all.sh` | build 산출물, egg-info와 log를 정리한다. 실행 중 local service가 있으면 중단한다. `--dry-run`으로 삭제 대상을 먼저 볼 수 있다. 모델 cache는 `PURGE_MODEL_CACHE=1`, runtime secret은 `PURGE_RUNTIME_SECRETS=1`일 때만 삭제한다. |
@@ -94,7 +93,7 @@ make stop
 
 - `validate_vllm_compose.py`: compose vLLM command와 model serving/catalog/card 정책 정합성을 검증한다. Embedding pooling token budget 오류와 risk detector quantization drift를 사전에 막는다.
 - `compose_diagnostics.sh`: `make ready-full` 실패 시 docker compose 상태와 주요 서비스 로그를 수집하고, 알려진 vLLM 장애 패턴을 요약한다.
-- `check_hf_model_config.py`: weight load 이전에 발생하는 HF config 문제를 Docker 없이 재현한다. `make hf-config-check`로 기본 Kanana Prompt config를 확인한다.
+- `check_hf_model_config.py`: weight load 이전에 발생하는 HF config 문제를 Docker 없이 재현하는 내부 canary다. Main Model profile 전수 검사는 CI의 `check_main_model_profiles.py`, risk runtime 검사는 `check_risk_vllm_image_config.sh`가 소유한다.
 - `prepare_main_model_cache.py`: allowlisted main-model profile의 고정 revision 전체 snapshot을 공용 HF cache에 준비하고 local-only로 재검증한다. `make main-model-prepare PROFILE=<id>`로 실행하며 active runtime은 변경하지 않는다.
 - `render_main_model_boot_override.py`: locked/configured/persisted profile 우선순위를 검증해 일회성 Compose boot projection을 원자적으로 생성한다. 공식 로컬·CI 실행 경로는 임시 파일을 사용하고 종료 시 삭제한다.
 
@@ -110,18 +109,6 @@ Risk detector의 `bitsandbytes` 설정은 운영 기본값이다. 원인 분리�
 ## 인증 제어 플레인 점검
 
 `make auth-status`로 현재 public/admin/internal auth 상태를 확인하고, `make auth-doctor`로 위험 조합을 탐지한다. 후보 env 파일은 `make auth-status ENV=<path>`와 `make auth-doctor ENV=<path>`로 root `.env` 반영 전에 점검한다. 변경 전에는 `make auth-plan MODE=strict ENV=<path>`로 plan을 보고, 적용은 `make auth-apply MODE=strict ENV=<path>`로 managed auth flag만 수정한다. secret 값은 출력하지 않는다.
-
-## 모델 제어 플레인
-
-```bash
-python scripts/models/modelctl.py list
-python scripts/models/modelctl.py status
-python scripts/models/modelctl.py validate
-python scripts/models/modelctl.py propose-add --id new-main --role main_llm --upstream-model-id org/model --port 9499 --endpoint /v1/new-main
-python scripts/models/modelctl.py propose-remove local-main
-```
-
-`modelctl.py`의 `list/status/validate`는 read-only다. `propose-add/propose-remove`도 파일을 쓰지 않고 영향 파일, 차단 조건, GPU budget 경고, 후속 검증 절차만 출력한다. 실제 모델 add/remove는 catalog, serving config, contracts, schemas, generated Prometheus 설정, tests를 함께 바꾸는 리뷰 대상이며, 모델 참고 문서에는 upstream 사양과 알려진 제약만 갱신한다.
 
 ## Risk vLLM patch 생명주기
 

@@ -106,7 +106,7 @@ _HEALTH_PORT: dict[str, int] = dict(_TOPOLOGY.health_port_by_service)
 _START_PREREQUISITES: dict[str, list[str]] = dict(_TOPOLOGY.start_prerequisites_by_service)
 _VRAM_FRACTION: dict[str, float] = dict(_TOPOLOGY.vram_fraction_by_service)
 # 표준 GPU VRAM 예산은 configs/gpu_budgets.yaml에 있다(단일 소스이며
-# modelctl/runtime_validation에서도 함께 사용된다). admission ceiling은
+# 정적·런타임 검증에서도 함께 사용된다). admission ceiling은
 # 그 정책의 "avoid_above" 비율 값이다.
 #
 # 의도적으로 strict하게 읽는다(누락/오타 시 기본값으로 조용히 폴백하지 않고
@@ -485,7 +485,7 @@ async def main_model(authorization: str | None = Header(default=None)) -> JSONRe
         # 값 하나(예: quote되지 않은 validated_at)만으로도 이 엔드포인트가 500을
         # 반환하게 되고, Gateway는 이를 SidecarUnavailable로 인식하여 모든
         # main-model 요청을 실패시킨다.
-        return JSONResponse(jsonable_encoder(_main_model_manager.snapshot()))
+        return JSONResponse(jsonable_encoder(await _main_model_manager.observed_snapshot()))
     except MainModelStateError as exc:
         raise HTTPException(503, detail=str(exc)) from exc
 

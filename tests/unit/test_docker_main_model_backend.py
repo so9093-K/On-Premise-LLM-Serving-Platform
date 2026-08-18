@@ -155,6 +155,33 @@ def test_observed_profile_accepts_matching_command_and_runtime_image(monkeypatch
     assert asyncio.run(backend.observed_profile(catalog)) == profile.profile_id
 
 
+def test_observe_runtime_reports_container_health_and_profile(monkeypatch):
+    catalog = load_main_model_catalog(ROOT / "configs/main_model_profiles.yaml")
+    profile = catalog.profiles["gemma4-26b-a4b-fp8"]
+    backend = DockerMainModelBackend("/var/run/docker.sock", gateway_url="http://gateway:9400")
+
+    async def fake_container_id(service):
+        assert service == catalog.runtime["compose_service"]
+        return "container-1"
+
+    async def fake_inspect(_container_id):
+        return {
+            "State": {"Status": "running", "Health": {"Status": "healthy"}},
+            "Config": {"Cmd": list(profile.command), "Image": profile.image},
+        }
+
+    monkeypatch.setattr(backend, "_container_id", fake_container_id)
+    monkeypatch.setattr(backend, "_inspect", fake_inspect)
+
+    assert asyncio.run(backend.observe_runtime(catalog)) == {
+        "status": "ready",
+        "container_state": "running",
+        "health": "healthy",
+        "profile_id": profile.profile_id,
+        "error": None,
+    }
+
+
 def test_observed_started_at_returns_container_state_started_at(monkeypatch):
     catalog = load_main_model_catalog(ROOT / "configs/main_model_profiles.yaml")
     backend = DockerMainModelBackend("/var/run/docker.sock", gateway_url="http://gateway:9400")

@@ -372,6 +372,7 @@ def resolve_boot_profile(
 
 class MainModelRuntimeBackend(Protocol):
     async def observed_profile(self, catalog: MainModelCatalog) -> str | None: ...
+    async def observe_runtime(self, catalog: MainModelCatalog) -> dict[str, Any]: ...
     async def prepare(self, catalog: MainModelCatalog, profile: MainModelProfile) -> None: ...
     async def wait_for_drain(self, timeout_seconds: float) -> None: ...
     async def replace(self, catalog: MainModelCatalog, profile: MainModelProfile) -> None: ...
@@ -460,6 +461,28 @@ class MainModelManager:
             "runtime_image": active.image if active else self.catalog.runtime.get("image"),
             "state_recovery_error": state.get("state_recovery_error"),
         }
+
+    async def observed_snapshot(self) -> dict[str, Any]:
+        """제어 ledger와 Docker에서 읽은 현재 런타임 관측값을 함께 반환한다.
+
+        ``snapshot()``의 active profile·gate·runtime_state는 마지막으로 검증·기록한
+        control-plane 상태다. 관리자가 Docker를 직접 조작했거나 Docker API 자체를 읽지
+        못하는 경우에도 그 사실을 숨기지 않도록, 실제 관측값은 별도 필드에 둔다.
+        """
+        snapshot = self.snapshot()
+        observed_at = time.time()
+        try:
+            observation = await self.backend.observe_runtime(self.catalog)
+        except Exception as exc:  # noqa: BLE001 - 상태 조회가 Docker 장애를 숨기면 안 된다
+            observation = {
+                "status": "unknown",
+                "container_state": None,
+                "health": None,
+                "profile_id": None,
+                "error": str(exc),
+            }
+        snapshot["observed_runtime"] = {**observation, "observed_at": observed_at}
+        return snapshot
 
     def profiles(self) -> list[dict[str, Any]]:
         active = self.state_store.read().get("active_profile")

@@ -10,7 +10,7 @@ AUTH_ENV ?= $(if $(ENV_FILE),$(ENV_FILE),$(ENV))
 AUTH_ENV_ARG = $(if $(AUTH_ENV),--env $(AUTH_ENV),)
 
 
-.PHONY: help init-env-local init-env-compose init-env-compose-force sync-runtime-secrets sync-env validate test build build-image build-vllm-unified-image package start compose-up preflight-compose compose-config ready-local ready-full smoke runtime-validate auth-status auth-doctor auth-plan auth-apply exposure-status exposure-plan exposure-apply vllm-commands hf-config-check main-model-prepare risk-vllm-config-check model-list model-status model-validate model-propose-add model-propose-remove status stop compose-down compose-restart compose-logs logs compose-diagnostics clean clean-dry-run remove-plan clean-all reset first-run doctor reset-version render-runtime-assets
+.PHONY: help init-env-local init-env-compose init-env-compose-force sync-runtime-secrets sync-env validate test build build-image build-vllm-unified-image package start compose-up preflight-compose compose-config ready-local ready-full smoke runtime-validate auth-status auth-doctor auth-plan auth-apply exposure-status exposure-plan exposure-apply main-model-prepare risk-vllm-config-check status stop compose-down compose-restart compose-logs logs compose-diagnostics clean clean-dry-run remove-plan clean-all reset first-run doctor reset-version render-runtime-assets
 
 help:
 	@echo "ai_model_serving_platform $(CURRENT_VERSION)"
@@ -111,35 +111,12 @@ exposure-apply:
 	@if [[ -z "$(MODE)" ]]; then echo "MODE=private_network|master_open 를 지정하세요" >&2; exit 2; fi
 	$(PYTHON) scripts/auth/exposure_apply.py $(AUTH_ENV_ARG) --mode $(MODE) $(if $(AUDIENCE),--audience $(AUDIENCE),) --yes
 
-vllm-commands:
-	$(PYTHON) scripts/models/render_vllm_commands.py
-
-hf-config-check:
-	$(PYTHON) scripts/models/check_hf_model_config.py
-
 main-model-prepare:
 	@if [[ -z "$(PROFILE)" ]]; then echo "PROFILE=<main-model-profile-id>를 지정하세요" >&2; exit 2; fi
 	$(PYTHON) scripts/models/prepare_main_model_cache.py --profile "$(PROFILE)" --env-file "$${ENV_FILE:-.env}" --compose-file "$${COMPOSE_FILE:-ops/compose/full-stack.private-network.yaml}"
 
 risk-vllm-config-check:
 	bash scripts/models/check_risk_vllm_image_config.sh
-
-model-list:
-	$(PYTHON) scripts/models/modelctl.py list
-
-model-status:
-	$(PYTHON) scripts/models/modelctl.py status
-
-model-validate:
-	$(PYTHON) scripts/models/modelctl.py validate
-
-model-propose-add:
-	@if [[ -z "$(ID)" || -z "$(PORT)" || -z "$(ENDPOINT)" || -z "$(UPSTREAM)" || -z "$(ROLE)" ]]; then echo "ID, PORT, ENDPOINT, UPSTREAM, ROLE을 지정하세요" >&2; exit 2; fi
-	$(PYTHON) scripts/models/modelctl.py propose-add --id $(ID) --role $(ROLE) --upstream-model-id $(UPSTREAM) --port $(PORT) --endpoint $(ENDPOINT) $(if $(CAPABILITIES),--capabilities $(CAPABILITIES),) $(if $(GPU),--gpu-memory-utilization $(GPU),) $(if $(WRITE_PLAN),--write-plan,) $(if $(WRITE_PATCH),--write-patch,) $(if $(OUTPUT_DIR),--output-dir $(OUTPUT_DIR),)
-
-model-propose-remove:
-	@if [[ -z "$(ID)" ]]; then echo "ID=<model-id>를 지정하세요" >&2; exit 2; fi
-	$(PYTHON) scripts/models/modelctl.py propose-remove $(ID) $(if $(WRITE_PLAN),--write-plan,) $(if $(WRITE_PATCH),--write-patch,) $(if $(OUTPUT_DIR),--output-dir $(OUTPUT_DIR),)
 
 status:
 	@if [[ "$(READY_MODE)" == "full" ]]; then bash scripts/ops/status_services.sh --full; else bash scripts/ops/status_services.sh --local; fi

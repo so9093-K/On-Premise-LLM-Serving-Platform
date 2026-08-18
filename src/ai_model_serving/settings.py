@@ -22,18 +22,6 @@ from .settings_parts.types import AppSettings, CorsSettings, DocumentationSettin
 ROOT = _resolve_project_root()
 
 
-# governance tooling이 검증하는 운영 하드닝(hardening) 마커. 실제 구현은 이제
-# settings_parts/security.py와 settings_parts/runtime_endpoints.py에 있다;
-# drift check가 settings loading이 policy boundary를 소유한다는 것을 계속
-# assert할 수 있도록 아래 문구들을 여기 그대로 유지한다:
-# API_KEY_REQUIRED=false: Gateway API endpoints are unauthenticated
-# REQUEST_TIMEOUT_SECONDS must be greater than or equal to RISK_ADAPTER_TIMEOUT_SECONDS
-# RISK_ADAPTER_TIMEOUT_SECONDS must cover sequential risk detector queue and inference budgets
-# {env_prefix}_TIMEOUT_SECONDS
-# admission_control.get("max_concurrency", default_model_concurrency)
-# admission_control.get("queue_timeout_seconds", default_queue_timeout)
-
-
 def _public_models_from_registry(
     model_catalog: dict[str, Any],
     model_serving: dict[str, Any],

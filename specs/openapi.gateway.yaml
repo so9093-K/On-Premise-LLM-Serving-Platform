@@ -1154,8 +1154,8 @@ paths:
       tags:
       - Runtime Control
       summary: 런타임 상태 조회
-      description: '공유 GPU 예산 위의 모든 vLLM 런타임(보조: embedding, embedding_ko, risk_prompt
-        + 메인 `local-main`)의 현재 상태와 VRAM 점유를 반환합니다.
+      description: '공유 GPU 예산 위의 모든 vLLM 런타임(보조: embedding, embedding_ko, risk_prompt;
+        메인: `local-main`)의 현재 상태와 VRAM 점유를 반환합니다.
 
 
         `state`: 런타임 상태 — `active`(서비스 중) / `stopped`(컨테이너 중지, VRAM 회수) / `starting`(전환
@@ -1479,13 +1479,13 @@ paths:
       operationId: getMainModel
       responses:
         '200':
-          description: 현재 main-model 상태
+          description: 마지막 검증 control-plane 상태와 Docker에서 방금 관측한 main-model 상태
           content:
             application/json:
               schema: {}
               examples:
                 active:
-                  summary: 서비스 중 (gate open)
+                  summary: 서비스 가능 (gate open, Docker health healthy)
                   value:
                     public_model: local-main
                     active_profile:
@@ -1507,6 +1507,13 @@ paths:
                     runtime_state: active
                     profile_locked: false
                     boot_profile: gemma4-26b-a4b-fp8
+                    observed_runtime:
+                      status: ready
+                      container_state: running
+                      health: healthy
+                      profile_id: gemma4-26b-a4b-fp8
+                      error: null
+                      observed_at: 1782086258.2
                 stopped:
                   summary: 정지됨 (VRAM 회수, gate closed)
                   value:
@@ -1530,6 +1537,13 @@ paths:
                     runtime_state: stopped
                     profile_locked: false
                     boot_profile: gemma4-26b-a4b-fp8
+                    observed_runtime:
+                      status: stopped
+                      container_state: exited
+                      health: null
+                      profile_id: gemma4-26b-a4b-fp8
+                      error: null
+                      observed_at: 1782086258.2
                 switch_in_progress:
                   summary: 전환 중 (gate closed, 작업 진행)
                   value:
@@ -1559,6 +1573,13 @@ paths:
                       previous_profile: gemma4-26b-a4b-fp8
                       status: validating
                       stage: validating
+                    observed_runtime:
+                      status: starting
+                      container_state: running
+                      health: starting
+                      profile_id: gemma4-26b-a4b-fp8
+                      error: null
+                      observed_at: 1782086258.2
         '503':
           description: Admin Sidecar 연결 또는 상태 파일 오류
         '401':

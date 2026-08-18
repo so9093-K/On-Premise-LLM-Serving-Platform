@@ -164,6 +164,14 @@ _MAIN_MODEL_STATUS_EXAMPLE = {
     "profile_locked": False,
     "boot_profile": "gemma4-12b-unified-fp8",
     "last_operation": None,
+    "observed_runtime": {
+        "status": "ready",
+        "container_state": "running",
+        "health": "healthy",
+        "profile_id": "gemma4-12b-unified-fp8",
+        "error": None,
+        "observed_at": 1782086258.2,
+    },
 }
 
 _DESIRED_STATE_SCHEMA = {
@@ -617,16 +625,16 @@ def build_router(
         operation_id="getMainModel",
         responses={
             200: {
-                "description": "현재 main-model 상태",
+                "description": "마지막 검증 control-plane 상태와 Docker에서 방금 관측한 main-model 상태",
                 "content": {
                     "application/json": {"examples": {
                         "active": {
-                            "summary": "서비스 중 (gate open)",
+                            "summary": "서비스 가능 (gate open, Docker health healthy)",
                             "value": _MAIN_MODEL_STATUS_EXAMPLE,
                         },
                         "stopped": {
                             "summary": "정지됨 (VRAM 회수, gate closed)",
-                            "value": {**_MAIN_MODEL_STATUS_EXAMPLE, "gate": "closed", "runtime_state": "stopped"},
+                            "value": {**_MAIN_MODEL_STATUS_EXAMPLE, "gate": "closed", "runtime_state": "stopped", "observed_runtime": {"status": "stopped", "container_state": "exited", "health": None, "profile_id": "gemma4-12b-unified-fp8", "error": None, "observed_at": 1782086258.2}},
                         },
                         "switch_in_progress": {
                             "summary": "전환 중 (gate closed, 작업 진행)",
@@ -640,6 +648,7 @@ def build_router(
                                     "status": "validating",
                                     "stage": "validating",
                                 },
+                                "observed_runtime": {"status": "starting", "container_state": "running", "health": "starting", "profile_id": "gemma4-12b-unified-fp8", "error": None, "observed_at": 1782086258.2},
                             },
                         },
                     }}

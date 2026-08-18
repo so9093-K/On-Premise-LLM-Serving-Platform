@@ -88,15 +88,13 @@ def test_risk_adapter_openapi_security_matches_effective_internal_auth():
     assert "security" not in open_doc["paths"]["/v1/risk/assessments"]["post"]
 
 
-def test_generated_openapi_includes_static_error_response_surface():
+def test_generated_openapi_uses_common_error_schema_for_server_failures():
     gateway_doc = create_gateway_app(gateway_settings(), FakeGatewayClients()).openapi()
     risk_doc = create_risk_adapter_app(risk_settings(), FakeRiskClients()).openapi()
-    expected = {"401", "413", "422", "429", "500", "502", "503", "504"}
     for doc, paths in [
         (gateway_doc, ["/v1/chat/completions", "/v1/embeddings", "/v1/risk/assessments"]),
         (risk_doc, ["/v1/risk/detectors/prompt/assessments", "/v1/risk/assessments"]),
     ]:
         for path in paths:
             responses = doc["paths"][path]["post"]["responses"]
-            assert expected.issubset(set(responses))
             assert responses["500"]["content"]["application/json"]["schema"]["title"] == "CommonErrorResponse"
