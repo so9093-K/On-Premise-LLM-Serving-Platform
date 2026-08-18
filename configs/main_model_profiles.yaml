@@ -280,6 +280,15 @@ profiles:
     - --dtype
     - auto
     - --trust-remote-code
+    # E4B도 Gemma4의 native tool/reasoning channel을 사용한다. 아래 parser와 template는
+    # 동일 image·revision의 일회성 runtime에서 tool_calls 및 reasoning 분리를 확인했다.
+    - --enable-auto-tool-choice
+    - --tool-call-parser
+    - gemma4
+    - --reasoning-parser
+    - gemma4
+    - --chat-template
+    - /app/configs/gemma4_chat_template.jinja
     gateway_policy:
       max_output_tokens: 4096
       request_limits:
@@ -302,11 +311,76 @@ profiles:
         max_video_frames: 60
         max_video_frame_pixels: 12845056
         max_video_duration_seconds: 60
-      runtime_features: {}
+      # 동일 image·revision의 parser runtime에서 구조화된 tool_calls와 reasoning 분리를
+      # 확인했다. 템플릿 경로와 parser 이름은 command와 같은 단일 계약으로 유지한다.
+      runtime_features:
+        tool_calling:
+          enabled: true
+          auto_tool_choice: true
+          tool_call_parser: gemma4
+          reasoning_parser: gemma4
+          allow_parallel_tool_calls: false
+          chat_template: /app/configs/gemma4_chat_template.jinja
+        structured_outputs:
+          enabled: true
+          backend: xgrammar
       request_parameter_policy:
         allow_unlisted_parameters: false
-        supported_parameters: [stream, stream_options, temperature, max_tokens, top_p, top_k, min_p, presence_penalty, frequency_penalty, repetition_penalty, stop, seed, n]
+        supported_parameters: [stream, stream_options, temperature, max_tokens, top_p, top_k, min_p, presence_penalty, frequency_penalty, repetition_penalty, stop, seed, n, tools, tool_choice, parallel_tool_calls, reasoning, response_format, logprobs, top_logprobs, logit_bias]
         max_n: 1
+        tool_calling:
+          enabled: true
+          max_tools: 64
+          allow_parallel_tool_calls: false
+        reasoning:
+          enabled: true
+          default: false
+          mode: request_opt_in
+          upstream_chat_template_kwargs:
+            enable_thinking: true
+        response_format:
+          enabled: true
+          types: [text, json_object, json_schema]
+          json_object:
+            require_json_instruction: true
+          json_schema:
+            enabled: true
+            require_root_object: true
+            require_additional_properties_false: true
+            strict:
+              allowed: true
+              require_true: false
+            max_schema_bytes: 16384
+            max_depth: 8
+            max_total_properties: 64
+            max_properties_per_object: 32
+            max_required: 64
+            max_enum_values: 128
+            max_enum_string_length: 256
+            max_property_name_length: 64
+            max_total_schema_string_length: 32768
+            disallowed_keywords: [allOf, not, if, then, else, dependentRequired, dependentSchemas, patternProperties, $dynamicRef, $recursiveRef, $dynamicAnchor, $recursiveAnchor, $id, $anchor]
+            root_disallowed_keywords: [anyOf]
+        logprobs:
+          enabled: true
+          default: false
+          allow_stream: true
+        top_logprobs:
+          min: 0
+          max: 10
+          requires_logprobs: true
+        logit_bias:
+          enabled: true
+          max_entries: 256
+          min_bias: -100
+          max_bias: 100
+          token_id_min: 0
+          token_id_semantics: served_model_tokenizer
+        combinations:
+          logprobs_with_stream:
+            mode: allow
+          json_schema_with_logit_bias:
+            mode: allow
   qwen2.5-omni-7b-thinker:
     display_name: Qwen 2.5 Omni 7B (Thinker)
     model_id: Qwen/Qwen2.5-Omni-7B
