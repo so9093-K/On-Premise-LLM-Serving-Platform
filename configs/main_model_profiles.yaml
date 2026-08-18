@@ -280,8 +280,17 @@ profiles:
     # context는 default profile인 12B와 같은 50,000에 맞춘다. 12B는 그 context에서
     # KV가 1.07x라 max_num_seqs=3이 이미 초과 구독인 반면, E4B는 50,000 x 4 = 200,000으로
     # 1.76x 여유가 남는다. batched도 12B가 같은 GPU에서 검증한 50,000을 쓴다.
+    # max_model_len만 65,000(= 입력 50,000 + 출력 15,000)으로 올리고 batched는 50,000에
+    # 둔다. chunked prefill이 켜져 있어(엔진 로그 확인) 긴 prompt는 50,000 chunk로 쪼개
+    # 처리되므로, 활성 메모리는 batched가 정하고 max_model_len은 시퀀스당 KV 상한만 정한다.
+    # 지금까지 KV 부족 사고는 전부 batched를 같이 올려서 났다 — 오늘 16,384->50,000에
+    # KV가 18.88->15.03 GiB로 줄었고, 12B는 58,192로 올렸다가 boot 실패로 롤백됐다(아래 주석).
+    # batched를 고정하면 KV pool 281,169 token이 유지될 것으로 보나, boot 재측정 전에는
+    # 확정이 아니다. 4 x 65,000 = 260,000으로 pool의 92%라 네 요청이 동시에 65K를 모두
+    # 채우면 preemption이 날 수 있다(장애가 아니라 recompute로 인한 지연). 실측 KV 사용률은
+    # 0.4% 수준이었다. `batched >= max_model_len` 제약은 pooling 런타임에만 적용된다.
     - --max-model-len
-    - "50000"
+    - "65000"
     - --max-num-seqs
     - "4"
     - --max-num-batched-tokens
@@ -304,10 +313,22 @@ profiles:
     - --chat-template
     - /app/configs/gemma4_chat_template.jinja
     gateway_policy:
-      # context를 12B와 같게 맞췄으므로 출력 한도도 12B/26B와 같은 값을 쓴다.
-      max_output_tokens: 13000
+      # 12B가 13000을 고른 방식(단일 스트림 52 tok/s로 300초 안에 250초)을 E4B 실측으로
+      # 다시 계산한 값이다. E4B는 단일 79~82 tok/s, 동시 2건에서도 73 tok/s로 저하가 8%뿐이라
+      # 15,000 token은 73 tok/s 기준 약 205초다. 자연 종료 최댓값이 12,616 token(상한의
+      # 97%)까지 관측돼 13000은 여유가 3%밖에 없었다.
+      #
+      # 전제: MAIN_LLM_TIMEOUT_SECONDS >= 400 (그리고 REQUEST_TIMEOUT_SECONDS는 그 이상).
+      # 배포된 .env의 운영자 값이며 sync-env가 덮지 않는다. 300초로 남아 있어도 단일·2건
+      # 경로는 205초라 들어가지만, 4-way 동시 긴 생성이나 reasoning이 붙으면 여유가 없다.
+      #
+      max_output_tokens: 15000
       request_limits:
-        max_model_len: 50000
+        # command와 같은 값을 유지한다(engine 한도와 admission이 갈라지지 않게 하는 계약).
+        # 남은 구멍: prompt + max_tokens 합은 검사하지 않으므로 60,000 prompt에
+        # max_tokens=15,000이면 admission을 통과하고 engine 창(65,000)을 넘는다. 이는 12B
+        # 주석에 이미 "결정 대기 중"으로 남아 있는 것과 같은 트레이드오프다.
+        max_model_len: 65000
         input_modalities: [text, image, audio, video]
         # E4B 고유 최대치를 추정해 열지 않는다. 기존 unified decode 경계의 보수적인
         # transport 한도를 시작점으로 쓰고, media 실측 뒤 조정한다.
