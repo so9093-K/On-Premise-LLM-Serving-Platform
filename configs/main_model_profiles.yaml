@@ -242,6 +242,71 @@ profiles:
         max_video_frames: 60
         max_video_frame_pixels: 12845056
         max_video_duration_seconds: 60
+  gemma4-e4b-it:
+    display_name: Gemma 4 E4B IT
+    model_id: google/gemma-4-E4B-it
+    revision: ee0ef6023621cff504d758262d4e04895a5af4a2
+    served_model_name: local-main
+    image: ${AUDIO_VLLM_IMAGE}
+    compatibility:
+      # 직접 vLLM 검증은 통과했지만, sidecar 전환·Gateway 계약은 아직 확인하지 않았다.
+      status: unverified
+    capabilities:
+      # 이 집합은 Gateway 허용 입력과 switch-time media canary의 단일 기준이다.
+      # 각 경로는 동일 immutable image의 직접 vLLM canary를 통과했다.
+      deployed_input: [text, image, audio, video]
+    command:
+    - --model
+    - google/gemma-4-E4B-it
+    - --revision
+    - ee0ef6023621cff504d758262d4e04895a5af4a2
+    - --served-model-name
+    - local-main
+    - --host
+    - 0.0.0.0
+    - --port
+    - "9401"
+    # E4B의 128K 명세를 운영 한도로 가정하지 않는다. 첫 boot/KV-cache 측정용 값이다.
+    - --max-model-len
+    - "16384"
+    - --max-num-seqs
+    - "1"
+    - --max-num-batched-tokens
+    - "16384"
+    - --gpu-memory-utilization
+    - "0.76"
+    - --tensor-parallel-size
+    - "1"
+    - --dtype
+    - auto
+    - --trust-remote-code
+    gateway_policy:
+      max_output_tokens: 4096
+      request_limits:
+        max_model_len: 16384
+        input_modalities: [text, image, audio, video]
+        # E4B 고유 최대치를 추정해 열지 않는다. 기존 unified decode 경계의 보수적인
+        # transport 한도를 시작점으로 쓰고, media 실측 뒤 조정한다.
+        max_image_inputs: 1
+        allowed_image_url_schemes: [data]
+        max_image_bytes: 25000000
+        max_image_pixels: 12845056
+        allowed_image_mime_types: [image/jpeg, image/png, image/webp, image/avif, image/jp2, image/gif, image/bmp, image/tiff, image/x-tiff]
+        max_audio_inputs: 1
+        allowed_audio_formats: [wav, mp3, flac, ogg, m4a, mp4, aac]
+        max_audio_bytes: 25000000
+        max_video_inputs: 1
+        allowed_video_url_schemes: [data]
+        allowed_video_mime_types: [video/mp4, video/webm, video/x-matroska, video/quicktime, video/jpeg, video/x-msvideo, video/avi, video/gif]
+        max_video_bytes: 50000000
+        max_video_frames: 60
+        max_video_frame_pixels: 12845056
+        max_video_duration_seconds: 60
+      runtime_features: {}
+      request_parameter_policy:
+        allow_unlisted_parameters: false
+        supported_parameters: [stream, stream_options, temperature, max_tokens, top_p, top_k, min_p, presence_penalty, frequency_penalty, repetition_penalty, stop, seed, n]
+        max_n: 1
   qwen2.5-omni-7b-thinker:
     display_name: Qwen 2.5 Omni 7B (Thinker)
     model_id: Qwen/Qwen2.5-Omni-7B
