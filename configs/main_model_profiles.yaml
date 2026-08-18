@@ -249,8 +249,8 @@ profiles:
     served_model_name: local-main
     image: ${AUDIO_VLLM_IMAGE}
     compatibility:
-      # sidecar 전환과 Gateway 계약은 확인했다. streaming reasoning 불일치는 chat template
-      # stub 제거와 parser patch로 고쳤으나 배포 후 실측과 rollback 확인이 남아 보류한다.
+      # 전환·Gateway 계약·streaming reasoning·structured output·tool call을 배포본에서
+      # 실측했고 12B/26B 회귀도 확인했다. 전환 실패 시 rollback 경로만 미검증이라 보류한다.
       status: unverified
     capabilities:
       # 이 집합은 Gateway 허용 입력과 switch-time media canary의 단일 기준이다.
@@ -267,13 +267,26 @@ profiles:
     - 0.0.0.0
     - --port
     - "9401"
-    # E4B의 128K 명세를 운영 한도로 가정하지 않는다. 첫 boot/KV-cache 측정용 값이다.
+    # E4B의 128K 명세를 운영 한도로 쓰지 않는다. 아래는 같은 GPU에서 세 profile을
+    # 실측 대조해 정한 값이다.
+    #
+    #   profile  weights     KV 메모리   KV token   자기 context 기준 동시성
+    #   E4B      15.47 GiB   18.88 GiB   352,943    21.54x @ 16,384
+    #   12B      12.75 GiB   17.22 GiB    53,722     1.07x @ 50,000
+    #   26B      25.80 GiB    6.60 GiB    31,438     1.57x @ 20,000
+    #
+    # E4B는 비슷한 KV 메모리에서 token이 6.6배 나온다. 이전 값(16,384/seqs=1)은 그
+    # 352,943 token 중 4.6%만 쓰면서 동시 요청을 직렬화시켰다(4건 3.0/6.0/8.9/11.9초).
+    # context는 default profile인 12B와 같은 50,000에 맞춘다. 12B는 그 context에서
+    # KV가 1.07x라 max_num_seqs=3이 이미 초과 구독인 반면, E4B는 50,000 x 4 = 200,000으로
+    # 1.76x 여유가 남는다. batched도 12B가 같은 GPU에서 검증한 50,000을 쓴다.
     - --max-model-len
-    - "16384"
+    - "50000"
     - --max-num-seqs
-    - "1"
+    - "4"
     - --max-num-batched-tokens
-    - "16384"
+    - "50000"
+    # KV token은 남지만 GPU 잔여가 5 GiB대라 이 값은 올리지 않는다.
     - --gpu-memory-utilization
     - "0.76"
     - --tensor-parallel-size
@@ -291,9 +304,10 @@ profiles:
     - --chat-template
     - /app/configs/gemma4_chat_template.jinja
     gateway_policy:
-      max_output_tokens: 4096
+      # context를 12B와 같게 맞췄으므로 출력 한도도 12B/26B와 같은 값을 쓴다.
+      max_output_tokens: 13000
       request_limits:
-        max_model_len: 16384
+        max_model_len: 50000
         input_modalities: [text, image, audio, video]
         # E4B 고유 최대치를 추정해 열지 않는다. 기존 unified decode 경계의 보수적인
         # transport 한도를 시작점으로 쓰고, media 실측 뒤 조정한다.
