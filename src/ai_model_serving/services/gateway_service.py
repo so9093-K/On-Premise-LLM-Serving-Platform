@@ -45,7 +45,7 @@ def normalize_chat_request_for_runtime(
     policy: dict[str, Any] | None,
 ) -> tuple[dict[str, Any], ChatResponseExpectations]:
     """Gateway 제어 값을 vLLM 요청 확장과 응답 검증 규칙으로 변환한다."""
-    del runtime_features, policy
+    del runtime_features
     response_format = payload.get("response_format")
     response_format_type = response_format.get("type") if isinstance(response_format, dict) else None
     json_schema_wrapper = response_format.get("json_schema") if isinstance(response_format, dict) else None
@@ -58,9 +58,18 @@ def normalize_chat_request_for_runtime(
     )
     upstream = dict(payload)
     reasoning_enabled = upstream.pop("reasoning", None)
-    if reasoning_enabled is True:
+    # runtime의 reasoning parser는 chat_template_kwargs만 보고 thinking 여부를 판단한다.
+    # 끈 요청에서 이 값을 생략하면 parser는 기본값(thinking on)으로 읽어 "아직 사고 중"이라
+    # 판단하고, 그동안 structured output grammar를 적용하지 않아 json_schema 응답이
+    # 자유 텍스트로 나온다. 그래서 켤 때와 끌 때를 모두 명시한다.
+    declared_kwargs = ((policy or {}).get("reasoning") or {}).get("upstream_chat_template_kwargs") or {}
+    if declared_kwargs:
         template_kwargs = dict(upstream.get("chat_template_kwargs", {}))
-        template_kwargs["enable_thinking"] = True
+        for name, enabled_value in declared_kwargs.items():
+            if reasoning_enabled is True:
+                template_kwargs[name] = enabled_value
+            elif isinstance(enabled_value, bool):
+                template_kwargs[name] = not enabled_value
         upstream["chat_template_kwargs"] = template_kwargs
     return upstream, expectations
 

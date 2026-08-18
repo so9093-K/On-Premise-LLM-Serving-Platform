@@ -318,7 +318,11 @@ def tool_calling_settings() -> AppSettings:
             ],
             "max_n": 1,
             "tool_calling": {"enabled": True, "max_tools": 4, "allow_parallel_tool_calls": False},
-            "reasoning": {"enabled": True, "default": False},
+            "reasoning": {
+                "enabled": True,
+                "default": False,
+                "upstream_chat_template_kwargs": {"enable_thinking": True},
+            },
         },
     )
     return replace(

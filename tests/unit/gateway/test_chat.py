@@ -328,7 +328,9 @@ def test_gateway_maps_reasoning_opt_in_to_vllm_chat_template_kwargs():
     )
     assert response.status_code == 200
     assert "reasoning" not in clients.main_llm.last_payload
-    assert "chat_template_kwargs" not in clients.main_llm.last_payload
+    # 끈 요청도 명시해야 한다. 생략하면 runtime parser가 thinking을 켜진 것으로 읽어
+    # structured output grammar를 적용하지 않는다.
+    assert clients.main_llm.last_payload["chat_template_kwargs"] == {"enable_thinking": False}
 
     response = client.post(
         "/v1/chat/completions",
