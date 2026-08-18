@@ -9,6 +9,7 @@ vllm_unified_image_source_paths() {
     ops/images/vllm-unified/Dockerfile \
     ops/images/vllm-unified/requirements.media.lock \
     ops/patches/apply_gemma4_multimodal_patches.py \
+    ops/patches/apply_gemma4_streaming_reasoning_patch.py \
     ops/patches/transformers_llama_head_dim_guard.py \
     scripts/ci/build_vllm_derived_images.sh \
     scripts/models/print_vllm_unified_compatibility.py

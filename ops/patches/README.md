@@ -19,6 +19,18 @@ model에는 no-op이다.
 vLLM smoke를 통과한 경우에만 제거한다. Kanana patch도 upstream이 explicit `head_dim`을
 image patch 없이 허용하는 조합에서 같은 검증을 통과한 경우에만 제거한다.
 
+## `apply_gemma4_streaming_reasoning_patch.py`
+
+Pinned vLLM 0.25.1의 Gemma4 reasoning parser는 thinking을 켠 streaming 요청에서, model이
+channel marker 없는 최종 답을 생성하면 이를 전부 `delta.reasoning`으로 분류하고 final
+`content`를 비웠다. upstream PR #48262의 수정(2026-07-14 merge)을 backport한다. 새 model
+turn은 content 상태에서 시작하고, 실제로 열린 `<|channel>` prompt만 reasoning 상태로
+초기화한다.
+
+이 patch는 Gemma4 parser 파일의 pre-fix method 전체를 anchor로 검증한다. upstream base가
+수정을 포함하거나 레이아웃이 달라지면 build가 실패하므로, 그때 patch를 제거하고 parser
+streaming canary를 다시 통과시킨다.
+
 ## 운영 원칙
 
 - 2026-07-24부터 두 patch 모두 `ops/images/vllm-unified/Dockerfile` 하나에

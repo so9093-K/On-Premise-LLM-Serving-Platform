@@ -1,7 +1,7 @@
 # Single vLLM runtime image for every model this platform serves: main-LLM
 # (26B and 12B profiles), embedding, embedding-ko, and risk-prompt.
 #
-# Carries two independent, non-overlapping patch sets on top of the pinned
+# Carries three independent, non-overlapping patch sets on top of the pinned
 # official vLLM release:
 #
 #   1. Gemma4-unified multimodal fixes (12B profile only exercises these paths;
@@ -25,6 +25,7 @@
 # safe because they edit disjoint files (vllm/model_executor/models/gemma4_unified.py
 # + transformers' Gemma4UnifiedAudioFeatureExtractor vs. transformers'
 # configuration_llama.py) -- verified by inspection, 2026-07-24.
+# The Gemma4 streaming parser backport edits vllm/parser/gemma4.py only.
 # BASE_IMAGE는 Dockerfile의 숨은 기본값이 아니라 vllm_unified_build.yaml에서
 # build script가 명시적으로 전달한다. 직접 docker build도 이 인자를 줘야 한다.
 ARG BASE_IMAGE
@@ -36,6 +37,7 @@ ARG HUGGINGFACE_HUB_VERSION=1.23.0
 LABEL org.opencontainers.image.title="ai-model-serving-vllm-unified"
 LABEL org.opencontainers.image.description="Single vLLM runtime for all served models: Gemma4 multimodal fixes + Kanana Llama head_dim guard"
 LABEL ai_model_serving.patch.gemma4_multimodal="true"
+LABEL ai_model_serving.patch.gemma4_streaming_reasoning="true"
 LABEL ai_model_serving.patch.transformers_llama_head_dim_guard="true"
 LABEL ai_model_serving.patch.reason="Kanana explicit head_dim compatibility"
 LABEL ai_model_serving.patch.remove_when="Upstream Transformers/vLLM honors explicit Llama head_dim without image patch"
@@ -60,6 +62,11 @@ RUN python3 -c "import av, soundfile, librosa; print('media decode ok', soundfil
 COPY ops/patches/apply_gemma4_multimodal_patches.py /tmp/apply_gemma4_multimodal_patches.py
 RUN python3 /tmp/apply_gemma4_multimodal_patches.py \
     && rm /tmp/apply_gemma4_multimodal_patches.py
+
+# ── Gemma4: streaming reasoning/content parser consistency ─────────────────
+COPY ops/patches/apply_gemma4_streaming_reasoning_patch.py /tmp/apply_gemma4_streaming_reasoning_patch.py
+RUN python3 /tmp/apply_gemma4_streaming_reasoning_patch.py \
+    && rm /tmp/apply_gemma4_streaming_reasoning_patch.py
 
 # ── Kanana risk-prompt: verified base dependency pair ───────────────────────
 # The pinned base image is the dependency source of truth.  Do not pip-install
