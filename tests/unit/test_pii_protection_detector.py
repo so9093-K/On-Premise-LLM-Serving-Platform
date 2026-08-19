@@ -13,6 +13,8 @@ from __future__ import annotations
 
 import asyncio
 
+import pytest
+
 from ai_model_serving.detectors.pii import (
     EntitySummary,
     PIIProtectionDetector,
@@ -39,17 +41,21 @@ class TestKoreanCustomRecognizers:
         assert "KR_RRN" in counts
         assert counts["KR_RRN"] >= 1
 
-    def test_frn_detected(self):
-        counts = _custom_counts("외국인등록번호: 901201-5234567")
-        assert "KR_FRN" in counts
-
-    def test_passport_detected(self):
-        counts = _custom_counts("여권번호: MA1234567")
-        assert "KR_PASSPORT" in counts
-
-    def test_driver_license_detected(self):
-        counts = _custom_counts("면허번호: 12-34-567890-12")
-        assert "KR_DRIVER_LICENSE" in counts
+    @pytest.mark.parametrize(
+        ("text", "expected_entity"),
+        [
+            ("외국인등록번호: 901201-5234567", "KR_FRN"),
+            ("여권번호: MA1234567", "KR_PASSPORT"),
+            ("면허번호: 12-34-567890-12", "KR_DRIVER_LICENSE"),
+            # 휴대폰/지역번호/구형 prefix는 각각 다른 자릿수 조합이라 정규식 분기가 다르다.
+            ("연락처: 010-1234-5678", "PHONE_NUMBER"),
+            ("사무실: 02-1234-5678", "PHONE_NUMBER"),
+            ("경기 번호: 031-123-4567", "PHONE_NUMBER"),
+            ("구형 번호: 011-123-4567", "PHONE_NUMBER"),
+        ],
+    )
+    def test_pattern_detected(self, text, expected_entity):
+        assert expected_entity in _custom_counts(text)
 
     def test_ip_address_detected(self):
         counts = _custom_counts("서버 IP 192.168.1.100에 접속하세요.")
@@ -60,22 +66,6 @@ class TestKoreanCustomRecognizers:
         counts = _custom_counts("내 전화번호는 010-3817-5168입니다.")
         assert "PHONE_NUMBER" in counts
         assert counts["PHONE_NUMBER"] >= 1
-
-    def test_mobile_phone_010_4digit_detected(self):
-        counts = _custom_counts("연락처: 010-1234-5678")
-        assert "PHONE_NUMBER" in counts
-
-    def test_seoul_landline_detected(self):
-        counts = _custom_counts("사무실: 02-1234-5678")
-        assert "PHONE_NUMBER" in counts
-
-    def test_regional_landline_detected(self):
-        counts = _custom_counts("경기 번호: 031-123-4567")
-        assert "PHONE_NUMBER" in counts
-
-    def test_old_mobile_prefix_detected(self):
-        counts = _custom_counts("구형 번호: 011-123-4567")
-        assert "PHONE_NUMBER" in counts
 
     def test_clean_text_returns_empty(self):
         counts = _custom_counts("오늘 날씨가 맑습니다.")

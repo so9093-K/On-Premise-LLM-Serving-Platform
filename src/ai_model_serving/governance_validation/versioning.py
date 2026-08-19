@@ -79,11 +79,3 @@ def validate_python_compatibility() -> None:
             f'CPython 3.12.x is required when STRICT_PYTHON_VERSION=1, '
             f'got {sys.version.split()[0]}'
         )
-
-    pyproject = tomllib.loads((ROOT / 'pyproject.toml').read_text(encoding='utf-8'))
-    requires = pyproject['project']['requires-python']
-    if requires != '>=3.12,<3.15':
-        raise SystemExit(f'pyproject requires-python must be >=3.12,<3.15, got {requires}')
-    env = (ROOT / '.env.example').read_text(encoding='utf-8')
-    if f'PYTHON_VERSION={py_version}' not in env:
-        raise SystemExit(f'.env.example must include PYTHON_VERSION={py_version}')

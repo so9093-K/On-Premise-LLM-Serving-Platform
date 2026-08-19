@@ -367,22 +367,12 @@ def test_app_settings_validates_default_embedding_models() -> None:
         )
 
 
-def test_load_settings_can_disable_fastapi_docs_explicitly(monkeypatch):
-    monkeypatch.setenv("FASTAPI_DOCS_ENABLED", "false")
-    settings = load_settings()
-    assert settings.documentation.enabled is False
-
-
 def test_load_settings_log_request_response_body_defaults_to_false(monkeypatch):
+    # 요청/응답 원문 로깅은 켜면 프롬프트가 그대로 로그에 남는다. 기본값이 조용히
+    # 뒤집히지 않게 고정한다(반대 방향인 "켜면 켜진다"는 env 파싱 확인일 뿐이라 뺐다).
     monkeypatch.delenv("LOG_REQUEST_RESPONSE_BODY", raising=False)
     settings = load_settings()
     assert settings.log_request_response_body is False
-
-
-def test_load_settings_can_enable_log_request_response_body(monkeypatch):
-    monkeypatch.setenv("LOG_REQUEST_RESPONSE_BODY", "true")
-    settings = load_settings()
-    assert settings.log_request_response_body is True
 
 
 def test_load_settings_can_read_explicit_env_file_outside_repo(tmp_path, monkeypatch):

@@ -1673,16 +1673,20 @@ paths:
               required:
               - profile
             examples:
-              gemma4_12b:
-                summary: Gemma 4 12B (verified)
-                value:
-                  profile: gemma4-12b-unified-fp8
-              gemma4_26b:
-                summary: Gemma 4 26B (verified)
+              gemma4_26b_a4b_fp8:
+                summary: Gemma 4 26B A4B FP8 (verified)
                 value:
                   profile: gemma4-26b-a4b-fp8
+              gemma4_12b_unified_fp8:
+                summary: Gemma 4 12B Unified FP8 (verified)
+                value:
+                  profile: gemma4-12b-unified-fp8
+              gemma4_e4b_it:
+                summary: Gemma 4 E4B IT (verified)
+                value:
+                  profile: gemma4-e4b-it
               qwen2_5_omni_7b_thinker:
-                summary: Qwen 2.5 Omni 7B Thinker (verified)
+                summary: Qwen 2.5 Omni 7B (Thinker) (verified)
                 value:
                   profile: qwen2.5-omni-7b-thinker
         required: true

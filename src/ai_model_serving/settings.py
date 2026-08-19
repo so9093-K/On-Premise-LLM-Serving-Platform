@@ -268,6 +268,10 @@ def load_settings(root: Path | None = None, env_file: Path | str | None = None) 
         default_main_model_gateway_policy=dict(
             main_model_catalog.profiles[main_model_catalog.default_profile].gateway_policy
         ),
+        main_model_profile_summaries=tuple(
+            (profile.profile_id, profile.display_name, str(profile.compatibility.get("status", "")))
+            for profile in main_model_catalog.profiles.values()
+        ),
         embedding_profiles=embedding_profiles,
         default_embedding_model=str(model_serving["default_embedding_model"]),
         default_retrieval_model=str(model_serving["default_retrieval_model"]),

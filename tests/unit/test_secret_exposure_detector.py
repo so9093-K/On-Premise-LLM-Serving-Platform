@@ -41,45 +41,23 @@ PASSWORD_ASSIGN = "password=Sup3rS3cr3t!"
 
 
 class TestScanText:
-    def test_openai_key_detected(self):
-        counts = _scan_text(f"API_KEY={OPENAI_KEY}")
-        assert "OPENAI_API_KEY" in counts
-
-    def test_anthropic_key_detected(self):
-        counts = _scan_text(f"ANTHROPIC_API_KEY={ANTHROPIC_KEY}")
-        assert "ANTHROPIC_API_KEY" in counts
-
-    def test_aws_access_key_detected(self):
-        counts = _scan_text(f"AWS_ACCESS_KEY_ID={AWS_ACCESS_KEY}")
-        assert "AWS_ACCESS_KEY_ID" in counts
-
-    def test_github_token_detected(self):
-        counts = _scan_text(f"export TOKEN={GITHUB_TOKEN}")
-        assert "GITHUB_TOKEN" in counts
-
-    def test_gitlab_token_detected(self):
-        counts = _scan_text(f"GITLAB_TOKEN={GITLAB_TOKEN}")
-        assert "GITLAB_TOKEN" in counts
-
-    def test_huggingface_token_detected(self):
-        counts = _scan_text(f"HF_TOKEN={HF_TOKEN}")
-        assert "HUGGINGFACE_TOKEN" in counts
-
-    def test_jwt_detected(self):
-        counts = _scan_text(f"Authorization: Bearer {JWT}")
-        assert "JWT" in counts
-
-    def test_private_key_block_detected(self):
-        counts = _scan_text(f"키 내용:\n{PRIVATE_KEY}\nMIIEo...\n-----END RSA PRIVATE KEY-----")
-        assert "PRIVATE_KEY_BLOCK" in counts
-
-    def test_database_url_detected_as_d5(self):
-        counts = _scan_text(f"DATABASE_URL={DATABASE_URL}")
-        assert "DATABASE_URL" in counts
-
-    def test_password_assignment_detected(self):
-        counts = _scan_text(f"config: {PASSWORD_ASSIGN}")
-        assert "PASSWORD_ASSIGNMENT" in counts
+    @pytest.mark.parametrize(
+        ("text", "expected_entity"),
+        [
+            (f"API_KEY={OPENAI_KEY}", "OPENAI_API_KEY"),
+            (f"ANTHROPIC_API_KEY={ANTHROPIC_KEY}", "ANTHROPIC_API_KEY"),
+            (f"AWS_ACCESS_KEY_ID={AWS_ACCESS_KEY}", "AWS_ACCESS_KEY_ID"),
+            (f"export TOKEN={GITHUB_TOKEN}", "GITHUB_TOKEN"),
+            (f"GITLAB_TOKEN={GITLAB_TOKEN}", "GITLAB_TOKEN"),
+            (f"HF_TOKEN={HF_TOKEN}", "HUGGINGFACE_TOKEN"),
+            (f"Authorization: Bearer {JWT}", "JWT"),
+            (f"키 내용:\n{PRIVATE_KEY}\nMIIEo...\n-----END RSA PRIVATE KEY-----", "PRIVATE_KEY_BLOCK"),
+            (f"DATABASE_URL={DATABASE_URL}", "DATABASE_URL"),
+            (f"config: {PASSWORD_ASSIGN}", "PASSWORD_ASSIGNMENT"),
+        ],
+    )
+    def test_pattern_detected(self, text, expected_entity):
+        assert expected_entity in _scan_text(text)
 
     def test_clean_text_returns_empty(self):
         counts = _scan_text("오늘 날씨가 맑고 기온이 25도입니다.")

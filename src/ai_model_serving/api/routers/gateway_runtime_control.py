@@ -294,6 +294,27 @@ def _main_participant(
     return None
 
 
+def _switch_examples(
+    profile_summaries: tuple[tuple[str, str, str], ...],
+) -> dict[str, dict[str, Any]]:
+    """profile 전환 예시를 catalog에서 그대로 만든다.
+
+    손으로 적으면 catalog에 profile을 추가할 때 조용히 빠진다(E4B가 실제로 그랬다).
+    `unverified` profile은 `confirm_unverified`가 있어야 전환되므로 예시에도 함께
+    싣는다 -- 목록에서 감추는 것보다 필요한 요청 모양을 보여주는 편이 낫다.
+    """
+    examples: dict[str, dict[str, Any]] = {}
+    for profile_id, display_name, status in profile_summaries:
+        value: dict[str, Any] = {"profile": profile_id}
+        if status != "verified":
+            value["confirm_unverified"] = True
+        examples[profile_id.replace("-", "_").replace(".", "_")] = {
+            "summary": f"{display_name} ({status or 'unknown'})",
+            "value": value,
+        }
+    return examples
+
+
 def _validate_service_key(service_key: str, state_store: RuntimeStateStore) -> None:
     if service_key not in state_store.controllable_keys:
         raise HTTPException(404, detail=f"runtime endpoint not found: {service_key}")
@@ -755,32 +776,7 @@ def build_router(
                                 },
                             },
                         },
-                        "examples": {
-                            "gemma4_12b": {
-                                "summary": "Gemma 4 12B (verified)",
-                                "value": {
-                                    "profile": "gemma4-12b-unified-fp8",
-                                },
-                            },
-                            "gemma4_26b": {
-                                "summary": "Gemma 4 26B (verified)",
-                                "value": {
-                                    "profile": "gemma4-26b-a4b-fp8",
-                                },
-                            },
-                            "gemma4_e4b": {
-                                "summary": "Gemma 4 E4B IT (verified)",
-                                "value": {
-                                    "profile": "gemma4-e4b-it",
-                                },
-                            },
-                            "qwen2_5_omni_7b_thinker": {
-                                "summary": "Qwen 2.5 Omni 7B Thinker (verified)",
-                                "value": {
-                                    "profile": "qwen2.5-omni-7b-thinker",
-                                },
-                            },
-                        },
+                        "examples": _switch_examples(settings.main_model_profile_summaries),
                     }
                 },
             }

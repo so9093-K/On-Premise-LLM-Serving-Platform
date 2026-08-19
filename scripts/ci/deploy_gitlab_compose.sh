@@ -964,7 +964,6 @@ _has_previous_release=0
 if [[ -n "${PREVIOUS_RELEASE:-}" && -d "${PREVIOUS_RELEASE}" ]]; then
   _has_previous_release=1
 fi
-_expected_working_dir="${DEPLOY_PATH}/current/ops/compose"
 for _config_service_spec in "${BIND_MOUNTED_CONFIG_SERVICE_SPECS[@]}"; do
   _config_service="${_config_service_spec%%:*}"
   _config_paths="${_config_service_spec#*:}"
@@ -1003,13 +1002,19 @@ for _config_service_spec in "${BIND_MOUNTED_CONFIG_SERVICE_SPECS[@]}"; do
     _config_service_stale=1
     echo "[deploy] ${_config_service} is not running in the target compose project"
   else
-    _running_working_dir="$(
-      docker inspect -f '{{ index .Config.Labels "com.docker.compose.project.working_dir" }}' \
-        "${_container_id}" 2>/dev/null || true
-    )"
-    if [[ "${_running_working_dir}" != "${_expected_working_dir}" ]]; then
+    # 컨테이너가 실제로 묶인 release의 설정과 이번 release의 설정을 비교한다.
+    # 바로 앞 release와의 diff(_config_service_changed)만으로는, 컨테이너가 여러
+    # release 뒤에 묶여 있고 변경이 그 사이에 있었던 경우를 놓친다.
+    _bound_release="$(container_bound_release "${_container_id}" "${DEPLOY_PATH}" || true)"
+    if [[ -z "${_bound_release}" ]]; then
       _config_service_stale=1
-      echo "[deploy] ${_config_service} uses stale release context: ${_running_working_dir:-unknown}"
+      echo "[deploy] ${_config_service} bound release could not be resolved — recreating to be safe"
+    elif [[ ! -d "${_bound_release}" ]]; then
+      _config_service_stale=1
+      echo "[deploy] ${_config_service} is bound to a pruned release: ${_bound_release}"
+    elif [[ "$(bind_mounted_config_fingerprint "${_bound_release}" "${_config_path_array[@]}")" != "${_config_fingerprint}" ]]; then
+      _config_service_stale=1
+      echo "[deploy] ${_config_service} serves config from an older release: ${_bound_release}"
     fi
   fi
 
@@ -1080,14 +1085,31 @@ mapfile -t RELEASE_DIRS < <(
     sort -nr |
     cut -d' ' -f2-
 )
+# bind mount는 컨테이너 시작 시점의 실제 경로에 고정된다. 아직 그 release를 마운트한
+# 컨테이너가 도는 중에 디렉터리를 지우면 마운트가 죽고(`//deleted`), 서비스는 설정
+# 파일을 잃은 채 계속 돈다 -- 재시작 전까지 드러나지도 않는다. 실제로 관측 스택이
+# 이렇게 망가진 적이 있다(grafana provisioning, loki/alloy config).
+mapfile -t RELEASES_IN_USE < <(releases_in_use_by_running_containers "${DEPLOY_PATH}")
 for ((index=RELEASES_TO_KEEP; index<${#RELEASE_DIRS[@]}; index++)); do
   old_release="${RELEASE_DIRS[$index]}"
-  if [[ "${old_release}" != "${RELEASE_PATH}" && "${old_release}" != "${RUNTIME_RELEASE}" ]]; then
-    if rm -rf "${old_release}"; then
-      echo "[deploy] pruned old release: ${old_release}"
-    else
-      echo "[deploy] WARNING: failed to prune old release: ${old_release}" >&2
+  if [[ "${old_release}" == "${RELEASE_PATH}" || "${old_release}" == "${RUNTIME_RELEASE}" ]]; then
+    continue
+  fi
+  release_in_use=0
+  for in_use_release in "${RELEASES_IN_USE[@]}"; do
+    if [[ "${old_release}" == "${in_use_release}" ]]; then
+      release_in_use=1
+      break
     fi
+  done
+  if [[ ${release_in_use} -eq 1 ]]; then
+    echo "[deploy] keeping release still bind-mounted by a running container: ${old_release}"
+    continue
+  fi
+  if rm -rf "${old_release}"; then
+    echo "[deploy] pruned old release: ${old_release}"
+  else
+    echo "[deploy] WARNING: failed to prune old release: ${old_release}" >&2
   fi
 done
 if ! rm -f "${ENV_BACKUP}"; then

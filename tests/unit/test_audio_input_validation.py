@@ -105,7 +105,13 @@ def _image_payload(url: str, *, count: int = 1):
 
 
 def _validate(payload, modalities):
-    return validate_chat_request(
+    """검증을 통과하면 정규화된 payload를 돌려준다.
+
+    accept 테스트는 `_validate(...)` 한 줄이라 assert가 없다. 반환값을 여기서
+    확인해두지 않으면 validate_chat_request가 조용히 no-op이 돼도 전부 통과한다.
+    reject 테스트는 이 지점 전에 예외가 나므로 영향이 없다.
+    """
+    result = validate_chat_request(
         payload,
         expected_model="local-main",
         allowed_input_modalities=modalities,
@@ -113,6 +119,8 @@ def _validate(payload, modalities):
         **AUDIO_LIMITS,
         **VIDEO_LIMITS,
     )
+    assert isinstance(result, dict) and result.get("model") == "local-main"
+    return result
 
 
 def test_audio_part_accepted_when_profile_deploys_audio():
