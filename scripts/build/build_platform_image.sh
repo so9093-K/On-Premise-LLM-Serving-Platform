@@ -20,8 +20,13 @@ if [[ "$PULL_BASE_IMAGE" == "1" ]]; then
 fi
 if [[ -n "$CACHE_FROM" ]]; then
   echo "[image] loading cache image ${CACHE_FROM}"
-  docker pull "$CACHE_FROM" || true
-  build_args+=(--cache-from "$CACHE_FROM")
+  if docker pull "$CACHE_FROM"; then
+    build_args+=(--cache-from "$CACHE_FROM")
+  else
+    # 캐시는 선택적 최적화다. 존재하지 않거나 일시적으로 읽을 수 없는 ref를
+    # BuildKit에 다시 넘겨 빌드 자체가 실패하지 않게 한다.
+    echo "[image] cache image unavailable; building without remote cache" >&2
+  fi
 fi
 if [[ "$INLINE_CACHE" == "1" ]]; then
   build_args+=(--build-arg BUILDKIT_INLINE_CACHE=1)
