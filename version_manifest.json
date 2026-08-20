@@ -8,18 +8,6 @@
   "release_stage": "release",
   "python_package_version": "0.0.1",
   "purpose": "vLLM 기반 LLM, Embedding, Risk Signal 서비스를 Gateway 중심으로 제공하는 모델 서빙 플랫폼.",
-  "version_semantics": {
-    "version": "package version (source of truth: VERSION 파일). make reset-version으로 변경한다.",
-    "python_package_version": "PEP 440 표기 package version. pyproject.toml과 일치해야 한다.",
-    "api_contract_version": "OpenAPI info.version과 일치하는 API 계약 버전. package version과 함께 갱신된다.",
-    "artifact_schema_version": "ZIP artifact 생성 날짜 (YYYY-MM-DD). package version과 독립적이다.",
-    "config_schema_versions": "model_catalog, monitoring_config의 schema version. package version과 독립적으로 관리하며 reset_version.py가 변경하지 않는다.",
-    "risk_vllm_image_version": "vLLM unified 이미지 tag(26B/12B/embedding/embedding-ko/risk-prompt 공용). 기본값은 package version과 정렬되며 make reset-version이 image_tags.risk_vllm과 configs/recommended_images.yaml의 vllm/embedding_ko_vllm/risk_vllm default를 함께 갱신한다."
-  },
-  "config_schema_versions": {
-    "model_catalog": "0.1.0",
-    "monitoring_config": "0.1.0"
-  },
   "image_tags": {
     "platform": "ai-model-serving-platform:0.0.1",
     "risk_vllm": "ai-model-serving-vllm-unified:0.0.1"

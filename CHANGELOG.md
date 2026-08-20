@@ -10,6 +10,10 @@
 - 생성 문서 `docs/specs/error_reference.md`(code·HTTP·retryable·의미·권장 조치 표)와 그 단일 소스 `configs/error_catalog.yaml`을 추가했다. status 권위는 `errors.py`의 `ERROR_STATUS`이며 contract 테스트가 양쪽 code 집합 일치를 고정한다.
 - `Qwen/Qwen2.5-Omni-7B` Thinker profile을 추가하고 `verified`로 승격했다. Gateway에서 text/image/audio/video 입력→text 응답, media boot canary·rollback, structured output, logprobs, logit bias와 streaming 계약을 실제 런타임으로 검증했다. tool calling은 안정적인 parser/template 경로가 없어 비활성이고, 음성 출력은 이번 플랫폼 범위에 포함하지 않는다.
 
+### Changed
+
+- 모든 Gemma 4 main-model profile(26B, 12B Unified, E4B)의 vLLM vision token budget을 `max_soft_tokens=1120`으로 올렸다. 허용되는 최대 image detail 예산을 공통 적용하되, Gateway의 image/video 픽셀·바이트 제한은 decode 보호 경계로 유지한다. ([ADR-0014](docs/adr/0014-image-validation-policy.md))
+
 - `local-main` 외부 alias를 유지하면서 Gemma 4 26B A4B FP8과 Gemma 4 12B Unified FP8 중 하나를 선택하는 메인 모델 프로필 제어를 추가했다. `GET /admin/main-model`, `GET /admin/main-model/profiles`, `POST /admin/main-model/switch`, operation 조회 API를 제공하며, 전환 상태와 마지막 정상 프로필을 atomic state file에 영속화한다. ([ADR-0017](docs/adr/0017-selectable-main-model-runtime.md))
 - 메인 모델 전환에 drain, container recreate, health, `/v1/models`, 실제 text canary, last-known-good rollback 절차를 추가했다. 활성 프로필, 고정 model revision/runtime image, request gate, 전환·rollback 결과는 Gateway Prometheus metric으로 확인할 수 있다. 12B는 현재 고정 revision과 pinned derived runtime image 기준 1차 검증을 완료해 compatibility를 `verified`로 제공하며, audio/video 제품 입력은 active profile의 `deployed_input`과 media boot canary 통과 여부로 gate한다. ([ADR-0017](docs/adr/0017-selectable-main-model-runtime.md), [ADR-0018](docs/adr/0018-gpu-vram-admission-and-per-profile-runtime-image.md))
 - 단일 GPU에서 메인·보조 모델의 VRAM을 단일 예산으로 보고 모든 모델 로드를 admission으로 통합했다. 비용은 정적 `gpu_memory_utilization` 합, 천장은 `configs/gpu_budgets.yaml`의 `avoid_above`(현재 0.93)이며 메인도 참가자(non-evictable)다. 초과 시 거부 + 축출 계획을 `409`로 반환하고 `force`로 자동 축출하며, 축출 순서는 `resource_control.criticality` 기반(임베딩 → risk, 메인 보존)이다. `GET /admin/runtimes`·`GET /gpu-budget`에 예산 스냅샷을 노출한다. ([ADR-0018](docs/adr/0018-gpu-vram-admission-and-per-profile-runtime-image.md))

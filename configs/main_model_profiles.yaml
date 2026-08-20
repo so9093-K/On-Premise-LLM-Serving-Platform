@@ -57,6 +57,10 @@ profiles:
     - --dtype
     - auto
     - --trust-remote-code
+    # Gemma 4의 vision token budget이다. 허용값 70/140/280/560/1120 중 최대값을
+    # 세 Gemma profile에 공통 적용한다. Gateway의 pixel 상한은 decode 보호용 별도 계약이다.
+    - --mm-processor-kwargs
+    - &gemma4_max_soft_tokens '{"max_soft_tokens": 1120}'
     - --enable-prefix-caching
     - --prefix-caching-hash-algo
     - sha256_cbor
@@ -210,6 +214,8 @@ profiles:
     - --dtype
     - auto
     - --trust-remote-code
+    - --mm-processor-kwargs
+    - *gemma4_max_soft_tokens
     - --enable-prefix-caching
     - --prefix-caching-hash-algo
     - sha256_cbor
@@ -305,6 +311,8 @@ profiles:
     - --dtype
     - auto
     - --trust-remote-code
+    - --mm-processor-kwargs
+    - *gemma4_max_soft_tokens
     # E4B도 Gemma4의 native tool/reasoning channel을 사용한다. 아래 parser와 template는
     # 동일 image·revision의 일회성 runtime에서 tool_calls 및 reasoning 분리를 확인했다.
     - --enable-auto-tool-choice

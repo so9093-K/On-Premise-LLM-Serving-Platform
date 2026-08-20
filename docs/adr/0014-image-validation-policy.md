@@ -107,6 +107,19 @@ admission 정책이다. 둘 다 media 입력 한도의 원본이 아니다.
 - 근사 픽셀 대응표: 70→~161K px, 140→~323K px, 280(기본)→~645K px, 560→~1.3M px, **1120(최대)→~2.6M px**.
 - 위치 임베딩 테이블은 축당 10,240 포지션까지 지원하지만, 이는 "매우 큰 이미지도 좌표 인코딩은 가능하다"는 의미이지 실제 처리 해상도가 무제한이라는 의미는 아니다 — 실제 처리량은 여전히 `max_soft_tokens` 예산으로 제한된다.
 
+## Update (2026-08-20)
+
+`gemma4-26b-a4b-fp8`, `gemma4-12b-unified-fp8`, `gemma4-e4b-it`의 vLLM command에
+`--mm-processor-kwargs '{"max_soft_tokens": 1120}'`를 공통 적용한다. 이는 Gemma 4가
+허용하는 최대 vision token budget이며, 원본 이미지가 이 예산에 맞게 동적 리사이즈되어
+세 profile이 같은 image detail 정책을 사용하게 한다. 값은
+`configs/main_model_profiles.yaml`의 YAML anchor 하나가 source of truth다.
+
+이는 Gateway `max_image_pixels`/`max_video_frame_pixels`를 변경하지 않는다. 그 한도는
+모델 vision token 예산이 아니라 decode 비용과 decompression bomb를 막는 transport 경계다.
+1120은 이미지당 encoder token·prefill·VRAM 사용량을 늘리므로, 배포 뒤 각 Gemma profile의
+image canary와 고해상도 image latency/KV cache를 다시 관측한다.
+
 즉 "8타일" 근거로 계산된 `max_image_pixels: 6,422,528`은 실제로는 모델이 가장 큰 토큰 예산(1120)에서 실제로 사용하는 픽셀(~2.6M)의 **약 2.5배**에 달한다. 이 초과분 픽셀은 모델이 버리는 게 아니라 애초에 이미지 프로세서가 리사이즈 단계에서 다운스케일하므로, 모델이 실제로 그 해상도를 "활용"하는 근거로는 상향을 정당화할 수 없다.
 
 **`max_image_pixels`가 존재하는 진짜 이유를 다시 정리한다**: 모델 처리 해상도와 무관하게, 이 체크는 (1) 압축률이 매우 높은 이미지(예: 단색에 가까운 대형 PNG)가 작은 파일 크기로 거대한 픽셀 수를 주장해 이후 디코드 단계에서 과도한 CPU/메모리를 소모하는 "이미지 폭탄"을 차단하고, (2) 그 디코드 비용이 main_llm의 희소한 admission 슬롯 점유 시간을 늘려 다른 요청의 큐잉/타임아웃에 영향을 주지 않도록 상한을 두는 목적이다. `max_image_bytes`(파일 크기)만으로는 이 압축률 문제를 못 막는다.
