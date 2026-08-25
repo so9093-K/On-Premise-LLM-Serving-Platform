@@ -22,6 +22,21 @@ FastAPI route는 플랫폼 자체 validator와 오류 매핑을 적용한다. �
 
 따라서 route-local inline schema를 별도로 추가하지 않는다.
 
+## 화면 구성
+
+Gateway 문서 화면은 네 곳에 나눠 설명을 싣는다. 태그 설명의 표와 숫자는 손으로 적지 않고 `AppSettings`에서 생성한다(`src/ai_model_serving/api_descriptions.py`). 같은 값이 `/v1/models` 응답과 요청 검증에도 쓰이므로 configs를 고치면 문서가 함께 따라온다.
+
+| 위치 | 내용 | 출처 |
+|---|---|---|
+| 첫 화면(`info.description`) | 빠른 시작, 인증, **요청별 디버깅**(추적 헤더·오류 본문 필드·증상별 확인 순서), readiness | 고정 문안 |
+| `Models` 태그 | 모델별 backend·입력 modality·capability·파라미터 개수, `local-main` 프로필 목록과 호환성 | `settings.public_models`, `settings.main_model_profile_summaries` |
+| `Chat` 태그 | 기능별 한도 — 파라미터 allowlist, 토큰 한도, 스트리밍, 도구 호출, 구조화 출력, reasoning, 진단 파라미터, 멀티모달 입력 | 기본 프로필의 `gateway_policy`, streaming/body 한도 |
+| `Runtime Control` 태그 | 함대 제어 모델, GPU 예산, gate 의미, 전환 작업 stage 표 | 고정 문안 + `main_model.control.OPERATION_STAGES` |
+
+태그 설명의 값은 **기본 프로필** 기준이다. 실행 시점 권위는 사용자에게는 `GET /v1/models`, 운영자에게는 `GET /admin/main-model`의 `active_profile.gateway_policy`다.
+
+각 route의 summary·description은 `src/ai_model_serving/api/endpoint_spec.py`가 단일 출처이며, router는 그 값을 읽어 붙인다. status별 오류 code 설명은 `configs/error_catalog.yaml`에서 주입된다.
+
 ## 문서 화면의 역할
 
 문서 화면은 API contract를 탐색하고 인증된 호출을 확인하는 용도다. 모델별 form UI나 별도 playground의 대체물이 아니다.

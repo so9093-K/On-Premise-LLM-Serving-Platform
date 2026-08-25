@@ -18,6 +18,7 @@ from ..contracts import (
     validate_chat_response,
     expected_embedding_count,
     requested_embedding_dimensions,
+    requested_encoding_format,
     validate_embedding_request,
     validate_embedding_response,
     validate_risk_response,
@@ -55,6 +56,10 @@ def normalize_chat_request_for_runtime(
         stream=payload.get("stream") is True,
     )
     upstream = dict(payload)
+    # Gateway 계약에서는 받지만 런타임에 넘길 이유가 없는 필드(예: OpenAI 표준의
+    # user 식별자)를 제거한다. embedding 경로와 같은 정책 키를 쓴다.
+    for name in (policy or {}).get("drop_upstream_parameters", []):
+        upstream.pop(name, None)
     reasoning_enabled = upstream.pop("reasoning", None)
     # runtime의 reasoning parser는 chat_template_kwargs만 보고 thinking 여부를 판단한다.
     # 끈 요청에서 이 값을 생략하면 parser는 기본값(thinking on)으로 읽어 "아직 사고 중"이라
@@ -378,6 +383,7 @@ class GatewayService:
                 expected_model=profile.model,
                 expected_count=expected_embedding_count(payload),
                 expected_dimensions=expected_dimensions,
+                encoding_format=requested_encoding_format(payload),
             )
         except TimeoutError as exc:
             self.metrics.record_upstream_error(profile.model, "GATEWAY_TIMEOUT")

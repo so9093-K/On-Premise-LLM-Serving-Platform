@@ -22,6 +22,7 @@ from ...api_examples import (
     RUNTIME_TRANSITION_TO_STOPPED_EXAMPLE,
     RUNTIME_TRANSITION_TO_STOPPED_WITH_PREREQ_EXAMPLE,
 )
+from ...main_model.control import OPERATION_STAGES
 from ...services.runtime_state import RuntimeState, RuntimeStateStore
 from ...services.sidecar_client import (
     SidecarClient,
@@ -30,18 +31,6 @@ from ...services.sidecar_client import (
 )
 
 _GW = {(s.method, s.path): s for s in GATEWAY_ENDPOINTS}
-_MAIN_MODEL_OPERATION_STATES = [
-    "pending",
-    "preparing",
-    "draining",
-    "stopping",
-    "starting",
-    "validating",
-    "rolling_back",
-    "completed",
-    "failed",
-    "rollback_failed",
-]
 _OPERATION_RESPONSE_SCHEMA = {
     "type": "object",
     "required": ["id", "requested_profile", "status", "stage", "created_at", "updated_at"],
@@ -50,8 +39,8 @@ _OPERATION_RESPONSE_SCHEMA = {
         "requested_profile": {"type": "string"},
         "previous_profile": {"type": ["string", "null"]},
         "client_request_id": {"type": ["string", "null"]},
-        "status": {"type": "string", "enum": _MAIN_MODEL_OPERATION_STATES},
-        "stage": {"type": "string", "enum": _MAIN_MODEL_OPERATION_STATES},
+        "status": {"type": "string", "enum": list(OPERATION_STAGES)},
+        "stage": {"type": "string", "enum": list(OPERATION_STAGES)},
         "error": {"type": ["string", "null"]},
         "rollback_error": {"type": ["string", "null"]},
         "created_at": {"type": "number"},
@@ -59,12 +48,6 @@ _OPERATION_RESPONSE_SCHEMA = {
     },
 }
 _OPERATION_ID_EXAMPLE = "41cf50bb-60b2-4dbc-b38a-7dd07da91d97"
-_OPERATION_LOOKUP_DESCRIPTION = (
-    "비동기 전환 작업의 상태를 조회한다. `operation_id`는 `POST /admin/main-model/switch`의 202 "
-    "응답에서 받은 값이며, `completed`·`failed`·`rollback_failed`에 도달할 때까지 폴링한다. 가장 "
-    "최근 작업은 `GET /admin/main-model`의 `last_operation`으로도 확인할 수 있고, 진행 상태는 "
-    "Grafana `Main-model Control` 대시보드의 Latest Operation State 패널에서 실시간으로 볼 수 있다."
-)
 _OPERATION_ID_PARAMETER = {
     "name": "operation_id",
     "in": "path",
@@ -639,12 +622,15 @@ def build_router(
             raise HTTPException(503, detail="admin sidecar is not configured")
         return sidecar
 
+    _s = _GW[("GET", "/admin/main-model")]
+
     @router.get(
         "/admin/main-model",
         dependencies=admin_dependencies,
-        tags=["Runtime Control"],
-        summary="활성 메인 모델 조회",
-        operation_id="getMainModel",
+        tags=[_s.tag],
+        summary=_s.summary,
+        operation_id=_s.operation_id,
+        description=_s.description,
         responses={
             200: {
                 "description": "마지막 검증 control-plane 상태와 Docker에서 방금 관측한 main-model 상태",
@@ -686,12 +672,15 @@ def build_router(
         except SidecarUnavailableError as exc:
             return _sidecar_unavailable_response(exc)
 
+    _s = _GW[("GET", "/admin/main-model/profiles")]
+
     @router.get(
         "/admin/main-model/profiles",
         dependencies=admin_dependencies,
-        tags=["Runtime Control"],
-        summary="메인 모델 프로필 조회",
-        operation_id="listMainModelProfiles",
+        tags=[_s.tag],
+        summary=_s.summary,
+        operation_id=_s.operation_id,
+        description=_s.description,
         responses={
             200: {
                 "description": "허용된 프로필 목록",
@@ -730,21 +719,15 @@ def build_router(
         except SidecarUnavailableError as exc:
             return _sidecar_unavailable_response(exc)
 
+    _s = _GW[("POST", "/admin/main-model/switch")]
+
     @router.post(
         "/admin/main-model/switch",
         dependencies=admin_dependencies,
-        tags=["Runtime Control"],
-        summary="메인 모델 전환",
-        description=(
-            "메인 모델 프로필을 비동기로 전환한다(202 + operation_id). "
-            "`request_id`는 선택적 멱등 키다 — 진행 중이거나 방금 끝난 동일 작업이 있으면 "
-            "새 전환을 시작하지 않고 그 작업을 반환하며 응답 `reused=true`로 표시한다(재시도 "
-            "안전용이라 일정 시간 뒤에는 만료된다). 새 전환을 원하면 매번 고유한 "
-            "`request_id`를 쓰거나 생략한다. 진행 상황은 응답 `operation_id`로 "
-            "`GET /admin/main-model/operations/{operation_id}` 또는 "
-            "`GET /admin/main-model`의 `last_operation`에서 확인한다."
-        ),
-        operation_id="switchMainModel",
+        tags=[_s.tag],
+        summary=_s.summary,
+        description=_s.description,
+        operation_id=_s.operation_id,
         status_code=202,
         responses={
             202: {
@@ -803,13 +786,15 @@ def build_router(
         except SidecarUnavailableError as exc:
             return _sidecar_unavailable_response(exc)
 
+    _s = _GW[("GET", "/admin/main-model/operations/{operation_id}")]
+
     @router.get(
         "/admin/main-model/operations/{operation_id}",
         dependencies=admin_dependencies,
-        tags=["Runtime Control"],
-        summary="메인 모델 전환 작업 조회",
-        description=_OPERATION_LOOKUP_DESCRIPTION,
-        operation_id="getMainModelOperation",
+        tags=[_s.tag],
+        summary=_s.summary,
+        description=_s.description,
+        operation_id=_s.operation_id,
         responses={
             200: {
                 "description": "전환 작업 상태",

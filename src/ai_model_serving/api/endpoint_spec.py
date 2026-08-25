@@ -308,7 +308,20 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
         operation_id="getMainModel",
         tag="Runtime Control",
         summary="활성 메인 모델 조회",
-        description="현재 local-main 내부 프로필, gate, 마지막 전환 상태를 조회합니다.",
+        description=(
+            "control-plane ledger가 기록한 상태와 Docker에서 방금 관측한 실제 런타임을 함께 반환합니다. "
+            "메인 모델을 디버깅할 때 가장 먼저 보는 엔드포인트입니다.\n\n"
+            "- `active_profile` — 지금 `local-main`으로 서빙 중인 프로필 전체(`capabilities.deployed_input`, "
+            "`gateway_policy` 포함). chat 요청 검증에 실제로 적용되는 값이 이것입니다.\n"
+            "- `gate` — `open`이면 요청을 받고, `closed`면 전환·정지 중이라 `/v1/chat/completions`가 "
+            "`503 MAIN_MODEL_SWITCH_IN_PROGRESS` + `Retry-After`로 fail-closed 응답합니다.\n"
+            "- `runtime_state` — ledger가 기록한 목표 상태(`active` / `stopped`).\n"
+            "- `last_operation` — 가장 최근 전환 작업 요약(`status`, `stage`, `error`).\n"
+            "- `observed_runtime` — Docker inspect 결과(`container_state`, `health`, `observed_at`). "
+            "ledger와 어긋나면 drift이며, 이 값이 `null`이면 관측 자체가 실패한 것입니다.\n\n"
+            "Docker 관측은 이 라우트에서만 수행합니다. 요청 경로(`/v1/chat/completions`, `/v1/models`)는 "
+            "ledger만 읽으므로 추론이 Docker daemon 상태에 묶이지 않습니다."
+        ),
         lifecycle="stable",
         request_schema=None,
         response_schema=None,
@@ -319,7 +332,16 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
         operation_id="listMainModelProfiles",
         tag="Runtime Control",
         summary="메인 모델 프로필 조회",
-        description="배포된 카탈로그에서 허용된 메인 모델 프로필과 capability·compatibility 근거를 조회합니다.",
+        description=(
+            "이 배포에서 전환할 수 있는 메인 모델 프로필과 각 프로필의 근거를 반환합니다. "
+            "`active: true`가 현재 서빙 중인 프로필입니다.\n\n"
+            "- `compatibility.status` — `verified`만 추가 확인 없이 전환됩니다. 그 외 상태는 "
+            "`switch` 요청에 `confirm_unverified: true`가 필요합니다.\n"
+            "- `capabilities.deployed_input` — 그 프로필로 전환했을 때 받을 수 있는 입력 modality입니다. "
+            "전환이 완료되면 `/v1/models`의 `input_modalities`와 chat validator에 즉시 반영됩니다.\n"
+            "- `upstream_model_id`, `revision` — 실제로 로딩되는 가중치 pin입니다.\n\n"
+            "프로필 목록의 source of truth는 `configs/main_model_profiles.yaml`이며, 여기 없는 ID로는 전환할 수 없습니다."
+        ),
         lifecycle="stable",
         request_schema=None,
         response_schema=None,
@@ -330,7 +352,19 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
         operation_id="switchMainModel",
         tag="Runtime Control",
         summary="메인 모델 전환",
-        description="허용된 profile ID로 비동기 전환을 시작하고 operation ID를 반환합니다.",
+        description=(
+            "메인 모델 프로필을 비동기로 전환합니다(`202` + `operation_id`). 전환 도중 gate가 닫히고 "
+            "진행 중인 요청을 drain한 뒤 컨테이너를 교체하므로, 완료까지 chat 요청은 "
+            "`503 MAIN_MODEL_SWITCH_IN_PROGRESS`를 받습니다.\n\n"
+            "- `profile` — `GET /admin/main-model/profiles`가 반환한 ID만 허용합니다. "
+            "그 외 필드(model id, command 등)는 `422`로 거부되며 임의 실행 인자를 넣을 수 없습니다.\n"
+            "- `confirm_unverified` — `compatibility.status`가 `verified`가 아닌 프로필로 전환할 때 필요합니다.\n"
+            "- `request_id` — 선택적 멱등 키입니다. 진행 중이거나 방금 끝난 동일 작업이 있으면 새 전환을 "
+            "시작하지 않고 그 작업을 반환하며 응답에 `reused: true`로 표시합니다(재시도 안전용이라 일정 시간 뒤 "
+            "만료됩니다). 매번 새 전환을 원하면 고유한 값을 쓰거나 생략합니다.\n\n"
+            "진행 상황은 `GET /admin/main-model/operations/{operation_id}` 또는 `GET /admin/main-model`의 "
+            "`last_operation`으로 확인합니다. 검증 단계에서 실패하면 이전 프로필로 자동 rollback합니다."
+        ),
         lifecycle="stable",
         request_schema=None,
         response_schema=None,
@@ -341,7 +375,17 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
         operation_id="getMainModelOperation",
         tag="Runtime Control",
         summary="메인 모델 전환 작업 조회",
-        description="전환 단계 및 실패 원인을 조회합니다.",
+        description=(
+            "비동기 전환 작업의 현재 단계와 실패 원인을 조회합니다. `operation_id`는 "
+            "`POST /admin/main-model/switch`의 `202` 응답에서 받은 값이며, `completed`·`failed`·"
+            "`rollback_failed`에 도달할 때까지 폴링합니다. 각 stage의 의미는 Runtime Control 태그 설명에 있습니다.\n\n"
+            "- `stage` — 지금 수행 중인 단계, `status` — 같은 값(터미널 상태에서 확정).\n"
+            "- `error` — 전환을 실패시킨 원인 문자열. `rollback_error`가 함께 있으면 이전 프로필 복구까지 "
+            "실패한 것이며(`rollback_failed`), 이때는 수동 개입이 필요합니다.\n"
+            "- `client_request_id` — 요청에 넣은 멱등 키.\n\n"
+            "가장 최근 작업은 `GET /admin/main-model`의 `last_operation`으로도 볼 수 있고, 진행 상태는 "
+            "Grafana `Main-model Control` 대시보드의 Latest Operation State 패널에서 실시간으로 확인합니다."
+        ),
         lifecycle="stable",
         request_schema=None,
         response_schema=None,

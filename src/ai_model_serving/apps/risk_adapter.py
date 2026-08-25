@@ -28,6 +28,8 @@ from ..upstream import VLLMClient
 from ..api_descriptions import RISK_ADAPTER_DESCRIPTION_TEMPLATE, RISK_ADAPTER_TAGS_METADATA
 from ..api_examples import AGGREGATE_EXAMPLES, PROMPT_EXAMPLES, PII_EXAMPLES, SECRET_EXAMPLES
 from ..api.endpoint_spec import RISK_ADAPTER_ENDPOINTS, schema_maps_from_specs
+
+_RA_SPECS = {(spec.method, spec.path): spec for spec in RISK_ADAPTER_ENDPOINTS}
 from ..api.routers.risk_adapter_ops import build_router as _build_ops_router
 from ..api.routers.risk_adapter_risk import build_router as _build_risk_router
 
@@ -130,7 +132,7 @@ def create_risk_adapter_app(settings: AppSettings | None = None, clients: RiskCl
 
     install_exception_handlers(app, metrics=metrics, logger=logger, validation_reason=validation_reason)
     register_scalar_docs(app, settings=settings, title="Risk Adapter")
-    register_health(app, service="risk-adapter", operation_id="getRiskAdapterHealth")
+    register_health(app, service="risk-adapter", spec=_RA_SPECS[("GET", "/health")])
 
     app.include_router(_build_ops_router(admin_dependencies, clients, metrics, settings))
     app.include_router(_build_risk_router(api_dependencies, service, settings))

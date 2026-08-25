@@ -38,12 +38,12 @@ def test_gateway_rejects_invalid_payloads_before_upstream_call():
     assert embed_zero_truncate.status_code == 422
     assert clients.embedding_clients["local-embed"].last_path is None
 
-    embed_base64 = client.post(
+    embed_unknown_format = client.post(
         "/v1/embeddings",
         headers=auth_headers(),
-        json={"model": "local-embed", "input": ["hello"], "encoding_format": "base64"},
+        json={"model": "local-embed", "input": ["hello"], "encoding_format": "int8"},
     )
-    assert embed_base64.status_code == 422
+    assert embed_unknown_format.status_code == 422
     assert clients.embedding_clients["local-embed"].last_path is None
 
 

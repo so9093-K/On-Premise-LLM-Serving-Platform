@@ -11,6 +11,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from .docs_ui import scalar_html
+from .api.endpoint_spec import EndpointSpec
 from .errors import (
     ServiceError,
     default_code_for_status,
@@ -239,11 +240,18 @@ def register_scalar_docs(app: FastAPI, *, settings: AppSettings, title: str) -> 
         return HTMLResponse(scalar_html(openapi_url, title))
 
 
-def register_health(app: FastAPI, *, service: str, operation_id: str | None = None) -> None:
-    """표준 liveness 엔드포인트를 등록한다."""
-    kwargs: dict[str, Any] = {"tags": ["Operations"], "summary": "Liveness 확인"}
-    if operation_id is not None:
-        kwargs["operation_id"] = operation_id
+def register_health(app: FastAPI, *, service: str, spec: EndpointSpec) -> None:
+    """표준 liveness 엔드포인트를 등록한다.
+
+    문서 메타데이터는 각 앱의 EndpointSpec 목록에서 온다 -- 여기서 문구를 따로
+    들고 있으면 endpoint_spec.py의 /health 항목과 조용히 어긋난다.
+    """
+    kwargs: dict[str, Any] = {
+        "tags": [spec.tag],
+        "summary": spec.summary,
+        "description": spec.description,
+        "operation_id": spec.operation_id,
+    }
 
     @app.get("/health", **kwargs)
     async def health() -> dict[str, str]:

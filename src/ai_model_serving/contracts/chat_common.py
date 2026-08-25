@@ -3,8 +3,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-CHAT_ROLES = {"system", "user", "assistant"}
-TOOL_CHAT_ROLES = {"system", "user", "assistant", "tool"}
+# OpenAI가 `system`을 대체한 역할이 `developer`다. 두 이름을 모두 받는다 --
+# 실서빙 중인 chat template이 둘을 동일하게 처리하는 것을 확인했고, 표준 클라이언트가
+# `developer`를 보내면 거부하는 쪽이 오히려 계약 위반이다.
+CHAT_ROLES = {"system", "developer", "user", "assistant"}
+TOOL_CHAT_ROLES = CHAT_ROLES | {"tool"}
 UNSUPPORTED_CHAT_FIELDS = {"tools", "tool_choice", "parallel_tool_calls"}
 UNSUPPORTED_MESSAGE_FIELDS = {"tool_calls", "tool_call_id"}
 

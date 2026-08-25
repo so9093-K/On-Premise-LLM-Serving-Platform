@@ -204,6 +204,8 @@ curl "$GATEWAY_URL/v1/models" \
     {
       "id": "local-main",
       "object": "model",
+      "created": 1780000000,
+      "owned_by": "ai-model-serving",
       "backend": "main_llm_vllm",
       "capabilities": [
         "chat.completions",
@@ -241,6 +243,7 @@ curl "$GATEWAY_URL/v1/models" \
 | `messages` | array | Y | 1개 이상 | Chat message 목록 |
 | `temperature` | number | N | `0`–`2` | Sampling temperature |
 | `max_tokens` | integer | N | `1` 이상, 상한은 활성 profile | 최대 output token. 상한은 profile마다 다르므로(`/v1/models`의 `request_parameters.max_tokens.max`) 고정값을 가정하지 않는다. |
+| `max_completion_tokens` | integer | N | `max_tokens`와 동일 | OpenAI가 `max_tokens`를 대체한 이름. 같은 한도를 가리키며 upstream 전에 `max_tokens`로 접힌다. 두 이름을 함께 보내면 422. |
 | `top_p` | number | N | `0 < x <= 1` | Nucleus sampling |
 | `top_k` | integer | N | `-1` 이상 | Top-K sampling |
 | `min_p` | number | N | `0`–`1` | Min-P sampling |
@@ -260,15 +263,19 @@ curl "$GATEWAY_URL/v1/models" \
 | `logprobs` | boolean | N | `true` / `false` | Token log probability |
 | `top_logprobs` | integer | N | `0`–`10` | `logprobs=true` 필요 |
 | `logit_bias` | object | N | 최대 256 entries, value `-100`–`100` | Served-model tokenizer token ID 기준 |
+| `user` | string | N | 비어 있지 않은 문자열 | OpenAI 표준 최종 사용자 식별자. 형식만 검증하고 upstream에는 전달하지 않으며 응답·metric에 영향이 없다. |
 
 #### Message Role
 
 | Role | `content` | 추가 필드 |
 |---|---|---|
 | `system` | text / content parts | `name` |
+| `developer` | text / content parts | `name` |
 | `user` | text / content parts | `name` |
 | `assistant` | text / `null` | `tool_calls`, `name` |
 | `tool` | string | `tool_call_id`, `name` |
+
+`developer`는 OpenAI가 `system`을 대체한 역할이며 chat template이 동일하게 처리한다.
 
 멀티모달 content part는 `text`, `image_url`, `input_audio`, `video_url`을 사용한다. 실제 허용 modality는 활성 Main Model profile에 따라 달라진다.
 
@@ -821,7 +828,7 @@ Video는 활성 Main Model profile의 `deployed_input`에 `video`가 포함된 �
 | `model` | string | Y | `local-embed` 또는 `local-embed-ko` |
 | `input` | string / string[] | Y | 단일 텍스트 또는 문자열 배열 |
 | `dimensions` | integer | N | 모델별 지원 dimension |
-| `encoding_format` | string | N | `float`만 허용 |
+| `encoding_format` | string | N | `float` 또는 `base64`. `base64`는 little-endian float32 배열을 인코딩한 문자열로 반환된다(openai-python이 numpy가 있을 때 보내는 기본값) |
 | `truncate_prompt_tokens` | integer | N | `-1` 또는 `1`–`2048` |
 | `user` | string | N | Gateway에서 허용하며 upstream 전달 시 제거 |
 

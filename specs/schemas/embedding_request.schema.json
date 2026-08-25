@@ -2,29 +2,60 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "GatewayEmbeddingRequest",
   "type": "object",
-  "required": ["model", "input"],
+  "required": [
+    "model",
+    "input"
+  ],
   "additionalProperties": false,
   "properties": {
-    "model": {"enum": ["local-embed", "local-embed-ko"]},
+    "model": {
+      "enum": [
+        "local-embed",
+        "local-embed-ko"
+      ]
+    },
     "input": {
       "oneOf": [
-        {"type": "string"},
-        {"type": "array", "minItems": 1, "items": {"type": "string"}}
+        {
+          "type": "string"
+        },
+        {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        }
       ]
     },
     "dimensions": {
       "type": "integer",
       "oneOf": [
-        {"const": 768},
-        {"const": 1024}
+        {
+          "const": 768
+        },
+        {
+          "const": 1024
+        }
       ]
     },
-    "encoding_format": {"type": "string", "const": "float"},
+    "encoding_format": {
+      "type": "string",
+      "enum": [
+        "float",
+        "base64"
+      ]
+    },
     "truncate_prompt_tokens": {
       "type": "integer",
       "oneOf": [
-        {"const": -1},
-        {"minimum": 1, "maximum": 2048}
+        {
+          "const": -1
+        },
+        {
+          "minimum": 1,
+          "maximum": 2048
+        }
       ]
     },
     "user": {
@@ -34,18 +65,40 @@
   },
   "allOf": [
     {
-      "if": {"properties": {"model": {"const": "local-embed-ko"}}, "required": ["model"]},
+      "if": {
+        "properties": {
+          "model": {
+            "const": "local-embed-ko"
+          }
+        },
+        "required": [
+          "model"
+        ]
+      },
       "then": {
         "properties": {
-          "dimensions": {"const": 1024}
+          "dimensions": {
+            "const": 1024
+          }
         }
       }
     },
     {
-      "if": {"properties": {"model": {"const": "local-embed"}}, "required": ["model"]},
+      "if": {
+        "properties": {
+          "model": {
+            "const": "local-embed"
+          }
+        },
+        "required": [
+          "model"
+        ]
+      },
       "then": {
         "properties": {
-          "dimensions": {"const": 768}
+          "dimensions": {
+            "const": 768
+          }
         }
       }
     }

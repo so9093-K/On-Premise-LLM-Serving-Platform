@@ -17,7 +17,14 @@ def chat_request_parameter_surface(policy: dict[str, Any], *, max_output_tokens:
     max_n = int(policy.get("max_n", 1))
     definitions: dict[str, dict[str, Any]] = {
         "temperature": {"type": "number", "min": 0, "max": 2},
-        "max_tokens": {"type": "integer", "min": 1, **({"max": int(max_output_tokens)} if max_output_tokens is not None else {})},
+        # max_completion_tokens는 OpenAI가 max_tokens를 대체한 이름이며 같은 한도를
+        # 가리킨다. 별도 knob이 아니므로 별칭으로만 알린다.
+        "max_tokens": {
+            "type": "integer",
+            "min": 1,
+            "aliases": ["max_completion_tokens"],
+            **({"max": int(max_output_tokens)} if max_output_tokens is not None else {}),
+        },
         "top_p": {"type": "number", "min_exclusive": 0, "max": 1},
         "top_k": {"type": "integer", "min": -1},
         "min_p": {"type": "number", "min": 0, "max": 1},
@@ -77,7 +84,7 @@ def _embedding_request_parameters(policy: dict[str, Any]) -> dict[str, dict[str,
     supported = set(policy.get("supported_parameters", []))
     definitions: dict[str, dict[str, Any]] = {
         "dimensions": {"type": "integer", "enum": [int(item) for item in policy.get("dimensions", [])]},
-        "encoding_format": {"type": "string", "const": "float"},
+        "encoding_format": {"type": "string", "enum": [str(item) for item in policy.get("encoding_formats", ["float"])]},
         "truncate_prompt_tokens": {
             "type": "integer",
             "one_of": [

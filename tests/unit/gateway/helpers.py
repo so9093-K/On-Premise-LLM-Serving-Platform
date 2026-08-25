@@ -315,7 +315,9 @@ def tool_calling_settings() -> AppSettings:
                 "tool_choice",
                 "parallel_tool_calls",
                 "reasoning",
+                "user",
             ],
+            "drop_upstream_parameters": ["user"],
             "max_n": 1,
             "tool_calling": {"enabled": True, "max_tools": 4, "allow_parallel_tool_calls": False},
             "reasoning": {
@@ -387,13 +389,6 @@ def advanced_chat_settings() -> AppSettings:
                 "max_bias": 100,
                 "token_id_min": 0,
                 "token_id_semantics": "served_model_tokenizer",
-            },
-            "combinations": {
-                "json_schema_with_tools": {"mode": "capability_gate", "default": "allow"},
-                "json_schema_with_reasoning": {"mode": "capability_gate", "default": "allow"},
-                "json_schema_with_logit_bias": {"mode": "allow"},
-                "logit_bias_with_tools": {"mode": "allow"},
-                "logprobs_with_stream": {"mode": "allow"},
             },
         }
     )

@@ -6,11 +6,16 @@
 
 ### Added
 
+- OpenAI 표준 요청 필드를 chat·embedding API에서 받는다. `max_completion_tokens`(OpenAI가 `max_tokens`를 대체한 이름, 같은 한도를 가리키며 upstream 전에 `max_tokens`로 접힌다 — 두 이름을 함께 보내면 422), `developer` 역할(`system`을 대체한 이름, chat template이 동일하게 처리), `user` 식별자(형식만 검증하고 런타임에는 전달하지 않는다). 이전에는 셋 다 `422 VALIDATION_ERROR`라 표준 클라이언트를 그대로 붙일 수 없었다.
+- embedding `encoding_format`에 `base64`를 추가했다(응답은 little-endian float32 배열을 인코딩한 문자열). openai-python은 numpy가 설치되어 있으면 이 형식을 기본으로 요청하므로, 형식을 지정하지 않은 공식 SDK 호출이 422로 막히던 경로가 해소된다. 차원 검사는 float일 때와 동일하게 적용된다.
+- `/v1/models` 항목에 OpenAI model object가 요구하는 `created`(Gateway 프로세스 기동 시각, 프로세스 안에서 고정)와 `owned_by`를 추가했다. 업스트림 vLLM은 두 필드를 반환하는데 Gateway 목록에만 빠져 있었다.
 - 에러 응답에 `error.param`(OpenAI 호환)을 추가했다. 검증 오류 시 문제 필드 경로를 담아, 클라이언트가 message를 파싱하지 않고 오류 출처를 구분할 수 있다 — 잘못된 출력 스펙은 `response_format`/`response_format.json_schema`, 잘못된 입력 데이터 포맷은 `input_audio.format`/`image_url`/`video_url`. 두 오류가 모두 `VALIDATION_ERROR 422`라 코드만으로는 구분되지 않던 피드백을 해소한다. 필드 범위가 아닌 오류에서는 생략되어 기존 응답과 호환된다.
 - 에러 code·HTTP status·retryable 계약의 단일 소스로 `configs/error_catalog.yaml`을 추가했다. status 권위는 `errors.py`의 `ERROR_STATUS`이며 contract 테스트가 양쪽 code 집합 일치를 고정한다.
 - `Qwen/Qwen2.5-Omni-7B` Thinker profile을 추가하고 `verified`로 승격했다. Gateway에서 text/image/audio/video 입력→text 응답, media boot canary·rollback, structured output, logprobs, logit bias와 streaming 계약을 실제 런타임으로 검증했다. tool calling은 안정적인 parser/template 경로가 없어 비활성이고, 음성 출력은 이번 플랫폼 범위에 포함하지 않는다.
 
 ### Changed
+
+- 사용자에게 아무 영향이 없던 profile `request_parameter_policy.combinations` 정책을 제거했다. 검증기는 `mode: reject`만 거부하는데 어떤 profile도 그 값을 쓰지 않아(`capability_gate`/`allow`뿐) 모든 조합이 항상 허용되고 있었다. `canary_required`·`default` 키는 어디서도 읽히지 않았다. 실제 조합 허용 여부는 바뀌지 않는다.
 
 - 모든 Gemma 4 main-model profile(26B, 12B Unified, E4B)의 vLLM vision token budget을 `max_soft_tokens=1120`으로 올렸다. 허용되는 최대 image detail 예산을 공통 적용하되, Gateway의 image/video 픽셀·바이트 제한은 decode 보호 경계로 유지한다. ([ADR-0014](docs/adr/0014-image-validation-policy.md))
 

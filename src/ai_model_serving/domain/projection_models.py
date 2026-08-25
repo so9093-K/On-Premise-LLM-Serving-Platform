@@ -48,11 +48,29 @@ class ModelListSchemaProjection:
                     "minItems": len(self.model_ids),
                     "items": {
                         "type": "object",
-                        "required": ["id", "object", "backend", "capabilities", "request_parameters"],
+                        "required": [
+                            "id",
+                            "object",
+                            "created",
+                            "owned_by",
+                            "backend",
+                            "capabilities",
+                            "request_parameters",
+                        ],
                         "additionalProperties": True,
                         "properties": {
                             "id": {"enum": list(self.model_ids)},
                             "object": {"const": "model"},
+                            "created": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "description": "OpenAI 호환 model object의 생성 시각(unix seconds)입니다. Gateway 프로세스 기동 시각이며 한 프로세스 안에서는 고정입니다.",
+                            },
+                            "owned_by": {
+                                "type": "string",
+                                "minLength": 1,
+                                "description": "논리 모델을 이 계약으로 서빙하는 주체입니다. 업스트림 가중치의 원저작자가 아닙니다.",
+                            },
                             "backend": {"type": "string", "minLength": 1},
                             "capabilities": {
                                 "type": "array",

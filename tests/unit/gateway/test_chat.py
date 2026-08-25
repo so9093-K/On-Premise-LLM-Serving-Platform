@@ -426,3 +426,72 @@ def test_gateway_allows_advanced_combinations_and_models_projection():
 
     models = client.get("/v1/models", headers=auth_headers()).json()["data"][0]["request_parameters"]
     assert {"response_format", "logprobs", "top_logprobs", "logit_bias"}.issubset(models)
+
+
+def test_chat_accepts_openai_standard_field_names():
+    """OpenAI 표준 이름으로 온 요청이 422로 막히지 않아야 한다.
+
+    `max_completion_tokens`는 OpenAI가 `max_tokens`를 대체한 이름이고, `developer`는
+    `system`을 대체한 역할이며, `user`는 표준 식별자다. 셋 다 거부하면 표준
+    클라이언트가 그대로는 못 붙는다. 별칭은 upstream 전에 `max_tokens` 하나로
+    접히고(런타임이 두 이름을 각각 해석하게 두지 않는다), `user`는 Gateway 계약
+    안에서만 쓰이고 런타임으로 넘어가지 않는다.
+    """
+    clients = FakeGatewayClients()
+    client = TestClient(create_gateway_app(tool_calling_settings(), clients))
+    response = client.post(
+        "/v1/chat/completions",
+        headers=auth_headers(),
+        json={
+            "model": "local-main",
+            "messages": [
+                {"role": "developer", "content": "be brief"},
+                {"role": "user", "content": "hello"},
+            ],
+            "max_completion_tokens": 16,
+            "user": "tenant-a",
+        },
+    )
+    assert response.status_code == 200
+    payload = clients.main_llm.last_payload
+    assert payload["max_tokens"] == 16
+    assert "max_completion_tokens" not in payload
+    assert "user" not in payload
+    assert payload["messages"][0]["role"] == "developer"
+
+
+def test_chat_rejects_both_output_token_names():
+    """같은 한도를 두 이름으로 보내면 어느 쪽을 쓸지 모르므로 거부한다."""
+    clients = FakeGatewayClients()
+    client = TestClient(create_gateway_app(settings(), clients))
+    response = client.post(
+        "/v1/chat/completions",
+        headers=auth_headers(),
+        json={
+            "model": "local-main",
+            "messages": [{"role": "user", "content": "hello"}],
+            "max_tokens": 8,
+            "max_completion_tokens": 16,
+        },
+    )
+    assert response.status_code == 422
+    assert response.json()["error"]["param"] == "max_completion_tokens"
+    assert clients.main_llm.last_payload is None
+
+
+def test_chat_applies_output_limit_to_alias():
+    """별칭으로 와도 프로필의 max_output_tokens 상한이 그대로 적용되어야 한다."""
+    clients = FakeGatewayClients()
+    client = TestClient(create_gateway_app(settings(), clients))
+    response = client.post(
+        "/v1/chat/completions",
+        headers=auth_headers(),
+        json={
+            "model": "local-main",
+            "messages": [{"role": "user", "content": "hello"}],
+            "max_completion_tokens": 10_000_000,
+        },
+    )
+    assert response.status_code == 422
+    assert response.json()["error"]["param"] == "max_tokens"
+    assert clients.main_llm.last_payload is None

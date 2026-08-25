@@ -25,10 +25,12 @@
             "type": "string",
             "enum": [
               "system",
+              "developer",
               "user",
               "assistant",
               "tool"
-            ]
+            ],
+            "description": "`developer`는 OpenAI가 `system`을 대체한 역할이며 동일하게 처리된다."
           },
           "content": {
             "oneOf": [
@@ -315,16 +317,25 @@
     "response_format": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["type"],
+      "required": [
+        "type"
+      ],
       "properties": {
         "type": {
           "type": "string",
-          "enum": ["text", "json_object", "json_schema"]
+          "enum": [
+            "text",
+            "json_object",
+            "json_schema"
+          ]
         },
         "json_schema": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["name", "schema"],
+          "required": [
+            "name",
+            "schema"
+          ],
           "properties": {
             "name": {
               "type": "string",
@@ -345,12 +356,40 @@
       },
       "allOf": [
         {
-          "if": {"properties": {"type": {"enum": ["text", "json_object"]}}},
-          "then": {"not": {"required": ["json_schema"]}}
+          "if": {
+            "properties": {
+              "type": {
+                "enum": [
+                  "text",
+                  "json_object"
+                ]
+              }
+            }
+          },
+          "then": {
+            "not": {
+              "required": [
+                "json_schema"
+              ]
+            }
+          }
         },
         {
-          "if": {"properties": {"type": {"const": "json_schema"}}, "required": ["type"]},
-          "then": {"required": ["json_schema"]}
+          "if": {
+            "properties": {
+              "type": {
+                "const": "json_schema"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "required": [
+              "json_schema"
+            ]
+          }
         }
       ]
     },
@@ -375,6 +414,17 @@
         "maximum": 100
       },
       "description": "Token ids are interpreted by the served vLLM model tokenizer, not OpenAI/tiktoken ids."
+    },
+    "max_completion_tokens": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 13000,
+      "description": "`max_tokens`와 같은 한도를 가리키는 OpenAI 표준 이름이다. 둘을 함께 보내면 거부한다."
+    },
+    "user": {
+      "type": "string",
+      "minLength": 1,
+      "description": "OpenAI 표준의 최종 사용자 식별자다. 형식만 검증하고 upstream에는 전달하지 않으며, 응답과 metric label에 영향이 없다."
     }
   },
   "$defs": {
@@ -485,5 +535,11 @@
         }
       }
     }
-  ]
+  ],
+  "not": {
+    "required": [
+      "max_tokens",
+      "max_completion_tokens"
+    ]
+  }
 }

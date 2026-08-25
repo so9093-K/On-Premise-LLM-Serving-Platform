@@ -8,6 +8,9 @@ import io
 import json
 import logging
 
+import base64
+import struct
+
 from .helpers import *  # noqa: F401,F403
 
 
@@ -209,14 +212,58 @@ def test_gateway_embeddings_accepts_user_field():
     assert "user" not in clients.embedding_clients["local-embed"].last_payload
 
 
-def test_gateway_embeddings_rejects_unsupported_encoding_format():
-    """base64 encoding_format은 422를 반환한다 (smoke 기준 미지원)."""
+def test_gateway_embeddings_passes_through_base64_vectors():
+    """base64는 openai-python이 numpy가 있을 때 보내는 기본 형식이라 통과해야 한다.
+
+    Gateway가 float만 받으면 공식 SDK의 기본 호출 경로가 422로 막힌다. 형식을
+    upstream까지 그대로 전달하고, 응답도 base64 문자열 그대로 돌려준다 -- 중간에서
+    float으로 되돌리면 SDK가 base64를 요청한 이유(전송량)가 사라진다.
+    """
+    encoded = base64.b64encode(struct.pack("<768f", *([0.1] * 768))).decode("ascii")
     clients = FakeGatewayClients()
+    clients.embedding_clients["local-embed"].post_response = {
+        "object": "list",
+        "model": "local-embed",
+        "data": [{"object": "embedding", "embedding": encoded, "index": 0}],
+    }
     client = TestClient(create_gateway_app(settings(), clients))
     response = client.post(
         "/v1/embeddings",
         headers=auth_headers(),
         json={"model": "local-embed", "input": ["hello"], "encoding_format": "base64"},
+    )
+    assert response.status_code == 200
+    assert response.json()["data"][0]["embedding"] == encoded
+    assert clients.embedding_clients["local-embed"].last_payload["encoding_format"] == "base64"
+
+
+def test_gateway_embeddings_checks_base64_vector_dimension():
+    """base64여도 차원 검사는 float일 때와 동일하게 적용된다."""
+    short = base64.b64encode(struct.pack("<8f", *([0.1] * 8))).decode("ascii")
+    clients = FakeGatewayClients()
+    clients.embedding_clients["local-embed"].post_response = {
+        "object": "list",
+        "model": "local-embed",
+        "data": [{"object": "embedding", "embedding": short, "index": 0}],
+    }
+    client = TestClient(create_gateway_app(settings(), clients))
+    response = client.post(
+        "/v1/embeddings",
+        headers=auth_headers(),
+        json={"model": "local-embed", "input": ["hello"], "encoding_format": "base64"},
+    )
+    assert response.status_code == 502
+    assert response.json()["error"]["code"] == "UPSTREAM_SCHEMA_ERROR"
+
+
+def test_gateway_embeddings_rejects_undeclared_encoding_format():
+    """정책이 선언하지 않은 형식은 upstream 호출 없이 거부한다."""
+    clients = FakeGatewayClients()
+    client = TestClient(create_gateway_app(settings(), clients))
+    response = client.post(
+        "/v1/embeddings",
+        headers=auth_headers(),
+        json={"model": "local-embed", "input": ["hello"], "encoding_format": "int8"},
     )
     assert response.status_code == 422
     assert response.json()["error"]["code"] == "VALIDATION_ERROR"

@@ -75,3 +75,25 @@ def test_models_listing_falls_back_when_sidecar_unavailable():
     client = TestClient(create_gateway_app(cfg, clients))
     main = _main_model(client.get("/v1/models", headers=auth_headers()))
     assert main["input_modalities"] == list(cfg.runtime("main_llm").allowed_input_modalities)
+
+
+def test_models_listing_carries_openai_model_object_fields():
+    """OpenAI model object가 요구하는 created·owned_by를 함께 실어야 한다.
+
+    이 두 필드가 없으면 표준 클라이언트가 `/v1/models` 항목을 model object로
+    다루지 못한다(업스트림 vLLM은 둘 다 반환하는데 Gateway만 빠뜨리고 있었다).
+    created는 프로세스 기동 시각이라 같은 응답 안에서, 그리고 호출 사이에서
+    흔들리지 않아야 한다 -- 매번 달라지면 listing을 캐시하는 쪽이 모델이 새로
+    생긴 것으로 읽는다.
+    """
+    client = TestClient(create_gateway_app(settings(), FakeGatewayClients()))
+    first = client.get("/v1/models", headers=auth_headers()).json()["data"]
+    second = client.get("/v1/models", headers=auth_headers()).json()["data"]
+
+    assert first, "모델 목록이 비어 있다"
+    for item in first:
+        assert item["object"] == "model"
+        assert isinstance(item["created"], int) and item["created"] > 0
+        assert isinstance(item["owned_by"], str) and item["owned_by"]
+    assert len({item["created"] for item in first}) == 1
+    assert [item["created"] for item in first] == [item["created"] for item in second]

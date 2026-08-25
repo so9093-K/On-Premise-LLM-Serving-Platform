@@ -93,47 +93,23 @@ def _validate_logit_bias(value: Any, policy: dict[str, Any] | None) -> None:
             raise _validation_error("logit_bias", f"logit_bias values must be numbers between {min_bias:g} and {max_bias:g}; token ids use the served model tokenizer, not OpenAI/tiktoken ids.")
 
 
-def _combination_mode(policy: dict[str, Any] | None, key: str) -> str:
-    combinations = _chat_policy(policy).get("combinations", {})
-    entry = combinations.get(key, {}) if isinstance(combinations, dict) else {}
-    return str(entry.get("mode", "allow")) if isinstance(entry, dict) else "allow"
+def _normalize_output_token_alias(payload: dict[str, Any]) -> dict[str, Any]:
+    """OpenAI가 `max_tokens`를 대체한 이름인 `max_completion_tokens`를 정규 이름으로 접는다.
 
-
-def _validate_parameter_combinations(payload: dict[str, Any], policy: dict[str, Any] | None) -> None:
-    response_type = payload.get("response_format", {}).get("type") if isinstance(payload.get("response_format"), dict) else None
-    checks = {
-        "json_schema_with_tools": response_type == "json_schema" and "tools" in payload,
-        "json_schema_with_reasoning": response_type == "json_schema" and payload.get("reasoning") is True,
-        "json_schema_with_logit_bias": response_type == "json_schema" and "logit_bias" in payload,
-        "logit_bias_with_tools": "logit_bias" in payload and "tools" in payload,
-        "logprobs_with_stream": payload.get("logprobs") is True and payload.get("stream") is True,
-    }
-    messages = {
-        "json_schema_with_tools": (
-            "response_format",
-            "response_format.type=json_schema cannot be used with tools for this model profile; remove tools or use response_format.type=text/json_object.",
-        ),
-        "json_schema_with_reasoning": (
-            "response_format",
-            "response_format.type=json_schema cannot be used with reasoning=true for this model profile; remove reasoning or use response_format.type=text/json_object.",
-        ),
-        "json_schema_with_logit_bias": (
-            "response_format",
-            "response_format.type=json_schema cannot be used with logit_bias for this model profile; remove logit_bias or use response_format.type=text/json_object.",
-        ),
-        "logit_bias_with_tools": (
-            "logit_bias",
-            "logit_bias cannot be used with tools for this model profile; remove logit_bias or remove tools.",
-        ),
-        "logprobs_with_stream": (
-            "logprobs",
-            "logprobs=true cannot be used with stream=true for this model profile; disable stream or omit logprobs.",
-        ),
-    }
-    for name, active in checks.items():
-        if active and _combination_mode(policy, name) == "reject":
-            param, message = messages[name]
-            raise _validation_error(param, message)
+    두 이름은 같은 한도를 가리키므로 정책 항목을 따로 두지 않는다 -- 프로필이
+    `max_tokens`를 지원하면 별칭도 지원한다. 이 지점에서 한 번 접어두면 allowlist,
+    상한 검사, upstream 전달이 전부 이름 하나만 보면 된다.
+    """
+    if "max_completion_tokens" not in payload:
+        return payload
+    if "max_tokens" in payload:
+        raise _validation_error(
+            "max_completion_tokens",
+            "max_tokens and max_completion_tokens are the same limit; send only one of them.",
+        )
+    normalized = dict(payload)
+    normalized["max_tokens"] = normalized.pop("max_completion_tokens")
+    return normalized
 
 
 def _validate_chat_parameters(payload: dict[str, Any], *, max_output_tokens: int | None, policy: dict[str, Any] | None) -> None:
@@ -174,6 +150,11 @@ def _validate_chat_parameters(payload: dict[str, Any], *, max_output_tokens: int
             raise _validation_error("n", f"n must be an integer between 1 and {max_n}.")
     if "stop" in payload:
         _validate_stop(payload["stop"])
+    # OpenAI 표준의 최종 사용자 식별자다. Gateway 동작에는 영향이 없고
+    # drop_upstream_parameters로 upstream 전에 제거되지만, 표준 클라이언트가
+    # 보내는 필드를 422로 막지 않기 위해 형식만 확인한다.
+    if "user" in payload and (not isinstance(payload["user"], str) or not payload["user"].strip()):
+        raise _validation_error("user", "user must be a non-empty string when provided.")
     if "logprobs" in payload or "top_logprobs" in payload:
         _validate_logprobs(payload, policy)
     if "logit_bias" in payload:
@@ -211,7 +192,7 @@ def validate_chat_request(
     max_video_duration_seconds: float = 0,
     request_parameter_policy: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    payload = ensure_object(payload)
+    payload = _normalize_output_token_alias(ensure_object(payload))
     if payload.get("model") != expected_model:
         raise _validation_error("model", f"model must be {expected_model}.")
     if "stream" in payload and not isinstance(payload["stream"], bool):
@@ -318,5 +299,4 @@ def validate_chat_request(
         raise _validation_error("messages.content.video_url", f"at most {max_video_inputs} video content part(s) are allowed per request.")
     if "response_format" in payload:
         _validate_response_format(payload["response_format"], payload, request_parameter_policy)
-    _validate_parameter_combinations(payload, request_parameter_policy)
     return payload

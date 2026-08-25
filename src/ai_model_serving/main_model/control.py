@@ -43,6 +43,22 @@ _ALLOWED_MODALITIES = frozenset({"text", "image", "audio", "video"})
 # capabilities에 이 키만 허용한다. audio_enabled/video_enabled는 deployed_input과 중복되는
 # legacy 정보라 제거됐다 -- 다시 들어오면 두 소스가 어긋날 수 있으므로 설정 오류로 막는다.
 _ALLOWED_CAPABILITY_KEYS = frozenset({"deployed_input"})
+# 전환 작업이 거치는 stage를 진행 순서대로 나열한 것이다. _run_locked()가 실제로
+# 기록하는 값이며, OpenAPI 응답 스키마의 enum과 Runtime Control 문서가 이 목록을
+# 그대로 읽는다 -- 라우터와 문서가 각자 복사본을 들고 있으면 stage를 하나 추가할 때
+# 조용히 어긋난다.
+OPERATION_STAGES: tuple[str, ...] = (
+    "pending",
+    "preparing",
+    "draining",
+    "stopping",
+    "starting",
+    "validating",
+    "rolling_back",
+    "completed",
+    "failed",
+    "rollback_failed",
+)
 _TERMINAL_STATES = frozenset({"completed", "failed", "rollback_failed"})
 # reconcile_if_restarted()의 재시도 backoff. admin_sidecar.py의 10초 poll
 # 간격을 기준 단위로 2배씩 늘리다 최대 5분에서 멈춘다 -- validate()가 계속

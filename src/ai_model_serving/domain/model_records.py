@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass
 from typing import Any
 from urllib.parse import urlparse
@@ -14,6 +15,16 @@ def resolve_catalog_max_output_tokens(catalog_entry: dict[str, Any]) -> int | No
     runtime = catalog_entry.get("runtime", {})
     value = runtime.get("max_output_tokens")
     return int(value) if value is not None else None
+
+
+# OpenAI의 model object는 `created`와 `owned_by`를 함께 요구한다. 논리 모델은
+# 프로세스보다 오래된 개념이 아니고 배포 시점에 확정되므로, 업스트림 vLLM이 하는 것과
+# 같이 프로세스 기동 시각을 쓴다. 요청마다 값이 흔들리면 listing을 캐시하는 클라이언트가
+# 매번 모델이 새로 생긴 것으로 본다.
+_PROCESS_STARTED_AT = int(time.time())
+# 이 플랫폼이 공개하는 논리 모델의 소유자다(업스트림 가중치의 원저작자가 아니라,
+# 그것을 이 계약으로 서빙하는 주체).
+MODEL_OWNER = "ai-model-serving"
 
 
 @dataclass(frozen=True)
@@ -32,6 +43,8 @@ class PublicModel:
         item: dict[str, Any] = {
             "id": self.id,
             "object": self.object,
+            "created": _PROCESS_STARTED_AT,
+            "owned_by": MODEL_OWNER,
             "backend": self.backend,
             "capabilities": list(self.capabilities),
             "request_parameters": dict(self.request_parameters),
