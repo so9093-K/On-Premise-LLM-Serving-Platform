@@ -7,7 +7,7 @@ from .common import reject_unknown_fields
 
 
 def _validation_error(param: str, message: str) -> ServiceError:
-    return ServiceError("VALIDATION_ERROR", message, False, 422, param=param)
+    return ServiceError("VALIDATION_ERROR", message, param=param)
 
 
 def _validate_tools(tools: Any, *, max_tools: int = 64) -> None:

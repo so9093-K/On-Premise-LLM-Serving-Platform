@@ -25,14 +25,13 @@ class EntitySpan:
     """중복 제거 전 recognizer가 발견한 엔티티 하나를 표현한다.
 
     Raw matched text is intentionally not stored. Character offsets are retained
-    only in-process so multiple recognizers can be deduplicated without exposing
+    only in-process so overlapping matches can be deduplicated without exposing
     PII in the API response.
     """
 
     entity: str
     start: int
     end: int
-    source: str
 
 
 @dataclass(frozen=True)
@@ -67,7 +66,7 @@ def _regex_spans(
     pattern: re.Pattern[str],
 ) -> list[EntitySpan]:
     return [
-        EntitySpan(entity, match.start(), match.end(), "custom")
+        EntitySpan(entity, match.start(), match.end())
         for match in pattern.finditer(text)
     ]
 
@@ -97,12 +96,7 @@ def _reconcile_spans(spans: list[EntitySpan]) -> list[EntitySpan]:
     """서로 독립적인 탐지는 보존하면서 기술적 중복만 제거한다."""
     candidates = sorted(
         spans,
-        key=lambda span: (
-            span.start,
-            span.end,
-            span.entity,
-            0 if span.source == "custom" else 1,
-        ),
+        key=lambda span: (span.start, span.end, span.entity),
     )
 
     # 정확히 동일한 엔티티이면서 정확히 동일한 range일 때만 duplicate로 본다. 부분

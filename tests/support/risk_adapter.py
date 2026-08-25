@@ -26,7 +26,7 @@ class FakeDetectorClient:
     async def post_json(self, path, payload):
         self.last_payload = payload
         if self.fail:
-            raise ServiceError("UPSTREAM_TIMEOUT", "timeout", True, 504)
+            raise ServiceError("UPSTREAM_TIMEOUT", "timeout")
         response = {
             "id": "chatcmpl_risk",
             "object": "chat.completion",
@@ -50,7 +50,7 @@ class FakeDetectorClient:
 
     async def get_json(self, path):
         if not self.ready:
-            raise ServiceError("MODEL_UNAVAILABLE", "not ready", True, 503)
+            raise ServiceError("MODEL_UNAVAILABLE", "not ready")
         return {"object": "list", "data": []}
 
 

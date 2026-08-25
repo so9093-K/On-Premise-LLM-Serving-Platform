@@ -42,7 +42,16 @@ docker push gitlab.wizvera.com:4567/acl-ai-system/acl-ai-gateway/vllm-unified:<t
 ```
 
 기본 base image와 호환성 pin은 `configs/vllm_unified_build.yaml`에서 읽는다. 검증용
-base 교체가 필요한 경우에만 `RISK_VLLM_BASE_IMAGE=<immutable digest>`를 명시한다.
+base 교체가 필요한 경우에만 그 빌드 한 번에 한정해 immutable digest를 넘긴다.
+
+```bash
+RISK_VLLM_BASE_IMAGE='vllm/vllm-openai@sha256:<digest>' make build-vllm-unified-image
+```
+
+digest가 아닌 값(태그 등)은 빌드가 거부한다. 이 키는 `.env`에서 읽지 않으며
+`configs/env_contract.yaml`의 `removed_keys`에 등록되어 `make sync-env`가 제거한다 —
+base를 영속 파일에 적어두면 값이 낡아도 아무도 모른 채 canonical digest를 계속
+덮어쓰기 때문이다.
 
 ## Switch & validate (main-LLM profile)
 

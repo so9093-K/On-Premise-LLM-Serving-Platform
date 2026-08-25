@@ -50,11 +50,8 @@ def build_router(
             state = await state_store.get("risk_prompt")
             if state in (RuntimeState.stopped, RuntimeState.starting):
                 raise ServiceError(
-                    "MODEL_UNAVAILABLE",
-                    "risk_prompt runtime is "
+                    "MODEL_UNAVAILABLE", "risk_prompt runtime is "
                     f"{state.value}. Start it with PATCH /admin/runtimes/risk_prompt.",
-                    True,
-                    503,
                 )
         result = await service.forward_risk_assessment("/v1/risk/detectors/prompt/assessments", payload)
         _record_if_enabled(request, payload=payload, response=result)
@@ -117,11 +114,8 @@ def build_router(
             state = await state_store.get("risk_prompt")
             if state in (RuntimeState.stopped, RuntimeState.starting):
                 raise ServiceError(
-                    "MODEL_UNAVAILABLE",
-                    "risk_prompt runtime is "
+                    "MODEL_UNAVAILABLE", "risk_prompt runtime is "
                     f"{state.value}. Start it with PATCH /admin/runtimes/risk_prompt.",
-                    True,
-                    503,
                 )
         result = await service.forward_risk_assessment("/v1/risk/assessments", payload)
         _record_if_enabled(request, payload=payload, response=result)

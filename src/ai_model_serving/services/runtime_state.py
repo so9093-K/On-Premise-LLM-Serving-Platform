@@ -164,29 +164,6 @@ class RuntimeStateStore:
                 )
                 self._write_file()
 
-    async def sync(
-        self,
-        states: dict[str, RuntimeState],
-        *,
-        reason: str = "",
-        source: str = "",
-    ) -> None:
-        """Bulk-update states, e.g. after sidecar start/stop returns."""
-        async with self._lock:
-            for key, state in states.items():
-                if key in self.controllable_keys:
-                    self._records[key] = RuntimeStateRecord(
-                        state,
-                        reason=reason,
-                        source=source,
-                        updated_at=time.time(),
-                    )
-            self._write_file()
-
-    async def all(self) -> dict[str, RuntimeState]:
-        async with self._lock:
-            return {key: record.state for key, record in self._records.items()}
-
     async def all_records(self) -> dict[str, RuntimeStateRecord]:
         async with self._lock:
             return dict(self._records)

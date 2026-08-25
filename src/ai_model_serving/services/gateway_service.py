@@ -41,11 +41,9 @@ def normalize_embedding_request_for_runtime(
 
 def normalize_chat_request_for_runtime(
     payload: dict[str, Any],
-    runtime_features: dict[str, Any] | None,
     policy: dict[str, Any] | None,
 ) -> tuple[dict[str, Any], ChatResponseExpectations]:
     """Gateway 제어 값을 vLLM 요청 확장과 응답 검증 규칙으로 변환한다."""
-    del runtime_features
     response_format = payload.get("response_format")
     response_format_type = response_format.get("type") if isinstance(response_format, dict) else None
     json_schema_wrapper = response_format.get("json_schema") if isinstance(response_format, dict) else None
@@ -184,7 +182,6 @@ class GatewayService:
             max_video_frame_pixels=int(limits.get("max_video_frame_pixels", 0)),
             max_video_duration_seconds=float(limits.get("max_video_duration_seconds", 0)),
             request_parameter_policy=dict(policy.get("request_parameter_policy", {})),
-            runtime_features=dict(policy.get("runtime_features", {})),
         )
 
     def _validate_chat_payload(
@@ -226,7 +223,6 @@ class GatewayService:
         endpoint = self._main_llm_endpoint(gateway_policy, None)
         return normalize_chat_request_for_runtime(
             payload,
-            endpoint.runtime_features,
             endpoint.request_parameter_policy,
         )
 
@@ -267,7 +263,7 @@ class GatewayService:
                     raise
         except TimeoutError as exc:
             self.metrics.record_upstream_error(self.settings.runtime("main_llm").logical_id, "GATEWAY_TIMEOUT")
-            raise ServiceError("UPSTREAM_TIMEOUT", "Gateway request timed out before the chat runtime completed.", True, 504) from exc
+            raise ServiceError("UPSTREAM_TIMEOUT", "Gateway request timed out before the chat runtime completed.") from exc
         finally:
             self.metrics.record_upstream_request(
                 self.settings.runtime("main_llm").logical_id,
@@ -310,17 +306,11 @@ class GatewayService:
                         byte_count += len(chunk)
                         if chunk_count > self.settings.streaming_max_chunks:
                             raise ServiceError(
-                                "STREAM_LIMIT_EXCEEDED",
-                                f"stream emitted {chunk_count} chunks; limit is {self.settings.streaming_max_chunks}. Reduce max_tokens or retry without stream=true.",
-                                False,
-                                504,
+                                "STREAM_LIMIT_EXCEEDED", f"stream emitted {chunk_count} chunks; limit is {self.settings.streaming_max_chunks}. Reduce max_tokens or retry without stream=true.",
                             )
                         if byte_count > self.settings.streaming_max_bytes:
                             raise ServiceError(
-                                "STREAM_LIMIT_EXCEEDED",
-                                f"stream emitted {byte_count} bytes; limit is {self.settings.streaming_max_bytes}. Reduce max_tokens or retry without stream=true.",
-                                False,
-                                504,
+                                "STREAM_LIMIT_EXCEEDED", f"stream emitted {byte_count} bytes; limit is {self.settings.streaming_max_bytes}. Reduce max_tokens or retry without stream=true.",
                             )
                         if not first_chunk_recorded:
                             first_chunk_recorded = True
@@ -340,7 +330,7 @@ class GatewayService:
                 phase = "mid_stream" if emitted_chunk else "before_first_chunk"
                 self.metrics.record_upstream_error(target, "GATEWAY_TIMEOUT")
                 self.metrics.record_streaming_error(target, "GATEWAY_TIMEOUT", phase)
-                error = ServiceError("UPSTREAM_TIMEOUT", "Gateway request timed out before the chat stream completed.", True, 504)
+                error = ServiceError("UPSTREAM_TIMEOUT", "Gateway request timed out before the chat stream completed.")
                 yield _stream_error_event(error)
             except ServiceError as exc:
                 terminal_status = exc.code
@@ -363,10 +353,10 @@ class GatewayService:
         model = str(payload.get("model", self.settings.default_embedding_model))
         profile = self.settings.embedding_profiles.get(model)
         if profile is None:
-            raise ServiceError("MODEL_CAPABILITY_MISMATCH", f"Unsupported embedding model: {model}", False, 422)
+            raise ServiceError("MODEL_CAPABILITY_MISMATCH", f"Unsupported embedding model: {model}")
         client = self.clients.embedding_clients.get(model)
         if client is None:
-            raise ServiceError("MODEL_UNAVAILABLE", f"{model} embedding runtime is unavailable.", True, 503)
+            raise ServiceError("MODEL_UNAVAILABLE", f"{model} embedding runtime is unavailable.")
         payload = validate_embedding_request(
             payload,
             expected_model=profile.model,
@@ -391,7 +381,7 @@ class GatewayService:
             )
         except TimeoutError as exc:
             self.metrics.record_upstream_error(profile.model, "GATEWAY_TIMEOUT")
-            raise ServiceError("UPSTREAM_TIMEOUT", "Gateway request timed out before the embedding runtime completed.", True, 504) from exc
+            raise ServiceError("UPSTREAM_TIMEOUT", "Gateway request timed out before the embedding runtime completed.") from exc
         except ServiceError as exc:
             self.metrics.record_upstream_error(profile.model, exc.code)
             raise
@@ -414,7 +404,7 @@ class GatewayService:
             return validate_risk_response(response)
         except TimeoutError as exc:
             self.metrics.record_upstream_error("risk-adapter", "GATEWAY_TIMEOUT")
-            raise ServiceError("UPSTREAM_TIMEOUT", "Gateway request timed out before the risk adapter completed.", True, 504) from exc
+            raise ServiceError("UPSTREAM_TIMEOUT", "Gateway request timed out before the risk adapter completed.") from exc
         except ServiceError as exc:
             self.metrics.record_upstream_error("risk-adapter", exc.code)
             raise

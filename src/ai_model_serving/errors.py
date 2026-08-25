@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass
+from dataclasses import KW_ONLY, dataclass
 from typing import Any
 from uuid import uuid4
 
@@ -30,6 +30,36 @@ ERROR_STATUS = {
     "STREAM_LIMIT_EXCEEDED": 504,
     "MAIN_MODEL_CONTROL_UNAVAILABLE": 503,
     "MAIN_MODEL_SWITCH_IN_PROGRESS": 503,
+}
+
+# code -> retryable. 이 값은 code로 완전히 결정된다 -- 같은 code가 상황에 따라 다른
+# retryable로 나가면 클라이언트의 재시도 판단이 code마다 달라져 계약이 무너진다.
+# 그래서 호출 지점마다 손으로 적지 않고 여기서 유도한다(ERROR_STATUS와 같은 구조).
+# configs/error_catalog.yaml이 같은 값을 사용자용 의미 레이어로 서술하며,
+# make validate의 validate_common_error_codes가 양쪽 일치를 고정한다.
+ERROR_RETRYABLE = {
+    "VALIDATION_ERROR": False,
+    "UNAUTHORIZED": False,
+    "FORBIDDEN": False,
+    "NOT_FOUND": False,
+    "CONFLICT": False,
+    "GPU_BUDGET_EXCEEDED": False,
+    "MODEL_UNAVAILABLE": True,
+    "MODEL_CAPABILITY_MISMATCH": False,
+    "UPSTREAM_TIMEOUT": True,
+    "UPSTREAM_ERROR": True,
+    "UPSTREAM_SCHEMA_ERROR": True,
+    "RATE_LIMITED": True,
+    "QUEUE_TIMEOUT": True,
+    "CIRCUIT_OPEN": True,
+    "REQUEST_TOO_LARGE": False,
+    "RUNTIME_NOT_READY": True,
+    "PARSE_ERROR": True,
+    "INTERNAL_ERROR": False,
+    "DETECTOR_DISABLED": False,
+    "STREAM_LIMIT_EXCEEDED": False,
+    "MAIN_MODEL_CONTROL_UNAVAILABLE": True,
+    "MAIN_MODEL_SWITCH_IN_PROGRESS": True,
 }
 
 DEBUG_VALUE_LIMIT = 2_000
@@ -225,10 +255,21 @@ def error_response(
 
 @dataclass(frozen=True)
 class ServiceError(Exception):
+    """플랫폼 표준 오류. 필드는 불변이다.
+
+    주의: frozen dataclass라서 파이썬 레벨의 ``exc.__traceback__ = tb`` 대입이
+    ``FrozenInstanceError``로 터진다. 예외를 그냥 raise/전파하는 경로는 C 레벨에서
+    traceback을 세팅하므로 문제가 없지만, generator 기반 context manager
+    (``@contextmanager``/``@asynccontextmanager``)는 종료 시 그 대입을 수행한다.
+    따라서 ServiceError가 통과할 수 있는 구간을 그런 context manager로 감싸면
+    원래 오류가 ``FrozenInstanceError``에 가려진다 -- 그 구간에는 ``__aexit__``를
+    직접 구현한 클래스형 context manager를 쓴다
+    (``services/main_model_inflight.py`` 참고).
+    """
+
     code: str
     message: str
-    retryable: bool = False
-    status_code: int | None = None
+    _: KW_ONLY
     request_id: str | None = None
     param: str | None = None
     debug: dict[str, Any] | None = None
@@ -237,6 +278,18 @@ class ServiceError(Exception):
     # JSON body가 아니라 HTTP Retry-After 헤더로 노출되므로, 클라이언트는
     # payload를 파싱하지 않고도 읽을 수 있는 transport 레벨 힌트로 남는다.
     retry_after_seconds: float | None = None
+
+    @property
+    def status_code(self) -> int:
+        # status도 retryable과 같이 code로 결정된다(ERROR_STATUS). 호출 지점에서 따로
+        # 받던 시절엔 215곳 전부가 ERROR_STATUS와 같은 값을 손으로 적고 있었다.
+        return ERROR_STATUS.get(self.code, 500)
+
+    @property
+    def retryable(self) -> bool:
+        # 카탈로그에 없는 code는 validate가 잡는다. 런타임에서는 "재시도하지 말라"가
+        # 안전한 기본값이라 False로 떨어뜨린다.
+        return ERROR_RETRYABLE.get(self.code, False)
 
     def to_payload(self) -> dict[str, Any]:
         return error_payload(
@@ -252,6 +305,6 @@ class ServiceError(Exception):
         payload = self.to_payload()
         return JSONResponse(
             payload,
-            status_code=self.status_code or ERROR_STATUS.get(self.code, 500),
+            status_code=self.status_code,
             headers=error_response_headers(self.code, payload, self.retry_after_seconds),
         )

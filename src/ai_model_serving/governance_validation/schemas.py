@@ -219,6 +219,25 @@ def validate_common_error_codes() -> None:
     if not required.issubset(codes):
         raise SystemExit(f'common error code enum missing: {required - codes}')
 
+    # retryable은 code로 결정되며 errors.ERROR_RETRYABLE이 런타임 권위다. 호출 지점마다
+    # 손으로 적던 값을 여기로 모았으므로, 사용자용 의미 레이어(error_catalog.yaml)와
+    # 갈라지면 API가 "재시도하라"고 말하면서 문서는 반대로 적는 상태가 된다.
+    import sys as _sys
+    _sys.path.insert(0, str(ROOT / 'src'))
+    from ai_model_serving.errors import ERROR_RETRYABLE, ERROR_STATUS
+    catalog_errors = read_yaml('configs/error_catalog.yaml')['errors']
+    missing = set(ERROR_STATUS) - set(ERROR_RETRYABLE)
+    if missing:
+        raise SystemExit(f'ERROR_RETRYABLE missing entries for: {sorted(missing)}')
+    for code, entry in catalog_errors.items():
+        declared = entry.get('retryable')
+        runtime = ERROR_RETRYABLE.get(code)
+        if declared != runtime:
+            raise SystemExit(
+                f'error_catalog.yaml {code}.retryable={declared} disagrees with '
+                f'errors.ERROR_RETRYABLE={runtime}'
+            )
+
     # ServiceError의 첫 인자는 실제 API 응답 error.code가 된다. 구현 전체를
     # 문자열로 검사하는 것이 아니라, 이 공개 경계에 도달하는 literal만 수집해
     # 에러 카탈로그/상태 정의 밖의 코드를 배포 전에 막는다.

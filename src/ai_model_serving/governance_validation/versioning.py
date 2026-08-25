@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import os
 import re
-import sys
 import tomllib
 
 from .common import (
@@ -64,18 +62,13 @@ def validate_version_alignment() -> None:
         raise SystemExit('version_manifest.json image_tags.risk_vllm is not aligned with VERSION')
 
 def validate_python_compatibility() -> None:
+    """`.python-version`이 지원 범위 안의 patch release인지 확인한다.
+
+    실행 중인 interpreter 자체는 여기서 보지 않는다 -- scripts/build/check_python.py가
+    validate/test/start/package 등 모든 진입점에서 먼저 그걸 검사하므로, 여기서 또
+    검사하면 같은 정책이 두 곳에 살면서 갈라진다.
+    """
     py_version = (ROOT / '.python-version').read_text(encoding='utf-8').strip()
     match = re.fullmatch(r'(\d+)\.(\d+)\.\d+', py_version)
     if not match or not ((3, 12) <= (int(match.group(1)), int(match.group(2))) < (3, 15)):
         raise SystemExit(f'.python-version must be a >=3.12,<3.15 patch release, got {py_version!r}')
-
-    if not ((3, 12) <= sys.version_info[:2] < (3, 15)):
-        raise SystemExit(
-            f'CPython >=3.12,<3.15 is required, got {sys.version.split()[0]}'
-        )
-
-    if os.getenv('STRICT_PYTHON_VERSION') == '1' and sys.version_info[:2] != (3, 12):
-        raise SystemExit(
-            f'CPython 3.12.x is required when STRICT_PYTHON_VERSION=1, '
-            f'got {sys.version.split()[0]}'
-        )

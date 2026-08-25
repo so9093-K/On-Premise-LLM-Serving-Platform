@@ -56,7 +56,7 @@ def test_runtime_state_store_honors_explicit_empty_controllable_keys(tmp_path):
 
     asyncio.run(store.set("embedding", RuntimeState.stopped))
 
-    assert asyncio.run(store.all()) == {}
+    assert asyncio.run(store.all_records()) == {}
     assert not path.exists()
 
 

@@ -35,10 +35,7 @@ def _validate_with_schema(payload: Any, schema_name: str, label: str) -> dict[st
         path = ".".join(str(part) for part in exc.absolute_path)
         location = f" at {path}" if path else ""
         raise ServiceError(
-            "VALIDATION_ERROR",
-            f"{label} request schema violation{location}: {exc.message}",
-            False,
-            422,
+            "VALIDATION_ERROR", f"{label} request schema violation{location}: {exc.message}",
         ) from exc
     return payload
 

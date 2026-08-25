@@ -127,38 +127,32 @@ def _validate_json_schema_subset(schema: dict[str, Any], *, policy: dict[str, An
             ref = obj.get("$ref")
             if not isinstance(ref, str) or not ref.startswith("#"):
                 raise ServiceError(
-                    "VALIDATION_ERROR",
-                    "response_format.json_schema.schema only supports local $ref values that start with '#'; replace external refs with local $defs.",
-                    False,
-                    422,
+                    "VALIDATION_ERROR", "response_format.json_schema.schema only supports local $ref values that start with '#'; replace external refs with local $defs.",
                 )
             blocked = sorted(disallowed.intersection(obj))
         if blocked:
-            raise ServiceError("VALIDATION_ERROR", f"response_format.json_schema.schema uses unsupported keyword(s): {', '.join(blocked)}.", False, 422)
+            raise ServiceError("VALIDATION_ERROR", f"response_format.json_schema.schema uses unsupported keyword(s): {', '.join(blocked)}.")
 
     try:
         Draft202012Validator.check_schema(schema)
     except SchemaError as exc:
         raise ServiceError(
-            "VALIDATION_ERROR",
-            "response_format.json_schema.schema must be a valid JSON Schema.",
-            False,
-            422,
+            "VALIDATION_ERROR", "response_format.json_schema.schema must be a valid JSON Schema.",
         ) from exc
 
     encoded = json.dumps(schema, ensure_ascii=False, separators=(",", ":"), sort_keys=True).encode("utf-8")
     max_schema_bytes = _schema_limit(policy, "max_schema_bytes", 16384)
     if len(encoded) > max_schema_bytes:
-        raise ServiceError("VALIDATION_ERROR", f"response_format.json_schema.schema must be {max_schema_bytes} bytes or fewer.", False, 422)
+        raise ServiceError("VALIDATION_ERROR", f"response_format.json_schema.schema must be {max_schema_bytes} bytes or fewer.")
     max_depth = _schema_limit(policy, "max_depth", 8)
     if _schema_depth(schema) > max_depth:
-        raise ServiceError("VALIDATION_ERROR", f"response_format.json_schema.schema depth must be {max_depth} or fewer.", False, 422)
+        raise ServiceError("VALIDATION_ERROR", f"response_format.json_schema.schema depth must be {max_depth} or fewer.")
     if policy.get("require_root_object", True) is True and schema.get("type") != "object":
-        raise ServiceError("VALIDATION_ERROR", "response_format.json_schema.schema root type must be object; wrap the response fields in an object schema.", False, 422)
+        raise ServiceError("VALIDATION_ERROR", "response_format.json_schema.schema root type must be object; wrap the response fields in an object schema.")
     root_disallowed = set(policy.get("root_disallowed_keywords", ["anyOf"]))
     for keyword in root_disallowed:
         if keyword in schema:
-            raise ServiceError("VALIDATION_ERROR", f"response_format.json_schema.schema root keyword is not supported in Phase 1: {keyword}.", False, 422)
+            raise ServiceError("VALIDATION_ERROR", f"response_format.json_schema.schema root keyword is not supported in Phase 1: {keyword}.")
 
     max_total_properties = _schema_limit(policy, "max_total_properties", 64)
     max_properties_per_object = _schema_limit(policy, "max_properties_per_object", 32)
@@ -172,46 +166,37 @@ def _validate_json_schema_subset(schema: dict[str, Any], *, policy: dict[str, An
     total_enum_values = 0
 
     if _total_schema_string_length(schema) > max_total_schema_string_length:
-        raise ServiceError("VALIDATION_ERROR", f"response_format.json_schema.schema string content must be {max_total_schema_string_length} characters or fewer.", False, 422)
+        raise ServiceError("VALIDATION_ERROR", f"response_format.json_schema.schema string content must be {max_total_schema_string_length} characters or fewer.")
 
     for obj in _iter_schema_objects(schema):
         blocked = sorted(disallowed.intersection(obj))
         if blocked:
-            raise ServiceError("VALIDATION_ERROR", f"response_format.json_schema.schema uses unsupported keyword(s): {', '.join(blocked)}.", False, 422)
+            raise ServiceError("VALIDATION_ERROR", f"response_format.json_schema.schema uses unsupported keyword(s): {', '.join(blocked)}.")
         properties = obj.get("properties")
         is_object_schema = obj.get("type") == "object" or isinstance(properties, dict)
         if is_object_schema and policy.get("require_additional_properties_false", True) is True and obj.get("additionalProperties") is not False:
-            raise ServiceError("VALIDATION_ERROR", "every object schema in response_format.json_schema.schema must set additionalProperties:false; add additionalProperties:false to each object schema.", False, 422)
+            raise ServiceError("VALIDATION_ERROR", "every object schema in response_format.json_schema.schema must set additionalProperties:false; add additionalProperties:false to each object schema.")
         if isinstance(properties, dict):
             count = len(properties)
             total_properties += count
             if count > max_properties_per_object:
-                raise ServiceError("VALIDATION_ERROR", f"object schemas may define at most {max_properties_per_object} properties.", False, 422)
+                raise ServiceError("VALIDATION_ERROR", f"object schemas may define at most {max_properties_per_object} properties.")
             for name in properties:
                 if not isinstance(name, str) or len(name) > max_property_name_length:
-                    raise ServiceError("VALIDATION_ERROR", f"schema property names must be strings of {max_property_name_length} chars or fewer.", False, 422)
+                    raise ServiceError("VALIDATION_ERROR", f"schema property names must be strings of {max_property_name_length} chars or fewer.")
         if is_object_schema and isinstance(properties, dict):
             required = obj.get("required")
             if not isinstance(required, list):
                 raise ServiceError(
-                    "VALIDATION_ERROR",
-                    "every object schema with properties must define required as an array; include every property name in required.",
-                    False,
-                    422,
+                    "VALIDATION_ERROR", "every object schema with properties must define required as an array; include every property name in required.",
                 )
             if not all(isinstance(item, str) for item in required):
                 raise ServiceError(
-                    "VALIDATION_ERROR",
-                    "response_format.json_schema.schema required entries must be strings.",
-                    False,
-                    422,
+                    "VALIDATION_ERROR", "response_format.json_schema.schema required entries must be strings.",
                 )
             if set(required) != set(properties):
                 raise ServiceError(
-                    "VALIDATION_ERROR",
-                    "every object schema must list all properties in required; use nullable type unions like ['string','null'] to emulate optional fields.",
-                    False,
-                    422,
+                    "VALIDATION_ERROR", "every object schema must list all properties in required; use nullable type unions like ['string','null'] to emulate optional fields.",
                 )
         required = obj.get("required")
         if isinstance(required, list):
@@ -221,10 +206,10 @@ def _validate_json_schema_subset(schema: dict[str, Any], *, policy: dict[str, An
             total_enum_values += len(enum)
             for item in enum:
                 if isinstance(item, str) and len(item) > max_enum_string_length:
-                    raise ServiceError("VALIDATION_ERROR", f"schema enum strings must be {max_enum_string_length} chars or fewer.", False, 422)
+                    raise ServiceError("VALIDATION_ERROR", f"schema enum strings must be {max_enum_string_length} chars or fewer.")
     if total_properties > max_total_properties:
-        raise ServiceError("VALIDATION_ERROR", f"response_format.json_schema.schema may define at most {max_total_properties} total properties.", False, 422)
+        raise ServiceError("VALIDATION_ERROR", f"response_format.json_schema.schema may define at most {max_total_properties} total properties.")
     if total_required > max_required:
-        raise ServiceError("VALIDATION_ERROR", f"response_format.json_schema.schema may define at most {max_required} required entries.", False, 422)
+        raise ServiceError("VALIDATION_ERROR", f"response_format.json_schema.schema may define at most {max_required} required entries.")
     if total_enum_values > max_enum_values:
-        raise ServiceError("VALIDATION_ERROR", f"response_format.json_schema.schema may define at most {max_enum_values} enum values.", False, 422)
+        raise ServiceError("VALIDATION_ERROR", f"response_format.json_schema.schema may define at most {max_enum_values} enum values.")

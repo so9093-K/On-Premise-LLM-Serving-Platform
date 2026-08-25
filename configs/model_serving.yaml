@@ -165,11 +165,6 @@ models:
         max_model_len: 8192
         max_output_tokens: 1
       # detector는 위험 신호만 반환하며 정책 결정이나 allow/block 판단을 대신하지 않는다.
-    runtime_features:
-      tool_calling:
-        enabled: false
-      prefix_caching:
-        enabled: false
     request_parameter_policy:
       allow_unlisted_parameters: false
       supported_parameters:

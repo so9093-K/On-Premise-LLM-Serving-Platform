@@ -47,15 +47,24 @@ vllm_unified_resolve_images() {
   local canonical_base_image
   canonical_base_image="$(vllm_unified_canonical_base_image)"
 
-  local file_risk file_base file_main
+  local file_risk file_main
   file_risk="$(vllm_unified_env_file_value "$env_file" RISK_VLLM_IMAGE 2>/dev/null || true)"
-  file_base="$(vllm_unified_env_file_value "$env_file" RISK_VLLM_BASE_IMAGE 2>/dev/null || true)"
   file_main="$(vllm_unified_env_file_value "$env_file" VLLM_IMAGE 2>/dev/null || true)"
 
   VLLM_IMAGE_RESOLVED="${VLLM_IMAGE:-${file_main:-$default_image}}"
-  # 환경 변수/.env 값은 운영 환경의 명시적 override로만 허용한다. 값이 없을 때는
-  # vllm_unified_build.yaml의 immutable base digest 하나를 모든 경로가 사용한다.
-  RISK_VLLM_BASE_IMAGE_RESOLVED="${RISK_VLLM_BASE_IMAGE:-${file_base:-$canonical_base_image}}"
+  # base override는 프로세스 환경변수로만 받는다. .env는 일부러 읽지 않는다 --
+  # base가 영속 파일에 적히면 값이 낡아도 아무도 모르고, 그 파일 하나 때문에
+  # canonical digest가 조용히 무시된다(실제로 배포 서버 .env에 부팅 실패로 폐기된
+  # base 태그가 남아 있었다). 그래서 RISK_VLLM_BASE_IMAGE는 env_contract.yaml의
+  # removed_keys에 등록되어 sync-env가 .env에서 제거하며, 여기서도 읽지 않는다.
+  # 한 번의 빌드에만 적용되는 override는 `RISK_VLLM_BASE_IMAGE=... make ...`로 준다.
+  RISK_VLLM_BASE_IMAGE_RESOLVED="${RISK_VLLM_BASE_IMAGE:-$canonical_base_image}"
+  # override는 반드시 immutable digest여야 한다. 태그를 허용하면 재현 불가능한
+  # 이미지가 조용히 만들어진다(ops/images/vllm-unified/README.md).
+  if [[ "$RISK_VLLM_BASE_IMAGE_RESOLVED" != *"@sha256:"* ]]; then
+    echo "[vllm-unified] ERROR: RISK_VLLM_BASE_IMAGE must be a digest (name@sha256:...), got ${RISK_VLLM_BASE_IMAGE_RESOLVED}" >&2
+    return 2
+  fi
   RISK_VLLM_IMAGE_RESOLVED="${RISK_VLLM_IMAGE:-${file_risk:-$default_image}}"
 
   export VLLM_IMAGE_RESOLVED

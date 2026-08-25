@@ -87,21 +87,51 @@ def test_setup_env_preserves_operator_values_on_force_but_rotates_generated_secr
     assert 'API_KEYS=old-secret' not in text
 
 
-def test_setup_env_force_removes_yaml_owned_env_overrides(tmp_path):
-    # YAML이 source-of-truth인 운영 한도에 오래된 .env 값이 남으면 YAML 변경을
-    # 조용히 가릴 수 있다. YAML_OWNED_ENV_KEYS 전체를 순회해 이 관계만 보호한다.
+def test_setup_env_force_removes_registered_env_overrides(tmp_path):
+    # yaml이 소유하는 운영 한도에 오래된 .env 값이 남으면 yaml 변경을 조용히
+    # 가릴 수 있다. --force 경로도 sync 경로와 같은 목록을 지우는지만 본다.
     out = tmp_path / '.env'
     out.write_text(
-        ''.join(f'{key}=placeholder\n' for key in setup_env.YAML_OWNED_ENV_KEYS)
+        ''.join(f'{key}=placeholder\n' for key in setup_env.REMOVED_ENV_KEYS)
         + 'HF_TOKEN=hf_existing\n',
         encoding='utf-8',
     )
     rc = setup_env.main(['--profile', 'compose', '--output', str(out), '--force'])
     assert rc == 0
     text = out.read_text(encoding='utf-8')
-    for key in setup_env.YAML_OWNED_ENV_KEYS:
+    for key in setup_env.REMOVED_ENV_KEYS:
         assert not any(line.startswith(f'{key}=') for line in text.splitlines()), key
     assert 'HF_TOKEN=hf_existing' in text
+
+
+def test_sync_env_removes_only_registered_keys_and_keeps_server_only_settings(tmp_path):
+    """sync-env의 제거 기준은 "등록된 키"이지 "템플릿에 없는 키"가 아니다.
+
+    deploy_gitlab_compose.sh가 이미지 참조 갱신 직후 이 경로를 호출하므로, 제거
+    기준이 템플릿 유무로 바뀌면 배포 서버에만 존재하는 운영 설정(상태 파일 경로 등)이
+    배포할 때마다 사라진다. 등록된 키는 지우고 나머지 값은 건드리지 않는다는 두 방향을
+    함께 고정한다.
+    """
+    out = tmp_path / '.env'
+    out.write_text(
+        'BUILD_PROFILE=compose\n'
+        # 템플릿에 없지만 서버가 실제로 쓰는 설정 -- 보존되어야 한다.
+        'MAIN_MODEL_STATE_PATH=/app/.runtime/main-model/main-model-state.json\n'
+        'SECRETS_GENERATED_AT=2026-05-11T07:33:08Z\n'
+        'HF_TOKEN=hf_existing\n'
+        + ''.join(f'{key}=placeholder\n' for key in setup_env.REMOVED_ENV_KEYS),
+        encoding='utf-8',
+    )
+
+    rc = setup_env.main(['--sync-env', '--env-file', str(out)])
+
+    assert rc == 0
+    lines = out.read_text(encoding='utf-8').splitlines()
+    for key in setup_env.REMOVED_ENV_KEYS:
+        assert not any(line.startswith(f'{key}=') for line in lines), key
+    assert 'MAIN_MODEL_STATE_PATH=/app/.runtime/main-model/main-model-state.json' in lines
+    assert 'SECRETS_GENERATED_AT=2026-05-11T07:33:08Z' in lines
+    assert 'HF_TOKEN=hf_existing' in lines
 
 
 def test_setup_env_force_preserves_custom_risk_vllm_image(tmp_path):

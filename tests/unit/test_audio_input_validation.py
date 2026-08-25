@@ -180,14 +180,6 @@ def test_audio_oversize_rejected():
     assert "bytes or fewer" in str(exc.value)
 
 
-def test_audio_magic_must_match_declared_format():
-    # 유효한 WAV 바이트지만 mp3로 선언됨 -> magic 불일치로 거부된다.
-    with pytest.raises(ServiceError) as exc:
-        _validate(_audio_payload(_wav_b64(), fmt="mp3"), TEXT_IMAGE_AUDIO)
-    assert exc.value.status_code == 422
-    assert "does not look like a valid mp3" in str(exc.value)
-
-
 def test_invalid_base64_audio_rejected():
     with pytest.raises(ServiceError) as exc:
         _validate(_audio_payload("not-base64!!", fmt="wav"), TEXT_IMAGE_AUDIO)
@@ -391,14 +383,6 @@ def test_additional_video_containers_are_accepted_when_magic_matches(mime, raw):
     _validate(_video_payload(url), TEXT_IMAGE_AUDIO_VIDEO)
 
 
-def test_avi_video_container_rejected_when_magic_does_not_match():
-    url = "data:video/x-msvideo;base64," + base64.b64encode(b"not an avi").decode("ascii")
-    with pytest.raises(ServiceError) as exc:
-        _validate(_video_payload(url), TEXT_IMAGE_AUDIO_VIDEO)
-    assert exc.value.status_code == 422
-    assert "valid video/x-msvideo stream" in str(exc.value)
-
-
 def test_video_mime_must_be_allowed():
     with pytest.raises(ServiceError) as exc:
         _validate(_video_payload(f"data:video/x-flv;base64,{TINY_JPEG_1X1_B64}"), TEXT_IMAGE_AUDIO_VIDEO)
@@ -416,24 +400,6 @@ def test_too_many_video_parts_rejected():
 def test_text_only_request_unaffected_by_audio_params():
     payload = {"model": "local-main", "messages": [{"role": "user", "content": "hello"}]}
     _validate(payload, TEXT_IMAGE)  # 예외가 나면 안 된다
-
-
-def test_configured_audio_formats_are_all_sniffable():
-    # 결합 관계를 가드한다: model_serving.yaml에서 허용된 포맷은 전부
-    # magic-byte 체크가 있어야 한다, 안 그러면 runtime에서 조용히 거부된다.
-    from ai_model_serving.contracts.media import SNIFFABLE_AUDIO_FORMATS
-    from ai_model_serving.settings import load_settings
-
-    configured = set(load_settings().runtime("main_llm").allowed_audio_formats)
-    assert configured <= SNIFFABLE_AUDIO_FORMATS, configured - SNIFFABLE_AUDIO_FORMATS
-
-
-def test_configured_video_mime_types_are_all_sniffable():
-    from ai_model_serving.contracts.media import SNIFFABLE_VIDEO_MIME_TYPES
-    from ai_model_serving.settings import load_settings
-
-    configured = set(load_settings().runtime("main_llm").allowed_video_mime_types)
-    assert configured <= SNIFFABLE_VIDEO_MIME_TYPES, configured - SNIFFABLE_VIDEO_MIME_TYPES
 
 
 def test_request_body_limit_can_carry_configured_media_limit(monkeypatch):

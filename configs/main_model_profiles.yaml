@@ -88,24 +88,7 @@ profiles:
         max_image_bytes: 25000000
         max_image_pixels: 12845056
         allowed_image_mime_types: [image/jpeg, image/png, image/webp, image/avif, image/jp2, image/gif, image/bmp, image/tiff, image/x-tiff]
-      runtime_features: &gemma4_runtime_features
-        prefix_caching:
-          enabled: true
-          hash_algo: sha256_cbor
-        tool_calling:
-          enabled: true
-          auto_tool_choice: true
-          tool_call_parser: gemma4
-          reasoning_parser: gemma4
-          allow_parallel_tool_calls: false
-          chat_template: /app/configs/gemma4_chat_template.jinja
-        structured_outputs:
-          enabled: true
-          backend: xgrammar
-          disable_any_whitespace: true
-          # reasoning 종료 뒤 최종 답변에만 JSON schema grammar를 적용한다.
-          enable_in_reasoning: false
-      request_parameter_policy: &gemma4_request_parameter_policy
+      request_parameter_policy:
         allow_unlisted_parameters: false
         supported_parameters: [stream, stream_options, temperature, max_tokens, top_p, top_k, min_p, presence_penalty, frequency_penalty, repetition_penalty, stop, seed, n, tools, tool_choice, parallel_tool_calls, reasoning, response_format, logprobs, top_logprobs, logit_bias]
         max_n: 1
@@ -359,17 +342,6 @@ profiles:
         max_video_duration_seconds: 60
       # 동일 image·revision의 parser runtime에서 구조화된 tool_calls와 reasoning 분리를
       # 확인했다. 템플릿 경로와 parser 이름은 command와 같은 단일 계약으로 유지한다.
-      runtime_features:
-        tool_calling:
-          enabled: true
-          auto_tool_choice: true
-          tool_call_parser: gemma4
-          reasoning_parser: gemma4
-          allow_parallel_tool_calls: false
-          chat_template: /app/configs/gemma4_chat_template.jinja
-        structured_outputs:
-          enabled: true
-          backend: xgrammar
       request_parameter_policy:
         allow_unlisted_parameters: false
         supported_parameters: [stream, stream_options, temperature, max_tokens, top_p, top_k, min_p, presence_penalty, frequency_penalty, repetition_penalty, stop, seed, n, tools, tool_choice, parallel_tool_calls, reasoning, response_format, logprobs, top_logprobs, logit_bias]
@@ -497,10 +469,6 @@ profiles:
         max_video_duration_seconds: 60
       # tool_calling/reasoning은 선언하지 않아 Gateway가 거부한다. 아래 세 기능은 vLLM
       # 직접 요청과 Gateway 경유 계약을 모두 확인했다.
-      runtime_features:
-        structured_outputs:
-          enabled: true
-          backend: xgrammar
       request_parameter_policy:
         allow_unlisted_parameters: false
         supported_parameters: [stream, stream_options, temperature, max_tokens, top_p, top_k, min_p, presence_penalty, frequency_penalty, repetition_penalty, stop, seed, n, response_format, logprobs, top_logprobs, logit_bias]

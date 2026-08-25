@@ -24,7 +24,7 @@ from .media import validate_message_content
 
 
 def _validation_error(param: str, message: str) -> ServiceError:
-    return ServiceError("VALIDATION_ERROR", message, False, 422, param=param)
+    return ServiceError("VALIDATION_ERROR", message, param=param)
 
 
 def _validate_stream_options(value: Any) -> None:
@@ -266,20 +266,12 @@ def validate_chat_request(
             if message_unsupported_fields:
                 names = ", ".join(message_unsupported_fields)
                 raise ServiceError(
-                    "VALIDATION_ERROR",
-                    f"messages[{index}] contains unsupported tool-calling field(s): {names}.",
-                    False,
-                    422,
-                    param=f"messages[{index}].{message_unsupported_fields[0]}",
+                    "VALIDATION_ERROR", f"messages[{index}] contains unsupported tool-calling field(s): {names}.", param=f"messages[{index}].{message_unsupported_fields[0]}",
                 )
         role = message.get("role")
         if role not in allowed_roles:
             raise ServiceError(
-                "VALIDATION_ERROR",
-                f"messages[{index}].role must be one of {sorted(allowed_roles)}.",
-                False,
-                422,
-                param=f"messages[{index}].role",
+                "VALIDATION_ERROR", f"messages[{index}].role must be one of {sorted(allowed_roles)}.", param=f"messages[{index}].role",
             )
         reject_unknown_fields(message, _allowed_message_fields(role, tool_enabled=tool_enabled), f"messages[{index}]")
         if "name" in message and (not isinstance(message["name"], str) or not message["name"].strip()):

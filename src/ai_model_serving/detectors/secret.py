@@ -68,8 +68,8 @@ _GENERIC_ENTROPY_THRESHOLD = 4.5
 
 
 def _shannon_entropy(s: str) -> float:
-    if not s:
-        return 0.0
+    # 빈 문자열 가드는 두지 않는다: 호출자는 _GENERIC_CANDIDATE_RE({32,}) 매치만
+    # 넘기므로 도달하지 않고, 도달하더라도 freq가 비어 아래 합이 그대로 0이 된다.
     freq = Counter(s)
     length = len(s)
     return -sum((c / length) * math.log2(c / length) for c in freq.values())

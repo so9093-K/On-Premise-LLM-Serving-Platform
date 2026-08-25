@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
+from contextlib import AsyncExitStack
 from typing import Any
 
 from fastapi import APIRouter, Body, Request
@@ -158,7 +159,8 @@ def build_router(
         )
         if sidecar is not None:
             try:
-                active_snapshot = await sidecar.main_model()
+                # /v1/models는 active profile의 modality·정책만 읽는다.
+                active_snapshot = await sidecar.main_model(observed=False)
             except SidecarUnavailableError:
                 active_snapshot = None
             if isinstance(active_snapshot, dict):
@@ -204,24 +206,29 @@ def build_router(
         request: Request,
         payload: dict[str, Any] = Body(...),
     ) -> Any:
-        tracking = main_model_inflight.track() if main_model_inflight is not None else None
-        if tracking is not None:
-            await tracking.__aenter__()
-        active_modalities: tuple[str, ...] | None = None
-        gateway_policy: dict[str, Any] | None = None
-        try:
+        # in-flight 집계는 sidecar가 전환 전 drain을 기다릴 때 보는 값이라, 어떤
+        # 경로로 빠져나가도 정확히 한 번 해제되어야 한다(해제를 빠뜨리면 drain이
+        # 영원히 0을 못 봐서 전환이 타임아웃된다). 해제 지점을 분기마다 손으로
+        # 적는 대신 stack에 맡긴다 -- streaming만 예외적으로 응답 본문이 다 나갈
+        # 때까지 살아있어야 하므로 pop_all()로 소유권을 generator에 넘긴다.
+        async with AsyncExitStack() as stack:
+            if main_model_inflight is not None:
+                await stack.enter_async_context(main_model_inflight.track())
+            active_modalities: tuple[str, ...] | None = None
+            gateway_policy: dict[str, Any] | None = None
             if sidecar is not None:
                 try:
-                    main_model = await sidecar.main_model()
+                    # 요청 경로에서는 gate와 active profile만 필요하다.
+                    main_model = await sidecar.main_model(observed=False)
                 except SidecarUnavailableError as exc:
-                    if tracking is not None:
-                        await tracking.__aexit__(None, None, None)
-                    payload = error_payload("MAIN_MODEL_CONTROL_UNAVAILABLE", str(exc), True)
+                    unavailable = error_payload(
+                        "MAIN_MODEL_CONTROL_UNAVAILABLE", str(exc), True
+                    )
                     return JSONResponse(
-                        payload,
+                        unavailable,
                         status_code=503,
                         headers=error_response_headers(
-                            "MAIN_MODEL_CONTROL_UNAVAILABLE", payload, retry_after_seconds=5
+                            "MAIN_MODEL_CONTROL_UNAVAILABLE", unavailable, retry_after_seconds=5
                         ),
                     )
                 if main_model.get("gate") != "open":
@@ -233,8 +240,6 @@ def build_router(
                     )
                     body["error"]["operation_id"] = operation.get("id")
                     body["error"]["operation_status"] = operation.get("status")
-                    if tracking is not None:
-                        await tracking.__aexit__(None, None, None)
                     return JSONResponse(
                         body,
                         status_code=503,
@@ -244,54 +249,38 @@ def build_router(
                     )
                 active_modalities = _active_input_modalities(main_model)
                 gateway_policy = _active_gateway_policy(main_model)
-        except Exception:
-            if tracking is not None:
-                await tracking.__aexit__(None, None, None)
-            raise
-        if payload.get("stream") is True:
-            try:
+
+            if payload.get("stream") is True:
                 upstream_stream = service.stream_chat_completion(
                     payload, active_modalities=active_modalities, gateway_policy=gateway_policy
                 )
-            except Exception:
-                if tracking is not None:
-                    await tracking.__aexit__(None, None, None)
-                raise
+                stream_scope = stack.pop_all()
 
-            async def tracked_stream() -> AsyncIterator[bytes]:
-                try:
-                    async for chunk in upstream_stream:
-                        yield chunk
-                finally:
-                    if tracking is not None:
-                        await tracking.__aexit__(None, None, None)
-            return StreamingResponse(
-                tracked_stream(),
-                media_type="text/event-stream",
-                headers={
-                    "Cache-Control": "no-cache",
-                    "X-Accel-Buffering": "no",
-                },
-            )
-        if tracking is None:
+                async def tracked_stream() -> AsyncIterator[bytes]:
+                    async with stream_scope:
+                        async for chunk in upstream_stream:
+                            yield chunk
+
+                return StreamingResponse(
+                    tracked_stream(),
+                    media_type="text/event-stream",
+                    headers={
+                        "Cache-Control": "no-cache",
+                        "X-Accel-Buffering": "no",
+                    },
+                )
+
             result = await service.create_chat_completion(
                 payload, active_modalities=active_modalities, gateway_policy=gateway_policy
             )
-        else:
-            try:
-                result = await service.create_chat_completion(
-                    payload, active_modalities=active_modalities, gateway_policy=gateway_policy
+            record_token_usage(request, result.get("usage"))
+            if settings.log_request_response_body:
+                record_request_response_preview(
+                    request,
+                    request_text=_chat_text_preview(payload),
+                    response_text=_chat_response_preview(result),
                 )
-            finally:
-                await tracking.__aexit__(None, None, None)
-        record_token_usage(request, result.get("usage"))
-        if settings.log_request_response_body:
-            record_request_response_preview(
-                request,
-                request_text=_chat_text_preview(payload),
-                response_text=_chat_response_preview(result),
-            )
-        return result
+            return result
 
     _s = _GW[("POST", "/v1/embeddings")]
 
@@ -315,10 +304,7 @@ def build_router(
             state = await state_store.get(service_key)
             if state in (RuntimeState.stopped, RuntimeState.starting):
                 raise ServiceError(
-                    "MODEL_UNAVAILABLE",
-                    f"{service_key} runtime is {state.value}. Start it with PATCH /admin/runtimes/{service_key}.",
-                    True,
-                    503,
+                    "MODEL_UNAVAILABLE", f"{service_key} runtime is {state.value}. Start it with PATCH /admin/runtimes/{service_key}.",
                 )
         result = await service.create_embedding(payload)
         record_token_usage(request, result.get("usage"))

@@ -308,10 +308,6 @@ def load_main_model_catalog(
                 raise MainModelConfigurationError(
                     f"profile {profile_id} gateway_policy.request_parameter_policy must be an object"
                 )
-            if not isinstance(gateway_policy.get("runtime_features"), dict):
-                raise MainModelConfigurationError(
-                    f"profile {profile_id} gateway_policy.runtime_features must be an object"
-                )
             try:
                 if int(gateway_policy.get("max_output_tokens", 0)) <= 0:
                     raise ValueError
@@ -379,7 +375,6 @@ class MainModelRuntimeBackend(Protocol):
     async def validate(self, catalog: MainModelCatalog, profile: MainModelProfile) -> None: ...
     async def stop(self, catalog: MainModelCatalog) -> None: ...
     async def start(self, catalog: MainModelCatalog) -> None: ...
-    async def is_running(self, catalog: MainModelCatalog) -> bool: ...
     async def observed_started_at(self, catalog: MainModelCatalog) -> str | None: ...
 
 

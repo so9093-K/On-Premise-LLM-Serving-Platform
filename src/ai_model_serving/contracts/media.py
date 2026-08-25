@@ -83,6 +83,10 @@ def _webp_dimensions(decoded: bytes) -> tuple[int, int] | None:
     return None
 
 
+def _is_iso_bmff(decoded: bytes) -> bool:
+    return len(decoded) >= 12 and decoded[4:8] == b"ftyp"
+
+
 def _avif_dimensions(decoded: bytes) -> tuple[int, int] | None:
     if not _is_iso_bmff(decoded):
         return None
@@ -303,79 +307,36 @@ def _validate_data_image_url(
 ) -> None:
     header, sep, encoded = url.partition(",")
     if sep != "," or not header.startswith("data:image/"):
-        raise ServiceError("VALIDATION_ERROR", "image_url.url must be a data:image/...;base64,... URL.", False, 422)
+        raise ServiceError("VALIDATION_ERROR", "image_url.url must be a data:image/...;base64,... URL.")
     media_type = header[5:].split(";", 1)[0].lower()
     if allowed_image_mime_types and media_type not in allowed_image_mime_types:
         allowed = ", ".join(sorted(allowed_image_mime_types))
-        raise ServiceError("VALIDATION_ERROR", f"image_url MIME type is {media_type}; use one of: {allowed}.", False, 422)
+        raise ServiceError("VALIDATION_ERROR", f"image_url MIME type is {media_type}; use one of: {allowed}.")
     if ";base64" not in header.lower():
-        raise ServiceError("VALIDATION_ERROR", "image_url data images must include ';base64' and a base64 payload.", False, 422)
+        raise ServiceError("VALIDATION_ERROR", "image_url data images must include ';base64' and a base64 payload.")
     try:
         decoded = _decode_media_base64(encoded)
     except (binascii.Error, ValueError) as exc:
-        raise ServiceError("VALIDATION_ERROR", "image_url data image must contain valid base64 after the comma.", False, 422) from exc
+        raise ServiceError("VALIDATION_ERROR", "image_url data image must contain valid base64 after the comma.") from exc
     if max_image_bytes and len(decoded) > max_image_bytes:
-        raise ServiceError("VALIDATION_ERROR", f"image_url decoded image is {len(decoded)} bytes; reduce it to {max_image_bytes} bytes or fewer.", False, 422)
+        raise ServiceError("VALIDATION_ERROR", f"image_url decoded image is {len(decoded)} bytes; reduce it to {max_image_bytes} bytes or fewer.")
     if media_type == "image/gif":
         metadata = _gif_metadata(decoded)
         if metadata is None:
-            raise ServiceError("VALIDATION_ERROR", "image_url image dimensions could not be read safely; send a supported single static image.", False, 422)
+            raise ServiceError("VALIDATION_ERROR", "image_url image dimensions could not be read safely; send a supported single static image.")
         _width, _height, frame_count, _duration_seconds = metadata
         if frame_count > 1:
             raise ServiceError(
-                "VALIDATION_ERROR",
-                "animated image/gif is not supported as image input; use video_url with data:video/gif for motion analysis.",
-                False,
-                422,
+                "VALIDATION_ERROR", "animated image/gif is not supported as image input; use video_url with data:video/gif for motion analysis.",
             )
     dimensions = _image_dimensions(decoded)
     if dimensions is None:
-        raise ServiceError("VALIDATION_ERROR", "image_url image dimensions could not be read safely; send a supported single static image.", False, 422)
+        raise ServiceError("VALIDATION_ERROR", "image_url image dimensions could not be read safely; send a supported single static image.")
     width, height = dimensions
     if width < 1 or height < 1:
-        raise ServiceError("VALIDATION_ERROR", "image_url image dimensions must be positive.", False, 422)
+        raise ServiceError("VALIDATION_ERROR", "image_url image dimensions must be positive.")
     if max_image_pixels and width * height > max_image_pixels:
-        raise ServiceError("VALIDATION_ERROR", f"image_url image has {width * height} pixels; resize it to {max_image_pixels} pixels or fewer.", False, 422)
-
-
-# _audio_format_matches()가 magic byte로 검증할 수 있는 포맷들. 설정된
-# `allowed_audio_formats`(model_serving.yaml)는 반드시 이 집합의 부분집합으로
-# 유지되어야 한다: config에서는 허용되지만 여기에 없는 포맷은 magic check에서
-# 항상 실패하여 조용히 거부된다. 두 곳을 함께 확장해야 한다.
-SNIFFABLE_AUDIO_FORMATS: frozenset[str] = frozenset({"wav", "flac", "ogg", "mp3", "m4a", "mp4", "aac"})
-SNIFFABLE_VIDEO_MIME_TYPES: frozenset[str] = frozenset({
-    "video/mp4",
-    "video/webm",
-    "video/x-matroska",
-    "video/quicktime",
-    "video/jpeg",
-    "video/x-msvideo",
-    "video/avi",
-    "video/gif",
-})
-
-
-def _is_iso_bmff(decoded: bytes) -> bool:
-    return len(decoded) >= 12 and decoded[4:8] == b"ftyp"
-
-
-def _audio_format_matches(fmt: str, decoded: bytes) -> bool:
-    """선언한 포맷과 실제 바이트가 다르게 위장되지 않도록 magic byte를 확인한다."""
-    if fmt == "wav":
-        return len(decoded) >= 12 and decoded.startswith(b"RIFF") and decoded[8:12] == b"WAVE"
-    if fmt == "flac":
-        return decoded.startswith(b"fLaC")
-    if fmt == "ogg":
-        return decoded.startswith(b"OggS")
-    if fmt == "mp3":
-        return decoded.startswith(b"ID3") or (
-            len(decoded) >= 2 and decoded[0] == 0xFF and (decoded[1] & 0xE0) == 0xE0
-        )
-    if fmt in {"m4a", "mp4"}:
-        return _is_iso_bmff(decoded)
-    if fmt == "aac":
-        return len(decoded) >= 2 and decoded[0] == 0xFF and (decoded[1] & 0xF0) == 0xF0
-    return False
+        raise ServiceError("VALIDATION_ERROR", f"image_url image has {width * height} pixels; resize it to {max_image_pixels} pixels or fewer.")
 
 
 @field_param("input_audio")
@@ -388,31 +349,29 @@ def _validate_input_audio(
     reject_unknown_fields(part, {"type", "input_audio"}, "input_audio content part")
     audio = part.get("input_audio")
     if not isinstance(audio, dict):
-        raise ServiceError("VALIDATION_ERROR", "input_audio content parts require an input_audio object with data and format.", False, 422)
+        raise ServiceError("VALIDATION_ERROR", "input_audio content parts require an input_audio object with data and format.")
     reject_unknown_fields(audio, {"data", "format"}, "input_audio")
     fmt = audio.get("format")
     if not isinstance(fmt, str) or (allowed_audio_formats and fmt not in allowed_audio_formats):
         allowed = ", ".join(sorted(allowed_audio_formats)) or "none"
         actual = fmt if isinstance(fmt, str) else type(fmt).__name__
-        raise ServiceError("VALIDATION_ERROR", f"input_audio.format is {actual}; use one of: {allowed}.", False, 422)
+        raise ServiceError("VALIDATION_ERROR", f"input_audio.format is {actual}; use one of: {allowed}.")
     data = audio.get("data")
     if not isinstance(data, str) or not data:
-        raise ServiceError("VALIDATION_ERROR", "input_audio.data must be a non-empty raw base64 string.", False, 422)
+        raise ServiceError("VALIDATION_ERROR", "input_audio.data must be a non-empty raw base64 string.")
     if data.lstrip().startswith("data:"):
         # input_audio.data는 data: URL을 포함하는 image_url/video_url과 달리 raw
         # base64이다. 여기에 data: 접두사가 있으면 base64가 잘못된 것이 아니라
         # 필드 형식 자체가 잘못된 것이다.
-        raise ServiceError("VALIDATION_ERROR", "input_audio.data must be raw base64 (no data: URL prefix).", False, 422)
+        raise ServiceError("VALIDATION_ERROR", "input_audio.data must be raw base64 (no data: URL prefix).")
     try:
         decoded = _decode_media_base64(data)
     except (binascii.Error, ValueError) as exc:
-        raise ServiceError("VALIDATION_ERROR", "input_audio.data must contain valid base64 raw data.", False, 422) from exc
+        raise ServiceError("VALIDATION_ERROR", "input_audio.data must contain valid base64 raw data.") from exc
     if not decoded:
-        raise ServiceError("VALIDATION_ERROR", "input_audio.data must not be empty.", False, 422)
+        raise ServiceError("VALIDATION_ERROR", "input_audio.data must not be empty.")
     if max_audio_bytes and len(decoded) > max_audio_bytes:
-        raise ServiceError("VALIDATION_ERROR", f"input_audio decoded audio is {len(decoded)} bytes; reduce it to {max_audio_bytes} bytes or fewer.", False, 422)
-    if not _audio_format_matches(fmt, decoded):
-        raise ServiceError("VALIDATION_ERROR", f"input_audio.data does not look like a valid {fmt} stream; send {fmt} bytes or set input_audio.format to the actual file format.", False, 422)
+        raise ServiceError("VALIDATION_ERROR", f"input_audio decoded audio is {len(decoded)} bytes; reduce it to {max_audio_bytes} bytes or fewer.")
 
 
 def _video_url_scheme(url: str) -> str:
@@ -421,29 +380,15 @@ def _video_url_scheme(url: str) -> str:
     return urlparse(url).scheme.lower()
 
 
-def _video_format_matches(media_type: str, decoded: bytes) -> bool:
-    if media_type in {"video/mp4", "video/quicktime"}:
-        return _is_iso_bmff(decoded)
-    if media_type in {"video/webm", "video/x-matroska"}:
-        return decoded.startswith(b"\x1a\x45\xdf\xa3")
-    if media_type == "video/jpeg":
-        return _jpeg_dimensions(decoded) is not None
-    if media_type in {"video/x-msvideo", "video/avi"}:
-        return len(decoded) >= 12 and decoded.startswith(b"RIFF") and decoded[8:12] == b"AVI "
-    if media_type == "video/gif":
-        return _gif_metadata(decoded) is not None
-    return False
-
-
 def _decode_video_frame_sequence(encoded: str) -> list[bytes]:
     frames: list[bytes] = []
     for frame_index, frame_b64 in enumerate(encoded.split(",")):
         if not frame_b64:
-            raise ServiceError("VALIDATION_ERROR", f"video_url frame {frame_index} must not be empty; remove the empty frame or send valid frame base64.", False, 422)
+            raise ServiceError("VALIDATION_ERROR", f"video_url frame {frame_index} must not be empty; remove the empty frame or send valid frame base64.")
         try:
             frames.append(_decode_media_base64(frame_b64))
         except (binascii.Error, ValueError) as exc:
-            raise ServiceError("VALIDATION_ERROR", f"video_url frame {frame_index} must contain valid base64.", False, 422) from exc
+            raise ServiceError("VALIDATION_ERROR", f"video_url frame {frame_index} must contain valid base64.") from exc
     return frames
 
 
@@ -468,76 +413,63 @@ def _validate_data_video_url(
 ) -> None:
     header, sep, encoded = url.partition(",")
     if sep != "," or not header.startswith("data:video/"):
-        raise ServiceError("VALIDATION_ERROR", "video_url.url must be a valid data:video URL in data:video/...;base64,... form.", False, 422)
+        raise ServiceError("VALIDATION_ERROR", "video_url.url must be a valid data:video URL in data:video/...;base64,... form.")
     media_type = header[5:].split(";", 1)[0].lower()
     if allowed_video_mime_types and media_type not in allowed_video_mime_types:
         allowed = ", ".join(sorted(allowed_video_mime_types))
-        raise ServiceError("VALIDATION_ERROR", f"video_url MIME type is {media_type}; use one of: {allowed}.", False, 422)
+        raise ServiceError("VALIDATION_ERROR", f"video_url MIME type is {media_type}; use one of: {allowed}.")
     if ";base64" not in header.lower():
-        raise ServiceError("VALIDATION_ERROR", "video_url data videos must include ';base64' and a base64 payload.", False, 422)
+        raise ServiceError("VALIDATION_ERROR", "video_url data videos must include ';base64' and a base64 payload.")
 
     if media_type == "video/jpeg":
         frames = _decode_video_frame_sequence(encoded)
         if max_video_frames and len(frames) > max_video_frames:
-            raise ServiceError("VALIDATION_ERROR", f"video_url contains {len(frames)} frame(s); reduce it to {max_video_frames} frame(s) or fewer.", False, 422)
+            raise ServiceError("VALIDATION_ERROR", f"video_url contains {len(frames)} frame(s); reduce it to {max_video_frames} frame(s) or fewer.")
         total_bytes = 0
         for frame_index, decoded in enumerate(frames):
             total_bytes += len(decoded)
-            if not _video_format_matches(media_type, decoded):
-                raise ServiceError("VALIDATION_ERROR", f"video_url frame {frame_index} does not look like a valid JPEG frame; send JPEG frame bytes.", False, 422)
             width, height = _jpeg_dimensions(decoded) or (0, 0)
             if width < 1 or height < 1:
-                raise ServiceError("VALIDATION_ERROR", f"video_url frame {frame_index} dimensions must be positive.", False, 422)
+                raise ServiceError("VALIDATION_ERROR", f"video_url frame {frame_index} dimensions must be positive.")
             if max_video_frame_pixels and width * height > max_video_frame_pixels:
                 raise ServiceError(
-                    "VALIDATION_ERROR",
-                    f"video_url frame {frame_index} has {width * height} pixels; resize it to {max_video_frame_pixels} pixels or fewer.",
-                    False,
-                    422,
+                    "VALIDATION_ERROR", f"video_url frame {frame_index} has {width * height} pixels; resize it to {max_video_frame_pixels} pixels or fewer.",
                 )
         if max_video_bytes and total_bytes > max_video_bytes:
-            raise ServiceError("VALIDATION_ERROR", f"video_url decoded video is {total_bytes} bytes; reduce it to {max_video_bytes} bytes or fewer.", False, 422)
+            raise ServiceError("VALIDATION_ERROR", f"video_url decoded video is {total_bytes} bytes; reduce it to {max_video_bytes} bytes or fewer.")
         return
 
     try:
         decoded = _decode_media_base64(encoded)
     except (binascii.Error, ValueError) as exc:
-        raise ServiceError("VALIDATION_ERROR", "video_url data video must contain valid base64 after the comma.", False, 422) from exc
+        raise ServiceError("VALIDATION_ERROR", "video_url data video must contain valid base64 after the comma.") from exc
     if not decoded:
-        raise ServiceError("VALIDATION_ERROR", "video_url data video must not be empty.", False, 422)
+        raise ServiceError("VALIDATION_ERROR", "video_url data video must not be empty.")
     if max_video_bytes and len(decoded) > max_video_bytes:
-        raise ServiceError("VALIDATION_ERROR", f"video_url decoded video is {len(decoded)} bytes; reduce it to {max_video_bytes} bytes or fewer.", False, 422)
+        raise ServiceError("VALIDATION_ERROR", f"video_url decoded video is {len(decoded)} bytes; reduce it to {max_video_bytes} bytes or fewer.")
     if media_type == "video/gif":
         metadata = _gif_metadata(decoded)
         if metadata is None:
-            raise ServiceError("VALIDATION_ERROR", "video_url.data does not look like a valid video/gif stream; send GIF bytes with MIME video/gif.", False, 422)
+            raise ServiceError("VALIDATION_ERROR", "video_url.data does not look like a valid video/gif stream; send GIF bytes with MIME video/gif.")
         width, height, frame_count, duration_seconds = metadata
         if frame_count < 1:
-            raise ServiceError("VALIDATION_ERROR", "video_url GIF must contain at least one frame.", False, 422)
+            raise ServiceError("VALIDATION_ERROR", "video_url GIF must contain at least one frame.")
         if max_video_duration_seconds and duration_seconds > max_video_duration_seconds:
             raise ServiceError(
-                "VALIDATION_ERROR",
-                f"video_url GIF plays for {duration_seconds:.1f}s; reduce it to {max_video_duration_seconds}s or fewer.",
-                False,
-                422,
+                "VALIDATION_ERROR", f"video_url GIF plays for {duration_seconds:.1f}s; reduce it to {max_video_duration_seconds}s or fewer.",
             )
         frame_count_backstop = (
             int(max_video_duration_seconds * _GIF_FRAME_COUNT_FPS_CEILING) if max_video_duration_seconds else max_video_frames
         )
         if frame_count_backstop and frame_count > frame_count_backstop:
-            raise ServiceError("VALIDATION_ERROR", f"video_url contains {frame_count} frame(s); reduce it to {frame_count_backstop} frame(s) or fewer.", False, 422)
+            raise ServiceError("VALIDATION_ERROR", f"video_url contains {frame_count} frame(s); reduce it to {frame_count_backstop} frame(s) or fewer.")
         if width < 1 or height < 1:
-            raise ServiceError("VALIDATION_ERROR", "video_url GIF dimensions must be positive.", False, 422)
+            raise ServiceError("VALIDATION_ERROR", "video_url GIF dimensions must be positive.")
         if max_video_frame_pixels and width * height > max_video_frame_pixels:
             raise ServiceError(
-                "VALIDATION_ERROR",
-                f"video_url GIF has {width * height} pixels; resize it to {max_video_frame_pixels} pixels or fewer.",
-                False,
-                422,
+                "VALIDATION_ERROR", f"video_url GIF has {width * height} pixels; resize it to {max_video_frame_pixels} pixels or fewer.",
             )
         return
-    if not _video_format_matches(media_type, decoded):
-        raise ServiceError("VALIDATION_ERROR", f"video_url.data does not look like a valid {media_type} stream; send bytes that match the declared MIME type.", False, 422)
 
 
 @field_param("video_url")
@@ -554,13 +486,13 @@ def _validate_video_url(
     reject_unknown_fields(part, {"type", "video_url"}, "video_url content part")
     video_url = part.get("video_url")
     if not isinstance(video_url, dict) or not isinstance(video_url.get("url"), str):
-        raise ServiceError("VALIDATION_ERROR", "video_url content parts require video_url.url.", False, 422)
+        raise ServiceError("VALIDATION_ERROR", "video_url content parts require video_url.url.")
     reject_unknown_fields(video_url, {"url"}, "video_url")
     url = video_url["url"]
     scheme = _video_url_scheme(url)
     if scheme not in allowed_video_url_schemes:
         allowed = ", ".join(sorted(allowed_video_url_schemes)) or "none"
-        raise ServiceError("VALIDATION_ERROR", f"video_url.url scheme must be one of: {allowed}.", False, 422)
+        raise ServiceError("VALIDATION_ERROR", f"video_url.url scheme must be one of: {allowed}.")
     if scheme == "data":
         _validate_data_video_url(
             url,
@@ -590,30 +522,30 @@ def _validate_content_part(
     max_video_duration_seconds: float = 0,
 ) -> str:
     if not isinstance(part, dict):
-        raise ServiceError("VALIDATION_ERROR", "message content parts must be objects.", False, 422, param="messages.content")
+        raise ServiceError("VALIDATION_ERROR", "message content parts must be objects.", param="messages.content")
     part_type = part.get("type")
     if part_type == "text":
         reject_unknown_fields(part, {"type", "text"}, "text content part")
         if "text" not in allowed_modalities:
-            raise ServiceError("VALIDATION_ERROR", "The active main model profile does not accept text content parts; remove text parts or switch to a profile that supports text.", False, 422, param="messages.content")
+            raise ServiceError("VALIDATION_ERROR", "The active main model profile does not accept text content parts; remove text parts or switch to a profile that supports text.", param="messages.content")
         if not isinstance(part.get("text"), str):
-            raise ServiceError("VALIDATION_ERROR", "text content parts require a string text field.", False, 422, param="messages.content.text")
+            raise ServiceError("VALIDATION_ERROR", "text content parts require a string text field.", param="messages.content.text")
         return "text"
     if part_type == "image_url":
         reject_unknown_fields(part, {"type", "image_url"}, "image_url content part")
         if "image" not in allowed_modalities:
-            raise ServiceError("VALIDATION_ERROR", "The active main model profile does not accept image_url content parts; remove image_url or switch to a profile that supports image input.", False, 422, param="image_url")
+            raise ServiceError("VALIDATION_ERROR", "The active main model profile does not accept image_url content parts; remove image_url or switch to a profile that supports image input.", param="image_url")
         image_url = part.get("image_url")
         if not isinstance(image_url, dict) or not isinstance(image_url.get("url"), str):
-            raise ServiceError("VALIDATION_ERROR", "image_url content parts require image_url.url.", False, 422, param="image_url")
+            raise ServiceError("VALIDATION_ERROR", "image_url content parts require image_url.url.", param="image_url")
         reject_unknown_fields(image_url, {"url", "detail"}, "image_url")
         if "detail" in image_url and image_url["detail"] not in {"auto", "low", "high"}:
-            raise ServiceError("VALIDATION_ERROR", "image_url.detail must be auto, low, or high when provided.", False, 422, param="image_url.detail")
+            raise ServiceError("VALIDATION_ERROR", "image_url.detail must be auto, low, or high when provided.", param="image_url.detail")
         url = image_url["url"]
         scheme = _image_url_scheme(url)
         if scheme not in allowed_image_url_schemes:
             allowed = ", ".join(sorted(allowed_image_url_schemes)) or "none"
-            raise ServiceError("VALIDATION_ERROR", f"image_url.url scheme must be one of: {allowed}.", False, 422, param="image_url.url")
+            raise ServiceError("VALIDATION_ERROR", f"image_url.url scheme must be one of: {allowed}.", param="image_url.url")
         if scheme == "data":
             _validate_data_image_url(
                 url,
@@ -624,7 +556,7 @@ def _validate_content_part(
         return "image"
     if part_type == "input_audio":
         if "audio" not in allowed_modalities:
-            raise ServiceError("VALIDATION_ERROR", "audio content parts are not enabled for the active main model profile; remove input_audio or switch to an audio-capable profile.", False, 422, param="input_audio")
+            raise ServiceError("VALIDATION_ERROR", "audio content parts are not enabled for the active main model profile; remove input_audio or switch to an audio-capable profile.", param="input_audio")
         _validate_input_audio(
             part,
             allowed_audio_formats=allowed_audio_formats,
@@ -633,7 +565,7 @@ def _validate_content_part(
         return "audio"
     if part_type == "video_url":
         if "video" not in allowed_modalities:
-            raise ServiceError("VALIDATION_ERROR", "video content parts are not enabled for the active main model profile; remove video_url or switch to a video-capable profile.", False, 422, param="video_url")
+            raise ServiceError("VALIDATION_ERROR", "video content parts are not enabled for the active main model profile; remove video_url or switch to a video-capable profile.", param="video_url")
         _validate_video_url(
             part,
             allowed_video_url_schemes=allowed_video_url_schemes,
@@ -649,7 +581,7 @@ def _validate_content_part(
         allowed_types += " or input_audio"
     if "video" in allowed_modalities:
         allowed_types += " or video_url"
-    raise ServiceError("VALIDATION_ERROR", f"message content part type must be {allowed_types}.", False, 422, param="messages.content.type")
+    raise ServiceError("VALIDATION_ERROR", f"message content part type must be {allowed_types}.", param="messages.content.type")
 
 
 def validate_message_content(
@@ -674,10 +606,10 @@ def validate_message_content(
 ) -> tuple[int, int, int]:
     if isinstance(content, str):
         if "text" not in allowed_modalities:
-            raise ServiceError("VALIDATION_ERROR", "string chat content is not enabled for the active main model profile.", False, 422, param="messages.content")
+            raise ServiceError("VALIDATION_ERROR", "string chat content is not enabled for the active main model profile.", param="messages.content")
         return 0, 0, 0
     if not isinstance(content, list) or not content:
-        raise ServiceError("VALIDATION_ERROR", "message content must be a string or non-empty content part array.", False, 422, param="messages.content")
+        raise ServiceError("VALIDATION_ERROR", "message content must be a string or non-empty content part array.", param="messages.content")
     image_count = 0
     audio_count = 0
     video_count = 0
@@ -705,9 +637,9 @@ def validate_message_content(
         elif modality == "video":
             video_count += 1
     if image_count > max_image_inputs:
-        raise ServiceError("VALIDATION_ERROR", f"at most {max_image_inputs} image content part(s) are allowed.", False, 422, param="image_url")
+        raise ServiceError("VALIDATION_ERROR", f"at most {max_image_inputs} image content part(s) are allowed.", param="image_url")
     if audio_count > max_audio_inputs:
-        raise ServiceError("VALIDATION_ERROR", f"at most {max_audio_inputs} audio content part(s) are allowed.", False, 422, param="input_audio")
+        raise ServiceError("VALIDATION_ERROR", f"at most {max_audio_inputs} audio content part(s) are allowed.", param="input_audio")
     if video_count > max_video_inputs:
-        raise ServiceError("VALIDATION_ERROR", f"at most {max_video_inputs} video content part(s) are allowed.", False, 422, param="video_url")
+        raise ServiceError("VALIDATION_ERROR", f"at most {max_video_inputs} video content part(s) are allowed.", param="video_url")
     return image_count, audio_count, video_count

@@ -477,7 +477,21 @@ async def gpu_budget(authorization: str | None = Header(default=None)) -> JSONRe
 
 
 @app.get("/main-model")
-async def main_model(authorization: str | None = Header(default=None)) -> JSONResponse:
+async def main_model(
+    authorization: str | None = Header(default=None),
+    observed: bool = True,
+) -> JSONResponse:
+    """활성 main-model 상태를 반환한다.
+
+    ``observed=false``는 control-plane ledger만 읽고 Docker 관측(`observed_runtime`)을
+    건너뛴다. ledger 필드(gate, active_profile, runtime_state, stats, last_operation)만
+    필요한 호출자를 위한 것이다 -- 특히 Gateway는 chat 요청마다 gate를 확인하므로,
+    기본 경로를 쓰면 추론 요청 하나하나가 Docker API 호출 두 번(list + inspect)에
+    직렬로 묶인다. 그러면 Docker daemon이 흔들릴 때 실제 런타임은 멀쩡한데도 모든
+    chat이 MAIN_MODEL_CONTROL_UNAVAILABLE로 떨어진다.
+
+    기본값은 ``True``이므로 `GET /admin/main-model`의 기존 응답 형태는 그대로다.
+    """
     await _require_sidecar_token(authorization)
     try:
         # jsonable_encoder는 date/datetime(및 그 외 JSON 네이티브가 아닌 타입)을
@@ -485,7 +499,12 @@ async def main_model(authorization: str | None = Header(default=None)) -> JSONRe
         # 값 하나(예: quote되지 않은 validated_at)만으로도 이 엔드포인트가 500을
         # 반환하게 되고, Gateway는 이를 SidecarUnavailable로 인식하여 모든
         # main-model 요청을 실패시킨다.
-        return JSONResponse(jsonable_encoder(await _main_model_manager.observed_snapshot()))
+        snapshot = (
+            await _main_model_manager.observed_snapshot()
+            if observed
+            else _main_model_manager.snapshot()
+        )
+        return JSONResponse(jsonable_encoder(snapshot))
     except MainModelStateError as exc:
         raise HTTPException(503, detail=str(exc)) from exc
 

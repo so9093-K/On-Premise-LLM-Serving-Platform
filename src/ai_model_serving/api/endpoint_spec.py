@@ -6,18 +6,13 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True)
 class EndpointSpec:
-    service: str        # "gateway" | "risk-adapter"
     method: str         # "GET" | "POST"
     path: str
     operation_id: str
     tag: str            # OpenAPI 태그 이름
     summary: str
     description: str
-    auth: str           # "none" | "admin" | "public_api" | "internal_service"
-    exposure: str       # "public_gateway" | "internal_only" | "operations_network"
-                        # | "internal_service" | "internal_or_lb_probe" | "not_served"
     lifecycle: str      # "stable" | "retired" | "removed"
-    status_code: int    # 정상 상태 코드 (stable은 200/202, retired는 410)
     request_schema: str | None       # 예: "chat_completion_request.schema.json"
     response_schema: str | None      # 예: "chat_completion_response.schema.json"
 
@@ -54,22 +49,17 @@ def schema_maps_from_specs(
 
 GATEWAY_ENDPOINTS: list[EndpointSpec] = [
     EndpointSpec(
-        service="gateway",
         method="GET",
         path="/health",
         operation_id="getGatewayHealth",
         tag="Operations",
         summary="Liveness 확인",
         description="Process liveness probe. 항상 HTTP 200을 반환합니다. 인증 없이 접근 가능합니다.",
-        auth="none",
-        exposure="internal_or_lb_probe",
         lifecycle="stable",
-        status_code=200,
         request_schema=None,
         response_schema=None,
     ),
     EndpointSpec(
-        service="gateway",
         method="GET",
         path="/ready",
         operation_id="getGatewayReadiness",
@@ -80,30 +70,22 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
             "모델 로딩 중에는 HTTP 503을 반환하며, body의 `not_ready_dependencies`에 "
             "아직 준비되지 않은 dependency 목록과 `message`가 포함됩니다."
         ),
-        auth="admin",
-        exposure="internal_only",
         lifecycle="stable",
-        status_code=200,
         request_schema=None,
         response_schema="readiness_response.schema.json",
     ),
     EndpointSpec(
-        service="gateway",
         method="GET",
         path="/metrics",
         operation_id="getGatewayMetrics",
         tag="Monitoring",
         summary="Prometheus metrics 조회",
         description="Prometheus가 scrape하는 Gateway metric 엔드포인트입니다. 운영 환경에서는 admin token 또는 내부망으로 보호합니다.",
-        auth="admin",
-        exposure="operations_network",
         lifecycle="stable",
-        status_code=200,
         request_schema=None,
         response_schema=None,
     ),
     EndpointSpec(
-        service="gateway",
         method="GET",
         path="/internal/main-model/drain-status",
         operation_id="getMainModelDrainStatus",
@@ -113,15 +95,11 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
             "Admin Sidecar가 모델 교체 전에 진행 중인 local-main 요청 수를 확인하는 "
             "내부 서비스 전용 endpoint입니다. OpenAPI UI에는 노출하지 않습니다."
         ),
-        auth="internal_service",
-        exposure="internal_service",
         lifecycle="stable",
-        status_code=200,
         request_schema=None,
         response_schema=None,
     ),
     EndpointSpec(
-        service="gateway",
         method="GET",
         path="/v1/models",
         operation_id="listModels",
@@ -133,15 +111,11 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
             "현재 serving 가능 여부는 `/ready`의 `status`와 `not_ready_dependencies`를 확인하세요. "
             "클라이언트 UI는 각 item의 `request_parameters`를 읽어 모델별 입력 form을 구성할 수 있습니다."
         ),
-        auth="public_api",
-        exposure="public_gateway",
         lifecycle="stable",
-        status_code=200,
         request_schema=None,
         response_schema="model_list_response.schema.json",
     ),
     EndpointSpec(
-        service="gateway",
         method="POST",
         path="/v1/chat/completions",
         operation_id="createChatCompletion",
@@ -157,15 +131,11 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
             "optional field는 nullable union(`[\"type\", \"null\"]`) 으로 표현, external `$ref` 불가\n"
             "- `logprobs`, `top_logprobs`, `logit_bias` — Gateway policy 안에서 upstream에 전달"
         ),
-        auth="public_api",
-        exposure="public_gateway",
         lifecycle="stable",
-        status_code=200,
         request_schema="chat_completion_request.schema.json",
         response_schema="chat_completion_response.schema.json",
     ),
     EndpointSpec(
-        service="gateway",
         method="POST",
         path="/v1/embeddings",
         operation_id="createEmbedding",
@@ -175,15 +145,11 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
             "`local-embed` 및 `local-embed-ko`를 통해 텍스트의 embedding vector를 생성합니다. "
             "요청 파라미터는 Gateway contract로 검증하며, 지원하지 않는 파라미터는 차단합니다."
         ),
-        auth="public_api",
-        exposure="public_gateway",
         lifecycle="stable",
-        status_code=200,
         request_schema="embedding_request.schema.json",
         response_schema="embedding_response.schema.json",
     ),
     EndpointSpec(
-        service="gateway",
         method="POST",
         path="/v1/risk/detectors/prompt/assessments",
         operation_id="assessPromptRisk",
@@ -194,15 +160,11 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
             "정책 판단 필드(`allow`, `block`, `decision` 등)는 포함되지 않으며, "
             "최종 허용·차단 결정은 Gateway 밖 product policy layer가 담당합니다."
         ),
-        auth="public_api",
-        exposure="public_gateway",
         lifecycle="stable",
-        status_code=200,
         request_schema="risk_assessment_request.schema.json",
         response_schema="risk_assessment_response.schema.json",
     ),
     EndpointSpec(
-        service="gateway",
         method="POST",
         path="/v1/risk/detectors/pii/assessments",
         operation_id="assessPIIRisk",
@@ -217,15 +179,11 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
             "원문 PII 값은 응답에 포함되지 않습니다. `span_count`로 entity별 탐지 개수를 제공합니다.\n"
             "탐지 결과는 최종 정책 판단이 아닌 진단 signal로 취급합니다."
         ),
-        auth="public_api",
-        exposure="public_gateway",
         lifecycle="stable",
-        status_code=200,
         request_schema="risk_assessment_request.schema.json",
         response_schema="risk_assessment_response.schema.json",
     ),
     EndpointSpec(
-        service="gateway",
         method="POST",
         path="/v1/risk/detectors/secret/assessments",
         operation_id="assessSecretRisk",
@@ -239,30 +197,22 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
             "응답, 로그, metric label에 원문 시크릿 값을 남기지 않습니다. `span_count`로 탐지 개수를 제공합니다.\n"
             "탐지 결과는 최종 정책 판단이 아닌 진단 signal로 취급합니다."
         ),
-        auth="public_api",
-        exposure="public_gateway",
         lifecycle="stable",
-        status_code=200,
         request_schema="risk_assessment_request.schema.json",
         response_schema="risk_assessment_response.schema.json",
     ),
     EndpointSpec(
-        service="gateway",
         method="POST",
         path="/v1/risk/detectors/siren/assessments",
         operation_id="assessSirenDetector",
         tag="Risk",
         summary="Siren detector 신호 (제거됨)",
         description="이 route는 제거되었습니다. Gateway에서 siren detector는 serving되지 않습니다.",
-        auth="none",
-        exposure="not_served",
         lifecycle="removed",
-        status_code=200,
         request_schema=None,
         response_schema=None,
     ),
     EndpointSpec(
-        service="gateway",
         method="POST",
         path="/v1/risk/assessments",
         operation_id="assessRisk",
@@ -273,15 +223,11 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
             "PII Protection(D1, D2, D5), Secret Exposure(D4, D5), Prompt Injection(A1, A2) 신호를 통합합니다. "
             "enabled detector 중 하나라도 위험 신호를 탐지하면 `risk_detected: true`를 반환합니다."
         ),
-        auth="public_api",
-        exposure="public_gateway",
         lifecycle="stable",
-        status_code=200,
         request_schema="risk_assessment_request.schema.json",
         response_schema="risk_assessment_response.schema.json",
     ),
     EndpointSpec(
-        service="gateway",
         method="POST",
         path="/v1/retrieval/rerank",
         operation_id="rerankDocuments",
@@ -292,15 +238,11 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
             "- `score_mode=dense_cosine` — `local-embed-ko` 기본, `local-embed`도 명시 사용 가능\n\n"
             "모델이 요청한 `score_mode`를 지원하지 않으면 422를 반환합니다. `top_n`은 상위 n개만 반환합니다(1–32)."
         ),
-        auth="public_api",
-        exposure="public_gateway",
         lifecycle="stable",
-        status_code=200,
         request_schema="retrieval_rerank_request.schema.json",
         response_schema="retrieval_rerank_response.schema.json",
     ),
     EndpointSpec(
-        service="gateway",
         method="POST",
         path="/v1/retrieval/score",
         operation_id="scoreDocuments",
@@ -311,16 +253,12 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
             "재순위 정렬이 필요하면 `/v1/retrieval/rerank`를 사용하세요.\n\n"
             "`top_n`은 이 endpoint에서 지원하지 않습니다 (422). 지원 score mode는 `dense_cosine` 하나입니다."
         ),
-        auth="public_api",
-        exposure="public_gateway",
         lifecycle="stable",
-        status_code=200,
         request_schema="retrieval_score_request.schema.json",
         response_schema="retrieval_score_response.schema.json",
     ),
     # ------------------------------------------------------------------ 관리자 런타임 제어
     EndpointSpec(
-        service="gateway",
         method="GET",
         path="/admin/runtimes",
         operation_id="listRuntimes",
@@ -336,15 +274,11 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
             "`PATCH /admin/runtimes/{service_key}`(메인은 `service_key=main`)로, "
             "메인 프로필 교체만 `POST /admin/main-model/switch`로 수행합니다."
         ),
-        auth="admin",
-        exposure="operations_network",
         lifecycle="stable",
-        status_code=200,
         request_schema=None,
         response_schema=None,
     ),
     EndpointSpec(
-        service="gateway",
         method="PATCH",
         path="/admin/runtimes/{service_key}",
         operation_id="transitionRuntime",
@@ -364,70 +298,51 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
             "`force: true`로 우선순위 낮은 보조를 자동 축출할 수 있습니다. "
             "Scalar UI 드롭다운에서 선택 후 Execute만 누르면 됩니다."
         ),
-        auth="admin",
-        exposure="operations_network",
         lifecycle="stable",
-        status_code=200,
         request_schema=None,
         response_schema=None,
     ),
     EndpointSpec(
-        service="gateway",
         method="GET",
         path="/admin/main-model",
         operation_id="getMainModel",
         tag="Runtime Control",
         summary="활성 메인 모델 조회",
         description="현재 local-main 내부 프로필, gate, 마지막 전환 상태를 조회합니다.",
-        auth="admin",
-        exposure="operations_network",
         lifecycle="stable",
-        status_code=200,
         request_schema=None,
         response_schema=None,
     ),
     EndpointSpec(
-        service="gateway",
         method="GET",
         path="/admin/main-model/profiles",
         operation_id="listMainModelProfiles",
         tag="Runtime Control",
         summary="메인 모델 프로필 조회",
         description="배포된 카탈로그에서 허용된 메인 모델 프로필과 capability·compatibility 근거를 조회합니다.",
-        auth="admin",
-        exposure="operations_network",
         lifecycle="stable",
-        status_code=200,
         request_schema=None,
         response_schema=None,
     ),
     EndpointSpec(
-        service="gateway",
         method="POST",
         path="/admin/main-model/switch",
         operation_id="switchMainModel",
         tag="Runtime Control",
         summary="메인 모델 전환",
         description="허용된 profile ID로 비동기 전환을 시작하고 operation ID를 반환합니다.",
-        auth="admin",
-        exposure="operations_network",
         lifecycle="stable",
-        status_code=202,
         request_schema=None,
         response_schema=None,
     ),
     EndpointSpec(
-        service="gateway",
         method="GET",
         path="/admin/main-model/operations/{operation_id}",
         operation_id="getMainModelOperation",
         tag="Runtime Control",
         summary="메인 모델 전환 작업 조회",
         description="전환 단계 및 실패 원인을 조회합니다.",
-        auth="admin",
-        exposure="operations_network",
         lifecycle="stable",
-        status_code=200,
         request_schema=None,
         response_schema=None,
     ),
@@ -439,22 +354,17 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
 
 RISK_ADAPTER_ENDPOINTS: list[EndpointSpec] = [
     EndpointSpec(
-        service="risk-adapter",
         method="GET",
         path="/health",
         operation_id="getRiskAdapterHealth",
         tag="Operations",
         summary="Liveness 확인",
         description="Process liveness probe. 항상 HTTP 200을 반환합니다. 인증 없이 접근 가능합니다.",
-        auth="none",
-        exposure="internal_or_lb_probe",
         lifecycle="stable",
-        status_code=200,
         request_schema=None,
         response_schema=None,
     ),
     EndpointSpec(
-        service="risk-adapter",
         method="GET",
         path="/ready",
         operation_id="getRiskAdapterReadiness",
@@ -464,30 +374,22 @@ RISK_ADAPTER_ENDPOINTS: list[EndpointSpec] = [
             "내부 readiness endpoint입니다. enabled detector vLLM runtime 상태를 확인합니다. "
             "모델 로딩 중에는 HTTP 503을 반환하고 `not_ready_dependencies`와 dependency별 `message`를 제공합니다."
         ),
-        auth="admin",
-        exposure="internal_only",
         lifecycle="stable",
-        status_code=200,
         request_schema=None,
         response_schema="readiness_response.schema.json",
     ),
     EndpointSpec(
-        service="risk-adapter",
         method="GET",
         path="/metrics",
         operation_id="getRiskAdapterMetrics",
         tag="Monitoring",
         summary="Prometheus metrics 조회",
         description="Prometheus가 scrape하는 Risk Adapter metric입니다. detector별 timeout, parse failure, signal count를 확인합니다.",
-        auth="admin",
-        exposure="operations_network",
         lifecycle="stable",
-        status_code=200,
         request_schema=None,
         response_schema=None,
     ),
     EndpointSpec(
-        service="risk-adapter",
         method="POST",
         path="/v1/risk/detectors/prompt/assessments",
         operation_id="assessRiskPromptDetector",
@@ -503,15 +405,11 @@ RISK_ADAPTER_ENDPOINTS: list[EndpointSpec] = [
             "- 연결된 도구로 시크릿·파일·메일 탈취 유도\n\n"
             "일반 사이버 공격 절차·폭력·혐오 콘텐츠는 이 detector 범위 밖입니다."
         ),
-        auth="internal_service",
-        exposure="internal_service",
         lifecycle="stable",
-        status_code=200,
         request_schema="risk_assessment_request.schema.json",
         response_schema="risk_assessment_response.schema.json",
     ),
     EndpointSpec(
-        service="risk-adapter",
         method="POST",
         path="/v1/risk/detectors/pii/assessments",
         operation_id="assessRiskPIIDetector",
@@ -526,15 +424,11 @@ RISK_ADAPTER_ENDPOINTS: list[EndpointSpec] = [
             "응답에 원문 PII 값을 포함하지 않습니다. `span_count`로 entity별 탐지 개수를 제공합니다.\n"
             "탐지 결과는 최종 정책 판단이 아닌 진단 signal로 취급합니다."
         ),
-        auth="internal_service",
-        exposure="internal_service",
         lifecycle="stable",
-        status_code=200,
         request_schema="risk_assessment_request.schema.json",
         response_schema="risk_assessment_response.schema.json",
     ),
     EndpointSpec(
-        service="risk-adapter",
         method="POST",
         path="/v1/risk/detectors/secret/assessments",
         operation_id="assessRiskSecretDetector",
@@ -548,30 +442,22 @@ RISK_ADAPTER_ENDPOINTS: list[EndpointSpec] = [
             "응답, 로그, metric label에 원문 시크릿 값을 남기지 않습니다. `span_count`로 탐지 개수를 제공합니다.\n"
             "탐지 결과는 최종 정책 판단이 아닌 진단 signal로 취급합니다."
         ),
-        auth="internal_service",
-        exposure="internal_service",
         lifecycle="stable",
-        status_code=200,
         request_schema="risk_assessment_request.schema.json",
         response_schema="risk_assessment_response.schema.json",
     ),
     EndpointSpec(
-        service="risk-adapter",
         method="POST",
         path="/v1/risk/detectors/siren/assessments",
         operation_id="assessSirenDetector",
         tag="Risk Signal",
         summary="Siren detector 신호 (제거됨)",
         description="이 route는 제거되었습니다. Risk Adapter에서 siren detector는 serving되지 않습니다.",
-        auth="none",
-        exposure="not_served",
         lifecycle="removed",
-        status_code=200,
         request_schema=None,
         response_schema=None,
     ),
     EndpointSpec(
-        service="risk-adapter",
         method="POST",
         path="/v1/risk/assessments",
         operation_id="assessRiskAggregate",
@@ -583,10 +469,7 @@ RISK_ADAPTER_ENDPOINTS: list[EndpointSpec] = [
             "detector 실패는 policy 판단 없이 system signal로 표현됩니다.\n\n"
             "PII Protection(D1, D2, D5)과 Secret Exposure(D4, D5) 신호를 Prompt Injection(A1, A2)과 함께 통합합니다."
         ),
-        auth="internal_service",
-        exposure="internal_service",
         lifecycle="stable",
-        status_code=200,
         request_schema="risk_assessment_request.schema.json",
         response_schema="risk_assessment_response.schema.json",
     ),

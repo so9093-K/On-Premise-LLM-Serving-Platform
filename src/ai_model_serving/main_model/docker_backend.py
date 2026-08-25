@@ -115,14 +115,6 @@ class DockerMainModelBackend:
             response.raise_for_status()
             return response.json()
 
-    async def is_running(self, catalog: MainModelCatalog) -> bool:
-        service = str(catalog.runtime["compose_service"])
-        container_id = await self._container_id(service)
-        if container_id is None:
-            return False
-        inspected = await self._inspect(container_id)
-        return inspected.get("State", {}).get("Status") == "running"
-
     async def observed_started_at(self, catalog: MainModelCatalog) -> str | None:
         """실행 중인 컨테이너의 Docker ``State.StartedAt``을 반환하고 없으면 ``None``을 반환한다.
 

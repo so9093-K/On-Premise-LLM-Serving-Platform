@@ -72,82 +72,6 @@ def chat_request_parameter_surface(policy: dict[str, Any], *, max_output_tokens:
     return {name: definitions[name] for name in policy.get("supported_parameters", []) if name in definitions and name in supported}
 
 
-def _retrieval_request_parameters(policy: dict[str, Any]) -> dict[str, dict[str, Any]]:
-    """Retrieval request에서 사용자가 직접 조정할 수 있는 parameter surface."""
-    supported = set(policy.get("supported_parameters", []))
-    if not supported:
-        return {}
-
-    definitions: dict[str, dict[str, Any]] = {}
-
-    if "score_mode" in supported:
-        cfg = policy.get("score_mode", {})
-        if isinstance(cfg, dict):
-            defn: dict[str, Any] = {"type": "string"}
-            if "enum" in cfg:
-                defn["enum"] = [str(v) for v in cfg["enum"]]
-            if "default" in cfg:
-                defn["default"] = cfg["default"]
-            definitions["score_mode"] = defn
-
-    if "top_n" in supported:
-        cfg = policy.get("top_n", {})
-        if isinstance(cfg, dict):
-            defn = {"type": "integer"}
-            if "min" in cfg:
-                defn["min"] = int(cfg["min"])
-            if "max" in cfg:
-                defn["max"] = int(cfg["max"])
-            if "default" in cfg:
-                defn["default"] = cfg["default"]
-            definitions["top_n"] = defn
-
-    if "max_tokens_per_query" in supported:
-        cfg = policy.get("max_tokens_per_query", {})
-        if isinstance(cfg, dict):
-            defn = {"type": "integer"}
-            if "min" in cfg:
-                defn["min"] = int(cfg["min"])
-            if "max" in cfg:
-                defn["max"] = int(cfg["max"])
-            if "default" in cfg:
-                defn["default"] = int(cfg["default"])
-            definitions["max_tokens_per_query"] = defn
-
-    if "max_tokens_per_doc" in supported:
-        cfg = policy.get("max_tokens_per_doc", {})
-        if isinstance(cfg, dict):
-            defn = {"type": "integer"}
-            if "min" in cfg:
-                defn["min"] = int(cfg["min"])
-            if "max" in cfg:
-                defn["max"] = int(cfg["max"])
-            if "default" in cfg:
-                defn["default"] = int(cfg["default"])
-            definitions["max_tokens_per_doc"] = defn
-
-    if "truncate_prompt_tokens" in supported:
-        cfg = policy.get("truncate_prompt_tokens", {})
-        if isinstance(cfg, dict):
-            defn = {"type": "integer"}
-            one_of = cfg.get("one_of", [])
-            if one_of:
-                defn["one_of"] = [dict(item) for item in one_of]
-            definitions["truncate_prompt_tokens"] = defn
-
-    if "truncation_side" in supported:
-        cfg = policy.get("truncation_side", {})
-        if isinstance(cfg, dict):
-            defn = {"type": "string"}
-            if "enum" in cfg:
-                defn["enum"] = list(cfg["enum"])
-            if "default" in cfg:
-                defn["default"] = cfg["default"]
-            definitions["truncation_side"] = defn
-
-    return {name: definitions[name] for name in supported if name in definitions}
-
-
 def _embedding_request_parameters(policy: dict[str, Any]) -> dict[str, dict[str, Any]]:
     """사용자가 Gateway request에서 직접 조정할 수 있는 embedding parameter surface."""
     supported = set(policy.get("supported_parameters", []))
@@ -165,9 +89,6 @@ def _embedding_request_parameters(policy: dict[str, Any]) -> dict[str, dict[str,
     return {name: definitions[name] for name in policy.get("supported_parameters", []) if name in definitions and name in supported}
 
 
-_RETRIEVAL_CAPABILITIES = frozenset({"retrieval_rerank", "retrieval_score"})
-
-
 def _request_parameter_surface(
     *,
     capabilities: tuple[str, ...],
@@ -183,7 +104,4 @@ def _request_parameter_surface(
         return chat_request_parameter_surface(policy, max_output_tokens=max_output_tokens), {}
     if "embeddings" in capabilities:
         return _embedding_request_parameters(policy), {}
-    if any(cap in _RETRIEVAL_CAPABILITIES for cap in capabilities):
-        fixed = policy.get("fixed_parameters", {}) if isinstance(policy.get("fixed_parameters", {}), dict) else {}
-        return _retrieval_request_parameters(policy), dict(fixed)
     return {}, {}

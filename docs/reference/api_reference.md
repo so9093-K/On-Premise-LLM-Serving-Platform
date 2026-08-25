@@ -240,7 +240,7 @@ curl "$GATEWAY_URL/v1/models" \
 | `model` | string | Y | `local-main` | 외부 Main Model alias |
 | `messages` | array | Y | 1개 이상 | Chat message 목록 |
 | `temperature` | number | N | `0`–`2` | Sampling temperature |
-| `max_tokens` | integer | N | `1`–`13000` | 최대 output token |
+| `max_tokens` | integer | N | `1` 이상, 상한은 활성 profile | 최대 output token. 상한은 profile마다 다르므로(`/v1/models`의 `request_parameters.max_tokens.max`) 고정값을 가정하지 않는다. |
 | `top_p` | number | N | `0 < x <= 1` | Nucleus sampling |
 | `top_k` | integer | N | `-1` 이상 | Top-K sampling |
 | `min_p` | number | N | `0`–`1` | Min-P sampling |

@@ -78,6 +78,7 @@ def validate(root: Path = ROOT, strict: bool = False) -> list[str]:
 
     contract = load_yaml(contract_path)
     env_examples: dict = contract.get("env_examples", {})
+    removed_keys: dict = contract.get("removed_keys") or {}
 
     for filename, cfg in env_examples.items():
         file_path = root / filename
@@ -94,6 +95,16 @@ def validate(root: Path = ROOT, strict: bool = False) -> list[str]:
         for key in required_keys:
             if key not in present_keys:
                 violations.append(f"{filename}: missing required key {key!r}")
+
+        # removed_keys는 sync-env가 기존 .env에서 지우는 키다. 그 키가 예시 파일에
+        # 다시 들어오면 두 동작이 정면으로 싸운다 -- 템플릿은 "이 키를 쓰라"고 하고
+        # sync-env는 매번 지운다. 등록과 템플릿이 갈라지는 걸 여기서 막는다.
+        for key in sorted(removed_keys.keys() & present_keys):
+            violations.append(
+                f"{filename}: {key!r} is registered in env_contract.yaml removed_keys "
+                f"(`make sync-env` deletes it), so it must not be declared in the template "
+                f"-- {removed_keys[key]}"
+            )
 
     if strict:
         # exposure profile마다 필요한 env key 묶음이 빠지지 않았는지 확인한다.

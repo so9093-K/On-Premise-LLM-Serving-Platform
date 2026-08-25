@@ -70,7 +70,7 @@ def test_upstream_platform_error_payload_is_preserved_for_gateway_risk_forwardin
 
 
 def test_upstream_retryable_errors_still_count_for_circuit_breaker() -> None:
-    exc = ServiceError("UPSTREAM_ERROR", "upstream failed", True, 502)
+    exc = ServiceError("UPSTREAM_ERROR", "upstream failed")
     assert _counts_as_upstream_failure(exc)
 
 
@@ -119,7 +119,7 @@ def test_queue_timeout_error_carries_fixed_retry_after_hint() -> None:
 
 
 def test_service_error_without_retry_after_omits_header() -> None:
-    exc = ServiceError("VALIDATION_ERROR", "bad request", False, 422)
+    exc = ServiceError("VALIDATION_ERROR", "bad request")
     assert "retry-after" not in exc.to_response().headers
 
 

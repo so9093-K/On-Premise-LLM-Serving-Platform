@@ -382,7 +382,8 @@ def build_router(
             except SidecarUnavailableError:
                 budget = None
             try:
-                main_model = await sidecar.main_model()
+                # 이 목록은 gate·runtime_state·active profile만 쓴다.
+                main_model = await sidecar.main_model(observed=False)
             except SidecarUnavailableError:
                 main_model = None
 

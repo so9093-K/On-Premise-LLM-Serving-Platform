@@ -15,13 +15,7 @@ import json
 
 import pytest
 
-from ai_model_serving.detectors.secret import (
-    SecretExposureDetector,
-    _scan_text,
-    _build_categories,
-    _shannon_entropy,
-    mask_secrets,
-)
+from ai_model_serving.detectors.secret import SecretExposureDetector, mask_secrets
 
 
 # ---------------------------------------------------------------------------
@@ -40,82 +34,40 @@ DATABASE_URL = "postgresql://user:p4ssw0rd@db.example.com:5432/mydb"
 PASSWORD_ASSIGN = "password=Sup3rS3cr3t!"
 
 
-class TestScanText:
-    @pytest.mark.parametrize(
-        ("text", "expected_entity"),
-        [
-            (f"API_KEY={OPENAI_KEY}", "OPENAI_API_KEY"),
-            (f"ANTHROPIC_API_KEY={ANTHROPIC_KEY}", "ANTHROPIC_API_KEY"),
-            (f"AWS_ACCESS_KEY_ID={AWS_ACCESS_KEY}", "AWS_ACCESS_KEY_ID"),
-            (f"export TOKEN={GITHUB_TOKEN}", "GITHUB_TOKEN"),
-            (f"GITLAB_TOKEN={GITLAB_TOKEN}", "GITLAB_TOKEN"),
-            (f"HF_TOKEN={HF_TOKEN}", "HUGGINGFACE_TOKEN"),
-            (f"Authorization: Bearer {JWT}", "JWT"),
-            (f"키 내용:\n{PRIVATE_KEY}\nMIIEo...\n-----END RSA PRIVATE KEY-----", "PRIVATE_KEY_BLOCK"),
-            (f"DATABASE_URL={DATABASE_URL}", "DATABASE_URL"),
-            (f"config: {PASSWORD_ASSIGN}", "PASSWORD_ASSIGNMENT"),
-        ],
-    )
-    def test_pattern_detected(self, text, expected_entity):
-        assert expected_entity in _scan_text(text)
-
-    def test_clean_text_returns_empty(self):
-        counts = _scan_text("오늘 날씨가 맑고 기온이 25도입니다.")
-        assert counts == {}
-
-    def test_multiple_secrets_counted(self):
-        text = f"{OPENAI_KEY}\n{AWS_ACCESS_KEY}"
-        counts = _scan_text(text)
-        assert "OPENAI_API_KEY" in counts
-        assert "AWS_ACCESS_KEY_ID" in counts
-
-
-class TestShannonEntropy:
-    def test_high_entropy_random_string(self):
-        s = "aB3xQ7mN2pR9kL5vW1cY8fH4gJ6tD0"
-        assert _shannon_entropy(s) > 4.0
-
-    def test_low_entropy_repeating_string(self):
-        s = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
-        assert _shannon_entropy(s) < 1.0
-
-    def test_empty_string_returns_zero(self):
-        assert _shannon_entropy("") == 0.0
+# 각 pattern과 category builder를 private helper로 따로 부르지 않고 공개 assess()
+# 하나로 확인한다. 실제 계약은 assess() 응답이고, 두 단계를 나눠 검증하면 "패턴은
+# 잡히는데 code가 안 붙는" 조합을 아무도 안 보게 된다.
+@pytest.mark.parametrize(
+    ("text", "label", "code"),
+    [
+        (f"키: {OPENAI_KEY}", "OPENAI_API_KEY", "D4"),
+        (f"키: {ANTHROPIC_KEY}", "ANTHROPIC_API_KEY", "D4"),
+        (f"키: {AWS_ACCESS_KEY}", "AWS_ACCESS_KEY_ID", "D4"),
+        (f"토큰: {GITHUB_TOKEN}", "GITHUB_TOKEN", "D4"),
+        (f"토큰: {GITLAB_TOKEN}", "GITLAB_TOKEN", "D4"),
+        (f"토큰: {HF_TOKEN}", "HUGGINGFACE_TOKEN", "D4"),
+        (f"토큰: {JWT}", "JWT", "D4"),
+        (PRIVATE_KEY, "PRIVATE_KEY_BLOCK", "D4"),
+        (f"설정: {PASSWORD_ASSIGN}", "PASSWORD_ASSIGNMENT", "D4"),
+        # 이름 붙은 패턴에 안 걸리는 고엔트로피 문자열은 generic 후보로 잡힌다.
+        ("api_key = 'Xq7Fv2Lp9Rt4Wz8Nb1Mc6Yd3Ke5Hg0Ju'", "GENERIC_SECRET_CANDIDATE", "D4"),
+        # DB 접속 문자열은 자격증명(D4)이 아니라 인프라 노출(D5)로 분류된다.
+        (f"접속: {DATABASE_URL}", "DATABASE_URL", "D5"),
+    ],
+)
+def test_secret_is_reported_with_expected_code(text, label, code):
+    response = asyncio.run(SecretExposureDetector().assess(text))
+    detected = {c["label"]: c for c in response["categories"] if c["detected"]}
+    assert label in detected
+    assert detected[label]["code"] == code
+    assert detected[label]["family"] == "data_exposure"
+    assert detected[label]["span_count"] >= 1
 
 
-class TestBuildCategories:
-    def test_empty_counts_returns_safe_category(self):
-        cats = _build_categories({})
-        assert len(cats) == 1
-        cat = cats[0]
-        assert cat["code"] is None
-        assert cat["detected"] is False
-        assert cat["family"] == "data_exposure"
-        assert cat["span_count"] == 0
-
-    def test_openai_key_maps_to_d4(self):
-        cats = _build_categories({"OPENAI_API_KEY": 1})
-        assert cats[0]["code"] == "D4"
-        assert cats[0]["label"] == "OPENAI_API_KEY"
-        assert cats[0]["detected"] is True
-
-    def test_database_url_maps_to_d5(self):
-        cats = _build_categories({"DATABASE_URL": 1})
-        assert cats[0]["code"] == "D5"
-        assert cats[0]["label"] == "DATABASE_URL"
-
-    def test_jwt_maps_to_d4(self):
-        cats = _build_categories({"JWT": 2})
-        assert cats[0]["code"] == "D4"
-        assert cats[0]["span_count"] == 2
-
-    def test_private_key_block_maps_to_d4(self):
-        cats = _build_categories({"PRIVATE_KEY_BLOCK": 1})
-        assert cats[0]["code"] == "D4"
-
-    def test_generic_candidate_maps_to_d4(self):
-        cats = _build_categories({"GENERIC_SECRET_CANDIDATE": 1})
-        assert cats[0]["code"] == "D4"
+def test_text_without_secrets_reports_no_detection():
+    # 저엔트로피 평문은 generic 후보로도 잡히면 안 된다(오탐 경계).
+    response = asyncio.run(SecretExposureDetector().assess("오늘 배포 일정 공유드립니다. 확인 부탁드립니다."))
+    assert not [c for c in response["categories"] if c["detected"]]
 
 
 class TestSecretExposureDetector:

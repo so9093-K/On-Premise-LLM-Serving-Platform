@@ -23,8 +23,10 @@ class _FakeSidecar:
             },
         }
         self._available = available
+        self.observed_requested: list[bool] = []
 
-    async def main_model(self):
+    async def main_model(self, *, observed: bool = True):
+        self.observed_requested.append(observed)
         if not self._available:
             raise SidecarUnavailableError("sidecar down")
         return self._snapshot

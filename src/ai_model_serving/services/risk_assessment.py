@@ -87,7 +87,7 @@ class RiskAssessmentService:
 
     async def assess_detector_key(self, detector_key: str, prompt: str) -> dict[str, Any]:
         if detector_key not in self.detector_specs:
-            raise ServiceError("DETECTOR_DISABLED", f"Risk detector is not enabled: {detector_key}", False, 410)
+            raise ServiceError("DETECTOR_DISABLED", f"Risk detector is not enabled: {detector_key}")
 
         # local detector는 vLLM client를 거치지 않고 process 안에서 바로 실행한다.
         if detector_key in self.local_detectors:
@@ -96,7 +96,7 @@ class RiskAssessmentService:
         try:
             client = self.clients.detectors[detector_key]
         except KeyError as exc:
-            raise ServiceError("DETECTOR_DISABLED", f"Risk detector client is not configured: {detector_key}", False, 410) from exc
+            raise ServiceError("DETECTOR_DISABLED", f"Risk detector client is not configured: {detector_key}") from exc
         return await self.assess_detector(client, self.detector_specs[detector_key], prompt)
 
     async def _assess_local_detector(self, detector_key: str, prompt: str) -> dict[str, Any]:

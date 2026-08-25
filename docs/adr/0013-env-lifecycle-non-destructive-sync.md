@@ -20,7 +20,12 @@ Accepted
 
 - 기존 `.env`의 `BUILD_PROFILE` 값으로 참조 템플릿을 자동 감지한다.
 - 템플릿에만 있고 `.env`에 없는 키를 템플릿 기본값으로 추가한다.
-- `YAML_OWNED_ENV_KEYS`에 등록된 YAML 소유 키를 제거한다.
+- `configs/env_contract.yaml`의 `removed_keys`에 등록된 키만 제거한다. env 키 정책의 단일 소스는 그 파일이며, `setup_env.py`는 목록을 복제하지 않고 읽어서 쓴다. 각 항목은 `reason`으로 구분한다.
+  - `yaml_owned` — 다른 `configs/*.yaml`이 소유하므로 `.env`가 가리면 안 되는 키.
+  - `deprecated` — 가리킬 대상 자체가 없어진 키(참조하는 코드가 사라졌거나, 값이 남아 있는 것 자체가 위험한 경우).
+- `validate_env_contract.py`가 같은 목록으로 "등록된 키가 `.env*.example`에 다시 등장하지 않았는지"를 검증한다. 제거와 검증이 한 소스를 공유하므로, 등록과 템플릿이 갈라져 "validate는 통과하는데 sync-env는 매번 지우는" 상태가 생기지 않는다.
+- 등록된 키는 그 키를 소비하는 쪽에서도 `.env`를 읽지 않아야 한다. 지우는 쪽과 읽는 쪽이 어긋나면 제거가 무의미하다(예: `RISK_VLLM_BASE_IMAGE`는 프로세스 환경변수 override만 받는다).
+- **"템플릿에 없는 키"는 제거 기준이 아니다.** 배포 서버 `.env`에는 템플릿에 존재한 적 없는 서버 전용 설정(`MAIN_MODEL_STATE_PATH` 등)이 정상적으로 들어 있고, `deploy_gitlab_compose.sh`가 이미지 참조 갱신 직후 `sync-env`를 호출하므로 그 기준을 쓰면 배포할 때마다 운영 설정이 사라진다.
 - `ALWAYS_REFRESH_KEYS`·`GENERATED_SECRET_KEYS` 여부와 무관하게 **기존 값은 모두 보존한다.** 시크릿을 재생성하지 않는다.
 - `--env-file <path>` 옵션으로 프로젝트 루트 밖의 `.env`(별도 배포 디렉터리 등)도 대상으로 지정할 수 있다.
 - `--dry-run`으로 실제 변경 없이 추가·제거 대상 키를 미리 확인할 수 있다.
@@ -34,7 +39,7 @@ CI/CD 배포(`deploy_gitlab_compose.sh`)는 `.env` 이미지 참조 업데이트
 | Positive | Negative |
 |---|---|
 | `git pull` 이후 크리덴셜 재생성 없이 `.env` 최신화 가능 | 신규 키 기본값이 환경에 맞지 않으면 운영자가 수동으로 수정해야 한다 |
-| CI/CD 배포 시 서버 `.env` 크리덴셜 보존 보장 | `YAML_OWNED_ENV_KEYS` 관리가 필요하다 — YAML 소유 키를 등록하지 않으면 `.env`에 남는다 |
+| CI/CD 배포 시 서버 `.env` 크리덴셜 보존 보장 | `removed_keys` 관리가 필요하다 — 등록하지 않은 키는 폐기된 뒤에도 `.env`에 남는다 |
 | `rebuild-full` 시 EXPOSURE_MODE 설정이 초기화되지 않음 | |
 | `--env-file`로 외부 `.env` 동기화 가능 | |
 
@@ -57,5 +62,7 @@ CI/CD 파이프라인에서는 `deploy_gitlab_compose.sh`가 자동으로 `make 
 ## Related
 
 - [ADR-0012](0012-auth-ownership-and-compose-exposure-source-of-truth.md) — Auth·Exposure profile source-of-truth 정책 (EXPOSURE_MODE 보존 배경)
-- `scripts/config/setup_env.py` — `sync_env_keys()`, `YAML_OWNED_ENV_KEYS`, `ALWAYS_REFRESH_KEYS`
+- `configs/env_contract.yaml` — `removed_keys`(제거 대상 키와 사유의 단일 소스)
+- `scripts/config/setup_env.py` — `sync_env_keys()`, `_removed_env_keys()`, `ALWAYS_REFRESH_KEYS`
+- `scripts/validation/validate_env_contract.py` — 등록된 키가 예시 파일에 다시 등장하지 않는지 검증
 - `docs/05_configuration.md` — `.env` 환경 파일 선택 및 동기화 UX

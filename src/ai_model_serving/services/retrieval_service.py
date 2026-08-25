@@ -49,18 +49,15 @@ class RetrievalService:
         query = payload.get("query")
         documents = payload.get("documents")
         if not isinstance(query, str) or not query.strip():
-            raise ServiceError("VALIDATION_ERROR", "retrieval query must be a non-empty string.", False, 422)
+            raise ServiceError("VALIDATION_ERROR", "retrieval query must be a non-empty string.")
         if not isinstance(documents, list) or not documents:
-            raise ServiceError("VALIDATION_ERROR", "retrieval documents must be a non-empty array.", False, 422)
+            raise ServiceError("VALIDATION_ERROR", "retrieval documents must be a non-empty array.")
         if len(documents) > self.settings.max_retrieval_documents:
             raise ServiceError(
-                "VALIDATION_ERROR",
-                f"retrieval documents cannot exceed {self.settings.max_retrieval_documents} items.",
-                False,
-                422,
+                "VALIDATION_ERROR", f"retrieval documents cannot exceed {self.settings.max_retrieval_documents} items.",
             )
         if any(not isinstance(item, str) or not item.strip() for item in documents):
-            raise ServiceError("VALIDATION_ERROR", "retrieval documents must contain non-empty strings.", False, 422)
+            raise ServiceError("VALIDATION_ERROR", "retrieval documents must contain non-empty strings.")
         model, score_mode = self._resolve_retrieval_mode(payload)
         truncate_prompt_tokens = payload.get("truncate_prompt_tokens")
         if truncate_prompt_tokens is not None:
@@ -73,10 +70,7 @@ class RetrievalService:
                 or truncate_prompt_tokens > max_tokens
             ):
                 raise ServiceError(
-                    "VALIDATION_ERROR",
-                    f"truncate_prompt_tokens must be -1 or an integer between 1 and {max_tokens}.",
-                    False,
-                    422,
+                    "VALIDATION_ERROR", f"truncate_prompt_tokens must be -1 or an integer between 1 and {max_tokens}.",
                 )
         return query, documents, model, score_mode, truncate_prompt_tokens
 
@@ -106,7 +100,7 @@ class RetrievalService:
         profile = self.settings.embedding_profiles[model]
         client = self.clients.embedding_clients.get(model)
         if client is None:
-            raise ServiceError("MODEL_UNAVAILABLE", f"{model} embedding runtime is unavailable.", True, 503)
+            raise ServiceError("MODEL_UNAVAILABLE", f"{model} embedding runtime is unavailable.")
         input_texts = [self._apply_prompt_policy(model, role, text) for text in texts]
         upstream_payload: dict[str, Any] = {"model": model, "input": input_texts}
         if truncate_prompt_tokens is not None:
@@ -170,9 +164,9 @@ class RetrievalService:
         except TimeoutError as exc:
             status_code = 504
             self.metrics.record_upstream_error(target, "GATEWAY_TIMEOUT")
-            raise ServiceError("UPSTREAM_TIMEOUT", "Gateway request timed out before the retrieval runtime completed.", True, 504) from exc
+            raise ServiceError("UPSTREAM_TIMEOUT", "Gateway request timed out before the retrieval runtime completed.") from exc
         except ServiceError as exc:
-            status_code = exc.status_code or 500
+            status_code = exc.status_code
             self.metrics.record_upstream_error(target, exc.code)
             raise
         finally:
@@ -200,10 +194,7 @@ class RetrievalService:
     async def score_documents(self, payload: dict[str, Any]) -> dict[str, Any]:
         if payload.get("top_n") is not None:
             raise ServiceError(
-                "VALIDATION_ERROR",
-                "top_n is not supported on the score endpoint. Use the rerank endpoint for filtered ranking.",
-                False,
-                422,
+                "VALIDATION_ERROR", "top_n is not supported on the score endpoint. Use the rerank endpoint for filtered ranking.",
             )
         query, documents, model, score_mode, truncate_prompt_tokens = self._validate_query_documents_payload(payload, operation="score")
         backend = self._retrieval_backend(model)
@@ -220,9 +211,9 @@ class RetrievalService:
         except TimeoutError as exc:
             status_code = 504
             self.metrics.record_upstream_error(target, "GATEWAY_TIMEOUT")
-            raise ServiceError("UPSTREAM_TIMEOUT", "Gateway request timed out before the retrieval runtime completed.", True, 504) from exc
+            raise ServiceError("UPSTREAM_TIMEOUT", "Gateway request timed out before the retrieval runtime completed.") from exc
         except ServiceError as exc:
-            status_code = exc.status_code or 500
+            status_code = exc.status_code
             self.metrics.record_upstream_error(target, exc.code)
             raise
         finally:

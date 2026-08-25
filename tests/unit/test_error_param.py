@@ -180,11 +180,7 @@ def test_service_error_debug_uses_original_cause_when_available():
             raise ValueError("decoder failed")
         except ValueError as cause:
             raise ServiceError(
-                "VALIDATION_ERROR",
-                "media decode failed",
-                False,
-                422,
-                debug={"upstream_status": 400},
+                "VALIDATION_ERROR", "media decode failed", debug={"upstream_status": 400},
             ) from cause
     except ServiceError as exc:
         captured = exc

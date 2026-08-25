@@ -15,113 +15,40 @@ import asyncio
 
 import pytest
 
-from ai_model_serving.detectors.pii import (
-    EntitySummary,
-    PIIProtectionDetector,
-    _categories_from_summaries,
-    _run_custom_span_recognizers,
-    mask_pii,
+from ai_model_serving.detectors.pii import PIIProtectionDetector, mask_pii
+
+
+# ---------------------------------------------------------------------------
+# Entity -> D-code 매핑
+# ---------------------------------------------------------------------------
+
+# recognizer와 category builder를 각각 private helper로 직접 부르지 않고 공개
+# assess() 하나로 확인한다. 두 단계를 따로 검증하면 "패턴은 잡히는데 code가 안
+# 붙는" 조합은 오히려 아무도 안 보게 되고, 실제 계약은 assess() 응답이다.
+@pytest.mark.parametrize(
+    ("text", "label", "code"),
+    [
+        ("주민번호: 901201-1234567", "KR_RRN", "D1"),
+        ("외국인등록번호: 901201-5234567", "KR_FRN", "D1"),
+        ("여권번호: MA1234567", "KR_PASSPORT", "D1"),
+        ("면허번호: 12-34-567890-12", "KR_DRIVER_LICENSE", "D1"),
+        ("이메일: hong@example.com", "EMAIL_ADDRESS", "D2"),
+        # 휴대폰/서울/지역/구형 prefix는 정규식 분기가 서로 다르다.
+        ("연락처: 010-1234-5678", "PHONE_NUMBER", "D2"),
+        ("사무실: 02-1234-5678", "PHONE_NUMBER", "D2"),
+        ("경기 번호: 031-123-4567", "PHONE_NUMBER", "D2"),
+        ("구형 번호: 011-123-4567", "PHONE_NUMBER", "D2"),
+        ("서버 IP 192.168.1.100에 접속하세요.", "IP_ADDRESS", "D5"),
+    ],
 )
+def test_entity_is_reported_with_expected_code(text, label, code):
+    response = asyncio.run(PIIProtectionDetector().assess(text))
+    detected = {c["label"]: c for c in response["categories"] if c["detected"]}
+    assert label in detected
+    assert detected[label]["code"] == code
+    assert detected[label]["family"] == "data_exposure"
+    assert detected[label]["span_count"] >= 1
 
-
-def _custom_counts(text: str) -> dict[str, int]:
-    counts: dict[str, int] = {}
-    for span in _run_custom_span_recognizers(text):
-        counts[span.entity] = counts.get(span.entity, 0) + 1
-    return counts
-
-
-# ---------------------------------------------------------------------------
-# Local recognizer 테스트
-# ---------------------------------------------------------------------------
-
-class TestKoreanCustomRecognizers:
-    def test_rrn_detected(self):
-        counts = _custom_counts("주민번호: 901201-1234567 확인 바랍니다.")
-        assert "KR_RRN" in counts
-        assert counts["KR_RRN"] >= 1
-
-    @pytest.mark.parametrize(
-        ("text", "expected_entity"),
-        [
-            ("외국인등록번호: 901201-5234567", "KR_FRN"),
-            ("여권번호: MA1234567", "KR_PASSPORT"),
-            ("면허번호: 12-34-567890-12", "KR_DRIVER_LICENSE"),
-            # 휴대폰/지역번호/구형 prefix는 각각 다른 자릿수 조합이라 정규식 분기가 다르다.
-            ("연락처: 010-1234-5678", "PHONE_NUMBER"),
-            ("사무실: 02-1234-5678", "PHONE_NUMBER"),
-            ("경기 번호: 031-123-4567", "PHONE_NUMBER"),
-            ("구형 번호: 011-123-4567", "PHONE_NUMBER"),
-        ],
-    )
-    def test_pattern_detected(self, text, expected_entity):
-        assert expected_entity in _custom_counts(text)
-
-    def test_ip_address_detected(self):
-        counts = _custom_counts("서버 IP 192.168.1.100에 접속하세요.")
-        assert "IP_ADDRESS" in counts
-        assert counts["IP_ADDRESS"] == 1
-
-    def test_mobile_phone_detected(self):
-        counts = _custom_counts("내 전화번호는 010-3817-5168입니다.")
-        assert "PHONE_NUMBER" in counts
-        assert counts["PHONE_NUMBER"] >= 1
-
-    def test_clean_text_returns_empty(self):
-        counts = _custom_counts("오늘 날씨가 맑습니다.")
-        assert counts == {}
-
-
-# ---------------------------------------------------------------------------
-# Category builder 테스트
-# ---------------------------------------------------------------------------
-
-class TestBuildCategories:
-    def test_empty_counts_returns_safe_category(self):
-        cats = _categories_from_summaries([])
-        assert len(cats) == 1
-        cat = cats[0]
-        assert cat["code"] is None
-        assert cat["detected"] is False
-        assert cat["family"] == "data_exposure"
-        assert cat["span_count"] == 0
-        assert "source_model" in cat
-
-    def test_d1_rrn_category(self):
-        cats = _categories_from_summaries([EntitySummary("KR_RRN", "D1", 2)])
-        assert len(cats) == 1
-        cat = cats[0]
-        assert cat["code"] == "D1"
-        assert cat["detected"] is True
-        assert cat["label"] == "KR_RRN"
-        assert cat["span_count"] == 2
-        assert cat["family"] == "data_exposure"
-
-    def test_d2_email_category(self):
-        cats = _categories_from_summaries(
-            [EntitySummary("EMAIL_ADDRESS", "D2", 1)]
-        )
-        assert cats[0]["code"] == "D2"
-        assert cats[0]["label"] == "EMAIL_ADDRESS"
-
-    def test_d5_ip_address_category(self):
-        cats = _categories_from_summaries(
-            [EntitySummary("IP_ADDRESS", "D5", 3)]
-        )
-        assert cats[0]["code"] == "D5"
-        assert cats[0]["span_count"] == 3
-
-    def test_multiple_entity_types(self):
-        cats = _categories_from_summaries(
-            [
-                EntitySummary("EMAIL_ADDRESS", "D2", 2),
-                EntitySummary("KR_RRN", "D1", 1),
-            ]
-        )
-        codes = {c["code"] for c in cats}
-        assert "D1" in codes
-        assert "D2" in codes
-        assert all(c["detected"] for c in cats)
 
 # ---------------------------------------------------------------------------
 # Detector 통합 테스트

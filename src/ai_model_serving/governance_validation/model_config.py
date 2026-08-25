@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 from .common import (
     ROOT,
     read_yaml,
@@ -72,10 +74,24 @@ def validate_risk_detector_generation_budget() -> None:
             f'(= (min detector max_model_len {min_detector_window} - 64) * 4 chars/token)'
         )
 
+def gpu_budget_status(registry: Any, gpu_budgets: dict[str, Any]) -> dict[str, Any]:
+    """설정된 GPU 총 사용률을 gpu_budgets.yaml의 avoid_above 정책과 비교한다."""
+    total = round(
+        sum(float(service.config.get("gpu_memory_utilization", 0)) for service in registry.iter_runtime_services()),
+        6,
+    )
+    policy = gpu_budgets["gpu"]["total_gpu_memory_utilization"]
+    avoid_above = float(policy.get("avoid_above", 1.0))
+    return {
+        "total_gpu_memory_utilization": total,
+        "avoid_above": avoid_above,
+        "over_avoid_threshold": total >= avoid_above,
+    }
+
+
 def validate_model_resource_control_policy() -> None:
     from ai_model_serving.domain import ModelRegistry
     from ai_model_serving.main_model.control import load_main_model_catalog
-    from ai_model_serving.registry_projection_drift import gpu_budget_status
 
     serving = read_yaml('configs/model_serving.yaml')
     catalog_document = read_yaml('configs/model_catalog.yaml')

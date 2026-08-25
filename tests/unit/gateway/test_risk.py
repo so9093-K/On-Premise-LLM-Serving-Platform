@@ -103,7 +103,7 @@ def test_gateway_preserves_detector_disabled_from_risk_adapter():
     clients = FakeGatewayClients()
 
     def disabled_response(_path, _payload, **_kwargs):
-        raise ServiceError("DETECTOR_DISABLED", "Risk detector is not enabled: prompt", False, 410)
+        raise ServiceError("DETECTOR_DISABLED", "Risk detector is not enabled: prompt")
 
     clients.risk_adapter.post_response = disabled_response
     client = TestClient(create_gateway_app(settings(), clients))

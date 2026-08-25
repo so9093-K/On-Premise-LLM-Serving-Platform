@@ -92,3 +92,30 @@ env_examples:
       - auth_evidence_keys
       - runtime_override_example_keys
       - exposure_mode_requirements.master_open
+
+# ── sync-env가 기존 .env에서 제거하는 키 ────────────────────────────────
+# `make sync-env`(scripts/config/setup_env.py)가 기존 .env에서 지우는 키이자,
+# 위 예시 파일에 다시 등장하면 안 되는 키다. 값은 지우는 이유다.
+#
+# 제거 기준을 "템플릿에 없는 키"로 삼지 않는 것이 ADR-0013의 핵심이다 -- 배포
+# 서버 .env에는 템플릿에 존재한 적 없는 서버 전용 설정(MAIN_MODEL_STATE_PATH 등)이
+# 정상적으로 들어있고, 배포 스크립트가 이미지 참조 갱신 직후 sync-env를 호출하기
+# 때문에 그 기준을 쓰면 배포할 때마다 운영 설정이 사라진다. 그래서 지울 키는
+# 여기에 명시적으로 등록한다.
+removed_keys:
+  MAX_REQUEST_BODY_BYTES: >-
+    configs/model_serving.yaml(operational_limits.max_request_body_bytes)이 소유한다.
+    .env 템플릿에 중복 정의돼 yaml 값을 가리고, 배포된 .env가 릴리스마다 1.25MB로
+    고정되는 문제가 있었다. settings.py는 명시적 env override는 계속 존중한다.
+  HTTP_MAX_CONNECTIONS: >-
+    configs/model_serving.yaml(operational_limits.http_client.max_connections)이 소유한다.
+  HTTP_MAX_KEEPALIVE_CONNECTIONS: >-
+    configs/model_serving.yaml(operational_limits.http_client.max_keepalive_connections)이 소유한다.
+  PROMTAIL_IMAGE: >-
+    Promtail이 Grafana Alloy로 교체됐다. 읽는 코드도 compose 참조도 남아있지 않은데
+    기존 .env에는 계속 남아, 실제 로그 수집기와 무관한 이미지 태그를 보여준다.
+  RISK_VLLM_BASE_IMAGE: >-
+    base image는 configs/vllm_unified_build.yaml의 canonical digest 하나가 소유한다.
+    영속 파일에 두면 값이 낡아도 아무도 모른다 -- 실제로 배포 .env에 부팅 실패로
+    폐기된 base 태그가 남아 있었다. 필요하면 그 빌드 한 번에만 환경변수로 준다.
+  VLLM_BASE_IMAGE: RISK_VLLM_BASE_IMAGE와 같은 이유.

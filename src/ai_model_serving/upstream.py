@@ -30,11 +30,7 @@ class CircuitBreaker:
         now = time.monotonic()
         if now < self.open_until:
             raise ServiceError(
-                "CIRCUIT_OPEN",
-                f"Upstream circuit is open: {target}",
-                True,
-                503,
-                retry_after_seconds=self.open_until - now,
+                "CIRCUIT_OPEN", f"Upstream circuit is open: {target}", retry_after_seconds=self.open_until - now,
             )
 
     def record_success(self) -> None:
@@ -50,8 +46,7 @@ class CircuitBreaker:
 
 
 def _counts_as_upstream_failure(exc: ServiceError) -> bool:
-    status = exc.status_code or 500
-    return exc.retryable or status >= 500 or exc.code in {"MODEL_UNAVAILABLE", "UPSTREAM_ERROR", "UPSTREAM_TIMEOUT"}
+    return exc.retryable or exc.status_code >= 500 or exc.code in {"MODEL_UNAVAILABLE", "UPSTREAM_ERROR", "UPSTREAM_TIMEOUT"}
 
 
 def _platform_error_from_response(response: httpx.Response) -> ServiceError | None:
@@ -72,13 +67,11 @@ def _platform_error_from_response(response: httpx.Response) -> ServiceError | No
         return None
     if not isinstance(message, str) or not isinstance(retryable, bool):
         return None
+    # upstream이 보낸 retryable은 envelope 형태 검증용으로만 읽고 전달하지 않는다.
+    # retryable은 code로 결정되므로(errors.ERROR_RETRYABLE), upstream이 같은 code에
+    # 다른 값을 실어 보내도 우리 계약이 흔들리지 않는다.
     return ServiceError(
-        code,
-        message,
-        retryable,
-        response.status_code,
-        request_id if isinstance(request_id, str) else None,
-        debug={
+        code, message, request_id=request_id if isinstance(request_id, str) else None, debug={
             "upstream_status": response.status_code,
             **({"upstream_request_id": request_id} if isinstance(request_id, str) else {}),
         },
@@ -108,18 +101,14 @@ def _http_status_to_service_error(endpoint: RuntimeEndpoint, response_or_status:
         status = response_or_status
         debug = {"upstream_status": status}
     if status == 429:
-        return ServiceError("RATE_LIMITED", f"Upstream rate limited: {endpoint.logical_id}", True, 429, debug=debug)
+        return ServiceError("RATE_LIMITED", f"Upstream rate limited: {endpoint.logical_id}", debug=debug)
     if status in {400, 404, 422}:
         return ServiceError(
-            "VALIDATION_ERROR",
-            f"Upstream rejected the request for {endpoint.logical_id} with HTTP {status}; check error.debug.upstream_body for the runtime reason and adjust the request.",
-            False,
-            422,
-            debug=debug,
+            "VALIDATION_ERROR", f"Upstream rejected the request for {endpoint.logical_id} with HTTP {status}; check error.debug.upstream_body for the runtime reason and adjust the request.", debug=debug,
         )
     if status in {401, 403}:
-        return ServiceError("UPSTREAM_ERROR", f"Upstream authorization failed: {endpoint.logical_id}", True, 502, debug=debug)
-    return ServiceError("UPSTREAM_ERROR", f"Upstream failed: {endpoint.logical_id}", True, 502, debug=debug)
+        return ServiceError("UPSTREAM_ERROR", f"Upstream authorization failed: {endpoint.logical_id}", debug=debug)
+    return ServiceError("UPSTREAM_ERROR", f"Upstream failed: {endpoint.logical_id}", debug=debug)
 
 class VLLMClient:
     def __init__(self, endpoint: RuntimeEndpoint) -> None:
@@ -165,11 +154,7 @@ class VLLMClient:
             await asyncio.wait_for(self._semaphore.acquire(), timeout=self.endpoint.queue_timeout_seconds)
         except TimeoutError as exc:
             raise ServiceError(
-                "QUEUE_TIMEOUT",
-                f"Timed out waiting for upstream capacity: {self.endpoint.logical_id}",
-                True,
-                503,
-                retry_after_seconds=QUEUE_TIMEOUT_RETRY_AFTER_SECONDS,
+                "QUEUE_TIMEOUT", f"Timed out waiting for upstream capacity: {self.endpoint.logical_id}", retry_after_seconds=QUEUE_TIMEOUT_RETRY_AFTER_SECONDS,
             ) from exc
         try:
             try:
@@ -192,13 +177,13 @@ class VLLMClient:
                 response.raise_for_status()
                 return response.json()
             except httpx.TimeoutException as exc:
-                raise ServiceError("UPSTREAM_TIMEOUT", f"Upstream timed out: {self.endpoint.logical_id}", True, 504) from exc
+                raise ServiceError("UPSTREAM_TIMEOUT", f"Upstream timed out: {self.endpoint.logical_id}") from exc
             except httpx.HTTPStatusError as exc:
                 raise _http_status_to_service_error(self.endpoint, exc.response) from exc
             except httpx.HTTPError as exc:
-                raise ServiceError("MODEL_UNAVAILABLE", f"Upstream unavailable: {self.endpoint.logical_id}", True, 503) from exc
+                raise ServiceError("MODEL_UNAVAILABLE", f"Upstream unavailable: {self.endpoint.logical_id}") from exc
             except ValueError as exc:
-                raise ServiceError("UPSTREAM_ERROR", f"Upstream returned invalid JSON: {self.endpoint.logical_id}", True, 502) from exc
+                raise ServiceError("UPSTREAM_ERROR", f"Upstream returned invalid JSON: {self.endpoint.logical_id}") from exc
 
         return await self._with_operational_guards(operation)
 
@@ -215,11 +200,7 @@ class VLLMClient:
             await asyncio.wait_for(self._semaphore.acquire(), timeout=self.endpoint.queue_timeout_seconds)
         except TimeoutError as exc:
             raise ServiceError(
-                "QUEUE_TIMEOUT",
-                f"Timed out waiting for upstream capacity: {self.endpoint.logical_id}",
-                True,
-                503,
-                retry_after_seconds=QUEUE_TIMEOUT_RETRY_AFTER_SECONDS,
+                "QUEUE_TIMEOUT", f"Timed out waiting for upstream capacity: {self.endpoint.logical_id}", retry_after_seconds=QUEUE_TIMEOUT_RETRY_AFTER_SECONDS,
             ) from exc
 
         url = self._url(path)
@@ -236,11 +217,11 @@ class VLLMClient:
                         if chunk:
                             yield chunk
             except httpx.TimeoutException as exc:
-                raise ServiceError("UPSTREAM_TIMEOUT", f"Upstream timed out: {self.endpoint.logical_id}", True, 504) from exc
+                raise ServiceError("UPSTREAM_TIMEOUT", f"Upstream timed out: {self.endpoint.logical_id}") from exc
             except httpx.HTTPStatusError as exc:
                 raise _http_status_to_service_error(self.endpoint, exc.response) from exc
             except httpx.HTTPError as exc:
-                raise ServiceError("MODEL_UNAVAILABLE", f"Upstream unavailable: {self.endpoint.logical_id}", True, 503) from exc
+                raise ServiceError("MODEL_UNAVAILABLE", f"Upstream unavailable: {self.endpoint.logical_id}") from exc
             else:
                 self._circuit_breaker.record_success()
         except ServiceError as exc:
@@ -258,13 +239,13 @@ class VLLMClient:
                 response.raise_for_status()
                 return response.json()
             except httpx.TimeoutException as exc:
-                raise ServiceError("UPSTREAM_TIMEOUT", f"Upstream timed out: {self.endpoint.logical_id}", True, 504) from exc
+                raise ServiceError("UPSTREAM_TIMEOUT", f"Upstream timed out: {self.endpoint.logical_id}") from exc
             except httpx.HTTPStatusError as exc:
                 raise _http_status_to_service_error(self.endpoint, exc.response) from exc
             except httpx.HTTPError as exc:
-                raise ServiceError("MODEL_UNAVAILABLE", f"Upstream unavailable: {self.endpoint.logical_id}", True, 503) from exc
+                raise ServiceError("MODEL_UNAVAILABLE", f"Upstream unavailable: {self.endpoint.logical_id}") from exc
             except ValueError as exc:
-                raise ServiceError("UPSTREAM_ERROR", f"Upstream returned invalid JSON: {self.endpoint.logical_id}", True, 502) from exc
+                raise ServiceError("UPSTREAM_ERROR", f"Upstream returned invalid JSON: {self.endpoint.logical_id}") from exc
 
         return await self._with_operational_guards(operation)
 
@@ -282,10 +263,10 @@ class VLLMClient:
             response.raise_for_status()
             return response.json()
         except httpx.TimeoutException as exc:
-            raise ServiceError("UPSTREAM_TIMEOUT", f"Upstream timed out: {self.endpoint.logical_id}", True, 504) from exc
+            raise ServiceError("UPSTREAM_TIMEOUT", f"Upstream timed out: {self.endpoint.logical_id}") from exc
         except httpx.HTTPStatusError as exc:
             raise _http_status_to_service_error(self.endpoint, exc.response) from exc
         except httpx.HTTPError as exc:
-            raise ServiceError("MODEL_UNAVAILABLE", f"Upstream unavailable: {self.endpoint.logical_id}", True, 503) from exc
+            raise ServiceError("MODEL_UNAVAILABLE", f"Upstream unavailable: {self.endpoint.logical_id}") from exc
         except ValueError as exc:
-            raise ServiceError("UPSTREAM_ERROR", f"Upstream returned invalid JSON: {self.endpoint.logical_id}", True, 502) from exc
+            raise ServiceError("UPSTREAM_ERROR", f"Upstream returned invalid JSON: {self.endpoint.logical_id}") from exc

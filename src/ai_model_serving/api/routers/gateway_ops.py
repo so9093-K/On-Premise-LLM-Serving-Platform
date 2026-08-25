@@ -139,7 +139,8 @@ def build_router(admin_dependencies: list, clients: Any, metrics: Any, settings:
         sidecar = getattr(clients, "sidecar", None)
         if sidecar is not None:
             try:
-                metrics.project_main_model(await sidecar.main_model())
+                # metric projection은 ledger 필드만 읽는다.
+                metrics.project_main_model(await sidecar.main_model(observed=False))
             except SidecarUnavailableError:
                 metrics.main_model_gate.labels(metrics.service).set(0)
         return metrics.response()

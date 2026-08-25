@@ -2,13 +2,11 @@
 from __future__ import annotations
 
 import argparse
-import os
 import platform
 import sys
 
 MIN_VERSION = (3, 12)
 MAX_EXCLUSIVE = (3, 15)
-RECOMMENDED_MINOR = (3, 12)
 SUPPORTED_LABEL = "Python >=3.12,<3.15"
 
 
@@ -24,11 +22,6 @@ def is_supported(version: tuple[int, int]) -> bool:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="프로젝트 CPython 버전 정책을 확인합니다.")
-    parser.add_argument(
-        "--strict-recommended",
-        action="store_true",
-        help="ALLOW_NON_RECOMMENDED_PYTHON=1이 아니면 권장 production minor version을 요구합니다.",
-    )
     parser.add_argument(
         "--context",
         default="command",
@@ -49,19 +42,7 @@ def main() -> None:
         )
         raise SystemExit(2)
 
-    if args.strict_recommended and current_minor != RECOMMENDED_MINOR and os.getenv("ALLOW_NON_RECOMMENDED_PYTHON") != "1":
-        print(
-            f"[python] {args.context} is validated for the recommended production runtime Python 3.12.x; current interpreter is {version_label(current_full)}.",
-            file=sys.stderr,
-        )
-        print(
-            "[python] Set ALLOW_NON_RECOMMENDED_PYTHON=1 only after validating dependencies for this Python minor.",
-            file=sys.stderr,
-        )
-        raise SystemExit(2)
-
-    recommendation = "recommended production minor" if current_minor == RECOMMENDED_MINOR else "supported app/control-plane minor"
-    print(f"[python] {version_label(current_full)} ok ({recommendation}; {SUPPORTED_LABEL})")
+    print(f"[python] {version_label(current_full)} ok ({SUPPORTED_LABEL})")
 
 
 if __name__ == "__main__":

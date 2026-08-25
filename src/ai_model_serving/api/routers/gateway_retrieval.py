@@ -26,10 +26,7 @@ async def _ensure_retrieval_runtime_available(
     state = await state_store.get(service_key)
     if state in (RuntimeState.stopped, RuntimeState.starting):
         raise ServiceError(
-            "MODEL_UNAVAILABLE",
-            f"{service_key} runtime is {state.value}. Start it with PATCH /admin/runtimes/{service_key}.",
-            True,
-            503,
+            "MODEL_UNAVAILABLE", f"{service_key} runtime is {state.value}. Start it with PATCH /admin/runtimes/{service_key}.",
         )
 
 

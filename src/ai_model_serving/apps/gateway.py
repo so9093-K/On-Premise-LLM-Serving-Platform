@@ -95,7 +95,12 @@ class GatewayClients:
 
     async def close(self) -> None:
         seen: set[int] = set()
-        for client in (self.main_llm, *self.runtime_clients_by_service_key.values(), self.risk_adapter):
+        for client in (
+            self.main_llm,
+            *self.runtime_clients_by_service_key.values(),
+            self.risk_adapter,
+            self.sidecar,
+        ):
             if client is None:
                 continue
             if id(client) in seen:

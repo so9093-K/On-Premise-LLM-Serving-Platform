@@ -61,7 +61,7 @@ def test_gateway_service_error_response_includes_original_cause_debug():
             try:
                 raise ValueError("audio decoder failed")
             except ValueError as cause:
-                raise ServiceError("VALIDATION_ERROR", "Upstream rejected local-main.", False, 422) from cause
+                raise ServiceError("VALIDATION_ERROR", "Upstream rejected local-main.") from cause
 
     clients = FakeGatewayClients()
     clients.main_llm = CauseRuntimeClient(endpoint=clients.main_llm.endpoint)

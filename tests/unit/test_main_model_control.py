@@ -47,7 +47,6 @@ class FakeBackend:
         self.drain_calls = 0
         self.stopped = 0
         self.started = 0
-        self.running = observed is not None
         # 컨테이너의 관측된 Docker State.StartedAt을 흉내낸다. 테스트가 외부에서
         # main-llm-vllm이 재시작된 상황(admin-sidecar 제어 API를 안 거친 경우)을
         # 시뮬레이션하려면 validate() 호출 사이에 이 값을 바꿔주면 된다.
@@ -60,14 +59,9 @@ class FakeBackend:
 
     async def stop(self, catalog):
         self.stopped += 1
-        self.running = False
 
     async def start(self, catalog):
         self.started += 1
-        self.running = True
-
-    async def is_running(self, catalog):
-        return self.running
 
     async def prepare(self, catalog, profile):
         self.prepared.append(profile.profile_id)
@@ -511,7 +505,6 @@ def test_stop_main_drains_and_marks_stopped(tmp_path):
 
     assert backend.drain_calls == 1
     assert backend.stopped == 1
-    assert backend.running is False
     snap = manager.snapshot()
     assert snap["runtime_state"] == "stopped"
     assert snap["gate"] == "closed"
@@ -527,13 +520,11 @@ def test_start_main_starts_validates_and_opens_gate(tmp_path):
         "runtime_state": "stopped",
     })
     backend = FakeBackend(loaded.default_profile)
-    backend.running = False
     manager = MainModelManager(loaded, store, backend)
 
     asyncio.run(manager.start_main())
 
     assert backend.started == 1
-    assert backend.running is True
     snap = manager.snapshot()
     assert snap["runtime_state"] == "active"
     assert snap["gate"] == "open"
@@ -549,7 +540,6 @@ def test_start_main_recreates_container_when_observed_profile_does_not_match(tmp
         "runtime_state": "stopped",
     })
     backend = FakeBackend("gemma4-26b-a4b-fp8")
-    backend.running = False
     manager = MainModelManager(loaded, store, backend)
 
     asyncio.run(manager.start_main())

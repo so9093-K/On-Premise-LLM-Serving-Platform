@@ -109,22 +109,19 @@ ALWAYS_REFRESH_KEYS = {
     *AUTH_PROFILE_ENV_KEYS,
 } | GENERATED_SECRET_KEYS
 
-YAML_OWNED_ENV_KEYS = {
-    # MAX_REQUEST_BODY_BYTES는 configs/model_serving.yaml
-    # (operational_limits.max_request_body_bytes)이 소유하는 단일 크기 정책입니다.
-    # 과거에는 .env 템플릿에도 중복 정의되어 yaml 값을 가려버리고 조용히 드리프트를
-    # 일으켰습니다(배포된 .env가 릴리스마다 1.25MB로 고정되는 문제).
-    # 이 키를 폐기함으로써 sync-env 시 기존 .env에서 제거되어 yaml 값이 기준이 되며,
-    # settings.py는 여전히 명시적인 env override는 존중합니다.
-    "MAX_REQUEST_BODY_BYTES",
-    # HTTP_MAX_CONNECTIONS/HTTP_MAX_KEEPALIVE_CONNECTIONS는 MAX_REQUEST_BODY_BYTES와 같은
-    # 이유로 폐기합니다 -- configs/model_serving.yaml의
-    # operational_limits.http_client.max_connections/max_keepalive_connections가 단일
-    # 소스이고, .env 템플릿에 동일 값이 uncommented로 중복돼 있으면 같은 shadow drift
-    # 위험이 재발합니다.
-    "HTTP_MAX_CONNECTIONS",
-    "HTTP_MAX_KEEPALIVE_CONNECTIONS",
-}
+def _removed_env_keys() -> frozenset[str]:
+    """sync-env가 기존 .env에서 제거하는 키. 단일 소스는 env_contract.yaml이다.
+
+    여기에 목록을 복제하지 않는 이유는 그 순간 두 소스가 갈라지기 때문이다 --
+    validate는 통과하는데 sync-env는 다르게 동작하는, 가장 알아채기 어려운 형태의
+    드리프트가 된다. validate_env_contract.py가 같은 항목으로 "예시 파일에 다시
+    등장하지 않았는지"를 검증한다.
+    """
+    contract = yaml.safe_load((ROOT / "configs" / "env_contract.yaml").read_text(encoding="utf-8"))
+    return frozenset(contract.get("removed_keys") or {})
+
+
+REMOVED_ENV_KEYS = _removed_env_keys()
 
 
 def preserve_existing_values(out_path: Path, *, force: bool) -> dict[str, str]:
@@ -140,7 +137,7 @@ def preserve_existing_values(out_path: Path, *, force: bool) -> dict[str, str]:
     preserved = {
         key: value
         for key, value in existing.items()
-        if value and key not in ALWAYS_REFRESH_KEYS and key not in YAML_OWNED_ENV_KEYS
+        if value and key not in ALWAYS_REFRESH_KEYS and key not in REMOVED_ENV_KEYS
     }
     if "HF_TOKEN" in preserved and "HUGGING_FACE_HUB_TOKEN" not in preserved:
         preserved["HUGGING_FACE_HUB_TOKEN"] = preserved["HF_TOKEN"]
@@ -214,10 +211,17 @@ def sync_runtime_secrets_from_env(env_path: Path) -> None:
 
 
 def sync_env_keys(env_path: Path, *, dry_run: bool = False) -> int:
-    """템플릿과 기존 .env를 비교해 누락 키 추가, 폐기 키 제거.
+    """템플릿의 누락 키를 추가하고, 명시적으로 등록된 폐기 키만 제거한다.
 
     BUILD_PROFILE로 템플릿 자동 감지. 시크릿은 재생성하지 않는다.
     기존 값(HF_TOKEN, API 키 등)은 모두 보존된다.
+
+    제거 대상은 env_contract.yaml의 `removed_keys`에 등록된 것뿐이다.
+    "템플릿에 없는 키"를 제거 기준으로 삼지 않는 것이 ADR-0013의 핵심이다 --
+    배포 서버의 .env에는 템플릿에 존재한 적 없는 서버 전용 설정
+    (예: MAIN_MODEL_STATE_PATH)이 정상적으로 들어있고, deploy 스크립트가
+    이미지 참조 갱신 직후 이 함수를 호출하기 때문에 그 기준으로 지우면
+    배포할 때마다 운영 설정이 사라진다.
     """
     if not env_path.exists():
         raise FileNotFoundError(f".env 파일이 없습니다: {env_path}")
@@ -230,23 +234,23 @@ def sync_env_keys(env_path: Path, *, dry_run: bool = False) -> int:
     template_path = profile_template(profile)
     _, template_values = parse_env_template(template_path)
 
-    added = [k for k in template_values if k not in existing and k not in YAML_OWNED_ENV_KEYS]
-    yaml_owned_overrides = [k for k in existing if k in YAML_OWNED_ENV_KEYS]
+    added = [k for k in template_values if k not in existing and k not in REMOVED_ENV_KEYS]
+    removed = [k for k in existing if k in REMOVED_ENV_KEYS]
 
-    if not added and not yaml_owned_overrides:
+    if not added and not removed:
         print(f"변경 없음: .env가 최신 상태입니다. (profile={profile})")
         return 0
 
     if added:
         print(f"추가될 키 ({len(added)}개): {', '.join(sorted(added))}")
-    if yaml_owned_overrides:
-        print(f"제거될 YAML 소유 키 ({len(yaml_owned_overrides)}개): {', '.join(sorted(yaml_owned_overrides))}")
+    if removed:
+        print(f"제거될 키 ({len(removed)}개): {', '.join(sorted(removed))}")
 
     if dry_run:
         print("dry-run: 실제 변경 없음.")
         return 0
 
-    merged = {k: v for k, v in existing.items() if k not in YAML_OWNED_ENV_KEYS}
+    merged = {k: v for k, v in existing.items() if k not in REMOVED_ENV_KEYS}
     for k in added:
         merged[k] = template_values[k]
 
@@ -259,7 +263,7 @@ def sync_env_keys(env_path: Path, *, dry_run: bool = False) -> int:
             line.strip()
             and not line.strip().startswith("#")
             and "=" in line.strip()
-            and line.strip().split("=", 1)[0] in YAML_OWNED_ENV_KEYS
+            and line.strip().split("=", 1)[0] in REMOVED_ENV_KEYS
         )
     ]
 

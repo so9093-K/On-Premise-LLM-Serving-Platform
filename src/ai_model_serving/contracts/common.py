@@ -73,7 +73,7 @@ def normalize_complete_token_usage(
 
 def ensure_object(payload: Any) -> dict[str, Any]:
     if not isinstance(payload, dict):
-        raise ServiceError("VALIDATION_ERROR", "request body must be a JSON object.", False, 422)
+        raise ServiceError("VALIDATION_ERROR", "request body must be a JSON object.")
     return payload
 
 
@@ -81,9 +81,5 @@ def reject_unknown_fields(value: dict[str, Any], allowed: set[str], context: str
     unknown = sorted(set(value) - allowed)
     if unknown:
         raise ServiceError(
-            "VALIDATION_ERROR",
-            f"{context} contains unsupported field(s): {', '.join(unknown)}.",
-            False,
-            422,
-            param=context,
+            "VALIDATION_ERROR", f"{context} contains unsupported field(s): {', '.join(unknown)}.", param=context,
         )

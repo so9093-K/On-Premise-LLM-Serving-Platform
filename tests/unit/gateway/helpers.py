@@ -75,7 +75,7 @@ class FakeRuntimeClient:
         self.last_headers = kwargs.get("headers")
         if not self.ready:
             from ai_model_serving.errors import ServiceError
-            raise ServiceError("MODEL_UNAVAILABLE", "not ready", True, 503)
+            raise ServiceError("MODEL_UNAVAILABLE", "not ready")
         if self.get_response is not None:
             return self.get_response
         return {"object": "list", "data": []}
@@ -109,7 +109,7 @@ class StreamingErrorRuntimeClient(FakeRuntimeClient):
         self.last_headers = kwargs.get("headers")
         if self.fail_after_first_chunk:
             yield b'data: {"choices":[{"delta":{"content":"partial"}}]}\n\n'
-        raise ServiceError("UPSTREAM_TIMEOUT", "stream read timeout", True, 504)
+        raise ServiceError("UPSTREAM_TIMEOUT", "stream read timeout")
 
 
 class ExplodingGatewayClients:
@@ -410,7 +410,6 @@ def advanced_chat_settings() -> AppSettings:
         max_image_pixels=cfg.runtime("main_llm").max_image_pixels,
         allowed_image_mime_types=cfg.runtime("main_llm").allowed_image_mime_types,
         request_parameter_policy=policy,
-        runtime_features={"structured_outputs": {"enabled": True, "backend": "xgrammar", "disable_any_whitespace": True, "enable_in_reasoning": False}},
     )
     return replace(
         cfg,
