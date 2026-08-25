@@ -4,10 +4,12 @@
 
 Accepted
 
-> **현재 운영 기준 (2026-08-13)**: Main Model의 structured output 설정은
-> `configs/main_model_profiles.yaml` 각 profile의 `gateway_policy.runtime_features`와 실제
-> vLLM command가 함께 소유한다. 아래 `model_serving.yaml`·Compose 이중 원천 및 개별
-> contract test 설명은 당시 구현 기록이며 현재 구조에는 적용하지 않는다.
+> **현재 운영 기준**: Main Model의 structured output 설정은
+> `configs/main_model_profiles.yaml` 각 profile의 vLLM `command`가 단독으로 소유한다
+> (`--structured-outputs-config`). 한때 같은 값을 함께 들고 있던
+> `gateway_policy.runtime_features`는 소비처가 없어 제거했다. 아래 `model_serving.yaml`·
+> Compose 이중 원천 및 개별 contract test 설명은 당시 구현 기록이며 현재 구조에는
+> 적용하지 않는다.
 
 ## Context
 

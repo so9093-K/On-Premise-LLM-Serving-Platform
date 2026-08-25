@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from ..risk_input import detector_prompt_char_budget
 from .common import (
     ROOT,
     read_yaml,
@@ -23,23 +24,6 @@ def validate_ports() -> None:
     env = (ROOT / '.env.example').read_text(encoding='utf-8')
     if f'GATEWAY_PORT={gateway_port}' not in env:
         raise SystemExit(f'.env.example must include GATEWAY_PORT={gateway_port}')
-
-def validate_model_registry_alignment() -> None:
-    from ai_model_serving.domain import ModelRegistry
-
-    registry = ModelRegistry(read_yaml('configs/model_catalog.yaml'), read_yaml('configs/model_serving.yaml'))
-    issues = registry.alignment_issues()
-    if issues:
-        details = '; '.join(f'{issue.code}: {issue.message}' for issue in issues)
-        raise SystemExit(f'ModelRegistry alignment failed: {details}')
-    catalog = read_yaml('configs/model_catalog.yaml')['models']
-    expected_public = {logical_id for logical_id, cfg in catalog.items() if cfg.get('gateway_listing', {}).get('enabled', True) is True}
-    if set(registry.public_logical_ids()) != expected_public:
-        raise SystemExit(
-            f'ModelRegistry.public_logical_ids()={sorted(registry.public_logical_ids())!r} does not match '
-            f'configs/model_catalog.yaml models with gateway_listing.enabled=true '
-            f'(or default true)={sorted(expected_public)!r}'
-        )
 
 def validate_risk_detector_generation_budget() -> None:
     serving = read_yaml('configs/model_serving.yaml')['models']
@@ -66,12 +50,12 @@ def validate_risk_detector_generation_budget() -> None:
         if detector.get('enabled', True) is True and detector.get('type', 'vllm') != 'local'
     ]
     min_detector_window = min(int(serving[key]['max_model_len']) for key in enabled_detector_keys)
-    expected_upper_bound = (min_detector_window - 64) * 4
+    expected_upper_bound = detector_prompt_char_budget(min_detector_window)
     if max_prompt_chars <= 0 or max_prompt_chars > expected_upper_bound:
         raise SystemExit(
             f'configs/model_serving.yaml risk_adapter.input_policy.max_prompt_chars={max_prompt_chars} '
             f'must be > 0 and <= {expected_upper_bound} '
-            f'(= (min detector max_model_len {min_detector_window} - 64) * 4 chars/token)'
+            f'(risk_input.detector_prompt_char_budget(min detector max_model_len {min_detector_window}))'
         )
 
 def gpu_budget_status(registry: Any, gpu_budgets: dict[str, Any]) -> dict[str, Any]:
@@ -91,7 +75,6 @@ def gpu_budget_status(registry: Any, gpu_budgets: dict[str, Any]) -> dict[str, A
 
 def validate_model_resource_control_policy() -> None:
     from ai_model_serving.domain import ModelRegistry
-    from ai_model_serving.main_model.control import load_main_model_catalog
 
     serving = read_yaml('configs/model_serving.yaml')
     catalog_document = read_yaml('configs/model_catalog.yaml')
@@ -134,4 +117,4 @@ def validate_model_resource_control_policy() -> None:
             if int(limits.get('max_image_bytes', 0)) <= 0 or int(limits.get('max_image_pixels', 0)) <= 0:
                 raise SystemExit(f'{profile_id} image input policy must define decoded byte and pixel limits')
             if not limits.get('allowed_image_mime_types'):
-                raise SystemExit(f'{profile.profile_id} image input policy must define allowed image MIME types')
+                raise SystemExit(f'{profile_id} image input policy must define allowed image MIME types')

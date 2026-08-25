@@ -6,7 +6,6 @@ import sys
 from .common import ROOT
 from .filesystem import validate_json_and_yaml_parse
 from .model_config import (
-    validate_model_registry_alignment,
     validate_model_resource_control_policy,
     validate_ports,
     validate_risk_detector_generation_budget,
@@ -47,7 +46,6 @@ CHECKS = [
     validate_risk_schema,
     validate_risk_detector_generation_budget,
     validate_ports,
-    validate_model_registry_alignment,
     validate_common_error_codes,
     validate_model_resource_control_policy,
 ]

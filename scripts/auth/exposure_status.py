@@ -17,16 +17,12 @@ except ModuleNotFoundError:
 
 # exposure_status가 compose_up.sh와 동일한 supported-mode 검사를 쓰도록 resolver를 import
 sys.path.insert(0, str(ROOT))
+from scripts.lib.env_path import resolve_env_path  # noqa: E402
 from scripts.compose.resolve_exposure_mode import load_exposure_data, resolve  # noqa: E402
 sys.path.insert(0, str(ROOT / "src"))
 from ai_model_serving.settings_parts.dotenv_parser import load_strict_env_file  # noqa: E402
 
 
-def _env_path(value: str | None) -> Path | None:
-    if not value:
-        return None
-    path = Path(value)
-    return path if path.is_absolute() else ROOT / path
 
 
 def _env_value(values: dict[str, str], key: str, default: str = "") -> str:
@@ -41,7 +37,7 @@ def main() -> int:
     parser.add_argument("--env", default=".env", help="점검할 env 파일 경로입니다. 기본값은 repository root의 .env입니다.")
     args = parser.parse_args()
 
-    env_path = _env_path(args.env)
+    env_path = resolve_env_path(args.env)
     if env_path is not None and not env_path.exists():
         print(f"env 파일을 찾을 수 없습니다: {env_path}", file=sys.stderr)
         return 2

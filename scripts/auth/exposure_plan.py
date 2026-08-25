@@ -10,22 +10,14 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from scripts.lib.cli_kr import KoreanArgumentParser  # noqa: E402
+from scripts.lib.env_path import load_env_values, resolve_env_path  # noqa: E402
 from scripts.compose.resolve_exposure_mode import load_exposure_data  # noqa: E402
-from scripts.config.setup_env import parse_env_template  # noqa: E402
 
 EXPOSURE_ENV_KEYS = ["EXPOSURE_MODE", "EXPOSURE_AUDIENCE"]
 
 
-def _env_path(value: str) -> Path:
-    path = Path(value)
-    return path if path.is_absolute() else ROOT / path
 
 
-def load_current(path: Path) -> dict[str, str]:
-    if not path.exists():
-        return {}
-    _, values = parse_env_template(path)
-    return values
 
 
 def build_plan(current: dict[str, str], mode: str, audience: str | None) -> dict[str, Any]:
@@ -132,7 +124,7 @@ def build_parser() -> KoreanArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
-        current = load_current(_env_path(args.env))
+        current = load_env_values(resolve_env_path(args.env))
     except RuntimeError as exc:
         print(f"env 파일 오류: {exc}", file=sys.stderr)
         return 2

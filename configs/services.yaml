@@ -1,6 +1,5 @@
+# version은 이 레지스트리 스키마의 버전이며 패키지 배포 버전이 아니다.
 version: 0.1.0
-version_semantics: host 공개 서비스 레지스트리의 스키마 버전이며 패키지 배포 버전이 아니다.
-source_of_truth: configs/services.yaml
 
 # Compose 서비스명·컨테이너 포트·host bind 환경변수의 단일 기준이다.
 # exposure_profiles.yaml의 profiles.*.host_published는 아래 서비스 ID만 참조한다.

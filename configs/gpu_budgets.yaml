@@ -1,7 +1,10 @@
 # 실제 GPU 안전 판단에만 사용하는 기준이다.
 gpu:
   reserve_gib:
-    # runtime-validate는 실제 남은 VRAM이 이 값보다 작으면 실패한다.
+    # 코드가 읽는 값이 아니라, 아래 avoid_above를 역산한 근거이자 운영 수용 기준이다
+    # (docs/resources/gpu_resource_requirements_48gb.md의 reserve 행·Monitoring 점검 항목).
+    # 이전 주석은 "runtime-validate가 이 값 미만이면 실패한다"고 적혀 있었으나
+    # 그런 검사는 존재한 적이 없어 문구만 바로잡는다.
     hard_minimum: 3.5
 
   total_gpu_memory_utilization:

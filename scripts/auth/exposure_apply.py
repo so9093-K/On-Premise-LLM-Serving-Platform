@@ -8,13 +8,11 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from scripts.lib.cli_kr import KoreanArgumentParser  # noqa: E402
+from scripts.lib.env_path import resolve_env_path  # noqa: E402
 from scripts.auth.exposure_plan import build_plan, render_plan  # noqa: E402
 from scripts.config.setup_env import parse_env_template, write_env  # noqa: E402
 
 
-def _env_path(value: str) -> Path:
-    path = Path(value)
-    return path if path.is_absolute() else ROOT / path
 
 
 def build_parser() -> KoreanArgumentParser:
@@ -31,7 +29,7 @@ def build_parser() -> KoreanArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-    env_path = _env_path(args.env)
+    env_path = resolve_env_path(args.env)
 
     try:
         if env_path.exists():

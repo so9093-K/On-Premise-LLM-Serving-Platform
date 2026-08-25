@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import argparse
 import sys
 from pathlib import Path
 
@@ -11,6 +10,7 @@ if str(ROOT / "src") not in sys.path:
     sys.path.insert(0, str(ROOT / "src"))
 
 from scripts.lib.cli_kr import KoreanArgumentParser  # noqa: E402
+from scripts.lib.env_path import resolve_env_path  # noqa: E402
 from ai_model_serving.auth_control import (  # noqa: E402
     AUTH_MODE_EXPECTATIONS,
     auth_profile_env_values,
@@ -26,9 +26,6 @@ _APP_ENV_FOR_MODE: dict[str, str] = {
 }
 
 
-def _env_path(value: str) -> Path:
-    path = Path(value)
-    return path if path.is_absolute() else ROOT / path
 
 
 def build_parser() -> KoreanArgumentParser:
@@ -42,7 +39,7 @@ def build_parser() -> KoreanArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-    env_path = _env_path(args.env)
+    env_path = resolve_env_path(args.env)
     try:
         if env_path.exists():
             lines, values = parse_env_template(env_path)

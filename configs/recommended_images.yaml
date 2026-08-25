@@ -54,6 +54,3 @@ images:
       container log를 Loki로 전송한다. Alloy에는 Docker API 접근 권한이 없다.
     mutable: true
     source: Grafana Alloy v1.18.0 release image
-validation_policy:
-  require_digest_before_production: true
-  generated_by: scripts/config/setup_env.py

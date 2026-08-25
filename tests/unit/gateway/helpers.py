@@ -188,6 +188,13 @@ def public_models():
 
 # Gateway 테스트는 실제 운영 정책을 복사하지 않는다. 정책 자체의 정합성은
 # make validate가 맡고, 여기서는 그 정책을 소비할 때의 동작만 확인한다.
+_MAIN_MODEL_PROFILES = yaml.safe_load((_ROOT / "configs/main_model_profiles.yaml").read_text(encoding="utf-8"))
+# 활성 default profile이 실제로 쓰는 chat parameter 정책이다. 이전에는 이 블록들을
+# 픽스처에 그대로 베껴 두어서, 프로필에 항목이 늘어도 픽스처는 조용히 옛 정책으로
+# 남았다(실제로 stream_options가 빠진 채 드리프트해 있었다).
+_PRODUCTION_CHAT_POLICY = _MAIN_MODEL_PROFILES["profiles"][
+    _MAIN_MODEL_PROFILES["default_profile"]
+]["gateway_policy"]["request_parameter_policy"]
 _PRODUCTION_EMBEDDING_POLICY = _MODEL_SERVING["models"]["embedding"]["request_parameter_policy"]
 _PRODUCTION_EMBEDDING_KO_POLICY = _MODEL_SERVING["models"]["embedding_ko"]["request_parameter_policy"]
 
@@ -343,52 +350,9 @@ def advanced_chat_settings() -> AppSettings:
     policy.update(
         {
             "supported_parameters": supported,
-            "response_format": {
-                "enabled": True,
-                "types": ["text", "json_object", "json_schema"],
-                "json_object": {"require_json_instruction": True},
-                "json_schema": {
-                    "enabled": True,
-                    "require_root_object": True,
-                    "require_additional_properties_false": True,
-                    "strict": {"allowed": True, "require_true": False},
-                    "max_schema_bytes": 16384,
-                    "max_depth": 8,
-                    "max_total_properties": 64,
-                    "max_properties_per_object": 32,
-                    "max_required": 64,
-                    "max_enum_values": 128,
-                    "max_enum_string_length": 256,
-                    "max_property_name_length": 64,
-                    "max_total_schema_string_length": 32768,
-                    "disallowed_keywords": [
-                        "allOf",
-                        "not",
-                        "if",
-                        "then",
-                        "else",
-                        "dependentRequired",
-                        "dependentSchemas",
-                        "patternProperties",
-                        "$dynamicRef",
-                        "$recursiveRef",
-                        "$dynamicAnchor",
-                        "$recursiveAnchor",
-                        "$id",
-                        "$anchor",
-                    ],
-                    "root_disallowed_keywords": ["anyOf"],
-                },
-            },
-            "logprobs": {"enabled": True, "default": False, "allow_stream": True},
-            "top_logprobs": {"min": 0, "max": 10, "requires_logprobs": True},
-            "logit_bias": {
-                "enabled": True,
-                "max_entries": 256,
-                "min_bias": -100,
-                "max_bias": 100,
-                "token_id_min": 0,
-                "token_id_semantics": "served_model_tokenizer",
+            **{
+                key: _PRODUCTION_CHAT_POLICY[key]
+                for key in ("response_format", "logprobs", "top_logprobs", "logit_bias")
             },
         }
     )

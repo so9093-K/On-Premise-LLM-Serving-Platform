@@ -72,7 +72,10 @@ def _regex_spans(
 
 
 def _run_custom_span_recognizers(text: str) -> list[EntitySpan]:
-    """신뢰도 높은 local recognizer 결과와 문자 offset을 반환한다."""
+    """신뢰도 높은 local recognizer 결과와 문자 offset을 반환한다.
+
+    외부 모델이나 cache I/O 없이 결정적으로 동작한다.
+    """
     spans: list[EntitySpan] = []
     for entity, pattern in (
         ("KR_RRN", _KR_RRN_RE),
@@ -162,11 +165,6 @@ def _categories_from_summaries(
     ]
 
 
-def _collect_recognizer_spans(text: str) -> list[EntitySpan]:
-    """외부 모델이나 cache I/O 없이 결정적인 local 탐지 결과를 수집한다."""
-    return _run_custom_span_recognizers(text)
-
-
 def _build_assessment(categories: list[dict[str, Any]]) -> dict[str, Any]:
     """이미 분류된 category로 외부 assessment 계약 응답을 만든다."""
     detected = any(category["detected"] for category in categories)
@@ -185,7 +183,7 @@ def mask_pii(text: str) -> str:
     assess()와 달리 원문 offset을 실제로 텍스트에 적용한다 -- 디버그 로깅처럼
     사람이 읽을 원문이 필요한 소비처 전용이며, risk 판정 경로(assess)와는 분리된다.
     """
-    spans = _reconcile_spans(_collect_recognizer_spans(text))
+    spans = _reconcile_spans(_run_custom_span_recognizers(text))
     for span in sorted(spans, key=lambda item: item.start, reverse=True):
         text = text[: span.start] + f"[{span.entity}]" + text[span.end :]
     return text
@@ -199,7 +197,7 @@ class PIIProtectionDetector:
     """
 
     async def assess(self, text: str) -> dict[str, Any]:
-        recognized = _collect_recognizer_spans(text)
+        recognized = _run_custom_span_recognizers(text)
         reconciled = _reconcile_spans(recognized)
         summaries = _classify_spans(reconciled)
         categories = _categories_from_summaries(summaries)

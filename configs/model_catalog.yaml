@@ -4,7 +4,6 @@ models:
   local-main:
     role: main_llm
     upstream_model_id: RedHatAI/gemma-4-12B-it-FP8-Dynamic
-    upstream_revision: 67e53491df7a281623fa740de61307d5c542b7f4
     runtime:
       served_model_name: local-main
       endpoint: /v1/chat/completions

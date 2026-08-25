@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
-import argparse
 import sys
 from pathlib import Path
 import json
@@ -12,15 +11,11 @@ if str(ROOT) not in sys.path:
 sys.path.insert(0, str(ROOT / "src"))
 
 from scripts.lib.cli_kr import KoreanArgumentParser  # noqa: E402
+from scripts.lib.env_path import resolve_env_path  # noqa: E402
 from ai_model_serving.auth_control import diagnose_auth, render_auth_findings
 from ai_model_serving.settings import ROOT as SETTINGS_ROOT, load_settings
 
 
-def _env_path(value: str | None) -> Path | None:
-    if not value:
-        return None
-    path = Path(value)
-    return path if path.is_absolute() else SETTINGS_ROOT / path
 
 
 def main() -> int:
@@ -29,7 +24,7 @@ def main() -> int:
     parser.add_argument("--warn-only", action="store_true", help="FAIL finding이 있어도 exit code 0으로 종료합니다.")
     parser.add_argument("--env", help="진단할 env 파일 경로입니다. 기본값은 repository root의 .env입니다.")
     args = parser.parse_args()
-    env_path = _env_path(args.env)
+    env_path = resolve_env_path(args.env)
     if env_path is not None and not env_path.exists():
         print(f"env 파일을 찾을 수 없습니다: {env_path}", file=sys.stderr)
         return 2

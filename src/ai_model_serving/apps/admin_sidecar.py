@@ -112,8 +112,7 @@ _VRAM_FRACTION: dict[str, float] = dict(_TOPOLOGY.vram_fraction_by_service)
 # 의도적으로 strict하게 읽는다(누락/오타 시 기본값으로 조용히 폴백하지 않고
 # 바로 실패): 여기서 default(0.95)로 폴백하면 실제 정책값(0.93)보다 느슨한
 # ceiling으로 admission이 동작하게 되어, GPU 예산 초과를 막아야 할 안전장치가
-# 설정 오타 하나로 fail-open이 된다. runtime_validation/config_checks.py의
-# 동일 키 검증(strict bracket access)과 동작을 맞춘다.
+# 설정 오타 하나로 fail-open이 된다.
 _gpu_budgets_path = APP_CONFIG_ROOT / "configs/gpu_budgets.yaml"
 _gpu_budgets_cfg = load_yaml_mapping(_gpu_budgets_path)
 _GPU_BUDGET_CEILING = float(_gpu_budgets_cfg["gpu"]["total_gpu_memory_utilization"]["avoid_above"])

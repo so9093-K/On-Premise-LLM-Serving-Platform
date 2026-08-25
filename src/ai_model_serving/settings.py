@@ -6,6 +6,7 @@ from typing import Any
 
 from .domain import ModelRegistry
 from .main_model.control import load_main_model_catalog
+from .risk_input import detector_prompt_char_budget
 from .configuration import load_yaml_mapping
 from .project_paths import resolve_project_root as _resolve_project_root
 from .settings_parts.env import (
@@ -244,7 +245,7 @@ def load_settings(root: Path | None = None, env_file: Path | str | None = None) 
     if any(window is None for window in detector_windows):
         raise RuntimeError("Each enabled vLLM risk detector must declare max_model_len in configs/model_serving.yaml.")
     if detector_windows:
-        detector_context_chars = max(1, (min(int(window) for window in detector_windows) - 64) * 4)
+        detector_context_chars = detector_prompt_char_budget(min(int(window) for window in detector_windows))
     else:
         detector_context_chars = _as_int("RISK_INPUT_MAX_CHARS", int(risk_input_policy["max_prompt_chars"]), minimum=1)
     risk_input_max_chars = _as_int(

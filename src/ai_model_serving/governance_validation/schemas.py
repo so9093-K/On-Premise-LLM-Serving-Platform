@@ -207,17 +207,6 @@ def validate_request_schemas() -> None:
 def validate_common_error_codes() -> None:
     schema = read_json('specs/schemas/common_error.schema.json')
     codes = set(schema['properties']['error']['properties']['code'].get('enum', []))
-    required = {
-        'VALIDATION_ERROR',
-        'UNAUTHORIZED',
-        'MODEL_UNAVAILABLE',
-        'UPSTREAM_TIMEOUT',
-        'UPSTREAM_SCHEMA_ERROR',
-        'RUNTIME_NOT_READY',
-        'INTERNAL_ERROR',
-    }
-    if not required.issubset(codes):
-        raise SystemExit(f'common error code enum missing: {required - codes}')
 
     # retryable은 code로 결정되며 errors.ERROR_RETRYABLE이 런타임 권위다. 호출 지점마다
     # 손으로 적던 값을 여기로 모았으므로, 사용자용 의미 레이어(error_catalog.yaml)와
@@ -225,6 +214,13 @@ def validate_common_error_codes() -> None:
     import sys as _sys
     _sys.path.insert(0, str(ROOT / 'src'))
     from ai_model_serving.errors import ERROR_RETRYABLE, ERROR_STATUS
+    # 공개 스키마의 code enum은 ERROR_STATUS와 정확히 같아야 한다. 이전에는 임의로 고른
+    # 7개만 확인해서, code를 추가하고 스키마를 잊어도 통과했다.
+    if codes != set(ERROR_STATUS):
+        raise SystemExit(
+            f'common_error.schema.json code enum이 errors.ERROR_STATUS와 다르다: '
+            f'스키마에만={sorted(codes - set(ERROR_STATUS))}, 코드에만={sorted(set(ERROR_STATUS) - codes)}'
+        )
     catalog_errors = read_yaml('configs/error_catalog.yaml')['errors']
     missing = set(ERROR_STATUS) - set(ERROR_RETRYABLE)
     if missing:

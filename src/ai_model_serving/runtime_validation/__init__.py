@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from pathlib import Path
-
 from .cli import ROOT, build_parser, main
 from .config import RuntimeValidationConfig, load_runtime_config
 from .constants import FORBIDDEN_RISK_FIELDS

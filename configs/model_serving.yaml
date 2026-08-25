@@ -155,7 +155,6 @@ models:
     max_output_tokens: 1
     timeout_seconds: 5
     gpu_memory_utilization: 0.065
-    enforce_eager: true
     # 단일 token 분류 모델이다. max_output_tokens=1을 유지하고, context 8192는 실제
     # model config의 max_position_embeddings 값이다(2026-07-25에 2048에서 상향).
     resource_control:
