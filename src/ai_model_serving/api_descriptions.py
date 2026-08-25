@@ -222,8 +222,12 @@ def _chat_tag_description(settings: AppSettings) -> str:
                 f"{_number(json_schema.get('max_depth'))}, 전체 property "
                 f"{_number(json_schema.get('max_total_properties'))}개",
                 "  - optional 필드는 nullable union(`[\"type\", \"null\"]`)으로 표현하고, external `$ref`는 쓸 수 없습니다.",
+                "- **열린 값 타입에는 경계를 주세요.** `integer`/`number`에 `minimum`·`maximum`, "
+                "자유 `string`에 `maxLength` 또는 `pattern`이 없으면 문법상 값이 무한히 이어질 수 있어, "
+                "모델이 닫는 토큰을 내지 못하고 `max_tokens`에서 잘립니다(자릿수·소수점 반복). "
+                "경계가 있으면 문법 자체가 닫히므로 이 실패가 생기지 않습니다.",
                 "- 생성 결과가 스키마를 만족하지 못하면 `UPSTREAM_SCHEMA_ERROR`(retryable)입니다. "
-                "스키마를 단순화하거나 `max_tokens`를 늘리세요.",
+                "위 경계를 먼저 확인하고, 그다음 스키마를 단순화하거나 `max_tokens`를 늘리세요.",
             ]
 
     reasoning = parameters.get("reasoning") or {}

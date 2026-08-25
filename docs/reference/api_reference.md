@@ -259,7 +259,7 @@ curl "$GATEWAY_URL/v1/models" \
 | `tool_choice` | string / object | N | `auto`, `none`, `required`, function choice | Tool 선택 방식 |
 | `parallel_tool_calls` | boolean | N | `false` | 병렬 tool call 비활성 |
 | `reasoning` | boolean | N | 기본 `false` | Gemma4 thinking opt-in. `json_schema`와 함께 쓰면 thinking 종료 뒤 최종 답변이 schema를 따른다. |
-| `response_format` | object | N | `text`, `json_object`, `json_schema` | 출력 형식 |
+| `response_format` | object | N | `text`, `json_object`, `json_schema` | 출력 형식. `json_schema`의 `integer`/`number`에는 `minimum`·`maximum`을, 자유 `string`에는 `maxLength` 또는 `pattern`을 넣는다 — 경계가 없으면 문법상 값이 무한히 이어져 `max_tokens`에서 잘리고 `UPSTREAM_SCHEMA_ERROR`가 된다 ([vLLM #40080](https://github.com/vllm-project/vllm/issues/40080)). |
 | `logprobs` | boolean | N | `true` / `false` | Token log probability |
 | `top_logprobs` | integer | N | `0`–`10` | `logprobs=true` 필요 |
 | `logit_bias` | object | N | 최대 256 entries, value `-100`–`100` | Served-model tokenizer token ID 기준 |
