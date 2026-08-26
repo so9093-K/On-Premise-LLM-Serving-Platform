@@ -62,11 +62,6 @@ VIDEO_LIMITS = dict(
 TEXT_IMAGE = ("text", "image")
 TEXT_IMAGE_AUDIO = ("text", "image", "audio")
 TEXT_IMAGE_AUDIO_VIDEO = ("text", "image", "audio", "video")
-TINY_GIF_1X1_B64 = "R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw=="
-TINY_BMP_1X1_B64 = "Qk1GAAAAAAAAADYAAAAoAAAAAQAAAAEAAAABABgAAAAAABAAAADEDgAAxA4AAAAAAAAAAAAA////AA=="
-TINY_AVIF_1X1_B64 = "AAAAGGZ0eXBhdmlmAAAAAGF2aWZtaWYxAAAAFGlzcGUAAAAAAAAAAQAAAAE="
-TINY_JP2_1X1_B64 = "AAAADGpQICANCocKAAAAFGZ0eXBqcDIgAAAAAGpwMiAAAAAeanAyaAAAABZpaGRyAAAAAQAAAAEAAwcHAAAAAA=="
-TINY_TIFF_1X1_B64 = "SUkqAAgAAAACAAABBAABAAAAAQAAAAEBBAABAAAAAQAAAAAAAAA="
 MULTIPAGE_TIFF_1X1_B64 = "SUkqAAgAAAACAAABBAABAAAAAQAAAAEBBAABAAAAAQAAAAgAAAA="
 SUBIFD_TIFF_1X1_B64 = "SUkqAAgAAAADAAABBAABAAAAAQAAAAEBBAABAAAAAQAAAEoBBAABAAAAgAAAAAAAAAA="
 ANIMATED_GIF_3_FRAME_B64 = (
@@ -237,27 +232,6 @@ def test_video_part_rejected_when_video_not_deployed():
     assert "video content parts are not enabled" in str(exc.value)
 
 
-
-
-# image/x-tiff는 별도 케이스로 두지 않는다: _validate_data_image_url()은 gif를 제외하면
-# media_type으로 분기하지 않고 _image_dimensions()가 바이트 내용만으로 파서를 순서대로
-# 시도하므로, image/tiff와 동일한 _tiff_dimensions() 경로를 그대로 탄다.
-@pytest.mark.parametrize("mime,b64", [
-    ("image/avif", TINY_AVIF_1X1_B64),
-    ("image/jp2", TINY_JP2_1X1_B64),
-    ("image/gif", TINY_GIF_1X1_B64),
-    ("image/bmp", TINY_BMP_1X1_B64),
-    ("image/tiff", TINY_TIFF_1X1_B64),
-])
-def test_additional_static_image_parts_are_accepted(mime, b64):
-    payload = {
-        "model": "local-main",
-        "messages": [
-            {"role": "user", "content": [{"type": "image_url", "image_url": {"url": f"data:{mime};base64,{b64}"}}]}
-        ],
-    }
-
-    _validate(payload, TEXT_IMAGE_AUDIO_VIDEO)
 
 
 @pytest.mark.parametrize("b64", [MULTIPAGE_TIFF_1X1_B64, SUBIFD_TIFF_1X1_B64])

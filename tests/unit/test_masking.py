@@ -1,5 +1,8 @@
-"""mask_sensitive_text가 PII와 secret을 한 번에 마스킹하는지, 민감정보 없는
-텍스트는 그대로 두는지 검증한다."""
+"""mask_sensitive_text가 등록된 masker를 빠짐없이 적용하는지 검증한다.
+
+각 masker 자체의 동작(치환 정확성, 깨끗한 텍스트 보존)은 test_pii_protection_detector
+/ test_secret_exposure_detector가 이미 다룬다. 여기서 고정하는 것은 합성뿐이다 --
+_MASKERS에서 하나가 빠지면 그 종류의 민감정보가 그대로 로그로 나간다."""
 
 from __future__ import annotations
 
@@ -14,7 +17,3 @@ def test_masks_both_pii_and_secret_in_one_pass():
     assert "[EMAIL_ADDRESS]" in masked
     assert "[ANTHROPIC_API_KEY]" in masked
 
-
-def test_text_without_sensitive_data_is_unchanged():
-    text = "오늘 회의는 3시입니다"
-    assert mask_sensitive_text(text) == text

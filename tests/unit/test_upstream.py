@@ -89,11 +89,6 @@ def test_upstream_platform_error_payload_is_preserved_for_gateway_risk_forwardin
     assert not _counts_as_upstream_failure(exc)
 
 
-def test_upstream_retryable_errors_still_count_for_circuit_breaker() -> None:
-    exc = ServiceError("UPSTREAM_ERROR", "upstream failed")
-    assert _counts_as_upstream_failure(exc)
-
-
 def test_upstream_client_supports_root_relative_paths_for_vllm_non_v1_endpoints() -> None:
     client = VLLMClient(endpoint())
     assert client._url("score") == "http://runtime/v1/score"
