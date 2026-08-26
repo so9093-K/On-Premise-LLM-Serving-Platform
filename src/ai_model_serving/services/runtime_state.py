@@ -142,10 +142,6 @@ class RuntimeStateStore:
                 RuntimeStateRecord(RuntimeState.active),
             ).state
 
-    async def get_record(self, service_key: str) -> RuntimeStateRecord:
-        async with self._lock:
-            return self._records.get(service_key, RuntimeStateRecord(RuntimeState.active))
-
     async def set(
         self,
         service_key: str,

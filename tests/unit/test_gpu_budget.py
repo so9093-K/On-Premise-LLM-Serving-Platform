@@ -40,7 +40,8 @@ def test_eviction_frees_room_when_possible():
     result = plan_activation(fleet, "big", 0.85)
     # used_by_others = 0.165, available = 0.785; deficit = 0.065. 하나의 tier
     # 안에서, 가장 큰 evict 대상(risk_prompt 0.065)이면 충분하다 -> 희생자 1개.
-    assert result.needs_eviction
+    # admin_sidecar는 feasible/victims를 직접 본다 -- 같은 필드로 검증한다.
+    assert result.feasible and result.victims
     assert result.victims == ("risk_prompt",)
 
 

@@ -300,11 +300,3 @@ class ServiceError(Exception):
             self.param,
             service_error_debug(self),
         )
-
-    def to_response(self) -> JSONResponse:
-        payload = self.to_payload()
-        return JSONResponse(
-            payload,
-            status_code=self.status_code,
-            headers=error_response_headers(self.code, payload, self.retry_after_seconds),
-        )

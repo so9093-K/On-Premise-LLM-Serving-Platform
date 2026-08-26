@@ -51,10 +51,6 @@ class AdmissionResult:
         return self.feasible and not self.victims
 
     @property
-    def needs_eviction(self) -> bool:
-        return self.feasible and bool(self.victims)
-
-    @property
     def available(self) -> float:
         return self.ceiling - self.used_by_others
 

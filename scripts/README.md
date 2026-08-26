@@ -37,6 +37,8 @@ make stop
 | `models/` | model registry CLI, vLLM command rendering, HF/unified image checks |
 | `ops/` | start/stop/status/ready/smoke/reset/clean 같은 운영 명령 |
 | `validation/` | contract validation, static validation, deterministic test runner, live runtime validation |
+| `validation/governance/` | 정적 계약 검증 체크 구현. 프로덕션 패키지(`src/`)가 아니라 여기 사는 이유는 서비스 실행에 필요 없고 런타임 이미지에 실릴 이유도 없기 때문이다. |
+| `validation/runtime/` | live runtime 검증 체크 구현. 살아있는 스택을 밖에서 찔러보는 도구라 서비스 자신이 품지 않는다. |
 | `lib/` | shell/python shared helpers |
 
 ## 주요 스크립트
@@ -49,6 +51,8 @@ make stop
 | `auth/auth_profile_sanity.py` | `config/setup_env.py`가 생성하는 local/compose auth profile이 `AUTH_MODE` 기대값과 일치하는지 정적 검증에서 확인한다. |
 | `validation/validate_contracts.py` | OpenAPI refs, generated OpenAPI schema injection, JSON Schema, config, release hygiene 정책을 검증한다. |
 | `validation/run_test.sh` | Python 버전과 test 환경을 고정하고 unit/contract test를 실행한다. |
+| `lib/version_refs.py` | `VERSION` 문자열이 박혀 있는 모든 자리를 한 번만 선언한다. `build/reset_version.py`(생성)와 `validation/governance/versioning.py`(검증)가 같은 표를 읽으므로 두 목록이 갈라질 수 없다. |
+| `build/reset_version.py` | 프로젝트 버전을 `lib/version_refs.py`가 선언한 모든 자리에 한 번에 반영한다. 선언된 자리가 파일에서 사라졌으면 조용히 넘기지 않고 실패한다. |
 | `build/check_python.py` | 현재 interpreter가 `>=3.12,<3.15`인지 fail-fast로 확인한다. |
 | `ops/up_services.sh` | 로컬 app-only Gateway/Risk Adapter를 실행하고 `/health`를 기다린다. |
 | `ops/ready_local.sh` | app-only `/health` 상태를 strict하게 확인한다. app service가 내려가 있으면 실패하며 vLLM은 요구하지 않는다. |

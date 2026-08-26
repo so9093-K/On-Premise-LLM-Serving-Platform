@@ -4,6 +4,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from scripts.auth import auth_apply, auth_plan, exposure_apply, exposure_plan
 
 
@@ -80,35 +82,32 @@ def test_auth_plan_local_open_declares_exposure_changes():
     assert changes["EXPOSURE_AUDIENCE"] == "private_lan"
 
 
-def test_auth_plan_apply_report_invalid_env_without_traceback(tmp_path, capsys):
+# plan/apply 네 CLI 모두 같은 계약이다: 깨진 .env는 traceback이 아니라 exit 2와
+# 한국어 한 줄 진단으로 보고해야 한다. 예전엔 auth 쌍과 exposure 쌍이 같은 본문을
+# 각각 한 벌씩 들고 있었다.
+@pytest.mark.parametrize(
+    ("module", "mode", "duplicated_key"),
+    [
+        (auth_plan, "strict", "AUTH_MODE"),
+        (auth_apply, "strict", "AUTH_MODE"),
+        (exposure_plan, "private_network", "EXPOSURE_MODE"),
+        (exposure_apply, "private_network", "EXPOSURE_MODE"),
+    ],
+    ids=["auth_plan", "auth_apply", "exposure_plan", "exposure_apply"],
+)
+def test_plan_apply_report_invalid_env_without_traceback(
+    module, mode, duplicated_key, tmp_path, capsys
+):
     env_path = tmp_path / ".env"
-    env_path.write_text("AUTH_MODE=local_open\nAUTH_MODE=strict\n", encoding="utf-8")
+    values = {"AUTH_MODE": ("local_open", "strict"), "EXPOSURE_MODE": ("private_network", "master_open")}
+    first, second = values[duplicated_key]
+    env_path.write_text(
+        f"{duplicated_key}={first}\n{duplicated_key}={second}\n", encoding="utf-8"
+    )
 
-    assert auth_plan.main(["--mode", "strict", "--env", str(env_path)]) == 2
+    assert module.main(["--mode", mode, "--env", str(env_path)]) == 2
+
     captured = capsys.readouterr()
     assert "env 파일 오류:" in captured.err
-    assert "duplicate env key 'AUTH_MODE'" in captured.err
-    assert "Traceback" not in captured.err
-
-    assert auth_apply.main(["--mode", "strict", "--env", str(env_path)]) == 2
-    captured = capsys.readouterr()
-    assert "env 파일 오류:" in captured.err
-    assert "duplicate env key 'AUTH_MODE'" in captured.err
-    assert "Traceback" not in captured.err
-
-
-def test_exposure_plan_apply_report_invalid_env_without_traceback(tmp_path, capsys):
-    env_path = tmp_path / ".env"
-    env_path.write_text("EXPOSURE_MODE=private_network\nEXPOSURE_MODE=master_open\n", encoding="utf-8")
-
-    assert exposure_plan.main(["--mode", "private_network", "--env", str(env_path)]) == 2
-    captured = capsys.readouterr()
-    assert "env 파일 오류:" in captured.err
-    assert "duplicate env key 'EXPOSURE_MODE'" in captured.err
-    assert "Traceback" not in captured.err
-
-    assert exposure_apply.main(["--mode", "private_network", "--env", str(env_path)]) == 2
-    captured = capsys.readouterr()
-    assert "env 파일 오류:" in captured.err
-    assert "duplicate env key 'EXPOSURE_MODE'" in captured.err
+    assert f"duplicate env key '{duplicated_key}'" in captured.err
     assert "Traceback" not in captured.err

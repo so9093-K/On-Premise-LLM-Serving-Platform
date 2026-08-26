@@ -166,73 +166,112 @@ def validate_request_schemas() -> None:
 
     chat_schema = read_json('specs/schemas/chat_completion_request.schema.json')
     _validate_chat_schema_media_policy(chat_schema)
-    chat_validator = Draft202012Validator(chat_schema)
-    accepted_chat_stream_sample = {'model': 'local-main', 'stream': True, 'stream_options': {'include_usage': True}, 'messages': [{'role': 'user', 'content': 'hello'}]}
-    stream_errors = list(chat_validator.iter_errors(accepted_chat_stream_sample))
-    if stream_errors:
-        details = '; '.join(f'{".".join(str(p) for p in e.path)}: {e.message}' for e in stream_errors)
-        raise SystemExit(
-            f'specs/schemas/chat_completion_request.schema.json rejects a supported '
-            f'stream=true+stream_options.include_usage sample: {details}'
-        )
-    accepted_advanced_chat_samples = [
-        {'model': 'local-main', 'messages': [{'role': 'user', 'content': 'Return JSON.'}], 'response_format': {'type': 'json_object'}},
-        {'model': 'local-main', 'messages': [{'role': 'user', 'content': 'Return JSON.'}], 'response_format': {'type': 'json_schema', 'json_schema': {'name': 'answer', 'strict': True, 'schema': {'type': 'object', 'additionalProperties': False, 'properties': {'answer': {'type': 'string'}}, 'required': ['answer']}}}},
-        {'model': 'local-main', 'messages': [{'role': 'user', 'content': 'hello'}], 'logprobs': True, 'top_logprobs': 10},
-        {'model': 'local-main', 'messages': [{'role': 'user', 'content': 'hello'}], 'logit_bias': {'42': -1.5}},
-    ]
-    for sample in accepted_advanced_chat_samples:
-        if list(chat_validator.iter_errors(sample)):
-            raise SystemExit(f'chat completion schema rejected supported advanced sample: {sample}')
+    _validate_chat_request_contract_samples(Draft202012Validator(chat_schema))
 
-    rejected_chat_samples = [
-        {'model': 'local-main', 'stream': 'true', 'messages': [{'role': 'user', 'content': 'hello'}]},
-        {'model': 'local-main', 'stream': True, 'stream_options': {'include_usage': 'yes'}, 'messages': [{'role': 'user', 'content': 'hello'}]},
-        {'model': 'local-main', 'stream_options': {'include_usage': True}, 'messages': [{'role': 'user', 'content': 'hello'}]},
-        {'model': 'local-main', 'stream': False, 'stream_options': {'include_usage': True}, 'messages': [{'role': 'user', 'content': 'hello'}]},
-        {'model': 'local-main', 'tools': [], 'messages': [{'role': 'user', 'content': 'hello'}]},
-        {'model': 'local-main', 'messages': [{'role': 'user', 'content': 'hello', 'tool_calls': []}]},
-        {'model': 'local-main', 'messages': [{'role': 'user', 'content': 'hello'}], 'response_format': {'type': 'xml'}},
-        {'model': 'local-main', 'messages': [{'role': 'user', 'content': 'hello'}], 'response_format': {'type': 'text', 'json_schema': {'name': 'x', 'schema': {}}}},
-        {'model': 'local-main', 'messages': [{'role': 'user', 'content': 'hello'}], 'top_logprobs': 0},
-        {'model': 'local-main', 'messages': [{'role': 'user', 'content': 'hello'}], 'logprobs': True, 'top_logprobs': 11},
-        {'model': 'local-main', 'messages': [{'role': 'user', 'content': 'hello'}], 'logit_bias': {'x': 1}},
-        {'model': 'local-main', 'messages': [{'role': 'user', 'content': 'hello'}], 'logit_bias': {'1': True}},
+
+def _chat_request_profile_policies() -> list[tuple[str, dict[str, Any]]]:
+    """배포 프로필이 선언한 request parameter 정책들을 모은다."""
+    profiles = read_yaml('configs/main_model_profiles.yaml').get('profiles', {})
+    policies = [
+        (str(profile_id), policy)
+        for profile_id, profile in profiles.items()
+        if isinstance(profile, dict)
+        and isinstance(policy := (profile.get('gateway_policy') or {}).get('request_parameter_policy'), dict)
     ]
-    for sample in rejected_chat_samples:
-        if not list(chat_validator.iter_errors(sample)):
-            raise SystemExit(f'chat completion schema accepted unsupported sample: {sample}')
+    if not policies:
+        raise SystemExit('configs/main_model_profiles.yaml에 request_parameter_policy를 가진 프로필이 없다')
+    return policies
+
+
+def _validate_chat_request_contract_samples(chat_validator: Draft202012Validator) -> None:
+    """요청 계약의 두 구현이 같은 샘플에 대해 어긋나지 않는지 확인한다.
+
+    chat/completions 요청 계약은 두 벌로 존재한다: 클라이언트가 보는 공개 JSON
+    Schema와, Gateway가 런타임에 실제로 거는 validate_chat_request()다. 예전엔 각자
+    자기 샘플 목록을 들고 따로 검사받았고, **둘이 서로 일치하는지는 아무도 보지
+    않았다.** 그래서 여기서 한 corpus로 양쪽을 함께 돌린다.
+
+    강제하는 방향은 하나다: **런타임이 받아들이는 요청을 공개 스키마가 거부하면 안 된다.**
+    그건 스펙이 거짓말을 하는 것이고, 스펙대로 만든 클라이언트가 멀쩡한 요청을 못 보낸다.
+    반대 방향(스키마는 받는데 특정 프로필이 거부)은 정상이다 -- 스키마는 배포 전체가
+    지원할 수 있는 상한이고, 프로필별 정책은 그보다 좁을 수 있다.
+    """
+    import copy
+
+    from ai_model_serving.contracts.chat_request import validate_chat_request
+    from ai_model_serving.errors import ServiceError
+
+    corpus = read_json('specs/chat_request_contract_samples.json')
+    expected_model = corpus['expected_model']
+    policies = _chat_request_profile_policies()
+
+    for sample in corpus['samples']:
+        name = sample['name']
+        payload = sample['payload']
+        expects_accept = sample['expect'] == 'accept'
+
+        schema_accepts = not list(chat_validator.iter_errors(payload))
+        if schema_accepts != expects_accept:
+            verdict = 'accepted' if schema_accepts else 'rejected'
+            raise SystemExit(
+                f'chat_completion_request.schema.json {verdict} sample {name!r} '
+                f'but the corpus expects {sample["expect"]}'
+            )
+
+        for profile_id, policy in policies:
+            try:
+                validate_chat_request(
+                    copy.deepcopy(payload),
+                    expected_model=expected_model,
+                    request_parameter_policy=policy,
+                )
+                runtime_accepts = True
+            except ServiceError:
+                runtime_accepts = False
+
+            if runtime_accepts and not schema_accepts:
+                raise SystemExit(
+                    f'런타임 검증기는 sample {name!r}을 프로필 {profile_id!r}에서 받아들이는데 '
+                    'specs/schemas/chat_completion_request.schema.json은 거부한다 — '
+                    '공개 스키마가 실제 API보다 좁다.'
+                )
 
 
 def validate_common_error_codes() -> None:
-    schema = read_json('specs/schemas/common_error.schema.json')
-    codes = set(schema['properties']['error']['properties']['code'].get('enum', []))
+    """공개 error code 집합이 런타임·스키마·카탈로그 세 곳에서 같은지 확인한다.
 
-    # retryable은 code로 결정되며 errors.ERROR_RETRYABLE이 런타임 권위다. 호출 지점마다
-    # 손으로 적던 값을 여기로 모았으므로, 사용자용 의미 레이어(error_catalog.yaml)와
-    # 갈라지면 API가 "재시도하라"고 말하면서 문서는 반대로 적는 상태가 된다.
-    import sys as _sys
-    _sys.path.insert(0, str(ROOT / 'src'))
+    ERROR_STATUS(errors.py)가 코드 목록의 권위다. 나머지 둘은 그 목록에 딸린
+    표현이다 -- 공개 스키마의 enum은 클라이언트가 보는 목록이고, error_catalog.yaml은
+    code별 의미/조치 서술이다. 셋 중 하나만 추가·삭제되면 여기서 막는다.
+
+    retryable은 여기서 보지 않는다. 예전엔 error_catalog.yaml이 ERROR_RETRYABLE의
+    사본을 들고 있어서 이 함수가 둘의 일치를 지켜야 했는데, 사본을 없애고 문서 gloss도
+    ERROR_RETRYABLE을 직접 읽게 바꿨다 -- 지킬 사본이 없으면 검사도 필요 없다.
+    """
     from ai_model_serving.errors import ERROR_RETRYABLE, ERROR_STATUS
-    # 공개 스키마의 code enum은 ERROR_STATUS와 정확히 같아야 한다. 이전에는 임의로 고른
-    # 7개만 확인해서, code를 추가하고 스키마를 잊어도 통과했다.
-    if codes != set(ERROR_STATUS):
+
+    known_codes = set(ERROR_STATUS)
+
+    schema = read_json('specs/schemas/common_error.schema.json')
+    schema_codes = set(schema['properties']['error']['properties']['code'].get('enum', []))
+    if schema_codes != known_codes:
         raise SystemExit(
-            f'common_error.schema.json code enum이 errors.ERROR_STATUS와 다르다: '
-            f'스키마에만={sorted(codes - set(ERROR_STATUS))}, 코드에만={sorted(set(ERROR_STATUS) - codes)}'
+            'common_error.schema.json code enum이 errors.ERROR_STATUS와 다르다: '
+            f'스키마에만={sorted(schema_codes - known_codes)}, '
+            f'코드에만={sorted(known_codes - schema_codes)}'
         )
-    catalog_errors = read_yaml('configs/error_catalog.yaml')['errors']
-    missing = set(ERROR_STATUS) - set(ERROR_RETRYABLE)
-    if missing:
-        raise SystemExit(f'ERROR_RETRYABLE missing entries for: {sorted(missing)}')
-    for code, entry in catalog_errors.items():
-        declared = entry.get('retryable')
-        runtime = ERROR_RETRYABLE.get(code)
-        if declared != runtime:
-            raise SystemExit(
-                f'error_catalog.yaml {code}.retryable={declared} disagrees with '
-                f'errors.ERROR_RETRYABLE={runtime}'
-            )
+
+    catalog_codes = set(read_yaml('configs/error_catalog.yaml')['errors'])
+    if catalog_codes != known_codes:
+        raise SystemExit(
+            'error_catalog.yaml이 errors.ERROR_STATUS와 다르다: '
+            f'카탈로그에만={sorted(catalog_codes - known_codes)}, '
+            f'코드에만={sorted(known_codes - catalog_codes)}'
+        )
+
+    missing_retryable = known_codes - set(ERROR_RETRYABLE)
+    if missing_retryable:
+        raise SystemExit(f'ERROR_RETRYABLE missing entries for: {sorted(missing_retryable)}')
 
     # ServiceError의 첫 인자는 실제 API 응답 error.code가 된다. 구현 전체를
     # 문자열로 검사하는 것이 아니라, 이 공개 경계에 도달하는 literal만 수집해
@@ -253,28 +292,13 @@ def validate_common_error_codes() -> None:
             if is_service_error and isinstance(first_argument, ast.Constant) and isinstance(first_argument.value, str):
                 emitted_codes.add(first_argument.value)
 
-    from ai_model_serving.errors import ERROR_STATUS
-
-    catalog_codes = set(read_yaml('configs/error_catalog.yaml')['errors'])
-    known_codes = set(ERROR_STATUS)
-    if codes != known_codes:
-        raise SystemExit(
-            'common error schema and ERROR_STATUS disagree: '
-            f'schema_only={sorted(codes - known_codes)}, '
-            f'status_only={sorted(known_codes - codes)}'
-        )
-    if catalog_codes != known_codes:
-        raise SystemExit(
-            'error catalog and ERROR_STATUS disagree: '
-            f'catalog_only={sorted(catalog_codes - known_codes)}, '
-            f'status_only={sorted(known_codes - catalog_codes)}'
-        )
     unknown_emitted = emitted_codes - known_codes
     if unknown_emitted:
         raise SystemExit(
             'ServiceError emits code(s) absent from the public error catalog: '
             + ', '.join(sorted(unknown_emitted))
         )
+
 
 def validate_openapi_error_surface() -> None:
     required_post_errors = {'413', '429', '500', '502', '503', '504'}

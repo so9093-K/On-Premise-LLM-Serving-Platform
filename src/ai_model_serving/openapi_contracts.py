@@ -58,11 +58,17 @@ def _error_code_gloss(codes: list[str], catalog: dict[str, dict[str, Any]]) -> s
     exact status -> code -> meaning mapping instead of the full code enum on every
     response.
     """
+    from .errors import ERROR_RETRYABLE
+
     lines = []
     for code in sorted(codes):
         meta = catalog.get(code, {})
         meaning = str(meta.get("meaning", "")).strip()
-        retry = "재시도 가능" if meta.get("retryable") else "재시도 불가"
+        # retryable은 code로 완전히 결정되며 ERROR_RETRYABLE이 런타임 권위다. 예전엔
+        # error_catalog.yaml이 같은 값을 한 벌 더 들고 있었고, 문서(이 gloss)는 YAML을,
+        # 실제 응답은 ERROR_RETRYABLE을 읽었다 -- 둘이 갈라지면 API는 "재시도하라"고
+        # 하면서 문서는 반대로 적는 상태가 된다. 이제 양쪽 모두 여기 한 곳을 읽는다.
+        retry = "재시도 가능" if ERROR_RETRYABLE.get(code) else "재시도 불가"
         lines.append(f"- `{code}` — {meaning} ({retry})" if meaning else f"- `{code}` ({retry})")
     return "\n\n이 status로 올 수 있는 `error.code`:\n" + "\n".join(lines)
 

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from ..risk_input import detector_prompt_char_budget
+from ai_model_serving.risk_input import detector_prompt_char_budget
 from .common import (
     ROOT,
     read_yaml,
@@ -10,17 +10,30 @@ from .common import (
 )
 
 def validate_ports() -> None:
-    ports = service_default_host_ports()
+    """모델 런타임 포트가 두 레지스트리에서 같은 값인지 확인한다.
+
+    configs/model_serving.yaml의 models.X.port는 vLLM이 --port로 받는 값이고,
+    configs/services.yaml은 같은 포트를 compose 관점(container_port/default_host_port)에서
+    한 벌 더 들고 있다. services.yaml은 모델이 아닌 서비스(grafana, loki 등)도 담기
+    때문에 한쪽에서 파생시킬 수 없어, 두 값의 일치를 여기서 고정한다.
+    """
+    services = read_yaml('configs/services.yaml')['services']
+    host_ports = service_default_host_ports()
     model_serving = read_yaml('configs/model_serving.yaml')
     checks = {}
     for key, cfg in model_serving['models'].items():
         if cfg.get('enabled', True) is True:
             checks[f'{key}_vllm'] = cfg['port']
     for key, value in checks.items():
-        if ports.get(key) != value:
-            raise SystemExit(f'port mismatch: {key} expected {value}, got {ports.get(key)}')
+        if host_ports.get(key) != value:
+            raise SystemExit(f'port mismatch: {key} default_host_port expected {value}, got {host_ports.get(key)}')
+        # container_port는 컨테이너 안에서 vLLM이 실제로 듣는 포트다. 예전엔
+        # default_host_port만 확인해서, 정작 더 중요한 이쪽이 어긋나도 통과했다.
+        container_port = services.get(key, {}).get('container_port')
+        if container_port != value:
+            raise SystemExit(f'port mismatch: {key} container_port expected {value}, got {container_port}')
 
-    gateway_port = ports['gateway']
+    gateway_port = host_ports['gateway']
     env = (ROOT / '.env.example').read_text(encoding='utf-8')
     if f'GATEWAY_PORT={gateway_port}' not in env:
         raise SystemExit(f'.env.example must include GATEWAY_PORT={gateway_port}')

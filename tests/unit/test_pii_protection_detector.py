@@ -2,20 +2,24 @@
 
 결정적(deterministic) local recognizer와 entity->D-code 매핑을 다룬다.
 
-검증하는 불변식:
-- 출력 category의 D1~D5 스키마 호환성
-- data_exposure family validator 통과
-- span_count가 탐지 개수를 나타냄
-- 원본 PII 값이 response에 없음
-- boolean 일관성(risk_detected == model_risk_detected == 탐지된 category 존재 여부)
+응답의 "모양"(필수 필드, boolean 일관성, 금지 필드, source_model, assessment_id
+접두사)은 여기서 손으로 확인하지 않는다 -- 실제 detector 출력을
+``validate_risk_response()``에 그대로 통과시킨다. 그게 Gateway가 런타임에
+거는 바로 그 게이트이고, 손으로 쓴 부분 재구현보다 넓고 정확하다.
 """
 from __future__ import annotations
 
 import asyncio
+import json
 
 import pytest
 
+from ai_model_serving.contracts.risk import validate_risk_response
 from ai_model_serving.detectors.pii import PIIProtectionDetector, mask_pii
+
+
+def assess(text: str) -> dict:
+    return asyncio.run(PIIProtectionDetector().assess(text))
 
 
 # ---------------------------------------------------------------------------
@@ -42,7 +46,7 @@ from ai_model_serving.detectors.pii import PIIProtectionDetector, mask_pii
     ],
 )
 def test_entity_is_reported_with_expected_code(text, label, code):
-    response = asyncio.run(PIIProtectionDetector().assess(text))
+    response = assess(text)
     detected = {c["label"]: c for c in response["categories"] if c["detected"]}
     assert label in detected
     assert detected[label]["code"] == code
@@ -51,106 +55,58 @@ def test_entity_is_reported_with_expected_code(text, label, code):
 
 
 # ---------------------------------------------------------------------------
-# Detector 통합 테스트
+# 공개 응답 계약
 # ---------------------------------------------------------------------------
 
+@pytest.mark.parametrize(
+    "text",
+    [
+        "이메일: test@example.com이고 주민번호: 901201-1234567",  # 여러 건 탐지
+        "오늘 날씨가 맑습니다.",  # 탐지 없음
+    ],
+)
+def test_detector_output_satisfies_public_risk_contract(text):
+    # Gateway가 런타임에 거는 게이트를 그대로 통과시킨다: 필수 필드, 금지 필드,
+    # assessment_id 접두사, category 모양, risk/model_risk/attention boolean 일관성,
+    # assessment_complete 일관성, data_exposure의 source_model 필수 여부까지 한 번에.
+    validate_risk_response(assess(text))
+
+
 class TestPIIProtectionDetector:
-    def _run(self, coro):
-        return asyncio.run(coro)
-
-    def test_rrn_in_text_returns_d1_signal(self):
-        detector = PIIProtectionDetector()
-        response = self._run(detector.assess("주민번호: 901201-1234567"))
-        assert response["risk_detected"] is True
-        assert response["model_risk_detected"] is True
-        d1_cats = [c for c in response["categories"] if c.get("code") == "D1"]
-        assert d1_cats
-        assert d1_cats[0]["span_count"] >= 1
-
     def test_clean_text_returns_safe_response(self):
-        detector = PIIProtectionDetector()
-        response = self._run(detector.assess("오늘 날씨가 맑습니다."))
+        response = assess("오늘 날씨가 맑습니다.")
         assert response["risk_detected"] is False
-        assert response["model_risk_detected"] is False
         assert response["status"] == "completed"
-        assert response["assessment_complete"] is True
-        safe_cats = [c for c in response["categories"] if c.get("code") is None]
-        assert safe_cats
-
-    def test_boolean_consistency_when_detected(self):
-        detector = PIIProtectionDetector()
-        response = self._run(detector.assess("이메일: test@example.com이고 주민번호: 901201-1234567"))
-        detected_count = sum(1 for c in response["categories"] if c["detected"])
-        assert response["risk_detected"] == (detected_count > 0)
-        assert response["model_risk_detected"] == response["risk_detected"]
-        assert response["attention_required"] == (response["model_risk_detected"] or response["system_signal_detected"])
+        # 탐지가 없어도 safe category를 남겨야 한다 -- 빈 categories는 "검사했는데
+        # 깨끗함"과 "아무것도 안 함"을 구분하지 못한다.
+        assert [c for c in response["categories"] if c.get("code") is None]
 
     def test_response_contains_no_raw_pii_values(self):
         rrn = "901201-1234567"
         email = "test@example.com"
-        detector = PIIProtectionDetector()
-        response = self._run(detector.assess(f"주민번호: {rrn}, 이메일: {email}"))
-        import json
-        response_str = json.dumps(response)
+        response_str = json.dumps(assess(f"주민번호: {rrn}, 이메일: {email}"))
         assert rrn not in response_str
         assert email not in response_str
 
     def test_span_count_reflects_multiple_detections(self):
-        detector = PIIProtectionDetector()
         # 서로 다른 주민번호 2개
-        response = self._run(detector.assess("첫번째 901201-1234567 두번째 820315-2345678"))
+        response = assess("첫번째 901201-1234567 두번째 820315-2345678")
         d1_cats = [c for c in response["categories"] if c.get("code") == "D1"]
         assert len(d1_cats) == 1
         assert d1_cats[0]["span_count"] == 2
 
-    def test_source_model_field_present_and_non_empty(self):
-        detector = PIIProtectionDetector()
-        response = self._run(detector.assess("이메일: test@example.com"))
-        for cat in response["categories"]:
-            assert isinstance(cat.get("source_model"), str)
-            assert cat["source_model"]
-
-    def test_korean_phone_number_returns_d2_signal(self):
-        detector = PIIProtectionDetector()
-        response = self._run(detector.assess("내 전화번호는 010-3817-5168입니다."))
-        assert response["risk_detected"] is True
-        d2_cats = [c for c in response["categories"] if c.get("code") == "D2"]
-        assert d2_cats
-        assert d2_cats[0]["label"] == "PHONE_NUMBER"
-        assert d2_cats[0]["span_count"] >= 1
-
     def test_ip_address_is_d5_not_d2_phone(self):
-        detector = PIIProtectionDetector()
-        response = self._run(detector.assess("서버 IP 192.168.1.100에 접속하세요."))
-        detected = {
-            category["label"]: category
-            for category in response["categories"]
-            if category["detected"]
-        }
+        response = assess("서버 IP 192.168.1.100에 접속하세요.")
+        detected = {c["label"]: c for c in response["categories"] if c["detected"]}
         assert "PHONE_NUMBER" not in detected
         assert "IP_ADDRESS" in detected
         assert detected["IP_ADDRESS"]["code"] == "D5"
 
     def test_email_domain_is_not_reported_as_url(self):
-        detector = PIIProtectionDetector()
-        response = self._run(
-            detector.assess(
-                "담당자 이메일은 hong@example.com이고 연락처는 010-1234-5678입니다."
-            )
-        )
-        detected = {
-            category["label"]: category
-            for category in response["categories"]
-            if category["detected"]
-        }
+        response = assess("담당자 이메일은 hong@example.com이고 연락처는 010-1234-5678입니다.")
+        detected = {c["label"]: c for c in response["categories"] if c["detected"]}
         assert set(detected) == {"EMAIL_ADDRESS", "PHONE_NUMBER"}
         assert detected["EMAIL_ADDRESS"]["span_count"] == 1
-
-    def test_forbidden_fields_not_in_response(self):
-        detector = PIIProtectionDetector()
-        response = self._run(detector.assess("주민번호: 901201-1234567"))
-        forbidden = {"allow", "block", "decision", "action", "safe_to_send", "policy_overrides"}
-        assert not forbidden.intersection(response)
 
 
 class TestMaskPii:

@@ -95,6 +95,10 @@ fi
 mkdir "${RELEASE_PATH}"
 REMOTE_PREPARE
 
+# tests/는 build-time 품질 게이트의 입력이며 서비스 실행에는 필요하지 않다.
+# scripts/build/package_release.sh가 릴리스 ZIP에서 같은 이유로(운영 artifact의
+# 크기·공격 표면) 제외하는데 rsync 경로에는 빠져 있어서, ZIP 배포본에는 없고
+# rsync 배포본에만 테스트가 실려 나가고 있었다. 두 배포 경로의 정책은 같아야 한다.
 echo "[deploy] syncing deployable project files to staged release..."
 rsync -az --delete \
   --exclude ".git/" \
@@ -107,6 +111,7 @@ rsync -az --delete \
   --exclude "*.pyc" \
   --exclude "model_cache/" \
   --exclude "ops/compose/models/" \
+  --exclude "/tests/" \
   --exclude "logs/" \
   --exclude "/dist/" \
   --exclude "/build/" \

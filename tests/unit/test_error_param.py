@@ -119,17 +119,39 @@ def test_chat_tool_errors_carry_tool_param():
     assert exc.param == "tool_choice"
 
 
-def test_default_code_for_status_does_not_contradict_status():
-    # 예전엔 401이 아닌 모든 HTTPException이 VALIDATION_ERROR로 뭉개졌다(404 바디에도
-    # code=VALIDATION_ERROR가 찍혔다). 이제 code는 status와 일치해야 한다.
-    assert default_code_for_status(401) == "UNAUTHORIZED"
-    assert default_code_for_status(403) == "FORBIDDEN"
-    assert default_code_for_status(404) == "NOT_FOUND"
-    assert default_code_for_status(409) == "CONFLICT"
-    assert default_code_for_status(413) == "REQUEST_TOO_LARGE"
-    assert default_code_for_status(503) == "MODEL_UNAVAILABLE"
-    assert default_code_for_status(504) == "UPSTREAM_TIMEOUT"
-    assert default_code_for_status(404) != "VALIDATION_ERROR"
+# status 하나에 code가 여러 개 매달린 경우, 그중 무엇이 "맨몸 HTTPException"의
+# 기본값이어야 하는지는 아래 왕복 불변식으로는 결정되지 않는다 -- 후보들이 전부
+# 같은 status를 갖기 때문이다. 잘못 고르면 예컨대 bare 503이 CIRCUIT_OPEN으로 나가서
+# 열리지도 않은 회로가 열렸다고 클라이언트에게 알린다. 그래서 모호한 status만
+# 여기서 명시한다. 후보가 하나뿐인 status(401/403/404/413/...)는 왕복 불변식이
+# 이미 답을 강제하므로 여기 적지 않는다 -- 적으면 ERROR_STATUS를 베껴 쓰는 것뿐이다.
+AMBIGUOUS_STATUS_DEFAULTS = {
+    409: "CONFLICT",
+    422: "VALIDATION_ERROR",
+    502: "UPSTREAM_ERROR",
+    503: "MODEL_UNAVAILABLE",
+    504: "UPSTREAM_TIMEOUT",
+}
+
+
+def test_default_code_is_the_neutral_choice_when_a_status_has_several_codes():
+    import collections
+
+    from ai_model_serving.errors import ERROR_STATUS
+
+    candidates = collections.defaultdict(set)
+    for code, status in ERROR_STATUS.items():
+        candidates[status].add(code)
+    ambiguous = {status for status, codes in candidates.items() if len(codes) > 1}
+
+    # 카탈로그가 자라면서 새로 모호해진 status를 알려준다 -- 그때 기본값을 무엇으로
+    # 할지 결정해서 위 표에 적어야 한다. 조용히 통과시키면 아무도 안 고른 채로
+    # 어떤 code가 기본값이 돼버린다.
+    assert ambiguous == set(AMBIGUOUS_STATUS_DEFAULTS), (
+        f"모호한 status 집합이 바뀌었다: {sorted(ambiguous)}"
+    )
+    for status, expected in AMBIGUOUS_STATUS_DEFAULTS.items():
+        assert default_code_for_status(status) == expected
 
 
 def test_status_default_code_is_consistent_with_error_status():

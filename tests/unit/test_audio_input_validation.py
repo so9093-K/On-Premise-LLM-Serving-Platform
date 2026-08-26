@@ -237,10 +237,6 @@ def test_video_part_rejected_when_video_not_deployed():
     assert "video content parts are not enabled" in str(exc.value)
 
 
-def test_mp4_video_container_is_accepted_when_magic_matches():
-    raw = b"\x00\x00\x00\x18ftypmp42\x00\x00\x00\x00mp42isom"
-    url = "data:video/mp4;base64," + base64.b64encode(raw).decode("ascii")
-    _validate(_video_payload(url), TEXT_IMAGE_AUDIO_VIDEO)
 
 
 # image/x-tiff는 별도 케이스로 두지 않는다: _validate_data_image_url()은 gif를 제외하면
@@ -367,18 +363,14 @@ def test_image_gif_is_not_a_video_url_contract():
     assert "video_url.url scheme" in str(exc.value) or "valid data:video URL" in str(exc.value)
 
 
-def test_avi_video_container_is_accepted_when_magic_matches():
-    # video/avi는 _video_format_matches에서 video/x-msvideo와 같은 분기를 타므로
-    # 따로 테스트하지 않는다.
-    raw = b"RIFF\x20\x00\x00\x00AVI LIST"
-    url = f"data:video/x-msvideo;base64," + base64.b64encode(raw).decode("ascii")
-    _validate(_video_payload(url), TEXT_IMAGE_AUDIO_VIDEO)
-
-
+# 컨테이너별로 _video_format_matches의 서로 다른 magic 분기를 하나씩 태운다.
+# video/avi는 video/x-msvideo와 같은 분기라 따로 두지 않는다.
 @pytest.mark.parametrize(("mime", "raw"), [
+    ("video/mp4", b"\x00\x00\x00\x18ftypmp42\x00\x00\x00\x00mp42isom"),
+    ("video/x-msvideo", b"RIFF\x20\x00\x00\x00AVI LIST"),
     ("video/x-matroska", b"\x1a\x45\xdf\xa3"),
 ])
-def test_additional_video_containers_are_accepted_when_magic_matches(mime, raw):
+def test_video_containers_are_accepted_when_magic_matches(mime, raw):
     url = f"data:{mime};base64," + base64.b64encode(raw).decode("ascii")
     _validate(_video_payload(url), TEXT_IMAGE_AUDIO_VIDEO)
 

@@ -1,3 +1,14 @@
+#!/usr/bin/env python3
+"""프로젝트 버전을 한 번에 바꾼다.
+
+어떤 파일의 어떤 줄이 버전을 담고 있는지는 scripts/lib/version_refs.py가 유일하게
+선언한다. 검증기(scripts/validation/governance/versioning.py)도 같은 표를 읽으므로,
+자리를 추가할 때 두 곳을 따로 고칠 일이 없다.
+
+사용법:
+  python scripts/build/reset_version.py <version>
+"""
+
 from __future__ import annotations
 
 import json
@@ -6,87 +17,52 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from scripts.lib.version_refs import (  # noqa: E402
+    LINE_REFS,
+    MANIFEST_IMAGE_TAGS,
+    MANIFEST_PYTHON_VERSION_FIELD,
+    MANIFEST_VERSION_FIELDS,
+    is_valid_project_version,
+    python_package_version,
+)
 
 
-def python_package_version(version: str) -> str:
-    """Convert the project release version to a PEP 440 Python package version.
-
-    Docker/image/docs use SemVer-style prerelease tags such as 0.1.0-rc.1.
-    pyproject.toml must use the equivalent PEP 440 spelling, e.g. 0.1.0rc1.
-    """
-    match = re.fullmatch(r'(\d+\.\d+\.\d+)-rc\.(\d+)', version)
-    if match:
-        return f'{match.group(1)}rc{match.group(2)}'
-    return version
-
-
-def is_valid_project_version(version: str) -> bool:
-    return bool(re.fullmatch(r'\d+\.\d+\.\d+(-rc\.\d+)?', version))
-
-
-def replace_openapi_version(path: Path, version: str) -> None:
+def apply_line_ref(ref, version: str, py_version: str) -> str:
+    """선언된 한 자리를 새 버전으로 갱신하고, 무엇을 바꿨는지 돌려준다."""
+    path = ROOT / ref.path
     text = path.read_text(encoding='utf-8')
-    text = re.sub(r'(?m)^  version: .+$', f'  version: {version}', text, count=1)
-    path.write_text(text, encoding='utf-8')
+    expected = ref.expected(version, py_version)
+    count = 0 if ref.all_occurrences else 1
+
+    # 치환 문자열을 람다로 준다 -- 버전이나 이미지 이름에 백슬래시/\g 같은 문자가
+    # 들어와도 re.sub의 이스케이프로 해석되지 않게 한다.
+    updated, replaced = re.subn(ref.pattern, lambda _match: expected, text, count=count)
+    if replaced == 0:
+        # 표에는 있는데 파일에는 없다. 조용히 넘어가면 그 자리는 영영 옛 버전으로
+        # 남는다 -- 실제로 예전 구현이 README.md에 대해 그러고 있었다.
+        raise SystemExit(f'{ref.path}: no line matched {ref.pattern!r}')
+
+    path.write_text(updated, encoding='utf-8')
+    return f'{ref.path}: {replaced}곳 -> {expected}'
 
 
-def replace_pyproject_version(path: Path, version: str) -> None:
-    text = path.read_text(encoding='utf-8')
-    text = re.sub(r'(?m)^version = ".+"$', f'version = "{version}"', text, count=1)
-    path.write_text(text, encoding='utf-8')
+def update_manifest(version: str, py_version: str) -> str:
+    manifest_path = ROOT / 'version_manifest.json'
+    manifest = json.loads(manifest_path.read_text(encoding='utf-8')) if manifest_path.exists() else {}
 
+    for field in MANIFEST_VERSION_FIELDS:
+        manifest[field] = version
+    manifest[MANIFEST_PYTHON_VERSION_FIELD] = py_version
+    image_tags = manifest.setdefault('image_tags', {})
+    for field, template in MANIFEST_IMAGE_TAGS.items():
+        image_tags[field] = template.format(version=version)
+    manifest['version_reset'] = True
 
-
-def replace_platform_image_tag(path: Path, version: str) -> None:
-    text = path.read_text(encoding='utf-8')
-    text = re.sub(
-        r'(?m)^(\s*default:\s*ai-model-serving-platform:).+$',
-        rf'\g<1>{version}',
-        text,
-        count=1,
-    )
-    path.write_text(text, encoding='utf-8')
-
-
-def replace_vllm_unified_image_tag(path: Path, version: str) -> None:
-    text = path.read_text(encoding='utf-8')
-    # vllm/embedding_ko_vllm/risk_vllm 세 항목 모두 같은 unified 이미지를 가리키므로
-    # count=0(전체 치환)으로 한 번에 갱신한다.
-    text = re.sub(
-        r'(?m)^(\s*default:\s*ai-model-serving-vllm-unified:).+$',
-        rf'\g<1>{version}',
-        text,
-        count=0,
-    )
-    path.write_text(text, encoding='utf-8')
-
-
-def replace_plain_version_references(path: Path, version: str) -> None:
-    text = path.read_text(encoding='utf-8')
-    text = re.sub(r'패키지 버전 \| `[^`]+`', f'패키지 버전 | `{version}`', text)
-    text = re.sub(r'(?m)^PROJECT_VERSION=.+$', f'PROJECT_VERSION={version}', text)
-    text = re.sub(
-        r'(?m)^PLATFORM_IMAGE=ai-model-serving-platform:.+$',
-        f'PLATFORM_IMAGE=ai-model-serving-platform:{version}',
-        text,
-    )
-    text = re.sub(
-        r'(?m)^VLLM_IMAGE=ai-model-serving-vllm-unified:.+$',
-        f'VLLM_IMAGE=ai-model-serving-vllm-unified:{version}',
-        text,
-    )
-    text = re.sub(
-        r'(?m)^EMBEDDING_KO_VLLM_IMAGE=ai-model-serving-vllm-unified:.+$',
-        f'EMBEDDING_KO_VLLM_IMAGE=ai-model-serving-vllm-unified:{version}',
-        text,
-    )
-    text = re.sub(
-        r'(?m)^RISK_VLLM_IMAGE=ai-model-serving-vllm-unified:.+$',
-        f'RISK_VLLM_IMAGE=ai-model-serving-vllm-unified:{version}',
-        text,
-    )
-    text = re.sub(r'(?m)^version: .+$', f'version: {version}', text, count=1)
-    path.write_text(text, encoding='utf-8')
+    manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+    return f'version_manifest.json: {len(MANIFEST_VERSION_FIELDS) + 1 + len(MANIFEST_IMAGE_TAGS)}개 필드 갱신'
 
 
 def main() -> None:
@@ -96,38 +72,14 @@ def main() -> None:
     if not is_valid_project_version(version):
         raise SystemExit(f'invalid project version: {version}; expected x.y.z or x.y.z-rc.n')
 
+    py_version = python_package_version(version)
+
     (ROOT / 'VERSION').write_text(version + '\n', encoding='utf-8')
+    changes = [update_manifest(version, py_version)]
+    changes.extend(apply_line_ref(ref, version, py_version) for ref in LINE_REFS)
 
-    manifest_path = ROOT / 'version_manifest.json'
-    manifest = json.loads(manifest_path.read_text(encoding='utf-8')) if manifest_path.exists() else {}
-    manifest['version'] = version
-    manifest['python_package_version'] = python_package_version(version)
-    manifest['api_contract_version'] = version
-    if 'image_tags' not in manifest:
-        manifest['image_tags'] = {}
-    manifest['image_tags']['platform'] = f'ai-model-serving-platform:{version}'
-    manifest['image_tags']['risk_vllm'] = f'ai-model-serving-vllm-unified:{version}'
-    manifest['version_reset'] = True
-    manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
-
-    for path in [ROOT / 'specs/openapi.gateway.yaml', ROOT / 'specs/openapi.risk-adapter.yaml']:
-        replace_openapi_version(path, version)
-
-    replace_pyproject_version(ROOT / 'pyproject.toml', python_package_version(version))
-    for path in [
-        ROOT / 'README.md',
-        ROOT / '.env.example',
-        ROOT / '.env.local.example',
-        ROOT / '.env.compose.example',
-    ]:
-        if path.exists():
-            replace_plain_version_references(path, version)
-
-    image_config = ROOT / 'configs/recommended_images.yaml'
-    if image_config.exists():
-        replace_platform_image_tag(image_config, version)
-        replace_vllm_unified_image_tag(image_config, version)
-
+    for change in changes:
+        print(f'  {change}')
     print(f'version reset to {version}')
 
 

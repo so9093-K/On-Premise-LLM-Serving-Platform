@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import httpx
 
-from ai_model_serving.errors import ServiceError
+from ai_model_serving.errors import ServiceError, error_response
 from ai_model_serving.settings import RuntimeEndpoint
 from ai_model_serving.upstream import (
     QUEUE_TIMEOUT_RETRY_AFTER_SECONDS,
@@ -16,6 +16,26 @@ from ai_model_serving.upstream import (
     _counts_as_upstream_failure,
     _http_status_to_service_error,
 )
+
+
+def _response_headers(exc: ServiceError):
+    """프로덕션 예외 핸들러와 같은 경로로 응답 헤더를 만든다.
+
+    app_kernel.service_error_handler가 ServiceError를 이 인자들로 error_response()에
+    넘긴다. 예전엔 테스트가 ServiceError.to_response()를 불렀는데, 그 메서드는
+    error_response()와 같은 일을 하는 두 번째 구현이면서 프로덕션 호출자가 하나도
+    없었다 -- 즉 테스트만 살려두던 경로라 헤더 회귀를 실제로 막아주지 못했다.
+    """
+    return error_response(
+        exc.code,
+        exc.message,
+        exc.retryable,
+        exc.status_code,
+        None,
+        exc.param,
+        None,
+        exc.retry_after_seconds,
+    ).headers
 
 
 def endpoint() -> RuntimeEndpoint:
@@ -92,8 +112,7 @@ def test_circuit_open_error_carries_retry_after_close_to_remaining_cooldown() ->
         assert exc.retry_after_seconds is not None
         # 방금 막 트립됐으니, 남은 cooldown은 reset_seconds를 넘지 않고 그 근처여야 한다.
         assert 14.0 < exc.retry_after_seconds <= 15.0
-        headers = exc.to_response().headers
-        assert headers["retry-after"] == "15"
+        assert _response_headers(exc)["retry-after"] == "15"
 
 
 def test_queue_timeout_error_carries_fixed_retry_after_hint() -> None:
@@ -114,13 +133,12 @@ def test_queue_timeout_error_carries_fixed_retry_after_hint() -> None:
     assert exc.code == "QUEUE_TIMEOUT"
     assert exc.status_code == 503
     assert exc.retry_after_seconds == QUEUE_TIMEOUT_RETRY_AFTER_SECONDS
-    headers = exc.to_response().headers
-    assert headers["retry-after"] == "5"
+    assert _response_headers(exc)["retry-after"] == "5"
 
 
 def test_service_error_without_retry_after_omits_header() -> None:
     exc = ServiceError("VALIDATION_ERROR", "bad request")
-    assert "retry-after" not in exc.to_response().headers
+    assert "retry-after" not in _response_headers(exc)
 
 
 def test_readiness_probe_bypasses_open_circuit_breaker() -> None:

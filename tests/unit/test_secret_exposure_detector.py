@@ -1,12 +1,11 @@
 """Secret Exposure detector 단위 테스트.
 
-정제된 정규식 패턴, 엔트로피 기반 범용 후보 탐지, entity->D-code 매핑을
-다룬다. 모든 테스트가 다음을 확인한다:
-- 원본 secret 값이 response에 절대 나타나지 않는다
-- span_count가 탐지 개수를 나타낸다
-- D4/D5 코드가 올바르게 부여된다
-- boolean 일관성이 유지된다
-- forbidden 필드가 없다
+정제된 정규식 패턴, 엔트로피 기반 범용 후보 탐지, entity->D-code 매핑을 다룬다.
+
+응답의 "모양"(필수 필드, boolean 일관성, 금지 필드, source_model, assessment_id
+접두사)은 여기서 손으로 확인하지 않는다 -- 실제 detector 출력을
+``validate_risk_response()``에 그대로 통과시킨다. 그게 Gateway가 런타임에
+거는 바로 그 게이트이고, 손으로 쓴 부분 재구현보다 넓고 정확하다.
 """
 from __future__ import annotations
 
@@ -15,6 +14,7 @@ import json
 
 import pytest
 
+from ai_model_serving.contracts.risk import validate_risk_response
 from ai_model_serving.detectors.secret import SecretExposureDetector, mask_secrets
 
 
@@ -32,6 +32,10 @@ JWT = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNry
 PRIVATE_KEY = "-----BEGIN RSA PRIVATE KEY-----"
 DATABASE_URL = "postgresql://user:p4ssw0rd@db.example.com:5432/mydb"
 PASSWORD_ASSIGN = "password=Sup3rS3cr3t!"
+
+
+def assess(text: str) -> dict:
+    return asyncio.run(SecretExposureDetector().assess(text))
 
 
 # 각 pattern과 category builder를 private helper로 따로 부르지 않고 공개 assess()
@@ -56,7 +60,7 @@ PASSWORD_ASSIGN = "password=Sup3rS3cr3t!"
     ],
 )
 def test_secret_is_reported_with_expected_code(text, label, code):
-    response = asyncio.run(SecretExposureDetector().assess(text))
+    response = assess(text)
     detected = {c["label"]: c for c in response["categories"] if c["detected"]}
     assert label in detected
     assert detected[label]["code"] == code
@@ -66,85 +70,40 @@ def test_secret_is_reported_with_expected_code(text, label, code):
 
 def test_text_without_secrets_reports_no_detection():
     # 저엔트로피 평문은 generic 후보로도 잡히면 안 된다(오탐 경계).
-    response = asyncio.run(SecretExposureDetector().assess("오늘 배포 일정 공유드립니다. 확인 부탁드립니다."))
+    response = assess("오늘 배포 일정 공유드립니다. 확인 부탁드립니다.")
     assert not [c for c in response["categories"] if c["detected"]]
+    assert response["risk_detected"] is False
+    assert response["status"] == "completed"
+
+
+@pytest.mark.parametrize("text", [f"키: {OPENAI_KEY}", "오늘 날씨가 맑습니다."])
+def test_detector_output_satisfies_public_risk_contract(text):
+    # Gateway가 런타임에 거는 게이트를 그대로 통과시킨다: 필수 필드, 금지 필드,
+    # assessment_id 접두사, category 모양, risk/model_risk/attention boolean 일관성,
+    # assessment_complete 일관성, data_exposure의 source_model 필수 여부까지 한 번에.
+    validate_risk_response(assess(text))
 
 
 class TestSecretExposureDetector:
-    def _run(self, coro):
-        return asyncio.run(coro)
-
-    def test_openai_key_returns_d4_signal(self):
-        detector = SecretExposureDetector()
-        response = self._run(detector.assess(f"키: {OPENAI_KEY}"))
-        assert response["risk_detected"] is True
-        d4_cats = [c for c in response["categories"] if c.get("code") == "D4"]
-        assert d4_cats
-        assert d4_cats[0]["label"] == "OPENAI_API_KEY"
-
-    def test_database_url_returns_d5_signal(self):
-        detector = SecretExposureDetector()
-        response = self._run(detector.assess(f"connect: {DATABASE_URL}"))
-        assert response["risk_detected"] is True
-        d5_cats = [c for c in response["categories"] if c.get("code") == "D5"]
-        assert d5_cats
-
-    def test_clean_text_returns_safe_response(self):
-        detector = SecretExposureDetector()
-        response = self._run(detector.assess("오늘 날씨가 맑습니다."))
-        assert response["risk_detected"] is False
-        assert response["model_risk_detected"] is False
-        assert response["status"] == "completed"
-
     def test_raw_secret_values_absent_from_response(self):
         # secret 종류별로 반복하지 않는다: _build_categories()는 어떤 패턴이 매치됐든
         # label/span_count만 담고 매치된 원문 substring 자체를 절대 참조하지 않으므로,
         # 이 부재 검증은 secret 종류에 무관하게 동일한 코드 경로를 검증한다.
-        # 종류별 탐지(regex) 정확성은 TestScanText에서 이미 개별로 검증한다.
-        detector = SecretExposureDetector()
-        secret = OPENAI_KEY
-        response = self._run(detector.assess(f"값: {secret}"))
-        response_str = json.dumps(response)
-        assert secret not in response_str, f"raw secret found in response for {secret[:20]}..."
+        response_str = json.dumps(assess(f"값: {OPENAI_KEY}"))
+        assert OPENAI_KEY not in response_str
 
     def test_span_count_reflects_multiple_jwt_occurrences(self):
-        detector = SecretExposureDetector()
-        response = self._run(detector.assess(f"첫번째: {JWT} 두번째: {JWT}"))
-        d4_cats = [c for c in response["categories"] if c.get("code") == "D4" and c.get("label") == "JWT"]
-        assert len(d4_cats) == 1
-        assert d4_cats[0]["span_count"] == 2
+        response = assess(f"첫번째: {JWT} 두번째: {JWT}")
+        jwt_cats = [c for c in response["categories"] if c.get("label") == "JWT"]
+        assert len(jwt_cats) == 1
+        assert jwt_cats[0]["span_count"] == 2
 
-    def test_boolean_consistency_when_detected(self):
-        detector = SecretExposureDetector()
-        response = self._run(detector.assess(f"키: {OPENAI_KEY}"))
-        detected_count = sum(1 for c in response["categories"] if c["detected"])
-        assert response["risk_detected"] == (detected_count > 0)
-        assert response["model_risk_detected"] == response["risk_detected"]
-        assert response["attention_required"] == (response["model_risk_detected"] or response["system_signal_detected"])
-
-    def test_forbidden_fields_not_in_response(self):
-        detector = SecretExposureDetector()
-        response = self._run(detector.assess(f"secret={OPENAI_KEY}"))
-        forbidden = {"allow", "block", "decision", "action", "safe_to_send", "policy_overrides"}
-        assert not forbidden.intersection(response)
-
-    def test_source_model_field_present_and_non_empty(self):
-        detector = SecretExposureDetector()
-        response = self._run(detector.assess(f"key={OPENAI_KEY}"))
-        for cat in response["categories"]:
-            assert isinstance(cat.get("source_model"), str)
-            assert cat["source_model"]
-
-    def test_d4_has_higher_priority_than_a_codes_in_strongest_code(self):
-        # 탐지되면 D4가 strongest_code로 나와야 한다
-        detector = SecretExposureDetector()
-        response = self._run(detector.assess(f"key={OPENAI_KEY}"))
+    def test_d4_outranks_d5_in_strongest_code(self):
+        # 자격증명(D4)과 인프라 노출(D5)이 함께 잡히면 더 강한 쪽이 대표값이어야 한다.
+        response = assess(f"키: {OPENAI_KEY} 접속: {DATABASE_URL}")
+        codes = {c["code"] for c in response["categories"] if c["detected"]}
+        assert {"D4", "D5"}.issubset(codes)
         assert response["strongest_code"] == "D4"
-
-    def test_assessment_id_starts_with_risk(self):
-        detector = SecretExposureDetector()
-        response = self._run(detector.assess("test"))
-        assert response["assessment_id"].startswith("risk_")
 
 
 class TestMaskSecrets:

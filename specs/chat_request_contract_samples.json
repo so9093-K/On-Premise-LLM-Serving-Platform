@@ -1,0 +1,86 @@
+{
+  "description": "chat/completions 요청 계약의 단일 샘플 corpus. 공개 JSON Schema(specs/schemas/chat_completion_request.schema.json)와 런타임 검증기(src/ai_model_serving/contracts/chat_request.py)가 같은 샘플로 대조된다. 예전엔 두 구현이 각자 샘플 목록을 들고 있었고 서로 일치하는지는 아무도 보지 않았다. 검사는 scripts/validation/governance/schemas.py::validate_request_schemas 가 수행한다.",
+  "expected_model": "local-main",
+  "samples": [
+    {
+      "name": "stream_with_usage_option",
+      "expect": "accept",
+      "payload": {"model": "local-main", "stream": true, "stream_options": {"include_usage": true}, "messages": [{"role": "user", "content": "hello"}]}
+    },
+    {
+      "name": "response_format_json_object",
+      "expect": "accept",
+      "payload": {"model": "local-main", "messages": [{"role": "user", "content": "Return JSON."}], "response_format": {"type": "json_object"}}
+    },
+    {
+      "name": "response_format_json_schema",
+      "expect": "accept",
+      "payload": {"model": "local-main", "messages": [{"role": "user", "content": "Return JSON."}], "response_format": {"type": "json_schema", "json_schema": {"name": "answer", "strict": true, "schema": {"type": "object", "additionalProperties": false, "properties": {"answer": {"type": "string"}}, "required": ["answer"]}}}}
+    },
+    {
+      "name": "logprobs_with_top_logprobs",
+      "expect": "accept",
+      "payload": {"model": "local-main", "messages": [{"role": "user", "content": "hello"}], "logprobs": true, "top_logprobs": 10}
+    },
+    {
+      "name": "logit_bias_numeric_value",
+      "expect": "accept",
+      "payload": {"model": "local-main", "messages": [{"role": "user", "content": "hello"}], "logit_bias": {"42": -1.5}}
+    },
+    {
+      "name": "stream_must_be_boolean",
+      "expect": "reject",
+      "payload": {"model": "local-main", "stream": "true", "messages": [{"role": "user", "content": "hello"}]}
+    },
+    {
+      "name": "include_usage_must_be_boolean",
+      "expect": "reject",
+      "payload": {"model": "local-main", "stream": true, "stream_options": {"include_usage": "yes"}, "messages": [{"role": "user", "content": "hello"}]}
+    },
+    {
+      "name": "stream_options_requires_stream",
+      "expect": "reject",
+      "payload": {"model": "local-main", "stream_options": {"include_usage": true}, "messages": [{"role": "user", "content": "hello"}]}
+    },
+    {
+      "name": "stream_options_requires_stream_true",
+      "expect": "reject",
+      "payload": {"model": "local-main", "stream": false, "stream_options": {"include_usage": true}, "messages": [{"role": "user", "content": "hello"}]}
+    },
+    {
+      "name": "user_message_may_not_carry_tool_calls",
+      "expect": "reject",
+      "payload": {"model": "local-main", "messages": [{"role": "user", "content": "hello", "tool_calls": []}]}
+    },
+    {
+      "name": "unsupported_response_format_type",
+      "expect": "reject",
+      "payload": {"model": "local-main", "messages": [{"role": "user", "content": "hello"}], "response_format": {"type": "xml"}}
+    },
+    {
+      "name": "text_response_format_may_not_carry_json_schema",
+      "expect": "reject",
+      "payload": {"model": "local-main", "messages": [{"role": "user", "content": "hello"}], "response_format": {"type": "text", "json_schema": {"name": "x", "schema": {}}}}
+    },
+    {
+      "name": "top_logprobs_below_range",
+      "expect": "reject",
+      "payload": {"model": "local-main", "messages": [{"role": "user", "content": "hello"}], "top_logprobs": 0}
+    },
+    {
+      "name": "top_logprobs_above_range",
+      "expect": "reject",
+      "payload": {"model": "local-main", "messages": [{"role": "user", "content": "hello"}], "logprobs": true, "top_logprobs": 11}
+    },
+    {
+      "name": "logit_bias_key_must_be_token_id",
+      "expect": "reject",
+      "payload": {"model": "local-main", "messages": [{"role": "user", "content": "hello"}], "logit_bias": {"x": 1}}
+    },
+    {
+      "name": "logit_bias_value_must_be_number",
+      "expect": "reject",
+      "payload": {"model": "local-main", "messages": [{"role": "user", "content": "hello"}], "logit_bias": {"1": true}}
+    }
+  ]
+}

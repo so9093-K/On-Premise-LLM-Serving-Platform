@@ -6,7 +6,19 @@ from pathlib import Path
 from .config import load_runtime_config
 from .validator import RuntimeValidator
 
-ROOT = Path(__file__).resolve().parents[3]
+def _find_project_root() -> Path:
+    """VERSION+configs 마커로 저장소 루트를 찾는다.
+
+    예전엔 parents[3]로 깊이를 박아뒀는데, 그러면 이 패키지가 다른 위치로 옮겨질 때
+    조용히 엉뚱한 디렉터리를 루트로 잡는다.
+    """
+    for parent in Path(__file__).resolve().parents:
+        if (parent / "VERSION").exists() and (parent / "configs").exists():
+            return parent
+    raise RuntimeError("could not locate project root from runtime validation package")
+
+
+ROOT = _find_project_root()
 
 
 def build_parser() -> argparse.ArgumentParser:

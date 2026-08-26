@@ -78,7 +78,8 @@ def test_runtime_state_store_reads_record_metadata(tmp_path):
     )
 
     store = RuntimeStateStore(path)
-    record = asyncio.run(store.get_record("embedding"))
+    # all_records()가 프로덕션(gateway_runtime_control)이 실제로 쓰는 접근자다.
+    record = asyncio.run(store.all_records())["embedding"]
 
     assert record == RuntimeStateRecord(
         RuntimeState.stopped,
@@ -106,7 +107,8 @@ def test_runtime_state_store_tolerates_invalid_record_metadata(tmp_path):
     )
 
     store = RuntimeStateStore(path)
-    record = asyncio.run(store.get_record("embedding"))
+    # all_records()가 프로덕션(gateway_runtime_control)이 실제로 쓰는 접근자다.
+    record = asyncio.run(store.all_records())["embedding"]
 
     assert record.state == RuntimeState.stopped
     assert record.reason == "manual"
