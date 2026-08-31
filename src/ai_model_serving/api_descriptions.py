@@ -41,24 +41,6 @@ def _number(value: Any) -> str:
     return str(value)
 
 
-def _wrap_names(values: Any, *, width: int = 76) -> str:
-    """이름 목록을 코드블록 안에서 읽기 좋게 줄바꿈한다."""
-    names = [str(v) for v in (values or [])]
-    if not names:
-        return "(없음)"
-    lines: list[str] = []
-    current = ""
-    for name in names:
-        candidate = f"{current}, {name}" if current else name
-        if len(candidate) > width and current:
-            lines.append(current + ",")
-            current = name
-        else:
-            current = candidate
-    lines.append(current)
-    return "\n".join(lines)
-
-
 def _main_model_parameter(settings: AppSettings, name: str) -> dict[str, Any]:
     """공개 목록에서 메인 모델의 파라미터 정의 하나를 꺼낸다(없으면 빈 dict)."""
     main_model_id = settings.runtime("main_llm").model
@@ -154,14 +136,7 @@ def _chat_tag_description(settings: AppSettings) -> str:
         "",
         "### 요청 파라미터 allowlist",
         "",
-        "허용 파라미터:",
-        "",
-        # 인라인 코드 22개를 한 불릿에 이어 붙이면 300자가 넘고, 칩이 줄바꿈되며
-        # 화면이 지저분해진다. 이름 목록은 코드블록으로 두면 데이터처럼 차분히 읽힌다.
-        "```",
-        _wrap_names(parameters.get("supported_parameters")),
-        "```",
-        "",
+        f"- 허용 파라미터: {_codes(parameters.get('supported_parameters'))}",
     ]
     if parameters.get("allow_unlisted_parameters") is False:
         lines.append(
@@ -298,18 +273,15 @@ def _chat_tag_description(settings: AppSettings) -> str:
                 _bytes(limits.get("max_audio_bytes")),
                 _bytes(limits.get("max_video_bytes")),
             ),
+            "| 허용 형식 | {} | {} | {} |".format(
+                _codes(limits.get("allowed_image_mime_types")),
+                _codes(limits.get("allowed_audio_formats")),
+                _codes(limits.get("allowed_video_mime_types")),
+            ),
             "| URL scheme | {} | 인라인 base64 | {} |".format(
                 _codes(limits.get("allowed_image_url_schemes")),
                 _codes(limits.get("allowed_video_url_schemes")),
             ),
-            "",
-            # 허용 형식은 표 칸에 넣지 않는다. 이미지 9종·비디오 8종이라 4열 표의 한 칸에
-            # 120자 넘게 들어가면서 표 전체가 세로로 터진다. 목록은 표 밖에서 한 줄씩 준다.
-            "**허용 형식**",
-            "",
-            f"- 이미지 — {_codes(limits.get('allowed_image_mime_types'))}",
-            f"- 오디오 — {_codes(limits.get('allowed_audio_formats'))}",
-            f"- 비디오 — {_codes(limits.get('allowed_video_mime_types'))}",
             "",
             f"- 이미지 픽셀 상한 {_number(limits.get('max_image_pixels'))}px — 압축 폭탄을 막기 위해 "
             "디코딩 전에 헤더에서 해상도를 읽어 검사하며, 해상도를 읽지 못하면 거부합니다(fail-closed).",
@@ -476,19 +448,12 @@ _REQUEST_DEBUGGING = """
 
 | 헤더 | 언제 | 내용 |
 |---|---|---|
-| `X-Request-Id` | 오류 응답 | 요청 추적 키 |
-| `X-Error-Code` | 오류 응답 | `error.code` |
-| `X-Error-Message` | 오류 응답 | 사람이 읽는 원인 설명 |
-| `Retry-After` | 재시도 가능한 429/503 | 다음 재시도까지 기다릴 초 |
+| `X-Request-Id` | 오류 응답 | 요청에 `X-Request-Id`를 보냈으면 그 값, 안 보냈으면 Gateway가 발급한 `req_<hex>`. 접근 로그의 `request_id`와 항상 같습니다. |
+| `X-Error-Code` | 오류 응답 | `error.code`. 같은 HTTP status에 여러 code가 몰리므로(예: 503 = `MODEL_UNAVAILABLE` / `QUEUE_TIMEOUT` / `CIRCUIT_OPEN` / `MAIN_MODEL_SWITCH_IN_PROGRESS`) status만으로 원인을 나누면 안 됩니다. |
+| `X-Error-Message` | 오류 응답 | 사람이 읽는 원인 설명(출력 가능한 ASCII, 500자 제한). |
+| `Retry-After` | 재시도 가능한 429/503 | 다음 재시도까지 기다릴 초. 올림 처리되므로 최소 `1`입니다. |
 
-- `X-Request-Id` — 요청에 직접 보냈으면 그 값, 안 보냈으면 Gateway가 발급한 `req_<hex>`.
-  접근 로그의 `request_id`와 항상 같습니다. 호출할 때 붙이면(최대 128자) 클라이언트 로그와
-  서버 로그를 같은 키로 맞출 수 있습니다.
-- `X-Error-Code` — 같은 HTTP status에 여러 code가 몰립니다. 예를 들어 `503`은
-  `MODEL_UNAVAILABLE`, `QUEUE_TIMEOUT`, `CIRCUIT_OPEN`, `MAIN_MODEL_SWITCH_IN_PROGRESS`가
-  모두 쓰므로 status만으로 원인을 나누면 안 됩니다.
-- `X-Error-Message` — 출력 가능한 ASCII, 500자 제한.
-- `Retry-After` — 올림 처리되므로 최소 `1`입니다.
+호출할 때 직접 `X-Request-Id`를 붙이면(최대 128자) 클라이언트 로그와 서버 로그를 같은 키로 맞출 수 있습니다.
 
 ### 오류 본문
 
@@ -525,27 +490,17 @@ _REQUEST_DEBUGGING = """
 
 | 증상 | 먼저 볼 것 |
 |---|---|
-| 503이 계속 난다 | `X-Error-Code` → 아래 참고 |
+| 503이 계속 난다 | `X-Error-Code` 확인 → `MAIN_MODEL_SWITCH_IN_PROGRESS`면 `GET /admin/main-model`의 `gate`와 `last_operation`, `MODEL_UNAVAILABLE`이면 `GET /admin/runtimes`의 `state` |
 | 422로 거부된다 | `error.param`이 가리키는 필드를 `GET /v1/models`의 `request_parameters`와 대조 |
-| 기능을 지원하지 않는다고 한다 | `GET /v1/models`의 `capabilities`·`input_modalities` |
-| 스트리밍이 도중에 끊긴다 | 마지막 SSE 이벤트(오류는 `error` 뒤 `[DONE]`) |
-| 응답이 잘린다 | `max_tokens`, 프로필의 `max_model_len`, `reasoning` 사용 여부 |
-
-503은 `X-Error-Code`로 갈립니다.
-
-- `MAIN_MODEL_SWITCH_IN_PROGRESS` — `GET /admin/main-model`의 `gate`와 `last_operation`
-- `MODEL_UNAVAILABLE` — `GET /admin/runtimes`의 `state`
-
-`capabilities`·`input_modalities`는 활성 프로필이 바뀌면 함께 바뀝니다.
+| 모델이 기능을 지원하지 않는다고 한다 | `GET /v1/models`의 `capabilities`·`input_modalities` — 활성 프로필이 바뀌면 함께 바뀝니다 |
+| 스트리밍이 도중에 끊긴다 | 마지막 SSE 이벤트 확인(오류는 `error` 이벤트 뒤 `[DONE]`) |
+| 응답이 잘린다 | `max_tokens`와 프로필의 `max_model_len`, `reasoning` 사용 여부 |
 """
 
 
 def gateway_description(settings: AppSettings) -> str:
     """Gateway OpenAPI `info.description`(문서 첫 화면)을 만든다."""
     return f"""
-vLLM 기반 LLM·Embedding·Risk 런타임을 하나의 OpenAI 호환 API로 제공합니다.
-아래 값은 모두 이 배포의 실제 설정에서 생성되며, 실행 시점의 권위는 `GET /v1/models`입니다.
-
 ## 빠른 시작
 
 1. `GET /health` — Gateway process liveness

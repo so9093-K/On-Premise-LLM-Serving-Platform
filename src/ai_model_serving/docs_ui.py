@@ -4,12 +4,6 @@ import json
 
 SCALAR_CONFIG = json.dumps({
     "theme": "default",
-    # classic 레이아웃은 본문을 한 컬럼으로 넓게 쓴다. 이 문서는 설정에서 생성한 표와
-    # 코드 예시가 많아서, 기본(modern) 3컬럼에서는 표가 세로로 터지며 계단처럼 찌그러진다.
-    "layout": "classic",
-    # Scalar가 헤더와 본문 양쪽에 다운로드 버튼을 그려서 첫 화면에 두 번 나온다.
-    # OpenAPI 문서는 /openapi.json에서 그대로 받을 수 있으므로 버튼은 하나도 필요 없다.
-    "hideDownloadButton": True,
     "defaultHttpClient": {"targetKey": "shell", "clientKey": "curl"},
 })
 
