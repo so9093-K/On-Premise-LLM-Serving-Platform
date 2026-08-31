@@ -395,7 +395,7 @@ def gateway_tags_metadata(settings: AppSettings) -> list[dict[str, str]]:
     return [
         {
             "name": "Operations",
-            "description": "`/health`는 process liveness, `/ready`는 vLLM과 Risk Adapter 전체 dependency 상태를 확인합니다.",
+            "description": _OPERATIONS_TAG,
         },
         {
             "name": "Monitoring",
@@ -441,19 +441,27 @@ def gateway_tags_metadata(settings: AppSettings) -> list[dict[str, str]]:
     ]
 
 
-_REQUEST_DEBUGGING = """
-## 요청별 디버깅
+_OPERATIONS_TAG = """`/health`는 process liveness, `/ready`는 vLLM과 Risk Adapter 전체 dependency 상태를 확인합니다.
 
-모든 응답은 요청 하나를 끝까지 추적할 수 있는 헤더를 함께 보냅니다.
+문제가 생긴 요청 하나를 끝까지 추적하는 방법도 여기에 정리했습니다.
+
+### 요청 추적 헤더
 
 | 헤더 | 언제 | 내용 |
 |---|---|---|
-| `X-Request-Id` | 오류 응답 | 요청에 `X-Request-Id`를 보냈으면 그 값, 안 보냈으면 Gateway가 발급한 `req_<hex>`. 접근 로그의 `request_id`와 항상 같습니다. |
-| `X-Error-Code` | 오류 응답 | `error.code`. 같은 HTTP status에 여러 code가 몰리므로(예: 503 = `MODEL_UNAVAILABLE` / `QUEUE_TIMEOUT` / `CIRCUIT_OPEN` / `MAIN_MODEL_SWITCH_IN_PROGRESS`) status만으로 원인을 나누면 안 됩니다. |
-| `X-Error-Message` | 오류 응답 | 사람이 읽는 원인 설명(출력 가능한 ASCII, 500자 제한). |
-| `Retry-After` | 재시도 가능한 429/503 | 다음 재시도까지 기다릴 초. 올림 처리되므로 최소 `1`입니다. |
+| `X-Request-Id` | 오류 응답 | 요청 추적 키 |
+| `X-Error-Code` | 오류 응답 | `error.code` |
+| `X-Error-Message` | 오류 응답 | 사람이 읽는 원인 설명 |
+| `Retry-After` | 재시도 가능한 429/503 | 다음 재시도까지 기다릴 초 |
 
-호출할 때 직접 `X-Request-Id`를 붙이면(최대 128자) 클라이언트 로그와 서버 로그를 같은 키로 맞출 수 있습니다.
+- `X-Request-Id` — 요청에 직접 보냈으면 그 값, 안 보냈으면 Gateway가 발급한 `req_<hex>`.
+  접근 로그의 `request_id`와 항상 같습니다. 호출할 때 붙이면(최대 128자) 클라이언트 로그와
+  서버 로그를 같은 키로 맞출 수 있습니다.
+- `X-Error-Code` — 같은 HTTP status에 여러 code가 몰립니다. 예를 들어 `503`은
+  `MODEL_UNAVAILABLE`, `QUEUE_TIMEOUT`, `CIRCUIT_OPEN`, `MAIN_MODEL_SWITCH_IN_PROGRESS`가
+  모두 쓰므로 status만으로 원인을 나누면 안 됩니다.
+- `X-Error-Message` — 출력 가능한 ASCII, 500자 제한.
+- `Retry-After` — 올림 처리되므로 최소 `1`입니다.
 
 ### 오류 본문
 
@@ -471,63 +479,79 @@ _REQUEST_DEBUGGING = """
 }
 ```
 
-- `code` / `retryable` — `retryable`은 code로 완전히 결정됩니다. 같은 code가 호출마다 다른 값으로 나가는 일은 없으므로 재시도 로직은 code만 보고 판단하면 됩니다.
-- `param` — 문제가 된 요청 필드명입니다. 메시지 문자열을 파싱하지 말고 이 값을 쓰세요(예: `max_tokens` vs `input_audio.format`).
-- `debug` — 원인 예외 요약(`cause_type`, `cause_message`, upstream 상태). 길이 제한이 걸린 요약이며 원문 응답 본문이 아닙니다.
+- `code` / `retryable` — `retryable`은 code로 완전히 결정됩니다. 같은 code가 호출마다 다른 값으로
+  나가는 일은 없으므로 재시도 로직은 code만 보고 판단하면 됩니다.
+- `param` — 문제가 된 요청 필드명입니다. 메시지 문자열을 파싱하지 말고 이 값을 쓰세요
+  (예: `max_tokens` vs `input_audio.format`).
+- `debug` — 원인 예외 요약(`cause_type`, `cause_message`, upstream 상태). 길이 제한이 걸린
+  요약이며 원문 응답 본문이 아닙니다.
 - `details` — code만으로 표현할 수 없는 구조화된 복구 정보입니다(예: `GPU_BUDGET_EXCEEDED`의 `plan.stop`).
 
 각 엔드포인트의 status별 응답 설명에 그 status에서 나올 수 있는 code와 의미·대응이 함께 적혀 있습니다.
 
 ### 서버 쪽에서 확인할 것
 
-접근 로그는 요청 한 건당 `request_id`, `route`, `status_code`, `latency_ms`, `error_code`, `error_retryable`,
-`error_cause_type`, `error_cause_message`, `error_upstream_status`, `prompt_tokens` / `completion_tokens` /
-`total_tokens`를 남깁니다. `INTERNAL_ERROR`는 클라이언트에게 고정 문구만 나가지만 로그에는 원인이 함께 남습니다.
+접근 로그는 요청 한 건당 `request_id`, `route`, `status_code`, `latency_ms`, `error_code`,
+`error_retryable`, `error_cause_type`, `error_cause_message`, `error_upstream_status`,
+`prompt_tokens` / `completion_tokens` / `total_tokens`를 남깁니다.
+`INTERNAL_ERROR`는 클라이언트에게 고정 문구만 나가지만 로그에는 원인이 함께 남습니다.
 
-`LOG_REQUEST_RESPONSE_BODY=true`일 때만 chat 요청·응답 본문 프리뷰가 로그에 추가되며, PII·시크릿은 마스킹된 뒤 기록됩니다.
+`LOG_REQUEST_RESPONSE_BODY=true`일 때만 chat 요청·응답 본문 프리뷰가 로그에 추가되며,
+PII·시크릿은 마스킹된 뒤 기록됩니다.
 
 ### 증상별 확인 순서
 
 | 증상 | 먼저 볼 것 |
 |---|---|
-| 503이 계속 난다 | `X-Error-Code` 확인 → `MAIN_MODEL_SWITCH_IN_PROGRESS`면 `GET /admin/main-model`의 `gate`와 `last_operation`, `MODEL_UNAVAILABLE`이면 `GET /admin/runtimes`의 `state` |
+| 503이 계속 난다 | `X-Error-Code` → 아래 참고 |
 | 422로 거부된다 | `error.param`이 가리키는 필드를 `GET /v1/models`의 `request_parameters`와 대조 |
-| 모델이 기능을 지원하지 않는다고 한다 | `GET /v1/models`의 `capabilities`·`input_modalities` — 활성 프로필이 바뀌면 함께 바뀝니다 |
-| 스트리밍이 도중에 끊긴다 | 마지막 SSE 이벤트 확인(오류는 `error` 이벤트 뒤 `[DONE]`) |
-| 응답이 잘린다 | `max_tokens`와 프로필의 `max_model_len`, `reasoning` 사용 여부 |
+| 기능을 지원하지 않는다고 한다 | `GET /v1/models`의 `capabilities`·`input_modalities` |
+| 스트리밍이 도중에 끊긴다 | 마지막 SSE 이벤트(오류는 `error` 뒤 `[DONE]`) |
+| 응답이 잘린다 | `max_tokens`, 프로필의 `max_model_len`, `reasoning` 사용 여부 |
+
+503은 `X-Error-Code`로 갈립니다.
+
+- `MAIN_MODEL_SWITCH_IN_PROGRESS` — `GET /admin/main-model`의 `gate`와 `last_operation`
+- `MODEL_UNAVAILABLE` — `GET /admin/runtimes`의 `state`
+
+`capabilities`·`input_modalities`는 활성 프로필이 바뀌면 함께 바뀝니다.
 """
 
 
 def gateway_description(settings: AppSettings) -> str:
-    """Gateway OpenAPI `info.description`(문서 첫 화면)을 만든다."""
-    return f"""
-## 빠른 시작
+    """Gateway OpenAPI `info.description`(문서 첫 화면)을 만든다.
 
-1. `GET /health` — Gateway process liveness
-2. `GET /ready` — vLLM, Risk Adapter 전체 dependency readiness
-3. `GET /v1/models` — logical model id, capability, 사용자 조정 가능 parameter 목록
-4. `POST /v1/chat/completions` — chat completion (`{settings.runtime('main_llm').model}`)
-5. `POST /v1/embeddings` — embedding 생성 (기본 `{settings.default_embedding_model}`)
-6. `POST /v1/retrieval/*` — 문서 관련도 재순위·점수 계산 (기본 `{settings.default_retrieval_model}`)
-7. `POST /v1/risk/*` — prompt risk signal
+    첫 화면은 "어떻게 처음 호출하나"와 "인증" 두 가지만 다룬다. 엔드포인트·태그 목록은
+    왼쪽 사이드바가 summary와 함께 이미 보여주므로 여기서 다시 나열하지 않고, 장애 대응
+    레퍼런스는 Operations 태그(`/health`·`/ready` 옆)에 둔다. 예전에는 이 세 가지가 한
+    화면에 섞여 있어서, 목차처럼 보이지만 실제로는 사이드바 사본 + 트러블슈팅 매뉴얼이었다.
+    """
+    return f"""
+vLLM 기반 LLM·Embedding·Risk 런타임을 하나의 OpenAI 호환 API로 제공합니다.
+문서에 보이는 한도와 파라미터 목록은 이 배포의 실제 설정에서 생성되며, 실행 시점의 권위는
+`GET /v1/models`입니다.
+
+## 첫 호출
+
+`$GATEWAY`는 이 문서를 열고 있는 주소입니다.
+
+```bash
+curl -X POST "$GATEWAY/v1/chat/completions" \\
+  -H "Authorization: Bearer $API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{{
+    "model": "{settings.runtime('main_llm').model}",
+    "messages": [{{"role": "user", "content": "안녕하세요"}}]
+  }}'
+```
+
+응답은 OpenAI chat completion 형식입니다. 사용할 수 있는 모델과 조정 가능한 파라미터는
+`GET /v1/models`의 `request_parameters`가 알려줍니다.
 
 ## 인증
 
 - **bearerAuth** — `/v1/*` 사용자 API: `Authorization: Bearer <API_KEY>`
 - **adminBearerAuth** — `/ready`, `/metrics`, `/admin/*`: `Authorization: Bearer <ADMIN_API_KEY>`
-
-## 모델별 특성
-
-모델 목록·capability·조정 가능 parameter는 **Models** 태그 설명에 정리되어 있고, 런타임 권위는
-`GET /v1/models[].request_parameters`입니다. chat 기능별 한도는 **Chat** 태그 설명을,
-런타임 정지·시작과 메인 모델 전환은 **Runtime Control** 태그 설명을 참고하세요.
-{_REQUEST_DEBUGGING}
-## Readiness
-
-- `/health` — process liveness (인증 없음)
-- `/ready` — 전체 dependency readiness (admin auth 필요)
-- **HTTP 200** `status: ready` — serving 가능
-- **HTTP 503** `status: not_ready` — 로딩 중 또는 dependency 불가 (`not_ready_dependencies` 필드 참고)
 """
 
 
