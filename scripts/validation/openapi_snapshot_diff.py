@@ -58,13 +58,30 @@ def _contract_schema_name(schema: Any) -> str | None:
     return None
 
 
-def _expected_schema(schema: Any) -> Any:
+def _expected_schema(schema: Any, *, narrow_chat: bool = False) -> Any:
+    """정적 spec이 가리키는 계약 스키마를 그대로 읽는다.
+
+    chat 요청 스키마만 예외다. 생성 OpenAPI는 이 스키마를 활성 프로필 정책으로 좁혀서
+    싣는다(한도가 프로필마다 다르므로 정적 파일에는 담을 수 없다). 비교 대상에도 같은
+    좁히기를 적용해야, 이 검사가 "좁히기 로직이 바뀐 것"이 아니라 "계약이 어긋난 것"을
+    잡는다.
+    """
     name = _contract_schema_name(schema)
     if name is None:
         return None
     from ai_model_serving.openapi_contracts import load_contract_schema
 
-    return load_contract_schema(name, root=ROOT)
+    expected = load_contract_schema(name, root=ROOT)
+    if narrow_chat:
+        from ai_model_serving.openapi_contracts import narrow_chat_request_schema
+
+        expected = narrow_chat_request_schema(expected, _CHAT_POLICY.get("value"))
+    return expected
+
+
+# 생성 문서를 만들 때 쓰는 활성 프로필 정책. settings 로딩이 STRICT_ENV(이미지 pin 등)를
+# 요구하므로, 그 env가 세팅된 구간 안에서 한 번 읽어 여기 담아 둔다.
+_CHAT_POLICY: dict[str, Any] = {}
 
 
 def _build_generated_docs() -> dict[str, dict[str, Any]]:
@@ -73,7 +90,9 @@ def _build_generated_docs() -> dict[str, dict[str, Any]]:
     try:
         from ai_model_serving.apps.gateway import create_gateway_app
         from ai_model_serving.apps.risk_adapter import create_risk_adapter_app
+        from ai_model_serving.settings import load_settings
 
+        _CHAT_POLICY["value"] = load_settings().default_main_model_gateway_policy
         return {
             "gateway": create_gateway_app().openapi(),
             "risk-adapter": create_risk_adapter_app().openapi(),
@@ -123,7 +142,10 @@ def _compare_one(name: str, static_rel: str, generated: dict[str, Any]) -> list[
 
             static_request = _request_schema(static_op)
             generated_request = _request_schema(generated_op)
-            expected_request = _expected_schema(static_request)
+            expected_request = _expected_schema(
+                static_request,
+                narrow_chat=(path == "/v1/chat/completions" and method.lower() == "post"),
+            )
             if expected_request is not None and expected_request != generated_request:
                 issues.append(f"{name} {method.upper()} {path}: request schema mismatch")
 

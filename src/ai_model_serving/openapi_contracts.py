@@ -207,18 +207,74 @@ def _resolve_internal_refs(value: Any, *, root: dict[str, Any]) -> Any:
     return value
 
 
+def narrow_chat_request_schema(schema: dict[str, Any], policy: dict[str, Any] | None) -> dict[str, Any]:
+    """chat 요청 스키마를 지금 활성화된 메인 모델 프로필 정책으로 좁힌다.
+
+    checked-in 스키마는 정적 파일이라 프로필별 한도를 담을 수 없다. 그래서 실제 상한은
+    태그 설명에 산문으로 한 벌 더 적혀 있었고, 스키마 쪽 값은 굳은 채로 실제와 어긋났다
+    (예: 스키마 max_tokens 13000, gemma4-e4b-it 프로필은 15000).
+
+    여기서 좁혀 넣으면 Scalar가 필드 옆에 제약을 그리고 "Try it" 폼도 그 값을 안다.
+    같은 사실을 산문으로 다시 적을 이유가 없어진다. status별 error code enum을 좁히는
+    _narrowed_error_schema와 같은 방식이다.
+    """
+    if not policy:
+        return schema
+    limits = policy.get("request_limits") or {}
+    parameters = policy.get("request_parameter_policy") or {}
+    properties = schema.get("properties")
+    if not isinstance(properties, dict):
+        return schema
+
+    # supported_parameters로 속성을 쳐내지는 않는다. 그 목록은 런타임이 받는 것의
+    # 전부가 아니다 -- 예를 들어 max_completion_tokens는 목록에 없지만 max_tokens의
+    # OpenAI 표준 별칭이라 런타임이 받아서 접는다. 목록만 보고 지우면 공개 스키마가
+    # 실제 API보다 좁아진다(= 스펙이 거짓말한다).
+    def set_bound(field: str, key: str, value: Any) -> None:
+        target = properties.get(field)
+        if isinstance(target, dict) and isinstance(value, int) and value > 0:
+            target[key] = value
+
+    max_output = policy.get("max_output_tokens")
+    set_bound("max_tokens", "maximum", max_output)
+    set_bound("max_completion_tokens", "maximum", max_output)
+    set_bound("n", "maximum", parameters.get("max_n"))
+
+    tool_calling = parameters.get("tool_calling") or {}
+    if tool_calling.get("enabled") is True:
+        set_bound("tools", "maxItems", tool_calling.get("max_tools"))
+    else:
+        for name in ("tools", "tool_choice", "parallel_tool_calls"):
+            properties.pop(name, None)
+
+    top_logprobs = parameters.get("top_logprobs") or {}
+    set_bound("top_logprobs", "maximum", top_logprobs.get("max"))
+
+    max_model_len = limits.get("max_model_len")
+    if isinstance(max_model_len, int) and max_model_len > 0:
+        schema["description"] = (
+            (schema.get("description", "") + " ").strip()
+            + f" 지금 활성화된 프로필의 컨텍스트 상한은 {max_model_len:,}토큰(입력+출력)입니다."
+        ).strip()
+    return schema
+
+
 def install_contract_openapi(
     app: FastAPI,
     *,
     request_schemas: SchemaMap | None = None,
     response_schemas: SchemaMap | None = None,
     request_examples: ExamplesMap | None = None,
+    schema_narrowers: dict[tuple[str, str], Any] | None = None,
+    operation_details: dict[tuple[str, str], str] | None = None,
     root: Path | None = None,
 ) -> None:
     """FastAPI 생성 OpenAPI에 checked-in 계약 스키마를 반영한다."""
     request_schemas = request_schemas or {}
     response_schemas = response_schemas or {}
     request_examples = request_examples or {}
+    schema_narrowers = schema_narrowers or {}
+    operation_details = operation_details or {}
     original_openapi = app.openapi
     schema_cache: dict[str, dict[str, Any]] = {}
 
@@ -233,12 +289,24 @@ def install_contract_openapi(
         try:
             document = original_openapi()
             paths = document.setdefault("paths", {})
+            # 설정에서 생성한 상세 설명을 해당 오퍼레이션에 붙인다. 엔드포인트가 하나뿐인
+            # 태그(Chat/Models/Embeddings)는 이 내용이 태그 설명에 있었는데, 태그와
+            # 오퍼레이션이 사실상 같은 것이라 나눌 이유가 없었고 무거운 쪽이 접혔다.
+            for (method, path), detail in operation_details.items():
+                operation = paths.get(path, {}).get(method.lower())
+                if not isinstance(operation, dict) or not detail:
+                    continue
+                existing = (operation.get("description") or "").rstrip()
+                operation["description"] = f"{existing}\n\n{detail}" if existing else detail
             for (method, path), schema_name in request_schemas.items():
                 operation = paths.get(path, {}).get(method.lower())
                 if not isinstance(operation, dict):
                     continue
                 content = operation.setdefault("requestBody", {}).setdefault("content", {}).setdefault("application/json", {})
-                content["schema"] = schema_for(schema_name)
+                request_schema = schema_for(schema_name)
+                if narrower := schema_narrowers.get((method, path)):
+                    request_schema = narrower(request_schema)
+                content["schema"] = request_schema
                 if examples := request_examples.get((method, path)):
                     content["examples"] = copy.deepcopy(examples)
                 operation["requestBody"]["required"] = True

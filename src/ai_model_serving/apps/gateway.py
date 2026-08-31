@@ -18,7 +18,12 @@ from ..app_kernel import (
 from ..errors import ServiceError
 from ..service_logging import service_logger
 from ..metrics import Metrics
-from ..openapi_contracts import install_contract_openapi
+from ..api_descriptions import (
+    chat_operation_detail,
+    embeddings_operation_detail,
+    models_operation_detail,
+)
+from ..openapi_contracts import install_contract_openapi, narrow_chat_request_schema
 from ..security import require_bearer_auth
 from ..settings import AppSettings, RuntimeEndpoint, SecuritySettings, load_settings
 from ..services.gateway_service import GatewayService
@@ -217,6 +222,20 @@ def create_gateway_app(settings: AppSettings | None = None, clients: GatewayClie
         app,
         request_schemas=_request_schemas,
         response_schemas=_response_schemas,
+        # chat 요청 스키마는 정적 파일이라 프로필별 한도를 담지 못한다. 활성 프로필
+        # 정책으로 좁혀서 문서의 필드 제약이 실제 API와 같아지게 한다.
+        # 엔드포인트가 하나뿐인 태그의 상세 설명은 태그가 아니라 그 오퍼레이션에 붙인다.
+        # 태그 설명에 두면 Scalar가 Show More로 접어버려 읽히지 않는다.
+        operation_details={
+            ("POST", "/v1/chat/completions"): chat_operation_detail(settings),
+            ("GET", "/v1/models"): models_operation_detail(settings),
+            ("POST", "/v1/embeddings"): embeddings_operation_detail(settings),
+        },
+        schema_narrowers={
+            ("POST", "/v1/chat/completions"): lambda schema: narrow_chat_request_schema(
+                schema, settings.default_main_model_gateway_policy
+            ),
+        },
         request_examples={
             ("POST", "/v1/chat/completions"): GATEWAY_CHAT_REQUEST_EXAMPLES,
             ("POST", "/v1/embeddings"): GATEWAY_EMBEDDING_REQUEST_EXAMPLES,

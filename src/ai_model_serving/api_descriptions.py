@@ -51,9 +51,12 @@ def _main_model_parameter(settings: AppSettings, name: str) -> dict[str, Any]:
     return {}
 
 
-def _models_tag_description(settings: AppSettings) -> str:
+MODELS_TAG_SUMMARY = "Gateway가 호출자에게 공개하는 모델 목록입니다."
+
+
+def models_operation_detail(settings: AppSettings) -> str:
+    """모델 목록 엔드포인트의 상세. 태그가 아니라 이 오퍼레이션에 붙는다."""
     lines = [
-        "Gateway가 호출자에게 공개하는 모델 목록입니다. "
         "아래 표는 이 배포 설정에서 자동으로 만들어집니다. 지금 실제로 적용 중인 값은 "
         "`GET /v1/models` 응답에서 확인하세요.",
         "",
@@ -112,24 +115,32 @@ def _models_tag_description(settings: AppSettings) -> str:
     return "\n".join(lines)
 
 
-def _chat_tag_description(settings: AppSettings) -> str:
+CHAT_TAG_SUMMARY = (
+    "OpenAI 호환 chat completions API입니다. Gateway는 요청을 모델 런타임으로 넘기기 전에 "
+    "모델 이름, 입력 종류, 토큰 한도, 허용 파라미터, 구조화 출력 스키마를 직접 검사합니다."
+)
+
+
+def chat_operation_detail(settings: AppSettings) -> str:
+    """chat 엔드포인트의 동작·한도 설명.
+
+    예전엔 이 내용이 Chat 태그 설명에 있었다. 그런데 Chat 태그에는 엔드포인트가
+    하나뿐이라 태그와 오퍼레이션이 사실상 같은 것이고, 4천 자가 넘으니 Scalar가
+    태그 설명을 `Show More`로 접어버려 아무도 안 읽는 상태였다. 읽는 사람이 그
+    엔드포인트를 보고 있을 때 그 자리에 있는 게 맞다.
+    """
     policy = settings.default_main_model_gateway_policy or {}
     limits = policy.get("request_limits") or {}
     parameters = policy.get("request_parameter_policy") or {}
 
-    lines = [
-        "OpenAI 호환 chat completions API입니다. Gateway는 요청을 모델 런타임으로 넘기기 전에 모델 이름, "
-        "입력 종류, 토큰 한도, 허용 파라미터, 구조화 출력 스키마를 직접 검사합니다.",
-    ]
+    lines: list[str] = []
     if not policy:
-        lines.append(
-            "\n기능별 한도는 지금 활성화된 메인 모델 프로필이 정합니다. 실제 값은 `GET /v1/models`의 "
-            "`request_parameters`에서 확인하세요."
+        return (
+            "기능별 한도는 지금 활성화된 메인 모델 프로필이 정합니다. 실제 값은 "
+            "`GET /v1/models`의 `request_parameters`에서 확인하세요."
         )
-        return "\n".join(lines)
 
     lines += [
-        "",
         "아래 값은 이 배포의 **기본 프로필** 정책입니다. 프로필을 전환하면 값이 달라지므로, "
         "지금 실제로 적용 중인 값은 `GET /v1/models`(호출자용)와 `GET /admin/main-model`의 `active_profile.gateway_policy`"
         "(운영자용)입니다.",
@@ -161,10 +172,11 @@ def _chat_tag_description(settings: AppSettings) -> str:
         "",
         "### 토큰 한도",
         "",
+        # max_tokens / n 상한은 아래 요청 스키마가 필드 옆에 그린다. 산문으로 또 적으면
+        # 같은 값이 두 곳에 살면서, 프로필을 바꿨을 때 한쪽만 갱신되는 자리가 생긴다.
         f"- `max_model_len` {_number(limits.get('max_model_len'))} — 입력과 출력 토큰의 합에 대한 상한입니다.",
-        f"- `max_tokens` 상한 {_number(policy.get('max_output_tokens'))} — 요청이 이 값을 넘으면 "
-        "`422 VALIDATION_ERROR`(`error.param: max_tokens`)입니다.",
-        f"- `n` 최대 {_number(parameters.get('max_n'))} — 한 요청이 만들 수 있는 choice 개수입니다.",
+        "- 요청별 `max_tokens`·`n` 상한은 아래 요청 스키마에 표시됩니다. 넘기면 "
+        "`422 VALIDATION_ERROR`이고 `error.param`이 어느 필드인지 알려줍니다.",
         f"- 요청 본문 자체의 상한은 {_bytes(settings.max_request_body_bytes)}입니다"
         "(base64 미디어 포함). 초과하면 `413 REQUEST_TOO_LARGE`입니다.",
         "",
@@ -187,7 +199,6 @@ def _chat_tag_description(settings: AppSettings) -> str:
             "",
             f"- 지원 여부: `{str(tool_calling.get('enabled', False)).lower()}` "
             "— 비활성 프로필에서는 `tools`를 보내면 거부됩니다.",
-            f"- `tools` 최대 {_number(tool_calling.get('max_tools'))}개.",
             f"- `parallel_tool_calls` 허용: `{str(tool_calling.get('allow_parallel_tool_calls', False)).lower()}` "
             "— 허용되지 않으면 `true`를 보낼 수 없습니다.",
             f"- `tool_choice`: {_codes(_main_model_parameter(settings, 'tool_choice').get('allowed'))} "
@@ -302,7 +313,10 @@ def _chat_tag_description(settings: AppSettings) -> str:
     return "\n".join(lines)
 
 
-def _embeddings_tag_description(settings: AppSettings) -> str:
+EMBEDDINGS_TAG_SUMMARY = "OpenAI 호환 embedding API입니다."
+
+
+def embeddings_operation_detail(settings: AppSettings) -> str:
     lines = [
         "텍스트 embedding API입니다. 모델마다 출력 차원이 고정되어 있고, Gateway가 요청 차원과 "
         "응답 차원이 일치하는지 확인합니다.",
@@ -406,15 +420,15 @@ def gateway_tags_metadata(settings: AppSettings) -> list[dict[str, str]]:
         },
         {
             "name": "Models",
-            "description": _models_tag_description(settings),
+            "description": MODELS_TAG_SUMMARY,
         },
         {
             "name": "Chat",
-            "description": _chat_tag_description(settings),
+            "description": CHAT_TAG_SUMMARY,
         },
         {
             "name": "Embeddings",
-            "description": _embeddings_tag_description(settings),
+            "description": EMBEDDINGS_TAG_SUMMARY,
         },
         {
             "name": "Retrieval",
