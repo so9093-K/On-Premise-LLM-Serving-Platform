@@ -54,7 +54,7 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
         operation_id="getGatewayHealth",
         tag="Operations",
         summary="Liveness 확인",
-        description="Process liveness probe. 항상 HTTP 200을 반환합니다. 인증 없이 접근 가능합니다.",
+        description="프로세스가 살아 있는지만 확인합니다. 항상 HTTP 200을 반환하며 인증 없이 호출할 수 있습니다.",
         lifecycle="stable",
         request_schema=None,
         response_schema=None,
@@ -64,9 +64,9 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
         path="/ready",
         operation_id="getGatewayReadiness",
         tag="Operations",
-        summary="Dependency readiness 확인",
+        summary="의존 서비스 준비 상태 확인",
         description=(
-            "내부 readiness endpoint입니다. Gateway가 의존하는 vLLM runtime과 Risk Adapter의 준비 상태를 확인합니다. "
+            "Gateway가 의존하는 vLLM 런타임과 Risk Adapter가 모두 요청을 받을 준비가 됐는지 확인합니다. "
             "모델 로딩 중에는 HTTP 503을 반환하며, body의 `not_ready_dependencies`에 "
             "아직 준비되지 않은 dependency 목록과 `message`가 포함됩니다."
         ),
@@ -79,8 +79,8 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
         path="/metrics",
         operation_id="getGatewayMetrics",
         tag="Monitoring",
-        summary="Prometheus metrics 조회",
-        description="Prometheus가 scrape하는 Gateway metric 엔드포인트입니다. 운영 환경에서는 admin token 또는 내부망으로 보호합니다.",
+        summary="Prometheus 지표 조회",
+        description="Prometheus가 수집하는 Gateway 지표 엔드포인트입니다. 운영 환경에서는 admin 토큰 또는 내부망으로 보호합니다.",
         lifecycle="stable",
         request_schema=None,
         response_schema=None,
@@ -156,7 +156,7 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
         tag="Risk",
         summary="Prompt 위협 탐지 신호",
         description=(
-            "Prompt attack detector의 위험 신호만 반환합니다. "
+            "Prompt attack 탐지기의 위험 신호만 반환합니다. "
             "정책 판단 필드(`allow`, `block`, `decision` 등)는 포함되지 않으며, "
             "최종 허용·차단 결정은 Gateway 밖 product policy layer가 담당합니다."
         ),
@@ -171,13 +171,13 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
         tag="Risk",
         summary="PII Protection 탐지 신호",
         description=(
-            "**PII Protection detector** — 한국형 식별자·이메일·전화번호·IP 정규식 기반 로컬 탐지.\n\n"
+            "**PII Protection 탐지기** — 한국형 식별자·이메일·전화번호·IP를 정규식으로 직접 탐지합니다.\n\n"
             "탐지 코드:\n"
             "- **D1** Personal Identifier: KR_RRN, KR_FRN, KR_PASSPORT, KR_DRIVER_LICENSE\n"
             "- **D2** Contact: EMAIL_ADDRESS, PHONE_NUMBER\n"
             "- **D5** Network/Infrastructure: IP_ADDRESS\n\n"
             "원문 PII 값은 응답에 포함되지 않습니다. `span_count`로 entity별 탐지 개수를 제공합니다.\n"
-            "탐지 결과는 최종 정책 판단이 아닌 진단 signal로 취급합니다."
+            "탐지 결과는 최종 정책 판단이 아니라 진단용 신호로 다뤄야 합니다."
         ),
         lifecycle="stable",
         request_schema="risk_assessment_request.schema.json",
@@ -190,12 +190,12 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
         tag="Risk",
         summary="Secret Exposure 탐지 신호",
         description=(
-            "**Secret Exposure detector** — curated regex + entropy 기반 로컬 탐지. 외부 CLI 없이 Python 내부 scanner로 동작합니다.\n\n"
+            "**Secret Exposure 탐지기** — 정제한 정규식과 엔트로피로 직접 탐지합니다. 외부 도구 없이 프로세스 안에서 동작합니다.\n\n"
             "탐지 코드:\n"
             "- **D4** Secret/Credential: OPENAI_API_KEY, AWS_ACCESS_KEY_ID, GITHUB_TOKEN, GITLAB_TOKEN, HUGGINGFACE_TOKEN, JWT, PRIVATE_KEY_BLOCK, PASSWORD_ASSIGNMENT, GENERIC_SECRET_CANDIDATE\n"
             "- **D5** Network/Infrastructure: DATABASE_URL\n\n"
-            "응답, 로그, metric label에 원문 시크릿 값을 남기지 않습니다. `span_count`로 탐지 개수를 제공합니다.\n"
-            "탐지 결과는 최종 정책 판단이 아닌 진단 signal로 취급합니다."
+            "응답·로그·지표 라벨 어디에도 원문 시크릿을 남기지 않습니다. 탐지 개수는 `span_count`로 알려줍니다.\n"
+            "탐지 결과는 최종 정책 판단이 아니라 진단용 신호로 다뤄야 합니다."
         ),
         lifecycle="stable",
         request_schema="risk_assessment_request.schema.json",
@@ -206,8 +206,8 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
         path="/v1/risk/detectors/siren/assessments",
         operation_id="assessSirenDetector",
         tag="Risk",
-        summary="Siren detector 신호 (제거됨)",
-        description="이 route는 제거되었습니다. Gateway에서 siren detector는 serving되지 않습니다.",
+        summary="Siren 탐지기 신호 (제거됨)",
+        description="제거된 경로입니다. Gateway는 siren 탐지기를 제공하지 않습니다.",
         lifecycle="removed",
         request_schema=None,
         response_schema=None,
@@ -219,9 +219,9 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
         tag="Risk",
         summary="통합 Risk 신호",
         description=(
-            "configured enabled detectors 결과를 aggregate한 통합 risk assessment입니다. "
+            "활성화된 탐지기들의 결과를 하나로 합친 통합 risk 신호입니다. "
             "PII Protection(D1, D2, D5), Secret Exposure(D4, D5), Prompt Injection(A1, A2) 신호를 통합합니다. "
-            "enabled detector 중 하나라도 위험 신호를 탐지하면 `risk_detected: true`를 반환합니다."
+            "활성화된 탐지기 중 하나라도 위험 신호를 찾으면 `risk_detected: true`를 반환합니다."
         ),
         lifecycle="stable",
         request_schema="risk_assessment_request.schema.json",
@@ -403,7 +403,7 @@ RISK_ADAPTER_ENDPOINTS: list[EndpointSpec] = [
         operation_id="getRiskAdapterHealth",
         tag="Operations",
         summary="Liveness 확인",
-        description="Process liveness probe. 항상 HTTP 200을 반환합니다. 인증 없이 접근 가능합니다.",
+        description="프로세스가 살아 있는지만 확인합니다. 항상 HTTP 200을 반환하며 인증 없이 호출할 수 있습니다.",
         lifecycle="stable",
         request_schema=None,
         response_schema=None,
@@ -415,7 +415,7 @@ RISK_ADAPTER_ENDPOINTS: list[EndpointSpec] = [
         tag="Operations",
         summary="Risk Adapter readiness 확인",
         description=(
-            "내부 readiness endpoint입니다. enabled detector vLLM runtime 상태를 확인합니다. "
+            "활성화된 탐지기의 vLLM 런타임이 요청을 받을 준비가 됐는지 확인합니다. "
             "모델 로딩 중에는 HTTP 503을 반환하고 `not_ready_dependencies`와 dependency별 `message`를 제공합니다."
         ),
         lifecycle="stable",
@@ -427,8 +427,8 @@ RISK_ADAPTER_ENDPOINTS: list[EndpointSpec] = [
         path="/metrics",
         operation_id="getRiskAdapterMetrics",
         tag="Monitoring",
-        summary="Prometheus metrics 조회",
-        description="Prometheus가 scrape하는 Risk Adapter metric입니다. detector별 timeout, parse failure, signal count를 확인합니다.",
+        summary="Prometheus 지표 조회",
+        description="Prometheus가 수집하는 Risk Adapter 지표입니다. 탐지기별 타임아웃, 파싱 실패, 신호 건수를 볼 수 있습니다.",
         lifecycle="stable",
         request_schema=None,
         response_schema=None,
@@ -438,16 +438,16 @@ RISK_ADAPTER_ENDPOINTS: list[EndpointSpec] = [
         path="/v1/risk/detectors/prompt/assessments",
         operation_id="assessRiskPromptDetector",
         tag="Risk Signal",
-        summary="Prompt detector 신호 — Prompt Injection / Leaking",
+        summary="Prompt 탐지기 신호 — Prompt Injection / Leaking",
         description=(
-            "**Prompt detector**(`risk-prompt`)만 단독 호출합니다.\n\n"
+            "**Prompt 탐지기**(`risk-prompt`)만 단독으로 호출합니다.\n\n"
             "탐지 대상:\n"
             "- system/developer instruction 무시 유도\n"
             "- 숨겨진 system prompt·tool config 출력 요구\n"
             "- 역할극(DAN 등) jailbreak\n"
             "- 문서·웹페이지 안에 숨겨진 간접 prompt injection\n"
             "- 연결된 도구로 시크릿·파일·메일 탈취 유도\n\n"
-            "일반 사이버 공격 절차·폭력·혐오 콘텐츠는 이 detector 범위 밖입니다."
+            "일반 사이버 공격 절차·폭력·혐오 콘텐츠는 이 탐지기가 다루지 않습니다."
         ),
         lifecycle="stable",
         request_schema="risk_assessment_request.schema.json",
@@ -458,15 +458,15 @@ RISK_ADAPTER_ENDPOINTS: list[EndpointSpec] = [
         path="/v1/risk/detectors/pii/assessments",
         operation_id="assessRiskPIIDetector",
         tag="Risk Signal",
-        summary="PII Protection detector 신호 — 개인정보 노출 탐지",
+        summary="PII Protection 탐지기 신호 — 개인정보 노출 탐지",
         description=(
-            "**PII Protection detector** — 한국형 식별자·이메일·전화번호·IP 정규식 기반 로컬 탐지.\n\n"
+            "**PII Protection 탐지기** — 한국형 식별자·이메일·전화번호·IP를 정규식으로 직접 탐지합니다.\n\n"
             "탐지 코드:\n"
             "- **D1** Personal Identifier: KR_RRN, KR_FRN, KR_PASSPORT, KR_DRIVER_LICENSE\n"
             "- **D2** Contact: EMAIL_ADDRESS, PHONE_NUMBER\n"
             "- **D5** Network/Infrastructure: IP_ADDRESS\n\n"
             "응답에 원문 PII 값을 포함하지 않습니다. `span_count`로 entity별 탐지 개수를 제공합니다.\n"
-            "탐지 결과는 최종 정책 판단이 아닌 진단 signal로 취급합니다."
+            "탐지 결과는 최종 정책 판단이 아니라 진단용 신호로 다뤄야 합니다."
         ),
         lifecycle="stable",
         request_schema="risk_assessment_request.schema.json",
@@ -477,14 +477,14 @@ RISK_ADAPTER_ENDPOINTS: list[EndpointSpec] = [
         path="/v1/risk/detectors/secret/assessments",
         operation_id="assessRiskSecretDetector",
         tag="Risk Signal",
-        summary="Secret Exposure detector 신호 — 시크릿·자격증명 노출 탐지",
+        summary="Secret Exposure 탐지기 신호 — 시크릿·자격증명 노출 탐지",
         description=(
-            "**Secret Exposure detector** — curated regex + entropy 기반 로컬 탐지. 외부 CLI 없이 Python 내부 scanner로 동작합니다.\n\n"
+            "**Secret Exposure 탐지기** — 정제한 정규식과 엔트로피로 직접 탐지합니다. 외부 도구 없이 프로세스 안에서 동작합니다.\n\n"
             "탐지 코드:\n"
             "- **D4** Secret/Credential: OPENAI_API_KEY, AWS_ACCESS_KEY_ID, GITHUB_TOKEN, GITLAB_TOKEN, HUGGINGFACE_TOKEN, JWT, PRIVATE_KEY_BLOCK, PASSWORD_ASSIGNMENT, GENERIC_SECRET_CANDIDATE\n"
             "- **D5** Network/Infrastructure: DATABASE_URL\n\n"
-            "응답, 로그, metric label에 원문 시크릿 값을 남기지 않습니다. `span_count`로 탐지 개수를 제공합니다.\n"
-            "탐지 결과는 최종 정책 판단이 아닌 진단 signal로 취급합니다."
+            "응답·로그·지표 라벨 어디에도 원문 시크릿을 남기지 않습니다. 탐지 개수는 `span_count`로 알려줍니다.\n"
+            "탐지 결과는 최종 정책 판단이 아니라 진단용 신호로 다뤄야 합니다."
         ),
         lifecycle="stable",
         request_schema="risk_assessment_request.schema.json",
@@ -495,8 +495,8 @@ RISK_ADAPTER_ENDPOINTS: list[EndpointSpec] = [
         path="/v1/risk/detectors/siren/assessments",
         operation_id="assessSirenDetector",
         tag="Risk Signal",
-        summary="Siren detector 신호 (제거됨)",
-        description="이 route는 제거되었습니다. Risk Adapter에서 siren detector는 serving되지 않습니다.",
+        summary="Siren 탐지기 신호 (제거됨)",
+        description="제거된 경로입니다. Risk Adapter는 siren 탐지기를 제공하지 않습니다.",
         lifecycle="removed",
         request_schema=None,
         response_schema=None,
@@ -508,9 +508,9 @@ RISK_ADAPTER_ENDPOINTS: list[EndpointSpec] = [
         tag="Risk Signal",
         summary="통합 risk signal",
         description=(
-            "enabled detector registry 순서(pii → secret → prompt)대로 호출하고 결과를 aggregate합니다.\n\n"
-            "어느 한 detector가 신호를 탐지하면 `risk_detected: true`를 반환합니다. "
-            "detector 실패는 policy 판단 없이 system signal로 표현됩니다.\n\n"
+            "활성화된 탐지기를 등록 순서(pii → secret → prompt)대로 호출하고 결과를 합칩니다.\n\n"
+            "어느 하나라도 신호를 찾으면 `risk_detected: true`를 반환합니다. "
+            "탐지기가 실패하면 정책 판단 없이 시스템 신호로만 알립니다.\n\n"
             "PII Protection(D1, D2, D5)과 Secret Exposure(D4, D5) 신호를 Prompt Injection(A1, A2)과 함께 통합합니다."
         ),
         lifecycle="stable",

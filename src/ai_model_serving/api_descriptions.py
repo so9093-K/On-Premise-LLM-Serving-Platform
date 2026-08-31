@@ -27,8 +27,8 @@ def _bytes(value: Any) -> str:
     except (TypeError, ValueError):
         return "—"
     if number < 1_048_576:
-        return f"{number:,} bytes"
-    return f"{number:,} bytes ({number / 1_048_576:.1f} MiB)"
+        return f"{number:,}바이트"
+    return f"{number:,}바이트 ({number / 1_048_576:.1f} MiB)"
 
 
 def _number(value: Any) -> str:
@@ -53,8 +53,9 @@ def _main_model_parameter(settings: AppSettings, name: str) -> dict[str, Any]:
 
 def _models_tag_description(settings: AppSettings) -> str:
     lines = [
-        "Gateway가 외부 호출자에게 노출하는 logical model catalog입니다. "
-        "아래 표는 이 배포의 설정에서 생성되며, 런타임 권위는 `GET /v1/models` 응답입니다.",
+        "Gateway가 호출자에게 공개하는 모델 목록입니다. "
+        "아래 표는 이 배포 설정에서 자동으로 만들어집니다. 지금 실제로 적용 중인 값은 "
+        "`GET /v1/models` 응답에서 확인하세요.",
         "",
         # 3열까지 줄인다. 열이 많으면 좁은 본문 폭에서 `chat.completions.vision` 같은
         # 무공백 식별자가 글자 단위로 쪼개진다(chat.comple/tions.visi/on).
@@ -91,10 +92,10 @@ def _models_tag_description(settings: AppSettings) -> str:
     if settings.main_model_profile_summaries:
         lines += [
             "",
-            "### `local-main`은 프로필 façade입니다",
+            "### `local-main`은 이름만 고정된 창구입니다",
             "",
             "`local-main`은 고정된 하나의 모델이 아니라 현재 활성화된 메인 모델 프로필의 공개 이름입니다. "
-            "프로필을 전환하면 입력 modality, 토큰 한도, 파라미터 allowlist가 함께 바뀌고 `/v1/models` 응답이 "
+            "프로필을 바꾸면 받을 수 있는 입력 종류, 토큰 한도, 허용 파라미터 목록이 함께 바뀌고 `/v1/models` 응답이 "
             "즉시 그 값을 반영합니다.",
             "",
             "| 프로필 ID | 이름 | 호환성 |",
@@ -117,39 +118,40 @@ def _chat_tag_description(settings: AppSettings) -> str:
     parameters = policy.get("request_parameter_policy") or {}
 
     lines = [
-        "OpenAI 호환 chat completions API입니다. Gateway는 upstream으로 넘기기 전에 model id, 입력 modality, "
-        "토큰 한도, 파라미터 allowlist, 구조화 출력 스키마를 직접 검증합니다.",
+        "OpenAI 호환 chat completions API입니다. Gateway는 요청을 모델 런타임으로 넘기기 전에 모델 이름, "
+        "입력 종류, 토큰 한도, 허용 파라미터, 구조화 출력 스키마를 직접 검사합니다.",
     ]
     if not policy:
         lines.append(
-            "\n기능별 한도는 활성 메인 모델 프로필이 결정하며 `GET /v1/models`의 `request_parameters`가 권위입니다."
+            "\n기능별 한도는 지금 활성화된 메인 모델 프로필이 정합니다. 실제 값은 `GET /v1/models`의 "
+            "`request_parameters`에서 확인하세요."
         )
         return "\n".join(lines)
 
     lines += [
         "",
         "아래 값은 이 배포의 **기본 프로필** 정책입니다. 프로필을 전환하면 값이 달라지므로, "
-        "실행 시점의 권위는 `GET /v1/models`(사용자용)와 `GET /admin/main-model`의 `active_profile.gateway_policy`"
+        "지금 실제로 적용 중인 값은 `GET /v1/models`(호출자용)와 `GET /admin/main-model`의 `active_profile.gateway_policy`"
         "(운영자용)입니다.",
         "",
-        "### 요청 파라미터 allowlist",
+        "### 허용 파라미터",
         "",
         f"- 허용 파라미터: {_codes(parameters.get('supported_parameters'))}",
     ]
     if parameters.get("allow_unlisted_parameters") is False:
         lines.append(
-            "- 목록에 없는 파라미터는 upstream에 전달되지 않고 `422 VALIDATION_ERROR`로 거부됩니다. "
+            "- 목록에 없는 파라미터는 모델 런타임으로 전달되지 않고 `422 VALIDATION_ERROR`로 거부됩니다. "
             "응답 `error.param`이 문제가 된 필드명을 가리킵니다."
         )
     lines.append(
         "- `max_completion_tokens`는 OpenAI가 `max_tokens`를 대체한 이름입니다. 같은 한도를 가리키므로 "
-        "요청은 두 이름 중 하나만 담아야 하고, upstream 전에 `max_tokens`로 접힙니다."
+        "요청에는 둘 중 하나만 담아야 하며, 런타임으로 넘기기 전에 `max_tokens`로 합쳐집니다."
     )
     dropped = [str(name) for name in parameters.get("drop_upstream_parameters", [])]
     if dropped:
         lines.append(
             f"- 다음 파라미터는 Gateway 계약에서만 쓰이고 런타임에는 전달되지 않습니다: {_codes(dropped)}. "
-            "응답과 metric label에 영향이 없습니다."
+            "응답과 지표 라벨에는 영향이 없습니다."
         )
     lines.append(
         "- 메시지 역할은 `system`, `developer`, `user`, `assistant`(+ tool 지원 시 `tool`)입니다. "
@@ -168,8 +170,8 @@ def _chat_tag_description(settings: AppSettings) -> str:
         "",
         "### 스트리밍",
         "",
-        "- `stream: true` — upstream SSE chunk를 버퍼링 없이 `text/event-stream`으로 중계합니다.",
-        "- `stream_options.include_usage: true` — 마지막 chunk에 token usage를 포함합니다.",
+        "- `stream: true` — 런타임이 보내는 SSE 조각을 모아두지 않고 `text/event-stream`으로 그대로 중계합니다.",
+        "- `stream_options.include_usage: true` — 마지막 조각에 토큰 사용량을 포함합니다.",
         f"- 스트림 상한: 최대 {_number(settings.streaming_max_duration_seconds)}초, "
         f"{_number(settings.streaming_max_chunks)} chunk, {_bytes(settings.streaming_max_bytes)}.",
         "- 전송 도중 오류가 나면 이미 `200`으로 헤더가 나간 뒤이므로 상태 코드를 바꿀 수 없습니다. "
@@ -245,7 +247,7 @@ def _chat_tag_description(settings: AppSettings) -> str:
         "### 진단용 파라미터",
         "",
         "- `logprobs` / `top_logprobs` — 토큰별 확률을 응답에 포함합니다. `top_logprobs`는 `logprobs: true`가 전제입니다.",
-        "- `logit_bias` — token id 기준으로 편향을 겁니다. token id는 **활성 프로필의 tokenizer 기준**이므로, "
+        "- `logit_bias` — 토큰 id 기준으로 편향을 겁니다. 토큰 id는 **지금 활성화된 프로필의 tokenizer 기준**이라 "
         "프로필을 전환하면 같은 id가 다른 토큰을 가리킬 수 있습니다.",
         "- `seed` — 같은 입력·같은 프로필에서 재현성을 높입니다(완전 결정성을 보장하지는 않습니다).",
     ]
@@ -256,7 +258,7 @@ def _chat_tag_description(settings: AppSettings) -> str:
             "### 멀티모달 입력",
             "",
             f"현재 기본 프로필이 받는 입력: {_codes(limits.get('input_modalities'))}. "
-            "선언되지 않은 modality의 content part를 보내면 `422 VALIDATION_ERROR`로 거부되고, "
+            "허용되지 않은 종류의 입력을 보내면 `422 VALIDATION_ERROR`로 거부되고, "
             "`error.param`이 어떤 part였는지 알려줍니다(`messages.content`, `image_url`, `input_audio`, `video_url`).",
             "",
             "| 항목 | 이미지 | 오디오 | 비디오 |",
@@ -326,7 +328,7 @@ def _embeddings_tag_description(settings: AppSettings) -> str:
             "- `base64`는 little-endian float32 배열을 인코딩한 문자열로 반환됩니다. openai-python은 "
             "numpy가 설치되어 있으면 이 형식을 기본으로 요청하므로, 형식을 지정하지 않은 공식 SDK 호출도 "
             "그대로 동작합니다.",
-            "- `input`은 문자열 또는 비어 있지 않은 문자열 배열입니다. token id 배열 입력은 받지 않습니다.",
+            "- `input`은 문자열 또는 비어 있지 않은 문자열 배열입니다. 토큰 id 배열은 받지 않습니다.",
         ]
     return "\n".join(lines)
 
@@ -340,12 +342,12 @@ def _runtime_control_tag_description(settings: AppSettings) -> str:
         "starting": "새 프로필 컨테이너 기동",
         "validating": "기동한 런타임에 canary 요청으로 계약 확인",
         "rolling_back": "검증 실패로 이전 프로필 복구 중",
-        "completed": "전환 성공, gate 재개방 (터미널)",
+        "completed": "전환 성공, `gate` 다시 열림 (종료 상태)",
         "failed": "전환 실패, 이전 프로필로 복구됨 (터미널)",
         "rollback_failed": "복구까지 실패 — 수동 개입 필요 (터미널)",
     }
     lines = [
-        "GPU 예산을 공유하는 vLLM 런타임 함대를 제어하는 관리자 API입니다. admin token이 필요합니다.",
+        "GPU 예산을 나눠 쓰는 vLLM 런타임들을 제어하는 관리자 API입니다. admin 토큰이 필요합니다.",
         "",
         "### 제어 모델",
         "",
@@ -359,9 +361,9 @@ def _runtime_control_tag_description(settings: AppSettings) -> str:
         "### gate — 요청 경로와의 관계",
         "",
         "- `gate: open`이어야 `/v1/chat/completions`가 요청을 받습니다.",
-        "- 전환·정지 중에는 gate가 닫히고 chat 요청은 `503 MAIN_MODEL_SWITCH_IN_PROGRESS` + `Retry-After: 5`로 "
+        "- 전환·정지 중에는 `gate`가 닫히고 chat 요청은 `503 MAIN_MODEL_SWITCH_IN_PROGRESS` + `Retry-After: 5`로 "
         "fail-closed 응답합니다(요청이 조용히 잘못된 모델로 가지 않습니다).",
-        "- 요청 경로는 gate와 활성 프로필을 control-plane ledger에서만 읽습니다. Docker 관측은 "
+        "- 요청 경로는 `gate`와 활성 프로필을 control plane 기록에서만 읽습니다. Docker 관측은 "
         "`GET /admin/main-model`에서만 수행하므로, 추론 트래픽이 Docker daemon 상태에 묶이지 않습니다.",
         "",
         "### 전환 작업 stage",
@@ -376,7 +378,7 @@ def _runtime_control_tag_description(settings: AppSettings) -> str:
         lines.append(f"| `{stage}` | {stage_meanings.get(stage, '')} |")
     lines += [
         "",
-        "`stopping` 이후는 이전 런타임이 이미 해체된 뒤라, 실패하면 gate를 그냥 다시 여는 대신 이전 프로필로 "
+        "`stopping` 이후는 이전 런타임이 이미 해체된 뒤라, 실패하면 `gate`를 그냥 다시 여는 대신 이전 프로필로 "
         "rollback합니다. rollback까지 실패하면 `rollback_failed`로 남고 이때만 수동 개입이 필요합니다.",
     ]
     if settings.main_model_profile_summaries:
@@ -400,7 +402,7 @@ def gateway_tags_metadata(settings: AppSettings) -> list[dict[str, str]]:
         },
         {
             "name": "Monitoring",
-            "description": "Prometheus scrape용 metric 엔드포인트입니다. 운영 환경에서는 admin token 또는 내부망으로 보호합니다.",
+            "description": "Prometheus가 수집하는 지표 엔드포인트입니다. 운영 환경에서는 admin 토큰 또는 내부망으로 보호합니다.",
         },
         {
             "name": "Models",
@@ -421,13 +423,13 @@ def gateway_tags_metadata(settings: AppSettings) -> list[dict[str, str]]:
         {
             "name": "Risk",
             "description": (
-                "signal-only risk assessment API입니다. `allow`, `block`, `decision`, `action` 같은 정책 판단 필드는 반환하지 않습니다. "
+                "신호만 돌려주는 risk API입니다. `allow`, `block`, `decision`, `action` 같은 정책 판단 필드는 반환하지 않습니다. "
                 "최종 허용·차단 결정은 Gateway 밖 product policy layer가 담당합니다.\n\n"
-                "응답이 HTTP 200이어도 `status=failed` 또는 `assessment_complete=false`이면 detector 실패입니다. 이 경우 `risk_detected=false`를 안전 판정으로 해석하지 마세요.\n\n"
+                "응답이 HTTP 200이어도 `status=failed` 또는 `assessment_complete=false`이면 탐지기가 실패한 것입니다. 이 경우 `risk_detected=false`를 안전 판정으로 해석하지 마세요.\n\n"
                 "**Sensitive Data Protection** — PII Protection + Secret Exposure Signal:\n"
                 "- **PII Protection** (D1, D2, D5): 주민등록번호, 이메일, 전화번호, IP 주소 탐지\n"
                 "- **Secret Exposure** (D4, D5): API 키, JWT, private key, 비밀번호, DB URL 탐지\n\n"
-                "**Prompt detector** (`risk-prompt`) — Prompt Injection / Prompt Leaking 탐지:\n"
+                "**Prompt 탐지기** (`risk-prompt`) — Prompt Injection / Prompt Leaking 탐지:\n"
                 "- system/developer instruction 무시 유도\n"
                 "- 숨겨진 system prompt 출력 요구\n"
                 "- 역할극(DAN, unrestricted AI 등) jailbreak\n"
@@ -442,7 +444,7 @@ def gateway_tags_metadata(settings: AppSettings) -> list[dict[str, str]]:
     ]
 
 
-_OPERATIONS_TAG = """`/health`는 process liveness, `/ready`는 vLLM과 Risk Adapter 전체 dependency 상태를 확인합니다.
+_OPERATIONS_TAG = """`/health`는 프로세스가 살아 있는지, `/ready`는 vLLM과 Risk Adapter가 모두 준비됐는지 확인합니다.
 
 문제가 생긴 요청 하나를 끝까지 추적하는 방법도 여기에 정리했습니다.
 
@@ -450,19 +452,16 @@ _OPERATIONS_TAG = """`/health`는 process liveness, `/ready`는 vLLM과 Risk Ada
 
 | 헤더 | 언제 | 내용 |
 |---|---|---|
-| `X-Request-Id` | 오류 응답 | 요청 추적 키 |
-| `X-Error-Code` | 오류 응답 | `error.code` |
-| `X-Error-Message` | 오류 응답 | 사람이 읽는 원인 설명 |
-| `Retry-After` | 재시도 가능한 429/503 | 다음 재시도까지 기다릴 초 |
+| `X-Request-Id` | 오류 응답 | 요청 추적 키. 접근 로그의 `request_id`와 항상 같습니다 |
+| `X-Error-Code` | 오류 응답 | `error.code`. status만으로 원인을 나누면 안 됩니다 |
+| `X-Error-Message` | 오류 응답 | 사람이 읽는 원인 설명(ASCII, 500자 제한) |
+| `Retry-After` | 재시도 가능한 429/503 | 다음 재시도까지 기다릴 초(올림, 최소 `1`) |
 
-- `X-Request-Id` — 요청에 직접 보냈으면 그 값, 안 보냈으면 Gateway가 발급한 `req_<hex>`.
-  접근 로그의 `request_id`와 항상 같습니다. 호출할 때 붙이면(최대 128자) 클라이언트 로그와
-  서버 로그를 같은 키로 맞출 수 있습니다.
-- `X-Error-Code` — 같은 HTTP status에 여러 code가 몰립니다. 예를 들어 `503`은
-  `MODEL_UNAVAILABLE`, `QUEUE_TIMEOUT`, `CIRCUIT_OPEN`, `MAIN_MODEL_SWITCH_IN_PROGRESS`가
-  모두 쓰므로 status만으로 원인을 나누면 안 됩니다.
-- `X-Error-Message` — 출력 가능한 ASCII, 500자 제한.
-- `Retry-After` — 올림 처리되므로 최소 `1`입니다.
+`X-Request-Id`를 직접 보내지 않으면 Gateway가 `req_<hex>`를 발급합니다. 호출할 때 붙이면
+(최대 128자) 클라이언트 로그와 서버 로그를 같은 키로 맞출 수 있습니다.
+
+같은 HTTP status에 여러 code가 몰립니다. 예를 들어 `503`은 `MODEL_UNAVAILABLE`,
+`QUEUE_TIMEOUT`, `CIRCUIT_OPEN`, `MAIN_MODEL_SWITCH_IN_PROGRESS`가 모두 씁니다.
 
 ### 오류 본문
 
@@ -504,19 +503,36 @@ PII·시크릿은 마스킹된 뒤 기록됩니다.
 
 | 증상 | 먼저 볼 것 |
 |---|---|
-| 503이 계속 난다 | `X-Error-Code` → 아래 참고 |
+| 503이 계속 난다 | `X-Error-Code`가 `MAIN_MODEL_SWITCH_IN_PROGRESS`면 `GET /admin/main-model`의 `gate`, `MODEL_UNAVAILABLE`이면 `GET /admin/runtimes`의 `state` |
 | 422로 거부된다 | `error.param`이 가리키는 필드를 `GET /v1/models`의 `request_parameters`와 대조 |
-| 기능을 지원하지 않는다고 한다 | `GET /v1/models`의 `capabilities`·`input_modalities` |
+| 기능을 지원하지 않는다고 한다 | `GET /v1/models`의 `capabilities`·`input_modalities`. 활성 프로필이 바뀌면 함께 바뀝니다 |
 | 스트리밍이 도중에 끊긴다 | 마지막 SSE 이벤트(오류는 `error` 뒤 `[DONE]`) |
 | 응답이 잘린다 | `max_tokens`, 프로필의 `max_model_len`, `reasoning` 사용 여부 |
-
-503은 `X-Error-Code`로 갈립니다.
-
-- `MAIN_MODEL_SWITCH_IN_PROGRESS` — `GET /admin/main-model`의 `gate`와 `last_operation`
-- `MODEL_UNAVAILABLE` — `GET /admin/runtimes`의 `state`
-
-`capabilities`·`input_modalities`는 활성 프로필이 바뀌면 함께 바뀝니다.
 """
+
+
+def _auth_section(settings: AppSettings) -> str:
+    """실제 인증 설정에서 인증 안내를 만든다.
+
+    예전엔 이 문단이 하드코딩이라, 인증이 꺼진 배포에서도 "Bearer 토큰을 보내라"고
+    적혀 있었다. OpenAPI의 securitySchemes는 실제 설정을 따라 붙었다 빠졌다 하는데
+    설명 문구만 고정이라 문서가 서버와 다른 말을 하고 있었다.
+    """
+    security = settings.security
+    lines = ["## 인증", ""]
+    if not security.api_key_required and not security.admin_api_key_required:
+        lines.append("이 배포는 인증을 요구하지 않습니다. 위 예시의 `Authorization` 헤더는 없어도 됩니다.")
+        return "\n".join(lines)
+
+    if security.api_key_required:
+        lines.append("- **bearerAuth** — `/v1/*` 사용자 API: `Authorization: Bearer <API_KEY>`")
+    else:
+        lines.append("- `/v1/*` 사용자 API는 인증 없이 호출할 수 있습니다.")
+    if security.admin_api_key_required:
+        lines.append("- **adminBearerAuth** — `/ready`, `/metrics`, `/admin/*`: `Authorization: Bearer <ADMIN_API_KEY>`")
+    else:
+        lines.append("- `/ready`, `/metrics`, `/admin/*`도 인증 없이 접근할 수 있습니다.")
+    return "\n".join(lines)
 
 
 def gateway_description(settings: AppSettings) -> str:
@@ -529,8 +545,8 @@ def gateway_description(settings: AppSettings) -> str:
     """
     return f"""
 vLLM 기반 LLM·Embedding·Risk 런타임을 하나의 OpenAI 호환 API로 제공합니다.
-문서에 보이는 한도와 파라미터 목록은 이 배포의 실제 설정에서 생성되며, 실행 시점의 권위는
-`GET /v1/models`입니다.
+이 문서의 한도·파라미터 값은 실제 배포 설정에서 자동으로 만들어집니다.
+지금 적용 중인 값은 `GET /v1/models`에서 확인하세요.
 
 ## 첫 호출
 
@@ -538,8 +554,7 @@ vLLM 기반 LLM·Embedding·Risk 런타임을 하나의 OpenAI 호환 API로 제
 
 ```bash
 curl -X POST "$GATEWAY/v1/chat/completions" \\
-  -H "Authorization: Bearer $API_KEY" \\
-  -H "Content-Type: application/json" \\
+{'  -H "Authorization: Bearer $API_KEY" \\\n' if settings.security.api_key_required else ''}  -H "Content-Type: application/json" \\
   -d '{{
     "model": "{settings.runtime('main_llm').model}",
     "messages": [{{"role": "user", "content": "안녕하세요"}}]
@@ -549,10 +564,7 @@ curl -X POST "$GATEWAY/v1/chat/completions" \\
 응답은 OpenAI chat completion 형식입니다. 사용할 수 있는 모델과 조정 가능한 파라미터는
 `GET /v1/models`의 `request_parameters`가 알려줍니다.
 
-## 인증
-
-- **bearerAuth** — `/v1/*` 사용자 API: `Authorization: Bearer <API_KEY>`
-- **adminBearerAuth** — `/ready`, `/metrics`, `/admin/*`: `Authorization: Bearer <ADMIN_API_KEY>`
+{_auth_section(settings)}
 """
 
 
@@ -563,21 +575,21 @@ curl -X POST "$GATEWAY/v1/chat/completions" \\
 RISK_ADAPTER_TAGS_METADATA = [
     {
         "name": "Operations",
-        "description": "`/health`는 adapter process liveness, `/ready`는 detector vLLM dependency 상태를 확인합니다.",
+        "description": "`/health`는 프로세스가 살아 있는지, `/ready`는 탐지기 vLLM이 준비됐는지 확인합니다.",
     },
     {
         "name": "Monitoring",
-        "description": "Risk Adapter와 detector별 signal metric입니다. 운영 환경에서는 admin token 또는 내부망으로 보호합니다.",
+        "description": "Risk Adapter와 탐지기별 신호 지표입니다. 운영 환경에서는 admin 토큰 또는 내부망으로 보호합니다.",
     },
     {
         "name": "Risk Signal",
         "description": (
-            "내부 detector 호출 결과를 signal-only response로 정규화합니다. 최종 정책 결정 필드는 반환하지 않습니다.\n\n"
-            "HTTP 200 응답의 `status=failed` 또는 `assessment_complete=false`는 detector 실패이며, `risk_detected=false`만으로 안전 판정하면 안 됩니다.\n\n"
+            "내부 탐지기 호출 결과를 신호 전용 응답으로 정규화합니다. 최종 정책 결정 필드는 반환하지 않습니다.\n\n"
+            "HTTP 200 응답의 `status=failed` 또는 `assessment_complete=false`는 탐지기가 실패했다는 뜻이며, `risk_detected=false`만 보고 안전하다고 판단하면 안 됩니다.\n\n"
             "**Sensitive Data Protection**:\n"
             "- **PII Protection** (D1, D2, D5) — 로컬 정규식 기반 개인정보 탐지\n"
             "- **Secret Exposure** (D4, D5) — regex/entropy 기반 시크릿·자격증명 탐지\n\n"
-            "**Prompt detector** — Prompt Injection / Leaking 탐지:\n"
+            "**Prompt 탐지기** — Prompt Injection / Leaking 탐지:\n"
             "지시 무시, system prompt 탈취, roleplay jailbreak, 간접 injection, tool abuse"
         ),
     },
@@ -596,17 +608,17 @@ RISK_ADAPTER_DESCRIPTION_TEMPLATE = """
 | **Secret Exposure** | local (regex + entropy) | 시크릿·자격증명 노출 | D4, D5 |
 | **Prompt** | vLLM (`risk-prompt`) | Prompt Injection / Prompt Leaking | A1, A2 |
 
-- PII Protection과 Secret Exposure는 in-process 로컬 탐지로 외부 모델 호출이 없습니다.
-- Prompt detector 출력 `<SAFE>`, `<UNSAFE-A1>` 같은 label을 표준 signal-only response로 정규화합니다.
+- PII Protection과 Secret Exposure는 프로세스 안에서 직접 탐지하므로 외부 모델을 호출하지 않습니다.
+- Prompt 탐지기가 내놓는 `<SAFE>`, `<UNSAFE-A1>` 같은 라벨을 표준 신호 응답으로 정규화합니다.
 - 정책 판단 필드(`allow`, `block`, `decision`, `action`)는 반환하지 않습니다.
 - 원문 PII/Secret 값은 응답, 로그, metric에 포함되지 않습니다.
 
 ## Aggregate 실행 순서
 
-`pii → secret → prompt` 순서로 sequential 실행. 어느 detector든 탐지하면 `risk_detected: true`.
+`pii → secret → prompt` 순서로 차례대로 실행합니다. 어느 하나라도 탐지하면 `risk_detected: true`입니다.
 
 ## Readiness
 
-- enabled vLLM detector runtime 준비 → HTTP 200 + `phase: serving`
+- 활성화된 vLLM 탐지기 런타임이 준비되면 → HTTP 200 + `phase: serving`
 - 모델 로딩 중 → HTTP 503 + `phase: waiting_for_dependencies`
 """
