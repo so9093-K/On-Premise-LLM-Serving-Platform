@@ -233,7 +233,7 @@ def create_gateway_app(settings: AppSettings | None = None, clients: GatewayClie
         },
         schema_narrowers={
             ("POST", "/v1/chat/completions"): lambda schema: narrow_chat_request_schema(
-                schema, settings.default_main_model_gateway_policy
+                schema, settings.main_model_profile_policies
             ),
         },
         request_examples={

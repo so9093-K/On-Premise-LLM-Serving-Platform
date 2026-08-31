@@ -92,7 +92,7 @@ def _build_generated_docs() -> dict[str, dict[str, Any]]:
         from ai_model_serving.apps.risk_adapter import create_risk_adapter_app
         from ai_model_serving.settings import load_settings
 
-        _CHAT_POLICY["value"] = load_settings().default_main_model_gateway_policy
+        _CHAT_POLICY["value"] = load_settings().main_model_profile_policies
         return {
             "gateway": create_gateway_app().openapi(),
             "risk-adapter": create_risk_adapter_app().openapi(),

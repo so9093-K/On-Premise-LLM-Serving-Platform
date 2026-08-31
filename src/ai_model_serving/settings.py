@@ -273,6 +273,9 @@ def load_settings(root: Path | None = None, env_file: Path | str | None = None) 
             (profile.profile_id, profile.display_name, str(profile.compatibility.get("status", "")))
             for profile in main_model_catalog.profiles.values()
         ),
+        main_model_profile_policies=tuple(
+            dict(profile.gateway_policy) for profile in main_model_catalog.profiles.values()
+        ),
         embedding_profiles=embedding_profiles,
         default_embedding_model=str(model_serving["default_embedding_model"]),
         default_retrieval_model=str(model_serving["default_retrieval_model"]),

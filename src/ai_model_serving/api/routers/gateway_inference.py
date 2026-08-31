@@ -12,7 +12,7 @@ from ...errors import ServiceError, error_payload, error_response_headers
 from ...domain.request_surfaces import chat_request_parameter_surface
 from ...logging_policy import record_request_response_preview, record_token_usage
 from ...services.runtime_state import RuntimeState, RuntimeStateStore
-from ...services.sidecar_client import SidecarClient, SidecarUnavailableError
+from ...services.sidecar_client import SidecarClient, SidecarRequestError, SidecarUnavailableError
 from ...services.main_model_inflight import MainModelInFlight
 
 _GW = {(s.method, s.path): s for s in GATEWAY_ENDPOINTS}
@@ -161,7 +161,8 @@ def build_router(
             try:
                 # /v1/models는 active profile의 modality·정책만 읽는다.
                 active_snapshot = await sidecar.main_model(observed=False)
-            except SidecarUnavailableError:
+            except (SidecarRequestError, SidecarUnavailableError):
+                # 읽기 실패는 원인과 무관하게 정적 기본값으로 폴백한다.
                 active_snapshot = None
             if isinstance(active_snapshot, dict):
                 active_modalities = _active_input_modalities(active_snapshot) or active_modalities
@@ -220,6 +221,10 @@ def build_router(
                 try:
                     # 요청 경로에서는 gate와 active profile만 필요하다.
                     main_model = await sidecar.main_model(observed=False)
+                except SidecarRequestError as exc:
+                    # 4xx는 요청이 잘못된 것이다. control plane 장애(503, retryable)로
+                    # 보고하면 성공할 수 없는 요청을 계속 재시도하게 된다.
+                    return _sidecar_request_error_response(exc)
                 except SidecarUnavailableError as exc:
                     unavailable = error_payload(
                         "MAIN_MODEL_CONTROL_UNAVAILABLE", str(exc), True

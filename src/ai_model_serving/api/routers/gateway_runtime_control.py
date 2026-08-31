@@ -358,16 +358,16 @@ def build_router(
         if sidecar is not None:
             try:
                 container_statuses = await sidecar.get_status()
-            except SidecarUnavailableError:
+            except (SidecarRequestError, SidecarUnavailableError):
                 container_statuses = {}
             try:
                 budget = await sidecar.gpu_budget()
-            except SidecarUnavailableError:
+            except (SidecarRequestError, SidecarUnavailableError):
                 budget = None
             try:
                 # 이 목록은 gate·runtime_state·active profile만 쓴다.
                 main_model = await sidecar.main_model(observed=False)
-            except SidecarUnavailableError:
+            except (SidecarRequestError, SidecarUnavailableError):
                 main_model = None
 
         runtimes = []
@@ -509,6 +509,10 @@ def build_router(
             if current_state == RuntimeState.active and sidecar is not None:
                 try:
                     actual = (await sidecar.get_status()).get(container)
+                except SidecarRequestError as exc:
+                    # 4xx는 요청이 잘못된 것이다. control plane 장애(503, retryable)로
+                    # 보고하면 성공할 수 없는 요청을 계속 재시도하게 된다.
+                    return _sidecar_request_error_response(exc)
                 except SidecarUnavailableError as exc:
                     return _sidecar_unavailable_response(exc)
                 if actual == "running":
@@ -537,6 +541,10 @@ def build_router(
                     reason="start_rejected",
                     source="runtime_control",
                 )
+                return _sidecar_request_error_response(exc)
+            except SidecarRequestError as exc:
+                # 4xx는 요청이 잘못된 것이다. control plane 장애(503, retryable)로
+                # 보고하면 성공할 수 없는 요청을 계속 재시도하게 된다.
                 return _sidecar_request_error_response(exc)
             except SidecarUnavailableError as exc:
                 await state_store.set(
@@ -585,6 +593,10 @@ def build_router(
             if current_state == RuntimeState.stopped and sidecar is not None:
                 try:
                     actual = (await sidecar.get_status()).get(container)
+                except SidecarRequestError as exc:
+                    # 4xx는 요청이 잘못된 것이다. control plane 장애(503, retryable)로
+                    # 보고하면 성공할 수 없는 요청을 계속 재시도하게 된다.
+                    return _sidecar_request_error_response(exc)
                 except SidecarUnavailableError as exc:
                     return _sidecar_unavailable_response(exc)
                 if actual != "running":
@@ -603,6 +615,10 @@ def build_router(
             )
             try:
                 stopped = await sidecar.stop(container)
+            except SidecarRequestError as exc:
+                # 4xx는 요청이 잘못된 것이다. control plane 장애(503, retryable)로
+                # 보고하면 성공할 수 없는 요청을 계속 재시도하게 된다.
+                return _sidecar_request_error_response(exc)
             except SidecarUnavailableError as exc:
                 await state_store.set(
                     service_key,
@@ -669,6 +685,10 @@ def build_router(
         client = await require_sidecar()
         try:
             return JSONResponse(await client.main_model())
+        except SidecarRequestError as exc:
+            # 4xx는 요청이 잘못된 것이다. control plane 장애(503, retryable)로
+            # 보고하면 성공할 수 없는 요청을 계속 재시도하게 된다.
+            return _sidecar_request_error_response(exc)
         except SidecarUnavailableError as exc:
             return _sidecar_unavailable_response(exc)
 
@@ -716,6 +736,10 @@ def build_router(
         client = await require_sidecar()
         try:
             return JSONResponse({"profiles": await client.main_model_profiles()})
+        except SidecarRequestError as exc:
+            # 4xx는 요청이 잘못된 것이다. control plane 장애(503, retryable)로
+            # 보고하면 성공할 수 없는 요청을 계속 재시도하게 된다.
+            return _sidecar_request_error_response(exc)
         except SidecarUnavailableError as exc:
             return _sidecar_unavailable_response(exc)
 
@@ -815,6 +839,9 @@ def build_router(
         client = await require_sidecar()
         try:
             return JSONResponse(await client.main_model_operation(operation_id))
+        except SidecarRequestError as exc:
+            # 404(없는 operation)는 여기서 NOT_FOUND / retryable=false로 나간다.
+            return _sidecar_request_error_response(exc)
         except SidecarUnavailableError as exc:
             return _sidecar_unavailable_response(exc)
 

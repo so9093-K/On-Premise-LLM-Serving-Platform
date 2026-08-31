@@ -51,13 +51,22 @@ class SidecarClient:
         timeout: float,
         params: dict[str, Any] | None = None,
         json: dict[str, Any] | None = None,
-        request_error_statuses: tuple[int, ...] | range | None = None,
+        server_errors_are_request_errors: bool = False,
     ) -> Any:
         """sidecar를 호출하고 JSON body를 반환한다.
 
-        ``request_error_statuses``에 해당하는 응답만 SidecarRequestError로 올린다
-        (status code와 detail을 보존해야 호출자가 GPU 예산 거부 같은 것을 구분한다).
-        나머지 실패는 SidecarUnavailableError다.
+        오류 분류는 HTTP가 이미 정한 대로 따른다 -- **4xx는 요청이 잘못된 것,
+        5xx는 sidecar가 문제인 것**이다.
+
+        예전엔 400 이상을 전부 SidecarUnavailableError로 뭉개고, 예외로 빼려면 호출자가
+        ``request_error_statuses``를 넘겨야 했다. 메서드 10개 중 4개만 그걸 넘겼고,
+        나머지는 4xx를 "control plane 장애(503, retryable)"로 보고했다. 실제로
+        main_model_operation이 없는 id에 대해 503 + retryable=true를 반환해서, 오타 낸
+        요청을 클라이언트가 영원히 재시도하게 만들었다. 기억해야만 옳게 되는 구조여서
+        새 메서드를 추가할 때마다 같은 실수가 반복될 수 있었다.
+
+        ``server_errors_are_request_errors``는 5xx까지 호출자에게 그대로 넘겨야 하는
+        엔드포인트(main-model switch)만 켠다.
         """
         try:
             response = await self.client.request(
@@ -69,9 +78,9 @@ class SidecarClient:
             )
         except Exception as exc:
             raise SidecarUnavailableError(f"sidecar {what} failed: {exc}") from exc
-        if request_error_statuses is not None and response.status_code in request_error_statuses:
-            raise SidecarRequestError(response.status_code, _detail(response))
         if response.status_code >= 400:
+            if response.status_code < 500 or server_errors_are_request_errors:
+                raise SidecarRequestError(response.status_code, _detail(response))
             # 연결 자체는 됐으므로 상태 코드를 메시지에 남긴다. 이것이 없으면
             # sidecar가 500을 돌려준 경우와 sidecar에 닿지도 못한 경우가 호출자
             # 입장에서 완전히 같은 오류로 보인다.
@@ -107,7 +116,6 @@ class SidecarClient:
             what="start",
             timeout=180.0,
             params={"force": "true"} if force else None,
-            request_error_statuses=(409,),
         )
         return {
             "started": body.get("started", [container]),
@@ -130,7 +138,6 @@ class SidecarClient:
             what="main-model start",
             timeout=180.0,
             params={"force": "true"} if force else None,
-            request_error_statuses=(409,),
         )
 
     async def main_model(self, *, observed: bool = True) -> dict:
@@ -176,7 +183,8 @@ class SidecarClient:
                 "confirm_unverified": confirm_unverified,
                 **({"request_id": request_id} if request_id else {}),
             },
-            request_error_statuses=range(400, 600),
+            # switch는 sidecar의 5xx도 호출자에게 그대로 전달한다.
+            server_errors_are_request_errors=True,
         )
 
     async def main_model_operation(self, operation_id: str) -> dict:

@@ -110,6 +110,11 @@ class AppSettings:
     # (profile_id, display_name, compatibility status) 순. 예시를 손으로 적으면
     # catalog에 profile을 추가할 때 조용히 빠진다.
     main_model_profile_summaries: tuple[tuple[str, str, str], ...] = ()
+    # 모든 프로필의 gateway_policy. 공개 OpenAPI에 실을 "상한"을 계산하는 데 쓴다.
+    # 문서는 요청 시점의 활성 프로필을 알 수 없으므로(생성 후 캐시되고, 활성 프로필은
+    # sidecar가 들고 있는 런타임 상태다), 어떤 프로필이 활성이든 스펙이 실제 API보다
+    # 좁아지지 않도록 프로필 전체의 최댓값을 싣는다.
+    main_model_profile_policies: tuple[dict[str, Any], ...] = ()
     embedding_profiles: dict[str, EmbeddingProfile] = field(default_factory=dict)
     default_embedding_model: str = ""
     default_retrieval_model: str = ""

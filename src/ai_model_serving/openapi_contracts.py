@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import copy
 import json
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -207,54 +207,69 @@ def _resolve_internal_refs(value: Any, *, root: dict[str, Any]) -> Any:
     return value
 
 
-def narrow_chat_request_schema(schema: dict[str, Any], policy: dict[str, Any] | None) -> dict[str, Any]:
-    """chat 요청 스키마를 지금 활성화된 메인 모델 프로필 정책으로 좁힌다.
+def narrow_chat_request_schema(
+    schema: dict[str, Any], policies: "Sequence[dict[str, Any]] | None"
+) -> dict[str, Any]:
+    """chat 요청 스키마의 한도를 배포된 프로필 전체의 **상한**으로 맞춘다.
 
-    checked-in 스키마는 정적 파일이라 프로필별 한도를 담을 수 없다. 그래서 실제 상한은
-    태그 설명에 산문으로 한 벌 더 적혀 있었고, 스키마 쪽 값은 굳은 채로 실제와 어긋났다
-    (예: 스키마 max_tokens 13000, gemma4-e4b-it 프로필은 15000).
+    한도는 프로필마다 다르다(예: max_output_tokens 13000 / 15000). 그런데 공개 문서는
+    요청 시점의 활성 프로필을 알 수 없다 -- OpenAPI 문서는 첫 생성 후 캐시되고, 활성
+    프로필은 admin sidecar가 들고 있는 런타임 상태이기 때문이다.
 
-    여기서 좁혀 넣으면 Scalar가 필드 옆에 제약을 그리고 "Try it" 폼도 그 값을 안다.
-    같은 사실을 산문으로 다시 적을 이유가 없어진다. status별 error code enum을 좁히는
-    _narrowed_error_schema와 같은 방식이다.
+    그래서 특정 프로필 하나를 골라 싣지 않는다. 처음엔 기본 프로필을 썼는데, 활성
+    프로필이 gemma4-e4b-it(15000)일 때 문서는 13000이라고 말했다. **스펙이 실제 API보다
+    좁으면 스펙을 따른 클라이언트가 멀쩡한 요청을 못 보낸다.**
+
+    대신 프로필 전체의 최댓값을 싣는다. 어떤 프로필이 활성이든 스펙이 좁아지지 않고,
+    현재 프로필이 그보다 좁으면 런타임이 422와 error.param으로 알려준다. 정확한 현재
+    값은 GET /v1/models가 준다.
     """
-    if not policy:
-        return schema
-    limits = policy.get("request_limits") or {}
-    parameters = policy.get("request_parameter_policy") or {}
+    policies = [p for p in (policies or []) if isinstance(p, dict)]
     properties = schema.get("properties")
-    if not isinstance(properties, dict):
+    if not policies or not isinstance(properties, dict):
         return schema
 
-    # supported_parameters로 속성을 쳐내지는 않는다. 그 목록은 런타임이 받는 것의
-    # 전부가 아니다 -- 예를 들어 max_completion_tokens는 목록에 없지만 max_tokens의
-    # OpenAI 표준 별칭이라 런타임이 받아서 접는다. 목록만 보고 지우면 공개 스키마가
-    # 실제 API보다 좁아진다(= 스펙이 거짓말한다).
-    def set_bound(field: str, key: str, value: Any) -> None:
+    def ceiling(*path: str) -> int | None:
+        values: list[int] = []
+        for policy in policies:
+            node: Any = policy
+            for key in path:
+                node = (node or {}).get(key) if isinstance(node, dict) else None
+            if isinstance(node, int) and not isinstance(node, bool) and node > 0:
+                values.append(node)
+        return max(values) if values else None
+
+    def set_bound(field: str, key: str, value: int | None) -> None:
         target = properties.get(field)
-        if isinstance(target, dict) and isinstance(value, int) and value > 0:
+        if isinstance(target, dict) and value:
             target[key] = value
 
-    max_output = policy.get("max_output_tokens")
+    max_output = ceiling("max_output_tokens")
     set_bound("max_tokens", "maximum", max_output)
     set_bound("max_completion_tokens", "maximum", max_output)
-    set_bound("n", "maximum", parameters.get("max_n"))
+    set_bound("n", "maximum", ceiling("request_parameter_policy", "max_n"))
+    set_bound("top_logprobs", "maximum", ceiling("request_parameter_policy", "top_logprobs", "max"))
 
-    tool_calling = parameters.get("tool_calling") or {}
-    if tool_calling.get("enabled") is True:
-        set_bound("tools", "maxItems", tool_calling.get("max_tools"))
+    tools_ceiling = ceiling("request_parameter_policy", "tool_calling", "max_tools")
+    any_tools = any(
+        ((p.get("request_parameter_policy") or {}).get("tool_calling") or {}).get("enabled") is True
+        for p in policies
+    )
+    if any_tools:
+        set_bound("tools", "maxItems", tools_ceiling)
+    # 도구 호출을 지원하는 프로필이 하나도 없을 때만 속성을 없앤다. 하나라도 지원하면
+    # 남겨야 한다 -- 지원 프로필이 활성일 때 스펙이 그 요청을 거부하면 안 된다.
     else:
         for name in ("tools", "tool_choice", "parallel_tool_calls"):
             properties.pop(name, None)
 
-    top_logprobs = parameters.get("top_logprobs") or {}
-    set_bound("top_logprobs", "maximum", top_logprobs.get("max"))
-
-    max_model_len = limits.get("max_model_len")
-    if isinstance(max_model_len, int) and max_model_len > 0:
+    context_ceiling = ceiling("request_limits", "max_model_len")
+    if context_ceiling:
         schema["description"] = (
             (schema.get("description", "") + " ").strip()
-            + f" 지금 활성화된 프로필의 컨텍스트 상한은 {max_model_len:,}토큰(입력+출력)입니다."
+            + f" 여기 표시된 한도는 배포된 프로필 전체의 상한입니다(컨텍스트 최대 "
+            f"{context_ceiling:,}토큰). 지금 활성화된 프로필은 더 좁을 수 있으니 "
+            "`GET /v1/models`의 `request_parameters`로 확인하세요."
         ).strip()
     return schema
 
