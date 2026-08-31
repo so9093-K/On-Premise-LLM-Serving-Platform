@@ -79,7 +79,15 @@ class SidecarClient:
         except Exception as exc:
             raise SidecarUnavailableError(f"sidecar {what} failed: {exc}") from exc
         if response.status_code >= 400:
-            if response.status_code < 500 or server_errors_are_request_errors:
+            # 401은 gateway<->sidecar 내부 인증 문제다. 호출자 요청은 멀쩡하므로 그대로
+            # 넘기면 클라이언트가 자기 자격증명을 의심하게 되고(고칠 수 없다), 진짜 원인인
+            # INTERNAL_SERVICE_TOKEN 설정 오류는 가려진다.
+            # 403은 여기 넣지 않는다 -- sidecar는 인증 실패에 401만 쓰고, 403은
+            # "제어 대상이 아닌 컨테이너"라는 정당한 요청 오류다.
+            internal_auth_failure = response.status_code == 401
+            if not internal_auth_failure and (
+                response.status_code < 500 or server_errors_are_request_errors
+            ):
                 raise SidecarRequestError(response.status_code, _detail(response))
             # 연결 자체는 됐으므로 상태 코드를 메시지에 남긴다. 이것이 없으면
             # sidecar가 500을 돌려준 경우와 sidecar에 닿지도 못한 경우가 호출자

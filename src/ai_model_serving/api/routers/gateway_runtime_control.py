@@ -358,16 +358,16 @@ def build_router(
         if sidecar is not None:
             try:
                 container_statuses = await sidecar.get_status()
-            except (SidecarRequestError, SidecarUnavailableError):
+            except SidecarUnavailableError:
                 container_statuses = {}
             try:
                 budget = await sidecar.gpu_budget()
-            except (SidecarRequestError, SidecarUnavailableError):
+            except SidecarUnavailableError:
                 budget = None
             try:
                 # 이 목록은 gate·runtime_state·active profile만 쓴다.
                 main_model = await sidecar.main_model(observed=False)
-            except (SidecarRequestError, SidecarUnavailableError):
+            except SidecarUnavailableError:
                 main_model = None
 
         runtimes = []

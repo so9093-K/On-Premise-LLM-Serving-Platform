@@ -12,7 +12,7 @@ from ...api_examples import LOADING_RESPONSE_EXAMPLE, READY_RESPONSE_EXAMPLE
 from ...services.readiness import DependencyProbe, collect_readiness
 from ...services.runtime_state import RuntimeState
 from ...status import NOT_READY, READY
-from ...services.sidecar_client import SidecarRequestError, SidecarUnavailableError
+from ...services.sidecar_client import SidecarUnavailableError
 
 _GW = {(s.method, s.path): s for s in GATEWAY_ENDPOINTS}
 
@@ -141,7 +141,7 @@ def build_router(admin_dependencies: list, clients: Any, metrics: Any, settings:
             try:
                 # metric projection은 ledger 필드만 읽는다.
                 metrics.project_main_model(await sidecar.main_model(observed=False))
-            except (SidecarRequestError, SidecarUnavailableError):
+            except SidecarUnavailableError:
                 metrics.main_model_gate.labels(metrics.service).set(0)
         return metrics.response()
 

@@ -161,8 +161,8 @@ def build_router(
             try:
                 # /v1/models는 active profile의 modality·정책만 읽는다.
                 active_snapshot = await sidecar.main_model(observed=False)
-            except (SidecarRequestError, SidecarUnavailableError):
-                # 읽기 실패는 원인과 무관하게 정적 기본값으로 폴백한다.
+            except SidecarUnavailableError:
+                # 이 라우트는 경로/본문 파라미터가 없어 4xx가 나올 수 없다.
                 active_snapshot = None
             if isinstance(active_snapshot, dict):
                 active_modalities = _active_input_modalities(active_snapshot) or active_modalities
