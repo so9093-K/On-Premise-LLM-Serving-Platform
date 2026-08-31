@@ -56,39 +56,37 @@ def _models_tag_description(settings: AppSettings) -> str:
         "Gateway가 외부 호출자에게 노출하는 logical model catalog입니다. "
         "아래 표는 이 배포의 설정에서 생성되며, 런타임 권위는 `GET /v1/models` 응답입니다.",
         "",
-        "| 모델 | backend | 입력 modality | capability | 조정 가능 파라미터 |",
-        "|---|---|---|---|---|",
+        # 3열까지 줄인다. 열이 많으면 좁은 본문 폭에서 `chat.completions.vision` 같은
+        # 무공백 식별자가 글자 단위로 쪼개진다(chat.comple/tions.visi/on).
+        # backend(내부 compose service 이름)와 파라미터 개수 안내는 표에서 뺐다.
+        "| 모델 | 입력 | 기능 |",
+        "|---|---|---|",
     ]
+    fixed_notes: list[str] = []
     for model in settings.public_models:
-        parameters = model.get("request_parameters") or {}
-        fixed = model.get("fixed_parameters") or {}
-        if parameters:
-            parameter_cell = f"{len(parameters)}개 — `request_parameters` 참고"
-        elif fixed:
-            parameter_cell = "없음 (고정값 사용)"
-        else:
-            parameter_cell = "없음"
         lines.append(
-            "| `{id}` | `{backend}` | {modalities} | {capabilities} | {parameters} |".format(
+            "| `{id}` | {modalities} | {capabilities} |".format(
                 id=model.get("id", "—"),
-                backend=model.get("backend", "—"),
                 modalities=_codes(model.get("input_modalities")),
                 capabilities=_codes(model.get("capabilities")),
-                parameters=parameter_cell,
             )
         )
+        fixed = model.get("fixed_parameters") or {}
         if fixed:
-            lines.append(
-                "| | | | 고정 파라미터 | "
-                + ", ".join(f"`{key}={value}`" for key, value in fixed.items())
-                + " |"
+            values = ", ".join(f"`{key}={value}`" for key, value in fixed.items())
+            fixed_notes.append(
+                f"- `{model.get('id', '—')}`는 조정 가능한 파라미터가 없습니다. {values}으로 고정입니다."
             )
     lines += [
         "",
-        "`request_parameters`는 파라미터마다 타입과 허용 범위(`min`, `max`, `max_items`, `allowed` 등)를 "
-        "함께 반환합니다. 모델별 입력 form UI는 이 값을 읽어 구성해야 하며, 이 문서 화면의 예시 값은 "
-        "client preset일 뿐 Gateway 기본값이 아닙니다.",
+        "조정할 수 있는 파라미터는 모델마다 다릅니다. 파라미터 이름과 허용 범위"
+        "(`min`, `max`, `max_items`, `allowed` 등)는 `GET /v1/models`의 `request_parameters`가 "
+        "함께 돌려줍니다. 모델별 입력 폼을 만든다면 그 값을 읽어서 구성하세요. "
+        "이 문서 화면에 보이는 예시 값은 화면용 preset이며 Gateway 기본값이 아닙니다.",
     ]
+    if fixed_notes:
+        lines.append("")
+        lines += fixed_notes
 
     if settings.main_model_profile_summaries:
         lines += [
@@ -273,15 +271,18 @@ def _chat_tag_description(settings: AppSettings) -> str:
                 _bytes(limits.get("max_audio_bytes")),
                 _bytes(limits.get("max_video_bytes")),
             ),
-            "| 허용 형식 | {} | {} | {} |".format(
-                _codes(limits.get("allowed_image_mime_types")),
-                _codes(limits.get("allowed_audio_formats")),
-                _codes(limits.get("allowed_video_mime_types")),
-            ),
+            # 허용 형식은 표 칸에 넣지 않는다. 이미지 9종·비디오 8종이라 4열 표의 한 칸에
+            # 120자 넘게 들어가면서 MIME 문자열이 글자 단위로 쪼개진다.
             "| URL scheme | {} | 인라인 base64 | {} |".format(
                 _codes(limits.get("allowed_image_url_schemes")),
                 _codes(limits.get("allowed_video_url_schemes")),
             ),
+            "",
+            "**허용 형식**",
+            "",
+            f"- 이미지 — {_codes(limits.get('allowed_image_mime_types'))}",
+            f"- 오디오 — {_codes(limits.get('allowed_audio_formats'))}",
+            f"- 비디오 — {_codes(limits.get('allowed_video_mime_types'))}",
             "",
             f"- 이미지 픽셀 상한 {_number(limits.get('max_image_pixels'))}px — 압축 폭탄을 막기 위해 "
             "디코딩 전에 헤더에서 해상도를 읽어 검사하며, 해상도를 읽지 못하면 거부합니다(fail-closed).",
