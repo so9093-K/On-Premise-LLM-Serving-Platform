@@ -51,14 +51,16 @@ def _main_model_parameter(settings: AppSettings, name: str) -> dict[str, Any]:
     return {}
 
 
-MODELS_TAG_SUMMARY = "Gateway가 호출자에게 공개하는 모델 목록입니다."
+def models_tag_summary(settings: AppSettings) -> str:
+    """Models 그룹의 표지.
 
-
-def models_operation_detail(settings: AppSettings) -> str:
-    """모델 목록 엔드포인트의 상세. 태그가 아니라 이 오퍼레이션에 붙는다."""
+    태그 섹션은 Scalar에서 최소 높이를 갖는다. 한 줄만 두면 아래가 통째로 비어
+    빈 상자처럼 보이므로, 그 그룹을 훑는 데 필요한 만큼(모델 목록)은 여기 둔다.
+    파라미터·프로필 같은 세부는 GET /v1/models 오퍼레이션이 가져간다.
+    """
     lines = [
-        "아래 표는 이 배포 설정에서 자동으로 만들어집니다. 지금 실제로 적용 중인 값은 "
-        "`GET /v1/models` 응답에서 확인하세요.",
+        "Gateway가 호출자에게 공개하는 모델 목록입니다. 아래 표는 이 배포 설정에서 "
+        "자동으로 만들어지며, 지금 실제로 적용 중인 값은 `GET /v1/models` 응답에서 확인하세요.",
         "",
         # 3열까지 줄인다. 열이 많으면 좁은 본문 폭에서 `chat.completions.vision` 같은
         # 무공백 식별자가 글자 단위로 쪼개진다(chat.comple/tions.visi/on).
@@ -81,16 +83,20 @@ def models_operation_detail(settings: AppSettings) -> str:
             fixed_notes.append(
                 f"- `{model.get('id', '—')}`는 조정 가능한 파라미터가 없습니다. {values}으로 고정입니다."
             )
-    lines += [
-        "",
+    if fixed_notes:
+        lines.append("")
+        lines += fixed_notes
+    return "\n".join(lines)
+
+
+def models_operation_detail(settings: AppSettings) -> str:
+    """모델 목록 엔드포인트의 상세. 표지(태그)에는 목록만 두고 여기에 나머지를 둔다."""
+    lines = [
         "조정할 수 있는 파라미터는 모델마다 다릅니다. 파라미터 이름과 허용 범위"
         "(`min`, `max`, `max_items`, `allowed` 등)는 `GET /v1/models`의 `request_parameters`가 "
         "함께 돌려줍니다. 모델별 입력 폼을 만든다면 그 값을 읽어서 구성하세요. "
         "이 문서 화면에 보이는 예시 값은 화면용 preset이며 Gateway 기본값이 아닙니다.",
     ]
-    if fixed_notes:
-        lines.append("")
-        lines += fixed_notes
 
     if settings.main_model_profile_summaries:
         lines += [
@@ -115,10 +121,25 @@ def models_operation_detail(settings: AppSettings) -> str:
     return "\n".join(lines)
 
 
-CHAT_TAG_SUMMARY = (
-    "OpenAI 호환 chat completions API입니다. Gateway는 요청을 모델 런타임으로 넘기기 전에 "
-    "모델 이름, 입력 종류, 토큰 한도, 허용 파라미터, 구조화 출력 스키마를 직접 검사합니다."
-)
+def chat_tag_summary(settings: AppSettings) -> str:
+    """Chat 그룹의 표지. 지금 이 배포가 무엇을 받는지까지만 담는다."""
+    lines = [
+        "OpenAI 호환 chat completions API입니다. Gateway는 요청을 모델 런타임으로 넘기기 전에 "
+        "모델 이름, 입력 종류, 토큰 한도, 허용 파라미터, 구조화 출력 스키마를 직접 검사합니다.",
+    ]
+    policy = settings.default_main_model_gateway_policy or {}
+    limits = policy.get("request_limits") or {}
+    if limits:
+        lines += [
+            "",
+            f"- 받을 수 있는 입력 — {_codes(limits.get('input_modalities'))}",
+            f"- 컨텍스트 상한 — {_number(limits.get('max_model_len'))}토큰 (입력+출력)",
+            f"- 요청 본문 상한 — {_bytes(settings.max_request_body_bytes)}",
+            "",
+            "스트리밍·도구 호출·구조화 출력·멀티모달 한도 같은 세부는 아래 "
+            "`POST /v1/chat/completions` 설명에 있습니다. 값은 프로필을 바꾸면 함께 바뀝니다.",
+        ]
+    return "\n".join(lines)
 
 
 def chat_operation_detail(settings: AppSettings) -> str:
@@ -313,7 +334,21 @@ def chat_operation_detail(settings: AppSettings) -> str:
     return "\n".join(lines)
 
 
-EMBEDDINGS_TAG_SUMMARY = "OpenAI 호환 embedding API입니다."
+def embeddings_tag_summary(settings: AppSettings) -> str:
+    """Embeddings 그룹의 표지. 쓸 수 있는 모델과 차원까지만."""
+    lines = [
+        "OpenAI 호환 embedding API입니다. 모델마다 출력 차원이 고정되어 있고, "
+        "Gateway가 요청 차원과 응답 차원이 일치하는지 확인합니다.",
+    ]
+    profiles = settings.embedding_profiles or {}
+    if profiles:
+        lines.append("")
+        for name, profile in profiles.items():
+            lines.append(
+                f"- `{name}` — 기본 {_number(getattr(profile, 'default_dimensions', None))}차원"
+            )
+        lines += ["", "요청 파라미터와 한도는 아래 `POST /v1/embeddings` 설명에 있습니다."]
+    return "\n".join(lines)
 
 
 def embeddings_operation_detail(settings: AppSettings) -> str:
@@ -420,15 +455,15 @@ def gateway_tags_metadata(settings: AppSettings) -> list[dict[str, str]]:
         },
         {
             "name": "Models",
-            "description": MODELS_TAG_SUMMARY,
+            "description": models_tag_summary(settings),
         },
         {
             "name": "Chat",
-            "description": CHAT_TAG_SUMMARY,
+            "description": chat_tag_summary(settings),
         },
         {
             "name": "Embeddings",
-            "description": EMBEDDINGS_TAG_SUMMARY,
+            "description": embeddings_tag_summary(settings),
         },
         {
             "name": "Retrieval",
