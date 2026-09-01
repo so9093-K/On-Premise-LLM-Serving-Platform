@@ -51,7 +51,9 @@ _PATTERNS: list[tuple[re.Pattern[str], str]] = [
     # 데이터베이스 연결 URL
     (re.compile(
         r"(?:mysql|postgresql|postgres|mongodb(?:\+srv)?|redis|amqp|amqps|mariadb)://"
-        r"[A-Za-z0-9_.%~!$&'()*+,;=:@\-]+:[A-Za-z0-9_.%~!$&'()*+,;=:@\-]+@"
+        # 사용자 부분은 비어 있을 수 있다(`redis://:secret@host`). `+`였을 때는
+        # 그런 URL이 어떤 규칙에도 안 걸려 신호가 아예 없었다.
+        r"[A-Za-z0-9_.%~!$&'()*+,;=:@\-]*:[A-Za-z0-9_.%~!$&'()*+,;=:@\-]+@"
         r"[A-Za-z0-9.\-]+"
     ), "DATABASE_URL"),
     # 비밀번호 할당 패턴

@@ -173,7 +173,9 @@ GATEWAY_CHAT_REQUEST_EXAMPLES: dict[str, Any] = {
             "model": "local-main",
             "messages": [{"role": "user", "content": "이 장애 원인을 단계적으로 분석하고 최종 조치만 정리해줘."}],
             "reasoning": True,
-            "max_tokens": 768,
+            # 768이면 항상 finish_reason=length로 잘렸다. 실측: 답만으로 813~1509
+            # 토큰을 쓰고, thinking이 켜지면 ~500 토큰을 같은 예산에서 더 가져간다.
+            "max_tokens": 3072,
             "temperature": 0.2,
         },
     },

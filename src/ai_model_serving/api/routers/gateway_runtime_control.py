@@ -7,7 +7,7 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
 
 from ..endpoint_spec import GATEWAY_ENDPOINTS
-from ...errors import default_code_for_status, error_payload, error_response_headers
+from ...errors import ServiceError, default_code_for_status, error_payload, error_response_headers
 from ...api_examples import (
     RUNTIME_BUDGET_EXCEEDED_EXAMPLE,
     RUNTIME_ERROR_404_EXAMPLE,
@@ -462,7 +462,11 @@ def build_router(
         payload = await request.json()
         desired_state = payload.get("desired_state") if isinstance(payload, dict) else None
         if desired_state not in ("active", "stopped"):
-            raise HTTPException(422, detail="desired_state must be 'active' or 'stopped'")
+            raise ServiceError(
+                "VALIDATION_ERROR",
+                "desired_state must be 'active' or 'stopped'",
+                param="desired_state",
+            )
         force = bool(payload.get("force")) if isinstance(payload, dict) else False
 
         # 메인 채팅 모델도 동일 fleet의 예산 참여자이므로, 동일한 desired_state
@@ -793,10 +797,14 @@ def build_router(
     async def switch_main_model(request: Request) -> JSONResponse:
         payload = await request.json()
         if not isinstance(payload, dict) or not isinstance(payload.get("profile"), str):
-            raise HTTPException(422, detail="profile is required")
+            raise ServiceError("VALIDATION_ERROR", "profile is required", param="profile")
         unknown = set(payload) - {"profile", "confirm_unverified", "request_id"}
         if unknown:
-            raise HTTPException(422, detail=f"unsupported fields: {sorted(unknown)}")
+            raise ServiceError(
+                "VALIDATION_ERROR",
+                f"unsupported fields: {sorted(unknown)}",
+                param=sorted(unknown)[0],
+            )
         client = await require_sidecar()
         try:
             result = await client.switch_main_model(

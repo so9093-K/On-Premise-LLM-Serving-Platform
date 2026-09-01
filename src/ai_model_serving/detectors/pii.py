@@ -59,6 +59,13 @@ _KR_PHONE_RE = re.compile(
     r")(?!\d)"
 )
 _IP_ADDRESS_RE = re.compile(r"(?<!\d)(?:\d{1,3}\.){3}\d{1,3}(?!\d)")
+# `scheme://` 뒤의 authority 구간. RFC 3986의 authority는 첫 `/`, `?`, `#`,
+# 공백에서 끝난다. 이 구간 안의 `userinfo@host`는 이메일 주소가 아니라 URI
+# 자격증명이므로 EMAIL_ADDRESS로 잡으면 안 된다 -- 예전에는
+# `postgresql://user:password@db.example.com`이 EMAIL_ADDRESS(D2)로 분류돼,
+# secret detector가 같은 문자열에 붙인 DATABASE_URL(D5)을 strongest_code에서
+# 가렸다. authority 밖(경로·쿼리·mailto:·평문)의 이메일은 그대로 탐지한다.
+_URI_AUTHORITY_RE = re.compile(r"[a-zA-Z][a-zA-Z0-9+.\-]*://[^\s/?#]*")
 
 def _regex_spans(
     text: str,
@@ -88,7 +95,25 @@ def _run_custom_span_recognizers(text: str) -> list[EntitySpan]:
     ):
         spans.extend(_regex_spans(text, entity, pattern))
 
-    return spans
+    return _drop_email_spans_inside_uri_authority(text, spans)
+
+
+def _drop_email_spans_inside_uri_authority(
+    text: str,
+    spans: list[EntitySpan],
+) -> list[EntitySpan]:
+    """URI authority 안에 통째로 들어있는 EMAIL_ADDRESS span을 버린다."""
+    authorities = [
+        (match.start(), match.end()) for match in _URI_AUTHORITY_RE.finditer(text)
+    ]
+    if not authorities:
+        return spans
+    return [
+        span
+        for span in spans
+        if span.entity != "EMAIL_ADDRESS"
+        or not any(start <= span.start and span.end <= end for start, end in authorities)
+    ]
 
 
 def _same_span(left: EntitySpan, right: EntitySpan) -> bool:

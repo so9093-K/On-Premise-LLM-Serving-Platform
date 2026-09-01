@@ -297,7 +297,7 @@ paths:
                   - role: user
                     content: 이 장애 원인을 단계적으로 분석하고 최종 조치만 정리해줘.
                   reasoning: true
-                  max_tokens: 768
+                  max_tokens: 3072
                   temperature: 0.2
               json_schema:
                 summary: Structured Outputs (json_schema)
