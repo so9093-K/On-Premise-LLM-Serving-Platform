@@ -1,15 +1,61 @@
 #!/usr/bin/env bash
 
-# 자동 반영해도 GPU 모델 재기동 없이 영향 범위를 제한할 수 있는 monitoring
-# bind-mounted 설정의 단일 목록이다. 각 항목은
-# "compose-service:source path ..." 형식이다. 모델 런타임 입력은 이 목록에
-# 넣지 않고, 의도적인 모델 교체 경로에서만 반영한다.
-BIND_MOUNTED_CONFIG_SERVICE_SPECS=(
-  "grafana:ops/grafana/dashboards ops/grafana/provisioning"
-  "prometheus:ops/prometheus"
-  "loki:ops/loki"
-  "alloy:ops/alloy"
-)
+# 배포가 자동으로 반영해도 되는 bind-mounted 설정 목록을 compose 파일에서 파생한다.
+# "compose-service:source path ..." 형식으로 한 줄씩 출력한다.
+#
+# 예전에는 이 목록을 손으로 적어뒀다. compose와 갈라져도 확인하는 코드가 없어서
+# promtail이 compose에서 사라진 뒤에도 배포 상태 파일이 남아 있었고, 적어둔 경로가
+# 실제 마운트보다 거칠어서(예: 파일 두 개만 마운트하는데 `ops/prometheus` 전체)
+# 지문 범위도 실제와 달랐다.
+#
+# 파생 규칙:
+#   - release 상대 경로(`..`로 시작)를 bind-mount하는 서비스만 본다.
+#   - `.runtime/*`는 뺀다. release 안의 symlink로 공유 상태를 가리키므로 release마다
+#     내용이 달라지지 않는다. 배포 서버에서는 realpath로도 걸러지지만, 로컬 저장소
+#     에서는 실제 디렉터리라 이름으로도 함께 판정해야 두 환경에서 결과가 같다.
+#   - release 트리 밖으로 나가는 경로도 뺀다.
+#   - GPU를 예약한 서비스는 뺀다. 설정 변경으로 모델을 콜드 스타트시키지 않는다는
+#     정책이며, 모델 런타임 입력은 의도적인 교체 경로가 담당한다. 이 판단만이
+#     compose에서 파생되지 않는 정책인데, GPU 예약 자체는 compose가 이미 선언하고
+#     있으므로 여기에 서비스 이름을 적을 필요는 없다.
+bind_mounted_config_service_specs() {
+  local release_root="${1:?release root required}"
+  local compose_file="${2:?compose file required}"
+  "${PYTHON_BIN:-$(command -v python3.12 || command -v python3 || command -v python)}" - \
+    "${release_root}" "${compose_file}" <<'PY'
+import os
+import sys
+
+import yaml
+
+release_root, compose_file = sys.argv[1], sys.argv[2]
+root = os.path.realpath(release_root)
+compose_path = os.path.join(root, compose_file)
+compose_dir = os.path.dirname(compose_path)
+with open(compose_path, encoding="utf-8") as handle:
+    document = yaml.safe_load(handle)
+
+for service, definition in sorted((document.get("services") or {}).items()):
+    reservations = (
+        ((definition.get("deploy") or {}).get("resources") or {}).get("reservations") or {}
+    )
+    if reservations.get("devices"):
+        continue
+    paths = []
+    for volume in definition.get("volumes") or []:
+        if not isinstance(volume, str) or not volume.startswith(".."):
+            continue
+        joined = os.path.normpath(os.path.join(compose_dir, volume.split(":", 1)[0]))
+        if ".runtime" in os.path.relpath(joined, root).split(os.sep):
+            continue
+        source = os.path.realpath(joined)
+        if source == root or os.path.commonpath([source, root]) != root:
+            continue
+        paths.append(os.path.relpath(source, root))
+    if paths:
+        print("{}:{}".format(service, " ".join(sorted(set(paths)))))
+PY
+}
 
 # 주어진 source root 아래의 설정 내용으로 안정적인 fingerprint를 만든다.
 # 파일명도 sha256sum 입력에 포함되므로, 내용 변경뿐 아니라 추가/삭제도 감지한다.

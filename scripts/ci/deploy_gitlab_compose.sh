@@ -141,6 +141,7 @@ ssh "${SSH_TARGET}" \
   DEPLOY_RUNTIME_PROFILE="${DEPLOY_RUNTIME_PROFILE:-}" \
   DEPLOY_DEFERRED_RUNTIMES="${DEPLOY_DEFERRED_RUNTIMES:-}" \
   AUTH_MODE="${AUTH_MODE:-}" \
+  PYTHONDONTWRITEBYTECODE=1 \
   bash -s <<'REMOTE'
 set -euo pipefail
 
@@ -306,19 +307,14 @@ configure_release_context() {
   local release_path="$1"
   cd "${release_path}"
   _exposure_mode="${EXPOSURE_MODE:-private_network}"
+  # exposure mode -> overlay 매핑은 resolve_exposure_mode.py가 단일 기준이다.
+  # 예전에는 resolver가 없는 구버전 release로 롤백하는 경우를 위해 여기에 축소
+  # 복사본을 두고 있었다. 롤백은 항상 직전 release 하나만 대상으로 하고
+  # (PREVIOUS_RELEASE = current가 가리키던 곳), resolver는 그보다 훨씬 오래
+  # 존재해왔다. 두 모드만 아는 복사본으로 조용히 추측하느니 소리내서 실패한다.
   if [[ ! -f "scripts/compose/resolve_exposure_mode.py" ]]; then
-    if [[ "${RESTORING_RELEASE:-0}" != "1" ]]; then
-      echo "[deploy] ERROR: exposure mode resolver is missing in ${release_path}" >&2
-      return 1
-    fi
-    case "${_exposure_mode}" in
-      private_network) COMPOSE_OVERRIDE="" ;;
-      master_open) COMPOSE_OVERRIDE="ops/compose/overrides/exposure.master-open.yaml" ;;
-      *)
-        echo "[deploy] ERROR: previous release cannot resolve EXPOSURE_MODE=${_exposure_mode}" >&2
-        return 1
-        ;;
-    esac
+    echo "[deploy] ERROR: exposure mode resolver is missing in ${release_path}" >&2
+    return 1
   elif ! COMPOSE_OVERRIDE="$(
     "$_PYTHON_BIN" scripts/compose/resolve_exposure_mode.py \
       "$_exposure_mode" --print-override-file
@@ -486,9 +482,20 @@ list_services_needing_recreate() {
 # Release directory는 매번 바뀌지만 Compose context는 current로 고정한다. 과거
 # release 경로를 label로 가진 컨테이너는 새 current symlink를 따라가지 않으므로,
 # 다음 full deploy에서 한 번 재생성해 안정 경로로 수렴시킨다.
+#
+# 이 라벨의 실제 소비자는 compose_context_assert_mutation_safe다. 그쪽은 양쪽을
+# readlink -f로 해석한 뒤 비교하므로, 여기서도 같은 기준을 써야 한다. 문자열로
+# 비교하면 가리키는 디렉터리가 같은데도(롤백 직후 current가 이전 release를
+# 가리키는 경우) 어긋난 것으로 보여, 멀쩡한 서비스를 재생성하게 된다.
+# 해석이 실패하는 경로(=삭제된 release)는 원문 그대로 비교해 어긋난 것으로 남긴다.
+_resolved_compose_context() {
+  local path="$1"
+  readlink -f "${path}" 2>/dev/null || printf '%s' "${path}"
+}
+
 list_services_with_stale_compose_context() {
-  local expected_context="${DEPLOY_PATH}/current/ops/compose"
-  local service container_id actual_context
+  local expected_context service container_id actual_context
+  expected_context="$(_resolved_compose_context "${DEPLOY_PATH}/current/ops/compose")"
   while read -r service; do
     [[ -n "${service}" ]] || continue
     container_id="$(compose_run ps -q "${service}" 2>/dev/null || true)"
@@ -497,6 +504,8 @@ list_services_with_stale_compose_context() {
       docker inspect -f '{{ index .Config.Labels "com.docker.compose.project.working_dir" }}' \
         "${container_id}" 2>/dev/null || true
     )"
+    [[ -n "${actual_context}" ]] || continue
+    actual_context="$(_resolved_compose_context "${actual_context}")"
     if [[ "${actual_context}" != "${expected_context}" ]]; then
       echo "[deploy] ${service} uses stale Compose context: ${actual_context:-unknown}" >&2
       echo "${service}"
@@ -504,8 +513,10 @@ list_services_with_stale_compose_context() {
   done < <(compose_run config --services)
 }
 
-# 실행 중인 스택이 현재 작업 디렉터리에 설정된 compose 컨텍스트로 수렴하도록,
-# (재)생성해야 할 서비스 집합을 중복 없이 출력한다. 다음을 합친다:
+# 내용이 실제로 바뀌어 (재)생성해야 할 서비스 집합을 중복 없이 출력한다.
+# compose context 라벨 수렴은 여기 넣지 않는다 -- 그건 내용 변경이 아니라서
+# compose의 config-hash 비교로는 절대 반영되지 않고, force-recreate가 필요한
+# 별도 단계다. 다음을 합친다:
 #   - 이미지 ID 변경 / 실행 중이 아닌 서비스 (list_services_needing_recreate)
 #   - ${1} baseline release 트리 대비 설정 내용 변경분을, 실제로 그 파일을
 #     쓰는 서비스로 매핑:
@@ -520,7 +531,6 @@ compute_recreate_set() {
   local baseline="$1"
   {
     list_services_needing_recreate
-    list_services_with_stale_compose_context
     if deploy_runtime_config_changed "${baseline}" "${PWD}"; then
       echo "[deploy] main-model runtime configuration changed -> main-llm-vllm" >&2
       echo "main-llm-vllm"
@@ -936,6 +946,39 @@ if [[ "${DEPLOY_MODE}" == "full" ]]; then
       fi
     fi
   fi
+
+  # compose context 라벨은 compose 자신의 config-hash 비교 대상이 아니라서 위의
+  # `up -d`로는 절대 갱신되지 않는다. 라벨이 어긋난 컨테이너가 하나라도 있으면
+  # compose_context_assert_mutation_safe가 이 project에 대한 로컬 운영 명령
+  # (compose-up/compose-restart/stop)을 전부 거부하므로, 이 부분집합만 따로
+  # force-recreate해서 안정 경로로 수렴시킨다. 위에서 방금 재생성된 서비스는
+  # 이미 올바른 라벨을 갖고 있어 여기 걸리지 않는다.
+  mapfile -t STALE_CONTEXT_SERVICES < <(list_services_with_stale_compose_context)
+  if [[ ${#STALE_CONTEXT_SERVICES[@]} -gt 0 ]]; then
+    STALE_ACTIVE_SERVICES=()
+    STALE_DEFERRED_SERVICES=()
+    for service in "${STALE_CONTEXT_SERVICES[@]}"; do
+      if is_deferred_service "${service}"; then
+        STALE_DEFERRED_SERVICES+=("${service}")
+      else
+        STALE_ACTIVE_SERVICES+=("${service}")
+      fi
+    done
+    SERVICES_MUTATED=1
+    if [[ ${#STALE_ACTIVE_SERVICES[@]} -gt 0 ]]; then
+      echo "[deploy] full deploy: converging stale Compose context: ${STALE_ACTIVE_SERVICES[*]}"
+      if ! compose_run up -d --no-deps --force-recreate "${STALE_ACTIVE_SERVICES[@]}"; then
+        fail_after_env_backup "failed to converge stale Compose context: ${STALE_ACTIVE_SERVICES[*]}"
+      fi
+    fi
+    if [[ ${#STALE_DEFERRED_SERVICES[@]} -gt 0 ]]; then
+      # deferred runtime은 시작하지 않는다. up -d로 올리면 VRAM을 잡는다.
+      echo "[deploy] full deploy: converging stale Compose context without starting: ${STALE_DEFERRED_SERVICES[*]}"
+      if ! compose_run create --force-recreate "${STALE_DEFERRED_SERVICES[@]}"; then
+        fail_after_env_backup "failed to converge stale Compose context for deferred services: ${STALE_DEFERRED_SERVICES[*]}"
+      fi
+    fi
+  fi
 else
   # application/control-plane 이미지만 pull한다. Gateway와 Admin Sidecar는
   # 하나의 관리 API를 구현하므로 반드시 같은 revision으로 배포해야 한다.
@@ -969,6 +1012,42 @@ _has_previous_release=0
 if [[ -n "${PREVIOUS_RELEASE:-}" && -d "${PREVIOUS_RELEASE}" ]]; then
   _has_previous_release=1
 fi
+if ! _bind_mounted_config_raw="$(
+  bind_mounted_config_service_specs "${RELEASE_PATH}" "${COMPOSE_FILE}"
+)"; then
+  fail_after_env_backup "failed to derive bind-mounted config services from ${COMPOSE_FILE}"
+fi
+BIND_MOUNTED_CONFIG_SERVICE_SPECS=()
+if [[ -n "${_bind_mounted_config_raw}" ]]; then
+  mapfile -t BIND_MOUNTED_CONFIG_SERVICE_SPECS <<<"${_bind_mounted_config_raw}"
+fi
+
+# 파생 집합에 없는 상태 파일은 회수한다. 목록을 손으로 적던 시절, compose에서
+# 사라진 서비스(promtail)의 fingerprint가 계속 남아 있었다. 생성만 있고 회수가
+# 없으면 이 디렉터리는 배포할수록 과거만 쌓인다.
+_derived_config_services=()
+for _config_service_spec in "${BIND_MOUNTED_CONFIG_SERVICE_SPECS[@]}"; do
+  _derived_config_services+=("${_config_service_spec%%:*}")
+done
+for _orphan_state_file in "${_config_state_dir}"/*.sha256; do
+  [[ -e "${_orphan_state_file}" ]] || continue
+  _orphan_service="$(basename "${_orphan_state_file}" .sha256)"
+  _orphan_still_derived=0
+  for _derived_config_service in "${_derived_config_services[@]}"; do
+    if [[ "${_orphan_service}" == "${_derived_config_service}" ]]; then
+      _orphan_still_derived=1
+      break
+    fi
+  done
+  if [[ ${_orphan_still_derived} -eq 0 ]]; then
+    if rm -f "${_orphan_state_file}"; then
+      echo "[deploy] removed deploy state for a service that no longer bind-mounts release config: ${_orphan_service}"
+    else
+      echo "[deploy] WARNING: failed to remove stale deploy state: ${_orphan_state_file}" >&2
+    fi
+  fi
+done
+
 for _config_service_spec in "${BIND_MOUNTED_CONFIG_SERVICE_SPECS[@]}"; do
   _config_service="${_config_service_spec%%:*}"
   _config_paths="${_config_service_spec#*:}"

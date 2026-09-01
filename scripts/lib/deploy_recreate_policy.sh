@@ -56,10 +56,13 @@ deploy_unified_image_config_changed() {
   [[ -n "$baseline" && -d "$baseline" ]] || return 1
   before_path="$baseline/configs/vllm_unified_build.yaml"
   after_path="$current/configs/vllm_unified_build.yaml"
-  # 이 파일을 새 source-of-truth로 도입한 첫 배포에서는 이전 release에만 파일이
-  # 없다. 이는 비교 불능 오류가 아니라 build 입력 변경이다. 호출자의 fresh-artifact
-  # guard가 새 derived digest를 요구하도록 changed(0)로 돌려준다.
-  [[ -f "$before_path" ]] || return 0
+  # 롤백은 항상 직전 release 하나만 대상으로 하고(PREVIOUS_RELEASE = current가
+  # 가리키던 곳), 이 파일은 그보다 오래 존재해왔다. 직전 release에 파일이 없다면
+  # 도입기 마이그레이션이 아니라 비정상이므로 "변경됨"으로 추측하지 않고 실패한다.
+  if [[ ! -f "$before_path" ]]; then
+    echo "[deploy] ERROR: previous release has no vLLM unified image configuration: $before_path" >&2
+    return 2
+  fi
   if [[ ! -f "$after_path" ]]; then
     echo "[deploy] ERROR: current vLLM unified image configuration is missing: $after_path" >&2
     return 2

@@ -74,7 +74,10 @@ def test_unified_image_config_policy_detects_build_inputs(tmp_path):
     assert _config_changed(before, after)
 
 
-def test_unified_image_config_policy_treats_missing_previous_config_as_change(tmp_path):
+def test_unified_image_config_policy_requires_the_previous_release_to_have_the_config(tmp_path):
+    # 롤백 대상은 항상 직전 release 하나이고(PREVIOUS_RELEASE = current가 가리키던
+    # 곳), 이 설정 파일은 그보다 오래 존재해왔다. 직전 release에 파일이 없다면
+    # 도입기 마이그레이션이 아니라 비정상이므로 "변경됨"으로 추측하지 않고 실패한다.
     before = tmp_path / "before"
     after = tmp_path / "after"
     (before / "configs").mkdir(parents=True)
@@ -84,7 +87,7 @@ def test_unified_image_config_policy_treats_missing_previous_config_as_change(tm
         encoding="utf-8",
     )
 
-    assert _config_changed(before, after)
+    assert _config_compare_status(before, after) == 2
 
 
 def test_unified_image_config_policy_fails_closed_when_configuration_is_unreadable(tmp_path):

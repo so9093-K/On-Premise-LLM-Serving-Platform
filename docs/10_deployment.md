@@ -515,7 +515,7 @@ make ready-full
 | 서비스 재생성 정책 | `scripts/lib/deploy_recreate_policy.sh` | 변경 서비스와 모델 실행 환경 관련 설정 판별 |
 | 배포 환경 처리 | `scripts/lib/deploy_env.sh` | 대상 `.env` 조회, 갱신, export |
 | 초기 중지 Runtime 계산 | `scripts/runtime/deferred_runtimes.py` | Deploy Runtime Profile과 Runtime 상태 적용 |
-| Bind-mounted 설정 정책 | `scripts/lib/bind_mounted_config.sh` | 모니터링 설정 변경 여부와 갱신 대상 정의 |
+| Bind-mounted 설정 정책 | `scripts/lib/bind_mounted_config.sh` | 갱신 대상 서비스와 경로를 Compose 정의에서 파생하고, 설정 변경 여부를 판정 |
 | Base Compose | `ops/compose/full-stack.private-network.yaml` | Full-stack 서비스 구성 |
 | 전체 Runtime 준비 상태 | `scripts/ops/ready_full.sh` | Gateway, 의존 서비스, Main Model, inference 경로 검증 |
 | Smoke Test | `scripts/ops/smoke_test.sh` | 대표 API 요청/응답 확인 |

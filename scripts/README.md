@@ -77,21 +77,6 @@ make stop
 - `.runtime/`은 정상적인 로컬 runtime state다. `make init-env-compose` 이후 존재할 수 있으며, `make clean-all`은 기본적으로 보존한다. 테스트와 패키징 정책은 `.runtime`의 로컬 존재가 아니라 release/source ZIP 포함 여부를 검사해야 한다.
 - `package_release.sh`는 `.runtime`, `.venv`, `venv`, `env`, `.tox`, logs, run, cache, pycache, egg-info를 제외한다.
 
-## 계약 검증용 표기
-
-아래 원문은 build/runtime UX contract marker다. 한국어 설명은 위 섹션을 기준으로 한다.
-
-- build와 runtime은 다른 단계다
-- `make build`는 서비스를 시작하지 않는다
-- make start
-- make ready-local
-- make ready-full
-- make validate
-- make remove-plan
-- make build
-- make first-run
-
-
 ## Full-stack 진단
 
 - `validate_vllm_compose.py`: compose vLLM command와 model serving/catalog/card 정책 정합성을 검증한다. Embedding pooling token budget 오류와 risk detector quantization drift를 사전에 막는다.

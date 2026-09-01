@@ -12,155 +12,150 @@ AUTH_ENV_ARG = $(if $(AUTH_ENV),--env $(AUTH_ENV),)
 
 .PHONY: help init-env-local init-env-compose init-env-compose-force sync-runtime-secrets sync-env validate test build build-image build-vllm-unified-image package start compose-up preflight-compose compose-config ready-local ready-full smoke runtime-validate auth-status auth-doctor auth-plan auth-apply exposure-status exposure-plan exposure-apply main-model-prepare risk-vllm-config-check status stop compose-down compose-restart compose-logs logs compose-diagnostics clean clean-dry-run remove-plan clean-all reset first-run reset-version render-runtime-assets
 
+# help는 각 타겟 옆의 `## 설명`을 읽는다. 예전에는 여기에 목록을 따로 적어뒀는데,
+# 타겟이 늘어도 아무도 갱신하지 않아 44개 중 11개만 보이는 상태로 갈라져 있었다.
 help:
 	@echo "ai_model_serving_platform $(CURRENT_VERSION)"
 	@echo ""
-	@echo "  make validate             # 정적 계약·설정·생성물 drift 검증"
-	@echo "  make test                 # 결정론적 unit·contract 테스트"
-	@echo "  make build                # validate + test + platform image build"
-	@echo "  make package              # 릴리스 ZIP 생성"
-	@echo "  make init-env-local       # 로컬 app-only .env 생성"
-	@echo "  make start                # Gateway·Risk Adapter 기동"
-	@echo "  make ready-local          # app-only readiness"
-	@echo "  make compose-up           # GPU full-stack compose 기동"
-	@echo "  make ready-full           # vLLM 포함 readiness"
-	@echo "  make runtime-validate     # 실제 서비스·GPU 검증"
-	@echo "  make status               # 서비스 상태"
+	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z0-9_-]+:.*?## / {printf "  make %-26s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 	@echo ""
 	@echo "상세 운영 문서: docs/README.md"
 
-init-env-local:
+init-env-local: ## 로컬 app-only .env 생성
 	$(PYTHON) scripts/config/setup_env.py --profile local
 
-init-env-compose:
+init-env-compose: ## compose용 .env 생성 (기존 .env가 있으면 실패)
 	$(PYTHON) scripts/config/setup_env.py --profile compose
 
-init-env-compose-force:
+init-env-compose-force: ## compose용 .env 강제 재생성
 	$(PYTHON) scripts/config/setup_env.py --profile compose --force
 
-sync-runtime-secrets:
+sync-runtime-secrets: ## .env의 ADMIN_API_KEY를 .runtime으로 다시 기록
 	$(PYTHON) scripts/config/setup_env.py --sync-runtime-secrets --env-file "$${ENV_FILE:-.env}"
 
-sync-env:
+sync-env: ## template에 추가된 새 키를 .env에 동기화 (기존 값 보존)
 	$(PYTHON) scripts/config/setup_env.py --sync-env --env-file "$${ENV_FILE:-.env}"
 
-validate:
+validate: ## 정적 계약·설정·생성물 drift 검증
 	PYTHON_BIN="$(PYTHON)" bash scripts/validation/run_validate.sh
 
-test:
+test: ## 결정론적 unit·contract 테스트
 	PYTHON_BIN="$(PYTHON)" bash scripts/validation/run_test.sh
 
-build:
+build: ## validate + test + platform image build
 	bash scripts/build/build_all.sh
 
-build-image:
+build-image: ## platform image만 build
 	bash scripts/build/build_platform_image.sh
 
-build-vllm-unified-image:
+build-vllm-unified-image: ## 모든 모델이 공유하는 vLLM unified image build
 	bash scripts/build/build_vllm_unified_image.sh
 
-package:
+package: ## 릴리스 ZIP 생성
 	bash scripts/build/package_release.sh
 
-start:
+start: ## Gateway·Risk Adapter 기동 (vLLM 없음)
 	bash scripts/ops/up_services.sh
 
-compose-up:
+compose-up: ## GPU full-stack compose 기동
 	bash scripts/compose/compose_up.sh
 
-compose-config:
+compose-config: ## resolve된 compose 정의 출력
 	@bash scripts/compose/compose_config.sh
 
-preflight-compose:
+preflight-compose: ## compose 기동 전 Docker·GPU·포트·secret 점검
 	bash scripts/compose/preflight_compose.sh
 
-ready-local:
+ready-local: ## app-only readiness
 	bash scripts/ops/ready_local.sh
 
-ready-full:
+ready-full: ## vLLM 포함 readiness
 	bash scripts/ops/ready_full.sh
 
-smoke:
+smoke: ## smoke test 실행
 	bash scripts/ops/smoke_test.sh
 
-runtime-validate:
+runtime-validate: ## 실제 서비스·GPU 검증
 	$(PYTHON) scripts/validation/runtime_validation.py
 
-auth-status:
+auth-status: ## 현재 public/admin/internal 인증 상태
 	$(PYTHON) scripts/auth/auth_status.py $(AUTH_ENV_ARG)
 
-auth-doctor:
+auth-doctor: ## 위험한 인증 조합 탐지
 	$(PYTHON) scripts/auth/auth_doctor.py $(AUTH_ENV_ARG) --warn-only
 
-auth-plan:
+auth-plan: ## MODE=<mode> 인증 프로필 변경 계획 (secret 미출력)
 	@if [[ -z "$(MODE)" ]]; then echo "MODE=local_open|internal_trusted|private_network|edge_terminated|strict 를 지정하세요" >&2; exit 2; fi
 	$(PYTHON) scripts/auth/auth_plan.py $(AUTH_ENV_ARG) --mode $(MODE)
 
-auth-apply:
+auth-apply: ## MODE=<mode> managed 인증 flag 적용
 	@if [[ -z "$(MODE)" ]]; then echo "MODE=local_open|internal_trusted|private_network|edge_terminated|strict 를 지정하세요" >&2; exit 2; fi
 	$(PYTHON) scripts/auth/auth_apply.py $(AUTH_ENV_ARG) --mode $(MODE) --yes
 
-exposure-status:
+exposure-status: ## 현재 노출(exposure) 상태
 	$(PYTHON) scripts/auth/exposure_status.py $(AUTH_ENV_ARG)
 
-exposure-plan:
+exposure-plan: ## MODE=<mode> 노출 변경 계획
 	@if [[ -z "$(MODE)" ]]; then echo "MODE=private_network|master_open 를 지정하세요" >&2; exit 2; fi
 	$(PYTHON) scripts/auth/exposure_plan.py $(AUTH_ENV_ARG) --mode $(MODE) $(if $(AUDIENCE),--audience $(AUDIENCE),)
 
-exposure-apply:
+exposure-apply: ## MODE=<mode> 노출 설정 적용
 	@if [[ -z "$(MODE)" ]]; then echo "MODE=private_network|master_open 를 지정하세요" >&2; exit 2; fi
 	$(PYTHON) scripts/auth/exposure_apply.py $(AUTH_ENV_ARG) --mode $(MODE) $(if $(AUDIENCE),--audience $(AUDIENCE),) --yes
 
-main-model-prepare:
+main-model-prepare: ## PROFILE=<id> main-model 캐시 준비 (런타임 미변경)
 	@if [[ -z "$(PROFILE)" ]]; then echo "PROFILE=<main-model-profile-id>를 지정하세요" >&2; exit 2; fi
 	$(PYTHON) scripts/models/prepare_main_model_cache.py --profile "$(PROFILE)" --env-file "$${ENV_FILE:-.env}" --compose-file "$${COMPOSE_FILE:-ops/compose/full-stack.private-network.yaml}"
 
-risk-vllm-config-check:
+risk-vllm-config-check: ## RISK_VLLM_IMAGE 내부 Kanana config 확인
 	bash scripts/models/check_risk_vllm_image_config.sh
 
-status:
+status: ## 서비스 상태 (READY_MODE=full이면 full-stack)
 	@if [[ "$(READY_MODE)" == "full" ]]; then bash scripts/ops/status_services.sh --full; else bash scripts/ops/status_services.sh --local; fi
 
-stop:
+stop: ## 서비스 정지
 	bash scripts/ops/down_services.sh
 
-compose-down:
+compose-down: ## compose 스택 정지
 	bash scripts/ops/down_services.sh
 
-compose-restart:
+compose-restart: ## compose 스택 재시작
 	bash scripts/compose/compose_restart.sh
 
-compose-logs:
+compose-logs: ## compose 로그
 	bash scripts/compose/compose_logs.sh
 
-compose-diagnostics:
+compose-diagnostics: ## ready-full 실패 시 상태·로그 수집
 	bash scripts/compose/compose_diagnostics.sh
 
-logs:
-	@mkdir -p logs
-	@tail -n 100 -f logs/gateway.log logs/risk_adapter.log
+logs: ## 로컬 app 로그 tail (make start 이후)
+	@if ! ls logs/*.log >/dev/null 2>&1; then \
+		echo "logs/ 에 로그 파일이 없습니다. 'make start'로 로컬 app을 먼저 기동하세요." >&2; \
+		exit 2; \
+	fi
+	@tail -n 100 -f logs/*.log
 
-clean:
+clean: ## build 산출물·egg-info·로그 정리
 	bash scripts/ops/clean_all.sh
 
-clean-dry-run:
+clean-dry-run: ## clean 삭제 대상 미리보기
 	bash scripts/ops/clean_all.sh --dry-run
 
-remove-plan: clean-dry-run
+remove-plan: clean-dry-run ## clean-dry-run의 별칭
 
-clean-all:
+clean-all: ## clean + 부가 산출물까지 정리
 	bash scripts/ops/clean_all.sh --all
 
-reset:
+reset: ## 로컬 상태 초기화
 	bash scripts/ops/reset_all.sh
 
-first-run:
+first-run: ## bootstrap: venv·.env·image·검증 일괄 실행
 	bash scripts/build/bootstrap.sh
 
-reset-version:
+reset-version: ## NEW_VERSION=<x.y.z> 버전을 선언된 모든 자리에 반영
 	@if [[ -z "$(NEW_VERSION)" ]]; then echo "Usage: make reset-version NEW_VERSION=0.1.0"; exit 2; fi
 	$(PYTHON) scripts/build/reset_version.py "$(NEW_VERSION)"
 	$(MAKE) validate
 
-render-runtime-assets:
+render-runtime-assets: ## 생성 runtime asset 다시 렌더링
 	$(PYTHON) scripts/render_runtime_assets.py --write

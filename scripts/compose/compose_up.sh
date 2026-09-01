@@ -125,6 +125,37 @@ CONFIG_SERVICES_TO_REFRESH=()
 CONFIG_SERVICE_STATE_FILES=()
 CONFIG_SERVICE_FINGERPRINTS=()
 mkdir -p "$BIND_CONFIG_STATE_DIR"
+if ! BIND_MOUNTED_CONFIG_RAW="$(bind_mounted_config_service_specs "$ROOT" "$COMPOSE_FILE")"; then
+  echo "[compose-up] compose 파일에서 bind-mounted 설정 서비스를 파생하지 못했습니다: $COMPOSE_FILE" >&2
+  exit 2
+fi
+BIND_MOUNTED_CONFIG_SERVICE_SPECS=()
+if [[ -n "$BIND_MOUNTED_CONFIG_RAW" ]]; then
+  mapfile -t BIND_MOUNTED_CONFIG_SERVICE_SPECS <<<"$BIND_MOUNTED_CONFIG_RAW"
+fi
+
+# 파생 집합에 없는 상태 파일은 회수한다. 생성만 있고 회수가 없으면 compose에서
+# 사라진 서비스의 fingerprint가 계속 남는다.
+DERIVED_CONFIG_SERVICES=()
+for config_service_spec in "${BIND_MOUNTED_CONFIG_SERVICE_SPECS[@]}"; do
+  DERIVED_CONFIG_SERVICES+=("${config_service_spec%%:*}")
+done
+for orphan_state_file in "$BIND_CONFIG_STATE_DIR"/*.sha256; do
+  [[ -e "$orphan_state_file" ]] || continue
+  orphan_service="$(basename "$orphan_state_file" .sha256)"
+  orphan_still_derived=0
+  for derived_config_service in "${DERIVED_CONFIG_SERVICES[@]}"; do
+    if [[ "$orphan_service" == "$derived_config_service" ]]; then
+      orphan_still_derived=1
+      break
+    fi
+  done
+  if [[ $orphan_still_derived -eq 0 ]]; then
+    rm -f "$orphan_state_file"
+    echo "[compose-up] compose에 없는 서비스의 상태 파일을 제거했습니다: ${orphan_service}"
+  fi
+done
+
 for config_service_spec in "${BIND_MOUNTED_CONFIG_SERVICE_SPECS[@]}"; do
   config_service="${config_service_spec%%:*}"
   config_paths="${config_service_spec#*:}"
