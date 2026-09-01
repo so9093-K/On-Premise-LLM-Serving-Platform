@@ -14,6 +14,7 @@ from .settings_parts.env import (
     as_float as _as_float,
     as_int as _as_int,
     env as _env,
+    env_mapping,
     load_local_dotenv_when_allowed,
 )
 from .settings_parts.runtime_endpoints import build_runtime_endpoint, validate_timeout_budget
@@ -180,7 +181,7 @@ def load_settings(root: Path | None = None, env_file: Path | str | None = None) 
     model_catalog = load_yaml_mapping(project_root / "configs" / "model_catalog.yaml")
     main_model_catalog = load_main_model_catalog(
         project_root / "configs" / "main_model_profiles.yaml",
-        env=dict(os.environ),
+        env=env_mapping(),
     )
     version = (project_root / "VERSION").read_text(encoding="utf-8").strip()
 

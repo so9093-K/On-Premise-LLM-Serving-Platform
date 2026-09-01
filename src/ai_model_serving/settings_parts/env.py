@@ -36,6 +36,17 @@ def env(name: str, default: str) -> str:
     return DOTENV_VALUES.get(name, default)
 
 
+def env_mapping() -> dict[str, str]:
+    """env()와 같은 우선순위(os.environ > .env 파일)의 전체 매핑이다.
+
+    이름을 하나씩 묻지 않고 매핑 전체를 받아야 하는 소비자를 위한 것이다.
+    그런 자리에서 dict(os.environ)만 쓰면 export되지 않고 --env/.env로만 준 값이
+    보이지 않는다 -- load_settings(env_file=...)로 후보 파일을 점검하는 경로가
+    실제로 그래서 실패했다. 우선순위는 여기 한 곳에만 둔다.
+    """
+    return {**DOTENV_VALUES, **os.environ}
+
+
 def load_dotenv(project_root: Path, env_file: Path | None = None) -> None:
     """Load simple KEY=VALUE pairs as fallback values only."""
     DOTENV_VALUES.clear()
