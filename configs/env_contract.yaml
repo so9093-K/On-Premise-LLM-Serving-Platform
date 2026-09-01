@@ -103,6 +103,11 @@ env_examples:
 # 때문에 그 기준을 쓰면 배포할 때마다 운영 설정이 사라진다. 그래서 지울 키는
 # 여기에 명시적으로 등록한다.
 removed_keys:
+  PROJECT_VERSION: >-
+    VERSION 파일이 소유한다. settings.py가 env를 우선하므로 .env에 복제해두면 그 값이
+    파일을 가린다. 실제로 배포본 .env가 2026-05-11에 정정된 0.1.0-rc.1을 4개월간 들고
+    있어 /openapi.json과 /docs 배지만 릴리스 artifact와 다른 버전을 광고했다. 이미지에
+    /app/VERSION이 있으므로 키가 없으면 파일 값으로 떨어진다.
   MAX_REQUEST_BODY_BYTES: >-
     configs/model_serving.yaml(operational_limits.max_request_body_bytes)이 소유한다.
     .env 템플릿에 중복 정의돼 yaml 값을 가리고, 배포된 .env가 릴리스마다 1.25MB로

@@ -49,9 +49,6 @@ LINE_REFS: tuple[LineRef, ...] = (
     LineRef('pyproject.toml', r'(?m)^version = ".+"$', 'version = "{python_version}"'),
     LineRef('specs/openapi.gateway.yaml', r'(?m)^  version: .+$', '  version: {version}'),
     LineRef('specs/openapi.risk-adapter.yaml', r'(?m)^  version: .+$', '  version: {version}'),
-    LineRef('.env.example', r'(?m)^PROJECT_VERSION=.+$', 'PROJECT_VERSION={version}'),
-    LineRef('.env.local.example', r'(?m)^PROJECT_VERSION=.+$', 'PROJECT_VERSION={version}'),
-    LineRef('.env.compose.example', r'(?m)^PROJECT_VERSION=.+$', 'PROJECT_VERSION={version}'),
     LineRef(
         '.env.compose.example',
         r'(?m)^PLATFORM_IMAGE=ai-model-serving-platform:.+$',

@@ -101,7 +101,6 @@ GENERATED_SECRET_KEYS = {
 # 값으로 보존된다면, main()의 `base_values | generated | preserved_values` 병합이
 # 한 번도 함께 검증된 적 없는 쌍을 조용히 기록하게 됩니다.
 ALWAYS_REFRESH_KEYS = {
-    "PROJECT_VERSION",
     "APP_ENV",
     "BUILD_PROFILE",
     "SECRETS_GENERATED_AT",
@@ -127,7 +126,7 @@ REMOVED_ENV_KEYS = _removed_env_keys()
 def preserve_existing_values(out_path: Path, *, force: bool) -> dict[str, str]:
     """Preserve operator edits when regenerating .env.
 
-    `--force` regenerates generated secrets and PROJECT_VERSION, but it should not
+    `--force` regenerates generated secrets, but it should not
     silently erase operator-owned choices such as ports, timeout values, model URLs,
     image tags, Grafana user, or Hugging Face tokens.
     """
@@ -320,8 +319,10 @@ def generated_values(
             "AUTH_MODE=local_open requires "
             "EXPOSURE_MODE=master_open and EXPOSURE_AUDIENCE=private_lan"
         )
+    # PROJECT_VERSION은 쓰지 않는다 -- VERSION 파일이 소유하고 settings.py가 env를
+    # 우선하므로, .env에 복제하면 그 값이 파일을 가린 채 낡는다(env_contract.yaml
+    # removed_keys 참고).
     values: dict[str, str] = {
-        "PROJECT_VERSION": version,
         "API_KEYS": gateway_key,
         "API_KEY": gateway_key,
         "ADMIN_API_KEY": admin_key,
@@ -440,7 +441,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.profile == "compose" and out_path.resolve() == (ROOT / ".env").resolve():
         write_runtime_secrets(values)
     print(f"wrote {out_path}")
-    print(f"profile={args.profile} APP_ENV={values['APP_ENV']} PROJECT_VERSION={values['PROJECT_VERSION']}")
+    print(f"profile={args.profile} APP_ENV={values['APP_ENV']}")
     if args.profile == "compose":
         print("image tags:")
         for key in ["PLATFORM_IMAGE", "VLLM_IMAGE", "EMBEDDING_KO_VLLM_IMAGE", "RISK_VLLM_IMAGE", "DCGM_EXPORTER_IMAGE", "PROMETHEUS_IMAGE", "GRAFANA_IMAGE", "CADVISOR_IMAGE"]:
