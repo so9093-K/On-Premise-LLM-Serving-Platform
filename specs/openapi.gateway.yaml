@@ -1,48 +1,49 @@
 openapi: 3.1.0
 info:
   title: AI Model Serving Gateway
-  description: "\n## 빠른 시작\n\n1. `GET /health` — Gateway process liveness\n2. `GET /ready`\
-    \ — vLLM, Risk Adapter 전체 dependency readiness\n3. `GET /v1/models` — logical model\
-    \ id, capability, 사용자 조정 가능 parameter 목록\n4. `POST /v1/chat/completions` — chat\
-    \ completion (`local-main`)\n5. `POST /v1/embeddings` — embedding 생성 (기본 `local-embed`)\n\
-    6. `POST /v1/retrieval/*` — 문서 관련도 재순위·점수 계산 (기본 `local-embed-ko`)\n7. `POST /v1/risk/*`\
-    \ — prompt risk signal\n\n## 인증\n\n- **bearerAuth** — `/v1/*` 사용자 API: `Authorization:\
-    \ Bearer <API_KEY>`\n- **adminBearerAuth** — `/ready`, `/metrics`, `/admin/*`: `Authorization:\
-    \ Bearer <ADMIN_API_KEY>`\n\n## 모델별 특성\n\n모델 목록·capability·조정 가능 parameter는 **Models**\
-    \ 태그 설명에 정리되어 있고, 런타임 권위는\n`GET /v1/models[].request_parameters`입니다. chat 기능별 한도는\
-    \ **Chat** 태그 설명을,\n런타임 정지·시작과 메인 모델 전환은 **Runtime Control** 태그 설명을 참고하세요.\n\n##\
-    \ 요청별 디버깅\n\n모든 응답은 요청 하나를 끝까지 추적할 수 있는 헤더를 함께 보냅니다.\n\n| 헤더 | 언제 | 내용 |\n|---|---|---|\n\
-    | `X-Request-Id` | 오류 응답 | 요청에 `X-Request-Id`를 보냈으면 그 값, 안 보냈으면 Gateway가 발급한 `req_<hex>`.\
-    \ 접근 로그의 `request_id`와 항상 같습니다. |\n| `X-Error-Code` | 오류 응답 | `error.code`. 같은 HTTP\
-    \ status에 여러 code가 몰리므로(예: 503 = `MODEL_UNAVAILABLE` / `QUEUE_TIMEOUT` / `CIRCUIT_OPEN`\
-    \ / `MAIN_MODEL_SWITCH_IN_PROGRESS`) status만으로 원인을 나누면 안 됩니다. |\n| `X-Error-Message`\
-    \ | 오류 응답 | 사람이 읽는 원인 설명(출력 가능한 ASCII, 500자 제한). |\n| `Retry-After` | 재시도 가능한 429/503\
-    \ | 다음 재시도까지 기다릴 초. 올림 처리되므로 최소 `1`입니다. |\n\n호출할 때 직접 `X-Request-Id`를 붙이면(최대 128자)\
-    \ 클라이언트 로그와 서버 로그를 같은 키로 맞출 수 있습니다.\n\n### 오류 본문\n\n```json\n{\n  \"error\": {\n\
-    \    \"code\": \"VALIDATION_ERROR\",\n    \"message\": \"...\",\n    \"retryable\"\
-    : false,\n    \"request_id\": \"req_...\",\n    \"param\": \"response_format.json_schema\"\
-    ,\n    \"debug\": {\"cause_type\": \"...\", \"cause_message\": \"...\"},\n    \"\
-    details\": {\"plan\": {\"stop\": [\"embedding\"]}}\n  }\n}\n```\n\n- `code` / `retryable`\
-    \ — `retryable`은 code로 완전히 결정됩니다. 같은 code가 호출마다 다른 값으로 나가는 일은 없으므로 재시도 로직은 code만\
-    \ 보고 판단하면 됩니다.\n- `param` — 문제가 된 요청 필드명입니다. 메시지 문자열을 파싱하지 말고 이 값을 쓰세요(예: `max_tokens`\
-    \ vs `input_audio.format`).\n- `debug` — 원인 예외 요약(`cause_type`, `cause_message`,\
-    \ upstream 상태). 길이 제한이 걸린 요약이며 원문 응답 본문이 아닙니다.\n- `details` — code만으로 표현할 수 없는 구조화된\
-    \ 복구 정보입니다(예: `GPU_BUDGET_EXCEEDED`의 `plan.stop`).\n\n각 엔드포인트의 status별 응답 설명에 그\
-    \ status에서 나올 수 있는 code와 의미·대응이 함께 적혀 있습니다.\n\n### 서버 쪽에서 확인할 것\n\n접근 로그는 요청 한 건당\
-    \ `request_id`, `route`, `status_code`, `latency_ms`, `error_code`, `error_retryable`,\n\
-    `error_cause_type`, `error_cause_message`, `error_upstream_status`, `prompt_tokens`\
-    \ / `completion_tokens` /\n`total_tokens`를 남깁니다. `INTERNAL_ERROR`는 클라이언트에게 고정 문구만\
-    \ 나가지만 로그에는 원인이 함께 남습니다.\n\n`LOG_REQUEST_RESPONSE_BODY=true`일 때만 chat 요청·응답 본문 프리뷰가\
-    \ 로그에 추가되며, PII·시크릿은 마스킹된 뒤 기록됩니다.\n\n### 증상별 확인 순서\n\n| 증상 | 먼저 볼 것 |\n|---|---|\n\
-    | 503이 계속 난다 | `X-Error-Code` 확인 → `MAIN_MODEL_SWITCH_IN_PROGRESS`면 `GET /admin/main-model`의\
-    \ `gate`와 `last_operation`, `MODEL_UNAVAILABLE`이면 `GET /admin/runtimes`의 `state`\
-    \ |\n| 422로 거부된다 | `error.param`이 가리키는 필드를 `GET /v1/models`의 `request_parameters`와\
-    \ 대조 |\n| 모델이 기능을 지원하지 않는다고 한다 | `GET /v1/models`의 `capabilities`·`input_modalities`\
-    \ — 활성 프로필이 바뀌면 함께 바뀝니다 |\n| 스트리밍이 도중에 끊긴다 | 마지막 SSE 이벤트 확인(오류는 `error` 이벤트 뒤 `[DONE]`)\
-    \ |\n| 응답이 잘린다 | `max_tokens`와 프로필의 `max_model_len`, `reasoning` 사용 여부 |\n\n## Readiness\n\
-    \n- `/health` — process liveness (인증 없음)\n- `/ready` — 전체 dependency readiness (admin\
-    \ auth 필요)\n- **HTTP 200** `status: ready` — serving 가능\n- **HTTP 503** `status:\
-    \ not_ready` — 로딩 중 또는 dependency 불가 (`not_ready_dependencies` 필드 참고)\n"
+  description: "\n## 빠른 시작\n\n1. `GET /health` — Gateway process liveness\n2. `GET\
+    \ /ready` — vLLM, Risk Adapter 전체 dependency readiness\n3. `GET /v1/models` —\
+    \ logical model id, capability, 사용자 조정 가능 parameter 목록\n4. `POST /v1/chat/completions`\
+    \ — chat completion (`local-main`)\n5. `POST /v1/embeddings` — embedding 생성 (기본\
+    \ `local-embed`)\n6. `POST /v1/retrieval/*` — 문서 관련도 재순위·점수 계산 (기본 `local-embed-ko`)\n\
+    7. `POST /v1/risk/*` — prompt risk signal\n\n## 인증\n\n- **bearerAuth** — `/v1/*`\
+    \ 사용자 API: `Authorization: Bearer <API_KEY>`\n- **adminBearerAuth** — `/ready`,\
+    \ `/metrics`, `/admin/*`: `Authorization: Bearer <ADMIN_API_KEY>`\n\n## 모델별 특성\n\
+    \n모델 목록·capability·조정 가능 parameter는 **Models** 태그 설명에 정리되어 있고, 런타임 권위는\n`GET /v1/models[].request_parameters`입니다.\
+    \ chat 기능별 한도는 **Chat** 태그 설명을,\n런타임 정지·시작과 메인 모델 전환은 **Runtime Control** 태그 설명을\
+    \ 참고하세요.\n\n## 요청별 디버깅\n\n모든 응답은 요청 하나를 끝까지 추적할 수 있는 헤더를 함께 보냅니다.\n\n| 헤더 | 언제\
+    \ | 내용 |\n|---|---|---|\n| `X-Request-Id` | 오류 응답 | 요청에 `X-Request-Id`를 보냈으면 그\
+    \ 값, 안 보냈으면 Gateway가 발급한 `req_<hex>`. 접근 로그의 `request_id`와 항상 같습니다. |\n| `X-Error-Code`\
+    \ | 오류 응답 | `error.code`. 같은 HTTP status에 여러 code가 몰리므로(예: 503 = `MODEL_UNAVAILABLE`\
+    \ / `QUEUE_TIMEOUT` / `CIRCUIT_OPEN` / `MAIN_MODEL_SWITCH_IN_PROGRESS`) status만으로\
+    \ 원인을 나누면 안 됩니다. |\n| `X-Error-Message` | 오류 응답 | 사람이 읽는 원인 설명(출력 가능한 ASCII, 500자\
+    \ 제한). |\n| `Retry-After` | 재시도 가능한 429/503 | 다음 재시도까지 기다릴 초. 올림 처리되므로 최소 `1`입니다.\
+    \ |\n\n호출할 때 직접 `X-Request-Id`를 붙이면(최대 128자) 클라이언트 로그와 서버 로그를 같은 키로 맞출 수 있습니다.\n\
+    \n### 오류 본문\n\n```json\n{\n  \"error\": {\n    \"code\": \"VALIDATION_ERROR\"\
+    ,\n    \"message\": \"...\",\n    \"retryable\": false,\n    \"request_id\": \"\
+    req_...\",\n    \"param\": \"response_format.json_schema\",\n    \"debug\": {\"\
+    cause_type\": \"...\", \"cause_message\": \"...\"},\n    \"details\": {\"plan\"\
+    : {\"stop\": [\"embedding\"]}}\n  }\n}\n```\n\n- `code` / `retryable` — `retryable`은\
+    \ code로 완전히 결정됩니다. 같은 code가 호출마다 다른 값으로 나가는 일은 없으므로 재시도 로직은 code만 보고 판단하면 됩니다.\n\
+    - `param` — 문제가 된 요청 필드명입니다. 메시지 문자열을 파싱하지 말고 이 값을 쓰세요(예: `max_tokens` vs `input_audio.format`).\n\
+    - `debug` — 원인 예외 요약(`cause_type`, `cause_message`, upstream 상태). 길이 제한이 걸린 요약이며\
+    \ 원문 응답 본문이 아닙니다.\n- `details` — code만으로 표현할 수 없는 구조화된 복구 정보입니다(예: `GPU_BUDGET_EXCEEDED`의\
+    \ `plan.stop`).\n\n각 엔드포인트의 status별 응답 설명에 그 status에서 나올 수 있는 code와 의미·대응이 함께\
+    \ 적혀 있습니다.\n\n### 서버 쪽에서 확인할 것\n\n접근 로그는 요청 한 건당 `request_id`, `route`, `status_code`,\
+    \ `latency_ms`, `error_code`, `error_retryable`,\n`error_cause_type`, `error_cause_message`,\
+    \ `error_upstream_status`, `prompt_tokens` / `completion_tokens` /\n`total_tokens`를\
+    \ 남깁니다. `INTERNAL_ERROR`는 클라이언트에게 고정 문구만 나가지만 로그에는 원인이 함께 남습니다.\n\n`LOG_REQUEST_RESPONSE_BODY=true`일\
+    \ 때만 chat 요청·응답 본문 프리뷰가 로그에 추가되며, PII·시크릿은 마스킹된 뒤 기록됩니다.\n\n### 증상별 확인 순서\n\n\
+    | 증상 | 먼저 볼 것 |\n|---|---|\n| 503이 계속 난다 | `X-Error-Code` 확인 → `MAIN_MODEL_SWITCH_IN_PROGRESS`면\
+    \ `GET /admin/main-model`의 `gate`와 `last_operation`, `MODEL_UNAVAILABLE`이면 `GET\
+    \ /admin/runtimes`의 `state` |\n| 422로 거부된다 | `error.param`이 가리키는 필드를 `GET /v1/models`의\
+    \ `request_parameters`와 대조 |\n| 모델이 기능을 지원하지 않는다고 한다 | `GET /v1/models`의 `capabilities`·`input_modalities`\
+    \ — 활성 프로필이 바뀌면 함께 바뀝니다 |\n| 스트리밍이 도중에 끊긴다 | 마지막 SSE 이벤트 확인(오류는 `error` 이벤트 뒤\
+    \ `[DONE]`) |\n| 응답이 잘린다 | `max_tokens`와 프로필의 `max_model_len`, `reasoning` 사용\
+    \ 여부 |\n\n## Readiness\n\n- `/health` — process liveness (인증 없음)\n- `/ready` —\
+    \ 전체 dependency readiness (admin auth 필요)\n- **HTTP 200** `status: ready` — serving\
+    \ 가능\n- **HTTP 503** `status: not_ready` — 로딩 중 또는 dependency 불가 (`not_ready_dependencies`\
+    \ 필드 참고)\n"
   contact:
     name: AI Model Serving Platform 운영
   version: 0.0.1
@@ -52,7 +53,7 @@ paths:
       tags:
       - Operations
       summary: Liveness 확인
-      description: Process liveness probe. 항상 HTTP 200을 반환합니다. 인증 없이 접근 가능합니다.
+      description: 프로세스가 살아 있는지만 확인합니다. 항상 HTTP 200을 반환하며 인증 없이 호출할 수 있습니다.
       operationId: getGatewayHealth
       responses:
         '200':
@@ -68,10 +69,10 @@ paths:
     get:
       tags:
       - Operations
-      summary: Dependency readiness 확인
-      description: 내부 readiness endpoint입니다. Gateway가 의존하는 vLLM runtime과 Risk Adapter의
-        준비 상태를 확인합니다. 모델 로딩 중에는 HTTP 503을 반환하며, body의 `not_ready_dependencies`에 아직
-        준비되지 않은 dependency 목록과 `message`가 포함됩니다.
+      summary: 의존 서비스 준비 상태 확인
+      description: Gateway가 의존하는 vLLM 런타임과 Risk Adapter가 모두 요청을 받을 준비가 됐는지 확인합니다.
+        모델 로딩 중에는 HTTP 503을 반환하며, body의 `not_ready_dependencies`에 아직 준비되지 않은 dependency
+        목록과 `message`가 포함됩니다.
       operationId: getGatewayReadiness
       responses:
         '200':
@@ -131,9 +132,9 @@ paths:
     get:
       tags:
       - Monitoring
-      summary: Prometheus metrics 조회
-      description: Prometheus가 scrape하는 Gateway metric 엔드포인트입니다. 운영 환경에서는 admin token
-        또는 내부망으로 보호합니다.
+      summary: Prometheus 지표 조회
+      description: Prometheus가 수집하는 Gateway 지표 엔드포인트입니다. 운영 환경에서는 admin 토큰 또는 내부망으로
+        보호합니다.
       operationId: getGatewayMetrics
       responses:
         '200':
@@ -154,10 +155,39 @@ paths:
       tags:
       - Models
       summary: 사용 가능한 모델 목록
-      description: Gateway가 외부 호출자에게 노출하는 logical model id, capability, 사용자 조정 가능
+      description: 'Gateway가 외부 호출자에게 노출하는 logical model id, capability, 사용자 조정 가능
         request parameter 목록입니다. catalog 성격의 엔드포인트이므로 vLLM 로딩 상태와 무관하게 항상 목록을 반환합니다.
         현재 serving 가능 여부는 `/ready`의 `status`와 `not_ready_dependencies`를 확인하세요. 클라이언트
         UI는 각 item의 `request_parameters`를 읽어 모델별 입력 form을 구성할 수 있습니다.
+
+
+        조정할 수 있는 파라미터는 모델마다 다릅니다. 파라미터 이름과 허용 범위(`min`, `max`, `max_items`, `allowed`
+        등)는 `GET /v1/models`의 `request_parameters`가 함께 돌려줍니다. 모델별 입력 폼을 만든다면 그 값을
+        읽어서 구성하세요. 이 문서 화면에 보이는 예시 값은 화면용 preset이며 Gateway 기본값이 아닙니다.
+
+
+        ### `local-main`은 이름만 고정된 창구입니다
+
+
+        `local-main`은 고정된 하나의 모델이 아니라 현재 활성화된 메인 모델 프로필의 공개 이름입니다. 프로필을 바꾸면 받을 수 있는
+        입력 종류, 토큰 한도, 허용 파라미터 목록이 함께 바뀌고 `/v1/models` 응답이 즉시 그 값을 반영합니다.
+
+
+        | 프로필 ID | 이름 | 호환성 |
+
+        |---|---|---|
+
+        | `gemma4-26b-a4b-fp8` | Gemma 4 26B A4B FP8 | `verified` |
+
+        | `gemma4-12b-unified-fp8` | Gemma 4 12B Unified FP8 | `verified` |
+
+        | `gemma4-e4b-it` | Gemma 4 E4B IT | `verified` |
+
+        | `qwen2.5-omni-7b-thinker` | Qwen 2.5 Omni 7B (Thinker) | `verified` |
+
+
+        호환성이 `verified`가 아닌 프로필로 전환하려면 `POST /admin/main-model/switch`에 `confirm_unverified:
+        true`가 필요합니다. 각 프로필의 근거는 `GET /admin/main-model/profiles`가 반환합니다.'
       operationId: listModels
       responses:
         '200':
@@ -187,7 +217,61 @@ paths:
         \ JSON 지시문 필요, schema 일치 미보장\n  - `json_schema` — Structured Outputs. root\
         \ `object` 필수, `additionalProperties: false` 필수, optional field는 nullable\
         \ union(`[\"type\", \"null\"]`) 으로 표현, external `$ref` 불가\n- `logprobs`, `top_logprobs`,\
-        \ `logit_bias` — Gateway policy 안에서 upstream에 전달"
+        \ `logit_bias` — Gateway policy 안에서 upstream에 전달\n\n아래 값은 이 배포의 **기본 프로필**\
+        \ 정책입니다. 프로필을 전환하면 값이 달라지므로, 지금 실제로 적용 중인 값은 `GET /v1/models`(호출자용)와 `GET\
+        \ /admin/main-model`의 `active_profile.gateway_policy`(운영자용)입니다.\n\n### 허용\
+        \ 파라미터\n\n- 허용 파라미터: `stream`, `stream_options`, `temperature`, `max_tokens`,\
+        \ `top_p`, `top_k`, `min_p`, `presence_penalty`, `frequency_penalty`, `repetition_penalty`,\
+        \ `stop`, `seed`, `n`, `tools`, `tool_choice`, `parallel_tool_calls`, `reasoning`,\
+        \ `response_format`, `logprobs`, `top_logprobs`, `logit_bias`, `user`\n- 목록에\
+        \ 없는 파라미터는 모델 런타임으로 전달되지 않고 `422 VALIDATION_ERROR`로 거부됩니다. 응답 `error.param`이\
+        \ 문제가 된 필드명을 가리킵니다.\n- `max_completion_tokens`는 OpenAI가 `max_tokens`를 대체한\
+        \ 이름입니다. 같은 한도를 가리키므로 요청에는 둘 중 하나만 담아야 하며, 런타임으로 넘기기 전에 `max_tokens`로 합쳐집니다.\n\
+        - 다음 파라미터는 Gateway 계약에서만 쓰이고 런타임에는 전달되지 않습니다: `user`. 응답과 지표 라벨에는 영향이 없습니다.\n\
+        - 메시지 역할은 `system`, `developer`, `user`, `assistant`(+ tool 지원 시 `tool`)입니다.\
+        \ `developer`는 OpenAI가 `system`을 대체한 이름이며 동일하게 처리됩니다.\n\n### 토큰 한도\n\n- `max_model_len`\
+        \ 50,000 — 입력과 출력 토큰의 합에 대한 상한입니다.\n- 요청별 `max_tokens`·`n` 상한은 아래 요청 스키마에\
+        \ 표시됩니다. 넘기면 `422 VALIDATION_ERROR`이고 `error.param`이 어느 필드인지 알려줍니다.\n- 요청\
+        \ 본문 자체의 상한은 100,000,000바이트 (95.4 MiB)입니다(base64 미디어 포함). 초과하면 `413 REQUEST_TOO_LARGE`입니다.\n\
+        \n### 스트리밍\n\n- `stream: true` — 런타임이 보내는 SSE 조각을 모아두지 않고 `text/event-stream`으로\
+        \ 그대로 중계합니다.\n- `stream_options.include_usage: true` — 마지막 조각에 토큰 사용량을 포함합니다.\n\
+        - 스트림 상한: 최대 300초, 20,000 chunk, 104,857,600바이트 (100.0 MiB).\n- 전송 도중 오류가\
+        \ 나면 이미 `200`으로 헤더가 나간 뒤이므로 상태 코드를 바꿀 수 없습니다. Gateway는 SSE `error` 이벤트를 먼저\
+        \ 보내고 `data: [DONE]`으로 스트림을 닫으므로, 클라이언트는 마지막 이벤트를 반드시 확인해야 합니다.\n\n### 도구\
+        \ 호출 (tools)\n\n- 지원 여부: `true` — 비활성 프로필에서는 `tools`를 보내면 거부됩니다.\n- `parallel_tool_calls`\
+        \ 허용: `false` — 허용되지 않으면 `true`를 보낼 수 없습니다.\n- `tool_choice`: `auto`, `none`,\
+        \ `required` 또는 함수 지정 객체.\n- 프로필이 tool calling을 지원하지 않으면 `/v1/models`의 capability\
+        \ 목록에서 `chat.completions.tools`가 빠집니다.\n\n### 구조화 출력 (response_format)\n\n\
+        - 허용 타입: `text`, `json_object`, `json_schema`\n- `json_object` — JSON mode입니다.\
+        \ `messages`에 JSON으로 답하라는 명시적 지시문이 있어야 하며, 특정 스키마와의 일치는 보장하지 않습니다.\n- `json_schema`\
+        \ — Structured Outputs입니다. 다음 제약을 Gateway가 미리 검사하고, 위반하면 upstream 호출 없이 `422`로\
+        \ 거부합니다.\n  - root는 `object`여야 함: `true`\n  - `additionalProperties: false`\
+        \ 필수: `true`\n  - 스키마 크기 16,384바이트, 최대 깊이 8, 전체 property 64개\n  - optional\
+        \ 필드는 nullable union(`[\"type\", \"null\"]`)으로 표현하고, external `$ref`는 쓸 수\
+        \ 없습니다.\n- **열린 값 타입에는 경계를 주세요.** `integer`/`number`에 `minimum`·`maximum`,\
+        \ 자유 `string`에 `maxLength` 또는 `pattern`이 없으면 문법상 값이 무한히 이어질 수 있어, 모델이 닫는 토큰을\
+        \ 내지 못하고 `max_tokens`에서 잘립니다(자릿수·소수점 반복). 경계가 있으면 문법 자체가 닫히므로 이 실패가 생기지 않습니다.\n\
+        - 생성 결과가 스키마를 만족하지 못하면 `UPSTREAM_SCHEMA_ERROR`(retryable)입니다. 위 경계를 먼저 확인하고,\
+        \ 그다음 스키마를 단순화하거나 `max_tokens`를 늘리세요.\n\n### 추론 (reasoning)\n\n- 지원 여부: `true`,\
+        \ 기본값 `false`, 방식 `request_opt_in`.\n- 요청마다 `reasoning: true`로 켜는 opt-in이며,\
+        \ 켜면 출력 토큰을 더 씁니다 — `max_tokens` 여유를 함께 늘려야 답변이 잘리지 않습니다.\n\n### 진단용 파라미터\n\
+        \n- `logprobs` / `top_logprobs` — 토큰별 확률을 응답에 포함합니다. `top_logprobs`는 `logprobs:\
+        \ true`가 전제입니다.\n- `logit_bias` — 토큰 id 기준으로 편향을 겁니다. 토큰 id는 **지금 활성화된 프로필의\
+        \ tokenizer 기준**이라 프로필을 전환하면 같은 id가 다른 토큰을 가리킬 수 있습니다.\n- `seed` — 같은 입력·같은\
+        \ 프로필에서 재현성을 높입니다(완전 결정성을 보장하지는 않습니다).\n\n### 멀티모달 입력\n\n현재 기본 프로필이 받는 입력:\
+        \ `text`, `image`, `audio`, `video`. 허용되지 않은 종류의 입력을 보내면 `422 VALIDATION_ERROR`로\
+        \ 거부되고, `error.param`이 어떤 part였는지 알려줍니다(`messages.content`, `image_url`, `input_audio`,\
+        \ `video_url`).\n\n| 항목 | 이미지 | 오디오 | 비디오 |\n|---|---|---|---|\n| 최대 개수 |\
+        \ 1 | 1 | 1 |\n| 최대 크기 | 25,000,000바이트 (23.8 MiB) | 25,000,000바이트 (23.8 MiB)\
+        \ | 50,000,000바이트 (47.7 MiB) |\n| URL scheme | `data` | 인라인 base64 | `data`\
+        \ |\n\n**허용 형식**\n\n- 이미지 — `image/jpeg`, `image/png`, `image/webp`, `image/avif`,\
+        \ `image/jp2`, `image/gif`, `image/bmp`, `image/tiff`, `image/x-tiff`\n- 오디오\
+        \ — `wav`, `mp3`, `flac`, `ogg`, `m4a`, `mp4`, `aac`\n- 비디오 — `video/mp4`,\
+        \ `video/webm`, `video/x-matroska`, `video/quicktime`, `video/jpeg`, `video/x-msvideo`,\
+        \ `video/avi`, `video/gif`\n\n- 이미지 픽셀 상한 12,845,056px — 압축 폭탄을 막기 위해 디코딩\
+        \ 전에 헤더에서 해상도를 읽어 검사하며, 해상도를 읽지 못하면 거부합니다(fail-closed).\n- 비디오는 최대 60 프레임,\
+        \ 60초, 프레임당 12,845,056px까지 허용합니다.\n- 크기·형식 위반도 같은 방식으로 `error.param`이 원인을\
+        \ 가리킵니다(예: `input_audio.format`은 형식 문제, `image_url`은 이미지 자체의 문제)."
       operationId: createChatCompletion
       requestBody:
         content:
@@ -389,7 +473,9 @@ paths:
               schema:
                 $ref: ./schemas/common_error.schema.json
         '503':
-          description: "메인 모델 전환 중, control plane 불가, 또는 upstream 동시성/circuit breaker로 인한 일시적 admission 거부(error.code: MAIN_MODEL_SWITCH_IN_PROGRESS, MAIN_MODEL_CONTROL_UNAVAILABLE, QUEUE_TIMEOUT, CIRCUIT_OPEN)"
+          description: '메인 모델 전환 중, control plane 불가, 또는 upstream 동시성/circuit breaker로
+            인한 일시적 admission 거부(error.code: MAIN_MODEL_SWITCH_IN_PROGRESS, MAIN_MODEL_CONTROL_UNAVAILABLE,
+            QUEUE_TIMEOUT, CIRCUIT_OPEN)'
           headers:
             Retry-After:
               description: 재시도 전 대기 시간(초)
@@ -446,7 +532,25 @@ paths:
       - Embeddings
       summary: Embedding vector 생성
       description: '`local-embed` 및 `local-embed-ko`를 통해 텍스트의 embedding vector를 생성합니다.
-        요청 파라미터는 Gateway contract로 검증하며, 지원하지 않는 파라미터는 차단합니다.'
+        요청 파라미터는 Gateway contract로 검증하며, 지원하지 않는 파라미터는 차단합니다.
+
+
+        텍스트 embedding API입니다. 모델마다 출력 차원이 고정되어 있고, Gateway가 요청 차원과 응답 차원이 일치하는지 확인합니다.
+
+
+        | 모델 | 기본 차원 | 허용 차원 | encoding_format |
+
+        |---|---|---|---|
+
+        | `local-embed` | `768` | `768` | `float`, `base64` |
+
+        | `local-embed-ko` | `1024` | `1024` | `float`, `base64` |
+
+
+        - `base64`는 little-endian float32 배열을 인코딩한 문자열로 반환됩니다. openai-python은 numpy가
+        설치되어 있으면 이 형식을 기본으로 요청하므로, 형식을 지정하지 않은 공식 SDK 호출도 그대로 동작합니다.
+
+        - `input`은 문자열 또는 비어 있지 않은 문자열 배열입니다. 토큰 id 배열은 받지 않습니다.'
       operationId: createEmbedding
       requestBody:
         content:
@@ -539,8 +643,8 @@ paths:
       tags:
       - Risk
       summary: Prompt 위협 탐지 신호
-      description: Prompt attack detector의 위험 신호만 반환합니다. 정책 판단 필드(`allow`, `block`,
-        `decision` 등)는 포함되지 않으며, 최종 허용·차단 결정은 Gateway 밖 product policy layer가 담당합니다.
+      description: Prompt attack 탐지기의 위험 신호만 반환합니다. 정책 판단 필드(`allow`, `block`, `decision`
+        등)는 포함되지 않으며, 최종 허용·차단 결정은 Gateway 밖 product policy layer가 담당합니다.
       operationId: assessPromptRisk
       requestBody:
         content:
@@ -633,13 +737,13 @@ paths:
       tags:
       - Risk
       summary: PII Protection 탐지 신호
-      description: '**PII Protection detector** — 한국형 식별자·이메일·전화번호·IP 정규식 기반
-        로컬 탐지.
+      description: '**PII Protection 탐지기** — 한국형 식별자·이메일·전화번호·카드번호·IP를 정규식으로 직접 탐지합니다.
 
 
         탐지 코드:
 
-        - **D1** Personal Identifier: KR_RRN, KR_FRN, KR_PASSPORT, KR_DRIVER_LICENSE
+        - **D1** Personal Identifier: CREDIT_CARD, KR_DRIVER_LICENSE, KR_FRN, KR_PASSPORT,
+        KR_RRN
 
         - **D2** Contact: EMAIL_ADDRESS, PHONE_NUMBER
 
@@ -648,7 +752,7 @@ paths:
 
         원문 PII 값은 응답에 포함되지 않습니다. `span_count`로 entity별 탐지 개수를 제공합니다.
 
-        탐지 결과는 최종 정책 판단이 아닌 진단 signal로 취급합니다.'
+        탐지 결과는 최종 정책 판단이 아니라 진단용 신호로 다뤄야 합니다.'
       operationId: assessPIIRisk
       requestBody:
         content:
@@ -737,22 +841,23 @@ paths:
       tags:
       - Risk
       summary: Secret Exposure 탐지 신호
-      description: '**Secret Exposure detector** — curated regex + entropy 기반 로컬 탐지.
-        외부 CLI 없이 Python 내부 scanner로 동작합니다.
+      description: '**Secret Exposure 탐지기** — 정제한 정규식과 엔트로피로 직접 탐지합니다. 외부 도구 없이 프로세스
+        안에서 동작합니다.
 
 
         탐지 코드:
 
-        - **D4** Secret/Credential: OPENAI_API_KEY, AWS_ACCESS_KEY_ID, GITHUB_TOKEN,
-        GITLAB_TOKEN, HUGGINGFACE_TOKEN, JWT, PRIVATE_KEY_BLOCK, PASSWORD_ASSIGNMENT,
-        GENERIC_SECRET_CANDIDATE
+        - **D4** Secret/Credential: ANTHROPIC_API_KEY, AUTH_HEADER, AWS_ACCESS_KEY_ID,
+        GENERIC_SECRET_CANDIDATE, GITHUB_TOKEN, GITLAB_TOKEN, GOOGLE_API_KEY, HUGGINGFACE_TOKEN,
+        JWT, NPM_TOKEN, OPENAI_API_KEY, PASSWORD_ASSIGNMENT, PRIVATE_KEY_BLOCK, SENDGRID_KEY,
+        SLACK_TOKEN, STRIPE_KEY
 
         - **D5** Network/Infrastructure: DATABASE_URL
 
 
-        응답, 로그, metric label에 원문 시크릿 값을 남기지 않습니다. `span_count`로 탐지 개수를 제공합니다.
+        응답·로그·지표 라벨 어디에도 원문 시크릿을 남기지 않습니다. 탐지 개수는 `span_count`로 알려줍니다.
 
-        탐지 결과는 최종 정책 판단이 아닌 진단 signal로 취급합니다.'
+        탐지 결과는 최종 정책 판단이 아니라 진단용 신호로 다뤄야 합니다.'
       operationId: assessSecretRisk
       requestBody:
         content:
@@ -866,9 +971,9 @@ paths:
       tags:
       - Risk
       summary: 통합 Risk 신호
-      description: 'configured enabled detectors 결과를 aggregate한 통합 risk assessment입니다.
-        PII Protection(D1, D2, D5), Secret Exposure(D4, D5), Prompt Injection(A1, A2)
-        신호를 통합합니다. enabled detector 중 하나라도 위험 신호를 탐지하면 `risk_detected: true`를 반환합니다.'
+      description: '활성화된 탐지기들의 결과를 하나로 합친 통합 risk 신호입니다. PII Protection(D1, D2, D5),
+        Secret Exposure(D4, D5), Prompt Injection(A1, A2) 신호를 통합합니다. 활성화된 탐지기 중 하나라도
+        위험 신호를 찾으면 `risk_detected: true`를 반환합니다.'
       operationId: assessRisk
       requestBody:
         content:
@@ -1331,7 +1436,8 @@ paths:
                   request_id: req_00000000000000000000000000000000
           description: Not Found
         '409':
-          description: GPU 예산 초과. 표준 error.code=GPU_BUDGET_EXCEEDED와 error.details.plan.stop을 반환한다. force=true로 자동 축출.
+          description: GPU 예산 초과. 표준 error.code=GPU_BUDGET_EXCEEDED와 error.details.plan.stop을
+            반환한다. force=true로 자동 축출.
           content:
             application/json:
               examples:
@@ -1456,15 +1562,15 @@ paths:
       tags:
       - Runtime Control
       summary: 활성 메인 모델 조회
-      description: 'control-plane ledger가 기록한 상태와 Docker에서 방금 관측한 실제 런타임을 함께 반환합니다. 메인 모델을
-        디버깅할 때 가장 먼저 보는 엔드포인트입니다.
+      description: 'control-plane ledger가 기록한 상태와 Docker에서 방금 관측한 실제 런타임을 함께 반환합니다.
+        메인 모델을 디버깅할 때 가장 먼저 보는 엔드포인트입니다.
 
 
         - `active_profile` — 지금 `local-main`으로 서빙 중인 프로필 전체(`capabilities.deployed_input`,
         `gateway_policy` 포함). chat 요청 검증에 실제로 적용되는 값이 이것입니다.
 
-        - `gate` — `open`이면 요청을 받고, `closed`면 전환·정지 중이라 `/v1/chat/completions`가 `503 MAIN_MODEL_SWITCH_IN_PROGRESS`
-        + `Retry-After`로 fail-closed 응답합니다.
+        - `gate` — `open`이면 요청을 받고, `closed`면 전환·정지 중이라 `/v1/chat/completions`가 `503
+        MAIN_MODEL_SWITCH_IN_PROGRESS` + `Retry-After`로 fail-closed 응답합니다.
 
         - `runtime_state` — ledger가 기록한 목표 상태(`active` / `stopped`).
 
@@ -1595,21 +1701,21 @@ paths:
       tags:
       - Runtime Control
       summary: 메인 모델 프로필 조회
-      description: '이 배포에서 전환할 수 있는 메인 모델 프로필과 각 프로필의 근거를 반환합니다. `active: true`가 현재 서빙 중인
-        프로필입니다.
+      description: '이 배포에서 전환할 수 있는 메인 모델 프로필과 각 프로필의 근거를 반환합니다. `active: true`가 현재
+        서빙 중인 프로필입니다.
 
 
-        - `compatibility.status` — `verified`만 추가 확인 없이 전환됩니다. 그 외 상태는 `switch` 요청에 `confirm_unverified:
-        true`가 필요합니다.
+        - `compatibility.status` — `verified`만 추가 확인 없이 전환됩니다. 그 외 상태는 `switch` 요청에
+        `confirm_unverified: true`가 필요합니다.
 
-        - `capabilities.deployed_input` — 그 프로필로 전환했을 때 받을 수 있는 입력 modality입니다. 전환이 완료되면
-        `/v1/models`의 `input_modalities`와 chat validator에 즉시 반영됩니다.
+        - `capabilities.deployed_input` — 그 프로필로 전환했을 때 받을 수 있는 입력 modality입니다. 전환이
+        완료되면 `/v1/models`의 `input_modalities`와 chat validator에 즉시 반영됩니다.
 
         - `upstream_model_id`, `revision` — 실제로 로딩되는 가중치 pin입니다.
 
 
-        프로필 목록의 source of truth는 `configs/main_model_profiles.yaml`이며, 여기 없는 ID로는 전환할 수
-        없습니다.'
+        프로필 목록의 source of truth는 `configs/main_model_profiles.yaml`이며, 여기 없는 ID로는
+        전환할 수 없습니다.'
       operationId: listMainModelProfiles
       responses:
         '200':
@@ -1662,17 +1768,20 @@ paths:
       tags:
       - Runtime Control
       summary: 메인 모델 전환
-      description: '메인 모델 프로필을 비동기로 전환합니다(`202` + `operation_id`). 전환 도중 gate가 닫히고 진행 중인
-        요청을 drain한 뒤 컨테이너를 교체하므로, 완료까지 chat 요청은 `503 MAIN_MODEL_SWITCH_IN_PROGRESS`를 받습니다.
+      description: '메인 모델 프로필을 비동기로 전환합니다(`202` + `operation_id`). 전환 도중 gate가 닫히고
+        진행 중인 요청을 drain한 뒤 컨테이너를 교체하므로, 완료까지 chat 요청은 `503 MAIN_MODEL_SWITCH_IN_PROGRESS`를
+        받습니다.
 
 
-        - `profile` — `GET /admin/main-model/profiles`가 반환한 ID만 허용합니다. 그 외 필드(model id,
-        command 등)는 `422`로 거부되며 임의 실행 인자를 넣을 수 없습니다.
+        - `profile` — `GET /admin/main-model/profiles`가 반환한 ID만 허용합니다. 그 외 필드(model
+        id, command 등)는 `422`로 거부되며 임의 실행 인자를 넣을 수 없습니다.
 
-        - `confirm_unverified` — `compatibility.status`가 `verified`가 아닌 프로필로 전환할 때 필요합니다.
+        - `confirm_unverified` — `compatibility.status`가 `verified`가 아닌 프로필로 전환할 때
+        필요합니다.
 
-        - `request_id` — 선택적 멱등 키입니다. 진행 중이거나 방금 끝난 동일 작업이 있으면 새 전환을 시작하지 않고 그 작업을 반환하며
-        응답에 `reused: true`로 표시합니다(재시도 안전용이라 일정 시간 뒤 만료됩니다). 매번 새 전환을 원하면 고유한 값을 쓰거나 생략합니다.
+        - `request_id` — 선택적 멱등 키입니다. 진행 중이거나 방금 끝난 동일 작업이 있으면 새 전환을 시작하지 않고 그 작업을
+        반환하며 응답에 `reused: true`로 표시합니다(재시도 안전용이라 일정 시간 뒤 만료됩니다). 매번 새 전환을 원하면 고유한
+        값을 쓰거나 생략합니다.
 
 
         진행 상황은 `GET /admin/main-model/operations/{operation_id}` 또는 `GET /admin/main-model`의
@@ -1798,8 +1907,8 @@ paths:
       - Runtime Control
       summary: 메인 모델 전환 작업 조회
       description: '비동기 전환 작업의 현재 단계와 실패 원인을 조회합니다. `operation_id`는 `POST /admin/main-model/switch`의
-        `202` 응답에서 받은 값이며, `completed`·`failed`·`rollback_failed`에 도달할 때까지 폴링합니다. 각 stage의
-        의미는 Runtime Control 태그 설명에 있습니다.
+        `202` 응답에서 받은 값이며, `completed`·`failed`·`rollback_failed`에 도달할 때까지 폴링합니다.
+        각 stage의 의미는 Runtime Control 태그 설명에 있습니다.
 
 
         - `stage` — 지금 수행 중인 단계, `status` — 같은 값(터미널 상태에서 확정).
@@ -1810,8 +1919,8 @@ paths:
         - `client_request_id` — 요청에 넣은 멱등 키.
 
 
-        가장 최근 작업은 `GET /admin/main-model`의 `last_operation`으로도 볼 수 있고, 진행 상태는 Grafana `Main-model
-        Control` 대시보드의 Latest Operation State 패널에서 실시간으로 확인합니다.'
+        가장 최근 작업은 `GET /admin/main-model`의 `last_operation`으로도 볼 수 있고, 진행 상태는 Grafana
+        `Main-model Control` 대시보드의 Latest Operation State 패널에서 실시간으로 확인합니다.'
       operationId: getMainModelOperation
       security:
       - adminBearerAuth: []

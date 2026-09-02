@@ -3,6 +3,47 @@ from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import dataclass
 
+from ..detectors.pii import LABELS_BY_CODE as _PII_LABELS_BY_CODE
+from ..detectors.secret import LABELS_BY_CODE as _SECRET_LABELS_BY_CODE
+
+# D-code의 사람이 읽을 이름. 코드 자체의 유효 집합은 contracts/risk.py가 갖는다.
+_CODE_TITLES: dict[str, str] = {
+    "D1": "Personal Identifier",
+    "D2": "Contact",
+    "D4": "Secret/Credential",
+    "D5": "Network/Infrastructure",
+}
+
+
+def _detected_codes_block(labels_by_code: dict[str, tuple[str, ...]]) -> str:
+    """탐지기가 실제로 내보내는 라벨 목록에서 문서의 코드 표를 만든다.
+
+    예전에는 이 목록을 설명 문자열에 손으로 적어두고 gateway/risk-adapter 두
+    군데에 복사해뒀다. 그래서 ANTHROPIC_API_KEY가 추가됐을 때 네 곳이 그대로
+    뒤처졌고, OpenAPI 스냅샷 비교는 description을 보지 않아 아무도 몰랐다.
+    """
+    return "".join(
+        f"- **{code}** {_CODE_TITLES[code]}: {', '.join(labels)}\n"
+        for code, labels in sorted(labels_by_code.items())
+    )
+
+
+_PII_DETECTOR_DESCRIPTION = (
+    "**PII Protection 탐지기** — 한국형 식별자·이메일·전화번호·카드번호·IP를 정규식으로 직접 탐지합니다.\n\n"
+    "탐지 코드:\n"
+    + _detected_codes_block(_PII_LABELS_BY_CODE)
+    + "\n원문 PII 값은 응답에 포함되지 않습니다. `span_count`로 entity별 탐지 개수를 제공합니다.\n"
+    "탐지 결과는 최종 정책 판단이 아니라 진단용 신호로 다뤄야 합니다."
+)
+
+_SECRET_DETECTOR_DESCRIPTION = (
+    "**Secret Exposure 탐지기** — 정제한 정규식과 엔트로피로 직접 탐지합니다. 외부 도구 없이 프로세스 안에서 동작합니다.\n\n"
+    "탐지 코드:\n"
+    + _detected_codes_block(_SECRET_LABELS_BY_CODE)
+    + "\n응답·로그·지표 라벨 어디에도 원문 시크릿을 남기지 않습니다. 탐지 개수는 `span_count`로 알려줍니다.\n"
+    "탐지 결과는 최종 정책 판단이 아니라 진단용 신호로 다뤄야 합니다."
+)
+
 
 @dataclass(frozen=True)
 class EndpointSpec:
@@ -170,15 +211,7 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
         operation_id="assessPIIRisk",
         tag="Risk",
         summary="PII Protection 탐지 신호",
-        description=(
-            "**PII Protection 탐지기** — 한국형 식별자·이메일·전화번호·IP를 정규식으로 직접 탐지합니다.\n\n"
-            "탐지 코드:\n"
-            "- **D1** Personal Identifier: KR_RRN, KR_FRN, KR_PASSPORT, KR_DRIVER_LICENSE\n"
-            "- **D2** Contact: EMAIL_ADDRESS, PHONE_NUMBER\n"
-            "- **D5** Network/Infrastructure: IP_ADDRESS\n\n"
-            "원문 PII 값은 응답에 포함되지 않습니다. `span_count`로 entity별 탐지 개수를 제공합니다.\n"
-            "탐지 결과는 최종 정책 판단이 아니라 진단용 신호로 다뤄야 합니다."
-        ),
+        description=_PII_DETECTOR_DESCRIPTION,
         lifecycle="stable",
         request_schema="risk_assessment_request.schema.json",
         response_schema="risk_assessment_response.schema.json",
@@ -189,14 +222,7 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
         operation_id="assessSecretRisk",
         tag="Risk",
         summary="Secret Exposure 탐지 신호",
-        description=(
-            "**Secret Exposure 탐지기** — 정제한 정규식과 엔트로피로 직접 탐지합니다. 외부 도구 없이 프로세스 안에서 동작합니다.\n\n"
-            "탐지 코드:\n"
-            "- **D4** Secret/Credential: OPENAI_API_KEY, AWS_ACCESS_KEY_ID, GITHUB_TOKEN, GITLAB_TOKEN, HUGGINGFACE_TOKEN, JWT, PRIVATE_KEY_BLOCK, PASSWORD_ASSIGNMENT, GENERIC_SECRET_CANDIDATE\n"
-            "- **D5** Network/Infrastructure: DATABASE_URL\n\n"
-            "응답·로그·지표 라벨 어디에도 원문 시크릿을 남기지 않습니다. 탐지 개수는 `span_count`로 알려줍니다.\n"
-            "탐지 결과는 최종 정책 판단이 아니라 진단용 신호로 다뤄야 합니다."
-        ),
+        description=_SECRET_DETECTOR_DESCRIPTION,
         lifecycle="stable",
         request_schema="risk_assessment_request.schema.json",
         response_schema="risk_assessment_response.schema.json",
@@ -459,15 +485,7 @@ RISK_ADAPTER_ENDPOINTS: list[EndpointSpec] = [
         operation_id="assessRiskPIIDetector",
         tag="Risk Signal",
         summary="PII Protection 탐지기 신호 — 개인정보 노출 탐지",
-        description=(
-            "**PII Protection 탐지기** — 한국형 식별자·이메일·전화번호·IP를 정규식으로 직접 탐지합니다.\n\n"
-            "탐지 코드:\n"
-            "- **D1** Personal Identifier: KR_RRN, KR_FRN, KR_PASSPORT, KR_DRIVER_LICENSE\n"
-            "- **D2** Contact: EMAIL_ADDRESS, PHONE_NUMBER\n"
-            "- **D5** Network/Infrastructure: IP_ADDRESS\n\n"
-            "응답에 원문 PII 값을 포함하지 않습니다. `span_count`로 entity별 탐지 개수를 제공합니다.\n"
-            "탐지 결과는 최종 정책 판단이 아니라 진단용 신호로 다뤄야 합니다."
-        ),
+        description=_PII_DETECTOR_DESCRIPTION,
         lifecycle="stable",
         request_schema="risk_assessment_request.schema.json",
         response_schema="risk_assessment_response.schema.json",
@@ -478,14 +496,7 @@ RISK_ADAPTER_ENDPOINTS: list[EndpointSpec] = [
         operation_id="assessRiskSecretDetector",
         tag="Risk Signal",
         summary="Secret Exposure 탐지기 신호 — 시크릿·자격증명 노출 탐지",
-        description=(
-            "**Secret Exposure 탐지기** — 정제한 정규식과 엔트로피로 직접 탐지합니다. 외부 도구 없이 프로세스 안에서 동작합니다.\n\n"
-            "탐지 코드:\n"
-            "- **D4** Secret/Credential: OPENAI_API_KEY, AWS_ACCESS_KEY_ID, GITHUB_TOKEN, GITLAB_TOKEN, HUGGINGFACE_TOKEN, JWT, PRIVATE_KEY_BLOCK, PASSWORD_ASSIGNMENT, GENERIC_SECRET_CANDIDATE\n"
-            "- **D5** Network/Infrastructure: DATABASE_URL\n\n"
-            "응답·로그·지표 라벨 어디에도 원문 시크릿을 남기지 않습니다. 탐지 개수는 `span_count`로 알려줍니다.\n"
-            "탐지 결과는 최종 정책 판단이 아니라 진단용 신호로 다뤄야 합니다."
-        ),
+        description=_SECRET_DETECTOR_DESCRIPTION,
         lifecycle="stable",
         request_schema="risk_assessment_request.schema.json",
         response_schema="risk_assessment_response.schema.json",

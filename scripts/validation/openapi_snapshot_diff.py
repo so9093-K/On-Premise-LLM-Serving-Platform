@@ -133,6 +133,12 @@ def _compare_one(name: str, static_rel: str, generated: dict[str, Any]) -> list[
             generated_op = generated["paths"][path][method]
             if static_op.get("operationId") != generated_op.get("operationId"):
                 issues.append(f"{name} {method.upper()} {path}: operationId mismatch")
+            # summary/description은 손으로 옮겨 적는 유일한 필드라 조용히 갈라진다.
+            # 탐지기 라벨 목록이 코드에만 추가되고 문서 네 곳이 뒤처져 있던 것을
+            # 아무도 못 잡은 이유가 여기 비교가 없어서였다.
+            for field in ("summary", "description"):
+                if static_op.get(field) != generated_op.get(field):
+                    issues.append(f"{name} {method.upper()} {path}: {field} mismatch")
             if static_op.get("security") != generated_op.get("security"):
                 issues.append(f"{name} {method.upper()} {path}: security mismatch static={static_op.get('security')} generated={generated_op.get('security')}")
             static_statuses = set(str(code) for code in static_op.get("responses", {}))
@@ -168,8 +174,37 @@ def _compare_one(name: str, static_rel: str, generated: dict[str, Any]) -> list[
     return issues
 
 
+def _sync_text_fields(name: str, static_rel: str, generated: dict[str, Any]) -> int:
+    """정적 spec의 summary/description을 코드가 생성한 값으로 맞춘다.
+
+    두 필드는 사람이 옮겨 적는 유일한 곳이라 계속 갈라진다. 비교만 켜두면
+    코드에서 설명을 고칠 때마다 YAML을 손으로 맞춰야 해서, 그 손질을 없앤다.
+    나머지 필드(path/schema/security)는 리뷰 대상이므로 건드리지 않는다.
+    """
+    path = Path(static_rel)
+    static = _load_yaml(static_rel)
+    changed = 0
+    for route, methods in static.get("paths", {}).items():
+        for method, operation in methods.items():
+            generated_op = generated.get("paths", {}).get(route, {}).get(method)
+            if not isinstance(generated_op, dict):
+                continue
+            for field in ("summary", "description"):
+                if field in generated_op and operation.get(field) != generated_op[field]:
+                    operation[field] = generated_op[field]
+                    changed += 1
+    if changed:
+        path.write_text(yaml.safe_dump(static, allow_unicode=True, sort_keys=False), encoding="utf-8")
+    print(f"{name}: synced {changed} summary/description field(s)")
+    return changed
+
+
 def main() -> int:
     generated = _build_generated_docs()
+    if "--sync-descriptions" in sys.argv:
+        _sync_text_fields("gateway", "specs/openapi.gateway.yaml", generated["gateway"])
+        _sync_text_fields("risk-adapter", "specs/openapi.risk-adapter.yaml", generated["risk-adapter"])
+        return 0
     issues = []
     issues.extend(_compare_one("gateway", "specs/openapi.gateway.yaml", generated["gateway"]))
     issues.extend(_compare_one("risk-adapter", "specs/openapi.risk-adapter.yaml", generated["risk-adapter"]))

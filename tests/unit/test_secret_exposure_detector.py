@@ -25,7 +25,7 @@ from ai_model_serving.detectors.secret import SecretExposureDetector, mask_secre
 OPENAI_KEY = "sk-proj-abcdefghijklmnopqrstuvwxyz12345678901234ABCDE"
 ANTHROPIC_KEY = "sk-ant-api03-abcdefghijklmnopqrstuvwxyz1234567890ABCDEFGHIJ"
 AWS_ACCESS_KEY = "AKIAIOSFODNN7EXAMPLE"
-GITHUB_TOKEN = "ghp_abcdefghijklmnopqrstuvwxyz1234567890AB"
+GITHUB_TOKEN = "ghp_abcdefghijklmnopqrstuvwxyz1234567890"
 GITLAB_TOKEN = "glpat-abcdefghijklmnopqrst"
 HF_TOKEN = "hf_abcdefghijklmnopqrstuvwxyz12345678"
 JWT = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U"
@@ -53,8 +53,8 @@ def assess(text: str) -> dict:
         (f"토큰: {JWT}", "JWT", "D4"),
         (PRIVATE_KEY, "PRIVATE_KEY_BLOCK", "D4"),
         (f"설정: {PASSWORD_ASSIGN}", "PASSWORD_ASSIGNMENT", "D4"),
-        # 이름 붙은 패턴에 안 걸리는 고엔트로피 문자열은 generic 후보로 잡힌다.
-        ("api_key = 'Xq7Fv2Lp9Rt4Wz8Nb1Mc6Yd3Ke5Hg0Ju'", "GENERIC_SECRET_CANDIDATE", "D4"),
+        # 이름 붙은 패턴에도 대입 키워드에도 안 걸리는 고엔트로피 문자열만 generic이다.
+        ("붙여넣은 값 Xq7Fv2Lp9Rt4Wz8Nb1Mc6Yd3Ke5Hg0Ju", "GENERIC_SECRET_CANDIDATE", "D4"),
         # DB 접속 문자열은 자격증명(D4)이 아니라 인프라 노출(D5)로 분류된다.
         (f"접속: {DATABASE_URL}", "DATABASE_URL", "D5"),
     ],

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass
 from typing import Any
 
 from jsonschema import Draft202012Validator, ValidationError
@@ -11,6 +12,33 @@ from .config import RuntimeValidationConfig
 from .constants import FORBIDDEN_RISK_FIELDS
 from .http_client import RuntimeValidationHttpClient
 from .results import CheckResult
+
+
+@dataclass(frozen=True)
+class _DetectorProbe:
+    """탐지기에 심어 보낼 값과, 그때 기대하는 D-code다."""
+
+    prompt: str
+    planted: tuple[str, ...]
+    expected_codes: frozenset[str]
+
+
+# 값은 전부 공개된 문서용 예시다(테스트 카드 번호, example.com).
+_DETECTOR_PROBES: dict[str, _DetectorProbe] = {
+    "pii": _DetectorProbe(
+        prompt="담당자 hong@example.com 연락처 010-1234-5678 카드 4111-1111-1111-1111",
+        planted=("hong@example.com", "010-1234-5678", "4111-1111-1111-1111"),
+        expected_codes=frozenset({"D1", "D2"}),
+    ),
+    "secret": _DetectorProbe(
+        prompt='설정 db_password="Sup3rS3cr3t" 접속 postgresql://user:p4ssw0rd@db.internal:5432/app',
+        planted=("Sup3rS3cr3t", "p4ssw0rd"),
+        expected_codes=frozenset({"D4", "D5"}),
+    ),
+}
+# 계약 상한 입력 하나에 허용하는 지연이다. 정상은 30ms 안쪽이고, 제곱 증가가
+# 되살아나면 초 단위가 된다. 원격 호출과 부하를 감안해 넉넉히 잡았다.
+_RISK_LATENCY_BUDGET_MS = 2000
 
 
 class LiveRuntimeChecks:
@@ -145,11 +173,45 @@ class LiveRuntimeChecks:
         ok = status == 200 and expected_model in ids
         return CheckResult("vllm-runtime", f"{key} /models", "pass" if ok else "fail", latency, details={"expected_model": expected_model, "ids": sorted(ids)})
 
-    def check_risk_endpoint(self, endpoint: str, check_name: str) -> CheckResult:
-        status, body, latency = self.http.json("POST", f"{self.risk_base}{endpoint}", {"prompt": "runtime validation prompt"}, internal=True)
+    def check_risk_endpoint(self, endpoint: str, check_name: str, detector_key: str = "") -> CheckResult:
+        """배포된 탐지기가 살아 있는지가 아니라 **실제로 탐지하는지**를 본다.
+
+        예전에는 `{"prompt": "runtime validation prompt"}`를 보내 응답 껍데기만
+        확인했다. 그건 아무것도 탐지되지 않는 문자열이라, 탐지기가 통째로
+        비활성화돼도 통과한다. local detector(pii/secret)에는 값을 심어 보내
+        기대한 D-code가 돌아오는지와, 심은 원문이 응답에 새지 않는지를 본다.
+        """
+        probe = _DETECTOR_PROBES.get(detector_key) or _DETECTOR_PROBES.get(endpoint)
+        prompt = probe.prompt if probe else "runtime validation prompt"
+        status, body, latency = self.http.json("POST", f"{self.risk_base}{endpoint}", {"prompt": prompt}, internal=True)
         forbidden = sorted(FORBIDDEN_RISK_FIELDS & set(body))
         ok = status == 200 and body.get("assessment_id") and body.get("status") in {"completed", "partial", "failed"} and not forbidden
-        return CheckResult("risk-adapter-runtime", check_name, "pass" if ok else "fail", latency, details={"status": body.get("status"), "forbidden_fields": forbidden})
+        details: dict[str, Any] = {"status": body.get("status"), "forbidden_fields": forbidden}
+        if probe is not None:
+            codes = {c.get("code") for c in body.get("categories", []) if c.get("detected")}
+            leaked = sorted(v for v in probe.planted if v in json.dumps(body, ensure_ascii=False))
+            missing = sorted(probe.expected_codes - codes)
+            details.update({"detected_codes": sorted(c for c in codes if c), "missing_codes": missing, "leaked_values": leaked})
+            ok = ok and not missing and not leaked
+        return CheckResult("risk-adapter-runtime", check_name, "pass" if ok else "fail", latency, details=details)
+
+    def check_risk_latency_under_load(self) -> CheckResult:
+        """계약 상한(20,000자)에 가까운 입력의 지연을 본다.
+
+        정규식에 왼쪽 경계가 빠지면 스캔이 입력 길이의 제곱이 되고, 마스킹은
+        동기 함수라 event loop가 통째로 멈춘다. 실제로 연속된 영숫자 128,000자에서
+        21초가 걸린 적이 있다. 이건 순수 함수의 성질이 아니라 배포된 서비스의
+        지연이므로 여기서 본다.
+        """
+        prompt = ("A1b2C3d4E5f6G7h8" * 1250)[:20000]
+        status, _, latency = self.http.json(
+            "POST", f"{self.risk_base}/v1/risk/detectors/pii/assessments", {"prompt": prompt}, internal=True
+        )
+        ok = status == 200 and latency is not None and latency < _RISK_LATENCY_BUDGET_MS
+        return CheckResult(
+            "risk-adapter-runtime", "detector latency at contract limit", "pass" if ok else "fail",
+            latency, details={"budget_ms": _RISK_LATENCY_BUDGET_MS},
+        )
 
     def check_chat(self) -> CheckResult:
         payload = {

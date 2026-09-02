@@ -39,6 +39,12 @@ _DIAGNOSIS_TEXT_LIMIT = 500
 # 자르면 같은 한도에서 3배 커진다.
 _BODY_PREVIEW_LIMIT_BYTES = 4000
 _TRUNCATION_SUFFIX = "…(truncated)"
+# 마스킹 전에 입력을 먼저 자른다. 로그에 남는 건 앞부분뿐인데 전체를 마스킹하면
+# 낭비를 넘어 위험이다 -- mask_sensitive_text는 동기 함수라 event loop를 막고,
+# 요청 body 한도는 100MB다(configs/model_serving.yaml). 잘린 경계에 걸친 값이
+# 반쪽만 남아 어떤 패턴에도 안 걸리는 일이 없도록 한도보다 넉넉히 자른 뒤
+# 마스킹하고, 그 다음 한도까지 자른다.
+_MASK_INPUT_MARGIN_BYTES = 2000
 
 
 def _truncate_preview(text: str) -> str:
@@ -50,11 +56,20 @@ def _truncate_preview(text: str) -> str:
     return encoded[:_BODY_PREVIEW_LIMIT_BYTES].decode("utf-8", errors="ignore") + _TRUNCATION_SUFFIX
 
 
+def _mask_clipped(text: str, limit_bytes: int) -> str:
+    """로그에 실릴 만큼만 남기고 마스킹한다."""
+    encoded = text.encode("utf-8")
+    if len(encoded) > limit_bytes + _MASK_INPUT_MARGIN_BYTES:
+        text = encoded[: limit_bytes + _MASK_INPUT_MARGIN_BYTES].decode("utf-8", errors="ignore")
+    return mask_sensitive_text(text)
+
+
 def _safe_diagnosis_text(value: Any) -> str | None:
     """운영 로그에 남길 짧고 마스킹된 진단 문자열을 만든다."""
     if not isinstance(value, str):
         return None
-    text = mask_sensitive_text(value.strip())
+    # _DIAGNOSIS_TEXT_LIMIT은 문자 수라, 한글(문자당 3바이트) 기준으로 바이트 상한을 잡는다.
+    text = _mask_clipped(value.strip(), _DIAGNOSIS_TEXT_LIMIT * 3)
     if not text:
         return None
     return text[:_DIAGNOSIS_TEXT_LIMIT]
@@ -125,8 +140,12 @@ def record_request_response_preview(request: Request, *, request_text: str, resp
     각 라우터가 `request.state.request_body_masked = ...`를 직접 대입하며
     코드를 복제하지 않게 한다.
     """
-    request.state.request_body_masked = _truncate_preview(mask_sensitive_text(request_text))
-    request.state.response_body_masked = _truncate_preview(mask_sensitive_text(response_text))
+    request.state.request_body_masked = _truncate_preview(
+        _mask_clipped(request_text, _BODY_PREVIEW_LIMIT_BYTES)
+    )
+    request.state.response_body_masked = _truncate_preview(
+        _mask_clipped(response_text, _BODY_PREVIEW_LIMIT_BYTES)
+    )
 
 
 def record_token_usage(request: Request, usage: Any) -> None:

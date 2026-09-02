@@ -83,8 +83,9 @@ class RuntimeValidator:
         for key, detector in detectors.items():
             if detector.get("enabled", True) is True:
                 route = str(detector.get("route", f"/v1/risk/detectors/{key}/assessments"))
-                self.safe_check("risk-adapter-runtime", f"{key} assessment", lambda route=route, key=key: self.live_checks.check_risk_endpoint(route, f"{key} assessment"))
+                self.safe_check("risk-adapter-runtime", f"{key} assessment", lambda route=route, key=key: self.live_checks.check_risk_endpoint(route, f"{key} assessment", key))
         self.safe_check("risk-adapter-runtime", "aggregate assessment", lambda: self.live_checks.check_risk_endpoint("/v1/risk/assessments", "aggregate assessment"))
+        self.safe_check("risk-adapter-runtime", "detector latency at contract limit", self.live_checks.check_risk_latency_under_load)
         self.safe_check("vllm-runtime", "chat", self.live_checks.check_chat)
         self.safe_check("vllm-runtime", "streaming chat", self.live_checks.check_streaming_chat)
         self.safe_check("vllm-runtime", "embedding", self.live_checks.check_embedding)

@@ -57,7 +57,7 @@ paths:
       tags:
       - Operations
       summary: Liveness 확인
-      description: Process liveness probe. 항상 HTTP 200을 반환합니다. 인증 없이 접근 가능합니다.
+      description: 프로세스가 살아 있는지만 확인합니다. 항상 HTTP 200을 반환하며 인증 없이 호출할 수 있습니다.
       operationId: getRiskAdapterHealth
       responses:
         '200':
@@ -74,9 +74,8 @@ paths:
       tags:
       - Operations
       summary: Risk Adapter readiness 확인
-      description: 내부 readiness endpoint입니다. enabled detector vLLM runtime 상태를 확인합니다.
-        모델 로딩 중에는 HTTP 503을 반환하고 `not_ready_dependencies`와 dependency별 `message`를
-        제공합니다.
+      description: 활성화된 탐지기의 vLLM 런타임이 요청을 받을 준비가 됐는지 확인합니다. 모델 로딩 중에는 HTTP 503을 반환하고
+        `not_ready_dependencies`와 dependency별 `message`를 제공합니다.
       operationId: getRiskAdapterReadiness
       responses:
         '200':
@@ -127,9 +126,9 @@ paths:
     get:
       tags:
       - Monitoring
-      summary: Prometheus metrics 조회
-      description: Prometheus가 scrape하는 Risk Adapter metric입니다. detector별 timeout,
-        parse failure, signal count를 확인합니다.
+      summary: Prometheus 지표 조회
+      description: Prometheus가 수집하는 Risk Adapter 지표입니다. 탐지기별 타임아웃, 파싱 실패, 신호 건수를 볼
+        수 있습니다.
       operationId: getRiskAdapterMetrics
       responses:
         '200':
@@ -149,8 +148,8 @@ paths:
     post:
       tags:
       - Risk Signal
-      summary: Prompt detector 신호 — Prompt Injection / Leaking
-      description: '**Prompt detector**(`risk-prompt`)만 단독 호출합니다.
+      summary: Prompt 탐지기 신호 — Prompt Injection / Leaking
+      description: '**Prompt 탐지기**(`risk-prompt`)만 단독으로 호출합니다.
 
 
         탐지 대상:
@@ -166,7 +165,7 @@ paths:
         - 연결된 도구로 시크릿·파일·메일 탈취 유도
 
 
-        일반 사이버 공격 절차·폭력·혐오 콘텐츠는 이 detector 범위 밖입니다.'
+        일반 사이버 공격 절차·폭력·혐오 콘텐츠는 이 탐지기가 다루지 않습니다.'
       operationId: assessRiskPromptDetector
       requestBody:
         content:
@@ -263,23 +262,23 @@ paths:
     post:
       tags:
       - Risk Signal
-      summary: PII Protection detector 신호 — 개인정보 노출 탐지
-      description: '**PII Protection detector** — 한국형 식별자·이메일·전화번호·IP 정규식 기반
-        로컬 탐지.
+      summary: PII Protection 탐지기 신호 — 개인정보 노출 탐지
+      description: '**PII Protection 탐지기** — 한국형 식별자·이메일·전화번호·카드번호·IP를 정규식으로 직접 탐지합니다.
 
 
         탐지 코드:
 
-        - **D1** Personal Identifier: KR_RRN, KR_FRN, KR_PASSPORT, KR_DRIVER_LICENSE
+        - **D1** Personal Identifier: CREDIT_CARD, KR_DRIVER_LICENSE, KR_FRN, KR_PASSPORT,
+        KR_RRN
 
         - **D2** Contact: EMAIL_ADDRESS, PHONE_NUMBER
 
         - **D5** Network/Infrastructure: IP_ADDRESS
 
 
-        응답에 원문 PII 값을 포함하지 않습니다. `span_count`로 entity별 탐지 개수를 제공합니다.
+        원문 PII 값은 응답에 포함되지 않습니다. `span_count`로 entity별 탐지 개수를 제공합니다.
 
-        탐지 결과는 최종 정책 판단이 아닌 진단 signal로 취급합니다.'
+        탐지 결과는 최종 정책 판단이 아니라 진단용 신호로 다뤄야 합니다.'
       operationId: assessRiskPIIDetector
       requestBody:
         content:
@@ -367,23 +366,24 @@ paths:
     post:
       tags:
       - Risk Signal
-      summary: Secret Exposure detector 신호 — 시크릿·자격증명 노출 탐지
-      description: '**Secret Exposure detector** — curated regex + entropy 기반 로컬 탐지.
-        외부 CLI 없이 Python 내부 scanner로 동작합니다.
+      summary: Secret Exposure 탐지기 신호 — 시크릿·자격증명 노출 탐지
+      description: '**Secret Exposure 탐지기** — 정제한 정규식과 엔트로피로 직접 탐지합니다. 외부 도구 없이 프로세스
+        안에서 동작합니다.
 
 
         탐지 코드:
 
-        - **D4** Secret/Credential: OPENAI_API_KEY, AWS_ACCESS_KEY_ID, GITHUB_TOKEN,
-        GITLAB_TOKEN, HUGGINGFACE_TOKEN, JWT, PRIVATE_KEY_BLOCK, PASSWORD_ASSIGNMENT,
-        GENERIC_SECRET_CANDIDATE
+        - **D4** Secret/Credential: ANTHROPIC_API_KEY, AUTH_HEADER, AWS_ACCESS_KEY_ID,
+        GENERIC_SECRET_CANDIDATE, GITHUB_TOKEN, GITLAB_TOKEN, GOOGLE_API_KEY, HUGGINGFACE_TOKEN,
+        JWT, NPM_TOKEN, OPENAI_API_KEY, PASSWORD_ASSIGNMENT, PRIVATE_KEY_BLOCK, SENDGRID_KEY,
+        SLACK_TOKEN, STRIPE_KEY
 
         - **D5** Network/Infrastructure: DATABASE_URL
 
 
-        응답, 로그, metric label에 원문 시크릿 값을 남기지 않습니다. `span_count`로 탐지 개수를 제공합니다.
+        응답·로그·지표 라벨 어디에도 원문 시크릿을 남기지 않습니다. 탐지 개수는 `span_count`로 알려줍니다.
 
-        탐지 결과는 최종 정책 판단이 아닌 진단 signal로 취급합니다.'
+        탐지 결과는 최종 정책 판단이 아니라 진단용 신호로 다뤄야 합니다.'
       operationId: assessRiskSecretDetector
       requestBody:
         content:
@@ -497,12 +497,11 @@ paths:
       tags:
       - Risk Signal
       summary: 통합 risk signal
-      description: 'enabled detector registry 순서(pii → secret → prompt)대로 호출하고 결과를
-        aggregate합니다.
+      description: '활성화된 탐지기를 등록 순서(pii → secret → prompt)대로 호출하고 결과를 합칩니다.
 
 
-        어느 한 detector가 신호를 탐지하면 `risk_detected: true`를 반환합니다. detector 실패는 policy
-        판단 없이 system signal로 표현됩니다.
+        어느 하나라도 신호를 찾으면 `risk_detected: true`를 반환합니다. 탐지기가 실패하면 정책 판단 없이 시스템 신호로만
+        알립니다.
 
 
         PII Protection(D1, D2, D5)과 Secret Exposure(D4, D5) 신호를 Prompt Injection(A1,
