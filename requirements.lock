@@ -23,6 +23,7 @@ jsonschema-specifications==2025.9.1
 markdown-it-py==4.2.0
 mdurl==0.1.2
 packaging==25.0
+phonenumberslite==9.0.38
 pluggy==1.6.0
 prometheus_client==0.25.0
 pydantic==2.13.3

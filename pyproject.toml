@@ -13,6 +13,12 @@ dependencies = [
   "httptools==0.7.1",
   "httpx==0.28.1",
   "huggingface_hub==1.13.0",
+  # 전화번호 탐지. Google libphonenumber의 파이썬 포팅으로, 의존성이 없고
+  # 순수 파이썬이라 PII 탐지기의 "외부 모델 없이 결정적" 성질을 유지한다.
+  # lite 배포판을 쓰는 이유: 전체 배포판은 geocoder/carrier/timezone 메타데이터
+  # 때문에 설치 46MB(그중 geodata 38MB)인데, 우리가 쓰는 건 파싱·유효성 판정뿐이라
+  # 5.3MB로 충분하다. import 이름은 그대로 `phonenumbers`다.
+  "phonenumberslite==9.0.38",
   "prometheus-client==0.25.0",
   "PyYAML==6.0.3",
   "jsonschema==4.26.0",

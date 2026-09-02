@@ -47,7 +47,11 @@ _PATTERNS: list[tuple[re.Pattern[str], str]] = [
     # JWT: 점으로 구분된 세 개의 base64url 세그먼트
     (re.compile(r"eyJ[A-Za-z0-9_-]{5,}\.eyJ[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_\-=+/]{10,}"), "JWT"),
     # PEM 개인키 블록
-    (re.compile(r"-----BEGIN (?:RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----"), "PRIVATE_KEY_BLOCK"),
+    # PGP는 `PRIVATE KEY BLOCK`, PKCS#8 암호화본은 `ENCRYPTED PRIVATE KEY`라
+    # 접미가 달라 예전 패턴으로는 둘 다 놓쳤다.
+    (re.compile(
+        r"-----BEGIN (?:RSA |EC |DSA |OPENSSH |ENCRYPTED |PGP )?PRIVATE KEY(?: BLOCK)?-----"
+    ), "PRIVATE_KEY_BLOCK"),
     # 데이터베이스 연결 URL
     (re.compile(
         r"(?:mysql|postgresql|postgres|mongodb(?:\+srv)?|redis|amqp|amqps|mariadb)://"
