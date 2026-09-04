@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import Any
 
 
@@ -112,3 +113,62 @@ def _request_parameter_surface(
     if "embeddings" in capabilities:
         return _embedding_request_parameters(policy), {}
     return {}, {}
+
+# 모달리티별로 공개하는 한도 키. 값은 gateway_policy.request_limits의 내부 키에서
+# 가져오되, 공개 이름은 여기서 따로 정한다 -- request_parameter_policy를 날것으로
+# 내보내지 않고 chat_request_parameter_surface로 표면을 만드는 것과 같은 이유다.
+# 내부 키 이름에 공개 계약이 묶이면 내부 정리가 곧 파괴적 변경이 된다.
+_LIMIT_SURFACE: dict[str, dict[str, str]] = {
+    "image": {
+        "max_inputs": "max_image_inputs",
+        "max_bytes": "max_image_bytes",
+        "max_pixels": "max_image_pixels",
+        "allowed_mime_types": "allowed_image_mime_types",
+        "allowed_url_schemes": "allowed_image_url_schemes",
+    },
+    "audio": {
+        "max_inputs": "max_audio_inputs",
+        "max_bytes": "max_audio_bytes",
+        "allowed_formats": "allowed_audio_formats",
+    },
+    "video": {
+        "max_inputs": "max_video_inputs",
+        "max_bytes": "max_video_bytes",
+        "max_frames": "max_video_frames",
+        "max_frame_pixels": "max_video_frame_pixels",
+        "max_duration_seconds": "max_video_duration_seconds",
+        "allowed_mime_types": "allowed_video_mime_types",
+        "allowed_url_schemes": "allowed_video_url_schemes",
+    },
+}
+
+
+def chat_request_limit_surface(
+    limits: dict[str, Any],
+    *,
+    input_modalities: Sequence[str],
+) -> dict[str, dict[str, Any]]:
+    """비텍스트 입력에 대해 Gateway가 강제하는 한도를 모달리티별로 공개한다.
+
+    ``request_parameters``는 사용자가 조정하는 knob의 표면이고, 이것은 조정할 수
+    없는 콘텐츠 제약이라 자리를 나눈다 -- 이미지는 파라미터가 아니라
+    ``messages[].content`` 안으로 들어온다.
+
+    받는 modality만 담는다. 프로필마다 값이 다르고(26B는 audio/video가 없다)
+    호출자는 활성 프로필의 값을 그대로 본다. 그래서 클라이언트가 자기 쪽에
+    한도를 복제해 둘 이유가 없어진다 -- 복제본은 프로필이 바뀌는 순간 조용히
+    낡는다.
+    """
+    accepted = {str(modality) for modality in input_modalities}
+    surface: dict[str, dict[str, Any]] = {}
+    for modality, fields in _LIMIT_SURFACE.items():
+        if modality not in accepted:
+            continue
+        published = {
+            public_name: limits[internal_name]
+            for public_name, internal_name in fields.items()
+            if limits.get(internal_name) is not None
+        }
+        if published:
+            surface[modality] = published
+    return surface

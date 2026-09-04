@@ -7,6 +7,7 @@ from typing import Any
 from jsonschema import Draft202012Validator, ValidationError
 
 from ai_model_serving.domain import ModelRegistry
+from ai_model_serving.openapi_contracts import load_contract_schema
 
 from .config import RuntimeValidationConfig
 from .constants import FORBIDDEN_RISK_FIELDS
@@ -150,20 +151,40 @@ class LiveRuntimeChecks:
         ids = {item.get("id") for item in models if isinstance(item, dict)}
         expected = set(self.registry.public_logical_ids())
         ok = status == 200 and expected.issubset(ids)
+        # 선언한 응답 계약을 배포본 응답에 실제로 적용한다.
+        # specs의 x-response-contract-schema는 OpenAPI 문서를 만들 때만 쓰이고
+        # 요청 경로에서는 응답을 검사하지 않는다 -- 계약을 어긴 응답이 그대로
+        # 200으로 나가는 것을 확인했다. 배포본을 상대로 여기서 검사한다.
+        contract_error = ""
+        try:
+            Draft202012Validator(load_contract_schema("model_list_response.schema.json")).validate(body)
+        except ValidationError as exc:
+            ok = False
+            location = "/".join(str(part) for part in exc.absolute_path) or "(root)"
+            contract_error = f"{location}: {exc.message}"[:200]
         main_parameters: dict[str, Any] = {}
+        main_limits: dict[str, Any] = {}
         for item in models:
             if not isinstance(item, dict) or item.get("id") != self._main_model_name():
                 continue
             value = item.get("request_parameters")
             if isinstance(value, dict):
                 main_parameters = value
+            limits = item.get("request_limits")
+            if isinstance(limits, dict):
+                main_limits = limits
             break
         return CheckResult(
             "gateway-runtime",
             "gateway /v1/models",
             "pass" if ok else "fail",
             latency,
-            details={"ids": sorted(ids), "main_model_request_parameters": main_parameters},
+            details={
+                "ids": sorted(ids),
+                "main_model_request_parameters": main_parameters,
+                "main_model_request_limits": main_limits,
+                "contract_error": contract_error,
+            },
         )
 
     def check_vllm_models(self, key: str, base_url: str) -> CheckResult:

@@ -9,7 +9,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 
 from ..endpoint_spec import GATEWAY_ENDPOINTS
 from ...errors import ServiceError, error_payload, error_response_headers
-from ...domain.request_surfaces import chat_request_parameter_surface
+from ...domain.request_surfaces import chat_request_limit_surface, chat_request_parameter_surface
 from ...logging_policy import record_request_response_preview, record_token_usage
 from ...services.runtime_state import RuntimeState, RuntimeStateStore
 from ...services.sidecar_client import SidecarClient, SidecarRequestError, SidecarUnavailableError
@@ -179,6 +179,14 @@ def build_router(
                         active_policy.get("request_parameter_policy", {}),
                         max_output_tokens=int(active_policy.get("max_output_tokens", 0)) or None,
                     )
+                    # 한도도 같은 active snapshot에서 나온다. 광고와 검증이 한
+                    # 스냅샷을 공유하므로 프로필을 바꿔도 둘이 갈라지지 않는다.
+                    limits = chat_request_limit_surface(
+                        active_policy.get("request_limits", {}),
+                        input_modalities=active_modalities,
+                    )
+                    if limits:
+                        item["request_limits"] = limits
         return {"object": "list", "data": items}
 
     _s = _GW[("POST", "/v1/chat/completions")]

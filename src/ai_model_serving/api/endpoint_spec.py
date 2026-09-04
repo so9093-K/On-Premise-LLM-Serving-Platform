@@ -150,7 +150,10 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
             "Gateway가 외부 호출자에게 노출하는 logical model id, capability, 사용자 조정 가능 request parameter 목록입니다. "
             "catalog 성격의 엔드포인트이므로 vLLM 로딩 상태와 무관하게 항상 목록을 반환합니다. "
             "현재 serving 가능 여부는 `/ready`의 `status`와 `not_ready_dependencies`를 확인하세요. "
-            "클라이언트 UI는 각 item의 `request_parameters`를 읽어 모델별 입력 form을 구성할 수 있습니다."
+            "클라이언트 UI는 각 item의 `request_parameters`를 읽어 모델별 입력 form을 구성할 수 있습니다. "
+            "이미지·오디오·비디오 입력의 개수·용량 한도는 `request_limits`에 modality별로 실립니다 -- "
+            "조정 가능한 파라미터가 아니라 콘텐츠 제약이라 자리를 나눕니다. "
+            "두 값 모두 활성 main-model 프로필을 따르므로, 클라이언트는 복제해 두지 말고 요청 시점에 읽어야 합니다."
         ),
         lifecycle="stable",
         request_schema=None,

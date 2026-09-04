@@ -82,6 +82,20 @@ class ModelListSchemaProjection:
                                 "description": "현재 활성 모델 프로파일이 입력으로 허용하는 content 종류입니다. chat 요청 검증이 강제하는 집합과 동일하며, 프로파일 전환에 따라 달라질 수 있습니다.",
                                 "items": {"type": "string"},
                             },
+                            "request_limits": {
+                                "type": "object",
+                                "description": (
+                                    "비텍스트 입력에 Gateway가 강제하는 한도를 modality별로 담습니다. "
+                                    "사용자가 조정하는 값이 아니라 messages[].content에 대한 제약이라 "
+                                    "request_parameters와 자리를 나눕니다. 값은 활성 main-model 프로파일을 "
+                                    "따르고 받지 않는 modality는 키 자체가 없으므로, 클라이언트는 복제해 두지 말고 "
+                                    "요청 시점에 읽어야 합니다."
+                                ),
+                                "additionalProperties": {
+                                    "type": "object",
+                                    "additionalProperties": True,
+                                },
+                            },
                             "request_parameters": {
                                 "type": "object",
                                 "description": "모델별 사용자 조정 가능 request parameter와 제약 조건입니다. prompt/messages/input 같은 필수 입력 본문은 여기에 포함하지 않습니다.",
