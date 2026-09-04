@@ -741,8 +741,11 @@ restore_previous_release() {
 fail_after_env_backup() {
   local message="$*"
   trap - ERR
-  restore_previous_release || true
-  rm -rf "${RELEASE_PATH}"
+  if restore_previous_release; then
+    rm -rf "${RELEASE_PATH}"
+  else
+    echo "[deploy] ERROR: candidate release retained because restoration was incomplete: ${RELEASE_PATH}" >&2
+  fi
   echo "[deploy] ERROR: ${message}" >&2
   if [[ -n "${ENV_BACKUP_PATH:-}" ]]; then
     echo "[deploy] .env backup: ${ENV_BACKUP_PATH}" >&2
@@ -753,8 +756,11 @@ fail_after_env_backup() {
 unexpected_failure_after_env_backup() {
   local code=$?
   trap - ERR
-  restore_previous_release || true
-  rm -rf "${RELEASE_PATH}"
+  if restore_previous_release; then
+    rm -rf "${RELEASE_PATH}"
+  else
+    echo "[deploy] ERROR: candidate release retained because restoration was incomplete: ${RELEASE_PATH}" >&2
+  fi
   echo "[deploy] ERROR: deploy failed after .env backup was created." >&2
   if [[ -n "${ENV_BACKUP_PATH:-}" ]]; then
     echo "[deploy] .env backup: ${ENV_BACKUP_PATH}" >&2
@@ -762,6 +768,25 @@ unexpected_failure_after_env_backup() {
   exit "${code}"
 }
 trap unexpected_failure_after_env_backup ERR
+
+interrupted_after_env_backup() {
+  local signal="$1"
+  local code="$2"
+  trap - ERR INT TERM HUP
+  if restore_previous_release; then
+    rm -rf "${RELEASE_PATH}"
+  else
+    echo "[deploy] ERROR: candidate release retained because restoration was incomplete: ${RELEASE_PATH}" >&2
+  fi
+  echo "[deploy] ERROR: deploy interrupted by ${signal}; previous release restoration attempted." >&2
+  if [[ -n "${ENV_BACKUP_PATH:-}" ]]; then
+    echo "[deploy] .env backup: ${ENV_BACKUP_PATH}" >&2
+  fi
+  exit "${code}"
+}
+trap 'interrupted_after_env_backup INT 130' INT
+trap 'interrupted_after_env_backup TERM 143' TERM
+trap 'interrupted_after_env_backup HUP 129' HUP
 
 # .env에 PLATFORM_IMAGE 갱신
 deploy_set_env_value PLATFORM_IMAGE "${PLATFORM_IMAGE_TO_DEPLOY}"

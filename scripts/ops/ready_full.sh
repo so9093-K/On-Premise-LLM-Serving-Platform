@@ -39,6 +39,14 @@ READY_FULL_MAIN_MODEL_TIMEOUT_SECONDS="${READY_FULL_MAIN_MODEL_TIMEOUT_SECONDS:-
 # 정상적인 queue 대기보다 먼저 끊겨 readiness가 거짓 실패할 수 있으므로 Gateway
 # 요청 예산을 기본값으로 공유한다.
 READY_FULL_MAIN_MODEL_REQUEST_SECONDS="${READY_FULL_MAIN_MODEL_REQUEST_SECONDS:-${REQUEST_TIMEOUT_SECONDS:-30}}"
+# 모델별 chat template가 assistant text를 emit하기 전에 소비하는 token 수가 다를 수
+# 있으므로 운영 환경에서 override할 수 있게 한다. 기본값 16은 현재 지원 profile의
+# non-reasoning canary를 충족하면서 readiness 요청 비용을 작게 유지한다.
+READY_FULL_MAIN_MODEL_MAX_TOKENS="${READY_FULL_MAIN_MODEL_MAX_TOKENS:-16}"
+if [[ ! "$READY_FULL_MAIN_MODEL_MAX_TOKENS" =~ ^[1-9][0-9]*$ ]]; then
+  echo "[ready-full] READY_FULL_MAIN_MODEL_MAX_TOKENS must be a positive integer" >&2
+  exit 2
+fi
 SMOKE_SKIP_RUNTIMES="${SMOKE_SKIP_RUNTIMES:-}"
 
 run_diagnostics() {
@@ -179,9 +187,13 @@ PY
 # "계속 기다려라"는 의미일 뿐이며, 진짜 timeout이 발생했을 때만 배포를 실패 처리한다.
 wait_for_main_model_ready() {
   local url="$GATEWAY_BASE_URL/v1/chat/completions"
-  local body="{\"model\":\"${MAIN_MODEL_NAME}\",\"messages\":[{\"role\":\"user\",\"content\":\"ok\"}],\"max_tokens\":1,\"temperature\":0}"
+  # 1 token은 Gemma가 assistant text를 emit하기 전에 finish_reason=length로 끝날 수
+  # 있어, 열린 gate를 UPSTREAM_SCHEMA_ERROR로 오진한다. 현재 운영 runtime에서
+  # non-reasoning 최소 응답이 정상 종료하는 16 token을 readiness probe 계약으로 쓴다.
+  # reasoning 필드는 이를 지원하지 않는 다른 profile도 있으므로 보내지 않는다.
+  local body="{\"model\":\"${MAIN_MODEL_NAME}\",\"messages\":[{\"role\":\"user\",\"content\":\"Reply with OK.\"}],\"max_tokens\":${READY_FULL_MAIN_MODEL_MAX_TOKENS},\"temperature\":0}"
   local start=$SECONDS deadline=$((SECONDS + READY_FULL_MAIN_MODEL_TIMEOUT_SECONDS))
-  local attempt=0 code elapsed tmp detail
+  local attempt=0 code elapsed tmp detail error_code
   tmp="$(mktemp)"
   local curl_args=(-sS --max-time "$READY_FULL_MAIN_MODEL_REQUEST_SECONDS" -o "$tmp" -w '%{http_code}'
     -H 'Content-Type: application/json' -d "$body")
@@ -202,6 +214,24 @@ wait_for_main_model_ready() {
     # 아래 diagnostics에서 admin-sidecar 로그를 확인해야 한다. MAIN_MODEL_SWITCH_IN_PROGRESS는
     # gate가 아직 정상적으로 재개방되는 중이라는 의미이므로 계속 기다리면 된다.
     detail="$(tr '\n' ' ' < "$tmp" 2>/dev/null | cut -c1-300)"
+    error_code="$("$PYTHON_BIN" - "$tmp" <<'PY'
+import json
+import sys
+
+try:
+    body = json.load(open(sys.argv[1], encoding="utf-8"))
+    print(str((body.get("error") or {}).get("code") or ""))
+except Exception:
+    print("")
+PY
+    )"
+    # 요청 자체가 잘못됐거나 응답 contract가 결정론적으로 실패한 경우는 gate가
+    # 열리기를 기다린다고 회복되지 않는다. 즉시 실패해 30분 polling과 늦은 rollback을 막는다.
+    if [[ "$code" =~ ^4[0-9][0-9]$ || "$error_code" == "UPSTREAM_SCHEMA_ERROR" ]]; then
+      echo "[ready-full] main-model gate probe failed permanently (HTTP ${code:-000}, error=${error_code:-unknown}): ${detail}" >&2
+      rm -f "$tmp"
+      return 1
+    fi
     if (( SECONDS >= deadline )); then
       echo "[ready-full] main-model chat not serving after ${READY_FULL_MAIN_MODEL_TIMEOUT_SECONDS}s (last HTTP ${code:-000}): ${detail}" >&2
       echo "[ready-full] gate did not open — inspect admin-sidecar logs in the diagnostics that follow" >&2
