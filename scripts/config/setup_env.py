@@ -27,6 +27,7 @@ from ai_model_serving.auth_control import (
     AUTH_PROFILE_ENV_KEYS,
     auth_profile_env_values,
     auth_profile_exposure_values,
+    auth_profile_exposure_mismatch,
 )
 from ai_model_serving.settings_parts.dotenv_parser import load_strict_env_file
 
@@ -311,14 +312,11 @@ def generated_values(
             else auth_exposure.get("EXPOSURE_AUDIENCE", "")
         )
     )
-    if effective_auth_mode == "local_open" and (
-        effective_exposure_mode != "master_open"
-        or effective_exposure_audience != "private_lan"
-    ):
-        raise ValueError(
-            "AUTH_MODE=local_open requires "
-            "EXPOSURE_MODE=master_open and EXPOSURE_AUDIENCE=private_lan"
-        )
+    exposure_mismatch = auth_profile_exposure_mismatch(
+        effective_auth_mode, effective_exposure_mode, effective_exposure_audience
+    )
+    if exposure_mismatch is not None:
+        raise ValueError(exposure_mismatch)
     # PROJECT_VERSION은 쓰지 않는다 -- VERSION 파일이 소유하고 settings.py가 env를
     # 우선하므로, .env에 복제하면 그 값이 파일을 가린 채 낡는다(env_contract.yaml
     # removed_keys 참고).

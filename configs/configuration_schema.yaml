@@ -1,0 +1,54 @@
+# Configuration Plane의 metadata 단일 기준.
+# Runtime 코드와 Admin UI는 이 선언을 읽고, 개별 key를 복제하지 않는다.
+version: 1
+items:
+  - key: deployment.target
+    setting_path: deployment_target.target_id
+    type: string
+    owner: deployment
+    editable: false
+    sensitive: false
+    effective_source: deployment
+    apply_mode: redeploy
+    meaning: 활성 Deployment Target과 기능 집합을 결정합니다.
+    related_adrs: [ADR-0020]
+  - key: security.auth_mode
+    setting_path: security.auth_mode
+    type: string
+    owner: deployment
+    editable: false
+    sensitive: false
+    effective_source: deployment
+    apply_mode: service_restart
+    meaning: API·Admin·내부 호출 인증 profile입니다.
+    related_adrs: [ADR-0012]
+  - key: security.api_keys
+    setting_path: security.api_keys
+    type: secret
+    owner: secret
+    editable: false
+    sensitive: true
+    effective_source: secret
+    apply_mode: service_restart
+    meaning: Gateway API Bearer token 집합입니다. 원문은 반환하지 않습니다.
+    related_adrs: [ADR-0012, ADR-0021]
+  - key: runtime.main_llm.base_url
+    setting_path: runtime_endpoints.main_llm.base_url
+    type: url
+    owner: deployment
+    editable: false
+    sensitive: false
+    effective_source: deployment
+    apply_mode: service_restart
+    meaning: Gateway가 사용하는 Main runtime OpenAI-compatible endpoint입니다.
+    related_adrs: [ADR-0020]
+  - key: runtime.required_keys
+    setting_path: required_runtime_keys
+    type: array
+    owner: repository
+    editable: false
+    sensitive: false
+    effective_source: repository
+    apply_mode: redeploy
+    meaning: readiness가 요구하는 runtime dependency입니다.
+    related_adrs: [ADR-0020]

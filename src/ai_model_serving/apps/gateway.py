@@ -43,6 +43,7 @@ from ..api.endpoint_spec import GATEWAY_ENDPOINTS, schema_maps_from_specs
 
 _GW_SPECS = {(spec.method, spec.path): spec for spec in GATEWAY_ENDPOINTS}
 from ..api.routers.gateway_ops import build_router as _build_ops_router
+from ..api.routers.gateway_configuration import build_router as _build_configuration_router
 from ..api.routers.gateway_inference import build_router as _build_inference_router
 from ..api.routers.gateway_risk import build_router as _build_risk_router
 from ..api.routers.gateway_retrieval import build_router as _build_retrieval_router
@@ -184,6 +185,7 @@ def create_gateway_app(settings: AppSettings | None = None, clients: GatewayClie
     register_health(app, service="gateway", spec=_GW_SPECS[("GET", "/health")])
 
     app.include_router(_build_ops_router(admin_dependencies, clients, metrics, settings))
+    app.include_router(_build_configuration_router(admin_dependencies, settings))
     app.include_router(
         _build_inference_router(
             api_dependencies,

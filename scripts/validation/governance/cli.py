@@ -6,6 +6,7 @@ import sys
 from .common import ROOT
 from .filesystem import validate_json_and_yaml_parse
 from .model_config import (
+    validate_configuration_schema,
     validate_deployment_targets,
     validate_model_resource_control_policy,
     validate_ports,
@@ -39,6 +40,7 @@ def validate_vllm_compose_contract() -> None:
 # validate_json_and_yaml_parse는 CHECKS에 넣지 않고 먼저 단독으로 돌린다 -- 아래
 # 참고.
 CHECKS = [
+    validate_configuration_schema,
     validate_deployment_targets,
     validate_vllm_compose_contract,
     validate_version_alignment,

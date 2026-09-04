@@ -114,6 +114,31 @@ def auth_profile_exposure_values(mode: str) -> dict[str, str]:
     return values
 
 
+def auth_profile_exposure_mismatch(
+    mode: str,
+    exposure_mode: str,
+    exposure_audience: str,
+) -> str | None:
+    """Return the canonical profile/exposure mismatch message, if any.
+
+    `local_open` deliberately delegates access control to the trusted network,
+    so its paired exposure values are policy rather than UI defaults.  The
+    expected values come from ``auth_profiles.yaml``; bootstrap, preflight and
+    auth-doctor must not copy them independently.
+    """
+    if mode != "local_open":
+        return None
+    expected = auth_profile_exposure_values(mode)
+    required_mode = expected.get("EXPOSURE_MODE", "")
+    required_audience = expected.get("EXPOSURE_AUDIENCE", "")
+    if exposure_mode == required_mode and exposure_audience == required_audience:
+        return None
+    return (
+        f"AUTH_MODE={mode} requires EXPOSURE_MODE={required_mode} and "
+        f"EXPOSURE_AUDIENCE={required_audience}"
+    )
+
+
 def auth_profile_summary(mode: str) -> str:
     expected = AUTH_MODE_EXPECTATIONS.get(mode, AUTH_MODE_EXPECTATIONS.get("custom", {}))
     return str(expected.get("scope", "운영자가 직접 관리하는 custom flag 조합"))
@@ -297,15 +322,13 @@ def diagnose_auth(settings: AppSettings, project_root: Path) -> list[AuthFinding
     diagnostics = exposure_profile_data.get("diagnostics", {})
     exposure_audience = _env("EXPOSURE_AUDIENCE", "").strip()
 
-    if mode == "local_open" and (
-        canonical_mode != "master_open" or exposure_audience != "private_lan"
-    ):
+    exposure_mismatch = auth_profile_exposure_mismatch(mode, canonical_mode, exposure_audience)
+    if exposure_mismatch is not None:
         findings.append(
             AuthFinding(
                 "FAIL",
                 "LOCAL_OPEN_EXPOSURE_POLICY_MISMATCH",
-                "AUTH_MODE=local_open requires EXPOSURE_MODE=master_open and "
-                "EXPOSURE_AUDIENCE=private_lan so the trusted corporate network "
+                exposure_mismatch + " so the trusted corporate network "
                 "owns access control for Gateway, vLLM, and operations endpoints.",
             )
         )

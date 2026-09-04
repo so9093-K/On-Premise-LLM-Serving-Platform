@@ -24,6 +24,7 @@ if str(ROOT / "src") not in sys.path:
 from ai_model_serving.main_model.boot import (  # noqa: E402
     resolve_compose_relative_path,
 )
+from ai_model_serving.auth_control import auth_profile_exposure_mismatch  # noqa: E402
 from ai_model_serving.settings_parts.dotenv_parser import load_strict_env_file  # noqa: E402
 from scripts.compose.effective_host_ports import effective_host_ports  # noqa: E402
 from scripts.compose.resolve_exposure_mode import (  # noqa: E402
@@ -72,14 +73,11 @@ def _check_auth_profile_preflight() -> None:
     app_env = _env_value("APP_ENV", "local").strip()
     auth_mode = _env_value("AUTH_MODE", "local_open").strip() or "local_open"
     failures: list[str] = []
-    if auth_mode == "local_open":
-        exposure_mode = _env_value("EXPOSURE_MODE", "")
-        exposure_audience = _env_value("EXPOSURE_AUDIENCE", "")
-        if exposure_mode != "master_open" or exposure_audience != "private_lan":
-            failures.append(
-                "AUTH_MODE=local_open requires EXPOSURE_MODE=master_open and "
-                "EXPOSURE_AUDIENCE=private_lan."
-            )
+    exposure_mismatch = auth_profile_exposure_mismatch(
+        auth_mode, _env_value("EXPOSURE_MODE", ""), _env_value("EXPOSURE_AUDIENCE", "")
+    )
+    if exposure_mismatch is not None:
+        failures.append(exposure_mismatch + ".")
     if not _non_local_app_env():
         if failures:
             for failure in failures:

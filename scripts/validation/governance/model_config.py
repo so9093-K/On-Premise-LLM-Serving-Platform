@@ -10,6 +10,52 @@ from .common import (
 )
 
 
+def validate_configuration_schema() -> None:
+    """Validate the metadata SoT consumed by the Configuration Plane.
+
+    This intentionally validates the declaration without loading deployment
+    secrets or constructing a live application.
+    """
+    document = read_yaml('configs/configuration_schema.yaml')
+    items = document.get('items')
+    if document.get('version') != 1 or not isinstance(items, list) or not items:
+        raise SystemExit('configuration_schema.yaml must declare version 1 and non-empty items')
+    required = {
+        'key', 'setting_path', 'type', 'owner', 'editable', 'sensitive',
+        'effective_source', 'apply_mode', 'meaning', 'related_adrs',
+    }
+    owners = {'repository', 'operator', 'deployment', 'runtime', 'secret'}
+    apply_modes = {'hot_reload', 'service_restart', 'runtime_restart', 'compose_restart', 'redeploy'}
+    sources = owners
+    keys: set[str] = set()
+    paths: set[str] = set()
+    for index, item in enumerate(items):
+        if not isinstance(item, dict):
+            raise SystemExit(f'configuration_schema.yaml items[{index}] must be a mapping')
+        missing = required - set(item)
+        if missing:
+            raise SystemExit(f'configuration_schema.yaml items[{index}] missing: {", ".join(sorted(missing))}')
+        key, path = item['key'], item['setting_path']
+        if not isinstance(key, str) or not key or key in keys:
+            raise SystemExit(f'configuration_schema.yaml items[{index}].key must be unique and non-empty')
+        if not isinstance(path, str) or not path or path in paths:
+            raise SystemExit(f'configuration_schema.yaml items[{index}].setting_path must be unique and non-empty')
+        if item['owner'] not in owners or item['effective_source'] not in sources:
+            raise SystemExit(f'configuration_schema.yaml items[{index}] has invalid owner or effective_source')
+        if item['apply_mode'] not in apply_modes:
+            raise SystemExit(f'configuration_schema.yaml items[{index}].apply_mode is invalid')
+        if not isinstance(item['editable'], bool) or not isinstance(item['sensitive'], bool):
+            raise SystemExit(f'configuration_schema.yaml items[{index}] editable and sensitive must be boolean')
+        if item['sensitive'] and item['type'] != 'secret':
+            raise SystemExit(f'configuration_schema.yaml items[{index}] sensitive values must use type=secret')
+        if not isinstance(item['meaning'], str) or not item['meaning'].strip():
+            raise SystemExit(f'configuration_schema.yaml items[{index}].meaning must be non-empty')
+        if not isinstance(item['related_adrs'], list) or not all(isinstance(adr, str) and adr.startswith('ADR-') for adr in item['related_adrs']):
+            raise SystemExit(f'configuration_schema.yaml items[{index}].related_adrs must be ADR id list')
+        keys.add(key)
+        paths.add(path)
+
+
 def validate_deployment_targets() -> None:
     from ai_model_serving.deployment_target import load_deployment_target
 
