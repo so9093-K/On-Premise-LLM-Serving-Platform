@@ -95,10 +95,14 @@ fi
 mkdir "${RELEASE_PATH}"
 REMOTE_PREPARE
 
-# tests/는 build-time 품질 게이트의 입력이며 서비스 실행에는 필요하지 않다.
-# scripts/build/package_release.sh가 릴리스 ZIP에서 같은 이유로(운영 artifact의
-# 크기·공격 표면) 제외하는데 rsync 경로에는 빠져 있어서, ZIP 배포본에는 없고
-# rsync 배포본에만 테스트가 실려 나가고 있었다. 두 배포 경로의 정책은 같아야 한다.
+# tests/는 두 배포 경로 모두에서 포함한다. bootstrap(make first-run)이 `make test`를
+# 배포 전 게이트로 부르므로, 테스트가 빠진 배포본에서는 문서화된 진입점이
+# no tests collected(exit 5)로 중단된다 -- 게이트를 부르면서 게이트 입력을 빼는 셈이다.
+#
+# 예전에는 여기서 제외하고 package_release.sh와 정책을 맞췄는데, 그 배제 근거(크기·
+# 공격 표면)를 재보니 셋 다 성립하지 않았다: 압축 후 111KB(전체 +4%), 앱이 import하지
+# 않고 .dockerignore가 컨테이너 유입을 막는다. 두 경로의 정책은 여전히 같아야 하고,
+# 지금은 "포함"으로 같다.
 echo "[deploy] syncing deployable project files to staged release..."
 rsync -az --delete \
   --exclude ".git/" \
@@ -111,7 +115,6 @@ rsync -az --delete \
   --exclude "*.pyc" \
   --exclude "model_cache/" \
   --exclude "ops/compose/models/" \
-  --exclude "/tests/" \
   --exclude "logs/" \
   --exclude "/dist/" \
   --exclude "/build/" \
