@@ -20,40 +20,51 @@ def validate_configuration_schema() -> None:
     items = document.get('items')
     if document.get('version') != 1 or not isinstance(items, list) or not items:
         raise SystemExit('configuration_schema.yaml must declare version 1 and non-empty items')
+    from ai_model_serving.configuration_plane import CONFIGURATION_PROJECTION_IDS
+
     required = {
-        'key', 'setting_path', 'type', 'owner', 'editable', 'sensitive',
+        'key', 'projection', 'type', 'owner', 'editable', 'sensitive',
         'effective_source', 'apply_mode', 'meaning', 'related_adrs',
     }
     owners = {'repository', 'operator', 'deployment', 'runtime', 'secret'}
+    value_types = {'string', 'url', 'array', 'secret'}
     apply_modes = {'hot_reload', 'service_restart', 'runtime_restart', 'compose_restart', 'redeploy'}
     sources = owners
     keys: set[str] = set()
-    paths: set[str] = set()
+    projections: set[str] = set()
     for index, item in enumerate(items):
         if not isinstance(item, dict):
             raise SystemExit(f'configuration_schema.yaml items[{index}] must be a mapping')
         missing = required - set(item)
         if missing:
             raise SystemExit(f'configuration_schema.yaml items[{index}] missing: {", ".join(sorted(missing))}')
-        key, path = item['key'], item['setting_path']
+        key, projection = item['key'], item['projection']
         if not isinstance(key, str) or not key or key in keys:
             raise SystemExit(f'configuration_schema.yaml items[{index}].key must be unique and non-empty')
-        if not isinstance(path, str) or not path or path in paths:
-            raise SystemExit(f'configuration_schema.yaml items[{index}].setting_path must be unique and non-empty')
+        if not isinstance(projection, str) or not projection or projection in projections:
+            raise SystemExit(f'configuration_schema.yaml items[{index}].projection must be unique and non-empty')
+        if projection not in CONFIGURATION_PROJECTION_IDS:
+            raise SystemExit(f'configuration_schema.yaml items[{index}].projection is not allowlisted')
         if item['owner'] not in owners or item['effective_source'] not in sources:
             raise SystemExit(f'configuration_schema.yaml items[{index}] has invalid owner or effective_source')
+        if item['type'] not in value_types:
+            raise SystemExit(f'configuration_schema.yaml items[{index}].type is invalid')
         if item['apply_mode'] not in apply_modes:
             raise SystemExit(f'configuration_schema.yaml items[{index}].apply_mode is invalid')
         if not isinstance(item['editable'], bool) or not isinstance(item['sensitive'], bool):
             raise SystemExit(f'configuration_schema.yaml items[{index}] editable and sensitive must be boolean')
-        if item['sensitive'] and item['type'] != 'secret':
-            raise SystemExit(f'configuration_schema.yaml items[{index}] sensitive values must use type=secret')
+        if (item['type'] == 'secret') != item['sensitive']:
+            raise SystemExit(f'configuration_schema.yaml items[{index}] secret type and sensitive flag must agree')
+        if item['owner'] == 'secret' and item['effective_source'] != 'secret':
+            raise SystemExit(f'configuration_schema.yaml items[{index}] secret owner must use secret source')
+        if item['editable'] and item['owner'] != 'operator':
+            raise SystemExit(f'configuration_schema.yaml items[{index}] editable values must be operator-owned')
         if not isinstance(item['meaning'], str) or not item['meaning'].strip():
             raise SystemExit(f'configuration_schema.yaml items[{index}].meaning must be non-empty')
         if not isinstance(item['related_adrs'], list) or not all(isinstance(adr, str) and adr.startswith('ADR-') for adr in item['related_adrs']):
             raise SystemExit(f'configuration_schema.yaml items[{index}].related_adrs must be ADR id list')
         keys.add(key)
-        paths.add(path)
+        projections.add(projection)
 
 
 def validate_deployment_targets() -> None:

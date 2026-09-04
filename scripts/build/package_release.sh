@@ -212,6 +212,21 @@ with zipfile.ZipFile(out) as zf:
         for name in names
         if name.startswith(f"{pkg}/") and not name.endswith("/")
     }
+
+# These are read when the Configuration Plane endpoint is imported and served.
+# Keeping this release-artifact contract here prevents a future packaging
+# exclusion from producing a ZIP that boots but fails only when an operator
+# visits /admin/config/schema or /admin/config/effective on a fresh host.
+required_configuration_plane_files = {
+    "configs/configuration_schema.yaml",
+    "src/ai_model_serving/configuration_plane.py",
+    "src/ai_model_serving/api/routers/gateway_configuration.py",
+}
+missing_configuration_plane_files = required_configuration_plane_files - file_paths
+if missing_configuration_plane_files:
+    missing = ", ".join(sorted(missing_configuration_plane_files))
+    raise SystemExit(f"Release ZIP is missing Configuration Plane runtime file(s): {missing}")
+
 for path in sorted(file_paths):
     parts = path.split("/")
     if any(part in forbidden_release_dirs for part in parts):

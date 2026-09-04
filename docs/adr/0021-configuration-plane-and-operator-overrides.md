@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed
+Accepted
 
 ## Context
 
@@ -47,6 +47,11 @@ metadata/effective projection을 제공한다.
 - sensitivity와 value-redaction policy
 - impact 및 apply mode (`hot_reload`, service/runtime/compose restart, redeploy)
 - 관련 ADR 및 target/feature applicability
+
+metadata는 API가 임의의 `AppSettings` attribute를 reflection으로 읽게 해서는 안 된다.
+각 metadata item은 presentation용 `projection` id를 가지며, runtime은 코드에 명시된
+allowlist에서만 해당 값을 읽는다. 이 allowlist는 설정 중복이 아니라 secret과 내부
+state가 API 응답으로 새지 않게 하는 노출 경계다.
 
 초기 API 범위는 **read-only**다. `GET /admin/config/schema`와
 `GET /admin/config/effective`는 admin authorization을 사용하고 secret 값은 어떤 profile에서도

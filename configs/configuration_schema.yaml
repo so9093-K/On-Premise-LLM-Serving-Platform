@@ -3,7 +3,7 @@
 version: 1
 items:
   - key: deployment.target
-    setting_path: deployment_target.target_id
+    projection: deployment_target
     type: string
     owner: deployment
     editable: false
@@ -12,8 +12,38 @@ items:
     apply_mode: redeploy
     meaning: 활성 Deployment Target과 기능 집합을 결정합니다.
     related_adrs: [ADR-0020]
+  - key: deployment.control_mode
+    projection: deployment_control_mode
+    type: string
+    owner: deployment
+    editable: false
+    sensitive: false
+    effective_source: deployment
+    apply_mode: redeploy
+    meaning: Runtime lifecycle 제어가 Sidecar인지 static 외부 소유인지 나타냅니다.
+    related_adrs: [ADR-0020]
+  - key: deployment.lifecycle_owner
+    projection: deployment_lifecycle_owner
+    type: string
+    owner: deployment
+    editable: false
+    sensitive: false
+    effective_source: deployment
+    apply_mode: redeploy
+    meaning: Runtime의 기동·중지·재생성 책임 주체입니다.
+    related_adrs: [ADR-0020]
+  - key: deployment.features
+    projection: deployment_features
+    type: array
+    owner: deployment
+    editable: false
+    sensitive: false
+    effective_source: deployment
+    apply_mode: redeploy
+    meaning: 현재 target이 제공하는 API 및 운영 capability 집합입니다.
+    related_adrs: [ADR-0020]
   - key: security.auth_mode
-    setting_path: security.auth_mode
+    projection: security_auth_mode
     type: string
     owner: deployment
     editable: false
@@ -23,7 +53,7 @@ items:
     meaning: API·Admin·내부 호출 인증 profile입니다.
     related_adrs: [ADR-0012]
   - key: security.api_keys
-    setting_path: security.api_keys
+    projection: security_api_keys
     type: secret
     owner: secret
     editable: false
@@ -33,7 +63,7 @@ items:
     meaning: Gateway API Bearer token 집합입니다. 원문은 반환하지 않습니다.
     related_adrs: [ADR-0012, ADR-0021]
   - key: runtime.main_llm.base_url
-    setting_path: runtime_endpoints.main_llm.base_url
+    projection: main_llm_base_url
     type: url
     owner: deployment
     editable: false
@@ -43,7 +73,7 @@ items:
     meaning: Gateway가 사용하는 Main runtime OpenAI-compatible endpoint입니다.
     related_adrs: [ADR-0020]
   - key: runtime.required_keys
-    setting_path: required_runtime_keys
+    projection: required_runtime_keys
     type: array
     owner: repository
     editable: false
