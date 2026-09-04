@@ -537,7 +537,7 @@ make runtime-validate
 - Source of Truth 설정이 생성기 입력이라면 생성 artifact를 갱신하고 `make validate`로 drift를 확인한다. 그렇지 않다면 해당 설정의 consumer와 영향 범위만 확인한다.
 - 일반 application 변경은 `make validate`, `make test`와 영향 범위의 app-only 또는 full-stack 확인을 한다.
 - vLLM image 입력 변경은 Unified derived image build와 `ready-full`, `runtime-validate`까지 연결한다.
-- 릴리스 ZIP이 필요한 경우에만 `make package`를 실행한다. package에는 `.env`, `.runtime`, 로그, model cache, test source가 포함되지 않아야 한다.
+- 릴리스 ZIP이 필요한 경우에만 `make package`를 실행한다. package에는 `.env`, `.runtime`, 로그, model cache가 포함되지 않아야 한다. `tests/`는 포함한다 -- `make first-run`이 `make test`를 배포 전 게이트로 부른다.
 
 ---
 

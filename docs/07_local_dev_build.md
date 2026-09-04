@@ -367,7 +367,7 @@ ZIP entry의 timestamp는 고정값을 사용해 동일한 source에서 재생 �
 
 `make package`는 package 생성 전에 Python compatibility와 contract validation을 수행하고, 생성된 ZIP에 제외 대상 파일과 환경 파일이 포함되었는지 다시 검사한다.
 
-Release ZIP은 배포에 필요한 artifact를 중심으로 구성하며, 개발용 `tests/`는 source checkout에서 관리한다. 테스트 구조와 release gate의 관계는 [8. 테스트와 검증](./08_testing_validation.md), 실제 배포 절차는 [10. 배포](./10_deployment.md)에서 설명한다.
+Release ZIP은 배포에 필요한 artifact와 `tests/`를 함께 담는다 -- `make first-run`이 `make test`를 배포 전 게이트로 부르므로, 받는 쪽이 같은 버전의 테스트로 검증할 수 있어야 한다. 테스트 구조와 release gate의 관계는 [8. 테스트와 검증](./08_testing_validation.md), 실제 배포 절차는 [10. 배포](./10_deployment.md)에서 설명한다.
 
 ---
 

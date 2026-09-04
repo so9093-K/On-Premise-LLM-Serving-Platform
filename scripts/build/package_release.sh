@@ -68,11 +68,16 @@ exclude_top_level_dirs = {
     'models',
     'outputs',
     'run',
-    # 테스트는 build-time 품질 게이트의 입력이며 서비스 실행에는 필요하지 않다.
-    # 배포 ZIP에 포함하면 운영 artifact의 크기·공격 표면만 늘리고, 어느 테스트가
-    # 실제 배포본을 보증했는지도 불명확해진다.
-    'tests',
 }
+# tests는 포함한다. bootstrap(make first-run)이 `make test`를 배포 전 게이트로
+# 부르므로, 테스트가 빠진 ZIP은 문서화된 진입점이 no tests collected(exit 5)로
+# 중단된다 -- 게이트를 부르면서 게이트 입력을 빼는 구성이었다.
+#
+# 예전 주석이 든 배제 근거는 재보니 셋 다 성립하지 않았다.
+#   크기        압축 후 111KB. 전체 ZIP 2.8MB 대비 +4%.
+#   공격 표면    앱이 import하지 않고, .dockerignore가 막아 컨테이너에도 안 들어간다.
+#   보증 불명확  오히려 반대다. 같은 ZIP에 실린 테스트가 곧 그 버전을 통과시킨
+#                테스트이고, 빠져 있으면 받는 쪽이 검증 자체를 못 한다.
 exclude_suffixes = (
     '.pyc',
     '.pyo',
@@ -197,7 +202,7 @@ import zipfile
 out = sys.argv[1]
 pkg = sys.argv[2]
 safe_env_examples = {".env.example", ".env.local.example", ".env.compose.example"}
-forbidden_release_dirs = {".other", ".agents", ".codex", ".claude", ".cursor", "tests"}
+forbidden_release_dirs = {".other", ".agents", ".codex", ".claude", ".cursor"}
 
 with zipfile.ZipFile(out) as zf:
     names = zf.namelist()
