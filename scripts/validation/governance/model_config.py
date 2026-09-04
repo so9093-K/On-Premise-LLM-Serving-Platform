@@ -9,6 +9,82 @@ from .common import (
     service_default_host_ports,
 )
 
+
+def validate_deployment_targets() -> None:
+    from ai_model_serving.deployment_target import load_deployment_target
+
+    document = read_yaml('configs/deployment_targets.yaml')
+    targets = document.get('targets')
+    default_target = str(document.get('default_target', ''))
+    if not isinstance(targets, dict) or default_target not in targets:
+        raise SystemExit('deployment_targets.yaml must declare an existing default_target')
+    if default_target != 'linux-nvidia-dynamic':
+        raise SystemExit('the existing linux-nvidia-dynamic behavior must remain the default target')
+    for target_id in targets:
+        target = load_deployment_target(ROOT / 'configs/deployment_targets.yaml', str(target_id))
+        if target.supports('retrieval') and not target.supports('embeddings'):
+            raise SystemExit(f'{target_id}: retrieval requires embeddings')
+        lifecycle_features = {
+            feature: target.supports(feature)
+            for feature in ('runtime_control', 'model_switching', 'gpu_admission')
+        }
+        if len(set(lifecycle_features.values())) != 1:
+            raise SystemExit(
+                f'{target_id}: runtime_control, model_switching, and gpu_admission '
+                'are one atomic sidecar control bundle'
+            )
+        if target.validation_status == 'planned' and target_id == default_target:
+            raise SystemExit('a planned deployment target cannot be the default')
+
+    topology = read_yaml('configs/runtime_topology.yaml').get('runtimes')
+    models = read_yaml('configs/model_serving.yaml').get('models', {})
+    services = read_yaml('configs/services.yaml').get('services', {})
+    if not isinstance(topology, dict):
+        raise SystemExit('runtime_topology.yaml must declare runtimes')
+    for key, binding in topology.items():
+        if not isinstance(binding, dict):
+            raise SystemExit(f'runtime topology binding {key!r} must be a mapping')
+        for flag in ('required', 'enabled', 'controllable'):
+            if not isinstance(binding.get(flag), bool):
+                raise SystemExit(f'runtime topology binding {key!r}.{flag} must be boolean')
+        if key not in models:
+            raise SystemExit(f'runtime topology binding {key!r} has no model_serving model')
+        features = binding.get('features')
+        if not isinstance(features, list) or not features or not all(isinstance(item, str) for item in features):
+            raise SystemExit(f'runtime topology binding {key!r}.features must be a non-empty string list')
+        unknown_features = set(features) - set().union(
+            *(set((item.get('features') or {}).keys()) for item in targets.values() if isinstance(item, dict))
+        )
+        if unknown_features:
+            raise SystemExit(
+                f'runtime topology binding {key!r} references unknown features: '
+                f'{", ".join(sorted(unknown_features))}'
+            )
+        service_id = str(binding.get('service_id', ''))
+        service = services.get(service_id)
+        if not isinstance(service, dict) or not service.get('compose_service'):
+            raise SystemExit(
+                f'runtime topology binding {key!r} references unknown service_id {service_id!r}'
+            )
+        if int(service.get('container_port', -1)) != int(models[key].get('port', -2)):
+            raise SystemExit(
+                f'runtime topology binding {key!r} service_id {service_id!r} port does not match model_serving'
+            )
+
+    main_profiles = read_yaml('configs/main_model_profiles.yaml').get('profiles', {})
+    for filename in ('.env.example', '.env.compose.example', '.env.local.example'):
+        for line in (ROOT / filename).read_text(encoding='utf-8').splitlines():
+            if not line.startswith('MAIN_LLM_STATIC_PROFILE='):
+                continue
+            profile = line.partition('=')[2].strip()
+            if profile not in main_profiles:
+                raise SystemExit(
+                    f'{filename}: MAIN_LLM_STATIC_PROFILE references unknown profile {profile!r}'
+                )
+            break
+        else:
+            raise SystemExit(f'{filename}: MAIN_LLM_STATIC_PROFILE is required')
+
 def validate_ports() -> None:
     """모델 런타임 포트가 두 레지스트리에서 같은 값인지 확인한다.
 

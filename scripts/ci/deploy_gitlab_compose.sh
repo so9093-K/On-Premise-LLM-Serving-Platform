@@ -792,7 +792,7 @@ fi
 
 # 마지막 배포 이후 template에 추가된 새 키를 동기화(기존 값은 보존)
 echo "[deploy] syncing .env template keys..."
-if ! make sync-env; then
+if ! make sync-env ENV_FILE="${COMPOSE_ENV_FILE}"; then
   fail_after_env_backup "sync-env failed"
 fi
 
@@ -805,7 +805,7 @@ fi
 
 # 현재 .env에서 Prometheus bearer token 동기화(rsync 제외 대상)
 echo "[deploy] syncing runtime secrets..."
-if ! make sync-runtime-secrets; then
+if ! make sync-runtime-secrets ENV_FILE="${COMPOSE_ENV_FILE}"; then
   fail_after_env_backup "runtime secret sync failed"
 fi
 
@@ -827,7 +827,7 @@ echo "[deploy] validating gateway settings against synced .env..."
 # gateway 서비스의 `environment:` 블록(ops/compose/full-stack.private-network.yaml)을
 # 통해 주입한다. 이게 없으면 GatewayClients가 Path(__file__).parents[3]로 폴백하는데,
 # 이게 설치된 이미지 안에서는 /app이 아니라 site-packages 아래로 resolve되어
-# load_runtime_topology()가 configs/model_serving.yaml에서 (본질과 무관한 이유로)
+# load_runtime_topology()가 configs/runtime_topology.yaml을 찾다가
 # 404를 낸다. 이 검증이 진짜 설정 문제일 때만 실패하도록 명시적으로 값을 지정한다.
 if ! docker run --rm --env-file "${DEPLOY_PATH}/.env" -e APP_CONFIG_ROOT=/app \
   --entrypoint python "${PLATFORM_IMAGE_TO_DEPLOY}" \

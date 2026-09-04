@@ -43,10 +43,14 @@ from ai_model_serving.services.readiness import DependencyProbe, collect_readine
 
 
 from ai_model_serving.settings import AppSettings, EmbeddingProfile, RuntimeEndpoint, SecuritySettings
+from ai_model_serving.deployment_target import load_deployment_target
 from ai_model_serving.domain import ModelRegistry
 
 
 _ROOT = Path(__file__).resolve().parents[3]
+_DYNAMIC_TARGET = load_deployment_target(
+    _ROOT / "configs/deployment_targets.yaml", "linux-nvidia-dynamic"
+)
 _MODEL_CATALOG = yaml.safe_load((_ROOT / "configs/model_catalog.yaml").read_text(encoding="utf-8"))
 _MODEL_SERVING = yaml.safe_load((_ROOT / "configs/model_serving.yaml").read_text(encoding="utf-8"))
 
@@ -213,10 +217,13 @@ def settings() -> AppSettings:
     return AppSettings(
         app_env="test",
         project_version="0.1.0",
+        deployment_target=_DYNAMIC_TARGET,
         security=SecuritySettings(api_key_required=True, api_keys=frozenset({"test-key"}), internal_service_token="internal-test-key"),
         gateway_timeout_seconds=1,
         risk_adapter_timeout_seconds=1,
         runtime_endpoints={"main_llm": main_llm, "embedding": embedding, "embedding_ko": embedding_ko, "risk_prompt": endpoint},
+        required_runtime_keys=frozenset({"main_llm", "embedding", "embedding_ko", "risk_prompt"}),
+        controllable_runtime_keys=frozenset({"embedding", "embedding_ko", "risk_prompt"}),
         risk_adapter_base_url="http://risk",
         public_models=public_models(),
         embedding_profiles={

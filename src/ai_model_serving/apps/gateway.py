@@ -50,17 +50,13 @@ from ..api.routers.gateway_runtime_control import build_router as _build_runtime
 from ..services.runtime_state import RuntimeStateStore
 from ..services.sidecar_client import SidecarClient
 from ..services.main_model_inflight import MainModelInFlight
-from ..runtime_topology import load_runtime_topology
 
 class GatewayClients:
     def __init__(self, settings: AppSettings) -> None:
         state_path = os.environ.get("GATEWAY_RUNTIME_STATE_PATH")
-        topology = load_runtime_topology(
-            Path(os.environ.get("APP_CONFIG_ROOT", Path(__file__).resolve().parents[3]))
-        )
         self.runtime_state = RuntimeStateStore(
             Path(state_path) if state_path else None,
-            controllable_keys=topology.controllable_keys,
+            controllable_keys=settings.controllable_runtime_keys,
         )
         self.main_model_inflight = MainModelInFlight()
         self.sidecar: SidecarClient | None = (
@@ -81,23 +77,28 @@ class GatewayClients:
                 client = VLLMClient(settings.runtime(service_key))
                 self.runtime_clients_by_service_key[service_key] = client
             self.embedding_clients[model_id] = client
-        self.risk_adapter = VLLMClient(
-            RuntimeEndpoint(
-                logical_id="risk-adapter",
-                base_url=settings.risk_adapter_base_url,
-                model="risk-adapter",
-                timeout_seconds=settings.risk_adapter_timeout_seconds,
-                # risk forwarding 요청과 readiness probe가 동시에 진행되도록
-                # 허용한다. risk_adapter 서비스가 자체적으로 admission control을
-                # 수행하므로, 여기 gateway semaphore는 readiness probe가 사용자
-                # 요청 뒤에서 대기열에 밀리지 않도록 막는 역할만 하면 된다.
-                max_concurrency=4,
+        self.risk_adapter = (
+            VLLMClient(
+                RuntimeEndpoint(
+                    logical_id="risk-adapter",
+                    base_url=settings.risk_adapter_base_url,
+                    model="risk-adapter",
+                    timeout_seconds=settings.risk_adapter_timeout_seconds,
+                    # risk forwarding 요청과 readiness probe가 동시에 진행되도록
+                    # 허용한다. risk_adapter 서비스가 자체적으로 admission control을
+                    # 수행하므로, 여기 gateway semaphore는 readiness probe가 사용자
+                    # 요청 뒤에서 대기열에 밀리지 않도록 막는 역할만 하면 된다.
+                    max_concurrency=4,
+                )
             )
+            if settings.feature_enabled("risk")
+            else None
         )
         self.runtimes: dict[str, Any] = {
             "main_llm": self.main_llm,
-            "risk_adapter": self.risk_adapter,
         }
+        if self.risk_adapter is not None:
+            self.runtimes["risk_adapter"] = self.risk_adapter
         self.runtimes.update(self.runtime_clients_by_service_key)
 
     async def close(self) -> None:
@@ -191,31 +192,36 @@ def create_gateway_app(settings: AppSettings | None = None, clients: GatewayClie
             clients.runtime_state,
             clients.sidecar,
             clients.main_model_inflight,
+            include_embeddings=settings.feature_enabled("embeddings"),
         )
     )
-    app.include_router(_build_risk_router(api_dependencies, service, settings, clients.runtime_state))
-    app.include_router(_build_retrieval_router(api_dependencies, admin_dependencies, service, settings, clients.runtime_state))
-    app.include_router(_build_runtime_control_router(admin_dependencies, clients.runtime_state, clients.sidecar, settings))
+    if settings.feature_enabled("risk"):
+        app.include_router(_build_risk_router(api_dependencies, service, settings, clients.runtime_state))
+    if settings.feature_enabled("retrieval"):
+        app.include_router(_build_retrieval_router(api_dependencies, admin_dependencies, service, settings, clients.runtime_state))
+    if settings.feature_enabled("runtime_control"):
+        app.include_router(_build_runtime_control_router(admin_dependencies, clients.runtime_state, clients.sidecar, settings))
 
-    @app.get(
-        "/internal/main-model/drain-status",
-        include_in_schema=False,
-        operation_id="getMainModelDrainStatus",
-    )
-    async def main_model_drain_status(
-        _: None = Depends(require_bearer_auth(
-            SecuritySettings(
-                api_key_required=settings.security.internal_service_auth_required,
-                api_keys=(
-                    frozenset({settings.security.internal_service_token})
-                    if settings.security.internal_service_token
-                    else frozenset()
-                ),
-                internal_service_token=settings.security.internal_service_token,
-            )
-        )),
-    ) -> dict[str, int]:
-        return {"in_flight": await clients.main_model_inflight.count()}
+    if settings.feature_enabled("model_switching"):
+        @app.get(
+            "/internal/main-model/drain-status",
+            include_in_schema=False,
+            operation_id="getMainModelDrainStatus",
+        )
+        async def main_model_drain_status(
+            _: None = Depends(require_bearer_auth(
+                SecuritySettings(
+                    api_key_required=settings.security.internal_service_auth_required,
+                    api_keys=(
+                        frozenset({settings.security.internal_service_token})
+                        if settings.security.internal_service_token
+                        else frozenset()
+                    ),
+                    internal_service_token=settings.security.internal_service_token,
+                )
+            )),
+        ) -> dict[str, int]:
+            return {"in_flight": await clients.main_model_inflight.count()}
 
     _request_schemas, _response_schemas = schema_maps_from_specs(GATEWAY_ENDPOINTS)
     install_contract_openapi(

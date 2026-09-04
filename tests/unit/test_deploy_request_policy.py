@@ -9,6 +9,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 POLICY = "scripts/lib/deploy_request_policy.sh"
+DEPLOY_SCRIPT = ROOT / "scripts/ci/deploy_gitlab_compose.sh"
 
 _ISOLATED_KEYS = (
     "DEPLOY_MODE",
@@ -99,3 +100,13 @@ def test_full_deploy_without_new_unified_image_keeps_remote_pins():
 
     assert result.returncode == 0
     assert result.stdout == "|"
+
+
+def test_remote_deploy_explicitly_syncs_the_shared_env_before_validation() -> None:
+    script = DEPLOY_SCRIPT.read_text(encoding="utf-8")
+    backup = script.index('cp "${COMPOSE_ENV_FILE}" "${ENV_BACKUP}"')
+    sync = script.index('make sync-env ENV_FILE="${COMPOSE_ENV_FILE}"')
+    validate = script.index('validating gateway settings against synced .env')
+
+    assert backup < sync < validate
+    assert 'make sync-runtime-secrets ENV_FILE="${COMPOSE_ENV_FILE}"' in script

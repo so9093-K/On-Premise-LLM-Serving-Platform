@@ -1,0 +1,38 @@
+# Gateway-only static target. The Main runtime is started and supervised outside
+# this Compose project (native process, systemd, another Compose project, etc.).
+name: ${COMPOSE_PROJECT_NAME:-ai-model-serving-static}
+
+services:
+  gateway:
+    image: ${PLATFORM_IMAGE:?Set PLATFORM_IMAGE to a tested platform image tag}
+    restart: unless-stopped
+    command:
+      - python
+      - -m
+      - uvicorn
+      - ai_model_serving.apps.gateway_asgi:app
+      - --host
+      - 0.0.0.0
+      - --port
+      - "9400"
+    ports:
+      - ${GATEWAY_BIND_ADDR:-127.0.0.1}:${GATEWAY_PORT:-9400}:9400
+    env_file: ${COMPOSE_SERVICE_ENV_FILE:?Set COMPOSE_SERVICE_ENV_FILE}
+    environment:
+      APP_CONFIG_ROOT: /app
+      PYTHONPATH: /app/src
+      DEPLOYMENT_TARGET: linux-nvidia-static
+      ADMIN_SIDECAR_URL: ""
+      MAIN_LLM_BASE_URL: ${MAIN_LLM_BASE_URL:-http://host.docker.internal:9401/v1}
+      MAIN_LLM_STATIC_PROFILE: ${MAIN_LLM_STATIC_PROFILE:?Set the fixed serving profile}
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    volumes:
+      - ../../.runtime/gateway-static:/var/lib/ai-model-serving
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - python -c "import urllib.request; urllib.request.urlopen('http://localhost:9400/health')"
+      interval: 10s
+      timeout: 5s
+      retries: 6

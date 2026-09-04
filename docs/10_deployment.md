@@ -180,7 +180,10 @@ DEPLOY_RELEASE_ID=<release id>
 
 새 Unified vLLM 이미지가 있는 Full 배포에서는 공통 Runtime 이미지 설정도 함께 갱신한다.
 
-배포 소스의 환경 템플릿에 새 키가 추가된 경우 `make sync-env`가 대상 `.env`에 해당 키를 동기화한다. 기존 운영 값은 유지된다.
+배포 소스의 환경 템플릿에 새 키가 추가된 경우 `make sync-env`가 `COMPOSE_ENV_FILE`로
+지정된 공유 `.env`에 해당 키를 동기화한다. 배포 스크립트는 이 경로를 `ENV_FILE`로
+명시해 릴리스 디렉터리의 상대 경로나 심볼릭 링크 해석에 의존하지 않는다. 기존 운영
+값과 secret은 유지되며, 실패하면 배포 전에 만든 `.env` 백업으로 복구한다.
 
 `AUTH_MODE`가 전달된 배포에서는 해당 인증 프로파일을 적용하고, Runtime Secret 설정은 `make sync-runtime-secrets`에서 갱신한다.
 

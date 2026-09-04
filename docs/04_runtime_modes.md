@@ -1,9 +1,47 @@
 # 4. 실행 환경과 모드
 
-AI Model Serving Platform은 개발 목적의 **app-only**와 실제 모델 runtime을 포함하는 **full-stack** 두 가지 실행 방식을 제공한다.
+AI Model Serving Platform은 개발 목적의 **app-only**, 전체 lifecycle을 소유하는
+**full-stack dynamic**, 외부가 Main runtime lifecycle을 소유하는 **static main** 실행 방식을 제공한다.
 
 - **app-only**: Gateway와 Risk Adapter 중심의 application 개발 환경
 - **full-stack**: vLLM runtime, Admin / Control Sidecar, observability를 포함한 전체 서빙 환경
+- **static main**: 고정된 OpenAI-compatible Main runtime endpoint만 사용하는 최소 서빙 환경
+
+실행 환경의 기능 집합은 `configs/deployment_targets.yaml`의 `DEPLOYMENT_TARGET`이 결정한다.
+`static`은 macOS의 별칭이 아니며 Linux CUDA runtime도 static으로 연결할 수 있다.
+
+### static main
+
+`linux-nvidia-static`에서는 Main runtime을 systemd, 별도 Compose project 또는 native
+process가 기동·감시한다. Gateway는 고정 endpoint로 Chat과 Streaming만 제공한다.
+`MAIN_LLM_STATIC_PROFILE`은 외부 runtime과 동일한 검증된 Serving Profile로 반드시
+고정하며, Gateway request limit과 capability 광고는 이 profile을 따른다.
+
+```text
+Client -> Gateway -> externally managed Main runtime
+```
+
+Embedding, Retrieval, Risk Adapter, Sidecar, 모델 전환과 GPU admission은 이 target의
+feature set에 포함되지 않으므로 client, readiness dependency, route, OpenAPI 및
+`/v1/models`에도 나타나지 않는다. Gateway-only Compose 정의는
+`ops/compose/static-main.external-runtime.yaml`에 있다.
+
+외부 Main runtime을 먼저 기동한 뒤 다음과 같이 Gateway만 실행한다.
+
+```bash
+DEPLOYMENT_TARGET=linux-nvidia-static
+MAIN_LLM_STATIC_PROFILE=gemma4-12b-unified-fp8
+MAIN_LLM_BASE_URL=http://host.docker.internal:9401/v1
+
+COMPOSE_SERVICE_ENV_FILE="$(pwd)/.env" \
+docker compose --env-file .env \
+  -f ops/compose/static-main.external-runtime.yaml up -d
+```
+
+`MAIN_LLM_STATIC_PROFILE`은 실제 외부 runtime의 model revision과 capability qualification에
+맞는 profile이어야 한다. 현재 Linux static target은 기능 구현과 실제 Chat 연결을 확인한
+`implemented` 상태이며 장시간·장문맥 qualification은 남아 있다. `macos-metal-static`은
+하드웨어 검증 전 `planned` 상태라 Gateway가 기동을 거부한다.
 
 이 문서는 각 서비스가 실제로 어떻게 실행되고 연결되는지, 그리고 어떤 기준으로 준비 상태를 판단하는지를 설명한다.
 

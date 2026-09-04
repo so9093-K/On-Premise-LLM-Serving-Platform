@@ -2,8 +2,17 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
+from ai_model_serving.deployment_target import load_deployment_target
 from ai_model_serving.errors import ServiceError
 from ai_model_serving.settings import AppSettings, EmbeddingProfile, RuntimeEndpoint, SecuritySettings
+
+
+_DYNAMIC_TARGET = load_deployment_target(
+    Path(__file__).resolve().parents[2] / "configs/deployment_targets.yaml",
+    "linux-nvidia-dynamic",
+)
 
 
 class FakeDetectorClient:
@@ -77,6 +86,7 @@ def settings() -> AppSettings:
     return AppSettings(
         app_env="test",
         project_version="0.1.0",
+        deployment_target=_DYNAMIC_TARGET,
         security=SecuritySettings(
             api_key_required=True,
             api_keys=frozenset({"test-key"}),
@@ -85,6 +95,8 @@ def settings() -> AppSettings:
         gateway_timeout_seconds=1,
         risk_adapter_timeout_seconds=1,
         runtime_endpoints={"main_llm": endpoint, "embedding": embedding, "risk_prompt": risk_prompt},
+        required_runtime_keys=frozenset({"main_llm", "embedding", "risk_prompt"}),
+        controllable_runtime_keys=frozenset({"embedding", "risk_prompt"}),
         risk_adapter_base_url="http://risk",
         embedding_profiles={
             "test-embed": EmbeddingProfile(

@@ -5,7 +5,9 @@ import os
 from typing import Any
 
 from .domain import ModelRegistry
-from .main_model.control import load_main_model_catalog
+from .deployment_target import DeploymentTarget, load_deployment_target
+from .serving_profile import load_main_serving_catalog
+from .runtime_topology import load_runtime_topology
 from .risk_input import detector_prompt_char_budget
 from .configuration import load_yaml_mapping
 from .project_paths import resolve_project_root as _resolve_project_root
@@ -14,7 +16,6 @@ from .settings_parts.env import (
     as_float as _as_float,
     as_int as _as_int,
     env as _env,
-    env_mapping,
     load_local_dotenv_when_allowed,
 )
 from .settings_parts.runtime_endpoints import build_runtime_endpoint, validate_timeout_budget
@@ -28,6 +29,7 @@ def _public_models_from_registry(
     model_catalog: dict[str, Any],
     model_serving: dict[str, Any],
     default_main_model_gateway_policy: dict[str, Any],
+    deployment_target: DeploymentTarget,
 ) -> tuple[dict[str, Any], ...]:
     # ModelRegistry는 공개 목록의 공통 projection을 담당한다. main_llm의 API
     # parameter 표면만은 default Profile에서 주입한다. 실제 요청 시에는 Gateway가
@@ -44,7 +46,18 @@ def _public_models_from_registry(
     if issues:
         details = "; ".join(f"{issue.code}: {issue.message}" for issue in issues)
         raise RuntimeError(f"Model registry and serving config are not aligned: {details}")
-    return registry.public_model_response_items()
+    enabled_ids = {str(model_serving["models"]["main_llm"]["served_model_name"])}
+    if deployment_target.supports("embeddings"):
+        enabled_ids.update(str(item) for item in model_serving.get("embedding_profiles", {}))
+    if deployment_target.supports("risk"):
+        enabled_ids.update(
+            str(cfg.get("source_model", key))
+            for key, cfg in (model_serving.get("risk_adapter", {}).get("detectors", {}) or {}).items()
+            if isinstance(cfg, dict) and cfg.get("type") == "vllm" and cfg.get("enabled", True) is True
+        )
+    return tuple(
+        item for item in registry.public_model_response_items() if str(item.get("id")) in enabled_ids
+    )
 
 
 def _documentation_settings(documentation_cfg: dict[str, Any]) -> DocumentationSettings:
@@ -79,9 +92,12 @@ def _build_runtime_endpoints(
     models: dict[str, Any],
     timeout: float,
     operational_limits: dict[str, Any],
+    enabled_service_keys: frozenset[str] | None = None,
 ) -> dict[str, RuntimeEndpoint]:
     endpoints: dict[str, RuntimeEndpoint] = {}
     for model_key, cfg in models.items():
+        if enabled_service_keys is not None and str(model_key) not in enabled_service_keys:
+            continue
         if cfg.get("enabled", True) is not True:
             continue
         endpoints[str(model_key)] = build_runtime_endpoint(
@@ -178,11 +194,31 @@ def load_settings(root: Path | None = None, env_file: Path | str | None = None) 
     load_local_dotenv_when_allowed(project_root, env_file)
 
     model_serving = load_yaml_mapping(project_root / "configs" / "model_serving.yaml")
-    model_catalog = load_yaml_mapping(project_root / "configs" / "model_catalog.yaml")
-    main_model_catalog = load_main_model_catalog(
-        project_root / "configs" / "main_model_profiles.yaml",
-        env=env_mapping(),
+    deployment_target = load_deployment_target(
+        project_root / "configs" / "deployment_targets.yaml",
+        _env("DEPLOYMENT_TARGET", "") or None,
     )
+    if deployment_target.validation_status not in {"verified", "implemented"}:
+        raise RuntimeError(
+            f"DEPLOYMENT_TARGET {deployment_target.target_id!r} is "
+            f"{deployment_target.validation_status} and cannot be started"
+        )
+    model_catalog = load_yaml_mapping(project_root / "configs" / "model_catalog.yaml")
+    main_model_catalog = load_main_serving_catalog(
+        project_root / "configs" / "main_model_profiles.yaml"
+    )
+    static_main_profile = ""
+    selected_main_profile = main_model_catalog.default_profile
+    if deployment_target.control_mode == "static":
+        static_main_profile = _env("MAIN_LLM_STATIC_PROFILE", "").strip()
+        if not static_main_profile:
+            raise RuntimeError("MAIN_LLM_STATIC_PROFILE is required for a static deployment target")
+        if static_main_profile not in main_model_catalog.profiles:
+            allowed = ", ".join(sorted(main_model_catalog.profiles))
+            raise RuntimeError(
+                f"unknown MAIN_LLM_STATIC_PROFILE {static_main_profile!r}; allowed: {allowed}"
+            )
+        selected_main_profile = static_main_profile
     version = (project_root / "VERSION").read_text(encoding="utf-8").strip()
 
     security_cfg = model_serving.get("security", {})
@@ -190,6 +226,7 @@ def load_settings(root: Path | None = None, env_file: Path | str | None = None) 
     operational_limits = model_serving.get("operational_limits", {})
     documentation_cfg = model_serving.get("documentation", {})
     models = model_serving["models"]
+    runtime_topology = load_runtime_topology(project_root)
 
     documentation = _documentation_settings(documentation_cfg)
     cors = _cors_settings()
@@ -208,16 +245,41 @@ def load_settings(root: Path | None = None, env_file: Path | str | None = None) 
         minimum=0.1,
     )
 
+    enabled_service_keys = runtime_topology.runtime_keys_for_features(
+        deployment_target.features
+    )
+    if "main_llm" not in enabled_service_keys:
+        raise RuntimeError(
+            f"deployment target {deployment_target.target_id!r} does not project main_llm"
+        )
+    required_runtime_keys = runtime_topology.required_keys_for_features(
+        deployment_target.features
+    )
+    controllable_runtime_keys = (
+        runtime_topology.controllable_keys & enabled_service_keys
+        if deployment_target.controllable
+        else frozenset()
+    )
     runtime_endpoints = _build_runtime_endpoints(
         models=models,
         timeout=vllm_timeout,
         operational_limits=operational_limits,
+        enabled_service_keys=frozenset(enabled_service_keys),
     )
-    embedding_profiles = _embedding_profiles_from_config(model_serving)
+    embedding_profiles = (
+        _embedding_profiles_from_config(model_serving)
+        if deployment_target.supports("embeddings")
+        else {}
+    )
     risk_adapter_cfg = model_serving.get("risk_adapter")
-    if not isinstance(risk_adapter_cfg, dict):
+    if deployment_target.supports("risk") and not isinstance(risk_adapter_cfg, dict):
         raise RuntimeError("risk_adapter must be configured in configs/model_serving.yaml")
-    risk_detectors = _risk_detectors_from_config(risk_adapter_cfg)
+    risk_adapter_cfg = risk_adapter_cfg if isinstance(risk_adapter_cfg, dict) else {}
+    risk_detectors = (
+        _risk_detectors_from_config(risk_adapter_cfg)
+        if deployment_target.supports("risk")
+        else ()
+    )
     aggregate_detector_order = _aggregate_order(risk_adapter_cfg, risk_detectors)
     main_llm = runtime_endpoints["main_llm"]
     # timeout budget에는 vLLM detector만 반영된다; local detector는 in-process로 실행된다.
@@ -233,13 +295,14 @@ def load_settings(root: Path | None = None, env_file: Path | str | None = None) 
     )
 
     risk_adapter_execution = str(risk_adapter_cfg.get("aggregate", {}).get("execution", risk_adapter_cfg.get("aggregate_execution", "sequential")))
-    validate_timeout_budget(
-        gateway_timeout_seconds=gateway_timeout_seconds,
-        risk_adapter_timeout_seconds=risk_adapter_timeout_seconds,
-        main_llm=main_llm,
-        risk_detectors=risk_detector_endpoints,
-        risk_adapter_execution=risk_adapter_execution,
-    )
+    if deployment_target.supports("risk"):
+        validate_timeout_budget(
+            gateway_timeout_seconds=gateway_timeout_seconds,
+            risk_adapter_timeout_seconds=risk_adapter_timeout_seconds,
+            main_llm=main_llm,
+            risk_detectors=risk_detector_endpoints,
+            risk_adapter_execution=risk_adapter_execution,
+        )
 
     risk_input_policy = risk_adapter_cfg.get("input_policy", {})
     detector_windows = [endpoint.max_model_len for endpoint in risk_detector_endpoints]
@@ -248,7 +311,9 @@ def load_settings(root: Path | None = None, env_file: Path | str | None = None) 
     if detector_windows:
         detector_context_chars = detector_prompt_char_budget(min(int(window) for window in detector_windows))
     else:
-        detector_context_chars = _as_int("RISK_INPUT_MAX_CHARS", int(risk_input_policy["max_prompt_chars"]), minimum=1)
+        detector_context_chars = _as_int(
+            "RISK_INPUT_MAX_CHARS", int(risk_input_policy.get("max_prompt_chars", 7_936)), minimum=1
+        )
     risk_input_max_chars = _as_int(
         "RISK_INPUT_MAX_CHARS",
         int(risk_input_policy.get("max_prompt_chars", detector_context_chars)),
@@ -260,26 +325,43 @@ def load_settings(root: Path | None = None, env_file: Path | str | None = None) 
     return AppSettings(
         app_env=app_env,
         project_version=_env("PROJECT_VERSION", version),
+        deployment_target=deployment_target,
         security=security,
         gateway_timeout_seconds=gateway_timeout_seconds,
         risk_adapter_timeout_seconds=risk_adapter_timeout_seconds,
-        risk_adapter_base_url=_env("RISK_ADAPTER_BASE_URL", str(risk_adapter_cfg["endpoint"])).rstrip("/"),
+        risk_adapter_base_url=(
+            _env("RISK_ADAPTER_BASE_URL", str(risk_adapter_cfg.get("endpoint", ""))).rstrip("/")
+            if deployment_target.supports("risk")
+            else ""
+        ),
         runtime_endpoints=runtime_endpoints,
+        required_runtime_keys=required_runtime_keys,
+        controllable_runtime_keys=controllable_runtime_keys,
         risk_detectors=risk_detectors,
         aggregate_detector_order=aggregate_detector_order,
         default_main_model_gateway_policy=dict(
-            main_model_catalog.profiles[main_model_catalog.default_profile].gateway_policy
+            main_model_catalog.profiles[selected_main_profile].gateway_policy
         ),
         main_model_profile_summaries=tuple(
             (profile.profile_id, profile.display_name, str(profile.compatibility.get("status", "")))
             for profile in main_model_catalog.profiles.values()
-        ),
+        ) if deployment_target.supports("model_switching") else (),
         main_model_profile_policies=tuple(
             dict(profile.gateway_policy) for profile in main_model_catalog.profiles.values()
+        ) if deployment_target.supports("model_switching") else (
+            dict(main_model_catalog.profiles[selected_main_profile].gateway_policy),
         ),
         embedding_profiles=embedding_profiles,
-        default_embedding_model=str(model_serving["default_embedding_model"]),
-        default_retrieval_model=str(model_serving["default_retrieval_model"]),
+        default_embedding_model=(
+            str(model_serving["default_embedding_model"])
+            if deployment_target.supports("embeddings")
+            else ""
+        ),
+        default_retrieval_model=(
+            str(model_serving["default_retrieval_model"])
+            if deployment_target.supports("retrieval")
+            else ""
+        ),
         max_request_body_bytes=_as_int(
             "MAX_REQUEST_BODY_BYTES",
             int(operational_limits.get("max_request_body_bytes", 100_000_000)),
@@ -289,7 +371,8 @@ def load_settings(root: Path | None = None, env_file: Path | str | None = None) 
         public_models=_public_models_from_registry(
             model_catalog,
             model_serving,
-            main_model_catalog.profiles[main_model_catalog.default_profile].gateway_policy,
+            main_model_catalog.profiles[selected_main_profile].gateway_policy,
+            deployment_target,
         ),
         documentation=documentation,
         cors=cors,
@@ -297,7 +380,12 @@ def load_settings(root: Path | None = None, env_file: Path | str | None = None) 
         streaming_max_duration_seconds=float(streaming_cfg.get("max_duration_seconds", 300.0)),
         streaming_max_chunks=int(streaming_cfg.get("max_chunks", 20_000)),
         streaming_max_bytes=int(streaming_cfg.get("max_bytes", 104_857_600)),
-        admin_sidecar_url=_env("ADMIN_SIDECAR_URL", ""),
+        admin_sidecar_url=(
+            _env("ADMIN_SIDECAR_URL", "")
+            if deployment_target.controllable
+            else ""
+        ),
+        static_main_profile=static_main_profile,
         deploy_release_id=_env("DEPLOY_RELEASE_ID", ""),
         log_request_response_body=_as_bool(_env("LOG_REQUEST_RESPONSE_BODY", "false"), False),
     )

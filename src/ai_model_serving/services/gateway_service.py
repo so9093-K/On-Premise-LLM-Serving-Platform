@@ -132,7 +132,7 @@ class StreamingUsageObserver:
 class GatewayClientSet(Protocol):
     main_llm: StreamingRuntimeClient
     embedding_clients: dict[str, JsonRuntimeClient]
-    risk_adapter: JsonRuntimeClient
+    risk_adapter: JsonRuntimeClient | None
 
 
 class GatewayService:

@@ -2,6 +2,7 @@
 # 실제 실행값의 필수 여부와 유효성은 settings·compose preflight·auth 진단이 판단한다.
 common_example_keys:
   - APP_ENV
+  - DEPLOYMENT_TARGET
   - LOG_LEVEL
   - GATEWAY_HOST
   - GATEWAY_PORT
@@ -35,6 +36,7 @@ runtime_override_example_keys:
       - QUEUE_TIMEOUT_SECONDS
       - BOOT_PROFILE
       - PROFILE_LOCKED
+      - STATIC_PROFILE
   embedding:
     env_prefix: EMBEDDING
     suffixes:

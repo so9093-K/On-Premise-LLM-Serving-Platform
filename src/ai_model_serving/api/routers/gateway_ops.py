@@ -48,6 +48,8 @@ async def _readiness(
     runtime_state = getattr(clients, "runtime_state", None)
 
     async def runtime_required(service_key: str) -> bool:
+        if service_key not in settings.required_runtime_keys:
+            return False
         if runtime_state is None:
             return True
         state = await runtime_state.get(service_key)
@@ -72,19 +74,27 @@ async def _readiness(
                     required=await runtime_required(service_key),
                 )
             )
-    risk_required = await runtime_required("risk_prompt")
     probes = [
-        DependencyProbe("main_llm_vllm", clients.main_llm, "models"),
-        *embedding_probes,
         DependencyProbe(
-            "risk_adapter",
-            clients.risk_adapter,
-            "/ready",
-            {"authorization": f"Bearer {admin_token}"} if admin_token else None,
-            _risk_adapter_readiness,
-            required=risk_required,
+            "main_llm_vllm",
+            clients.main_llm,
+            "models",
+            required=await runtime_required("main_llm"),
         ),
+        *embedding_probes,
     ]
+    risk_adapter = getattr(clients, "risk_adapter", None)
+    if settings.feature_enabled("risk") and risk_adapter is not None:
+        probes.append(
+            DependencyProbe(
+                "risk_adapter",
+                risk_adapter,
+                "/ready",
+                {"authorization": f"Bearer {admin_token}"} if admin_token else None,
+                _risk_adapter_readiness,
+                required=await runtime_required("risk_prompt"),
+            )
+        )
     return await collect_readiness(service="gateway", probes=probes, metrics=metrics, timeout_seconds=timeout_seconds)
 
 

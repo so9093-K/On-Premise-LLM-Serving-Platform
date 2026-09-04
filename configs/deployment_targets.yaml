@@ -1,0 +1,52 @@
+version: 1
+default_target: linux-nvidia-dynamic
+
+targets:
+  linux-nvidia-dynamic:
+    display_name: Linux NVIDIA Dynamic
+    platform: linux
+    runtime_backend: vllm-cuda
+    control_mode: sidecar
+    lifecycle_owner: platform
+    validation_status: verified
+    features:
+      chat: true
+      embeddings: true
+      retrieval: true
+      risk: true
+      runtime_control: true
+      model_switching: true
+      gpu_admission: true
+
+  linux-nvidia-static:
+    display_name: Linux NVIDIA Static Main
+    platform: linux
+    runtime_backend: vllm-cuda
+    control_mode: static
+    lifecycle_owner: external
+    # Gateway static serving 경로는 구현·실측됐지만 장시간/장문맥 qualification은 남아 있다.
+    validation_status: implemented
+    features:
+      chat: true
+      embeddings: false
+      retrieval: false
+      risk: false
+      runtime_control: false
+      model_switching: false
+      gpu_admission: false
+
+  macos-metal-static:
+    display_name: macOS Metal Static Main
+    platform: macos
+    runtime_backend: vllm-metal
+    control_mode: static
+    lifecycle_owner: external
+    validation_status: planned
+    features:
+      chat: true
+      embeddings: false
+      retrieval: false
+      risk: false
+      runtime_control: false
+      model_switching: false
+      gpu_admission: false

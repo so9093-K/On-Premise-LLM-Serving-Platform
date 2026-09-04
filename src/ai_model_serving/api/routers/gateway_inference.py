@@ -132,6 +132,8 @@ def build_router(
     state_store: RuntimeStateStore | None = None,
     sidecar: SidecarClient | None = None,
     main_model_inflight: MainModelInFlight | None = None,
+    *,
+    include_embeddings: bool = True,
 ) -> APIRouter:
     router = APIRouter()
 
@@ -294,6 +296,9 @@ def build_router(
                     response_text=_chat_response_preview(result),
                 )
             return result
+
+    if not include_embeddings:
+        return router
 
     _s = _GW[("POST", "/v1/embeddings")]
 

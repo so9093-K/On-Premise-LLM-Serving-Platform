@@ -10,7 +10,14 @@ import shutil
 import pytest
 import yaml
 
+from ai_model_serving.deployment_target import load_deployment_target
 from ai_model_serving.settings import AppSettings, EmbeddingProfile, RuntimeEndpoint, SecuritySettings, load_settings
+
+
+_DYNAMIC_TARGET = load_deployment_target(
+    Path(__file__).resolve().parents[2] / "configs/deployment_targets.yaml",
+    "linux-nvidia-dynamic",
+)
 
 
 @pytest.fixture(autouse=True)
@@ -88,6 +95,9 @@ def test_load_settings_reads_local_dotenv_without_overriding_exported_values(tmp
     shutil.copy(repo / "configs" / "model_serving.yaml", root / "configs" / "model_serving.yaml")
     shutil.copy(repo / "configs" / "model_catalog.yaml", root / "configs" / "model_catalog.yaml")
     shutil.copy(repo / "configs" / "main_model_profiles.yaml", root / "configs" / "main_model_profiles.yaml")
+    shutil.copy(repo / "configs" / "deployment_targets.yaml", root / "configs" / "deployment_targets.yaml")
+    shutil.copy(repo / "configs" / "runtime_topology.yaml", root / "configs" / "runtime_topology.yaml")
+    shutil.copy(repo / "configs" / "services.yaml", root / "configs" / "services.yaml")
     shutil.copy(repo / "VERSION", root / "VERSION")
     (root / ".env").write_text(
         "APP_ENV=local\nAPI_KEYS=dotenv-key\nMAX_REQUEST_BODY_BYTES=1234\nMAIN_LLM_MAX_CONCURRENCY=2\n",
@@ -122,6 +132,9 @@ def test_load_settings_ignores_local_dotenv_when_app_env_is_explicitly_non_local
     shutil.copy(repo / "configs" / "model_serving.yaml", root / "configs" / "model_serving.yaml")
     shutil.copy(repo / "configs" / "model_catalog.yaml", root / "configs" / "model_catalog.yaml")
     shutil.copy(repo / "configs" / "main_model_profiles.yaml", root / "configs" / "main_model_profiles.yaml")
+    shutil.copy(repo / "configs" / "deployment_targets.yaml", root / "configs" / "deployment_targets.yaml")
+    shutil.copy(repo / "configs" / "runtime_topology.yaml", root / "configs" / "runtime_topology.yaml")
+    shutil.copy(repo / "configs" / "services.yaml", root / "configs" / "services.yaml")
     shutil.copy(repo / "VERSION", root / "VERSION")
     (root / ".env").write_text(
         "APP_ENV=local\n"
@@ -160,6 +173,9 @@ def test_load_settings_uses_serving_runtime_defaults(tmp_path):
     shutil.copy(repo / "configs" / "model_serving.yaml", root / "configs" / "model_serving.yaml")
     shutil.copy(repo / "configs" / "model_catalog.yaml", root / "configs" / "model_catalog.yaml")
     shutil.copy(repo / "configs" / "main_model_profiles.yaml", root / "configs" / "main_model_profiles.yaml")
+    shutil.copy(repo / "configs" / "deployment_targets.yaml", root / "configs" / "deployment_targets.yaml")
+    shutil.copy(repo / "configs" / "runtime_topology.yaml", root / "configs" / "runtime_topology.yaml")
+    shutil.copy(repo / "configs" / "services.yaml", root / "configs" / "services.yaml")
     shutil.copy(repo / "VERSION", root / "VERSION")
 
     serving_path = root / "configs" / "model_serving.yaml"
@@ -203,6 +219,9 @@ def test_load_settings_rejects_invalid_or_missing_required_model_configuration(t
     shutil.copy(repo / "configs" / "model_serving.yaml", root / "configs" / "model_serving.yaml")
     shutil.copy(repo / "configs" / "model_catalog.yaml", root / "configs" / "model_catalog.yaml")
     shutil.copy(repo / "configs" / "main_model_profiles.yaml", root / "configs" / "main_model_profiles.yaml")
+    shutil.copy(repo / "configs" / "deployment_targets.yaml", root / "configs" / "deployment_targets.yaml")
+    shutil.copy(repo / "configs" / "runtime_topology.yaml", root / "configs" / "runtime_topology.yaml")
+    shutil.copy(repo / "configs" / "services.yaml", root / "configs" / "services.yaml")
     shutil.copy(repo / "VERSION", root / "VERSION")
 
     serving_path = root / "configs" / "model_serving.yaml"
@@ -310,9 +329,11 @@ def test_load_settings_requires_admin_key_when_admin_auth_enabled(monkeypatch):
 
 def _minimal_settings_kwargs() -> dict:
     endpoint = RuntimeEndpoint("local-embed", "http://embed/v1", "local-embed", 1)
+    main_endpoint = RuntimeEndpoint("local-main", "http://main/v1", "local-main", 1)
     return {
         "app_env": "test",
         "project_version": "0.1.0",
+        "deployment_target": _DYNAMIC_TARGET,
         "security": SecuritySettings(
             api_key_required=False,
             api_keys=frozenset(),
@@ -321,18 +342,18 @@ def _minimal_settings_kwargs() -> dict:
         "gateway_timeout_seconds": 1,
         "risk_adapter_timeout_seconds": 1,
         "risk_adapter_base_url": "http://risk",
-        "runtime_endpoints": {"embedding": endpoint},
+        "runtime_endpoints": {"main_llm": main_endpoint, "embedding": endpoint},
         "default_embedding_model": "local-embed",
         "default_retrieval_model": "local-embed",
     }
 
 
-def test_app_settings_requires_explicit_embedding_configuration() -> None:
+def test_app_settings_allows_embedding_feature_to_be_absent() -> None:
     kwargs = _minimal_settings_kwargs()
     kwargs.pop("default_embedding_model")
     kwargs.pop("default_retrieval_model")
-    with pytest.raises(ValueError, match="embedding_profiles must be explicitly configured"):
-        AppSettings(**kwargs)
+    settings = AppSettings(**kwargs)
+    assert settings.embedding_profiles == {}
 
 
 def test_app_settings_validates_embedding_route_service_keys() -> None:

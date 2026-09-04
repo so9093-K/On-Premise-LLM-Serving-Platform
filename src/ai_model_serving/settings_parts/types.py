@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+from ..deployment_target import DeploymentTarget
+
 
 @dataclass(frozen=True)
 class SecuritySettings:
@@ -97,10 +99,13 @@ class AppSettings:
     app_env: str
     project_version: str
     security: SecuritySettings
+    deployment_target: DeploymentTarget
     gateway_timeout_seconds: float
     risk_adapter_timeout_seconds: float
     risk_adapter_base_url: str
     runtime_endpoints: dict[str, RuntimeEndpoint] = field(default_factory=dict)
+    required_runtime_keys: frozenset[str] = frozenset()
+    controllable_runtime_keys: frozenset[str] = frozenset()
     risk_detectors: tuple[RiskDetectorSettings, ...] = ()
     aggregate_detector_order: tuple[str, ...] = ()
     # Sidecar 없이 Gateway를 단독 실행할 때 사용할 default profile의 정책이다.
@@ -129,10 +134,25 @@ class AppSettings:
     streaming_max_chunks: int = 20_000
     streaming_max_bytes: int = 104_857_600
     admin_sidecar_url: str = ""
+    static_main_profile: str = ""
     deploy_release_id: str = ""
     log_request_response_body: bool = False
 
     def __post_init__(self) -> None:
+        if "main_llm" not in self.runtime_endpoints:
+            raise ValueError("main_llm runtime endpoint must be configured")
+        unknown_required = self.required_runtime_keys - self.runtime_endpoints.keys()
+        if unknown_required:
+            raise ValueError(
+                "required_runtime_keys reference unknown runtime endpoints: "
+                + ", ".join(sorted(unknown_required))
+            )
+        unknown_controllable = self.controllable_runtime_keys - self.runtime_endpoints.keys()
+        if unknown_controllable:
+            raise ValueError(
+                "controllable_runtime_keys reference unknown runtime endpoints: "
+                + ", ".join(sorted(unknown_controllable))
+            )
         self._validate_embedding_configuration()
         if not self.risk_detectors:
             detectors: list[RiskDetectorSettings] = []
@@ -155,6 +175,18 @@ class AppSettings:
                 "aggregate_detector_order",
                 tuple(detector.key for detector in self.risk_detectors if detector.enabled),
             )
+        missing_detector_runtimes = {
+            detector.service_key
+            for detector in self.risk_detectors
+            if detector.enabled
+            and detector.detector_type != "local"
+            and detector.service_key not in self.runtime_endpoints
+        }
+        if missing_detector_runtimes:
+            raise ValueError(
+                "risk detectors reference unknown runtime endpoints: "
+                + ", ".join(sorted(missing_detector_runtimes))
+            )
 
     def runtime(self, key: str) -> RuntimeEndpoint:
         try:
@@ -162,12 +194,17 @@ class AppSettings:
         except KeyError as exc:
             raise KeyError(f"runtime endpoint is not configured or enabled: {key}") from exc
 
+    def feature_enabled(self, feature: str) -> bool:
+        return self.deployment_target.supports(feature)
+
     def enabled_risk_detectors(self) -> tuple[RiskDetectorSettings, ...]:
         return tuple(detector for detector in self.risk_detectors if detector.enabled)
 
     def _validate_embedding_configuration(self) -> None:
         if not self.embedding_profiles:
-            raise ValueError("embedding_profiles must be explicitly configured")
+            if self.default_embedding_model or self.default_retrieval_model:
+                raise ValueError("embedding defaults require configured embedding_profiles")
+            return
         models_by_service_key: dict[str, set[str]] = {}
         for profile in self.embedding_profiles.values():
             models_by_service_key.setdefault(profile.service_key, set()).add(profile.model)

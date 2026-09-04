@@ -132,6 +132,8 @@ def test_sync_env_removes_only_registered_keys_and_keeps_server_only_settings(tm
     assert 'MAIN_MODEL_STATE_PATH=/app/.runtime/main-model/main-model-state.json' in lines
     assert 'SECRETS_GENERATED_AT=2026-05-11T07:33:08Z' in lines
     assert 'HF_TOKEN=hf_existing' in lines
+    assert 'DEPLOYMENT_TARGET=linux-nvidia-dynamic' in lines
+    assert 'MAIN_LLM_STATIC_PROFILE=gemma4-12b-unified-fp8' in lines
 
 
 def test_setup_env_force_preserves_custom_risk_vllm_image(tmp_path):

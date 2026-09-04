@@ -31,10 +31,10 @@ init-env-compose-force: ## compose용 .env 강제 재생성
 	$(PYTHON) scripts/config/setup_env.py --profile compose --force
 
 sync-runtime-secrets: ## .env의 ADMIN_API_KEY를 .runtime으로 다시 기록
-	$(PYTHON) scripts/config/setup_env.py --sync-runtime-secrets --env-file "$${ENV_FILE:-.env}"
+	$(PYTHON) scripts/config/setup_env.py --sync-runtime-secrets --env-file "$(if $(ENV_FILE),$(ENV_FILE),.env)"
 
 sync-env: ## template에 추가된 새 키를 .env에 동기화 (기존 값 보존)
-	$(PYTHON) scripts/config/setup_env.py --sync-env --env-file "$${ENV_FILE:-.env}"
+	$(PYTHON) scripts/config/setup_env.py --sync-env --env-file "$(if $(ENV_FILE),$(ENV_FILE),.env)"
 
 validate: ## 정적 계약·설정·생성물 drift 검증
 	PYTHON_BIN="$(PYTHON)" bash scripts/validation/run_validate.sh
