@@ -8,6 +8,10 @@ targets:
     runtime_backend: vllm-cuda
     control_mode: sidecar
     lifecycle_owner: platform
+    # Gateway가 Sidecar/Risk Adapter 같은 내부 서비스에 인증 호출을 수행한다.
+    # 이 값은 auth profile의 정책과 별개로, 해당 target에 token 소비면이 실제로
+    # 존재하는지를 선언한다.
+    internal_service_token_required: true
     validation_status: verified
     features:
       chat: true
@@ -24,6 +28,9 @@ targets:
     runtime_backend: vllm-cuda
     control_mode: static
     lifecycle_owner: external
+    # external Main runtime만 사용한다. Sidecar/Risk Adapter/Gateway internal control
+    # 호출면이 없으므로 INTERNAL_SERVICE_TOKEN을 Gateway에 주입하지 않는다.
+    internal_service_token_required: false
     # Gateway static serving 경로는 구현·실측됐지만 장시간/장문맥 qualification은 남아 있다.
     validation_status: implemented
     features:
@@ -41,6 +48,7 @@ targets:
     runtime_backend: vllm-metal
     control_mode: static
     lifecycle_owner: external
+    internal_service_token_required: false
     validation_status: planned
     features:
       chat: true

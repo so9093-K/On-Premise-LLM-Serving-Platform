@@ -95,6 +95,56 @@ env_examples:
       - runtime_override_example_keys
       - exposure_mode_requirements.master_open
 
+# 각 예시 파일이 어느 auth profile을 표현하는지의 선언이다. 별도 sanity script가
+# 템플릿을 다시 읽어 확인하지 않도록 env contract 검증기가 이 관계를 직접 검증한다.
+auth_example_profiles:
+  .env.local.example: local_open
+  .env.compose.example: local_open
+
+# Compose 변수와 컨테이너 프로세스 환경은 다른 소비자다. 운영자 `.env`는 값의
+# 원본으로 유지하고, 아래 projection만 서비스에 생성·주입한다. 목록 밖의 키가
+# static Gateway에 조용히 흘러들어가지 않게 하므로, 키 분류의 SoT는 이 파일이다.
+service_env_projections:
+  static_gateway:
+    deployment_target: linux-nvidia-static
+    required_source_keys:
+      - APP_ENV
+      - MAIN_LLM_BASE_URL
+      - MAIN_LLM_STATIC_PROFILE
+    runtime_keys:
+      - APP_ENV
+      - AUTH_MODE
+      - EXPOSURE_MODE
+      - EXPOSURE_AUDIENCE
+      - API_KEY_REQUIRED
+      - API_KEYS
+      - ADMIN_API_KEY_REQUIRED
+      - ADMIN_API_KEY
+      - ADMIN_API_KEYS
+      - ADMIN_ENDPOINTS_INTERNAL_ONLY
+      - INTERNAL_SERVICE_AUTH_REQUIRED
+      - STRICT_ADMIN_ENDPOINT_SECURITY
+      - FASTAPI_DOCS_ENABLED
+      - FASTAPI_DOCS_URL
+      - FASTAPI_REDOC_URL
+      - OPENAPI_URL
+      - CORS_ALLOWED_ORIGINS
+      - VLLM_TIMEOUT_SECONDS
+      - REQUEST_TIMEOUT_SECONDS
+      - MAIN_LLM_BASE_URL
+      - MAIN_LLM_MODEL
+      - MAIN_LLM_TIMEOUT_SECONDS
+      - MAIN_LLM_MAX_CONCURRENCY
+      - MAIN_LLM_QUEUE_TIMEOUT_SECONDS
+      - MAIN_LLM_CIRCUIT_BREAKER_FAILURE_THRESHOLD
+      - MAIN_LLM_CIRCUIT_BREAKER_RESET_SECONDS
+      - MAIN_LLM_STATIC_PROFILE
+      - HTTP_MAX_CONNECTIONS
+      - HTTP_MAX_KEEPALIVE_CONNECTIONS
+      - MAX_REQUEST_BODY_BYTES
+      - DEPLOY_RELEASE_ID
+      - LOG_REQUEST_RESPONSE_BODY
+
 # ── sync-env가 기존 .env에서 제거하는 키 ────────────────────────────────
 # `make sync-env`(scripts/config/setup_env.py)가 기존 .env에서 지우는 키이자,
 # 위 예시 파일에 다시 등장하면 안 되는 키다. 값은 지우는 이유다.

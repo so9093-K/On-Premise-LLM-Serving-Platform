@@ -438,11 +438,7 @@ make ready-full
 | 서비스 상태 | `make status` | 현재 service / process 상태 |
 | Release ZIP | `make package` | package validation + ZIP 생성 |
 
-Full-stack 기동 전 host 환경을 확인할 때는 다음 명령을 사용할 수 있다.
-
-```bash
-make preflight-compose
-```
+`make compose-up`은 기동 전에 Docker, GPU, host port, secret을 preflight로 확인한다.
 
 실행 중인 stack의 기본 상태를 확인하려면 다음 명령을 사용한다.
 

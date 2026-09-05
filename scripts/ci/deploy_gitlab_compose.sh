@@ -691,7 +691,7 @@ restore_previous_release() {
     else
       context_ready=1
     fi
-    if ! make sync-runtime-secrets; then
+    if ! "${_PYTHON_BIN}" scripts/config/setup_env.py --sync-runtime-secrets --env-file "${COMPOSE_ENV_FILE}"; then
       echo "[deploy] ERROR: failed to resync runtime secrets from restored .env" >&2
       restore_failed=1
     fi
@@ -833,7 +833,7 @@ fi
 
 # 현재 .env에서 Prometheus bearer token 동기화(rsync 제외 대상)
 echo "[deploy] syncing runtime secrets..."
-if ! make sync-runtime-secrets ENV_FILE="${COMPOSE_ENV_FILE}"; then
+if ! "${_PYTHON_BIN}" scripts/config/setup_env.py --sync-runtime-secrets --env-file "${COMPOSE_ENV_FILE}"; then
   fail_after_env_backup "runtime secret sync failed"
 fi
 

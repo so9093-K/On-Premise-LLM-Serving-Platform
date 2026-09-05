@@ -46,7 +46,7 @@ if ! docker info >/dev/null 2>&1; then
   exit 2
 fi
 
-ENV_FILE="$ENV_FILE" COMPOSE_FILE="$COMPOSE_FILE" bash scripts/ops/down_services.sh
+ENV_FILE="$ENV_FILE" COMPOSE_FILE="$COMPOSE_FILE" bash scripts/ops/down_services.sh --all
 
 # compose file의 image: 항목은 build: 섹션이 없어 --rmi local로 삭제되지 않는다.
 # .env의 PLATFORM_IMAGE 태그를 직접 삭제한다.

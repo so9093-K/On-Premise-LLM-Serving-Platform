@@ -257,6 +257,15 @@ def test_load_settings_requires_internal_token_in_non_local_env(monkeypatch):
     with pytest.raises(RuntimeError, match="INTERNAL_SERVICE_TOKEN"):
         load_settings()
 
+    # static target에는 Gateway가 token을 쓰는 내부 서비스 호출면이 없다. auth
+    # profile의 internal-auth 정책은 유지하되, 존재하지 않는 소비자 때문에
+    # secret을 요구하지 않는다.
+    monkeypatch.setenv("DEPLOYMENT_TARGET", "linux-nvidia-static")
+    monkeypatch.setenv("MAIN_LLM_STATIC_PROFILE", "gemma4-12b-unified-fp8")
+    monkeypatch.setenv("ADMIN_ENDPOINTS_INTERNAL_ONLY", "true")
+    settings = load_settings()
+    assert settings.deployment_target.internal_service_token_required is False
+
 
 def test_load_settings_warns_on_disabled_api_key_in_non_local_env(monkeypatch):
     monkeypatch.setenv("APP_ENV", "production")

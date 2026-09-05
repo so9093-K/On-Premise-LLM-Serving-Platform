@@ -26,6 +26,7 @@ except ModuleNotFoundError:
     raise SystemExit("Missing dependency: PyYAML.")
 
 from ai_model_serving.settings_parts.dotenv_parser import parse_env_file  # noqa: E402
+from ai_model_serving.auth_control import auth_profile_env_values  # noqa: E402
 
 
 def load_yaml(path: Path) -> dict[str, Any]:
@@ -68,6 +69,95 @@ def expand_required_keys(contract: dict[str, Any], key_set_names: list[str]) -> 
     return required
 
 
+def _string_list(value: Any, *, label: str, violations: list[str]) -> list[str]:
+    if not isinstance(value, list) or not all(isinstance(item, str) and item for item in value):
+        violations.append(f"env_contract.yaml: {label} must be a non-empty string list")
+        return []
+    if len(set(value)) != len(value):
+        violations.append(f"env_contract.yaml: {label} contains duplicate keys")
+    return value
+
+
+def validate_service_env_projections(root: Path, contract: dict[str, Any]) -> list[str]:
+    """Verify target-scoped process-env projections without reading secret values."""
+    violations: list[str] = []
+    projections = contract.get("service_env_projections")
+    if projections is None:
+        return violations
+    if not isinstance(projections, dict):
+        return ["env_contract.yaml: service_env_projections must be a mapping"]
+
+    targets_path = root / "configs" / "deployment_targets.yaml"
+    targets_document = load_yaml(targets_path) if targets_path.exists() else {}
+    targets = targets_document.get("targets") if isinstance(targets_document.get("targets"), dict) else {}
+    projected_targets: set[str] = set()
+    for name, raw in projections.items():
+        label = f"service_env_projections.{name}"
+        if not isinstance(raw, dict):
+            violations.append(f"env_contract.yaml: {label} must be a mapping")
+            continue
+        target = raw.get("deployment_target")
+        target_cfg = targets.get(target) if isinstance(target, str) else None
+        if not isinstance(target_cfg, dict):
+            violations.append(f"env_contract.yaml: {label}.deployment_target is unknown: {target!r}")
+            continue
+        if target in projected_targets:
+            violations.append(f"env_contract.yaml: duplicate service env projection for target {target!r}")
+        projected_targets.add(target)
+        required = _string_list(raw.get("required_source_keys"), label=f"{label}.required_source_keys", violations=violations)
+        runtime = _string_list(raw.get("runtime_keys"), label=f"{label}.runtime_keys", violations=violations)
+        omitted_required = set(required) - set(runtime)
+        if omitted_required:
+            violations.append(
+                f"env_contract.yaml: {label}.required_source_keys missing from runtime_keys: "
+                + ", ".join(sorted(omitted_required))
+            )
+        if target_cfg.get("internal_service_token_required") is False and "INTERNAL_SERVICE_TOKEN" in runtime:
+            violations.append(
+                f"env_contract.yaml: {label} injects INTERNAL_SERVICE_TOKEN although target {target!r} has no token consumer"
+            )
+    return violations
+
+
+def validate_auth_example_profiles(root: Path, contract: dict[str, Any]) -> list[str]:
+    """Validate the auth profile values carried by env examples.
+
+    This belongs here rather than in a second CLI: both checks read the same
+    template files and the env contract already owns each template's role.
+    """
+    violations: list[str] = []
+    examples = contract.get("auth_example_profiles")
+    if not isinstance(examples, dict):
+        return ["env_contract.yaml: auth_example_profiles must be a mapping"]
+    for filename, profile in examples.items():
+        if not isinstance(filename, str) or not isinstance(profile, str) or not profile:
+            violations.append("env_contract.yaml: auth_example_profiles entries must map filename to profile name")
+            continue
+        path = root / filename
+        if not path.exists():
+            violations.append(f"{filename}: file not found for auth profile validation")
+            continue
+        try:
+            values = parse_env_file(path).values
+        except RuntimeError as exc:
+            violations.append(f"{filename}: invalid env syntax: {exc}")
+            continue
+        expected = auth_profile_env_values(profile)
+        mismatches = {
+            key: (values.get(key), expected_value)
+            for key, expected_value in expected.items()
+            if values.get(key) != expected_value
+        }
+        if mismatches:
+            violations.append(f"{filename}: auth profile {profile!r} mismatch: {mismatches}")
+        app_env = values.get("APP_ENV", "").lower()
+        if app_env not in {"local", "test", "development"} and values.get("API_KEY_REQUIRED") != "true":
+            violations.append(
+                f"{filename}: non-local APP_ENV={values.get('APP_ENV', '')!r} requires API_KEY_REQUIRED=true"
+            )
+    return violations
+
+
 def validate(root: Path = ROOT, strict: bool = False) -> list[str]:
     violations: list[str] = []
 
@@ -79,6 +169,8 @@ def validate(root: Path = ROOT, strict: bool = False) -> list[str]:
     contract = load_yaml(contract_path)
     env_examples: dict = contract.get("env_examples", {})
     removed_keys: dict = contract.get("removed_keys") or {}
+    violations.extend(validate_service_env_projections(root, contract))
+    violations.extend(validate_auth_example_profiles(root, contract))
 
     for filename, cfg in env_examples.items():
         file_path = root / filename

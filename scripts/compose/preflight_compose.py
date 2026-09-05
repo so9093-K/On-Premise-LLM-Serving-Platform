@@ -473,7 +473,7 @@ def _phase2(canonical_mode: str, exposure_data: dict[str, Any]) -> int:
     else:
         print(
             "[preflight] missing or invalid: .runtime/prometheus/admin_api_key must be a non-empty "
-            "file; run 'make sync-runtime-secrets'",
+            "file; make compose-up regenerates it before preflight",
             file=sys.stderr,
         )
         fail = True

@@ -13,7 +13,12 @@ def is_non_local_env(app_env: str) -> bool:
     return app_env.lower() not in LOCAL_ENVIRONMENTS
 
 
-def build_security_settings(*, app_env: str, security_cfg: dict[str, Any]) -> SecuritySettings:
+def build_security_settings(
+    *,
+    app_env: str,
+    security_cfg: dict[str, Any],
+    internal_service_token_required: bool,
+) -> SecuritySettings:
     non_local_env = is_non_local_env(app_env)
     api_key_required = as_bool(
         env("API_KEY_REQUIRED", str(security_cfg.get("api_key_required", True))),
@@ -38,7 +43,12 @@ def build_security_settings(*, app_env: str, security_cfg: dict[str, Any]) -> Se
         env("INTERNAL_SERVICE_AUTH_REQUIRED", str(security_cfg.get("internal_service_auth_required", True))),
         True,
     )
-    if internal_service_auth_required and non_local_env and is_default_secret(internal_service_token):
+    if (
+        internal_service_token_required
+        and internal_service_auth_required
+        and non_local_env
+        and is_default_secret(internal_service_token)
+    ):
         raise RuntimeError("INTERNAL_SERVICE_TOKEN must be set to a non-default value when INTERNAL_SERVICE_AUTH_REQUIRED=true outside local/test/development. Run `make init-env-compose` to generate one.")
 
     admin_api_key_required = as_bool(

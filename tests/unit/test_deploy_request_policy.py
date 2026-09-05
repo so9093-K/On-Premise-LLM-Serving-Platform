@@ -109,7 +109,7 @@ def test_remote_deploy_explicitly_syncs_the_shared_env_before_validation() -> No
     validate = script.index('validating gateway settings against synced .env')
 
     assert backup < sync < validate
-    assert 'make sync-runtime-secrets ENV_FILE="${COMPOSE_ENV_FILE}"' in script
+    assert 'scripts/config/setup_env.py --sync-runtime-secrets --env-file "${COMPOSE_ENV_FILE}"' in script
 
 
 def test_remote_deploy_restores_previous_release_when_interrupted() -> None:

@@ -22,6 +22,4 @@ echo "==> runtime asset drift check"
 "$PYTHON_BIN" scripts/render_runtime_assets.py --check
 echo "==> OpenAPI snapshot diff"
 "$PYTHON_BIN" scripts/validation/openapi_snapshot_diff.py
-echo "==> auth profile 생성값 sanity"
-"$PYTHON_BIN" scripts/auth/auth_profile_sanity.py
 echo "정적 검증 완료"

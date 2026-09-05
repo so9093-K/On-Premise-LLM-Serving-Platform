@@ -28,15 +28,19 @@ feature set에 포함되지 않으므로 client, readiness dependency, route, Op
 
 외부 Main runtime을 먼저 기동한 뒤 다음과 같이 Gateway만 실행한다.
 
-```bash
-DEPLOYMENT_TARGET=linux-nvidia-static
-MAIN_LLM_STATIC_PROFILE=gemma4-12b-unified-fp8
-MAIN_LLM_BASE_URL=http://host.docker.internal:9401/v1
+운영자 `.env`에 `MAIN_LLM_STATIC_PROFILE`과 `MAIN_LLM_BASE_URL`을 지정한 뒤 실행한다.
 
-COMPOSE_SERVICE_ENV_FILE="$(pwd)/.env" \
-docker compose --env-file .env \
-  -f ops/compose/static-main.external-runtime.yaml up -d
+```bash
+make static-compose-up
 ```
+
+`make static-compose-up`은 운영자 `.env`를 Compose image/port 치환에만 사용하고,
+`configs/env_contract.yaml`의 `static_gateway` projection으로 생성한
+`.runtime/env/linux-nvidia-static-gateway.env`만 Gateway 컨테이너에 주입한다.
+따라서 full-stack의 vLLM·Risk·Sidecar·monitoring 환경변수와
+`INTERNAL_SERVICE_TOKEN`은 static Gateway에 전달되지 않는다. static target에 내부
+token 소비면이 없다는 사실은 `deployment_targets.yaml`에 선언하며, 향후 내부 호출을
+추가하려면 target 계약과 projection을 함께 변경해야 한다.
 
 `MAIN_LLM_STATIC_PROFILE`은 실제 외부 runtime의 model revision과 capability qualification에
 맞는 profile이어야 한다. 현재 Linux static target은 기능 구현과 실제 Chat 연결을 확인한

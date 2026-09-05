@@ -22,6 +22,7 @@ def test_dynamic_target_preserves_existing_control_and_feature_contract() -> Non
     target = load_deployment_target(CATALOG, "linux-nvidia-dynamic")
 
     assert target.controllable is True
+    assert target.internal_service_token_required is True
     assert {"chat", "embeddings", "retrieval", "risk", "runtime_control"} <= target.features
 
 
@@ -29,6 +30,7 @@ def test_static_target_is_main_only_and_externally_owned() -> None:
     target = load_deployment_target(CATALOG, "linux-nvidia-static")
 
     assert target.controllable is False
+    assert target.internal_service_token_required is False
     assert target.features == frozenset({"chat"})
     assert target.lifecycle_owner == "external"
     assert target.validation_status == "implemented"

@@ -46,9 +46,7 @@ make stop
 | 파일 | 용도 |
 |---|---|
 | `config/setup_env.py` | `.env`를 생성한다. 기본 target은 기존 `.env`를 덮어쓰지 않는다. `local_open`은 `master_open/private_lan` 전체-stack 사내망 정책과 함께 생성한다. |
-| `sync-runtime-secrets` / `config/setup_env.py --sync-runtime-secrets` | `.env`의 `ADMIN_API_KEY`를 `.runtime/prometheus/admin_api_key`로 다시 기록한다. |
 | `auth/auth_plan.py` / `auth/auth_apply.py` | secret을 출력하지 않고 auth profile 변경 계획을 보여주거나 managed auth flag만 적용한다. |
-| `auth/auth_profile_sanity.py` | `config/setup_env.py`가 생성하는 local/compose auth profile이 `AUTH_MODE` 기대값과 일치하는지 정적 검증에서 확인한다. |
 | `validation/validate_contracts.py` | OpenAPI refs, generated OpenAPI schema injection, JSON Schema, config, release hygiene 정책을 검증한다. |
 | `validation/run_test.sh` | Python 버전과 test 환경을 고정하고 unit/contract test를 실행한다. |
 | `lib/version_refs.py` | `VERSION` 문자열이 박혀 있는 모든 자리를 한 번만 선언한다. `build/reset_version.py`(생성)와 `validation/governance/versioning.py`(검증)가 같은 표를 읽으므로 두 목록이 갈라질 수 없다. |
@@ -67,12 +65,12 @@ make stop
 ## 운영 주의사항
 
 - `make init-env-compose`는 기존 `.env`가 있으면 실패하고 보존한다.
-- `.runtime/prometheus/admin_api_key`만 사라졌거나 손상되었다면 `.env`를 다시 만들지 말고 `make sync-runtime-secrets`를 실행한다. 이 파일은 Prometheus Compose secret source이므로 일반 파일이어야 하며, non-root Prometheus image가 읽을 수 있도록 `0644` 권한으로 생성된다.
+- `.runtime/prometheus/admin_api_key`만 사라졌거나 손상되었다면 `.env`를 다시 만들지 말고 `make compose-up`을 실행한다. Compose 기동 전 이 파일을 자동 복구한다. 이 파일은 Prometheus Compose secret source이므로 일반 파일이어야 하며, non-root Prometheus image가 읽을 수 있도록 `0644` 권한으로 생성된다.
 - `make start`는 vLLM을 시작하지 않는다. app-only 확인용이다.
 - app-only 확인은 `make ready-local`, strict full-stack 확인은 `make ready-full`을 사용한다.
-- full-stack 검증은 Docker/GPU/vLLM이 있는 host에서 `make preflight-compose && make compose-up`으로 수행한다.
+- full-stack 기동인 `make compose-up`에는 Docker/GPU/포트/secret preflight가 포함된다.
 - 라이브 검증은 `make runtime-validate`, 실행 전 정적 검증은 `make validate`로 수행한다.
-- 삭제 전에는 `make remove-plan`으로 삭제 대상을 확인할 수 있다. `make clean-dry-run`의 읽기 쉬운 alias다.
+- 삭제 전에는 `make clean-dry-run`으로 삭제 대상을 확인한다.
 
 - `.runtime/`은 정상적인 로컬 runtime state다. `make init-env-compose` 이후 존재할 수 있으며, `make clean-all`은 기본적으로 보존한다. 테스트와 패키징 정책은 `.runtime`의 로컬 존재가 아니라 release/source ZIP 포함 여부를 검사해야 한다.
 - `package_release.sh`는 `.runtime`, `.venv`, `venv`, `env`, `.tox`, logs, run, cache, pycache, egg-info를 제외한다.
@@ -91,8 +89,8 @@ Risk detector의 `bitsandbytes` 설정은 운영 기본값이다. 원인 분리�
 
 - `make first-run`: platform image와 모든 served model이 공유하는 unified vLLM image를 만들고, image 내부 Kanana config check를 실행한다.
 - `make build-vllm-unified-image`: `ops/images/vllm-unified/Dockerfile`에서 26B/12B/embedding/embedding-ko/risk-prompt 공용 vLLM unified 이미지를 빌드하는 고급/수동 target이다.
-- `make risk-vllm-config-check`: `RISK_VLLM_IMAGE` 안에서 label, metadata, Kanana risk model config load를 확인한다.
-- `SKIP_RISK_VLLM_IMAGE_CONFIG_CHECK=1 make preflight-compose`: image-internal config check만 건너뛴다. production 승격용으로 쓰지 않는다.
+- `make first-run`과 `make compose-up`은 `RISK_VLLM_IMAGE` 안의 label, metadata, Kanana risk model config load를 확인한다.
+- `SKIP_RISK_VLLM_IMAGE_CONFIG_CHECK=1 make compose-up`: image-internal config check만 건너뛴다. production 승격용으로 쓰지 않는다.
 
 ## 인증 제어 플레인 점검
 

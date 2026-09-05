@@ -52,7 +52,7 @@ echo "[bootstrap] installing dependencies"
 "$VENV_PYTHON" -m pip install --no-deps -e ".[contract]" -q
 
 echo "[bootstrap] initializing .env"
-# init-env-compose-force가 초기화하기 전에 현재 auth/exposure mode를 읽어둔다.
+# bootstrap의 compose env 강제 재생성이 초기화하기 전에 현재 auth/exposure mode를 읽어둔다.
 # 이렇게 하면 재실행 시마다 호출자가 매번 값을 넘기지 않아도, bootstrap이
 # 기본값이 아닌 mode를 유지할 수 있다.
 _prior_auth_mode=""
@@ -67,7 +67,7 @@ if [[ -z "${EXPOSURE_MODE:-}" && -f .env ]]; then
 fi
 
 if [[ -f .env ]]; then
-  PYTHON_BIN="$VENV_PYTHON" make init-env-compose-force
+  "$VENV_PYTHON" scripts/config/setup_env.py --profile compose --force
 else
   PYTHON_BIN="$VENV_PYTHON" make init-env-compose
 fi
@@ -149,7 +149,7 @@ if [[ "${SKIP_RISK_VLLM_CONFIG_CHECK:-0}" == "1" ]]; then
   echo "[bootstrap] skipping risk vLLM config check because SKIP_RISK_VLLM_CONFIG_CHECK=1" >&2
 else
   echo "[bootstrap] checking Kanana configs inside risk vLLM image"
-  PYTHON_BIN="$VENV_PYTHON" make risk-vllm-config-check
+  bash scripts/models/check_risk_vllm_image_config.sh
 fi
 
 COMPOSE_FILE="${COMPOSE_FILE:-ops/compose/full-stack.private-network.yaml}"

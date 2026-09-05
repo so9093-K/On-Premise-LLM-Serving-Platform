@@ -9,9 +9,32 @@ ENV_FILE="${ENV_FILE:-.env}"
 PYTHON_BIN="${PYTHON_BIN:-$(command -v python3.12 || command -v python3 || command -v python)}"
 source scripts/lib/compose_context.sh
 compose_context_init "$ROOT"
-compose_context_assert_mutation_safe
 
-if [[ -f "$COMPOSE_FILE_ABS" ]]; then
+SCOPE="${1:---all}"
+case "$SCOPE" in
+  --local)
+    stop_compose=0
+    stop_local=1
+    ;;
+  --compose)
+    stop_compose=1
+    stop_local=0
+    ;;
+  --all)
+    stop_compose=1
+    stop_local=1
+    ;;
+  *)
+    echo "usage: $0 [--local|--compose|--all]" >&2
+    exit 2
+    ;;
+esac
+
+if [[ "$stop_compose" == "1" ]]; then
+  compose_context_assert_mutation_safe
+fi
+
+if [[ "$stop_compose" == "1" && -f "$COMPOSE_FILE_ABS" ]]; then
   echo "[down] stopping compose stack: ${COMPOSE_FILE_ABS} (project=${COMPOSE_PROJECT_NAME_EFFECTIVE})"
   # compose 파일은 필수 변수에 :?를 사용하므로, .env에 값이 있을 때 missing-var
   # 에러가 나지 않도록 --env-file을 명시적으로 넘긴다.
@@ -30,14 +53,16 @@ if [[ -f "$COMPOSE_FILE_ABS" ]]; then
   fi
 fi
 
-for name in gateway risk_adapter; do
-  pid_file="run/${name}.pid"
-  if [[ -f "$pid_file" ]]; then
-    pid="$(cat "$pid_file")"
-    if kill -0 "$pid" >/dev/null 2>&1; then
-      echo "[down] stopping ${name} pid ${pid}"
-      kill "$pid"
+if [[ "$stop_local" == "1" ]]; then
+  for name in gateway risk_adapter; do
+    pid_file="run/${name}.pid"
+    if [[ -f "$pid_file" ]]; then
+      pid="$(cat "$pid_file")"
+      if kill -0 "$pid" >/dev/null 2>&1; then
+        echo "[down] stopping ${name} pid ${pid}"
+        kill "$pid"
+      fi
+      rm -f "$pid_file"
     fi
-    rm -f "$pid_file"
-  fi
-done
+  done
+fi

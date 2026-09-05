@@ -10,7 +10,7 @@ AUTH_ENV ?= $(if $(ENV_FILE),$(ENV_FILE),$(ENV))
 AUTH_ENV_ARG = $(if $(AUTH_ENV),--env $(AUTH_ENV),)
 
 
-.PHONY: help init-env-local init-env-compose init-env-compose-force sync-runtime-secrets sync-env validate test build build-image build-vllm-unified-image package start compose-up preflight-compose compose-config ready-local ready-full smoke runtime-validate auth-status auth-doctor auth-plan auth-apply exposure-status exposure-plan exposure-apply main-model-prepare risk-vllm-config-check status stop compose-down compose-restart compose-logs logs compose-diagnostics clean clean-dry-run remove-plan clean-all reset first-run reset-version render-runtime-assets
+.PHONY: help init-env-local init-env-compose sync-env static-compose-config static-compose-up static-compose-down validate test build build-image build-vllm-unified-image package start compose-up compose-config ready-local ready-full smoke runtime-validate auth-status auth-doctor auth-plan auth-apply exposure-status exposure-plan exposure-apply main-model-prepare status stop compose-down compose-restart compose-logs logs compose-diagnostics clean clean-dry-run clean-all reset first-run reset-version render-runtime-assets
 
 # help는 각 타겟 옆의 `## 설명`을 읽는다. 예전에는 여기에 목록을 따로 적어뒀는데,
 # 타겟이 늘어도 아무도 갱신하지 않아 44개 중 11개만 보이는 상태로 갈라져 있었다.
@@ -27,14 +27,17 @@ init-env-local: ## 로컬 app-only .env 생성
 init-env-compose: ## compose용 .env 생성 (기존 .env가 있으면 실패)
 	$(PYTHON) scripts/config/setup_env.py --profile compose
 
-init-env-compose-force: ## compose용 .env 강제 재생성
-	$(PYTHON) scripts/config/setup_env.py --profile compose --force
-
-sync-runtime-secrets: ## .env의 ADMIN_API_KEY를 .runtime으로 다시 기록
-	$(PYTHON) scripts/config/setup_env.py --sync-runtime-secrets --env-file "$(if $(ENV_FILE),$(ENV_FILE),.env)"
-
 sync-env: ## template에 추가된 새 키를 .env에 동기화 (기존 값 보존)
 	$(PYTHON) scripts/config/setup_env.py --sync-env --env-file "$(if $(ENV_FILE),$(ENV_FILE),.env)"
+
+static-compose-config: ## static Gateway의 분리된 Compose 정의 출력
+	bash scripts/compose/static_main_compose.sh config
+
+static-compose-up: ## 외부 Main runtime에 연결하는 static Gateway 기동
+	bash scripts/compose/static_main_compose.sh up -d
+
+static-compose-down: ## static Gateway Compose project 정지
+	bash scripts/compose/static_main_compose.sh down
 
 validate: ## 정적 계약·설정·생성물 drift 검증
 	PYTHON_BIN="$(PYTHON)" bash scripts/validation/run_validate.sh
@@ -62,9 +65,6 @@ compose-up: ## GPU full-stack compose 기동
 
 compose-config: ## resolve된 compose 정의 출력
 	@bash scripts/compose/compose_config.sh
-
-preflight-compose: ## compose 기동 전 Docker·GPU·포트·secret 점검
-	bash scripts/compose/preflight_compose.sh
 
 ready-local: ## app-only readiness
 	bash scripts/ops/ready_local.sh
@@ -107,17 +107,14 @@ main-model-prepare: ## PROFILE=<id> main-model 캐시 준비 (런타임 미변�
 	@if [[ -z "$(PROFILE)" ]]; then echo "PROFILE=<main-model-profile-id>를 지정하세요" >&2; exit 2; fi
 	$(PYTHON) scripts/models/prepare_main_model_cache.py --profile "$(PROFILE)" --env-file "$${ENV_FILE:-.env}" --compose-file "$${COMPOSE_FILE:-ops/compose/full-stack.private-network.yaml}"
 
-risk-vllm-config-check: ## RISK_VLLM_IMAGE 내부 Kanana config 확인
-	bash scripts/models/check_risk_vllm_image_config.sh
-
 status: ## 서비스 상태 (READY_MODE=full이면 full-stack)
 	@if [[ "$(READY_MODE)" == "full" ]]; then bash scripts/ops/status_services.sh --full; else bash scripts/ops/status_services.sh --local; fi
 
-stop: ## 서비스 정지
-	bash scripts/ops/down_services.sh
+stop: ## app-only Gateway·Risk Adapter 정지
+	bash scripts/ops/down_services.sh --local
 
 compose-down: ## compose 스택 정지
-	bash scripts/ops/down_services.sh
+	bash scripts/ops/down_services.sh --compose
 
 compose-restart: ## compose 스택 재시작
 	bash scripts/compose/compose_restart.sh
@@ -140,8 +137,6 @@ clean: ## build 산출물·egg-info·로그 정리
 
 clean-dry-run: ## clean 삭제 대상 미리보기
 	bash scripts/ops/clean_all.sh --dry-run
-
-remove-plan: clean-dry-run ## clean-dry-run의 별칭
 
 clean-all: ## clean + 부가 산출물까지 정리
 	bash scripts/ops/clean_all.sh --all

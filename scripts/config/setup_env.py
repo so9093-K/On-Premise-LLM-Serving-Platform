@@ -178,7 +178,7 @@ def write_runtime_secrets(values: dict[str, str]) -> None:
         except OSError as exc:
             raise RuntimeError(
                 f"{secret_path} must be a file, but it is a non-empty directory. "
-                "Remove or move it, then rerun `make sync-runtime-secrets`."
+                "Remove or move it, then rerun `make compose-up`."
             ) from exc
     secret_path.write_text(admin_key + "\n", encoding="utf-8")
     try:
@@ -401,7 +401,7 @@ def main(argv: list[str] | None = None) -> int:
             return 2
     if out_path.exists() and not args.force:
         print(f"기존 파일을 덮어쓰지 않습니다: {out_path}. 교체하려면 --force를 사용하세요.", file=sys.stderr)
-        print("기존 .env를 유지하면서 Prometheus secret만 복구하려면 `make sync-runtime-secrets`를 사용하세요.", file=sys.stderr)
+        print("기존 .env를 유지하면서 Prometheus secret만 복구하려면 `make compose-up`을 실행하세요.", file=sys.stderr)
         return 2
     try:
         template = profile_template(args.profile)

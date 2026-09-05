@@ -185,7 +185,7 @@ DEPLOY_RELEASE_ID=<release id>
 명시해 릴리스 디렉터리의 상대 경로나 심볼릭 링크 해석에 의존하지 않는다. 기존 운영
 값과 secret은 유지되며, 실패하면 배포 전에 만든 `.env` 백업으로 복구한다.
 
-`AUTH_MODE`가 전달된 배포에서는 해당 인증 프로파일을 적용하고, Runtime Secret 설정은 `make sync-runtime-secrets`에서 갱신한다.
+`AUTH_MODE`가 전달된 배포에서는 해당 인증 프로파일을 적용하고, Runtime Secret 설정은 배포 workflow가 현재 `.env`에서 직접 갱신한다.
 
 ### 4. 설정과 Compose 검증
 

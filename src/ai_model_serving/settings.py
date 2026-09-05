@@ -231,7 +231,11 @@ def load_settings(root: Path | None = None, env_file: Path | str | None = None) 
     documentation = _documentation_settings(documentation_cfg)
     cors = _cors_settings()
     app_env = _env("APP_ENV", "local")
-    security = build_security_settings(app_env=app_env, security_cfg=security_cfg)
+    security = build_security_settings(
+        app_env=app_env,
+        security_cfg=security_cfg,
+        internal_service_token_required=deployment_target.internal_service_token_required,
+    )
 
     vllm_timeout = _as_float("VLLM_TIMEOUT_SECONDS", float(timeouts.get("vllm_request_seconds", 20)), minimum=0.1)
     gateway_timeout_seconds = _as_float(

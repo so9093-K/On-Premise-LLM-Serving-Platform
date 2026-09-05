@@ -17,18 +17,16 @@ services:
       - "9400"
     ports:
       - ${GATEWAY_BIND_ADDR:-127.0.0.1}:${GATEWAY_PORT:-9400}:9400
-    env_file: ${COMPOSE_SERVICE_ENV_FILE:?Set COMPOSE_SERVICE_ENV_FILE}
+    # Compose interpolation용 .env와 Gateway runtime env는 분리한다. 이 파일은
+    # scripts/config/render_service_env.py가 static target 계약에서 생성한다.
+    env_file: ${GATEWAY_RUNTIME_ENV_FILE:?Use make static-compose-config|up|down}
     environment:
       APP_CONFIG_ROOT: /app
       PYTHONPATH: /app/src
       DEPLOYMENT_TARGET: linux-nvidia-static
       ADMIN_SIDECAR_URL: ""
-      MAIN_LLM_BASE_URL: ${MAIN_LLM_BASE_URL:-http://host.docker.internal:9401/v1}
-      MAIN_LLM_STATIC_PROFILE: ${MAIN_LLM_STATIC_PROFILE:?Set the fixed serving profile}
     extra_hosts:
       - host.docker.internal:host-gateway
-    volumes:
-      - ../../.runtime/gateway-static:/var/lib/ai-model-serving
     healthcheck:
       test:
         - CMD-SHELL

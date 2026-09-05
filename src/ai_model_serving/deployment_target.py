@@ -31,6 +31,7 @@ class DeploymentTarget:
     runtime_backend: str
     control_mode: str
     lifecycle_owner: str
+    internal_service_token_required: bool
     validation_status: str
     features: frozenset[str]
 
@@ -55,6 +56,7 @@ def load_deployment_target(path: Path, target_id: str | None = None) -> Deployme
 
     control_mode = str(raw.get("control_mode", ""))
     lifecycle_owner = str(raw.get("lifecycle_owner", ""))
+    internal_service_token_required = raw.get("internal_service_token_required")
     validation_status = str(raw.get("validation_status", ""))
     raw_features: Any = raw.get("features")
     if control_mode not in _CONTROL_MODES:
@@ -62,6 +64,10 @@ def load_deployment_target(path: Path, target_id: str | None = None) -> Deployme
     if lifecycle_owner not in _LIFECYCLE_OWNERS:
         raise RuntimeError(
             f"deployment target {selected!r} has invalid lifecycle_owner {lifecycle_owner!r}"
+        )
+    if not isinstance(internal_service_token_required, bool):
+        raise RuntimeError(
+            f"deployment target {selected!r} internal_service_token_required must be boolean"
         )
     if validation_status not in _VALIDATION_STATUSES:
         raise RuntimeError(
@@ -116,6 +122,7 @@ def load_deployment_target(path: Path, target_id: str | None = None) -> Deployme
         runtime_backend=runtime_backend,
         control_mode=control_mode,
         lifecycle_owner=lifecycle_owner,
+        internal_service_token_required=internal_service_token_required,
         validation_status=validation_status,
         features=features,
     )

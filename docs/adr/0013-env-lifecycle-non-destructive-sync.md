@@ -30,7 +30,7 @@ Accepted
 - `--env-file <path>` 옵션으로 프로젝트 루트 밖의 `.env`(별도 배포 디렉터리 등)도 대상으로 지정할 수 있다.
 - `--dry-run`으로 실제 변경 없이 추가·제거 대상 키를 미리 확인할 수 있다.
 
-`EXPOSURE_MODE`와 `EXPOSURE_AUDIENCE`는 `init-env-compose-force` 후 리셋되므로, `bootstrap.sh`(`make first-run`)에서 재초기화 전 기존 값을 읽어 재초기화 후 복원한다. 이는 `AUTH_MODE`에 이미 적용된 패턴과 동일하다.
+`EXPOSURE_MODE`와 `EXPOSURE_AUDIENCE`는 bootstrap의 compose env 강제 재생성 후 리셋되므로, `bootstrap.sh`(`make first-run`)에서 재초기화 전 기존 값을 읽어 재초기화 후 복원한다. 이는 `AUTH_MODE`에 이미 적용된 패턴과 동일하다.
 
 CI/CD 배포(`deploy_gitlab_compose.sh`)는 `.env` 이미지 참조 업데이트 직후 `make sync-env`를 호출해 서버 `.env`에 신규 템플릿 키를 자동 반영한다.
 
