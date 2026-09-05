@@ -1,6 +1,6 @@
 # 9. CI/CD
 
-기준 관리 저장소는 GitHub다. [GitHub 검증 워크플로](../.github/workflows/validate.yml)는 `main` push, Pull Request, 수동 실행에서 macOS·Ubuntu의 `make setup-dev`, `make validate`, `make test`를 수행한다. Python은 `.python-version`, 의존성은 `requirements.lock`, build backend는 `pyproject.toml`을 따른다. 워크플로는 외부 모델 다운로드, 이미지 push, GPU 서버 배포를 수행하지 않는다.
+기준 관리 저장소는 GitHub다. [GitHub 검증 워크플로](../.github/workflows/validate.yml)는 `main` push, Pull Request, 수동 실행에서 macOS·Ubuntu의 `make setup-dev`, `make validate`, `make test`를 수행한다. Python은 Linux 운영 기준 patch와 같은 `3.12` minor에서 OS별 제공 patch를 사용하고, 의존성은 `requirements.lock`, 지원 범위와 build backend는 `pyproject.toml`을 따른다. 워크플로는 외부 모델 다운로드, 이미지 push, GPU 서버 배포를 수행하지 않는다.
 
 아래 Build/Deploy 설명과 job 표는 보존된 `.gitlab-ci.yml` 및 기존 GitLab 운영 경로를 설명한다. GitHub로 소스를 옮긴 것만으로 해당 job이 실행되지는 않는다. GitHub 이미지 빌드·배포 이식은 registry와 GPU runner의 실행 환경을 확정한 뒤 별도로 진행한다.
 

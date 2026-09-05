@@ -28,7 +28,7 @@ Gateway를 중심으로 모델 Runtime, Risk 처리, 운영 제어와 관측 서
 
 ### 로컬 애플리케이션 실행
 
-Gateway와 Risk Adapter를 로컬 Python 프로세스로 실행한다. API, 인증, 요청 검증과 애플리케이션 로직을 확인할 때 사용한다. Python `>=3.12,<3.15`가 필요하며 기준 Python patch는 [`.python-version`](.python-version)을 따른다.
+Gateway와 Risk Adapter를 로컬 Python 프로세스로 실행한다. API, 인증, 요청 검증과 애플리케이션 로직을 확인할 때 사용한다. Python `>=3.12,<3.15`가 필요하다. [`.python-version`](.python-version)은 Linux 운영 기준 patch를 기록하며, macOS 개발은 같은 지원 minor의 설치 가능한 patch를 사용한다.
 
 macOS에서 지원 Python이 없다면 먼저 설치한다.
 

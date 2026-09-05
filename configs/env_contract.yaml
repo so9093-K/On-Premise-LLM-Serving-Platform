@@ -155,6 +155,10 @@ service_env_projections:
 # 때문에 그 기준을 쓰면 배포할 때마다 운영 설정이 사라진다. 그래서 지울 키는
 # 여기에 명시적으로 등록한다.
 removed_keys:
+  PYTHON_VERSION: >-
+    실행 중인 코드와 image build가 소비하지 않는다. Platform image의 Python patch는
+    Dockerfile의 digest-pinned base image가 소유하고, 개발 지원 범위는 pyproject.toml과
+    scripts/build/check_python.py가 소유한다.
   PROJECT_VERSION: >-
     VERSION 파일이 소유한다. settings.py가 env를 우선하므로 .env에 복제해두면 그 값이
     파일을 가린다. 실제로 배포본 .env가 2026-05-11에 정정된 0.1.0-rc.1을 4개월간 들고

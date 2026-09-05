@@ -71,6 +71,7 @@
 
 ### Fixed
 
+- GitHub macOS ARM64 runner에 배포되지 않은 exact Python `3.12.13`을 요청해 app/contract workflow가 setup 단계에서 실패하던 문제를 수정했다. Cross-platform CI는 portable `3.12` minor를 사용하고, Linux 운영 image의 exact patch는 기존 Dockerfile digest pin으로 유지한다. 소비자가 없던 `.env`의 `PYTHON_VERSION` 복제값도 제거했다.
 - `docs/reference/api_reference.md`의 `max_tokens` 한도가 활성 profile과 무관한 고정값(`1`–`13000`)으로 적혀 있어 지금 라이브와 어긋나던 문제를 고쳤다. profile마다 `max_output_tokens`가 13000/13000/**15000**/13000으로 달라 어떤 단일 숫자도 옳을 수 없고, 운영자는 런타임에 profile을 전환한다. Gateway가 `/v1/models`의 `request_parameters.max_tokens.max`로 활성값을 이미 공개하므로 그쪽을 가리키도록 바꿨다.
 - `validate_risk_response()`의 docstring이 손으로 쓴 검사의 이유를 "jsonschema를 runtime 의존으로 추가하지 않기 위해"라고 설명하고 있었으나, jsonschema는 이미 `requirements.runtime.lock`에 있고 retrieval 계약은 실제로 그것으로 검증한다. 사실에 맞는 이유로 교체했다.
 - Risk prompt 길이 초과 오류 메시지가 `MAX_RISK_PROMPT_LENGTH` 상수 대신 숫자를 하드코딩하고 있어, 상수를 바꾸면 메시지가 사실과 달라지던 문제를 고쳤다.

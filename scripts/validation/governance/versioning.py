@@ -11,6 +11,7 @@ from scripts.build.check_python import SUPPORTED_LABEL, SUPPORTED_SPECIFIER, is_
 from .common import (
     ROOT,
     read_json,
+    read_yaml,
 )
 
 # 이 모듈이 scripts.validation.governance.versioning 으로 import됐다는 것 자체가
@@ -87,7 +88,7 @@ def validate_version_alignment() -> None:
 
 
 def validate_python_compatibility() -> None:
-    """`.python-version`이 지원 범위 안의 patch release인지 확인한다.
+    """Python 지원 범위, 운영 기준 patch, cross-platform CI minor를 확인한다.
 
     실행 중인 interpreter 자체는 여기서 보지 않는다 -- scripts/build/check_python.py가
     validate/test/start/package 등 모든 진입점에서 먼저 그걸 검사하므로, 여기서 또
@@ -97,6 +98,22 @@ def validate_python_compatibility() -> None:
     match = re.fullmatch(r'(\d+)\.(\d+)\.\d+', py_version)
     if not match or not is_supported((int(match.group(1)), int(match.group(2)))):
         raise SystemExit(f'.python-version must be a {SUPPORTED_LABEL} patch release, got {py_version!r}')
+    expected_ci_minor = f'{match.group(1)}.{match.group(2)}'
+    workflow = read_yaml('.github/workflows/validate.yml')
+    steps = ((workflow.get('jobs') or {}).get('app-contract') or {}).get('steps') or []
+    setup_steps = [
+        step for step in steps
+        if isinstance(step, dict) and str(step.get('uses', '')).startswith('actions/setup-python@')
+    ]
+    if len(setup_steps) != 1:
+        raise SystemExit('GitHub app-contract workflow must contain exactly one setup-python step')
+    setup_inputs = setup_steps[0].get('with') or {}
+    ci_version = str(setup_inputs.get('python-version', ''))
+    if ci_version != expected_ci_minor or setup_inputs.get('python-version-file'):
+        raise SystemExit(
+            'GitHub app-contract workflow must select the portable Python minor '
+            f'{expected_ci_minor!r}, not the exact production patch'
+        )
     project = tomllib.loads((ROOT / 'pyproject.toml').read_text(encoding='utf-8'))
     declared = project.get('project', {}).get('requires-python')
     if declared != SUPPORTED_SPECIFIER:

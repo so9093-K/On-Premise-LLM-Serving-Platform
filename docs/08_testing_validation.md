@@ -31,7 +31,7 @@ make runtime-validate
 
 ## 8.1 검증 구조
 
-`make validate`와 `make test`는 Python 정책을 먼저 검사한다. 개발 환경 준비는 `make setup-dev`를 사용한다. `make doctor-dev`는 Compose·배포 shell helper까지 실행할 환경의 Bash 4 이상 여부를 별도로 확인한다. GitHub Actions는 `.python-version`의 기준 버전으로 macOS와 Ubuntu에서 동일한 app/contract 검증을 실행한다. GPU 통합 검증은 별도 Linux/NVIDIA 환경에서 수행한다.
+`make validate`와 `make test`는 Python 정책을 먼저 검사한다. 개발 환경 준비는 `make setup-dev`를 사용한다. `make doctor-dev`는 Compose·배포 shell helper까지 실행할 환경의 Bash 4 이상 여부를 별도로 확인한다. GitHub Actions는 `.python-version`에 기록된 Linux 기준 patch와 같은 `3.12` minor로 macOS와 Ubuntu의 app/contract 검증을 실행한다. OS별 patch는 runner 제공 범위에 따르며 GPU 통합 검증은 별도 Linux/NVIDIA 환경에서 수행한다.
 
 검증은 변경으로 발생할 수 있는 문제를 가장 가까운 계층에서 확인하도록 구성한다.
 

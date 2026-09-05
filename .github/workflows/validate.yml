@@ -22,7 +22,10 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
         with:
-          python-version-file: .python-version
+          # app/contract CI는 OS별로 제공되는 3.12 patch를 사용한다. Linux 운영
+          # image의 exact patch/digest 검증과는 별도이며 macOS ARM64에는
+          # .python-version의 3.12.13 artifact가 제공되지 않는다.
+          python-version: "3.12"
           cache: pip
           cache-dependency-path: |
             requirements.lock
