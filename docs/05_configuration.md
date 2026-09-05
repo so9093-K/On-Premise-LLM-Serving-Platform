@@ -57,13 +57,13 @@ YAML 파일은 모델, runtime, 서비스, 보안 정책 같은 **repository-lev
 | GPU resource budget | `configs/gpu_budgets.yaml` | runtime별 GPU budget과 admission 기준 정의 |
 | Service / port registry | `configs/services.yaml` | Compose service 이름, container/host port, bind env, exposure category 정의 |
 | Exposure mode | `configs/exposure_profiles.yaml` | 어떤 서비스를 host에 publish할지 정의 |
-| Deploy Runtime Profile | `configs/deploy_profiles.yaml` | full deploy 후 어떤 secondary runtime을 deferred 상태로 둘지 정의 |
+| Deploy Runtime Profile | `configs/deploy_profiles.yaml` | compose-up/full deploy 후 어떤 secondary runtime을 deferred 상태로 둘지 정의 |
 | Authentication profile | `configs/auth_profiles.yaml` | `AUTH_MODE`별 인증·관리 endpoint 보호 정책 정의 |
 | Environment example contract | `configs/env_contract.yaml` | `.env` 예시 파일에 포함할 키 정의 |
 | Monitoring 설정 | `configs/monitoring.yaml` | Prometheus scrape와 live metric 검증 기준 정의 |
 | vLLM derived image build | `configs/vllm_unified_build.yaml` | base image와 compatibility pin 정의 |
 | vLLM runtime patch | `ops/images/vllm-unified/Dockerfile`, `ops/patches/` | derived image에 적용할 patch와 적용 조건 정의 |
-| 권장 container image | `configs/recommended_images.yaml` | platform 및 운영 component의 기본 image reference 정의 |
+| 권장 container image | `configs/recommended_images.yaml` | 로컬 build와 초기 env에 사용할 기본 image tag 정의. 실제 배포 재현성은 registry digest가 담당 |
 | Error metadata | `configs/error_catalog.yaml` | error code의 의미, retry 권장 여부, operator action 정의 |
 | API endpoint | `src/ai_model_serving/api/endpoint_spec.py`, `specs/openapi.gateway.yaml` | 외부 API endpoint 계약 정의 |
 | Request / response schema | `specs/schemas/*.json` | API payload 구조와 정적 제약 정의 |
@@ -292,7 +292,7 @@ Exposure Profile
 
 ## 5.7 Deploy Runtime Profile
 
-`configs/deploy_profiles.yaml`은 full deploy 이후 secondary runtime의 초기 운영 상태를 정의한다.
+`configs/deploy_profiles.yaml`은 compose-up과 full deploy 이후 secondary runtime의 초기 운영 상태를 정의한다. profile을 명시하지 않으면 `default_profile: retrieval_ready`가 적용되어 Prompt Risk 모델은 컨테이너만 생성되고 시작되지 않는다. Risk Adapter와 PII·Secret 검사 경로는 그대로 유지된다.
 
 현재 control 대상은 다음과 같다.
 
@@ -305,7 +305,7 @@ Exposure Profile
 | Profile | 의미 |
 |---|---|
 | `main_only` | Main Model 중심으로 기동하고 secondary runtime은 deferred |
-| `retrieval_ready` | embedding 계열은 준비하고 Prompt Risk는 deferred |
+| `retrieval_ready` (기본) | embedding 계열은 준비하고 Prompt Risk는 deferred |
 
 Main Model Profile과 Deploy Runtime Profile은 서로 다른 실행 축을 관리한다.
 
@@ -531,7 +531,7 @@ make exposure-status
 | GPU budget | `gpu_budgets.yaml` | runtime admission, co-residency | `make validate`, full-stack readiness |
 | Service / port | `services.yaml` | Compose / exposure / Prometheus 생성 | `make validate`, `make compose-config` |
 | Exposure mode | `exposure_profiles.yaml` | host publish 범위 | `make validate`, exposure 적용, Compose 재적용 |
-| Deploy profile | `deploy_profiles.yaml` | secondary runtime 초기 상태 | full deploy 또는 runtime reconcile |
+| Deploy profile | `deploy_profiles.yaml` | secondary runtime 초기 상태 | compose-up, full deploy 또는 runtime reconcile |
 | Auth profile | `auth_profiles.yaml` | API / Admin / internal auth 정책 | `make validate`, auth plan/apply/doctor |
 | Environment example contract | `env_contract.yaml` | example env key | example env 갱신, `make sync-env`, `make validate` |
 | `.env` | runtime environment | 현재 실행 instance의 endpoint, secret, timeout 등 | 대상 process/container 재기동 가능 |

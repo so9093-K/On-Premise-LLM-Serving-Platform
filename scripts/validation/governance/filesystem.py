@@ -18,7 +18,7 @@ from .common import ROOT
 # 저장소 전체를 rglob으로 훑지는 않는다. 그렇게 하면 .claude/, .vscode/ 같은
 # 에디터·에이전트 설정과 reports/runtime/의 호스트별 생성물까지 검사 대상이 되는데,
 # 그건 이 프로젝트가 보증하는 계약이 아니다.
-SCANNED_TREES = ('configs', 'ops', 'specs')
+SCANNED_TREES = ('configs', 'ops', 'specs', '.github/workflows')
 
 # 트리 안에 섞여 있는 생성물·다운로드 산출물. gitignore 대상이고 호스트마다 내용이
 # 달라서, 훑으면 검증이 패키저의 로컬 상태에 의존하게 된다.

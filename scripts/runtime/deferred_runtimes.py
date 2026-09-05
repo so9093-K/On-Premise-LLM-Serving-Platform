@@ -28,24 +28,29 @@ def _items(raw: str) -> list[str]:
     return [item.strip() for item in raw.split(",") if item.strip()]
 
 
-def load_deploy_profile_runtimes(config_root: Path, profile: str) -> list[str]:
+def load_deploy_profile(config_root: Path, profile: str) -> tuple[str, list[str]]:
     # --runtimes를 배포마다 손으로 나열하는 대신, configs/deploy_profiles.yaml에
     # 미리 정의해둔 조합(예: GPU가 작은 호스트용 프로필)을 이름으로 재사용하기 위함.
-    if not profile:
-        return []
     path = config_root / "configs/deploy_profiles.yaml"
     data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
     profiles = data.get("profiles")
     if not isinstance(profiles, dict):
         raise SystemExit("configs/deploy_profiles.yaml must define profiles")
-    item = profiles.get(profile)
+    effective_profile = profile or data.get("default_profile")
+    if not isinstance(effective_profile, str) or not effective_profile:
+        raise SystemExit("configs/deploy_profiles.yaml must define default_profile")
+    item = profiles.get(effective_profile)
     if not isinstance(item, dict):
         valid = ", ".join(sorted(str(key) for key in profiles))
-        raise SystemExit(f"unknown deploy runtime profile: {profile}; valid values: {valid}")
+        raise SystemExit(
+            f"unknown deploy runtime profile: {effective_profile}; valid values: {valid}"
+        )
     runtimes = item.get("deferred_runtimes", [])
     if not isinstance(runtimes, list) or not all(isinstance(value, str) for value in runtimes):
-        raise SystemExit(f"deploy profile {profile} must define deferred_runtimes as a string list")
-    return runtimes
+        raise SystemExit(
+            f"deploy profile {effective_profile} must define deferred_runtimes as a string list"
+        )
+    return effective_profile, runtimes
 
 
 def resolve_deferred_runtimes(
@@ -145,8 +150,12 @@ def main() -> int:
         compose_path = args.config_root / compose_path
     topology = load_runtime_topology(args.config_root, compose_path=compose_path)
     raw_runtimes = args.runtimes
-    if not raw_runtimes and args.profile:
-        raw_runtimes = ",".join(load_deploy_profile_runtimes(args.config_root, args.profile))
+    effective_profile = ""
+    if not raw_runtimes:
+        effective_profile, profile_runtimes = load_deploy_profile(
+            args.config_root, args.profile
+        )
+        raw_runtimes = ",".join(profile_runtimes)
     keys, services = resolve_deferred_runtimes(topology, raw_runtimes)
     if args.apply_state:
         if args.state_path is None:
@@ -158,10 +167,16 @@ def main() -> int:
             source=args.source,
         )
     if args.output == "json":
-        print(json.dumps({"keys": keys, "services": services, "profile": args.profile}, ensure_ascii=False))
+        print(
+            json.dumps(
+                {"keys": keys, "services": services, "profile": effective_profile},
+                ensure_ascii=False,
+            )
+        )
     else:
         print(" ".join(keys))
         print(" ".join(services))
+        print(effective_profile)
     return 0
 
 

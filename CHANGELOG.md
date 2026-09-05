@@ -6,6 +6,8 @@
 
 ### Added
 
+- macOS·Ubuntu 개발 환경을 위한 `make setup-dev`와 `make doctor-dev`, GitHub Actions 검증 workflow를 추가했다. app/contract 진입점에서는 Python을 확인하고 운영 shell helper용 Bash는 doctor에서 별도 진단한다. 기존 `.env`와 runtime state는 유지하며 GPU 런타임 검증과는 별도다.
+
 - OpenAI 표준 요청 필드를 chat·embedding API에서 받는다. `max_completion_tokens`(OpenAI가 `max_tokens`를 대체한 이름, 같은 한도를 가리키며 upstream 전에 `max_tokens`로 접힌다 — 두 이름을 함께 보내면 422), `developer` 역할(`system`을 대체한 이름, chat template이 동일하게 처리), `user` 식별자(형식만 검증하고 런타임에는 전달하지 않는다). 이전에는 셋 다 `422 VALIDATION_ERROR`라 표준 클라이언트를 그대로 붙일 수 없었다.
 - embedding `encoding_format`에 `base64`를 추가했다(응답은 little-endian float32 배열을 인코딩한 문자열). openai-python은 numpy가 설치되어 있으면 이 형식을 기본으로 요청하므로, 형식을 지정하지 않은 공식 SDK 호출이 422로 막히던 경로가 해소된다. 차원 검사는 float일 때와 동일하게 적용된다.
 - `/v1/models` 항목에 OpenAI model object가 요구하는 `created`(Gateway 프로세스 기동 시각, 프로세스 안에서 고정)와 `owned_by`를 추가했다. 업스트림 vLLM은 두 필드를 반환하는데 Gateway 목록에만 빠져 있었다.
@@ -14,6 +16,12 @@
 - `Qwen/Qwen2.5-Omni-7B` Thinker profile을 추가하고 `verified`로 승격했다. Gateway에서 text/image/audio/video 입력→text 응답, media boot canary·rollback, structured output, logprobs, logit bias와 streaming 계약을 실제 런타임으로 검증했다. tool calling은 안정적인 parser/template 경로가 없어 비활성이고, 음성 출력은 이번 플랫폼 범위에 포함하지 않는다.
 
 ### Changed
+
+- Secondary Runtime 기본 프로필을 `retrieval_ready`로 명시해 compose-up과 full 배포에서 Prompt Risk 모델 컨테이너를 생성만 하고 시작하지 않는다. Risk Adapter와 로컬 PII·Secret 검사는 유지되며, Prompt Risk 모델은 기존 Admin Runtime API로 필요할 때 시작한다.
+- Compose preflight가 실제 기동과 같은 main-model boot override를 검사하도록 수정했다. 저장된 프로필과 메인 GPU host override를 기본 모델 설정으로 잘못 비교하지 않으며, 보조 모델 정합성·GPU 예산·인증·노출 정책은 유지한다.
+- Sidecar admission이 소비하지 않던 `EMBEDDING_KO_GPU_MEMORY_UTILIZATION` 환경변수를 Compose 예시와 command에서 제거했다. 한국어 embedding GPU 예산은 `configs/model_serving.yaml`의 `0.06`을 command와 admission의 공통 기준으로 사용하며 기본 동작은 바뀌지 않는다.
+- 파일 상태 검사인 dependency lock 정합성을 pytest에서 정적 contract validation으로 옮기고, release package도 별도 축약 검증 대신 같은 `make validate` gate를 사용한다.
+- 아무 consumer도 없고 image tag의 가변성과 의미가 충돌하던 `recommended_images.yaml`의 `mutable` 메타데이터를 제거했다. 이 설정은 로컬 build/default tag를, 배포 파이프라인은 immutable registry digest를 소유한다.
 
 - 사용자에게 아무 영향이 없던 profile `request_parameter_policy.combinations` 정책을 제거했다. 검증기는 `mode: reject`만 거부하는데 어떤 profile도 그 값을 쓰지 않아(`capability_gate`/`allow`뿐) 모든 조합이 항상 허용되고 있었다. `canary_required`·`default` 키는 어디서도 읽히지 않았다. 실제 조합 허용 여부는 바뀌지 않는다.
 

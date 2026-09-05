@@ -67,7 +67,7 @@ Runtime 적용 / 배포
 | 서비스 / 포트 | `configs/services.yaml` | Compose, 노출, 모니터링 | 생성 파일 + Compose 확인 |
 | 네트워크 / 노출 | Exposure profile, Compose | Host 공개 범위 | Compose + full-stack |
 | 모니터링 | `configs/monitoring.yaml`, `ops/` | Metrics, Logs, Dashboard | 생성 파일 + Dashboard 확인 |
-| CI/CD | `.gitlab-ci.yml`, `scripts/ci/` | Pipeline / Deploy | Pipeline 단계 확인 |
+| CI/CD | `.github/workflows/`, `.gitlab-ci.yml`, `scripts/ci/` | GitHub 검증 / 기존 GitLab Deploy | 해당 Pipeline 단계 확인 |
 
 ---
 

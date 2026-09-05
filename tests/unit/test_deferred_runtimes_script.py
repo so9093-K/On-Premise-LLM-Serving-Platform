@@ -1,6 +1,4 @@
-"""scripts/runtime/deferred_runtimes.py를 검증한다: --runtimes/--profile로 지정한
-런타임이 올바른 service key/compose service로 풀리는지, 명시적 --runtimes가
---profile을 덮어쓰는지, --apply-state로 runtime-state.json에 제대로 기록되는지."""
+"""배포 프로필의 기본/명시 선택과 runtime-state projection을 검증한다."""
 
 from __future__ import annotations
 
@@ -21,6 +19,37 @@ def run_script(*args: str) -> subprocess.CompletedProcess[str]:
         capture_output=True,
         check=True,
     )
+
+
+def test_default_profile_defers_only_prompt_risk():
+    result = run_script("--output", "json")
+
+    payload = json.loads(result.stdout)
+    assert payload == {
+        "keys": ["risk_prompt"],
+        "services": ["risk-prompt-vllm"],
+        "profile": "retrieval_ready",
+    }
+
+
+def test_explicit_profile_overrides_default_profile():
+    result = run_script("--profile", "main_only", "--output", "json")
+
+    payload = json.loads(result.stdout)
+    assert payload["keys"] == ["embedding", "embedding_ko", "risk_prompt"]
+    assert payload["profile"] == "main_only"
+
+
+def test_direct_runtime_list_overrides_profile():
+    result = run_script(
+        "--profile", "main_only", "--runtimes", "embedding", "--output", "json"
+    )
+
+    assert json.loads(result.stdout) == {
+        "keys": ["embedding"],
+        "services": ["embedding-vllm"],
+        "profile": "",
+    }
 
 
 def test_deferred_runtime_script_applies_state_metadata(tmp_path):

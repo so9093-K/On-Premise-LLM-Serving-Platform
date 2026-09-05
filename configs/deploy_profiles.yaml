@@ -1,5 +1,7 @@
-# Full 배포에서 DEPLOY_RUNTIME_PROFILE로 선택한다.
-# deferred_runtimes의 런타임은 컨테이너를 만들되 초기 상태를 stopped로 기록한다.
+# compose-up과 full 배포가 공통으로 사용한다. 명시적으로 profile을 고르지 않으면
+# default_profile을 적용하며, deferred runtime은 컨테이너만 만들고 stopped로 기록한다.
+default_profile: retrieval_ready
+
 profiles:
   # Chat만 즉시 제공하고 embedding·prompt risk는 필요할 때 Admin API로 시작한다.
   main_only:

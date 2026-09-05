@@ -259,7 +259,7 @@ Prometheus, Grafana, Loki, Alloy의 설정 파일이 변경된 Release에서는 
 
 ## 10.5 Runtime 프로파일 적용
 
-Full 배포에서는 Deploy Runtime Profile을 기준으로 배포 직후 실행할 Secondary Runtime을 결정한다.
+Full 배포에서는 Deploy Runtime Profile을 기준으로 배포 직후 실행할 Secondary Runtime을 결정한다. `DEPLOY_RUNTIME_PROFILE`을 생략하면 설정의 기본값인 `retrieval_ready`를 사용한다.
 
 ```text
 Deploy Runtime Profile
@@ -272,7 +272,7 @@ Deploy Runtime Profile
 | 프로파일 | 배포 직후 구성 |
 |---|---|
 | `main_only` | Embedding / Korean Embedding / Prompt Risk는 초기 중지 상태로 구성 |
-| `retrieval_ready` | Prompt Risk를 초기 중지 상태로 구성 |
+| `retrieval_ready` (기본) | Prompt Risk를 초기 중지 상태로 구성 |
 
 `DEPLOY_DEFERRED_RUNTIMES`가 지정된 경우 해당 목록을 직접 적용한다.
 
@@ -501,7 +501,7 @@ make ready-full
 |---|---|
 | `DEPLOY_MODE` | `full` / `rolling` 결정 |
 | `DEPLOY_PATH` | Release와 공유 Runtime 데이터가 위치하는 배포 루트 |
-| `DEPLOY_RUNTIME_PROFILE` | Full 배포의 Secondary Runtime 초기 상태 |
+| `DEPLOY_RUNTIME_PROFILE` | Full 배포의 Secondary Runtime 초기 상태(생략 시 `retrieval_ready`) |
 | `DEPLOY_DEFERRED_RUNTIMES` | 초기 중지 Runtime 직접 지정 |
 | `GATEWAY_HEALTH_URL` | 배포 후 Gateway health 확인 URL 재정의 |
 | `RUN_READY_SMOKE` | Gateway `/health` 확인 실행 |

@@ -7,7 +7,8 @@ import sys
 
 MIN_VERSION = (3, 12)
 MAX_EXCLUSIVE = (3, 15)
-SUPPORTED_LABEL = "Python >=3.12,<3.15"
+SUPPORTED_SPECIFIER = ">=3.12,<3.15"
+SUPPORTED_LABEL = f"Python {SUPPORTED_SPECIFIER}"
 
 
 def version_label(info: tuple[int, int, int] | None = None) -> str:

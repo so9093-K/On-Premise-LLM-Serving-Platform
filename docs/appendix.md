@@ -14,7 +14,7 @@
 | Secondary Runtime | Embedding, 한국어 Embedding, Prompt Risk 등 Main Model 외 모델 Runtime. | [4. 실행 환경과 모드](./04_runtime_modes.md) |
 | Risk Adapter | ~~PII·Secret 위험 탐지~~와 Prompt Risk 신호를 제공하는 서비스. PII와 Secret은 내부 detector를 사용하고 Prompt Risk는 별도 vLLM Runtime을 호출한다. | [3. 시스템 구성](./03_system_components.md) |
 | Main Model Profile | Main Model을 어떤 모델과 Runtime 설정으로 실행할지 정의하는 프로파일. | [5. 설정 체계와 Source of Truth](./05_configuration.md), [6. 모델 운영](./06_model_operations.md) |
-| Deploy Runtime Profile | Full 배포 후 Secondary Runtime의 초기 실행 상태를 정의하는 프로파일. | [5. 설정 체계와 Source of Truth](./05_configuration.md), [10. 배포](./10_deployment.md) |
+| Deploy Runtime Profile | compose-up/full 배포 후 Secondary Runtime의 초기 실행 상태를 정의하는 프로파일. | [5. 설정 체계와 Source of Truth](./05_configuration.md), [10. 배포](./10_deployment.md) |
 | Exposure Profile | 실행된 서비스 중 Host에 공개할 대상을 정의하는 프로파일. | [4. 실행 환경과 모드](./04_runtime_modes.md), [5. 설정 체계와 Source of Truth](./05_configuration.md) |
 | Auth Profile | Gateway, Admin API, 내부 서비스의 인증 정책 조합을 정의하는 프로파일. | [5. 설정 체계와 Source of Truth](./05_configuration.md) |
 | Readiness | 서비스와 필요한 모델 Runtime이 실제 요청을 처리할 준비가 된 상태. | [8. 테스트와 검증](./08_testing_validation.md) |

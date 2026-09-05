@@ -34,7 +34,8 @@
 #   DEPLOY_RELEASE_ID          불변 release 디렉터리 이름; 기본값은 CI_COMMIT_SHA
 #   RELEASES_TO_KEEP           보관할 성공한 release 디렉터리 개수 (기본값: 5)
 #   DEPLOY_RUNTIME_PROFILE     configs/deploy_profiles.yaml의 런타임 시작 프로필
-#                              (예: main_only, retrieval_ready).
+#                              (예: main_only, retrieval_ready). 생략 시 파일의
+#                              default_profile을 사용한다.
 #   DEPLOY_DEFERRED_RUNTIMES   배포 후 정지 상태로 유지할, 콤마로 구분된 controllable
 #                              런타임 키 또는 compose 서비스 (예:
 #                              embedding,embedding_ko,risk_prompt). full 배포는 이
@@ -225,6 +226,7 @@ if [[ "${DEPLOY_MODE}" == "rolling" ]]; then
   fi
   mapfile -t _changed_sensitive < <(deploy_changed_files "${PREVIOUS_RELEASE}" "${RELEASE_PATH}" \
     "ops/compose/full-stack.private-network.yaml" \
+    "configs/deploy_profiles.yaml" \
     "configs/main_model_profiles.yaml" \
     "configs/gemma4_chat_template.jinja")
   if [[ ${#_changed_sensitive[@]} -gt 0 ]]; then
@@ -290,6 +292,8 @@ DEPLOY_RUNTIME_PROFILE="${DEPLOY_RUNTIME_PROFILE:-}"
 DEPLOY_DEFERRED_RUNTIMES="${DEPLOY_DEFERRED_RUNTIMES:-}"
 DEFERRED_RUNTIME_KEYS=()
 DEFERRED_RUNTIME_SERVICES=()
+DEFERRED_RUNTIME_WAS_RUNNING=()
+DEPLOY_RUNTIME_PROFILE_EFFECTIVE=""
 RESTORING_RELEASE=0
 ENV_BACKUP_CREATED=0
 cleanup_generated_files() {
@@ -388,7 +392,8 @@ compose_run() {
 resolve_deferred_runtimes() {
   DEFERRED_RUNTIME_KEYS=()
   DEFERRED_RUNTIME_SERVICES=()
-  [[ -n "${DEPLOY_DEFERRED_RUNTIMES:-}" || -n "${DEPLOY_RUNTIME_PROFILE:-}" ]] || return 0
+  DEPLOY_RUNTIME_PROFILE_EFFECTIVE=""
+  [[ "${DEPLOY_MODE}" == "full" ]] || return 0
   local resolved
   if ! resolved="$(
     "${_PYTHON_BIN}" scripts/runtime/deferred_runtimes.py \
@@ -403,11 +408,45 @@ resolve_deferred_runtimes() {
   mapfile -t _resolved_lines <<<"${resolved}"
   read -r -a DEFERRED_RUNTIME_KEYS <<<"${_resolved_lines[0]:-}"
   read -r -a DEFERRED_RUNTIME_SERVICES <<<"${_resolved_lines[1]:-}"
+  DEPLOY_RUNTIME_PROFILE_EFFECTIVE="${_resolved_lines[2]:-}"
   if [[ ${#DEFERRED_RUNTIME_KEYS[@]} -gt 0 ]]; then
-    echo "[deploy] deferred runtimes: ${DEFERRED_RUNTIME_KEYS[*]} (${DEFERRED_RUNTIME_SERVICES[*]})"
-  elif [[ -n "${DEPLOY_RUNTIME_PROFILE:-}" ]]; then
-    echo "[deploy] runtime profile ${DEPLOY_RUNTIME_PROFILE}: no deferred runtimes"
+    echo "[deploy] runtime profile ${DEPLOY_RUNTIME_PROFILE_EFFECTIVE:-direct}: deferred ${DEFERRED_RUNTIME_KEYS[*]} (${DEFERRED_RUNTIME_SERVICES[*]})"
+  elif [[ -n "${DEPLOY_RUNTIME_PROFILE_EFFECTIVE:-}" ]]; then
+    echo "[deploy] runtime profile ${DEPLOY_RUNTIME_PROFILE_EFFECTIVE}: no deferred runtimes"
   fi
+}
+
+capture_deferred_runtime_state() {
+  DEFERRED_RUNTIME_WAS_RUNNING=()
+  local service container_id running
+  for service in "${DEFERRED_RUNTIME_SERVICES[@]}"; do
+    container_id="$(compose_run ps --all -q "${service}" 2>/dev/null || true)"
+    [[ -n "${container_id}" ]] || continue
+    running="$(docker inspect -f '{{.State.Running}}' "${container_id}" 2>/dev/null || true)"
+    if [[ "${running}" == "true" ]]; then
+      DEFERRED_RUNTIME_WAS_RUNNING+=("${service}")
+    fi
+  done
+}
+
+enforce_deferred_runtime_state() {
+  [[ ${#DEFERRED_RUNTIME_SERVICES[@]} -gt 0 ]] || return 0
+  local service container_id running
+  for service in "${DEFERRED_RUNTIME_SERVICES[@]}"; do
+    container_id="$(compose_run ps --all -q "${service}" 2>/dev/null || true)"
+    if [[ -z "${container_id}" ]]; then
+      echo "[deploy] creating deferred runtime without starting: ${service}"
+      SERVICES_MUTATED=1
+      compose_run create --no-deps "${service}" || return 1
+      continue
+    fi
+    running="$(docker inspect -f '{{.State.Running}}' "${container_id}" 2>/dev/null || true)"
+    if [[ "${running}" == "true" ]]; then
+      echo "[deploy] stopping deferred runtime: ${service}"
+      SERVICES_MUTATED=1
+      compose_run stop "${service}" || return 1
+    fi
+  done
 }
 
 is_deferred_service() {
@@ -705,15 +744,44 @@ restore_previous_release() {
         # 배포가 썼던 것과 동일한 이미지-ID + 설정-내용 집합을, 실패한 candidate
         # (RELEASE_PATH)를 baseline으로 계산한다. 건드리지 않은 vLLM 모델은 절대
         # cold-restart하지 않는다.
-        local _rollback_services
+        local _rollback_services _rollback_active_services _rollback_deferred_services
         mapfile -t _rollback_services < <(compute_recreate_set "${RELEASE_PATH}")
+        _rollback_active_services=()
+        _rollback_deferred_services=()
+        local _rollback_service
+        for _rollback_service in "${_rollback_services[@]}"; do
+          if is_deferred_service "${_rollback_service}"; then
+            _rollback_deferred_services+=("${_rollback_service}")
+          else
+            _rollback_active_services+=("${_rollback_service}")
+          fi
+        done
         if [[ ${#_rollback_services[@]} -eq 0 ]]; then
           echo "[deploy] no service differs from the previous release; already converged" >&2
-        elif ! compose_run up -d --no-deps --remove-orphans "${_rollback_services[@]}"; then
-          echo "[deploy] ERROR: failed to restore changed services: ${_rollback_services[*]}" >&2
-          restore_failed=1
-        else
-          echo "[deploy] restored services: ${_rollback_services[*]}" >&2
+        fi
+        if [[ ${#_rollback_active_services[@]} -gt 0 ]]; then
+          if compose_run up -d --no-deps --remove-orphans "${_rollback_active_services[@]}"; then
+            echo "[deploy] restored active services: ${_rollback_active_services[*]}" >&2
+          else
+            echo "[deploy] ERROR: failed to restore active services: ${_rollback_active_services[*]}" >&2
+            restore_failed=1
+          fi
+        fi
+        if [[ ${#_rollback_deferred_services[@]} -gt 0 ]]; then
+          if compose_run create --no-deps --force-recreate "${_rollback_deferred_services[@]}"; then
+            echo "[deploy] restored stopped runtime containers: ${_rollback_deferred_services[*]}" >&2
+          else
+            echo "[deploy] ERROR: failed to restore stopped runtime containers: ${_rollback_deferred_services[*]}" >&2
+            restore_failed=1
+          fi
+        fi
+        if [[ ${#DEFERRED_RUNTIME_WAS_RUNNING[@]} -gt 0 ]]; then
+          if compose_run up -d --no-deps "${DEFERRED_RUNTIME_WAS_RUNNING[@]}"; then
+            echo "[deploy] restored previously running runtimes: ${DEFERRED_RUNTIME_WAS_RUNNING[*]}" >&2
+          else
+            echo "[deploy] ERROR: failed to restart previously running runtimes: ${DEFERRED_RUNTIME_WAS_RUNNING[*]}" >&2
+            restore_failed=1
+          fi
         fi
       else
         if ! compose_run up -d --no-deps admin-sidecar; then
@@ -869,6 +937,9 @@ fi
 if ! resolve_deferred_runtimes; then
   fail_after_env_backup "invalid DEPLOY_DEFERRED_RUNTIMES=${DEPLOY_DEFERRED_RUNTIMES}"
 fi
+if ! capture_deferred_runtime_state; then
+  fail_after_env_backup "failed to capture deferred runtime state"
+fi
 if ! apply_deferred_runtime_state; then
   fail_after_env_backup "failed to apply deferred runtime desired state"
 fi
@@ -969,7 +1040,7 @@ if [[ "${DEPLOY_MODE}" == "full" ]]; then
     fi
     if [[ ${#DEFERRED_CHANGED_SERVICES[@]} -gt 0 ]]; then
       echo "[deploy] full deploy: creating deferred runtime containers without starting: ${DEFERRED_CHANGED_SERVICES[*]}"
-      if ! compose_run create --force-recreate "${DEFERRED_CHANGED_SERVICES[@]}"; then
+      if ! compose_run create --no-deps --force-recreate "${DEFERRED_CHANGED_SERVICES[@]}"; then
         fail_after_env_backup "compose create failed for deferred services: ${DEFERRED_CHANGED_SERVICES[*]}"
       fi
     fi
@@ -1002,10 +1073,13 @@ if [[ "${DEPLOY_MODE}" == "full" ]]; then
     if [[ ${#STALE_DEFERRED_SERVICES[@]} -gt 0 ]]; then
       # deferred runtime은 시작하지 않는다. up -d로 올리면 VRAM을 잡는다.
       echo "[deploy] full deploy: converging stale Compose context without starting: ${STALE_DEFERRED_SERVICES[*]}"
-      if ! compose_run create --force-recreate "${STALE_DEFERRED_SERVICES[@]}"; then
+      if ! compose_run create --no-deps --force-recreate "${STALE_DEFERRED_SERVICES[@]}"; then
         fail_after_env_backup "failed to converge stale Compose context for deferred services: ${STALE_DEFERRED_SERVICES[*]}"
       fi
     fi
+  fi
+  if ! enforce_deferred_runtime_state; then
+    fail_after_env_backup "failed to keep deferred runtimes stopped"
   fi
 else
   # application/control-plane 이미지만 pull한다. Gateway와 Admin Sidecar는

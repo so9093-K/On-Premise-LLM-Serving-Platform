@@ -20,8 +20,7 @@ trap cleanup EXIT
 mkdir -p "$DIST"
 
 if [[ "${PACKAGE_SKIP_VALIDATION:-0}" != "1" ]]; then
-  "$PYTHON_BIN" "$ROOT/scripts/build/check_python.py" --context package >/dev/null
-  "$PYTHON_BIN" "$ROOT/scripts/validation/validate_contracts.py"
+  PYTHON_BIN="$PYTHON_BIN" bash "$ROOT/scripts/validation/run_validate.sh"
 fi
 
 "$PYTHON_BIN" - "$ROOT" "$STAGE/$PACKAGE_ROOT" <<'PYCODE'

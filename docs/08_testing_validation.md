@@ -31,6 +31,8 @@ make runtime-validate
 
 ## 8.1 검증 구조
 
+`make validate`와 `make test`는 Python 정책을 먼저 검사한다. 개발 환경 준비는 `make setup-dev`를 사용한다. `make doctor-dev`는 Compose·배포 shell helper까지 실행할 환경의 Bash 4 이상 여부를 별도로 확인한다. GitHub Actions는 `.python-version`의 기준 버전으로 macOS와 Ubuntu에서 동일한 app/contract 검증을 실행한다. GPU 통합 검증은 별도 Linux/NVIDIA 환경에서 수행한다.
+
 검증은 변경으로 발생할 수 있는 문제를 가장 가까운 계층에서 확인하도록 구성한다.
 
 예를 들어 API를 변경하면 다음 순서로 범위를 확장한다.
@@ -96,9 +98,10 @@ make validate
 | 검증 영역 | 확인 내용 | 확인 대상 |
 |---|---|---|
 | 기본 계약 | YAML/JSON 형식, version, Python 호환성, port·model registry 관계 | 공통 설정과 registry 정합성 |
+| Dependency Lock | `pyproject.toml` direct dependency와 runtime/development exact pin 정렬 | 설치 입력 drift 방지 |
 | API Contract | OpenAPI ref, request/response schema, error surface | 공개 API 호환성 |
 | Model / Runtime Policy | model registry, risk budget, resource-control policy | 모델 실행 정책 |
-| Shell Script | 운영 shell script syntax | Build·배포·운영 명령 |
+| Shell Script | script syntax; 실제 실행 동작과 Bash runtime 요구사항은 별도 테스트·진단 | Build·배포·운영 명령 |
 | Exposure | exposure profile과 service category coverage | 서비스 host 공개 범위 |
 | Compose Projection | exposure 설정에서 생성되는 Compose override | 실제 Compose topology |
 | Environment Example Contract | `.env.*.example`과 `env_contract.yaml` | 예시 환경변수 키 누락 |
@@ -111,6 +114,8 @@ make validate
 현재 `make validate`는 다음 순서로 검증한다.
 
 ```text
+Python 확인
+      ↓
 Contract Validation
       ↓
 Shell Syntax
@@ -124,8 +129,6 @@ Environment Contract
 Runtime Asset Drift
       ↓
 OpenAPI Snapshot
-      ↓
-Auth Profile Sanity
 ```
 
 ### API Contract 검증

@@ -146,6 +146,17 @@ def test_state_store_atomic_round_trip_and_corruption(tmp_path):
     assert not list(tmp_path.glob("*.tmp"))
 
 
+def _increment_state_store(state_path: str, count: int) -> None:
+    # spawn은 작업 함수를 import한다. 함수 내부 정의는 fork에서만 동작한다.
+    child = MainModelStateStore(Path(state_path), "gemma4-26b-a4b-fp8")
+    for _ in range(count):
+        child.update(
+            lambda state: state.setdefault("stats", {}).update(
+                switch_requests=int(state.setdefault("stats", {}).get("switch_requests", 0)) + 1
+            )
+        )
+
+
 def test_state_store_update_does_not_lose_concurrent_process_updates(tmp_path):
     import multiprocessing
 
@@ -153,27 +164,22 @@ def test_state_store_update_does_not_lose_concurrent_process_updates(tmp_path):
     store = MainModelStateStore(path, "gemma4-26b-a4b-fp8")
     store.write(store.read())
 
-    def increment(state_path: str, count: int) -> None:
-        child = MainModelStateStore(Path(state_path), "gemma4-26b-a4b-fp8")
-        for _ in range(count):
-            child.update(
-                lambda state: state.setdefault("stats", {}).update(
-                    switch_requests=int(
-                        state.setdefault("stats", {}).get("switch_requests", 0)
-                    )
-                    + 1
-                )
-            )
-
+    context = multiprocessing.get_context("spawn")
     processes = [
-        multiprocessing.Process(target=increment, args=(str(path), 25))
+        context.Process(target=_increment_state_store, args=(str(path), 25))
         for _ in range(4)
     ]
-    for process in processes:
-        process.start()
-    for process in processes:
-        process.join(10)
-        assert process.exitcode == 0
+    try:
+        for process in processes:
+            process.start()
+        for process in processes:
+            process.join(10)
+            assert process.exitcode == 0
+    finally:
+        for process in processes:
+            if process.is_alive():
+                process.terminate()
+                process.join(5)
     assert store.read()["stats"]["switch_requests"] == 100
 
 

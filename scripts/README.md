@@ -18,6 +18,9 @@ make compose-down
 로컬에서 Gateway와 Risk Adapter만 확인할 때는 다음 흐름을 사용한다.
 
 ```bash
+make setup-dev
+make validate
+make test
 make init-env-local
 make start
 make ready-local
@@ -45,6 +48,8 @@ make stop
 
 | 파일 | 용도 |
 |---|---|
+| `build/setup_dev.py` | macOS/Ubuntu 개발용 `.venv`를 준비·재사용한다. `.env`, runtime state, Docker/GPU는 변경하지 않는다. |
+| `build/check_dev_environment.py` | Python 정책과 운영 shell helper에 필요한 Bash 4 이상을 진단한다. |
 | `config/setup_env.py` | `.env`를 생성한다. 기본 target은 기존 `.env`를 덮어쓰지 않는다. `local_open`은 `master_open/private_lan` 전체-stack 사내망 정책과 함께 생성한다. |
 | `auth/auth_plan.py` / `auth/auth_apply.py` | secret을 출력하지 않고 auth profile 변경 계획을 보여주거나 managed auth flag만 적용한다. |
 | `validation/validate_contracts.py` | OpenAPI refs, generated OpenAPI schema injection, JSON Schema, config, release hygiene 정책을 검증한다. |
@@ -69,6 +74,7 @@ make stop
 - `make start`는 vLLM을 시작하지 않는다. app-only 확인용이다.
 - app-only 확인은 `make ready-local`, strict full-stack 확인은 `make ready-full`을 사용한다.
 - full-stack 기동인 `make compose-up`에는 Docker/GPU/포트/secret preflight가 포함된다.
+- `make compose-up`은 `configs/deploy_profiles.yaml`의 기본 `retrieval_ready`를 적용해 Prompt Risk 모델을 시작하지 않는다. 다른 정의된 초기 구성이 필요하면 `RUNTIME_PROFILE=main_only make compose-up`처럼 명시한다.
 - 라이브 검증은 `make runtime-validate`, 실행 전 정적 검증은 `make validate`로 수행한다.
 - 삭제 전에는 `make clean-dry-run`으로 삭제 대상을 확인한다.
 

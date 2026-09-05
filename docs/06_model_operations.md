@@ -499,7 +499,7 @@ curl -X PATCH \
 
 Start 과정에서는 prerequisite와 GPU budget을 확인하고 필요한 runtime을 startup order에 따라 시작한다.
 
-배포 시 처음부터 활성화할 secondary runtime 조합은 `DEPLOY_RUNTIME_PROFILE`과 `configs/deploy_profiles.yaml`에서 결정한다.
+compose-up/full 배포 시 처음부터 활성화할 secondary runtime 조합은 `configs/deploy_profiles.yaml`에서 결정한다. 배포의 `DEPLOY_RUNTIME_PROFILE` 또는 로컬 `compose-up`의 `RUNTIME_PROFILE`을 생략하면 `retrieval_ready`가 적용되어 Prompt Risk 모델은 초기 중지 상태가 된다.
 
 ---
 
@@ -546,7 +546,7 @@ Main Model 변경 작업은 다음 순서로 확인한다.
 | Main Model profile | `configs/main_model_profiles.yaml` | model, revision, image, vLLM command, capability, Gateway 요청 정책, compatibility 정의 |
 | GPU budget | `configs/gpu_budgets.yaml` | GPU admission ceiling과 runtime resource policy 정의 |
 | Runtime serving policy | `configs/model_serving.yaml` | Gateway runtime 연결, timeout, admission 정의 |
-| Deploy Runtime Profile | `configs/deploy_profiles.yaml` | 배포 후 secondary runtime 활성 구성 정의 |
+| Deploy Runtime Profile | `configs/deploy_profiles.yaml` | compose-up/full 배포 후 secondary runtime 활성 구성 정의 |
 | Runtime topology | `ops/compose/full-stack.private-network.yaml` | Main / secondary runtime container 기본 topology 정의 |
 | Main Model state | `.runtime/main-model/main-model-state.json` 또는 deployment state path | active profile, gate, runtime state, switch operation 기록 |
 | Runtime control implementation | `src/ai_model_serving/main_model/`, `src/ai_model_serving/apps/admin_sidecar.py` | switch, validation, rollback, Docker lifecycle 구현 |

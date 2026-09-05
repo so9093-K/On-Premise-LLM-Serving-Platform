@@ -142,6 +142,36 @@ def validate_deployment_targets() -> None:
         else:
             raise SystemExit(f'{filename}: MAIN_LLM_STATIC_PROFILE is required')
 
+
+def validate_deploy_profiles() -> None:
+    topology = read_yaml('configs/runtime_topology.yaml').get('runtimes')
+    document = read_yaml('configs/deploy_profiles.yaml')
+    profiles = document.get('profiles')
+    default_profile = document.get('default_profile')
+    if not isinstance(topology, dict):
+        raise SystemExit('runtime_topology.yaml must declare runtimes')
+    if not isinstance(profiles, dict) or default_profile not in profiles:
+        raise SystemExit('deploy_profiles.yaml must declare an existing default_profile')
+    controllable_runtimes = {
+        str(key)
+        for key, binding in topology.items()
+        if isinstance(binding, dict)
+        and binding.get('enabled') is True
+        and binding.get('controllable') is True
+    }
+    for profile_id, profile in profiles.items():
+        deferred = profile.get('deferred_runtimes') if isinstance(profile, dict) else None
+        if not isinstance(deferred, list) or not all(isinstance(item, str) for item in deferred):
+            raise SystemExit(
+                f'deploy profile {profile_id!r} must define deferred_runtimes as a string list'
+            )
+        unknown_runtimes = set(deferred) - controllable_runtimes
+        if unknown_runtimes:
+            raise SystemExit(
+                f'deploy profile {profile_id!r} references non-controllable runtimes: '
+                f'{", ".join(sorted(unknown_runtimes))}'
+            )
+
 def validate_ports() -> None:
     """모델 런타임 포트가 두 레지스트리에서 같은 값인지 확인한다.
 

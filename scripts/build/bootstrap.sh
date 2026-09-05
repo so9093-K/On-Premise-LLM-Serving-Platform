@@ -30,8 +30,8 @@ for candidate in "${python_candidates[@]}"; do
   case "$candidate" in
     "$ROOT/.venv/"*) continue ;;
   esac
-  if [[ -x "$candidate" ]] && "$candidate" -c \
-    'import sys; raise SystemExit(0 if (3, 12) <= sys.version_info[:2] < (3, 15) else 1)'; then
+  if [[ -x "$candidate" ]] && "$candidate" scripts/build/check_python.py \
+    --context first-run >/dev/null 2>&1; then
     SYSTEM_PYTHON="$candidate"
     break
   fi

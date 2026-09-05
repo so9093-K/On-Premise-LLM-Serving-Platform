@@ -185,7 +185,7 @@ Runtime Flags
 | **Exposure** | `configs/exposure_profiles.yaml` | Host publish 여부와 외부 노출 범위 설정 |
 | **Authentication** | `configs/auth_profiles.yaml` | API 인증 방식과 인증 profile 설정 |
 | **Monitoring** | `configs/monitoring.yaml` | Metrics, logs, dashboard 관련 관측성 설정 |
-| **Deploy Profile** | `configs/deploy_profiles.yaml` | 배포 환경별 실행 구성과 적용 profile 정의 |
+| **Deploy Profile** | `configs/deploy_profiles.yaml` | compose-up/full 배포의 초기 Runtime 구성 정의 |
 
 설정 간 우선순위와 생성 artifact는 [5. 설정 체계와 Source of Truth](./05_configuration.md)에서 다룬다.
 

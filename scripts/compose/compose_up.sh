@@ -66,7 +66,7 @@ echo "[compose-up] main-model boot profile: $MAIN_MODEL_BOOT_PROFILE"
 
 if [[ "${SKIP_PREFLIGHT:-0}" != "1" ]]; then
   ENV_FILE="$ENV_FILE" COMPOSE_FILE="$COMPOSE_FILE" EXPOSURE_MODE="$CANONICAL_MODE" \
-    bash scripts/compose/preflight_compose.sh
+    bash scripts/compose/preflight_compose.sh --boot-override "$MAIN_MODEL_BOOT_OVERRIDE"
 else
   APP_ENV_EFFECTIVE="$(_env_value APP_ENV)"
   APP_ENV_EFFECTIVE="${APP_ENV_EFFECTIVE:-local}"
@@ -92,8 +92,24 @@ if [[ -n "$COMPOSE_OVERRIDE" ]]; then
   COMPOSE_ARGS+=(-f "$COMPOSE_OVERRIDE")
 fi
 COMPOSE_ARGS+=(-f "$MAIN_MODEL_BOOT_OVERRIDE")
-echo "[compose-up] validating effective Compose config for profile $MAIN_MODEL_BOOT_PROFILE"
-docker compose "${COMPOSE_ARGS[@]}" --env-file "$ENV_FILE_ABS" config >/dev/null
+# Normal preflight already resolved this exact file set. Keep syntax validation
+# only for the explicitly permitted SKIP_PREFLIGHT path.
+if [[ "${SKIP_PREFLIGHT:-0}" == "1" ]]; then
+  echo "[compose-up] validating effective Compose config for profile $MAIN_MODEL_BOOT_PROFILE"
+  docker compose "${COMPOSE_ARGS[@]}" --env-file "$ENV_FILE_ABS" config >/dev/null
+fi
+
+DEFERRED_RUNTIME_RESOLUTION="$(
+  "$PYTHON_BIN" scripts/runtime/deferred_runtimes.py \
+    --config-root "$ROOT" \
+    --compose-file "$COMPOSE_FILE" \
+    --profile "${RUNTIME_PROFILE:-}" \
+    --output lines
+)"
+mapfile -t DEFERRED_RUNTIME_LINES <<<"$DEFERRED_RUNTIME_RESOLUTION"
+read -r -a DEFERRED_RUNTIME_KEYS <<<"${DEFERRED_RUNTIME_LINES[0]:-}"
+read -r -a DEFERRED_RUNTIME_SERVICES <<<"${DEFERRED_RUNTIME_LINES[1]:-}"
+RUNTIME_PROFILE_EFFECTIVE="${DEFERRED_RUNTIME_LINES[2]:-}"
 
 HF_CACHE_HOST="$(
   "$PYTHON_BIN" scripts/models/resolve_hf_cache_dir.py \
@@ -116,7 +132,7 @@ PYTHONPATH="$ROOT/src${PYTHONPATH:+:$PYTHONPATH}" \
     --cache-dir "$HF_CACHE_HOST" \
     --profile "$MAIN_MODEL_BOOT_PROFILE"
 
-echo "[compose-up] starting stack (EXPOSURE_MODE=$CANONICAL_MODE, profile=$MAIN_MODEL_BOOT_PROFILE)"
+echo "[compose-up] starting stack (EXPOSURE_MODE=$CANONICAL_MODE, main-profile=$MAIN_MODEL_BOOT_PROFILE, runtime-profile=$RUNTIME_PROFILE_EFFECTIVE)"
 # Compose는 bind-mounted 파일의 내용 변경만으로는 기존 컨테이너를 바꾸지 않는다.
 # 일반 source는 이미지 재빌드로 수렴하지만, 아래 목록은 각 프로세스가 호스트
 # 설정을 직접 읽으므로 이전 적용 fingerprint와 다르면 해당 서비스만 재생성한다.
@@ -174,9 +190,54 @@ for config_service_spec in "${BIND_MOUNTED_CONFIG_SERVICE_SPECS[@]}"; do
   CONFIG_SERVICE_STATE_FILES+=("$config_state_file")
   CONFIG_SERVICE_FINGERPRINTS+=("$config_fingerprint")
 done
+# 기본 runtime profile의 deferred 모델은 container를 남겨 Admin API가 시작할 수
+# 있게 하되, compose-up 자체가 GPU 메모리를 점유시키지는 않는다.
+"$PYTHON_BIN" scripts/runtime/deferred_runtimes.py \
+  --config-root "$ROOT" \
+  --compose-file "$COMPOSE_FILE" \
+  --profile "${RUNTIME_PROFILE:-}" \
+  --state-path .runtime/gateway/runtime-state.json \
+  --apply-state \
+  --reason deferred_at_compose_up \
+  --source compose-up \
+  --output lines >/dev/null
+
+for deferred_service in "${DEFERRED_RUNTIME_SERVICES[@]}"; do
+  deferred_container_id="$(docker compose "${COMPOSE_ARGS[@]}" --env-file "$ENV_FILE_ABS" ps --all -q "$deferred_service" 2>/dev/null || true)"
+  if [[ -n "$deferred_container_id" ]] &&
+    [[ "$(docker inspect -f '{{.State.Running}}' "$deferred_container_id" 2>/dev/null || true)" == "true" ]]; then
+    echo "[compose-up] stopping deferred runtime: $deferred_service"
+    docker compose "${COMPOSE_ARGS[@]}" --env-file "$ENV_FILE_ABS" stop "$deferred_service"
+  fi
+done
+
+mapfile -t ALL_COMPOSE_SERVICES < <(
+  docker compose "${COMPOSE_ARGS[@]}" --env-file "$ENV_FILE_ABS" config --services
+)
+ACTIVE_COMPOSE_SERVICES=()
+for compose_service in "${ALL_COMPOSE_SERVICES[@]}"; do
+  compose_service_deferred=0
+  for deferred_service in "${DEFERRED_RUNTIME_SERVICES[@]}"; do
+    if [[ "$compose_service" == "$deferred_service" ]]; then
+      compose_service_deferred=1
+      break
+    fi
+  done
+  if [[ $compose_service_deferred -eq 0 ]]; then
+    ACTIVE_COMPOSE_SERVICES+=("$compose_service")
+  fi
+done
+
 # 현재 Compose 정의에 없는 이전 collector 같은 orphan을 함께 정리한다. 남겨두면
 # 구 수집기와 새 수집기가 같은 json-file을 동시에 Loki로 보내 drift를 만든다.
-docker compose "${COMPOSE_ARGS[@]}" --env-file "$ENV_FILE_ABS" up -d --remove-orphans
+docker compose "${COMPOSE_ARGS[@]}" --env-file "$ENV_FILE_ABS" \
+  up -d --remove-orphans "${ACTIVE_COMPOSE_SERVICES[@]}"
+
+if [[ ${#DEFERRED_RUNTIME_SERVICES[@]} -gt 0 ]]; then
+  echo "[compose-up] creating deferred runtime containers without starting: ${DEFERRED_RUNTIME_SERVICES[*]}"
+  docker compose "${COMPOSE_ARGS[@]}" --env-file "$ENV_FILE_ABS" \
+    create --no-deps "${DEFERRED_RUNTIME_SERVICES[@]}"
+fi
 
 if [[ ${#CONFIG_SERVICES_TO_REFRESH[@]} -gt 0 ]]; then
   echo "[compose-up] force-recreating changed config services: ${CONFIG_SERVICES_TO_REFRESH[*]}"

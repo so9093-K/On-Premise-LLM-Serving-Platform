@@ -1,12 +1,10 @@
 from __future__ import annotations
 
-import subprocess
-import sys
-
-from .common import ROOT
+from scripts.compose.validate_vllm_compose import validate_alignment
 from .filesystem import validate_json_and_yaml_parse
 from .model_config import (
     validate_configuration_schema,
+    validate_deploy_profiles,
     validate_deployment_targets,
     validate_model_resource_control_policy,
     validate_ports,
@@ -20,21 +18,10 @@ from .schemas import (
     validate_risk_schema,
 )
 from .versioning import (
+    validate_dependency_locks,
     validate_python_compatibility,
     validate_version_alignment,
 )
-
-
-def validate_vllm_compose_contract() -> None:
-    result = subprocess.run(
-        [sys.executable, str(ROOT / "scripts/compose/validate_vllm_compose.py")],
-        cwd=ROOT,
-        text=True,
-        capture_output=True,
-    )
-    if result.returncode != 0:
-        output = (result.stdout + result.stderr).strip()
-        raise SystemExit(output or "vLLM compose validation failed")
 
 
 # validate_json_and_yaml_parse는 CHECKS에 넣지 않고 먼저 단독으로 돌린다 -- 아래
@@ -42,9 +29,11 @@ def validate_vllm_compose_contract() -> None:
 CHECKS = [
     validate_configuration_schema,
     validate_deployment_targets,
-    validate_vllm_compose_contract,
+    validate_deploy_profiles,
+    validate_alignment,
     validate_version_alignment,
     validate_python_compatibility,
+    validate_dependency_locks,
     validate_openapi_refs,
     validate_openapi_error_surface,
     validate_request_schemas,

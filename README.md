@@ -12,7 +12,7 @@ GPU 기반 AI 모델을 **OpenAI-compatible API**로 제공하고, Chat, Embeddi
 - Main Model 시작·중지·전환
 - GPU 기반 vLLM 모델 실행
 - Prometheus / Grafana / Loki 기반 관측
-- GitLab CI/CD 기반 검증·이미지 빌드·배포
+- GitHub Actions 기반 macOS·Ubuntu 검증·테스트, 기존 GitLab 이미지 빌드·배포 도구
 
 ## 시스템 구성
 
@@ -28,16 +28,28 @@ Gateway를 중심으로 모델 Runtime, Risk 처리, 운영 제어와 관측 서
 
 ### 로컬 애플리케이션 실행
 
-Gateway와 Risk Adapter를 로컬 Python 프로세스로 실행한다. API, 인증, 요청 검증과 애플리케이션 로직을 확인할 때 사용한다.
+Gateway와 Risk Adapter를 로컬 Python 프로세스로 실행한다. API, 인증, 요청 검증과 애플리케이션 로직을 확인할 때 사용한다. Python `>=3.12,<3.15`가 필요하며 기준 Python patch는 [`.python-version`](.python-version)을 따른다.
+
+macOS에서 지원 Python이 없다면 먼저 설치한다.
 
 ```bash
-python3.12 -m venv .venv
-source .venv/bin/activate
-python3.12 -m pip install --requirement requirements.lock
-python3.12 -m pip install --no-deps -e ".[contract]"
+brew install python@3.12
+```
 
-make init-env-local
+macOS와 Ubuntu에서 같은 개발 환경 준비 명령을 사용한다. `setup-dev`는 기존 `.venv`를 재사용하며 `.env`, 모델 캐시, 실행 중인 서비스는 변경하지 않는다. Docker와 GPU는 필요하지 않다.
+
+```bash
+make setup-dev
 make validate
+make test
+```
+
+Compose·배포 등 기존 운영 shell helper를 실행할 때는 Bash 4 이상이 별도로 필요하다. `make doctor-dev`로 실제 선택된 Python과 Bash를 확인할 수 있다.
+
+애플리케이션을 실행할 때 환경 파일을 별도로 준비한다. `.env`가 이미 있다면 생성 단계를 생략한다.
+
+```bash
+make init-env-local
 make start
 make ready-local
 ```
@@ -120,7 +132,7 @@ Embedding, Retrieval, Risk Detection, Streaming, 인증 방식과 전체 요청�
 
 ## 개발과 배포
 
-코드와 설정 변경은 GitLab CI/CD를 통해 검증, 테스트, 이미지 빌드와 배포 단계로 이어진다.
+GitHub의 `main` push와 Pull Request는 GitHub Actions에서 macOS·Ubuntu 정적 검증과 테스트를 실행한다. 워크플로는 로컬과 같은 `make setup-dev`, `make validate`, `make test`를 사용한다. 기존 GitLab 이미지 빌드·배포 경로는 별도로 유지되며, GitHub 검증 워크플로에서는 실행하지 않는다.
 
 ```text
 Change
@@ -144,6 +156,7 @@ Platform Image는 애플리케이션 변경을 반영하고, 모델 실행 환�
 
 | 목적 | 명령 |
 |---|---|
+| 개발 환경 준비 / 도구 진단 | `make setup-dev` / `make doctor-dev` |
 | 로컬 애플리케이션 시작 / 종료 | `make start` / `make stop` |
 | 로컬 상태 확인 | `make ready-local` |
 | 전체 환경 시작 / 종료 | `make compose-up` / `make compose-down` |

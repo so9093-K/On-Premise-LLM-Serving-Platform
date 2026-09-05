@@ -231,6 +231,7 @@ def validate_alignment(
     compose_path: Path = COMPOSE_PATH,
     *,
     effective_compose: dict[str, Any] | None = None,
+    boot_override: dict[str, Any] | None = None,
 ) -> None:
     # main-llm bootstrap image의 `${AUDIO_VLLM_IMAGE:-${VLLM_IMAGE}}`는
     # 원본 Compose가 보존해야 하는 projection 계약이다. `docker compose config`를
@@ -247,6 +248,18 @@ def validate_alignment(
     services = compose["services"]
     errors: list[str] = []
     total_gpu_util = 0.0
+    boot_service_name = None
+    if boot_override is not None:
+        if effective_compose is None:
+            raise SystemExit("boot override validation requires effective Compose config")
+        boot_service_name = load_yaml(MAIN_MODEL_PROFILES_PATH)["runtime"]["compose_service"]
+        boot_service = boot_override.get("services", {}).get(boot_service_name)
+        if not isinstance(boot_service, dict) or not boot_service.get("image") or not boot_service.get("command"):
+            raise SystemExit(f"boot override requires {boot_service_name} image and command")
+        effective_service = services.get(boot_service_name, {})
+        for field in ("image", "command"):
+            if effective_service.get(field) != boot_service[field]:
+                errors.append(f"{boot_service_name}: effective {field} does not match generated boot override")
 
     errors.extend(validate_production_compose_no_build_blocks(compose_path))
     errors.extend(validate_main_llm_bootstrap_image(source_compose))
@@ -265,13 +278,17 @@ def validate_alignment(
             continue
         args = command_args(service.get("command"))
         cfg = runtime.config
-        expected = expected_compose_args(cfg, runtime)
+        # The generated boot profile owns Main's model/revision/command and host GPU
+        # override. Other runtimes still use ModelRegistry (also Sidecar's budget source).
+        expected = (
+            {} if service_name == boot_service_name else expected_compose_args(cfg, runtime)
+        )
         for key, expected_value in expected.items():
             actual = str(args.get(key))
             if actual != expected_value:
                 errors.append(f"{service_name}: --{key.replace('_','-')}={actual} does not match ModelRegistry projection {expected_value}")
         for key in COMPOSE_JSON_ARGS:
-            if key in cfg:
+            if key in cfg and service_name != boot_service_name:
                 expected_value = json.dumps(cfg[key], separators=(",", ":"), sort_keys=True)
                 actual = normalize_json_arg(args.get(key), key, service_name)
                 if actual != expected_value:
@@ -321,6 +338,7 @@ if __name__ == "__main__":
         type=Path,
         help="docker compose config output to validate instead of re-interpolating source YAML",
     )
+    parser.add_argument("--boot-override", type=Path, help="Generated main-model boot projection")
     args = parser.parse_args()
     compose_path = (
         args.compose_file
@@ -328,4 +346,5 @@ if __name__ == "__main__":
         else (ROOT / args.compose_file).resolve()
     )
     effective_compose = load_yaml(args.effective_config) if args.effective_config else None
-    validate_alignment(compose_path, effective_compose=effective_compose)
+    boot_override = load_yaml(args.boot_override) if args.boot_override else None
+    validate_alignment(compose_path, effective_compose=effective_compose, boot_override=boot_override)

@@ -31,17 +31,38 @@ Runtime 구조와 실행 모드는 [4. 실행 환경과 모드](./04_runtime_mod
 
 | 작업 | 주요 요구사항 |
 |---|---|
-| Application 개발 | Python `>=3.12,<3.15` |
+| Application 개발·검증·테스트 | Python `>=3.12,<3.15` |
 | Platform Image Build | Python, Docker CLI / Docker daemon |
-| Full-stack 실행 | Docker, NVIDIA GPU, NVIDIA Container Toolkit |
+| Full-stack 실행 | Bash 4 이상, Docker, NVIDIA GPU, NVIDIA Container Toolkit |
 | Unified vLLM Image Build | Docker |
 | Model 다운로드 | Hugging Face token 및 모델별 사용 조건 |
 
-프로젝트가 지원하는 Python 범위는 `pyproject.toml`의 `requires-python`을 기준으로 하며, 현재 CPython 3.12, 3.13, 3.14를 지원한다.
+프로젝트가 지원하는 Python 범위는 `pyproject.toml`의 `requires-python`을 기준으로 하며, 현재 CPython 3.12, 3.13, 3.14를 지원한다. 오래된 Python에서도 먼저 오류를 안내할 수 있도록 bootstrap guard에도 같은 범위가 있고, `make validate`가 두 값의 일치를 확인한다.
 
 운영·CI의 기본 기준은 Python `3.12.13`이다. 3.13과 3.14는 application/control-plane 범위에서는 지원하지만, vLLM·PyTorch·CUDA wheel/ABI와 GPU driver 조합은 minor version마다 다르므로 full-stack 운영 지원은 해당 minor의 `make runtime-validate` 결과로 확인한다.
 
 로컬 Make 명령은 프로젝트의 `.venv`가 존재하면 해당 Python을 우선 사용한다. 호출자가 `PYTHON_BIN`을 지정한 경우에는 지정된 interpreter를 사용한다.
+
+### macOS / Ubuntu 개발 환경 준비
+
+애플리케이션 환경 준비와 정적 검증·테스트에는 Bash 4를 강제하지 않는다.
+
+```bash
+brew install python@3.12
+make setup-dev
+make validate
+make test
+```
+
+Ubuntu에서는 지원 Python과 해당 버전의 `venv` 패키지를 준비한 뒤 같은 Make 명령을 사용한다. `.python-version`의 정확한 patch를 준비하면 GitHub CI의 기준 Python과 맞출 수 있다. Homebrew의 `python@3.12`는 설치 시점의 3.12 patch를 제공하므로 정확한 patch 고정과는 구분한다.
+
+별도로 설치한 Python을 쓰려면 `make setup-dev PYTHON_BIN=/path/to/python`으로 지정한다.
+
+환경 파일 helper와 일부 Compose·배포 스크립트는 associative array나 `mapfile`을 사용하므로 Bash 4 이상이 필요하다. macOS에서 해당 운영 명령까지 실행하려면 `brew install bash` 후 Homebrew Bash를 PATH에 추가한다. `make doctor-dev`는 실제 Python 경로와 Bash 버전, 기준 Python 버전을 함께 확인하는 운영 도구 진단이다. 기본 로그인 shell(zsh)을 바꿀 필요는 없다.
+
+`setup-dev`는 `requirements.lock`을 `--no-deps`로 설치하고, `pyproject.toml`의 build backend를 준비한 뒤 editable package 설치와 `pip check`를 수행한다. 누락된 하위 의존성을 설치 시점의 최신 버전으로 조용히 채우지 않는다. 기존 `.venv`는 재사용하며 다른 Python minor로 만들어졌거나 손상된 경우 삭제하지 않고 오류를 안내한다.
+
+이 명령은 `.env`와 runtime state를 생성·변경하지 않는다. GPU bootstrap인 `make first-run`은 별도 운영 절차로 유지한다. macOS app/contract 검증 통과가 `macos-metal-static` 모델 runtime의 qualification을 의미하지는 않는다([ADR-0020](adr/0020-runtime-control-and-deployment-targets.md)).
 
 Full-stack 환경에서는 NVIDIA GPU와 NVIDIA Container Toolkit을 통해 vLLM container가 GPU에 접근한다. Hugging Face에서 모델을 가져오는 runtime은 `.env`의 `HF_TOKEN` 또는 `HUGGING_FACE_HUB_TOKEN`을 사용한다.
 
@@ -192,10 +213,15 @@ make compose-up
 2. runtime secret 준비
 3. Exposure Profile 적용
 4. persisted Main Model profile을 반영한 boot projection 생성
-5. Compose preflight
-6. effective Compose config 검증
-7. Hugging Face cache 준비
-8. 서비스 기동
+5. 같은 boot projection으로 effective Compose config와 preflight 검증
+6. Hugging Face cache 준비
+7. 서비스 기동
+
+Preflight와 기동은 같은 `base → exposure override → boot override` 순서를 사용한다. `compose-up`에서 생성한 boot 파일을 `--boot-override`로 전달하므로 preflight 중 persisted state를 다시 읽어 다른 프로필을 고르지 않는다. Preflight를 단독 실행하면 기존 boot resolver로 임시 override를 만들고 종료 시 삭제한다.
+
+정상 preflight 뒤에는 같은 `docker compose config` 검사를 반복하지 않는다. 기존 정책에 따라 명시적으로 preflight를 생략한 경우에만 별도 config 검사를 실행한다.
+
+메인의 effective image·command는 이 boot projection과 비교하며, GPU 예산 합계에도 실제 command의 host override를 반영한다. 보조 모델 command와 Sidecar admission은 계속 `model_serving.yaml`의 같은 고정 예산을 기준으로 검사한다. 보조 모델에 별도 host override 계약은 두지 않는다.
 
 실제 host port 공개 범위는 `EXPOSURE_MODE`에 따라 결정된다. 자세한 내용은 [4.3 네트워크와 서비스 노출](./04_runtime_modes.md#43-네트워크와-서비스-노출)을 참고한다.
 
@@ -365,7 +391,7 @@ Packaging 과정에서는 다음 항목을 배포 artifact에서 분리한다.
 
 ZIP entry의 timestamp는 고정값을 사용해 동일한 source에서 재생 가능한 package 형태를 유지한다.
 
-`make package`는 package 생성 전에 Python compatibility와 contract validation을 수행하고, 생성된 ZIP에 제외 대상 파일과 환경 파일이 포함되었는지 다시 검사한다.
+`make package`는 package 생성 전에 별도 축약 검증을 만들지 않고 `make validate`와 같은 전체 정적 gate를 수행한다. 생성된 ZIP은 제외 대상 파일과 환경 파일이 포함되지 않았는지 다시 검사한다.
 
 Release ZIP은 배포에 필요한 artifact와 `tests/`를 함께 담는다 -- `make first-run`이 `make test`를 배포 전 게이트로 부르므로, 받는 쪽이 같은 버전의 테스트로 검증할 수 있어야 한다. 테스트 구조와 release gate의 관계는 [8. 테스트와 검증](./08_testing_validation.md), 실제 배포 절차는 [10. 배포](./10_deployment.md)에서 설명한다.
 

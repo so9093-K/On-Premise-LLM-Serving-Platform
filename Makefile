@@ -1,16 +1,24 @@
 SHELL := /usr/bin/env bash
+.DEFAULT_GOAL := help
 PROJECT_NAME := ai_model_serving_platform
 CURRENT_VERSION := $(shell cat VERSION 2>/dev/null || echo 0.0.0)
 
 # bootstrap이 만든 lock-file 기반 .venv가 있으면 로컬 Make 명령은 이를 우선한다.
 # CI와 호출자가 PYTHON_BIN으로 지정한 interpreter는 항상 그보다 우선한다.
-PYTHON ?= $(if $(PYTHON_BIN),$(PYTHON_BIN),$(if $(wildcard $(CURDIR)/.venv/bin/python),$(CURDIR)/.venv/bin/python,$(shell command -v python3.12 || command -v python3 || command -v python)))
+PYTHON ?= $(if $(PYTHON_BIN),$(PYTHON_BIN),$(if $(wildcard $(CURDIR)/.venv/bin/python),$(CURDIR)/.venv/bin/python,$(shell command -v python3.12 || command -v python3.13 || command -v python3.14 || command -v python3 || command -v python)))
 export PYTHON_BIN := $(PYTHON)
 AUTH_ENV ?= $(if $(ENV_FILE),$(ENV_FILE),$(ENV))
 AUTH_ENV_ARG = $(if $(AUTH_ENV),--env $(AUTH_ENV),)
 
 
 .PHONY: help init-env-local init-env-compose sync-env static-compose-config static-compose-up static-compose-down validate test build build-image build-vllm-unified-image package start compose-up compose-config ready-local ready-full smoke runtime-validate auth-status auth-doctor auth-plan auth-apply exposure-status exposure-plan exposure-apply main-model-prepare status stop compose-down compose-restart compose-logs logs compose-diagnostics clean clean-dry-run clean-all reset first-run reset-version render-runtime-assets
+.PHONY: setup-dev doctor-dev
+
+setup-dev: ## macOS/Ubuntu 개발용 .venv 준비 (Docker·GPU·.env 불필요)
+	"$(PYTHON)" scripts/build/setup_dev.py
+
+doctor-dev: ## Python과 운영 스크립트용 Bash 확인
+	"$(PYTHON)" scripts/build/check_dev_environment.py
 
 # help는 각 타겟 옆의 `## 설명`을 읽는다. 예전에는 여기에 목록을 따로 적어뒀는데,
 # 타겟이 늘어도 아무도 갱신하지 않아 44개 중 11개만 보이는 상태로 갈라져 있었다.

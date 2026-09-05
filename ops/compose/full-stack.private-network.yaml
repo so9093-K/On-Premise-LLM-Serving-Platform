@@ -213,7 +213,7 @@ services:
     - --max-num-batched-tokens
     - '2048'
     - --gpu-memory-utilization
-    - ${EMBEDDING_KO_GPU_MEMORY_UTILIZATION:-0.06}
+    - '0.06'
     expose:
     - '9406'
     env_file: ${COMPOSE_SERVICE_ENV_FILE:?Set COMPOSE_SERVICE_ENV_FILE through the Compose command wrapper}

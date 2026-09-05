@@ -3,6 +3,11 @@ from __future__ import annotations
 import re
 import tomllib
 
+from packaging.requirements import InvalidRequirement, Requirement
+from packaging.utils import canonicalize_name
+
+from scripts.build.check_python import SUPPORTED_LABEL, SUPPORTED_SPECIFIER, is_supported
+
 from .common import (
     ROOT,
     read_json,
@@ -90,5 +95,63 @@ def validate_python_compatibility() -> None:
     """
     py_version = (ROOT / '.python-version').read_text(encoding='utf-8').strip()
     match = re.fullmatch(r'(\d+)\.(\d+)\.\d+', py_version)
-    if not match or not ((3, 12) <= (int(match.group(1)), int(match.group(2))) < (3, 15)):
-        raise SystemExit(f'.python-version must be a >=3.12,<3.15 patch release, got {py_version!r}')
+    if not match or not is_supported((int(match.group(1)), int(match.group(2)))):
+        raise SystemExit(f'.python-version must be a {SUPPORTED_LABEL} patch release, got {py_version!r}')
+    project = tomllib.loads((ROOT / 'pyproject.toml').read_text(encoding='utf-8'))
+    declared = project.get('project', {}).get('requires-python')
+    if declared != SUPPORTED_SPECIFIER:
+        raise SystemExit(
+            'pyproject.toml project.requires-python must match the bootstrap policy '
+            f'{SUPPORTED_SPECIFIER!r}, got {declared!r}'
+        )
+
+
+def _read_lock_pins(filename: str) -> dict[str, str]:
+    pins: dict[str, str] = {}
+    for raw_line in (ROOT / filename).read_text(encoding='utf-8').splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith('#'):
+            continue
+        try:
+            requirement = Requirement(line)
+        except InvalidRequirement as exc:
+            raise SystemExit(f'{filename}: invalid requirement {line!r}: {exc}') from exc
+        specifiers = list(requirement.specifier)
+        if len(specifiers) != 1 or specifiers[0].operator != '==' or '*' in specifiers[0].version:
+            raise SystemExit(f'{filename}: lock entry must be one exact pin: {line!r}')
+        name = canonicalize_name(requirement.name)
+        if name in pins:
+            raise SystemExit(f'{filename}: duplicate pin for {name}')
+        pins[name] = specifiers[0].version
+    return pins
+
+
+def validate_dependency_locks() -> None:
+    """Lock files are static repository contracts, not runtime test cases."""
+    runtime = _read_lock_pins('requirements.runtime.lock')
+    development = _read_lock_pins('requirements.lock')
+    failures = [
+        f'runtime/development lock drift: {name} {version!r} != {development.get(name)!r}'
+        for name, version in runtime.items()
+        if development.get(name) != version
+    ]
+
+    project = tomllib.loads((ROOT / 'pyproject.toml').read_text(encoding='utf-8'))['project']
+    declared_by_lock = (
+        ('requirements.runtime.lock', runtime, project['dependencies']),
+        (
+            'requirements.lock',
+            development,
+            project['dependencies'] + project['optional-dependencies']['contract'],
+        ),
+    )
+    for filename, pins, declarations in declared_by_lock:
+        for declaration in declarations:
+            requirement = Requirement(declaration)
+            name = canonicalize_name(requirement.name)
+            version = pins.get(name)
+            if version is None or not requirement.specifier.contains(version):
+                failures.append(f'{filename}: does not satisfy {declaration!r}')
+
+    if failures:
+        raise SystemExit('\n  '.join(failures))
