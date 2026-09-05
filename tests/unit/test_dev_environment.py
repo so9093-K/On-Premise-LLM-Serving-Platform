@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import subprocess
-import venv
+from pathlib import Path
 
 import pytest
 
@@ -33,12 +33,20 @@ def test_setup_refuses_unknown_existing_directory_without_removing_it(tmp_path):
     assert marker.read_text() == "existing files"
 
 
-def test_setup_reuses_venv_without_recreating_it(tmp_path):
+def test_setup_reuses_venv_without_recreating_it(tmp_path, monkeypatch):
     directory = tmp_path / ".venv"
-    venv.EnvBuilder(with_pip=False).create(directory)
+    (directory / "bin").mkdir(parents=True)
+    (directory / "bin/python").touch()
+    (directory / "pyvenv.cfg").write_text("existing", encoding="utf-8")
     marker = directory / "keep.txt"
     marker.write_text("keep", encoding="utf-8")
     original_config = (directory / "pyvenv.cfg").read_bytes()
+    monkeypatch.setattr(setup_dev, "_interpreter_minor", lambda _: setup_dev._running_minor())
+
+    def reject_creation(*args, **kwargs):
+        raise AssertionError("existing .venv must not be recreated")
+
+    monkeypatch.setattr(setup_dev.subprocess, "run", reject_creation)
 
     python = setup_dev.prepare_venv(tmp_path)
 
@@ -52,10 +60,47 @@ def test_setup_refuses_different_existing_python_minor(tmp_path, monkeypatch):
     (directory / "bin").mkdir(parents=True)
     (directory / "bin/python").touch()
     (directory / "pyvenv.cfg").write_text("existing", encoding="utf-8")
-    monkeypatch.setattr(setup_dev.subprocess, "check_output", lambda *a, **kw: "3.8\n")
+    monkeypatch.setattr(setup_dev, "_interpreter_minor", lambda _: "3.8")
     with pytest.raises(RuntimeError, match="Existing .venv uses Python 3.8"):
         setup_dev.prepare_venv(tmp_path)
     assert (directory / "pyvenv.cfg").read_text() == "existing"
+
+
+def test_setup_refuses_base_python_that_would_create_a_different_minor(tmp_path, monkeypatch):
+    selected = setup_dev._running_minor()
+    different = "3.10" if selected != "3.10" else "3.11"
+    creator = Path("/system/python3")
+    monkeypatch.setattr(setup_dev, "_venv_creator", lambda: creator)
+    monkeypatch.setattr(setup_dev, "_interpreter_minor", lambda _: different)
+
+    def reject_creation(*args, **kwargs):
+        raise AssertionError("mismatched base interpreter must not create .venv")
+
+    monkeypatch.setattr(setup_dev.subprocess, "run", reject_creation)
+
+    with pytest.raises(RuntimeError, match=rf"base interpreter .* uses Python {different}"):
+        setup_dev.prepare_venv(tmp_path)
+    assert not (tmp_path / ".venv").exists()
+
+
+def test_setup_creates_venv_with_the_explicit_base_interpreter(tmp_path, monkeypatch):
+    selected = setup_dev._running_minor()
+    creator = Path("/opt/python/bin/python3.12")
+    target = tmp_path / ".venv/bin/python"
+    monkeypatch.setattr(setup_dev, "_venv_creator", lambda: creator)
+    monkeypatch.setattr(setup_dev, "_interpreter_minor", lambda _: selected)
+
+    def create(command, *, check, **kwargs):
+        assert command == [str(creator), "-m", "venv", str(tmp_path / ".venv")]
+        assert check is True
+        target.parent.mkdir(parents=True)
+        target.touch()
+        (tmp_path / ".venv/pyvenv.cfg").write_text("created", encoding="utf-8")
+        return subprocess.CompletedProcess(command, 0)
+
+    monkeypatch.setattr(setup_dev.subprocess, "run", create)
+
+    assert setup_dev.prepare_venv(tmp_path) == target
 
 
 def test_setup_stops_before_creating_venv_when_python_is_unsupported(tmp_path, monkeypatch):

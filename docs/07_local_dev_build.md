@@ -60,7 +60,7 @@ Ubuntu에서는 지원 Python과 해당 버전의 `venv` 패키지를 준비한 
 
 환경 파일 helper와 일부 Compose·배포 스크립트는 associative array나 `mapfile`을 사용하므로 Bash 4 이상이 필요하다. macOS에서 해당 운영 명령까지 실행하려면 `brew install bash` 후 Homebrew Bash를 PATH에 추가한다. `make doctor-dev`는 실제 Python 경로와 Bash 버전, 기준 Python 버전을 함께 확인하는 운영 도구 진단이다. 기본 로그인 shell(zsh)을 바꿀 필요는 없다.
 
-`setup-dev`는 `requirements.lock`을 `--no-deps`로 설치하고, `pyproject.toml`의 build backend를 준비한 뒤 editable package 설치와 `pip check`를 수행한다. 누락된 하위 의존성을 설치 시점의 최신 버전으로 조용히 채우지 않는다. 기존 `.venv`는 재사용하며 다른 Python minor로 만들어졌거나 손상된 경우 삭제하지 않고 오류를 안내한다.
+`setup-dev`는 `requirements.lock`을 `--no-deps`로 설치하고, `pyproject.toml`의 build backend를 준비한 뒤 editable package 설치와 `pip check`를 수행한다. 누락된 하위 의존성을 설치 시점의 최신 버전으로 조용히 채우지 않는다. 기존 `.venv`는 실행 중인 선택 interpreter와 minor가 같을 때 재사용한다. 새 `.venv`를 만드는 경우에는 Python `venv`가 실제로 사용하는 base interpreter의 minor를 먼저 확인하고 그 executable로 생성한다. 선택 interpreter와 base가 다르면 잘못된 minor의 환경을 만들지 않고 명시적으로 중단하며, 기존 환경이나 부분 생성 결과는 자동 삭제하지 않는다.
 
 이 명령은 `.env`와 runtime state를 생성·변경하지 않는다. GPU bootstrap인 `make first-run`은 별도 운영 절차로 유지한다. macOS app/contract 검증 통과가 `macos-metal-static` 모델 runtime의 qualification을 의미하지는 않는다([ADR-0020](adr/0020-runtime-control-and-deployment-targets.md)).
 
