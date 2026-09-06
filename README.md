@@ -12,7 +12,7 @@ GPU 기반 AI 모델을 **OpenAI-compatible API**로 제공하고, Chat, Embeddi
 - Main Model 시작·중지·전환
 - GPU 기반 vLLM 모델 실행
 - Prometheus / Grafana / Loki 기반 관측
-- GitHub Actions 기반 macOS·Ubuntu 검증·테스트, 기존 GitLab 이미지 빌드·배포 도구
+- GitHub Actions 기반 macOS·Ubuntu app/contract 검증과 Ubuntu GitLab 이미지 빌드·GPU 배포
 
 ## 시스템 구성
 
@@ -132,7 +132,7 @@ Embedding, Retrieval, Risk Detection, Streaming, 인증 방식과 전체 요청�
 
 ## 개발과 배포
 
-GitHub의 `main` push와 Pull Request는 GitHub Actions에서 macOS·Ubuntu 정적 검증과 테스트를 실행한다. 워크플로는 로컬과 같은 `make setup-dev`, `make validate`, `make test`를 사용한다. 기존 GitLab 이미지 빌드·배포 경로는 별도로 유지되며, GitHub 검증 워크플로에서는 실행하지 않는다.
+GitHub의 `main` push와 Pull Request는 GitHub Actions에서 macOS·Ubuntu 정적 검증과 테스트를 실행한다. 워크플로는 로컬과 같은 `make setup-dev`, `make validate`, `make test`를 사용한다. Ubuntu 운영 환경의 GitLab은 저장소 관리와 이미지 빌드·GPU 배포를 담당하며, GitHub 검증 워크플로에서 대체하지 않는다.
 
 ```text
 Change
@@ -157,6 +157,7 @@ Platform Image는 애플리케이션 변경을 반영하고, 모델 실행 환�
 | 목적 | 명령 |
 |---|---|
 | 개발 환경 준비 / 도구 진단 | `make setup-dev` / `make doctor-dev` |
+| Linux dependency lock 갱신 | `make lock-linux` |
 | 로컬 애플리케이션 시작 / 종료 | `make start` / `make stop` |
 | 로컬 상태 확인 | `make ready-local` |
 | 전체 환경 시작 / 종료 | `make compose-up` / `make compose-down` |

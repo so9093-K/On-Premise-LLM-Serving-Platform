@@ -54,11 +54,13 @@ VRAM을 단일 예산으로 보고 모든 모델 로드를 그 예산에 대한 
 ### 2. Per-profile 런타임 이미지
 
 각 메인 프로필은 자기 런타임 이미지를 핀할 수 있다(`profile.image`). 지정이 없으면 공용
-`runtime.image`를 상속한다. 어느 쪽이든 resolved 이미지는 digest-pin 필수다.
+`runtime.image`를 상속한다. Registry 배포의 resolved 이미지는 `name@sha256:...` digest-pin,
+로컬 `first-run`에서 직접 빌드한 이미지는 Docker의 content-addressed `sha256:...` image ID를
+사용한다. 두 형식 모두 불변 참조이며 mutable tag는 Docker 실행 경계 전에 거부한다.
 
 - 능력(오디오 디코드 등)이 **프로필을 따라온다**: 12B만 오디오 이미지를 핀하고 26B는 공용
   base 그대로 → 프로필 전환이 능력을 함께 끌고 다닌다. 26B 경로는 영향받지 않는다.
-- 로더가 유일한 생성자이고 항상 digest-pin된 값으로 resolve하므로, 빈 이미지가 Docker
+- 로더가 유일한 생성자이고 항상 불변 값으로 resolve하므로, 빈 이미지가 Docker
   경계에 도달할 수 없다(필수 필드, fail-fast).
 
 ### 3. Per-host gpu-memory-utilization override

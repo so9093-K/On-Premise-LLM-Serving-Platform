@@ -29,8 +29,9 @@ class SwitchOutcome(NamedTuple):
 
 import yaml
 
+from ..image_refs import is_immutable_image_ref
+
 _REVISION_RE = re.compile(r"^[0-9a-f]{40}$")
-_DIGEST_IMAGE_RE = re.compile(r"^.+@sha256:[0-9a-f]{64}$")
 # 프로필 이미지는 리터럴 digest이거나 CI/deploy가 이를 resolve하는 단일 ${ENV_VAR} 참조일 수 있다 —
 # compose의 `${RISK_VLLM_IMAGE}`와 동일한 방식으로, 파생 런타임(예: audio/multimodal 이미지)이
 # 수동이 아니라 파이프라인에 의해 고정(pin)된다.
@@ -179,7 +180,7 @@ def _resolve_profile_image(
     env: dict[str, str] | None,
     profile_id: str,
 ) -> str:
-    """프로필 runtime image를 digest로 고정된 값으로 해석한다.
+    """프로필 runtime image를 불변 참조로 해석한다.
 
     - ``None`` inherits the shared ``runtime.image``.
     - ``"${VAR}"`` is resolved from ``env`` (set by CI/deploy, like compose's
@@ -189,7 +190,8 @@ def _resolve_profile_image(
       separate text-only one), and the switch-time boot canary is what proves the live
       runtime can actually serve them — a switch to a not-yet-built runtime fails the
       canary and rolls back, so the model is never half-served.
-    - A literal value must be a sha256 digest.
+    - Registry images use ``name@sha256:...``. A locally built image may use its
+      Docker content-addressed ``sha256:...`` image ID. Mutable tags are rejected.
     """
     if profile_image is None:
         if shared_image is not None:
@@ -208,15 +210,17 @@ def _resolve_profile_image(
                 raise MainModelConfigurationError(
                     f"profile {profile_id} image env {ref.group(1)} is empty"
                 )
-            if _DIGEST_IMAGE_RE.fullmatch(resolved):
+            if is_immutable_image_ref(resolved):
                 return resolved
             raise MainModelConfigurationError(
-                f"profile {profile_id} image env {ref.group(1)} must resolve to a sha256 digest"
+                f"profile {profile_id} image env {ref.group(1)} must resolve to an immutable "
+                "registry digest or local image ID"
             )
-        if _DIGEST_IMAGE_RE.fullmatch(profile_image):
+        if is_immutable_image_ref(profile_image):
             return profile_image
     raise MainModelConfigurationError(
-        f"profile {profile_id} image must be a sha256 digest or a ${{ENV}} reference"
+        f"profile {profile_id} image must be an immutable registry digest, local image ID, "
+        "or a ${ENV} reference"
     )
 
 

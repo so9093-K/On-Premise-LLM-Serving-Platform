@@ -64,6 +64,23 @@ Ubuntu에서는 지원 Python과 해당 버전의 `venv` 패키지를 준비한 
 
 이 명령은 `.env`와 runtime state를 생성·변경하지 않는다. GPU bootstrap인 `make first-run`은 별도 운영 절차로 유지한다. macOS app/contract 검증 통과가 `macos-metal-static` 모델 runtime의 qualification을 의미하지는 않는다([ADR-0020](adr/0020-runtime-control-and-deployment-targets.md)).
 
+### Linux dependency lock 갱신
+
+`pyproject.toml`이 direct dependency의 Source of Truth이고,
+`requirements.runtime.lock`과 `requirements.lock`은 각각 운영 image와
+application/contract 환경의 해석 결과다. Lock 갱신은 Ubuntu x86_64 운영 호스트에서만
+다음 명령으로 수행한다.
+
+```bash
+make lock-linux
+```
+
+이 명령은 Dockerfile과 GitLab CI가 공유하는 digest 고정
+`python:3.12.13-slim` image 안에서 `pip==26.0.1`, `pip-tools==7.5.3`을 사용한다.
+두 lock을 임시 경로에 먼저 만들고 각각 새 venv에 설치해 `pip check`와 contract
+validation이 통과한 뒤에만 저장소 파일을 교체한다. 실패하면 기존 lock을 복원한다.
+macOS나 임의 Python에서 `pip freeze`한 결과로 운영 lock을 갱신하지 않는다.
+
 Full-stack 환경에서는 NVIDIA GPU와 NVIDIA Container Toolkit을 통해 vLLM container가 GPU에 접근한다. Hugging Face에서 모델을 가져오는 runtime은 `.env`의 `HF_TOKEN` 또는 `HUGGING_FACE_HUB_TOKEN`을 사용한다.
 
 환경 파일의 생성과 관리 방식은 [5.10 환경 파일](./05_configuration.md#510-환경-파일)을 참고한다.
@@ -318,12 +335,6 @@ Unified vLLM Image
 make build-vllm-unified-image
 ```
 
-동일한 작업은 다음 alias로도 실행할 수 있다.
-
-```bash
-make build-vllm-unified-image
-```
-
 Unified vLLM Image의 주요 build 입력은 다음과 같다.
 
 | 입력 | 역할 |
@@ -347,6 +358,11 @@ Unified vLLM Image는 다음 변경에서 다시 빌드한다.
 일반 application source 변경은 Platform Image build 흐름에서 확인한다.
 
 Unified vLLM build 입력 변경을 CI가 감지하고 derived image를 만드는 과정은 [9. CI/CD](./09_cicd.md)에서 설명한다.
+
+`make first-run`은 로컬에서 빌드한 Unified image tag를 Docker의 content-addressed
+`sha256:...` image ID로 해석하고, `.env`에서 그 build tag와 정확히 일치하는 unified
+image 값만 고정한다. 운영자가 별도로 지정한 image ref는 추측해서 덮어쓰지 않는다.
+GitLab 배포는 이 로컬 ID 대신 registry의 `name@sha256:...` digest를 사용한다.
 
 ### 반복 개발에서 Unified Image Build 생략
 
@@ -380,7 +396,6 @@ Release package에는 실행에 필요한 source, config, spec, ops artifact와 
 
 Packaging 과정에서는 다음 항목을 배포 artifact에서 분리한다.
 
-- `tests/`
 - `.venv/`
 - local log / run data
 - model cache
@@ -426,16 +441,12 @@ Platform Image Build
    ↓
 Unified vLLM Image Build
    ↓
+로컬 Unified Image ID 고정
+   ↓
 Prompt Risk Runtime Config 확인
 ```
 
 `HF_TOKEN`을 명령에 전달하면 bootstrap이 해당 값을 `.env`에 반영한다.
-
-전체 재구축에는 다음 alias를 사용할 수 있다.
-
-```bash
-make first-run
-```
 
 `make first-run`은 전체 bootstrap workflow를 사용한다.
 

@@ -229,7 +229,8 @@ Contract Test
 ### 테스트 소스와 Release Package
 
 테스트 소스는 source repository에서 build-time 품질 게이트로 사용한다.
-Release ZIP은 runtime에 필요한 source/config/ops artifact를 중심으로 구성되며 테스트 소스는 패키징 대상에서 제외된다.
+Release ZIP은 Ubuntu 인계 후에도 같은 application/contract 검증을 재현할 수 있도록
+`tests/`를 포함한다. 실제 모델·GPU가 필요한 live 결과나 로컬 cache는 패키징하지 않는다.
 
 릴리스 준비 단계에서는 source checkout에서 다음 순서로 실행한다.
 
@@ -537,7 +538,8 @@ Source와 artifact 관계가 핵심이면 validator를 강화하고, application
 
 - `make validate` 또는 generated artifact의 `--check`가 같은 source/artifact 관계를 이미 확인한다.
 - 현재 port, model ID, 기본값처럼 바뀔 수 있는 값을 암기할 뿐, 값이 달라졌을 때 막는 손실을 설명하지 못한다.
-- private helper, 함수 호출 순서, 문자열 존재처럼 구현 세부만 고정한다.
+- private helper, 함수 호출 순서, 문자열 존재처럼 구현 세부만 고정하며, 그 형태가
+  깨졌을 때의 운영 손실이나 외부 계약을 설명하지 못한다.
 - 기본 품질 gate에서 실행되지 않고 실행 주체·실행 시점·릴리스 판단 기준도 없다.
 - 실제 판정 없이 “준비됨”, “제거 후보” 같은 상태만 보고한다.
 
@@ -545,12 +547,18 @@ Source와 artifact 관계가 핵심이면 validator를 강화하고, application
 
 ### 추가 전 기록할 것
 
-새 테스트에는 다음 두 가지를 한 줄로 남긴다.
+새 테스트를 추가하지 않는 것이 기본이다. 기존 gate가 막지 못한 구체적인 손실과
+새 decision branch가 있을 때만 다음 두 가지를 한 줄로 남긴다.
 
 1. 막는 손실: 공개 API 호환성 파손, 인증 우회, 민감정보 노출, 상태 전환 실패 또는 실제 장애 재발 등
 2. 소유 계층: validator, unit/contract test, 또는 live runtime validation
 
 “이번 변경을 확인한다”, “현재 값과 같다”, “나중에 필요할 수 있다”는 유지 근거가 아니다. live service·Docker·GPU가 필요한 증빙은 pytest에 넣지 않고 `make runtime-validate` 같은 명시적 운영 명령으로 분리한다.
+
+버그 수정도 기존 테스트가 이미 해당 공개 동작을 통과한다면 테스트 수를 늘리지 않는다.
+새 테스트를 만들기 전에 기존 테스트의 fixture나 assertion 하나로 같은 손실을 막을 수
+있는지, 또는 해당 규칙이 validator의 source/artifact 관계인지 먼저 확인한다. 테스트
+개수와 coverage 수치는 그 자체로 품질 목표로 사용하지 않는다.
 
 ---
 

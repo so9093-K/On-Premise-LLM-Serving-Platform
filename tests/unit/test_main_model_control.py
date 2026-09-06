@@ -750,6 +750,7 @@ def test_initialize_respects_deliberate_stop(tmp_path):
 
 _SHARED_IMAGE = "registry.example.com/vllm@sha256:" + "a" * 64
 _AUDIO_IMAGE = "registry.example.com/vllm-audio@sha256:" + "b" * 64
+_LOCAL_IMAGE = "sha256:" + "c" * 64
 _REV_A = "0" * 40
 _REV_B = "1" * 40
 
@@ -813,6 +814,16 @@ def test_runtime_image_env_ref_resolves_before_profiles_inherit_it(tmp_path):
     loaded = load_main_model_catalog(path, env={"VLLM_IMAGE": _AUDIO_IMAGE})
     assert loaded.runtime["image"] == _AUDIO_IMAGE
     assert loaded.profiles["base"].image == _AUDIO_IMAGE
+
+
+def test_runtime_image_accepts_immutable_local_docker_image_id(tmp_path):
+    path = _write_catalog_path(tmp_path, audio_image=None)
+    raw = path.read_text(encoding="utf-8").replace(
+        f"image: {_SHARED_IMAGE}", "image: ${VLLM_IMAGE}", 1
+    )
+    path.write_text(raw, encoding="utf-8")
+    loaded = load_main_model_catalog(path, env={"VLLM_IMAGE": _LOCAL_IMAGE})
+    assert loaded.profiles["base"].image == _LOCAL_IMAGE
 
 
 def test_profile_image_env_ref_falls_back_to_shared_when_unset(tmp_path):

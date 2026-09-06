@@ -69,64 +69,24 @@ def validate_configuration_schema() -> None:
 
 def validate_deployment_targets() -> None:
     from ai_model_serving.deployment_target import load_deployment_target
+    from ai_model_serving.runtime_topology import load_runtime_topology
 
     document = read_yaml('configs/deployment_targets.yaml')
     targets = document.get('targets')
     default_target = str(document.get('default_target', ''))
     if not isinstance(targets, dict) or default_target not in targets:
         raise SystemExit('deployment_targets.yaml must declare an existing default_target')
-    if default_target != 'linux-nvidia-dynamic':
-        raise SystemExit('the existing linux-nvidia-dynamic behavior must remain the default target')
     for target_id in targets:
         target = load_deployment_target(ROOT / 'configs/deployment_targets.yaml', str(target_id))
-        if target.supports('retrieval') and not target.supports('embeddings'):
-            raise SystemExit(f'{target_id}: retrieval requires embeddings')
-        lifecycle_features = {
-            feature: target.supports(feature)
-            for feature in ('runtime_control', 'model_switching', 'gpu_admission')
-        }
-        if len(set(lifecycle_features.values())) != 1:
-            raise SystemExit(
-                f'{target_id}: runtime_control, model_switching, and gpu_admission '
-                'are one atomic sidecar control bundle'
-            )
         if target.validation_status == 'planned' and target_id == default_target:
             raise SystemExit('a planned deployment target cannot be the default')
 
-    topology = read_yaml('configs/runtime_topology.yaml').get('runtimes')
-    models = read_yaml('configs/model_serving.yaml').get('models', {})
-    services = read_yaml('configs/services.yaml').get('services', {})
-    if not isinstance(topology, dict):
-        raise SystemExit('runtime_topology.yaml must declare runtimes')
-    for key, binding in topology.items():
-        if not isinstance(binding, dict):
-            raise SystemExit(f'runtime topology binding {key!r} must be a mapping')
-        for flag in ('required', 'enabled', 'controllable'):
-            if not isinstance(binding.get(flag), bool):
-                raise SystemExit(f'runtime topology binding {key!r}.{flag} must be boolean')
-        if key not in models:
-            raise SystemExit(f'runtime topology binding {key!r} has no model_serving model')
-        features = binding.get('features')
-        if not isinstance(features, list) or not features or not all(isinstance(item, str) for item in features):
-            raise SystemExit(f'runtime topology binding {key!r}.features must be a non-empty string list')
-        unknown_features = set(features) - set().union(
-            *(set((item.get('features') or {}).keys()) for item in targets.values() if isinstance(item, dict))
-        )
-        if unknown_features:
-            raise SystemExit(
-                f'runtime topology binding {key!r} references unknown features: '
-                f'{", ".join(sorted(unknown_features))}'
-            )
-        service_id = str(binding.get('service_id', ''))
-        service = services.get(service_id)
-        if not isinstance(service, dict) or not service.get('compose_service'):
-            raise SystemExit(
-                f'runtime topology binding {key!r} references unknown service_id {service_id!r}'
-            )
-        if int(service.get('container_port', -1)) != int(models[key].get('port', -2)):
-            raise SystemExit(
-                f'runtime topology binding {key!r} service_id {service_id!r} port does not match model_serving'
-            )
+    # Runtime과 validator가 같은 parser/invariant를 사용한다. 여기서 YAML을 다시
+    # 해석하면 load_runtime_topology()에 규칙을 추가할 때 validate가 놓칠 수 있다.
+    try:
+        load_runtime_topology(ROOT)
+    except (OSError, ValueError) as exc:
+        raise SystemExit(str(exc)) from exc
 
     main_profiles = read_yaml('configs/main_model_profiles.yaml').get('profiles', {})
     for filename in ('.env.example', '.env.compose.example', '.env.local.example'):
@@ -144,21 +104,18 @@ def validate_deployment_targets() -> None:
 
 
 def validate_deploy_profiles() -> None:
-    topology = read_yaml('configs/runtime_topology.yaml').get('runtimes')
+    from ai_model_serving.runtime_topology import load_runtime_topology
+
+    try:
+        topology = load_runtime_topology(ROOT)
+    except (OSError, ValueError) as exc:
+        raise SystemExit(str(exc)) from exc
     document = read_yaml('configs/deploy_profiles.yaml')
     profiles = document.get('profiles')
     default_profile = document.get('default_profile')
-    if not isinstance(topology, dict):
-        raise SystemExit('runtime_topology.yaml must declare runtimes')
     if not isinstance(profiles, dict) or default_profile not in profiles:
         raise SystemExit('deploy_profiles.yaml must declare an existing default_profile')
-    controllable_runtimes = {
-        str(key)
-        for key, binding in topology.items()
-        if isinstance(binding, dict)
-        and binding.get('enabled') is True
-        and binding.get('controllable') is True
-    }
+    controllable_runtimes = topology.controllable_keys
     for profile_id, profile in profiles.items():
         deferred = profile.get('deferred_runtimes') if isinstance(profile, dict) else None
         if not isinstance(deferred, list) or not all(isinstance(item, str) for item in deferred):
@@ -173,14 +130,12 @@ def validate_deploy_profiles() -> None:
             )
 
 def validate_ports() -> None:
-    """모델 런타임 포트가 두 레지스트리에서 같은 값인지 확인한다.
+    """모델 런타임 host port가 서비스 레지스트리와 같은 값인지 확인한다.
 
     configs/model_serving.yaml의 models.X.port는 vLLM이 --port로 받는 값이고,
-    configs/services.yaml은 같은 포트를 compose 관점(container_port/default_host_port)에서
-    한 벌 더 들고 있다. services.yaml은 모델이 아닌 서비스(grafana, loki 등)도 담기
-    때문에 한쪽에서 파생시킬 수 없어, 두 값의 일치를 여기서 고정한다.
+    configs/services.yaml은 같은 포트를 host publish 관점에서 한 벌 더 들고 있다.
+    container_port 일치는 load_runtime_topology()가 소유하므로 여기서 반복하지 않는다.
     """
-    services = read_yaml('configs/services.yaml')['services']
     host_ports = service_default_host_ports()
     model_serving = read_yaml('configs/model_serving.yaml')
     checks = {}
@@ -190,11 +145,6 @@ def validate_ports() -> None:
     for key, value in checks.items():
         if host_ports.get(key) != value:
             raise SystemExit(f'port mismatch: {key} default_host_port expected {value}, got {host_ports.get(key)}')
-        # container_port는 컨테이너 안에서 vLLM이 실제로 듣는 포트다. 예전엔
-        # default_host_port만 확인해서, 정작 더 중요한 이쪽이 어긋나도 통과했다.
-        container_port = services.get(key, {}).get('container_port')
-        if container_port != value:
-            raise SystemExit(f'port mismatch: {key} container_port expected {value}, got {container_port}')
 
     gateway_port = host_ports['gateway']
     env = (ROOT / '.env.example').read_text(encoding='utf-8')

@@ -11,7 +11,7 @@ AUTH_ENV ?= $(if $(ENV_FILE),$(ENV_FILE),$(ENV))
 AUTH_ENV_ARG = $(if $(AUTH_ENV),--env $(AUTH_ENV),)
 
 
-.PHONY: help init-env-local init-env-compose sync-env static-compose-config static-compose-up static-compose-down validate test build build-image build-vllm-unified-image package start compose-up compose-config ready-local ready-full smoke runtime-validate auth-status auth-doctor auth-plan auth-apply exposure-status exposure-plan exposure-apply main-model-prepare status stop compose-down compose-restart compose-logs logs compose-diagnostics clean clean-dry-run clean-all reset first-run reset-version render-runtime-assets
+.PHONY: help init-env-local init-env-compose sync-env static-compose-config static-compose-up static-compose-down validate test build build-image build-vllm-unified-image lock-linux package start compose-up compose-config ready-local ready-full smoke runtime-validate auth-status auth-doctor auth-plan auth-apply exposure-status exposure-plan exposure-apply main-model-prepare status stop compose-down compose-restart compose-logs logs compose-diagnostics clean clean-dry-run clean-all reset first-run reset-version render-runtime-assets
 .PHONY: setup-dev doctor-dev
 
 setup-dev: ## macOS/Ubuntu 개발용 .venv 준비 (Docker·GPU·.env 불필요)
@@ -61,6 +61,9 @@ build-image: ## platform image만 build
 
 build-vllm-unified-image: ## 모든 모델이 공유하는 vLLM unified image build
 	bash scripts/build/build_vllm_unified_image.sh
+
+lock-linux: ## 고정 Linux/Python resolver로 dependency lock 재생성·설치 검증
+	sh scripts/build/refresh_dependency_locks.sh
 
 package: ## 릴리스 ZIP 생성
 	bash scripts/build/package_release.sh

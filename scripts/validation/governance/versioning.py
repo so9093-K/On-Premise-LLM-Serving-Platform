@@ -122,6 +122,37 @@ def validate_python_compatibility() -> None:
             f'{SUPPORTED_SPECIFIER!r}, got {declared!r}'
         )
 
+    # .python-version은 Linux application/CI image의 exact patch SoT다. Dockerfile과
+    # GitLab template에 digest 전체를 중복 기록할 수밖에 없지만, 둘이 같은 ref인지와
+    # patch가 기준값을 따르는지는 이 단일 gate에서 확인한다.
+    docker_match = re.search(
+        r'(?m)^FROM\s+(python:[^\s]+)$',
+        (ROOT / 'Dockerfile').read_text(encoding='utf-8'),
+    )
+    gitlab_match = re.search(
+        r'(?m)^\s+image:\s+(python:[^\s]+)$',
+        (ROOT / '.gitlab-ci.yml').read_text(encoding='utf-8'),
+    )
+    expected_image = re.compile(
+        rf'^python:{re.escape(py_version)}-slim@sha256:[0-9a-f]{{64}}$'
+    )
+    if docker_match is None or not expected_image.fullmatch(docker_match.group(1)):
+        actual = docker_match.group(1) if docker_match else None
+        raise SystemExit(
+            f'Dockerfile base image must use python:{py_version}-slim with a sha256 digest, '
+            f'got {actual!r}'
+        )
+    if gitlab_match is None or not expected_image.fullmatch(gitlab_match.group(1)):
+        actual = gitlab_match.group(1) if gitlab_match else None
+        raise SystemExit(
+            f'.gitlab-ci.yml Python image must use python:{py_version}-slim with a sha256 digest, '
+            f'got {actual!r}'
+        )
+    if docker_match.group(1) != gitlab_match.group(1):
+        raise SystemExit(
+            'Dockerfile and .gitlab-ci.yml must use the same digest-pinned Python image'
+        )
+
 
 def _read_lock_pins(filename: str) -> dict[str, str]:
     pins: dict[str, str] = {}

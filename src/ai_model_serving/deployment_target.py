@@ -103,6 +103,8 @@ def load_deployment_target(path: Path, target_id: str | None = None) -> Deployme
     features = frozenset(str(key) for key, enabled in raw_features.items() if enabled is True)
     if "chat" not in features:
         raise RuntimeError(f"deployment target {selected!r} must enable chat")
+    if "retrieval" in features and "embeddings" not in features:
+        raise RuntimeError(f"deployment target {selected!r}: retrieval requires embeddings")
     lifecycle_flags = [
         feature in features
         for feature in ("runtime_control", "model_switching", "gpu_admission")

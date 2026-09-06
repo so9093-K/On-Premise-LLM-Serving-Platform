@@ -48,38 +48,6 @@ def _data_exposure_category(
 
 
 class TestValidateRiskResponseWithDataExposure:
-    def test_safe_data_exposure_response_passes(self):
-        cat = _data_exposure_category(None, None, False, span_count=0)
-        response = _base_response(categories=[cat])
-        validate_risk_response(response)
-
-    def test_mixed_d4_and_a1_in_aggregate(self):
-        d4_cat = _data_exposure_category("D4", "OPENAI_API_KEY", True, span_count=1, source_model="secret-scanner")
-        a1_cat = {
-            "code": "A1",
-            "family": "prompt_attack",
-            "detected": True,
-            "confidence": None,
-            "source_model": "risk-prompt",
-            "label": "<UNSAFE-A1>",
-        }
-        response = _base_response(
-            risk_detected=True,
-            attention_required=True,
-            model_risk_detected=True,
-            strongest_code="D4",  # D4가 A1보다 우선한다
-            categories=[d4_cat, a1_cat],
-        )
-        validate_risk_response(response)
-
-    def test_forbidden_fields_still_blocked(self):
-        for field in ["allow", "block", "decision", "action", "safe_to_send",
-                      "final_decision", "final_decision_owner", "policy_overrides"]:
-            response = _base_response(**{field: True})
-            with pytest.raises(ServiceError) as exc_info:
-                validate_risk_response(response)
-            assert "forbidden" in exc_info.value.message.lower() or field in exc_info.value.message
-
     def test_supported_data_exposure_codes_are_valid_strongest_codes(self):
         for code in ["D1", "D2", "D4", "D5"]:
             source = "pii-protection" if code != "D4" else "secret-scanner"

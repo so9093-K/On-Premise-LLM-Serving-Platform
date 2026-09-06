@@ -146,7 +146,7 @@ repository `.env` 자동 로딩은 local / test / development 환경에 적용�
 
 | 파일 | 질문 | 주요 역할 |
 |---|---|---|
-| `model_catalog.yaml` | **어떤 모델인가?** | model identity, upstream revision, capability, modality, public listing |
+| `model_catalog.yaml` | **어떤 논리 모델인가?** | public identity, upstream model ID, capability, modality, public listing |
 | `model_serving.yaml` | **플랫폼이 이 runtime에 어떻게 연결·운영할 것인가?** | endpoint, timeout, admission, routing |
 | `main_model_profiles.yaml` | **Main Model을 어떤 계약으로 서빙할 것인가?** | model/revision/image, vLLM command, capability, request limits, request parameter policy, runtime features |
 
@@ -157,7 +157,7 @@ repository `.env` 자동 로딩은 local / test / development 환경에 적용�
 대표적으로 다음 정보를 갖는다.
 
 - `local-main`, `local-embed`, `local-embed-ko` 같은 logical model ID
-- upstream model ID와 revision
+- upstream model ID
 - model role과 capability
 - 지원 input / output modality
 - public model listing 정보
@@ -188,6 +188,7 @@ model_serving.yaml
 이 파일은 다음과 같은 정책의 기준이 된다.
 
 - Main / Embedding / Prompt Risk runtime endpoint
+- Embedding / Prompt Risk의 고정 model revision과 실행 인자
 - model별 timeout과 concurrency
 - queue와 circuit breaker 관련 제한
 - embedding model routing

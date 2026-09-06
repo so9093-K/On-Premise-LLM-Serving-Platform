@@ -10,6 +10,8 @@ from pathlib import Path
 
 import yaml
 
+from scripts.build.pin_local_vllm_image import pin_matching_env_values
+
 _ISOLATED_KEYS = ("VLLM_IMAGE", "RISK_VLLM_IMAGE", "RISK_VLLM_BASE_IMAGE")
 
 
@@ -110,3 +112,29 @@ def test_vllm_unified_image_resolver_preserves_custom_exported_image(tmp_path):
     )
     assert result.returncode == 0, result.stderr
     assert result.stdout.strip() == custom
+
+
+def test_local_image_pin_updates_only_matching_unified_refs(tmp_path):
+    env_path = tmp_path / ".env"
+    source = "ai-model-serving-vllm-unified:0.0.1"
+    custom = "registry.example.com/operator/embedding@sha256:" + "a" * 64
+    image_id = "sha256:" + "b" * 64
+    env_path.write_text(
+        f"VLLM_IMAGE={source}\n"
+        f"EMBEDDING_KO_VLLM_IMAGE={custom}\n"
+        f"RISK_VLLM_IMAGE={source}\n"
+        f"AUDIO_VLLM_IMAGE={source}\n",
+        encoding="utf-8",
+    )
+
+    assert pin_matching_env_values(env_path, source, image_id) == [
+        "VLLM_IMAGE",
+        "RISK_VLLM_IMAGE",
+        "AUDIO_VLLM_IMAGE",
+    ]
+    assert env_path.read_text(encoding="utf-8") == (
+        f"VLLM_IMAGE={image_id}\n"
+        f"EMBEDDING_KO_VLLM_IMAGE={custom}\n"
+        f"RISK_VLLM_IMAGE={image_id}\n"
+        f"AUDIO_VLLM_IMAGE={image_id}\n"
+    )

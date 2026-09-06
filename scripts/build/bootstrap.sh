@@ -128,12 +128,14 @@ PYTHON_BIN="$VENV_PYTHON" make test
 echo "[bootstrap] building platform docker image"
 PYTHON_BIN="$VENV_PYTHON" make build-image
 
+source scripts/lib/vllm_unified_image.sh
 if [[ "${SKIP_RISK_VLLM_IMAGE_BUILD:-0}" == "1" ]]; then
   echo "[bootstrap] skipping risk vLLM image build because SKIP_RISK_VLLM_IMAGE_BUILD=1" >&2
 elif [[ "${SKIP_RISK_VLLM_IMAGE_BUILD:-0}" == "auto" && -f .env ]]; then
-  source scripts/lib/load_env.sh
-  load_local_env .env
-  risk_image="${RISK_VLLM_IMAGE:-ai-model-serving-vllm-unified:$(cat VERSION)}"
+  risk_image="${RISK_VLLM_IMAGE:-}"
+  if [[ -z "$risk_image" ]]; then
+    risk_image="$(vllm_unified_env_file_value .env RISK_VLLM_IMAGE 2>/dev/null || vllm_unified_default_image)"
+  fi
   if docker image inspect "$risk_image" >/dev/null 2>&1; then
     echo "[bootstrap] risk vLLM image already exists: ${risk_image}"
   else
@@ -144,6 +146,16 @@ else
   echo "[bootstrap] building risk vLLM docker image"
   PYTHON_BIN="$VENV_PYTHON" make build-vllm-unified-image
 fi
+
+# Registry 배포는 CI가 name@sha256 digest를 주입한다. first-run의 로컬 build에는
+# RepoDigest가 없을 수 있으므로, 같은 불변성을 Docker의 content-addressed image ID로
+# 확보한다. helper는 build에 사용한 tag와 정확히 같은 env 값만 바꾸며 운영자 지정값을
+# 추측해서 덮어쓰지 않는다. auto build 생략 경로도 .env 값을 shell에 export하지
+# 않으므로, pin 이후의 Compose 보간이 이전 mutable tag에 가려지지 않는다.
+vllm_unified_resolve_images .env
+"$VENV_PYTHON" scripts/build/pin_local_vllm_image.py \
+  --env-file .env \
+  --image "$RISK_VLLM_IMAGE_RESOLVED"
 
 if [[ "${SKIP_RISK_VLLM_CONFIG_CHECK:-0}" == "1" ]]; then
   echo "[bootstrap] skipping risk vLLM config check because SKIP_RISK_VLLM_CONFIG_CHECK=1" >&2

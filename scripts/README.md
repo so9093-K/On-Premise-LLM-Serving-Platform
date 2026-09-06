@@ -50,6 +50,7 @@ make stop
 |---|---|
 | `build/setup_dev.py` | macOS/Ubuntu 개발용 `.venv`를 준비·재사용한다. `.env`, runtime state, Docker/GPU는 변경하지 않는다. |
 | `build/check_dev_environment.py` | Python 정책과 운영 shell helper에 필요한 Bash 4 이상을 진단한다. |
+| `build/refresh_dependency_locks.sh` | Ubuntu x86_64에서 digest 고정 Python 3.12.13 resolver로 runtime/contract lock을 재생성하고 새 venv 설치까지 확인한다. |
 | `config/setup_env.py` | `.env`를 생성한다. 기본 target은 기존 `.env`를 덮어쓰지 않는다. `local_open`은 `master_open/private_lan` 전체-stack 사내망 정책과 함께 생성한다. |
 | `auth/auth_plan.py` / `auth/auth_apply.py` | secret을 출력하지 않고 auth profile 변경 계획을 보여주거나 managed auth flag만 적용한다. |
 | `validation/validate_contracts.py` | OpenAPI refs, generated OpenAPI schema injection, JSON Schema, config, release hygiene 정책을 검증한다. |
