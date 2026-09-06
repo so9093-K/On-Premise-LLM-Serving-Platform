@@ -143,13 +143,13 @@ logs: ## 로컬 app 로그 tail (make start 이후)
 	fi
 	@tail -n 100 -f logs/*.log
 
-clean: ## build 산출물·egg-info·로그 정리
+clean: ## build/test 산출물·runtime report 정리
 	bash scripts/ops/clean_all.sh
 
 clean-dry-run: ## clean 삭제 대상 미리보기
 	bash scripts/ops/clean_all.sh --dry-run
 
-clean-all: ## clean + 부가 산출물까지 정리
+clean-all: ## clean + 로컬 로그 정리
 	bash scripts/ops/clean_all.sh --all
 
 reset: ## 로컬 상태 초기화

@@ -60,28 +60,20 @@ fi
 
 remove_image_and_containers "$PLATFORM_IMAGE" "platform image"
 
-RISK_VLLM_IMAGE=""
-RISK_VLLM_BASE_IMAGE=""
-VLLM_IMAGE=""
-if [[ -f "$ENV_FILE" ]]; then
-  RISK_VLLM_IMAGE="$(env_value RISK_VLLM_IMAGE || true)"
-  RISK_VLLM_BASE_IMAGE="$(env_value RISK_VLLM_BASE_IMAGE || true)"
-  VLLM_IMAGE="$(env_value VLLM_IMAGE || true)"
-fi
-if [[ -z "$RISK_VLLM_IMAGE" && -f VERSION ]]; then
-  RISK_VLLM_IMAGE="ai-model-serving-vllm-unified:$(cat VERSION)"
-fi
-
 # 2026-07-24부터 RISK_VLLM_IMAGE/VLLM_IMAGE는 같은 vLLM unified 이미지를 가리키는
 # 게 정상이다(risk-prompt 전용 이미지가 아니라 26B/12B/embedding/embedding-ko와
 # 공유). 그래서 PURGE_BASE_IMAGES 게이트 하나로 같이 다룬다 -- 예전처럼 "shared면
 # 보존"할 이유가 없다(그게 지금은 항상 참인 정상 상태이기 때문).
 if [[ "${PURGE_BASE_IMAGES:-0}" == "1" ]]; then
-  remove_image_and_containers "$RISK_VLLM_IMAGE" "vLLM unified image"
-  remove_image_and_containers "$RISK_VLLM_BASE_IMAGE" "risk vLLM base image"
-  remove_image_and_containers "$VLLM_IMAGE" "main vLLM base image"
+  source scripts/lib/vllm_unified_image.sh
+  vllm_unified_resolve_images "$ENV_FILE"
+  remove_image_and_containers "$VLLM_IMAGE_RESOLVED" "vLLM unified image"
+  if [[ "$RISK_VLLM_IMAGE_RESOLVED" != "$VLLM_IMAGE_RESOLVED" ]]; then
+    remove_image_and_containers "$RISK_VLLM_IMAGE_RESOLVED" "risk vLLM override image"
+  fi
+  remove_image_and_containers "$RISK_VLLM_BASE_IMAGE_RESOLVED" "vLLM base image"
 else
-  echo "[reset] preserving upstream/base vLLM images (set PURGE_BASE_IMAGES=1 to delete them)"
+  echo "[reset] preserving unified/base vLLM images (set PURGE_BASE_IMAGES=1 to delete them)"
 fi
 
 echo "[reset] cleaning artifacts (PURGE_MODEL_CACHE=${PURGE_MODEL_CACHE:-0}, PURGE_RUNTIME_SECRETS=${PURGE_RUNTIME_SECRETS:-0})"
@@ -100,7 +92,7 @@ echo "[reset] done."
 echo "  run 'make first-run' to rebuild from scratch."
 echo ""
 echo "  flags used this run:"
-echo "    PURGE_MODEL_CACHE=${PURGE_MODEL_CACHE:-0}     (set to 1 to delete model_cache/ and legacy ops/compose/model_cache/)"
+echo "    PURGE_MODEL_CACHE=${PURGE_MODEL_CACHE:-0}     (set to 1 to delete local/shared model cache)"
 echo "    PURGE_RUNTIME_SECRETS=${PURGE_RUNTIME_SECRETS:-0} (set to 1 to delete .runtime/)"
 echo "    PURGE_VENV=${PURGE_VENV:-0}          (set to 1 to delete .venv/)"
-echo "    PURGE_BASE_IMAGES=${PURGE_BASE_IMAGES:-0}   (set to 1 to delete shared upstream vLLM base images)"
+echo "    PURGE_BASE_IMAGES=${PURGE_BASE_IMAGES:-0}   (set to 1 to delete unified/base vLLM images)"

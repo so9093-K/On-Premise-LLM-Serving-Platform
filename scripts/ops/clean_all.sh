@@ -28,6 +28,7 @@ fi
 
 remove_path() {
   local path="$1"
+  [[ -e "$path" || -L "$path" ]] || return 0
   if [[ "$DRY_RUN" == "1" ]]; then
     echo "would remove: $path"
   else
@@ -35,15 +36,42 @@ remove_path() {
   fi
 }
 
+find_project_artifacts() {
+  # cache 탐색은 실행 가능한 repository code 영역으로 한정한다. venv, 모델
+  # 데이터, runtime state와 로컬 도구 디렉터리를 음수 목록으로 순회하지 않는다.
+  local roots=()
+  local relative
+  for relative in src scripts tests ops; do
+    [[ -d "$ROOT/$relative" ]] && roots+=("$ROOT/$relative")
+  done
+  (( ${#roots[@]} > 0 )) || return 0
+  find "${roots[@]}" "$@"
+}
+
 remove_glob_find() {
   if [[ "$DRY_RUN" == "1" ]]; then
-    find "$ROOT" -type d -name __pycache__ -prune -print | sed 's/^/would remove: /' || true
-    find "$ROOT" -type d -name '*.egg-info' -prune -print | sed 's/^/would remove: /' || true
-    find "$ROOT" -type f -name '*.pyc' -print | sed 's/^/would remove: /' || true
+    find_project_artifacts -type d -name __pycache__ -prune -print | sed 's/^/would remove: /'
+    find_project_artifacts -type d -name '*.egg-info' -prune -print | sed 's/^/would remove: /'
+    find_project_artifacts \
+      \( -type d -name __pycache__ \) -prune -o \
+      -type f -name '*.pyc' -print | sed 's/^/would remove: /'
   else
-    find "$ROOT" -type d -name __pycache__ -prune -exec rm -rf {} +
-    find "$ROOT" -type d -name '*.egg-info' -prune -exec rm -rf {} +
-    find "$ROOT" -type f -name '*.pyc' -delete
+    find_project_artifacts -type d -name __pycache__ -prune -exec rm -rf {} +
+    find_project_artifacts -type d -name '*.egg-info' -prune -exec rm -rf {} +
+    find_project_artifacts \
+      \( -type d -name __pycache__ \) -prune -o \
+      -type f -name '*.pyc' -delete
+  fi
+}
+
+remove_empty_dir() {
+  local path="$1"
+  [[ -d "$path" ]] || return 0
+  [[ -z "$(find "$path" -mindepth 1 -print -quit)" ]] || return 0
+  if [[ "$DRY_RUN" == "1" ]]; then
+    echo "would remove empty directory: $path"
+  else
+    rmdir "$path"
   fi
 }
 
@@ -69,33 +97,40 @@ for path in \
 done
 remove_glob_find
 remove_runtime_validation_reports
+remove_empty_dir "$ROOT/reports/runtime"
+remove_empty_dir "$ROOT/reports"
 
 if [[ "$MODE" == "--all" ]]; then
   remove_path "$ROOT/logs"
-  removed="removed generated artifacts and logs"
+  cleaned="generated artifacts and logs"
+  notes=()
   if [[ "${PURGE_MODEL_CACHE:-0}" == "1" ]]; then
     remove_path "$ROOT/model_cache"
     remove_path "$ROOT/ops/compose/model_cache"
     remove_path "$ROOT/models"
-    removed="$removed, model caches"
+    cleaned="$cleaned, model caches"
   else
-    removed="$removed; model_cache/models kept. Set PURGE_MODEL_CACHE=1 for destructive cache purge"
+    notes+=("model_cache/models kept; set PURGE_MODEL_CACHE=1 for destructive cache purge")
   fi
   if [[ "${PURGE_RUNTIME_SECRETS:-0}" == "1" ]]; then
     remove_path "$ROOT/.runtime"
-    removed="$removed, and runtime secrets"
+    cleaned="$cleaned, runtime secrets"
   else
-    removed="$removed; .runtime kept. Set PURGE_RUNTIME_SECRETS=1 only when you intend to regenerate local runtime secrets"
+    notes+=(".runtime kept; set PURGE_RUNTIME_SECRETS=1 only when intentionally regenerating local runtime secrets")
   fi
   if [[ "$DRY_RUN" == "1" ]]; then
-    echo "dry run: $removed"
+    printf 'dry run complete: listed paths would be removed'
   else
-    echo "$removed"
+    printf 'clean complete: %s removed when present' "$cleaned"
   fi
+  for note in "${notes[@]}"; do
+    printf '; %s' "$note"
+  done
+  printf '\n'
 else
   if [[ "$DRY_RUN" == "1" ]]; then
-    echo "dry run: generated artifacts and timestamped runtime validation reports would be removed; logs, .runtime, and model_cache/models kept."
+    echo "dry run complete: listed paths would be removed; logs, .runtime, and model_cache/models kept."
   else
-    echo "removed generated artifacts and timestamped runtime validation reports; logs, .runtime, and model_cache/models kept. Use make clean-all to remove logs."
+    echo "clean complete: generated artifacts and timestamped runtime validation reports removed when present; logs, .runtime, and model_cache/models kept. Use make clean-all to remove logs."
   fi
 fi

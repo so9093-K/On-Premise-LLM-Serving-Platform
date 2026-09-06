@@ -67,7 +67,7 @@ make stop
 | `validation/runtime_validation.py` | 실제 runtime 검증 결과를 `reports/runtime/` 아래에 기록한다. |
 | `models/check_hf_model_config.py` | Docker/GPU 없이 Transformers `AutoConfig`만 로드해 vLLM·bitsandbytes 이전 config loader 문제를 분리한다. |
 | `build/package_release.sh` | 배포 ZIP을 만들고 secret, log, cache, egg-info, generated runtime report를 제외한다. ZIP root는 항상 `ai_model_serving_platform/`로 고정한다. |
-| `ops/clean_all.sh` | build 산출물, egg-info와 log를 정리한다. 실행 중 local service가 있으면 중단한다. `--dry-run`으로 삭제 대상을 먼저 볼 수 있다. 모델 cache는 `PURGE_MODEL_CACHE=1`, runtime secret은 `PURGE_RUNTIME_SECRETS=1`일 때만 삭제한다. |
+| `ops/clean_all.sh` | build/test 산출물과 runtime report를 정리한다. 실행 중 local service가 있으면 중단한다. `--dry-run`으로 실제 삭제 대상을 먼저 볼 수 있다. `--all`은 로그도 정리하며, 모델 cache는 `PURGE_MODEL_CACHE=1`, runtime secret은 `PURGE_RUNTIME_SECRETS=1`일 때만 삭제한다. |
 | `build/reset_version.py` | VERSION, OpenAPI, pyproject, env 예시, platform image tag를 같은 버전으로 맞춘다. |
 
 ## 운영 주의사항
