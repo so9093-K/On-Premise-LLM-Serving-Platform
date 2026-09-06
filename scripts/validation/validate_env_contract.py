@@ -2,7 +2,7 @@
 """`.env` 예시 파일들이 configs/env_contract.yaml에 선언된 키를 전부 갖고 있는지 검증한다.
 
 체크 항목:
-- .env.example, .env.local.example, .env.compose.example 각각 필요한 키 집합을 포함하는지
+- env_contract.yaml에 선언된 env example이 각각 필요한 키 집합을 포함하는지
 - 필요한 키 집합: 공통 예시 키, 인증 키, runtime override 키, exposure 키
 - non-base exposure profile에 필요한 example key가 선언되어 있는지
 
@@ -38,39 +38,70 @@ def load_yaml(path: Path) -> dict[str, Any]:
     return data
 
 
-def parse_env_keys(path: Path) -> set[str]:
-    """env 예시 파일에 정의된(key=...) 키 집합을 반환한다."""
-    return set(parse_env_file(path).values)
-
-
-def expand_required_keys(contract: dict[str, Any], key_set_names: list[str]) -> list[str]:
+def expand_required_keys(
+    contract: dict[str, Any],
+    key_set_names: list[str],
+    *,
+    violations: list[str],
+) -> list[str]:
     """env_contract.yaml의 key_set 참조 목록을 실제 키 이름들로 펼친다."""
     required: list[str] = []
 
     for name in key_set_names:
-        if name == "common_example_keys":
-            required.extend(contract.get("common_example_keys", []))
-        elif name == "auth_mode_keys":
-            required.extend(contract.get("auth_mode_keys", []))
+        if not isinstance(name, str) or not name:
+            violations.append(
+                "env_contract.yaml: required_key_sets entries must be non-empty strings"
+            )
+            continue
+        if name in {"common_example_keys", "auth_mode_keys", "auth_evidence_keys"}:
+            values = contract.get(name)
+            if not isinstance(values, list):
+                continue  # validate_contract_structure() reports the malformed block.
+            required.extend(values)
         elif name == "runtime_override_example_keys":
-            for runtime_cfg in contract.get("runtime_override_example_keys", {}).values():
-                prefix = runtime_cfg["env_prefix"]
-                for suffix in runtime_cfg["suffixes"]:
+            runtime_overrides = contract.get("runtime_override_example_keys")
+            if not isinstance(runtime_overrides, dict):
+                continue  # validate_contract_structure() reports the malformed block.
+            for runtime_cfg in runtime_overrides.values():
+                if not isinstance(runtime_cfg, dict):
+                    continue
+                prefix = runtime_cfg.get("env_prefix")
+                suffixes = runtime_cfg.get("suffixes")
+                if not isinstance(prefix, str) or not isinstance(suffixes, list):
+                    continue
+                for suffix in suffixes:
+                    if not isinstance(suffix, str):
+                        continue
                     required.append(f"{prefix}_{suffix}")
         elif name.startswith("exposure_mode_requirements."):
             sub = name.split(".", 1)[1]
-            required.extend(contract.get("exposure_mode_requirements", {}).get(sub, []))
+            mode_requirements = contract.get("exposure_mode_requirements")
+            values = mode_requirements.get(sub) if isinstance(mode_requirements, dict) else None
+            if not isinstance(values, list):
+                violations.append(
+                    f"env_contract.yaml: required key set {name!r} does not exist or is not a list"
+                )
+                continue
+            required.extend(values)
         else:
             # contract 최상위의 직접 목록
             val = contract.get(name)
             if isinstance(val, list):
                 required.extend(val)
+            else:
+                violations.append(
+                    f"env_contract.yaml: required key set {name!r} does not exist or is not a list"
+                )
 
     return required
 
 
 def _string_list(value: Any, *, label: str, violations: list[str]) -> list[str]:
-    if not isinstance(value, list) or not all(isinstance(item, str) and item for item in value):
+    if (
+        not isinstance(value, list)
+        or not value
+        or not all(isinstance(item, str) and item for item in value)
+    ):
         violations.append(f"env_contract.yaml: {label} must be a non-empty string list")
         return []
     if len(set(value)) != len(value):
@@ -78,14 +109,61 @@ def _string_list(value: Any, *, label: str, violations: list[str]) -> list[str]:
     return value
 
 
+def validate_contract_structure(contract: dict[str, Any]) -> list[str]:
+    """필수 contract 블록이 사라져 검사가 조용히 축소되지 않게 한다."""
+    violations: list[str] = []
+    for name in ("common_example_keys", "auth_mode_keys", "auth_evidence_keys"):
+        _string_list(contract.get(name), label=name, violations=violations)
+
+    runtime_overrides = contract.get("runtime_override_example_keys")
+    if not isinstance(runtime_overrides, dict) or not runtime_overrides:
+        violations.append(
+            "env_contract.yaml: runtime_override_example_keys must be a non-empty mapping"
+        )
+    else:
+        for name, raw in runtime_overrides.items():
+            label = f"runtime_override_example_keys.{name}"
+            if not isinstance(raw, dict):
+                violations.append(f"env_contract.yaml: {label} must be a mapping")
+                continue
+            if not isinstance(raw.get("env_prefix"), str) or not raw["env_prefix"]:
+                violations.append(f"env_contract.yaml: {label}.env_prefix must be non-empty")
+            _string_list(raw.get("suffixes"), label=f"{label}.suffixes", violations=violations)
+
+    env_examples = contract.get("env_examples")
+    if not isinstance(env_examples, dict) or not env_examples:
+        violations.append("env_contract.yaml: env_examples must be a non-empty mapping")
+    else:
+        for filename, raw in env_examples.items():
+            label = f"env_examples.{filename}"
+            if (
+                not isinstance(filename, str)
+                or Path(filename).name != filename
+                or not filename.endswith(".example")
+            ):
+                violations.append(
+                    f"env_contract.yaml: {label} must use a top-level .example filename"
+                )
+            if not isinstance(raw, dict):
+                violations.append(f"env_contract.yaml: {label} must be a mapping")
+                continue
+            _string_list(
+                raw.get("required_key_sets"),
+                label=f"{label}.required_key_sets",
+                violations=violations,
+            )
+
+    return violations
+
+
 def validate_service_env_projections(root: Path, contract: dict[str, Any]) -> list[str]:
     """Verify target-scoped process-env projections without reading secret values."""
     violations: list[str] = []
     projections = contract.get("service_env_projections")
-    if projections is None:
-        return violations
-    if not isinstance(projections, dict):
-        return ["env_contract.yaml: service_env_projections must be a mapping"]
+    if not isinstance(projections, dict) or not projections:
+        return [
+            "env_contract.yaml: service_env_projections must be a non-empty mapping"
+        ]
 
     targets_path = root / "configs" / "deployment_targets.yaml"
     targets_document = load_yaml(targets_path) if targets_path.exists() else {}
@@ -127,8 +205,10 @@ def validate_auth_example_profiles(root: Path, contract: dict[str, Any]) -> list
     """
     violations: list[str] = []
     examples = contract.get("auth_example_profiles")
-    if not isinstance(examples, dict):
-        return ["env_contract.yaml: auth_example_profiles must be a mapping"]
+    if not isinstance(examples, dict) or not examples:
+        return [
+            "env_contract.yaml: auth_example_profiles must be a non-empty mapping"
+        ]
     for filename, profile in examples.items():
         if not isinstance(filename, str) or not isinstance(profile, str) or not profile:
             violations.append("env_contract.yaml: auth_example_profiles entries must map filename to profile name")
@@ -167,10 +247,23 @@ def validate(root: Path = ROOT, strict: bool = False) -> list[str]:
         return violations
 
     contract = load_yaml(contract_path)
-    env_examples: dict = contract.get("env_examples", {})
-    removed_keys: dict = contract.get("removed_keys") or {}
+    violations.extend(validate_contract_structure(contract))
+    env_examples = contract.get("env_examples")
+    if not isinstance(env_examples, dict):
+        env_examples = {}
+    removed_keys = contract.get("removed_keys")
+    if removed_keys is None:
+        removed_keys = {}
+    elif not isinstance(removed_keys, dict):
+        violations.append("env_contract.yaml: removed_keys must be a mapping")
+        removed_keys = {}
     violations.extend(validate_service_env_projections(root, contract))
     violations.extend(validate_auth_example_profiles(root, contract))
+    main_profiles = load_yaml(
+        root / "configs" / "main_model_profiles.yaml"
+    ).get("profiles", {})
+    services = load_yaml(root / "configs" / "services.yaml").get("services", {})
+    expected_gateway_port = str(services.get("gateway", {}).get("default_host_port", ""))
 
     for filename, cfg in env_examples.items():
         file_path = root / filename
@@ -180,9 +273,22 @@ def validate(root: Path = ROOT, strict: bool = False) -> list[str]:
 
         parse_result = parse_env_file(file_path)
         violations.extend(parse_result.errors)
-        present_keys = parse_env_keys(file_path)
-        key_set_names: list[str] = cfg.get("required_key_sets", [])
-        required_keys = list(dict.fromkeys(expand_required_keys(contract, key_set_names)))  # 중복 제거, 순서 유지
+        values = parse_result.values
+        present_keys = set(values)
+        if not isinstance(cfg, dict):
+            continue  # validate_contract_structure()가 보고한다.
+        key_set_names = cfg.get("required_key_sets")
+        if not isinstance(key_set_names, list):
+            continue  # validate_contract_structure()가 보고한다.
+        required_keys = list(
+            dict.fromkeys(
+                expand_required_keys(
+                    contract,
+                    key_set_names,
+                    violations=violations,
+                )
+            )
+        )
 
         for key in required_keys:
             if key not in present_keys:
@@ -196,6 +302,21 @@ def validate(root: Path = ROOT, strict: bool = False) -> list[str]:
                 f"{filename}: {key!r} is registered in env_contract.yaml removed_keys "
                 f"(`make sync-env` deletes it), so it must not be declared in the template "
                 f"-- {removed_keys[key]}"
+            )
+
+        static_profile = values.get("MAIN_LLM_STATIC_PROFILE", "").strip()
+        if "MAIN_LLM_STATIC_PROFILE" in values and static_profile not in main_profiles:
+            violations.append(
+                f"{filename}: MAIN_LLM_STATIC_PROFILE references unknown profile "
+                f"{static_profile!r}"
+            )
+
+        gateway_port = values.get("GATEWAY_PORT", "").strip()
+        if "GATEWAY_PORT" in values and gateway_port != expected_gateway_port:
+            violations.append(
+                f"{filename}: GATEWAY_PORT={gateway_port} does not match "
+                "configs/services.yaml gateway.default_host_port="
+                f"{expected_gateway_port}"
             )
 
     if strict:

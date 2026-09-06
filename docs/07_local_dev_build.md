@@ -395,7 +395,9 @@ make package
 dist/ai_model_serving_platform_<VERSION>.zip
 ```
 
-Release package에는 실행에 필요한 source, config, spec, ops artifact와 안전한 `.env.*.example` 파일이 포함된다.
+Release package에는 Git이 추적하는 파일 중 실행에 필요한 source, config, spec, ops
+artifact, 테스트와 `env_contract.yaml`에 선언된 안전한 `.env.*.example` 파일이
+포함된다. GitHub Actions workflow는 배포 artifact에 포함하지 않는다.
 
 Packaging 과정에서는 다음 항목을 배포 artifact에서 분리한다.
 
@@ -408,6 +410,8 @@ Packaging 과정에서는 다음 항목을 배포 artifact에서 분리한다.
 - local tool / private workspace directory
 
 ZIP entry의 timestamp는 고정값을 사용해 동일한 source에서 재생 가능한 package 형태를 유지한다.
+패키지 입력은 현재 working tree의 Git tracked 파일로 한정해, 로컬의 untracked
+메모나 임시 파일이 같은 commit의 ZIP에 섞이지 않게 한다.
 
 `make package`는 package 생성 전에 별도 축약 검증을 만들지 않고 `make validate`와 같은 전체 정적 gate를 수행한다. 생성된 ZIP은 제외 대상 파일과 환경 파일이 포함되지 않았는지 다시 검사한다.
 

@@ -29,8 +29,11 @@ from __future__ import annotations
 import fnmatch
 import os
 import shutil
+import subprocess
 import sys
 from pathlib import Path
+
+import yaml
 
 sys.dont_write_bytecode = True
 
@@ -55,6 +58,7 @@ exclude_tree_dirs = {
     'model_cache',
 }
 exclude_top_level_dirs = {
+    '.github',
     '.other',
     'build',
     'dist',
@@ -88,7 +92,15 @@ exclude_file_patterns = (
     '.env',
     '.env.*',
 )
-safe_env_examples = {'.env.example', '.env.local.example', '.env.compose.example'}
+env_contract = yaml.safe_load(
+    (src / 'configs' / 'env_contract.yaml').read_text(encoding='utf-8')
+)
+if not isinstance(env_contract, dict):
+    raise SystemExit('configs/env_contract.yaml must contain a mapping')
+env_examples = env_contract.get('env_examples')
+safe_env_examples = set(env_examples) if isinstance(env_examples, dict) else set()
+if not safe_env_examples:
+    raise SystemExit('configs/env_contract.yaml must declare env_examples for packaging')
 
 
 def skip_dir(rel_parts: tuple[str, ...], name: str) -> bool:
@@ -127,29 +139,32 @@ if dst.exists():
     shutil.rmtree(dst)
 dst.mkdir(parents=True)
 
-for current, dirnames, filenames in os.walk(src):
-    current_path = Path(current)
-    rel_current = current_path.relative_to(src)
-    rel_parts = () if str(rel_current) == '.' else rel_current.parts
+try:
+    tracked_output = subprocess.check_output(
+        ['git', '-C', str(src), 'ls-files', '-z'],
+        stderr=subprocess.PIPE,
+    )
+except (FileNotFoundError, subprocess.CalledProcessError) as exc:
+    raise SystemExit('make package requires a Git working tree to select tracked inputs') from exc
 
-    kept_dirs = []
-    for dirname in sorted(dirnames):
-        child_parts = rel_parts + (dirname,)
-        if not skip_dir(child_parts, dirname):
-            kept_dirs.append(dirname)
-    dirnames[:] = kept_dirs
-
-    target_dir = dst / rel_current if str(rel_current) != '.' else dst
-    target_dir.mkdir(parents=True, exist_ok=True)
-
-    for filename in sorted(filenames):
-        rel_file_parts = rel_parts + (filename,)
-        if skip_file(rel_file_parts, filename):
-            continue
-        source_file = current_path / filename
-        target_file = dst.joinpath(*rel_file_parts)
-        target_file.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(source_file, target_file)
+for raw_path in sorted(filter(None, tracked_output.decode('utf-8').split('\0'))):
+    rel_path = Path(raw_path)
+    rel_parts = rel_path.parts
+    if rel_path.is_absolute() or '..' in rel_parts:
+        raise SystemExit(f'unsafe tracked path: {raw_path!r}')
+    if any(
+        skip_dir(tuple(rel_parts[: index + 1]), dirname)
+        for index, dirname in enumerate(rel_parts[:-1])
+    ):
+        continue
+    if skip_file(rel_parts, rel_path.name):
+        continue
+    source_file = src / rel_path
+    if not source_file.is_file():
+        raise SystemExit(f'tracked package input is missing or not a file: {raw_path}')
+    target_file = dst / rel_path
+    target_file.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(source_file, target_file)
 
 PYCODE
 
@@ -198,10 +213,11 @@ import fnmatch
 import sys
 import zipfile
 
+import yaml
+
 out = sys.argv[1]
 pkg = sys.argv[2]
-safe_env_examples = {".env.example", ".env.local.example", ".env.compose.example"}
-forbidden_release_dirs = {".other", ".agents", ".codex", ".claude", ".cursor"}
+forbidden_release_dirs = {".github", ".other", ".agents", ".codex", ".claude", ".cursor"}
 
 with zipfile.ZipFile(out) as zf:
     names = zf.namelist()
@@ -211,6 +227,17 @@ with zipfile.ZipFile(out) as zf:
         for name in names
         if name.startswith(f"{pkg}/") and not name.endswith("/")
     }
+    contract_member = f"{pkg}/configs/env_contract.yaml"
+    try:
+        env_contract = yaml.safe_load(zf.read(contract_member))
+    except KeyError as exc:
+        raise SystemExit("Release ZIP is missing configs/env_contract.yaml") from exc
+    if not isinstance(env_contract, dict):
+        raise SystemExit("Release ZIP env contract must contain a mapping")
+    env_examples = env_contract.get("env_examples")
+    safe_env_examples = set(env_examples) if isinstance(env_examples, dict) else set()
+    if not safe_env_examples:
+        raise SystemExit("Release ZIP env contract does not declare env_examples")
 
 # These are read when the Configuration Plane endpoint is imported and served.
 # Keeping this release-artifact contract here prevents a future packaging

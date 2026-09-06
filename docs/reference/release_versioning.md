@@ -61,6 +61,9 @@ make test
 make package
 ```
 
-출력은 `dist/ai_model_serving_platform_<VERSION>.zip`이다. ZIP에는 source, config, spec, 필요한 ops artifact와 안전한 env example만 포함한다. 실제 `.env`, `.runtime`, log, model cache, test source, Python cache, private tool directory는 포함하지 않는다.
+출력은 `dist/ai_model_serving_platform_<VERSION>.zip`이다. ZIP에는 Git tracked source,
+config, spec, 필요한 ops artifact, 동일 버전을 검증할 `tests/`와 안전한 env example을
+포함한다. 실제 `.env`, `.runtime`, log, model cache, Python cache, private tool directory,
+GitHub Actions workflow는 포함하지 않는다.
 
 CI image build와 immutable digest 전달은 [9. CI/CD](../09_cicd.md), 대상 서버 적용과 rollback은 [10. 배포](../10_deployment.md)를 따른다.

@@ -96,6 +96,10 @@ fi
 mkdir "${RELEASE_PATH}"
 REMOTE_PREPARE
 
+# package와 CI 배포 모두 Git tracked 파일만 입력으로 사용한다. CI checkout에 남은
+# cache/report/임시 파일이 release마다 달라지는 것을 막는다. CI provider 정의는
+# 저장소 검증 입력이지 runtime 입력이 아니므로 대상 서버 Release에서는 제외한다.
+#
 # tests/는 두 배포 경로 모두에서 포함한다. bootstrap(make first-run)이 `make test`를
 # 배포 전 게이트로 부르므로, 테스트가 빠진 배포본에서는 문서화된 진입점이
 # no tests collected(exit 5)로 중단된다 -- 게이트를 부르면서 게이트 입력을 빼는 셈이다.
@@ -104,9 +108,15 @@ REMOTE_PREPARE
 # 공격 표면)를 재보니 셋 다 성립하지 않았다: 압축 후 111KB(전체 +4%), 앱이 import하지
 # 않고 .dockerignore가 컨테이너 유입을 막는다. 두 경로의 정책은 여전히 같아야 하고,
 # 지금은 "포함"으로 같다.
-echo "[deploy] syncing deployable project files to staged release..."
-rsync -az --delete \
+echo "[deploy] syncing tracked deployable project files to staged release..."
+git ls-files -z -- . ':(exclude).github/**' ':(exclude).gitlab-ci.yml' | \
+  rsync -az --delete --from0 --files-from=- \
   --exclude ".git/" \
+  --exclude "/.other/" \
+  --exclude "/.agents/" \
+  --exclude "/.codex/" \
+  --exclude "/.claude/" \
+  --exclude "/.cursor/" \
   --exclude ".env" \
   --exclude ".runtime/" \
   --exclude ".venv/" \

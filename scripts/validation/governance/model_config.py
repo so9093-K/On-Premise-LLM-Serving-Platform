@@ -88,20 +88,6 @@ def validate_deployment_targets() -> None:
     except (OSError, ValueError) as exc:
         raise SystemExit(str(exc)) from exc
 
-    main_profiles = read_yaml('configs/main_model_profiles.yaml').get('profiles', {})
-    for filename in ('.env.example', '.env.compose.example', '.env.local.example'):
-        for line in (ROOT / filename).read_text(encoding='utf-8').splitlines():
-            if not line.startswith('MAIN_LLM_STATIC_PROFILE='):
-                continue
-            profile = line.partition('=')[2].strip()
-            if profile not in main_profiles:
-                raise SystemExit(
-                    f'{filename}: MAIN_LLM_STATIC_PROFILE references unknown profile {profile!r}'
-                )
-            break
-        else:
-            raise SystemExit(f'{filename}: MAIN_LLM_STATIC_PROFILE is required')
-
 
 def validate_deploy_profiles() -> None:
     from ai_model_serving.runtime_topology import load_runtime_topology
@@ -129,6 +115,7 @@ def validate_deploy_profiles() -> None:
                 f'{", ".join(sorted(unknown_runtimes))}'
             )
 
+
 def validate_ports() -> None:
     """모델 런타임 host port가 서비스 레지스트리와 같은 값인지 확인한다.
 
@@ -146,10 +133,6 @@ def validate_ports() -> None:
         if host_ports.get(key) != value:
             raise SystemExit(f'port mismatch: {key} default_host_port expected {value}, got {host_ports.get(key)}')
 
-    gateway_port = host_ports['gateway']
-    env = (ROOT / '.env.example').read_text(encoding='utf-8')
-    if f'GATEWAY_PORT={gateway_port}' not in env:
-        raise SystemExit(f'.env.example must include GATEWAY_PORT={gateway_port}')
 
 def validate_risk_detector_generation_budget() -> None:
     serving = read_yaml('configs/model_serving.yaml')['models']

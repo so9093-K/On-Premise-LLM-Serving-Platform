@@ -145,7 +145,9 @@ Platform 이미지는 Registry의 고정된 digest로 전달된다.
 
 ### 1. Release 준비
 
-CI Runner는 repository source를 새 Release 디렉터리에 동기화한다.
+CI Runner는 해당 checkout의 Git tracked source만 새 Release 디렉터리에 동기화한다.
+GitHub Actions/GitLab CI 정의와 로컬 cache·report·임시 파일은 실행 입력이 아니므로
+대상 서버의 Ubuntu Release에 포함하지 않는다.
 
 ```text
 Repository Source
