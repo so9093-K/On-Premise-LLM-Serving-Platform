@@ -61,6 +61,15 @@ RELEASES_TO_KEEP="${RELEASES_TO_KEEP:-5}"
 RELEASE_ID="${DEPLOY_RELEASE_ID:-${CI_COMMIT_SHA:-}}"
 SSH_TARGET="${DEPLOY_USER}@${DEPLOY_HOST}"
 
+if ! command -v git >/dev/null 2>&1; then
+  echo "[deploy] ERROR: git is required to select tracked release inputs." >&2
+  exit 2
+fi
+if [[ "$(git rev-parse --is-inside-work-tree 2>/dev/null || true)" != "true" ]]; then
+  echo "[deploy] ERROR: deployment must run from a Git working tree." >&2
+  exit 2
+fi
+
 source scripts/lib/deploy_request_policy.sh
 deploy_resolve_mode
 if [[ -n "${DEPLOY_MODE_REASON:-}" ]]; then
@@ -96,6 +105,22 @@ fi
 mkdir "${RELEASE_PATH}"
 REMOTE_PREPARE
 
+cleanup_unapplied_release() {
+  ssh "${SSH_TARGET}" \
+    DEPLOY_PATH="${DEPLOY_PATH}" \
+    RELEASE_PATH="${RELEASE_PATH}" \
+    bash -s <<'REMOTE_CLEANUP'
+set -euo pipefail
+case "${RELEASE_PATH}" in
+  "${DEPLOY_PATH}/releases/"?*) rm -rf -- "${RELEASE_PATH}" ;;
+  *)
+    echo "[deploy] ERROR: refusing to clean unexpected release path: ${RELEASE_PATH}" >&2
+    exit 2
+    ;;
+esac
+REMOTE_CLEANUP
+}
+
 # package와 CI 배포 모두 Git tracked 파일만 입력으로 사용한다. CI checkout에 남은
 # cache/report/임시 파일이 release마다 달라지는 것을 막는다. CI provider 정의는
 # 저장소 검증 입력이지 runtime 입력이 아니므로 대상 서버 Release에서는 제외한다.
@@ -109,30 +134,36 @@ REMOTE_PREPARE
 # 않고 .dockerignore가 컨테이너 유입을 막는다. 두 경로의 정책은 여전히 같아야 하고,
 # 지금은 "포함"으로 같다.
 echo "[deploy] syncing tracked deployable project files to staged release..."
-git ls-files -z -- . ':(exclude).github/**' ':(exclude).gitlab-ci.yml' | \
+if ! git ls-files -z -- . ':(exclude).github/**' ':(exclude).gitlab-ci.yml' | \
   rsync -az --delete --from0 --files-from=- \
-  --exclude ".git/" \
-  --exclude "/.other/" \
-  --exclude "/.agents/" \
-  --exclude "/.codex/" \
-  --exclude "/.claude/" \
-  --exclude "/.cursor/" \
-  --exclude ".env" \
-  --exclude ".runtime/" \
-  --exclude ".venv/" \
-  --exclude ".cache/" \
-  --exclude ".pytest_cache/" \
-  --exclude "__pycache__/" \
-  --exclude "*.pyc" \
-  --exclude "model_cache/" \
-  --exclude "ops/compose/models/" \
-  --exclude "logs/" \
-  --exclude "/dist/" \
-  --exclude "/build/" \
-  --exclude "run/" \
-  --exclude "outputs/" \
-  ./ \
-  "${SSH_TARGET}:${RELEASE_PATH}/"
+    --exclude ".git/" \
+    --exclude "/.other/" \
+    --exclude "/.agents/" \
+    --exclude "/.codex/" \
+    --exclude "/.claude/" \
+    --exclude "/.cursor/" \
+    --exclude ".env" \
+    --exclude ".runtime/" \
+    --exclude ".venv/" \
+    --exclude ".cache/" \
+    --exclude ".pytest_cache/" \
+    --exclude "__pycache__/" \
+    --exclude "*.pyc" \
+    --exclude "model_cache/" \
+    --exclude "ops/compose/models/" \
+    --exclude "logs/" \
+    --exclude "/dist/" \
+    --exclude "/build/" \
+    --exclude "run/" \
+    --exclude "outputs/" \
+    ./ \
+    "${SSH_TARGET}:${RELEASE_PATH}/"; then
+  echo "[deploy] ERROR: release file sync failed; removing unapplied candidate." >&2
+  if ! cleanup_unapplied_release; then
+    echo "[deploy] ERROR: candidate cleanup failed: ${RELEASE_PATH}" >&2
+  fi
+  exit 1
+fi
 
 # ── 2. 원격: candidate 검증 → 배포 → current를 원자적으로 전환 ──
 ssh "${SSH_TARGET}" \
