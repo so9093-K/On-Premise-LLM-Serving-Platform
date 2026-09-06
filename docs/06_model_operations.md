@@ -204,6 +204,9 @@ curl -X POST \
 make main-model-prepare PROFILE=<profile-id>
 ```
 
+`HF_CACHE_DIR`은 container의 `HF_HOME`에 mount되는 host root를 뜻한다.
+준비 명령과 vLLM은 모두 그 아래 `hub/`를 실제 repository cache로 사용한다.
+
 ### 기존 요청 Drain
 
 Target 준비가 끝나면 신규 Chat 요청을 잠시 제한하고, 현재 처리 중인 요청이 완료될 때까지 기다린다.

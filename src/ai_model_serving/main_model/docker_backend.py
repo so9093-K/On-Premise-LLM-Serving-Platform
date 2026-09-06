@@ -3,7 +3,6 @@ from __future__ import annotations
 import asyncio
 import copy
 import json
-import os
 from pathlib import Path
 from typing import Any
 
@@ -13,7 +12,7 @@ from ..contracts.chat_response import validate_chat_response
 from ..errors import ServiceError
 from .control import MainModelCatalog, MainModelProfile
 from ..media_samples import TINY_JPEG_1X1_B64, TINY_M4A_AAC_B64, TINY_MP4_VIDEO_B64
-from .cache import prepare_model_snapshot
+from .cache import default_hf_hub_cache_dir, prepare_model_snapshot
 
 _IMAGE_CANARY_JPEG_B64 = TINY_JPEG_1X1_B64
 _AUDIO_CANARY_M4A_B64 = TINY_M4A_AAC_B64
@@ -70,12 +69,7 @@ class DockerMainModelBackend:
         # 기록하므로, cache_dir은 HF_HOME이 아니라 반드시 hub 디렉터리여야 한다.
         # 그렇지 않으면 준비된 snapshot이 런타임이 resolve하는 위치보다 한 단계 위에
         # 놓이게 된다.
-        _hf_home = os.environ.get("HF_HOME", "/root/.cache/huggingface")
-        self.cache_dir = Path(
-            cache_dir
-            or os.environ.get("HF_HUB_CACHE")
-            or os.path.join(_hf_home, "hub")
-        )
+        self.cache_dir = Path(cache_dir) if cache_dir else default_hf_hub_cache_dir()
         self._template: dict[str, Any] | None = None
 
     def _client(self) -> httpx.AsyncClient:

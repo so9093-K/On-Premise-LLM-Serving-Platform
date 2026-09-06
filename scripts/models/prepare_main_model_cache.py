@@ -42,10 +42,11 @@ def main(argv: list[str] | None = None) -> int:
     except KeyError as exc:
         raise SystemExit(f"unknown main-model profile: {args.profile}") from exc
     env = read_env_values(args.env_file)
-    cache_dir = resolve_compose_relative_path(
+    hf_home = resolve_compose_relative_path(
         env.get("HF_CACHE_DIR", "./model_cache/huggingface"),
         args.compose_file,
     )
+    cache_dir = hf_home / "hub"
     token = (
         os.environ.get("HF_TOKEN")
         or os.environ.get("HUGGING_FACE_HUB_TOKEN")

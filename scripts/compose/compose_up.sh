@@ -130,7 +130,7 @@ HUGGING_FACE_HUB_TOKEN="${HUGGING_FACE_HUB_TOKEN_EFFECTIVE:-$HF_TOKEN_EFFECTIVE}
 PYTHONPATH="$ROOT/src${PYTHONPATH:+:$PYTHONPATH}" \
   "$PYTHON_BIN" -m ai_model_serving.main_model.cache_cli \
     --catalog configs/main_model_profiles.yaml \
-    --cache-dir "$HF_CACHE_HOST" \
+    --cache-dir "$HF_CACHE_HOST/hub" \
     --profile "$MAIN_MODEL_BOOT_PROFILE"
 
 echo "[compose-up] starting stack (EXPOSURE_MODE=$CANONICAL_MODE, main-profile=$MAIN_MODEL_BOOT_PROFILE, runtime-profile=$RUNTIME_PROFILE_EFFECTIVE)"

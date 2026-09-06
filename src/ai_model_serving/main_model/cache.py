@@ -14,6 +14,14 @@ class PreparedModelSnapshot:
     snapshot_path: Path
 
 
+def default_hf_hub_cache_dir() -> Path:
+    """Return the cache root used by Hugging Face Hub and vLLM."""
+    explicit = os.environ.get("HF_HUB_CACHE")
+    if explicit:
+        return Path(explicit)
+    return Path(os.environ.get("HF_HOME", "/root/.cache/huggingface")) / "hub"
+
+
 def prepare_model_snapshot(
     *,
     model_id: str,
@@ -21,7 +29,12 @@ def prepare_model_snapshot(
     cache_dir: Path,
     token: str | None = None,
 ) -> PreparedModelSnapshot:
-    """Download and locally re-open one exact Hugging Face repository revision."""
+    """Download and locally re-open one exact revision in the HF hub cache.
+
+    ``cache_dir`` is the hub cache root (normally ``HF_HOME/hub``), not
+    ``HF_HOME`` itself. Keeping that boundary explicit prevents the preparer and
+    vLLM from creating parallel ``models--*`` trees.
+    """
     from huggingface_hub import snapshot_download
 
     cache_dir.mkdir(parents=True, exist_ok=True)

@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 
 from .control import load_main_model_catalog
-from .cache import prepare_model_snapshot
+from .cache import default_hf_hub_cache_dir, prepare_model_snapshot
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -21,7 +21,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--cache-dir",
         type=Path,
-        default=Path("/root/.cache/huggingface"),
+        default=default_hf_hub_cache_dir(),
     )
     args = parser.parse_args(argv)
 

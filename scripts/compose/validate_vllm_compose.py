@@ -50,6 +50,7 @@ def load_yaml(path: Path) -> Any:
 
 
 _COMPOSE_VAR_DEFAULT = re.compile(r"^\$\{([A-Za-z_][A-Za-z0-9_]*):-([^}]*)\}$")
+_COMMIT_REVISION = re.compile(r"^[0-9a-f]{40}$")
 
 
 def resolve_compose_value(value: str) -> str:
@@ -278,6 +279,16 @@ def validate_alignment(
             continue
         args = command_args(service.get("command"))
         cfg = runtime.config
+        revision = cfg.get("revision")
+        # Main revision은 main_model_profiles loader가 검증한다. 이 gate는
+        # model_serving.yaml이 직접 소유하는 보조 runtime에만 적용한다.
+        if runtime.service_key != "main_llm" and (
+            not isinstance(revision, str) or _COMMIT_REVISION.fullmatch(revision) is None
+        ):
+            errors.append(
+                f"{runtime.service_key}: configs/model_serving.yaml revision must be a "
+                "40-character lowercase commit SHA"
+            )
         # The generated boot profile owns Main's model/revision/command and host GPU
         # override. Other runtimes still use ModelRegistry (also Sidecar's budget source).
         expected = (

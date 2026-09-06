@@ -51,6 +51,7 @@ models:
       # main LLM 실패 시 embedding 또는 risk 모델로 대체하지 않고 upstream 오류를 반환한다.
   embedding:
     name: google/embeddinggemma-300m
+    revision: 57c266a740f537b4dc058e1b0cda161fd15afa75
     served_model_name: local-embed
     backend: vllm
     port: 9402
@@ -94,6 +95,7 @@ models:
       max_embedding_batch_size: 16
   embedding_ko:
     name: dragonkue/snowflake-arctic-embed-l-v2.0-ko
+    revision: 55ec6e9358a56d56af759bc8372e970caf8c305f
     served_model_name: local-embed-ko
     backend: vllm
     port: 9406
@@ -140,6 +142,7 @@ models:
       max_embedding_batch_size: 16
   risk_prompt:
     name: kakaocorp/kanana-safeguard-prompt-2.1b
+    revision: 167d74d4706b236580b0e48318337c7ac6ba7848
     served_model_name: risk-prompt
     backend: vllm
     port: 9403
