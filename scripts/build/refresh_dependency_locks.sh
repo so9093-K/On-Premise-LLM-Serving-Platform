@@ -58,13 +58,16 @@ trap cleanup EXIT HUP INT TERM
 
 cp requirements.lock "$WORK/requirements.lock.original"
 cp requirements.runtime.lock "$WORK/requirements.runtime.lock.original"
+# pip-compile은 기존 output을 constraint로 재사용한다. 현재 pin을 임시
+# output에 seed해 lock 형식 재생성과 전이 의존성 업그레이드를 분리한다.
+cp requirements.lock "$WORK/requirements.lock"
+cp requirements.runtime.lock "$WORK/requirements.runtime.lock"
 
 python -m venv "$WORK/tools"
 "$WORK/tools/bin/python" -m pip install --disable-pip-version-check \
   'pip==26.0.1' 'pip-tools==7.5.3'
 
 "$WORK/tools/bin/pip-compile" \
-  --upgrade \
   --resolver=backtracking \
   --strip-extras \
   --no-emit-index-url \
@@ -72,7 +75,6 @@ python -m venv "$WORK/tools"
   --output-file "$WORK/requirements.runtime.lock" \
   pyproject.toml
 "$WORK/tools/bin/pip-compile" \
-  --upgrade \
   --resolver=backtracking \
   --strip-extras \
   --no-emit-index-url \

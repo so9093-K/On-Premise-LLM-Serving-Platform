@@ -77,6 +77,8 @@ make lock-linux
 
 이 명령은 Dockerfile과 GitLab CI가 공유하는 digest 고정
 `python:3.12.13-slim` image 안에서 `pip==26.0.1`, `pip-tools==7.5.3`을 사용한다.
+기존 lock을 resolver constraint로 재사용하므로, lock 재생성 자체가 사전 검토 없이
+전이 의존성 전체를 업그레이드하지 않는다.
 두 lock을 임시 경로에 먼저 만들고 각각 새 venv에 설치해 `pip check`와 contract
 validation이 통과한 뒤에만 저장소 파일을 교체한다. 실패하면 기존 lock을 복원한다.
 macOS나 임의 Python에서 `pip freeze`한 결과로 운영 lock을 갱신하지 않는다.
