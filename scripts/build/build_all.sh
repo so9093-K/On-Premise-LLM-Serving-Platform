@@ -11,13 +11,6 @@ PYTHON_BIN="$PYTHON_BIN" make validate
 echo "[build] running deterministic tests"
 PYTHON_BIN="$PYTHON_BIN" make test
 
-if ! command -v docker >/dev/null 2>&1; then
-  echo "[build] docker CLI is required because make build includes the platform image." >&2
-  echo "[build] Use 'make package' when only the release ZIP is needed." >&2
-  exit 2
-fi
-if ! docker info >/dev/null 2>&1; then
-  echo "[build] cannot access the Docker daemon." >&2
-  exit 2
-fi
+# Docker 사전 조건과 image provenance 출력은 단독 build-image와 같은 경로인
+# build_platform_image.sh가 소유한다.
 bash scripts/build/build_platform_image.sh

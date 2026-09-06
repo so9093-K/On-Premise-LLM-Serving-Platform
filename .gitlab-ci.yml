@@ -58,8 +58,8 @@ variables:
     DOCKER_HOST: tcp://docker:2375
     DOCKER_TLS_CERTDIR: ""
   before_script:
-    - apk add --no-cache bash python3 py3-yaml
-    - docker info
+    # vLLM build script의 commit-to-commit input 비교와 image provenance에 필요하다.
+    - apk add --no-cache bash git python3 py3-yaml
     - echo "$CI_REGISTRY_PASSWORD" | docker login "$CI_REGISTRY" -u "$CI_REGISTRY_USER" --password-stdin
 
 validate:
@@ -104,7 +104,7 @@ build-platform:
     - APP_VERSION="$(tr -d '\r\n' < VERSION)"
     # Dockerfile build와 image 내부 app 초기화는 로컬 build-image와 같은 스크립트를
     # 쓴다. DinD에서만 registry cache와 immutable/ref tag를 추가한다.
-    - PLATFORM_IMAGE="$PLATFORM_IMAGE_SHA" PLATFORM_IMAGE_EXTRA_TAGS="$PLATFORM_IMAGE_REF" PLATFORM_IMAGE_PULL=1 PLATFORM_IMAGE_CACHE_FROM="$PLATFORM_IMAGE_REF" PLATFORM_IMAGE_INLINE_CACHE=1 bash scripts/build/build_platform_image.sh
+    - PLATFORM_IMAGE="$PLATFORM_IMAGE_SHA" PLATFORM_IMAGE_EXTRA_TAGS="$PLATFORM_IMAGE_REF" PLATFORM_BUILD_PLATFORM=linux/amd64 PLATFORM_IMAGE_PULL=1 PLATFORM_IMAGE_CACHE_FROM="$PLATFORM_IMAGE_REF" PLATFORM_IMAGE_INLINE_CACHE=1 bash scripts/build/build_platform_image.sh
     - docker push "$PLATFORM_IMAGE_SHA"
     - docker push "$PLATFORM_IMAGE_REF"
     - docker pull "$PLATFORM_IMAGE_SHA"

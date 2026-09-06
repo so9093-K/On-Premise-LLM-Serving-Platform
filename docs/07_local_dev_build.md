@@ -32,9 +32,9 @@ Runtime 구조와 실행 모드는 [4. 실행 환경과 모드](./04_runtime_mod
 | 작업 | 주요 요구사항 |
 |---|---|
 | Application 개발·검증·테스트 | Python `>=3.12,<3.15` |
-| Platform Image Build | Python, Docker CLI / Docker daemon |
-| Full-stack 실행 | Bash 4 이상, Docker, NVIDIA GPU, NVIDIA Container Toolkit |
-| Unified vLLM Image Build | Docker |
+| Platform Image Build | Docker CLI / Docker daemon. 로컬 기본 target은 daemon architecture |
+| Full-stack 실행 | Linux x86_64, Bash 4 이상, Docker, NVIDIA GPU, NVIDIA Container Toolkit |
+| Unified vLLM Image Build | Linux x86_64, Docker. CUDA/NVIDIA 운영 image 전용 |
 | Model 다운로드 | Hugging Face token 및 모델별 사용 조건 |
 
 프로젝트가 지원하는 Python 범위는 `pyproject.toml`의 `requires-python`을 기준으로 하며, 현재 CPython 3.12, 3.13, 3.14를 지원한다. 오래된 Python에서도 먼저 오류를 안내할 수 있도록 bootstrap guard에도 같은 범위가 있고, `make validate`가 두 값의 일치를 확인한다.
@@ -63,6 +63,19 @@ Ubuntu에서는 지원 Python과 해당 버전의 `venv` 패키지를 준비한 
 `setup-dev`는 `requirements.lock`을 `--no-deps`로 설치하고, `pyproject.toml`의 build backend를 준비한 뒤 editable package 설치와 `pip check`를 수행한다. 누락된 하위 의존성을 설치 시점의 최신 버전으로 조용히 채우지 않는다. 기존 `.venv`는 실행 중인 선택 interpreter와 minor가 같을 때 재사용한다. 새 `.venv`를 만드는 경우에는 Python `venv`가 실제로 사용하는 base interpreter의 minor를 먼저 확인하고 그 executable로 생성한다. 선택 interpreter와 base가 다르면 잘못된 minor의 환경을 만들지 않고 명시적으로 중단하며, 기존 환경이나 부분 생성 결과는 자동 삭제하지 않는다.
 
 이 명령은 `.env`와 runtime state를 생성·변경하지 않는다. GPU bootstrap인 `make first-run`은 별도 운영 절차로 유지한다. macOS app/contract 검증 통과가 `macos-metal-static` 모델 runtime의 qualification을 의미하지는 않는다([ADR-0020](adr/0020-runtime-control-and-deployment-targets.md)).
+
+빌드 재현성의 범위도 실행 환경별로 구분한다.
+
+| 경로 | 고정되는 입력 | 결과의 의미 |
+|---|---|---|
+| 로컬 `make build-image` | Dockerfile base digest, runtime lock, 현재 working tree | 변경 중인 코드를 확인하는 로컬 image ID |
+| GitHub Actions | application lock과 Python minor | macOS/Ubuntu app·contract 검증. image artifact 없음 |
+| GitLab Platform build | clean commit, Linux amd64 target, base digest, runtime lock | registry에 push된 운영 후보 digest |
+| GitLab Unified vLLM build | clean commit, Linux amd64 target, vLLM base digest와 compatibility pin | NVIDIA runtime 후보 digest |
+
+같은 Dockerfile과 build script를 공유하는 것은 입력 해석을 맞추기 위한 것이다. 로컬의
+수정된 working tree나 arm64 image ID가 GitLab의 clean Linux amd64 registry digest와
+byte-identical하다는 뜻은 아니다. 실제 배포 identity는 계속 registry digest가 소유한다.
 
 ### Linux dependency lock 갱신
 
@@ -316,7 +329,19 @@ make build-image
 
 `PLATFORM_IMAGE` 환경변수로 build tag를 지정할 수 있으며, 기본값은 `ai-model-serving-platform:<VERSION>`이다.
 
-Platform Image는 로컬과 CI에서 동일한 `scripts/build/build_platform_image.sh`를 사용한다. Unified vLLM Image는 별도 build target에서 관리한다. CI에서는 registry tag, cache, push, digest 수집이 추가된다. Pipeline 동작은 [9. CI/CD](./09_cicd.md)에서 설명한다.
+로컬 기본 build target은 Docker daemon의 architecture다. 예를 들어 Apple Silicon의
+Docker Desktop에서는 일반적으로 Linux arm64 image가 생성된다. 운영 target과 같은
+architecture의 application image가 필요한 경우 다음처럼 명시할 수 있다.
+
+```bash
+PLATFORM_BUILD_PLATFORM=linux/amd64 make build-image
+```
+
+Build 로그와 image label에는 Git revision, working tree의 clean/dirty 상태와 target
+platform이 남는다. dirty 상태는 개발 중 image로 허용하지만 clean-commit CI artifact로
+오인하지 않도록 경고한다. 로컬 tag는 mutable하므로 배포 입력으로 사용하지 않는다.
+
+Platform Image는 로컬과 GitLab CI에서 동일한 `scripts/build/build_platform_image.sh`를 사용한다. Unified vLLM Image는 별도 build target에서 관리한다. GitLab CI는 `linux/amd64`를 명시하고 registry tag, cache, push, digest 수집을 추가한다. GitHub Actions는 image를 빌드하지 않는다. Pipeline 동작은 [9. CI/CD](./09_cicd.md)에서 설명한다.
 
 ---
 
@@ -337,6 +362,11 @@ Unified vLLM Image
 ```bash
 make build-vllm-unified-image
 ```
+
+이 명령은 CUDA 기반 운영 image를 만드는 경로이며 Linux x86_64 호스트와 Linux x86_64
+Docker daemon만 지원한다. macOS/arm64에서는 대용량 base pull이나 emulation build를
+시도하기 전에 종료한다. M5 Metal은 CUDA image의 cross-build가 아니라 별도 runtime
+환경과 모델 qualification으로 진행한다.
 
 Unified vLLM Image의 주요 build 입력은 다음과 같다.
 
@@ -422,6 +452,10 @@ Release ZIP은 배포에 필요한 artifact와 `tests/`를 함께 담는다 -- `
 ## 7.8 전체 초기화와 재빌드
 
 새로운 개발 환경이나 전체 runtime build 입력을 한 번에 준비할 때는 bootstrap 명령을 사용한다.
+
+이 절차는 Unified vLLM CUDA image와 NVIDIA full-stack을 포함하므로 Linux x86_64
+운영 호스트 전용이다. macOS 개발 환경 준비에는 `make setup-dev`를 사용하고, 일반
+application image만 확인하려면 `make build-image`를 사용한다.
 
 ```bash
 HF_TOKEN=hf_xxx make first-run

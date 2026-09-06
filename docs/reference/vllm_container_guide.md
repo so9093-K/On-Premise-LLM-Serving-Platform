@@ -70,11 +70,14 @@ docker version
 
 ### 2.1 Unified vLLM 이미지 준비
 
-프로젝트 루트에서 Unified vLLM 이미지를 빌드한다.
+Linux x86_64 NVIDIA 호스트의 프로젝트 루트에서 Unified vLLM 이미지를 빌드한다.
 
 ```bash
 make build-vllm-unified-image
 ```
+
+이 CUDA image build는 macOS/arm64에서 지원하지 않는다. M5 Metal runtime은 별도
+환경과 모델 qualification을 사용하며 이 image를 cross-build해 대체하지 않는다.
 
 현재 프로젝트 버전을 기준으로 사용할 이미지와 모델 cache 경로를 설정한다.
 

@@ -51,6 +51,8 @@ make stop
 | `build/setup_dev.py` | macOS/Ubuntu 개발용 `.venv`를 준비·재사용한다. `.env`, runtime state, Docker/GPU는 변경하지 않는다. |
 | `build/check_dev_environment.py` | Python 정책과 운영 shell helper에 필요한 Bash 4 이상을 진단한다. |
 | `build/refresh_dependency_locks.sh` | Ubuntu x86_64에서 `.python-version`·Dockerfile의 digest 고정 Python resolver로 runtime/contract lock을 재생성하고 새 venv 설치까지 확인한다. |
+| `build/build_platform_image.sh` | 로컬과 GitLab이 공유하는 Platform Dockerfile build·image import smoke 경로다. source revision/state와 target platform을 image label 및 로그에 남긴다. |
+| `build/build_vllm_unified_image.sh` | Linux x86_64 NVIDIA 운영용 Unified vLLM image를 로컬 운영 호스트에서 빌드한다. macOS/arm64에서는 build 전에 범위를 안내하고 종료한다. |
 | `config/setup_env.py` | `.env`를 생성한다. 기본 target은 기존 `.env`를 덮어쓰지 않는다. `local_open`은 `master_open/private_lan` 전체-stack 사내망 정책과 함께 생성한다. |
 | `auth/auth_plan.py` / `auth/auth_apply.py` | secret을 출력하지 않고 auth profile 변경 계획을 보여주거나 managed auth flag만 적용한다. |
 | `validation/validate_contracts.py` | OpenAPI refs, generated OpenAPI schema injection, JSON Schema, config, release hygiene 정책을 검증한다. |
@@ -96,8 +98,8 @@ Risk detector의 `bitsandbytes` 설정은 운영 기본값이다. 원인 분리�
 
 ## Unified vLLM 이미지와 Kanana patch 점검
 
-- `make first-run`: platform image와 모든 served model이 공유하는 unified vLLM image를 만들고, image 내부 Kanana config check를 실행한다.
-- `make build-vllm-unified-image`: `ops/images/vllm-unified/Dockerfile`에서 26B/12B/embedding/embedding-ko/risk-prompt 공용 vLLM unified 이미지를 빌드하는 고급/수동 target이다.
+- `make first-run`: Linux x86_64 NVIDIA 호스트에서 platform image와 모든 served model이 공유하는 unified vLLM image를 만들고, image 내부 Kanana config check를 실행한다.
+- `make build-vllm-unified-image`: Linux x86_64에서 `ops/images/vllm-unified/Dockerfile`로 26B/12B/embedding/embedding-ko/risk-prompt 공용 vLLM unified 이미지를 빌드하는 고급/수동 target이다.
 - `make first-run`과 `make compose-up`은 `RISK_VLLM_IMAGE` 안의 label, metadata, Kanana risk model config load를 확인한다.
 - `SKIP_RISK_VLLM_IMAGE_CONFIG_CHECK=1 make compose-up`: image-internal config check만 건너뛴다. production 승격용으로 쓰지 않는다.
 

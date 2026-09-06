@@ -60,9 +60,11 @@ make ready-local
 make stop
 ```
 
-### 전체 GPU 환경 실행
+### 전체 GPU 환경 실행 (Linux x86_64 / NVIDIA)
 
 Gateway와 모델 Runtime, Risk Adapter, 모니터링 서비스를 Docker Compose로 함께 실행한다. Docker, NVIDIA GPU, NVIDIA Container Toolkit과 모델 다운로드에 필요한 Hugging Face credential을 사용한다.
+
+`make first-run`과 Unified vLLM image build는 CUDA 운영 경로이므로 Linux x86_64에서만 실행한다. macOS에서는 app/contract와 일반 Platform image를 확인할 수 있지만, M5 Metal runtime은 별도 qualification 대상이며 이 절차가 대신하지 않는다.
 
 소스 저장소를 처음 구성하는 경우:
 
@@ -132,7 +134,7 @@ Embedding, Retrieval, Risk Detection, Streaming, 인증 방식과 전체 요청�
 
 ## 개발과 배포
 
-GitHub의 `main` push와 Pull Request는 GitHub Actions에서 macOS·Ubuntu 정적 검증과 테스트를 실행한다. 워크플로는 로컬과 같은 `make setup-dev`, `make validate`, `make test`를 사용한다. Ubuntu 운영 환경의 GitLab은 저장소 관리와 이미지 빌드·GPU 배포를 담당하며, GitHub 검증 워크플로에서 대체하지 않는다.
+GitHub의 `main` push와 Pull Request는 GitHub Actions에서 macOS·Ubuntu 정적 검증과 테스트를 실행한다. 워크플로는 로컬과 같은 `make setup-dev`, `make validate`, `make test`를 사용하며 Docker image는 만들지 않는다. Ubuntu 운영 환경의 GitLab은 clean commit의 Linux amd64 image 빌드·digest 수집과 GPU 배포를 담당한다. 로컬 image build는 변경 중인 working tree를 확인하기 위한 경로이며 GitLab 운영 artifact를 대체하지 않는다.
 
 ```text
 Change

@@ -1,8 +1,8 @@
 # 9. CI/CD
 
-저장소와 CI는 실행 환경별 역할을 나눈다. GitHub는 현재 macOS 개발 환경의 원격 저장소와 app/contract 검증을 담당한다. [GitHub 검증 워크플로](../.github/workflows/validate.yml)는 `main` push, Pull Request, 수동 실행에서 macOS·Ubuntu의 `make setup-dev`, `make validate`, `make test`를 수행한다. Python은 `.python-version`의 Linux 운영 기준 patch에서 major.minor를 계산하고 OS별 제공 patch를 사용한다. 의존성은 `requirements.lock`, 지원 범위와 build backend는 `pyproject.toml`을 따른다. 이 워크플로는 외부 모델 다운로드, 이미지 push, GPU 서버 배포를 수행하지 않는다.
+저장소와 CI는 실행 환경별 역할을 나눈다. GitHub는 현재 macOS 개발 환경의 원격 저장소와 app/contract 검증을 담당한다. [GitHub 검증 워크플로](../.github/workflows/validate.yml)는 `main` push, Pull Request, 수동 실행에서 macOS·Ubuntu의 `make setup-dev`, `make validate`, `make test`를 수행한다. Python은 `.python-version`의 Linux 운영 기준 patch에서 major.minor를 계산하고 OS별 제공 patch를 사용한다. 의존성은 `requirements.lock`, 지원 범위와 build backend는 `pyproject.toml`을 따른다. 이 워크플로는 외부 모델 다운로드, Docker image build/push, GPU 서버 배포를 수행하지 않는다.
 
-GitLab은 Ubuntu 운영 환경의 저장소 관리와 image build·GPU 배포를 담당한다. 아래 Build/Deploy 설명과 job 표, `.gitlab-ci.yml`은 현재 운영 경로다. 두 CI는 서로의 대체재가 아니며, 환경 간 이관은 동일 commit SHA 또는 명시적인 이관 commit으로 추적한다.
+GitLab은 Ubuntu 운영 환경의 저장소 관리와 Linux amd64 image build·GPU 배포를 담당한다. Platform과 Unified vLLM build에는 target platform을 명시하고, clean checkout의 commit SHA를 image provenance에 기록한 뒤 registry digest를 배포 artifact로 전달한다. 아래 Build/Deploy 설명과 job 표, `.gitlab-ci.yml`은 현재 운영 경로다. 두 CI와 로컬 working-tree build는 서로의 대체재가 아니며, 환경 간 이관은 동일 commit SHA 또는 명시적인 이관 commit으로 추적한다.
 
 Pipeline의 기본 흐름은 다음과 같다.
 
@@ -194,7 +194,7 @@ Immutable Digest
 scripts/build/build_platform_image.sh
 ```
 
-CI build에서는 registry cache, CI tag, registry push, digest 추출이 추가된다.
+CI build에서는 `linux/amd64` target, registry cache, CI tag, registry push, digest 추출이 추가된다. 로컬 `make build-image`는 기본적으로 Docker daemon architecture를 사용하고 dirty working tree도 허용하므로, 같은 script를 호출하더라도 그 image ID를 운영 digest로 간주하지 않는다.
 
 ### 이미지 태그
 

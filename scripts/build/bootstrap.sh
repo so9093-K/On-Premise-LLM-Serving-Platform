@@ -4,6 +4,14 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT"
 
+_host_platform="$(uname -s)/$(uname -m)"
+if [[ "$_host_platform" != "Linux/x86_64" ]]; then
+  echo "[bootstrap] make first-run prepares the NVIDIA/CUDA full stack and is supported only on Linux x86_64." >&2
+  echo "[bootstrap] Current host: ${_host_platform}" >&2
+  echo "[bootstrap] On macOS use make setup-dev/validate/test/build-image; M5 Metal is a separate runtime track." >&2
+  exit 2
+fi
+
 if ! command -v docker >/dev/null 2>&1; then
   echo "[bootstrap] docker CLI is required because bootstrap builds the platform and unified vLLM images." >&2
   exit 2
