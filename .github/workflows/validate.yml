@@ -20,12 +20,21 @@ jobs:
         os: [ubuntu-24.04, macos-15]
     steps:
       - uses: actions/checkout@v7
+      - name: Resolve portable Python minor
+        id: python_policy
+        shell: bash
+        run: |
+          python_patch="$(tr -d '[:space:]' < .python-version)"
+          if [[ ! "$python_patch" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error file=.python-version::expected x.y.z, got '$python_patch'"
+            exit 2
+          fi
+          echo "minor=${python_patch%.*}" >> "$GITHUB_OUTPUT"
       - uses: actions/setup-python@v7
         with:
-          # app/contract CI는 OS별로 제공되는 3.12 patch를 사용한다. Linux 운영
-          # image의 exact patch/digest 검증과는 별도이며 macOS ARM64에는
-          # .python-version의 3.12.13 artifact가 제공되지 않는다.
-          python-version: "3.12"
+          # app/contract CI는 .python-version의 major.minor와 같은 OS별 portable
+          # patch를 사용한다. Linux 운영 image의 exact patch/digest와는 별도다.
+          python-version: "${{ steps.python_policy.outputs.minor }}"
           cache: pip
           cache-dependency-path: |
             requirements.lock

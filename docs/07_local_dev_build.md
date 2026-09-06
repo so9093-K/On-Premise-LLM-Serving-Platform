@@ -39,7 +39,7 @@ Runtime 구조와 실행 모드는 [4. 실행 환경과 모드](./04_runtime_mod
 
 프로젝트가 지원하는 Python 범위는 `pyproject.toml`의 `requires-python`을 기준으로 하며, 현재 CPython 3.12, 3.13, 3.14를 지원한다. 오래된 Python에서도 먼저 오류를 안내할 수 있도록 bootstrap guard에도 같은 범위가 있고, `make validate`가 두 값의 일치를 확인한다.
 
-Linux 운영 image의 기준은 Python `3.12.13`과 Dockerfile의 base image digest다. GitHub app/contract CI는 Ubuntu와 macOS ARM64에 공통 제공되는 `3.12` minor를 선택하고 각 runner가 제공하는 patch를 사용한다. 3.13과 3.14도 application/control-plane 범위에서는 지원하지만, vLLM·PyTorch·CUDA wheel/ABI와 GPU driver 조합은 minor version마다 다르므로 full-stack 운영 지원은 해당 minor의 `make runtime-validate` 결과로 확인한다.
+Linux 운영 image의 기준은 `.python-version`에 고정된 Python patch와 Dockerfile의 base image digest다. GitHub app/contract CI는 그 patch에서 major.minor를 계산하고 Ubuntu와 macOS ARM64 runner가 제공하는 patch를 사용한다. 3.13과 3.14도 application/control-plane 범위에서는 지원하지만, vLLM·PyTorch·CUDA wheel/ABI와 GPU driver 조합은 minor version마다 다르므로 full-stack 운영 지원은 해당 minor의 `make runtime-validate` 결과로 확인한다.
 
 로컬 Make 명령은 프로젝트의 `.venv`가 존재하면 해당 Python을 우선 사용한다. 호출자가 `PYTHON_BIN`을 지정한 경우에는 지정된 interpreter를 사용한다.
 
@@ -54,7 +54,7 @@ make validate
 make test
 ```
 
-Ubuntu에서는 지원 Python과 해당 버전의 `venv` 패키지를 준비한 뒤 같은 Make 명령을 사용한다. `.python-version`은 Linux 운영 기준 patch이며, GitHub의 cross-platform app/contract CI는 그 minor인 `3.12`를 사용한다. Homebrew의 `python@3.12`도 설치 시점에 제공되는 3.12 patch를 사용하므로 운영 image의 exact patch/digest 검증과 구분한다.
+Ubuntu에서는 지원 Python과 해당 버전의 `venv` 패키지를 준비한 뒤 같은 Make 명령을 사용한다. `.python-version`은 Linux 운영 기준 patch이며, GitHub의 cross-platform app/contract CI는 여기서 계산한 minor를 사용한다. Homebrew의 versioned Python formula도 설치 시점에 제공되는 patch를 사용하므로 운영 image의 exact patch/digest 검증과 구분한다.
 
 별도로 설치한 Python을 쓰려면 `make setup-dev PYTHON_BIN=/path/to/python`으로 지정한다.
 
@@ -76,7 +76,8 @@ make lock-linux
 ```
 
 이 명령은 Dockerfile과 GitLab CI가 공유하는 digest 고정
-`python:3.12.13-slim` image 안에서 `pip==26.0.1`, `pip-tools==7.5.3`을 사용한다.
+Dockerfile에 고정된 `python:<.python-version>-slim@sha256:...` image 안에서
+`pip==26.0.1`, `pip-tools==7.5.3`을 사용한다.
 기존 lock을 resolver constraint로 재사용하므로, lock 재생성 자체가 사전 검토 없이
 전이 의존성 전체를 업그레이드하지 않는다.
 두 lock을 임시 경로에 먼저 만들고 각각 새 venv에 설치해 `pip check`와 contract
