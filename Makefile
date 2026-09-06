@@ -48,10 +48,10 @@ static-compose-down: ## static Gateway Compose project 정지
 	bash scripts/compose/static_main_compose.sh down
 
 validate: ## 정적 계약·설정·생성물 drift 검증
-	PYTHON_BIN="$(PYTHON)" bash scripts/validation/run_validate.sh
+	@PYTHON_BIN="$(PYTHON)" bash scripts/validation/run_validate.sh
 
 test: ## 결정론적 unit·contract 테스트
-	PYTHON_BIN="$(PYTHON)" bash scripts/validation/run_test.sh
+	@PYTHON_BIN="$(PYTHON)" bash scripts/validation/run_test.sh
 
 build: ## validate + test + platform image build
 	bash scripts/build/build_all.sh

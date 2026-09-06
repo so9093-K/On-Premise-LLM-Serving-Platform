@@ -90,6 +90,9 @@ make validate
 ```
 
 이 단계는 Python 환경에서 실행되며 live service나 GPU 상태와 독립적으로 사용할 수 있다.
+성공 시에는 각 단계를 한 줄 `PASS`로 요약하고, 실패 시에는 실패한 단계의
+원래 stdout/stderr와 종료 코드를 같이 출력한다. 성공한 하위 validator의 세부
+출력까지 필요하면 `VALIDATE_VERBOSE=1 make validate`를 사용한다.
 
 ### 검증 대상
 
