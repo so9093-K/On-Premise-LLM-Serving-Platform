@@ -78,8 +78,13 @@ def test_boot_override_requires_effective_config(tmp_path):
         validator.validate_alignment(boot_override=boot)
 
 
-@pytest.mark.parametrize("with_exposure", [False, True])
-def test_preflight_passes_same_boot_file_to_compose_and_validator(tmp_path, monkeypatch, with_exposure):
+@pytest.mark.parametrize(
+    ("with_exposure", "gpu_available"),
+    [(False, True), (True, True), (False, False)],
+)
+def test_preflight_uses_same_boot_file_and_enforces_required_gpu(
+    tmp_path, monkeypatch, with_exposure, gpu_available
+):
     from scripts.compose import preflight_compose as preflight
 
     _, boot, effective = boot_config(tmp_path)
@@ -101,7 +106,7 @@ def test_preflight_passes_same_boot_file_to_compose_and_validator(tmp_path, monk
     exposure_path.write_text("services: {}\n", encoding="utf-8")
     monkeypatch.setattr(preflight, "override_file_for", lambda _: str(exposure_path) if with_exposure else "")
     monkeypatch.setattr(preflight, "_docker_compose_available", lambda: True)
-    monkeypatch.setattr(preflight, "_show_gpu", lambda: None)
+    monkeypatch.setattr(preflight, "_show_gpu", lambda: gpu_available)
     monkeypatch.setattr(preflight, "_port_available", lambda *_: True)
     commands = []
     validated = []
@@ -120,7 +125,9 @@ def test_preflight_passes_same_boot_file_to_compose_and_validator(tmp_path, monk
 
     monkeypatch.setattr(preflight, "_run_status", run_status)
     monkeypatch.setattr(preflight, "validate_alignment", validate)
-    assert preflight._phase2("private_network", {}, boot_override=boot_path) == 0
+    assert preflight._phase2("private_network", {}, boot_override=boot_path) == (
+        0 if gpu_available else 1
+    )
     compose = next(cmd for cmd in commands if cmd[0] == "docker" and "config" in cmd)
     files = [compose[index + 1] for index, arg in enumerate(compose) if arg == "-f"]
     assert files == [str(validator.COMPOSE_PATH), *([str(exposure_path)] if with_exposure else []), str(boot_path)]

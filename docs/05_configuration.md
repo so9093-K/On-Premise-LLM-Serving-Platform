@@ -61,7 +61,7 @@ YAML 파일은 모델, runtime, 서비스, 보안 정책 같은 **repository-lev
 | Authentication profile | `configs/auth_profiles.yaml` | `AUTH_MODE`별 인증·관리 endpoint 보호 정책 정의 |
 | Environment example contract | `configs/env_contract.yaml` | `.env` 예시 파일에 포함할 키 정의 |
 | Monitoring 설정 | `configs/monitoring.yaml` | Prometheus scrape와 live metric 검증 기준 정의 |
-| vLLM derived image build | `configs/vllm_unified_build.yaml` | base image와 compatibility pin 정의 |
+| vLLM derived image build | `configs/vllm_unified_build.yaml` | target platform, base image와 compatibility pin 정의 |
 | vLLM runtime patch | `ops/images/vllm-unified/Dockerfile`, `ops/patches/` | derived image에 적용할 patch와 적용 조건 정의 |
 | 권장 container image | `configs/recommended_images.yaml` | 로컬 build와 초기 env에 사용할 기본 image tag 정의. 실제 배포 재현성은 registry digest가 담당 |
 | Error metadata | `configs/error_catalog.yaml` | error code의 의미, retry 권장 여부, operator action 정의 |

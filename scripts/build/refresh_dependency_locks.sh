@@ -16,8 +16,8 @@ case "$PYTHON_IMAGE" in
 esac
 
 if [ "${LOCK_LINUX_CONTAINER:-0}" != "1" ]; then
-  if [ "$(uname -s)" != "Linux" ] || [ "$(uname -m)" != "x86_64" ]; then
-    echo "[lock-linux] run this command on the Ubuntu x86_64 operational host" >&2
+  if ! command -v docker >/dev/null 2>&1; then
+    echo "[lock-linux] Docker CLI is required" >&2
     exit 2
   fi
   if ! docker info >/dev/null 2>&1; then
@@ -25,6 +25,7 @@ if [ "${LOCK_LINUX_CONTAINER:-0}" != "1" ]; then
     exit 2
   fi
   exec docker run --rm \
+    --platform linux/amd64 \
     --user "$(id -u):$(id -g)" \
     --env HOME=/tmp \
     --env LOCK_LINUX_CONTAINER=1 \
@@ -33,6 +34,11 @@ if [ "${LOCK_LINUX_CONTAINER:-0}" != "1" ]; then
     --workdir /workspace \
     "$PYTHON_IMAGE" \
     sh scripts/build/refresh_dependency_locks.sh
+fi
+
+if [ "$(uname -s)/$(uname -m)" != "Linux/x86_64" ]; then
+  echo "[lock-linux] resolver container must run as Linux/x86_64" >&2
+  exit 2
 fi
 
 ACTUAL_VERSION="$(python -c 'import platform; print(platform.python_version())')"

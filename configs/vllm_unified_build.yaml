@@ -1,6 +1,7 @@
 # vLLM unified Docker build의 실제 입력값이다. 일반 runtime image tag와 분리해,
 # base image 또는 호환성 pin이 바뀔 때만 CI가 derived image를 다시 만든다. 주석만
 # 바뀌어 GitLab job이 생성돼도 빌드 script가 Docker build 없이 종료한다.
+target_platform: linux/amd64
 base_image_default: vllm/vllm-openai@sha256:6a090ed9d4a3739813ce355cbd63d4c34c987a25c8409796f24912ba71c2d4a4
 compatibility_pins:
   # base_image_default에 들어 있어야 하는 정확한 package 버전이다. derived image는

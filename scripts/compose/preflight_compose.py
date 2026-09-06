@@ -269,18 +269,47 @@ def _docker_compose_available() -> bool:
     return True
 
 
-def _show_gpu() -> None:
+def _show_gpu() -> bool:
     if not shutil.which("nvidia-smi"):
-        _warn("nvidia-smi not found; GPU/vLLM full-stack cannot be validated on this host")
-        return
+        _fail("nvidia-smi not found; the effective Compose stack requires an NVIDIA GPU")
+        return False
     print("[preflight] ok: nvidia-smi found")
     result = _run_status(
         ["nvidia-smi", "--query-gpu=name,memory.total,driver_version", "--format=csv,noheader"],
         capture=True,
     )
-    if result.returncode == 0:
-        for line in result.stdout.splitlines():
-            print(f"[preflight] gpu: {line}")
+    if result.returncode != 0:
+        _fail("nvidia-smi could not query an accessible NVIDIA GPU")
+        return False
+    for line in result.stdout.splitlines():
+        print(f"[preflight] gpu: {line}")
+    return True
+
+
+def _gpu_services(document: dict[str, Any]) -> list[str]:
+    """Return services whose effective Compose reservation requires a GPU."""
+
+    required: list[str] = []
+    for name, service in document.get("services", {}).items():
+        if not isinstance(service, dict):
+            continue
+        devices = (
+            service.get("deploy", {})
+            .get("resources", {})
+            .get("reservations", {})
+            .get("devices", [])
+        )
+        for device in devices if isinstance(devices, list) else []:
+            capabilities = device.get("capabilities", []) if isinstance(device, dict) else []
+            flattened = {
+                str(capability)
+                for group in (capabilities if isinstance(capabilities, list) else [])
+                for capability in (group if isinstance(group, list) else [group])
+            }
+            if "gpu" in flattened:
+                required.append(str(name))
+                break
+    return required
 
 
 def _compose_owned_ports(
@@ -388,7 +417,6 @@ def _phase2(
 
     docker_ok = _docker_compose_available()
     fail = fail or not docker_ok
-    _show_gpu()
     if docker_ok and not fail:
         effective_document = _effective_compose_document(
             compose_args, str(env_path), project_name
@@ -396,6 +424,13 @@ def _phase2(
         if effective_document is None:
             fail = True
         else:
+            gpu_services = _gpu_services(effective_document)
+            if gpu_services:
+                print("[preflight] effective Compose requires GPU: " + ", ".join(gpu_services))
+                if not _show_gpu():
+                    fail = True
+            else:
+                print("[preflight] effective Compose requires no GPU")
             try:
                 validate_alignment(
                     compose_path,

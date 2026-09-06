@@ -64,7 +64,7 @@ make stop
 
 Gateway와 모델 Runtime, Risk Adapter, 모니터링 서비스를 Docker Compose로 함께 실행한다. Docker, NVIDIA GPU, NVIDIA Container Toolkit과 모델 다운로드에 필요한 Hugging Face credential을 사용한다.
 
-`make first-run`과 Unified vLLM image build는 CUDA 운영 경로이므로 Linux x86_64에서만 실행한다. macOS에서는 app/contract와 일반 Platform image를 확인할 수 있지만, M5 Metal runtime은 별도 qualification 대상이며 이 절차가 대신하지 않는다.
+`make first-run`은 native Linux amd64 Docker daemon과 접근 가능한 NVIDIA GPU를 요구하는 CUDA 운영 경로다. Unified vLLM image build도 host OS 이름이 아니라 같은 Docker daemon target을 요구한다. macOS에서는 app/contract와 일반 Platform image를 확인할 수 있지만, M5 Metal runtime은 별도 qualification 대상이며 이 절차가 대신하지 않는다.
 
 소스 저장소를 처음 구성하는 경우:
 

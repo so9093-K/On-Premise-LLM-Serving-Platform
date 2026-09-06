@@ -4,10 +4,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT"
 
-_host_platform="$(uname -s)/$(uname -m)"
-if [[ "$_host_platform" != "Linux/x86_64" ]]; then
-  echo "[bootstrap] make first-run prepares the NVIDIA/CUDA full stack and is supported only on Linux x86_64." >&2
-  echo "[bootstrap] Current host: ${_host_platform}" >&2
+if (( BASH_VERSINFO[0] < 4 )); then
+  echo "[bootstrap] make first-run requires Bash >=4; current Bash is ${BASH_VERSION}." >&2
   echo "[bootstrap] On macOS use make setup-dev/validate/test/build-image; M5 Metal is a separate runtime track." >&2
   exit 2
 fi
@@ -17,9 +15,23 @@ if ! command -v docker >/dev/null 2>&1; then
   exit 2
 fi
 
-if ! docker info >/dev/null 2>&1; then
+if ! _daemon_platform="$(docker info --format '{{.OSType}}/{{.Architecture}}' 2>/dev/null)"; then
   echo "[bootstrap] cannot access the Docker daemon." >&2
   echo "[bootstrap] Fix Docker permissions first, then rerun make first-run." >&2
+  exit 2
+fi
+_target_platform="$(sed -n 's/^target_platform:[[:space:]]*//p' configs/vllm_unified_build.yaml)"
+case "${_target_platform}:${_daemon_platform}" in
+  linux/amd64:linux/x86_64|linux/amd64:linux/amd64) ;;
+  *)
+    echo "[bootstrap] make first-run requires the native Docker target ${_target_platform:-<missing>}; got ${_daemon_platform}." >&2
+    echo "[bootstrap] Use make setup-dev/validate/test/build-image for the portable development path." >&2
+    exit 2
+    ;;
+esac
+if ! command -v nvidia-smi >/dev/null 2>&1 || ! nvidia-smi -L >/dev/null 2>&1; then
+  echo "[bootstrap] make first-run requires an accessible NVIDIA GPU and driver." >&2
+  echo "[bootstrap] Use make setup-dev/validate/test/build-image when preparing application code only." >&2
   exit 2
 fi
 

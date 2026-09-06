@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import os
 import subprocess
+import sys
 from pathlib import Path
 
 import yaml
@@ -17,6 +18,8 @@ _ISOLATED_KEYS = ("VLLM_IMAGE", "RISK_VLLM_IMAGE", "RISK_VLLM_BASE_IMAGE")
 
 def run_bash(repo: Path, script: str, *, env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
     merged_env = os.environ.copy()
+    # pytest를 Make 밖에서 직접 실행해도 fixture shell은 현재 test interpreter를 쓴다.
+    merged_env["PYTHON_BIN"] = sys.executable
     # 다른 테스트나 이 프로세스의 실제 배포 환경에서 이 키들이 이미 export돼
     # 있으면 resolver가 그 값을 우선시켜 .env 픽스처를 무시하게 된다 -- 여기서
     # 명시적으로 지워서 각 테스트가 자기 .env/override만으로 결정되게 한다.

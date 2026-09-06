@@ -11,8 +11,9 @@ variables:
   PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
   DOCKER_BUILDKIT: "1"
   # 모든 served model(26B/12B main-LLM, embedding, embedding-ko, risk-prompt)이 공유하는
-  # base image와 호환성 pin은 configs/vllm_unified_build.yaml이 단일 기준이다. 기본값을 바꿀
-  # 필요가 있는 특별한 pipeline만 CI/CD 변수 VLLM_BASE_IMAGE로 명시적으로 override한다.
+  # target platform, base image와 호환성 pin은 configs/vllm_unified_build.yaml이
+  # 단일 기준이다. 기본값을 바꿀 필요가 있는 특별한 pipeline만 CI/CD 변수
+  # VLLM_BASE_IMAGE로 명시적으로 override한다.
   # v0.25.1에서는 dense 양자화 모델에 Model Runner V2가 기본 적용돼, 이전에 고정해뒀던
   # dev 빌드에서 겪던 12B의 구조화 출력 JIT-웜업 갭이 닫힌다 — 실제 GPU 로드로 검증함
   # (ops/patches/apply_gemma4_multimodal_patches.py 참고). risk-prompt도 같은 base로
@@ -151,6 +152,7 @@ build-vllm-derived:
       - ops/patches/apply_gemma4_streaming_reasoning_patch.py
       - ops/patches/transformers_llama_head_dim_guard.py
       - configs/vllm_unified_build.yaml
+      - scripts/build/build_vllm_unified_image.sh
       - scripts/ci/build_vllm_derived_images.sh
       - scripts/models/print_vllm_unified_compatibility.py
   except:

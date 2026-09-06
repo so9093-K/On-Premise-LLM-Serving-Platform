@@ -59,7 +59,7 @@ build: ## validate + test + platform image build
 build-image: ## 로컬 Docker platform image build (daemon 기본 architecture)
 	bash scripts/build/build_platform_image.sh
 
-build-vllm-unified-image: ## Linux x86_64 NVIDIA용 vLLM unified image build
+build-vllm-unified-image: ## native linux/amd64 Docker의 NVIDIA vLLM image build
 	bash scripts/build/build_vllm_unified_image.sh
 
 lock-linux: ## 고정 Linux/Python resolver로 dependency lock 재생성·설치 검증
@@ -155,7 +155,7 @@ clean-all: ## clean + 로컬 로그 정리
 reset: ## 로컬 상태 초기화
 	bash scripts/ops/reset_all.sh
 
-first-run: ## Linux x86_64 NVIDIA bootstrap: venv·.env·image·검증
+first-run: ## NVIDIA full-stack bootstrap: 환경·image·검증
 	bash scripts/build/bootstrap.sh
 
 reset-version: ## NEW_VERSION=<x.y.z> 버전을 선언된 모든 자리에 반영

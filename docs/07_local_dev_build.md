@@ -33,8 +33,8 @@ Runtime 구조와 실행 모드는 [4. 실행 환경과 모드](./04_runtime_mod
 |---|---|
 | Application 개발·검증·테스트 | Python `>=3.12,<3.15` |
 | Platform Image Build | Docker CLI / Docker daemon. 로컬 기본 target은 daemon architecture |
-| Full-stack 실행 | Linux x86_64, Bash 4 이상, Docker, NVIDIA GPU, NVIDIA Container Toolkit |
-| Unified vLLM Image Build | Linux x86_64, Docker. CUDA/NVIDIA 운영 image 전용 |
+| Full-stack 실행 | Bash 4 이상, native Linux amd64 Docker daemon, NVIDIA GPU/driver/Container Toolkit |
+| Unified vLLM Image Build | `vllm_unified_build.yaml` target과 같은 native Docker daemon. CUDA/NVIDIA image 전용 |
 | Model 다운로드 | Hugging Face token 및 모델별 사용 조건 |
 
 프로젝트가 지원하는 Python 범위는 `pyproject.toml`의 `requires-python`을 기준으로 하며, 현재 CPython 3.12, 3.13, 3.14를 지원한다. 오래된 Python에서도 먼저 오류를 안내할 수 있도록 bootstrap guard에도 같은 범위가 있고, `make validate`가 두 값의 일치를 확인한다.
@@ -81,21 +81,23 @@ byte-identical하다는 뜻은 아니다. 실제 배포 identity는 계속 regis
 
 `pyproject.toml`이 direct dependency의 Source of Truth이고,
 `requirements.runtime.lock`과 `requirements.lock`은 각각 운영 image와
-application/contract 환경의 해석 결과다. Lock 갱신은 Ubuntu x86_64 운영 호스트에서만
-다음 명령으로 수행한다.
+application/contract 환경의 해석 결과다. Lock 갱신은 host OS의 Python이 아니라
+Docker의 고정 Linux amd64 resolver에서 다음 명령으로 수행한다.
 
 ```bash
 make lock-linux
 ```
 
-이 명령은 Dockerfile과 GitLab CI가 공유하는 digest 고정
-Dockerfile에 고정된 `python:<.python-version>-slim@sha256:...` image 안에서
+이 명령은 어느 host에서 호출하더라도 `--platform linux/amd64`를 명시하고,
+Dockerfile과 GitLab CI가 공유하는 digest 고정
+`python:<.python-version>-slim@sha256:...` image 안에서
 `pip==26.0.1`, `pip-tools==7.5.3`을 사용한다.
 기존 lock을 resolver constraint로 재사용하므로, lock 재생성 자체가 사전 검토 없이
 전이 의존성 전체를 업그레이드하지 않는다.
 두 lock을 임시 경로에 먼저 만들고 각각 새 venv에 설치해 `pip check`와 contract
 validation이 통과한 뒤에만 저장소 파일을 교체한다. 실패하면 기존 lock을 복원한다.
-macOS나 임의 Python에서 `pip freeze`한 결과로 운영 lock을 갱신하지 않는다.
+macOS host Python이나 임의 Python에서 `pip freeze`한 결과로 운영 lock을 갱신하지
+않는다. 운영 반영 전 최종 설치 확인은 계속 Ubuntu amd64 환경에서 수행한다.
 
 Full-stack 환경에서는 NVIDIA GPU와 NVIDIA Container Toolkit을 통해 vLLM container가 GPU에 접근한다. Hugging Face에서 모델을 가져오는 runtime은 `.env`의 `HF_TOKEN` 또는 `HUGGING_FACE_HUB_TOKEN`을 사용한다.
 
@@ -329,6 +331,10 @@ make build-image
 
 `PLATFORM_IMAGE` 환경변수로 build tag를 지정할 수 있으며, 기본값은 `ai-model-serving-platform:<VERSION>`이다.
 
+이 값은 호출 process의 명시적 build override이며 runtime `.env`를 암묵적으로 읽지
+않는다. Runtime image 선택과 build output tag를 분리해 `.env`의 운영 설정이나
+credential이 Docker build process에 불필요하게 로드되지 않게 한다.
+
 로컬 기본 build target은 Docker daemon의 architecture다. 예를 들어 Apple Silicon의
 Docker Desktop에서는 일반적으로 Linux arm64 image가 생성된다. 운영 target과 같은
 architecture의 application image가 필요한 경우 다음처럼 명시할 수 있다.
@@ -341,7 +347,7 @@ Build 로그와 image label에는 Git revision, working tree의 clean/dirty 상�
 platform이 남는다. dirty 상태는 개발 중 image로 허용하지만 clean-commit CI artifact로
 오인하지 않도록 경고한다. 로컬 tag는 mutable하므로 배포 입력으로 사용하지 않는다.
 
-Platform Image는 로컬과 GitLab CI에서 동일한 `scripts/build/build_platform_image.sh`를 사용한다. Unified vLLM Image는 별도 build target에서 관리한다. GitLab CI는 `linux/amd64`를 명시하고 registry tag, cache, push, digest 수집을 추가한다. GitHub Actions는 image를 빌드하지 않는다. Pipeline 동작은 [9. CI/CD](./09_cicd.md)에서 설명한다.
+Platform Image는 로컬과 GitLab CI에서 동일한 `scripts/build/build_platform_image.sh`를 사용한다. Unified vLLM Image도 로컬과 GitLab이 `scripts/build/build_vllm_unified_image.sh`의 같은 Docker build를 사용하며, CI wrapper는 변경 감지·추가 tag·push·digest만 담당한다. GitHub Actions는 image를 빌드하지 않는다. Pipeline 동작은 [9. CI/CD](./09_cicd.md)에서 설명한다.
 
 ---
 
@@ -363,17 +369,18 @@ Unified vLLM Image
 make build-vllm-unified-image
 ```
 
-이 명령은 CUDA 기반 운영 image를 만드는 경로이며 Linux x86_64 호스트와 Linux x86_64
-Docker daemon만 지원한다. macOS/arm64에서는 대용량 base pull이나 emulation build를
-시도하기 전에 종료한다. M5 Metal은 CUDA image의 cross-build가 아니라 별도 runtime
-환경과 모델 qualification으로 진행한다.
+이 명령은 CUDA 기반 운영 image를 만드는 경로다. Host OS 이름을 판정하지 않고
+`configs/vllm_unified_build.yaml`의 `target_platform`과 Docker daemon platform이
+일치하는지 확인한다. 현재 target은 `linux/amd64`이며 emulation build는 지원 범위에
+넣지 않는다. M5 Metal은 CUDA image의 cross-build가 아니라 별도 runtime 환경과 모델
+qualification으로 진행한다.
 
 Unified vLLM Image의 주요 build 입력은 다음과 같다.
 
 | 입력 | 역할 |
 |---|---|
 | `ops/images/vllm-unified/Dockerfile` | Derived runtime image 구성 |
-| `configs/vllm_unified_build.yaml` | Base image와 compatibility pin 관리 |
+| `configs/vllm_unified_build.yaml` | Target platform, base image와 compatibility pin 관리 |
 | `ops/images/vllm-unified/requirements.media.lock` | Multimodal media dependency 고정 |
 | `ops/patches/apply_gemma4_multimodal_patches.py` | Gemma4 multimodal compatibility patch |
 | `ops/patches/transformers_llama_head_dim_guard.py` | Prompt Risk Llama `head_dim` compatibility patch |
@@ -453,9 +460,10 @@ Release ZIP은 배포에 필요한 artifact와 `tests/`를 함께 담는다 -- `
 
 새로운 개발 환경이나 전체 runtime build 입력을 한 번에 준비할 때는 bootstrap 명령을 사용한다.
 
-이 절차는 Unified vLLM CUDA image와 NVIDIA full-stack을 포함하므로 Linux x86_64
-운영 호스트 전용이다. macOS 개발 환경 준비에는 `make setup-dev`를 사용하고, 일반
-application image만 확인하려면 `make build-image`를 사용한다.
+이 절차는 Unified vLLM CUDA image와 NVIDIA full-stack을 포함하므로 Bash 4+, native
+Linux amd64 Docker daemon과 접근 가능한 NVIDIA GPU를 시작 전에 요구한다. OS 이름을
+지원 여부의 대리값으로 사용하지 않는다. macOS 개발 환경 준비에는 `make setup-dev`를
+사용하고, 일반 application image만 확인하려면 `make build-image`를 사용한다.
 
 ```bash
 HF_TOKEN=hf_xxx make first-run
@@ -569,7 +577,7 @@ make compose-logs
 | Make entry point | `Makefile` | 로컬 개발·빌드 명령 |
 | Platform image | `Dockerfile` | application / control-plane image |
 | Platform build script | `scripts/build/build_platform_image.sh` | 로컬·CI 공통 Platform build |
-| Unified vLLM build config | `configs/vllm_unified_build.yaml` | base image와 compatibility pin |
+| Unified vLLM build config | `configs/vllm_unified_build.yaml` | target platform, base image와 compatibility pin |
 | Unified vLLM Dockerfile | `ops/images/vllm-unified/Dockerfile` | derived vLLM runtime image |
 | Bootstrap | `scripts/build/bootstrap.sh` | 개발 환경과 build artifact 전체 준비 |
 | Release package | `scripts/build/package_release.sh` | 배포용 ZIP 생성 |

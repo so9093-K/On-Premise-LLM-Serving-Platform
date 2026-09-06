@@ -13,9 +13,6 @@ if ! DAEMON_PLATFORM="$(docker info --format '{{.OSType}}/{{.Architecture}}' 2>/
   exit 2
 fi
 
-source scripts/lib/load_env.sh
-ENV_FILE="${ENV_FILE:-.env}"
-load_local_env "$ENV_FILE"
 VERSION="$(cat VERSION)"
 IMAGE="${PLATFORM_IMAGE:-ai-model-serving-platform:${VERSION}}"
 EXTRA_TAGS="${PLATFORM_IMAGE_EXTRA_TAGS:-}"

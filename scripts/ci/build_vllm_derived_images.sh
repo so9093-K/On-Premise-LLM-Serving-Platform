@@ -24,12 +24,6 @@
 
 set -euo pipefail
 
-_host_platform="$(uname -s)/$(uname -m)"
-if [[ "$_host_platform" != "Linux/x86_64" ]]; then
-  echo "[build] vLLM derived image requires a Linux x86_64 runner; got ${_host_platform}" >&2
-  exit 2
-fi
-
 # CI에서는 Alpine의 python3을 쓰고, 로컬 직접 실행에서는 make/PYTHON_BIN으로
 # 선택한 인터프리터를 그대로 따른다. 이미지 빌드 입력을 읽는 도구까지 서로 다른
 # Python 환경을 쓰면 로컬과 CI에서 같은 config가 다르게 해석될 여지가 생긴다.
@@ -37,9 +31,9 @@ PYTHON_BIN="${PYTHON_BIN:-$(command -v python3.12 || command -v python3 || comma
 source scripts/lib/deploy_recreate_policy.sh
 
 # GitLab only:changes는 YAML 주석과 실제 build input을 구분하지 못한다. 이 job이
-# config 파일 변경만으로 생성된 경우, 이전 commit과 base image·호환성 pin을 비교해
-# 같으면 대용량 base pull과 Docker build 없이 종료한다. Dockerfile·patch 등 다른
-# build input이 함께 바뀐 경우에는 항상 아래 빌드를 수행한다.
+# config 파일 변경만으로 생성된 경우, 이전 commit과 target·base image·호환성 pin을
+# 비교해 같으면 대용량 base pull과 Docker build 없이 종료한다. Dockerfile·patch 등
+# 다른 build input이 함께 바뀐 경우에는 항상 아래 빌드를 수행한다.
 if [[ -n "${CI_COMMIT_BEFORE_SHA:-}" && -n "${CI_COMMIT_SHA:-}" ]] \
   && git cat-file -e "${CI_COMMIT_BEFORE_SHA}^{commit}" 2>/dev/null; then
   mapfile -t _unified_build_inputs < <(vllm_unified_image_source_paths)
@@ -69,6 +63,7 @@ def read(path: str) -> dict:
     if not isinstance(document, dict):
         raise ValueError("vLLM unified build config root must be a mapping")
     return {
+        "target_platform": document.get("target_platform"),
         "base_image_default": document.get("base_image_default"),
         "compatibility_pins": document.get("compatibility_pins"),
     }
@@ -83,18 +78,6 @@ PY
   fi
 fi
 
-if ! _daemon_platform="$(docker info --format '{{.OSType}}/{{.Architecture}}' 2>/dev/null)"; then
-  echo "[build] cannot access the Docker daemon" >&2
-  exit 2
-fi
-case "$_daemon_platform" in
-  linux/x86_64|linux/amd64) ;;
-  *)
-    echo "[build] vLLM derived image requires a Linux x86_64 Docker daemon; got ${_daemon_platform}" >&2
-    exit 2
-    ;;
-esac
-
 # ── Preflight: 필수 환경변수 확인 ───────────────────────────────────────────────
 : "${VLLM_UNIFIED_IMAGE_SHA:?VLLM_UNIFIED_IMAGE_SHA is required}"
 : "${VLLM_UNIFIED_IMAGE_REF:?VLLM_UNIFIED_IMAGE_REF is required}"
@@ -103,34 +86,17 @@ esac
 IMAGE_SHA="${VLLM_UNIFIED_IMAGE_SHA}"
 IMAGE_REF="${VLLM_UNIFIED_IMAGE_REF}"
 
-# ── 공통 base image 결정 ──────────────────────────────────────────────────
-RESOLVED_VLLM_BASE_IMAGE="${VLLM_BASE_IMAGE:-$(${PYTHON_BIN} scripts/models/print_vllm_unified_compatibility.py --key base_image)}"
-echo "[build] vLLM base image : ${RESOLVED_VLLM_BASE_IMAGE}"
-TRANSFORMERS_VERSION="$(${PYTHON_BIN} scripts/models/print_vllm_unified_compatibility.py --key transformers)"
-HUGGINGFACE_HUB_VERSION="$(${PYTHON_BIN} scripts/models/print_vllm_unified_compatibility.py --key huggingface_hub)"
-
 echo "[build] disk status (pre-build):"
 docker system df -v || true
 
-# ── base image를 한 번만 pull ────────────────────────────────────────────
-echo "[build] pulling base image..."
-docker pull "${RESOLVED_VLLM_BASE_IMAGE}"
-
-# ── vllm-unified 빌드 (Gemma4 멀티모달 + Kanana Llama head_dim 패치 둘 다) ───
-echo "[build] building vllm-unified: ${IMAGE_SHA}"
-docker build \
-  --platform linux/amd64 \
-  --cache-from "${RESOLVED_VLLM_BASE_IMAGE}" \
-  -f ops/images/vllm-unified/Dockerfile \
-  --build-arg BASE_IMAGE="${RESOLVED_VLLM_BASE_IMAGE}" \
-  --build-arg TRANSFORMERS_VERSION="${TRANSFORMERS_VERSION}" \
-  --build-arg HUGGINGFACE_HUB_VERSION="${HUGGINGFACE_HUB_VERSION}" \
-  --label "org.opencontainers.image.revision=${CI_COMMIT_SHA}" \
-  --label "ai_model_serving.source_state=clean-ci-checkout" \
-  --label "ai_model_serving.build_platform=linux/amd64" \
-  -t "${IMAGE_SHA}" \
-  -t "${IMAGE_REF}" \
-  .
+# Dockerfile, target platform, base/pin, labels와 tag 처리는 로컬과 같은 공통
+# entry point가 소유한다. 이 CI wrapper는 변경 감지, push와 digest artifact만 맡는다.
+VLLM_UNIFIED_BUILD_IMAGE="${IMAGE_SHA}" \
+VLLM_UNIFIED_BUILD_EXTRA_TAGS="${IMAGE_REF}" \
+VLLM_UNIFIED_BUILD_CACHE_FROM="${VLLM_BASE_IMAGE:-$(${PYTHON_BIN} scripts/models/print_vllm_unified_compatibility.py --key base_image)}" \
+VLLM_UNIFIED_BUILD_PULL_BASE=1 \
+PYTHON_BIN="${PYTHON_BIN}" \
+  bash scripts/build/build_vllm_unified_image.sh
 
 echo "[build] disk status (post-build):"
 docker system df -v || true

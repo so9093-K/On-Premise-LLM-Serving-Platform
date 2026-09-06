@@ -257,14 +257,16 @@ vLLM Build Input Change
 
 GitLab의 `changes` 조건은 YAML 주석과 실제 build 입력을 구분하지 못한다. 따라서
 `configs/vllm_unified_build.yaml`만 바뀐 Pipeline에서는 build script가 이전 revision과
-현재의 base image·compatibility pin을 비교한다. 두 값이 같으면 job은 성공으로 끝나지만
+현재의 target platform·base image·compatibility pin을 비교한다. 세 값이 같으면 job은 성공으로 끝나지만
 base image pull, Docker build, registry push와 새 digest 생성은 수행하지 않는다. Dockerfile,
 patch, media dependency처럼 다른 build 입력이 함께 바뀐 경우에는 항상 새 image를 만든다.
 
-실제 image build와 registry push는 다음 script에서 수행한다.
+실제 Docker build는 로컬과 같은 공통 script가 수행하고, GitLab wrapper는 변경 감지,
+registry push와 digest artifact를 담당한다.
 
 ```text
-scripts/ci/build_vllm_derived_images.sh
+scripts/build/build_vllm_unified_image.sh  # Docker build
+scripts/ci/build_vllm_derived_images.sh    # CI orchestration/push/digest
 ```
 
 ### 통합 vLLM 다이제스트 산출물
@@ -505,7 +507,8 @@ BUILD_VLLM_DERIVED=1
 |---|---|---|
 | Pipeline 정의 | `.gitlab-ci.yml` | stage, job, artifact, 실행 조건 정의 |
 | Platform image build | `scripts/build/build_platform_image.sh` | Platform image build와 application verification |
-| Unified vLLM build | `scripts/ci/build_vllm_derived_images.sh` | Unified vLLM image build, registry push, digest 생성 |
+| Unified vLLM image build | `scripts/build/build_vllm_unified_image.sh` | Target/base/pin과 Docker build argument의 공통 구현 |
+| Unified vLLM CI wrapper | `scripts/ci/build_vllm_derived_images.sh` | 변경 감지, registry push, digest 생성 |
 | Deploy entrypoint | `scripts/ci/deploy_gitlab_compose.sh` | CI artifact와 deploy configuration을 대상 환경에 적용 |
 | Deploy request policy | `scripts/lib/deploy_request_policy.sh` | deploy mode와 요청 조건 결정 |
 | Deploy convergence policy | `scripts/lib/deploy_recreate_policy.sh` | 변경된 runtime/service의 재생성 범위 계산 |

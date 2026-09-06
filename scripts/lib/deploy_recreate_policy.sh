@@ -2,8 +2,8 @@
 # Deploy recreate 판단의 순수 정책 함수. 호출자는 현재 release 디렉터리에서 실행한다.
 
 vllm_unified_image_source_paths() {
-  # configs/vllm_unified_build.yaml은 아래 semantic 비교 함수가 base image와
-  # compatibility pin만 따로 비교한다. 여기는 Dockerfile 자체와 그 직접 입력만 둔다.
+  # configs/vllm_unified_build.yaml은 아래 semantic 비교 함수가 실제 build 값만
+  # 따로 비교한다. 여기는 Dockerfile 자체와 그 직접 입력만 둔다.
   printf '%s\n' \
     .dockerignore \
     ops/images/vllm-unified/Dockerfile \
@@ -11,6 +11,7 @@ vllm_unified_image_source_paths() {
     ops/patches/apply_gemma4_multimodal_patches.py \
     ops/patches/apply_gemma4_streaming_reasoning_patch.py \
     ops/patches/transformers_llama_head_dim_guard.py \
+    scripts/build/build_vllm_unified_image.sh \
     scripts/ci/build_vllm_derived_images.sh \
     scripts/models/print_vllm_unified_compatibility.py
 }
@@ -51,7 +52,7 @@ deploy_has_fresh_unified_image_artifact() {
 
 deploy_unified_image_config_changed() {
   # unified Docker build의 단일 설정만 비교한다. 일반 runtime image tag 변경이
-  # 비싼 vLLM 재빌드를 강제하지 않게 하면서, base/pin drift는 놓치지 않는다.
+  # 비싼 vLLM 재빌드를 강제하지 않게 하면서, target/base/pin drift는 놓치지 않는다.
   local baseline="$1" current="$2" before_path after_path python_bin
   [[ -n "$baseline" && -d "$baseline" ]] || return 1
   before_path="$baseline/configs/vllm_unified_build.yaml"
@@ -82,6 +83,7 @@ def relevant(path: Path) -> dict:
     if not isinstance(document, dict):
         raise ValueError("configuration root must be an object")
     return {
+        "target_platform": document.get("target_platform"),
         "base_image_default": document.get("base_image_default"),
         "compatibility_pins": document.get("compatibility_pins"),
     }

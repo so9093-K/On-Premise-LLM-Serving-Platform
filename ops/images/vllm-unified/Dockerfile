@@ -31,8 +31,9 @@
 ARG BASE_IMAGE
 FROM ${BASE_IMAGE}
 
-ARG TRANSFORMERS_VERSION=5.13.1
-ARG HUGGINGFACE_HUB_VERSION=1.23.0
+# configs/vllm_unified_build.yaml이 값을 소유하며 공통 build script가 항상 전달한다.
+ARG TRANSFORMERS_VERSION
+ARG HUGGINGFACE_HUB_VERSION
 
 LABEL org.opencontainers.image.title="ai-model-serving-vllm-unified"
 LABEL org.opencontainers.image.description="Single vLLM runtime for all served models: Gemma4 multimodal fixes + Kanana Llama head_dim guard"

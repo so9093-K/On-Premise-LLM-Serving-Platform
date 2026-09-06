@@ -16,18 +16,19 @@ def main() -> int:
     )
     parser.add_argument(
         "--key",
-        choices=("base_image", "transformers", "huggingface_hub"),
+        choices=("target_platform", "base_image", "transformers", "huggingface_hub"),
         default="transformers",
     )
     args = parser.parse_args()
     document = yaml.safe_load(
         (ROOT / "configs/vllm_unified_build.yaml").read_text(encoding="utf-8")
     )
-    value = (
-        document["base_image_default"]
-        if args.key == "base_image"
-        else document["compatibility_pins"][args.key]
-    )
+    if args.key == "target_platform":
+        value = document["target_platform"]
+    elif args.key == "base_image":
+        value = document["base_image_default"]
+    else:
+        value = document["compatibility_pins"][args.key]
     print(str(value))
     return 0
 

@@ -4,7 +4,9 @@
 
 from __future__ import annotations
 
+import os
 import subprocess
+import sys
 from pathlib import Path
 
 import yaml
@@ -37,6 +39,8 @@ def test_unified_source_change_requires_an_immutable_artifact_digest():
 
 
 def _config_compare_status(before: Path, after: Path) -> int:
+    env = os.environ.copy()
+    env["PYTHON_BIN"] = sys.executable
     return subprocess.run(
         [
             "bash",
@@ -47,6 +51,7 @@ def _config_compare_status(before: Path, after: Path) -> int:
             str(after),
         ],
         cwd=ROOT,
+        env=env,
         check=False,
     ).returncode
 
@@ -67,6 +72,16 @@ def test_unified_image_config_policy_detects_build_inputs(tmp_path):
 
     document = yaml.safe_load((after / "configs" / "vllm_unified_build.yaml").read_text(encoding="utf-8"))
     document["compatibility_pins"]["transformers"] = "5.13.2"
+    (after / "configs" / "vllm_unified_build.yaml").write_text(
+        yaml.safe_dump(document, allow_unicode=True, sort_keys=False),
+        encoding="utf-8",
+    )
+    assert _config_changed(before, after)
+
+    document = yaml.safe_load(
+        (before / "configs" / "vllm_unified_build.yaml").read_text(encoding="utf-8")
+    )
+    document["target_platform"] = "linux/arm64"
     (after / "configs" / "vllm_unified_build.yaml").write_text(
         yaml.safe_dump(document, allow_unicode=True, sort_keys=False),
         encoding="utf-8",
