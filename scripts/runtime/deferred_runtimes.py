@@ -1,19 +1,20 @@
 """배포 시점에 GPU VRAM 예산이 빠듯할 때 embedding/embedding-ko/risk-prompt 같은
-secondary 런타임을 처음부터 정지 상태로 둘지 정하고, 그 결정을 Gateway의
-runtime-state.json에 기록한다. defer를 빠뜨리면 main model이 부팅 중 GPU 메모리
-부족으로 기동을 실패할 수 있고, 반대로 잘못 defer하면 배포 직후부터 해당
-엔드포인트가 이유 없이 503을 낸다. scripts/ci/deploy_gitlab_compose.sh가 실제
-배포 시퀀스에서 이 스크립트를 하드 게이트로 호출하므로, 여기서 실패하면
-배포 자체가 중단되고 env가 롤백된다."""
+secondary 런타임을 처음부터 정지 상태로 둘지 정한다. defer를 빠뜨리면 main model이
+부팅 중 GPU 메모리 부족으로 기동을 실패할 수 있고, 반대로 잘못 defer하면 배포
+직후부터 해당 엔드포인트가 이유 없이 503을 낸다. scripts/ci/deploy_gitlab_compose.sh가
+실제 배포 시퀀스에서 이 스크립트를 하드 게이트로 호출하므로, 여기서 실패하면
+배포 자체가 중단되고 env가 롤백된다.
+
+이 스크립트는 결정만 내리고 Gateway의 runtime-state.json은 쓰지 않는다. 그 파일의
+writer는 Gateway 하나다 -- 배포 사용자와 컨테이너가 같은 디렉터리를 함께 쓰면 먼저
+만든 쪽이 소유권을 가져가 반대쪽이 영구히 쓰지 못하기 때문이다. 결정은 env로
+전달되고 기록은 Gateway가 한다(services/runtime_state.py 참고)."""
 
 from __future__ import annotations
 
 import argparse
 import json
-import os
 import sys
-import tempfile
-import time
 from pathlib import Path
 
 import yaml
@@ -79,69 +80,14 @@ def resolve_deferred_runtimes(
     return keys, services
 
 
-def apply_deferred_state(
-    path: Path,
-    keys: list[str],
-    *,
-    reason: str,
-    source: str,
-    now: float | None = None,
-) -> None:
-    # runtime-state.json은 이미 떠있는 Gateway 프로세스가 실시간으로 읽는 파일이다.
-    # 임시 파일에 쓰고 os.replace로 교체하는 이유는 그 프로세스가 절대 잘리다 만
-    # JSON을 읽지 않게 하기 위함이다(RuntimeStateStore/MainModelStateStore와
-    # 동일한 원자적 쓰기 패턴).
-    if not keys:
-        return
-    path.parent.mkdir(parents=True, exist_ok=True)
-    payload: dict[str, object] = {}
-    if path.exists():
-        try:
-            payload = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
-            payload = {}
-    states = payload.get("states") if isinstance(payload, dict) else None
-    if not isinstance(states, dict):
-        states = {}
-    timestamp = time.time() if now is None else now
-    for key in keys:
-        states[key] = {
-            "state": "stopped",
-            "reason": reason,
-            "source": source,
-            "updated_at": timestamp,
-        }
-    next_payload = {"schema_version": 2, "states": states}
-    fd, temp_name = tempfile.mkstemp(
-        prefix=f".{path.name}.",
-        suffix=".tmp",
-        dir=path.parent,
-    )
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as handle:
-            json.dump(next_payload, handle, ensure_ascii=False, indent=2, sort_keys=True)
-            handle.write("\n")
-            handle.flush()
-            os.fsync(handle.fileno())
-        os.chmod(temp_name, 0o644)
-        os.replace(temp_name, path)
-    finally:
-        if os.path.exists(temp_name):
-            os.unlink(temp_name)
-
-
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Resolve deferred runtimes and optionally stamp Gateway runtime-state."
+        description="Resolve the deferred runtime set for a deploy."
     )
     parser.add_argument("--config-root", type=Path, default=Path.cwd())
     parser.add_argument("--compose-file", type=Path, default=Path("ops/compose/full-stack.private-network.yaml"))
     parser.add_argument("--runtimes", default="")
     parser.add_argument("--profile", default="")
-    parser.add_argument("--state-path", type=Path)
-    parser.add_argument("--apply-state", action="store_true")
-    parser.add_argument("--reason", default="deferred_at_deploy")
-    parser.add_argument("--source", default="deploy")
     parser.add_argument("--output", choices=("lines", "json"), default="lines")
     args = parser.parse_args()
 
@@ -157,15 +103,6 @@ def main() -> int:
         )
         raw_runtimes = ",".join(profile_runtimes)
     keys, services = resolve_deferred_runtimes(topology, raw_runtimes)
-    if args.apply_state:
-        if args.state_path is None:
-            raise SystemExit("--state-path is required with --apply-state")
-        apply_deferred_state(
-            args.state_path,
-            keys,
-            reason=args.reason,
-            source=args.source,
-        )
     if args.output == "json":
         print(
             json.dumps(

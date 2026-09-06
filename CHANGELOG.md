@@ -71,6 +71,10 @@
 
 ### Fixed
 
+- 배포가 지정한 deferred runtime(기본 프로필에서는 Prompt Risk 모델)이 반영되지 않은 채 배포가 성공으로 끝나던 문제를 고쳤다. `runtime-state.json`은 gateway 컨테이너의 non-root 사용자가 쓰는 마운트인데 배포 실행 계정도 같은 파일을 쓰려 했고, 이미지 UID와 호스트 UID 사이에는 아무 관계가 없어 어느 쪽이 먼저 만들었느냐가 소유권을 결정했다. 반대쪽의 쓰기 실패는 조용히 넘어갔다. 이제 이 파일의 writer는 Gateway 하나이며, 배포는 정지 상태로 둘 런타임 목록만 환경변수로 전달하고 기록은 Gateway가 기동 시 한 번 수행한다. 같은 릴리스에서 컨테이너가 재시작될 때는 Admin Runtime API로 바꿔 둔 상태가 유지된다.
+- `ensure_gateway_runtime_dir`가 디렉터리의 존재 여부만 확인해, 이미 잘못된 소유권으로 만들어진 디렉터리는 그대로 통과시키던 문제를 고쳤다. compose가 먼저 닿아 root 소유로 생성되면 gateway가 영구히 쓰지 못했다. 이제 배포와 `compose-up` 모두 매번 소유권까지 단언하며, UID는 고정값 대신 플랫폼 이미지에 직접 질의한다.
+- deferred Runtime 생성에 지원되지 않는 `compose create --no-deps`를 사용하던 경로를 `compose up --no-deps --no-start`로 교체하고 실제 변경 전 dry-run을 추가했다. Compose 파일 변경 시 전체 서비스를 재생성하던 판정은 렌더된 서비스 정의 비교로 좁혀, 영향받지 않은 GPU Runtime을 다시 띄우지 않는다. 조회 실패와 컨테이너 부재를 구분하고 롤백 미복원 항목도 배포 로그에 남긴다.
+
 - `setup-dev`를 외부 virtual environment 안에서 실행할 때 선택된 Python과 `venv`가 실제 사용하는 base interpreter의 minor가 달라도 잘못된 `.venv`를 만들 수 있던 문제를 막았다. 기존 `.venv` 재사용은 선택 interpreter를 기준으로 유지하고, 신규 생성만 base interpreter를 명시적으로 확인·사용한 뒤 생성 결과를 재검증한다. 호스트 Python에 따라 달라지던 개발 환경 테스트 fixture도 실제 생성·재사용 경계를 검증하도록 바꿨다.
 - GitHub macOS ARM64 runner에 배포되지 않은 exact Python `3.12.13`을 요청해 app/contract workflow가 setup 단계에서 실패하던 문제를 수정했다. Cross-platform CI는 portable `3.12` minor를 사용하고, Linux 운영 image의 exact patch는 기존 Dockerfile digest pin으로 유지한다. 소비자가 없던 `.env`의 `PYTHON_VERSION` 복제값도 제거했다.
 - `docs/reference/api_reference.md`의 `max_tokens` 한도가 활성 profile과 무관한 고정값(`1`–`13000`)으로 적혀 있어 지금 라이브와 어긋나던 문제를 고쳤다. profile마다 `max_output_tokens`가 13000/13000/**15000**/13000으로 달라 어떤 단일 숫자도 옳을 수 없고, 운영자는 런타임에 profile을 전환한다. Gateway가 `/v1/models`의 `request_parameters.max_tokens.max`로 활성값을 이미 공개하므로 그쪽을 가리키도록 바꿨다.

@@ -37,6 +37,67 @@ def test_runtime_state_store_persists_desired_state(tmp_path):
     assert payload["states"]["embedding_ko"]["state"] == "stopped"
 
 
+def test_deploy_directive_applies_once_per_release(tmp_path):
+    path = tmp_path / "runtime-state.json"
+    keys = {"embedding", "risk_prompt"}
+
+    first = RuntimeStateStore(
+        path,
+        controllable_keys=keys,
+        deferred_keys=("risk_prompt",),
+        release_id="release-1",
+    )
+    assert asyncio.run(first.get("risk_prompt")) == RuntimeState.stopped
+
+    asyncio.run(
+        first.set(
+            "risk_prompt",
+            RuntimeState.active,
+            reason="operator_start_requested",
+            source="runtime_control",
+        )
+    )
+    restarted = RuntimeStateStore(
+        path,
+        controllable_keys=keys,
+        deferred_keys=("risk_prompt",),
+        release_id="release-1",
+    )
+    assert asyncio.run(restarted.get("risk_prompt")) == RuntimeState.active
+
+    next_release = RuntimeStateStore(
+        path,
+        controllable_keys=keys,
+        deferred_keys=("risk_prompt",),
+        release_id="release-2",
+    )
+    assert asyncio.run(next_release.get("risk_prompt")) == RuntimeState.stopped
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    assert payload["applied_release_id"] == "release-2"
+
+
+def test_rollback_directive_reactivates_previously_running_runtime(tmp_path):
+    path = tmp_path / "runtime-state.json"
+    deployed = RuntimeStateStore(
+        path,
+        controllable_keys={"risk_prompt"},
+        deferred_keys=("risk_prompt",),
+        release_id="failed-release",
+    )
+    assert asyncio.run(deployed.get("risk_prompt")) == RuntimeState.stopped
+
+    restored = RuntimeStateStore(
+        path,
+        controllable_keys={"risk_prompt"},
+        activated_keys=("risk_prompt",),
+        release_id="previous-release",
+    )
+    record = asyncio.run(restored.all_records())["risk_prompt"]
+    assert record.state == RuntimeState.active
+    assert record.reason == "restored_at_rollback"
+    assert record.source == "deploy"
+
+
 def test_runtime_state_store_ignores_unknown_or_invalid_persisted_values(tmp_path):
     path = tmp_path / "runtime-state.json"
     path.write_text(

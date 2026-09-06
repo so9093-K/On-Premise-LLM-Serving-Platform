@@ -154,18 +154,6 @@ set -euo pipefail
 # appuser가 쓸 수 없어서 gateway 컨테이너가 PermissionError로 기동에 실패한다.
 # 대신 platform 이미지 내부에서 생성하면 그 이미지가 실제로 실행되는 UID로
 # 항상 소유권이 잡힌다.
-ensure_gateway_runtime_dir() {
-  local dir="$1"
-  local parent
-  parent="$(dirname "${dir}")"
-  mkdir -p "${parent}"
-  if [[ -d "${dir}" ]]; then
-    return 0
-  fi
-  docker run --rm -v "${parent}:/mnt" --entrypoint sh "${PLATFORM_IMAGE_TO_DEPLOY}" \
-    -c "mkdir -p /mnt/$(basename "${dir}")"
-}
-
 if [[ ! -d "${RELEASE_PATH}" ]]; then
   echo "[deploy] ERROR: staged release not found: ${RELEASE_PATH}" >&2
   exit 1
@@ -178,7 +166,7 @@ if [[ ! -f "${DEPLOY_PATH}/.env" ]]; then
   exit 1
 fi
 mkdir -p "${DEPLOY_PATH}/.runtime" "${DEPLOY_PATH}/ops/compose/model_cache"
-ensure_gateway_runtime_dir "${DEPLOY_PATH}/.runtime/gateway"
+source "${RELEASE_PATH}/scripts/lib/gateway_runtime_state.sh"
 
 PREVIOUS_RELEASE=""
 if [[ -L "${DEPLOY_PATH}/current" ]]; then
@@ -290,9 +278,12 @@ COMPOSE_OVERRIDE=""
 MAIN_MODEL_BOOT_OVERRIDE=""
 DEPLOY_RUNTIME_PROFILE="${DEPLOY_RUNTIME_PROFILE:-}"
 DEPLOY_DEFERRED_RUNTIMES="${DEPLOY_DEFERRED_RUNTIMES:-}"
+export DEPLOY_ACTIVE_RUNTIMES=""  # 롤백 전용 신호. 요청자 입력은 받지 않는다.
 DEFERRED_RUNTIME_KEYS=()
 DEFERRED_RUNTIME_SERVICES=()
 DEFERRED_RUNTIME_WAS_RUNNING=()
+DEFERRED_RUNTIME_WAS_RUNNING_KEYS=()
+RESTORE_FAILURES=()
 DEPLOY_RUNTIME_PROFILE_EFFECTIVE=""
 RESTORING_RELEASE=0
 ENV_BACKUP_CREATED=0
@@ -342,7 +333,7 @@ configure_release_context() {
     fi
     _state_file="${DEPLOY_PATH}/.runtime/main-model/main-model-state.json"
     if [[ -f "${_state_file}" && ! -r "${_state_file}" ]]; then
-      # ensure_gateway_runtime_dir와 같은 종류의 문제: admin-sidecar 컨테이너는
+      # gateway_runtime_state.sh와 같은 종류의 문제: admin-sidecar 컨테이너는
       # (docker.sock을 다루므로) user: 0:0으로 돌기 때문에 이 파일은 root 소유로
       # 쓰여지고, 배포 사용자가 다시 읽을 수 없다. 실패시키고 수동 chmod를 요구하는
       # 대신, 같은 방식으로 — platform 이미지 내부에서 root 권한으로 — 복구한다.
@@ -383,7 +374,7 @@ compose_run() {
   fi
   COMPOSE_SERVICE_ENV_FILE="${COMPOSE_ENV_FILE}" \
     docker compose \
-      --project-name "${COMPOSE_PROJECT_NAME:-compose}" \
+      --project-name "${COMPOSE_PROJECT_NAME:-ai-model-serving-platform}" \
       "${compose_args[@]}" \
       --env-file "${COMPOSE_ENV_FILE}" \
       "$@"
@@ -416,19 +407,38 @@ resolve_deferred_runtimes() {
   fi
 }
 
+# `|| true`로 실패를 삼키면 "그런 컨테이너가 없다"와 "Docker/Compose 조회가
+# 실패했다"가 똑같이 빈 문자열이 된다. 후자를 전자로 오인하면 원래 돌고 있던
+# 런타임을 안 돌고 있었다고 판단해, 배포 실패 시 복구가 잘못된 상태로 끝난다.
+# 조회 실패는 삼키지 않고 배포를 세운다.
 capture_deferred_runtime_state() {
   DEFERRED_RUNTIME_WAS_RUNNING=()
-  local service container_id running
-  for service in "${DEFERRED_RUNTIME_SERVICES[@]}"; do
-    container_id="$(compose_run ps --all -q "${service}" 2>/dev/null || true)"
+  DEFERRED_RUNTIME_WAS_RUNNING_KEYS=()
+  local idx service container_id running
+  for idx in "${!DEFERRED_RUNTIME_SERVICES[@]}"; do
+    service="${DEFERRED_RUNTIME_SERVICES[idx]}"
+    if ! container_id="$(compose_run ps --all -q "${service}" 2>/dev/null)"; then
+      echo "[deploy] ERROR: compose ps failed while inspecting deferred runtime: ${service}" >&2
+      return 1
+    fi
+    # 조회는 성공했고 결과가 비었다 -- 컨테이너가 아직 없는 정상 상태다.
     [[ -n "${container_id}" ]] || continue
-    running="$(docker inspect -f '{{.State.Running}}' "${container_id}" 2>/dev/null || true)"
+    if ! running="$(docker inspect -f '{{.State.Running}}' "${container_id}" 2>/dev/null)"; then
+      echo "[deploy] ERROR: docker inspect failed for ${service} (${container_id})" >&2
+      return 1
+    fi
     if [[ "${running}" == "true" ]]; then
       DEFERRED_RUNTIME_WAS_RUNNING+=("${service}")
+      # runtime key는 service와 같은 인덱스다(resolve_deferred_runtimes 참고).
+      DEFERRED_RUNTIME_WAS_RUNNING_KEYS+=("${DEFERRED_RUNTIME_KEYS[idx]}")
     fi
   done
 }
 
+# deferred 런타임은 "컨테이너는 만들되 시작하지 않는다". `docker compose create`는
+# --no-deps를 지원하지 않아(unknown flag) 배포가 통째로 실패한다. `up --no-start`가
+# 같은 의미이면서 --no-deps를 받는다 -- 이게 없으면 risk-prompt-vllm의 depends_on을
+# 따라 embedding·main-llm까지 force-recreate되어 GPU 모델이 전부 다시 뜬다.
 enforce_deferred_runtime_state() {
   [[ ${#DEFERRED_RUNTIME_SERVICES[@]} -gt 0 ]] || return 0
   local service container_id running
@@ -437,7 +447,7 @@ enforce_deferred_runtime_state() {
     if [[ -z "${container_id}" ]]; then
       echo "[deploy] creating deferred runtime without starting: ${service}"
       SERVICES_MUTATED=1
-      compose_run create --no-deps "${service}" || return 1
+      compose_run up --no-deps --no-start "${service}" || return 1
       continue
     fi
     running="$(docker inspect -f '{{.State.Running}}' "${container_id}" 2>/dev/null || true)"
@@ -456,33 +466,6 @@ is_deferred_service() {
     [[ "${service}" == "${deferred}" ]] && return 0
   done
   return 1
-}
-
-apply_deferred_runtime_state() {
-  [[ ${#DEFERRED_RUNTIME_KEYS[@]} -gt 0 ]] || return 0
-  local state_path="${DEPLOY_PATH}/.runtime/gateway/runtime-state.json"
-  ensure_gateway_runtime_dir "$(dirname "${state_path}")"
-  if [[ "${RUNTIME_STATE_MUTATED}" != "1" ]]; then
-    RUNTIME_STATE_BACKUP="${DEPLOY_PATH}/.runtime/gateway/runtime-state.json.bak.$(date +%Y%m%d%H%M%S)"
-    if [[ -f "${state_path}" ]]; then
-      cp "${state_path}" "${RUNTIME_STATE_BACKUP}"
-      RUNTIME_STATE_ORIGINAL_EXISTS=1
-    else
-      RUNTIME_STATE_ORIGINAL_EXISTS=0
-    fi
-    RUNTIME_STATE_MUTATED=1
-  fi
-  "${_PYTHON_BIN}" scripts/runtime/deferred_runtimes.py \
-    --config-root "${PWD}" \
-    --compose-file "${COMPOSE_FILE}" \
-    --profile "${DEPLOY_RUNTIME_PROFILE}" \
-    --runtimes "${DEPLOY_DEFERRED_RUNTIMES}" \
-    --state-path "${state_path}" \
-    --apply-state \
-    --reason deferred_at_deploy \
-    --source deploy \
-    --output lines >/dev/null
-  echo "[deploy] gateway desired runtime state updated: ${state_path}"
 }
 
 # 이미지가 바뀌었거나(또는 실행 중이 아닌) Compose 서비스를 출력한다.
@@ -569,6 +552,48 @@ list_services_with_stale_compose_context() {
 # baseline을 빈 값으로 넘기면 설정 diff를 건너뛴다(예: 최초 배포).
 # 비교가 대칭적이라서 forward 배포(baseline = 이전 release)와
 # rollback(baseline = 실패한 candidate) 양쪽에 같은 함수를 쓸 수 있다.
+# compose 파일 변경을 서비스 단위로 좁힌다.
+#
+# 파일 전체를 cmp하면 어느 서비스가 바뀌었는지 알 수 없어 전부 재생성하게 되고,
+# 직렬로 뜨는 GPU 모델까지 다시 태운다. 렌더된 정의를 비교하면 anchor와 변수
+# 치환이 펼쳐진 뒤라 영향을 실제로 받는 서비스에서만 차이가 드러난다.
+#
+# 렌더에 실패하면 좁히지 않는다 -- 안전한 쪽은 전부 재생성이다.
+_render_compose_services() {
+  COMPOSE_SERVICE_ENV_FILE="${COMPOSE_ENV_FILE}" \
+    docker compose \
+      --project-name "${COMPOSE_PROJECT_NAME:-ai-model-serving-platform}" \
+      -f "$1" \
+      --env-file "${COMPOSE_ENV_FILE}" \
+      config --format json
+}
+
+list_services_with_changed_compose_definition() {
+  local baseline="$1"
+  local before after
+  before="$(mktemp)" || return 1
+  after="$(mktemp)" || {
+    rm -f "${before}"
+    return 1
+  }
+  if ! _render_compose_services "${baseline}/${COMPOSE_FILE}" >"${before}" 2>/dev/null ||
+    ! _render_compose_services "${PWD}/${COMPOSE_FILE}" >"${after}" 2>/dev/null; then
+    rm -f "${before}" "${after}"
+    echo "[deploy] WARNING: cannot render both compose revisions; reconverging all services" >&2
+    compose_run config --services 2>/dev/null
+    return 0
+  fi
+  if ! "${_PYTHON_BIN}" scripts/compose/compose_service_diff.py \
+    --before "${before}" --after "${after}" \
+    --strip-before "${baseline}" --strip-after "${PWD}"; then
+    rm -f "${before}" "${after}"
+    echo "[deploy] WARNING: cannot compare rendered compose definitions; reconverging all services" >&2
+    compose_run config --services 2>/dev/null
+    return 0
+  fi
+  rm -f "${before}" "${after}"
+}
+
 compute_recreate_set() {
   local baseline="$1"
   {
@@ -578,8 +603,8 @@ compute_recreate_set() {
       echo "main-llm-vllm"
     fi
     if deploy_compose_config_changed "${baseline}" "${PWD}" "${COMPOSE_FILE}"; then
-        echo "[deploy] compose file changed -> reconverging all services" >&2
-        compose_run config --services 2>/dev/null
+        echo "[deploy] compose file changed -> comparing rendered service definitions" >&2
+        list_services_with_changed_compose_definition "${baseline}"
     fi
   } | awk 'NF && !seen[$0]++'
 }
@@ -604,6 +629,12 @@ pull_preflight_image() {
 
 # ── preflight: .env를 건드리기 전에 이미지를 pull할 수 있는지 확인 ───────────────
 pull_preflight_image "platform" "${PLATFORM_IMAGE_TO_DEPLOY}"
+
+# 이미지를 확보한 뒤에야 그 이미지에게 runtime uid를 물을 수 있다.
+if ! ensure_gateway_runtime_dir "${DEPLOY_PATH}/${GATEWAY_RUNTIME_DIR_RELPATH}" "${PLATFORM_IMAGE_TO_DEPLOY}"; then
+  echo "[deploy] ERROR: gateway runtime state directory is not usable" >&2
+  exit 1
+fi
 
 if [[ "${DEPLOY_MODE}" == "full" ]]; then
   # 새 artifact가 없으면 기존 .env pin을 사용한다. 일반 full 배포도 strict
@@ -635,9 +666,14 @@ echo "[deploy] .env backed up: ${ENV_BACKUP_PATH}"
 
 SERVICES_MUTATED=0
 LINKS_MUTATED=0
-RUNTIME_STATE_MUTATED=0
-RUNTIME_STATE_ORIGINAL_EXISTS=0
-RUNTIME_STATE_BACKUP=""
+
+# 롤백 중 실패한 단계를 기록한다. 마지막에 "manual recovery is required"만
+# 남기면 운영자가 무엇을 손봐야 하는지 로그를 거슬러 올라가 찾아야 한다.
+restore_failure() {
+  echo "[deploy] ERROR: $*" >&2
+  RESTORE_FAILURES+=("$*")
+  restore_failed=1
+}
 
 restore_release_links() {
   local restore_failed=0
@@ -655,12 +691,10 @@ restore_release_links() {
       echo "[deploy] restored current -> ${PREVIOUS_CURRENT_LINK}" >&2
     else
       rm -f "${temporary}"
-      echo "[deploy] ERROR: failed to restore current release link" >&2
-      restore_failed=1
+      restore_failure "failed to restore current release link"
     fi
   elif ! rm -f "${DEPLOY_PATH}/current"; then
-    echo "[deploy] ERROR: failed to remove newly-created current release link" >&2
-    restore_failed=1
+    restore_failure "failed to remove newly-created current release link"
   fi
 
   if [[ -n "${PREVIOUS_RUNTIME_LINK}" ]]; then
@@ -671,12 +705,10 @@ restore_release_links() {
       echo "[deploy] restored runtime-current -> ${PREVIOUS_RUNTIME_LINK}" >&2
     else
       rm -f "${temporary}"
-      echo "[deploy] ERROR: failed to restore runtime-current release link" >&2
-      restore_failed=1
+      restore_failure "failed to restore runtime-current release link"
     fi
   elif ! rm -f "${DEPLOY_PATH}/runtime-current"; then
-    echo "[deploy] ERROR: failed to remove newly-created runtime release link" >&2
-    restore_failed=1
+    restore_failure "failed to remove newly-created runtime release link"
   fi
 
   return "${restore_failed}"
@@ -690,55 +722,36 @@ restore_previous_release() {
     if cp "${ENV_BACKUP}" "${COMPOSE_ENV_FILE}"; then
       echo "[deploy] restored .env from ${ENV_BACKUP_PATH}" >&2
     else
-      echo "[deploy] ERROR: failed to restore .env from ${ENV_BACKUP_PATH}" >&2
-      restore_failed=1
+      restore_failure "failed to restore .env from ${ENV_BACKUP_PATH}"
     fi
   else
-    echo "[deploy] ERROR: cannot restore .env; backup is missing" >&2
-    restore_failed=1
+    restore_failure "cannot restore .env; backup is missing"
   fi
 
-  if [[ "${RUNTIME_STATE_MUTATED:-0}" == "1" ]]; then
-    local runtime_state_path="${DEPLOY_PATH}/.runtime/gateway/runtime-state.json"
-    if [[ "${RUNTIME_STATE_ORIGINAL_EXISTS:-0}" == "1" ]]; then
-      if [[ -n "${RUNTIME_STATE_BACKUP:-}" && -f "${RUNTIME_STATE_BACKUP}" ]] &&
-        cp "${RUNTIME_STATE_BACKUP}" "${runtime_state_path}"; then
-        echo "[deploy] restored gateway runtime state from ${RUNTIME_STATE_BACKUP}" >&2
-      else
-        echo "[deploy] ERROR: failed to restore gateway runtime state" >&2
-        restore_failed=1
-      fi
-    elif rm -f "${runtime_state_path}"; then
-      echo "[deploy] removed newly-created gateway runtime state" >&2
-    else
-      echo "[deploy] ERROR: failed to remove newly-created gateway runtime state" >&2
-      restore_failed=1
-    fi
-  fi
 
   if [[ -z "${PREVIOUS_RELEASE}" || ! -d "${PREVIOUS_RELEASE}" ]]; then
-    echo "[deploy] ERROR: previous release source is unavailable for rollback" >&2
-    restore_failed=1
+    restore_failure "previous release source is unavailable for rollback"
   else
     cd "${PREVIOUS_RELEASE}"
     deploy_export_compose_env
     echo "[deploy] compose environment exported from ${COMPOSE_ENV_FILE}"
     RESTORING_RELEASE=1
     if ! configure_release_context "${PREVIOUS_RELEASE}"; then
-      echo "[deploy] ERROR: failed to configure previous release context" >&2
-      restore_failed=1
+      restore_failure "failed to configure previous release context"
     else
       context_ready=1
     fi
     if ! "${_PYTHON_BIN}" scripts/config/setup_env.py --sync-runtime-secrets --env-file "${COMPOSE_ENV_FILE}"; then
-      echo "[deploy] ERROR: failed to resync runtime secrets from restored .env" >&2
-      restore_failed=1
+      restore_failure "failed to resync runtime secrets from restored .env"
     fi
     if [[ "${SERVICES_MUTATED}" == "1" && "${context_ready}" == "1" ]]; then
       echo "[deploy] restoring services from the previous release..." >&2
+      # 이번 배포의 deferred 지시는 넘기지 않고, 배포 직전에 돌고 있던 런타임만
+      # desired state로 되돌린다.
+      export DEPLOY_DEFERRED_RUNTIMES=""
+      export_runtime_restore_directive "${DEFERRED_RUNTIME_WAS_RUNNING_KEYS[@]}"
       if ! compose_run config >/dev/null; then
-        echo "[deploy] ERROR: restored compose config is invalid" >&2
-        restore_failed=1
+        restore_failure "restored compose config is invalid"
       elif [[ "${DEPLOY_MODE}" == "full" ]]; then
         # 대칭적 rollback: 지금 이전 release와 달라진 서비스만 되돌린다 — forward
         # 배포가 썼던 것과 동일한 이미지-ID + 설정-내용 집합을, 실패한 candidate
@@ -763,34 +776,29 @@ restore_previous_release() {
           if compose_run up -d --no-deps --remove-orphans "${_rollback_active_services[@]}"; then
             echo "[deploy] restored active services: ${_rollback_active_services[*]}" >&2
           else
-            echo "[deploy] ERROR: failed to restore active services: ${_rollback_active_services[*]}" >&2
-            restore_failed=1
+            restore_failure "failed to restore active services: ${_rollback_active_services[*]}"
           fi
         fi
         if [[ ${#_rollback_deferred_services[@]} -gt 0 ]]; then
-          if compose_run create --no-deps --force-recreate "${_rollback_deferred_services[@]}"; then
+          if compose_run up --no-deps --no-start --force-recreate "${_rollback_deferred_services[@]}"; then
             echo "[deploy] restored stopped runtime containers: ${_rollback_deferred_services[*]}" >&2
           else
-            echo "[deploy] ERROR: failed to restore stopped runtime containers: ${_rollback_deferred_services[*]}" >&2
-            restore_failed=1
+            restore_failure "failed to restore stopped runtime containers: ${_rollback_deferred_services[*]}"
           fi
         fi
         if [[ ${#DEFERRED_RUNTIME_WAS_RUNNING[@]} -gt 0 ]]; then
           if compose_run up -d --no-deps "${DEFERRED_RUNTIME_WAS_RUNNING[@]}"; then
             echo "[deploy] restored previously running runtimes: ${DEFERRED_RUNTIME_WAS_RUNNING[*]}" >&2
           else
-            echo "[deploy] ERROR: failed to restart previously running runtimes: ${DEFERRED_RUNTIME_WAS_RUNNING[*]}" >&2
-            restore_failed=1
+            restore_failure "failed to restart previously running runtimes: ${DEFERRED_RUNTIME_WAS_RUNNING[*]}"
           fi
         fi
       else
         if ! compose_run up -d --no-deps admin-sidecar; then
-          echo "[deploy] ERROR: failed to restore the previous admin-sidecar" >&2
-          restore_failed=1
+          restore_failure "failed to restore the previous admin-sidecar"
         fi
         if ! compose_run up -d --no-deps gateway risk-adapter prometheus grafana; then
-          echo "[deploy] ERROR: failed to restore previous app/observability services" >&2
-          restore_failed=1
+          restore_failure "failed to restore previous app/observability services"
         fi
       fi
     fi
@@ -806,6 +814,10 @@ restore_previous_release() {
   fi
 
   echo "[deploy] ERROR: automatic restore was incomplete; manual recovery is required" >&2
+  local _failure
+  for _failure in "${RESTORE_FAILURES[@]}"; do
+    echo "[deploy]   미복원: ${_failure}" >&2
+  done
   return 1
 }
 
@@ -940,8 +952,18 @@ fi
 if ! capture_deferred_runtime_state; then
   fail_after_env_backup "failed to capture deferred runtime state"
 fi
-if ! apply_deferred_runtime_state; then
-  fail_after_env_backup "failed to apply deferred runtime desired state"
+# 배포는 Gateway의 runtime-state.json을 직접 쓰지 않는다. 그 파일이 있는
+# .runtime/gateway는 컨테이너 안의 non-root 사용자가 쓰는 bind-mount인데, 배포
+# 사용자와 컨테이너가 함께 쓰려면 양쪽 uid가 모두 쓸 수 있어야 한다. 이미지의 uid와
+# 호스트 uid 사이에는 아무 관계가 없어 그걸 보장할 방법이 없고, 실제로 배포의 쓰기가
+# Permission denied로 실패한 뒤 그 실패가 조용히 넘어가 deferred 지시가 반영되지
+# 않은 채 배포가 성공으로 끝난 적이 있다. 그래서 지시만 env로 넘긴다.
+#
+# 요청자가 준 원문이 아니라 해석된 목록을 넘긴다 -- 원문은 프로필 이름이나 이
+# 타깃에서 비활성인 런타임을 담을 수 있다. release id는 .env가 이미 갖고 있으므로
+# 여기서 다시 정하지 않는다(빈 값).
+if ! export_deferred_runtime_directive "" "${DEFERRED_RUNTIME_KEYS[@]}"; then
+  fail_after_env_backup "failed to resolve deferred runtime directive"
 fi
 if [[ "${DEPLOY_MODE}" == "full" ]]; then
   echo "[deploy] main-model boot profile: ${MAIN_MODEL_BOOT_PROFILE}"
@@ -956,6 +978,26 @@ if ! COMPOSE_PROJECT_EFFECTIVE="$(
 fi
 if [[ -z "${COMPOSE_PROJECT_EFFECTIVE}" ]]; then
   fail_after_env_backup "effective Compose project name is empty"
+fi
+
+# deferred 런타임을 다루는 명령은 평소 배포에서 실행되지 않는다 -- 그 서비스가
+# 변경 집합에 들어갈 때만 처음 실행된다. 실제로 존재하지 않는 플래그
+# (`compose create --no-deps`)가 그렇게 오래 숨어 있다가 배포와 rollback을 함께
+# 무너뜨렸다. 컨테이너를 건드리기 전에 같은 명령을 dry-run으로 한 번 태운다.
+preflight_deferred_runtime_commands() {
+  [[ ${#DEFERRED_RUNTIME_SERVICES[@]} -gt 0 ]] || return 0
+  local service
+  for service in "${DEFERRED_RUNTIME_SERVICES[@]}"; do
+    if ! compose_run up --no-deps --no-start --force-recreate "${service}" --dry-run >/dev/null; then
+      echo "[deploy] ERROR: deferred runtime command is not executable for ${service}" >&2
+      return 1
+    fi
+  done
+  echo "[deploy] deferred runtime commands verified (dry-run)"
+}
+
+if ! preflight_deferred_runtime_commands; then
+  fail_after_env_backup "deferred runtime command preflight failed"
 fi
 
 # 후보 release의 compose config 검증이 끝난 뒤, 실제 컨테이너를 변경하기 전에
@@ -1040,7 +1082,7 @@ if [[ "${DEPLOY_MODE}" == "full" ]]; then
     fi
     if [[ ${#DEFERRED_CHANGED_SERVICES[@]} -gt 0 ]]; then
       echo "[deploy] full deploy: creating deferred runtime containers without starting: ${DEFERRED_CHANGED_SERVICES[*]}"
-      if ! compose_run create --no-deps --force-recreate "${DEFERRED_CHANGED_SERVICES[@]}"; then
+      if ! compose_run up --no-deps --no-start --force-recreate "${DEFERRED_CHANGED_SERVICES[@]}"; then
         fail_after_env_backup "compose create failed for deferred services: ${DEFERRED_CHANGED_SERVICES[*]}"
       fi
     fi
@@ -1073,7 +1115,7 @@ if [[ "${DEPLOY_MODE}" == "full" ]]; then
     if [[ ${#STALE_DEFERRED_SERVICES[@]} -gt 0 ]]; then
       # deferred runtime은 시작하지 않는다. up -d로 올리면 VRAM을 잡는다.
       echo "[deploy] full deploy: converging stale Compose context without starting: ${STALE_DEFERRED_SERVICES[*]}"
-      if ! compose_run create --no-deps --force-recreate "${STALE_DEFERRED_SERVICES[@]}"; then
+      if ! compose_run up --no-deps --no-start --force-recreate "${STALE_DEFERRED_SERVICES[@]}"; then
         fail_after_env_backup "failed to converge stale Compose context for deferred services: ${STALE_DEFERRED_SERVICES[*]}"
       fi
     fi
@@ -1301,9 +1343,19 @@ done
 if ! rm -f "${ENV_BACKUP}"; then
   echo "[deploy] WARNING: failed to remove .env backup: ${ENV_BACKUP}" >&2
 fi
-if [[ -n "${RUNTIME_STATE_BACKUP:-}" ]] && ! rm -f "${RUNTIME_STATE_BACKUP}"; then
-  echo "[deploy] WARNING: failed to remove runtime state backup: ${RUNTIME_STATE_BACKUP}" >&2
-fi
+
+# 실패한 배포는 성공 경로의 정리를 밟지 못해 백업을 남긴다. release는 여기서
+# 회수되지만 백업은 회수되는 곳이 없어 무한히 쌓인다. 이 배포가 만든 이름 규칙
+# (.env.bak.<타임스탬프>)만 대상으로, 최근 것 몇 개를 남기고 지운다.
+mapfile -t _stale_env_backups < <(
+  find "${DEPLOY_PATH}" -maxdepth 1 -name '.env.bak.[0-9]*' -printf '%f\n' 2>/dev/null |
+    sort -r | tail -n +4
+)
+for _stale_backup in "${_stale_env_backups[@]}"; do
+  if rm -f "${DEPLOY_PATH}/${_stale_backup}"; then
+    echo "[deploy] pruned stale .env backup: ${_stale_backup}"
+  fi
+done
 
 # 성공한 배포만 실제 적용 fingerprint를 기록한다. 다음 release는 이 상태와 비교해
 # bind-mounted 설정이 파일에는 반영됐지만 실행 중 컨테이너에는 미적용인 경우를

@@ -1,4 +1,4 @@
-"""배포 프로필의 기본/명시 선택과 runtime-state projection을 검증한다."""
+"""배포 프로필의 기본 선택과 명시적 override 우선순위를 검증한다."""
 
 from __future__ import annotations
 
@@ -50,27 +50,3 @@ def test_direct_runtime_list_overrides_profile():
         "services": ["embedding-vllm"],
         "profile": "",
     }
-
-
-def test_deferred_runtime_script_applies_state_metadata(tmp_path):
-    state_path = tmp_path / "runtime-state.json"
-
-    run_script(
-        "--runtimes",
-        "risk_prompt",
-        "--state-path",
-        str(state_path),
-        "--apply-state",
-        "--reason",
-        "deferred_at_deploy",
-        "--source",
-        "deploy",
-    )
-
-    payload = json.loads(state_path.read_text(encoding="utf-8"))
-    assert payload["schema_version"] == 2
-    record = payload["states"]["risk_prompt"]
-    assert record["state"] == "stopped"
-    assert record["reason"] == "deferred_at_deploy"
-    assert record["source"] == "deploy"
-    assert isinstance(record["updated_at"], float)

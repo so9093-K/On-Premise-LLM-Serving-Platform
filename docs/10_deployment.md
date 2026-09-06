@@ -276,7 +276,12 @@ Deploy Runtime Profile
 
 `DEPLOY_DEFERRED_RUNTIMES`가 지정된 경우 해당 목록을 직접 적용한다.
 
-초기 중지 상태의 Runtime은 Gateway에 `stopped`로 기록되며, 이후 시작 요청의 대상이 된다.
+배포 스크립트는 해석한 Runtime 목록과 Release ID를 Gateway 환경으로 전달하고,
+`runtime-state.json`은 Gateway가 기동하면서 직접 기록한다. 배포 사용자와 non-root
+컨테이너가 같은 상태 파일을 함께 쓰지 않으므로 호스트·컨테이너 UID 차이에 의한
+소유권 충돌을 피한다. 같은 Release ID로 Gateway만 재시작하면 지시를 다시 적용하지
+않아, 이후 Admin Runtime API에서 변경한 상태가 유지된다. 배포 롤백은 배포 직전에
+실행 중이던 Runtime을 활성화 지시로 전달한다.
 
 Main Model 프로파일과 Secondary Runtime의 시작/중지 운영은 [6. 모델 운영](./06_model_operations.md)에서 설명한다.
 

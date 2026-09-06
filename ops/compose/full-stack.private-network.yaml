@@ -29,6 +29,13 @@ services:
       STRICT_ADMIN_ENDPOINT_SECURITY: '${STRICT_ADMIN_ENDPOINT_SECURITY:-true}'
       ADMIN_SIDECAR_URL: http://admin-sidecar:8080
       GATEWAY_RUNTIME_STATE_PATH: /var/lib/ai-model-serving/runtime-state.json
+      # 배포가 결정한 deferred runtime 목록. Gateway가 기동 시 한 번 적용하며,
+      # 상태 파일 자체는 Gateway만 쓴다(두 writer 소유권 충돌 방지).
+      DEPLOY_DEFERRED_RUNTIMES: ${DEPLOY_DEFERRED_RUNTIMES:-}
+      DEPLOY_ACTIVE_RUNTIMES: ${DEPLOY_ACTIVE_RUNTIMES:-}
+      # 지시를 어느 배포에서 적용했는지 구분하는 토큰. 배포 경로는 .env를 통째로
+      # export한 뒤라 여기서도 같은 값이 잡히고, compose-up은 실행마다 새 값을 준다.
+      DEPLOY_RELEASE_ID: ${DEPLOY_RELEASE_ID:-}
     depends_on:
       risk-adapter:
         condition: service_healthy
@@ -432,7 +439,10 @@ services:
       APP_CONFIG_ROOT: /app
       PYTHONPATH: /app/src
       DOCKER_SOCKET: /var/run/docker.sock
-      COMPOSE_PROJECT: ${COMPOSE_PROJECT_NAME:-compose}
+      # 이 값으로 admin-sidecar가 com.docker.compose.project 라벨을 걸러 컨테이너를
+      # 찾는다. 위 `name:`과 기본값이 어긋나면 sidecar가 아무 컨테이너도 찾지 못해
+      # 런타임 start/stop이 조용히 아무 일도 하지 않는다. 기본값을 같이 둔다.
+      COMPOSE_PROJECT: ${COMPOSE_PROJECT_NAME:-ai-model-serving-platform}
       GATEWAY_INTERNAL_URL: http://gateway:9400
       MAIN_MODEL_STATE_PATH: /var/lib/ai-model-serving/main-model-state.json
       MAIN_LLM_BOOT_PROFILE: ${MAIN_LLM_BOOT_PROFILE:-}

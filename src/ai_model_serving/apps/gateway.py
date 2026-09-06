@@ -55,9 +55,17 @@ from ..services.main_model_inflight import MainModelInFlight
 class GatewayClients:
     def __init__(self, settings: AppSettings) -> None:
         state_path = os.environ.get("GATEWAY_RUNTIME_STATE_PATH")
+        def _runtime_directive(name: str) -> list[str]:
+            return [key.strip() for key in os.environ.get(name, "").split(",") if key.strip()]
+
+        # 배포는 이 상태 파일을 직접 쓰지 않는다. deferred runtime 지시만 env로
+        # 넘기고 실제 기록은 Gateway가 한다(services/runtime_state.py 참고).
         self.runtime_state = RuntimeStateStore(
             Path(state_path) if state_path else None,
             controllable_keys=settings.controllable_runtime_keys,
+            deferred_keys=_runtime_directive("DEPLOY_DEFERRED_RUNTIMES"),
+            activated_keys=_runtime_directive("DEPLOY_ACTIVE_RUNTIMES"),
+            release_id=settings.deploy_release_id,
         )
         self.main_model_inflight = MainModelInFlight()
         self.sidecar: SidecarClient | None = (

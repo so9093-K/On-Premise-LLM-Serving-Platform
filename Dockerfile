@@ -40,9 +40,12 @@ COPY configs ./configs
 COPY specs/schemas ./specs/schemas
 COPY ops/compose/full-stack.private-network.yaml ./ops/compose/full-stack.private-network.yaml
 
+# /var/lib/ai-model-serving은 Gateway가 desired state를 쓰는 경로다. 보통은 bind
+# mount가 덮지만, 이미지가 이 경로를 소유하고 있어야 마운트 없이 띄웠을 때도 동작한다.
 RUN python -m pip install --no-deps --no-build-isolation . \
     && useradd --create-home --shell /usr/sbin/nologin appuser \
-    && chown -R appuser:appuser /app
+    && chown -R appuser:appuser /app \
+    && install -d -o appuser -g appuser /var/lib/ai-model-serving
 
 USER appuser
 

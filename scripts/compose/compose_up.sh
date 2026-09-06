@@ -9,6 +9,7 @@ ENV_FILE="${ENV_FILE:-.env}"
 COMPOSE_FILE="${COMPOSE_FILE:-ops/compose/full-stack.private-network.yaml}"
 source scripts/lib/compose_context.sh
 source scripts/lib/bind_mounted_config.sh
+source scripts/lib/gateway_runtime_state.sh
 compose_context_init "$ROOT"
 compose_context_assert_mutation_safe
 PROM_SECRET=".runtime/prometheus/admin_api_key"
@@ -192,15 +193,23 @@ for config_service_spec in "${BIND_MOUNTED_CONFIG_SERVICE_SPECS[@]}"; do
 done
 # 기본 runtime profile의 deferred 모델은 container를 남겨 Admin API가 시작할 수
 # 있게 하되, compose-up 자체가 GPU 메모리를 점유시키지는 않는다.
-"$PYTHON_BIN" scripts/runtime/deferred_runtimes.py \
-  --config-root "$ROOT" \
-  --compose-file "$COMPOSE_FILE" \
-  --profile "${RUNTIME_PROFILE:-}" \
-  --state-path .runtime/gateway/runtime-state.json \
-  --apply-state \
-  --reason deferred_at_compose_up \
-  --source compose-up \
-  --output lines >/dev/null
+#
+# runtime-state.json은 여기서 직접 쓰지 않는다. 그 파일은 Gateway 컨테이너가
+# non-root appuser로 쓰는 bind-mount라, 호스트 사용자가 먼저 만들면 컨테이너가
+# 영구히 쓰지 못한다. 대신 결정을 env로 넘기고 기록은 Gateway가 한다
+# (src/ai_model_serving/services/runtime_state.py 참고).
+#
+# release id를 매 실행마다 새로 부여하는 이유: compose-up은 아래에서 deferred
+# 컨테이너를 실제로 정지시키므로 desired state도 매번 함께 맞춰야 한다. 반대로
+# `docker compose restart`처럼 compose-up을 거치지 않는 재시작에서는 id가 그대로라
+# Admin API로 켜 둔 런타임이 도로 꺼지지 않는다.
+export_deferred_runtime_directive "compose-up-$(date +%s)-$$" "${DEFERRED_RUNTIME_KEYS[@]}"
+
+# 존재만이 아니라 소유권까지 이미지 기준으로 맞춘다 -- 배포와 같은 헬퍼를 쓴다.
+if ! ensure_gateway_runtime_dir "${GATEWAY_RUNTIME_DIR_RELPATH}" "$(_env_value PLATFORM_IMAGE)"; then
+  echo "[compose-up] gateway runtime state directory is not usable" >&2
+  exit 2
+fi
 
 for deferred_service in "${DEFERRED_RUNTIME_SERVICES[@]}"; do
   deferred_container_id="$(docker compose "${COMPOSE_ARGS[@]}" --env-file "$ENV_FILE_ABS" ps --all -q "$deferred_service" 2>/dev/null || true)"
