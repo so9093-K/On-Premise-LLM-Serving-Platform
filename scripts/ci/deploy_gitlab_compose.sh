@@ -676,6 +676,10 @@ if ! ensure_gateway_runtime_dir "${DEPLOY_PATH}/${GATEWAY_RUNTIME_DIR_RELPATH}" 
   echo "[deploy] ERROR: gateway runtime state directory is not usable" >&2
   exit 1
 fi
+if ! ensure_platform_runtime_dir "${DEPLOY_PATH}/${REQUEST_EVENT_LOG_DIR_RELPATH}" "${PLATFORM_IMAGE_TO_DEPLOY}"; then
+  echo "[deploy] ERROR: request event log directory is not usable" >&2
+  exit 1
+fi
 
 if [[ "${DEPLOY_MODE}" == "full" ]]; then
   # 새 artifact가 없으면 기존 .env pin을 사용한다. 일반 full 배포도 strict

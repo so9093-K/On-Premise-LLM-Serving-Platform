@@ -5,10 +5,6 @@ public_model: local-main
 default_profile: gemma4-26b-a4b-qat-4bit-mlx
 
 runtime:
-  # Prometheus의 mlx-runtime job이 다는 runtime_backend label의 소유자다.
-  # deployment_targets.yaml의 runtime_backend는 Gateway가 고르는 실행 경로이며,
-  # 여기 값은 수집된 시계열에 붙는 식별자다.
-  backend: mlx-vlm
   python: 3.13.12
   # mlx-vlm 0.6.17의 Gemma 4 chat template 경로는 Jinja2를 사용하지만
   # 배포 메타데이터가 이를 의존성으로 선언하지 않으므로 직접 고정한다.

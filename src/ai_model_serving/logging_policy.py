@@ -14,7 +14,7 @@ from .contracts.common import is_int
 # service_logger/scrub_for_log은 starlette 없이도 써야 하는 호출부(예: 순수 YAML/카탈로그
 # 검증 스크립트가 도는 최소 venv)가 있어 service_logging.py로 분리했다 — 여기서는
 # 하위호환을 위해 재수출만 한다.
-from .service_logging import scrub_for_log, service_logger
+from .service_logging import emit_request_event, scrub_for_log, service_logger
 
 __all__ = [
     "scrub_for_log",
@@ -243,7 +243,11 @@ def log_request_completion(
         error_message=error_message,
         response_request_id=response_request_id,
     )
-    logger.info(json.dumps(record, ensure_ascii=False, sort_keys=True))
+    emit_request_event(
+        service=service,
+        message=json.dumps(record, ensure_ascii=False, sort_keys=True),
+        fallback_logger=logger,
+    )
 
 
 async def safe_request_logging_middleware(

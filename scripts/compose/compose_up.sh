@@ -205,9 +205,15 @@ done
 # Admin API로 켜 둔 런타임이 도로 꺼지지 않는다.
 export_deferred_runtime_directive "compose-up-$(date +%s)-$$" "${DEFERRED_RUNTIME_KEYS[@]}"
 
-# 존재만이 아니라 소유권까지 이미지 기준으로 맞춘다 -- 배포와 같은 헬퍼를 쓴다.
-if ! ensure_gateway_runtime_dir "${GATEWAY_RUNTIME_DIR_RELPATH}" "$(_env_value PLATFORM_IMAGE)"; then
+# Compose와 같은 precedence로 현재 platform image를 고른 뒤, writable bind mount의
+# 존재만이 아니라 소유권까지 그 이미지 기준으로 맞춘다.
+PLATFORM_IMAGE_EFFECTIVE="${PLATFORM_IMAGE:-$(_env_value PLATFORM_IMAGE)}"
+if ! ensure_gateway_runtime_dir "${GATEWAY_RUNTIME_DIR_RELPATH}" "$PLATFORM_IMAGE_EFFECTIVE"; then
   echo "[compose-up] gateway runtime state directory is not usable" >&2
+  exit 2
+fi
+if ! ensure_platform_runtime_dir "${REQUEST_EVENT_LOG_DIR_RELPATH}" "$PLATFORM_IMAGE_EFFECTIVE"; then
+  echo "[compose-up] request event log directory is not usable" >&2
   exit 2
 fi
 

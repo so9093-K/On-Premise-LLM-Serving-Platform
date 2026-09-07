@@ -1,5 +1,32 @@
+// Gateway/Risk Adapter 요청 이벤트는 애플리케이션이 소유하는 고정 JSONL에서 읽는다.
+// Docker container ID나 admin-sidecar의 target discovery와 무관한 신뢰 경로다.
+loki.source.file "request_events" {
+  targets = [
+    {__path__ = "/var/lib/alloy/request-events/*.jsonl", job = "application"},
+  ]
+  forward_to    = [loki.process.request_events.receiver]
+  tail_from_end = false
+
+  file_match {
+    enabled     = true
+    sync_period = "10s"
+  }
+}
+
+loki.process "request_events" {
+  forward_to = [loki.write.local.receiver]
+
+  stage.json {
+    expressions = {service = "service"}
+  }
+
+  stage.labels {
+    values = {service = "service"}
+  }
+}
+
 // Docker API 권한은 없다. admin-sidecar가 Compose metadata와 Docker LogPath로
-// 만든 manifest만 읽고, 각 target에 이미 service label이 들어 있다.
+// 만든 manifest는 third-party runtime/container 진단 로그에만 사용한다.
 discovery.file "docker_targets" {
   files            = ["/var/lib/alloy/targets/docker-containers.json"]
   refresh_interval = "10s"

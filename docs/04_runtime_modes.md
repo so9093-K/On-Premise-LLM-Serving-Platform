@@ -494,7 +494,8 @@ Runtime 시작과 Main Model 전환 시에는 현재 활성화된 runtime의 GPU
 | Main Model switch | full-stack | Model Operations 검증 |
 | GPU budget 변경 | full-stack | Runtime / GPU validation |
 | Compose / exposure 변경 | full-stack | `make compose-config`, `make exposure-status` |
-| Observability 검증 | full-stack | Prometheus / Grafana / Loki 확인 |
+| NVIDIA runtime/container 관측 검증 | full-stack | Prometheus / Grafana / Loki 확인 |
+| Metal 요청·runtime metric 관측 검증 | macOS Metal static | Prometheus / Grafana / Loki 확인 |
 
 실행 환경과 관련된 주요 source of truth는 다음과 같다.
 

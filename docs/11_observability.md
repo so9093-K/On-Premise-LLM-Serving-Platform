@@ -25,7 +25,7 @@ Service / Runtime
 | DCGM Exporter | GPU 메모리, 사용률, 온도, 전력 등 GPU 지표 제공 |
 | cAdvisor | 컨테이너 CPU, 메모리, OOM, 재시작 관련 지표 제공 |
 | Prometheus | 서비스와 Runtime 지표 수집·저장 |
-| Alloy | 컨테이너 로그 수집 |
+| Alloy | 애플리케이션 요청 이벤트와 컨테이너 진단 로그 수집 |
 | Loki | 로그 저장·검색 |
 | Grafana | Metrics와 Logs 통합 조회 |
 
@@ -52,16 +52,16 @@ vLLM Runtime은 하나의 scrape job으로 수집하고 `model`, `runtime_servic
 ### Logs
 
 ```text
-Application / Container Log
-          ↓
-        Alloy
-          ↓
-         Loki
-          ↓
-       Grafana
+Gateway / Risk Adapter JSONL ─┐
+                              ├─→ Alloy ─→ Loki ─→ Grafana
+Container stdout/stderr ──────┘
 ```
 
-Alloy는 컨테이너 로그 파일을 읽어 Loki로 전달한다. Grafana의 Request Log Explorer에서 Gateway 요청, API 오류, Readiness 실패, Runtime 로그를 함께 조회할 수 있다.
+Gateway와 Risk Adapter는 구조화된 요청 이벤트를 앱 소유 JSONL에 기록한다. Alloy는
+이 고정 경로를 직접 읽으므로 Docker container ID와 admin-sidecar에 의존하지 않는다.
+vLLM traceback 등 컨테이너 stdout/stderr는 full-stack에서만 Docker LogPath manifest를
+통해 best-effort로 수집한다. 두 신호의 책임과 신뢰 수준은
+[ADR-0022](./adr/0022-application-request-event-ownership.md)에서 정의한다.
 
 ---
 
@@ -204,17 +204,18 @@ Dashboard는 자신이 쓰는 exporter가 그 Compose project에 있을 때만 �
 | 실행 구성 | 제공 datasource | provisioning되는 Dashboard |
 |---|---|---|
 | full-stack (`ops/compose/full-stack.private-network.yaml`) | Prometheus, Loki | GPU Capacity and OOM Risk, Usage Today, Request Log Explorer |
-| static Metal (`ops/compose/overrides/static.macos-metal.yaml`) | Prometheus | macOS Metal Runtime |
+| static Metal (`ops/compose/overrides/static.macos-metal.yaml`) | Prometheus, Loki | macOS Metal Runtime, Request Log Explorer |
 
-static Metal 구성에서 빠진 Dashboard는 사정이 서로 다르다. 셋을 구분한다.
+static Metal에서 각 Dashboard의 적용 여부는 다음과 같이 구분한다.
 
 | Dashboard | 상태 | 이유 |
 |---|---|---|
 | GPU Capacity and OOM Risk | 이 구성에서 불가능 | DCGM은 NVIDIA 전용이라 Apple Silicon에 대응물이 없고, Main runtime이 vLLM이 아니라 native MLX-VLM이라 `vllm:*` metric도 존재하지 않는다. exporter 추가로 해결되는 문제가 아니다. |
-| Request Log Explorer | 가능하지만 미구현 | Loki는 이 구성에서도 동작한다. 막히는 쪽은 Alloy다. Alloy는 Docker API 권한 없이 target manifest 파일만 읽고, 그 manifest 생산자는 admin-sidecar에만 있다. static 구성에는 admin-sidecar가 없어 지금은 채울 주체가 없다. |
+| Request Log Explorer | 제공 | Gateway 요청 이벤트는 앱 소유 JSONL에서 수집한다. Docker/admin-sidecar와 NVIDIA runtime이 필요하지 않다. 컨테이너 원본 로그 패널은 static에서 데이터가 없는 것이 정상이다. |
 | Usage Today | 판단에 따른 제외 | 6개 panel 중 4개(모델별 요청량, rejected request, upstream 오류)는 Gateway metric만 써서 동작한다. 나머지 2개가 위 exporter를 전제해 영구 No Data가 되므로 상시 빈 panel을 남기지 않는 쪽을 택했다. |
 
-Request Log Explorer는 기술적 한계가 아니라 미구현 gap이다. static 구성에서 요청 로그 조회가 필요해지면 static용 log target manifest 생산자를 추가하는 것이 작업 범위다.
+static Metal에서는 Request Log Explorer의 요청·API 오류·readiness 패널을 사용한다.
+vLLM/container 원본 패널은 full-stack의 best-effort Docker 로그 경로에만 해당한다.
 
 `Usage Today`의 4개 panel이 필요하면 override의 `volumes`에 `usage_today.json` 한 줄을 추가한다.
 
@@ -351,13 +352,13 @@ Request ID / Error Code 확인
 | Prometheus (full-stack) | `ops/prometheus/prometheus.yml` | scrape target과 rule 연결. 생성물 |
 | Prometheus (static Metal) | `ops/prometheus/prometheus.macos-metal.yml` | Gateway와 MLX exporter scrape 설정. 생성물 |
 | Recording Rule | `ops/prometheus/rules/model_runtime.rules.yml` | Runtime·GPU 운영 지표 계산 |
-| MLX exporter 계약 | `configs/macos_mlx_runtime.yaml` | native runtime의 metric 포트·경로와 `runtime_backend` label |
+| MLX exporter 계약 | `configs/macos_mlx_runtime.yaml`, `configs/deployment_targets.yaml` | native runtime의 metric 포트·경로와 target의 `runtime_backend` label |
 | Grafana Dashboard | `ops/grafana/dashboards/*.json` | 운영 Dashboard 정의 |
 | Grafana Provisioning | `ops/grafana/provisioning/` | datasource와 Dashboard provisioning |
 | Loki | `ops/loki/loki-config.yml` | 로그 저장과 retention 설정 |
-| Alloy | `ops/alloy/config.alloy` | 컨테이너 로그 수집·전달 |
+| Alloy | `ops/alloy/config.alloy`, `ops/alloy/request-events.alloy` | 앱 요청 이벤트와 target별 컨테이너 진단 로그 수집·전달 |
 | Compose (full-stack) | `ops/compose/full-stack.private-network.yaml` | 모니터링 서비스 실행 구성 |
-| Compose (static Metal) | `ops/compose/overrides/static.macos-metal.yaml` | MLX exporter·Prometheus·Grafana 실행 구성 |
+| Compose (static Metal) | `ops/compose/overrides/static.macos-metal.yaml` | MLX exporter·Prometheus·Loki·Alloy·Grafana 실행 구성 |
 
 생성되는 Prometheus 설정과 모니터링 projection은 Source of Truth를 기준으로 관리한다. 설정 구조와 generated artifact는 [5. 설정 체계와 Source of Truth](./05_configuration.md)에서 설명한다.
 

@@ -3,6 +3,10 @@ services:
     # Mac 로컬 경로는 make build-image 산출물을 사용한다. Registry image를 쓰는
     # 운영자는 PLATFORM_PULL_POLICY로 정책을 명시할 수 있다.
     pull_policy: ${PLATFORM_PULL_POLICY:-never}
+    environment:
+      REQUEST_EVENT_LOG_DIR: /var/log/ai-model-serving
+    volumes:
+      - ../../.runtime/request-events:/var/log/ai-model-serving
 
   mlx-metrics-exporter:
     image: ${PLATFORM_IMAGE:?Set PLATFORM_IMAGE to a tested platform image tag}
@@ -37,10 +41,33 @@ services:
         target: admin_api_key
     expose: ["9090"]
 
+  loki:
+    image: ${LOKI_IMAGE:?Set LOKI_IMAGE in the operator env}
+    restart: unless-stopped
+    user: 0:0
+    command: [-config.file=/etc/loki/loki-config.yml, -config.expand-env=true]
+    environment:
+      LOKI_RETENTION_HOURS: ${LOKI_RETENTION_HOURS:-168}
+    volumes:
+      - ../loki/loki-config.yml:/etc/loki/loki-config.yml:ro
+      - ../../.runtime/loki:/loki
+    expose: ["3100"]
+
+  alloy:
+    image: ${ALLOY_IMAGE:?Set ALLOY_IMAGE in the operator env}
+    restart: unless-stopped
+    user: 0:0
+    depends_on: [loki]
+    command: [run, --storage.path=/var/lib/alloy/data, /etc/alloy/config.alloy]
+    volumes:
+      - ../alloy/request-events.alloy:/etc/alloy/config.alloy:ro
+      - ../../.runtime/alloy:/var/lib/alloy/data
+      - ../../.runtime/request-events:/var/lib/alloy/request-events:ro
+
   grafana:
     image: ${GRAFANA_IMAGE:?Set GRAFANA_IMAGE in the operator env}
     restart: unless-stopped
-    depends_on: [prometheus]
+    depends_on: [prometheus, loki]
     # gateway와 같다 — 실효값은 운영자 .env의 GRAFANA_BIND_ADDR가 결정하고,
     # 아래 loopback은 아무것도 선언하지 않았을 때의 fallback이다.
     ports:
@@ -51,30 +78,12 @@ services:
       GF_USERS_ALLOW_SIGN_UP: "false"
       GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/macos_metal_runtime.json
     volumes:
-      # provisioning 디렉터리를 통째로 마운트하지 않고 파일 단위로 건다.
-      # 빠진 것들은 사정이 서로 달라 아래에 구분해 적는다.
-      #
-      # (1) 이 구성에서 불가능 -- GPU Capacity and OOM Risk.
-      #     DCGM은 NVIDIA 전용이라 Apple Silicon에 대응물이 없고, Main runtime이
-      #     vLLM이 아니라 native MLX-VLM이라 vllm:* metric도 존재하지 않는다.
-      #     exporter를 추가한다고 해결되는 문제가 아니다.
-      #
-      # (2) 가능하지만 아직 부품이 없음 -- Request Log Explorer(Loki).
-      #     Loki 자체는 여기서도 그냥 뜬다. 막히는 쪽은 Alloy다. Alloy는 Docker API
-      #     권한 없이 target manifest 파일만 읽는 설계이고, 그 manifest를 만드는
-      #     코드(log_target_manifest.build_targets)는 admin-sidecar에만 있다.
-      #     static 구성에는 admin-sidecar가 없어서 지금은 채울 사람이 없다.
-      #     즉 "못 한다"가 아니라 "아직 안 만들었다"이며, 필요해지면 static용
-      #     manifest 생산자를 만드는 것이 작업 범위다.
-      #
-      # (3) 판단해서 뺌 -- Usage Today.
-      #     6개 panel 중 4개(모델별 요청량, rejected request, upstream 오류)는
-      #     Gateway metric만 써서 여기서도 동작한다. 나머지 2개(GPU Workload,
-      #     Token Throughput)가 (1)의 exporter를 전제해 영구 No Data가 된다.
-      #     상시 빈 panel을 남기지 않는 쪽을 택했을 뿐이니, 4개가 필요하면
-      #     아래에 usage_today.json 한 줄을 더하면 된다.
+      # DCGM/vLLM 전용 Dashboard는 제외한다. 요청 로그는 앱 소유 JSONL 경로라
+      # NVIDIA runtime이나 admin-sidecar 없이도 같은 Explorer를 사용한다.
       - ../grafana/dashboards/macos_metal_runtime.json:/var/lib/grafana/dashboards/macos_metal_runtime.json:ro
+      - ../grafana/dashboards/request_log_explorer.json:/var/lib/grafana/dashboards/request_log_explorer.json:ro
       - ../grafana/provisioning/datasources/prometheus.yml:/etc/grafana/provisioning/datasources/prometheus.yml:ro
+      - ../grafana/provisioning/datasources/loki.yml:/etc/grafana/provisioning/datasources/loki.yml:ro
       - ../grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
 
 secrets:

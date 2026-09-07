@@ -29,6 +29,7 @@ services:
       STRICT_ADMIN_ENDPOINT_SECURITY: '${STRICT_ADMIN_ENDPOINT_SECURITY:-true}'
       ADMIN_SIDECAR_URL: http://admin-sidecar:8080
       GATEWAY_RUNTIME_STATE_PATH: /var/lib/ai-model-serving/runtime-state.json
+      REQUEST_EVENT_LOG_DIR: /var/log/ai-model-serving
       # 배포가 결정한 deferred runtime 목록. Gateway가 기동 시 한 번 적용하며,
       # 상태 파일 자체는 Gateway만 쓴다(두 writer 소유권 충돌 방지).
       DEPLOY_DEFERRED_RUNTIMES: ${DEPLOY_DEFERRED_RUNTIMES:-}
@@ -50,6 +51,7 @@ services:
       # — 2026-07-21 장애의 근본 원인.
     volumes:
     - ../../.runtime/gateway:/var/lib/ai-model-serving
+    - ../../.runtime/request-events:/var/log/ai-model-serving
   risk-adapter:
     image: ${PLATFORM_IMAGE:?Set PLATFORM_IMAGE to a tested platform image tag}
     restart: unless-stopped
@@ -71,8 +73,11 @@ services:
       ADMIN_API_KEY_REQUIRED: '${ADMIN_API_KEY_REQUIRED:-true}'
       ADMIN_ENDPOINTS_INTERNAL_ONLY: '${ADMIN_ENDPOINTS_INTERNAL_ONLY:-false}'
       STRICT_ADMIN_ENDPOINT_SECURITY: '${STRICT_ADMIN_ENDPOINT_SECURITY:-true}'
+      REQUEST_EVENT_LOG_DIR: /var/log/ai-model-serving
     expose:
     - '9405'
+    volumes:
+    - ../../.runtime/request-events:/var/log/ai-model-serving
   main-llm-vllm:
     # 이 image/command는 최초 `docker compose up` 부트스트랩 전용 placeholder다.
     # admin-sidecar가 뜬 뒤에는 configs/main_model_profiles.yaml의 active profile
@@ -365,9 +370,8 @@ services:
     expose:
     - '9090'
   # -------------------------------------------------------------------------
-  # Loki + Alloy — 요청 단위 로그 조회(누가/언제/무엇을/어떻게)용. Alloy는
-  # docker.sock을 쓰지 않는다. admin-sidecar만 Compose metadata와 Docker LogPath를
-  # target manifest로 투영하고, Alloy는 그 manifest와 docker json-file만 읽는다.
+  # Loki + Alloy — 앱 요청 이벤트는 고정 JSONL, third-party/container 진단 로그는
+  # Docker LogPath manifest에서 읽는다. Alloy에는 docker.sock을 주지 않는다.
   # 둘 다 어떤 앱 서비스의 depends_on에도 안 걸려 있어(Grafana만 datasource로
   # 참조), 죽어도 다른 서비스 기동에 영향 없다.
   # -------------------------------------------------------------------------
@@ -401,6 +405,7 @@ services:
     - /var/lib/docker/containers:/var/lib/docker/containers:ro
     - ../../.runtime/alloy:/var/lib/alloy/data
     - ../../.runtime/log-targets:/var/lib/alloy/targets:ro
+    - ../../.runtime/request-events:/var/lib/alloy/request-events:ro
     ports: []
   grafana:
     image: ${GRAFANA_IMAGE:?Set GRAFANA_IMAGE to a tested Grafana image tag}

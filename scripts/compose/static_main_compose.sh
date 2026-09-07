@@ -3,6 +3,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT"
+source scripts/lib/gateway_runtime_state.sh
 
 PYTHON_BIN="${PYTHON_BIN:-$(command -v python3.12 || command -v python3 || command -v python)}"
 ENV_FILE="${ENV_FILE:-.env}"
@@ -88,6 +89,14 @@ for name in sys.argv[1:]:
       exit 2
     fi
   done
+fi
+
+if [[ "${1:-}" == "up" ]]; then
+  PLATFORM_IMAGE_EFFECTIVE="${PLATFORM_IMAGE:-$("$PYTHON_BIN" scripts/env/env_get.py --env-file "$ENV_FILE_ABS" PLATFORM_IMAGE)}"
+  if ! ensure_platform_runtime_dir "$REQUEST_EVENT_LOG_DIR_RELPATH" "$PLATFORM_IMAGE_EFFECTIVE"; then
+    echo "[static-compose] request event log directory is not usable" >&2
+    exit 2
+  fi
 fi
 exec docker compose \
   --project-name "$STATIC_COMPOSE_PROJECT_NAME" \

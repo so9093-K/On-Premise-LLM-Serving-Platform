@@ -9,8 +9,11 @@
 # 한다(ops/compose/full-stack.private-network.yaml의 `../../.runtime/gateway`).
 # 배포에서는 release 디렉터리의 `.runtime`이 배포 루트로 symlink되어 같은 곳을 가리킨다.
 GATEWAY_RUNTIME_DIR_RELPATH=".runtime/gateway"
+REQUEST_EVENT_LOG_DIR_RELPATH=".runtime/request-events"
 
-# 이 디렉터리는 컨테이너 안에서 non-root로 도는 Gateway가 유일하게 쓰는 곳이다.
+# 이 함수로 준비하는 디렉터리는 platform image의 non-root 프로세스가 쓰는 곳이다.
+# Gateway state는 Gateway만, request event 디렉터리는 Gateway/Risk Adapter가 각자
+# 서비스별 파일을 쓴다.
 # bind mount라 소유권은 호스트가 정하는데, 이미지 안의 uid와 호스트 uid 사이에는
 # 아무 관계가 없다. 그래서 "누가 먼저 만들었나"가 소유권을 결정해 버린다:
 #
@@ -20,7 +23,7 @@ GATEWAY_RUNTIME_DIR_RELPATH=".runtime/gateway"
 # 존재 여부만 확인하면 이미 잘못된 소유권으로 굳은 디렉터리를 그대로 통과시킨다.
 # 그래서 매번 소유권까지 단언한다. uid는 하드코딩하지 않고 이미지에게 직접 묻는다
 # -- 박아두면 이미지가 실행 사용자를 바꾸는 순간 다시 어긋난다.
-ensure_gateway_runtime_dir() {
+ensure_platform_runtime_dir() {
   local dir="$1"
   local image="$2"
   local parent name owner
@@ -38,11 +41,16 @@ ensure_gateway_runtime_dir() {
 
   # 호스트 사용자에게는 chown 권한이 없을 수 있으므로 컨테이너의 root로 단언한다.
   if ! docker run --rm -u 0:0 -v "${parent}:/mnt" --entrypoint sh "${image}" \
-    -c "mkdir -p /mnt/${name} && chown ${owner} /mnt/${name}"; then
+    -c "mkdir -p /mnt/${name} && chown -R ${owner} /mnt/${name}"; then
     echo "[runtime-state] ERROR: failed to prepare ${dir} for ${owner}" >&2
     return 1
   fi
   echo "[runtime-state] ${dir} owned by ${owner}"
+}
+
+# 기존 호출부와 이력에서 쓰는 이름은 Gateway state 경로용 별칭으로 유지한다.
+ensure_gateway_runtime_dir() {
+  ensure_platform_runtime_dir "$@"
 }
 
 # Gateway는 콤마로 구분된 runtime key 목록을 읽는다. 형식을 호출부마다 다시 만들면

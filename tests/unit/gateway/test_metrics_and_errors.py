@@ -327,6 +327,29 @@ def test_access_log_middleware_emits_readiness_dependency_summary():
     assert "MODEL_UNAVAILABLE" in completed[-1]["readiness_summary"]
 
 
+def test_access_log_uses_configured_application_file_without_stdout_duplicate(
+    monkeypatch, tmp_path
+):
+    """Compose의 앱 소유 로그 경로가 요청 이벤트의 단일 수집 원본이다."""
+    event_log = tmp_path / "gateway.jsonl"
+    monkeypatch.setenv("REQUEST_EVENT_LOG_DIR", str(tmp_path))
+    stream = io.StringIO()
+    handler = logging.StreamHandler(stream)
+    logger = logging.getLogger("ai_model_serving.gateway")
+    logger.addHandler(handler)
+    try:
+        response = TestClient(create_gateway_app(settings(), FakeGatewayClients())).get("/health")
+    finally:
+        logger.removeHandler(handler)
+
+    assert response.status_code == 200
+    records = [json.loads(line) for line in event_log.read_text(encoding="utf-8").splitlines()]
+    assert records[-1]["event"] == "http_request_completed"
+    assert records[-1]["service"] == "gateway"
+    assert records[-1]["route"] == "/health"
+    assert "http_request_completed" not in stream.getvalue()
+
+
 def test_error_response_headers_strip_crlf_from_client_supplied_message():
     # message에는 클라이언트가 보낸 값이 그대로 들어갈 수 있다(예: 잘못된
     # response_format.type이 에러 메시지에 그대로 echo됨 — chat_response_format.py 참고).

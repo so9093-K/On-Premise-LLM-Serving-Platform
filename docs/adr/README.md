@@ -1,6 +1,6 @@
 # Architectural Decision Records
 
-`이 디렉터리(`docs/adr/`)는 프로젝트의 **canonical decision record**다.
+이 디렉터리(`docs/adr/`)는 프로젝트의 **canonical decision record**다.
 
 과거 결정의 맥락과 이유를 보존하고, 운영 정책 변경이 어떤 결정에 근거하는지 추적할 수 있도록 유지한다. 이 README는 탐색용 index와 legacy D-xxx mapping을 함께 제공한다.
 

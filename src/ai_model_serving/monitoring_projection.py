@@ -6,7 +6,11 @@ from ai_model_serving.domain import ModelRegistry
 
 
 def macos_metal_prometheus_config_document(
-    *, monitoring: dict[str, Any], services: dict[str, Any], macos_runtime: dict[str, Any]
+    *,
+    monitoring: dict[str, Any],
+    services: dict[str, Any],
+    macos_runtime: dict[str, Any],
+    runtime_backend: str,
 ) -> dict[str, Any]:
     """Build the Prometheus configuration for the static Metal Compose project.
 
@@ -46,7 +50,7 @@ def macos_metal_prometheus_config_document(
                         ],
                         "labels": {
                             "model": str(macos_runtime["public_model"]),
-                            "runtime_backend": str(runtime["backend"]),
+                            "runtime_backend": runtime_backend,
                         },
                     }
                 ],

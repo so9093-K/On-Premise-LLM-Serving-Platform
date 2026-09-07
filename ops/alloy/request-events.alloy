@@ -1,0 +1,33 @@
+// Static target에는 admin-sidecar와 Docker LogPath discovery가 없다. 제품 기능인
+// 요청 이벤트만 앱 소유 고정 JSONL에서 읽고, 컨테이너 오류는 docker logs 또는
+// native runtime supervisor에서 best-effort로 확인한다.
+loki.source.file "request_events" {
+  targets = [
+    {__path__ = "/var/lib/alloy/request-events/*.jsonl", job = "application"},
+  ]
+  forward_to    = [loki.process.request_events.receiver]
+  tail_from_end = false
+
+  file_match {
+    enabled     = true
+    sync_period = "10s"
+  }
+}
+
+loki.process "request_events" {
+  forward_to = [loki.write.local.receiver]
+
+  stage.json {
+    expressions = {service = "service"}
+  }
+
+  stage.labels {
+    values = {service = "service"}
+  }
+}
+
+loki.write "local" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+}
