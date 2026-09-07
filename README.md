@@ -12,7 +12,7 @@ GPU 기반 AI 모델을 **OpenAI-compatible API**로 제공하고, Chat, Embeddi
 - Main Model 시작·중지·전환
 - GPU 기반 vLLM 모델 실행
 - Prometheus / Grafana / Loki 기반 관측
-- GitHub Actions 기반 macOS·Ubuntu app/contract 검증과 Ubuntu GitLab 이미지 빌드·GPU 배포
+- 재현 가능한 애플리케이션 검증, 이미지 빌드와 GPU 배포
 
 ## 시스템 구성
 
@@ -28,15 +28,7 @@ Gateway를 중심으로 모델 Runtime, Risk 처리, 운영 제어와 관측 서
 
 ### 로컬 애플리케이션 실행
 
-Gateway와 Risk Adapter를 로컬 Python 프로세스로 실행한다. API, 인증, 요청 검증과 애플리케이션 로직을 확인할 때 사용한다. Python `>=3.12,<3.15`가 필요하다. [`.python-version`](.python-version)은 Linux 운영 기준 patch를 기록하며, macOS 개발은 같은 지원 minor의 설치 가능한 patch를 사용한다.
-
-macOS에서 지원 Python이 없다면 먼저 설치한다.
-
-```bash
-brew install python@3.12
-```
-
-macOS와 Ubuntu에서 같은 개발 환경 준비 명령을 사용한다. `setup-dev`는 기존 `.venv`를 재사용하며 `.env`, 모델 캐시, 실행 중인 서비스는 변경하지 않는다. Docker와 GPU는 필요하지 않다.
+Gateway와 Risk Adapter를 로컬 Python 프로세스로 실행한다. Python `>=3.12,<3.15`가 필요하며 Docker와 GPU는 필요하지 않다. `setup-dev`는 기존 `.venv`를 재사용하고 runtime 설정과 실행 중인 서비스를 변경하지 않는다.
 
 ```bash
 make setup-dev
@@ -44,7 +36,7 @@ make validate
 make test
 ```
 
-Compose·배포 등 기존 운영 shell helper를 실행할 때는 Bash 4 이상이 별도로 필요하다. `make doctor-dev`로 실제 선택된 Python과 Bash를 확인할 수 있다.
+환경별 Python·Bash 준비와 진단 방법은 [로컬 개발과 빌드](docs/07_local_dev_build.md)에서 설명한다.
 
 애플리케이션을 실행할 때 환경 파일을 별도로 준비한다. `.env`가 이미 있다면 생성 단계를 생략한다.
 
@@ -60,11 +52,9 @@ make ready-local
 make stop
 ```
 
-### 전체 GPU 환경 실행 (Linux x86_64 / NVIDIA)
+### 전체 GPU 환경 실행
 
-Gateway와 모델 Runtime, Risk Adapter, 모니터링 서비스를 Docker Compose로 함께 실행한다. Docker, NVIDIA GPU, NVIDIA Container Toolkit과 모델 다운로드에 필요한 Hugging Face credential을 사용한다.
-
-`make first-run`은 native Linux amd64 Docker daemon과 접근 가능한 NVIDIA GPU를 요구하는 CUDA 운영 경로다. Unified vLLM image build도 host OS 이름이 아니라 같은 Docker daemon target을 요구한다. macOS에서는 app/contract와 일반 Platform image를 확인할 수 있지만, M5 Metal runtime은 별도 qualification 대상이며 이 절차가 대신하지 않는다.
+Gateway와 모델 Runtime, Risk Adapter, 모니터링 서비스를 Docker Compose로 함께 실행한다. 이 경로는 Linux amd64, Docker, NVIDIA GPU·Container Toolkit과 모델 다운로드 credential을 사용한다. `first-run`은 필요한 조건을 먼저 확인한 뒤 환경과 이미지를 준비한다.
 
 소스 저장소를 처음 구성하는 경우:
 
@@ -134,21 +124,7 @@ Embedding, Retrieval, Risk Detection, Streaming, 인증 방식과 전체 요청�
 
 ## 개발과 배포
 
-GitHub의 `main` push와 Pull Request는 GitHub Actions에서 macOS·Ubuntu 정적 검증과 테스트를 실행한다. 워크플로는 로컬과 같은 `make setup-dev`, `make validate`, `make test`를 사용하며 Docker image는 만들지 않는다. Ubuntu 운영 환경의 GitLab은 clean commit의 Linux amd64 image 빌드·digest 수집과 GPU 배포를 담당한다. 로컬 image build는 변경 중인 working tree를 확인하기 위한 경로이며 GitLab 운영 artifact를 대체하지 않는다.
-
-```text
-Change
-  ↓
-Validate
-  ↓
-Test
-  ↓
-Build
-  ↓
-Deploy
-```
-
-Platform Image는 애플리케이션 변경을 반영하고, 모델 실행 환경에 영향을 주는 변경은 Unified vLLM Image 빌드 대상으로 이어질 수 있다. 배포는 생성된 immutable image digest를 기준으로 수행한다.
+CI의 애플리케이션 검증은 로컬과 같은 `setup-dev`, `validate`, `test` 진입점을 사용한다. 운영 이미지는 clean commit에서 만들고 immutable digest로 배포한다. 로컬 image는 변경 중인 코드를 확인하는 개발 산출물이며 운영 artifact를 대체하지 않는다.
 
 상세 Pipeline과 실행 조건은 [CI/CD](docs/09_cicd.md), Release 적용과 복구 절차는 [배포](docs/10_deployment.md)에서 설명한다.
 
@@ -159,7 +135,7 @@ Platform Image는 애플리케이션 변경을 반영하고, 모델 실행 환�
 | 목적 | 명령 |
 |---|---|
 | 개발 환경 준비 / 도구 진단 | `make setup-dev` / `make doctor-dev` |
-| Linux dependency lock 갱신 | `make lock-linux` |
+| 운영 dependency lock 갱신 | `make lock-linux` |
 | 로컬 애플리케이션 시작 / 종료 | `make start` / `make stop` |
 | 로컬 상태 확인 | `make ready-local` |
 | 전체 환경 시작 / 종료 | `make compose-up` / `make compose-down` |
