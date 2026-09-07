@@ -29,29 +29,65 @@ fi
 export COMPOSE_PROJECT_NAME="$STATIC_COMPOSE_PROJECT_NAME"
 export DEPLOYMENT_TARGET
 export GATEWAY_RUNTIME_ENV_FILE
-COMPOSE_FILES=(-f ops/compose/static-main.external-runtime.yaml)
-if [[ "$DEPLOYMENT_TARGET" == "macos-metal-static" ]]; then
-  COMPOSE_FILES+=(-f ops/compose/overrides/static.macos-metal.yaml)
+# Compose 파일 목록은 configs/deployment_targets.yaml이 소유한다. 노출 진단도 같은
+# 목록을 읽으므로 여기에 target 이름을 다시 적지 않는다.
+COMPOSE_FILES=()
+COMPOSE_FILE_PATHS=()
+while IFS= read -r compose_file; do
+  [[ -n "$compose_file" ]] || continue
+  COMPOSE_FILES+=(-f "$compose_file")
+  COMPOSE_FILE_PATHS+=("$compose_file")
+done < <("$PYTHON_BIN" -c '
+import sys
+sys.path.insert(0, "src")
+from pathlib import Path
+from ai_model_serving.deployment_target import load_deployment_target
+target = load_deployment_target(Path("configs/deployment_targets.yaml"), sys.argv[1])
+if target.control_mode != "static":
+    raise SystemExit(f"DEPLOYMENT_TARGET {target.target_id!r} is not a static target")
+print("\n".join(target.compose_files))
+' "$DEPLOYMENT_TARGET")
 
-  # 이 override의 Prometheus는 Gateway /metrics를 admin bearer token으로 긁는다
-  # (ADMIN_API_KEY_REQUIRED=true일 때 필요). Compose secret은 파일이 없으면
-  # 어떤 하위 명령이든 실패하므로 기동 전에 존재를 보장한다.
-  PROM_SECRET="$ROOT/.runtime/prometheus/admin_api_key"
-  if [[ ! -s "$PROM_SECRET" ]]; then
-    echo "[static-compose] $PROM_SECRET 이 없거나 비어 있습니다. .env는 유지하고 runtime secret만 복구합니다."
-    "$PYTHON_BIN" scripts/config/setup_env.py --sync-runtime-secrets --output "$ENV_FILE_ABS" || true
-  fi
-  if [[ ! -s "$PROM_SECRET" ]]; then
-    if [[ "${1:-}" == "down" ]]; then
-      # 정지 경로는 secret 내용을 쓰지 않는다. 복구 실패가 teardown을 막지 않게 한다.
-      mkdir -p "$(dirname "$PROM_SECRET")"
-      printf 'unset\n' > "$PROM_SECRET"
-      chmod 0644 "$PROM_SECRET"
-    else
-      echo "[static-compose] $PROM_SECRET 복구에 실패했습니다. $ENV_FILE_ABS 의 ADMIN_API_KEY 또는 ADMIN_API_KEYS를 확인하세요." >&2
+if [[ ${#COMPOSE_FILES[@]} -eq 0 ]]; then
+  echo "[static-compose] $DEPLOYMENT_TARGET 의 compose_files를 읽지 못했습니다." >&2
+  exit 2
+fi
+
+# 어떤 secret 파일이 필요한지는 Compose 정의가 소유한다. secret 이름이나 경로를
+# 여기 다시 적으면 Compose가 바뀔 때 조용히 어긋난다.
+#
+# `down`은 secret 내용을 읽지 않고 파일이 없어도 성공하므로 정지 경로는 건드리지
+# 않는다 -- 여기서 placeholder를 만들면 그 값이 남아 다음 기동의 bearer token으로
+# 쓰이고 scrape가 조용히 401이 된다.
+if [[ "${1:-}" != "down" ]]; then
+  REQUIRED_SECRET_FILES=()
+  while IFS= read -r secret_file; do
+    [[ -n "$secret_file" ]] || continue
+    REQUIRED_SECRET_FILES+=("$secret_file")
+  done < <("$PYTHON_BIN" -c '
+import sys
+from pathlib import Path
+import yaml
+# Compose는 상대 경로를 첫 compose 파일의 디렉터리 기준으로 해석한다.
+base = Path(sys.argv[1]).parent
+for name in sys.argv[1:]:
+    document = yaml.safe_load(Path(name).read_text(encoding="utf-8")) or {}
+    for spec in (document.get("secrets") or {}).values():
+        source = isinstance(spec, dict) and spec.get("file")
+        if source:
+            print((base / source).resolve())
+' "${COMPOSE_FILE_PATHS[@]}" 2>/dev/null | sort -u)
+
+  for secret_file in "${REQUIRED_SECRET_FILES[@]}"; do
+    if [[ ! -s "$secret_file" ]]; then
+      echo "[static-compose] $secret_file 이 없거나 비어 있습니다. .env는 유지하고 runtime secret만 복구합니다."
+      "$PYTHON_BIN" scripts/config/setup_env.py --sync-runtime-secrets --output "$ENV_FILE_ABS" || true
+    fi
+    if [[ ! -s "$secret_file" ]]; then
+      echo "[static-compose] $secret_file 복구에 실패했습니다. $ENV_FILE_ABS 의 ADMIN_API_KEY 또는 ADMIN_API_KEYS를 확인하세요." >&2
       exit 2
     fi
-  fi
+  done
 fi
 exec docker compose \
   --project-name "$STATIC_COMPOSE_PROJECT_NAME" \

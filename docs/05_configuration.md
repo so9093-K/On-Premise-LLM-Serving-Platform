@@ -56,7 +56,7 @@ YAML 파일은 모델, runtime, 서비스, 보안 정책 같은 **repository-lev
 | Runtime serving 정책 | `configs/model_serving.yaml` | 공통 endpoint, timeout, admission, embedding/risk routing 정의 |
 | Linux Main Model 실행·API profile | `configs/main_model_profiles.yaml` | Sidecar가 전환하는 vLLM command, capability, Gateway 요청 정책 정의 |
 | macOS Main Model 실행·API profile | `configs/macos_mlx_runtime.yaml` | native MLX-VLM package, 모델 revision, 실행 한도와 Gateway 요청 정책 정의 |
-| Deployment target/profile binding | `configs/deployment_targets.yaml` | target별 backend, lifecycle owner, 기능 집합과 Main profile catalog 연결 |
+| Deployment target/profile binding | `configs/deployment_targets.yaml` | target별 backend, lifecycle owner, 기능 집합, Main profile catalog 연결과 **Compose 파일 목록·exposure profile 적용 여부** |
 | GPU resource budget | `configs/gpu_budgets.yaml` | runtime별 GPU budget과 admission 기준 정의 |
 | Service / port registry | `configs/services.yaml` | Compose service 이름, container/host port, bind env, exposure category 정의 |
 | Exposure mode | `configs/exposure_profiles.yaml` | 어떤 서비스를 host에 publish할지 정의 |

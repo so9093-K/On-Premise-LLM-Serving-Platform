@@ -41,6 +41,8 @@ services:
     image: ${GRAFANA_IMAGE:?Set GRAFANA_IMAGE in the operator env}
     restart: unless-stopped
     depends_on: [prometheus]
+    # gateway와 같다 — 실효값은 운영자 .env의 GRAFANA_BIND_ADDR가 결정하고,
+    # 아래 loopback은 아무것도 선언하지 않았을 때의 fallback이다.
     ports:
       - ${GRAFANA_BIND_ADDR:-127.0.0.1}:${GRAFANA_PORT:-9411}:3000
     environment:

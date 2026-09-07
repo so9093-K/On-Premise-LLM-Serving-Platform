@@ -35,6 +35,8 @@ class DeploymentTarget:
     internal_service_token_required: bool
     validation_status: str
     features: frozenset[str]
+    compose_files: tuple[str, ...]
+    exposure_profile_applies: bool
 
     def supports(self, feature: str) -> bool:
         return feature in self.features
@@ -42,6 +44,35 @@ class DeploymentTarget:
     @property
     def controllable(self) -> bool:
         return self.control_mode == "sidecar" and self.lifecycle_owner == "platform"
+
+
+def effective_published_compose_services(
+    target: DeploymentTarget, project_root: Path
+) -> set[str] | None:
+    """Compose service 이름 기준으로 이 target이 실제 host에 공개하는 집합을 반환한다.
+
+    `exposure_profile_applies=True`인 target은 진입점이 EXPOSURE_MODE에 맞는 override를
+    적용하므로 exposure profile이 그대로 기준이다. 이 경우 None을 반환해 호출자가
+    profile을 쓰게 한다.
+
+    static target은 override를 적용하지 않으므로 Compose 파일의 `ports:` 선언이
+    유일한 사실이다. 이 구분이 없으면 노출 진단이 그 target에 존재하지도 않는
+    서비스를 공개된 것으로 보고한다.
+    """
+    if target.exposure_profile_applies:
+        return None
+    published: set[str] = set()
+    for relative in target.compose_files:
+        path = project_root / relative
+        if not path.is_file():
+            continue
+        services = load_yaml_mapping(path).get("services")
+        if not isinstance(services, dict):
+            continue
+        for name, service in services.items():
+            if isinstance(service, dict) and service.get("ports"):
+                published.add(str(name))
+    return published
 
 
 def load_deployment_target(path: Path, target_id: str | None = None) -> DeploymentTarget:
@@ -102,6 +133,42 @@ def load_deployment_target(path: Path, target_id: str | None = None) -> Deployme
         raise RuntimeError(
             f"deployment target {selected!r} main_profile_catalog must be a safe relative path"
         )
+    # compose_files는 static 진입점이 그대로 사용하는 목록이며 노출 진단도 같은 값을
+    # 읽는다. dynamic 진입점은 override를 실행 시점에 조합하므로 이 값을 쓰지 않는다.
+    # 읽는 곳이 없는 선언을 남기지 않도록 static target에서만 요구한다.
+    raw_compose_files = raw.get("compose_files")
+    if control_mode == "static":
+        if not isinstance(raw_compose_files, list) or not raw_compose_files:
+            raise RuntimeError(
+                f"static deployment target {selected!r} requires a non-empty compose_files list"
+            )
+    elif raw_compose_files is not None:
+        raise RuntimeError(
+            f"deployment target {selected!r} must not declare compose_files; "
+            "only static targets consume it"
+        )
+    compose_files: list[str] = []
+    for entry in raw_compose_files or []:
+        if not isinstance(entry, str) or not entry.strip():
+            raise RuntimeError(f"deployment target {selected!r} compose_files entries must be paths")
+        entry_path = Path(entry.strip())
+        if entry_path.is_absolute() or ".." in entry_path.parts:
+            raise RuntimeError(
+                f"deployment target {selected!r} compose_files entries must be safe relative paths"
+            )
+        compose_files.append(entry.strip())
+    exposure_profile_applies = raw.get("exposure_profile_applies")
+    if not isinstance(exposure_profile_applies, bool):
+        raise RuntimeError(
+            f"deployment target {selected!r} exposure_profile_applies must be boolean"
+        )
+    # static 진입점은 exposure override를 적용하지 않는다. 공개 집합을 profile에서
+    # 읽으면 존재하지 않는 서비스를 공개된 것으로 보고하게 되므로 조합을 막는다.
+    if control_mode == "static" and exposure_profile_applies:
+        raise RuntimeError(
+            f"static deployment target {selected!r} cannot set exposure_profile_applies=true"
+        )
+
     expected_owner = "platform" if control_mode == "sidecar" else "external"
     if lifecycle_owner != expected_owner:
         raise RuntimeError(
@@ -136,4 +203,6 @@ def load_deployment_target(path: Path, target_id: str | None = None) -> Deployme
         internal_service_token_required=internal_service_token_required,
         validation_status=validation_status,
         features=features,
+        compose_files=tuple(compose_files),
+        exposure_profile_applies=exposure_profile_applies,
     )

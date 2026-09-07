@@ -7,6 +7,12 @@ targets:
     platform: linux
     runtime_backend: vllm-cuda
     main_profile_catalog: configs/main_model_profiles.yaml
+    # compose_files는 static target만 선언한다. dynamic 진입점(compose_up.sh)은
+    # EXPOSURE_MODE override와 boot override를 실행 시점에 조합하므로 파일 집합의
+    # 소유자가 여기가 아니다. 읽는 곳이 없는 값을 두지 않는다.
+    #
+    # exposure profile의 host_published가 실제 공개 집합을 결정한다.
+    exposure_profile_applies: true
     control_mode: sidecar
     lifecycle_owner: platform
     # Gateway가 Sidecar/Risk Adapter 같은 내부 서비스에 인증 호출을 수행한다.
@@ -28,6 +34,11 @@ targets:
     platform: linux
     runtime_backend: vllm-cuda
     main_profile_catalog: configs/main_model_profiles.yaml
+    compose_files:
+      - ops/compose/static-main.external-runtime.yaml
+    # static 진입점은 exposure override를 적용하지 않는다. 공개 집합은 위 Compose
+    # 파일이 고정하므로 exposure profile을 실제 공개 기준으로 읽으면 안 된다.
+    exposure_profile_applies: false
     control_mode: static
     lifecycle_owner: external
     # external Main runtime만 사용한다. Sidecar/Risk Adapter/Gateway internal control
@@ -49,6 +60,10 @@ targets:
     platform: macos
     runtime_backend: mlx-vlm
     main_profile_catalog: configs/macos_mlx_runtime.yaml
+    compose_files:
+      - ops/compose/static-main.external-runtime.yaml
+      - ops/compose/overrides/static.macos-metal.yaml
+    exposure_profile_applies: false
     control_mode: static
     lifecycle_owner: external
     internal_service_token_required: false

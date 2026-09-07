@@ -6,6 +6,7 @@ from typing import Any
 
 import yaml
 
+from .deployment_target import effective_published_compose_services
 from .settings import AppSettings
 from .settings_parts.env import env as _env
 
@@ -405,6 +406,19 @@ def diagnose_auth(settings: AppSettings, project_root: Path) -> list[AuthFinding
             if audience == "local_only":
                 services_data = _exposure_services(project_root)
                 published_svc_names: list[str] = exposure_profile_data.get("host_published", [])
+                # exposure profile은 full-stack 토폴로지를 기술한다. static target은
+                # override를 적용하지 않으므로, 걸러내지 않으면 그 target에 존재하지도
+                # 않는 서비스를 "0.0.0.0에 바인드됨"으로 보고하는 오탐이 된다.
+                effective_published = effective_published_compose_services(
+                    settings.deployment_target, project_root
+                )
+                if effective_published is not None:
+                    published_svc_names = [
+                        name
+                        for name in published_svc_names
+                        if str(services_data.get(name, {}).get("compose_service", name))
+                        in effective_published
+                    ]
                 open_bind_svcs: list[str] = []
                 for svc_name in published_svc_names:
                     svc = services_data.get(svc_name, {})

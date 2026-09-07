@@ -15,6 +15,12 @@ services:
       - 0.0.0.0
       - --port
       - "9400"
+    # 실효 bind 주소는 운영자 .env의 GATEWAY_BIND_ADDR가 결정한다. 아래 loopback은
+    # 운영자가 아무것도 선언하지 않았을 때만 쓰이는 fallback이며, 세 개의 .env
+    # 템플릿은 모두 이 키를 포함하므로 정식 경로에서는 도달하지 않는다.
+    # configs/services.yaml의 default_bind(0.0.0.0)는 생성되는 exposure override가
+    # 쓰는 값이고, static 진입점은 그 override를 적용하지 않는다.
+    # 현재 실효값은 `make exposure-status`로 확인한다.
     ports:
       - ${GATEWAY_BIND_ADDR:-127.0.0.1}:${GATEWAY_PORT:-9400}:9400
     # Compose interpolation용 .env와 Gateway runtime env는 분리한다. 이 파일은

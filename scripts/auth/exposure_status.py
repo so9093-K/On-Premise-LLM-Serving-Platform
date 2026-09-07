@@ -21,6 +21,10 @@ from scripts.lib.env_path import resolve_env_path  # noqa: E402
 from scripts.compose.resolve_exposure_mode import load_exposure_data, resolve  # noqa: E402
 sys.path.insert(0, str(ROOT / "src"))
 from ai_model_serving.settings_parts.dotenv_parser import load_strict_env_file  # noqa: E402
+from ai_model_serving.deployment_target import (  # noqa: E402
+    effective_published_compose_services,
+    load_deployment_target,
+)
 
 
 
@@ -60,6 +64,22 @@ def main() -> int:
     diagnostics: dict = profile.get("diagnostics", {})
 
     audience = _env_value(env_values, "EXPOSURE_AUDIENCE", "")
+
+    # exposure profile은 full-stack 토폴로지를 기술한다. static 진입점은 override를
+    # 적용하지 않으므로 profile을 그대로 읽으면 그 target에 존재하지도 않는 서비스를
+    # 공개된 것으로 보고한다. 실제 Compose 정의로 걸러 사실만 보고한다.
+    target = load_deployment_target(
+        ROOT / "configs" / "deployment_targets.yaml",
+        _env_value(env_values, "DEPLOYMENT_TARGET", "") or None,
+    )
+    effective = effective_published_compose_services(target, ROOT)
+    not_applicable: list[str] = []
+    if effective is not None:
+        applicable = []
+        for svc_name in published_service_names:
+            compose_service = str(services.get(svc_name, {}).get("compose_service", svc_name))
+            (applicable if compose_service in effective else not_applicable).append(svc_name)
+        published_service_names = applicable
 
     published_services_detail = []
     for svc_name in published_service_names:
@@ -107,8 +127,11 @@ def main() -> int:
         "raw_mode": raw_mode,
         "canonical_mode": canonical_mode,
         "description": profile.get("description", ""),
+        "deployment_target": target.target_id,
+        "exposure_profile_applies": target.exposure_profile_applies,
         "exposure_audience": audience,
         "host_published_services": published_services_detail,
+        "not_published_on_target": not_applicable,
         "diagnostics": diagnostics,
         "remediation": remediation,
     }
@@ -118,6 +141,7 @@ def main() -> int:
         return 0
 
     # 사람이 읽기 쉬운 출력
+    print(f"DEPLOYMENT_TARGET: {target.target_id}")
     print(f"EXPOSURE_MODE: {canonical_mode}")
 
     print(f"설명: {profile.get('description', '').strip()}")
@@ -134,11 +158,26 @@ def main() -> int:
     else:
         print("  (없음 — 모든 서비스가 compose 내부망)")
 
+    if not_applicable:
+        print()
+        print(f"이 target({target.target_id})이 공개하지 않는 profile 항목:")
+        for svc_name in not_applicable:
+            compose_service = str(services.get(svc_name, {}).get("compose_service", svc_name))
+            print(f"  {compose_service:<25} (Compose 정의에 host port 없음)")
+
     print()
     print("Diagnostics:")
     for key, val in diagnostics.items():
         marker = "true " if val else "false"
         print(f"  {key}: {marker}")
+    if not target.exposure_profile_applies:
+        print()
+        print(
+            f"  주의: {target.target_id}는 exposure override를 적용하지 않는다. 위 diagnostics는"
+        )
+        print(
+            "  profile 자체의 성격이며, 이 target의 실제 공개 집합은 위 Host-published 목록이다."
+        )
 
     if remediation:
         print()
