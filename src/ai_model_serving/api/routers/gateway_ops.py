@@ -8,7 +8,7 @@ from fastapi.responses import JSONResponse
 from ...app_kernel import readiness_response
 from ...logging_policy import record_readiness_failure
 from ..endpoint_spec import GATEWAY_ENDPOINTS
-from ...api_examples import LOADING_RESPONSE_EXAMPLE, READY_RESPONSE_EXAMPLE
+from ...api_examples import loading_response_example, ready_response_example
 from ...services.readiness import DependencyProbe, collect_readiness
 from ...services.runtime_state import RuntimeState
 from ...status import NOT_READY, READY
@@ -113,12 +113,12 @@ def build_router(admin_dependencies: list, clients: Any, metrics: Any, settings:
         responses={
             200: {
                 "description": "모든 dependency 준비 완료",
-                "content": {"application/json": {"example": READY_RESPONSE_EXAMPLE}},
+                "content": {"application/json": {"example": ready_response_example()}},
             },
             401: {"description": "Admin Bearer token 필요"},
             503: {
                 "description": "일부 dependency 로딩 중 또는 불가",
-                "content": {"application/json": {"example": LOADING_RESPONSE_EXAMPLE}},
+                "content": {"application/json": {"example": loading_response_example()}},
             },
         },
     )

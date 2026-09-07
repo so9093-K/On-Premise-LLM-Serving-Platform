@@ -10,7 +10,9 @@ services:
     restart: unless-stopped
     command: [python, -m, uvicorn, ai_model_serving.apps.mlx_metrics_exporter:app, --host, 0.0.0.0, --port, "9416"]
     environment:
-      MLX_RUNTIME_METRICS_URL: http://host.docker.internal:9401/metrics
+      # 포트와 경로는 configs/macos_mlx_runtime.yaml이 소유한다. 여기서는 컨테이너가
+      # native runtime을 부르는 host 이름만 넘긴다.
+      MLX_RUNTIME_METRICS_HOST: host.docker.internal
     extra_hosts:
       - host.docker.internal:host-gateway
     expose: ["9416"]
@@ -28,6 +30,11 @@ services:
     volumes:
       # 모든 상대 bind 경로는 첫 compose 파일의 ops/compose를 기준으로 해석된다.
       - ../prometheus/prometheus.macos-metal.yml:/etc/prometheus/prometheus.yml:ro
+    # ADMIN_API_KEY_REQUIRED=true이면 Gateway /metrics가 admin token을 요구한다.
+    # Prometheus는 설정 파일에서 env를 확장하지 못하므로 full-stack과 같이 파일로 받는다.
+    secrets:
+      - source: prometheus_admin_api_key
+        target: admin_api_key
     expose: ["9090"]
 
   grafana:
@@ -42,6 +49,33 @@ services:
       GF_USERS_ALLOW_SIGN_UP: "false"
       GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/macos_metal_runtime.json
     volumes:
-      - ../grafana/dashboards:/var/lib/grafana/dashboards:ro
-      - ../grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
+      # provisioning 디렉터리를 통째로 마운트하지 않고 파일 단위로 건다.
+      # 빠진 것들은 사정이 서로 달라 아래에 구분해 적는다.
+      #
+      # (1) 이 구성에서 불가능 -- GPU Capacity and OOM Risk.
+      #     DCGM은 NVIDIA 전용이라 Apple Silicon에 대응물이 없고, Main runtime이
+      #     vLLM이 아니라 native MLX-VLM이라 vllm:* metric도 존재하지 않는다.
+      #     exporter를 추가한다고 해결되는 문제가 아니다.
+      #
+      # (2) 가능하지만 아직 부품이 없음 -- Request Log Explorer(Loki).
+      #     Loki 자체는 여기서도 그냥 뜬다. 막히는 쪽은 Alloy다. Alloy는 Docker API
+      #     권한 없이 target manifest 파일만 읽는 설계이고, 그 manifest를 만드는
+      #     코드(log_target_manifest.build_targets)는 admin-sidecar에만 있다.
+      #     static 구성에는 admin-sidecar가 없어서 지금은 채울 사람이 없다.
+      #     즉 "못 한다"가 아니라 "아직 안 만들었다"이며, 필요해지면 static용
+      #     manifest 생산자를 만드는 것이 작업 범위다.
+      #
+      # (3) 판단해서 뺌 -- Usage Today.
+      #     6개 panel 중 4개(모델별 요청량, rejected request, upstream 오류)는
+      #     Gateway metric만 써서 여기서도 동작한다. 나머지 2개(GPU Workload,
+      #     Token Throughput)가 (1)의 exporter를 전제해 영구 No Data가 된다.
+      #     상시 빈 panel을 남기지 않는 쪽을 택했을 뿐이니, 4개가 필요하면
+      #     아래에 usage_today.json 한 줄을 더하면 된다.
+      - ../grafana/dashboards/macos_metal_runtime.json:/var/lib/grafana/dashboards/macos_metal_runtime.json:ro
+      - ../grafana/provisioning/datasources/prometheus.yml:/etc/grafana/provisioning/datasources/prometheus.yml:ro
       - ../grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
+
+secrets:
+  # full-stack과 같은 파일을 쓴다. static_main_compose.sh가 기동 전 존재를 보장한다.
+  prometheus_admin_api_key:
+    file: ../../.runtime/prometheus/admin_api_key

@@ -183,6 +183,7 @@ Grafana Dashboard는 운영 목적에 따라 구분된다.
 | **GPU Capacity and OOM Risk** | GPU 용량, OOM/재시작, Queue, KV Cache, Token 처리량, 컨테이너 자원 확인 |
 | **Usage Today** | GPU workload, 모델별 요청량, rejected request, upstream 오류, Token 처리량 확인 |
 | **Request Log Explorer** | 요청 로그, API 오류, Readiness 실패, Runtime 로그 검색 |
+| **macOS Metal Runtime** | native MLX-VLM runtime의 load 상태, in-flight, queue, prefill/decode 처리량, peak memory 확인 |
 
 기본 Grafana Home Dashboard는 `GPU Capacity and OOM Risk`로 구성된다.
 
@@ -192,8 +193,30 @@ Dashboard JSON은 repository에서 관리한다.
 ops/grafana/dashboards/
 ├─ gpu_capacity_and_oom_risk.json
 ├─ usage_today.json
-└─ request_log_explorer.json
+├─ request_log_explorer.json
+└─ macos_metal_runtime.json
 ```
+
+### Dashboard와 실행 구성의 대응
+
+Dashboard는 자신이 쓰는 exporter가 그 Compose project에 있을 때만 의미가 있다. Grafana provisioning은 실행 구성별로 필요한 파일만 마운트한다.
+
+| 실행 구성 | 제공 datasource | provisioning되는 Dashboard |
+|---|---|---|
+| full-stack (`ops/compose/full-stack.private-network.yaml`) | Prometheus, Loki | GPU Capacity and OOM Risk, Usage Today, Request Log Explorer |
+| static Metal (`ops/compose/overrides/static.macos-metal.yaml`) | Prometheus | macOS Metal Runtime |
+
+static Metal 구성에서 빠진 Dashboard는 사정이 서로 다르다. 셋을 구분한다.
+
+| Dashboard | 상태 | 이유 |
+|---|---|---|
+| GPU Capacity and OOM Risk | 이 구성에서 불가능 | DCGM은 NVIDIA 전용이라 Apple Silicon에 대응물이 없고, Main runtime이 vLLM이 아니라 native MLX-VLM이라 `vllm:*` metric도 존재하지 않는다. exporter 추가로 해결되는 문제가 아니다. |
+| Request Log Explorer | 가능하지만 미구현 | Loki는 이 구성에서도 동작한다. 막히는 쪽은 Alloy다. Alloy는 Docker API 권한 없이 target manifest 파일만 읽고, 그 manifest 생산자는 admin-sidecar에만 있다. static 구성에는 admin-sidecar가 없어 지금은 채울 주체가 없다. |
+| Usage Today | 판단에 따른 제외 | 6개 panel 중 4개(모델별 요청량, rejected request, upstream 오류)는 Gateway metric만 써서 동작한다. 나머지 2개가 위 exporter를 전제해 영구 No Data가 되므로 상시 빈 panel을 남기지 않는 쪽을 택했다. |
+
+Request Log Explorer는 기술적 한계가 아니라 미구현 gap이다. static 구성에서 요청 로그 조회가 필요해지면 static용 log target manifest 생산자를 추가하는 것이 작업 범위다.
+
+`Usage Today`의 4개 panel이 필요하면 override의 `volumes`에 `usage_today.json` 한 줄을 추가한다.
 
 운영 Dashboard 변경은 JSON source를 기준으로 반영한다. Grafana UI에서 실험한 변경을 유지할 경우 JSON을 export해 repository에 반영한다.
 
@@ -325,13 +348,16 @@ Request ID / Error Code 확인
 | 영역 | 주요 파일 | 역할 |
 |---|---|---|
 | Prometheus / live metric 검증 | `configs/monitoring.yaml` | scrape 설정과 필수 service metric 정의 |
-| Prometheus | `ops/prometheus/prometheus.yml` | scrape target과 rule 연결 |
+| Prometheus (full-stack) | `ops/prometheus/prometheus.yml` | scrape target과 rule 연결. 생성물 |
+| Prometheus (static Metal) | `ops/prometheus/prometheus.macos-metal.yml` | Gateway와 MLX exporter scrape 설정. 생성물 |
 | Recording Rule | `ops/prometheus/rules/model_runtime.rules.yml` | Runtime·GPU 운영 지표 계산 |
+| MLX exporter 계약 | `configs/macos_mlx_runtime.yaml` | native runtime의 metric 포트·경로와 `runtime_backend` label |
 | Grafana Dashboard | `ops/grafana/dashboards/*.json` | 운영 Dashboard 정의 |
 | Grafana Provisioning | `ops/grafana/provisioning/` | datasource와 Dashboard provisioning |
 | Loki | `ops/loki/loki-config.yml` | 로그 저장과 retention 설정 |
 | Alloy | `ops/alloy/config.alloy` | 컨테이너 로그 수집·전달 |
-| Compose | `ops/compose/full-stack.private-network.yaml` | 모니터링 서비스 실행 구성 |
+| Compose (full-stack) | `ops/compose/full-stack.private-network.yaml` | 모니터링 서비스 실행 구성 |
+| Compose (static Metal) | `ops/compose/overrides/static.macos-metal.yaml` | MLX exporter·Prometheus·Grafana 실행 구성 |
 
 생성되는 Prometheus 설정과 모니터링 projection은 Source of Truth를 기준으로 관리한다. 설정 구조와 generated artifact는 [5. 설정 체계와 Source of Truth](./05_configuration.md)에서 설명한다.
 

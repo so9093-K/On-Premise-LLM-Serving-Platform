@@ -12,6 +12,15 @@ from ..status import NOT_READY, READY, overall_readiness, readiness_phase
 ReadinessEvaluator = Callable[[dict[str, Any]], tuple[str, str | None]]
 
 
+def dependency_endpoint(base_url: str, path: str) -> str:
+    """readiness 응답의 dependency endpoint 표기를 만든다.
+
+    OpenAPI 예시(api_examples)도 같은 규칙을 써야 문서가 실제 응답과 어긋나지
+    않으므로 join을 여기 한 곳에 둔다.
+    """
+    return f"{base_url.rstrip('/')}/{path.lstrip('/')}"
+
+
 @dataclass(frozen=True)
 class DependencyProbe:
     name: str
@@ -32,7 +41,7 @@ async def collect_readiness(
     """의존성 readiness를 확인하고 플랫폼 readiness 본문을 반환한다."""
 
     async def _probe_one(probe: DependencyProbe) -> dict[str, Any]:
-        endpoint = f"{probe.client.endpoint.base_url.rstrip('/')}/{probe.path.lstrip('/')}"
+        endpoint = dependency_endpoint(probe.client.endpoint.base_url, probe.path)
         message = None
         try:
             probe_json = getattr(probe.client, "probe_json", probe.client.get_json)

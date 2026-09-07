@@ -11,6 +11,15 @@ monitoring_stack:
   cadvisor:
     internal_port: 8080
     default_metrics_path: /metrics
+  # native MLX-VLM의 JSON metric을 Prometheus exposition으로 옮기는 내부 exporter다.
+  # ops/compose/overrides/static.macos-metal.yaml이 정의하고
+  # ops/prometheus/prometheus.macos-metal.yml이 이 값에서 생성된다.
+  # host 공개 대상이 아니므로 host 공개 레지스트리인 configs/services.yaml에는
+  # 두지 않는다 -- Alloy가 빠져 있는 것과 같은 이유다.
+  mlx_metrics_exporter:
+    compose_service: mlx-metrics-exporter
+    internal_port: 9416
+    default_metrics_path: /metrics
 
 metric_sources:
   gateway:

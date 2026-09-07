@@ -32,6 +32,26 @@ export GATEWAY_RUNTIME_ENV_FILE
 COMPOSE_FILES=(-f ops/compose/static-main.external-runtime.yaml)
 if [[ "$DEPLOYMENT_TARGET" == "macos-metal-static" ]]; then
   COMPOSE_FILES+=(-f ops/compose/overrides/static.macos-metal.yaml)
+
+  # 이 override의 Prometheus는 Gateway /metrics를 admin bearer token으로 긁는다
+  # (ADMIN_API_KEY_REQUIRED=true일 때 필요). Compose secret은 파일이 없으면
+  # 어떤 하위 명령이든 실패하므로 기동 전에 존재를 보장한다.
+  PROM_SECRET="$ROOT/.runtime/prometheus/admin_api_key"
+  if [[ ! -s "$PROM_SECRET" ]]; then
+    echo "[static-compose] $PROM_SECRET 이 없거나 비어 있습니다. .env는 유지하고 runtime secret만 복구합니다."
+    "$PYTHON_BIN" scripts/config/setup_env.py --sync-runtime-secrets --output "$ENV_FILE_ABS" || true
+  fi
+  if [[ ! -s "$PROM_SECRET" ]]; then
+    if [[ "${1:-}" == "down" ]]; then
+      # 정지 경로는 secret 내용을 쓰지 않는다. 복구 실패가 teardown을 막지 않게 한다.
+      mkdir -p "$(dirname "$PROM_SECRET")"
+      printf 'unset\n' > "$PROM_SECRET"
+      chmod 0644 "$PROM_SECRET"
+    else
+      echo "[static-compose] $PROM_SECRET 복구에 실패했습니다. $ENV_FILE_ABS 의 ADMIN_API_KEY 또는 ADMIN_API_KEYS를 확인하세요." >&2
+      exit 2
+    fi
+  fi
 fi
 exec docker compose \
   --project-name "$STATIC_COMPOSE_PROJECT_NAME" \

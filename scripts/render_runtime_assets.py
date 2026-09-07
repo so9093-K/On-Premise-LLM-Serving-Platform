@@ -5,6 +5,7 @@ ModelRegistry projection에서 정적 artifact를 생성한다.
 
 생성 대상:
   ops/prometheus/prometheus.yml
+  ops/prometheus/prometheus.macos-metal.yml
   specs/schemas/model_list_response.schema.json
 
 생성 제외 대상:
@@ -34,11 +35,20 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
 from ai_model_serving.domain import ModelRegistry  # noqa: E402
-from ai_model_serving.monitoring_projection import prometheus_scrape_config_document  # noqa: E402
+from ai_model_serving.monitoring_projection import (  # noqa: E402
+    macos_metal_prometheus_config_document,
+    prometheus_scrape_config_document,
+)
 
 _GENERATED_HEADER_YAML_WITH_MONITORING = (
     "# 자동 생성 파일입니다. 직접 수정하지 마세요.\n"
     "# 소스: configs/model_catalog.yaml + configs/model_serving.yaml + configs/monitoring.yaml\n"
+    "# 명령: make render-runtime-assets\n"
+)
+
+_GENERATED_HEADER_YAML_MACOS_METAL = (
+    "# 자동 생성 파일입니다. 직접 수정하지 마세요.\n"
+    "# 소스: configs/monitoring.yaml + configs/services.yaml + configs/macos_mlx_runtime.yaml\n"
     "# 명령: make render-runtime-assets\n"
 )
 
@@ -48,14 +58,17 @@ def _load_yaml(path: Path) -> dict[str, Any]:
     return yaml.safe_load(path.read_text(encoding="utf-8"))
 
 
-def _load_registry_and_monitoring(root: Path) -> tuple[ModelRegistry, dict[str, Any], dict[str, Any]]:
+def _load_registry_and_monitoring(
+    root: Path,
+) -> tuple[ModelRegistry, dict[str, Any], dict[str, Any], dict[str, Any]]:
     registry = ModelRegistry(
         _load_yaml(root / "configs/model_catalog.yaml"),
         _load_yaml(root / "configs/model_serving.yaml"),
     )
     monitoring = _load_yaml(root / "configs/monitoring.yaml")
     services = _load_yaml(root / "configs/services.yaml")["services"]
-    return registry, monitoring, services
+    macos_runtime = _load_yaml(root / "configs/macos_mlx_runtime.yaml")
+    return registry, monitoring, services, macos_runtime
 
 
 # ── renderers ──────────────────────────────────────────────────────────────────
@@ -64,6 +77,16 @@ def render_prometheus_yml(registry: ModelRegistry, monitoring: dict[str, Any], s
     doc = prometheus_scrape_config_document(registry=registry, monitoring=monitoring, services=services)
     body = yaml.dump(doc, allow_unicode=True, default_flow_style=False, sort_keys=False)
     return _GENERATED_HEADER_YAML_WITH_MONITORING + body
+
+
+def render_macos_metal_prometheus_yml(
+    monitoring: dict[str, Any], services: dict[str, Any], macos_runtime: dict[str, Any]
+) -> str:
+    doc = macos_metal_prometheus_config_document(
+        monitoring=monitoring, services=services, macos_runtime=macos_runtime
+    )
+    body = yaml.dump(doc, allow_unicode=True, default_flow_style=False, sort_keys=False)
+    return _GENERATED_HEADER_YAML_MACOS_METAL + body
 
 
 def render_model_list_schema_json(registry: ModelRegistry) -> str:
@@ -105,11 +128,19 @@ def compare_artifact(path: Path, expected: str) -> bool:
 # ── artifact map ───────────────────────────────────────────────────────────────
 
 def get_artifacts(
-    registry: ModelRegistry, monitoring: dict[str, Any], services: dict[str, Any], root: Path
+    registry: ModelRegistry,
+    monitoring: dict[str, Any],
+    services: dict[str, Any],
+    macos_runtime: dict[str, Any],
+    root: Path,
 ) -> list[tuple[Path, str]]:
     """(파일 경로, expected 내용) 목록을 반환한다."""
     return [
         (root / "ops/prometheus/prometheus.yml", render_prometheus_yml(registry, monitoring, services)),
+        (
+            root / "ops/prometheus/prometheus.macos-metal.yml",
+            render_macos_metal_prometheus_yml(monitoring, services, macos_runtime),
+        ),
         (
             root / "specs/schemas/model_list_response.schema.json",
             render_model_list_schema_json(registry),
@@ -136,8 +167,8 @@ def main() -> int:
     args = parser.parse_args()
 
     root = Path(args.root).resolve()
-    registry, monitoring, services = _load_registry_and_monitoring(root)
-    artifacts = get_artifacts(registry, monitoring, services, root)
+    registry, monitoring, services, macos_runtime = _load_registry_and_monitoring(root)
+    artifacts = get_artifacts(registry, monitoring, services, macos_runtime, root)
 
     if args.write:
         for path, content in artifacts:

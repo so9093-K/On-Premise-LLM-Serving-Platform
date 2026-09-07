@@ -5,6 +5,56 @@ from typing import Any
 from ai_model_serving.domain import ModelRegistry
 
 
+def macos_metal_prometheus_config_document(
+    *, monitoring: dict[str, Any], services: dict[str, Any], macos_runtime: dict[str, Any]
+) -> dict[str, Any]:
+    """Build the Prometheus configuration for the static Metal Compose project.
+
+    rule_files를 싣지 않는 것은 의도다. model_runtime.rules.yml의 rule은 전부
+    DCGM/cAdvisor/vLLM exporter를 전제하는데 이 project는 그 service들을 정의하지
+    않는다. 특히 ai_expected_critical_targets(=8)는 여기서 항상 틀린 값이 된다.
+    """
+    stack = monitoring.get("monitoring_stack", {})
+    prometheus = stack.get("prometheus", {})
+    exporter = stack.get("mlx_metrics_exporter", {})
+    gateway = monitoring.get("metric_sources", {}).get("gateway", {})
+    gateway_service = str(services["gateway"]["compose_service"])
+    runtime = macos_runtime["runtime"]
+    return {
+        "global": {
+            "scrape_interval": prometheus.get("scrape_interval", "15s"),
+            "scrape_timeout": prometheus.get("scrape_timeout", "10s"),
+        },
+        "scrape_configs": [
+            {
+                "job_name": "gateway",
+                "metrics_path": gateway.get("metrics_path", "/metrics"),
+                # ADMIN_API_KEY_REQUIRED=true이면 Gateway /metrics가 admin token을
+                # 요구한다. Linux full-stack과 같은 compose secret을 사용한다.
+                "bearer_token_file": "/run/secrets/admin_api_key",
+                "static_configs": [
+                    {"targets": [f"{gateway_service}:{services['gateway']['container_port']}"]}
+                ],
+            },
+            {
+                "job_name": "mlx-runtime",
+                "metrics_path": exporter.get("default_metrics_path", "/metrics"),
+                "static_configs": [
+                    {
+                        "targets": [
+                            f"{exporter['compose_service']}:{exporter['internal_port']}"
+                        ],
+                        "labels": {
+                            "model": str(macos_runtime["public_model"]),
+                            "runtime_backend": str(runtime["backend"]),
+                        },
+                    }
+                ],
+            },
+        ],
+    }
+
+
 def prometheus_scrape_config_document(
     *, registry: ModelRegistry, monitoring: dict[str, Any], services: dict[str, Any]
 ) -> dict[str, Any]:

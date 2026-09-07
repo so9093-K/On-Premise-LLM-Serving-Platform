@@ -1,6 +1,7 @@
 """Translate MLX-VLM's JSON runtime metrics into Prometheus exposition."""
 from __future__ import annotations
 
+import functools
 import json
 import math
 import os
@@ -10,6 +11,9 @@ from typing import Any
 
 from fastapi import FastAPI
 from starlette.responses import PlainTextResponse
+
+from ai_model_serving.configuration import load_yaml_mapping
+from ai_model_serving.project_paths import resolve_project_root
 
 
 def _number(value: Any) -> float | None:
@@ -97,6 +101,24 @@ def _fetch_json(url: str) -> dict[str, Any]:
     return payload
 
 
+@functools.cache
+def upstream_metrics_url() -> str:
+    """Resolve the native MLX-VLM metrics URL.
+
+    Port와 경로는 configs/macos_mlx_runtime.yaml이 소유한다. 컨테이너에서 host를
+    어떻게 부르는지는 배치 문제라 compose가 MLX_RUNTIME_METRICS_HOST로 넘긴다.
+    전체 URL을 직접 지정해야 하는 운영 상황에서는 MLX_RUNTIME_METRICS_URL이 이긴다.
+    """
+    override = os.environ.get("MLX_RUNTIME_METRICS_URL", "").strip()
+    if override:
+        return override
+    runtime = load_yaml_mapping(
+        resolve_project_root() / "configs" / "macos_mlx_runtime.yaml"
+    )["runtime"]
+    host = os.environ.get("MLX_RUNTIME_METRICS_HOST", "").strip() or str(runtime["host"])
+    return f"http://{host}:{runtime['port']}{runtime['metrics_path']}"
+
+
 app = FastAPI(title="MLX Metrics Exporter", docs_url=None, redoc_url=None, openapi_url=None)
 
 
@@ -107,9 +129,8 @@ async def health() -> dict[str, str]:
 
 @app.get("/metrics", response_class=PlainTextResponse)
 async def metrics() -> PlainTextResponse:
-    url = os.environ.get("MLX_RUNTIME_METRICS_URL", "http://host.docker.internal:9401/metrics")
     try:
-        payload = _fetch_json(url)
+        payload = _fetch_json(upstream_metrics_url())
         body = render_mlx_metrics(payload, scrape_success=True)
     except (OSError, RuntimeError, ValueError, urllib.error.URLError, json.JSONDecodeError):
         body = render_mlx_metrics(None, scrape_success=False)

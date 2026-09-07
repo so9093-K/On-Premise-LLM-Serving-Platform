@@ -8,7 +8,7 @@ from fastapi.responses import JSONResponse
 from ...app_kernel import readiness_response
 from ...logging_policy import record_readiness_failure
 from ..endpoint_spec import RISK_ADAPTER_ENDPOINTS
-from ...api_examples import RISK_LOADING_RESPONSE_EXAMPLE, RISK_READY_RESPONSE_EXAMPLE
+from ...api_examples import risk_loading_response_example, risk_ready_response_example
 from ...services.readiness import DependencyProbe, collect_readiness
 
 _RA = {(s.method, s.path): s for s in RISK_ADAPTER_ENDPOINTS}
@@ -47,12 +47,12 @@ def build_router(admin_dependencies: list, clients: Any, metrics: Any, settings:
         responses={
             200: {
                 "description": "모든 detector runtime이 준비됨",
-                "content": {"application/json": {"example": RISK_READY_RESPONSE_EXAMPLE}},
+                "content": {"application/json": {"example": risk_ready_response_example()}},
             },
             401: {"description": "Admin Bearer token 필요"},
             503: {
                 "description": "하나 이상의 detector runtime이 아직 로딩 중이거나 사용할 수 없음",
-                "content": {"application/json": {"example": RISK_LOADING_RESPONSE_EXAMPLE}},
+                "content": {"application/json": {"example": risk_loading_response_example()}},
             },
         },
     )

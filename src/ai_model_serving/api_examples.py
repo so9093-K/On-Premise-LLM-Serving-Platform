@@ -1,8 +1,32 @@
 from __future__ import annotations
 
+import functools
 from typing import Any
 
+from .configuration import load_yaml_mapping
 from .media_samples import TINY_MP4_VIDEO_B64
+from .project_paths import resolve_project_root
+from .services.readiness import dependency_endpoint
+
+
+@functools.cache
+def _reference_dependency_endpoints() -> dict[str, str]:
+    """readiness 예시가 쓰는 reference topology의 dependency endpoint.
+
+    실제 `/ready`는 RuntimeEndpoint.base_url(env override 가능)로 만들지만, 예시는
+    배포마다 달라지면 안 되므로 configs/model_serving.yaml의 canonical endpoint를
+    쓴다. 이 값들을 손으로 적어두면 포트나 compose 서비스명이 바뀔 때 /docs와
+    OpenAPI 스냅샷만 옛 주소를 계속 광고하게 되고, 스냅샷 diff는 example을
+    비교하지 않으므로 아무도 잡지 못한다.
+    """
+    document = load_yaml_mapping(resolve_project_root() / "configs" / "model_serving.yaml")
+    models = document["models"]
+    return {
+        "main_llm_vllm": dependency_endpoint(str(models["main_llm"]["endpoint"]), "models"),
+        "embedding_vllm": dependency_endpoint(str(models["embedding"]["endpoint"]), "models"),
+        "risk_prompt_vllm": dependency_endpoint(str(models["risk_prompt"]["endpoint"]), "models"),
+        "risk_adapter": dependency_endpoint(str(document["risk_adapter"]["endpoint"]), "/ready"),
+    }
 
 # ---------------------------------------------------------------------------
 # 기본 요청 값 픽스처 (Body()와 install_contract_openapi에서 재사용)
@@ -22,53 +46,58 @@ EMBEDDING_EXAMPLE: dict[str, Any] = {
 # Gateway readiness 응답 예시
 # ---------------------------------------------------------------------------
 
-READY_RESPONSE_EXAMPLE: dict[str, Any] = {
-    "status": "ready",
-    "service": "gateway",
-    "phase": "serving",
-    "not_ready_dependencies": [],
-    "required_not_ready_dependencies": [],
-    "optional_not_ready_dependencies": [],
-    "dependencies": [
-        {
-            "name": "main_llm_vllm",
-            "status": "ready",
-            "endpoint": "http://main-llm-vllm:9401/v1/models",
-        },
-        {
-            "name": "embedding_vllm",
-            "status": "ready",
-            "endpoint": "http://embedding-vllm:9402/v1/models",
-        },
-        {
-            "name": "risk_adapter",
-            "status": "ready",
-            "endpoint": "http://risk-adapter:9405/ready",
-        },
-    ],
-}
+def ready_response_example() -> dict[str, Any]:
+    endpoints = _reference_dependency_endpoints()
+    return {
+        "status": "ready",
+        "service": "gateway",
+        "phase": "serving",
+        "not_ready_dependencies": [],
+        "required_not_ready_dependencies": [],
+        "optional_not_ready_dependencies": [],
+        "dependencies": [
+            {
+                "name": "main_llm_vllm",
+                "status": "ready",
+                "endpoint": endpoints["main_llm_vllm"],
+            },
+            {
+                "name": "embedding_vllm",
+                "status": "ready",
+                "endpoint": endpoints["embedding_vllm"],
+            },
+            {
+                "name": "risk_adapter",
+                "status": "ready",
+                "endpoint": endpoints["risk_adapter"],
+            },
+        ],
+    }
 
-LOADING_RESPONSE_EXAMPLE: dict[str, Any] = {
-    "status": "not_ready",
-    "service": "gateway",
-    "phase": "waiting_for_dependencies",
-    "not_ready_dependencies": ["risk_adapter"],
-    "required_not_ready_dependencies": ["risk_adapter"],
-    "optional_not_ready_dependencies": [],
-    "dependencies": [
-        {
-            "name": "main_llm_vllm",
-            "status": "ready",
-            "endpoint": "http://main-llm-vllm:9401/v1/models",
-        },
-        {
-            "name": "risk_adapter",
-            "status": "not_ready",
-            "endpoint": "http://risk-adapter:9405/ready",
-            "message": "waiting for risk adapter dependencies: risk_prompt_vllm",
-        },
-    ],
-}
+
+def loading_response_example() -> dict[str, Any]:
+    endpoints = _reference_dependency_endpoints()
+    return {
+        "status": "not_ready",
+        "service": "gateway",
+        "phase": "waiting_for_dependencies",
+        "not_ready_dependencies": ["risk_adapter"],
+        "required_not_ready_dependencies": ["risk_adapter"],
+        "optional_not_ready_dependencies": [],
+        "dependencies": [
+            {
+                "name": "main_llm_vllm",
+                "status": "ready",
+                "endpoint": endpoints["main_llm_vllm"],
+            },
+            {
+                "name": "risk_adapter",
+                "status": "not_ready",
+                "endpoint": endpoints["risk_adapter"],
+                "message": "waiting for risk adapter dependencies: risk_prompt_vllm",
+            },
+        ],
+    }
 
 # ---------------------------------------------------------------------------
 # Gateway install_contract_openapi 요청 예시
@@ -447,38 +476,41 @@ SECRET_EXAMPLES: dict[str, Any] = {
 # Risk Adapter readiness 응답 예시
 # ---------------------------------------------------------------------------
 
-RISK_READY_RESPONSE_EXAMPLE: dict[str, Any] = {
-    "status": "ready",
-    "service": "risk-adapter",
-    "phase": "serving",
-    "not_ready_dependencies": [],
-    "required_not_ready_dependencies": [],
-    "optional_not_ready_dependencies": [],
-    "dependencies": [
-        {
-            "name": "risk_prompt_vllm",
-            "status": "ready",
-            "endpoint": "http://risk-prompt-vllm:9403/v1/models",
-        },
-    ],
-}
+def risk_ready_response_example() -> dict[str, Any]:
+    return {
+        "status": "ready",
+        "service": "risk-adapter",
+        "phase": "serving",
+        "not_ready_dependencies": [],
+        "required_not_ready_dependencies": [],
+        "optional_not_ready_dependencies": [],
+        "dependencies": [
+            {
+                "name": "risk_prompt_vllm",
+                "status": "ready",
+                "endpoint": _reference_dependency_endpoints()["risk_prompt_vllm"],
+            },
+        ],
+    }
 
-RISK_LOADING_RESPONSE_EXAMPLE: dict[str, Any] = {
-    "status": "not_ready",
-    "service": "risk-adapter",
-    "phase": "waiting_for_dependencies",
-    "not_ready_dependencies": ["risk_prompt_vllm"],
-    "required_not_ready_dependencies": ["risk_prompt_vllm"],
-    "optional_not_ready_dependencies": [],
-    "dependencies": [
-        {
-            "name": "risk_prompt_vllm",
-            "status": "not_ready",
-            "endpoint": "http://risk-prompt-vllm:9403/v1/models",
-            "message": "MODEL_UNAVAILABLE: Upstream unavailable: risk-prompt",
-        },
-    ],
-}
+
+def risk_loading_response_example() -> dict[str, Any]:
+    return {
+        "status": "not_ready",
+        "service": "risk-adapter",
+        "phase": "waiting_for_dependencies",
+        "not_ready_dependencies": ["risk_prompt_vllm"],
+        "required_not_ready_dependencies": ["risk_prompt_vllm"],
+        "optional_not_ready_dependencies": [],
+        "dependencies": [
+            {
+                "name": "risk_prompt_vllm",
+                "status": "not_ready",
+                "endpoint": _reference_dependency_endpoints()["risk_prompt_vllm"],
+                "message": "MODEL_UNAVAILABLE: Upstream unavailable: risk-prompt",
+            },
+        ],
+    }
 
 # ---------------------------------------------------------------------------
 # Runtime Control 응답 예시
