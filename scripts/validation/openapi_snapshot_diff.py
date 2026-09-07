@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """FastAPI가 실제로 생성하는 OpenAPI 문서와 specs/openapi.*.yaml(정적 파일)이
-어긋났는지 비교한다. path/method/operationId/보안/응답 스키마처럼 호출 호환성에
+어긋났는지 비교한다. path/method/operationId/파라미터/보안/응답 스키마처럼 호출 호환성에
 영향을 주는 drift만 검사한다."""
 
 from __future__ import annotations
@@ -48,6 +48,13 @@ def _response_schema(operation: dict[str, Any], code: str) -> Any:
 
 def _request_schema(operation: dict[str, Any]) -> Any:
     return operation.get("requestBody", {}).get("content", {}).get("application/json", {}).get("schema")
+
+
+def _parameters_by_location(operation: dict[str, Any]) -> dict[tuple[str, str], Any]:
+    return {
+        (str(parameter.get("in")), str(parameter.get("name"))): parameter
+        for parameter in operation.get("parameters", [])
+    }
 
 
 def _contract_schema_name(schema: Any) -> str | None:
@@ -133,12 +140,13 @@ def _compare_one(name: str, static_rel: str, generated: dict[str, Any]) -> list[
             generated_op = generated["paths"][path][method]
             if static_op.get("operationId") != generated_op.get("operationId"):
                 issues.append(f"{name} {method.upper()} {path}: operationId mismatch")
-            # summary/description은 손으로 옮겨 적는 유일한 필드라 조용히 갈라진다.
-            # 탐지기 라벨 목록이 코드에만 추가되고 문서 네 곳이 뒤처져 있던 것을
-            # 아무도 못 잡은 이유가 여기 비교가 없어서였다.
+            # summary/description과 parameter는 생성 문서와 정적 계약 양쪽에
+            # 존재하므로 직접 비교하지 않으면 호출 안내가 조용히 갈라진다.
             for field in ("summary", "description"):
                 if static_op.get(field) != generated_op.get(field):
                     issues.append(f"{name} {method.upper()} {path}: {field} mismatch")
+            if _parameters_by_location(static_op) != _parameters_by_location(generated_op):
+                issues.append(f"{name} {method.upper()} {path}: parameter mismatch")
             if static_op.get("security") != generated_op.get("security"):
                 issues.append(f"{name} {method.upper()} {path}: security mismatch static={static_op.get('security')} generated={generated_op.get('security')}")
             static_statuses = set(str(code) for code in static_op.get("responses", {}))
@@ -154,6 +162,8 @@ def _compare_one(name: str, static_rel: str, generated: dict[str, Any]) -> list[
             )
             if expected_request is not None and expected_request != generated_request:
                 issues.append(f"{name} {method.upper()} {path}: request schema mismatch")
+            if expected_request is None and static_request != generated_request:
+                issues.append(f"{name} {method.upper()} {path}: inline request schema mismatch")
 
             static_response_content = static_op.get("responses", {}).get("200", {}).get("content", {})
             generated_response_content = generated_op.get("responses", {}).get("200", {}).get("content", {})

@@ -1451,14 +1451,8 @@ Runtime state:
 
 Runtime을 `active` 또는 `stopped` 상태로 전환한다.
 
-`service_key`:
-
-```text
-main
-embedding
-embedding_ko
-risk_prompt
-```
+먼저 `GET /admin/runtimes`를 조회하고 응답에 포함된 `service_key`를 사용한다. Scalar
+UI에서는 현재 배포가 제어할 수 있는 키를 경로 파라미터 선택지로 제공한다.
 
 중지:
 

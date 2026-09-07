@@ -337,8 +337,8 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
         summary="런타임 상태 전환",
         description=(
             "`desired_state`에 지정한 목표 상태로 런타임을 전환합니다. "
-            "`service_key`는 보조 런타임(embedding, embedding_ko, risk_prompt)과 "
-            "메인 모델(`main`)을 모두 받습니다 — 함대 전체를 같은 동사로 제어합니다.\n\n"
+            "`service_key`는 `GET /admin/runtimes`가 반환하는 보조 런타임 키와 "
+            "메인 모델 키(`main`)를 받습니다 — 함대 전체를 같은 동사로 제어합니다.\n\n"
             "- **`active`** — 컨테이너를 시작하고 gateway 라우팅을 복구합니다. "
             "이미 `active`면 no-op.\n"
             "- **`stopped`** — 컨테이너를 중지하고 GPU VRAM을 회수합니다. "

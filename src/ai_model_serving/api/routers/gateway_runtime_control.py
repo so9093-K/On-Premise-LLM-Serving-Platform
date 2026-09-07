@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any
 from urllib.parse import urlparse
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Path, Request
 from fastapi.responses import JSONResponse
 
 from ..endpoint_spec import GATEWAY_ENDPOINTS
@@ -423,6 +423,12 @@ def build_router(
         return JSONResponse(body)
 
     _s = _GW[("PATCH", "/admin/runtimes/{service_key}")]
+    runtime_service_keys = [*sorted(state_store.controllable_keys), "main"]
+    service_key_path = Path(
+        description="GET /admin/runtimes가 반환하는 service_key.",
+        examples=[runtime_service_keys[0]],
+        json_schema_extra={"enum": runtime_service_keys},
+    )
 
     @router.patch(
         "/admin/runtimes/{service_key}",
@@ -458,7 +464,10 @@ def build_router(
         },
         openapi_extra=_DESIRED_STATE_SCHEMA,
     )
-    async def transition_runtime(service_key: str, request: Request) -> JSONResponse:
+    async def transition_runtime(
+        request: Request,
+        service_key: str = service_key_path,
+    ) -> JSONResponse:
         payload = await request.json()
         desired_state = payload.get("desired_state") if isinstance(payload, dict) else None
         if desired_state not in ("active", "stopped"):
