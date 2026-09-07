@@ -79,7 +79,7 @@ make stop
 - `make start`는 vLLM을 시작하지 않는다. app-only 확인용이다.
 - app-only 확인은 `make ready-local`, strict full-stack 확인은 `make ready-full`을 사용한다.
 - full-stack 기동인 `make compose-up`에는 Docker/GPU/포트/secret preflight가 포함된다.
-- `make compose-up`은 `configs/deploy_profiles.yaml`의 기본 `retrieval_ready`를 적용해 Prompt Risk 모델을 시작하지 않는다. 다른 정의된 초기 구성이 필요하면 `RUNTIME_PROFILE=main_only make compose-up`처럼 명시한다.
+- `make compose-up`은 `configs/deploy_profiles.yaml`의 기본 `main_only`를 적용해 Main만 시작한다. Retrieval runtime도 처음부터 필요하면 `RUNTIME_PROFILE=retrieval_ready make compose-up`을 명시한다.
 - 라이브 검증은 `make runtime-validate`, 실행 전 정적 검증은 `make validate`로 수행한다.
 - 삭제 전에는 `make clean-dry-run`으로 삭제 대상을 확인한다.
 

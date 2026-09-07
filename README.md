@@ -72,6 +72,10 @@ make compose-up
 make ready-full
 ```
 
+기본 기동은 Main Model만 준비한다. Retrieval runtime도 처음부터 필요하면
+`RUNTIME_PROFILE=retrieval_ready make compose-up`을 사용한다. 다른 Main Model과
+secondary runtime은 [모델 운영](docs/06_model_operations.md)의 절차로 선택·시작한다.
+
 종료:
 
 ```bash

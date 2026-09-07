@@ -21,23 +21,23 @@ def run_script(*args: str) -> subprocess.CompletedProcess[str]:
     )
 
 
-def test_default_profile_defers_only_prompt_risk():
+def test_default_profile_defers_all_secondary_runtimes():
     result = run_script("--output", "json")
 
     payload = json.loads(result.stdout)
     assert payload == {
-        "keys": ["risk_prompt"],
-        "services": ["risk-prompt-vllm"],
-        "profile": "retrieval_ready",
+        "keys": ["embedding", "embedding_ko", "risk_prompt"],
+        "services": ["embedding-vllm", "embedding-ko-vllm", "risk-prompt-vllm"],
+        "profile": "main_only",
     }
 
 
 def test_explicit_profile_overrides_default_profile():
-    result = run_script("--profile", "main_only", "--output", "json")
+    result = run_script("--profile", "retrieval_ready", "--output", "json")
 
     payload = json.loads(result.stdout)
-    assert payload["keys"] == ["embedding", "embedding_ko", "risk_prompt"]
-    assert payload["profile"] == "main_only"
+    assert payload["keys"] == ["risk_prompt"]
+    assert payload["profile"] == "retrieval_ready"
 
 
 def test_direct_runtime_list_overrides_profile():

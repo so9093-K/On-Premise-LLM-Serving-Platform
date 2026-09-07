@@ -242,6 +242,10 @@ Hugging Face에서 모델을 가져오는 runtime은 `.env`에 설정된 token�
 make compose-up
 ```
 
+기본 `main_only` profile은 Main Model만 준비하고 secondary runtime은 stopped 상태로
+생성한다. Retrieval runtime도 처음부터 필요하면
+`RUNTIME_PROFILE=retrieval_ready make compose-up`을 명시한다.
+
 `make compose-up`은 다음 준비 작업을 수행한 뒤 effective Compose stack을 기동한다.
 
 1. `.env` contract 검증
@@ -249,7 +253,7 @@ make compose-up
 3. Exposure Profile 적용
 4. persisted Main Model profile을 반영한 boot projection 생성
 5. 같은 boot projection으로 effective Compose config와 preflight 검증
-6. Hugging Face cache 준비
+6. 선택된 Main Model의 Hugging Face cache 준비
 7. 서비스 기동
 
 Preflight와 기동은 같은 `base → exposure override → boot override` 순서를 사용한다. `compose-up`에서 생성한 boot 파일을 `--boot-override`로 전달하므로 preflight 중 persisted state를 다시 읽어 다른 프로필을 고르지 않는다. Preflight를 단독 실행하면 기존 boot resolver로 임시 override를 만들고 종료 시 삭제한다.

@@ -406,8 +406,8 @@ Embedding과 Prompt Risk runtime은 Deploy Runtime Profile에 따라 active 또�
 
 | Deploy Runtime Profile | 실행 상태 |
 |---|---|
-| `main_only` | Main Model 중심, secondary runtime deferred |
-| `retrieval_ready` (기본) | Main + embedding 계열 준비, Prompt Risk deferred |
+| `main_only` (기본) | Main Model 중심, secondary runtime deferred |
+| `retrieval_ready` | Main + embedding 계열 준비, Prompt Risk deferred |
 
 Deploy Runtime Profile과 Exposure Profile의 역할은 다르다.
 

@@ -502,7 +502,7 @@ curl -X PATCH \
 
 Start 과정에서는 prerequisite와 GPU budget을 확인하고 필요한 runtime을 startup order에 따라 시작한다.
 
-compose-up/full 배포 시 처음부터 활성화할 secondary runtime 조합은 `configs/deploy_profiles.yaml`에서 결정한다. 배포의 `DEPLOY_RUNTIME_PROFILE` 또는 로컬 `compose-up`의 `RUNTIME_PROFILE`을 생략하면 `retrieval_ready`가 적용되어 Prompt Risk 모델은 초기 중지 상태가 된다.
+compose-up/full 배포 시 처음부터 활성화할 secondary runtime 조합은 `configs/deploy_profiles.yaml`에서 결정한다. 배포의 `DEPLOY_RUNTIME_PROFILE` 또는 로컬 `compose-up`의 `RUNTIME_PROFILE`을 생략하면 `main_only`가 적용되어 모든 secondary runtime은 초기 중지 상태가 된다. Retrieval이 즉시 필요하면 `retrieval_ready`를 명시한다.
 
 ---
 

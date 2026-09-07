@@ -17,7 +17,7 @@
 
 ### Changed
 
-- Secondary Runtime 기본 프로필을 `retrieval_ready`로 명시해 compose-up과 full 배포에서 Prompt Risk 모델 컨테이너를 생성만 하고 시작하지 않는다. Risk Adapter와 로컬 PII·Secret 검사는 유지되며, Prompt Risk 모델은 기존 Admin Runtime API로 필요할 때 시작한다.
+- Secondary Runtime 기본 프로필을 `main_only`로 변경해 compose-up과 full 배포에서 Main Model만 처음 준비한다. Embedding·Korean Embedding·Prompt Risk는 컨테이너만 생성하고 기존 Admin Runtime API로 필요할 때 시작한다. Retrieval을 즉시 제공할 환경은 `retrieval_ready`를 명시하며 Risk Adapter와 로컬 PII·Secret 검사는 유지된다.
 - Compose preflight가 실제 기동과 같은 main-model boot override를 검사하도록 수정했다. 저장된 프로필과 메인 GPU host override를 기본 모델 설정으로 잘못 비교하지 않으며, 보조 모델 정합성·GPU 예산·인증·노출 정책은 유지한다.
 - Sidecar admission이 소비하지 않던 `EMBEDDING_KO_GPU_MEMORY_UTILIZATION` 환경변수를 Compose 예시와 command에서 제거했다. 한국어 embedding GPU 예산은 `configs/model_serving.yaml`의 `0.06`을 command와 admission의 공통 기준으로 사용하며 기본 동작은 바뀌지 않는다.
 - 파일 상태 검사인 dependency lock 정합성을 pytest에서 정적 contract validation으로 옮기고, release package도 별도 축약 검증 대신 같은 `make validate` gate를 사용한다.
@@ -71,7 +71,7 @@
 
 ### Fixed
 
-- 배포가 지정한 deferred runtime(기본 프로필에서는 Prompt Risk 모델)이 반영되지 않은 채 배포가 성공으로 끝나던 문제를 고쳤다. `runtime-state.json`은 gateway 컨테이너의 non-root 사용자가 쓰는 마운트인데 배포 실행 계정도 같은 파일을 쓰려 했고, 이미지 UID와 호스트 UID 사이에는 아무 관계가 없어 어느 쪽이 먼저 만들었느냐가 소유권을 결정했다. 반대쪽의 쓰기 실패는 조용히 넘어갔다. 이제 이 파일의 writer는 Gateway 하나이며, 배포는 정지 상태로 둘 런타임 목록만 환경변수로 전달하고 기록은 Gateway가 기동 시 한 번 수행한다. 같은 릴리스에서 컨테이너가 재시작될 때는 Admin Runtime API로 바꿔 둔 상태가 유지된다.
+- 배포가 지정한 deferred runtime이 반영되지 않은 채 배포가 성공으로 끝나던 문제를 고쳤다. `runtime-state.json`은 gateway 컨테이너의 non-root 사용자가 쓰는 마운트인데 배포 실행 계정도 같은 파일을 쓰려 했고, 이미지 UID와 호스트 UID 사이에는 아무 관계가 없어 어느 쪽이 먼저 만들었느냐가 소유권을 결정했다. 반대쪽의 쓰기 실패는 조용히 넘어갔다. 이제 이 파일의 writer는 Gateway 하나이며, 배포는 정지 상태로 둘 런타임 목록만 환경변수로 전달하고 기록은 Gateway가 기동 시 한 번 수행한다. 같은 릴리스에서 컨테이너가 재시작될 때는 Admin Runtime API로 바꿔 둔 상태가 유지된다.
 - `ensure_gateway_runtime_dir`가 디렉터리의 존재 여부만 확인해, 이미 잘못된 소유권으로 만들어진 디렉터리는 그대로 통과시키던 문제를 고쳤다. compose가 먼저 닿아 root 소유로 생성되면 gateway가 영구히 쓰지 못했다. 이제 배포와 `compose-up` 모두 매번 소유권까지 단언하며, UID는 고정값 대신 플랫폼 이미지에 직접 질의한다.
 - deferred Runtime 생성에 지원되지 않는 `compose create --no-deps`를 사용하던 경로를 `compose up --no-deps --no-start`로 교체하고 실제 변경 전 dry-run을 추가했다. Compose 파일 변경 시 전체 서비스를 재생성하던 판정은 렌더된 서비스 정의 비교로 좁혀, 영향받지 않은 GPU Runtime을 다시 띄우지 않는다. 조회 실패와 컨테이너 부재를 구분하고 롤백 미복원 항목도 배포 로그에 남긴다.
 

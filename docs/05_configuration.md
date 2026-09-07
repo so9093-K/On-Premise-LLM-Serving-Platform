@@ -293,7 +293,7 @@ Exposure Profile
 
 ## 5.7 Deploy Runtime Profile
 
-`configs/deploy_profiles.yaml`은 compose-up과 full deploy 이후 secondary runtime의 초기 운영 상태를 정의한다. profile을 명시하지 않으면 `default_profile: retrieval_ready`가 적용되어 Prompt Risk 모델은 컨테이너만 생성되고 시작되지 않는다. Risk Adapter와 PII·Secret 검사 경로는 그대로 유지된다.
+`configs/deploy_profiles.yaml`은 compose-up과 full deploy 이후 secondary runtime의 초기 운영 상태를 정의한다. profile을 명시하지 않으면 `default_profile: main_only`가 적용되어 embedding 계열과 Prompt Risk 모델은 컨테이너만 생성되고 시작되지 않는다. Risk Adapter와 PII·Secret 검사 경로는 그대로 유지된다.
 
 현재 control 대상은 다음과 같다.
 
@@ -305,8 +305,8 @@ Exposure Profile
 
 | Profile | 의미 |
 |---|---|
-| `main_only` | Main Model 중심으로 기동하고 secondary runtime은 deferred |
-| `retrieval_ready` (기본) | embedding 계열은 준비하고 Prompt Risk는 deferred |
+| `main_only` (기본) | Main Model 중심으로 기동하고 secondary runtime은 deferred |
+| `retrieval_ready` | embedding 계열은 준비하고 Prompt Risk는 deferred |
 
 Main Model Profile과 Deploy Runtime Profile은 서로 다른 실행 축을 관리한다.
 

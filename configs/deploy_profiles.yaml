@@ -1,9 +1,9 @@
 # compose-up과 full 배포가 공통으로 사용한다. 명시적으로 profile을 고르지 않으면
 # default_profile을 적용하며, deferred runtime은 컨테이너만 만들고 stopped로 기록한다.
-default_profile: retrieval_ready
+default_profile: main_only
 
 profiles:
-  # Chat만 즉시 제공하고 embedding·prompt risk는 필요할 때 Admin API로 시작한다.
+  # 최초 기동은 Main만 준비한다. embedding·prompt risk는 필요할 때 Admin API로 시작한다.
   main_only:
     deferred_runtimes:
       - embedding
