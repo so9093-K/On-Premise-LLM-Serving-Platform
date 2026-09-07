@@ -6,6 +6,7 @@ targets:
     display_name: Linux NVIDIA Dynamic
     platform: linux
     runtime_backend: vllm-cuda
+    main_profile_catalog: configs/main_model_profiles.yaml
     control_mode: sidecar
     lifecycle_owner: platform
     # Gateway가 Sidecar/Risk Adapter 같은 내부 서비스에 인증 호출을 수행한다.
@@ -26,6 +27,7 @@ targets:
     display_name: Linux NVIDIA Static Main
     platform: linux
     runtime_backend: vllm-cuda
+    main_profile_catalog: configs/main_model_profiles.yaml
     control_mode: static
     lifecycle_owner: external
     # external Main runtime만 사용한다. Sidecar/Risk Adapter/Gateway internal control
@@ -45,11 +47,14 @@ targets:
   macos-metal-static:
     display_name: macOS Metal Static Main
     platform: macos
-    runtime_backend: vllm-metal
+    runtime_backend: mlx-vlm
+    main_profile_catalog: configs/macos_mlx_runtime.yaml
     control_mode: static
     lifecycle_owner: external
     internal_service_token_required: false
-    validation_status: planned
+    # Gateway/Compose/native runtime entrypoint는 구현됐다. 실제 M5 32GB 장문맥·이미지
+    # qualification 결과는 profile compatibility와 로컬 작업판에서 따로 추적한다.
+    validation_status: implemented
     features:
       chat: true
       embeddings: false

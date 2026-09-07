@@ -71,11 +71,52 @@ def test_control_mode_and_lifecycle_owner_must_align(tmp_path) -> None:
         load_deployment_target(path, "linux-nvidia-static")
 
 
-def test_planned_macos_target_cannot_be_started(monkeypatch) -> None:
+def test_macos_target_uses_its_mlx_profile_and_main_only_admission(monkeypatch) -> None:
     monkeypatch.setenv("DEPLOYMENT_TARGET", "macos-metal-static")
+    monkeypatch.setenv("MAIN_LLM_STATIC_PROFILE", "gemma4-26b-a4b-qat-4bit-mlx")
+    monkeypatch.setenv("MAIN_LLM_BASE_URL", "http://host.docker.internal:9401/v1")
+    # target profile이 M5 32GB 계약의 concurrency=1을 소유하므로 generic env가
+    # 더 큰 값을 갖더라도 static runtime admission은 profile 값으로 고정된다.
+    monkeypatch.setenv("MAIN_LLM_MAX_CONCURRENCY", "4")
 
-    with pytest.raises(RuntimeError, match="planned and cannot be started"):
-        load_settings()
+    settings = load_settings()
+
+    assert settings.deployment_target.runtime_backend == "mlx-vlm"
+    assert settings.deployment_target.main_profile_catalog == "configs/macos_mlx_runtime.yaml"
+    assert set(settings.runtime_endpoints) == {"main_llm"}
+    assert settings.runtime("main_llm").max_concurrency == 1
+    assert settings.default_main_model_gateway_policy["max_output_tokens"] == 8192
+    limits = settings.default_main_model_gateway_policy["request_limits"]
+    assert limits["max_model_len"] == 32768
+    assert limits["input_modalities"] == ["text", "image"]
+    assert limits["max_image_inputs"] == 8
+
+
+def test_macos_reasoning_defaults_to_mlx_top_level_parameter(monkeypatch) -> None:
+    monkeypatch.setenv("DEPLOYMENT_TARGET", "macos-metal-static")
+    monkeypatch.setenv("MAIN_LLM_STATIC_PROFILE", "gemma4-26b-a4b-qat-4bit-mlx")
+    settings = load_settings()
+    clients = FakeGatewayClients()
+    clients.sidecar = None
+    client = TestClient(create_gateway_app(settings, clients))
+
+    response = client.post(
+        "/v1/chat/completions",
+        json={"model": "local-main", "messages": [{"role": "user", "content": "분석해줘"}]},
+    )
+    assert response.status_code == 200
+    assert clients.main_llm.last_payload["enable_thinking"] is True
+
+    response = client.post(
+        "/v1/chat/completions",
+        json={
+            "model": "local-main",
+            "messages": [{"role": "user", "content": "짧게 답해줘"}],
+            "reasoning": False,
+        },
+    )
+    assert response.status_code == 200
+    assert clients.main_llm.last_payload["enable_thinking"] is False
 
 
 def test_static_settings_project_only_main_runtime(monkeypatch) -> None:

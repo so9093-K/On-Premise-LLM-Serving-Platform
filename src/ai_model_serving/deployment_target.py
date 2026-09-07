@@ -29,6 +29,7 @@ class DeploymentTarget:
     display_name: str
     platform: str
     runtime_backend: str
+    main_profile_catalog: str
     control_mode: str
     lifecycle_owner: str
     internal_service_token_required: bool
@@ -90,9 +91,16 @@ def load_deployment_target(path: Path, target_id: str | None = None) -> Deployme
         )
     platform = str(raw.get("platform", "")).strip()
     runtime_backend = str(raw.get("runtime_backend", "")).strip()
-    if not platform or not runtime_backend:
+    main_profile_catalog = str(raw.get("main_profile_catalog", "")).strip()
+    if not platform or not runtime_backend or not main_profile_catalog:
         raise RuntimeError(
-            f"deployment target {selected!r} requires platform and runtime_backend"
+            f"deployment target {selected!r} requires platform, runtime_backend, "
+            "and main_profile_catalog"
+        )
+    catalog_path = Path(main_profile_catalog)
+    if catalog_path.is_absolute() or ".." in catalog_path.parts:
+        raise RuntimeError(
+            f"deployment target {selected!r} main_profile_catalog must be a safe relative path"
         )
     expected_owner = "platform" if control_mode == "sidecar" else "external"
     if lifecycle_owner != expected_owner:
@@ -122,6 +130,7 @@ def load_deployment_target(path: Path, target_id: str | None = None) -> Deployme
         display_name=str(raw.get("display_name", selected)),
         platform=platform,
         runtime_backend=runtime_backend,
+        main_profile_catalog=main_profile_catalog,
         control_mode=control_mode,
         lifecycle_owner=lifecycle_owner,
         internal_service_token_required=internal_service_token_required,

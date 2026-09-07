@@ -23,7 +23,7 @@ services:
     environment:
       APP_CONFIG_ROOT: /app
       PYTHONPATH: /app/src
-      DEPLOYMENT_TARGET: linux-nvidia-static
+      DEPLOYMENT_TARGET: ${DEPLOYMENT_TARGET:?Use a configured static deployment target}
       ADMIN_SIDECAR_URL: ""
     extra_hosts:
       - host.docker.internal:host-gateway

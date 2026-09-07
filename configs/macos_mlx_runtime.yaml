@@ -1,0 +1,83 @@
+# macOS Metal Main runtime와 Gateway serving 계약의 단일 기준이다.
+# Linux/CUDA lifecycle catalog(configs/main_model_profiles.yaml)와 섞지 않는다.
+version: 1
+public_model: local-main
+default_profile: gemma4-26b-a4b-qat-4bit-mlx
+
+runtime:
+  backend: mlx-vlm
+  python: 3.13.12
+  # mlx-vlm 0.6.17의 Gemma 4 chat template 경로는 Jinja2를 사용하지만
+  # 배포 메타데이터가 이를 의존성으로 선언하지 않으므로 직접 고정한다.
+  packages: [mlx-vlm==0.6.17, jinja2==3.1.6]
+  lock_file: requirements.macos-metal.lock
+  environment: .runtime/metal/venv
+  host: 127.0.0.1
+  port: 9401
+  health_path: /health
+  models_path: /v1/models
+  metrics_path: /metrics
+  # 24,576 input + 최대 8,192 generation의 합이다. thinking token도 generation
+  # 예산 안에서 소비하며 별도의 hard thinking budget은 두지 않는다.
+  max_kv_size: 32768
+  max_generation_tokens: 8192
+  max_concurrency: 1
+  vision_cache_size: 4
+  thinking:
+    enabled_by_default: true
+    hard_budget: null
+  speculative_decoding:
+    enabled: true
+    kind: mtp
+    block_size: 4
+  turboquant:
+    enabled: false
+
+profiles:
+  gemma4-26b-a4b-qat-4bit-mlx:
+    display_name: Gemma 4 26B A4B QAT 4-bit (MLX)
+    model_id: mlx-community/gemma-4-26B-A4B-it-qat-4bit
+    revision: 0e3cbab38ce568cf6e23543010d08d03b731910c
+    served_model_name: local-main
+    assistant:
+      model_id: mlx-community/gemma-4-26B-A4B-it-qat-assistant-4bit
+      revision: bb94eae1b70a80dac16cbf959bb4b7d56bd1fb8c
+    compatibility:
+      # 구현 여부와 M5 32GB workload qualification은 다른 상태다. 런타임 경로는
+      # implemented target에 연결하되 아래 workload matrix의 실측 전에는 verified로
+      # 올리지 않는다.
+      status: unvalidated
+    capabilities:
+      deployed_input: [text, image]
+    qualification:
+      normal:
+        input_tokens: 24576
+        generation_tokens: 8192
+        images_min: 1
+        images_max: 4
+      extended:
+        images_min: 5
+        images_max: 8
+    gateway_policy:
+      max_concurrency: 1
+      max_output_tokens: 8192
+      request_limits:
+        max_model_len: 32768
+        input_modalities: [text, image]
+        # Normal 권장 범위는 1~4장이지만 5~8장 extended qualification 요청을
+        # Gateway가 선제 차단하지 않도록 capability hard limit은 8로 둔다.
+        max_image_inputs: 8
+        allowed_image_url_schemes: [data]
+        max_image_bytes: 25000000
+        max_image_pixels: 12845056
+        allowed_image_mime_types: [image/jpeg, image/png, image/webp, image/avif, image/jp2, image/gif, image/bmp, image/tiff, image/x-tiff]
+      request_parameter_policy:
+        allow_unlisted_parameters: false
+        supported_parameters: [stream, temperature, max_tokens, top_p, top_k, min_p, repetition_penalty, reasoning, user]
+        drop_upstream_parameters: [user]
+        max_n: 1
+        reasoning:
+          enabled: true
+          default: true
+          mode: default_on
+          upstream_parameter: enable_thinking

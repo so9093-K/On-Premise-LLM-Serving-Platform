@@ -13,6 +13,7 @@ def chat_request_parameter_surface(policy: dict[str, Any], *, max_output_tokens:
     logprobs_policy = policy.get("logprobs", {}) if isinstance(policy.get("logprobs", {}), dict) else {}
     top_logprobs_policy = policy.get("top_logprobs", {}) if isinstance(policy.get("top_logprobs", {}), dict) else {}
     logit_bias_policy = policy.get("logit_bias", {}) if isinstance(policy.get("logit_bias", {}), dict) else {}
+    reasoning_policy = policy.get("reasoning", {}) if isinstance(policy.get("reasoning", {}), dict) else {}
     max_tools = int(tool_policy.get("max_tools", 16))
     parallel_tools_enabled = tool_policy.get("allow_parallel_tool_calls") is True
     max_n = int(policy.get("max_n", 1))
@@ -40,7 +41,11 @@ def chat_request_parameter_surface(policy: dict[str, Any], *, max_output_tokens:
         "tools": {"type": "array", "min_items": 1, "max_items": max_tools},
         "tool_choice": {"type": "string_or_function_choice", "allowed": ["auto", "none", "required"]},
         "parallel_tool_calls": {"type": "boolean", "const": parallel_tools_enabled},
-        "reasoning": {"type": "boolean", "default": False, "mode": "request_opt_in"},
+        "reasoning": {
+            "type": "boolean",
+            "default": reasoning_policy.get("default", False) is True,
+            "mode": str(reasoning_policy.get("mode", "request_opt_in")),
+        },
         "response_format": {
             "type": "object",
             "allowed_types": list(response_policy.get("types", ["text", "json_object", "json_schema"])),

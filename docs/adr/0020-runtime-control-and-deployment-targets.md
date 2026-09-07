@@ -19,7 +19,8 @@ macOS 지원을 운영체제 분기로 구현하면 serving 계약과 runtime li
 `configs/deployment_targets.yaml`을 deployment capability의 source of truth로 둔다.
 각 target은 다음을 명시한다.
 
-- `runtime_backend`: `vllm-cuda`, `vllm-metal` 등 실제 inference backend
+- `runtime_backend`: `vllm-cuda`, `mlx-vlm` 등 실제 inference backend
+- `main_profile_catalog`: target이 사용하는 Main serving/runtime catalog
 - `control_mode`: `sidecar` 또는 `static`
 - `lifecycle_owner`: `platform` 또는 `external`
 - `validation_status`: `verified`, `implemented`, `planned`, `unvalidated`
@@ -33,6 +34,7 @@ Deployment target은 다음 projection을 결정한다.
 
 ```text
 Deployment Target
+  -> target-specific Main profile catalog
   -> configured runtime endpoints
   -> required readiness dependencies
   -> Gateway route/OpenAPI surface
@@ -54,11 +56,15 @@ Compose 서비스명과 포트는 `service_id`로 `configs/services.yaml`을 참
 - `linux-nvidia-dynamic`: 기존 full-stack. Sidecar와 전체 기능을 유지한다.
 - `linux-nvidia-static`: 외부에서 기동한 CUDA Main runtime 하나를 Gateway가 사용한다.
   Gateway static 경로는 `implemented`이고, 장시간·장문맥 qualification은 남아 있다.
-- `macos-metal-static`: 하드웨어 qualification 전까지 `planned` 상태인 Main-only target이다.
+- `macos-metal-static`: native MLX-VLM runtime과 static Gateway 경로가 구현된 Main-only
+  target이다. 모델·assistant revision, dependency lock, 실행 한도는
+  `configs/macos_mlx_runtime.yaml`이 소유하며 M5 workload qualification은 별도 상태다.
 
 ## Consequences
 
 - 기존 Linux/NVIDIA dynamic 동작은 default target으로 유지된다.
 - optional feature가 없는 target은 해당 client, readiness dependency, public model과 route를 만들지 않는다.
 - target-specific runtime 값은 환경 또는 향후 deployment manifest가 제공한다.
-- macOS target의 모델, context, concurrency, modality는 실제 하드웨어 qualification 전에는 검증됐다고 선언하지 않는다.
+- Linux Sidecar의 Docker command catalog와 Mac native runtime catalog는 분리된다.
+- macOS target의 모델, context, concurrency, modality는 구현 설정과 실제 workload
+  qualification 상태를 구분하며, 실측 전 profile compatibility를 `verified`로 선언하지 않는다.

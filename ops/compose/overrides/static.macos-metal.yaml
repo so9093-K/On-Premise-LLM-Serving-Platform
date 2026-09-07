@@ -1,0 +1,47 @@
+services:
+  gateway:
+    # Mac 로컬 경로는 make build-image 산출물을 사용한다. Registry image를 쓰는
+    # 운영자는 PLATFORM_PULL_POLICY로 정책을 명시할 수 있다.
+    pull_policy: ${PLATFORM_PULL_POLICY:-never}
+
+  mlx-metrics-exporter:
+    image: ${PLATFORM_IMAGE:?Set PLATFORM_IMAGE to a tested platform image tag}
+    pull_policy: ${PLATFORM_PULL_POLICY:-never}
+    restart: unless-stopped
+    command: [python, -m, uvicorn, ai_model_serving.apps.mlx_metrics_exporter:app, --host, 0.0.0.0, --port, "9416"]
+    environment:
+      MLX_RUNTIME_METRICS_URL: http://host.docker.internal:9401/metrics
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    expose: ["9416"]
+    healthcheck:
+      test: [CMD-SHELL, "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:9416/health')\""]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
+  prometheus:
+    image: ${PROMETHEUS_IMAGE:?Set PROMETHEUS_IMAGE in the operator env}
+    restart: unless-stopped
+    command: [--config.file=/etc/prometheus/prometheus.yml]
+    depends_on: [gateway, mlx-metrics-exporter]
+    volumes:
+      # 모든 상대 bind 경로는 첫 compose 파일의 ops/compose를 기준으로 해석된다.
+      - ../prometheus/prometheus.macos-metal.yml:/etc/prometheus/prometheus.yml:ro
+    expose: ["9090"]
+
+  grafana:
+    image: ${GRAFANA_IMAGE:?Set GRAFANA_IMAGE in the operator env}
+    restart: unless-stopped
+    depends_on: [prometheus]
+    ports:
+      - ${GRAFANA_BIND_ADDR:-127.0.0.1}:${GRAFANA_PORT:-9411}:3000
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?Set GRAFANA_ADMIN_PASSWORD in the operator env}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/macos_metal_runtime.json
+    volumes:
+      - ../grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - ../grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
+      - ../grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro

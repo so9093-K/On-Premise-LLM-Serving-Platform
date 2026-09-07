@@ -106,12 +106,13 @@ auth_example_profiles:
 # static Gateway에 조용히 흘러들어가지 않게 하므로, 키 분류의 SoT는 이 파일이다.
 service_env_projections:
   static_gateway:
-    deployment_target: linux-nvidia-static
+    deployment_targets: [linux-nvidia-static, macos-metal-static]
     required_source_keys:
       - APP_ENV
       - MAIN_LLM_BASE_URL
       - MAIN_LLM_STATIC_PROFILE
     runtime_keys:
+      - DEPLOYMENT_TARGET
       - APP_ENV
       - AUTH_MODE
       - EXPOSURE_MODE

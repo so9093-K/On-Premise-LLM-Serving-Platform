@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from pathlib import Path
+from dataclasses import replace
 import os
+from pathlib import Path
 from typing import Any
 
 from .domain import ModelRegistry
@@ -204,9 +205,12 @@ def load_settings(root: Path | None = None, env_file: Path | str | None = None) 
             f"{deployment_target.validation_status} and cannot be started"
         )
     model_catalog = load_yaml_mapping(project_root / "configs" / "model_catalog.yaml")
-    main_model_catalog = load_main_serving_catalog(
-        project_root / "configs" / "main_model_profiles.yaml"
-    )
+    main_catalog_path = (project_root / deployment_target.main_profile_catalog).resolve()
+    try:
+        main_catalog_path.relative_to(project_root.resolve())
+    except ValueError as exc:
+        raise RuntimeError("deployment target main_profile_catalog escapes the project root") from exc
+    main_model_catalog = load_main_serving_catalog(main_catalog_path)
     static_main_profile = ""
     selected_main_profile = main_model_catalog.default_profile
     if deployment_target.control_mode == "static":
@@ -270,6 +274,14 @@ def load_settings(root: Path | None = None, env_file: Path | str | None = None) 
         operational_limits=operational_limits,
         enabled_service_keys=frozenset(enabled_service_keys),
     )
+    selected_gateway_policy = main_model_catalog.profiles[selected_main_profile].gateway_policy
+    if deployment_target.control_mode == "static" and "max_concurrency" in selected_gateway_policy:
+        max_concurrency = int(selected_gateway_policy["max_concurrency"])
+        if max_concurrency < 1:
+            raise RuntimeError("static main profile max_concurrency must be at least 1")
+        runtime_endpoints["main_llm"] = replace(
+            runtime_endpoints["main_llm"], max_concurrency=max_concurrency
+        )
     embedding_profiles = (
         _embedding_profiles_from_config(model_serving)
         if deployment_target.supports("embeddings")
@@ -344,7 +356,7 @@ def load_settings(root: Path | None = None, env_file: Path | str | None = None) 
         risk_detectors=risk_detectors,
         aggregate_detector_order=aggregate_detector_order,
         default_main_model_gateway_policy=dict(
-            main_model_catalog.profiles[selected_main_profile].gateway_policy
+            selected_gateway_policy
         ),
         main_model_profile_summaries=tuple(
             (profile.profile_id, profile.display_name, str(profile.compatibility.get("status", "")))
@@ -353,7 +365,7 @@ def load_settings(root: Path | None = None, env_file: Path | str | None = None) 
         main_model_profile_policies=tuple(
             dict(profile.gateway_policy) for profile in main_model_catalog.profiles.values()
         ) if deployment_target.supports("model_switching") else (
-            dict(main_model_catalog.profiles[selected_main_profile].gateway_policy),
+            dict(selected_gateway_policy),
         ),
         embedding_profiles=embedding_profiles,
         default_embedding_model=(
@@ -375,7 +387,7 @@ def load_settings(root: Path | None = None, env_file: Path | str | None = None) 
         public_models=_public_models_from_registry(
             model_catalog,
             model_serving,
-            main_model_catalog.profiles[selected_main_profile].gateway_policy,
+            selected_gateway_policy,
             deployment_target,
         ),
         documentation=documentation,

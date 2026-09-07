@@ -60,16 +60,25 @@ def normalize_chat_request_for_runtime(
     # user 식별자)를 제거한다. embedding 경로와 같은 정책 키를 쓴다.
     for name in (policy or {}).get("drop_upstream_parameters", []):
         upstream.pop(name, None)
-    reasoning_enabled = upstream.pop("reasoning", None)
+    requested_reasoning = upstream.pop("reasoning", None)
+    reasoning_policy = ((policy or {}).get("reasoning") or {})
+    reasoning_enabled = (
+        requested_reasoning
+        if isinstance(requested_reasoning, bool)
+        else reasoning_policy.get("default", False) is True
+    )
+    upstream_parameter = reasoning_policy.get("upstream_parameter")
+    if isinstance(upstream_parameter, str) and upstream_parameter:
+        upstream[upstream_parameter] = reasoning_enabled
     # runtime의 reasoning parser는 chat_template_kwargs만 보고 thinking 여부를 판단한다.
     # 끈 요청에서 이 값을 생략하면 parser는 기본값(thinking on)으로 읽어 "아직 사고 중"이라
     # 판단하고, 그동안 structured output grammar를 적용하지 않아 json_schema 응답이
     # 자유 텍스트로 나온다. 그래서 켤 때와 끌 때를 모두 명시한다.
-    declared_kwargs = ((policy or {}).get("reasoning") or {}).get("upstream_chat_template_kwargs") or {}
+    declared_kwargs = reasoning_policy.get("upstream_chat_template_kwargs") or {}
     if declared_kwargs:
         template_kwargs = dict(upstream.get("chat_template_kwargs", {}))
         for name, enabled_value in declared_kwargs.items():
-            if reasoning_enabled is True:
+            if reasoning_enabled:
                 template_kwargs[name] = enabled_value
             elif isinstance(enabled_value, bool):
                 template_kwargs[name] = not enabled_value

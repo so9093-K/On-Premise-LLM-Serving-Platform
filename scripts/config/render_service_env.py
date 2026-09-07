@@ -34,11 +34,13 @@ def _projection(contract: dict[str, Any], target: str) -> tuple[str, dict[str, A
     projections = contract.get("service_env_projections")
     if not isinstance(projections, dict):
         raise RuntimeError("env_contract.yaml service_env_projections must be a mapping")
-    matches = [
-        (name, value)
-        for name, value in projections.items()
-        if isinstance(value, dict) and value.get("deployment_target") == target
-    ]
+    matches = []
+    for name, value in projections.items():
+        if not isinstance(value, dict):
+            continue
+        targets = value.get("deployment_targets")
+        if isinstance(targets, list) and target in targets:
+            matches.append((name, value))
     if len(matches) != 1:
         raise RuntimeError(f"expected exactly one service env projection for target {target!r}")
     return str(matches[0][0]), matches[0][1]
@@ -75,6 +77,9 @@ def render(*, target: str, source_env: Path, output: Path) -> tuple[str, int]:
             f"{source_env} is missing required {target} Gateway values: " + ", ".join(missing)
         )
 
+    # DEPLOYMENT_TARGET은 호출자가 선택한 projection identity다. source env 값이
+    # 누락되거나 다른 target을 가리켜도 컨테이너에 잘못 전달하지 않는다.
+    values["DEPLOYMENT_TARGET"] = target
     rendered = [f"{key}={values[key]}" for key in runtime_keys if key in values]
     output.parent.mkdir(parents=True, exist_ok=True)
     descriptor, temporary_name = tempfile.mkstemp(

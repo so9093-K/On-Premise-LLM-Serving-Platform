@@ -1,0 +1,82 @@
+{
+  "annotations": {"list": []},
+  "editable": false,
+  "graphTooltip": 1,
+  "panels": [
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"mappings": [{"options": {"0": {"text": "Not loaded"}, "1": {"text": "Loaded"}}, "type": "value"}], "thresholds": {"mode": "absolute", "steps": [{"color": "red"}, {"color": "green", "value": 1}]}}, "overrides": []},
+      "gridPos": {"h": 5, "w": 6, "x": 0, "y": 0},
+      "id": 1,
+      "options": {"colorMode": "background", "graphMode": "none", "justifyMode": "center", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
+      "targets": [{"expr": "mlx_runtime_loaded", "refId": "A"}],
+      "title": "MLX Model",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "tps"}, "overrides": []},
+      "gridPos": {"h": 5, "w": 6, "x": 6, "y": 0},
+      "id": 2,
+      "options": {"colorMode": "value", "graphMode": "area", "justifyMode": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
+      "targets": [{"expr": "mlx_runtime_latest_decode_tokens_per_second", "refId": "A"}],
+      "title": "Latest Decode",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []},
+      "gridPos": {"h": 5, "w": 6, "x": 12, "y": 0},
+      "id": 3,
+      "options": {"colorMode": "value", "graphMode": "area", "justifyMode": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
+      "targets": [{"expr": "mlx_runtime_effective_context_limit_tokens", "refId": "A"}],
+      "title": "Context Limit",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "suffix: GiB"}, "overrides": []},
+      "gridPos": {"h": 5, "w": 6, "x": 18, "y": 0},
+      "id": 4,
+      "options": {"colorMode": "value", "graphMode": "area", "justifyMode": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
+      "targets": [{"expr": "mlx_runtime_latest_peak_memory_gib", "refId": "A"}],
+      "title": "Latest MLX Peak Memory",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 5},
+      "id": 5,
+      "options": {"legend": {"displayMode": "list", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "single", "sort": "none"}},
+      "targets": [
+        {"expr": "mlx_runtime_in_flight", "legendFormat": "in flight", "refId": "A"},
+        {"expr": "mlx_runtime_request_queue_depth", "legendFormat": "queued", "refId": "B"}
+      ],
+      "title": "Admission and Queue",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "tps"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 5},
+      "id": 6,
+      "options": {"legend": {"displayMode": "list", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "single", "sort": "none"}},
+      "targets": [
+        {"expr": "mlx_runtime_latest_prefill_tokens_per_second", "legendFormat": "prefill", "refId": "A"},
+        {"expr": "mlx_runtime_latest_decode_tokens_per_second", "legendFormat": "decode", "refId": "B"}
+      ],
+      "title": "Latest Throughput",
+      "type": "timeseries"
+    }
+  ],
+  "refresh": "15s",
+  "schemaVersion": 41,
+  "tags": ["macos", "metal", "mlx"],
+  "templating": {"list": []},
+  "time": {"from": "now-1h", "to": "now"},
+  "timezone": "browser",
+  "title": "macOS Metal Runtime",
+  "uid": "macos-metal-runtime",
+  "version": 1
+}

@@ -6,9 +6,10 @@ cd "$ROOT"
 
 PYTHON_BIN="${PYTHON_BIN:-$(command -v python3.12 || command -v python3 || command -v python)}"
 ENV_FILE="${ENV_FILE:-.env}"
+DEPLOYMENT_TARGET="${DEPLOYMENT_TARGET:-linux-nvidia-static}"
 ENV_FILE_ABS="$("$PYTHON_BIN" -c 'import os,sys; print(os.path.abspath(sys.argv[1]))' "$ENV_FILE")"
 STATIC_COMPOSE_PROJECT_NAME="${STATIC_COMPOSE_PROJECT_NAME:-ai-model-serving-static}"
-GATEWAY_RUNTIME_ENV_FILE="${GATEWAY_RUNTIME_ENV_FILE:-$ROOT/.runtime/env/linux-nvidia-static-gateway.env}"
+GATEWAY_RUNTIME_ENV_FILE="${GATEWAY_RUNTIME_ENV_FILE:-$ROOT/.runtime/env/${DEPLOYMENT_TARGET}-gateway.env}"
 GATEWAY_RUNTIME_ENV_FILE="$("$PYTHON_BIN" -c 'import os,sys; print(os.path.abspath(sys.argv[1]))' "$GATEWAY_RUNTIME_ENV_FILE")"
 
 if [[ "${1:-}" == "down" && -f "$GATEWAY_RUNTIME_ENV_FILE" ]]; then
@@ -18,7 +19,7 @@ if [[ "${1:-}" == "down" && -f "$GATEWAY_RUNTIME_ENV_FILE" ]]; then
 else
   "$PYTHON_BIN" scripts/env/env_validate.py --env-file "$ENV_FILE_ABS"
   "$PYTHON_BIN" scripts/config/render_service_env.py \
-    --target linux-nvidia-static \
+    --target "$DEPLOYMENT_TARGET" \
     --source-env "$ENV_FILE_ABS" \
     --output "$GATEWAY_RUNTIME_ENV_FILE"
 fi
@@ -26,9 +27,14 @@ fi
 # The source env is only Compose interpolation input.  The generated projection is
 # the sole env_file received by the Gateway container.
 export COMPOSE_PROJECT_NAME="$STATIC_COMPOSE_PROJECT_NAME"
+export DEPLOYMENT_TARGET
 export GATEWAY_RUNTIME_ENV_FILE
+COMPOSE_FILES=(-f ops/compose/static-main.external-runtime.yaml)
+if [[ "$DEPLOYMENT_TARGET" == "macos-metal-static" ]]; then
+  COMPOSE_FILES+=(-f ops/compose/overrides/static.macos-metal.yaml)
+fi
 exec docker compose \
   --project-name "$STATIC_COMPOSE_PROJECT_NAME" \
-  -f ops/compose/static-main.external-runtime.yaml \
+  "${COMPOSE_FILES[@]}" \
   --env-file "$ENV_FILE_ABS" \
   "$@"

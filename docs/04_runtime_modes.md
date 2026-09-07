@@ -12,8 +12,8 @@ AI Model Serving Platform은 개발 목적의 **app-only**, 전체 lifecycle을 
 
 ### static main
 
-`linux-nvidia-static`에서는 Main runtime을 systemd, 별도 Compose project 또는 native
-process가 기동·감시한다. Gateway는 고정 endpoint로 Chat과 Streaming만 제공한다.
+static target에서는 Main runtime을 별도 process 또는 별도 supervisor가 기동·감시한다.
+Gateway는 고정 endpoint로 Chat과 Streaming만 제공한다.
 `MAIN_LLM_STATIC_PROFILE`은 외부 runtime과 동일한 검증된 Serving Profile로 반드시
 고정하며, Gateway request limit과 capability 광고는 이 profile을 따른다.
 
@@ -42,10 +42,41 @@ make static-compose-up
 token 소비면이 없다는 사실은 `deployment_targets.yaml`에 선언하며, 향후 내부 호출을
 추가하려면 target 계약과 projection을 함께 변경해야 한다.
 
-`MAIN_LLM_STATIC_PROFILE`은 실제 외부 runtime의 model revision과 capability qualification에
-맞는 profile이어야 한다. 현재 Linux static target은 기능 구현과 실제 Chat 연결을 확인한
-`implemented` 상태이며 장시간·장문맥 qualification은 남아 있다. `macos-metal-static`은
-하드웨어 검증 전 `planned` 상태라 Gateway가 기동을 거부한다.
+`MAIN_LLM_STATIC_PROFILE`은 실제 외부 runtime과 같은 target catalog의 profile이어야 한다.
+Linux는 `configs/main_model_profiles.yaml`, Mac은 `configs/macos_mlx_runtime.yaml`을 읽는다.
+
+#### Apple Silicon MLX-VLM
+
+Mac runtime은 Python 3.13.12의 앱 `.venv`와 분리된 native 환경 및 별도 lock을 사용한다. 모델 다운로드는
+기동과 분리되어 있어 `metal-start`가 대용량 파일을 암묵적으로 받지 않는다.
+
+```bash
+make metal-doctor
+make metal-setup
+make metal-prepare
+make metal-start
+```
+
+고정 기본 profile은 Gemma 4 26B A4B QAT 4-bit와 QAT MTP assistant이며, 24,576 input,
+8,192 generation, 이미지 1~4장, Thinking/MTP 활성, TurboQuant 비활성, 동시성 1이다.
+5~8장은 기능 제외가 아니라 extended qualification 구간이다.
+
+Gateway를 Docker에서 연결할 때 MLX runtime은 컨테이너에서 접근 가능한 host address에
+listen해야 한다. 그 경우 다음처럼 foreground runtime과 static stack을 각각 실행한다.
+
+```bash
+make build-image
+METAL_LISTEN_HOST=0.0.0.0 make metal-start
+DEPLOYMENT_TARGET=macos-metal-static make static-compose-up
+```
+
+운영자 `.env`에는 `MAIN_LLM_STATIC_PROFILE=gemma4-26b-a4b-qat-4bit-mlx`와
+`MAIN_LLM_BASE_URL=http://host.docker.internal:9401/v1`을 둔다. Mac static override는
+Gateway, MLX JSON metrics exporter, Prometheus와 Mac 전용 Grafana dashboard를 함께 띄운다.
+MLX의 `/metrics`가 JSON이므로 기존 vLLM Prometheus scrape를 재사용하지 않는다.
+Mac 로컬 기본은 `PLATFORM_IMAGE`를 registry에서 pull하지 않고 `make build-image`의
+현재 arm64 산출물을 사용한다. Registry image를 쓰는 경우에만 `PLATFORM_PULL_POLICY`를
+명시한다.
 
 이 문서는 각 서비스가 실제로 어떻게 실행되고 연결되는지, 그리고 어떤 기준으로 준비 상태를 판단하는지를 설명한다.
 

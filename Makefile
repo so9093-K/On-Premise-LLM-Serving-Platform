@@ -11,7 +11,7 @@ AUTH_ENV ?= $(if $(ENV_FILE),$(ENV_FILE),$(ENV))
 AUTH_ENV_ARG = $(if $(AUTH_ENV),--env $(AUTH_ENV),)
 
 
-.PHONY: help init-env-local init-env-compose sync-env static-compose-config static-compose-up static-compose-down validate test build build-image build-vllm-unified-image lock-linux package start compose-up compose-config ready-local ready-full smoke runtime-validate auth-status auth-doctor auth-plan auth-apply exposure-status exposure-plan exposure-apply main-model-prepare status stop compose-down compose-restart compose-logs logs compose-diagnostics clean clean-dry-run clean-all reset first-run reset-version render-runtime-assets
+.PHONY: help init-env-local init-env-compose sync-env static-compose-config static-compose-up static-compose-down metal-doctor metal-lock metal-setup metal-prepare metal-command metal-start metal-status validate test build build-image build-vllm-unified-image lock-linux package start compose-up compose-config ready-local ready-full smoke runtime-validate auth-status auth-doctor auth-plan auth-apply exposure-status exposure-plan exposure-apply main-model-prepare status stop compose-down compose-restart compose-logs logs compose-diagnostics clean clean-dry-run clean-all reset first-run reset-version render-runtime-assets
 .PHONY: setup-dev doctor-dev
 
 setup-dev: ## macOS/Ubuntu 개발용 .venv 준비 (Docker·GPU·.env 불필요)
@@ -46,6 +46,27 @@ static-compose-up: ## 외부 Main runtime에 연결하는 static Gateway 기동
 
 static-compose-down: ## static Gateway Compose project 정지
 	bash scripts/compose/static_main_compose.sh down
+
+metal-doctor: ## Apple Silicon과 고정 MLX runtime 설정 확인
+	$(PYTHON) scripts/runtime/macos_mlx_runtime.py doctor
+
+metal-lock: ## 현재 macOS arm64/Python에서 MLX dependency lock 재생성
+	$(PYTHON) scripts/runtime/macos_mlx_runtime.py lock
+
+metal-setup: ## 고정 lock으로 앱과 분리된 MLX runtime 환경 준비
+	$(PYTHON) scripts/runtime/macos_mlx_runtime.py setup
+
+metal-prepare: ## target·assistant의 고정 revision을 명시적으로 다운로드
+	$(PYTHON) scripts/runtime/macos_mlx_runtime.py prepare
+
+metal-command: ## cache-resolved MLX server 실행 명령 출력
+	$(PYTHON) scripts/runtime/macos_mlx_runtime.py command $(if $(METAL_LISTEN_HOST),--listen-host $(METAL_LISTEN_HOST),)
+
+metal-start: ## cache된 모델로 MLX server foreground 기동 (암묵적 다운로드 없음)
+	$(PYTHON) scripts/runtime/macos_mlx_runtime.py start $(if $(METAL_LISTEN_HOST),--listen-host $(METAL_LISTEN_HOST),)
+
+metal-status: ## native MLX runtime health 확인
+	$(PYTHON) scripts/runtime/macos_mlx_runtime.py status
 
 validate: ## 정적 계약·설정·생성물 drift 검증
 	@PYTHON_BIN="$(PYTHON)" bash scripts/validation/run_validate.sh

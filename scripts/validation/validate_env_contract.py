@@ -174,14 +174,25 @@ def validate_service_env_projections(root: Path, contract: dict[str, Any]) -> li
         if not isinstance(raw, dict):
             violations.append(f"env_contract.yaml: {label} must be a mapping")
             continue
-        target = raw.get("deployment_target")
-        target_cfg = targets.get(target) if isinstance(target, str) else None
-        if not isinstance(target_cfg, dict):
-            violations.append(f"env_contract.yaml: {label}.deployment_target is unknown: {target!r}")
+        projection_targets = _string_list(
+            raw.get("deployment_targets"),
+            label=f"{label}.deployment_targets",
+            violations=violations,
+        )
+        if not projection_targets:
             continue
-        if target in projected_targets:
-            violations.append(f"env_contract.yaml: duplicate service env projection for target {target!r}")
-        projected_targets.add(target)
+        known_projection_targets: list[tuple[str, dict[str, Any]]] = []
+        for target in projection_targets:
+            target_cfg = targets.get(target)
+            if not isinstance(target_cfg, dict):
+                violations.append(
+                    f"env_contract.yaml: {label}.deployment_targets contains unknown target: {target!r}"
+                )
+                continue
+            if target in projected_targets:
+                violations.append(f"env_contract.yaml: duplicate service env projection for target {target!r}")
+            projected_targets.add(target)
+            known_projection_targets.append((target, target_cfg))
         required = _string_list(raw.get("required_source_keys"), label=f"{label}.required_source_keys", violations=violations)
         runtime = _string_list(raw.get("runtime_keys"), label=f"{label}.runtime_keys", violations=violations)
         omitted_required = set(required) - set(runtime)
@@ -190,10 +201,13 @@ def validate_service_env_projections(root: Path, contract: dict[str, Any]) -> li
                 f"env_contract.yaml: {label}.required_source_keys missing from runtime_keys: "
                 + ", ".join(sorted(omitted_required))
             )
-        if target_cfg.get("internal_service_token_required") is False and "INTERNAL_SERVICE_TOKEN" in runtime:
-            violations.append(
-                f"env_contract.yaml: {label} injects INTERNAL_SERVICE_TOKEN although target {target!r} has no token consumer"
-            )
+        if "DEPLOYMENT_TARGET" not in runtime:
+            violations.append(f"env_contract.yaml: {label}.runtime_keys must include DEPLOYMENT_TARGET")
+        for target, target_cfg in known_projection_targets:
+            if target_cfg.get("internal_service_token_required") is False and "INTERNAL_SERVICE_TOKEN" in runtime:
+                violations.append(
+                    f"env_contract.yaml: {label} injects INTERNAL_SERVICE_TOKEN although target {target!r} has no token consumer"
+                )
     return violations
 
 
