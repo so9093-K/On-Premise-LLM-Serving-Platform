@@ -107,6 +107,35 @@ def normalize_chat_request_for_runtime(
     # request validation alone cannot constrain an omitted upstream default.
     if allowed_tool_names and not profile_allows_parallel:
         upstream.setdefault("parallel_tool_calls", False)
+    # vLLM은 named tool_choice 경로에서 tool_calls를 반환하면서 finish_reason=stop을
+    # 쓴다(auto/required만 tool_calls). OpenAI 계약과 validate_chat_response는 도구
+    # 호출 시 tool_calls를 요구하므로, 프로필이 선언하면 의미가 같은 "required +
+    # 선택된 tool 하나"로 upstream 요청을 바꾼다. 응답을 사후 수정하지 않고 요청에서
+    # 해결하므로 streaming도 같은 형태를 얻는다 -- streaming relay는 chunk를 파싱하지
+    # 않고 그대로 전달하기 때문에 응답 교정으로는 그 경로를 덮을 수 없다.
+    #
+    # expectations는 아래에서 원본 요청 값으로 만든다. 따라서 함수명 일치, named
+    # 준수, 병렬 금지 검증은 정규화와 무관하게 클라이언트가 요청한 계약을 그대로
+    # 확인한다.
+    if (
+        tool_choice == "named"
+        and tool_choice_name is not None
+        and isinstance(tool_policy, dict)
+        and tool_policy.get("named_tool_choice_upstream") == "required_single"
+    ):
+        selected_tools = [
+            tool
+            for tool in tools or []
+            if isinstance(tool, dict)
+            and isinstance(tool.get("function"), dict)
+            and tool["function"].get("name") == tool_choice_name
+        ]
+        # 요청 검증이 이미 이름 일치를 보장하지만, 비어 있으면 정규화하지 않고
+        # 원래 요청을 그대로 보내 실패 원인을 바꾸지 않는다.
+        if selected_tools:
+            upstream["tools"] = selected_tools
+            upstream["tool_choice"] = "required"
+            upstream["parallel_tool_calls"] = False
     expectations = ChatResponseExpectations(
         response_format_type=response_format_type,
         json_schema=dict(json_schema) if isinstance(json_schema, dict) else None,

@@ -333,7 +333,17 @@ def tool_calling_settings() -> AppSettings:
             ],
             "drop_upstream_parameters": ["user"],
             "max_n": 1,
-            "tool_calling": {"enabled": True, "max_tools": 4, "allow_parallel_tool_calls": False},
+            "tool_calling": {
+                "enabled": True,
+                # 한도 자체를 검증하려고 운영값(64)보다 작게 둔 의도적 픽스처 값이다.
+                "max_tools": 4,
+                "allow_parallel_tool_calls": False,
+                # 한도와 달리 upstream 요청 형태를 바꾸는 동작 정책이므로 운영 프로필에서
+                # 가져온다. 여기 값을 베껴 두면 프로필이 바뀔 때 조용히 드리프트한다.
+                "named_tool_choice_upstream": _PRODUCTION_CHAT_POLICY["tool_calling"][
+                    "named_tool_choice_upstream"
+                ],
+            },
             "reasoning": {
                 "enabled": True,
                 "default": False,

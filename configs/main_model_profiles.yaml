@@ -98,6 +98,14 @@ profiles:
           enabled: true
           max_tools: 64
           allow_parallel_tool_calls: false
+          # vLLM의 named tool_choice 경로는 tool_calls를 반환하면서 finish_reason=stop을
+          # 쓴다(auto/required만 tool_calls). OpenAI 계약은 도구 호출 시 tool_calls를
+          # 요구하므로 Gateway가 upstream 요청을 의미가 같은 "required + 선택된 tool
+          # 하나"로 정규화한다. 응답 검증은 클라이언트 원본 요청 기준을 그대로 쓴다.
+          #
+          # 이 runtime이 required를 지원하지 않는 것으로 확인되면 named로 되돌린다.
+          # 그 경우 named 요청은 다시 finish_reason 불일치로 거부된다.
+          named_tool_choice_upstream: required_single
         reasoning:
           enabled: true
           default: false
@@ -343,6 +351,14 @@ profiles:
           enabled: true
           max_tools: 64
           allow_parallel_tool_calls: false
+          # vLLM의 named tool_choice 경로는 tool_calls를 반환하면서 finish_reason=stop을
+          # 쓴다(auto/required만 tool_calls). OpenAI 계약은 도구 호출 시 tool_calls를
+          # 요구하므로 Gateway가 upstream 요청을 의미가 같은 "required + 선택된 tool
+          # 하나"로 정규화한다. 응답 검증은 클라이언트 원본 요청 기준을 그대로 쓴다.
+          #
+          # 이 runtime이 required를 지원하지 않는 것으로 확인되면 named로 되돌린다.
+          # 그 경우 named 요청은 다시 finish_reason 불일치로 거부된다.
+          named_tool_choice_upstream: required_single
         reasoning:
           enabled: true
           default: false
