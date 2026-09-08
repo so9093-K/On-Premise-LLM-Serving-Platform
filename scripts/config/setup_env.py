@@ -29,6 +29,7 @@ from ai_model_serving.auth_control import (
     auth_profile_exposure_values,
     auth_profile_exposure_mismatch,
 )
+from ai_model_serving.deployment_target import load_deployment_target
 from ai_model_serving.settings_parts.dotenv_parser import load_strict_env_file
 
 IMAGE_CONFIG = ROOT / "configs" / "recommended_images.yaml"
@@ -52,6 +53,72 @@ def recommended_images() -> dict[str, str]:
         "LOKI_IMAGE": str(images["loki"]["default"]),
         "ALLOY_IMAGE": str(images["alloy"]["default"]),
     }
+
+
+def deployment_target_values(target_id: str, main_profile: str | None = None) -> dict[str, str]:
+    """Project the selected target into the env fields its runtime path consumes."""
+    target = load_deployment_target(ROOT / "configs/deployment_targets.yaml", target_id)
+    catalog = read_yaml(ROOT / target.main_profile_catalog)
+    profiles = catalog.get("profiles")
+    selected_profile = main_profile or str(catalog.get("default_profile", ""))
+    if not isinstance(profiles, dict) or selected_profile not in profiles:
+        allowed = ", ".join(sorted(str(profile) for profile in (profiles or {})))
+        raise ValueError(
+            f"deployment target {target_id!r} has no main profile {selected_profile!r}; "
+            f"allowed: {allowed}"
+        )
+    values = {"DEPLOYMENT_TARGET": target.target_id}
+    if target.control_mode == "static":
+        values["MAIN_LLM_STATIC_PROFILE"] = selected_profile
+    else:
+        values["MAIN_LLM_BOOT_PROFILE"] = selected_profile
+    if target.gateway_runtime_host:
+        runtime = catalog.get("runtime")
+        port = runtime.get("port") if isinstance(runtime, dict) else None
+        if not isinstance(port, int) or not (1 <= port <= 65535):
+            raise ValueError(
+                f"deployment target {target_id!r} profile catalog must provide runtime.port"
+            )
+        values["MAIN_LLM_BASE_URL"] = f"http://{target.gateway_runtime_host}:{port}/v1"
+    return values
+
+
+def sync_deployment_target(
+    env_path: Path,
+    target_id: str,
+    *,
+    main_profile: str | None = None,
+    main_base_url: str | None = None,
+) -> None:
+    """Update only target-owned fields in an existing Compose env file."""
+    lines, existing = parse_env_template(env_path)
+    if existing.get("BUILD_PROFILE") != "compose":
+        raise ValueError(
+            "deployment target setup requires a Compose .env; move the app-only .env aside first"
+        )
+    target = load_deployment_target(ROOT / "configs/deployment_targets.yaml", target_id)
+    profile_key = (
+        "MAIN_LLM_STATIC_PROFILE"
+        if target.control_mode == "static"
+        else "MAIN_LLM_BOOT_PROFILE"
+    )
+    selected_profile = main_profile or existing.get(profile_key) or None
+    try:
+        projected = deployment_target_values(target_id, selected_profile)
+    except ValueError:
+        if main_profile:
+            raise
+        projected = deployment_target_values(target_id)
+
+    existing["DEPLOYMENT_TARGET"] = target_id
+    existing[profile_key] = projected[profile_key]
+    if main_base_url:
+        if not main_base_url.startswith(("http://", "https://")):
+            raise ValueError("--main-llm-base-url must be an HTTP URL")
+        existing["MAIN_LLM_BASE_URL"] = main_base_url
+    elif not existing.get("MAIN_LLM_BASE_URL") and projected.get("MAIN_LLM_BASE_URL"):
+        existing["MAIN_LLM_BASE_URL"] = projected["MAIN_LLM_BASE_URL"]
+    write_env(lines, existing, env_path)
 
 
 def token(prefix: str) -> str:
@@ -372,6 +439,18 @@ def build_parser() -> KoreanArgumentParser:
     parser.add_argument("--dcgm-exporter-image")
     parser.add_argument("--prometheus-image")
     parser.add_argument("--grafana-image")
+    parser.add_argument(
+        "--deployment-target",
+        help="생성할 실행 target. target별 Main profile과 기본 endpoint를 함께 투영합니다.",
+    )
+    parser.add_argument(
+        "--main-profile",
+        help="선택 target의 기본 Main profile을 명시적으로 선택합니다.",
+    )
+    parser.add_argument(
+        "--main-llm-base-url",
+        help="외부 lifecycle static target의 Main runtime URL입니다.",
+    )
     return parser
 
 
@@ -395,7 +474,17 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.sync_env:
         try:
-            return sync_env_keys(out_path, dry_run=args.dry_run)
+            result = sync_env_keys(out_path, dry_run=args.dry_run)
+            if result != 0 or args.dry_run or not args.deployment_target:
+                return result
+            sync_deployment_target(
+                out_path,
+                args.deployment_target,
+                main_profile=args.main_profile,
+                main_base_url=args.main_llm_base_url,
+            )
+            print(f"target 설정 동기화 완료: {args.deployment_target}")
+            return 0
         except Exception as exc:
             print(f"sync-env 실패: {exc}", file=sys.stderr)
             return 2
@@ -431,6 +520,17 @@ def main(argv: list[str] | None = None) -> int:
         print(f"env 정책 오류: {exc}", file=sys.stderr)
         return 2
     values = base_values | generated | preserved_values
+    if args.deployment_target:
+        try:
+            values.update(deployment_target_values(args.deployment_target, args.main_profile))
+        except (RuntimeError, ValueError) as exc:
+            print(f"env target 오류: {exc}", file=sys.stderr)
+            return 2
+    if args.main_llm_base_url:
+        if not args.main_llm_base_url.startswith(("http://", "https://")):
+            print("env target 오류: --main-llm-base-url must be an HTTP URL", file=sys.stderr)
+            return 2
+        values["MAIN_LLM_BASE_URL"] = args.main_llm_base_url
     if args.profile == "compose":
         ensure_risk_vllm_image(values)
     if values.get("HF_TOKEN") and not values.get("HUGGING_FACE_HUB_TOKEN"):

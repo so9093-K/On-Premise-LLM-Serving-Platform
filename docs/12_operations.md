@@ -42,18 +42,19 @@
 
 ### 기본 상태
 
-app-only 환경에서는 다음 명령으로 Gateway와 Risk Adapter 상태를 확인한다.
+`make status`는 `.env`에 기록된 target을 읽어 app-only와 full-stack을
+자동으로 구분한다.
 
 ```bash
 make status
-make ready-local
 ```
 
-full-stack 환경에서는 Main Model과 Embedding 등 주요 Runtime 준비 상태까지 함께 확인한다.
+장애 진단 중 readiness 계층만 다시 확인할 때는 target에 맞는 내부 명령을
+사용한다.
 
 ```bash
-READY_MODE=full make status
-make ready-full
+make ready-local  # app-only
+make ready-full   # Linux/NVIDIA full-stack
 ```
 
 | 확인 항목 | 의미 |
@@ -368,7 +369,7 @@ Runtime 검증
 full-stack 환경에서는 다음 순서로 확인한다.
 
 ```bash
-READY_MODE=full make status
+make status
 make ready-full
 make runtime-validate
 ```
@@ -408,7 +409,7 @@ make smoke
 | 목적 | 명령 |
 |---|---|
 | app-only 준비 상태 | `make ready-local` |
-| full-stack 상태 요약 | `READY_MODE=full make status` |
+| target 상태 요약 | `make status` |
 | app-only 로그 조회 | `make logs` |
 | 인증 상태 확인 | `make auth-status` |
 | 인증 진단 | `make auth-doctor` |

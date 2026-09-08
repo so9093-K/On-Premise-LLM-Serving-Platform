@@ -17,6 +17,11 @@
 
 ### Changed
 
+- 로컬 최초 구성과 실행을 target-aware `make setup → prepare → up/status/down`
+  lifecycle로 정리했다. `prepare`는 선택된 Main Model만 준비하고, 기존의 개별
+  Compose·Metal·build·readiness 명령은 `make help-all`의 진단·CI·release 계층으로
+  유지한다. Mac target은 native MLX process와 static Compose를 같은 lifecycle로 관리한다.
+
 - Gateway/Risk Adapter 요청 이벤트를 Docker LogPath 수집에서 앱 소유 JSONL로 분리했다. Linux full-stack과 macOS Metal static이 같은 Loki Request Log Explorer를 사용하며, Docker manifest는 vLLM·컨테이너 장애 진단에만 남는다. ([ADR-0022](docs/adr/0022-application-request-event-ownership.md))
 
 - Secondary Runtime 기본 프로필을 `main_only`로 변경해 compose-up과 full 배포에서 Main Model만 처음 준비한다. Embedding·Korean Embedding·Prompt Risk는 컨테이너만 생성하고 기존 Admin Runtime API로 필요할 때 시작한다. Retrieval을 즉시 제공할 환경은 `retrieval_ready`를 명시하며 Risk Adapter와 로컬 PII·Secret 검사는 유지된다.

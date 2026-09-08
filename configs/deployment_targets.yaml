@@ -67,6 +67,9 @@ targets:
     control_mode: static
     lifecycle_owner: external
     internal_service_token_required: false
+    # Native runtime에 Docker Gateway가 접근할 host다. port는 별도로 복제하지 않고
+    # configs/macos_mlx_runtime.yaml의 runtime.port에서 투영한다.
+    gateway_runtime_host: host.docker.internal
     # Gateway/Compose/native runtime과 M5 32GB의 text/image/reasoning, 24K input,
     # 최대 8 images 및 8K generation 경계를 고정 runtime 조합으로 확인했다.
     validation_status: verified

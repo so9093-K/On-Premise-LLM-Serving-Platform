@@ -64,18 +64,15 @@
 
 ## C. 주요 명령
 
-### 개발과 실행
+### 일반 실행
 
 | 목적 | 명령 | 관련 문서 |
 |---|---|---|
-| app-only 환경 초기화 | `make init-env-local` | [7. 로컬 개발과 빌드](./07_local_dev_build.md) |
-| app-only 시작 | `make start` | [7. 로컬 개발과 빌드](./07_local_dev_build.md) |
-| app-only 종료 | `make stop` | [7. 로컬 개발과 빌드](./07_local_dev_build.md) |
-| app-only 상태 확인 | `make ready-local` | [4. 실행 환경과 모드](./04_runtime_modes.md) |
-| full-stack 환경 초기화 | `make init-env-compose` | [7. 로컬 개발과 빌드](./07_local_dev_build.md) |
-| full-stack 시작 | `make compose-up` | [7. 로컬 개발과 빌드](./07_local_dev_build.md) |
-| full-stack 종료 | `make compose-down` | [7. 로컬 개발과 빌드](./07_local_dev_build.md) |
-| full-stack 준비 상태 확인 | `make ready-full` | [8. 테스트와 검증](./08_testing_validation.md) |
+| target·`.env` 최초 준비 | `make setup TARGET=<id>` | [7. 로컬 개발과 빌드](./07_local_dev_build.md) |
+| image·선택 Main Model 준비 | `HF_TOKEN=... make prepare` | [7. 로컬 개발과 빌드](./07_local_dev_build.md) |
+| target 시작 / 상태 / 종료 | `make up` / `make status` / `make down` | [4. 실행 환경과 모드](./04_runtime_modes.md) |
+| application 변경 검증 | `make check` | [8. 테스트와 검증](./08_testing_validation.md) |
+| 내부 빌드·진단 명령 조회 | `make help-all` | [7. 로컬 개발과 빌드](./07_local_dev_build.md) |
 
 ### 검증과 테스트
 
@@ -94,7 +91,7 @@
 | Platform Image Build | `make build-image` | [7. 로컬 개발과 빌드](./07_local_dev_build.md) |
 | Unified vLLM Image Build | `make build-vllm-unified-image` | [7. 로컬 개발과 빌드](./07_local_dev_build.md) |
 | Release ZIP 생성 | `make package` | [7. 로컬 개발과 빌드](./07_local_dev_build.md) |
-| 전체 초기 구성 | `make first-run` | [7. 로컬 개발과 빌드](./07_local_dev_build.md) |
+| 고급 NVIDIA 전체 재빌드 | `make first-run` | [7. 로컬 개발과 빌드](./07_local_dev_build.md) |
 | Runtime 생성 파일 갱신 | `make render-runtime-assets` | [5. 설정 체계와 Source of Truth](./05_configuration.md) |
 
 ### 모델 운영
@@ -115,7 +112,7 @@
 | 인증 진단 | `make auth-doctor` | [12. 운영 관리 및 장애 대응](./12_operations.md) |
 | 서비스 노출 상태 확인 | `make exposure-status` | [4. 실행 환경과 모드](./04_runtime_modes.md) |
 
-전체 Make target은 `make help`에서 확인할 수 있다.
+전체 Make target은 `make help-all`에서 확인할 수 있다.
 
 ---
 

@@ -13,7 +13,7 @@ elif [[ "$MODE" == "--all-dry-run" ]]; then
 fi
 
 running=()
-for name in gateway risk_adapter; do
+for name in gateway risk_adapter metal; do
   pid_file="$ROOT/run/${name}.pid"
   if [[ -f "$pid_file" ]] && kill -0 "$(cat "$pid_file")" >/dev/null 2>&1; then
     running+=("${name}:$(cat "$pid_file")")
@@ -22,7 +22,7 @@ done
 
 if (( ${#running[@]} > 0 )) && [[ "${FORCE_CLEAN_RUNNING:-0}" != "1" ]]; then
   echo "clean refused: local services appear to be running (${running[*]})." >&2
-  echo "Run 'make stop' first, or set FORCE_CLEAN_RUNNING=1 if you intentionally want to remove tracking files while processes may still run." >&2
+  echo "Run 'make down' first, or set FORCE_CLEAN_RUNNING=1 if you intentionally want to remove tracking files while processes may still run." >&2
   exit 2
 fi
 

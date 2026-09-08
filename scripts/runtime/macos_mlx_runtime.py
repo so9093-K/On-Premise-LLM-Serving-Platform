@@ -10,11 +10,13 @@ from __future__ import annotations
 import argparse
 import os
 import platform
+import signal
 import shlex
 import shutil
 import subprocess
 import sys
 import tempfile
+import time
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -24,6 +26,8 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
 CONFIG_PATH = ROOT / "configs" / "macos_mlx_runtime.yaml"
+PID_PATH = ROOT / "run" / "metal.pid"
+LOG_PATH = ROOT / "logs" / "metal.log"
 
 
 def _config() -> dict[str, Any]:
@@ -75,21 +79,46 @@ def _interpreter_version(executable: Path) -> str:
     ).strip()
 
 
-def _require_runtime_host(config: dict[str, Any]) -> None:
+def _base_python_candidates(config: dict[str, Any]) -> list[Path]:
+    expected_minor = ".".join(str(config["runtime"]["python"]).split(".")[:2])
+    raw = [
+        os.environ.get("METAL_PYTHON_BIN"),
+        str(Path(getattr(sys, "_base_executable", None) or sys.executable)),
+        shutil.which(f"python{expected_minor}"),
+        f"/opt/homebrew/bin/python{expected_minor}",
+        f"/usr/local/bin/python{expected_minor}",
+    ]
+    candidates: list[Path] = []
+    for item in raw:
+        if not item:
+            continue
+        candidate = Path(item).expanduser()
+        if candidate not in candidates:
+            candidates.append(candidate)
+    return candidates
+
+
+def _base_python(config: dict[str, Any]) -> Path:
+    expected = str(config["runtime"]["python"])
+    for candidate in _base_python_candidates(config):
+        if not candidate.is_file() or not os.access(candidate, os.X_OK):
+            continue
+        try:
+            if _interpreter_version(candidate) == expected:
+                return candidate.resolve()
+        except (OSError, subprocess.CalledProcessError):
+            continue
+    raise RuntimeError(
+        f"Metal runtime requires Python {expected}; install that patch or set "
+        "METAL_PYTHON_BIN=/path/to/python"
+    )
+
+
+def _require_runtime_host(config: dict[str, Any]) -> Path:
     actual = f"{platform.system()}/{platform.machine()}"
     if actual != "Darwin/arm64":
         raise RuntimeError(f"Metal runtime commands require Darwin/arm64; current host is {actual}")
-    expected_python = str(config["runtime"]["python"])
-    actual_python = _interpreter_version(_base_python())
-    if actual_python != expected_python:
-        raise RuntimeError(
-            f"Metal runtime requires base Python {expected_python}; current base interpreter "
-            f"{_base_python()} is {actual_python}"
-        )
-
-
-def _base_python() -> Path:
-    return Path(getattr(sys, "_base_executable", None) or sys.executable).resolve()
+    return _base_python(config)
 
 
 def _profile(config: dict[str, Any]) -> dict[str, Any]:
@@ -130,13 +159,13 @@ def _run_runtime_python(config: dict[str, Any], code: str, *args: str) -> str:
 
 
 def doctor(config: dict[str, Any]) -> None:
-    _require_runtime_host(config)
+    base_python = _require_runtime_host(config)
     runtime = config["runtime"]
     profile = _profile(config)
     normal = profile["qualification"]["normal"]
     speculative = runtime["speculative_decoding"]
     print(f"[metal] host: Darwin/arm64")
-    print(f"[metal] base Python: {_base_python()} ({_interpreter_version(_base_python())})")
+    print(f"[metal] base Python: {base_python} ({_interpreter_version(base_python)})")
     print(f"[metal] runtime packages: {', '.join(runtime['packages'])}")
     print(f"[metal] target: {profile['model_id']}@{profile['revision']}")
     print(f"[metal] assistant: {profile['assistant']['model_id']}@{profile['assistant']['revision']}")
@@ -151,7 +180,7 @@ def doctor(config: dict[str, Any]) -> None:
 
 
 def lock(config: dict[str, Any]) -> None:
-    _require_runtime_host(config)
+    base_python = _require_runtime_host(config)
     runtime = config["runtime"]
     output = ROOT / str(runtime["lock_file"])
     packages = [str(package) for package in runtime["packages"]]
@@ -165,7 +194,7 @@ def lock(config: dict[str, Any]) -> None:
             # pip-compile은 기존 output pin을 입력으로 사용해 무관한 전이 의존성
             # upgrade를 피한다. upgrade는 별도 의사결정으로 남긴다.
             shutil.copyfile(output, generated)
-        subprocess.run([str(_base_python()), "-m", "venv", str(tools)], check=True)
+        subprocess.run([str(base_python), "-m", "venv", str(tools)], check=True)
         pip = [str(tools / "bin" / "python"), "-m", "pip", "--disable-pip-version-check"]
         subprocess.run([*pip, "install", "--quiet", "pip==26.0.1", "pip-tools==7.5.3"], check=True)
         subprocess.run(
@@ -190,7 +219,7 @@ def lock(config: dict[str, Any]) -> None:
 
 
 def setup(config: dict[str, Any]) -> None:
-    _require_runtime_host(config)
+    base_python = _require_runtime_host(config)
     runtime = config["runtime"]
     lock_path = ROOT / str(runtime["lock_file"])
     if not lock_path.is_file():
@@ -198,7 +227,7 @@ def setup(config: dict[str, Any]) -> None:
     environment = ROOT / str(runtime["environment"])
     python = _runtime_python(config)
     if not python.is_file():
-        subprocess.run([str(_base_python()), "-m", "venv", str(environment)], check=True)
+        subprocess.run([str(base_python), "-m", "venv", str(environment)], check=True)
     expected_python = str(runtime["python"])
     runtime_version = _interpreter_version(python)
     if runtime_version != expected_python:
@@ -280,20 +309,119 @@ def server_command(config: dict[str, Any], *, listen_host: str | None = None) ->
     return command
 
 
-def status(config: dict[str, Any]) -> None:
+def _tracked_pid() -> int | None:
+    try:
+        pid = int(PID_PATH.read_text(encoding="utf-8").strip())
+    except (FileNotFoundError, ValueError):
+        return None
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        PID_PATH.unlink(missing_ok=True)
+        return None
+    except PermissionError:
+        return None
+    return pid
+
+
+def _health_payload(config: dict[str, Any]) -> str:
     runtime = config["runtime"]
     url = f"http://127.0.0.1:{runtime['port']}{runtime['health_path']}"
+    with urllib.request.urlopen(url, timeout=3) as response:
+        return response.read().decode("utf-8")
+
+
+def start_background(config: dict[str, Any], *, listen_host: str = "0.0.0.0") -> None:
+    pid = _tracked_pid()
+    launched = False
+    if pid is not None:
+        print(f"[metal] runtime process already tracked: pid={pid}")
+    else:
+        try:
+            payload = _health_payload(config)
+        except (OSError, urllib.error.URLError):
+            command = server_command(config, listen_host=listen_host)
+            PID_PATH.parent.mkdir(parents=True, exist_ok=True)
+            LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+            with LOG_PATH.open("a", encoding="utf-8") as log:
+                process = subprocess.Popen(
+                    command,
+                    cwd=_model_aliases(config)[0].parent,
+                    stdin=subprocess.DEVNULL,
+                    stdout=log,
+                    stderr=subprocess.STDOUT,
+                    start_new_session=True,
+                )
+            PID_PATH.write_text(f"{process.pid}\n", encoding="utf-8")
+            pid = process.pid
+            launched = True
+            print(f"[metal] runtime starting: pid={pid} log={LOG_PATH.relative_to(ROOT)}")
+        else:
+            print(f"[metal] runtime already ready but is not managed by this project: {payload}")
+            return
+
+    timeout = int(os.environ.get("METAL_START_TIMEOUT_SECONDS", "1800"))
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if _tracked_pid() is None:
+            raise RuntimeError(f"Metal runtime exited before readiness; inspect {LOG_PATH}")
+        try:
+            payload = _health_payload(config)
+        except (OSError, urllib.error.URLError):
+            time.sleep(2)
+            continue
+        print(f"[metal] ready: {payload}")
+        return
+    if launched:
+        try:
+            stop_background()
+        except (OSError, RuntimeError) as exc:
+            print(f"[metal] cleanup after startup timeout failed: {exc}", file=sys.stderr)
+    raise RuntimeError(f"Metal runtime did not become ready within {timeout}s; inspect {LOG_PATH}")
+
+
+def stop_background() -> None:
+    pid = _tracked_pid()
+    if pid is None:
+        print("[metal] no managed runtime process")
+        return
+    os.kill(pid, signal.SIGTERM)
+    deadline = time.monotonic() + 30
+    while time.monotonic() < deadline:
+        try:
+            os.kill(pid, 0)
+        except ProcessLookupError:
+            PID_PATH.unlink(missing_ok=True)
+            print(f"[metal] runtime stopped: pid={pid}")
+            return
+        time.sleep(0.25)
+    raise RuntimeError(
+        f"Metal runtime pid {pid} did not stop within 30s; inspect it before retrying"
+    )
+
+
+def status(config: dict[str, Any]) -> None:
     try:
-        with urllib.request.urlopen(url, timeout=3) as response:
-            payload = response.read().decode("utf-8")
+        payload = _health_payload(config)
     except (OSError, urllib.error.URLError) as exc:
-        raise RuntimeError(f"Metal runtime is not ready at {url}: {exc}") from exc
-    print(f"[metal] ready: {payload}")
+        runtime = config["runtime"]
+        raise RuntimeError(
+            f"Metal runtime is not ready at http://127.0.0.1:{runtime['port']}{runtime['health_path']}: {exc}"
+        ) from exc
+    pid = _tracked_pid()
+    suffix = f" pid={pid}" if pid is not None else " unmanaged"
+    print(f"[metal] ready:{suffix} {payload}")
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Manage the pinned macOS MLX-VLM runtime.")
-    parser.add_argument("action", choices=("doctor", "lock", "setup", "prepare", "command", "start", "status"))
+    parser.add_argument(
+        "action",
+        choices=(
+            "doctor", "lock", "setup", "prepare", "command", "start",
+            "start-background", "stop", "status",
+        ),
+    )
     parser.add_argument("--listen-host", default=None)
     args = parser.parse_args(argv)
     try:
@@ -308,6 +436,10 @@ def main(argv: list[str] | None = None) -> int:
             prepare(config)
         elif args.action == "status":
             status(config)
+        elif args.action == "start-background":
+            start_background(config, listen_host=args.listen_host or "0.0.0.0")
+        elif args.action == "stop":
+            stop_background()
         else:
             command = server_command(config, listen_host=args.listen_host)
             if args.action == "command":

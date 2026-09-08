@@ -47,6 +47,9 @@ if ! docker info >/dev/null 2>&1; then
 fi
 
 ENV_FILE="$ENV_FILE" COMPOSE_FILE="$COMPOSE_FILE" bash scripts/ops/down_services.sh --all
+if [[ -f "$ROOT/run/metal.pid" ]]; then
+  "$PYTHON_BIN" scripts/runtime/macos_mlx_runtime.py stop
+fi
 
 # compose file의 image: 항목은 build: 섹션이 없어 --rmi local로 삭제되지 않는다.
 # .env의 PLATFORM_IMAGE 태그를 직접 삭제한다.
@@ -89,7 +92,7 @@ fi
 
 echo ""
 echo "[reset] done."
-echo "  run 'make first-run' to rebuild from scratch."
+echo "  run 'make setup' and 'make prepare' to rebuild the selected target."
 echo ""
 echo "  flags used this run:"
 echo "    PURGE_MODEL_CACHE=${PURGE_MODEL_CACHE:-0}     (set to 1 to delete local/shared model cache)"

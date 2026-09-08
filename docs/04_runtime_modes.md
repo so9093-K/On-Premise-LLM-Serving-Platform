@@ -51,27 +51,23 @@ Mac runtime은 Python 3.13.12의 앱 `.venv`와 분리된 native 환경 및 별�
 기동과 분리되어 있어 `metal-start`가 대용량 파일을 암묵적으로 받지 않는다.
 
 ```bash
-make metal-doctor
-make metal-setup
-make metal-prepare
-make metal-start
+make setup TARGET=macos-metal-static
+HF_TOKEN=hf_xxx make prepare
+make up
+make status
 ```
 
 고정 기본 profile은 Gemma 4 26B A4B QAT 4-bit와 QAT MTP assistant이며, 24,576 input,
 8,192 generation, 이미지 1~4장, Thinking/MTP 활성, TurboQuant 비활성, 동시성 1이다.
 5~8장은 기능 제외가 아니라 extended qualification 구간이다.
 
-Gateway를 Docker에서 연결할 때 MLX runtime은 컨테이너에서 접근 가능한 host address에
-listen해야 한다. 그 경우 다음처럼 foreground runtime과 static stack을 각각 실행한다.
+`setup`은 target catalog에서 `MAIN_LLM_STATIC_PROFILE`과 Docker Gateway가 native
+runtime에 연결할 endpoint를 `.env`로 투영한다. `up`은 native MLX runtime을 프로젝트
+소유 background process로 시작해 readiness를 기다린 뒤 static Compose를 기동한다.
+`down`은 두 lifecycle을 역순으로 정리한다. 수동 `metal-*`, `build-image`,
+`static-compose-*` 명령은 개별 계층을 진단할 때만 사용한다.
 
-```bash
-make build-image
-METAL_LISTEN_HOST=0.0.0.0 make metal-start
-DEPLOYMENT_TARGET=macos-metal-static make static-compose-up
-```
-
-운영자 `.env`에는 `MAIN_LLM_STATIC_PROFILE=gemma4-26b-a4b-qat-4bit-mlx`와
-`MAIN_LLM_BASE_URL=http://host.docker.internal:9401/v1`을 둔다. Mac static override는
+Mac static override는
 Gateway, MLX JSON metrics exporter, Prometheus와 `Main Runtime Health` Dashboard를 함께 띄운다.
 MLX의 `/metrics`가 JSON이므로 기존 vLLM Prometheus scrape를 재사용하지 않는다.
 Mac 로컬 기본은 `PLATFORM_IMAGE`를 registry에서 pull하지 않고 `make build-image`의
@@ -143,12 +139,15 @@ Observability
 기본 실행 흐름은 다음과 같다.
 
 ```bash
-make init-env-compose
-make compose-up
-make ready-full
+make setup TARGET=linux-nvidia-dynamic
+HF_TOKEN=hf_xxx make prepare
+make up
+make status
 ```
 
-`make compose-up`은 환경 검증, exposure profile 적용, Main Model boot projection 준비, Compose preflight를 수행한 뒤 stack을 기동한다.
+`make up`은 내부적으로 환경 검증, exposure profile 적용, Main Model boot projection 준비,
+Compose preflight와 readiness를 수행한다. 개별 `compose-up`과 `ready-full` 명령은 해당
+단계만 진단할 때 사용한다.
 
 Main Model의 실제 실행 profile은 persisted runtime state와 boot policy를 반영해 결정된다.
 

@@ -1,0 +1,307 @@
+#!/usr/bin/env python3
+"""Target-aware local lifecycle command.
+
+The public workflow is intentionally small: setup, prepare, up, status, down.
+Existing scripts remain the implementation layer and operational escape hatches.
+"""
+from __future__ import annotations
+
+import argparse
+import os
+import subprocess
+import sys
+import time
+import urllib.error
+import urllib.request
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+if str(ROOT / "src") not in sys.path:
+    sys.path.insert(0, str(ROOT / "src"))
+
+from ai_model_serving.deployment_target import DeploymentTarget, load_deployment_target  # noqa: E402
+from ai_model_serving.settings_parts.dotenv_parser import load_strict_env_file  # noqa: E402
+from scripts.build.pin_local_vllm_image import (  # noqa: E402
+    pin_matching_env_values,
+    resolve_local_image_id,
+)
+
+TARGETS_PATH = ROOT / "configs" / "deployment_targets.yaml"
+ENV_PATH = ROOT / ".env"
+
+
+def _run(*command: str, env: dict[str, str] | None = None) -> None:
+    subprocess.run(command, cwd=ROOT, env=env, check=True)
+
+
+def _env_values() -> dict[str, str]:
+    if not ENV_PATH.is_file():
+        raise RuntimeError(".env is missing; run `make setup TARGET=<deployment-target>` first")
+    return load_strict_env_file(ENV_PATH)
+
+
+def _target(explicit: str | None, *, require_env: bool = True) -> DeploymentTarget:
+    values = _env_values() if ENV_PATH.is_file() else {}
+    configured = values.get("DEPLOYMENT_TARGET")
+    if explicit and configured and explicit != configured:
+        raise RuntimeError(
+            f"requested target {explicit!r} differs from .env target {configured!r}; "
+            "move the existing .env aside before initializing another target"
+        )
+    selected = explicit or configured
+    if not selected:
+        if require_env:
+            raise RuntimeError("choose a target once: `make setup TARGET=<deployment-target>`")
+        raise RuntimeError("TARGET is required for the first setup")
+    return load_deployment_target(TARGETS_PATH, selected)
+
+
+def _main_profile(target: DeploymentTarget, values: dict[str, str]) -> str:
+    key = "MAIN_LLM_STATIC_PROFILE" if target.control_mode == "static" else "MAIN_LLM_BOOT_PROFILE"
+    profile = values.get(key)
+    if not profile:
+        raise RuntimeError(f"{key} is missing from .env; rerun setup for target {target.target_id}")
+    return profile
+
+
+def _gateway_probe(values: dict[str, str], path: str) -> tuple[str, bool]:
+    host = values.get("GATEWAY_BIND_ADDR") or "127.0.0.1"
+    if host == "0.0.0.0":
+        host = "127.0.0.1"
+    url = f"http://{host}:{values.get('GATEWAY_PORT', '9400')}{path}"
+    try:
+        with urllib.request.urlopen(url, timeout=3) as response:
+            return url, response.status == 200
+    except (OSError, urllib.error.URLError):
+        return url, False
+
+
+def _wait_for_gateway(values: dict[str, str], path: str, timeout: int = 60) -> str:
+    deadline = time.monotonic() + timeout
+    while True:
+        url, ready = _gateway_probe(values, path)
+        if ready:
+            return url
+        if time.monotonic() >= deadline:
+            raise RuntimeError(f"Gateway did not become healthy within {timeout}s at {url}")
+        time.sleep(1)
+
+
+def setup_target(
+    target: DeploymentTarget,
+    main_profile: str | None,
+    main_base_url: str | None,
+) -> None:
+    if target.runtime_backend == "mlx-vlm":
+        _run(sys.executable, "scripts/runtime/macos_mlx_runtime.py", "doctor")
+    if ENV_PATH.exists():
+        command = [
+            sys.executable,
+            "scripts/config/setup_env.py",
+            "--sync-env", "--env-file", ".env",
+            "--deployment-target", target.target_id,
+        ]
+        if main_profile:
+            command += ["--main-profile", main_profile]
+        if main_base_url:
+            command += ["--main-llm-base-url", main_base_url]
+        _run(*command)
+        print(f"[platform] preserving existing .env for target={target.target_id}")
+    else:
+        command = [
+            sys.executable,
+            "scripts/config/setup_env.py",
+            "--profile", "compose",
+            "--deployment-target", target.target_id,
+        ]
+        if main_profile:
+            command += ["--main-profile", main_profile]
+        if main_base_url:
+            command += ["--main-llm-base-url", main_base_url]
+        if target.control_mode == "static" and not target.gateway_runtime_host and not main_base_url:
+            raise RuntimeError(
+                f"static target {target.target_id!r} needs MAIN_URL=http(s)://... on first setup"
+            )
+        _run(*command)
+
+    if target.runtime_backend == "mlx-vlm":
+        _run(sys.executable, "scripts/runtime/macos_mlx_runtime.py", "setup")
+    print(f"[platform] setup ready: target={target.target_id}")
+    print("[platform] next: make prepare")
+
+
+def prepare_target(target: DeploymentTarget) -> None:
+    values = _env_values()
+    platform_image = values.get("PLATFORM_IMAGE", "")
+    if "@sha256:" in platform_image or platform_image.startswith("sha256:"):
+        print(f"[platform] using immutable Platform image: {platform_image}")
+    else:
+        build_env = dict(os.environ)
+        if platform_image:
+            build_env["PLATFORM_IMAGE"] = platform_image
+        _run("bash", "scripts/build/build_platform_image.sh", env=build_env)
+    if target.runtime_backend == "mlx-vlm":
+        _run(sys.executable, "scripts/runtime/macos_mlx_runtime.py", "setup")
+        _run(sys.executable, "scripts/runtime/macos_mlx_runtime.py", "prepare")
+    elif target.controllable:
+        image = values.get("RISK_VLLM_IMAGE", "")
+        if "@sha256:" in image:
+            print(f"[platform] using immutable Unified vLLM image: {image}")
+        else:
+            build_ref = image
+            if not build_ref or build_ref.startswith("sha256:"):
+                build_ref = f"ai-model-serving-vllm-unified:{(ROOT / 'VERSION').read_text(encoding='utf-8').strip()}"
+            build_env = dict(os.environ)
+            build_env["VLLM_UNIFIED_BUILD_IMAGE"] = build_ref
+            _run("bash", "scripts/build/build_vllm_unified_image.sh", env=build_env)
+            new_image_id = resolve_local_image_id(build_ref)
+            updated = pin_matching_env_values(ENV_PATH, image or build_ref, new_image_id)
+            print(f"[platform] pinned local Unified image: {','.join(sorted(updated))}={new_image_id}")
+        profile = _main_profile(target, values)
+        _run(
+            sys.executable,
+            "scripts/models/prepare_main_model_cache.py",
+            "--profile", profile,
+            "--env-file", ".env",
+        )
+    else:
+        print("[platform] external Main runtime is not built or downloaded by this target")
+    print(f"[platform] artifacts ready: target={target.target_id}")
+    print("[platform] next: make up")
+
+
+def up_target(target: DeploymentTarget) -> None:
+    values = _env_values()
+    if values.get("BUILD_PROFILE") == "local":
+        _run("bash", "scripts/ops/up_services.sh")
+        url = _wait_for_gateway(values, "/health")
+        print(f"[platform] ready: app-only gateway={url}")
+        return
+    metal_started_here = False
+    if target.runtime_backend == "mlx-vlm":
+        status = subprocess.run(
+            [sys.executable, "scripts/runtime/macos_mlx_runtime.py", "status"],
+            cwd=ROOT,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=False,
+        )
+        _run(sys.executable, "scripts/runtime/macos_mlx_runtime.py", "start-background")
+        metal_started_here = status.returncode != 0
+    try:
+        if target.control_mode == "static":
+            process_env = {**os.environ, "DEPLOYMENT_TARGET": target.target_id}
+            _run("bash", "scripts/compose/static_main_compose.sh", "up", "-d", env=process_env)
+        else:
+            _run("bash", "scripts/compose/compose_up.sh")
+            _run("bash", "scripts/ops/ready_full.sh")
+        url = _wait_for_gateway(values, "/ready")
+    except (OSError, RuntimeError, subprocess.CalledProcessError):
+        if metal_started_here:
+            subprocess.run(
+                [sys.executable, "scripts/runtime/macos_mlx_runtime.py", "stop"],
+                cwd=ROOT,
+                check=False,
+            )
+        raise
+
+    print(f"[platform] ready: target={target.target_id} gateway={url}")
+
+
+def down_target(target: DeploymentTarget) -> None:
+    values = _env_values()
+    if values.get("BUILD_PROFILE") == "local":
+        _run("bash", "scripts/ops/down_services.sh", "--local")
+        print("[platform] stopped: app-only")
+        return
+    compose_error: subprocess.CalledProcessError | None = None
+    try:
+        if target.control_mode == "static":
+            process_env = {**os.environ, "DEPLOYMENT_TARGET": target.target_id}
+            _run("bash", "scripts/compose/static_main_compose.sh", "down", env=process_env)
+        else:
+            _run("bash", "scripts/ops/down_services.sh", "--compose")
+    except subprocess.CalledProcessError as exc:
+        compose_error = exc
+    finally:
+        if target.runtime_backend == "mlx-vlm":
+            _run(sys.executable, "scripts/runtime/macos_mlx_runtime.py", "stop")
+    if compose_error is not None:
+        raise compose_error
+    print(f"[platform] stopped: target={target.target_id}")
+
+
+def status_target(target: DeploymentTarget) -> int:
+    values = _env_values()
+    if values.get("BUILD_PROFILE") == "local":
+        result = subprocess.run(
+            ["bash", "scripts/ops/status_services.sh", "--local"],
+            cwd=ROOT,
+            check=False,
+        )
+        url, gateway_ready = _gateway_probe(values, "/health")
+        print(f"[platform] gateway: {'ready' if gateway_ready else 'unavailable'} {url}")
+        return 0 if result.returncode == 0 and gateway_ready else 1
+    healthy = True
+    if target.runtime_backend == "mlx-vlm":
+        result = subprocess.run(
+            [sys.executable, "scripts/runtime/macos_mlx_runtime.py", "status"],
+            cwd=ROOT,
+            check=False,
+        )
+        healthy = result.returncode == 0
+    if target.control_mode == "static":
+        project = os.environ.get("STATIC_COMPOSE_PROJECT_NAME", "ai-model-serving-static")
+        result = subprocess.run(
+            [
+                "docker", "ps", "-a",
+                "--filter", f"label=com.docker.compose.project={project}",
+                "--format", "{{.Names}}\t{{.Status}}",
+            ],
+            cwd=ROOT,
+            check=False,
+        )
+        healthy = result.returncode == 0 and healthy
+    else:
+        result = subprocess.run(
+            ["bash", "scripts/ops/status_services.sh", "--full"],
+            cwd=ROOT,
+            check=False,
+        )
+        healthy = result.returncode == 0 and healthy
+    url, gateway_ready = _gateway_probe(values, "/ready")
+    print(f"[platform] gateway: {'ready' if gateway_ready else 'unavailable'} {url}")
+    return 0 if healthy and gateway_ready else 1
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="Target-aware local platform lifecycle")
+    parser.add_argument("action", choices=("setup", "prepare", "up", "down", "status"))
+    parser.add_argument("--target")
+    parser.add_argument("--main-profile")
+    parser.add_argument("--main-base-url")
+    args = parser.parse_args(argv)
+    try:
+        if args.action != "setup" and (args.main_profile or args.main_base_url):
+            raise RuntimeError("MODEL and MAIN_URL are setup-only options")
+        target = _target(args.target, require_env=args.action != "setup")
+        if args.action == "setup":
+            setup_target(target, args.main_profile, args.main_base_url)
+        elif args.action == "prepare":
+            prepare_target(target)
+        elif args.action == "up":
+            up_target(target)
+        elif args.action == "down":
+            down_target(target)
+        else:
+            return status_target(target)
+    except (OSError, RuntimeError, subprocess.CalledProcessError) as exc:
+        print(f"[platform] ERROR: {exc}", file=sys.stderr)
+        return 2
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

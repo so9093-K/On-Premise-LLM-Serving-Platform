@@ -37,6 +37,7 @@ class DeploymentTarget:
     features: frozenset[str]
     compose_files: tuple[str, ...]
     exposure_profile_applies: bool
+    gateway_runtime_host: str | None
 
     def supports(self, feature: str) -> bool:
         return feature in self.features
@@ -169,6 +170,19 @@ def load_deployment_target(path: Path, target_id: str | None = None) -> Deployme
             f"static deployment target {selected!r} cannot set exposure_profile_applies=true"
         )
 
+    gateway_runtime_host_raw = raw.get("gateway_runtime_host")
+    gateway_runtime_host = None
+    if gateway_runtime_host_raw is not None:
+        gateway_runtime_host = str(gateway_runtime_host_raw).strip()
+        if not gateway_runtime_host or "://" in gateway_runtime_host or "/" in gateway_runtime_host:
+            raise RuntimeError(
+                f"deployment target {selected!r} gateway_runtime_host must be a host name"
+            )
+        if control_mode != "static":
+            raise RuntimeError(
+                f"deployment target {selected!r} gateway_runtime_host is only valid for static targets"
+            )
+
     expected_owner = "platform" if control_mode == "sidecar" else "external"
     if lifecycle_owner != expected_owner:
         raise RuntimeError(
@@ -205,4 +219,5 @@ def load_deployment_target(path: Path, target_id: str | None = None) -> Deployme
         features=features,
         compose_files=tuple(compose_files),
         exposure_profile_applies=exposure_profile_applies,
+        gateway_runtime_host=gateway_runtime_host,
     )

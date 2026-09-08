@@ -2,7 +2,9 @@
 
 GPU 기반 AI 모델을 **OpenAI-compatible API**로 제공하고, Chat, Embedding, Retrieval, Risk Detection, 모델 운영, 관측과 배포를 하나의 플랫폼에서 관리한다.
 
-외부 애플리케이션은 Gateway를 통해 모델 기능을 사용하며, 모델 실행 환경은 vLLM을 기반으로 구성한다. 모델 실행·전환, GPU 자원, 서비스 상태와 배포 흐름은 플랫폼의 설정과 운영 도구를 통해 관리한다.
+외부 애플리케이션은 Gateway를 통해 모델 기능을 사용한다. 모델 실행 환경은 Linux/NVIDIA의
+vLLM 또는 Apple Silicon의 MLX-VLM을 사용하며, 실행 target에 맞는 lifecycle은 같은 로컬
+명령으로 관리한다.
 
 ## 주요 기능
 
@@ -26,63 +28,70 @@ Gateway를 중심으로 모델 Runtime, Risk 처리, 운영 제어와 관측 서
 
 ## 시작하기
 
-### 로컬 애플리케이션 실행
+### 로컬 플랫폼 실행
+
+처음 한 번 실행 target을 선택한다. `setup`이 application 환경과 target별 `.env`를
+생성하므로 template을 복사하거나 Mac endpoint를 직접 조립하지 않는다.
+
+| Target | 요구사항 |
+|---|---|
+| `macos-metal-static` | Apple Silicon, Python 3.13.12, Docker |
+| `linux-nvidia-dynamic` | Linux amd64, NVIDIA GPU/driver/Container Toolkit, Docker, Bash 4+ |
+| `linux-nvidia-static` | Linux amd64, Docker, 외부 OpenAI-compatible Main endpoint (`MAIN_URL=...`) |
+
+```bash
+make setup TARGET=macos-metal-static
+HF_TOKEN=hf_xxx make prepare
+make up
+make status
+```
+
+Linux/NVIDIA에서는 첫 명령의 target만 바꾼다.
+
+```bash
+make setup TARGET=linux-nvidia-dynamic
+HF_TOKEN=hf_xxx make prepare
+make up
+make status
+```
+
+`prepare`는 Platform/runtime image와 선택된 Main Model만 준비하는 명시적인 대용량
+단계다. secondary model을 전부 다운로드하지 않으며, 이미 준비된 환경의 일반 기동에서는
+다시 실행하지 않는다. 이후 명령은 `.env`의 target을 사용하므로 `TARGET`을 반복하지 않는다.
+Main profile을 처음부터 바꾸려면 `make setup TARGET=... MODEL=...`로 지정한다.
+허용 profile은 각 target이 가리키는 `configs/main_model_profiles.yaml` 또는
+`configs/macos_mlx_runtime.yaml`이 소유한다.
+
+종료:
+
+```bash
+make down
+```
+
+세부 build·runtime 명령은 장애 진단이나 artifact 유지보수 때만 `make help-all`에서
+확인한다.
+
+### 애플리케이션만 실행
 
 Gateway와 Risk Adapter를 로컬 Python 프로세스로 실행한다. Python `>=3.12,<3.15`가 필요하며 Docker와 GPU는 필요하지 않다. `setup-dev`는 기존 `.venv`를 재사용하고 runtime 설정과 실행 중인 서비스를 변경하지 않는다.
 
 ```bash
 make setup-dev
-make validate
-make test
+make check
+make init-env-local
+make up
+make status
 ```
 
 환경별 Python·Bash 준비와 진단 방법은 [로컬 개발과 빌드](docs/07_local_dev_build.md)에서 설명한다.
 
-애플리케이션을 실행할 때 환경 파일을 별도로 준비한다. `.env`가 이미 있다면 생성 단계를 생략한다.
-
-```bash
-make init-env-local
-make start
-make ready-local
-```
-
 종료:
 
 ```bash
-make stop
+make down
 ```
 
-### 전체 GPU 환경 실행
-
-Gateway와 모델 Runtime, Risk Adapter, 모니터링 서비스를 Docker Compose로 함께 실행한다. 이 경로는 Linux amd64, Docker, NVIDIA GPU·Container Toolkit과 모델 다운로드 credential을 사용한다. `first-run`은 필요한 조건을 먼저 확인한 뒤 환경과 이미지를 준비한다.
-
-소스 저장소를 처음 구성하는 경우:
-
-```bash
-HF_TOKEN=hf_xxx make first-run
-source .venv/bin/activate
-make compose-up
-make ready-full
-```
-
-이미 환경과 이미지가 준비된 경우:
-
-```bash
-make compose-up
-make ready-full
-```
-
-기본 기동은 Main Model만 준비한다. Retrieval runtime도 처음부터 필요하면
-`RUNTIME_PROFILE=retrieval_ready make compose-up`을 사용한다. 다른 Main Model과
-secondary runtime은 [모델 운영](docs/06_model_operations.md)의 절차로 선택·시작한다.
-
-종료:
-
-```bash
-make compose-down
-```
-
-실행 구조와 네트워크 공개 방식은 [실행 환경과 모드](docs/04_runtime_modes.md), 설정 항목은 [설정 체계](docs/05_configuration.md)에서 확인한다. Release package를 서버에 적용하는 절차는 [배포](docs/10_deployment.md)에서 다룬다.
+실행 구조와 네트워크 공개 방식은 [실행 환경과 모드](docs/04_runtime_modes.md), 설정 항목은 [설정 체계](docs/05_configuration.md)에서 확인한다. 다른 Main Model과 secondary runtime 운영은 [모델 운영](docs/06_model_operations.md), Release package 적용은 [배포](docs/10_deployment.md)에서 다룬다.
 
 ---
 
@@ -128,7 +137,9 @@ Embedding, Retrieval, Risk Detection, Streaming, 인증 방식과 전체 요청�
 
 ## 개발과 배포
 
-CI의 애플리케이션 검증은 로컬과 같은 `setup-dev`, `validate`, `test` 진입점을 사용한다. 운영 이미지는 clean commit에서 만들고 immutable digest로 배포한다. 로컬 image는 변경 중인 코드를 확인하는 개발 산출물이며 운영 artifact를 대체하지 않는다.
+로컬 개발자는 `make check`로 정적 계약과 결정론적 테스트를 함께 실행한다. CI도 내부적으로
+같은 `validate`, `test` 단계를 사용한다. 운영 이미지는 clean commit에서 만들고 immutable
+digest로 배포한다. 로컬 image는 변경 중인 코드를 확인하는 개발 산출물이며 운영 artifact를 대체하지 않는다.
 
 상세 Pipeline과 실행 조건은 [CI/CD](docs/09_cicd.md), Release 적용과 복구 절차는 [배포](docs/10_deployment.md)에서 설명한다.
 
@@ -138,18 +149,12 @@ CI의 애플리케이션 검증은 로컬과 같은 `setup-dev`, `validate`, `te
 
 | 목적 | 명령 |
 |---|---|
-| 개발 환경 준비 / 도구 진단 | `make setup-dev` / `make doctor-dev` |
-| 운영 dependency lock 갱신 | `make lock-linux` |
-| 로컬 애플리케이션 시작 / 종료 | `make start` / `make stop` |
-| 로컬 상태 확인 | `make ready-local` |
-| 전체 환경 시작 / 종료 | `make compose-up` / `make compose-down` |
-| 전체 준비 상태 확인 | `make ready-full` |
-| 설정·계약 검증 | `make validate` |
-| 자동화 테스트 | `make test` |
-| 대표 API 확인 | `make smoke` |
-| Runtime 검증 | `make runtime-validate` |
-| Compose 진단 | `make compose-diagnostics` |
-| 전체 명령 안내 | `make help` |
+| 최초 target 환경 준비 | `make setup TARGET=<id>` |
+| image·선택 Main Model 준비 | `HF_TOKEN=... make prepare` |
+| 전체 시작 / 종료 | `make up` / `make down` |
+| 통합 상태 확인 | `make status` |
+| 개발 변경 검증 | `make check` |
+| 고급·유지보수 명령 | `make help-all` |
 
 개발 환경과 이미지 빌드는 [로컬 개발과 빌드](docs/07_local_dev_build.md), 검증 항목은 [테스트와 검증](docs/08_testing_validation.md)에서 설명한다.
 

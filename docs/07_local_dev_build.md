@@ -2,6 +2,18 @@
 
 AI Model Serving Platform의 로컬 개발은 **application 개발**, **full-stack 통합 확인**, **Docker image build**, **release package 생성**으로 나뉜다.
 
+일반 사용자가 이 단계를 직접 조립하지는 않는다. 로컬 lifecycle의 공개 진입점은
+`setup → prepare → up/status/down`이며, 이 문서의 개별 build·runtime 명령은 변경 범위
+확인과 장애 진단을 위한 내부 단계다.
+
+```bash
+make setup TARGET=macos-metal-static   # 또는 linux-nvidia-dynamic
+HF_TOKEN=hf_xxx make prepare
+make up
+make status
+make down
+```
+
 일반적인 개발 흐름은 코드 변경 후 정적 검증과 테스트를 수행하고, 변경 범위에 맞는 실행 환경에서 동작을 확인하는 순서로 진행한다.
 
 ```text
@@ -133,13 +145,11 @@ make test
 ```text
 Source 변경
    ↓
-make validate
+make check
    ↓
-make test
+make up
    ↓
-make start
-   ↓
-make ready-local
+make status
 ```
 
 ### Runtime 통합 변경
@@ -147,13 +157,11 @@ make ready-local
 ```text
 Source / Config 변경
    ↓
-make validate
+make check
    ↓
-make test
+make prepare  (runtime/image 입력이 바뀐 경우만)
    ↓
-make compose-up
-   ↓
-make ready-full
+make up
 ```
 
 `make validate`와 `make test`가 검사하는 세부 항목은 [8. 테스트와 검증](./08_testing_validation.md)에서 다룬다.
@@ -222,13 +230,18 @@ full-stack은 Docker Compose를 사용해 application, model runtime, control pl
 
 ### 환경 준비
 
-새로운 full-stack 개발 환경은 bootstrap으로 Python environment와 Docker image를 함께 준비한다.
+새로운 full-stack 개발 환경은 target을 한 번 선택해 준비한다. `.env`가 없으면 target
+기본 profile과 endpoint를 포함해 생성한다.
 
 ```bash
-HF_TOKEN=hf_xxx make first-run
+make setup TARGET=linux-nvidia-dynamic
+HF_TOKEN=hf_xxx make prepare
 ```
 
-이미 build artifact가 준비된 환경에서 Compose용 `.env`만 생성할 때는 다음 명령을 사용한다.
+`prepare`는 Platform/Unified vLLM image와 선택된 Main Model만 준비한다. secondary model은
+각 기능을 활성화할 때 별도로 준비하며, 일반 재기동에서는 `prepare`를 반복하지 않는다.
+
+Compose용 `.env`만 직접 생성해야 하는 유지보수 상황에서는 다음 내부 명령을 사용한다.
 
 ```bash
 make init-env-compose
@@ -239,14 +252,14 @@ Hugging Face에서 모델을 가져오는 runtime은 `.env`에 설정된 token�
 ### Stack 실행
 
 ```bash
-make compose-up
+make up
 ```
 
 기본 `main_only` profile은 Main Model만 준비하고 secondary runtime은 stopped 상태로
 생성한다. Retrieval runtime도 처음부터 필요하면
 `RUNTIME_PROFILE=retrieval_ready make compose-up`을 명시한다.
 
-`make compose-up`은 다음 준비 작업을 수행한 뒤 effective Compose stack을 기동한다.
+내부적으로 `compose-up`은 다음 준비 작업을 수행한 뒤 effective Compose stack을 기동한다.
 
 1. `.env` contract 검증
 2. runtime secret 준비
@@ -267,10 +280,12 @@ Preflight와 기동은 같은 `base → exposure override → boot override` 순
 ### 준비 상태 확인
 
 ```bash
-make ready-full
+make status
 ```
 
-`make ready-full`은 Gateway와 vLLM dependency의 준비 상태를 확인하고, 실제 inference path까지 순차적으로 검증한다.
+`make up`은 Gateway와 vLLM dependency readiness 및 실제 inference path까지 확인한 뒤
+성공한다. 이후 `make status`는 현재 상태만 짧게 확인한다. 세부 readiness만 다시 실행할
+때는 내부 명령 `make ready-full`을 사용한다.
 
 Full-stack은 다음 작업에 사용한다.
 
@@ -285,7 +300,7 @@ Full-stack은 다음 작업에 사용한다.
 ### Stack 종료
 
 ```bash
-make compose-down
+make down
 ```
 
 ---
@@ -460,9 +475,11 @@ Release ZIP은 배포에 필요한 artifact와 `tests/`를 함께 담는다 -- `
 
 ---
 
-## 7.8 전체 초기화와 재빌드
+## 7.8 고급: NVIDIA 전체 초기화와 재빌드
 
-새로운 개발 환경이나 전체 runtime build 입력을 한 번에 준비할 때는 bootstrap 명령을 사용한다.
+`make first-run`은 기존 NVIDIA 자동화와의 호환성을 위한 전체 bootstrap 명령이다. `.venv`
+재생성, 전체 검증·테스트와 두 image build를 모두 수행하므로 일반 최초 실행이나 반복
+개발의 기본 UX로 사용하지 않는다. 보통은 앞의 `setup`과 `prepare`를 사용한다.
 
 이 절차는 Unified vLLM CUDA image와 NVIDIA full-stack을 포함하므로 Bash 4+, native
 Linux amd64 Docker daemon과 접근 가능한 NVIDIA GPU를 시작 전에 요구한다. OS 이름을
@@ -503,11 +520,11 @@ Prompt Risk Runtime Config 확인
 
 `make first-run`은 전체 bootstrap workflow를 사용한다.
 
-Bootstrap 완료 후 full-stack은 다음 순서로 실행한다.
+Bootstrap 완료 후에도 공개 lifecycle 명령으로 기동한다.
 
 ```bash
-make compose-up
-make ready-full
+make up
+make status
 ```
 
 환경변수 보존과 `.env` 동기화 규칙은 [5.10 환경 파일](./05_configuration.md#510-환경-파일)을 참고한다.
@@ -550,21 +567,17 @@ make compose-logs
 
 | 목적 | 명령 |
 |---|---|
-| app-only 환경 생성 | `make init-env-local` |
-| app-only 시작 | `make start` |
-| app-only 확인 | `make ready-local` |
-| app-only 종료 | `make stop` |
-| full-stack 환경 생성 | `make init-env-compose` |
-| full-stack 시작 | `make compose-up` |
-| full-stack 확인 | `make ready-full` |
-| full-stack 종료 | `make compose-down` |
-| 정적 검증 | `make validate` |
-| 테스트 | `make test` |
-| Platform 전체 build gate | `make build` |
-| Platform image만 build | `make build-image` |
-| Unified vLLM image build | `make build-vllm-unified-image` |
-| 전체 bootstrap | `make first-run` |
-| Release ZIP 생성 | `make package` |
+| target 환경·`.env` 최초 준비 | `make setup TARGET=<id>` |
+| 필요한 image·선택 Main Model 준비 | `HF_TOKEN=... make prepare` |
+| target 전체 시작 | `make up` |
+| target 통합 상태 | `make status` |
+| target 전체 종료 | `make down` |
+| application 변경 검증 | `make check` |
+| 내부 build·진단·운영 명령 | `make help-all` |
+
+`validate`, `test`, 개별 image build, readiness, Compose와 Metal lifecycle 명령은
+없어진 것이 아니라 위 공개 workflow가 재사용하는 내부 단계다. 해당 계층만 직접
+진단하거나 CI·release artifact를 유지보수할 때 `make help-all`에서 사용한다.
 
 ---
 

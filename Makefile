@@ -11,8 +11,31 @@ AUTH_ENV ?= $(if $(ENV_FILE),$(ENV_FILE),$(ENV))
 AUTH_ENV_ARG = $(if $(AUTH_ENV),--env $(AUTH_ENV),)
 
 
-.PHONY: help init-env-local init-env-compose sync-env static-compose-config static-compose-up static-compose-down metal-doctor metal-lock metal-setup metal-prepare metal-command metal-start metal-status validate test build build-image build-vllm-unified-image lock-linux package start compose-up compose-config ready-local ready-full smoke runtime-validate auth-status auth-doctor auth-plan auth-apply exposure-status exposure-plan exposure-apply main-model-prepare status stop compose-down compose-restart compose-logs logs compose-diagnostics clean clean-dry-run clean-all reset first-run reset-version render-runtime-assets
+.PHONY: help help-all setup prepare up down check init-env-local init-env-compose sync-env static-compose-config static-compose-up static-compose-down metal-doctor metal-lock metal-setup metal-prepare metal-command metal-start metal-status validate test build build-image build-vllm-unified-image lock-linux package start compose-up compose-config ready-local ready-full smoke runtime-validate auth-status auth-doctor auth-plan auth-apply exposure-status exposure-plan exposure-apply main-model-prepare status stop compose-down compose-restart compose-logs logs compose-diagnostics clean clean-dry-run clean-all reset first-run reset-version render-runtime-assets
 .PHONY: setup-dev doctor-dev
+
+PUBLIC_TARGETS := setup prepare up status down check
+PLATFORM_CLI := "$(CURDIR)/.venv/bin/python" scripts/platform_cli.py
+PLATFORM_TARGET_ARG = $(if $(TARGET),--target "$(TARGET)",)
+PLATFORM_PROFILE_ARG = $(if $(MODEL),--main-profile "$(MODEL)",)
+PLATFORM_MAIN_URL_ARG = $(if $(MAIN_URL),--main-base-url "$(MAIN_URL)",)
+
+setup: ## 선택 target의 로컬 환경과 설정을 한 번 준비 (TARGET=<id>, MODEL=<profile>)
+	"$(PYTHON)" scripts/build/setup_dev.py
+	$(PLATFORM_CLI) setup $(PLATFORM_TARGET_ARG) $(PLATFORM_PROFILE_ARG) $(PLATFORM_MAIN_URL_ARG)
+
+prepare: ## 선택 target에 필요한 image와 선택 Main model 준비
+	$(PLATFORM_CLI) prepare $(PLATFORM_TARGET_ARG)
+
+up: ## .env에 선택된 target 전체 기동 후 readiness 확인
+	$(PLATFORM_CLI) up $(PLATFORM_TARGET_ARG)
+
+down: ## .env에 선택된 target 전체 정지
+	$(PLATFORM_CLI) down $(PLATFORM_TARGET_ARG)
+
+check: ## application 변경의 정적 계약과 결정론적 테스트 확인
+	$(MAKE) validate
+	$(MAKE) test
 
 setup-dev: ## macOS/Ubuntu 개발용 .venv 준비 (Docker·GPU·.env 불필요)
 	"$(PYTHON)" scripts/build/setup_dev.py
@@ -20,14 +43,21 @@ setup-dev: ## macOS/Ubuntu 개발용 .venv 준비 (Docker·GPU·.env 불필요)
 doctor-dev: ## Python과 운영 스크립트용 Bash 확인
 	"$(PYTHON)" scripts/build/check_dev_environment.py
 
-# help는 각 타겟 옆의 `## 설명`을 읽는다. 예전에는 여기에 목록을 따로 적어뒀는데,
-# 타겟이 늘어도 아무도 갱신하지 않아 44개 중 11개만 보이는 상태로 갈라져 있었다.
 help:
 	@echo "ai_model_serving_platform $(CURRENT_VERSION)"
 	@echo ""
-	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z0-9_-]+:.*?## / {printf "  make %-26s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+	@echo "로컬 lifecycle"
+	@for target in $(PUBLIC_TARGETS); do \
+		awk -v wanted="$$target" 'BEGIN {FS = ":.*?## "} $$1 == wanted {printf "  make %-18s %s\n", $$1, $$2}' $(MAKEFILE_LIST); \
+	done
 	@echo ""
-	@echo "상세 운영 문서: docs/README.md"
+	@echo "처음 한 번: make setup TARGET=<deployment-target>"
+	@echo "고급·유지보수 명령: make help-all"
+
+help-all: ## 내부 단계와 운영 진단을 포함한 전체 명령
+	@echo "ai_model_serving_platform $(CURRENT_VERSION) — all commands"
+	@echo ""
+	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z0-9_-]+:.*?## / {printf "  make %-26s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
 init-env-local: ## 로컬 app-only .env 생성
 	$(PYTHON) scripts/config/setup_env.py --profile local
@@ -139,8 +169,8 @@ main-model-prepare: ## PROFILE=<id> main-model 캐시 준비 (런타임 미변�
 	@if [[ -z "$(PROFILE)" ]]; then echo "PROFILE=<main-model-profile-id>를 지정하세요" >&2; exit 2; fi
 	$(PYTHON) scripts/models/prepare_main_model_cache.py --profile "$(PROFILE)" --env-file "$${ENV_FILE:-.env}" --compose-file "$${COMPOSE_FILE:-ops/compose/full-stack.private-network.yaml}"
 
-status: ## 서비스 상태 (READY_MODE=full이면 full-stack)
-	@if [[ "$(READY_MODE)" == "full" ]]; then bash scripts/ops/status_services.sh --full; else bash scripts/ops/status_services.sh --local; fi
+status: ## .env에 선택된 target의 runtime·서비스 상태 확인
+	$(PLATFORM_CLI) status $(PLATFORM_TARGET_ARG)
 
 stop: ## app-only Gateway·Risk Adapter 정지
 	bash scripts/ops/down_services.sh --local
