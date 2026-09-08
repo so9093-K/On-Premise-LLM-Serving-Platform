@@ -183,7 +183,7 @@ Grafana Dashboard는 운영 목적에 따라 구분된다.
 | **GPU Capacity and OOM Risk** | GPU 용량, OOM/재시작, Queue, KV Cache, Token 처리량, 컨테이너 자원 확인 |
 | **Usage Today** | GPU workload, 모델별 요청량, rejected request, upstream 오류, Token 처리량 확인 |
 | **Request Log Explorer** | 요청 로그, API 오류, Readiness 실패, Runtime 로그 검색 |
-| **macOS Metal Runtime** | native MLX-VLM runtime의 load 상태, in-flight, queue, prefill/decode 처리량, peak memory 확인 |
+| **Main Runtime Health** | Main runtime의 수집 상태, model load, active/queue, 실패, 처리량과 요청 peak memory 확인 |
 
 기본 Grafana Home Dashboard는 `GPU Capacity and OOM Risk`로 구성된다.
 
@@ -194,7 +194,7 @@ ops/grafana/dashboards/
 ├─ gpu_capacity_and_oom_risk.json
 ├─ usage_today.json
 ├─ request_log_explorer.json
-└─ macos_metal_runtime.json
+└─ main_runtime_health.json
 ```
 
 ### Dashboard와 실행 구성의 대응
@@ -204,7 +204,7 @@ Dashboard는 자신이 쓰는 exporter가 그 Compose project에 있을 때만 �
 | 실행 구성 | 제공 datasource | provisioning되는 Dashboard |
 |---|---|---|
 | full-stack (`ops/compose/full-stack.private-network.yaml`) | Prometheus, Loki | GPU Capacity and OOM Risk, Usage Today, Request Log Explorer |
-| static Metal (`ops/compose/overrides/static.macos-metal.yaml`) | Prometheus, Loki | macOS Metal Runtime, Request Log Explorer |
+| static Metal (`ops/compose/overrides/static.macos-metal.yaml`) | Prometheus, Loki | Main Runtime Health, Request Log Explorer |
 
 static Metal에서 각 Dashboard의 적용 여부는 다음과 같이 구분한다.
 
@@ -216,6 +216,14 @@ static Metal에서 각 Dashboard의 적용 여부는 다음과 같이 구분한�
 
 static Metal에서는 Request Log Explorer의 요청·API 오류·readiness 패널을 사용한다.
 vLLM/container 원본 패널은 full-stack의 best-effort Docker 로그 경로에만 해당한다.
+
+`Main Runtime Health`는 운영체제 이름이 아니라 관측 대상의 역할을 이름으로 쓴다.
+첫 행은 Metrics Pipeline, Model State, Active Requests, Queued Requests, 선택 구간의
+Runtime Failures, 최근 완료 요청의 Peak Memory 순서다. 수집 자체가 없을 때와 수집은
+되지만 모델이 적재되지 않은 상태를 별도로 표시한다. 아래 시계열은 요청 시작·완료·실패율,
+runtime 시작 이후 평균 처리 시간, 최근 요청의 prefill/decode 처리량, 실제 token 처리율을
+구분한다. 최근 요청 기반 값은 새 요청이 없으면 마지막 값을 유지하므로 실시간 부하로
+오해하지 않는다. 요청 단위 원인은 같은 시간 범위를 유지한 Request Log Explorer에서 찾는다.
 
 `Usage Today`의 4개 panel이 필요하면 override의 `volumes`에 `usage_today.json` 한 줄을 추가한다.
 

@@ -76,11 +76,11 @@ services:
       GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?Set GRAFANA_ADMIN_PASSWORD in the operator env}
       GF_USERS_ALLOW_SIGN_UP: "false"
-      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/macos_metal_runtime.json
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/main_runtime_health.json
     volumes:
       # DCGM/vLLM 전용 Dashboard는 제외한다. 요청 로그는 앱 소유 JSONL 경로라
       # NVIDIA runtime이나 admin-sidecar 없이도 같은 Explorer를 사용한다.
-      - ../grafana/dashboards/macos_metal_runtime.json:/var/lib/grafana/dashboards/macos_metal_runtime.json:ro
+      - ../grafana/dashboards/main_runtime_health.json:/var/lib/grafana/dashboards/main_runtime_health.json:ro
       - ../grafana/dashboards/request_log_explorer.json:/var/lib/grafana/dashboards/request_log_explorer.json:ro
       - ../grafana/provisioning/datasources/prometheus.yml:/etc/grafana/provisioning/datasources/prometheus.yml:ro
       - ../grafana/provisioning/datasources/loki.yml:/etc/grafana/provisioning/datasources/loki.yml:ro

@@ -1,0 +1,304 @@
+{
+  "annotations": {"list": []},
+  "description": "Main model runtime health and workload signals. Request-level failures are investigated in Request Log Explorer.",
+  "editable": false,
+  "graphTooltip": 1,
+  "links": [
+    {
+      "includeVars": false,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "Open Request Log Explorer",
+      "type": "link",
+      "url": "/d/request_log_explorer"
+    }
+  ],
+  "panels": [
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "description": "Prometheus가 runtime metrics exporter의 최신 수집에 성공했는지 보여준다. No scrape data는 모델 상태가 아니라 수집 경로부터 확인해야 한다는 뜻이다.",
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {
+              "options": {
+                "0": {"color": "red", "text": "Unavailable"},
+                "1": {"color": "green", "text": "Collecting"}
+              },
+              "type": "value"
+            }
+          ],
+          "noValue": "No scrape data",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{"color": "red"}, {"color": "green", "value": 1}]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {"h": 4, "w": 4, "x": 0, "y": 0},
+      "id": 1,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+        "textMode": "auto"
+      },
+      "targets": [{"expr": "max(mlx_runtime_scrape_success)", "refId": "A"}],
+      "title": "Metrics Pipeline",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "description": "설정된 Main Model이 runtime에 적재되어 요청을 받을 수 있는 상태인지 보여준다.",
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {
+              "options": {
+                "0": {"color": "red", "text": "Not loaded"},
+                "1": {"color": "green", "text": "Loaded"}
+              },
+              "type": "value"
+            }
+          ],
+          "noValue": "Runtime unavailable",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{"color": "red"}, {"color": "green", "value": 1}]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {"h": 4, "w": 4, "x": 4, "y": 0},
+      "id": 2,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+        "textMode": "auto"
+      },
+      "targets": [{"expr": "max(mlx_runtime_loaded)", "refId": "A"}],
+      "title": "Model State",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "description": "현재 runtime에서 실행 중인 요청 수다.",
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "min": 0,
+          "noValue": "No data",
+          "thresholds": {"mode": "absolute", "steps": [{"color": "green"}]},
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {"h": 4, "w": 4, "x": 8, "y": 0},
+      "id": 3,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+        "textMode": "auto"
+      },
+      "targets": [{"expr": "max(mlx_runtime_in_flight)", "refId": "A"}],
+      "title": "Active Requests",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "description": "실행 슬롯을 기다리는 요청 수다. 동시성 1인 profile에서 지속적인 1 이상은 포화 신호다.",
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "min": 0,
+          "noValue": "No data",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green"},
+              {"color": "yellow", "value": 1},
+              {"color": "red", "value": 2}
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {"h": 4, "w": 4, "x": 12, "y": 0},
+      "id": 4,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+        "textMode": "auto"
+      },
+      "targets": [{"expr": "max(mlx_runtime_request_queue_depth)", "refId": "A"}],
+      "title": "Queued Requests",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "description": "현재 Dashboard 시간 범위에서 runtime이 실패로 기록한 요청 수다. 원인은 Request Log Explorer에서 확인한다.",
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "min": 0,
+          "noValue": "No range data",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{"color": "green"}, {"color": "red", "value": 1}]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {"h": 4, "w": 4, "x": 16, "y": 0},
+      "id": 5,
+      "links": [
+        {
+          "targetBlank": false,
+          "title": "Open Request Log Explorer",
+          "url": "/d/request_log_explorer?${__url_time_range}"
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+        "textMode": "auto"
+      },
+      "targets": [{"expr": "sum(increase(mlx_runtime_requests_failed_total[$__range]))", "refId": "A"}],
+      "title": "Runtime Failures",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "description": "가장 최근 완료 요청에서 runtime이 보고한 peak memory다. 호스트 전체 메모리나 가용 headroom 값은 아니다.",
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 2,
+          "min": 0,
+          "noValue": "No completed request",
+          "thresholds": {"mode": "absolute", "steps": [{"color": "blue"}]},
+          "unit": "suffix: GiB"
+        },
+        "overrides": []
+      },
+      "gridPos": {"h": 4, "w": 4, "x": 20, "y": 0},
+      "id": 6,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+        "textMode": "auto"
+      },
+      "targets": [{"expr": "max(mlx_runtime_latest_peak_memory_gib)", "refId": "A"}],
+      "title": "Latest Peak Memory",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "description": "요청의 시작·완료·실패율을 함께 보여준다. started가 completed보다 지속적으로 높으면 active/queue와 함께 포화를 확인한다.",
+      "fieldConfig": {
+        "defaults": {"min": 0, "unit": "reqps"},
+        "overrides": [
+          {
+            "matcher": {"id": "byName", "options": "failed"},
+            "properties": [
+              {"id": "color", "value": {"fixedColor": "red", "mode": "fixed"}}
+            ]
+          }
+        ]
+      },
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4},
+      "id": 7,
+      "options": {
+        "legend": {"calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom", "showLegend": true},
+        "tooltip": {"mode": "multi", "sort": "desc"}
+      },
+      "targets": [
+        {"expr": "rate(mlx_runtime_requests_started_total[$__rate_interval])", "legendFormat": "started", "refId": "A"},
+        {"expr": "rate(mlx_runtime_requests_completed_total[$__rate_interval])", "legendFormat": "completed", "refId": "B"},
+        {"expr": "rate(mlx_runtime_requests_failed_total[$__rate_interval])", "legendFormat": "failed", "refId": "C"}
+      ],
+      "title": "Request Activity",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "description": "Runtime 시작 이후 완료 요청의 누적 평균 처리 시간이다. 최근 요청 한 건의 latency가 아니므로 추세로 해석한다.",
+      "fieldConfig": {
+        "defaults": {"min": 0, "unit": "s"},
+        "overrides": []
+      },
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4},
+      "id": 8,
+      "options": {
+        "legend": {"calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom", "showLegend": true},
+        "tooltip": {"mode": "single", "sort": "none"}
+      },
+      "targets": [{"expr": "mlx_runtime_avg_request_time_s", "legendFormat": "average duration", "refId": "A"}],
+      "title": "Average Request Duration",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "description": "가장 최근 완료 요청의 prefill·decode 처리량이다. 새 요청이 없으면 마지막 관측값이 유지된다.",
+      "fieldConfig": {
+        "defaults": {"min": 0, "unit": "tps"},
+        "overrides": []
+      },
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12},
+      "id": 9,
+      "options": {
+        "legend": {"calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom", "showLegend": true},
+        "tooltip": {"mode": "multi", "sort": "desc"}
+      },
+      "targets": [
+        {"expr": "mlx_runtime_latest_prefill_tokens_per_second", "legendFormat": "prefill", "refId": "A"},
+        {"expr": "mlx_runtime_latest_decode_tokens_per_second", "legendFormat": "decode", "refId": "B"}
+      ],
+      "title": "Latest Request Throughput",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "description": "선택한 시간 구간에서 runtime이 처리한 prompt·completion token의 초당 증가량이다.",
+      "fieldConfig": {
+        "defaults": {"min": 0, "unit": "tps"},
+        "overrides": []
+      },
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12},
+      "id": 10,
+      "options": {
+        "legend": {"calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom", "showLegend": true},
+        "tooltip": {"mode": "multi", "sort": "desc"}
+      },
+      "targets": [
+        {"expr": "rate(mlx_runtime_prompt_tokens_total[$__rate_interval])", "legendFormat": "prompt", "refId": "A"},
+        {"expr": "rate(mlx_runtime_completion_tokens_total[$__rate_interval])", "legendFormat": "completion", "refId": "B"}
+      ],
+      "title": "Token Processing Rate",
+      "type": "timeseries"
+    }
+  ],
+  "refresh": "15s",
+  "schemaVersion": 41,
+  "tags": ["main-model", "runtime", "mlx"],
+  "templating": {"list": []},
+  "time": {"from": "now-1h", "to": "now"},
+  "timezone": "browser",
+  "title": "Main Runtime Health",
+  "uid": "main-runtime-health",
+  "version": 2
+}

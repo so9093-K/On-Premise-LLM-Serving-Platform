@@ -72,7 +72,7 @@ DEPLOYMENT_TARGET=macos-metal-static make static-compose-up
 
 운영자 `.env`에는 `MAIN_LLM_STATIC_PROFILE=gemma4-26b-a4b-qat-4bit-mlx`와
 `MAIN_LLM_BASE_URL=http://host.docker.internal:9401/v1`을 둔다. Mac static override는
-Gateway, MLX JSON metrics exporter, Prometheus와 Mac 전용 Grafana dashboard를 함께 띄운다.
+Gateway, MLX JSON metrics exporter, Prometheus와 `Main Runtime Health` Dashboard를 함께 띄운다.
 MLX의 `/metrics`가 JSON이므로 기존 vLLM Prometheus scrape를 재사용하지 않는다.
 Mac 로컬 기본은 `PLATFORM_IMAGE`를 registry에서 pull하지 않고 `make build-image`의
 현재 arm64 산출물을 사용한다. Registry image를 쓰는 경우에만 `PLATFORM_PULL_POLICY`를
