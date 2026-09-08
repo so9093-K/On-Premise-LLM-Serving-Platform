@@ -118,7 +118,7 @@ class RuntimeValidator:
             ("logprobs-non-stream-canary", "logprobs non-stream", {"logprobs"}, self.live_checks.check_logprobs_non_stream, None),
             ("logprobs-stream-canary", "logprobs stream", {"logprobs"}, self.live_checks.check_logprobs_stream, None),
             ("logit-bias-shape-canary", "logit_bias shape", {"logit_bias"}, self.live_checks.check_logit_bias_shape, None),
-            ("json-schema-with-tools-canary", "json_schema with tools", {"response_format", "tools"}, self.live_checks.check_json_schema_with_tools, "json_schema"),
+            ("named-tool-choice-canary", "named tool choice", {"tools", "tool_choice"}, self.live_checks.check_named_tool_choice, None),
             ("json-schema-with-reasoning-canary", "json_schema with reasoning", {"response_format", "reasoning"}, self.live_checks.check_json_schema_with_reasoning, "json_schema"),
         ):
             run_when_supported(category, name, required, fn, response_type=response_type)

@@ -381,14 +381,25 @@ class LiveRuntimeChecks:
         ok = status == 200 and body.get("object") == "chat.completion"
         return CheckResult("logit-bias-shape-canary", "logit_bias shape", "pass" if ok else "fail", latency, details={"status": status, "token_id_semantics": "served_model_tokenizer"})
 
-    def check_json_schema_with_tools(self) -> CheckResult:
+    def check_named_tool_choice(self) -> CheckResult:
+        """named tool_choice가 지정한 함수 하나를 실제로 호출하는지 확인한다.
+
+        response_format을 함께 보내지 않는다. response_format은 assistant message의
+        content를 제약하는데 named tool_choice는 tool call을 강제하므로 content가
+        존재하지 않는다. 둘은 서로 다른 출력 슬롯을 겨냥해 동시에 만족될 수 없고,
+        어떤 backend에서도 정합한 답이 없는 요청이다. 실제로 vLLM은 content에는
+        스키마를 적용하면서 finish_reason만 tool_calls로 세워 tool_calls가 빈
+        응답을 냈다(2026-09-08 실측).
+
+        구조화 출력 자체는 check_response_format_json_schema가 이미 단독으로
+        검증하고, tool 인자의 구조화는 아래 function.parameters 스키마가 담당한다.
+        """
         tool_name = "get_runtime_answer"
         payload = {
             "model": self._main_model_name(),
             "messages": [{"role": "user", "content": "Call get_runtime_answer for runtime validation."}],
             "max_tokens": 96,
             "temperature": 0,
-            "response_format": self._structured_response_format(),
             "tools": [
                 {
                     "type": "function",
@@ -417,8 +428,8 @@ class LiveRuntimeChecks:
         )
         ok = status == 200 and named_choice_honored and len(tool_calls) == 1
         return CheckResult(
-            "json-schema-with-tools-canary",
-            "json_schema with named tool",
+            "named-tool-choice-canary",
+            "named tool choice",
             "pass" if ok else "fail",
             latency,
             details={
@@ -426,7 +437,7 @@ class LiveRuntimeChecks:
                 "tool_calls_valid": tool_calls_valid,
                 "named_choice_honored": named_choice_honored,
                 "parallel_calls": len(tool_calls) if isinstance(tool_calls, list) else 0,
-                "feature_degraded_on_failure": "json_schema_with_tools",
+                "feature_degraded_on_failure": "named_tool_choice",
             },
         )
 
