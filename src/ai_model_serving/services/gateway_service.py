@@ -44,17 +44,35 @@ def normalize_chat_request_for_runtime(
     payload: dict[str, Any],
     policy: dict[str, Any] | None,
 ) -> tuple[dict[str, Any], ChatResponseExpectations]:
-    """Gateway 제어 값을 vLLM 요청 확장과 응답 검증 규칙으로 변환한다."""
+    """Gateway 제어 값을 활성 runtime 요청과 응답 검증 규칙으로 변환한다."""
     response_format = payload.get("response_format")
     response_format_type = response_format.get("type") if isinstance(response_format, dict) else None
     json_schema_wrapper = response_format.get("json_schema") if isinstance(response_format, dict) else None
     json_schema = json_schema_wrapper.get("schema") if isinstance(json_schema_wrapper, dict) else None
-    expectations = ChatResponseExpectations(
-        response_format_type=response_format_type,
-        json_schema=dict(json_schema) if isinstance(json_schema, dict) else None,
-        expect_logprobs=payload.get("logprobs") is True,
-        stream=payload.get("stream") is True,
+    tools = payload.get("tools")
+    allowed_tool_names = frozenset(
+        tool["function"]["name"]
+        for tool in tools or []
+        if isinstance(tool, dict)
+        and isinstance(tool.get("function"), dict)
+        and isinstance(tool["function"].get("name"), str)
     )
+    requested_tool_choice = payload.get("tool_choice")
+    tool_choice_name = None
+    if isinstance(requested_tool_choice, dict):
+        function = requested_tool_choice.get("function")
+        tool_choice_name = function.get("name") if isinstance(function, dict) else None
+        tool_choice = "named"
+    elif isinstance(requested_tool_choice, str):
+        tool_choice = requested_tool_choice
+    else:
+        tool_choice = "auto" if allowed_tool_names else None
+    tool_policy = (policy or {}).get("tool_calling", {})
+    profile_allows_parallel = (
+        isinstance(tool_policy, dict)
+        and tool_policy.get("allow_parallel_tool_calls") is True
+    )
+    parallel_tool_calls = payload.get("parallel_tool_calls", profile_allows_parallel) is True
     upstream = dict(payload)
     # Gateway 계약에서는 받지만 런타임에 넘길 이유가 없는 필드(예: OpenAI 표준의
     # user 식별자)를 제거한다. embedding 경로와 같은 정책 키를 쓴다.
@@ -83,6 +101,21 @@ def normalize_chat_request_for_runtime(
             elif isinstance(enabled_value, bool):
                 template_kwargs[name] = not enabled_value
         upstream["chat_template_kwargs"] = template_kwargs
+    # OpenAI-compatible runtimes may default parallel_tool_calls to true. A profile
+    # that does not advertise parallel calls must therefore send false explicitly;
+    # request validation alone cannot constrain an omitted upstream default.
+    if allowed_tool_names and not profile_allows_parallel:
+        upstream.setdefault("parallel_tool_calls", False)
+    expectations = ChatResponseExpectations(
+        response_format_type=response_format_type,
+        json_schema=dict(json_schema) if isinstance(json_schema, dict) else None,
+        expect_logprobs=payload.get("logprobs") is True,
+        stream=payload.get("stream") is True,
+        allowed_tool_names=allowed_tool_names,
+        tool_choice=tool_choice,
+        tool_choice_name=tool_choice_name,
+        parallel_tool_calls=parallel_tool_calls,
+    )
     return upstream, expectations
 
 

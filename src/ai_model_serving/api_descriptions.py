@@ -210,6 +210,13 @@ def chat_operation_detail(settings: AppSettings) -> str:
         "- 전송 도중 오류가 나면 이미 `200`으로 헤더가 나간 뒤이므로 상태 코드를 바꿀 수 없습니다. "
         "Gateway는 SSE `error` 이벤트를 먼저 보내고 `data: [DONE]`으로 스트림을 닫으므로, "
         "클라이언트는 마지막 이벤트를 반드시 확인해야 합니다.",
+        "",
+        "### 응답 종료 상태",
+        "",
+        "- reasoning이 출력 예산을 모두 사용하면 `content: null`, 비어 있지 않은 `reasoning`, "
+        "`finish_reason: length`가 올 수 있습니다. 이는 잘린 정상 completion이며 Gateway가 그대로 반환합니다.",
+        "- text·reasoning·tool call이 모두 없거나 `finish_reason: tool_calls`와 실제 `tool_calls`가 "
+        "모순되면 runtime 응답 계약 오류입니다.",
     ]
 
     tool_calling = parameters.get("tool_calling") or {}
@@ -224,6 +231,8 @@ def chat_operation_detail(settings: AppSettings) -> str:
             "— 허용되지 않으면 `true`를 보낼 수 없습니다.",
             f"- `tool_choice`: {_codes(_main_model_parameter(settings, 'tool_choice').get('allowed'))} "
             "또는 함수 지정 객체.",
+            "- `required`와 함수 지정 choice는 응답에서도 실제 호출 여부·함수 이름을 확인합니다. "
+            "병렬 호출 비허용 프로필은 생략한 `parallel_tool_calls`도 upstream에 `false`로 고정합니다.",
             "- 프로필이 tool calling을 지원하지 않으면 `/v1/models`의 capability 목록에서 "
             "`chat.completions.tools`가 빠집니다.",
         ]

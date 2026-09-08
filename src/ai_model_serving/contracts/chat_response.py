@@ -11,26 +11,98 @@ from .chat_common import ChatResponseExpectations
 from .chat_tools import _validate_tool_calls
 from .common import ensure_object, is_int, is_number
 
-def _validate_assistant_response_message(message: Any, *, choice_index: int, finish_reason: Any = None) -> None:
+
+def _validate_assistant_response_message(
+    message: Any,
+    *,
+    choice_index: int,
+    finish_reason: Any = None,
+    expectations: ChatResponseExpectations | None = None,
+) -> None:
     if not isinstance(message, dict) or message.get("role") != "assistant":
         raise ServiceError("UPSTREAM_SCHEMA_ERROR", f"chat upstream response choices[{choice_index}].message must contain an assistant message.")
     content = message.get("content")
     tool_calls = message.get("tool_calls")
-    if isinstance(content, str):
-        # vLLM은 tool을 사용하지 않았을 때 tool_calls: []를 반환하는 경우가 많다; 빈 리스트는 없는 것으로 취급한다.
-        if tool_calls:
+    if content is not None and not isinstance(content, str):
+        raise ServiceError(
+            "UPSTREAM_SCHEMA_ERROR",
+            f"chat upstream response choices[{choice_index}].message.content must be a string or null.",
+        )
+    for field in ("reasoning", "reasoning_content"):
+        if field in message and message[field] is not None and not isinstance(message[field], str):
+            raise ServiceError(
+                "UPSTREAM_SCHEMA_ERROR",
+                f"chat upstream response choices[{choice_index}].message.{field} must be a string or null.",
+            )
+    reasoning = message.get("reasoning") or message.get("reasoning_content")
+    has_tool_calls = isinstance(tool_calls, list) and bool(tool_calls)
+    if tool_calls not in (None, []) and not has_tool_calls:
+        raise ServiceError(
+            "UPSTREAM_SCHEMA_ERROR",
+            f"chat upstream response choices[{choice_index}].message.tool_calls must be a non-empty array when provided.",
+        )
+    if has_tool_calls:
+        try:
             _validate_tool_calls(tool_calls)
+        except ServiceError as exc:
+            # _validate_tool_calls는 client request에도 쓰이므로 VALIDATION_ERROR를
+            # 만든다. 여기서는 runtime이 만든 응답이 원인이므로 502로 다시 분류한다.
+            raise ServiceError(
+                "UPSTREAM_SCHEMA_ERROR",
+                f"chat upstream response choices[{choice_index}].message.tool_calls is invalid: {exc.message}",
+            ) from exc
+    if finish_reason == "tool_calls" and not has_tool_calls:
+        raise ServiceError(
+            "UPSTREAM_SCHEMA_ERROR",
+            f"chat upstream response choices[{choice_index}] ended with finish_reason=tool_calls but returned no tool_calls.",
+        )
+    if has_tool_calls and finish_reason != "tool_calls":
+        raise ServiceError(
+            "UPSTREAM_SCHEMA_ERROR",
+            f"chat upstream response choices[{choice_index}] returned tool_calls without finish_reason=tool_calls.",
+        )
+    if expectations is not None:
+        if has_tool_calls:
+            names = [call["function"]["name"] for call in tool_calls]
+            if not expectations.allowed_tool_names or any(
+                name not in expectations.allowed_tool_names for name in names
+            ):
+                raise ServiceError(
+                    "UPSTREAM_SCHEMA_ERROR",
+                    f"chat upstream response choices[{choice_index}] returned a function that was not provided in tools.",
+                )
+            if expectations.tool_choice == "none":
+                raise ServiceError(
+                    "UPSTREAM_SCHEMA_ERROR",
+                    f"chat upstream response choices[{choice_index}] returned tool_calls for tool_choice=none.",
+                )
+            if expectations.tool_choice_name is not None and any(
+                name != expectations.tool_choice_name for name in names
+            ):
+                raise ServiceError(
+                    "UPSTREAM_SCHEMA_ERROR",
+                    f"chat upstream response choices[{choice_index}] did not honor the named tool_choice.",
+                )
+            if not expectations.parallel_tool_calls and len(tool_calls) > 1:
+                raise ServiceError(
+                    "UPSTREAM_SCHEMA_ERROR",
+                    f"chat upstream response choices[{choice_index}] returned parallel tool calls when parallel_tool_calls=false.",
+                )
+        elif expectations.tool_choice in {"required", "named"}:
+            raise ServiceError(
+                "UPSTREAM_SCHEMA_ERROR",
+                f"chat upstream response choices[{choice_index}] returned no tool_calls for tool_choice={expectations.tool_choice}.",
+            )
+    if isinstance(content, str) or has_tool_calls:
         return
-    if content is None and tool_calls:
-        _validate_tool_calls(tool_calls)
+    # Reasoning runtimes can exhaust max_tokens before emitting final content.
+    # The reasoning text is still a valid, explicitly truncated completion and
+    # must not be rewritten as a retryable upstream failure. A completely empty
+    # result remains an upstream response error because the Gateway has no model
+    # output to return and the same shape is also produced by runtime failures.
+    if finish_reason == "length" and isinstance(reasoning, str) and reasoning:
         return
     detail = f"chat upstream response choices[{choice_index}].message must contain assistant text content or tool_calls."
-    # content 없이 finish_reason="length"인 경우는 생성이 답을 하나도 emit하기
-    # 전에 max_tokens에 도달했다는 뜻이다 -- 이는 upstream 응답 오류가 아니라
-    # request 쪽 budget 문제다. reasoning=true일 때 흔히 발생하는데, thinking
-    # 단계가 budget 전체를 소비할 수 있기 때문이다. 원인과 해결책을 명시해서
-    # 단순 재시도(동일한 max_tokens에서 동일하게 실패할 것이다)가 뻔한
-    # 다음 단계가 되지 않도록 한다.
     if finish_reason == "length":
         detail += " The response was truncated by max_tokens before any content was emitted; increase max_tokens (reasoning requests need extra budget for the thinking phase)."
     raise ServiceError("UPSTREAM_SCHEMA_ERROR", detail)
@@ -42,12 +114,12 @@ def _validate_response_json_content(
     choice_index: int,
     expectations: ChatResponseExpectations,
 ) -> None:
-    if choice.get("finish_reason") == "tool_calls":
+    message = choice.get("message")
+    if isinstance(message, dict) and message.get("tool_calls"):
         return
     response_type = expectations.response_format_type
     if response_type not in {"json_object", "json_schema"}:
         return
-    message = choice.get("message")
     content = message.get("content") if isinstance(message, dict) else None
     if not isinstance(content, str):
         raise ServiceError("UPSTREAM_SCHEMA_ERROR", f"chat upstream response choices[{choice_index}].message.content must be a JSON string for response_format={response_type}.")
@@ -138,7 +210,12 @@ def validate_chat_response(
     for index, choice in enumerate(choices):
         if not isinstance(choice, dict):
             raise ServiceError("UPSTREAM_SCHEMA_ERROR", f"chat upstream response choices[{index}] must be an object.")
-        _validate_assistant_response_message(choice.get("message"), choice_index=index, finish_reason=choice.get("finish_reason"))
+        _validate_assistant_response_message(
+            choice.get("message"),
+            choice_index=index,
+            finish_reason=choice.get("finish_reason"),
+            expectations=expectations,
+        )
         if expectations is not None:
             _validate_response_json_content(choice, choice_index=index, expectations=expectations)
             if expectations.expect_logprobs and not expectations.stream:

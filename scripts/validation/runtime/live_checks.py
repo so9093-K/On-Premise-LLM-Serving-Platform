@@ -382,9 +382,10 @@ class LiveRuntimeChecks:
         return CheckResult("logit-bias-shape-canary", "logit_bias shape", "pass" if ok else "fail", latency, details={"status": status, "token_id_semantics": "served_model_tokenizer"})
 
     def check_json_schema_with_tools(self) -> CheckResult:
+        tool_name = "get_runtime_answer"
         payload = {
             "model": self._main_model_name(),
-            "messages": [{"role": "user", "content": "Return JSON with answer, or call get_runtime_answer if needed."}],
+            "messages": [{"role": "user", "content": "Call get_runtime_answer for runtime validation."}],
             "max_tokens": 96,
             "temperature": 0,
             "response_format": self._structured_response_format(),
@@ -392,7 +393,7 @@ class LiveRuntimeChecks:
                 {
                     "type": "function",
                     "function": {
-                        "name": "get_runtime_answer",
+                        "name": tool_name,
                         "description": "Return a short runtime validation answer.",
                         "parameters": {
                             "type": "object",
@@ -403,13 +404,31 @@ class LiveRuntimeChecks:
                     },
                 }
             ],
-            "tool_choice": "auto",
+            "tool_choice": {"type": "function", "function": {"name": tool_name}},
+            "parallel_tool_calls": False,
         }
         status, body, latency = self.http.json("POST", self._chat_url(), payload)
-        schema_valid = self._content_matches_structured_schema(body)
+        choice = self._choice(body)
+        message = choice.get("message")
+        tool_calls = message.get("tool_calls") if isinstance(message, dict) else None
         tool_calls_valid = self._has_valid_tool_calls(body)
-        ok = status == 200 and (schema_valid or tool_calls_valid)
-        return CheckResult("json-schema-with-tools-canary", "json_schema with tools", "pass" if ok else "fail", latency, details={"status": status, "schema_valid": schema_valid, "tool_calls_valid": tool_calls_valid, "feature_degraded_on_failure": "json_schema_with_tools"})
+        named_choice_honored = tool_calls_valid and all(
+            call["function"]["name"] == tool_name for call in tool_calls
+        )
+        ok = status == 200 and named_choice_honored and len(tool_calls) == 1
+        return CheckResult(
+            "json-schema-with-tools-canary",
+            "json_schema with named tool",
+            "pass" if ok else "fail",
+            latency,
+            details={
+                "status": status,
+                "tool_calls_valid": tool_calls_valid,
+                "named_choice_honored": named_choice_honored,
+                "parallel_calls": len(tool_calls) if isinstance(tool_calls, list) else 0,
+                "feature_degraded_on_failure": "json_schema_with_tools",
+            },
+        )
 
     def check_json_schema_with_reasoning(self) -> CheckResult:
         payload = {

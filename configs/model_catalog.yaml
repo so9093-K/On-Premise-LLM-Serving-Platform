@@ -7,10 +7,13 @@ models:
     runtime:
       served_model_name: local-main
       endpoint: /v1/chat/completions
-    # 정적 listing은 기본 profile 기준이며, 요청 검증은 active profile의 modality를 따른다.
+    # 정적 listing은 모든 target이 공유하는 capability 상한이다. 실제 modality와
+    # 요청 parameter는 active profile이, 공개 backend 값은 deployment target이 덮어쓴다.
     deployed_modalities: [text, image, audio, video]
     gateway_listing:
       enabled: true
+      # target-neutral registry projection의 fallback. Gateway /v1/models에서는
+      # deployment_targets.yaml의 runtime_backend가 실제 값으로 투영된다.
       backend: main_llm_vllm
       capabilities: [chat.completions, chat.completions.vision, chat.completions.tools]
 

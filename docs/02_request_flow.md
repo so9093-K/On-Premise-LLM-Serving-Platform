@@ -216,7 +216,7 @@ Gateway
   ├─ Runtime용 Request 정규화
   │
   ▼
-main-llm-vllm :9401
+active Main Model runtime :9401
   │
   │ POST /v1/chat/completions
   ▼
@@ -250,7 +250,9 @@ Main Model profile이 바뀌어도 외부 model ID는 `local-main`을 유지한�
 
 #### 멀티모달 입력
 
-현재 기본 Main Model profile은 text, image, audio, video 입력을 제공한다.
+Main Model의 입력 종류는 활성 profile이 결정한다. Linux/CUDA Gemma profile은
+text·image·audio·video를 제공할 수 있고, 현재 macOS/MLX profile은 text·image만
+제공한다.
 
 ```text
 messages[].content
@@ -264,14 +266,15 @@ messages[].content
 Gateway Input Validation
         │
         ▼
-main-llm-vllm
+active Main Model runtime
 ```
 
-Gateway는 현재 활성 profile의 modality와 `configs/model_serving.yaml`의 입력 제한을 조합해 허용 범위를 결정한다.
+Gateway는 현재 활성 profile의 modality와 profile 자체의 입력 제한을 함께 적용한다.
 
 #### Streaming
 
-`stream=true` 요청은 vLLM SSE 응답을 Gateway가 chunk 단위로 relay한다.
+`stream=true` 요청은 활성 Main Model runtime의 OpenAI-compatible SSE 응답을
+Gateway가 chunk 단위로 relay한다.
 
 ```text
 Client
@@ -281,7 +284,7 @@ Client
 Gateway
   │
   ▼
-main-llm-vllm
+active Main Model runtime
   │
   │ SSE chunks
   ▼

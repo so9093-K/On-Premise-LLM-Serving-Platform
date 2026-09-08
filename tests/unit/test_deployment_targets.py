@@ -82,6 +82,7 @@ def test_macos_target_uses_its_mlx_profile_and_main_only_admission(monkeypatch) 
     settings = load_settings()
 
     assert settings.deployment_target.runtime_backend == "mlx-vlm"
+    assert settings.public_models[0]["backend"] == "mlx-vlm"
     assert settings.deployment_target.main_profile_catalog == "configs/macos_mlx_runtime.yaml"
     assert set(settings.runtime_endpoints) == {"main_llm"}
     assert settings.runtime("main_llm").max_concurrency == 1

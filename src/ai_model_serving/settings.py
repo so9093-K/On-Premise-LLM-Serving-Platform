@@ -56,9 +56,19 @@ def _public_models_from_registry(
             for key, cfg in (model_serving.get("risk_adapter", {}).get("detectors", {}) or {}).items()
             if isinstance(cfg, dict) and cfg.get("type") == "vllm" and cfg.get("enabled", True) is True
         )
-    return tuple(
-        item for item in registry.public_model_response_items() if str(item.get("id")) in enabled_ids
-    )
+    public_models: list[dict[str, Any]] = []
+    main_model_id = str(model_serving["models"]["main_llm"]["served_model_name"])
+    for projected in registry.public_model_response_items():
+        if str(projected.get("id")) not in enabled_ids:
+            continue
+        item = dict(projected)
+        if item.get("id") == main_model_id:
+            # model_catalog.yaml은 target-neutral logical model 목록이다. 실제
+            # inference backend는 deployment target이 소유하므로 공개 목록에도
+            # 그 값을 투영한다(Mac에서 main_llm_vllm으로 잘못 보이지 않게 한다).
+            item["backend"] = deployment_target.runtime_backend
+        public_models.append(item)
+    return tuple(public_models)
 
 
 def _documentation_settings(documentation_cfg: dict[str, Any]) -> DocumentationSettings:

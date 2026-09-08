@@ -256,6 +256,9 @@ def test_gateway_accepts_bounded_tool_calling_when_enabled():
     response = client.post("/v1/chat/completions", headers=auth_headers(), json=payload)
     assert response.status_code == 200
     assert clients.main_llm.last_payload["tools"][0]["function"]["name"] == "get_weather"
+    # Profile이 병렬 호출을 허용하지 않으면 생략한 값도 upstream 기본값에
+    # 맡기지 않고 false로 고정한다.
+    assert clients.main_llm.last_payload["parallel_tool_calls"] is False
 
     parallel = dict(payload)
     parallel["parallel_tool_calls"] = True
@@ -419,6 +422,35 @@ def test_gateway_allows_advanced_combinations_and_models_projection():
         "tool_choice": "auto",
     }
     assert client.post("/v1/chat/completions", headers=auth_headers(), json=base).status_code == 200
+    named = {**base, "tool_choice": {"type": "function", "function": {"name": "get_weather"}}}
+    assert client.post("/v1/chat/completions", headers=auth_headers(), json=named).status_code == 200
+
+    clients.main_llm.post_response["choices"][0]["message"]["tool_calls"][0]["function"]["name"] = "unknown_tool"
+    assert client.post("/v1/chat/completions", headers=auth_headers(), json=base).status_code == 502
+    clients.main_llm.post_response["choices"][0]["message"]["tool_calls"][0]["function"]["name"] = "get_weather"
+
+    clients.main_llm.post_response["choices"][0]["message"]["tool_calls"].append(
+        {"id": "call_2", "type": "function", "function": {"name": "get_weather", "arguments": "{}"}}
+    )
+    assert client.post("/v1/chat/completions", headers=auth_headers(), json=base).status_code == 502
+    clients.main_llm.post_response["choices"][0]["message"]["tool_calls"].pop()
+
+    clients.main_llm.post_response = {
+        "id": "chatcmpl_text",
+        "object": "chat.completion",
+        "created": 1,
+        "model": "local-main",
+        "choices": [{"index": 0, "message": {"role": "assistant", "content": "no call"}, "finish_reason": "stop"}],
+    }
+    assert client.post("/v1/chat/completions", headers=auth_headers(), json={**base, "tool_choice": "required"}).status_code == 502
+
+    clients.main_llm.post_response = {
+        "id": "chatcmpl_tool",
+        "object": "chat.completion",
+        "created": 1,
+        "model": "local-main",
+        "choices": [{"index": 0, "message": {"role": "assistant", "content": None, "tool_calls": [{"id": "call_1", "type": "function", "function": {"name": "get_weather", "arguments": "{}"}}]}, "finish_reason": "tool_calls"}],
+    }
     assert client.post("/v1/chat/completions", headers=auth_headers(), json={**base, "reasoning": True}).status_code == 200
     assert "reasoning" not in clients.main_llm.last_payload
     assert clients.main_llm.last_payload["chat_template_kwargs"] == {"enable_thinking": True}

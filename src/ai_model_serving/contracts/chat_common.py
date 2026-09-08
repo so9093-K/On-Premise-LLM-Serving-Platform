@@ -18,6 +18,10 @@ class ChatResponseExpectations:
     json_schema: dict[str, Any] | None
     expect_logprobs: bool
     stream: bool
+    allowed_tool_names: frozenset[str] = frozenset()
+    tool_choice: str | None = None
+    tool_choice_name: str | None = None
+    parallel_tool_calls: bool = True
 
 
 def _chat_policy(policy: dict[str, Any] | None) -> dict[str, Any]:

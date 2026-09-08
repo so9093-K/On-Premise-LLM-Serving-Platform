@@ -214,7 +214,7 @@ paths:
       summary: Chat completion 생성
       description: "`local-main`을 통한 chat completion API입니다. OpenAI 호환 bounded subset을\
         \ 제공합니다.\n\nGateway가 model id, 입력 modality, token limit, tool-call 지원, parameter\
-        \ allowlist를 검증합니다.\n\n- `stream=true` — vLLM SSE chunk를 버퍼링 없이 `text/event-stream`으로\
+        \ allowlist를 검증합니다.\n\n- `stream=true` — 활성 runtime의 SSE chunk를 버퍼링 없이 `text/event-stream`으로\
         \ relay\n- `response_format`\n  - `json_object` — JSON mode. messages에 명시적\
         \ JSON 지시문 필요, schema 일치 미보장\n  - `json_schema` — Structured Outputs. root\
         \ `object` 필수, `additionalProperties: false` 필수, optional field는 nullable\
@@ -239,10 +239,15 @@ paths:
         \ 그대로 중계합니다.\n- `stream_options.include_usage: true` — 마지막 조각에 토큰 사용량을 포함합니다.\n\
         - 스트림 상한: 최대 300초, 20,000 chunk, 104,857,600바이트 (100.0 MiB).\n- 전송 도중 오류가\
         \ 나면 이미 `200`으로 헤더가 나간 뒤이므로 상태 코드를 바꿀 수 없습니다. Gateway는 SSE `error` 이벤트를 먼저\
-        \ 보내고 `data: [DONE]`으로 스트림을 닫으므로, 클라이언트는 마지막 이벤트를 반드시 확인해야 합니다.\n\n### 도구\
+        \ 보내고 `data: [DONE]`으로 스트림을 닫으므로, 클라이언트는 마지막 이벤트를 반드시 확인해야 합니다.\n\n### 응답\
+        \ 종료 상태\n\n- reasoning이 출력 예산을 모두 사용하면 `content: null`, 비어 있지 않은 `reasoning`,\
+        \ `finish_reason: length`가 올 수 있습니다. 이는 잘린 정상 completion이며 Gateway가 그대로 반환합니다.\n\
+        - text·reasoning·tool call이 모두 없거나 `finish_reason: tool_calls`와 실제 `tool_calls`가\
+        \ 모순되면 runtime 응답 계약 오류입니다.\n\n### 도구\
         \ 호출 (tools)\n\n- 지원 여부: `true` — 비활성 프로필에서는 `tools`를 보내면 거부됩니다.\n- `parallel_tool_calls`\
         \ 허용: `false` — 허용되지 않으면 `true`를 보낼 수 없습니다.\n- `tool_choice`: `auto`, `none`,\
-        \ `required` 또는 함수 지정 객체.\n- 프로필이 tool calling을 지원하지 않으면 `/v1/models`의 capability\
+        \ `required` 또는 함수 지정 객체.\n- `required`와 함수 지정 choice는 응답에서도 실제 호출 여부·함수 이름을 확인합니다.\
+        \ 병렬 호출 비허용 프로필은 생략한 `parallel_tool_calls`도 upstream에 `false`로 고정합니다.\n- 프로필이 tool calling을 지원하지 않으면 `/v1/models`의 capability\
         \ 목록에서 `chat.completions.tools`가 빠집니다.\n\n### 구조화 출력 (response_format)\n\n\
         - 허용 타입: `text`, `json_object`, `json_schema`\n- `json_object` — JSON mode입니다.\
         \ `messages`에 JSON으로 답하라는 명시적 지시문이 있어야 하며, 특정 스키마와의 일치는 보장하지 않습니다.\n- `json_schema`\

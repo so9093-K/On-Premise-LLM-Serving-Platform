@@ -14,23 +14,31 @@ from .helpers import *  # noqa: F401,F403
 
 def _truncated_reasoning_response() -> dict:
     # reasoning 생성이 예산을 전부 thinking 단계에 써버린 경우:
-    # finish_reason="length"인데 assistant content도 tool_calls도 없다.
+    # final content는 없지만 parser가 분리한 reasoning과 length 종료가 남는다.
     return {
         "id": "chatcmpl_x",
         "object": "chat.completion",
         "created": 1,
         "model": "local-main",
-        "choices": [{"index": 0, "message": {"role": "assistant", "content": None}, "finish_reason": "length"}],
+        "choices": [
+            {
+                "index": 0,
+                "message": {"role": "assistant", "content": None, "reasoning": "still thinking"},
+                "finish_reason": "length",
+            }
+        ],
     }
 
 
-def test_truncated_response_error_names_max_tokens_cause():
+def test_reasoning_truncation_is_preserved_but_empty_truncation_is_rejected():
+    payload = _truncated_reasoning_response()
+    assert validate_chat_response(payload, expected_model="local-main") is payload
+
+    payload["choices"][0]["message"].pop("reasoning")
     with pytest.raises(ServiceError) as excinfo:
-        validate_chat_response(_truncated_reasoning_response(), expected_model="local-main")
+        validate_chat_response(payload, expected_model="local-main")
     exc = excinfo.value
     assert exc.code == "UPSTREAM_SCHEMA_ERROR"
-    # 조치 힌트는 max_tokens를 가리켜야 한다 — 그래야 단순 재시도가 뻔한 다음
-    # 스텝처럼 보이지 않는다.
     assert "max_tokens" in exc.message
     assert "truncated" in exc.message
 

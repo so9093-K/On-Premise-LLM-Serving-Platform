@@ -156,7 +156,7 @@ def test_gateway_gives_up_after_one_retry_on_repeated_truncation():
     assert call_count == 2
 
 
-def test_gateway_does_not_retry_truncation_without_structured_output():
+def test_gateway_preserves_reasoning_truncation_without_retry():
     call_count = 0
 
     def post_response(path, payload, **kwargs):
@@ -166,7 +166,13 @@ def test_gateway_does_not_retry_truncation_without_structured_output():
             "id": "chatcmpl-1",
             "object": "chat.completion",
             "model": "local-main",
-            "choices": [{"index": 0, "finish_reason": "length", "message": {"role": "assistant", "content": None}}],
+            "choices": [
+                {
+                    "index": 0,
+                    "finish_reason": "length",
+                    "message": {"role": "assistant", "content": None, "reasoning": "still thinking"},
+                }
+            ],
         }
 
     clients = FakeGatewayClients()
@@ -176,10 +182,11 @@ def test_gateway_does_not_retry_truncation_without_structured_output():
     response = client.post(
         "/v1/chat/completions",
         headers=auth_headers(),
-        json={"model": "local-main", "messages": [{"role": "user", "content": "hello"}]},
+        json={"model": "local-main", "messages": [{"role": "user", "content": "hello"}], "reasoning": True},
     )
-    assert response.status_code == 502
-    assert response.json()["error"]["code"] == "UPSTREAM_SCHEMA_ERROR"
+    assert response.status_code == 200
+    assert response.json()["choices"][0]["finish_reason"] == "length"
+    assert response.json()["choices"][0]["message"]["reasoning"] == "still thinking"
     assert call_count == 1
 
 

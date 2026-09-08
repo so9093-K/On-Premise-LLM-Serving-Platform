@@ -188,12 +188,12 @@ curl "$GATEWAY_URL/v1/models" \
 
 | Model ID | 역할 | 주요 Capability |
 |---|---|---|
-| `local-main` | Main LLM | Chat, Multimodal, Tool Calling |
+| `local-main` | Main LLM | Chat과 활성 profile이 검증한 Multimodal·Tool Calling 확장 |
 | `local-embed` | 범용 Embedding | Embedding, Retrieval |
 | `local-embed-ko` | Korean Embedding | Embedding, Retrieval |
 | `risk-prompt` | Prompt Guard model | Prompt attack signal |
 
-`local-main`의 `input_modalities`와 `request_parameters`는 현재 활성 Main Model profile의 실제 capability·요청 정책을 반영한다.
+`local-main`의 `input_modalities`와 `request_parameters`는 현재 활성 Main Model profile의 실제 capability·요청 정책을 반영한다. `backend`도 deployment target의 실제 runtime(`vllm-cuda`, `mlx-vlm` 등)을 반영한다. 클라이언트는 모델 이름으로 backend 기능을 추정하지 말고 이 응답을 읽는다.
 
 #### 응답 예시
 
@@ -206,7 +206,7 @@ curl "$GATEWAY_URL/v1/models" \
       "object": "model",
       "created": 1780000000,
       "owned_by": "ai-model-serving",
-      "backend": "main_llm_vllm",
+      "backend": "vllm-cuda",
       "capabilities": [
         "chat.completions",
         "chat.completions.vision",
@@ -231,7 +231,7 @@ curl "$GATEWAY_URL/v1/models" \
 
 ### POST `/v1/chat/completions`
 
-`local-main`을 사용하는 OpenAI-compatible Chat Completions API다. Gateway에서 지원하는 지원 범위만 허용하며, 지원하지 않는 request field는 `422 VALIDATION_ERROR`로 거부한다.
+`local-main`을 사용하는 OpenAI-compatible Chat Completions API다. `model`, `messages`, text completion이라는 공통 계약은 backend와 무관하게 유지하고, multimodal·tools·reasoning·structured output은 활성 profile이 검증해 `/v1/models[].request_parameters`에 공개한 범위만 허용한다. 지원하지 않는 request field는 `422 VALIDATION_ERROR`로 거부한다.
 
 ### 3.1 Request
 
@@ -257,8 +257,8 @@ curl "$GATEWAY_URL/v1/models" \
 | `stream_options` | object | N | `stream=true`일 때만 | `include_usage` 지원 |
 | `tools` | array | N | Runtime policy 최대 64개 | Function tool 정의 |
 | `tool_choice` | string / object | N | `auto`, `none`, `required`, function choice | Tool 선택 방식 |
-| `parallel_tool_calls` | boolean | N | `false` | 병렬 tool call 비활성 |
-| `reasoning` | boolean | N | 기본 `false` | Gemma4 thinking opt-in. `json_schema`와 함께 쓰면 thinking 종료 뒤 최종 답변이 schema를 따른다. |
+| `parallel_tool_calls` | boolean | N | 활성 profile 정책 | `false`인 profile에서는 생략해도 upstream에 `false`로 고정 |
+| `reasoning` | boolean | N | 활성 profile 기본값 | Gateway 공통 필드. vLLM의 chat template kwarg 또는 MLX의 `enable_thinking`으로 변환 |
 | `response_format` | object | N | `text`, `json_object`, `json_schema` | 출력 형식. `json_schema`의 `integer`/`number`에는 `minimum`·`maximum`을, 자유 `string`에는 `maxLength` 또는 `pattern`을 넣는다 — 경계가 없으면 문법상 값이 무한히 이어져 `max_tokens`에서 잘리고 `UPSTREAM_SCHEMA_ERROR`가 된다 ([vLLM #40080](https://github.com/vllm-project/vllm/issues/40080)). |
 | `logprobs` | boolean | N | `true` / `false` | Token log probability |
 | `top_logprobs` | integer | N | `0`–`10` | `logprobs=true` 필요 |
@@ -322,7 +322,7 @@ curl "$GATEWAY_URL/v1/chat/completions" \
 }
 ```
 
-`id`, `created`, token usage와 생성 text는 요청마다 달라진다.
+`id`, `created`, token usage와 생성 text는 요청마다 달라진다. reasoning이 generation 예산을 모두 사용하면 `content`가 `null`, `reasoning`이 문자열, `finish_reason`이 `length`인 정상적인 truncated completion이 될 수 있다. Gateway는 이를 그대로 반환한다. 반면 text·reasoning·tool call이 모두 없는 빈 응답이나 `finish_reason=tool_calls`인데 실제 `tool_calls`가 없는 응답은 runtime 계약 오류로 처리한다.
 
 ### 3.3 System Prompt
 
@@ -501,9 +501,9 @@ streaming timeout은 Gateway admission queue, vLLM read timeout, reverse proxy i
 }
 ```
 
-Runtime의 `tools` 제한은 현재 `max_tools=64`다.
+Tool calling은 활성 profile이 `/v1/models`에 `tools`를 공개할 때만 사용할 수 있다. 현재 Linux/CUDA Gemma profile의 제한은 `max_tools=64`이며 macOS/MLX profile은 qualification되지 않은 tool 기능을 공개하지 않는다.
 
-Tool 호출을 선택한 응답은 `message.tool_calls`를 포함할 수 있다.
+Tool 호출을 선택한 응답은 `message.tool_calls`를 포함할 수 있다. `tool_choice=required`나 함수 지정 객체는 실제 응답에도 적용되며, `parallel_tool_calls=false`에서는 한 번에 하나의 호출만 허용한다.
 
 ```json
 {

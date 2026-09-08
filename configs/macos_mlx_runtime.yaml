@@ -74,6 +74,12 @@ profiles:
         allowed_image_mime_types: [image/jpeg, image/png, image/webp, image/avif, image/jp2, image/gif, image/bmp, image/tiff, image/x-tiff]
       request_parameter_policy:
         allow_unlisted_parameters: false
+        # 이 목록은 mlx-vlm server가 파싱할 수 있는 모든 필드가 아니라 이 모델·이
+        # 실행 모드에서 확인한 공개 계약이다. 고정된 mlx-vlm 0.6.17은 draft model을
+        # 쓰는 speculative decoding과 response_format을 함께 요청하면 명시적으로
+        # 거부하므로 MTP를 켠 기본 profile에서는 structured output을 광고하지 않는다.
+        # Gemma4 tool parser도 package에는 있지만 target checkpoint의 tool round-trip을
+        # qualification하기 전까지 tools/tool_choice를 열지 않는다.
         supported_parameters: [stream, temperature, max_tokens, top_p, top_k, min_p, repetition_penalty, reasoning, user]
         drop_upstream_parameters: [user]
         max_n: 1
