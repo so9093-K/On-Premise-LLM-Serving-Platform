@@ -7,10 +7,6 @@ from collections.abc import AsyncIterator
 from dataclasses import replace
 from typing import Any, Protocol
 
-from ..errors import ServiceError
-from ..metrics import Metrics
-from ..runtime_clients.ports import JsonRuntimeClient, StreamingRuntimeClient
-from ..settings import AppSettings
 from ..contracts import (
     ChatResponseExpectations,
     read_risk_prompt,
@@ -23,6 +19,11 @@ from ..contracts import (
     validate_embedding_response,
     validate_risk_response,
 )
+from ..contracts.chat_response import RetryableStructuredOutputError
+from ..errors import ServiceError
+from ..metrics import Metrics
+from ..runtime_clients.ports import JsonRuntimeClient, StreamingRuntimeClient
+from ..settings import AppSettings
 from .retrieval_service import RetrievalService
 
 
@@ -303,7 +304,7 @@ class GatewayService:
                         response, expected_model=self.settings.runtime("main_llm").model, expectations=expectations
                     )
                 except ServiceError as exc:
-                    if exc.code == "UPSTREAM_SCHEMA_ERROR" and attempt < attempts_allowed:
+                    if isinstance(exc, RetryableStructuredOutputError) and attempt < attempts_allowed:
                         self.metrics.record_upstream_error(self.settings.runtime("main_llm").logical_id, "UPSTREAM_SCHEMA_ERROR_RETRIED")
                         continue
                     self.metrics.record_upstream_error(self.settings.runtime("main_llm").logical_id, exc.code)

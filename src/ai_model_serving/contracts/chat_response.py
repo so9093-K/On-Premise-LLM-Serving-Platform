@@ -12,6 +12,10 @@ from .chat_tools import _validate_tool_calls
 from .common import ensure_object, is_int, is_number
 
 
+class RetryableStructuredOutputError(ServiceError):
+    """Runtime이 생성한 JSON 본문만 다시 생성해 볼 가치가 있음을 표시한다."""
+
+
 def _validate_assistant_response_message(
     message: Any,
     *,
@@ -129,7 +133,7 @@ def _validate_response_json_content(
         detail = f"chat upstream response choices[{choice_index}].message.content is not valid JSON for response_format={response_type}; increase max_tokens or simplify the prompt/schema."
         if choice.get("finish_reason") == "length":
             detail += " The response may have been truncated by max_tokens."
-        raise ServiceError("UPSTREAM_SCHEMA_ERROR", detail) from exc
+        raise RetryableStructuredOutputError("UPSTREAM_SCHEMA_ERROR", detail) from exc
     if response_type != "json_schema":
         return
     schema = expectations.json_schema
@@ -145,7 +149,7 @@ def _validate_response_json_content(
         detail = f"chat upstream response choices[{choice_index}].message.content does not match response_format.json_schema; simplify response_format.json_schema or increase max_tokens."
         if choice.get("finish_reason") == "length":
             detail += " The response may have been truncated by max_tokens."
-        raise ServiceError("UPSTREAM_SCHEMA_ERROR", detail) from exc
+        raise RetryableStructuredOutputError("UPSTREAM_SCHEMA_ERROR", detail) from exc
     except Exception as exc:
         raise ServiceError(
             "UPSTREAM_SCHEMA_ERROR", "upstream response could not be validated against response_format.json_schema; check error.debug for the validation reason.",

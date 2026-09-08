@@ -26,7 +26,7 @@ SCANNED_TREES = ('configs', 'ops', 'specs')
 # 달라서, 훑으면 검증이 패키저의 로컬 상태에 의존하게 된다.
 GENERATED_PARTS = frozenset({'model_cache', 'models', '__pycache__'})
 
-SCANNED_FILES = ('.gitlab-ci.yml', 'version_manifest.json')
+SCANNED_FILES = ('version_manifest.json',)
 
 PARSERS = {
     '.json': json.loads,

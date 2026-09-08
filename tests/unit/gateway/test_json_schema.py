@@ -110,7 +110,7 @@ def _chat_response(content: str) -> dict:
     }
 
 
-def test_gateway_retries_once_on_truncated_structured_output_then_succeeds():
+def test_gateway_retries_only_generated_structured_content_failures():
     call_count = 0
 
     def post_response(path, payload, **kwargs):
@@ -132,6 +132,25 @@ def test_gateway_retries_once_on_truncated_structured_output_then_succeeds():
     assert response.status_code == 200
     assert response.json()["choices"][0]["message"]["content"] == '{"answer": "ok"}'
     assert call_count == 2
+
+    # 응답 envelope/model 계약 위반은 같은 요청을 다시 생성해도 복구되지 않는다.
+    # 구조화 출력 요청이라는 이유만으로 모든 UPSTREAM_SCHEMA_ERROR를 재시도하지 않는다.
+    def wrong_model_response(path, payload, **kwargs):
+        nonlocal call_count
+        call_count += 1
+        response = _chat_response('{"answer": "ok"}')
+        response["model"] = "wrong-model"
+        return response
+
+    clients.main_llm.post_response = wrong_model_response
+    response = client.post(
+        "/v1/chat/completions",
+        headers=auth_headers(),
+        json={"model": "local-main", "messages": [{"role": "user", "content": "Return JSON."}], "response_format": _json_schema_format()},
+    )
+    assert response.status_code == 502
+    assert response.json()["error"]["code"] == "UPSTREAM_SCHEMA_ERROR"
+    assert call_count == 3
 
 
 def test_gateway_gives_up_after_one_retry_on_repeated_truncation():
