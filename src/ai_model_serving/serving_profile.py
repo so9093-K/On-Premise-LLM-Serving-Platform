@@ -7,6 +7,10 @@ from typing import Any
 from .configuration import load_yaml_mapping
 
 
+NAMED_TOOL_CHOICE_UPSTREAM_REQUIRED_SINGLE = "required_single"
+_NAMED_TOOL_CHOICE_UPSTREAM_MODES = frozenset({NAMED_TOOL_CHOICE_UPSTREAM_REQUIRED_SINGLE})
+
+
 @dataclass(frozen=True)
 class MainServingProfile:
     profile_id: str
@@ -44,6 +48,20 @@ def load_main_serving_catalog(path: Path) -> MainServingCatalog:
         policy = raw.get("gateway_policy")
         if not isinstance(policy, dict):
             raise RuntimeError(f"main serving profile {profile_id!r} must declare gateway_policy")
+        request_policy = policy.get("request_parameter_policy")
+        if not isinstance(request_policy, dict):
+            raise RuntimeError(
+                f"main serving profile {profile_id!r} must declare "
+                "gateway_policy.request_parameter_policy"
+            )
+        tool_policy = request_policy.get("tool_calling")
+        if isinstance(tool_policy, dict) and "named_tool_choice_upstream" in tool_policy:
+            mode = tool_policy["named_tool_choice_upstream"]
+            if tool_policy.get("enabled") is not True or mode not in _NAMED_TOOL_CHOICE_UPSTREAM_MODES:
+                raise RuntimeError(
+                    f"main serving profile {profile_id!r} has invalid "
+                    f"named_tool_choice_upstream: {mode!r}"
+                )
         capabilities = raw.get("capabilities", {})
         deployed_input = capabilities.get("deployed_input", []) if isinstance(capabilities, dict) else []
         profiles[str(profile_id)] = MainServingProfile(
@@ -63,4 +81,3 @@ def load_main_serving_catalog(path: Path) -> MainServingCatalog:
         default_profile=default_profile,
         profiles=profiles,
     )
-

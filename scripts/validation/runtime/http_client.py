@@ -9,11 +9,11 @@ from typing import Any
 from .config import RuntimeValidationConfig
 
 
-# SSE stream을 끝(`[DONE]`)까지 볼 수 있어야 종료 계약을 확인할 수 있다. 예전 20줄
-# 상한은 canary가 max_tokens를 1~4로 쓰던 시절에만 충분했다. 지금은 생성 예산이
-# 커져 chunk 수가 그보다 많으므로, [DONE] 도달 전에 끊기면 정상 stream도 실패로
-# 보고된다. 메모리는 라인당 256자 절단으로 이미 제한된다.
+# SSE stream을 끝(`[DONE]`)까지 볼 수 있어야 종료 계약을 확인할 수 있다.
+# 이 제한은 제품 설정이 아니라 canary HTTP client의 메모리 안전장치다. 라인을
+# 중간에 잘라 JSON을 추측하지 않고, 전체 이벤트를 유지하되 총 바이트를 제한한다.
 _MAX_STREAM_LINES = 512
+_MAX_STREAM_BYTES = 1024 * 1024
 
 
 class RuntimeValidationHttpClient:
@@ -90,9 +90,9 @@ class RuntimeValidationHttpClient:
     ) -> tuple[int, str, int, list[str], bool]:
         """크기가 제한된 SSE stream을 읽고 첫 chunk 도착 지연 시간을 반환한다.
 
-        The returned event lines are intentionally capped to protocol metadata
-        checks.  The validator only inspects SSE framing, first chunk timing, and
-        DONE visibility; it does not persist token deltas or generated content.
+        The returned event lines are bounded in memory but remain complete JSON
+        events so callers do not infer protocol state from truncated text. The
+        validator does not persist token deltas or generated content.
         """
         request = urllib.request.Request(
             url,
@@ -103,19 +103,23 @@ class RuntimeValidationHttpClient:
         started = time.monotonic()
         first_chunk_ms: int | None = None
         lines: list[str] = []
+        stream_bytes = 0
         saw_done = False
         with urllib.request.urlopen(request, timeout=self.config.timeout_seconds) as response:
             content_type = response.headers.get("content-type", "")
             for raw_line in response:
+                line = raw_line.decode("utf-8", errors="replace").strip()
+                if not line:
+                    continue
                 if first_chunk_ms is None:
                     first_chunk_ms = int((time.monotonic() - started) * 1000)
-                line = raw_line.decode("utf-8", errors="replace").strip()
-                if line:
-                    lines.append(line[:256])
+                stream_bytes += len(raw_line)
+                if stream_bytes > _MAX_STREAM_BYTES or len(lines) >= _MAX_STREAM_LINES:
+                    break
+                lines.append(line)
                 if line == "data: [DONE]":
                     saw_done = True
                     break
-                if len(lines) >= _MAX_STREAM_LINES:
-                    break
             elapsed = int((time.monotonic() - started) * 1000)
-            return response.status, content_type, first_chunk_ms or elapsed, lines, saw_done
+            latency = first_chunk_ms if first_chunk_ms is not None else elapsed
+            return response.status, content_type, latency, lines, saw_done

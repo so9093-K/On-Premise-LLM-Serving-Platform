@@ -24,13 +24,11 @@ from .results import CheckResult
 _CANARY_COMPLETION_TOKENS = 64
 
 
-def _stream_emitted_content(lines: list[str]) -> bool:
-    """SSE 라인에 실제 assistant content delta가 있었는지만 판단한다.
-
-    streaming_lines는 라인을 256자로 자르므로 JSON 파싱이 실패할 수 있다. 파싱되면
-    delta.content를 정확히 보고, 잘린 경우에만 key 탐색으로 떨어진다. 생성된 텍스트
-    자체는 반환하거나 report에 남기지 않고 boolean만 돌려준다.
-    """
+def _stream_delta_observation(lines: list[str]) -> tuple[bool, bool, bool]:
+    """SSE chat delta의 content, logprobs, JSON 무결성을 반환한다."""
+    saw_content = False
+    saw_logprobs = False
+    json_valid = True
     for line in lines:
         if not line.startswith("data:"):
             continue
@@ -40,15 +38,21 @@ def _stream_emitted_content(lines: list[str]) -> bool:
         try:
             event = json.loads(data)
         except json.JSONDecodeError:
-            # 잘린 라인 -- delta는 logprobs보다 앞에 오므로 key만으로 판단한다.
-            if '"content":"' in data or '"content": "' in data:
-                return True
+            json_valid = False
+            continue
+        if not isinstance(event, dict):
+            json_valid = False
             continue
         for choice in event.get("choices") or []:
+            if not isinstance(choice, dict):
+                json_valid = False
+                continue
             delta = choice.get("delta")
             if isinstance(delta, dict) and isinstance(delta.get("content"), str) and delta["content"]:
-                return True
-    return False
+                saw_content = True
+            if isinstance(choice.get("logprobs"), dict):
+                saw_logprobs = True
+    return saw_content, saw_logprobs, json_valid
 
 
 @dataclass(frozen=True)
@@ -297,8 +301,8 @@ class LiveRuntimeChecks:
         )
         # SSE 전송만 보면 content가 하나도 없는 stream도 통과한다. 실제로 같은 예산의
         # non-stream canary가 실패하는 동안 이 검사는 계속 PASS였다(2026-09-08).
-        saw_content = _stream_emitted_content(lines)
-        ok = status == 200 and content_type.startswith("text/event-stream") and saw_done and saw_content
+        saw_content, _, sse_json_valid = _stream_delta_observation(lines)
+        ok = status == 200 and content_type.startswith("text/event-stream") and saw_done and saw_content and sse_json_valid
         return CheckResult(
             "vllm-runtime",
             "gateway streaming chat completion",
@@ -309,6 +313,7 @@ class LiveRuntimeChecks:
                 "first_chunk_ms": first_chunk_ms,
                 "saw_done": saw_done,
                 "saw_content_delta": saw_content,
+                "sse_json_valid": sse_json_valid,
                 "line_count": len(lines),
             },
         )
@@ -399,16 +404,14 @@ class LiveRuntimeChecks:
             "logprobs": True,
         }
         status, content_type, first_chunk_ms, lines, saw_done = self.http.streaming_lines("POST", self._chat_url(), payload)
-        saw_logprobs = any('"logprobs"' in line for line in lines)
-        # logprobs key 존재만으로는 content가 나왔는지 알 수 없다.
-        saw_content = _stream_emitted_content(lines)
-        ok = status == 200 and content_type.startswith("text/event-stream") and saw_done and saw_logprobs and saw_content
+        saw_content, saw_logprobs, sse_json_valid = _stream_delta_observation(lines)
+        ok = status == 200 and content_type.startswith("text/event-stream") and saw_done and saw_logprobs and saw_content and sse_json_valid
         return CheckResult(
             "logprobs-stream-canary",
             "logprobs stream",
             "pass" if ok else "fail",
             first_chunk_ms,
-            details={"content_type": content_type, "saw_done": saw_done, "saw_logprobs": saw_logprobs, "saw_content_delta": saw_content, "line_count": len(lines)},
+            details={"content_type": content_type, "saw_done": saw_done, "saw_logprobs": saw_logprobs, "saw_content_delta": saw_content, "sse_json_valid": sse_json_valid, "line_count": len(lines)},
         )
 
     def check_logit_bias_shape(self) -> CheckResult:
@@ -426,15 +429,11 @@ class LiveRuntimeChecks:
     def check_named_tool_choice(self) -> CheckResult:
         """named tool_choice가 지정한 함수 하나를 실제로 호출하는지 확인한다.
 
-        response_format을 함께 보내지 않는다. response_format은 assistant message의
-        content를 제약하는데 named tool_choice는 tool call을 강제하므로 content가
-        존재하지 않는다. 둘은 서로 다른 출력 슬롯을 겨냥해 동시에 만족될 수 없고,
-        어떤 backend에서도 정합한 답이 없는 요청이다. 실제로 vLLM은 content에는
-        스키마를 적용하면서 finish_reason만 tool_calls로 세워 tool_calls가 빈
-        응답을 냈다(2026-09-08 실측).
-
-        구조화 출력 자체는 check_response_format_json_schema가 이미 단독으로
-        검증하고, tool 인자의 구조화는 아래 function.parameters 스키마가 담당한다.
+        response_format은 함께 보내지 않는다. 강제 tool call과 assistant
+        content의 structured output은 서로 다른 응답 경로이며 backend별 조합
+        동작도 다르다. 한 canary에서 둘을 겹치면 실패한 기능을 구분할 수
+        없으므로, structured output은 check_response_format_json_schema가 담당하고
+        tool 인자 구조는 아래 function.parameters 스키마가 담당한다.
         """
         tool_name = "get_runtime_answer"
         payload = {

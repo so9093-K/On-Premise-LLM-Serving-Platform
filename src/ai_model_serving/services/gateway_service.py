@@ -23,6 +23,7 @@ from ..contracts.chat_response import RetryableStructuredOutputError
 from ..errors import ServiceError
 from ..metrics import Metrics
 from ..runtime_clients.ports import JsonRuntimeClient, StreamingRuntimeClient
+from ..serving_profile import NAMED_TOOL_CHOICE_UPSTREAM_REQUIRED_SINGLE
 from ..settings import AppSettings
 from .retrieval_service import RetrievalService
 
@@ -121,7 +122,7 @@ def normalize_chat_request_for_runtime(
         tool_choice == "named"
         and tool_choice_name is not None
         and isinstance(tool_policy, dict)
-        and tool_policy.get("named_tool_choice_upstream") == "required_single"
+        and tool_policy.get("named_tool_choice_upstream") == NAMED_TOOL_CHOICE_UPSTREAM_REQUIRED_SINGLE
     ):
         selected_tools = [
             tool
