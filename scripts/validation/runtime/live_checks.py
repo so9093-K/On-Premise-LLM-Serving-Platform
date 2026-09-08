@@ -15,6 +15,42 @@ from .http_client import RuntimeValidationHttpClient
 from .results import CheckResult
 
 
+# gemma-4 계열은 thinking이 모델에 내장돼 있어 chat template의 enable_thinking으로
+# 꺼지지 않는다. 최종 content가 나오기 전에 토큰을 먼저 쓰므로 아주 작은 예산으로는
+# content가 하나도 안 나오고, 그 응답은 Gateway 계약상 정당하게 오류가 된다
+# (chat_response.py: "truncated by max_tokens before any content was emitted").
+# 실측 경계는 4(실패)와 8(통과) 사이이며 여유를 두고 64로 잡는다. canary의 목적은
+# 최소 예산 동작이 아니라 해당 기능이 동작하는지이므로 이 값을 줄이지 않는다.
+_CANARY_COMPLETION_TOKENS = 64
+
+
+def _stream_emitted_content(lines: list[str]) -> bool:
+    """SSE 라인에 실제 assistant content delta가 있었는지만 판단한다.
+
+    streaming_lines는 라인을 256자로 자르므로 JSON 파싱이 실패할 수 있다. 파싱되면
+    delta.content를 정확히 보고, 잘린 경우에만 key 탐색으로 떨어진다. 생성된 텍스트
+    자체는 반환하거나 report에 남기지 않고 boolean만 돌려준다.
+    """
+    for line in lines:
+        if not line.startswith("data:"):
+            continue
+        data = line[len("data:"):].strip()
+        if not data or data == "[DONE]":
+            continue
+        try:
+            event = json.loads(data)
+        except json.JSONDecodeError:
+            # 잘린 라인 -- delta는 logprobs보다 앞에 오므로 key만으로 판단한다.
+            if '"content":"' in data or '"content": "' in data:
+                return True
+            continue
+        for choice in event.get("choices") or []:
+            delta = choice.get("delta")
+            if isinstance(delta, dict) and isinstance(delta.get("content"), str) and delta["content"]:
+                return True
+    return False
+
+
 @dataclass(frozen=True)
 class _DetectorProbe:
     """탐지기에 심어 보낼 값과, 그때 기대하는 D-code다."""
@@ -238,7 +274,7 @@ class LiveRuntimeChecks:
         payload = {
             "model": self._main_model_name(),
             "messages": [{"role": "user", "content": "Say OK only."}],
-            "max_tokens": 1,
+            "max_tokens": _CANARY_COMPLETION_TOKENS,
             "temperature": 0,
         }
         status, body, latency = self.http.json("POST", f"{self.gateway_base}/v1/chat/completions", payload)
@@ -249,7 +285,7 @@ class LiveRuntimeChecks:
         payload = {
             "model": self._main_model_name(),
             "messages": [{"role": "user", "content": "Say OK only."}],
-            "max_tokens": 1,
+            "max_tokens": _CANARY_COMPLETION_TOKENS,
             "temperature": 0,
             "stream": True,
             "stream_options": {"include_usage": True},
@@ -259,7 +295,10 @@ class LiveRuntimeChecks:
             f"{self.gateway_base}/v1/chat/completions",
             payload,
         )
-        ok = status == 200 and content_type.startswith("text/event-stream") and first_chunk_ms >= 0 and saw_done
+        # SSE 전송만 보면 content가 하나도 없는 stream도 통과한다. 실제로 같은 예산의
+        # non-stream canary가 실패하는 동안 이 검사는 계속 PASS였다(2026-09-08).
+        saw_content = _stream_emitted_content(lines)
+        ok = status == 200 and content_type.startswith("text/event-stream") and saw_done and saw_content
         return CheckResult(
             "vllm-runtime",
             "gateway streaming chat completion",
@@ -269,6 +308,7 @@ class LiveRuntimeChecks:
                 "content_type": content_type,
                 "first_chunk_ms": first_chunk_ms,
                 "saw_done": saw_done,
+                "saw_content_delta": saw_content,
                 "line_count": len(lines),
             },
         )
@@ -339,7 +379,7 @@ class LiveRuntimeChecks:
         payload = {
             "model": self._main_model_name(),
             "messages": [{"role": "user", "content": "Say OK only."}],
-            "max_tokens": 4,
+            "max_tokens": _CANARY_COMPLETION_TOKENS,
             "temperature": 0,
             "logprobs": True,
             "top_logprobs": 2,
@@ -353,27 +393,29 @@ class LiveRuntimeChecks:
         payload = {
             "model": self._main_model_name(),
             "messages": [{"role": "user", "content": "Say OK only."}],
-            "max_tokens": 4,
+            "max_tokens": _CANARY_COMPLETION_TOKENS,
             "temperature": 0,
             "stream": True,
             "logprobs": True,
         }
         status, content_type, first_chunk_ms, lines, saw_done = self.http.streaming_lines("POST", self._chat_url(), payload)
         saw_logprobs = any('"logprobs"' in line for line in lines)
-        ok = status == 200 and content_type.startswith("text/event-stream") and saw_done and saw_logprobs
+        # logprobs key 존재만으로는 content가 나왔는지 알 수 없다.
+        saw_content = _stream_emitted_content(lines)
+        ok = status == 200 and content_type.startswith("text/event-stream") and saw_done and saw_logprobs and saw_content
         return CheckResult(
             "logprobs-stream-canary",
             "logprobs stream",
             "pass" if ok else "fail",
             first_chunk_ms,
-            details={"content_type": content_type, "saw_done": saw_done, "saw_logprobs": saw_logprobs, "line_count": len(lines)},
+            details={"content_type": content_type, "saw_done": saw_done, "saw_logprobs": saw_logprobs, "saw_content_delta": saw_content, "line_count": len(lines)},
         )
 
     def check_logit_bias_shape(self) -> CheckResult:
         payload = {
             "model": self._main_model_name(),
             "messages": [{"role": "user", "content": "Say OK only."}],
-            "max_tokens": 4,
+            "max_tokens": _CANARY_COMPLETION_TOKENS,
             "temperature": 0,
             "logit_bias": {"0": 0},
         }

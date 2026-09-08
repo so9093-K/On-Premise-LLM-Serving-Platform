@@ -9,6 +9,13 @@ from typing import Any
 from .config import RuntimeValidationConfig
 
 
+# SSE stream을 끝(`[DONE]`)까지 볼 수 있어야 종료 계약을 확인할 수 있다. 예전 20줄
+# 상한은 canary가 max_tokens를 1~4로 쓰던 시절에만 충분했다. 지금은 생성 예산이
+# 커져 chunk 수가 그보다 많으므로, [DONE] 도달 전에 끊기면 정상 stream도 실패로
+# 보고된다. 메모리는 라인당 256자 절단으로 이미 제한된다.
+_MAX_STREAM_LINES = 512
+
+
 class RuntimeValidationHttpClient:
     """live validation 검사에서 공통으로 쓰는 작은 HTTP helper다.
 
@@ -108,7 +115,7 @@ class RuntimeValidationHttpClient:
                 if line == "data: [DONE]":
                     saw_done = True
                     break
-                if len(lines) >= 20:
+                if len(lines) >= _MAX_STREAM_LINES:
                     break
             elapsed = int((time.monotonic() - started) * 1000)
             return response.status, content_type, first_chunk_ms or elapsed, lines, saw_done
