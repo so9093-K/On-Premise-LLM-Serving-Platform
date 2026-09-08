@@ -125,7 +125,8 @@ def chat_tag_summary(settings: AppSettings) -> str:
     """Chat 그룹의 표지. 지금 이 배포가 무엇을 받는지까지만 담는다."""
     lines = [
         "OpenAI 호환 chat completions API입니다. Gateway는 요청을 모델 런타임으로 넘기기 전에 "
-        "모델 이름, 입력 종류, 토큰 한도, 허용 파라미터, 구조화 출력 스키마를 직접 검사합니다.",
+        "모델 이름, 입력 종류, 요청 출력 한도, 허용 파라미터, 구조화 출력 스키마를 직접 검사합니다. "
+        "입력과 출력의 정확한 합은 실제 tokenizer와 chat/media template를 소유한 런타임이 검사합니다.",
     ]
     policy = settings.default_main_model_gateway_policy or {}
     limits = policy.get("request_limits") or {}
@@ -195,9 +196,13 @@ def chat_operation_detail(settings: AppSettings) -> str:
         "",
         # max_tokens / n 상한은 아래 요청 스키마가 필드 옆에 그린다. 산문으로 또 적으면
         # 같은 값이 두 곳에 살면서, 프로필을 바꿨을 때 한쪽만 갱신되는 자리가 생긴다.
-        f"- `max_model_len` {_number(limits.get('max_model_len'))} — 입력과 출력 토큰의 합에 대한 상한입니다.",
-        "- 요청별 `max_tokens`·`n` 상한은 아래 요청 스키마에 표시됩니다. 넘기면 "
-        "`422 VALIDATION_ERROR`이고 `error.param`이 어느 필드인지 알려줍니다.",
+        f"- `max_model_len` {_number(limits.get('max_model_len'))} — 활성 런타임이 광고하는 입력+출력 전체 용량입니다.",
+        "- Gateway는 요청별 `max_tokens`·`n` 상한을 아래 요청 스키마대로 먼저 검사합니다. "
+        "넘기면 `422 VALIDATION_ERROR`이고 `error.param`이 어느 필드인지 알려줍니다.",
+        "- 정확한 prompt token 수는 tokenizer, chat template와 이미지 전처리를 적용한 뒤 런타임이 계산합니다. "
+        "`max_tokens`를 생략하면 활성 런타임의 기본 출력 예산을 사용합니다. "
+        "`prompt tokens + effective max_tokens`가 전체 용량을 넘으면 런타임의 비재시도 4xx를 Gateway가 "
+        "`422 VALIDATION_ERROR`로 전달합니다. Gateway는 모델별 tokenizer를 복제하지 않습니다.",
         f"- 요청 본문 자체의 상한은 {_bytes(settings.max_request_body_bytes)}입니다"
         "(base64 미디어 포함). 초과하면 `413 REQUEST_TOO_LARGE`입니다.",
         "",

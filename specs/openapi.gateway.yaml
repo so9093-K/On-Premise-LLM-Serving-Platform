@@ -213,8 +213,9 @@ paths:
       - Chat
       summary: Chat completion 생성
       description: "`local-main`을 통한 chat completion API입니다. OpenAI 호환 bounded subset을\
-        \ 제공합니다.\n\nGateway가 model id, 입력 modality, token limit, tool-call 지원, parameter\
-        \ allowlist를 검증합니다.\n\n- `stream=true` — 활성 runtime의 SSE chunk를 버퍼링 없이 `text/event-stream`으로\
+        \ 제공합니다.\n\nGateway가 model id, 입력 modality, 요청 출력 한도, tool-call 지원, parameter\
+        \ allowlist를 검증합니다. 정확한 input+output context는 실제 tokenizer와 template를 소유한 runtime이\
+        \ 검증합니다.\n\n- `stream=true` — 활성 runtime의 SSE chunk를 버퍼링 없이 `text/event-stream`으로\
         \ relay\n- `response_format`\n  - `json_object` — JSON mode. messages에 명시적\
         \ JSON 지시문 필요, schema 일치 미보장\n  - `json_schema` — Structured Outputs. root\
         \ `object` 필수, `additionalProperties: false` 필수, optional field는 nullable\
@@ -232,8 +233,8 @@ paths:
         - 다음 파라미터는 Gateway 계약에서만 쓰이고 런타임에는 전달되지 않습니다: `user`. 응답과 지표 라벨에는 영향이 없습니다.\n\
         - 메시지 역할은 `system`, `developer`, `user`, `assistant`(+ tool 지원 시 `tool`)입니다.\
         \ `developer`는 OpenAI가 `system`을 대체한 이름이며 동일하게 처리됩니다.\n\n### 토큰 한도\n\n- `max_model_len`\
-        \ 50,000 — 입력과 출력 토큰의 합에 대한 상한입니다.\n- 요청별 `max_tokens`·`n` 상한은 아래 요청 스키마에\
-        \ 표시됩니다. 넘기면 `422 VALIDATION_ERROR`이고 `error.param`이 어느 필드인지 알려줍니다.\n- 요청\
+        \ 50,000 — 활성 런타임이 광고하는 입력+출력 전체 용량입니다.\n- Gateway는 요청별 `max_tokens`·`n` 상한을 아래 요청 스키마대로\
+        \ 먼저 검사합니다. 넘기면 `422 VALIDATION_ERROR`이고 `error.param`이 어느 필드인지 알려줍니다.\n- 정확한 prompt token 수는 tokenizer, chat template와 이미지 전처리를 적용한 뒤 런타임이 계산합니다. `max_tokens`를 생략하면 활성 런타임의 기본 출력 예산을 사용합니다. `prompt tokens + effective max_tokens`가 전체 용량을 넘으면 런타임의 비재시도 4xx를 Gateway가 `422 VALIDATION_ERROR`로 전달합니다. Gateway는 모델별 tokenizer를 복제하지 않습니다.\n- 요청\
         \ 본문 자체의 상한은 100,000,000바이트 (95.4 MiB)입니다(base64 미디어 포함). 초과하면 `413 REQUEST_TOO_LARGE`입니다.\n\
         \n### 스트리밍\n\n- `stream: true` — 런타임이 보내는 SSE 조각을 모아두지 않고 `text/event-stream`으로\
         \ 그대로 중계합니다.\n- `stream_options.include_usage: true` — 마지막 조각에 토큰 사용량을 포함합니다.\n\
@@ -2159,7 +2160,7 @@ tags:
     true`가 필요합니다. 각 프로필의 근거는 `GET /admin/main-model/profiles`가 반환합니다.'
 - name: Chat
   description: "OpenAI 호환 chat completions API입니다. Gateway는 upstream으로 넘기기 전에 model\
-    \ id, 입력 modality, 토큰 한도, 파라미터 allowlist, 구조화 출력 스키마를 직접 검증합니다.\n\n아래 값은 이 배포의\
+    \ id, 입력 modality, 요청 출력 한도, 파라미터 allowlist, 구조화 출력 스키마를 직접 검증합니다. 정확한 입력+출력 합은 실제 tokenizer와 chat/media template를 소유한 runtime이 검사합니다.\n\n아래 값은 이 배포의\
     \ **기본 프로필** 정책입니다. 프로필을 전환하면 값이 달라지므로, 실행 시점의 권위는 `GET /v1/models`(사용자용)와 `GET\
     \ /admin/main-model`의 `active_profile.gateway_policy`(운영자용)입니다.\n\n### 요청 파라미터\
     \ allowlist\n\n- 허용 파라미터: `stream`, `stream_options`, `temperature`, `max_tokens`,\
@@ -2172,8 +2173,8 @@ tags:
     \ Gateway 계약에서만 쓰이고 런타임에는 전달되지 않습니다: `user`. 응답과 metric label에 영향이 없습니다.\n- 메시지\
     \ 역할은 `system`, `developer`, `user`, `assistant`(+ tool 지원 시 `tool`)입니다. `developer`는\
     \ OpenAI가 `system`을 대체한 이름이며 동일하게 처리됩니다.\n\n### 토큰 한도\n\n- `max_model_len` 50,000\
-    \ — 입력과 출력 토큰의 합에 대한 상한입니다.\n- `max_tokens` 상한 13,000 — 요청이 이 값을 넘으면 `422 VALIDATION_ERROR`(`error.param:\
-    \ max_tokens`)입니다.\n- `n` 최대 1 — 한 요청이 만들 수 있는 choice 개수입니다.\n- 요청 본문 자체의 상한은\
+    \ — 활성 런타임이 광고하는 입력+출력 전체 용량입니다.\n- `max_tokens` 상한 13,000 — 요청이 이 값을 넘으면 `422 VALIDATION_ERROR`(`error.param:\
+    \ max_tokens`)입니다.\n- `n` 최대 1 — 한 요청이 만들 수 있는 choice 개수입니다.\n- 정확한 prompt token 수는 tokenizer, chat template와 이미지 전처리를 적용한 뒤 런타임이 계산합니다. 전체 용량 초과의 runtime 4xx는 Gateway의 `422 VALIDATION_ERROR`로 전달됩니다.\n- 요청 본문 자체의 상한은\
     \ 100,000,000 bytes (95.4 MiB)입니다(base64 미디어 포함). 초과하면 `413 REQUEST_TOO_LARGE`입니다.\n\
     \n### 스트리밍\n\n- `stream: true` — upstream SSE chunk를 버퍼링 없이 `text/event-stream`으로\
     \ 중계합니다.\n- `stream_options.include_usage: true` — 마지막 chunk에 token usage를 포함합니다.\n\

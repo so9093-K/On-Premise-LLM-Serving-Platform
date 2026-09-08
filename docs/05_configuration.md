@@ -454,6 +454,20 @@ runtime_override_example_keys
 
 Streaming은 Gateway timeout만 늘려 해결되지 않는다. reverse proxy의 buffering을 끄고, Gateway·vLLM·proxy·client의 read timeout을 하나의 요청 예산으로 맞춘다. 상세 호출 경계는 [API 인터페이스](./reference/api_reference.md#34-streaming)를 따른다.
 
+Chat context 용량은 활성 Main profile의 `gateway_policy.request_limits.max_model_len`이
+외부에 광고하는 기준이다. Gateway는 요청의 `max_tokens` 상한과 본문·미디어 계약을
+먼저 검사하지만 prompt token 수를 별도로 추정하지 않는다. 정확한
+`prompt tokens + requested max_tokens` 계산은 실제 tokenizer, chat template와 이미지
+전처리를 소유한 runtime이 수행한다. 용량 초과로 runtime이 반환한 비재시도 4xx는
+Gateway의 `422 VALIDATION_ERROR`로 전달한다. 이 경계는 Gateway에 모델별 tokenizer를
+중복 탑재해 runtime과 계산 결과가 갈라지는 것을 피한다.
+
+Mac Normal profile의 `24,576 input + 8,192 generation`은 권장·qualification 예산이다.
+입력 24,576을 별도 hard cap으로 막지는 않는다. `max_tokens`를 생략하면 runtime profile의
+기본값 8,192가 출력 몫으로 예약되고, 더 작은 값을 명시하면 32,768 전체 한도 안에서
+그만큼 입력을 더 사용할 수 있다. 이미지가 전처리 뒤 차지하는 token도 prompt 합에
+포함된다.
+
 ### Secret 관리
 
 API key, internal token, Hugging Face token 같은 secret은 repository의 tracked config에 실제 값으로 기록하지 않는다.

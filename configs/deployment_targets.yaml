@@ -67,9 +67,9 @@ targets:
     control_mode: static
     lifecycle_owner: external
     internal_service_token_required: false
-    # Gateway/Compose/native runtime entrypoint는 구현됐다. 실제 M5 32GB 장문맥·이미지
-    # qualification 결과는 profile compatibility와 로컬 작업판에서 따로 추적한다.
-    validation_status: implemented
+    # Gateway/Compose/native runtime과 M5 32GB의 text/image/reasoning, 24K input,
+    # 최대 8 images 및 8K generation 경계를 고정 runtime 조합으로 확인했다.
+    validation_status: verified
     features:
       chat: true
       embeddings: false

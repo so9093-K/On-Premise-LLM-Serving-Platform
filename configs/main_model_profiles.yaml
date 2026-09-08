@@ -318,9 +318,9 @@ profiles:
       max_output_tokens: 15000
       request_limits:
         # command와 같은 값을 유지한다(engine 한도와 admission이 갈라지지 않게 하는 계약).
-        # 남은 구멍: prompt + max_tokens 합은 검사하지 않으므로 60,000 prompt에
-        # max_tokens=15,000이면 admission을 통과하고 engine 창(65,000)을 넘는다. 이는 12B
-        # 주석에 이미 "결정 대기 중"으로 남아 있는 것과 같은 트레이드오프다.
+        # Gateway는 tokenizer를 복제하지 않고 출력 상한만 선제 검사한다. 실제 prompt와
+        # 요청 출력의 합이 65,000을 넘는지는 vLLM이 정확한 전처리 뒤 거부하며, 해당
+        # 비재시도 4xx는 Gateway의 422 VALIDATION_ERROR로 전달한다.
         max_model_len: 65000
         input_modalities: [text, image, audio, video]
         # E4B 고유 최대치를 추정해 열지 않는다. 기존 unified decode 경계의 보수적인
@@ -598,8 +598,9 @@ description: |
   산식(50000 입력 + 8192 출력)이 더 이상 정확히 들어맞지 않는다 -- max-model-len은 58192
   그대로 뒀으므로, 출력이 13000을 다 쓰는 최악의 경우 입력 여유는 50000이 아니라
   58192-13000=45192로 줄어든다. 원래 의도한 50000 입력 여유를 그대로 지키려면
-  max-model-len도 63000(=50000+13000)으로 같이 올려야 하나, 아직 그렇게 하지 않았다 --
-  이 트레이드오프는 의도적으로 미룬 것이며 결정 대기 중.
+  max-model-len도 63000(=50000+13000)으로 같이 올려야 한다는 선택지가 있었다. 아래
+  58192 boot 실패 뒤 50000으로 복구했으므로, 현재 50000은 입력 보장량이 아니라
+  runtime이 검사하는 입력+출력 전체 context 상한이다.
 
   58192/seq=3를 실제로 배포했다가 boot 자체가 실패했다(2026-07-23, 실제 배포 로그 확인).
   vLLM 엔진이 초기화 단계에서 ValueError -- To serve at least one request with the model's

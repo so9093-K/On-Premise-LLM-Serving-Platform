@@ -189,7 +189,8 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
         summary="Chat completion 생성",
         description=(
             "`local-main`을 통한 chat completion API입니다. OpenAI 호환 bounded subset을 제공합니다.\n\n"
-            "Gateway가 model id, 입력 modality, token limit, tool-call 지원, parameter allowlist를 검증합니다.\n\n"
+            "Gateway가 model id, 입력 modality, 요청 출력 한도, tool-call 지원, parameter allowlist를 검증합니다. "
+            "정확한 input+output context는 실제 tokenizer와 template를 소유한 runtime이 검증합니다.\n\n"
             "- `stream=true` — 활성 runtime의 SSE chunk를 버퍼링 없이 `text/event-stream`으로 relay\n"
             "- `response_format`\n"
             "  - `json_object` — JSON mode. messages에 명시적 JSON 지시문 필요, schema 일치 미보장\n"
