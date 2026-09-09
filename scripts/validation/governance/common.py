@@ -7,7 +7,7 @@ from typing import Any
 try:
     import yaml
 except ImportError as exc:
-    raise SystemExit('PyYAML is required: pip install pyyaml') from exc
+    raise SystemExit('PyYAML is required; run make setup-dev') from exc
 
 
 def find_project_root() -> Path:

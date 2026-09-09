@@ -121,8 +121,8 @@ build-vllm-unified-image: ## native linux/amd64 Docker의 NVIDIA vLLM image buil
 	bash scripts/build/build_vllm_unified_image.sh
 
 lock: ## Platform과 MLX dependency lock 갱신 (암묵적 전체 upgrade 없음)
-	$(UV) lock --python "$(PYTHON)"
-	$(UV) lock --project runtimes/mlx --python "$(PYTHON)"
+	$(UV) lock
+	$(UV) lock --project runtimes/mlx
 
 package: ## 릴리스 ZIP 생성
 	bash scripts/build/package_release.sh

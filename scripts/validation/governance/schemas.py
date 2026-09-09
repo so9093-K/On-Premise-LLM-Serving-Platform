@@ -8,12 +8,12 @@ from typing import Any
 try:
     import yaml
 except ImportError as exc:
-    raise SystemExit('PyYAML is required: pip install pyyaml') from exc
+    raise SystemExit('PyYAML is required; run make setup-dev') from exc
 
 try:
     from jsonschema import Draft202012Validator
 except ImportError as exc:
-    raise SystemExit('jsonschema is required: pip install jsonschema') from exc
+    raise SystemExit('jsonschema is required; run make setup-dev') from exc
 
 from .common import (
     FORBIDDEN_RESPONSE_FIELDS,

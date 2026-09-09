@@ -32,6 +32,7 @@ Gateway를 중심으로 모델 Runtime, Risk 처리, 운영 제어와 관측 서
 
 처음 한 번 실행 target을 선택한다. `setup`이 application 환경과 target별 `.env`를
 생성하므로 template을 복사하거나 Mac endpoint를 직접 조립하지 않는다.
+공통으로 Git, Python `>=3.12,<3.14`와 `pyproject.toml`에 고정된 uv가 필요하다.
 
 | Target | 요구사항 |
 |---|---|
@@ -76,7 +77,7 @@ make down
 ### 애플리케이션만 실행
 
 Gateway와 Risk Adapter를 로컬 Python 프로세스로 실행한다. Python `>=3.12,<3.14`와
-`uv 0.12.11`이 필요하며 Docker와 GPU는 필요하지 않다. `setup-dev`는 `uv.lock`에서
+uv가 필요하며 Docker와 GPU는 필요하지 않다. `setup-dev`는 `uv.lock`에서
 `.venv`를 동기화하고 runtime 설정과 실행 중인 서비스를 변경하지 않는다.
 
 ```bash

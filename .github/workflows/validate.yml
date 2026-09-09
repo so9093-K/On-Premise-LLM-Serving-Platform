@@ -29,9 +29,8 @@ jobs:
           # 두 job은 공통 Platform lock의 지원 minor를 대표한다. Native runtime
           # exact patch와 image digest qualification은 이 workflow의 책임이 아니다.
           python-version: "${{ matrix.python_version }}"
-      - uses: astral-sh/setup-uv@v7
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
         with:
-          version: "0.12.11"
           enable-cache: true
           cache-dependency-glob: uv.lock
       - name: Prepare developer environment

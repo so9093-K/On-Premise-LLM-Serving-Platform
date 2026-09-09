@@ -8,8 +8,9 @@ Accepted
 
 > **현재 운영 기준 (2026-08-12)**: GPU admission ceiling은 `configs/gpu_budgets.yaml`,
 > profile별 image·command·capability는 `configs/main_model_profiles.yaml`, Gateway 요청
-> 정책은 `configs/model_serving.yaml`을 기준으로 한다. 다음 상태 분석은 이 ADR이 해결하려던
-> 당시의 분리된 제어 구조와 제약을 보존하는 기록이다.
+> 정책은 각 profile의 `gateway_policy`, 공통 endpoint·timeout·admission은
+> `configs/model_serving.yaml`을 기준으로 한다. 다음 상태 분석은 이 ADR이 해결하려던 당시의
+> 분리된 제어 구조와 제약을 보존하는 기록이다.
 
 [ADR-0017](0017-selectable-main-model-runtime.md)을 확장한다. 0017은 단일 고정
 런타임 이미지·`gpu_memory_utilization=0.76` 고정·오디오 inert를 전제했는데, 이 ADR이
@@ -77,10 +78,11 @@ VRAM을 단일 예산으로 보고 모든 모델 로드를 그 예산에 대한 
 
 Audio/video는 0017과 동일하게 기본 inert다. 활성화는 게이트된 운영 절차다:
 
-1. `vllm-unified` 이미지를 `build-vllm-derived` CI 잡으로 빌드·push하고 immutable
-   digest를 산출한다(`build/vllm-unified-image.env`). base는 메인 런타임 digest + 디코드 스택뿐.
-2. 그 digest를 `gemma4-12b-unified-fp8` 프로필 `image`에 핀하고 `capabilities.deployed_input`에
-   audio/video를 추가한다 — 이 값이 media boot canary 실행 여부를 그대로 결정한다.
+1. `make build-vllm-unified-image`로 공용 이미지를 빌드한다. 외부 publish 단계가 만든
+   immutable registry digest를 원격 release 입력으로 전달한다.
+2. 배포가 그 digest를 `AUDIO_VLLM_IMAGE`에 반영하고,
+   `gemma4-12b-unified-fp8`의 `capabilities.deployed_input`이 audio/video를 선언한다.
+   이 값이 media boot canary 실행 여부를 그대로 결정한다.
 3. 12B로 switch하면 `validate()`가 media boot canaries를 실행한다. 디코드 실패 시 26B로
    rollback되어 advertised modality가 반쪽 활성되지 않는다.
 
@@ -113,9 +115,9 @@ Audio/video는 0017과 동일하게 기본 inert다. 활성화는 게이트된 �
 
 ## 배포 통합
 
-- `build-vllm-derived` CI 잡이 공용 `vllm-unified` 이미지를 한 번 빌드한다
-  (~25 GiB vLLM base를 한 번만 pull). unified digest는 `build/vllm-unified-image.env`
-  아티팩트로 산출되어 risk-prompt와 12B 프로필 핀에 함께 사용된다.
+- 공용 `vllm-unified` 이미지는 저장소 build 명령으로 한 번 만들고 외부 publish 결과의
+  immutable digest를 provider-neutral 원격 release 입력으로 전달한다. 현재 저장소에는
+  image publish pipeline을 정의하지 않는다.
 - admission·메인 상태·전환 결과는 기존 Gateway Prometheus metric(`main_model_operation_state`,
   request gate, switch/rollback totals, 마지막 전환 시간)으로 관측한다.
 

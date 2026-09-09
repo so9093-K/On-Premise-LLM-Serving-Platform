@@ -45,7 +45,7 @@ Runtime 구조와 실행 모드는 [4. 실행 환경과 모드](./04_runtime_mod
 
 | 작업 | 주요 요구사항 |
 |---|---|
-| Application 개발·검증·테스트 | Python `>=3.12,<3.14`, uv `0.12.11` |
+| Application 개발·검증·테스트 | Python `>=3.12,<3.14`, `pyproject.toml`에 고정된 uv |
 | Platform Image Build | Docker CLI / Docker daemon. 로컬 기본 target은 daemon architecture |
 | Full-stack 실행 | Bash 4 이상, native Linux amd64 Docker daemon, NVIDIA GPU/driver/Container Toolkit |
 | Unified vLLM Image Build | `vllm_unified_build.yaml` target과 같은 native Docker daemon. CUDA/NVIDIA image 전용 |
@@ -66,9 +66,9 @@ MLX runtime도 별도 설정에서 Python 3.13을 사용한다.
 
 애플리케이션 환경 준비와 정적 검증·테스트에는 Bash 4를 강제하지 않는다.
 
-Python 3.12 또는 3.13과 uv 0.12.11을 준비한 뒤 OS와 관계없이 같은 명령을 사용한다.
+Python 3.12 또는 3.13과 uv를 준비한 뒤 OS와 관계없이 같은 명령을 사용한다.
 uv가 없다면 [공식 설치 안내](https://docs.astral.sh/uv/getting-started/installation/)에서
-고정 버전 `0.12.11`을 설치한다.
+`pyproject.toml`의 `tool.uv.required-version`에 고정된 버전을 설치한다.
 
 ```bash
 make setup-dev
@@ -111,9 +111,11 @@ Platform은 root `pyproject.toml`, MLX native runtime은 `runtimes/mlx/pyproject
 make lock
 ```
 
-`make lock`은 두 lock을 현재 pin을 유지하는 방식으로 다시 해석한다. 전체 upgrade는 이
-명령의 암묵적 동작이 아니며 별도 변경으로 수행한다. Lock 형식과 dependency graph의
-정합성은 uv가 소유하므로 별도 custom parser나 OS별 requirements 복사본을 두지 않는다.
+`make lock`은 각 project의 `requires-python`과 root `.python-version`을 따라 두 lock을
+현재 pin을 유지하는 방식으로 다시 해석한다. 현재 활성 `.venv`의 Python을 두 project에
+강제로 재사용하지 않는다. 전체 upgrade는 이 명령의 암묵적 동작이 아니며 별도 변경으로
+수행한다. Lock 형식과 dependency graph의 정합성은 uv가 소유하므로 별도 custom parser나
+OS별 requirements 복사본을 두지 않는다.
 `make setup-dev`, MLX setup, Platform image build가 각각 `--locked`로 소비하면서 stale lock을
 실제 경계에서 거부한다.
 

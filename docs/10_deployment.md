@@ -124,7 +124,8 @@ Platform 이미지는 Registry의 고정된 digest로 전달된다.
 
 원격 release 적용은 고급 운영 진입점인
 `scripts/deploy/deploy_compose_release.sh`를 직접 호출한다. Registry와 배포 대상 값은
-호출 환경에서 명시하며 스크립트는 특정 CI provider 변수를 추측하지 않는다.
+호출 환경에서 명시하며 스크립트는 특정 CI provider 변수를 추측하지 않는다. Release ID와
+전송 source가 어긋나지 않도록 tracked working tree가 clean한 commit에서만 실행한다.
 
 ```bash
 PLATFORM_IMAGE_TO_DEPLOY='registry.example.com/project/platform@sha256:<digest>' \

@@ -214,8 +214,8 @@ def main(argv: list[str] | None = None) -> int:
     except ModuleNotFoundError as exc:
         print(
             "missing optional dependency: transformers/huggingface_hub. "
-            "Install a diagnostic env: "
-            "python3 -m pip install 'transformers[sentencepiece]' huggingface_hub",
+            "Run this diagnostic with the Python environment from the pinned "
+            "vLLM runtime image.",
             file=sys.stderr,
         )
         raise SystemExit(2) from exc

@@ -63,6 +63,11 @@ if [[ "$(git rev-parse --is-inside-work-tree 2>/dev/null || true)" != "true" ]];
   echo "[deploy] ERROR: deployment must run from a Git working tree." >&2
   exit 2
 fi
+if ! git diff --quiet || ! git diff --cached --quiet; then
+  echo "[deploy] ERROR: deployment requires a clean tracked working tree." >&2
+  echo "[deploy] Commit or restore tracked changes before assigning a release ID." >&2
+  exit 2
+fi
 
 if [[ -z "${RELEASE_ID}" ]]; then
   RELEASE_ID="$(git rev-parse HEAD)"

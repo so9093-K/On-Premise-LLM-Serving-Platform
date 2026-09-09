@@ -69,7 +69,7 @@ exclude_top_level_dirs = {
     'outputs',
     'run',
 }
-    # tests는 포함한다. 자동화와 배포 전 make check가 같은 source의 테스트를 실행할 수
+# tests는 포함한다. 자동화와 배포 전 make check가 같은 source의 테스트를 실행할 수
 # 있어야 하므로, 테스트가 빠진 ZIP은 검증 입력이 불완전하다.
 #
 # 예전 주석이 든 배제 근거는 재보니 셋 다 성립하지 않았다.
@@ -157,7 +157,9 @@ for raw_path in sorted(filter(None, tracked_output.decode('utf-8').split('\0')))
         continue
     source_file = src / rel_path
     if not source_file.is_file():
-        raise SystemExit(f'tracked package input is missing or not a file: {raw_path}')
+        # git ls-files에는 working tree에서 아직 stage하지 않은 삭제도 남는다.
+        # package는 현재 working tree의 tracked 파일을 담으므로 그 삭제를 존중한다.
+        continue
     target_file = dst / rel_path
     target_file.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(source_file, target_file)

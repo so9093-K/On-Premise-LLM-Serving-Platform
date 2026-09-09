@@ -73,7 +73,7 @@ make down
 | `ops/ready_full.sh` | strict `/ready`와 smoke test를 실행한다. 실제 vLLM runtime이 필요하다. |
 | `compose/preflight_compose.sh` | full-stack compose 전 exposure config를 먼저 검증하고, 통과한 뒤 Docker, GPU 표시, effective compose host-published port, secret 상태를 점검한다. compose 내부 `expose` ports는 host port 검사 대상이 아니다. host bind와 port는 `docker compose config` 결과를 따른다. |
 | `validation/runtime_validation.py` | 실제 runtime 검증 결과를 `reports/runtime/` 아래에 기록한다. |
-| `models/check_hf_model_config.py` | Docker/GPU 없이 Transformers `AutoConfig`만 로드해 vLLM·bitsandbytes 이전 config loader 문제를 분리한다. |
+| `models/check_hf_model_config.py` | 고정 vLLM runtime 환경에서 Transformers `AutoConfig`만 로드해 engine·GPU 이전 config loader 문제를 분리한다. |
 | `build/package_release.sh` | 배포 ZIP을 만들고 secret, log, cache, egg-info, generated runtime report를 제외한다. ZIP root는 항상 `ai_model_serving_platform/`로 고정한다. |
 | `ops/down_all.sh` | `.env`와 Compose project name에 의존하지 않고 이 checkout의 host process와 Compose container/network를 정지한다. |
 | `ops/clean_project.sh` | build/test 산출물과 runtime report를 정리한다. 실행 중인 host process가 있으면 중단하며 `--dry-run`, `--logs`만 지원한다. |
@@ -98,7 +98,7 @@ make down
 
 - `validate_vllm_compose.py`: compose vLLM command와 model serving/catalog/card 정책 정합성을 검증한다. Embedding pooling token budget 오류와 risk detector quantization drift를 사전에 막는다.
 - `compose_diagnostics.sh`: `make ready-full` 실패 시 docker compose 상태와 주요 서비스 로그를 수집하고, 알려진 vLLM 장애 패턴을 요약한다.
-- `check_hf_model_config.py`: weight load 이전에 발생하는 HF config 문제를 Docker 없이 재현하는 내부 canary다. Main Model profile 전수 검사는 CI의 `check_main_model_profiles.py`, risk runtime 검사는 `check_risk_vllm_image_config.sh`가 소유한다.
+- `check_hf_model_config.py`: weight load 이전 HF config 문제를 분리하는 내부 helper다. 호스트 Platform 환경에 Transformers를 중복 설치하지 않고 `check_risk_vllm_image_config.sh`가 고정 vLLM image 안에서 실행한다.
 - `prepare_main_model_cache.py`: allowlisted main-model profile의 고정 revision 전체 snapshot을 공용 HF cache에 준비하고 local-only로 재검증한다. `make main-model-prepare PROFILE=<id>`로 실행하며 active runtime은 변경하지 않는다.
 - `render_main_model_boot_override.py`: locked/configured/persisted profile 우선순위를 검증해 일회성 Compose boot projection을 원자적으로 생성한다. 공식 로컬·CI 실행 경로는 임시 파일을 사용하고 종료 시 삭제한다.
 

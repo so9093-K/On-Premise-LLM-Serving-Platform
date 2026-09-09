@@ -76,7 +76,8 @@ def _uv_binary() -> str:
     executable = configured or shutil.which("uv")
     if not executable:
         raise RuntimeError(
-            "uv is required to prepare Python environments; install uv 0.12.11 "
+            "uv is required to prepare Python environments; install the version "
+            "declared by runtimes/mlx/pyproject.toml "
             "or set UV_BIN=/path/to/uv"
         )
     return executable
