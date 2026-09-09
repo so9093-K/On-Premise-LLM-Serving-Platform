@@ -3,6 +3,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT"
+source scripts/lib/project_image_ownership.sh
 
 if ! command -v docker >/dev/null 2>&1; then
   echo "[vllm-unified-image] Docker CLI is required." >&2
@@ -35,6 +36,7 @@ if [[ "$BASE_IMAGE" != *"@sha256:"* ]]; then
 fi
 CACHE_FROM="${VLLM_UNIFIED_BUILD_CACHE_FROM:-}"
 PULL_BASE_IMAGE="${VLLM_UNIFIED_BUILD_PULL_BASE:-0}"
+PROJECT_BUILD_NO_CACHE="${PROJECT_BUILD_NO_CACHE:-0}"
 TRANSFORMERS_VERSION="$("$PYTHON_BIN" scripts/models/print_vllm_unified_compatibility.py --key transformers)"
 HUGGINGFACE_HUB_VERSION="$("$PYTHON_BIN" scripts/models/print_vllm_unified_compatibility.py --key huggingface_hub)"
 SOURCE_REVISION="${CI_COMMIT_SHA:-unknown}"
@@ -67,7 +69,12 @@ build_args=(
   --label "org.opencontainers.image.version=${VERSION}"
   --label "ai_model_serving.source_state=${SOURCE_STATE}"
   --label "ai_model_serving.build_platform=${TARGET_PLATFORM}"
+  --label "${PROJECT_IMAGE_LABEL_KEY}=${PROJECT_IMAGE_LABEL_VALUE}"
+  --label "ai_model_serving.artifact=vllm-unified"
 )
+if [[ "$PROJECT_BUILD_NO_CACHE" == "1" ]]; then
+  build_args+=(--no-cache)
+fi
 if [[ -n "$CACHE_FROM" ]]; then
   build_args+=(--cache-from "$CACHE_FROM")
 fi

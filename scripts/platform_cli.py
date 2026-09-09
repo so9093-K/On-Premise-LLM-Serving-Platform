@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Target-aware local lifecycle command.
 
-The public workflow is intentionally small: setup, prepare, up, status, down.
-Existing scripts remain the implementation layer and operational escape hatches.
+The public workflow is intentionally small.  This module owns target selection;
+the existing scripts remain the implementation layer for individual operations.
 """
 from __future__ import annotations
 
@@ -129,25 +129,29 @@ def setup_target(
     if target.runtime_backend == "mlx-vlm":
         _run(sys.executable, "scripts/runtime/macos_mlx_runtime.py", "setup")
     print(f"[platform] setup ready: target={target.target_id}")
-    print("[platform] next: make prepare")
+    print("[platform] next: make build, then make prepare")
 
 
-def prepare_target(target: DeploymentTarget) -> None:
+def _immutable_image(image: str) -> bool:
+    return "@sha256:" in image or image.startswith("sha256:")
+
+
+def build_target(target: DeploymentTarget, *, no_cache: bool = False) -> None:
     values = _env_values()
     platform_image = values.get("PLATFORM_IMAGE", "")
-    if "@sha256:" in platform_image or platform_image.startswith("sha256:"):
+    if _immutable_image(platform_image):
         print(f"[platform] using immutable Platform image: {platform_image}")
     else:
         build_env = dict(os.environ)
         if platform_image:
             build_env["PLATFORM_IMAGE"] = platform_image
+        if no_cache:
+            build_env["PROJECT_BUILD_NO_CACHE"] = "1"
         _run("bash", "scripts/build/build_platform_image.sh", env=build_env)
-    if target.runtime_backend == "mlx-vlm":
-        _run(sys.executable, "scripts/runtime/macos_mlx_runtime.py", "setup")
-        _run(sys.executable, "scripts/runtime/macos_mlx_runtime.py", "prepare")
-    elif target.controllable:
+
+    if target.controllable:
         image = values.get("RISK_VLLM_IMAGE", "")
-        if "@sha256:" in image:
+        if _immutable_image(image):
             print(f"[platform] using immutable Unified vLLM image: {image}")
         else:
             build_ref = image
@@ -155,10 +159,23 @@ def prepare_target(target: DeploymentTarget) -> None:
                 build_ref = f"ai-model-serving-vllm-unified:{(ROOT / 'VERSION').read_text(encoding='utf-8').strip()}"
             build_env = dict(os.environ)
             build_env["VLLM_UNIFIED_BUILD_IMAGE"] = build_ref
+            if no_cache:
+                build_env["PROJECT_BUILD_NO_CACHE"] = "1"
             _run("bash", "scripts/build/build_vllm_unified_image.sh", env=build_env)
             new_image_id = resolve_local_image_id(build_ref)
             updated = pin_matching_env_values(ENV_PATH, image or build_ref, new_image_id)
             print(f"[platform] pinned local Unified image: {','.join(sorted(updated))}={new_image_id}")
+
+    mode = "rebuilt without cache" if no_cache else "built"
+    print(f"[platform] target artifacts {mode}: target={target.target_id}")
+    print("[platform] next: make prepare")
+
+
+def prepare_target(target: DeploymentTarget) -> None:
+    values = _env_values()
+    if target.runtime_backend == "mlx-vlm":
+        _run(sys.executable, "scripts/runtime/macos_mlx_runtime.py", "prepare")
+    elif target.controllable:
         profile = _main_profile(target, values)
         _run(
             sys.executable,
@@ -168,7 +185,7 @@ def prepare_target(target: DeploymentTarget) -> None:
         )
     else:
         print("[platform] external Main runtime is not built or downloaded by this target")
-    print(f"[platform] artifacts ready: target={target.target_id}")
+    print(f"[platform] model inputs ready: target={target.target_id}")
     print("[platform] next: make up")
 
 
@@ -278,7 +295,10 @@ def status_target(target: DeploymentTarget) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Target-aware local platform lifecycle")
-    parser.add_argument("action", choices=("setup", "prepare", "up", "down", "status"))
+    parser.add_argument(
+        "action",
+        choices=("setup", "build", "rebuild", "prepare", "up", "down", "status"),
+    )
     parser.add_argument("--target")
     parser.add_argument("--main-profile")
     parser.add_argument("--main-base-url")
@@ -289,6 +309,10 @@ def main(argv: list[str] | None = None) -> int:
         target = _target(args.target, require_env=args.action != "setup")
         if args.action == "setup":
             setup_target(target, args.main_profile, args.main_base_url)
+        elif args.action == "build":
+            build_target(target)
+        elif args.action == "rebuild":
+            build_target(target, no_cache=True)
         elif args.action == "prepare":
             prepare_target(target)
         elif args.action == "up":

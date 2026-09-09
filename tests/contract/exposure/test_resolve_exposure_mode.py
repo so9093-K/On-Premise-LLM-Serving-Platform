@@ -1,6 +1,6 @@
 """compose 기동 경로가 쓰는 exposure mode 해석기를 검증한다.
 
-resolve()는 compose_up.sh/compose_config.sh/bootstrap.sh가 override 파일을 고르기
+resolve()는 compose_up.sh/compose_config.sh가 override 파일을 고르기
 전에 부르는 게이트다. 알 수 없는 mode에서 조용히 기본값으로 흐르면 의도하지 않은
 노출 프로필로 기동되므로, exit code 2로 멈추는 것이 계약이다.
 """

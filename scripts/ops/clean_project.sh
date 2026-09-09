@@ -1,16 +1,22 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Cheap generated artifacts only. Project reset owns environments, images and
+# model caches; keeping those scopes out of clean makes this command repeatable.
+
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-MODE="${1:-}"
 DRY_RUN=0
-if [[ "$MODE" == "--dry-run" ]]; then
-  DRY_RUN=1
-  MODE=""
-elif [[ "$MODE" == "--all-dry-run" ]]; then
-  DRY_RUN=1
-  MODE="--all"
-fi
+INCLUDE_LOGS=0
+for option in "$@"; do
+  case "$option" in
+    --dry-run) DRY_RUN=1 ;;
+    --logs) INCLUDE_LOGS=1 ;;
+    *)
+      echo "usage: $0 [--dry-run] [--logs]" >&2
+      exit 2
+      ;;
+  esac
+done
 
 running=()
 for name in gateway risk_adapter metal; do
@@ -100,37 +106,14 @@ remove_runtime_validation_reports
 remove_empty_dir "$ROOT/reports/runtime"
 remove_empty_dir "$ROOT/reports"
 
-if [[ "$MODE" == "--all" ]]; then
+if [[ "$INCLUDE_LOGS" == "1" ]]; then
   remove_path "$ROOT/logs"
-  cleaned="generated artifacts and logs"
-  notes=()
-  if [[ "${PURGE_MODEL_CACHE:-0}" == "1" ]]; then
-    remove_path "$ROOT/model_cache"
-    remove_path "$ROOT/ops/compose/model_cache"
-    remove_path "$ROOT/models"
-    cleaned="$cleaned, model caches"
-  else
-    notes+=("model_cache/models kept; set PURGE_MODEL_CACHE=1 for destructive cache purge")
-  fi
-  if [[ "${PURGE_RUNTIME_SECRETS:-0}" == "1" ]]; then
-    remove_path "$ROOT/.runtime"
-    cleaned="$cleaned, runtime secrets"
-  else
-    notes+=(".runtime kept; set PURGE_RUNTIME_SECRETS=1 only when intentionally regenerating local runtime secrets")
-  fi
-  if [[ "$DRY_RUN" == "1" ]]; then
-    printf 'dry run complete: listed paths would be removed'
-  else
-    printf 'clean complete: %s removed when present' "$cleaned"
-  fi
-  for note in "${notes[@]}"; do
-    printf '; %s' "$note"
-  done
-  printf '\n'
+fi
+
+if [[ "$DRY_RUN" == "1" ]]; then
+  echo "dry run complete: listed paths would be removed; .env, environments, runtime state, images, and model caches kept."
+elif [[ "$INCLUDE_LOGS" == "1" ]]; then
+  echo "clean complete: generated artifacts, runtime validation reports, and logs removed when present."
 else
-  if [[ "$DRY_RUN" == "1" ]]; then
-    echo "dry run complete: listed paths would be removed; logs, .runtime, and model_cache/models kept."
-  else
-    echo "clean complete: generated artifacts and timestamped runtime validation reports removed when present; logs, .runtime, and model_cache/models kept. Use make clean-all to remove logs."
-  fi
+  echo "clean complete: generated artifacts and runtime validation reports removed when present; logs kept (use LOGS=1 to include them)."
 fi

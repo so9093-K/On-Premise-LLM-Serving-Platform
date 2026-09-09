@@ -17,10 +17,11 @@
 
 ### Changed
 
-- 로컬 최초 구성과 실행을 target-aware `make setup → prepare → up/status/down`
-  lifecycle로 정리했다. `prepare`는 선택된 Main Model만 준비하고, 기존의 개별
-  Compose·Metal·build·readiness 명령은 `make help-all`의 진단·CI·release 계층으로
-  유지한다. Mac target은 native MLX process와 static Compose를 같은 lifecycle로 관리한다.
+- 로컬 lifecycle을 target-aware `make setup → build → prepare → up/status/down`으로
+  정리했다. `build/rebuild`는 선택 target의 저장소 소유 image, `prepare`는 선택 Main
+  Model만 담당한다. checkout 전체 종료는 `.env`와 project name에 독립적인 `down-all`,
+  전체 초기화는 plan/확인 방식의 `reset`으로 분리했다. 책임이 겹치던 `first-run`,
+  `build_all.sh`, `clean-dry-run`, `clean-all`, app-only `start/stop` alias는 제거했다.
 
 - Gateway/Risk Adapter 요청 이벤트를 Docker LogPath 수집에서 앱 소유 JSONL로 분리했다. Linux full-stack과 macOS Metal static이 같은 Loki Request Log Explorer를 사용하며, Docker manifest는 vLLM·컨테이너 장애 진단에만 남는다. ([ADR-0022](docs/adr/0022-application-request-event-ownership.md))
 
@@ -65,7 +66,6 @@
 - retrieval 내부 embedding 호출이 `truncate_prompt_tokens`를 전달하도록 정리했다. 확인되지 않은 `truncation_side`는 silent no-op 대신 422 validation error로 처리한다.
 - non-local `local_open`/`custom`/`internal_trusted` auth profile과 production `SKIP_PREFLIGHT=1` 경로의 운영 hard-fail 조건을 강화했다.
 - 운영 배포 동작 변경 없이 retrieval contract의 project root 탐색 의존을 runtime settings에서 분리했다.
-- `bootstrap.sh`(`make rebuild-full`)이 `EXPOSURE_MODE`와 `EXPOSURE_AUDIENCE`를 기존 `.env`에서 읽어 재초기화 후 복원한다. 이전에는 `AUTH_MODE`만 보존되고 `EXPOSURE_MODE`는 초기화됐다.
 - `deploy_gitlab_compose.sh` CI/CD 배포 시 `.env` 이미지 참조 업데이트 직후 `make sync-env`를 호출해 신규 템플릿 키를 서버 `.env`에 자동 반영한다.
 - Grafana 운영 대시보드 UX를 Serving Home 중심 drill-down으로 정리했다. API/Risk/Runtime 상세 패널은 collapsed row로 내리고, idle 상태의 실패류 패널은 scrape가 살아 있으면 0으로 읽히도록 보정했다. Risk는 A1/A2 detection을 명시 카드로 분리하고 중복 Risk Types 상세 그래프를 제거했으며, Dashboard contract는 `configs/monitoring.yaml`에서 선언해 validator가 검증한다.
 - Model Runtime Deep Dive와 API Delay Details에 평균 응답 시간 패널을 추가했다. 평균은 histogram `_sum/_count` 기반으로 `$window`를 따르며, 기존 p95 패널은 tail latency 확인용으로 유지한다.

@@ -69,9 +69,8 @@ exclude_top_level_dirs = {
     'outputs',
     'run',
 }
-# tests는 포함한다. bootstrap(make first-run)이 `make test`를 배포 전 게이트로
-# 부르므로, 테스트가 빠진 ZIP은 문서화된 진입점이 no tests collected(exit 5)로
-# 중단된다 -- 게이트를 부르면서 게이트 입력을 빼는 구성이었다.
+# tests는 포함한다. CI와 배포 전 make check가 같은 source의 테스트를 실행할 수
+# 있어야 하므로, 테스트가 빠진 ZIP은 검증 입력이 불완전하다.
 #
 # 예전 주석이 든 배제 근거는 재보니 셋 다 성립하지 않았다.
 #   크기        압축 후 111KB. 전체 ZIP 2.8MB 대비 +4%.

@@ -2,6 +2,7 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT"
+source scripts/lib/project_image_ownership.sh
 
 if ! command -v docker >/dev/null 2>&1; then
   echo "[image] Docker CLI is required." >&2
@@ -20,6 +21,7 @@ CACHE_FROM="${PLATFORM_IMAGE_CACHE_FROM:-}"
 PULL_BASE_IMAGE="${PLATFORM_IMAGE_PULL:-0}"
 INLINE_CACHE="${PLATFORM_IMAGE_INLINE_CACHE:-0}"
 TARGET_PLATFORM="${PLATFORM_BUILD_PLATFORM:-}"
+PROJECT_BUILD_NO_CACHE="${PROJECT_BUILD_NO_CACHE:-0}"
 
 SOURCE_REVISION="${CI_COMMIT_SHA:-unknown}"
 SOURCE_STATE="unknown"
@@ -42,6 +44,9 @@ if [[ -n "$TARGET_PLATFORM" ]]; then
 fi
 if [[ "$PULL_BASE_IMAGE" == "1" ]]; then
   build_args+=(--pull)
+fi
+if [[ "$PROJECT_BUILD_NO_CACHE" == "1" ]]; then
+  build_args+=(--no-cache)
 fi
 if [[ -n "$CACHE_FROM" ]]; then
   echo "[image] loading cache image ${CACHE_FROM}"
@@ -66,6 +71,8 @@ build_args+=(
   --label "org.opencontainers.image.version=${VERSION}"
   --label "ai_model_serving.source_state=${SOURCE_STATE}"
   --label "ai_model_serving.build_platform=${EFFECTIVE_PLATFORM}"
+  --label "${PROJECT_IMAGE_LABEL_KEY}=${PROJECT_IMAGE_LABEL_VALUE}"
+  --label "ai_model_serving.artifact=platform"
 )
 build_args+=(-t "$IMAGE")
 for tag in $EXTRA_TAGS; do

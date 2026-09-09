@@ -7,8 +7,6 @@ cd "$ROOT"
 COMPOSE_FILE="${COMPOSE_FILE:-ops/compose/full-stack.private-network.yaml}"
 ENV_FILE="${ENV_FILE:-.env}"
 PYTHON_BIN="${PYTHON_BIN:-$(command -v python3.12 || command -v python3 || command -v python)}"
-source scripts/lib/compose_context.sh
-compose_context_init "$ROOT"
 
 SCOPE="${1:---all}"
 case "$SCOPE" in
@@ -31,6 +29,8 @@ case "$SCOPE" in
 esac
 
 if [[ "$stop_compose" == "1" ]]; then
+  source scripts/lib/compose_context.sh
+  compose_context_init "$ROOT"
   compose_context_assert_mutation_safe
 fi
 

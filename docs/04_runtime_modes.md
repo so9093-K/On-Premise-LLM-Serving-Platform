@@ -31,10 +31,10 @@ feature set에 포함되지 않으므로 client, readiness dependency, route, Op
 운영자 `.env`에 `MAIN_LLM_STATIC_PROFILE`과 `MAIN_LLM_BASE_URL`을 지정한 뒤 실행한다.
 
 ```bash
-make static-compose-up
+make up
 ```
 
-`make static-compose-up`은 운영자 `.env`를 Compose image/port 치환에만 사용하고,
+static target의 `make up`은 운영자 `.env`를 Compose image/port 치환에만 사용하고,
 `configs/env_contract.yaml`의 `static_gateway` projection으로 생성한
 `.runtime/env/linux-nvidia-static-gateway.env`만 Gateway 컨테이너에 주입한다.
 따라서 full-stack의 vLLM·Risk·Sidecar·monitoring 환경변수와
@@ -52,6 +52,7 @@ Mac runtime은 Python 3.13.12의 앱 `.venv`와 분리된 native 환경 및 별�
 
 ```bash
 make setup TARGET=macos-metal-static
+make build
 HF_TOKEN=hf_xxx make prepare
 make up
 make status
@@ -97,8 +98,8 @@ Developer Host
 
 ```bash
 make init-env-local
-make start
-make ready-local
+make up
+make status
 ```
 
 app-only는 다음 작업에 적합하다.
@@ -140,6 +141,7 @@ Observability
 
 ```bash
 make setup TARGET=linux-nvidia-dynamic
+make build
 HF_TOKEN=hf_xxx make prepare
 make up
 make status
@@ -282,7 +284,7 @@ make compose-config
 
 ### static target의 노출 판정
 
-exposure profile은 full-stack 토폴로지를 기술한다. static 진입점(`make static-compose-up`)은 exposure override를 적용하지 않으므로, 그 target의 실제 공개 집합은 `configs/deployment_targets.yaml`의 `compose_files`가 선언한 Compose 파일들이 고정한다. 이 구분은 같은 파일의 `exposure_profile_applies`가 선언하며, `make exposure-status`는 그 값을 읽어 실제로 공개되는 서비스만 보고하고 profile에는 있지만 해당 target이 공개하지 않는 항목을 따로 표시한다.
+exposure profile은 full-stack 토폴로지를 기술한다. static target의 `make up`은 exposure override를 적용하지 않으므로, 그 target의 실제 공개 집합은 `configs/deployment_targets.yaml`의 `compose_files`가 선언한 Compose 파일들이 고정한다. 이 구분은 같은 파일의 `exposure_profile_applies`가 선언하며, `make exposure-status`는 그 값을 읽어 실제로 공개되는 서비스만 보고하고 profile에는 있지만 해당 target이 공개하지 않는 항목을 따로 표시한다.
 
 `compose_files`는 실행 진입점과 노출 진단이 공유하는 단일 목록이다. 실행에 쓰는 Compose 파일과 진단이 판단하는 Compose 파일이 갈라지지 않게 한 곳에서 선언한다.
 

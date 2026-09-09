@@ -32,7 +32,7 @@ check_health gateway "$GATEWAY_BASE_URL"
 check_health risk_adapter "$RISK_ADAPTER_BASE_URL"
 
 if [[ "$fail" != "0" ]]; then
-  echo "ready-local failed: app-only services are not healthy. Run 'make start' or inspect 'make status'." >&2
+  echo "ready-local failed: app-only services are not healthy. Run 'make up' or inspect 'make status'." >&2
   exit 1
 fi
 

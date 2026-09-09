@@ -125,9 +125,8 @@ REMOTE_CLEANUP
 # cache/report/임시 파일이 release마다 달라지는 것을 막는다. CI provider 정의는
 # 저장소 검증 입력이지 runtime 입력이 아니므로 대상 서버 Release에서는 제외한다.
 #
-# tests/는 두 배포 경로 모두에서 포함한다. bootstrap(make first-run)이 `make test`를
-# 배포 전 게이트로 부르므로, 테스트가 빠진 배포본에서는 문서화된 진입점이
-# no tests collected(exit 5)로 중단된다 -- 게이트를 부르면서 게이트 입력을 빼는 셈이다.
+# tests/는 두 배포 경로 모두에서 포함한다. CI와 배포 전 make check가 같은 source의
+# 테스트를 실행할 수 있어야 하므로 테스트가 빠진 배포본은 검증 입력이 불완전하다.
 #
 # 예전에는 여기서 제외하고 package_release.sh와 정책을 맞췄는데, 그 배제 근거(크기·
 # 공격 표면)를 재보니 셋 다 성립하지 않았다: 압축 후 111KB(전체 +4%), 앱이 import하지

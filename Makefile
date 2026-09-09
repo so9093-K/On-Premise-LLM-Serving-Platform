@@ -11,10 +11,12 @@ AUTH_ENV ?= $(if $(ENV_FILE),$(ENV_FILE),$(ENV))
 AUTH_ENV_ARG = $(if $(AUTH_ENV),--env $(AUTH_ENV),)
 
 
-.PHONY: help help-all setup prepare up down check init-env-local init-env-compose sync-env static-compose-config static-compose-up static-compose-down metal-doctor metal-lock metal-setup metal-prepare metal-command metal-start metal-status validate test build build-image build-vllm-unified-image lock-linux package start compose-up compose-config ready-local ready-full smoke runtime-validate auth-status auth-doctor auth-plan auth-apply exposure-status exposure-plan exposure-apply main-model-prepare status stop compose-down compose-restart compose-logs logs compose-diagnostics clean clean-dry-run clean-all reset first-run reset-version render-runtime-assets
+.PHONY: help help-all setup build rebuild prepare up status down down-all check init-env-local init-env-compose sync-env static-compose-config metal-doctor metal-lock metal-command metal-start validate test build-image build-vllm-unified-image lock-linux package compose-up compose-config ready-local ready-full smoke runtime-validate auth-status auth-doctor auth-plan auth-apply exposure-status exposure-plan exposure-apply main-model-prepare compose-down compose-restart compose-logs logs compose-diagnostics clean reset reset-version render-runtime-assets
 .PHONY: setup-dev doctor-dev
 
-PUBLIC_TARGETS := setup prepare up status down check
+PUBLIC_TARGETS := setup build prepare up status down
+RECOVERY_TARGETS := rebuild down-all reset
+QUALITY_TARGETS := check
 PLATFORM_CLI := "$(CURDIR)/.venv/bin/python" scripts/platform_cli.py
 PLATFORM_TARGET_ARG = $(if $(TARGET),--target "$(TARGET)",)
 PLATFORM_PROFILE_ARG = $(if $(MODEL),--main-profile "$(MODEL)",)
@@ -24,7 +26,13 @@ setup: ## 선택 target의 로컬 환경과 설정을 한 번 준비 (TARGET=<id
 	"$(PYTHON)" scripts/build/setup_dev.py
 	$(PLATFORM_CLI) setup $(PLATFORM_TARGET_ARG) $(PLATFORM_PROFILE_ARG) $(PLATFORM_MAIN_URL_ARG)
 
-prepare: ## 선택 target에 필요한 image와 선택 Main model 준비
+build: ## 선택 target에서 이 저장소가 소유한 image 전체 빌드
+	$(PLATFORM_CLI) build $(PLATFORM_TARGET_ARG)
+
+rebuild: ## 선택 target image를 Docker cache 없이 다시 빌드
+	$(PLATFORM_CLI) rebuild $(PLATFORM_TARGET_ARG)
+
+prepare: ## 선택 target의 선택 Main model 준비 (secondary model 제외)
 	$(PLATFORM_CLI) prepare $(PLATFORM_TARGET_ARG)
 
 up: ## .env에 선택된 target 전체 기동 후 readiness 확인
@@ -32,6 +40,12 @@ up: ## .env에 선택된 target 전체 기동 후 readiness 확인
 
 down: ## .env에 선택된 target 전체 정지
 	$(PLATFORM_CLI) down $(PLATFORM_TARGET_ARG)
+
+down-all: ## .env와 무관하게 이 checkout이 소유한 모든 실행 리소스 정지
+	bash scripts/ops/down_all.sh
+
+reset: ## 전체 초기화 계획 출력 (적용: CONFIRM=reset)
+	bash scripts/ops/reset_all.sh $(if $(filter reset,$(CONFIRM)),--confirm reset,)
 
 check: ## application 변경의 정적 계약과 결정론적 테스트 확인
 	$(MAKE) validate
@@ -52,6 +66,18 @@ help:
 	done
 	@echo ""
 	@echo "처음 한 번: make setup TARGET=<deployment-target>"
+	@echo "기본 순서: setup → build → prepare → up → status/down"
+	@echo ""
+	@echo "복구·초기화"
+	@for target in $(RECOVERY_TARGETS); do \
+		awk -v wanted="$$target" 'BEGIN {FS = ":.*?## "} $$1 == wanted {printf "  make %-18s %s\n", $$1, $$2}' $(MAKEFILE_LIST); \
+	done
+	@echo ""
+	@echo "변경 검증"
+	@for target in $(QUALITY_TARGETS); do \
+		awk -v wanted="$$target" 'BEGIN {FS = ":.*?## "} $$1 == wanted {printf "  make %-18s %s\n", $$1, $$2}' $(MAKEFILE_LIST); \
+	done
+	@echo ""
 	@echo "고급·유지보수 명령: make help-all"
 
 help-all: ## 내부 단계와 운영 진단을 포함한 전체 명령
@@ -71,23 +97,11 @@ sync-env: ## template에 추가된 새 키를 .env에 동기화 (기존 값 보�
 static-compose-config: ## static Gateway의 분리된 Compose 정의 출력
 	bash scripts/compose/static_main_compose.sh config
 
-static-compose-up: ## 외부 Main runtime에 연결하는 static Gateway 기동
-	bash scripts/compose/static_main_compose.sh up -d
-
-static-compose-down: ## static Gateway Compose project 정지
-	bash scripts/compose/static_main_compose.sh down
-
 metal-doctor: ## Apple Silicon과 고정 MLX runtime 설정 확인
 	$(PYTHON) scripts/runtime/macos_mlx_runtime.py doctor
 
 metal-lock: ## 현재 macOS arm64/Python에서 MLX dependency lock 재생성
 	$(PYTHON) scripts/runtime/macos_mlx_runtime.py lock
-
-metal-setup: ## 고정 lock으로 앱과 분리된 MLX runtime 환경 준비
-	$(PYTHON) scripts/runtime/macos_mlx_runtime.py setup
-
-metal-prepare: ## target·assistant의 고정 revision을 명시적으로 다운로드
-	$(PYTHON) scripts/runtime/macos_mlx_runtime.py prepare
 
 metal-command: ## cache-resolved MLX server 실행 명령 출력
 	$(PYTHON) scripts/runtime/macos_mlx_runtime.py command $(if $(METAL_LISTEN_HOST),--listen-host $(METAL_LISTEN_HOST),)
@@ -95,17 +109,11 @@ metal-command: ## cache-resolved MLX server 실행 명령 출력
 metal-start: ## cache된 모델로 MLX server foreground 기동 (암묵적 다운로드 없음)
 	$(PYTHON) scripts/runtime/macos_mlx_runtime.py start $(if $(METAL_LISTEN_HOST),--listen-host $(METAL_LISTEN_HOST),)
 
-metal-status: ## native MLX runtime health 확인
-	$(PYTHON) scripts/runtime/macos_mlx_runtime.py status
-
 validate: ## 정적 계약·설정·생성물 drift 검증
 	@PYTHON_BIN="$(PYTHON)" bash scripts/validation/run_validate.sh
 
 test: ## 결정론적 unit·contract 테스트
 	@PYTHON_BIN="$(PYTHON)" bash scripts/validation/run_test.sh
-
-build: ## validate + test + platform image build
-	bash scripts/build/build_all.sh
 
 build-image: ## 로컬 Docker platform image build (daemon 기본 architecture)
 	bash scripts/build/build_platform_image.sh
@@ -118,9 +126,6 @@ lock-linux: ## 고정 Linux/Python resolver로 dependency lock 재생성·설치
 
 package: ## 릴리스 ZIP 생성
 	bash scripts/build/package_release.sh
-
-start: ## Gateway·Risk Adapter 기동 (vLLM 없음)
-	bash scripts/ops/up_services.sh
 
 compose-up: ## GPU full-stack compose 기동
 	bash scripts/compose/compose_up.sh
@@ -172,9 +177,6 @@ main-model-prepare: ## PROFILE=<id> main-model 캐시 준비 (런타임 미변�
 status: ## .env에 선택된 target의 runtime·서비스 상태 확인
 	$(PLATFORM_CLI) status $(PLATFORM_TARGET_ARG)
 
-stop: ## app-only Gateway·Risk Adapter 정지
-	bash scripts/ops/down_services.sh --local
-
 compose-down: ## compose 스택 정지
 	bash scripts/ops/down_services.sh --compose
 
@@ -187,27 +189,15 @@ compose-logs: ## compose 로그
 compose-diagnostics: ## ready-full 실패 시 상태·로그 수집
 	bash scripts/compose/compose_diagnostics.sh
 
-logs: ## 로컬 app 로그 tail (make start 이후)
+logs: ## 로컬 app 로그 tail (app-only make up 이후)
 	@if ! ls logs/*.log >/dev/null 2>&1; then \
-		echo "logs/ 에 로그 파일이 없습니다. 'make start'로 로컬 app을 먼저 기동하세요." >&2; \
+		echo "logs/ 에 로그 파일이 없습니다. app-only 환경에서 'make up'을 먼저 실행하세요." >&2; \
 		exit 2; \
 	fi
 	@tail -n 100 -f logs/*.log
 
-clean: ## build/test 산출물·runtime report 정리
-	bash scripts/ops/clean_all.sh
-
-clean-dry-run: ## clean 삭제 대상 미리보기
-	bash scripts/ops/clean_all.sh --dry-run
-
-clean-all: ## clean + 로컬 로그 정리
-	bash scripts/ops/clean_all.sh --all
-
-reset: ## 로컬 상태 초기화
-	bash scripts/ops/reset_all.sh
-
-first-run: ## NVIDIA full-stack bootstrap: 환경·image·검증
-	bash scripts/build/bootstrap.sh
+clean: ## 저비용 산출물 정리 (DRY_RUN=1, LOGS=1)
+	bash scripts/ops/clean_project.sh $(if $(filter 1,$(DRY_RUN)),--dry-run,) $(if $(filter 1,$(LOGS)),--logs,)
 
 reset-version: ## NEW_VERSION=<x.y.z> 버전을 선언된 모든 자리에 반영
 	@if [[ -z "$(NEW_VERSION)" ]]; then echo "Usage: make reset-version NEW_VERSION=0.1.0"; exit 2; fi

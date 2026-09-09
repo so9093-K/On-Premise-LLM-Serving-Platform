@@ -30,7 +30,10 @@ Accepted
 - `--env-file <path>` 옵션으로 프로젝트 루트 밖의 `.env`(별도 배포 디렉터리 등)도 대상으로 지정할 수 있다.
 - `--dry-run`으로 실제 변경 없이 추가·제거 대상 키를 미리 확인할 수 있다.
 
-`EXPOSURE_MODE`와 `EXPOSURE_AUDIENCE`는 bootstrap의 compose env 강제 재생성 후 리셋되므로, `bootstrap.sh`(`make first-run`)에서 재초기화 전 기존 값을 읽어 재초기화 후 복원한다. 이는 `AUTH_MODE`에 이미 적용된 패턴과 동일하다.
+당시 `EXPOSURE_MODE`와 `EXPOSURE_AUDIENCE`는 bootstrap의 compose env 강제 재생성 후
+리셋되므로, 재초기화 전 기존 값을 읽어 복원했다. 현재 bootstrap 명령은
+[ADR-0023](0023-local-lifecycle-command-boundaries.md)에 따라 제거됐고 `make setup`은
+기존 `.env`를 강제 재생성하지 않고 target 소유 필드만 동기화한다.
 
 CI/CD 배포(`deploy_gitlab_compose.sh`)는 `.env` 이미지 참조 업데이트 직후 `make sync-env`를 호출해 서버 `.env`에 신규 템플릿 키를 자동 반영한다.
 
@@ -50,7 +53,7 @@ CI/CD 배포(`deploy_gitlab_compose.sh`)는 `.env` 이미지 참조 업데이트
 | `git pull` 이후 `.env` 키 동기화 | `make sync-env` |
 | 동기화 대상 확인 (미리보기) | `make sync-env --dry-run` (또는 `setup_env.py --sync-env --dry-run`) |
 | 배포 디렉터리 `.env` 동기화 | `setup_env.py --sync-env --env-file /opt/acl-ai-gateway/.env` |
-| 전체 재빌드 시 EXPOSURE_MODE 유지 | `make first-run` — 자동 처리, 별도 조치 불필요 |
+| target setup 재실행 시 EXPOSURE_MODE 유지 | `make setup` — 기존 `.env`의 비소유 필드 보존 |
 
 CI/CD 파이프라인에서는 `deploy_gitlab_compose.sh`가 자동으로 `make sync-env`를 호출하므로 별도 수동 개입이 없다.
 

@@ -1,101 +1,95 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)"
 cd "$ROOT"
+source scripts/lib/project_image_ownership.sh
 
-COMPOSE_FILE="${COMPOSE_FILE:-ops/compose/full-stack.private-network.yaml}"
-ENV_FILE="${ENV_FILE:-.env}"
-PYTHON_BIN="${PYTHON_BIN:-$(command -v python3.12 || command -v python3 || command -v python)}"
+print_plan() {
+  cat <<'EOF'
+[reset] project-local reset plan
+  stop/remove: host processes and Compose containers/networks owned by this checkout
+  remove images: images built by this project (project label or canonical local repository)
+  remove files: .env, .venv, .runtime, logs, run, build/test artifacts,
+                repository-local model_cache and models
+  preserve: Docker volumes, registry images without this project's build label,
+            global Hugging Face cache, and unrelated Docker resources
 
-env_value() {
-  "$PYTHON_BIN" scripts/env/env_get.py --env-file "$ENV_FILE" "$1" --default ""
+Nothing has been removed. Apply exactly with:
+  make reset CONFIRM=reset
+EOF
 }
 
-remove_image_and_containers() {
-  local image="$1"
-  local label="$2"
-  if [[ -z "$image" ]]; then
-    return 0
-  fi
-  local lingering
-  lingering="$(docker ps -aq --filter "ancestor=${image}" 2>/dev/null || true)"
-  if [[ -n "$lingering" ]]; then
-    echo "[reset] removing containers referencing ${label}: ${image}"
-    echo "$lingering" | xargs docker rm -f
-  fi
-  if docker image inspect "$image" >/dev/null 2>&1; then
-    echo "[reset] removing ${label}: ${image}"
-    docker rmi "$image"
-  else
-    echo "[reset] ${label} not found locally: ${image}"
-  fi
-}
+if [[ "$#" -ne 2 || "${1:-}" != "--confirm" || "${2:-}" != "reset" ]]; then
+  print_plan
+  exit 0
+fi
 
-echo "[reset] stopping services"
+# Do not erase local configuration when Docker resources cannot first be
+# inspected and stopped. This prevents an unverifiable partial reset.
 if ! command -v docker >/dev/null 2>&1; then
-  echo "[reset] docker CLI is required because reset stops compose services and removes the platform/unified vLLM images." >&2
-  echo "[reset] Use 'make clean-all' for local artifacts only." >&2
+  echo "[reset] Docker CLI is required to verify project-owned resources before reset" >&2
   exit 2
 fi
-
 if ! docker info >/dev/null 2>&1; then
-  echo "[reset] cannot access the Docker daemon." >&2
-  echo "[reset] Fix Docker permissions first, or run a Docker-only cleanup with sudo." >&2
-  echo "[reset] Local artifacts were not removed, so reset did not leave a partial state." >&2
+  echo "[reset] Docker daemon is unavailable; no reset action was started" >&2
   exit 2
 fi
 
-ENV_FILE="$ENV_FILE" COMPOSE_FILE="$COMPOSE_FILE" bash scripts/ops/down_services.sh --all
-if [[ -f "$ROOT/run/metal.pid" ]]; then
-  "$PYTHON_BIN" scripts/runtime/macos_mlx_runtime.py stop
-fi
+bash scripts/ops/down_all.sh
 
-# compose file의 image: 항목은 build: 섹션이 없어 --rmi local로 삭제되지 않는다.
-# .env의 PLATFORM_IMAGE 태그를 직접 삭제한다.
-PLATFORM_IMAGE=""
-if [[ -f "$ENV_FILE" ]]; then
-  PLATFORM_IMAGE="$(env_value PLATFORM_IMAGE || true)"
+image_ids="$(
+  {
+    docker image ls -q \
+      --filter "label=${PROJECT_IMAGE_LABEL_KEY}=${PROJECT_IMAGE_LABEL_VALUE}"
+    docker image ls -q "$PROJECT_PLATFORM_IMAGE_REPOSITORY"
+    docker image ls -q "$PROJECT_VLLM_IMAGE_REPOSITORY"
+  } 2>/dev/null | sort -u
+)"
+image_refs="$(
+  {
+    docker image ls \
+      --filter "label=${PROJECT_IMAGE_LABEL_KEY}=${PROJECT_IMAGE_LABEL_VALUE}" \
+      --format '{{.Repository}}:{{.Tag}}'
+    docker image ls "$PROJECT_PLATFORM_IMAGE_REPOSITORY" \
+      --format '{{.Repository}}:{{.Tag}}'
+    docker image ls "$PROJECT_VLLM_IMAGE_REPOSITORY" \
+      --format '{{.Repository}}:{{.Tag}}'
+  } 2>/dev/null | grep -v '^<none>:' | sort -u || true
+)"
+if [[ -n "$image_refs" ]]; then
+  echo "[reset] removing project-built image tags"
+  docker image rm $image_refs
 fi
-if [[ -z "$PLATFORM_IMAGE" && -f VERSION ]]; then
-  PLATFORM_IMAGE="ai-model-serving-platform:$(cat VERSION)"
-fi
-
-remove_image_and_containers "$PLATFORM_IMAGE" "platform image"
-
-# 2026-07-24부터 RISK_VLLM_IMAGE/VLLM_IMAGE는 같은 vLLM unified 이미지를 가리키는
-# 게 정상이다(risk-prompt 전용 이미지가 아니라 26B/12B/embedding/embedding-ko와
-# 공유). 그래서 PURGE_BASE_IMAGES 게이트 하나로 같이 다룬다 -- 예전처럼 "shared면
-# 보존"할 이유가 없다(그게 지금은 항상 참인 정상 상태이기 때문).
-if [[ "${PURGE_BASE_IMAGES:-0}" == "1" ]]; then
-  source scripts/lib/vllm_unified_image.sh
-  vllm_unified_resolve_images "$ENV_FILE"
-  remove_image_and_containers "$VLLM_IMAGE_RESOLVED" "vLLM unified image"
-  if [[ "$RISK_VLLM_IMAGE_RESOLVED" != "$VLLM_IMAGE_RESOLVED" ]]; then
-    remove_image_and_containers "$RISK_VLLM_IMAGE_RESOLVED" "risk vLLM override image"
+remaining_image_ids=""
+for image_id in $image_ids; do
+  if docker image inspect "$image_id" >/dev/null 2>&1; then
+    remaining_image_ids="${remaining_image_ids} ${image_id}"
   fi
-  remove_image_and_containers "$RISK_VLLM_BASE_IMAGE_RESOLVED" "vLLM base image"
+done
+if [[ -n "$remaining_image_ids" ]]; then
+  echo "[reset] removing untagged project-built images"
+  docker image rm $remaining_image_ids
+elif [[ -z "$image_refs" ]]; then
+  echo "[reset] no project-built images found"
 else
-  echo "[reset] preserving unified/base vLLM images (set PURGE_BASE_IMAGES=1 to delete them)"
+  echo "[reset] project-built images removed"
 fi
 
-echo "[reset] cleaning artifacts (PURGE_MODEL_CACHE=${PURGE_MODEL_CACHE:-0}, PURGE_RUNTIME_SECRETS=${PURGE_RUNTIME_SECRETS:-0})"
-FORCE_CLEAN_RUNNING=1 \
-  PURGE_MODEL_CACHE="${PURGE_MODEL_CACHE:-0}" \
-  PURGE_RUNTIME_SECRETS="${PURGE_RUNTIME_SECRETS:-0}" \
-  bash scripts/ops/clean_all.sh --all
+FORCE_CLEAN_RUNNING=1 bash scripts/ops/clean_project.sh --logs
 
-if [[ "${PURGE_VENV:-0}" == "1" ]]; then
-  echo "[reset] removing .venv"
-  rm -rf "$ROOT/.venv"
-fi
+for path in \
+  "$ROOT/.env" \
+  "$ROOT/.venv" \
+  "$ROOT/.runtime" \
+  "$ROOT/model_cache" \
+  "$ROOT/ops/compose/model_cache" \
+  "$ROOT/models"; do
+  if [[ -e "$path" || -L "$path" ]]; then
+    echo "[reset] removing ${path#$ROOT/}"
+    rm -rf "$path"
+  fi
+done
 
-echo ""
-echo "[reset] done."
-echo "  run 'make setup' and 'make prepare' to rebuild the selected target."
-echo ""
-echo "  flags used this run:"
-echo "    PURGE_MODEL_CACHE=${PURGE_MODEL_CACHE:-0}     (set to 1 to delete local/shared model cache)"
-echo "    PURGE_RUNTIME_SECRETS=${PURGE_RUNTIME_SECRETS:-0} (set to 1 to delete .runtime/)"
-echo "    PURGE_VENV=${PURGE_VENV:-0}          (set to 1 to delete .venv/)"
-echo "    PURGE_BASE_IMAGES=${PURGE_BASE_IMAGES:-0}   (set to 1 to delete unified/base vLLM images)"
+echo "[reset] complete; global Hugging Face cache and unrelated Docker state were preserved"
+echo "[reset] next: make setup TARGET=<deployment-target>"

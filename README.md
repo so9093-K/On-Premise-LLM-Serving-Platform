@@ -41,6 +41,7 @@ Gateway를 중심으로 모델 Runtime, Risk 처리, 운영 제어와 관측 서
 
 ```bash
 make setup TARGET=macos-metal-static
+make build
 HF_TOKEN=hf_xxx make prepare
 make up
 make status
@@ -50,14 +51,15 @@ Linux/NVIDIA에서는 첫 명령의 target만 바꾼다.
 
 ```bash
 make setup TARGET=linux-nvidia-dynamic
+make build
 HF_TOKEN=hf_xxx make prepare
 make up
 make status
 ```
 
-`prepare`는 Platform/runtime image와 선택된 Main Model만 준비하는 명시적인 대용량
-단계다. secondary model을 전부 다운로드하지 않으며, 이미 준비된 환경의 일반 기동에서는
-다시 실행하지 않는다. 이후 명령은 `.env`의 target을 사용하므로 `TARGET`을 반복하지 않는다.
+`build`는 선택 target에서 이 저장소가 소유한 image만 만들고, `prepare`는 선택된 Main
+Model만 받는다. secondary model을 전부 다운로드하지 않으며, 이미 준비된 환경의 일반
+기동에서는 둘 다 반복하지 않는다. 이후 명령은 `.env`의 target을 사용하므로 `TARGET`을 반복하지 않는다.
 Main profile을 처음부터 바꾸려면 `make setup TARGET=... MODEL=...`로 지정한다.
 허용 profile은 각 target이 가리키는 `configs/main_model_profiles.yaml` 또는
 `configs/macos_mlx_runtime.yaml`이 소유한다.
@@ -150,8 +152,11 @@ digest로 배포한다. 로컬 image는 변경 중인 코드를 확인하는 개
 | 목적 | 명령 |
 |---|---|
 | 최초 target 환경 준비 | `make setup TARGET=<id>` |
-| image·선택 Main Model 준비 | `HF_TOKEN=... make prepare` |
+| target image 빌드 | `make build` (`make rebuild`는 cache 없이 재빌드) |
+| 선택 Main Model 준비 | `HF_TOKEN=... make prepare` |
 | 전체 시작 / 종료 | `make up` / `make down` |
+| checkout 전체 종료 | `make down-all` |
+| 전체 초기화 계획 | `make reset` |
 | 통합 상태 확인 | `make status` |
 | 개발 변경 검증 | `make check` |
 | 고급·유지보수 명령 | `make help-all` |

@@ -57,7 +57,10 @@ content로 분류한다. 이건 parser가 아니라 prompt 문제라 patch가 �
 
 ```bash
 make build-vllm-unified-image
-make first-run
+make up
+make runtime-validate
 ```
 
-실제 image 검증은 `make first-run`과 `make compose-up`의 preflight가 담당한다. patch 제거는 patch 없는 후보 image에서 이 검증과 실제 vLLM smoke를 통과한 경우에만 수행한다.
+image 내부 build 계약은 build script가, 기동 전 계약은 `make up`의 preflight가 담당한다.
+patch 제거는 patch 없는 후보 image에서 실제 vLLM smoke와 runtime validation을 통과한
+경우에만 수행한다.

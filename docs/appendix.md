@@ -69,8 +69,11 @@
 | 목적 | 명령 | 관련 문서 |
 |---|---|---|
 | target·`.env` 최초 준비 | `make setup TARGET=<id>` | [7. 로컬 개발과 빌드](./07_local_dev_build.md) |
-| image·선택 Main Model 준비 | `HF_TOKEN=... make prepare` | [7. 로컬 개발과 빌드](./07_local_dev_build.md) |
+| target image 빌드 | `make build` / `make rebuild` | [7. 로컬 개발과 빌드](./07_local_dev_build.md) |
+| 선택 Main Model 준비 | `HF_TOKEN=... make prepare` | [7. 로컬 개발과 빌드](./07_local_dev_build.md) |
 | target 시작 / 상태 / 종료 | `make up` / `make status` / `make down` | [4. 실행 환경과 모드](./04_runtime_modes.md) |
+| checkout 전체 종료 | `make down-all` | [7. 로컬 개발과 빌드](./07_local_dev_build.md) |
+| 전체 초기화 plan / 적용 | `make reset` / `make reset CONFIRM=reset` | [7. 로컬 개발과 빌드](./07_local_dev_build.md) |
 | application 변경 검증 | `make check` | [8. 테스트와 검증](./08_testing_validation.md) |
 | 내부 빌드·진단 명령 조회 | `make help-all` | [7. 로컬 개발과 빌드](./07_local_dev_build.md) |
 
@@ -87,11 +90,11 @@
 
 | 목적 | 명령 | 관련 문서 |
 |---|---|---|
-| 검증 + 테스트 + Platform Image Build | `make build` | [7. 로컬 개발과 빌드](./07_local_dev_build.md) |
+| 선택 target image 전체 Build | `make build` | [7. 로컬 개발과 빌드](./07_local_dev_build.md) |
+| 선택 target image cache 없는 Build | `make rebuild` | [7. 로컬 개발과 빌드](./07_local_dev_build.md) |
 | Platform Image Build | `make build-image` | [7. 로컬 개발과 빌드](./07_local_dev_build.md) |
 | Unified vLLM Image Build | `make build-vllm-unified-image` | [7. 로컬 개발과 빌드](./07_local_dev_build.md) |
 | Release ZIP 생성 | `make package` | [7. 로컬 개발과 빌드](./07_local_dev_build.md) |
-| 고급 NVIDIA 전체 재빌드 | `make first-run` | [7. 로컬 개발과 빌드](./07_local_dev_build.md) |
 | Runtime 생성 파일 갱신 | `make render-runtime-assets` | [5. 설정 체계와 Source of Truth](./05_configuration.md) |
 
 ### 모델 운영

@@ -318,22 +318,18 @@ Risk Adapter host port를 사용할 수 있는 exposure에서는 Risk Adapter he
 
 `make ready-full`은 마지막 단계에서 동일한 strict smoke script를 실행하므로 full-stack readiness와 대표 inference path를 한 번에 검증한다. 실패를 무시하는 별도 warmup은 두지 않는다.
 
-### Build 검증과의 관계
+### Build와 검증의 관계
 
-Platform 전체 Build Gate는 다음 순서다.
+검증과 image build는 독립된 책임이다.
 
 ```bash
+make check
 make build
 ```
 
 ```text
-make validate
-     ↓
-make test
-     ↓
-Platform Image Build
-     ↓
-Image 내부 Application Import 확인
+make check  → 정적 계약 + 결정론적 테스트
+make build  → 선택 target의 저장소 소유 image
 ```
 
 Build 자체의 상세 흐름은 [7. 로컬 개발과 빌드](./07_local_dev_build.md)를 참고한다.
@@ -604,7 +600,7 @@ make compose-logs
 |---|---|
 | Source / contract / drift 확인 | `make validate` |
 | Unit + Contract Test | `make test` |
-| 전체 Platform Build Gate | `make build` |
+| 선택 target image Build | `make build` |
 | app-only process health | `make ready-local` |
 | full-stack readiness + smoke | `make ready-full` |
 | 대표 API smoke | `make smoke` |

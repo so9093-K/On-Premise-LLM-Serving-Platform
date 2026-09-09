@@ -461,7 +461,7 @@ cd -L /opt/acl-ai-gateway/current
 make compose-down
 ```
 
-이 명령은 Compose 컨테이너와 네트워크를 중지·제거한다. 공유 `.env`, `.runtime`, 모델 cache, Docker volume, Release 보관본은 삭제하지 않는다. `make clean-all`, 임의의 `docker rm`, cache 삭제는 운영 중지 절차에 포함하지 않는다.
+이 명령은 Compose 컨테이너와 네트워크를 중지·제거한다. 공유 `.env`, `.runtime`, 모델 cache, Docker volume, Release 보관본은 삭제하지 않는다. 로컬 개발용 `make reset`, 임의의 `docker rm`, cache 삭제는 운영 중지 절차에 포함하지 않는다.
 
 점검이 끝난 뒤 같은 Release를 다시 올릴 때는 다음 순서로 실행한다.
 

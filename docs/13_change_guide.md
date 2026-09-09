@@ -113,8 +113,8 @@ make test
 Gateway와 Risk Adapter만으로 확인 가능한 변경은 app-only에서 검증한다.
 
 ```bash
-make start
-make ready-local
+make up
+make status
 ```
 
 실제 Main Model, Embedding, Prompt Risk와 연결되는 요청 흐름이 바뀌면 full-stack까지 확인한다.
@@ -472,9 +472,10 @@ Shell script syntax와 repository contract는 `make validate`에서 확인한다
 make validate
 ```
 
-Platform Build가 변경된 경우 로컬에서도 동일한 build entry point를 확인한다.
+Platform Build가 변경된 경우 검증 뒤 선택 target의 build entry point를 확인한다.
 
 ```bash
+make check
 make build
 ```
 
@@ -497,9 +498,10 @@ make build
 | 모니터링 | 생성 파일 + `make validate` | Dashboard + Runtime 검증 | Monitoring 적용 |
 | CI/CD | `make validate` + 관련 build | Pipeline 실행 | Pipeline / Deploy |
 
-전체 Platform 품질 gate:
+전체 application 품질 gate와 선택 target image build:
 
 ```bash
+make check
 make build
 ```
 
@@ -537,7 +539,7 @@ make runtime-validate
 - Source of Truth 설정이 생성기 입력이라면 생성 artifact를 갱신하고 `make validate`로 drift를 확인한다. 그렇지 않다면 해당 설정의 consumer와 영향 범위만 확인한다.
 - 일반 application 변경은 `make validate`, `make test`와 영향 범위의 app-only 또는 full-stack 확인을 한다.
 - vLLM image 입력 변경은 Unified derived image build와 `ready-full`, `runtime-validate`까지 연결한다.
-- 릴리스 ZIP이 필요한 경우에만 `make package`를 실행한다. package에는 `.env`, `.runtime`, 로그, model cache가 포함되지 않아야 한다. `tests/`는 포함한다 -- `make first-run`이 `make test`를 배포 전 게이트로 부른다.
+- 릴리스 ZIP이 필요한 경우에만 `make package`를 실행한다. package에는 `.env`, `.runtime`, 로그, model cache가 포함되지 않아야 한다. `tests/`는 포함해 CI와 배포 전 `make check`가 같은 source의 테스트를 실행할 수 있게 한다.
 
 ---
 
@@ -569,7 +571,7 @@ make test
 # Source Config에서 생성 파일 갱신
 make render-runtime-assets
 
-# Platform 품질 Gate + Image Build
+# 선택 target Image Build
 make build
 
 # Full-stack 준비 상태

@@ -8,6 +8,7 @@
 
 ```bash
 make setup TARGET=macos-metal-static   # 또는 linux-nvidia-dynamic
+make build
 HF_TOKEN=hf_xxx make prepare
 make up
 make status
@@ -50,7 +51,7 @@ make down
 
 | 파일 | 용도 |
 |---|---|
-| `platform_cli.py` | `setup/prepare/up/status/down`을 target-aware lifecycle로 조합하고 기존 세부 script에 위임한다. |
+| `platform_cli.py` | `setup/build/rebuild/prepare/up/status/down`을 target-aware lifecycle로 조합하고 기존 세부 script에 위임한다. |
 | `build/setup_dev.py` | macOS/Ubuntu 개발용 `.venv`를 준비·재사용한다. `.env`, runtime state, Docker/GPU는 변경하지 않는다. |
 | `build/check_dev_environment.py` | Python 정책과 운영 shell helper에 필요한 Bash 4 이상을 진단한다. |
 | `build/refresh_dependency_locks.sh` | host OS와 무관하게 Docker의 Linux amd64·`.python-version`·Dockerfile digest 고정 Python resolver로 runtime/contract lock을 재생성하고 새 venv 설치까지 확인한다. |
@@ -61,6 +62,7 @@ make down
 | `validation/validate_contracts.py` | OpenAPI refs, generated OpenAPI schema injection, JSON Schema, config, release hygiene 정책을 검증한다. |
 | `validation/run_test.sh` | Python 버전과 test 환경을 고정하고 unit/contract test를 실행한다. |
 | `lib/version_refs.py` | `VERSION` 문자열이 박혀 있는 모든 자리를 한 번만 선언한다. `build/reset_version.py`(생성)와 `validation/governance/versioning.py`(검증)가 같은 표를 읽으므로 두 목록이 갈라질 수 없다. |
+| `lib/project_image_ownership.sh` | 로컬 build image의 ownership label과 legacy local repository 이름을 build/reset에 공통 제공한다. |
 | `lib/gateway_runtime_state.sh` | 배포와 `compose-up`이 Gateway에 초기 Runtime 지시를 전달하고 상태 디렉터리 소유권을 준비하는 공통 규칙을 제공한다. `runtime-state.json` 자체는 쓰지 않는다. |
 | `compose/compose_service_diff.py` | 두 Release의 렌더된 Compose 정의를 비교해 실제로 변경된 서비스만 출력한다. Release 절대경로 차이는 제거한다. |
 | `build/reset_version.py` | 프로젝트 버전을 `lib/version_refs.py`가 선언한 모든 자리에 한 번에 반영한다. 선언된 자리가 파일에서 사라졌으면 조용히 넘기지 않고 실패한다. |
@@ -72,21 +74,23 @@ make down
 | `validation/runtime_validation.py` | 실제 runtime 검증 결과를 `reports/runtime/` 아래에 기록한다. |
 | `models/check_hf_model_config.py` | Docker/GPU 없이 Transformers `AutoConfig`만 로드해 vLLM·bitsandbytes 이전 config loader 문제를 분리한다. |
 | `build/package_release.sh` | 배포 ZIP을 만들고 secret, log, cache, egg-info, generated runtime report를 제외한다. ZIP root는 항상 `ai_model_serving_platform/`로 고정한다. |
-| `ops/clean_all.sh` | build/test 산출물과 runtime report를 정리한다. Gateway·Risk Adapter·Metal process가 실행 중이면 중단한다. `--dry-run`으로 실제 삭제 대상을 먼저 볼 수 있다. `--all`은 로그도 정리하며, 모델 cache는 `PURGE_MODEL_CACHE=1`, runtime secret은 `PURGE_RUNTIME_SECRETS=1`일 때만 삭제한다. |
+| `ops/down_all.sh` | `.env`와 Compose project name에 의존하지 않고 이 checkout의 host process와 Compose container/network를 정지한다. |
+| `ops/clean_project.sh` | build/test 산출물과 runtime report를 정리한다. 실행 중인 host process가 있으면 중단하며 `--dry-run`, `--logs`만 지원한다. |
+| `ops/reset_all.sh` | 기본 실행은 전체 초기화 plan만 출력하고, 정확한 확인값에서 project-local state만 삭제한다. |
 | `build/reset_version.py` | VERSION, OpenAPI, pyproject, env 예시, platform image tag를 같은 버전으로 맞춘다. |
 
 ## 운영 주의사항
 
 - `make init-env-compose`는 기존 `.env`가 있으면 실패하고 보존한다.
 - `.runtime/prometheus/admin_api_key`만 사라졌거나 손상되었다면 `.env`를 다시 만들지 말고 `make compose-up`을 실행한다. Compose 기동 전 이 파일을 자동 복구한다. 이 파일은 Prometheus Compose secret source이므로 일반 파일이어야 하며, non-root Prometheus image가 읽을 수 있도록 `0644` 권한으로 생성된다.
-- `make start`는 vLLM을 시작하지 않는다. app-only 확인용이다.
+- app-only `.env`의 `make up`은 vLLM을 시작하지 않고 Gateway/Risk Adapter만 실행한다.
 - app-only 확인은 `make ready-local`, strict full-stack 확인은 `make ready-full`을 사용한다.
 - full-stack 기동인 `make compose-up`에는 Docker/GPU/포트/secret preflight가 포함된다.
 - `make compose-up`은 `configs/deploy_profiles.yaml`의 기본 `main_only`를 적용해 Main만 시작한다. Retrieval runtime도 처음부터 필요하면 `RUNTIME_PROFILE=retrieval_ready make compose-up`을 명시한다.
 - 라이브 검증은 `make runtime-validate`, 실행 전 정적 검증은 `make validate`로 수행한다.
-- 삭제 전에는 `make clean-dry-run`으로 삭제 대상을 확인한다.
+- 저비용 정리 대상은 `make clean DRY_RUN=1`으로 확인한다. 전체 초기화는 `make reset`이 plan만 출력한다.
 
-- `.runtime/`은 정상적인 로컬 runtime state다. `make init-env-compose` 이후 존재할 수 있으며, `make clean-all`은 기본적으로 보존한다. 테스트와 패키징 정책은 `.runtime`의 로컬 존재가 아니라 release/source ZIP 포함 여부를 검사해야 한다.
+- `.runtime/`은 정상적인 로컬 runtime state다. `make clean`은 보존하고 확인된 `make reset CONFIRM=reset`만 제거한다. 테스트와 패키징 정책은 `.runtime`의 로컬 존재가 아니라 release/source ZIP 포함 여부를 검사해야 한다.
 - `package_release.sh`는 `.runtime`, `.venv`, `venv`, `env`, `.tox`, logs, run, cache, pycache, egg-info를 제외한다.
 
 ## Full-stack 진단
@@ -101,9 +105,10 @@ Risk detector의 `bitsandbytes` 설정은 운영 기본값이다. 원인 분리�
 
 ## Unified vLLM 이미지와 Kanana patch 점검
 
-- `make first-run`: Bash 4+, native Linux amd64 Docker daemon과 NVIDIA GPU가 있는 운영 호스트에서 platform/unified image를 만들고 image 내부 Kanana config check를 실행한다.
+- `make build`: 선택 target에서 이 저장소가 소유한 image만 만들며 모델 다운로드·검증·기동을 섞지 않는다.
+- `make rebuild`: 같은 image 범위를 Docker cache 없이 다시 만든다.
 - `make build-vllm-unified-image`: `configs/vllm_unified_build.yaml`이 지정한 native Docker target에서 26B/12B/embedding/embedding-ko/risk-prompt 공용 image를 빌드하는 고급/수동 target이다.
-- `make first-run`과 `make compose-up`은 `RISK_VLLM_IMAGE` 안의 label, metadata, Kanana risk model config load를 확인한다.
+- `make up`의 full-stack preflight는 `RISK_VLLM_IMAGE` 안의 label, metadata, Kanana risk model config load를 확인한다.
 - `SKIP_RISK_VLLM_IMAGE_CONFIG_CHECK=1 make compose-up`: image-internal config check만 건너뛴다. production 승격용으로 쓰지 않는다.
 
 ## 인증 제어 플레인 점검

@@ -59,7 +59,7 @@ wait_for_health() {
   echo "[up] ${name} did not report /health within ${STARTUP_WAIT_SECONDS}s. Last log lines:" >&2
   tail -n 40 "$log_file" >&2 || true
   echo "[up] 다음을 확인하세요: 포트 충돌, .env의 GATEWAY_PORT/RISK_ADAPTER_PORT, venv 의존성, PYTHON_BIN, 그리고 logs/${name}.log" >&2
-  echo "[up] 기존 프로세스가 남아 있으면 'make stop' 후 다시 'make start'를 실행하세요." >&2
+  echo "[up] 기존 프로세스가 남아 있으면 'make down' 후 다시 'make up'을 실행하세요." >&2
   return 1
 }
 

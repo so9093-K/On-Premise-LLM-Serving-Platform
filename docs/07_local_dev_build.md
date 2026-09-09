@@ -3,11 +3,13 @@
 AI Model Serving Platform의 로컬 개발은 **application 개발**, **full-stack 통합 확인**, **Docker image build**, **release package 생성**으로 나뉜다.
 
 일반 사용자가 이 단계를 직접 조립하지는 않는다. 로컬 lifecycle의 공개 진입점은
-`setup → prepare → up/status/down`이며, 이 문서의 개별 build·runtime 명령은 변경 범위
-확인과 장애 진단을 위한 내부 단계다.
+`setup → build → prepare → up/status/down`이며, 이 문서의 개별 build·runtime 명령은 변경 범위
+확인과 장애 진단을 위한 내부 단계다. 명령별 책임과 삭제 범위는
+[ADR-0023](adr/0023-local-lifecycle-command-boundaries.md)을 따른다.
 
 ```bash
 make setup TARGET=macos-metal-static   # 또는 linux-nvidia-dynamic
+make build
 HF_TOKEN=hf_xxx make prepare
 make up
 make status
@@ -74,7 +76,7 @@ Ubuntu에서는 지원 Python과 해당 버전의 `venv` 패키지를 준비한 
 
 `setup-dev`는 `requirements.lock`을 `--no-deps`로 설치하고, `pyproject.toml`의 build backend를 준비한 뒤 editable package 설치와 `pip check`를 수행한다. 누락된 하위 의존성을 설치 시점의 최신 버전으로 조용히 채우지 않는다. 기존 `.venv`는 실행 중인 선택 interpreter와 minor가 같을 때 재사용한다. 새 `.venv`를 만드는 경우에는 Python `venv`가 실제로 사용하는 base interpreter의 minor를 먼저 확인하고 그 executable로 생성한다. 선택 interpreter와 base가 다르면 잘못된 minor의 환경을 만들지 않고 명시적으로 중단하며, 기존 환경이나 부분 생성 결과는 자동 삭제하지 않는다.
 
-이 명령은 `.env`와 runtime state를 생성·변경하지 않는다. GPU bootstrap인 `make first-run`은 별도 운영 절차로 유지한다. macOS app/contract 검증 통과가 `macos-metal-static` 모델 runtime의 qualification을 의미하지는 않는다([ADR-0020](adr/0020-runtime-control-and-deployment-targets.md)).
+이 명령은 `.env`와 runtime state를 생성·변경하지 않는다. macOS app/contract 검증 통과가 `macos-metal-static` 모델 runtime의 qualification을 의미하지는 않는다([ADR-0020](adr/0020-runtime-control-and-deployment-targets.md)).
 
 빌드 재현성의 범위도 실행 환경별로 구분한다.
 
@@ -159,7 +161,9 @@ Source / Config 변경
    ↓
 make check
    ↓
-make prepare  (runtime/image 입력이 바뀐 경우만)
+make build    (image 입력이 바뀐 경우만)
+   ↓
+make prepare  (model 입력이 바뀌었거나 cache가 없는 경우만)
    ↓
 make up
 ```
@@ -183,10 +187,10 @@ make init-env-local
 ### 서비스 실행
 
 ```bash
-make start
+make up
 ```
 
-`make start`는 다음 application process를 실행한다.
+app-only `.env`에서 `make up`은 다음 application process를 실행한다.
 
 ```text
 Developer Host
@@ -217,7 +221,7 @@ app-only는 다음과 같은 application layer 작업에 적합하다.
 ### 종료
 
 ```bash
-make stop
+make down
 ```
 
 app-only와 full-stack의 구조적 차이는 [4.1 실행 모드](./04_runtime_modes.md#41-실행-모드)를 참고한다.
@@ -235,10 +239,12 @@ full-stack은 Docker Compose를 사용해 application, model runtime, control pl
 
 ```bash
 make setup TARGET=linux-nvidia-dynamic
+make build
 HF_TOKEN=hf_xxx make prepare
 ```
 
-`prepare`는 Platform/Unified vLLM image와 선택된 Main Model만 준비한다. secondary model은
+`build`는 선택 target에서 이 저장소가 소유한 Platform/Unified vLLM image만 만들고,
+`prepare`는 선택된 Main Model만 준비한다. secondary model은
 각 기능을 활성화할 때 별도로 준비하며, 일반 재기동에서는 `prepare`를 반복하지 않는다.
 
 Compose용 `.env`만 직접 생성해야 하는 유지보수 상황에서는 다음 내부 명령을 사용한다.
@@ -315,25 +321,24 @@ Platform Image는 Gateway, Risk Adapter, Admin / Control Sidecar 등 application
 ai-model-serving-platform:<VERSION>
 ```
 
-### 전체 Build Gate
+### 선택 target 전체 Build
 
 ```bash
 make build
 ```
 
-`make build`은 다음 순서로 진행된다.
+`make build`는 `.env`의 deployment target을 읽고 이 저장소가 소유한 image만 만든다.
+모델 weight 다운로드와 서비스 시작, 정적 검증·테스트는 섞지 않는다.
 
 ```text
-make validate
-   ↓
-make test
-   ↓
-Platform Docker Image Build
-   ↓
-Image 내부 Application Import 검증
+linux-nvidia-dynamic  → Platform + Unified vLLM image
+linux-nvidia-static   → Platform image (Main runtime은 external)
+macos-metal-static    → Platform image (MLX runtime은 native environment)
 ```
 
-일반적인 release 후보 또는 application image 변경 확인에는 `make build`을 사용한다.
+Docker cache를 버리고 같은 target의 image를 다시 만들 때만 `make rebuild`를 사용한다.
+`rebuild`도 모델을 다시 다운로드하거나 서비스를 시작하지 않는다. 소스 변경 검증은
+별도 책임인 `make check`를 먼저 실행한다.
 
 ### Image만 Build
 
@@ -345,7 +350,8 @@ make build-image
 
 | 명령 | 범위 |
 |---|---|
-| `make build` | `validate → test → Platform Image Build` |
+| `make build` | 선택 target의 저장소 소유 image 전체, Docker cache 사용 |
+| `make rebuild` | 같은 image 전체, Docker `--no-cache` 사용 |
 | `make build-image` | Platform Image Build + image 내부 application 확인 |
 
 `PLATFORM_IMAGE` 환경변수로 build tag를 지정할 수 있으며, 기본값은 `ai-model-serving-platform:<VERSION>`이다.
@@ -418,22 +424,23 @@ Unified vLLM Image는 다음 변경에서 다시 빌드한다.
 
 Unified vLLM build 입력 변경을 CI가 감지하고 derived image를 만드는 과정은 [9. CI/CD](./09_cicd.md)에서 설명한다.
 
-`make first-run`은 로컬에서 빌드한 Unified image tag를 Docker의 content-addressed
+target-aware `make build`는 로컬에서 빌드한 Unified image tag를 Docker의 content-addressed
 `sha256:...` image ID로 해석하고, `.env`에서 그 build tag와 정확히 일치하는 unified
 image 값만 고정한다. 운영자가 별도로 지정한 image ref는 추측해서 덮어쓰지 않는다.
 GitLab 배포는 이 로컬 ID 대신 registry의 `name@sha256:...` digest를 사용한다.
 
-### 반복 개발에서 Unified Image Build 생략
+### 반복 개발과 재빌드
 
-앱 코드만 반복 수정하고 이미 검증된 Unified vLLM image를 유지할 때는 다음 명령을 사용할 수 있다.
+앱 코드만 바뀌었다면 내부 `make build-image`로 Platform image만 확인할 수 있다. target
+전체 image build는 Docker cache를 사용하며, runtime patch나 base 입력을 cache 없이
+다시 확인해야 할 때만 다음 명령을 사용한다.
 
 ```bash
-SKIP_RISK_VLLM_IMAGE_BUILD=auto make first-run
+make rebuild
 ```
 
-`auto`는 `.env`의 `RISK_VLLM_IMAGE` tag가 로컬에 있을 때만 Unified image build를 생략하고, 없으면 build한다. 명시적으로 image를 관리하는 경우에는 `SKIP_RISK_VLLM_IMAGE_BUILD=1`을 사용할 수 있다.
-
-이 최적화는 `Dockerfile`, patch, media dependency, base digest 또는 compatibility pin이 바뀌지 않았을 때만 사용한다. 이들 입력이 바뀌면 `make build-vllm-unified-image` 또는 `make first-run`으로 새 image를 만들고 full-stack 검증을 수행한다.
+`build`와 `rebuild` 모두 모델 weight를 다운로드하지 않는다. 선택 Main Model download는
+`prepare`, secondary model 준비는 각 기능의 운영 경로가 소유한다.
 
 ---
 
@@ -471,63 +478,45 @@ ZIP entry의 timestamp는 고정값을 사용해 동일한 source에서 재생 �
 
 `make package`는 package 생성 전에 별도 축약 검증을 만들지 않고 `make validate`와 같은 전체 정적 gate를 수행한다. 생성된 ZIP은 제외 대상 파일과 환경 파일이 포함되지 않았는지 다시 검사한다.
 
-Release ZIP은 배포에 필요한 artifact와 `tests/`를 함께 담는다 -- `make first-run`이 `make test`를 배포 전 게이트로 부르므로, 받는 쪽이 같은 버전의 테스트로 검증할 수 있어야 한다. 테스트 구조와 release gate의 관계는 [8. 테스트와 검증](./08_testing_validation.md), 실제 배포 절차는 [10. 배포](./10_deployment.md)에서 설명한다.
+Release ZIP은 배포에 필요한 artifact와 `tests/`를 함께 담는다. CI와 배포 전 `make check`가
+같은 source의 테스트를 실행할 수 있어야 한다. 테스트 구조와 release gate의 관계는
+[8. 테스트와 검증](./08_testing_validation.md), 실제 배포 절차는 [10. 배포](./10_deployment.md)에서 설명한다.
 
 ---
 
-## 7.8 고급: NVIDIA 전체 초기화와 재빌드
+## 7.8 전체 종료·정리·초기화
 
-`make first-run`은 기존 NVIDIA 자동화와의 호환성을 위한 전체 bootstrap 명령이다. `.venv`
-재생성, 전체 검증·테스트와 두 image build를 모두 수행하므로 일반 최초 실행이나 반복
-개발의 기본 UX로 사용하지 않는다. 보통은 앞의 `setup`과 `prepare`를 사용한다.
-
-이 절차는 Unified vLLM CUDA image와 NVIDIA full-stack을 포함하므로 Bash 4+, native
-Linux amd64 Docker daemon과 접근 가능한 NVIDIA GPU를 시작 전에 요구한다. OS 이름을
-지원 여부의 대리값으로 사용하지 않는다. macOS 개발 환경 준비에는 `make setup-dev`를
-사용하고, 일반 application image만 확인하려면 `make build-image`를 사용한다.
+일반 종료는 현재 `.env` target만 멈추며 image, volume, 모델 cache를 보존한다.
 
 ```bash
-HF_TOKEN=hf_xxx make first-run
+make down
 ```
 
-`make first-run`은 다음 작업을 순서대로 수행한다.
+target 설정이 바뀌었거나 `.env`가 없어도 이 checkout이 만든 모든 host process와 Compose
+container/network를 내리려면 `make down-all`을 사용한다. Compose project name을
+하드코딩하지 않고 Docker의 working-directory label로 소유권을 판정하며 image, volume,
+모델 cache는 삭제하지 않는다.
 
-```text
-지원 Python 확인
-   ↓
-.venv 재생성
-   ↓
-Lock-file Dependency 설치
-   ↓
-Compose .env 준비
-   ↓
-Authentication / Exposure 적용
-   ↓
-make validate
-   ↓
-make test
-   ↓
-Platform Image Build
-   ↓
-Unified vLLM Image Build
-   ↓
-로컬 Unified Image ID 고정
-   ↓
-Prompt Risk Runtime Config 확인
-```
-
-`HF_TOKEN`을 명령에 전달하면 bootstrap이 해당 값을 `.env`에 반영한다.
-
-`make first-run`은 전체 bootstrap workflow를 사용한다.
-
-Bootstrap 완료 후에도 공개 lifecycle 명령으로 기동한다.
+저비용 build/test 산출물만 정리할 때는 `make clean`을 사용한다. 삭제 대상 확인과 로그
+포함은 별도 target 대신 같은 명령의 옵션이다.
 
 ```bash
-make up
-make status
+make clean DRY_RUN=1
+make clean LOGS=1
 ```
 
-환경변수 보존과 `.env` 동기화 규칙은 [5.10 환경 파일](./05_configuration.md#510-환경-파일)을 참고한다.
+처음부터 다시 구성하기 위한 전체 초기화는 파괴적이므로 기본 실행이 계획만 출력한다.
+
+```bash
+make reset
+make reset CONFIRM=reset
+```
+
+확인 후 적용하면 `down-all` 범위, 프로젝트가 빌드한 local image, `.env`, `.venv`,
+`.runtime`, 로그·산출물과 repository-local model cache를 제거한다. Docker volume,
+프로젝트 label이 없는 registry image, 다른 checkout의 Docker resource와 사용자의 global
+Hugging Face cache는 제거하지 않는다. daemon 전체에 영향을 주는 prune은 lifecycle에
+포함하지 않는다.
 
 ---
 
@@ -540,7 +529,8 @@ make status
 | app-only | `make ready-local` | Gateway / Risk Adapter health |
 | full-stack | `make ready-full` | Gateway readiness + vLLM + inference path |
 | Platform Image | `make build-image` | Docker build + application import |
-| 전체 Build Gate | `make build` | validate + test + Platform Image |
+| 선택 target image | `make build` | target별 저장소 소유 image 전체 |
+| cache 없는 재빌드 | `make rebuild` | 같은 범위 + Docker `--no-cache` |
 | Compose config | `make compose-config` | effective Compose config rendering |
 | 서비스 상태 | `make status` | 현재 service / process 상태 |
 | Release ZIP | `make package` | package validation + ZIP 생성 |
@@ -568,10 +558,13 @@ make compose-logs
 | 목적 | 명령 |
 |---|---|
 | target 환경·`.env` 최초 준비 | `make setup TARGET=<id>` |
-| 필요한 image·선택 Main Model 준비 | `HF_TOKEN=... make prepare` |
+| 선택 target image 빌드 | `make build` |
+| 선택 Main Model 준비 | `HF_TOKEN=... make prepare` |
 | target 전체 시작 | `make up` |
 | target 통합 상태 | `make status` |
 | target 전체 종료 | `make down` |
+| checkout 소유 runtime 전체 종료 | `make down-all` |
+| 전체 초기화 plan / 적용 | `make reset` / `make reset CONFIRM=reset` |
 | application 변경 검증 | `make check` |
 | 내부 build·진단·운영 명령 | `make help-all` |
 
@@ -596,5 +589,7 @@ make compose-logs
 | Platform build script | `scripts/build/build_platform_image.sh` | 로컬·CI 공통 Platform build |
 | Unified vLLM build config | `configs/vllm_unified_build.yaml` | target platform, base image와 compatibility pin |
 | Unified vLLM Dockerfile | `ops/images/vllm-unified/Dockerfile` | derived vLLM runtime image |
-| Bootstrap | `scripts/build/bootstrap.sh` | 개발 환경과 build artifact 전체 준비 |
+| Target lifecycle | `scripts/platform_cli.py` | setup/build/prepare/up/status/down 조합 |
+| Checkout 전체 종료 | `scripts/ops/down_all.sh` | `.env` 독립적인 project-owned runtime 회수 |
+| 전체 초기화 | `scripts/ops/reset_all.sh` | 확인 기반 project-local state 삭제 |
 | Release package | `scripts/build/package_release.sh` | 배포용 ZIP 생성 |
