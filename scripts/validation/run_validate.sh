@@ -46,7 +46,7 @@ run_check() {
 
 if [[ -z "$PYTHON_BIN" ]]; then
   printf '[validate] %-24s FAIL (exit=2)\n' "python compatibility" >&2
-  printf '[validate]   Python 3.12, 3.13, or 3.14 was not found\n' >&2
+  printf '[validate]   Python 3.12 or 3.13 was not found\n' >&2
   exit 2
 fi
 

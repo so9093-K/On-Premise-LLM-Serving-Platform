@@ -254,6 +254,11 @@ Compose Network
 | `9413` | cAdvisor |
 | `9414` | Loki |
 
+기본 host port는 application/model API에 `9400~9409`, observability endpoint에
+`9410~9419`를 사용한다. Container 내부 port는 upstream 고유값을 유지하므로 같은
+숫자가 다른 service network namespace에서 반복될 수 있다. 실제 배정의 기준은
+`configs/services.yaml`이며, 빈 번호 때문에 기존 서비스를 다시 번호 매기지 않는다.
+
 `master_open`은 model runtime과 운영 endpoint에 직접 접근해야 하는 진단 환경에서 사용한다. 실제 접근 범위는 `EXPOSURE_AUDIENCE`와 네트워크 정책으로 제한한다.
 
 ### Effective Compose 구성

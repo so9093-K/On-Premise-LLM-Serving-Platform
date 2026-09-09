@@ -22,6 +22,7 @@ if str(ROOT / "src") not in sys.path:
     sys.path.insert(0, str(ROOT / "src"))
 
 from ai_model_serving.deployment_target import DeploymentTarget, load_deployment_target  # noqa: E402
+from ai_model_serving.configuration import load_yaml_mapping  # noqa: E402
 from ai_model_serving.settings_parts.dotenv_parser import load_strict_env_file  # noqa: E402
 from scripts.build.pin_local_vllm_image import (  # noqa: E402
     pin_matching_env_values,
@@ -29,6 +30,7 @@ from scripts.build.pin_local_vllm_image import (  # noqa: E402
 )
 
 TARGETS_PATH = ROOT / "configs" / "deployment_targets.yaml"
+SERVICES_PATH = ROOT / "configs" / "services.yaml"
 ENV_PATH = ROOT / ".env"
 
 
@@ -70,7 +72,12 @@ def _gateway_probe(values: dict[str, str], path: str) -> tuple[str, bool]:
     host = values.get("GATEWAY_BIND_ADDR") or "127.0.0.1"
     if host == "0.0.0.0":
         host = "127.0.0.1"
-    url = f"http://{host}:{values.get('GATEWAY_PORT', '9400')}{path}"
+    services = load_yaml_mapping(SERVICES_PATH).get("services", {})
+    gateway = services.get("gateway") if isinstance(services, dict) else None
+    if not isinstance(gateway, dict) or "default_host_port" not in gateway:
+        raise RuntimeError("configs/services.yaml gateway.default_host_port is missing")
+    port = values.get("GATEWAY_PORT") or str(gateway["default_host_port"])
+    url = f"http://{host}:{port}{path}"
     try:
         with urllib.request.urlopen(url, timeout=3) as response:
             return url, response.status == 200

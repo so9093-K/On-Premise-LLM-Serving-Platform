@@ -43,7 +43,7 @@ from ai_model_serving.monitoring_projection import (  # noqa: E402
 
 _GENERATED_HEADER_YAML_WITH_MONITORING = (
     "# 자동 생성 파일입니다. 직접 수정하지 마세요.\n"
-    "# 소스: configs/model_catalog.yaml + configs/model_serving.yaml + configs/monitoring.yaml\n"
+    "# 소스: configs/model_catalog.yaml + configs/model_serving.yaml + configs/monitoring.yaml + configs/services.yaml\n"
     "# 명령: make render-runtime-assets\n"
 )
 

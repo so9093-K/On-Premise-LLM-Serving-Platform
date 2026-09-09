@@ -11,6 +11,7 @@ from scripts.build.check_python import SUPPORTED_LABEL, SUPPORTED_SPECIFIER, is_
 from .common import (
     ROOT,
     read_json,
+    read_yaml,
 )
 
 # 이 모듈이 scripts.validation.governance.versioning 으로 import됐다는 것 자체가
@@ -93,7 +94,7 @@ def validate_python_compatibility() -> None:
     validate/test/start/package 등 모든 진입점에서 먼저 그걸 검사하므로, 여기서 또
     검사하면 같은 정책이 두 곳에 살면서 갈라진다.
 
-    GitHub Actions는 .python-version에서 portable minor를 직접 계산한다. 실행
+    GitHub Actions는 Linux와 Metal 설정에서 portable minor를 직접 계산한다. 실행
     workflow는 provider가 검증하므로 repository 공통 계약에서 다시 해석하지 않는다.
     """
     py_version = (ROOT / '.python-version').read_text(encoding='utf-8').strip()
@@ -110,7 +111,8 @@ def validate_python_compatibility() -> None:
 
     # .python-version은 Linux application image의 exact patch SoT다. 실제 운영
     # image를 만드는 Dockerfile은 그 patch와 digest를 함께 고정해야 한다.
-    # CI workflow는 provider가 해석하고 검증하는 실행 정의이므로 공통
+    # CI workflow는 platform별 기준에서 minor만 읽는다. provider가 해석하고
+    # 검증하는 실행 정의이므로 공통
     # validation이 다시 파싱하지 않는다. 그래야 로컬·다른 provider의 검증이 특정
     # CI 파일의 존재나 표현 방식에 종속되지 않는다.
     docker_match = re.search(
@@ -152,6 +154,9 @@ def validate_dependency_locks() -> None:
     """Lock files are static repository contracts, not runtime test cases."""
     runtime = _read_lock_pins('requirements.runtime.lock')
     development = _read_lock_pins('requirements.lock')
+    metal_runtime = read_yaml('configs/macos_mlx_runtime.yaml')['runtime']
+    metal_lock_name = str(metal_runtime['lock_file'])
+    metal = _read_lock_pins(metal_lock_name)
     failures = [
         f'runtime/development lock drift: {name} {version!r} != {development.get(name)!r}'
         for name, version in runtime.items()
@@ -166,6 +171,7 @@ def validate_dependency_locks() -> None:
             development,
             project['dependencies'] + project['optional-dependencies']['contract'],
         ),
+        (metal_lock_name, metal, metal_runtime['packages']),
     )
     for filename, pins, declarations in declared_by_lock:
         for declaration in declarations:

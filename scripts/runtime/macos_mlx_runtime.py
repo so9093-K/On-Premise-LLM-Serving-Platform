@@ -225,8 +225,27 @@ def lock(config: dict[str, Any]) -> None:
             check=True,
             env={**os.environ, "CUSTOM_COMPILE_COMMAND": "make metal-lock"},
         )
+        # 저장소 lock을 바꾸기 전에 실제 Metal host에서 완전 설치와 dependency
+        # 정합성을 확인한다. 생성에 실패하거나 불완전한 lock이면 기존 파일은 그대로다.
+        verification = temporary / "verification"
+        subprocess.run([str(base_python), "-m", "venv", str(verification)], check=True)
+        verification_pip = [
+            str(verification / "bin" / "python"),
+            "-m",
+            "pip",
+            "--disable-pip-version-check",
+        ]
+        subprocess.run(
+            [*verification_pip, "install", "--quiet", f"pip=={pip_version}"],
+            check=True,
+        )
+        subprocess.run(
+            [*verification_pip, "install", "--quiet", "--requirement", str(generated)],
+            check=True,
+        )
+        subprocess.run([*verification_pip, "check"], check=True)
         os.replace(generated, output)
-    print(f"[metal] lock updated: {output.relative_to(ROOT)}")
+    print(f"[metal] lock regenerated and verified: {output.relative_to(ROOT)}")
 
 
 def setup(config: dict[str, Any]) -> None:

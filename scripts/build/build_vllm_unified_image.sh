@@ -16,7 +16,7 @@ fi
 
 source scripts/lib/vllm_unified_image.sh
 VERSION="$(cat VERSION)"
-PYTHON_BIN="${PYTHON_BIN:-$(command -v python3.12 || command -v python3.13 || command -v python3.14 || command -v python3 || command -v python)}"
+PYTHON_BIN="${PYTHON_BIN:-$(command -v python3.12 || command -v python3.13 || command -v python3 || command -v python)}"
 TARGET_PLATFORM="$("$PYTHON_BIN" scripts/models/print_vllm_unified_compatibility.py --key target_platform)"
 case "${TARGET_PLATFORM}:${DAEMON_PLATFORM}" in
   linux/amd64:linux/x86_64|linux/amd64:linux/amd64) ;;

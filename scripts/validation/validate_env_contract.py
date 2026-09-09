@@ -277,7 +277,11 @@ def validate(root: Path = ROOT, strict: bool = False) -> list[str]:
         root / "configs" / "main_model_profiles.yaml"
     ).get("profiles", {})
     services = load_yaml(root / "configs" / "services.yaml").get("services", {})
-    expected_gateway_port = str(services.get("gateway", {}).get("default_host_port", ""))
+    expected_service_ports = {
+        str(service["host_env_port"]): str(service["default_host_port"])
+        for service in services.values()
+        if isinstance(service, dict) and service.get("host_env_port")
+    }
 
     for filename, cfg in env_examples.items():
         file_path = root / filename
@@ -325,13 +329,12 @@ def validate(root: Path = ROOT, strict: bool = False) -> list[str]:
                 f"{static_profile!r}"
             )
 
-        gateway_port = values.get("GATEWAY_PORT", "").strip()
-        if "GATEWAY_PORT" in values and gateway_port != expected_gateway_port:
-            violations.append(
-                f"{filename}: GATEWAY_PORT={gateway_port} does not match "
-                "configs/services.yaml gateway.default_host_port="
-                f"{expected_gateway_port}"
-            )
+        for port_key, expected_port in expected_service_ports.items():
+            if port_key in values and values[port_key].strip() != expected_port:
+                violations.append(
+                    f"{filename}: {port_key}={values[port_key].strip()} does not match "
+                    f"configs/services.yaml default_host_port={expected_port}"
+                )
 
     if strict:
         # exposure profile마다 필요한 env key 묶음이 빠지지 않았는지 확인한다.

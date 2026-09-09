@@ -75,7 +75,7 @@ make down
 
 ### 애플리케이션만 실행
 
-Gateway와 Risk Adapter를 로컬 Python 프로세스로 실행한다. Python `>=3.12,<3.15`가 필요하며 Docker와 GPU는 필요하지 않다. `setup-dev`는 기존 `.venv`를 재사용하고 runtime 설정과 실행 중인 서비스를 변경하지 않는다.
+Gateway와 Risk Adapter를 로컬 Python 프로세스로 실행한다. Python `>=3.12,<3.14`가 필요하며 Docker와 GPU는 필요하지 않다. `setup-dev`는 기존 `.venv`를 재사용하고 runtime 설정과 실행 중인 서비스를 변경하지 않는다.
 
 ```bash
 make setup-dev

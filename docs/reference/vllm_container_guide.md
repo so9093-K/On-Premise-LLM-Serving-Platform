@@ -101,7 +101,7 @@ Unified 이미지의 기반 vLLM 이미지와 dependency 조합은 `configs/vllm
 
 ## 3. 작은 모델 실행
 
-Standalone Container 이름은 `vllm-quickstart`, Host port는 `9410`을 사용한다.
+Standalone Container 이름은 `vllm-quickstart`, Host port는 `19401`을 사용한다. 플랫폼의 observability 기본 대역 `9410~9419`와 겹치지 않는 진단용 예시값이다.
 
 API는 테스트 Host 내부에서만 접근할 수 있도록 `127.0.0.1`에 bind한다.
 
@@ -110,7 +110,7 @@ docker run -d --rm \
   --name vllm-quickstart \
   --gpus all \
   --ipc=host \
-  -p 127.0.0.1:9410:8000 \
+  -p 127.0.0.1:19401:8000 \
   -v "$HF_CACHE_DIR:/root/.cache/huggingface" \
   "$VLLM_IMAGE" \
   --model Qwen/Qwen3-0.6B \
@@ -128,7 +128,7 @@ docker run -d --rm \
 |---|---|---|
 | Container | `vllm-quickstart` | 예제 Container 식별자 |
 | GPU | `--gpus all` | 현재 Host의 GPU를 Container에 연결 |
-| Host port | `127.0.0.1:9410` | Host 내부 테스트 API 주소 |
+| Host port | `127.0.0.1:19401` | Host 내부 테스트 API 주소 |
 | Container port | `8000` | vLLM API Server port |
 | Model | `Qwen/Qwen3-0.6B` | 기본 동작 확인용 작은 모델 |
 | Served model | `quickstart-model` | API 요청에서 사용할 모델 이름 |
@@ -177,7 +177,7 @@ nvidia-smi
 다른 Terminal에서 vLLM health endpoint를 호출한다.
 
 ```bash
-curl -fsS http://127.0.0.1:9410/health >/dev/null \
+curl -fsS http://127.0.0.1:19401/health >/dev/null \
   && echo "vLLM health: OK"
 ```
 
@@ -192,7 +192,7 @@ vLLM health: OK
 OpenAI-compatible model 목록을 확인한다.
 
 ```bash
-curl -fsS http://127.0.0.1:9410/v1/models \
+curl -fsS http://127.0.0.1:19401/v1/models \
   | python3 -m json.tool
 ```
 
@@ -217,7 +217,7 @@ Model Load
 Qwen3 계열의 reasoning 동작을 단순화하기 위해 요청의 `chat_template_kwargs`에 `enable_thinking: false`를 적용한다.
 
 ```bash
-curl -fsS http://127.0.0.1:9410/v1/chat/completions \
+curl -fsS http://127.0.0.1:19401/v1/chat/completions \
   -H 'Content-Type: application/json' \
   -d '{
     "model": "quickstart-model",
@@ -328,10 +328,10 @@ GPU 메모리 사용량은 모델 로딩과 KV Cache 확보 가능 범위에 직
 ### Port 상태
 
 ```bash
-ss -ltnp | grep ':9410'
+ss -ltnp | grep ':19401'
 ```
 
-Host port는 사용 가능한 값을 선택한다. `9410`을 다른 값으로 변경한 경우 이후 `curl` 주소에도 같은 port를 적용한다.
+Host port는 사용 가능한 값을 선택한다. `19401`을 다른 값으로 변경한 경우 이후 `curl` 주소에도 같은 port를 적용한다.
 
 ---
 
@@ -351,7 +351,7 @@ Container 정리 상태를 확인한다.
 docker ps -a --filter name=vllm-quickstart
 ```
 
-출력이 없으면 Container 정리가 완료된 상태다. Container 종료와 함께 `127.0.0.1:9410`의 port binding이 해제되고 vLLM이 사용하던 GPU 메모리도 반환된다.
+출력이 없으면 Container 정리가 완료된 상태다. Container 종료와 함께 `127.0.0.1:19401`의 port binding이 해제되고 vLLM이 사용하던 GPU 메모리도 반환된다.
 
 GPU 상태를 다시 확인한다.
 
@@ -371,7 +371,7 @@ docker image inspect "$VLLM_IMAGE" --format '{{.RepoTags}} {{.Size}}'
 | 항목 | 종료 후 상태 | 용도 |
 |---|---|---|
 | Container | 삭제 | 실행 단위 정리 |
-| Host port `9410` | 해제 | 다음 실행에서 재사용 가능 |
+| Host port `19401` | 해제 | 다음 실행에서 재사용 가능 |
 | GPU 메모리 | 반환 | 다른 Runtime에서 사용 가능 |
 | 모델 Cache | 유지 | 동일 모델 재실행 시 다운로드 재사용 |
 | Unified vLLM Image | 유지 | 이후 Container 실행과 프로젝트 Runtime에서 재사용 |

@@ -8,7 +8,7 @@ COMPOSE_FILE="${COMPOSE_FILE:-ops/compose/full-stack.private-network.yaml}"
 
 PYTHON_BIN="${PYTHON_BIN:-$(command -v python3.12 || command -v python3 || command -v python || true)}"
 if [[ -z "$PYTHON_BIN" ]]; then
-  echo "[preflight] fail: Python not found. Install Python >=3.12,<3.15 before compose preflight." >&2
+  echo "[preflight] fail: Python not found. Install Python >=3.12,<3.14 before compose preflight." >&2
   exit 1
 fi
 

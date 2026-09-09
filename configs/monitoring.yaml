@@ -6,10 +6,8 @@ monitoring_stack:
     rule_files:
     - /etc/prometheus/rules/model_runtime.rules.yml
   dcgm_exporter:
-    internal_port: 9400
     default_metrics_path: /metrics
   cadvisor:
-    internal_port: 8080
     default_metrics_path: /metrics
   # native MLX-VLM의 JSON metric을 Prometheus exposition으로 옮기는 내부 exporter다.
   # ops/compose/overrides/static.macos-metal.yaml이 정의하고

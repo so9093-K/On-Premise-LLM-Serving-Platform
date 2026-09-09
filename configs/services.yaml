@@ -8,6 +8,9 @@ version: 0.1.0
 # host_env_port/default_host_port: host에 공개할 때 사용할 포트 환경변수와 기본값이다.
 # host_env_bind/default_bind: host 공개 주소 환경변수와 기본값이다. 실제 공개 여부는
 # exposure profile이 결정하며, 여기의 default_bind만으로 포트가 열리지는 않는다.
+# 기본 host port는 application/model API에 9400~9409, observability endpoint에
+# 9410~9419를 사용한다. Container 내부 port는 upstream 고유값을 유지할 수 있으며
+# 서비스별 network namespace가 다르므로 서로 같아도 충돌하지 않는다.
 # categories: exposure profile과 운영 도구가 서비스 역할을 분류하는 식별자다.
 #   gateway/public_entrypoint = 외부 API 진입점
 #   model_runtime/vllm_runtime = 모델 runtime, risk_model_runtime = risk 전용 모델
@@ -110,7 +113,7 @@ services:
     categories:
       - visualization
 
-  # NVIDIA GPU metric exporter. Compose 내부 포트 9400과 host 기본 포트 9412는 의도적으로 다르다.
+  # NVIDIA GPU metric exporter. Upstream 내부 포트 9400과 host 기본 포트 9412는 의도적으로 다르다.
   dcgm_exporter:
     compose_service: dcgm-exporter
     container_port: 9400

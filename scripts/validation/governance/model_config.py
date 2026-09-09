@@ -111,13 +111,37 @@ def validate_deploy_profiles() -> None:
 
 
 def validate_ports() -> None:
-    """모델 런타임 host port가 서비스 레지스트리와 같은 값인지 확인한다.
+    """서비스 host port 정책과 runtime projection이 레지스트리와 같은지 확인한다.
 
     configs/model_serving.yaml의 models.X.port는 vLLM이 --port로 받는 값이고,
     configs/services.yaml은 같은 포트를 host publish 관점에서 한 벌 더 들고 있다.
     container_port 일치는 load_runtime_topology()가 소유하므로 여기서 반복하지 않는다.
     """
+    services = read_yaml('configs/services.yaml')['services']
     host_ports = service_default_host_ports()
+    owners_by_port: dict[int, str] = {}
+    application_categories = {'gateway', 'risk_adapter', 'model_runtime'}
+    observability_categories = {'operations_endpoint', 'visualization'}
+    for service_id, service in services.items():
+        host_port = int(service['default_host_port'])
+        previous = owners_by_port.get(host_port)
+        if previous is not None:
+            raise SystemExit(
+                f'duplicate default_host_port {host_port}: {previous} and {service_id}'
+            )
+        owners_by_port[host_port] = str(service_id)
+        categories = set(service.get('categories', []))
+        if categories & application_categories and not 9400 <= host_port <= 9409:
+            raise SystemExit(
+                f'{service_id} application/model host port must be in 9400..9409, got {host_port}'
+            )
+        if categories & observability_categories and not 9410 <= host_port <= 9419:
+            raise SystemExit(
+                f'{service_id} observability host port must be in 9410..9419, got {host_port}'
+            )
+    if host_ports.get('gateway') != 9400:
+        raise SystemExit(f'gateway default_host_port must remain 9400, got {host_ports.get("gateway")}')
+
     model_serving = read_yaml('configs/model_serving.yaml')
     checks = {}
     for key, cfg in model_serving['models'].items():
@@ -126,6 +150,14 @@ def validate_ports() -> None:
     for key, value in checks.items():
         if host_ports.get(key) != value:
             raise SystemExit(f'port mismatch: {key} default_host_port expected {value}, got {host_ports.get(key)}')
+
+    metal_port = int(read_yaml('configs/macos_mlx_runtime.yaml')['runtime']['port'])
+    main_runtime_port = int(services['main_llm_vllm']['container_port'])
+    if metal_port != main_runtime_port:
+        raise SystemExit(
+            'macos_mlx_runtime runtime.port must match '
+            f'services.main_llm_vllm.container_port {main_runtime_port}, got {metal_port}'
+        )
 
 
 def validate_risk_detector_generation_budget() -> None:

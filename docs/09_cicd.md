@@ -31,7 +31,7 @@ GitHub의 app/contract workflow는 다음 두 환경을 독립적으로 확인�
 - Ubuntu: Linux application·shell·contract 호환성
 - macOS: 로컬 개발 환경의 application·contract 호환성
 
-두 환경 모두 `.python-version`의 major.minor에 맞는 runner 제공 Python을 사용한다.
+Ubuntu는 `.python-version`, macOS는 `configs/macos_mlx_runtime.yaml`의 major.minor에 맞는 runner 제공 Python을 사용한다.
 Linux 운영 image의 exact Python patch와 base digest는 `Dockerfile`이 별도로 소유한다.
 
 이 workflow는 다음 작업을 수행하지 않는다.

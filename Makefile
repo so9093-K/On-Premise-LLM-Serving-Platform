@@ -5,7 +5,7 @@ CURRENT_VERSION := $(shell cat VERSION 2>/dev/null || echo 0.0.0)
 
 # bootstrap이 만든 lock-file 기반 .venv가 있으면 로컬 Make 명령은 이를 우선한다.
 # CI와 호출자가 PYTHON_BIN으로 지정한 interpreter는 항상 그보다 우선한다.
-PYTHON ?= $(if $(PYTHON_BIN),$(PYTHON_BIN),$(if $(wildcard $(CURDIR)/.venv/bin/python),$(CURDIR)/.venv/bin/python,$(shell command -v python3.12 || command -v python3.13 || command -v python3.14 || command -v python3 || command -v python)))
+PYTHON ?= $(if $(PYTHON_BIN),$(PYTHON_BIN),$(if $(wildcard $(CURDIR)/.venv/bin/python),$(CURDIR)/.venv/bin/python,$(shell command -v python3.12 || command -v python3.13 || command -v python3 || command -v python)))
 export PYTHON_BIN := $(PYTHON)
 AUTH_ENV ?= $(if $(ENV_FILE),$(ENV_FILE),$(ENV))
 AUTH_ENV_ARG = $(if $(AUTH_ENV),--env $(AUTH_ENV),)

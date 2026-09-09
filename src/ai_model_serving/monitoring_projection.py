@@ -112,12 +112,16 @@ def prometheus_scrape_config_document(
             {
                 "job_name": "dcgm-exporter",
                 "metrics_path": dcgm.get("default_metrics_path", "/metrics"),
-                "static_configs": [{"targets": [f"{dcgm_service}:{dcgm.get('internal_port', 9400)}"]}],
+                "static_configs": [
+                    {"targets": [f"{dcgm_service}:{services['dcgm_exporter']['container_port']}"]}
+                ],
             },
             {
                 "job_name": "cadvisor",
                 "metrics_path": cadvisor.get("default_metrics_path", "/metrics"),
-                "static_configs": [{"targets": [f"{cadvisor_service}:{cadvisor.get('internal_port', 8080)}"]}],
+                "static_configs": [
+                    {"targets": [f"{cadvisor_service}:{services['cadvisor']['container_port']}"]}
+                ],
             },
         ],
     }

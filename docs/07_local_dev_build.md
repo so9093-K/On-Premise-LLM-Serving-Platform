@@ -45,15 +45,15 @@ Runtime 구조와 실행 모드는 [4. 실행 환경과 모드](./04_runtime_mod
 
 | 작업 | 주요 요구사항 |
 |---|---|
-| Application 개발·검증·테스트 | Python `>=3.12,<3.15` |
+| Application 개발·검증·테스트 | Python `>=3.12,<3.14` |
 | Platform Image Build | Docker CLI / Docker daemon. 로컬 기본 target은 daemon architecture |
 | Full-stack 실행 | Bash 4 이상, native Linux amd64 Docker daemon, NVIDIA GPU/driver/Container Toolkit |
 | Unified vLLM Image Build | `vllm_unified_build.yaml` target과 같은 native Docker daemon. CUDA/NVIDIA image 전용 |
 | Model 다운로드 | Hugging Face token 및 모델별 사용 조건 |
 
-프로젝트가 지원하는 Python 범위는 `pyproject.toml`의 `requires-python`을 기준으로 하며, 현재 CPython 3.12, 3.13, 3.14를 지원한다. 오래된 Python에서도 먼저 오류를 안내할 수 있도록 bootstrap guard에도 같은 범위가 있고, `make validate`가 두 값의 일치를 확인한다.
+프로젝트가 지원하는 Python 범위는 `pyproject.toml`의 `requires-python`을 기준으로 하며, 현재 CPython 3.12와 3.13을 지원한다. 오래되거나 아직 채택하지 않은 Python에서도 먼저 오류를 안내할 수 있도록 bootstrap guard에도 같은 범위가 있고, `make validate`가 두 값의 일치를 확인한다.
 
-Linux 운영 image의 기준은 `.python-version`에 고정된 Python patch와 Dockerfile의 base image digest다. GitHub app/contract CI는 그 patch에서 major.minor를 계산하고 Ubuntu와 macOS ARM64 runner가 제공하는 patch를 사용한다. 3.13과 3.14도 application/control-plane 범위에서는 지원하지만, vLLM·PyTorch·CUDA wheel/ABI와 GPU driver 조합은 minor version마다 다르므로 full-stack 운영 지원은 해당 minor의 `make runtime-validate` 결과로 확인한다.
+Linux 운영 image의 기준은 `.python-version`에 고정된 Python 3.12 patch와 Dockerfile의 base image digest다. macOS의 application 개발과 native Metal runtime은 `configs/macos_mlx_runtime.yaml`에 고정된 Python 3.13 patch를 사용한다. 애플리케이션 코드는 두 minor에서 동작하지만, Linux GPU/vLLM 운영 재현성과 macOS MLX 재현성은 각 환경의 별도 lock·runtime 검증으로 확인한다.
 
 로컬 Make 명령은 프로젝트의 `.venv`가 존재하면 해당 Python을 우선 사용한다. 호출자가 `PYTHON_BIN`을 지정한 경우에는 지정된 interpreter를 사용한다.
 
@@ -62,13 +62,13 @@ Linux 운영 image의 기준은 `.python-version`에 고정된 Python patch와 D
 애플리케이션 환경 준비와 정적 검증·테스트에는 Bash 4를 강제하지 않는다.
 
 ```bash
-brew install python@3.12
-make setup-dev
+brew install python@3.13
+make setup-dev PYTHON_BIN="$(brew --prefix python@3.13)/bin/python3.13"
 make validate
 make test
 ```
 
-Ubuntu에서는 지원 Python과 해당 버전의 `venv` 패키지를 준비한 뒤 같은 Make 명령을 사용한다. `.python-version`은 Linux 운영 기준 patch이며, GitHub의 cross-platform app/contract CI는 여기서 계산한 minor를 사용한다. Homebrew의 versioned Python formula도 설치 시점에 제공되는 patch를 사용하므로 운영 image의 exact patch/digest 검증과 구분한다.
+Ubuntu에서는 `.python-version`과 같은 Python 및 해당 버전의 `venv` 패키지를 준비한 뒤 같은 Make 명령을 사용한다. GitHub app/contract CI도 Ubuntu는 `.python-version`, macOS는 `configs/macos_mlx_runtime.yaml`에서 계산한 minor를 사용한다. Runner와 Homebrew는 해당 minor의 제공 가능한 patch를 사용하므로 runtime의 exact patch/digest 검증과 구분한다.
 
 별도로 설치한 Python을 쓰려면 `make setup-dev PYTHON_BIN=/path/to/python`으로 지정한다.
 

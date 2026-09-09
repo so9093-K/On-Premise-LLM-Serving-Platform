@@ -6,8 +6,8 @@ import platform
 import sys
 
 MIN_VERSION = (3, 12)
-MAX_EXCLUSIVE = (3, 15)
-SUPPORTED_SPECIFIER = ">=3.12,<3.15"
+MAX_EXCLUSIVE = (3, 14)
+SUPPORTED_SPECIFIER = ">=3.12,<3.14"
 SUPPORTED_LABEL = f"Python {SUPPORTED_SPECIFIER}"
 
 
@@ -38,7 +38,7 @@ def main() -> None:
             file=sys.stderr,
         )
         print(
-            "[python] Use Python 3.12, 3.13, or 3.14. Production full-stack GPU/vLLM validation is per minor version.",
+            "[python] Use Python 3.12 or 3.13. Linux production uses the pinned 3.12 image; native Metal uses its configured 3.13 patch.",
             file=sys.stderr,
         )
         raise SystemExit(2)

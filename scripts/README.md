@@ -68,7 +68,7 @@ make down
 | `lib/gateway_runtime_state.sh` | 배포와 `compose-up`이 Gateway에 초기 Runtime 지시를 전달하고 상태 디렉터리 소유권을 준비하는 공통 규칙을 제공한다. `runtime-state.json` 자체는 쓰지 않는다. |
 | `compose/compose_service_diff.py` | 두 Release의 렌더된 Compose 정의를 비교해 실제로 변경된 서비스만 출력한다. Release 절대경로 차이는 제거한다. |
 | `build/reset_version.py` | 프로젝트 버전을 `lib/version_refs.py`가 선언한 모든 자리에 한 번에 반영한다. 선언된 자리가 파일에서 사라졌으면 조용히 넘기지 않고 실패한다. |
-| `build/check_python.py` | 현재 interpreter가 `>=3.12,<3.15`인지 fail-fast로 확인한다. |
+| `build/check_python.py` | 현재 interpreter가 `>=3.12,<3.14`인지 fail-fast로 확인한다. |
 | `ops/up_services.sh` | 로컬 app-only Gateway/Risk Adapter를 실행하고 `/health`를 기다린다. |
 | `ops/ready_local.sh` | app-only `/health` 상태를 strict하게 확인한다. app service가 내려가 있으면 실패하며 vLLM은 요구하지 않는다. |
 | `ops/ready_full.sh` | strict `/ready`와 smoke test를 실행한다. 실제 vLLM runtime이 필요하다. |
