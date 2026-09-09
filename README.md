@@ -1,4 +1,4 @@
-# AI 모델 서빙 플랫폼
+# On-Premise-LLM-Serving-Platform
 
 GPU 기반 AI 모델을 **OpenAI-compatible API**로 제공하고, Chat, Embedding, Retrieval, Risk Detection, 모델 운영, 관측과 배포를 하나의 플랫폼에서 관리한다.
 
@@ -201,3 +201,9 @@ assets/     아키텍처·문서 이미지
 ## 버전과 변경 이력
 
 현재 버전은 [`VERSION`](VERSION)을 기준으로 관리한다. 변경 이력은 [CHANGELOG](CHANGELOG.md)에서 확인한다.
+
+---
+
+## Contributors
+
+- **Codex (OpenAI)** — AI-assisted project review, implementation, and validation
