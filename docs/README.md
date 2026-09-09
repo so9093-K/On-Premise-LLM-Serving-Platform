@@ -1,6 +1,6 @@
 # AI Model Serving Platform
 
-AI Model Serving Platform의 구조와 요청 처리, Runtime 운영, 개발·검증, CI/CD, 배포, 관측성, 장애 대응 및 변경 절차를 정리합니다.
+AI Model Serving Platform의 구조와 요청 처리, Runtime 운영, 개발·검증, 자동화 경계, 배포, 관측성, 장애 대응 및 변경 절차를 정리합니다.
 
 외부 API의 요청·응답 형식과 사용 예시는 [API 인터페이스](reference/api_reference.md)에서, `/docs`·`/redoc`·`/openapi.json`의 운영 경계는 [API 문서 화면 Reference](reference/api_docs_reference.md)에서 확인할 수 있습니다.
 
@@ -81,15 +81,13 @@ AI Model Serving Platform의 구조와 요청 처리, Runtime 운영, 개발·�
 - 실제 모델 실행 검증
 - 변경 유형별 검증 범위
 
-### [9. CI/CD](09_cicd.md)
+### [9. 자동화 경계](09_cicd.md)
 
-- 변경부터 배포까지의 흐름
-- 코드와 설정 검증
-- 애플리케이션 이미지 빌드
-- 모델 실행 이미지 빌드
-- 빌드 결과와 버전 식별
-- 배포 실행
-- Pipeline 실패 확인
+- 현재 GitHub application·contract 검증
+- 검증·빌드·publish·배포의 책임 구분
+- Provider-neutral build·deploy 진입점
+- Image builder와 GPU runtime의 자원 경계
+- 미래 자동화 추가 원칙
 
 ### [10. 배포](10_deployment.md)
 
@@ -131,7 +129,7 @@ AI Model Serving Platform의 구조와 요청 처리, Runtime 운영, 개발·�
 - 모델 실행 환경 변경
 - 네트워크 구성 변경
 - 모니터링 변경
-- CI/CD 및 배포 변경
+- 자동화 및 배포 변경
 - 변경 후 검증과 문서 반영
 
 ### [API 인터페이스](reference/api_reference.md)

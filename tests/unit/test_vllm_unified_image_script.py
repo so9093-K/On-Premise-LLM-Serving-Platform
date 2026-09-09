@@ -13,7 +13,7 @@ import yaml
 
 from scripts.build.pin_local_vllm_image import pin_matching_env_values
 
-_ISOLATED_KEYS = ("VLLM_IMAGE", "RISK_VLLM_IMAGE", "RISK_VLLM_BASE_IMAGE")
+_ISOLATED_KEYS = ("VLLM_IMAGE", "RISK_VLLM_IMAGE", "VLLM_BASE_IMAGE")
 
 
 def run_bash(repo: Path, script: str, *, env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
@@ -96,7 +96,7 @@ def test_vllm_unified_image_resolver_default_base_matches_canonical_image_config
         repo,
         'source scripts/lib/vllm_unified_image.sh; '
         'vllm_unified_resolve_images .env; '
-        'printf "%s\\n" "$RISK_VLLM_BASE_IMAGE_RESOLVED"',
+        'printf "%s\\n" "$VLLM_BASE_IMAGE_RESOLVED"',
     )
     assert result.returncode == 0, result.stderr
     assert result.stdout.strip() == _canonical_base_image()

@@ -143,7 +143,7 @@ Embedding, Retrieval, Risk Detection, Streaming, 인증 방식과 전체 요청�
 같은 `validate`, `test` 단계를 사용한다. 운영 이미지는 clean commit에서 만들고 immutable
 digest로 배포한다. 로컬 image는 변경 중인 코드를 확인하는 개발 산출물이며 운영 artifact를 대체하지 않는다.
 
-상세 Pipeline과 실행 조건은 [CI/CD](docs/09_cicd.md), Release 적용과 복구 절차는 [배포](docs/10_deployment.md)에서 설명한다.
+현재 자동 검증과 미래 publish·deploy 연결 경계는 [자동화 경계](docs/09_cicd.md), Release 적용과 복구 절차는 [배포](docs/10_deployment.md)에서 설명한다.
 
 ---
 
@@ -189,7 +189,7 @@ assets/     아키텍처·문서 이미지
 | [API 인터페이스](docs/reference/api_reference.md) | API 계약, 요청·응답, 인증, 예제 |
 | [vLLM Container 실행 가이드](docs/reference/vllm_container_guide.md) | vLLM Container 직접 실행과 API 요청 |
 | [설정 체계](docs/05_configuration.md) | 설정 구조와 적용 방식 |
-| [CI/CD](docs/09_cicd.md) | Pipeline과 이미지 생성·배포 연결 |
+| [자동화 경계](docs/09_cicd.md) | 현재 GitHub 검증과 미래 publish·deploy 연결 원칙 |
 | [배포](docs/10_deployment.md) | Release 적용과 실패 복구 |
 | [관측성](docs/11_observability.md) | 요청, Runtime, GPU, 로그 관측 |
 | [운영 관리 및 장애 대응](docs/12_operations.md) | 운영 점검과 장애 진단·복구 |

@@ -23,29 +23,25 @@ loudly instead of shipping silently broken.
 
 ## Build & activate
 
-1. Push a `release` commit that changes a vLLM image input. CI automatically
-   runs **`build-vllm-derived`**. Use `BUILD_VLLM_DERIVED=1` only for an
-   intentional rebuild without a new input change or for a tag pipeline.
-2. **`build-vllm-derived`** builds & pushes `vllm-unified` and writes the
-   immutable digest to the **`build/vllm-unified-image.env`** artifact.
-3. **`deploy-gpu-175`** reads that digest, switches to full deployment, pre-pulls
-   the image, and writes the
-   same pin to `VLLM_IMAGE`, `EMBEDDING_KO_VLLM_IMAGE`, `RISK_VLLM_IMAGE`, and
-   `AUDIO_VLLM_IMAGE` in the 175 `.env`. `main_model_profiles.yaml` uses the
-   latter for the 12B profile override.
+Build the image on a native Linux amd64 Docker daemon. The output name is an
+explicit build parameter and is not read from the runtime `.env`.
 
-Manual fallback (CI unavailable):
 ```bash
-RISK_VLLM_IMAGE='gitlab.wizvera.com:4567/acl-ai-system/acl-ai-gateway/vllm-unified:<tag>' \
+VLLM_UNIFIED_BUILD_IMAGE='registry.example.com/project/vllm-unified:<tag>' \
 make build-vllm-unified-image
-docker push gitlab.wizvera.com:4567/acl-ai-system/acl-ai-gateway/vllm-unified:<tag>
+docker push registry.example.com/project/vllm-unified:<tag>
 ```
+
+운영 승격은 push 결과의 `name@sha256:...` digest를 사용한다. 같은 digest를
+`VLLM_IMAGE`, `EMBEDDING_KO_VLLM_IMAGE`, `RISK_VLLM_IMAGE`,
+`AUDIO_VLLM_IMAGE`에 적용하면 모든 runtime이 같은 검증된 image를 사용한다.
+Registry publish와 원격 적용은 특정 CI provider의 책임으로 저장소에 고정하지 않는다.
 
 기본 base image와 호환성 pin은 `configs/vllm_unified_build.yaml`에서 읽는다. 검증용
 base 교체가 필요한 경우에만 그 빌드 한 번에 한정해 immutable digest를 넘긴다.
 
 ```bash
-RISK_VLLM_BASE_IMAGE='vllm/vllm-openai@sha256:<digest>' make build-vllm-unified-image
+VLLM_BASE_IMAGE='vllm/vllm-openai@sha256:<digest>' make build-vllm-unified-image
 ```
 
 digest가 아닌 값(태그 등)은 빌드가 거부한다. 이 키는 `.env`에서 읽지 않으며

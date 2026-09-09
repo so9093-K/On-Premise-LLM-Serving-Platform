@@ -23,7 +23,7 @@ INLINE_CACHE="${PLATFORM_IMAGE_INLINE_CACHE:-0}"
 TARGET_PLATFORM="${PLATFORM_BUILD_PLATFORM:-}"
 PROJECT_BUILD_NO_CACHE="${PROJECT_BUILD_NO_CACHE:-0}"
 
-SOURCE_REVISION="${CI_COMMIT_SHA:-unknown}"
+SOURCE_REVISION="unknown"
 SOURCE_STATE="unknown"
 if command -v git >/dev/null 2>&1 && git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   SOURCE_REVISION="$(git rev-parse HEAD)"
@@ -36,8 +36,8 @@ fi
 EFFECTIVE_PLATFORM="${TARGET_PLATFORM:-$DAEMON_PLATFORM}"
 
 # 로컬과 CI는 이 스크립트로 같은 Dockerfile build와 image 내부 app 초기화를
-# 확인한다. 로컬 기본값은 Docker daemon의 architecture이고, GitLab 운영 build는
-# PLATFORM_BUILD_PLATFORM=linux/amd64를 명시한 뒤 registry digest를 수집한다.
+# 확인한다. 로컬 기본값은 Docker daemon의 architecture이고, 운영 artifact를 만드는
+# 외부 자동화는 PLATFORM_BUILD_PLATFORM=linux/amd64를 명시한 뒤 registry digest를 수집한다.
 build_args=()
 if [[ -n "$TARGET_PLATFORM" ]]; then
   build_args+=(--platform "$TARGET_PLATFORM")

@@ -12,7 +12,6 @@ vllm_unified_image_source_paths() {
     ops/patches/apply_gemma4_streaming_reasoning_patch.py \
     ops/patches/transformers_llama_head_dim_guard.py \
     scripts/build/build_vllm_unified_image.sh \
-    scripts/ci/build_vllm_derived_images.sh \
     scripts/models/print_vllm_unified_compatibility.py
 }
 
@@ -41,8 +40,8 @@ deploy_changed_files() {
   done
 }
 
-deploy_has_fresh_unified_image_artifact() {
-  # 새 unified 이미지가 이번 pipeline의 build artifact에서 왔는지 호출자가 보장한다.
+deploy_has_fresh_unified_image() {
+  # 새 unified 이미지가 현재 release source에서 빌드·publish됐는지 호출자가 보장한다.
   # 여기서는 mutable tag/current .env 값과 구분하기 위해 immutable digest 모양만
   # 허용한다. Dockerfile·patch 변경 배포에서 기존 이미지 ref를 이 값으로 넘겨
   # stale-image 가드를 우회하지 않게 하는 최소 정책이다.

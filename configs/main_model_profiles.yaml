@@ -645,8 +645,8 @@ description: |
   의식하고 있어야 한다 -- 별도 결정 없이는 이 상태 유지.
 
   2026-07-25, ${AUDIO_VLLM_IMAGE}가 resolve하는 image 값이 이제 Gemma4 멀티모달 패치 +
-  Kanana Llama head_dim 패치가 병합된 vllm-unified 이미지를 가리킨다(build-vllm-derived가
-  CI에서 실제로 빌드/push함). 실제 이 이미지로 재부팅 -- healthy, 텍스트 채팅 정상,
+  Kanana Llama head_dim 패치가 병합된 vllm-unified 이미지를 가리킨다(당시 build
+  automation에서 실제로 빌드/push함). 실제 이 이미지로 재부팅 -- healthy, 텍스트 채팅 정상,
   이미지 입력도 정상 응답(패치가 여전히 유효함을 확인).
 
   검증값: gpu=NVIDIA RTX 6000 Ada Generation, compute_capability=8.9, vram_mib=49140,

@@ -7,7 +7,7 @@
 # 호출하고, 실패 시 반환 코드를 그대로 배포 실패로 처리한다.
 
 deploy_resolve_mode() {
-  # 이번 pipeline이 만든 unified image는 새 digest를 모든 vLLM runtime에 같이
+  # 새로 빌드·publish한 unified image는 그 digest를 모든 vLLM runtime에 같이
   # 적용해야 한다. 사용자가 rolling을 요청했더라도 image를 빌드한 사실이 더
   # 구체적인 의도이므로 full로 승격한다. 일반 full/rolling은 기존 pin을 유지한다.
   if [[ -n "${VLLM_UNIFIED_IMAGE_TO_DEPLOY:-}" ]]; then

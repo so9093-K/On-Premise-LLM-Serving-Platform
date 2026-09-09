@@ -67,7 +67,7 @@ Runtime 적용 / 배포
 | 서비스 / 포트 | `configs/services.yaml` | Compose, 노출, 모니터링 | 생성 파일 + Compose 확인 |
 | 네트워크 / 노출 | Exposure profile, Compose | Host 공개 범위 | Compose + full-stack |
 | 모니터링 | `configs/monitoring.yaml`, `ops/` | Metrics, Logs, Dashboard | 생성 파일 + Dashboard 확인 |
-| CI/CD | `.github/workflows/`, `.gitlab-ci.yml`, `scripts/ci/` | GitHub app·contract 검증 / Ubuntu GitLab build·deploy | 해당 Pipeline 단계 확인 |
+| 자동화 경계 | `.github/workflows/`, `scripts/build/`, `scripts/deploy/` | GitHub app·contract 검증과 provider-neutral build·deploy 진입점 | `make check` + 변경한 진입점 확인 |
 
 ---
 
@@ -286,7 +286,8 @@ Target model cache를 미리 준비할 수 있다.
 make main-model-prepare PROFILE=<profile-id>
 ```
 
-Release Pipeline에서는 Main Model profile 또는 관련 compatibility 입력이 변경된 경우 Hugging Face profile 검증이 추가로 실행된다. 실제 모델 전환 흐름은 [6. 모델 운영](./06_model_operations.md)을 따른다.
+Main Model profile 또는 관련 compatibility 입력이 변경되면 pinned Transformers/Hugging
+Face 환경에서 profile config를 확인하고 실제 모델 전환 흐름은 [6. 모델 운영](./06_model_operations.md)을 따른다.
 
 ---
 
@@ -330,9 +331,10 @@ make ready-full
 make runtime-validate
 ```
 
-`release` Pipeline에서는 Unified vLLM build 입력 변경 시 `build-vllm-derived`가 새 image digest를 생성한다. 자동 변경 감지 범위 밖의 명시적인 재빌드는 `BUILD_VLLM_DERIVED=1` Pipeline을 사용한다.
-
-CI artifact와 배포 전달 방식은 [9. CI/CD](./09_cicd.md), 실제 적용과 완료 기준은 [10. 배포](./10_deployment.md)를 따른다.
+현재 registry publish 자동화는 정의하지 않는다. Unified vLLM build 입력이 바뀌면 native
+Linux amd64 환경에서 새 image를 빌드하고, 운영 승격 시 publish 결과의 immutable digest를
+배포 입력으로 사용한다. 자동화 연결 원칙은 [9. 자동화 경계](./09_cicd.md), 실제 적용과 완료
+기준은 [10. 배포](./10_deployment.md)를 따른다.
 
 ---
 
@@ -443,30 +445,31 @@ make runtime-validate
 
 ---
 
-## 13.9 CI/CD와 배포 로직 변경
+## 13.9 자동화와 배포 로직 변경
 
-Pipeline 변경은 **검증 → Build → Artifact → Deploy** 연결을 기준으로 확인한다.
+자동화 변경은 **검증 → Build → Publish → Deploy**의 책임이 섞이지 않는지 확인한다.
 
 주요 위치:
 
-- `.gitlab-ci.yml`
+- `.github/workflows/`
 - `scripts/validation/`
 - `scripts/build/`
-- `scripts/ci/`
+- `scripts/deploy/`
 
 ```text
-Pipeline Rule / Script
+Workflow / Script
         ↓
 Validate / Test
         ↓
 Build Artifact
         ↓
-Image Digest
+Publish된 Image Digest
         ↓
 Deploy
 ```
 
-Shell script syntax와 repository contract는 `make validate`에서 확인한다.
+Shell script syntax와 repository contract는 `make validate`에서 확인한다. Workflow 문법은
+GitHub가 소유하며 별도의 로컬 YAML parser나 테스트를 추가하지 않는다.
 
 ```bash
 make validate
@@ -479,7 +482,10 @@ make check
 make build
 ```
 
-배포 스크립트 변경은 Rolling / Full 결정, Release 활성화, 변경 서비스 계산, Runtime Profile 적용, Readiness와 복구 흐름에 영향을 줄 수 있다. 대상 환경 검증은 [10. 배포](./10_deployment.md)의 완료 기준까지 이어진다.
+배포 스크립트 변경은 Rolling / Full 결정, Release 활성화, 변경 서비스 계산, Runtime Profile
+적용, Readiness와 복구 흐름에 영향을 줄 수 있다. 대상 환경 검증은 [10. 배포](./10_deployment.md)의
+완료 기준까지 이어진다. 단순 문서나 GitHub app/contract workflow 변경 때문에 GPU 배포
+회귀를 반복하지 않는다.
 
 ---
 
@@ -496,7 +502,7 @@ make build
 | Unified vLLM | Unified Image Build | `ready-full`, `runtime-validate` | Runtime Image / Full |
 | Compose / Exposure | `make validate`, `make compose-config` | `make ready-full` | Compose / Full 가능 |
 | 모니터링 | 생성 파일 + `make validate` | Dashboard + Runtime 검증 | Monitoring 적용 |
-| CI/CD | `make validate` + 관련 build | Pipeline 실행 | Pipeline / Deploy |
+| 자동화 진입점 | `make validate` + 관련 명령 | Workflow 또는 로컬 실행 | 변경한 경계만 확인 |
 
 전체 application 품질 gate와 선택 target image build:
 
@@ -525,7 +531,7 @@ make runtime-validate
 | Main Model 운영 | [6. 모델 운영](./06_model_operations.md) |
 | 빌드 | [7. 로컬 개발과 빌드](./07_local_dev_build.md) |
 | 검증 | [8. 테스트와 검증](./08_testing_validation.md) |
-| CI/CD | [9. CI/CD](./09_cicd.md) |
+| 자동화 경계 | [9. 자동화 경계](./09_cicd.md) |
 | 배포 | [10. 배포](./10_deployment.md) |
 | 모니터링 | [11. 관측성](./11_observability.md) |
 | 장애 대응 | [12. 운영 관리 및 장애 대응](./12_operations.md) |
@@ -556,8 +562,8 @@ make runtime-validate
 | Service port | `services.yaml` | 생성 파일 + validate | compose-config + full-stack |
 | Exposure | `exposure_profiles.yaml` | Compose override 재생성 + validate | effective port 확인 |
 | Dashboard | Dashboard JSON | `make validate` | Grafana / runtime validation |
-| Pipeline | `.gitlab-ci.yml`, CI scripts | validate + 관련 build | Pipeline |
-| Deploy logic | deploy script / policy | validate | Release 배포 + readiness |
+| Workflow | `.github/workflows/` | GitHub 문법 + `make check` | 해당 workflow |
+| Deploy logic | `scripts/deploy/` + deploy policy | validate | Release 배포 + readiness |
 
 ### 주요 명령
 

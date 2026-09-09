@@ -15,7 +15,7 @@ make status
 make down
 ```
 
-개별 script와 `make help-all`의 세부 명령은 장애 진단, CI·release artifact
+개별 script와 `make help-all`의 세부 명령은 장애 진단과 release artifact
 유지보수와 변경 범위별 검증에 사용한다. 일반 실행자가 아래 단계를 직접
 조립하는 것은 기본 UX가 아니다.
 
@@ -36,9 +36,9 @@ make down
 |---|---|
 | `auth/` | auth profile plan/apply/status/doctor와 profile sanity check |
 | `build/` | bootstrap, image build, package, Python/version checks |
-| `ci/` | GitLab CI/CD deploy entrypoint |
 | `compose/` | full-stack compose preflight, up, diagnostics, compose validation |
 | `config/` | `.env` 생성 |
+| `deploy/` | CI provider와 독립적인 원격 release 적용·복구 |
 | `models/` | model registry CLI, vLLM command rendering, HF/unified image checks |
 | `ops/` | start/stop/status/ready/smoke/reset/clean 같은 운영 명령 |
 | `runtime/` | target 고유 native runtime 환경·모델·process lifecycle |
@@ -55,8 +55,10 @@ make down
 | `build/setup_dev.py` | macOS/Ubuntu 개발용 `.venv`를 준비·재사용한다. `.env`, runtime state, Docker/GPU는 변경하지 않는다. |
 | `build/check_dev_environment.py` | Python 정책과 운영 shell helper에 필요한 Bash 4 이상을 진단한다. |
 | `build/refresh_dependency_locks.sh` | host OS와 무관하게 Docker의 Linux amd64·`.python-version`·Dockerfile digest 고정 Python resolver로 runtime/contract lock을 재생성하고 새 venv 설치까지 확인한다. |
-| `build/build_platform_image.sh` | 로컬과 GitLab이 공유하는 Platform Dockerfile build·image import smoke 경로다. source revision/state와 target platform을 image label 및 로그에 남긴다. |
-| `build/build_vllm_unified_image.sh` | 로컬과 GitLab이 공유하는 Unified vLLM Docker build 경로다. `vllm_unified_build.yaml`의 target/base/pin을 사용하며 native Linux amd64 Docker daemon만 허용한다. |
+| `build/build_platform_image.sh` | Platform Dockerfile build·image import smoke 경로다. source revision/state와 target platform을 image label 및 로그에 남긴다. |
+| `build/build_vllm_unified_image.sh` | Unified vLLM Docker build 경로다. `vllm_unified_build.yaml`의 target/base/pin을 사용하며 native Linux amd64 Docker daemon만 허용한다. |
+| `deploy/deploy_compose_release.sh` | 명시적 image digest와 대상 정보를 받아 tracked source를 원격 release로 적용하고 readiness 실패 시 복구한다. 특정 CI provider 변수에 의존하지 않는다. |
+| `deploy/apply_remote_release.sh` | staged release 안에서 실행되는 서비스 수렴·readiness·rollback state machine이다. 호출자가 직접 조립하지 않는다. |
 | `config/setup_env.py` | `.env`를 생성·동기화하고 target이 소유한 Main profile·endpoint를 투영한다. 기존 인증·노출·image 값은 재생성하지 않는다. |
 | `auth/auth_plan.py` / `auth/auth_apply.py` | secret을 출력하지 않고 auth profile 변경 계획을 보여주거나 managed auth flag만 적용한다. |
 | `validation/validate_contracts.py` | OpenAPI refs, generated OpenAPI schema injection, JSON Schema, config, release hygiene 정책을 검증한다. |

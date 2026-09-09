@@ -1,192 +1,6 @@
 #!/usr/bin/env bash
-# CI 배포 스크립트: 111(runner) → 175(GPU runtime)
-#
-# 필수 환경 변수 (GitLab CI/CD 변수로 설정):
-#   PLATFORM_IMAGE_TO_DEPLOY   배포할 전체 이미지 참조 (예: registry.../platform:sha)
-#   DEPLOY_HOST                175 서버 IP 또는 hostname
-#   DEPLOY_USER                175의 SSH 사용자
-#   DEPLOY_PATH                175의 배포 루트 (예: /opt/acl-ai-gateway)
-#   CI_REGISTRY                GitLab Container Registry 호스트
-#   REGISTRY_DEPLOY_USER / REGISTRY_DEPLOY_PASSWORD
-#                              우선 사용되는 read_registry 배포 토큰 자격 증명
-#                              (CI_REGISTRY_USER / CI_REGISTRY_PASSWORD로 폴백)
-#
-# 선택:
-#   RISK_VLLM_IMAGE_TO_DEPLOY         RISK_VLLM_IMAGE를 덮어쓰는 전체 런타임 배포 override;
-#                                     DEPLOY_MODE=full일 때만 허용
-#   VLLM_UNIFIED_IMAGE_SHA            build-vllm-derived 전용 예상 tag; 배포 image 선택에는 사용하지 않음
-#   VLLM_UNIFIED_IMAGE_TO_DEPLOY      이번 pipeline에서 새로 만든 immutable digest;
-#                                     unified source 변경 full 배포에서는 필수
-#   DEPLOY_COMPOSE_FILE               DEPLOY_PATH 기준 상대 compose 파일 경로
-#                              기본값: ops/compose/full-stack.private-network.yaml
-#   DEPLOY_MODE                기본값 full. 빠른 platform-only 배포에만 Run pipeline에서
-#                              rolling으로 명시한다.
-#                              full 배포는 서비스 단위로 수렴한다: 이미지 ID가 바뀐
-#                              서비스(또는 마운트된 런타임 설정이 바뀐 서비스)만
-#                              재생성하고, 나머지 vLLM 모델은 전체 재기동 없이 계속
-#                              서빙 상태를 유지한다.
-#   GATEWAY_HEALTH_URL         배포 후 헬스체크에 쓸 명시적 URL.
-#                              기본값은 175의 .env에서 파생됨:
-#                              GATEWAY_BIND_ADDR/GATEWAY_PORT, 0.0.0.0은 localhost로 치환.
-#   RUN_READY_SMOKE            1(기본) 또는 0 — 배포 후 gateway /health 체크 실행 여부
-#   RUN_READY_FULL_SMOKE       호환성 유지용 변수. full 배포는 반드시 1이어야 하며
-#                              /health 이후 항상 make ready-full을 실행한다.
-#   DEPLOY_RELEASE_ID          불변 release 디렉터리 이름; 기본값은 CI_COMMIT_SHA
-#   RELEASES_TO_KEEP           보관할 성공한 release 디렉터리 개수 (기본값: 5)
-#   DEPLOY_RUNTIME_PROFILE     configs/deploy_profiles.yaml의 런타임 시작 프로필
-#                              (예: main_only, retrieval_ready). 생략 시 파일의
-#                              default_profile을 사용한다.
-#   DEPLOY_DEFERRED_RUNTIMES   배포 후 정지 상태로 유지할, 콤마로 구분된 controllable
-#                              런타임 키 또는 compose 서비스 (예:
-#                              embedding,embedding_ko,risk_prompt). full 배포는 이
-#                              컨테이너들을 시작하지 않고 생성만 한다. 이 값이 설정되면
-#                              DEPLOY_RUNTIME_PROFILE보다 우선한다.
-set -euo pipefail
-
-: "${PLATFORM_IMAGE_TO_DEPLOY:?Required: full platform image ref}"
-: "${DEPLOY_HOST:?Required: 175 server address}"
-: "${DEPLOY_USER:?Required: SSH user on 175}"
-: "${DEPLOY_PATH:?Required: deployment root on 175}"
-: "${CI_REGISTRY:?Required: GitLab registry host}"
-
-REGISTRY_USER="${REGISTRY_DEPLOY_USER:-${CI_REGISTRY_USER:-}}"
-REGISTRY_PASSWORD="${REGISTRY_DEPLOY_PASSWORD:-${CI_REGISTRY_PASSWORD:-}}"
-: "${REGISTRY_USER:?Required: REGISTRY_DEPLOY_USER or CI_REGISTRY_USER}"
-: "${REGISTRY_PASSWORD:?Required: REGISTRY_DEPLOY_PASSWORD or CI_REGISTRY_PASSWORD}"
-
-COMPOSE_FILE="${DEPLOY_COMPOSE_FILE:-ops/compose/full-stack.private-network.yaml}"
-RUN_READY_SMOKE="${RUN_READY_SMOKE:-1}"
-RUN_READY_FULL_SMOKE="${RUN_READY_FULL_SMOKE:-1}"
-RELEASES_TO_KEEP="${RELEASES_TO_KEEP:-5}"
-RELEASE_ID="${DEPLOY_RELEASE_ID:-${CI_COMMIT_SHA:-}}"
-SSH_TARGET="${DEPLOY_USER}@${DEPLOY_HOST}"
-
-if ! command -v git >/dev/null 2>&1; then
-  echo "[deploy] ERROR: git is required to select tracked release inputs." >&2
-  exit 2
-fi
-if [[ "$(git rev-parse --is-inside-work-tree 2>/dev/null || true)" != "true" ]]; then
-  echo "[deploy] ERROR: deployment must run from a Git working tree." >&2
-  exit 2
-fi
-
-source scripts/lib/deploy_request_policy.sh
-deploy_resolve_mode
-if [[ -n "${DEPLOY_MODE_REASON:-}" ]]; then
-  echo "[deploy] auto mode: ${DEPLOY_MODE} (${DEPLOY_MODE_REASON})"
-fi
-
-if [[ -z "${RELEASE_ID}" ]]; then
-  RELEASE_ID="$(date -u +%Y%m%dT%H%M%SZ)"
-fi
-deploy_validate_request "${RELEASE_ID}" "${RELEASES_TO_KEEP}"
-RELEASE_PATH="${DEPLOY_PATH}/releases/${RELEASE_ID}"
-
-echo "[deploy] target: ${SSH_TARGET}:${DEPLOY_PATH}"
-echo "[deploy] platform image: ${PLATFORM_IMAGE_TO_DEPLOY}"
-echo "[deploy] compose file: ${COMPOSE_FILE}"
-echo "[deploy] mode: ${DEPLOY_MODE}"
-echo "[deploy] release: ${RELEASE_ID}"
-
-deploy_resolve_full_runtime_images
-
-# ── 1. 불변 release 파일 스테이징 ────────────────────────────────────────
-echo "[deploy] preparing release directory ${SSH_TARGET}:${RELEASE_PATH}/"
-ssh "${SSH_TARGET}" \
-  DEPLOY_PATH="${DEPLOY_PATH}" \
-  RELEASE_PATH="${RELEASE_PATH}" \
-  bash -s <<'REMOTE_PREPARE'
-set -euo pipefail
-mkdir -p "${DEPLOY_PATH}/releases"
-if [[ -e "${RELEASE_PATH}" ]]; then
-  echo "[deploy] ERROR: release directory already exists: ${RELEASE_PATH}" >&2
-  exit 1
-fi
-mkdir "${RELEASE_PATH}"
-REMOTE_PREPARE
-
-cleanup_unapplied_release() {
-  ssh "${SSH_TARGET}" \
-    DEPLOY_PATH="${DEPLOY_PATH}" \
-    RELEASE_PATH="${RELEASE_PATH}" \
-    bash -s <<'REMOTE_CLEANUP'
-set -euo pipefail
-case "${RELEASE_PATH}" in
-  "${DEPLOY_PATH}/releases/"?*) rm -rf -- "${RELEASE_PATH}" ;;
-  *)
-    echo "[deploy] ERROR: refusing to clean unexpected release path: ${RELEASE_PATH}" >&2
-    exit 2
-    ;;
-esac
-REMOTE_CLEANUP
-}
-
-# package와 CI 배포 모두 Git tracked 파일만 입력으로 사용한다. CI checkout에 남은
-# cache/report/임시 파일이 release마다 달라지는 것을 막는다. CI provider 정의는
-# 저장소 검증 입력이지 runtime 입력이 아니므로 대상 서버 Release에서는 제외한다.
-#
-# tests/는 두 배포 경로 모두에서 포함한다. CI와 배포 전 make check가 같은 source의
-# 테스트를 실행할 수 있어야 하므로 테스트가 빠진 배포본은 검증 입력이 불완전하다.
-#
-# 예전에는 여기서 제외하고 package_release.sh와 정책을 맞췄는데, 그 배제 근거(크기·
-# 공격 표면)를 재보니 셋 다 성립하지 않았다: 압축 후 111KB(전체 +4%), 앱이 import하지
-# 않고 .dockerignore가 컨테이너 유입을 막는다. 두 경로의 정책은 여전히 같아야 하고,
-# 지금은 "포함"으로 같다.
-echo "[deploy] syncing tracked deployable project files to staged release..."
-if ! git ls-files -z -- . ':(exclude).github/**' ':(exclude).gitlab-ci.yml' | \
-  rsync -az --delete --from0 --files-from=- \
-    --exclude ".git/" \
-    --exclude "/.other/" \
-    --exclude "/.agents/" \
-    --exclude "/.codex/" \
-    --exclude "/.claude/" \
-    --exclude "/.cursor/" \
-    --exclude ".env" \
-    --exclude ".runtime/" \
-    --exclude ".venv/" \
-    --exclude ".cache/" \
-    --exclude ".pytest_cache/" \
-    --exclude "__pycache__/" \
-    --exclude "*.pyc" \
-    --exclude "model_cache/" \
-    --exclude "ops/compose/models/" \
-    --exclude "logs/" \
-    --exclude "/dist/" \
-    --exclude "/build/" \
-    --exclude "run/" \
-    --exclude "outputs/" \
-    ./ \
-    "${SSH_TARGET}:${RELEASE_PATH}/"; then
-  echo "[deploy] ERROR: release file sync failed; removing unapplied candidate." >&2
-  if ! cleanup_unapplied_release; then
-    echo "[deploy] ERROR: candidate cleanup failed: ${RELEASE_PATH}" >&2
-  fi
-  exit 1
-fi
-
-# ── 2. 원격: candidate 검증 → 배포 → current를 원자적으로 전환 ──
-ssh "${SSH_TARGET}" \
-  PLATFORM_IMAGE_TO_DEPLOY="${PLATFORM_IMAGE_TO_DEPLOY}" \
-  VLLM_UNIFIED_IMAGE_TO_DEPLOY="${VLLM_UNIFIED_IMAGE_TO_DEPLOY:-}" \
-  RISK_VLLM_IMAGE_TO_DEPLOY="${RISK_VLLM_IMAGE_TO_DEPLOY:-}" \
-  AUDIO_VLLM_IMAGE_TO_DEPLOY="${AUDIO_VLLM_IMAGE_TO_DEPLOY:-}" \
-  CI_REGISTRY="${CI_REGISTRY}" \
-  REGISTRY_USER="${REGISTRY_USER}" \
-  REGISTRY_PASSWORD="${REGISTRY_PASSWORD}" \
-  DEPLOY_PATH="${DEPLOY_PATH}" \
-  RELEASE_PATH="${RELEASE_PATH}" \
-  RELEASE_ID="${RELEASE_ID}" \
-  RELEASES_TO_KEEP="${RELEASES_TO_KEEP}" \
-  COMPOSE_FILE="${COMPOSE_FILE}" \
-  DEPLOY_MODE="${DEPLOY_MODE}" \
-  GATEWAY_HEALTH_URL="${GATEWAY_HEALTH_URL:-}" \
-  RUN_READY_SMOKE="${RUN_READY_SMOKE}" \
-  RUN_READY_FULL_SMOKE="${RUN_READY_FULL_SMOKE}" \
-  DEPLOY_RUNTIME_PROFILE="${DEPLOY_RUNTIME_PROFILE:-}" \
-  DEPLOY_DEFERRED_RUNTIMES="${DEPLOY_DEFERRED_RUNTIMES:-}" \
-  AUTH_MODE="${AUTH_MODE:-}" \
-  PYTHONDONTWRITEBYTECODE=1 \
-  bash -s <<'REMOTE'
+# 원격 release 디렉터리에서 실행되는 배포·수렴·rollback state machine.
+# 호출자는 필요한 값을 환경변수로 전달하고 이 파일을 직접 수정 없이 실행한다.
 set -euo pipefail
 
 # gateway 컨테이너는 이 디렉터리를 bind-mount해서 이미지의 non-root appuser 권한으로
@@ -201,7 +15,7 @@ fi
 source "${RELEASE_PATH}/scripts/lib/bind_mounted_config.sh"
 if [[ ! -f "${DEPLOY_PATH}/.env" ]]; then
   echo "[deploy] ERROR: shared .env not found at ${DEPLOY_PATH}/.env" >&2
-  echo "[deploy] Run bootstrap on the deployment root before the first CI deployment." >&2
+  echo "[deploy] Run bootstrap on the deployment root before the first remote deployment." >&2
   rm -rf "${RELEASE_PATH}"
   exit 1
 fi
@@ -279,10 +93,9 @@ if [[ "${DEPLOY_MODE}" != "full" &&
   exit 2
 fi
 
-# source-drift 최종 가드. release commit의 일반 경로는 CI only:changes가 새
-# unified image를 자동 빌드하지만, 이전 배포 이후 여러 commit을 건너뛴 수동
-# pipeline까지 CI의 직전-commit diff만으로 완전히 판별할 수는 없다. 이 비교는
-# 그런 경우 기존 digest의 조용한 재사용을 배포 직전에 막는다.
+# source-drift 최종 가드. 현재 release와 직전 배포 release를 직접 비교해, 여러 commit을
+# 건너뛰어 적용하더라도 바뀐 runtime build 입력에 기존 image digest를 조용히 재사용하지
+# 못하게 한다.
 if [[ -n "${PREVIOUS_RELEASE}" && -d "${PREVIOUS_RELEASE}" ]]; then
   mapfile -t _unified_image_source < <(vllm_unified_image_source_paths)
   mapfile -t _changed_unified_image_source < <(deploy_changed_files "${PREVIOUS_RELEASE}" "${RELEASE_PATH}" "${_unified_image_source[@]}")
@@ -295,12 +108,11 @@ if [[ -n "${PREVIOUS_RELEASE}" && -d "${PREVIOUS_RELEASE}" ]]; then
       exit "${_config_compare_status}"
     fi
   fi
-  if [[ ${#_changed_unified_image_source[@]} -gt 0 ]] && ! deploy_has_fresh_unified_image_artifact "${VLLM_UNIFIED_IMAGE_TO_DEPLOY:-}"; then
-    echo "[deploy] ERROR: vllm-unified image source changed but build-vllm-derived did not run." >&2
-    echo "[deploy]   No fresh immutable unified image artifact — deploying now would ship the previous image." >&2
+  if [[ ${#_changed_unified_image_source[@]} -gt 0 ]] && ! deploy_has_fresh_unified_image "${VLLM_UNIFIED_IMAGE_TO_DEPLOY:-}"; then
+    echo "[deploy] ERROR: vllm-unified image source changed but no fresh immutable image was provided." >&2
+    echo "[deploy]   No fresh immutable unified image digest — deploying now would ship the previous image." >&2
     printf '[deploy]   Changed source: %s\n' "${_changed_unified_image_source[@]}" >&2
-    echo "[deploy]   Push the vLLM input change through release so CI builds it automatically," >&2
-    echo "[deploy]   or re-trigger with BUILD_VLLM_DERIVED=1 for this historical source drift." >&2
+    echo "[deploy]   Build and publish the Unified vLLM image, then provide its digest." >&2
     rm -rf "${RELEASE_PATH}"
     exit 2
   fi
@@ -308,7 +120,7 @@ fi
 
 # read-only 배포 토큰으로 registry 로그인
 echo "${REGISTRY_PASSWORD}" | \
-  docker login "${CI_REGISTRY}" -u "${REGISTRY_USER}" --password-stdin
+  docker login "${REGISTRY_HOST}" -u "${REGISTRY_USER}" --password-stdin
 
 COMPOSE_EXPORTED_KEYS=()
 
@@ -656,11 +468,11 @@ pull_preflight_image() {
   if ! docker pull "${image}"; then
     echo "[deploy] ERROR: cannot pull ${label}: ${image}" >&2
     if [[ "${DEPLOY_MODE}" == "full" ]]; then
-      echo "[deploy]   For full deploy, confirm build-vllm-derived succeeded in a DEPLOY_MODE=full pipeline." >&2
+      echo "[deploy]   Build the unified image and provide its immutable digest for the full deployment." >&2
       echo "[deploy]   Or set RISK_VLLM_IMAGE_TO_DEPLOY" >&2
       echo "[deploy]   to image refs that already exist in the registry." >&2
     else
-      echo "[deploy]   Ensure the build-platform CI job completed successfully." >&2
+      echo "[deploy]   Ensure the Platform image was published and the immutable ref is correct." >&2
     fi
     exit 1
   fi
@@ -1094,7 +906,7 @@ fi
 if [[ "${DEPLOY_MODE}" == "full" ]]; then
   echo "[deploy] full deploy: pulling all compose images..."
   if ! compose_run pull; then
-    fail_after_env_backup "image pull failed during full deploy. If vLLM-derived images are new, confirm build-vllm-derived succeeded or set an existing RISK_VLLM_IMAGE_TO_DEPLOY ref."
+    fail_after_env_backup "image pull failed during full deploy. Provide a published immutable unified image digest or an existing RISK_VLLM_IMAGE_TO_DEPLOY ref."
   fi
   # 이미지 또는 resolve된 설정이 실제로 바뀐 서비스만 수렴시킨다.
   # 안 바뀐 vLLM 모델은 계속 서빙 상태를 유지하므로, readiness gate는 실제로
@@ -1410,4 +1222,4 @@ for _config_state_index in "${!CONFIG_SERVICE_STATE_FILES[@]}"; do
 done
 
 echo "[deploy] done"
-REMOTE
+

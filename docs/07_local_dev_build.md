@@ -84,12 +84,13 @@ Ubuntu에서는 지원 Python과 해당 버전의 `venv` 패키지를 준비한 
 |---|---|---|
 | 로컬 `make build-image` | Dockerfile base digest, runtime lock, 현재 working tree | 변경 중인 코드를 확인하는 로컬 image ID |
 | GitHub Actions | application lock과 Python minor | macOS/Ubuntu app·contract 검증. image artifact 없음 |
-| GitLab Platform build | clean commit, Linux amd64 target, base digest, runtime lock | registry에 push된 운영 후보 digest |
-| GitLab Unified vLLM build | clean commit, Linux amd64 target, vLLM base digest와 compatibility pin | NVIDIA runtime 후보 digest |
+| Linux Platform 운영 후보 | clean commit, Linux amd64 target, base digest, runtime lock | publish 전 로컬 image; 승격 시 registry digest 필요 |
+| Linux Unified vLLM 운영 후보 | clean commit, native Linux amd64, vLLM base digest와 compatibility pin | publish 전 NVIDIA runtime image; 승격 시 registry digest 필요 |
 
 같은 Dockerfile과 build script를 공유하는 것은 입력 해석을 맞추기 위한 것이다. 로컬의
-수정된 working tree나 arm64 image ID가 GitLab의 clean Linux amd64 registry digest와
-byte-identical하다는 뜻은 아니다. 실제 배포 identity는 계속 registry digest가 소유한다.
+수정된 working tree나 arm64 image ID가 clean Linux amd64 운영 후보와 byte-identical하다는
+뜻은 아니다. Registry publish 자동화는 현재 정의하지 않으며, 실제 원격 배포 identity는
+publish 결과의 immutable registry digest가 소유한다.
 
 ### Linux dependency lock 갱신
 
@@ -103,7 +104,7 @@ make lock-linux
 ```
 
 이 명령은 어느 host에서 호출하더라도 `--platform linux/amd64`를 명시하고,
-Dockerfile과 GitLab CI가 공유하는 digest 고정
+Dockerfile이 사용하는 digest 고정
 `python:<.python-version>-slim@sha256:...` image 안에서
 `pip==26.0.1`, `pip-tools==7.5.3`을 사용한다.
 기존 lock을 resolver constraint로 재사용하므로, lock 재생성 자체가 사전 검토 없이
@@ -372,7 +373,11 @@ Build 로그와 image label에는 Git revision, working tree의 clean/dirty 상�
 platform이 남는다. dirty 상태는 개발 중 image로 허용하지만 clean-commit CI artifact로
 오인하지 않도록 경고한다. 로컬 tag는 mutable하므로 배포 입력으로 사용하지 않는다.
 
-Platform Image는 로컬과 GitLab CI에서 동일한 `scripts/build/build_platform_image.sh`를 사용한다. Unified vLLM Image도 로컬과 GitLab이 `scripts/build/build_vllm_unified_image.sh`의 같은 Docker build를 사용하며, CI wrapper는 변경 감지·추가 tag·push·digest만 담당한다. GitHub Actions는 image를 빌드하지 않는다. Pipeline 동작은 [9. CI/CD](./09_cicd.md)에서 설명한다.
+Platform Image build는 `scripts/build/build_platform_image.sh`, Unified vLLM Image build는
+`scripts/build/build_vllm_unified_image.sh`가 소유한다. 현재 GitHub Actions는 image를
+빌드하거나 publish하지 않는다. 향후 자동화도 이 스크립트를 호출하고 registry push와
+digest 전달만 외부 adapter에서 담당한다. 자동화 경계는 [9. 자동화 경계](./09_cicd.md)에서
+설명한다.
 
 ---
 
@@ -422,12 +427,13 @@ Unified vLLM Image는 다음 변경에서 다시 빌드한다.
 
 일반 application source 변경은 Platform Image build 흐름에서 확인한다.
 
-Unified vLLM build 입력 변경을 CI가 감지하고 derived image를 만드는 과정은 [9. CI/CD](./09_cicd.md)에서 설명한다.
+Unified vLLM build 입력이 바뀌면 운영자가 새 image를 명시적으로 빌드한다. 자동 감지와
+registry publish는 현재 구성하지 않으며, 향후 자동화 원칙은 [9. 자동화 경계](./09_cicd.md)에서 설명한다.
 
 target-aware `make build`는 로컬에서 빌드한 Unified image tag를 Docker의 content-addressed
 `sha256:...` image ID로 해석하고, `.env`에서 그 build tag와 정확히 일치하는 unified
 image 값만 고정한다. 운영자가 별도로 지정한 image ref는 추측해서 덮어쓰지 않는다.
-GitLab 배포는 이 로컬 ID 대신 registry의 `name@sha256:...` digest를 사용한다.
+원격 배포는 이 로컬 ID 대신 publish된 registry의 `name@sha256:...` digest를 사용한다.
 
 ### 반복 개발과 재빌드
 
@@ -570,7 +576,7 @@ make compose-logs
 
 `validate`, `test`, 개별 image build, readiness, Compose와 Metal lifecycle 명령은
 없어진 것이 아니라 위 공개 workflow가 재사용하는 내부 단계다. 해당 계층만 직접
-진단하거나 CI·release artifact를 유지보수할 때 `make help-all`에서 사용한다.
+진단하거나 release artifact를 유지보수할 때 `make help-all`에서 사용한다.
 
 ---
 
@@ -582,11 +588,11 @@ make compose-logs
 | 설정 관리 | [5. 설정 체계와 Source of Truth](./05_configuration.md) | 환경변수, image, runtime 설정 |
 | 모델 운영 | [6. 모델 운영](./06_model_operations.md) | Main Model start / stop / switch |
 | 테스트 | [8. 테스트와 검증](./08_testing_validation.md) | validate, test, runtime validation |
-| CI build | [9. CI/CD](./09_cicd.md) | registry build / push / digest |
+| 자동화 경계 | [9. 자동화 경계](./09_cicd.md) | 현재 자동 검증과 미래 publish·deploy 연결 원칙 |
 | 배포 | [10. 배포](./10_deployment.md) | release artifact 배포와 rollback |
 | Make entry point | `Makefile` | 로컬 개발·빌드 명령 |
 | Platform image | `Dockerfile` | application / control-plane image |
-| Platform build script | `scripts/build/build_platform_image.sh` | 로컬·CI 공통 Platform build |
+| Platform build script | `scripts/build/build_platform_image.sh` | Provider-neutral Platform build |
 | Unified vLLM build config | `configs/vllm_unified_build.yaml` | target platform, base image와 compatibility pin |
 | Unified vLLM Dockerfile | `ops/images/vllm-unified/Dockerfile` | derived vLLM runtime image |
 | Target lifecycle | `scripts/platform_cli.py` | setup/build/prepare/up/status/down 조합 |

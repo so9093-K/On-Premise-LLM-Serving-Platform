@@ -22,7 +22,7 @@
 | Runtime Validation | GPU, vLLM, 모델 Runtime 등 실제 실행 환경을 확인하는 검증. | [8. 테스트와 검증](./08_testing_validation.md), [12. 운영 관리 및 장애 대응](./12_operations.md) |
 | Platform Image | Gateway, Risk Adapter, Admin Sidecar 애플리케이션을 실행하는 Container Image. | [7. 로컬 개발과 빌드](./07_local_dev_build.md) |
 | Unified vLLM Image | Main Model, Embedding, Prompt Risk Runtime이 공유하는 vLLM 기반 Runtime Image. | [7. 로컬 개발과 빌드](./07_local_dev_build.md) |
-| Image Digest | Registry에 저장된 Container Image 내용을 고유하게 식별하는 `sha256` 값. CI/CD와 배포에서 실제 Image version을 고정하는 데 사용한다. | [9. CI/CD](./09_cicd.md), [10. 배포](./10_deployment.md) |
+| Image Digest | Registry에 저장된 Container Image 내용을 고유하게 식별하는 `sha256` 값. Publish 결과와 배포에서 실제 Image version을 고정하는 데 사용한다. | [9. 자동화 경계](./09_cicd.md), [10. 배포](./10_deployment.md) |
 | Release | 배포에 사용할 소스, 설정, Runtime 정보를 독립된 디렉터리에 준비한 배포 단위. | [10. 배포](./10_deployment.md) |
 | Source of Truth | 특정 설정이나 계약의 기준이 되는 코드 또는 설정 파일. | [5. 설정 체계와 Source of Truth](./05_configuration.md) |
 | Generated Artifact | Source of Truth를 기준으로 스크립트가 생성하는 Runtime/Compose/OpenAPI 관련 파일. | [5. 설정 체계와 Source of Truth](./05_configuration.md) |
@@ -127,7 +127,7 @@
 
 - 모델 실행 profile: [6. 모델 운영](./06_model_operations.md)
 - API 계약: [API Reference](./reference/api_reference.md)
-- 배포·CI: [9. CI/CD](./09_cicd.md), [10. 배포](./10_deployment.md)
+- 자동화·배포: [9. 자동화 경계](./09_cicd.md), [10. 배포](./10_deployment.md)
 
 ---
 
@@ -147,13 +147,14 @@
 | Monitoring | `ops/prometheus/`, `ops/grafana/`, `ops/loki/`, `ops/alloy/` | Metrics / Logs 수집과 Dashboard 구성 |
 | Build Script | `scripts/build/` | Container Image build와 release package 생성 |
 | Compose Script | `scripts/compose/` | Compose 실행, 구성 확인, diagnostics |
-| Deployment Script | `scripts/ci/deploy_gitlab_compose.sh` | GitLab 배포 실행과 Release 적용·복구 |
+| Deployment Script | `scripts/deploy/deploy_compose_release.sh` | Provider-neutral 원격 Release 적용·복구 |
+| Remote Release Executor | `scripts/deploy/apply_remote_release.sh` | Candidate 검증, Compose 수렴, Readiness와 Rollback |
 | Validation Script | `scripts/validation/` | 정적 검증과 Runtime 검증 |
 | Operations Script | `scripts/ops/` | Readiness, smoke test 등 운영 확인 |
 | Reports | `scripts/reports/` | 운영 상태와 Runtime 검증 자료 생성 |
 | API Reference | `docs/reference/api_reference.md` | API 사용 방법, 요청·응답, 오류와 제약 설명 |
 | 모델 참고 자료 | `docs/reference/models/` | upstream 모델 사양, 라이선스, 알려진 제약 |
-| Screenshots | `assets/screenshots/` | GitLab, Grafana, Request Log 등 문서용 화면 |
+| Screenshots | `assets/screenshots/` | Grafana, Scalar, Request Log 등 문서용 화면 |
 
 변경 작업별 영향 범위는 [13. 변경 가이드](./13_change_guide.md)에서 정리한다.
 
@@ -171,7 +172,7 @@
 | 모델 운영 | [6. 모델 운영](./06_model_operations.md) |
 | 개발과 빌드 | [7. 로컬 개발과 빌드](./07_local_dev_build.md) |
 | 테스트와 검증 | [8. 테스트와 검증](./08_testing_validation.md) |
-| CI/CD | [9. CI/CD](./09_cicd.md) |
+| 자동화 경계 | [9. 자동화 경계](./09_cicd.md) |
 | 배포 | [10. 배포](./10_deployment.md) |
 | 모니터링 | [11. 관측성](./11_observability.md) |
 | 운영 / 장애 대응 | [12. 운영 관리 및 장애 대응](./12_operations.md) |

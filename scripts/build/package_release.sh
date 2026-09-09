@@ -69,7 +69,7 @@ exclude_top_level_dirs = {
     'outputs',
     'run',
 }
-# tests는 포함한다. CI와 배포 전 make check가 같은 source의 테스트를 실행할 수
+    # tests는 포함한다. 자동화와 배포 전 make check가 같은 source의 테스트를 실행할 수
 # 있어야 하므로, 테스트가 빠진 ZIP은 검증 입력이 불완전하다.
 #
 # 예전 주석이 든 배제 근거는 재보니 셋 다 성립하지 않았다.

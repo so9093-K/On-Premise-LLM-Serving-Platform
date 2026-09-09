@@ -9,13 +9,12 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 POLICY = "scripts/lib/deploy_request_policy.sh"
-DEPLOY_SCRIPT = ROOT / "scripts/ci/deploy_gitlab_compose.sh"
+DEPLOY_SCRIPT = ROOT / "scripts/deploy/apply_remote_release.sh"
 
 _ISOLATED_KEYS = (
     "DEPLOY_MODE",
     "DEPLOY_MODE_REASON",
     "RISK_VLLM_IMAGE_TO_DEPLOY",
-    "VLLM_UNIFIED_IMAGE_SHA",
     "VLLM_UNIFIED_IMAGE_TO_DEPLOY",
     "AUDIO_VLLM_IMAGE_TO_DEPLOY",
     "RUN_READY_FULL_SMOKE",
@@ -26,8 +25,8 @@ _ISOLATED_KEYS = (
 
 def run_policy(command: str, **environment: str) -> subprocess.CompletedProcess[str]:
     env = os.environ.copy()
-    # 파이프라인 트리거 시점에 DEPLOY_MODE=full 같은 배포 변수가 이미 export돼
-    # 있으면 이 정책 함수가 조기 리턴해 테스트가 파이프라인의 우연한 상태에
+    # 호출 환경에 DEPLOY_MODE=full 같은 배포 변수가 이미 export돼 있으면 이 정책
+    # 함수가 조기 리턴해 테스트가 부모 process의 우연한 상태에
     # 좌우된다 -- 여기서 명시적으로 지워서 각 테스트가 지정한 값만 보게 한다.
     for key in _ISOLATED_KEYS:
         env.pop(key, None)

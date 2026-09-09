@@ -66,4 +66,4 @@ config, spec, 필요한 ops artifact, 동일 버전을 검증할 `tests/`와 안
 포함한다. 실제 `.env`, `.runtime`, log, model cache, Python cache, private tool directory,
 GitHub Actions workflow는 포함하지 않는다.
 
-CI image build와 immutable digest 전달은 [9. CI/CD](../09_cicd.md), 대상 서버 적용과 rollback은 [10. 배포](../10_deployment.md)를 따른다.
+Image build·publish와 immutable digest 전달의 경계는 [9. 자동화 경계](../09_cicd.md), 대상 서버 적용과 rollback은 [10. 배포](../10_deployment.md)를 따른다.

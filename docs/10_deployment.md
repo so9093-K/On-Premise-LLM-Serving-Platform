@@ -1,6 +1,6 @@
 # 10. 배포
 
-배포는 CI에서 생성된 이미지와 대상 서버 설정을 적용하고, 서비스 실행 상태를 검증하는 과정이다.
+배포는 publish된 immutable 이미지와 대상 서버 설정을 적용하고, 서비스 실행 상태를 검증하는 과정이다.
 
 ```text
 배포 방식 결정
@@ -14,7 +14,8 @@ Health / Readiness 확인
 배포 완료
 ```
 
-CI Pipeline과 이미지 생성 과정은 [9. CI/CD](./09_cicd.md), 실행 구조와 네트워크 공개 방식은 [4. 실행 환경과 모드](./04_runtime_modes.md)에서 설명한다.
+자동화와 이미지 생성의 책임 경계는 [9. 자동화 경계](./09_cicd.md), 실행 구조와 네트워크
+공개 방식은 [4. 실행 환경과 모드](./04_runtime_modes.md)에서 설명한다.
 
 ---
 
@@ -86,7 +87,7 @@ Full 배포는 애플리케이션과 모델 실행 환경의 변경을 함께 �
 - `configs/main_model_profiles.yaml`
 - `configs/gemma4_chat_template.jinja`
 
-이번 Pipeline에서 새 Unified vLLM digest가 생성된 경우에도 `full` 배포가 적용된다.
+새 Unified vLLM digest를 배포 입력으로 제공한 경우에도 `full` 배포가 적용된다.
 
 ---
 
@@ -109,7 +110,7 @@ Platform 이미지는 Registry의 고정된 digest로 전달된다.
 <registry>/platform@sha256:...
 ```
 
-새 Unified vLLM 이미지가 생성된 Pipeline에서는 해당 digest도 함께 전달된다.
+새 Unified vLLM 이미지를 적용할 때는 해당 digest도 함께 전달한다.
 
 ```text
 <registry>/vllm-unified@sha256:...
@@ -120,6 +121,26 @@ Platform 이미지는 Registry의 고정된 digest로 전달된다.
 대상 서버에는 Docker/Compose, NVIDIA Runtime, Registry pull credential과 Main Model 로딩에 필요한 Hugging Face credential 또는 cache가 준비되어 있어야 한다.
 
 환경 설정과 프로파일의 Source of Truth는 [5. 설정 체계와 Source of Truth](./05_configuration.md)를 참고한다.
+
+원격 release 적용은 고급 운영 진입점인
+`scripts/deploy/deploy_compose_release.sh`를 직접 호출한다. Registry와 배포 대상 값은
+호출 환경에서 명시하며 스크립트는 특정 CI provider 변수를 추측하지 않는다.
+
+```bash
+PLATFORM_IMAGE_TO_DEPLOY='registry.example.com/project/platform@sha256:<digest>' \
+REGISTRY_HOST='registry.example.com' \
+REGISTRY_USER='<pull-user>' \
+REGISTRY_PASSWORD='<pull-token>' \
+DEPLOY_HOST='<deployment-host>' \
+DEPLOY_USER='<deployment-user>' \
+DEPLOY_PATH='/opt/ai-model-serving' \
+scripts/deploy/deploy_compose_release.sh
+```
+
+Unified vLLM build 입력이 변경된 full 배포에는
+`VLLM_UNIFIED_IMAGE_TO_DEPLOY='...@sha256:<digest>'`도 함께 지정한다. Release ID를 생략하면
+현재 Git commit을 사용한다. 이 명령은 일반 로컬 lifecycle이 아니라 원격 운영 배포용이므로
+`make help`의 기본 명령으로 노출하지 않는다.
 
 ---
 
@@ -145,8 +166,8 @@ Platform 이미지는 Registry의 고정된 digest로 전달된다.
 
 ### 1. Release 준비
 
-CI Runner는 해당 checkout의 Git tracked source만 새 Release 디렉터리에 동기화한다.
-GitHub Actions/GitLab CI 정의와 로컬 cache·report·임시 파일은 실행 입력이 아니므로
+배포 진입점은 해당 checkout의 Git tracked source만 새 Release 디렉터리에 동기화한다.
+자동화 workflow 정의와 로컬 cache·report·임시 파일은 실행 입력이 아니므로
 대상 서버의 Ubuntu Release에 포함하지 않는다.
 
 ```text
@@ -155,7 +176,8 @@ Repository Source
 releases/<release-id>
 ```
 
-CI에서는 commit SHA를 Release ID로 사용한다. `.env`, Runtime state, model cache는 배포 루트의 공유 경로를 사용한다.
+`DEPLOY_RELEASE_ID`를 생략하면 현재 Git commit을 Release ID로 사용한다. `.env`, Runtime
+state, model cache는 배포 루트의 공유 경로를 사용한다.
 
 ### 2. 이미지와 Runtime 사전 확인
 
@@ -169,7 +191,8 @@ CI에서는 commit SHA를 Release ID로 사용한다. `.env`, Runtime state, mod
 
 Full 배포에서는 Platform 이미지와 필요한 vLLM Runtime 이미지의 Registry pull 가능 여부를 확인한다.
 
-vLLM 빌드 구성이 변경된 배포에서는 해당 Pipeline에서 생성된 새 Runtime 이미지를 사용한다.
+vLLM 빌드 구성이 변경된 배포에서는 새로 빌드·publish한 Runtime image의 immutable digest를
+명시해야 한다.
 
 ### 3. 환경 설정 적용
 
@@ -452,7 +475,9 @@ RELEASES_TO_KEEP=5
 
 ### 운영 중지와 재기동
 
-배포 서버의 중지는 로컬 개발 종료와 다르다. Gateway와 모델 Runtime을 함께 멈추므로, GPU 호스트 작업이나 계획된 점검처럼 서비스 중단이 허용된 경우에만 실행한다. 코드나 이미지 변경을 반영하려는 목적이라면 수동 재기동 대신 CI/CD 배포를 사용한다.
+배포 서버의 중지는 로컬 개발 종료와 다르다. Gateway와 모델 Runtime을 함께 멈추므로,
+GPU 호스트 작업이나 계획된 점검처럼 서비스 중단이 허용된 경우에만 실행한다. 코드나 이미지
+변경은 현재 release를 직접 재기동하는 대신 새 release로 적용해 rollback 경계를 보존한다.
 
 항상 현재 Release 링크를 기준으로 실행한다. `releases/<id>`의 실제 경로에서 직접 실행하면 Compose가 다른 실행 컨텍스트로 인식할 수 있다.
 
@@ -519,8 +544,8 @@ make ready-full
 
 | 영역 | 파일 | 역할 |
 |---|---|---|
-| CI 배포 Job | `.gitlab-ci.yml` | `release` 브랜치의 수동 배포와 이미지 digest 전달 |
-| 배포 진입점 | `scripts/ci/deploy_gitlab_compose.sh` | Release 준비, 환경 적용, 서비스 적용, 준비 상태 확인, 복구 |
+| 배포 진입점 | `scripts/deploy/deploy_compose_release.sh` | Release 준비, 환경 적용, 서비스 적용, 준비 상태 확인, 복구 |
+| 원격 적용 본문 | `scripts/deploy/apply_remote_release.sh` | Candidate 검증, Compose 수렴, Readiness와 Rollback |
 | 배포 요청 정책 | `scripts/lib/deploy_request_policy.sh` | `full` / `rolling` 결정과 요청 조건 검증 |
 | 서비스 재생성 정책 | `scripts/lib/deploy_recreate_policy.sh` | 변경 서비스와 모델 실행 환경 관련 설정 판별 |
 | 배포 환경 처리 | `scripts/lib/deploy_env.sh` | 대상 `.env` 조회, 갱신, export |
@@ -536,4 +561,4 @@ make ready-full
 - [5. 설정 체계와 Source of Truth](./05_configuration.md)
 - [6. 모델 운영](./06_model_operations.md)
 - [8. 테스트와 검증](./08_testing_validation.md)
-- [9. CI/CD](./09_cicd.md)
+- [9. 자동화 경계](./09_cicd.md)

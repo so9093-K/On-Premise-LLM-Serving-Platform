@@ -1,7 +1,7 @@
 """배포 시점에 GPU VRAM 예산이 빠듯할 때 embedding/embedding-ko/risk-prompt 같은
 secondary 런타임을 처음부터 정지 상태로 둘지 정한다. defer를 빠뜨리면 main model이
 부팅 중 GPU 메모리 부족으로 기동을 실패할 수 있고, 반대로 잘못 defer하면 배포
-직후부터 해당 엔드포인트가 이유 없이 503을 낸다. scripts/ci/deploy_gitlab_compose.sh가
+직후부터 해당 엔드포인트가 이유 없이 503을 낸다. scripts/deploy/deploy_compose_release.sh가
 실제 배포 시퀀스에서 이 스크립트를 하드 게이트로 호출하므로, 여기서 실패하면
 배포 자체가 중단되고 env가 롤백된다.
 

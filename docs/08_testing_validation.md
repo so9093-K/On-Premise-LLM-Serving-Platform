@@ -626,4 +626,4 @@ make compose-logs
 | Runtime validation | `scripts/validation/runtime_validation.py` | live vLLM/monitoring report |
 
 CI에서는 동일한 `run_validate.sh`와 `run_test.sh`를 기본 quality gate로 사용한다.
-Pipeline 구조와 배포 gate는 [9. CI/CD](./09_cicd.md), live failure 진단은 [11. 관측성과 장애 대응](./11_observability.md)에서 설명한다.
+자동화와 배포의 책임 경계는 [9. 자동화 경계](./09_cicd.md), live failure 진단은 [11. 관측성과 장애 대응](./11_observability.md)에서 설명한다.

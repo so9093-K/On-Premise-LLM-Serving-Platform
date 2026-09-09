@@ -472,7 +472,7 @@ Mac Normal profile의 `24,576 input + 8,192 generation`은 권장·qualification
 
 API key, internal token, Hugging Face token 같은 secret은 repository의 tracked config에 실제 값으로 기록하지 않는다.
 
-full-stack에서는 `.env`와 `.runtime/` 아래 runtime secret 파일이 함께 사용될 수 있다. 배포 환경에서는 CI/CD 또는 운영 환경에서 secret을 주입한다.
+full-stack에서는 `.env`와 `.runtime/` 아래 runtime secret 파일이 함께 사용될 수 있다. 배포 환경에서는 실행 주체가 secret을 주입한다.
 
 ---
 

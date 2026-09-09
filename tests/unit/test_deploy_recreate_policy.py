@@ -20,7 +20,7 @@ def _policy_accepts(image_ref: str) -> bool:
         [
             "bash",
             "-c",
-            'source scripts/lib/deploy_recreate_policy.sh; deploy_has_fresh_unified_image_artifact "$1"',
+            'source scripts/lib/deploy_recreate_policy.sh; deploy_has_fresh_unified_image "$1"',
             "policy",
             image_ref,
         ],
@@ -30,7 +30,7 @@ def _policy_accepts(image_ref: str) -> bool:
     return result.returncode == 0
 
 
-def test_unified_source_change_requires_an_immutable_artifact_digest():
+def test_unified_source_change_requires_an_immutable_image_digest():
     image = "registry.example.com/vllm-unified@sha256:" + "a" * 64
     assert _policy_accepts(image)
     assert not _policy_accepts("")

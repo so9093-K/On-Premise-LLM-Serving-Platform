@@ -29,7 +29,7 @@ esac
 
 IMAGE="${VLLM_UNIFIED_BUILD_IMAGE:-$(vllm_unified_default_image)}"
 EXTRA_TAGS="${VLLM_UNIFIED_BUILD_EXTRA_TAGS:-}"
-BASE_IMAGE="${VLLM_BASE_IMAGE:-${RISK_VLLM_BASE_IMAGE:-$(vllm_unified_canonical_base_image)}}"
+BASE_IMAGE="${VLLM_BASE_IMAGE:-$(vllm_unified_canonical_base_image)}"
 if [[ "$BASE_IMAGE" != *"@sha256:"* ]]; then
   echo "[vllm-unified-image] Base image must be immutable (name@sha256:...): ${BASE_IMAGE}" >&2
   exit 2
@@ -39,7 +39,7 @@ PULL_BASE_IMAGE="${VLLM_UNIFIED_BUILD_PULL_BASE:-0}"
 PROJECT_BUILD_NO_CACHE="${PROJECT_BUILD_NO_CACHE:-0}"
 TRANSFORMERS_VERSION="$("$PYTHON_BIN" scripts/models/print_vllm_unified_compatibility.py --key transformers)"
 HUGGINGFACE_HUB_VERSION="$("$PYTHON_BIN" scripts/models/print_vllm_unified_compatibility.py --key huggingface_hub)"
-SOURCE_REVISION="${CI_COMMIT_SHA:-unknown}"
+SOURCE_REVISION="unknown"
 SOURCE_STATE="unknown"
 if command -v git >/dev/null 2>&1 && git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   SOURCE_REVISION="$(git rev-parse HEAD)"

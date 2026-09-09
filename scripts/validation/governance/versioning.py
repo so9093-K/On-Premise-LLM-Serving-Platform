@@ -110,7 +110,7 @@ def validate_python_compatibility() -> None:
 
     # .python-version은 Linux application image의 exact patch SoT다. 실제 운영
     # image를 만드는 Dockerfile은 그 patch와 digest를 함께 고정해야 한다.
-    # GitHub/GitLab workflow는 provider가 해석하고 검증하는 실행 정의이므로 공통
+    # CI workflow는 provider가 해석하고 검증하는 실행 정의이므로 공통
     # validation이 다시 파싱하지 않는다. 그래야 로컬·다른 provider의 검증이 특정
     # CI 파일의 존재나 표현 방식에 종속되지 않는다.
     docker_match = re.search(
