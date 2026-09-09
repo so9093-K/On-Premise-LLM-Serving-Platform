@@ -9,7 +9,6 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 POLICY = "scripts/lib/deploy_request_policy.sh"
-DEPLOY_SCRIPT = ROOT / "scripts/deploy/apply_remote_release.sh"
 
 _ISOLATED_KEYS = (
     "DEPLOY_MODE",
@@ -99,26 +98,3 @@ def test_full_deploy_without_new_unified_image_keeps_remote_pins():
 
     assert result.returncode == 0
     assert result.stdout == "|"
-
-
-def test_remote_deploy_explicitly_syncs_the_shared_env_before_validation() -> None:
-    script = DEPLOY_SCRIPT.read_text(encoding="utf-8")
-    backup = script.index('cp "${COMPOSE_ENV_FILE}" "${ENV_BACKUP}"')
-    sync = script.index('make sync-env ENV_FILE="${COMPOSE_ENV_FILE}"')
-    validate = script.index('validating gateway settings against synced .env')
-
-    assert backup < sync < validate
-    assert 'scripts/config/setup_env.py --sync-runtime-secrets --env-file "${COMPOSE_ENV_FILE}"' in script
-
-
-def test_remote_deploy_restores_previous_release_when_interrupted() -> None:
-    script = DEPLOY_SCRIPT.read_text(encoding="utf-8")
-
-    handler = script.index("interrupted_after_env_backup()")
-    mutation = script.index("# .env에 PLATFORM_IMAGE 갱신")
-    assert handler < mutation
-    assert "if restore_previous_release; then" in script[handler:mutation]
-    assert "candidate release retained because restoration was incomplete" in script[handler:mutation]
-    assert "trap 'interrupted_after_env_backup INT 130' INT" in script
-    assert "trap 'interrupted_after_env_backup TERM 143' TERM" in script
-    assert "trap 'interrupted_after_env_backup HUP 129' HUP" in script

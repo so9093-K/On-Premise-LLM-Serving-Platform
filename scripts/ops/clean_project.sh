@@ -70,6 +70,20 @@ remove_glob_find() {
   fi
 }
 
+remove_os_metadata() {
+  local roots=("$ROOT")
+  local relative
+  for relative in assets configs docs ops scripts specs src tests; do
+    [[ -d "$ROOT/$relative" ]] && roots+=("$ROOT/$relative")
+  done
+  if [[ "$DRY_RUN" == "1" ]]; then
+    find "${roots[@]}" -maxdepth 1 -type f -name .DS_Store -print |
+      sort -u | sed 's/^/would remove: /'
+  else
+    find "${roots[@]}" -maxdepth 1 -type f -name .DS_Store -delete
+  fi
+}
+
 remove_empty_dir() {
   local path="$1"
   [[ -d "$path" ]] || return 0
@@ -102,6 +116,7 @@ for path in \
   remove_path "$path"
 done
 remove_glob_find
+remove_os_metadata
 remove_runtime_validation_reports
 remove_empty_dir "$ROOT/reports/runtime"
 remove_empty_dir "$ROOT/reports"

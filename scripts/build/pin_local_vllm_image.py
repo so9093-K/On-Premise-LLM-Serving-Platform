@@ -42,14 +42,20 @@ def resolve_local_image_id(image_ref: str) -> str:
     return image_id
 
 
-def pin_matching_env_values(env_path: Path, source_ref: str, image_id: str) -> list[str]:
+def pin_matching_env_values(
+    env_path: Path,
+    source_ref: str,
+    image_id: str,
+    *,
+    keys: tuple[str, ...] = UNIFIED_IMAGE_KEYS,
+) -> list[str]:
     if not is_local_image_id(image_id):
         raise ValueError(f"invalid local image ID: {image_id!r}")
     lines, values = parse_env_template(env_path)
-    matched = [key for key in UNIFIED_IMAGE_KEYS if values.get(key) == source_ref]
+    matched = [key for key in keys if values.get(key) == source_ref]
     if not matched:
         raise RuntimeError(
-            f"{env_path} has no unified image value matching the built image {source_ref!r}; "
+            f"{env_path} has no selected image value matching the built image {source_ref!r}; "
             "refusing to overwrite operator-owned image references"
         )
     for key in matched:

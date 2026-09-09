@@ -47,6 +47,9 @@ if [ "$ACTUAL_VERSION" != "$PYTHON_VERSION" ]; then
   exit 2
 fi
 
+LOCK_PIP_VERSION="$(python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["tool"]["dependency-lock"]["pip"])')"
+LOCK_PIP_TOOLS_VERSION="$(python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["tool"]["dependency-lock"]["pip-tools"])')"
+
 WORK="$(mktemp -d)"
 LOCKS_REPLACED=0
 cleanup() {
@@ -71,7 +74,10 @@ cp requirements.runtime.lock "$WORK/requirements.runtime.lock"
 
 python -m venv "$WORK/tools"
 "$WORK/tools/bin/python" -m pip install --disable-pip-version-check \
-  'pip==26.0.1' 'pip-tools==7.5.3'
+  "pip==${LOCK_PIP_VERSION}" "pip-tools==${LOCK_PIP_TOOLS_VERSION}"
+
+python -c 'import tomllib; print("\n".join(tomllib.load(open("pyproject.toml", "rb"))["build-system"]["requires"]))' \
+  > "$WORK/build-requirements.txt"
 
 "$WORK/tools/bin/pip-compile" \
   --resolver=backtracking \
@@ -94,9 +100,10 @@ verify_lock() {
   lock="$2"
   environment="$WORK/$name"
   python -m venv "$environment"
-  "$environment/bin/python" -m pip install --disable-pip-version-check 'pip==26.0.1'
+  "$environment/bin/python" -m pip install --disable-pip-version-check "pip==${LOCK_PIP_VERSION}"
   "$environment/bin/python" -m pip install --disable-pip-version-check --requirement "$lock"
-  "$environment/bin/python" -m pip install --disable-pip-version-check 'setuptools==83.0.0'
+  "$environment/bin/python" -m pip install --disable-pip-version-check \
+    --requirement "$WORK/build-requirements.txt"
   "$environment/bin/python" -m pip install --disable-pip-version-check \
     --no-deps --no-build-isolation .
   "$environment/bin/python" -m pip check

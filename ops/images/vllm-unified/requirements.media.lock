@@ -1,4 +1,9 @@
-# Exact media decode dependency closure verified in the deployed vLLM unified image.
+# Curated media overlay for the digest-pinned vLLM base image.
+#
+# This is not part of the application dependency resolver. Every package is
+# installed with --no-deps and the resulting environment is verified by the
+# unified image build. Update it only against the canonical base declared in
+# configs/vllm_unified_build.yaml; do not regenerate it from a host pip freeze.
 audioread==3.1.0
 av==17.1.0
 decorator==5.3.1

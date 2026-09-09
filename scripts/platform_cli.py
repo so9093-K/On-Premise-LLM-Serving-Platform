@@ -132,31 +132,54 @@ def setup_target(
     print("[platform] next: make build, then make prepare")
 
 
-def _immutable_image(image: str) -> bool:
-    return "@sha256:" in image or image.startswith("sha256:")
+def _registry_digest(image: str) -> bool:
+    """Return whether the ref identifies an externally published artifact.
+
+    A bare ``sha256:...`` is a local Docker image ID produced by this lifecycle.
+    It must remain rebuildable; only a named registry digest is external input.
+    """
+    return "@sha256:" in image
 
 
 def build_target(target: DeploymentTarget, *, no_cache: bool = False) -> None:
     values = _env_values()
+    version = (ROOT / "VERSION").read_text(encoding="utf-8").strip()
+    built: list[str] = []
+    external: list[str] = []
     platform_image = values.get("PLATFORM_IMAGE", "")
-    if _immutable_image(platform_image):
-        print(f"[platform] using immutable Platform image: {platform_image}")
+    if _registry_digest(platform_image):
+        external.append("platform")
+        print(f"[platform] preserving external Platform image: {platform_image}")
     else:
+        source_ref = platform_image
+        build_ref = platform_image
+        if not build_ref or build_ref.startswith("sha256:"):
+            build_ref = f"ai-model-serving-platform:{version}"
         build_env = dict(os.environ)
-        if platform_image:
-            build_env["PLATFORM_IMAGE"] = platform_image
+        build_env["PLATFORM_IMAGE"] = build_ref
         if no_cache:
             build_env["PROJECT_BUILD_NO_CACHE"] = "1"
         _run("bash", "scripts/build/build_platform_image.sh", env=build_env)
+        built.append("platform")
+        if source_ref.startswith("sha256:"):
+            new_image_id = resolve_local_image_id(build_ref)
+            pin_matching_env_values(
+                ENV_PATH,
+                source_ref,
+                new_image_id,
+                keys=("PLATFORM_IMAGE",),
+            )
+            print(f"[platform] pinned local Platform image: PLATFORM_IMAGE={new_image_id}")
 
     if target.controllable:
         image = values.get("RISK_VLLM_IMAGE", "")
-        if _immutable_image(image):
-            print(f"[platform] using immutable Unified vLLM image: {image}")
+        if _registry_digest(image):
+            external.append("vllm-unified")
+            print(f"[platform] preserving external Unified vLLM image: {image}")
         else:
             build_ref = image
             if not build_ref or build_ref.startswith("sha256:"):
-                build_ref = f"ai-model-serving-vllm-unified:{(ROOT / 'VERSION').read_text(encoding='utf-8').strip()}"
+                build_ref = f"ai-model-serving-vllm-unified:{version}"
             build_env = dict(os.environ)
             build_env["VLLM_UNIFIED_BUILD_IMAGE"] = build_ref
             if no_cache:
@@ -165,9 +188,15 @@ def build_target(target: DeploymentTarget, *, no_cache: bool = False) -> None:
             new_image_id = resolve_local_image_id(build_ref)
             updated = pin_matching_env_values(ENV_PATH, image or build_ref, new_image_id)
             print(f"[platform] pinned local Unified image: {','.join(sorted(updated))}={new_image_id}")
+            built.append("vllm-unified")
 
-    mode = "rebuilt without cache" if no_cache else "built"
-    print(f"[platform] target artifacts {mode}: target={target.target_id}")
+    mode = "rebuilt without cache reuse" if no_cache else "built with cache reuse"
+    built_text = ",".join(built) if built else "none"
+    external_text = ",".join(external) if external else "none"
+    print(
+        f"[platform] target artifacts: {mode}; built={built_text}; "
+        f"external-preserved={external_text}; target={target.target_id}"
+    )
     print("[platform] next: make prepare")
 
 

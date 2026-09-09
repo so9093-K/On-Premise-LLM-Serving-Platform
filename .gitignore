@@ -1,7 +1,6 @@
 # ── Secrets & env files ────────────────────────────────────────────────────
 .env
 .env.*
-!.env.example
 !.env.local.example
 !.env.compose.example
 

@@ -78,12 +78,6 @@ exposure_mode_requirements:
 
 # env_examples: which example files must contain which key sets.
 env_examples:
-  .env.example:
-    required_key_sets:
-      - common_example_keys
-      - auth_mode_keys
-      - auth_evidence_keys
-      - runtime_override_example_keys
   .env.local.example:
     required_key_sets:
       - runtime_override_example_keys

@@ -12,6 +12,7 @@ from pathlib import Path
 import yaml
 
 from scripts.build.pin_local_vllm_image import pin_matching_env_values
+from scripts import platform_cli
 
 _ISOLATED_KEYS = ("VLLM_IMAGE", "RISK_VLLM_IMAGE", "VLLM_BASE_IMAGE")
 
@@ -141,3 +142,40 @@ def test_local_image_pin_updates_only_matching_unified_refs(tmp_path):
         f"RISK_VLLM_IMAGE={image_id}\n"
         f"AUDIO_VLLM_IMAGE={image_id}\n"
     )
+
+
+def test_target_rebuild_does_not_treat_local_image_id_as_external(monkeypatch):
+    local_id = "sha256:" + "a" * 64
+    commands: list[tuple[tuple[str, ...], dict[str, str] | None]] = []
+    pinned: list[tuple[str, str]] = []
+    monkeypatch.setattr(
+        platform_cli,
+        "_env_values",
+        lambda: {
+            "PLATFORM_IMAGE": "ai-model-serving-platform:test",
+            "RISK_VLLM_IMAGE": local_id,
+        },
+    )
+    monkeypatch.setattr(
+        platform_cli,
+        "_run",
+        lambda *command, env=None: commands.append((command, env)),
+    )
+    monkeypatch.setattr(
+        platform_cli,
+        "resolve_local_image_id",
+        lambda image: "sha256:" + "b" * 64,
+    )
+    monkeypatch.setattr(
+        platform_cli,
+        "pin_matching_env_values",
+        lambda _path, source, image_id, **_kwargs: pinned.append((source, image_id)) or ["RISK_VLLM_IMAGE"],
+    )
+    target = type("Target", (), {"controllable": True, "target_id": "linux-nvidia-dynamic"})()
+
+    platform_cli.build_target(target, no_cache=True)
+
+    assert len(commands) == 2
+    assert all(env and env["PROJECT_BUILD_NO_CACHE"] == "1" for _, env in commands)
+    assert commands[1][1]["VLLM_UNIFIED_BUILD_IMAGE"].startswith("ai-model-serving-vllm-unified:")
+    assert pinned == [(local_id, "sha256:" + "b" * 64)]

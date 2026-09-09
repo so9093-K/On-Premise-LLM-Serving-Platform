@@ -17,6 +17,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import tomllib
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -28,6 +29,12 @@ ROOT = Path(__file__).resolve().parents[2]
 CONFIG_PATH = ROOT / "configs" / "macos_mlx_runtime.yaml"
 PID_PATH = ROOT / "run" / "metal.pid"
 LOG_PATH = ROOT / "logs" / "metal.log"
+
+
+def _lock_tool_versions() -> tuple[str, str]:
+    metadata = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    lock_tools = metadata["tool"]["dependency-lock"]
+    return str(lock_tools["pip"]), str(lock_tools["pip-tools"])
 
 
 def _config() -> dict[str, Any]:
@@ -184,6 +191,7 @@ def lock(config: dict[str, Any]) -> None:
     runtime = config["runtime"]
     output = ROOT / str(runtime["lock_file"])
     packages = [str(package) for package in runtime["packages"]]
+    pip_version, pip_tools_version = _lock_tool_versions()
     with tempfile.TemporaryDirectory(prefix="metal-lock-") as temporary_name:
         temporary = Path(temporary_name)
         tools = temporary / "tools"
@@ -196,7 +204,10 @@ def lock(config: dict[str, Any]) -> None:
             shutil.copyfile(output, generated)
         subprocess.run([str(base_python), "-m", "venv", str(tools)], check=True)
         pip = [str(tools / "bin" / "python"), "-m", "pip", "--disable-pip-version-check"]
-        subprocess.run([*pip, "install", "--quiet", "pip==26.0.1", "pip-tools==7.5.3"], check=True)
+        subprocess.run(
+            [*pip, "install", "--quiet", f"pip=={pip_version}", f"pip-tools=={pip_tools_version}"],
+            check=True,
+        )
         subprocess.run(
             [
                 str(tools / "bin" / "pip-compile"),
@@ -236,7 +247,8 @@ def setup(config: dict[str, Any]) -> None:
             f"{expected_python}; move .runtime/metal/venv aside before rebuilding it"
         )
     pip = [str(python), "-m", "pip", "--disable-pip-version-check"]
-    subprocess.run([*pip, "install", "--quiet", "pip==26.0.1"], check=True)
+    pip_version, _ = _lock_tool_versions()
+    subprocess.run([*pip, "install", "--quiet", f"pip=={pip_version}"], check=True)
     subprocess.run([*pip, "install", "--quiet", "--requirement", str(lock_path)], check=True)
     subprocess.run([*pip, "check"], check=True)
     for package, expected in _direct_packages(config).items():

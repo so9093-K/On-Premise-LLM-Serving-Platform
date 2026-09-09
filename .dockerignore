@@ -2,7 +2,6 @@
 # Exclude .env* from build context; explicit allowlist for committed example templates
 .env
 .env.*
-!.env.example
 !.env.local.example
 !.env.compose.example
 

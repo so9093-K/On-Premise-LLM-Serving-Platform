@@ -31,8 +31,7 @@ Repository Configuration
 ├─ Environment Contract
 │   ├─ env_contract.yaml
 │   ├─ .env.local.example
-│   ├─ .env.compose.example
-│   └─ .env.example
+│   └─ .env.compose.example
 │
 └─ Runtime / Generated State
     ├─ .env
@@ -387,15 +386,16 @@ make exposure-apply MODE=<mode>
 
 ## 5.10 환경 파일
 
-프로젝트는 목적에 따라 세 가지 example env 파일을 제공한다.
+프로젝트는 실제 생성 경로에 대응하는 두 가지 example env 파일을 제공한다.
 
 | 파일 | 용도 |
 |---|---|
-| `.env.example` | 전체 환경변수 key를 확인하는 참조 파일 |
 | `.env.local.example` | app-only 로컬 개발 환경 template |
 | `.env.compose.example` | full-stack Compose 실행 환경 template |
 
 example 파일은 실행 환경별 `.env`를 구성하기 위한 template으로 사용한다.
+두 경로의 layout과 일반 기본값은 각 template이 소유한다. Compose image 기본값은
+`configs/recommended_images.yaml`이 소유하며 최초 생성과 `sync-env`가 같은 값을 사용한다.
 
 ```bash
 make init-env-local

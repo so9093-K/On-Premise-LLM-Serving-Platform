@@ -298,8 +298,7 @@ def sync_env_keys(env_path: Path, *, dry_run: bool = False) -> int:
     if profile not in ("local", "compose"):
         profile = "compose"
 
-    template_path = profile_template(profile)
-    _, template_values = parse_env_template(template_path)
+    _, template_values = effective_profile_template(profile)
 
     added = [k for k in template_values if k not in existing and k not in REMOVED_ENV_KEYS]
     removed = [k for k in existing if k in REMOVED_ENV_KEYS]
@@ -338,12 +337,26 @@ def sync_env_keys(env_path: Path, *, dry_run: bool = False) -> int:
     print(f"업데이트 완료: {env_path} (profile={profile})")
     return 0
 
+
 def profile_template(profile: str) -> Path:
     if profile == "compose":
         return ROOT / ".env.compose.example"
     if profile == "local":
         return ROOT / ".env.local.example"
     raise ValueError(profile)
+
+
+def effective_profile_template(profile: str) -> tuple[list[str], dict[str, str]]:
+    """Return template layout and the defaults used by both init and sync.
+
+    The checked-in template owns layout and operator-facing examples. Structured
+    image defaults belong to recommended_images.yaml and must not depend on
+    whether an env file is initialized or synchronized later.
+    """
+    lines, values = parse_env_template(profile_template(profile))
+    if profile == "compose":
+        values.update(recommended_images())
+    return lines, values
 
 
 def _validated_exposure_mode(exposure_mode: str) -> str:
@@ -493,8 +506,7 @@ def main(argv: list[str] | None = None) -> int:
         print("기존 .env를 유지하면서 Prometheus secret만 복구하려면 `make compose-up`을 실행하세요.", file=sys.stderr)
         return 2
     try:
-        template = profile_template(args.profile)
-        lines, base_values = parse_env_template(template)
+        lines, base_values = effective_profile_template(args.profile)
         preserved_values = preserve_existing_values(out_path, force=args.force)
     except RuntimeError as exc:
         print(f"env 파일 오류: {exc}", file=sys.stderr)

@@ -78,7 +78,7 @@ make down
 | `build/package_release.sh` | 배포 ZIP을 만들고 secret, log, cache, egg-info, generated runtime report를 제외한다. ZIP root는 항상 `ai_model_serving_platform/`로 고정한다. |
 | `ops/down_all.sh` | `.env`와 Compose project name에 의존하지 않고 이 checkout의 host process와 Compose container/network를 정지한다. |
 | `ops/clean_project.sh` | build/test 산출물과 runtime report를 정리한다. 실행 중인 host process가 있으면 중단하며 `--dry-run`, `--logs`만 지원한다. |
-| `ops/reset_all.sh` | 기본 실행은 전체 초기화 plan만 출력하고, 정확한 확인값에서 project-local state만 삭제한다. |
+| `ops/reset_all.sh` | 기본 실행은 project-local 초기화 plan만 출력하고, 정확한 확인값에서 해당 state만 삭제한다. Docker build cache와 전역 model cache는 보존한다. |
 | `build/reset_version.py` | VERSION, OpenAPI, pyproject, env 예시, platform image tag를 같은 버전으로 맞춘다. |
 
 ## 운영 주의사항
@@ -90,7 +90,7 @@ make down
 - full-stack 기동인 `make compose-up`에는 Docker/GPU/포트/secret preflight가 포함된다.
 - `make compose-up`은 `configs/deploy_profiles.yaml`의 기본 `main_only`를 적용해 Main만 시작한다. Retrieval runtime도 처음부터 필요하면 `RUNTIME_PROFILE=retrieval_ready make compose-up`을 명시한다.
 - 라이브 검증은 `make runtime-validate`, 실행 전 정적 검증은 `make validate`로 수행한다.
-- 저비용 정리 대상은 `make clean DRY_RUN=1`으로 확인한다. 전체 초기화는 `make reset`이 plan만 출력한다.
+- 저비용 정리 대상은 `make clean DRY_RUN=1`으로 확인한다. project-local 초기화는 `make reset`이 plan만 출력한다.
 
 - `.runtime/`은 정상적인 로컬 runtime state다. `make clean`은 보존하고 확인된 `make reset CONFIRM=reset`만 제거한다. 테스트와 패키징 정책은 `.runtime`의 로컬 존재가 아니라 release/source ZIP 포함 여부를 검사해야 한다.
 - `package_release.sh`는 `.runtime`, `.venv`, `venv`, `env`, `.tox`, logs, run, cache, pycache, egg-info를 제외한다.
@@ -108,7 +108,7 @@ Risk detector의 `bitsandbytes` 설정은 운영 기본값이다. 원인 분리�
 ## Unified vLLM 이미지와 Kanana patch 점검
 
 - `make build`: 선택 target에서 이 저장소가 소유한 image만 만들며 모델 다운로드·검증·기동을 섞지 않는다.
-- `make rebuild`: 같은 image 범위를 Docker cache 없이 다시 만든다.
+- `make rebuild`: project-owned image를 Docker cache 재사용 없이 다시 만든다. 기존 BuildKit cache는 삭제하지 않는다.
 - `make build-vllm-unified-image`: `configs/vllm_unified_build.yaml`이 지정한 native Docker target에서 26B/12B/embedding/embedding-ko/risk-prompt 공용 image를 빌드하는 고급/수동 target이다.
 - `make up`의 full-stack preflight는 `RISK_VLLM_IMAGE` 안의 label, metadata, Kanana risk model config load를 확인한다.
 - `SKIP_RISK_VLLM_IMAGE_CONFIG_CHECK=1 make compose-up`: image-internal config check만 건너뛴다. production 승격용으로 쓰지 않는다.

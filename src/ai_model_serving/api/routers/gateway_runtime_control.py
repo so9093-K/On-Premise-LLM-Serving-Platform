@@ -555,10 +555,6 @@ def build_router(
                     source="runtime_control",
                 )
                 return _sidecar_request_error_response(exc)
-            except SidecarRequestError as exc:
-                # 4xx는 요청이 잘못된 것이다. control plane 장애(503, retryable)로
-                # 보고하면 성공할 수 없는 요청을 계속 재시도하게 된다.
-                return _sidecar_request_error_response(exc)
             except SidecarUnavailableError as exc:
                 await state_store.set(
                     service_key,

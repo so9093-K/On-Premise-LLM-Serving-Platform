@@ -1,4 +1,4 @@
-"""통합 /admin/runtimes budget aggregation 헬퍼에 대한 단위 테스트."""
+"""`/admin/runtimes` 상태 전이와 sidecar 거부 응답을 검증한다."""
 
 from __future__ import annotations
 
@@ -103,6 +103,17 @@ def test_runtime_active_reconciles_when_desired_active_but_container_is_down():
     assert response.status_code == 200
     assert sidecar.started is True
     assert response.json()["containers_started"] == ["embed-ko"]
+
+    # 이미 시작 중이면 새 작업을 만들지 않고 재시도 가능한 503을 보낸다.
+    asyncio.run(clients.runtime_state.set("embedding_ko", RuntimeState.starting))
+    transitioning = client.request(
+        "PATCH",
+        "/admin/runtimes/embedding_ko",
+        json={"desired_state": "active"},
+    )
+    assert transitioning.status_code == 503
+    assert transitioning.json()["error"]["code"] == "MODEL_UNAVAILABLE"
+    assert transitioning.json()["error"]["retryable"] is True
 
 
 def test_runtime_budget_rejection_uses_standard_error_envelope():

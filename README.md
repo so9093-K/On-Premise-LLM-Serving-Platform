@@ -152,11 +152,11 @@ digest로 배포한다. 로컬 image는 변경 중인 코드를 확인하는 개
 | 목적 | 명령 |
 |---|---|
 | 최초 target 환경 준비 | `make setup TARGET=<id>` |
-| target image 빌드 | `make build` (`make rebuild`는 cache 없이 재빌드) |
+| target image 빌드 | `make build` (`make rebuild`는 cache 재사용 없이 재빌드) |
 | 선택 Main Model 준비 | `HF_TOKEN=... make prepare` |
 | 전체 시작 / 종료 | `make up` / `make down` |
 | checkout 전체 종료 | `make down-all` |
-| 전체 초기화 계획 | `make reset` |
+| 프로젝트 로컬 상태 초기화 계획 | `make reset` |
 | 통합 상태 확인 | `make status` |
 | 개발 변경 검증 | `make check` |
 | 고급·유지보수 명령 | `make help-all` |

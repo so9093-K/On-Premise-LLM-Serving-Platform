@@ -73,7 +73,7 @@
 | 선택 Main Model 준비 | `HF_TOKEN=... make prepare` | [7. 로컬 개발과 빌드](./07_local_dev_build.md) |
 | target 시작 / 상태 / 종료 | `make up` / `make status` / `make down` | [4. 실행 환경과 모드](./04_runtime_modes.md) |
 | checkout 전체 종료 | `make down-all` | [7. 로컬 개발과 빌드](./07_local_dev_build.md) |
-| 전체 초기화 plan / 적용 | `make reset` / `make reset CONFIRM=reset` | [7. 로컬 개발과 빌드](./07_local_dev_build.md) |
+| 프로젝트 로컬 상태 초기화 plan / 적용 | `make reset` / `make reset CONFIRM=reset` | [7. 로컬 개발과 빌드](./07_local_dev_build.md) |
 | application 변경 검증 | `make check` | [8. 테스트와 검증](./08_testing_validation.md) |
 | 내부 빌드·진단 명령 조회 | `make help-all` | [7. 로컬 개발과 빌드](./07_local_dev_build.md) |
 

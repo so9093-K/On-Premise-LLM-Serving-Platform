@@ -136,6 +136,19 @@ def test_sync_env_removes_only_registered_keys_and_keeps_server_only_settings(tm
     assert 'MAIN_LLM_STATIC_PROFILE=gemma4-12b-unified-fp8' in lines
 
 
+def test_sync_env_uses_recommended_image_defaults(tmp_path, monkeypatch):
+    out = tmp_path / '.env'
+    out.write_text('BUILD_PROFILE=compose\n', encoding='utf-8')
+    image_defaults = setup_env.recommended_images()
+    image_defaults['PLATFORM_IMAGE'] = 'example/platform:canonical'
+    monkeypatch.setattr(setup_env, 'recommended_images', lambda: image_defaults)
+
+    rc = setup_env.main(['--sync-env', '--env-file', str(out)])
+
+    assert rc == 0
+    assert 'PLATFORM_IMAGE=example/platform:canonical' in out.read_text(encoding='utf-8')
+
+
 def test_setup_env_force_preserves_custom_risk_vllm_image(tmp_path):
     out = tmp_path / '.env'
     out.write_text(

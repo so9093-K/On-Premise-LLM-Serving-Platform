@@ -106,7 +106,7 @@ make lock-linux
 이 명령은 어느 host에서 호출하더라도 `--platform linux/amd64`를 명시하고,
 Dockerfile이 사용하는 digest 고정
 `python:<.python-version>-slim@sha256:...` image 안에서
-`pip==26.0.1`, `pip-tools==7.5.3`을 사용한다.
+`pyproject.toml`의 `tool.dependency-lock`에 고정된 `pip`, `pip-tools`를 사용한다.
 기존 lock을 resolver constraint로 재사용하므로, lock 재생성 자체가 사전 검토 없이
 전이 의존성 전체를 업그레이드하지 않는다.
 두 lock을 임시 경로에 먼저 만들고 각각 새 venv에 설치해 `pip check`와 contract
@@ -337,7 +337,8 @@ linux-nvidia-static   → Platform image (Main runtime은 external)
 macos-metal-static    → Platform image (MLX runtime은 native environment)
 ```
 
-Docker cache를 버리고 같은 target의 image를 다시 만들 때만 `make rebuild`를 사용한다.
+Docker cache를 재사용하지 않고 같은 target의 project-owned image를 다시 만들 때만
+`make rebuild`를 사용한다. 기존 BuildKit cache를 삭제하는 명령은 아니다.
 `rebuild`도 모델을 다시 다운로드하거나 서비스를 시작하지 않는다. 소스 변경 검증은
 별도 책임인 `make check`를 먼저 실행한다.
 
@@ -352,7 +353,7 @@ make build-image
 | 명령 | 범위 |
 |---|---|
 | `make build` | 선택 target의 저장소 소유 image 전체, Docker cache 사용 |
-| `make rebuild` | 같은 image 전체, Docker `--no-cache` 사용 |
+| `make rebuild` | 같은 project-owned image 전체, Docker `--no-cache` 사용; 기존 cache 보존 |
 | `make build-image` | Platform Image Build + image 내부 application 확인 |
 
 `PLATFORM_IMAGE` 환경변수로 build tag를 지정할 수 있으며, 기본값은 `ai-model-serving-platform:<VERSION>`이다.
@@ -370,7 +371,7 @@ PLATFORM_BUILD_PLATFORM=linux/amd64 make build-image
 ```
 
 Build 로그와 image label에는 Git revision, working tree의 clean/dirty 상태와 target
-platform이 남는다. dirty 상태는 개발 중 image로 허용하지만 clean-commit CI artifact로
+platform이 남는다. dirty 상태는 개발 중 image로 허용하지만 clean-commit release artifact로
 오인하지 않도록 경고한다. 로컬 tag는 mutable하므로 배포 입력으로 사용하지 않는다.
 
 Platform Image build는 `scripts/build/build_platform_image.sh`, Unified vLLM Image build는
@@ -411,7 +412,7 @@ Unified vLLM Image의 주요 build 입력은 다음과 같다.
 |---|---|
 | `ops/images/vllm-unified/Dockerfile` | Derived runtime image 구성 |
 | `configs/vllm_unified_build.yaml` | Target platform, base image와 compatibility pin 관리 |
-| `ops/images/vllm-unified/requirements.media.lock` | Multimodal media dependency 고정 |
+| `ops/images/vllm-unified/requirements.media.lock` | 고정 vLLM base에서 검증하는 multimodal media overlay |
 | `ops/patches/apply_gemma4_multimodal_patches.py` | Gemma4 multimodal compatibility patch |
 | `ops/patches/transformers_llama_head_dim_guard.py` | Prompt Risk Llama `head_dim` compatibility patch |
 
@@ -511,7 +512,7 @@ make clean DRY_RUN=1
 make clean LOGS=1
 ```
 
-처음부터 다시 구성하기 위한 전체 초기화는 파괴적이므로 기본 실행이 계획만 출력한다.
+처음부터 다시 구성하기 위한 project-local 초기화는 파괴적이므로 기본 실행이 계획만 출력한다.
 
 ```bash
 make reset
@@ -519,8 +520,8 @@ make reset CONFIRM=reset
 ```
 
 확인 후 적용하면 `down-all` 범위, 프로젝트가 빌드한 local image, `.env`, `.venv`,
-`.runtime`, 로그·산출물과 repository-local model cache를 제거한다. Docker volume,
-프로젝트 label이 없는 registry image, 다른 checkout의 Docker resource와 사용자의 global
+`.runtime`, 로그·산출물과 repository-local model cache를 제거한다. Docker volume과
+daemon 공용 BuildKit cache, 프로젝트 label이 없는 registry image, 다른 checkout의 Docker resource와 사용자의 global
 Hugging Face cache는 제거하지 않는다. daemon 전체에 영향을 주는 prune은 lifecycle에
 포함하지 않는다.
 
@@ -536,7 +537,7 @@ Hugging Face cache는 제거하지 않는다. daemon 전체에 영향을 주는 
 | full-stack | `make ready-full` | Gateway readiness + vLLM + inference path |
 | Platform Image | `make build-image` | Docker build + application import |
 | 선택 target image | `make build` | target별 저장소 소유 image 전체 |
-| cache 없는 재빌드 | `make rebuild` | 같은 범위 + Docker `--no-cache` |
+| cache 재사용 없는 재빌드 | `make rebuild` | project-owned 범위 + Docker `--no-cache`; cache 자체는 보존 |
 | Compose config | `make compose-config` | effective Compose config rendering |
 | 서비스 상태 | `make status` | 현재 service / process 상태 |
 | Release ZIP | `make package` | package validation + ZIP 생성 |
@@ -570,7 +571,7 @@ make compose-logs
 | target 통합 상태 | `make status` |
 | target 전체 종료 | `make down` |
 | checkout 소유 runtime 전체 종료 | `make down-all` |
-| 전체 초기화 plan / 적용 | `make reset` / `make reset CONFIRM=reset` |
+| 프로젝트 로컬 상태 초기화 plan / 적용 | `make reset` / `make reset CONFIRM=reset` |
 | application 변경 검증 | `make check` |
 | 내부 build·진단·운영 명령 | `make help-all` |
 
@@ -597,5 +598,5 @@ make compose-logs
 | Unified vLLM Dockerfile | `ops/images/vllm-unified/Dockerfile` | derived vLLM runtime image |
 | Target lifecycle | `scripts/platform_cli.py` | setup/build/prepare/up/status/down 조합 |
 | Checkout 전체 종료 | `scripts/ops/down_all.sh` | `.env` 독립적인 project-owned runtime 회수 |
-| 전체 초기화 | `scripts/ops/reset_all.sh` | 확인 기반 project-local state 삭제 |
+| 프로젝트 로컬 상태 초기화 | `scripts/ops/reset_all.sh` | 확인 기반 project-local state 삭제 |
 | Release package | `scripts/build/package_release.sh` | 배포용 ZIP 생성 |

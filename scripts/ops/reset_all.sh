@@ -12,8 +12,9 @@ print_plan() {
   remove images: images built by this project (project label or canonical local repository)
   remove files: .env, .venv, .runtime, logs, run, build/test artifacts,
                 repository-local model_cache and models
-  preserve: Docker volumes, registry images without this project's build label,
-            global Hugging Face cache, and unrelated Docker resources
+  preserve: Docker volumes, daemon-wide BuildKit cache, registry images without
+            this project's build label, global Hugging Face cache, and unrelated
+            Docker resources
 
 Nothing has been removed. Apply exactly with:
   make reset CONFIRM=reset
@@ -91,5 +92,5 @@ for path in \
   fi
 done
 
-echo "[reset] complete; global Hugging Face cache and unrelated Docker state were preserved"
+echo "[reset] complete; Docker build cache, global Hugging Face cache, and unrelated Docker state were preserved"
 echo "[reset] next: make setup TARGET=<deployment-target>"

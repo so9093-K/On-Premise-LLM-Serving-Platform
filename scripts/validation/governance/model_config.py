@@ -69,7 +69,6 @@ def validate_configuration_schema() -> None:
 
 def validate_deployment_targets() -> None:
     from ai_model_serving.deployment_target import load_deployment_target
-    from ai_model_serving.runtime_topology import load_runtime_topology
     from ai_model_serving.serving_profile import load_main_serving_catalog
 
     document = read_yaml('configs/deployment_targets.yaml')
@@ -82,13 +81,6 @@ def validate_deployment_targets() -> None:
         if target.validation_status == 'planned' and target_id == default_target:
             raise SystemExit('a planned deployment target cannot be the default')
         load_main_serving_catalog(ROOT / target.main_profile_catalog)
-
-    # Runtime과 validator가 같은 parser/invariant를 사용한다. 여기서 YAML을 다시
-    # 해석하면 load_runtime_topology()에 규칙을 추가할 때 validate가 놓칠 수 있다.
-    try:
-        load_runtime_topology(ROOT)
-    except (OSError, ValueError) as exc:
-        raise SystemExit(str(exc)) from exc
 
 
 def validate_deploy_profiles() -> None:

@@ -82,7 +82,7 @@ done
 echo "[image] source revision=${SOURCE_REVISION} state=${SOURCE_STATE}"
 echo "[image] target platform=${EFFECTIVE_PLATFORM}"
 if [[ "$SOURCE_STATE" == "dirty" ]]; then
-  echo "[image] WARNING: building from a modified working tree; this is not the clean-commit CI artifact." >&2
+  echo "[image] WARNING: building from a modified working tree; this is not a clean-commit release artifact." >&2
 fi
 echo "[image] building platform image ${IMAGE}"
 docker build "${build_args[@]}" .

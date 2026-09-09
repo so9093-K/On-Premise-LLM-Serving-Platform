@@ -29,7 +29,7 @@ setup: ## 선택 target의 로컬 환경과 설정을 한 번 준비 (TARGET=<id
 build: ## 선택 target에서 이 저장소가 소유한 image 전체 빌드
 	$(PLATFORM_CLI) build $(PLATFORM_TARGET_ARG)
 
-rebuild: ## 선택 target image를 Docker cache 없이 다시 빌드
+rebuild: ## 선택 target의 project-owned image를 cache 재사용 없이 다시 빌드
 	$(PLATFORM_CLI) rebuild $(PLATFORM_TARGET_ARG)
 
 prepare: ## 선택 target의 선택 Main model 준비 (secondary model 제외)
@@ -44,7 +44,7 @@ down: ## .env에 선택된 target 전체 정지
 down-all: ## .env와 무관하게 이 checkout이 소유한 모든 실행 리소스 정지
 	bash scripts/ops/down_all.sh
 
-reset: ## 전체 초기화 계획 출력 (적용: CONFIRM=reset)
+reset: ## 프로젝트 로컬 상태 초기화 계획 출력 (적용: CONFIRM=reset)
 	bash scripts/ops/reset_all.sh $(if $(filter reset,$(CONFIRM)),--confirm reset,)
 
 check: ## application 변경의 정적 계약과 결정론적 테스트 확인
