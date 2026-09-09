@@ -1,0 +1,127 @@
+On-Premise-LLM-Serving-Platform
+Copyright 2026 so9093 and contributors
+
+Except as otherwise noted, source code, documentation, and configuration authored
+for this project are distributed under the Apache License 2.0.
+
+이 문서는 저장소에 직접 포함하거나 수정한 제3자 자료의 출처와, 실행 시 참조하는
+모델의 라이선스 경계를 기록한다. 이 문서는 LICENSE의 조건이나 제3자 라이선스·이용
+약관을 변경하지 않는다.
+
+
+1. 저장소에 직접 포함하거나 수정한 제3자 자료
+==============================================
+
+Google Gemma 4 canonical chat template
+---------------------------------------
+Project path:
+  configs/gemma4_chat_template.jinja
+
+Upstream:
+  google/gemma-4-E4B-it
+  https://huggingface.co/google/gemma-4-E4B-it
+
+License:
+  Apache License 2.0
+  https://ai.google.dev/gemma/apache_2
+
+이 프로젝트는 위 모델 저장소의 canonical chat template을 Gemma 4 공통 template의
+기준으로 포함한다. 구체적인 provenance와 upstream 차이는 해당 파일 상단에 기록한다.
+
+
+vLLM
+----
+Upstream:
+  https://github.com/vllm-project/vllm
+
+License:
+  Apache License 2.0
+
+Project paths:
+  ops/patches/apply_gemma4_multimodal_patches.py
+  ops/patches/apply_gemma4_streaming_reasoning_patch.py
+  ops/images/vllm-unified/Dockerfile
+
+Unified vLLM image build 과정에서 설치된 vLLM 소스에 로컬 호환성 변경과 다음
+upstream 변경의 backport를 적용한다.
+  https://github.com/vllm-project/vllm/pull/48262
+
+수정된 파일에는 원래 vLLM 저작권과 Apache License 2.0 조건이 계속 적용된다.
+
+
+Hugging Face Transformers
+-------------------------
+Upstream:
+  https://github.com/huggingface/transformers
+
+License:
+  Apache License 2.0
+
+Project paths:
+  ops/patches/apply_gemma4_multimodal_patches.py
+  ops/patches/transformers_llama_head_dim_guard.py
+  ops/images/vllm-unified/Dockerfile
+
+Unified vLLM image build 과정에서 설치된 Transformers 소스에 로컬 호환성 변경을
+적용한다. 수정된 파일에는 원래 Transformers 저작권과 Apache License 2.0 조건이
+계속 적용된다.
+
+
+2. 실행 시 참조하는 제3자 모델
+===============================
+
+모델 가중치는 이 저장소와 container image에 기본으로 포함되지 않으며, 준비 또는
+실행 단계에서 각 upstream 저장소로부터 별도로 내려받는다. 모델 가중치는 이
+프로젝트의 Apache-2.0 라이선스로 재라이선스되지 않는다.
+
+정확한 model ID와 revision의 기준:
+  configs/main_model_profiles.yaml
+  configs/model_serving.yaml
+  configs/macos_mlx_runtime.yaml
+
+Apache License 2.0으로 표시된 upstream model repositories:
+  - RedHatAI/gemma-4-26B-A4B-it-FP8-Dynamic
+  - RedHatAI/gemma-4-12B-it-FP8-Dynamic
+  - google/gemma-4-E4B-it
+  - Qwen/Qwen2.5-Omni-7B
+  - dragonkue/snowflake-arctic-embed-l-v2.0-ko
+  - kakaocorp/kanana-safeguard-prompt-2.1b
+
+Google Gemma Terms가 적용되는 model repository:
+  - google/embeddinggemma-300m
+    https://huggingface.co/google/embeddinggemma-300m
+    https://ai.google.dev/gemma/terms
+
+MLX conversion repositories:
+  - mlx-community/gemma-4-26B-A4B-it-qat-4bit
+  - mlx-community/gemma-4-26B-A4B-it-qat-assistant-4bit
+
+MLX 변환 아티팩트에는 각 변환 저장소가 표시한 조건과 원본 모델의 라이선스가
+적용된다. 특히 두 변환 저장소의 라이선스 메타데이터 표기가 동일하지 않을 수
+있으므로 가중치를 재배포하기 전에 대상 revision의 모델 카드와 원본 모델 조건을
+확인해야 한다.
+
+
+3. 기타 제3자 소프트웨어와 container images
+=============================================
+
+정확한 Python dependency와 container image 참조는 다음 manifest가 소유한다.
+  pyproject.toml
+  requirements.lock
+  requirements.runtime.lock
+  requirements.macos-metal.lock
+  ops/images/vllm-unified/requirements.media.lock
+  configs/recommended_images.yaml
+  configs/vllm_unified_build.yaml
+
+각 dependency와 base image는 자체 라이선스와 고지를 유지한다. 이 NOTICE는
+dependency inventory나 SBOM을 복제하지 않는다.
+
+
+4. 재배포
+=========
+
+이 프로젝트의 source release와 project-owned container images에는 LICENSE와 NOTICE를
+함께 포함한다. 모델 가중치, 수정된 upstream source 또는 제3자 container image를
+재배포하는 사용자는 해당 아티팩트에 적용되는 원 라이선스·저작권 표시·NOTICE 및
+이용 약관을 별도로 준수해야 한다.

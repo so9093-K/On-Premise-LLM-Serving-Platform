@@ -23,7 +23,8 @@ image patch 없이 허용하는 조합에서 같은 검증을 통과한 경우�
 
 Pinned vLLM 0.25.1의 Gemma4 reasoning parser는 thinking을 켠 streaming 요청에서, model이
 channel marker 없는 최종 답을 생성하면 이를 전부 `delta.reasoning`으로 분류하고 final
-`content`를 비웠다. upstream PR #48262의 수정(2026-07-14 merge)을 backport한다. 새 model
+`content`를 비웠다. [upstream vLLM PR #48262](https://github.com/vllm-project/vllm/pull/48262)의
+수정(2026-07-14 merge)을 backport한다. 새 model
 turn은 content 상태에서 시작하고, 실제로 열린 `<|channel>` prompt만 reasoning 상태로
 초기화한다.
 

@@ -3,6 +3,8 @@
 # docker image inspect python:3.12.13-slim --format '{{index .RepoDigests 0}}'
 FROM python:3.12.13-slim@sha256:57cd7c3a7a273101a6485ba99423ee568157882804b1124b4dd04266317710de
 
+LABEL org.opencontainers.image.licenses="Apache-2.0"
+
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
@@ -39,10 +41,13 @@ COPY src ./src
 COPY configs ./configs
 COPY specs/schemas ./specs/schemas
 COPY ops/compose/full-stack.private-network.yaml ./ops/compose/full-stack.private-network.yaml
+COPY LICENSE NOTICE ./
 
 # /var/lib/ai-model-serving은 Gateway가 desired state를 쓰는 경로다. 보통은 bind
 # mount가 덮지만, 이미지가 이 경로를 소유하고 있어야 마운트 없이 띄웠을 때도 동작한다.
 RUN python -m pip install --no-deps --no-build-isolation . \
+    && install -d /usr/share/licenses/ai-model-serving-platform \
+    && install -m 0644 LICENSE NOTICE /usr/share/licenses/ai-model-serving-platform/ \
     && useradd --create-home --shell /usr/sbin/nologin appuser \
     && chown -R appuser:appuser /app \
     && install -d -o appuser -g appuser /var/lib/ai-model-serving

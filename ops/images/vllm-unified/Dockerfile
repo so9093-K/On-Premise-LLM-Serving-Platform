@@ -37,6 +37,7 @@ ARG HUGGINGFACE_HUB_VERSION
 
 LABEL org.opencontainers.image.title="ai-model-serving-vllm-unified"
 LABEL org.opencontainers.image.description="Single vLLM runtime for all served models: Gemma4 multimodal fixes + Kanana Llama head_dim guard"
+LABEL org.opencontainers.image.licenses="Apache-2.0"
 LABEL ai_model_serving.patch.gemma4_multimodal="true"
 LABEL ai_model_serving.patch.gemma4_streaming_reasoning="true"
 LABEL ai_model_serving.patch.transformers_llama_head_dim_guard="true"
@@ -106,3 +107,7 @@ import transformers
 print("vllm-unified transformers=", transformers.__version__)
 print("vllm-unified huggingface_hub=", huggingface_hub.__version__)
 PY
+
+# 문서 변경이 위의 무거운 dependency·patch layer를 무효화하지 않게 마지막에 둔다.
+# Base image와 설치된 dependency는 각각의 원 라이선스를 유지한다.
+COPY LICENSE NOTICE /usr/share/licenses/ai-model-serving-platform/

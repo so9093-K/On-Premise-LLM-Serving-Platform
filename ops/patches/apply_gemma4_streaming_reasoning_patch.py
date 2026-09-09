@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """Backport vLLM PR #48262 to the pinned vLLM 0.25.1 image, plus one local fix.
 
+Upstream: https://github.com/vllm-project/vllm/pull/48262
+License: Apache License 2.0 (vLLM); this project modifies the installed file.
+
 With Gemma4 thinking enabled, the pre-fix streaming parser treated every new
 model turn as an already-open reasoning channel. If the model returned a plain
 final answer without channel markers, streaming emitted it only as
@@ -56,7 +59,9 @@ old = '''    def adjust_initial_state_from_prompt(self, prompt_token_ids: Sequen
         self._streaming_initialized = True
 '''
 
-new = '''    def _prompt_ends_in_open_reasoning(self, prompt_token_ids: Sequence[int]) -> bool:
+new = '''    # Backported by On-Premise-LLM-Serving-Platform from vLLM PR #48262.
+    # The installed upstream file is modified further below for TURN_END handling.
+    def _prompt_ends_in_open_reasoning(self, prompt_token_ids: Sequence[int]) -> bool:
         \"\"\"Whether the prompt tail is inside an open ``<|channel>`` block.\n\n        Scans backwards: a ``<|channel>`` start token seen before any\n        closing or turn-boundary token means the block is still open.\n        \"\"\"
         start_id = self._reasoning_start_token_id
         if start_id is None:

@@ -207,3 +207,12 @@ assets/     아키텍처·문서 이미지
 ## Contributors
 
 - **Codex (OpenAI)** — AI-assisted project review, implementation, and validation
+- **Claude (Anthropic)** — AI-assisted project review, implementation, and validation
+
+## License
+
+별도 표시가 없는 한 이 프로젝트에서 직접 작성한 소스 코드, 문서 및 설정은 [Apache License 2.0](LICENSE)을 따릅니다.
+
+제3자 소프트웨어, 모델, 모델 가중치 및 upstream에서 가져오거나 수정한 자료는 이 프로젝트의 Apache-2.0 라이선스로 재라이선스되지 않으며, 각각의 원 라이선스 및 이용 약관을 따릅니다.
+
+자세한 출처 및 제3자 고지 사항은 [NOTICE](NOTICE)를 참고하세요.

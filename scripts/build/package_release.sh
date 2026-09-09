@@ -249,6 +249,14 @@ if missing_configuration_plane_files:
     missing = ", ".join(sorted(missing_configuration_plane_files))
     raise SystemExit(f"Release ZIP is missing Configuration Plane runtime file(s): {missing}")
 
+# LICENSE와 NOTICE는 source release 자체의 일부다. 기존 ZIP 자체검사에서 확인하면
+# 충분하므로 이 불변식만을 위한 별도 validator나 test suite는 두지 않는다.
+required_legal_files = {"LICENSE", "NOTICE"}
+missing_legal_files = required_legal_files - file_paths
+if missing_legal_files:
+    missing = ", ".join(sorted(missing_legal_files))
+    raise SystemExit(f"Release ZIP is missing legal file(s): {missing}")
+
 for path in sorted(file_paths):
     parts = path.split("/")
     if any(part in forbidden_release_dirs for part in parts):
