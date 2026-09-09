@@ -31,7 +31,7 @@ make runtime-validate
 
 ## 8.1 검증 구조
 
-`make validate`와 `make test`는 Python 정책을 먼저 검사한다. 개발 환경 준비는 `make setup-dev`를 사용한다. `make doctor-dev`는 Compose·배포 shell helper까지 실행할 환경의 Bash 4 이상 여부를 별도로 확인한다. GitHub Actions는 Ubuntu에서 `.python-version`의 Linux 3.12 minor, macOS에서 `configs/macos_mlx_runtime.yaml`의 Metal 3.13 minor를 사용해 app/contract를 확인한다. OS별 patch는 runner 제공 범위에 따르며 GPU 통합 검증은 별도 Linux/NVIDIA 환경에서 수행한다.
+`make validate`와 `make test`는 Python 정책을 먼저 검사한다. 개발 환경 준비는 `make setup-dev`를 사용한다. `make doctor-dev`는 Compose·배포 shell helper까지 실행할 환경의 Bash 4 이상 여부를 별도로 확인한다. GitHub Actions는 공통 Platform lock을 Ubuntu/Python 3.12와 macOS/Python 3.13에서 확인한다. Runner patch는 제공 범위에 따르며 native runtime exact patch와 GPU 통합 검증은 별도 실행 환경이 소유한다.
 
 검증은 변경으로 발생할 수 있는 문제를 가장 가까운 계층에서 확인하도록 구성한다.
 
@@ -101,7 +101,6 @@ make validate
 | 검증 영역 | 확인 내용 | 확인 대상 |
 |---|---|---|
 | 기본 계약 | YAML/JSON 형식, version, Python 호환성, port·model registry 관계 | 공통 설정과 registry 정합성 |
-| Dependency Lock | `pyproject.toml` direct dependency와 runtime/development exact pin 정렬 | 설치 입력 drift 방지 |
 | API Contract | OpenAPI ref, request/response schema, error surface | 공개 API 호환성 |
 | Model / Runtime Policy | model registry, risk budget, resource-control policy | 모델 실행 정책 |
 | Shell Script | script syntax; 실제 실행 동작과 Bash runtime 요구사항은 별도 테스트·진단 | Build·배포·운영 명령 |
@@ -111,6 +110,9 @@ make validate
 | Runtime Artifact | Source config에서 생성되는 runtime artifact | runtime 생성물 정합성 |
 | OpenAPI Snapshot | FastAPI generated OpenAPI와 checked-in spec | 구현과 API spec 정합성 |
 | Auth Profile | 환경 template과 인증 profile projection | 인증 mode 구성 |
+
+Dependency lock 형식과 graph는 `make validate`가 별도로 재해석하지 않는다. Platform과
+MLX의 `uv sync --locked`, Platform image build가 각 lock을 실제 설치 경계에서 검증한다.
 
 ### 실행 순서
 

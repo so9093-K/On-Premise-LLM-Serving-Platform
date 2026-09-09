@@ -45,7 +45,7 @@ Runtime 구조와 실행 모드는 [4. 실행 환경과 모드](./04_runtime_mod
 
 | 작업 | 주요 요구사항 |
 |---|---|
-| Application 개발·검증·테스트 | Python `>=3.12,<3.14` |
+| Application 개발·검증·테스트 | Python `>=3.12,<3.14`, uv `0.12.11` |
 | Platform Image Build | Docker CLI / Docker daemon. 로컬 기본 target은 daemon architecture |
 | Full-stack 실행 | Bash 4 이상, native Linux amd64 Docker daemon, NVIDIA GPU/driver/Container Toolkit |
 | Unified vLLM Image Build | `vllm_unified_build.yaml` target과 같은 native Docker daemon. CUDA/NVIDIA image 전용 |
@@ -53,28 +53,37 @@ Runtime 구조와 실행 모드는 [4. 실행 환경과 모드](./04_runtime_mod
 
 프로젝트가 지원하는 Python 범위는 `pyproject.toml`의 `requires-python`을 기준으로 하며, 현재 CPython 3.12와 3.13을 지원한다. 오래되거나 아직 채택하지 않은 Python에서도 먼저 오류를 안내할 수 있도록 bootstrap guard에도 같은 범위가 있고, `make validate`가 두 값의 일치를 확인한다.
 
-Linux 운영 image의 기준은 `.python-version`에 고정된 Python 3.12 patch와 Dockerfile의 base image digest다. macOS의 application 개발과 native Metal runtime은 `configs/macos_mlx_runtime.yaml`에 고정된 Python 3.13 patch를 사용한다. 애플리케이션 코드는 두 minor에서 동작하지만, Linux GPU/vLLM 운영 재현성과 macOS MLX 재현성은 각 환경의 별도 lock·runtime 검증으로 확인한다.
+Linux Platform image의 기준은 Dockerfile에 고정된 Python 3.12 patch와 base image digest다.
+`.python-version`은 로컬 application 개발 기본값인 Python 3.13 patch를 가리키며 native
+MLX runtime도 별도 설정에서 Python 3.13을 사용한다.
+이는 개발용/운영용 등급 구분이 아니라 실행 backend의 호환 경계다. Platform 코드는 하나의
+`pyproject.toml`과 `uv.lock`으로 두 minor를 함께 지원하고, MLX만 충돌하는 native dependency
+때문에 `runtimes/mlx/`의 독립 project와 lock을 사용한다.
 
 로컬 Make 명령은 프로젝트의 `.venv`가 존재하면 해당 Python을 우선 사용한다. 호출자가 `PYTHON_BIN`을 지정한 경우에는 지정된 interpreter를 사용한다.
 
-### macOS / Ubuntu 개발 환경 준비
+### 개발 환경 준비
 
 애플리케이션 환경 준비와 정적 검증·테스트에는 Bash 4를 강제하지 않는다.
 
+Python 3.12 또는 3.13과 uv 0.12.11을 준비한 뒤 OS와 관계없이 같은 명령을 사용한다.
+uv가 없다면 [공식 설치 안내](https://docs.astral.sh/uv/getting-started/installation/)에서
+고정 버전 `0.12.11`을 설치한다.
+
 ```bash
-brew install python@3.13
-make setup-dev PYTHON_BIN="$(brew --prefix python@3.13)/bin/python3.13"
-make validate
-make test
+make setup-dev
+make check
 ```
 
-Ubuntu에서는 `.python-version`과 같은 Python 및 해당 버전의 `venv` 패키지를 준비한 뒤 같은 Make 명령을 사용한다. GitHub app/contract CI도 Ubuntu는 `.python-version`, macOS는 `configs/macos_mlx_runtime.yaml`에서 계산한 minor를 사용한다. Runner와 Homebrew는 해당 minor의 제공 가능한 patch를 사용하므로 runtime의 exact patch/digest 검증과 구분한다.
-
-별도로 설치한 Python을 쓰려면 `make setup-dev PYTHON_BIN=/path/to/python`으로 지정한다.
+로컬 개발은 Python 3.13을 권장한다. 별도로 설치한 Python을 쓰려면
+`make setup-dev PYTHON_BIN=/path/to/python3.13`으로 지정한다. uv는 기존 `.venv`가 없으면
+이를 만들고, 있으면 같은 minor인지 확인한 뒤 lock과 정확히 동기화한다. 저장소 wrapper는
+손상되었거나 다른 minor인 기존 환경을 임의 삭제하지 않는다.
 
 환경 파일 helper와 일부 Compose·배포 스크립트는 associative array나 `mapfile`을 사용하므로 Bash 4 이상이 필요하다. macOS에서 해당 운영 명령까지 실행하려면 `brew install bash` 후 Homebrew Bash를 PATH에 추가한다. `make doctor-dev`는 실제 Python 경로와 Bash 버전, 기준 Python 버전을 함께 확인하는 운영 도구 진단이다. 기본 로그인 shell(zsh)을 바꿀 필요는 없다.
 
-`setup-dev`는 `requirements.lock`을 `--no-deps`로 설치하고, `pyproject.toml`의 build backend를 준비한 뒤 editable package 설치와 `pip check`를 수행한다. 누락된 하위 의존성을 설치 시점의 최신 버전으로 조용히 채우지 않는다. 기존 `.venv`는 실행 중인 선택 interpreter와 minor가 같을 때 재사용한다. 새 `.venv`를 만드는 경우에는 Python `venv`가 실제로 사용하는 base interpreter의 minor를 먼저 확인하고 그 executable로 생성한다. 선택 interpreter와 base가 다르면 잘못된 minor의 환경을 만들지 않고 명시적으로 중단하며, 기존 환경이나 부분 생성 결과는 자동 삭제하지 않는다.
+`setup-dev`는 Platform `uv.lock`을 `--locked`로 설치하고 quality dependency group을 포함한다.
+의존성 해석·가상환경 생성·불필요 package 제거는 uv가 소유하며 저장소가 이를 재구현하지 않는다.
 
 이 명령은 `.env`와 runtime state를 생성·변경하지 않는다. macOS app/contract 검증 통과가 `macos-metal-static` 모델 runtime의 qualification을 의미하지는 않는다([ADR-0020](adr/0020-runtime-control-and-deployment-targets.md)).
 
@@ -82,9 +91,9 @@ Ubuntu에서는 `.python-version`과 같은 Python 및 해당 버전의 `venv` �
 
 | 경로 | 고정되는 입력 | 결과의 의미 |
 |---|---|---|
-| 로컬 `make build-image` | Dockerfile base digest, runtime lock, 현재 working tree | 변경 중인 코드를 확인하는 로컬 image ID |
-| GitHub Actions | application lock과 Python minor | macOS/Ubuntu app·contract 검증. image artifact 없음 |
-| Linux Platform 운영 후보 | clean commit, Linux amd64 target, base digest, runtime lock | publish 전 로컬 image; 승격 시 registry digest 필요 |
+| 로컬 `make build-image` | Dockerfile base digest, Platform `uv.lock`, 현재 working tree | 변경 중인 코드를 확인하는 로컬 image ID |
+| GitHub Actions | Platform `uv.lock`과 Python minor | macOS/Ubuntu app·contract 검증. image artifact 없음 |
+| Linux Platform 운영 후보 | clean commit, Linux amd64 target, base digest, Platform `uv.lock` | publish 전 로컬 image; 승격 시 registry digest 필요 |
 | Linux Unified vLLM 운영 후보 | clean commit, native Linux amd64, vLLM base digest와 compatibility pin | publish 전 NVIDIA runtime image; 승격 시 registry digest 필요 |
 
 같은 Dockerfile과 build script를 공유하는 것은 입력 해석을 맞추기 위한 것이다. 로컬의
@@ -92,27 +101,21 @@ Ubuntu에서는 `.python-version`과 같은 Python 및 해당 버전의 `venv` �
 뜻은 아니다. Registry publish 자동화는 현재 정의하지 않으며, 실제 원격 배포 identity는
 publish 결과의 immutable registry digest가 소유한다.
 
-### Linux dependency lock 갱신
+### Dependency lock 갱신
 
-`pyproject.toml`이 direct dependency의 Source of Truth이고,
-`requirements.runtime.lock`과 `requirements.lock`은 각각 운영 image와
-application/contract 환경의 해석 결과다. Lock 갱신은 host OS의 Python이 아니라
-Docker의 고정 Linux amd64 resolver에서 다음 명령으로 수행한다.
+Platform은 root `pyproject.toml`, MLX native runtime은 `runtimes/mlx/pyproject.toml`이
+각자의 direct dependency Source of Truth다. 같은 위치의 `uv.lock`은 Linux/macOS와
+지원 architecture 조건을 포함한 해석 결과다.
 
 ```bash
-make lock-linux
+make lock
 ```
 
-이 명령은 어느 host에서 호출하더라도 `--platform linux/amd64`를 명시하고,
-Dockerfile이 사용하는 digest 고정
-`python:<.python-version>-slim@sha256:...` image 안에서
-`pyproject.toml`의 `tool.dependency-lock`에 고정된 `pip`, `pip-tools`를 사용한다.
-기존 lock을 resolver constraint로 재사용하므로, lock 재생성 자체가 사전 검토 없이
-전이 의존성 전체를 업그레이드하지 않는다.
-두 lock을 임시 경로에 먼저 만들고 각각 새 venv에 설치해 `pip check`와 contract
-validation이 통과한 뒤에만 저장소 파일을 교체한다. 실패하면 기존 lock을 복원한다.
-macOS host Python이나 임의 Python에서 `pip freeze`한 결과로 운영 lock을 갱신하지
-않는다. 운영 반영 전 최종 설치 확인은 계속 Ubuntu amd64 환경에서 수행한다.
+`make lock`은 두 lock을 현재 pin을 유지하는 방식으로 다시 해석한다. 전체 upgrade는 이
+명령의 암묵적 동작이 아니며 별도 변경으로 수행한다. Lock 형식과 dependency graph의
+정합성은 uv가 소유하므로 별도 custom parser나 OS별 requirements 복사본을 두지 않는다.
+`make setup-dev`, MLX setup, Platform image build가 각각 `--locked`로 소비하면서 stale lock을
+실제 경계에서 거부한다.
 
 Full-stack 환경에서는 NVIDIA GPU와 NVIDIA Container Toolkit을 통해 vLLM container가 GPU에 접근한다. Hugging Face에서 모델을 가져오는 runtime은 `.env`의 `HF_TOKEN` 또는 `HUGGING_FACE_HUB_TOKEN`을 사용한다.
 

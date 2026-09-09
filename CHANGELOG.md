@@ -28,7 +28,7 @@
 - Secondary Runtime 기본 프로필을 `main_only`로 변경해 compose-up과 full 배포에서 Main Model만 처음 준비한다. Embedding·Korean Embedding·Prompt Risk는 컨테이너만 생성하고 기존 Admin Runtime API로 필요할 때 시작한다. Retrieval을 즉시 제공할 환경은 `retrieval_ready`를 명시하며 Risk Adapter와 로컬 PII·Secret 검사는 유지된다.
 - Compose preflight가 실제 기동과 같은 main-model boot override를 검사하도록 수정했다. 저장된 프로필과 메인 GPU host override를 기본 모델 설정으로 잘못 비교하지 않으며, 보조 모델 정합성·GPU 예산·인증·노출 정책은 유지한다.
 - Sidecar admission이 소비하지 않던 `EMBEDDING_KO_GPU_MEMORY_UTILIZATION` 환경변수를 Compose 예시와 command에서 제거했다. 한국어 embedding GPU 예산은 `configs/model_serving.yaml`의 `0.06`을 command와 admission의 공통 기준으로 사용하며 기본 동작은 바뀌지 않는다.
-- 파일 상태 검사인 dependency lock 정합성을 pytest에서 정적 contract validation으로 옮기고, release package도 별도 축약 검증 대신 같은 `make validate` gate를 사용한다.
+- Python dependency 관리를 Platform root와 독립 MLX runtime의 `pyproject.toml` + `uv.lock`으로 정리했다. OS 이름으로 나뉜 requirements 파일, pip-tools 생성 스크립트와 lock 내용을 다시 파싱하던 validator를 제거하고 실제 설치·image build가 `--locked`로 stale lock을 거부한다.
 - 아무 consumer도 없고 image tag의 가변성과 의미가 충돌하던 `recommended_images.yaml`의 `mutable` 메타데이터를 제거했다. 이 설정은 로컬 build/default tag를, 배포 파이프라인은 immutable registry digest를 소유한다.
 
 - 사용자에게 아무 영향이 없던 profile `request_parameter_policy.combinations` 정책을 제거했다. 검증기는 `mode: reject`만 거부하는데 어떤 profile도 그 값을 쓰지 않아(`capability_gate`/`allow`뿐) 모든 조합이 항상 허용되고 있었다. `canary_required`·`default` 키는 어디서도 읽히지 않았다. 실제 조합 허용 여부는 바뀌지 않는다.
@@ -85,7 +85,7 @@
 - `setup-dev`를 외부 virtual environment 안에서 실행할 때 선택된 Python과 `venv`가 실제 사용하는 base interpreter의 minor가 달라도 잘못된 `.venv`를 만들 수 있던 문제를 막았다. 기존 `.venv` 재사용은 선택 interpreter를 기준으로 유지하고, 신규 생성만 base interpreter를 명시적으로 확인·사용한 뒤 생성 결과를 재검증한다. 호스트 Python에 따라 달라지던 개발 환경 테스트 fixture도 실제 생성·재사용 경계를 검증하도록 바꿨다.
 - GitHub macOS ARM64 runner에 배포되지 않은 exact Python `3.12.13`을 요청해 app/contract workflow가 setup 단계에서 실패하던 문제를 수정했다. Cross-platform CI는 portable `3.12` minor를 사용하고, Linux 운영 image의 exact patch는 기존 Dockerfile digest pin으로 유지한다. 소비자가 없던 `.env`의 `PYTHON_VERSION` 복제값도 제거했다.
 - `docs/reference/api_reference.md`의 `max_tokens` 한도가 활성 profile과 무관한 고정값(`1`–`13000`)으로 적혀 있어 지금 라이브와 어긋나던 문제를 고쳤다. profile마다 `max_output_tokens`가 13000/13000/**15000**/13000으로 달라 어떤 단일 숫자도 옳을 수 없고, 운영자는 런타임에 profile을 전환한다. Gateway가 `/v1/models`의 `request_parameters.max_tokens.max`로 활성값을 이미 공개하므로 그쪽을 가리키도록 바꿨다.
-- `validate_risk_response()`의 docstring이 손으로 쓴 검사의 이유를 "jsonschema를 runtime 의존으로 추가하지 않기 위해"라고 설명하고 있었으나, jsonschema는 이미 `requirements.runtime.lock`에 있고 retrieval 계약은 실제로 그것으로 검증한다. 사실에 맞는 이유로 교체했다.
+- `validate_risk_response()`의 docstring이 손으로 쓴 검사의 이유를 "jsonschema를 runtime 의존으로 추가하지 않기 위해"라고 설명하고 있었으나, jsonschema는 이미 Platform runtime 의존이고 retrieval 계약은 실제로 그것으로 검증한다. 사실에 맞는 이유로 교체했다.
 - Risk prompt 길이 초과 오류 메시지가 `MAX_RISK_PROMPT_LENGTH` 상수 대신 숫자를 하드코딩하고 있어, 상수를 바꾸면 메시지가 사실과 달라지던 문제를 고쳤다.
 - Gateway 요청 경로가 chat 요청·`/v1/models`마다 admin-sidecar를 통해 Docker inspect를 유발하던 문제를 고쳤다. gate와 active profile은 control-plane ledger에만 있는데도 sidecar의 관측 경로(Docker `list`+`inspect` 2회)를 거쳐, 모든 추론 요청이 Docker daemon에 직렬로 묶여 있었다 — daemon이 흔들리면 런타임이 정상이어도 전체 chat이 `MAIN_MODEL_CONTROL_UNAVAILABLE`로 떨어졌다. sidecar `GET /main-model`에 `observed=false`(ledger 전용)를 추가하고, ledger 필드만 쓰는 4개 경로(chat, `/v1/models`, `/admin/runtimes`, metric projection)를 그쪽으로 옮겼다. `GET /admin/main-model`은 `observed_runtime`을 계속 포함한다.
 - `SidecarClient`가 호출마다 새 `AsyncClient`를 만들어 chat 요청 하나당 TCP 연결이 하나씩 새로 열리던 문제를 고쳤다. `VLLMClient`와 동일하게 client 하나를 재사용하고 timeout은 요청 단위로 지정한다. 아울러 sidecar가 실제로 오류 상태를 반환한 경우와 sidecar에 닿지도 못한 경우가 같은 메시지로 뭉뚱그려지던 것을 status code가 남도록 고쳤다.

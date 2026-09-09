@@ -18,7 +18,6 @@ from .schemas import (
     validate_risk_schema,
 )
 from .versioning import (
-    validate_dependency_locks,
     validate_python_compatibility,
     validate_version_alignment,
 )
@@ -33,7 +32,6 @@ CHECKS = [
     validate_alignment,
     validate_version_alignment,
     validate_python_compatibility,
-    validate_dependency_locks,
     validate_openapi_refs,
     validate_openapi_error_surface,
     validate_request_schemas,

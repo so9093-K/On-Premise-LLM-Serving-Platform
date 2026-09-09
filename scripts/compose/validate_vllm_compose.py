@@ -11,12 +11,12 @@ from typing import Any
 try:
     import yaml
 except ImportError as exc:
-    raise SystemExit("Missing dependency: PyYAML. Run: python -m pip install --requirement requirements.lock") from exc
+    raise SystemExit("Missing dependency: PyYAML. Run: make setup-dev") from exc
 
 try:
     from jinja2 import Environment, TemplateSyntaxError
 except ImportError as exc:
-    raise SystemExit("Missing dependency: Jinja2. Run: python -m pip install --requirement requirements.lock") from exc
+    raise SystemExit("Missing dependency: Jinja2. Run: make setup-dev") from exc
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))

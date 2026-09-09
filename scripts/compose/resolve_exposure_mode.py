@@ -22,7 +22,7 @@ ROOT = Path(__file__).resolve().parents[2]
 try:
     import yaml
 except ModuleNotFoundError:
-    raise SystemExit("Missing dependency: PyYAML. Run `python -m pip install --requirement requirements.lock`.")
+    raise SystemExit("Missing dependency: PyYAML. Run `make setup-dev`.")
 
 
 def load_exposure_data(root: Path = ROOT) -> dict:

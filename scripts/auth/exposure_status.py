@@ -13,7 +13,7 @@ if str(ROOT) not in sys.path:
 try:
     import yaml
 except ModuleNotFoundError:
-    raise SystemExit("Missing dependency: PyYAML. Run `python -m pip install --requirement requirements.lock`.")
+    raise SystemExit("Missing dependency: PyYAML. Run `make setup-dev`.")
 
 # exposure_status가 compose_up.sh와 동일한 supported-mode 검사를 쓰도록 resolver를 import
 sys.path.insert(0, str(ROOT))

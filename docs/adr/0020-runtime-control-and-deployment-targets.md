@@ -57,8 +57,8 @@ Compose 서비스명과 포트는 `service_id`로 `configs/services.yaml`을 참
 - `linux-nvidia-static`: 외부에서 기동한 CUDA Main runtime 하나를 Gateway가 사용한다.
   Gateway static 경로는 `implemented`이고, 장시간·장문맥 qualification은 남아 있다.
 - `macos-metal-static`: native MLX-VLM runtime과 static Gateway 경로가 구현된 Main-only
-  target이다. 모델·assistant revision, dependency lock, 실행 한도는
-  `configs/macos_mlx_runtime.yaml`이 소유하며 M5 workload qualification은 별도 상태다.
+  target이다. 모델·assistant revision과 실행 한도는 `configs/macos_mlx_runtime.yaml`,
+  Python dependency와 lock은 `runtimes/mlx/`가 소유하며 M5 workload qualification은 별도 상태다.
 
 ## Consequences
 

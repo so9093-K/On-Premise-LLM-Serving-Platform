@@ -3,15 +3,17 @@ SHELL := /usr/bin/env bash
 PROJECT_NAME := ai_model_serving_platform
 CURRENT_VERSION := $(shell cat VERSION 2>/dev/null || echo 0.0.0)
 
-# bootstrap이 만든 lock-file 기반 .venv가 있으면 로컬 Make 명령은 이를 우선한다.
+# bootstrap이 만든 uv.lock 기반 .venv가 있으면 로컬 Make 명령은 이를 우선한다.
 # CI와 호출자가 PYTHON_BIN으로 지정한 interpreter는 항상 그보다 우선한다.
-PYTHON ?= $(if $(PYTHON_BIN),$(PYTHON_BIN),$(if $(wildcard $(CURDIR)/.venv/bin/python),$(CURDIR)/.venv/bin/python,$(shell command -v python3.12 || command -v python3.13 || command -v python3 || command -v python)))
+PYTHON ?= $(if $(PYTHON_BIN),$(PYTHON_BIN),$(if $(wildcard $(CURDIR)/.venv/bin/python),$(CURDIR)/.venv/bin/python,$(shell command -v python3.13 || command -v python3.12 || command -v python3 || command -v python)))
 export PYTHON_BIN := $(PYTHON)
+UV ?= uv
+export UV_BIN := $(UV)
 AUTH_ENV ?= $(if $(ENV_FILE),$(ENV_FILE),$(ENV))
 AUTH_ENV_ARG = $(if $(AUTH_ENV),--env $(AUTH_ENV),)
 
 
-.PHONY: help help-all setup build rebuild prepare up status down down-all check init-env-local init-env-compose sync-env static-compose-config metal-doctor metal-lock metal-command metal-start validate test build-image build-vllm-unified-image lock-linux package compose-up compose-config ready-local ready-full smoke runtime-validate auth-status auth-doctor auth-plan auth-apply exposure-status exposure-plan exposure-apply main-model-prepare compose-down compose-restart compose-logs logs compose-diagnostics clean reset reset-version render-runtime-assets
+.PHONY: help help-all setup build rebuild prepare up status down down-all check init-env-local init-env-compose sync-env static-compose-config metal-doctor metal-command metal-start validate test build-image build-vllm-unified-image lock package compose-up compose-config ready-local ready-full smoke runtime-validate auth-status auth-doctor auth-plan auth-apply exposure-status exposure-plan exposure-apply main-model-prepare compose-down compose-restart compose-logs logs compose-diagnostics clean reset reset-version render-runtime-assets
 .PHONY: setup-dev doctor-dev
 
 PUBLIC_TARGETS := setup build prepare up status down
@@ -51,7 +53,7 @@ check: ## application 변경의 정적 계약과 결정론적 테스트 확인
 	$(MAKE) validate
 	$(MAKE) test
 
-setup-dev: ## macOS/Ubuntu 개발용 .venv 준비 (Docker·GPU·.env 불필요)
+setup-dev: ## Platform 개발용 .venv 준비 (Docker·GPU·.env 불필요)
 	"$(PYTHON)" scripts/build/setup_dev.py
 
 doctor-dev: ## Python과 운영 스크립트용 Bash 확인
@@ -100,9 +102,6 @@ static-compose-config: ## static Gateway의 분리된 Compose 정의 출력
 metal-doctor: ## Apple Silicon과 고정 MLX runtime 설정 확인
 	$(PYTHON) scripts/runtime/macos_mlx_runtime.py doctor
 
-metal-lock: ## 현재 macOS arm64/Python에서 MLX dependency lock 재생성
-	$(PYTHON) scripts/runtime/macos_mlx_runtime.py lock
-
 metal-command: ## cache-resolved MLX server 실행 명령 출력
 	$(PYTHON) scripts/runtime/macos_mlx_runtime.py command $(if $(METAL_LISTEN_HOST),--listen-host $(METAL_LISTEN_HOST),)
 
@@ -121,8 +120,9 @@ build-image: ## 로컬 Docker platform image build (daemon 기본 architecture)
 build-vllm-unified-image: ## native linux/amd64 Docker의 NVIDIA vLLM image build
 	bash scripts/build/build_vllm_unified_image.sh
 
-lock-linux: ## 고정 Linux/Python resolver로 dependency lock 재생성·설치 검증
-	sh scripts/build/refresh_dependency_locks.sh
+lock: ## Platform과 MLX dependency lock 갱신 (암묵적 전체 upgrade 없음)
+	$(UV) lock --python "$(PYTHON)"
+	$(UV) lock --project runtimes/mlx --python "$(PYTHON)"
 
 package: ## 릴리스 ZIP 생성
 	bash scripts/build/package_release.sh

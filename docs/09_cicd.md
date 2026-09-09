@@ -12,8 +12,8 @@ Container image publish와 운영 배포를 담당하는 CI/CD pipeline은 현�
 
 | 책임 | 현재 진입점 | 기준 |
 |---|---|---|
-| Application·contract 검사 | `make check` | `pyproject.toml`, lock, configs, specs, tests |
-| Platform image build | `make build-image` | `Dockerfile`, `requirements.runtime.lock` |
+| Application·contract 검사 | `make check` | `pyproject.toml`, `uv.lock`, configs, specs, tests |
+| Platform image build | `make build-image` | `Dockerfile`, `pyproject.toml`, `uv.lock` |
 | Unified vLLM image build | `make build-vllm-unified-image` | `configs/vllm_unified_build.yaml`, runtime Dockerfile·patch |
 | Release source package | `make package` | Git tracked source와 packaging exclusion |
 | 로컬 target lifecycle | `make setup/build/prepare/up/status/down` | deployment target와 `.env` |
@@ -31,8 +31,9 @@ GitHub의 app/contract workflow는 다음 두 환경을 독립적으로 확인�
 - Ubuntu: Linux application·shell·contract 호환성
 - macOS: 로컬 개발 환경의 application·contract 호환성
 
-Ubuntu는 `.python-version`, macOS는 `configs/macos_mlx_runtime.yaml`의 major.minor에 맞는 runner 제공 Python을 사용한다.
-Linux 운영 image의 exact Python patch와 base digest는 `Dockerfile`이 별도로 소유한다.
+Ubuntu/Python 3.12와 macOS/Python 3.13은 같은 Platform `uv.lock`의 대표 호환 조합이다.
+로컬 기본 patch는 `.python-version`, native runtime exact patch는 runtime 설정, Linux
+Platform image의 exact Python patch와 base digest는 `Dockerfile`이 각각 소유한다.
 
 이 workflow는 다음 작업을 수행하지 않는다.
 

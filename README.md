@@ -75,7 +75,9 @@ make down
 
 ### 애플리케이션만 실행
 
-Gateway와 Risk Adapter를 로컬 Python 프로세스로 실행한다. Python `>=3.12,<3.14`가 필요하며 Docker와 GPU는 필요하지 않다. `setup-dev`는 기존 `.venv`를 재사용하고 runtime 설정과 실행 중인 서비스를 변경하지 않는다.
+Gateway와 Risk Adapter를 로컬 Python 프로세스로 실행한다. Python `>=3.12,<3.14`와
+`uv 0.12.11`이 필요하며 Docker와 GPU는 필요하지 않다. `setup-dev`는 `uv.lock`에서
+`.venv`를 동기화하고 runtime 설정과 실행 중인 서비스를 변경하지 않는다.
 
 ```bash
 make setup-dev
@@ -204,15 +206,16 @@ assets/     아키텍처·문서 이미지
 
 ---
 
-## Contributors
+## AI Assistance
 
-- **Codex (OpenAI)** — AI-assisted project review, implementation, and validation
-- **Claude (Anthropic)** — AI-assisted project review, implementation, and validation
+* **Codex (OpenAI)** — AI-assisted 프로젝트 검토, 구현 및 검증 지원
+* **Claude (Anthropic)** — AI-assisted 프로젝트 검토, 구현 및 검증 지원
+
 
 ## License
 
-별도 표시가 없는 한 이 프로젝트에서 직접 작성한 소스 코드, 문서 및 설정은 [Apache License 2.0](LICENSE)을 따릅니다.
+이 프로젝트에서 직접 작성한 소스 코드, 문서 및 설정은 별도 표시가 없는 한 [Apache License 2.0](LICENSE)을 따른다.
 
-제3자 소프트웨어, 모델, 모델 가중치 및 upstream에서 가져오거나 수정한 자료는 이 프로젝트의 Apache-2.0 라이선스로 재라이선스되지 않으며, 각각의 원 라이선스 및 이용 약관을 따릅니다.
+제3자 소프트웨어와 모델은 각 upstream의 라이선스 및 이용 약관을 따른다. 모델 가중치와 upstream에서 가져오거나 수정한 자료도 이 프로젝트의 Apache-2.0 라이선스 대상에 포함되지 않는다.
 
-자세한 출처 및 제3자 고지 사항은 [NOTICE](NOTICE)를 참고하세요.
+자세한 출처와 제3자 고지 사항은 [NOTICE](NOTICE)에서 확인한다.

@@ -1,0 +1,20 @@
+[project]
+name = "ai-model-serving-mlx-runtime"
+version = "0"
+requires-python = "==3.13.*"
+dependencies = [
+  "mlx-vlm==0.6.17",
+  # mlx-vlm의 Gemma 4 chat template 경로가 사용하지만 upstream metadata가
+  # 직접 의존성으로 선언하지 않으므로 이 Runtime이 명시적으로 소유한다.
+  "Jinja2==3.1.6",
+]
+
+[tool.uv]
+package = false
+required-version = "==0.12.11"
+environments = [
+  "sys_platform == 'darwin' and platform_machine == 'arm64'",
+]
+required-environments = [
+  "sys_platform == 'darwin' and platform_machine == 'arm64'",
+]

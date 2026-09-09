@@ -44,7 +44,7 @@ def main() -> int:
         print(f"[dev] {exc}", file=sys.stderr)
         return 2
     recommended = (ROOT / ".python-version").read_text(encoding="utf-8").strip()
-    print(f"[dev] python {sys.executable}; reference version: {recommended}")
+    print(f"[dev] python {sys.executable}; local default: {recommended}")
     return 0
 
 

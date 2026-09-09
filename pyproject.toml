@@ -27,15 +27,24 @@ dependencies = [
   "jsonschema==4.26.0",
 ]
 
-[project.optional-dependencies]
-contract = [
+[dependency-groups]
+quality = [
   "Jinja2==3.1.6",
   "pytest==8.4.2",
 ]
 
-[tool.dependency-lock]
-pip = "26.0.1"
-pip-tools = "7.5.3"
+[tool.uv]
+required-version = "==0.12.11"
+environments = [
+  "sys_platform == 'linux' and platform_machine == 'x86_64'",
+  "sys_platform == 'linux' and platform_machine == 'aarch64'",
+  "sys_platform == 'darwin' and platform_machine == 'arm64'",
+]
+required-environments = [
+  "sys_platform == 'linux' and platform_machine == 'x86_64'",
+  "sys_platform == 'linux' and platform_machine == 'aarch64'",
+  "sys_platform == 'darwin' and platform_machine == 'arm64'",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests/unit", "tests/contract"]

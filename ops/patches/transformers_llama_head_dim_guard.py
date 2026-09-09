@@ -26,7 +26,11 @@ from typing import Any
 PATCH_ID = "transformers_llama_head_dim_guard"
 TARGET_RELATIVE_PATH = "transformers/models/llama/configuration_llama.py"
 OLD_SNIPPET = "if self.hidden_size % self.num_attention_heads != 0:"
-NEW_SNIPPET = 'if getattr(self, "head_dim", None) is None and self.hidden_size % self.num_attention_heads != 0:'
+NEW_SNIPPET = (
+    '# Modified by On-Premise-LLM-Serving-Platform for Kanana head_dim compatibility.\n'
+    '        if getattr(self, "head_dim", None) is None '
+    'and self.hidden_size % self.num_attention_heads != 0:'
+)
 DEFAULT_METADATA_PATH = Path("/usr/local/share/ai-model-serving/patches/transformers_llama_head_dim_guard.json")
 
 

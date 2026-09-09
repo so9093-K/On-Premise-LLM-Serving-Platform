@@ -52,9 +52,8 @@ make down
 | 파일 | 용도 |
 |---|---|
 | `platform_cli.py` | `setup/build/rebuild/prepare/up/status/down`을 target-aware lifecycle로 조합하고 기존 세부 script에 위임한다. |
-| `build/setup_dev.py` | macOS/Ubuntu 개발용 `.venv`를 준비·재사용한다. `.env`, runtime state, Docker/GPU는 변경하지 않는다. |
+| `build/setup_dev.py` | Platform `uv.lock`에서 개발용 `.venv`를 동기화한다. 기존 환경이 손상됐거나 Python minor가 다르면 자동 삭제하지 않는다. |
 | `build/check_dev_environment.py` | Python 정책과 운영 shell helper에 필요한 Bash 4 이상을 진단한다. |
-| `build/refresh_dependency_locks.sh` | host OS와 무관하게 Docker의 Linux amd64·`.python-version`·Dockerfile digest 고정 Python resolver로 runtime/contract lock을 재생성하고 새 venv 설치까지 확인한다. |
 | `build/build_platform_image.sh` | Platform Dockerfile build·image import smoke 경로다. source revision/state와 target platform을 image label 및 로그에 남긴다. |
 | `build/build_vllm_unified_image.sh` | Unified vLLM Docker build 경로다. `vllm_unified_build.yaml`의 target/base/pin을 사용하며 native Linux amd64 Docker daemon만 허용한다. |
 | `deploy/deploy_compose_release.sh` | 명시적 image digest와 대상 정보를 받아 tracked source를 원격 release로 적용하고 readiness 실패 시 복구한다. 특정 CI provider 변수에 의존하지 않는다. |

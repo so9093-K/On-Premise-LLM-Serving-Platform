@@ -133,7 +133,7 @@ def validate_risk_response(payload: Any) -> dict[str, Any]:
 
     It prevents an internal service or future code path from leaking final
     policy-decision fields through the public Gateway. 손으로 쓴 검사인 이유는
-    의존성 회피가 아니다 -- jsonschema는 이미 runtime 의존이며(requirements.runtime.lock)
+    의존성 회피가 아니다 -- jsonschema는 이미 Platform runtime 의존이며(pyproject.toml)
     retrieval 계약은 실제로 그것으로 검증한다. 여기서는 금지 필드 집합이
     스키마 표현보다 코드에서 읽고 유지하기 쉬워서다.
     """

@@ -107,9 +107,9 @@ MLX 변환 아티팩트에는 각 변환 저장소가 표시한 조건과 원본
 
 정확한 Python dependency와 container image 참조는 다음 manifest가 소유한다.
   pyproject.toml
-  requirements.lock
-  requirements.runtime.lock
-  requirements.macos-metal.lock
+  uv.lock
+  runtimes/mlx/pyproject.toml
+  runtimes/mlx/uv.lock
   ops/images/vllm-unified/requirements.media.lock
   configs/recommended_images.yaml
   configs/vllm_unified_build.yaml

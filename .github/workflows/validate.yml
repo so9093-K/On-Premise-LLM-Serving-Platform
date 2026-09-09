@@ -19,34 +19,21 @@ jobs:
       matrix:
         include:
           - os: ubuntu-24.04
-            python_policy: linux
+            python_version: "3.12"
           - os: macos-15
-            python_policy: metal
+            python_version: "3.13"
     steps:
       - uses: actions/checkout@v7
-      - name: Resolve portable Python minor
-        id: python_policy
-        shell: bash
-        run: |
-          if [[ "${{ matrix.python_policy }}" == "linux" ]]; then
-            python_patch="$(tr -d '[:space:]' < .python-version)"
-          else
-            python_patch="$(awk '$1 == "python:" { print $2; exit }' configs/macos_mlx_runtime.yaml)"
-          fi
-          if [[ ! "$python_patch" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "::error::expected configured Python x.y.z, got '$python_patch'"
-            exit 2
-          fi
-          echo "minor=${python_patch%.*}" >> "$GITHUB_OUTPUT"
       - uses: actions/setup-python@v7
         with:
-          # Ubuntu는 Linux 운영 Python, macOS는 native Metal Python의 minor와
-          # 같은 runner 제공 patch를 사용한다. Exact runtime patch 검증과는 별도다.
-          python-version: "${{ steps.python_policy.outputs.minor }}"
-          cache: pip
-          cache-dependency-path: |
-            requirements.lock
-            pyproject.toml
+          # 두 job은 공통 Platform lock의 지원 minor를 대표한다. Native runtime
+          # exact patch와 image digest qualification은 이 workflow의 책임이 아니다.
+          python-version: "${{ matrix.python_version }}"
+      - uses: astral-sh/setup-uv@v7
+        with:
+          version: "0.12.11"
+          enable-cache: true
+          cache-dependency-glob: uv.lock
       - name: Prepare developer environment
         run: make setup-dev PYTHON_BIN=python
       - name: Validate configuration and contracts

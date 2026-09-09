@@ -15,7 +15,6 @@ import shlex
 import shutil
 import subprocess
 import sys
-import tempfile
 import time
 import tomllib
 import urllib.error
@@ -31,12 +30,6 @@ PID_PATH = ROOT / "run" / "metal.pid"
 LOG_PATH = ROOT / "logs" / "metal.log"
 
 
-def _lock_tool_versions() -> tuple[str, str]:
-    metadata = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
-    lock_tools = metadata["tool"]["dependency-lock"]
-    return str(lock_tools["pip"]), str(lock_tools["pip-tools"])
-
-
 def _config() -> dict[str, Any]:
     document = yaml.safe_load(CONFIG_PATH.read_text(encoding="utf-8"))
     if not isinstance(document, dict) or document.get("version") != 1:
@@ -46,13 +39,9 @@ def _config() -> dict[str, Any]:
     default_profile = document.get("default_profile")
     if not isinstance(runtime, dict) or not isinstance(profiles, dict) or default_profile not in profiles:
         raise RuntimeError(f"incomplete Metal runtime config: {CONFIG_PATH}")
-    packages = runtime.get("packages")
-    if (
-        not isinstance(packages, list)
-        or not packages
-        or any(not isinstance(package, str) or package.count("==") != 1 for package in packages)
-    ):
-        raise RuntimeError("Metal runtime packages must be a non-empty list of exact pins")
+    project = runtime.get("project")
+    if not isinstance(project, str) or not (ROOT / project / "pyproject.toml").is_file():
+        raise RuntimeError("Metal runtime project must point to a Python project")
     profile = profiles[default_profile]
     if not isinstance(profile, dict) or not isinstance(profile.get("assistant"), dict):
         raise RuntimeError("Metal default profile and assistant must be mappings")
@@ -71,12 +60,26 @@ def _runtime_python(config: dict[str, Any]) -> Path:
     return ROOT / str(config["runtime"]["environment"]) / "bin" / "python"
 
 
-def _direct_packages(config: dict[str, Any]) -> dict[str, str]:
-    return {
-        name: version
-        for package in config["runtime"]["packages"]
-        for name, version in [str(package).split("==", 1)]
-    }
+def _runtime_project(config: dict[str, Any]) -> Path:
+    return ROOT / str(config["runtime"]["project"])
+
+
+def _direct_packages(config: dict[str, Any]) -> list[str]:
+    metadata = tomllib.loads(
+        (_runtime_project(config) / "pyproject.toml").read_text(encoding="utf-8")
+    )
+    return [str(package) for package in metadata["project"]["dependencies"]]
+
+
+def _uv_binary() -> str:
+    configured = os.environ.get("UV_BIN")
+    executable = configured or shutil.which("uv")
+    if not executable:
+        raise RuntimeError(
+            "uv is required to prepare Python environments; install uv 0.12.11 "
+            "or set UV_BIN=/path/to/uv"
+        )
+    return executable
 
 
 def _interpreter_version(executable: Path) -> str:
@@ -173,7 +176,7 @@ def doctor(config: dict[str, Any]) -> None:
     speculative = runtime["speculative_decoding"]
     print(f"[metal] host: Darwin/arm64")
     print(f"[metal] base Python: {base_python} ({_interpreter_version(base_python)})")
-    print(f"[metal] runtime packages: {', '.join(runtime['packages'])}")
+    print(f"[metal] runtime packages: {', '.join(_direct_packages(config))}")
     print(f"[metal] target: {profile['model_id']}@{profile['revision']}")
     print(f"[metal] assistant: {profile['assistant']['model_id']}@{profile['assistant']['revision']}")
     print(
@@ -186,98 +189,39 @@ def doctor(config: dict[str, Any]) -> None:
     )
 
 
-def lock(config: dict[str, Any]) -> None:
-    base_python = _require_runtime_host(config)
-    runtime = config["runtime"]
-    output = ROOT / str(runtime["lock_file"])
-    packages = [str(package) for package in runtime["packages"]]
-    pip_version, pip_tools_version = _lock_tool_versions()
-    with tempfile.TemporaryDirectory(prefix="metal-lock-") as temporary_name:
-        temporary = Path(temporary_name)
-        tools = temporary / "tools"
-        source = temporary / "requirements.in"
-        generated = temporary / "requirements.lock"
-        source.write_text("\n".join(packages) + "\n", encoding="utf-8")
-        if output.is_file():
-            # pip-compile은 기존 output pin을 입력으로 사용해 무관한 전이 의존성
-            # upgrade를 피한다. upgrade는 별도 의사결정으로 남긴다.
-            shutil.copyfile(output, generated)
-        subprocess.run([str(base_python), "-m", "venv", str(tools)], check=True)
-        pip = [str(tools / "bin" / "python"), "-m", "pip", "--disable-pip-version-check"]
-        subprocess.run(
-            [*pip, "install", "--quiet", f"pip=={pip_version}", f"pip-tools=={pip_tools_version}"],
-            check=True,
-        )
-        subprocess.run(
-            [
-                str(tools / "bin" / "pip-compile"),
-                "--resolver=backtracking",
-                "--quiet",
-                "--strip-extras",
-                "--no-annotate",
-                "--no-emit-index-url",
-                "--no-emit-trusted-host",
-                "--output-file",
-                str(generated),
-                str(source),
-            ],
-            cwd=ROOT,
-            check=True,
-            env={**os.environ, "CUSTOM_COMPILE_COMMAND": "make metal-lock"},
-        )
-        # 저장소 lock을 바꾸기 전에 실제 Metal host에서 완전 설치와 dependency
-        # 정합성을 확인한다. 생성에 실패하거나 불완전한 lock이면 기존 파일은 그대로다.
-        verification = temporary / "verification"
-        subprocess.run([str(base_python), "-m", "venv", str(verification)], check=True)
-        verification_pip = [
-            str(verification / "bin" / "python"),
-            "-m",
-            "pip",
-            "--disable-pip-version-check",
-        ]
-        subprocess.run(
-            [*verification_pip, "install", "--quiet", f"pip=={pip_version}"],
-            check=True,
-        )
-        subprocess.run(
-            [*verification_pip, "install", "--quiet", "--requirement", str(generated)],
-            check=True,
-        )
-        subprocess.run([*verification_pip, "check"], check=True)
-        os.replace(generated, output)
-    print(f"[metal] lock regenerated and verified: {output.relative_to(ROOT)}")
-
-
 def setup(config: dict[str, Any]) -> None:
     base_python = _require_runtime_host(config)
     runtime = config["runtime"]
-    lock_path = ROOT / str(runtime["lock_file"])
+    project = _runtime_project(config)
+    lock_path = project / "uv.lock"
     if not lock_path.is_file():
-        raise RuntimeError("Metal dependency lock is missing; run `make metal-lock` first")
+        raise RuntimeError("Metal dependency lock is missing; run `make lock` first")
     environment = ROOT / str(runtime["environment"])
     python = _runtime_python(config)
-    if not python.is_file():
-        subprocess.run([str(base_python), "-m", "venv", str(environment)], check=True)
-    expected_python = str(runtime["python"])
-    runtime_version = _interpreter_version(python)
-    if runtime_version != expected_python:
-        raise RuntimeError(
-            f"existing Metal environment uses Python {runtime_version}, configured runtime requires "
-            f"{expected_python}; move .runtime/metal/venv aside before rebuilding it"
-        )
-    pip = [str(python), "-m", "pip", "--disable-pip-version-check"]
-    pip_version, _ = _lock_tool_versions()
-    subprocess.run([*pip, "install", "--quiet", f"pip=={pip_version}"], check=True)
-    subprocess.run([*pip, "install", "--quiet", "--requirement", str(lock_path)], check=True)
-    subprocess.run([*pip, "check"], check=True)
-    for package, expected in _direct_packages(config).items():
-        installed = _run_runtime_python(
-            config,
-            "import importlib.metadata as m, sys; print(m.version(sys.argv[1]))",
-            package,
-        )
-        if installed != expected:
-            raise RuntimeError(f"expected {package} {expected}, installed {installed}")
+    if environment.exists():
+        if not (environment / "pyvenv.cfg").is_file() or not python.is_file():
+            raise RuntimeError("existing Metal environment is not a usable virtual environment")
+        expected_python = str(runtime["python"])
+        runtime_version = _interpreter_version(python)
+        if runtime_version != expected_python:
+            raise RuntimeError(
+                f"existing Metal environment uses Python {runtime_version}, configured runtime requires "
+                f"{expected_python}; move .runtime/metal/venv aside before rebuilding it"
+            )
+    subprocess.run(
+        [
+            _uv_binary(),
+            "sync",
+            "--project",
+            str(project),
+            "--locked",
+            "--python",
+            str(base_python),
+        ],
+        cwd=ROOT,
+        env={**os.environ, "UV_PROJECT_ENVIRONMENT": str(environment)},
+        check=True,
+    )
     print(f"[metal] environment ready: {environment.relative_to(ROOT)}")
 
 
@@ -449,7 +393,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "action",
         choices=(
-            "doctor", "lock", "setup", "prepare", "command", "start",
+            "doctor", "setup", "prepare", "command", "start",
             "start-background", "stop", "status",
         ),
     )
@@ -459,8 +403,6 @@ def main(argv: list[str] | None = None) -> int:
         config = _config()
         if args.action == "doctor":
             doctor(config)
-        elif args.action == "lock":
-            lock(config)
         elif args.action == "setup":
             setup(config)
         elif args.action == "prepare":

@@ -6,10 +6,8 @@ default_profile: gemma4-26b-a4b-qat-4bit-mlx
 
 runtime:
   python: 3.13.12
-  # mlx-vlm 0.6.17의 Gemma 4 chat template 경로는 Jinja2를 사용하지만
-  # 배포 메타데이터가 이를 의존성으로 선언하지 않으므로 직접 고정한다.
-  packages: [mlx-vlm==0.6.17, jinja2==3.1.6]
-  lock_file: requirements.macos-metal.lock
+  # Python dependency 선언과 lock은 실행 설정이 아니라 독립 MLX project가 소유한다.
+  project: runtimes/mlx
   environment: .runtime/metal/venv
   host: 127.0.0.1
   port: 9401

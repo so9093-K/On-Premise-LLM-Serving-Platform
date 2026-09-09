@@ -11,7 +11,7 @@ try:
     import yaml
 except ModuleNotFoundError as exc:
     raise SystemExit(
-        "Missing dependency: PyYAML. Run `python -m pip install --requirement requirements.lock` "
+        "Missing dependency: PyYAML. Run `make setup-dev` "
         "before using make init-env-local/init-env-compose."
     ) from exc
 

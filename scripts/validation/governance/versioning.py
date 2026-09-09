@@ -3,15 +3,11 @@ from __future__ import annotations
 import re
 import tomllib
 
-from packaging.requirements import InvalidRequirement, Requirement
-from packaging.utils import canonicalize_name
-
 from scripts.build.check_python import SUPPORTED_LABEL, SUPPORTED_SPECIFIER, is_supported
 
 from .common import (
     ROOT,
     read_json,
-    read_yaml,
 )
 
 # 이 모듈이 scripts.validation.governance.versioning 으로 import됐다는 것 자체가
@@ -88,7 +84,7 @@ def validate_version_alignment() -> None:
 
 
 def validate_python_compatibility() -> None:
-    """Python 지원 범위와 Linux 운영 기준 patch/image를 확인한다.
+    """Python 지원 범위, 로컬 기본 patch와 Platform image pin을 확인한다.
 
     실행 중인 interpreter 자체는 여기서 보지 않는다 -- scripts/build/check_python.py가
     validate/test/start/package 등 모든 진입점에서 먼저 그걸 검사하므로, 여기서 또
@@ -109,77 +105,26 @@ def validate_python_compatibility() -> None:
             f'{SUPPORTED_SPECIFIER!r}, got {declared!r}'
         )
 
-    # .python-version은 Linux application image의 exact patch SoT다. 실제 운영
-    # image를 만드는 Dockerfile은 그 patch와 digest를 함께 고정해야 한다.
-    # CI workflow는 platform별 기준에서 minor만 읽는다. provider가 해석하고
-    # 검증하는 실행 정의이므로 공통
-    # validation이 다시 파싱하지 않는다. 그래야 로컬·다른 provider의 검증이 특정
-    # CI 파일의 존재나 표현 방식에 종속되지 않는다.
+    # .python-version은 로컬 개발 도구의 기본값이다. 배포 image의 Python은
+    # Dockerfile 자체가 exact patch와 digest를 소유한다. CI workflow는 provider가
+    # 해석하고 검증하는 실행 정의이므로 공통 validation이 다시 파싱하지 않는다.
     docker_match = re.search(
-        r'(?m)^FROM\s+(python:[^\s]+)$',
+        r'(?m)^FROM\s+(python:[^\s]+)(?:\s+AS\s+[A-Za-z0-9_-]+)?$',
         (ROOT / 'Dockerfile').read_text(encoding='utf-8'),
     )
-    expected_image = re.compile(
-        rf'^python:{re.escape(py_version)}-slim@sha256:[0-9a-f]{{64}}$'
+    image_pattern = re.compile(
+        r'^python:(\d+)\.(\d+)\.\d+-slim@sha256:[0-9a-f]{64}$'
     )
-    if docker_match is None or not expected_image.fullmatch(docker_match.group(1)):
+    image_match = image_pattern.fullmatch(docker_match.group(1)) if docker_match else None
+    if image_match is None:
         actual = docker_match.group(1) if docker_match else None
         raise SystemExit(
-            f'Dockerfile base image must use python:{py_version}-slim with a sha256 digest, '
+            'Dockerfile base image must use an exact python:x.y.z-slim sha256 digest, '
             f'got {actual!r}'
         )
-
-
-def _read_lock_pins(filename: str) -> dict[str, str]:
-    pins: dict[str, str] = {}
-    for raw_line in (ROOT / filename).read_text(encoding='utf-8').splitlines():
-        line = raw_line.strip()
-        if not line or line.startswith('#'):
-            continue
-        try:
-            requirement = Requirement(line)
-        except InvalidRequirement as exc:
-            raise SystemExit(f'{filename}: invalid requirement {line!r}: {exc}') from exc
-        specifiers = list(requirement.specifier)
-        if len(specifiers) != 1 or specifiers[0].operator != '==' or '*' in specifiers[0].version:
-            raise SystemExit(f'{filename}: lock entry must be one exact pin: {line!r}')
-        name = canonicalize_name(requirement.name)
-        if name in pins:
-            raise SystemExit(f'{filename}: duplicate pin for {name}')
-        pins[name] = specifiers[0].version
-    return pins
-
-
-def validate_dependency_locks() -> None:
-    """Lock files are static repository contracts, not runtime test cases."""
-    runtime = _read_lock_pins('requirements.runtime.lock')
-    development = _read_lock_pins('requirements.lock')
-    metal_runtime = read_yaml('configs/macos_mlx_runtime.yaml')['runtime']
-    metal_lock_name = str(metal_runtime['lock_file'])
-    metal = _read_lock_pins(metal_lock_name)
-    failures = [
-        f'runtime/development lock drift: {name} {version!r} != {development.get(name)!r}'
-        for name, version in runtime.items()
-        if development.get(name) != version
-    ]
-
-    project = tomllib.loads((ROOT / 'pyproject.toml').read_text(encoding='utf-8'))['project']
-    declared_by_lock = (
-        ('requirements.runtime.lock', runtime, project['dependencies']),
-        (
-            'requirements.lock',
-            development,
-            project['dependencies'] + project['optional-dependencies']['contract'],
-        ),
-        (metal_lock_name, metal, metal_runtime['packages']),
-    )
-    for filename, pins, declarations in declared_by_lock:
-        for declaration in declarations:
-            requirement = Requirement(declaration)
-            name = canonicalize_name(requirement.name)
-            version = pins.get(name)
-            if version is None or not requirement.specifier.contains(version):
-                failures.append(f'{filename}: does not satisfy {declaration!r}')
-
-    if failures:
-        raise SystemExit('\n  '.join(failures))
+    image_minor = (int(image_match.group(1)), int(image_match.group(2)))
+    if not is_supported(image_minor):
+        raise SystemExit(
+            f'Dockerfile base Python {image_minor[0]}.{image_minor[1]} is outside '
+            f'{SUPPORTED_SPECIFIER}'
+        )
