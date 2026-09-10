@@ -21,7 +21,7 @@ from .errors import (
     service_error_diagnostics,
 )
 from .logging_policy import record_error_diagnosis, RequestLoggingMiddleware
-from .metrics import Metrics
+from .metrics import Metrics, MetricsMiddleware
 from .middleware import enforce_request_body_limit
 from .security import require_admin_bearer_auth
 from .settings import AppSettings
@@ -104,7 +104,10 @@ def install_common_middleware(
             max_body_bytes=settings.max_request_body_bytes,
         )
 
-    app.middleware("http")(metrics.http_middleware)
+    # 순서(바깥 -> 안쪽): 접근 로그, metric, 요청 크기 가드. add_middleware가
+    # 스택 앞에 끼우므로 나중에 추가한 것이 바깥이다. metric과 접근 로그는 둘 다
+    # 순수 ASGI 미들웨어라 응답 본문(SSE 포함)이 끝난 뒤에 기록한다.
+    app.add_middleware(MetricsMiddleware, metrics=metrics)
 
     app.add_middleware(RequestLoggingMiddleware, logger=logger, service=metrics.service)
 

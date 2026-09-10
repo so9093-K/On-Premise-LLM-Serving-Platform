@@ -4,6 +4,7 @@ logit_bias 조합을 검증한다."""
 
 from __future__ import annotations
 
+import asyncio
 import json
 from dataclasses import replace
 
@@ -335,3 +336,102 @@ def test_gateway_logprobs_logit_bias_and_stream_contracts():
     )
     assert stream.status_code == 200
     assert '"logprobs"' in stream.content.decode()
+
+
+def test_streaming_request_event_carries_token_counts_and_terminal_status(monkeypatch, tmp_path):
+    """streaming도 non-stream과 같은 필드로 request_id 단위 조회가 되어야 한다.
+
+    예전에는 relay가 usage 객체를 세기만 하고 숫자를 버려서, 업스트림이 112
+    토큰을 보고했는데도 streaming 요청 이벤트에는 토큰 필드가 하나도 없었다.
+    """
+    monkeypatch.setenv("REQUEST_EVENT_LOG_DIR", str(tmp_path))
+    usage = {"prompt_tokens": 11, "completion_tokens": 101, "total_tokens": 112}
+    clients = FakeGatewayClients()
+    clients.main_llm.stream_chunks = [
+        b'data: {"choices":[{"delta":{"content":"hi"}}]}\n\n',
+        f'data: {{"choices":[],"usage":{json.dumps(usage)}}}\n\n'.encode(),
+        b"data: [DONE]\n\n",
+    ]
+    client = TestClient(create_gateway_app(settings(), clients))
+
+    response = client.post(
+        "/v1/chat/completions",
+        headers=auth_headers(),
+        json={"model": "local-main", "stream": True, "messages": [{"role": "user", "content": "hello"}]},
+    )
+
+    assert response.status_code == 200
+    records = [json.loads(line) for line in (tmp_path / "gateway.jsonl").read_text().splitlines()]
+    assert len(records) == 1
+    assert records[0]["prompt_tokens"] == 11
+    assert records[0]["completion_tokens"] == 101
+    assert records[0]["total_tokens"] == 112
+    assert records[0]["stream_status"] == "completed"
+
+
+def test_streaming_admission_rejection_answers_503_before_response_headers():
+    """admission 거부는 SSE 전송을 고르기 전에 판정되어야 한다.
+
+    예전에는 admission이 relay generator 안에 있어서 첫 chunk를 당길 때, 즉 이미
+    200 헤더가 나간 뒤에 판정됐고 QUEUE_TIMEOUT이 200 + SSE 오류 event로 나갔다.
+    이 route가 OpenAPI로 선언한 계약은 503 + Retry-After다.
+    """
+
+    class QueueFullClient(FakeRuntimeClient):
+        async def open_stream(self, path, payload, **kwargs):
+            raise ServiceError(
+                "QUEUE_TIMEOUT",
+                "Timed out waiting for upstream capacity: local-main",
+                retry_after_seconds=5.0,
+            )
+
+    clients = FakeGatewayClients()
+    clients.main_llm = QueueFullClient(endpoint=RuntimeEndpoint("local-main", "http://main/v1", "local-main", 1))
+    client = TestClient(create_gateway_app(settings(), clients))
+
+    response = client.post(
+        "/v1/chat/completions",
+        headers=auth_headers(),
+        json={"model": "local-main", "stream": True, "messages": [{"role": "user", "content": "hello"}]},
+    )
+
+    assert response.status_code == 503
+    assert response.json()["error"]["code"] == "QUEUE_TIMEOUT"
+    assert response.headers["retry-after"] == "5"
+
+
+def test_http_latency_histogram_covers_the_streaming_response_body():
+    """streaming 지연은 헤더 시점이 아니라 본문이 끝난 시점까지여야 한다.
+
+    metric 미들웨어가 BaseHTTPMiddleware였을 때 call_next는 응답 헤더가 정해지면
+    돌아왔고, 1초짜리 SSE가 http_request_duration_seconds에 0.3ms로 기록됐다.
+    """
+    relay_seconds = 0.05
+
+    class PacedClient(FakeRuntimeClient):
+        async def open_stream(self, path, payload, **kwargs):
+            return FakeUpstreamStream(self._paced())
+
+        async def _paced(self):
+            await asyncio.sleep(relay_seconds)
+            yield b'data: {"choices":[{"delta":{"content":"hi"}}]}\n\n'
+            yield b"data: [DONE]\n\n"
+
+    clients = FakeGatewayClients()
+    clients.main_llm = PacedClient(endpoint=RuntimeEndpoint("local-main", "http://main/v1", "local-main", 1))
+    client = TestClient(create_gateway_app(settings(), clients))
+
+    client.post(
+        "/v1/chat/completions",
+        headers=auth_headers(),
+        json={"model": "local-main", "stream": True, "messages": [{"role": "user", "content": "hello"}]},
+    )
+
+    metrics = client.get("/metrics", headers=auth_headers()).text
+    observed = next(
+        float(line.rsplit(" ", 1)[1])
+        for line in metrics.splitlines()
+        if line.startswith("http_request_duration_seconds_sum")
+        and 'route="/v1/chat/completions"' in line
+    )
+    assert observed >= relay_seconds

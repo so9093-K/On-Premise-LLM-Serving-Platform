@@ -104,6 +104,22 @@ def default_code_for_status(status_code: int) -> str:
     return "INTERNAL_ERROR" if status_code >= 500 else "VALIDATION_ERROR"
 
 
+def record_queue_wait(seconds: float) -> None:
+    """현재 요청이 upstream admission slot을 기다린 시간을 누적한다.
+
+    ``REQUEST_ERROR_CONTEXT``는 ``scope["state"]``라서, 여기 쓴 값은 접근 로그가
+    ``request.state``로 그대로 읽는다. SSE generator처럼 handler가 이미 반환한
+    뒤에 도는 코드도 같은 dict를 본다. 한 요청이 upstream을 여러 번 부를 수
+    있으므로(예: risk 위임 후 chat) 덮어쓰지 않고 더한다.
+    """
+    context = REQUEST_ERROR_CONTEXT.get()
+    if context is None:
+        return
+    previous = context.get("queue_wait_ms")
+    total = (previous if isinstance(previous, (int, float)) else 0.0) + seconds * 1000
+    context["queue_wait_ms"] = round(total, 3)
+
+
 def new_request_id() -> str:
     return f"req_{uuid4().hex}"
 

@@ -4,6 +4,7 @@ import asyncio
 import json
 import time
 from collections.abc import AsyncIterator
+from contextlib import aclosing
 from dataclasses import replace
 from typing import Any, Protocol
 
@@ -21,7 +22,8 @@ from ..contracts import (
 )
 from ..contracts.chat_response import RetryableStructuredOutputError
 from ..errors import ServiceError
-from ..metrics import Metrics
+from ..logging_policy import record_stream_completion
+from ..metrics import Metrics, sanitized_stream_status
 from ..runtime_clients.ports import JsonRuntimeClient, StreamingRuntimeClient
 from ..serving_profile import NAMED_TOOL_CHOICE_UPSTREAM_REQUIRED_SINGLE
 from ..settings import AppSettings
@@ -172,12 +174,18 @@ class StreamingUsageObserver:
 
     vLLM/OpenAI-compatible streaming may include `usage` on a final or near-final
     chunk.  The Gateway relays the original bytes unchanged and only counts that
-    such an accounting event was present; prompt text, token deltas, and the
-    numeric usage values are intentionally not exported as metric labels.
+    such an accounting event was present; prompt text and token deltas are never
+    exported as metric labels.
+
+    ``last_usage``는 마지막으로 관찰한 usage 객체다. 토큰 개수는 민감정보가
+    아니고 non-stream 경로가 이미 요청 로그에 남기는 값이라, streaming도 같은
+    필드를 채울 수 있도록 숫자를 버리지 않고 보관한다. metric label로는 여전히
+    나가지 않는다.
     """
 
     def __init__(self) -> None:
         self._buffer = ""
+        self.last_usage: dict[str, Any] | None = None
 
     def observe(self, chunk: bytes) -> int:
         try:
@@ -200,6 +208,7 @@ class StreamingUsageObserver:
                 continue
             if isinstance(event, dict) and isinstance(event.get("usage"), dict):
                 usage_events += 1
+                self.last_usage = event["usage"]
         return usage_events
 
 class GatewayClientSet(Protocol):
@@ -350,13 +359,20 @@ class GatewayService:
             )
 
 
-    def stream_chat_completion(
+    async def stream_chat_completion(
         self,
         payload: dict[str, Any],
         *,
         active_modalities: tuple[str, ...] | None = None,
         gateway_policy: dict[str, Any] | None = None,
     ) -> AsyncIterator[bytes]:
+        """Admit the streaming request, then return the SSE relay iterator.
+
+        Admission runs here rather than inside the relay so that CIRCUIT_OPEN and
+        QUEUE_TIMEOUT reach the caller as ordinary ``ServiceError``s, before any
+        response header is committed.  Only failures that genuinely happen after
+        the SSE transport is chosen end up as in-band error events.
+        """
         payload, _expectations = self._chat_upstream_payload(
             self._validate_chat_payload(
                 payload, active_modalities=active_modalities, gateway_policy=gateway_policy
@@ -365,69 +381,87 @@ class GatewayService:
         )
         start = time.monotonic()
         target = self.settings.runtime("main_llm").logical_id
+        try:
+            upstream = await self.clients.main_llm.open_stream("chat/completions", payload)
+        except ServiceError as exc:
+            self.metrics.record_upstream_error(target, exc.operational_code)
+            self.metrics.record_streaming_error(target, exc.operational_code, "admission")
+            raise
+        return self._relay_chat_stream(upstream, target=target, start=start)
 
-        async def relay() -> AsyncIterator[bytes]:
-            emitted_chunk = False
-            first_chunk_recorded = False
-            chunk_count = 0
-            byte_count = 0
-            terminal_status = "completed"
-            observer = StreamingUsageObserver()
-            self.metrics.record_streaming_request_started(target)
-            try:
-                async with asyncio.timeout(self.settings.streaming_max_duration_seconds):
-                    async for chunk in self.clients.main_llm.stream_bytes("chat/completions", payload):
-                        if not chunk:
-                            continue
-                        emitted_chunk = True
-                        chunk_count += 1
-                        byte_count += len(chunk)
-                        if chunk_count > self.settings.streaming_max_chunks:
-                            raise ServiceError(
-                                "STREAM_LIMIT_EXCEEDED", f"stream emitted {chunk_count} chunks; limit is {self.settings.streaming_max_chunks}. Reduce max_tokens or retry without stream=true.",
-                                diagnostic_code="STREAM_CHUNK_LIMIT_EXCEEDED",
-                            )
-                        if byte_count > self.settings.streaming_max_bytes:
-                            raise ServiceError(
-                                "STREAM_LIMIT_EXCEEDED", f"stream emitted {byte_count} bytes; limit is {self.settings.streaming_max_bytes}. Reduce max_tokens or retry without stream=true.",
-                                diagnostic_code="STREAM_BYTE_LIMIT_EXCEEDED",
-                            )
-                        if not first_chunk_recorded:
-                            first_chunk_recorded = True
-                            self.metrics.record_streaming_first_chunk(target, time.monotonic() - start)
-                        self.metrics.record_streaming_chunk(target, len(chunk))
-                        for _ in range(observer.observe(chunk)):
-                            self.metrics.record_streaming_usage_event(target)
-                        yield chunk
-            except asyncio.CancelledError:
-                terminal_status = "client_disconnect"
-                phase = "mid_stream" if emitted_chunk else "before_first_chunk"
-                self.metrics.record_streaming_client_disconnect(target, phase)
-                self.metrics.record_streaming_error(target, "CLIENT_DISCONNECT", phase)
-                raise
-            except TimeoutError as exc:
-                terminal_status = "gateway_timeout"
-                phase = "mid_stream" if emitted_chunk else "before_first_chunk"
-                self.metrics.record_upstream_error(target, "GATEWAY_TIMEOUT")
-                self.metrics.record_streaming_error(target, "GATEWAY_TIMEOUT", phase)
-                error = ServiceError("UPSTREAM_TIMEOUT", "Gateway request timed out before the chat stream completed.", diagnostic_code="GATEWAY_TIMEOUT")
-                yield _stream_error_event(error)
-            except ServiceError as exc:
-                terminal_status = exc.code
-                phase = "mid_stream" if emitted_chunk else "before_first_chunk"
-                self.metrics.record_upstream_error(target, exc.operational_code)
-                self.metrics.record_streaming_error(target, exc.operational_code, phase)
-                yield _stream_error_event(exc)
-            finally:
-                elapsed = time.monotonic() - start
-                self.metrics.record_streaming_completed(target, terminal_status, elapsed, chunk_count)
-                self.metrics.record_upstream_request(
-                    target,
-                    "chat/completions:stream",
-                    elapsed,
-                )
-
-        return relay()
+    async def _relay_chat_stream(self, upstream: Any, *, target: str, start: float) -> AsyncIterator[bytes]:
+        emitted_chunk = False
+        first_chunk_recorded = False
+        chunk_count = 0
+        byte_count = 0
+        terminal_status = "completed"
+        observer = StreamingUsageObserver()
+        self.metrics.record_streaming_request_started(target)
+        try:
+            # aclosing으로 감싸야 client가 끊었을 때 upstream generator가 GC가
+            # 아니라 그 자리에서 닫히고, admission slot이 즉시 반납된다.
+            async with asyncio.timeout(self.settings.streaming_max_duration_seconds), aclosing(upstream) as chunks:
+                async for chunk in chunks:
+                    if not chunk:
+                        continue
+                    emitted_chunk = True
+                    chunk_count += 1
+                    byte_count += len(chunk)
+                    if chunk_count > self.settings.streaming_max_chunks:
+                        raise ServiceError(
+                            "STREAM_LIMIT_EXCEEDED", f"stream emitted {chunk_count} chunks; limit is {self.settings.streaming_max_chunks}. Reduce max_tokens or retry without stream=true.",
+                            diagnostic_code="STREAM_CHUNK_LIMIT_EXCEEDED",
+                        )
+                    if byte_count > self.settings.streaming_max_bytes:
+                        raise ServiceError(
+                            "STREAM_LIMIT_EXCEEDED", f"stream emitted {byte_count} bytes; limit is {self.settings.streaming_max_bytes}. Reduce max_tokens or retry without stream=true.",
+                            diagnostic_code="STREAM_BYTE_LIMIT_EXCEEDED",
+                        )
+                    if not first_chunk_recorded:
+                        first_chunk_recorded = True
+                        self.metrics.record_streaming_first_chunk(target, time.monotonic() - start)
+                    self.metrics.record_streaming_chunk(target, len(chunk))
+                    for _ in range(observer.observe(chunk)):
+                        self.metrics.record_streaming_usage_event(target)
+                    yield chunk
+        # client가 응답을 버리면 Starlette은 이 generator를 닫는다. 그 경로는
+        # CancelledError가 아니라 GeneratorExit이라, 예전에는 어느 분기에도
+        # 걸리지 않고 finally의 기본값 "completed"로 기록됐다 -- 중단된 stream이
+        # 정상 완료와 구분되지 않았고 streaming_client_disconnects_total은 0에
+        # 머물렀다. 둘 다 여기서 받는다.
+        except (asyncio.CancelledError, GeneratorExit):
+            terminal_status = "client_disconnect"
+            phase = "mid_stream" if emitted_chunk else "before_first_chunk"
+            self.metrics.record_streaming_client_disconnect(target, phase)
+            self.metrics.record_streaming_error(target, "CLIENT_DISCONNECT", phase)
+            raise
+        except TimeoutError as exc:
+            terminal_status = "gateway_timeout"
+            phase = "mid_stream" if emitted_chunk else "before_first_chunk"
+            self.metrics.record_upstream_error(target, "GATEWAY_TIMEOUT")
+            self.metrics.record_streaming_error(target, "GATEWAY_TIMEOUT", phase)
+            error = ServiceError("UPSTREAM_TIMEOUT", "Gateway request timed out before the chat stream completed.", diagnostic_code="GATEWAY_TIMEOUT")
+            yield _stream_error_event(error)
+        except ServiceError as exc:
+            terminal_status = exc.code
+            phase = "mid_stream" if emitted_chunk else "before_first_chunk"
+            self.metrics.record_upstream_error(target, exc.operational_code)
+            self.metrics.record_streaming_error(target, exc.operational_code, phase)
+            yield _stream_error_event(exc)
+        finally:
+            elapsed = time.monotonic() - start
+            self.metrics.record_streaming_completed(target, terminal_status, elapsed, chunk_count)
+            self.metrics.record_upstream_request(
+                target,
+                "chat/completions:stream",
+                elapsed,
+            )
+            # non-stream 경로의 record_token_usage와 같은 필드를 채워, request_id
+            # 하나로 두 경로의 토큰 수를 같은 방식으로 조회할 수 있게 한다.
+            record_stream_completion(
+                status=sanitized_stream_status(terminal_status),
+                usage=observer.last_usage,
+            )
 
     async def create_embedding(self, payload: dict[str, Any]) -> dict[str, Any]:
         model = str(payload.get("model", self.settings.default_embedding_model))

@@ -1,11 +1,25 @@
 from __future__ import annotations
 
 import time
-from typing import Awaitable, Callable
 
 from prometheus_client import CONTENT_TYPE_LATEST, CollectorRegistry, Counter, Gauge, Histogram, generate_latest
-from starlette.requests import Request
 from starlette.responses import Response
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
+
+
+def sanitized_stream_status(status: str) -> str:
+    """streaming 종료 상태를 categorical contract로 정규화한다.
+
+    허용 값은 completed, client_disconnect, error 셋뿐이다. 호출자들이 대문자
+    raw 오류 코드를 넘기므로, dashboard 쿼리
+    ``status=~"completed|error|client_disconnect"``가 안정적으로 유지되도록
+    나머지는 전부 error로 접는다. metric label과 요청 로그의 stream_status가
+    같은 어휘를 쓰도록 이 함수 하나만 본다.
+    """
+    lower = status.lower()
+    if lower in ("completed", "client_disconnect"):
+        return lower
+    return "error"
 
 
 class Metrics:
@@ -205,27 +219,14 @@ class Metrics:
             registry=self.registry,
         )
 
-    async def http_middleware(
-        self,
-        request: Request,
-        call_next: Callable[[Request], Awaitable[Response]],
-    ) -> Response:
-        start = time.monotonic()
-        status_code = 500
-        route = request.url.path
-        try:
-            response = await call_next(request)
-            status_code = response.status_code
-            return response
-        finally:
-            route_obj = request.scope.get("route")
-            if route_obj is not None and getattr(route_obj, "path", None):
-                route = route_obj.path
-            elapsed = time.monotonic() - start
-            self.requests.labels(self.service, route, str(status_code)).inc()
-            self.latency.labels(self.service, route).observe(elapsed)
-            if status_code == 401:
-                self.auth_failures.labels(self.service, "unauthorized").inc()
+    def observe_http_request(self, *, scope: Scope, status_code: int, elapsed_seconds: float) -> None:
+        """완료된 HTTP 요청 한 건을 count/latency/auth metric에 반영한다."""
+        route_obj = scope.get("route")
+        route = getattr(route_obj, "path", None) or scope.get("path", "")
+        self.requests.labels(self.service, route, str(status_code)).inc()
+        self.latency.labels(self.service, route).observe(elapsed_seconds)
+        if status_code == 401:
+            self.auth_failures.labels(self.service, "unauthorized").inc()
 
     def record_upstream_request(self, target: str, path: str, elapsed_seconds: float) -> None:
         self.upstream_latency.labels(self.service, target, path).observe(elapsed_seconds)
@@ -253,17 +254,7 @@ class Metrics:
         self.streaming_time_to_first_chunk.labels(self.service, target).observe(elapsed_seconds)
 
     def record_streaming_completed(self, target: str, status: str, elapsed_seconds: float, chunk_count: int) -> None:
-        # categorical contract로 정규화: completed, error, client_disconnect.
-        # 이전 호출자들은 대문자 raw 코드를 사용했으므로, dashboard 쿼리인
-        # status=~"completed|error|client_disconnect"가 마이그레이션 기간 동안
-        # 안정적으로 유지되도록 canonical 카테고리로 매핑한다.
-        _CATEGORY_MAP = {
-            "completed": "completed",
-            "error": "error",
-            "client_disconnect": "client_disconnect",
-        }
-        lower = status.lower()
-        sanitized_status = _CATEGORY_MAP.get(lower, "error" if lower not in ("completed", "client_disconnect") else lower)
+        sanitized_status = sanitized_stream_status(status)
         self.streaming_requests.labels(self.service, target, sanitized_status).inc()
         self.streaming_duration.labels(self.service, target, sanitized_status).observe(elapsed_seconds)
         self.streaming_chunks_per_response.labels(self.service, target, sanitized_status).observe(max(0, chunk_count))
@@ -368,3 +359,41 @@ class Metrics:
 
     def response(self) -> Response:
         return Response(generate_latest(self.registry), media_type=CONTENT_TYPE_LATEST)
+
+
+class MetricsMiddleware:
+    """응답 본문/SSE가 끝난 뒤 HTTP metric을 한 번 기록한다.
+
+    BaseHTTPMiddleware(``@app.middleware("http")``)로 붙이면 ``call_next``가
+    응답 헤더가 정해진 시점에 돌아온다. 그 시점은 본문이 끝난 때가 아니라서
+    streaming 요청의 지연이 첫 바이트까지로만 기록됐다(실측: 1초짜리 SSE가
+    ``http_request_duration_seconds``에 0.3ms로 남았다). 순수 ASGI 미들웨어는
+    본문이 다 나갈 때까지 반환하지 않으므로 접근 로그(RequestLoggingMiddleware)와
+    같은 시점을 본다 -- 두 관측이 같은 요청에 대해 다른 값을 말하지 않는다.
+    """
+
+    def __init__(self, app: ASGIApp, *, metrics: "Metrics") -> None:
+        self.app = app
+        self.metrics = metrics
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        start = time.monotonic()
+        status_code = 500
+
+        async def send_status(message: Message) -> None:
+            nonlocal status_code
+            if message["type"] == "http.response.start":
+                status_code = message["status"]
+            await send(message)
+
+        try:
+            await self.app(scope, receive, send_status)
+        finally:
+            self.metrics.observe_http_request(
+                scope=scope,
+                status_code=status_code,
+                elapsed_seconds=time.monotonic() - start,
+            )

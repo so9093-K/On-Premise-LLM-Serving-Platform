@@ -55,6 +55,23 @@ _MODEL_CATALOG = yaml.safe_load((_ROOT / "configs/model_catalog.yaml").read_text
 _MODEL_SERVING = yaml.safe_load((_ROOT / "configs/model_serving.yaml").read_text(encoding="utf-8"))
 
 
+class FakeUpstreamStream:
+    """VLLMClient.open_stream이 돌려주는 handle의 테스트 대역.
+
+    admission은 이미 통과한 상태를 나타내므로 queue_wait_seconds는 0이다.
+    """
+
+    def __init__(self, chunks):
+        self._chunks = chunks
+        self.queue_wait_seconds = 0.0
+
+    def __aiter__(self):
+        return self._chunks.__aiter__()
+
+    async def aclose(self):
+        await self._chunks.aclose()
+
+
 class FakeRuntimeClient:
     def __init__(self, post_response=None, ready=True, get_response=None, endpoint: RuntimeEndpoint | None = None, stream_chunks=None):
         self.post_response = post_response or {}
@@ -84,10 +101,13 @@ class FakeRuntimeClient:
             return self.get_response
         return {"object": "list", "data": []}
 
-    async def stream_bytes(self, path, payload, **kwargs):
+    async def open_stream(self, path, payload, **kwargs):
         self.last_path = path
         self.last_payload = payload
         self.last_headers = kwargs.get("headers")
+        return FakeUpstreamStream(self._emit_chunks())
+
+    async def _emit_chunks(self):
         for chunk in self.stream_chunks:
             yield chunk
 
@@ -107,10 +127,13 @@ class StreamingErrorRuntimeClient(FakeRuntimeClient):
         super().__init__(endpoint=RuntimeEndpoint("local-main", "http://main/v1", "local-main", 1))
         self.fail_after_first_chunk = fail_after_first_chunk
 
-    async def stream_bytes(self, path, payload, **kwargs):
+    async def open_stream(self, path, payload, **kwargs):
         self.last_path = path
         self.last_payload = payload
         self.last_headers = kwargs.get("headers")
+        return FakeUpstreamStream(self._emit_chunks())
+
+    async def _emit_chunks(self):
         if self.fail_after_first_chunk:
             yield b'data: {"choices":[{"delta":{"content":"partial"}}]}\n\n'
         raise ServiceError("UPSTREAM_TIMEOUT", "stream read timeout")

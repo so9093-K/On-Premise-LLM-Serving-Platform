@@ -16,7 +16,7 @@ def macos_metal_prometheus_config_document(
 
     rule_files를 싣지 않는 것은 의도다. model_runtime.rules.yml의 rule은 전부
     DCGM/cAdvisor/vLLM exporter를 전제하는데 이 project는 그 service들을 정의하지
-    않는다. 특히 ai_expected_critical_targets(=8)는 여기서 항상 틀린 값이 된다.
+    않는다. 규칙을 실어도 series가 전부 absent라 얻는 것이 없다.
     """
     stack = monitoring.get("monitoring_stack", {})
     prometheus = stack.get("prometheus", {})

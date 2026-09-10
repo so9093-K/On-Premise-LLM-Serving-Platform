@@ -151,7 +151,7 @@
 | Remote Release Executor | `scripts/deploy/apply_remote_release.sh` | Candidate 검증, Compose 수렴, Readiness와 Rollback |
 | Validation Script | `scripts/validation/` | 정적 검증과 Runtime 검증 |
 | Operations Script | `scripts/ops/` | Readiness, smoke test 등 운영 확인 |
-| Reports | `scripts/reports/` | 운영 상태와 Runtime 검증 자료 생성 |
+| Runtime 검증 산출물 | `reports/runtime/` | `make runtime-validate`가 생성하는 JSON·Markdown 결과. 저장소가 소유하지 않는 실행 산출물이다 |
 | API Reference | `docs/reference/api_reference.md` | API 사용 방법, 요청·응답, 오류와 제약 설명 |
 | 모델 참고 자료 | `docs/reference/models/` | upstream 모델 사양, 라이선스, 알려진 제약 |
 | Screenshots | `assets/screenshots/` | Grafana, Scalar, Request Log 등 문서용 화면 |

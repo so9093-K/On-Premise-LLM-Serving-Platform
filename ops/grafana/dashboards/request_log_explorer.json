@@ -119,18 +119,20 @@
               "method": 2,
               "route": 3,
               "latency_ms": 4,
-              "prompt_tokens": 5,
-              "completion_tokens": 6,
-              "total_tokens": 7,
-              "client_host": 8,
-              "service": 9,
+              "queue_wait_ms": 5,
+              "stream_status": 6,
+              "prompt_tokens": 7,
+              "completion_tokens": 8,
+              "total_tokens": 9,
+              "client_host": 10,
+              "service": 11,
               "Line": 20
             },
             "renameByName": {}
           }
         }
       ],
-      "description": "게이트웨이/risk-adapter 전체 요청 로그(요청 한 줄 = 테이블 한 행).\n\n- 이 대시보드는 gateway/risk-adapter 구조화 로그 + vLLM 등 컨테이너 원본 로그를 함께 다룬다(아래 **Non-JSON Container Errors**/**Raw Container Log**/**Engine Crash / Traceback**)\n- **prompt_tokens/completion_tokens/total_tokens**: upstream usage를 그대로 옮긴 값이다. `/v1/chat/completions`와 vLLM-backed prompt detector는 세 값이 모두 기록되며, `/v1/embeddings`는 completion_tokens가 없어 빈 값이다. 통합 Risk 평가는 포함된 vLLM detector 호출분을 합산한다. local detector·입력 제한 사전 차단·실패 응답은 셋 다 빈 값이다. `LOG_REQUEST_RESPONSE_BODY`와 무관하며 민감정보가 아니다.\n- **client_host** 클릭 시 그 IP로 필터링\n- request_id는 모든 요청에 기록한다. 오류 코드·원인 추적은 아래 **API / Stream Errors** 패널 참고\n- `/metrics`, `/health`는 노이즈라 항상 제외\n- `LOG_REQUEST_RESPONSE_BODY=true`일 때 `/v1/chat/completions`(non-streaming), `/v1/embeddings`, `/v1/risk/detectors/*/assessments`·`/v1/risk/assessments`에서 마스킹된 요청/응답 원문(임베딩은 벡터 대신 개수/차원 요약)이 존재한다 -> 컬럼엔 없고 아래 **Request/Response 원문** 패널 참고"
+      "description": "게이트웨이/risk-adapter 전체 요청 로그(요청 한 줄 = 테이블 한 행).\n\n- 이 대시보드는 gateway/risk-adapter 구조화 로그 + vLLM 등 컨테이너 원본 로그를 함께 다룬다(아래 **Non-JSON Container Errors**/**Raw Container Log**/**Engine Crash / Traceback**)\n- **prompt_tokens/completion_tokens/total_tokens**: upstream usage를 그대로 옮긴 값이다. `/v1/chat/completions`는 streaming과 non-streaming 모두, vLLM-backed prompt detector도 세 값이 모두 기록되며, `/v1/embeddings`는 completion_tokens가 없어 빈 값이다. 통합 Risk 평가는 포함된 vLLM detector 호출분을 합산한다. local detector·입력 제한 사전 차단·실패 응답은 셋 다 빈 값이다. `LOG_REQUEST_RESPONSE_BODY`와 무관하며 민감정보가 아니다.\n- **queue_wait_ms**: upstream admission slot을 기다린 시간. `latency_ms - queue_wait_ms`가 실제 upstream 처리 시간이라, 느린 요청이 대기 때문인지 추론 때문인지 가른다. upstream을 부르지 않은 요청은 빈 값이다.\n- **stream_status**: SSE relay 종료 사유(`completed`/`client_disconnect`/`error`). streaming은 헤더가 나간 뒤 끝나므로 status_code가 항상 200이다. 중단된 요청은 여기서만 구분된다. non-streaming 요청은 빈 값이다.\n- **client_host** 클릭 시 그 IP로 필터링\n- request_id는 모든 요청에 기록한다. 오류 코드·원인 추적은 아래 **API / Stream Errors** 패널 참고\n- `/metrics`, `/health`는 노이즈라 항상 제외\n- `LOG_REQUEST_RESPONSE_BODY=true`일 때 `/v1/chat/completions`(non-streaming), `/v1/embeddings`, `/v1/risk/detectors/*/assessments`·`/v1/risk/assessments`에서 마스킹된 요청/응답 원문(임베딩은 벡터 대신 개수/차원 요약)이 존재한다 -> 컬럼엔 없고 아래 **Request/Response 원문** 패널 참고"
     },
     {
       "id": 2,
@@ -229,17 +231,19 @@
               "method": 2,
               "route": 3,
               "latency_ms": 4,
-              "client_host": 5,
-              "request_id": 6,
-              "error_code": 7,
-              "diagnostic_code": 8,
-              "error_message": 9,
-              "error_retryable": 10,
-              "error_cause_type": 11,
-              "error_cause_message": 12,
-              "error_upstream_status": 13,
-              "upstream_request_id": 14,
-              "service": 15,
+              "queue_wait_ms": 5,
+              "stream_status": 6,
+              "client_host": 7,
+              "request_id": 8,
+              "error_code": 9,
+              "diagnostic_code": 10,
+              "error_message": 11,
+              "error_retryable": 12,
+              "error_cause_type": 13,
+              "error_cause_message": 14,
+              "error_upstream_status": 15,
+              "upstream_request_id": 16,
+              "service": 17,
               "Line": 20
             },
             "renameByName": {}

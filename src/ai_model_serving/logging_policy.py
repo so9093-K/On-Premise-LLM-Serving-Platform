@@ -24,6 +24,7 @@ __all__ = [
     "RequestLoggingMiddleware",
     "record_request_response_preview",
     "record_token_usage",
+    "record_stream_completion",
     "record_error_diagnosis",
     "record_readiness_failure",
 ]
@@ -155,6 +156,18 @@ def record_request_response_preview(request: Request, *, request_text: str, resp
     )
 
 
+TOKEN_USAGE_FIELDS = ("prompt_tokens", "completion_tokens", "total_tokens")
+
+
+def _apply_token_usage(sink: dict[str, Any], usage: Any) -> None:
+    if not isinstance(usage, dict):
+        return
+    for field in TOKEN_USAGE_FIELDS:
+        value = usage.get(field)
+        if is_int(value) and value >= 0:
+            sink[field] = value
+
+
 def record_token_usage(request: Request, usage: Any) -> None:
     """request.state에 토큰 사용량(prompt/completion/total)을 남긴다.
 
@@ -163,12 +176,25 @@ def record_token_usage(request: Request, usage: Any) -> None:
     -- 호출자가 플래그를 확인할 필요 없음. usage가 없거나(예: 업스트림이
     응답에 안 실은 경우) 모양이 안 맞으면 조용히 아무것도 안 남긴다.
     """
-    if not isinstance(usage, dict):
+    _apply_token_usage(request.scope.setdefault("state", {}), usage)
+
+
+def record_stream_completion(*, status: str, usage: Any = None) -> None:
+    """끝난 SSE relay의 종료 상태와 토큰 사용량을 요청 로그에 남긴다.
+
+    streaming은 handler가 반환한 뒤 generator 안에서 끝나므로 ``Request``를
+    들고 있을 수 없다. 오류 코드를 SSE generator에서 접근 로그로 넘길 때 쓰는
+    ``REQUEST_ERROR_CONTEXT``(= ``scope["state"]``)를 그대로 사용한다.
+
+    ``usage``는 relay가 전달 중인 바이트에서 관찰한 OpenAI ``usage`` 객체다.
+    non-stream 경로와 같은 필드를 채워서, request_id 하나로 두 경로의 토큰
+    수를 같은 방식으로 조회할 수 있게 한다.
+    """
+    context = REQUEST_ERROR_CONTEXT.get()
+    if context is None:
         return
-    for field in ("prompt_tokens", "completion_tokens", "total_tokens"):
-        value = usage.get(field)
-        if is_int(value) and value >= 0:
-            setattr(request.state, field, value)
+    context["stream_status"] = status
+    _apply_token_usage(context, usage)
 
 
 def safe_request_log_record(
@@ -204,6 +230,13 @@ def safe_request_log_record(
     for field in ("readiness_status", "readiness_dependencies", "readiness_summary"):
         value = getattr(request.state, field, None)
         if value:
+            record[field] = value
+    # 운영 분해용 필드. queue_wait_ms는 upstream admission slot을 기다린 시간이라
+    # latency_ms에서 빼면 대기와 추론을 가를 수 있다. stream_status는 SSE relay의
+    # 종료 사유로, 정상 완료와 client 중단을 status_code=200 안에서 구분한다.
+    for field in ("queue_wait_ms", "stream_status"):
+        value = getattr(request.state, field, None)
+        if value is not None:
             record[field] = value
     # 토큰 개수는 민감정보가 아니라 LOG_REQUEST_RESPONSE_BODY와 무관하게 항상
     # 채워질 수 있다(record_token_usage가 usage를 실은 엔드포인트에 한해).

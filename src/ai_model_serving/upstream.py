@@ -8,7 +8,7 @@ from urllib.parse import urlsplit, urlunsplit
 
 import httpx
 
-from .errors import DIAGNOSTIC_VALUE_LIMIT, ERROR_STATUS, ServiceError
+from .errors import DIAGNOSTIC_VALUE_LIMIT, ERROR_STATUS, ServiceError, record_queue_wait
 from .settings import RuntimeEndpoint
 
 # QUEUE_TIMEOUT에 대한 Retry-After 힌트: admission queue_timeout_seconds
@@ -47,6 +47,95 @@ class CircuitBreaker:
 
 def _counts_as_upstream_failure(exc: ServiceError) -> bool:
     return exc.retryable or exc.status_code >= 500 or exc.code in {"MODEL_UNAVAILABLE", "UPSTREAM_ERROR", "UPSTREAM_TIMEOUT"}
+
+
+class _AdmissionScope:
+    """upstream 호출 한 건의 circuit-breaker 판정과 동시성 slot 점유를 함께 소유한다.
+
+    JSON 호출과 SSE relay는 같은 admission 규칙을 써야 한다. 예전에는 두 경로가
+    circuit breaker 확인, semaphore 획득, queue timeout 매핑을 각자 복제하고 있어서
+    한쪽만 고치면 다른 쪽이 조용히 뒤처졌다. 두 경로가 이 scope 하나만 쓰도록 해
+    그 drift가 생길 자리를 없앤다.
+
+    ``acquire``는 slot을 못 잡으면 QUEUE_TIMEOUT을 올리고, circuit이 열려 있으면
+    CIRCUIT_OPEN을 올린다. 둘 다 slot을 잡기 전이므로 ``release``는 부르지 않는다.
+    """
+
+    __slots__ = ("_endpoint", "_circuit_breaker", "_semaphore", "_held", "queue_wait_seconds")
+
+    def __init__(self, endpoint: RuntimeEndpoint, circuit_breaker: CircuitBreaker, semaphore: asyncio.Semaphore) -> None:
+        self._endpoint = endpoint
+        self._circuit_breaker = circuit_breaker
+        self._semaphore = semaphore
+        self._held = False
+        self.queue_wait_seconds = 0.0
+
+    async def acquire(self) -> None:
+        self._circuit_breaker.before_request(self._endpoint.logical_id)
+        waiting_since = time.monotonic()
+        try:
+            await asyncio.wait_for(self._semaphore.acquire(), timeout=self._endpoint.queue_timeout_seconds)
+        except TimeoutError as exc:
+            raise ServiceError(
+                "QUEUE_TIMEOUT", f"Timed out waiting for upstream capacity: {self._endpoint.logical_id}", retry_after_seconds=QUEUE_TIMEOUT_RETRY_AFTER_SECONDS,
+            ) from exc
+        self._held = True
+        self.queue_wait_seconds = time.monotonic() - waiting_since
+        # 느린 요청의 원인을 대기와 추론으로 가를 수 있도록 요청 단위 로그에 남긴다.
+        # Prometheus latency histogram은 둘을 합친 값만 보여준다.
+        record_queue_wait(self.queue_wait_seconds)
+
+    def release(self, exc: BaseException | None) -> None:
+        """slot을 반납하고 circuit breaker에 결과를 반영한다.
+
+        ``ServiceError``가 아닌 예외(client 취소로 인한 ``GeneratorExit``/
+        ``CancelledError`` 등)는 upstream 건강도의 근거가 아니므로 breaker를
+        움직이지 않는다.
+        """
+        if not self._held:
+            return
+        self._held = False
+        try:
+            if exc is None:
+                self._circuit_breaker.record_success()
+            elif isinstance(exc, ServiceError) and _counts_as_upstream_failure(exc):
+                self._circuit_breaker.record_failure()
+        finally:
+            self._semaphore.release()
+
+    async def __aenter__(self) -> "_AdmissionScope":
+        await self.acquire()
+        return self
+
+    async def __aexit__(self, exc_type: type[BaseException] | None, exc: BaseException | None, tb: Any) -> bool:
+        self.release(exc)
+        return False
+
+
+class UpstreamStream:
+    """admission을 이미 통과한 upstream SSE 본문이다.
+
+    admission 거부는 응답 헤더가 정해지기 전에 올라와야 한다. 예전에는 admission이
+    async generator 안에 있어서 첫 ``__anext__``, 즉 200 헤더가 나간 뒤에야 판정됐고
+    QUEUE_TIMEOUT/CIRCUIT_OPEN이 문서로 선언한 503 + ``Retry-After`` 대신 200 + SSE
+    오류 event로 나갔다. ``open_stream``이 slot을 먼저 잡고 이 handle을 돌려주므로
+    거부는 라우터의 일반 오류 경로를 그대로 탄다.
+
+    slot 반납은 본문 generator의 ``finally``가 소유한다. 호출자는 끝까지 읽거나
+    ``aclose()``로 닫아야 하며, 닫지 않으면 GC 시점까지 slot이 남는다.
+    """
+
+    __slots__ = ("_chunks", "queue_wait_seconds")
+
+    def __init__(self, chunks: AsyncIterator[bytes], *, queue_wait_seconds: float) -> None:
+        self._chunks = chunks
+        self.queue_wait_seconds = queue_wait_seconds
+
+    def __aiter__(self) -> AsyncIterator[bytes]:
+        return self._chunks.__aiter__()
+
+    async def aclose(self) -> None:
+        await self._chunks.aclose()
 
 
 def _platform_error_from_response(response: httpx.Response) -> ServiceError | None:
@@ -148,26 +237,12 @@ class VLLMClient:
             return f"{root}{path}"
         return f"{self.endpoint.base_url.rstrip('/')}/{path.lstrip('/')}"
 
+    def _admission(self) -> _AdmissionScope:
+        return _AdmissionScope(self.endpoint, self._circuit_breaker, self._semaphore)
+
     async def _with_operational_guards(self, operation: Callable[[], Awaitable[dict[str, Any]]]) -> dict[str, Any]:
-        self._circuit_breaker.before_request(self.endpoint.logical_id)
-        try:
-            await asyncio.wait_for(self._semaphore.acquire(), timeout=self.endpoint.queue_timeout_seconds)
-        except TimeoutError as exc:
-            raise ServiceError(
-                "QUEUE_TIMEOUT", f"Timed out waiting for upstream capacity: {self.endpoint.logical_id}", retry_after_seconds=QUEUE_TIMEOUT_RETRY_AFTER_SECONDS,
-            ) from exc
-        try:
-            try:
-                result = await operation()
-            except ServiceError as exc:
-                if _counts_as_upstream_failure(exc):
-                    self._circuit_breaker.record_failure()
-                raise
-            else:
-                self._circuit_breaker.record_success()
-                return result
-        finally:
-            self._semaphore.release()
+        async with self._admission():
+            return await operation()
 
     async def post_json(self, path: str, payload: dict[str, Any], *, headers: Mapping[str, str] | None = None) -> dict[str, Any]:
         async def operation() -> dict[str, Any]:
@@ -188,22 +263,31 @@ class VLLMClient:
         return await self._with_operational_guards(operation)
 
 
-    async def stream_bytes(self, path: str, payload: dict[str, Any], *, headers: Mapping[str, str] | None = None) -> AsyncIterator[bytes]:
-        """Stream upstream bytes with the same admission and circuit guards used by JSON calls.
+    async def open_stream(self, path: str, payload: dict[str, Any], *, headers: Mapping[str, str] | None = None) -> UpstreamStream:
+        """Admit the request, then hand back the upstream SSE body.
 
         Chat streaming is a transport-level fast path: the Gateway validates the
-        request before calling this method, checks the upstream HTTP status here,
-        and then relays SSE bytes without buffering the full response body.
+        request before calling this method, checks the upstream HTTP status while
+        relaying, and never buffers the full response body.  Admission uses the
+        same ``_AdmissionScope`` as the JSON calls and is resolved here, before
+        the caller commits response headers.
         """
-        self._circuit_breaker.before_request(self.endpoint.logical_id)
-        try:
-            await asyncio.wait_for(self._semaphore.acquire(), timeout=self.endpoint.queue_timeout_seconds)
-        except TimeoutError as exc:
-            raise ServiceError(
-                "QUEUE_TIMEOUT", f"Timed out waiting for upstream capacity: {self.endpoint.logical_id}", retry_after_seconds=QUEUE_TIMEOUT_RETRY_AFTER_SECONDS,
-            ) from exc
+        scope = self._admission()
+        await scope.acquire()
+        return UpstreamStream(
+            self._relay_chunks(scope, path, payload, headers),
+            queue_wait_seconds=scope.queue_wait_seconds,
+        )
 
+    async def _relay_chunks(
+        self,
+        scope: _AdmissionScope,
+        path: str,
+        payload: dict[str, Any],
+        headers: Mapping[str, str] | None,
+    ) -> AsyncIterator[bytes]:
         url = self._url(path)
+        failure: BaseException | None = None
         try:
             try:
                 async with self.client.stream(
@@ -222,14 +306,13 @@ class VLLMClient:
                 raise _http_status_to_service_error(self.endpoint, exc.response) from exc
             except httpx.HTTPError as exc:
                 raise ServiceError("MODEL_UNAVAILABLE", f"Upstream unavailable: {self.endpoint.logical_id}") from exc
-            else:
-                self._circuit_breaker.record_success()
-        except ServiceError as exc:
-            if _counts_as_upstream_failure(exc):
-                self._circuit_breaker.record_failure()
+        except BaseException as exc:
+            failure = exc
             raise
         finally:
-            self._semaphore.release()
+            # client 취소로 generator가 닫히는 경로에서도 반드시 지나간다.
+            # release는 동기 함수라 aclose 중에 suspend되지 않는다.
+            scope.release(failure)
 
     async def get_json(self, path: str, *, headers: Mapping[str, str] | None = None) -> dict[str, Any]:
         async def operation() -> dict[str, Any]:

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
-from contextlib import AsyncExitStack
+from contextlib import AsyncExitStack, aclosing
 from typing import Any
 
 from fastapi import APIRouter, Body, Request
@@ -257,14 +257,20 @@ def build_router(
                 gateway_policy = _active_gateway_policy(main_model)
 
             if payload.get("stream") is True:
-                upstream_stream = service.stream_chat_completion(
+                # admission(circuit breaker/동시성 slot)은 여기서 끝난다. 거부되면
+                # ServiceError가 그대로 올라가 stack이 in-flight를 풀고, 표준 오류
+                # 처리기가 503 + Retry-After로 응답한다 -- 이 route가 문서로 선언한
+                # QUEUE_TIMEOUT/CIRCUIT_OPEN 계약과 같은 모양이다.
+                upstream_stream = await service.stream_chat_completion(
                     payload, active_modalities=active_modalities, gateway_policy=gateway_policy
                 )
                 stream_scope = stack.pop_all()
 
                 async def tracked_stream() -> AsyncIterator[bytes]:
-                    async with stream_scope:
-                        async for chunk in upstream_stream:
+                    # aclosing이 있어야 client가 끊었을 때 relay generator가 GC가
+                    # 아니라 그 자리에서 닫히고, upstream slot이 즉시 반납된다.
+                    async with stream_scope, aclosing(upstream_stream) as chunks:
+                        async for chunk in chunks:
                             yield chunk
 
                 return StreamingResponse(

@@ -149,7 +149,9 @@ Request Log Explorer는 Gateway 요청과 Runtime 로그를 Loki에서 조회한
 | Error Code | 오류 유형별 요청 확인 |
 | Client Host | 호출 대상별 요청 확인 |
 | Latency | 응답 지연 요청 확인 |
-| Token Usage | Chat 요청의 입력·출력 Token 사용량 확인 |
+| Token Usage | Chat 요청의 입력·출력 Token 사용량 확인. streaming 요청도 같은 필드를 남긴다 |
+| Queue Wait | upstream admission slot 대기 시간. Latency에서 빼면 대기와 추론을 구분한다 |
+| Stream Status | SSE relay 종료 사유(`completed` / `client_disconnect` / `error`). status code 200 안에서 중단된 요청을 구분한다 |
 
 Request Log Explorer는 다음 영역으로 구성된다.
 

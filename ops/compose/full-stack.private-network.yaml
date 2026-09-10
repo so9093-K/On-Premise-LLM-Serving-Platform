@@ -424,7 +424,13 @@ services:
       GF_AUTH_ANONYMOUS_ORG_ROLE: ${GRAFANA_ANONYMOUS_ORG_ROLE:-Viewer}
       GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/gpu_capacity_and_oom_risk.json
     volumes:
-    - ../grafana/dashboards:/var/lib/grafana/dashboards:ro
+    # 디렉터리 전체가 아니라 이 구성에서 데이터가 실제로 있는 Dashboard만 마운트한다.
+    # main_runtime_health.json은 mlx_runtime_* metric만 질의하는데 그 exporter는
+    # static Metal 구성에만 있다. 디렉터리째 마운트하던 동안 여기서는 모든 panel이
+    # 영구 No Data였다. static override가 파일 단위로 마운트하는 것과 같은 이유다.
+    - ../grafana/dashboards/gpu_capacity_and_oom_risk.json:/var/lib/grafana/dashboards/gpu_capacity_and_oom_risk.json:ro
+    - ../grafana/dashboards/usage_today.json:/var/lib/grafana/dashboards/usage_today.json:ro
+    - ../grafana/dashboards/request_log_explorer.json:/var/lib/grafana/dashboards/request_log_explorer.json:ro
     - ../grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
     - ../grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
   # -------------------------------------------------------------------------
