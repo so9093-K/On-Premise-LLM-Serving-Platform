@@ -147,8 +147,10 @@ class RiskAssessmentService:
         except ServiceError as exc:
             code = system_signal_code(exc)
             detail = exc.message
-            if "check error.debug.upstream_body" in detail:
+            if exc.code == "VALIDATION_ERROR":
                 detail = "Detector upstream rejected the request. Check risk-adapter and risk-prompt logs with the assessment time."
+            if self.metrics is not None:
+                self.metrics.record_upstream_error(detector.source_model, exc.operational_code)
             response = assessment_response(
                 categories=[],
                 system_signals=[system_signal(code, detail, detector.source_model, exc.retryable)],
@@ -188,10 +190,6 @@ class RiskAssessmentService:
         start = time.monotonic()
         try:
             response = await client.post_json("chat/completions", payload)
-        except ServiceError as exc:
-            if self.metrics is not None:
-                self.metrics.record_upstream_error(detector.source_model, exc.code)
-            raise
         finally:
             if self.metrics is not None:
                 self.metrics.record_upstream_request(detector.source_model, "chat/completions", time.monotonic() - start)
@@ -203,6 +201,6 @@ def system_signal_code(exc: ServiceError) -> str:
         return "INFERENCE_TIMEOUT"
     if exc.code == "QUEUE_TIMEOUT":
         return "INFERENCE_QUEUE_TIMEOUT"
-    if exc.code in {"PARSE_ERROR", "UPSTREAM_SCHEMA_ERROR"}:
+    if exc.code == "UPSTREAM_RESPONSE_INVALID":
         return "PARSE_ERROR"
     return "INFERENCE_ERROR"

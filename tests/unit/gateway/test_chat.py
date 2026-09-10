@@ -19,7 +19,7 @@ from .helpers import *  # noqa: F401,F403
 
 def test_chat_completion_logs_masked_request_response_body_when_flag_enabled():
     # LOG_REQUEST_RESPONSE_BODY=true일 때 gateway_inference.py가 request.state에
-    # 마스킹된 텍스트를 남기고, safe_request_logging_middleware가 이를 실제
+    # 마스킹된 텍스트를 남기고, RequestLoggingMiddleware가 이를 실제
     # http_request_completed 로그 레코드로 옮기는지 end-to-end로 검증한다.
     clients = FakeGatewayClients()
     clients.main_llm.post_response["choices"][0]["message"]["content"] = (

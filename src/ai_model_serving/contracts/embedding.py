@@ -5,7 +5,7 @@ import binascii
 from typing import Any
 
 from ..errors import ServiceError
-from .common import ensure_object, is_int, is_number
+from .common import ensure_request_object, ensure_response_object, is_int, is_number
 
 # 기본 검증값은 현재 일반 embedding runtime이 실제로 보장하는 출력 차원이다.
 # 모델 자체의 Matryoshka 가능 여부와 Gateway가 공개하는 런타임 계약은 구분한다.
@@ -35,7 +35,7 @@ def validate_embedding_request(
     expected_model: str,
     request_parameter_policy: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    payload = ensure_object(payload)
+    payload = ensure_request_object(payload)
     if payload.get("model") != expected_model:
         raise ServiceError("VALIDATION_ERROR", f"model must be {expected_model}.", param="model")
 
@@ -93,40 +93,40 @@ def _validate_base64_vector(value: Any, *, index: int, expected_dimensions: int 
     """
     if not isinstance(value, str) or not value:
         raise ServiceError(
-            "UPSTREAM_SCHEMA_ERROR",
+            "UPSTREAM_RESPONSE_INVALID",
             f"embedding upstream response data[{index}].embedding must be a base64 string for encoding_format=base64.",
         )
     try:
         raw = base64.b64decode(value, validate=True)
     except (binascii.Error, ValueError) as exc:
         raise ServiceError(
-            "UPSTREAM_SCHEMA_ERROR",
+            "UPSTREAM_RESPONSE_INVALID",
             f"embedding upstream response data[{index}].embedding is not valid base64.",
         ) from exc
     if not raw or len(raw) % _FLOAT32_BYTES:
         raise ServiceError(
-            "UPSTREAM_SCHEMA_ERROR",
+            "UPSTREAM_RESPONSE_INVALID",
             f"embedding upstream response data[{index}].embedding must decode to a non-empty float32 array.",
         )
     dimensions = len(raw) // _FLOAT32_BYTES
     if expected_dimensions is not None and dimensions != expected_dimensions:
         raise ServiceError(
-            "UPSTREAM_SCHEMA_ERROR",
+            "UPSTREAM_RESPONSE_INVALID",
             f"embedding upstream response data[{index}].embedding dimension must be {expected_dimensions}.",
         )
 
 
 def _validate_float_vector(value: Any, *, index: int, expected_dimensions: int | None) -> None:
     if not isinstance(value, list):
-        raise ServiceError("UPSTREAM_SCHEMA_ERROR", f"embedding upstream response data[{index}].embedding must be an array.")
+        raise ServiceError("UPSTREAM_RESPONSE_INVALID", f"embedding upstream response data[{index}].embedding must be an array.")
     if not value:
-        raise ServiceError("UPSTREAM_SCHEMA_ERROR", f"embedding upstream response data[{index}].embedding must be non-empty.")
+        raise ServiceError("UPSTREAM_RESPONSE_INVALID", f"embedding upstream response data[{index}].embedding must be non-empty.")
     if expected_dimensions is not None and len(value) != expected_dimensions:
         raise ServiceError(
-            "UPSTREAM_SCHEMA_ERROR", f"embedding upstream response data[{index}].embedding dimension must be {expected_dimensions}.",
+            "UPSTREAM_RESPONSE_INVALID", f"embedding upstream response data[{index}].embedding dimension must be {expected_dimensions}.",
         )
     if not all(is_number(item) for item in value):
-        raise ServiceError("UPSTREAM_SCHEMA_ERROR", f"embedding upstream response data[{index}].embedding must contain numbers only.")
+        raise ServiceError("UPSTREAM_RESPONSE_INVALID", f"embedding upstream response data[{index}].embedding must contain numbers only.")
 
 
 def validate_embedding_response(
@@ -137,25 +137,25 @@ def validate_embedding_response(
     expected_dimensions: int | None = None,
     encoding_format: str = "float",
 ) -> dict[str, Any]:
-    payload = ensure_object(payload)
+    payload = ensure_response_object(payload)
     if payload.get("model") != expected_model:
-        raise ServiceError("UPSTREAM_SCHEMA_ERROR", f"embedding upstream response model must be {expected_model}.")
+        raise ServiceError("UPSTREAM_RESPONSE_INVALID", f"embedding upstream response model must be {expected_model}.")
     if payload.get("object") != "list":
-        raise ServiceError("UPSTREAM_SCHEMA_ERROR", "embedding upstream response object must be list.")
+        raise ServiceError("UPSTREAM_RESPONSE_INVALID", "embedding upstream response object must be list.")
     data = payload.get("data")
     if not isinstance(data, list) or not data:
-        raise ServiceError("UPSTREAM_SCHEMA_ERROR", "embedding upstream response data must be a non-empty array.")
+        raise ServiceError("UPSTREAM_RESPONSE_INVALID", "embedding upstream response data must be a non-empty array.")
     if expected_count is not None and len(data) != expected_count:
         raise ServiceError(
-            "UPSTREAM_SCHEMA_ERROR", f"embedding upstream response data length must match request input count ({expected_count}).",
+            "UPSTREAM_RESPONSE_INVALID", f"embedding upstream response data length must match request input count ({expected_count}).",
         )
     for index, item in enumerate(data):
         if not isinstance(item, dict):
-            raise ServiceError("UPSTREAM_SCHEMA_ERROR", f"embedding upstream response data[{index}] must be an object.")
+            raise ServiceError("UPSTREAM_RESPONSE_INVALID", f"embedding upstream response data[{index}] must be an object.")
         if item.get("object") != "embedding":
-            raise ServiceError("UPSTREAM_SCHEMA_ERROR", f"embedding upstream response data[{index}].object must be embedding.")
+            raise ServiceError("UPSTREAM_RESPONSE_INVALID", f"embedding upstream response data[{index}].object must be embedding.")
         if item.get("index") != index:
-            raise ServiceError("UPSTREAM_SCHEMA_ERROR", f"embedding upstream response data[{index}].index must be {index}.")
+            raise ServiceError("UPSTREAM_RESPONSE_INVALID", f"embedding upstream response data[{index}].index must be {index}.")
         vector = item.get("embedding")
         if encoding_format == "base64":
             _validate_base64_vector(vector, index=index, expected_dimensions=expected_dimensions)

@@ -49,7 +49,7 @@ def test_gateway_response_format_text_and_json_object_contracts():
         json={"model": "local-main", "messages": [{"role": "user", "content": "Return JSON."}], "response_format": {"type": "json_object"}},
     )
     assert invalid.status_code == 502
-    assert invalid.json()["error"]["code"] == "UPSTREAM_SCHEMA_ERROR"
+    assert invalid.json()["error"]["code"] == "STRUCTURED_OUTPUT_INVALID"
 
 
 def test_gateway_json_schema_validation_and_subset_limits():
@@ -71,7 +71,7 @@ def test_gateway_json_schema_validation_and_subset_limits():
         json={"model": "local-main", "messages": [{"role": "user", "content": "Return JSON."}], "response_format": _json_schema_format()},
     )
     assert invalid_response.status_code == 502
-    assert invalid_response.json()["error"]["code"] == "UPSTREAM_SCHEMA_ERROR"
+    assert invalid_response.json()["error"]["code"] == "STRUCTURED_OUTPUT_INVALID"
 
     bad_name = client.post(
         "/v1/chat/completions",
@@ -134,7 +134,7 @@ def test_gateway_retries_only_generated_structured_content_failures():
     assert call_count == 2
 
     # 응답 envelope/model 계약 위반은 같은 요청을 다시 생성해도 복구되지 않는다.
-    # 구조화 출력 요청이라는 이유만으로 모든 UPSTREAM_SCHEMA_ERROR를 재시도하지 않는다.
+    # 구조화 출력 요청이라는 이유만으로 모든 UPSTREAM_RESPONSE_INVALID를 재시도하지 않는다.
     def wrong_model_response(path, payload, **kwargs):
         nonlocal call_count
         call_count += 1
@@ -149,7 +149,7 @@ def test_gateway_retries_only_generated_structured_content_failures():
         json={"model": "local-main", "messages": [{"role": "user", "content": "Return JSON."}], "response_format": _json_schema_format()},
     )
     assert response.status_code == 502
-    assert response.json()["error"]["code"] == "UPSTREAM_SCHEMA_ERROR"
+    assert response.json()["error"]["code"] == "UPSTREAM_RESPONSE_INVALID"
     assert call_count == 3
 
 
@@ -171,7 +171,7 @@ def test_gateway_gives_up_after_one_retry_on_repeated_truncation():
         json={"model": "local-main", "messages": [{"role": "user", "content": "Return JSON."}], "response_format": _json_schema_format()},
     )
     assert response.status_code == 502
-    assert response.json()["error"]["code"] == "UPSTREAM_SCHEMA_ERROR"
+    assert response.json()["error"]["code"] == "STRUCTURED_OUTPUT_INVALID"
     assert call_count == 2
 
 
@@ -313,8 +313,9 @@ def test_gateway_allows_recursive_local_json_schema_refs():
     assert response.status_code == 200
 
 
-def test_gateway_rejects_external_json_schema_refs():
-    client = TestClient(create_gateway_app(advanced_chat_settings(), FakeGatewayClients()))
+def test_gateway_rejects_unresolvable_json_schema_refs_before_inference():
+    clients = FakeGatewayClients()
+    client = TestClient(create_gateway_app(advanced_chat_settings(), clients))
     rejected_refs = [
         "https://example.com/schema.json",
         "http://example.com/schema.json",
@@ -322,6 +323,8 @@ def test_gateway_rejects_external_json_schema_refs():
         "schema.json",
         "/tmp/schema.json",
         123,
+        "#/$defs/missing",
+        "#/required/0",
     ]
 
     for ref in rejected_refs:
@@ -345,6 +348,8 @@ def test_gateway_rejects_external_json_schema_refs():
         body = response.json()
         assert body["error"]["code"] == "VALIDATION_ERROR"
         assert "local $ref" in body["error"]["message"]
+        assert body["error"]["param"] == "response_format.json_schema.schema"
+        assert clients.main_llm.last_payload is None
 
 
 def test_gateway_rejects_advanced_json_schema_reference_keywords():
@@ -460,10 +465,11 @@ def test_chat_response_validation_defensively_maps_invalid_expectation_schema():
             ),
         )
     except ServiceError as exc:
-        assert exc.code == "UPSTREAM_SCHEMA_ERROR"
-        assert exc.status_code == 502
+        assert exc.code == "INTERNAL_ERROR"
+        assert exc.status_code == 500
+        assert exc.operational_code == "RESPONSE_EXPECTATION_INVALID"
     else:
-        raise AssertionError("invalid expectation schema should be mapped to UPSTREAM_SCHEMA_ERROR")
+        raise AssertionError("invalid internal expectation must be an internal error")
 
 
 def test_chat_response_validation_defensively_maps_reference_resolution_errors():
@@ -490,11 +496,11 @@ def test_chat_response_validation_defensively_maps_reference_resolution_errors()
             ),
         )
     except ServiceError as exc:
-        assert exc.code == "UPSTREAM_SCHEMA_ERROR"
-        assert exc.status_code == 502
-        assert "could not be validated" in exc.message
+        assert exc.code == "INTERNAL_ERROR"
+        assert exc.status_code == 500
+        assert exc.operational_code == "RESPONSE_EXPECTATION_INVALID"
     else:
-        raise AssertionError("reference resolution errors should be mapped to UPSTREAM_SCHEMA_ERROR")
+        raise AssertionError("invalid internal expectation must be an internal error")
 
 
 def _object_schema(properties: dict, required: list[str]) -> dict:

@@ -36,22 +36,22 @@ class DetectorSpec:
 
 def extract_generation_text(response: dict[str, Any], *, expected_model: str | None = None) -> str:
     if expected_model is not None and response.get("model") not in {expected_model, None}:
-        raise ServiceError("UPSTREAM_SCHEMA_ERROR", f"Detector response model must be {expected_model}.")
+        raise ServiceError("UPSTREAM_RESPONSE_INVALID", f"Detector response model must be {expected_model}.")
     choices = response.get("choices")
     if not isinstance(choices, list) or not choices:
-        raise ServiceError("PARSE_ERROR", "Detector response does not contain choices.")
+        raise ServiceError("UPSTREAM_RESPONSE_INVALID", "Detector response does not contain choices.")
     first = choices[0]
     if not isinstance(first, dict):
-        raise ServiceError("PARSE_ERROR", "Detector response choice is invalid.")
+        raise ServiceError("UPSTREAM_RESPONSE_INVALID", "Detector response choice is invalid.")
     finish_reason = first.get("finish_reason")
     if finish_reason is not None and finish_reason not in {"stop", "length"}:
-        raise ServiceError("UPSTREAM_SCHEMA_ERROR", "Detector response finish_reason is not supported.")
+        raise ServiceError("UPSTREAM_RESPONSE_INVALID", "Detector response finish_reason is not supported.")
     message = first.get("message")
     if isinstance(message, dict) and isinstance(message.get("content"), str):
         return message["content"]
     if isinstance(first.get("text"), str):
         return first["text"]
-    raise ServiceError("PARSE_ERROR", "Detector response does not contain text content.")
+    raise ServiceError("UPSTREAM_RESPONSE_INVALID", "Detector response does not contain text content.")
 
 
 def parse_detector_label(
@@ -63,7 +63,7 @@ def parse_detector_label(
     stripped = text.strip()
     matches = list(RISK_LABEL_RE.finditer(stripped))
     if len(matches) != 1 or matches[0].group(0) != stripped:
-        raise ServiceError("PARSE_ERROR", "Detector output must be exactly one supported risk label.")
+        raise ServiceError("UPSTREAM_RESPONSE_INVALID", "Detector output must be exactly one supported risk label.", diagnostic_code="DETECTOR_OUTPUT_INVALID")
     match = matches[0]
     code = match.group("code")
     label = match.group(0)
@@ -78,7 +78,7 @@ def parse_detector_label(
         }
     else:
         if code not in detector.allowed_codes:
-            raise ServiceError("PARSE_ERROR", f"Detector returned code outside family: {code}")
+            raise ServiceError("UPSTREAM_RESPONSE_INVALID", f"Detector returned code outside family: {code}", diagnostic_code="DETECTOR_OUTPUT_INVALID")
         category = {
             "code": code,
             "family": detector.family,

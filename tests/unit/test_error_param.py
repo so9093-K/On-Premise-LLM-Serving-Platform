@@ -1,13 +1,11 @@
-"""VALIDATION_ERROR가 어떤 필드 때문인지(error.param) 실제로 구분되는지, HTTP
-상태 코드와 error.code 기본 매핑이 서로 모순되지 않는지, error.debug/헤더에
-원인이 안전하게(CRLF 주입 없이) 실리는지 검증한다."""
+"""요청 필드, HTTP 오류 계약과 내부 진단의 상관관계를 검증한다."""
 
 from __future__ import annotations
 
 import pytest
 
 from ai_model_serving.contracts.chat_request import validate_chat_request
-from ai_model_serving.errors import ServiceError, default_code_for_status, error_payload, service_error_debug
+from ai_model_serving.errors import ServiceError, default_code_for_status, error_payload, service_error_diagnostics
 
 _STRICT_CHAT_POLICY = {
     "allow_unlisted_parameters": False,
@@ -130,7 +128,6 @@ AMBIGUOUS_STATUS_DEFAULTS = {
     422: "VALIDATION_ERROR",
     502: "UPSTREAM_ERROR",
     503: "MODEL_UNAVAILABLE",
-    504: "UPSTREAM_TIMEOUT",
 }
 
 
@@ -165,89 +162,89 @@ def test_status_default_code_is_consistent_with_error_status():
 
 
 def test_error_payload_omits_param_when_absent_and_includes_when_present():
-    without = error_payload("INTERNAL_ERROR", "x", False)["error"]
+    without = error_payload("INTERNAL_ERROR", "x")["error"]
     assert "param" not in without
-    with_param = error_payload("VALIDATION_ERROR", "x", False, param="input_audio.format")["error"]
+    with_param = error_payload("VALIDATION_ERROR", "x", param="input_audio.format")["error"]
     assert with_param["param"] == "input_audio.format"
 
 
-def test_error_payload_includes_bounded_debug_when_present():
-    payload = error_payload(
-        "UPSTREAM_ERROR",
-        "upstream failed",
-        True,
-        debug={"cause_type": "HTTPStatusError", "cause_message": "x" * 2100, "upstream_status": 400},
-    )["error"]
+def test_service_error_payload_excludes_internal_diagnostics():
+    exc = ServiceError(
+        "UPSTREAM_ERROR", "upstream failed",
+        diagnostics={"cause_message": "private runtime detail", "upstream_status": 500},
+        diagnostic_code="UPSTREAM_HTTP_ERROR",
+    )
+    payload = exc.to_payload()["error"]
+    assert "debug" not in payload
+    assert "diagnostics" not in payload
+    assert "diagnostic_code" not in payload
+    assert "private runtime detail" not in str(payload)
 
-    assert payload["debug"]["cause_type"] == "HTTPStatusError"
-    assert payload["debug"]["upstream_status"] == 400
-    assert payload["debug"]["cause_message"].endswith("... [truncated]")
 
 
 def test_error_payload_preserves_operation_details_without_message_parsing():
     payload = error_payload(
         "GPU_BUDGET_EXCEEDED",
         "GPU budget does not allow this activation.",
-        False,
         details={"plan": {"stop": ["risk-prompt-vllm"]}},
     )["error"]
 
     assert payload["details"] == {"plan": {"stop": ["risk-prompt-vllm"]}}
 
 
-def test_service_error_debug_uses_original_cause_when_available():
+def test_service_error_diagnostics_uses_original_cause_when_available():
     captured: ServiceError | None = None
     try:
         try:
             raise ValueError("decoder failed")
         except ValueError as cause:
             raise ServiceError(
-                "VALIDATION_ERROR", "media decode failed", debug={"upstream_status": 400},
+                "VALIDATION_ERROR", "media decode failed", diagnostics={"upstream_status": 400},
             ) from cause
     except ServiceError as exc:
         captured = exc
 
     assert captured is not None
     exc = captured
-    debug = service_error_debug(exc)
-    assert debug == {
+    diagnostics = service_error_diagnostics(exc)
+    assert diagnostics == {
         "upstream_status": 400,
         "cause_type": "ValueError",
         "cause_message": "decoder failed",
     }
 
 
-def test_unhandled_exception_response_carries_cause_in_debug():
-    """INTERNAL_ERROR의 body.message는 여전히 고정 문자열이어야 한다(원문 예외를
-    그대로 실으면 안 되는 이유는 error.debug에만 담는 이유와 같다). 대신
-    error.debug에는 실제 원인이 담겨야 한다 -- 업스트림 실패에 이미 쓰던
-    debug.upstream_body 패턴(upstream.py의 _upstream_response_debug)과 동일하게,
-    원인을 조용히 버리지 않도록 한다.
-
-    X-Error-Message 헤더(=접근 로그의 error_message 필드, 운영자만 보는 내부
-    채널)는 body.message와 달리 원인을 그대로 실어야 한다 -- 안 그러면
-    Grafana Request Log Explorer의 error_message 컬럼이 INTERNAL_ERROR에 대해
-    항상 빈 껍데기("Internal server error.")만 보여준다.
-    """
+def test_unhandled_exception_is_publicly_generic_and_internally_correlated(monkeypatch, tmp_path):
     from fastapi import FastAPI
     from tests.support.asgi import InlineASGITestClient as TestClient
-
     from ai_model_serving.app_kernel import install_exception_handlers
+    from ai_model_serving.logging_policy import RequestLoggingMiddleware
     from ai_model_serving.metrics import Metrics
     from ai_model_serving.service_logging import service_logger
+    import json
 
+    monkeypatch.setenv("REQUEST_EVENT_LOG_DIR", str(tmp_path))
+    logger = service_logger("test")
     app = FastAPI()
-    install_exception_handlers(app, metrics=Metrics("test"), logger=service_logger("test"))
+    install_exception_handlers(app, metrics=Metrics("test"), logger=logger)
+    app.add_middleware(RequestLoggingMiddleware, service="test", logger=logger)
 
     @app.get("/boom")
     def boom():
         raise ValueError("db pool exhausted")
 
-    response = TestClient(app, raise_server_exceptions=False).get("/boom")
-
+    client = TestClient(app, raise_server_exceptions=False)
+    response = client.get("/boom")
     assert response.status_code == 500
     body = response.json()["error"]
     assert body["code"] == "INTERNAL_ERROR"
     assert body["message"] == "Internal server error."
-    assert body["debug"] == {"cause_type": "ValueError", "cause_message": "db pool exhausted"}
-    assert response.headers["x-error-message"] == "Internal server error. (ValueError: db pool exhausted)"
+    assert "debug" not in body
+    assert "x-error-message" not in response.headers
+    assert "db pool exhausted" not in response.text
+
+    records = [json.loads(line) for line in (tmp_path / "test.jsonl").read_text().splitlines()]
+    assert len(records) == 1
+    assert records[0]["error_cause_message"] == "db pool exhausted"
+    assert records[0]["diagnostic_code"] == "UNHANDLED_EXCEPTION"
+    assert records[0]["request_id"] == body["request_id"] == response.headers["x-request-id"]

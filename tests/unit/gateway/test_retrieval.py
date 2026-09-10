@@ -174,7 +174,7 @@ def test_gateway_dense_retrieval_rejects_invalid_embedding_upstream_response():
     )
 
     assert response.status_code == 502
-    assert response.json()["error"]["code"] == "UPSTREAM_SCHEMA_ERROR"
+    assert response.json()["error"]["code"] == "UPSTREAM_RESPONSE_INVALID"
 
 
 def test_gateway_rejects_unsupported_retrieval_model():

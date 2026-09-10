@@ -19,7 +19,7 @@ from .chat_tools import (
     _validate_tool_choice_matches_tools,
     _validate_tools,
 )
-from .common import ensure_object, is_int, is_number, reject_unknown_fields
+from .common import ensure_request_object, is_int, is_number, reject_unknown_fields
 from .media import validate_message_content
 
 
@@ -192,7 +192,7 @@ def validate_chat_request(
     max_video_duration_seconds: float = 0,
     request_parameter_policy: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    payload = _normalize_output_token_alias(ensure_object(payload))
+    payload = _normalize_output_token_alias(ensure_request_object(payload))
     if payload.get("model") != expected_model:
         raise _validation_error("model", f"model must be {expected_model}.")
     if "stream" in payload and not isinstance(payload["stream"], bool):

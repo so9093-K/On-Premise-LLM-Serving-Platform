@@ -114,7 +114,7 @@ def test_gateway_preserves_detector_disabled_from_risk_adapter():
         json={"prompt": "hello"},
     )
 
-    assert response.status_code == 410
+    assert response.status_code == 409
     body = response.json()
     assert body["error"]["code"] == "DETECTOR_DISABLED"
     assert body["error"]["retryable"] is False
@@ -151,5 +151,5 @@ def test_gateway_rejects_invalid_internal_risk_response_schema():
     client = TestClient(create_gateway_app(settings(), clients))
     response = client.post("/v1/risk/assessments", headers=auth_headers(), json={"prompt": "hello"})
     assert response.status_code == 502
-    assert response.json()["error"]["code"] == "UPSTREAM_SCHEMA_ERROR"
+    assert response.json()["error"]["code"] == "UPSTREAM_RESPONSE_INVALID"
     Draft202012Validator(error_schema()).validate(response.json())

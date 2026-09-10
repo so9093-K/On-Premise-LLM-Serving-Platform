@@ -4,6 +4,7 @@ import json
 import re
 from collections.abc import Iterator
 from typing import Any
+from urllib.parse import unquote
 
 from jsonschema import Draft202012Validator, SchemaError
 
@@ -117,6 +118,30 @@ def _total_schema_string_length(value: Any) -> int:
     return 0
 
 
+def _local_json_pointer_exists(schema: dict[str, Any], ref: str) -> bool:
+    """지원하는 local ``$ref``가 실제 schema node를 가리키는지 확인한다."""
+    ref = unquote(ref)
+    if ref == "#":
+        return True
+    if not ref.startswith("#/"):
+        return False
+    current: Any = schema
+    for raw_token in ref[2:].split("/"):
+        if re.search(r"~(?![01])", raw_token):
+            return False
+        token = raw_token.replace("~1", "/").replace("~0", "~")
+        if isinstance(current, dict) and token in current:
+            current = current[token]
+            continue
+        if isinstance(current, list) and re.fullmatch(r"0|[1-9][0-9]*", token):
+            index = int(token)
+            if index < len(current):
+                current = current[index]
+                continue
+        return False
+    return isinstance(current, (dict, bool))
+
+
 @field_param("response_format.json_schema.schema")
 def _validate_json_schema_subset(schema: dict[str, Any], *, policy: dict[str, Any]) -> None:
     disallowed = set(policy.get("disallowed_keywords", []))
@@ -139,6 +164,14 @@ def _validate_json_schema_subset(schema: dict[str, Any], *, policy: dict[str, An
         raise ServiceError(
             "VALIDATION_ERROR", "response_format.json_schema.schema must be a valid JSON Schema.",
         ) from exc
+
+    for obj in _iter_schema_objects(schema):
+        ref = obj.get("$ref")
+        if isinstance(ref, str) and not _local_json_pointer_exists(schema, ref):
+            raise ServiceError(
+                "VALIDATION_ERROR",
+                f"response_format.json_schema.schema contains an unresolved local $ref: {ref}.",
+            )
 
     encoded = json.dumps(schema, ensure_ascii=False, separators=(",", ":"), sort_keys=True).encode("utf-8")
     max_schema_bytes = _schema_limit(policy, "max_schema_bytes", 16384)

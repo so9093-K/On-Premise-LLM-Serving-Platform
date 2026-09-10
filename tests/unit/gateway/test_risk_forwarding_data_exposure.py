@@ -84,7 +84,7 @@ class TestGatewayRiskForwarding:
         )
 
         assert response.status_code == 502
-        assert response.json()["error"]["code"] == "UPSTREAM_SCHEMA_ERROR"
+        assert response.json()["error"]["code"] == "UPSTREAM_RESPONSE_INVALID"
 
     def test_gateway_forwards_pii_assessments_to_risk_adapter(self):
         clients = FakeGatewayClients()

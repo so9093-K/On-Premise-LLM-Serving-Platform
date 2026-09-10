@@ -71,9 +71,15 @@ def normalize_complete_token_usage(
     return normalized
 
 
-def ensure_object(payload: Any) -> dict[str, Any]:
+def ensure_request_object(payload: Any) -> dict[str, Any]:
     if not isinstance(payload, dict):
         raise ServiceError("VALIDATION_ERROR", "request body must be a JSON object.")
+    return payload
+
+
+def ensure_response_object(payload: Any) -> dict[str, Any]:
+    if not isinstance(payload, dict):
+        raise ServiceError("UPSTREAM_RESPONSE_INVALID", "upstream response body must be a JSON object.")
     return payload
 
 

@@ -17,8 +17,10 @@ FastAPI route는 플랫폼 자체 validator와 오류 매핑을 적용한다. �
 
 - `specs/schemas/*.json`은 request/response body의 단일 계약이다.
 - `src/ai_model_serving/openapi_contracts.py`가 같은 schema를 생성 OpenAPI에 주입한다.
-- `specs/openapi.gateway.yaml`, `specs/openapi.risk-adapter.yaml`은 배포 가능한 정적 OpenAPI 계약이다.
-- `make validate`는 생성 OpenAPI와 정적 OpenAPI의 path, method, operation ID, 인증, response status, request/response schema drift를 검사한다.
+- `specs/openapi.gateway.yaml`, `specs/openapi.risk-adapter.yaml`은 runtime route와
+  endpoint metadata에서 생성한 배포 가능한 정적 OpenAPI다.
+- `make validate`는 runtime OpenAPI와 정적 산출물의 path, method, operation ID,
+  인증, response status, endpoint별 오류 code, request/response schema drift를 검사한다.
 
 따라서 route-local inline schema를 별도로 추가하지 않는다.
 

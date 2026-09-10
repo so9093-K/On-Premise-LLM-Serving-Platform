@@ -1,18 +1,15 @@
 # 에러 코드 카탈로그 — 사용자/운영자용 "의미 레이어"의 단일 소스.
 #
-# HTTP status의 런타임 권위는 src/ai_model_serving/errors.py 의 ERROR_STATUS 이며,
-# make validate의 validate_common_error_codes가 이 파일, ERROR_STATUS, public schema의
+# status·retryable의 런타임 권위는 errors.py의 ERROR_DEFINITIONS이다(SSE-only 포함).
+# make validate의 validate_common_error_codes가 이 파일, ERROR_DEFINITIONS, public schema의
 # code 집합을 함께 검사한다. 따라서 status는 여기 중복하지 않고, 이 파일은 code별
 # 서술 메타데이터(meaning/action)만 담는다.
 #
 # 소비처:
 #  - 생성 OpenAPI 에러 응답의 status별 code gloss   (src/ai_model_serving/openapi_contracts.py)
 #
-# retryable 은 여기 두지 않는다 -- code 로 완전히 결정되는 값이고 유일한 권위는
-# errors.py 의 ERROR_RETRYABLE 이다. 예전엔 이 파일이 같은 값을 한 벌 더 들고 있어서
-# OpenAPI gloss 는 YAML 을, 실제 응답은 ERROR_RETRYABLE 을 읽었고, 둘의 일치를
-# validate_common_error_codes 가 따로 지켜야 했다. 이제 양쪽 모두 ERROR_RETRYABLE 을
-# 읽으므로 그 검사도 필요 없다. meaning/action 값은 콜론을 포함할 수 있어 따옴표로 감싼다.
+# ERROR_STATUS·ERROR_RETRYABLE은 위 정의에서 파생한 조회 표다.
+# meaning/action 값은 콜론을 포함할 수 있어 따옴표로 감싼다.
 schema_version: 1
 errors:
   VALIDATION_ERROR:
@@ -27,6 +24,9 @@ errors:
   NOT_FOUND:
     meaning: "요청한 리소스(엔드포인트, operation 등)가 존재하지 않는다."
     action: "요청 경로와 식별자를 확인한다."
+  METHOD_NOT_ALLOWED:
+    meaning: "해당 경로에서 요청한 HTTP method를 지원하지 않는다."
+    action: "Allow 응답 헤더와 API 문서에서 지원하는 method를 확인한다."
   CONFLICT:
     meaning: "현재 리소스 상태와 요청이 충돌해 작업을 수행할 수 없다."
     action: "error.details.reason 또는 message를 확인한 뒤, 진행 중인 작업 완료·명시적 확인 등 충돌 원인을 해결한다."
@@ -45,11 +45,14 @@ errors:
   UPSTREAM_ERROR:
     meaning: "upstream 런타임이 오류를 반환했거나 통신에 실패했다."
     action: "잠시 후 재시도한다. 반복되면 런타임 로그를 확인한다."
-  UPSTREAM_SCHEMA_ERROR:
-    meaning: "structured output 생성이 요청한 json_schema 를 만족하지 못했다."
+  UPSTREAM_RESPONSE_INVALID:
+    meaning: "upstream 응답의 envelope, 필드 또는 detector 출력이 계약을 만족하지 못했다."
+    action: "반복되면 request_id로 운영 로그와 runtime 호환성을 확인한다."
+  STRUCTURED_OUTPUT_INVALID:
+    meaning: "모델이 생성한 JSON이 요청한 출력 형식 또는 json_schema를 만족하지 못했다."
     action: "response_format.json_schema 를 단순화하거나 max_tokens 를 늘린다."
   RATE_LIMITED:
-    meaning: "upstream rate limit 또는 로컬 admission 한도에 도달했다."
+    meaning: "upstream rate limit에 도달했다."
     action: "Retry-After 를 존중해 백오프 후 재시도한다."
   QUEUE_TIMEOUT:
     meaning: "동시 처리 한도로 대기열에서 시간이 초과됐다."
@@ -60,12 +63,6 @@ errors:
   REQUEST_TOO_LARGE:
     meaning: "요청 body 가 허용 한도를 초과했다."
     action: "payload(이미지·오디오·비디오·문서) 크기를 한도 이하로 줄인다."
-  RUNTIME_NOT_READY:
-    meaning: "런타임이 아직 기동/준비 중이다."
-    action: "준비 완료 후 재시도한다(/health 와 런타임 상태 확인)."
-  PARSE_ERROR:
-    meaning: "upstream 응답을 파싱할 수 없었다(유효하지 않은 형식)."
-    action: "반복되면 런타임 상태·로그를 확인한다."
   INTERNAL_ERROR:
     meaning: "Gateway 내부 처리 중 예기치 못한 오류가 발생했다."
     action: "request_id 와 함께 운영자에게 문의한다."

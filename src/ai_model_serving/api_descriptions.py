@@ -272,7 +272,7 @@ def chat_operation_detail(settings: AppSettings) -> str:
                 "자유 `string`에 `maxLength` 또는 `pattern`이 없으면 문법상 값이 무한히 이어질 수 있어, "
                 "모델이 닫는 토큰을 내지 못하고 `max_tokens`에서 잘립니다(자릿수·소수점 반복). "
                 "경계가 있으면 문법 자체가 닫히므로 이 실패가 생기지 않습니다.",
-                "- 생성 결과가 스키마를 만족하지 못하면 `UPSTREAM_SCHEMA_ERROR`(retryable)입니다. "
+                "- 생성 결과가 스키마를 만족하지 못하면 `STRUCTURED_OUTPUT_INVALID`(retryable)입니다. "
                 "위 경계를 먼저 확인하고, 그다음 스키마를 단순화하거나 `max_tokens`를 늘리세요.",
             ]
 
@@ -515,9 +515,8 @@ _OPERATIONS_TAG = """`/health`는 프로세스가 살아 있는지, `/ready`는 
 
 | 헤더 | 언제 | 내용 |
 |---|---|---|
-| `X-Request-Id` | 오류 응답 | 요청 추적 키. 접근 로그의 `request_id`와 항상 같습니다 |
+| `X-Request-Id` | 애플리케이션 응답 | 요청 추적 키. 접근 로그의 `request_id`와 같습니다 |
 | `X-Error-Code` | 오류 응답 | `error.code`. status만으로 원인을 나누면 안 됩니다 |
-| `X-Error-Message` | 오류 응답 | 사람이 읽는 원인 설명(ASCII, 500자 제한) |
 | `Retry-After` | 재시도 가능한 429/503 | 다음 재시도까지 기다릴 초(올림, 최소 `1`) |
 
 `X-Request-Id`를 직접 보내지 않으면 Gateway가 `req_<hex>`를 발급합니다. 호출할 때 붙이면
@@ -535,19 +534,15 @@ _OPERATIONS_TAG = """`/health`는 프로세스가 살아 있는지, `/ready`는 
     "message": "...",
     "retryable": false,
     "request_id": "req_...",
-    "param": "response_format.json_schema",
-    "debug": {"cause_type": "...", "cause_message": "..."},
-    "details": {"plan": {"stop": ["embedding"]}}
+    "param": "response_format.json_schema"
   }
 }
 ```
 
-- `code` / `retryable` — `retryable`은 code로 완전히 결정됩니다. 같은 code가 호출마다 다른 값으로
-  나가는 일은 없으므로 재시도 로직은 code만 보고 판단하면 됩니다.
+- `code` / `retryable` — 오류 조건이 일시적일 가능성을 나타냅니다. 자동 재전송은 작업의
+  중복 실행 안전성도 확인하고 `Retry-After`가 있으면 따라야 합니다.
 - `param` — 문제가 된 요청 필드명입니다. 메시지 문자열을 파싱하지 말고 이 값을 쓰세요
   (예: `max_tokens` vs `input_audio.format`).
-- `debug` — 원인 예외 요약(`cause_type`, `cause_message`, upstream 상태). 길이 제한이 걸린
-  요약이며 원문 응답 본문이 아닙니다.
 - `details` — code만으로 표현할 수 없는 구조화된 복구 정보입니다(예: `GPU_BUDGET_EXCEEDED`의 `plan.stop`).
 
 각 엔드포인트의 status별 응답 설명에 그 status에서 나올 수 있는 code와 의미·대응이 함께 적혀 있습니다.
@@ -555,9 +550,10 @@ _OPERATIONS_TAG = """`/health`는 프로세스가 살아 있는지, `/ready`는 
 ### 서버 쪽에서 확인할 것
 
 접근 로그는 요청 한 건당 `request_id`, `route`, `status_code`, `latency_ms`, `error_code`,
-`error_retryable`, `error_cause_type`, `error_cause_message`, `error_upstream_status`,
+`diagnostic_code`, `error_retryable`, `error_cause_type`, `error_cause_message`, `error_upstream_status`,
 `prompt_tokens` / `completion_tokens` / `total_tokens`를 남깁니다.
 `INTERNAL_ERROR`는 클라이언트에게 고정 문구만 나가지만 로그에는 원인이 함께 남습니다.
+SSE 오류는 이미 시작된 HTTP 200과 함께 기록되므로 상태 코드뿐 아니라 `error_code`도 확인합니다.
 
 `LOG_REQUEST_RESPONSE_BODY=true`일 때만 chat 요청·응답 본문 프리뷰가 로그에 추가되며,
 PII·시크릿은 마스킹된 뒤 기록됩니다.

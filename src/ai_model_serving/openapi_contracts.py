@@ -12,30 +12,23 @@ import yaml
 ContractRouteKey = tuple[str, str]
 SchemaMap = Mapping[ContractRouteKey, str]
 ExamplesMap = Mapping[ContractRouteKey, dict[str, Any]]
+ErrorCodesMap = Mapping[ContractRouteKey, Sequence[str]]
 
 
 STANDARD_ERROR_DESCRIPTIONS: dict[str, str] = {
     "401": "인증 실패",
+    "403": "권한 없음",
+    "404": "리소스를 찾을 수 없음",
+    "405": "지원하지 않는 HTTP method",
+    "409": "현재 상태 또는 리소스와 충돌",
     "413": "요청 body가 너무 큼",
     "422": "요청 검증 실패",
-    "429": "Upstream rate limit 또는 local admission timeout",
+    "429": "Upstream rate limit",
     "500": "내부 서버 오류",
     "502": "Upstream 오류 또는 유효하지 않은 upstream 응답",
     "503": "Runtime 또는 dependency를 사용할 수 없음",
     "504": "Upstream timeout",
 }
-
-POST_STANDARD_ERROR_CODES = ("401", "413", "422", "429", "500", "502", "503", "504")
-
-
-def _status_to_codes() -> dict[str, list[str]]:
-    """상태별 오류 코드 enum을 위해 ``ERROR_STATUS``를 HTTP status 기준으로 역변환한다."""
-    from .errors import ERROR_STATUS
-
-    mapping: dict[str, list[str]] = {}
-    for code, status in ERROR_STATUS.items():
-        mapping.setdefault(str(status), []).append(code)
-    return mapping
 
 
 def _load_error_catalog() -> dict[str, dict[str, Any]]:
@@ -74,7 +67,7 @@ def _error_code_gloss(codes: list[str], catalog: dict[str, dict[str, Any]]) -> s
 
 
 def _narrowed_error_schema(
-    common_error_schema: dict[str, Any], status: str, status_codes: dict[str, list[str]]
+    common_error_schema: dict[str, Any], allowed_codes: Sequence[str]
 ) -> dict[str, Any]:
     """공통 오류 스키마를 복사해 해당 status가 반환하는 코드로 enum을 좁힌다.
 
@@ -82,16 +75,19 @@ def _narrowed_error_schema(
     assert ``CommonErrorResponse`` still pass; only the ``code`` enum is scoped.
     """
     schema = copy.deepcopy(common_error_schema)
-    allowed = status_codes.get(status)
-    if allowed:
+    if allowed_codes:
         try:
-            schema["properties"]["error"]["properties"]["code"]["enum"] = sorted(allowed)
+            schema["properties"]["error"]["properties"]["code"]["enum"] = sorted(allowed_codes)
         except (KeyError, TypeError):
             pass
     return schema
 
 
-def _inject_standard_error_responses(document: dict[str, Any], common_error_schema: dict[str, Any]) -> None:
+def _inject_standard_error_responses(
+    document: dict[str, Any],
+    common_error_schema: dict[str, Any],
+    route_error_codes: ErrorCodesMap,
+) -> None:
     """생성 OpenAPI에도 checked-in 명세와 같은 오류 응답 표면을 노출한다.
 
     FastAPI's default generated OpenAPI only documents route-local 200/422
@@ -104,15 +100,15 @@ def _inject_standard_error_responses(document: dict[str, Any], common_error_sche
     than the full enum) and its description glosses those codes, so a reader can map
     status -> code -> meaning directly in Scalar.
     """
-    status_codes = _status_to_codes()
+    from .errors import ERROR_DEFINITIONS
+
     catalog = _load_error_catalog()
 
-    def with_gloss(status: str, existing: str | None) -> str:
+    def with_gloss(status: str, codes: list[str], existing: str | None) -> str:
         base = existing or STANDARD_ERROR_DESCRIPTIONS[status]
-        gloss_codes = status_codes.get(status)
-        return base + _error_code_gloss(gloss_codes, catalog) if gloss_codes else base
+        return base + _error_code_gloss(codes, catalog) if codes else base
 
-    for path_item in document.get("paths", {}).values():
+    for path, path_item in document.get("paths", {}).items():
         if not isinstance(path_item, dict):
             continue
         for method, operation in path_item.items():
@@ -121,26 +117,23 @@ def _inject_standard_error_responses(document: dict[str, Any], common_error_sche
             if not isinstance(operation, dict):
                 continue
             responses = operation.setdefault("responses", {})
-            codes: list[str] = []
-            if method.lower() in ("post", "patch", "put"):
-                codes.extend(POST_STANDARD_ERROR_CODES)
-            elif operation.get("security"):
-                # Depends(auth)를 사용하는 FastAPI 라우트는 생성된 spec에 오퍼레이션별
-                # "security" 필드를 만들지 않으므로, 이 분기는 라우트가 명시적으로
-                # security=를 설정한 경우에만 실행된다(현재는 없음). admin auth를
-                # 사용하는 GET 라우트는 라우터에서 직접 자체 401 응답을 선언한다.
-                codes.append("401")
-            for code in codes:
-                if code == "401" and not operation.get("security"):
+            codes_by_status: dict[str, list[str]] = {}
+            for error_code in route_error_codes.get((method.upper(), path), ()):
+                definition = ERROR_DEFINITIONS.get(error_code)
+                if definition is None:
+                    raise ValueError(f"unknown error code for {method.upper()} {path}: {error_code}")
+                if definition.status_code is None:
                     continue
-                response = responses.setdefault(code, {})
-                response["description"] = with_gloss(code, response.get("description"))
+                status = str(definition.status_code)
+                if status == "401" and not operation.get("security"):
+                    continue
+                codes_by_status.setdefault(status, []).append(error_code)
+            for status, error_codes in codes_by_status.items():
+                response = responses.setdefault(status, {})
+                response["description"] = with_gloss(status, error_codes, response.get("description"))
                 content = response.setdefault("content", {}).setdefault("application/json", {})
-                content["schema"] = _narrowed_error_schema(common_error_schema, code, status_codes)
-            # 명시적으로 선언된 410 응답에 스키마를 주입한다 (예: retired 엔드포인트).
-            if "410" in responses and "content" not in responses["410"]:
-                content = responses["410"].setdefault("content", {}).setdefault("application/json", {})
-                content["schema"] = _narrowed_error_schema(common_error_schema, "410", status_codes)
+                content["schema"] = _narrowed_error_schema(common_error_schema, error_codes)
+
 
 def find_project_root(start: Path | None = None) -> Path:
     """JSON 계약 스키마가 있는 저장소·설정 root를 찾는다."""
@@ -279,6 +272,7 @@ def install_contract_openapi(
     *,
     request_schemas: SchemaMap | None = None,
     response_schemas: SchemaMap | None = None,
+    error_codes: ErrorCodesMap | None = None,
     request_examples: ExamplesMap | None = None,
     schema_narrowers: dict[tuple[str, str], Any] | None = None,
     operation_details: dict[tuple[str, str], str] | None = None,
@@ -287,6 +281,7 @@ def install_contract_openapi(
     """FastAPI 생성 OpenAPI에 checked-in 계약 스키마를 반영한다."""
     request_schemas = request_schemas or {}
     response_schemas = response_schemas or {}
+    error_codes = error_codes or {}
     request_examples = request_examples or {}
     schema_narrowers = schema_narrowers or {}
     operation_details = operation_details or {}
@@ -346,7 +341,11 @@ def install_contract_openapi(
                         },
                     )
                 operation.setdefault("x-response-contract-schema", schema_name)
-            _inject_standard_error_responses(document, schema_for("common_error.schema.json"))
+            _inject_standard_error_responses(
+                document,
+                schema_for("common_error.schema.json"),
+                error_codes,
+            )
             schemas = document.get("components", {}).get("schemas")
             if isinstance(schemas, dict):
                 schemas.pop("HTTPValidationError", None)

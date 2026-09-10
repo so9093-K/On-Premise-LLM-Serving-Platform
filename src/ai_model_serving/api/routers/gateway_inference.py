@@ -8,6 +8,7 @@ from fastapi import APIRouter, Body, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 
 from ..endpoint_spec import GATEWAY_ENDPOINTS
+from ..error_responses import sidecar_request_error_response, sidecar_unavailable_response
 from ...errors import ServiceError, error_payload, error_response_headers
 from ...domain.request_surfaces import chat_request_limit_surface, chat_request_parameter_surface
 from ...logging_policy import record_request_response_preview, record_token_usage
@@ -234,24 +235,14 @@ def build_router(
                 except SidecarRequestError as exc:
                     # 4xx는 요청이 잘못된 것이다. control plane 장애(503, retryable)로
                     # 보고하면 성공할 수 없는 요청을 계속 재시도하게 된다.
-                    return _sidecar_request_error_response(exc)
+                    return sidecar_request_error_response(exc)
                 except SidecarUnavailableError as exc:
-                    unavailable = error_payload(
-                        "MAIN_MODEL_CONTROL_UNAVAILABLE", str(exc), True
-                    )
-                    return JSONResponse(
-                        unavailable,
-                        status_code=503,
-                        headers=error_response_headers(
-                            "MAIN_MODEL_CONTROL_UNAVAILABLE", unavailable, retry_after_seconds=5
-                        ),
-                    )
+                    return sidecar_unavailable_response(exc)
                 if main_model.get("gate") != "open":
                     operation = main_model.get("last_operation") or {}
                     body = error_payload(
                         "MAIN_MODEL_SWITCH_IN_PROGRESS",
                         "Main model requests are temporarily unavailable.",
-                        True,
                     )
                     body["error"]["operation_id"] = operation.get("id")
                     body["error"]["operation_status"] = operation.get("status")

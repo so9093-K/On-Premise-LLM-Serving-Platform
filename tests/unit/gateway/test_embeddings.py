@@ -161,7 +161,7 @@ def test_gateway_rejects_embedding_upstream_count_mismatch():
         json={"model": "local-embed", "input": ["hello", "world"]},
     )
     assert response.status_code == 502
-    assert response.json()["error"]["code"] == "UPSTREAM_SCHEMA_ERROR"
+    assert response.json()["error"]["code"] == "UPSTREAM_RESPONSE_INVALID"
 
 
 def test_gateway_rejects_embedding_upstream_dimension_mismatch():
@@ -178,7 +178,7 @@ def test_gateway_rejects_embedding_upstream_dimension_mismatch():
         json={"model": "local-embed", "input": ["hello"], "dimensions": 768},
     )
     assert response.status_code == 502
-    assert response.json()["error"]["code"] == "UPSTREAM_SCHEMA_ERROR"
+    assert response.json()["error"]["code"] == "UPSTREAM_RESPONSE_INVALID"
 
 
 def test_gateway_rejects_embedding_upstream_index_mismatch():
@@ -195,7 +195,7 @@ def test_gateway_rejects_embedding_upstream_index_mismatch():
         json={"model": "local-embed", "input": ["hello"], "dimensions": 768},
     )
     assert response.status_code == 502
-    assert response.json()["error"]["code"] == "UPSTREAM_SCHEMA_ERROR"
+    assert response.json()["error"]["code"] == "UPSTREAM_RESPONSE_INVALID"
 
 
 def test_gateway_embeddings_accepts_user_field():
@@ -253,7 +253,7 @@ def test_gateway_embeddings_checks_base64_vector_dimension():
         json={"model": "local-embed", "input": ["hello"], "encoding_format": "base64"},
     )
     assert response.status_code == 502
-    assert response.json()["error"]["code"] == "UPSTREAM_SCHEMA_ERROR"
+    assert response.json()["error"]["code"] == "UPSTREAM_RESPONSE_INVALID"
 
 
 def test_gateway_embeddings_rejects_undeclared_encoding_format():

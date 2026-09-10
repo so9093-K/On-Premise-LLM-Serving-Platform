@@ -1,7 +1,7 @@
 """Runtime contract validators for Gateway and Risk Adapter payloads."""
 
 from .chat import ChatResponseExpectations, validate_chat_request, validate_chat_response
-from .common import ensure_object
+from .common import ensure_request_object
 from .embedding import (
     expected_embedding_count,
     requested_embedding_dimensions,
@@ -16,7 +16,7 @@ from .retrieval import (
 )
 
 __all__ = [
-    "ensure_object",
+    "ensure_request_object",
     "read_risk_prompt",
     "ChatResponseExpectations",
     "validate_chat_request",

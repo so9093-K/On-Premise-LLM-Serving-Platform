@@ -7,7 +7,8 @@ from fastapi import APIRouter, HTTPException, Path, Request
 from fastapi.responses import JSONResponse
 
 from ..endpoint_spec import GATEWAY_ENDPOINTS
-from ...errors import ServiceError, default_code_for_status, error_payload, error_response_headers
+from ...errors import ServiceError, error_response
+from ..error_responses import sidecar_request_error_response, sidecar_unavailable_response
 from ...api_examples import (
     RUNTIME_BUDGET_EXCEEDED_EXAMPLE,
     RUNTIME_ERROR_404_EXAMPLE,
@@ -193,65 +194,12 @@ def _container_name(base_url: str) -> str:
     return urlparse(base_url).hostname or ""
 
 
-def _sidecar_unavailable_response(exc: SidecarUnavailableError) -> JSONResponse:
-    # gateway_inference.py의 SidecarUnavailableError 처리와 동일한 code/retryable로
-    # 맞춘다. 이전에는 이 파일 전체가 raise HTTPException(503, ...)만 썼는데,
-    # StarletteHTTPException 제네릭 핸들러(app_kernel.py)는 retryable=False +
-    # code=MODEL_UNAVAILABLE로 나가서, 동일한 sidecar 장애가 /v1/chat/completions에서는
-    # retryable=True(Retry-After 포함)로, /admin/runtimes 계열에서는 retryable=False로
-    # 클라이언트에 다르게 보였다.
-    payload = error_payload("MAIN_MODEL_CONTROL_UNAVAILABLE", str(exc), True)
-    return JSONResponse(
-        payload,
-        status_code=503,
-        headers=error_response_headers("MAIN_MODEL_CONTROL_UNAVAILABLE", payload, retry_after_seconds=5),
-    )
-
-
 def _runtime_transitioning_response() -> JSONResponse:
-    # 위 _sidecar_unavailable_response와 같은 이유로 raise HTTPException(503, ...)을
-    # 쓰지 않는다: 제네릭 핸들러는 retryable=False로 응답하는데, 이 메시지("wait and
-    # retry")와 code(MODEL_UNAVAILABLE, 카탈로그 기준 retryable=true)는 둘 다 재시도를
-    # 전제로 한다 -- retryable=False로 나가면 메시지와 machine-readable 필드가 서로
-    # 모순된다.
-    message = "runtime is currently starting; wait and retry"
-    payload = error_payload("MODEL_UNAVAILABLE", message, True)
-    return JSONResponse(
-        payload,
-        status_code=503,
-        headers=error_response_headers("MODEL_UNAVAILABLE", payload, retry_after_seconds=5),
-    )
-
-
-def _sidecar_request_error_response(exc: SidecarRequestError) -> JSONResponse:
-    """Sidecar의 구조화된 작업 거부를 Gateway 표준 오류 envelope로 전달한다."""
-    detail = exc.detail
-    raw_detail = detail if isinstance(detail, dict) else {}
-    specific_code = raw_detail.get("code") if isinstance(raw_detail.get("code"), str) else None
-    message = raw_detail.get("message") if isinstance(raw_detail.get("message"), str) else str(detail)
-
-    # GPU 예산 거부는 호출자가 plan.stop을 읽어 다음 동작을 결정해야 하므로 독립된
-    # 플랫폼 code로 승격한다. 나머지 409(전환 lock·확인 필요·멱등 키 충돌)는
-    # 공통 CONFLICT와 details.reason 조합으로 표현해, 내부 sidecar code를 외부
-    # 플랫폼 code 집합에 무분별하게 늘리지 않는다.
-    if exc.status_code == 409:
-        code = "GPU_BUDGET_EXCEEDED" if specific_code == "GPU_BUDGET_EXCEEDED" else "CONFLICT"
-    else:
-        # main-model switch의 profile 없음(404)·입력/호환성 오류(422)도 같은
-        # sidecar client를 거친다. 409 전용 CONFLICT를 붙이면 HTTP 상태와 code의
-        # canonical status가 다시 불일치하므로, 그 외에는 공통 status 매핑을 따른다.
-        code = default_code_for_status(exc.status_code)
-    details: dict[str, Any] = {}
-    if specific_code and code != "GPU_BUDGET_EXCEEDED":
-        details["reason"] = specific_code
-    for key, value in raw_detail.items():
-        if key not in {"code", "message"}:
-            details[key] = value
-    payload = error_payload(code, message, False, details=details or None)
-    return JSONResponse(
-        payload,
-        status_code=exc.status_code,
-        headers=error_response_headers(code, payload),
+    # 시작 중에는 일시 오류와 대기 힌트를 함께 반환한다.
+    return error_response(
+        "MODEL_UNAVAILABLE",
+        "runtime is currently starting; wait and retry",
+        retry_after_seconds=5,
     )
 
 
@@ -500,9 +448,9 @@ def build_router(
                 else:
                     result = await sidecar.main_stop()
             except SidecarRequestError as exc:  # GPU 예산 admission 거부
-                return _sidecar_request_error_response(exc)
+                return sidecar_request_error_response(exc)
             except SidecarUnavailableError as exc:
-                return _sidecar_unavailable_response(exc)
+                return sidecar_unavailable_response(exc)
             return JSONResponse({
                 "service_key": "main",
                 "state": result.get("runtime_state", desired_state),
@@ -525,9 +473,9 @@ def build_router(
                 except SidecarRequestError as exc:
                     # 4xx는 요청이 잘못된 것이다. control plane 장애(503, retryable)로
                     # 보고하면 성공할 수 없는 요청을 계속 재시도하게 된다.
-                    return _sidecar_request_error_response(exc)
+                    return sidecar_request_error_response(exc)
                 except SidecarUnavailableError as exc:
-                    return _sidecar_unavailable_response(exc)
+                    return sidecar_unavailable_response(exc)
                 if actual == "running":
                     return JSONResponse({"service_key": service_key, "state": "active", "changed": False})
             if current_state == RuntimeState.starting:
@@ -554,7 +502,7 @@ def build_router(
                     reason="start_rejected",
                     source="runtime_control",
                 )
-                return _sidecar_request_error_response(exc)
+                return sidecar_request_error_response(exc)
             except SidecarUnavailableError as exc:
                 await state_store.set(
                     service_key,
@@ -562,7 +510,7 @@ def build_router(
                     reason="start_sidecar_unavailable",
                     source="runtime_control",
                 )
-                return _sidecar_unavailable_response(exc)
+                return sidecar_unavailable_response(exc)
             started_containers = list(result.get("started", []))
             evicted_containers = list(result.get("evicted", []))
             for evicted_container in evicted_containers:
@@ -605,9 +553,9 @@ def build_router(
                 except SidecarRequestError as exc:
                     # 4xx는 요청이 잘못된 것이다. control plane 장애(503, retryable)로
                     # 보고하면 성공할 수 없는 요청을 계속 재시도하게 된다.
-                    return _sidecar_request_error_response(exc)
+                    return sidecar_request_error_response(exc)
                 except SidecarUnavailableError as exc:
-                    return _sidecar_unavailable_response(exc)
+                    return sidecar_unavailable_response(exc)
                 if actual != "running":
                     return JSONResponse({"service_key": service_key, "state": "stopped", "changed": False})
             if current_state == RuntimeState.starting:
@@ -627,7 +575,7 @@ def build_router(
             except SidecarRequestError as exc:
                 # 4xx는 요청이 잘못된 것이다. control plane 장애(503, retryable)로
                 # 보고하면 성공할 수 없는 요청을 계속 재시도하게 된다.
-                return _sidecar_request_error_response(exc)
+                return sidecar_request_error_response(exc)
             except SidecarUnavailableError as exc:
                 await state_store.set(
                     service_key,
@@ -635,7 +583,7 @@ def build_router(
                     reason="stop_sidecar_unavailable",
                     source="runtime_control",
                 )
-                return _sidecar_unavailable_response(exc)
+                return sidecar_unavailable_response(exc)
             return JSONResponse({
                 "service_key": service_key,
                 "state": "stopped",
@@ -644,7 +592,11 @@ def build_router(
 
     async def require_sidecar() -> SidecarClient:
         if sidecar is None:
-            raise HTTPException(503, detail="admin sidecar is not configured")
+            raise ServiceError(
+                "MAIN_MODEL_CONTROL_UNAVAILABLE",
+                "admin sidecar is not configured",
+                retry_after_seconds=5,
+            )
         return sidecar
 
     _s = _GW[("GET", "/admin/main-model")]
@@ -697,9 +649,9 @@ def build_router(
         except SidecarRequestError as exc:
             # 4xx는 요청이 잘못된 것이다. control plane 장애(503, retryable)로
             # 보고하면 성공할 수 없는 요청을 계속 재시도하게 된다.
-            return _sidecar_request_error_response(exc)
+            return sidecar_request_error_response(exc)
         except SidecarUnavailableError as exc:
-            return _sidecar_unavailable_response(exc)
+            return sidecar_unavailable_response(exc)
 
     _s = _GW[("GET", "/admin/main-model/profiles")]
 
@@ -748,9 +700,9 @@ def build_router(
         except SidecarRequestError as exc:
             # 4xx는 요청이 잘못된 것이다. control plane 장애(503, retryable)로
             # 보고하면 성공할 수 없는 요청을 계속 재시도하게 된다.
-            return _sidecar_request_error_response(exc)
+            return sidecar_request_error_response(exc)
         except SidecarUnavailableError as exc:
-            return _sidecar_unavailable_response(exc)
+            return sidecar_unavailable_response(exc)
 
     _s = _GW[("POST", "/admin/main-model/switch")]
 
@@ -819,9 +771,9 @@ def build_router(
             )
             return JSONResponse(result, status_code=202)
         except SidecarRequestError as exc:
-            return _sidecar_request_error_response(exc)
+            return sidecar_request_error_response(exc)
         except SidecarUnavailableError as exc:
-            return _sidecar_unavailable_response(exc)
+            return sidecar_unavailable_response(exc)
 
     _s = _GW[("GET", "/admin/main-model/operations/{operation_id}")]
 
@@ -854,9 +806,9 @@ def build_router(
             return JSONResponse(await client.main_model_operation(operation_id))
         except SidecarRequestError as exc:
             # 404(없는 operation)는 여기서 NOT_FOUND / retryable=false로 나간다.
-            return _sidecar_request_error_response(exc)
+            return sidecar_request_error_response(exc)
         except SidecarUnavailableError as exc:
-            return _sidecar_unavailable_response(exc)
+            return sidecar_unavailable_response(exc)
 
     # 메인 정지/시작은 별도 엔드포인트가 아니다: 메인 모델도 예산 참여자이며
     # 통일된 fleet verb인 PATCH /admin/runtimes/main {desired_state}로

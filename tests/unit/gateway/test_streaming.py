@@ -57,7 +57,7 @@ def test_gateway_rejects_invalid_upstream_response_schema():
         json={"model": "local-main", "messages": [{"role": "user", "content": "hello"}]},
     )
     assert response.status_code == 502
-    assert response.json()["error"]["code"] == "UPSTREAM_SCHEMA_ERROR"
+    assert response.json()["error"]["code"] == "UPSTREAM_RESPONSE_INVALID"
 
 
 def test_gateway_metrics_records_http_and_upstream_counts():
@@ -214,7 +214,8 @@ def test_gateway_streaming_emits_sse_error_after_partial_chunk():
     assert 'streaming_errors_total{code="UPSTREAM_TIMEOUT",phase="mid_stream",service="gateway",target="local-main"} 1.0' in metrics
 
 
-def test_gateway_streaming_limit_exceeded_is_not_retryable():
+def test_gateway_streaming_limit_exceeded_is_not_retryable(monkeypatch, tmp_path):
+    monkeypatch.setenv("REQUEST_EVENT_LOG_DIR", str(tmp_path))
     clients = FakeGatewayClients()
     clients.main_llm.stream_chunks = [
         b'data: {"choices":[{"delta":{"content":"first"}}]}\n\n',
@@ -236,6 +237,13 @@ def test_gateway_streaming_limit_exceeded_is_not_retryable():
     payload = json.loads(error_line.removeprefix("data: "))
     assert payload["error"]["code"] == "STREAM_LIMIT_EXCEEDED"
     assert payload["error"]["retryable"] is False
+    assert payload["error"]["request_id"] == response.headers["x-request-id"]
+    records = [json.loads(line) for line in (tmp_path / "gateway.jsonl").read_text().splitlines()]
+    assert len(records) == 1
+    assert records[0]["status_code"] == 200
+    assert records[0]["error_code"] == "STREAM_LIMIT_EXCEEDED"
+    assert records[0]["diagnostic_code"] == "STREAM_CHUNK_LIMIT_EXCEEDED"
+    assert records[0]["request_id"] == payload["error"]["request_id"]
 
 
 def test_gateway_accepts_upstream_tool_call_response_schema():

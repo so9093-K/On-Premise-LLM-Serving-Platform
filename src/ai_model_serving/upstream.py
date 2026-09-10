@@ -8,7 +8,7 @@ from urllib.parse import urlsplit, urlunsplit
 
 import httpx
 
-from .errors import DEBUG_VALUE_LIMIT, ERROR_STATUS, ServiceError
+from .errors import DIAGNOSTIC_VALUE_LIMIT, ERROR_STATUS, ServiceError
 from .settings import RuntimeEndpoint
 
 # QUEUE_TIMEOUT에 대한 Retry-After 힌트: admission queue_timeout_seconds
@@ -71,17 +71,17 @@ def _platform_error_from_response(response: httpx.Response) -> ServiceError | No
     # retryable은 code로 결정되므로(errors.ERROR_RETRYABLE), upstream이 같은 code에
     # 다른 값을 실어 보내도 우리 계약이 흔들리지 않는다.
     return ServiceError(
-        code, message, request_id=request_id if isinstance(request_id, str) else None, debug={
+        code, message, request_id=request_id if isinstance(request_id, str) else None, diagnostics={
             "upstream_status": response.status_code,
             **({"upstream_request_id": request_id} if isinstance(request_id, str) else {}),
         },
     )
 
 
-def _upstream_response_debug(response: httpx.Response) -> dict[str, Any]:
-    raw_body = response.content[:DEBUG_VALUE_LIMIT]
+def _upstream_response_diagnostics(response: httpx.Response) -> dict[str, Any]:
+    raw_body = response.content[:DIAGNOSTIC_VALUE_LIMIT]
     body = raw_body.decode(response.encoding or "utf-8", errors="replace")
-    if len(response.content) > DEBUG_VALUE_LIMIT:
+    if len(response.content) > DIAGNOSTIC_VALUE_LIMIT:
         body = f"{body}... [truncated]"
     return {
         "upstream_status": response.status_code,
@@ -96,19 +96,19 @@ def _http_status_to_service_error(endpoint: RuntimeEndpoint, response_or_status:
         if platform_error is not None:
             return platform_error
         status = response_or_status.status_code
-        debug = _upstream_response_debug(response_or_status)
+        diagnostics = _upstream_response_diagnostics(response_or_status)
     else:
         status = response_or_status
-        debug = {"upstream_status": status}
+        diagnostics = {"upstream_status": status}
     if status == 429:
-        return ServiceError("RATE_LIMITED", f"Upstream rate limited: {endpoint.logical_id}", debug=debug)
+        return ServiceError("RATE_LIMITED", f"Upstream rate limited: {endpoint.logical_id}", diagnostics=diagnostics)
     if status in {400, 404, 422}:
         return ServiceError(
-            "VALIDATION_ERROR", f"Upstream rejected the request for {endpoint.logical_id} with HTTP {status}; check error.debug.upstream_body for the runtime reason and adjust the request.", debug=debug,
+            "VALIDATION_ERROR", f"Upstream rejected the request for {endpoint.logical_id} with HTTP {status}; adjust the request and use request_id for operational diagnosis.", diagnostics=diagnostics,
         )
     if status in {401, 403}:
-        return ServiceError("UPSTREAM_ERROR", f"Upstream authorization failed: {endpoint.logical_id}", debug=debug)
-    return ServiceError("UPSTREAM_ERROR", f"Upstream failed: {endpoint.logical_id}", debug=debug)
+        return ServiceError("UPSTREAM_ERROR", f"Upstream authorization failed: {endpoint.logical_id}", diagnostics=diagnostics, diagnostic_code="UPSTREAM_AUTH_FAILED")
+    return ServiceError("UPSTREAM_ERROR", f"Upstream failed: {endpoint.logical_id}", diagnostics=diagnostics, diagnostic_code="UPSTREAM_HTTP_ERROR")
 
 class VLLMClient:
     def __init__(self, endpoint: RuntimeEndpoint) -> None:
@@ -183,7 +183,7 @@ class VLLMClient:
             except httpx.HTTPError as exc:
                 raise ServiceError("MODEL_UNAVAILABLE", f"Upstream unavailable: {self.endpoint.logical_id}") from exc
             except ValueError as exc:
-                raise ServiceError("UPSTREAM_ERROR", f"Upstream returned invalid JSON: {self.endpoint.logical_id}") from exc
+                raise ServiceError("UPSTREAM_RESPONSE_INVALID", f"Upstream returned invalid JSON: {self.endpoint.logical_id}") from exc
 
         return await self._with_operational_guards(operation)
 

@@ -12,10 +12,29 @@
 - embedding `encoding_format`에 `base64`를 추가했다(응답은 little-endian float32 배열을 인코딩한 문자열). openai-python은 numpy가 설치되어 있으면 이 형식을 기본으로 요청하므로, 형식을 지정하지 않은 공식 SDK 호출이 422로 막히던 경로가 해소된다. 차원 검사는 float일 때와 동일하게 적용된다.
 - `/v1/models` 항목에 OpenAI model object가 요구하는 `created`(Gateway 프로세스 기동 시각, 프로세스 안에서 고정)와 `owned_by`를 추가했다. 업스트림 vLLM은 두 필드를 반환하는데 Gateway 목록에만 빠져 있었다.
 - 에러 응답에 `error.param`(OpenAI 호환)을 추가했다. 검증 오류 시 문제 필드 경로를 담아, 클라이언트가 message를 파싱하지 않고 오류 출처를 구분할 수 있다 — 잘못된 출력 스펙은 `response_format`/`response_format.json_schema`, 잘못된 입력 데이터 포맷은 `input_audio.format`/`image_url`/`video_url`. 두 오류가 모두 `VALIDATION_ERROR 422`라 코드만으로는 구분되지 않던 피드백을 해소한다. 필드 범위가 아닌 오류에서는 생략되어 기존 응답과 호환된다.
-- 에러 code·HTTP status·retryable 계약의 단일 소스로 `configs/error_catalog.yaml`을 추가했다. status 권위는 `errors.py`의 `ERROR_STATUS`이며 contract 테스트가 양쪽 code 집합 일치를 고정한다.
+- 에러 code의 의미와 운영 조치를 설명하는 `configs/error_catalog.yaml`을 추가했다.
+  HTTP status·retryable의 런타임 권위는 `errors.py`의 `ERROR_DEFINITIONS`이며 contract
+  검사가 양쪽 code 집합 일치를 고정한다.
 - `Qwen/Qwen2.5-Omni-7B` Thinker profile을 추가하고 `verified`로 승격했다. Gateway에서 text/image/audio/video 입력→text 응답, media boot canary·rollback, structured output, logprobs, logit bias와 streaming 계약을 실제 런타임으로 검증했다. tool calling은 안정적인 parser/template 경로가 없어 비활성이고, 음성 출력은 이번 플랫폼 범위에 포함하지 않는다.
 
 ### Changed
+
+- 오류 계약과 내부 진단을 분리했다. `UPSTREAM_SCHEMA_ERROR`는 응답 구조·model ID
+  오류인 `UPSTREAM_RESPONSE_INVALID`와 생성 JSON 오류인 `STRUCTURED_OUTPUT_INVALID`로
+  나뉜다. 공개 `PARSE_ERROR`는 전자로 통합하되 Risk `system_signals`의 동명 신호는
+  유지한다. 미사용 `RUNTIME_NOT_READY`를 제거하고 `DETECTOR_DISABLED`는 410 → 409,
+  잘못된 method는 `METHOD_NOT_ALLOWED` 405와 `Allow` 헤더로 반환한다.
+- 잘못된 upstream 최상위 JSON 형식을 사용자 입력 오류 422로 오분류하던 경로와
+  Chat Sidecar 거부 처리의 오류 변환 import 누락을 수정했다. 해석 불가능한 요청
+  `$ref`는 추론 전에 422로 거부한다.
+- 공개 `error.debug`·`X-Error-Message`를 제거했다. 클라이언트는 `code`·`param`·`details`와
+  request ID를, 운영자는 같은 ID의 요청 로그 `diagnostic_code`·원인 요약을 사용한다.
+  SSE 오류도 HTTP 200과 함께 스트림 종료 후 기록하며 Request Log Explorer에서 조회한다.
+  기존 `upstream_errors_total`의 이름·label 키는 유지하고 `code` 값은 운영 분류를
+  사용한다(`UPSTREAM_AUTH_FAILED`, `UPSTREAM_HTTP_ERROR`, `GATEWAY_TIMEOUT` 등).
+  구조화 출력 재시도는 `UPSTREAM_SCHEMA_ERROR_RETRIED` → `STRUCTURED_OUTPUT_RETRIED`,
+  스트림 한도 지표는 chunk/byte 원인별로 구분한다. 특정 code를 필터링하던 알림은 갱신해야 한다.
+  ([ADR-0024](docs/adr/0024-public-errors-and-operational-diagnostics.md))
 
 - 로컬 lifecycle을 target-aware `make setup → build → prepare → up/status/down`으로
   정리했다. `build/rebuild`는 선택 target의 저장소 소유 image, `prepare`는 선택 Main
@@ -52,7 +71,10 @@
 - `local-embed`이 실제로 지원하지 않는 matryoshka dimensions(128/256/512)를 API 계약에서 제거했다. Gateway는 기본 768만 호환성 입력으로 허용하고 upstream에는 전달하지 않는다.
 - Main Model 전환·재시작 과정의 실패를 무시하던 structured-output/tool-calling 사전 요청과 전용 테스트를 제거했다. 전환 검증은 health, 모델 식별, text, 활성 프로필의 media canary처럼 실패 시 실제로 전환을 막아야 하는 계약만 확인한다.
 - Main Model의 요청 한도, 허용 입력, request parameter policy, runtime feature를 `model_serving.yaml`의 기본값에서 각 `main_model_profiles.yaml` profile의 `gateway_policy`로 이관했다. Gateway 요청 검증과 `/v1/models`의 `input_modalities`·`request_parameters`는 활성 profile을 따른다. 공통 endpoint, timeout, admission만 `model_serving.yaml`에 남긴다.
-- 생성 OpenAPI의 각 에러 응답이 전체 code enum 대신 해당 HTTP status로 실제 올 수 있는 code만 노출하고, description에 각 code의 의미·retryable을 함께 보여주도록 했다. Scalar/`/docs`에서 status→code→의미를 바로 읽을 수 있어 해석성이 개선된다. status↔code 매핑은 `errors.py`의 `ERROR_STATUS`에서 도출하므로 새 진실 소스를 만들지 않는다.
+- 생성 OpenAPI의 각 에러 응답이 endpoint에서 실제 발생하는 code만 status별로 노출하고,
+  description에 의미·retryable을 함께 보여주도록 했다. Endpoint별 code는
+  `api/endpoint_spec.py`, status·retryable은 `errors.py`에서 파생되며
+  `specs/openapi.*.yaml`도 같은 runtime 문서에서 생성한다.
 - Main LLM 부팅 정책을 locked profile → 마지막 성공 active profile → 설치 기본 profile 순으로 정의했다. 기본 profile은 기존 26B이며 `MAIN_LLM_PROFILE_LOCKED=true` 배포에서는 Runtime Control 변경을 거절한다. 전환 중 신규 chat 요청은 `503`과 `Retry-After`를 반환하고 rollback까지 실패하면 fail-closed 상태를 유지한다. ([ADR-0017](docs/adr/0017-selectable-main-model-runtime.md))
 - 메인 모델 `gpu_memory_utilization`을 `MAIN_LLM_GPU_MEMORY_UTILIZATION`(optional, (0,1])로 호스트별 오버라이드할 수 있게 했다. 카탈로그 값은 기준 호스트 기본값이며, override는 런타임 command와 admission 비용(`vram_fraction`)에 동시 반영되어 둘이 어긋나지 않는다. fraction은 호스트 VRAM 비율이므로 더 작은 GPU는 더 큰 값을 설정한다. ([ADR-0018](docs/adr/0018-gpu-vram-admission-and-per-profile-runtime-image.md))
 - vLLM 이미지를 `gemma4-0505-cu129`(custom feature-branch 빌드)에서 `gemma4-unified-cu129`(vLLM main 기반, 2026-06-03)로 교체했다. `gemma4-0505-cu129`는 `StructuredOutputsConfig.disable_any_whitespace` 필드를 지원하지 않아 컨테이너가 exit code 2로 종료됐다. `gemma4-unified-cu129`에서 `Gemma4ForCausalLM` 아키텍처 지원 및 신규 API 적용을 확인했다. ([ADR-0016](docs/adr/0016-xgrammar-disable-any-whitespace.md))
@@ -62,7 +84,9 @@
 - `max_video_frame_pixels`를 6,422,528 → 12,845,056으로(프레임도 동일 이미지 프로세서를 거치므로 이미지와 같은 근거), `max_video_frames`를 32 → 60으로 올렸다. Google 공식 개발자 문서 기준 Gemma 4는 최대 60초 클립을 1fps까지 처리하도록 설계되어 있어(60초 @ 1fps = 60프레임), 기존 32는 이 설계 지점보다 낮았다. 다만 비디오는 이미지와 달리 `프레임 수 × 프레임당 픽셀`이 요청당 곱셈으로 작용해 최악 전처리량이 약 3.75배 늘어나므로, 실사용 패턴을 관찰하며 필요시 재조정한다. ([ADR-0014](docs/adr/0014-image-validation-policy.md))
 - `video/gif`의 프레임 수 상한이 실제로는 재생시간이 아니라 GIF 인코딩 fps에 좌우되는 버그를 고쳤다 — 짧아도 fps가 높으면 부당하게 거부되던 문제. `_gif_metadata`가 Graphic Control Extension의 delay를 합산해 실제 재생시간을 계산하도록 확장하고, 신규 `max_video_duration_seconds`(60초)를 1차 기준으로, 프레임 수는 `60초 × 30fps = 1800`을 degenerate 인코딩 방지용 보조 상한으로 삼는다. `video/jpeg` frame sequence는 타이밍 메타데이터가 없어 기존처럼 `max_video_frames`(60)를 그대로 적용한다. ([ADR-0014](docs/adr/0014-image-validation-policy.md))
 - Vision 이미지 포맷 파서 선택을 MIME type 기반에서 magic bytes sequential detection으로 변경했다. MIME type allowlist(`image/jpeg`, `image/png`, `image/webp`) 검사는 유지되지만, 파서는 MIME type 선언과 무관하게 실제 바이트로 포맷을 판단한다. MIME type을 잘못 선언한 클라이언트의 불필요한 422가 제거된다. ([ADR-0014](docs/adr/0014-image-validation-policy.md))
-- 공통 error code 계약에 `DETECTOR_DISABLED`, `STREAM_LIMIT_EXCEEDED`를 반영하고, Gateway가 Risk Adapter의 `DETECTOR_DISABLED` 410 envelope를 보존하도록 했다.
+- 공통 error code 계약에 `DETECTOR_DISABLED`, `STREAM_LIMIT_EXCEEDED`를 반영했다.
+  비활성 detector는 현재 상태 충돌인 409로 전달하고, stream limit은 HTTP status가
+  아닌 이미 시작된 SSE의 종료 이벤트로만 사용한다.
 - retrieval 내부 embedding 호출이 `truncate_prompt_tokens`를 전달하도록 정리했다. 확인되지 않은 `truncation_side`는 silent no-op 대신 422 validation error로 처리한다.
 - non-local `local_open`/`custom`/`internal_trusted` auth profile과 production `SKIP_PREFLIGHT=1` 경로의 운영 hard-fail 조건을 강화했다.
 - 운영 배포 동작 변경 없이 retrieval contract의 project root 탐색 의존을 runtime settings에서 분리했다.
@@ -116,11 +140,17 @@
 **유지한 것**: 이미지 차원 파서 8종과 `max_image_pixels`는 그대로 둔다. 런타임에 직접 확인한 결과 55KB PNG가 1,600만 픽셀로 풀리는 요청을 **런타임은 HTTP 200으로 수용**하고 Gateway만 거부한다 — decompression bomb에 대한 유일한 방어이며, 차원을 읽지 못하면 거부하는 fail-closed 구조라 파서 내부의 경계 검사도 방어의 일부다. GIF의 `_gif_metadata`(재생시간·프레임·픽셀 한도 구동)와 모든 크기·개수 한도, 프로필 capability 허용 목록도 유지한다.
 - `runtime_features` 설정 블록과 그것을 나르던 코드 5개 계층을 전부 제거했다. `configs/main_model_profiles.yaml`의 `gateway_policy.runtime_features`(3개 프로필, 32줄)와 `configs/model_serving.yaml`의 동명 블록이 `settings_parts/runtime_endpoints.py` → `RuntimeEndpoint.runtime_features` 필드 → `gateway_service._main_llm_endpoint` 합성 → `normalize_chat_request_for_runtime` 인자로 전달된 뒤, 그 함수 첫 줄의 `del runtime_features`로 버려지고 있었다. `main_model/control.py`는 이 값이 object인지 **검증까지** 하고 있어 필수처럼 보였다. 실제 vLLM 동작(`--tool-call-parser`, `--reasoning-parser`, `--auto-tool-choice`, `--prefix-caching`, `--hash-algo`, `--xgrammar`)은 전부 프로필의 `command` 리스트가 결정하므로, 이 블록은 그 명령을 구조화된 형태로 중복 기술한 것이었고 둘의 일치를 보장하는 장치도 없었다. 제거 후 OpenAPI 스냅샷은 동일하다.
 - `configs/main_model_profiles.yaml`에서 정의만 되고 참조되지 않던 YAML anchor 2개(`&gemma4_runtime_features`, `&gemma4_request_parameter_policy`)를 제거했다.
-- `ServiceError`의 `status_code` 인자를 225개 호출 지점에서 제거하고 `ERROR_STATUS[code]`에서 유도하도록 바꿨다. 측정 결과 215곳 전부가 `ERROR_STATUS`와 동일한 값을 손으로 적고 있었고(다른 값을 준 곳 0, 생략한 곳 0), `to_response`에는 이미 같은 폴백이 있었다. `retryable`과 정확히 같은 형태의 잉여다.
+- `ServiceError`의 `status_code` 인자를 호출 지점에서 제거하고
+  `ERROR_DEFINITIONS[code]`에서 유도하도록 바꿨다. 동일한 값을 손으로 반복하던 인자였고
+  `retryable`과 같은 형태의 잉여였다.
 - 위 변경으로 도달 불가능해진 `exc.status_code or 500` 폴백 3곳(`upstream.py`, `retrieval_service.py` 2곳)을 제거했다. property가 항상 int를 반환한다.
-- `EndpointSpec`에서 프로덕션이 읽지 않는 필드 4개(`service`, `auth`, `exposure`, `status_code`)와 28개 endpoint의 해당 값 112줄을 제거했다. router는 `method`/`path`/`operation_id`/`tag`/`summary`/`description`만, schema 매핑은 `lifecycle`/`request_schema`/`response_schema`만 사용한다. `status_code`는 테스트를 포함해 전체 코드베이스에서 참조가 0이었다.
+- `EndpointSpec`에서 프로덕션이 읽지 않는 필드(`service`, `auth`, `exposure`,
+  `status_code`, `lifecycle`)를 제거했다. 제거된 Siren route metadata도 active endpoint
+  목록에서 삭제했으며, endpoint별 schema와 공개 오류 code만 유지한다.
 - `tests/unit/test_endpoint_spec.py`를 제거했다. 인증 정책 테스트처럼 보였지만 실제 인증은 라우터에 주입되는 `api_dependencies`/`admin_dependencies`가 결정하며, 이 테스트는 아무도 읽지 않는 `spec.auth`가 역시 아무도 읽지 않는 `spec.exposure`/`path`와 일관되는지만 확인하고 있었다. 제거 전에 `spec.auth`와 실제 dependency 배선을 대조해 15개 endpoint 전부 일치함을 확인했고, 제거 후 OpenAPI 스냅샷도 동일하다.
-- `ServiceError`의 `retryable` 인자를 225개 호출 지점에서 제거하고 `code`에서 유도하도록 바꿨다. 측정해 보니 같은 code가 서로 다른 retryable로 나가는 경우가 한 번도 없었고(`VALIDATION_ERROR` 110곳 전부 `False`, `UPSTREAM_SCHEMA_ERROR` 66곳 전부 `True`), `configs/error_catalog.yaml`이 이미 같은 값을 code별 단일 소스로 선언하고 있었다. 즉 판단처럼 보이던 인자가 실제로는 상수 조회였고, 뮤테이션 테스트로 확인한 결과 225곳 중 어디를 뒤집어도 잡아내는 테스트가 없었다. 런타임 권위를 `errors.ERROR_RETRYABLE` 하나로 모으고, `validate_common_error_codes`가 카탈로그와의 일치를 고정한다. `code`·`message` 외 인자는 keyword 전용이 되어 호출 지점이 무엇을 넘기는지 드러난다.
+- `ServiceError`와 직접 오류 응답 생성의 `retryable`·`status_code` 인자를 제거하고
+  `ERROR_DEFINITIONS[code]`에서 유도하도록 바꿨다. 호출자가 같은 code에 서로 다른
+  transport 의미를 입력할 수 없으며, YAML catalog는 의미·조치만 담당한다.
 - 카탈로그의 "동일 code라도 상황에 따라 다를 수 있다"는 단서를 제거했다. 225개 호출 지점 측정에서 그런 경우가 없었고, 그 문구가 216번의 손수 반복을 정당화하고 있었다.
 - upstream이 보낸 platform error envelope의 `retryable`을 그대로 전파하던 경로를 끊었다. envelope 형태 검증에는 계속 쓰지만, 값은 우리 카탈로그 기준으로 결정한다 — upstream이 같은 code에 다른 값을 실어도 Gateway 계약이 흔들리지 않는다.
 - `EntitySpan.source` 필드와 그 값을 쓰던 dedup 정렬 tiebreaker(`0 if span.source == "custom" else 1`)를 제거했다. `EntitySpan`은 한 곳에서 `source="custom"` 고정으로만 생성되므로 tiebreaker는 언제나 같은 값을 냈고, 필드 자체가 아무 정보도 담지 않았다. Presidio 2차 recognizer가 제거될 때 남은 잔재다.

@@ -38,7 +38,10 @@ def build_router(api_dependencies: list, service: Any, settings: AppSettings) ->
         summary=_s.summary,
         operation_id=_s.operation_id,
         description=_s.description,
-        responses={401: {"description": "Internal Bearer token 필요"}},
+        responses={
+            401: {"description": "Internal Bearer token 필요"},
+            409: {"description": "요청한 detector가 비활성 상태"},
+        },
     )
     async def prompt_assessment(
         request: Request,
@@ -58,7 +61,10 @@ def build_router(api_dependencies: list, service: Any, settings: AppSettings) ->
         summary=_s.summary,
         operation_id=_s.operation_id,
         description=_s.description,
-        responses={401: {"description": "Internal Bearer token 필요"}},
+        responses={
+            401: {"description": "Internal Bearer token 필요"},
+            409: {"description": "요청한 detector가 비활성 상태"},
+        },
     )
     async def pii_assessment(
         request: Request,
@@ -78,7 +84,10 @@ def build_router(api_dependencies: list, service: Any, settings: AppSettings) ->
         summary=_s.summary,
         operation_id=_s.operation_id,
         description=_s.description,
-        responses={401: {"description": "Internal Bearer token 필요"}},
+        responses={
+            401: {"description": "Internal Bearer token 필요"},
+            409: {"description": "요청한 detector가 비활성 상태"},
+        },
     )
     async def secret_assessment(
         request: Request,

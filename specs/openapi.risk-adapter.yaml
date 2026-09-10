@@ -1,3 +1,6 @@
+# 자동 생성 파일입니다. 직접 수정하지 마세요.
+# 소스: FastAPI routes + api/endpoint_spec.py + specs/schemas + configs
+# 명령: make render-runtime-assets
 openapi: 3.1.0
 info:
   title: Risk Adapter
@@ -24,10 +27,9 @@ info:
     A2 |
 
 
-    - PII Protection과 Secret Exposure는 in-process 로컬 탐지로 외부 모델 호출이 없습니다.
+    - PII Protection과 Secret Exposure는 프로세스 안에서 직접 탐지하므로 외부 모델을 호출하지 않습니다.
 
-    - Prompt detector 출력 `<SAFE>`, `<UNSAFE-A1>` 같은 label을 표준 signal-only response로
-    정규화합니다.
+    - Prompt 탐지기가 내놓는 `<SAFE>`, `<UNSAFE-A1>` 같은 라벨을 표준 신호 응답으로 정규화합니다.
 
     - 정책 판단 필드(`allow`, `block`, `decision`, `action`)는 반환하지 않습니다.
 
@@ -37,13 +39,13 @@ info:
     ## Aggregate 실행 순서
 
 
-    `pii → secret → prompt` 순서로 sequential 실행. 어느 detector든 탐지하면 `risk_detected: true`.
+    `pii → secret → prompt` 순서로 차례대로 실행합니다. 어느 하나라도 탐지하면 `risk_detected: true`입니다.
 
 
     ## Readiness
 
 
-    - enabled vLLM detector runtime 준비 → HTTP 200 + `phase: serving`
+    - 활성화된 vLLM 탐지기 런타임이 준비되면 → HTTP 200 + `phase: serving`
 
     - 모델 로딩 중 → HTTP 503 + `phase: waiting_for_dependencies`
 
@@ -97,10 +99,6 @@ paths:
                   endpoint: http://risk-prompt-vllm:9403/v1/models
         '401':
           description: Admin Bearer token 필요
-          content:
-            application/json:
-              schema:
-                $ref: ./schemas/common_error.schema.json
         '503':
           description: 하나 이상의 detector runtime이 아직 로딩 중이거나 사용할 수 없음
           content:
@@ -137,11 +135,25 @@ paths:
             application/json:
               schema: {}
         '401':
-          description: Admin Bearer token 필요
+          description: 'Admin Bearer token 필요
+
+
+            이 status로 올 수 있는 `error.code`:
+
+            - `UNAUTHORIZED` — API 키 또는 인증 정보가 없거나 유효하지 않다. (재시도 불가)'
           content:
             application/json:
               schema:
-                $ref: ./schemas/common_error.schema.json
+                allOf:
+                - $ref: ./schemas/common_error.schema.json
+                - type: object
+                  properties:
+                    error:
+                      type: object
+                      properties:
+                        code:
+                          enum:
+                          - UNAUTHORIZED
       security:
       - adminBearerAuth: []
   /v1/risk/detectors/prompt/assessments:
@@ -207,53 +219,105 @@ paths:
               schema:
                 $ref: ./schemas/risk_assessment_response.schema.json
         '401':
-          description: Internal Bearer token 필요
+          description: 'Internal Bearer token 필요
+
+
+            이 status로 올 수 있는 `error.code`:
+
+            - `UNAUTHORIZED` — API 키 또는 인증 정보가 없거나 유효하지 않다. (재시도 불가)'
           content:
             application/json:
               schema:
-                $ref: ./schemas/common_error.schema.json
+                allOf:
+                - $ref: ./schemas/common_error.schema.json
+                - type: object
+                  properties:
+                    error:
+                      type: object
+                      properties:
+                        code:
+                          enum:
+                          - UNAUTHORIZED
+        '409':
+          description: '요청한 detector가 비활성 상태
+
+
+            이 status로 올 수 있는 `error.code`:
+
+            - `DETECTOR_DISABLED` — 요청한 risk detector 가 현재 설정에서 비활성이다. (재시도 불가)'
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: ./schemas/common_error.schema.json
+                - type: object
+                  properties:
+                    error:
+                      type: object
+                      properties:
+                        code:
+                          enum:
+                          - DETECTOR_DISABLED
         '422':
-          description: Validation Error
+          description: 'Validation Error
+
+
+            이 status로 올 수 있는 `error.code`:
+
+            - `VALIDATION_ERROR` — 요청이 Gateway 입력 계약 검증을 통과하지 못했다. (재시도 불가)'
           content:
             application/json:
               schema:
-                $ref: ./schemas/common_error.schema.json
+                allOf:
+                - $ref: ./schemas/common_error.schema.json
+                - type: object
+                  properties:
+                    error:
+                      type: object
+                      properties:
+                        code:
+                          enum:
+                          - VALIDATION_ERROR
         '413':
-          description: 요청 body가 너무 큼
+          description: '요청 body가 너무 큼
+
+
+            이 status로 올 수 있는 `error.code`:
+
+            - `REQUEST_TOO_LARGE` — 요청 body 가 허용 한도를 초과했다. (재시도 불가)'
           content:
             application/json:
               schema:
-                $ref: ./schemas/common_error.schema.json
-        '429':
-          description: Upstream rate limit 또는 local admission timeout
-          content:
-            application/json:
-              schema:
-                $ref: ./schemas/common_error.schema.json
+                allOf:
+                - $ref: ./schemas/common_error.schema.json
+                - type: object
+                  properties:
+                    error:
+                      type: object
+                      properties:
+                        code:
+                          enum:
+                          - REQUEST_TOO_LARGE
         '500':
-          description: 내부 서버 오류
+          description: '내부 서버 오류
+
+
+            이 status로 올 수 있는 `error.code`:
+
+            - `INTERNAL_ERROR` — Gateway 내부 처리 중 예기치 못한 오류가 발생했다. (재시도 불가)'
           content:
             application/json:
               schema:
-                $ref: ./schemas/common_error.schema.json
-        '502':
-          description: Upstream 오류 또는 유효하지 않은 upstream 응답
-          content:
-            application/json:
-              schema:
-                $ref: ./schemas/common_error.schema.json
-        '503':
-          description: Runtime 또는 dependency를 사용할 수 없음
-          content:
-            application/json:
-              schema:
-                $ref: ./schemas/common_error.schema.json
-        '504':
-          description: Upstream timeout
-          content:
-            application/json:
-              schema:
-                $ref: ./schemas/common_error.schema.json
+                allOf:
+                - $ref: ./schemas/common_error.schema.json
+                - type: object
+                  properties:
+                    error:
+                      type: object
+                      properties:
+                        code:
+                          enum:
+                          - INTERNAL_ERROR
       security:
       - bearerAuth: []
       x-contract-schema: risk_assessment_request.schema.json
@@ -311,53 +375,105 @@ paths:
               schema:
                 $ref: ./schemas/risk_assessment_response.schema.json
         '401':
-          description: Internal Bearer token 필요
+          description: 'Internal Bearer token 필요
+
+
+            이 status로 올 수 있는 `error.code`:
+
+            - `UNAUTHORIZED` — API 키 또는 인증 정보가 없거나 유효하지 않다. (재시도 불가)'
           content:
             application/json:
               schema:
-                $ref: ./schemas/common_error.schema.json
+                allOf:
+                - $ref: ./schemas/common_error.schema.json
+                - type: object
+                  properties:
+                    error:
+                      type: object
+                      properties:
+                        code:
+                          enum:
+                          - UNAUTHORIZED
+        '409':
+          description: '요청한 detector가 비활성 상태
+
+
+            이 status로 올 수 있는 `error.code`:
+
+            - `DETECTOR_DISABLED` — 요청한 risk detector 가 현재 설정에서 비활성이다. (재시도 불가)'
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: ./schemas/common_error.schema.json
+                - type: object
+                  properties:
+                    error:
+                      type: object
+                      properties:
+                        code:
+                          enum:
+                          - DETECTOR_DISABLED
         '422':
-          description: Validation Error
+          description: 'Validation Error
+
+
+            이 status로 올 수 있는 `error.code`:
+
+            - `VALIDATION_ERROR` — 요청이 Gateway 입력 계약 검증을 통과하지 못했다. (재시도 불가)'
           content:
             application/json:
               schema:
-                $ref: ./schemas/common_error.schema.json
+                allOf:
+                - $ref: ./schemas/common_error.schema.json
+                - type: object
+                  properties:
+                    error:
+                      type: object
+                      properties:
+                        code:
+                          enum:
+                          - VALIDATION_ERROR
         '413':
-          description: 요청 body가 너무 큼
+          description: '요청 body가 너무 큼
+
+
+            이 status로 올 수 있는 `error.code`:
+
+            - `REQUEST_TOO_LARGE` — 요청 body 가 허용 한도를 초과했다. (재시도 불가)'
           content:
             application/json:
               schema:
-                $ref: ./schemas/common_error.schema.json
-        '429':
-          description: Upstream rate limit 또는 local admission timeout
-          content:
-            application/json:
-              schema:
-                $ref: ./schemas/common_error.schema.json
+                allOf:
+                - $ref: ./schemas/common_error.schema.json
+                - type: object
+                  properties:
+                    error:
+                      type: object
+                      properties:
+                        code:
+                          enum:
+                          - REQUEST_TOO_LARGE
         '500':
-          description: 내부 서버 오류
+          description: '내부 서버 오류
+
+
+            이 status로 올 수 있는 `error.code`:
+
+            - `INTERNAL_ERROR` — Gateway 내부 처리 중 예기치 못한 오류가 발생했다. (재시도 불가)'
           content:
             application/json:
               schema:
-                $ref: ./schemas/common_error.schema.json
-        '502':
-          description: Upstream 오류 또는 유효하지 않은 upstream 응답
-          content:
-            application/json:
-              schema:
-                $ref: ./schemas/common_error.schema.json
-        '503':
-          description: Runtime 또는 dependency를 사용할 수 없음
-          content:
-            application/json:
-              schema:
-                $ref: ./schemas/common_error.schema.json
-        '504':
-          description: Upstream timeout
-          content:
-            application/json:
-              schema:
-                $ref: ./schemas/common_error.schema.json
+                allOf:
+                - $ref: ./schemas/common_error.schema.json
+                - type: object
+                  properties:
+                    error:
+                      type: object
+                      properties:
+                        code:
+                          enum:
+                          - INTERNAL_ERROR
       security:
       - bearerAuth: []
       x-contract-schema: risk_assessment_request.schema.json
@@ -441,53 +557,105 @@ paths:
               schema:
                 $ref: ./schemas/risk_assessment_response.schema.json
         '401':
-          description: Internal Bearer token 필요
+          description: 'Internal Bearer token 필요
+
+
+            이 status로 올 수 있는 `error.code`:
+
+            - `UNAUTHORIZED` — API 키 또는 인증 정보가 없거나 유효하지 않다. (재시도 불가)'
           content:
             application/json:
               schema:
-                $ref: ./schemas/common_error.schema.json
+                allOf:
+                - $ref: ./schemas/common_error.schema.json
+                - type: object
+                  properties:
+                    error:
+                      type: object
+                      properties:
+                        code:
+                          enum:
+                          - UNAUTHORIZED
+        '409':
+          description: '요청한 detector가 비활성 상태
+
+
+            이 status로 올 수 있는 `error.code`:
+
+            - `DETECTOR_DISABLED` — 요청한 risk detector 가 현재 설정에서 비활성이다. (재시도 불가)'
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: ./schemas/common_error.schema.json
+                - type: object
+                  properties:
+                    error:
+                      type: object
+                      properties:
+                        code:
+                          enum:
+                          - DETECTOR_DISABLED
         '422':
-          description: Validation Error
+          description: 'Validation Error
+
+
+            이 status로 올 수 있는 `error.code`:
+
+            - `VALIDATION_ERROR` — 요청이 Gateway 입력 계약 검증을 통과하지 못했다. (재시도 불가)'
           content:
             application/json:
               schema:
-                $ref: ./schemas/common_error.schema.json
+                allOf:
+                - $ref: ./schemas/common_error.schema.json
+                - type: object
+                  properties:
+                    error:
+                      type: object
+                      properties:
+                        code:
+                          enum:
+                          - VALIDATION_ERROR
         '413':
-          description: 요청 body가 너무 큼
+          description: '요청 body가 너무 큼
+
+
+            이 status로 올 수 있는 `error.code`:
+
+            - `REQUEST_TOO_LARGE` — 요청 body 가 허용 한도를 초과했다. (재시도 불가)'
           content:
             application/json:
               schema:
-                $ref: ./schemas/common_error.schema.json
-        '429':
-          description: Upstream rate limit 또는 local admission timeout
-          content:
-            application/json:
-              schema:
-                $ref: ./schemas/common_error.schema.json
+                allOf:
+                - $ref: ./schemas/common_error.schema.json
+                - type: object
+                  properties:
+                    error:
+                      type: object
+                      properties:
+                        code:
+                          enum:
+                          - REQUEST_TOO_LARGE
         '500':
-          description: 내부 서버 오류
+          description: '내부 서버 오류
+
+
+            이 status로 올 수 있는 `error.code`:
+
+            - `INTERNAL_ERROR` — Gateway 내부 처리 중 예기치 못한 오류가 발생했다. (재시도 불가)'
           content:
             application/json:
               schema:
-                $ref: ./schemas/common_error.schema.json
-        '502':
-          description: Upstream 오류 또는 유효하지 않은 upstream 응답
-          content:
-            application/json:
-              schema:
-                $ref: ./schemas/common_error.schema.json
-        '503':
-          description: Runtime 또는 dependency를 사용할 수 없음
-          content:
-            application/json:
-              schema:
-                $ref: ./schemas/common_error.schema.json
-        '504':
-          description: Upstream timeout
-          content:
-            application/json:
-              schema:
-                $ref: ./schemas/common_error.schema.json
+                allOf:
+                - $ref: ./schemas/common_error.schema.json
+                - type: object
+                  properties:
+                    error:
+                      type: object
+                      properties:
+                        code:
+                          enum:
+                          - INTERNAL_ERROR
       security:
       - bearerAuth: []
       x-contract-schema: risk_assessment_request.schema.json
@@ -541,53 +709,85 @@ paths:
               schema:
                 $ref: ./schemas/risk_assessment_response.schema.json
         '401':
-          description: Internal Bearer token 필요
+          description: 'Internal Bearer token 필요
+
+
+            이 status로 올 수 있는 `error.code`:
+
+            - `UNAUTHORIZED` — API 키 또는 인증 정보가 없거나 유효하지 않다. (재시도 불가)'
           content:
             application/json:
               schema:
-                $ref: ./schemas/common_error.schema.json
+                allOf:
+                - $ref: ./schemas/common_error.schema.json
+                - type: object
+                  properties:
+                    error:
+                      type: object
+                      properties:
+                        code:
+                          enum:
+                          - UNAUTHORIZED
         '422':
-          description: Validation Error
+          description: 'Validation Error
+
+
+            이 status로 올 수 있는 `error.code`:
+
+            - `VALIDATION_ERROR` — 요청이 Gateway 입력 계약 검증을 통과하지 못했다. (재시도 불가)'
           content:
             application/json:
               schema:
-                $ref: ./schemas/common_error.schema.json
+                allOf:
+                - $ref: ./schemas/common_error.schema.json
+                - type: object
+                  properties:
+                    error:
+                      type: object
+                      properties:
+                        code:
+                          enum:
+                          - VALIDATION_ERROR
         '413':
-          description: 요청 body가 너무 큼
+          description: '요청 body가 너무 큼
+
+
+            이 status로 올 수 있는 `error.code`:
+
+            - `REQUEST_TOO_LARGE` — 요청 body 가 허용 한도를 초과했다. (재시도 불가)'
           content:
             application/json:
               schema:
-                $ref: ./schemas/common_error.schema.json
-        '429':
-          description: Upstream rate limit 또는 local admission timeout
-          content:
-            application/json:
-              schema:
-                $ref: ./schemas/common_error.schema.json
+                allOf:
+                - $ref: ./schemas/common_error.schema.json
+                - type: object
+                  properties:
+                    error:
+                      type: object
+                      properties:
+                        code:
+                          enum:
+                          - REQUEST_TOO_LARGE
         '500':
-          description: 내부 서버 오류
+          description: '내부 서버 오류
+
+
+            이 status로 올 수 있는 `error.code`:
+
+            - `INTERNAL_ERROR` — Gateway 내부 처리 중 예기치 못한 오류가 발생했다. (재시도 불가)'
           content:
             application/json:
               schema:
-                $ref: ./schemas/common_error.schema.json
-        '502':
-          description: Upstream 오류 또는 유효하지 않은 upstream 응답
-          content:
-            application/json:
-              schema:
-                $ref: ./schemas/common_error.schema.json
-        '503':
-          description: Runtime 또는 dependency를 사용할 수 없음
-          content:
-            application/json:
-              schema:
-                $ref: ./schemas/common_error.schema.json
-        '504':
-          description: Upstream timeout
-          content:
-            application/json:
-              schema:
-                $ref: ./schemas/common_error.schema.json
+                allOf:
+                - $ref: ./schemas/common_error.schema.json
+                - type: object
+                  properties:
+                    error:
+                      type: object
+                      properties:
+                        code:
+                          enum:
+                          - INTERNAL_ERROR
       security:
       - bearerAuth: []
       x-contract-schema: risk_assessment_request.schema.json
@@ -605,14 +805,15 @@ components:
       scheme: bearer
 tags:
 - name: Operations
-  description: '`/health`는 adapter process liveness, `/ready`는 detector vLLM dependency
-    상태를 확인합니다.'
+  description: '`/health`는 프로세스가 살아 있는지, `/ready`는 탐지기 vLLM이 준비됐는지 확인합니다.'
 - name: Monitoring
-  description: Risk Adapter와 detector별 signal metric입니다. 운영 환경에서는 admin token 또는 내부망으로
-    보호합니다.
+  description: Risk Adapter와 탐지기별 신호 지표입니다. 운영 환경에서는 admin 토큰 또는 내부망으로 보호합니다.
 - name: Risk Signal
-  description: '내부 detector 호출 결과를 signal-only response로 정규화합니다. 최종 정책 결정 필드는 반환하지
-    않습니다.
+  description: '내부 탐지기 호출 결과를 신호 전용 응답으로 정규화합니다. 최종 정책 결정 필드는 반환하지 않습니다.
+
+
+    HTTP 200 응답의 `status=failed` 또는 `assessment_complete=false`는 탐지기가 실패했다는 뜻이며, `risk_detected=false`만
+    보고 안전하다고 판단하면 안 됩니다.
 
 
     **Sensitive Data Protection**:
@@ -622,6 +823,6 @@ tags:
     - **Secret Exposure** (D4, D5) — regex/entropy 기반 시크릿·자격증명 탐지
 
 
-    **Prompt detector** — Prompt Injection / Leaking 탐지:
+    **Prompt 탐지기** — Prompt Injection / Leaking 탐지:
 
     지시 무시, system prompt 탈취, roleplay jailbreak, 간접 injection, tool abuse'

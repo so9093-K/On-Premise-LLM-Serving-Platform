@@ -130,12 +130,12 @@
           }
         }
       ],
-      "description": "게이트웨이/risk-adapter 전체 요청 로그(요청 한 줄 = 테이블 한 행).\n\n- 이 대시보드는 gateway/risk-adapter 구조화 로그 + vLLM 등 컨테이너 원본 로그를 함께 다룬다(아래 **Non-JSON Container Errors**/**Raw Container Log**/**Engine Crash / Traceback**)\n- **prompt_tokens/completion_tokens/total_tokens**: upstream usage를 그대로 옮긴 값이다. `/v1/chat/completions`와 vLLM-backed prompt detector는 세 값이 모두 기록되며, `/v1/embeddings`는 completion_tokens가 없어 빈 값이다. 통합 Risk 평가는 포함된 vLLM detector 호출분을 합산한다. local detector·입력 제한 사전 차단·실패 응답은 셋 다 빈 값이다. `LOG_REQUEST_RESPONSE_BODY`와 무관하며 민감정보가 아니다.\n- **client_host** 클릭 시 그 IP로 필터링\n- request_id/error_code/error_message는 여기 없음 -> 아래 **API Errors** 패널 참고(에러에서만 채워지는 필드)\n- `/metrics`, `/health`는 노이즈라 항상 제외\n- `LOG_REQUEST_RESPONSE_BODY=true`일 때 `/v1/chat/completions`(non-streaming), `/v1/embeddings`, `/v1/risk/detectors/*/assessments`·`/v1/risk/assessments`에서 마스킹된 요청/응답 원문(임베딩은 벡터 대신 개수/차원 요약)이 존재한다 -> 컬럼엔 없고 아래 **Request/Response 원문** 패널 참고"
+      "description": "게이트웨이/risk-adapter 전체 요청 로그(요청 한 줄 = 테이블 한 행).\n\n- 이 대시보드는 gateway/risk-adapter 구조화 로그 + vLLM 등 컨테이너 원본 로그를 함께 다룬다(아래 **Non-JSON Container Errors**/**Raw Container Log**/**Engine Crash / Traceback**)\n- **prompt_tokens/completion_tokens/total_tokens**: upstream usage를 그대로 옮긴 값이다. `/v1/chat/completions`와 vLLM-backed prompt detector는 세 값이 모두 기록되며, `/v1/embeddings`는 completion_tokens가 없어 빈 값이다. 통합 Risk 평가는 포함된 vLLM detector 호출분을 합산한다. local detector·입력 제한 사전 차단·실패 응답은 셋 다 빈 값이다. `LOG_REQUEST_RESPONSE_BODY`와 무관하며 민감정보가 아니다.\n- **client_host** 클릭 시 그 IP로 필터링\n- request_id는 모든 요청에 기록한다. 오류 코드·원인 추적은 아래 **API / Stream Errors** 패널 참고\n- `/metrics`, `/health`는 노이즈라 항상 제외\n- `LOG_REQUEST_RESPONSE_BODY=true`일 때 `/v1/chat/completions`(non-streaming), `/v1/embeddings`, `/v1/risk/detectors/*/assessments`·`/v1/risk/assessments`에서 마스킹된 요청/응답 원문(임베딩은 벡터 대신 개수/차원 요약)이 존재한다 -> 컬럼엔 없고 아래 **Request/Response 원문** 패널 참고"
     },
     {
       "id": 2,
       "type": "table",
-      "title": "API Errors (status_code >= 400)",
+      "title": "API / Stream Errors",
       "datasource": {
         "type": "loki",
         "uid": "${datasource}"
@@ -148,7 +148,7 @@
       },
       "targets": [
         {
-          "expr": "{job=\"application\", service=\"${service}\"} | json | event=\"http_request_completed\" | status_code >= 400 | route != \"/ready\" | request_id=~\"${request_id_filter}\" | client_host=~\"${client_host_filter}\" | route=~\"${route_filter}\" | error_code=~\"${error_code_filter}\"",
+          "expr": "{job=\"application\", service=\"${service}\"} | json | event=\"http_request_completed\" | (status_code >= 400 or error_code != \"\") | route != \"/ready\" | request_id=~\"${request_id_filter}\" | client_host=~\"${client_host_filter}\" | route=~\"${route_filter}\" | error_code=~\"${error_code_filter}\"",
           "refId": "A"
         }
       ],
@@ -232,19 +232,21 @@
               "client_host": 5,
               "request_id": 6,
               "error_code": 7,
-              "error_message": 8,
-              "error_retryable": 9,
-              "error_cause_type": 10,
-              "error_cause_message": 11,
-              "error_upstream_status": 12,
-              "service": 13,
+              "diagnostic_code": 8,
+              "error_message": 9,
+              "error_retryable": 10,
+              "error_cause_type": 11,
+              "error_cause_message": 12,
+              "error_upstream_status": 13,
+              "upstream_request_id": 14,
+              "service": 15,
               "Line": 20
             },
             "renameByName": {}
           }
         }
       ],
-      "description": "외부 API 요청의 4xx/5xx입니다. `/ready`의 dependency 미준비는 아래 **Readiness Failures**에서 분리해 봅니다. 값 없음 = 정상(Healthy).\n\n- **error_code**: 같은 status_code(예: 503)에 묶인 API 오류 분류. error guide의 의미·조치 기준이다.\n- **error_message**: 코드만으로 부족한 요청별 설명\n- **error_cause_***: 예외 debug 전체가 아니라 allowlist된 원인 요약·upstream 상태만 기록한다.\n- **request_id**/**client_host** 클릭 시 그 값으로 필터링\n- vLLM 등 JSON 아닌 로그의 에러는 아래 **Non-JSON Container Errors** 참고"
+      "description": "외부 API의 4xx/5xx와 HTTP 200 이후 SSE로 전달된 오류입니다. 스트림은 종료 후 기록하며 latency_ms는 전체 처리 시간입니다. `/ready`의 dependency 미준비는 아래 **Readiness Failures**에서 분리해 봅니다. 값 없음은 선택 기간·필터의 수집된 오류가 없다는 뜻이며 수집 상태 자체를 보장하지 않습니다.\n\n- **error_code**: 같은 status_code(예: 503)에 묶인 API 오류 분류. error guide의 의미·조치 기준이다.\n- **diagnostic_code**: 운영 원인 분류. upstream_errors_total의 code 라벨도 같은 분류를 사용합니다.\n- **upstream_request_id**: upstream이 제공한 별도 상관 ID\n- **error_message**: 코드만으로 부족한 요청별 설명\n- **error_cause_***: 예외 diagnostics 전체가 아니라 allowlist된 원인 요약·upstream 상태만 기록한다.\n- **request_id**/**client_host** 클릭 시 그 값으로 필터링\n- vLLM 등 JSON 아닌 로그의 에러는 아래 **Non-JSON Container Errors** 참고"
     },
     {
       "id": 7,

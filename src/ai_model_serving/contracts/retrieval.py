@@ -9,7 +9,7 @@ from jsonschema import Draft202012Validator, ValidationError
 
 from ..errors import ServiceError
 from ..project_paths import resolve_project_root
-from .common import ensure_object
+from .common import ensure_request_object
 
 
 @lru_cache(maxsize=1)
@@ -28,7 +28,7 @@ def _validator(schema_name: str) -> Draft202012Validator:
 
 
 def _validate_with_schema(payload: Any, schema_name: str, label: str) -> dict[str, Any]:
-    payload = ensure_object(payload)
+    payload = ensure_request_object(payload)
     try:
         _validator(schema_name).validate(payload)
     except ValidationError as exc:

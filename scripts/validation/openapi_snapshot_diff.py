@@ -6,7 +6,6 @@
 from __future__ import annotations
 
 import json
-import os
 import sys
 from pathlib import Path
 from typing import Any
@@ -16,23 +15,8 @@ import yaml
 ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT / "src") not in sys.path:
     sys.path.insert(0, str(ROOT / "src"))
-
-STRICT_ENV = {
-    "APP_ENV": "production",
-    "AUTH_MODE": "strict",
-    "API_KEY_REQUIRED": "true",
-    "API_KEYS": "snapshot-gateway-key",
-    "ADMIN_API_KEY_REQUIRED": "true",
-    "ADMIN_API_KEYS": "snapshot-admin-key",
-    "INTERNAL_SERVICE_AUTH_REQUIRED": "true",
-    "INTERNAL_SERVICE_TOKEN": "snapshot-internal-token",
-    "FASTAPI_DOCS_ENABLED": "true",
-    # OpenAPI 생성은 컨테이너를 실행하지 않지만 main-model catalog를 읽는다.
-    # runtime image는 digest 형식만 검증하므로 실제 배포 pin이 아닌 고정 fixture를 쓴다.
-    "VLLM_IMAGE": "registry.example.com/vllm-unified@sha256:" + "0" * 64,
-    "AUDIO_VLLM_IMAGE": "registry.example.com/vllm-unified@sha256:" + "1" * 64,
-}
-
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 def _load_yaml(rel: str) -> dict[str, Any]:
     return yaml.safe_load((ROOT / rel).read_text(encoding="utf-8"))
@@ -48,6 +32,20 @@ def _response_schema(operation: dict[str, Any], code: str) -> Any:
 
 def _request_schema(operation: dict[str, Any]) -> Any:
     return operation.get("requestBody", {}).get("content", {}).get("application/json", {}).get("schema")
+
+
+def _error_codes(schema: Any) -> list[str] | None:
+    """인라인 또는 정적 allOf 오류 스키마에서 endpoint별 code enum을 읽는다."""
+    candidates = [schema]
+    if isinstance(schema, dict) and isinstance(schema.get("allOf"), list):
+        candidates.extend(schema["allOf"])
+    for candidate in candidates:
+        try:
+            codes = candidate["properties"]["error"]["properties"]["code"]["enum"]
+        except (KeyError, TypeError):
+            continue
+        return sorted(str(code) for code in codes)
+    return None
 
 
 def _parameters_by_location(operation: dict[str, Any]) -> dict[tuple[str, str], Any]:
@@ -92,24 +90,11 @@ _CHAT_POLICY: dict[str, Any] = {}
 
 
 def _build_generated_docs() -> dict[str, dict[str, Any]]:
-    previous = {key: os.environ.get(key) for key in STRICT_ENV}
-    os.environ.update(STRICT_ENV)
-    try:
-        from ai_model_serving.apps.gateway import create_gateway_app
-        from ai_model_serving.apps.risk_adapter import create_risk_adapter_app
-        from ai_model_serving.settings import load_settings
+    from scripts.openapi_assets import build_generated_openapi
 
-        _CHAT_POLICY["value"] = load_settings().main_model_profile_policies
-        return {
-            "gateway": create_gateway_app().openapi(),
-            "risk-adapter": create_risk_adapter_app().openapi(),
-        }
-    finally:
-        for key, value in previous.items():
-            if value is None:
-                os.environ.pop(key, None)
-            else:
-                os.environ[key] = value
+    documents, policies = build_generated_openapi()
+    _CHAT_POLICY["value"] = policies
+    return documents
 
 
 def _compare_one(name: str, static_rel: str, generated: dict[str, Any]) -> list[str]:
@@ -153,6 +138,15 @@ def _compare_one(name: str, static_rel: str, generated: dict[str, Any]) -> list[
             generated_statuses = set(str(code) for code in generated_op.get("responses", {}))
             if static_statuses != generated_statuses:
                 issues.append(f"{name} {method.upper()} {path}: response status mismatch static={sorted(static_statuses)} generated={sorted(generated_statuses)}")
+
+            for status in sorted(static_statuses & generated_statuses - {"200", "202"}):
+                static_error_codes = _error_codes(_response_schema(static_op, status))
+                generated_error_codes = _error_codes(_response_schema(generated_op, status))
+                if static_error_codes != generated_error_codes:
+                    issues.append(
+                        f"{name} {method.upper()} {path}: {status} error code mismatch "
+                        f"static={static_error_codes} generated={generated_error_codes}"
+                    )
 
             static_request = _request_schema(static_op)
             generated_request = _request_schema(generated_op)

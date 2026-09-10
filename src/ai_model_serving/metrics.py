@@ -32,7 +32,7 @@ class Metrics:
         )
         self.upstream_errors = Counter(
             "upstream_errors_total",
-            "Upstream runtime errors by target.",
+            "Upstream runtime errors by target and operational diagnostic code.",
             ["service", "target", "code"],
             registry=self.registry,
         )

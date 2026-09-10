@@ -53,35 +53,64 @@ class EndpointSpec:
     tag: str            # OpenAPI 태그 이름
     summary: str
     description: str
-    lifecycle: str      # "stable" | "retired" | "removed"
     request_schema: str | None       # 예: "chat_completion_request.schema.json"
     response_schema: str | None      # 예: "chat_completion_response.schema.json"
-
-
-_SKIP_SCHEMA_LIFECYCLES: frozenset[str] = frozenset({"removed", "retired"})
+    # 이 endpoint에서만 발생하는 공개 오류. 모든 JSON write에 공통인 인증·크기·
+    # 입력 검증·내부 오류는 WRITE_BASE_ERROR_CODES에서 합쳐진다.
+    error_codes: tuple[str, ...] = ()
 
 RouteKey = tuple[str, str]  # (method, path)
+
+WRITE_BASE_ERROR_CODES = (
+    "UNAUTHORIZED",
+    "REQUEST_TOO_LARGE",
+    "VALIDATION_ERROR",
+    "INTERNAL_ERROR",
+)
+UPSTREAM_ERROR_CODES = (
+    "RATE_LIMITED",
+    "QUEUE_TIMEOUT",
+    "CIRCUIT_OPEN",
+    "UPSTREAM_TIMEOUT",
+    "UPSTREAM_ERROR",
+    "UPSTREAM_RESPONSE_INVALID",
+)
 
 
 def schema_maps_from_specs(
     endpoints: Sequence[EndpointSpec],
 ) -> tuple[dict[RouteKey, str], dict[RouteKey, str]]:
-    """EndpointSpec 목록에서 요청·응답 스키마 매핑을 파생한다.
-
-    Retired endpoints always return 410 (handled by the error-response injector),
-    and removed endpoints have no route, so both are excluded from the maps.
-    """
+    """EndpointSpec 목록에서 요청·응답 스키마 매핑을 파생한다."""
     request_schemas: dict[RouteKey, str] = {
         (s.method, s.path): s.request_schema
         for s in endpoints
-        if s.request_schema is not None and s.lifecycle not in _SKIP_SCHEMA_LIFECYCLES
+        if s.request_schema is not None
     }
     response_schemas: dict[RouteKey, str] = {
         (s.method, s.path): s.response_schema
         for s in endpoints
-        if s.response_schema is not None and s.lifecycle not in _SKIP_SCHEMA_LIFECYCLES
+        if s.response_schema is not None
     }
     return request_schemas, response_schemas
+
+
+def error_codes_from_specs(endpoints: Sequence[EndpointSpec]) -> dict[RouteKey, tuple[str, ...]]:
+    """Endpoint별 공개 오류 목록을 공통 write 경계와 합쳐 반환한다."""
+    result: dict[RouteKey, tuple[str, ...]] = {}
+    for spec in endpoints:
+        if spec.method in {"POST", "PUT", "PATCH"}:
+            base = WRITE_BASE_ERROR_CODES
+        elif spec.path not in {"/health", "/ready"}:
+            # 두 서비스 모두 liveness/readiness만 공개하고 나머지 read surface는
+            # API/admin/internal auth 중 하나를 사용한다. auth가 비활성인 문서는
+            # OpenAPI security 후처리가 401을 제외한다.
+            base = ("UNAUTHORIZED",)
+        else:
+            base = ()
+        codes = tuple(dict.fromkeys((*base, *spec.error_codes)))
+        if codes:
+            result[(spec.method, spec.path)] = codes
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -96,7 +125,6 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
         tag="Operations",
         summary="Liveness 확인",
         description="프로세스가 살아 있는지만 확인합니다. 항상 HTTP 200을 반환하며 인증 없이 호출할 수 있습니다.",
-        lifecycle="stable",
         request_schema=None,
         response_schema=None,
     ),
@@ -111,7 +139,6 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
             "모델 로딩 중에는 HTTP 503을 반환하며, body의 `not_ready_dependencies`에 "
             "아직 준비되지 않은 dependency 목록과 `message`가 포함됩니다."
         ),
-        lifecycle="stable",
         request_schema=None,
         response_schema="readiness_response.schema.json",
     ),
@@ -122,7 +149,6 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
         tag="Monitoring",
         summary="Prometheus 지표 조회",
         description="Prometheus가 수집하는 Gateway 지표 엔드포인트입니다. 운영 환경에서는 admin 토큰 또는 내부망으로 보호합니다.",
-        lifecycle="stable",
         request_schema=None,
         response_schema=None,
     ),
@@ -133,7 +159,6 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
         tag="Operations",
         summary="설정 metadata schema 조회",
         description="Configuration Plane이 관리하는 설정 key의 소유권·민감도·적용 방식을 조회합니다. 현재는 읽기 전용입니다.",
-        lifecycle="stable",
         request_schema=None,
         response_schema=None,
     ),
@@ -144,7 +169,6 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
         tag="Operations",
         summary="effective 설정 조회",
         description="현재 적용된 설정값과 출처를 조회합니다. secret 원문은 반환하지 않습니다.",
-        lifecycle="stable",
         request_schema=None,
         response_schema=None,
     ),
@@ -158,7 +182,6 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
             "Admin Sidecar가 모델 교체 전에 진행 중인 local-main 요청 수를 확인하는 "
             "내부 서비스 전용 endpoint입니다. OpenAPI UI에는 노출하지 않습니다."
         ),
-        lifecycle="stable",
         request_schema=None,
         response_schema=None,
     ),
@@ -177,7 +200,6 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
             "조정 가능한 파라미터가 아니라 콘텐츠 제약이라 자리를 나눕니다. "
             "두 값 모두 활성 main-model 프로필을 따르므로, 클라이언트는 복제해 두지 말고 요청 시점에 읽어야 합니다."
         ),
-        lifecycle="stable",
         request_schema=None,
         response_schema="model_list_response.schema.json",
     ),
@@ -198,9 +220,18 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
             "optional field는 nullable union(`[\"type\", \"null\"]`) 으로 표현, external `$ref` 불가\n"
             "- `logprobs`, `top_logprobs`, `logit_bias` — Gateway policy 안에서 upstream에 전달"
         ),
-        lifecycle="stable",
         request_schema="chat_completion_request.schema.json",
         response_schema="chat_completion_response.schema.json",
+        error_codes=(
+            *UPSTREAM_ERROR_CODES,
+            "STRUCTURED_OUTPUT_INVALID",
+            "MODEL_CAPABILITY_MISMATCH",
+            "MODEL_UNAVAILABLE",
+            "MAIN_MODEL_CONTROL_UNAVAILABLE",
+            "MAIN_MODEL_SWITCH_IN_PROGRESS",
+            "STREAM_LIMIT_EXCEEDED",
+            "CONFLICT",
+        ),
     ),
     EndpointSpec(
         method="POST",
@@ -212,9 +243,9 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
             "`local-embed` 및 `local-embed-ko`를 통해 텍스트의 embedding vector를 생성합니다. "
             "요청 파라미터는 Gateway contract로 검증하며, 지원하지 않는 파라미터는 차단합니다."
         ),
-        lifecycle="stable",
         request_schema="embedding_request.schema.json",
         response_schema="embedding_response.schema.json",
+        error_codes=(*UPSTREAM_ERROR_CODES, "MODEL_CAPABILITY_MISMATCH", "MODEL_UNAVAILABLE"),
     ),
     EndpointSpec(
         method="POST",
@@ -227,9 +258,9 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
             "정책 판단 필드(`allow`, `block`, `decision` 등)는 포함되지 않으며, "
             "최종 허용·차단 결정은 Gateway 밖 product policy layer가 담당합니다."
         ),
-        lifecycle="stable",
         request_schema="risk_assessment_request.schema.json",
         response_schema="risk_assessment_response.schema.json",
+        error_codes=(*UPSTREAM_ERROR_CODES, "DETECTOR_DISABLED", "MODEL_UNAVAILABLE"),
     ),
     EndpointSpec(
         method="POST",
@@ -238,9 +269,9 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
         tag="Risk",
         summary="PII Protection 탐지 신호",
         description=_PII_DETECTOR_DESCRIPTION,
-        lifecycle="stable",
         request_schema="risk_assessment_request.schema.json",
         response_schema="risk_assessment_response.schema.json",
+        error_codes=(*UPSTREAM_ERROR_CODES, "DETECTOR_DISABLED"),
     ),
     EndpointSpec(
         method="POST",
@@ -249,20 +280,9 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
         tag="Risk",
         summary="Secret Exposure 탐지 신호",
         description=_SECRET_DETECTOR_DESCRIPTION,
-        lifecycle="stable",
         request_schema="risk_assessment_request.schema.json",
         response_schema="risk_assessment_response.schema.json",
-    ),
-    EndpointSpec(
-        method="POST",
-        path="/v1/risk/detectors/siren/assessments",
-        operation_id="assessSirenDetector",
-        tag="Risk",
-        summary="Siren 탐지기 신호 (제거됨)",
-        description="제거된 경로입니다. Gateway는 siren 탐지기를 제공하지 않습니다.",
-        lifecycle="removed",
-        request_schema=None,
-        response_schema=None,
+        error_codes=(*UPSTREAM_ERROR_CODES, "DETECTOR_DISABLED"),
     ),
     EndpointSpec(
         method="POST",
@@ -275,9 +295,9 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
             "PII Protection(D1, D2, D5), Secret Exposure(D4, D5), Prompt Injection(A1, A2) 신호를 통합합니다. "
             "활성화된 탐지기 중 하나라도 위험 신호를 찾으면 `risk_detected: true`를 반환합니다."
         ),
-        lifecycle="stable",
         request_schema="risk_assessment_request.schema.json",
         response_schema="risk_assessment_response.schema.json",
+        error_codes=(*UPSTREAM_ERROR_CODES, "DETECTOR_DISABLED", "MODEL_UNAVAILABLE"),
     ),
     EndpointSpec(
         method="POST",
@@ -290,9 +310,9 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
             "- `score_mode=dense_cosine` — `local-embed-ko` 기본, `local-embed`도 명시 사용 가능\n\n"
             "모델이 요청한 `score_mode`를 지원하지 않으면 422를 반환합니다. `top_n`은 상위 n개만 반환합니다(1–32)."
         ),
-        lifecycle="stable",
         request_schema="retrieval_rerank_request.schema.json",
         response_schema="retrieval_rerank_response.schema.json",
+        error_codes=(*UPSTREAM_ERROR_CODES, "MODEL_UNAVAILABLE"),
     ),
     EndpointSpec(
         method="POST",
@@ -305,9 +325,9 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
             "재순위 정렬이 필요하면 `/v1/retrieval/rerank`를 사용하세요.\n\n"
             "`top_n`은 이 endpoint에서 지원하지 않습니다 (422). 지원 score mode는 `dense_cosine` 하나입니다."
         ),
-        lifecycle="stable",
         request_schema="retrieval_score_request.schema.json",
         response_schema="retrieval_score_response.schema.json",
+        error_codes=(*UPSTREAM_ERROR_CODES, "MODEL_UNAVAILABLE"),
     ),
     # ------------------------------------------------------------------ 관리자 런타임 제어
     EndpointSpec(
@@ -326,7 +346,6 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
             "`PATCH /admin/runtimes/{service_key}`(메인은 `service_key=main`)로, "
             "메인 프로필 교체만 `POST /admin/main-model/switch`로 수행합니다."
         ),
-        lifecycle="stable",
         request_schema=None,
         response_schema=None,
     ),
@@ -350,9 +369,15 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
             "`force: true`로 우선순위 낮은 보조를 자동 축출할 수 있습니다. "
             "Scalar UI 드롭다운에서 선택 후 Execute만 누르면 됩니다."
         ),
-        lifecycle="stable",
         request_schema=None,
         response_schema=None,
+        error_codes=(
+            "NOT_FOUND",
+            "CONFLICT",
+            "GPU_BUDGET_EXCEEDED",
+            "MODEL_UNAVAILABLE",
+            "MAIN_MODEL_CONTROL_UNAVAILABLE",
+        ),
     ),
     EndpointSpec(
         method="GET",
@@ -374,9 +399,9 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
             "Docker 관측은 이 라우트에서만 수행합니다. 요청 경로(`/v1/chat/completions`, `/v1/models`)는 "
             "ledger만 읽으므로 추론이 Docker daemon 상태에 묶이지 않습니다."
         ),
-        lifecycle="stable",
         request_schema=None,
         response_schema=None,
+        error_codes=("MAIN_MODEL_CONTROL_UNAVAILABLE",),
     ),
     EndpointSpec(
         method="GET",
@@ -394,9 +419,9 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
             "- `upstream_model_id`, `revision` — 실제로 로딩되는 가중치 pin입니다.\n\n"
             "프로필 목록의 source of truth는 `configs/main_model_profiles.yaml`이며, 여기 없는 ID로는 전환할 수 없습니다."
         ),
-        lifecycle="stable",
         request_schema=None,
         response_schema=None,
+        error_codes=("MAIN_MODEL_CONTROL_UNAVAILABLE",),
     ),
     EndpointSpec(
         method="POST",
@@ -417,9 +442,14 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
             "진행 상황은 `GET /admin/main-model/operations/{operation_id}` 또는 `GET /admin/main-model`의 "
             "`last_operation`으로 확인합니다. 검증 단계에서 실패하면 이전 프로필로 자동 rollback합니다."
         ),
-        lifecycle="stable",
         request_schema=None,
         response_schema=None,
+        error_codes=(
+            "NOT_FOUND",
+            "CONFLICT",
+            "GPU_BUDGET_EXCEEDED",
+            "MAIN_MODEL_CONTROL_UNAVAILABLE",
+        ),
     ),
     EndpointSpec(
         method="GET",
@@ -438,9 +468,9 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
             "가장 최근 작업은 `GET /admin/main-model`의 `last_operation`으로도 볼 수 있고, 진행 상태는 "
             "Grafana `Main-model Control` 대시보드의 Latest Operation State 패널에서 실시간으로 확인합니다."
         ),
-        lifecycle="stable",
         request_schema=None,
         response_schema=None,
+        error_codes=("NOT_FOUND", "MAIN_MODEL_CONTROL_UNAVAILABLE"),
     ),
 ]
 
@@ -456,7 +486,6 @@ RISK_ADAPTER_ENDPOINTS: list[EndpointSpec] = [
         tag="Operations",
         summary="Liveness 확인",
         description="프로세스가 살아 있는지만 확인합니다. 항상 HTTP 200을 반환하며 인증 없이 호출할 수 있습니다.",
-        lifecycle="stable",
         request_schema=None,
         response_schema=None,
     ),
@@ -470,7 +499,6 @@ RISK_ADAPTER_ENDPOINTS: list[EndpointSpec] = [
             "활성화된 탐지기의 vLLM 런타임이 요청을 받을 준비가 됐는지 확인합니다. "
             "모델 로딩 중에는 HTTP 503을 반환하고 `not_ready_dependencies`와 dependency별 `message`를 제공합니다."
         ),
-        lifecycle="stable",
         request_schema=None,
         response_schema="readiness_response.schema.json",
     ),
@@ -481,7 +509,6 @@ RISK_ADAPTER_ENDPOINTS: list[EndpointSpec] = [
         tag="Monitoring",
         summary="Prometheus 지표 조회",
         description="Prometheus가 수집하는 Risk Adapter 지표입니다. 탐지기별 타임아웃, 파싱 실패, 신호 건수를 볼 수 있습니다.",
-        lifecycle="stable",
         request_schema=None,
         response_schema=None,
     ),
@@ -501,9 +528,9 @@ RISK_ADAPTER_ENDPOINTS: list[EndpointSpec] = [
             "- 연결된 도구로 시크릿·파일·메일 탈취 유도\n\n"
             "일반 사이버 공격 절차·폭력·혐오 콘텐츠는 이 탐지기가 다루지 않습니다."
         ),
-        lifecycle="stable",
         request_schema="risk_assessment_request.schema.json",
         response_schema="risk_assessment_response.schema.json",
+        error_codes=("DETECTOR_DISABLED",),
     ),
     EndpointSpec(
         method="POST",
@@ -512,9 +539,9 @@ RISK_ADAPTER_ENDPOINTS: list[EndpointSpec] = [
         tag="Risk Signal",
         summary="PII Protection 탐지기 신호 — 개인정보 노출 탐지",
         description=_PII_DETECTOR_DESCRIPTION,
-        lifecycle="stable",
         request_schema="risk_assessment_request.schema.json",
         response_schema="risk_assessment_response.schema.json",
+        error_codes=("DETECTOR_DISABLED",),
     ),
     EndpointSpec(
         method="POST",
@@ -523,20 +550,9 @@ RISK_ADAPTER_ENDPOINTS: list[EndpointSpec] = [
         tag="Risk Signal",
         summary="Secret Exposure 탐지기 신호 — 시크릿·자격증명 노출 탐지",
         description=_SECRET_DETECTOR_DESCRIPTION,
-        lifecycle="stable",
         request_schema="risk_assessment_request.schema.json",
         response_schema="risk_assessment_response.schema.json",
-    ),
-    EndpointSpec(
-        method="POST",
-        path="/v1/risk/detectors/siren/assessments",
-        operation_id="assessSirenDetector",
-        tag="Risk Signal",
-        summary="Siren 탐지기 신호 (제거됨)",
-        description="제거된 경로입니다. Risk Adapter는 siren 탐지기를 제공하지 않습니다.",
-        lifecycle="removed",
-        request_schema=None,
-        response_schema=None,
+        error_codes=("DETECTOR_DISABLED",),
     ),
     EndpointSpec(
         method="POST",
@@ -550,7 +566,6 @@ RISK_ADAPTER_ENDPOINTS: list[EndpointSpec] = [
             "탐지기가 실패하면 정책 판단 없이 시스템 신호로만 알립니다.\n\n"
             "PII Protection(D1, D2, D5)과 Secret Exposure(D4, D5) 신호를 Prompt Injection(A1, A2)과 함께 통합합니다."
         ),
-        lifecycle="stable",
         request_schema="risk_assessment_request.schema.json",
         response_schema="risk_assessment_response.schema.json",
     ),

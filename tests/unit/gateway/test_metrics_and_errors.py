@@ -17,7 +17,6 @@ from ai_model_serving.logging_policy import (
     safe_request_log_record,
 )
 from ai_model_serving.metrics import Metrics
-from ai_model_serving.errors import error_payload, error_response_headers
 from ai_model_serving.settings import CorsSettings
 
 def test_gateway_error_uses_incoming_request_id():
@@ -55,7 +54,7 @@ def test_gateway_unhandled_exception_uses_common_error_schema():
     Draft202012Validator(error_schema()).validate(response.json())
 
 
-def test_gateway_service_error_response_includes_original_cause_debug():
+def test_gateway_service_error_response_excludes_internal_cause():
     class CauseRuntimeClient(FakeRuntimeClient):
         async def post_json(self, path, payload, **kwargs):
             try:
@@ -76,8 +75,9 @@ def test_gateway_service_error_response_includes_original_cause_debug():
     assert response.status_code == 422
     body = response.json()
     assert body["error"]["code"] == "VALIDATION_ERROR"
-    assert body["error"]["debug"]["cause_type"] == "ValueError"
-    assert body["error"]["debug"]["cause_message"] == "audio decoder failed"
+    assert "debug" not in body["error"]
+    assert "audio decoder failed" not in response.text
+    assert "x-error-message" not in response.headers
     Draft202012Validator(error_schema()).validate(body)
 
 
@@ -161,23 +161,20 @@ def _bare_request() -> Request:
     })
 
 
-def test_access_log_records_error_code_and_response_echoed_request_id():
-    # error_code/response_request_id는 응답 헤더(X-Error-Code/X-Request-Id)에서 온다 —
-    # status_code 하나(예: 503)에 여러 code가 몰려도 로그에서 바로 구분하고,
-    # x-request-id를 안 보낸 클라이언트의 에러도 로그의 request_id가 응답 바디와 일치하게 하려는 목적.
-    record = safe_request_log_record(
-        service="gateway",
-        request=_bare_request(),
-        status_code=503,
-        elapsed_seconds=0.02,
-        error_code="CIRCUIT_OPEN",
-        error_message="upstream circuit is open; retry after cooldown.",
-        response_request_id="req_minted_abc",
+def test_access_log_records_error_from_request_context():
+    request = _bare_request()
+    request.state.request_id = "req_context"
+    record_error_diagnosis(
+        request, code="CIRCUIT_OPEN",
+        message="upstream circuit is open; retry after cooldown.",
     )
-
+    record = safe_request_log_record(
+        service="gateway", request=request, status_code=503, elapsed_seconds=0.02,
+    )
     assert record["error_code"] == "CIRCUIT_OPEN"
     assert record["error_message"] == "upstream circuit is open; retry after cooldown."
-    assert record["request_id"] == "req_minted_abc"
+    assert record["request_id"] == "req_context"
+
 
 
 def test_access_log_records_allowlisted_error_diagnosis_only():
@@ -185,8 +182,7 @@ def test_access_log_records_allowlisted_error_diagnosis_only():
     record_error_diagnosis(
         request,
         code="UPSTREAM_ERROR",
-        retryable=True,
-        debug={"cause_type": "HTTPStatusError", "cause_message": "upstream rejected", "upstream_status": 502, "upstream_body": "do not log"},
+        diagnostics={"cause_type": "HTTPStatusError", "cause_message": "upstream rejected", "upstream_status": 502, "upstream_body": "do not log"},
     )
 
     record = safe_request_log_record(service="gateway", request=request, status_code=502, elapsed_seconds=0.02)
@@ -283,8 +279,7 @@ def test_access_log_omits_error_fields_for_success_responses():
 def test_access_log_middleware_emits_api_error_diagnosis_and_request_id():
     # gateway 로거는 service_logger()가 propagate=False로 자체 StreamHandler를 붙여서
     # 쓰기 때문에, pytest caplog(root logger 기반)가 아니라 이 로거에 직접 핸들러를
-    # 붙여 실제 미들웨어(safe_request_logging_middleware)가 응답 헤더의
-    # X-Error-Code/X-Request-Id를 로그 레코드로 옮기는지 end-to-end로 검증한다.
+    # 붙여 요청 context의 오류와 응답 request_id가 로그에 연결되는지 검증한다.
     stream = io.StringIO()
     handler = logging.StreamHandler(stream)
     logger = logging.getLogger("ai_model_serving.gateway")
@@ -349,22 +344,6 @@ def test_access_log_uses_configured_application_file_without_stdout_duplicate(
     assert records[-1]["route"] == "/health"
     assert "http_request_completed" not in stream.getvalue()
 
-
-def test_error_response_headers_strip_crlf_from_client_supplied_message():
-    # message에는 클라이언트가 보낸 값이 그대로 들어갈 수 있다(예: 잘못된
-    # response_format.type이 에러 메시지에 그대로 echo됨 — chat_response_format.py 참고).
-    # CRLF를 주입해 헤더를 밀어넣으려는 시도가 있어도 X-Error-Message 헤더에는 절대
-    # 원본 CRLF가 남으면 안 된다(HTTP header injection).
-    payload = error_payload(
-        "VALIDATION_ERROR",
-        "response_format.type is bogus\r\nX-Injected: evil; use one of: json_object.",
-        False,
-    )
-    headers = error_response_headers("VALIDATION_ERROR", payload)
-    assert "\r" not in headers["X-Error-Message"]
-    assert "\n" not in headers["X-Error-Message"]
-    assert "X-Injected" not in headers
-    assert "bogus" in headers["X-Error-Message"]
 
 
 def test_main_model_metrics_restore_persistent_state_without_operation_id_labels():

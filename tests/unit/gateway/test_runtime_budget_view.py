@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import asyncio
 
-from ai_model_serving.api.routers.gateway_runtime_control import (
-    _sidecar_request_error_response,
+from ai_model_serving.api.error_responses import (
+    sidecar_request_error_response,
 )
 from ai_model_serving.services.sidecar_client import SidecarRequestError
 from ai_model_serving.services.runtime_state import RuntimeState
@@ -138,7 +138,7 @@ def test_runtime_budget_rejection_uses_standard_error_envelope():
 
 
 def test_sidecar_non_conflict_error_uses_its_http_status_code():
-    response = _sidecar_request_error_response(
+    response = sidecar_request_error_response(
         SidecarRequestError(
             422,
             {"code": "MODEL_PROFILE_INCOMPATIBLE", "message": "profile is incompatible"},

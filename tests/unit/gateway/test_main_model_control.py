@@ -5,7 +5,10 @@ sidecar 쪽에서 직접 다루고, 여기는 gateway가 그 API를 올바르게
 
 from __future__ import annotations
 
+import pytest
+
 from .helpers import *  # noqa: F401,F403
+from ai_model_serving.services.sidecar_client import SidecarRequestError
 
 
 class FakeMainModelSidecar:
@@ -16,6 +19,8 @@ class FakeMainModelSidecar:
 
     async def main_model(self, *, observed: bool = True):
         self.observed_requested.append(observed)
+        if self.gate == "rejected":
+            raise SidecarRequestError(409, {"code": "STATE_CONFLICT", "message": "Control state conflict"})
         return {
             "public_model": "local-main",
             "active_profile": {"id": "gemma4-26b-a4b-fp8"},
@@ -88,19 +93,27 @@ def test_chat_uses_active_profile_request_limit() -> None:
     assert "max_tokens" in response.json()["error"]["message"]
 
 
-def test_chat_is_fail_closed_while_main_model_switches():
+@pytest.mark.parametrize("gate", ["closed", "rejected"])
+def test_chat_is_fail_closed_while_main_model_switches(gate):
     clients = FakeGatewayClients()
-    clients.sidecar = FakeMainModelSidecar(gate="closed")
+    clients.sidecar = FakeMainModelSidecar(gate=gate)
     client = TestClient(create_gateway_app(settings(), clients))
     response = client.post(
         "/v1/chat/completions",
         headers=auth_headers(),
         json={"model": "local-main", "messages": [{"role": "user", "content": "hello"}]},
     )
-    assert response.status_code == 503
-    assert response.headers["retry-after"] == "5"
-    assert response.json()["error"]["code"] == "MAIN_MODEL_SWITCH_IN_PROGRESS"
-    assert response.json()["error"]["operation_id"] == "op-1"
+    error = response.json()["error"]
+    if gate == "closed":
+        assert response.status_code == 503
+        assert response.headers["retry-after"] == "5"
+        assert error["code"] == "MAIN_MODEL_SWITCH_IN_PROGRESS"
+        assert error["operation_id"] == "op-1"
+    else:
+        assert response.status_code == 409
+        assert error["code"] == "CONFLICT"
+        assert error["retryable"] is False
+        assert error["details"]["reason"] == "STATE_CONFLICT"
     assert clients.main_llm.last_payload is None
 
 

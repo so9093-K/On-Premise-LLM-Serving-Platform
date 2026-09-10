@@ -138,7 +138,9 @@ image canary와 고해상도 image latency/KV cache를 다시 관측한다.
 
 **주의 — 이미지와 달리 두 값은 요청당 곱셈으로 작용한다.** 이미지는 요청 하나에 정지 이미지 1장의 디코드 비용만 발생하지만, 비디오는 `프레임 수 × 프레임당 픽셀`만큼 전처리가 반복된다. 이번 변경으로 요청 하나의 최악 전처리 총량은 기존(32 × 6,422,528 ≈ 2.05억 px) 대비 새 값(60 × 12,845,056 ≈ 7.71억 px)으로 **약 3.75배** 늘어난다. 이는 main_llm 동시성 슬롯을 더 오래 점유시켜 다른 요청의 큐잉/503 확률에 영향을 줄 수 있는 트레이드오프이며, 실제 사용량(32프레임 한도에 자주 걸리는지)을 관찰하며 필요시 재조정한다.
 
-동기화 대상: `configs/model_serving.yaml`, `../reference/api_reference.md`. (비디오 한도는 이미지와 달리 `gpu_budgets.yaml`/`model_catalog.yaml`/`model_cards/local-main.json`에 별도 미러링되어 있지 않다 — 이미지처럼 별도 source-of-truth 통합이 되어 있지 않은 상태로, 향후 정리 대상.)
+현재 한도의 source of truth는 backend별 profile인 `configs/main_model_profiles.yaml`과
+`configs/macos_mlx_runtime.yaml`이다. Gateway validation과 `/v1/models` 표면은 활성
+profile에서 이를 읽으므로 별도 model card나 문서 표에 값을 복제하지 않는다.
 
 ### `video/gif`는 프레임 수가 아니라 재생시간으로 게이트해야 한다
 

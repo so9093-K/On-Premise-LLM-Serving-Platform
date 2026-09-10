@@ -12,7 +12,6 @@ from .model_config import (
 )
 from .schemas import (
     validate_common_error_codes,
-    validate_openapi_error_surface,
     validate_openapi_refs,
     validate_request_schemas,
     validate_risk_schema,
@@ -33,7 +32,6 @@ CHECKS = [
     validate_version_alignment,
     validate_python_compatibility,
     validate_openapi_refs,
-    validate_openapi_error_surface,
     validate_request_schemas,
     validate_risk_schema,
     validate_risk_detector_generation_budget,

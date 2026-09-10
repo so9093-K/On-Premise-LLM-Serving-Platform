@@ -188,7 +188,7 @@ PY
 wait_for_main_model_ready() {
   local url="$GATEWAY_BASE_URL/v1/chat/completions"
   # 1 token은 Gemma가 assistant text를 emit하기 전에 finish_reason=length로 끝날 수
-  # 있어, 열린 gate를 UPSTREAM_SCHEMA_ERROR로 오진한다. 현재 운영 runtime에서
+  # 있어, 열린 gate를 UPSTREAM_RESPONSE_INVALID로 오진한다. 현재 운영 runtime에서
   # non-reasoning 최소 응답이 정상 종료하는 16 token을 readiness probe 계약으로 쓴다.
   # reasoning 필드는 이를 지원하지 않는 다른 profile도 있으므로 보내지 않는다.
   local body="{\"model\":\"${MAIN_MODEL_NAME}\",\"messages\":[{\"role\":\"user\",\"content\":\"Reply with OK.\"}],\"max_tokens\":${READY_FULL_MAIN_MODEL_MAX_TOKENS},\"temperature\":0}"
@@ -227,7 +227,7 @@ PY
     )"
     # 요청 자체가 잘못됐거나 응답 contract가 결정론적으로 실패한 경우는 gate가
     # 열리기를 기다린다고 회복되지 않는다. 즉시 실패해 30분 polling과 늦은 rollback을 막는다.
-    if [[ "$code" =~ ^4[0-9][0-9]$ || "$error_code" == "UPSTREAM_SCHEMA_ERROR" ]]; then
+    if [[ "$code" =~ ^4[0-9][0-9]$ || "$error_code" == "UPSTREAM_RESPONSE_INVALID" ]]; then
       echo "[ready-full] main-model gate probe failed permanently (HTTP ${code:-000}, error=${error_code:-unknown}): ${detail}" >&2
       rm -f "$tmp"
       return 1

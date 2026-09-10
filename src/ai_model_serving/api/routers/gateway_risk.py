@@ -40,7 +40,10 @@ def build_router(
         summary=_s.summary,
         operation_id=_s.operation_id,
         description=_s.description,
-        responses={401: {"description": "API Bearer token 필요"}},
+        responses={
+            401: {"description": "API Bearer token 필요"},
+            409: {"description": "요청한 detector가 비활성 상태"},
+        },
     )
     async def risk_prompt_assessment(
         request: Request,
@@ -66,7 +69,10 @@ def build_router(
         summary=_s.summary,
         operation_id=_s.operation_id,
         description=_s.description,
-        responses={401: {"description": "API Bearer token 필요"}},
+        responses={
+            401: {"description": "API Bearer token 필요"},
+            409: {"description": "요청한 detector가 비활성 상태"},
+        },
     )
     async def risk_pii_assessment(
         request: Request,
@@ -85,7 +91,10 @@ def build_router(
         summary=_s.summary,
         operation_id=_s.operation_id,
         description=_s.description,
-        responses={401: {"description": "API Bearer token 필요"}},
+        responses={
+            401: {"description": "API Bearer token 필요"},
+            409: {"description": "요청한 detector가 비활성 상태"},
+        },
     )
     async def risk_secret_assessment(
         request: Request,

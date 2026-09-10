@@ -38,21 +38,35 @@ def test_reasoning_truncation_is_preserved_but_empty_truncation_is_rejected():
     with pytest.raises(ServiceError) as excinfo:
         validate_chat_response(payload, expected_model="local-main")
     exc = excinfo.value
-    assert exc.code == "UPSTREAM_SCHEMA_ERROR"
+    assert exc.code == "UPSTREAM_RESPONSE_INVALID"
     assert "max_tokens" in exc.message
     assert "truncated" in exc.message
 
-
-def test_empty_content_without_truncation_keeps_generic_message():
     payload = _truncated_reasoning_response()
     payload["choices"][0]["finish_reason"] = "stop"
     with pytest.raises(ServiceError) as excinfo:
         validate_chat_response(payload, expected_model="local-main")
     exc = excinfo.value
-    assert exc.code == "UPSTREAM_SCHEMA_ERROR"
+    assert exc.code == "UPSTREAM_RESPONSE_INVALID"
     # length가 아닌 finish에서 모델이 그냥 아무것도 안 돌려준 경우엔 truncation
     # 힌트가 없어야 한다.
     assert "max_tokens" not in exc.message
+
+
+def test_invalid_upstream_response_shapes_are_not_request_errors():
+    # upstream 최상위 JSON 타입 오류도 client 입력 오류(422)로 돌려보내면 안 된다.
+    from ai_model_serving.contracts.embedding import validate_embedding_response
+    from ai_model_serving.contracts.risk import validate_risk_response
+
+    for validate in (
+        lambda value: validate_chat_response(value, expected_model="local-main"),
+        lambda value: validate_embedding_response(value, expected_model="local-embed"),
+        validate_risk_response,
+    ):
+        with pytest.raises(ServiceError) as invalid:
+            validate([])
+        assert invalid.value.code == "UPSTREAM_RESPONSE_INVALID"
+        assert invalid.value.status_code == 502
 
 
 def test_unknown_route_returns_platform_error_envelope():
@@ -66,6 +80,11 @@ def test_unknown_route_returns_platform_error_envelope():
     assert body["error"]["code"] == "NOT_FOUND"
     assert body["error"]["request_id"].startswith("req_")
     Draft202012Validator(error_schema()).validate(body)
+
+    method_error = client.post("/v1/models", headers=auth_headers())
+    assert method_error.status_code == 405
+    assert method_error.json()["error"]["code"] == "METHOD_NOT_ALLOWED"
+    assert method_error.headers["allow"] == "GET"
 
 
 def test_malformed_json_body_does_not_leak_offset_as_param():

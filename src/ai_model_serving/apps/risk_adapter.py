@@ -27,7 +27,7 @@ from ..settings import AppSettings, SecuritySettings, load_settings
 from ..upstream import VLLMClient
 from ..api_descriptions import RISK_ADAPTER_DESCRIPTION_TEMPLATE, RISK_ADAPTER_TAGS_METADATA
 from ..api_examples import AGGREGATE_EXAMPLES, PROMPT_EXAMPLES, PII_EXAMPLES, SECRET_EXAMPLES
-from ..api.endpoint_spec import RISK_ADAPTER_ENDPOINTS, schema_maps_from_specs
+from ..api.endpoint_spec import RISK_ADAPTER_ENDPOINTS, error_codes_from_specs, schema_maps_from_specs
 
 _RA_SPECS = {(spec.method, spec.path): spec for spec in RISK_ADAPTER_ENDPOINTS}
 from ..api.routers.risk_adapter_ops import build_router as _build_ops_router
@@ -142,6 +142,7 @@ def create_risk_adapter_app(settings: AppSettings | None = None, clients: RiskCl
         app,
         request_schemas=_request_schemas,
         response_schemas=_response_schemas,
+        error_codes=error_codes_from_specs(RISK_ADAPTER_ENDPOINTS),
         request_examples={
             ("POST", "/v1/risk/detectors/prompt/assessments"): PROMPT_EXAMPLES,
             ("POST", "/v1/risk/detectors/pii/assessments"): PII_EXAMPLES,

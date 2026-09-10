@@ -98,7 +98,7 @@ validate / test
 | Endpoint           | `src/ai_model_serving/api/routers/`                             | API 경로와 요청 처리 진입점 정의           |
 | Request / Response | `src/ai_model_serving/contracts/`                               | 요청·응답 모델과 애플리케이션 계약 정의         |
 | JSON Schema        | `specs/schemas/`                                                | 외부 API 데이터 형식과 제약 조건 정의        |
-| OpenAPI            | `specs/openapi.gateway.yaml`, `specs/openapi.risk-adapter.yaml` | 외부 API 명세와 문서화 기준              |
+| OpenAPI            | runtime route, `src/ai_model_serving/api/endpoint_spec.py`, `specs/schemas/` | 외부 API 명세 기준; `specs/openapi.*.yaml`은 생성 산출물 |
 | Error              | `src/ai_model_serving/errors.py`, `configs/error_catalog.yaml`  | 오류 코드, 응답 형식, 오류 카탈로그 관리       |
 | API 문서             | `reference/api_reference.md`                                    | API 사용 방법, 제약, 예제와 운영 참고 정보 설명 |
 

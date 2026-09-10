@@ -113,12 +113,11 @@ Gateway 오류는 동일한 JSON envelope를 사용한다.
 |---|:---:|---|
 | `error.code` | Y | 클라이언트 분기에 사용하는 platform error code |
 | `error.message` | Y | 사람이 읽는 오류 설명 |
-| `error.retryable` | Y | 동일 요청 재시도 가능 여부 |
+| `error.retryable` | Y | 일시적인 실패인지 여부. 동일 요청의 안전한 재실행을 보장하지는 않음 |
 | `error.request_id` | Y | 로그 추적 ID |
 | `error.param` | N | 수정해야 할 request field |
 | `error.operation_id` | N | Main Model 전환 작업 ID |
 | `error.operation_status` | N | Main Model 전환 상태 |
-| `error.debug` | N | upstream/cause 진단 정보 |
 | `error.details` | N | 복구에 필요한 구조화 정보 |
 
 오류 응답에는 다음 header도 함께 반환된다.
@@ -126,10 +125,11 @@ Gateway 오류는 동일한 JSON envelope를 사용한다.
 ```http
 X-Error-Code: VALIDATION_ERROR
 X-Request-Id: req_0123456789abcdef
-X-Error-Message: ...
 ```
 
-`X-Error-Code`와 `X-Request-Id`는 body의 `error.code`, `error.request_id`와 같다. 클라이언트가 `X-Request-Id`를 보내지 않아도 오류 응답에는 새 request ID가 발급된다. `X-Error-Message`는 헤더 안전성을 위해 출력 가능한 ASCII만 남기고 최대 500자로 제한한 값이다. 운영 로그도 같은 request ID와 error code를 남기므로, 반복 오류는 이 값으로 추적한다.
+`X-Error-Code`와 `X-Request-Id`는 body의 `error.code`, `error.request_id`와 같다. 요청 ID가 없으면 앱이 발급하며 성공 응답에도 `X-Request-Id`를 반환한다. 내부 원인은 응답의 `debug`나 `X-Error-Message`가 아니라 같은 ID의 요청 로그에서 확인한다. 로그의 `diagnostic_code`는 운영 분류이며 클라이언트 분기 기준이 아니다.
+
+스트리밍은 HTTP 200으로 시작한 뒤에도 SSE 오류 이벤트로 끝날 수 있다. 요청 로그는 스트림 종료 후 한 번 기록하므로 `status_code=200`과 `error_code`가 함께 있을 수 있다. 이때 `latency_ms`는 스트림을 포함한 처리 시간이며 헤더 응답 시간과 다르다.
 
 재시도 대기 시간이 있는 오류는 `Retry-After` header를 추가한다.
 
@@ -259,7 +259,7 @@ curl "$GATEWAY_URL/v1/models" \
 | `tool_choice` | string / object | N | `auto`, `none`, `required`, function choice | Tool 선택 방식 |
 | `parallel_tool_calls` | boolean | N | 활성 profile 정책 | `false`인 profile에서는 생략해도 upstream에 `false`로 고정 |
 | `reasoning` | boolean | N | 활성 profile 기본값 | Gateway 공통 필드. vLLM의 chat template kwarg 또는 MLX의 `enable_thinking`으로 변환 |
-| `response_format` | object | N | `text`, `json_object`, `json_schema` | 출력 형식. `json_schema`의 `integer`/`number`에는 `minimum`·`maximum`을, 자유 `string`에는 `maxLength` 또는 `pattern`을 넣는다 — 경계가 없으면 문법상 값이 무한히 이어져 `max_tokens`에서 잘리고 `UPSTREAM_SCHEMA_ERROR`가 된다 ([vLLM #40080](https://github.com/vllm-project/vllm/issues/40080)). |
+| `response_format` | object | N | `text`, `json_object`, `json_schema` | 출력 형식. `json_schema`의 `integer`/`number`에는 `minimum`·`maximum`을, 자유 `string`에는 `maxLength` 또는 `pattern`을 넣는다 — 경계가 없으면 문법상 값이 무한히 이어져 `max_tokens`에서 잘리고 `UPSTREAM_RESPONSE_INVALID`가 된다 ([vLLM #40080](https://github.com/vllm-project/vllm/issues/40080)). |
 | `logprobs` | boolean | N | `true` / `false` | Token log probability |
 | `top_logprobs` | integer | N | `0`–`10` | `logprobs=true` 필요 |
 | `logit_bias` | object | N | 최대 256 entries, value `-100`–`100` | Served-model tokenizer token ID 기준 |
@@ -1634,25 +1634,27 @@ rollback_failed
 | `UNAUTHORIZED` | 401 | N | 유효한 Authorization 헤더(API 키)를 포함해 다시 호출한다. |
 | `FORBIDDEN` | 403 | N | 필요한 권한/프로파일로 호출하거나 운영자에게 문의한다. |
 | `NOT_FOUND` | 404 | N | 요청 경로와 식별자를 확인한다. |
+| `METHOD_NOT_ALLOWED` | 405 | N | `Allow` 헤더의 지원 method를 사용한다. |
 | `CONFLICT` | 409 | N | `error.details.reason` 또는 message를 확인해 충돌 원인을 해소한다. |
 | `GPU_BUDGET_EXCEEDED` | 409 | N | `error.details.plan.stop`의 런타임을 정지하거나 `force=true` 자동 축출을 요청한다. |
-| `DETECTOR_DISABLED` | 410 | N | 운영자에게 활성화를 요청하거나 다른 detector를 사용한다. |
+| `DETECTOR_DISABLED` | 409 | N | 운영자에게 활성화를 요청하거나 다른 detector를 사용한다. |
 | `REQUEST_TOO_LARGE` | 413 | N | payload 크기를 한도 이하로 줄인다. |
 | `VALIDATION_ERROR` | 422 | N | `error.param`이 가리키는 필드를 수정한다. |
 | `MODEL_CAPABILITY_MISMATCH` | 422 | N | 활성 프로파일이 지원하는 입력·기능으로 요청을 맞춘다. |
 | `RATE_LIMITED` | 429 | Y | `Retry-After`를 우선해 백오프 후 재시도한다. |
 | `INTERNAL_ERROR` | 500 | N | `request_id`와 함께 운영자에게 문의한다. |
 | `UPSTREAM_ERROR` | 502 | Y | 재시도하고 반복되면 runtime 로그를 확인한다. |
-| `UPSTREAM_SCHEMA_ERROR` | 502 | Y | `response_format.json_schema`를 단순화하거나 `max_tokens`를 늘린다. |
-| `PARSE_ERROR` | 502 | Y | 반복되면 runtime 상태와 로그를 확인한다. |
+| `UPSTREAM_RESPONSE_INVALID` | 502 | Y | runtime 응답 계약·호환성을 운영자와 확인한다. |
+| `STRUCTURED_OUTPUT_INVALID` | 502 | Y | 생성 JSON이 유효하지 않거나 요청 schema를 위반했다. 출력 예산·schema·모델 지원을 확인한다. |
 | `MODEL_UNAVAILABLE` | 503 | Y | 잠시 후 재시도하거나 `/admin/runtimes`를 확인한다. |
 | `QUEUE_TIMEOUT` | 503 | Y | 동시 요청 수를 줄인 뒤 재시도한다. |
 | `CIRCUIT_OPEN` | 503 | Y | 잠시 후 재시도한다. |
-| `RUNTIME_NOT_READY` | 503 | Y | 준비 완료 후 재시도하고 readiness/runtime 상태를 확인한다. |
 | `MAIN_MODEL_CONTROL_UNAVAILABLE` | 503 | Y | 재시도하고 반복되면 Admin Sidecar 상태를 확인한다. |
 | `MAIN_MODEL_SWITCH_IN_PROGRESS` | 503 | Y | 전환 operation 완료 후 재시도한다. |
 | `UPSTREAM_TIMEOUT` | 504 | Y | 재시도하거나 요청 크기·복잡도를 줄인다. |
-| `STREAM_LIMIT_EXCEEDED` | 504 | N | 출력 길이를 줄이거나 비스트리밍으로 재시도한다. |
+| `STREAM_LIMIT_EXCEEDED` | SSE 이벤트 | N | 출력 길이를 줄이거나 비스트리밍으로 재시도한다. 이미 시작된 HTTP 상태를 바꾸지 않는다. |
+
+Risk 평가의 `system_signals[].code=PARSE_ERROR`는 평가 도메인 신호로 유지한다. 공개 `error.code`와 서로 다른 계약이다.
 
 ### 재시도 처리
 
@@ -1661,6 +1663,7 @@ retryable = false
   → Request 수정 또는 운영 조치 후 재호출
 
 retryable = true
+  → 부분 응답·작업 상태를 확인하고 재실행이 안전한지 판단
   → Retry-After가 있으면 우선 적용
   → 없으면 exponential backoff 적용
   → 반복 실패 시 request_id로 로그 확인
@@ -1794,13 +1797,13 @@ Risk Adapter는 기본 Compose에서 `:9405`, Admin Sidecar는 `:8080` 내부 se
 
 | 영역 | Source |
 |---|---|
-| Endpoint 목록·lifecycle·auth | `src/ai_model_serving/api/endpoint_spec.py` |
+| Endpoint metadata·공개 오류 code | `src/ai_model_serving/api/endpoint_spec.py` |
 | Runtime route | `src/ai_model_serving/api/routers/` |
 | Runtime Request / Response validation | `src/ai_model_serving/contracts/` |
 | Main Model parameter policy | `configs/main_model_profiles.yaml`의 활성 profile `gateway_policy` |
 | Embedding / Risk parameter policy | `configs/model_serving.yaml` |
-| 정적 JSON Schema / OpenAPI contract | `specs/schemas/` |
-| OpenAPI | `specs/openapi.gateway.yaml`, runtime `/openapi.json` |
+| 정적 JSON Schema | `specs/schemas/` |
+| OpenAPI | runtime `/openapi.json`; `specs/openapi.*.yaml`은 그 생성 산출물 |
 | Request example | `src/ai_model_serving/api_examples.py` |
 | Error status | `src/ai_model_serving/errors.py` |
 | Error 의미·조치 | `configs/error_catalog.yaml` |

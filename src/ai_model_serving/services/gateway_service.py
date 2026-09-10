@@ -318,7 +318,7 @@ class GatewayService:
             gateway_policy,
         )
         # 구조화 출력(json_schema/json_object) 응답이 콜드스타트 Triton JIT 지연 등으로
-        # 중간에 잘리면 validate_chat_response가 UPSTREAM_SCHEMA_ERROR로 잡아낸다.
+        # 중간에 잘리면 validate_chat_response가 STRUCTURED_OUTPUT_INVALID로 잡아낸다.
         # 이 스키마는 요청마다 임의로 달라질 수 있어 미리 예열해둘 수 없으므로,
         # 스키마 내용과 무관하게 통하는 방어선은 "잘림 감지 후 즉시 1회 재시도"뿐이다.
         attempts_allowed = 2 if expectations.response_format_type in _STRUCTURED_OUTPUT_RETRYABLE_FORMATS else 1
@@ -335,13 +335,13 @@ class GatewayService:
                     )
                 except ServiceError as exc:
                     if isinstance(exc, RetryableStructuredOutputError) and attempt < attempts_allowed:
-                        self.metrics.record_upstream_error(self.settings.runtime("main_llm").logical_id, "UPSTREAM_SCHEMA_ERROR_RETRIED")
+                        self.metrics.record_upstream_error(self.settings.runtime("main_llm").logical_id, "STRUCTURED_OUTPUT_RETRIED")
                         continue
-                    self.metrics.record_upstream_error(self.settings.runtime("main_llm").logical_id, exc.code)
+                    self.metrics.record_upstream_error(self.settings.runtime("main_llm").logical_id, exc.operational_code)
                     raise
         except TimeoutError as exc:
             self.metrics.record_upstream_error(self.settings.runtime("main_llm").logical_id, "GATEWAY_TIMEOUT")
-            raise ServiceError("UPSTREAM_TIMEOUT", "Gateway request timed out before the chat runtime completed.") from exc
+            raise ServiceError("UPSTREAM_TIMEOUT", "Gateway request timed out before the chat runtime completed.", diagnostic_code="GATEWAY_TIMEOUT") from exc
         finally:
             self.metrics.record_upstream_request(
                 self.settings.runtime("main_llm").logical_id,
@@ -385,10 +385,12 @@ class GatewayService:
                         if chunk_count > self.settings.streaming_max_chunks:
                             raise ServiceError(
                                 "STREAM_LIMIT_EXCEEDED", f"stream emitted {chunk_count} chunks; limit is {self.settings.streaming_max_chunks}. Reduce max_tokens or retry without stream=true.",
+                                diagnostic_code="STREAM_CHUNK_LIMIT_EXCEEDED",
                             )
                         if byte_count > self.settings.streaming_max_bytes:
                             raise ServiceError(
                                 "STREAM_LIMIT_EXCEEDED", f"stream emitted {byte_count} bytes; limit is {self.settings.streaming_max_bytes}. Reduce max_tokens or retry without stream=true.",
+                                diagnostic_code="STREAM_BYTE_LIMIT_EXCEEDED",
                             )
                         if not first_chunk_recorded:
                             first_chunk_recorded = True
@@ -408,13 +410,13 @@ class GatewayService:
                 phase = "mid_stream" if emitted_chunk else "before_first_chunk"
                 self.metrics.record_upstream_error(target, "GATEWAY_TIMEOUT")
                 self.metrics.record_streaming_error(target, "GATEWAY_TIMEOUT", phase)
-                error = ServiceError("UPSTREAM_TIMEOUT", "Gateway request timed out before the chat stream completed.")
+                error = ServiceError("UPSTREAM_TIMEOUT", "Gateway request timed out before the chat stream completed.", diagnostic_code="GATEWAY_TIMEOUT")
                 yield _stream_error_event(error)
             except ServiceError as exc:
                 terminal_status = exc.code
                 phase = "mid_stream" if emitted_chunk else "before_first_chunk"
-                self.metrics.record_upstream_error(target, exc.code)
-                self.metrics.record_streaming_error(target, exc.code, phase)
+                self.metrics.record_upstream_error(target, exc.operational_code)
+                self.metrics.record_streaming_error(target, exc.operational_code, phase)
                 yield _stream_error_event(exc)
             finally:
                 elapsed = time.monotonic() - start
@@ -460,9 +462,9 @@ class GatewayService:
             )
         except TimeoutError as exc:
             self.metrics.record_upstream_error(profile.model, "GATEWAY_TIMEOUT")
-            raise ServiceError("UPSTREAM_TIMEOUT", "Gateway request timed out before the embedding runtime completed.") from exc
+            raise ServiceError("UPSTREAM_TIMEOUT", "Gateway request timed out before the embedding runtime completed.", diagnostic_code="GATEWAY_TIMEOUT") from exc
         except ServiceError as exc:
-            self.metrics.record_upstream_error(profile.model, exc.code)
+            self.metrics.record_upstream_error(profile.model, exc.operational_code)
             raise
         finally:
             self.metrics.record_upstream_request(
@@ -483,9 +485,9 @@ class GatewayService:
             return validate_risk_response(response)
         except TimeoutError as exc:
             self.metrics.record_upstream_error("risk-adapter", "GATEWAY_TIMEOUT")
-            raise ServiceError("UPSTREAM_TIMEOUT", "Gateway request timed out before the risk adapter completed.") from exc
+            raise ServiceError("UPSTREAM_TIMEOUT", "Gateway request timed out before the risk adapter completed.", diagnostic_code="GATEWAY_TIMEOUT") from exc
         except ServiceError as exc:
-            self.metrics.record_upstream_error("risk-adapter", exc.code)
+            self.metrics.record_upstream_error("risk-adapter", exc.operational_code)
             raise
         finally:
             self.metrics.record_upstream_request("risk-adapter", path, time.monotonic() - start)

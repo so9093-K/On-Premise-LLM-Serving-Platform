@@ -18,11 +18,15 @@ Accepted
 
 ## Decision
 
+> 이 표는 ADR 채택 당시의 기준이다. 현재 파일과 생성 경계는
+> [5. 설정](../05_configuration.md#52-source-of-truth)이 권위이며, 정적 OpenAPI는
+> runtime route와 `endpoint_spec.py`에서 생성한다.
+
 문서는 사실을 새로 정의하지 않는다. 각 정보 유형별 source-of-truth를 아래와 같이 확정하고, 문서는 해당 source-of-truth를 참조하거나 반영하는 역할만 한다.
 
 | 정보 유형 | Source-of-Truth |
 |---|---|
-| 모델 목록 | `configs/model_catalog.yaml`, `model_cards/*.json` |
+| 모델 목록 | `configs/model_catalog.yaml` |
 | 모델 runtime 구성 | `configs/model_serving.yaml` |
 | risk code | `src/ai_model_serving/contracts/risk.py`, `configs/model_serving.yaml` |
 | API endpoint | `src/ai_model_serving/api/endpoint_spec.py`, `specs/openapi.gateway.yaml` |

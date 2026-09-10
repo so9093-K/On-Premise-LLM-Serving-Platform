@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Runtime asset renderer.
-
-ModelRegistry projection에서 정적 artifact를 생성한다.
+"""Source configuration과 runtime API에서 정적 배포 artifact를 생성한다.
 
 생성 대상:
   ops/prometheus/prometheus.yml
   ops/prometheus/prometheus.macos-metal.yml
   specs/schemas/model_list_response.schema.json
+  specs/openapi.gateway.yaml
+  specs/openapi.risk-adapter.yaml
 
 생성 제외 대상:
   compose 파일 (full-stack.private-network.yaml):
@@ -33,6 +33,7 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
+sys.path.insert(0, str(ROOT))
 
 from ai_model_serving.domain import ModelRegistry  # noqa: E402
 from ai_model_serving.deployment_target import load_deployment_target  # noqa: E402
@@ -40,6 +41,7 @@ from ai_model_serving.monitoring_projection import (  # noqa: E402
     macos_metal_prometheus_config_document,
     prometheus_scrape_config_document,
 )
+from scripts.openapi_assets import build_generated_openapi, render_static_openapi  # noqa: E402
 
 _GENERATED_HEADER_YAML_WITH_MONITORING = (
     "# 자동 생성 파일입니다. 직접 수정하지 마세요.\n"
@@ -146,6 +148,7 @@ def get_artifacts(
     root: Path,
 ) -> list[tuple[Path, str]]:
     """(파일 경로, expected 내용) 목록을 반환한다."""
+    openapi_docs, _ = build_generated_openapi(root)
     return [
         (root / "ops/prometheus/prometheus.yml", render_prometheus_yml(registry, monitoring, services)),
         (
@@ -158,6 +161,11 @@ def get_artifacts(
             root / "specs/schemas/model_list_response.schema.json",
             render_model_list_schema_json(registry),
         ),
+        (root / "specs/openapi.gateway.yaml", render_static_openapi(openapi_docs["gateway"])),
+        (
+            root / "specs/openapi.risk-adapter.yaml",
+            render_static_openapi(openapi_docs["risk-adapter"]),
+        ),
     ]
 
 
@@ -165,7 +173,7 @@ def get_artifacts(
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="ModelRegistry projection에서 runtime artifact를 생성/검증합니다."
+        description="프로젝트 Source of Truth에서 정적 배포 artifact를 생성/검증합니다."
     )
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument(

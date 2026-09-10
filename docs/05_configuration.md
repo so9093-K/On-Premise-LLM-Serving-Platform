@@ -68,8 +68,10 @@ YAML 파일은 모델, runtime, 서비스, 보안 정책 같은 **repository-lev
 | vLLM derived image build | `configs/vllm_unified_build.yaml` | target platform, base image와 compatibility pin 정의 |
 | vLLM runtime patch | `ops/images/vllm-unified/Dockerfile`, `ops/patches/` | derived image에 적용할 patch와 적용 조건 정의 |
 | 권장 container image | `configs/recommended_images.yaml` | 로컬 build와 초기 env에 사용할 기본 image tag 정의. 실제 배포 재현성은 registry digest가 담당 |
-| Error metadata | `configs/error_catalog.yaml` | error code의 의미, retry 권장 여부, operator action 정의 |
-| API endpoint | `src/ai_model_serving/api/endpoint_spec.py`, `specs/openapi.gateway.yaml` | 외부 API endpoint 계약 정의 |
+| Error transport contract | `src/ai_model_serving/errors.py` | error code별 HTTP status와 retryable 정의 |
+| Error guidance | `configs/error_catalog.yaml` | error code의 의미와 operator action 설명 |
+| API endpoint | `src/ai_model_serving/api/endpoint_spec.py` | endpoint metadata와 endpoint별 공개 오류 code 정의 |
+| Generated OpenAPI | `specs/openapi.*.yaml` | runtime route와 endpoint metadata에서 생성한 배포용 정적 문서 |
 | Request / response schema | `specs/schemas/*.json` | API payload 구조와 정적 제약 정의 |
 | Compose topology | `ops/compose/*.yaml` | container, network, volume, healthcheck 기본 구조 정의 |
 | Build / 운영 명령 | `Makefile`, `scripts/` | 설정 생성·검증·빌드·기동 동작 정의 |

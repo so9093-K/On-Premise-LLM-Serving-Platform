@@ -238,25 +238,16 @@ def _validate_chat_request_contract_samples(chat_validator: Draft202012Validator
 
 
 def validate_common_error_codes() -> None:
-    """공개 error code 집합이 런타임·스키마·카탈로그 세 곳에서 같은지 확인한다.
+    """HTTP/SSE 공개 코드 집합의 runtime·schema·문서 drift를 검사한다."""
+    from ai_model_serving.errors import ERROR_DEFINITIONS
 
-    ERROR_STATUS(errors.py)가 코드 목록의 권위다. 나머지 둘은 그 목록에 딸린
-    표현이다 -- 공개 스키마의 enum은 클라이언트가 보는 목록이고, error_catalog.yaml은
-    code별 의미/조치 서술이다. 셋 중 하나만 추가·삭제되면 여기서 막는다.
-
-    retryable은 여기서 보지 않는다. 예전엔 error_catalog.yaml이 ERROR_RETRYABLE의
-    사본을 들고 있어서 이 함수가 둘의 일치를 지켜야 했는데, 사본을 없애고 문서 gloss도
-    ERROR_RETRYABLE을 직접 읽게 바꿨다 -- 지킬 사본이 없으면 검사도 필요 없다.
-    """
-    from ai_model_serving.errors import ERROR_RETRYABLE, ERROR_STATUS
-
-    known_codes = set(ERROR_STATUS)
+    known_codes = set(ERROR_DEFINITIONS)
 
     schema = read_json('specs/schemas/common_error.schema.json')
     schema_codes = set(schema['properties']['error']['properties']['code'].get('enum', []))
     if schema_codes != known_codes:
         raise SystemExit(
-            'common_error.schema.json code enum이 errors.ERROR_STATUS와 다르다: '
+            'common_error.schema.json code enum이 errors.ERROR_DEFINITIONS와 다르다: '
             f'스키마에만={sorted(schema_codes - known_codes)}, '
             f'코드에만={sorted(known_codes - schema_codes)}'
         )
@@ -264,14 +255,10 @@ def validate_common_error_codes() -> None:
     catalog_codes = set(read_yaml('configs/error_catalog.yaml')['errors'])
     if catalog_codes != known_codes:
         raise SystemExit(
-            'error_catalog.yaml이 errors.ERROR_STATUS와 다르다: '
+            'error_catalog.yaml이 errors.ERROR_DEFINITIONS와 다르다: '
             f'카탈로그에만={sorted(catalog_codes - known_codes)}, '
             f'코드에만={sorted(known_codes - catalog_codes)}'
         )
-
-    missing_retryable = known_codes - set(ERROR_RETRYABLE)
-    if missing_retryable:
-        raise SystemExit(f'ERROR_RETRYABLE missing entries for: {sorted(missing_retryable)}')
 
     # ServiceError의 첫 인자는 실제 API 응답 error.code가 된다. 구현 전체를
     # 문자열로 검사하는 것이 아니라, 이 공개 경계에 도달하는 literal만 수집해
@@ -284,9 +271,9 @@ def validate_common_error_codes() -> None:
                 continue
             function = node.func
             is_service_error = (
-                isinstance(function, ast.Name) and function.id == 'ServiceError'
+                isinstance(function, ast.Name) and function.id in {'ServiceError', 'RetryableStructuredOutputError'}
             ) or (
-                isinstance(function, ast.Attribute) and function.attr == 'ServiceError'
+                isinstance(function, ast.Attribute) and function.attr in {'ServiceError', 'RetryableStructuredOutputError'}
             )
             first_argument = node.args[0]
             if is_service_error and isinstance(first_argument, ast.Constant) and isinstance(first_argument.value, str):
@@ -298,17 +285,3 @@ def validate_common_error_codes() -> None:
             'ServiceError emits code(s) absent from the public error catalog: '
             + ', '.join(sorted(unknown_emitted))
         )
-
-
-def validate_openapi_error_surface() -> None:
-    required_post_errors = {'413', '429', '500', '502', '503', '504'}
-    for rel in ['specs/openapi.gateway.yaml', 'specs/openapi.risk-adapter.yaml']:
-        doc = read_yaml(rel)
-        for path, methods in doc.get('paths', {}).items():
-            post = methods.get('post') if isinstance(methods, dict) else None
-            if not post:
-                continue
-            responses = set(post.get('responses', {}))
-            missing = required_post_errors - responses
-            if missing:
-                raise SystemExit(f'{rel} {path} missing error responses: {sorted(missing)}')

@@ -164,10 +164,10 @@ class RetrievalService:
         except TimeoutError as exc:
             status_code = 504
             self.metrics.record_upstream_error(target, "GATEWAY_TIMEOUT")
-            raise ServiceError("UPSTREAM_TIMEOUT", "Gateway request timed out before the retrieval runtime completed.") from exc
+            raise ServiceError("UPSTREAM_TIMEOUT", "Gateway request timed out before the retrieval runtime completed.", diagnostic_code="GATEWAY_TIMEOUT") from exc
         except ServiceError as exc:
             status_code = exc.status_code
-            self.metrics.record_upstream_error(target, exc.code)
+            self.metrics.record_upstream_error(target, exc.operational_code)
             raise
         finally:
             elapsed = time.monotonic() - start
@@ -211,10 +211,10 @@ class RetrievalService:
         except TimeoutError as exc:
             status_code = 504
             self.metrics.record_upstream_error(target, "GATEWAY_TIMEOUT")
-            raise ServiceError("UPSTREAM_TIMEOUT", "Gateway request timed out before the retrieval runtime completed.") from exc
+            raise ServiceError("UPSTREAM_TIMEOUT", "Gateway request timed out before the retrieval runtime completed.", diagnostic_code="GATEWAY_TIMEOUT") from exc
         except ServiceError as exc:
             status_code = exc.status_code
-            self.metrics.record_upstream_error(target, exc.code)
+            self.metrics.record_upstream_error(target, exc.operational_code)
             raise
         finally:
             elapsed = time.monotonic() - start

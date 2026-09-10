@@ -39,7 +39,7 @@ from ..api_examples import (
     PII_EXAMPLES,
     SECRET_EXAMPLES,
 )
-from ..api.endpoint_spec import GATEWAY_ENDPOINTS, schema_maps_from_specs
+from ..api.endpoint_spec import GATEWAY_ENDPOINTS, error_codes_from_specs, schema_maps_from_specs
 
 _GW_SPECS = {(spec.method, spec.path): spec for spec in GATEWAY_ENDPOINTS}
 from ..api.routers.gateway_ops import build_router as _build_ops_router
@@ -238,6 +238,7 @@ def create_gateway_app(settings: AppSettings | None = None, clients: GatewayClie
         app,
         request_schemas=_request_schemas,
         response_schemas=_response_schemas,
+        error_codes=error_codes_from_specs(GATEWAY_ENDPOINTS),
         # chat 요청 스키마는 정적 파일이라 프로필별 한도를 담지 못한다. 활성 프로필
         # 정책으로 좁혀서 문서의 필드 제약이 실제 API와 같아지게 한다.
         # 엔드포인트가 하나뿐인 태그의 상세 설명은 태그가 아니라 그 오퍼레이션에 붙인다.

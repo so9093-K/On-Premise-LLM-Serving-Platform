@@ -24,20 +24,20 @@
             "UNAUTHORIZED",
             "FORBIDDEN",
             "NOT_FOUND",
+            "METHOD_NOT_ALLOWED",
             "CONFLICT",
             "GPU_BUDGET_EXCEEDED",
             "MODEL_UNAVAILABLE",
             "MODEL_CAPABILITY_MISMATCH",
             "UPSTREAM_TIMEOUT",
             "UPSTREAM_ERROR",
-            "UPSTREAM_SCHEMA_ERROR",
+            "UPSTREAM_RESPONSE_INVALID",
+            "STRUCTURED_OUTPUT_INVALID",
             "RATE_LIMITED",
-            "PARSE_ERROR",
             "INTERNAL_ERROR",
             "QUEUE_TIMEOUT",
             "CIRCUIT_OPEN",
             "REQUEST_TOO_LARGE",
-            "RUNTIME_NOT_READY",
             "DETECTOR_DISABLED",
             "STREAM_LIMIT_EXCEEDED",
             "MAIN_MODEL_CONTROL_UNAVAILABLE",
@@ -52,6 +52,7 @@
           "type": ["string", "null"]
         },
         "retryable": {
+          "description": "The condition may be transient. Automatic replay also requires operation-specific replay safety and must respect Retry-After when present.",
           "type": "boolean"
         },
         "request_id": {
@@ -62,13 +63,6 @@
         },
         "operation_status": {
           "type": ["string", "null"]
-        },
-        "debug": {
-          "description": "Diagnostic details for operators and internal developers. Values are bounded strings/scalars and may include the original exception summary or upstream status/body snippet.",
-          "type": "object",
-          "additionalProperties": {
-            "type": ["string", "number", "integer", "boolean", "null"]
-          }
         },
         "details": {
           "description": "Structured recovery information for an operation-specific error. For GPU_BUDGET_EXCEEDED, includes feasible, required, available, ceiling, and optionally plan.stop.",

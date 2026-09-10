@@ -122,4 +122,4 @@ Risk detector의 `bitsandbytes` 설정은 운영 기본값이다. 원인 분리�
 
 ## OpenAPI snapshot diff
 
-`scripts/validation/openapi_snapshot_diff.py`는 strict auth 기준 generated OpenAPI와 checked-in static OpenAPI의 path/method/parameter/security/operationId/response status/request·response schema drift를 확인한다. `make validate`의 정적 검증 단계에 포함된다.
+`scripts/validation/openapi_snapshot_diff.py`는 strict auth 기준 runtime OpenAPI와 checked-in static OpenAPI의 path/method/parameter/security/operationId/response status/request·response schema 및 endpoint별 오류 code drift를 확인한다. 정적 OpenAPI는 `make render-runtime-assets`로 생성하며, 이 검사는 `make validate`에 포함된다.

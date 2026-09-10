@@ -6,10 +6,10 @@ import time
 from typing import Any
 
 from starlette.requests import Request
-from starlette.responses import Response
+from starlette.types import ASGIApp, Scope, Receive, Send, Message
 
 from .detectors.masking import mask_sensitive_text
-from .errors import request_id_from_headers
+from .errors import ERROR_RETRYABLE, REQUEST_ERROR_CONTEXT, exception_diagnostics, request_id_for
 from .contracts.common import is_int
 # service_logger/scrub_for_log은 starlette 없이도 써야 하는 호출부(예: 순수 YAML/카탈로그
 # 검증 스크립트가 도는 최소 venv)가 있어 service_logging.py로 분리했다 — 여기서는
@@ -21,7 +21,7 @@ __all__ = [
     "service_logger",
     "safe_request_log_record",
     "log_request_completion",
-    "safe_request_logging_middleware",
+    "RequestLoggingMiddleware",
     "record_request_response_preview",
     "record_token_usage",
     "record_error_diagnosis",
@@ -79,28 +79,35 @@ def record_error_diagnosis(
     request: Request,
     *,
     code: str,
-    retryable: bool,
-    debug: dict[str, Any] | None = None,
+    message: str | None = None,
+    diagnostic_code: str | None = None,
+    diagnostics: dict[str, Any] | None = None,
 ) -> None:
     """표준 API 오류의 안전한 진단 요약만 access log에 전달한다.
 
-    ``error.debug`` 전체에는 upstream body처럼 로그에 영구 보관하면 안 되는 값이
+    내부 diagnostics에는 upstream body처럼 로그에 영구 보관하면 안 되는 값이
     포함될 수 있다. 원인 type/message와 upstream HTTP 상태처럼 운영자가 바로
     분류에 쓰는 allowlist만 별도 필드로 남긴다.
     """
     request.state.error_code = code
-    request.state.error_retryable = retryable
-    if not debug:
+    request.state.error_retryable = ERROR_RETRYABLE[code]
+    request.state.diagnostic_code = diagnostic_code or code
+    if message:
+        request.state.error_message = message
+    if not diagnostics:
         return
-    cause_type = _safe_diagnosis_text(debug.get("cause_type"))
-    cause_message = _safe_diagnosis_text(debug.get("cause_message"))
-    upstream_status = debug.get("upstream_status")
+    cause_type = _safe_diagnosis_text(diagnostics.get("cause_type"))
+    cause_message = _safe_diagnosis_text(diagnostics.get("cause_message"))
+    upstream_status = diagnostics.get("upstream_status")
     if cause_type:
         request.state.error_cause_type = cause_type
     if cause_message:
         request.state.error_cause_message = cause_message
     if is_int(upstream_status) and 100 <= upstream_status <= 599:
         request.state.error_upstream_status = upstream_status
+    upstream_request_id = _safe_diagnosis_text(diagnostics.get("upstream_request_id"))
+    if upstream_request_id:
+        request.state.upstream_request_id = upstream_request_id
 
 
 def record_readiness_failure(request: Request, body: dict[str, Any]) -> None:
@@ -170,9 +177,6 @@ def safe_request_log_record(
     request: Request,
     status_code: int,
     elapsed_seconds: float,
-    error_code: str | None = None,
-    error_message: str | None = None,
-    response_request_id: str | None = None,
 ) -> dict[str, Any]:
     route_obj = request.scope.get("route")
     route = getattr(route_obj, "path", None) or request.url.path
@@ -180,24 +184,20 @@ def safe_request_log_record(
     record = {
         "event": "http_request_completed",
         "service": service,
-        # 에러 응답은 요청에 x-request-id가 없어도 error_payload가 request_id를 새로
-        # 발급하고 그 값을 X-Request-Id 응답 헤더로 에코한다(errors.py의
-        # error_response_headers). 그 값을 우선해야 클라이언트가 실제로 받은
-        # request_id와 로그의 request_id가 항상 일치한다 — 아니면 x-request-id를
-        # 안 보낸 클라이언트의 에러는 로그에서 request_id로 절대 못 찾는다.
-        "request_id": response_request_id or request_id_from_headers(request.headers),
+        "request_id": request_id_for(request),
         "method": request.method,
         "route": route,
         "status_code": status_code,
         "latency_ms": round(elapsed_seconds * 1000, 3),
         "client_host": peer_host,
     }
-    resolved_error_code = error_code or getattr(request.state, "error_code", None)
+    resolved_error_code = getattr(request.state, "error_code", None)
     if resolved_error_code:
         record["error_code"] = resolved_error_code
+    error_message = _safe_diagnosis_text(getattr(request.state, "error_message", None))
     if error_message:
         record["error_message"] = error_message
-    for field in ("error_retryable", "error_cause_type", "error_cause_message", "error_upstream_status"):
+    for field in ("diagnostic_code", "error_retryable", "error_cause_type", "error_cause_message", "error_upstream_status", "upstream_request_id"):
         value = getattr(request.state, field, None)
         if value is not None:
             record[field] = value
@@ -230,18 +230,12 @@ def log_request_completion(
     request: Request,
     status_code: int,
     elapsed_seconds: float,
-    error_code: str | None = None,
-    error_message: str | None = None,
-    response_request_id: str | None = None,
 ) -> None:
     record = safe_request_log_record(
         service=service,
         request=request,
         status_code=status_code,
         elapsed_seconds=elapsed_seconds,
-        error_code=error_code,
-        error_message=error_message,
-        response_request_id=response_request_id,
     )
     emit_request_event(
         service=service,
@@ -250,33 +244,55 @@ def log_request_completion(
     )
 
 
-async def safe_request_logging_middleware(
-    request: Request,
-    call_next,
-    *,
-    logger: logging.Logger,
-    service: str,
-) -> Response:
-    start = time.monotonic()
-    status_code = 500
-    error_code: str | None = None
-    error_message: str | None = None
-    response_request_id: str | None = None
-    try:
-        response = await call_next(request)
-        status_code = response.status_code
-        error_code = response.headers.get("x-error-code")
-        error_message = response.headers.get("x-error-message")
-        response_request_id = response.headers.get("x-request-id")
-        return response
-    finally:
-        log_request_completion(
-            logger=logger,
-            service=service,
-            request=request,
-            status_code=status_code,
-            elapsed_seconds=time.monotonic() - start,
-            error_code=error_code,
-            error_message=error_message,
-            response_request_id=response_request_id,
-        )
+class RequestLoggingMiddleware:
+    """응답 본문/SSE가 끝날 때 한 번 기록한다. 미처리 예외는 서버로 재전파한다."""
+
+    def __init__(self, app: ASGIApp, *, logger: logging.Logger, service: str) -> None:
+        self.app = app
+        self.logger = logger
+        self.service = service
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        request = Request(scope)
+        request_id = request_id_for(request)
+        token = REQUEST_ERROR_CONTEXT.set(scope["state"])
+        start = time.monotonic()
+        status_code = 500
+
+        async def send_response(message: Message) -> None:
+            nonlocal status_code
+            if message["type"] == "http.response.start":
+                status_code = message["status"]
+                headers = list(message.get("headers", []))
+                if not any(key.lower() == b"x-request-id" for key, _ in headers):
+                    headers.append((b"x-request-id", request_id.encode("latin-1")))
+                message = {**message, "headers": headers}
+            await send(message)
+
+        try:
+            await self.app(scope, receive, send_response)
+        except Exception as exc:
+            record_error_diagnosis(
+                request, code="INTERNAL_ERROR",
+                message="Internal server error.", diagnostic_code="UNHANDLED_EXCEPTION",
+                diagnostics=exception_diagnostics(exc),
+            )
+            raise
+        finally:
+            try:
+                code = getattr(request.state, "error_code", None)
+                if code:
+                    record_error_diagnosis(
+                        request, code=code,
+                        diagnostic_code=getattr(request.state, "diagnostic_code", None),
+                        diagnostics=getattr(request.state, "error_diagnostics", None),
+                    )
+                log_request_completion(
+                    logger=self.logger, service=self.service, request=request,
+                    status_code=status_code, elapsed_seconds=time.monotonic() - start,
+                )
+            finally:
+                REQUEST_ERROR_CONTEXT.reset(token)

@@ -98,7 +98,7 @@ Prefix caching은 반복 prefix가 있는 multi-turn, tool, RAG prompt에서 pre
 | Config | `make validate`, `pytest`, generated schema/contract/runtime matrix drift 없음 |
 | Compose | 기본 compose에 `risk-siren-vllm` service dependency가 없고, enabled runtime 4개만 scrape 대상인지 확인 |
 | Functional smoke | `/health`, `/ready`, `/v1/models`, chat, streaming chat, image input, embeddings, retrieval rerank/score, prompt risk, aggregate |
-| Risk retired policy | `/v1/risk/detectors/siren/assessments`는 410 Gone 또는 제거 정책과 일치 |
+| Risk removed policy | `/v1/risk/detectors/siren/assessments`는 등록되지 않은 일반 경로와 같이 404 |
 | Soak | 20K context, seq 1, mixed text/vision/risk workload 30분, restart/OOM 0 |
 | Monitoring | Prometheus scrape 정상, Grafana No Data 패널 없음, GPU reserve가 `hard_minimum` 3.5GiB 이상 |
 
