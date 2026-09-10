@@ -27,6 +27,7 @@ except ModuleNotFoundError:
 
 from ai_model_serving.settings_parts.dotenv_parser import parse_env_file  # noqa: E402
 from ai_model_serving.auth_control import auth_profile_env_values  # noqa: E402
+from ai_model_serving.access_profile import access_profile_mismatches  # noqa: E402
 
 
 def load_yaml(path: Path) -> dict[str, Any]:
@@ -252,6 +253,36 @@ def validate_auth_example_profiles(root: Path, contract: dict[str, Any]) -> list
     return violations
 
 
+def validate_access_example_profiles(root: Path, contract: dict[str, Any]) -> list[str]:
+    violations: list[str] = []
+    examples = contract.get("access_example_profiles")
+    if not isinstance(examples, dict) or not examples:
+        return [
+            "env_contract.yaml: access_example_profiles must be a non-empty mapping"
+        ]
+    for filename, profile in examples.items():
+        if not isinstance(filename, str) or not isinstance(profile, str) or not profile:
+            violations.append(
+                "env_contract.yaml: access_example_profiles entries must map filename to profile name"
+            )
+            continue
+        path = root / filename
+        if not path.exists():
+            violations.append(f"{filename}: file not found for access profile validation")
+            continue
+        try:
+            values = parse_env_file(path).values
+            mismatches = access_profile_mismatches(profile, values, root)
+        except (OSError, RuntimeError, ValueError) as exc:
+            violations.append(f"{filename}: access profile validation failed: {exc}")
+            continue
+        if mismatches:
+            violations.append(
+                f"{filename}: access profile {profile!r} mismatch: {mismatches}"
+            )
+    return violations
+
+
 def validate(root: Path = ROOT, strict: bool = False) -> list[str]:
     violations: list[str] = []
 
@@ -273,6 +304,7 @@ def validate(root: Path = ROOT, strict: bool = False) -> list[str]:
         removed_keys = {}
     violations.extend(validate_service_env_projections(root, contract))
     violations.extend(validate_auth_example_profiles(root, contract))
+    violations.extend(validate_access_example_profiles(root, contract))
     main_profiles = load_yaml(
         root / "configs" / "main_model_profiles.yaml"
     ).get("profiles", {})

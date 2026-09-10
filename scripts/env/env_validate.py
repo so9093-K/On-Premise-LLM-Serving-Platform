@@ -13,6 +13,7 @@ if str(ROOT) not in sys.path:
 
 from scripts.lib.env_cli import print_env_error, resolve_path  # noqa: E402
 from ai_model_serving.settings_parts.dotenv_parser import load_strict_env_file  # noqa: E402
+from ai_model_serving.access_profile import access_profile_mismatches  # noqa: E402
 
 
 def main() -> int:
@@ -22,8 +23,16 @@ def main() -> int:
 
     env_path = resolve_path(args.env_file)
     try:
-        load_strict_env_file(env_path)
-    except RuntimeError as exc:
+        values = load_strict_env_file(env_path)
+        access_profile = values.get("ACCESS_PROFILE", "").strip()
+        if access_profile:
+            mismatches = access_profile_mismatches(access_profile, values, ROOT)
+            if mismatches:
+                raise RuntimeError(
+                    f"ACCESS_PROFILE={access_profile!r} does not match resolved policy: "
+                    + "; ".join(mismatches)
+                )
+    except (OSError, RuntimeError, ValueError) as exc:
         print_env_error(env_path, str(exc))
         return 2
     return 0

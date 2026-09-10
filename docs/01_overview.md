@@ -182,6 +182,7 @@ Runtime Flags
 | **Model Runtime** | `configs/model_serving.yaml` | 모델별 backend, port, context, concurrency, runtime option 설정 |
 | **GPU Budget** | `configs/gpu_budgets.yaml` | Runtime별 GPU memory budget과 전체 사용 한도 관리 |
 | **Service / Port** | `configs/services.yaml` | 서비스 이름, 내부 port, 연결 정보 정의 |
+| **Access Profile** | `configs/access_profiles.yaml` | 사용자 접근 의도를 인증·노출·bind 조합으로 투영 |
 | **Exposure** | `configs/exposure_profiles.yaml` | Host publish 여부와 외부 노출 범위 설정 |
 | **Authentication** | `configs/auth_profiles.yaml` | API 인증 방식과 인증 profile 설정 |
 | **Monitoring** | `configs/monitoring.yaml` | Metrics, logs, dashboard 관련 관측성 설정 |

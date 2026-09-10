@@ -2,6 +2,7 @@
 # 실제 실행값의 필수 여부와 유효성은 settings·compose preflight·auth 진단이 판단한다.
 common_example_keys:
   - APP_ENV
+  - ACCESS_PROFILE
   - DEPLOYMENT_TARGET
   - LOG_LEVEL
   - GATEWAY_HOST
@@ -94,6 +95,11 @@ env_examples:
 auth_example_profiles:
   .env.local.example: local_open
   .env.compose.example: local_open
+
+# Compose 예시는 일반 사용자의 기본 접근 profile까지 완전하게 투영한다.
+# app-only 예시는 Compose host bind 집합을 소비하지 않으므로 여기서 제외한다.
+access_example_profiles:
+  .env.compose.example: local
 
 # Compose 변수와 컨테이너 프로세스 환경은 다른 소비자다. 운영자 `.env`는 값의
 # 원본으로 유지하고, 아래 projection만 서비스에 생성·주입한다. 목록 밖의 키가

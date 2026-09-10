@@ -23,6 +23,11 @@ if str(ROOT / "src") not in sys.path:
 
 from ai_model_serving.deployment_target import DeploymentTarget, load_deployment_target  # noqa: E402
 from ai_model_serving.configuration import load_yaml_mapping  # noqa: E402
+from ai_model_serving.access_profile import (  # noqa: E402
+    access_profile_mismatches,
+    access_profile_names,
+    load_access_profile,
+)
 from ai_model_serving.settings_parts.dotenv_parser import load_strict_env_file  # noqa: E402
 from scripts.build.pin_local_vllm_image import (  # noqa: E402
     pin_matching_env_values,
@@ -68,6 +73,27 @@ def _main_profile(target: DeploymentTarget, values: dict[str, str]) -> str:
     return profile
 
 
+def _print_access(values: dict[str, str]) -> None:
+    name = values.get("ACCESS_PROFILE", "").strip()
+    if not name:
+        print(
+            "[platform] access: legacy/custom "
+            f"(auth={values.get('AUTH_MODE', '<unset>')} "
+            f"exposure={values.get('EXPOSURE_MODE', '<unset>')})"
+        )
+        return
+    profile = load_access_profile(name)
+    mismatches = access_profile_mismatches(name, values)
+    if mismatches:
+        raise RuntimeError(
+            f"ACCESS_PROFILE={name!r} drift: " + "; ".join(mismatches)
+        )
+    print(
+        f"[platform] access: {profile.name} — {profile.description} "
+        f"(auth={values.get('AUTH_MODE')} exposure={values.get('EXPOSURE_MODE')})"
+    )
+
+
 def _gateway_probe(values: dict[str, str], path: str) -> tuple[str, bool]:
     host = values.get("GATEWAY_BIND_ADDR") or "127.0.0.1"
     if host == "0.0.0.0":
@@ -100,6 +126,8 @@ def setup_target(
     target: DeploymentTarget,
     main_profile: str | None,
     main_base_url: str | None,
+    access_profile: str | None,
+    confirm_access: bool,
 ) -> None:
     if target.runtime_backend == "mlx-vlm":
         _run(sys.executable, "scripts/runtime/macos_mlx_runtime.py", "doctor")
@@ -114,7 +142,19 @@ def setup_target(
             command += ["--main-profile", main_profile]
         if main_base_url:
             command += ["--main-llm-base-url", main_base_url]
+        if access_profile:
+            command += ["--access-profile", access_profile]
+        if confirm_access:
+            command += ["--confirm-access"]
         _run(*command)
+        if access_profile:
+            current = _env_values()
+            if access_profile_mismatches(access_profile, current):
+                print(
+                    "[platform] access plan complete; existing .env was not changed. "
+                    "Review the plan, then rerun with CONFIRM=access."
+                )
+                return
         print(f"[platform] preserving existing .env for target={target.target_id}")
     else:
         command = [
@@ -127,6 +167,8 @@ def setup_target(
             command += ["--main-profile", main_profile]
         if main_base_url:
             command += ["--main-llm-base-url", main_base_url]
+        if access_profile:
+            command += ["--access-profile", access_profile]
         if target.control_mode == "static" and not target.gateway_runtime_host and not main_base_url:
             raise RuntimeError(
                 f"static target {target.target_id!r} needs MAIN_URL=http(s)://... on first setup"
@@ -135,6 +177,7 @@ def setup_target(
 
     if target.runtime_backend == "mlx-vlm":
         _run(sys.executable, "scripts/runtime/macos_mlx_runtime.py", "setup")
+    _print_access(_env_values())
     print(f"[platform] setup ready: target={target.target_id}")
     print("[platform] next: make build, then make prepare")
 
@@ -288,6 +331,7 @@ def down_target(target: DeploymentTarget) -> None:
 
 def status_target(target: DeploymentTarget) -> int:
     values = _env_values()
+    _print_access(values)
     if values.get("BUILD_PROFILE") == "local":
         result = subprocess.run(
             ["bash", "scripts/ops/status_services.sh", "--local"],
@@ -338,13 +382,25 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--target")
     parser.add_argument("--main-profile")
     parser.add_argument("--main-base-url")
+    parser.add_argument("--access-profile", choices=access_profile_names())
+    parser.add_argument("--confirm-access", action="store_true")
     args = parser.parse_args(argv)
     try:
-        if args.action != "setup" and (args.main_profile or args.main_base_url):
-            raise RuntimeError("MODEL and MAIN_URL are setup-only options")
+        if args.confirm_access and not args.access_profile:
+            raise RuntimeError("CONFIRM=access requires ACCESS=local|private|edge")
+        if args.action != "setup" and (
+            args.main_profile or args.main_base_url or args.access_profile or args.confirm_access
+        ):
+            raise RuntimeError("MODEL, MAIN_URL, ACCESS and CONFIRM are setup-only options")
         target = _target(args.target, require_env=args.action != "setup")
         if args.action == "setup":
-            setup_target(target, args.main_profile, args.main_base_url)
+            setup_target(
+                target,
+                args.main_profile,
+                args.main_base_url,
+                args.access_profile,
+                args.confirm_access,
+            )
         elif args.action == "build":
             build_target(target)
         elif args.action == "rebuild":
@@ -357,7 +413,7 @@ def main(argv: list[str] | None = None) -> int:
             down_target(target)
         else:
             return status_target(target)
-    except (OSError, RuntimeError, subprocess.CalledProcessError) as exc:
+    except (OSError, RuntimeError, ValueError, subprocess.CalledProcessError) as exc:
         print(f"[platform] ERROR: {exc}", file=sys.stderr)
         return 2
     return 0

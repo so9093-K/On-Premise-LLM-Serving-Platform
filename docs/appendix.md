@@ -68,7 +68,7 @@
 
 | 목적 | 명령 | 관련 문서 |
 |---|---|---|
-| target·`.env` 최초 준비 | `make setup TARGET=<id>` | [7. 로컬 개발과 빌드](./07_local_dev_build.md) |
+| target·`.env` 최초 준비 | `make setup TARGET=<id> [ACCESS=local\|private\|edge]` (기본 `local`) | [7. 로컬 개발과 빌드](./07_local_dev_build.md) |
 | target image 빌드 | `make build` / `make rebuild` | [7. 로컬 개발과 빌드](./07_local_dev_build.md) |
 | 선택 Main Model 준비 | `HF_TOKEN=... make prepare` | [7. 로컬 개발과 빌드](./07_local_dev_build.md) |
 | target 시작 / 상태 / 종료 | `make up` / `make status` / `make down` | [4. 실행 환경과 모드](./04_runtime_modes.md) |

@@ -48,6 +48,8 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     target: dict[str, str] = {"EXPOSURE_MODE": args.mode}
+    if current.get("ACCESS_PROFILE", "").strip():
+        target["ACCESS_PROFILE"] = ""
     if args.audience is not None:
         target["EXPOSURE_AUDIENCE"] = args.audience
 

@@ -348,7 +348,19 @@ Main Model profile의 `gpu_memory_utilization`과 GPU budget은 하나의 resour
 
 ## 5.9 인증과 노출 정책
 
-인증과 네트워크 노출은 별도 profile로 관리한다.
+일반 사용자는 `ACCESS_PROFILE=local|private|edge`로 접근 의도를 선택한다.
+`configs/access_profiles.yaml`이 인증·노출·bind의 지원 조합을 resolve한다.
+
+```bash
+make setup TARGET=<id> ACCESS=local
+```
+
+기존 `.env`에 profile을 적용할 때는 첫 실행이 계획만 표시한다. 확인 후
+`CONFIRM=access`를 지정한다. `ACCESS_PROFILE`이 없는 기존 환경은 자동 이관하지 않는다.
+
+인증과 네트워크 노출 profile은 Advanced/legacy primitive로 계속 분리 관리한다.
+개별 `auth-apply` 또는 `exposure-apply`를 적용하면 `ACCESS_PROFILE`을 비워 managed
+profile을 종료하며, plan에 그 전환을 함께 표시한다.
 
 ### Authentication Profile
 
@@ -556,6 +568,7 @@ make exposure-status
 | GPU budget | `gpu_budgets.yaml` | runtime admission, co-residency | `make validate`, full-stack readiness |
 | Service / port | `services.yaml` | Compose / exposure / Prometheus 생성 | `make validate`, `make compose-config` |
 | Exposure mode | `exposure_profiles.yaml` | host publish 범위 | `make validate`, exposure 적용, Compose 재적용 |
+| Access profile | `access_profiles.yaml` | 사용자 접근 의도를 auth/exposure/bind로 투영 | `make validate`, `make setup ACCESS=...` |
 | Deploy profile | `deploy_profiles.yaml` | secondary runtime 초기 상태 | compose-up, full deploy 또는 runtime reconcile |
 | Auth profile | `auth_profiles.yaml` | API / Admin / internal auth 정책 | `make validate`, auth plan/apply/doctor |
 | Environment example contract | `env_contract.yaml` | example env key | example env 갱신, `make sync-env`, `make validate` |
@@ -578,6 +591,7 @@ make exposure-status
 | GPU allocation | `configs/gpu_budgets.yaml` |
 | Service / port | `configs/services.yaml` |
 | Host 공개 범위 | `configs/exposure_profiles.yaml` |
+| 사용자 접근 profile | `configs/access_profiles.yaml` |
 | Secondary runtime 시작 상태 | `configs/deploy_profiles.yaml` |
 | 인증 정책 | `configs/auth_profiles.yaml` |
 | 환경변수 예시 키 | `configs/env_contract.yaml` |

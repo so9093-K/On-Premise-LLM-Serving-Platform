@@ -160,6 +160,7 @@ make build-image
 | `configs/model_serving.yaml` | 모델 endpoint, 요청 정책, 운영 제한 |
 | `configs/main_model_profiles.yaml` | Main Model 실행 profile |
 | `configs/services.yaml` | Service 이름, port, host bind metadata |
+| `configs/access_profiles.yaml` | 사용자 접근 profile의 지원 조합 |
 | `configs/exposure_profiles.yaml` | Host port 공개 범위 |
 | `configs/deploy_profiles.yaml` | Secondary Runtime 초기 상태 |
 | `configs/gpu_budgets.yaml` | Runtime GPU 자원 판단 |
@@ -388,7 +389,8 @@ make validate
 make compose-config
 ```
 
-실행 환경의 Exposure mode 변경 계획은 다음 명령으로 확인한다.
+일반 접근 범위는 `make setup ACCESS=...`으로 선택한다. 아래 개별 명령은 managed
+Access Profile을 종료하고 Advanced/legacy 설정으로 전환할 때만 사용한다.
 
 ```bash
 make exposure-plan MODE=<private_network|master_open>

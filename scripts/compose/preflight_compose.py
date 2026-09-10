@@ -27,6 +27,10 @@ from ai_model_serving.main_model.boot import (  # noqa: E402
     resolve_compose_relative_path,
 )
 from ai_model_serving.auth_control import auth_profile_exposure_mismatch  # noqa: E402
+from ai_model_serving.access_profile import (  # noqa: E402
+    access_profile_env_values,
+    access_profile_mismatches,
+)
 from ai_model_serving.settings_parts.dotenv_parser import load_strict_env_file  # noqa: E402
 from scripts.compose.effective_host_ports import effective_host_ports  # noqa: E402
 from scripts.compose.resolve_exposure_mode import (  # noqa: E402
@@ -75,11 +79,25 @@ def _check_auth_profile_preflight() -> None:
     app_env = _env_value("APP_ENV", "local").strip()
     auth_mode = _env_value("AUTH_MODE", "local_open").strip() or "local_open"
     failures: list[str] = []
-    exposure_mismatch = auth_profile_exposure_mismatch(
-        auth_mode, _env_value("EXPOSURE_MODE", ""), _env_value("EXPOSURE_AUDIENCE", "")
-    )
-    if exposure_mismatch is not None:
-        failures.append(exposure_mismatch + ".")
+    access_profile = _env_value("ACCESS_PROFILE", "").strip()
+    if access_profile:
+        try:
+            expected = access_profile_env_values(access_profile, ROOT)
+            current = {key: _env_value(key, "") for key in expected}
+            access_mismatches = access_profile_mismatches(access_profile, current, ROOT)
+        except (OSError, ValueError) as exc:
+            failures.append(str(exc))
+        else:
+            failures.extend(
+                f"ACCESS_PROFILE={access_profile} drift: {message}"
+                for message in access_mismatches
+            )
+    else:
+        exposure_mismatch = auth_profile_exposure_mismatch(
+            auth_mode, _env_value("EXPOSURE_MODE", ""), _env_value("EXPOSURE_AUDIENCE", "")
+        )
+        if exposure_mismatch is not None:
+            failures.append(exposure_mismatch + ".")
     if not _non_local_app_env():
         if failures:
             for failure in failures:

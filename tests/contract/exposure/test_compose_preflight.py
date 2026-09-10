@@ -11,6 +11,8 @@ from types import ModuleType
 
 import pytest
 
+from ai_model_serving.access_profile import access_profile_env_values
+
 from .helpers import ROOT, load_exposure
 
 PREFLIGHT_PATH = ROOT / "scripts/compose/preflight_compose.py"
@@ -56,6 +58,19 @@ def test_compose_preflight_allows_non_local_local_open_on_trusted_lan(monkeypatc
     monkeypatch.setenv("EXPOSURE_AUDIENCE", "private_lan")
 
     module._check_auth_profile_preflight()
+
+
+def test_compose_preflight_rejects_access_profile_drift(monkeypatch) -> None:
+    module = load_preflight()
+    for key, value in access_profile_env_values("local").items():
+        monkeypatch.setenv(key, value)
+    monkeypatch.setenv("APP_ENV", "local")
+    monkeypatch.setenv("GATEWAY_BIND_ADDR", "0.0.0.0")
+
+    with pytest.raises(SystemExit) as exc:
+        module._check_auth_profile_preflight()
+
+    assert "auth/exposure policy" in str(exc.value)
 
 
 def test_compose_preflight_reads_auth_mode_from_env_file(monkeypatch, tmp_path) -> None:

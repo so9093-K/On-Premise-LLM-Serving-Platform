@@ -13,7 +13,8 @@ profiles:
     internal_service_auth_required: false
     docs_enabled: true
     auth_owner: operator
-    scope: "사내망 개발·진단용 — API, Admin, 내부 호출 인증 없이 전체 stack 사용"
+    scope: "개발·진단용 — API, Admin, 내부 호출 인증 없음; 네트워크 범위는 Access/Exposure가 소유"
+    # ACCESS_PROFILE이 없는 Advanced/legacy 경로에서만 쓰는 호환 기본값이다.
     default_exposure_mode: master_open
     default_exposure_audience: private_lan
 

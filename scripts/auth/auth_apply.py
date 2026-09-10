@@ -50,6 +50,8 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     target = auth_profile_env_values(args.mode)
     target.update(auth_profile_exposure_values(args.mode))
+    if values.get("ACCESS_PROFILE", "").strip():
+        target["ACCESS_PROFILE"] = ""
     resolved_app_env = args.app_env or _APP_ENV_FOR_MODE.get(args.mode)
     if resolved_app_env:
         target["APP_ENV"] = resolved_app_env

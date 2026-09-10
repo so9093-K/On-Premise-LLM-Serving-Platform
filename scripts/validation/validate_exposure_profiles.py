@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""configs/exposure_profiles.yaml의 구조적 불변식을 검증한다.
+"""access/exposure/service profile의 구조적 불변식을 검증한다.
 
 체크 항목:
 - profiles가 존재하고 비어있지 않은지
@@ -127,11 +127,11 @@ def validate_compose_exposure_projection(data: dict, services: dict) -> list[str
 
 def load(path: Path) -> dict:
     if not path.exists():
-        print(f"FAIL: configs/exposure_profiles.yaml not found at {path}", file=sys.stderr)
+        print(f"FAIL: required YAML not found at {path}", file=sys.stderr)
         raise SystemExit(1)
     data = yaml.safe_load(path.read_text(encoding="utf-8"))
     if not isinstance(data, dict):
-        print("FAIL: configs/exposure_profiles.yaml is not a YAML mapping", file=sys.stderr)
+        print(f"FAIL: {path} is not a YAML mapping", file=sys.stderr)
         raise SystemExit(1)
     return data
 
@@ -294,6 +294,133 @@ def validate(data: dict, services: dict | None = None) -> list[str]:
     return violations
 
 
+def validate_access_profiles(
+    access_data: dict,
+    exposure_data: dict,
+    auth_data: dict,
+    services: dict,
+) -> list[str]:
+    """Validate supported user intents without duplicating primitive policy values."""
+    violations: list[str] = []
+    profiles = access_data.get("profiles")
+    if not isinstance(profiles, dict) or not profiles:
+        return ["configs/access_profiles.yaml profiles field is missing or empty"]
+    default = access_data.get("default_profile")
+    if default not in profiles:
+        violations.append("access default_profile must reference profiles")
+    else:
+        default_profile = profiles[default]
+        if not isinstance(default_profile, dict) or (
+            default_profile.get("host_bind_default") != "127.0.0.1"
+            or default_profile.get("host_bind_policy") != "loopback"
+        ):
+            violations.append("access default_profile must use a loopback host bind policy")
+    required_names = {"local", "private", "edge"}
+    if set(profiles) != required_names:
+        violations.append(
+            "access profiles must be exactly local, private, edge; "
+            f"found={sorted(profiles)}"
+        )
+
+    auth_profiles = auth_data.get("profiles", {})
+    exposure_profiles = exposure_data.get("profiles", {})
+    bind_keys = {
+        str(service.get("host_env_bind"))
+        for service in services.values()
+        if isinstance(service, dict) and service.get("host_env_bind")
+    }
+    if not bind_keys:
+        violations.append("services.yaml has no host bind keys for access profiles")
+
+    required_fields = {
+        "description",
+        "auth_mode",
+        "exposure_mode",
+        "exposure_audience",
+        "host_bind_default",
+        "host_bind_policy",
+        "external_tls_owner",
+    }
+    for name, profile in profiles.items():
+        if not isinstance(profile, dict):
+            violations.append(f"access profiles.{name} is not a mapping")
+            continue
+        missing = sorted(required_fields - set(profile))
+        if missing:
+            violations.append(
+                f"access profiles.{name} missing required fields: {', '.join(missing)}"
+            )
+            continue
+        auth_mode = profile.get("auth_mode")
+        exposure_mode = profile.get("exposure_mode")
+        if auth_mode not in auth_profiles:
+            violations.append(
+                f"access profiles.{name}.auth_mode references unknown auth profile {auth_mode!r}"
+            )
+        if exposure_mode not in exposure_profiles:
+            violations.append(
+                f"access profiles.{name}.exposure_mode references unknown exposure profile {exposure_mode!r}"
+            )
+            continue
+        if exposure_profiles[exposure_mode].get("class") != "default_private":
+            violations.append(
+                f"access profiles.{name} must not select a diagnostic/full-stack exposure"
+            )
+        if profile.get("host_bind_default") not in {"127.0.0.1", "0.0.0.0"}:
+            violations.append(
+                f"access profiles.{name}.host_bind_default must be 127.0.0.1 or 0.0.0.0"
+            )
+        if profile.get("host_bind_policy") not in {"loopback", "operator"}:
+            violations.append(
+                f"access profiles.{name}.host_bind_policy must be loopback or operator"
+            )
+
+    local = profiles.get("local", {})
+    edge = profiles.get("edge", {})
+    private = profiles.get("private", {})
+    expected_audiences = {
+        "local": "local_only",
+        "private": "private_lan",
+        "edge": "local_only",
+    }
+    for name, expected_audience in expected_audiences.items():
+        profile = profiles.get(name, {})
+        if isinstance(profile, dict) and profile.get("exposure_audience") != expected_audience:
+            violations.append(
+                f"access {name} must declare exposure_audience={expected_audience}"
+            )
+    if isinstance(local, dict) and (
+        local.get("host_bind_default") != "127.0.0.1"
+        or local.get("host_bind_policy") != "loopback"
+    ):
+        violations.append("access local must bind host-published services to loopback")
+    if isinstance(edge, dict):
+        if (
+            edge.get("host_bind_default") != "127.0.0.1"
+            or edge.get("host_bind_policy") != "loopback"
+        ):
+            violations.append("access edge must expose Gateway to a same-host proxy via loopback")
+        if edge.get("external_tls_owner") != "edge_proxy":
+            violations.append("access edge must declare edge_proxy as external TLS owner")
+    if isinstance(private, dict):
+        if private.get("host_bind_policy") != "operator":
+            violations.append("access private must preserve operator-selected host binds")
+        auth = auth_profiles.get(private.get("auth_mode"), {})
+        for field in (
+            "api_key_required",
+            "admin_api_key_required",
+            "internal_service_auth_required",
+        ):
+            if auth.get(field) is not True:
+                violations.append(f"access private requires auth profile with {field}=true")
+    if isinstance(edge, dict):
+        auth = auth_profiles.get(edge.get("auth_mode"), {})
+        for field in ("api_key_required", "admin_api_key_required"):
+            if auth.get(field) is not True:
+                violations.append(f"access edge requires auth profile with {field}=true")
+    return violations
+
+
 def main() -> int:
     import argparse
     parser = argparse.ArgumentParser(description="Validate configs/exposure_profiles.yaml structural invariants.")
@@ -307,6 +434,9 @@ def main() -> int:
     data = load(ROOT / "configs" / "exposure_profiles.yaml")
     services = load_services(ROOT / "configs" / "services.yaml")
     violations = validate(data, services=services)
+    access_data = load(ROOT / "configs" / "access_profiles.yaml")
+    auth_data = load(ROOT / "configs" / "auth_profiles.yaml")
+    violations.extend(validate_access_profiles(access_data, data, auth_data, services))
     if args.strict and not violations:
         violations.extend(validate_compose_exposure_projection(data, services))
 
@@ -316,7 +446,7 @@ def main() -> int:
         print(f"\nvalidate_exposure_profiles: {len(violations)} violation(s) found.", file=sys.stderr)
         return 1
 
-    print("validate_exposure_profiles: OK — configs/exposure_profiles.yaml is structurally valid.")
+    print("validate_exposure_profiles: OK — access/exposure/service profiles are structurally valid.")
     if args.strict:
         print("  (strict mode: extended source-of-truth invariants verified)")
     return 0

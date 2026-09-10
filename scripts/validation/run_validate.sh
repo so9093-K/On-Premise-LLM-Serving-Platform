@@ -58,7 +58,7 @@ fi
 run_check "python compatibility" "$PYTHON_BIN" scripts/build/check_python.py --context validate
 run_check "contracts" "$PYTHON_BIN" scripts/validation/validate_contracts.py
 run_check "shell syntax" "$PYTHON_BIN" scripts/validation/validate_shell_syntax.py
-run_check "exposure profiles" "$PYTHON_BIN" scripts/validation/validate_exposure_profiles.py --strict
+run_check "access / exposure" "$PYTHON_BIN" scripts/validation/validate_exposure_profiles.py --strict
 run_check "compose overrides" "$PYTHON_BIN" scripts/compose/render_exposure_overrides.py --check
 run_check "environment contract" "$PYTHON_BIN" scripts/validation/validate_env_contract.py --strict
 run_check "generated artifacts" validate_generated_artifacts

@@ -13,7 +13,7 @@ from scripts.lib.cli_kr import KoreanArgumentParser  # noqa: E402
 from scripts.lib.env_path import load_env_values, resolve_env_path  # noqa: E402
 from scripts.compose.resolve_exposure_mode import load_exposure_data  # noqa: E402
 
-EXPOSURE_ENV_KEYS = ["EXPOSURE_MODE", "EXPOSURE_AUDIENCE"]
+EXPOSURE_ENV_KEYS = ["ACCESS_PROFILE", "EXPOSURE_MODE", "EXPOSURE_AUDIENCE"]
 
 
 
@@ -34,6 +34,8 @@ def build_plan(current: dict[str, str], mode: str, audience: str | None) -> dict
     requires_audience: bool = profile.get("diagnostics", {}).get("requires_exposure_audience", False)
 
     target: dict[str, str] = {"EXPOSURE_MODE": mode}
+    if current.get("ACCESS_PROFILE", "").strip():
+        target["ACCESS_PROFILE"] = ""
     if audience is not None:
         if allowed_audiences and audience not in allowed_audiences:
             raise SystemExit(
@@ -52,6 +54,10 @@ def build_plan(current: dict[str, str], mode: str, audience: str | None) -> dict
         changes.append({"key": key, "before": before, "after": after, "changed": before != after})
 
     warnings: list[str] = []
+    if "ACCESS_PROFILE" in target:
+        warnings.append(
+            "개별 exposure 적용은 managed Access Profile을 종료하고 Advanced/legacy 설정으로 전환합니다."
+        )
     effective_audience = audience or current.get("EXPOSURE_AUDIENCE", "")
     if requires_audience and not effective_audience:
         allowed_str = "|".join(allowed_audiences) if allowed_audiences else "local_only|private_lan|vpn|public"

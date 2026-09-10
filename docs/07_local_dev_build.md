@@ -8,7 +8,7 @@ AI Model Serving Platform의 로컬 개발은 **application 개발**, **full-sta
 [ADR-0023](adr/0023-local-lifecycle-command-boundaries.md)을 따른다.
 
 ```bash
-make setup TARGET=macos-metal-static   # 또는 linux-nvidia-dynamic
+make setup TARGET=macos-metal-static ACCESS=local   # 또는 linux-nvidia-dynamic
 make build
 HF_TOKEN=hf_xxx make prepare
 make up
@@ -244,7 +244,7 @@ full-stack은 Docker Compose를 사용해 application, model runtime, control pl
 기본 profile과 endpoint를 포함해 생성한다.
 
 ```bash
-make setup TARGET=linux-nvidia-dynamic
+make setup TARGET=linux-nvidia-dynamic ACCESS=local
 make build
 HF_TOKEN=hf_xxx make prepare
 ```
@@ -569,7 +569,7 @@ make compose-logs
 
 | 목적 | 명령 |
 |---|---|
-| target 환경·`.env` 최초 준비 | `make setup TARGET=<id>` |
+| target 환경·`.env` 최초 준비 | `make setup TARGET=<id> [ACCESS=local\|private\|edge]` (기본 `local`) |
 | 선택 target image 빌드 | `make build` |
 | 선택 Main Model 준비 | `HF_TOKEN=... make prepare` |
 | target 전체 시작 | `make up` |

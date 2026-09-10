@@ -210,6 +210,7 @@ def auth_status_document(settings: AppSettings, project_root: Path, env_path: Pa
             "repository_default": env_path.resolve() == (project_root / ".env").resolve(),
         },
         "auth_mode": settings.security.auth_mode,
+        "access_profile": _env("ACCESS_PROFILE", "").strip() or "legacy/custom",
         "app_env": settings.app_env,
         "mode_scope": AUTH_MODE_EXPECTATIONS.get(settings.security.auth_mode, {}).get("scope", "unknown"),
         "auth_owner": auth_owner,
@@ -323,16 +324,38 @@ def diagnose_auth(settings: AppSettings, project_root: Path) -> list[AuthFinding
     diagnostics = exposure_profile_data.get("diagnostics", {})
     exposure_audience = _env("EXPOSURE_AUDIENCE", "").strip()
 
-    exposure_mismatch = auth_profile_exposure_mismatch(mode, canonical_mode, exposure_audience)
-    if exposure_mismatch is not None:
-        findings.append(
-            AuthFinding(
-                "FAIL",
-                "LOCAL_OPEN_EXPOSURE_POLICY_MISMATCH",
-                exposure_mismatch + " so the trusted corporate network "
-                "owns access control for Gateway, vLLM, and operations endpoints.",
+    access_profile = _env("ACCESS_PROFILE", "").strip()
+    if access_profile:
+        from .access_profile import access_profile_env_values, access_profile_mismatches
+
+        try:
+            expected_access = access_profile_env_values(access_profile, project_root)
+            current_access = {key: _env(key, "") for key in expected_access}
+            access_mismatches = access_profile_mismatches(
+                access_profile, current_access, project_root
             )
-        )
+        except (OSError, ValueError) as exc:
+            findings.append(AuthFinding("FAIL", "ACCESS_PROFILE_INVALID", str(exc)))
+        else:
+            for mismatch in access_mismatches:
+                findings.append(
+                    AuthFinding(
+                        "FAIL",
+                        "ACCESS_PROFILE_DRIFT",
+                        f"ACCESS_PROFILE={access_profile}: {mismatch}",
+                    )
+                )
+    else:
+        exposure_mismatch = auth_profile_exposure_mismatch(mode, canonical_mode, exposure_audience)
+        if exposure_mismatch is not None:
+            findings.append(
+                AuthFinding(
+                    "FAIL",
+                    "LOCAL_OPEN_EXPOSURE_POLICY_MISMATCH",
+                    exposure_mismatch + " so the trusted corporate network "
+                    "owns access control for Gateway, vLLM, and operations endpoints.",
+                )
+            )
 
     profiles = data.get("profiles", {})
     if isinstance(profiles, dict) and canonical_mode not in profiles:
@@ -454,6 +477,7 @@ def diagnose_auth(settings: AppSettings, project_root: Path) -> list[AuthFinding
 def render_auth_status(settings: AppSettings, project_root: Path, env_path: Path | None = None) -> str:
     doc = auth_status_document(settings, project_root, env_path)
     lines = [
+        f"접근 profile: {doc['access_profile']}",
         f"인증 profile: {doc['auth_mode']}",
         f"APP_ENV: {doc['app_env']}",
         f"인증 소유권: {doc['auth_owner']}",

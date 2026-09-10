@@ -2,7 +2,10 @@
 
 ## Status
 
-Accepted
+Superseded by ADR-0025
+
+Auth/Exposure primitive의 Source of Truth 분리는 유지한다. 일반 사용자 UX와
+`local_open`의 강제 결합, 신규 환경 기본값은 ADR-0025가 대체한다.
 
 Updated to reflect two-mode canonical exposure design: `private_network` + `master_open`, structured diagnostics, single resolver script, and release-gate validators.
 

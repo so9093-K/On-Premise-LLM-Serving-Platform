@@ -1,0 +1,33 @@
+version: 1
+default_profile: local
+
+# 사용자에게 공개하는 접근 의도다. 인증 세부 동작은 auth_profiles.yaml,
+# host-published 서비스 집합은 exposure_profiles.yaml, bind 변수 이름은
+# services.yaml이 계속 소유한다. 이 파일은 그 세 기준의 지원 조합만 정의한다.
+profiles:
+  local:
+    description: "이 컴퓨터에서만 Gateway와 운영 UI에 접근"
+    auth_mode: local_open
+    exposure_mode: private_network
+    exposure_audience: local_only
+    host_bind_default: "127.0.0.1"
+    host_bind_policy: loopback
+    external_tls_owner: none
+
+  private:
+    description: "신뢰된 LAN/VPN에서 Gateway 인증을 거쳐 접근"
+    auth_mode: private_network
+    exposure_mode: private_network
+    exposure_audience: private_lan
+    host_bind_default: "0.0.0.0"
+    host_bind_policy: operator
+    external_tls_owner: operator
+
+  edge:
+    description: "같은 호스트의 TLS edge 뒤에서 Gateway를 제공"
+    auth_mode: strict
+    exposure_mode: private_network
+    exposure_audience: local_only
+    host_bind_default: "127.0.0.1"
+    host_bind_policy: loopback
+    external_tls_owner: edge_proxy

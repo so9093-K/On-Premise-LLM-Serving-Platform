@@ -4,18 +4,21 @@
 
 from __future__ import annotations
 
+from scripts import platform_cli
 from scripts.config import setup_env
 
 
-def test_setup_env_generates_local_open_profile(tmp_path):
+def test_setup_env_generates_safe_local_access_profile(tmp_path):
     out = tmp_path / '.env'
     rc = setup_env.main(['--profile', 'local', '--output', str(out)])
     assert rc == 0
     text = out.read_text(encoding='utf-8')
     assert 'APP_ENV=local' in text
+    assert 'ACCESS_PROFILE=local' in text
     assert 'AUTH_MODE=local_open' in text
-    assert 'EXPOSURE_MODE=master_open' in text
-    assert 'EXPOSURE_AUDIENCE=private_lan' in text
+    assert 'EXPOSURE_MODE=private_network' in text
+    assert 'EXPOSURE_AUDIENCE=local_only' in text
+    assert 'GATEWAY_BIND_ADDR=127.0.0.1' in text
     assert 'API_KEY_REQUIRED=false' in text
     assert 'ADMIN_API_KEY_REQUIRED=false' in text
     assert 'INTERNAL_SERVICE_AUTH_REQUIRED=false' in text
@@ -134,6 +137,88 @@ def test_sync_env_removes_only_registered_keys_and_keeps_server_only_settings(tm
     assert 'HF_TOKEN=hf_existing' in lines
     assert 'DEPLOYMENT_TARGET=linux-nvidia-dynamic' in lines
     assert 'MAIN_LLM_STATIC_PROFILE=gemma4-12b-unified-fp8' in lines
+    assert not any(line.startswith('ACCESS_PROFILE=') for line in lines)
+
+
+def test_existing_legacy_env_requires_confirmation_for_access_migration(tmp_path):
+    out = tmp_path / '.env'
+    original = (
+        'BUILD_PROFILE=compose\n'
+        'AUTH_MODE=local_open\n'
+        'EXPOSURE_MODE=master_open\n'
+        'EXPOSURE_AUDIENCE=private_lan\n'
+        'GATEWAY_BIND_ADDR=192.168.10.20\n'
+        'API_KEYS=keep-me\n'
+    )
+    out.write_text(original, encoding='utf-8')
+
+    rc = setup_env.main(
+        ['--sync-env', '--env-file', str(out), '--access-profile', 'private']
+    )
+
+    assert rc == 0
+    assert out.read_text(encoding='utf-8') == original
+
+
+def test_platform_setup_stops_cleanly_after_access_plan(tmp_path, monkeypatch, capsys):
+    out = tmp_path / '.env'
+    out.write_text(
+        'BUILD_PROFILE=compose\n'
+        'AUTH_MODE=local_open\n'
+        'EXPOSURE_MODE=master_open\n'
+        'EXPOSURE_AUDIENCE=private_lan\n',
+        encoding='utf-8',
+    )
+    commands: list[tuple[str, ...]] = []
+    monkeypatch.setattr(platform_cli, 'ENV_PATH', out)
+    monkeypatch.setattr(
+        platform_cli,
+        '_run',
+        lambda *command, env=None: commands.append(command),
+    )
+    target = platform_cli.load_deployment_target(
+        platform_cli.TARGETS_PATH, 'linux-nvidia-dynamic'
+    )
+
+    platform_cli.setup_target(target, None, None, 'private', False)
+
+    output = capsys.readouterr().out
+    assert len(commands) == 1
+    assert '[platform] access plan complete' in output
+    assert '[platform] setup ready' not in output
+
+
+def test_confirmed_access_migration_updates_policy_as_one_set_and_keeps_secret(tmp_path):
+    out = tmp_path / '.env'
+    out.write_text(
+        'BUILD_PROFILE=compose\n'
+        'AUTH_MODE=local_open\n'
+        'EXPOSURE_MODE=master_open\n'
+        'EXPOSURE_AUDIENCE=private_lan\n'
+        'GATEWAY_BIND_ADDR=192.168.10.20\n'
+        'API_KEYS=keep-me\n',
+        encoding='utf-8',
+    )
+
+    rc = setup_env.main(
+        [
+            '--sync-env',
+            '--env-file',
+            str(out),
+            '--access-profile',
+            'private',
+            '--confirm-access',
+        ]
+    )
+
+    assert rc == 0
+    values = setup_env.read_env_values(out)
+    assert values['ACCESS_PROFILE'] == 'private'
+    assert values['AUTH_MODE'] == 'private_network'
+    assert values['EXPOSURE_MODE'] == 'private_network'
+    assert values['GATEWAY_BIND_ADDR'] == '192.168.10.20'
+    assert values['INTERNAL_SERVICE_AUTH_REQUIRED'] == 'true'
+    assert values['API_KEYS'] == 'keep-me'
 
 
 def test_sync_env_uses_recommended_image_defaults(tmp_path, monkeypatch):

@@ -32,10 +32,18 @@ NON_LOCAL_ENVS = {"staging", "production", "prod"}
 def build_plan(current: dict[str, str], mode: str, *, app_env: str | None = None) -> dict[str, Any]:
     target = auth_profile_env_values(mode)
     target.update(auth_profile_exposure_values(mode))
+    if current.get("ACCESS_PROFILE", "").strip():
+        target["ACCESS_PROFILE"] = ""
     if app_env:
         target["APP_ENV"] = app_env
     changes = []
-    for key in ("APP_ENV", *AUTH_PROFILE_ENV_KEYS, "EXPOSURE_MODE", "EXPOSURE_AUDIENCE"):
+    for key in (
+        "APP_ENV",
+        "ACCESS_PROFILE",
+        *AUTH_PROFILE_ENV_KEYS,
+        "EXPOSURE_MODE",
+        "EXPOSURE_AUDIENCE",
+    ):
         if key not in target:
             continue
         before = current.get(key, "<unset>")
@@ -43,6 +51,10 @@ def build_plan(current: dict[str, str], mode: str, *, app_env: str | None = None
         changes.append({"key": key, "before": before, "after": after, "changed": before != after})
     effective_env = (app_env or current.get("APP_ENV") or ("local" if mode == "local_open" else "staging")).lower()
     warnings: list[str] = []
+    if "ACCESS_PROFILE" in target:
+        warnings.append(
+            "개별 auth profile 적용은 managed Access Profile을 종료하고 Advanced/legacy 설정으로 전환합니다."
+        )
     if mode == "local_open" and effective_env not in {"local", "test", "development"}:
         warnings.append(
             "local_open은 API/admin/internal 인증을 끄고 master_open/private_lan으로 "

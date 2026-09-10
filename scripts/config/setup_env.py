@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import argparse
+import os
 import secrets
 import sys
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -29,10 +31,18 @@ from ai_model_serving.auth_control import (
     auth_profile_exposure_values,
     auth_profile_exposure_mismatch,
 )
+from ai_model_serving.access_profile import (
+    access_profile_changes,
+    access_profile_env_values,
+    access_profile_names,
+    default_access_profile,
+    load_access_profile,
+)
 from ai_model_serving.deployment_target import load_deployment_target
 from ai_model_serving.settings_parts.dotenv_parser import load_strict_env_file
 
 IMAGE_CONFIG = ROOT / "configs" / "recommended_images.yaml"
+ACCESS_PROFILE_CHOICES = access_profile_names(ROOT)
 
 
 def read_yaml(path: Path) -> dict[str, Any]:
@@ -144,7 +154,21 @@ def write_env(lines: list[str], values: dict[str, str], out_path: Path) -> None:
         output.append(line)
     for key in sorted(set(values) - emitted):
         output.append(f"{key}={values[key]}")
-    out_path.write_text("\n".join(output).rstrip() + "\n", encoding="utf-8")
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    descriptor, temporary_name = tempfile.mkstemp(
+        prefix=f".{out_path.name}.", suffix=".tmp", dir=out_path.parent, text=True
+    )
+    temporary = Path(temporary_name)
+    mode = out_path.stat().st_mode & 0o777 if out_path.exists() else 0o600
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+            handle.write("\n".join(output).rstrip() + "\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        temporary.chmod(mode)
+        os.replace(temporary, out_path)
+    finally:
+        temporary.unlink(missing_ok=True)
 
 
 GENERATED_SECRET_KEYS = {
@@ -163,7 +187,7 @@ GENERATED_SECRET_KEYS = {
 # Grafana admin 비밀번호는 운영자의 세션 도중 조용히 바뀌면 안 됩니다.
 #
 # EXPOSURE_AUDIENCE는 항상 EXPOSURE_MODE와 함께 갱신되어야 합니다(아래
-# GENERATED_SECRET_KEYS에서): generated_values()가 둘을 쌍으로 검증하지만
+# ALWAYS_REFRESH_KEYS에서): generated_values()가 둘을 쌍으로 검증하지만
 # (예: local_open은 master_open + private_lan을 요구), 이 검증은 새로 생성된
 # dict에만 적용됩니다. EXPOSURE_MODE는 갱신되는데 EXPOSURE_AUDIENCE가 기존 .env
 # 값으로 보존된다면, main()의 `base_values | generated | preserved_values` 병합이
@@ -173,6 +197,7 @@ ALWAYS_REFRESH_KEYS = {
     "BUILD_PROFILE",
     "SECRETS_GENERATED_AT",
     "EXPOSURE_AUDIENCE",
+    "ACCESS_PROFILE",
     *AUTH_PROFILE_ENV_KEYS,
 } | GENERATED_SECRET_KEYS
 
@@ -300,7 +325,21 @@ def sync_env_keys(env_path: Path, *, dry_run: bool = False) -> int:
 
     _, template_values = effective_profile_template(profile)
 
-    added = [k for k in template_values if k not in existing and k not in REMOVED_ENV_KEYS]
+    # ACCESS_PROFILE이 없는 env는 기존 auth/exposure/bind 의미를 그대로 보존하는
+    # legacy 설정이다. 새 template 기본값을 부분적으로 보충하면 profile 이름만 local인데
+    # bind는 기존 LAN 값인 모순 상태가 생긴다. 접근 관련 값은 명시적인 access migration이
+    # 한 번에 적용할 때만 추가한다.
+    legacy_access_owned: set[str] = set()
+    if not existing.get("ACCESS_PROFILE", "").strip():
+        for access_name in access_profile_names(ROOT):
+            legacy_access_owned.update(access_profile_env_values(access_name, ROOT))
+    added = [
+        key
+        for key in template_values
+        if key not in existing
+        and key not in REMOVED_ENV_KEYS
+        and key not in legacy_access_owned
+    ]
     removed = [k for k in existing if k in REMOVED_ENV_KEYS]
 
     if not added and not removed:
@@ -372,31 +411,44 @@ def generated_values(
     auth_mode: str | None = None,
     exposure_mode: str | None = None,
     exposure_audience: str | None = None,
+    access_profile: str | None = None,
 ) -> dict[str, str]:
     version = (ROOT / "VERSION").read_text(encoding="utf-8").strip()
     gateway_key = token("ams_gateway")
     admin_key = token("ams_admin")
     internal_token = token("ams_internal")
     grafana_password = token("ams_grafana")
-    effective_auth_mode = auth_mode or "local_open"
-    auth_exposure = auth_profile_exposure_values(effective_auth_mode)
-    effective_exposure_mode = _validated_exposure_mode(
-        exposure_mode or auth_exposure.get("EXPOSURE_MODE", "private_network")
-    )
-    effective_exposure_audience = (
-        exposure_audience
-        if exposure_audience is not None
-        else (
-            ""
-            if exposure_mode is not None
-            else auth_exposure.get("EXPOSURE_AUDIENCE", "")
+    if access_profile is not None:
+        if any(value is not None for value in (auth_mode, exposure_mode, exposure_audience)):
+            raise ValueError(
+                "--access-profile cannot be combined with --auth-mode/--exposure-mode/"
+                "--exposure-audience; use the advanced policy flags without an access profile"
+            )
+        access_values = access_profile_env_values(access_profile, ROOT)
+        effective_auth_mode = access_values["AUTH_MODE"]
+        effective_exposure_mode = _validated_exposure_mode(access_values["EXPOSURE_MODE"])
+        effective_exposure_audience = access_values["EXPOSURE_AUDIENCE"]
+    else:
+        access_values = {}
+        effective_auth_mode = auth_mode or "local_open"
+        auth_exposure = auth_profile_exposure_values(effective_auth_mode)
+        effective_exposure_mode = _validated_exposure_mode(
+            exposure_mode or auth_exposure.get("EXPOSURE_MODE", "private_network")
         )
-    )
-    exposure_mismatch = auth_profile_exposure_mismatch(
-        effective_auth_mode, effective_exposure_mode, effective_exposure_audience
-    )
-    if exposure_mismatch is not None:
-        raise ValueError(exposure_mismatch)
+        effective_exposure_audience = (
+            exposure_audience
+            if exposure_audience is not None
+            else (
+                ""
+                if exposure_mode is not None
+                else auth_exposure.get("EXPOSURE_AUDIENCE", "")
+            )
+        )
+        exposure_mismatch = auth_profile_exposure_mismatch(
+            effective_auth_mode, effective_exposure_mode, effective_exposure_audience
+        )
+        if exposure_mismatch is not None:
+            raise ValueError(exposure_mismatch)
     # PROJECT_VERSION은 쓰지 않는다 -- VERSION 파일이 소유하고 settings.py가 env를
     # 우선하므로, .env에 복제하면 그 값이 파일을 가린 채 낡는다(env_contract.yaml
     # removed_keys 참고).
@@ -429,8 +481,60 @@ def generated_values(
             "GRAFANA_ANONYMOUS_ENABLED": "false",
         })
         values.update(auth_profile_env_values(effective_auth_mode))
+    values.update(access_values)
     values.update({k: v for k, v in overrides.items() if v})
     return values
+
+
+def render_access_plan(profile_name: str, current: dict[str, str]) -> str:
+    profile = load_access_profile(profile_name, ROOT)
+    changes = access_profile_changes(profile_name, current, ROOT)
+    lines = [
+        f"접근 profile: {profile.name} — {profile.description}",
+        "",
+        "변경 예정 접근 설정",
+        "KEY                            현재값                         변경값",
+        "---                            ------                         -----",
+    ]
+    for change in changes:
+        marker = "*" if change["changed"] else " "
+        lines.append(
+            f"{marker} {change['key']:<30} {change['before']:<30} {change['after']}"
+        )
+    lines.extend(
+        [
+            "",
+            "API key와 다른 secret 값은 변경하거나 출력하지 않습니다.",
+        ]
+    )
+    if profile.external_tls_owner == "edge_proxy":
+        lines.append(
+            "edge는 Gateway를 loopback에만 bind합니다. 같은 호스트의 TLS edge가 외부 연결을 소유해야 합니다."
+        )
+    return "\n".join(lines) + "\n"
+
+
+def apply_access_profile(
+    env_path: Path,
+    profile_name: str,
+    *,
+    confirmed: bool,
+) -> bool:
+    lines, current = parse_env_template(env_path)
+    changes = access_profile_changes(profile_name, current, ROOT)
+    changed = any(bool(change["changed"]) for change in changes)
+    print(render_access_plan(profile_name, current), end="")
+    if not changed:
+        return True
+    if not confirmed:
+        print(
+            "기존 .env는 변경하지 않았습니다. 적용하려면 같은 명령에 CONFIRM=access를 지정하세요."
+        )
+        return False
+    current.update(access_profile_env_values(profile_name, ROOT, current=current))
+    write_env(lines, current, env_path)
+    print(f"접근 profile 적용 완료: {env_path}")
+    return True
 
 
 def build_parser() -> KoreanArgumentParser:
@@ -446,6 +550,16 @@ def build_parser() -> KoreanArgumentParser:
     parser.add_argument("--auth-mode", help="AUTH_MODE를 명시적으로 설정합니다. 기본값은 local_open입니다. (local_open|internal_trusted|private_network|edge_terminated|strict)")
     parser.add_argument("--exposure-mode", help="EXPOSURE_MODE를 명시적으로 설정합니다. local_open 기본값은 master_open입니다. 지원값: private_network|master_open")
     parser.add_argument("--exposure-audience", help="EXPOSURE_AUDIENCE를 명시적으로 설정합니다. local_open 기본값은 private_lan입니다.")
+    parser.add_argument(
+        "--access-profile",
+        choices=ACCESS_PROFILE_CHOICES,
+        help="사용자 접근 의도입니다. 최초 setup 기본값은 local입니다. (local|private|edge)",
+    )
+    parser.add_argument(
+        "--confirm-access",
+        action="store_true",
+        help="기존 .env에 --access-profile 변경 계획을 실제 적용합니다.",
+    )
     parser.add_argument("--platform-image")
     parser.add_argument("--vllm-image")
     parser.add_argument("--risk-vllm-image")
@@ -487,6 +601,29 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.sync_env:
         try:
+            if args.confirm_access and not args.access_profile:
+                raise ValueError("--confirm-access requires --access-profile")
+            if args.access_profile and any(
+                value is not None
+                for value in (args.auth_mode, args.exposure_mode, args.exposure_audience)
+            ):
+                raise ValueError(
+                    "--access-profile cannot be combined with --auth-mode/--exposure-mode/"
+                    "--exposure-audience"
+                )
+            if args.access_profile:
+                if args.dry_run:
+                    _, current = parse_env_template(out_path)
+                    print(render_access_plan(args.access_profile, current), end="")
+                    print("dry-run: 실제 변경 없음.")
+                    return 0
+                if not apply_access_profile(
+                    out_path, args.access_profile, confirmed=args.confirm_access
+                ):
+                    # 기존 환경을 바꾸지 않고 계획만 확인하는 것은 정상적인
+                    # lifecycle 단계다. 호출자가 현재 env를 다시 읽어 setup의
+                    # 나머지 단계를 멈출 수 있도록 파일은 그대로 두고 성공한다.
+                    return 0
             result = sync_env_keys(out_path, dry_run=args.dry_run)
             if result != 0 or args.dry_run or not args.deployment_target:
                 return result
@@ -520,6 +657,12 @@ def main(argv: list[str] | None = None) -> int:
         "GRAFANA_IMAGE": args.grafana_image,
     }
     try:
+        selected_access_profile = args.access_profile
+        if selected_access_profile is None and not out_path.exists() and not any(
+            value is not None
+            for value in (args.auth_mode, args.exposure_mode, args.exposure_audience)
+        ):
+            selected_access_profile = default_access_profile(ROOT)
         generated = generated_values(
             args.profile,
             args.app_env,
@@ -527,10 +670,18 @@ def main(argv: list[str] | None = None) -> int:
             auth_mode=args.auth_mode,
             exposure_mode=args.exposure_mode,
             exposure_audience=args.exposure_audience,
+            access_profile=selected_access_profile,
         )
     except ValueError as exc:
         print(f"env 정책 오류: {exc}", file=sys.stderr)
         return 2
+    if selected_access_profile is None:
+        # 직접 advanced auth/exposure flags를 쓰거나 기존 env를 --force로 복구하는
+        # 경로에는 template의 사용자-facing profile 이름을 붙이지 않는다.
+        base_values.pop("ACCESS_PROFILE", None)
+    else:
+        for key in access_profile_env_values(selected_access_profile, ROOT):
+            preserved_values.pop(key, None)
     values = base_values | generated | preserved_values
     if args.deployment_target:
         try:
@@ -552,6 +703,12 @@ def main(argv: list[str] | None = None) -> int:
         write_runtime_secrets(values)
     print(f"wrote {out_path}")
     print(f"profile={args.profile} APP_ENV={values['APP_ENV']}")
+    if values.get("ACCESS_PROFILE"):
+        access = load_access_profile(values["ACCESS_PROFILE"], ROOT)
+        print(
+            f"access={access.name} ({access.description}); "
+            f"auth={values['AUTH_MODE']} exposure={values['EXPOSURE_MODE']}"
+        )
     if args.profile == "compose":
         print("image tags:")
         for key in ["PLATFORM_IMAGE", "VLLM_IMAGE", "EMBEDDING_KO_VLLM_IMAGE", "RISK_VLLM_IMAGE", "DCGM_EXPORTER_IMAGE", "PROMETHEUS_IMAGE", "GRAFANA_IMAGE", "CADVISOR_IMAGE"]:

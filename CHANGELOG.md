@@ -19,6 +19,13 @@
 
 ### Changed
 
+- 신규 환경의 접근 UX를 `ACCESS_PROFILE=local|private|edge`로 단순화했다. `make setup
+  ACCESS=...`이 기존 auth/exposure/service Source of Truth에서 안전한 조합을 resolve하며,
+  기본 `local`은 Gateway와 Grafana를 loopback에만 공개한다. `ACCESS_PROFILE`이 없는 기존
+  Ubuntu `.env`는 자동 이관하지 않고, 명시적 전환도 plan 후 `CONFIRM=access`에서만
+  원자적으로 적용한다. `master_open`과 기존 auth/exposure 도구는 Advanced/legacy
+  호환 경로로 유지한다. ([ADR-0025](docs/adr/0025-user-access-profiles-and-legacy-migration.md))
+
 - 오류 계약과 내부 진단을 분리했다. `UPSTREAM_SCHEMA_ERROR`는 응답 구조·model ID
   오류인 `UPSTREAM_RESPONSE_INVALID`와 생성 JSON 오류인 `STRUCTURED_OUTPUT_INVALID`로
   나뉜다. 공개 `PARSE_ERROR`는 전자로 통합하되 Risk `system_signals`의 동명 신호는

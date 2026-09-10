@@ -34,7 +34,10 @@ def test_auth_apply_without_yes_is_successful_dry_run(tmp_path):
 
 def test_auth_apply_updates_only_profile_flags(tmp_path):
     env_path = tmp_path / ".env"
-    env_path.write_text("AUTH_MODE=local_open\nAPI_KEYS=keep-me\nAPI_KEY_REQUIRED=false\n", encoding="utf-8")
+    env_path.write_text(
+        "ACCESS_PROFILE=local\nAUTH_MODE=local_open\nAPI_KEYS=keep-me\nAPI_KEY_REQUIRED=false\n",
+        encoding="utf-8",
+    )
     rc = auth_apply.main(["--mode", "strict", "--env", str(env_path), "--yes"])
     assert rc == 0
     text = env_path.read_text(encoding="utf-8")
@@ -44,6 +47,7 @@ def test_auth_apply_updates_only_profile_flags(tmp_path):
     assert "INTERNAL_SERVICE_AUTH_REQUIRED=true" in text
     assert "FASTAPI_DOCS_ENABLED=false" in text
     assert "API_KEYS=keep-me" in text
+    assert "ACCESS_PROFILE=" in text
 
 
 def test_auth_apply_local_open_applies_trusted_lan_full_stack_policy(tmp_path):

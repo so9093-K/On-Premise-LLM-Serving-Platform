@@ -23,10 +23,12 @@ PLATFORM_CLI := "$(CURDIR)/.venv/bin/python" scripts/platform_cli.py
 PLATFORM_TARGET_ARG = $(if $(TARGET),--target "$(TARGET)",)
 PLATFORM_PROFILE_ARG = $(if $(MODEL),--main-profile "$(MODEL)",)
 PLATFORM_MAIN_URL_ARG = $(if $(MAIN_URL),--main-base-url "$(MAIN_URL)",)
+PLATFORM_ACCESS_ARG = $(if $(ACCESS),--access-profile "$(ACCESS)",)
+PLATFORM_ACCESS_CONFIRM_ARG = $(if $(filter access,$(CONFIRM)),--confirm-access,)
 
-setup: ## 선택 target의 로컬 환경과 설정을 한 번 준비 (TARGET=<id>, MODEL=<profile>)
+setup: ## target과 접근 범위의 로컬 환경 준비 (TARGET=<id>, ACCESS 기본값 local)
 	"$(PYTHON)" scripts/build/setup_dev.py
-	$(PLATFORM_CLI) setup $(PLATFORM_TARGET_ARG) $(PLATFORM_PROFILE_ARG) $(PLATFORM_MAIN_URL_ARG)
+	$(PLATFORM_CLI) setup $(PLATFORM_TARGET_ARG) $(PLATFORM_PROFILE_ARG) $(PLATFORM_MAIN_URL_ARG) $(PLATFORM_ACCESS_ARG) $(PLATFORM_ACCESS_CONFIRM_ARG)
 
 build: ## 선택 target에서 이 저장소가 소유한 image 전체 빌드
 	$(PLATFORM_CLI) build $(PLATFORM_TARGET_ARG)
@@ -67,7 +69,7 @@ help:
 		awk -v wanted="$$target" 'BEGIN {FS = ":.*?## "} $$1 == wanted {printf "  make %-18s %s\n", $$1, $$2}' $(MAKEFILE_LIST); \
 	done
 	@echo ""
-	@echo "처음 한 번: make setup TARGET=<deployment-target>"
+	@echo "처음 한 번: make setup TARGET=<deployment-target> [ACCESS=local|private|edge]"
 	@echo "기본 순서: setup → build → prepare → up → status/down"
 	@echo ""
 	@echo "복구·초기화"

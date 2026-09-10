@@ -51,7 +51,7 @@ Mac runtime은 Python 3.13.12의 앱 `.venv`와 분리된 native 환경 및 별�
 기동과 분리되어 있어 `metal-start`가 대용량 파일을 암묵적으로 받지 않는다.
 
 ```bash
-make setup TARGET=macos-metal-static
+make setup TARGET=macos-metal-static ACCESS=local
 make build
 HF_TOKEN=hf_xxx make prepare
 make up
@@ -140,7 +140,7 @@ Observability
 기본 실행 흐름은 다음과 같다.
 
 ```bash
-make setup TARGET=linux-nvidia-dynamic
+make setup TARGET=linux-nvidia-dynamic ACCESS=local
 make build
 HF_TOKEN=hf_xxx make prepare
 make up
@@ -285,7 +285,10 @@ make exposure-status
 make compose-config
 ```
 
-`.env.compose.example`은 개발용 초기값으로 `AUTH_MODE=local_open`, `EXPOSURE_MODE=master_open`, `EXPOSURE_AUDIENCE=private_lan`을 제공한다. 배포 환경에서는 대상 네트워크에 맞는 auth와 exposure profile을 지정한다.
+일반 사용자는 auth와 exposure를 직접 조합하지 않고 `make setup ACCESS=local|private|edge`를
+사용한다. 새 환경의 기본 `local`은 `private_network` topology와 loopback bind를 사용한다.
+`master_open`은 기존 진단 환경을 위한 Advanced/legacy mode이며 신규 Access Profile의
+기본 경로가 아니다. 기존 `.env`는 명시적 전환 전까지 원래 의미를 보존한다.
 
 ### static target의 노출 판정
 
