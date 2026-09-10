@@ -338,18 +338,21 @@ def test_gateway_logprobs_logit_bias_and_stream_contracts():
     assert '"logprobs"' in stream.content.decode()
 
 
-def test_streaming_request_event_carries_token_counts_and_terminal_status(monkeypatch, tmp_path):
+def test_streaming_request_event_carries_upstream_identity_and_terminal_status(monkeypatch, tmp_path):
     """streaming도 non-stream과 같은 필드로 request_id 단위 조회가 되어야 한다.
 
     예전에는 relay가 usage 객체를 세기만 하고 숫자를 버려서, 업스트림이 112
     토큰을 보고했는데도 streaming 요청 이벤트에는 토큰 필드가 하나도 없었다.
+    upstream_response_id는 runtime 컨테이너 로그를 시간대 추정 없이 찾는 열쇠라
+    chunk에서 관찰한 값이 그대로 남아야 한다.
     """
     monkeypatch.setenv("REQUEST_EVENT_LOG_DIR", str(tmp_path))
     usage = {"prompt_tokens": 11, "completion_tokens": 101, "total_tokens": 112}
+    completion_id = "chatcmpl-47e9114ab2e640f19aee75ba784fd102"
     clients = FakeGatewayClients()
     clients.main_llm.stream_chunks = [
-        b'data: {"choices":[{"delta":{"content":"hi"}}]}\n\n',
-        f'data: {{"choices":[],"usage":{json.dumps(usage)}}}\n\n'.encode(),
+        f'data: {{"id":"{completion_id}","choices":[{{"delta":{{"content":"hi"}}}}]}}\n\n'.encode(),
+        f'data: {{"id":"{completion_id}","choices":[],"usage":{json.dumps(usage)}}}\n\n'.encode(),
         b"data: [DONE]\n\n",
     ]
     client = TestClient(create_gateway_app(settings(), clients))
@@ -367,6 +370,7 @@ def test_streaming_request_event_carries_token_counts_and_terminal_status(monkey
     assert records[0]["completion_tokens"] == 101
     assert records[0]["total_tokens"] == 112
     assert records[0]["stream_status"] == "completed"
+    assert records[0]["upstream_response_id"] == completion_id
 
 
 def test_streaming_admission_rejection_answers_503_before_response_headers():
@@ -435,3 +439,32 @@ def test_http_latency_histogram_covers_the_streaming_response_body():
         and 'route="/v1/chat/completions"' in line
     )
     assert observed >= relay_seconds
+
+
+def test_non_streaming_request_event_records_the_same_upstream_identity(monkeypatch, tmp_path):
+    """non-stream 경로도 streaming과 같은 필드 이름으로 남겨야 한다.
+
+    두 경로가 다른 이름을 쓰면 Request Log Explorer가 요청 종류별로 다른 쿼리를
+    요구하게 된다. 응답 id는 클라이언트가 받는 값과도 같아야 한다.
+    """
+    monkeypatch.setenv("REQUEST_EVENT_LOG_DIR", str(tmp_path))
+    completion_id = "chatcmpl-47e9114ab2e640f19aee75ba784fd102"
+    clients = FakeGatewayClients()
+    clients.main_llm.post_response = {
+        **clients.main_llm.post_response,
+        "id": completion_id,
+        "usage": {"prompt_tokens": 11, "completion_tokens": 101, "total_tokens": 112},
+    }
+    client = TestClient(create_gateway_app(settings(), clients))
+
+    response = client.post(
+        "/v1/chat/completions",
+        headers=auth_headers(),
+        json={"model": "local-main", "messages": [{"role": "user", "content": "hello"}]},
+    )
+
+    assert response.status_code == 200
+    records = [json.loads(line) for line in (tmp_path / "gateway.jsonl").read_text().splitlines()]
+    assert records[0]["upstream_response_id"] == completion_id == response.json()["id"]
+    assert records[0]["total_tokens"] == 112
+    assert "stream_status" not in records[0]

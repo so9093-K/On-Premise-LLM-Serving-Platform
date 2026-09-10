@@ -7,7 +7,7 @@ from fastapi import APIRouter, Body, Request
 
 from ..endpoint_spec import GATEWAY_ENDPOINTS
 from ...errors import ServiceError
-from ...logging_policy import record_request_response_preview, record_token_usage
+from ...logging_policy import record_request_response_preview, record_upstream_response
 from ...services.runtime_state import RuntimeState, RuntimeStateStore
 from ...settings import AppSettings
 
@@ -23,7 +23,7 @@ def build_router(
     router = APIRouter()
 
     def _record_if_enabled(request: Request, *, payload: dict[str, Any], response: dict[str, Any]) -> None:
-        record_token_usage(request, response.get("usage"))
+        record_upstream_response(request, response)
         if settings.log_request_response_body:
             record_request_response_preview(
                 request,

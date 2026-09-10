@@ -23,7 +23,7 @@ __all__ = [
     "log_request_completion",
     "RequestLoggingMiddleware",
     "record_request_response_preview",
-    "record_token_usage",
+    "record_upstream_response",
     "record_stream_completion",
     "record_error_diagnosis",
     "record_readiness_failure",
@@ -157,6 +157,10 @@ def record_request_response_preview(request: Request, *, request_text: str, resp
 
 
 TOKEN_USAGE_FIELDS = ("prompt_tokens", "completion_tokens", "total_tokens")
+# 업스트림이 준 식별자의 길이 상한. errors.request_id_from_headers가 들어오는
+# x-request-id에 두는 한도와 같은 값이다 -- 로그 한 줄의 크기를 예측 가능하게
+# 유지하는 목적이 같으므로 다른 숫자를 쓸 이유가 없다.
+_UPSTREAM_RESPONSE_ID_LIMIT = 128
 
 
 def _apply_token_usage(sink: dict[str, Any], usage: Any) -> None:
@@ -168,33 +172,66 @@ def _apply_token_usage(sink: dict[str, Any], usage: Any) -> None:
             sink[field] = value
 
 
-def record_token_usage(request: Request, usage: Any) -> None:
-    """request.state에 토큰 사용량(prompt/completion/total)을 남긴다.
+def _apply_upstream_identity(sink: dict[str, Any], *, usage: Any, response_id: Any) -> None:
+    """업스트림 응답이 알려준 사실만 로그 sink에 옮긴다.
 
-    프롬프트/응답 원문과 달리 토큰 개수는 민감정보가 아니므로
-    `LOG_REQUEST_RESPONSE_BODY`와 무관하게 latency_ms와 동급으로 항상 호출한다
-    -- 호출자가 플래그를 확인할 필요 없음. usage가 없거나(예: 업스트림이
-    응답에 안 실은 경우) 모양이 안 맞으면 조용히 아무것도 안 남긴다.
+    OpenAI 응답 모양을 아는 곳을 여기 하나로 둔다. 호출부마다
+    ``response.get("usage")``를 반복하면 새 필드를 실을 때 일부 경로만
+    갱신되는 drift가 생긴다. 모양이 안 맞거나 없는 값은 조용히 건너뛴다.
     """
-    _apply_token_usage(request.scope.setdefault("state", {}), usage)
+    _apply_token_usage(sink, usage)
+    if isinstance(response_id, str) and response_id.strip():
+        sink["upstream_response_id"] = response_id.strip()[:_UPSTREAM_RESPONSE_ID_LIMIT]
 
 
-def record_stream_completion(*, status: str, usage: Any = None) -> None:
-    """끝난 SSE relay의 종료 상태와 토큰 사용량을 요청 로그에 남긴다.
+def record_upstream_response(request: Request, response: Any) -> None:
+    """업스트림 응답에서 진단에 쓰는 식별 정보를 request.state에 남긴다.
+
+    싣는 값은 두 가지다.
+
+    ``prompt/completion/total_tokens``
+        프롬프트·생성 원문과 달리 토큰 개수는 민감정보가 아니므로
+        `LOG_REQUEST_RESPONSE_BODY`와 무관하게 latency_ms와 동급으로 항상
+        남긴다. 호출자가 플래그를 확인할 필요가 없다.
+
+    ``upstream_response_id``
+        model runtime이 이 생성에 붙인 id다(vLLM은 ``chatcmpl-<uuid>``를 만들어
+        자기 로그에 ``Received request ...``/``Added request ...``로 남기고 같은
+        값을 응답 ``id``로 돌려준다). Gateway의 request_id와 runtime 컨테이너
+        로그를 시간대 추정 없이 연결하는 열쇠다. 앞의 ``upstream_request_id``와는
+        출처가 다르다 -- 그쪽은 업스트림이 이 플랫폼의 오류 봉투로 알려준
+        자기 request_id이고(현재는 risk-adapter뿐), 이쪽은 정상 응답에 실려 온
+        runtime의 생성 id다.
+
+    ``id``가 없는 응답(집계된 risk 평가 등)은 그 필드만 비운다. 그 경로에는
+    대응하는 단일 runtime 생성이 존재하지 않으므로 비어 있는 것이 맞다.
+    """
+    if not isinstance(response, dict):
+        return
+    _apply_upstream_identity(
+        request.scope.setdefault("state", {}),
+        usage=response.get("usage"),
+        response_id=response.get("id"),
+    )
+
+
+def record_stream_completion(*, status: str, usage: Any = None, response_id: Any = None) -> None:
+    """끝난 SSE relay의 종료 상태와 업스트림 식별 정보를 요청 로그에 남긴다.
 
     streaming은 handler가 반환한 뒤 generator 안에서 끝나므로 ``Request``를
     들고 있을 수 없다. 오류 코드를 SSE generator에서 접근 로그로 넘길 때 쓰는
     ``REQUEST_ERROR_CONTEXT``(= ``scope["state"]``)를 그대로 사용한다.
 
-    ``usage``는 relay가 전달 중인 바이트에서 관찰한 OpenAI ``usage`` 객체다.
-    non-stream 경로와 같은 필드를 채워서, request_id 하나로 두 경로의 토큰
-    수를 같은 방식으로 조회할 수 있게 한다.
+    ``usage``와 ``response_id``는 relay가 전달 중인 바이트에서 관찰한 값이다.
+    통째로 넘기지 않고 조각으로 받는 이유는 streaming에 완성된 응답 객체가
+    존재하지 않기 때문이다. 채워지는 필드는 ``record_upstream_response``와
+    같으므로, request_id 하나로 두 경로를 같은 방식으로 조회할 수 있다.
     """
     context = REQUEST_ERROR_CONTEXT.get()
     if context is None:
         return
     context["stream_status"] = status
-    _apply_token_usage(context, usage)
+    _apply_upstream_identity(context, usage=usage, response_id=response_id)
 
 
 def safe_request_log_record(
@@ -238,9 +275,10 @@ def safe_request_log_record(
         value = getattr(request.state, field, None)
         if value is not None:
             record[field] = value
-    # 토큰 개수는 민감정보가 아니라 LOG_REQUEST_RESPONSE_BODY와 무관하게 항상
-    # 채워질 수 있다(record_token_usage가 usage를 실은 엔드포인트에 한해).
-    for field in ("prompt_tokens", "completion_tokens", "total_tokens"):
+    # 토큰 개수와 업스트림 생성 id는 민감정보가 아니라 LOG_REQUEST_RESPONSE_BODY와
+    # 무관하게 항상 채워질 수 있다(record_upstream_response/record_stream_completion을
+    # 부르는 엔드포인트에 한해).
+    for field in (*TOKEN_USAGE_FIELDS, "upstream_response_id"):
         value = getattr(request.state, field, None)
         if value is not None:
             record[field] = value

@@ -11,7 +11,7 @@ from ..endpoint_spec import GATEWAY_ENDPOINTS
 from ..error_responses import sidecar_request_error_response, sidecar_unavailable_response
 from ...errors import ServiceError, error_payload, error_response_headers
 from ...domain.request_surfaces import chat_request_limit_surface, chat_request_parameter_surface
-from ...logging_policy import record_request_response_preview, record_token_usage
+from ...logging_policy import record_request_response_preview, record_upstream_response
 from ...services.runtime_state import RuntimeState, RuntimeStateStore
 from ...services.sidecar_client import SidecarClient, SidecarRequestError, SidecarUnavailableError
 from ...services.main_model_inflight import MainModelInFlight
@@ -285,7 +285,7 @@ def build_router(
             result = await service.create_chat_completion(
                 payload, active_modalities=active_modalities, gateway_policy=gateway_policy
             )
-            record_token_usage(request, result.get("usage"))
+            record_upstream_response(request, result)
             if settings.log_request_response_body:
                 record_request_response_preview(
                     request,
@@ -322,7 +322,7 @@ def build_router(
                     "MODEL_UNAVAILABLE", f"{service_key} runtime is {state.value}. Start it with PATCH /admin/runtimes/{service_key}.",
                 )
         result = await service.create_embedding(payload)
-        record_token_usage(request, result.get("usage"))
+        record_upstream_response(request, result)
         if settings.log_request_response_body:
             record_request_response_preview(
                 request,

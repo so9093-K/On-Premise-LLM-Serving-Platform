@@ -169,23 +169,27 @@ def _stream_error_event(exc: ServiceError) -> bytes:
     ).encode("utf-8")
 
 
-class StreamingUsageObserver:
-    """본문을 버퍼링하지 않고 전달 중인 SSE 바이트에서 usage 객체를 확인한다.
+class StreamingResponseObserver:
+    """본문을 버퍼링하지 않고 전달 중인 SSE 바이트에서 진단 정보를 관찰한다.
 
-    vLLM/OpenAI-compatible streaming may include `usage` on a final or near-final
-    chunk.  The Gateway relays the original bytes unchanged and only counts that
-    such an accounting event was present; prompt text and token deltas are never
-    exported as metric labels.
+    The Gateway relays the original bytes unchanged.  This observer only reads
+    what the non-streaming path already records for the request log, so a single
+    request_id answers the same questions on both paths.  Prompt text and token
+    deltas are never read, and none of these values become metric labels.
 
-    ``last_usage``는 마지막으로 관찰한 usage 객체다. 토큰 개수는 민감정보가
-    아니고 non-stream 경로가 이미 요청 로그에 남기는 값이라, streaming도 같은
-    필드를 채울 수 있도록 숫자를 버리지 않고 보관한다. metric label로는 여전히
-    나가지 않는다.
+    ``last_usage``
+        마지막으로 본 OpenAI ``usage`` 객체. 토큰 개수는 민감정보가 아니고
+        non-stream 경로가 이미 로그에 남기는 값이라 숫자를 버리지 않는다.
+    ``response_id``
+        처음 본 chunk의 ``id``. 한 생성의 모든 chunk가 같은 값을 나르므로
+        먼저 본 것을 쓴다. vLLM은 이 id를 자기 컨테이너 로그에도 남기므로,
+        Gateway request_id와 runtime 로그를 잇는 열쇠가 된다.
     """
 
     def __init__(self) -> None:
         self._buffer = ""
         self.last_usage: dict[str, Any] | None = None
+        self.response_id: str | None = None
 
     def observe(self, chunk: bytes) -> int:
         try:
@@ -206,7 +210,11 @@ class StreamingUsageObserver:
                 event = json.loads(data)
             except json.JSONDecodeError:
                 continue
-            if isinstance(event, dict) and isinstance(event.get("usage"), dict):
+            if not isinstance(event, dict):
+                continue
+            if self.response_id is None and isinstance(event.get("id"), str) and event["id"]:
+                self.response_id = event["id"]
+            if isinstance(event.get("usage"), dict):
                 usage_events += 1
                 self.last_usage = event["usage"]
         return usage_events
@@ -395,7 +403,7 @@ class GatewayService:
         chunk_count = 0
         byte_count = 0
         terminal_status = "completed"
-        observer = StreamingUsageObserver()
+        observer = StreamingResponseObserver()
         self.metrics.record_streaming_request_started(target)
         try:
             # aclosing으로 감싸야 client가 끊었을 때 upstream generator가 GC가
@@ -456,11 +464,12 @@ class GatewayService:
                 "chat/completions:stream",
                 elapsed,
             )
-            # non-stream 경로의 record_token_usage와 같은 필드를 채워, request_id
-            # 하나로 두 경로의 토큰 수를 같은 방식으로 조회할 수 있게 한다.
+            # non-stream 경로의 record_upstream_response와 같은 필드를 채워,
+            # request_id 하나로 두 경로를 같은 방식으로 조회할 수 있게 한다.
             record_stream_completion(
                 status=sanitized_stream_status(terminal_status),
                 usage=observer.last_usage,
+                response_id=observer.response_id,
             )
 
     async def create_embedding(self, payload: dict[str, Any]) -> dict[str, Any]:

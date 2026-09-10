@@ -152,6 +152,7 @@ Request Log Explorer는 Gateway 요청과 Runtime 로그를 Loki에서 조회한
 | Token Usage | Chat 요청의 입력·출력 Token 사용량 확인. streaming 요청도 같은 필드를 남긴다 |
 | Queue Wait | upstream admission slot 대기 시간. Latency에서 빼면 대기와 추론을 구분한다 |
 | Stream Status | SSE relay 종료 사유(`completed` / `client_disconnect` / `error`). status code 200 안에서 중단된 요청을 구분한다 |
+| Upstream Response ID | model runtime이 생성에 붙인 id(vLLM은 `chatcmpl-...`). runtime 컨테이너 로그에 같은 값이 남아 있어 시간대 추정 없이 연결한다 |
 
 Request Log Explorer는 다음 영역으로 구성된다.
 
@@ -167,6 +168,8 @@ Request ID 또는 Error Code로 대상을 좁힌 뒤 관련 서비스와 Runtime
 ### 로그 데이터 기준
 
 운영 로그에는 request id, route, status code, latency, service, error code, token 사용량 등 진단에 필요한 정보를 기록한다.
+
+Gateway의 `request_id`는 애플리케이션 로그 안에서만 유효하다. 같은 요청의 runtime 로그는 `upstream_response_id`로 찾는다. Gateway가 runtime에 자기 request id를 전달하지는 않으며, 대신 runtime이 응답에 실어 보낸 생성 id를 그대로 기록해 두 로그를 잇는다.
 
 Prompt 원문, 생성 결과, Authorization header, API key, internal token과 같은 민감 정보는 기본 로그와 metric label에 포함하지 않는다.
 

@@ -12,7 +12,7 @@ import logging
 
 from starlette.requests import Request
 
-from ai_model_serving.logging_policy import record_token_usage, safe_request_log_record
+from ai_model_serving.logging_policy import record_upstream_response, safe_request_log_record
 
 from .helpers import *  # noqa: F401,F403
 
@@ -105,9 +105,9 @@ def test_request_log_ignores_negative_or_boolean_token_usage():
         }
     )
 
-    record_token_usage(
+    record_upstream_response(
         request,
-        {"prompt_tokens": -1, "completion_tokens": True, "total_tokens": 3},
+        {"id": "chatcmpl-abc", "usage": {"prompt_tokens": -1, "completion_tokens": True, "total_tokens": 3}},
     )
     record = safe_request_log_record(
         service="gateway",
