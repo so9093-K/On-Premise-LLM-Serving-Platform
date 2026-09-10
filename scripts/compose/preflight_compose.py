@@ -350,6 +350,14 @@ def _compose_owned_ports(
 
 
 def _port_available(host_port: str, bind: str) -> bool:
+    """Compose가 publish할 host port를 지금 잡을 수 있는지만 확인한다.
+
+    bind는 가용성 판정 수단일 뿐이라 ``listen()``도 ``accept()``도 하지 않고 즉시
+    닫는다. 연결을 받는 소켓이 아니므로 이 바인딩으로 도달할 수 있는 것은 없다.
+    ``bind``는 Compose가 실제로 publish할 주소와 같아야 한다 -- 0.0.0.0으로 공개할
+    포트를 127.0.0.1에서만 검사하면 다른 조건을 검사하는 것이 되어, 이미 점유된
+    포트를 사용 가능하다고 보고한다.
+    """
     sock = socket.socket()
     sock.settimeout(0.4)
     try:

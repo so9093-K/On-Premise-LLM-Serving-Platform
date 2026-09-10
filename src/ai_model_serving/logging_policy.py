@@ -76,6 +76,43 @@ def _safe_diagnosis_text(value: Any) -> str | None:
     return text[:_DIAGNOSIS_TEXT_LIMIT]
 
 
+def _apply_error_diagnosis(
+    sink: dict[str, Any],
+    *,
+    code: str,
+    message: str | None = None,
+    diagnostic_code: str | None = None,
+    diagnostics: dict[str, Any] | None = None,
+) -> None:
+    """표준 API 오류의 안전한 진단 요약만 로그 sink에 옮긴다.
+
+    내부 diagnostics에는 upstream body처럼 로그에 영구 보관하면 안 되는 값이
+    포함될 수 있다. 원인 type/message와 upstream HTTP 상태처럼 운영자가 바로
+    분류에 쓰는 allowlist만 별도 필드로 남긴다. 마스킹·길이 제한 규칙을 한
+    곳에 두어, ``Request``를 든 호출자와 그렇지 못한 호출자가 서로 다른
+    안전 기준을 갖지 않게 한다.
+    """
+    sink["error_code"] = code
+    sink["error_retryable"] = ERROR_RETRYABLE[code]
+    sink["diagnostic_code"] = diagnostic_code or code
+    if message:
+        sink["error_message"] = message
+    if not diagnostics:
+        return
+    cause_type = _safe_diagnosis_text(diagnostics.get("cause_type"))
+    cause_message = _safe_diagnosis_text(diagnostics.get("cause_message"))
+    upstream_status = diagnostics.get("upstream_status")
+    if cause_type:
+        sink["error_cause_type"] = cause_type
+    if cause_message:
+        sink["error_cause_message"] = cause_message
+    if is_int(upstream_status) and 100 <= upstream_status <= 599:
+        sink["error_upstream_status"] = upstream_status
+    upstream_request_id = _safe_diagnosis_text(diagnostics.get("upstream_request_id"))
+    if upstream_request_id:
+        sink["upstream_request_id"] = upstream_request_id
+
+
 def record_error_diagnosis(
     request: Request,
     *,
@@ -84,31 +121,32 @@ def record_error_diagnosis(
     diagnostic_code: str | None = None,
     diagnostics: dict[str, Any] | None = None,
 ) -> None:
-    """표준 API 오류의 안전한 진단 요약만 access log에 전달한다.
+    """표준 API 오류의 안전한 진단 요약만 access log에 전달한다."""
+    _apply_error_diagnosis(
+        request.scope.setdefault("state", {}),
+        code=code,
+        message=message,
+        diagnostic_code=diagnostic_code,
+        diagnostics=diagnostics,
+    )
 
-    내부 diagnostics에는 upstream body처럼 로그에 영구 보관하면 안 되는 값이
-    포함될 수 있다. 원인 type/message와 upstream HTTP 상태처럼 운영자가 바로
-    분류에 쓰는 allowlist만 별도 필드로 남긴다.
+
+def record_suppressed_error_cause(*, code: str, diagnostics: dict[str, Any]) -> None:
+    """공개 응답에서 뺀 원인만 요청 로그에 남긴다.
+
+    공개 message를 고정 문구로 바꾸면 그 문구가 ``error_payload``를 통해 로그의
+    ``error_message``도 덮어쓴다. 원인을 숨기려다 운영자까지 눈을 잃지 않도록,
+    실제 원인은 ``error_cause_type``/``error_cause_message``로 따로 남긴다.
+
+    ``Request``를 인자로 받지 않는 이유는 호출자가 오류 응답 helper이기 때문이다.
+    SSE generator가 오류 코드를 접근 로그로 넘길 때 쓰는 것과 같은
+    ``REQUEST_ERROR_CONTEXT``(= ``scope["state"]``)를 사용한다. 반드시
+    ``error_response`` 호출 뒤에 불러야 한다 -- 그쪽이 먼저 error_message를 쓴다.
     """
-    request.state.error_code = code
-    request.state.error_retryable = ERROR_RETRYABLE[code]
-    request.state.diagnostic_code = diagnostic_code or code
-    if message:
-        request.state.error_message = message
-    if not diagnostics:
+    context = REQUEST_ERROR_CONTEXT.get()
+    if context is None:
         return
-    cause_type = _safe_diagnosis_text(diagnostics.get("cause_type"))
-    cause_message = _safe_diagnosis_text(diagnostics.get("cause_message"))
-    upstream_status = diagnostics.get("upstream_status")
-    if cause_type:
-        request.state.error_cause_type = cause_type
-    if cause_message:
-        request.state.error_cause_message = cause_message
-    if is_int(upstream_status) and 100 <= upstream_status <= 599:
-        request.state.error_upstream_status = upstream_status
-    upstream_request_id = _safe_diagnosis_text(diagnostics.get("upstream_request_id"))
-    if upstream_request_id:
-        request.state.upstream_request_id = upstream_request_id
+    _apply_error_diagnosis(context, code=code, diagnostics=diagnostics)
 
 
 def record_readiness_failure(request: Request, body: dict[str, Any]) -> None:

@@ -566,9 +566,16 @@ Gateway /ready /metrics /admin/*
 | **Admin / Operations** | `/ready`, `/metrics`, `/admin/*` | `ADMIN_API_KEY_REQUIRED`에 따라 Admin Bearer token 적용 |
 | **Gateway Internal** | `/internal/main-model/drain-status` | `INTERNAL_SERVICE_AUTH_REQUIRED`에 따라 Internal Service token 적용 |
 | **Gateway → Risk Adapter** | Risk Adapter `/v1/risk/*` | `INTERNAL_SERVICE_AUTH_REQUIRED`에 따라 Internal Service token 적용 |
-| **Gateway → Sidecar** | Sidecar control API | `INTERNAL_SERVICE_TOKEN`으로 내부 호출 보호 |
+| **Gateway → Sidecar** | Sidecar control API | `INTERNAL_SERVICE_AUTH_REQUIRED`에 따라 Internal Service token 적용 |
 
 Gateway의 `/v1/*`와 `/admin/*`는 서로 다른 bearer credential을 사용할 수 있다.
+
+Sidecar는 Docker Engine을 제어하므로 플랫폼에서 권한이 가장 높은 프로세스다. 그래서
+인증 활성 여부를 토큰이 비었는지가 아니라 선언된 `INTERNAL_SERVICE_AUTH_REQUIRED`로
+정한다. 인증을 요구한 구성에서 `INTERNAL_SERVICE_TOKEN`이 비어 있거나 placeholder면
+무인증으로 열리는 대신 기동을 거부한다. 내부 인증 없음을 선언한 profile(`local_open`,
+`internal_trusted`)에서는 토큰 없이 동작하는 것이 정상이며, 그 경우 접근 제어는
+네트워크 경계가 소유한다.
 
 ### 인증 설정 연결
 

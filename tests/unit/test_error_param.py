@@ -248,3 +248,56 @@ def test_unhandled_exception_is_publicly_generic_and_internally_correlated(monke
     assert records[0]["error_cause_message"] == "db pool exhausted"
     assert records[0]["diagnostic_code"] == "UNHANDLED_EXCEPTION"
     assert records[0]["request_id"] == body["request_id"] == response.headers["x-request-id"]
+
+
+def test_sidecar_failure_is_publicly_generic_and_internally_correlated(monkeypatch, tmp_path):
+    """control plane 장애도 위 unhandled exception과 같은 계약을 지켜야 한다.
+
+    sidecar_unavailable_response가 str(exc)를 공개 message로 쓰던 동안, 이 helper를
+    쓰는 공개 /v1/chat/completions 응답으로 내부 hostname과 main-model 상태 파일
+    경로가 그대로 나갔다. 원인은 요청 로그에만 남아야 한다.
+    """
+    import json
+
+    import httpx
+
+    from tests.unit.gateway.helpers import (
+        FakeGatewayClients,
+        TestClient,
+        auth_headers,
+        create_gateway_app,
+        settings,
+    )
+    from ai_model_serving.services.sidecar_client import SidecarClient
+
+    monkeypatch.setenv("REQUEST_EVENT_LOG_DIR", str(tmp_path))
+    internal_detail = "state file /var/lib/ai-model-serving/main-model-state.json is corrupt"
+
+    clients = FakeGatewayClients()
+    sidecar = SidecarClient("http://admin-sidecar:8080", "internal-token")
+    sidecar._client = httpx.AsyncClient(
+        transport=httpx.MockTransport(lambda request: httpx.Response(500, json={"detail": internal_detail})),
+        headers={},
+    )
+    clients.sidecar = sidecar
+    client = TestClient(create_gateway_app(settings(), clients))
+
+    response = client.post(
+        "/v1/chat/completions",
+        headers=auth_headers(),
+        json={"model": "local-main", "messages": [{"role": "user", "content": "hello"}]},
+    )
+
+    assert response.status_code == 503
+    body = response.json()["error"]
+    assert body["code"] == "MAIN_MODEL_CONTROL_UNAVAILABLE"
+    assert body["message"] == "Main model control service is temporarily unavailable."
+    for secret in ("/var/lib/ai-model-serving", "admin-sidecar", "HTTP 500"):
+        assert secret not in response.text
+
+    records = [json.loads(line) for line in (tmp_path / "gateway.jsonl").read_text().splitlines()]
+    assert len(records) == 1
+    assert internal_detail in records[0]["error_cause_message"]
+    assert records[0]["error_cause_type"] == "SidecarUnavailableError"
+    assert records[0]["error_code"] == "MAIN_MODEL_CONTROL_UNAVAILABLE"
+    assert records[0]["request_id"] == body["request_id"]

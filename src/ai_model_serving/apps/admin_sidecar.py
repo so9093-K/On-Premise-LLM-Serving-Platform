@@ -26,6 +26,7 @@ from ..main_model.control import (
     load_main_model_catalog,
 )
 from ..log_target_manifest import build_targets, write_manifest
+from ..settings_parts.env import as_bool, is_default_secret
 from ..runtime_topology import load_runtime_topology
 
 _logger = service_logger("admin_sidecar")
@@ -42,6 +43,7 @@ class SidecarConfig:
     profile_locked: bool
     idempotency_ttl_seconds: str | None
     internal_service_token: str
+    internal_service_auth_required: bool
     gateway_internal_url: str
     log_target_manifest_path: Path
     log_target_refresh_seconds: float
@@ -65,6 +67,21 @@ def load_sidecar_config(
         if using_local_config
         else Path("/var/lib/ai-model-serving/main-model-state.json")
     )
+    # 인증 활성 여부는 토큰 문자열이 비었는지가 아니라 운영자가 선언한
+    # INTERNAL_SERVICE_AUTH_REQUIRED로 정한다. 빈 문자열을 곧 "인증 끔"으로 읽으면,
+    # private_network/strict처럼 내부 인증을 요구한 profile에서 토큰이 유실됐을 때
+    # Docker socket을 쥔 이 프로세스가 거부 대신 조용한 개방을 택하게 된다.
+    # 기본값이 False인 것은 의도다 -- 변수를 주입하지 않는 로컬 실행은 지금 동작을
+    # 그대로 유지해야 한다. Compose는 setup_env가 쓴 값을 항상 주입한다.
+    internal_service_token = environment.get("INTERNAL_SERVICE_TOKEN", "")
+    internal_service_auth_required = as_bool(
+        environment.get("INTERNAL_SERVICE_AUTH_REQUIRED"), False
+    )
+    if internal_service_auth_required and is_default_secret(internal_service_token):
+        raise RuntimeError(
+            "INTERNAL_SERVICE_TOKEN must be set to a non-default value when "
+            "INTERNAL_SERVICE_AUTH_REQUIRED=true. Run `make init-env-compose` to generate one."
+        )
     return SidecarConfig(
         docker_socket=environment.get("DOCKER_SOCKET", "/var/run/docker.sock"),
         compose_project=environment.get("COMPOSE_PROJECT", ""),
@@ -73,7 +90,8 @@ def load_sidecar_config(
         boot_profile=environment.get("MAIN_LLM_BOOT_PROFILE") or None,
         profile_locked=environment.get("MAIN_LLM_PROFILE_LOCKED", "false").lower() == "true",
         idempotency_ttl_seconds=environment.get("MAIN_LLM_SWITCH_IDEMPOTENCY_TTL_SECONDS") or None,
-        internal_service_token=environment.get("INTERNAL_SERVICE_TOKEN", ""),
+        internal_service_token=internal_service_token,
+        internal_service_auth_required=internal_service_auth_required,
         gateway_internal_url=environment.get("GATEWAY_INTERNAL_URL") or _default_gateway_internal_url(config_root),
         log_target_manifest_path=Path(
             environment.get(
@@ -102,7 +120,10 @@ _TOPOLOGY = load_runtime_topology(
     compose_path=APP_CONFIG_ROOT / "ops/compose/full-stack.private-network.yaml",
 )
 CONTROLLABLE: frozenset[str] = _TOPOLOGY.controllable_services
-_HEALTH_PORT: dict[str, int] = dict(_TOPOLOGY.health_port_by_service)
+# health URL은 topology가 소유한다. 경로 파라미터로 들어온 service 문자열로
+# URL을 조립하지 않기 위해서다 -- allowlist(CONTROLLABLE)가 이미 값을 막지만,
+# 조립 자체를 없애면 "무엇을 부르는가"가 설정 한 곳에서만 결정된다.
+_HEALTH_URL: dict[str, str] = dict(_TOPOLOGY.health_url_by_service)
 _START_PREREQUISITES: dict[str, list[str]] = dict(_TOPOLOGY.start_prerequisites_by_service)
 _VRAM_FRACTION: dict[str, float] = dict(_TOPOLOGY.vram_fraction_by_service)
 # 표준 GPU VRAM 예산은 configs/gpu_budgets.yaml에 있다(단일 소스이며
@@ -219,8 +240,8 @@ async def _do_start(container_id: str) -> None:
             resp.raise_for_status()
 
 
-async def _wait_healthy(service: str, port: int, timeout: float = 120.0) -> bool:
-    url = f"http://{service}:{port}/health"
+async def _wait_healthy(service: str, url: str, timeout: float = 120.0) -> bool:
+    """``url``이 200을 돌려줄 때까지 기다린다. ``service``는 로그 식별용이다."""
     deadline = asyncio.get_running_loop().time() + timeout
     last_detail = "no response"
     async with httpx.AsyncClient(timeout=2.0) as client:
@@ -359,6 +380,9 @@ async def _admit_or_raise(target_key: str, target_fraction: float, *, force: boo
 
 
 async def _require_sidecar_token(authorization: str | None = Header(default=None)) -> None:
+    # 토큰 없이 여기 도달할 수 있는 경우는 운영자가 INTERNAL_SERVICE_AUTH_REQUIRED로
+    # 내부 인증 없음을 선언한 구성뿐이다(auth profile local_open/internal_trusted).
+    # 선언과 어긋난 빈 토큰은 load_sidecar_config가 기동 시점에 이미 거부한다.
     if not SIDECAR_TOKEN:
         return
     if authorization != f"Bearer {SIDECAR_TOKEN}":
@@ -658,7 +682,7 @@ async def start_container(
 
         # prerequisite들을 순서대로 시작한다(GPU 메모리 프로파일링을 순차적으로 진행).
         for prereq in _START_PREREQUISITES.get(service, []):
-            prereq_port = _HEALTH_PORT[prereq]
+            prereq_url = _HEALTH_URL[prereq]
             status = await _container_status(prereq)
             if status == "running":
                 continue
@@ -666,7 +690,7 @@ async def start_container(
             if prereq_id is None:
                 raise HTTPException(503, detail=f"prerequisite container not found: {prereq}")
             await _do_start(prereq_id)
-            if not await _wait_healthy(prereq, prereq_port):
+            if not await _wait_healthy(prereq, prereq_url):
                 raise HTTPException(
                     503, detail=f"prerequisite {prereq} did not become healthy within timeout"
                 )
@@ -678,8 +702,8 @@ async def start_container(
         if await _container_status(service) != "running":
             await _do_start(container_id)
             started.append(service)
-        target_port = _HEALTH_PORT[service]
-        if not await _wait_healthy(service, target_port):
+        target_url = _HEALTH_URL[service]
+        if not await _wait_healthy(service, target_url):
             raise HTTPException(
                 503, detail=f"container {service} did not become healthy within timeout"
             )

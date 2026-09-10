@@ -68,3 +68,34 @@ def test_health_surfaces_definitive_reconciliation_failure(tmp_path, monkeypatch
         asyncio.run(sidecar.health())
     assert excinfo.value.status_code == 503
     assert "main runtime did not become healthy" in str(excinfo.value.detail)
+
+
+def test_sidecar_refuses_to_start_when_declared_internal_auth_has_no_token(tmp_path):
+    """가장 높은 권한을 가진 프로세스는 인증을 조용히 끄지 않아야 한다.
+
+    예전에는 인증 활성 여부를 토큰 문자열이 비었는지로 판단했다. 그래서
+    private_network/strict처럼 내부 인증을 요구한 구성에서 토큰이 유실되면
+    Docker socket을 쥔 sidecar가 거부 대신 무인증 서비스를 택했다. 판단 근거를
+    운영자가 선언한 INTERNAL_SERVICE_AUTH_REQUIRED로 옮긴다.
+    """
+    from pathlib import Path
+
+    from ai_model_serving.apps.admin_sidecar import load_sidecar_config
+
+    base = {"APP_CONFIG_ROOT": str(Path(".").resolve()), "MAIN_MODEL_STATE_PATH": str(tmp_path / "s.json")}
+
+    for missing_token in ({}, {"INTERNAL_SERVICE_TOKEN": ""}, {"INTERNAL_SERVICE_TOKEN": "change-me-internal"}):
+        with pytest.raises(RuntimeError, match="INTERNAL_SERVICE_TOKEN"):
+            load_sidecar_config({**base, "INTERNAL_SERVICE_AUTH_REQUIRED": "true", **missing_token})
+
+    # 선언이 없거나 인증 없음을 선언한 구성은 지금 동작을 유지한다. auth profile
+    # local_open/internal_trusted가 내부 인증 없음을 명시하는 정당한 배포다.
+    for declared in ({}, {"INTERNAL_SERVICE_AUTH_REQUIRED": "false"}):
+        config = load_sidecar_config({**base, **declared})
+        assert config.internal_service_token == ""
+        assert config.internal_service_auth_required is False
+
+    admitted = load_sidecar_config(
+        {**base, "INTERNAL_SERVICE_AUTH_REQUIRED": "true", "INTERNAL_SERVICE_TOKEN": "real-internal-token"}
+    )
+    assert admitted.internal_service_token == "real-internal-token"

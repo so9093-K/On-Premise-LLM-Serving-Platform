@@ -36,6 +36,19 @@ class RuntimeTopology:
         }
 
     @property
+    def health_url_by_service(self) -> dict[str, str]:
+        """제어 가능한 runtime의 Compose 내부 health endpoint.
+
+        포트가 이미 여기서 나오는데 hostname만 호출부가 f-string으로 붙이고 있었다.
+        조립을 topology로 옮기면 "이 서비스의 health를 어떻게 부르는가"가 한 곳에
+        모이고, 호출부는 HTTP 경로 파라미터로 URL을 만들 이유가 사라진다.
+        """
+        return {
+            service: f"http://{service}:{port}/health"
+            for service, port in self.health_port_by_service.items()
+        }
+
+    @property
     def controllable_keys(self) -> frozenset[str]:
         return frozenset(self.service_by_key)
 
