@@ -44,6 +44,11 @@ run_check() {
   return "$status"
 }
 
+validate_generated_artifacts() {
+  "$PYTHON_BIN" scripts/render_runtime_assets.py --check
+  "$PYTHON_BIN" scripts/validation/openapi_snapshot_diff.py
+}
+
 if [[ -z "$PYTHON_BIN" ]]; then
   printf '[validate] %-24s FAIL (exit=2)\n' "python compatibility" >&2
   printf '[validate]   Python 3.12 or 3.13 was not found\n' >&2
@@ -56,7 +61,6 @@ run_check "shell syntax" "$PYTHON_BIN" scripts/validation/validate_shell_syntax.
 run_check "exposure profiles" "$PYTHON_BIN" scripts/validation/validate_exposure_profiles.py --strict
 run_check "compose overrides" "$PYTHON_BIN" scripts/compose/render_exposure_overrides.py --check
 run_check "environment contract" "$PYTHON_BIN" scripts/validation/validate_env_contract.py --strict
-run_check "runtime assets" "$PYTHON_BIN" scripts/render_runtime_assets.py --check
-run_check "OpenAPI snapshot" "$PYTHON_BIN" scripts/validation/openapi_snapshot_diff.py
+run_check "generated artifacts" validate_generated_artifacts
 
 printf '[validate] complete: %d/%d checks passed\n' "$VALIDATE_PASSED" "$VALIDATE_TOTAL"

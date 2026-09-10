@@ -20,7 +20,7 @@
 
 본 문서는 48GB VRAM 단일 GPU 환경에서 26B 단일 Main Model을 기준으로 했던 resource 판단과, 이후 selectable profile 전환 뒤의 실측을 기록한다. 현재 운영 요구사항을 정의하지 않는다.
 
-이전 기준의 `QuantTrio/gemma-4-31B-it-AWQ`, 4개 runtime, `risk-siren` 상주, 총 utilization `0.83~0.87` 운영 reference는 폐기한다. `risk-siren`은 retired 상태이며 기본 compose, readiness, `/v1/models`, aggregate execution, runtime validation에서 제외된다.
+이전 기준의 `QuantTrio/gemma-4-31B-it-AWQ`, 4개 runtime, `risk-siren` 상주, 총 utilization `0.83~0.87` 운영 reference는 폐기한다. `risk-siren`은 제거되었으며 기본 compose, readiness, `/v1/models`, aggregate execution, runtime validation에 포함되지 않는다.
 
 ## 2. 검토 대상 모델 구성
 
@@ -105,7 +105,7 @@ Prefix caching은 반복 prefix가 있는 multi-turn, tool, RAG prompt에서 pre
 ## 8. 결론
 
 
-이 구성은 registry-driven runtime, detector registry, prompt-only aggregate, retired `risk-siren` policy를 전제로 한다. 운영 확정 전에는 RTX 6000 Ada 환경에서 boot log, idle VRAM, p95 TTFT, decode tok/s, restart/OOM 0을 기록해야 한다.
+이 구성은 registry-driven runtime, detector registry, prompt-only aggregate와 `risk-siren` 제거 정책을 전제로 한다. 운영 확정 전에는 RTX 6000 Ada 환경에서 boot log, idle VRAM, p95 TTFT, decode tok/s, restart/OOM 0을 기록해야 한다.
 
 ## 9. Selectable Main LLM 프로필 반영 (2026-07-16 갱신)
 

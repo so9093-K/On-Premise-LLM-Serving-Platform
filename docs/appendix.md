@@ -95,7 +95,7 @@
 | Platform Image Build | `make build-image` | [7. 로컬 개발과 빌드](./07_local_dev_build.md) |
 | Unified vLLM Image Build | `make build-vllm-unified-image` | [7. 로컬 개발과 빌드](./07_local_dev_build.md) |
 | Release ZIP 생성 | `make package` | [7. 로컬 개발과 빌드](./07_local_dev_build.md) |
-| Runtime 생성 파일 갱신 | `make render-runtime-assets` | [5. 설정 체계와 Source of Truth](./05_configuration.md) |
+| Generated artifact 갱신 | `make render-runtime-assets` | [5. 설정 체계와 Source of Truth](./05_configuration.md) |
 
 ### 모델 운영
 

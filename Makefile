@@ -204,5 +204,5 @@ reset-version: ## NEW_VERSION=<x.y.z> 버전을 선언된 모든 자리에 반�
 	$(PYTHON) scripts/build/reset_version.py "$(NEW_VERSION)"
 	$(MAKE) validate
 
-render-runtime-assets: ## 생성 runtime asset 다시 렌더링
+render-runtime-assets: ## 추적하는 generated artifact 다시 렌더링
 	$(PYTHON) scripts/render_runtime_assets.py --write

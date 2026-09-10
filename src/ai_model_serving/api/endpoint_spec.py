@@ -95,18 +95,18 @@ def schema_maps_from_specs(
 
 
 def error_codes_from_specs(endpoints: Sequence[EndpointSpec]) -> dict[RouteKey, tuple[str, ...]]:
-    """Endpoint별 공개 오류 목록을 공통 write 경계와 합쳐 반환한다."""
+    """Endpoint별 공개 오류 목록을 공통 HTTP 경계와 합쳐 반환한다.
+
+    인증이 실제로 적용되는지는 path 이름이 아니라 FastAPI가 생성한
+    operation.security가 소유한다. 따라서 여기서는 401 후보를 제공하고,
+    인증이 비활성이거나 공개 endpoint인 경우는 OpenAPI 투영 단계가 제외한다.
+    """
     result: dict[RouteKey, tuple[str, ...]] = {}
     for spec in endpoints:
         if spec.method in {"POST", "PUT", "PATCH"}:
             base = WRITE_BASE_ERROR_CODES
-        elif spec.path not in {"/health", "/ready"}:
-            # 두 서비스 모두 liveness/readiness만 공개하고 나머지 read surface는
-            # API/admin/internal auth 중 하나를 사용한다. auth가 비활성인 문서는
-            # OpenAPI security 후처리가 401을 제외한다.
-            base = ("UNAUTHORIZED",)
         else:
-            base = ()
+            base = ("UNAUTHORIZED",)
         codes = tuple(dict.fromkeys((*base, *spec.error_codes)))
         if codes:
             result[(spec.method, spec.path)] = codes

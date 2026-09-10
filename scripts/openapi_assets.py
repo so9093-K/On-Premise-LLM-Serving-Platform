@@ -35,9 +35,7 @@ _GENERATED_HEADER = (
 )
 
 
-def build_generated_openapi(
-    root: Path | None = None,
-) -> tuple[dict[str, dict[str, Any]], list[dict[str, Any]]]:
+def build_generated_openapi() -> tuple[dict[str, dict[str, Any]], list[dict[str, Any]]]:
     """고정된 strict-auth fixture로 두 애플리케이션의 OpenAPI를 생성한다."""
     previous = {key: os.environ.get(key) for key in STRICT_ENV}
     os.environ.update(STRICT_ENV)
@@ -46,7 +44,7 @@ def build_generated_openapi(
         from ai_model_serving.apps.risk_adapter import create_risk_adapter_app
         from ai_model_serving.settings import load_settings
 
-        settings = load_settings(root=root)
+        settings = load_settings(root=ROOT)
         policies = settings.main_model_profile_policies
         return {
             "gateway": create_gateway_app(settings=settings).openapi(),

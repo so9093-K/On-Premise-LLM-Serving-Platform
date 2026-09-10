@@ -188,7 +188,8 @@ make render-runtime-assets
 make validate
 ```
 
-`make validate`는 Runtime asset과 Compose override가 현재 Source of Truth와 일치하는지 확인한다.
+`make validate`는 generated artifact와 Compose override가 현재 Source of Truth와
+일치하는지 확인한다.
 
 ### 환경변수 계약
 

@@ -69,7 +69,25 @@ paths:
                   status: ready
                   endpoint: http://risk-adapter:9405/ready
         '401':
-          description: Admin Bearer token 필요
+          description: 'Admin Bearer token 필요
+
+
+            이 status로 올 수 있는 `error.code`:
+
+            - `UNAUTHORIZED` — API 키 또는 인증 정보가 없거나 유효하지 않다. (재시도 불가)'
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: ./schemas/common_error.schema.json
+                - type: object
+                  properties:
+                    error:
+                      type: object
+                      properties:
+                        code:
+                          enum:
+                          - UNAUTHORIZED
         '503':
           description: 일부 dependency 로딩 중 또는 불가
           content:

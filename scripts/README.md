@@ -120,6 +120,6 @@ Risk detector의 `bitsandbytes` 설정은 운영 기본값이다. 원인 분리�
 
 `build_vllm_unified_image.sh`는 `ops/patches/` 아래 patch script를 포함한 unified 이미지를 빌드한다. `check_risk_vllm_image_config.sh`는 그 안의 Kanana patch label, metadata, config loading을 검증한다.
 
-## OpenAPI snapshot diff
+## OpenAPI projection 검증
 
-`scripts/validation/openapi_snapshot_diff.py`는 strict auth 기준 runtime OpenAPI와 checked-in static OpenAPI의 path/method/parameter/security/operationId/response status/request·response schema 및 endpoint별 오류 code drift를 확인한다. 정적 OpenAPI는 `make render-runtime-assets`로 생성하며, 이 검사는 `make validate`에 포함된다.
+`scripts/validation/openapi_snapshot_diff.py`는 strict auth 기준 runtime OpenAPI와 checked-in static OpenAPI의 path/method/parameter/security/operationId/response status/request·response schema 및 endpoint별 오류 code를 비교한다. 정적 OpenAPI는 `make render-runtime-assets`로 생성하며, 이 검사는 별도 사용자 단계가 아니라 `make validate`의 `generated artifacts` 단계에서 생성 파일 drift 검사와 함께 실행된다.

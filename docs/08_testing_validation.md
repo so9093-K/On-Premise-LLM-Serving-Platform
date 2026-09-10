@@ -131,15 +131,14 @@ Compose Override Drift
       ↓
 Environment Contract
       ↓
-Runtime Asset Drift
-      ↓
-OpenAPI Snapshot
+Generated Artifacts
+(file drift + OpenAPI projection)
 ```
 
 ### API Contract 검증
 
 Gateway와 Risk Adapter API는 FastAPI 구현, checked-in OpenAPI, JSON Schema를 함께 사용한다.
-OpenAPI snapshot 검증은 다음 항목을 비교한다.
+Generated Artifacts 단계의 OpenAPI projection 검증은 다음 항목을 비교한다.
 
 - path와 HTTP method
 - `operationId`
@@ -170,7 +169,8 @@ make render-runtime-assets
 make validate
 ```
 
-`make validate`의 drift check가 현재 source와 checked-in artifact의 일치 여부를 확인한다.
+`make validate`의 Generated Artifacts 단계가 source와 checked-in artifact의 drift,
+정적 OpenAPI로 축약하는 과정에서 계약 의미가 보존되는지를 함께 확인한다.
 
 ---
 
@@ -607,7 +607,7 @@ make compose-logs
 | full-stack readiness + smoke | `make ready-full` |
 | 대표 API smoke | `make smoke` |
 | vLLM / monitoring 운영 검증 | `make runtime-validate` |
-| Runtime artifact 재생성 | `make render-runtime-assets` |
+| Generated artifact 재생성 | `make render-runtime-assets` |
 | Effective Compose 확인 | `make compose-config` |
 
 ### 주요 구현 위치
@@ -618,8 +618,8 @@ make compose-logs
 | Contract validator | `scripts/validation/validate_contracts.py` | 공통 API·model·resource contract |
 | Environment contract | `scripts/validation/validate_env_contract.py` | env template 정합성 |
 | Exposure validator | `scripts/validation/validate_exposure_profiles.py` | service exposure 구조 |
-| OpenAPI snapshot | `scripts/validation/openapi_snapshot_diff.py` | runtime OpenAPI와 spec 비교 |
-| Runtime artifact renderer | `scripts/render_runtime_assets.py` | generated artifact 생성·drift 확인 |
+| OpenAPI projection check | `scripts/validation/openapi_snapshot_diff.py` | runtime OpenAPI와 축약된 정적 spec의 의미 보존 확인 |
+| Generated artifact renderer | `scripts/render_runtime_assets.py` | generated artifact 생성·drift 확인 |
 | Test entry point | `scripts/validation/run_test.sh` | Unit / Contract pytest |
 | Test source | `tests/unit/`, `tests/contract/` | 동작 / contract test |
 | Local readiness | `scripts/ops/ready_local.sh` | app-only health gate |

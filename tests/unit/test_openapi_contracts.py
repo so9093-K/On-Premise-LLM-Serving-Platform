@@ -1,7 +1,7 @@
 """OpenAPI의 동적 인증·예시 보존과 오류 경계를 검증한다.
 
 기본 request/response schema가 checked-in 계약과 일치하는지는 ``make validate``의
-OpenAPI snapshot diff가 Gateway와 Risk Adapter 전체에 대해 검사한다.
+generated artifacts 단계가 Gateway와 Risk Adapter 전체에 대해 검사한다.
 """
 
 from __future__ import annotations
@@ -64,6 +64,7 @@ def test_gateway_openapi_security_matches_effective_public_auth():
     )
     open_doc = create_gateway_app(open_cfg, FakeGatewayClients()).openapi()
     assert "security" not in open_doc["paths"]["/v1/models"]["get"]
+    assert "401" not in open_doc["paths"]["/v1/models"]["get"]["responses"]
 
 
 def test_risk_adapter_openapi_security_matches_effective_internal_auth():
@@ -86,6 +87,7 @@ def test_risk_adapter_openapi_security_matches_effective_internal_auth():
     )
     open_doc = create_risk_adapter_app(open_cfg, FakeRiskClients()).openapi()
     assert "security" not in open_doc["paths"]["/v1/risk/assessments"]["post"]
+    assert "401" not in open_doc["paths"]["/v1/risk/assessments"]["post"]["responses"]
 
 
 def test_generated_openapi_uses_common_error_schema_for_server_failures():

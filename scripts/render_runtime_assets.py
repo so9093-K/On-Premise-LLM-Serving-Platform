@@ -148,7 +148,7 @@ def get_artifacts(
     root: Path,
 ) -> list[tuple[Path, str]]:
     """(파일 경로, expected 내용) 목록을 반환한다."""
-    openapi_docs, _ = build_generated_openapi(root)
+    openapi_docs, _ = build_generated_openapi()
     return [
         (root / "ops/prometheus/prometheus.yml", render_prometheus_yml(registry, monitoring, services)),
         (
@@ -184,10 +184,9 @@ def main() -> int:
         action="store_true",
         help="현재 파일과 expected를 비교하고 drift가 있으면 exit 1합니다.",
     )
-    parser.add_argument("--root", default=str(ROOT), help="프로젝트 루트 경로")
     args = parser.parse_args()
 
-    root = Path(args.root).resolve()
+    root = ROOT
     registry, monitoring, services, macos_runtime, macos_runtime_backend = (
         _load_registry_and_monitoring(root)
     )
@@ -208,7 +207,7 @@ def main() -> int:
         if not compare_artifact(path, expected):
             drifts.append(str(path.relative_to(root)))
     if drifts:
-        print("Runtime asset drift detected:", file=sys.stderr)
+        print("Generated artifact drift detected:", file=sys.stderr)
         for d in drifts:
             print(f"  {d}", file=sys.stderr)
         print("Run: make render-runtime-assets  to update.", file=sys.stderr)
@@ -217,7 +216,7 @@ def main() -> int:
         # dry-run: drift 보고만 하고 exit 0
         return 0
 
-    print("All runtime assets are up to date.")
+    print("All generated artifacts are up to date.")
     return 0
 
 

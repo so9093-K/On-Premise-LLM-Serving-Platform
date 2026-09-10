@@ -117,6 +117,11 @@ def _inject_standard_error_responses(
             if not isinstance(operation, dict):
                 continue
             responses = operation.setdefault("responses", {})
+            # Route decorator의 responses는 인증 설정이 꺼져도 고정 401을 남길 수
+            # 있다. 실제 Security dependency가 생성한 operation.security가 없으면
+            # 그 endpoint는 401을 내지 않으므로 문서에서도 제거한다.
+            if not operation.get("security"):
+                responses.pop("401", None)
             codes_by_status: dict[str, list[str]] = {}
             for error_code in route_error_codes.get((method.upper(), path), ()):
                 definition = ERROR_DEFINITIONS.get(error_code)

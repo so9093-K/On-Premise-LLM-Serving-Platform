@@ -492,8 +492,10 @@ Generated artifact는 원본 config를 변경한 뒤 다시 생성하는 방식�
 |---|---|
 | `ops/prometheus/prometheus.yml` | `model_catalog.yaml` + `model_serving.yaml` + `monitoring.yaml` |
 | `specs/schemas/model_list_response.schema.json` | Model Registry projection |
+| `specs/openapi.gateway.yaml` | Gateway runtime OpenAPI + contract schema + endpoint spec |
+| `specs/openapi.risk-adapter.yaml` | Risk Adapter runtime OpenAPI + contract schema + endpoint spec |
 
-runtime artifact를 갱신할 때는 다음 명령을 사용한다.
+generated artifact를 갱신할 때는 다음 명령을 사용한다.
 
 ```bash
 make render-runtime-assets
@@ -505,7 +507,9 @@ Exposure Compose override(`exposure_profiles.yaml` + `services.yaml` 입력)는 
 python scripts/compose/render_exposure_overrides.py
 ```
 
-`make validate`는 두 generator의 drift를 각각 별도 단계로 검사한다(runtime asset drift, compose override drift).
+`make validate`는 두 generator의 drift를 각각 별도 단계로 검사한다
+(generated artifacts, compose overrides). OpenAPI는 generated artifacts 단계에서 축약 전·후의
+계약 의미 보존도 함께 확인한다.
 
 ---
 
@@ -526,8 +530,7 @@ make validate
 | Exposure profile validation | exposure profile 구조와 service reference |
 | Compose override drift | generated exposure override 일치 여부 |
 | Env contract validation | `.env.*.example`과 env contract 일치 여부 |
-| Runtime asset drift | generated artifact 최신 상태 |
-| OpenAPI snapshot diff | OpenAPI contract drift |
+| Generated artifacts | 생성 파일 drift와 OpenAPI projection 의미 보존 |
 | Auth profile sanity | auth profile과 생성값 일관성 |
 
 Compose 관련 설정을 변경했다면 effective configuration도 함께 확인한다.
