@@ -22,6 +22,20 @@ traffic_modes:
     고정 동시성으로 끝나는 대로 다음을 보낸다. 지연이 나빠지면 스스로 rate가
     떨어져 포화가 가려질 수 있다. Gateway admission 한도 안에서만 의미가 있다.
 
+# 용량은 "부하를 올려도 대기가 쌓이지 않는 가장 높은 지점"이다. 임계값이 아니라
+# 관측 규칙이므로 여기서 선언한다.
+#
+# 안정된 계에서는 요청 순서와 첫 응답 시간이 무관하다. 포화되면 뒤쪽 요청일수록
+# 앞의 요청을 기다려 오래 걸린다. 그래서 측정 구간을 반으로 나눠 뒤쪽 중앙값이
+# 앞쪽의 몇 배인지를 본다. 평균이나 최댓값은 한 건의 튐에 흔들린다.
+capacity_criterion:
+  signal: time_to_first_chunk_drift
+  # macOS Metal 실측에서 안정 지점(0.15 rps)의 비율은 1.00이었고 첫 포화
+  # 지점(0.25 rps)은 약 3이었다. 1.5는 그 빈 구간에 놓은 값이다.
+  max_second_half_ratio: 1.5
+  # 요청을 하나라도 버리면 그 부하는 이미 감당 범위 밖이다.
+  require_success_ratio: 1.0
+
 workloads:
   interactive:
     description: chatbot·coding assistant처럼 첫 응답이 빨라야 하는 요청.
@@ -42,7 +56,12 @@ workloads:
       max_tokens: 256
     traffic:
       mode: open_loop
+      # 이 workload가 재려는 부하. 이 배포가 감당하는지는 별개이며, 못 감당한다는
+      # 사실 자체가 측정 결과다.
       request_rate_per_second: 1.0
+      # 용량을 찾을 때 훑는 지점. 선언한 부하가 용량 안에 드는지 보려면 그 값도
+      # 포함해야 하므로 1.0이 마지막에 있다.
+      request_rate_sweep: [0.1, 0.2, 0.5, 1.0]
     cache:
       policy: cold
     duration:

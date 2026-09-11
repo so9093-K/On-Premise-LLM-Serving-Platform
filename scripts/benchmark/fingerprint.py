@@ -57,12 +57,35 @@ def _vllm_profile() -> tuple[dict[str, Any], dict[str, Any]]:
     return profiles[profile_id], {}
 
 
-def _nvidia_gpu() -> dict[str, Any] | None:
-    """nvidia-smi가 있을 때만 GPU 지문을 채운다.
+def _sysctl(name: str) -> str:
+    result = subprocess.run(["sysctl", "-n", name], capture_output=True, text=True, check=False)
+    return result.stdout.strip() if result.returncode == 0 else ""
 
-    macOS는 통합 메모리라 GPU 개수 개념이 없다. 그 경우 None을 돌려주고
-    evaluator가 per_gpu 파생값을 계산하지 않는다.
+
+def _apple_silicon_gpu() -> dict[str, Any] | None:
+    """Apple Silicon의 Metal GPU를 기록한다.
+
+    이 target에는 nvidia-smi가 없지만 GPU가 없는 것이 아니다. 모델은 Metal GPU에서
+    돈다. 이걸 비워 두면 32GB M5와 128GB M3 Ultra가 같은 지문을 내고, 6개월 뒤
+    숫자를 해석할 수 없다 -- 지문을 required로 잡은 이유가 바로 그것이다.
+
+    메모리는 CPU와 공유하는 통합 메모리라 NVIDIA의 전용 VRAM과 의미가 다르다.
+    그 차이를 memory_kind로 명시해서 per_gpu 파생값이 잘못 계산되지 않게 한다.
     """
+    if platform.system() != "Darwin" or platform.machine() != "arm64":
+        return None
+    chip = _sysctl("machdep.cpu.brand_string")
+    memory = _sysctl("hw.memsize")
+    if not chip:
+        return None
+    gpu: dict[str, Any] = {"model": chip, "count": 1, "memory_kind": "unified"}
+    if memory.isdigit():
+        gpu["memory_bytes"] = int(memory)
+    return gpu
+
+
+def _nvidia_gpu() -> dict[str, Any] | None:
+    """nvidia-smi가 있을 때만 NVIDIA GPU 지문을 채운다."""
     if not shutil.which("nvidia-smi"):
         return None
     result = subprocess.run(
@@ -78,6 +101,7 @@ def _nvidia_gpu() -> dict[str, Any] | None:
         "model": name,
         "count": len(rows),
         "memory_bytes": int(float(memory_mib) * 1024 * 1024),
+        "memory_kind": "dedicated",
         "driver_version": driver,
     }
 
@@ -110,10 +134,7 @@ def collect() -> dict[str, Any]:
         "model_revision": str(profile["revision"]),
         "platform_image": os.getenv("PLATFORM_IMAGE", "").strip() or "unknown",
         "runtime_flags": runtime_flags,
-        "host": {
-            "platform": f"{platform.system()}/{platform.machine()}",
-            "cpu": platform.processor() or platform.machine(),
-        },
+        "host": _host(),
     }
     served = profile.get("served_model_name")
     if served:
@@ -121,7 +142,21 @@ def collect() -> dict[str, Any]:
     runtime_image = os.getenv("VLLM_IMAGE", "").strip()
     if runtime_image and backend != "mlx-vlm":
         fingerprint["runtime_image"] = runtime_image
-    gpu = _nvidia_gpu()
+    gpu = _nvidia_gpu() or _apple_silicon_gpu()
     if gpu is not None:
         fingerprint["gpu"] = gpu
     return fingerprint
+
+
+def _host() -> dict[str, Any]:
+    """실행 호스트. platform.processor()는 macOS에서 "arm"만 돌려준다."""
+    host: dict[str, Any] = {"platform": f"{platform.system()}/{platform.machine()}"}
+    chip = _sysctl("machdep.cpu.brand_string") if platform.system() == "Darwin" else ""
+    host["cpu"] = chip or platform.processor() or platform.machine()
+    memory = _sysctl("hw.memsize") if platform.system() == "Darwin" else ""
+    if memory.isdigit():
+        host["memory_bytes"] = int(memory)
+    cores = _sysctl("hw.ncpu") if platform.system() == "Darwin" else ""
+    if cores.isdigit():
+        host["cpu_cores"] = int(cores)
+    return host

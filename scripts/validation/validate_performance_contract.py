@@ -429,14 +429,7 @@ def _validate_slo(failures: list[str], metrics: dict[str, Any], workloads: dict[
                 )
             # 임계값이 채워질 때는 출처를 함께 적어야 한다. 출처 없는 숫자는
             # baseline에서 유도된 값과 구분할 수 없다.
-            # target별 임계값은 실재하는 target만 가리켜야 한다. 오타가 나면 그
-            # target은 조용히 판정 없이 통과한다.
-            for target_id in (objective.get("thresholds_by_target") or {}):
-                if target_id not in _declared_targets():
-                    failures.append(
-                        f"slo class {name!r} objective {metric_name!r} sets a threshold for "
-                        f"unknown deployment target {target_id!r}"
-                    )
+            _validate_configuration_thresholds(failures, name, metric_name, objective, metrics)
             has_threshold = any(
                 key not in ("percentiles", "aggregate", "source") for key in objective
             )
@@ -444,6 +437,58 @@ def _validate_slo(failures: list[str], metrics: dict[str, Any], workloads: dict[
                 failures.append(
                     f"slo class {name!r} objective {metric_name!r} sets a threshold "
                     f"without a declared source; allowed: {sorted(sources)}"
+                )
+
+
+def _validate_configuration_thresholds(
+    failures: list[str],
+    slo_name: str,
+    metric_name: str,
+    objective: dict[str, Any],
+    metrics: dict[str, Any],
+) -> None:
+    """측정으로 그은 선이 어떤 구성에서 나왔는지 정확히 가리키는지 확인한다.
+
+    match가 비어 있거나 모르는 항목만 있으면 그 선은 모든 구성에 걸린다. 다른
+    모델·다른 가속기의 결과를 그 숫자로 판정하게 되므로 근거 없는 합격이 나온다.
+    """
+    from scripts.benchmark.evaluate import MATCHABLE_FIELDS
+
+    where = f"slo class {slo_name!r} objective {metric_name!r}"
+    load_dependent = bool(metrics.get(metric_name, {}).get("load_dependent"))
+    entries = objective.get("thresholds_by_configuration")
+    if entries is None:
+        return
+    if not isinstance(entries, list) or not entries:
+        failures.append(f"{where} thresholds_by_configuration must be a non-empty list")
+        return
+    targets = _declared_targets()
+    for index, entry in enumerate(entries):
+        match = (entry or {}).get("match") or {}
+        if not match:
+            failures.append(f"{where} entry {index} must declare a non-empty match")
+        if "threshold" not in (entry or {}):
+            failures.append(f"{where} entry {index} must declare a threshold")
+        for field, value in match.items():
+            if field not in MATCHABLE_FIELDS:
+                failures.append(
+                    f"{where} entry {index} matches on unknown field {field!r}; "
+                    f"allowed: {sorted(MATCHABLE_FIELDS)}"
+                )
+            elif field == "deployment_target" and value not in targets:
+                failures.append(
+                    f"{where} entry {index} matches unknown deployment target {value!r}"
+                )
+        # 무엇을 재고 그은 선인지 적히지 않으면 6개월 뒤 아무도 이 숫자를 바꾸지 못한다.
+        if str(objective.get("source", "")) == "regression_guard":
+            if not (entry or {}).get("measured"):
+                failures.append(f"{where} entry {index} is a regression_guard without a measured note")
+            # 부하가 값을 바꾸는 지표는 어느 부하에서 쟀는지까지 적어야 한다. 안 적으면
+            # 다른 부하의 실행에 그 선이 적용되어 대기열 길이를 모델 성능으로 판정한다.
+            if load_dependent and "request_rate_per_second" not in match:
+                failures.append(
+                    f"{where} entry {index} guards a load_dependent metric but does not pin "
+                    "request_rate_per_second; 다른 부하의 실행에 이 선이 적용된다"
                 )
 
 

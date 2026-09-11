@@ -150,19 +150,58 @@ def _objectives(slo: dict[str, Any]) -> dict[str, dict[str, Any]]:
     return dict(slo.get("objectives") or {})
 
 
-def _threshold(objective: dict[str, Any], document: dict[str, Any]) -> float | None:
-    """이 실행 환경에 해당하는 임계값.
+# 측정으로 그은 선이 어떤 실행에서 나온 것인지 적을 때 쓸 수 있는 항목.
+# 결과 문서에서 읽어 오며, 여기 없는 이름은 계약 검증기가 거부한다.
+#
+# 환경만으로는 부족하다. 첫 응답 시간처럼 부하가 값을 바꾸는 지표는 어느 부하에서
+# 쟀는지까지 적어야 그 선이 의미를 갖는다.
+MATCHABLE_FIELDS = {
+    "runtime_backend": ("environment", "runtime_backend"),
+    "deployment_target": ("environment", "deployment_target"),
+    "model_id": ("environment", "model_id"),
+    "model_revision": ("environment", "model_revision"),
+    "gpu_model": ("environment", "gpu", "model"),
+    "gpu_memory_kind": ("environment", "gpu", "memory_kind"),
+    "request_rate_per_second": ("workload", "traffic", "request_rate_per_second"),
+}
 
-    측정으로 그은 선은 target마다 다르다. 26B MLX의 토큰당 시간과 GPU의 12B FP8은
-    같을 수 없다. 한 숫자를 모두에 걸면 한쪽에서는 반드시 틀린 판정을 낸다.
-    측정하지 않은 target은 비어 있고, 그때는 판정하지 않는다.
+
+def _document_value(document: dict[str, Any], field: str) -> Any:
+    value: Any = document
+    for key in MATCHABLE_FIELDS[field]:
+        if not isinstance(value, dict):
+            return None
+        value = value.get(key)
+    return value
+
+
+def _threshold(objective: dict[str, Any], document: dict[str, Any], statistic: str) -> float | None:
+    """이 실행 구성에 해당하는 임계값.
+
+    모든 구성에 같은 한도가 적용되는 것(선언된 timeout 등)은 threshold 하나로 적는다.
+    측정으로 그은 선은 모델과 가속기와 런타임 backend가 정하므로 match로 적는다.
+    target 이름을 키로 쓰면 같은 target에서 모델만 바꿔도 예전 숫자가 계속 적용된다.
+
+    일치하는 항목이 없으면 None이다. 다른 구성의 숫자를 빌려 쓰면 없는 근거로
+    합격·불합격을 내게 된다.
     """
     if "threshold" in objective:
         return float(objective["threshold"])
-    by_target = objective.get("thresholds_by_target") or {}
-    target = str((document.get("environment") or {}).get("deployment_target", ""))
-    value = by_target.get(target)
-    return float(value) if value is not None else None
+    for entry in objective.get("thresholds_by_configuration") or []:
+        # 항목이 특정 통계만 겨냥할 수 있다. p95에서 잰 선으로 p99를 판정하면
+        # 근거 없이 더 엄한 기준을 적용하게 된다.
+        declared = entry.get("statistic")
+        if declared is not None and str(declared) != statistic:
+            continue
+        match = entry.get("match") or {}
+        # 모르는 항목은 일치로 치지 않는다. 건너뛰면 오타 하나로 조건이 사라져
+        # 그 선이 모든 구성에 걸린다. 이름 자체는 계약 검증기가 먼저 거부한다.
+        if match and all(
+            field in MATCHABLE_FIELDS and _document_value(document, field) == expected
+            for field, expected in match.items()
+        ):
+            return float(entry["threshold"])
+    return None
 
 
 def _goodput(
@@ -181,13 +220,15 @@ def _goodput(
         return {"value": None, "count": len(succeeded)}
     _, slo = found
     metrics = contract.metrics
-    # 요청 하나하나를 판정할 수 있는 지표만 쓴다. 창 단위 집계값에는 요청별로
-    # "이 요청이 SLO를 만족했는가"를 물을 수 없다.
+    # 요청 하나하나를 판정할 수 있는 선만 쓴다. 창 단위 집계값에는 요청별로
+    # "이 요청이 SLO를 만족했는가"를 물을 수 없고, percentile로 그은 선도 마찬가지다
+    # -- 한 요청이 "p95를 만족했다"는 말은 성립하지 않는다. statistic을 명시하지
+    # 않은 항목만 요청별 한도로 읽는다.
     limits = [
         (name, threshold, str(metrics[name].get("better", "lower")))
         for name, objective in _objectives(slo).items()
         if metrics.get(name, {}).get("aggregation_unit") == "request"
-        and (threshold := _threshold(objective, document)) is not None
+        and (threshold := _threshold(objective, document, "value")) is not None
     ]
     if not limits:
         # 임계값이 없으면 "SLO를 만족한 요청"이 정의되지 않는다. 성공 요청 수를
@@ -223,7 +264,7 @@ def judge(document: dict[str, Any], contract: PerformanceContract, summary: dict
         entry_summary = summary.get(metric_name) or {}
         for statistic in _requested_statistics(objective):
             observed = _observed(entry_summary, statistic)
-            threshold = _threshold(objective, document)
+            threshold = _threshold(objective, document, statistic)
             entry: dict[str, Any] = {
                 "metric": metric_name,
                 "statistic": statistic,

@@ -52,8 +52,29 @@ slo_classes:
     enforcement: observe
     intent: 첫 응답이 빨라야 한다. 처리량을 조금 잃어도 된다.
     objectives:
+      # 첫 응답 시간은 부하가 정한다. 그래서 이 선은 "감당하는 부하에서 잰 값"이고,
+      # match가 그 부하를 못박는다. 다른 부하의 실행에는 적용되지 않는다 --
+      # 1 rps에서 잰 89.7초를 이 선으로 판정하면 모델이 아니라 대기열을 재게 된다.
+      #
+      # 용량 아래라고 해서 더 좋아지지도 않는다. 0.10 rps에서는 요청 간격이 10초라
+      # 기기가 유휴 상태로 내려갔다 올라오는 비용이 붙어 p50이 0.88초로 오히려
+      # 나빴다. 그래서 경계 바로 아래에서 잰다.
       client_time_to_first_chunk_seconds:
         percentiles: [p50, p95, p99]
+        source: regression_guard
+        thresholds_by_configuration:
+          - match:
+              runtime_backend: mlx-vlm
+              model_id: mlx-community/gemma-4-26B-A4B-it-qat-4bit
+              gpu_model: Apple M5
+              request_rate_per_second: 0.15
+            # p95에서 잰 선으로 p99를 판정하면 근거 없이 더 엄한 기준이 된다.
+            statistic: p95
+            threshold: 1.0
+            measured: >-
+              2026-09-11. sweep이 찾은 경계는 0.15 rps 감당 / 0.17 rps 포화다.
+              0.15 rps에서 21건씩 두 번 재서 p95가 0.689·0.681초, 편차 1.2%.
+              1.0초는 그보다 45% 위이며 관찰된 편차의 약 37배 밖이다.
       # chunk 간격이 아니라 요청별 토큰 기준 근사값으로 판정한다. chunk 간격의
       # percentile은 전송 계층의 묶임을 재기 때문이다(metrics.yaml 참고).
       # 이 지표는 요청 하나에 값 하나이므로 요청 간 percentile이 성립한다.
@@ -66,14 +87,23 @@ slo_classes:
       # 경보선이다. 이 값을 바꾸는 것은 모델·양자화·투기적 디코딩 설정이지
       # 그날의 트래픽이 아니다.
       #
-      # target마다 모델이 다르므로 숫자도 다르다. 한 숫자를 모두에 걸면 한쪽에서는
-      # 반드시 틀린다. 측정하지 않은 target은 비워 두고 not_evaluated로 남긴다.
+      # 이 값을 정하는 것은 모델과 가속기와 런타임 backend이지 target 이름이 아니다.
+      # 같은 target에서 모델만 바꿔도 숫자가 달라지므로, 무엇을 재고 그은 선인지를
+      # match가 그대로 적는다. 일치하는 항목이 없으면 판정하지 않는다 -- 다른 구성의
+      # 숫자를 빌려 쓰면 없는 근거로 합격·불합격을 내게 된다.
       client_time_per_output_token_seconds:
         percentiles: [p95]
         source: regression_guard
-        thresholds_by_target:
-          # mlx-community/gemma-4-26B-A4B-it-qat-4bit, MTP 투기적 디코딩 on
-          macos-metal-static: 0.030
+        thresholds_by_configuration:
+          - match:
+              runtime_backend: mlx-vlm
+              model_id: mlx-community/gemma-4-26B-A4B-it-qat-4bit
+              gpu_model: Apple M5
+            threshold: 0.030
+            measured: >-
+              2026-09-11. 0.15·0.25·0.35·0.50 rps 네 지점에서 p50이
+              21.0·21.1·21.3·21.2ms로 편차 2% 미만. 30ms는 그보다 40% 위이며
+              관찰된 편차의 15배 밖이다. MTP 투기적 디코딩 on, turboquant off.
       client_request_success_ratio:
         aggregate: min
       client_goodput_requests_per_second:

@@ -35,6 +35,11 @@
           "type": "string",
           "description": "어떤 도구로 측정했는지. 도구는 실행 backend이지 기준이 아니다."
         },
+        "sweep_id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "같은 sweep에 속한 실행을 묶는 값. sweep 지점마다 결과 문서를 따로 만든다. 한 문서에 여러 부하의 샘플을 담으면 percentile이 서로 다른 조건의 값을 섞어 계산된다."
+        },
         "max_dispatch_lag_seconds": {
           "type": "number",
           "minimum": 0,
@@ -67,12 +72,16 @@
         },
         "gpu": {
           "type": ["object", "null"],
-          "description": "GPU가 없는 target(macOS unified memory)에서는 null이며 per_gpu 파생값을 계산하지 않는다.",
+          "description": "모델을 실행한 가속기. Apple Silicon도 Metal GPU가 있으므로 비우지 않는다. 비워 두면 32GB M5와 128GB M3 Ultra가 같은 지문을 낸다. per_gpu 파생값은 GPU가 없어서가 아니라 memory_kind가 unified일 때 계산하지 않는다.",
           "additionalProperties": false,
-          "required": ["model", "count"],
+          "required": ["model", "count", "memory_kind"],
           "properties": {
             "model": {"type": "string"},
             "count": {"type": "integer", "minimum": 1},
+            "memory_kind": {
+              "enum": ["dedicated", "unified"],
+              "description": "dedicated는 NVIDIA의 전용 VRAM, unified는 Apple Silicon처럼 CPU와 공유하는 메모리다. 같은 memory_bytes라도 의미가 다르다 -- unified는 OS와 다른 프로세스가 같은 풀을 쓴다."
+            },
             "memory_bytes": {"type": "integer", "minimum": 0},
             "driver_version": {"type": "string"},
             "cuda_version": {"type": "string"}

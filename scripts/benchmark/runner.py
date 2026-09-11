@@ -55,6 +55,10 @@ class RunOptions:
     max_requests: int | None = None
     measurement_seconds: float | None = None
     warmup_seconds: float | None = None
+    # sweep 한 지점의 요청률. 계약이 선언한 값을 덮어쓴다. 결과 문서에는 실제로
+    # 사용한 값이 기록되므로 나중에 어느 지점이었는지 되짚을 수 있다.
+    request_rate_per_second: float | None = None
+    sweep_id: str | None = None
 
 
 class RunnerError(RuntimeError):
@@ -181,7 +185,7 @@ def run_workload(contract: PerformanceContract, options: RunOptions) -> dict[str
     if mode not in _SUPPORTED_TRAFFIC_MODES:
         raise _unsupported(options.workload_id, "traffic.mode", mode, _SUPPORTED_TRAFFIC_MODES)
     _assert_required_parameters_are_sent(options.workload_id, workload)
-    rate = float(traffic.get("request_rate_per_second", 0))
+    rate = float(options.request_rate_per_second or traffic.get("request_rate_per_second", 0))
     if rate <= 0:
         raise RunnerError(f"workload {options.workload_id!r} declares no positive request_rate_per_second")
 
@@ -348,8 +352,11 @@ def _result_document(
 ) -> dict[str, Any]:
     traffic = workload.get("traffic") or {}
     traffic_document: dict[str, Any] = {"mode": str(traffic.get("mode"))}
-    if "request_rate_per_second" in traffic:
-        traffic_document["request_rate_per_second"] = float(traffic["request_rate_per_second"])
+    # 계약이 선언한 값이 아니라 이 실행이 실제로 건 부하를 적는다. sweep 지점은
+    # 계약값과 다르고, 결과를 해석할 때 필요한 것은 실제로 건 쪽이다.
+    rate = options.request_rate_per_second or traffic.get("request_rate_per_second")
+    if rate is not None:
+        traffic_document["request_rate_per_second"] = float(rate)
     admission = (traffic.get("admission_limit") or {}).get("max_concurrency")
     if admission:
         traffic_document["admission_limit"] = int(admission)
@@ -375,6 +382,7 @@ def _result_document(
             "seed": options.seed,
             "measurement_backend": "platform_native_http",
             "max_dispatch_lag_seconds": round(dispatch_lag, 6),
+            **({"sweep_id": options.sweep_id} if options.sweep_id else {}),
         },
         "environment": environment,
         "workload": workload_document,

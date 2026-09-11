@@ -56,6 +56,15 @@ roles:
   reference: >-
     다른 층의 근사값이 맞는지 대조하는 정답지. approximation_of가 가리키는 쪽이다.
 
+# 부하가 값을 바꾸는 지표인지 적는다. 측정으로 그은 선은 그 부하에서만 유효하다.
+# 실측에서 요청률을 0.1에서 1.0 rps로 올리자 첫 응답이 0.67초에서 89.7초로 130배
+# 벌어졌다. 같은 구간에서 토큰당 시간은 21ms 그대로였다 -- 큐 대기가 첫 chunk까지의
+# 시간에 들어가고 생성 구간에는 들어가지 않기 때문이다.
+#
+# load_dependent인 지표의 regression_guard는 어느 부하에서 쟀는지를 match에
+# 적어야 한다. 안 적으면 다른 부하의 실행에 그 선이 적용되어 대기열 길이를
+# 모델 성능으로 판정하게 된다.
+
 # judgment 지표는 판정 방향을 적는다. 지연은 낮을수록, 성공률과 처리량은 높을수록
 # 좋다. 방향이 없으면 evaluator가 한쪽으로 가정하게 되고, 성공률 임계값이
 # "이 값보다 낮아야 한다"로 뒤집혀도 아무도 모른다.
@@ -70,6 +79,7 @@ metrics:
   client_time_to_first_chunk_seconds:
     layer: client
     role: judgment
+    load_dependent: true
     better: lower
     unit: seconds
     aggregation_unit: request
@@ -82,6 +92,7 @@ metrics:
   client_time_per_output_chunk_seconds:
     layer: client
     role: diagnosis
+    load_dependent: false
     unit: seconds
     aggregation_unit: streamed_output_gap
     otel: gen_ai.client.operation.time_per_output_chunk
@@ -98,6 +109,7 @@ metrics:
   client_time_per_output_token_seconds:
     layer: client
     role: judgment
+    load_dependent: false
     better: lower
     unit: seconds
     aggregation_unit: request
@@ -113,6 +125,7 @@ metrics:
   client_operation_duration_seconds:
     layer: client
     role: judgment
+    load_dependent: true
     better: lower
     unit: seconds
     aggregation_unit: request
@@ -138,6 +151,7 @@ metrics:
   client_output_tokens_per_second:
     layer: client
     role: judgment
+    load_dependent: true
     better: higher
     unit: tokens_per_second
     aggregation_unit: window
@@ -149,6 +163,7 @@ metrics:
   client_total_tokens_per_second:
     layer: client
     role: judgment
+    load_dependent: true
     better: higher
     unit: tokens_per_second
     aggregation_unit: window
@@ -159,6 +174,7 @@ metrics:
   client_request_success_ratio:
     layer: client
     role: judgment
+    load_dependent: true
     better: higher
     unit: ratio
     aggregation_unit: window
@@ -167,6 +183,7 @@ metrics:
   client_goodput_requests_per_second:
     layer: client
     role: judgment
+    load_dependent: true
     better: higher
     unit: requests_per_second
     aggregation_unit: window
@@ -362,8 +379,9 @@ derived:
     from: [client_output_tokens_per_second]
     requires_fingerprint: [gpu_count]
     definition: >-
-      client_output_tokens_per_second / gpu_count. GPU가 없는
-      target(macOS unified memory)에서는 계산하지 않는다.
+      client_output_tokens_per_second / gpu_count. 통합 메모리 가속기
+      (memory_kind: unified)에서는 계산하지 않는다. GPU가 없어서가 아니라 개수가
+      항상 1이라 총 처리량과 같은 값이 나와 비교에 아무것도 더하지 않기 때문이다.
 
   client_total_tokens_per_second_per_gpu:
     from: [client_total_tokens_per_second]

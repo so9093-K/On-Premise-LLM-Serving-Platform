@@ -201,49 +201,155 @@ def test_an_objective_the_summary_never_produced_is_refused():
         judge(document, contract, summary)
 
 
-def _target_document(target: str, tpot: float) -> dict:
-    # p50은 표본 10개를 요구한다. 모자라면 임계값이 아니라 표본 수 때문에
-    # not_evaluated가 나와 이 테스트가 무엇도 확인하지 못한다.
-    document = _document([_request(i) for i in range(12)])
-    document["environment"] = {"deployment_target": target}
+MEASURED_ON = {
+    "runtime_backend": "mlx-vlm",
+    "deployment_target": "macos-metal-static",
+    "model_id": "gemma-26b-mlx",
+    "gpu_model": "Apple M5",
+}
+
+
+def _run_on(tpot: float, *, samples: int = 12, **changes: str) -> dict:
+    # 최소 표본을 못 채우면 임계값이 아니라 표본 수 때문에 not_evaluated가 나와
+    # 이 테스트가 무엇도 확인하지 못한다. p50은 10개, p95는 20개를 요구한다.
+    document = _document([_request(i) for i in range(samples)])
+    environment = dict(MEASURED_ON) | changes
+    document["environment"] = {
+        "runtime_backend": environment["runtime_backend"],
+        "deployment_target": environment["deployment_target"],
+        "model_id": environment["model_id"],
+        "gpu": {"model": environment["gpu_model"], "count": 1, "memory_kind": "unified"},
+    }
     for request in document["requests"]:
         request["client_time_per_output_token_seconds"] = tpot
     return document
 
 
+def _guard_contract():
+    return _contract({
+        "client_time_per_output_token_seconds": {
+            "percentiles": ["p50"],
+            "source": "regression_guard",
+            "thresholds_by_configuration": [
+                {"match": dict(MEASURED_ON), "threshold": 0.030, "measured": "테스트 고정값"}
+            ],
+        }
+    })
+
+
 @pytest.mark.parametrize(
-    "target,tpot,expected",
+    "tpot,changes,expected",
     [
-        ("macos-metal-static", 0.021, "pass"),
-        ("macos-metal-static", 0.042, "fail"),
-        # 측정하지 않은 target에 다른 target의 숫자를 적용하면 없는 근거로 판정하게 된다.
-        ("linux-nvidia-dynamic", 0.021, "not_evaluated"),
+        (0.021, {}, "pass"),
+        (0.042, {}, "fail"),
+        # 같은 장비라도 모델이 바뀌면 그 숫자로 판정할 근거가 없다. target 이름을
+        # 키로 쓰면 이 경우가 조용히 예전 선을 그대로 적용받는다.
+        (0.021, {"model_id": "qwen-30b-mlx"}, "not_evaluated"),
+        (0.021, {"gpu_model": "Apple M3 Ultra"}, "not_evaluated"),
+        (0.021, {"runtime_backend": "vllm-cuda"}, "not_evaluated"),
     ],
 )
-def test_measured_thresholds_apply_only_to_the_target_they_were_measured_on(target, tpot, expected):
-    """측정으로 그은 선은 그 장비의 것이다.
+def test_measured_guards_apply_only_to_the_configuration_they_were_measured_on(tpot, changes, expected):
+    """측정으로 그은 선은 모델과 가속기와 런타임 backend가 정한다.
 
-    토큰당 시간은 모델과 런타임 설정이 정한다. 26B MLX의 21ms를 GPU의 12B FP8에
-    걸면 한쪽에서는 반드시 틀린 판정이 나온다.
+    다른 구성의 숫자를 빌려 쓰면 없는 근거로 합격·불합격을 내게 된다.
     """
+    verdict = evaluate(_run_on(tpot, **changes), _guard_contract())["verdict"]
+    assert verdict["objectives"][0]["status"] == expected
+
+
+def test_a_typo_in_the_match_does_not_widen_the_guard_to_every_configuration():
+    """모르는 항목을 건너뛰면 오타 하나로 조건이 사라진다."""
     contract = _contract({
         "client_time_per_output_token_seconds": {
             "percentiles": ["p50"],
             "source": "regression_guard",
-            "thresholds_by_target": {"macos-metal-static": 0.030},
+            "thresholds_by_configuration": [
+                {"match": {"gpu_modell": "Apple M5"}, "threshold": 0.030, "measured": "오타"}
+            ],
         }
     })
-    verdict = evaluate(_target_document(target, tpot), contract)["verdict"]
-    assert verdict["objectives"][0]["status"] == expected
+    verdict = evaluate(_run_on(0.042), contract)["verdict"]
+    assert verdict["objectives"][0]["status"] == "not_evaluated"
 
 
-def test_a_direct_threshold_still_wins_over_the_per_target_table():
-    """모든 target에 같은 한도가 적용되는 경우(선언된 timeout 등)는 하나로 적는다."""
+def test_a_direct_threshold_applies_to_every_configuration():
+    """선언된 timeout처럼 모든 구성에 같은 한도가 걸리는 경우는 하나로 적는다."""
     contract = _contract({
         "client_operation_duration_seconds": {
             "percentiles": ["p50"], "threshold": 125, "source": "declared_limit",
         }
     })
-    verdict = evaluate(_target_document("linux-nvidia-dynamic", 0.021), contract)["verdict"]
+    verdict = evaluate(_run_on(0.021, runtime_backend="vllm-cuda"), contract)["verdict"]
     assert verdict["objectives"][0]["threshold"] == 125
     assert verdict["objectives"][0]["status"] == "pass"
+
+
+def test_apple_silicon_records_its_accelerator_rather_than_claiming_none():
+    """맥에도 GPU가 있다. 모델은 Metal GPU에서 돈다.
+
+    비워 두면 32GB M5와 128GB M3 Ultra가 같은 지문을 내고, 6개월 뒤 숫자를 해석할
+    수 없다. 지문을 required로 잡은 이유가 그것이다.
+    """
+    import platform
+
+    from scripts.benchmark import fingerprint
+
+    gpu = fingerprint._apple_silicon_gpu()
+    if platform.system() != "Darwin" or platform.machine() != "arm64":
+        assert gpu is None
+        return
+    assert gpu is not None and gpu["count"] == 1
+    # 통합 메모리는 NVIDIA의 전용 VRAM과 의미가 다르다. 같은 숫자라도 OS와 다른
+    # 프로세스가 같은 풀을 쓴다.
+    assert gpu["memory_kind"] == "unified"
+    assert gpu["memory_bytes"] > 0
+    assert gpu["model"] != platform.machine(), "칩 이름이 없으면 장비를 구분할 수 없다"
+
+
+def _run_at_rate(rate: float, ttfc: float) -> dict:
+    document = _run_on(0.021, samples=21)
+    document["workload"]["traffic"]["request_rate_per_second"] = rate
+    for request in document["requests"]:
+        request["client_time_to_first_chunk_seconds"] = ttfc
+    return document
+
+
+def _rate_pinned_contract():
+    return _contract({
+        "client_time_to_first_chunk_seconds": {
+            "percentiles": ["p50", "p95"],
+            "source": "regression_guard",
+            "thresholds_by_configuration": [
+                {
+                    "match": dict(MEASURED_ON) | {"request_rate_per_second": 0.15},
+                    "statistic": "p95",
+                    "threshold": 1.0,
+                    "measured": "테스트 고정값",
+                }
+            ],
+        }
+    })
+
+
+@pytest.mark.parametrize(
+    "rate,ttfc,statistic,expected",
+    [
+        (0.15, 0.68, "p95", "pass"),
+        (0.15, 2.00, "p95", "fail"),
+        # 용량 밖에서 잰 값은 모델이 아니라 대기열 길이다. 실측에서 1 rps의 첫 응답은
+        # 89.7초였고, 같은 구성에서 0.15 rps는 0.68초였다.
+        (1.00, 89.7, "p95", "not_evaluated"),
+        # 같은 부하라도 p95에서 잰 선으로 p50을 판정하지 않는다.
+        (0.15, 0.68, "p50", "not_evaluated"),
+    ],
+)
+def test_a_load_dependent_guard_applies_only_at_the_load_it_was_measured_at(
+    rate, ttfc, statistic, expected
+):
+    verdict = evaluate(_run_at_rate(rate, ttfc), _rate_pinned_contract())["verdict"]
+    entry = next(
+        o for o in verdict["objectives"]
+        if o["metric"] == "client_time_to_first_chunk_seconds" and o["statistic"] == statistic
+    )
+    assert entry["status"] == expected
