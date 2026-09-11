@@ -20,9 +20,9 @@ from ai_model_serving.auth_control import (  # noqa: E402
     auth_profile_env_values,
     auth_profile_summary,
 )
+from ai_model_serving.settings_parts.env import DEFAULT_ENV_FILENAME  # noqa: E402
 
 MANAGED_MODES = tuple(mode for mode in AUTH_MODE_EXPECTATIONS if mode != "custom")
-NON_LOCAL_ENVS = {"staging", "production", "prod"}
 
 
 
@@ -95,7 +95,7 @@ def render_plan(plan: dict[str, Any]) -> str:
 def build_parser() -> KoreanArgumentParser:
     parser = KoreanArgumentParser(description="secret을 노출하지 않고 managed auth profile flag 변경 계획을 표시합니다.")
     parser.add_argument("--mode", choices=MANAGED_MODES, required=True)
-    parser.add_argument("--env", default=".env", help="점검할 env 파일입니다. 기본값은 repository root 기준입니다.")
+    parser.add_argument("--env", default=DEFAULT_ENV_FILENAME, help="점검할 env 파일입니다. 기본값은 repository root 기준입니다.")
     parser.add_argument("--app-env", help="auth flag와 함께 APP_ENV 변경도 계획합니다.")
     parser.add_argument("--json", action="store_true", help="기계가 읽기 쉬운 JSON을 출력합니다.")
     return parser

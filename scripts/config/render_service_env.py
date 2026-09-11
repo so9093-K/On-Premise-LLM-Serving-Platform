@@ -21,6 +21,7 @@ if str(ROOT / "src") not in sys.path:
     sys.path.insert(0, str(ROOT / "src"))
 
 from ai_model_serving.settings_parts.dotenv_parser import load_strict_env_file  # noqa: E402
+from ai_model_serving.settings_parts.env import DEFAULT_ENV_FILENAME  # noqa: E402
 
 
 def _load_contract() -> dict[str, Any]:
@@ -102,7 +103,7 @@ def render(*, target: str, source_env: Path, output: Path) -> tuple[str, int]:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Render a target-specific Gateway service env projection.")
     parser.add_argument("--target", required=True)
-    parser.add_argument("--source-env", default=".env")
+    parser.add_argument("--source-env", default=DEFAULT_ENV_FILENAME)
     parser.add_argument("--output", required=True)
     args = parser.parse_args(argv)
     source_env = Path(args.source_env).resolve()

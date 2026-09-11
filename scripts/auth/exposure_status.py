@@ -21,6 +21,7 @@ from scripts.lib.env_path import resolve_env_path  # noqa: E402
 from scripts.compose.resolve_exposure_mode import load_exposure_data, resolve  # noqa: E402
 sys.path.insert(0, str(ROOT / "src"))
 from ai_model_serving.settings_parts.dotenv_parser import load_strict_env_file  # noqa: E402
+from ai_model_serving.settings_parts.env import DEFAULT_ENV_FILENAME  # noqa: E402
 from ai_model_serving.deployment_target import (  # noqa: E402
     effective_published_compose_services,
     load_deployment_target,
@@ -38,7 +39,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="현재 EXPOSURE_MODE의 host-published 서비스와 diagnostics를 표시합니다.")
     parser.add_argument("--json", action="store_true", help="JSON 출력")
     parser.add_argument("--exposure-mode", help="점검할 EXPOSURE_MODE (기본값: 환경 변수 또는 master_open)")
-    parser.add_argument("--env", default=".env", help="점검할 env 파일 경로입니다. 기본값은 repository root의 .env입니다.")
+    parser.add_argument("--env", default=DEFAULT_ENV_FILENAME, help="점검할 env 파일 경로입니다. 기본값은 repository root의 .env입니다.")
     args = parser.parse_args()
 
     env_path = resolve_env_path(args.env)
@@ -101,7 +102,7 @@ def main() -> int:
         })
 
     allowed_audiences: list[str] = data.get("exposure_audience", {}).get("allowed_values", [])
-    allowed_str = "|".join(allowed_audiences) if allowed_audiences else "local_only|private_lan|vpn|public"
+    allowed_str = "|".join(allowed_audiences)
 
     remediation: list[str] = []
     if diagnostics.get("requires_exposure_audience") and not audience:

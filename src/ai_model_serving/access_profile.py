@@ -2,10 +2,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Mapping
 
-import yaml
 
+from .configuration import load_yaml_mapping
 from .auth_control import auth_profile_env_values
 
 
@@ -24,22 +24,15 @@ class AccessProfile:
     external_tls_owner: str
 
 
-def _mapping(path: Path) -> dict[str, Any]:
-    document = yaml.safe_load(path.read_text(encoding="utf-8"))
-    if not isinstance(document, dict):
-        raise ValueError(f"{path} must contain a YAML mapping")
-    return document
-
-
 def access_profile_names(root: Path = _PROJECT_ROOT) -> tuple[str, ...]:
-    profiles = _mapping(root / "configs" / "access_profiles.yaml").get("profiles")
+    profiles = load_yaml_mapping(root / "configs" / "access_profiles.yaml").get("profiles")
     if not isinstance(profiles, dict) or not profiles:
         raise ValueError("configs/access_profiles.yaml must define profiles")
     return tuple(str(name) for name in profiles)
 
 
 def default_access_profile(root: Path = _PROJECT_ROOT) -> str:
-    document = _mapping(root / "configs" / "access_profiles.yaml")
+    document = load_yaml_mapping(root / "configs" / "access_profiles.yaml")
     default = str(document.get("default_profile", ""))
     if default not in access_profile_names(root):
         raise ValueError("configs/access_profiles.yaml default_profile must reference a profile")
@@ -47,7 +40,7 @@ def default_access_profile(root: Path = _PROJECT_ROOT) -> str:
 
 
 def load_access_profile(name: str, root: Path = _PROJECT_ROOT) -> AccessProfile:
-    profiles = _mapping(root / "configs" / "access_profiles.yaml").get("profiles", {})
+    profiles = load_yaml_mapping(root / "configs" / "access_profiles.yaml").get("profiles", {})
     raw = profiles.get(name) if isinstance(profiles, dict) else None
     if not isinstance(raw, dict):
         allowed = ", ".join(access_profile_names(root))
@@ -82,7 +75,7 @@ def access_profile_env_values(
     }
     values.update(auth_profile_env_values(profile.auth_mode))
 
-    services = _mapping(root / "configs" / "services.yaml").get("services")
+    services = load_yaml_mapping(root / "configs" / "services.yaml").get("services")
     if not isinstance(services, dict):
         raise ValueError("configs/services.yaml must define services")
     for service in services.values():

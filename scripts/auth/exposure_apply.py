@@ -7,6 +7,8 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from ai_model_serving.settings_parts.env import DEFAULT_ENV_FILENAME  # noqa: E402
+from scripts.compose.resolve_exposure_mode import allowed_exposure_audiences  # noqa: E402
 from scripts.lib.cli_kr import KoreanArgumentParser  # noqa: E402
 from scripts.lib.env_path import resolve_env_path  # noqa: E402
 from scripts.auth.exposure_plan import build_plan, render_plan  # noqa: E402
@@ -21,8 +23,8 @@ def build_parser() -> KoreanArgumentParser:
                     "--yes 없이 실행하면 plan만 출력합니다."
     )
     parser.add_argument("--mode", required=True, help="대상 EXPOSURE_MODE (private_network|master_open)")
-    parser.add_argument("--audience", help="EXPOSURE_AUDIENCE (local_only|private_lan|vpn|public)")
-    parser.add_argument("--env", default=".env", help="업데이트할 env 파일. 기본값은 repository root 기준.")
+    parser.add_argument("--audience", help=f"EXPOSURE_AUDIENCE ({'|'.join(allowed_exposure_audiences())})")
+    parser.add_argument("--env", default=DEFAULT_ENV_FILENAME, help="업데이트할 env 파일. 기본값은 repository root 기준.")
     parser.add_argument("--yes", action="store_true", help="env 파일에 실제로 기록합니다.")
     return parser
 

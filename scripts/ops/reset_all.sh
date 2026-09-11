@@ -12,6 +12,8 @@ print_plan() {
   remove images: images built by this project (project label or canonical local repository)
   remove files: .env, .venv, .runtime, logs, run, build/test artifacts,
                 repository-local model_cache and models
+  uninstall: this checkout's launchd supervisor for the native MLX runtime,
+             if one was installed (macOS only)
   preserve: Docker volumes, daemon-wide BuildKit cache, registry images without
             this project's build label, global Hugging Face cache, and unrelated
             Docker resources
@@ -75,6 +77,14 @@ elif [[ -z "$image_refs" ]]; then
   echo "[reset] no project-built images found"
 else
   echo "[reset] project-built images removed"
+fi
+
+# launchd supervisor는 ~/Library/LaunchAgents/에 있어 .runtime 삭제로 사라지지 않는다.
+# 남겨두면 KeepAlive가 방금 지운 venv와 model alias를 계속 다시 실행하려 하고, 그
+# crash loop가 재부팅마다 되살아난다. 파일을 지우기 전에 등록을 해제한다.
+if [[ "$(uname -s)" == "Darwin" ]]; then
+  "${PYTHON_BIN:-python3}" scripts/runtime/macos_mlx_runtime.py uninstall-supervisor || \
+    echo "[reset] launchd supervisor uninstall skipped" >&2
 fi
 
 FORCE_CLEAN_RUNNING=1 bash scripts/ops/clean_project.sh --logs

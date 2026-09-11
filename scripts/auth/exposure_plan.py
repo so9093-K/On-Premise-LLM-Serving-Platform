@@ -9,9 +9,10 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from ai_model_serving.settings_parts.env import DEFAULT_ENV_FILENAME  # noqa: E402
 from scripts.lib.cli_kr import KoreanArgumentParser  # noqa: E402
 from scripts.lib.env_path import load_env_values, resolve_env_path  # noqa: E402
-from scripts.compose.resolve_exposure_mode import load_exposure_data  # noqa: E402
+from scripts.compose.resolve_exposure_mode import allowed_exposure_audiences, load_exposure_data  # noqa: E402
 
 EXPOSURE_ENV_KEYS = ["ACCESS_PROFILE", "EXPOSURE_MODE", "EXPOSURE_AUDIENCE"]
 
@@ -60,7 +61,7 @@ def build_plan(current: dict[str, str], mode: str, audience: str | None) -> dict
         )
     effective_audience = audience or current.get("EXPOSURE_AUDIENCE", "")
     if requires_audience and not effective_audience:
-        allowed_str = "|".join(allowed_audiences) if allowed_audiences else "local_only|private_lan|vpn|public"
+        allowed_str = "|".join(allowed_audiences)
         warnings.append(
             f"EXPOSURE_MODE={mode}은 EXPOSURE_AUDIENCE 설정이 필수입니다. "
             f"--audience {allowed_str} 중 하나를 지정하세요."
@@ -121,8 +122,8 @@ def build_parser() -> KoreanArgumentParser:
         description="EXPOSURE_MODE 변경 계획을 표시합니다. .env는 변경하지 않습니다."
     )
     parser.add_argument("--mode", required=True, help="대상 EXPOSURE_MODE (private_network|master_open)")
-    parser.add_argument("--audience", help="EXPOSURE_AUDIENCE (local_only|private_lan|vpn|public)")
-    parser.add_argument("--env", default=".env", help="점검할 env 파일. 기본값은 repository root 기준.")
+    parser.add_argument("--audience", help=f"EXPOSURE_AUDIENCE ({'|'.join(allowed_exposure_audiences())})")
+    parser.add_argument("--env", default=DEFAULT_ENV_FILENAME, help="점검할 env 파일. 기본값은 repository root 기준.")
     parser.add_argument("--json", action="store_true", help="JSON 출력")
     return parser
 

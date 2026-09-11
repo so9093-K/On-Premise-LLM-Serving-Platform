@@ -63,6 +63,11 @@ services:
       - ../alloy/request-events.alloy:/etc/alloy/config.alloy:ro
       - ../../.runtime/alloy:/var/lib/alloy/data
       - ../../.runtime/request-events:/var/lib/alloy/request-events:ro
+      # native MLX runtime의 stdout/stderr. 이 디렉터리에는 native runtime 로그만
+      # 있으므로 Alloy가 glob으로 읽어도 안전하다. 저장소의 logs/는 app-only 모드의
+      # gateway/risk_adapter 로그라 성격이 다르고, 그쪽을 읽으면 이미 JSONL 경로로
+      # 올라간 요청 이벤트가 중복 적재된다(ADR-0022).
+      - ../../.runtime/metal/logs:/var/lib/alloy/native-logs:ro
 
   grafana:
     image: ${GRAFANA_IMAGE:?Set GRAFANA_IMAGE in the operator env}

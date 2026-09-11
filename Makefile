@@ -13,7 +13,7 @@ AUTH_ENV ?= $(if $(ENV_FILE),$(ENV_FILE),$(ENV))
 AUTH_ENV_ARG = $(if $(AUTH_ENV),--env $(AUTH_ENV),)
 
 
-.PHONY: help help-all setup build rebuild prepare up status down down-all check init-env-local init-env-compose sync-env static-compose-config metal-doctor metal-command metal-start validate test build-image build-vllm-unified-image lock package compose-up compose-config ready-local ready-full smoke runtime-validate auth-status auth-doctor auth-plan auth-apply exposure-status exposure-plan exposure-apply main-model-prepare compose-down compose-restart compose-logs logs compose-diagnostics clean reset reset-version render-runtime-assets
+.PHONY: help help-all setup build rebuild prepare up status down down-all check init-env-local init-env-compose sync-env static-compose-config metal-doctor metal-command metal-start metal-supervisor-install metal-supervisor-uninstall validate test build-image build-vllm-unified-image lock package compose-up compose-config ready-local ready-full smoke runtime-validate auth-status auth-doctor auth-plan auth-apply exposure-status exposure-plan exposure-apply main-model-prepare compose-down compose-restart compose-logs logs compose-diagnostics clean reset reset-version render-runtime-assets
 .PHONY: setup-dev doctor-dev
 
 PUBLIC_TARGETS := setup build prepare up status down
@@ -109,6 +109,12 @@ metal-command: ## cache-resolved MLX server 실행 명령 출력
 
 metal-start: ## cache된 모델로 MLX server foreground 기동 (암묵적 다운로드 없음)
 	$(PYTHON) scripts/runtime/macos_mlx_runtime.py start $(if $(METAL_LISTEN_HOST),--listen-host $(METAL_LISTEN_HOST),)
+
+metal-supervisor-install: ## launchd가 MLX runtime을 재기동하도록 등록 (선택, 상시 운영용)
+	$(PYTHON) scripts/runtime/macos_mlx_runtime.py install-supervisor $(if $(METAL_LISTEN_HOST),--listen-host $(METAL_LISTEN_HOST),)
+
+metal-supervisor-uninstall: ## launchd 등록 해제 후 project 소유 기동으로 복귀
+	$(PYTHON) scripts/runtime/macos_mlx_runtime.py uninstall-supervisor
 
 validate: ## 정적 계약·설정·생성물 drift 검증
 	@PYTHON_BIN="$(PYTHON)" bash scripts/validation/run_validate.sh

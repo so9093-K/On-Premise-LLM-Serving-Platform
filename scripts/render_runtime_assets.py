@@ -35,6 +35,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT))
 
+from ai_model_serving.configuration import load_yaml_mapping  # noqa: E402
 from ai_model_serving.domain import ModelRegistry  # noqa: E402
 from ai_model_serving.deployment_target import load_deployment_target  # noqa: E402
 from ai_model_serving.monitoring_projection import (  # noqa: E402
@@ -57,20 +58,16 @@ _GENERATED_HEADER_YAML_MACOS_METAL = (
 
 # ── loaders ────────────────────────────────────────────────────────────────────
 
-def _load_yaml(path: Path) -> dict[str, Any]:
-    return yaml.safe_load(path.read_text(encoding="utf-8"))
-
-
 def _load_registry_and_monitoring(
     root: Path,
 ) -> tuple[ModelRegistry, dict[str, Any], dict[str, Any], dict[str, Any], str]:
     registry = ModelRegistry(
-        _load_yaml(root / "configs/model_catalog.yaml"),
-        _load_yaml(root / "configs/model_serving.yaml"),
+        load_yaml_mapping(root / "configs/model_catalog.yaml"),
+        load_yaml_mapping(root / "configs/model_serving.yaml"),
     )
-    monitoring = _load_yaml(root / "configs/monitoring.yaml")
-    services = _load_yaml(root / "configs/services.yaml")["services"]
-    macos_runtime = _load_yaml(root / "configs/macos_mlx_runtime.yaml")
+    monitoring = load_yaml_mapping(root / "configs/monitoring.yaml")
+    services = load_yaml_mapping(root / "configs/services.yaml")["services"]
+    macos_runtime = load_yaml_mapping(root / "configs/macos_mlx_runtime.yaml")
     metal_target = load_deployment_target(
         root / "configs/deployment_targets.yaml", "macos-metal-static"
     )

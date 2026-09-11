@@ -13,13 +13,14 @@ from ai_model_serving.main_model.boot import (  # noqa: E402
     read_env_values,
     resolve_compose_relative_path,
 )
+from ai_model_serving.settings_parts.env import default_env_path  # noqa: E402
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Resolve HF_CACHE_DIR with Docker Compose file-relative semantics."
     )
-    parser.add_argument("--env-file", type=Path, default=ROOT / ".env")
+    parser.add_argument("--env-file", type=Path, default=default_env_path(ROOT))
     parser.add_argument(
         "--compose-file",
         type=Path,

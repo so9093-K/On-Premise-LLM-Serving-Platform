@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import os
 import platform
+import plistlib
 import signal
 import shlex
 import shutil
@@ -19,6 +20,7 @@ import time
 import tomllib
 import urllib.error
 import urllib.request
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -27,7 +29,63 @@ import yaml
 ROOT = Path(__file__).resolve().parents[2]
 CONFIG_PATH = ROOT / "configs" / "macos_mlx_runtime.yaml"
 PID_PATH = ROOT / "run" / "metal.pid"
-LOG_PATH = ROOT / "logs" / "metal.log"
+# native runtime 로그는 runtime state에 둔다. 저장소의 logs/는 app-only 모드가
+# gateway.log/risk_adapter.log를 쓰는 곳이라(`make logs`가 그걸 tail한다) 성격이 다르다.
+NATIVE_LOG_DIR = ROOT / ".runtime" / "metal" / "logs"
+# 수명주기 소유자마다 자기 파일을 갖는다. 하나를 공유하면 "누가 먼저 만들었는가"가
+# 동작을 가른다 -- TCC 보호 경로(~/Desktop 등)에서 launchd는 자기가 만들어
+# com.apple.macl이 붙은 파일만 열 수 있고, 다른 프로세스가 먼저 만든 파일에서는
+# job이 EX_CONFIG(78)로 죽으면서 로그를 한 줄도 남기지 않는다. 경로를 나누면
+# 그 상태 자체가 생길 수 없다.
+LOG_PATH = NATIVE_LOG_DIR / "runtime.log"
+SUPERVISOR_LOG_PATH = NATIVE_LOG_DIR / "supervisor.log"
+# launchd label은 사용자 domain에서 전역이다. checkout이 여러 개면 서로를 덮어쓸 수
+# 있으므로 install이 다른 checkout 소유를 감지하면 거부한다.
+SUPERVISOR_LABEL = "com.ai-model-serving.metal"
+# 생성된 plist는 절대 경로와 resolved snapshot을 담는 host state다. 저장소에 커밋하면
+# 영구히 drift하는 생성물이 되므로 .runtime/ 아래에만 둔다(gitignore + make clean 범위).
+SUPERVISOR_PLIST = ROOT / ".runtime" / "metal" / f"{SUPERVISOR_LABEL}.plist"
+
+
+# 진단 시점에 보여줄 로그 분량. 파일 전체를 읽지 않고 끝에서부터 제한된 바이트만
+# 읽는다 -- 이 로그는 회전이 없는 append 파일이라 크기를 가정할 수 없다.
+_LOG_TAIL_LINES = 40
+_LOG_TAIL_BYTES = 64 * 1024
+
+
+def active_log_path() -> Path:
+    """지금 runtime을 소유한 쪽이 쓰는 로그 파일."""
+    return SUPERVISOR_LOG_PATH if supervisor_installed() else LOG_PATH
+
+
+def _log_tail() -> list[str]:
+    path = active_log_path()
+    try:
+        size = path.stat().st_size
+        with path.open("rb") as handle:
+            if size > _LOG_TAIL_BYTES:
+                handle.seek(size - _LOG_TAIL_BYTES)
+                handle.readline()  # 잘린 첫 줄은 버린다
+            data = handle.read()
+    except OSError:
+        return []
+    return data.decode("utf-8", errors="replace").splitlines()[-_LOG_TAIL_LINES:]
+
+
+def _report_log_tail() -> None:
+    """runtime이 죽었거나 안 뜰 때 원인을 그 자리에서 보여준다.
+
+    예전에는 "inspect {LOG_PATH}"라고만 안내해서, 운영자가 경로를 알아내 따로
+    열어야 원인을 볼 수 있었다. Linux에서는 `docker logs` 한 번이면 되는 일이다.
+    """
+    path = active_log_path()
+    lines = _log_tail()
+    if not lines:
+        print(f"[metal] no runtime log yet: {path}", file=sys.stderr)
+        return
+    print(f"[metal] last {len(lines)} lines of {path}:", file=sys.stderr)
+    for line in lines:
+        print(f"  | {line}", file=sys.stderr)
 
 
 def _config() -> dict[str, Any]:
@@ -285,6 +343,110 @@ def server_command(config: dict[str, Any], *, listen_host: str | None = None) ->
     return command
 
 
+def _launchctl_domain() -> str:
+    return f"gui/{os.getuid()}"
+
+
+def _supervisor_job() -> str:
+    return f"{_launchctl_domain()}/{SUPERVISOR_LABEL}"
+
+
+def _installed_plist() -> Path:
+    return Path.home() / "Library" / "LaunchAgents" / f"{SUPERVISOR_LABEL}.plist"
+
+
+def supervisor_installed() -> bool:
+    return _installed_plist().is_file()
+
+
+def _supervisor_loaded() -> bool:
+    return subprocess.run(
+        ["launchctl", "print", _supervisor_job()],
+        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False,
+    ).returncode == 0
+
+
+def _launchctl(*args: str) -> None:
+    result = subprocess.run(["launchctl", *args], capture_output=True, text=True, check=False)
+    if result.returncode != 0:
+        detail = (result.stderr or result.stdout).strip()
+        raise RuntimeError(f"launchctl {' '.join(args)} failed: {detail or result.returncode}")
+
+
+def _supervisor_document(config: dict[str, Any], *, listen_host: str) -> dict[str, Any]:
+    """launchd plist를 server_command에서 만든다.
+
+    손으로 쓰면 model revision, port, venv 경로, listen host를
+    configs/macos_mlx_runtime.yaml에서 복제하게 된다. 실행 명령의 단일 기준은
+    server_command 하나이며 plist는 그 결과를 감싸기만 한다.
+    """
+    return {
+        "Label": SUPERVISOR_LABEL,
+        "ProgramArguments": server_command(config, listen_host=listen_host),
+        "WorkingDirectory": str(_model_aliases(config)[0].parent),
+        "RunAtLoad": True,
+        # Compose의 restart: unless-stopped에 대응한다. 의도적 정지는 SIGTERM이
+        # 아니라 bootout이며, stop_background가 그 경로를 쓴다.
+        "KeepAlive": True,
+        # launchd만 이 파일을 만들고 쓴다. 다른 프로세스가 먼저 만드는 일이
+        # 없으므로 TCC 보호 경로에서도 항상 자기 파일을 연다.
+        "StandardOutPath": str(SUPERVISOR_LOG_PATH),
+        "StandardErrorPath": str(SUPERVISOR_LOG_PATH),
+        # 요청을 처리하는 서버이므로 launchd가 background 작업으로 낮춰 잡지 않게 한다.
+        "ProcessType": "Interactive",
+    }
+
+
+def install_supervisor(config: dict[str, Any], *, listen_host: str) -> None:
+    _require_runtime_host(config)
+    if _tracked_pid() is not None:
+        raise RuntimeError(
+            "a runtime started by this project is still tracked in run/metal.pid; "
+            "run `stop` first so launchd does not start a second server on the same port"
+        )
+    installed = _installed_plist()
+    if installed.is_file():
+        existing = plistlib.loads(installed.read_bytes())
+        owner = str(existing.get("WorkingDirectory", ""))
+        if owner and not owner.startswith(str(ROOT)):
+            raise RuntimeError(
+                f"{SUPERVISOR_LABEL} is already installed for another checkout ({owner}); "
+                "uninstall it there before installing here"
+            )
+    document = _supervisor_document(config, listen_host=listen_host)
+    SUPERVISOR_PLIST.parent.mkdir(parents=True, exist_ok=True)
+    NATIVE_LOG_DIR.mkdir(parents=True, exist_ok=True)
+    with SUPERVISOR_PLIST.open("wb") as handle:
+        plistlib.dump(document, handle)
+    installed.parent.mkdir(parents=True, exist_ok=True)
+    if _supervisor_loaded():
+        _launchctl("bootout", _supervisor_job())
+    installed.write_bytes(SUPERVISOR_PLIST.read_bytes())
+    _launchctl("bootstrap", _launchctl_domain(), str(installed))
+    print(f"[metal] supervisor installed: label={SUPERVISOR_LABEL} plist={installed}")
+    try:
+        _await_readiness(config, is_alive=_supervisor_loaded, stop_on_timeout=False)
+    except (OSError, RuntimeError):
+        # KeepAlive는 기동에 실패한 job도 계속 되살린다. 설치가 성공하지 못했는데
+        # plist를 남기면 crash loop가 백그라운드에 남고 재부팅마다 되살아난다.
+        # 실측에서 launchd가 job을 띄우지 못한 채 18회 재시도한 적이 있다.
+        print("[metal] supervisor did not become ready; removing the installation", file=sys.stderr)
+        uninstall_supervisor()
+        raise
+
+
+def uninstall_supervisor() -> None:
+    installed = _installed_plist()
+    if not installed.is_file():
+        print("[metal] supervisor is not installed")
+        return
+    if _supervisor_loaded():
+        _launchctl("bootout", _supervisor_job())
+    installed.unlink()
+    SUPERVISOR_PLIST.unlink(missing_ok=True)
+    print(f"[metal] supervisor removed: label={SUPERVISOR_LABEL}")
+
+
 def _tracked_pid() -> int | None:
     try:
         pid = int(PID_PATH.read_text(encoding="utf-8").strip())
@@ -307,7 +469,62 @@ def _health_payload(config: dict[str, Any]) -> str:
         return response.read().decode("utf-8")
 
 
+def _await_readiness(
+    config: dict[str, Any], *, is_alive: Callable[[], bool], stop_on_timeout: bool
+) -> None:
+    """기동을 누가 소유하든 같은 readiness 판정을 쓴다.
+
+    소유자별로 판정 루프를 복제하면 한쪽만 고쳐지는 drift가 생긴다. 달라지는 것은
+    "아직 살아 있는가"를 무엇으로 확인하는지(``is_alive``)와 timeout 시 정리
+    책임이 누구에게 있는지 뿐이다.
+    """
+    timeout = int(os.environ.get("METAL_START_TIMEOUT_SECONDS", "1800"))
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if not is_alive():
+            _report_log_tail()
+            raise RuntimeError(f"Metal runtime exited before readiness; inspect {active_log_path()}")
+        try:
+            payload = _health_payload(config)
+        except (OSError, urllib.error.URLError):
+            time.sleep(2)
+            continue
+        print(f"[metal] ready: {payload}")
+        return
+    if stop_on_timeout:
+        try:
+            stop_background()
+        except (OSError, RuntimeError) as exc:
+            print(f"[metal] cleanup after startup timeout failed: {exc}", file=sys.stderr)
+    _report_log_tail()
+    raise RuntimeError(f"Metal runtime did not become ready within {timeout}s; inspect {active_log_path()}")
+
+
+def _start_supervised(config: dict[str, Any]) -> None:
+    try:
+        payload = _health_payload(config)
+    except (OSError, urllib.error.URLError):
+        pass
+    else:
+        print(f"[metal] already ready under launchd: {payload}")
+        return
+    if _supervisor_loaded():
+        _launchctl("kickstart", "-k", _supervisor_job())
+    else:
+        _launchctl("bootstrap", _launchctl_domain(), str(_installed_plist()))
+    print(f"[metal] runtime starting under launchd: label={SUPERVISOR_LABEL} log={SUPERVISOR_LOG_PATH.relative_to(ROOT)}")
+    # timeout 정리를 하지 않는다. launchd가 KeepAlive로 다시 올릴 것이고, 느린 첫
+    # 모델 적재를 실패로 단정해 supervisor를 내리는 것은 설치 의도에 반한다.
+    _await_readiness(config, is_alive=_supervisor_loaded, stop_on_timeout=False)
+
+
 def start_background(config: dict[str, Any], *, listen_host: str = "0.0.0.0") -> None:
+    # 수명주기 소유자는 언제나 하나다. launchd가 설치돼 있으면 pid 파일 경로를
+    # 쓰지 않는다. 둘을 병존시키면 같은 포트에 서버가 둘 뜨거나, 한쪽이 내린
+    # 프로세스를 다른 쪽이 되살린다.
+    if supervisor_installed():
+        _start_supervised(config)
+        return
     pid = _tracked_pid()
     launched = False
     if pid is not None:
@@ -318,7 +535,7 @@ def start_background(config: dict[str, Any], *, listen_host: str = "0.0.0.0") ->
         except (OSError, urllib.error.URLError):
             command = server_command(config, listen_host=listen_host)
             PID_PATH.parent.mkdir(parents=True, exist_ok=True)
-            LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+            NATIVE_LOG_DIR.mkdir(parents=True, exist_ok=True)
             with LOG_PATH.open("a", encoding="utf-8") as log:
                 process = subprocess.Popen(
                     command,
@@ -336,27 +553,21 @@ def start_background(config: dict[str, Any], *, listen_host: str = "0.0.0.0") ->
             print(f"[metal] runtime already ready but is not managed by this project: {payload}")
             return
 
-    timeout = int(os.environ.get("METAL_START_TIMEOUT_SECONDS", "1800"))
-    deadline = time.monotonic() + timeout
-    while time.monotonic() < deadline:
-        if _tracked_pid() is None:
-            raise RuntimeError(f"Metal runtime exited before readiness; inspect {LOG_PATH}")
-        try:
-            payload = _health_payload(config)
-        except (OSError, urllib.error.URLError):
-            time.sleep(2)
-            continue
-        print(f"[metal] ready: {payload}")
-        return
-    if launched:
-        try:
-            stop_background()
-        except (OSError, RuntimeError) as exc:
-            print(f"[metal] cleanup after startup timeout failed: {exc}", file=sys.stderr)
-    raise RuntimeError(f"Metal runtime did not become ready within {timeout}s; inspect {LOG_PATH}")
+    _await_readiness(
+        config, is_alive=lambda: _tracked_pid() is not None, stop_on_timeout=launched
+    )
 
 
 def stop_background() -> None:
+    if supervisor_installed():
+        # KeepAlive가 SIGTERM을 즉시 되살리므로 bootout만이 실제 정지다. plist는
+        # 남겨 다음 start가 재사용한다. 영구 제거는 uninstall-supervisor가 소유한다.
+        if _supervisor_loaded():
+            _launchctl("bootout", _supervisor_job())
+            print(f"[metal] runtime stopped under launchd: label={SUPERVISOR_LABEL}")
+        else:
+            print(f"[metal] launchd job is not loaded: label={SUPERVISOR_LABEL}")
+        return
     pid = _tracked_pid()
     if pid is None:
         print("[metal] no managed runtime process")
@@ -376,17 +587,25 @@ def stop_background() -> None:
     )
 
 
+def _ownership() -> str:
+    if supervisor_installed():
+        loaded = "loaded" if _supervisor_loaded() else "installed, not loaded"
+        return f" supervisor={SUPERVISOR_LABEL} ({loaded})"
+    pid = _tracked_pid()
+    return f" pid={pid}" if pid is not None else " unmanaged"
+
+
 def status(config: dict[str, Any]) -> None:
     try:
         payload = _health_payload(config)
     except (OSError, urllib.error.URLError) as exc:
         runtime = config["runtime"]
+        # 운영자가 원인을 보러 오는 지점이 바로 여기다. 경로만 알려주고 끝내지 않는다.
+        _report_log_tail()
         raise RuntimeError(
             f"Metal runtime is not ready at http://127.0.0.1:{runtime['port']}{runtime['health_path']}: {exc}"
         ) from exc
-    pid = _tracked_pid()
-    suffix = f" pid={pid}" if pid is not None else " unmanaged"
-    print(f"[metal] ready:{suffix} {payload}")
+    print(f"[metal] ready:{_ownership()} {payload}")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -396,6 +615,7 @@ def main(argv: list[str] | None = None) -> int:
         choices=(
             "doctor", "setup", "prepare", "command", "start",
             "start-background", "stop", "status",
+            "install-supervisor", "uninstall-supervisor",
         ),
     )
     parser.add_argument("--listen-host", default=None)
@@ -414,6 +634,10 @@ def main(argv: list[str] | None = None) -> int:
             start_background(config, listen_host=args.listen_host or "0.0.0.0")
         elif args.action == "stop":
             stop_background()
+        elif args.action == "install-supervisor":
+            install_supervisor(config, listen_host=args.listen_host or "0.0.0.0")
+        elif args.action == "uninstall-supervisor":
+            uninstall_supervisor()
         else:
             command = server_command(config, listen_host=args.listen_host)
             if args.action == "command":

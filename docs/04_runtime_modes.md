@@ -68,6 +68,38 @@ runtime에 연결할 endpoint를 `.env`로 투영한다. `up`은 native MLX runt
 `down`은 두 lifecycle을 역순으로 정리한다. 수동 `metal-*`, `build-image`,
 `static-compose-*` 명령은 개별 계층을 진단할 때만 사용한다.
 
+native runtime은 컨테이너가 아니라 호스트 프로세스라 Compose의
+`restart: unless-stopped`에 해당하는 장치가 없다. 기본 기동은 project가 pid 파일로
+추적하며, 프로세스가 죽으면 Gateway readiness가 dependency 실패로 보고하고 다시
+올리는 것은 운영자의 몫이다. 원인은 `make status`가 실패할 때 함께 출력하는
+`.runtime/metal/logs/` 아래 현재 소유자의 로그 꼬리에서 확인한다.
+
+상시 운영이 필요하면 launchd supervisor를 선택 설치한다.
+
+```bash
+make metal-supervisor-install
+make metal-supervisor-uninstall
+```
+
+설치하면 launchd가 재기동, 로그 경로 고정, `newsyslog` 회전을 함께 소유한다.
+
+native runtime 로그는 `.runtime/metal/logs/` 아래에 있고 **수명주기 소유자마다 파일이
+다르다**. project 기동은 `runtime.log`, launchd supervisor는 `supervisor.log`를 쓴다.
+한 파일을 공유하면 "누가 먼저 만들었는가"가 동작을 가르기 때문이다 -- 저장소가
+`~/Desktop`처럼 TCC 보호 경로에 있으면 launchd는 자기가 만든 파일만 열 수 있고,
+다른 프로세스가 먼저 만든 파일에서는 job이 조용히 죽는다. 경로를 나누면 그 상태가
+생길 수 없다. plist는
+`server_command`가 만든 실행 명령을 그대로 감싸 `.runtime/metal/`에 생성하므로 model
+revision이나 port를 따로 적지 않는다. 설치된 동안 수명주기 소유자는 launchd 하나이며
+`up`/`down`/`status`는 pid 파일 대신 `launchctl`을 사용한다. supervisor를 설치해도
+Gateway가 이 runtime을 제어하게 되는 것은 아니므로 target의 `lifecycle_owner`는
+`external` 그대로다.
+
+runtime의 stdout은 Alloy가 `job="native"`로 Loki에 보내므로 Request Log Explorer의
+Runtime 원본 패널에서도 확인할 수 있다. supervisor를 설치하면 crash가 자동으로
+복구되어 눈에 띄지 않게 되는데, 그 이력이 남는 곳이 여기다. 요청 이벤트의 신뢰
+경로(`job="application"`)와는 분리돼 있다.
+
 Mac static override는
 Gateway, MLX JSON metrics exporter, Prometheus와 `Main Runtime Health` Dashboard를 함께 띄운다.
 MLX의 `/metrics`가 JSON이므로 기존 vLLM Prometheus scrape를 재사용하지 않는다.

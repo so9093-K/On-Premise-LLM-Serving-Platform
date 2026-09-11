@@ -6,9 +6,10 @@ from typing import Any
 
 import yaml
 
+from .configuration import load_yaml_mapping
 from .deployment_target import effective_published_compose_services
 from .settings import AppSettings
-from .settings_parts.env import env as _env
+from .settings_parts.env import LOCAL_ENVIRONMENTS, default_env_path, env as _env
 
 
 # ---------------------------------------------------------------------------
@@ -145,7 +146,6 @@ def auth_profile_summary(mode: str) -> str:
     return str(expected.get("scope", "운영자가 직접 관리하는 custom flag 조합"))
 
 
-NON_LOCAL_ENVS = {"staging", "production", "prod"}
 INTERNAL_TRUSTED_EVIDENCE_ENV = "INTERNAL_TRUSTED_AUTH_EVIDENCE"
 CUSTOM_AUTH_RISK_ACCEPTED_ENV = "CUSTOM_AUTH_RISK_ACCEPTED"
 CUSTOM_AUTH_RISK_TICKET_ENV = "CUSTOM_AUTH_RISK_TICKET"
@@ -161,13 +161,6 @@ class AuthFinding:
         return {"level": self.level, "code": self.code, "message": self.message}
 
 
-def _read_yaml(path: Path) -> dict[str, Any]:
-    if not path.exists():
-        return {}
-    data = yaml.safe_load(path.read_text(encoding="utf-8"))
-    return data if isinstance(data, dict) else {}
-
-
 def _exposure_mode_from_env() -> str:
     return _env("EXPOSURE_MODE", "master_open")
 
@@ -175,14 +168,14 @@ def _exposure_mode_from_env() -> str:
 def _exposure_profile(project_root: Path, exposure_mode: str | None = None) -> dict[str, Any]:
     if exposure_mode is None:
         exposure_mode = _exposure_mode_from_env()
-    data = _read_yaml(project_root / "configs" / "exposure_profiles.yaml")
+    data = load_yaml_mapping(project_root / "configs" / "exposure_profiles.yaml")
     canonical_mode = exposure_mode
     profiles = data.get("profiles", {})
     return profiles.get(canonical_mode, profiles.get("private_network", {}))
 
 
 def _exposure_services(project_root: Path) -> dict[str, Any]:
-    data = _read_yaml(project_root / "configs" / "services.yaml")
+    data = load_yaml_mapping(project_root / "configs" / "services.yaml")
     services = data.get("services", {})
     return services if isinstance(services, dict) else {}
 
@@ -194,10 +187,8 @@ def _exposure_host_published_services(project_root: Path, exposure_mode: str | N
 
 
 def auth_status_document(settings: AppSettings, project_root: Path, env_path: Path | None = None) -> dict[str, Any]:
-    env_path = env_path or (project_root / ".env")
+    env_path = env_path or default_env_path(project_root)
     exposure_mode = _exposure_mode_from_env()
-
-    data = _read_yaml(project_root / "configs" / "exposure_profiles.yaml")
     canonical_mode = exposure_mode
     exposure_published = _exposure_host_published_services(project_root, canonical_mode)
     profile = _exposure_profile(project_root, canonical_mode)
@@ -207,7 +198,7 @@ def auth_status_document(settings: AppSettings, project_root: Path, env_path: Pa
         "env_file": {
             "path": str(env_path),
             "exists": env_path.exists(),
-            "repository_default": env_path.resolve() == (project_root / ".env").resolve(),
+            "repository_default": env_path.resolve() == default_env_path(project_root).resolve(),
         },
         "auth_mode": settings.security.auth_mode,
         "access_profile": _env("ACCESS_PROFILE", "").strip() or "legacy/custom",
@@ -258,7 +249,11 @@ def diagnose_auth(settings: AppSettings, project_root: Path) -> list[AuthFinding
             if key in expected and expected[key] != actual:
                 findings.append(AuthFinding("WARN", "AUTH_MODE_FLAG_MISMATCH", f"AUTH_MODE={mode} 기대값은 {key}={expected[key]}인데 실제값은 {actual}입니다."))
 
-    non_local = settings.app_env.lower() in NON_LOCAL_ENVS or settings.app_env.lower() not in {"local", "test", "development"}
+    # 비로컬 판정의 기준은 LOCAL_ENVIRONMENTS의 여집합 하나다. 예전에는 앞에
+    # NON_LOCAL_ENVS(staging/production/prod) 확인이 하나 더 있었지만, 그 집합은
+    # LOCAL_ENVIRONMENTS와 서로소라 결과를 바꾼 적이 없다. 사본이 셋이었고 그중
+    # 하나만 stage를 포함해 서로 달랐는데, 아무 동작 차이도 만들지 않았다.
+    non_local = settings.app_env.lower() not in LOCAL_ENVIRONMENTS
 
     is_internal_trusted = mode == "internal_trusted"
     is_local_open_trusted_lan = (
@@ -318,7 +313,7 @@ def diagnose_auth(settings: AppSettings, project_root: Path) -> list[AuthFinding
 
     # Exposure-aware 진단 — 자유 텍스트가 아니라 구조화된 진단 필드로 판단한다.
     exposure_mode = _exposure_mode_from_env()
-    data = _read_yaml(project_root / "configs" / "exposure_profiles.yaml")
+    data = load_yaml_mapping(project_root / "configs" / "exposure_profiles.yaml")
     canonical_mode = exposure_mode
     exposure_profile_data = _exposure_profile(project_root, canonical_mode)
     diagnostics = exposure_profile_data.get("diagnostics", {})
@@ -410,7 +405,7 @@ def diagnose_auth(settings: AppSettings, project_root: Path) -> list[AuthFinding
         audience = exposure_audience
         allowed_audiences: list[str] = data.get("exposure_audience", {}).get("allowed_values", [])
         if not audience:
-            allowed_str = "|".join(allowed_audiences) if allowed_audiences else "local_only|private_lan|vpn|public"
+            allowed_str = "|".join(allowed_audiences)
             findings.append(AuthFinding(
                 "FAIL",
                 "EXPOSURE_AUDIENCE_MISSING",

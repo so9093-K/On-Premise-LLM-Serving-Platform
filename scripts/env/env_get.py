@@ -12,6 +12,7 @@ if str(ROOT / "src") not in sys.path:
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from ai_model_serving.settings_parts.env import DEFAULT_ENV_FILENAME  # noqa: E402
 from scripts.lib.env_cli import print_env_error, resolve_path  # noqa: E402
 from ai_model_serving.settings_parts.dotenv_parser import load_strict_env_file  # noqa: E402
 
@@ -19,7 +20,7 @@ from ai_model_serving.settings_parts.dotenv_parser import load_strict_env_file  
 def main() -> int:
     parser = argparse.ArgumentParser(description="Read one env value using the project strict dotenv subset.")
     parser.add_argument("key")
-    parser.add_argument("--env-file", default=".env")
+    parser.add_argument("--env-file", default=DEFAULT_ENV_FILENAME)
     parser.add_argument("--default", default="")
     args = parser.parse_args()
 

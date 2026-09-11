@@ -3,11 +3,8 @@ from __future__ import annotations
 import warnings
 from typing import Any
 
-from .env import as_bool, env, is_default_secret
+from .env import LOCAL_ENVIRONMENTS, as_bool, env, is_default_secret
 from .types import SecuritySettings
-
-LOCAL_ENVIRONMENTS = {"local", "test", "development"}
-
 
 def is_non_local_env(app_env: str) -> bool:
     return app_env.lower() not in LOCAL_ENVIRONMENTS

@@ -32,6 +32,16 @@ def load_exposure_data(root: Path = ROOT) -> dict:
     return yaml.safe_load(path.read_text(encoding="utf-8")) or {}
 
 
+def allowed_exposure_audiences(root: Path = ROOT) -> list[str]:
+    """EXPOSURE_AUDIENCE로 허용되는 값. configs/exposure_profiles.yaml이 소유한다.
+
+    이전에는 CLI help와 진단 메시지가 "local_only|private_lan|vpn|public"을 각자
+    적어두어, 설정에 값을 더해도 사용자가 보는 안내는 그대로였다.
+    """
+    values = load_exposure_data(root).get("exposure_audience", {}).get("allowed_values", [])
+    return [str(v) for v in values]
+
+
 def resolve(mode: str, data: dict) -> str:
     """설정된 profile 이름을 반환하고, 없으면 종료한다."""
     profiles = data.get("profiles", {})

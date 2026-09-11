@@ -15,6 +15,7 @@ if str(ROOT / "src") not in sys.path:
     sys.path.insert(0, str(ROOT / "src"))
 
 from ai_model_serving.main_model.boot import render_boot_override  # noqa: E402
+from ai_model_serving.settings_parts.env import default_env_path  # noqa: E402
 
 
 def _atomic_write(path: Path, document: dict[str, Any]) -> None:
@@ -45,7 +46,7 @@ def main(argv: list[str] | None = None) -> int:
         type=Path,
         default=ROOT / ".runtime/main-model/main-model-state.json",
     )
-    parser.add_argument("--env-file", type=Path, default=ROOT / ".env")
+    parser.add_argument("--env-file", type=Path, default=default_env_path(ROOT))
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args(argv)
 

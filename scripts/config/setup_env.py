@@ -31,6 +31,7 @@ from ai_model_serving.auth_control import (
     auth_profile_exposure_values,
     auth_profile_exposure_mismatch,
 )
+from ai_model_serving.settings_parts.env import DEFAULT_ENV_FILENAME
 from ai_model_serving.access_profile import (
     access_profile_changes,
     access_profile_env_values,
@@ -40,6 +41,7 @@ from ai_model_serving.access_profile import (
 )
 from ai_model_serving.deployment_target import load_deployment_target
 from ai_model_serving.settings_parts.dotenv_parser import load_strict_env_file
+from ai_model_serving.settings_parts.env import default_env_path
 
 IMAGE_CONFIG = ROOT / "configs" / "recommended_images.yaml"
 ACCESS_PROFILE_CHOICES = access_profile_names(ROOT)
@@ -541,7 +543,7 @@ def build_parser() -> KoreanArgumentParser:
     parser = KoreanArgumentParser(description="한국어 운영자를 위한 .env 생성기입니다. 기존 .env는 기본적으로 덮어쓰지 않습니다.")
     parser.add_argument("--profile", choices=["local", "compose"], default="compose")
     parser.add_argument("--app-env", help="APP_ENV를 덮어씁니다. 기본값은 local profile은 local, compose profile은 local입니다.")
-    parser.add_argument("--output", default=".env", help="출력할 env 경로입니다. repository root 기준 상대 경로 또는 절대 경로를 사용할 수 있습니다.")
+    parser.add_argument("--output", default=DEFAULT_ENV_FILENAME, help="출력할 env 경로입니다. repository root 기준 상대 경로 또는 절대 경로를 사용할 수 있습니다.")
     parser.add_argument("--force", action="store_true", help="기존 출력 파일을 덮어씁니다.")
     parser.add_argument("--sync-runtime-secrets", action="store_true", help=".env를 다시 쓰지 않고 현재 env 파일에서 .runtime secret file만 동기화합니다.")
     parser.add_argument("--sync-env", action="store_true", help="템플릿과 기존 .env를 비교해 누락 키를 추가하고 폐기 키를 제거합니다. 시크릿은 재생성하지 않습니다.")
@@ -699,7 +701,7 @@ def main(argv: list[str] | None = None) -> int:
     if values.get("HF_TOKEN") and not values.get("HUGGING_FACE_HUB_TOKEN"):
         values["HUGGING_FACE_HUB_TOKEN"] = values["HF_TOKEN"]
     write_env(lines, values, out_path)
-    if args.profile == "compose" and out_path.resolve() == (ROOT / ".env").resolve():
+    if args.profile == "compose" and out_path.resolve() == default_env_path(ROOT).resolve():
         write_runtime_secrets(values)
     print(f"wrote {out_path}")
     print(f"profile={args.profile} APP_ENV={values['APP_ENV']}")
@@ -714,7 +716,7 @@ def main(argv: list[str] | None = None) -> int:
         for key in ["PLATFORM_IMAGE", "VLLM_IMAGE", "EMBEDDING_KO_VLLM_IMAGE", "RISK_VLLM_IMAGE", "DCGM_EXPORTER_IMAGE", "PROMETHEUS_IMAGE", "GRAFANA_IMAGE", "CADVISOR_IMAGE"]:
             print(f"  {key}={values[key]}")
     if args.profile == "compose":
-        if out_path.resolve() == (ROOT / ".env").resolve():
+        if out_path.resolve() == default_env_path(ROOT).resolve():
             print("generated API_KEYS/API_KEY, ADMIN_API_KEY, INTERNAL_SERVICE_TOKEN, and .runtime/prometheus/admin_api_key; do not commit secrets")
         else:
             print("generated API_KEYS/API_KEY, ADMIN_API_KEY, and INTERNAL_SERVICE_TOKEN; runtime secret file is created only for repository-root .env")

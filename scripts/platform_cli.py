@@ -29,6 +29,7 @@ from ai_model_serving.access_profile import (  # noqa: E402
     load_access_profile,
 )
 from ai_model_serving.settings_parts.dotenv_parser import load_strict_env_file  # noqa: E402
+from ai_model_serving.settings_parts.env import DEFAULT_ENV_FILENAME, default_env_path  # noqa: E402
 from scripts.build.pin_local_vllm_image import (  # noqa: E402
     pin_matching_env_values,
     resolve_local_image_id,
@@ -36,7 +37,7 @@ from scripts.build.pin_local_vllm_image import (  # noqa: E402
 
 TARGETS_PATH = ROOT / "configs" / "deployment_targets.yaml"
 SERVICES_PATH = ROOT / "configs" / "services.yaml"
-ENV_PATH = ROOT / ".env"
+ENV_PATH = default_env_path(ROOT)
 
 
 def _run(*command: str, env: dict[str, str] | None = None) -> None:
@@ -135,7 +136,7 @@ def setup_target(
         command = [
             sys.executable,
             "scripts/config/setup_env.py",
-            "--sync-env", "--env-file", ".env",
+            "--sync-env", "--env-file", DEFAULT_ENV_FILENAME,
             "--deployment-target", target.target_id,
         ]
         if main_profile:
@@ -260,7 +261,7 @@ def prepare_target(target: DeploymentTarget) -> None:
             sys.executable,
             "scripts/models/prepare_main_model_cache.py",
             "--profile", profile,
-            "--env-file", ".env",
+            "--env-file", DEFAULT_ENV_FILENAME,
         )
     else:
         print("[platform] external Main runtime is not built or downloaded by this target")

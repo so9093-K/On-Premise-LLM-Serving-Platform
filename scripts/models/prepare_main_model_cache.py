@@ -11,6 +11,7 @@ if str(ROOT / "src") not in sys.path:
     sys.path.insert(0, str(ROOT / "src"))
 
 from ai_model_serving.main_model.control import load_main_model_catalog  # noqa: E402
+from ai_model_serving.settings_parts.env import default_env_path  # noqa: E402
 from ai_model_serving.main_model.boot import (  # noqa: E402
     read_env_values,
     resolve_compose_relative_path,
@@ -26,7 +27,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--catalog", type=Path, default=ROOT / "configs/main_model_profiles.yaml"
     )
-    parser.add_argument("--env-file", type=Path, default=ROOT / ".env")
+    parser.add_argument("--env-file", type=Path, default=default_env_path(ROOT))
     parser.add_argument(
         "--compose-file",
         type=Path,

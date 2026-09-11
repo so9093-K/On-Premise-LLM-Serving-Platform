@@ -13,6 +13,7 @@ if str(ROOT / "src") not in sys.path:
     sys.path.insert(0, str(ROOT / "src"))
 
 from ai_model_serving.image_refs import is_immutable_image_ref, is_local_image_id  # noqa: E402
+from ai_model_serving.settings_parts.env import default_env_path  # noqa: E402
 from scripts.config.setup_env import parse_env_template, write_env  # noqa: E402
 
 UNIFIED_IMAGE_KEYS = (
@@ -68,7 +69,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Pin locally built unified vLLM tags to their immutable Docker image ID."
     )
-    parser.add_argument("--env-file", type=Path, default=ROOT / ".env")
+    parser.add_argument("--env-file", type=Path, default=default_env_path(ROOT))
     parser.add_argument("--image", required=True)
     args = parser.parse_args(argv)
 

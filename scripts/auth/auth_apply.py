@@ -16,6 +16,7 @@ from ai_model_serving.auth_control import (  # noqa: E402
     auth_profile_env_values,
     auth_profile_exposure_values,
 )
+from ai_model_serving.settings_parts.env import DEFAULT_ENV_FILENAME  # noqa: E402
 from scripts.auth.auth_plan import build_plan, render_plan  # noqa: E402
 from scripts.config.setup_env import parse_env_template, write_env  # noqa: E402
 
@@ -31,7 +32,7 @@ _APP_ENV_FOR_MODE: dict[str, str] = {
 def build_parser() -> KoreanArgumentParser:
     parser = KoreanArgumentParser(description="secret을 변경하지 않고 managed auth profile을 env 파일에 적용합니다.")
     parser.add_argument("--mode", choices=MANAGED_MODES, required=True)
-    parser.add_argument("--env", default=".env", help="업데이트할 env 파일입니다. 기본값은 repository root 기준입니다.")
+    parser.add_argument("--env", default=DEFAULT_ENV_FILENAME, help="업데이트할 env 파일입니다. 기본값은 repository root 기준입니다.")
     parser.add_argument("--app-env", help="auth flag와 함께 APP_ENV도 업데이트합니다.")
     parser.add_argument("--yes", action="store_true", help="env 파일에 실제로 기록합니다. 없으면 plan만 출력합니다.")
     return parser

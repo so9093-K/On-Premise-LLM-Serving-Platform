@@ -32,6 +32,7 @@ from ai_model_serving.access_profile import (  # noqa: E402
     access_profile_mismatches,
 )
 from ai_model_serving.settings_parts.dotenv_parser import load_strict_env_file  # noqa: E402
+from ai_model_serving.settings_parts.env import LOCAL_ENVIRONMENTS, resolve_env_file  # noqa: E402
 from scripts.compose.effective_host_ports import effective_host_ports  # noqa: E402
 from scripts.compose.resolve_exposure_mode import (  # noqa: E402
     override_file_for,
@@ -52,8 +53,7 @@ def _env_value(key: str, default: str = "") -> str:
     value = os.environ.get(key)
     if value is not None:
         return value
-    env_file = Path(os.environ.get("ENV_FILE", ".env"))
-    env_path = env_file if env_file.is_absolute() else ROOT / env_file
+    env_path = resolve_env_file(os.environ.get("ENV_FILE"), ROOT)
     if env_path.exists():
         try:
             return load_strict_env_file(env_path).get(key, default)
@@ -72,7 +72,7 @@ def _env_value(key: str, default: str = "") -> str:
 
 def _non_local_app_env() -> bool:
     app_env = _env_value("APP_ENV", "local").strip().lower()
-    return app_env in {"staging", "stage", "production", "prod"} or app_env not in {"local", "test", "development"}
+    return app_env not in LOCAL_ENVIRONMENTS
 
 
 def _check_auth_profile_preflight() -> None:
@@ -187,12 +187,13 @@ def _phase1(exposure_data: dict[str, Any]) -> str:
         return canonical_mode
 
     audience = _env_value("EXPOSURE_AUDIENCE", "")
+    # 허용 값은 configs/exposure_profiles.yaml이 소유한다. 코드가 같은 목록을 또
+    # 적어두면 설정에 값을 더해도 사용자가 보는 안내가 따라오지 않는다.
     allowed = exposure_data.get("exposure_audience", {}).get("allowed_values", [])
-    allowed = allowed or ["local_only", "private_lan", "vpn", "public"]
     if not audience:
         _fail(f"EXPOSURE_MODE={canonical_mode} requires EXPOSURE_AUDIENCE.")
         print(
-            "[preflight] Set EXPOSURE_AUDIENCE=local_only|private_lan|vpn|public "
+            f"[preflight] Set EXPOSURE_AUDIENCE={'|'.join(allowed)} "
             "to declare who can reach host-published ports.",
             file=sys.stderr,
         )
@@ -411,9 +412,7 @@ def _phase2(
 ) -> int:
     print("[preflight] Phase 2: compose and runtime checks")
     compose_file = os.environ.get("COMPOSE_FILE", "ops/compose/full-stack.private-network.yaml")
-    env_file = os.environ.get("ENV_FILE", ".env")
-    env_path = Path(env_file)
-    env_path = env_path if env_path.is_absolute() else (ROOT / env_path).resolve()
+    env_path = resolve_env_file(os.environ.get("ENV_FILE"), ROOT).resolve()
     compose_path = Path(compose_file)
     compose_path = (
         compose_path if compose_path.is_absolute() else (ROOT / compose_path).resolve()
@@ -559,11 +558,11 @@ def main(argv: list[str] | None = None) -> int:
         )
     # Standalone preflight uses the same boot resolver; never mutate persisted state.
     with tempfile.TemporaryDirectory(prefix="preflight-boot-") as directory:
-        env_path = Path(os.environ.get("ENV_FILE", ".env"))
+        env_path = resolve_env_file(os.environ.get("ENV_FILE"), ROOT)
         _, document = render_boot_override(
             catalog_path=ROOT / "configs/main_model_profiles.yaml",
             state_path=ROOT / ".runtime/main-model/main-model-state.json",
-            env_path=env_path if env_path.is_absolute() else ROOT / env_path,
+            env_path=env_path,
         )
         boot_override = Path(directory) / "boot.yaml"
         boot_override.write_text(yaml.safe_dump(document, sort_keys=False), encoding="utf-8")

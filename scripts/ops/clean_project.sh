@@ -123,6 +123,8 @@ remove_empty_dir "$ROOT/reports"
 
 if [[ "$INCLUDE_LOGS" == "1" ]]; then
   remove_path "$ROOT/logs"
+  # native runtime 로그도 같은 의미의 로그다. 위치만 runtime state 아래에 있다.
+  remove_path "$ROOT/.runtime/metal/logs"
 fi
 
 if [[ "$DRY_RUN" == "1" ]]; then

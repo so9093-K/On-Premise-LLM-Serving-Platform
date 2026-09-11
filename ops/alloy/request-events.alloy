@@ -26,6 +26,26 @@ loki.process "request_events" {
   }
 }
 
+// native MLX runtime은 컨테이너가 아니라 호스트 프로세스라 Docker LogPath 경로가
+// 없다. Linux가 컨테이너 진단 로그를 job="docker"로 분리하듯 job="native"로 분리해
+// 요청 이벤트의 신뢰 경로(job="application")와 섞지 않는다(ADR-0022).
+//
+// 이 디렉터리에는 native runtime 로그만 있다. 수명주기 소유자마다 파일이 다르므로
+// (project 기동은 runtime.log, launchd supervisor는 supervisor.log) 둘 다 읽는다.
+// 회전이 없는 append 파일이라 처음이 아니라 끝에서부터 읽는다.
+loki.source.file "native_runtime" {
+  targets = [
+    {__path__ = "/var/lib/alloy/native-logs/*.log", job = "native"},
+  ]
+  forward_to    = [loki.write.local.receiver]
+  tail_from_end = true
+
+  file_match {
+    enabled     = true
+    sync_period = "10s"
+  }
+}
+
 loki.write "local" {
   endpoint {
     url = "http://loki:3100/loki/api/v1/push"
