@@ -100,17 +100,17 @@ def _declared_targets() -> dict[str, dict[str, Any]]:
     return {name: value for name, value in targets.items() if isinstance(value, dict)}
 
 
-def validate(failures: list[str]) -> None:
+def _validate_metrics(failures: list[str]) -> dict[str, Any]:
     contract = load_yaml_mapping(METRICS_PATH)
     if contract.get("version") != 1:
         failures.append("metrics.yaml must declare version 1")
-        return
+        return {}
 
     layers = contract.get("layers", {})
     metrics = contract.get("metrics", {})
     if not isinstance(layers, dict) or not isinstance(metrics, dict) or not metrics:
         failures.append("metrics.yaml must define layers and metrics mappings")
-        return
+        return {}
 
     targets = _declared_targets()
     target_ids = set(targets)
@@ -222,6 +222,7 @@ def validate(failures: list[str]) -> None:
         for source in derived.get("from", []):
             if source not in metrics:
                 failures.append(f"derived {name!r} references unknown metric {source!r}")
+    return metrics
 
 
 def _supported_request_parameters() -> dict[str, set[str]]:
@@ -358,13 +359,21 @@ def _validate_slo(failures: list[str], metrics: dict[str, Any], workloads: dict[
                 )
 
 
+def validate(failures: list[str]) -> None:
+    """계약 세 파일을 한 번에 검사한다.
+
+    metric만 보는 함수를 validate로 노출했더니, 호출자가 전체를 검증했다고
+    믿으면서 workload와 SLO를 건너뛸 수 있었다. 진입점을 하나로 둔다.
+    """
+    metrics = _validate_metrics(failures)
+    workloads = _validate_workloads(failures, metrics)
+    _validate_slo(failures, metrics, workloads)
+
+
 def main() -> int:
     failures: list[str] = []
     try:
-        metrics = load_yaml_mapping(METRICS_PATH).get("metrics") or {}
         validate(failures)
-        workloads = _validate_workloads(failures, metrics)
-        _validate_slo(failures, metrics, workloads)
     except (OSError, RuntimeError, yaml.YAMLError) as exc:
         print(f"[performance] cannot validate contract: {exc}", file=sys.stderr)
         return 2

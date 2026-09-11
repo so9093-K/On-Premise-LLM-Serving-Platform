@@ -50,12 +50,14 @@ workloads:
       measurement_seconds: 180
     primary_metrics:
       - client_time_to_first_chunk_seconds
-      - client_time_per_output_chunk_seconds
+      # 생성 속도의 판정 기준은 토큰 기준 근사값이다. chunk 간격은 전송 계층이
+      # chunk를 묶어 보내면 서버가 아니라 그 묶임을 재므로 관찰용으로만 남긴다.
+      - client_time_per_output_token_seconds
       - client_request_success_ratio
       - client_goodput_requests_per_second
     secondary_metrics:
       - client_operation_duration_seconds
-      - client_time_per_output_token_seconds
+      - client_time_per_output_chunk_seconds
       - gateway_admission_wait_seconds
       - runtime_queue_duration_seconds
       - runtime_kv_cache_usage_ratio

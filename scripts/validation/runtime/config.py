@@ -7,8 +7,8 @@ from typing import Any
 
 from ai_model_serving.configuration import load_yaml_mapping
 from ai_model_serving.domain import ModelRegistry
-
-from .env import load_dotenv
+from scripts.lib.process_env import load_dotenv
+from scripts.lib.service_endpoint import published_base_url, service_base_url
 
 
 def _explicit_arg(args: Any, name: str) -> str:
@@ -54,26 +54,6 @@ def _first_csv_value(value: str) -> str:
     return values[0] if values else ""
 
 
-def _published_host(service: dict[str, Any]) -> str:
-    """검증을 실행하는 host에서 접속할 실제 publish 주소를 고른다.
-
-    Compose의 ``0.0.0.0``/``::``는 listen 주소이지 HTTP 접속 대상이 아니다. 구체적인
-    bind 주소가 있으면 그것을 사용하고, wildcard publish면 같은 host의 localhost를 쓴다.
-    """
-    bind_name = str(service.get("host_env_bind", ""))
-    bind = os.getenv(bind_name, "").strip()
-    return bind if bind and bind not in {"0.0.0.0", "::", "[::]"} else "localhost"
-
-
-def _host_base(service: dict[str, Any], suffix: str = "") -> str:
-    """services.yaml의 publish 주소와 host 기본 포트로 검증 endpoint를 만든다."""
-    try:
-        port = int(service["default_host_port"])
-    except (KeyError, TypeError, ValueError) as exc:
-        raise ValueError("service registry entry requires default_host_port") from exc
-    return f"http://{_published_host(service)}:{port}{suffix}"
-
-
 def load_runtime_config(args: Any) -> RuntimeValidationConfig:
     root = Path(args.root).resolve()
     load_dotenv(root)
@@ -89,7 +69,7 @@ def load_runtime_config(args: Any) -> RuntimeValidationConfig:
 
     def service_base(service_id: str, suffix: str = "") -> str:
         try:
-            return _host_base(services[service_id], suffix)
+            return published_base_url(services, service_id, suffix)
         except KeyError as exc:
             raise ValueError(f"configs/services.yaml is missing {service_id}") from exc
 
@@ -101,7 +81,7 @@ def load_runtime_config(args: Any) -> RuntimeValidationConfig:
                 "configs/services.yaml has no entry for runtime compose service "
                 f"{service.compose_service_name!r}"
             ) from exc
-        return _host_base(service_config, "/v1")
+        return service_base_url(service_config, "/v1")
 
     api_key = args.api_key or os.getenv("API_KEY", "") or _first_csv_value(os.getenv("API_KEYS", ""))
     admin_api_key = args.admin_api_key or os.getenv("ADMIN_API_KEY", "") or _first_csv_value(os.getenv("ADMIN_API_KEYS", ""))

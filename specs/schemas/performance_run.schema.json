@@ -20,11 +20,25 @@
         "id": {"type": "string", "minLength": 1},
         "mode": {"enum": ["smoke", "baseline", "sweep", "regression"]},
         "started_at": {"type": "string", "format": "date-time"},
-        "duration_seconds": {"type": "number", "minimum": 0},
+        "duration_seconds": {
+          "type": "number",
+          "minimum": 0,
+          "description": "측정 구간의 벽시계 시간. 마지막 요청이 끝나기를 기다린 시간까지 포함한다."
+        },
+        "dispatch_window_seconds": {
+          "type": "number",
+          "minimum": 0,
+          "description": "첫 요청을 띄운 뒤 마지막 요청을 띄우기까지의 시간. open loop가 실제로 부하를 가한 구간이며 goodput의 분모다. duration_seconds로 나누면 tail drain 때문에 처리량이 과소 평가된다."
+        },
         "seed": {"type": "integer"},
         "measurement_backend": {
           "type": "string",
           "description": "어떤 도구로 측정했는지. 도구는 실행 backend이지 기준이 아니다."
+        },
+        "max_dispatch_lag_seconds": {
+          "type": "number",
+          "minimum": 0,
+          "description": "open loop scheduler가 목표 발사 시각보다 늦은 최대 폭. 이 값이 크면 숫자가 서버가 아니라 부하 생성기를 설명한다."
         }
       }
     },
@@ -112,7 +126,12 @@
           "upstream_response_id": {"type": ["string", "null"]},
           "client_time_to_first_chunk_seconds": {"type": ["number", "null"], "minimum": 0},
           "client_operation_duration_seconds": {"type": ["number", "null"], "minimum": 0},
-          "client_time_per_output_chunk_seconds": {"type": ["array", "null"], "items": {"type": "number", "minimum": 0}},
+          "client_time_per_output_chunk_seconds": {
+            "type": ["array", "null"],
+            "items": {"type": "number", "minimum": 0},
+            "description": "출력 chunk 도착 간격. 전송 계층이 chunk를 뭉쳐 보내면 percentile은 서버가 아니라 그 뭉침을 잰다. 합계와 평균만 해석 가능하다."
+          },
+          "client_time_per_output_token_seconds": {"type": ["number", "null"], "minimum": 0},
           "client_input_tokens": {"type": ["integer", "null"], "minimum": 0},
           "client_output_tokens": {"type": ["integer", "null"], "minimum": 0},
           "gateway_admission_wait_seconds": {"type": ["number", "null"], "minimum": 0}

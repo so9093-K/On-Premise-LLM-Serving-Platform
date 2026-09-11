@@ -13,7 +13,7 @@ AUTH_ENV ?= $(if $(ENV_FILE),$(ENV_FILE),$(ENV))
 AUTH_ENV_ARG = $(if $(AUTH_ENV),--env $(AUTH_ENV),)
 
 
-.PHONY: help help-all setup build rebuild prepare up status down down-all check init-env-local init-env-compose sync-env static-compose-config metal-doctor metal-command metal-start metal-supervisor-install metal-supervisor-uninstall validate test build-image build-vllm-unified-image lock package compose-up compose-config ready-local ready-full smoke runtime-validate auth-status auth-doctor auth-plan auth-apply exposure-status exposure-plan exposure-apply main-model-prepare compose-down compose-restart compose-logs logs compose-diagnostics clean reset reset-version render-runtime-assets
+.PHONY: help help-all setup build rebuild prepare up status down down-all check init-env-local init-env-compose sync-env static-compose-config metal-doctor metal-command metal-start metal-supervisor-install metal-supervisor-uninstall validate test build-image build-vllm-unified-image lock package compose-up compose-config ready-local ready-full smoke runtime-validate perf-smoke perf-run auth-status auth-doctor auth-plan auth-apply exposure-status exposure-plan exposure-apply main-model-prepare compose-down compose-restart compose-logs logs compose-diagnostics clean reset reset-version render-runtime-assets
 .PHONY: setup-dev doctor-dev
 
 PUBLIC_TARGETS := setup build prepare up status down
@@ -152,6 +152,14 @@ smoke: ## smoke test 실행
 
 runtime-validate: ## 실제 서비스·GPU 검증
 	$(PYTHON) scripts/validation/runtime_validation.py
+
+perf-smoke: ## 성능 계측 경로 확인 (요청 몇 건, SLO 판정 없음)
+	$(PYTHON) scripts/benchmark/cli.py --workload $(or $(PROFILE),interactive) --mode smoke \
+		--requests $(or $(REQUESTS),5) --warmup-seconds 0
+
+perf-run: ## PROFILE=<workload> 성능 측정 실행 (계약이 선언한 기간대로)
+	@if [[ -z "$(PROFILE)" ]]; then echo "PROFILE=interactive 를 지정하세요 (configs/performance/workloads.yaml)" >&2; exit 2; fi
+	$(PYTHON) scripts/benchmark/cli.py --workload $(PROFILE) --mode $(or $(RUN_MODE),baseline)
 
 auth-status: ## 현재 public/admin/internal 인증 상태
 	$(PYTHON) scripts/auth/auth_status.py $(AUTH_ENV_ARG)

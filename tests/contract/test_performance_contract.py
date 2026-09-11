@@ -13,7 +13,7 @@ from scripts.validation import validate_performance_contract as contract
 
 def test_metric_contract_matches_targets_rules_and_exporters():
     failures: list[str] = []
-    contract.validate(failures)
+    contract._validate_metrics(failures)
     assert failures == []
 
 
@@ -86,11 +86,10 @@ def test_token_based_client_metric_declares_itself_an_approximation():
     assert metric["approximation_of"] == "runtime_time_per_output_token_seconds"
 
 
-def test_workload_and_slo_contracts_are_consistent():
+def test_validate_covers_metrics_workloads_and_slo_together():
+    """진입점이 하나여야 호출자가 일부만 검증하고 통과했다고 믿지 않는다."""
     failures: list[str] = []
-    metrics = contract.load_yaml_mapping(contract.METRICS_PATH)["metrics"]
-    workloads = contract._validate_workloads(failures, metrics)
-    contract._validate_slo(failures, metrics, workloads)
+    contract.validate(failures)
     assert failures == []
 
 
@@ -138,3 +137,63 @@ def test_result_schema_requires_the_environment_fingerprint():
     fingerprint = schema["properties"]["environment"]["required"]
     for field in ("git_commit", "deployment_target", "model_revision", "runtime_flags"):
         assert field in fingerprint, field
+
+
+def test_chunk_gap_metrics_are_not_judged_by_percentile():
+    """전송 계층이 chunk를 묶어 보내면 간격의 percentile은 서버를 재지 않는다.
+
+    macOS Metal target 실측에서 chunk 간격의 69%가 1ms 미만이고 p90이 65ms였다.
+    같은 구간의 실제 토큰당 시간은 19.3ms다. p50도 p95도 그 값 근처에 없다.
+    합계만 생성 구간과 일치했으므로 해석 가능한 통계를 계약이 선언하고, SLO가
+    그 밖의 통계를 쓰지 못하게 막는다.
+    """
+    metrics = contract.load_yaml_mapping(contract.METRICS_PATH)["metrics"]
+    gap_metrics = {
+        name for name, metric in metrics.items()
+        if metric.get("aggregation_unit") == "streamed_output_gap"
+    }
+    assert gap_metrics, "이 규칙이 지킬 대상이 사라지면 규칙도 의미가 없다"
+    for name in gap_metrics:
+        allowed = set(metrics[name].get("interpretable_statistics") or [])
+        assert allowed, f"{name} must declare interpretable_statistics"
+        assert "p95" not in allowed and "p50" not in allowed, name
+
+    for slo_name, slo in contract.load_yaml_mapping(contract.SLO_PATH)["slo_classes"].items():
+        for metric_name, objective in slo["objectives"].items():
+            if metric_name in gap_metrics:
+                assert "percentiles" not in objective, f"{slo_name}.{metric_name}"
+                assert objective.get("aggregate") in (metrics[metric_name].get("interpretable_statistics") or [])
+
+
+def test_every_primary_metric_has_a_producer_in_the_benchmark_client():
+    """계약이 primary로 선언한 client 지표를 runner가 실제로 만들어야 한다.
+
+    client_time_per_output_token_seconds는 계약에만 있고 만드는 곳이 없었다.
+    그 상태로 Epic 5에 가면 판정 근거가 빈 채로 통과한다.
+    """
+    from scripts.benchmark.client import RequestSample
+
+    document = contract.load_yaml_mapping(contract.WORKLOADS_PATH)
+    metrics = contract.load_yaml_mapping(contract.METRICS_PATH)["metrics"]
+    # 성공한 요청이 실제로 내보내는 문서만 본다. dataclass의 필드 목록을 함께 보면
+    # 값이 문서에서 빠져도 테스트가 통과한다 -- 처음 쓴 판이 그래서 무력했다.
+    sample = RequestSample(
+        index=0,
+        succeeded=True,
+        status_code=200,
+        client_time_to_first_chunk_seconds=0.5,
+        client_operation_duration_seconds=2.0,
+        client_time_per_output_chunk_seconds=[0.01, 0.01],
+        client_input_tokens=512,
+        client_output_tokens=64,
+    )
+    produced = set(sample.as_document())
+    # 요청 단위로 관찰하는 지표만 확인한다. 비율·처리량은 evaluator가 집계한다.
+    per_request = {
+        name for name, metric in metrics.items()
+        if metric["layer"] == "client" and metric.get("aggregation_unit") in ("request", "streamed_output_gap")
+    }
+    for workload in document["workloads"].values():
+        for name in workload["primary_metrics"]:
+            if name in per_request:
+                assert name in produced, f"{name} is declared primary but nothing produces it"

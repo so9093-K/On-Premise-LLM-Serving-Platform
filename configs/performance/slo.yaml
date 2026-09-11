@@ -35,7 +35,10 @@ slo_classes:
     objectives:
       client_time_to_first_chunk_seconds:
         percentiles: [p50, p95, p99]
-      client_time_per_output_chunk_seconds:
+      # chunk 간격이 아니라 요청별 토큰 기준 근사값으로 판정한다. chunk 간격의
+      # percentile은 전송 계층의 묶임을 재기 때문이다(metrics.yaml 참고).
+      # 이 지표는 요청 하나에 값 하나이므로 요청 간 percentile이 성립한다.
+      client_time_per_output_token_seconds:
         percentiles: [p95]
       client_request_success_ratio:
         aggregate: min
