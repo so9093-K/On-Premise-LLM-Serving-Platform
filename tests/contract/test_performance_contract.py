@@ -84,3 +84,57 @@ def test_token_based_client_metric_declares_itself_an_approximation():
     document = contract.load_yaml_mapping(contract.METRICS_PATH)
     metric = document["metrics"]["client_time_per_output_token_seconds"]
     assert metric["approximation_of"] == "runtime_time_per_output_token_seconds"
+
+
+def test_workload_and_slo_contracts_are_consistent():
+    failures: list[str] = []
+    metrics = contract.load_yaml_mapping(contract.METRICS_PATH)["metrics"]
+    workloads = contract._validate_workloads(failures, metrics)
+    contract._validate_slo(failures, metrics, workloads)
+    assert failures == []
+
+
+def test_every_workload_declares_a_cache_policy():
+    """cache 상태를 기록하지 않으면 처리량이 과대 측정돼도 알 수 없다."""
+    document = contract.load_yaml_mapping(contract.WORKLOADS_PATH)
+    policies = set(document["cache_policies"])
+    for name, workload in document["workloads"].items():
+        assert workload["cache"]["policy"] in policies, name
+
+
+def test_concurrency_sweeps_stay_within_the_declared_admission_limit():
+    """Gateway admission을 넘는 sweep은 런타임이 아니라 Gateway 큐를 잰다."""
+    document = contract.load_yaml_mapping(contract.WORKLOADS_PATH)
+    for name, workload in document["workloads"].items():
+        sweep = (workload.get("traffic") or {}).get("concurrency_sweep")
+        if not sweep:
+            continue
+        limit = workload["traffic"]["admission_limit"]["max_concurrency"]
+        assert max(sweep) <= limit, name
+
+
+def test_slo_thresholds_are_not_set_without_a_declared_source():
+    """baseline에서 유도한 값이 들어올 자리를 구조적으로 막는다."""
+    document = contract.load_yaml_mapping(contract.SLO_PATH)
+    sources = set(document["threshold_sources"])
+    assert "baseline" not in sources
+    for name, slo in document["slo_classes"].items():
+        for metric_name, objective in slo["objectives"].items():
+            extra = set(objective) - {"percentiles", "aggregate", "source"}
+            if extra:
+                assert objective.get("source") in sources, f"{name}.{metric_name}"
+
+
+def test_result_schema_requires_the_environment_fingerprint():
+    import json
+
+    from jsonschema import Draft202012Validator
+
+    schema = json.loads(contract.ROOT.joinpath(
+        "specs/schemas/performance_run.schema.json"
+    ).read_text(encoding="utf-8"))
+    Draft202012Validator.check_schema(schema)
+    assert "environment" in schema["required"]
+    fingerprint = schema["properties"]["environment"]["required"]
+    for field in ("git_commit", "deployment_target", "model_revision", "runtime_flags"):
+        assert field in fingerprint, field

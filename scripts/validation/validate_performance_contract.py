@@ -21,6 +21,10 @@ from ai_model_serving.configuration import load_yaml_mapping  # noqa: E402
 from ai_model_serving.apps.mlx_metrics_exporter import render_mlx_metrics  # noqa: E402
 
 METRICS_PATH = ROOT / "configs" / "performance" / "metrics.yaml"
+WORKLOADS_PATH = ROOT / "configs" / "performance" / "workloads.yaml"
+SLO_PATH = ROOT / "configs" / "performance" / "slo.yaml"
+MODEL_SERVING_PATH = ROOT / "configs" / "model_serving.yaml"
+MACOS_RUNTIME_PATH = ROOT / "configs" / "macos_mlx_runtime.yaml"
 TARGETS_PATH = ROOT / "configs" / "deployment_targets.yaml"
 RULES_PATH = ROOT / "ops" / "prometheus" / "rules" / "model_runtime.rules.yml"
 MONITORING_PATH = ROOT / "configs" / "monitoring.yaml"
@@ -220,10 +224,147 @@ def validate(failures: list[str]) -> None:
                 failures.append(f"derived {name!r} references unknown metric {source!r}")
 
 
+def _supported_request_parameters() -> dict[str, set[str]]:
+    """profile별로 Gateway가 통과시키는 요청 파라미터.
+
+    이 Gateway는 allow_unlisted_parameters=false라 선언되지 않은 필드를 422로
+    막는다. workload가 stream_options를 요구하는데 profile이 허용하지 않으면
+    응답에 usage가 실리지 않아 토큰 기준 값이 조용히 빈다. 실제로 macOS profile이
+    그 상태였다.
+    """
+    supported: dict[str, set[str]] = {}
+    serving = load_yaml_mapping(MODEL_SERVING_PATH)
+    for key, model in (serving.get("models") or {}).items():
+        policy = (model.get("gateway_policy") or {}).get("request_parameter_policy") or {}
+        names = policy.get("supported_parameters")
+        if names:
+            supported[f"model_serving:{key}"] = {str(n) for n in names}
+    macos = load_yaml_mapping(MACOS_RUNTIME_PATH)
+    for key, profile in (macos.get("profiles") or {}).items():
+        policy = (profile.get("gateway_policy") or {}).get("request_parameter_policy") or {}
+        names = policy.get("supported_parameters")
+        if names:
+            supported[f"macos:{key}"] = {str(n) for n in names}
+    return supported
+
+
+def _validate_workloads(failures: list[str], metrics: dict[str, Any]) -> dict[str, Any]:
+    document = load_yaml_mapping(WORKLOADS_PATH)
+    if document.get("version") != 1:
+        failures.append("workloads.yaml must declare version 1")
+        return {}
+    cache_policies = set(document.get("cache_policies") or {})
+    traffic_modes = set(document.get("traffic_modes") or {})
+    workloads = document.get("workloads") or {}
+    supported = _supported_request_parameters()
+
+    for name, workload in workloads.items():
+        if not isinstance(workload, dict):
+            failures.append(f"workload {name!r} must be a mapping")
+            continue
+
+        cache = workload.get("cache") or {}
+        policy = str(cache.get("policy", ""))
+        if policy not in cache_policies:
+            failures.append(f"workload {name!r} declares unknown cache policy {policy!r}")
+
+        traffic = workload.get("traffic") or {}
+        mode = str(traffic.get("mode", ""))
+        if mode not in traffic_modes:
+            failures.append(f"workload {name!r} declares unknown traffic mode {mode!r}")
+        # ADR 7절: admission 한도를 넘는 sweep은 런타임이 아니라 Gateway 큐를 잰다.
+        sweep = traffic.get("concurrency_sweep")
+        if sweep:
+            limit = traffic.get("admission_limit") or {}
+            declared = limit.get("max_concurrency")
+            if not declared:
+                failures.append(
+                    f"workload {name!r} sweeps concurrency but declares no admission_limit; "
+                    "the result would measure the Gateway queue, not the runtime"
+                )
+            elif max(sweep) > int(declared):
+                failures.append(
+                    f"workload {name!r} sweeps up to {max(sweep)} beyond the declared "
+                    f"admission limit {declared}"
+                )
+
+        required_params = set(workload.get("required_request_parameters") or [])
+        if required_params:
+            unusable = sorted(
+                profile for profile, names in supported.items()
+                if not required_params.issubset(names)
+            )
+            if unusable:
+                failures.append(
+                    f"workload {name!r} requires {sorted(required_params)} which these "
+                    f"profiles do not accept: {unusable}"
+                )
+
+        for field in ("primary_metrics", "secondary_metrics"):
+            for metric_name in workload.get(field) or []:
+                if metric_name not in metrics:
+                    failures.append(
+                        f"workload {name!r} {field} references unknown metric {metric_name!r}"
+                    )
+        if not workload.get("primary_metrics"):
+            failures.append(f"workload {name!r} must declare primary_metrics")
+        # primary는 판정 기준이므로 어느 target에서도 측정 불가한 지표를 쓰면 안 된다.
+        for metric_name in workload.get("primary_metrics") or []:
+            metric = metrics.get(metric_name) or {}
+            if metric.get("layer") in ("runtime", "infrastructure"):
+                failures.append(
+                    f"workload {name!r} uses {metric_name!r} as a primary metric, but that "
+                    "layer is unsupported on some targets; keep it secondary"
+                )
+    return workloads
+
+
+def _validate_slo(failures: list[str], metrics: dict[str, Any], workloads: dict[str, Any]) -> None:
+    document = load_yaml_mapping(SLO_PATH)
+    if document.get("version") != 1:
+        failures.append("slo.yaml must declare version 1")
+        return
+    levels = set(document.get("enforcement_levels") or {})
+    sources = set(document.get("threshold_sources") or {})
+    if "baseline" in sources:
+        failures.append("slo.yaml must not allow baseline as a threshold source")
+
+    for name, slo in (document.get("slo_classes") or {}).items():
+        if not isinstance(slo, dict):
+            failures.append(f"slo class {name!r} must be a mapping")
+            continue
+        if str(slo.get("enforcement", "")) not in levels:
+            failures.append(f"slo class {name!r} declares unknown enforcement level")
+        workload = str(slo.get("workload", ""))
+        if workload not in workloads:
+            failures.append(f"slo class {name!r} references unknown workload {workload!r}")
+        objectives = slo.get("objectives") or {}
+        if not objectives:
+            failures.append(f"slo class {name!r} must declare objectives")
+        for metric_name, objective in objectives.items():
+            if metric_name not in metrics:
+                failures.append(
+                    f"slo class {name!r} references unknown metric {metric_name!r}"
+                )
+            # 임계값이 채워질 때는 출처를 함께 적어야 한다. 출처 없는 숫자는
+            # baseline에서 유도된 값과 구분할 수 없다.
+            has_threshold = any(
+                key not in ("percentiles", "aggregate", "source") for key in objective
+            )
+            if has_threshold and str(objective.get("source", "")) not in sources:
+                failures.append(
+                    f"slo class {name!r} objective {metric_name!r} sets a threshold "
+                    f"without a declared source; allowed: {sorted(sources)}"
+                )
+
+
 def main() -> int:
     failures: list[str] = []
     try:
+        metrics = load_yaml_mapping(METRICS_PATH).get("metrics") or {}
         validate(failures)
+        workloads = _validate_workloads(failures, metrics)
+        _validate_slo(failures, metrics, workloads)
     except (OSError, RuntimeError, yaml.YAMLError) as exc:
         print(f"[performance] cannot validate contract: {exc}", file=sys.stderr)
         return 2
@@ -231,7 +372,7 @@ def main() -> int:
         for failure in failures:
             print(f"[performance] fail: {failure}", file=sys.stderr)
         return 1
-    print("[performance] ok: metric contract is consistent with targets and recording rules")
+    print("[performance] ok: metric, workload, and SLO contracts are consistent")
     return 0
 
 

@@ -175,6 +175,11 @@ benchmark run → reports/performance/ → review → 명시적 승격 → bench
 `required`(필수 게이트) 네 단계를 둔다. 새 SLO는 `observe`에서 시작한다.
 PR마다 GPU 벤치마크를 돌리지 않는다.
 
+임계값의 출처는 셋뿐이며 계약이 `source`로 요구한다. `product_requirement`는
+서비스 소유자가 정하는 약속이고, `declared_limit`은 이미 선언된 timeout처럼
+넘을 수 없는 한도에서 유도하며, `regression_guard`는 고쳤던 결함이 되살아나는지만
+보는 선이다. baseline은 출처가 아니다. 출처 없는 임계값은 validator가 거부한다.
+
 ### 11. 이름 규약은 기존 표준을 따른다
 
 새 어휘를 만들지 않는다. 두 표준을 조합한다.
@@ -246,8 +251,11 @@ make perf-*        충분히 빠른가
    `performance contract` 검사가 target·recording rule·exporter 선언과 대조한다.
    `linux-nvidia-static`은 monitoring stack을 띄우지 않아 runtime과
    infrastructure 층이 모두 `unsupported`다.
-2. 성능 계약 config와 결과 JSON Schema를 추가하고 `make validate`에 계약 검증을
-   넣는다. 이 단계에서는 벤치마크 요청을 보내지 않는다.
+2. ~~성능 계약 config와 결과 JSON Schema를 추가하고 `make validate`에 계약 검증을
+   넣는다.~~ 완료. `configs/performance/`의 `metrics`·`workloads`·`slo`와
+   `specs/schemas/performance_run.schema.json`이며 벤치마크 요청은 보내지 않는다.
+   SLO는 임계값 없이 `enforcement: observe`로 시작한다. 임계값은 `source`를
+   함께 적어야 하고 허용 출처에 baseline이 없다.
 3. `interactive` workload 하나로 runner MVP를 만든다. 환경 지문 수집을 함께 넣는다.
 4. Prometheus 스냅샷 수집과 evaluator를 추가한다.
 5. 나머지 workload를 `batch → long-context → agentic` 순으로 추가한다.

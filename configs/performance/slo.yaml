@@ -1,0 +1,73 @@
+# 성능 SLO를 단독으로 소유한다(ADR-0026 1·10절).
+#
+# SLO는 서비스가 제공하려는 품질 목표다. 특정 장비에서 관찰한 baseline이 아니다.
+# 관찰값에 여유율을 곱해 만들지 않는다.
+#
+# 그래서 이 파일은 지금 임계값을 갖지 않는다. 제품 계약이 정해지지 않은 상태에서
+# 숫자를 박으면 그 숫자가 곧 제품 계약이 되어버린다. 구조와 enforcement 단계만
+# 먼저 고정하고, 임계값은 objectives에 source와 함께 채운다.
+version: 1
+
+# 새 SLO는 observe에서 시작한다. 충분한 근거가 모인 뒤 승격한다.
+enforcement_levels:
+  observe: 판정만 기록하고 아무것도 실패시키지 않는다.
+  warn: 경고를 남기되 실행은 성공으로 끝낸다.
+  release: 릴리스 자격 검사를 실패시킨다.
+  required: 필수 게이트. 통과하지 못하면 진행하지 않는다.
+
+# 임계값이 어디서 왔는지 모르면 6개월 뒤 아무도 바꾸지 못한다. 셋 중 하나를
+# 반드시 적는다. baseline은 출처가 될 수 없다.
+threshold_sources:
+  product_requirement: 사용자에게 약속하는 품질. 서비스 소유자가 정한다.
+  declared_limit: >-
+    이미 선언된 timeout 같은 한도에서 유도한다. 한도보다 큰 임계값은 요청이 먼저
+    끊기므로 의미가 없다.
+  regression_guard: >-
+    고쳤던 결함이 되살아나는지만 보는 선. 정상 범위와 실패 모드 사이에서 잡는다.
+    scripts/validation/runtime/live_checks.py의 risk detector 지연 예산이 이 유형이다.
+
+# workload마다 목표가 다르다. 모든 profile에 같은 지표를 강제하지 않는다.
+slo_classes:
+  interactive:
+    workload: interactive
+    enforcement: observe
+    intent: 첫 응답이 빨라야 한다. 처리량을 조금 잃어도 된다.
+    objectives:
+      client_time_to_first_chunk_seconds:
+        percentiles: [p50, p95, p99]
+      client_time_per_output_chunk_seconds:
+        percentiles: [p95]
+      client_request_success_ratio:
+        aggregate: min
+      client_goodput_requests_per_second:
+        aggregate: min
+
+  batch:
+    workload: batch
+    enforcement: observe
+    intent: 지속 처리량이 목표다. 첫 응답 속도는 판정 기준이 아니다.
+    objectives:
+      client_output_tokens_per_second:
+        aggregate: min
+      client_request_success_ratio:
+        aggregate: min
+
+  long_context:
+    workload: long_context
+    enforcement: observe
+    intent: 긴 입력에서 실패하지 않고 첫 응답이 허용 범위 안에 들어와야 한다.
+    objectives:
+      client_time_to_first_chunk_seconds:
+        percentiles: [p95]
+      client_request_success_ratio:
+        aggregate: min
+
+  agentic:
+    workload: agentic
+    enforcement: observe
+    intent: 다중 turn session이 cache 재사용으로 이득을 보는지 확인한다.
+    objectives:
+      client_time_to_first_chunk_seconds:
+        percentiles: [p95]
+      client_request_success_ratio:
+        aggregate: min

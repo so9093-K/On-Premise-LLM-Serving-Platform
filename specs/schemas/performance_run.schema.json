@@ -1,0 +1,182 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ai-model-serving.local/schemas/performance_run.schema.json",
+  "title": "Performance benchmark run result",
+  "description": "벤치마크 실행의 원본 증거다(ADR-0026 8·9절). Markdown 보고서는 이 문서에서 파생된다. 환경 지문 없이는 결과를 비교할 수 없으므로 required로 강제한다.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "contract_version", "run", "environment", "workload", "requests", "summary"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "contract_version": {
+      "type": "integer",
+      "description": "configs/performance/metrics.yaml의 version. 계약이 바뀌면 과거 결과와 직접 비교하지 않는다."
+    },
+    "run": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "mode", "started_at", "duration_seconds", "seed"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "mode": {"enum": ["smoke", "baseline", "sweep", "regression"]},
+        "started_at": {"type": "string", "format": "date-time"},
+        "duration_seconds": {"type": "number", "minimum": 0},
+        "seed": {"type": "integer"},
+        "measurement_backend": {
+          "type": "string",
+          "description": "어떤 도구로 측정했는지. 도구는 실행 backend이지 기준이 아니다."
+        }
+      }
+    },
+    "environment": {
+      "type": "object",
+      "description": "지문이 없으면 6개월 뒤 이 숫자를 해석할 수 없다.",
+      "additionalProperties": false,
+      "required": [
+        "git_commit", "deployment_target", "runtime_backend",
+        "model_id", "model_revision", "platform_image", "runtime_flags"
+      ],
+      "properties": {
+        "git_commit": {"type": "string", "minLength": 7},
+        "deployment_target": {"type": "string", "minLength": 1},
+        "runtime_backend": {"type": "string", "minLength": 1},
+        "model_id": {"type": "string", "minLength": 1},
+        "model_revision": {"type": "string", "minLength": 1},
+        "served_model_name": {"type": "string"},
+        "platform_image": {"type": "string", "minLength": 1},
+        "runtime_image": {"type": "string"},
+        "runtime_version": {"type": "string"},
+        "runtime_flags": {
+          "type": "object",
+          "description": "max_model_len, max_num_seqs, speculative decoding, prefix caching 등 결과를 바꾸는 실행 설정.",
+          "additionalProperties": {"type": ["string", "number", "boolean", "null"]}
+        },
+        "gpu": {
+          "type": ["object", "null"],
+          "description": "GPU가 없는 target(macOS unified memory)에서는 null이며 per_gpu 파생값을 계산하지 않는다.",
+          "additionalProperties": false,
+          "required": ["model", "count"],
+          "properties": {
+            "model": {"type": "string"},
+            "count": {"type": "integer", "minimum": 1},
+            "memory_bytes": {"type": "integer", "minimum": 0},
+            "driver_version": {"type": "string"},
+            "cuda_version": {"type": "string"}
+          }
+        },
+        "host": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "platform": {"type": "string"},
+            "cpu": {"type": "string"},
+            "memory_bytes": {"type": "integer", "minimum": 0}
+          }
+        }
+      }
+    },
+    "workload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "cache_policy", "traffic"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "cache_policy": {"enum": ["cold", "warm", "controlled_reuse"]},
+        "shared_prefix_ratio": {"type": "number", "minimum": 0, "maximum": 1},
+        "traffic": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mode"],
+          "properties": {
+            "mode": {"enum": ["open_loop", "closed_loop"]},
+            "request_rate_per_second": {"type": "number", "minimum": 0},
+            "concurrency": {"type": "integer", "minimum": 1},
+            "admission_limit": {"type": "integer", "minimum": 1}
+          }
+        }
+      }
+    },
+    "requests": {
+      "type": "array",
+      "description": "요청별 원시 샘플. percentile은 여기서 계산한다. Prometheus histogram을 판정 근거로 쓰지 않는다.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["index", "succeeded"],
+        "properties": {
+          "index": {"type": "integer", "minimum": 0},
+          "succeeded": {"type": "boolean"},
+          "error_code": {"type": ["string", "null"]},
+          "status_code": {"type": ["integer", "null"]},
+          "request_id": {"type": ["string", "null"]},
+          "upstream_response_id": {"type": ["string", "null"]},
+          "client_time_to_first_chunk_seconds": {"type": ["number", "null"], "minimum": 0},
+          "client_operation_duration_seconds": {"type": ["number", "null"], "minimum": 0},
+          "client_time_per_output_chunk_seconds": {"type": ["array", "null"], "items": {"type": "number", "minimum": 0}},
+          "client_input_tokens": {"type": ["integer", "null"], "minimum": 0},
+          "client_output_tokens": {"type": ["integer", "null"], "minimum": 0},
+          "gateway_admission_wait_seconds": {"type": ["number", "null"], "minimum": 0}
+        }
+      }
+    },
+    "runtime_snapshot": {
+      "type": "object",
+      "description": "Prometheus에서 읽은 런타임·인프라 상태. 계약이 unsupported로 선언한 지표는 키를 만들지 않는다.",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "start": {"type": ["number", "null"]},
+          "end": {"type": ["number", "null"]},
+          "avg": {"type": ["number", "null"]},
+          "max": {"type": ["number", "null"]},
+          "p95": {"type": ["number", "null"]}
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "description": "evaluator가 원시 샘플에서 계산한 집계값. metric 이름은 계약의 이름만 쓴다.",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "p50": {"type": ["number", "null"]},
+          "p95": {"type": ["number", "null"]},
+          "p99": {"type": ["number", "null"]},
+          "mean": {"type": ["number", "null"]},
+          "min": {"type": ["number", "null"]},
+          "max": {"type": ["number", "null"]},
+          "value": {"type": ["number", "null"]}
+        }
+      }
+    },
+    "verdict": {
+      "type": "object",
+      "description": "SLO 판정. enforcement가 observe면 결과가 실행을 실패시키지 않는다.",
+      "additionalProperties": false,
+      "required": ["slo_class", "enforcement", "status"],
+      "properties": {
+        "slo_class": {"type": "string"},
+        "enforcement": {"enum": ["observe", "warn", "release", "required"]},
+        "status": {"enum": ["pass", "warn", "fail", "not_evaluated"]},
+        "objectives": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["metric", "status"],
+            "properties": {
+              "metric": {"type": "string"},
+              "statistic": {"type": "string"},
+              "observed": {"type": ["number", "null"]},
+              "threshold": {"type": ["number", "null"]},
+              "threshold_source": {"enum": ["product_requirement", "declared_limit", "regression_guard", null]},
+              "status": {"enum": ["pass", "warn", "fail", "not_evaluated"]}
+            }
+          }
+        }
+      }
+    }
+  }
+}

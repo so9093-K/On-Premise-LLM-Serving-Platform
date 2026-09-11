@@ -1,0 +1,174 @@
+# 벤치마크 workload를 단독으로 소유한다(ADR-0026 6·7절).
+#
+# workload는 "무엇을 보내는가"만이 아니라 "어떤 트래픽으로 보내는가"와
+# "어떤 cache 상태에서 재는가"까지다. 셋 중 하나라도 빠지면 결과를 재현할 수 없다.
+#
+# primary/secondary metric은 configs/performance/metrics.yaml의 이름만 쓴다.
+# 없는 이름을 쓰면 contract validator가 거부한다.
+version: 1
+
+# cache 상태는 처리량을 크게 바꾼다. 같은 서버에 반복 측정하면 이전 프롬프트가
+# prefix cache에 남아 과대 측정된다. 결과에도 반드시 기록한다.
+cache_policies:
+  cold: 매 요청이 고유 prefix를 쓴다. cache 효과를 배제한다.
+  warm: 측정 전 warmup으로 cache를 채운 뒤 잰다.
+  controlled_reuse: 선언한 비율만큼 prefix를 의도적으로 공유한다.
+
+traffic_modes:
+  open_loop: >-
+    목표 request rate로 계속 보낸다. 지연이 나빠져도 부하를 줄이지 않으므로
+    포화를 숨기지 않는다.
+  closed_loop: >-
+    고정 동시성으로 끝나는 대로 다음을 보낸다. 지연이 나빠지면 스스로 rate가
+    떨어져 포화가 가려질 수 있다. Gateway admission 한도 안에서만 의미가 있다.
+
+workloads:
+  interactive:
+    description: chatbot·coding assistant처럼 첫 응답이 빨라야 하는 요청.
+    protocol: chat_completions
+    streaming: true
+    # ADR 6절: TPOT 계산에 output token 수가 필요하고, 이 Gateway는 profile의
+    # supported_parameters에 없는 필드를 422로 막는다. usage가 없으면 토큰 기준
+    # 값이 조용히 비므로 계약이 요구 파라미터를 선언하고 validator가 확인한다.
+    required_request_parameters:
+      - stream
+      - stream_options
+      - max_tokens
+      - temperature
+    prompt:
+      distribution: fixed_synthetic
+      input_tokens: 512
+    output:
+      max_tokens: 256
+    traffic:
+      mode: open_loop
+      request_rate_per_second: 1.0
+    cache:
+      policy: cold
+    duration:
+      warmup_seconds: 30
+      measurement_seconds: 180
+    primary_metrics:
+      - client_time_to_first_chunk_seconds
+      - client_time_per_output_chunk_seconds
+      - client_request_success_ratio
+      - client_goodput_requests_per_second
+    secondary_metrics:
+      - client_operation_duration_seconds
+      - client_time_per_output_token_seconds
+      - gateway_admission_wait_seconds
+      - runtime_queue_duration_seconds
+      - runtime_kv_cache_usage_ratio
+
+  batch:
+    description: 지속 처리량을 묻는 요청. 첫 응답 속도는 부차적이다.
+    protocol: chat_completions
+    streaming: true
+    required_request_parameters:
+      - stream
+      - stream_options
+      - max_tokens
+      - temperature
+    prompt:
+      distribution: fixed_synthetic
+      input_tokens: 1024
+    output:
+      max_tokens: 512
+    # ADR 7절: 동시성 sweep은 Gateway admission 한도를 넘는 순간 런타임이 아니라
+    # Gateway 큐를 잰다. 한도를 함께 선언해 결과 해석이 어긋나지 않게 한다.
+    traffic:
+      mode: closed_loop
+      concurrency_sweep: [1, 2, 3]
+      admission_limit:
+        source: configs/model_serving.yaml
+        runtime_key: main_llm
+        max_concurrency: 3
+    cache:
+      policy: cold
+    duration:
+      warmup_seconds: 60
+      measurement_seconds: 300
+    primary_metrics:
+      - client_output_tokens_per_second
+      - client_total_tokens_per_second
+      - client_request_success_ratio
+    secondary_metrics:
+      - client_time_to_first_chunk_seconds
+      - gateway_admission_wait_seconds
+      - runtime_requests_waiting
+      - runtime_kv_cache_usage_ratio
+      - gpu_utilization_ratio
+
+  long_context:
+    description: 긴 입력의 prefill 한계를 본다. 병목이 첫 응답 전에 나타난다.
+    protocol: chat_completions
+    streaming: true
+    required_request_parameters:
+      - stream
+      - stream_options
+      - max_tokens
+      - temperature
+    prompt:
+      distribution: length_sweep
+      input_tokens_sweep: [8192, 16384, 24576]
+    output:
+      max_tokens: 128
+    traffic:
+      mode: closed_loop
+      concurrency_sweep: [1]
+      admission_limit:
+        source: configs/model_serving.yaml
+        runtime_key: main_llm
+        max_concurrency: 3
+    cache:
+      policy: cold
+    duration:
+      warmup_seconds: 30
+      measurement_seconds: 240
+    primary_metrics:
+      - client_time_to_first_chunk_seconds
+      - client_request_success_ratio
+    secondary_metrics:
+      - client_operation_duration_seconds
+      - runtime_prefill_duration_seconds
+      - runtime_kv_cache_usage_ratio
+      - gpu_memory_headroom_bytes
+
+  agentic:
+    description: >-
+      tool 호출로 이어지는 다중 turn session. 같은 prefix를 의도적으로 재사용해
+      cache 효과를 측정 대상으로 삼는다. interactive와 섞으면 해석이 불가능해진다.
+    protocol: chat_completions
+    streaming: true
+    required_request_parameters:
+      - stream
+      - stream_options
+      - max_tokens
+      - temperature
+    prompt:
+      distribution: multi_turn_session
+      input_tokens: 1024
+      turns_per_session: 3
+    output:
+      max_tokens: 256
+    traffic:
+      mode: closed_loop
+      concurrency_sweep: [1, 2]
+      admission_limit:
+        source: configs/model_serving.yaml
+        runtime_key: main_llm
+        max_concurrency: 3
+    cache:
+      policy: controlled_reuse
+      shared_prefix_ratio: 0.8
+    duration:
+      warmup_seconds: 30
+      measurement_seconds: 300
+    primary_metrics:
+      - client_time_to_first_chunk_seconds
+      - client_operation_duration_seconds
+      - client_request_success_ratio
+    secondary_metrics:
+      - runtime_kv_cache_usage_ratio
+      - runtime_requests_waiting
+      - gateway_admission_wait_seconds

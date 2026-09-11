@@ -29,6 +29,7 @@ __pycache__/
 # ── Runtime secrets & generated files ─────────────────────────────────────
 .runtime/
 reports/runtime/
+reports/performance/
 
 # ── Model data (large binary assets) ──────────────────────────────────────
 /model_cache/

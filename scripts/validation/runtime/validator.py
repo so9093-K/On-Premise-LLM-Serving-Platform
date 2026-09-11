@@ -122,10 +122,23 @@ class RuntimeValidator:
             ("json-schema-with-reasoning-canary", "json_schema with reasoning", {"response_format", "reasoning"}, self.live_checks.check_json_schema_with_reasoning, "json_schema"),
         ):
             run_when_supported(category, name, required, fn, response_type=response_type)
-        gateway_metrics = self.monitoring["metric_sources"]["gateway"]["required_metrics"]
-        risk_metrics = self.monitoring["metric_sources"]["risk_adapter"]["required_metrics"]
+        metric_sources = self.monitoring["metric_sources"]
+        gateway_metrics = metric_sources["gateway"]["required_metrics"]
+        risk_metrics = metric_sources["risk_adapter"]["required_metrics"]
         self.safe_check("monitoring-scrape", "gateway metrics", lambda: self.live_checks.scrape_metrics("gateway", self.gateway_base, gateway_metrics))
         self.safe_check("monitoring-scrape", "risk-adapter metrics", lambda: self.live_checks.scrape_metrics("risk-adapter", self.risk_base, risk_metrics))
+        # configs/performance/metrics.yaml의 vllm-cuda projection이 이 이름들에
+        # 의존한다(ADR-0026). 선언과 계약의 일치는 make validate가 정적으로 보고,
+        # 선언과 실제 런타임의 일치는 여기서 본다. 이 검사가 없으면 vLLM upgrade로
+        # 지표 이름이 바뀌었을 때 benchmark가 조용히 빈 값을 받는다.
+        vllm_metrics = (metric_sources.get("vllm_instances") or {}).get("required_metrics") or []
+        if vllm_metrics:
+            for key, base in self.vllm_bases.items():
+                self.safe_check(
+                    "monitoring-scrape",
+                    f"{key} metrics",
+                    lambda key=key, base=base: self.live_checks.scrape_metrics(key, base, vllm_metrics),
+                )
         self.safe_check("monitoring-scrape", "prometheus active targets", self.live_checks.check_prometheus_targets)
         self.safe_check("grafana-dashboard-render", "grafana api health", self.live_checks.check_grafana_health)
         self.safe_check("grafana-dashboard-render", "grafana prometheus datasource", self.live_checks.check_grafana_prometheus_datasource)
