@@ -6,7 +6,7 @@ runner·collector·evaluator가 각자 YAML을 열면 계약이 이름을 단독
 from __future__ import annotations
 
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -17,6 +17,12 @@ if str(ROOT / "src") not in sys.path:
 from ai_model_serving.configuration import load_yaml_mapping  # noqa: E402
 
 PERFORMANCE_DIR = ROOT / "configs" / "performance"
+# 계약 파일의 위치를 여기서만 적는다. runner·evaluator·검증기가 각자 경로를
+# 계산하면 계약 디렉터리를 옮길 때 한 곳을 놓치고, 그때 놓친 쪽은 조용히
+# 예전 파일을 읽는다.
+METRICS_PATH = PERFORMANCE_DIR / "metrics.yaml"
+WORKLOADS_PATH = PERFORMANCE_DIR / "workloads.yaml"
+SLO_PATH = PERFORMANCE_DIR / "slo.yaml"
 RESULT_SCHEMA_PATH = ROOT / "specs" / "schemas" / "performance_run.schema.json"
 
 
@@ -26,6 +32,9 @@ class PerformanceContract:
     metrics: dict[str, Any]
     workloads: dict[str, Any]
     slo_classes: dict[str, Any]
+    # 판정에 쓰는 통계 방법. 소비자가 slo.yaml을 다시 열면 계약 객체와 파일이
+    # 갈라질 수 있다. Epic 7이 과거 계약을 고정해 비교할 때 그 차이가 드러난다.
+    statistics: dict[str, Any] = field(default_factory=dict)
 
     def workload(self, workload_id: str) -> dict[str, Any]:
         try:
@@ -42,12 +51,13 @@ class PerformanceContract:
 
 
 def load_contract() -> PerformanceContract:
-    metrics = load_yaml_mapping(PERFORMANCE_DIR / "metrics.yaml")
-    workloads = load_yaml_mapping(PERFORMANCE_DIR / "workloads.yaml")
-    slo = load_yaml_mapping(PERFORMANCE_DIR / "slo.yaml")
+    metrics = load_yaml_mapping(METRICS_PATH)
+    workloads = load_yaml_mapping(WORKLOADS_PATH)
+    slo = load_yaml_mapping(SLO_PATH)
     return PerformanceContract(
         version=int(metrics["version"]),
         metrics=metrics.get("metrics") or {},
         workloads=workloads.get("workloads") or {},
         slo_classes=slo.get("slo_classes") or {},
+        statistics=slo.get("statistics") or {},
     )

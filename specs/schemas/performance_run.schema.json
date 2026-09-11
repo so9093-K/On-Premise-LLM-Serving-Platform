@@ -134,7 +134,11 @@
           "client_time_per_output_token_seconds": {"type": ["number", "null"], "minimum": 0},
           "client_input_tokens": {"type": ["integer", "null"], "minimum": 0},
           "client_output_tokens": {"type": ["integer", "null"], "minimum": 0},
-          "gateway_admission_wait_seconds": {"type": ["number", "null"], "minimum": 0}
+          "gateway_admission_wait_seconds": {
+            "type": ["number", "null"],
+            "minimum": 0,
+            "description": "Gateway가 admission slot을 기다린 시간. client는 이 값을 볼 수 없고, Gateway는 접근 로그에 queue_wait_ms로만 남긴다. 응답 헤더로 내보내면 내부 타이밍이 공개 API가 되므로, 수집기가 request_id로 접근 로그와 이어 붙여 채운다."
+          }
         }
       }
     },
@@ -160,6 +164,11 @@
         "type": "object",
         "additionalProperties": false,
         "properties": {
+          "count": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "이 값을 만든 표본 수. percentile이 null이면 slo.yaml의 minimum_samples를 못 채운 것이며, 표본 수 없이는 그 구분이 보이지 않는다."
+          },
           "p50": {"type": ["number", "null"]},
           "p95": {"type": ["number", "null"]},
           "p99": {"type": ["number", "null"]},
@@ -191,7 +200,11 @@
               "observed": {"type": ["number", "null"]},
               "threshold": {"type": ["number", "null"]},
               "threshold_source": {"enum": ["product_requirement", "declared_limit", "regression_guard", null]},
-              "status": {"enum": ["pass", "warn", "fail", "not_evaluated"]}
+              "status": {"enum": ["pass", "warn", "fail", "not_evaluated"]},
+              "not_evaluated_reason": {
+                "enum": ["no_threshold", "insufficient_samples", "not_measured"],
+                "description": "판정하지 못한 이유. 이유 없는 not_evaluated는 무엇을 고쳐야 하는지 알려주지 않는다. 표본을 더 모으면 되는 것과 임계값을 정해야 하는 것은 다른 작업이다."
+              }
             }
           }
         }

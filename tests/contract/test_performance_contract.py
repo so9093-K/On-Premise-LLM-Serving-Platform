@@ -129,9 +129,9 @@ def test_result_schema_requires_the_environment_fingerprint():
 
     from jsonschema import Draft202012Validator
 
-    schema = json.loads(contract.ROOT.joinpath(
-        "specs/schemas/performance_run.schema.json"
-    ).read_text(encoding="utf-8"))
+    from scripts.benchmark.contract import RESULT_SCHEMA_PATH
+
+    schema = json.loads(RESULT_SCHEMA_PATH.read_text(encoding="utf-8"))
     Draft202012Validator.check_schema(schema)
     assert "environment" in schema["required"]
     fingerprint = schema["properties"]["environment"]["required"]
@@ -197,3 +197,53 @@ def test_every_primary_metric_has_a_producer_in_the_benchmark_client():
         for name in workload["primary_metrics"]:
             if name in per_request:
                 assert name in produced, f"{name} is declared primary but nothing produces it"
+
+
+def test_every_metric_declares_a_role_so_unused_ones_are_explainable():
+    """소비처 없는 지표가 잊은 것인지 의도한 것인지 계약이 말해야 한다.
+
+    27개 중 12개에 workload·SLO 소비처가 없었고, 그중 어느 것이 설계대로이고
+    어느 것이 남은 것인지 가려내려면 매번 코드를 거슬러 읽어야 했다.
+    """
+    document = contract.load_yaml_mapping(contract.METRICS_PATH)
+    roles = set(document["roles"])
+    consumed = set()
+    workloads = contract.load_yaml_mapping(contract.WORKLOADS_PATH)["workloads"]
+    for workload in workloads.values():
+        consumed |= set(workload.get("primary_metrics") or [])
+        consumed |= set(workload.get("secondary_metrics") or [])
+    for slo in contract.load_yaml_mapping(contract.SLO_PATH)["slo_classes"].values():
+        consumed |= set(slo.get("objectives") or {})
+
+    for name, metric in document["metrics"].items():
+        assert metric.get("role") in roles, name
+    # 판정용인데 아무 workload도 쓰지 않으면 그건 정말 잊힌 것이다.
+    orphans = [
+        name for name, metric in document["metrics"].items()
+        if metric["role"] == "judgment" and name not in consumed
+    ]
+    assert orphans == [], orphans
+
+
+def test_only_judgment_metrics_can_be_slo_objectives():
+    """결과를 설명하려고 둔 값이 합격 여부를 정하게 두지 않는다."""
+    metrics = contract.load_yaml_mapping(contract.METRICS_PATH)["metrics"]
+    for name, slo in contract.load_yaml_mapping(contract.SLO_PATH)["slo_classes"].items():
+        for metric_name in slo["objectives"]:
+            assert metrics[metric_name]["role"] == "judgment", f"{name}.{metric_name}"
+
+
+def test_judgment_metrics_declare_which_direction_is_better():
+    """성공률 임계값이 '이 값보다 낮아야 한다'로 뒤집혀도 모르게 두지 않는다."""
+    document = contract.load_yaml_mapping(contract.METRICS_PATH)
+    directions = set(document["better_directions"])
+    for name, metric in document["metrics"].items():
+        if metric["role"] == "judgment":
+            assert metric.get("better") in directions, name
+
+
+def test_minimum_sample_counts_can_distinguish_the_percentile_they_gate():
+    """p99를 20개 표본에서 내면 사실상 최댓값이고 판정이 표본 수에 달린다."""
+    statistics = contract.load_yaml_mapping(contract.SLO_PATH)["statistics"]
+    for name, share in (("p50", 0.50), ("p95", 0.95), ("p99", 0.99)):
+        assert statistics["minimum_samples"][name] >= round(1 / (1 - share)), name

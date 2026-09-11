@@ -14,15 +14,21 @@ from typing import Any
 import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
-if str(ROOT / "src") not in sys.path:
-    sys.path.insert(0, str(ROOT / "src"))
+# scripts/ 아래 모듈을 import하려면 저장소 루트도 필요하다.
+for _entry in (str(ROOT), str(ROOT / "src")):
+    if _entry not in sys.path:
+        sys.path.insert(0, _entry)
 
 from ai_model_serving.configuration import load_yaml_mapping  # noqa: E402
 from ai_model_serving.apps.mlx_metrics_exporter import render_mlx_metrics  # noqa: E402
 
-METRICS_PATH = ROOT / "configs" / "performance" / "metrics.yaml"
-WORKLOADS_PATH = ROOT / "configs" / "performance" / "workloads.yaml"
-SLO_PATH = ROOT / "configs" / "performance" / "slo.yaml"
+# 계약 파일의 위치는 scripts/benchmark/contract.py가 소유한다. 여기서 다시
+# 계산하면 검증기와 실행기가 서로 다른 파일을 볼 수 있다.
+from scripts.benchmark.contract import (  # noqa: E402
+    METRICS_PATH,
+    SLO_PATH,
+    WORKLOADS_PATH,
+)
 MODEL_SERVING_PATH = ROOT / "configs" / "model_serving.yaml"
 MACOS_RUNTIME_PATH = ROOT / "configs" / "macos_mlx_runtime.yaml"
 TARGETS_PATH = ROOT / "configs" / "deployment_targets.yaml"
@@ -222,7 +228,42 @@ def _validate_metrics(failures: list[str]) -> dict[str, Any]:
         for source in derived.get("from", []):
             if source not in metrics:
                 failures.append(f"derived {name!r} references unknown metric {source!r}")
+
+    _validate_roles(failures, contract, metrics)
     return metrics
+
+
+def _validate_roles(failures: list[str], contract: dict[str, Any], metrics: dict[str, Any]) -> None:
+    """역할 선언이 주석에 그치지 않게 한다.
+
+    소비처 없는 지표를 두고 "잊은 것"인지 "의도한 것"인지 구분할 수 없으면, 계약을
+    읽는 사람이 매번 다시 따져야 한다. 실제로 27개 중 12개가 그 상태였다.
+    """
+    roles = set(contract.get("roles") or {})
+    directions = set(contract.get("better_directions") or {"lower", "higher"})
+    if not roles:
+        failures.append("metrics.yaml must declare roles")
+        return
+    for name, metric in metrics.items():
+        role = metric.get("role")
+        if role not in roles:
+            failures.append(f"metric {name!r} declares unknown role {role!r}")
+            continue
+        # 판정 방향이 없으면 성공률 임계값이 "이 값보다 낮아야 한다"로 뒤집혀도
+        # 아무도 모른다.
+        if role == "judgment" and metric.get("better") not in directions:
+            failures.append(f"judgment metric {name!r} must declare better: {sorted(directions)}")
+        # gateway 층은 계약 스스로 SLO 기준이 아니라고 선언했다.
+        if role == "judgment" and metric["layer"] == "gateway":
+            failures.append(
+                f"metric {name!r} is judgment but the gateway layer declares itself a "
+                "diagnosis basis, not an SLO basis"
+            )
+        target = metric.get("approximation_of")
+        if target and metrics.get(target, {}).get("role") != "reference":
+            failures.append(
+                f"metric {name!r} approximates {target!r} which must declare role 'reference'"
+            )
 
 
 def _supported_request_parameters() -> dict[str, set[str]]:
@@ -325,6 +366,18 @@ def _validate_slo(failures: list[str], metrics: dict[str, Any], workloads: dict[
     if document.get("version") != 1:
         failures.append("slo.yaml must declare version 1")
         return
+    statistics = document.get("statistics") or {}
+    if not statistics.get("percentile_method"):
+        failures.append("slo.yaml must declare statistics.percentile_method")
+    minimum = statistics.get("minimum_samples") or {}
+    for percentile_name, share in (("p50", 0.50), ("p95", 0.95), ("p99", 0.99)):
+        # p번째 백분위를 구분하려면 최소 1/(1-p)개의 표본이 필요하다. 그보다 적게
+        # 잡으면 사실상 최댓값을 임계값과 비교하게 된다.
+        needed = round(1 / (1 - share))
+        if int(minimum.get(percentile_name, 0)) < needed:
+            failures.append(
+                f"slo.yaml minimum_samples.{percentile_name} must be at least {needed}"
+            )
     levels = set(document.get("enforcement_levels") or {})
     sources = set(document.get("threshold_sources") or {})
     if "baseline" in sources:
@@ -346,6 +399,13 @@ def _validate_slo(failures: list[str], metrics: dict[str, Any], workloads: dict[
             if metric_name not in metrics:
                 failures.append(
                     f"slo class {name!r} references unknown metric {metric_name!r}"
+                )
+            # 판정은 judgment 역할에서만 고른다. diagnosis를 기준으로 삼으면
+            # 결과를 설명하려고 둔 값이 합격 여부를 정하게 된다.
+            elif metrics[metric_name].get("role") != "judgment":
+                failures.append(
+                    f"slo class {name!r} judges {metric_name!r} which declares role "
+                    f"{metrics[metric_name].get('role')!r}; objectives must use judgment metrics"
                 )
             # 임계값이 채워질 때는 출처를 함께 적어야 한다. 출처 없는 숫자는
             # baseline에서 유도된 값과 구분할 수 없다.

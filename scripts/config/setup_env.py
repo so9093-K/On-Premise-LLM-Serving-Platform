@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import argparse
 import os
 import secrets
 import sys
@@ -415,7 +414,6 @@ def generated_values(
     exposure_audience: str | None = None,
     access_profile: str | None = None,
 ) -> dict[str, str]:
-    version = (ROOT / "VERSION").read_text(encoding="utf-8").strip()
     gateway_key = token("ams_gateway")
     admin_key = token("ams_admin")
     internal_token = token("ams_internal")

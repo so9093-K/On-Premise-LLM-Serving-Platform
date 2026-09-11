@@ -23,7 +23,6 @@ def macos_metal_prometheus_config_document(
     exporter = stack.get("mlx_metrics_exporter", {})
     gateway = monitoring.get("metric_sources", {}).get("gateway", {})
     gateway_service = str(services["gateway"]["compose_service"])
-    runtime = macos_runtime["runtime"]
     return {
         "global": {
             "scrape_interval": prometheus.get("scrape_interval", "15s"),

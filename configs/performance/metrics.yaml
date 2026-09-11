@@ -45,6 +45,22 @@ layers:
       exporter는 target의 compose 구성이 결정한다. linux-nvidia-static은
       monitoring stack 자체를 띄우지 않으므로 이 층과 runtime 층이 모두 비어 있다.
 
+# 지표마다 역할을 적는다. 역할이 없으면 workload나 SLO가 쓰지 않는 지표를 두고
+# "잊은 것"인지 "의도한 것"인지 구분할 수 없다. 실제로 27개 중 12개에 소비처가
+# 없었고, 그중 절반은 설계대로였지만 나머지를 가려내려면 매번 다시 따져야 했다.
+roles:
+  judgment: >-
+    SLO 판정 근거가 될 수 있다. objective는 이 역할에서만 고른다.
+  diagnosis: >-
+    결과를 해석하는 데 쓴다. 판정 근거가 아니다. 소비처가 없어도 잊은 것이 아니다.
+  reference: >-
+    다른 층의 근사값이 맞는지 대조하는 정답지. approximation_of가 가리키는 쪽이다.
+
+# judgment 지표는 판정 방향을 적는다. 지연은 낮을수록, 성공률과 처리량은 높을수록
+# 좋다. 방향이 없으면 evaluator가 한쪽으로 가정하게 되고, 성공률 임계값이
+# "이 값보다 낮아야 한다"로 뒤집혀도 아무도 모른다.
+better_directions: [lower, higher]
+
 # unsupported는 "값이 0"이 아니라 "이 조합에서는 측정할 수 없음"이다.
 # 다른 지표로 대체하거나 0으로 채우지 않는다.
 unsupported_marker: unsupported
@@ -53,6 +69,8 @@ metrics:
   # ---------------------------------------------------------------- client
   client_time_to_first_chunk_seconds:
     layer: client
+    role: judgment
+    better: lower
     unit: seconds
     aggregation_unit: request
     otel: gen_ai.client.operation.time_to_first_chunk
@@ -63,6 +81,7 @@ metrics:
 
   client_time_per_output_chunk_seconds:
     layer: client
+    role: diagnosis
     unit: seconds
     aggregation_unit: streamed_output_gap
     otel: gen_ai.client.operation.time_per_output_chunk
@@ -78,6 +97,8 @@ metrics:
 
   client_time_per_output_token_seconds:
     layer: client
+    role: judgment
+    better: lower
     unit: seconds
     aggregation_unit: request
     definition: >-
@@ -91,6 +112,8 @@ metrics:
 
   client_operation_duration_seconds:
     layer: client
+    role: judgment
+    better: lower
     unit: seconds
     aggregation_unit: request
     otel: gen_ai.client.operation.duration
@@ -98,6 +121,7 @@ metrics:
 
   client_input_tokens:
     layer: client
+    role: diagnosis
     unit: tokens
     aggregation_unit: request
     otel: gen_ai.client.token.usage
@@ -105,6 +129,7 @@ metrics:
 
   client_output_tokens:
     layer: client
+    role: diagnosis
     unit: tokens
     aggregation_unit: request
     otel: gen_ai.client.token.usage
@@ -112,33 +137,51 @@ metrics:
 
   client_output_tokens_per_second:
     layer: client
+    role: judgment
+    better: higher
     unit: tokens_per_second
     aggregation_unit: window
-    definition: 측정 구간의 completion token 합 / wall time.
+    definition: >-
+      측정 구간의 completion token 합 / dispatch_window_seconds. 분모는 부하를 가한
+      구간이며 마지막 요청을 기다린 tail drain을 포함하지 않는다. 전체 벽시계로
+      나누면 실측에서 1.0 rps가 0.71로 보였다.
 
   client_total_tokens_per_second:
     layer: client
+    role: judgment
+    better: higher
     unit: tokens_per_second
     aggregation_unit: window
-    definition: 측정 구간의 prompt + completion token 합 / wall time.
+    definition: >-
+      측정 구간의 prompt + completion token 합 / dispatch_window_seconds.
+      분모는 client_output_tokens_per_second와 같다.
 
   client_request_success_ratio:
     layer: client
+    role: judgment
+    better: higher
     unit: ratio
     aggregation_unit: window
     definition: 성공 요청 수 / 전체 요청 수.
 
   client_goodput_requests_per_second:
     layer: client
+    role: judgment
+    better: higher
     unit: requests_per_second
     aggregation_unit: window
     definition: >-
       해당 workload의 모든 SLO를 만족한 요청만 센 초당 처리량. throughput과
       다르다. SLO를 넘긴 요청은 처리했어도 세지 않는다.
+    requires:
+      # 임계값이 없으면 "SLO를 만족한 요청"이 정의되지 않는다. 성공률로 대신하면
+      # 정의가 다른 값이 같은 이름으로 나간다.
+      slo_thresholds: true
 
   # --------------------------------------------------------------- gateway
   gateway_admission_wait_seconds:
     layer: gateway
+    role: diagnosis
     unit: seconds
     aggregation_unit: request
     definition: >-
@@ -149,6 +192,7 @@ metrics:
 
   gateway_upstream_duration_seconds:
     layer: gateway
+    role: diagnosis
     unit: seconds
     aggregation_unit: request
     definition: Gateway가 upstream 호출에 쓴 시간. admission 대기를 포함한다.
@@ -156,6 +200,7 @@ metrics:
 
   gateway_time_to_first_chunk_seconds:
     layer: gateway
+    role: diagnosis
     unit: seconds
     aggregation_unit: request
     definition: >-
@@ -166,6 +211,7 @@ metrics:
   # --------------------------------------------------------------- runtime
   runtime_time_to_first_token_seconds:
     layer: runtime
+    role: reference
     unit: seconds
     aggregation_unit: request
     otel: gen_ai.server.time_to_first_token
@@ -176,6 +222,7 @@ metrics:
 
   runtime_time_per_output_token_seconds:
     layer: runtime
+    role: reference
     unit: seconds
     aggregation_unit: request
     otel: gen_ai.server.time_per_output_token
@@ -186,6 +233,7 @@ metrics:
 
   runtime_request_duration_seconds:
     layer: runtime
+    role: diagnosis
     unit: seconds
     aggregation_unit: request
     otel: gen_ai.server.request.duration
@@ -196,6 +244,7 @@ metrics:
 
   runtime_queue_duration_seconds:
     layer: runtime
+    role: diagnosis
     unit: seconds
     aggregation_unit: request
     definition: 런타임 scheduler가 요청을 집기 전 대기 시간.
@@ -205,6 +254,7 @@ metrics:
 
   runtime_prefill_duration_seconds:
     layer: runtime
+    role: diagnosis
     unit: seconds
     aggregation_unit: request
     definition: prefill 단계 처리 시간.
@@ -214,6 +264,7 @@ metrics:
 
   runtime_decode_duration_seconds:
     layer: runtime
+    role: diagnosis
     unit: seconds
     aggregation_unit: request
     definition: decode 단계 처리 시간.
@@ -223,6 +274,7 @@ metrics:
 
   runtime_requests_waiting:
     layer: runtime
+    role: diagnosis
     unit: count
     aggregation_unit: instant
     definition: 실행 대기 중인 요청 수.
@@ -232,6 +284,7 @@ metrics:
 
   runtime_requests_running:
     layer: runtime
+    role: diagnosis
     unit: count
     aggregation_unit: instant
     definition: 현재 실행 중인 요청 수.
@@ -241,6 +294,7 @@ metrics:
 
   runtime_kv_cache_usage_ratio:
     layer: runtime
+    role: diagnosis
     unit: ratio
     aggregation_unit: instant
     definition: KV cache 사용 비율. 1이 100%다.
@@ -250,6 +304,7 @@ metrics:
 
   runtime_input_tokens_total:
     layer: runtime
+    role: diagnosis
     unit: tokens
     aggregation_unit: counter
     definition: 런타임 기동 이후 처리한 prompt token 누계.
@@ -259,6 +314,7 @@ metrics:
 
   runtime_output_tokens_total:
     layer: runtime
+    role: diagnosis
     unit: tokens
     aggregation_unit: counter
     definition: 런타임 기동 이후 생성한 token 누계.
@@ -269,6 +325,7 @@ metrics:
   # -------------------------------------------------------- infrastructure
   gpu_memory_used_bytes:
     layer: infrastructure
+    role: diagnosis
     unit: bytes
     aggregation_unit: instant
     definition: GPU 메모리 사용량.
@@ -279,6 +336,7 @@ metrics:
 
   gpu_memory_headroom_bytes:
     layer: infrastructure
+    role: diagnosis
     unit: bytes
     aggregation_unit: instant
     definition: 추가 런타임을 올릴 수 있는 GPU 여유 메모리.
@@ -289,6 +347,7 @@ metrics:
 
   gpu_utilization_ratio:
     layer: infrastructure
+    role: diagnosis
     unit: ratio
     aggregation_unit: instant
     definition: GPU 연산 사용률.

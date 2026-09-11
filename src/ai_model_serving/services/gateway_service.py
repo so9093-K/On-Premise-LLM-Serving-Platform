@@ -443,7 +443,7 @@ class GatewayService:
             self.metrics.record_streaming_client_disconnect(target, phase)
             self.metrics.record_streaming_error(target, "CLIENT_DISCONNECT", phase)
             raise
-        except TimeoutError as exc:
+        except TimeoutError:
             terminal_status = "gateway_timeout"
             phase = "mid_stream" if emitted_chunk else "before_first_chunk"
             self.metrics.record_upstream_error(target, "GATEWAY_TIMEOUT")

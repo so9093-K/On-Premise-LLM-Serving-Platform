@@ -14,6 +14,7 @@ for entry in (str(ROOT), str(ROOT / "src")):
     if entry not in sys.path:
         sys.path.insert(0, entry)
 
+from scripts.benchmark import evaluate as evaluator  # noqa: E402
 from scripts.benchmark import result  # noqa: E402
 from scripts.lib.process_env import load_dotenv  # noqa: E402
 from scripts.benchmark.contract import load_contract  # noqa: E402
@@ -61,6 +62,12 @@ def main(argv: list[str] | None = None) -> int:
         print(f"[perf] 실행을 중단했습니다: {exc}", file=sys.stderr)
         return 2
 
+    try:
+        document = evaluator.evaluate(document, contract)
+    except evaluator.EvaluationError as exc:
+        print(f"[perf] 집계를 중단했습니다: {exc}", file=sys.stderr)
+        return 4
+
     directory = Path(args.output_dir).resolve() if args.output_dir else None
     try:
         path = result.write(document, directory=directory)
@@ -76,9 +83,28 @@ def main(argv: list[str] | None = None) -> int:
     if failed:
         codes = sorted({str(sample.get("error_code") or sample.get("status_code")) for sample in failed})
         print(f"[perf] 실패 사유: {', '.join(codes)}")
+    _print_verdict(document)
     print(f"[perf] 결과: {path}")
     # 실패한 요청이 있어도 결과는 남긴다. 판정은 evaluator의 일이다.
     return 0
+
+
+def _print_verdict(document: dict) -> None:
+    """판정을 사람이 읽을 수 있게 줄인다. 근거는 결과 파일이 갖는다."""
+    verdict = document["verdict"]
+    print(f"[perf] SLO {verdict['slo_class']} ({verdict['enforcement']}): {verdict['status']}")
+    reasons = {
+        "insufficient_samples": "표본 부족",
+        "no_threshold": "임계값 미정",
+        "not_measured": "측정값 없음",
+    }
+    for objective in verdict["objectives"]:
+        observed = objective["observed"]
+        shown = f"{observed:.4g}" if isinstance(observed, (int, float)) else "-"
+        status = objective["status"]
+        if status == "not_evaluated":
+            status = f"not_evaluated ({reasons[objective['not_evaluated_reason']]})"
+        print(f"[perf]   {objective['metric']} {objective['statistic']}: {shown} -> {status}")
 
 
 if __name__ == "__main__":
