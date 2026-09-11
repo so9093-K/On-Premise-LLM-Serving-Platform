@@ -150,6 +150,21 @@ def _objectives(slo: dict[str, Any]) -> dict[str, dict[str, Any]]:
     return dict(slo.get("objectives") or {})
 
 
+def _threshold(objective: dict[str, Any], document: dict[str, Any]) -> float | None:
+    """이 실행 환경에 해당하는 임계값.
+
+    측정으로 그은 선은 target마다 다르다. 26B MLX의 토큰당 시간과 GPU의 12B FP8은
+    같을 수 없다. 한 숫자를 모두에 걸면 한쪽에서는 반드시 틀린 판정을 낸다.
+    측정하지 않은 target은 비어 있고, 그때는 판정하지 않는다.
+    """
+    if "threshold" in objective:
+        return float(objective["threshold"])
+    by_target = objective.get("thresholds_by_target") or {}
+    target = str((document.get("environment") or {}).get("deployment_target", ""))
+    value = by_target.get(target)
+    return float(value) if value is not None else None
+
+
 def _goodput(
     document: dict[str, Any],
     contract: PerformanceContract,
@@ -169,9 +184,10 @@ def _goodput(
     # 요청 하나하나를 판정할 수 있는 지표만 쓴다. 창 단위 집계값에는 요청별로
     # "이 요청이 SLO를 만족했는가"를 물을 수 없다.
     limits = [
-        (name, float(objective["threshold"]), str(metrics[name].get("better", "lower")))
+        (name, threshold, str(metrics[name].get("better", "lower")))
         for name, objective in _objectives(slo).items()
-        if "threshold" in objective and metrics.get(name, {}).get("aggregation_unit") == "request"
+        if metrics.get(name, {}).get("aggregation_unit") == "request"
+        and (threshold := _threshold(objective, document)) is not None
     ]
     if not limits:
         # 임계값이 없으면 "SLO를 만족한 요청"이 정의되지 않는다. 성공 요청 수를
@@ -207,7 +223,7 @@ def judge(document: dict[str, Any], contract: PerformanceContract, summary: dict
         entry_summary = summary.get(metric_name) or {}
         for statistic in _requested_statistics(objective):
             observed = _observed(entry_summary, statistic)
-            threshold = objective.get("threshold")
+            threshold = _threshold(objective, document)
             entry: dict[str, Any] = {
                 "metric": metric_name,
                 "statistic": statistic,

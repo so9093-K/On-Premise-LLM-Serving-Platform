@@ -136,17 +136,17 @@ def test_token_based_value_covers_the_whole_generation_span():
     assert sample.client_time_per_output_token_seconds == pytest.approx(1.0)
 
 
-@pytest.mark.parametrize("tokens", [None, 0, 1])
-def test_token_based_value_is_absent_when_it_cannot_be_computed(tokens):
+def test_token_based_value_is_absent_when_it_cannot_be_computed():
     """토큰이 하나뿐이면 간격이 존재하지 않는다. 0으로 채우지 않는다."""
-    sample = RequestSample(
-        index=0,
-        succeeded=True,
-        client_time_to_first_chunk_seconds=1.0,
-        client_operation_duration_seconds=5.0,
-        client_output_tokens=tokens,
-    )
-    assert sample.client_time_per_output_token_seconds is None
+    for tokens in (None, 0, 1):
+        sample = RequestSample(
+            index=0,
+            succeeded=True,
+            client_time_to_first_chunk_seconds=1.0,
+            client_operation_duration_seconds=5.0,
+            client_output_tokens=tokens,
+        )
+        assert sample.client_time_per_output_token_seconds is None, tokens
 
 
 def _contract(workload: dict[str, Any]) -> PerformanceContract:

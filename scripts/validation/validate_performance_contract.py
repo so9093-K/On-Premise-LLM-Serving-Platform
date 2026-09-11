@@ -26,6 +26,7 @@ from ai_model_serving.apps.mlx_metrics_exporter import render_mlx_metrics  # noq
 # 계산하면 검증기와 실행기가 서로 다른 파일을 볼 수 있다.
 from scripts.benchmark.contract import (  # noqa: E402
     METRICS_PATH,
+    RESULT_SCHEMA_PATH,
     SLO_PATH,
     WORKLOADS_PATH,
 )
@@ -264,6 +265,18 @@ def _validate_roles(failures: list[str], contract: dict[str, Any], metrics: dict
             failures.append(
                 f"metric {name!r} approximates {target!r} which must declare role 'reference'"
             )
+        # 전송 계층이 chunk를 묶어 보내면 도착 간격의 percentile은 서버가 아니라
+        # 그 묶임을 잰다. macOS Metal 실측에서 간격의 69%가 1ms 미만이고 p90이
+        # 65ms였는데, 같은 구간의 실제 토큰당 시간은 19.3ms였다.
+        if metric.get("aggregation_unit") == "streamed_output_gap":
+            allowed = set(metric.get("interpretable_statistics") or [])
+            if not allowed:
+                failures.append(f"metric {name!r} must declare interpretable_statistics")
+            elif allowed & {"p50", "p95", "p99"}:
+                failures.append(
+                    f"metric {name!r} measures chunk arrival gaps; percentiles of that series "
+                    "describe the transport, not the server"
+                )
 
 
 def _supported_request_parameters() -> dict[str, set[str]]:
@@ -400,6 +413,13 @@ def _validate_slo(failures: list[str], metrics: dict[str, Any], workloads: dict[
                 failures.append(
                     f"slo class {name!r} references unknown metric {metric_name!r}"
                 )
+            metric = metrics.get(metric_name) or {}
+            allowed = set(metric.get("interpretable_statistics") or [])
+            if allowed and set(objective.get("percentiles") or []) - allowed:
+                failures.append(
+                    f"slo class {name!r} judges {metric_name!r} by percentile, but the contract "
+                    f"declares only {sorted(allowed)} interpretable for it"
+                )
             # 판정은 judgment 역할에서만 고른다. diagnosis를 기준으로 삼으면
             # 결과를 설명하려고 둔 값이 합격 여부를 정하게 된다.
             elif metrics[metric_name].get("role") != "judgment":
@@ -409,6 +429,14 @@ def _validate_slo(failures: list[str], metrics: dict[str, Any], workloads: dict[
                 )
             # 임계값이 채워질 때는 출처를 함께 적어야 한다. 출처 없는 숫자는
             # baseline에서 유도된 값과 구분할 수 없다.
+            # target별 임계값은 실재하는 target만 가리켜야 한다. 오타가 나면 그
+            # target은 조용히 판정 없이 통과한다.
+            for target_id in (objective.get("thresholds_by_target") or {}):
+                if target_id not in _declared_targets():
+                    failures.append(
+                        f"slo class {name!r} objective {metric_name!r} sets a threshold for "
+                        f"unknown deployment target {target_id!r}"
+                    )
             has_threshold = any(
                 key not in ("percentiles", "aggregate", "source") for key in objective
             )
@@ -417,6 +445,31 @@ def _validate_slo(failures: list[str], metrics: dict[str, Any], workloads: dict[
                     f"slo class {name!r} objective {metric_name!r} sets a threshold "
                     f"without a declared source; allowed: {sorted(sources)}"
                 )
+
+
+def _validate_result_schema(failures: list[str]) -> None:
+    """결과 schema도 계약의 일부다.
+
+    지문 없이 저장된 결과는 6개월 뒤 해석할 수 없다. required에서 빠지면 그때부터
+    조용히 지문 없는 결과가 쌓인다.
+    """
+    import json
+
+    from jsonschema import Draft202012Validator
+
+    try:
+        schema = json.loads(RESULT_SCHEMA_PATH.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        failures.append(f"cannot read {RESULT_SCHEMA_PATH.name}: {exc}")
+        return
+    Draft202012Validator.check_schema(schema)
+    if "environment" not in schema.get("required", []):
+        failures.append("performance_run schema must require the environment fingerprint")
+        return
+    fingerprint = set(schema["properties"]["environment"].get("required", []))
+    for field in ("git_commit", "deployment_target", "model_revision", "runtime_flags"):
+        if field not in fingerprint:
+            failures.append(f"performance_run schema environment must require {field!r}")
 
 
 def validate(failures: list[str]) -> None:
@@ -428,6 +481,7 @@ def validate(failures: list[str]) -> None:
     metrics = _validate_metrics(failures)
     workloads = _validate_workloads(failures, metrics)
     _validate_slo(failures, metrics, workloads)
+    _validate_result_schema(failures)
 
 
 def main() -> int:

@@ -23,7 +23,12 @@ threshold_sources:
     이미 선언된 timeout 같은 한도에서 유도한다. 한도보다 큰 임계값은 요청이 먼저
     끊기므로 의미가 없다.
   regression_guard: >-
-    고쳤던 결함이 되살아나는지만 보는 선. 정상 범위와 실패 모드 사이에서 잡는다.
+    확인된 정상 범위와 실패 모드 사이에 긋는 선. 고쳤던 결함이 되살아나는 것과,
+    설정 변화로 성능이 눈에 띄게 나빠지는 것을 잡는다. 목표가 아니라 경보선이며,
+    이 선을 통과한다고 해서 제품이 약속한 품질을 만족한다는 뜻은 아니다.
+    관찰값에 여유율을 곱해 만드는 것과는 다르다. 여유율은 임의의 배수지만 이 선은
+    "정상이면 여기까지, 고장이면 저쪽" 사이의 빈 구간에 놓는다. 그 구간이 비어
+    있지 않으면(정상과 고장이 겹치면) 이 유형을 쓸 수 없다.
     scripts/validation/runtime/live_checks.py의 risk detector 지연 예산이 이 유형이다.
 
 # 판정에 쓰는 통계의 계산 방법을 계약이 소유한다. 같은 원시 샘플로 도구마다 다른
@@ -52,12 +57,38 @@ slo_classes:
       # chunk 간격이 아니라 요청별 토큰 기준 근사값으로 판정한다. chunk 간격의
       # percentile은 전송 계층의 묶임을 재기 때문이다(metrics.yaml 참고).
       # 이 지표는 요청 하나에 값 하나이므로 요청 간 percentile이 성립한다.
+      # 토큰당 시간은 이 배포에서 부하와 무관했다. 0.15/0.25/0.35/0.50 rps 네 지점의
+      # p50이 21.0·21.1·21.3·21.2ms로 편차가 2% 미만이다. 큐 대기는 첫 chunk까지의
+      # 시간에 들어가고 이 값에는 들어가지 않기 때문이다. 그래서 이 값은 장비의
+      # 혼잡도가 아니라 모델과 런타임의 성질이고, 측정으로 선을 그을 수 있다.
+      #
+      # 30ms는 정상(21ms)보다 40% 위이고 관찰된 편차의 15배 밖이다. 목표가 아니라
+      # 경보선이다. 이 값을 바꾸는 것은 모델·양자화·투기적 디코딩 설정이지
+      # 그날의 트래픽이 아니다.
+      #
+      # target마다 모델이 다르므로 숫자도 다르다. 한 숫자를 모두에 걸면 한쪽에서는
+      # 반드시 틀린다. 측정하지 않은 target은 비워 두고 not_evaluated로 남긴다.
       client_time_per_output_token_seconds:
         percentiles: [p95]
+        source: regression_guard
+        thresholds_by_target:
+          # mlx-community/gemma-4-26B-A4B-it-qat-4bit, MTP 투기적 디코딩 on
+          macos-metal-static: 0.030
       client_request_success_ratio:
         aggregate: min
       client_goodput_requests_per_second:
         aggregate: min
+      # 이 플랫폼의 smoke와 readiness 확인이 REQUEST_TIMEOUT_SECONDS에서 요청을
+      # 포기한다(configs/model_serving.yaml의 timeouts.gateway_request_seconds=125).
+      # 즉 그보다 오래 걸린 요청은 플랫폼 스스로 실패로 취급한다. 그 선을 넘긴
+      # 임계값은 의미가 없으므로 한도 자체를 천장으로 삼는다.
+      #
+      # 목표가 아니라 천장이다. "이 정도면 빠르다"가 아니라 "여기를 넘으면 이미
+      # 실패로 세고 있다"는 뜻이다. 실측 최댓값은 포화 상태에서 96초였다.
+      client_operation_duration_seconds:
+        percentiles: [p99]
+        threshold: 125
+        source: declared_limit
 
   batch:
     workload: batch

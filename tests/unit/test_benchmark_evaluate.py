@@ -199,3 +199,51 @@ def test_an_objective_the_summary_never_produced_is_refused():
         from scripts.benchmark.evaluate import judge
 
         judge(document, contract, summary)
+
+
+def _target_document(target: str, tpot: float) -> dict:
+    # p50은 표본 10개를 요구한다. 모자라면 임계값이 아니라 표본 수 때문에
+    # not_evaluated가 나와 이 테스트가 무엇도 확인하지 못한다.
+    document = _document([_request(i) for i in range(12)])
+    document["environment"] = {"deployment_target": target}
+    for request in document["requests"]:
+        request["client_time_per_output_token_seconds"] = tpot
+    return document
+
+
+@pytest.mark.parametrize(
+    "target,tpot,expected",
+    [
+        ("macos-metal-static", 0.021, "pass"),
+        ("macos-metal-static", 0.042, "fail"),
+        # 측정하지 않은 target에 다른 target의 숫자를 적용하면 없는 근거로 판정하게 된다.
+        ("linux-nvidia-dynamic", 0.021, "not_evaluated"),
+    ],
+)
+def test_measured_thresholds_apply_only_to_the_target_they_were_measured_on(target, tpot, expected):
+    """측정으로 그은 선은 그 장비의 것이다.
+
+    토큰당 시간은 모델과 런타임 설정이 정한다. 26B MLX의 21ms를 GPU의 12B FP8에
+    걸면 한쪽에서는 반드시 틀린 판정이 나온다.
+    """
+    contract = _contract({
+        "client_time_per_output_token_seconds": {
+            "percentiles": ["p50"],
+            "source": "regression_guard",
+            "thresholds_by_target": {"macos-metal-static": 0.030},
+        }
+    })
+    verdict = evaluate(_target_document(target, tpot), contract)["verdict"]
+    assert verdict["objectives"][0]["status"] == expected
+
+
+def test_a_direct_threshold_still_wins_over_the_per_target_table():
+    """모든 target에 같은 한도가 적용되는 경우(선언된 timeout 등)는 하나로 적는다."""
+    contract = _contract({
+        "client_operation_duration_seconds": {
+            "percentiles": ["p50"], "threshold": 125, "source": "declared_limit",
+        }
+    })
+    verdict = evaluate(_target_document("linux-nvidia-dynamic", 0.021), contract)["verdict"]
+    assert verdict["objectives"][0]["threshold"] == 125
+    assert verdict["objectives"][0]["status"] == "pass"
