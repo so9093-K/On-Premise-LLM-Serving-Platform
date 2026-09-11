@@ -52,3 +52,19 @@ metric_sources:
   vllm_instances:
     scrape_job: vllm-runtimes
     metrics_path: /metrics
+    # configs/performance/metrics.yaml의 vllm-cuda projection이 의존하는 upstream
+    # 지표다. 이름이 여기 없으면 성능 계약 검증이 그 projection을 거부하고,
+    # 여기 있는데 런타임에 없으면 runtime validation이 잡는다. 선언이 없으면
+    # vLLM 업그레이드로 이름이 바뀌었을 때 benchmark가 조용히 빈 값을 받는다.
+    required_metrics:
+    - vllm:time_to_first_token_seconds
+    - vllm:inter_token_latency_seconds
+    - vllm:e2e_request_latency_seconds
+    - vllm:request_queue_time_seconds
+    - vllm:request_prefill_time_seconds
+    - vllm:request_decode_time_seconds
+    - vllm:num_requests_running
+    - vllm:num_requests_waiting
+    - vllm:kv_cache_usage_perc
+    - vllm:prompt_tokens_total
+    - vllm:generation_tokens_total

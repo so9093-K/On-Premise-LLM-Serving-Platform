@@ -61,6 +61,7 @@ run_check "shell syntax" "$PYTHON_BIN" scripts/validation/validate_shell_syntax.
 run_check "access / exposure" "$PYTHON_BIN" scripts/validation/validate_exposure_profiles.py --strict
 run_check "compose overrides" "$PYTHON_BIN" scripts/compose/render_exposure_overrides.py --check
 run_check "environment contract" "$PYTHON_BIN" scripts/validation/validate_env_contract.py --strict
+run_check "performance contract" "$PYTHON_BIN" scripts/validation/validate_performance_contract.py
 run_check "generated artifacts" validate_generated_artifacts
 
 printf '[validate] complete: %d/%d checks passed\n' "$VALIDATE_PASSED" "$VALIDATE_TOTAL"
