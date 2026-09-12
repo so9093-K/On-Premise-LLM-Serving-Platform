@@ -360,6 +360,20 @@ def _validate_workloads(failures: list[str], metrics: dict[str, Any]) -> dict[st
 
         _validate_context_requirements(failures, name, workload)
 
+        # 응답 usage가 있어야 계산되는 지표를 쓰면서 stream_options를 요청하지 않으면
+        # 그 지표가 조용히 빈다. 지금까지 metrics.yaml의 requires.response_usage를
+        # 아무도 읽지 않아, 두 선언이 서로를 모른 채 나란히 있었다.
+        used = set(workload.get("primary_metrics") or []) | set(workload.get("secondary_metrics") or [])
+        needs_usage = sorted(
+            metric_name for metric_name in used
+            if (metrics.get(metric_name, {}).get("requires") or {}).get("response_usage")
+        )
+        if needs_usage and "stream_options" not in (workload.get("required_request_parameters") or []):
+            failures.append(
+                f"workload {name!r} uses {needs_usage} which need response usage, but does not "
+                "require stream_options; 요청하지 않으면 그 지표가 조용히 빈다"
+            )
+
         # 두 축을 동시에 훑으면 2차원 sweep이 된다. 구현하지 않으므로, 선언만
         # 해두면 한쪽 축은 조용히 첫 값으로 고정된 채 돈다.
         multi = [

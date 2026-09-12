@@ -9,11 +9,14 @@
 """
 from __future__ import annotations
 
+import os
+from datetime import datetime
 from typing import Any
 
 import httpx
 
 from scripts.benchmark.contract import ROOT, PerformanceContract, load_yaml_mapping
+from scripts.lib.service_endpoint import published_base_url
 
 # aggregation_unit별로 묻는 것이 다르다. 같은 질의로 뭉뚱그리면 counter의 증가분과
 # gauge의 현재값이 같은 칸에 들어간다.
@@ -37,10 +40,6 @@ def scrape_interval_seconds() -> float:
 
 def prometheus_base(override: str = "") -> str:
     """Prometheus 주소. runtime validation과 같은 곳에서 해석한다."""
-    import os
-
-    from scripts.lib.service_endpoint import published_base_url
-
     if override.strip():
         return override.strip()
     env = os.getenv("RUNTIME_VALIDATION_PROMETHEUS_BASE_URL", "").strip()
@@ -55,7 +54,14 @@ class SnapshotUnavailable(RuntimeError):
 
 
 def _sources(metric: dict[str, Any], environment: dict[str, Any], marker: str) -> str | None:
-    """이 실행 환경에서 이 지표가 어떤 이름으로 존재하는가."""
+    """이 실행 환경에서 이 지표를 Prometheus의 어떤 이름으로 읽는가.
+
+    gateway 층은 target과 무관하게 같은 코드가 만들므로 이름이 하나다. 다만 그
+    값이 Prometheus에 있는 것과 접근 로그에만 있는 것이 섞여 있어, 어느 쪽인지는
+    계약의 source_kind가 말한다. 이름 모양으로 추측하면 한쪽을 조용히 건너뛴다.
+    """
+    if metric["layer"] == "gateway":
+        return str(metric["source"]) if metric.get("source_kind") == "prometheus" else None
     if metric["layer"] == "runtime":
         key = str(environment.get("runtime_backend", ""))
         table = metric.get("backends") or {}
@@ -144,7 +150,7 @@ def collect(
     marker = contract.unsupported_marker
     snapshot: dict[str, Any] = {}
     for name, metric in contract.metrics.items():
-        if metric["layer"] not in ("runtime", "infrastructure"):
+        if metric["layer"] not in ("gateway", "runtime", "infrastructure"):
             continue
         source = _sources(metric, environment, marker)
         if source is None:
@@ -170,8 +176,6 @@ def _query(source: str, unit: str, started: float, ended: float) -> str:
 
 
 def _window(document: dict[str, Any]) -> tuple[float, float]:
-    from datetime import datetime
-
     run = document["run"]
     started_at = str(run["started_at"]).replace("Z", "+00:00")
     start = datetime.fromisoformat(started_at).timestamp()

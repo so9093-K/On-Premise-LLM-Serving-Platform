@@ -106,3 +106,26 @@ def test_the_scrape_interval_comes_from_the_monitoring_config():
     declared = (load_yaml_mapping(ROOT / "configs/monitoring.yaml")["monitoring_stack"]
                 ["prometheus"]["scrape_interval"])
     assert scrape_interval_seconds() == float(str(declared).rstrip("s"))
+
+
+def test_gateway_metrics_are_collected_not_skipped():
+    """gateway 층은 target과 무관하게 같은 코드가 만들므로 어느 환경에서도 나온다.
+
+    수집기가 layer 필터에서 이 층을 통째로 빠뜨리고 있었고, 계약에 이름이 있고
+    Prometheus에 series도 있는데 결과에는 없었다.
+    """
+    reader = _Reader({
+        "streaming_time_to_first_chunk_seconds": [0.7, 0.8],
+        "upstream_request_duration_seconds": [6.0, 7.0],
+    })
+    snapshot = collect(load_contract(), _document(), reader)
+    assert "gateway_time_to_first_chunk_seconds" in snapshot
+    assert "gateway_upstream_duration_seconds" in snapshot
+
+
+def test_a_value_that_lives_only_in_the_access_log_is_not_queried_from_prometheus():
+    """이름 모양으로 출처를 추측하지 않는다. 계약의 source_kind가 말한다."""
+    reader = _Reader()
+    collect(load_contract(), _document(), reader)
+    asked = " ".join(query for query, _, _ in reader.queries)
+    assert "queue_wait" not in asked and "gateway_request_event" not in asked
