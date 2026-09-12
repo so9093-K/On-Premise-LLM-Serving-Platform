@@ -216,7 +216,6 @@ def test_throughput_denominator_excludes_the_tail_drain(sse_server, monkeypatch)
 @pytest.mark.parametrize(
     "patch,expected",
     [
-        ({"prompt": {"distribution": "length_sweep", "input_tokens_sweep": [8]}}, "prompt.distribution"),
         ({"prompt": {"distribution": "multi_turn_session", "input_tokens": 8}}, "prompt.distribution"),
         # 계약이 새 traffic mode를 선언해도 근사해서 돌리지 않는다.
         ({"traffic": {"mode": "poisson_arrivals", "request_rate_per_second": 1.0}}, "traffic.mode"),
@@ -284,3 +283,24 @@ def test_a_failure_inside_a_worker_thread_is_not_swallowed(sse_server, monkeypat
         runner.run_workload(_contract(_open_loop_workload(20.0)), _options(base, max_requests=2))
     assert "failed before reaching the server" in str(error.value)
     assert isinstance(error.value.__cause__, ValueError)
+
+
+def test_a_length_beyond_the_live_runtime_context_is_refused_before_sending(monkeypatch):
+    """담지 못하는 길이를 보내면 요청 단위로 거부되어 측정이 아니라 거부를 재게 된다.
+
+    계약은 profile 단위로 선언하지만, 실제로 돌고 있는 런타임의 값은 실행 시점에만
+    알 수 있다. gemma4-26b-a4b-fp8은 20,000이고 계약은 24,704를 요구한다.
+    """
+    monkeypatch.setenv("DEPLOYMENT_TARGET", "macos-metal-static")
+    from scripts.benchmark import runner
+
+    monkeypatch.setattr(
+        runner.fingerprint, "collect",
+        lambda: {"model_id": "m", "runtime_flags": {"max_kv_size": 20000}},
+    )
+    workload = _open_loop_workload(1.0)
+    workload["prompt"] = {"distribution": "length_sweep", "input_tokens_sweep": [24576]}
+    workload["output"] = {"max_tokens": 128}
+
+    with pytest.raises(RunnerError, match="context tokens"):
+        runner.run_workload(_contract(workload), _options("http://127.0.0.1:1", input_tokens=24576))

@@ -199,3 +199,32 @@ def test_a_dip_does_not_let_a_later_point_look_like_it_scaled():
     points = _concurrency_points([42.0, 30.0, 40.0])
     _mark_throughput_scaling(points, load_contract().capacity_criterion)
     assert [p["sustained"] for p in points] == [True, False, False]
+
+
+def test_a_length_sweep_is_the_axis_even_though_the_mode_is_closed_loop():
+    """long_context가 묻는 것은 부하가 아니라 "얼마나 긴 입력까지 처리하는가"다."""
+    contract = load_contract()
+    axis, points = sweep_axis(contract, "long_context")
+    assert axis == "input_tokens"
+    declared = contract.workload("long_context")["prompt"]["input_tokens_sweep"]
+    assert points == sorted(float(v) for v in declared)
+
+
+def test_a_length_point_is_not_judged_by_queue_drift_or_throughput_gain():
+    """길이는 부하가 아니다. 대기가 쌓이는지도, 처리량이 더 나오는지도 묻지 않는다."""
+    document = {
+        "workload": {"traffic": {"concurrency": 1}, "input_tokens": 24576},
+        "run": {"id": "r"},
+        "requests": _samples([12.0, 12.1, 12.2, 12.0]),
+        "summary": {
+            "client_request_success_ratio": {"value": 1.0},
+            "client_output_tokens_per_second": {"value": 9.0},
+            "client_time_to_first_chunk_seconds": {"mean": 12.1, "p50": None},
+        },
+    }
+    point = _point_summary(document, CRITERION, "input_tokens")
+    assert point["input_tokens"] == 24576
+    # percentile이 아니라 평균이다. 긴 입력은 최소 표본을 채우는 데 몇십 분이 걸린다.
+    assert point["mean_time_to_first_chunk_seconds"] == 12.1
+    assert "time_to_first_chunk_drift" not in point
+    assert point["sustained"] is True

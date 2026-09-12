@@ -29,7 +29,7 @@ from scripts.benchmark.contract import ROOT, PerformanceContract, load_yaml_mapp
 from scripts.lib.service_endpoint import published_base_url
 
 # 구현한 것만 적는다. 이 집합을 늘리는 것이 Epic 6의 작업이다.
-_SUPPORTED_DISTRIBUTIONS = {"fixed_synthetic"}
+_SUPPORTED_DISTRIBUTIONS = {"fixed_synthetic", "length_sweep"}
 _SUPPORTED_TRAFFIC_MODES = {"open_loop", "closed_loop"}
 
 # cold cache는 매 요청이 고유 prefix를 써야 한다. 이전 프롬프트가 prefix cache에
@@ -60,6 +60,8 @@ class RunOptions:
     request_rate_per_second: float | None = None
     # closed loop 한 지점의 동시성. 계약이 선언한 sweep의 한 값이다.
     concurrency: int | None = None
+    # length sweep 한 지점의 입력 길이.
+    input_tokens: int | None = None
     sweep_id: str | None = None
 
 
@@ -201,7 +203,8 @@ def run_workload(contract: PerformanceContract, options: RunOptions) -> dict[str
 
     environment = fingerprint.collect()
     model = str(environment.get("served_model_name") or environment["model_id"])
-    input_tokens = int(prompt_spec.get("input_tokens", 512))
+    input_tokens = _input_tokens(options, prompt_spec)
+    _assert_context_fits(environment, input_tokens, workload)
     duration = workload.get("duration") or {}
     measurement_seconds = options.measurement_seconds
     if measurement_seconds is None:
@@ -276,6 +279,41 @@ class _Counter:
             self._value += 1
             return value
 
+
+
+def _input_tokens(options: RunOptions, prompt_spec: dict[str, Any]) -> int:
+    """이 실행이 보낼 입력 길이.
+
+    length sweep은 지점마다 다르다. 선언된 목록이 있는데 지점을 고르지 않았으면
+    가장 짧은 것부터 본다.
+    """
+    if options.input_tokens:
+        return int(options.input_tokens)
+    declared = prompt_spec.get("input_tokens_sweep") or []
+    if declared:
+        return int(min(declared))
+    return int(prompt_spec.get("input_tokens", 512))
+
+
+def _assert_context_fits(
+    environment: dict[str, Any], input_tokens: int, workload: dict[str, Any]
+) -> None:
+    """런타임이 이 길이를 담는지 보내기 전에 확인한다.
+
+    담지 못하면 요청이 거부되는 것으로 알게 되는데, 그때는 이미 보정 probe를
+    보내고 측정을 시작한 뒤다. 계약은 profile 단위로 선언하고, 여기서는 실제로
+    돌고 있는 런타임의 값을 본다.
+    """
+    flags = environment.get("runtime_flags") or {}
+    limit = flags.get("max_kv_size") or flags.get("max_model_len")
+    if not limit:
+        return
+    needed = input_tokens + int((workload.get("output") or {}).get("max_tokens", 0))
+    if needed > int(limit):
+        raise RunnerError(
+            f"this run needs {needed} context tokens but the live runtime declares {limit}; "
+            "보내면 요청 단위로 거부되어 측정이 아니라 거부를 재게 된다"
+        )
 
 
 def _closed_loop_concurrency(options: RunOptions, traffic: dict[str, Any]) -> int:
@@ -463,6 +501,10 @@ def _result_document(
         "cache_policy": str(cache.get("policy")),
         "traffic": traffic_document,
     }
+    # length sweep은 지점마다 입력 길이가 다르다. 실제로 보낸 값을 남겨야 어느
+    # 지점의 결과인지 되짚을 수 있다.
+    if options.input_tokens:
+        workload_document["input_tokens"] = int(options.input_tokens)
     if "shared_prefix_ratio" in cache:
         workload_document["shared_prefix_ratio"] = float(cache["shared_prefix_ratio"])
 

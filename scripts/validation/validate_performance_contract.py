@@ -33,6 +33,7 @@ from scripts.benchmark.contract import (  # noqa: E402
 )
 MODEL_SERVING_PATH = ROOT / "configs" / "model_serving.yaml"
 MACOS_RUNTIME_PATH = ROOT / "configs" / "macos_mlx_runtime.yaml"
+MAIN_PROFILES_PATH = ROOT / "configs" / "main_model_profiles.yaml"
 TARGETS_PATH = ROOT / "configs" / "deployment_targets.yaml"
 RULES_PATH = ROOT / "ops" / "prometheus" / "rules" / "model_runtime.rules.yml"
 MONITORING_PATH = ROOT / "configs" / "monitoring.yaml"
@@ -357,6 +358,23 @@ def _validate_workloads(failures: list[str], metrics: dict[str, Any]) -> dict[st
                     f"profiles do not accept: {unusable}"
                 )
 
+        _validate_context_requirements(failures, name, workload)
+
+        # 두 축을 동시에 훑으면 2차원 sweep이 된다. 구현하지 않으므로, 선언만
+        # 해두면 한쪽 축은 조용히 첫 값으로 고정된 채 돈다.
+        multi = [
+            axis for axis, values in (
+                ("request_rate_sweep", (workload.get("traffic") or {}).get("request_rate_sweep")),
+                ("concurrency_sweep", (workload.get("traffic") or {}).get("concurrency_sweep")),
+                ("input_tokens_sweep", (workload.get("prompt") or {}).get("input_tokens_sweep")),
+            ) if values and len(values) > 1
+        ]
+        if len(multi) > 1:
+            failures.append(
+                f"workload {name!r} declares more than one multi-point sweep ({multi}); "
+                "2차원 sweep은 구현하지 않으며, 한 축은 조용히 첫 값으로 고정된다"
+            )
+
         for field in ("primary_metrics", "secondary_metrics"):
             for metric_name in workload.get(field) or []:
                 if metric_name not in metrics:
@@ -374,6 +392,50 @@ def _validate_workloads(failures: list[str], metrics: dict[str, Any]) -> dict[st
                     "layer is unsupported on some targets; keep it secondary"
                 )
     return workloads
+
+
+def _declared_context_limits() -> dict[str, int]:
+    """profile별로 선언된 context 상한. 실행 명령과 gateway 정책 둘 다 본다."""
+    document = load_yaml_mapping(MAIN_PROFILES_PATH)
+    limits: dict[str, int] = {}
+    for name, profile in (document.get("profiles") or {}).items():
+        limit = ((profile.get("gateway_policy") or {}).get("request_limits") or {}).get("max_model_len")
+        if limit is None:
+            command = profile.get("command") or []
+            if "--max-model-len" in command:
+                limit = command[command.index("--max-model-len") + 1]
+        if limit is not None:
+            limits[str(name)] = int(limit)
+    return limits
+
+
+def _validate_context_requirements(failures: list[str], name: str, workload: dict[str, Any]) -> None:
+    """workload가 요구하는 context를 담지 못하는 profile을 선언과 대조한다.
+
+    계약이 24,704 토큰을 요구하는데 gemma4-26b-a4b-fp8은 20,000이다. 선언하지
+    않으면 그 profile에서 몇 분을 측정한 뒤 요청이 거부되는 것으로 알게 된다.
+    지표의 unsupported와 같은 이유로, 생략이 아니라 선언으로 남긴다.
+    """
+    prompt = workload.get("prompt") or {}
+    lengths = prompt.get("input_tokens_sweep") or [prompt.get("input_tokens")]
+    lengths = [int(value) for value in lengths if value]
+    if not lengths:
+        return
+    needed = max(lengths) + int((workload.get("output") or {}).get("max_tokens", 0))
+    too_small = {
+        profile for profile, limit in _declared_context_limits().items() if limit < needed
+    }
+    declared = set(workload.get("unsupported_profiles") or {})
+    for profile in sorted(too_small - declared):
+        failures.append(
+            f"workload {name!r} needs {needed} context tokens but profile {profile!r} declares "
+            "less; unsupported_profiles에 이유와 함께 선언한다"
+        )
+    for profile in sorted(declared - too_small):
+        failures.append(
+            f"workload {name!r} declares profile {profile!r} unsupported, but its context limit "
+            f"covers {needed} tokens; 선언이 실제와 어긋난다"
+        )
 
 
 def _validate_capacity_criterion(failures: list[str], document: dict[str, Any]) -> None:

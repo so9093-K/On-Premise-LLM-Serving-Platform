@@ -100,29 +100,38 @@ def main(argv: list[str] | None = None) -> int:
 def _run_sweep(contract, options: RunOptions, directory, base: str) -> int:
     """지점마다 결과 문서를 따로 남기고, 마지막에 감당한 부하를 보고한다."""
     print(f"[perf] sweep workload={options.workload_id} target={base}")
+    paths: list[Path] = []
+    failed: list[str] = []
 
-    def report(point: dict) -> None:
-        """측정이 끝난 지점의 사실만 알린다.
+    def report(point: dict, axis: str, document: dict) -> None:
+        """지점이 끝나는 대로 저장하고 사실만 알린다.
 
         판정은 인쇄하지 않는다. 동시성 sweep의 판정은 지점 간 비교라 모든 지점을
         모은 뒤에야 정해진다. 먼저 찍으면 아직 계산되지 않은 값을 보여주게 되고,
         실제로 세 지점이 모두 "처리량 증가"로 나오면서 결론과 어긋났다.
+
+        저장도 여기서 한다. 끝까지 모아 두면 표시 한 줄이 잘못돼도 이미 측정한
+        몇 분치가 통째로 사라진다 -- 실제로 그렇게 잃었다.
         """
-        load = point.get("request_rate_per_second", point.get("concurrency"))
+        try:
+            paths.append(result.write(document, directory=directory))
+        except result.ResultValidationError as exc:
+            failed.append(str(exc))
         throughput = point["output_tokens_per_second"]
         throughput_text = f"{throughput:.1f} tok/s" if throughput is not None else "-"
-        print(f"[perf]   부하 {load:g}: 성공률 {point['success_ratio']:.0%}, {throughput_text}")
+        print(f"[perf]   {_axis_label(axis)} {point[axis]:g}: "
+              f"성공률 {point['success_ratio']:.0%}, {throughput_text}")
 
     try:
-        outcome, documents = run_sweep(contract, options, on_point=report)
+        outcome, _ = run_sweep(contract, options, on_point=report)
     except (RunnerError, KeyError) as exc:
         print(f"[perf] sweep을 중단했습니다: {exc}", file=sys.stderr)
         return 2
 
-    paths = []
+    if failed:
+        print(f"[perf] {failed[0]}", file=sys.stderr)
+        return 3
     try:
-        for document in documents:
-            paths.append(result.write(document, directory=directory))
         summary_path = result.write_sweep(outcome, directory=directory)
     except result.ResultValidationError as exc:
         print(f"[perf] {exc}", file=sys.stderr)
@@ -130,11 +139,13 @@ def _run_sweep(contract, options: RunOptions, directory, base: str) -> int:
 
     sustained = outcome["sustained_point"]
     declared = outcome["declared_point"]
-    unit = "rps" if outcome["axis"] == "request_rate_per_second" else "동시"
+    unit = _axis_unit(outcome["axis"])
     concurrency_axis = outcome["axis"] == "concurrency"
-    print(f"[perf] {'부하':>8} {'성공률':>7} {'처리량':>11} {'변화':>9}  판정")
+    signal_header = {"input_tokens": "첫 응답 평균", "concurrency": "변화"}.get(outcome["axis"], "지연 증가")
+    print(f"[perf] {_axis_label(outcome['axis']):>9} {'성공률':>7} {'처리량':>11} {signal_header:>9}  판정")
+    axis = outcome["axis"]
     for point in outcome["points"]:
-        load = point.get("request_rate_per_second", point.get("concurrency"))
+        load = point[axis]
         throughput = point["output_tokens_per_second"]
         throughput_text = f"{throughput:.1f} tok/s" if throughput is not None else "-"
         drift = point.get("time_to_first_chunk_drift")
@@ -142,14 +153,21 @@ def _run_sweep(contract, options: RunOptions, directory, base: str) -> int:
         if concurrency_axis:
             signal = "기준" if gain is None else f"{gain:+.0%}"
             verdict = "처리량 증가" if point["sustained"] else "더 안 나옴"
+        elif axis == "input_tokens":
+            ttfc = point.get("mean_time_to_first_chunk_seconds")
+            signal = f"{ttfc:.2f}s" if ttfc is not None else "-"
+            verdict = "처리함" if point["sustained"] else "실패"
         else:
             signal = f"{drift:.2f}x" if drift is not None else "-"
             verdict = "감당" if point["sustained"] else "대기 쌓임"
-        print(f"[perf] {load:8.2f} {point['success_ratio']:6.0%} {throughput_text:>11} "
+        print(f"[perf] {load:9.6g} {point['success_ratio']:6.0%} {throughput_text:>11} "
               f"{signal:>9}  {verdict}")
 
     if sustained is None:
         print("[perf] 감당한 지점이 없습니다. 가장 낮은 지점부터 대기가 쌓입니다.")
+    elif outcome["axis"] == "input_tokens":
+        print(f"[perf] 처리한 가장 긴 입력: {sustained:g} {unit} "
+              f"(계약 선언 {declared:g} {unit})")
     elif concurrency_axis:
         print(f"[perf] 처리량이 늘어나는 한계: {sustained:g} {unit} "
               f"(계약 선언 {declared:g} {unit})")
@@ -164,6 +182,18 @@ def _run_sweep(contract, options: RunOptions, directory, base: str) -> int:
                   "모델이 아니라 대기열을 재는 값입니다.")
     print(f"[perf] 지점별 결과 {len(paths)}건, 용량 요약: {summary_path.name}")
     return 0
+
+
+_AXIS_LABELS = {"request_rate_per_second": "요청률", "concurrency": "동시성", "input_tokens": "입력 길이"}
+_AXIS_UNITS = {"request_rate_per_second": "rps", "concurrency": "동시", "input_tokens": "토큰"}
+
+
+def _axis_label(axis: str) -> str:
+    return _AXIS_LABELS[axis]
+
+
+def _axis_unit(axis: str) -> str:
+    return _AXIS_UNITS[axis]
 
 
 def _print_verdict(document: dict) -> None:

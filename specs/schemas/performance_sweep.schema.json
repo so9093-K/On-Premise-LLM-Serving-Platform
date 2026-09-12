@@ -117,6 +117,18 @@
               "null"
             ],
             "description": "직전 지점 대비 처리량 증가 비율. 동시성 sweep에서만 채운다. 가장 낮은 지점은 비교 대상이 없어 null이다."
+          },
+          "input_tokens": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "mean_time_to_first_chunk_seconds": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0,
+            "description": "길이 sweep에서 prefill이 길이에 따라 어떻게 늘어나는지 보는 값. percentile이 아니라 평균이다 -- percentile은 판정용이라 최소 표본을 요구하는데, 긴 입력은 그 수를 채우는 데 몇십 분이 걸린다. 표본 수는 requests에 있다."
           }
         }
       }
@@ -124,9 +136,10 @@
     "axis": {
       "enum": [
         "request_rate_per_second",
-        "concurrency"
+        "concurrency",
+        "input_tokens"
       ],
-      "description": "무엇을 올려 가며 훑었는가. 두 축은 다른 것을 묻는다 -- 요청률은 '이 부하를 감당하는가', 동시성은 '동시에 더 돌리면 처리량이 더 나오는가'다."
+      "description": "무엇을 올려 가며 훑었는가. 세 축이 서로 다른 것을 묻는다 -- 요청률은 '이 부하를 감당하는가', 동시성은 '동시에 더 돌리면 처리량이 더 나오는가', 입력 길이는 '얼마나 긴 입력까지 처리하는가'다."
     },
     "sustained_point": {
       "type": [

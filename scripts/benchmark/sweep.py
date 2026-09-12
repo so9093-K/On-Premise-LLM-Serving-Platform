@@ -49,8 +49,14 @@ def sweep_axis(contract: PerformanceContract, workload_id: str) -> tuple[str, li
     요청률 sweep은 "이 부하를 감당하는가"를, 동시성 sweep은 "동시에 더 돌리면
     처리량이 더 나오는가"를 본다.
     """
-    traffic = contract.workload(workload_id).get("traffic") or {}
+    workload = contract.workload(workload_id)
+    traffic = workload.get("traffic") or {}
     mode = str(traffic.get("mode", ""))
+    # 길이 sweep이 선언돼 있으면 그것이 이 workload가 묻는 축이다. 부하가 아니라
+    # "입력이 길어지면 어디까지 견디는가"를 본다.
+    lengths = (workload.get("prompt") or {}).get("input_tokens_sweep") or []
+    if len(lengths) > 1:
+        return "input_tokens", sorted(float(value) for value in lengths)
     if mode == "open_loop":
         points = [float(rate) for rate in traffic.get("request_rate_sweep") or []]
         axis = "request_rate_per_second"
@@ -116,10 +122,22 @@ def _point_summary(document: dict[str, Any], criterion: dict[str, Any], axis: st
         point["sustained"] = (
             success is not None and success >= required and ratio is not None and ratio <= limit
         )
-    else:
+    elif axis == "concurrency":
         point["concurrency"] = traffic["concurrency"]
         # 처리량이 더 나오는지는 지점 간 비교라 _mark_throughput_scaling이 채운다.
         # 여기서는 요청을 버리지 않았는지만 본다.
+        point["sustained"] = success is not None and success >= float(criterion["require_success_ratio"])
+    else:
+        point["input_tokens"] = document["workload"]["input_tokens"]
+        # 길이는 부하가 아니다. 대기가 쌓이는지도, 처리량이 더 나오는지도 묻지
+        # 않는다. 이 길이를 실제로 처리했는지와 prefill이 얼마나 늘었는지만 본다.
+        #
+        # percentile이 아니라 평균이다. percentile은 판정용이라 최소 표본을
+        # 요구하는데, 길이 sweep은 지점마다 요청이 길어 그 수를 채우려면 몇십 분이
+        # 걸린다. 여기서 필요한 것은 합격 여부가 아니라 길이에 따른 곡선이고,
+        # 평균이면 충분하다. 표본 수는 requests에 함께 남는다.
+        ttfc = summary.get("client_time_to_first_chunk_seconds") or {}
+        point["mean_time_to_first_chunk_seconds"] = ttfc.get("mean")
         point["sustained"] = success is not None and success >= float(criterion["require_success_ratio"])
     return point
 
@@ -178,11 +196,11 @@ def run_sweep(
     documents: list[dict[str, Any]] = []
 
     def measure(value: float) -> dict[str, Any]:
-        knob = (
-            {"request_rate_per_second": value}
-            if axis == "request_rate_per_second"
-            else {"concurrency": int(value)}
-        )
+        knob = {
+            "request_rate_per_second": {"request_rate_per_second": value},
+            "concurrency": {"concurrency": int(value)},
+            "input_tokens": {"input_tokens": int(value)},
+        }[axis]
         document = evaluate(
             run_workload(contract, replace(options, sweep_id=sweep_id, **knob)),
             contract,
@@ -191,7 +209,9 @@ def run_sweep(
         point = _point_summary(document, criterion, axis)
         points.append(point)
         if on_point is not None:
-            on_point(point)
+            # 지점이 끝나는 대로 호출자에게 넘긴다. 끝까지 모아 두면 여기서 무엇이
+            # 잘못될 때 이미 측정한 몇 분치가 통째로 사라진다.
+            on_point(point, axis, document)
         return point
 
     for value in declared_points:

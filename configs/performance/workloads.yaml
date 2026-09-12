@@ -142,6 +142,11 @@ workloads:
       input_tokens_sweep: [8192, 16384, 24576]
     output:
       max_tokens: 128
+    # 이 workload는 24,576 + 128 = 24,704 토큰 context를 요구한다. 그보다 작은
+    # profile에서는 실행 자체가 불가능하며, 생략하지 않고 선언한다 -- 지표의
+    # unsupported와 같은 이유다. 목록이 실제와 어긋나면 계약 검증기가 거부한다.
+    unsupported_profiles:
+      gemma4-26b-a4b-fp8: max_model_len 20000 < 24704
     traffic:
       mode: closed_loop
       concurrency_sweep: [1]
