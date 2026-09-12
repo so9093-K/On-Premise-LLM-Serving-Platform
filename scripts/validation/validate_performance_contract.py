@@ -306,6 +306,7 @@ def _supported_request_parameters() -> dict[str, set[str]]:
 
 def _validate_workloads(failures: list[str], metrics: dict[str, Any]) -> dict[str, Any]:
     document = load_yaml_mapping(WORKLOADS_PATH)
+    _validate_capacity_criterion(failures, document)
     if document.get("version") != 1:
         failures.append("workloads.yaml must declare version 1")
         return {}
@@ -373,6 +374,23 @@ def _validate_workloads(failures: list[str], metrics: dict[str, Any]) -> dict[st
                     "layer is unsupported on some targets; keep it secondary"
                 )
     return workloads
+
+
+def _validate_capacity_criterion(failures: list[str], document: dict[str, Any]) -> None:
+    """sweep이 쓰는 규칙이 전부 선언됐는지 확인한다.
+
+    빠지면 sweep이 몇 분을 측정한 뒤 KeyError로 터진다. 그 시점에는 이미 스택을
+    띄우고 수십 건을 보낸 뒤다.
+    """
+    from scripts.benchmark.sweep import required_criterion_fields
+
+    criterion = document.get("capacity_criterion") or {}
+    if not criterion:
+        failures.append("workloads.yaml must declare capacity_criterion")
+        return
+    for field in required_criterion_fields():
+        if field not in criterion:
+            failures.append(f"capacity_criterion must declare {field!r}")
 
 
 def _validate_slo(failures: list[str], metrics: dict[str, Any], workloads: dict[str, Any]) -> None:
@@ -526,7 +544,7 @@ def _validate_result_schema(failures: list[str]) -> None:
         failures.append(f"cannot read {SWEEP_SCHEMA_PATH.name}: {exc}")
     else:
         Draft202012Validator.check_schema(sweep_schema)
-        for field in ("environment", "criterion", "sustained_rate_per_second"):
+        for field in ("environment", "criterion", "axis", "sustained_point"):
             if field not in sweep_schema.get("required", []):
                 failures.append(f"performance_sweep schema must require {field!r}")
     if "environment" not in schema.get("required", []):

@@ -18,6 +18,17 @@ from scripts.benchmark.evaluate import evaluate
 from scripts.benchmark.runner import RunOptions, RunnerError, run_workload
 
 _SUPPORTED_SIGNALS = {"time_to_first_chunk_drift"}
+# sweep이 실제로 읽는 규칙. 계약 검증기가 이 목록으로 선언 누락을 먼저 잡는다.
+_REQUIRED_CRITERION_FIELDS = (
+    "signal",
+    "max_second_half_ratio",
+    "require_success_ratio",
+    "min_throughput_gain_ratio",
+)
+
+
+def required_criterion_fields() -> tuple[str, ...]:
+    return _REQUIRED_CRITERION_FIELDS
 
 
 def _criterion(contract: PerformanceContract) -> dict[str, Any]:
@@ -31,15 +42,37 @@ def _criterion(contract: PerformanceContract) -> dict[str, Any]:
     return criterion
 
 
-def rate_points(contract: PerformanceContract, workload_id: str) -> list[float]:
-    traffic = (contract.workload(workload_id).get("traffic") or {})
-    points = [float(rate) for rate in traffic.get("request_rate_sweep") or []]
+def sweep_axis(contract: PerformanceContract, workload_id: str) -> tuple[str, list[float]]:
+    """무엇을 올려 가며 훑는지와 그 지점들.
+
+    open loop은 요청률을, closed loop은 동시성을 올린다. 둘은 다른 것을 묻는다.
+    요청률 sweep은 "이 부하를 감당하는가"를, 동시성 sweep은 "동시에 더 돌리면
+    처리량이 더 나오는가"를 본다.
+    """
+    traffic = contract.workload(workload_id).get("traffic") or {}
+    mode = str(traffic.get("mode", ""))
+    if mode == "open_loop":
+        points = [float(rate) for rate in traffic.get("request_rate_sweep") or []]
+        axis = "request_rate_per_second"
+    elif mode == "closed_loop":
+        points = [float(value) for value in traffic.get("concurrency_sweep") or []]
+        axis = "concurrency"
+    else:
+        raise RunnerError(f"workload {workload_id!r} declares unsupported traffic mode {mode!r}")
     if not points:
+        key = "request_rate_sweep" if mode == "open_loop" else "concurrency_sweep"
         raise RunnerError(
-            f"workload {workload_id!r} declares no request_rate_sweep; 훑을 지점이 없으면 "
-            "용량을 찾을 수 없다"
+            f"workload {workload_id!r} ({mode}) declares no {key}; 훑을 지점이 없으면 "
+            "부하를 올려 가며 볼 수 없다"
         )
-    return sorted(points)
+    return axis, sorted(points)
+
+
+def rate_points(contract: PerformanceContract, workload_id: str) -> list[float]:
+    axis, points = sweep_axis(contract, workload_id)
+    if axis != "request_rate_per_second":
+        raise RunnerError(f"workload {workload_id!r} does not sweep request rate")
+    return points
 
 
 def drift_ratio(samples: list[dict[str, Any]]) -> float | None:
@@ -62,26 +95,58 @@ def drift_ratio(samples: list[dict[str, Any]]) -> float | None:
     return second / first if first > 0 else None
 
 
-def _point_summary(document: dict[str, Any], criterion: dict[str, Any]) -> dict[str, Any]:
+def _point_summary(document: dict[str, Any], criterion: dict[str, Any], axis: str) -> dict[str, Any]:
     requests = document["requests"]
-    success = document["summary"]["client_request_success_ratio"]["value"]
-    ratio = drift_ratio(requests)
-    limit = float(criterion["max_second_half_ratio"])
-    required = float(criterion["require_success_ratio"])
-    sustained = (
-        success is not None
-        and success >= required
-        and ratio is not None
-        and ratio <= limit
-    )
-    return {
-        "request_rate_per_second": document["workload"]["traffic"]["request_rate_per_second"],
+    summary = document["summary"]
+    success = summary["client_request_success_ratio"]["value"]
+    traffic = document["workload"]["traffic"]
+    point: dict[str, Any] = {
         "requests": len(requests),
         "success_ratio": success,
-        "time_to_first_chunk_drift": ratio,
-        "sustained": sustained,
         "run_id": document["run"]["id"],
+        "output_tokens_per_second": summary["client_output_tokens_per_second"]["value"],
     }
+    if axis == "request_rate_per_second":
+        point["request_rate_per_second"] = traffic["request_rate_per_second"]
+        # open loop에서는 대기가 쌓이는지가 감당 여부다.
+        ratio = drift_ratio(requests)
+        limit = float(criterion["max_second_half_ratio"])
+        required = float(criterion["require_success_ratio"])
+        point["time_to_first_chunk_drift"] = ratio
+        point["sustained"] = (
+            success is not None and success >= required and ratio is not None and ratio <= limit
+        )
+    else:
+        point["concurrency"] = traffic["concurrency"]
+        # 처리량이 더 나오는지는 지점 간 비교라 _mark_throughput_scaling이 채운다.
+        # 여기서는 요청을 버리지 않았는지만 본다.
+        point["sustained"] = success is not None and success >= float(criterion["require_success_ratio"])
+    return point
+
+
+def _mark_throughput_scaling(points: list[dict[str, Any]], criterion: dict[str, Any]) -> None:
+    """동시성을 올려 처리량이 실제로 늘었는지 표시한다.
+
+    closed loop에서 성공률만 보면 어떤 동시성이든 늘 "감당"으로 나온다. 실측에서
+    동시성 1·2·3의 처리량이 42.4·42.1·42.6 tok/s로 편차 0.6%였는데도 세 지점이
+    모두 감당으로 보고됐다. 런타임이 순차 처리하면 동시에 받아도 더 나오지 않는다.
+    """
+    minimum = float(criterion["min_throughput_gain_ratio"])
+    previous: float | None = None
+    for point in sorted(points, key=lambda item: item["concurrency"]):
+        throughput = point.get("output_tokens_per_second")
+        if throughput is None:
+            point["throughput_gain_ratio"] = None
+            point["sustained"] = False
+        elif previous is None:
+            # 가장 낮은 지점은 비교 대상이 없다. 요청을 버리지 않았으면 유효하다.
+            point["throughput_gain_ratio"] = None
+        else:
+            gain = (throughput - previous) / previous if previous > 0 else None
+            point["throughput_gain_ratio"] = gain
+            point["sustained"] = point["sustained"] and gain is not None and gain >= minimum
+        if throughput is not None:
+            previous = max(previous or 0.0, throughput)
 
 
 def run_sweep(
@@ -108,44 +173,50 @@ def run_sweep(
     """
     criterion = _criterion(contract)
     sweep_id = options.sweep_id or f"{options.workload_id}-sweep-{uuid.uuid4().hex[:8]}"
+    axis, declared_points = sweep_axis(contract, options.workload_id)
     points: list[dict[str, Any]] = []
     documents: list[dict[str, Any]] = []
 
-    def measure(rate: float) -> dict[str, Any]:
+    def measure(value: float) -> dict[str, Any]:
+        knob = (
+            {"request_rate_per_second": value}
+            if axis == "request_rate_per_second"
+            else {"concurrency": int(value)}
+        )
         document = evaluate(
-            run_workload(
-                contract,
-                replace(options, request_rate_per_second=rate, sweep_id=sweep_id),
-            ),
+            run_workload(contract, replace(options, sweep_id=sweep_id, **knob)),
             contract,
         )
         documents.append(document)
-        point = _point_summary(document, criterion)
+        point = _point_summary(document, criterion, axis)
         points.append(point)
         if on_point is not None:
             on_point(point)
         return point
 
-    for rate in rate_points(contract, options.workload_id):
-        measure(rate)
+    for value in declared_points:
+        measure(value)
 
-    # 감당한 가장 높은 지점과 무너진 가장 낮은 지점 사이를 이분한다. 두 번이면
-    # 구간이 1/4로 줄어 눈금 사이에 숨은 경계를 찾는다.
-    for _ in range(refine_steps):
-        low = max((p["request_rate_per_second"] for p in points if p["sustained"]), default=None)
-        high = min(
-            (p["request_rate_per_second"] for p in points
-             if not p["sustained"] and (low is None or p["request_rate_per_second"] > low)),
-            default=None,
-        )
-        if low is None or high is None:
-            break
-        middle = round((low + high) / 2, 4)
-        if any(abs(p["request_rate_per_second"] - middle) < 1e-6 for p in points):
-            break
-        measure(middle)
+    # 요청률 sweep만 경계를 좁힌다. 동시성은 정수라 사이에 지점이 없고, 계약이
+    # admission 한도까지만 선언하므로 그 목록이 이미 전부다.
+    if axis == "request_rate_per_second":
+        for _ in range(refine_steps):
+            low = max((p[axis] for p in points if p["sustained"]), default=None)
+            high = min(
+                (p[axis] for p in points
+                 if not p["sustained"] and (low is None or p[axis] > low)),
+                default=None,
+            )
+            if low is None or high is None:
+                break
+            middle = round((low + high) / 2, 4)
+            if any(abs(p[axis] - middle) < 1e-6 for p in points):
+                break
+            measure(middle)
 
-    points.sort(key=lambda point: point["request_rate_per_second"])
+    points.sort(key=lambda point: point[axis])
+    if axis == "concurrency":
+        _mark_throughput_scaling(points, criterion)
     sustained = [point for point in points if point["sustained"]]
     environment = documents[0]["environment"] if documents else {}
     return {
@@ -160,13 +231,14 @@ def run_sweep(
             if key in environment
         },
         "criterion": criterion,
+        "axis": axis,
         "points": points,
         # 감당한 지점 중 가장 높은 것. 하나도 없으면 가장 낮은 지점조차 넘어선 것이다.
-        "sustained_rate_per_second": (
-            max(point["request_rate_per_second"] for point in sustained) if sustained else None
-        ),
-        "declared_rate_per_second": float(
-            (contract.workload(options.workload_id).get("traffic") or {})
-            .get("request_rate_per_second", 0)
+        "sustained_point": (max(point[axis] for point in sustained) if sustained else None),
+        "declared_point": float(
+            (contract.workload(options.workload_id).get("traffic") or {}).get(
+                "request_rate_per_second" if axis == "request_rate_per_second" else "concurrency",
+                max(declared_points),
+            )
         ),
     }, documents

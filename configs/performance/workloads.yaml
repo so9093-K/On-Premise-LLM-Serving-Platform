@@ -35,6 +35,14 @@ capacity_criterion:
   max_second_half_ratio: 1.5
   # 요청을 하나라도 버리면 그 부하는 이미 감당 범위 밖이다.
   require_success_ratio: 1.0
+  # closed loop은 client가 스스로 속도를 늦추므로 대기가 쌓이지 않는다. 성공률만
+  # 보면 어떤 동시성이든 늘 "감당"으로 나와 아무것도 구분하지 못한다. 여기서 물을
+  # 것은 "동시에 더 돌리면 처리량이 더 나오는가"다.
+  #
+  # macOS Metal 실측에서 동시성 1·2·3의 처리량이 42.4·42.1·42.6 tok/s로 편차
+  # 0.6%였다. MLX 런타임의 max_concurrency가 1이라 동시에 받아도 순차 처리된다.
+  # 선형으로 늘어나는 경우는 동시성 2에서 +100%다. 0.1은 그 사이에 놓은 값이다.
+  min_throughput_gain_ratio: 0.1
 
 workloads:
   interactive:

@@ -30,7 +30,7 @@ from scripts.lib.service_endpoint import published_base_url
 
 # 구현한 것만 적는다. 이 집합을 늘리는 것이 Epic 6의 작업이다.
 _SUPPORTED_DISTRIBUTIONS = {"fixed_synthetic"}
-_SUPPORTED_TRAFFIC_MODES = {"open_loop"}
+_SUPPORTED_TRAFFIC_MODES = {"open_loop", "closed_loop"}
 
 # cold cache는 매 요청이 고유 prefix를 써야 한다. 이전 프롬프트가 prefix cache에
 # 남으면 처리량이 과대 측정된다.
@@ -58,6 +58,8 @@ class RunOptions:
     # sweep 한 지점의 요청률. 계약이 선언한 값을 덮어쓴다. 결과 문서에는 실제로
     # 사용한 값이 기록되므로 나중에 어느 지점이었는지 되짚을 수 있다.
     request_rate_per_second: float | None = None
+    # closed loop 한 지점의 동시성. 계약이 선언한 sweep의 한 값이다.
+    concurrency: int | None = None
     sweep_id: str | None = None
 
 
@@ -185,9 +187,17 @@ def run_workload(contract: PerformanceContract, options: RunOptions) -> dict[str
     if mode not in _SUPPORTED_TRAFFIC_MODES:
         raise _unsupported(options.workload_id, "traffic.mode", mode, _SUPPORTED_TRAFFIC_MODES)
     _assert_required_parameters_are_sent(options.workload_id, workload)
-    rate = float(options.request_rate_per_second or traffic.get("request_rate_per_second", 0))
-    if rate <= 0:
-        raise RunnerError(f"workload {options.workload_id!r} declares no positive request_rate_per_second")
+
+    rate = 0.0
+    concurrency = 0
+    if mode == "open_loop":
+        rate = float(options.request_rate_per_second or traffic.get("request_rate_per_second", 0))
+        if rate <= 0:
+            raise RunnerError(
+                f"workload {options.workload_id!r} declares no positive request_rate_per_second"
+            )
+    else:
+        concurrency = _closed_loop_concurrency(options, traffic)
 
     environment = fingerprint.collect()
     model = str(environment.get("served_model_name") or environment["model_id"])
@@ -221,13 +231,20 @@ def run_workload(contract: PerformanceContract, options: RunOptions) -> dict[str
             payload = _build_payload(workload, model, _prompt(rng, input_tokens, index, scale))
             return stream_once(client, url=url, payload=payload, headers=headers, index=index)
 
+        def dispatch(seconds: float, max_requests: int | None):
+            if mode == "open_loop":
+                return _dispatch_open_loop(
+                    send, counter, rate=rate, seconds=seconds, max_requests=max_requests
+                )
+            return _dispatch_closed_loop(
+                send, counter, concurrency=concurrency, seconds=seconds, max_requests=max_requests
+            )
+
         if warmup_seconds > 0:
             # warmup 샘플은 버린다. 모델 적재와 첫 컴파일이 섞이면 측정이 오염된다.
-            _dispatch_open_loop(send, counter, rate=rate, seconds=warmup_seconds, max_requests=None)
+            dispatch(warmup_seconds, None)
         wall_start = time.perf_counter()
-        samples, dispatch_lag, dispatch_window = _dispatch_open_loop(
-            send, counter, rate=rate, seconds=measurement_seconds, max_requests=options.max_requests
-        )
+        samples, dispatch_lag, dispatch_window = dispatch(measurement_seconds, options.max_requests)
         wall_seconds = time.perf_counter() - wall_start
 
     if not samples:
@@ -258,6 +275,83 @@ class _Counter:
             value = self._value
             self._value += 1
             return value
+
+
+
+def _closed_loop_concurrency(options: RunOptions, traffic: dict[str, Any]) -> int:
+    """이 실행이 유지할 동시 요청 수.
+
+    Gateway admission 한도를 넘으면 런타임이 아니라 Gateway 큐를 재게 된다.
+    계약이 한도를 함께 선언하는 이유이며, 넘으면 근사하지 않고 거부한다.
+    """
+    declared = traffic.get("concurrency_sweep") or []
+    concurrency = int(options.concurrency or (declared[0] if declared else 0))
+    if concurrency < 1:
+        raise RunnerError(
+            f"workload {options.workload_id!r} declares no concurrency_sweep; "
+            "closed loop은 유지할 동시성이 있어야 한다"
+        )
+    limit = (traffic.get("admission_limit") or {}).get("max_concurrency")
+    if limit and concurrency > int(limit):
+        raise RunnerError(
+            f"concurrency {concurrency} exceeds the declared admission limit {limit}; "
+            "그 위에서는 런타임이 아니라 Gateway 큐를 재게 된다"
+        )
+    return concurrency
+
+
+def _dispatch_closed_loop(
+    send,
+    counter: _Counter,
+    *,
+    concurrency: int,
+    seconds: float,
+    max_requests: int | None,
+) -> tuple[list[RequestSample], float, float]:
+    """고정 동시성으로 끝나는 대로 다음을 보낸다.
+
+    open loop과 달리 목표 발사 시각이 없다. 부하는 "항상 N건이 진행 중"이라는
+    상태 자체이므로 dispatch lag이라는 개념이 성립하지 않고 0을 남긴다.
+
+    처리량의 분모는 첫 요청 시작부터 마지막 완료까지다. 그 구간 내내 N건이
+    돌고 있었으므로 완료 수를 그 시간으로 나누면 정확하다. 시간이 다 됐을 때
+    진행 중이던 요청을 버리면 빠른 요청만 남아 처리량이 과대 측정된다.
+    """
+    samples: list[RequestSample] = []
+    lock = threading.Lock()
+    failures: list[BaseException] = []
+    start = time.perf_counter()
+    deadline = start + seconds
+
+    def worker() -> None:
+        while True:
+            if max_requests is None and time.perf_counter() >= deadline:
+                return
+            # 번호를 먼저 받고 한도를 확인한다. 확인 후 받으면 두 worker가 같은
+            # 번호를 쓰거나 한도를 넘겨 보낼 수 있다.
+            index = counter.next()
+            if max_requests is not None and index >= max_requests:
+                return
+            try:
+                sample = send(index)
+            except BaseException as exc:  # noqa: BLE001 - 원인을 잃지 않는 것이 목적이다
+                with lock:
+                    failures.append(exc)
+                return
+            with lock:
+                samples.append(sample)
+
+    with ThreadPoolExecutor(max_workers=concurrency, thread_name_prefix="perf") as pool:
+        for _ in range(concurrency):
+            pool.submit(worker)
+    window = time.perf_counter() - start
+
+    if failures:
+        raise RunnerError(
+            f"{len(failures)} requests failed before reaching the server"
+        ) from failures[0]
+    samples.sort(key=lambda sample: sample.index)
+    return samples, 0.0, window
 
 
 def _dispatch_open_loop(
@@ -357,6 +451,8 @@ def _result_document(
     rate = options.request_rate_per_second or traffic.get("request_rate_per_second")
     if rate is not None:
         traffic_document["request_rate_per_second"] = float(rate)
+    if options.concurrency:
+        traffic_document["concurrency"] = int(options.concurrency)
     admission = (traffic.get("admission_limit") or {}).get("max_concurrency")
     if admission:
         traffic_document["admission_limit"] = int(admission)

@@ -100,14 +100,18 @@ def main(argv: list[str] | None = None) -> int:
 def _run_sweep(contract, options: RunOptions, directory, base: str) -> int:
     """지점마다 결과 문서를 따로 남기고, 마지막에 감당한 부하를 보고한다."""
     print(f"[perf] sweep workload={options.workload_id} target={base}")
-    print(f"[perf] {'요청률':>8} {'성공률':>7} {'지연 증가':>9}  판정")
 
     def report(point: dict) -> None:
-        drift = point["time_to_first_chunk_drift"]
-        drift_text = f"{drift:.2f}x" if drift is not None else "표본부족"
-        success = point["success_ratio"]
-        print(f"[perf] {point['request_rate_per_second']:8.2f} {success:6.0%} {drift_text:>9}  "
-              f"{'감당' if point['sustained'] else '대기 쌓임'}")
+        """측정이 끝난 지점의 사실만 알린다.
+
+        판정은 인쇄하지 않는다. 동시성 sweep의 판정은 지점 간 비교라 모든 지점을
+        모은 뒤에야 정해진다. 먼저 찍으면 아직 계산되지 않은 값을 보여주게 되고,
+        실제로 세 지점이 모두 "처리량 증가"로 나오면서 결론과 어긋났다.
+        """
+        load = point.get("request_rate_per_second", point.get("concurrency"))
+        throughput = point["output_tokens_per_second"]
+        throughput_text = f"{throughput:.1f} tok/s" if throughput is not None else "-"
+        print(f"[perf]   부하 {load:g}: 성공률 {point['success_ratio']:.0%}, {throughput_text}")
 
     try:
         outcome, documents = run_sweep(contract, options, on_point=report)
@@ -124,15 +128,39 @@ def _run_sweep(contract, options: RunOptions, directory, base: str) -> int:
         print(f"[perf] {exc}", file=sys.stderr)
         return 3
 
-    sustained = outcome["sustained_rate_per_second"]
-    declared = outcome["declared_rate_per_second"]
+    sustained = outcome["sustained_point"]
+    declared = outcome["declared_point"]
+    unit = "rps" if outcome["axis"] == "request_rate_per_second" else "동시"
+    concurrency_axis = outcome["axis"] == "concurrency"
+    print(f"[perf] {'부하':>8} {'성공률':>7} {'처리량':>11} {'변화':>9}  판정")
+    for point in outcome["points"]:
+        load = point.get("request_rate_per_second", point.get("concurrency"))
+        throughput = point["output_tokens_per_second"]
+        throughput_text = f"{throughput:.1f} tok/s" if throughput is not None else "-"
+        drift = point.get("time_to_first_chunk_drift")
+        gain = point.get("throughput_gain_ratio")
+        if concurrency_axis:
+            signal = "기준" if gain is None else f"{gain:+.0%}"
+            verdict = "처리량 증가" if point["sustained"] else "더 안 나옴"
+        else:
+            signal = f"{drift:.2f}x" if drift is not None else "-"
+            verdict = "감당" if point["sustained"] else "대기 쌓임"
+        print(f"[perf] {load:8.2f} {point['success_ratio']:6.0%} {throughput_text:>11} "
+              f"{signal:>9}  {verdict}")
+
     if sustained is None:
         print("[perf] 감당한 지점이 없습니다. 가장 낮은 지점부터 대기가 쌓입니다.")
+    elif concurrency_axis:
+        print(f"[perf] 처리량이 늘어나는 한계: {sustained:g} {unit} "
+              f"(계약 선언 {declared:g} {unit})")
+        if sustained < declared:
+            print("[perf] 그 위로는 동시에 더 돌려도 처리량이 늘지 않습니다. "
+                  "런타임이 순차 처리하는지 확인하세요.")
     else:
-        print(f"[perf] 감당하는 부하: {sustained:g} rps (계약 선언 {declared:g} rps)")
+        print(f"[perf] 감당하는 부하: {sustained:g} {unit} (계약 선언 {declared:g} {unit})")
         if sustained < declared:
             # 선언한 부하가 용량 밖이면 그 부하에서 잰 지연은 큐 길이다.
-            print(f"[perf] 선언한 부하가 용량 밖입니다. {declared:g} rps에서 잰 지연은 "
+            print(f"[perf] 선언한 부하가 용량 밖입니다. {declared:g} {unit}에서 잰 지연은 "
                   "모델이 아니라 대기열을 재는 값입니다.")
     print(f"[perf] 지점별 결과 {len(paths)}건, 용량 요약: {summary_path.name}")
     return 0

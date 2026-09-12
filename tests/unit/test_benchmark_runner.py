@@ -217,7 +217,9 @@ def test_throughput_denominator_excludes_the_tail_drain(sse_server, monkeypatch)
     "patch,expected",
     [
         ({"prompt": {"distribution": "length_sweep", "input_tokens_sweep": [8]}}, "prompt.distribution"),
-        ({"traffic": {"mode": "closed_loop", "concurrency_sweep": [1]}}, "traffic.mode"),
+        ({"prompt": {"distribution": "multi_turn_session", "input_tokens": 8}}, "prompt.distribution"),
+        # 계약이 새 traffic mode를 선언해도 근사해서 돌리지 않는다.
+        ({"traffic": {"mode": "poisson_arrivals", "request_rate_per_second": 1.0}}, "traffic.mode"),
     ],
 )
 def test_unimplemented_workload_shapes_are_refused_not_approximated(patch, expected, monkeypatch):

@@ -2,23 +2,51 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://ai-model-serving.local/schemas/performance_sweep.schema.json",
   "title": "Performance capacity sweep result",
-  "description": "요청률 sweep이 찾은 용량이다. SLO의 measured 기준선이 '어느 부하에서 잰 값'인지 가리키는 근거이며, 그 부하를 고른 이유가 여기 남는다. 지점별 원시 샘플은 performance_run 문서가 따로 갖는다.",
+  "description": "부하를 올려 가며 본 결과다. open loop은 요청률을, closed loop은 동시성을 올린다. SLO의 measured 기준선이 '어느 부하에서 잰 값'인지 가리키는 근거이며, 그 부하를 고른 이유가 여기 남는다. 지점별 원시 샘플은 performance_run 문서가 따로 갖는다.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "sweep_id", "workload_id", "environment", "criterion", "points", "sustained_rate_per_second", "declared_rate_per_second"],
+  "required": [
+    "schema_version",
+    "sweep_id",
+    "workload_id",
+    "environment",
+    "criterion",
+    "axis",
+    "points",
+    "sustained_point",
+    "declared_point"
+  ],
   "properties": {
-    "schema_version": {"const": 1},
-    "sweep_id": {"type": "string", "minLength": 1},
-    "workload_id": {"type": "string", "minLength": 1},
+    "schema_version": {
+      "const": 1
+    },
+    "sweep_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "workload_id": {
+      "type": "string",
+      "minLength": 1
+    },
     "environment": {
       "type": "object",
       "description": "용량은 구성마다 다르다. 어떤 모델을 어떤 가속기에서 돌린 결과인지 없으면 이 숫자를 다른 장비에 잘못 적용하게 된다.",
       "additionalProperties": true,
-      "required": ["runtime_backend", "model_id", "deployment_target"],
+      "required": [
+        "runtime_backend",
+        "model_id",
+        "deployment_target"
+      ],
       "properties": {
-        "runtime_backend": {"type": "string"},
-        "model_id": {"type": "string"},
-        "deployment_target": {"type": "string"}
+        "runtime_backend": {
+          "type": "string"
+        },
+        "model_id": {
+          "type": "string"
+        },
+        "deployment_target": {
+          "type": "string"
+        }
       }
     },
     "criterion": {
@@ -32,27 +60,83 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["request_rate_per_second", "requests", "success_ratio", "sustained", "run_id"],
+        "required": [
+          "requests",
+          "success_ratio",
+          "sustained",
+          "run_id"
+        ],
         "properties": {
-          "request_rate_per_second": {"type": "number", "minimum": 0},
-          "requests": {"type": "integer", "minimum": 0},
-          "success_ratio": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
+          "request_rate_per_second": {
+            "type": [
+              "number"
+            ],
+            "minimum": 0
+          },
+          "requests": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "success_ratio": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 1
+          },
           "time_to_first_chunk_drift": {
-            "type": ["number", "null"],
+            "type": [
+              "number",
+              "null"
+            ],
             "minimum": 0,
             "description": "측정 구간 뒤쪽 절반의 첫 응답 중앙값이 앞쪽의 몇 배인가. 성공률만으로는 포화를 알 수 없다 -- 실측에서 0.1부터 1.0 rps까지 전부 100% 성공했다."
           },
-          "sustained": {"type": "boolean"},
-          "run_id": {"type": "string", "minLength": 1}
+          "sustained": {
+            "type": "boolean"
+          },
+          "run_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "concurrency": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "output_tokens_per_second": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "throughput_gain_ratio": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "직전 지점 대비 처리량 증가 비율. 동시성 sweep에서만 채운다. 가장 낮은 지점은 비교 대상이 없어 null이다."
+          }
         }
       }
     },
-    "sustained_rate_per_second": {
-      "type": ["number", "null"],
-      "minimum": 0,
-      "description": "대기가 쌓이지 않은 가장 높은 요청률. null이면 가장 낮은 지점조차 넘어선 것이다."
+    "axis": {
+      "enum": [
+        "request_rate_per_second",
+        "concurrency"
+      ],
+      "description": "무엇을 올려 가며 훑었는가. 두 축은 다른 것을 묻는다 -- 요청률은 '이 부하를 감당하는가', 동시성은 '동시에 더 돌리면 처리량이 더 나오는가'다."
     },
-    "declared_rate_per_second": {
+    "sustained_point": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0,
+      "description": "요청률 축에서는 대기가 쌓이지 않은 가장 높은 요청률이고, 동시성 축에서는 처리량이 실제로 더 나온 가장 높은 동시성이다. 두 축이 묻는 것이 다르다. null이면 가장 낮은 지점조차 그 조건을 만족하지 못한 것이다."
+    },
+    "declared_point": {
       "type": "number",
       "minimum": 0,
       "description": "workload가 재려고 선언한 부하. sustained보다 크면 그 부하에서 잰 지연은 대기열 길이다."
