@@ -697,6 +697,48 @@ def _validate_result_schema(failures: list[str]) -> None:
             failures.append(f"performance_run schema environment must require {field!r}")
 
 
+def _validate_regression_policy(failures: list[str], metrics: dict[str, Any]) -> None:
+    """회귀 비교 정책이 계약의 이름과 역할을 벗어나지 않는지 본다.
+
+    diagnosis 지표가 변했다는 사실만으로는 회귀라고 말할 수 없다. 그것은 결과를
+    설명하는 값이지 판정 대상이 아니다.
+    """
+    from scripts.benchmark.baseline import BASELINE_SCHEMA_PATH, REGRESSION_PATH
+
+    document = load_yaml_mapping(REGRESSION_PATH)
+    if document.get("version") != 1:
+        failures.append("regression.yaml must declare version 1")
+        return
+    tolerance = (document.get("tolerance") or {}).get("default_ratio")
+    if not isinstance(tolerance, (int, float)) or not 0 < float(tolerance) < 1:
+        failures.append("regression.yaml must declare a tolerance.default_ratio between 0 and 1")
+    statistics = load_yaml_mapping(SLO_PATH).get("statistics") or {}
+    known = set(statistics.get("minimum_samples") or {}) | {"value", "mean", "min", "max"}
+    for name, wanted in (document.get("compared") or {}).items():
+        metric = metrics.get(name)
+        if metric is None:
+            failures.append(f"regression.yaml compares unknown metric {name!r}")
+            continue
+        if metric.get("role") != "judgment":
+            failures.append(
+                f"regression.yaml compares {name!r} which declares role {metric.get('role')!r}; "
+                "diagnosis가 변했다는 사실만으로는 회귀라고 말할 수 없다"
+            )
+        for statistic in wanted or []:
+            if statistic not in known:
+                failures.append(f"regression.yaml compares {name!r} by unknown statistic {statistic!r}")
+    import json as _json
+
+    from jsonschema import Draft202012Validator
+
+    try:
+        Draft202012Validator.check_schema(
+            _json.loads(BASELINE_SCHEMA_PATH.read_text(encoding="utf-8"))
+        )
+    except (OSError, ValueError) as exc:
+        failures.append(f"cannot read {BASELINE_SCHEMA_PATH.name}: {exc}")
+
+
 def validate(failures: list[str]) -> None:
     """계약 세 파일을 한 번에 검사한다.
 
@@ -707,6 +749,7 @@ def validate(failures: list[str]) -> None:
     workloads = _validate_workloads(failures, metrics)
     _validate_slo(failures, metrics, workloads)
     _validate_result_schema(failures)
+    _validate_regression_policy(failures, metrics)
 
 
 def main() -> int:

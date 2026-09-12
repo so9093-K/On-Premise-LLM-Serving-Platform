@@ -1,0 +1,80 @@
+{
+  "schema_version": 1,
+  "contract_version": 1,
+  "configuration": {
+    "runtime_backend": "mlx-vlm",
+    "deployment_target": "macos-metal-static",
+    "runtime_profile": "gemma4-26b-a4b-qat-4bit-mlx",
+    "model_id": "mlx-community/gemma-4-26B-A4B-it-qat-4bit",
+    "model_revision": "0e3cbab38ce568cf6e23543010d08d03b731910c",
+    "gpu_model": "Apple M5",
+    "gpu_memory_kind": "unified",
+    "workload_id": "interactive",
+    "input_tokens": 512,
+    "request_rate_per_second": 0.1
+  },
+  "provenance": {
+    "run_ids": [
+      "interactive-20260912T055553Z-70d45e6d",
+      "interactive-20260912T055920Z-8ac736c3",
+      "interactive-20260912T060247Z-d2c7fcec"
+    ],
+    "git_commit": "7df8350841cf1c2a8447323eeae2e3a0a81fe183",
+    "platform_image": "ai-model-serving-platform:0.0.1",
+    "promoted_at": "2026-09-12T06:07:09.906215Z",
+    "promoted_by": "so9093",
+    "note": "계약이 선언한 0.1 rps 지점에서 21건씩 세 번. 용량 경계(0.15~0.17) 아래."
+  },
+  "statistics": {
+    "client_time_to_first_chunk_seconds": {
+      "p50": {
+        "value": 0.8810522909916472,
+        "samples": 21,
+        "observed_spread_ratio": 0.01652190924530433
+      },
+      "p95": {
+        "value": 0.9161249590106308,
+        "samples": 21,
+        "observed_spread_ratio": 0.021240415742944534
+      }
+    },
+    "client_time_per_output_token_seconds": {
+      "p50": {
+        "value": 0.020538124184274826,
+        "samples": 21,
+        "observed_spread_ratio": 0.015800243008102295
+      },
+      "p95": {
+        "value": 0.021595151309841586,
+        "samples": 21,
+        "observed_spread_ratio": 0.007766903254757683
+      }
+    },
+    "client_operation_duration_seconds": {
+      "p50": {
+        "value": 6.090618749993155,
+        "samples": 21,
+        "observed_spread_ratio": 0.004255095922897484
+      },
+      "p95": {
+        "value": 6.383934874989791,
+        "samples": 21,
+        "observed_spread_ratio": 0.008167754997906415
+      }
+    },
+    "client_output_tokens_per_second": {
+      "value": {
+        "value": 25.599634290938702,
+        "samples": 21,
+        "observed_spread_ratio": 9.523673471570207e-06
+      }
+    },
+    "client_total_tokens_per_second": {
+      "value": {
+        "value": 76.98461450550707,
+        "samples": 21,
+        "observed_spread_ratio": 0.0002997485948497706
+      }
+    }
+  }
+}

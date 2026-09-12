@@ -1,0 +1,58 @@
+# 승격된 baseline과 새 실행을 비교하는 정책을 단독으로 소유한다(ADR-0026 1·9절).
+#
+# 이 파일은 SLO가 아니다. SLO는 "제공하려는 품질"이고 여기는 "지난번보다 나빠졌나"다.
+# 두 질문은 독립이며, SLO 임계값이 비어 있어도 회귀 판정은 동작한다 -- 비교 대상이
+# 약속이 아니라 이전 관찰이기 때문이다.
+#
+# baseline 값 자체는 여기 적지 않는다. 그것은 benchmarks/baselines/의 승격된
+# artifact가 소유한다. 여기 있는 것은 "무엇을 비교하고 얼마나 벌어지면 회귀인가"다.
+version: 1
+
+# 승격 조건. 아무 실행이나 baseline이 될 수 없다.
+promotion:
+  # 요청을 버린 실행의 지연 분포는 살아남은 요청의 것이다. 실측에서 1 rps는
+  # 성공률 25%였고 살아남은 요청의 첫 응답은 89.7초, 즉 거의 전부 큐 대기였다.
+  # 그걸 baseline으로 삼으면 이후의 정상 실행이 "크게 개선됨"으로 보인다.
+  require_success_ratio: 1.0
+  # 도구가 목표 발사 시각을 못 지킨 실행은 서버가 아니라 도구를 잰 것이다.
+  max_dispatch_lag_seconds: 0.5
+  # percentile은 slo.yaml의 minimum_samples를 채운 것만 승격한다. 채우지 못한
+  # 통계는 baseline에 넣지 않는다 -- 표본이 적으면 사실상 최댓값이고, 다음 실행이
+  # 표본을 더 모으면 그것만으로 "회귀"가 된다.
+  require_minimum_samples: true
+  # percentile이 아닌 통계(창 단위 집계값)에는 slo.yaml이 최소 표본을 선언하지
+  # 않는다. 그래도 몇 건으로 만든 baseline은 근거가 약하고, 이후 실행이 그 잡음
+  # 대비 10%를 넘기면 없는 회귀가 잡힌다. 새 숫자를 만들지 않고 선언된 것 중
+  # 가장 약한 기준(p50)을 바닥으로 쓴다.
+  aggregate_minimum_samples_from: p50
+  # 부하가 값을 바꾸는 지표는 어느 부하에서 쟀는지가 baseline의 일부다. 그 부하가
+  # 용량 밖이면 큐 길이를 baseline으로 굳히게 된다.
+  require_load_inside_capacity: true
+  # 계약이 선언한 sweep 지점에서만 승격한다. sweep의 이분 탐색이 찾은 지점은 실행마다
+  # 달라질 수 있어, 그 값으로 굳히면 이 baseline과 만날 실행이 다시 나오지 않는다.
+  # 실제로 0.15 rps에서 승격했는데 선언된 지점은 0.1·0.2·0.5·1.0이었다.
+  require_declared_sweep_point: true
+
+# 얼마나 벌어지면 회귀인가. 실행 간 편차보다 확실히 밖이어야 하고, 실제 고장이
+# 만드는 폭보다는 안쪽이어야 한다.
+#
+# 이 구성에서 관찰한 실행 간 편차:
+#   첫 응답 p95      0.689 / 0.681 초        -> 1.2%
+#   토큰당 p50       21.0 / 21.1 / 21.3 / 21.2 ms -> 1.4%
+#   처리량           42.4 / 42.1 / 42.6 tok/s     -> 1.2%
+# 알려진 고장이 만드는 폭: 투기적 디코딩이 꺼지면 토큰당 시간이 약 2배,
+# 용량을 넘기면 첫 응답이 100배 이상.
+#
+# 0.10은 관찰 편차의 약 7배이고 고장 폭의 아래쪽이다.
+tolerance:
+  default_ratio: 0.10
+
+# 어느 지표를 비교할지. 이름은 configs/performance/metrics.yaml의 것만 쓴다.
+# judgment 역할만 비교한다 -- diagnosis는 결과를 설명하는 값이고, 그것이 변했다는
+# 사실만으로 회귀라고 말할 수 없다.
+compared:
+  client_time_to_first_chunk_seconds: [p50, p95]
+  client_time_per_output_token_seconds: [p50, p95]
+  client_operation_duration_seconds: [p50, p95]
+  client_output_tokens_per_second: [value]
+  client_total_tokens_per_second: [value]

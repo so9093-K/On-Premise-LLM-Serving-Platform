@@ -583,6 +583,75 @@
         "type": "string",
         "minLength": 1
       }
+    },
+    "regression": {
+      "type": "object",
+      "description": "승격된 baseline과의 비교. SLO 판정과 다른 질문이다 -- SLO는 '약속한 품질을 만족하나', 이것은 '지난번보다 나빠졌나'다. 구성이 일치하는 baseline이 없으면 비교하지 않는다.",
+      "additionalProperties": false,
+      "required": [
+        "status"
+      ],
+      "properties": {
+        "baseline_run_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "status": {
+          "enum": [
+            "ok",
+            "regressed",
+            "not_evaluated"
+          ]
+        },
+        "comparisons": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "metric",
+              "statistic",
+              "status"
+            ],
+            "properties": {
+              "metric": {
+                "type": "string"
+              },
+              "statistic": {
+                "type": "string"
+              },
+              "baseline": {
+                "type": "number"
+              },
+              "observed": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "change_ratio": {
+                "type": "number"
+              },
+              "tolerance_ratio": {
+                "type": "number",
+                "minimum": 0
+              },
+              "status": {
+                "enum": [
+                  "ok",
+                  "regressed",
+                  "not_evaluated"
+                ]
+              },
+              "reason": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
     }
   }
 }

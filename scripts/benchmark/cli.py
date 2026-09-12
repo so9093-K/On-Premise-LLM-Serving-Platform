@@ -17,6 +17,7 @@ for entry in (str(ROOT), str(ROOT / "src")):
 from scripts.benchmark import evaluate as evaluator  # noqa: E402
 from scripts.benchmark import result  # noqa: E402
 from scripts.lib.process_env import load_dotenv  # noqa: E402
+from scripts.benchmark.baseline import baseline_for, compare, load_baselines  # noqa: E402
 from scripts.benchmark.contract import load_contract  # noqa: E402
 from scripts.benchmark.runner import RunOptions, RunnerError, gateway_endpoint, run_workload  # noqa: E402
 from scripts.benchmark.snapshot import PrometheusReader, SnapshotUnavailable, collect  # noqa: E402
@@ -91,6 +92,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"[perf] 집계를 중단했습니다: {exc}", file=sys.stderr)
         return 4
 
+    document = _with_regression(document, contract)
     try:
         path = result.write(document, directory=directory)
     except result.ResultValidationError as exc:
@@ -106,9 +108,22 @@ def main(argv: list[str] | None = None) -> int:
         codes = sorted({str(sample.get("error_code") or sample.get("status_code")) for sample in failed})
         print(f"[perf] 실패 사유: {', '.join(codes)}")
     _print_verdict(document)
+    _print_regression(document)
     print(f"[perf] 결과: {path}")
     # 실패한 요청이 있어도 결과는 남긴다. 판정은 evaluator의 일이다.
     return 0
+
+
+def _with_regression(document: dict, contract) -> dict:
+    """구성이 일치하는 baseline이 있으면 견준다.
+
+    SLO 판정과 독립이다. SLO 임계값이 비어 있어도 이 비교는 동작한다 -- 대상이
+    약속이 아니라 이전 관찰이기 때문이다.
+    """
+    baseline = baseline_for(document, load_baselines())
+    if baseline is None:
+        return document
+    return {**document, "regression": compare(document, baseline, contract)}
 
 
 def _with_admission_wait(document: dict) -> dict:
@@ -240,6 +255,20 @@ def _axis_label(axis: str) -> str:
 
 def _axis_unit(axis: str) -> str:
     return _AXIS_UNITS[axis]
+
+
+def _print_regression(document: dict) -> None:
+    regression = document.get("regression")
+    if not regression:
+        print("[perf] 회귀 비교: 이 구성의 baseline이 없습니다")
+        return
+    print(f"[perf] 회귀 비교 ({regression['status']}):")
+    for entry in regression["comparisons"]:
+        if entry["status"] == "not_evaluated":
+            continue
+        mark = "회귀" if entry["status"] == "regressed" else "ok"
+        print(f"[perf]   {entry['metric']} {entry['statistic']}: "
+              f"{entry['change_ratio']*100:+.1f}% (허용 {entry['tolerance_ratio']*100:.0f}%) {mark}")
 
 
 def _print_verdict(document: dict) -> None:
