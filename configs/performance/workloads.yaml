@@ -43,6 +43,10 @@ capacity_criterion:
   # 0.6%였다. MLX 런타임의 max_concurrency가 1이라 동시에 받아도 순차 처리된다.
   # 선형으로 늘어나는 경우는 동시성 2에서 +100%다. 0.1은 그 사이에 놓은 값이다.
   min_throughput_gain_ratio: 0.1
+  # 앞뒤 절반을 나눠 비교하므로 각 절반에 최소 두 건이 있어야 중앙값이 의미를 갖는다.
+  # 두 건뿐이면 절반마다 한 건이라 중앙값이 그냥 그 값이고, 한 번 튄 요청이 곧
+  # 포화 판정이 된다.
+  drift_minimum_samples: 4
 
 workloads:
   interactive:

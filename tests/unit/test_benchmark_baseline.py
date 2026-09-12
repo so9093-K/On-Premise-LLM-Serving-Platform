@@ -140,6 +140,53 @@ def test_throughput_regression_is_judged_in_the_other_direction():
 def test_the_configuration_key_is_what_determines_the_value_not_the_target_name():
     """같은 target에서 모델만 바꿔도 값이 달라진다."""
     configuration = configuration_of(_document())
-    for key in ("runtime_backend", "runtime_profile", "model_id", "model_revision", "gpu_model"):
+    # 값을 정하는 것은 모델과 실행 설정과 부하다. 가속기는 원격 측정에서 관측되지
+    # 않으므로 키가 아니며, 하드웨어 종류는 deployment_target이 정한다.
+    for key in ("runtime_backend", "deployment_target", "runtime_profile",
+                "model_id", "model_revision"):
         assert key in configuration
     assert configuration["request_rate_per_second"] == 0.1
+
+
+def _remote_and_local(**environment) -> tuple[dict, dict]:
+    """같은 배포를 GPU 장비에서 직접 재는 경우와 원격에서 재는 경우."""
+    document = _document()
+    document["environment"].update(environment)
+    local = {**document, "environment": {
+        **document["environment"],
+        "gpu": {"model": "RTX 6000 Ada", "count": 1, "memory_kind": "dedicated"},
+    }}
+    remote = {**document, "environment": {
+        **{k: v for k, v in document["environment"].items() if k != "gpu"},
+        "accelerator_unavailable_reason": "client runs on macos but the target declares linux",
+    }}
+    return local, remote
+
+
+def test_where_the_client_runs_does_not_change_the_configuration_key():
+    """가속기는 런타임이 있는 곳의 것이고 client는 원격일 수 있다.
+
+    그 차이를 구성 키에 넣으면 같은 배포를 재도 측정 위치에 따라 다른 구성이 되어
+    baseline과 만나지 못한다. 하드웨어 종류는 deployment_target이 이미 정한다.
+    """
+    local, remote = _remote_and_local(runtime_backend="vllm-cuda",
+                                      deployment_target="linux-nvidia-dynamic")
+    assert configuration_of(local) == configuration_of(remote)
+    assert not any("gpu" in key for key in configuration_of(local))
+
+
+def test_different_targets_are_still_distinguished():
+    """가속기를 키에서 빼도 target이 하드웨어 종류를 구분한다."""
+    linux, _ = _remote_and_local(runtime_backend="vllm-cuda",
+                                 deployment_target="linux-nvidia-dynamic")
+    mac, _ = _remote_and_local(runtime_backend="mlx-vlm",
+                               deployment_target="macos-metal-static")
+    assert configuration_of(linux) != configuration_of(mac)
+
+
+def test_a_baseline_promoted_on_the_gpu_box_matches_a_run_driven_remotely():
+    """승격한 곳과 재는 곳이 달라도 같은 배포면 견줄 수 있어야 한다."""
+    local, remote = _remote_and_local(runtime_backend="vllm-cuda",
+                                      deployment_target="linux-nvidia-dynamic")
+    baseline = promote([local], load_contract(), promoted_by="tester")
+    assert baseline_for(remote, [baseline]) is baseline

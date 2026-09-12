@@ -359,6 +359,17 @@ def _validate_workloads(failures: list[str], metrics: dict[str, Any]) -> dict[st
                     f"profiles do not accept: {unusable}"
                 )
 
+        # 코드가 기본값을 들고 있으면 계약에서 값을 지워도 조용히 돈다. 512 토큰을
+        # 선언했다 지우면 아무도 모르게 512로 돌아가고, 결과는 계약이 말하는 것과
+        # 다른 조건에서 나온다. 실행에 필요한 값은 계약이 반드시 갖는다.
+        for section, key in (("prompt", "input_tokens"), ("output", "max_tokens"),
+                             ("duration", "measurement_seconds"), ("duration", "warmup_seconds")):
+            block = workload.get(section) or {}
+            if key == "input_tokens" and block.get("input_tokens_sweep"):
+                continue  # 길이 sweep은 목록이 그 자리를 대신한다
+            if key not in block:
+                failures.append(f"workload {name!r} must declare {section}.{key}")
+
         _validate_context_requirements(failures, name, workload)
         _validate_cache_requirements(failures, name, workload)
 
@@ -709,6 +720,12 @@ def _validate_regression_policy(failures: list[str], metrics: dict[str, Any]) ->
     if document.get("version") != 1:
         failures.append("regression.yaml must declare version 1")
         return
+    from scripts.benchmark.baseline import REQUIRED_PROMOTION_RULES
+
+    promotion = document.get("promotion") or {}
+    for key in REQUIRED_PROMOTION_RULES:
+        if key not in promotion:
+            failures.append(f"regression.yaml promotion must declare {key!r}")
     tolerance = (document.get("tolerance") or {}).get("default_ratio")
     if not isinstance(tolerance, (int, float)) or not 0 < float(tolerance) < 1:
         failures.append("regression.yaml must declare a tolerance.default_ratio between 0 and 1")

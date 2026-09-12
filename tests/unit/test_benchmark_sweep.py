@@ -59,7 +59,8 @@ def _document(rate: float, values: list[float], success: float) -> dict:
     }
 
 
-CRITERION = {"max_second_half_ratio": 1.5, "require_success_ratio": 1.0}
+CRITERION = {"max_second_half_ratio": 1.5, "require_success_ratio": 1.0,
+             "min_throughput_gain_ratio": 0.1, "drift_minimum_samples": 4}
 
 
 @pytest.mark.parametrize(

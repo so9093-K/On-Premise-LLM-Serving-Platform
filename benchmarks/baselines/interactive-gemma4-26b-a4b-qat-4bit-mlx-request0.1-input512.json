@@ -7,73 +7,71 @@
     "runtime_profile": "gemma4-26b-a4b-qat-4bit-mlx",
     "model_id": "mlx-community/gemma-4-26B-A4B-it-qat-4bit",
     "model_revision": "0e3cbab38ce568cf6e23543010d08d03b731910c",
-    "gpu_model": "Apple M5",
-    "gpu_memory_kind": "unified",
     "workload_id": "interactive",
     "input_tokens": 512,
     "request_rate_per_second": 0.1
   },
   "provenance": {
     "run_ids": [
-      "interactive-20260912T055553Z-70d45e6d",
-      "interactive-20260912T055920Z-8ac736c3",
-      "interactive-20260912T060247Z-d2c7fcec"
+      "interactive-20260912T065816Z-d16165a5",
+      "interactive-20260912T070143Z-43d69745",
+      "interactive-20260912T070511Z-17cfb6bc"
     ],
-    "git_commit": "7df8350841cf1c2a8447323eeae2e3a0a81fe183",
+    "git_commit": "3932258500ae7dd0639b2b7e2754d2052f381aa0",
     "platform_image": "ai-model-serving-platform:0.0.1",
-    "promoted_at": "2026-09-12T06:07:09.906215Z",
+    "promoted_at": "2026-09-12T07:08:47.321815Z",
     "promoted_by": "so9093",
     "note": "계약이 선언한 0.1 rps 지점에서 21건씩 세 번. 용량 경계(0.15~0.17) 아래."
   },
   "statistics": {
     "client_time_to_first_chunk_seconds": {
       "p50": {
-        "value": 0.8810522909916472,
+        "value": 0.8755664589989465,
         "samples": 21,
-        "observed_spread_ratio": 0.01652190924530433
+        "observed_spread_ratio": 0.022498720418245723
       },
       "p95": {
-        "value": 0.9161249590106308,
+        "value": 0.8945086250023451,
         "samples": 21,
-        "observed_spread_ratio": 0.021240415742944534
+        "observed_spread_ratio": 0.03875162966811748
       }
     },
     "client_time_per_output_token_seconds": {
       "p50": {
-        "value": 0.020538124184274826,
+        "value": 0.02077270506278557,
         "samples": 21,
-        "observed_spread_ratio": 0.015800243008102295
+        "observed_spread_ratio": 0.012351883237204486
       },
       "p95": {
-        "value": 0.021595151309841586,
+        "value": 0.021824239054923037,
         "samples": 21,
-        "observed_spread_ratio": 0.007766903254757683
+        "observed_spread_ratio": 0.052694655069684744
       }
     },
     "client_operation_duration_seconds": {
       "p50": {
-        "value": 6.090618749993155,
+        "value": 6.130715624982258,
         "samples": 21,
-        "observed_spread_ratio": 0.004255095922897484
+        "observed_spread_ratio": 0.012854779906393018
       },
       "p95": {
-        "value": 6.383934874989791,
+        "value": 6.439739749999717,
         "samples": 21,
-        "observed_spread_ratio": 0.008167754997906415
+        "observed_spread_ratio": 0.06481958359148048
       }
     },
     "client_output_tokens_per_second": {
       "value": {
-        "value": 25.599634290938702,
+        "value": 25.599512390240186,
         "samples": 21,
-        "observed_spread_ratio": 9.523673471570207e-06
+        "observed_spread_ratio": 9.52362812159982e-06
       }
     },
     "client_total_tokens_per_second": {
       "value": {
-        "value": 76.98461450550707,
+        "value": 76.94102521368539,
         "samples": 21,
-        "observed_spread_ratio": 0.0002997485948497706
+        "observed_spread_ratio": 0.0011092435866984283
       }
     }
   }

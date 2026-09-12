@@ -177,7 +177,7 @@ def _build_payload(
         "stream": True,
         "stream_options": {"include_usage": True},
         "messages": [*(history or []), {"role": "user", "content": prompt}],
-        "max_tokens": int((workload.get("output") or {}).get("max_tokens", 128)),
+        "max_tokens": int((workload.get("output") or {})["max_tokens"]),
         "temperature": 0,
     }
 
@@ -246,10 +246,10 @@ def run_workload(contract: PerformanceContract, options: RunOptions) -> dict[str
     duration = workload.get("duration") or {}
     measurement_seconds = options.measurement_seconds
     if measurement_seconds is None:
-        measurement_seconds = float(duration.get("measurement_seconds", 60))
+        measurement_seconds = float(duration["measurement_seconds"])
     warmup_seconds = options.warmup_seconds
     if warmup_seconds is None:
-        warmup_seconds = float(duration.get("warmup_seconds", 0))
+        warmup_seconds = float(duration["warmup_seconds"])
 
     headers = {"content-type": "application/json"}
     if options.api_key:
@@ -275,24 +275,29 @@ def run_workload(contract: PerformanceContract, options: RunOptions) -> dict[str
             else ""
         )
 
-        def send(index: int) -> list[RequestSample]:
-            """한 작업 단위. 세션이면 여러 턴이 한 대화로 이어진다."""
+        def send(unit: int) -> list[RequestSample]:
+            """한 작업 단위. 세션이면 여러 턴이 한 대화로 이어진다.
+
+            unit은 몇 번째 작업 단위인지이고, 요청 번호는 counter가 준다. 둘을
+            같은 값으로 쓰면 세션이 턴을 소비한 만큼 발사기가 일찍 멈춘다.
+            """
             if distribution != "multi_turn_session":
+                index = counter.next()
                 payload = _build_payload(workload, model, _prompt(rng, input_tokens, index, scale))
                 return [stream_once(client, url=url, payload=payload, headers=headers, index=index)]
             return _run_session(
                 client, url=url, headers=headers, workload=workload, model=model,
                 rng=rng, input_tokens=input_tokens, scale=scale, shared=shared,
-                session_index=index, turns=turns,
+                counter=counter, session_index=unit, turns=turns,
             )
 
         def dispatch(seconds: float, max_requests: int | None):
             if mode == "open_loop":
                 return _dispatch_open_loop(
-                    send, counter, rate=rate, seconds=seconds, max_requests=max_requests
+                    send, rate=rate, seconds=seconds, max_requests=max_requests
                 )
             return _dispatch_closed_loop(
-                send, counter, concurrency=concurrency, seconds=seconds, max_requests=max_requests
+                send, concurrency=concurrency, seconds=seconds, max_requests=max_requests
             )
 
         if warmup_seconds > 0:
@@ -321,7 +326,12 @@ def run_workload(contract: PerformanceContract, options: RunOptions) -> dict[str
 
 
 class _Counter:
-    """warmup과 측정 구간에 걸쳐 프롬프트 index를 이어 준다."""
+    """요청마다 고유한 번호를 준다.
+
+    warmup과 측정 구간에 걸쳐 이어지며, 세션의 턴도 여기서 번호를 받는다. 작업
+    단위 수와는 다르다 -- 세션 하나가 여러 요청을 만들기 때문이다. 발사기가 이
+    값으로 작업 단위를 세면 세션이 턴을 소비한 만큼 일찍 멈춘다.
+    """
 
     def __init__(self) -> None:
         self._value = 0
@@ -346,7 +356,7 @@ def _input_tokens(options: RunOptions, prompt_spec: dict[str, Any]) -> int:
     declared = prompt_spec.get("input_tokens_sweep") or []
     if declared:
         return int(min(declared))
-    return int(prompt_spec.get("input_tokens", 512))
+    return int(prompt_spec["input_tokens"])
 
 
 def _assert_context_fits(
@@ -381,6 +391,7 @@ def _run_session(
     input_tokens: int,
     scale: PromptScale,
     shared: str,
+    counter: _Counter,
     session_index: int,
     turns: int,
 ) -> list[RequestSample]:
@@ -393,12 +404,13 @@ def _run_session(
     history: list[dict[str, str]] = []
     samples: list[RequestSample] = []
     for turn in range(max(1, turns)):
-        prompt = _session_prompt(rng, input_tokens, session_index * 1000 + turn, scale, shared)
+        # 요청 번호는 counter가 이어서 준다. session_index * 1000 + turn처럼 곱셈으로
+        # 만들면 턴 수가 그 자리수를 넘는 순간 다음 세션과 번호가 겹치고, 그 가정이
+        # 코드에만 있어 계약이 턴 수를 늘릴 때 드러나지 않는다.
+        index = counter.next()
+        prompt = _session_prompt(rng, input_tokens, index, scale, shared)
         payload = _build_payload(workload, model, prompt, history)
-        sample = stream_once(
-            client, url=url, payload=payload, headers=headers,
-            index=session_index * 1000 + turn,
-        )
+        sample = stream_once(client, url=url, payload=payload, headers=headers, index=index)
         sample.session_index = session_index
         sample.turn_index = turn
         samples.append(sample)
@@ -440,7 +452,6 @@ def _closed_loop_concurrency(options: RunOptions, traffic: dict[str, Any]) -> in
 
 def _dispatch_closed_loop(
     send,
-    counter: _Counter,
     *,
     concurrency: int,
     seconds: float,
@@ -461,17 +472,20 @@ def _dispatch_closed_loop(
     start = time.perf_counter()
     deadline = start + seconds
 
+    dispatched = _Counter()
+
     def worker() -> None:
         while True:
             if max_requests is None and time.perf_counter() >= deadline:
                 return
-            # 번호를 먼저 받고 한도를 확인한다. 확인 후 받으면 두 worker가 같은
-            # 번호를 쓰거나 한도를 넘겨 보낼 수 있다.
-            index = counter.next()
-            if max_requests is not None and index >= max_requests:
+            # 작업 단위 번호를 먼저 받고 한도를 확인한다. 확인 후 받으면 두 worker가
+            # 같은 번호를 쓰거나 한도를 넘겨 보낼 수 있다. 이 번호는 몇 번째 작업
+            # 단위인지를 뜻하며, 요청 번호는 send가 counter에서 따로 받는다.
+            unit = dispatched.next()
+            if max_requests is not None and unit >= max_requests:
                 return
             try:
-                produced = send(index)
+                produced = send(unit)
             except BaseException as exc:  # noqa: BLE001 - 원인을 잃지 않는 것이 목적이다
                 with lock:
                     failures.append(exc)
@@ -494,7 +508,6 @@ def _dispatch_closed_loop(
 
 def _dispatch_open_loop(
     send,
-    counter: _Counter,
     *,
     rate: float,
     seconds: float,
@@ -557,7 +570,7 @@ def _dispatch_open_loop(
             if dispatched == 0:
                 first_dispatch = now
             last_dispatch = now
-            pool.submit(task, counter.next())
+            pool.submit(task, dispatched)
             dispatched += 1
 
     # 부하를 가한 구간이다. 그 뒤는 tail drain이라 처리량의 분모가 아니다.

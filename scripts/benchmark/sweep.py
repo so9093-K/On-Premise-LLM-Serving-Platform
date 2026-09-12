@@ -18,12 +18,16 @@ from scripts.benchmark.evaluate import evaluate
 from scripts.benchmark.runner import RunOptions, RunnerError, run_workload
 
 _SUPPORTED_SIGNALS = {"time_to_first_chunk_drift"}
+# 계약이 선언한 값을 못 받은 호출자를 위한 마지막 방어선. 계약 검증기가 선언 누락을
+# 먼저 잡으므로 여기까지 오면 계약을 우회한 호출이다.
+_DEFAULT_DRIFT_MINIMUM = 4
 # sweep이 실제로 읽는 규칙. 계약 검증기가 이 목록으로 선언 누락을 먼저 잡는다.
 _REQUIRED_CRITERION_FIELDS = (
     "signal",
     "max_second_half_ratio",
     "require_success_ratio",
     "min_throughput_gain_ratio",
+    "drift_minimum_samples",
 )
 
 
@@ -90,7 +94,7 @@ def _declared_point(
     return float(max(points))
 
 
-def drift_ratio(samples: list[dict[str, Any]]) -> float | None:
+def drift_ratio(samples: list[dict[str, Any]], minimum: int | None = None) -> float | None:
     """측정 구간 뒤쪽 절반의 첫 응답 중앙값이 앞쪽의 몇 배인가.
 
     안정된 계에서는 요청 순서와 첫 응답 시간이 무관해 1에 가깝다. 포화되면 뒤쪽
@@ -102,7 +106,7 @@ def drift_ratio(samples: list[dict[str, Any]]) -> float | None:
         for sample in samples
         if sample.get("succeeded") and sample.get("client_time_to_first_chunk_seconds") is not None
     ]
-    if len(values) < 4:
+    if len(values) < (minimum if minimum is not None else _DEFAULT_DRIFT_MINIMUM):
         return None
     half = len(values) // 2
     first = statistics.median(values[:half])
@@ -124,7 +128,7 @@ def _point_summary(document: dict[str, Any], criterion: dict[str, Any], axis: st
     if axis == "request_rate_per_second":
         point["request_rate_per_second"] = traffic["request_rate_per_second"]
         # open loop에서는 대기가 쌓이는지가 감당 여부다.
-        ratio = drift_ratio(requests)
+        ratio = drift_ratio(requests, int(criterion["drift_minimum_samples"]))
         limit = float(criterion["max_second_half_ratio"])
         required = float(criterion["require_success_ratio"])
         point["time_to_first_chunk_drift"] = ratio

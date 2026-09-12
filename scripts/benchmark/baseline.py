@@ -29,6 +29,17 @@ _ENVIRONMENT_KEYS = (
 _WORKLOAD_KEYS = ("request_rate_per_second", "concurrency", "input_tokens")
 
 
+# 승격 조건은 계약이 소유한다. 코드가 기본값을 들고 있으면 계약에서 지워도 조용히
+# 돌고, 그때 쓰이는 값은 아무 데도 적혀 있지 않다.
+REQUIRED_PROMOTION_RULES = (
+    "require_success_ratio",
+    "max_dispatch_lag_seconds",
+    "require_minimum_samples",
+    "require_load_inside_capacity",
+    "require_declared_sweep_point",
+)
+
+
 class PromotionRefused(RuntimeError):
     """이 실행은 baseline이 될 수 없다."""
 
@@ -45,10 +56,15 @@ def configuration_of(document: dict[str, Any]) -> dict[str, Any]:
     configuration: dict[str, Any] = {
         key: environment[key] for key in _ENVIRONMENT_KEYS if key in environment
     }
-    gpu = environment.get("gpu") or {}
-    if gpu:
-        configuration["gpu_model"] = gpu.get("model")
-        configuration["gpu_memory_kind"] = gpu.get("memory_kind")
+    # 가속기는 구성 키에 넣지 않는다.
+    #
+    # 두 가지 이유가 있다. 첫째, 가속기는 런타임이 있는 곳의 것이고 benchmark client는
+    # 원격일 수 있어 그때는 관측되지 않는다. 넣으면 같은 배포를 재도 측정 위치에 따라
+    # 다른 구성이 되어 baseline과 만나지 못한다. 둘째, 하드웨어 종류는
+    # deployment_target이 이미 정한다 -- macOS는 통합 메모리, Linux는 전용 VRAM이다.
+    #
+    # 가속기 모델명은 결과 문서의 지문에 남아 사람이 읽는다. 비교 대상을 고르는 키가
+    # 아닐 뿐이다.
     configuration["workload_id"] = workload["id"]
     if "input_tokens" in workload:
         configuration["input_tokens"] = int(workload["input_tokens"])
@@ -74,25 +90,31 @@ def slug(configuration: dict[str, Any]) -> str:
 def _assert_promotable(
     document: dict[str, Any], contract: PerformanceContract, rules: dict[str, Any]
 ) -> None:
+    missing = [key for key in REQUIRED_PROMOTION_RULES if key not in rules]
+    if missing:
+        raise PromotionRefused(
+            f"regression.yaml does not declare promotion rules {missing}; 코드의 기본값으로 "
+            "승격하면 어떤 조건을 통과했는지 아무 데도 적혀 있지 않다"
+        )
     run = document["run"]
     summary = document.get("summary") or {}
     success = (summary.get("client_request_success_ratio") or {}).get("value")
-    required = float(rules.get("require_success_ratio", 1.0))
+    required = float(rules["require_success_ratio"])
     if success is None or success < required:
         raise PromotionRefused(
             f"success ratio {success} is below {required}; 버린 요청이 있으면 지연 분포는 "
             "살아남은 요청의 것이고, 이후 정상 실행이 개선으로 보인다"
         )
-    limit = float(rules.get("max_dispatch_lag_seconds", 0.5))
+    limit = float(rules["max_dispatch_lag_seconds"])
     lag = float(run.get("max_dispatch_lag_seconds", 0.0))
     if lag > limit:
         raise PromotionRefused(
             f"dispatch lag {lag:.3f}s exceeds {limit:g}s; 도구가 목표 시각을 못 지킨 실행은 "
             "서버가 아니라 도구를 잰 것이다"
         )
-    if rules.get("require_load_inside_capacity", True):
+    if rules["require_load_inside_capacity"]:
         _assert_load_inside_capacity(document, contract)
-    if rules.get("require_declared_sweep_point", True):
+    if rules["require_declared_sweep_point"]:
         _assert_declared_sweep_point(document, contract)
 
 
@@ -105,7 +127,7 @@ def _assert_load_inside_capacity(document: dict[str, Any], contract: Performance
     from scripts.benchmark.sweep import drift_ratio
 
     criterion = contract.capacity_criterion
-    ratio = drift_ratio(document["requests"])
+    ratio = drift_ratio(document["requests"], int(criterion["drift_minimum_samples"]))
     limit = float(criterion["max_second_half_ratio"])
     if ratio is not None and ratio > limit:
         raise PromotionRefused(
@@ -184,7 +206,7 @@ def promote(
                     # percentile이 아닌 통계에는 slo.yaml이 최소를 선언하지 않는다.
                     # 선언된 것 중 가장 약한 기준을 바닥으로 쓴다.
                     floor = minimum.get(str(rules.get("aggregate_minimum_samples_from", "p50")), 1)
-                if rules.get("require_minimum_samples", True) and count < floor:
+                if rules["require_minimum_samples"] and count < floor:
                     continue
                 values.append(float(value))
                 samples.append(count)
@@ -249,7 +271,10 @@ def compare(
 
     방향은 계약이 안다. 지연은 커지면 회귀이고 처리량은 작아지면 회귀다.
     """
-    tolerance = float((policy().get("tolerance") or {}).get("default_ratio", 0.1))
+    declared = policy().get("tolerance") or {}
+    if "default_ratio" not in declared:
+        raise PromotionRefused("regression.yaml must declare tolerance.default_ratio")
+    tolerance = float(declared["default_ratio"])
     results: list[dict[str, Any]] = []
     for metric_name, entries in (baseline.get("statistics") or {}).items():
         better = str(contract.metrics.get(metric_name, {}).get("better", "lower"))
