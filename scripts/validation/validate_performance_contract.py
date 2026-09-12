@@ -739,6 +739,38 @@ def _validate_regression_policy(failures: list[str], metrics: dict[str, Any]) ->
         failures.append(f"cannot read {BASELINE_SCHEMA_PATH.name}: {exc}")
 
 
+def _validate_promoted_baselines(failures: list[str], metrics: dict[str, Any]) -> None:
+    """커밋된 baseline이 schema와 계약을 지키는지 본다.
+
+    이 파일들은 저장소가 소유하고 리뷰를 거친다. 그런데 검증을 받지 않으면 깨진
+    파일이 들어와도 릴리스 게이트를 돌릴 때에야 드러난다. 실제로 required 필드를
+    지운 파일이 그대로 로드됐다.
+    """
+    import json as _json
+
+    from jsonschema import Draft202012Validator
+
+    from scripts.benchmark.baseline import BASELINE_DIR, BASELINE_SCHEMA_PATH
+
+    if not BASELINE_DIR.is_dir():
+        return
+    schema = _json.loads(BASELINE_SCHEMA_PATH.read_text(encoding="utf-8"))
+    validator = Draft202012Validator(schema)
+    for path in sorted(BASELINE_DIR.glob("*.json")):
+        try:
+            document = _json.loads(path.read_text(encoding="utf-8"))
+        except _json.JSONDecodeError as exc:
+            failures.append(f"baseline {path.name} is not valid JSON: {exc}")
+            continue
+        for error in sorted(validator.iter_errors(document), key=lambda e: list(e.absolute_path)):
+            location = "/".join(str(part) for part in error.absolute_path) or "<root>"
+            failures.append(f"baseline {path.name} {location}: {error.message}")
+        # 계약이 모르는 이름으로 굳힌 baseline은 어떤 실행과도 견줄 수 없다.
+        for metric_name in document.get("statistics") or {}:
+            if metric_name not in metrics:
+                failures.append(f"baseline {path.name} records unknown metric {metric_name!r}")
+
+
 def validate(failures: list[str]) -> None:
     """계약 세 파일을 한 번에 검사한다.
 
@@ -750,6 +782,7 @@ def validate(failures: list[str]) -> None:
     _validate_slo(failures, metrics, workloads)
     _validate_result_schema(failures)
     _validate_regression_policy(failures, metrics)
+    _validate_promoted_baselines(failures, metrics)
 
 
 def main() -> int:

@@ -18,6 +18,9 @@ ready-local / ready-full
       ↓
 Live Runtime 검증
 make runtime-validate
+      ↓
+성능 측정과 판정
+make perf-*
 ```
 
 | 단계 | 확인 질문 | 주요 대상 |
@@ -26,6 +29,23 @@ make runtime-validate
 | `make test` | application logic이 예상한 동작을 수행하는가? | Gateway, Risk, Auth, Runtime Control |
 | `ready-local` / `ready-full` | 현재 실행된 서비스가 요청을 받을 준비가 되었는가? | Process, Dependency, Inference Path |
 | `make runtime-validate` | 실제 vLLM API·고급 요청·모니터링 연결이 동작하는가? | Full-stack Runtime |
+| `make perf-*` | 충분히 빠른가? | 성능 계약, baseline, 릴리스 자격 |
+
+`runtime-validate`에 성능 판정을 합치지 않는다(ADR-0026 14절). 기능이 깨진 것과
+느려진 것은 다른 조치를 부른다. 성능은 측정·판정·보고가 각각 다른 명령이며, 판정을
+다시 하려고 몇 분짜리 측정을 다시 돌리지 않아도 된다.
+
+| 명령 | 하는 일 | 비고 |
+|---|---|---|
+| `make perf-smoke` | 계측 경로가 동작하는지 몇 건으로 확인 | SLO 판정 없음 |
+| `make perf-sweep` | 부하를 올려 가며 감당하는 한계를 찾음 | `PROFILE=<workload>` |
+| `make perf-run` | 계약이 선언한 기간대로 측정 | `PROFILE=<workload>` |
+| `make perf-report` | 결과 JSON에서 읽을 수 있는 보고서 생성 | 숫자를 다시 계산하지 않음 |
+| `make perf-promote` | 결과를 baseline으로 승격 | `RESULTS=<파일...> BY=<이름>`, 사람이 명시적으로 |
+| `make perf-gate` | 측정된 결과로 릴리스 자격 판정 | 측정하지 않음. 회귀는 릴리스를 막음 |
+
+실행 산출물은 `reports/performance/`에 쌓이며 저장소가 소유하지 않는다. 승격을 거친
+baseline만 `benchmarks/baselines/`에 들어가고 그 변경이 리뷰 대상이다.
 
 ---
 

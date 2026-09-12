@@ -260,7 +260,10 @@ make perf-*        충분히 빠른가
 4. Prometheus 스냅샷 수집과 evaluator를 추가한다.
 5. 나머지 workload를 `batch → long-context → agentic` 순으로 추가한다.
 6. baseline 승격 절차와 regression 판정을 추가한다.
-7. 성능 dashboard를 추가한다.
+7. 결과에서 읽을 수 있는 보고서를 만든다. Grafana dashboard가 아니라 결과 JSON에서
+   파생하는 Markdown이다. 9절이 이미 "원본은 JSON이고 Markdown은 파생"이라고
+   정했고, Prometheus로 밀어 넣으려면 간헐적 배치를 scrape 모델에 맞추려고
+   컴포넌트를 하나 더 두어야 한다. 결과를 읽는 길이 둘이 되는 것이 더 나쁘다.
 8. GPU release qualification에 연결한다.
 
 ## Related
