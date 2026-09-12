@@ -38,6 +38,9 @@ class PerformanceContract:
     statistics: dict[str, Any] = field(default_factory=dict)
     # 용량 판정 규칙. sweep이 workloads.yaml을 따로 열면 계약 객체와 파일이 갈라진다.
     capacity_criterion: dict[str, Any] = field(default_factory=dict)
+    # "이 조합에서는 측정할 수 없음"을 나타내는 값. 0과 구분하기 위한 것이라
+    # 소비자가 각자 문자열을 적으면 그 구분이 무너진다.
+    unsupported_marker: str = "unsupported"
 
     def workload(self, workload_id: str) -> dict[str, Any]:
         try:
@@ -64,4 +67,5 @@ def load_contract() -> PerformanceContract:
         slo_classes=slo.get("slo_classes") or {},
         statistics=slo.get("statistics") or {},
         capacity_criterion=workloads.get("capacity_criterion") or {},
+        unsupported_marker=str(metrics.get("unsupported_marker", "unsupported")),
     )

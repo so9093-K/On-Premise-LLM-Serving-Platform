@@ -19,6 +19,8 @@ from scripts.benchmark import result  # noqa: E402
 from scripts.lib.process_env import load_dotenv  # noqa: E402
 from scripts.benchmark.contract import load_contract  # noqa: E402
 from scripts.benchmark.runner import RunOptions, RunnerError, gateway_endpoint, run_workload  # noqa: E402
+from scripts.benchmark.snapshot import PrometheusReader, SnapshotUnavailable, collect  # noqa: E402
+from scripts.benchmark.snapshot import prometheus_base  # noqa: E402
 from scripts.benchmark.sweep import run_sweep  # noqa: E402
 
 
@@ -38,6 +40,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--measurement-seconds", type=float, default=None, help="workload의 measurement_seconds를 덮어쓴다.")
     parser.add_argument("--warmup-seconds", type=float, default=None, help="workload의 warmup_seconds를 덮어쓴다.")
     parser.add_argument("--output-dir", default="", help="결과 저장 위치. 기본은 reports/performance/.")
+    parser.add_argument(
+        "--prometheus-base", default="",
+        help="런타임 상태를 읽을 Prometheus 주소. 비우면 configs/services.yaml에서 해석한다. "
+             "기본 노출 프로필은 이 주소를 호스트에 공개하지 않으므로 닿지 못할 수 있고, "
+             "그때는 이유를 결과에 남긴다.",
+    )
     parser.add_argument(
         "--sweep", action="store_true",
         help="계약이 선언한 request_rate_sweep의 모든 지점을 낮은 쪽부터 실행해 용량을 찾습니다.",
@@ -63,7 +71,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     directory = Path(args.output_dir).resolve() if args.output_dir else None
     if args.sweep:
-        return _run_sweep(contract, options, directory, base)
+        return _run_sweep(contract, options, directory, base, args.prometheus_base)
 
     try:
         document = run_workload(contract, options)
@@ -71,6 +79,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"[perf] 실행을 중단했습니다: {exc}", file=sys.stderr)
         return 2
 
+    document = _with_runtime_snapshot(document, contract, args.prometheus_base)
     try:
         document = evaluator.evaluate(document, contract)
     except evaluator.EvaluationError as exc:
@@ -97,7 +106,21 @@ def main(argv: list[str] | None = None) -> int:
     return 0
 
 
-def _run_sweep(contract, options: RunOptions, directory, base: str) -> int:
+def _with_runtime_snapshot(document: dict, contract, override: str) -> dict:
+    """런타임 상태를 붙인다. 못 읽으면 이유를 남긴다.
+
+    수집하지 않은 것과 수집했는데 비어 있던 것은 다르다. 조용히 비워 두면 런타임이
+    한가했던 것으로 읽힌다.
+    """
+    try:
+        reader = PrometheusReader(prometheus_base(override))
+        snapshot = collect(contract, document, reader)
+    except SnapshotUnavailable as exc:
+        return {**document, "runtime_snapshot_error": str(exc)}
+    return {**document, "runtime_snapshot": snapshot} if snapshot else document
+
+
+def _run_sweep(contract, options: RunOptions, directory, base: str, prometheus_override: str) -> int:
     """지점마다 결과 문서를 따로 남기고, 마지막에 감당한 부하를 보고한다."""
     print(f"[perf] sweep workload={options.workload_id} target={base}")
     paths: list[Path] = []
@@ -114,6 +137,7 @@ def _run_sweep(contract, options: RunOptions, directory, base: str) -> int:
         몇 분치가 통째로 사라진다 -- 실제로 그렇게 잃었다.
         """
         try:
+            document = _with_runtime_snapshot(document, contract, prometheus_override)
             paths.append(result.write(document, directory=directory))
         except result.ResultValidationError as exc:
             failed.append(str(exc))

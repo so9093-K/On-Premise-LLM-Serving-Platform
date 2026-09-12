@@ -360,7 +360,7 @@
     },
     "runtime_snapshot": {
       "type": "object",
-      "description": "Prometheus에서 읽은 런타임·인프라 상태. 계약이 unsupported로 선언한 지표는 키를 만들지 않는다.",
+      "description": "Prometheus에서 읽은 런타임·인프라 상태. 판정 근거가 아니라 해석 근거다. 계약이 unsupported로 선언한 조합은 키를 만들지 않는다 -- 없는 series를 물어 빈 값을 받으면 '0이었다'와 구분되지 않는다. counter는 scrape 해상도만큼 거칠다. 92초 구간에서 scrape 8점이면 client 실측과 0.1% 차이였지만, 23초 구간에서 2점이면 절반 넘게 어긋났다. samples가 그 신뢰도다.",
       "additionalProperties": {
         "type": "object",
         "additionalProperties": false,
@@ -394,6 +394,11 @@
               "number",
               "null"
             ]
+          },
+          "samples": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "이 값을 만든 서로 다른 scrape 점의 수. 적을수록 구간 경계 효과가 크다."
           }
         }
       }
@@ -540,6 +545,11 @@
           }
         }
       }
+    },
+    "runtime_snapshot_error": {
+      "type": "string",
+      "minLength": 1,
+      "description": "런타임 상태를 읽지 못한 이유. 수집하지 않은 것과 수집했는데 비어 있던 것은 다르다. 기본 노출 프로필은 Prometheus를 호스트에 공개하지 않으므로 이 값이 채워지는 것이 정상인 환경이 있다."
     }
   }
 }
