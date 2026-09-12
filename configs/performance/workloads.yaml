@@ -195,6 +195,14 @@ workloads:
     cache:
       policy: controlled_reuse
       shared_prefix_ratio: 0.8
+      # 이 workload가 묻는 것은 "prefix 재사용이 이득을 주는가"다. 런타임이 prefix
+      # 캐시를 쓰지 않으면 그 질문에 답할 수 없다. 요청은 성공하므로 숫자는 나오고,
+      # 그 숫자를 cache 효과로 읽으면 틀린다. 그래서 실행 자체를 막는다.
+      requires_prefix_caching: true
+    # mlx-vlm은 prefix 캐시 설정이 없고 살아있는 런타임이 apc_enabled=false를
+    # 보고한다. 계약 검증기가 이 목록을 런타임 설정과 대조한다.
+    unsupported_backends:
+      mlx-vlm: 런타임에 prefix 캐시 설정이 없다 (apc_enabled=false)
     duration:
       warmup_seconds: 30
       measurement_seconds: 300

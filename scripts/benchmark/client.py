@@ -31,6 +31,11 @@ class RequestSample:
     client_time_per_output_chunk_seconds: list[float] = field(default_factory=list)
     client_input_tokens: int | None = None
     client_output_tokens: int | None = None
+    # multi turn session에서 이 요청이 어느 세션의 몇 번째 턴인가. 1번째 턴은
+    # 캐시가 비어 있고 2번째부터 앞 턴의 prefix를 재사용한다. 구분하지 않으면
+    # 두 상태의 지연이 한 분포에 섞여 캐시 효과가 평균에 묻힌다.
+    session_index: int | None = None
+    turn_index: int | None = None
 
     @property
     def client_time_per_output_token_seconds(self) -> float | None:
@@ -54,6 +59,7 @@ class RequestSample:
             "client_time_to_first_chunk_seconds", "client_operation_duration_seconds",
             "client_time_per_output_token_seconds",
             "client_input_tokens", "client_output_tokens",
+            "session_index", "turn_index",
         ):
             value = getattr(self, key)
             if value is not None:

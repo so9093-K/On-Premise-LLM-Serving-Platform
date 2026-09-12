@@ -75,6 +75,11 @@
           "type": "number",
           "minimum": 0,
           "description": "open loop scheduler가 목표 발사 시각보다 늦은 최대 폭. 이 값이 크면 숫자가 서버가 아니라 부하 생성기를 설명한다."
+        },
+        "admission_wait_joined_requests": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "접근 로그에서 admission 대기 시간을 이어 붙인 요청 수. 전부 이어지지 않을 수 있다 -- 로그가 회전했거나 아직 flush되지 않았을 수 있다. 이 수 없이 일부만 채우면 그 부분집합으로 계산한 값이 전체를 대표하는 것처럼 읽힌다."
         }
       }
     },
@@ -197,6 +202,11 @@
           "type": "string",
           "minLength": 1,
           "description": "실행한 main model profile. 같은 모델이라도 profile마다 max_model_len 등 실행 설정이 달라 결과가 달라진다."
+        },
+        "accelerator_unavailable_reason": {
+          "type": "string",
+          "minLength": 1,
+          "description": "가속기를 기록하지 못한 이유. benchmark client가 런타임과 다른 기기에 있으면 여기서 관측할 수 없다. 조용히 비우면 가속기가 없는 것으로 읽히고, 이 기기의 것을 적으면 Linux target 결과에 Apple 칩이 들어간다."
         }
       }
     },
@@ -346,6 +356,16 @@
               "null"
             ],
             "minimum": 0
+          },
+          "session_index": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "multi turn session에서 이 요청이 속한 세션. 세션마다 고유한 내용이 있어 세션 간에는 공유 prefix만 겹친다."
+          },
+          "turn_index": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "세션 안에서 몇 번째 턴인가. 0번 턴은 캐시가 비어 있고 그 뒤는 앞 턴의 prefix를 재사용한다. 구분하지 않으면 두 상태의 지연이 한 분포에 섞여 캐시 효과가 평균에 묻힌다."
           },
           "gateway_admission_wait_seconds": {
             "type": [
@@ -550,6 +570,19 @@
       "type": "string",
       "minLength": 1,
       "description": "런타임 상태를 읽지 못한 이유. 수집하지 않은 것과 수집했는데 비어 있던 것은 다르다. 기본 노출 프로필은 Prometheus를 호스트에 공개하지 않으므로 이 값이 채워지는 것이 정상인 환경이 있다."
+    },
+    "admission_wait_error": {
+      "type": "string",
+      "minLength": 1,
+      "description": "admission 대기 시간을 이어 붙이지 못한 이유. 대기가 0이었던 것과 조인할 로그를 못 찾은 것은 다르다."
+    },
+    "runtime_snapshot_skipped": {
+      "type": "object",
+      "description": "읽을 수 있었지만 이 실행에서는 계산할 수 없어 건너뛴 지표와 그 이유. 조용히 비우면 그 구간에 아무 일도 없었던 것으로 읽힌다.",
+      "additionalProperties": {
+        "type": "string",
+        "minLength": 1
+      }
     }
   }
 }

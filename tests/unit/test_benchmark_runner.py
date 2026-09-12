@@ -13,6 +13,7 @@ transport를 가짜로 바꾸면 재려던 것이 사라진다.
 
 from __future__ import annotations
 
+import itertools
 import json
 import threading
 import time
@@ -48,7 +49,7 @@ def _sse_handler(*, server_delay: float, seen: list[float], lock: threading.Lock
 
         def do_POST(self) -> None:
             body = json.loads(self.rfile.read(int(self.headers["content-length"])))
-            content = body["messages"][0]["content"]
+            content = "".join(message["content"] for message in body["messages"])
             # 실제 tokenizer처럼 길이에 비례해 센다. 고정값을 돌려주면 runner의
             # 프롬프트 길이 보정이 tokenizer를 역산할 수 없다.
             prompt_tokens = TEMPLATE_OVERHEAD_TOKENS + len(content) // CHARS_PER_TOKEN
@@ -216,7 +217,7 @@ def test_throughput_denominator_excludes_the_tail_drain(sse_server, monkeypatch)
 @pytest.mark.parametrize(
     "patch,expected",
     [
-        ({"prompt": {"distribution": "multi_turn_session", "input_tokens": 8}}, "prompt.distribution"),
+        ({"prompt": {"distribution": "poisson_lengths", "input_tokens": 8}}, "prompt.distribution"),
         # 계약이 새 traffic mode를 선언해도 근사해서 돌리지 않는다.
         ({"traffic": {"mode": "poisson_arrivals", "request_rate_per_second": 1.0}}, "traffic.mode"),
     ],
@@ -304,3 +305,92 @@ def test_a_length_beyond_the_live_runtime_context_is_refused_before_sending(monk
 
     with pytest.raises(RunnerError, match="context tokens"):
         runner.run_workload(_contract(workload), _options("http://127.0.0.1:1", input_tokens=24576))
+
+
+def _agentic_workload(turns: int = 3, ratio: float = 0.8) -> dict:
+    return {
+        "prompt": {"distribution": "multi_turn_session", "input_tokens": 64,
+                   "turns_per_session": turns},
+        "output": {"max_tokens": 16},
+        "required_request_parameters": ["stream", "stream_options", "max_tokens", "temperature"],
+        "traffic": {"mode": "closed_loop", "concurrency_sweep": [1]},
+        "cache": {"policy": "controlled_reuse", "shared_prefix_ratio": ratio},
+        "duration": {"warmup_seconds": 0, "measurement_seconds": 1},
+    }
+
+
+def test_a_session_carries_the_conversation_across_turns(sse_server, monkeypatch):
+    """턴마다 별도 요청이지만 앞 턴이 다음 턴의 prefix가 된다.
+
+    이어지지 않으면 매 턴이 새 대화라 재사용할 prefix가 없고, cache 효과를 묻는
+    workload가 아무것도 측정하지 못한다.
+    """
+    monkeypatch.setenv("DEPLOYMENT_TARGET", "macos-metal-static")
+    base, _ = sse_server()
+    document = run_workload(
+        _contract(_agentic_workload()), _options(base, max_requests=2, concurrency=1)
+    )
+
+    samples = document["requests"]
+    assert len(samples) == 6, "세션 2개 x 3턴"
+    assert [(s["session_index"], s["turn_index"]) for s in samples] == [
+        (0, 0), (0, 1), (0, 2), (1, 0), (1, 1), (1, 2)
+    ]
+    # 대화가 쌓이면 입력이 길어진다. 테스트 서버가 모든 메시지를 센다.
+    first = [s["client_input_tokens"] for s in samples if s["session_index"] == 0]
+    assert first[0] < first[1] < first[2], first
+
+
+def test_sessions_share_exactly_the_declared_prefix_ratio():
+    """controlled_reuse는 선언한 비율만큼 의도적으로 공유하는 것이다.
+
+    전부 공유하면 세션 구분이 없어지고, 하나도 공유하지 않으면 cold와 같아진다.
+    """
+    import random
+
+    from scripts.benchmark.runner import PromptScale, _session_prompt, _shared_prefix
+
+    scale = PromptScale(chars_per_token=4.6, overhead_tokens=17)
+    shared = _shared_prefix(scale, 1024, 0.8)
+    rng = random.Random(1)
+    first, second = _session_prompt(rng, 1024, 0, scale, shared), _session_prompt(rng, 1024, 1, scale, shared)
+
+    common = sum(1 for _ in itertools.takewhile(lambda pair: pair[0] == pair[1], zip(first, second)))
+    assert 0.75 <= common / len(first) <= 0.85, common / len(first)
+    assert first[len(shared):] != second[len(shared):], "뒷부분은 세션마다 달라야 한다"
+
+
+def test_a_workload_whose_cache_policy_the_backend_cannot_provide_is_refused(monkeypatch):
+    """제공하지 않아도 요청은 성공하므로 숫자는 나온다. 그 숫자는 cache 효과가 아니다."""
+    monkeypatch.setenv("DEPLOYMENT_TARGET", "macos-metal-static")
+    workload = _agentic_workload()
+    workload["cache"]["requires_prefix_caching"] = True
+    workload["unsupported_backends"] = {"mlx-vlm": "prefix 캐시 설정이 없다"}
+
+    with pytest.raises(RunnerError, match="cache question"):
+        run_workload(_contract(workload), _options("http://127.0.0.1:1"))
+
+
+def test_a_session_stops_at_the_first_failed_turn(sse_server, monkeypatch):
+    """대화가 끊긴 뒤의 턴은 다른 것을 재게 된다."""
+    monkeypatch.setenv("DEPLOYMENT_TARGET", "macos-metal-static")
+    from scripts.benchmark import runner
+
+    base, _ = sse_server()
+    original = runner.stream_once
+
+    def fail_second(*args, **kwargs):
+        sample = original(*args, **kwargs)
+        # 보정 probe는 음수 index를 쓴다. 세션의 두 번째 턴만 실패시킨다.
+        if kwargs.get("index") == 1:
+            sample.succeeded = False
+            sample.error_code = "UPSTREAM_TIMEOUT"
+        return sample
+
+    monkeypatch.setattr(runner, "stream_once", fail_second)
+    document = runner.run_workload(
+        _contract(_agentic_workload()), _options(base, max_requests=1, concurrency=1)
+    )
+    # 보정 probe 뒤 첫 세션의 2번째 턴이 실패하므로 3번째 턴은 보내지 않는다.
+    turns = [s["turn_index"] for s in document["requests"]]
+    assert turns == [0, 1], turns

@@ -25,6 +25,11 @@ _COUNTER = "counter"
 _REQUEST = "request"
 
 _MONITORING_PATH = ROOT / "configs" / "monitoring.yaml"
+# rate()는 범위 안에 scrape 점이 최소 둘 있어야 값을 낸다. Prometheus 관례는 네 배다.
+# 17초 구간에서 rate[17s]를 물었더니 series가 0이었고, 같은 데이터에 rate[5m]은
+# 값을 냈다. 범위를 측정 구간보다 넓히면 이전 실행의 요청이 섞이므로 넓히지 않고,
+# 구간이 짧으면 histogram 지표를 건너뛰고 이유를 남긴다.
+_MIN_RATE_INTERVALS = 4
 
 
 def scrape_interval_seconds() -> float:
@@ -139,6 +144,7 @@ def collect(
     시간 구간은 결과 문서가 이미 갖고 있다. 따로 받으면 측정과 스냅샷이 서로 다른
     구간을 볼 수 있다.
     """
+    _assert_target_runs_monitoring(document)
     started, ended = _window(document)
     # counter는 측정 구간 안에서만 읽으면 체계적으로 과소 집계된다. 요청이 구간
     # 안에서 끝나도 그 증가분은 다음 scrape에 잡히고, 그 scrape는 구간 밖이다.
@@ -148,7 +154,10 @@ def collect(
     query_start, query_end = started - interval, ended + interval
     environment = document.get("environment") or {}
     marker = contract.unsupported_marker
+    duration = ended - started
+    histogram_ok = duration >= _MIN_RATE_INTERVALS * interval
     snapshot: dict[str, Any] = {}
+    skipped: dict[str, str] = {}
     for name, metric in contract.metrics.items():
         if metric["layer"] not in ("gateway", "runtime", "infrastructure"):
             continue
@@ -158,12 +167,39 @@ def collect(
             # 받으면 "0이었다"와 구분되지 않는다.
             continue
         unit = str(metric.get("aggregation_unit", _INSTANT))
+        if unit == _REQUEST and not histogram_ok:
+            # 조용히 비우면 그 구간에 요청이 없었던 것으로 읽힌다.
+            skipped[name] = (
+                f"measurement window {duration:.0f}s spans fewer than {_MIN_RATE_INTERVALS} "
+                f"scrape intervals ({interval:g}s); rate() has too few points"
+            )
+            continue
         query = _query(source, unit, started, ended)
         values = reader.range_values(query, query_start, query_end, step_seconds)
         entry = _entry(values, unit)
         if entry is not None:
             snapshot[name] = entry
-    return snapshot
+    return {"values": snapshot, "skipped": skipped}
+
+
+def _assert_target_runs_monitoring(document: dict[str, Any]) -> None:
+    """이 target이 모니터링 스택을 띄우는지 먼저 본다.
+
+    계약의 runtime 지표는 backend로 키를 잡으므로 target을 모른다. 스택 자체가 없는
+    target에서도 "vllm-cuda니까 측정 가능"으로 보이고, 그러면 수집기가 있지도 않은
+    Prometheus를 찌르고 연결 거부를 이유로 남긴다. 원인은 연결이 아니라 구성이다.
+    """
+    target_id = str((document.get("environment") or {}).get("deployment_target", ""))
+    if not target_id:
+        return
+    targets = load_yaml_mapping(ROOT / "configs" / "deployment_targets.yaml")
+    targets = targets.get("targets") or targets
+    target = targets.get(target_id) or {}
+    if target and not target.get("runs_monitoring_stack", True):
+        raise SnapshotUnavailable(
+            f"deployment target {target_id!r} does not run a monitoring stack; "
+            "런타임 상태를 읽을 곳이 없다"
+        )
 
 
 def _query(source: str, unit: str, started: float, ended: float) -> str:

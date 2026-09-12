@@ -6,6 +6,10 @@ targets:
     display_name: Linux NVIDIA Dynamic
     platform: linux
     runtime_backend: vllm-cuda
+    # 이 target이 Prometheus를 포함한 모니터링 스택을 띄우는가. 성능 벤치마크의
+    # 런타임 스냅샷은 여기에 달려 있다. 안 띄우는 target에서 계약이 선언한
+    # runtime 지표를 읽으려 하면 수집기가 닿지 못하는 이유를 매번 기록하게 된다.
+    runs_monitoring_stack: true
     main_profile_catalog: configs/main_model_profiles.yaml
     # compose_files는 static target만 선언한다. dynamic 진입점(compose_up.sh)은
     # EXPOSURE_MODE override와 boot override를 실행 시점에 조합하므로 파일 집합의
@@ -33,6 +37,10 @@ targets:
     display_name: Linux NVIDIA Static Main
     platform: linux
     runtime_backend: vllm-cuda
+    # 이 target이 Prometheus를 포함한 모니터링 스택을 띄우는가. 성능 벤치마크의
+    # 런타임 스냅샷은 여기에 달려 있다. 안 띄우는 target에서 계약이 선언한
+    # runtime 지표를 읽으려 하면 수집기가 닿지 못하는 이유를 매번 기록하게 된다.
+    runs_monitoring_stack: false
     main_profile_catalog: configs/main_model_profiles.yaml
     compose_files:
       - ops/compose/static-main.external-runtime.yaml
@@ -59,6 +67,10 @@ targets:
     display_name: macOS Metal Static Main
     platform: macos
     runtime_backend: mlx-vlm
+    # 이 target이 Prometheus를 포함한 모니터링 스택을 띄우는가. 성능 벤치마크의
+    # 런타임 스냅샷은 여기에 달려 있다. 안 띄우는 target에서 계약이 선언한
+    # runtime 지표를 읽으려 하면 수집기가 닿지 못하는 이유를 매번 기록하게 된다.
+    runs_monitoring_stack: true
     main_profile_catalog: configs/macos_mlx_runtime.yaml
     compose_files:
       - ops/compose/static-main.external-runtime.yaml

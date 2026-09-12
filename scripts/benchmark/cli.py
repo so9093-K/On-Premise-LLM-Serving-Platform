@@ -21,6 +21,10 @@ from scripts.benchmark.contract import load_contract  # noqa: E402
 from scripts.benchmark.runner import RunOptions, RunnerError, gateway_endpoint, run_workload  # noqa: E402
 from scripts.benchmark.snapshot import PrometheusReader, SnapshotUnavailable, collect  # noqa: E402
 from scripts.benchmark.snapshot import prometheus_base  # noqa: E402
+from scripts.benchmark.request_events import (  # noqa: E402
+    RequestEventsUnavailable,
+    attach_with_retry,
+)
 from scripts.benchmark.sweep import run_sweep  # noqa: E402
 
 
@@ -79,6 +83,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"[perf] 실행을 중단했습니다: {exc}", file=sys.stderr)
         return 2
 
+    document = _with_admission_wait(document)
     document = _with_runtime_snapshot(document, contract, args.prometheus_base)
     try:
         document = evaluator.evaluate(document, contract)
@@ -106,6 +111,18 @@ def main(argv: list[str] | None = None) -> int:
     return 0
 
 
+def _with_admission_wait(document: dict) -> dict:
+    """접근 로그에서 요청별 admission 대기 시간을 이어 붙인다.
+
+    Gateway는 이 값을 metric으로 내보내지 않는다. 응답 헤더로 내보내면 내부 타이밍이
+    공개 API가 되므로 로그에만 남긴다. client가 기록한 request_id가 조인 키다.
+    """
+    try:
+        return attach_with_retry(document)
+    except RequestEventsUnavailable as exc:
+        return {**document, "admission_wait_error": str(exc)}
+
+
 def _with_runtime_snapshot(document: dict, contract, override: str) -> dict:
     """런타임 상태를 붙인다. 못 읽으면 이유를 남긴다.
 
@@ -114,10 +131,15 @@ def _with_runtime_snapshot(document: dict, contract, override: str) -> dict:
     """
     try:
         reader = PrometheusReader(prometheus_base(override))
-        snapshot = collect(contract, document, reader)
+        collected = collect(contract, document, reader)
     except SnapshotUnavailable as exc:
         return {**document, "runtime_snapshot_error": str(exc)}
-    return {**document, "runtime_snapshot": snapshot} if snapshot else document
+    joined = dict(document)
+    if collected["values"]:
+        joined["runtime_snapshot"] = collected["values"]
+    if collected["skipped"]:
+        joined["runtime_snapshot_skipped"] = collected["skipped"]
+    return joined
 
 
 def _run_sweep(contract, options: RunOptions, directory, base: str, prometheus_override: str) -> int:
@@ -137,7 +159,7 @@ def _run_sweep(contract, options: RunOptions, directory, base: str, prometheus_o
         몇 분치가 통째로 사라진다 -- 실제로 그렇게 잃었다.
         """
         try:
-            document = _with_runtime_snapshot(document, contract, prometheus_override)
+            document = _with_runtime_snapshot(_with_admission_wait(document), contract, prometheus_override)
             paths.append(result.write(document, directory=directory))
         except result.ResultValidationError as exc:
             failed.append(str(exc))

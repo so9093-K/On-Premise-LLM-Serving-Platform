@@ -29,7 +29,7 @@ from scripts.benchmark.contract import ROOT, PerformanceContract, load_yaml_mapp
 from scripts.lib.service_endpoint import published_base_url
 
 # 구현한 것만 적는다. 이 집합을 늘리는 것이 Epic 6의 작업이다.
-_SUPPORTED_DISTRIBUTIONS = {"fixed_synthetic", "length_sweep"}
+_SUPPORTED_DISTRIBUTIONS = {"fixed_synthetic", "length_sweep", "multi_turn_session"}
 _SUPPORTED_TRAFFIC_MODES = {"open_loop", "closed_loop"}
 
 # cold cache는 매 요청이 고유 prefix를 써야 한다. 이전 프롬프트가 prefix cache에
@@ -103,6 +103,24 @@ def _prompt(rng: random.Random, input_tokens: int, index: int, scale: PromptScal
     return _text_of(scale.chars_for(input_tokens), rng, index)
 
 
+def _shared_prefix(scale: PromptScale, input_tokens: int, ratio: float) -> str:
+    """모든 세션이 공유하는 앞부분.
+
+    controlled_reuse는 "선언한 비율만큼 prefix를 의도적으로 공유한다"이다. 공유
+    부분은 세션마다 같아야 하므로 고정 seed로 만든다. 뒷부분은 세션마다 다르다.
+    """
+    chars = max(1, int(scale.chars_for(input_tokens) * ratio))
+    return _text_of(chars, random.Random(0), 0)
+
+
+def _session_prompt(
+    rng: random.Random, input_tokens: int, index: int, scale: PromptScale, shared: str
+) -> str:
+    """공유 prefix 뒤에 이 세션만의 내용을 붙인다."""
+    unique_chars = max(1, scale.chars_for(input_tokens) - len(shared))
+    return shared + _text_of(unique_chars, rng, index)
+
+
 def _calibrate_prompt_scale(
     client: httpx.Client,
     *,
@@ -151,15 +169,34 @@ def _calibrate_prompt_scale(
     return PromptScale(chars_per_token=chars_per_token, overhead_tokens=overhead)
 
 
-def _build_payload(workload: dict[str, Any], model: str, prompt: str) -> dict[str, Any]:
+def _build_payload(
+    workload: dict[str, Any], model: str, prompt: str, history: list[dict[str, str]] | None = None
+) -> dict[str, Any]:
     return {
         "model": model,
         "stream": True,
         "stream_options": {"include_usage": True},
-        "messages": [{"role": "user", "content": prompt}],
+        "messages": [*(history or []), {"role": "user", "content": prompt}],
         "max_tokens": int((workload.get("output") or {}).get("max_tokens", 128)),
         "temperature": 0,
     }
+
+
+def _assert_cache_policy_is_available(workload: dict[str, Any], environment: dict[str, Any]) -> None:
+    """런타임이 이 workload의 cache 정책을 제공하는지 본다.
+
+    제공하지 않아도 요청은 성공하므로 숫자는 나온다. 그 숫자를 cache 효과로 읽으면
+    틀린다. 계약이 backend를 선언하고 검증기가 런타임 설정과 대조한다.
+    """
+    if not (workload.get("cache") or {}).get("requires_prefix_caching"):
+        return
+    backend = str(environment.get("runtime_backend", ""))
+    unsupported = workload.get("unsupported_backends") or {}
+    if backend in unsupported:
+        raise RunnerError(
+            f"backend {backend!r} cannot answer this workload's cache question: "
+            f"{unsupported[backend]}; 요청은 성공하지만 그 숫자는 cache 효과가 아니다"
+        )
 
 
 def _assert_required_parameters_are_sent(workload_id: str, workload: dict[str, Any]) -> None:
@@ -202,6 +239,7 @@ def run_workload(contract: PerformanceContract, options: RunOptions) -> dict[str
         concurrency = _closed_loop_concurrency(options, traffic)
 
     environment = fingerprint.collect()
+    _assert_cache_policy_is_available(workload, environment)
     model = str(environment.get("served_model_name") or environment["model_id"])
     input_tokens = _input_tokens(options, prompt_spec)
     _assert_context_fits(environment, input_tokens, workload)
@@ -230,9 +268,23 @@ def run_workload(contract: PerformanceContract, options: RunOptions) -> dict[str
             client, url=url, headers=headers, model=model, workload_id=options.workload_id
         )
 
-        def send(index: int) -> RequestSample:
-            payload = _build_payload(workload, model, _prompt(rng, input_tokens, index, scale))
-            return stream_once(client, url=url, payload=payload, headers=headers, index=index)
+        turns = int(prompt_spec.get("turns_per_session", 1))
+        shared = (
+            _shared_prefix(scale, input_tokens, float((workload.get("cache") or {}).get("shared_prefix_ratio", 0)))
+            if distribution == "multi_turn_session"
+            else ""
+        )
+
+        def send(index: int) -> list[RequestSample]:
+            """한 작업 단위. 세션이면 여러 턴이 한 대화로 이어진다."""
+            if distribution != "multi_turn_session":
+                payload = _build_payload(workload, model, _prompt(rng, input_tokens, index, scale))
+                return [stream_once(client, url=url, payload=payload, headers=headers, index=index)]
+            return _run_session(
+                client, url=url, headers=headers, workload=workload, model=model,
+                rng=rng, input_tokens=input_tokens, scale=scale, shared=shared,
+                session_index=index, turns=turns,
+            )
 
         def dispatch(seconds: float, max_requests: int | None):
             if mode == "open_loop":
@@ -318,6 +370,52 @@ def _assert_context_fits(
         )
 
 
+def _run_session(
+    client: httpx.Client,
+    *,
+    url: str,
+    headers: dict[str, str],
+    workload: dict[str, Any],
+    model: str,
+    rng: random.Random,
+    input_tokens: int,
+    scale: PromptScale,
+    shared: str,
+    session_index: int,
+    turns: int,
+) -> list[RequestSample]:
+    """한 세션의 턴을 순서대로 보낸다. 앞 턴의 응답이 다음 턴의 prefix가 된다.
+
+    턴마다 별도 요청이고 별도 샘플이다. 0번 턴은 캐시가 비어 있고 그 뒤는 앞 턴의
+    prefix를 재사용하므로, 두 상태를 한 분포에 섞으면 캐시 효과가 평균에 묻힌다.
+    실패한 턴에서 멈춘다 -- 대화가 끊긴 뒤의 턴은 다른 것을 재게 된다.
+    """
+    history: list[dict[str, str]] = []
+    samples: list[RequestSample] = []
+    for turn in range(max(1, turns)):
+        prompt = _session_prompt(rng, input_tokens, session_index * 1000 + turn, scale, shared)
+        payload = _build_payload(workload, model, prompt, history)
+        sample = stream_once(
+            client, url=url, payload=payload, headers=headers,
+            index=session_index * 1000 + turn,
+        )
+        sample.session_index = session_index
+        sample.turn_index = turn
+        samples.append(sample)
+        if not sample.succeeded:
+            break
+        # 실제 응답 본문을 쌓지 않는다. 길이만 맞으면 prefix 재사용 여부는 같고,
+        # 본문을 모으면 client가 스트림을 다시 조립해야 해서 측정에 잡음이 낀다.
+        history = [
+            *history,
+            {"role": "user", "content": prompt},
+            {"role": "assistant", "content": _text_of(
+                scale.chars_for(int(sample.client_output_tokens or 1)), random.Random(turn), turn
+            )},
+        ]
+    return samples
+
+
 def _closed_loop_concurrency(options: RunOptions, traffic: dict[str, Any]) -> int:
     """이 실행이 유지할 동시 요청 수.
 
@@ -373,13 +471,13 @@ def _dispatch_closed_loop(
             if max_requests is not None and index >= max_requests:
                 return
             try:
-                sample = send(index)
+                produced = send(index)
             except BaseException as exc:  # noqa: BLE001 - 원인을 잃지 않는 것이 목적이다
                 with lock:
                     failures.append(exc)
                 return
             with lock:
-                samples.append(sample)
+                samples.extend(produced)
 
     with ThreadPoolExecutor(max_workers=concurrency, thread_name_prefix="perf") as pool:
         for _ in range(concurrency):
@@ -426,7 +524,7 @@ def _dispatch_open_loop(
         # future를 확인하지 않으므로 여기서 삼키면 예외가 사라진다. 실제로
         # 계약 위반이 "요청이 하나도 나가지 않았다"로 잘못 보고됐다.
         try:
-            sample = send(index)
+            produced = send(index)
         except BaseException as exc:  # noqa: BLE001 - 원인을 잃지 않는 것이 목적이다
             with lock:
                 failures.append(exc)
@@ -434,7 +532,7 @@ def _dispatch_open_loop(
         finally:
             inflight.release()
         with lock:
-            samples.append(sample)
+            samples.extend(produced)
 
     with ThreadPoolExecutor(max_workers=workers, thread_name_prefix="perf") as pool:
         start = time.perf_counter()

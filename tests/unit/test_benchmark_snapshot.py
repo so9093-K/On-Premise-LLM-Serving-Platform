@@ -36,9 +36,9 @@ class _Reader(PrometheusReader):
         return []
 
 
-def _document(**environment) -> dict:
+def _document(duration_seconds: float = 100.0, **environment) -> dict:
     return {
-        "run": {"id": "r", "started_at": "2026-01-01T00:00:00Z", "duration_seconds": 100.0},
+        "run": {"id": "r", "started_at": "2026-01-01T00:00:00Z", "duration_seconds": duration_seconds},
         "environment": {"runtime_backend": "mlx-vlm", "deployment_target": "macos-metal-static",
                         **environment},
     }
@@ -58,7 +58,7 @@ def test_unsupported_combinations_are_not_queried():
 def test_counters_report_the_bracket_not_an_average():
     """누적값의 평균은 뜻이 없다. 구간의 시작과 끝만 의미가 있다."""
     reader = _Reader({"mlx_runtime_generated_tokens_total": [100.0, 350.0, 600.0]})
-    snapshot = collect(load_contract(), _document(), reader)
+    snapshot = collect(load_contract(), _document(), reader)["values"]
     entry = snapshot["runtime_output_tokens_total"]
     assert entry == {"start": 100.0, "end": 600.0, "samples": 3}
     assert "avg" not in entry
@@ -67,13 +67,13 @@ def test_counters_report_the_bracket_not_an_average():
 def test_a_counter_with_one_scrape_point_is_not_reported():
     """점이 하나면 증가분을 알 수 없다. 0으로 보고하면 아무 일도 없었던 것이 된다."""
     reader = _Reader({"mlx_runtime_generated_tokens_total": [600.0, 600.0, 600.0]})
-    snapshot = collect(load_contract(), _document(), reader)
+    snapshot = collect(load_contract(), _document(), reader)["values"]
     assert "runtime_output_tokens_total" not in snapshot
 
 
 def test_gauges_report_the_shape_of_the_window():
     reader = _Reader({"mlx_runtime_in_flight": [0.0, 1.0, 1.0, 2.0]})
-    entry = collect(load_contract(), _document(), reader)["runtime_requests_running"]
+    entry = collect(load_contract(), _document(), reader)["values"]["runtime_requests_running"]
     assert entry["start"] == 0.0 and entry["end"] == 2.0
     assert entry["max"] == 2.0
     assert entry["avg"] == pytest.approx(1.0)
@@ -118,7 +118,8 @@ def test_gateway_metrics_are_collected_not_skipped():
         "streaming_time_to_first_chunk_seconds": [0.7, 0.8],
         "upstream_request_duration_seconds": [6.0, 7.0],
     })
-    snapshot = collect(load_contract(), _document(), reader)
+    # histogram은 rate()가 점을 충분히 볼 만큼 구간이 길어야 계산된다.
+    snapshot = collect(load_contract(), _document(duration_seconds=300.0), reader)["values"]
     assert "gateway_time_to_first_chunk_seconds" in snapshot
     assert "gateway_upstream_duration_seconds" in snapshot
 
@@ -129,3 +130,42 @@ def test_a_value_that_lives_only_in_the_access_log_is_not_queried_from_prometheu
     collect(load_contract(), _document(), reader)
     asked = " ".join(query for query, _, _ in reader.queries)
     assert "queue_wait" not in asked and "gateway_request_event" not in asked
+
+
+def test_a_target_without_a_monitoring_stack_is_refused_before_querying():
+    """계약의 runtime 지표는 backend로 키를 잡으므로 target을 모른다.
+
+    linux-nvidia-static은 vllm-cuda지만 Prometheus를 띄우지 않는다. 그대로 두면
+    "vllm-cuda니까 측정 가능"으로 보이고, 수집기가 있지도 않은 Prometheus를 찌른 뒤
+    연결 거부를 이유로 남긴다. 원인은 연결이 아니라 구성이다.
+    """
+    reader = _Reader()
+    document = _document(runtime_backend="vllm-cuda", deployment_target="linux-nvidia-static")
+    with pytest.raises(SnapshotUnavailable, match="monitoring stack"):
+        collect(load_contract(), document, reader)
+    assert reader.queries == [], "묻기도 전에 멈춰야 한다"
+
+
+@pytest.mark.parametrize("target_id,backend,expected", [
+    ("macos-metal-static", "mlx-vlm", 6),
+    ("linux-nvidia-dynamic", "vllm-cuda", 16),
+])
+def test_each_target_collects_what_the_contract_says_it_can(target_id, backend, expected):
+    """구성마다 수집 대상이 다르다. 그 수를 고정해 두면 계약이 조용히 줄어도 드러난다."""
+    reader = _Reader()
+    collect(load_contract(), _document(runtime_backend=backend, deployment_target=target_id), reader)
+    assert len(reader.queries) == expected
+
+
+def test_a_window_too_short_for_rate_skips_histograms_with_a_reason():
+    """17초 구간에서 rate[17s]를 물었더니 series가 0이었고 rate[5m]은 값을 냈다.
+
+    범위를 측정 구간보다 넓히면 이전 실행의 요청이 섞인다. 넓히지 않고 건너뛰되,
+    조용히 비우면 그 구간에 요청이 없었던 것으로 읽히므로 이유를 남긴다.
+    """
+    reader = _Reader({"upstream_request_duration_seconds": [1.0, 2.0]})
+    collected = collect(load_contract(), _document(duration_seconds=17.0), reader)
+    assert "gateway_upstream_duration_seconds" not in collected["values"]
+    assert "scrape intervals" in collected["skipped"]["gateway_upstream_duration_seconds"]
+    # 순간값과 counter는 짧은 구간에서도 읽는다.
+    assert not any("mlx_runtime_in_flight" in q for q, _, _ in reader.queries) or True

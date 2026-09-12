@@ -12,6 +12,7 @@ import os
 import platform
 import shutil
 import subprocess
+from pathlib import Path
 from typing import Any
 
 from scripts.benchmark.contract import ROOT, load_yaml_mapping
@@ -48,13 +49,35 @@ def _mlx_profile() -> tuple[str, dict[str, Any], dict[str, Any]]:
     return profile_id, document["profiles"][profile_id], document.get("runtime") or {}
 
 
+# vLLM의 실행 설정은 profile의 최상위 키가 아니라 실행 명령줄에 있다. 최상위에서
+# 찾으면 전부 None이 되고, 그러면 결과를 해석할 설정이 기록되지 않는다. 실제로
+# 그 상태였고, max_model_len이 없어 context 가드도 무력했다.
+_VLLM_FLAGS = ("max_model_len", "max_num_seqs", "max_num_batched_tokens", "gpu_memory_utilization")
+
+
 def _vllm_profile() -> tuple[str, dict[str, Any], dict[str, Any]]:
     document = load_yaml_mapping(_MAIN_PROFILES)
     profiles = document.get("profiles") or {}
     profile_id = os.getenv("MAIN_LLM_BOOT_PROFILE", "").strip() or str(document.get("default_profile", ""))
     if profile_id not in profiles:
         raise RuntimeError(f"cannot resolve main model profile {profile_id!r}")
-    return profile_id, profiles[profile_id], {}
+    profile = profiles[profile_id]
+    command = [str(item) for item in (profile.get("command") or [])]
+    parsed: dict[str, Any] = {}
+    for index, item in enumerate(command[:-1]):
+        if not item.startswith("--"):
+            continue
+        name = item[2:].replace("-", "_")
+        if name in _VLLM_FLAGS:
+            raw = command[index + 1]
+            parsed[name] = float(raw) if "." in raw else int(raw)
+    missing = [name for name in _VLLM_FLAGS if name not in parsed]
+    if missing:
+        raise RuntimeError(
+            f"profile {profile_id!r} command does not declare {missing}; 실행 설정 없이 기록한 "
+            "결과는 나중에 해석할 수 없다"
+        )
+    return profile_id, profile, parsed
 
 
 def _sysctl(name: str) -> str:
@@ -121,10 +144,6 @@ def collect() -> dict[str, Any]:
         }
     else:
         profile_id, profile, runtime_flags = _vllm_profile()
-        runtime_flags = {
-            "max_model_len": profile.get("max_model_len"),
-            "gpu_memory_utilization": profile.get("gpu_memory_utilization"),
-        }
 
     fingerprint: dict[str, Any] = {
         "git_commit": _git_commit(),
@@ -146,21 +165,67 @@ def collect() -> dict[str, Any]:
     runtime_image = os.getenv("VLLM_IMAGE", "").strip()
     if runtime_image and backend != "mlx-vlm":
         fingerprint["runtime_image"] = runtime_image
-    gpu = _nvidia_gpu() or _apple_silicon_gpu()
+    gpu, reason = _accelerator(target)
     if gpu is not None:
         fingerprint["gpu"] = gpu
+    elif reason:
+        fingerprint["accelerator_unavailable_reason"] = reason
     return fingerprint
 
 
+def _accelerator(target: dict[str, Any]) -> tuple[dict[str, Any] | None, str]:
+    """모델을 실행한 가속기. 이 기기에서 관측할 수 있을 때만 채운다.
+
+    가속기는 런타임이 있는 곳의 것이다. benchmark client는 원격 Gateway를 향해
+    돌 수 있으므로 둘이 같은 기기가 아닐 수 있다. 그때 이 기기의 가속기를 적으면
+    Linux target 결과에 "Apple M5"가 들어간다 -- 실제로 그랬다.
+    """
+    declared = str(target.get("platform", ""))
+    local = {"Darwin": "macos", "Linux": "linux"}.get(platform.system(), "")
+    if declared and local and declared != local:
+        return None, (
+            f"benchmark client runs on {local} but the target declares {declared}; "
+            "가속기는 런타임이 있는 곳의 것이므로 여기서 관측할 수 없다"
+        )
+    gpu = _nvidia_gpu() if declared == "linux" else _apple_silicon_gpu()
+    if gpu is None:
+        return None, f"cannot observe the accelerator for a {declared or 'unknown'} target here"
+    return gpu, ""
+
+
+def _proc_value(path: str, key: str) -> str:
+    """/proc의 key: value 한 줄을 읽는다. Linux 전용이며 없으면 빈 문자열."""
+    try:
+        for line in Path(path).read_text(encoding="utf-8").splitlines():
+            name, _, value = line.partition(":")
+            if name.strip() == key:
+                return value.strip()
+    except OSError:
+        pass
+    return ""
+
+
 def _host() -> dict[str, Any]:
-    """실행 호스트. platform.processor()는 macOS에서 "arm"만 돌려준다."""
-    host: dict[str, Any] = {"platform": f"{platform.system()}/{platform.machine()}"}
-    chip = _sysctl("machdep.cpu.brand_string") if platform.system() == "Darwin" else ""
+    """benchmark client를 실행한 기기.
+
+    platform.processor()는 macOS에서 "arm"만, Linux에서도 흔히 빈 문자열을 돌려준다.
+    그 값만 기록하면 32GB M5와 128GB M3 Ultra가, 그리고 서로 다른 Linux 서버가
+    같은 지문을 낸다. OS마다 읽는 곳이 달라 분기하지만 담는 내용은 같다.
+    """
+    system = platform.system()
+    host: dict[str, Any] = {"platform": f"{system}/{platform.machine()}"}
+    if system == "Darwin":
+        chip, memory = _sysctl("machdep.cpu.brand_string"), _sysctl("hw.memsize")
+    elif system == "Linux":
+        chip = _proc_value("/proc/cpuinfo", "model name") or _proc_value("/proc/cpuinfo", "Model")
+        kilobytes = _proc_value("/proc/meminfo", "MemTotal").split()
+        memory = str(int(kilobytes[0]) * 1024) if kilobytes and kilobytes[0].isdigit() else ""
+    else:
+        chip, memory = "", ""
     host["cpu"] = chip or platform.processor() or platform.machine()
-    memory = _sysctl("hw.memsize") if platform.system() == "Darwin" else ""
     if memory.isdigit():
         host["memory_bytes"] = int(memory)
-    cores = _sysctl("hw.ncpu") if platform.system() == "Darwin" else ""
-    if cores.isdigit():
+    cores = os.cpu_count()
+    if cores:
         host["cpu_cores"] = int(cores)
     return host

@@ -308,6 +308,7 @@ def _supported_request_parameters() -> dict[str, set[str]]:
 def _validate_workloads(failures: list[str], metrics: dict[str, Any]) -> dict[str, Any]:
     document = load_yaml_mapping(WORKLOADS_PATH)
     _validate_capacity_criterion(failures, document)
+    _validate_monitoring_stack_declaration(failures)
     if document.get("version") != 1:
         failures.append("workloads.yaml must declare version 1")
         return {}
@@ -359,6 +360,7 @@ def _validate_workloads(failures: list[str], metrics: dict[str, Any]) -> dict[st
                 )
 
         _validate_context_requirements(failures, name, workload)
+        _validate_cache_requirements(failures, name, workload)
 
         # 응답 usage가 있어야 계산되는 지표를 쓰면서 stream_options를 요청하지 않으면
         # 그 지표가 조용히 빈다. 지금까지 metrics.yaml의 requires.response_usage를
@@ -450,6 +452,69 @@ def _validate_context_requirements(failures: list[str], name: str, workload: dic
             f"workload {name!r} declares profile {profile!r} unsupported, but its context limit "
             f"covers {needed} tokens; 선언이 실제와 어긋난다"
         )
+
+
+def _backends_with_prefix_caching() -> set[str]:
+    """런타임 설정이 prefix 캐시를 켜는 backend.
+
+    vLLM은 profile 실행 명령줄에서, MLX는 런타임 설정에서 본다. 어느 쪽도 선언이
+    없으면 그 backend는 이 기능을 제공하지 않는다.
+    """
+    enabled: set[str] = set()
+    profiles = (load_yaml_mapping(MAIN_PROFILES_PATH).get("profiles") or {}).values()
+    if any("--enable-prefix-caching" in [str(item) for item in (p.get("command") or [])] for p in profiles):
+        enabled.add("vllm-cuda")
+    macos = load_yaml_mapping(MACOS_RUNTIME_PATH).get("runtime") or {}
+    if macos.get("prefix_caching") or macos.get("enable_prefix_caching"):
+        enabled.add("mlx-vlm")
+    return enabled
+
+
+def _validate_cache_requirements(failures: list[str], name: str, workload: dict[str, Any]) -> None:
+    """cache 재사용을 묻는 workload가 그것을 제공하는 backend를 정확히 가리키는지 본다.
+
+    제공하지 않는 backend에서도 요청은 성공하므로 숫자가 나온다. 그 숫자를 cache
+    효과로 읽으면 틀린다. 선언이 실제와 어긋나면 그 오독을 막지 못한다.
+    """
+    if not (workload.get("cache") or {}).get("requires_prefix_caching"):
+        return
+    declared_backends = {
+        str(target["runtime_backend"]) for target in _declared_targets().values()
+    }
+    without = declared_backends - _backends_with_prefix_caching()
+    declared = set(workload.get("unsupported_backends") or {})
+    for backend in sorted(without - declared):
+        failures.append(
+            f"workload {name!r} needs prefix caching but backend {backend!r} does not enable it; "
+            "unsupported_backends에 이유와 함께 선언한다"
+        )
+    for backend in sorted(declared - without):
+        failures.append(
+            f"workload {name!r} declares backend {backend!r} unsupported, but its runtime enables "
+            "prefix caching; 선언이 실제와 어긋난다"
+        )
+
+
+def _validate_monitoring_stack_declaration(failures: list[str]) -> None:
+    """target의 runs_monitoring_stack 선언이 실제 compose 구성과 맞는지 본다.
+
+    사실은 compose가 갖고 있지만 수집기가 compose를 파싱하게 만들지 않는다.
+    선언하고 여기서 대조한다. 어긋나면 수집기가 없는 Prometheus를 찌르거나,
+    있는 것을 건너뛴다.
+    """
+    targets = _declared_targets()
+    for name, target in targets.items():
+        files = target.get("compose_files") or ["ops/compose/full-stack.private-network.yaml"]
+        actual = any(
+            (ROOT / path).exists() and "\n  prometheus:" in (ROOT / path).read_text(encoding="utf-8")
+            for path in files
+        )
+        declared = bool(target.get("runs_monitoring_stack", True))
+        if declared != actual:
+            failures.append(
+                f"deployment target {name!r} declares runs_monitoring_stack={declared} but its "
+                f"compose files {'include' if actual else 'do not include'} prometheus"
+            )
 
 
 def _validate_capacity_criterion(failures: list[str], document: dict[str, Any]) -> None:
