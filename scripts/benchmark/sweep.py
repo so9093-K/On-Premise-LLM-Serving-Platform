@@ -13,15 +13,15 @@ import uuid
 from dataclasses import replace
 from typing import Any
 
-from scripts.benchmark.contract import WORKLOADS_PATH, PerformanceContract, load_yaml_mapping
+from scripts.benchmark.contract import PerformanceContract
 from scripts.benchmark.evaluate import evaluate
 from scripts.benchmark.runner import RunOptions, RunnerError, run_workload
 
 _SUPPORTED_SIGNALS = {"time_to_first_chunk_drift"}
 
 
-def _criterion() -> dict[str, Any]:
-    criterion = load_yaml_mapping(WORKLOADS_PATH).get("capacity_criterion") or {}
+def _criterion(contract: PerformanceContract) -> dict[str, Any]:
+    criterion = contract.capacity_criterion
     signal = str(criterion.get("signal", ""))
     if signal not in _SUPPORTED_SIGNALS:
         raise RunnerError(
@@ -90,8 +90,11 @@ def run_sweep(
     *,
     on_point=None,
     refine_steps: int = 2,
-) -> dict[str, Any]:
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     """선언된 지점을 낮은 쪽부터 훑고, 경계 구간을 좁힌다.
+
+    용량 요약과 지점별 결과 문서를 따로 돌려준다. 한 문서에 섞으면 지점마다
+    schema가 요구하는 것이 달라진다.
 
     포화된 뒤에도 계속 올린다. 더 높은 부하에서 무슨 일이 생기는지가 용량만큼
     중요하고, 중간에 멈추면 그 구간이 결과에 남지 않는다.
@@ -103,7 +106,7 @@ def run_sweep(
     붙어 0.10 rps의 p50(0.88s)이 0.15 rps(0.66s)보다 오히려 나빴다. 경계를
     못 찾으면 기준선을 그 느린 구간에서 재게 된다.
     """
-    criterion = _criterion()
+    criterion = _criterion(contract)
     sweep_id = options.sweep_id or f"{options.workload_id}-sweep-{uuid.uuid4().hex[:8]}"
     points: list[dict[str, Any]] = []
     documents: list[dict[str, Any]] = []
@@ -144,9 +147,18 @@ def run_sweep(
 
     points.sort(key=lambda point: point["request_rate_per_second"])
     sustained = [point for point in points if point["sustained"]]
+    environment = documents[0]["environment"] if documents else {}
     return {
+        "schema_version": 1,
         "sweep_id": sweep_id,
         "workload_id": options.workload_id,
+        # 용량은 구성마다 다르다. 어떤 모델을 어떤 가속기에서 돌린 결과인지 없으면
+        # 이 숫자를 다른 장비에 잘못 적용하게 된다.
+        "environment": {
+            key: environment[key]
+            for key in ("runtime_backend", "model_id", "model_revision", "deployment_target", "gpu")
+            if key in environment
+        },
         "criterion": criterion,
         "points": points,
         # 감당한 지점 중 가장 높은 것. 하나도 없으면 가장 낮은 지점조차 넘어선 것이다.
@@ -157,5 +169,4 @@ def run_sweep(
             (contract.workload(options.workload_id).get("traffic") or {})
             .get("request_rate_per_second", 0)
         ),
-        "documents": documents,
-    }
+    }, documents

@@ -110,18 +110,19 @@ def _run_sweep(contract, options: RunOptions, directory, base: str) -> int:
               f"{'감당' if point['sustained'] else '대기 쌓임'}")
 
     try:
-        outcome = run_sweep(contract, options, on_point=report)
+        outcome, documents = run_sweep(contract, options, on_point=report)
     except (RunnerError, KeyError) as exc:
         print(f"[perf] sweep을 중단했습니다: {exc}", file=sys.stderr)
         return 2
 
     paths = []
-    for document in outcome["documents"]:
-        try:
+    try:
+        for document in documents:
             paths.append(result.write(document, directory=directory))
-        except result.ResultValidationError as exc:
-            print(f"[perf] {exc}", file=sys.stderr)
-            return 3
+        summary_path = result.write_sweep(outcome, directory=directory)
+    except result.ResultValidationError as exc:
+        print(f"[perf] {exc}", file=sys.stderr)
+        return 3
 
     sustained = outcome["sustained_rate_per_second"]
     declared = outcome["declared_rate_per_second"]
@@ -133,7 +134,7 @@ def _run_sweep(contract, options: RunOptions, directory, base: str) -> int:
             # 선언한 부하가 용량 밖이면 그 부하에서 잰 지연은 큐 길이다.
             print(f"[perf] 선언한 부하가 용량 밖입니다. {declared:g} rps에서 잰 지연은 "
                   "모델이 아니라 대기열을 재는 값입니다.")
-    print(f"[perf] 결과 {len(paths)}건: {paths[0].parent}")
+    print(f"[perf] 지점별 결과 {len(paths)}건, 용량 요약: {summary_path.name}")
     return 0
 
 

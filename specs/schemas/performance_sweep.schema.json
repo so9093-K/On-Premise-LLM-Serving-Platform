@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ai-model-serving.local/schemas/performance_sweep.schema.json",
+  "title": "Performance capacity sweep result",
+  "description": "요청률 sweep이 찾은 용량이다. SLO의 measured 기준선이 '어느 부하에서 잰 값'인지 가리키는 근거이며, 그 부하를 고른 이유가 여기 남는다. 지점별 원시 샘플은 performance_run 문서가 따로 갖는다.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "sweep_id", "workload_id", "environment", "criterion", "points", "sustained_rate_per_second", "declared_rate_per_second"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "sweep_id": {"type": "string", "minLength": 1},
+    "workload_id": {"type": "string", "minLength": 1},
+    "environment": {
+      "type": "object",
+      "description": "용량은 구성마다 다르다. 어떤 모델을 어떤 가속기에서 돌린 결과인지 없으면 이 숫자를 다른 장비에 잘못 적용하게 된다.",
+      "additionalProperties": true,
+      "required": ["runtime_backend", "model_id", "deployment_target"],
+      "properties": {
+        "runtime_backend": {"type": "string"},
+        "model_id": {"type": "string"},
+        "deployment_target": {"type": "string"}
+      }
+    },
+    "criterion": {
+      "type": "object",
+      "description": "판정에 쓴 규칙. 규칙이 바뀌면 과거 용량 숫자와 직접 비교하지 않는다.",
+      "additionalProperties": true
+    },
+    "points": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["request_rate_per_second", "requests", "success_ratio", "sustained", "run_id"],
+        "properties": {
+          "request_rate_per_second": {"type": "number", "minimum": 0},
+          "requests": {"type": "integer", "minimum": 0},
+          "success_ratio": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
+          "time_to_first_chunk_drift": {
+            "type": ["number", "null"],
+            "minimum": 0,
+            "description": "측정 구간 뒤쪽 절반의 첫 응답 중앙값이 앞쪽의 몇 배인가. 성공률만으로는 포화를 알 수 없다 -- 실측에서 0.1부터 1.0 rps까지 전부 100% 성공했다."
+          },
+          "sustained": {"type": "boolean"},
+          "run_id": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "sustained_rate_per_second": {
+      "type": ["number", "null"],
+      "minimum": 0,
+      "description": "대기가 쌓이지 않은 가장 높은 요청률. null이면 가장 낮은 지점조차 넘어선 것이다."
+    },
+    "declared_rate_per_second": {
+      "type": "number",
+      "minimum": 0,
+      "description": "workload가 재려고 선언한 부하. sustained보다 크면 그 부하에서 잰 지연은 대기열 길이다."
+    }
+  }
+}

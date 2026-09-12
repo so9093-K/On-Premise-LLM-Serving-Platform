@@ -10,7 +10,7 @@ import pytest
 
 from scripts.benchmark.contract import load_contract, load_yaml_mapping, WORKLOADS_PATH
 from scripts.benchmark.runner import RunnerError
-from scripts.benchmark.sweep import _point_summary, drift_ratio, rate_points
+from scripts.benchmark.sweep import _criterion, _point_summary, drift_ratio, rate_points
 
 
 def _samples(values: list[float]) -> list[dict]:
@@ -90,3 +90,20 @@ def test_a_workload_without_a_declared_sweep_is_refused():
     contract.workloads["interactive"] = {"traffic": {"mode": "open_loop"}}
     with pytest.raises(RunnerError, match="request_rate_sweep"):
         rate_points(contract, "interactive")
+
+
+def test_the_capacity_criterion_comes_from_the_contract_object():
+    """sweep이 workloads.yaml을 따로 열면 계약 객체와 파일이 갈라진다."""
+    contract = load_contract()
+    assert _criterion(contract) == contract.capacity_criterion
+    assert contract.capacity_criterion["signal"] == "time_to_first_chunk_drift"
+
+
+def test_an_unimplemented_capacity_signal_is_refused():
+    """계약이 다른 신호를 선언했는데 이 구현으로 판정하면 다른 답이 나온다."""
+    from dataclasses import replace as dataclass_replace
+
+    contract = load_contract()
+    drifted = dataclass_replace(contract, capacity_criterion={"signal": "queue_depth"})
+    with pytest.raises(RunnerError, match="time_to_first_chunk_drift"):
+        _criterion(drifted)

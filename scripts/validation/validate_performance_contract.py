@@ -28,6 +28,7 @@ from scripts.benchmark.contract import (  # noqa: E402
     METRICS_PATH,
     RESULT_SCHEMA_PATH,
     SLO_PATH,
+    SWEEP_SCHEMA_PATH,
     WORKLOADS_PATH,
 )
 MODEL_SERVING_PATH = ROOT / "configs" / "model_serving.yaml"
@@ -429,6 +430,15 @@ def _validate_slo(failures: list[str], metrics: dict[str, Any], workloads: dict[
                 )
             # 임계값이 채워질 때는 출처를 함께 적어야 한다. 출처 없는 숫자는
             # baseline에서 유도된 값과 구분할 수 없다.
+            # 측정으로 그은 선은 정의상 어떤 구성에서 나온 것이다. 단일 threshold로
+            # 적으면 그 구성이 어디에도 남지 않고 모든 실행에 적용된다. 실제로
+            # 부하 의존 지표에 이 형태를 쓰면 부하 명시 요구를 그대로 우회했다.
+            if str(objective.get("source", "")) == "regression_guard" and "threshold" in objective:
+                failures.append(
+                    f"slo class {name!r} objective {metric_name!r} is a regression_guard with a "
+                    "single threshold; 측정으로 그은 선은 thresholds_by_configuration으로 "
+                    "어떤 구성에서 잰 것인지 함께 적는다"
+                )
             _validate_configuration_thresholds(failures, name, metric_name, objective, metrics)
             has_threshold = any(
                 key not in ("percentiles", "aggregate", "source") for key in objective
@@ -508,6 +518,17 @@ def _validate_result_schema(failures: list[str]) -> None:
         failures.append(f"cannot read {RESULT_SCHEMA_PATH.name}: {exc}")
         return
     Draft202012Validator.check_schema(schema)
+    # 용량 요약도 계약의 일부다. 이 문서가 SLO 기준선이 "어느 부하에서 잰 값"인지
+    # 가리키는 근거이므로, 구성과 판정 규칙이 required에서 빠지면 근거가 사라진다.
+    try:
+        sweep_schema = json.loads(SWEEP_SCHEMA_PATH.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        failures.append(f"cannot read {SWEEP_SCHEMA_PATH.name}: {exc}")
+    else:
+        Draft202012Validator.check_schema(sweep_schema)
+        for field in ("environment", "criterion", "sustained_rate_per_second"):
+            if field not in sweep_schema.get("required", []):
+                failures.append(f"performance_sweep schema must require {field!r}")
     if "environment" not in schema.get("required", []):
         failures.append("performance_run schema must require the environment fingerprint")
         return

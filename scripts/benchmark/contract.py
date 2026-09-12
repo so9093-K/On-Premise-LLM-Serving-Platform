@@ -24,6 +24,7 @@ METRICS_PATH = PERFORMANCE_DIR / "metrics.yaml"
 WORKLOADS_PATH = PERFORMANCE_DIR / "workloads.yaml"
 SLO_PATH = PERFORMANCE_DIR / "slo.yaml"
 RESULT_SCHEMA_PATH = ROOT / "specs" / "schemas" / "performance_run.schema.json"
+SWEEP_SCHEMA_PATH = ROOT / "specs" / "schemas" / "performance_sweep.schema.json"
 
 
 @dataclass(frozen=True)
@@ -35,6 +36,8 @@ class PerformanceContract:
     # 판정에 쓰는 통계 방법. 소비자가 slo.yaml을 다시 열면 계약 객체와 파일이
     # 갈라질 수 있다. Epic 7이 과거 계약을 고정해 비교할 때 그 차이가 드러난다.
     statistics: dict[str, Any] = field(default_factory=dict)
+    # 용량 판정 규칙. sweep이 workloads.yaml을 따로 열면 계약 객체와 파일이 갈라진다.
+    capacity_criterion: dict[str, Any] = field(default_factory=dict)
 
     def workload(self, workload_id: str) -> dict[str, Any]:
         try:
@@ -60,4 +63,5 @@ def load_contract() -> PerformanceContract:
         workloads=workloads.get("workloads") or {},
         slo_classes=slo.get("slo_classes") or {},
         statistics=slo.get("statistics") or {},
+        capacity_criterion=workloads.get("capacity_criterion") or {},
     )

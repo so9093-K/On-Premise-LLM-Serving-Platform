@@ -11,7 +11,7 @@ from typing import Any
 
 from jsonschema import Draft202012Validator
 
-from scripts.benchmark.contract import RESULT_SCHEMA_PATH, ROOT
+from scripts.benchmark.contract import RESULT_SCHEMA_PATH, ROOT, SWEEP_SCHEMA_PATH
 
 REPORTS_DIR = ROOT / "reports" / "performance"
 
@@ -20,14 +20,14 @@ class ResultValidationError(RuntimeError):
     pass
 
 
-def _validator() -> Draft202012Validator:
-    schema = json.loads(RESULT_SCHEMA_PATH.read_text(encoding="utf-8"))
+def _validator(schema_path: Path) -> Draft202012Validator:
+    schema = json.loads(schema_path.read_text(encoding="utf-8"))
     Draft202012Validator.check_schema(schema)
     return Draft202012Validator(schema)
 
 
-def validate(document: dict[str, Any]) -> None:
-    errors = sorted(_validator().iter_errors(document), key=lambda error: list(error.absolute_path))
+def validate(document: dict[str, Any], schema_path: Path = RESULT_SCHEMA_PATH) -> None:
+    errors = sorted(_validator(schema_path).iter_errors(document), key=lambda error: list(error.absolute_path))
     if not errors:
         return
     lines = [f"{'/'.join(str(part) for part in error.absolute_path) or '<root>'}: {error.message}" for error in errors]
@@ -36,8 +36,22 @@ def validate(document: dict[str, Any]) -> None:
 
 def write(document: dict[str, Any], *, directory: Path | None = None) -> Path:
     validate(document)
+    return _write(document, f"{document['run']['id']}.json", directory)
+
+
+def write_sweep(document: dict[str, Any], *, directory: Path | None = None) -> Path:
+    """용량 결과도 검증 없이 쓰지 않는다.
+
+    7분을 들여 얻은 숫자가 화면에만 나오고 사라지면, SLO의 기준선이 "어느 부하에서
+    잰 값"인지 가리킬 근거가 산문 말고는 남지 않는다.
+    """
+    validate(document, SWEEP_SCHEMA_PATH)
+    return _write(document, f"{document['sweep_id']}.sweep.json", directory)
+
+
+def _write(document: dict[str, Any], name: str, directory: Path | None) -> Path:
     target_dir = directory or REPORTS_DIR
     target_dir.mkdir(parents=True, exist_ok=True)
-    path = target_dir / f"{document['run']['id']}.json"
+    path = target_dir / name
     path.write_text(json.dumps(document, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     return path
