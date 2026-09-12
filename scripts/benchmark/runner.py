@@ -263,6 +263,8 @@ def run_workload(contract: PerformanceContract, options: RunOptions) -> dict[str
         wall_seconds=wall_seconds,
         dispatch_lag=dispatch_lag,
         dispatch_window=dispatch_window,
+        input_tokens=input_tokens,
+        concurrency=concurrency,
     )
 
 
@@ -481,6 +483,8 @@ def _result_document(
     wall_seconds: float,
     dispatch_lag: float,
     dispatch_window: float,
+    input_tokens: int,
+    concurrency: int,
 ) -> dict[str, Any]:
     traffic = workload.get("traffic") or {}
     traffic_document: dict[str, Any] = {"mode": str(traffic.get("mode"))}
@@ -489,8 +493,10 @@ def _result_document(
     rate = options.request_rate_per_second or traffic.get("request_rate_per_second")
     if rate is not None:
         traffic_document["request_rate_per_second"] = float(rate)
-    if options.concurrency:
-        traffic_document["concurrency"] = int(options.concurrency)
+    # 실제로 유지한 동시성을 남긴다. sweep 지점을 고르지 않은 closed loop 실행은
+    # 선언된 목록의 첫 값을 쓰는데, 기록하지 않으면 어느 지점의 결과인지 알 수 없다.
+    if concurrency:
+        traffic_document["concurrency"] = int(concurrency)
     admission = (traffic.get("admission_limit") or {}).get("max_concurrency")
     if admission:
         traffic_document["admission_limit"] = int(admission)
@@ -501,10 +507,10 @@ def _result_document(
         "cache_policy": str(cache.get("policy")),
         "traffic": traffic_document,
     }
-    # length sweep은 지점마다 입력 길이가 다르다. 실제로 보낸 값을 남겨야 어느
-    # 지점의 결과인지 되짚을 수 있다.
-    if options.input_tokens:
-        workload_document["input_tokens"] = int(options.input_tokens)
+    # 실제로 보낸 길이를 항상 남긴다. sweep 지점을 고르지 않은 long_context 실행은
+    # 선언된 목록의 가장 짧은 값(8,192)을 보내는데, 기록하지 않으면 24,576 실행과
+    # 구별되지 않는다.
+    workload_document["input_tokens"] = int(input_tokens)
     if "shared_prefix_ratio" in cache:
         workload_document["shared_prefix_ratio"] = float(cache["shared_prefix_ratio"])
 

@@ -10,7 +10,7 @@ import pytest
 
 from scripts.benchmark.contract import load_contract, load_yaml_mapping, WORKLOADS_PATH
 from scripts.benchmark.runner import RunnerError
-from scripts.benchmark.sweep import _criterion, _point_summary, drift_ratio, rate_points, sweep_axis
+from scripts.benchmark.sweep import _criterion, _point_summary, drift_ratio, sweep_axis
 
 
 def _samples(values: list[float]) -> list[dict]:
@@ -81,18 +81,18 @@ def test_the_sweep_points_come_from_the_contract():
     """훑을 지점을 코드가 정하면 계약을 읽어도 무엇을 쟀는지 알 수 없다."""
     contract = load_contract()
     declared = load_yaml_mapping(WORKLOADS_PATH)["workloads"]["interactive"]["traffic"]
-    assert rate_points(contract, "interactive") == sorted(
-        float(rate) for rate in declared["request_rate_sweep"]
-    )
+    axis, points = sweep_axis(contract, "interactive")
+    assert axis == "request_rate_per_second"
+    assert points == sorted(float(rate) for rate in declared["request_rate_sweep"])
     # 선언한 부하가 sweep 안에 있어야 그것이 용량 안인지 밖인지 알 수 있다.
-    assert float(declared["request_rate_per_second"]) in rate_points(contract, "interactive")
+    assert float(declared["request_rate_per_second"]) in points
 
 
 def test_a_workload_without_a_declared_sweep_is_refused():
     contract = load_contract()
     contract.workloads["interactive"] = {"traffic": {"mode": "open_loop"}}
     with pytest.raises(RunnerError, match="request_rate_sweep"):
-        rate_points(contract, "interactive")
+        sweep_axis(contract, "interactive")
 
 
 def test_the_capacity_criterion_comes_from_the_contract_object():

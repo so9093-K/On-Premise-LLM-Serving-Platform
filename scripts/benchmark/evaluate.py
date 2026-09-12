@@ -160,6 +160,8 @@ MATCHABLE_FIELDS = {
     "deployment_target": ("environment", "deployment_target"),
     "model_id": ("environment", "model_id"),
     "model_revision": ("environment", "model_revision"),
+    # 같은 모델이라도 profile마다 max_model_len 등 실행 설정이 다르다.
+    "runtime_profile": ("environment", "runtime_profile"),
     "gpu_model": ("environment", "gpu", "model"),
     "gpu_memory_kind": ("environment", "gpu", "memory_kind"),
     "request_rate_per_second": ("workload", "traffic", "request_rate_per_second"),

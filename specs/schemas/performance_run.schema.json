@@ -89,7 +89,8 @@
         "model_id",
         "model_revision",
         "platform_image",
-        "runtime_flags"
+        "runtime_flags",
+        "runtime_profile"
       ],
       "properties": {
         "git_commit": {
@@ -191,6 +192,11 @@
               "minimum": 0
             }
           }
+        },
+        "runtime_profile": {
+          "type": "string",
+          "minLength": 1,
+          "description": "실행한 main model profile. 같은 모델이라도 profile마다 max_model_len 등 실행 설정이 달라 결과가 달라진다."
         }
       }
     },

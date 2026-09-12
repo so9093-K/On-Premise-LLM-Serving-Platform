@@ -42,19 +42,19 @@ def _deployment_target() -> tuple[str, dict[str, Any]]:
     return target_id, targets[target_id]
 
 
-def _mlx_profile() -> tuple[dict[str, Any], dict[str, Any]]:
+def _mlx_profile() -> tuple[str, dict[str, Any], dict[str, Any]]:
     document = load_yaml_mapping(_MACOS_RUNTIME)
     profile_id = os.getenv("MAIN_LLM_STATIC_PROFILE", "").strip() or str(document["default_profile"])
-    return document["profiles"][profile_id], document.get("runtime") or {}
+    return profile_id, document["profiles"][profile_id], document.get("runtime") or {}
 
 
-def _vllm_profile() -> tuple[dict[str, Any], dict[str, Any]]:
+def _vllm_profile() -> tuple[str, dict[str, Any], dict[str, Any]]:
     document = load_yaml_mapping(_MAIN_PROFILES)
     profiles = document.get("profiles") or {}
     profile_id = os.getenv("MAIN_LLM_BOOT_PROFILE", "").strip() or str(document.get("default_profile", ""))
     if profile_id not in profiles:
         raise RuntimeError(f"cannot resolve main model profile {profile_id!r}")
-    return profiles[profile_id], {}
+    return profile_id, profiles[profile_id], {}
 
 
 def _sysctl(name: str) -> str:
@@ -110,7 +110,7 @@ def collect() -> dict[str, Any]:
     target_id, target = _deployment_target()
     backend = str(target.get("runtime_backend", ""))
     if backend == "mlx-vlm":
-        profile, runtime = _mlx_profile()
+        profile_id, profile, runtime = _mlx_profile()
         runtime_flags = {
             "max_kv_size": runtime.get("max_kv_size"),
             "max_generation_tokens": runtime.get("max_generation_tokens"),
@@ -120,7 +120,7 @@ def collect() -> dict[str, Any]:
             "turboquant": (runtime.get("turboquant") or {}).get("enabled"),
         }
     else:
-        profile, runtime_flags = _vllm_profile()
+        profile_id, profile, runtime_flags = _vllm_profile()
         runtime_flags = {
             "max_model_len": profile.get("max_model_len"),
             "gpu_memory_utilization": profile.get("gpu_memory_utilization"),
@@ -130,6 +130,10 @@ def collect() -> dict[str, Any]:
         "git_commit": _git_commit(),
         "deployment_target": target_id,
         "runtime_backend": backend,
+        # 같은 모델이라도 profile마다 실행 설정이 다르다. gemma4-26b-a4b-fp8은
+        # max_model_len 20,000이고 gemma4-12b-unified-fp8은 50,000이다. 어느
+        # profile이었는지 없으면 결과를 재현할 수 없다.
+        "runtime_profile": profile_id,
         "model_id": str(profile["model_id"]),
         "model_revision": str(profile["revision"]),
         "platform_image": os.getenv("PLATFORM_IMAGE", "").strip() or "unknown",

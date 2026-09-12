@@ -74,11 +74,20 @@ def sweep_axis(contract: PerformanceContract, workload_id: str) -> tuple[str, li
     return axis, sorted(points)
 
 
-def rate_points(contract: PerformanceContract, workload_id: str) -> list[float]:
-    axis, points = sweep_axis(contract, workload_id)
-    if axis != "request_rate_per_second":
-        raise RunnerError(f"workload {workload_id!r} does not sweep request rate")
-    return points
+def _declared_point(
+    contract: PerformanceContract, workload_id: str, axis: str, points: list[float]
+) -> float:
+    """계약이 재려고 선언한 지점. sweep 결과를 이 값과 비교한다.
+
+    요청률만 traffic에 단일 값으로 선언돼 있다(이 workload가 재려는 부하). 동시성과
+    입력 길이는 sweep 목록이 곧 선언이므로 그 최댓값이 "여기까지 되기를 기대한다"에
+    해당한다. 예전에는 존재하지 않는 키를 찾다 fallback으로 같은 답에 닿았는데,
+    누가 traffic에 concurrency를 적는 순간 조용히 다른 값이 됐을 것이다.
+    """
+    if axis == "request_rate_per_second":
+        traffic = contract.workload(workload_id).get("traffic") or {}
+        return float(traffic["request_rate_per_second"])
+    return float(max(points))
 
 
 def drift_ratio(samples: list[dict[str, Any]]) -> float | None:
@@ -255,10 +264,5 @@ def run_sweep(
         "points": points,
         # 감당한 지점 중 가장 높은 것. 하나도 없으면 가장 낮은 지점조차 넘어선 것이다.
         "sustained_point": (max(point[axis] for point in sustained) if sustained else None),
-        "declared_point": float(
-            (contract.workload(options.workload_id).get("traffic") or {}).get(
-                "request_rate_per_second" if axis == "request_rate_per_second" else "concurrency",
-                max(declared_points),
-            )
-        ),
+        "declared_point": _declared_point(contract, options.workload_id, axis, declared_points),
     }, documents
