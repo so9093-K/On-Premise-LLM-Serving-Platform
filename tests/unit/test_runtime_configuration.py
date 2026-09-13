@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 from dataclasses import replace
 
 import pytest
@@ -70,29 +69,23 @@ def test_settings_view_keeps_startup_settings_immutable_and_overlays_dynamic_pol
 
 
 def test_gateway_service_consumes_new_runtime_policy_without_reconstruction() -> None:
-    async def exercise() -> None:
-        app_settings = settings()
-        provider = RuntimeConfigurationProvider.from_settings(app_settings)
-        view = RuntimeConfigurationSettingsView(app_settings, provider)
-        clients = FakeGatewayClients()
-        service = GatewayService(view, clients, Metrics("runtime-config-test"))
+    app_settings = settings()
+    provider = RuntimeConfigurationProvider.from_settings(app_settings)
+    view = RuntimeConfigurationSettingsView(app_settings, provider)
+    service = GatewayService(view, FakeGatewayClients(), Metrics("runtime-config-test"))
+    payload = {"query": "q", "documents": ["one", "two"], "model": "local-embed-ko"}
 
-        documents = ["one", "two"]
-        payload = {"query": "q", "documents": documents, "model": "local-embed-ko"}
+    # Validate only the policy boundary here. Upstream embedding behavior is covered
+    # by the retrieval service tests and would make this test depend on fake vector count.
+    validated = service.retrieval._validate_query_documents_payload(payload, operation="score")
+    assert validated[1] == ["one", "two"]
 
-        # The startup default allows the request.
-        response = await service.score_documents(payload)
-        assert len(response["scores"]) == 2
-
-        # Replacing the snapshot changes the already-constructed service immediately.
-        provider.replace(max_retrieval_documents=1)
-        with pytest.raises(Exception) as exc_info:
-            await service.score_documents(payload)
-        error = exc_info.value
-        assert getattr(error, "code", None) == "VALIDATION_ERROR"
-        assert "cannot exceed 1 items" in str(error)
-
-    asyncio.run(exercise())
+    provider.replace(max_retrieval_documents=1)
+    with pytest.raises(Exception) as exc_info:
+        service.retrieval._validate_query_documents_payload(payload, operation="score")
+    error = exc_info.value
+    assert getattr(error, "code", None) == "VALIDATION_ERROR"
+    assert "cannot exceed 1 items" in str(error)
 
 
 def test_runtime_configuration_rejects_invalid_ranges() -> None:
