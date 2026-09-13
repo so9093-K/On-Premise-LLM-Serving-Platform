@@ -24,6 +24,7 @@ from ..api_descriptions import (
     models_operation_detail,
 )
 from ..openapi_contracts import install_contract_openapi, narrow_chat_request_schema
+from ..runtime_configuration import RuntimeConfigurationProvider
 from ..security import require_bearer_auth
 from ..settings import AppSettings, RuntimeEndpoint, SecuritySettings, load_settings
 from ..services.gateway_service import GatewayService
@@ -135,7 +136,9 @@ def create_gateway_app(settings: AppSettings | None = None, clients: GatewayClie
         clients.main_model_inflight = MainModelInFlight()
     metrics = Metrics("gateway")
     logger = service_logger("gateway")
-    service = GatewayService(settings, clients, metrics)
+    runtime_configuration = RuntimeConfigurationProvider.from_settings(settings)
+    runtime_settings = runtime_configuration.settings_view(settings)
+    service = GatewayService(runtime_settings, clients, metrics)
     auth = require_bearer_auth(settings.security)
     api_dependencies = [Depends(auth)] if settings.security.api_key_required else []
     admin_dependencies = build_admin_dependencies(settings)
@@ -152,6 +155,10 @@ def create_gateway_app(settings: AppSettings | None = None, clients: GatewayClie
         tags_metadata=gateway_tags_metadata(settings),
         lifespan_resources=(clients,),
     )
+    # Configuration Plane persistence가 붙기 전에도 Gateway 안의 모든 runtime
+    # consumer가 하나의 revision source를 보도록 app scope에 provider를 둔다.
+    # 이후 plan/apply API는 새 provider를 만들지 않고 이 인스턴스에 snapshot을 설치한다.
+    app.state.runtime_configuration = runtime_configuration
 
     install_common_middleware(app, settings=settings, metrics=metrics, logger=logger)
     install_cors_middleware(app, settings=settings)
@@ -193,7 +200,7 @@ def create_gateway_app(settings: AppSettings | None = None, clients: GatewayClie
     register_health(app, service="gateway", spec=_GW_SPECS[("GET", "/health")])
 
     app.include_router(_build_ops_router(admin_dependencies, clients, metrics, settings))
-    app.include_router(_build_configuration_router(admin_dependencies, settings))
+    app.include_router(_build_configuration_router(admin_dependencies, runtime_settings))
     app.include_router(
         _build_inference_router(
             api_dependencies,
