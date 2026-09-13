@@ -26,14 +26,14 @@ def test_configuration_schema_v2_governance_rejects_retrieval_contract_drift(mon
         governance.validate_configuration_schema()
 
 
-def test_configuration_schema_v2_governance_rejects_default_outside_metadata_range(monkeypatch) -> None:
+def test_configuration_schema_v2_governance_rejects_default_below_metadata_minimum(monkeypatch) -> None:
     def read_yaml(path: str):
         document = deepcopy(real_read_yaml(path))
         if path == "configs/model_serving.yaml":
-            document["streaming"]["max_chunks"] = 1_000_001
+            document["streaming"]["max_chunks"] = 0
         return document
 
     monkeypatch.setattr(governance, "read_yaml", read_yaml)
 
-    with pytest.raises(SystemExit, match="streaming.max_chunks repository default exceeds metadata maximum"):
+    with pytest.raises(SystemExit, match="streaming.max_chunks repository default is below metadata minimum"):
         governance.validate_configuration_schema()
