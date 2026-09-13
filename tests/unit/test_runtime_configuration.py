@@ -2,11 +2,14 @@ from __future__ import annotations
 
 import pytest
 
+from ai_model_serving.errors import ServiceError
+from ai_model_serving.metrics import Metrics
 from ai_model_serving.runtime_configuration import (
     RuntimeConfigurationProvider,
     RuntimeConfigurationSnapshot,
 )
-from tests.unit.gateway.helpers import settings
+from ai_model_serving.services.retrieval_service import RetrievalService
+from tests.unit.gateway.helpers import FakeGatewayClients, settings
 
 
 def test_runtime_configuration_starts_from_resolved_settings() -> None:
@@ -52,6 +55,30 @@ def test_runtime_configuration_settings_view_reads_mutable_policy_only() -> None
 
     assert view.max_retrieval_documents == 4
     assert app_settings.max_retrieval_documents != view.max_retrieval_documents
+
+
+def test_retrieval_service_reads_new_snapshot_on_the_next_request() -> None:
+    app_settings = settings()
+    provider = RuntimeConfigurationProvider.from_settings(app_settings)
+    service = RetrievalService(
+        app_settings,
+        FakeGatewayClients(),
+        Metrics("runtime_config_test"),
+        runtime_configuration=provider,
+    )
+    payload = {
+        "model": "local-embed",
+        "query": "q",
+        "documents": ["one", "two"],
+    }
+
+    service._validate_query_documents_payload(payload, operation="score")
+    provider.update(max_retrieval_documents=1)
+
+    with pytest.raises(ServiceError, match="cannot exceed 1 items"):
+        service._validate_query_documents_payload(payload, operation="score")
+
+    assert app_settings.max_retrieval_documents != 1
 
 
 def test_runtime_configuration_rejects_invalid_or_unknown_changes() -> None:
