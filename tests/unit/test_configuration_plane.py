@@ -1,15 +1,24 @@
 from __future__ import annotations
 
 from dataclasses import replace
+from pathlib import Path
 
 import pytest
 
 from ai_model_serving.apps.gateway import create_gateway_app
 from ai_model_serving.configuration import load_yaml_mapping
 from ai_model_serving.configuration_plane import configuration_schema, effective_configuration
+from ai_model_serving.configuration_schema import validate_configuration_schema_document
 from ai_model_serving.settings import SecuritySettings
 from tests.support.asgi import InlineASGITestClient as TestClient
 from tests.unit.gateway.helpers import FakeGatewayClients, settings
+
+
+_ROOT = Path(__file__).resolve().parents[2]
+
+
+def _schema_document() -> dict:
+    return load_yaml_mapping(_ROOT / "configs" / "configuration_schema.yaml")
 
 
 def test_configuration_projection_has_explicit_ownership_and_never_returns_secret_values() -> None:
@@ -17,6 +26,8 @@ def test_configuration_projection_has_explicit_ownership_and_never_returns_secre
     body = effective_configuration(app_settings)
     secret = next(item for item in body["items"] if item["key"] == "security.api_keys")
 
+    assert body["version"] == 2
+    assert configuration_schema()["version"] == 2
     assert {item["key"] for item in configuration_schema()["items"]} == {
         item["key"] for item in body["items"]
     }
@@ -25,6 +36,8 @@ def test_configuration_projection_has_explicit_ownership_and_never_returns_secre
         "effective_value": None,
         "effective_source": "secret",
         "owner": "secret",
+        "control_surface": "secret",
+        "editable": False,
         "sensitive": True,
         "configured": True,
     }
@@ -33,6 +46,28 @@ def test_configuration_projection_has_explicit_ownership_and_never_returns_secre
     assert values["deployment.control_mode"] == "sidecar"
     assert values["deployment.lifecycle_owner"] == "platform"
     assert "runtime_control" in values["deployment.features"]
+    assert values["operational.max_retrieval_documents"] == app_settings.max_retrieval_documents
+    assert values["streaming.max_chunks"] == app_settings.streaming_max_chunks
+
+
+def test_configuration_schema_v2_exposes_form_and_control_metadata_without_projection_ids() -> None:
+    body = configuration_schema()
+    retrieval = next(
+        item for item in body["items"] if item["key"] == "operational.max_retrieval_documents"
+    )
+
+    assert "projection" not in retrieval
+    assert retrieval["label"] == "Max Retrieval Documents"
+    assert retrieval["group"] == "retrieval"
+    assert retrieval["type"] == "integer"
+    assert retrieval["unit"] == "items"
+    assert retrieval["minimum"] == 1
+    assert retrieval["maximum"] == 32
+    assert retrieval["owner"] == "operator"
+    assert retrieval["control_surface"] == "configuration"
+    assert retrieval["editable"] is False
+    assert retrieval["apply_mode"] == "hot_reload"
+    assert retrieval["applicability"] == {"features": ["retrieval"]}
 
 
 def test_configuration_routes_are_admin_protected_and_documented() -> None:
@@ -54,36 +89,60 @@ def test_configuration_routes_are_admin_protected_and_documented() -> None:
     response = client.get("/admin/config/effective", headers={"Authorization": "Bearer admin-key"})
 
     assert response.status_code == 200
+    assert response.json()["version"] == 2
     assert "/admin/config/schema" in app.openapi()["paths"]
     assert "/admin/config/effective" in app.openapi()["paths"]
 
 
-def test_configuration_schema_governance_rejects_unknown_projection(monkeypatch) -> None:
-    from scripts.validation.governance import model_config
+def test_configuration_schema_rejects_unknown_projection() -> None:
+    from ai_model_serving.configuration_plane import CONFIGURATION_PROJECTION_IDS
 
-    from pathlib import Path
-
-    document = load_yaml_mapping(
-        Path(__file__).resolve().parents[2] / "configs" / "configuration_schema.yaml"
-    )
+    document = _schema_document()
     document["items"][0]["projection"] = "security_admin_api_keys"
-    monkeypatch.setattr(model_config, "read_yaml", lambda _: document)
 
-    with pytest.raises(SystemExit, match="projection is not allowlisted"):
-        model_config.validate_configuration_schema()
+    with pytest.raises(ValueError, match="projection is not allowlisted"):
+        validate_configuration_schema_document(
+            document,
+            projection_ids=CONFIGURATION_PROJECTION_IDS,
+        )
 
 
-def test_configuration_schema_governance_rejects_secret_policy_drift(monkeypatch) -> None:
-    from pathlib import Path
+def test_configuration_schema_rejects_secret_policy_drift() -> None:
+    from ai_model_serving.configuration_plane import CONFIGURATION_PROJECTION_IDS
 
-    from scripts.validation.governance import model_config
-
-    document = load_yaml_mapping(
-        Path(__file__).resolve().parents[2] / "configs" / "configuration_schema.yaml"
-    )
+    document = _schema_document()
     secret = next(item for item in document["items"] if item["key"] == "security.api_keys")
     secret["sensitive"] = False
-    monkeypatch.setattr(model_config, "read_yaml", lambda _: document)
 
-    with pytest.raises(SystemExit, match="secret type and sensitive flag must agree"):
-        model_config.validate_configuration_schema()
+    with pytest.raises(ValueError, match="secret type and sensitive flag must agree"):
+        validate_configuration_schema_document(
+            document,
+            projection_ids=CONFIGURATION_PROJECTION_IDS,
+        )
+
+
+def test_configuration_schema_rejects_numeric_constraints_on_non_numeric_type() -> None:
+    from ai_model_serving.configuration_plane import CONFIGURATION_PROJECTION_IDS
+
+    document = _schema_document()
+    document["items"][0]["minimum"] = 1
+
+    with pytest.raises(ValueError, match="numeric constraints require integer or number type"):
+        validate_configuration_schema_document(
+            document,
+            projection_ids=CONFIGURATION_PROJECTION_IDS,
+        )
+
+
+def test_configuration_schema_rejects_editable_non_operator_control() -> None:
+    from ai_model_serving.configuration_plane import CONFIGURATION_PROJECTION_IDS
+
+    document = _schema_document()
+    deployment = document["items"][0]
+    deployment["editable"] = True
+
+    with pytest.raises(ValueError, match="editable values must be operator-owned configuration controls"):
+        validate_configuration_schema_document(
+            document,
+            projection_ids=CONFIGURATION_PROJECTION_IDS,
+        )
