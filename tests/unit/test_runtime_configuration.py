@@ -106,3 +106,21 @@ def test_runtime_configuration_install_never_moves_revision_backwards() -> None:
                 streaming_max_bytes=104_857_600,
             )
         )
+
+
+def test_runtime_configuration_same_revision_cannot_change_values() -> None:
+    provider = RuntimeConfigurationProvider.from_settings(settings())
+    current = provider.snapshot()
+
+    assert provider.install(current) is current
+
+    with pytest.raises(ValueError, match="cannot change without a new revision"):
+        provider.install(
+            RuntimeConfigurationSnapshot(
+                revision=current.revision,
+                max_retrieval_documents=current.max_retrieval_documents + 1,
+                streaming_max_duration_seconds=current.streaming_max_duration_seconds,
+                streaming_max_chunks=current.streaming_max_chunks,
+                streaming_max_bytes=current.streaming_max_bytes,
+            )
+        )
