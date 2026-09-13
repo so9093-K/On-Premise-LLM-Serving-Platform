@@ -361,6 +361,10 @@ def load_settings(root: Path | None = None, env_file: Path | str | None = None) 
         ),
         runtime_endpoints=runtime_endpoints,
         required_runtime_keys=required_runtime_keys,
+        runtime_service_ids={
+            key: binding.service_id
+            for key, binding in runtime_topology.bindings_by_key.items()
+        },
         controllable_runtime_keys=controllable_runtime_keys,
         risk_detectors=risk_detectors,
         aggregate_detector_order=aggregate_detector_order,

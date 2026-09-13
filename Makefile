@@ -13,7 +13,7 @@ AUTH_ENV ?= $(if $(ENV_FILE),$(ENV_FILE),$(ENV))
 AUTH_ENV_ARG = $(if $(AUTH_ENV),--env $(AUTH_ENV),)
 
 
-.PHONY: help help-all setup build rebuild prepare up status down down-all check init-env-local init-env-compose sync-env static-compose-config metal-doctor metal-command metal-start metal-supervisor-install metal-supervisor-uninstall validate test build-image build-vllm-unified-image lock package compose-up compose-config ready-local ready-full smoke runtime-validate perf-smoke perf-sweep perf-run perf-gate perf-promote perf-report auth-status auth-doctor auth-plan auth-apply exposure-status exposure-plan exposure-apply main-model-prepare compose-down compose-restart compose-logs logs compose-diagnostics clean reset reset-version render-runtime-assets
+.PHONY: help help-all setup build rebuild prepare up status down down-all check init-env-local init-env-compose sync-env static-compose-config metal-doctor metal-command metal-start metal-supervisor-install metal-supervisor-uninstall validate test build-image build-vllm-unified-image lock package compose-up compose-config ready-local ready-full smoke runtime-validate perf-smoke perf-sweep perf-run perf-gate perf-promote perf-report auth-status auth-doctor auth-plan auth-apply exposure-status exposure-plan exposure-apply main-model-prepare compose-down compose-restart compose-logs logs compose-diagnostics clean reset reset-version render-runtime-assets fetch-docs-assets
 .PHONY: setup-dev doctor-dev
 
 PUBLIC_TARGETS := setup build prepare up status down
@@ -237,3 +237,6 @@ reset-version: ## NEW_VERSION=<x.y.z> 버전을 선언된 모든 자리에 반�
 
 render-runtime-assets: ## 추적하는 generated artifact 다시 렌더링
 	$(PYTHON) scripts/render_runtime_assets.py --write
+
+fetch-docs-assets: ## /docs·/redoc의 self-host JS 번들을 고정 해시로 내려받기 (네트워크 필요)
+	$(PYTHON) scripts/build/fetch_docs_assets.py

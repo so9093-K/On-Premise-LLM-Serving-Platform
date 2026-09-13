@@ -33,12 +33,6 @@ profiles:
       deployed_input: [text, image]
     # 컨테이너 재생성 시 그대로 적용할 vLLM 실행 인자다.
     command:
-    - --model
-    - RedHatAI/gemma-4-26B-A4B-it-FP8-Dynamic
-    - --revision
-    - 8edbb9269ec9c3faad538ee1208a07eb46051f34
-    - --served-model-name
-    - local-main
     - --host
     - 0.0.0.0
     - --port
@@ -166,12 +160,6 @@ profiles:
       deployed_input: [text, image, audio, video]
     # 컨테이너 재생성 시 그대로 적용할 vLLM 실행 인자다.
     command:
-    - --model
-    - RedHatAI/gemma-4-12B-it-FP8-Dynamic
-    - --revision
-    - 67e53491df7a281623fa740de61307d5c542b7f4
-    - --served-model-name
-    - local-main
     - --host
     - 0.0.0.0
     - --port
@@ -243,12 +231,6 @@ profiles:
       # 각 경로는 동일 immutable image의 직접 vLLM canary를 통과했다.
       deployed_input: [text, image, audio, video]
     command:
-    - --model
-    - google/gemma-4-E4B-it
-    - --revision
-    - ee0ef6023621cff504d758262d4e04895a5af4a2
-    - --served-model-name
-    - local-main
     - --host
     - 0.0.0.0
     - --port
@@ -424,12 +406,6 @@ profiles:
     # chat-template, structured-output 옵션은 넣지 않는다. max_num_seqs=4는 32K context
     # 기준 실측 KV cache 동시성 6.39와 Gateway admission 4를 맞춘 값이다.
     command:
-    - --model
-    - Qwen/Qwen2.5-Omni-7B
-    - --revision
-    - ae9e1690543ffd5c0221dc27f79834d0294cba00
-    - --served-model-name
-    - local-main
     - --host
     - 0.0.0.0
     - --port

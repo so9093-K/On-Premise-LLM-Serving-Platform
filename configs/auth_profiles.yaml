@@ -2,7 +2,7 @@
 # admin_api_key_required: Admin 경로(/ready, /metrics) 별도 키 요구
 # admin_endpoints_internal_only: Admin 접근을 네트워크 경계가 제한한다는 선언 (앱 CIDR 차단 기능은 없음)
 # internal_service_auth_required: Gateway → 내부 서비스 호출에 내부 토큰 요구
-# docs_enabled: /docs, /redoc, /openapi.json 노출
+# docs_enabled: /docs, /redoc, /openapi.json과 이들이 쓰는 self-host asset(/static/*, /favicon.ico) 노출
 # auth_owner: 이 프로필의 인증 책임 주체; auth-status와 internal_trusted 증빙 판단에 사용
 
 profiles:

@@ -122,4 +122,6 @@ Risk detector의 `bitsandbytes` 설정은 운영 기본값이다. 원인 분리�
 
 ## OpenAPI projection 검증
 
-`scripts/validation/openapi_snapshot_diff.py`는 strict auth 기준 runtime OpenAPI와 checked-in static OpenAPI의 path/method/parameter/security/operationId/response status/request·response schema 및 endpoint별 오류 code를 비교한다. 정적 OpenAPI는 `make render-runtime-assets`로 생성하며, 이 검사는 별도 사용자 단계가 아니라 `make validate`의 `generated artifacts` 단계에서 생성 파일 drift 검사와 함께 실행된다.
+`scripts/openai_compatibility.py`는 `specs/schemas/chat_completion_*.schema.json`의 `x-openai-compatibility` 선언에서 `docs/reference/openai_compatibility.md`를 생성한다. 분류가 없는 파라미터가 있으면 문서를 만들지 않고 실패한다 -- 기본값으로 "표준"을 넣으면 새 확장이 OpenAI 표준인 것처럼 실리기 때문이다.
+
+정적 OpenAPI(`specs/openapi.*.yaml`)는 `make render-runtime-assets`로 생성하고, `make validate`의 `generated artifacts` 단계에서 `render_runtime_assets.py --check`가 생성 문서 전체와 구조 비교한다. 계약 스키마 본문은 `specs/schemas/*.json`이 단일 소유자이며 생성 문서에도 그 파일에서 주입되므로 별도 대조 단계를 두지 않는다.

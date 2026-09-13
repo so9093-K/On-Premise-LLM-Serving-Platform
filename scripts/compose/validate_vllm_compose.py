@@ -228,6 +228,13 @@ def validate_gemma4_chat_template() -> list[str]:
     return []
 
 
+def default_main_profile_command() -> list[str]:
+    """default profile의 vLLM 인자를 반환한다 (Compose bootstrap의 정적 대응물)."""
+    document = load_yaml(MAIN_MODEL_PROFILES_PATH)
+    profile = document["profiles"][document["default_profile"]]
+    return [str(item) for item in profile["command"]]
+
+
 def validate_alignment(
     compose_path: Path = COMPOSE_PATH,
     *,
@@ -249,11 +256,13 @@ def validate_alignment(
     services = compose["services"]
     errors: list[str] = []
     total_gpu_util = 0.0
-    boot_service_name = None
+    # Main runtime의 command는 active profile이 소유하고 부팅 때마다 boot override로
+    # 주입된다. 원본 Compose에는 command가 없으므로 override 유무와 무관하게 이
+    # service를 식별해 둔다 -- 없으면 registry 투영과 대조하려다 빈 command에서 죽는다.
+    boot_service_name = load_yaml(MAIN_MODEL_PROFILES_PATH)["runtime"]["compose_service"]
     if boot_override is not None:
         if effective_compose is None:
             raise SystemExit("boot override validation requires effective Compose config")
-        boot_service_name = load_yaml(MAIN_MODEL_PROFILES_PATH)["runtime"]["compose_service"]
         boot_service = boot_override.get("services", {}).get(boot_service_name)
         if not isinstance(boot_service, dict) or not boot_service.get("image") or not boot_service.get("command"):
             raise SystemExit(f"boot override requires {boot_service_name} image and command")
@@ -277,7 +286,13 @@ def validate_alignment(
         if runtime.logical_id is None:
             errors.append(f"{runtime.service_key}: runtime service is not linked to a catalog logical_id")
             continue
-        args = command_args(service.get("command"))
+        # Main runtime의 command는 active profile이 소유한다. effective Compose는
+        # boot override로 그 값을 이미 받았지만 원본 Compose에는 없으므로, 정적
+        # 검증은 default profile의 command를 읽어 같은 예산·한도 규칙을 적용한다.
+        command = service.get("command")
+        if command is None and service_name == boot_service_name:
+            command = default_main_profile_command()
+        args = command_args(command)
         cfg = runtime.config
         revision = cfg.get("revision")
         # Main revision은 main_model_profiles loader가 검증한다. 이 gate는

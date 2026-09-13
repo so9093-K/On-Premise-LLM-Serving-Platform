@@ -251,6 +251,24 @@ if missing_configuration_plane_files:
     missing = ", ".join(sorted(missing_configuration_plane_files))
     raise SystemExit(f"Release ZIP is missing Configuration Plane runtime file(s): {missing}")
 
+# /docs와 /redoc은 저장소에 vendoring 한 JS 번들을 같은 origin으로 서빙한다.
+# CDN 폴백이 없으므로 번들이 빠진 ZIP은 기동은 하지만 문서 화면이 빈 화면이 된다.
+# 위 Configuration Plane 검사와 같은 이유로 여기서 막는다. 기대 경로는
+# ai_model_serving.docs_ui가 소유하므로 파일명을 여기 다시 적지 않는다.
+sys.path.insert(0, "src")
+from ai_model_serving.docs_ui import VENDORED_ASSETS  # noqa: E402
+
+required_docs_assets = {
+    f"src/ai_model_serving/static/{asset.filename}" for asset in VENDORED_ASSETS
+}
+missing_docs_assets = required_docs_assets - file_paths
+if missing_docs_assets:
+    missing = ", ".join(sorted(missing_docs_assets))
+    raise SystemExit(
+        f"Release ZIP is missing self-host documentation bundle(s): {missing}. "
+        "git에 추가되지 않은 파일은 release에 담기지 않는다."
+    )
+
 # LICENSE와 NOTICE는 source release 자체의 일부다. 기존 ZIP 자체검사에서 확인하면
 # 충분하므로 이 불변식만을 위한 별도 validator나 test suite는 두지 않는다.
 required_legal_files = {"LICENSE", "NOTICE"}

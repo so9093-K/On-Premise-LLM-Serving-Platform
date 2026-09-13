@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass
+from pathlib import Path
 
 # Scalar 기본 스타일은 표 안의 `code`에 word-break: break-word를 건다. 본문 컬럼이
 # 1440px 화면에서도 485px밖에 안 되기 때문에(나머지 절반은 요청/응답 예시 칸이고,
@@ -28,6 +30,66 @@ DOCS_CUSTOM_CSS = (
     "}"
 )
 
+# 문서 화면의 JS 번들은 저장소에 vendoring 한다. 온프레미스 배포는 외부 egress가
+# 없어도 /docs와 /redoc이 떠야 하고, CDN 참조는 air-gap 망에서 빈 화면이 된다.
+# 버전과 SRI 해시는 이 표가 단독으로 소유하며, scripts/build/fetch_docs_assets.py가
+# 같은 값으로 내려받아 검증한다. 브라우저는 same-origin 응답에도 integrity를 그대로
+# 검증하므로 vendoring 파일이 손상되면 실행하지 않는다.
+_STATIC_DIR = Path(__file__).resolve().parent / "static"
+
+
+@dataclass(frozen=True)
+class VendoredAsset:
+    """문서 화면이 쓰는 self-host JS 번들 하나."""
+
+    filename: str
+    source_url: str
+    integrity: str
+
+    @property
+    def route(self) -> str:
+        return f"/static/{self.filename}"
+
+    @property
+    def path(self) -> Path:
+        return _STATIC_DIR / self.filename
+
+
+SCALAR_BUNDLE = VendoredAsset(
+    filename="scalar-api-reference-1.60.0.js",
+    source_url="https://cdn.jsdelivr.net/npm/@scalar/api-reference@1.60.0",
+    integrity="sha384-4BdmZQQTc462+ocGPo+GP3Hi/eQjMQTmNkSU9J5w3FD6hGUEmU2PqNRnbklONt4R",
+)
+# FastAPI 기본 /redoc은 `redoc@2`라는 가변 태그를 SRI 없이 부른다. 다른 모든 외부
+# 아티팩트를 digest로 고정하는 이 저장소 기준에 어긋나므로, 태그가 가리키던 실제
+# 버전(2.5.4)으로 고정해 같이 vendoring 한다.
+REDOC_BUNDLE = VendoredAsset(
+    filename="redoc-standalone-2.5.4.js",
+    source_url="https://cdn.jsdelivr.net/npm/redoc@2.5.4/bundles/redoc.standalone.js",
+    integrity="sha384-w447zOpYfw/1Tv/5AK9NfHTlQIqE3RVR6KY62jCyy9zNDgO64cMwGGP1Fj0zJVf5",
+)
+VENDORED_ASSETS = (SCALAR_BUNDLE, REDOC_BUNDLE)
+
+# 브라우저는 HTML 문서를 열 때마다 /favicon.ico를 요청한다. 라우트가 없으면
+# /docs와 /redoc을 열 때마다 운영 로그에 404가 쌓인다. 외부 URL을 가리킬 수는
+# 없으므로(air-gap) 작은 SVG를 인라인으로 들고 직접 서빙한다.
+FAVICON_ROUTE = "/favicon.ico"
+FAVICON_MEDIA_TYPE = "image/svg+xml"
+FAVICON_SVG = (
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">'
+    '<rect width="32" height="32" rx="7" fill="#1f2933"/>'
+    '<circle cx="16" cy="16" r="4.5" fill="#7dd3fc"/>'
+    '<circle cx="7" cy="9" r="2.5" fill="#94a3b8"/>'
+    '<circle cx="7" cy="23" r="2.5" fill="#94a3b8"/>'
+    '<circle cx="25" cy="16" r="2.5" fill="#94a3b8"/>'
+    '<g stroke="#94a3b8" stroke-width="1.6">'
+    '<line x1="9.2" y1="10.2" x2="13" y2="13.6"/>'
+    '<line x1="9.2" y1="21.8" x2="13" y2="18.4"/>'
+    '<line x1="20.5" y1="16" x2="22.5" y2="16"/>'
+    "</g></svg>"
+).encode("utf-8")
+
+
 SCALAR_CONFIG = json.dumps({
     "theme": "default",
     "customCss": DOCS_CUSTOM_CSS,
@@ -35,11 +97,12 @@ SCALAR_CONFIG = json.dumps({
 })
 
 
-def scalar_html(openapi_url: str, title: str) -> str:
+def scalar_html(openapi_url: str, title: str, *, bundle_url: str | None = None) -> str:
     """공통 Scalar API reference shell을 렌더링한다.
 
     Gateway와 Risk Adapter는 의도적으로 별도 OpenAPI 문서를 노출하지만, 주변 documentation UI는 동일하게 유지한다. 이 helper를 한 곳에 두면 docs UX 변경 시 styling/client drift를 줄일 수 있다.
     """
+    bundle_url = bundle_url or SCALAR_BUNDLE.route
     return f"""<!doctype html>
 <html>
   <head>
@@ -96,9 +159,8 @@ def scalar_html(openapi_url: str, title: str) -> str:
       data-configuration='{SCALAR_CONFIG}'
     ></script>
     <script
-      src="https://cdn.jsdelivr.net/npm/@scalar/api-reference@1.60.0"
-      integrity="sha384-4BdmZQQTc462+ocGPo+GP3Hi/eQjMQTmNkSU9J5w3FD6hGUEmU2PqNRnbklONt4R"
-      crossorigin="anonymous"
+      src="{bundle_url}"
+      integrity="{SCALAR_BUNDLE.integrity}"
     ></script>
   </body>
 </html>"""

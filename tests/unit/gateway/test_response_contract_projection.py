@@ -11,6 +11,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from jsonschema import Draft202012Validator
+
 from ai_model_serving.contracts.chat_response import (
     project_stream_chunk,
     project_to_public_contract,
@@ -47,14 +49,12 @@ def test_runtime_internals_do_not_reach_the_client():
 
 
 def test_the_allowed_keys_come_from_the_schema_not_from_a_list_in_code():
-    """코드에 목록을 다시 적으면 schema와 갈라지고, 갈라진 쪽이 실제 동작이 된다."""
-    projected = project_to_public_contract(_runtime_response())
-    assert set(projected) <= set(SCHEMA["properties"])
-    choice_schema = SCHEMA["properties"]["choices"]["items"]
-    assert set(projected["choices"][0]) <= set(choice_schema["properties"])
-    assert set(projected["choices"][0]["message"]) <= set(
-        choice_schema["properties"]["message"]["properties"]
-    )
+    """코드에 목록을 다시 적으면 schema와 갈라지고, 갈라진 쪽이 실제 동작이 된다.
+
+    schema가 세 레벨 모두 additionalProperties=false를 선언하므로, 좁히기가 놓친
+    키는 여기서 schema 위반으로 잡힌다 -- 허용 키 목록을 테스트에 옮겨 적지 않는다.
+    """
+    Draft202012Validator(SCHEMA).validate(project_to_public_contract(_runtime_response()))
 
 
 def test_declared_extensions_survive():

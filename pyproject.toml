@@ -58,3 +58,8 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+# Scalar 문서 번들은 패키지에 같이 실려야 한다. 빠지면 설치된 이미지에서
+# /docs의 스크립트가 404가 되고, 외부 CDN도 쓰지 않으므로 문서가 통째로 안 뜬다.
+[tool.setuptools.package-data]
+ai_model_serving = ["static/*.js"]

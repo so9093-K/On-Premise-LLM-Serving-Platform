@@ -202,12 +202,25 @@ def _validate_chat_request_contract_samples(chat_validator: Draft202012Validator
     from ai_model_serving.errors import ServiceError
 
     corpus = read_json('specs/chat_request_contract_samples.json')
-    expected_model = corpus['expected_model']
+    # 공개 모델 이름은 프로필 catalog가 소유한다. corpus가 이름을 들고 있으면
+    # public_model이 바뀔 때 모든 샘플이 거부되고, 그러면 아래 단언이 한 번도
+    # 성립하지 않아 검사 자체가 조용히 무의미해진다.
+    expected_model = str(read_yaml('configs/main_model_profiles.yaml')['public_model'])
+    # 공개 스키마도 model 이름을 const로 못박는다. 둘이 어긋나면 아래 샘플이 전부
+    # 거부되는데, 그 실패 메시지는 "stream 샘플이 거부됐다"고만 말해서 원인을
+    # 짚지 못한다. 실제로 public_model만 바꿔 보고 확인했다 -- 여기서 먼저 잡는다.
+    declared_model = chat_validator.schema['properties']['model'].get('const')
+    if declared_model != expected_model:
+        raise SystemExit(
+            'specs/schemas/chat_completion_request.schema.json의 model const '
+            f'{declared_model!r}가 configs/main_model_profiles.yaml의 public_model '
+            f'{expected_model!r}와 다르다'
+        )
     policies = _chat_request_profile_policies()
 
     for sample in corpus['samples']:
         name = sample['name']
-        payload = sample['payload']
+        payload = {'model': expected_model, **sample['payload']}
         expects_accept = sample['expect'] == 'accept'
 
         schema_accepts = not list(chat_validator.iter_errors(payload))

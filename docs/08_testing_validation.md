@@ -638,7 +638,6 @@ make compose-logs
 | Contract validator | `scripts/validation/validate_contracts.py` | 공통 API·model·resource contract |
 | Environment contract | `scripts/validation/validate_env_contract.py` | env template 정합성 |
 | Exposure validator | `scripts/validation/validate_exposure_profiles.py` | service exposure 구조 |
-| OpenAPI projection check | `scripts/validation/openapi_snapshot_diff.py` | runtime OpenAPI와 축약된 정적 spec의 의미 보존 확인 |
 | Generated artifact renderer | `scripts/render_runtime_assets.py` | generated artifact 생성·drift 확인 |
 | Test entry point | `scripts/validation/run_test.sh` | Unit / Contract pytest |
 | Test source | `tests/unit/`, `tests/contract/` | 동작 / contract test |

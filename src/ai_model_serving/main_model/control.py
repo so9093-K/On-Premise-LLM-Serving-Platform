@@ -41,6 +41,8 @@ _COMPATIBILITY = frozenset({"verified", "likely", "unverified", "incompatible", 
 # 값들로만 구성돼야 한다 -- 그래야 "선언한 modality는 반드시 canary된다"는 원칙이 오타나
 # 미지원 값(예: "imgae") 앞에서도 깨지지 않는다.
 _ALLOWED_MODALITIES = frozenset({"text", "image", "audio", "video"})
+# 프로필 command가 직접 적어서는 안 되는 신원 flag. 선언 필드가 소유한다.
+_IDENTITY_FLAGS = ("--model", "--revision", "--served-model-name")
 # capabilities에 이 키만 허용한다. audio_enabled/video_enabled는 deployed_input과 중복되는
 # legacy 정보라 제거됐다 -- 다시 들어오면 두 소스가 어긋날 수 있으므로 설정 오류로 막는다.
 _ALLOWED_CAPABILITY_KEYS = frozenset({"deployed_input"})
@@ -276,15 +278,27 @@ def load_main_model_catalog(
         command = item.get("command")
         if not isinstance(command, list) or not command or not all(isinstance(v, str) for v in command):
             raise MainModelConfigurationError(f"profile {profile_id} command must be a string list")
-        if command.count("--model") != 1 or command.count("--served-model-name") != 1:
-            raise MainModelConfigurationError(f"profile {profile_id} command has invalid model identity")
         model_id = str(item.get("model_id", ""))
-        if command[command.index("--model") + 1] != model_id:
-            raise MainModelConfigurationError(f"profile {profile_id} command model does not match")
-        if command[command.index("--served-model-name") + 1] != public_model:
-            raise MainModelConfigurationError(f"profile {profile_id} command alias does not match")
-        if "--revision" not in command or command[command.index("--revision") + 1] != revision:
-            raise MainModelConfigurationError(f"profile {profile_id} command must use its pinned revision")
+        if not model_id:
+            raise MainModelConfigurationError(f"profile {profile_id} must declare model_id")
+        # 모델 신원은 model_id/revision/served_model_name이 소유한다. command는
+        # tuning flag만 들고, 실제 argv는 여기서 한 번 조립한다. 같은 값을 YAML에
+        # 두 번 적고 대조하던 구조를 없애 둘이 어긋날 여지 자체를 지운다.
+        repeated = [flag for flag in _IDENTITY_FLAGS if flag in command]
+        if repeated:
+            raise MainModelConfigurationError(
+                f"profile {profile_id} command must not repeat {repeated}; "
+                "model identity comes from model_id/revision/served_model_name"
+            )
+        command = [
+            "--model",
+            model_id,
+            "--revision",
+            revision,
+            "--served-model-name",
+            public_model,
+            *command,
+        ]
         # 호스트별 gpu-memory-utilization 오버라이드가 있으면 적용하여
         # 런타임 커맨드와 파싱된 vram_fraction이 항상 서로 일치하도록 한다.
         command = _apply_util_override(command, gpu_memory_utilization_override)

@@ -1,4 +1,4 @@
-"""VLLMClient/CircuitBreaker(upstream vLLM 호출 계층)를 검증한다: HTTP 상태를
+"""RuntimeClient/CircuitBreaker(upstream vLLM 호출 계층)를 검증한다: HTTP 상태를
 플랫폼 에러 코드로 매핑, circuit breaker의 open/retry-after, admission
 큐가 가득 찼을 때의 QUEUE_TIMEOUT, readiness probe가 circuit breaker를
 우회하는지."""
@@ -12,7 +12,7 @@ from ai_model_serving.settings import RuntimeEndpoint
 from ai_model_serving.upstream import (
     QUEUE_TIMEOUT_RETRY_AFTER_SECONDS,
     CircuitBreaker,
-    VLLMClient,
+    RuntimeClient,
     _counts_as_upstream_failure,
     _http_status_to_service_error,
 )
@@ -87,7 +87,7 @@ def test_upstream_platform_error_payload_is_preserved_for_gateway_risk_forwardin
 
 
 def test_upstream_client_supports_root_relative_paths_for_vllm_non_v1_endpoints() -> None:
-    client = VLLMClient(endpoint())
+    client = RuntimeClient(endpoint())
     assert client._url("score") == "http://runtime/v1/score"
     assert client._url("/pooling") == "http://runtime/pooling"
 
@@ -109,7 +109,7 @@ def test_circuit_open_error_carries_retry_after_close_to_remaining_cooldown() ->
 
 def test_queue_timeout_error_carries_fixed_retry_after_hint() -> None:
     ep = RuntimeEndpoint("local-main", "http://runtime/v1", "local-main", 1, max_concurrency=1, queue_timeout_seconds=0.01)
-    client = VLLMClient(ep)
+    client = RuntimeClient(ep)
 
     import anyio
 
@@ -134,7 +134,7 @@ def test_service_error_without_retry_after_omits_header() -> None:
 
 
 def test_readiness_probe_bypasses_open_circuit_breaker() -> None:
-    client = VLLMClient(endpoint())
+    client = RuntimeClient(endpoint())
     client._circuit_breaker.record_failure()
     client._circuit_breaker.record_failure()
     client._circuit_breaker.record_failure()

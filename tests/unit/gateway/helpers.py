@@ -56,7 +56,7 @@ _MODEL_SERVING = yaml.safe_load((_ROOT / "configs/model_serving.yaml").read_text
 
 
 class FakeUpstreamStream:
-    """VLLMClient.open_stream이 돌려주는 handle의 테스트 대역.
+    """RuntimeClient.open_stream이 돌려주는 handle의 테스트 대역.
 
     admission은 이미 통과한 상태를 나타내므로 queue_wait_seconds는 0이다.
     """
@@ -226,6 +226,14 @@ _PRODUCTION_EMBEDDING_POLICY = _MODEL_SERVING["models"]["embedding"]["request_pa
 _PRODUCTION_EMBEDDING_KO_POLICY = _MODEL_SERVING["models"]["embedding_ko"]["request_parameter_policy"]
 
 
+def _runtime_service_ids() -> dict[str, str]:
+    from ai_model_serving.project_paths import resolve_project_root
+    from ai_model_serving.runtime_topology import load_runtime_topology
+
+    topology = load_runtime_topology(resolve_project_root())
+    return {key: binding.service_id for key, binding in topology.bindings_by_key.items()}
+
+
 def settings() -> AppSettings:
     endpoint = RuntimeEndpoint("x", "http://runtime/v1", "x", 1)
     main_llm = RuntimeEndpoint(
@@ -246,6 +254,9 @@ def settings() -> AppSettings:
         risk_adapter_timeout_seconds=1,
         runtime_endpoints={"main_llm": main_llm, "embedding": embedding, "embedding_ko": embedding_ko, "risk_prompt": endpoint},
         required_runtime_keys=frozenset({"main_llm", "embedding", "embedding_ko", "risk_prompt"}),
+        # /ready 의존성 이름은 실제 배포 토폴로지가 소유한다. 여기서 다시
+        # 적으면 production과 다른 이름으로 테스트가 통과한다.
+        runtime_service_ids=_runtime_service_ids(),
         controllable_runtime_keys=frozenset({"embedding", "embedding_ko", "risk_prompt"}),
         risk_adapter_base_url="http://risk",
         public_models=public_models(),
@@ -282,19 +293,24 @@ def _settings_with_embedding_profiles(
     *,
     embedding_profiles: dict[str, EmbeddingProfile],
     runtime_endpoints: dict[str, RuntimeEndpoint] | None = None,
+    runtime_service_ids: dict[str, str] | None = None,
 ) -> AppSettings:
     base = settings()
     endpoints = dict(base.runtime_endpoints)
     if runtime_endpoints:
         endpoints.update(runtime_endpoints)
+    service_ids = dict(base.runtime_service_ids)
+    if runtime_service_ids:
+        service_ids.update(runtime_service_ids)
     return replace(
         base,
         runtime_endpoints=endpoints,
+        runtime_service_ids=service_ids,
         embedding_profiles=embedding_profiles,
     )
 
 
-class SpyVLLMClient(FakeRuntimeClient):
+class SpyRuntimeClient(FakeRuntimeClient):
     created_endpoints: list[RuntimeEndpoint] = []
     closed_endpoints: list[str] = []
 

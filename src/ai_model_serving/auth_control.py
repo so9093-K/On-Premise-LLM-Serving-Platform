@@ -207,10 +207,22 @@ def auth_status_document(settings: AppSettings, project_root: Path, env_path: Pa
         "auth_owner": auth_owner,
         "exposure_mode": exposure_mode,
         "canonical_exposure_mode": canonical_mode,
+        # 문서 경로는 settings가 소유한다(FASTAPI_DOCS_URL / FASTAPI_REDOC_URL /
+        # OPENAPI_URL로 바꿀 수 있다). 여기 경로를 손으로 적으면 운영자가 경로를
+        # 바꿨을 때 auth-status만 옛 주소를 계속 보고한다.
         "public_api": {
             "/v1/*": "api_key_required" if settings.security.api_key_required else "unauthenticated",
-            "/docs": "enabled" if settings.documentation.enabled else "disabled",
-            "/openapi.json": "enabled" if settings.documentation.enabled else "disabled",
+            **{
+                path: "enabled" if settings.documentation.enabled else "disabled"
+                for path in (
+                    settings.documentation.docs_url,
+                    settings.documentation.redoc_url,
+                    settings.documentation.openapi_url,
+                    # 문서 화면이 쓰는 self-host 번들과 favicon. 문서와 함께 열리고
+                    # 함께 닫힌다.
+                    "/static/*",
+                )
+            },
         },
         "admin_endpoints": {
             "/ready": "admin_key_required" if settings.security.admin_api_key_required else "no_app_token_required",

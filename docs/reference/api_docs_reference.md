@@ -56,4 +56,6 @@ Gateway 문서 화면은 네 곳에 나눠 설명을 싣는다. 태그 설명의
 
 문서 화면을 공개해도 API 호출 권한이 생기지는 않는다. 외부 인터넷에 노출하는 환경에서는 API 인증 외에 VPN, allowlist, SSO proxy 같은 ingress 경계를 별도로 둔다.
 
-현재 Scalar asset은 CDN 방식이다. air-gapped 또는 외부 CDN을 허용하지 않는 환경에서 self-host asset이 필요하지만, 현재 구현에는 self-host mode가 없다. 그런 환경에서는 문서 화면을 운영 경계에 맞게 제한하거나 self-host 구현을 별도 변경으로 도입한다.
+Scalar asset은 self-host 한다. 번들(`src/ai_model_serving/static/`)이 애플리케이션 패키지에 함께 실려 `/static/scalar-api-reference-<version>.js`로 같은 origin에서 나가므로, air-gapped 망이나 외부 CDN을 막은 환경에서도 `/docs`가 그대로 뜬다. 페이지는 same-origin 응답에도 `integrity` 속성을 유지하므로 번들이 손상되면 브라우저가 실행하지 않는다.
+
+버전과 SRI 해시는 `ai_model_serving/docs_ui.py`가 단독으로 선언한다. 올릴 때는 그 값을 바꾸고 `python scripts/build/fetch_docs_assets.py`를 돌린다. 선언된 해시와 다른 번들은 받아도 기록하지 않는다. `make validate`는 네트워크 없이 vendoring 파일의 해시만 확인한다.

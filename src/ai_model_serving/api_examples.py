@@ -10,6 +10,16 @@ from .services.readiness import dependency_endpoint
 
 
 @functools.cache
+def _main_model_profiles() -> dict[str, Any]:
+    return load_yaml_mapping(resolve_project_root() / "configs" / "main_model_profiles.yaml")
+
+
+@functools.cache
+def _model_serving() -> dict[str, Any]:
+    return load_yaml_mapping(resolve_project_root() / "configs" / "model_serving.yaml")
+
+
+@functools.cache
 def _reference_dependency_endpoints() -> dict[str, str]:
     """readiness 예시가 쓰는 reference topology의 dependency endpoint.
 
@@ -32,13 +42,32 @@ def _reference_dependency_endpoints() -> dict[str, str]:
 # 기본 요청 값 픽스처 (Body()와 install_contract_openapi에서 재사용)
 # ---------------------------------------------------------------------------
 
+def default_main_model_profile_id() -> str:
+    return str(_main_model_profiles()["default_profile"])
+
+
+def alternate_main_model_profile_id() -> str:
+    """default가 아닌 첫 프로필. 전환 예시가 두 번째 후보를 필요로 한다."""
+    default = default_main_model_profile_id()
+    return next(pid for pid in _main_model_profiles()["profiles"] if pid != default)
+
+
+# 공개 모델 이름은 설정이 소유한다(main_model_profiles.public_model,
+# model_serving.models.*.served_model_name). 예시에 손으로 적으면 이름이 바뀔 때
+# /docs가 거부당할 요청을 계속 광고한다 -- model 이름은 검증 대상이라 그대로
+# 복사해 보내면 422다.
+MAIN_MODEL = str(_main_model_profiles()["public_model"])
+EMBEDDING_MODEL = str(_model_serving()["models"]["embedding"]["served_model_name"])
+EMBEDDING_KO_MODEL = str(_model_serving()["models"]["embedding_ko"]["served_model_name"])
+
+
 CHAT_EXAMPLE: dict[str, Any] = {
-    "model": "local-main",
+    "model": MAIN_MODEL,
     "messages": [{"role": "user", "content": "안녕하세요. 한 문장으로 인사해주세요."}],
 }
 
 EMBEDDING_EXAMPLE: dict[str, Any] = {
-    "model": "local-embed",
+    "model": EMBEDDING_MODEL,
     "input": ["임베딩할 텍스트 예시입니다."],
 }
 
@@ -111,7 +140,7 @@ GATEWAY_CHAT_REQUEST_EXAMPLES: dict[str, Any] = {
     "deterministic_smoke": {
         "summary": "짧은 결정적 smoke 요청",
         "value": {
-            "model": "local-main",
+            "model": MAIN_MODEL,
             "messages": [{"role": "user", "content": "Say OK only."}],
             "max_tokens": 1,
             "temperature": 0,
@@ -121,7 +150,7 @@ GATEWAY_CHAT_REQUEST_EXAMPLES: dict[str, Any] = {
     "balanced_sampling": {
         "summary": "일반 대화용 sampling 예시",
         "value": {
-            "model": "local-main",
+            "model": MAIN_MODEL,
             "messages": [{"role": "user", "content": "Gemma 4 모델의 특징을 세 문장으로 설명해주세요."}],
             "max_tokens": 512,
             "temperature": 0.7,
@@ -131,7 +160,7 @@ GATEWAY_CHAT_REQUEST_EXAMPLES: dict[str, Any] = {
     "streaming": {
         "summary": "스트리밍 요청 (stream=true)",
         "value": {
-            "model": "local-main",
+            "model": MAIN_MODEL,
             "messages": [{"role": "user", "content": "안녕하세요."}],
             "stream": True,
         },
@@ -139,7 +168,7 @@ GATEWAY_CHAT_REQUEST_EXAMPLES: dict[str, Any] = {
     "streaming_with_usage": {
         "summary": "스트리밍 + usage 추적",
         "value": {
-            "model": "local-main",
+            "model": MAIN_MODEL,
             "messages": [{"role": "user", "content": "안녕하세요."}],
             "stream": True,
             "stream_options": {"include_usage": True},
@@ -148,7 +177,7 @@ GATEWAY_CHAT_REQUEST_EXAMPLES: dict[str, Any] = {
     "with_system_prompt": {
         "summary": "시스템 프롬프트 + 샘플링 파라미터",
         "value": {
-            "model": "local-main",
+            "model": MAIN_MODEL,
             "messages": [
                 {"role": "system", "content": "You are a helpful assistant. Answer concisely in Korean."},
                 {"role": "user", "content": "오늘 날씨가 좋네요. 가볍게 대화해봐요."},
@@ -161,7 +190,7 @@ GATEWAY_CHAT_REQUEST_EXAMPLES: dict[str, Any] = {
     "json_object": {
         "summary": "JSON mode (json_object)",
         "value": {
-            "model": "local-main",
+            "model": MAIN_MODEL,
             "messages": [
                 {"role": "system", "content": "You are a helpful assistant. Always respond with valid JSON only."},
                 {"role": "user", "content": "Return a JSON object with keys 'name' and 'score'. Name is 'test', score is 42."},
@@ -174,7 +203,7 @@ GATEWAY_CHAT_REQUEST_EXAMPLES: dict[str, Any] = {
     "with_tools": {
         "summary": "Tool calling (함수 호출)",
         "value": {
-            "model": "local-main",
+            "model": MAIN_MODEL,
             "messages": [{"role": "user", "content": "서울의 현재 날씨가 어때요?"}],
             "tools": [
                 {
@@ -199,7 +228,7 @@ GATEWAY_CHAT_REQUEST_EXAMPLES: dict[str, Any] = {
     "with_reasoning": {
         "summary": "Reasoning/thinking opt-in",
         "value": {
-            "model": "local-main",
+            "model": MAIN_MODEL,
             "messages": [{"role": "user", "content": "이 장애 원인을 단계적으로 분석하고 최종 조치만 정리해줘."}],
             "reasoning": True,
             # 768이면 항상 finish_reason=length로 잘렸다. 실측: 답만으로 813~1509
@@ -211,7 +240,7 @@ GATEWAY_CHAT_REQUEST_EXAMPLES: dict[str, Any] = {
     "json_schema": {
         "summary": "Structured Outputs (json_schema)",
         "value": {
-            "model": "local-main",
+            "model": MAIN_MODEL,
             "messages": [{"role": "user", "content": "Return JSON with a short answer."}],
             "response_format": {
                 "type": "json_schema",
@@ -231,7 +260,7 @@ GATEWAY_CHAT_REQUEST_EXAMPLES: dict[str, Any] = {
     "logprobs": {
         "summary": "Log probabilities",
         "value": {
-            "model": "local-main",
+            "model": MAIN_MODEL,
             "messages": [{"role": "user", "content": "Say OK only."}],
             "logprobs": True,
             "top_logprobs": 3,
@@ -240,7 +269,7 @@ GATEWAY_CHAT_REQUEST_EXAMPLES: dict[str, Any] = {
     "with_image": {
         "summary": "Vision 요청 (이미지 + 텍스트)",
         "value": {
-            "model": "local-main",
+            "model": MAIN_MODEL,
             "messages": [
                 {
                     "role": "user",
@@ -261,7 +290,7 @@ GATEWAY_CHAT_REQUEST_EXAMPLES: dict[str, Any] = {
     "with_audio": {
         "summary": "오디오 요청 (오디오 + 텍스트) — 오디오 프로필 활성 시",
         "value": {
-            "model": "local-main",
+            "model": MAIN_MODEL,
             "messages": [
                 {
                     "role": "user",
@@ -283,7 +312,7 @@ GATEWAY_CHAT_REQUEST_EXAMPLES: dict[str, Any] = {
     "with_video": {
         "summary": "비디오 요청 (비디오 + 텍스트) — 비디오 프로필 활성 시",
         "value": {
-            "model": "local-main",
+            "model": MAIN_MODEL,
             "messages": [
                 {
                     "role": "user",
@@ -311,7 +340,7 @@ GATEWAY_EMBEDDING_REQUEST_EXAMPLES: dict[str, Any] = {
     "truncate_prompt_tokens": {
         "summary": "긴 입력 truncation",
         "value": {
-            "model": "local-embed",
+            "model": EMBEDDING_MODEL,
             "input": ["매우 긴 문서 텍스트를 임베딩할 때 truncate_prompt_tokens로 최대 토큰 수를 제한합니다."],
             "truncate_prompt_tokens": 512,
         },
@@ -363,14 +392,14 @@ GATEWAY_RISK_AGGREGATE_REQUEST_EXAMPLES: dict[str, Any] = {
 GATEWAY_RETRIEVAL_RERANK_REQUEST_EXAMPLES: dict[str, Any] = {
     "dense_rerank": {
         "summary": "Dense cosine 재순위 정렬",
-        "value": {"model": "local-embed-ko", "query": "검색어", "documents": ["문서1", "문서2"]},
+        "value": {"model": EMBEDDING_KO_MODEL, "query": "검색어", "documents": ["문서1", "문서2"]},
     },
 }
 
 GATEWAY_RETRIEVAL_SCORE_REQUEST_EXAMPLES: dict[str, Any] = {
     "score_documents": {
         "summary": "문서 점수 계산 (입력 순서 유지)",
-        "value": {"model": "local-embed-ko", "query": "검색어", "documents": ["문서1", "문서2"]},
+        "value": {"model": EMBEDDING_KO_MODEL, "query": "검색어", "documents": ["문서1", "문서2"]},
     },
 }
 
@@ -550,7 +579,7 @@ RUNTIME_LIST_RESPONSE_EXAMPLE: dict[str, Any] = {
             "vram_fraction": 0.76,
             "criticality": "primary_user_path",
             "gate": "open",
-            "active_profile": "gemma4-26b-a4b-fp8",
+            "active_profile": alternate_main_model_profile_id(),
         },
     ],
     "budget": {"ceiling": 0.93, "used": 0.925, "free": 0.005},
@@ -582,7 +611,7 @@ RUNTIME_LIST_MIXED_STATE_EXAMPLE: dict[str, Any] = {
             "vram_fraction": 0.76,
             "criticality": "primary_user_path",
             "gate": "closed",
-            "active_profile": "gemma4-26b-a4b-fp8",
+            "active_profile": alternate_main_model_profile_id(),
         },
     ],
     "budget": {"ceiling": 0.93, "used": 0.065, "free": 0.865},
@@ -668,3 +697,40 @@ RUNTIME_ERROR_503_TRANSITIONING_EXAMPLE: dict[str, Any] = {
         "request_id": "req_00000000000000000000000000000000",
     },
 }
+
+
+# 실제 응답에서 runtime image는 배포 시 주입되는 immutable digest라 특정 registry를
+# OpenAPI 예시에 고정하지 않는다. 형식만 보여주는 자리 표시자다.
+PLACEHOLDER_RUNTIME_IMAGE = "registry.example.com/vllm-unified@sha256:" + "0" * 64
+
+
+def main_model_profile_example(profile_id: str, *, active: bool | None = None) -> dict[str, Any]:
+    """main-model 프로필 하나의 공개 표현을 configs에서 그대로 만든다.
+
+    손으로 적어두면 default_profile이나 체크포인트 pin이 바뀔 때 /docs와 OpenAPI
+    스냅샷만 옛 모델을 계속 광고하게 된다. gateway_policy는 예시에 싣기엔 너무 커서
+    제외하고, 신원과 호환성 필드만 보여준다.
+    """
+    document = _main_model_profiles()
+    profile = document["profiles"][profile_id]
+    example: dict[str, Any] = {
+        "id": profile_id,
+        "display_name": str(profile["display_name"]),
+        "served_model_name": str(document["public_model"]),
+        "upstream_model_id": str(profile["model_id"]),
+        "revision": str(profile["revision"]),
+        "compatibility": dict(profile.get("compatibility", {})),
+        "capabilities": dict(profile.get("capabilities", {})),
+        "runtime_image": PLACEHOLDER_RUNTIME_IMAGE,
+        "vram_fraction": _profile_vram_fraction(profile),
+    }
+    if active is not None:
+        example["active"] = active
+    return example
+
+
+def _profile_vram_fraction(profile: dict[str, Any]) -> float:
+    command = [str(item) for item in profile.get("command", [])]
+    if "--gpu-memory-utilization" not in command:
+        return 0.9
+    return float(command[command.index("--gpu-memory-utilization") + 1])

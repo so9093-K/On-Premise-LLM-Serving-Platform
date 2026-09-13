@@ -218,33 +218,64 @@ def _validate_choice_logprobs(choice: dict[str, Any], *, choice_index: int) -> N
 _RESPONSE_SCHEMA_NAME = "chat_completion_response.schema.json"
 
 
-def _declared_keys() -> tuple[frozenset[str], frozenset[str], frozenset[str]]:
+# 선언된 키라도 schema가 null을 허용하지 않으면 null인 채로 내보낼 수 없다.
+# 런타임은 "해당 없음"을 null로 표현한다 -- mlx-vlm은 tool call이 없는 모든 응답에
+# tool_calls: null을 싣는데, schema는 tool_calls를 minItems=1 배열로 선언한다.
+# 그대로 통과시키면 우리가 게시한 계약을 우리 응답이 어긴다. 어떤 필드가 null을
+# 허용하는지는 schema가 소유하므로 여기서 목록을 따로 적지 않는다.
+_KeyPolicy = dict[str, bool]
+
+
+def _nullable_by_key(properties: dict[str, Any]) -> _KeyPolicy:
+    def allows_null(subschema: Any) -> bool:
+        if not isinstance(subschema, dict):
+            return True
+        declared = subschema.get("type")
+        if declared is None:
+            # type을 선언하지 않은 필드(role, object, model처럼 enum/const로만
+            # 좁힌 것)는 null 여부를 여기서 판단하지 않고 그대로 둔다.
+            return True
+        if isinstance(declared, str):
+            return declared == "null"
+        return "null" in declared
+
+    return {name: allows_null(subschema) for name, subschema in properties.items()}
+
+
+def _declared_keys() -> tuple[_KeyPolicy, _KeyPolicy, _KeyPolicy]:
     from ..openapi_contracts import load_contract_schema
 
     schema = load_contract_schema(_RESPONSE_SCHEMA_NAME)
     choice = schema["properties"]["choices"]["items"]
     return (
-        frozenset(schema["properties"]),
-        frozenset(choice["properties"]),
-        frozenset(choice["properties"]["message"]["properties"]),
+        _nullable_by_key(schema["properties"]),
+        _nullable_by_key(choice["properties"]),
+        _nullable_by_key(choice["properties"]["message"]["properties"]),
     )
+
+
+def _narrow(mapping: dict[str, Any], policy: _KeyPolicy) -> dict[str, Any]:
+    """선언된 키만, 그리고 schema가 받아들이는 값만 남긴다."""
+    return {
+        name: value
+        for name, value in mapping.items()
+        if name in policy and (value is not None or policy[name])
+    }
 
 
 def project_to_public_contract(payload: dict[str, Any]) -> dict[str, Any]:
     """선언된 키만 남긴다. 런타임이 덧붙인 것은 공개 API로 내보내지 않는다."""
     top, choice_keys, message_keys = _declared_keys()
-    projected = {name: value for name, value in payload.items() if name in top}
+    projected = _narrow(payload, top)
     choices = []
     for choice in payload.get("choices") or []:
         if not isinstance(choice, dict):
             choices.append(choice)
             continue
-        narrowed = {name: value for name, value in choice.items() if name in choice_keys}
+        narrowed = _narrow(choice, choice_keys)
         message = choice.get("message")
         if isinstance(message, dict):
-            narrowed["message"] = {
-                name: value for name, value in message.items() if name in message_keys
-            }
+            narrowed["message"] = _narrow(message, message_keys)
         choices.append(narrowed)
     if choices:
         projected["choices"] = choices
@@ -268,18 +299,17 @@ def project_stream_chunk(chunk: dict[str, Any]) -> dict[str, Any]:
     누출보다 나쁘다.
     """
     top, choice_keys, message_keys = _declared_keys()
-    projected = {name: value for name, value in chunk.items() if name in top}
+    projected = _narrow(chunk, top)
     choices = []
     for choice in chunk.get("choices") or []:
         if not isinstance(choice, dict):
             choices.append(choice)
             continue
-        narrowed = {name: value for name, value in choice.items() if name in choice_keys or name == "delta"}
+        # delta는 chunk 전용 키라 chat.completion schema의 choice에는 없다.
+        narrowed = _narrow(choice, {**choice_keys, "delta": True})
         delta = choice.get("delta")
         if isinstance(delta, dict):
-            narrowed["delta"] = {
-                name: value for name, value in delta.items() if name in message_keys
-            }
+            narrowed["delta"] = _narrow(delta, message_keys)
         choices.append(narrowed)
     if choices:
         projected["choices"] = choices

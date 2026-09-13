@@ -23,8 +23,10 @@ jobs:
           - os: macos-15
             python_version: "3.13"
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
+      # 외부 action은 이 저장소의 다른 모든 외부 아티팩트와 같이 commit SHA로
+      # 고정한다. 태그는 재지정될 수 있어 같은 커밋이 다른 코드로 빌드된다.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
           # 두 job은 공통 Platform lock의 지원 minor를 대표한다. Native runtime
           # exact patch와 image digest qualification은 이 workflow의 책임이 아니다.

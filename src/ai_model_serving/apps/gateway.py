@@ -13,7 +13,7 @@ from ..app_kernel import (
     install_cors_middleware,
     install_exception_handlers,
     register_health,
-    register_scalar_docs,
+    register_documentation_ui,
 )
 from ..errors import ServiceError
 from ..service_logging import service_logger
@@ -27,7 +27,7 @@ from ..openapi_contracts import install_contract_openapi, narrow_chat_request_sc
 from ..security import require_bearer_auth
 from ..settings import AppSettings, RuntimeEndpoint, SecuritySettings, load_settings
 from ..services.gateway_service import GatewayService
-from ..upstream import VLLMClient
+from ..upstream import RuntimeClient
 from ..api_descriptions import gateway_description, gateway_tags_metadata
 from ..api_examples import (
     GATEWAY_CHAT_REQUEST_EXAMPLES,
@@ -76,18 +76,18 @@ class GatewayClients:
             if settings.admin_sidecar_url
             else None
         )
-        self.main_llm = VLLMClient(settings.runtime("main_llm"))
-        self.runtime_clients_by_service_key: dict[str, VLLMClient] = {}
-        self.embedding_clients: dict[str, VLLMClient] = {}
+        self.main_llm = RuntimeClient(settings.runtime("main_llm"))
+        self.runtime_clients_by_service_key: dict[str, RuntimeClient] = {}
+        self.embedding_clients: dict[str, RuntimeClient] = {}
         for model_id, profile in settings.embedding_profiles.items():
             service_key = profile.service_key
             client = self.runtime_clients_by_service_key.get(service_key)
             if client is None:
-                client = VLLMClient(settings.runtime(service_key))
+                client = RuntimeClient(settings.runtime(service_key))
                 self.runtime_clients_by_service_key[service_key] = client
             self.embedding_clients[model_id] = client
         self.risk_adapter = (
-            VLLMClient(
+            RuntimeClient(
                 RuntimeEndpoint(
                     logical_id="risk-adapter",
                     base_url=settings.risk_adapter_base_url,
@@ -189,7 +189,7 @@ def create_gateway_app(settings: AppSettings | None = None, clients: GatewayClie
         return "request"
 
     install_exception_handlers(app, metrics=metrics, logger=logger, validation_reason=validation_reason)
-    register_scalar_docs(app, settings=settings, title="AI Model Serving Gateway")
+    register_documentation_ui(app, settings=settings, title="AI Model Serving Gateway")
     register_health(app, service="gateway", spec=_GW_SPECS[("GET", "/health")])
 
     app.include_router(_build_ops_router(admin_dependencies, clients, metrics, settings))

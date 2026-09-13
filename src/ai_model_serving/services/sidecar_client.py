@@ -22,7 +22,7 @@ class SidecarClient:
     The sidecar runs inside the compose network and is never exposed publicly.
     Timeouts are generous because container start includes health-wait loops.
 
-    VLLMClient와 같은 이유로 하나의 AsyncClient를 재사용한다: Gateway는 chat 요청마다
+    RuntimeClient와 같은 이유로 하나의 AsyncClient를 재사용한다: Gateway는 chat 요청마다
     이 client로 gate를 확인하기 때문에, 호출마다 client를 새로 만들면 추론 요청 하나당
     TCP 연결이 하나씩 새로 열리고 닫힌다. per-call timeout은 요청 단위로 지정한다.
     """

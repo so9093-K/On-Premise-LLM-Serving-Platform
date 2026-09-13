@@ -16,12 +16,16 @@ from ...api_examples import (
     RUNTIME_ERROR_503_SIDECAR_UNAVAILABLE_EXAMPLE,
     RUNTIME_ERROR_503_TRANSITIONING_EXAMPLE,
     RUNTIME_LIST_MIXED_STATE_EXAMPLE,
+    MAIN_MODEL,
     RUNTIME_LIST_RESPONSE_EXAMPLE,
     RUNTIME_TRANSITION_NOOP_EXAMPLE,
     RUNTIME_TRANSITION_TO_ACTIVE_EXAMPLE,
     RUNTIME_TRANSITION_TO_ACTIVE_WITH_PREREQ_EXAMPLE,
     RUNTIME_TRANSITION_TO_STOPPED_EXAMPLE,
     RUNTIME_TRANSITION_TO_STOPPED_WITH_PREREQ_EXAMPLE,
+    alternate_main_model_profile_id,
+    default_main_model_profile_id,
+    main_model_profile_example,
 )
 from ...main_model.control import OPERATION_STAGES
 from ...services.runtime_state import RuntimeState, RuntimeStateStore
@@ -30,6 +34,12 @@ from ...services.sidecar_client import (
     SidecarRequestError,
     SidecarUnavailableError,
 )
+
+# 예시의 모델 신원은 configs/main_model_profiles.yaml에서 그대로 온다. 손으로
+# 적어두면 default_profile이나 체크포인트 pin이 바뀔 때 /docs와 OpenAPI 스냅샷만
+# 옛 모델을 계속 광고한다.
+_DEFAULT_PROFILE_ID = default_main_model_profile_id()
+_ALTERNATE_PROFILE_ID = alternate_main_model_profile_id()
 
 _GW = {(s.method, s.path): s for s in GATEWAY_ENDPOINTS}
 _OPERATION_RESPONSE_SCHEMA = {
@@ -62,8 +72,8 @@ _OPERATION_RESPONSE_EXAMPLES = {
         "summary": "진행 중 (validating)",
         "value": {
             "id": _OPERATION_ID_EXAMPLE,
-            "requested_profile": "gemma4-12b-unified-fp8",
-            "previous_profile": "gemma4-26b-a4b-fp8",
+            "requested_profile": _DEFAULT_PROFILE_ID,
+            "previous_profile": _ALTERNATE_PROFILE_ID,
             "client_request_id": "ops-20260622-12b",
             "status": "validating",
             "stage": "validating",
@@ -77,8 +87,8 @@ _OPERATION_RESPONSE_EXAMPLES = {
         "summary": "완료",
         "value": {
             "id": _OPERATION_ID_EXAMPLE,
-            "requested_profile": "gemma4-12b-unified-fp8",
-            "previous_profile": "gemma4-26b-a4b-fp8",
+            "requested_profile": _DEFAULT_PROFILE_ID,
+            "previous_profile": _ALTERNATE_PROFILE_ID,
             "client_request_id": "ops-20260622-12b",
             "status": "completed",
             "stage": "completed",
@@ -92,8 +102,8 @@ _OPERATION_RESPONSE_EXAMPLES = {
         "summary": "실패 후 이전 프로필로 rollback",
         "value": {
             "id": _OPERATION_ID_EXAMPLE,
-            "requested_profile": "gemma4-12b-unified-fp8",
-            "previous_profile": "gemma4-26b-a4b-fp8",
+            "requested_profile": _DEFAULT_PROFILE_ID,
+            "previous_profile": _ALTERNATE_PROFILE_ID,
             "client_request_id": "ops-20260622-12b",
             "status": "failed",
             "stage": "validating",
@@ -124,35 +134,20 @@ _ACCEPTED_SCHEMA = {
     },
 }
 _MAIN_MODEL_STATUS_EXAMPLE = {
-    "public_model": "local-main",
-    "active_profile": {
-        "id": "gemma4-12b-unified-fp8",
-        "display_name": "Gemma 4 12B Unified FP8",
-        "served_model_name": "local-main",
-        "upstream_model_id": "RedHatAI/gemma-4-12B-it-FP8-Dynamic",
-        "revision": "67e53491df7a281623fa740de61307d5c542b7f4",
-        "compatibility": {"status": "verified"},
-        "capabilities": {
-            "deployed_input": ["text", "image", "audio", "video"],
-        },
-        # 이 예시는 API 형식만 보여준다. 실제 runtime image는 활성 profile과
-        # 배포 시 주입되는 immutable digest에서 결정되므로 특정 배포 registry/digest를
-        # OpenAPI 예시에 고정하지 않는다.
-        "runtime_image": "registry.example.com/vllm-unified@sha256:" + "0" * 64,
-        "vram_fraction": 0.76,
-    },
-    "last_known_good_profile": "gemma4-12b-unified-fp8",
+    "public_model": MAIN_MODEL,
+    "active_profile": main_model_profile_example(_DEFAULT_PROFILE_ID),
+    "last_known_good_profile": _DEFAULT_PROFILE_ID,
     "previous_known_good_profile": None,
     "gate": "open",
     "runtime_state": "active",
     "profile_locked": False,
-    "boot_profile": "gemma4-12b-unified-fp8",
+    "boot_profile": _DEFAULT_PROFILE_ID,
     "last_operation": None,
     "observed_runtime": {
         "status": "ready",
         "container_state": "running",
         "health": "healthy",
-        "profile_id": "gemma4-12b-unified-fp8",
+        "profile_id": _DEFAULT_PROFILE_ID,
         "error": None,
         "observed_at": 1782086258.2,
     },
@@ -619,7 +614,7 @@ def build_router(
                         },
                         "stopped": {
                             "summary": "정지됨 (VRAM 회수, gate closed)",
-                            "value": {**_MAIN_MODEL_STATUS_EXAMPLE, "gate": "closed", "runtime_state": "stopped", "observed_runtime": {"status": "stopped", "container_state": "exited", "health": None, "profile_id": "gemma4-12b-unified-fp8", "error": None, "observed_at": 1782086258.2}},
+                            "value": {**_MAIN_MODEL_STATUS_EXAMPLE, "gate": "closed", "runtime_state": "stopped", "observed_runtime": {"status": "stopped", "container_state": "exited", "health": None, "profile_id": _DEFAULT_PROFILE_ID, "error": None, "observed_at": 1782086258.2}},
                         },
                         "switch_in_progress": {
                             "summary": "전환 중 (gate closed, 작업 진행)",
@@ -628,12 +623,12 @@ def build_router(
                                 "gate": "closed",
                                 "last_operation": {
                                     "id": "8f3c2b10-0000-4000-8000-000000000001",
-                                    "requested_profile": "gemma4-12b-unified-fp8",
-                                    "previous_profile": "gemma4-26b-a4b-fp8",
+                                    "requested_profile": _DEFAULT_PROFILE_ID,
+                                    "previous_profile": _ALTERNATE_PROFILE_ID,
                                     "status": "validating",
                                     "stage": "validating",
                                 },
-                                "observed_runtime": {"status": "starting", "container_state": "running", "health": "starting", "profile_id": "gemma4-12b-unified-fp8", "error": None, "observed_at": 1782086258.2},
+                                "observed_runtime": {"status": "starting", "container_state": "running", "health": "starting", "profile_id": _DEFAULT_PROFILE_ID, "error": None, "observed_at": 1782086258.2},
                             },
                         },
                     }}
@@ -669,22 +664,8 @@ def build_router(
                     "application/json": {
                         "example": {
                             "profiles": [
-                                {
-                                    **_MAIN_MODEL_STATUS_EXAMPLE["active_profile"],
-                                    "active": True,
-                                },
-                                {
-                                    "id": "gemma4-26b-a4b-fp8",
-                                    "display_name": "Gemma 4 26B A4B FP8",
-                                    "served_model_name": "local-main",
-                                    "upstream_model_id": "RedHatAI/gemma-4-26B-A4B-it-FP8-Dynamic",
-                                    "revision": "8edbb9269ec9c3faad538ee1208a07eb46051f34",
-                                    "compatibility": {"status": "verified"},
-                                    "capabilities": {
-                                        "deployed_input": ["text", "image"],
-                                    },
-                                    "active": False,
-                                },
+                                main_model_profile_example(_DEFAULT_PROFILE_ID, active=True),
+                                main_model_profile_example(_ALTERNATE_PROFILE_ID, active=False),
                             ]
                         }
                     }

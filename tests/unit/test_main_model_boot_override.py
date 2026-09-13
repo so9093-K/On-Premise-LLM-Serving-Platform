@@ -51,10 +51,18 @@ def test_persisted_profile_is_projected_to_compose_command_and_image(tmp_path):
         env_path=env,
     )
     catalog = yaml.safe_load(CATALOG.read_text(encoding="utf-8"))
+    declared = catalog["profiles"][profile]
     assert profile == "gemma4-12b-unified-fp8"
-    assert override["services"]["main-llm-vllm"]["command"] == catalog["profiles"][
-        profile
-    ]["command"]
+    # 모델 신원은 선언 필드에서 조립되고, 그 뒤에 profile의 tuning flag가 붙는다.
+    assert override["services"]["main-llm-vllm"]["command"] == [
+        "--model",
+        declared["model_id"],
+        "--revision",
+        declared["revision"],
+        "--served-model-name",
+        declared["served_model_name"],
+        *declared["command"],
+    ]
     assert override["services"]["main-llm-vllm"]["image"] == _AUDIO_IMAGE
 
 

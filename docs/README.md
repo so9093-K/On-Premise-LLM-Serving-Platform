@@ -2,7 +2,7 @@
 
 AI Model Serving Platform의 구조와 요청 처리, Runtime 운영, 개발·검증, 자동화 경계, 배포, 관측성, 장애 대응 및 변경 절차를 정리합니다.
 
-외부 API의 요청·응답 형식과 사용 예시는 [API 인터페이스](reference/api_reference.md)에서, `/docs`·`/redoc`·`/openapi.json`의 운영 경계는 [API 문서 화면 Reference](reference/api_docs_reference.md)에서 확인할 수 있습니다.
+외부 API의 요청·응답 형식과 사용 예시는 [API 인터페이스](reference/api_reference.md)에서, OpenAI SDK로 바꿔 부를 때 무엇이 같고 무엇이 다른지는 [OpenAI 호환 범위](reference/openai_compatibility.md)에서, `/docs`·`/redoc`·`/openapi.json`의 운영 경계는 [API 문서 화면 Reference](reference/api_docs_reference.md)에서 확인할 수 있습니다.
 
 ## 목차
 
@@ -141,6 +141,13 @@ AI Model Serving Platform의 구조와 요청 처리, Runtime 운영, 개발·�
 - 상태 확인과 운영 API
 - 오류 코드와 사용 예시
 - API 기준 명세
+
+### [OpenAI 호환 범위](reference/openai_compatibility.md)
+
+- 요청 파라미터별 표준·좁힘·확장 분류
+- 거부하는 OpenAI 파라미터와 이유
+- 응답 메시지 필드
+- 계약 스키마에서 생성하는 문서다
 
 ### [부록](appendix.md)
 

@@ -153,6 +153,7 @@
 | Operations Script | `scripts/ops/` | Readiness, smoke test 등 운영 확인 |
 | Runtime 검증 산출물 | `reports/runtime/` | `make runtime-validate`가 생성하는 JSON·Markdown 결과. 저장소가 소유하지 않는 실행 산출물이다 |
 | API Reference | `docs/reference/api_reference.md` | API 사용 방법, 요청·응답, 오류와 제약 설명 |
+| OpenAI 호환 범위 | `docs/reference/openai_compatibility.md` | 계약 스키마에서 생성하는 파라미터 호환 표. 직접 고치지 않는다 |
 | 모델 참고 자료 | `docs/reference/models/` | upstream 모델 사양, 라이선스, 알려진 제약 |
 | Screenshots | `assets/screenshots/` | Grafana, Scalar, Request Log 등 문서용 화면 |
 

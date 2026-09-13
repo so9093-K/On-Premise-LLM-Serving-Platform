@@ -6,6 +6,7 @@
   ops/prometheus/prometheus.macos-metal.yml
   specs/schemas/model_list_response.schema.json
   specs/openapi.gateway.yaml
+  docs/reference/openai_compatibility.md
   specs/openapi.risk-adapter.yaml
 
 생성 제외 대상:
@@ -43,6 +44,7 @@ from ai_model_serving.monitoring_projection import (  # noqa: E402
     prometheus_scrape_config_document,
 )
 from scripts.openapi_assets import build_generated_openapi, render_static_openapi  # noqa: E402
+from scripts.openai_compatibility import render as render_openai_compatibility  # noqa: E402
 
 _GENERATED_HEADER_YAML_WITH_MONITORING = (
     "# 자동 생성 파일입니다. 직접 수정하지 마세요.\n"
@@ -162,6 +164,10 @@ def get_artifacts(
         (
             root / "specs/openapi.risk-adapter.yaml",
             render_static_openapi(openapi_docs["risk-adapter"]),
+        ),
+        (
+            root / "docs/reference/openai_compatibility.md",
+            render_openai_compatibility(),
         ),
     ]
 

@@ -18,11 +18,21 @@ async def _readiness(
     clients: Any,
     metrics: Any = None,
     *,
+    settings: Any,
     timeout_seconds: float = 2.0,
 ) -> dict[str, Any]:
+    # 의존성 이름은 detector가 실제로 붙는 runtime의 service_id다. 예전엔
+    # f"risk_{key}_vllm"으로 조립했는데, detector key와 runtime은 1:1이 아니라
+    # 두 detector가 한 runtime을 공유하면 없는 서비스 이름을 광고하게 된다.
+    service_id_by_detector = {
+        detector.key: settings.runtime_service_id(detector.service_key)
+        for detector in settings.enabled_risk_detectors()
+        if detector.detector_type == "vllm" and detector.service_key
+    }
     probes = [
-        DependencyProbe(f"risk_{key}_vllm", client, "models")
+        DependencyProbe(service_id_by_detector[key], client, "models")
         for key, client in clients.detectors.items()
+        if key in service_id_by_detector
     ]
     return await collect_readiness(
         service="risk-adapter",
@@ -60,6 +70,7 @@ def build_router(admin_dependencies: list, clients: Any, metrics: Any, settings:
         body = await _readiness(
             clients,
             metrics,
+            settings=settings,
             timeout_seconds=settings.readiness_probe_timeout_seconds,
         )
         record_readiness_failure(request, body)

@@ -106,6 +106,10 @@ class AppSettings:
     runtime_endpoints: dict[str, RuntimeEndpoint] = field(default_factory=dict)
     required_runtime_keys: frozenset[str] = frozenset()
     controllable_runtime_keys: frozenset[str] = frozenset()
+    # runtime key -> configs/runtime_topology.yaml이 선언한 service_id.
+    # /ready가 의존성 이름으로 쓴다. 코드에서 문자열을 조립하면(예전엔
+    # f"{key}_vllm"이었다) 선언된 식별자와 조용히 갈라진다.
+    runtime_service_ids: dict[str, str] = field(default_factory=dict)
     risk_detectors: tuple[RiskDetectorSettings, ...] = ()
     aggregate_detector_order: tuple[str, ...] = ()
     # Sidecar 없이 Gateway를 단독 실행할 때 사용할 default profile의 정책이다.
@@ -137,6 +141,15 @@ class AppSettings:
     static_main_profile: str = ""
     deploy_release_id: str = ""
     log_request_response_body: bool = False
+
+    def runtime_service_id(self, runtime_key: str) -> str:
+        """이 runtime이 배포 토폴로지에서 갖는 service 식별자를 반환한다."""
+        try:
+            return self.runtime_service_ids[runtime_key]
+        except KeyError:
+            raise KeyError(
+                f"runtime {runtime_key!r} has no service_id in configs/runtime_topology.yaml"
+            ) from None
 
     def __post_init__(self) -> None:
         if "main_llm" not in self.runtime_endpoints:

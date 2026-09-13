@@ -106,6 +106,7 @@ def test_gateway_readiness_builds_embedding_probes_from_profiles():
 
 
 def test_gateway_readiness_picks_up_new_embedding_route_without_code_change():
+    """embedding route 추가는 설정 변경으로 끝나야 한다 -- gateway 코드는 그대로다."""
     base = settings()
     extra_endpoint = RuntimeEndpoint("local-embed-extra", "http://embed-extra/v1", "local-embed-extra", 1)
     extra_profile = EmbeddingProfile(
@@ -117,6 +118,9 @@ def test_gateway_readiness_picks_up_new_embedding_route_without_code_change():
     cfg = _settings_with_embedding_profiles(
         embedding_profiles={**base.embedding_profiles, "local-embed-extra": extra_profile},
         runtime_endpoints={"embedding_extra": extra_endpoint},
+        # 새 embedding route를 붙이는 일은 runtime_topology.yaml에 service_id를
+        # 선언하는 것까지다. /ready는 그 이름을 그대로 쓴다.
+        runtime_service_ids={"embedding_extra": "embedding_extra_vllm"},
     )
     clients = FakeGatewayClients()
     clients.runtime_clients_by_service_key["embedding_extra"] = FakeRuntimeClient(

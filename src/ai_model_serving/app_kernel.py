@@ -7,10 +7,19 @@ from typing import Any
 from fastapi import Depends, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.openapi.docs import get_redoc_html
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from .docs_ui import scalar_html
+from .docs_ui import (
+    FAVICON_MEDIA_TYPE,
+    FAVICON_ROUTE,
+    FAVICON_SVG,
+    REDOC_BUNDLE,
+    VENDORED_ASSETS,
+    VendoredAsset,
+    scalar_html,
+)
 from .api.endpoint_spec import EndpointSpec
 from .errors import (
     ServiceError,
@@ -75,7 +84,9 @@ def create_service_app(
         description=description,
         lifespan=lambda app: managed_lifespan(*lifespan_resources),
         docs_url=None,
-        redoc_url=settings.documentation.redoc_url if settings.documentation.enabled else None,
+        # /redoc은 register_documentation_ui()가 직접 등록한다. FastAPI 기본 페이지는
+        # 가변 태그의 CDN 번들과 Google Fonts를 불러와 air-gap 배포에서 뜨지 않는다.
+        redoc_url=None,
         openapi_url=settings.documentation.openapi_url if settings.documentation.enabled else None,
         openapi_tags=tags_metadata,
         contact={"name": "AI Model Serving Platform 운영"},
@@ -225,8 +236,12 @@ def install_exception_handlers(
         )
 
 
-def register_scalar_docs(app: FastAPI, *, settings: AppSettings, title: str) -> None:
-    """문서가 활성화된 경우 Scalar 문서 엔드포인트를 등록한다."""
+def register_documentation_ui(app: FastAPI, *, settings: AppSettings, title: str) -> None:
+    """문서가 활성화된 경우 문서 화면과 그 asset을 등록한다.
+
+    Scalar(/docs), ReDoc(/redoc), favicon, self-host JS 번들이 한 묶음이다. 전부
+    외부 egress 없이 뜨며, documentation.enabled가 꺼지면 함께 사라진다.
+    """
     if not settings.documentation.enabled:
         return
 
@@ -236,6 +251,41 @@ def register_scalar_docs(app: FastAPI, *, settings: AppSettings, title: str) -> 
     @app.get(docs_url, include_in_schema=False)
     async def scalar_docs() -> HTMLResponse:
         return HTMLResponse(scalar_html(openapi_url, title))
+
+    @app.get(FAVICON_ROUTE, include_in_schema=False)
+    async def favicon() -> Response:
+        return Response(
+            FAVICON_SVG,
+            media_type=FAVICON_MEDIA_TYPE,
+            headers={"Cache-Control": "public, max-age=86400"},
+        )
+
+    # ReDoc 화면도 같은 self-host 번들을 쓴다. FastAPI 기본 구현은 가변 태그의 CDN
+    # 번들과 Google Fonts를 부르므로 여기서 로컬 asset으로 다시 만든다.
+    @app.get(settings.documentation.redoc_url, include_in_schema=False)
+    async def redoc_docs() -> HTMLResponse:
+        return get_redoc_html(
+            openapi_url=openapi_url,
+            title=f"{title} - ReDoc",
+            redoc_js_url=REDOC_BUNDLE.route,
+            redoc_favicon_url=FAVICON_ROUTE,
+            with_google_fonts=False,
+        )
+
+    # 번들은 저장소에 vendoring 되어 있고 여기서 같은 origin으로 나간다. 외부
+    # egress가 없는 배포에서도 문서 화면이 그대로 뜬다. 파일명이 버전을 담고 있어
+    # 불변이므로 immutable 캐시를 건다.
+    def register_asset(asset: VendoredAsset) -> None:
+        @app.get(asset.route, include_in_schema=False, name=f"asset:{asset.filename}")
+        async def vendored_bundle() -> FileResponse:
+            return FileResponse(
+                asset.path,
+                media_type="text/javascript",
+                headers={"Cache-Control": "public, max-age=31536000, immutable"},
+            )
+
+    for asset in VENDORED_ASSETS:
+        register_asset(asset)
 
 
 def register_health(app: FastAPI, *, service: str, spec: EndpointSpec) -> None:

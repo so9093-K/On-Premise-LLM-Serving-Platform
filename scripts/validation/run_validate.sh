@@ -45,8 +45,13 @@ run_check() {
 }
 
 validate_generated_artifacts() {
+  # --check가 생성 문서 전체를 구조 비교하므로 OpenAPI drift는 여기서 전부 잡힌다.
+  # 예전엔 openapi_snapshot_diff.py를 이어서 돌렸지만, 그쪽이 비교하던 계약 스키마는
+  # 생성 문서에도 같은 파일에서 주입되는 값이라 자기 자신과 비교하고 있었다.
   "$PYTHON_BIN" scripts/render_runtime_assets.py --check
-  "$PYTHON_BIN" scripts/validation/openapi_snapshot_diff.py
+  # /docs 번들은 vendoring 되어 있고 CDN 폴백이 없다. 파일이 없거나 잘리면
+  # 배포된 문서가 조용히 빈 화면이 되므로 로컬 해시만 확인한다(네트워크 불필요).
+  "$PYTHON_BIN" scripts/build/fetch_docs_assets.py --check
 }
 
 if [[ -z "$PYTHON_BIN" ]]; then

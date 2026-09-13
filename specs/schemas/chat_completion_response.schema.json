@@ -9,7 +9,7 @@
     "model",
     "choices"
   ],
-  "additionalProperties": true,
+  "additionalProperties": false,
   "properties": {
     "id": {
       "type": "string",
@@ -35,7 +35,7 @@
           "message",
           "finish_reason"
         ],
-        "additionalProperties": true,
+        "additionalProperties": false,
         "properties": {
           "index": {
             "type": "integer",
@@ -46,23 +46,27 @@
             "required": [
               "role"
             ],
-            "additionalProperties": true,
+            "additionalProperties": false,
             "properties": {
               "role": {
-                "const": "assistant"
+                "const": "assistant",
+                "x-openai-compatibility": "standard"
               },
               "content": {
                 "type": [
                   "string",
                   "null"
-                ]
+                ],
+                "x-openai-compatibility": "standard"
               },
               "reasoning": {
                 "type": [
                   "string",
                   "null"
                 ],
-                "description": "Gemma4 reasoning text when the request used reasoning=true and the upstream vLLM parser emitted it."
+                "description": "Gemma4 reasoning text when the request used reasoning=true and the upstream vLLM parser emitted it.",
+                "x-openai-compatibility": "extension",
+                "x-compatibility-note": "OpenAI 응답에는 없는 필드다. 요청이 reasoning=true일 때만 실린다."
               },
               "reasoning_content": {
                 "type": [
@@ -70,20 +74,24 @@
                   "null"
                 ],
                 "deprecated": true,
-                "description": "Legacy vLLM reasoning field name retained for older runtime compatibility."
+                "description": "Legacy vLLM reasoning field name retained for older runtime compatibility.",
+                "x-openai-compatibility": "extension",
+                "x-compatibility-note": "OpenAI 응답에는 없는 필드다. runtime의 reasoning parser가 분리한 원문이다."
               },
               "tool_calls": {
                 "type": "array",
                 "minItems": 1,
                 "items": {
                   "$ref": "chat_completion_request.schema.json#/$defs/tool_call"
-                }
+                },
+                "x-openai-compatibility": "standard"
               },
               "refusal": {
                 "type": [
                   "string",
                   "null"
-                ]
+                ],
+                "x-openai-compatibility": "standard"
               }
             }
           },

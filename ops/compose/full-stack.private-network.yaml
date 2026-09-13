@@ -83,7 +83,7 @@ services:
     - ../../configs:/app/configs:ro
     - ../../specs/schemas:/app/specs/schemas:ro
   main-llm-vllm:
-    # 이 image/command는 최초 `docker compose up` 부트스트랩 전용 placeholder다.
+    # 이 image는 최초 `docker compose up` 부트스트랩 전용 placeholder다.
     # admin-sidecar가 뜬 뒤에는 configs/main_model_profiles.yaml의 active profile
     # 기준으로 항상 컨테이너를 stop/재생성하며 image도 그때마다 덮어쓴다
     # (main_model/docker_backend.py의 replace(): payload["Image"] = profile.image).
@@ -97,44 +97,10 @@ services:
     # 그대로 표현한다.
     image: ${AUDIO_VLLM_IMAGE:-${VLLM_IMAGE}}
     restart: unless-stopped
-    command:
-    - --model
-    - RedHatAI/gemma-4-12B-it-FP8-Dynamic
-    - --revision
-    - 67e53491df7a281623fa740de61307d5c542b7f4
-    - --served-model-name
-    - local-main
-    - --host
-    - 0.0.0.0
-    - --port
-    - '9401'
-    - --max-model-len
-    - '50000'
-    - --max-num-seqs
-    - '3'
-    - --max-num-batched-tokens
-    - '50000'
-    - --optimization-level
-    - '3'
-    - --gpu-memory-utilization
-    - '0.76'
-    - --tensor-parallel-size
-    - '1'
-    - --dtype
-    - auto
-    - --trust-remote-code
-    - --enable-prefix-caching
-    - --prefix-caching-hash-algo
-    - sha256_cbor
-    - --enable-auto-tool-choice
-    - --tool-call-parser
-    - gemma4
-    - --reasoning-parser
-    - gemma4
-    - --chat-template
-    - /app/configs/gemma4_chat_template.jinja
-    - --structured-outputs-config
-    - '{"backend":"xgrammar","disable_any_whitespace":true,"enable_in_reasoning":true}'
+    # command는 여기 없다. active profile이 유일한 소유자이고, compose_up.sh와
+    # apply_remote_release.sh가 매 기동마다 render_main_model_boot_override.py로
+    # 그 command를 -f override에 실어 준다. 여기 사본을 두면 검증 없이 어긋난다
+    # (실제로 mm-processor-kwargs와 structured-outputs-config가 어긋나 있었다).
     expose:
     - '9401'
     env_file: ${COMPOSE_SERVICE_ENV_FILE:?Set COMPOSE_SERVICE_ENV_FILE through the Compose command wrapper}

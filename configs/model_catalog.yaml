@@ -3,6 +3,10 @@
 models:
   local-main:
     role: main_llm
+    # 이 값은 정적 registry 항목이지 부팅 신원이 아니다. 실제로 로딩되는 가중치는
+    # main_model_profiles.yaml의 활성 profile이 소유하며(전환하면 바뀐다), 공개
+    # API와 metric은 그 활성 profile 값을 쓴다. 여기 값은 model_serving.yaml의
+    # main_llm.name과 짝을 이뤄야 하고, 어긋나면 settings 로딩이 기동을 막는다.
     upstream_model_id: RedHatAI/gemma-4-12B-it-FP8-Dynamic
     runtime:
       served_model_name: local-main

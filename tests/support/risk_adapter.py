@@ -6,7 +6,13 @@ from pathlib import Path
 
 from ai_model_serving.deployment_target import load_deployment_target
 from ai_model_serving.errors import ServiceError
-from ai_model_serving.settings import AppSettings, EmbeddingProfile, RuntimeEndpoint, SecuritySettings
+from ai_model_serving.settings import (
+    AppSettings,
+    EmbeddingProfile,
+    RiskDetectorSettings,
+    RuntimeEndpoint,
+    SecuritySettings,
+)
 
 
 _DYNAMIC_TARGET = load_deployment_target(
@@ -79,6 +85,28 @@ class FakeRiskClients:
         )
 
 
+def _runtime_service_ids() -> dict[str, str]:
+    from ai_model_serving.project_paths import resolve_project_root
+    from ai_model_serving.runtime_topology import load_runtime_topology
+
+    topology = load_runtime_topology(resolve_project_root())
+    return {key: binding.service_id for key, binding in topology.bindings_by_key.items()}
+
+
+def _risk_detectors() -> tuple[RiskDetectorSettings, ...]:
+    """detector 선언은 production과 같은 설정에서 읽는다.
+
+    family나 allowed_codes를 여기 손으로 적으면 설정이 바뀌어도 테스트는 옛 값으로
+    계속 통과하고, 응답 schema의 enum과도 조용히 갈라진다.
+    """
+    from ai_model_serving.configuration import load_yaml_mapping
+    from ai_model_serving.project_paths import resolve_project_root
+    from ai_model_serving.settings import _risk_detectors_from_config
+
+    document = load_yaml_mapping(resolve_project_root() / "configs" / "model_serving.yaml")
+    return _risk_detectors_from_config(document["risk_adapter"])
+
+
 def settings() -> AppSettings:
     endpoint = RuntimeEndpoint("x", "http://runtime/v1", "x", 1)
     embedding = RuntimeEndpoint("test-embed", "http://embed/v1", "test-embed", 1)
@@ -97,6 +125,10 @@ def settings() -> AppSettings:
         runtime_endpoints={"main_llm": endpoint, "embedding": embedding, "risk_prompt": risk_prompt},
         required_runtime_keys=frozenset({"main_llm", "embedding", "risk_prompt"}),
         controllable_runtime_keys=frozenset({"embedding", "risk_prompt"}),
+        # /ready 의존성 이름은 배포 토폴로지가 소유한다. detector 선언도 함께
+        # 둬야 production과 같은 이름으로 검증된다.
+        runtime_service_ids=_runtime_service_ids(),
+        risk_detectors=_risk_detectors(),
         risk_adapter_base_url="http://risk",
         embedding_profiles={
             "test-embed": EmbeddingProfile(

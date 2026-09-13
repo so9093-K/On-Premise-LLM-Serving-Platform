@@ -3088,6 +3088,8 @@ paths:
                     deployed_input:
                     - text
                     - image
+                  runtime_image: registry.example.com/vllm-unified@sha256:0000000000000000000000000000000000000000000000000000000000000000
+                  vram_fraction: 0.76
                   active: false
         '503':
           description: 'Admin Sidecar 연결 실패

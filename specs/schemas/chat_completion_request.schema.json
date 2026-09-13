@@ -9,7 +9,9 @@
   "additionalProperties": false,
   "properties": {
     "model": {
-      "const": "local-main"
+      "const": "local-main",
+      "x-openai-compatibility": "narrowed",
+      "x-compatibility-note": "활성 프로필이 선언한 이름 하나만 받는다."
     },
     "messages": {
       "type": "array",
@@ -181,55 +183,70 @@
             "minLength": 1
           }
         }
-      }
+      },
+      "x-openai-compatibility": "standard"
     },
     "temperature": {
       "type": "number",
       "minimum": 0,
-      "maximum": 2
+      "maximum": 2,
+      "x-openai-compatibility": "standard"
     },
     "max_tokens": {
       "type": "integer",
       "minimum": 1,
-      "maximum": 13000
+      "maximum": 13000,
+      "x-openai-compatibility": "standard"
     },
     "top_p": {
       "type": "number",
       "exclusiveMinimum": 0,
-      "maximum": 1
+      "maximum": 1,
+      "x-openai-compatibility": "standard"
     },
     "top_k": {
       "type": "integer",
-      "minimum": -1
+      "minimum": -1,
+      "x-openai-compatibility": "extension",
+      "x-compatibility-note": "vLLM/MLX runtime의 sampling 파라미터다."
     },
     "min_p": {
       "type": "number",
       "minimum": 0,
-      "maximum": 1
+      "maximum": 1,
+      "x-openai-compatibility": "extension",
+      "x-compatibility-note": "vLLM/MLX runtime의 sampling 파라미터다."
     },
     "presence_penalty": {
       "type": "number",
       "minimum": -2,
-      "maximum": 2
+      "maximum": 2,
+      "x-openai-compatibility": "standard"
     },
     "frequency_penalty": {
       "type": "number",
       "minimum": -2,
-      "maximum": 2
+      "maximum": 2,
+      "x-openai-compatibility": "standard"
     },
     "repetition_penalty": {
       "type": "number",
       "exclusiveMinimum": 0,
-      "maximum": 2
+      "maximum": 2,
+      "x-openai-compatibility": "extension",
+      "x-compatibility-note": "vLLM/MLX runtime의 sampling 파라미터다."
     },
     "seed": {
       "type": "integer",
-      "minimum": 0
+      "minimum": 0,
+      "x-openai-compatibility": "standard"
     },
     "n": {
       "type": "integer",
       "minimum": 1,
-      "maximum": 1
+      "maximum": 1,
+      "x-openai-compatibility": "narrowed",
+      "x-compatibility-note": "1만 받는다. 여러 후보 생성은 지원하지 않는다."
     },
     "stop": {
       "oneOf": [
@@ -244,11 +261,13 @@
             "type": "string"
           }
         }
-      ]
+      ],
+      "x-openai-compatibility": "standard"
     },
     "stream": {
       "type": "boolean",
-      "description": "When true, Gateway relays the upstream vLLM/OpenAI-compatible SSE response as text/event-stream without buffering or rewriting standard chat.completion.chunk events."
+      "description": "When true, Gateway relays the upstream SSE response as text/event-stream without buffering. Each chat.completion.chunk is narrowed to the fields this contract declares, so runtime-internal state never reaches the client.",
+      "x-openai-compatibility": "standard"
     },
     "stream_options": {
       "type": "object",
@@ -258,7 +277,9 @@
         "include_usage": {
           "type": "boolean"
         }
-      }
+      },
+      "x-openai-compatibility": "narrowed",
+      "x-compatibility-note": "include_usage만 받는다. include_obfuscation을 포함한 나머지는 거부한다."
     },
     "tools": {
       "type": "array",
@@ -266,7 +287,8 @@
       "maxItems": 64,
       "items": {
         "$ref": "#/$defs/tool"
-      }
+      },
+      "x-openai-compatibility": "standard"
     },
     "tool_choice": {
       "oneOf": [
@@ -304,15 +326,19 @@
           },
           "additionalProperties": false
         }
-      ]
+      ],
+      "x-openai-compatibility": "standard"
     },
     "parallel_tool_calls": {
       "type": "boolean",
-      "const": false
+      "const": false,
+      "x-openai-compatibility": "standard"
     },
     "reasoning": {
       "type": "boolean",
-      "description": "When true, Gateway enables Gemma4 thinking for this request by forwarding chat_template_kwargs.enable_thinking=true to vLLM. Defaults to false when omitted."
+      "description": "When true, Gateway enables Gemma4 thinking for this request by forwarding chat_template_kwargs.enable_thinking=true to vLLM. Defaults to false when omitted.",
+      "x-openai-compatibility": "extension",
+      "x-compatibility-note": "boolean opt-in이다. OpenAI의 reasoning_effort와 다른 필드다."
     },
     "response_format": {
       "type": "object",
@@ -391,16 +417,20 @@
             ]
           }
         }
-      ]
+      ],
+      "x-openai-compatibility": "standard"
     },
     "logprobs": {
-      "type": "boolean"
+      "type": "boolean",
+      "x-openai-compatibility": "standard"
     },
     "top_logprobs": {
       "type": "integer",
       "minimum": 0,
       "maximum": 10,
-      "description": "Requires logprobs=true. OpenAI allows up to 20; this Gateway caps at 10 for response-size and latency control."
+      "description": "Requires logprobs=true. OpenAI allows up to 20; this Gateway caps at 10 for response-size and latency control.",
+      "x-openai-compatibility": "narrowed",
+      "x-compatibility-note": "OpenAI는 20까지 허용하지만 이 Gateway는 10으로 제한한다."
     },
     "logit_bias": {
       "type": "object",
@@ -413,18 +443,23 @@
         "minimum": -100,
         "maximum": 100
       },
-      "description": "Token ids are interpreted by the served vLLM model tokenizer, not OpenAI/tiktoken ids."
+      "description": "Token ids are interpreted by the served vLLM model tokenizer, not OpenAI/tiktoken ids.",
+      "x-openai-compatibility": "narrowed",
+      "x-compatibility-note": "token id를 서빙 중인 모델의 tokenizer로 해석한다. OpenAI tokenizer가 아니다."
     },
     "max_completion_tokens": {
       "type": "integer",
       "minimum": 1,
       "maximum": 13000,
-      "description": "`max_tokens`와 같은 한도를 가리키는 OpenAI 표준 이름이다. 둘을 함께 보내면 거부한다."
+      "description": "`max_tokens`와 같은 한도를 가리키는 OpenAI 표준 이름이다. 둘을 함께 보내면 거부한다.",
+      "x-openai-compatibility": "standard"
     },
     "user": {
       "type": "string",
       "minLength": 1,
-      "description": "OpenAI 표준의 최종 사용자 식별자다. 형식만 검증하고 upstream에는 전달하지 않으며, 응답과 metric label에 영향이 없다."
+      "description": "OpenAI 표준의 최종 사용자 식별자다. 형식만 검증하고 upstream에는 전달하지 않으며, 응답과 metric label에 영향이 없다.",
+      "x-openai-compatibility": "narrowed",
+      "x-compatibility-note": "형식만 검증하고 upstream에 전달하지 않는다."
     }
   },
   "$defs": {
@@ -541,5 +576,51 @@
       "max_tokens",
       "max_completion_tokens"
     ]
-  }
+  },
+  "x-openai-unsupported-parameters": [
+    {
+      "name": "service_tier",
+      "reason": "단일 온프레미스 runtime이라 처리 등급 선택이 없다."
+    },
+    {
+      "name": "store",
+      "reason": "플랫폼이 대화를 저장하지 않는다."
+    },
+    {
+      "name": "metadata",
+      "reason": "저장하지 않으므로 붙일 대상이 없다."
+    },
+    {
+      "name": "reasoning_effort",
+      "reason": "이 플랫폼은 boolean reasoning opt-in을 쓴다."
+    },
+    {
+      "name": "modalities",
+      "reason": "출력 modality는 활성 프로필이 결정한다."
+    },
+    {
+      "name": "audio",
+      "reason": "음성 출력 runtime을 서빙하지 않는다."
+    },
+    {
+      "name": "prediction",
+      "reason": "predicted outputs를 지원하는 runtime이 없다."
+    },
+    {
+      "name": "web_search_options",
+      "reason": "외부 egress가 없는 배포라 웹 검색을 제공하지 않는다."
+    },
+    {
+      "name": "functions",
+      "reason": "OpenAI가 폐기한 이름이다. tools를 쓴다."
+    },
+    {
+      "name": "function_call",
+      "reason": "OpenAI가 폐기한 이름이다. tool_choice를 쓴다."
+    },
+    {
+      "name": "stream_options.include_obfuscation",
+      "reason": "SSE 패딩을 넣지 않는다."
+    }
+  ]
 }

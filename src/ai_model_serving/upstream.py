@@ -199,7 +199,14 @@ def _http_status_to_service_error(endpoint: RuntimeEndpoint, response_or_status:
         return ServiceError("UPSTREAM_ERROR", f"Upstream authorization failed: {endpoint.logical_id}", diagnostics=diagnostics, diagnostic_code="UPSTREAM_AUTH_FAILED")
     return ServiceError("UPSTREAM_ERROR", f"Upstream failed: {endpoint.logical_id}", diagnostics=diagnostics, diagnostic_code="UPSTREAM_HTTP_ERROR")
 
-class VLLMClient:
+class RuntimeClient:
+    """모델 runtime과의 OpenAI 호환 HTTP 데이터 평면이다.
+
+    backend에 의존하지 않는다. vLLM(CUDA)과 mlx-vlm(Metal) 모두 이 클래스를 쓰며,
+    양쪽 다 OpenAI 호환 경로만 노출한다. runtime의 제어 평면(프로필 전환, 컨테이너
+    수명주기)은 여기 없고 services/sidecar_client.py가 따로 소유한다.
+    """
+
     def __init__(self, endpoint: RuntimeEndpoint) -> None:
         self.endpoint = endpoint
         self._client: httpx.AsyncClient | None = None
@@ -335,7 +342,7 @@ class VLLMClient:
     async def probe_json(self, path: str, *, headers: Mapping[str, str] | None = None) -> dict[str, Any]:
         """GET JSON for readiness without mutating serving traffic guards.
 
-        Startup probes may fail repeatedly while vLLM downloads or loads a model.
+        Startup probes may fail repeatedly while the runtime downloads or loads a model.
         Those failures should not open the circuit breaker that protects real
         inference traffic, and an already-open inference circuit should not hide
         the current readiness reason.
