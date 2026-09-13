@@ -26,6 +26,7 @@ from ..api_descriptions import (
 from ..openapi_contracts import install_contract_openapi, narrow_chat_request_schema
 from ..security import require_bearer_auth
 from ..settings import AppSettings, RuntimeEndpoint, SecuritySettings, load_settings
+from ..runtime_configuration import RuntimeConfigurationProvider, RuntimeConfigurationSettingsView
 from ..services.gateway_service import GatewayService
 from ..upstream import RuntimeClient
 from ..api_descriptions import gateway_description, gateway_tags_metadata
@@ -135,7 +136,9 @@ def create_gateway_app(settings: AppSettings | None = None, clients: GatewayClie
         clients.main_model_inflight = MainModelInFlight()
     metrics = Metrics("gateway")
     logger = service_logger("gateway")
-    service = GatewayService(settings, clients, metrics)
+    runtime_configuration = RuntimeConfigurationProvider.from_settings(settings)
+    runtime_settings = RuntimeConfigurationSettingsView(settings, runtime_configuration)
+    service = GatewayService(runtime_settings, clients, metrics)
     auth = require_bearer_auth(settings.security)
     api_dependencies = [Depends(auth)] if settings.security.api_key_required else []
     admin_dependencies = build_admin_dependencies(settings)
@@ -152,6 +155,10 @@ def create_gateway_app(settings: AppSettings | None = None, clients: GatewayClie
         tags_metadata=gateway_tags_metadata(settings),
         lifespan_resources=(clients,),
     )
+    # Configuration Plane mutation will use this provider instead of mutating the
+    # startup AppSettings object. Keeping it on app.state also gives tests and future
+    # routers one explicit process-local authority for request-path policy.
+    app.state.runtime_configuration = runtime_configuration
 
     install_common_middleware(app, settings=settings, metrics=metrics, logger=logger)
     install_cors_middleware(app, settings=settings)
