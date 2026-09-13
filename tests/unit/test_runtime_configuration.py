@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from dataclasses import replace
 
 import pytest
@@ -68,28 +69,30 @@ def test_settings_view_keeps_startup_settings_immutable_and_overlays_dynamic_pol
     assert view.deployment_target is app_settings.deployment_target
 
 
-@pytest.mark.asyncio
-async def test_gateway_service_consumes_new_runtime_policy_without_reconstruction() -> None:
-    app_settings = settings()
-    provider = RuntimeConfigurationProvider.from_settings(app_settings)
-    view = RuntimeConfigurationSettingsView(app_settings, provider)
-    clients = FakeGatewayClients()
-    service = GatewayService(view, clients, Metrics("runtime-config-test"))
+def test_gateway_service_consumes_new_runtime_policy_without_reconstruction() -> None:
+    async def exercise() -> None:
+        app_settings = settings()
+        provider = RuntimeConfigurationProvider.from_settings(app_settings)
+        view = RuntimeConfigurationSettingsView(app_settings, provider)
+        clients = FakeGatewayClients()
+        service = GatewayService(view, clients, Metrics("runtime-config-test"))
 
-    documents = ["one", "two"]
-    payload = {"query": "q", "documents": documents, "model": "local-embed-ko"}
+        documents = ["one", "two"]
+        payload = {"query": "q", "documents": documents, "model": "local-embed-ko"}
 
-    # The startup default allows the request.
-    response = await service.score_documents(payload)
-    assert len(response["scores"]) == 2
+        # The startup default allows the request.
+        response = await service.score_documents(payload)
+        assert len(response["scores"]) == 2
 
-    # Replacing the snapshot changes the already-constructed service immediately.
-    provider.replace(max_retrieval_documents=1)
-    with pytest.raises(Exception) as exc_info:
-        await service.score_documents(payload)
-    error = exc_info.value
-    assert getattr(error, "code", None) == "VALIDATION_ERROR"
-    assert "cannot exceed 1 items" in str(error)
+        # Replacing the snapshot changes the already-constructed service immediately.
+        provider.replace(max_retrieval_documents=1)
+        with pytest.raises(Exception) as exc_info:
+            await service.score_documents(payload)
+        error = exc_info.value
+        assert getattr(error, "code", None) == "VALIDATION_ERROR"
+        assert "cannot exceed 1 items" in str(error)
+
+    asyncio.run(exercise())
 
 
 def test_runtime_configuration_rejects_invalid_ranges() -> None:
