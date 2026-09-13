@@ -13,6 +13,7 @@ from ..contracts import (
 from ..errors import ServiceError
 from ..metrics import Metrics
 from ..runtime_clients.ports import JsonRuntimeClient
+from ..runtime_configuration import RuntimeConfigurationProvider
 from ..settings import AppSettings
 
 
@@ -26,10 +27,20 @@ class RetrievalClientSet(Protocol):
 class RetrievalService:
     """dense retrieval 점수 계산과 reranking을 담당하는 use-case 계층이다."""
 
-    def __init__(self, settings: AppSettings, clients: RetrievalClientSet, metrics: Metrics) -> None:
+    def __init__(
+        self,
+        settings: AppSettings,
+        clients: RetrievalClientSet,
+        metrics: Metrics,
+        runtime_configuration: RuntimeConfigurationProvider | None = None,
+    ) -> None:
         self.settings = settings
         self.clients = clients
         self.metrics = metrics
+        # Persistence/API는 Configuration Plane이 소유하고, retrieval은 현재
+        # snapshot만 소비한다. provider를 주입하지 않는 기존 호출자는 resolved
+        # AppSettings에서 revision 0 snapshot을 만들어 이전 동작을 그대로 유지한다.
+        self.runtime_configuration = runtime_configuration or RuntimeConfigurationProvider.from_settings(settings)
 
     def _resolve_retrieval_mode(self, payload: dict[str, Any]) -> tuple[str, str]:
         model = str(payload.get("model") or self.settings.default_retrieval_model)
@@ -52,9 +63,13 @@ class RetrievalService:
             raise ServiceError("VALIDATION_ERROR", "retrieval query must be a non-empty string.")
         if not isinstance(documents, list) or not documents:
             raise ServiceError("VALIDATION_ERROR", "retrieval documents must be a non-empty array.")
-        if len(documents) > self.settings.max_retrieval_documents:
+        # 요청 하나는 하나의 immutable runtime configuration snapshot을 기준으로
+        # 검증한다. apply가 동시에 일어나도 같은 요청 중간에 limit이 바뀌지 않는다.
+        runtime_config = self.runtime_configuration.snapshot()
+        if len(documents) > runtime_config.max_retrieval_documents:
             raise ServiceError(
-                "VALIDATION_ERROR", f"retrieval documents cannot exceed {self.settings.max_retrieval_documents} items.",
+                "VALIDATION_ERROR",
+                f"retrieval documents cannot exceed {runtime_config.max_retrieval_documents} items.",
             )
         if any(not isinstance(item, str) or not item.strip() for item in documents):
             raise ServiceError("VALIDATION_ERROR", "retrieval documents must contain non-empty strings.")
@@ -78,7 +93,7 @@ class RetrievalService:
     def _cosine(v1: list[float], v2: list[float]) -> float:
         dot = sum(a * b for a, b in zip(v1, v2))
         n1 = math.sqrt(sum(a * a for a in v1))
-        n2 = math.sqrt(sum(b * b for b in v2))
+        n2 = math.sqrt(sum(a * a for a in v2))
         return 0.0 if n1 == 0.0 or n2 == 0.0 else dot / (n1 * n2)
 
     def _apply_prompt_policy(self, model: str, role: str, text: str) -> str:
