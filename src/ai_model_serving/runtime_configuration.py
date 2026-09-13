@@ -29,9 +29,12 @@ class RuntimeConfigurationSnapshot:
         if (
             isinstance(self.max_retrieval_documents, bool)
             or not isinstance(self.max_retrieval_documents, int)
-            or not 1 <= self.max_retrieval_documents <= 32
+            or self.max_retrieval_documents < 1
         ):
-            raise ValueError("max_retrieval_documents must be an integer between 1 and 32")
+            # Public retrieval contract의 실제 maxItems는 계약/schema가 소유한다.
+            # provider가 같은 숫자를 복제하면 두 SoT가 생기므로 여기서는 snapshot의
+            # 구조적 유효성(양수 integer)만 보장한다.
+            raise ValueError("max_retrieval_documents must be a positive integer")
         if (
             isinstance(self.streaming_max_duration_seconds, bool)
             or not isinstance(self.streaming_max_duration_seconds, (int, float))
@@ -109,8 +112,15 @@ class RuntimeConfigurationProvider:
     def install(self, snapshot: RuntimeConfigurationSnapshot) -> RuntimeConfigurationSnapshot:
         """Persistence layer가 검증한 revision snapshot을 그대로 설치한다."""
         with self._lock:
-            if snapshot.revision < self._snapshot.revision:
+            current = self._snapshot
+            if snapshot.revision < current.revision:
                 raise ValueError("runtime configuration revision cannot move backwards")
+            if snapshot.revision == current.revision:
+                if snapshot != current:
+                    raise ValueError(
+                        "runtime configuration values cannot change without a new revision"
+                    )
+                return current
             self._snapshot = snapshot
             return snapshot
 
