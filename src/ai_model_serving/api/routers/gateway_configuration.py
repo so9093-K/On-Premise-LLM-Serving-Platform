@@ -5,12 +5,17 @@ from typing import Any
 from fastapi import APIRouter
 
 from ...configuration_plane import configuration_schema, effective_configuration
+from ...operator_configuration import ConfigurationValueResolver
 from ..endpoint_spec import GATEWAY_ENDPOINTS
 
 _GW = {(spec.method, spec.path): spec for spec in GATEWAY_ENDPOINTS}
 
 
-def build_router(admin_dependencies: list, settings: Any) -> APIRouter:
+def build_router(
+    admin_dependencies: list,
+    settings: Any,
+    resolver: ConfigurationValueResolver,
+) -> APIRouter:
     router = APIRouter()
     schema_spec = _GW[("GET", "/admin/config/schema")]
     effective_spec = _GW[("GET", "/admin/config/effective")]
@@ -29,6 +34,6 @@ def build_router(admin_dependencies: list, settings: Any) -> APIRouter:
         description=effective_spec.description, operation_id=effective_spec.operation_id,
     )
     async def config_effective() -> dict[str, Any]:
-        return effective_configuration(settings)
+        return effective_configuration(settings, resolver)
 
     return router

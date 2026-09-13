@@ -23,6 +23,16 @@ from ..api_descriptions import (
     embeddings_operation_detail,
     models_operation_detail,
 )
+from ..configuration_plane import configuration_schema_items
+from ..operator_configuration import (
+    ConfigurationValueResolver,
+    OperatorConfigurationState,
+    OperatorConfigurationStore,
+    operator_configuration_path,
+    operator_metadata_by_key,
+    repository_operator_defaults,
+    runtime_snapshot_from_resolver,
+)
 from ..openapi_contracts import install_contract_openapi, narrow_chat_request_schema
 from ..runtime_configuration import RuntimeConfigurationProvider
 from ..security import require_bearer_auth
@@ -53,14 +63,14 @@ from ..services.runtime_state import RuntimeStateStore
 from ..services.sidecar_client import SidecarClient
 from ..services.main_model_inflight import MainModelInFlight
 
+
 class GatewayClients:
     def __init__(self, settings: AppSettings) -> None:
         state_path = os.environ.get("GATEWAY_RUNTIME_STATE_PATH")
+
         def _runtime_directive(name: str) -> list[str]:
             return [key.strip() for key in os.environ.get(name, "").split(",") if key.strip()]
 
-        # 배포는 이 상태 파일을 직접 쓰지 않는다. deferred runtime 지시만 env로
-        # 넘기고 실제 기록은 Gateway가 한다(services/runtime_state.py 참고).
         self.runtime_state = RuntimeStateStore(
             Path(state_path) if state_path else None,
             controllable_keys=settings.controllable_runtime_keys,
@@ -94,19 +104,13 @@ class GatewayClients:
                     base_url=settings.risk_adapter_base_url,
                     model="risk-adapter",
                     timeout_seconds=settings.risk_adapter_timeout_seconds,
-                    # risk forwarding 요청과 readiness probe가 동시에 진행되도록
-                    # 허용한다. risk_adapter 서비스가 자체적으로 admission control을
-                    # 수행하므로, 여기 gateway semaphore는 readiness probe가 사용자
-                    # 요청 뒤에서 대기열에 밀리지 않도록 막는 역할만 하면 된다.
                     max_concurrency=4,
                 )
             )
             if settings.feature_enabled("risk")
             else None
         )
-        self.runtimes: dict[str, Any] = {
-            "main_llm": self.main_llm,
-        }
+        self.runtimes: dict[str, Any] = {"main_llm": self.main_llm}
         if self.risk_adapter is not None:
             self.runtimes["risk_adapter"] = self.risk_adapter
         self.runtimes.update(self.runtime_clients_by_service_key)
@@ -119,9 +123,7 @@ class GatewayClients:
             self.risk_adapter,
             self.sidecar,
         ):
-            if client is None:
-                continue
-            if id(client) in seen:
+            if client is None or id(client) in seen:
                 continue
             seen.add(id(client))
             close = getattr(client, "aclose", None)
@@ -136,7 +138,28 @@ def create_gateway_app(settings: AppSettings | None = None, clients: GatewayClie
         clients.main_model_inflight = MainModelInFlight()
     metrics = Metrics("gateway")
     logger = service_logger("gateway")
+
+    schema_items = configuration_schema_items()
     runtime_configuration = RuntimeConfigurationProvider.from_settings(settings)
+    metadata = operator_metadata_by_key(schema_items)
+    state_path = operator_configuration_path()
+    operator_store: OperatorConfigurationStore | None = None
+    operator_state = OperatorConfigurationState(revision=0, overrides={})
+    if state_path is not None:
+        operator_store = OperatorConfigurationStore(state_path, metadata)
+        # Corrupt or invalid persistent operator state is a startup error. Silently
+        # ignoring it would make the effective API disagree with operator intent.
+        operator_state = operator_store.read()
+
+    configuration_resolver = ConfigurationValueResolver(
+        repository_defaults=repository_operator_defaults(schema_items),
+        operator_state=operator_state,
+    )
+    if state_path is not None:
+        runtime_configuration.install(
+            runtime_snapshot_from_resolver(configuration_resolver, schema_items)
+        )
+
     runtime_settings = runtime_configuration.settings_view(settings)
     service = GatewayService(runtime_settings, clients, metrics)
     auth = require_bearer_auth(settings.security)
@@ -144,9 +167,7 @@ def create_gateway_app(settings: AppSettings | None = None, clients: GatewayClie
     admin_dependencies = build_admin_dependencies(settings)
 
     _release = settings.deploy_release_id
-    _version = (
-        f"{settings.project_version} ({_release[:8]})" if _release else settings.project_version
-    )
+    _version = f"{settings.project_version} ({_release[:8]})" if _release else settings.project_version
     app = create_service_app(
         title="AI Model Serving Gateway",
         version=_version,
@@ -155,10 +176,9 @@ def create_gateway_app(settings: AppSettings | None = None, clients: GatewayClie
         tags_metadata=gateway_tags_metadata(settings),
         lifespan_resources=(clients,),
     )
-    # Configuration Plane persistence가 붙기 전에도 Gateway 안의 모든 runtime
-    # consumer가 하나의 revision source를 보도록 app scope에 provider를 둔다.
-    # 이후 plan/apply API는 새 provider를 만들지 않고 이 인스턴스에 snapshot을 설치한다.
     app.state.runtime_configuration = runtime_configuration
+    app.state.operator_configuration_store = operator_store
+    app.state.configuration_resolver = configuration_resolver
 
     install_common_middleware(app, settings=settings, metrics=metrics, logger=logger)
     install_cors_middleware(app, settings=settings)
@@ -200,7 +220,9 @@ def create_gateway_app(settings: AppSettings | None = None, clients: GatewayClie
     register_health(app, service="gateway", spec=_GW_SPECS[("GET", "/health")])
 
     app.include_router(_build_ops_router(admin_dependencies, clients, metrics, settings))
-    app.include_router(_build_configuration_router(admin_dependencies, runtime_settings))
+    app.include_router(
+        _build_configuration_router(admin_dependencies, runtime_settings, configuration_resolver)
+    )
     app.include_router(
         _build_inference_router(
             api_dependencies,
@@ -215,9 +237,17 @@ def create_gateway_app(settings: AppSettings | None = None, clients: GatewayClie
     if settings.feature_enabled("risk"):
         app.include_router(_build_risk_router(api_dependencies, service, settings, clients.runtime_state))
     if settings.feature_enabled("retrieval"):
-        app.include_router(_build_retrieval_router(api_dependencies, admin_dependencies, service, settings, clients.runtime_state))
+        app.include_router(
+            _build_retrieval_router(
+                api_dependencies, admin_dependencies, service, settings, clients.runtime_state
+            )
+        )
     if settings.feature_enabled("runtime_control"):
-        app.include_router(_build_runtime_control_router(admin_dependencies, clients.runtime_state, clients.sidecar, settings))
+        app.include_router(
+            _build_runtime_control_router(
+                admin_dependencies, clients.runtime_state, clients.sidecar, settings
+            )
+        )
 
     if settings.feature_enabled("model_switching"):
         @app.get(
@@ -246,10 +276,6 @@ def create_gateway_app(settings: AppSettings | None = None, clients: GatewayClie
         request_schemas=_request_schemas,
         response_schemas=_response_schemas,
         error_codes=error_codes_from_specs(GATEWAY_ENDPOINTS),
-        # chat 요청 스키마는 정적 파일이라 프로필별 한도를 담지 못한다. 활성 프로필
-        # 정책으로 좁혀서 문서의 필드 제약이 실제 API와 같아지게 한다.
-        # 엔드포인트가 하나뿐인 태그의 상세 설명은 태그가 아니라 그 오퍼레이션에 붙인다.
-        # 태그 설명에 두면 Scalar가 Show More로 접어버려 읽히지 않는다.
         operation_details={
             ("POST", "/v1/chat/completions"): chat_operation_detail(settings),
             ("GET", "/v1/models"): models_operation_detail(settings),

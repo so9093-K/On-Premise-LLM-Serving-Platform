@@ -35,5 +35,8 @@ def test_configuration_schema_v2_governance_rejects_default_below_metadata_minim
 
     monkeypatch.setattr(governance, "read_yaml", read_yaml)
 
-    with pytest.raises(SystemExit, match="streaming.max_chunks repository default is below metadata minimum"):
+    with pytest.raises(
+        SystemExit,
+        match="streaming.max_chunks repository default invalid: streaming.max_chunks is below metadata minimum",
+    ):
         governance.validate_configuration_schema()

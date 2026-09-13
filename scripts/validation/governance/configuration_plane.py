@@ -1,23 +1,15 @@
 from __future__ import annotations
 
-from typing import Any
-
+from ai_model_serving.configuration_bindings import operator_runtime_bindings
 from ai_model_serving.configuration_schema import validate_configuration_schema_document
 from ai_model_serving.configuration_plane import CONFIGURATION_PROJECTION_IDS
+from ai_model_serving.configuration_values import validate_configuration_value
 
 from .common import read_json, read_yaml
 
 
-_OPERATOR_DEFAULT_PATHS: dict[str, tuple[str, ...]] = {
-    "operational.max_retrieval_documents": ("operational_limits", "max_retrieval_documents"),
-    "streaming.max_duration_seconds": ("streaming", "max_duration_seconds"),
-    "streaming.max_chunks": ("streaming", "max_chunks"),
-    "streaming.max_bytes": ("streaming", "max_bytes"),
-}
-
-
-def _nested_value(document: dict[str, Any], path: tuple[str, ...]) -> Any:
-    value: Any = document
+def _nested_value(document: dict, path: tuple[str, ...]):
+    value = document
     for part in path:
         if not isinstance(value, dict) or part not in value:
             raise SystemExit(
@@ -25,23 +17,6 @@ def _nested_value(document: dict[str, Any], path: tuple[str, ...]) -> Any:
             )
         value = value[part]
     return value
-
-
-def _validate_value_against_metadata(item: dict[str, Any], value: Any) -> None:
-    key = item["key"]
-    value_type = item["type"]
-    if value_type == "integer" and (isinstance(value, bool) or not isinstance(value, int)):
-        raise SystemExit(f"{key} repository default must be an integer")
-    if value_type == "number" and (
-        isinstance(value, bool) or not isinstance(value, (int, float))
-    ):
-        raise SystemExit(f"{key} repository default must be numeric")
-    minimum = item.get("minimum")
-    maximum = item.get("maximum")
-    if minimum is not None and value < minimum:
-        raise SystemExit(f"{key} repository default is below metadata minimum {minimum}")
-    if maximum is not None and value > maximum:
-        raise SystemExit(f"{key} repository default exceeds metadata maximum {maximum}")
 
 
 def validate_configuration_schema() -> None:
@@ -53,16 +28,23 @@ def validate_configuration_schema() -> None:
             document,
             projection_ids=CONFIGURATION_PROJECTION_IDS,
         )
+        bindings = operator_runtime_bindings(items)
     except ValueError as exc:
         raise SystemExit(str(exc)) from exc
 
     by_key = {str(item["key"]): item for item in items}
     model_serving = read_yaml("configs/model_serving.yaml")
-    for key, path in _OPERATOR_DEFAULT_PATHS.items():
-        item = by_key.get(key)
-        if item is None:
-            raise SystemExit(f"configuration_schema.yaml is missing operator metadata for {key}")
-        _validate_value_against_metadata(item, _nested_value(model_serving, path))
+    for key, binding in bindings.items():
+        item = by_key[key]
+        if binding.repository_path is None:
+            raise SystemExit(f"{key} is missing repository source binding")
+        try:
+            validate_configuration_value(
+                item,
+                _nested_value(model_serving, binding.repository_path),
+            )
+        except ValueError as exc:
+            raise SystemExit(f"{key} repository default invalid: {exc}") from exc
 
     retrieval_item = by_key["operational.max_retrieval_documents"]
     declared_maximum = retrieval_item.get("maximum")

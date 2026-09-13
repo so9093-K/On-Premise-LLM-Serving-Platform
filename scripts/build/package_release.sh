@@ -210,6 +210,29 @@ path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encod
 path.chmod(0o644)
 PYPROV
 
+# 개별 Python 파일 이름을 release script에 다시 적지 않는다. staging tree 자체를
+# import/config root로 사용해 실제 Configuration Plane import graph와 metadata loading이
+# 배포 산출물만으로 성립하는지 검증한다. 새 내부 모듈이 추가되어도 이 검사는 자동으로
+# 따라가며, 누락되면 import 단계에서 fail-closed 된다.
+APP_CONFIG_ROOT="$STAGE/$PACKAGE_ROOT" "$PYTHON_BIN" - "$STAGE/$PACKAGE_ROOT" <<'PYSMOKE'
+from __future__ import annotations
+
+import os
+import sys
+from pathlib import Path
+
+root = Path(sys.argv[1]).resolve()
+os.chdir(root)
+sys.path.insert(0, str(root / "src"))
+
+from ai_model_serving.apps.gateway import create_gateway_app  # noqa: F401,E402
+from ai_model_serving.configuration_plane import configuration_schema  # noqa: E402
+
+schema = configuration_schema()
+if not isinstance(schema, dict) or not schema.get("items"):
+    raise SystemExit("Release staging Configuration Plane schema is empty or invalid")
+PYSMOKE
+
 "$PYTHON_BIN" - "$STAGE/$PACKAGE_ROOT" "$TMP_OUT" <<'PYZIP'
 from __future__ import annotations
 import os, sys, zipfile
@@ -283,24 +306,9 @@ with zipfile.ZipFile(out) as zf:
     if not safe_env_examples:
         raise SystemExit("Release ZIP env contract does not declare env_examples")
 
-# These are read when the Configuration Plane endpoint is imported and served.
-# Keeping this release-artifact contract here prevents a future packaging
-# exclusion from producing a ZIP that boots but fails only when an operator
-# visits /admin/config/schema or /admin/config/effective on a fresh host.
-required_configuration_plane_files = {
-    "configs/configuration_schema.yaml",
-    "src/ai_model_serving/configuration_plane.py",
-    "src/ai_model_serving/api/routers/gateway_configuration.py",
-}
-missing_configuration_plane_files = required_configuration_plane_files - file_paths
-if missing_configuration_plane_files:
-    missing = ", ".join(sorted(missing_configuration_plane_files))
-    raise SystemExit(f"Release ZIP is missing Configuration Plane runtime file(s): {missing}")
-
 # /docs와 /redoc은 저장소에 vendoring 한 JS 번들을 같은 origin으로 서빙한다.
 # CDN 폴백이 없으므로 번들이 빠진 ZIP은 기동은 하지만 문서 화면이 빈 화면이 된다.
-# 위 Configuration Plane 검사와 같은 이유로 여기서 막는다. 기대 경로는
-# ai_model_serving.docs_ui가 소유하므로 파일명을 여기 다시 적지 않는다.
+# 기대 경로는 ai_model_serving.docs_ui가 소유하므로 파일명을 여기 다시 적지 않는다.
 sys.path.insert(0, "src")
 from ai_model_serving.docs_ui import VENDORED_ASSETS  # noqa: E402
 
