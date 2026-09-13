@@ -44,16 +44,6 @@ run_check() {
   return "$status"
 }
 
-validate_generated_artifacts() {
-  # --check가 생성 문서 전체를 구조 비교하므로 OpenAPI drift는 여기서 전부 잡힌다.
-  # 예전엔 openapi_snapshot_diff.py를 이어서 돌렸지만, 그쪽이 비교하던 계약 스키마는
-  # 생성 문서에도 같은 파일에서 주입되는 값이라 자기 자신과 비교하고 있었다.
-  "$PYTHON_BIN" scripts/render_runtime_assets.py --check
-  # /docs 번들은 vendoring 되어 있고 CDN 폴백이 없다. 파일이 없거나 잘리면
-  # 배포된 문서가 조용히 빈 화면이 되므로 로컬 해시만 확인한다(네트워크 불필요).
-  "$PYTHON_BIN" scripts/build/fetch_docs_assets.py --check
-}
-
 if [[ -z "$PYTHON_BIN" ]]; then
   printf '[validate] %-24s FAIL (exit=2)\n' "python compatibility" >&2
   printf '[validate]   Python 3.12 or 3.13 was not found\n' >&2
@@ -67,6 +57,16 @@ run_check "access / exposure" "$PYTHON_BIN" scripts/validation/validate_exposure
 run_check "compose overrides" "$PYTHON_BIN" scripts/compose/render_exposure_overrides.py --check
 run_check "environment contract" "$PYTHON_BIN" scripts/validation/validate_env_contract.py --strict
 run_check "performance contract" "$PYTHON_BIN" scripts/validation/validate_performance_contract.py
-run_check "generated artifacts" validate_generated_artifacts
+# 검사 하나에 run_check 한 줄씩 둔다. 여러 command를 함수로 묶어 넘기면,
+# run_check가 그 함수를 `if "$@"` 조건으로 부르는 순간 함수 안에서 errexit이
+# 꺼진다 -- 앞 command가 실패해도 함수는 계속 돌고 마지막 command의 status가
+# 결과가 된다. 실제로 OpenAPI drift를 주입했더니 PASS로 보고됐다.
+# --check가 생성 문서 전체를 구조 비교하므로 OpenAPI drift는 여기서 전부 잡힌다.
+# 예전엔 openapi_snapshot_diff.py를 이어서 돌렸지만, 그쪽이 비교하던 계약 스키마는
+# 생성 문서에도 같은 파일에서 주입되는 값이라 자기 자신과 비교하고 있었다.
+run_check "generated artifacts" "$PYTHON_BIN" scripts/render_runtime_assets.py --check
+# /docs 번들은 vendoring 되어 있고 CDN 폴백이 없다. 파일이 없거나 잘리면 배포된
+# 문서가 조용히 빈 화면이 되므로 로컬 해시만 확인한다(네트워크 불필요).
+run_check "docs bundles" "$PYTHON_BIN" scripts/build/fetch_docs_assets.py --check
 
 printf '[validate] complete: %d/%d checks passed\n' "$VALIDATE_PASSED" "$VALIDATE_TOTAL"

@@ -127,8 +127,8 @@ make validate
 | Exposure | exposure profile과 service category coverage | 서비스 host 공개 범위 |
 | Compose Projection | exposure 설정에서 생성되는 Compose override | 실제 Compose topology |
 | Environment Example Contract | `.env.*.example`과 `env_contract.yaml` | 예시 환경변수 키 누락 |
-| Runtime Artifact | Source config에서 생성되는 runtime artifact | runtime 생성물 정합성 |
-| OpenAPI Snapshot | FastAPI generated OpenAPI와 checked-in spec | 구현과 API spec 정합성 |
+| Runtime Artifact | Source config에서 생성되는 runtime artifact. FastAPI가 만드는 OpenAPI와 checked-in spec 비교를 포함한다 | runtime 생성물 정합성, 구현과 API spec 정합성 |
+| Docs Bundle | vendoring한 `/docs`·`/redoc` JS 번들의 고정 해시 | 외부 egress 없이 문서 화면이 뜨는지 |
 | Auth Profile | 환경 template과 인증 profile projection | 인증 mode 구성 |
 
 Dependency lock 형식과 graph는 `make validate`가 별도로 재해석하지 않는다. Platform과
