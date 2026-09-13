@@ -23,6 +23,10 @@ if [[ "${PACKAGE_SKIP_VALIDATION:-0}" != "1" ]]; then
   PYTHON_BIN="$PYTHON_BIN" bash "$ROOT/scripts/validation/run_validate.sh"
 fi
 
+cd "$ROOT"
+source scripts/lib/source_provenance.sh
+read_source_provenance
+
 "$PYTHON_BIN" - "$ROOT" "$STAGE/$PACKAGE_ROOT" <<'PYCODE'
 from __future__ import annotations
 
@@ -136,14 +140,28 @@ if dst.exists():
 dst.mkdir(parents=True)
 
 try:
+    # -s는 경로마다 Git이 기록한 mode를 함께 준다. ZIP에 담는 mode를 working tree의
+    # st_mode에서 읽으면 packager의 umask가 산출물에 새어 들어간다 -- 같은 commit이
+    # 664/775로 체크아웃된 곳과 644/755로 체크아웃된 곳에서 서로 다른 ZIP이 나온다.
+    # Git은 실행 비트만 기록하므로 그 두 값이 release의 기준이다.
     tracked_output = subprocess.check_output(
-        ['git', '-C', str(src), 'ls-files', '-z'],
+        ['git', '-C', str(src), 'ls-files', '-sz'],
         stderr=subprocess.PIPE,
     )
 except (FileNotFoundError, subprocess.CalledProcessError) as exc:
     raise SystemExit('make package requires a Git working tree to select tracked inputs') from exc
 
-for raw_path in sorted(filter(None, tracked_output.decode('utf-8').split('\0'))):
+CANONICAL_MODES = {'100755': 0o755, '100644': 0o644}
+tracked_modes: dict[str, int] = {}
+for entry in filter(None, tracked_output.decode('utf-8').split('\0')):
+    metadata, _, entry_path = entry.partition('\t')
+    git_mode = metadata.split(' ', 1)[0]
+    if git_mode not in CANONICAL_MODES:
+        # gitlink(160000)나 symlink(120000)는 이 release가 담는 대상이 아니다.
+        raise SystemExit(f'unsupported git mode {git_mode} for {entry_path!r}')
+    tracked_modes[entry_path] = CANONICAL_MODES[git_mode]
+
+for raw_path in sorted(tracked_modes):
     rel_path = Path(raw_path)
     rel_parts = rel_path.parts
     if rel_path.is_absolute() or '..' in rel_parts:
@@ -163,8 +181,34 @@ for raw_path in sorted(filter(None, tracked_output.decode('utf-8').split('\0')))
     target_file = dst / rel_path
     target_file.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(source_file, target_file)
+    # staging tree 자체를 정규화해 둔다. ZIP writer는 이 mode를 그대로 기록한다.
+    target_file.chmod(tracked_modes[raw_path])
 
 PYCODE
+
+# 어느 소스에서 나온 ZIP인지 함께 담는다. image는 OCI label로 같은 값을 싣는다.
+# 빌드 시각은 일부러 넣지 않는다 -- 같은 commit에서 같은 bytes가 나와야 한다.
+SOURCE_REVISION="$SOURCE_REVISION" SOURCE_STATE="$SOURCE_STATE" VERSION="$VERSION" \
+  "$PYTHON_BIN" - "$STAGE/$PACKAGE_ROOT" <<'PYPROV'
+from __future__ import annotations
+
+import json
+import os
+import sys
+from pathlib import Path
+
+dst = Path(sys.argv[1])
+manifest = {
+    "version": os.environ["VERSION"],
+    "source_revision": os.environ["SOURCE_REVISION"],
+    "source_state": os.environ["SOURCE_STATE"],
+    # 이 release의 mode 정책. 재현 검증 시 기대값을 밖에서 추측하지 않게 적어 둔다.
+    "file_modes": {"regular": "0644", "executable": "0755"},
+}
+path = dst / "RELEASE_PROVENANCE.json"
+path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+path.chmod(0o644)
+PYPROV
 
 "$PYTHON_BIN" - "$STAGE/$PACKAGE_ROOT" "$TMP_OUT" <<'PYZIP'
 from __future__ import annotations
@@ -177,7 +221,9 @@ pkg = src.name             # ai_model_serving_platform
 
 _EPOCH = (1980, 1, 1, 0, 0, 0)
 
-with zipfile.ZipFile(out, 'w', zipfile.ZIP_DEFLATED) as zf:
+# 압축 수준을 명시한다. zipfile 기본값에 기대면 Python 기본이 바뀌는 날
+# 같은 입력에서 다른 bytes가 나온다. (zlib 구현 차이는 여기서 없앨 수 없다.)
+with zipfile.ZipFile(out, 'w', zipfile.ZIP_DEFLATED, compresslevel=6) as zf:
     root_info = zipfile.ZipInfo(pkg + '/')
     root_info.date_time = _EPOCH
     root_info.external_attr = (0o755 << 16) | 0x10
@@ -294,6 +340,22 @@ for name in names:
 epoch = (1980, 1, 1, 0, 0, 0)
 if any(info.date_time != epoch for info in infos):
     raise SystemExit("Release ZIP contains non-reproducible timestamps")
+
+# timestamp와 같은 이유로 mode도 고정값이어야 한다. Git이 기록하는 값은 실행 비트
+# 하나뿐이므로 파일은 644/755, 디렉터리는 755다. 여기에 packager의 umask가 섞이면
+# 같은 commit에서 서로 다른 ZIP이 나온다.
+allowed_file_modes = {0o644, 0o755}
+unexpected_modes = sorted(
+    {
+        (info.filename, oct(info.external_attr >> 16 & 0o7777))
+        for info in infos
+        if not info.filename.endswith("/")
+        and (info.external_attr >> 16 & 0o7777) not in allowed_file_modes
+    }
+)
+if unexpected_modes:
+    shown = ", ".join(f"{name} ({mode})" for name, mode in unexpected_modes[:5])
+    raise SystemExit(f"Release ZIP contains non-reproducible file modes: {shown}")
 PYSELF
 
 "$PYTHON_BIN" - "$TMP_OUT" "$OUT" <<'PYREPLACE'

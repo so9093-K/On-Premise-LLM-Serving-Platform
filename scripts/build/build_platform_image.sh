@@ -23,16 +23,8 @@ INLINE_CACHE="${PLATFORM_IMAGE_INLINE_CACHE:-0}"
 TARGET_PLATFORM="${PLATFORM_BUILD_PLATFORM:-}"
 PROJECT_BUILD_NO_CACHE="${PROJECT_BUILD_NO_CACHE:-0}"
 
-SOURCE_REVISION="unknown"
-SOURCE_STATE="unknown"
-if command -v git >/dev/null 2>&1 && git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-  SOURCE_REVISION="$(git rev-parse HEAD)"
-  if [[ -n "$(git status --porcelain --untracked-files=all)" ]]; then
-    SOURCE_STATE="dirty"
-  else
-    SOURCE_STATE="clean"
-  fi
-fi
+source scripts/lib/source_provenance.sh
+read_source_provenance
 EFFECTIVE_PLATFORM="${TARGET_PLATFORM:-$DAEMON_PLATFORM}"
 
 # 로컬과 CI는 이 스크립트로 같은 Dockerfile build와 image 내부 app 초기화를
