@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 from scripts.compose.validate_vllm_compose import validate_alignment
+from .configuration_plane import validate_configuration_schema
 from .filesystem import validate_json_and_yaml_parse
 from .model_config import (
-    validate_configuration_schema,
     validate_deploy_profiles,
     validate_deployment_targets,
     validate_model_resource_control_policy,
