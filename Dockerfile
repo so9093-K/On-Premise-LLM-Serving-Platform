@@ -28,6 +28,7 @@ LABEL org.opencontainers.image.licenses="Apache-2.0"
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     APP_CONFIG_ROOT=/app \
+    PLATFORM_STATE_DIR=/var/lib/ai-model-serving \
     PATH="/app/.venv/bin:$PATH"
 
 WORKDIR /app
@@ -51,8 +52,9 @@ COPY specs/schemas ./specs/schemas
 COPY ops/compose/full-stack.private-network.yaml ./ops/compose/full-stack.private-network.yaml
 COPY VERSION LICENSE NOTICE ./
 
-# /var/lib/ai-model-serving은 Gateway가 desired state를 쓰는 경로다. 보통은 bind
-# mount가 덮지만, 이미지가 이 경로를 소유하고 있어야 마운트 없이 띄웠을 때도 동작한다.
+# /var/lib/ai-model-serving은 Gateway desired state와 향후 operator configuration을
+# 함께 두는 canonical persistent state root다. Compose bind mount가 이 경로를
+# 덮더라도 이미지 자체가 appuser 소유 경로를 제공해야 단독 실행에서도 동작한다.
 RUN install -d /usr/share/licenses/ai-model-serving-platform \
     && install -m 0644 LICENSE NOTICE /usr/share/licenses/ai-model-serving-platform/ \
     && useradd --create-home --shell /usr/sbin/nologin appuser \
