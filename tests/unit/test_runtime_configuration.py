@@ -4,6 +4,7 @@ from dataclasses import replace
 
 import pytest
 
+from ai_model_serving.apps.gateway import create_gateway_app
 from ai_model_serving.runtime_configuration import (
     RuntimeConfigurationProvider,
     RuntimeConfigurationSettingsView,
@@ -11,6 +12,7 @@ from ai_model_serving.runtime_configuration import (
 )
 from ai_model_serving.services.gateway_service import GatewayService
 from ai_model_serving.metrics import Metrics
+from tests.support.asgi import InlineASGITestClient as TestClient
 from tests.unit.gateway.helpers import FakeGatewayClients, settings
 
 
@@ -86,6 +88,31 @@ def test_gateway_service_consumes_new_runtime_policy_without_reconstruction() ->
     error = exc_info.value
     assert getattr(error, "code", None) == "VALIDATION_ERROR"
     assert "cannot exceed 1 items" in str(error)
+
+
+def test_gateway_app_wiring_applies_replaced_runtime_policy_without_restart() -> None:
+    app_settings = settings()
+    app = create_gateway_app(app_settings, FakeGatewayClients())
+    provider = app.state.runtime_configuration
+
+    assert provider.snapshot().max_retrieval_documents == app_settings.max_retrieval_documents
+    provider.replace(max_retrieval_documents=1)
+
+    response = TestClient(app).post(
+        "/v1/retrieval/score",
+        headers={"Authorization": "Bearer test-key"},
+        json={
+            "query": "q",
+            "documents": ["one", "two"],
+            "model": "local-embed-ko",
+        },
+    )
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+    assert "cannot exceed 1 items" in response.json()["error"]["message"]
+    # Startup/deployment settings remain an immutable snapshot.
+    assert app_settings.max_retrieval_documents != 1
 
 
 def test_runtime_configuration_rejects_invalid_ranges() -> None:
