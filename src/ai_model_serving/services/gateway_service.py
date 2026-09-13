@@ -20,7 +20,7 @@ from ..contracts import (
     validate_embedding_response,
     validate_risk_response,
 )
-from ..contracts.chat_response import RetryableStructuredOutputError
+from ..contracts.chat_response import RetryableStructuredOutputError, project_stream_chunk
 from ..errors import ServiceError
 from ..logging_policy import record_stream_completion
 from ..metrics import Metrics, sanitized_stream_status
@@ -170,12 +170,18 @@ def _stream_error_event(exc: ServiceError) -> bytes:
 
 
 class StreamingResponseObserver:
-    """본문을 버퍼링하지 않고 전달 중인 SSE 바이트에서 진단 정보를 관찰한다.
+    """전달 중인 SSE 바이트에서 진단 정보를 읽고 공개 계약으로 좁힌다.
 
-    The Gateway relays the original bytes unchanged.  This observer only reads
-    what the non-streaming path already records for the request log, so a single
-    request_id answers the same questions on both paths.  Prompt text and token
-    deltas are never read, and none of these values become metric labels.
+    본문을 끝까지 버퍼링하지 않는다. 줄 단위로만 들고 있다가 내보낸다.
+
+    예전에는 원본 바이트를 그대로 중계했다. 그 편이 빠르지만 런타임이 붙인 것이
+    전부 공개 API로 나간다 -- 실측에서 mlx-vlm은 17개 chunk 전부에
+    timings(peak_memory, draft_kind)를 실었고 payload의 25%가 내부 상태였다.
+    비스트리밍만 좁히면 두 경로가 다른 계약을 내보내므로 여기서도 좁힌다.
+
+    읽는 값은 non-stream 경로가 이미 요청 로그에 남기는 것과 같아서, 한 request_id로
+    두 경로에 같은 질문을 할 수 있다. prompt 텍스트와 토큰 delta는 읽지 않고,
+    어느 값도 metric label이 되지 않는다.
 
     ``last_usage``
         마지막으로 본 OpenAI ``usage`` 객체. 토큰 개수는 민감정보가 아니고
@@ -191,33 +197,53 @@ class StreamingResponseObserver:
         self.last_usage: dict[str, Any] | None = None
         self.response_id: str | None = None
 
-    def observe(self, chunk: bytes) -> int:
+    def transform(self, chunk: bytes) -> tuple[bytes, int]:
+        """진단 정보를 읽고, 공개 계약으로 좁힌 바이트를 돌려준다.
+
+        한 번만 파싱한다. 줄이 chunk 경계에 걸릴 수 있어 완성되지 않은 줄은
+        다음 chunk까지 들고 있다가 내보낸다 -- 그래서 반환 바이트가 빈 경우가 있다.
+        ``data:``가 아닌 줄(빈 줄, 주석)은 SSE 프레이밍이라 그대로 내보낸다.
+        """
         try:
             text = chunk.decode("utf-8")
         except UnicodeDecodeError:
             text = chunk.decode("utf-8", errors="ignore")
         self._buffer += text
         usage_events = 0
+        emitted: list[str] = []
         while "\n" in self._buffer:
-            line, self._buffer = self._buffer.split("\n", 1)
-            line = line.strip()
+            raw, self._buffer = self._buffer.split("\n", 1)
+            line = raw.strip()
             if not line.startswith("data:"):
+                emitted.append(raw + "\n")
                 continue
             data = line[len("data:"):].strip()
             if not data or data == "[DONE]":
+                emitted.append(raw + "\n")
                 continue
             try:
                 event = json.loads(data)
             except json.JSONDecodeError:
+                # 파싱하지 못한 줄은 좁히지 못한다. 버리면 client의 stream이 끊기므로
+                # 원문을 그대로 내보내고, 그 사실은 아래 metric에 남지 않는다.
+                emitted.append(raw + "\n")
                 continue
             if not isinstance(event, dict):
+                emitted.append(raw + "\n")
                 continue
             if self.response_id is None and isinstance(event.get("id"), str) and event["id"]:
                 self.response_id = event["id"]
             if isinstance(event.get("usage"), dict):
                 usage_events += 1
                 self.last_usage = event["usage"]
-        return usage_events
+            narrowed = project_stream_chunk(event)
+            emitted.append("data: " + json.dumps(narrowed, ensure_ascii=False, separators=(",", ":")) + "\n")
+        return "".join(emitted).encode("utf-8"), usage_events
+
+    def flush(self) -> bytes:
+        """stream이 끝났을 때 남은 부분 줄. 버리면 마지막 event가 사라진다."""
+        remainder, self._buffer = self._buffer, ""
+        return remainder.encode("utf-8")
 
 class GatewayClientSet(Protocol):
     main_llm: StreamingRuntimeClient
@@ -428,10 +454,17 @@ class GatewayService:
                     if not first_chunk_recorded:
                         first_chunk_recorded = True
                         self.metrics.record_streaming_first_chunk(target, time.monotonic() - start)
+                    # chunk 크기와 한도는 런타임이 만든 바이트를 기준으로 센다.
+                    # 좁힌 뒤 크기로 재면 한도가 내부 telemetry 양에 따라 흔들린다.
                     self.metrics.record_streaming_chunk(target, len(chunk))
-                    for _ in range(observer.observe(chunk)):
+                    relayed, usage_events = observer.transform(chunk)
+                    for _ in range(usage_events):
                         self.metrics.record_streaming_usage_event(target)
-                    yield chunk
+                    if relayed:
+                        yield relayed
+                remainder = observer.flush()
+                if remainder:
+                    yield remainder
         # client가 응답을 버리면 Starlette은 이 generator를 닫는다. 그 경로는
         # CancelledError가 아니라 GeneratorExit이라, 예전에는 어느 분기에도
         # 걸리지 않고 finally의 기본값 "completed"로 기록됐다 -- 중단된 stream이

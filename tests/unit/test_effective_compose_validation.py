@@ -162,3 +162,35 @@ def test_preflight_reuses_supplied_boot_or_generates_temporary_one(tmp_path, mon
     assert bool(generated) is not supplied
     assert observed[0].exists() is supplied
     assert supplied_path.is_file()
+
+
+def test_platform_services_read_configs_from_the_deployment_not_from_the_image():
+    """platform image로 도는 서비스는 configs/를 런타임에 읽는다.
+
+    request_parameter_policy, auth/access profile, runtime topology 같은 공개 API
+    계약이 거기 있다. 이미지에 구운 사본만 보면 설정을 고쳐 배포해도 Gateway만 옛
+    계약으로 돈다. 실제로 macOS profile의 reasoning을 opt-in으로 바꾸고 make validate,
+    make test, make down/up을 모두 통과시켰는데 동작은 그대로였다 -- Gateway가 옛
+    이미지의 설정을 읽고 있었다.
+
+    배포 스크립트는 "설정-only 변경은 current image를 재사용할 수 있다"를 전제하고
+    main-llm-vllm은 이미 이 마운트를 갖는다. Gateway만 빠져 있어 그 전제가 성립하지
+    않았다.
+    """
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[2]
+    for name in ("full-stack.private-network.yaml", "static-main.external-runtime.yaml"):
+        document = yaml.safe_load((root / "ops/compose" / name).read_text(encoding="utf-8"))
+        # platform image로 도는 서비스는 전부 load_settings()로 같은 설정을 읽는다.
+        # 일부만 마운트하면 한 배포 안에서 서비스마다 다른 계약으로 돈다.
+        for service, definition in document["services"].items():
+            if "PLATFORM_IMAGE" not in str(definition.get("image", "")):
+                continue
+            mounts = [str(item) for item in definition.get("volumes") or []]
+            assert any(item.endswith("/app/configs:ro") for item in mounts), \
+                f"{name}:{service} has no config mount: {mounts}"
+            # 읽기 전용이어야 한다. 서비스가 설정을 고칠 일은 없고, 고칠 수 있으면
+            # 저장소의 설정과 실행 중인 설정이 갈라진다.
+            assert all(":ro" in item for item in mounts if "/app/configs" in item), \
+                f"{name}:{service}"

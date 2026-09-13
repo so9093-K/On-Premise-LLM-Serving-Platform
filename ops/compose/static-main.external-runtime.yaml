@@ -40,3 +40,6 @@ services:
       interval: 10s
       timeout: 5s
       retries: 6
+    volumes:
+    - ../../configs:/app/configs:ro
+    - ../../specs/schemas:/app/specs/schemas:ro

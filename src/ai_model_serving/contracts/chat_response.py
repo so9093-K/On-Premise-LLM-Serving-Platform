@@ -207,6 +207,85 @@ def _validate_choice_logprobs(choice: dict[str, Any], *, choice_index: int) -> N
             _validate_logprob_item(item, context=f"choices[{choice_index}].logprobs.{field}[{item_index}]")
 
 
+# 공개 응답이 담을 수 있는 키는 specs/schemas/chat_completion_response.schema.json이
+# 소유한다. 여기 목록을 다시 적으면 schema와 코드가 갈라지고, 갈라진 쪽이 실제
+# 동작이 된다.
+#
+# 이 좁히기가 없으면 런타임이 붙인 것이 그대로 공개 API로 나간다. 실제로 mlx-vlm의
+# timings(peak_memory, draft_kind, draft_rounds)가 나갔고, message에는 OpenAI가
+# 요청 쪽에서만 쓰는 tool_call_id와 name이 null로 실렸다. /docs는 선언된 모양을
+# 보여주므로 문서와 실제가 달랐다.
+_RESPONSE_SCHEMA_NAME = "chat_completion_response.schema.json"
+
+
+def _declared_keys() -> tuple[frozenset[str], frozenset[str], frozenset[str]]:
+    from ..openapi_contracts import load_contract_schema
+
+    schema = load_contract_schema(_RESPONSE_SCHEMA_NAME)
+    choice = schema["properties"]["choices"]["items"]
+    return (
+        frozenset(schema["properties"]),
+        frozenset(choice["properties"]),
+        frozenset(choice["properties"]["message"]["properties"]),
+    )
+
+
+def project_to_public_contract(payload: dict[str, Any]) -> dict[str, Any]:
+    """선언된 키만 남긴다. 런타임이 덧붙인 것은 공개 API로 내보내지 않는다."""
+    top, choice_keys, message_keys = _declared_keys()
+    projected = {name: value for name, value in payload.items() if name in top}
+    choices = []
+    for choice in payload.get("choices") or []:
+        if not isinstance(choice, dict):
+            choices.append(choice)
+            continue
+        narrowed = {name: value for name, value in choice.items() if name in choice_keys}
+        message = choice.get("message")
+        if isinstance(message, dict):
+            narrowed["message"] = {
+                name: value for name, value in message.items() if name in message_keys
+            }
+        choices.append(narrowed)
+    if choices:
+        projected["choices"] = choices
+    return projected
+
+
+# 스트리밍 chunk의 delta가 담을 수 있는 키. chunk는 chat.completion.chunk이고
+# 응답 schema는 chat.completion을 선언하므로, message가 아니라 delta로 온다.
+# OpenAI의 delta는 role/content/tool_calls/refusal이고 이 플랫폼은 reasoning
+# 확장을 더 광고한다 -- message에 선언한 것과 같은 집합을 쓴다.
+def project_stream_chunk(chunk: dict[str, Any]) -> dict[str, Any]:
+    """SSE chunk를 공개 계약으로 좁힌다.
+
+    Gateway는 오랫동안 스트리밍 바이트를 그대로 중계했다. 그 편이 빠르고 stream을
+    망가뜨릴 위험이 없지만, 런타임이 붙인 것이 전부 공개 API로 나간다. 실측에서
+    mlx-vlm은 17개 chunk 전부에 timings(peak_memory, draft_kind, draft_rounds)를
+    실었고, delta에는 OpenAI가 요청 쪽에서만 쓰는 name과 tool_call_id가 있었다.
+    payload의 25%, chunk당 100바이트가 내부 상태였다.
+
+    비스트리밍만 좁히면 두 경로가 서로 다른 계약을 내보낸다. 그 불일치가 균일한
+    누출보다 나쁘다.
+    """
+    top, choice_keys, message_keys = _declared_keys()
+    projected = {name: value for name, value in chunk.items() if name in top}
+    choices = []
+    for choice in chunk.get("choices") or []:
+        if not isinstance(choice, dict):
+            choices.append(choice)
+            continue
+        narrowed = {name: value for name, value in choice.items() if name in choice_keys or name == "delta"}
+        delta = choice.get("delta")
+        if isinstance(delta, dict):
+            narrowed["delta"] = {
+                name: value for name, value in delta.items() if name in message_keys
+            }
+        choices.append(narrowed)
+    if choices:
+        projected["choices"] = choices
+    return projected
+
+
 def validate_chat_response(
     payload: Any,
     *,
@@ -234,4 +313,4 @@ def validate_chat_response(
             _validate_response_json_content(choice, choice_index=index, expectations=expectations)
             if expectations.expect_logprobs and not expectations.stream:
                 _validate_choice_logprobs(choice, choice_index=index)
-    return payload
+    return project_to_public_contract(payload)

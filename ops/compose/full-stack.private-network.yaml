@@ -52,6 +52,8 @@ services:
     volumes:
     - ../../.runtime/gateway:/var/lib/ai-model-serving
     - ../../.runtime/request-events:/var/log/ai-model-serving
+    - ../../configs:/app/configs:ro
+    - ../../specs/schemas:/app/specs/schemas:ro
   risk-adapter:
     image: ${PLATFORM_IMAGE:?Set PLATFORM_IMAGE to a tested platform image tag}
     restart: unless-stopped
@@ -78,6 +80,8 @@ services:
     - '9405'
     volumes:
     - ../../.runtime/request-events:/var/log/ai-model-serving
+    - ../../configs:/app/configs:ro
+    - ../../specs/schemas:/app/specs/schemas:ro
   main-llm-vllm:
     # 이 image/command는 최초 `docker compose up` 부트스트랩 전용 placeholder다.
     # admin-sidecar가 뜬 뒤에는 configs/main_model_profiles.yaml의 active profile
@@ -478,6 +482,8 @@ services:
     - ../../.runtime/main-model:/var/lib/ai-model-serving
     - ../../.runtime/log-targets:/var/lib/ai-model-serving/log-targets
     - ${HF_CACHE_DIR:-./model_cache/huggingface}:/root/.cache/huggingface
+    - ../../configs:/app/configs:ro
+    - ../../ops/compose/full-stack.private-network.yaml:/app/ops/compose/full-stack.private-network.yaml:ro
     expose:
     - '8080'
     healthcheck:

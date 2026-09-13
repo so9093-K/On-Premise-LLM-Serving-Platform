@@ -192,6 +192,33 @@ Response Validation
 
 Chat과 Embedding 응답은 model, choice/data 구조, token usage 등 기능별 형식을 확인한다. Prompt Guard 응답은 detector signal 형식을 확인한 뒤 Gateway를 통해 반환한다.
 
+검증 뒤 응답은 `specs/schemas/`가 선언한 키만 남긴다. 런타임이 덧붙인 것은 공개
+API로 내보내지 않는다. 실제로 mlx-vlm은 chunk마다 `timings`(`peak_memory`,
+`draft_kind`, `draft_rounds`)를 실었고 payload의 25%가 그 내부 상태였다. 스트리밍과
+비스트리밍 모두 같은 계약을 내보낸다.
+
+## 2.2.1 OpenAI 호환 범위
+
+이 Gateway는 OpenAI Chat Completions와 Embeddings의 요청·응답 형식을 따른다. 기존
+SDK로 `base_url`만 바꿔 호출할 수 있다. 다만 아래는 다르며, 이 목록이 호환 범위의
+선언이다.
+
+| 항목 | 이 플랫폼 | OpenAI |
+|---|---|---|
+| 오류 식별자 | `error.code` | `error.type` |
+| 오류 필드 | `retryable`, `request_id`, `param`을 항상 싣는다 | 없음 |
+| reasoning | `reasoning`/`reasoning_content`를 응답에 실을 수 있다 | 해당 필드 없음 |
+| reasoning 요청 | 요청의 `reasoning` boolean으로 켠다(opt-in) | 해당 필드 없음 |
+| 파라미터 허용 범위 | profile이 선언한 것만 받고 나머지는 422 | 대부분 무시 |
+| 모델 이름 | profile이 선언한 이름 하나만 받는다 | 여러 모델 |
+
+`error.code`는 플랫폼 오류 카탈로그(`configs/error_catalog.yaml`)의 식별자다.
+OpenAI SDK는 HTTP 상태와 `message`를 읽으므로 예외 처리는 그대로 동작하지만,
+`error.type`을 읽는 코드는 값을 받지 못한다.
+
+요청 파라미터를 선언된 것만 받는 이유는 조용히 무시하면 사용자가 적용됐다고
+믿기 때문이다. 어떤 파라미터를 받는지는 `/docs`의 모델 표가 보여준다.
+
 ## 2.3 기능별 처리 흐름
 
 ### Chat

@@ -94,7 +94,14 @@ def test_macos_target_uses_its_mlx_profile_and_main_only_admission(monkeypatch) 
     assert limits["max_image_inputs"] == 8
 
 
-def test_macos_reasoning_defaults_to_mlx_top_level_parameter(monkeypatch) -> None:
+def test_macos_reasoning_uses_the_mlx_top_level_parameter_and_stays_opt_in(monkeypatch) -> None:
+    """MLX는 chat_template_kwargs가 아니라 최상위 enable_thinking을 쓴다.
+
+    기본값은 opt-in이다. API 문서의 with_reasoning 예제가 "Reasoning/thinking opt-in"
+    이라고 선언하고 reasoning=true를 명시해서 보낸다. 이 target만 default_on이라
+    선언과 어긋났고, 요청하지 않은 클라이언트가 completion 417 토큰을 받았다
+    (끄면 같은 인사가 11 토큰이다).
+    """
     monkeypatch.setenv("DEPLOYMENT_TARGET", "macos-metal-static")
     monkeypatch.setenv("MAIN_LLM_STATIC_PROFILE", "gemma4-26b-a4b-qat-4bit-mlx")
     settings = load_settings()
@@ -102,23 +109,26 @@ def test_macos_reasoning_defaults_to_mlx_top_level_parameter(monkeypatch) -> Non
     clients.sidecar = None
     client = TestClient(create_gateway_app(settings, clients))
 
+    # 요청이 말하지 않으면 꺼진다. 사용자가 요청하지 않은 비용을 물리지 않는다.
     response = client.post(
         "/v1/chat/completions",
-        json={"model": "local-main", "messages": [{"role": "user", "content": "분석해줘"}]},
+        json={"model": "local-main", "messages": [{"role": "user", "content": "짧게 답해줘"}]},
     )
     assert response.status_code == 200
-    assert clients.main_llm.last_payload["enable_thinking"] is True
+    assert clients.main_llm.last_payload["enable_thinking"] is False
 
+    # 요청하면 켜지고, chat_template_kwargs가 아니라 최상위 필드로 나간다.
     response = client.post(
         "/v1/chat/completions",
         json={
             "model": "local-main",
-            "messages": [{"role": "user", "content": "짧게 답해줘"}],
-            "reasoning": False,
+            "messages": [{"role": "user", "content": "분석해줘"}],
+            "reasoning": True,
         },
     )
     assert response.status_code == 200
-    assert clients.main_llm.last_payload["enable_thinking"] is False
+    assert clients.main_llm.last_payload["enable_thinking"] is True
+    assert "chat_template_kwargs" not in clients.main_llm.last_payload
 
 
 def test_static_settings_project_only_main_runtime(monkeypatch) -> None:

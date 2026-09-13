@@ -32,7 +32,9 @@ def _truncated_reasoning_response() -> dict:
 
 def test_reasoning_truncation_is_preserved_but_empty_truncation_is_rejected():
     payload = _truncated_reasoning_response()
-    assert validate_chat_response(payload, expected_model="local-main") is payload
+    # 응답은 공개 계약으로 좁혀져 새 객체로 나온다. 잘린 reasoning은 그 계약에
+    # 선언돼 있어 살아남는다 -- 여기서 확인하려던 것은 그 보존이다.
+    assert validate_chat_response(payload, expected_model="local-main") == payload
 
     payload["choices"][0]["message"].pop("reasoning")
     with pytest.raises(ServiceError) as excinfo:

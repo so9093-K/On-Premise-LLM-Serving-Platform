@@ -2,97 +2,233 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "GatewayChatCompletionResponse",
   "type": "object",
-  "required": ["id", "object", "created", "model", "choices"],
+  "required": [
+    "id",
+    "object",
+    "created",
+    "model",
+    "choices"
+  ],
   "additionalProperties": true,
   "properties": {
-    "id": {"type": "string", "minLength": 1},
-    "object": {"const": "chat.completion"},
-    "created": {"type": "integer", "minimum": 0},
-    "model": {"const": "local-main"},
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "object": {
+      "const": "chat.completion"
+    },
+    "created": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "model": {
+      "const": "local-main"
+    },
     "choices": {
       "type": "array",
       "minItems": 1,
       "items": {
         "type": "object",
-        "required": ["index", "message", "finish_reason"],
+        "required": [
+          "index",
+          "message",
+          "finish_reason"
+        ],
         "additionalProperties": true,
         "properties": {
-          "index": {"type": "integer", "minimum": 0},
+          "index": {
+            "type": "integer",
+            "minimum": 0
+          },
           "message": {
             "type": "object",
-            "required": ["role"],
+            "required": [
+              "role"
+            ],
             "additionalProperties": true,
             "properties": {
-              "role": {"const": "assistant"},
-              "content": {"type": ["string", "null"]},
+              "role": {
+                "const": "assistant"
+              },
+              "content": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
               "reasoning": {
-                "type": ["string", "null"],
+                "type": [
+                  "string",
+                  "null"
+                ],
                 "description": "Gemma4 reasoning text when the request used reasoning=true and the upstream vLLM parser emitted it."
               },
               "reasoning_content": {
-                "type": ["string", "null"],
+                "type": [
+                  "string",
+                  "null"
+                ],
                 "deprecated": true,
                 "description": "Legacy vLLM reasoning field name retained for older runtime compatibility."
               },
               "tool_calls": {
                 "type": "array",
                 "minItems": 1,
-                "items": {"$ref": "chat_completion_request.schema.json#/$defs/tool_call"}
+                "items": {
+                  "$ref": "chat_completion_request.schema.json#/$defs/tool_call"
+                }
               },
-              "refusal": {"type": ["string", "null"]}
+              "refusal": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
             }
           },
-          "finish_reason": {"type": ["string", "null"]},
+          "finish_reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "logprobs": {
-            "type": ["object", "null"],
+            "type": [
+              "object",
+              "null"
+            ],
             "additionalProperties": true,
             "properties": {
               "content": {
-                "type": ["array", "null"],
-                "items": {"$ref": "#/$defs/logprob_item"}
+                "type": [
+                  "array",
+                  "null"
+                ],
+                "items": {
+                  "$ref": "#/$defs/logprob_item"
+                }
               },
               "refusal": {
-                "type": ["array", "null"],
-                "items": {"$ref": "#/$defs/logprob_item"}
+                "type": [
+                  "array",
+                  "null"
+                ],
+                "items": {
+                  "$ref": "#/$defs/logprob_item"
+                }
               }
             }
           }
         }
       }
     },
-    "usage": {"type": "object"}
+    "usage": {
+      "type": "object",
+      "description": "토큰 사용량. OpenAI 표준 필드다. 선언이 비어 있으면 /docs에 빈 객체로 보이는데 실제로는 아래 필드가 온다.",
+      "additionalProperties": false,
+      "required": [
+        "prompt_tokens",
+        "completion_tokens",
+        "total_tokens"
+      ],
+      "properties": {
+        "prompt_tokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "completion_tokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "total_tokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "prompt_tokens_details": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "cached_tokens": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "description": "prefix cache가 재사용한 토큰 수. 런타임이 제공할 때만 온다."
+        },
+        "completion_tokens_details": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      }
+    }
   },
   "$defs": {
     "logprob_item": {
       "type": "object",
-      "required": ["token", "logprob", "top_logprobs"],
+      "required": [
+        "token",
+        "logprob",
+        "top_logprobs"
+      ],
       "additionalProperties": true,
       "properties": {
-        "token": {"type": "string"},
-        "logprob": {"type": "number"},
+        "token": {
+          "type": "string"
+        },
+        "logprob": {
+          "type": "number"
+        },
         "bytes": {
           "oneOf": [
-            {"type": "null"},
-            {"type": "array", "items": {"type": "integer", "minimum": 0, "maximum": 255}}
+            {
+              "type": "null"
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 255
+              }
+            }
           ]
         },
         "top_logprobs": {
           "type": "array",
-          "items": {"$ref": "#/$defs/top_logprob_item"}
+          "items": {
+            "$ref": "#/$defs/top_logprob_item"
+          }
         }
       }
     },
     "top_logprob_item": {
       "type": "object",
-      "required": ["token", "logprob"],
+      "required": [
+        "token",
+        "logprob"
+      ],
       "additionalProperties": true,
       "properties": {
-        "token": {"type": "string"},
-        "logprob": {"type": "number"},
+        "token": {
+          "type": "string"
+        },
+        "logprob": {
+          "type": "number"
+        },
         "bytes": {
           "oneOf": [
-            {"type": "null"},
-            {"type": "array", "items": {"type": "integer", "minimum": 0, "maximum": 255}}
+            {
+              "type": "null"
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 255
+              }
+            }
           ]
         }
       }

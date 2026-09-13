@@ -88,8 +88,13 @@ profiles:
         supported_parameters: [stream, stream_options, temperature, max_tokens, top_p, top_k, min_p, repetition_penalty, reasoning, user]
         drop_upstream_parameters: [user]
         max_n: 1
+        # API가 선언한 대로 opt-in이다. 문서의 with_reasoning 예제가
+        # "Reasoning/thinking opt-in"이라고 적고 reasoning=true를 명시해서 보낸다.
+        # 이 target만 default_on이라 그 선언과 어긋나 있었고, 요청하지 않은
+        # 클라이언트가 사고 과정을 받았다 -- 한 문장 인사에 completion 417 토큰,
+        # 끄면 같은 인사가 11 토큰이다. 살아있는 런타임에서 확인했다.
         reasoning:
           enabled: true
-          default: true
-          mode: default_on
+          default: false
+          mode: request_opt_in
           upstream_parameter: enable_thinking
