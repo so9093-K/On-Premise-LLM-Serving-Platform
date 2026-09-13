@@ -31,3 +31,13 @@ def test_static_gateway_persists_platform_state_like_dynamic_gateway() -> None:
     )
     assert _STATE_BIND in static_gateway["volumes"]
     assert _STATE_BIND in dynamic_gateway["volumes"]
+
+
+def test_static_compose_prepares_gateway_state_directory_before_up() -> None:
+    wrapper = (_ROOT / "scripts/compose/static_main_compose.sh").read_text(encoding="utf-8")
+
+    assert (
+        'ensure_gateway_runtime_dir "$GATEWAY_RUNTIME_DIR_RELPATH" "$PLATFORM_IMAGE_EFFECTIVE"'
+        in wrapper
+    )
+    assert "gateway runtime state directory is not usable" in wrapper
