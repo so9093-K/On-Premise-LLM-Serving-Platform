@@ -31,6 +31,8 @@ services:
       PYTHONPATH: /app/src
       DEPLOYMENT_TARGET: ${DEPLOYMENT_TARGET:?Use a configured static deployment target}
       ADMIN_SIDECAR_URL: ""
+      PLATFORM_STATE_DIR: /var/lib/ai-model-serving
+      GATEWAY_RUNTIME_STATE_PATH: /var/lib/ai-model-serving/runtime-state.json
     extra_hosts:
       - host.docker.internal:host-gateway
     healthcheck:
@@ -41,5 +43,8 @@ services:
       timeout: 5s
       retries: 6
     volumes:
+    # static target도 operator/runtime state가 container 교체와 분리돼 살아남아야 한다.
+    # dynamic target과 같은 host root를 사용해 Control Plane state 경계를 target-neutral하게 둔다.
+    - ../../.runtime/gateway:/var/lib/ai-model-serving
     - ../../configs:/app/configs:ro
     - ../../specs/schemas:/app/specs/schemas:ro

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pytest
 
+from ai_model_serving.apps.gateway import create_gateway_app
 from ai_model_serving.errors import ServiceError
 from ai_model_serving.metrics import Metrics
 from ai_model_serving.runtime_configuration import (
@@ -9,7 +10,8 @@ from ai_model_serving.runtime_configuration import (
     RuntimeConfigurationSnapshot,
 )
 from ai_model_serving.services.retrieval_service import RetrievalService
-from tests.unit.gateway.helpers import FakeGatewayClients, settings
+from tests.support.asgi import InlineASGITestClient as TestClient
+from tests.unit.gateway.helpers import FakeGatewayClients, auth_headers, settings
 
 
 def test_runtime_configuration_starts_from_resolved_settings() -> None:
@@ -50,6 +52,7 @@ def test_runtime_configuration_settings_view_reads_mutable_policy_only() -> None
     assert view.project_version == app_settings.project_version
     assert view.runtime("main_llm") is app_settings.runtime("main_llm")
     assert view.max_retrieval_documents == app_settings.max_retrieval_documents
+    assert RuntimeConfigurationProvider.from_settings(view) is provider
 
     provider.update(max_retrieval_documents=4)
 
@@ -79,6 +82,71 @@ def test_retrieval_service_reads_new_snapshot_on_the_next_request() -> None:
         service._validate_query_documents_payload(payload, operation="score")
 
     assert app_settings.max_retrieval_documents != 1
+
+
+def test_gateway_uses_one_runtime_provider_for_retrieval_and_streaming() -> None:
+    app_settings = settings()
+    clients = FakeGatewayClients()
+
+    def embed_response(_path, payload, **_kwargs):
+        return {
+            "object": "list",
+            "model": "local-embed",
+            "data": [
+                {
+                    "object": "embedding",
+                    "embedding": [1.0] + [0.0] * 767,
+                    "index": index,
+                }
+                for index, _text in enumerate(payload["input"])
+            ],
+        }
+
+    clients.embedding_clients["local-embed"].post_response = embed_response
+    app = create_gateway_app(app_settings, clients)
+    client = TestClient(app)
+    provider = app.state.runtime_configuration
+
+    retrieval_payload = {
+        "model": "local-embed",
+        "query": "q",
+        "documents": ["one", "two"],
+    }
+    before = client.post(
+        "/v1/retrieval/score",
+        headers=auth_headers(),
+        json=retrieval_payload,
+    )
+    assert before.status_code == 200
+
+    clients.main_llm.stream_chunks = [
+        b'data: {"choices":[{"delta":{"content":"first"}}]}\n\n',
+        b'data: {"choices":[{"delta":{"content":"second"}}]}\n\n',
+        b'data: [DONE]\n\n',
+    ]
+    provider.update(max_retrieval_documents=1, streaming_max_chunks=1)
+
+    retrieval_after = client.post(
+        "/v1/retrieval/score",
+        headers=auth_headers(),
+        json=retrieval_payload,
+    )
+    assert retrieval_after.status_code == 422
+    assert "cannot exceed 1 items" in retrieval_after.json()["error"]["message"]
+
+    streaming_after = client.post(
+        "/v1/chat/completions",
+        headers=auth_headers(),
+        json={
+            "model": "local-main",
+            "stream": True,
+            "messages": [{"role": "user", "content": "hello"}],
+        },
+    )
+    assert streaming_after.status_code == 200
+    assert "STREAM_LIMIT_EXCEEDED" in streaming_after.content.decode()
+    assert app_settings.max_retrieval_documents != 1
+    assert app_settings.streaming_max_chunks != 1
 
 
 def test_runtime_configuration_rejects_invalid_or_unknown_changes() -> None:

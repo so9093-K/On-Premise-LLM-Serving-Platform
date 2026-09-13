@@ -80,6 +80,12 @@ class RuntimeConfigurationProvider:
 
     @classmethod
     def from_settings(cls, settings: AppSettings) -> RuntimeConfigurationProvider:
+        # RuntimeSettingsView를 받은 service가 자기 provider를 새로 만들면 Gateway 안에서
+        # revision source가 여러 개로 갈라진다. view가 이미 공유 provider를 들고 있으면
+        # 반드시 같은 인스턴스를 재사용한다.
+        existing = getattr(settings, "_runtime_configuration_provider", None)
+        if isinstance(existing, cls):
+            return existing
         return cls(
             RuntimeConfigurationSnapshot(
                 revision=0,
@@ -134,6 +140,9 @@ class RuntimeSettingsView:
     def __init__(self, settings: AppSettings, provider: RuntimeConfigurationProvider) -> None:
         self._settings = settings
         self._provider = provider
+        # RuntimeConfigurationProvider.from_settings()가 nested service에서도 같은
+        # app-scoped provider를 재사용할 수 있게 하는 내부 연결점이다.
+        self._runtime_configuration_provider = provider
 
     def __getattr__(self, name: str) -> Any:
         return getattr(self._settings, name)

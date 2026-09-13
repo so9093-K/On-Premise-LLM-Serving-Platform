@@ -93,6 +93,10 @@ fi
 
 if [[ "${1:-}" == "up" ]]; then
   PLATFORM_IMAGE_EFFECTIVE="${PLATFORM_IMAGE:-$("$PYTHON_BIN" scripts/env/env_get.py --env-file "$ENV_FILE_ABS" PLATFORM_IMAGE)}"
+  if ! ensure_gateway_runtime_dir "$GATEWAY_RUNTIME_DIR_RELPATH" "$PLATFORM_IMAGE_EFFECTIVE"; then
+    echo "[static-compose] gateway runtime state directory is not usable" >&2
+    exit 2
+  fi
   if ! ensure_platform_runtime_dir "$REQUEST_EVENT_LOG_DIR_RELPATH" "$PLATFORM_IMAGE_EFFECTIVE"; then
     echo "[static-compose] request event log directory is not usable" >&2
     exit 2
