@@ -87,6 +87,22 @@ def test_retrieval_service_reads_new_snapshot_on_the_next_request() -> None:
 def test_gateway_uses_one_runtime_provider_for_retrieval_and_streaming() -> None:
     app_settings = settings()
     clients = FakeGatewayClients()
+
+    def embed_response(_path, payload, **_kwargs):
+        return {
+            "object": "list",
+            "model": "local-embed",
+            "data": [
+                {
+                    "object": "embedding",
+                    "embedding": [1.0] + [0.0] * 767,
+                    "index": index,
+                }
+                for index, _text in enumerate(payload["input"])
+            ],
+        }
+
+    clients.embedding_clients["local-embed"].post_response = embed_response
     app = create_gateway_app(app_settings, clients)
     client = TestClient(app)
     provider = app.state.runtime_configuration
