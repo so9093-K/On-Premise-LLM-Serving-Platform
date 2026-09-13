@@ -184,7 +184,6 @@ items:
     type: number
     unit: seconds
     minimum: 0.1
-    maximum: 3600
     owner: operator
     editable: false
     control_surface: configuration
@@ -206,7 +205,6 @@ items:
     type: integer
     unit: chunks
     minimum: 1
-    maximum: 1000000
     owner: operator
     editable: false
     control_surface: configuration
@@ -228,7 +226,6 @@ items:
     type: integer
     unit: bytes
     minimum: 1
-    maximum: 1073741824
     owner: operator
     editable: false
     control_surface: configuration
