@@ -4,13 +4,13 @@ from pathlib import Path
 
 import pytest
 
-from ai_model_serving.configuration_mutation import (
-    ConfigurationHistoryStore,
-    ConfigurationMutationEngine,
+from ai_model_serving.configuration_contract import (
     ConfigurationRevisionConflict,
     ConfigurationValidationError,
     ConfigurationWriteUnavailable,
 )
+from ai_model_serving.configuration_history import ConfigurationHistoryStore
+from ai_model_serving.configuration_mutation import ConfigurationMutationEngine
 from ai_model_serving.configuration_plane import configuration_schema_items
 from ai_model_serving.operator_configuration import (
     ConfigurationValueResolver,

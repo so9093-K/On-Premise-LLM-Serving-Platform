@@ -220,3 +220,14 @@ def test_write_unavailable_does_not_expose_internal_state_path(monkeypatch, tmp_
     assert error["message"] == "Configuration write plane is temporarily unavailable."
     assert error["details"]["reason"] == "history_unreadable"
     assert str(state_root) not in response.text
+
+
+def test_apply_openapi_declares_required_if_match_header() -> None:
+    app = create_gateway_app(settings(), FakeGatewayClients())
+    operation = app.openapi()["paths"]["/admin/config"]["patch"]
+    parameters = operation.get("parameters", [])
+    if_match = next(parameter for parameter in parameters if parameter["name"] == "If-Match")
+
+    assert if_match["in"] == "header"
+    assert if_match["required"] is True
+    assert if_match["schema"]["pattern"] == '^"config-[0-9]+"$'

@@ -5,9 +5,8 @@ from typing import Any
 
 from fastapi import APIRouter, Request, Response
 
-from ...configuration_mutation import (
+from ...configuration_contract import (
     ConfigurationApplyFailure,
-    ConfigurationMutationEngine,
     ConfigurationPreconditionRequired,
     ConfigurationRevisionConflict,
     ConfigurationValidationError,
@@ -19,6 +18,7 @@ from ...configuration_mutation import (
     parse_rollback_apply_request,
     parse_rollback_plan_request,
 )
+from ...configuration_mutation import ConfigurationMutationEngine
 from ...configuration_plane import configuration_schema, effective_configuration
 from ...errors import ServiceError, request_id_for
 from ...operator_configuration import ConfigurationValueResolver

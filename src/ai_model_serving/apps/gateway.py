@@ -15,7 +15,8 @@ from ..app_kernel import (
     register_health,
     register_documentation_ui,
 )
-from ..configuration_mutation import ConfigurationHistoryStore, ConfigurationMutationEngine
+from ..configuration_history import ConfigurationHistoryStore
+from ..configuration_mutation import ConfigurationMutationEngine
 from ..control_plane_bootstrap import build_control_plane_bootstrap_projection
 from ..errors import ServiceError
 from ..service_logging import service_logger
