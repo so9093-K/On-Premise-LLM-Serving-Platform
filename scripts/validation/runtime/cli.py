@@ -1,24 +1,17 @@
 from __future__ import annotations
 
 import argparse
-from pathlib import Path
+
+from ai_model_serving.project_paths import resolve_project_root
 
 from .config import load_runtime_config
 from .validator import RuntimeValidator
 
-def _find_project_root() -> Path:
-    """VERSION+configs 마커로 저장소 루트를 찾는다.
 
-    예전엔 parents[3]로 깊이를 박아뒀는데, 그러면 이 패키지가 다른 위치로 옮겨질 때
-    조용히 엉뚱한 디렉터리를 루트로 잡는다.
-    """
-    for parent in Path(__file__).resolve().parents:
-        if (parent / "VERSION").exists() and (parent / "configs").exists():
-            return parent
-    raise RuntimeError("could not locate project root from runtime validation package")
-
-
-ROOT = _find_project_root()
+ROOT = resolve_project_root(
+    required_paths=("VERSION", "configs"),
+    strict=True,
+)
 
 
 def build_parser() -> argparse.ArgumentParser:

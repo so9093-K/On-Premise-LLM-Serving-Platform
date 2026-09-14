@@ -9,6 +9,8 @@ from typing import Any
 from fastapi import FastAPI
 import yaml
 
+from .project_paths import resolve_project_root
+
 ContractRouteKey = tuple[str, str]
 SchemaMap = Mapping[ContractRouteKey, str]
 ExamplesMap = Mapping[ContractRouteKey, dict[str, Any]]
@@ -144,16 +146,11 @@ def _inject_standard_error_responses(
 
 def find_project_root(start: Path | None = None) -> Path:
     """JSON 계약 스키마가 있는 저장소·설정 root를 찾는다."""
-    candidates: list[Path] = []
-    if start is not None:
-        candidates.append(start)
-    candidates.extend(Path(__file__).resolve().parents)
-    candidates.append(Path.cwd())
-    for candidate in candidates:
-        root = candidate.resolve()
-        if (root / "specs" / "schemas").exists() and (root / "VERSION").exists():
-            return root
-    raise RuntimeError("could not locate project root for OpenAPI contract schemas")
+    return resolve_project_root(
+        start,
+        required_paths=("VERSION", "specs/schemas"),
+        strict=True,
+    )
 
 
 def load_contract_schema(schema_name: str, *, root: Path | None = None) -> dict[str, Any]:

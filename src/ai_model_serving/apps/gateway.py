@@ -19,6 +19,7 @@ from ..configuration_mutation import ConfigurationHistoryStore, ConfigurationMut
 from ..errors import ServiceError
 from ..service_logging import service_logger
 from ..metrics import Metrics
+from ..platform_state import gateway_runtime_state_path
 from ..api_descriptions import (
     chat_operation_detail,
     embeddings_operation_detail,
@@ -67,13 +68,13 @@ from ..services.main_model_inflight import MainModelInFlight
 
 class GatewayClients:
     def __init__(self, settings: AppSettings) -> None:
-        state_path = os.environ.get("GATEWAY_RUNTIME_STATE_PATH")
+        state_path = gateway_runtime_state_path()
 
         def _runtime_directive(name: str) -> list[str]:
             return [key.strip() for key in os.environ.get(name, "").split(",") if key.strip()]
 
         self.runtime_state = RuntimeStateStore(
-            Path(state_path) if state_path else None,
+            state_path,
             controllable_keys=settings.controllable_runtime_keys,
             deferred_keys=_runtime_directive("DEPLOY_DEFERRED_RUNTIMES"),
             activated_keys=_runtime_directive("DEPLOY_ACTIVE_RUNTIMES"),

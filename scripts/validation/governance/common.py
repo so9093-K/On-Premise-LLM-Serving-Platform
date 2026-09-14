@@ -4,6 +4,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+from ai_model_serving.project_paths import resolve_project_root
+
 try:
     import yaml
 except ImportError as exc:
@@ -11,10 +13,10 @@ except ImportError as exc:
 
 
 def find_project_root() -> Path:
-    for parent in Path(__file__).resolve().parents:
-        if (parent / 'VERSION').exists() and (parent / 'configs').exists():
-            return parent
-    raise RuntimeError('could not locate project root from governance validation package')
+    return resolve_project_root(
+        required_paths=("VERSION", "configs"),
+        strict=True,
+    )
 
 
 ROOT = find_project_root()

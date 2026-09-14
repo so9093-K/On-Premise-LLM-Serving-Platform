@@ -6,9 +6,10 @@
 #   DEPLOY_HOST                대상 서버 IP 또는 hostname
 #   DEPLOY_USER                대상 서버 SSH 사용자
 #   DEPLOY_PATH                대상 서버 배포 루트 (예: /opt/acl-ai-gateway)
-#   REGISTRY_HOST              Container Registry 호스트
-#   REGISTRY_USER / REGISTRY_PASSWORD
-#                              대상 서버가 image를 pull할 registry 자격 증명
+#
+# Registry 인증은 이 스크립트의 입력이 아니다. 대상 서버는 배포 전에 immutable
+# image ref를 pull할 수 있는 credential/helper/workload identity를 준비해야 한다.
+# 배포는 실제 docker pull 성공 여부만 검증한다.
 #
 # 선택:
 #   RISK_VLLM_IMAGE_TO_DEPLOY         RISK_VLLM_IMAGE를 덮어쓰는 전체 런타임 배포 override;
@@ -44,9 +45,6 @@ set -euo pipefail
 : "${DEPLOY_HOST:?Required: deployment server address}"
 : "${DEPLOY_USER:?Required: deployment SSH user}"
 : "${DEPLOY_PATH:?Required: deployment root}"
-: "${REGISTRY_HOST:?Required: container registry host}"
-: "${REGISTRY_USER:?Required: registry pull user}"
-: "${REGISTRY_PASSWORD:?Required: registry pull password or token}"
 
 COMPOSE_FILE="${DEPLOY_COMPOSE_FILE:-ops/compose/full-stack.private-network.yaml}"
 RUN_READY_SMOKE="${RUN_READY_SMOKE:-1}"
@@ -170,9 +168,6 @@ ssh "${SSH_TARGET}" \
   VLLM_UNIFIED_IMAGE_TO_DEPLOY="${VLLM_UNIFIED_IMAGE_TO_DEPLOY:-}" \
   RISK_VLLM_IMAGE_TO_DEPLOY="${RISK_VLLM_IMAGE_TO_DEPLOY:-}" \
   AUDIO_VLLM_IMAGE_TO_DEPLOY="${AUDIO_VLLM_IMAGE_TO_DEPLOY:-}" \
-  REGISTRY_HOST="${REGISTRY_HOST}" \
-  REGISTRY_USER="${REGISTRY_USER}" \
-  REGISTRY_PASSWORD="${REGISTRY_PASSWORD}" \
   DEPLOY_PATH="${DEPLOY_PATH}" \
   RELEASE_PATH="${RELEASE_PATH}" \
   RELEASE_ID="${RELEASE_ID}" \

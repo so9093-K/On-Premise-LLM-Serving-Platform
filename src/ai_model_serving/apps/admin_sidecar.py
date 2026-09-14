@@ -26,6 +26,7 @@ from ..main_model.control import (
     load_main_model_catalog,
 )
 from ..log_target_manifest import build_targets, write_manifest
+from ..platform_state import DEFAULT_PLATFORM_STATE_DIR, configured_platform_state_root
 from ..settings_parts.env import as_bool, is_default_secret
 from ..runtime_topology import load_runtime_topology
 
@@ -62,11 +63,14 @@ def load_sidecar_config(
     configured_root = Path(environment.get("APP_CONFIG_ROOT", "/app"))
     using_local_config = not (configured_root / "configs/main_model_profiles.yaml").exists()
     config_root = (source_path or Path(__file__)).resolve().parents[3] if using_local_config else configured_root
-    default_state_path = (
-        config_root / ".runtime/main-model/main-model-state.json"
-        if using_local_config
-        else Path("/var/lib/ai-model-serving/main-model-state.json")
-    )
+    configured_state_root = configured_platform_state_root(environment)
+    if using_local_config and configured_state_root is None:
+        default_state_path = config_root / ".runtime/main-model/main-model-state.json"
+        default_log_target_manifest_path = config_root / ".runtime/log-targets/docker-containers.json"
+    else:
+        platform_state_root = configured_state_root or DEFAULT_PLATFORM_STATE_DIR
+        default_state_path = platform_state_root / "main-model-state.json"
+        default_log_target_manifest_path = platform_state_root / "log-targets/docker-containers.json"
     # 인증 활성 여부는 토큰 문자열이 비었는지가 아니라 운영자가 선언한
     # INTERNAL_SERVICE_AUTH_REQUIRED로 정한다. 빈 문자열을 곧 "인증 끔"으로 읽으면,
     # private_network/strict처럼 내부 인증을 요구한 profile에서 토큰이 유실됐을 때
@@ -96,7 +100,7 @@ def load_sidecar_config(
         log_target_manifest_path=Path(
             environment.get(
                 "LOG_TARGET_MANIFEST_PATH",
-                "/var/lib/ai-model-serving/log-targets/docker-containers.json",
+                str(default_log_target_manifest_path),
             )
         ),
         log_target_refresh_seconds=float(environment.get("LOG_TARGET_REFRESH_SECONDS", "15")),

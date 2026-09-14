@@ -32,7 +32,6 @@ services:
       DEPLOYMENT_TARGET: ${DEPLOYMENT_TARGET:?Use a configured static deployment target}
       ADMIN_SIDECAR_URL: ""
       PLATFORM_STATE_DIR: /var/lib/ai-model-serving
-      GATEWAY_RUNTIME_STATE_PATH: /var/lib/ai-model-serving/runtime-state.json
     extra_hosts:
       - host.docker.internal:host-gateway
     healthcheck:

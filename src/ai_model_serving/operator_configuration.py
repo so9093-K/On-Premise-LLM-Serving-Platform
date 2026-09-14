@@ -14,6 +14,7 @@ import yaml
 from .configuration import load_yaml_mapping
 from .configuration_bindings import ConfigurationBinding, operator_runtime_bindings
 from .configuration_values import validate_configuration_value
+from .platform_state import operator_configuration_state_path
 from .project_paths import resolve_project_root
 from .runtime_configuration import RuntimeConfigurationSnapshot
 
@@ -37,10 +38,7 @@ class OperatorConfigurationState:
 
 def operator_configuration_path() -> Path | None:
     """Return the persistent override path when a platform state root is configured."""
-    root = os.environ.get("PLATFORM_STATE_DIR", "").strip()
-    if not root:
-        return None
-    return Path(root) / "config" / "operator-overrides.yaml"
+    return operator_configuration_state_path()
 
 
 def _nested_value(document: Mapping[str, Any], path: tuple[str, ...]) -> Any:
