@@ -25,6 +25,7 @@ from ..errors import ServiceError
 from ..logging_policy import record_stream_completion
 from ..metrics import Metrics, sanitized_stream_status
 from ..runtime_clients.ports import JsonRuntimeClient, StreamingRuntimeClient
+from ..runtime_configuration import RuntimeConfigurationProvider
 from ..serving_profile import NAMED_TOOL_CHOICE_UPSTREAM_REQUIRED_SINGLE
 from ..settings import AppSettings
 from .retrieval_service import RetrievalService
@@ -264,7 +265,13 @@ class GatewayService:
         self.settings = settings
         self.clients = clients
         self.metrics = metrics
-        self.retrieval = RetrievalService(settings, clients, metrics)
+        self.runtime_configuration = RuntimeConfigurationProvider.from_settings(settings)
+        self.retrieval = RetrievalService(
+            settings,
+            clients,
+            metrics,
+            runtime_configuration=self.runtime_configuration,
+        )
 
     def _main_llm_endpoint(
         self,
@@ -430,25 +437,26 @@ class GatewayService:
         byte_count = 0
         terminal_status = "completed"
         observer = StreamingResponseObserver()
+        runtime_config = self.runtime_configuration.snapshot()
         self.metrics.record_streaming_request_started(target)
         try:
             # aclosing으로 감싸야 client가 끊었을 때 upstream generator가 GC가
             # 아니라 그 자리에서 닫히고, admission slot이 즉시 반납된다.
-            async with asyncio.timeout(self.settings.streaming_max_duration_seconds), aclosing(upstream) as chunks:
+            async with asyncio.timeout(runtime_config.streaming_max_duration_seconds), aclosing(upstream) as chunks:
                 async for chunk in chunks:
                     if not chunk:
                         continue
                     emitted_chunk = True
                     chunk_count += 1
                     byte_count += len(chunk)
-                    if chunk_count > self.settings.streaming_max_chunks:
+                    if chunk_count > runtime_config.streaming_max_chunks:
                         raise ServiceError(
-                            "STREAM_LIMIT_EXCEEDED", f"stream emitted {chunk_count} chunks; limit is {self.settings.streaming_max_chunks}. Reduce max_tokens or retry without stream=true.",
+                            "STREAM_LIMIT_EXCEEDED", f"stream emitted {chunk_count} chunks; limit is {runtime_config.streaming_max_chunks}. Reduce max_tokens or retry without stream=true.",
                             diagnostic_code="STREAM_CHUNK_LIMIT_EXCEEDED",
                         )
-                    if byte_count > self.settings.streaming_max_bytes:
+                    if byte_count > runtime_config.streaming_max_bytes:
                         raise ServiceError(
-                            "STREAM_LIMIT_EXCEEDED", f"stream emitted {byte_count} bytes; limit is {self.settings.streaming_max_bytes}. Reduce max_tokens or retry without stream=true.",
+                            "STREAM_LIMIT_EXCEEDED", f"stream emitted {byte_count} bytes; limit is {runtime_config.streaming_max_bytes}. Reduce max_tokens or retry without stream=true.",
                             diagnostic_code="STREAM_BYTE_LIMIT_EXCEEDED",
                         )
                     if not first_chunk_recorded:

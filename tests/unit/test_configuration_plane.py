@@ -51,7 +51,7 @@ def test_configuration_projection_has_explicit_ownership_and_never_returns_secre
 
 
 def test_configuration_schema_v2_exposes_form_and_control_metadata_without_projection_ids() -> None:
-    body = configuration_schema()
+    body = configuration_schema(write_status={"available": True})
     retrieval = next(
         item for item in body["items"] if item["key"] == "operational.max_retrieval_documents"
     )
@@ -65,7 +65,7 @@ def test_configuration_schema_v2_exposes_form_and_control_metadata_without_proje
     assert retrieval["maximum"] == 32
     assert retrieval["owner"] == "operator"
     assert retrieval["control_surface"] == "configuration"
-    assert retrieval["editable"] is False
+    assert retrieval["editable"] is True
     assert retrieval["apply_mode"] == "hot_reload"
     assert retrieval["applicability"] == {"features": ["retrieval"]}
 
@@ -85,13 +85,33 @@ def test_configuration_routes_are_admin_protected_and_documented() -> None:
     app = create_gateway_app(app_settings, FakeGatewayClients())
     client = TestClient(app)
 
-    assert client.get("/admin/config/schema").status_code == 401
-    response = client.get("/admin/config/effective", headers={"Authorization": "Bearer admin-key"})
+    unauthorized = client.get("/admin/config/schema")
+    assert unauthorized.status_code == 401
+    assert unauthorized.headers["www-authenticate"] == "Bearer"
 
+    schema_response = client.get("/admin/config/schema", headers={"Authorization": "Bearer admin-key"})
+    schema_body = schema_response.json()
+    retrieval = next(item for item in schema_body["items"] if item["key"] == "operational.max_retrieval_documents")
+    # Source-tree/local tests without PLATFORM_STATE_DIR have no durable write plane.
+    assert schema_body["write_status"]["available"] is False
+    assert schema_body["write_status"]["reason"] == "persistent_state_unavailable"
+    assert retrieval["editable"] is False
+
+    response = client.get("/admin/config/effective", headers={"Authorization": "Bearer admin-key"})
     assert response.status_code == 200
     assert response.json()["version"] == 2
-    assert "/admin/config/schema" in app.openapi()["paths"]
-    assert "/admin/config/effective" in app.openapi()["paths"]
+    assert response.json()["write_status"]["available"] is False
+    assert response.headers["etag"] == '"config-0"'
+
+    paths = app.openapi()["paths"]
+    assert "/admin/config/schema" in paths
+    assert "/admin/config/effective" in paths
+    assert "/admin/config/plans" in paths
+    assert "/admin/config" in paths
+    assert paths["/admin/config/plans"]["post"]["x-contract-schema"] == "configuration_plan_request.schema.json"
+    assert paths["/admin/config/plans"]["post"]["x-response-contract-schema"] == "configuration_plan_response.schema.json"
+    assert paths["/admin/config"]["patch"]["x-contract-schema"] == "configuration_apply_request.schema.json"
+    assert paths["/admin/config"]["patch"]["x-response-contract-schema"] == "configuration_apply_response.schema.json"
 
 
 def test_configuration_schema_rejects_unknown_projection() -> None:

@@ -15,6 +15,7 @@ from ..app_kernel import (
     register_health,
     register_documentation_ui,
 )
+from ..configuration_mutation import ConfigurationHistoryStore, ConfigurationMutationEngine
 from ..errors import ServiceError
 from ..service_logging import service_logger
 from ..metrics import Metrics
@@ -144,9 +145,11 @@ def create_gateway_app(settings: AppSettings | None = None, clients: GatewayClie
     metadata = operator_metadata_by_key(schema_items)
     state_path = operator_configuration_path()
     operator_store: OperatorConfigurationStore | None = None
+    history_store: ConfigurationHistoryStore | None = None
     operator_state = OperatorConfigurationState(revision=0, overrides={})
     if state_path is not None:
         operator_store = OperatorConfigurationStore(state_path, metadata)
+        history_store = ConfigurationHistoryStore(state_path.parent / "history")
         # Corrupt or invalid persistent operator state is a startup error. Silently
         # ignoring it would make the effective API disagree with operator intent.
         operator_state = operator_store.read()
@@ -159,6 +162,18 @@ def create_gateway_app(settings: AppSettings | None = None, clients: GatewayClie
         runtime_configuration.install(
             runtime_snapshot_from_resolver(configuration_resolver, schema_items)
         )
+
+    configuration_mutation = ConfigurationMutationEngine(
+        schema_items=schema_items,
+        store=operator_store,
+        resolver=configuration_resolver,
+        runtime_configuration=runtime_configuration,
+        history=history_store,
+    )
+    # Journal은 desired state보다 먼저 기록되므로 process crash가 있어도 pending
+    # operation이 남는다. Persisted override hydration이 끝난 뒤 그 기록을 실제
+    # store/resolver/runtime revision과 대조해 terminal recovery 상태로 닫는다.
+    configuration_mutation.recover_interrupted_operations()
 
     runtime_settings = runtime_configuration.settings_view(settings)
     service = GatewayService(runtime_settings, clients, metrics)
@@ -178,7 +193,9 @@ def create_gateway_app(settings: AppSettings | None = None, clients: GatewayClie
     )
     app.state.runtime_configuration = runtime_configuration
     app.state.operator_configuration_store = operator_store
+    app.state.configuration_history_store = history_store
     app.state.configuration_resolver = configuration_resolver
+    app.state.configuration_mutation = configuration_mutation
 
     install_common_middleware(app, settings=settings, metrics=metrics, logger=logger)
     install_cors_middleware(app, settings=settings)
@@ -221,7 +238,12 @@ def create_gateway_app(settings: AppSettings | None = None, clients: GatewayClie
 
     app.include_router(_build_ops_router(admin_dependencies, clients, metrics, settings))
     app.include_router(
-        _build_configuration_router(admin_dependencies, runtime_settings, configuration_resolver)
+        _build_configuration_router(
+            admin_dependencies,
+            runtime_settings,
+            configuration_resolver,
+            configuration_mutation,
+        )
     )
     app.include_router(
         _build_inference_router(

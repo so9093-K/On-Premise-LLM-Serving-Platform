@@ -30,6 +30,18 @@ errors:
   CONFLICT:
     meaning: "현재 리소스 상태와 요청이 충돌해 작업을 수행할 수 없다."
     action: "error.details.reason 또는 message를 확인한 뒤, 진행 중인 작업 완료·명시적 확인 등 충돌 원인을 해결한다."
+  PRECONDITION_REQUIRED:
+    meaning: "상태 변경 요청에 필요한 revision precondition이 빠졌거나 형식이 잘못됐다."
+    action: "GET /admin/config/effective 또는 plan 응답의 ETag를 If-Match 헤더로 보내 다시 요청한다."
+  CONFIG_REVISION_CONFLICT:
+    meaning: "검토한 Configuration revision 또는 plan이 현재 상태와 달라졌다."
+    action: "최신 effective 설정을 다시 읽고 plan을 재생성한 뒤 Apply한다."
+  CONFIGURATION_WRITE_UNAVAILABLE:
+    meaning: "Configuration store·resolver·runtime snapshot 또는 audit journal이 안전한 write 조건을 만족하지 못한다."
+    action: "error.details.reason을 확인하고 persistent state·pending operation·revision drift를 복구한 뒤 다시 plan한다."
+  CONFIGURATION_APPLY_FAILED:
+    meaning: "operator desired state 저장 이후 runtime 적용 또는 검증 단계가 완료되지 못했다."
+    action: "operation_id와 error.details의 phase·revision 상태를 확인한다. 재시작 시 persisted desired state가 다시 hydrate된다."
   GPU_BUDGET_EXCEEDED:
     meaning: "요청한 런타임을 시작할 GPU VRAM 예산이 부족하다."
     action: "error.details.plan.stop의 런타임을 정지한 뒤 재시도하거나 force=true로 자동 축출을 요청한다."

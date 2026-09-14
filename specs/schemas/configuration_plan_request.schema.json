@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ConfigurationPlanRequest",
+  "type": "object",
+  "required": ["base_revision", "changes"],
+  "additionalProperties": false,
+  "properties": {
+    "base_revision": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "changes": {
+      "$ref": "configuration_changes.schema.json"
+    }
+  }
+}

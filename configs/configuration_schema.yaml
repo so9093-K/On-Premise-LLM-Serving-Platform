@@ -164,7 +164,7 @@ items:
     minimum: 1
     maximum: 32
     owner: operator
-    editable: false
+    editable: true
     control_surface: configuration
     sensitive: false
     effective_source: repository
@@ -173,7 +173,7 @@ items:
     applicability:
       features: [retrieval]
     meaning: 한 retrieval 요청에서 허용하는 documents 개수 상한입니다.
-    help: Public retrieval request schema의 maxItems와 동일해야 하며 write plane 검증 전까지 수정은 잠겨 있습니다.
+    help: Public retrieval request schema의 maxItems와 동일한 범위 안에서 Plan → Apply → Verify 흐름으로 변경합니다.
     related_adrs: [ADR-0021, ADR-0027]
 
   - key: streaming.max_duration_seconds
@@ -185,7 +185,7 @@ items:
     unit: seconds
     minimum: 0.1
     owner: operator
-    editable: false
+    editable: true
     control_surface: configuration
     sensitive: false
     effective_source: repository
@@ -194,7 +194,7 @@ items:
     applicability:
       features: []
     meaning: Gateway SSE relay가 한 스트림을 유지할 수 있는 최대 시간입니다.
-    help: RuntimeConfigurationProvider에서 요청별 snapshot으로 적용되며 write plane 검증 전까지 수정은 잠겨 있습니다.
+    help: Plan → Apply → Verify 후 shared RuntimeConfigurationProvider에 새 revision을 hot reload합니다.
     related_adrs: [ADR-0021, ADR-0027]
 
   - key: streaming.max_chunks
@@ -206,7 +206,7 @@ items:
     unit: chunks
     minimum: 1
     owner: operator
-    editable: false
+    editable: true
     control_surface: configuration
     sensitive: false
     effective_source: repository
@@ -215,7 +215,7 @@ items:
     applicability:
       features: []
     meaning: Gateway가 한 SSE 응답에서 중계할 수 있는 chunk 개수 상한입니다.
-    help: RuntimeConfigurationProvider에서 요청별 snapshot으로 적용되며 write plane 검증 전까지 수정은 잠겨 있습니다.
+    help: Plan → Apply → Verify 후 shared RuntimeConfigurationProvider에 새 revision을 hot reload합니다.
     related_adrs: [ADR-0021, ADR-0027]
 
   - key: streaming.max_bytes
@@ -227,7 +227,7 @@ items:
     unit: bytes
     minimum: 1
     owner: operator
-    editable: false
+    editable: true
     control_surface: configuration
     sensitive: false
     effective_source: repository
@@ -236,5 +236,5 @@ items:
     applicability:
       features: []
     meaning: Gateway가 한 SSE 응답에서 중계할 수 있는 총 byte 상한입니다.
-    help: RuntimeConfigurationProvider에서 요청별 snapshot으로 적용되며 write plane 검증 전까지 수정은 잠겨 있습니다.
+    help: Plan → Apply → Verify 후 shared RuntimeConfigurationProvider에 새 revision을 hot reload합니다.
     related_adrs: [ADR-0021, ADR-0027]
