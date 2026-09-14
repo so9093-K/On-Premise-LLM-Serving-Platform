@@ -154,6 +154,21 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
     ),
     EndpointSpec(
         method="GET",
+        path="/admin/control-plane/bootstrap",
+        operation_id="getControlPlaneBootstrap",
+        tag="Operations",
+        summary="Control Plane bootstrap 조회",
+        description=(
+            "first-party Admin Console이 인증 입력 전 현재 deployment/access posture와 사용 가능한 "
+            "capability를 발견하는 browser-safe bootstrap입니다. 이 endpoint 자체는 의도적으로 "
+            "Admin Bearer 인증을 요구하지 않으며 secret, 내부 endpoint, host path, raw environment는 "
+            "반환하지 않습니다. 실제 admin mutation/read endpoint의 인증 정책은 그대로 유지됩니다."
+        ),
+        request_schema=None,
+        response_schema="control_plane_bootstrap_response.schema.json",
+    ),
+    EndpointSpec(
+        method="GET",
         path="/admin/config/schema",
         operation_id="getConfigurationSchema",
         tag="Operations",

@@ -29,6 +29,7 @@ class DeploymentTarget:
     display_name: str
     platform: str
     runtime_backend: str
+    runs_monitoring_stack: bool
     main_profile_catalog: str
     control_mode: str
     lifecycle_owner: str
@@ -89,6 +90,7 @@ def load_deployment_target(path: Path, target_id: str | None = None) -> Deployme
 
     control_mode = str(raw.get("control_mode", ""))
     lifecycle_owner = str(raw.get("lifecycle_owner", ""))
+    runs_monitoring_stack = raw.get("runs_monitoring_stack")
     internal_service_token_required = raw.get("internal_service_token_required")
     validation_status = str(raw.get("validation_status", ""))
     raw_features: Any = raw.get("features")
@@ -97,6 +99,10 @@ def load_deployment_target(path: Path, target_id: str | None = None) -> Deployme
     if lifecycle_owner not in _LIFECYCLE_OWNERS:
         raise RuntimeError(
             f"deployment target {selected!r} has invalid lifecycle_owner {lifecycle_owner!r}"
+        )
+    if not isinstance(runs_monitoring_stack, bool):
+        raise RuntimeError(
+            f"deployment target {selected!r} runs_monitoring_stack must be boolean"
         )
     if not isinstance(internal_service_token_required, bool):
         raise RuntimeError(
@@ -211,6 +217,7 @@ def load_deployment_target(path: Path, target_id: str | None = None) -> Deployme
         display_name=str(raw.get("display_name", selected)),
         platform=platform,
         runtime_backend=runtime_backend,
+        runs_monitoring_stack=runs_monitoring_stack,
         main_profile_catalog=main_profile_catalog,
         control_mode=control_mode,
         lifecycle_owner=lifecycle_owner,
