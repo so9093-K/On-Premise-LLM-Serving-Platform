@@ -1,11 +1,19 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
+from hashlib import sha256
 from hmac import compare_digest
 
-from fastapi import HTTPException, Security
+from fastapi import HTTPException, Request, Security
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from .settings import SecuritySettings
+
+
+@dataclass(frozen=True)
+class AdminAuthContext:
+    auth_method: str
+    actor_id: str
 
 
 api_bearer_scheme = HTTPBearer(
@@ -25,12 +33,21 @@ def _require_token(
     allowed_tokens: frozenset[str],
     *,
     label: str,
-) -> None:
+) -> str:
     if credentials is None or credentials.scheme.lower() != "bearer":
-        raise HTTPException(status_code=401, detail=f"Bearer {label} token is required.")
+        raise HTTPException(
+            status_code=401,
+            detail=f"Bearer {label} token is required.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     token = credentials.credentials.strip()
     if not token or not allowed_tokens or not any(compare_digest(token, allowed) for allowed in allowed_tokens):
-        raise HTTPException(status_code=401, detail=f"Bearer {label} token is invalid.")
+        raise HTTPException(
+            status_code=401,
+            detail=f"Bearer {label} token is invalid.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return token
 
 
 def require_bearer_auth(settings: SecuritySettings):
@@ -46,10 +63,21 @@ def require_bearer_auth(settings: SecuritySettings):
 
 def require_admin_bearer_auth(settings: SecuritySettings):
     async def dependency(
+        request: Request,
         credentials: HTTPAuthorizationCredentials | None = Security(admin_bearer_scheme),
-    ) -> None:
+    ) -> AdminAuthContext:
         if not settings.admin_api_key_required:
-            return
-        _require_token(credentials, settings.admin_api_keys, label="admin")
+            context = AdminAuthContext(auth_method="local", actor_id="local_operator")
+            request.state.admin_auth_context = context
+            return context
+
+        token = _require_token(credentials, settings.admin_api_keys, label="admin")
+        fingerprint = sha256(token.encode("utf-8")).hexdigest()[:16]
+        context = AdminAuthContext(
+            auth_method="api_key",
+            actor_id=f"admin-key:{fingerprint}",
+        )
+        request.state.admin_auth_context = context
+        return context
 
     return dependency

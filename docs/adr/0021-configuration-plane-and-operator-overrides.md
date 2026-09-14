@@ -62,20 +62,51 @@ state가 API 응답으로 새지 않게 하는 노출 경계다.
 `GET /admin/config/schema`와 `GET /admin/config/effective`는 admin authorization을 사용하고
 secret 값은 어떤 profile에서도 반환하지 않는다. secret은 configured 여부, source class,
 rotation requirement만 표시한다. Operator-owned Configuration item은 default/operator/effective
-value, effective source, shadowing 여부와 store revision을 함께 제공한다.
+value, effective source, shadowing 여부와 store revision을 함께 제공한다. Effective 응답은
+같은 revision을 HTTP `ETag: "config-<revision>"`으로도 노출한다.
 
-### Operator mutation contract (후속 단계)
+### Operator mutation contract
 
-변경 API는 metadata에서 `owner=operator` 및 `editable=true`인 key만 대상으로 한다. 전체
-파일 PUT 대신 key-scoped mutation을 사용하며, revision/ETag precondition을 요구한다. apply 전에는
-validation, effective diff, impact plan을 반환하고, apply 결과와 verification을 history에 남긴다.
+변경 API는 metadata에서 `owner=operator`, `control_surface=configuration`, `editable=true`인
+key만 대상으로 한다. Generic mutation은 sensitive value를 받지 않으며, 현재 구현에서
+실제로 hot-reload consumer 경계가 검증된 key만 `editable=true`로 연다.
 
-`operator-overrides.yaml`, revision metadata, history는 release 밖 platform state에 저장한다.
-rollback은 history revision 단위로 수행하며, 직접 `.env` 편집이나 image 내 YAML 변경을 대신하지
-않는다.
+전체 파일 PUT 대신 key-scoped `set`/`reset` mutation을 사용한다. `reset`은 repository default를
+operator layer에 복사하지 않고 해당 override를 제거한다. 따라서 다음 release에서 repository
+default가 바뀌면 reset된 key는 새 default를 그대로 따른다.
 
-현재 store와 resolver는 먼저 구현하지만 public write API와 `editable=true`는 Plan/Apply/Verify
-계약이 완성되기 전까지 열지 않는다.
+변경은 두 단계다.
+
+1. `POST /admin/config/plans` — `base_revision`과 changes를 검증하고 실제 저장 없이
+   operator/effective before·after, source, shadowing, apply mode, risk와 canonical SHA-256
+   `plan_digest`를 반환한다.
+2. `PATCH /admin/config` — `If-Match: "config-<revision>"`, 같은 changes와 `plan_digest`를
+   요구한다. Apply 직전에 Plan을 다시 계산해 stale revision과 검토 후 drift를 거부한다.
+
+Apply transaction은 **persist-first**다. 먼저 operator desired state를 revision+1로 durable하게
+기록하고, 같은 persisted state를 resolver와 shared `RuntimeConfigurationProvider`에 설치한 뒤
+store/resolver/runtime revision과 값을 다시 읽어 convergence를 검증한다. Runtime apply 실패를
+감추기 위해 persisted desired state를 이전 값으로 조용히 되돌리지 않는다. 세 계층이
+동기화되지 않으면 다음 write를 fail-closed로 막고, Gateway restart 시 persisted desired state를
+다시 hydrate해 실제 runtime을 수렴시킨다.
+
+### Durable operation journal
+
+Mutation audit는 apply 뒤의 best-effort 로그가 아니다. `${PLATFORM_STATE_DIR}/config/history/`
+아래 operation record를 **persistent state 변경 전에** `pending`으로 fsync/atomic replace하여
+기록하고 terminal 결과로 갱신한다. 기록에는 raw admin token 대신 인증 방식과 key fingerprint
+actor만 남긴다. Generic mutation이 sensitive key를 받지 않으므로 journal에도 secret 원문은
+들어가지 않는다.
+
+프로세스가 중간에 종료되어 `pending` record가 남으면 startup hydration 뒤 실제
+store/resolver/runtime revision을 대조한다. persistence 전 종료는 `interrupted_before_persist`,
+persist 후 재시작으로 수렴한 작업은 `recovered_after_restart`, 설명할 수 없는 불일치는
+`interrupted_state_mismatch`로 닫는다. 불일치를 정상으로 가장하지 않는다.
+
+현재 journal은 mutation 안전성과 감사 흔적을 위한 durable backend다. 운영자가 과거 revision을
+조회하고 선택해 되돌리는 History/Rollback API는 후속 단계에서 이 기록과 desired state snapshot
+계약을 기반으로 추가한다. Rollback도 revision counter를 뒤로 돌리지 않고 과거 값을 목표로 한
+새 Plan/Apply로 새 revision을 만든다.
 
 ### Secret handling
 
@@ -89,7 +120,8 @@ secret의 존재와 소유자는 discoverable하게 표시할 수 있지만 원�
 |---|---|
 | UI와 API가 배포 source-of-truth를 침범하지 않는다 | metadata와 effective resolver 구현이 필요하다 |
 | 설정의 실제 값·출처·영향을 설명할 수 있다 | 일부 deployment-owned 값은 UI에서 편집할 수 없다 |
-| concurrent overwrite와 secret export 위험을 줄인다 | history와 mutation orchestration이 추가로 필요하다 |
+| stale overwrite와 secret export 위험을 줄인다 | Plan/Apply와 durable journal orchestration이 추가된다 |
+| partial failure를 숨기지 않고 재시작 복구 근거를 남긴다 | 불일치 상태에서는 후속 write가 차단된다 |
 | release rollback과 operator override rollback의 책임이 분리된다 | apply mode별 orchestration 계약이 추가된다 |
 
 ## Migration notes
@@ -97,8 +129,8 @@ secret의 존재와 소유자는 discoverable하게 표시할 수 있지만 원�
 1. read-only schema/effective projection과 metadata v2를 추가한다. **완료**
 2. runtime mutable snapshot/provider와 target-neutral persistent platform state root를 추가한다. **완료**
 3. persistent operator store, revision, effective resolver와 startup hydration을 추가한다. **완료**
-4. Plan/Apply/Verify, history/rollback을 추가하고 검증된 key만 `editable=true`로 연다. **후속**
-5. Admin Console을 연결한다. **후속**
+4. Plan/Apply/Verify, revision/ETag precondition, durable operation journal을 추가하고 검증된 hot-reload key만 `editable=true`로 연다. **완료**
+5. History 조회/rollback API와 Admin Console을 연결한다. **후속**
 
 ## Related
 
@@ -108,6 +140,7 @@ secret의 존재와 소유자는 discoverable하게 표시할 수 있지만 원�
 - ADR-0027: Control Plane Runtime Configuration과 Admin Console 경계
 - `configs/env_contract.yaml`
 - `configs/deployment_targets.yaml`
+- `src/ai_model_serving/configuration_mutation.py`
 - `src/ai_model_serving/operator_configuration.py`
 - `src/ai_model_serving/runtime_configuration.py`
 - `src/ai_model_serving/services/runtime_state.py`

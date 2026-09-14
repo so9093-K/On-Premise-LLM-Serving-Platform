@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ConfigurationPlanResponse",
+  "type": "object",
+  "required": [
+    "base_revision",
+    "candidate_revision",
+    "would_change",
+    "changes",
+    "plan_digest"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "base_revision": {"type": "integer", "minimum": 0},
+    "candidate_revision": {"type": "integer", "minimum": 0},
+    "would_change": {"type": "boolean"},
+    "plan_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "changes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "key",
+          "operation",
+          "operator_before",
+          "operator_after",
+          "effective_before",
+          "effective_after",
+          "effective_source_before",
+          "effective_source_after",
+          "operator_override_shadowed_after",
+          "apply_mode",
+          "risk",
+          "no_effective_change"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "key": {"type": "string"},
+          "operation": {"type": "string", "enum": ["set", "reset"]},
+          "operator_before": {},
+          "operator_after": {},
+          "effective_before": {},
+          "effective_after": {},
+          "effective_source_before": {
+            "type": "string",
+            "enum": ["repository", "operator", "deployment"]
+          },
+          "effective_source_after": {
+            "type": "string",
+            "enum": ["repository", "operator", "deployment"]
+          },
+          "operator_override_shadowed_after": {"type": "boolean"},
+          "apply_mode": {"type": "string"},
+          "risk": {"type": "string"},
+          "no_effective_change": {"type": "boolean"}
+        }
+      }
+    }
+  }
+}

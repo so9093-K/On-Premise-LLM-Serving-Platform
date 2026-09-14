@@ -26,6 +26,10 @@
             "NOT_FOUND",
             "METHOD_NOT_ALLOWED",
             "CONFLICT",
+            "PRECONDITION_REQUIRED",
+            "CONFIG_REVISION_CONFLICT",
+            "CONFIGURATION_WRITE_UNAVAILABLE",
+            "CONFIGURATION_APPLY_FAILED",
             "GPU_BUDGET_EXCEEDED",
             "MODEL_UNAVAILABLE",
             "MODEL_CAPABILITY_MISMATCH",
@@ -65,7 +69,7 @@
           "type": ["string", "null"]
         },
         "details": {
-          "description": "Structured recovery information for an operation-specific error. For GPU_BUDGET_EXCEEDED, includes feasible, required, available, ceiling, and optionally plan.stop.",
+          "description": "Structured recovery information for an operation-specific error. Used for GPU budget plans, Configuration revision conflicts, and Configuration apply/verification state.",
           "type": "object",
           "additionalProperties": true
         }

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, replace
 from threading import RLock
 from typing import Any
@@ -35,12 +36,17 @@ class RuntimeConfigurationSnapshot:
             # provider가 같은 숫자를 복제하면 두 SoT가 생기므로 여기서는 snapshot의
             # 구조적 유효성(양수 integer)만 보장한다.
             raise ValueError("max_retrieval_documents must be a positive integer")
-        if (
-            isinstance(self.streaming_max_duration_seconds, bool)
-            or not isinstance(self.streaming_max_duration_seconds, (int, float))
-            or float(self.streaming_max_duration_seconds) <= 0
-        ):
-            raise ValueError("streaming_max_duration_seconds must be greater than 0")
+        duration = self.streaming_max_duration_seconds
+        try:
+            duration_is_finite = (
+                not isinstance(duration, bool)
+                and isinstance(duration, (int, float))
+                and math.isfinite(float(duration))
+            )
+        except (OverflowError, ValueError):
+            duration_is_finite = False
+        if not duration_is_finite or duration <= 0:
+            raise ValueError("streaming_max_duration_seconds must be a finite number greater than 0")
         if (
             isinstance(self.streaming_max_chunks, bool)
             or not isinstance(self.streaming_max_chunks, int)

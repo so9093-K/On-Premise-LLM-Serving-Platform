@@ -158,7 +158,10 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
         operation_id="getConfigurationSchema",
         tag="Operations",
         summary="설정 metadata schema 조회",
-        description="Configuration Plane이 관리하는 설정 key의 소유권·민감도·적용 방식을 조회합니다. 현재는 읽기 전용입니다.",
+        description=(
+            "Configuration Plane이 관리하는 설정 key의 소유권·민감도·적용 방식을 조회합니다. "
+            "`editable=true`인 operator-owned hot-reload key만 Plan/Apply 대상으로 사용할 수 있습니다."
+        ),
         request_schema=None,
         response_schema=None,
     ),
@@ -168,9 +171,51 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
         operation_id="getEffectiveConfiguration",
         tag="Operations",
         summary="effective 설정 조회",
-        description="현재 적용된 설정값과 출처를 조회합니다. secret 원문은 반환하지 않습니다.",
+        description=(
+            "현재 적용된 설정값과 출처를 조회합니다. secret 원문은 반환하지 않습니다. "
+            "응답의 revision과 HTTP ETag를 Plan/Apply의 optimistic concurrency 기준으로 사용합니다."
+        ),
         request_schema=None,
         response_schema=None,
+    ),
+    EndpointSpec(
+        method="POST",
+        path="/admin/config/plans",
+        operation_id="planConfigurationChange",
+        tag="Operations",
+        summary="설정 변경 계획 검토",
+        description=(
+            "현재 revision을 기준으로 operator 설정의 `set`/`reset` 변경을 검증하고 실제 저장 없이 "
+            "before/after, effective source, shadowing, apply mode, risk와 canonical plan digest를 반환합니다. "
+            "Apply 직전 같은 변경을 다시 계산하므로 Plan은 서버-side mutable session을 만들지 않습니다."
+        ),
+        request_schema="configuration_plan_request.schema.json",
+        response_schema="configuration_plan_response.schema.json",
+        error_codes=(
+            "CONFIG_REVISION_CONFLICT",
+            "CONFIGURATION_WRITE_UNAVAILABLE",
+        ),
+    ),
+    EndpointSpec(
+        method="PATCH",
+        path="/admin/config",
+        operation_id="applyConfigurationChange",
+        tag="Operations",
+        summary="검토한 설정 변경 적용",
+        description=(
+            "`If-Match: \"config-<revision>\"`과 Plan에서 받은 `plan_digest`를 함께 요구합니다. "
+            "서버가 Plan을 재계산해 stale revision과 검토 후 drift를 거부한 뒤 operator state를 durable하게 저장하고, "
+            "shared RuntimeConfigurationProvider에 같은 revision을 적용한 뒤 convergence를 검증합니다. "
+            "`reset`은 default 값을 복사하지 않고 operator override 계층 자체를 제거합니다."
+        ),
+        request_schema="configuration_apply_request.schema.json",
+        response_schema="configuration_apply_response.schema.json",
+        error_codes=(
+            "PRECONDITION_REQUIRED",
+            "CONFIG_REVISION_CONFLICT",
+            "CONFIGURATION_WRITE_UNAVAILABLE",
+            "CONFIGURATION_APPLY_FAILED",
+        ),
     ),
     EndpointSpec(
         method="GET",

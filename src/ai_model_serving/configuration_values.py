@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from typing import Any
 
 
@@ -18,6 +19,12 @@ def validate_configuration_value(metadata: dict[str, Any], value: Any) -> None:
     elif value_type == "number":
         if isinstance(value, bool) or not isinstance(value, (int, float)):
             raise ValueError(f"{key} must be numeric")
+        try:
+            finite = math.isfinite(float(value))
+        except (OverflowError, ValueError):
+            finite = False
+        if not finite:
+            raise ValueError(f"{key} must be a finite number")
     elif value_type == "boolean":
         if not isinstance(value, bool):
             raise ValueError(f"{key} must be boolean")

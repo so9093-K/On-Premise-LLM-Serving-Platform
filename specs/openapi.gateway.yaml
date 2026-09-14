@@ -153,8 +153,8 @@ paths:
       tags:
       - Operations
       summary: 설정 metadata schema 조회
-      description: Configuration Plane이 관리하는 설정 key의 소유권·민감도·적용 방식을 조회합니다. 현재는 읽기
-        전용입니다.
+      description: Configuration Plane이 관리하는 설정 key의 소유권·민감도·적용 방식을 조회합니다. `editable=true`인
+        operator-owned hot-reload key만 Plan/Apply 대상으로 사용할 수 있습니다.
       operationId: getConfigurationSchema
       responses:
         '200':
@@ -192,7 +192,8 @@ paths:
       tags:
       - Operations
       summary: effective 설정 조회
-      description: 현재 적용된 설정값과 출처를 조회합니다. secret 원문은 반환하지 않습니다.
+      description: 현재 적용된 설정값과 출처를 조회합니다. secret 원문은 반환하지 않습니다. 응답의 revision과 HTTP
+        ETag를 Plan/Apply의 optimistic concurrency 기준으로 사용합니다.
       operationId: getEffectiveConfiguration
       responses:
         '200':
@@ -225,6 +226,338 @@ paths:
                           - UNAUTHORIZED
       security:
       - adminBearerAuth: []
+  /admin/config/plans:
+    post:
+      tags:
+      - Operations
+      summary: 설정 변경 계획 검토
+      description: 현재 revision을 기준으로 operator 설정의 `set`/`reset` 변경을 검증하고 실제 저장 없이
+        before/after, effective source, shadowing, apply mode, risk와 canonical plan
+        digest를 반환합니다. Apply 직전 같은 변경을 다시 계산하므로 Plan은 서버-side mutable session을 만들지
+        않습니다.
+      operationId: planConfigurationChange
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: ./schemas/configuration_plan_response.schema.json
+        '401':
+          description: '인증 실패
+
+
+            이 status로 올 수 있는 `error.code`:
+
+            - `UNAUTHORIZED` — API 키 또는 인증 정보가 없거나 유효하지 않다. (재시도 불가)'
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: ./schemas/common_error.schema.json
+                - type: object
+                  properties:
+                    error:
+                      type: object
+                      properties:
+                        code:
+                          enum:
+                          - UNAUTHORIZED
+        '413':
+          description: '요청 body가 너무 큼
+
+
+            이 status로 올 수 있는 `error.code`:
+
+            - `REQUEST_TOO_LARGE` — 요청 body 가 허용 한도를 초과했다. (재시도 불가)'
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: ./schemas/common_error.schema.json
+                - type: object
+                  properties:
+                    error:
+                      type: object
+                      properties:
+                        code:
+                          enum:
+                          - REQUEST_TOO_LARGE
+        '422':
+          description: '요청 검증 실패
+
+
+            이 status로 올 수 있는 `error.code`:
+
+            - `VALIDATION_ERROR` — 요청이 Gateway 입력 계약 검증을 통과하지 못했다. (재시도 불가)'
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: ./schemas/common_error.schema.json
+                - type: object
+                  properties:
+                    error:
+                      type: object
+                      properties:
+                        code:
+                          enum:
+                          - VALIDATION_ERROR
+        '500':
+          description: '내부 서버 오류
+
+
+            이 status로 올 수 있는 `error.code`:
+
+            - `INTERNAL_ERROR` — Gateway 내부 처리 중 예기치 못한 오류가 발생했다. (재시도 불가)'
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: ./schemas/common_error.schema.json
+                - type: object
+                  properties:
+                    error:
+                      type: object
+                      properties:
+                        code:
+                          enum:
+                          - INTERNAL_ERROR
+        '412':
+          description: '사전 조건 또는 revision 불일치
+
+
+            이 status로 올 수 있는 `error.code`:
+
+            - `CONFIG_REVISION_CONFLICT` — 검토한 Configuration revision 또는 plan이 현재
+            상태와 달라졌다. (재시도 불가)'
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: ./schemas/common_error.schema.json
+                - type: object
+                  properties:
+                    error:
+                      type: object
+                      properties:
+                        code:
+                          enum:
+                          - CONFIG_REVISION_CONFLICT
+        '503':
+          description: 'Runtime 또는 dependency를 사용할 수 없음
+
+
+            이 status로 올 수 있는 `error.code`:
+
+            - `CONFIGURATION_WRITE_UNAVAILABLE` — Configuration store·resolver·runtime
+            snapshot 또는 audit journal이 안전한 write 조건을 만족하지 못한다. (재시도 불가)'
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: ./schemas/common_error.schema.json
+                - type: object
+                  properties:
+                    error:
+                      type: object
+                      properties:
+                        code:
+                          enum:
+                          - CONFIGURATION_WRITE_UNAVAILABLE
+      security:
+      - adminBearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: ./schemas/configuration_plan_request.schema.json
+        required: true
+      x-contract-schema: configuration_plan_request.schema.json
+      x-response-contract-schema: configuration_plan_response.schema.json
+  /admin/config:
+    patch:
+      tags:
+      - Operations
+      summary: 검토한 설정 변경 적용
+      description: '`If-Match: "config-<revision>"`과 Plan에서 받은 `plan_digest`를 함께 요구합니다.
+        서버가 Plan을 재계산해 stale revision과 검토 후 drift를 거부한 뒤 operator state를 durable하게
+        저장하고, shared RuntimeConfigurationProvider에 같은 revision을 적용한 뒤 convergence를
+        검증합니다. `reset`은 default 값을 복사하지 않고 operator override 계층 자체를 제거합니다.'
+      operationId: applyConfigurationChange
+      security:
+      - adminBearerAuth: []
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: ./schemas/configuration_apply_response.schema.json
+        '401':
+          description: '인증 실패
+
+
+            이 status로 올 수 있는 `error.code`:
+
+            - `UNAUTHORIZED` — API 키 또는 인증 정보가 없거나 유효하지 않다. (재시도 불가)'
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: ./schemas/common_error.schema.json
+                - type: object
+                  properties:
+                    error:
+                      type: object
+                      properties:
+                        code:
+                          enum:
+                          - UNAUTHORIZED
+        '413':
+          description: '요청 body가 너무 큼
+
+
+            이 status로 올 수 있는 `error.code`:
+
+            - `REQUEST_TOO_LARGE` — 요청 body 가 허용 한도를 초과했다. (재시도 불가)'
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: ./schemas/common_error.schema.json
+                - type: object
+                  properties:
+                    error:
+                      type: object
+                      properties:
+                        code:
+                          enum:
+                          - REQUEST_TOO_LARGE
+        '422':
+          description: '요청 검증 실패
+
+
+            이 status로 올 수 있는 `error.code`:
+
+            - `VALIDATION_ERROR` — 요청이 Gateway 입력 계약 검증을 통과하지 못했다. (재시도 불가)'
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: ./schemas/common_error.schema.json
+                - type: object
+                  properties:
+                    error:
+                      type: object
+                      properties:
+                        code:
+                          enum:
+                          - VALIDATION_ERROR
+        '500':
+          description: '내부 서버 오류
+
+
+            이 status로 올 수 있는 `error.code`:
+
+            - `CONFIGURATION_APPLY_FAILED` — operator desired state 저장 이후 runtime
+            적용 또는 검증 단계가 완료되지 못했다. (재시도 불가)
+
+            - `INTERNAL_ERROR` — Gateway 내부 처리 중 예기치 못한 오류가 발생했다. (재시도 불가)'
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: ./schemas/common_error.schema.json
+                - type: object
+                  properties:
+                    error:
+                      type: object
+                      properties:
+                        code:
+                          enum:
+                          - CONFIGURATION_APPLY_FAILED
+                          - INTERNAL_ERROR
+        '428':
+          description: '필수 사전 조건 누락
+
+
+            이 status로 올 수 있는 `error.code`:
+
+            - `PRECONDITION_REQUIRED` — 상태 변경 요청에 필요한 revision precondition이 빠졌거나
+            형식이 잘못됐다. (재시도 불가)'
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: ./schemas/common_error.schema.json
+                - type: object
+                  properties:
+                    error:
+                      type: object
+                      properties:
+                        code:
+                          enum:
+                          - PRECONDITION_REQUIRED
+        '412':
+          description: '사전 조건 또는 revision 불일치
+
+
+            이 status로 올 수 있는 `error.code`:
+
+            - `CONFIG_REVISION_CONFLICT` — 검토한 Configuration revision 또는 plan이 현재
+            상태와 달라졌다. (재시도 불가)'
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: ./schemas/common_error.schema.json
+                - type: object
+                  properties:
+                    error:
+                      type: object
+                      properties:
+                        code:
+                          enum:
+                          - CONFIG_REVISION_CONFLICT
+        '503':
+          description: 'Runtime 또는 dependency를 사용할 수 없음
+
+
+            이 status로 올 수 있는 `error.code`:
+
+            - `CONFIGURATION_WRITE_UNAVAILABLE` — Configuration store·resolver·runtime
+            snapshot 또는 audit journal이 안전한 write 조건을 만족하지 못한다. (재시도 불가)'
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: ./schemas/common_error.schema.json
+                - type: object
+                  properties:
+                    error:
+                      type: object
+                      properties:
+                        code:
+                          enum:
+                          - CONFIGURATION_WRITE_UNAVAILABLE
+      parameters:
+      - name: If-Match
+        in: header
+        required: true
+        description: '`GET /admin/config/effective`가 반환한 Configuration ETag입니다. 예:
+          `"config-7"`. 누락되거나 형식이 잘못되면 428을 반환합니다.'
+        schema:
+          type: string
+          pattern: ^"config-[0-9]+"$
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: ./schemas/configuration_apply_request.schema.json
+        required: true
+      x-contract-schema: configuration_apply_request.schema.json
+      x-response-contract-schema: configuration_apply_response.schema.json
   /v1/models:
     get:
       tags:

@@ -126,6 +126,7 @@ def test_chat_tool_errors_carry_tool_param():
 AMBIGUOUS_STATUS_DEFAULTS = {
     409: "CONFLICT",
     422: "VALIDATION_ERROR",
+    500: "INTERNAL_ERROR",
     502: "UPSTREAM_ERROR",
     503: "MODEL_UNAVAILABLE",
 }
