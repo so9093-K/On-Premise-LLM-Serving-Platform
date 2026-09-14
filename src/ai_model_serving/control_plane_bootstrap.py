@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -19,19 +20,47 @@ _LEGACY_PROFILE_DESCRIPTION = (
 )
 
 
-def _current_access_profile(root: Path) -> AccessProfile | None:
-    """Return only an explicitly selected managed Access Profile.
+@dataclass(frozen=True)
+class ControlPlaneBootstrapProjection:
+    """Startup-resolved, browser-safe Control Plane discovery inputs.
 
-    Bootstrap must not infer a friendly profile name by reverse-matching AUTH_MODE or
-    bind flags.  When ACCESS_PROFILE is absent or unknown, the browser sees the
-    explicit legacy/custom posture instead of a guessed managed profile.
+    Repository YAML and process environment are composition inputs, not request-time
+    dependencies. The Gateway resolves them once while the application is built; the
+    public Bootstrap request only adds current Configuration Plane state and the
+    request hostname needed for a local direct Grafana link.
     """
+
+    platform_version: str
+    release_id: str | None
+    deployment_target: str
+    deployment_display_name: str
+    deployment_platform: str
+    runtime_backend: str
+    validation_status: str
+    control_mode: str
+    lifecycle_owner: str
+    features: tuple[str, ...]
+    access_profile: str
+    access_description: str
+    admin_auth_required: bool
+    monitoring_available: bool
+    grafana_available: bool
+    grafana_direct_port: int | None
+    docs_url: str | None
+    redoc_url: str | None
+    openapi_url: str | None
+
+
+def _current_access_profile(root: Path) -> AccessProfile | None:
+    """Return only an explicitly selected managed Access Profile."""
     name = _env("ACCESS_PROFILE", "").strip()
     if not name:
         return None
     try:
         return load_access_profile(name, root)
     except ValueError:
+        # Do not reverse-match low-level auth/exposure flags into a friendly profile.
+        # Unknown or absent profile selection remains explicit legacy/custom posture.
         return None
 
 
@@ -41,10 +70,9 @@ def _published_services(settings: AppSettings, root: Path, profile: AccessProfil
     if static_services is not None:
         return static_services
 
-    # Dynamic targets consume exposure_profiles.yaml at deployment time.  Managed
-    # Access Profile은 그 exposure mode의 SoT이므로 동일 값을 사용한다. Advanced
-    # configuration에서는 명시된 EXPOSURE_MODE만 신뢰하고, 모르는 값은 공개 서비스가
-    # 없다고 처리해 link를 fail-closed 한다.
+    # Dynamic targets consume exposure_profiles.yaml at deployment time. Managed
+    # Access Profile is the supported composition SoT. Advanced/custom deployments
+    # may name EXPOSURE_MODE directly; unknown modes fail closed to no public link.
     exposure_mode = profile.exposure_mode if profile is not None else _env("EXPOSURE_MODE", "").strip()
     document = load_yaml_mapping(root / "configs" / "exposure_profiles.yaml")
     profiles = document.get("profiles")
@@ -73,72 +101,98 @@ def _service_host_port(root: Path, service_id: str) -> int | None:
     return port if 1 <= port <= 65535 else None
 
 
-def _grafana_href(
+def _grafana_projection(
     *,
     settings: AppSettings,
     root: Path,
     profile: AccessProfile | None,
-    request_hostname: str | None,
-) -> tuple[bool, str | None]:
+) -> tuple[bool, int | None]:
     if not settings.deployment_target.runs_monitoring_stack:
         return False, None
     if "grafana" not in _published_services(settings, root, profile):
         return False, None
 
     # Monitoring may exist without a browser-safe direct URL. private/edge profiles
-    # can put TLS/proxy ownership outside the Gateway, so inventing a scheme/host here
-    # would make the Console point at a URL that may not exist. A direct link is only
-    # guaranteed for the local profile, where the profile explicitly declares no
-    # external TLS owner and Grafana is host-published on the same machine.
-    if profile is None or profile.external_tls_owner != "none" or not request_hostname:
+    # can put TLS/proxy ownership outside the Gateway, so only a managed profile with
+    # no external TLS owner receives a direct host-port projection.
+    if profile is None or profile.external_tls_owner != "none":
         return True, None
-    port = _service_host_port(root, "grafana")
-    if port is None:
-        return True, None
-    host = f"[{request_hostname}]" if ":" in request_hostname else request_hostname
-    return True, f"http://{host}:{port}/"
+    return True, _service_host_port(root, "grafana")
+
+
+def build_control_plane_bootstrap_projection(
+    settings: AppSettings,
+    *,
+    root: Path | None = None,
+) -> ControlPlaneBootstrapProjection:
+    """Resolve repository/environment posture once at Gateway composition time."""
+    project_root = resolve_project_root(root)
+    profile = _current_access_profile(project_root)
+    grafana_available, grafana_direct_port = _grafana_projection(
+        settings=settings,
+        root=project_root,
+        profile=profile,
+    )
+    docs_enabled = settings.documentation.enabled
+    target = settings.deployment_target
+    return ControlPlaneBootstrapProjection(
+        platform_version=settings.project_version,
+        release_id=settings.deploy_release_id or None,
+        deployment_target=target.target_id,
+        deployment_display_name=target.display_name,
+        deployment_platform=target.platform,
+        runtime_backend=target.runtime_backend,
+        validation_status=target.validation_status,
+        control_mode=target.control_mode,
+        lifecycle_owner=target.lifecycle_owner,
+        features=tuple(sorted(target.features)),
+        access_profile=profile.name if profile is not None else _LEGACY_PROFILE,
+        access_description=(
+            profile.description if profile is not None else _LEGACY_PROFILE_DESCRIPTION
+        ),
+        admin_auth_required=settings.security.admin_api_key_required,
+        monitoring_available=target.runs_monitoring_stack,
+        grafana_available=grafana_available,
+        grafana_direct_port=grafana_direct_port,
+        docs_url=settings.documentation.docs_url if docs_enabled else None,
+        redoc_url=settings.documentation.redoc_url if docs_enabled else None,
+        openapi_url=settings.documentation.openapi_url if docs_enabled else None,
+    )
 
 
 def control_plane_bootstrap_document(
-    settings: AppSettings,
+    projection: ControlPlaneBootstrapProjection,
     *,
     configuration_revision: int,
     configuration_write_available: bool,
     request_hostname: str | None,
-    root: Path | None = None,
 ) -> dict[str, Any]:
-    """Project existing control-plane SoTs into the browser-safe discovery contract."""
-    project_root = resolve_project_root(root)
-    profile = _current_access_profile(project_root)
-    grafana_available, grafana_href = _grafana_href(
-        settings=settings,
-        root=project_root,
-        profile=profile,
-        request_hostname=request_hostname,
-    )
-    docs_enabled = settings.documentation.enabled
-    target = settings.deployment_target
+    """Render the browser-safe discovery document without repository I/O."""
+    grafana_href = None
+    if projection.grafana_direct_port is not None and request_hostname:
+        host = f"[{request_hostname}]" if ":" in request_hostname else request_hostname
+        grafana_href = f"http://{host}:{projection.grafana_direct_port}/"
 
     return {
         "bootstrap_version": BOOTSTRAP_VERSION,
         "platform": {
-            "version": settings.project_version,
-            "release_id": settings.deploy_release_id or None,
+            "version": projection.platform_version,
+            "release_id": projection.release_id,
         },
         "deployment": {
-            "target": target.target_id,
-            "display_name": target.display_name,
-            "platform": target.platform,
-            "runtime_backend": target.runtime_backend,
-            "validation_status": target.validation_status,
-            "control_mode": target.control_mode,
-            "lifecycle_owner": target.lifecycle_owner,
-            "features": sorted(target.features),
+            "target": projection.deployment_target,
+            "display_name": projection.deployment_display_name,
+            "platform": projection.deployment_platform,
+            "runtime_backend": projection.runtime_backend,
+            "validation_status": projection.validation_status,
+            "control_mode": projection.control_mode,
+            "lifecycle_owner": projection.lifecycle_owner,
+            "features": list(projection.features),
         },
         "access": {
-            "profile": profile.name if profile is not None else _LEGACY_PROFILE,
-            "description": profile.description if profile is not None else _LEGACY_PROFILE_DESCRIPTION,
-            "admin_auth_required": settings.security.admin_api_key_required,
+            "profile": projection.access_profile,
+            "description": projection.access_description,
+            "admin_auth_required": projection.admin_auth_required,
         },
         "configuration": {
             "schema_version": CONFIGURATION_SCHEMA_VERSION,
@@ -146,13 +200,13 @@ def control_plane_bootstrap_document(
             "write_available": configuration_write_available,
         },
         "monitoring": {
-            "available": target.runs_monitoring_stack,
-            "grafana_available": grafana_available,
+            "available": projection.monitoring_available,
+            "grafana_available": projection.grafana_available,
         },
         "links": {
-            "docs": settings.documentation.docs_url if docs_enabled else None,
-            "redoc": settings.documentation.redoc_url if docs_enabled else None,
-            "openapi": settings.documentation.openapi_url if docs_enabled else None,
+            "docs": projection.docs_url,
+            "redoc": projection.redoc_url,
+            "openapi": projection.openapi_url,
             "grafana": grafana_href,
         },
     }

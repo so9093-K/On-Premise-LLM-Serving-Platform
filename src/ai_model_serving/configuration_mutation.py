@@ -319,6 +319,11 @@ class ConfigurationHistoryStore:
         self.directory = directory
         self.directory.mkdir(parents=True, exist_ok=True)
         self._lock = RLock()
+        # Durable JSON records remain the audit SoT. The pending-id index is only
+        # a process-local read model so readiness checks do not rescan every
+        # terminal history record. It is rebuilt from the journal after restart.
+        self._pending_operation_ids: set[str] | None = None
+        self._history_directory_identity: tuple[int, int] | None = None
 
     def _path(self, operation_id: str) -> Path:
         return self.directory / f"{operation_id}.json"
@@ -470,6 +475,47 @@ class ConfigurationHistoryStore:
             ) from exc
         return self._validate_record(path, document)
 
+    def _directory_identity(self) -> tuple[int, int]:
+        try:
+            stat = self.directory.stat()
+        except OSError as exc:
+            raise ConfigurationWriteUnavailable(
+                "configuration history directory is unavailable",
+                reason="history_unreadable",
+            ) from exc
+        return stat.st_mtime_ns, stat.st_ctime_ns
+
+    def _rebuild_pending_index(self) -> set[str]:
+        before = self._directory_identity()
+        pending: set[str] = set()
+        for path in sorted(self.directory.glob("cfg_*.json")):
+            record = self._read(path)
+            if record["status"] == "pending":
+                pending.add(record["operation_id"])
+        after = self._directory_identity()
+        if after != before:
+            raise ConfigurationWriteUnavailable(
+                "configuration history changed while rebuilding the pending index",
+                reason="history_changed_during_scan",
+            )
+        self._pending_operation_ids = pending
+        self._history_directory_identity = after
+        return pending
+
+    def _ensure_pending_index(self) -> set[str]:
+        identity = self._directory_identity()
+        if (
+            self._pending_operation_ids is None
+            or self._history_directory_identity != identity
+        ):
+            return self._rebuild_pending_index()
+        return self._pending_operation_ids
+
+    @property
+    def pending_count(self) -> int:
+        with self._lock:
+            return len(self._ensure_pending_index())
+
     def begin(
         self,
         *,
@@ -503,6 +549,7 @@ class ConfigurationHistoryStore:
         if target_revision is not None:
             record["target_revision"] = target_revision
         with self._lock:
+            pending = self._ensure_pending_index()
             path = self._path(operation_id)
             if path.exists():
                 raise ConfigurationWriteUnavailable(
@@ -511,6 +558,8 @@ class ConfigurationHistoryStore:
                 )
             self._validate_record(path, record)
             self._write(path, record)
+            pending.add(operation_id)
+            self._history_directory_identity = self._directory_identity()
         return operation_id
 
     def finish(
@@ -526,6 +575,7 @@ class ConfigurationHistoryStore:
         if status not in _TERMINAL_HISTORY_STATES:
             raise ValueError(f"invalid configuration history terminal state: {status}")
         with self._lock:
+            pending = self._ensure_pending_index()
             path = self._path(operation_id)
             record = self._read(path)
             if record.get("status") in _TERMINAL_HISTORY_STATES:
@@ -544,6 +594,8 @@ class ConfigurationHistoryStore:
                 record["error"] = error
             self._validate_record(path, record)
             self._write(path, record)
+            pending.discard(operation_id)
+            self._history_directory_identity = self._directory_identity()
             return record
 
     def records(self) -> list[dict[str, Any]]:
@@ -551,7 +603,9 @@ class ConfigurationHistoryStore:
             return [self._read(path) for path in sorted(self.directory.glob("cfg_*.json"))]
 
     def pending_records(self) -> list[dict[str, Any]]:
-        return [record for record in self.records() if record["status"] == "pending"]
+        with self._lock:
+            pending = self._ensure_pending_index()
+            return [self._read(self._path(operation_id)) for operation_id in sorted(pending)]
 
 
 class ConfigurationMutationEngine:
@@ -640,7 +694,7 @@ class ConfigurationMutationEngine:
                 "pending_operations": None,
             }
         try:
-            pending = self.history.pending_records()
+            pending_count = self.history.pending_count
             verification = self._verification()
         except ConfigurationMutationError as exc:
             return {
@@ -652,9 +706,9 @@ class ConfigurationMutationEngine:
                 "synchronized": False,
                 "pending_operations": None,
             }
-        available = verification["synchronized"] and not pending
+        available = verification["synchronized"] and pending_count == 0
         reason = None
-        if pending:
+        if pending_count:
             reason = "pending_operation"
         elif not verification["synchronized"]:
             reason = "state_not_synchronized"
@@ -662,7 +716,7 @@ class ConfigurationMutationEngine:
             "available": available,
             "reason": reason,
             **verification,
-            "pending_operations": len(pending),
+            "pending_operations": pending_count,
         }
 
     def recover_interrupted_operations(self) -> None:
@@ -701,8 +755,7 @@ class ConfigurationMutationEngine:
                 "Configuration write plane requires persistent platform state",
                 reason="persistent_state_unavailable",
             )
-        pending = self.history.pending_records()
-        if pending:
+        if self.history.pending_count:
             raise ConfigurationWriteUnavailable(
                 "Configuration write plane has an unfinished operation; restart or inspect history before retrying",
                 reason="pending_operation",
