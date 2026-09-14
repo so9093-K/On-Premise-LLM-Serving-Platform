@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ConfigurationRollbackPlanRequest",
+  "type": "object",
+  "required": ["base_revision", "target_revision"],
+  "additionalProperties": false,
+  "properties": {
+    "base_revision": {"type": "integer", "minimum": 0},
+    "target_revision": {"type": "integer", "minimum": 0}
+  }
+}

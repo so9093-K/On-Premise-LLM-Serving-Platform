@@ -179,6 +179,61 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
         response_schema=None,
     ),
     EndpointSpec(
+        method="GET",
+        path="/admin/config/history",
+        operation_id="listConfigurationHistory",
+        tag="Operations",
+        summary="설정 변경 이력 조회",
+        description=(
+            "Configuration Plane의 durable operation journal을 운영자용 projection으로 조회합니다. "
+            "내부 rollback snapshot과 raw failure 문자열은 노출하지 않으며, 최신 작업부터 cursor 기반으로 페이지합니다."
+        ),
+        request_schema=None,
+        response_schema="configuration_history_response.schema.json",
+        error_codes=(
+            "VALIDATION_ERROR",
+            "CONFIGURATION_WRITE_UNAVAILABLE",
+        ),
+    ),
+    EndpointSpec(
+        method="POST",
+        path="/admin/config/rollbacks/plans",
+        operation_id="planConfigurationRollback",
+        tag="Operations",
+        summary="과거 설정 revision rollback 계획 검토",
+        description=(
+            "과거 revision의 operator override snapshot을 현재 source precedence에서 다시 resolve해 "
+            "필요한 set/reset 변경과 effective impact를 계산합니다. 과거 effective 값을 그대로 복사하지 않으며 "
+            "rollback intent와 target revision을 canonical plan digest에 포함합니다."
+        ),
+        request_schema="configuration_rollback_plan_request.schema.json",
+        response_schema="configuration_rollback_plan_response.schema.json",
+        error_codes=(
+            "CONFIG_REVISION_CONFLICT",
+            "CONFIGURATION_WRITE_UNAVAILABLE",
+        ),
+    ),
+    EndpointSpec(
+        method="POST",
+        path="/admin/config/rollbacks",
+        operation_id="applyConfigurationRollback",
+        tag="Operations",
+        summary="검토한 설정 rollback 적용",
+        description=(
+            "`If-Match: \"config-<revision>\"`과 rollback Plan의 `plan_digest`를 요구합니다. "
+            "target revision의 값을 직접 덮어쓰지 않고 현재 revision에서 새 Plan/Apply/Verify transaction을 "
+            "수행하므로 성공한 rollback은 revision counter를 뒤로 돌리지 않고 새 revision을 만듭니다."
+        ),
+        request_schema="configuration_rollback_apply_request.schema.json",
+        response_schema="configuration_rollback_apply_response.schema.json",
+        error_codes=(
+            "PRECONDITION_REQUIRED",
+            "CONFIG_REVISION_CONFLICT",
+            "CONFIGURATION_WRITE_UNAVAILABLE",
+            "CONFIGURATION_APPLY_FAILED",
+        ),
+    ),
+    EndpointSpec(
         method="POST",
         path="/admin/config/plans",
         operation_id="planConfigurationChange",
