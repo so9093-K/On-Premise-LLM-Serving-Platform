@@ -52,7 +52,7 @@ compose env template의 프로젝트 image tag와 권장 image 설정을 함께 
 
 ---
 
-## Release Package
+## Release Package와 canonical manifest
 
 배포용 source package는 필요할 때만 만든다.
 
@@ -66,5 +66,28 @@ make package
 config, spec, 필요한 ops artifact, 동일 버전을 검증할 `tests/`와 안전한 env example을
 포함한다. 실제 `.env`, `.runtime`, log, model cache, Python cache, private tool directory,
 GitHub Actions workflow는 포함하지 않는다.
+
+Release payload의 Source of Truth는 `scripts/release/release_artifact.py`가 생성하는
+`RELEASE_MANIFEST.json`이다. Manifest는 logical release root 기준으로 각 파일의
+`path`, canonical `mode`, `size`, `sha256`과 전체 `payload_sha256`, source revision을
+기록한다. `RELEASE_PROVENANCE.json`은 기존 consumer를 위한 compatibility projection이며
+manifest에서 파생될 뿐 별도의 release identity를 소유하지 않는다.
+
+`make package`와 `scripts/deploy/deploy_compose_release.sh`는 둘 다 같은 resolver와
+materializer를 호출한다. Package는 materialized tree를 deterministic ZIP transport로
+감싸고, remote deploy는 같은 tree를 전송한 뒤 대상 host에서 manifest를 다시 검증한다.
+GitHub Actions도 별도 packaging 규칙을 갖지 않고 로컬과 같은 `make package`를 실행한다.
+
+로컬 packaging은 개발 중 검증을 위해 tracked dirty tree도 허용한다. 이 경우 manifest의
+`source.tracked_state`가 `dirty`로 기록되고 실제 file hash가 artifact identity를 고정한다.
+반면 원격 운영 배포는 기존 정책대로 tracked working tree가 clean한 경우만 허용한다.
+Untracked file은 release 입력이 아니므로 manifest payload와 `tracked_state`에 영향을 주지
+않는다. 따라서 cache/report/개인 메모가 checkout에 존재해도 동일 tracked source에서
+release payload identity가 달라지지 않는다.
+
+재현성의 기준은 두 층으로 나눈다.
+
+- **Payload reproducibility**: 같은 tracked release input은 OS와 transport에 관계없이 같은 path/mode/size/hash 집합과 `payload_sha256`을 가져야 한다.
+- **Archive reproducibility**: ZIP writer는 정렬된 entry, 고정 timestamp, Git에서 파생한 0644/0755 mode와 고정 compression level을 사용해 host filesystem metadata가 결과에 섞이지 않게 한다.
 
 Image build·publish와 immutable digest 전달의 경계는 [9. 자동화 경계](../09_cicd.md), 대상 서버 적용과 rollback은 [10. 배포](../10_deployment.md)를 따른다.
