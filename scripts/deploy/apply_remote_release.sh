@@ -118,10 +118,6 @@ if [[ -n "${PREVIOUS_RELEASE}" && -d "${PREVIOUS_RELEASE}" ]]; then
   fi
 fi
 
-# read-only 배포 토큰으로 registry 로그인
-echo "${REGISTRY_PASSWORD}" | \
-  docker login "${REGISTRY_HOST}" -u "${REGISTRY_USER}" --password-stdin
-
 COMPOSE_EXPORTED_KEYS=()
 
 _PYTHON_BIN="$(command -v python3.12 || command -v python3 || command -v python)"
@@ -467,6 +463,7 @@ pull_preflight_image() {
   echo "[deploy] preflight: verifying ${label} image..."
   if ! docker pull "${image}"; then
     echo "[deploy] ERROR: cannot pull ${label}: ${image}" >&2
+    echo "[deploy]   Ensure this immutable image exists and the target host already has registry pull access." >&2
     if [[ "${DEPLOY_MODE}" == "full" ]]; then
       echo "[deploy]   Build the unified image and provide its immutable digest for the full deployment." >&2
       echo "[deploy]   Or set RISK_VLLM_IMAGE_TO_DEPLOY" >&2

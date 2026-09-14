@@ -15,6 +15,10 @@ from ..runtime_topology import load_runtime_topology
 from ..service_logging import service_logger
 
 
+class RuntimeStateStoreError(RuntimeError):
+    pass
+
+
 class RuntimeState(str, Enum):
     active = "active"
     stopped = "stopped"
@@ -40,6 +44,11 @@ class RuntimeStateStore:
     State reflects what the gateway *intends* to do with each runtime, not the
     actual container status. When ``path`` is supplied, that desired state is
     persisted so deliberate operator stops survive Gateway restarts.
+
+    A corrupt persistent file must never silently turn an intentional ``stopped``
+    state back into the default ``active`` state. Corrupt input is quarantined and
+    replaced with an explicit fail-closed recovery state where every controllable
+    secondary runtime is ``stopped`` until an operator starts it again.
     """
 
     def __init__(
@@ -58,6 +67,8 @@ class RuntimeStateStore:
             if controllable_keys is None
             else frozenset(controllable_keys)
         )
+        self.recovery_error = ""
+        self.recovery_quarantine_path: Path | None = None
         now = time.time()
         self._records: dict[str, RuntimeStateRecord] = {
             k: RuntimeStateRecord(RuntimeState.active, source="default", updated_at=now)
@@ -65,17 +76,50 @@ class RuntimeStateStore:
         }
         self._applied_release_id = ""
         had_persisted_state = False
+        recovered_corrupt_state = False
         if self._path is not None:
             self._path.parent.mkdir(parents=True, exist_ok=True)
-            records, self._applied_release_id = self._read_file()
+            try:
+                records, self._applied_release_id = self._read_file()
+            except RuntimeStateStoreError as exc:
+                recovered_corrupt_state = True
+                self.recovery_error = str(exc)
+                self.recovery_quarantine_path = self._quarantine_corrupt_state()
+                recovery_time = time.time()
+                self._records = {
+                    key: RuntimeStateRecord(
+                        RuntimeState.stopped,
+                        reason="state_recovery_required",
+                        source="recovery",
+                        updated_at=recovery_time,
+                    )
+                    for key in self.controllable_keys
+                }
+                self._applied_release_id = ""
+                try:
+                    self._write_file()
+                except OSError as write_exc:
+                    raise RuntimeStateStoreError(
+                        "runtime desired state is corrupt and safe recovery state could not be persisted"
+                    ) from write_exc
+                service_logger("gateway").error(
+                    "runtime desired state was corrupt; quarantined %s and initialized fail-closed state: %s",
+                    self.recovery_quarantine_path,
+                    exc,
+                )
+                records = {}
             self._records.update(records)
             had_persisted_state = bool(records)
-        self._apply_deploy_directive(
-            deferred_keys,
-            activated_keys,
-            release_id,
-            had_persisted_state=had_persisted_state,
-        )
+        # A corrupt desired-state file means operator intent is unknown. Applying a
+        # deploy directive in the same startup could immediately turn a fail-closed
+        # recovery state back to active, so recovery always wins for this boot.
+        if not recovered_corrupt_state:
+            self._apply_deploy_directive(
+                deferred_keys,
+                activated_keys,
+                release_id,
+                had_persisted_state=had_persisted_state,
+            )
 
     def _apply_deploy_directive(
         self,
@@ -132,14 +176,12 @@ class RuntimeStateStore:
         try:
             self._write_file()
         except OSError as exc:
-            # 지시는 이미 메모리에 반영됐으므로 이번 기동의 동작은 올바르다.
-            # 기록만 못 한 것이라 다음 기동에서 같은 지시가 다시 적용될 뿐이다.
-            # secondary 런타임의 desired state를 못 남긴다고 Gateway 전체를
-            # 세울 이유는 없다. 다만 조용히 넘기면 원인을 못 찾으므로 남긴다.
-            self._applied_release_id = ""
-            service_logger("gateway").error(
-                "failed to persist runtime state directive to %s: %s", self._path, exc
-            )
+            # 배포 지시는 release 단위로 한 번만 적용되어야 한다. 메모리만 바뀐 채
+            # 계속 기동하면 다음 restart에서 operator intent가 뒤집힐 수 있으므로
+            # persistent writer가 준비되지 않은 운영 배포는 소리내서 실패한다.
+            raise RuntimeStateStoreError(
+                "failed to persist runtime desired state deploy directive"
+            ) from exc
 
     @staticmethod
     def _parse_record(raw: Any) -> RuntimeStateRecord | None:
@@ -170,20 +212,49 @@ class RuntimeStateStore:
             return {}, ""
         try:
             value = json.loads(self._path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
-            return {}, ""
-        applied = str(value.get("applied_release_id") or "") if isinstance(value, dict) else ""
-        states = value.get("states") if isinstance(value, dict) else None
+        except PermissionError as exc:
+            raise RuntimeStateStoreError("runtime desired state is not readable") from exc
+        except (OSError, json.JSONDecodeError) as exc:
+            raise RuntimeStateStoreError("runtime desired state is corrupt") from exc
+        if not isinstance(value, dict):
+            raise RuntimeStateStoreError("runtime desired state root must be an object")
+        schema_version = value.get("schema_version", 1)
+        if isinstance(schema_version, bool) or schema_version not in {1, 2}:
+            raise RuntimeStateStoreError(
+                f"unsupported runtime desired state schema version: {schema_version!r}"
+            )
+        applied = str(value.get("applied_release_id") or "")
+        states = value.get("states")
         if not isinstance(states, dict):
-            return {}, applied
+            raise RuntimeStateStoreError("runtime desired state states must be an object")
         parsed: dict[str, RuntimeStateRecord] = {}
         for key, raw in states.items():
             if key not in self.controllable_keys:
                 continue
             record = self._parse_record(raw)
-            if record is not None:
-                parsed[key] = record
+            if record is None:
+                raise RuntimeStateStoreError(
+                    f"runtime desired state contains an invalid record for {key}"
+                )
+            parsed[key] = record
         return parsed, applied
+
+    def _quarantine_corrupt_state(self) -> Path | None:
+        if self._path is None or not self._path.exists():
+            return None
+        target = self._path.with_name(f"{self._path.name}.corrupt.{time.time_ns()}")
+        os.replace(self._path, target)
+        self._fsync_directory()
+        return target
+
+    def _fsync_directory(self) -> None:
+        if self._path is None:
+            return
+        directory_fd = os.open(self._path.parent, os.O_RDONLY)
+        try:
+            os.fsync(directory_fd)
+        finally:
+            os.close(directory_fd)
 
     def _write_file(self) -> None:
         if self._path is None:
@@ -214,6 +285,7 @@ class RuntimeStateStore:
                 os.fsync(handle.fileno())
             os.chmod(temp_name, 0o644)
             os.replace(temp_name, self._path)
+            self._fsync_directory()
         finally:
             if os.path.exists(temp_name):
                 os.unlink(temp_name)
@@ -234,14 +306,23 @@ class RuntimeStateStore:
         source: str = "",
     ) -> None:
         async with self._lock:
-            if service_key in self.controllable_keys:
-                self._records[service_key] = RuntimeStateRecord(
-                    state,
-                    reason=reason,
-                    source=source,
-                    updated_at=time.time(),
-                )
+            if service_key not in self.controllable_keys:
+                return
+            previous = self._records.get(service_key)
+            self._records[service_key] = RuntimeStateRecord(
+                state,
+                reason=reason,
+                source=source,
+                updated_at=time.time(),
+            )
+            try:
                 self._write_file()
+            except OSError:
+                if previous is None:
+                    self._records.pop(service_key, None)
+                else:
+                    self._records[service_key] = previous
+                raise
 
     async def all_records(self) -> dict[str, RuntimeStateRecord]:
         async with self._lock:

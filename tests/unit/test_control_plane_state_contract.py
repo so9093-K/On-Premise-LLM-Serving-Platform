@@ -4,10 +4,12 @@ from pathlib import Path
 
 import yaml
 
+from ai_model_serving.platform_state import DEFAULT_PLATFORM_STATE_DIR
+
 
 _ROOT = Path(__file__).resolve().parents[2]
-_STATE_ROOT = "/var/lib/ai-model-serving"
-_STATE_BIND = "../../.runtime/gateway:/var/lib/ai-model-serving"
+_STATE_ROOT = str(DEFAULT_PLATFORM_STATE_DIR)
+_STATE_BIND = f"../../.runtime/gateway:{_STATE_ROOT}"
 
 
 def _compose(path: str) -> dict:
@@ -21,14 +23,14 @@ def test_platform_image_declares_canonical_state_root() -> None:
     assert f"install -d -o appuser -g appuser {_STATE_ROOT}" in dockerfile
 
 
-def test_static_gateway_persists_platform_state_like_dynamic_gateway() -> None:
+def test_static_and_dynamic_gateway_share_platform_state_contract() -> None:
     static_gateway = _compose("ops/compose/static-main.external-runtime.yaml")["services"]["gateway"]
     dynamic_gateway = _compose("ops/compose/full-stack.private-network.yaml")["services"]["gateway"]
 
     assert static_gateway["environment"]["PLATFORM_STATE_DIR"] == _STATE_ROOT
-    assert static_gateway["environment"]["GATEWAY_RUNTIME_STATE_PATH"] == (
-        f"{_STATE_ROOT}/runtime-state.json"
-    )
+    assert dynamic_gateway["environment"]["PLATFORM_STATE_DIR"] == _STATE_ROOT
+    assert "GATEWAY_RUNTIME_STATE_PATH" not in static_gateway["environment"]
+    assert "GATEWAY_RUNTIME_STATE_PATH" not in dynamic_gateway["environment"]
     assert _STATE_BIND in static_gateway["volumes"]
     assert _STATE_BIND in dynamic_gateway["volumes"]
 

@@ -118,7 +118,7 @@ Platform 이미지는 Registry의 고정된 digest로 전달된다.
 
 새 Unified vLLM digest가 없는 Full 배포는 대상 서버에 저장된 Runtime 이미지 설정을 사용한다.
 
-대상 서버에는 Docker/Compose, NVIDIA Runtime, Registry pull credential과 Main Model 로딩에 필요한 Hugging Face credential 또는 cache가 준비되어 있어야 한다.
+대상 서버에는 Docker/Compose, NVIDIA Runtime, Registry pull credential과 Main Model 로딩에 필요한 Hugging Face credential 또는 cache가 준비되어 있어야 한다. Registry 인증은 host bootstrap 책임이며 release deploy 스크립트는 credential을 전달하거나 `docker login`을 수행하지 않는다. 배포는 immutable image에 대한 `docker pull` 성공 여부만 검증한다.
 
 환경 설정과 프로파일의 Source of Truth는 [5. 설정 체계와 Source of Truth](./05_configuration.md)를 참고한다.
 
@@ -129,9 +129,6 @@ Platform 이미지는 Registry의 고정된 digest로 전달된다.
 
 ```bash
 PLATFORM_IMAGE_TO_DEPLOY='registry.example.com/project/platform@sha256:<digest>' \
-REGISTRY_HOST='registry.example.com' \
-REGISTRY_USER='<pull-user>' \
-REGISTRY_PASSWORD='<pull-token>' \
 DEPLOY_HOST='<deployment-host>' \
 DEPLOY_USER='<deployment-user>' \
 DEPLOY_PATH='/opt/ai-model-serving' \

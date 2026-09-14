@@ -24,11 +24,11 @@ services:
       HEALTHCHECK_PORT: '9400'
       APP_CONFIG_ROOT: /app
       PYTHONPATH: /app/src
+      PLATFORM_STATE_DIR: /var/lib/ai-model-serving
       ADMIN_API_KEY_REQUIRED: '${ADMIN_API_KEY_REQUIRED:-true}'
       ADMIN_ENDPOINTS_INTERNAL_ONLY: '${ADMIN_ENDPOINTS_INTERNAL_ONLY:-false}'
       STRICT_ADMIN_ENDPOINT_SECURITY: '${STRICT_ADMIN_ENDPOINT_SECURITY:-true}'
       ADMIN_SIDECAR_URL: http://admin-sidecar:8080
-      GATEWAY_RUNTIME_STATE_PATH: /var/lib/ai-model-serving/runtime-state.json
       REQUEST_EVENT_LOG_DIR: /var/log/ai-model-serving
       # 배포가 결정한 deferred runtime 목록. Gateway가 기동 시 한 번 적용하며,
       # 상태 파일 자체는 Gateway만 쓴다(두 writer 소유권 충돌 방지).
@@ -425,6 +425,7 @@ services:
     environment:
       APP_CONFIG_ROOT: /app
       PYTHONPATH: /app/src
+      PLATFORM_STATE_DIR: /var/lib/ai-model-serving
       DOCKER_SOCKET: /var/run/docker.sock
       # 이 값으로 admin-sidecar가 com.docker.compose.project 라벨을 걸러 컨테이너를
       # 찾는다. 위 `name:`과 기본값이 어긋나면 sidecar가 아무 컨테이너도 찾지 못해
