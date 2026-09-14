@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from typing import Any
 from urllib.parse import urlparse
 
@@ -33,6 +34,10 @@ from ...services.sidecar_client import (
     SidecarClient,
     SidecarRequestError,
     SidecarUnavailableError,
+)
+from ...runtime_transition_contract import (
+    parse_runtime_transition_request,
+    project_sidecar_runtime_plan,
 )
 
 # 예시의 모델 신원은 configs/main_model_profiles.yaml에서 그대로 온다. 손으로
@@ -153,36 +158,16 @@ _MAIN_MODEL_STATUS_EXAMPLE = {
     },
 }
 
-_DESIRED_STATE_SCHEMA = {
-    "requestBody": {
-        "required": True,
-        "content": {
-            "application/json": {
-                "schema": {
-                    "type": "object",
-                    "required": ["desired_state"],
-                    "properties": {
-                        "desired_state": {
-                            "type": "string",
-                            "enum": ["active", "stopped"],
-                            "description": "목표 상태: active(서비스 시작) 또는 stopped(컨테이너 중지, VRAM 회수)",
-                        },
-                        "force": {
-                            "type": "boolean",
-                            "default": False,
-                            "description": "active 전환 시 GPU 예산이 부족하면 우선순위가 낮은 런타임을 자동 정지해 공간을 확보합니다. 기본값은 false로, 부족하면 409와 정지 계획을 반환합니다.",
-                        },
-                    },
-                },
-                "examples": {
-                    "to_stopped": {"summary": "중지 (VRAM 회수)", "value": {"desired_state": "stopped"}},
-                    "to_active": {"summary": "시작 (서비스 복구)", "value": {"desired_state": "active"}},
-                    "to_active_force": {"summary": "시작 + 자동 축출", "value": {"desired_state": "active", "force": True}},
-                },
-            }
-        },
-    }
-}
+
+async def _runtime_request_json(request: Request) -> Any:
+    try:
+        return await request.json()
+    except (json.JSONDecodeError, UnicodeDecodeError) as exc:
+        raise ServiceError(
+            "VALIDATION_ERROR",
+            "Request body must be valid JSON",
+            param="body",
+        ) from exc
 
 
 def _container_name(base_url: str) -> str:
@@ -373,6 +358,56 @@ def build_router(
         json_schema_extra={"enum": runtime_service_keys},
     )
 
+    plan_spec = _GW[("POST", "/admin/runtimes/{service_key}/plans")]
+
+    @router.post(
+        "/admin/runtimes/{service_key}/plans",
+        dependencies=admin_dependencies,
+        tags=[plan_spec.tag],
+        summary=plan_spec.summary,
+        operation_id=plan_spec.operation_id,
+        description=plan_spec.description,
+    )
+    async def plan_runtime_transition(
+        request: Request,
+        service_key: str = service_key_path,
+    ) -> JSONResponse:
+        desired_state, force, _ = parse_runtime_transition_request(
+            await _runtime_request_json(request),
+            allow_plan_digest=False,
+        )
+        if sidecar is None:
+            raise ServiceError(
+                "MAIN_MODEL_CONTROL_UNAVAILABLE",
+                "admin sidecar is not configured",
+                retry_after_seconds=5,
+            )
+        if service_key == "main":
+            sidecar_service = "main"
+        else:
+            _validate_service_key(service_key, state_store)
+            ep = settings.runtime_endpoints.get(service_key)
+            if ep is None:
+                raise ServiceError("NOT_FOUND", f"runtime endpoint not found: {service_key}")
+            sidecar_service = _container_name(ep.base_url)
+        try:
+            raw_plan = await sidecar.runtime_plan(
+                sidecar_service,
+                desired_state=desired_state,
+                force=force,
+            )
+        except SidecarRequestError as exc:
+            return sidecar_request_error_response(exc)
+        except SidecarUnavailableError as exc:
+            return sidecar_unavailable_response(exc)
+        return JSONResponse(
+            project_sidecar_runtime_plan(
+                raw_plan,
+                service_key=service_key,
+                container_to_key=container_to_key,
+            )
+        )
+
     @router.patch(
         "/admin/runtimes/{service_key}",
         dependencies=admin_dependencies,
@@ -405,21 +440,15 @@ def build_router(
             }}}},
             **_ADMIN_401,
         },
-        openapi_extra=_DESIRED_STATE_SCHEMA,
     )
     async def transition_runtime(
         request: Request,
         service_key: str = service_key_path,
     ) -> JSONResponse:
-        payload = await request.json()
-        desired_state = payload.get("desired_state") if isinstance(payload, dict) else None
-        if desired_state not in ("active", "stopped"):
-            raise ServiceError(
-                "VALIDATION_ERROR",
-                "desired_state must be 'active' or 'stopped'",
-                param="desired_state",
-            )
-        force = bool(payload.get("force")) if isinstance(payload, dict) else False
+        desired_state, force, plan_digest = parse_runtime_transition_request(
+            await _runtime_request_json(request),
+            allow_plan_digest=True,
+        )
 
         # 메인 채팅 모델도 동일 fleet의 예산 참여자이므로, 동일한 desired_state
         # verb로 정지/시작된다. 프로필 변경은 여전히 main 전용 POST
@@ -430,7 +459,11 @@ def build_router(
                 raise HTTPException(503, detail="admin sidecar is not configured (ADMIN_SIDECAR_URL missing)")
             try:
                 if desired_state == "active":
-                    result = await sidecar.main_start(force=force)
+                    result = (
+                        await sidecar.main_start(force=force, plan_digest=plan_digest)
+                        if plan_digest
+                        else await sidecar.main_start(force=force)
+                    )
                     for evicted_container in result.get("evicted", []):
                         evicted_key = container_to_key.get(evicted_container)
                         if evicted_key:
@@ -441,7 +474,11 @@ def build_router(
                                 source="runtime_control",
                             )
                 else:
-                    result = await sidecar.main_stop()
+                    result = (
+                        await sidecar.main_stop(plan_digest=plan_digest)
+                        if plan_digest
+                        else await sidecar.main_stop()
+                    )
             except SidecarRequestError as exc:  # GPU 예산 admission 거부
                 return sidecar_request_error_response(exc)
             except SidecarUnavailableError as exc:
@@ -460,7 +497,7 @@ def build_router(
         container = _container_name(ep.base_url)
 
         if desired_state == "active":
-            if current_state == RuntimeState.active and sidecar is None:
+            if current_state == RuntimeState.active and sidecar is None and plan_digest is None:
                 return JSONResponse({"service_key": service_key, "state": "active", "changed": False})
             if current_state == RuntimeState.active and sidecar is not None:
                 try:
@@ -471,7 +508,7 @@ def build_router(
                     return sidecar_request_error_response(exc)
                 except SidecarUnavailableError as exc:
                     return sidecar_unavailable_response(exc)
-                if actual == "running":
+                if actual == "running" and plan_digest is None:
                     return JSONResponse({"service_key": service_key, "state": "active", "changed": False})
             if current_state == RuntimeState.starting:
                 # stop 경로(아래)와 동일한 근거: 실제 컨테이너 상태를 재확인하지
@@ -488,7 +525,11 @@ def build_router(
                 source="runtime_control",
             )
             try:
-                result = await sidecar.start(container, force=force)
+                result = (
+                    await sidecar.start(container, force=force, plan_digest=plan_digest)
+                    if plan_digest
+                    else await sidecar.start(container, force=force)
+                )
             except SidecarRequestError as exc:
                 # GPU 예산 admission 거부: 상태 코드와 축출 계획을 그대로 노출한다.
                 await state_store.set(
@@ -540,7 +581,7 @@ def build_router(
             })
 
         else:  # desired_state == "stopped"
-            if current_state == RuntimeState.stopped and sidecar is None:
+            if current_state == RuntimeState.stopped and sidecar is None and plan_digest is None:
                 return JSONResponse({"service_key": service_key, "state": "stopped", "changed": False})
             if current_state == RuntimeState.stopped and sidecar is not None:
                 try:
@@ -551,7 +592,7 @@ def build_router(
                     return sidecar_request_error_response(exc)
                 except SidecarUnavailableError as exc:
                     return sidecar_unavailable_response(exc)
-                if actual != "running":
+                if actual != "running" and plan_digest is None:
                     return JSONResponse({"service_key": service_key, "state": "stopped", "changed": False})
             if current_state == RuntimeState.starting:
                 # 일시적인 "아직 준비 안 됨, 재시도" 상태. retryable=True가 실제로
@@ -566,7 +607,11 @@ def build_router(
                 source="runtime_control",
             )
             try:
-                stopped = await sidecar.stop(container)
+                stopped = (
+                    await sidecar.stop(container, plan_digest=plan_digest)
+                    if plan_digest
+                    else await sidecar.stop(container)
+                )
             except SidecarRequestError as exc:
                 # 4xx는 요청이 잘못된 것이다. control plane 장애(503, retryable)로
                 # 보고하면 성공할 수 없는 요청을 계속 재시도하게 된다.

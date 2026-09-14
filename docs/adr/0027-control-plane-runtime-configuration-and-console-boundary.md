@@ -8,7 +8,9 @@ Accepted
 
 ADR-0021은 repository default, operator override, deployment environment, runtime state를
 분리하고, operator-owned 설정에 revision/history를 갖는 mutation contract를 후속 단계로
-정했다. 현재 구현은 read-only Configuration Plane까지만 완료되어 있다.
+정했다. 이 ADR을 처음 작성할 때는 read-only Configuration Plane까지만 완료되어 있었지만,
+현재는 persistent operator store, Plan/Apply/Verify, History/Rollback까지 구현되어 있다.
+남은 Control Plane backend 경계는 Runtime Transition Plan 이후 browser bootstrap/capabilities다.
 
 그 사이 ADR-0025가 일반 사용자의 접근 UX를 `ACCESS_PROFILE=local|private|edge`로
 단순화했다. 따라서 향후 Admin Console이 이전의 `AUTH_MODE`/`EXPOSURE_MODE` primitive를
@@ -72,13 +74,11 @@ constraint, applicability 정보를 추가한다.
 
 ### Operator state persistence
 
-ADR-0021의 `${RUNTIME_STATE_DIR}/config/operator-overrides.yaml` 개념은 유지하되, 실제 구현은
-모든 supported target에서 release/container 교체 후에도 살아남는 canonical platform state
-root를 먼저 정의해야 한다.
-
-현재 dynamic Compose는 `/var/lib/ai-model-serving`을 persistent host directory에 mount하지만,
-static target은 동일한 persistent mount가 없다. 따라서 static target persistence를 보완하기
-전에는 operator store를 target-neutral하다고 선언하지 않는다.
+ADR-0021의 operator override 개념은 canonical platform state root 아래에 유지한다. 현재
+Gateway는 supported static/dynamic target 모두 `PLATFORM_STATE_DIR`을 같은 persistent state
+계약으로 사용하며, operator overrides와 Main Model state가 release/container 교체와 분리된
+platform state에 남는다. target별 Compose 표현은 달라도 state root의 의미를 다시 정의하지
+않는다.
 
 Operator store는 Main Model state와 같은 수준의 durability를 요구한다.
 
@@ -160,26 +160,33 @@ Console이 두 도구를 다시 구현하지 않는다.
 - UI에 보이는 effective 값과 실제 요청 경로가 다른 drift를 구조적으로 막을 수 있다.
 - Deployment identity와 operator tuning의 mutation 경계가 섞이지 않는다.
 - `editable`이 실제 end-to-end apply capability를 의미하게 된다.
-- static/dynamic target의 persistence 차이를 구현 전에 드러낸다.
+- static/dynamic target이 같은 canonical persistent state contract를 사용한다.
 - 기존 Bearer API를 유지해 Console 때문에 새로운 session/CSRF subsystem을 성급하게 만들지 않는다.
 - Access Profile을 일반 운영자 UX의 Source of Truth로 유지한다.
 
 ### Negative
 
-- operator store를 열기 전에 runtime consumer를 provider 경계로 옮기는 작업이 필요하다.
+- 새 editable key를 추가할 때마다 실제 consumer를 mutable provider 경계로 옮기고 persistence/apply/verification까지 함께 검증해야 한다.
 - RuntimeClient 자체의 재구성이 필요한 설정은 별도 apply semantics가 필요하다.
 - frontend build toolchain과 dependency governance가 새로 생긴다.
 
 ## Implementation order
 
-1. `RuntimeConfigurationSnapshot`/provider와 consumer boundary
-2. Configuration metadata type/constraint/control-surface 확장
-3. canonical persistent platform state root 및 static target persistence
-4. operator override store + revision/history
-5. config plan/apply/verification
-6. runtime plan API
+1. `RuntimeConfigurationSnapshot`/provider와 consumer boundary — **완료**
+2. Configuration metadata type/constraint/control-surface 확장 — **완료**
+3. canonical persistent platform state root 및 static target persistence — **완료**
+4. operator override store + revision/history — **완료**
+5. config plan/apply/verification — **완료**
+6. runtime plan API — **완료**
 7. Control Plane bootstrap/capabilities API
 8. self-hosted Admin Console
+
+Runtime transition plan은 실제 sidecar execution이 사용하는 `gpu_budget.plan_activation`을 그대로
+사용하며 별도 UI 계산기를 두지 않는다. Plan은 정상 경로에서도 prerequisite/start/stop 영향과
+projected budget을 반환한다. 운영자가 `plan_digest`를 PATCH에 보내면 sidecar가 GPU budget lock
+안에서 같은 plan을 재계산해 digest drift를 `409 CONFLICT`로 거부한 뒤 기존 start/stop 경로를
+실행한다. digest가 없는 기존 API 호출은 호환성을 유지한다. `force`는 activation eviction에만
+의미가 있으므로 stop plan에서는 canonical `false`로 정규화한다.
 
 각 단계에서 `editable=true`는 해당 key의 persistence와 runtime apply가 함께 검증된 이후에만
 활성화한다.

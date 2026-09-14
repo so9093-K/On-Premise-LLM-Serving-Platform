@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "RuntimeTransitionApplyRequest",
+  "type": "object",
+  "required": ["desired_state"],
+  "additionalProperties": false,
+  "properties": {
+    "desired_state": {
+      "type": "string",
+      "enum": ["active", "stopped"]
+    },
+    "force": {
+      "type": "boolean",
+      "default": false
+    },
+    "plan_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  }
+}
