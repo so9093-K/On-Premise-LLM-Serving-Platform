@@ -16,6 +16,7 @@ from ..app_kernel import (
     register_documentation_ui,
 )
 from ..configuration_mutation import ConfigurationHistoryStore, ConfigurationMutationEngine
+from ..control_plane_bootstrap import build_control_plane_bootstrap_projection
 from ..errors import ServiceError
 from ..service_logging import service_logger
 from ..metrics import Metrics
@@ -176,6 +177,7 @@ def create_gateway_app(settings: AppSettings | None = None, clients: GatewayClie
     # operation이 남는다. Persisted override hydration이 끝난 뒤 그 기록을 실제
     # store/resolver/runtime revision과 대조해 terminal recovery 상태로 닫는다.
     configuration_mutation.recover_interrupted_operations()
+    control_plane_bootstrap_projection = build_control_plane_bootstrap_projection(settings)
 
     runtime_settings = runtime_configuration.settings_view(settings)
     service = GatewayService(runtime_settings, clients, metrics)
@@ -198,6 +200,7 @@ def create_gateway_app(settings: AppSettings | None = None, clients: GatewayClie
     app.state.configuration_history_store = history_store
     app.state.configuration_resolver = configuration_resolver
     app.state.configuration_mutation = configuration_mutation
+    app.state.control_plane_bootstrap_projection = control_plane_bootstrap_projection
 
     install_common_middleware(app, settings=settings, metrics=metrics, logger=logger)
     install_cors_middleware(app, settings=settings)
@@ -240,7 +243,9 @@ def create_gateway_app(settings: AppSettings | None = None, clients: GatewayClie
 
     app.include_router(
         _build_control_plane_router(
-            settings, configuration_resolver, configuration_mutation
+            control_plane_bootstrap_projection,
+            configuration_resolver,
+            configuration_mutation,
         )
     )
     app.include_router(_build_ops_router(admin_dependencies, clients, metrics, settings))

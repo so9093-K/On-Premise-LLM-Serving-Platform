@@ -154,3 +154,18 @@ def test_macos_static_bootstrap_uses_target_monitoring_and_compose_exposure(monk
     assert body["deployment"]["features"] == ["chat"]
     assert body["monitoring"] == {"available": True, "grafana_available": True}
     assert body["links"]["grafana"] == "http://testserver:9611/"
+
+
+def test_bootstrap_uses_startup_projection_not_request_time_environment(monkeypatch) -> None:
+    monkeypatch.setenv("ACCESS_PROFILE", "local")
+    monkeypatch.setenv("GRAFANA_PORT", "9511")
+    app = create_gateway_app(settings(), FakeGatewayClients())
+
+    # Bootstrap posture is a composition-time projection. Request-time environment
+    # changes must not silently reinterpret the already-running Gateway.
+    monkeypatch.setenv("ACCESS_PROFILE", "edge")
+    monkeypatch.setenv("GRAFANA_PORT", "9999")
+    body = TestClient(app).get("/admin/control-plane/bootstrap").json()
+
+    assert body["access"]["profile"] == "local"
+    assert body["links"]["grafana"] == "http://testserver:9511/"

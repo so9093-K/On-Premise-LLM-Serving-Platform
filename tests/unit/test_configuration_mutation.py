@@ -326,3 +326,61 @@ def test_if_match_parser_requires_exact_configuration_etag() -> None:
         parse_configuration_if_match(None)
     with pytest.raises(ConfigurationPreconditionRequired, match="ETag format"):
         parse_configuration_if_match("17")
+
+
+def test_status_does_not_rescan_terminal_history(tmp_path: Path) -> None:
+    _, _, _, _, history, engine = _components(tmp_path)
+    plan = engine.plan(base_revision=0, changes=_change(3210))
+    engine.apply(
+        expected_revision=0,
+        changes=_change(3210),
+        plan_digest=plan["plan_digest"],
+        actor={"auth_method": "local", "actor_id": "local_operator"},
+        request_id="req_status_index",
+    )
+
+    def fail_full_history_scan():
+        raise AssertionError("write readiness must not scan terminal history")
+
+    history.records = fail_full_history_scan  # type: ignore[method-assign]
+    status = engine.status()
+    assert status["available"] is True
+    assert status["pending_operations"] == 0
+
+
+def test_pending_index_rebuilds_from_durable_journal(tmp_path: Path) -> None:
+    _, _, _, _, history, engine = _components(tmp_path)
+    plan = engine.plan(base_revision=0, changes=_change(2468))
+    operation_id = history.begin(
+        plan=plan,
+        overrides_before={},
+        overrides_after={"streaming.max_chunks": 2468},
+        actor={"auth_method": "local", "actor_id": "local_operator"},
+        request_id="req_pending_index",
+    )
+
+    reloaded = ConfigurationHistoryStore(history.directory)
+    assert reloaded.pending_count == 1
+    assert [record["operation_id"] for record in reloaded.pending_records()] == [operation_id]
+
+
+def test_pending_index_revalidates_when_history_directory_changes(tmp_path: Path) -> None:
+    _, _, _, _, history, _ = _components(tmp_path)
+    assert history.pending_count == 0
+
+    corrupt = history.directory / f"cfg_{'f' * 32}.json"
+    corrupt.write_text("{not-json", encoding="utf-8")
+
+    with pytest.raises(ConfigurationWriteUnavailable) as exc_info:
+        _ = history.pending_count
+    assert exc_info.value.reason == "history_unreadable"
+
+
+def test_pending_index_fails_closed_when_history_directory_disappears(tmp_path: Path) -> None:
+    _, _, _, _, history, _ = _components(tmp_path)
+    assert history.pending_count == 0
+    history.directory.rmdir()
+
+    with pytest.raises(ConfigurationWriteUnavailable) as exc_info:
+        _ = history.pending_count
+    assert exc_info.value.reason == "history_unreadable"
