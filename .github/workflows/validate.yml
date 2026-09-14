@@ -41,3 +41,7 @@ jobs:
         run: make validate
       - name: Test application and contracts
         run: make test
+      # CI owns no release selection rules. Exercise the same provider-neutral command
+      # used from a developer workstation so Linux/macOS cannot silently diverge.
+      - name: Build canonical release package
+        run: PACKAGE_SKIP_VALIDATION=1 make package

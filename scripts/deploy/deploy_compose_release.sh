@@ -41,6 +41,11 @@
 #                              DEPLOY_RUNTIME_PROFILE보다 우선한다.
 set -euo pipefail
 
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+cd "$ROOT"
+PYTHON_BIN="${PYTHON_BIN:-$(command -v python3.12 || command -v python3 || command -v python)}"
+VERSION="$(cat "$ROOT/VERSION")"
+
 : "${PLATFORM_IMAGE_TO_DEPLOY:?Required: full platform image ref}"
 : "${DEPLOY_HOST:?Required: deployment server address}"
 : "${DEPLOY_USER:?Required: deployment SSH user}"
@@ -52,9 +57,17 @@ RUN_READY_FULL_SMOKE="${RUN_READY_FULL_SMOKE:-1}"
 RELEASES_TO_KEEP="${RELEASES_TO_KEEP:-5}"
 RELEASE_ID="${DEPLOY_RELEASE_ID:-}"
 SSH_TARGET="${DEPLOY_USER}@${DEPLOY_HOST}"
+LOCAL_RELEASE=""
+
+cleanup_local_release() {
+  if [[ -n "${LOCAL_RELEASE}" && -d "${LOCAL_RELEASE}" ]]; then
+    rm -rf "${LOCAL_RELEASE}"
+  fi
+}
+trap cleanup_local_release EXIT
 
 if ! command -v git >/dev/null 2>&1; then
-  echo "[deploy] ERROR: git is required to select tracked release inputs." >&2
+  echo "[deploy] ERROR: git is required to resolve release inputs." >&2
   exit 2
 fi
 if [[ "$(git rev-parse --is-inside-work-tree 2>/dev/null || true)" != "true" ]]; then
@@ -88,6 +101,22 @@ echo "[deploy] release: ${RELEASE_ID}"
 
 deploy_resolve_full_runtime_images
 
+# package_release.sh와 동일한 resolver/materializer로 immutable release tree를 먼저
+# 로컬에서 완성한다. 전송 도중에는 Git checkout을 다시 해석하거나 exclude 정책을
+# 복제하지 않는다. 따라서 local package와 remote deploy의 payload identity는 같은
+# RELEASE_MANIFEST.json으로 증명할 수 있다.
+LOCAL_RELEASE="$(mktemp -d "${TMPDIR:-/tmp}/ai-model-serving-deploy-release.XXXXXX")"
+if ! RELEASE_PAYLOAD_SHA256="$(
+  "$PYTHON_BIN" scripts/release/release_artifact.py materialize \
+    --source "$ROOT" \
+    --destination "$LOCAL_RELEASE" \
+    --version "$VERSION"
+)"; then
+  echo "[deploy] ERROR: canonical release materialization failed." >&2
+  exit 1
+fi
+echo "[deploy] release payload sha256: ${RELEASE_PAYLOAD_SHA256}"
+
 # ── 1. 불변 release 파일 스테이징 ────────────────────────────────────────
 echo "[deploy] preparing release directory ${SSH_TARGET}:${RELEASE_PATH}/"
 ssh "${SSH_TARGET}" \
@@ -119,42 +148,11 @@ esac
 REMOTE_CLEANUP
 }
 
-# package와 원격 배포 모두 Git tracked 파일만 입력으로 사용한다. 작업 디렉터리에 남은
-# cache/report/임시 파일이 release마다 달라지는 것을 막는다. 자동화 provider 정의는
-# 저장소 검증 입력이지 runtime 입력이 아니므로 대상 서버 Release에서는 제외한다.
-#
-# tests/는 두 배포 경로 모두에서 포함한다. 자동화와 배포 전 make check가 같은 source의
-# 테스트를 실행할 수 있어야 하므로 테스트가 빠진 배포본은 검증 입력이 불완전하다.
-#
-# 예전에는 여기서 제외하고 package_release.sh와 정책을 맞췄는데, 그 배제 근거(크기·
-# 공격 표면)를 재보니 셋 다 성립하지 않았다: 압축 후 111KB(전체 +4%), 앱이 import하지
-# 않고 .dockerignore가 컨테이너 유입을 막는다. 두 경로의 정책은 여전히 같아야 하고,
-# 지금은 "포함"으로 같다.
-echo "[deploy] syncing tracked deployable project files to staged release..."
-if ! git ls-files -z -- . ':(exclude).github/**' | \
-  rsync -az --delete --from0 --files-from=- \
-    --exclude ".git/" \
-    --exclude "/.other/" \
-    --exclude "/.agents/" \
-    --exclude "/.codex/" \
-    --exclude "/.claude/" \
-    --exclude "/.cursor/" \
-    --exclude ".env" \
-    --exclude ".runtime/" \
-    --exclude ".venv/" \
-    --exclude ".cache/" \
-    --exclude ".pytest_cache/" \
-    --exclude "__pycache__/" \
-    --exclude "*.pyc" \
-    --exclude "model_cache/" \
-    --exclude "ops/compose/models/" \
-    --exclude "logs/" \
-    --exclude "/dist/" \
-    --exclude "/build/" \
-    --exclude "run/" \
-    --exclude "outputs/" \
-    ./ \
-    "${SSH_TARGET}:${RELEASE_PATH}/"; then
+# rsync은 이제 transport일 뿐 release selection policy를 소유하지 않는다. Local
+# materialized tree에는 canonical manifest/provenance까지 포함되어 있으며 대상에는
+# 그 exact tree만 전송한다.
+echo "[deploy] syncing canonical release payload to staged release..."
+if ! rsync -az --delete "${LOCAL_RELEASE}/" "${SSH_TARGET}:${RELEASE_PATH}/"; then
   echo "[deploy] ERROR: release file sync failed; removing unapplied candidate." >&2
   if ! cleanup_unapplied_release; then
     echo "[deploy] ERROR: candidate cleanup failed: ${RELEASE_PATH}" >&2
@@ -162,7 +160,38 @@ if ! git ls-files -z -- . ':(exclude).github/**' | \
   exit 1
 fi
 
-# ── 2. 원격: candidate 검증 → 배포 → current를 원자적으로 전환 ──
+# 전송 후 대상 host에서 manifest를 다시 검증한다. verify 경로는 stdlib-only라 build
+# dependency를 설치하지 않아도 path/mode/size/hash와 compatibility provenance를 확인한다.
+if ! ssh "${SSH_TARGET}" \
+  RELEASE_PATH="${RELEASE_PATH}" \
+  EXPECTED_PAYLOAD_SHA256="${RELEASE_PAYLOAD_SHA256}" \
+  bash -s <<'REMOTE_VERIFY'
+set -euo pipefail
+PYTHON_BIN="$(command -v python3.12 || command -v python3 || command -v python || true)"
+if [[ -z "${PYTHON_BIN}" ]]; then
+  echo "[deploy] ERROR: Python is required to verify the staged release." >&2
+  exit 2
+fi
+ACTUAL_PAYLOAD_SHA256="$(
+  "${PYTHON_BIN}" "${RELEASE_PATH}/scripts/release/release_artifact.py" verify \
+    --root "${RELEASE_PATH}"
+)"
+if [[ "${ACTUAL_PAYLOAD_SHA256}" != "${EXPECTED_PAYLOAD_SHA256}" ]]; then
+  echo "[deploy] ERROR: staged release payload identity changed during transfer." >&2
+  echo "[deploy]   expected: ${EXPECTED_PAYLOAD_SHA256}" >&2
+  echo "[deploy]   actual:   ${ACTUAL_PAYLOAD_SHA256}" >&2
+  exit 2
+fi
+REMOTE_VERIFY
+then
+  echo "[deploy] ERROR: staged release verification failed; removing candidate." >&2
+  if ! cleanup_unapplied_release; then
+    echo "[deploy] ERROR: candidate cleanup failed: ${RELEASE_PATH}" >&2
+  fi
+  exit 1
+fi
+
+# ── 2. 원격: 검증된 candidate 배포 → current를 원자적으로 전환 ──────────────
 ssh "${SSH_TARGET}" \
   PLATFORM_IMAGE_TO_DEPLOY="${PLATFORM_IMAGE_TO_DEPLOY}" \
   VLLM_UNIFIED_IMAGE_TO_DEPLOY="${VLLM_UNIFIED_IMAGE_TO_DEPLOY:-}" \
