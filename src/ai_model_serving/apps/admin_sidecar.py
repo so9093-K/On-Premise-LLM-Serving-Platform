@@ -29,6 +29,7 @@ from ..log_target_manifest import build_targets, write_manifest
 from ..platform_state import DEFAULT_PLATFORM_STATE_DIR, configured_platform_state_root
 from ..settings_parts.env import as_bool, is_default_secret
 from ..runtime_topology import load_runtime_topology
+from ..runtime_transition import plan_runtime_transition
 
 _logger = service_logger("admin_sidecar")
 
@@ -336,6 +337,92 @@ async def _build_participants() -> list[Participant]:
     return participants
 
 
+async def _runtime_transition_plan(
+    service: str,
+    desired_state: str,
+    *,
+    force: bool,
+) -> dict[str, Any]:
+    """현재 Docker/GPU snapshot에서 side-effect 없이 runtime transition을 계획한다."""
+    if service == "main":
+        target_key = _MAIN_SERVICE
+        prerequisites: list[str] = []
+    elif service in CONTROLLABLE:
+        target_key = service
+        prerequisites = list(_START_PREREQUISITES.get(service, []))
+    else:
+        raise HTTPException(403, detail=f"not controllable: {service}")
+
+    participants = await _build_participants()
+    plan = plan_runtime_transition(
+        participants,
+        target_key,
+        desired_state,
+        force=force,
+        prerequisites=prerequisites,
+        ceiling=_GPU_BUDGET_CEILING,
+    )
+    response = plan.response()
+
+    if service == "main":
+        def alias(key: object) -> str:
+            return "main" if str(key) == _MAIN_SERVICE else str(key)
+
+        response["target_key"] = "main"
+        response["start"] = [alias(key) for key in response["start"]]
+        response["stop"] = [alias(key) for key in response["stop"]]
+        response["prerequisites"] = [alias(key) for key in response["prerequisites"]]
+        for item in response["impact"]:
+            item["key"] = alias(item.get("key"))
+    return response
+
+
+def _validate_reviewed_plan(plan: dict[str, Any], plan_digest: str | None) -> None:
+    if not plan_digest:
+        return
+    actual = str(plan.get("plan_digest") or "")
+    if actual != plan_digest:
+        raise HTTPException(
+            409,
+            detail={
+                "code": "RUNTIME_PLAN_CHANGED",
+                "message": "Runtime transition plan changed after review.",
+                "expected_plan_digest": plan_digest,
+                "actual_plan_digest": actual,
+            },
+        )
+    if plan.get("admissible") is True:
+        return
+    detail: dict[str, Any] = {
+        "code": "GPU_BUDGET_EXCEEDED",
+        "message": "GPU budget does not allow this activation.",
+        "feasible": not bool(plan.get("reason")),
+    }
+    budget = plan.get("budget") or {}
+    before = budget.get("before") or {}
+    detail["available"] = before.get("free")
+    if plan.get("reason"):
+        detail["reason"] = plan["reason"]
+    if plan.get("stop"):
+        detail["plan"] = {"stop": list(plan["stop"])}
+    raise HTTPException(409, detail=detail)
+
+
+def _parse_runtime_plan_payload(payload: Any) -> tuple[str, bool]:
+    if not isinstance(payload, dict):
+        raise HTTPException(422, detail="request body must be a JSON object")
+    unknown = sorted(set(payload) - {"desired_state", "force"})
+    if unknown:
+        raise HTTPException(422, detail=f"unsupported fields: {unknown}")
+    desired_state = payload.get("desired_state")
+    if desired_state not in {"active", "stopped"}:
+        raise HTTPException(422, detail="desired_state must be 'active' or 'stopped'")
+    force = payload.get("force", False)
+    if not isinstance(force, bool):
+        raise HTTPException(422, detail="force must be a boolean")
+    return desired_state, force
+
+
 async def _admit_or_raise(target_key: str, target_fraction: float, *, force: bool) -> list[str]:
     """공유 GPU 예산 안에서 런타임 활성화를 허용하거나 거부한다.
 
@@ -503,6 +590,19 @@ async def gpu_budget(authorization: str | None = Header(default=None)) -> JSONRe
     return JSONResponse(budget_snapshot(participants, ceiling=_GPU_BUDGET_CEILING))
 
 
+@app.post("/runtime-transitions/{service}/plan")
+async def runtime_transition_plan(
+    service: str,
+    payload: dict[str, Any],
+    authorization: str | None = Header(default=None),
+) -> JSONResponse:
+    await _require_sidecar_token(authorization)
+    desired_state, force = _parse_runtime_plan_payload(payload)
+    async with _budget_lock:
+        plan = await _runtime_transition_plan(service, desired_state, force=force)
+    return JSONResponse(plan)
+
+
 @app.get("/main-model")
 async def main_model(
     authorization: str | None = Header(default=None),
@@ -612,16 +712,26 @@ async def main_model_operation(
 
 
 @app.post("/main-model/stop")
-async def main_model_stop(authorization: str | None = Header(default=None)) -> JSONResponse:
+async def main_model_stop(
+    plan_digest: str | None = None,
+    authorization: str | None = Header(default=None),
+) -> JSONResponse:
     """VRAM 회수를 위해 main runtime을 drain 후 중지하고 chat 요청은 fail-closed 처리한다."""
     await _require_sidecar_token(authorization)
-    await _main_model_manager.stop_main()
+    if plan_digest:
+        async with _budget_lock:
+            plan = await _runtime_transition_plan("main", "stopped", force=False)
+            _validate_reviewed_plan(plan, plan_digest)
+            await _main_model_manager.stop_main()
+    else:
+        await _main_model_manager.stop_main()
     return JSONResponse({"action": "stop", "service": _MAIN_SERVICE, "runtime_state": "stopped"})
 
 
 @app.post("/main-model/start")
 async def main_model_start(
     force: bool = False,
+    plan_digest: str | None = None,
     authorization: str | None = Header(default=None),
 ) -> JSONResponse:
     """GPU 예산을 확인한 뒤 main runtime을 시작하고 검증한다."""
@@ -633,6 +743,9 @@ async def main_model_start(
         or _catalog.profiles[_main_model_manager.boot_profile].vram_fraction
     )
     async with _budget_lock:
+        if plan_digest:
+            plan = await _runtime_transition_plan("main", "active", force=force)
+            _validate_reviewed_plan(plan, plan_digest)
         evicted = await _admit_or_raise(_MAIN_SERVICE, target_fraction, force=force)
         await _main_model_manager.start_main()
     return JSONResponse(
@@ -643,15 +756,25 @@ async def main_model_start(
 @app.post("/containers/{service}/stop")
 async def stop_container(
     service: str,
+    plan_digest: str | None = None,
     authorization: str | None = Header(default=None),
 ) -> JSONResponse:
     await _require_sidecar_token(authorization)
     if service not in CONTROLLABLE:
         raise HTTPException(403, detail=f"not controllable: {service}")
-    container_id = await _find_container_id(service)
-    if container_id is None:
-        raise HTTPException(404, detail=f"container not found: {service}")
-    await _do_stop(container_id)
+    if plan_digest:
+        async with _budget_lock:
+            plan = await _runtime_transition_plan(service, "stopped", force=False)
+            _validate_reviewed_plan(plan, plan_digest)
+            container_id = await _find_container_id(service)
+            if container_id is None:
+                raise HTTPException(404, detail=f"container not found: {service}")
+            await _do_stop(container_id)
+    else:
+        container_id = await _find_container_id(service)
+        if container_id is None:
+            raise HTTPException(404, detail=f"container not found: {service}")
+        await _do_stop(container_id)
     return JSONResponse({"action": "stop", "service": service, "stopped": [service]})
 
 
@@ -659,6 +782,7 @@ async def stop_container(
 async def start_container(
     service: str,
     force: bool = False,
+    plan_digest: str | None = None,
     authorization: str | None = Header(default=None),
 ) -> JSONResponse:
     await _require_sidecar_token(authorization)
@@ -669,6 +793,9 @@ async def start_container(
     evicted: list[str] = []
 
     async with _budget_lock:
+        if plan_digest:
+            plan = await _runtime_transition_plan(service, "active", force=force)
+            _validate_reviewed_plan(plan, plan_digest)
         # 아무것도 건드리기 전에, 함께 기동되는 전체 집합(service + 아직 실행 중이 아닌
         # prerequisite들)을 공유 GPU budget에 대해 admit한다. 실제 start/health
         # 시퀀스 동안에도 lock을 유지하여, 다른 동시 activation이 동일한 pre-start

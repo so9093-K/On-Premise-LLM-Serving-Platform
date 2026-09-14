@@ -3290,6 +3290,169 @@ paths:
                           - UNAUTHORIZED
       security:
       - adminBearerAuth: []
+  /admin/runtimes/{service_key}/plans:
+    post:
+      tags:
+      - Runtime Control
+      summary: 런타임 상태 전환 계획 검토
+      description: 런타임을 실제로 변경하지 않고 현재 GPU budget과 prerequisite 상태에서 transition 영향을
+        계산합니다. 정상 경로에서도 시작/정지 대상, 축출 영향과 projected budget을 반환하며, `plan_digest`는 검토한
+        snapshot을 선택적으로 PATCH apply에 묶는 데 사용합니다.
+      operationId: planRuntimeTransition
+      security:
+      - adminBearerAuth: []
+      parameters:
+      - name: service_key
+        in: path
+        required: true
+        schema:
+          type: string
+          description: GET /admin/runtimes가 반환하는 service_key.
+          examples:
+          - embedding
+          enum:
+          - embedding
+          - embedding_ko
+          - risk_prompt
+          - main
+          title: Service Key
+        description: GET /admin/runtimes가 반환하는 service_key.
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: ./schemas/runtime_transition_plan_response.schema.json
+        '422':
+          description: 'Validation Error
+
+
+            이 status로 올 수 있는 `error.code`:
+
+            - `VALIDATION_ERROR` — 요청이 Gateway 입력 계약 검증을 통과하지 못했다. (재시도 불가)'
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: ./schemas/common_error.schema.json
+                - type: object
+                  properties:
+                    error:
+                      type: object
+                      properties:
+                        code:
+                          enum:
+                          - VALIDATION_ERROR
+        '401':
+          description: '인증 실패
+
+
+            이 status로 올 수 있는 `error.code`:
+
+            - `UNAUTHORIZED` — API 키 또는 인증 정보가 없거나 유효하지 않다. (재시도 불가)'
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: ./schemas/common_error.schema.json
+                - type: object
+                  properties:
+                    error:
+                      type: object
+                      properties:
+                        code:
+                          enum:
+                          - UNAUTHORIZED
+        '413':
+          description: '요청 body가 너무 큼
+
+
+            이 status로 올 수 있는 `error.code`:
+
+            - `REQUEST_TOO_LARGE` — 요청 body 가 허용 한도를 초과했다. (재시도 불가)'
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: ./schemas/common_error.schema.json
+                - type: object
+                  properties:
+                    error:
+                      type: object
+                      properties:
+                        code:
+                          enum:
+                          - REQUEST_TOO_LARGE
+        '500':
+          description: '내부 서버 오류
+
+
+            이 status로 올 수 있는 `error.code`:
+
+            - `INTERNAL_ERROR` — Gateway 내부 처리 중 예기치 못한 오류가 발생했다. (재시도 불가)'
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: ./schemas/common_error.schema.json
+                - type: object
+                  properties:
+                    error:
+                      type: object
+                      properties:
+                        code:
+                          enum:
+                          - INTERNAL_ERROR
+        '404':
+          description: '리소스를 찾을 수 없음
+
+
+            이 status로 올 수 있는 `error.code`:
+
+            - `NOT_FOUND` — 요청한 리소스(엔드포인트, operation 등)가 존재하지 않는다. (재시도 불가)'
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: ./schemas/common_error.schema.json
+                - type: object
+                  properties:
+                    error:
+                      type: object
+                      properties:
+                        code:
+                          enum:
+                          - NOT_FOUND
+        '503':
+          description: 'Runtime 또는 dependency를 사용할 수 없음
+
+
+            이 status로 올 수 있는 `error.code`:
+
+            - `MAIN_MODEL_CONTROL_UNAVAILABLE` — 메인 모델 control plane(admin sidecar)을
+            사용할 수 없다. (재시도 가능)'
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: ./schemas/common_error.schema.json
+                - type: object
+                  properties:
+                    error:
+                      type: object
+                      properties:
+                        code:
+                          enum:
+                          - MAIN_MODEL_CONTROL_UNAVAILABLE
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: ./schemas/runtime_transition_plan_request.schema.json
+        required: true
+      x-contract-schema: runtime_transition_plan_request.schema.json
+      x-response-contract-schema: runtime_transition_plan_response.schema.json
   /admin/runtimes/{service_key}:
     patch:
       tags:
@@ -3585,39 +3748,12 @@ paths:
                           enum:
                           - INTERNAL_ERROR
       requestBody:
-        required: true
         content:
           application/json:
             schema:
-              type: object
-              required:
-              - desired_state
-              properties:
-                desired_state:
-                  type: string
-                  enum:
-                  - active
-                  - stopped
-                  description: '목표 상태: active(서비스 시작) 또는 stopped(컨테이너 중지, VRAM 회수)'
-                force:
-                  type: boolean
-                  default: false
-                  description: active 전환 시 GPU 예산이 부족하면 우선순위가 낮은 런타임을 자동 정지해 공간을 확보합니다.
-                    기본값은 false로, 부족하면 409와 정지 계획을 반환합니다.
-            examples:
-              to_stopped:
-                summary: 중지 (VRAM 회수)
-                value:
-                  desired_state: stopped
-              to_active:
-                summary: 시작 (서비스 복구)
-                value:
-                  desired_state: active
-              to_active_force:
-                summary: 시작 + 자동 축출
-                value:
-                  desired_state: active
-                  force: true
+              $ref: ./schemas/runtime_transition_apply_request.schema.json
+        required: true
+      x-contract-schema: runtime_transition_apply_request.schema.json
   /admin/main-model:
     get:
       tags:

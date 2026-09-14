@@ -450,6 +450,24 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
         response_schema=None,
     ),
     EndpointSpec(
+        method="POST",
+        path="/admin/runtimes/{service_key}/plans",
+        operation_id="planRuntimeTransition",
+        tag="Runtime Control",
+        summary="런타임 상태 전환 계획 검토",
+        description=(
+            "런타임을 실제로 변경하지 않고 현재 GPU budget과 prerequisite 상태에서 transition 영향을 계산합니다. "
+            "정상 경로에서도 시작/정지 대상, 축출 영향과 projected budget을 반환하며, `plan_digest`는 검토한 "
+            "snapshot을 선택적으로 PATCH apply에 묶는 데 사용합니다."
+        ),
+        request_schema="runtime_transition_plan_request.schema.json",
+        response_schema="runtime_transition_plan_response.schema.json",
+        error_codes=(
+            "NOT_FOUND",
+            "MAIN_MODEL_CONTROL_UNAVAILABLE",
+        ),
+    ),
+    EndpointSpec(
         method="PATCH",
         path="/admin/runtimes/{service_key}",
         operation_id="transitionRuntime",
@@ -469,7 +487,7 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
             "`force: true`로 우선순위 낮은 보조를 자동 축출할 수 있습니다. "
             "Scalar UI 드롭다운에서 선택 후 Execute만 누르면 됩니다."
         ),
-        request_schema=None,
+        request_schema="runtime_transition_apply_request.schema.json",
         response_schema=None,
         error_codes=(
             "NOT_FOUND",

@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "RuntimeTransitionPlanResponse",
+  "type": "object",
+  "required": [
+    "service_key",
+    "desired_state",
+    "force",
+    "current_state",
+    "no_op",
+    "admissible",
+    "requires_force",
+    "start",
+    "stop",
+    "prerequisites",
+    "budget",
+    "impact",
+    "reason",
+    "plan_digest"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "service_key": {"type": "string", "minLength": 1},
+    "desired_state": {"type": "string", "enum": ["active", "stopped"]},
+    "force": {"type": "boolean"},
+    "current_state": {"type": "string", "enum": ["active", "stopped"]},
+    "no_op": {"type": "boolean"},
+    "admissible": {"type": "boolean"},
+    "requires_force": {"type": "boolean"},
+    "start": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "stop": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "prerequisites": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "budget": {
+      "type": "object",
+      "required": ["before", "after"],
+      "additionalProperties": false,
+      "properties": {
+        "before": {"$ref": "#/$defs/budget"},
+        "after": {"$ref": "#/$defs/budget"}
+      }
+    },
+    "impact": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["service_key", "action", "criticality"],
+        "additionalProperties": false,
+        "properties": {
+          "service_key": {"type": "string"},
+          "action": {"type": "string", "enum": ["stop"]},
+          "criticality": {"type": ["string", "null"]}
+        }
+      }
+    },
+    "reason": {"type": ["string", "null"]},
+    "plan_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  },
+  "$defs": {
+    "budget": {
+      "type": "object",
+      "required": ["ceiling", "used", "free"],
+      "additionalProperties": false,
+      "properties": {
+        "ceiling": {"type": "number"},
+        "used": {"type": "number"},
+        "free": {"type": "number"}
+      }
+    }
+  }
+}
