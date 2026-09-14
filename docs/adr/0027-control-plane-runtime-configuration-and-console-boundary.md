@@ -178,7 +178,7 @@ Console이 두 도구를 다시 구현하지 않는다.
 4. operator override store + revision/history — **완료**
 5. config plan/apply/verification — **완료**
 6. runtime plan API — **완료**
-7. Control Plane bootstrap/capabilities API
+7. Control Plane bootstrap/capabilities API — **완료**
 8. self-hosted Admin Console
 
 Runtime transition plan은 실제 sidecar execution이 사용하는 `gpu_budget.plan_activation`을 그대로
@@ -187,6 +187,8 @@ projected budget을 반환한다. 운영자가 `plan_digest`를 PATCH에 보내�
 안에서 같은 plan을 재계산해 digest drift를 `409 CONFLICT`로 거부한 뒤 기존 start/stop 경로를
 실행한다. digest가 없는 기존 API 호출은 호환성을 유지한다. `force`는 activation eviction에만
 의미가 있으므로 stop plan에서는 canonical `false`로 정규화한다.
+
+Bootstrap은 Deployment Target, Access Profile, Configuration revision, release identity를 새로 소유하지 않고 기존 SoT를 browser-safe projection으로만 제공한다. Admin 인증이 필요한 profile에서도 Console이 인증 posture를 먼저 발견할 수 있도록 Bootstrap 자체는 공개하지만 secret, 내부 endpoint, host path, raw environment는 반환하지 않는다. Monitoring capability도 Deployment Target의 typed `runs_monitoring_stack`에서 투영하며, Grafana URL은 현재 access/exposure 계약으로 안전하게 계산할 수 있을 때만 제공한다.
 
 각 단계에서 `editable=true`는 해당 key의 persistence와 runtime apply가 함께 검증된 이후에만
 활성화한다.

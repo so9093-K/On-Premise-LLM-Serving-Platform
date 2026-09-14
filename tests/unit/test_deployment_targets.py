@@ -23,6 +23,7 @@ def test_dynamic_target_preserves_existing_control_and_feature_contract() -> Non
 
     assert target.controllable is True
     assert target.internal_service_token_required is True
+    assert target.runs_monitoring_stack is True
     assert {"chat", "embeddings", "retrieval", "risk", "runtime_control"} <= target.features
 
 
@@ -31,6 +32,7 @@ def test_static_target_is_main_only_and_externally_owned() -> None:
 
     assert target.controllable is False
     assert target.internal_service_token_required is False
+    assert target.runs_monitoring_stack is False
     assert target.features == frozenset({"chat"})
     assert target.lifecycle_owner == "external"
     assert target.validation_status == "implemented"
@@ -48,6 +50,16 @@ def test_partial_sidecar_control_bundle_fails_closed(tmp_path) -> None:
     path.write_text(yaml.safe_dump(document), encoding="utf-8")
 
     with pytest.raises(RuntimeError, match="enable or disable.*together"):
+        load_deployment_target(path, "linux-nvidia-dynamic")
+
+
+def test_non_boolean_monitoring_capability_fails_closed(tmp_path) -> None:
+    document = yaml.safe_load(CATALOG.read_text(encoding="utf-8"))
+    document["targets"]["linux-nvidia-dynamic"]["runs_monitoring_stack"] = "true"
+    path = tmp_path / "deployment_targets.yaml"
+    path.write_text(yaml.safe_dump(document), encoding="utf-8")
+
+    with pytest.raises(RuntimeError, match="runs_monitoring_stack must be boolean"):
         load_deployment_target(path, "linux-nvidia-dynamic")
 
 

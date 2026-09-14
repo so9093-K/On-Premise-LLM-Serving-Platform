@@ -1,0 +1,200 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ControlPlaneBootstrapResponse",
+  "type": "object",
+  "required": [
+    "bootstrap_version",
+    "platform",
+    "deployment",
+    "access",
+    "configuration",
+    "monitoring",
+    "links"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "bootstrap_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "platform": {
+      "type": "object",
+      "required": [
+        "version",
+        "release_id"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "release_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "deployment": {
+      "type": "object",
+      "required": [
+        "target",
+        "display_name",
+        "platform",
+        "runtime_backend",
+        "validation_status",
+        "control_mode",
+        "lifecycle_owner",
+        "features"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "target": {
+          "type": "string",
+          "minLength": 1
+        },
+        "display_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "platform": {
+          "type": "string",
+          "minLength": 1
+        },
+        "runtime_backend": {
+          "type": "string",
+          "minLength": 1
+        },
+        "validation_status": {
+          "type": "string",
+          "enum": [
+            "verified",
+            "implemented",
+            "planned",
+            "unvalidated"
+          ]
+        },
+        "control_mode": {
+          "type": "string",
+          "enum": [
+            "sidecar",
+            "static"
+          ]
+        },
+        "lifecycle_owner": {
+          "type": "string",
+          "enum": [
+            "platform",
+            "external"
+          ]
+        },
+        "features": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        }
+      }
+    },
+    "access": {
+      "type": "object",
+      "required": [
+        "profile",
+        "description",
+        "admin_auth_required"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "profile": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "admin_auth_required": {
+          "type": "boolean"
+        }
+      }
+    },
+    "configuration": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "revision",
+        "write_available"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "write_available": {
+          "type": "boolean"
+        }
+      }
+    },
+    "monitoring": {
+      "type": "object",
+      "required": [
+        "available",
+        "grafana_available"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "available": {
+          "type": "boolean"
+        },
+        "grafana_available": {
+          "type": "boolean"
+        }
+      }
+    },
+    "links": {
+      "type": "object",
+      "required": [
+        "docs",
+        "redoc",
+        "openapi",
+        "grafana"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "docs": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "redoc": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "openapi": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "grafana": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    }
+  }
+}

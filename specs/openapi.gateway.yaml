@@ -35,6 +35,24 @@ paths:
                   type: string
                 type: object
                 title: Response Getgatewayhealth
+  /admin/control-plane/bootstrap:
+    get:
+      tags:
+      - Operations
+      summary: Control Plane bootstrap 조회
+      description: first-party Admin Console이 인증 입력 전 현재 deployment/access posture와
+        사용 가능한 capability를 발견하는 browser-safe bootstrap입니다. 이 endpoint 자체는 의도적으로 Admin
+        Bearer 인증을 요구하지 않으며 secret, 내부 endpoint, host path, raw environment는 반환하지
+        않습니다. 실제 admin mutation/read endpoint의 인증 정책은 그대로 유지됩니다.
+      operationId: getControlPlaneBootstrap
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: ./schemas/control_plane_bootstrap_response.schema.json
+      x-response-contract-schema: control_plane_bootstrap_response.schema.json
   /ready:
     get:
       tags:
