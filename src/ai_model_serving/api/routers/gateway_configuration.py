@@ -16,6 +16,8 @@ from ...configuration_mutation import (
     parse_apply_request,
     parse_configuration_if_match,
     parse_plan_request,
+    parse_rollback_apply_request,
+    parse_rollback_plan_request,
 )
 from ...configuration_plane import configuration_schema, effective_configuration
 from ...errors import ServiceError, request_id_for
@@ -99,6 +101,80 @@ def _admin_actor(request: Request) -> dict[str, str]:
     }
 
 
+def _if_match_openapi() -> dict[str, Any]:
+    return {
+        "parameters": [
+            {
+                "name": "If-Match",
+                "in": "header",
+                "required": True,
+                "description": (
+                    "`GET /admin/config/effective`가 반환한 Configuration ETag입니다. "
+                    "예: `\"config-7\"`. 누락되거나 형식이 잘못되면 428을 반환합니다."
+                ),
+                "schema": {
+                    "type": "string",
+                    "pattern": '^"config-[0-9]+"$',
+                },
+            }
+        ]
+    }
+
+
+def _history_openapi() -> dict[str, Any]:
+    return {
+        "parameters": [
+            {
+                "name": "limit",
+                "in": "query",
+                "required": False,
+                "description": "한 페이지에 반환할 operation 수입니다. 기본 50, 최대 200입니다.",
+                "schema": {"type": "integer", "minimum": 1, "maximum": 200, "default": 50},
+            },
+            {
+                "name": "cursor",
+                "in": "query",
+                "required": False,
+                "description": "직전 History 응답의 `next_cursor`입니다.",
+                "schema": {"type": "string", "minLength": 1},
+            },
+        ]
+    }
+
+
+def _history_query(request: Request) -> tuple[int, str | None]:
+    params = request.query_params
+    allowed = {"limit", "cursor"}
+    unknown = sorted(set(params) - allowed)
+    if unknown:
+        raise ConfigurationValidationError(
+            f"unsupported history query parameter(s): {', '.join(unknown)}",
+            param="query",
+        )
+    for name in allowed:
+        if len(params.getlist(name)) > 1:
+            raise ConfigurationValidationError(
+                f"history query parameter must appear at most once: {name}",
+                param=name,
+            )
+
+    raw_limit = params.get("limit")
+    if raw_limit is None:
+        limit = 50
+    else:
+        if not raw_limit.isascii() or not raw_limit.isdecimal():
+            raise ConfigurationValidationError(
+                "limit must be an integer between 1 and 200",
+                param="limit",
+            )
+        limit = int(raw_limit)
+
+    cursor = params.get("cursor")
+    if cursor == "":
+        raise ConfigurationValidationError("history cursor is invalid", param="cursor")
+    return limit, cursor
+
+
 def build_router(
     admin_dependencies: list,
     settings: Any,
@@ -110,6 +186,9 @@ def build_router(
     effective_spec = _GW[("GET", "/admin/config/effective")]
     plan_spec = _GW[("POST", "/admin/config/plans")]
     apply_spec = _GW[("PATCH", "/admin/config")]
+    history_spec = _GW[("GET", "/admin/config/history")]
+    rollback_plan_spec = _GW[("POST", "/admin/config/rollbacks/plans")]
+    rollback_apply_spec = _GW[("POST", "/admin/config/rollbacks")]
 
     @router.get(
         "/admin/config/schema", dependencies=admin_dependencies,
@@ -133,6 +212,19 @@ def build_router(
         response.headers["ETag"] = configuration_etag(body["revision"])
         return body
 
+    @router.get(
+        "/admin/config/history", dependencies=admin_dependencies,
+        tags=[history_spec.tag], summary=history_spec.summary,
+        description=history_spec.description, operation_id=history_spec.operation_id,
+        openapi_extra=_history_openapi(),
+    )
+    async def config_history(request: Request) -> dict[str, Any]:
+        try:
+            limit, cursor = _history_query(request)
+            return mutation.history_page(limit=limit, cursor=cursor)
+        except (ConfigurationValidationError, ConfigurationWriteUnavailable) as exc:
+            raise _mutation_error(exc, request) from exc
+
     @router.post(
         "/admin/config/plans", dependencies=admin_dependencies,
         tags=[plan_spec.tag], summary=plan_spec.summary,
@@ -153,23 +245,7 @@ def build_router(
         "/admin/config", dependencies=admin_dependencies,
         tags=[apply_spec.tag], summary=apply_spec.summary,
         description=apply_spec.description, operation_id=apply_spec.operation_id,
-        openapi_extra={
-            "parameters": [
-                {
-                    "name": "If-Match",
-                    "in": "header",
-                    "required": True,
-                    "description": (
-                        "`GET /admin/config/effective`가 반환한 Configuration ETag입니다. "
-                        "예: `\"config-7\"`. 누락되거나 형식이 잘못되면 428을 반환합니다."
-                    ),
-                    "schema": {
-                        "type": "string",
-                        "pattern": '^"config-[0-9]+"$',
-                    },
-                }
-            ]
-        },
+        openapi_extra=_if_match_openapi(),
     )
     async def apply_config_change(request: Request, response: Response) -> dict[str, Any]:
         try:
@@ -178,6 +254,57 @@ def build_router(
             result = mutation.apply(
                 expected_revision=expected_revision,
                 changes=changes,
+                plan_digest=plan_digest,
+                actor=_admin_actor(request),
+                request_id=request_id_for(request),
+            )
+            response.headers["ETag"] = configuration_etag(result["revision"])
+            return result
+        except (
+            ConfigurationApplyFailure,
+            ConfigurationPreconditionRequired,
+            ConfigurationRevisionConflict,
+            ConfigurationValidationError,
+            ConfigurationWriteUnavailable,
+        ) as exc:
+            raise _mutation_error(exc, request) from exc
+
+    @router.post(
+        "/admin/config/rollbacks/plans", dependencies=admin_dependencies,
+        tags=[rollback_plan_spec.tag], summary=rollback_plan_spec.summary,
+        description=rollback_plan_spec.description, operation_id=rollback_plan_spec.operation_id,
+    )
+    async def plan_config_rollback(request: Request) -> dict[str, Any]:
+        try:
+            base_revision, target_revision = parse_rollback_plan_request(
+                await _request_json(request)
+            )
+            return mutation.rollback_plan(
+                base_revision=base_revision,
+                target_revision=target_revision,
+            )
+        except (
+            ConfigurationValidationError,
+            ConfigurationRevisionConflict,
+            ConfigurationWriteUnavailable,
+        ) as exc:
+            raise _mutation_error(exc, request) from exc
+
+    @router.post(
+        "/admin/config/rollbacks", dependencies=admin_dependencies,
+        tags=[rollback_apply_spec.tag], summary=rollback_apply_spec.summary,
+        description=rollback_apply_spec.description, operation_id=rollback_apply_spec.operation_id,
+        openapi_extra=_if_match_openapi(),
+    )
+    async def apply_config_rollback(request: Request, response: Response) -> dict[str, Any]:
+        try:
+            expected_revision = parse_configuration_if_match(request.headers.get("if-match"))
+            target_revision, plan_digest = parse_rollback_apply_request(
+                await _request_json(request)
+            )
+            result = mutation.rollback(
+                expected_revision=expected_revision,
+                target_revision=target_revision,
                 plan_digest=plan_digest,
                 actor=_admin_actor(request),
                 request_id=request_id_for(request),

@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ConfigurationRollbackApplyResponse",
+  "type": "object",
+  "required": [
+    "operation_id",
+    "status",
+    "changed",
+    "revision",
+    "target_revision",
+    "verification"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "operation_id": {
+      "type": "string",
+      "pattern": "^cfg_[0-9a-f]{32}$"
+    },
+    "status": {"const": "verified"},
+    "changed": {"type": "boolean"},
+    "revision": {"type": "integer", "minimum": 0},
+    "target_revision": {"type": "integer", "minimum": 0},
+    "verification": {
+      "type": "object",
+      "required": [
+        "store_revision",
+        "resolver_revision",
+        "runtime_revision",
+        "synchronized"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "store_revision": {"type": ["integer", "null"], "minimum": 0},
+        "resolver_revision": {"type": "integer", "minimum": 0},
+        "runtime_revision": {"type": "integer", "minimum": 0},
+        "synchronized": {"type": "boolean"}
+      }
+    }
+  }
+}

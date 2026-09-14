@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import hashlib
 import json
 import os
@@ -38,6 +39,7 @@ _TERMINAL_HISTORY_STATES = frozenset(
     }
 )
 _HISTORY_STATES = frozenset({"pending", *_TERMINAL_HISTORY_STATES})
+_STABLE_AFTER_HISTORY_STATES = frozenset({"verified", "noop", "recovered_after_restart"})
 _REQUIRED_HISTORY_FIELDS = frozenset(
     {
         "version",
@@ -152,18 +154,35 @@ def _strict_object(
     return value
 
 
+def _parse_revision(value: Any, *, param: str) -> int:
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        raise ConfigurationValidationError(
+            f"{param} must be a non-negative integer",
+            param=param,
+        )
+    return value
+
+
+def _parse_digest(value: Any, *, param: str = "plan_digest") -> str:
+    if (
+        not isinstance(value, str)
+        or len(value) != 64
+        or any(char not in "0123456789abcdef" for char in value)
+    ):
+        raise ConfigurationValidationError(
+            f"{param} must be a lowercase SHA-256 hex string",
+            param=param,
+        )
+    return value
+
+
 def parse_plan_request(payload: Any) -> tuple[int, list[dict[str, Any]]]:
     body = _strict_object(
         payload,
         required={"base_revision", "changes"},
         param="body",
     )
-    revision = body["base_revision"]
-    if isinstance(revision, bool) or not isinstance(revision, int) or revision < 0:
-        raise ConfigurationValidationError(
-            "base_revision must be a non-negative integer",
-            param="base_revision",
-        )
+    revision = _parse_revision(body["base_revision"], param="base_revision")
     return revision, _parse_changes(body["changes"])
 
 
@@ -173,17 +192,32 @@ def parse_apply_request(payload: Any) -> tuple[str, list[dict[str, Any]]]:
         required={"plan_digest", "changes"},
         param="body",
     )
-    digest = body["plan_digest"]
-    if (
-        not isinstance(digest, str)
-        or len(digest) != 64
-        or any(char not in "0123456789abcdef" for char in digest)
-    ):
-        raise ConfigurationValidationError(
-            "plan_digest must be a lowercase SHA-256 hex string",
-            param="plan_digest",
-        )
+    digest = _parse_digest(body["plan_digest"])
     return digest, _parse_changes(body["changes"])
+
+
+def parse_rollback_plan_request(payload: Any) -> tuple[int, int]:
+    body = _strict_object(
+        payload,
+        required={"base_revision", "target_revision"},
+        param="body",
+    )
+    return (
+        _parse_revision(body["base_revision"], param="base_revision"),
+        _parse_revision(body["target_revision"], param="target_revision"),
+    )
+
+
+def parse_rollback_apply_request(payload: Any) -> tuple[int, str]:
+    body = _strict_object(
+        payload,
+        required={"target_revision", "plan_digest"},
+        param="body",
+    )
+    return (
+        _parse_revision(body["target_revision"], param="target_revision"),
+        _parse_digest(body["plan_digest"]),
+    )
 
 
 def _parse_changes(value: Any) -> list[dict[str, Any]]:
@@ -250,6 +284,27 @@ def _timestamp(value: Any) -> bool:
     return isinstance(value, (int, float)) and not isinstance(value, bool) and value >= 0
 
 
+def _history_cursor(operation_id: str) -> str:
+    payload = f"v1:{operation_id}".encode("ascii")
+    return base64.urlsafe_b64encode(payload).decode("ascii").rstrip("=")
+
+
+def _parse_history_cursor(value: str) -> str:
+    if not isinstance(value, str) or not value:
+        raise ConfigurationValidationError("history cursor is invalid", param="cursor")
+    try:
+        padded = value + "=" * (-len(value) % 4)
+        decoded = base64.b64decode(padded, altchars=b"-_", validate=True).decode("ascii")
+    except (ValueError, UnicodeDecodeError) as exc:
+        raise ConfigurationValidationError("history cursor is invalid", param="cursor") from exc
+    if not decoded.startswith("v1:"):
+        raise ConfigurationValidationError("history cursor is invalid", param="cursor")
+    operation_id = decoded[3:]
+    if _OPERATION_ID_PATTERN.fullmatch(operation_id) is None:
+        raise ConfigurationValidationError("history cursor is invalid", param="cursor")
+    return operation_id
+
+
 class ConfigurationHistoryStore:
     """Durable operation journal for Configuration Plane mutations.
 
@@ -257,7 +312,7 @@ class ConfigurationHistoryStore:
     persistent desired state changes, then atomically replaced until a terminal
     state is reached. A crash therefore leaves explicit pending evidence instead of
     silently losing the audit trail. Before/after override snapshots make restart
-    recovery compare actual persisted content, not revision numbers alone.
+    recovery and rollback compare actual persisted content, not revision numbers alone.
     """
 
     def __init__(self, directory: Path) -> None:
@@ -316,6 +371,12 @@ class ConfigurationHistoryStore:
                 f"configuration history kind/status is invalid: {path}",
                 reason="history_invalid",
             )
+        target_revision = document.get("target_revision")
+        if "target_revision" in document and not _non_negative_int(target_revision):
+            raise ConfigurationWriteUnavailable(
+                f"configuration rollback target revision is invalid: {path}",
+                reason="history_invalid",
+            )
         if not isinstance(document.get("phase"), str) or not document["phase"]:
             raise ConfigurationWriteUnavailable(
                 f"configuration history phase is invalid: {path}",
@@ -346,6 +407,11 @@ class ConfigurationHistoryStore:
         ):
             raise ConfigurationWriteUnavailable(
                 f"configuration history revisions are invalid: {path}",
+                reason="history_invalid",
+            )
+        if "target_revision" in document and target_revision >= document["base_revision"]:
+            raise ConfigurationWriteUnavailable(
+                f"configuration rollback target must precede base revision: {path}",
                 reason="history_invalid",
             )
         if not isinstance(document.get("would_change"), bool):
@@ -412,6 +478,7 @@ class ConfigurationHistoryStore:
         overrides_after: Mapping[str, Any],
         actor: Mapping[str, str],
         request_id: str,
+        target_revision: int | None = None,
     ) -> str:
         operation_id = f"cfg_{uuid4().hex}"
         now = time.time()
@@ -433,6 +500,8 @@ class ConfigurationHistoryStore:
             "overrides_before": dict(overrides_before),
             "overrides_after": dict(overrides_after),
         }
+        if target_revision is not None:
+            record["target_revision"] = target_revision
         with self._lock:
             path = self._path(operation_id)
             if path.exists():
@@ -477,18 +546,16 @@ class ConfigurationHistoryStore:
             self._write(path, record)
             return record
 
-    def pending_records(self) -> list[dict[str, Any]]:
+    def records(self) -> list[dict[str, Any]]:
         with self._lock:
-            pending: list[dict[str, Any]] = []
-            for path in sorted(self.directory.glob("cfg_*.json")):
-                record = self._read(path)
-                if record["status"] == "pending":
-                    pending.append(record)
-            return pending
+            return [self._read(path) for path in sorted(self.directory.glob("cfg_*.json"))]
+
+    def pending_records(self) -> list[dict[str, Any]]:
+        return [record for record in self.records() if record["status"] == "pending"]
 
 
 class ConfigurationMutationEngine:
-    """Plan, persist, hot-apply, verify, and audit operator configuration changes."""
+    """Plan, persist, hot-apply, verify, audit, and rollback operator configuration."""
 
     def __init__(
         self,
@@ -767,6 +834,304 @@ class ConfigurationMutationEngine:
             plan, _, _ = self._build_plan(base_revision=base_revision, changes=changes)
             return plan
 
+    @staticmethod
+    def _history_projection(record: Mapping[str, Any]) -> dict[str, Any]:
+        return {
+            "operation_id": record["operation_id"],
+            "kind": ("configuration_rollback" if "target_revision" in record else "configuration_apply"),
+            "status": record["status"],
+            "phase": record["phase"],
+            "actor": dict(record["actor"]),
+            "request_id": record["request_id"],
+            "created_at": record["created_at"],
+            "updated_at": record["updated_at"],
+            "base_revision": record["base_revision"],
+            "candidate_revision": record["candidate_revision"],
+            "applied_revision": record.get("applied_revision"),
+            "target_revision": record.get("target_revision"),
+            "would_change": record["would_change"],
+            "plan_digest": record["plan_digest"],
+            "changes": list(record["changes"]),
+            "verification": dict(record["verification"]) if "verification" in record else None,
+        }
+
+    def history_page(self, *, limit: int = 50, cursor: str | None = None) -> dict[str, Any]:
+        if self.history is None:
+            raise ConfigurationWriteUnavailable(
+                "Configuration history requires persistent platform state",
+                reason="persistent_state_unavailable",
+            )
+        if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 200:
+            raise ConfigurationValidationError(
+                "limit must be an integer between 1 and 200",
+                param="limit",
+            )
+        records = self.history.records()
+        records.sort(key=lambda record: (record["created_at"], record["operation_id"]), reverse=True)
+        start = 0
+        if cursor is not None:
+            operation_id = _parse_history_cursor(cursor)
+            for index, record in enumerate(records):
+                if record["operation_id"] == operation_id:
+                    start = index + 1
+                    break
+            else:
+                raise ConfigurationValidationError(
+                    "history cursor is invalid or expired",
+                    param="cursor",
+                )
+        remaining = records[start:]
+        page = remaining[:limit]
+        next_cursor = None
+        if len(remaining) > limit and page:
+            next_cursor = _history_cursor(page[-1]["operation_id"])
+        return {
+            "items": [self._history_projection(record) for record in page],
+            "next_cursor": next_cursor,
+        }
+
+    def _revision_snapshot(
+        self,
+        *,
+        target_revision: int,
+        current: OperatorConfigurationState,
+    ) -> dict[str, Any]:
+        if self.history is None:
+            raise ConfigurationWriteUnavailable(
+                "Configuration rollback requires persistent history",
+                reason="persistent_state_unavailable",
+            )
+        evidence: dict[int, list[dict[str, Any]]] = {0: [{}]}
+
+        def add(revision: int, overrides: Mapping[str, Any]) -> None:
+            evidence.setdefault(revision, []).append(dict(overrides))
+
+        add(current.revision, current.overrides)
+        for record in self.history.records():
+            add(record["base_revision"], record["overrides_before"])
+            if record["status"] in _STABLE_AFTER_HISTORY_STATES:
+                verification = record.get("verification")
+                if (
+                    isinstance(verification, dict)
+                    and verification.get("synchronized") is True
+                    and record.get("applied_revision") == record["candidate_revision"]
+                ):
+                    add(record["candidate_revision"], record["overrides_after"])
+
+        snapshots = evidence.get(target_revision)
+        if not snapshots:
+            raise ConfigurationRevisionConflict(
+                f"configuration revision {target_revision} is not available for rollback",
+                current_revision=current.revision,
+                reason="history_revision_not_found",
+            )
+        unique = {
+            json.dumps(snapshot, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+            for snapshot in snapshots
+        }
+        if len(unique) != 1:
+            raise ConfigurationWriteUnavailable(
+                f"configuration history has conflicting snapshots for revision {target_revision}",
+                reason="history_revision_conflict",
+            )
+        return dict(snapshots[0])
+
+    @staticmethod
+    def _rollback_changes(
+        current_overrides: Mapping[str, Any],
+        target_overrides: Mapping[str, Any],
+    ) -> list[dict[str, Any]]:
+        changes: list[dict[str, Any]] = []
+        for key in sorted(set(current_overrides) | set(target_overrides)):
+            current_has = key in current_overrides
+            target_has = key in target_overrides
+            if target_has and (not current_has or current_overrides[key] != target_overrides[key]):
+                changes.append({"key": key, "op": "set", "value": target_overrides[key]})
+            elif current_has and not target_has:
+                changes.append({"key": key, "op": "reset"})
+        return changes
+
+    def _build_rollback_plan(
+        self,
+        *,
+        base_revision: int,
+        target_revision: int,
+    ) -> tuple[dict[str, Any], OperatorConfigurationState, OperatorConfigurationState]:
+        current = self._assert_write_ready()
+        if current.revision != base_revision:
+            raise ConfigurationRevisionConflict(
+                f"configuration revision changed: expected {base_revision}, current {current.revision}",
+                current_revision=current.revision,
+            )
+        if target_revision >= current.revision:
+            reason = "rollback_already_current" if target_revision == current.revision else "history_revision_not_found"
+            raise ConfigurationRevisionConflict(
+                f"configuration revision {target_revision} cannot be rolled back from {current.revision}",
+                current_revision=current.revision,
+                reason=reason,
+            )
+        target_overrides = self._revision_snapshot(
+            target_revision=target_revision,
+            current=current,
+        )
+        changes = self._rollback_changes(current.overrides, target_overrides)
+        if not changes:
+            raise ConfigurationRevisionConflict(
+                f"configuration revision {target_revision} already matches current operator state",
+                current_revision=current.revision,
+                reason="rollback_already_current",
+            )
+        base_plan, planned_current, candidate = self._build_plan(
+            base_revision=base_revision,
+            changes=changes,
+        )
+        digest_source = {
+            "kind": "configuration_rollback",
+            "target_revision": target_revision,
+            "base_revision": base_plan["base_revision"],
+            "candidate_revision": base_plan["candidate_revision"],
+            "would_change": base_plan["would_change"],
+            "changes": base_plan["changes"],
+        }
+        plan = {**digest_source, "plan_digest": _canonical_digest(digest_source)}
+        return plan, planned_current, candidate
+
+    def rollback_plan(self, *, base_revision: int, target_revision: int) -> dict[str, Any]:
+        with self._lock:
+            plan, _, _ = self._build_rollback_plan(
+                base_revision=base_revision,
+                target_revision=target_revision,
+            )
+            return plan
+
+    def _execute_plan(
+        self,
+        *,
+        plan: Mapping[str, Any],
+        current: OperatorConfigurationState,
+        candidate: OperatorConfigurationState,
+        expected_revision: int,
+        reviewed_digest: str,
+        actor: Mapping[str, str],
+        request_id: str,
+        target_revision: int | None = None,
+    ) -> dict[str, Any]:
+        if plan["plan_digest"] != reviewed_digest:
+            raise ConfigurationRevisionConflict(
+                "reviewed configuration plan no longer matches the current plan",
+                current_revision=expected_revision,
+                reason="plan_digest_mismatch",
+            )
+        assert self.history is not None
+        operation_id = self.history.begin(
+            plan=plan,
+            overrides_before=current.overrides,
+            overrides_after=candidate.overrides,
+            actor=actor,
+            request_id=request_id,
+            target_revision=target_revision,
+        )
+
+        if not plan["would_change"]:
+            verification = self._verification()
+            self.history.finish(
+                operation_id,
+                status="noop",
+                phase="verified",
+                applied_revision=expected_revision,
+                verification=verification,
+            )
+            result = {
+                "operation_id": operation_id,
+                "status": "verified",
+                "changed": False,
+                "revision": expected_revision,
+                "verification": verification,
+            }
+            if target_revision is not None:
+                result["target_revision"] = target_revision
+            return result
+
+        persisted: OperatorConfigurationState | None = None
+        phase = "persisting"
+        try:
+            assert self.store is not None
+            persisted = self.store.replace(
+                candidate.overrides,
+                expected_revision=expected_revision,
+            )
+            phase = "applying"
+            self.resolver.install_operator_state(persisted)
+            runtime_snapshot = runtime_snapshot_from_resolver(self.resolver, self.schema_items)
+            self.runtime_configuration.install(runtime_snapshot)
+            phase = "verifying"
+            verification = self._verification()
+            if not verification["synchronized"]:
+                raise RuntimeError("configuration state did not converge after apply")
+            phase = "history"
+            self.history.finish(
+                operation_id,
+                status="verified",
+                phase="verified",
+                applied_revision=persisted.revision,
+                verification=verification,
+            )
+            result = {
+                "operation_id": operation_id,
+                "status": "verified",
+                "changed": True,
+                "revision": persisted.revision,
+                "verification": verification,
+            }
+            if target_revision is not None:
+                result["target_revision"] = target_revision
+            return result
+        except OperatorConfigurationRevisionError as exc:
+            verification = self._verification()
+            try:
+                self.history.finish(
+                    operation_id,
+                    status="rejected",
+                    phase="persisting",
+                    applied_revision=verification.get("store_revision"),
+                    verification=verification,
+                    error=str(exc),
+                )
+            except Exception as history_exc:
+                raise ConfigurationApplyFailure(
+                    "configuration revision conflict could not be finalized in history",
+                    operation_id=operation_id,
+                    phase="history",
+                    desired_revision=verification.get("store_revision"),
+                    verification=verification,
+                ) from history_exc
+            raise ConfigurationRevisionConflict(
+                str(exc),
+                current_revision=verification.get("store_revision"),
+            ) from exc
+        except Exception as exc:
+            verification = self._verification()
+            try:
+                self.history.finish(
+                    operation_id,
+                    status="apply_failed",
+                    phase=phase,
+                    applied_revision=(persisted.revision if persisted is not None else None),
+                    verification=verification,
+                    error=f"{type(exc).__name__}: {exc}",
+                )
+            except Exception:
+                # The pending record written before mutation remains durable. Future
+                # writes are blocked until restart recovery can reconcile it.
+                pass
+            raise ConfigurationApplyFailure(
+                "configuration apply did not complete successfully",
+                operation_id=operation_id,
+                phase=phase,
+                desired_revision=(persisted.revision if persisted is not None else None),
+                verification=verification,
+            ) from exc
+
     def apply(
         self,
         *,
@@ -781,111 +1146,37 @@ class ConfigurationMutationEngine:
                 base_revision=expected_revision,
                 changes=changes,
             )
-            if plan["plan_digest"] != plan_digest:
-                raise ConfigurationRevisionConflict(
-                    "reviewed configuration plan no longer matches the current plan",
-                    current_revision=expected_revision,
-                    reason="plan_digest_mismatch",
-                )
-            assert self.history is not None
-            operation_id = self.history.begin(
+            return self._execute_plan(
                 plan=plan,
-                overrides_before=current.overrides,
-                overrides_after=candidate.overrides,
+                current=current,
+                candidate=candidate,
+                expected_revision=expected_revision,
+                reviewed_digest=plan_digest,
                 actor=actor,
                 request_id=request_id,
             )
 
-            if not plan["would_change"]:
-                verification = self._verification()
-                self.history.finish(
-                    operation_id,
-                    status="noop",
-                    phase="verified",
-                    applied_revision=expected_revision,
-                    verification=verification,
-                )
-                return {
-                    "operation_id": operation_id,
-                    "status": "verified",
-                    "changed": False,
-                    "revision": expected_revision,
-                    "verification": verification,
-                }
-
-            persisted: OperatorConfigurationState | None = None
-            phase = "persisting"
-            try:
-                assert self.store is not None
-                persisted = self.store.replace(
-                    candidate.overrides,
-                    expected_revision=expected_revision,
-                )
-                phase = "applying"
-                self.resolver.install_operator_state(persisted)
-                runtime_snapshot = runtime_snapshot_from_resolver(self.resolver, self.schema_items)
-                self.runtime_configuration.install(runtime_snapshot)
-                phase = "verifying"
-                verification = self._verification()
-                if not verification["synchronized"]:
-                    raise RuntimeError("configuration state did not converge after apply")
-                phase = "history"
-                self.history.finish(
-                    operation_id,
-                    status="verified",
-                    phase="verified",
-                    applied_revision=persisted.revision,
-                    verification=verification,
-                )
-                return {
-                    "operation_id": operation_id,
-                    "status": "verified",
-                    "changed": True,
-                    "revision": persisted.revision,
-                    "verification": verification,
-                }
-            except OperatorConfigurationRevisionError as exc:
-                verification = self._verification()
-                try:
-                    self.history.finish(
-                        operation_id,
-                        status="rejected",
-                        phase="persisting",
-                        applied_revision=verification.get("store_revision"),
-                        verification=verification,
-                        error=str(exc),
-                    )
-                except Exception as history_exc:
-                    raise ConfigurationApplyFailure(
-                        "configuration revision conflict could not be finalized in history",
-                        operation_id=operation_id,
-                        phase="history",
-                        desired_revision=verification.get("store_revision"),
-                        verification=verification,
-                    ) from history_exc
-                raise ConfigurationRevisionConflict(
-                    str(exc),
-                    current_revision=verification.get("store_revision"),
-                ) from exc
-            except Exception as exc:
-                verification = self._verification()
-                try:
-                    self.history.finish(
-                        operation_id,
-                        status="apply_failed",
-                        phase=phase,
-                        applied_revision=(persisted.revision if persisted is not None else None),
-                        verification=verification,
-                        error=f"{type(exc).__name__}: {exc}",
-                    )
-                except Exception:
-                    # The pending record written before mutation remains durable. Future
-                    # writes are blocked until restart recovery can reconcile it.
-                    pass
-                raise ConfigurationApplyFailure(
-                    "configuration apply did not complete successfully",
-                    operation_id=operation_id,
-                    phase=phase,
-                    desired_revision=(persisted.revision if persisted is not None else None),
-                    verification=verification,
-                ) from exc
+    def rollback(
+        self,
+        *,
+        expected_revision: int,
+        target_revision: int,
+        plan_digest: str,
+        actor: Mapping[str, str],
+        request_id: str,
+    ) -> dict[str, Any]:
+        with self._lock:
+            plan, current, candidate = self._build_rollback_plan(
+                base_revision=expected_revision,
+                target_revision=target_revision,
+            )
+            return self._execute_plan(
+                plan=plan,
+                current=current,
+                candidate=candidate,
+                expected_revision=expected_revision,
+                reviewed_digest=plan_digest,
+                actor=actor,
+                request_id=request_id,
+                target_revision=target_revision,
+            )

@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ConfigurationRollbackApplyRequest",
+  "type": "object",
+  "required": ["target_revision", "plan_digest"],
+  "additionalProperties": false,
+  "properties": {
+    "target_revision": {"type": "integer", "minimum": 0},
+    "plan_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  }
+}
