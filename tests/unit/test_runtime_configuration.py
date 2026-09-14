@@ -192,3 +192,13 @@ def test_runtime_configuration_same_revision_cannot_change_values() -> None:
                 streaming_max_bytes=current.streaming_max_bytes,
             )
         )
+
+
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), float("-inf")])
+def test_runtime_snapshot_rejects_non_finite_stream_duration(value: float) -> None:
+    provider = RuntimeConfigurationProvider.from_settings(settings())
+
+    with pytest.raises(ValueError, match="finite number"):
+        provider.update(streaming_max_duration_seconds=value)
+
+    assert provider.snapshot().revision == 0

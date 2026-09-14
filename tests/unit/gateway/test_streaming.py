@@ -6,7 +6,12 @@ from __future__ import annotations
 
 import asyncio
 import json
+import time
 from dataclasses import replace
+
+from ai_model_serving.metrics import Metrics
+from ai_model_serving.runtime_configuration import RuntimeConfigurationProvider
+from ai_model_serving.services.gateway_service import GatewayService
 
 from .helpers import *  # noqa: F401,F403
 
@@ -468,3 +473,37 @@ def test_non_streaming_request_event_records_the_same_upstream_identity(monkeypa
     assert records[0]["upstream_response_id"] == completion_id == response.json()["id"]
     assert records[0]["total_tokens"] == 112
     assert "stream_status" not in records[0]
+
+
+def test_in_flight_stream_pins_one_runtime_configuration_snapshot() -> None:
+    app_settings = settings()
+    provider = RuntimeConfigurationProvider.from_settings(app_settings)
+    provider.update(streaming_max_chunks=4)
+    service = GatewayService(
+        provider.settings_view(app_settings),
+        FakeGatewayClients(),
+        Metrics("stream_snapshot_test"),
+    )
+
+    async def upstream():
+        yield b'data: {"choices":[{"delta":{"content":"first"}}]}\n\n'
+        provider.update(streaming_max_chunks=1)
+        yield b'data: {"choices":[{"delta":{"content":"second"}}]}\n\n'
+        yield b'data: [DONE]\n\n'
+
+    async def collect() -> bytes:
+        parts = [
+            chunk
+            async for chunk in service._relay_chat_stream(
+                upstream(),
+                target="local-main",
+                start=time.monotonic(),
+            )
+        ]
+        return b"".join(parts)
+
+    body = asyncio.run(collect())
+
+    assert b"STREAM_LIMIT_EXCEEDED" not in body
+    assert b"second" in body
+    assert provider.snapshot().streaming_max_chunks == 1
