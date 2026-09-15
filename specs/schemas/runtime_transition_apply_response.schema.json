@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "RuntimeTransitionApplyResponse",
+  "type": "object",
+  "required": [
+    "service_key",
+    "state",
+    "operation_id",
+    "operation_status",
+    "verification"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "service_key": {"type": "string", "minLength": 1},
+    "state": {"type": "string", "enum": ["active", "stopped"]},
+    "changed": {"type": "boolean"},
+    "containers_started": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "containers_stopped": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "evicted": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "operation_id": {"type": "string", "pattern": "^rt_[0-9a-f]{32}$"},
+    "operation_status": {"type": "string", "enum": ["verified", "noop"]},
+    "verification": {
+      "type": "object",
+      "required": ["converged", "source", "desired_state"],
+      "additionalProperties": true,
+      "properties": {
+        "converged": {"type": ["boolean", "null"]},
+        "source": {"type": "string", "minLength": 1},
+        "desired_state": {"type": "string", "enum": ["active", "stopped"]}
+      }
+    }
+  }
+}

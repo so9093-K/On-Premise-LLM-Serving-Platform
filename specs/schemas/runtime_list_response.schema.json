@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "RuntimeListResponse",
+  "type": "object",
+  "required": ["runtimes"],
+  "additionalProperties": false,
+  "properties": {
+    "runtimes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "service_key",
+          "container",
+          "state",
+          "container_status",
+          "vram_fraction",
+          "criticality"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "service_key": {"type": "string", "minLength": 1},
+          "container": {"type": ["string", "null"]},
+          "state": {"type": "string", "enum": ["active", "stopped", "starting"]},
+          "container_status": {"type": "string", "minLength": 1},
+          "vram_fraction": {"type": ["number", "null"]},
+          "criticality": {"type": ["string", "null"]},
+          "state_reason": {"type": "string"},
+          "state_source": {"type": "string"},
+          "state_updated_at": {"type": "number", "minimum": 0},
+          "gate": {"type": ["string", "null"]},
+          "active_profile": {"type": ["string", "null"]}
+        }
+      }
+    },
+    "budget": {
+      "type": "object",
+      "required": ["ceiling", "used", "free"],
+      "additionalProperties": false,
+      "properties": {
+        "ceiling": {"type": "number"},
+        "used": {"type": "number"},
+        "free": {"type": "number"}
+      }
+    }
+  }
+}

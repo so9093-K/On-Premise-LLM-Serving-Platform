@@ -462,7 +462,7 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
             "메인 프로필 교체만 `POST /admin/main-model/switch`로 수행합니다."
         ),
         request_schema=None,
-        response_schema=None,
+        response_schema="runtime_list_response.schema.json",
     ),
     EndpointSpec(
         method="GET",
@@ -534,7 +534,7 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
             "`/admin/runtimes/operations` journal에 actor/request evidence와 함께 남깁니다."
         ),
         request_schema="runtime_transition_apply_request.schema.json",
-        response_schema=None,
+        response_schema="runtime_transition_apply_response.schema.json",
         error_codes=(
             "NOT_FOUND",
             "CONFLICT",
