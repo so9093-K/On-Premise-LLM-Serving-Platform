@@ -178,7 +178,7 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
             "`editable=true`인 operator-owned hot-reload key만 Plan/Apply 대상으로 사용할 수 있습니다."
         ),
         request_schema=None,
-        response_schema=None,
+        response_schema="configuration_schema_response.schema.json",
     ),
     EndpointSpec(
         method="GET",
@@ -191,7 +191,7 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
             "응답의 revision과 HTTP ETag를 Plan/Apply의 optimistic concurrency 기준으로 사용합니다."
         ),
         request_schema=None,
-        response_schema=None,
+        response_schema="configuration_effective_response.schema.json",
     ),
     EndpointSpec(
         method="GET",

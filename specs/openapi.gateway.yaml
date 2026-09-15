@@ -180,9 +180,7 @@ paths:
           content:
             application/json:
               schema:
-                additionalProperties: true
-                type: object
-                title: Response Getconfigurationschema
+                $ref: ./schemas/configuration_schema_response.schema.json
         '401':
           description: '인증 실패
 
@@ -205,6 +203,7 @@ paths:
                           - UNAUTHORIZED
       security:
       - adminBearerAuth: []
+      x-response-contract-schema: configuration_schema_response.schema.json
   /admin/config/effective:
     get:
       tags:
@@ -219,9 +218,7 @@ paths:
           content:
             application/json:
               schema:
-                additionalProperties: true
-                type: object
-                title: Response Geteffectiveconfiguration
+                $ref: ./schemas/configuration_effective_response.schema.json
         '401':
           description: '인증 실패
 
@@ -244,6 +241,7 @@ paths:
                           - UNAUTHORIZED
       security:
       - adminBearerAuth: []
+      x-response-contract-schema: configuration_effective_response.schema.json
   /admin/config/history:
     get:
       tags:
