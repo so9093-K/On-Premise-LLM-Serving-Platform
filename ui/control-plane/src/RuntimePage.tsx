@@ -11,6 +11,12 @@ import {
   type RuntimeOperationResponse,
   type RuntimePlanResponse,
 } from './api';
+import {
+  isRuntimePlanChanged,
+  isUnauthorized,
+  runtimeApplyRequest,
+  runtimePlanRequiresForceReview,
+} from './runtimeSafety';
 
 type DesiredState = 'active' | 'stopped';
 
@@ -24,10 +30,10 @@ function displayNumber(value: number | null | undefined): string {
 }
 
 function errorMessage(error: unknown): string {
+  if (error instanceof ApiError && isRuntimePlanChanged(error)) {
+    return `${error.message} 현재 상태가 검토 시점과 달라졌으므로 새 Plan을 확인하세요.`;
+  }
   if (error instanceof ApiError) {
-    if (error.status === 409) {
-      return `${error.message} 현재 상태가 검토 시점과 달라졌을 수 있으므로 새 Plan을 확인하세요.`;
-    }
     return error.code ? `${error.code}: ${error.message}` : error.message;
   }
   return error instanceof Error ? error.message : '요청에 실패했습니다.';
@@ -68,7 +74,7 @@ export function RuntimePage({ token, onUnauthorized }: RuntimePageProps) {
   });
 
   useEffect(() => {
-    if (runtimesQuery.error instanceof ApiError && runtimesQuery.error.status === 401) {
+    if (isUnauthorized(runtimesQuery.error)) {
       onUnauthorized();
     }
   }, [onUnauthorized, runtimesQuery.error]);
@@ -84,7 +90,7 @@ export function RuntimePage({ token, onUnauthorized }: RuntimePageProps) {
   });
 
   useEffect(() => {
-    if (operationQuery.error instanceof ApiError && operationQuery.error.status === 401) {
+    if (isUnauthorized(operationQuery.error)) {
       onUnauthorized();
     }
   }, [onUnauthorized, operationQuery.error]);
@@ -102,7 +108,7 @@ export function RuntimePage({ token, onUnauthorized }: RuntimePageProps) {
     },
     onSuccess: (plan) => setReview(plan),
     onError: (error) => {
-      if (error instanceof ApiError && error.status === 401) {
+      if (isUnauthorized(error)) {
         onUnauthorized();
         return;
       }
@@ -111,11 +117,11 @@ export function RuntimePage({ token, onUnauthorized }: RuntimePageProps) {
   });
 
   const applyMutation = useMutation({
-    mutationFn: (plan: RuntimePlanResponse) => applyRuntimeTransition(token, plan.service_key, {
-      desired_state: plan.desired_state,
-      force: plan.force,
-      plan_digest: plan.plan_digest,
-    }),
+    mutationFn: (plan: RuntimePlanResponse) => applyRuntimeTransition(
+      token,
+      plan.service_key,
+      runtimeApplyRequest(plan),
+    ),
     retry: false,
     onMutate: () => setActionError(null),
     onSuccess: async (result) => {
@@ -124,13 +130,13 @@ export function RuntimePage({ token, onUnauthorized }: RuntimePageProps) {
       await queryClient.invalidateQueries({ queryKey: ['runtime-control', 'runtimes'] });
     },
     onError: async (error) => {
-      if (error instanceof ApiError && error.status === 401) {
+      if (isUnauthorized(error)) {
         onUnauthorized();
         return;
       }
       const failedOperationId = operationIdFromError(error);
       if (failedOperationId !== null) setOperationId(failedOperationId);
-      if (error instanceof ApiError && error.status === 409) setReview(null);
+      if (isRuntimePlanChanged(error)) setReview(null);
       setActionError(errorMessage(error));
       await queryClient.invalidateQueries({ queryKey: ['runtime-control', 'runtimes'] });
     },
@@ -271,7 +277,7 @@ export function RuntimePage({ token, onUnauthorized }: RuntimePageProps) {
 
             <div className="review-actions">
               <Button variant="secondary" onClick={() => setReview(null)} isDisabled={actionPending}>취소</Button>
-              {review.requires_force && !review.force ? (
+              {runtimePlanRequiresForceReview(review) ? (
                 <Button
                   variant="warning"
                   isDisabled={actionPending}
