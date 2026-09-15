@@ -21,6 +21,10 @@ __pycache__
 # ── Build & dist ───────────────────────────────────────────────────────────
 build
 dist
+node_modules
+# Frontend source/toolchain is build-time only. The checked-in generated Console is
+# under src/ and is installed into the Python package by the builder stage.
+ui
 
 # ── Not copied by Dockerfile ───────────────────────────────────────────────
 docs

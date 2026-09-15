@@ -65,6 +65,10 @@ run_check "performance contract" "$PYTHON_BIN" scripts/validation/validate_perfo
 # 예전엔 openapi_snapshot_diff.py를 이어서 돌렸지만, 그쪽이 비교하던 계약 스키마는
 # 생성 문서에도 같은 파일에서 주입되는 값이라 자기 자신과 비교하고 있었다.
 run_check "generated artifacts" "$PYTHON_BIN" scripts/render_runtime_assets.py --check
+# Console build 자체는 별도 Linux/Node job이 수행한다. Python validation에서는
+# checked-in dist/manifest/lock/source 정책만 검증해 app-contract matrix가 Node에
+# 의존하지 않으면서도 package/release에서 누락된 UI를 fail-closed로 잡는다.
+run_check "console artifacts" "$PYTHON_BIN" scripts/validation/validate_console_assets.py
 # /docs 번들은 vendoring 되어 있고 CDN 폴백이 없다. 파일이 없거나 잘리면 배포된
 # 문서가 조용히 빈 화면이 되므로 로컬 해시만 확인한다(네트워크 불필요).
 run_check "docs bundles" "$PYTHON_BIN" scripts/build/fetch_docs_assets.py --check

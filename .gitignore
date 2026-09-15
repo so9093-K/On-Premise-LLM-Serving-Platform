@@ -14,6 +14,9 @@ run/
 /build/
 /dist/
 *.egg-info/
+node_modules/
+ui/control-plane/.build-check/
+ui/control-plane/src/generated/openapi.ts
 
 # ── Cache directories ──────────────────────────────────────────────────────
 .cache/

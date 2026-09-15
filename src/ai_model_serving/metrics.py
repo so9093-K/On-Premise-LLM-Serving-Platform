@@ -372,12 +372,22 @@ class MetricsMiddleware:
     같은 시점을 본다 -- 두 관측이 같은 요청에 대해 다른 값을 말하지 않는다.
     """
 
-    def __init__(self, app: ASGIApp, *, metrics: "Metrics") -> None:
+    def __init__(
+        self,
+        app: ASGIApp,
+        *,
+        metrics: "Metrics",
+        ignored_path_prefixes: tuple[str, ...] = (),
+    ) -> None:
         self.app = app
         self.metrics = metrics
+        self.ignored_path_prefixes = ignored_path_prefixes
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        if scope["type"] != "http":
+        if scope["type"] != "http" or any(
+            str(scope.get("path", "")).startswith(prefix)
+            for prefix in self.ignored_path_prefixes
+        ):
             await self.app(scope, receive, send)
             return
         start = time.monotonic()

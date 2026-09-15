@@ -104,6 +104,7 @@ def install_common_middleware(
     settings: AppSettings,
     metrics: Metrics,
     logger: Any,
+    ignored_path_prefixes: tuple[str, ...] = (),
 ) -> None:
     """요청 크기 제한, HTTP metric, 안전한 접근 로그 미들웨어를 설치한다."""
 
@@ -118,9 +119,18 @@ def install_common_middleware(
     # 순서(바깥 -> 안쪽): 접근 로그, metric, 요청 크기 가드. add_middleware가
     # 스택 앞에 끼우므로 나중에 추가한 것이 바깥이다. metric과 접근 로그는 둘 다
     # 순수 ASGI 미들웨어라 응답 본문(SSE 포함)이 끝난 뒤에 기록한다.
-    app.add_middleware(MetricsMiddleware, metrics=metrics)
+    app.add_middleware(
+        MetricsMiddleware,
+        metrics=metrics,
+        ignored_path_prefixes=ignored_path_prefixes,
+    )
 
-    app.add_middleware(RequestLoggingMiddleware, logger=logger, service=metrics.service)
+    app.add_middleware(
+        RequestLoggingMiddleware,
+        logger=logger,
+        service=metrics.service,
+        ignored_path_prefixes=ignored_path_prefixes,
+    )
 
 
 def install_cors_middleware(app: FastAPI, *, settings: AppSettings) -> None:
