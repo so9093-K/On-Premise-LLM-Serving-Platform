@@ -42,6 +42,16 @@ def gateway_runtime_state_path(
     return platform_state_path("runtime-state.json", environment=source)
 
 
+def runtime_transition_history_path(
+    environment: Mapping[str, str] | None = None,
+) -> Path | None:
+    source = os.environ if environment is None else environment
+    runtime_state = gateway_runtime_state_path(source)
+    if runtime_state is not None:
+        return runtime_state.parent / "runtime-history"
+    return platform_state_path("runtime-history", environment=source)
+
+
 def operator_configuration_state_path(
     environment: Mapping[str, str] | None = None,
 ) -> Path | None:

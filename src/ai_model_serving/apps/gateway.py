@@ -22,7 +22,7 @@ from ..control_plane_bootstrap import build_control_plane_bootstrap_projection
 from ..errors import ServiceError
 from ..service_logging import service_logger
 from ..metrics import Metrics
-from ..platform_state import gateway_runtime_state_path
+from ..platform_state import gateway_runtime_state_path, runtime_transition_history_path
 from ..api_descriptions import (
     chat_operation_detail,
     embeddings_operation_detail,
@@ -40,6 +40,7 @@ from ..operator_configuration import (
 )
 from ..openapi_contracts import install_contract_openapi, narrow_chat_request_schema
 from ..runtime_configuration import RuntimeConfigurationProvider
+from ..runtime_transition_history import RuntimeTransitionHistoryStore
 from ..security import require_bearer_auth
 from ..settings import AppSettings, RuntimeEndpoint, SecuritySettings, load_settings
 from ..services.gateway_service import GatewayService
@@ -83,6 +84,9 @@ class GatewayClients:
             deferred_keys=_runtime_directive("DEPLOY_DEFERRED_RUNTIMES"),
             activated_keys=_runtime_directive("DEPLOY_ACTIVE_RUNTIMES"),
             release_id=settings.deploy_release_id,
+        )
+        self.runtime_transition_history = RuntimeTransitionHistoryStore(
+            runtime_transition_history_path()
         )
         self.main_model_inflight = MainModelInFlight()
         self.sidecar: SidecarClient | None = (
@@ -142,6 +146,10 @@ def create_gateway_app(settings: AppSettings | None = None, clients: GatewayClie
     clients = clients or GatewayClients(settings)
     if not hasattr(clients, "main_model_inflight"):
         clients.main_model_inflight = MainModelInFlight()
+    if not hasattr(clients, "runtime_transition_history"):
+        clients.runtime_transition_history = RuntimeTransitionHistoryStore(None)
+    if clients.runtime_transition_history.available:
+        clients.runtime_transition_history.recover_interrupted_operations()
     metrics = Metrics("gateway")
     logger = service_logger("gateway")
 
@@ -198,6 +206,7 @@ def create_gateway_app(settings: AppSettings | None = None, clients: GatewayClie
         lifespan_resources=(clients,),
     )
     app.state.runtime_configuration = runtime_configuration
+    app.state.runtime_transition_history = clients.runtime_transition_history
     app.state.operator_configuration_store = operator_store
     app.state.configuration_history_store = history_store
     app.state.configuration_resolver = configuration_resolver
@@ -288,7 +297,11 @@ def create_gateway_app(settings: AppSettings | None = None, clients: GatewayClie
     if settings.feature_enabled("runtime_control"):
         app.include_router(
             _build_runtime_control_router(
-                admin_dependencies, clients.runtime_state, clients.sidecar, settings
+                admin_dependencies,
+                clients.runtime_state,
+                clients.sidecar,
+                settings,
+                clients.runtime_transition_history,
             )
         )
 

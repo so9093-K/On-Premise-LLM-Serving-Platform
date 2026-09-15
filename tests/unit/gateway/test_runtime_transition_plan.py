@@ -13,6 +13,7 @@ _DIGEST = "a" * 64
 class PlanningSidecar:
     def __init__(self) -> None:
         self.applied_digest: str | None = None
+        self.statuses = {"embed-ko": "exited", "embed": "running"}
 
     async def runtime_plan(self, service: str, *, desired_state: str, force: bool = False):
         assert service == "embed-ko"
@@ -40,7 +41,7 @@ class PlanningSidecar:
         }
 
     async def get_status(self):
-        return {"embed-ko": "exited"}
+        return dict(self.statuses)
 
     async def start(
         self,
@@ -52,6 +53,8 @@ class PlanningSidecar:
         assert container == "embed-ko"
         assert force is True
         self.applied_digest = plan_digest
+        self.statuses["embed-ko"] = "running"
+        self.statuses["embed"] = "exited"
         return {"started": ["embed-ko"], "evicted": ["embed"]}
 
 
@@ -154,6 +157,7 @@ def test_runtime_apply_rejects_reviewed_plan_when_sidecar_snapshot_changed() -> 
     )
 
     assert response.status_code == 409
+    assert response.headers["X-Control-Operation-ID"].startswith("rt_")
     error = response.json()["error"]
     assert error["code"] == "CONFLICT"
     assert error["details"]["reason"] == "RUNTIME_PLAN_CHANGED"

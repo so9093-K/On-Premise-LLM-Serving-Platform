@@ -465,6 +465,36 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
         response_schema=None,
     ),
     EndpointSpec(
+        method="GET",
+        path="/admin/runtimes/operations",
+        operation_id="listRuntimeTransitionOperations",
+        tag="Runtime Control",
+        summary="런타임 상태 전환 이력 조회",
+        description=(
+            "Runtime start/stop의 durable operation evidence를 최신 작업부터 조회합니다. "
+            "각 record에는 actor/request id, 검토한 plan digest, apply result와 observed verification이 포함됩니다. "
+            "브라우저나 클라이언트가 별도 operation history를 만들지 않고 이 journal을 audit source로 사용합니다."
+        ),
+        request_schema=None,
+        response_schema="runtime_transition_history_response.schema.json",
+        error_codes=("VALIDATION_ERROR", "RUNTIME_HISTORY_UNAVAILABLE"),
+    ),
+    EndpointSpec(
+        method="GET",
+        path="/admin/runtimes/operations/{operation_id}",
+        operation_id="getRuntimeTransitionOperation",
+        tag="Runtime Control",
+        summary="런타임 상태 전환 작업 조회",
+        description=(
+            "하나의 Runtime transition operation record를 조회합니다. apply가 성공했더라도 observed verification이 "
+            "수렴하지 않으면 `verification_failed`로 남으며, process restart 전에 terminal record를 쓰지 못한 작업은 "
+            "`interrupted_after_restart`로 닫힙니다."
+        ),
+        request_schema=None,
+        response_schema="runtime_transition_operation_response.schema.json",
+        error_codes=("NOT_FOUND", "RUNTIME_HISTORY_UNAVAILABLE"),
+    ),
+    EndpointSpec(
         method="POST",
         path="/admin/runtimes/{service_key}/plans",
         operation_id="planRuntimeTransition",
@@ -500,7 +530,8 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
             "canary 검증을 거칩니다(프로필 교체는 `POST /admin/main-model/switch`).\n\n"
             "GPU 예산을 초과하면 409와 정지 계획(`plan.stop`)을 반환하며, "
             "`force: true`로 우선순위 낮은 보조를 자동 축출할 수 있습니다. "
-            "Scalar UI 드롭다운에서 선택 후 Execute만 누르면 됩니다."
+            "apply가 반환된 뒤 Sidecar/Docker 관측으로 목표 상태 수렴을 검증하고, 결과는 "
+            "`/admin/runtimes/operations` journal에 actor/request evidence와 함께 남깁니다."
         ),
         request_schema="runtime_transition_apply_request.schema.json",
         response_schema=None,
@@ -510,6 +541,8 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
             "GPU_BUDGET_EXCEEDED",
             "MODEL_UNAVAILABLE",
             "MAIN_MODEL_CONTROL_UNAVAILABLE",
+            "RUNTIME_HISTORY_UNAVAILABLE",
+            "RUNTIME_VERIFICATION_FAILED",
         ),
     ),
     EndpointSpec(

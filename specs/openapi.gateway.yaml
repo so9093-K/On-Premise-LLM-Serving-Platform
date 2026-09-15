@@ -3471,6 +3471,175 @@ paths:
         required: true
       x-contract-schema: runtime_transition_plan_request.schema.json
       x-response-contract-schema: runtime_transition_plan_response.schema.json
+  /admin/runtimes/operations:
+    get:
+      tags:
+      - Runtime Control
+      summary: 런타임 상태 전환 이력 조회
+      description: Runtime start/stop의 durable operation evidence를 최신 작업부터 조회합니다.
+        각 record에는 actor/request id, 검토한 plan digest, apply result와 observed verification이
+        포함됩니다. 브라우저나 클라이언트가 별도 operation history를 만들지 않고 이 journal을 audit source로
+        사용합니다.
+      operationId: listRuntimeTransitionOperations
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: ./schemas/runtime_transition_history_response.schema.json
+        '401':
+          description: '인증 실패
+
+
+            이 status로 올 수 있는 `error.code`:
+
+            - `UNAUTHORIZED` — API 키 또는 인증 정보가 없거나 유효하지 않다. (재시도 불가)'
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: ./schemas/common_error.schema.json
+                - type: object
+                  properties:
+                    error:
+                      type: object
+                      properties:
+                        code:
+                          enum:
+                          - UNAUTHORIZED
+        '422':
+          description: '요청 검증 실패
+
+
+            이 status로 올 수 있는 `error.code`:
+
+            - `VALIDATION_ERROR` — 요청이 Gateway 입력 계약 검증을 통과하지 못했다. (재시도 불가)'
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: ./schemas/common_error.schema.json
+                - type: object
+                  properties:
+                    error:
+                      type: object
+                      properties:
+                        code:
+                          enum:
+                          - VALIDATION_ERROR
+        '503':
+          description: 'Runtime 또는 dependency를 사용할 수 없음
+
+
+            이 status로 올 수 있는 `error.code`:
+
+            - `RUNTIME_HISTORY_UNAVAILABLE` — Runtime Control audit journal이 안전하게
+            읽히거나 기록될 수 없어 상태 변경을 시작할 수 없다. (재시도 불가)'
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: ./schemas/common_error.schema.json
+                - type: object
+                  properties:
+                    error:
+                      type: object
+                      properties:
+                        code:
+                          enum:
+                          - RUNTIME_HISTORY_UNAVAILABLE
+      security:
+      - adminBearerAuth: []
+      x-response-contract-schema: runtime_transition_history_response.schema.json
+  /admin/runtimes/operations/{operation_id}:
+    get:
+      tags:
+      - Runtime Control
+      summary: 런타임 상태 전환 작업 조회
+      description: 하나의 Runtime transition operation record를 조회합니다. apply가 성공했더라도 observed
+        verification이 수렴하지 않으면 `verification_failed`로 남으며, process restart 전에 terminal
+        record를 쓰지 못한 작업은 `interrupted_after_restart`로 닫힙니다.
+      operationId: getRuntimeTransitionOperation
+      security:
+      - adminBearerAuth: []
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: ./schemas/runtime_transition_operation_response.schema.json
+        '401':
+          description: '인증 실패
+
+
+            이 status로 올 수 있는 `error.code`:
+
+            - `UNAUTHORIZED` — API 키 또는 인증 정보가 없거나 유효하지 않다. (재시도 불가)'
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: ./schemas/common_error.schema.json
+                - type: object
+                  properties:
+                    error:
+                      type: object
+                      properties:
+                        code:
+                          enum:
+                          - UNAUTHORIZED
+        '404':
+          description: '리소스를 찾을 수 없음
+
+
+            이 status로 올 수 있는 `error.code`:
+
+            - `NOT_FOUND` — 요청한 리소스(엔드포인트, operation 등)가 존재하지 않는다. (재시도 불가)'
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: ./schemas/common_error.schema.json
+                - type: object
+                  properties:
+                    error:
+                      type: object
+                      properties:
+                        code:
+                          enum:
+                          - NOT_FOUND
+        '503':
+          description: 'Runtime 또는 dependency를 사용할 수 없음
+
+
+            이 status로 올 수 있는 `error.code`:
+
+            - `RUNTIME_HISTORY_UNAVAILABLE` — Runtime Control audit journal이 안전하게
+            읽히거나 기록될 수 없어 상태 변경을 시작할 수 없다. (재시도 불가)'
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: ./schemas/common_error.schema.json
+                - type: object
+                  properties:
+                    error:
+                      type: object
+                      properties:
+                        code:
+                          enum:
+                          - RUNTIME_HISTORY_UNAVAILABLE
+      parameters:
+      - name: operation_id
+        in: path
+        required: true
+        description: Runtime transition operation id (`rt_<32 hex>`).
+        schema:
+          type: string
+          pattern: ^rt_[0-9a-f]{32}$
+      x-response-contract-schema: runtime_transition_operation_response.schema.json
   /admin/runtimes/{service_key}:
     patch:
       tags:
@@ -3490,7 +3659,8 @@ paths:
 
 
         GPU 예산을 초과하면 409와 정지 계획(`plan.stop`)을 반환하며, `force: true`로 우선순위 낮은 보조를 자동
-        축출할 수 있습니다. Scalar UI 드롭다운에서 선택 후 Execute만 누르면 됩니다.'
+        축출할 수 있습니다. apply가 반환된 뒤 Sidecar/Docker 관측으로 목표 상태 수렴을 검증하고, 결과는 `/admin/runtimes/operations`
+        journal에 actor/request evidence와 함께 남깁니다.'
       operationId: transitionRuntime
       security:
       - adminBearerAuth: []
@@ -3676,6 +3846,7 @@ paths:
                           enum:
                           - MAIN_MODEL_CONTROL_UNAVAILABLE
                           - MODEL_UNAVAILABLE
+                          - RUNTIME_HISTORY_UNAVAILABLE
           description: 'Service Unavailable
 
 
@@ -3684,7 +3855,10 @@ paths:
             - `MAIN_MODEL_CONTROL_UNAVAILABLE` — 메인 모델 control plane(admin sidecar)을
             사용할 수 없다. (재시도 가능)
 
-            - `MODEL_UNAVAILABLE` — 대상 모델 런타임을 현재 사용할 수 없다(미기동·축출 등). (재시도 가능)'
+            - `MODEL_UNAVAILABLE` — 대상 모델 런타임을 현재 사용할 수 없다(미기동·축출 등). (재시도 가능)
+
+            - `RUNTIME_HISTORY_UNAVAILABLE` — Runtime Control audit journal이 안전하게
+            읽히거나 기록될 수 없어 상태 변경을 시작할 수 없다. (재시도 불가)'
         '401':
           description: 'Admin Bearer token 필요
 
@@ -3751,7 +3925,10 @@ paths:
 
             이 status로 올 수 있는 `error.code`:
 
-            - `INTERNAL_ERROR` — Gateway 내부 처리 중 예기치 못한 오류가 발생했다. (재시도 불가)'
+            - `INTERNAL_ERROR` — Gateway 내부 처리 중 예기치 못한 오류가 발생했다. (재시도 불가)
+
+            - `RUNTIME_VERIFICATION_FAILED` — Runtime transition apply는 반환됐지만 후속 관측이
+            목표 상태와 수렴했음을 확인하지 못했다. (재시도 불가)'
           content:
             application/json:
               schema:
@@ -3765,6 +3942,7 @@ paths:
                         code:
                           enum:
                           - INTERNAL_ERROR
+                          - RUNTIME_VERIFICATION_FAILED
       requestBody:
         content:
           application/json:

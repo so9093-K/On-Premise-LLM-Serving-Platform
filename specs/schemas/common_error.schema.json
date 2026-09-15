@@ -30,6 +30,8 @@
             "CONFIG_REVISION_CONFLICT",
             "CONFIGURATION_WRITE_UNAVAILABLE",
             "CONFIGURATION_APPLY_FAILED",
+            "RUNTIME_HISTORY_UNAVAILABLE",
+            "RUNTIME_VERIFICATION_FAILED",
             "GPU_BUDGET_EXCEEDED",
             "MODEL_UNAVAILABLE",
             "MODEL_CAPABILITY_MISMATCH",
@@ -53,7 +55,10 @@
         },
         "param": {
           "description": "The request field that caused the error (e.g. 'response_format.json_schema' for a wrong output spec vs 'input_audio.format' for a wrong input data format). Present only for field-scoped validation errors; OpenAI-compatible.",
-          "type": ["string", "null"]
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "retryable": {
           "description": "The condition may be transient. Automatic replay also requires operation-specific replay safety and must respect Retry-After when present.",
@@ -63,10 +68,16 @@
           "type": "string"
         },
         "operation_id": {
-          "type": ["string", "null"]
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "operation_status": {
-          "type": ["string", "null"]
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "details": {
           "description": "Structured recovery information for an operation-specific error. Used for GPU budget plans, Configuration revision conflicts, and Configuration apply/verification state.",

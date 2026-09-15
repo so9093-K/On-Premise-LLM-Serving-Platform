@@ -41,6 +41,8 @@ ERROR_DEFINITIONS: dict[str, ErrorDefinition] = {
     "CONFIG_REVISION_CONFLICT": ErrorDefinition(412, False),
     "CONFIGURATION_WRITE_UNAVAILABLE": ErrorDefinition(503, False),
     "CONFIGURATION_APPLY_FAILED": ErrorDefinition(500, False),
+    "RUNTIME_HISTORY_UNAVAILABLE": ErrorDefinition(503, False),
+    "RUNTIME_VERIFICATION_FAILED": ErrorDefinition(500, False),
     "GPU_BUDGET_EXCEEDED": ErrorDefinition(409, False),
     "MODEL_UNAVAILABLE": ErrorDefinition(503, True),
     "MODEL_CAPABILITY_MISMATCH": ErrorDefinition(422, False),
