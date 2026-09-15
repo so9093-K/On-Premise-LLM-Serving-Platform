@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "MainModelOperationResponse",
+  "type": "object",
+  "required": [
+    "id",
+    "requested_profile",
+    "status",
+    "stage",
+    "created_at",
+    "updated_at"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "requested_profile": {
+      "type": "string",
+      "minLength": 1
+    },
+    "previous_profile": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "client_request_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "preparing",
+        "draining",
+        "stopping",
+        "starting",
+        "validating",
+        "rolling_back",
+        "completed",
+        "failed",
+        "rollback_failed"
+      ]
+    },
+    "stage": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "preparing",
+        "draining",
+        "stopping",
+        "starting",
+        "validating",
+        "rolling_back",
+        "completed",
+        "failed",
+        "rollback_failed"
+      ]
+    },
+    "error": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "rollback_error": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "created_at": {
+      "type": "number",
+      "minimum": 0
+    },
+    "updated_at": {
+      "type": "number",
+      "minimum": 0
+    }
+  }
+}

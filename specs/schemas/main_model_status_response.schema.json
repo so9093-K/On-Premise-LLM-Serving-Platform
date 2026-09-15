@@ -1,0 +1,144 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "MainModelStatusResponse",
+  "type": "object",
+  "required": [
+    "public_model",
+    "active_profile",
+    "gate",
+    "runtime_state",
+    "profile_locked",
+    "boot_profile",
+    "last_operation",
+    "runtime_image",
+    "observed_runtime"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "public_model": {
+      "type": "string",
+      "minLength": 1
+    },
+    "active_profile": {
+      "anyOf": [
+        {
+          "$ref": "main_model_profile.schema.json"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "last_known_good_profile": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "previous_known_good_profile": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "gate": {
+      "type": "string",
+      "enum": [
+        "open",
+        "closed"
+      ]
+    },
+    "runtime_state": {
+      "type": "string",
+      "enum": [
+        "active",
+        "stopped"
+      ]
+    },
+    "profile_locked": {
+      "type": "boolean"
+    },
+    "boot_profile": {
+      "type": "string",
+      "minLength": 1
+    },
+    "last_operation": {
+      "anyOf": [
+        {
+          "$ref": "main_model_operation_response.schema.json"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "stats": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "runtime_image": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "state_recovery_error": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "observed_runtime": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": [
+            "status",
+            "container_state",
+            "health",
+            "profile_id",
+            "observed_at"
+          ],
+          "additionalProperties": true,
+          "properties": {
+            "status": {
+              "type": "string",
+              "minLength": 1
+            },
+            "container_state": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "health": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "profile_id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "error": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "observed_at": {
+              "type": "number",
+              "minimum": 0
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  }
+}

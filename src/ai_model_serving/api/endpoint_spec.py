@@ -566,7 +566,7 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
             "ledger만 읽으므로 추론이 Docker daemon 상태에 묶이지 않습니다."
         ),
         request_schema=None,
-        response_schema=None,
+        response_schema="main_model_status_response.schema.json",
         error_codes=("MAIN_MODEL_CONTROL_UNAVAILABLE",),
     ),
     EndpointSpec(
@@ -586,7 +586,7 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
             "프로필 목록의 source of truth는 `configs/main_model_profiles.yaml`이며, 여기 없는 ID로는 전환할 수 없습니다."
         ),
         request_schema=None,
-        response_schema=None,
+        response_schema="main_model_profiles_response.schema.json",
         error_codes=("MAIN_MODEL_CONTROL_UNAVAILABLE",),
     ),
     EndpointSpec(
@@ -601,14 +601,15 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
             "`503 MAIN_MODEL_SWITCH_IN_PROGRESS`를 받습니다.\n\n"
             "- `profile` — `GET /admin/main-model/profiles`가 반환한 ID만 허용합니다. "
             "그 외 필드(model id, command 등)는 `422`로 거부되며 임의 실행 인자를 넣을 수 없습니다.\n"
-            "- `confirm_unverified` — `compatibility.status`가 `verified`가 아닌 프로필로 전환할 때 필요합니다.\n"
+            "- `confirm_unverified` — `compatibility.status`가 `unverified` 또는 `unknown`인 프로필로 "
+            "전환할 때 필요합니다. `likely`는 추가 확인 없이 허용되고 `incompatible`은 전환할 수 없습니다.\n"
             "- `request_id` — 선택적 멱등 키입니다. 진행 중이거나 방금 끝난 동일 작업이 있으면 새 전환을 "
             "시작하지 않고 그 작업을 반환하며 응답에 `reused: true`로 표시합니다(재시도 안전용이라 일정 시간 뒤 "
             "만료됩니다). 매번 새 전환을 원하면 고유한 값을 쓰거나 생략합니다.\n\n"
             "진행 상황은 `GET /admin/main-model/operations/{operation_id}` 또는 `GET /admin/main-model`의 "
             "`last_operation`으로 확인합니다. 검증 단계에서 실패하면 이전 프로필로 자동 rollback합니다."
         ),
-        request_schema=None,
+        request_schema="main_model_switch_request.schema.json",
         response_schema=None,
         error_codes=(
             "NOT_FOUND",
@@ -635,7 +636,7 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
             "Grafana `Main-model Control` 대시보드의 Latest Operation State 패널에서 실시간으로 확인합니다."
         ),
         request_schema=None,
-        response_schema=None,
+        response_schema="main_model_operation_response.schema.json",
         error_codes=("NOT_FOUND", "MAIN_MODEL_CONTROL_UNAVAILABLE"),
     ),
 ]
