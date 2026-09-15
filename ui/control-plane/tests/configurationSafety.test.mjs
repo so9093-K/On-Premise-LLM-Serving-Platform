@@ -5,6 +5,8 @@ import {
   configurationApplyRequest,
   configurationItemApplies,
   configurationResetChange,
+  configurationRollbackApplyRequest,
+  configurationRollbackTargetRevision,
   parseConfigurationDraft,
 } from '../src/configurationSafety.ts';
 
@@ -41,4 +43,33 @@ test('Configuration draft serialization follows metadata type and applicability'
   const metadata = { applicability: { features: ['retrieval'] } };
   assert.equal(configurationItemApplies(metadata, ['retrieval', 'runtime_control']), true);
   assert.equal(configurationItemApplies(metadata, ['runtime_control']), false);
+});
+
+
+test('reviewed Configuration rollback target and digest are forwarded unchanged to Apply', () => {
+  const request = configurationRollbackApplyRequest({
+    target_revision: 4,
+    plan_digest: 'c'.repeat(64),
+  });
+
+  assert.deepEqual(request, {
+    target_revision: 4,
+    plan_digest: 'c'.repeat(64),
+  });
+});
+
+
+test('Configuration rollback targets use the durable base revision instead of inferring an applied candidate', () => {
+  assert.equal(configurationRollbackTargetRevision({
+    base_revision: 0,
+    applied_revision: 1,
+  }, 1), 0);
+  assert.equal(configurationRollbackTargetRevision({
+    base_revision: 2,
+    applied_revision: null,
+  }, 3), 2);
+  assert.equal(configurationRollbackTargetRevision({
+    base_revision: 3,
+    applied_revision: 4,
+  }, 3), null);
 });

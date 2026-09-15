@@ -41,6 +41,17 @@ export type ConfigurationApplyRequest =
   paths['/admin/config']['patch']['requestBody']['content']['application/json'];
 export type ConfigurationApplyResponse =
   paths['/admin/config']['patch']['responses'][200]['content']['application/json'];
+export type ConfigurationHistoryResponse =
+  paths['/admin/config/history']['get']['responses'][200]['content']['application/json'];
+export type ConfigurationHistoryItem = ConfigurationHistoryResponse['items'][number];
+export type ConfigurationRollbackPlanRequest =
+  paths['/admin/config/rollbacks/plans']['post']['requestBody']['content']['application/json'];
+export type ConfigurationRollbackPlanResponse =
+  paths['/admin/config/rollbacks/plans']['post']['responses'][200]['content']['application/json'];
+export type ConfigurationRollbackApplyRequest =
+  paths['/admin/config/rollbacks']['post']['requestBody']['content']['application/json'];
+export type ConfigurationRollbackApplyResponse =
+  paths['/admin/config/rollbacks']['post']['responses'][200]['content']['application/json'];
 export type ConfigurationEffectiveRead = {
   data: ConfigurationEffectiveResponse;
   etag: string;
@@ -271,6 +282,44 @@ export async function applyConfigurationChange(
     token,
     {
       method: 'PATCH',
+      body: JSON.stringify(request),
+      headers: { 'If-Match': etag },
+    },
+  );
+}
+
+
+export async function fetchConfigurationHistory(
+  token: string | null,
+  cursor: string | null = null,
+): Promise<ConfigurationHistoryResponse> {
+  const query = new URLSearchParams();
+  if (cursor !== null) query.set('cursor', cursor);
+  const suffix = query.size === 0 ? '' : `?${query.toString()}`;
+  return jsonRequest<ConfigurationHistoryResponse>(`/admin/config/history${suffix}`, token);
+}
+
+export async function planConfigurationRollback(
+  token: string | null,
+  request: ConfigurationRollbackPlanRequest,
+): Promise<ConfigurationRollbackPlanResponse> {
+  return jsonRequest<ConfigurationRollbackPlanResponse>(
+    '/admin/config/rollbacks/plans',
+    token,
+    { method: 'POST', body: JSON.stringify(request) },
+  );
+}
+
+export async function applyConfigurationRollback(
+  token: string | null,
+  etag: string,
+  request: ConfigurationRollbackApplyRequest,
+): Promise<ConfigurationRollbackApplyResponse> {
+  return jsonRequest<ConfigurationRollbackApplyResponse>(
+    '/admin/config/rollbacks',
+    token,
+    {
+      method: 'POST',
       body: JSON.stringify(request),
       headers: { 'If-Match': etag },
     },

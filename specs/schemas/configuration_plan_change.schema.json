@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ConfigurationPlanChange",
+  "type": "object",
+  "required": [
+    "key",
+    "operation",
+    "operator_before",
+    "operator_after",
+    "effective_before",
+    "effective_after",
+    "effective_source_before",
+    "effective_source_after",
+    "operator_override_shadowed_after",
+    "apply_mode",
+    "risk",
+    "no_effective_change"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "key": {
+      "type": "string"
+    },
+    "operation": {
+      "type": "string",
+      "enum": [
+        "set",
+        "reset"
+      ]
+    },
+    "operator_before": {},
+    "operator_after": {},
+    "effective_before": {},
+    "effective_after": {},
+    "effective_source_before": {
+      "type": "string",
+      "enum": [
+        "repository",
+        "operator",
+        "deployment"
+      ]
+    },
+    "effective_source_after": {
+      "type": "string",
+      "enum": [
+        "repository",
+        "operator",
+        "deployment"
+      ]
+    },
+    "operator_override_shadowed_after": {
+      "type": "boolean"
+    },
+    "apply_mode": {
+      "type": "string",
+      "enum": [
+        "hot_reload",
+        "service_restart",
+        "runtime_restart",
+        "compose_restart",
+        "redeploy"
+      ]
+    },
+    "risk": {
+      "type": "string",
+      "enum": [
+        "info",
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ]
+    },
+    "no_effective_change": {
+      "type": "boolean"
+    }
+  }
+}
