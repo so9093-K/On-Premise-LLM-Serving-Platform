@@ -1,7 +1,10 @@
 import type {
   ConfigurationApplyRequest,
   ConfigurationChange,
+  ConfigurationHistoryItem,
   ConfigurationPlanResponse,
+  ConfigurationRollbackApplyRequest,
+  ConfigurationRollbackPlanResponse,
   ConfigurationSchemaItem,
 } from './api';
 
@@ -62,4 +65,21 @@ export function parseConfigurationDraft(
     return draft;
   }
   throw new Error(`Console에서 지원하지 않는 editable configuration type입니다: ${item.type}`);
+}
+
+
+export function configurationRollbackApplyRequest(
+  plan: ConfigurationRollbackPlanResponse,
+): ConfigurationRollbackApplyRequest {
+  return {
+    target_revision: plan.target_revision,
+    plan_digest: plan.plan_digest,
+  };
+}
+
+export function configurationRollbackTargetRevision(
+  item: ConfigurationHistoryItem,
+  currentRevision: number,
+): number | null {
+  return item.base_revision < currentRevision ? item.base_revision : null;
 }

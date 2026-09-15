@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from jsonschema import Draft202012Validator
 
 from ai_model_serving.configuration_schema import (
@@ -47,3 +49,19 @@ def test_configuration_read_contract_enums_match_metadata_grammar() -> None:
     assert set(effective_properties["owner"]["enum"]) == set(CONFIGURATION_OWNERS)
     assert set(effective_properties["effective_source"]["enum"]) == set(CONFIGURATION_OWNERS)
     assert set(effective_properties["control_surface"]["enum"]) == set(CONFIGURATION_CONTROL_SURFACES)
+
+
+def test_configuration_plan_change_contract_matches_metadata_grammar() -> None:
+    change = load_contract_schema("configuration_plan_change.schema.json")
+    properties = change["properties"]
+
+    assert set(properties["apply_mode"]["enum"]) == set(CONFIGURATION_APPLY_MODES)
+    assert set(properties["risk"]["enum"]) == set(CONFIGURATION_RISKS)
+
+    for schema_name in (
+        "configuration_plan_response.schema.json",
+        "configuration_rollback_plan_response.schema.json",
+        "configuration_history_response.schema.json",
+    ):
+        schema = Path("specs/schemas", schema_name).read_text(encoding="utf-8")
+        assert "configuration_plan_change.schema.json" in schema

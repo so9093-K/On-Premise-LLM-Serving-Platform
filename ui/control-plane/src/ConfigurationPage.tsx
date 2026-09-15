@@ -14,6 +14,7 @@ import {
   type ConfigurationPlanResponse,
   type ConfigurationSchemaItem,
 } from './api';
+import { ConfigurationHistoryPanel } from './ConfigurationHistoryPanel';
 import {
   configurationApplyRequest,
   configurationItemApplies,
@@ -115,6 +116,7 @@ export function ConfigurationPage({ token, onUnauthorized, deploymentFeatures }:
   const [review, setReview] = useState<ReviewedConfiguration | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [lastApply, setLastApply] = useState<ConfigurationApplyResponse | null>(null);
+  const [rollbackActive, setRollbackActive] = useState(false);
   const authClass = token === null ? 'anonymous' : 'authenticated';
 
   const schemaQuery = useQuery({
@@ -228,6 +230,7 @@ export function ConfigurationPage({ token, onUnauthorized, deploymentFeatures }:
 
   const writeStatus = effective.write_status;
   const actionPending = planMutation.isPending || applyMutation.isPending;
+  const pageActionLocked = actionPending || rollbackActive;
 
   const submitPlan = (changes: ConfigurationChange[]) => {
     planMutation.mutate({
@@ -256,7 +259,7 @@ export function ConfigurationPage({ token, onUnauthorized, deploymentFeatures }:
           <h1>Configuration</h1>
           <p>Operator-owned runtime 설정을 Edit → Plan → Review → Apply → Verify 순서로 변경합니다.</p>
         </div>
-        <Button variant="secondary" onClick={() => void refresh()} isDisabled={schemaQuery.isFetching || effectiveQuery.isFetching || actionPending}>
+        <Button variant="secondary" onClick={() => void refresh()} isDisabled={schemaQuery.isFetching || effectiveQuery.isFetching || pageActionLocked}>
           {schemaQuery.isFetching || effectiveQuery.isFetching ? '새로고침 중…' : '새로고침'}
         </Button>
       </div>
@@ -310,7 +313,7 @@ export function ConfigurationPage({ token, onUnauthorized, deploymentFeatures }:
                       <Button
                         size="sm"
                         variant="secondary"
-                        isDisabled={!editable || actionPending || value === null}
+                        isDisabled={!editable || pageActionLocked || value === null}
                         onClick={() => {
                           if (value === null) return;
                           setSelectedKey(metadata.key);
@@ -381,14 +384,14 @@ export function ConfigurationPage({ token, onUnauthorized, deploymentFeatures }:
               )}
             </div>
             <div className="review-actions">
-              <Button variant="secondary" onClick={() => { setSelectedKey(null); setReview(null); }} isDisabled={actionPending}>취소</Button>
+              <Button variant="secondary" onClick={() => { setSelectedKey(null); setReview(null); }} isDisabled={pageActionLocked}>취소</Button>
               <Button
                 variant="secondary"
                 isDanger
-                isDisabled={actionPending || selectedEffective.operator_value === null || selectedEffective.operator_value === undefined}
+                isDisabled={pageActionLocked || selectedEffective.operator_value === null || selectedEffective.operator_value === undefined}
                 onClick={() => submitPlan([configurationResetChange(selectedMetadata.key)])}
               >Override reset Plan</Button>
-              <Button variant="primary" isDisabled={actionPending} onClick={planSelectedValue}>
+              <Button variant="primary" isDisabled={pageActionLocked} onClick={planSelectedValue}>
                 {planMutation.isPending ? 'Plan 계산 중…' : '변경 Plan 검토'}
               </Button>
             </div>
@@ -430,16 +433,26 @@ export function ConfigurationPage({ token, onUnauthorized, deploymentFeatures }:
               <Alert isInline variant="info" title="적용할 변경이 없습니다.">현재 operator state와 같은 Plan이므로 Apply를 실행하지 않습니다.</Alert>
             ) : null}
             <div className="review-actions">
-              <Button variant="secondary" onClick={() => setReview(null)} isDisabled={actionPending}>Plan 닫기</Button>
+              <Button variant="secondary" onClick={() => setReview(null)} isDisabled={pageActionLocked}>Plan 닫기</Button>
               <Button
                 variant="primary"
-                isDisabled={!review.plan.would_change || actionPending}
+                isDisabled={!review.plan.would_change || pageActionLocked}
                 onClick={() => applyMutation.mutate(review)}
               >{applyMutation.isPending ? '적용·검증 중…' : '검토한 Plan 적용'}</Button>
             </div>
           </CardBody>
         </Card>
       ) : null}
+
+      <ConfigurationHistoryPanel
+        token={token}
+        onUnauthorized={onUnauthorized}
+        currentRevision={effective.revision}
+        etag={effectiveRead.etag}
+        writeAvailable={writeStatus.available}
+        locked={actionPending || review !== null || selectedKey !== null}
+        onReviewActiveChange={setRollbackActive}
+      />
 
       {lastApply ? (
         <Card>
