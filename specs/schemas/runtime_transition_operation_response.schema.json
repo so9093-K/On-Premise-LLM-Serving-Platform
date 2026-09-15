@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "RuntimeTransitionOperationResponse",
+  "type": "object",
+  "required": [
+    "version",
+    "operation_id",
+    "kind",
+    "status",
+    "phase",
+    "actor",
+    "request_id",
+    "created_at",
+    "updated_at",
+    "service_key",
+    "desired_state",
+    "force",
+    "reviewed_plan",
+    "plan_digest",
+    "before",
+    "apply_result",
+    "verification",
+    "error",
+    "durable"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "version": {"type": "integer", "const": 1},
+    "operation_id": {"type": "string", "pattern": "^rt_[0-9a-f]{32}$"},
+    "kind": {"type": "string", "const": "runtime_transition"},
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "verified",
+        "noop",
+        "rejected",
+        "apply_failed",
+        "verification_failed",
+        "interrupted_after_restart"
+      ]
+    },
+    "phase": {"type": "string", "minLength": 1},
+    "actor": {
+      "type": "object",
+      "required": ["auth_method", "actor_id"],
+      "additionalProperties": false,
+      "properties": {
+        "auth_method": {"type": "string", "minLength": 1},
+        "actor_id": {"type": "string", "minLength": 1}
+      }
+    },
+    "request_id": {"type": "string", "minLength": 1},
+    "created_at": {"type": "number", "minimum": 0},
+    "updated_at": {"type": "number", "minimum": 0},
+    "service_key": {"type": "string", "minLength": 1},
+    "desired_state": {"type": "string", "enum": ["active", "stopped"]},
+    "force": {"type": "boolean"},
+    "reviewed_plan": {"type": "boolean"},
+    "plan_digest": {
+      "anyOf": [
+        {"type": "null"},
+        {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      ]
+    },
+    "before": {"type": "object", "additionalProperties": true},
+    "apply_result": {
+      "anyOf": [
+        {"type": "null"},
+        {"type": "object", "additionalProperties": true}
+      ]
+    },
+    "verification": {
+      "anyOf": [
+        {"type": "null"},
+        {"type": "object", "additionalProperties": true}
+      ]
+    },
+    "error": {
+      "anyOf": [
+        {"type": "null"},
+        {"type": "object", "additionalProperties": true}
+      ]
+    },
+    "durable": {"type": "boolean"}
+  }
+}

@@ -12,12 +12,17 @@ from ai_model_serving.services.runtime_state import RuntimeState
 from .helpers import FakeGatewayClients, TestClient, create_gateway_app, settings
 
 class EvictingSidecar:
+    def __init__(self):
+        self.statuses = {"embed-ko": "exited", "embed": "running"}
+
     async def get_status(self):
-        return {"embed-ko": "exited"}
+        return dict(self.statuses)
 
     async def start(self, container: str, *, force: bool = False):
         assert container == "embed-ko"
         assert force is True
+        self.statuses["embed-ko"] = "running"
+        self.statuses["embed"] = "exited"
         return {"started": ["embed-ko"], "evicted": ["embed"]}
 
 
@@ -26,7 +31,7 @@ class StartReconcilingSidecar:
         self.started = False
 
     async def get_status(self):
-        return {"embed-ko": "exited"}
+        return {"embed-ko": "running" if self.started else "exited"}
 
     async def start(self, container: str, *, force: bool = False):
         assert container == "embed-ko"
@@ -39,7 +44,7 @@ class StopReconcilingSidecar:
         self.stopped = False
 
     async def get_status(self):
-        return {"embed-ko": "running"}
+        return {"embed-ko": "exited" if self.stopped else "running"}
 
     async def stop(self, container: str):
         assert container == "embed-ko"
@@ -48,9 +53,33 @@ class StopReconcilingSidecar:
 
 
 class MainStartEvictingSidecar:
+    def __init__(self):
+        self.active = False
+
+    async def main_model(self, *, observed: bool = True):
+        if self.active:
+            return {
+                "runtime_state": "active",
+                "observed_runtime": {
+                    "status": "ready",
+                    "container_state": "running",
+                },
+            }
+        return {
+            "runtime_state": "stopped",
+            "observed_runtime": {
+                "status": "stopped",
+                "container_state": "exited",
+            },
+        }
+
     async def main_start(self, *, force: bool = False):
         assert force is True
+        self.active = True
         return {"runtime_state": "active", "evicted": ["embed-ko"]}
+
+    async def get_status(self):
+        return {"embed-ko": "exited"}
 
 
 class BudgetRejectingSidecar:

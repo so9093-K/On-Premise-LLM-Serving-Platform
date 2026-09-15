@@ -8,7 +8,7 @@ from fastapi import APIRouter, HTTPException, Path, Request
 from fastapi.responses import JSONResponse
 
 from ..endpoint_spec import GATEWAY_ENDPOINTS
-from ...errors import ServiceError, error_response
+from ...errors import ServiceError, error_response, request_id_for
 from ..error_responses import sidecar_request_error_response, sidecar_unavailable_response
 from ...api_examples import (
     RUNTIME_BUDGET_EXCEEDED_EXAMPLE,
@@ -29,6 +29,13 @@ from ...api_examples import (
     main_model_profile_example,
 )
 from ...main_model.control import OPERATION_STAGES
+from ...security import AdminAuthContext
+from ...runtime_transition_history import (
+    RuntimeTransitionHistoryCursorError,
+    RuntimeTransitionHistoryNotFound,
+    RuntimeTransitionHistoryStore,
+    RuntimeTransitionHistoryUnavailable,
+)
 from ...services.runtime_state import RuntimeState, RuntimeStateStore
 from ...services.sidecar_client import (
     SidecarClient,
@@ -231,11 +238,238 @@ def _validate_service_key(service_key: str, state_store: RuntimeStateStore) -> N
         raise HTTPException(404, detail=f"runtime endpoint not found: {service_key}")
 
 
+def _admin_actor(request: Request) -> dict[str, str]:
+    context = getattr(request.state, "admin_auth_context", None)
+    if not isinstance(context, AdminAuthContext):
+        context = AdminAuthContext(auth_method="local", actor_id="local_operator")
+    return {"auth_method": context.auth_method, "actor_id": context.actor_id}
+
+
+def _history_service_error(exc: RuntimeTransitionHistoryUnavailable, request: Request) -> ServiceError:
+    return ServiceError(
+        "RUNTIME_HISTORY_UNAVAILABLE",
+        "Runtime transition history is temporarily unavailable.",
+        request_id=request_id_for(request),
+        details={"reason": exc.reason},
+    )
+
+
+def _begin_runtime_operation(
+    history: RuntimeTransitionHistoryStore,
+    request: Request,
+    *,
+    service_key: str,
+    desired_state: str,
+    force: bool,
+    plan_digest: str | None,
+    before: dict[str, Any],
+) -> str:
+    try:
+        return history.begin(
+            service_key=service_key,
+            desired_state=desired_state,
+            force=force,
+            plan_digest=plan_digest,
+            actor=_admin_actor(request),
+            request_id=request_id_for(request),
+            before=before,
+        )
+    except RuntimeTransitionHistoryUnavailable as exc:
+        raise _history_service_error(exc, request) from exc
+
+
+def _finish_runtime_operation(
+    history: RuntimeTransitionHistoryStore,
+    request: Request,
+    operation_id: str,
+    *,
+    status: str,
+    phase: str,
+    apply_result: dict[str, Any] | None,
+    verification: dict[str, Any] | None,
+    error: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    try:
+        return history.finish(
+            operation_id,
+            status=status,
+            phase=phase,
+            apply_result=apply_result,
+            verification=verification,
+            error=error,
+        )
+    except RuntimeTransitionHistoryUnavailable as exc:
+        raise _history_service_error(exc, request) from exc
+
+
+def _with_operation_header(response: JSONResponse, operation_id: str) -> JSONResponse:
+    response.headers["X-Control-Operation-ID"] = operation_id
+    return response
+
+
+def _runtime_history_query(request: Request) -> tuple[int, str | None]:
+    params = request.query_params
+    allowed = {"limit", "cursor"}
+    unknown = sorted(set(params) - allowed)
+    if unknown:
+        raise ServiceError(
+            "VALIDATION_ERROR",
+            f"unsupported runtime history query parameter(s): {', '.join(unknown)}",
+            request_id=request_id_for(request),
+            param="query",
+        )
+    for name in allowed:
+        if len(params.getlist(name)) > 1:
+            raise ServiceError(
+                "VALIDATION_ERROR",
+                f"runtime history query parameter must appear at most once: {name}",
+                request_id=request_id_for(request),
+                param=name,
+            )
+    raw_limit = params.get("limit")
+    if raw_limit is None:
+        limit = 50
+    elif raw_limit.isascii() and raw_limit.isdecimal() and 1 <= int(raw_limit) <= 200:
+        limit = int(raw_limit)
+    else:
+        raise ServiceError(
+            "VALIDATION_ERROR",
+            "limit must be an integer between 1 and 200",
+            request_id=request_id_for(request),
+            param="limit",
+        )
+    cursor = params.get("cursor")
+    if cursor == "":
+        raise ServiceError(
+            "VALIDATION_ERROR",
+            "runtime history cursor is invalid",
+            request_id=request_id_for(request),
+            param="cursor",
+        )
+    return limit, cursor
+
+
+def _secondary_converged(desired_state: str, observed_state: str | None) -> bool:
+    if desired_state == "active":
+        return observed_state == "running"
+    return observed_state in {"exited", "not_found"}
+
+
+async def _best_effort_secondary_before(
+    sidecar: SidecarClient | None,
+    container: str,
+    desired_state: str,
+) -> dict[str, Any]:
+    observed_state: str | None = None
+    if sidecar is not None:
+        try:
+            observed_state = (await sidecar.get_status()).get(container, "not_found")
+        except (SidecarRequestError, SidecarUnavailableError):
+            observed_state = None
+    return {"desired_state": desired_state, "observed_state": observed_state}
+
+
+async def _verify_secondary_transition(
+    sidecar: SidecarClient,
+    *,
+    container: str,
+    desired_state: str,
+    started: list[str],
+    stopped: list[str],
+    evicted: list[str],
+) -> dict[str, Any]:
+    statuses = await sidecar.get_status()
+    observed_state = statuses.get(container, "not_found")
+    effects: dict[str, str] = {}
+    for name in sorted(set([*started, *stopped, *evicted])):
+        effects[name] = statuses.get(name, "not_found")
+    effects_converged = all(statuses.get(name, "not_found") == "running" for name in started)
+    effects_converged = effects_converged and all(
+        statuses.get(name, "not_found") in {"exited", "not_found"}
+        for name in [*stopped, *evicted]
+    )
+    return {
+        "converged": _secondary_converged(desired_state, observed_state) and effects_converged,
+        "source": "sidecar_container_status",
+        "desired_state": desired_state,
+        "observed_state": observed_state,
+        "effects": effects,
+    }
+
+
+async def _best_effort_main_before(sidecar: SidecarClient) -> dict[str, Any]:
+    try:
+        snapshot = await sidecar.main_model()
+    except (SidecarRequestError, SidecarUnavailableError):
+        return {"runtime_state": None, "observed_state": None}
+    observed = snapshot.get("observed_runtime") or {}
+    return {
+        "runtime_state": snapshot.get("runtime_state"),
+        "observed_state": observed.get("status"),
+        "container_state": observed.get("container_state"),
+    }
+
+
+async def _verify_main_transition(
+    sidecar: SidecarClient,
+    *,
+    desired_state: str,
+    evicted: list[str],
+) -> dict[str, Any]:
+    snapshot = await sidecar.main_model()
+    observed = snapshot.get("observed_runtime") or {}
+    observed_status = observed.get("status")
+    container_state = observed.get("container_state")
+    runtime_state = snapshot.get("runtime_state")
+    if desired_state == "active":
+        target_converged = (
+            runtime_state == "active"
+            and observed_status == "ready"
+            and container_state == "running"
+        )
+    else:
+        target_converged = (
+            runtime_state == "stopped"
+            and observed_status == "stopped"
+            and container_state != "running"
+        )
+    effects: dict[str, str] = {}
+    effects_converged = True
+    if evicted:
+        statuses = await sidecar.get_status()
+        for name in sorted(set(evicted)):
+            effects[name] = statuses.get(name, "not_found")
+        effects_converged = all(state in {"exited", "not_found"} for state in effects.values())
+    return {
+        "converged": target_converged and effects_converged,
+        "source": "main_model_observed",
+        "desired_state": desired_state,
+        "runtime_state": runtime_state,
+        "observed_state": observed_status,
+        "container_state": container_state,
+        "effects": effects,
+    }
+
+
+def _verification_failure(
+    request: Request,
+    operation_id: str,
+    verification: dict[str, Any],
+) -> ServiceError:
+    return ServiceError(
+        "RUNTIME_VERIFICATION_FAILED",
+        "Runtime transition apply could not be verified against observed state.",
+        request_id=request_id_for(request),
+        details={"operation_id": operation_id, "verification": verification},
+    )
+
+
 def build_router(
     admin_dependencies: list,
     state_store: RuntimeStateStore,
     sidecar: SidecarClient | None,
     settings: Any,
+    history_store: RuntimeTransitionHistoryStore,
 ) -> APIRouter:
     router = APIRouter()
 
@@ -408,6 +642,65 @@ def build_router(
             )
         )
 
+
+    history_spec = _GW[("GET", "/admin/runtimes/operations")]
+
+    @router.get(
+        "/admin/runtimes/operations",
+        dependencies=admin_dependencies,
+        tags=[history_spec.tag],
+        summary=history_spec.summary,
+        operation_id=history_spec.operation_id,
+        description=history_spec.description,
+    )
+    async def list_runtime_transition_operations(request: Request) -> JSONResponse:
+        limit, cursor = _runtime_history_query(request)
+        try:
+            return JSONResponse(history_store.page(limit=limit, cursor=cursor))
+        except RuntimeTransitionHistoryCursorError as exc:
+            raise ServiceError(
+                "VALIDATION_ERROR",
+                str(exc),
+                request_id=request_id_for(request),
+                param="cursor",
+            ) from exc
+        except RuntimeTransitionHistoryUnavailable as exc:
+            raise _history_service_error(exc, request) from exc
+
+    history_detail_spec = _GW[("GET", "/admin/runtimes/operations/{operation_id}")]
+
+    @router.get(
+        "/admin/runtimes/operations/{operation_id}",
+        dependencies=admin_dependencies,
+        tags=[history_detail_spec.tag],
+        summary=history_detail_spec.summary,
+        operation_id=history_detail_spec.operation_id,
+        description=history_detail_spec.description,
+        openapi_extra={
+            "parameters": [
+                {
+                    "name": "operation_id",
+                    "in": "path",
+                    "required": True,
+                    "description": "Runtime transition operation id (`rt_<32 hex>`).",
+                    "schema": {"type": "string", "pattern": "^rt_[0-9a-f]{32}$"},
+                }
+            ]
+        },
+    )
+    async def get_runtime_transition_operation(request: Request) -> JSONResponse:
+        operation_id = str(request.path_params["operation_id"])
+        try:
+            return JSONResponse(history_store.get(operation_id))
+        except RuntimeTransitionHistoryNotFound as exc:
+            raise ServiceError(
+                "NOT_FOUND",
+                "runtime transition operation not found",
+                request_id=request_id_for(request),
+            ) from exc
+        except RuntimeTransitionHistoryUnavailable as exc:
+            raise _history_service_error(exc, request) from exc
+
     @router.patch(
         "/admin/runtimes/{service_key}",
         dependencies=admin_dependencies,
@@ -450,13 +743,19 @@ def build_router(
             allow_plan_digest=True,
         )
 
-        # 메인 채팅 모델도 동일 fleet의 예산 참여자이므로, 동일한 desired_state
-        # verb로 정지/시작된다. 프로필 변경은 여전히 main 전용 POST
-        # /admin/main-model/switch가 담당한다. drain/gate/canary 의미론은
-        # sidecar에 있으며, 여기서는 단순히 dispatch만 한다.
         if service_key == "main":
             if sidecar is None:
                 raise HTTPException(503, detail="admin sidecar is not configured (ADMIN_SIDECAR_URL missing)")
+            before = await _best_effort_main_before(sidecar)
+            operation_id = _begin_runtime_operation(
+                history_store,
+                request,
+                service_key=service_key,
+                desired_state=desired_state,
+                force=force,
+                plan_digest=plan_digest,
+                before=before,
+            )
             try:
                 if desired_state == "active":
                     result = (
@@ -479,14 +778,76 @@ def build_router(
                         if plan_digest
                         else await sidecar.main_stop()
                     )
-            except SidecarRequestError as exc:  # GPU 예산 admission 거부
-                return sidecar_request_error_response(exc)
+            except SidecarRequestError as exc:
+                _finish_runtime_operation(
+                    history_store,
+                    request,
+                    operation_id,
+                    status="rejected",
+                    phase="apply",
+                    apply_result=None,
+                    verification=None,
+                    error={"code": "sidecar_request_rejected", "status_code": exc.status_code},
+                )
+                return _with_operation_header(sidecar_request_error_response(exc), operation_id)
             except SidecarUnavailableError as exc:
-                return sidecar_unavailable_response(exc)
+                _finish_runtime_operation(
+                    history_store,
+                    request,
+                    operation_id,
+                    status="apply_failed",
+                    phase="apply",
+                    apply_result=None,
+                    verification=None,
+                    error={"code": "sidecar_unavailable"},
+                )
+                return _with_operation_header(sidecar_unavailable_response(exc), operation_id)
+
+            apply_result = {
+                "state": result.get("runtime_state", desired_state),
+                "evicted": list(result.get("evicted", [])),
+            }
+            try:
+                verification = await _verify_main_transition(
+                    sidecar,
+                    desired_state=desired_state,
+                    evicted=apply_result["evicted"],
+                )
+            except (SidecarRequestError, SidecarUnavailableError):
+                verification = {
+                    "converged": False,
+                    "source": "main_model_observed",
+                    "desired_state": desired_state,
+                    "reason": "observation_unavailable",
+                }
+            if not verification["converged"]:
+                _finish_runtime_operation(
+                    history_store,
+                    request,
+                    operation_id,
+                    status="verification_failed",
+                    phase="verify",
+                    apply_result=apply_result,
+                    verification=verification,
+                    error={"code": "verification_failed"},
+                )
+                raise _verification_failure(request, operation_id, verification)
+            _finish_runtime_operation(
+                history_store,
+                request,
+                operation_id,
+                status="verified",
+                phase="completed",
+                apply_result=apply_result,
+                verification=verification,
+            )
             return JSONResponse({
                 "service_key": "main",
-                "state": result.get("runtime_state", desired_state),
-                "evicted": result.get("evicted", []),
+                "state": apply_result["state"],
+                "evicted": apply_result["evicted"],
+                "operation_id": operation_id,
+                "operation_status": "verified",
+                "verification": verification,
             })
 
         _validate_service_key(service_key, state_store)
@@ -495,29 +856,105 @@ def build_router(
         if ep is None:
             raise HTTPException(404, detail=f"runtime endpoint not found: {service_key}")
         container = _container_name(ep.base_url)
+        actual: str | None = None
 
         if desired_state == "active":
             if current_state == RuntimeState.active and sidecar is None and plan_digest is None:
-                return JSONResponse({"service_key": service_key, "state": "active", "changed": False})
+                before = {"desired_state": current_state.value, "observed_state": None}
+                operation_id = _begin_runtime_operation(
+                    history_store,
+                    request,
+                    service_key=service_key,
+                    desired_state=desired_state,
+                    force=force,
+                    plan_digest=plan_digest,
+                    before=before,
+                )
+                verification = {
+                    "converged": None,
+                    "source": "desired_state_only",
+                    "desired_state": desired_state,
+                    "observed_state": None,
+                    "reason": "sidecar_unconfigured",
+                }
+                _finish_runtime_operation(
+                    history_store,
+                    request,
+                    operation_id,
+                    status="noop",
+                    phase="completed",
+                    apply_result={"changed": False},
+                    verification=verification,
+                )
+                return JSONResponse({
+                    "service_key": service_key,
+                    "state": "active",
+                    "changed": False,
+                    "operation_id": operation_id,
+                    "operation_status": "noop",
+                    "verification": verification,
+                })
             if current_state == RuntimeState.active and sidecar is not None:
                 try:
-                    actual = (await sidecar.get_status()).get(container)
+                    actual = (await sidecar.get_status()).get(container, "not_found")
                 except SidecarRequestError as exc:
-                    # 4xx는 요청이 잘못된 것이다. control plane 장애(503, retryable)로
-                    # 보고하면 성공할 수 없는 요청을 계속 재시도하게 된다.
                     return sidecar_request_error_response(exc)
                 except SidecarUnavailableError as exc:
                     return sidecar_unavailable_response(exc)
                 if actual == "running" and plan_digest is None:
-                    return JSONResponse({"service_key": service_key, "state": "active", "changed": False})
+                    operation_id = _begin_runtime_operation(
+                        history_store,
+                        request,
+                        service_key=service_key,
+                        desired_state=desired_state,
+                        force=force,
+                        plan_digest=plan_digest,
+                        before={"desired_state": current_state.value, "observed_state": actual},
+                    )
+                    verification = {
+                        "converged": True,
+                        "source": "sidecar_container_status",
+                        "desired_state": desired_state,
+                        "observed_state": actual,
+                        "effects": {},
+                    }
+                    _finish_runtime_operation(
+                        history_store,
+                        request,
+                        operation_id,
+                        status="noop",
+                        phase="completed",
+                        apply_result={"changed": False},
+                        verification=verification,
+                    )
+                    return JSONResponse({
+                        "service_key": service_key,
+                        "state": "active",
+                        "changed": False,
+                        "operation_id": operation_id,
+                        "operation_status": "noop",
+                        "verification": verification,
+                    })
             if current_state == RuntimeState.starting:
-                # stop 경로(아래)와 동일한 근거: 실제 컨테이너 상태를 재확인하지
-                # 않고 "active"라고 응답하면 아직 준비되지 않은 런타임을 준비된
-                # 것처럼 노출하게 된다. retryable=True가 실제로 나가야 하므로
-                # _runtime_transitioning_response()를 쓴다(위 주석 참고).
                 return _runtime_transitioning_response()
             if sidecar is None:
                 raise HTTPException(503, detail="admin sidecar is not configured (ADMIN_SIDECAR_URL missing)")
+            before = {
+                "desired_state": current_state.value,
+                "observed_state": actual,
+            }
+            if actual is None:
+                observed = await _best_effort_secondary_before(sidecar, container, current_state.value)
+                before["observed_state"] = observed["observed_state"]
+            operation_id = _begin_runtime_operation(
+                history_store,
+                request,
+                service_key=service_key,
+                desired_state=desired_state,
+                force=force,
+                plan_digest=plan_digest,
+                before=before,
+            )
             await state_store.set(
                 service_key,
                 RuntimeState.starting,
@@ -531,14 +968,23 @@ def build_router(
                     else await sidecar.start(container, force=force)
                 )
             except SidecarRequestError as exc:
-                # GPU 예산 admission 거부: 상태 코드와 축출 계획을 그대로 노출한다.
                 await state_store.set(
                     service_key,
                     RuntimeState.stopped,
                     reason="start_rejected",
                     source="runtime_control",
                 )
-                return sidecar_request_error_response(exc)
+                _finish_runtime_operation(
+                    history_store,
+                    request,
+                    operation_id,
+                    status="rejected",
+                    phase="apply",
+                    apply_result=None,
+                    verification=None,
+                    error={"code": "sidecar_request_rejected", "status_code": exc.status_code},
+                )
+                return _with_operation_header(sidecar_request_error_response(exc), operation_id)
             except SidecarUnavailableError as exc:
                 await state_store.set(
                     service_key,
@@ -546,7 +992,17 @@ def build_router(
                     reason="start_sidecar_unavailable",
                     source="runtime_control",
                 )
-                return sidecar_unavailable_response(exc)
+                _finish_runtime_operation(
+                    history_store,
+                    request,
+                    operation_id,
+                    status="apply_failed",
+                    phase="apply",
+                    apply_result=None,
+                    verification=None,
+                    error={"code": "sidecar_unavailable"},
+                )
+                return _with_operation_header(sidecar_unavailable_response(exc), operation_id)
             started_containers = list(result.get("started", []))
             evicted_containers = list(result.get("evicted", []))
             for evicted_container in evicted_containers:
@@ -573,62 +1029,240 @@ def build_router(
                 reason="started_by_runtime_control",
                 source="runtime_control",
             )
+            apply_result = {
+                "containers_started": started_containers,
+                "evicted": evicted_containers,
+            }
+            try:
+                verification = await _verify_secondary_transition(
+                    sidecar,
+                    container=container,
+                    desired_state=desired_state,
+                    started=started_containers,
+                    stopped=[],
+                    evicted=evicted_containers,
+                )
+            except (SidecarRequestError, SidecarUnavailableError):
+                verification = {
+                    "converged": False,
+                    "source": "sidecar_container_status",
+                    "desired_state": desired_state,
+                    "observed_state": None,
+                    "reason": "observation_unavailable",
+                }
+            if not verification["converged"]:
+                _finish_runtime_operation(
+                    history_store,
+                    request,
+                    operation_id,
+                    status="verification_failed",
+                    phase="verify",
+                    apply_result=apply_result,
+                    verification=verification,
+                    error={"code": "verification_failed"},
+                )
+                raise _verification_failure(request, operation_id, verification)
+            _finish_runtime_operation(
+                history_store,
+                request,
+                operation_id,
+                status="verified",
+                phase="completed",
+                apply_result=apply_result,
+                verification=verification,
+            )
             return JSONResponse({
                 "service_key": service_key,
                 "state": "active",
-                "containers_started": started_containers,
-                "evicted": evicted_containers,
+                **apply_result,
+                "operation_id": operation_id,
+                "operation_status": "verified",
+                "verification": verification,
             })
 
-        else:  # desired_state == "stopped"
-            if current_state == RuntimeState.stopped and sidecar is None and plan_digest is None:
-                return JSONResponse({"service_key": service_key, "state": "stopped", "changed": False})
-            if current_state == RuntimeState.stopped and sidecar is not None:
-                try:
-                    actual = (await sidecar.get_status()).get(container)
-                except SidecarRequestError as exc:
-                    # 4xx는 요청이 잘못된 것이다. control plane 장애(503, retryable)로
-                    # 보고하면 성공할 수 없는 요청을 계속 재시도하게 된다.
-                    return sidecar_request_error_response(exc)
-                except SidecarUnavailableError as exc:
-                    return sidecar_unavailable_response(exc)
-                if actual != "running" and plan_digest is None:
-                    return JSONResponse({"service_key": service_key, "state": "stopped", "changed": False})
-            if current_state == RuntimeState.starting:
-                # 일시적인 "아직 준비 안 됨, 재시도" 상태. retryable=True가 실제로
-                # 나가야 하므로 _runtime_transitioning_response()를 쓴다(위 주석 참고).
-                return _runtime_transitioning_response()
-            if sidecar is None:
-                raise HTTPException(503, detail="admin sidecar is not configured (ADMIN_SIDECAR_URL missing)")
-            await state_store.set(
-                service_key,
-                RuntimeState.stopped,
-                reason="operator_stop_requested",
-                source="runtime_control",
+        if current_state == RuntimeState.stopped and sidecar is None and plan_digest is None:
+            before = {"desired_state": current_state.value, "observed_state": None}
+            operation_id = _begin_runtime_operation(
+                history_store,
+                request,
+                service_key=service_key,
+                desired_state=desired_state,
+                force=force,
+                plan_digest=plan_digest,
+                before=before,
             )
-            try:
-                stopped = (
-                    await sidecar.stop(container, plan_digest=plan_digest)
-                    if plan_digest
-                    else await sidecar.stop(container)
-                )
-            except SidecarRequestError as exc:
-                # 4xx는 요청이 잘못된 것이다. control plane 장애(503, retryable)로
-                # 보고하면 성공할 수 없는 요청을 계속 재시도하게 된다.
-                return sidecar_request_error_response(exc)
-            except SidecarUnavailableError as exc:
-                await state_store.set(
-                    service_key,
-                    RuntimeState.active,
-                    reason="stop_sidecar_unavailable",
-                    source="runtime_control",
-                )
-                return sidecar_unavailable_response(exc)
+            verification = {
+                "converged": None,
+                "source": "desired_state_only",
+                "desired_state": desired_state,
+                "observed_state": None,
+                "reason": "sidecar_unconfigured",
+            }
+            _finish_runtime_operation(
+                history_store,
+                request,
+                operation_id,
+                status="noop",
+                phase="completed",
+                apply_result={"changed": False},
+                verification=verification,
+            )
             return JSONResponse({
                 "service_key": service_key,
                 "state": "stopped",
-                "containers_stopped": stopped,
+                "changed": False,
+                "operation_id": operation_id,
+                "operation_status": "noop",
+                "verification": verification,
             })
+        if current_state == RuntimeState.stopped and sidecar is not None:
+            try:
+                actual = (await sidecar.get_status()).get(container, "not_found")
+            except SidecarRequestError as exc:
+                return sidecar_request_error_response(exc)
+            except SidecarUnavailableError as exc:
+                return sidecar_unavailable_response(exc)
+            if actual in {"exited", "not_found"} and plan_digest is None:
+                operation_id = _begin_runtime_operation(
+                    history_store,
+                    request,
+                    service_key=service_key,
+                    desired_state=desired_state,
+                    force=force,
+                    plan_digest=plan_digest,
+                    before={"desired_state": current_state.value, "observed_state": actual},
+                )
+                verification = {
+                    "converged": True,
+                    "source": "sidecar_container_status",
+                    "desired_state": desired_state,
+                    "observed_state": actual,
+                    "effects": {},
+                }
+                _finish_runtime_operation(
+                    history_store,
+                    request,
+                    operation_id,
+                    status="noop",
+                    phase="completed",
+                    apply_result={"changed": False},
+                    verification=verification,
+                )
+                return JSONResponse({
+                    "service_key": service_key,
+                    "state": "stopped",
+                    "changed": False,
+                    "operation_id": operation_id,
+                    "operation_status": "noop",
+                    "verification": verification,
+                })
+        if current_state == RuntimeState.starting:
+            return _runtime_transitioning_response()
+        if sidecar is None:
+            raise HTTPException(503, detail="admin sidecar is not configured (ADMIN_SIDECAR_URL missing)")
+        before = {"desired_state": current_state.value, "observed_state": actual}
+        if actual is None:
+            observed = await _best_effort_secondary_before(sidecar, container, current_state.value)
+            before["observed_state"] = observed["observed_state"]
+        operation_id = _begin_runtime_operation(
+            history_store,
+            request,
+            service_key=service_key,
+            desired_state=desired_state,
+            force=force,
+            plan_digest=plan_digest,
+            before=before,
+        )
+        await state_store.set(
+            service_key,
+            RuntimeState.stopped,
+            reason="operator_stop_requested",
+            source="runtime_control",
+        )
+        try:
+            stopped_containers = (
+                await sidecar.stop(container, plan_digest=plan_digest)
+                if plan_digest
+                else await sidecar.stop(container)
+            )
+        except SidecarRequestError as exc:
+            _finish_runtime_operation(
+                history_store,
+                request,
+                operation_id,
+                status="rejected",
+                phase="apply",
+                apply_result=None,
+                verification=None,
+                error={"code": "sidecar_request_rejected", "status_code": exc.status_code},
+            )
+            return _with_operation_header(sidecar_request_error_response(exc), operation_id)
+        except SidecarUnavailableError as exc:
+            await state_store.set(
+                service_key,
+                RuntimeState.active,
+                reason="stop_sidecar_unavailable",
+                source="runtime_control",
+            )
+            _finish_runtime_operation(
+                history_store,
+                request,
+                operation_id,
+                status="apply_failed",
+                phase="apply",
+                apply_result=None,
+                verification=None,
+                error={"code": "sidecar_unavailable"},
+            )
+            return _with_operation_header(sidecar_unavailable_response(exc), operation_id)
+        stopped = list(stopped_containers)
+        apply_result = {"containers_stopped": stopped}
+        try:
+            verification = await _verify_secondary_transition(
+                sidecar,
+                container=container,
+                desired_state=desired_state,
+                started=[],
+                stopped=stopped,
+                evicted=[],
+            )
+        except (SidecarRequestError, SidecarUnavailableError):
+            verification = {
+                "converged": False,
+                "source": "sidecar_container_status",
+                "desired_state": desired_state,
+                "observed_state": None,
+                "reason": "observation_unavailable",
+            }
+        if not verification["converged"]:
+            _finish_runtime_operation(
+                history_store,
+                request,
+                operation_id,
+                status="verification_failed",
+                phase="verify",
+                apply_result=apply_result,
+                verification=verification,
+                error={"code": "verification_failed"},
+            )
+            raise _verification_failure(request, operation_id, verification)
+        _finish_runtime_operation(
+            history_store,
+            request,
+            operation_id,
+            status="verified",
+            phase="completed",
+            apply_result=apply_result,
+            verification=verification,
+        )
+        return JSONResponse({
+            "service_key": service_key,
+            "state": "stopped",
+            **apply_result,
+            "operation_id": operation_id,
+            "operation_status": "verified",
+            "verification": verification,
+        })
 
     async def require_sidecar() -> SidecarClient:
         if sidecar is None:

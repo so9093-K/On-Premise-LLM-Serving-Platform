@@ -42,6 +42,12 @@ errors:
   CONFIGURATION_APPLY_FAILED:
     meaning: "operator desired state 저장 이후 runtime 적용 또는 검증 단계가 완료되지 못했다."
     action: "operation_id와 error.details의 phase·revision 상태를 확인한다. 재시작 시 persisted desired state가 다시 hydrate된다."
+  RUNTIME_HISTORY_UNAVAILABLE:
+    meaning: "Runtime Control audit journal이 안전하게 읽히거나 기록될 수 없어 상태 변경을 시작할 수 없다."
+    action: "persistent platform state와 runtime-history 디렉터리를 복구한 뒤 새 Plan을 검토해 다시 Apply한다."
+  RUNTIME_VERIFICATION_FAILED:
+    meaning: "Runtime transition apply는 반환됐지만 후속 관측이 목표 상태와 수렴했음을 확인하지 못했다."
+    action: "error.details.operation_id와 /admin/runtimes/operations 기록을 확인하고 현재 runtime 상태를 다시 조회한다. 자동 재실행하지 않는다."
   GPU_BUDGET_EXCEEDED:
     meaning: "요청한 런타임을 시작할 GPU VRAM 예산이 부족하다."
     action: "error.details.plan.stop의 런타임을 정지한 뒤 재시도하거나 force=true로 자동 축출을 요청한다."
