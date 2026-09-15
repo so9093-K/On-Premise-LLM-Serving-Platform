@@ -5,6 +5,7 @@ import { Navigate, NavLink, Route, Routes } from 'react-router-dom';
 
 import { ApiError, fetchBootstrap, type BootstrapResponse, verifyAdminToken } from './api';
 import { useAdminSession } from './auth/AdminSessionContext';
+import { ConfigurationPage } from './ConfigurationPage';
 import { MainModelPage } from './MainModelPage';
 import { RuntimePage } from './RuntimePage';
 
@@ -198,7 +199,7 @@ function Shell({ bootstrap }: { bootstrap: BootstrapResponse }) {
             <Route path="/" element={<Overview bootstrap={bootstrap} />} />
             <Route path="/runtimes" element={<RuntimePage token={token} onUnauthorized={clearToken} />} />
             <Route path="/main-model" element={<MainModelPage token={token} onUnauthorized={clearToken} />} />
-            <Route path="/configuration" element={<Placeholder title="Configuration" />} />
+            <Route path="/configuration" element={<ConfigurationPage token={token} onUnauthorized={clearToken} deploymentFeatures={bootstrap.deployment.features} />} />
             <Route path="/operations" element={<Placeholder title="Operations" />} />
             <Route path="/history" element={<Placeholder title="History" />} />
             <Route path="*" element={<Navigate to="/" replace />} />
