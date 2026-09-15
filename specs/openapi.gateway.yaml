@@ -3222,7 +3222,8 @@ paths:
           description: Successful Response
           content:
             application/json:
-              schema: {}
+              schema:
+                $ref: ./schemas/runtime_list_response.schema.json
               examples:
                 all_active:
                   summary: 전체 활성
@@ -3308,6 +3309,7 @@ paths:
                           - UNAUTHORIZED
       security:
       - adminBearerAuth: []
+      x-response-contract-schema: runtime_list_response.schema.json
   /admin/runtimes/{service_key}/plans:
     post:
       tags:
@@ -3685,7 +3687,8 @@ paths:
           description: Successful Response
           content:
             application/json:
-              schema: {}
+              schema:
+                $ref: ./schemas/runtime_transition_apply_response.schema.json
               examples:
                 to_stopped:
                   summary: 보조 중지 (VRAM 회수)
@@ -3950,6 +3953,7 @@ paths:
               $ref: ./schemas/runtime_transition_apply_request.schema.json
         required: true
       x-contract-schema: runtime_transition_apply_request.schema.json
+      x-response-contract-schema: runtime_transition_apply_response.schema.json
   /admin/main-model:
     get:
       tags:

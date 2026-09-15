@@ -5,6 +5,7 @@ import { Navigate, NavLink, Route, Routes } from 'react-router-dom';
 
 import { ApiError, fetchBootstrap, type BootstrapResponse, verifyAdminToken } from './api';
 import { useAdminSession } from './auth/AdminSessionContext';
+import { RuntimePage } from './RuntimePage';
 
 const SUPPORTED_BOOTSTRAP_VERSION = 1;
 
@@ -158,7 +159,7 @@ function Placeholder({ title }: { title: string }) {
 }
 
 function Shell({ bootstrap }: { bootstrap: BootstrapResponse }) {
-  const { clearToken } = useAdminSession();
+  const { token, clearToken } = useAdminSession();
   const sections = SECTIONS.filter((section) => section.enabled(bootstrap));
   const externalLinks = [
     ['API Docs', bootstrap.links.docs],
@@ -194,7 +195,7 @@ function Shell({ bootstrap }: { bootstrap: BootstrapResponse }) {
         <main className="content">
           <Routes>
             <Route path="/" element={<Overview bootstrap={bootstrap} />} />
-            <Route path="/runtimes" element={<Placeholder title="Runtimes" />} />
+            <Route path="/runtimes" element={<RuntimePage token={token} onUnauthorized={clearToken} />} />
             <Route path="/main-model" element={<Placeholder title="Main Model" />} />
             <Route path="/configuration" element={<Placeholder title="Configuration" />} />
             <Route path="/operations" element={<Placeholder title="Operations" />} />
