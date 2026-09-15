@@ -1,8 +1,13 @@
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import replace
+from pathlib import Path
 
+from fastapi import FastAPI
+
+from ai_model_serving.admin_console import register_admin_console
 from ai_model_serving.apps.gateway import create_gateway_app
 from ai_model_serving.settings import DocumentationSettings
 
@@ -52,6 +57,27 @@ def test_console_hashed_assets_are_immutable_and_not_counted_as_api_requests() -
 
     metrics = client.get('/metrics').text
     assert '/admin/console/assets/' not in metrics
+
+
+def test_console_only_serves_assets_declared_by_generated_manifest(tmp_path: Path) -> None:
+    console_root = tmp_path / 'control-plane'
+    assets_root = console_root / 'assets'
+    assets_root.mkdir(parents=True)
+    (console_root / 'index.html').write_text('<div id="root"></div>', encoding='utf-8')
+    (assets_root / 'allowed.js').write_text('console.log("allowed")', encoding='utf-8')
+    (assets_root / 'unlisted.js').write_text('console.log("unlisted")', encoding='utf-8')
+    (console_root / 'asset-manifest.json').write_text(
+        json.dumps({'index.html': {'file': 'assets/allowed.js', 'isEntry': True}}),
+        encoding='utf-8',
+    )
+
+    app = FastAPI()
+    register_admin_console(app, root=console_root)
+    client = TestClient(app)
+
+    assert client.get('/admin/console/assets/allowed.js').status_code == 200
+    assert client.get('/admin/console/assets/unlisted.js').status_code == 404
+    assert client.get('/admin/console/assets/%2e%2e/index.html').status_code == 404
 
 
 def test_console_client_route_falls_back_to_spa_entry() -> None:

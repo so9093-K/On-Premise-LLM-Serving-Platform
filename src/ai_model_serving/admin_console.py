@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from pathlib import Path
+import json
+from pathlib import Path, PurePosixPath
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse, RedirectResponse
@@ -37,6 +38,56 @@ _ASSET_HEADERS = {
 }
 
 
+def _manifest_asset_files(manifest_path: Path, assets_root: Path) -> dict[str, Path]:
+    """Resolve the generated manifest into a trusted URL-to-file allowlist.
+
+    Request path values must never participate in filesystem path construction. The
+    checked-in Vite manifest is validated once during application composition and owns
+    the exact set of immutable assets that the server may expose.
+    """
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise RuntimeError("Admin Console asset manifest is unreadable or invalid") from exc
+    if not isinstance(manifest, dict):
+        raise RuntimeError("Admin Console asset manifest must be a JSON object")
+
+    references: set[str] = set()
+    for entry in manifest.values():
+        if not isinstance(entry, dict):
+            raise RuntimeError("Admin Console asset manifest entries must be objects")
+        file_name = entry.get("file")
+        if file_name is not None:
+            if not isinstance(file_name, str):
+                raise RuntimeError("Admin Console manifest file must be a string")
+            references.add(file_name)
+        for field in ("css", "assets"):
+            values = entry.get(field, [])
+            if not isinstance(values, list) or any(not isinstance(value, str) for value in values):
+                raise RuntimeError(f"Admin Console manifest {field} must be a string array")
+            references.update(values)
+
+    files: dict[str, Path] = {}
+    for reference in sorted(references):
+        logical = PurePosixPath(reference)
+        if (
+            logical.is_absolute()
+            or len(logical.parts) < 2
+            or logical.parts[0] != "assets"
+            or ".." in logical.parts
+        ):
+            raise RuntimeError(f"Admin Console manifest contains invalid asset path: {reference}")
+        relative = PurePosixPath(*logical.parts[1:])
+        candidate = (assets_root / Path(*relative.parts)).resolve()
+        if not candidate.is_relative_to(assets_root) or not candidate.is_file():
+            raise RuntimeError(f"Admin Console generated asset is missing or unsafe: {reference}")
+        files[relative.as_posix()] = candidate
+
+    if not files:
+        raise RuntimeError("Admin Console asset manifest does not declare any generated assets")
+    return files
+
+
 def register_admin_console(app: FastAPI, *, root: Path | None = None) -> None:
     """Register the self-hosted Control Plane Console independently of API docs.
 
@@ -51,6 +102,7 @@ def register_admin_console(app: FastAPI, *, root: Path | None = None) -> None:
     for required in (index_path, manifest_path):
         if not required.is_file():
             raise RuntimeError(f"Admin Console generated artifact is missing: {required}")
+    asset_files = _manifest_asset_files(manifest_path, assets_root)
 
     @app.get(CONSOLE_PREFIX, include_in_schema=False)
     async def admin_console_redirect() -> RedirectResponse:
@@ -62,8 +114,8 @@ def register_admin_console(app: FastAPI, *, root: Path | None = None) -> None:
 
     @app.get(f"{CONSOLE_PREFIX}/assets/{{asset_path:path}}", include_in_schema=False)
     async def admin_console_asset(asset_path: str) -> FileResponse:
-        candidate = (assets_root / asset_path).resolve()
-        if not candidate.is_relative_to(assets_root) or not candidate.is_file():
+        candidate = asset_files.get(asset_path)
+        if candidate is None:
             raise HTTPException(status_code=404, detail="Admin Console asset not found.")
         return FileResponse(candidate, headers=_ASSET_HEADERS)
 
