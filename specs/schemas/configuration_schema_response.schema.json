@@ -1,0 +1,122 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ConfigurationSchemaResponse",
+  "type": "object",
+  "required": ["version", "items", "write_status"],
+  "additionalProperties": false,
+  "properties": {
+    "version": {"const": 2},
+    "items": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/item"}
+    },
+    "write_status": {"$ref": "#/$defs/write_status"}
+  },
+  "$defs": {
+    "write_status": {
+      "type": "object",
+      "required": [
+        "available",
+        "reason",
+        "store_revision",
+        "resolver_revision",
+        "runtime_revision",
+        "synchronized",
+        "pending_operations"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "available": {"type": "boolean"},
+        "reason": {"type": ["string", "null"]},
+        "store_revision": {"type": ["integer", "null"], "minimum": 0},
+        "resolver_revision": {"type": "integer", "minimum": 0},
+        "runtime_revision": {"type": "integer", "minimum": 0},
+        "synchronized": {"type": "boolean"},
+        "pending_operations": {"type": ["integer", "null"], "minimum": 0}
+      }
+    },
+    "item": {
+      "type": "object",
+      "required": [
+        "key",
+        "label",
+        "group",
+        "order",
+        "type",
+        "owner",
+        "editable",
+        "control_surface",
+        "sensitive",
+        "effective_source",
+        "apply_mode",
+        "risk",
+        "applicability",
+        "meaning",
+        "help",
+        "related_adrs"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "key": {"type": "string", "minLength": 1},
+        "label": {"type": "string", "minLength": 1},
+        "group": {"type": "string", "minLength": 1},
+        "order": {"type": "integer", "minimum": 0},
+        "type": {
+          "type": "string",
+          "enum": ["string", "integer", "number", "boolean", "enum", "url", "array", "secret"]
+        },
+        "owner": {
+          "type": "string",
+          "enum": ["repository", "operator", "deployment", "runtime", "secret"]
+        },
+        "editable": {"type": "boolean"},
+        "control_surface": {
+          "type": "string",
+          "enum": ["configuration", "deployment", "runtime", "main_model", "secret", "access_profile", "repository"]
+        },
+        "sensitive": {"type": "boolean"},
+        "effective_source": {
+          "type": "string",
+          "enum": ["repository", "operator", "deployment", "runtime", "secret"]
+        },
+        "apply_mode": {
+          "type": "string",
+          "enum": ["hot_reload", "service_restart", "runtime_restart", "compose_restart", "redeploy"]
+        },
+        "risk": {
+          "type": "string",
+          "enum": ["info", "low", "medium", "high", "critical"]
+        },
+        "applicability": {
+          "type": "object",
+          "required": ["features"],
+          "additionalProperties": false,
+          "properties": {
+            "features": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {"type": "string", "minLength": 1}
+            }
+          }
+        },
+        "meaning": {"type": "string", "minLength": 1},
+        "help": {"type": "string", "minLength": 1},
+        "related_adrs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "pattern": "^ADR-"}
+        },
+        "minimum": {"type": "number"},
+        "maximum": {"type": "number"},
+        "unit": {"type": "string", "minLength": 1},
+        "enum": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"type": ["string", "number", "boolean", "null"]}
+        }
+      }
+    }
+  }
+}
