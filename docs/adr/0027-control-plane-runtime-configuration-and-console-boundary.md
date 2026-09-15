@@ -9,8 +9,9 @@ Accepted
 ADR-0021은 repository default, operator override, deployment environment, runtime state를
 분리하고, operator-owned 설정에 revision/history를 갖는 mutation contract를 후속 단계로
 정했다. 이 ADR을 처음 작성할 때는 read-only Configuration Plane까지만 완료되어 있었지만,
-현재는 persistent operator store, Plan/Apply/Verify, History/Rollback까지 구현되어 있다.
-남은 Control Plane backend 경계는 Runtime Transition Plan 이후 browser bootstrap/capabilities다.
+현재는 persistent operator store, Plan/Apply/Verify, History/Rollback, Runtime Transition Plan,
+browser bootstrap/capability projection까지 backend control contract가 구현되어 있다.
+남은 v1 경계는 이 계약을 same-origin으로 소비하는 self-hosted Admin Console이다.
 
 그 사이 ADR-0025가 일반 사용자의 접근 UX를 `ACCESS_PROFILE=local|private|edge`로
 단순화했다. 따라서 향후 Admin Console이 이전의 `AUTH_MODE`/`EXPOSURE_MODE` primitive를

@@ -174,6 +174,40 @@ with zipfile.ZipFile(out) as zf:
             "Release ZIP is missing self-host documentation bundle(s): "
             + ", ".join(sorted(missing_docs_assets))
         )
+    console_root = "src/ai_model_serving/static/control-plane/"
+    console_index = console_root + "index.html"
+    console_manifest_member = console_root + "asset-manifest.json"
+    missing_console_entry = {console_index, console_manifest_member} - actual_payload
+    if missing_console_entry:
+        raise SystemExit(
+            "Release ZIP is missing Control Plane Console entry artifact(s): "
+            + ", ".join(sorted(missing_console_entry))
+        )
+    try:
+        console_manifest = json.loads(zf.read(prefix + console_manifest_member))
+    except (KeyError, json.JSONDecodeError) as exc:
+        raise SystemExit("Release ZIP has invalid Control Plane Console asset manifest") from exc
+    if not isinstance(console_manifest, dict):
+        raise SystemExit("Control Plane Console asset manifest must be an object")
+    required_console_assets = set()
+    for entry in console_manifest.values():
+        if not isinstance(entry, dict):
+            raise SystemExit("Control Plane Console manifest entries must be objects")
+        file_name = entry.get("file")
+        if isinstance(file_name, str):
+            required_console_assets.add(console_root + file_name)
+        for field in ("css", "assets"):
+            values = entry.get(field, [])
+            if not isinstance(values, list) or any(not isinstance(item, str) for item in values):
+                raise SystemExit(f"Control Plane Console manifest {field} must be a string array")
+            required_console_assets.update(console_root + item for item in values)
+    missing_console_assets = required_console_assets - actual_payload
+    if missing_console_assets:
+        raise SystemExit(
+            "Release ZIP is missing Control Plane Console generated asset(s): "
+            + ", ".join(sorted(missing_console_assets))
+        )
+
     missing_legal = {"LICENSE", "NOTICE"} - actual_payload
     if missing_legal:
         raise SystemExit("Release ZIP is missing legal file(s): " + ", ".join(sorted(missing_legal)))

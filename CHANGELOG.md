@@ -6,6 +6,8 @@
 
 ### Added
 
+- Gateway가 `/admin/console/`에서 first-party Control Plane Console의 generated asset을 same-origin으로 제공하는 foundation을 추가했다. Console은 docs enable flag와 독립적으로 제공되고 Bootstrap capability를 먼저 소비하며, 보호된 profile의 Admin key는 브라우저 메모리에만 유지한다. Frontend source는 OpenAPI-derived TypeScript type과 deterministic checked-in dist를 사용하고 production runtime에는 Node/npm을 포함하지 않는다.
+
 - macOS·Ubuntu 개발 환경을 위한 `make setup-dev`와 `make doctor-dev`, GitHub Actions 검증 workflow를 추가했다. app/contract 진입점에서는 Python을 확인하고 운영 shell helper용 Bash는 doctor에서 별도 진단한다. 기존 `.env`와 runtime state는 유지하며 GPU 런타임 검증과는 별도다.
 
 - OpenAI 표준 요청 필드를 chat·embedding API에서 받는다. `max_completion_tokens`(OpenAI가 `max_tokens`를 대체한 이름, 같은 한도를 가리키며 upstream 전에 `max_tokens`로 접힌다 — 두 이름을 함께 보내면 422), `developer` 역할(`system`을 대체한 이름, chat template이 동일하게 처리), `user` 식별자(형식만 검증하고 런타임에는 전달하지 않는다). 이전에는 셋 다 `422 VALIDATION_ERROR`라 표준 클라이언트를 그대로 붙일 수 없었다.

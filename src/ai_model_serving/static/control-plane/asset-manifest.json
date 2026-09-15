@@ -1,0 +1,68 @@
+{
+  "index.html": {
+    "file": "assets/index-DIKudjf-.js",
+    "name": "index",
+    "src": "index.html",
+    "isEntry": true,
+    "css": [
+      "assets/index-DKUqaRss.css"
+    ],
+    "assets": [
+      "assets/RedHatTextVF-DNKNjMr3.woff2",
+      "assets/RedHatTextVF-Italic-Bw8r3dX4.woff2",
+      "assets/RedHatDisplayVF-D7m-OdR-.woff2",
+      "assets/RedHatDisplayVF-Italic-DWi3aqlN.woff2",
+      "assets/RedHatMonoVF-DR_keSsW.woff2",
+      "assets/RedHatMonoVF-Italic-DxqvCP8M.woff2",
+      "assets/pf-v6-pficon-Dy6oiu9u.woff2",
+      "assets/PF-Bkg-Generic-Light-BCQFATCY.svg",
+      "assets/Felt-Bkg-Generic-Light-CLIWo2pl.svg",
+      "assets/PF-Bkg-Generic-Dark-BXzEO4HC.svg",
+      "assets/Felt-Bkg-Generic-Dark-C47rH4Qs.svg"
+    ]
+  },
+  "node_modules/@patternfly/react-core/dist/styles/assets/fonts/RedHatDisplay/RedHatDisplayVF-Italic.woff2": {
+    "file": "assets/RedHatDisplayVF-Italic-DWi3aqlN.woff2",
+    "src": "node_modules/@patternfly/react-core/dist/styles/assets/fonts/RedHatDisplay/RedHatDisplayVF-Italic.woff2"
+  },
+  "node_modules/@patternfly/react-core/dist/styles/assets/fonts/RedHatDisplay/RedHatDisplayVF.woff2": {
+    "file": "assets/RedHatDisplayVF-D7m-OdR-.woff2",
+    "src": "node_modules/@patternfly/react-core/dist/styles/assets/fonts/RedHatDisplay/RedHatDisplayVF.woff2"
+  },
+  "node_modules/@patternfly/react-core/dist/styles/assets/fonts/RedHatMono/RedHatMonoVF-Italic.woff2": {
+    "file": "assets/RedHatMonoVF-Italic-DxqvCP8M.woff2",
+    "src": "node_modules/@patternfly/react-core/dist/styles/assets/fonts/RedHatMono/RedHatMonoVF-Italic.woff2"
+  },
+  "node_modules/@patternfly/react-core/dist/styles/assets/fonts/RedHatMono/RedHatMonoVF.woff2": {
+    "file": "assets/RedHatMonoVF-DR_keSsW.woff2",
+    "src": "node_modules/@patternfly/react-core/dist/styles/assets/fonts/RedHatMono/RedHatMonoVF.woff2"
+  },
+  "node_modules/@patternfly/react-core/dist/styles/assets/fonts/RedHatText/RedHatTextVF-Italic.woff2": {
+    "file": "assets/RedHatTextVF-Italic-Bw8r3dX4.woff2",
+    "src": "node_modules/@patternfly/react-core/dist/styles/assets/fonts/RedHatText/RedHatTextVF-Italic.woff2"
+  },
+  "node_modules/@patternfly/react-core/dist/styles/assets/fonts/RedHatText/RedHatTextVF.woff2": {
+    "file": "assets/RedHatTextVF-DNKNjMr3.woff2",
+    "src": "node_modules/@patternfly/react-core/dist/styles/assets/fonts/RedHatText/RedHatTextVF.woff2"
+  },
+  "node_modules/@patternfly/react-core/dist/styles/assets/images/Felt-Bkg-Generic-Dark.svg": {
+    "file": "assets/Felt-Bkg-Generic-Dark-C47rH4Qs.svg",
+    "src": "node_modules/@patternfly/react-core/dist/styles/assets/images/Felt-Bkg-Generic-Dark.svg"
+  },
+  "node_modules/@patternfly/react-core/dist/styles/assets/images/Felt-Bkg-Generic-Light.svg": {
+    "file": "assets/Felt-Bkg-Generic-Light-CLIWo2pl.svg",
+    "src": "node_modules/@patternfly/react-core/dist/styles/assets/images/Felt-Bkg-Generic-Light.svg"
+  },
+  "node_modules/@patternfly/react-core/dist/styles/assets/images/PF-Bkg-Generic-Dark.svg": {
+    "file": "assets/PF-Bkg-Generic-Dark-BXzEO4HC.svg",
+    "src": "node_modules/@patternfly/react-core/dist/styles/assets/images/PF-Bkg-Generic-Dark.svg"
+  },
+  "node_modules/@patternfly/react-core/dist/styles/assets/images/PF-Bkg-Generic-Light.svg": {
+    "file": "assets/PF-Bkg-Generic-Light-BCQFATCY.svg",
+    "src": "node_modules/@patternfly/react-core/dist/styles/assets/images/PF-Bkg-Generic-Light.svg"
+  },
+  "node_modules/@patternfly/react-core/dist/styles/assets/pficon/pf-v6-pficon.woff2": {
+    "file": "assets/pf-v6-pficon-Dy6oiu9u.woff2",
+    "src": "node_modules/@patternfly/react-core/dist/styles/assets/pficon/pf-v6-pficon.woff2"
+  }
+}

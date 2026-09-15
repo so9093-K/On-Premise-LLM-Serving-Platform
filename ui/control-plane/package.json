@@ -1,0 +1,33 @@
+{
+  "name": "@ai-model-serving/control-plane",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "packageManager": "npm@11.19.0",
+  "engines": {
+    "node": "24.20.0",
+    "npm": "11.19.0"
+  },
+  "scripts": {
+    "check:toolchain": "node scripts/check-toolchain.mjs",
+    "generate:types": "openapi-typescript ../../specs/openapi.gateway.yaml -o src/generated/openapi.ts",
+    "typecheck": "npm run check:toolchain && npm run generate:types && tsc --noEmit",
+    "build": "npm run check:toolchain && npm run generate:types && vite build",
+    "check": "npm run check:toolchain && npm run generate:types && tsc --noEmit && vite build --outDir .build-check --emptyOutDir && node scripts/check-dist.mjs"
+  },
+  "dependencies": {
+    "@patternfly/react-core": "6.6.1",
+    "@tanstack/react-query": "5.102.8",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "react-router-dom": "7.18.3"
+  },
+  "devDependencies": {
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.7",
+    "@vitejs/plugin-react": "6.1.1",
+    "openapi-typescript": "7.13.0",
+    "typescript": "5.9.3",
+    "vite": "8.2.2"
+  }
+}

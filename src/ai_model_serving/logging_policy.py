@@ -356,13 +356,24 @@ def log_request_completion(
 class RequestLoggingMiddleware:
     """응답 본문/SSE가 끝날 때 한 번 기록한다. 미처리 예외는 서버로 재전파한다."""
 
-    def __init__(self, app: ASGIApp, *, logger: logging.Logger, service: str) -> None:
+    def __init__(
+        self,
+        app: ASGIApp,
+        *,
+        logger: logging.Logger,
+        service: str,
+        ignored_path_prefixes: tuple[str, ...] = (),
+    ) -> None:
         self.app = app
         self.logger = logger
         self.service = service
+        self.ignored_path_prefixes = ignored_path_prefixes
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        if scope["type"] != "http":
+        if scope["type"] != "http" or any(
+            str(scope.get("path", "")).startswith(prefix)
+            for prefix in self.ignored_path_prefixes
+        ):
             await self.app(scope, receive, send)
             return
         request = Request(scope)
