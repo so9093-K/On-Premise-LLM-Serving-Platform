@@ -3985,7 +3985,8 @@ paths:
           description: 마지막 검증 control-plane 상태와 Docker에서 방금 관측한 main-model 상태
           content:
             application/json:
-              schema: {}
+              schema:
+                $ref: ./schemas/main_model_status_response.schema.json
               examples:
                 active:
                   summary: 서비스 가능 (gate open, Docker health healthy)
@@ -4128,6 +4129,7 @@ paths:
                           - UNAUTHORIZED
       security:
       - adminBearerAuth: []
+      x-response-contract-schema: main_model_status_response.schema.json
   /admin/main-model/profiles:
     get:
       tags:
@@ -4154,7 +4156,8 @@ paths:
           description: 허용된 프로필 목록
           content:
             application/json:
-              schema: {}
+              schema:
+                $ref: ./schemas/main_model_profiles_response.schema.json
               example:
                 profiles:
                 - id: gemma4-12b-unified-fp8
@@ -4230,6 +4233,7 @@ paths:
                           - UNAUTHORIZED
       security:
       - adminBearerAuth: []
+      x-response-contract-schema: main_model_profiles_response.schema.json
   /admin/main-model/switch:
     post:
       tags:
@@ -4243,8 +4247,8 @@ paths:
         - `profile` — `GET /admin/main-model/profiles`가 반환한 ID만 허용합니다. 그 외 필드(model
         id, command 등)는 `422`로 거부되며 임의 실행 인자를 넣을 수 없습니다.
 
-        - `confirm_unverified` — `compatibility.status`가 `verified`가 아닌 프로필로 전환할 때
-        필요합니다.
+        - `confirm_unverified` — `compatibility.status`가 `unverified` 또는 `unknown`인
+        프로필로 전환할 때 필요합니다. `likely`는 추가 확인 없이 허용되고 `incompatible`은 전환할 수 없습니다.
 
         - `request_id` — 선택적 멱등 키입니다. 진행 중이거나 방금 끝난 동일 작업이 있으면 새 전환을 시작하지 않고 그 작업을
         반환하며 응답에 `reused: true`로 표시합니다(재시도 안전용이라 일정 시간 뒤 만료됩니다). 매번 새 전환을 원하면 고유한
@@ -4258,21 +4262,7 @@ paths:
         content:
           application/json:
             schema:
-              properties:
-                profile:
-                  type: string
-                  description: configs/main_model_profiles.yaml의 profile ID
-                confirm_unverified:
-                  type: boolean
-                  default: false
-                request_id:
-                  type: string
-                  maxLength: 128
-                  minLength: 1
-              additionalProperties: false
-              type: object
-              required:
-              - profile
+              $ref: ./schemas/main_model_switch_request.schema.json
             examples:
               gemma4_26b_a4b_fp8:
                 summary: Gemma 4 26B A4B FP8 (verified)
@@ -4462,6 +4452,7 @@ paths:
                           - NOT_FOUND
       security:
       - adminBearerAuth: []
+      x-contract-schema: main_model_switch_request.schema.json
   /admin/main-model/operations/{operation_id}:
     get:
       tags:
@@ -4491,66 +4482,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required:
-                - id
-                - requested_profile
-                - status
-                - stage
-                - created_at
-                - updated_at
-                properties:
-                  id:
-                    type: string
-                    format: uuid
-                  requested_profile:
-                    type: string
-                  previous_profile:
-                    type:
-                    - string
-                    - 'null'
-                  client_request_id:
-                    type:
-                    - string
-                    - 'null'
-                  status:
-                    type: string
-                    enum:
-                    - pending
-                    - preparing
-                    - draining
-                    - stopping
-                    - starting
-                    - validating
-                    - rolling_back
-                    - completed
-                    - failed
-                    - rollback_failed
-                  stage:
-                    type: string
-                    enum:
-                    - pending
-                    - preparing
-                    - draining
-                    - stopping
-                    - starting
-                    - validating
-                    - rolling_back
-                    - completed
-                    - failed
-                    - rollback_failed
-                  error:
-                    type:
-                    - string
-                    - 'null'
-                  rollback_error:
-                    type:
-                    - string
-                    - 'null'
-                  created_at:
-                    type: number
-                  updated_at:
-                    type: number
+                $ref: ./schemas/main_model_operation_response.schema.json
               examples:
                 in_progress:
                   summary: 진행 중 (validating)
@@ -4656,6 +4588,7 @@ paths:
           type: string
           format: uuid
         example: 41cf50bb-60b2-4dbc-b38a-7dd07da91d97
+      x-response-contract-schema: main_model_operation_response.schema.json
 components:
   schemas: {}
   securitySchemes:

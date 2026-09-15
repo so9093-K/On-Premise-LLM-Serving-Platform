@@ -14,16 +14,36 @@ export type RuntimeApplyResponse =
   paths['/admin/runtimes/{service_key}']['patch']['responses'][200]['content']['application/json'];
 export type RuntimeOperationResponse =
   paths['/admin/runtimes/operations/{operation_id}']['get']['responses'][200]['content']['application/json'];
+export type MainModelStatusResponse =
+  paths['/admin/main-model']['get']['responses'][200]['content']['application/json'];
+export type MainModelProfilesResponse =
+  paths['/admin/main-model/profiles']['get']['responses'][200]['content']['application/json'];
+export type MainModelProfile = MainModelProfilesResponse['profiles'][number];
+export type MainModelSwitchRequest =
+  paths['/admin/main-model/switch']['post']['requestBody']['content']['application/json'];
+export type MainModelSwitchResponse =
+  paths['/admin/main-model/switch']['post']['responses'][202]['content']['application/json'];
+export type MainModelOperationResponse =
+  paths['/admin/main-model/operations/{operation_id}']['get']['responses'][200]['content']['application/json'];
 
 export class ApiError extends Error {
+  readonly status: number;
+  readonly code: string | null;
+  readonly details: unknown;
+  readonly requestId: string | null;
+
   constructor(
     message: string,
-    readonly status: number,
-    readonly code: string | null = null,
-    readonly details: unknown = null,
-    readonly requestId: string | null = null,
+    status: number,
+    code: string | null = null,
+    details: unknown = null,
+    requestId: string | null = null,
   ) {
     super(message);
+    this.status = status;
+    this.code = code;
+    this.details = details;
+    this.requestId = requestId;
   }
 }
 
@@ -134,6 +154,35 @@ export async function fetchRuntimeOperation(
 ): Promise<RuntimeOperationResponse> {
   return jsonRequest<RuntimeOperationResponse>(
     `/admin/runtimes/operations/${encodeURIComponent(operationId)}`,
+    token,
+  );
+}
+
+export async function fetchMainModel(token: string | null): Promise<MainModelStatusResponse> {
+  return jsonRequest<MainModelStatusResponse>('/admin/main-model', token);
+}
+
+export async function fetchMainModelProfiles(token: string | null): Promise<MainModelProfilesResponse> {
+  return jsonRequest<MainModelProfilesResponse>('/admin/main-model/profiles', token);
+}
+
+export async function switchMainModel(
+  token: string | null,
+  request: MainModelSwitchRequest,
+): Promise<MainModelSwitchResponse> {
+  return jsonRequest<MainModelSwitchResponse>(
+    '/admin/main-model/switch',
+    token,
+    { method: 'POST', body: JSON.stringify(request) },
+  );
+}
+
+export async function fetchMainModelOperation(
+  token: string | null,
+  operationId: string,
+): Promise<MainModelOperationResponse> {
+  return jsonRequest<MainModelOperationResponse>(
+    `/admin/main-model/operations/${encodeURIComponent(operationId)}`,
     token,
   );
 }
