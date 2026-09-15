@@ -12,8 +12,9 @@
     "check:toolchain": "node scripts/check-toolchain.mjs",
     "generate:types": "openapi-typescript ../../specs/openapi.gateway.yaml -o src/generated/openapi.ts",
     "typecheck": "npm run check:toolchain && npm run generate:types && tsc --noEmit",
+    "test:behavior": "node --experimental-strip-types --test tests/*.test.mjs",
     "build": "npm run check:toolchain && npm run generate:types && vite build",
-    "check": "npm run check:toolchain && npm run generate:types && tsc --noEmit && vite build --outDir .build-check --emptyOutDir && node scripts/check-dist.mjs"
+    "check": "npm run check:toolchain && npm run generate:types && tsc --noEmit && npm run test:behavior && vite build --outDir .build-check --emptyOutDir && node scripts/check-dist.mjs"
   },
   "dependencies": {
     "@patternfly/react-core": "6.6.1",
