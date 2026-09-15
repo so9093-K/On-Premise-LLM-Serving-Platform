@@ -271,6 +271,44 @@ input {
   font-size: 0.8125rem;
 }
 
+.configuration-help {
+  margin: 1rem 0 0;
+  color: var(--pf-t--global--text--color--subtle, #6a6e73);
+}
+
+.configuration-editor {
+  display: grid;
+  gap: 0.5rem;
+  max-width: 28rem;
+  margin-top: 1rem;
+}
+
+.configuration-editor input,
+.configuration-editor select {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--pf-t--global--border--color--default, #8a8d90);
+  border-radius: 0.25rem;
+  padding: 0.5rem 0.625rem;
+  background: var(--pf-t--global--background--color--primary--default, #fff);
+  color: inherit;
+  font: inherit;
+}
+
+.configuration-editor .configuration-boolean {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.configuration-editor .configuration-boolean input {
+  width: auto;
+}
+
+.configuration-review-table {
+  margin-top: 1rem;
+}
+
 @media (max-width: 760px) {
   .workspace {
     grid-template-columns: 1fr;

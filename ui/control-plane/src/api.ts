@@ -26,6 +26,26 @@ export type MainModelSwitchResponse =
 export type MainModelOperationResponse =
   paths['/admin/main-model/operations/{operation_id}']['get']['responses'][200]['content']['application/json'];
 
+export type ConfigurationSchemaResponse =
+  paths['/admin/config/schema']['get']['responses'][200]['content']['application/json'];
+export type ConfigurationSchemaItem = ConfigurationSchemaResponse['items'][number];
+export type ConfigurationEffectiveResponse =
+  paths['/admin/config/effective']['get']['responses'][200]['content']['application/json'];
+export type ConfigurationEffectiveItem = ConfigurationEffectiveResponse['items'][number];
+export type ConfigurationPlanRequest =
+  paths['/admin/config/plans']['post']['requestBody']['content']['application/json'];
+export type ConfigurationChange = ConfigurationPlanRequest['changes'][number];
+export type ConfigurationPlanResponse =
+  paths['/admin/config/plans']['post']['responses'][200]['content']['application/json'];
+export type ConfigurationApplyRequest =
+  paths['/admin/config']['patch']['requestBody']['content']['application/json'];
+export type ConfigurationApplyResponse =
+  paths['/admin/config']['patch']['responses'][200]['content']['application/json'];
+export type ConfigurationEffectiveRead = {
+  data: ConfigurationEffectiveResponse;
+  etag: string;
+};
+
 export class ApiError extends Error {
   readonly status: number;
   readonly code: string | null;
@@ -184,5 +204,58 @@ export async function fetchMainModelOperation(
   return jsonRequest<MainModelOperationResponse>(
     `/admin/main-model/operations/${encodeURIComponent(operationId)}`,
     token,
+  );
+}
+
+export async function fetchConfigurationSchema(
+  token: string | null,
+): Promise<ConfigurationSchemaResponse> {
+  return jsonRequest<ConfigurationSchemaResponse>('/admin/config/schema', token);
+}
+
+export async function fetchConfigurationEffective(
+  token: string | null,
+): Promise<ConfigurationEffectiveRead> {
+  const response = await fetch('/admin/config/effective', {
+    cache: 'no-store',
+    headers: adminHeaders(token),
+  });
+  if (!response.ok) {
+    throw await apiError(response);
+  }
+  const etag = response.headers.get('ETag');
+  if (etag === null || etag.length === 0) {
+    throw new Error('Configuration effective response did not include ETag');
+  }
+  return {
+    data: (await response.json()) as ConfigurationEffectiveResponse,
+    etag,
+  };
+}
+
+export async function planConfigurationChange(
+  token: string | null,
+  request: ConfigurationPlanRequest,
+): Promise<ConfigurationPlanResponse> {
+  return jsonRequest<ConfigurationPlanResponse>(
+    '/admin/config/plans',
+    token,
+    { method: 'POST', body: JSON.stringify(request) },
+  );
+}
+
+export async function applyConfigurationChange(
+  token: string | null,
+  etag: string,
+  request: ConfigurationApplyRequest,
+): Promise<ConfigurationApplyResponse> {
+  return jsonRequest<ConfigurationApplyResponse>(
+    '/admin/config',
+    token,
+    {
+      method: 'PATCH',
+      body: JSON.stringify(request),
+      headers: { 'If-Match': etag },
+    },
   );
 }
