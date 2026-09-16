@@ -520,8 +520,17 @@ class MainModelManager:
             for profile in self.catalog.profiles.values()
         ]
 
+    def operations(self) -> list[dict[str, Any]]:
+        """최근 보존된 switch operation을 최신 순서로 반환한다.
+
+        persistent main-model state의 ``operations``가 유일한 authority다. 이 read
+        projection은 별도 history를 만들지 않으며 write 경계가 유지하는 bounded
+        retention을 그대로 노출한다.
+        """
+        return list(reversed(self.state_store.read().get("operations", [])))
+
     def operation(self, operation_id: str) -> dict[str, Any] | None:
-        for operation in self.state_store.read().get("operations", []):
+        for operation in self.operations():
             if operation.get("id") == operation_id:
                 return operation
         return None

@@ -235,6 +235,14 @@ class SidecarClient:
             server_errors_are_request_errors=True,
         )
 
+    async def main_model_operations(self) -> dict:
+        return await self._request(
+            "GET",
+            "/main-model/operations",
+            what="main-model operations",
+            timeout=5.0,
+        )
+
     async def main_model_operation(self, operation_id: str) -> dict:
         return await self._request(
             "GET",

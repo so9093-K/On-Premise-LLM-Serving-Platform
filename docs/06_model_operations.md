@@ -246,7 +246,14 @@ Text Inference Canary
 
 ## 6.5 전환 결과 확인
 
-모델 전환은 비동기 operation이므로 `operation_id`로 결과를 확인한다.
+모델 전환은 비동기 operation이므로 `operation_id`로 결과를 확인한다. 최근 보존된 전환 작업은 다음 API에서 최신 순서로 확인할 수 있다.
+
+```bash
+curl -H "Authorization: Bearer $ADMIN_API_KEY" \
+  http://127.0.0.1:9400/admin/main-model/operations
+```
+
+이 목록은 Main Model state가 보존하는 bounded recent operation projection이며 장기 audit ledger가 아니다. 개별 작업의 현재 상태는 `operation_id`로 조회한다.
 
 ```bash
 curl -H "Authorization: Bearer $ADMIN_API_KEY" \

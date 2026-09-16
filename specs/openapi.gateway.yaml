@@ -4451,6 +4451,80 @@ paths:
       security:
       - adminBearerAuth: []
       x-contract-schema: main_model_switch_request.schema.json
+  /admin/main-model/operations:
+    get:
+      tags:
+      - Runtime Control
+      summary: 최근 메인 모델 전환 작업 목록 조회
+      description: 'Main Model state가 보존하는 최근 profile switch operation을 최신 순서로 조회합니다.
+        이 응답은 Operations 화면을 위한 bounded operational read projection이며, 별도 audit journal이나
+        브라우저 history를 만들지 않습니다. 장기 감사 기록을 의미하지 않습니다.
+
+
+        각 item은 `GET /admin/main-model/operations/{operation_id}`와 같은 operation contract를
+        사용합니다.'
+      operationId: listMainModelOperations
+      responses:
+        '200':
+          description: 최근 보존된 Main Model profile switch operation (최신 순)
+          content:
+            application/json:
+              schema:
+                $ref: ./schemas/main_model_operation_list_response.schema.json
+              example:
+                items:
+                - id: 41cf50bb-60b2-4dbc-b38a-7dd07da91d97
+                  requested_profile: gemma4-12b-unified-fp8
+                  previous_profile: gemma4-26b-a4b-fp8
+                  client_request_id: ops-20260622-12b
+                  status: completed
+                  stage: completed
+                  created_at: 1782086105.78
+                  updated_at: 1782086258.2
+        '503':
+          description: 'Admin Sidecar 연결 실패
+
+
+            이 status로 올 수 있는 `error.code`:
+
+            - `MAIN_MODEL_CONTROL_UNAVAILABLE` — 메인 모델 control plane(admin sidecar)을
+            사용할 수 없다. (재시도 가능)'
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: ./schemas/common_error.schema.json
+                - type: object
+                  properties:
+                    error:
+                      type: object
+                      properties:
+                        code:
+                          enum:
+                          - MAIN_MODEL_CONTROL_UNAVAILABLE
+        '401':
+          description: '인증 실패
+
+
+            이 status로 올 수 있는 `error.code`:
+
+            - `UNAUTHORIZED` — API 키 또는 인증 정보가 없거나 유효하지 않다. (재시도 불가)'
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: ./schemas/common_error.schema.json
+                - type: object
+                  properties:
+                    error:
+                      type: object
+                      properties:
+                        code:
+                          enum:
+                          - UNAUTHORIZED
+      security:
+      - adminBearerAuth: []
+      x-response-contract-schema: main_model_operation_list_response.schema.json
   /admin/main-model/operations/{operation_id}:
     get:
       tags:

@@ -620,6 +620,22 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
     ),
     EndpointSpec(
         method="GET",
+        path="/admin/main-model/operations",
+        operation_id="listMainModelOperations",
+        tag="Runtime Control",
+        summary="최근 메인 모델 전환 작업 목록 조회",
+        description=(
+            "Main Model state가 보존하는 최근 profile switch operation을 최신 순서로 조회합니다. "
+            "이 응답은 Operations 화면을 위한 bounded operational read projection이며, 별도 audit journal이나 "
+            "브라우저 history를 만들지 않습니다. 장기 감사 기록을 의미하지 않습니다.\n\n"
+            "각 item은 `GET /admin/main-model/operations/{operation_id}`와 같은 operation contract를 사용합니다."
+        ),
+        request_schema=None,
+        response_schema="main_model_operation_list_response.schema.json",
+        error_codes=("MAIN_MODEL_CONTROL_UNAVAILABLE",),
+    ),
+    EndpointSpec(
+        method="GET",
         path="/admin/main-model/operations/{operation_id}",
         operation_id="getMainModelOperation",
         tag="Runtime Control",

@@ -28,7 +28,6 @@ from ...api_examples import (
     default_main_model_profile_id,
     main_model_profile_example,
 )
-from ...main_model.control import OPERATION_STAGES
 from ...security import AdminAuthContext
 from ...runtime_transition_history import (
     RuntimeTransitionHistoryCursorError,
@@ -54,22 +53,6 @@ _DEFAULT_PROFILE_ID = default_main_model_profile_id()
 _ALTERNATE_PROFILE_ID = alternate_main_model_profile_id()
 
 _GW = {(s.method, s.path): s for s in GATEWAY_ENDPOINTS}
-_OPERATION_RESPONSE_SCHEMA = {
-    "type": "object",
-    "required": ["id", "requested_profile", "status", "stage", "created_at", "updated_at"],
-    "properties": {
-        "id": {"type": "string", "format": "uuid"},
-        "requested_profile": {"type": "string"},
-        "previous_profile": {"type": ["string", "null"]},
-        "client_request_id": {"type": ["string", "null"]},
-        "status": {"type": "string", "enum": list(OPERATION_STAGES)},
-        "stage": {"type": "string", "enum": list(OPERATION_STAGES)},
-        "error": {"type": ["string", "null"]},
-        "rollback_error": {"type": ["string", "null"]},
-        "created_at": {"type": "number"},
-        "updated_at": {"type": "number"},
-    },
-}
 _OPERATION_ID_EXAMPLE = "41cf50bb-60b2-4dbc-b38a-7dd07da91d97"
 _OPERATION_ID_PARAMETER = {
     "name": "operation_id",
@@ -1435,6 +1418,38 @@ def build_router(
         except SidecarUnavailableError as exc:
             return sidecar_unavailable_response(exc)
 
+    _s = _GW[("GET", "/admin/main-model/operations")]
+
+    @router.get(
+        "/admin/main-model/operations",
+        dependencies=admin_dependencies,
+        tags=[_s.tag],
+        summary=_s.summary,
+        description=_s.description,
+        operation_id=_s.operation_id,
+        responses={
+            200: {
+                "description": "최근 보존된 Main Model profile switch operation (최신 순)",
+                "content": {
+                    "application/json": {
+                        "example": {
+                            "items": [_OPERATION_RESPONSE_EXAMPLES["completed"]["value"]]
+                        }
+                    }
+                },
+            },
+            503: {"description": "Admin Sidecar 연결 실패"},
+        },
+    )
+    async def list_main_model_operations() -> JSONResponse:
+        client = await require_sidecar()
+        try:
+            return JSONResponse(await client.main_model_operations())
+        except SidecarRequestError as exc:
+            return sidecar_request_error_response(exc)
+        except SidecarUnavailableError as exc:
+            return sidecar_unavailable_response(exc)
+
     _s = _GW[("GET", "/admin/main-model/operations/{operation_id}")]
 
     @router.get(
@@ -1449,7 +1464,6 @@ def build_router(
                 "description": "전환 작업 상태",
                 "content": {
                     "application/json": {
-                        "schema": _OPERATION_RESPONSE_SCHEMA,
                         "examples": _OPERATION_RESPONSE_EXAMPLES,
                     }
                 },
