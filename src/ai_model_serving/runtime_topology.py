@@ -71,7 +71,68 @@ class RuntimeTopology:
         )
 
 
-def load_runtime_topology(config_root: Path, *, compose_path: Path | None = None) -> RuntimeTopology:
+def _validate_prerequisite_graph(
+    bindings_by_key: dict[str, RuntimeBinding],
+    prerequisite_keys_by_key: dict[str, tuple[str, ...]],
+) -> None:
+    for key, prerequisite_keys in prerequisite_keys_by_key.items():
+        binding = bindings_by_key[key]
+        if prerequisite_keys and not (binding.enabled and binding.controllable):
+            raise ValueError(
+                f"runtime topology binding {key!r} cannot declare start_prerequisites "
+                "unless it is enabled and controllable"
+            )
+        for prerequisite_key in prerequisite_keys:
+            if prerequisite_key == key:
+                raise ValueError(
+                    f"runtime topology binding {key!r} cannot depend on itself"
+                )
+            prerequisite = bindings_by_key.get(prerequisite_key)
+            if prerequisite is None:
+                raise ValueError(
+                    f"runtime topology binding {key!r} references unknown "
+                    f"start prerequisite {prerequisite_key!r}"
+                )
+            if not (prerequisite.enabled and prerequisite.controllable):
+                raise ValueError(
+                    f"runtime topology binding {key!r} start prerequisite "
+                    f"{prerequisite_key!r} must be enabled and controllable"
+                )
+
+    visiting: list[str] = []
+    visited: set[str] = set()
+
+    def visit(key: str) -> None:
+        if key in visited:
+            return
+        if key in visiting:
+            cycle_start = visiting.index(key)
+            cycle = [*visiting[cycle_start:], key]
+            raise ValueError(
+                "runtime topology start_prerequisites contain a cycle: "
+                + " -> ".join(cycle)
+            )
+        visiting.append(key)
+        for prerequisite_key in prerequisite_keys_by_key.get(key, ()):
+            visit(prerequisite_key)
+        visiting.pop()
+        visited.add(key)
+
+    for key in prerequisite_keys_by_key:
+        visit(key)
+
+
+def load_runtime_topology(
+    config_root: Path,
+    *,
+    compose_path: Path | None = None,
+) -> RuntimeTopology:
+    """Load the canonical runtime lifecycle topology.
+
+    ``configs/runtime_topology.yaml`` owns Runtime Control start prerequisites.
+    ``compose_path`` remains accepted only while older callers are migrated; it no
+    longer contributes policy and is intentionally not read.
+    """
     model_serving = load_yaml_mapping(config_root / "configs/model_serving.yaml")
     services_document = load_yaml_mapping(config_root / "configs/services.yaml")
     topology_document = load_yaml_mapping(config_root / "configs/runtime_topology.yaml")
@@ -82,10 +143,16 @@ def load_runtime_topology(config_root: Path, *, compose_path: Path | None = None
     if not isinstance(services, dict):
         raise ValueError("services.yaml services must be a mapping")
 
+    # Runtime Control policy must not depend on a deployment representation. Keep
+    # accepting the keyword until the remaining shell/admin call sites are migrated,
+    # but never inspect the path or derive prerequisites from Compose.
+    _ = compose_path
+
     bindings_by_key: dict[str, RuntimeBinding] = {}
     health_port_by_service: dict[str, int] = {}
     vram_fraction_by_service: dict[str, float] = {}
     criticality_by_service: dict[str, str] = {}
+    prerequisite_keys_by_key: dict[str, tuple[str, ...]] = {}
     models = model_serving.get("models") or {}
     for key, raw_binding in bindings.items():
         if not isinstance(raw_binding, dict):
@@ -132,6 +199,30 @@ def load_runtime_topology(config_root: Path, *, compose_path: Path | None = None
                 f"disabled runtime topology binding {key!r} cannot be required or controllable"
             )
 
+        raw_prerequisites = raw_binding.get("start_prerequisites")
+        if raw_binding["controllable"]:
+            if (
+                not isinstance(raw_prerequisites, list)
+                or not all(
+                    isinstance(item, str) and item for item in raw_prerequisites
+                )
+            ):
+                raise ValueError(
+                    f"runtime topology binding {key!r}.start_prerequisites "
+                    "must be a string list for controllable runtimes"
+                )
+            if len(raw_prerequisites) != len(set(raw_prerequisites)):
+                raise ValueError(
+                    f"runtime topology binding {key!r}.start_prerequisites "
+                    "must not contain duplicates"
+                )
+            prerequisite_keys_by_key[str(key)] = tuple(raw_prerequisites)
+        elif raw_prerequisites is not None:
+            raise ValueError(
+                f"runtime topology binding {key!r}.start_prerequisites "
+                "is only valid for controllable runtimes"
+            )
+
         binding = RuntimeBinding(
             key=str(key),
             service_id=service_id,
@@ -152,20 +243,16 @@ def load_runtime_topology(config_root: Path, *, compose_path: Path | None = None
             criticality = ((model.get("resource_control") or {}).get("criticality") or "")
             criticality_by_service[compose_service] = str(criticality)
 
-    start_prerequisites_by_service: dict[str, list[str]] = {}
-    if compose_path is not None and compose_path.exists():
-        compose = load_yaml_mapping(compose_path)
-        controllable = {
-            binding.compose_service
-            for binding in bindings_by_key.values()
-            if binding.enabled and binding.controllable
-        }
-        for service in controllable:
-            depends = ((compose.get("services") or {}).get(service) or {}).get("depends_on") or {}
-            names = depends.keys() if isinstance(depends, dict) else depends
-            prereqs = [str(name) for name in names if str(name) in controllable]
-            if prereqs:
-                start_prerequisites_by_service[service] = prereqs
+    _validate_prerequisite_graph(bindings_by_key, prerequisite_keys_by_key)
+
+    start_prerequisites_by_service = {
+        bindings_by_key[key].compose_service: [
+            bindings_by_key[prerequisite_key].compose_service
+            for prerequisite_key in prerequisite_keys
+        ]
+        for key, prerequisite_keys in prerequisite_keys_by_key.items()
+        if prerequisite_keys
+    }
 
     return RuntimeTopology(
         bindings_by_key=bindings_by_key,

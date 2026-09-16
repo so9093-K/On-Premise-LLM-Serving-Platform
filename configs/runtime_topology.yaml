@@ -1,7 +1,12 @@
 version: 1
 
-# Deployment feature와 runtime dependency의 연결 기준이다. Compose 서비스의 실제
+# Deployment feature와 runtime lifecycle의 연결 기준이다. Compose 서비스의 실제
 # 이름과 포트는 configs/services.yaml을 참조하며 이 파일에 중복하지 않는다.
+#
+# start_prerequisites는 Runtime Control이 secondary runtime을 다시 기동할 때 지켜야 할
+# 순차 기동 정책이다. 값은 Compose 서비스명이 아니라 이 파일의 runtime key를 참조한다.
+# Compose는 최초 deployment boot를 위한 추가 depends_on을 가질 수 있지만, controllable
+# runtime 사이의 순서는 이 선언과 일치해야 하며 정적 validation이 drift를 거부한다.
 runtimes:
   main_llm:
     service_id: main_llm_vllm
@@ -15,15 +20,18 @@ runtimes:
     required: true
     enabled: true
     controllable: true
+    start_prerequisites: []
   embedding_ko:
     service_id: embedding_ko_vllm
     features: [embeddings]
     required: true
     enabled: true
     controllable: true
+    start_prerequisites: [embedding]
   risk_prompt:
     service_id: risk_prompt_vllm
     features: [risk]
     required: true
     enabled: true
     controllable: true
+    start_prerequisites: [embedding, embedding_ko]
