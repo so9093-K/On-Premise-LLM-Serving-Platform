@@ -1,17 +1,8 @@
 """VERSION 문자열이 실제로 박혀 있는 자리들의 단일 선언.
 
 생성기(scripts/build/reset_version.py)와 검증기(scripts/validation/governance/
-versioning.py)가 같은 표를 읽는다.
-
-예전엔 둘이 각자 목록을 들고 있었고, 예상대로 이미 갈라져 있었다:
-- 생성기는 .env.compose.example의 VLLM_IMAGE/EMBEDDING_KO_VLLM_IMAGE도 갱신하는데
-  검증기는 그 둘을 보지 않았다 -- 갱신이 조용히 실패해도 아무도 몰랐다.
-- 생성기는 README.md에서 `패키지 버전 | \\`...\\`` 와 `^version: ` 를 치환하려 했는데
-  README.md에는 그런 줄이 없다. 죽은 치환이었다.
-- 생성기는 version_manifest.json의 api_contract_version을 쓰는데 검증기는 안 봤다.
-
-자리를 추가·삭제할 땐 여기만 고친다. 여기 선언된 자리가 대상 파일에서 사라지면
-양쪽 모두 실패하므로, 표와 실제 파일이 조용히 어긋날 수 없다.
+versioning.py)가 같은 표를 읽는다. 자리를 추가·삭제할 때는 여기만 고치며,
+선언된 자리가 대상 파일에서 사라지면 생성과 검증이 함께 실패한다.
 """
 
 from __future__ import annotations
@@ -35,7 +26,7 @@ class LineRef:
     path: str
     pattern: str
     template: str
-    #: True면 파일 안의 모든 매치를 대상으로 한다(같은 이미지를 여러 항목이 참조).
+    #: True면 파일 안의 모든 매치를 대상으로 한다.
     all_occurrences: bool = False
 
     def expected(self, version: str, python_version: str) -> str:
@@ -60,26 +51,14 @@ LINE_REFS: tuple[LineRef, ...] = (
         'VLLM_IMAGE=' + UNIFIED_IMAGE,
     ),
     LineRef(
-        '.env.compose.example',
-        r'(?m)^EMBEDDING_KO_VLLM_IMAGE=ai-model-serving-vllm-unified:.+$',
-        'EMBEDDING_KO_VLLM_IMAGE=' + UNIFIED_IMAGE,
-    ),
-    LineRef(
-        '.env.compose.example',
-        r'(?m)^RISK_VLLM_IMAGE=ai-model-serving-vllm-unified:.+$',
-        'RISK_VLLM_IMAGE=' + UNIFIED_IMAGE,
-    ),
-    LineRef(
         'configs/recommended_images.yaml',
         r'(?m)^    default: ai-model-serving-platform:.+$',
         '    default: ' + PLATFORM_IMAGE,
     ),
-    # vllm / embedding_ko_vllm / risk_vllm 세 항목이 같은 unified 이미지를 가리킨다.
     LineRef(
         'configs/recommended_images.yaml',
         r'(?m)^    default: ai-model-serving-vllm-unified:.+$',
         '    default: ' + UNIFIED_IMAGE,
-        all_occurrences=True,
     ),
 )
 
