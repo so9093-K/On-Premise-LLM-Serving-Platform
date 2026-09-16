@@ -21,6 +21,8 @@
 
 ### Changed
 
+- shared vLLM runtime artifact의 persistent image authority를 `VLLM_IMAGE` 하나로 수렴했다. 기존 `EMBEDDING_KO_VLLM_IMAGE`와 `RISK_VLLM_IMAGE`는 retired key이며 `make sync-env`와 `setup_env.py --force`가 기존 `.env`에서 제거한다. Main Model profile 전용 `AUDIO_VLLM_IMAGE` override와 deployment-time `VLLM_UNIFIED_IMAGE_TO_DEPLOY` promotion input은 별도 계약으로 유지한다. ([ADR-0028](docs/adr/0028-unified-vllm-runtime-image-authority.md))
+
 - 신규 환경의 접근 UX를 `ACCESS_PROFILE=local|private|edge`로 단순화했다. `make setup
   ACCESS=...`이 기존 auth/exposure/service Source of Truth에서 안전한 조합을 resolve하며,
   기본 `local`은 Gateway와 Grafana를 loopback에만 공개한다. `ACCESS_PROFILE`이 없는 기존

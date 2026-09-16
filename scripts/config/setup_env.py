@@ -543,10 +543,6 @@ def build_parser() -> KoreanArgumentParser:
     )
     parser.add_argument("--platform-image")
     parser.add_argument("--vllm-image")
-    parser.add_argument(
-        "--risk-vllm-image",
-        help="기존 환경 호환용 RISK_VLLM_IMAGE override. 신규 shared runtime image는 --vllm-image를 사용합니다.",
-    )
     parser.add_argument("--dcgm-exporter-image")
     parser.add_argument("--prometheus-image")
     parser.add_argument("--grafana-image")
@@ -635,7 +631,6 @@ def main(argv: list[str] | None = None) -> int:
     overrides = {
         "PLATFORM_IMAGE": args.platform_image,
         "VLLM_IMAGE": args.vllm_image,
-        "RISK_VLLM_IMAGE": args.risk_vllm_image,
         "DCGM_EXPORTER_IMAGE": args.dcgm_exporter_image,
         "PROMETHEUS_IMAGE": args.prometheus_image,
         "GRAFANA_IMAGE": args.grafana_image,

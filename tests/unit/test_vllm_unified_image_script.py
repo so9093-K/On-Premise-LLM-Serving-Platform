@@ -70,7 +70,7 @@ def _canonical_base_image() -> str:
     return str(document["base_image_default"])
 
 
-def test_vllm_unified_image_resolver_projects_shared_image_to_runtime_views(tmp_path):
+def test_vllm_unified_image_resolver_uses_shared_image(tmp_path):
     repo = copy_minimal_repo(tmp_path)
     shared = 'registry.example.com/project/vllm-unified:qualified'
     (repo / '.env').write_text(f'VLLM_IMAGE={shared}\n', encoding='utf-8')
@@ -78,11 +78,10 @@ def test_vllm_unified_image_resolver_projects_shared_image_to_runtime_views(tmp_
         repo,
         'source scripts/lib/vllm_unified_image.sh; '
         'vllm_unified_resolve_images .env; '
-        'printf "%s\\n%s\\n%s\\n" "$VLLM_IMAGE_RESOLVED" '
-        '"$EMBEDDING_KO_VLLM_IMAGE_RESOLVED" "$RISK_VLLM_IMAGE_RESOLVED"',
+        'printf "%s\\n" "$VLLM_IMAGE_RESOLVED"',
     )
     assert result.returncode == 0, result.stderr
-    assert result.stdout.splitlines() == [shared, shared, shared]
+    assert result.stdout.strip() == shared
     assert result.stderr == ''
 
 

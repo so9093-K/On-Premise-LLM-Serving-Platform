@@ -3,10 +3,9 @@ from __future__ import annotations
 from scripts import platform_cli
 
 
-def test_local_build_uses_shared_vllm_image_authority_when_legacy_risk_pin_differs(monkeypatch):
+def test_local_build_uses_shared_vllm_image_authority(monkeypatch):
     local_id = "sha256:" + "a" * 64
     new_id = "sha256:" + "b" * 64
-    risk_digest = "registry.example.com/risk@sha256:" + "c" * 64
     platform_digest = "registry.example.com/platform@sha256:" + "d" * 64
     commands: list[tuple[tuple[str, ...], dict[str, str] | None]] = []
     pinned: list[tuple[str, str]] = []
@@ -17,7 +16,6 @@ def test_local_build_uses_shared_vllm_image_authority_when_legacy_risk_pin_diffe
         lambda: {
             "PLATFORM_IMAGE": platform_digest,
             "VLLM_IMAGE": local_id,
-            "RISK_VLLM_IMAGE": risk_digest,
         },
     )
     monkeypatch.setattr(

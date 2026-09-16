@@ -186,3 +186,6 @@ removed_keys:
   EMBEDDING_KO_VLLM_IMAGE: >-
     shared vLLM runtime artifact의 persistent authority는 VLLM_IMAGE다. embedding-ko는
     별도 persistent image pin을 소유하지 않으며 기존 key는 sync-env에서 제거한다.
+  RISK_VLLM_IMAGE: >-
+    shared vLLM runtime artifact의 persistent authority는 VLLM_IMAGE다. risk-prompt는
+    별도 persistent image pin을 소유하지 않으며 기존 key는 sync-env에서 제거한다.
