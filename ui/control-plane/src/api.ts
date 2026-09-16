@@ -12,6 +12,9 @@ export type RuntimeApplyRequest =
   paths['/admin/runtimes/{service_key}']['patch']['requestBody']['content']['application/json'];
 export type RuntimeApplyResponse =
   paths['/admin/runtimes/{service_key}']['patch']['responses'][200]['content']['application/json'];
+export type RuntimeOperationListResponse =
+  paths['/admin/runtimes/operations']['get']['responses'][200]['content']['application/json'];
+export type RuntimeOperation = RuntimeOperationListResponse['items'][number];
 export type RuntimeOperationResponse =
   paths['/admin/runtimes/operations/{operation_id}']['get']['responses'][200]['content']['application/json'];
 export type MainModelStatusResponse =
@@ -23,6 +26,9 @@ export type MainModelSwitchRequest =
   paths['/admin/main-model/switch']['post']['requestBody']['content']['application/json'];
 export type MainModelSwitchResponse =
   paths['/admin/main-model/switch']['post']['responses'][202]['content']['application/json'];
+export type MainModelOperationListResponse =
+  paths['/admin/main-model/operations']['get']['responses'][200]['content']['application/json'];
+export type MainModelOperation = MainModelOperationListResponse['items'][number];
 export type MainModelOperationResponse =
   paths['/admin/main-model/operations/{operation_id}']['get']['responses'][200]['content']['application/json'];
 
@@ -192,6 +198,19 @@ export async function applyRuntimeTransition(
   );
 }
 
+export async function fetchRuntimeOperations(
+  token: string | null,
+  cursor: string | null = null,
+  limit = 50,
+): Promise<RuntimeOperationListResponse> {
+  const query = new URLSearchParams({ limit: String(limit) });
+  if (cursor !== null) query.set('cursor', cursor);
+  return jsonRequest<RuntimeOperationListResponse>(
+    `/admin/runtimes/operations?${query.toString()}`,
+    token,
+  );
+}
+
 export async function fetchRuntimeOperation(
   token: string | null,
   operationId: string,
@@ -219,6 +238,12 @@ export async function switchMainModel(
     token,
     { method: 'POST', body: JSON.stringify(request) },
   );
+}
+
+export async function fetchMainModelOperations(
+  token: string | null,
+): Promise<MainModelOperationListResponse> {
+  return jsonRequest<MainModelOperationListResponse>('/admin/main-model/operations', token);
 }
 
 export async function fetchMainModelOperation(
