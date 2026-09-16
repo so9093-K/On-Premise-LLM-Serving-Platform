@@ -55,8 +55,6 @@ def recommended_images() -> dict[str, str]:
     return {
         "PLATFORM_IMAGE": str(images["platform"]["default"]),
         "VLLM_IMAGE": str(images["vllm"]["default"]),
-        "EMBEDDING_KO_VLLM_IMAGE": str(images.get("embedding_ko_vllm", images["vllm"])["default"]),
-        "RISK_VLLM_IMAGE": str(images.get("risk_vllm", images["vllm"])["default"]),
         "DCGM_EXPORTER_IMAGE": str(images["dcgm_exporter"]["default"]),
         "PROMETHEUS_IMAGE": str(images["prometheus"]["default"]),
         "GRAFANA_IMAGE": str(images["grafana"]["default"]),
@@ -202,6 +200,7 @@ ALWAYS_REFRESH_KEYS = {
     *AUTH_PROFILE_ENV_KEYS,
 } | GENERATED_SECRET_KEYS
 
+
 def _removed_env_keys() -> frozenset[str]:
     """sync-env가 기존 .env에서 제거하는 키. 단일 소스는 env_contract.yaml이다.
 
@@ -237,22 +236,6 @@ def preserve_existing_values(out_path: Path, *, force: bool) -> dict[str, str]:
     return preserved
 
 
-
-def ensure_risk_vllm_image(values: dict[str, str]) -> None:
-    """Fill in RISK_VLLM_IMAGE only when it is unset.
-
-    2026-07-24부터 VLLM_IMAGE/RISK_VLLM_IMAGE는 같은 vLLM unified 이미지를
-    가리키는 게 정상이다(Gemma4 멀티모달 패치 + Kanana head_dim 패치가 한
-    이미지에 같이 들어있고, 각 patch는 서로 무관한 모델에는 no-op이다). 예전엔
-    둘이 같으면 "shared/base image로의 실수"로 보고 강제로 되돌리는 마이그레이션
-    가드가 있었는데, 지금은 정확히 그 상태가 의도된 정상 상태라 제거했다.
-    """
-    recommended = recommended_images()["RISK_VLLM_IMAGE"]
-    risk_image = values.get("RISK_VLLM_IMAGE", "").strip()
-    if not risk_image:
-        values["RISK_VLLM_IMAGE"] = recommended
-
-
 def write_runtime_secrets(values: dict[str, str]) -> None:
     """Write generated runtime secret files consumed by local Compose services.
 
@@ -280,8 +263,6 @@ def write_runtime_secrets(values: dict[str, str]) -> None:
         secret_path.chmod(0o644)
     except OSError:
         pass
-
-
 
 
 def read_env_values(path: Path) -> dict[str, str]:
@@ -562,7 +543,10 @@ def build_parser() -> KoreanArgumentParser:
     )
     parser.add_argument("--platform-image")
     parser.add_argument("--vllm-image")
-    parser.add_argument("--risk-vllm-image")
+    parser.add_argument(
+        "--risk-vllm-image",
+        help="기존 환경 호환용 RISK_VLLM_IMAGE override. 신규 shared runtime image는 --vllm-image를 사용합니다.",
+    )
     parser.add_argument("--dcgm-exporter-image")
     parser.add_argument("--prometheus-image")
     parser.add_argument("--grafana-image")
@@ -694,8 +678,6 @@ def main(argv: list[str] | None = None) -> int:
             print("env target 오류: --main-llm-base-url must be an HTTP URL", file=sys.stderr)
             return 2
         values["MAIN_LLM_BASE_URL"] = args.main_llm_base_url
-    if args.profile == "compose":
-        ensure_risk_vllm_image(values)
     if values.get("HF_TOKEN") and not values.get("HUGGING_FACE_HUB_TOKEN"):
         values["HUGGING_FACE_HUB_TOKEN"] = values["HF_TOKEN"]
     write_env(lines, values, out_path)
@@ -711,7 +693,7 @@ def main(argv: list[str] | None = None) -> int:
         )
     if args.profile == "compose":
         print("image tags:")
-        for key in ["PLATFORM_IMAGE", "VLLM_IMAGE", "EMBEDDING_KO_VLLM_IMAGE", "RISK_VLLM_IMAGE", "DCGM_EXPORTER_IMAGE", "PROMETHEUS_IMAGE", "GRAFANA_IMAGE", "CADVISOR_IMAGE"]:
+        for key in ["PLATFORM_IMAGE", "VLLM_IMAGE", "DCGM_EXPORTER_IMAGE", "PROMETHEUS_IMAGE", "GRAFANA_IMAGE", "CADVISOR_IMAGE"]:
             print(f"  {key}={values[key]}")
     if args.profile == "compose":
         if out_path.resolve() == default_env_path(ROOT).resolve():
