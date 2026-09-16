@@ -46,10 +46,6 @@ deploy_validate_request() {
       ;;
   esac
 
-  if [[ "${DEPLOY_MODE}" == "full" && "${RUN_READY_FULL_SMOKE:-}" != "1" ]]; then
-    echo "[deploy] ERROR: full deploy requires RUN_READY_FULL_SMOKE=1 so make ready-full cannot be skipped." >&2
-    return 2
-  fi
   if [[ "${DEPLOY_MODE}" != "full" &&
     ( -n "${DEPLOY_RUNTIME_PROFILE:-}" || -n "${DEPLOY_DEFERRED_RUNTIMES:-}" ) ]]; then
     echo "[deploy] ERROR: DEPLOY_RUNTIME_PROFILE/DEPLOY_DEFERRED_RUNTIMES require DEPLOY_MODE=full." >&2

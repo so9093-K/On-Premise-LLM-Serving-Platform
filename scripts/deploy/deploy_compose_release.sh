@@ -27,8 +27,6 @@
 #                              기본값은 대상 서버의 .env에서 파생됨:
 #                              GATEWAY_BIND_ADDR/GATEWAY_PORT, 0.0.0.0은 localhost로 치환.
 #   RUN_READY_SMOKE            1(기본) 또는 0 — 배포 후 gateway /health 체크 실행 여부
-#   RUN_READY_FULL_SMOKE       호환성 유지용 변수. full 배포는 반드시 1이어야 하며
-#                              /health 이후 항상 make ready-full을 실행한다.
 #   DEPLOY_RELEASE_ID          불변 release 디렉터리 이름; 기본값은 현재 Git commit
 #   RELEASES_TO_KEEP           보관할 성공한 release 디렉터리 개수 (기본값: 5)
 #   DEPLOY_RUNTIME_PROFILE     configs/deploy_profiles.yaml의 런타임 시작 프로필
@@ -53,7 +51,6 @@ VERSION="$(cat "$ROOT/VERSION")"
 
 COMPOSE_FILE="${DEPLOY_COMPOSE_FILE:-ops/compose/full-stack.private-network.yaml}"
 RUN_READY_SMOKE="${RUN_READY_SMOKE:-1}"
-RUN_READY_FULL_SMOKE="${RUN_READY_FULL_SMOKE:-1}"
 RELEASES_TO_KEEP="${RELEASES_TO_KEEP:-5}"
 RELEASE_ID="${DEPLOY_RELEASE_ID:-}"
 SSH_TARGET="${DEPLOY_USER}@${DEPLOY_HOST}"
@@ -205,7 +202,6 @@ ssh "${SSH_TARGET}" \
   DEPLOY_MODE="${DEPLOY_MODE}" \
   GATEWAY_HEALTH_URL="${GATEWAY_HEALTH_URL:-}" \
   RUN_READY_SMOKE="${RUN_READY_SMOKE}" \
-  RUN_READY_FULL_SMOKE="${RUN_READY_FULL_SMOKE}" \
   DEPLOY_RUNTIME_PROFILE="${DEPLOY_RUNTIME_PROFILE:-}" \
   DEPLOY_DEFERRED_RUNTIMES="${DEPLOY_DEFERRED_RUNTIMES:-}" \
   AUTH_MODE="${AUTH_MODE:-}" \

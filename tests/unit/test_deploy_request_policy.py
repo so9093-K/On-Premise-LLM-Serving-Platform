@@ -16,7 +16,6 @@ _ISOLATED_KEYS = (
     "RISK_VLLM_IMAGE_TO_DEPLOY",
     "VLLM_UNIFIED_IMAGE_TO_DEPLOY",
     "AUDIO_VLLM_IMAGE_TO_DEPLOY",
-    "RUN_READY_FULL_SMOKE",
     "DEPLOY_RUNTIME_PROFILE",
     "DEPLOY_DEFERRED_RUNTIMES",
 )
@@ -71,7 +70,7 @@ def test_fresh_unified_image_promotes_rolling_request_to_full():
 
 def test_rolling_deploy_rejects_runtime_startup_policy():
     result = run_policy(
-        'DEPLOY_MODE=rolling; RUN_READY_FULL_SMOKE=1; DEPLOY_RUNTIME_PROFILE=main_only; '
+        'DEPLOY_MODE=rolling; DEPLOY_RUNTIME_PROFILE=main_only; '
         'deploy_validate_request release-1 5',
     )
 
