@@ -367,7 +367,7 @@ Strict Smoke Test
 
 배포 직후 중지 상태로 구성된 Runtime은 해당 readiness와 Smoke Test 대상에서 제외된다.
 
-Full 배포는 `RUN_READY_FULL_SMOKE=1`을 사용하며, readiness 실패 시 `make compose-diagnostics`를 실행해 컨테이너와 Runtime 상태를 수집한다.
+Full 배포는 `make ready-full`을 완료 기준으로 사용하며, readiness 실패 시 `make compose-diagnostics`를 실행해 컨테이너와 Runtime 상태를 수집한다.
 
 검증 단계의 전체 구분은 [8. 테스트와 검증](./08_testing_validation.md)을 참고한다.
 
@@ -535,7 +535,6 @@ make ready-full
 | `DEPLOY_DEFERRED_RUNTIMES` | 초기 중지 Runtime 직접 지정 |
 | `GATEWAY_HEALTH_URL` | 배포 후 Gateway health 확인 URL 재정의 |
 | `RUN_READY_SMOKE` | Gateway `/health` 확인 실행 |
-| `RUN_READY_FULL_SMOKE` | Full 배포의 전체 Runtime 준비 상태 확인 |
 | `RELEASES_TO_KEEP` | Release 디렉터리 보관 수 |
 
 ### 주요 파일
