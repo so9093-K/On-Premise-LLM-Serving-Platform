@@ -10,6 +10,7 @@ from .model_config import (
     validate_ports,
     validate_risk_detector_generation_budget,
 )
+from .runtime_topology import validate_runtime_prerequisite_projection
 from .schemas import (
     validate_common_error_codes,
     validate_openapi_refs,
@@ -28,6 +29,7 @@ CHECKS = [
     validate_configuration_schema,
     validate_deployment_targets,
     validate_deploy_profiles,
+    validate_runtime_prerequisite_projection,
     validate_alignment,
     validate_version_alignment,
     validate_python_compatibility,

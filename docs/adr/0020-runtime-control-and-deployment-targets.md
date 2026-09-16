@@ -47,6 +47,13 @@ Runtime endpoint의 존재와 lifecycle 제어 가능 여부는 별개다. endpo
 feature와 runtime의 연결 및 `required`, `enabled`, `controllable`을 명시한다. 실제
 Compose 서비스명과 포트는 `service_id`로 `configs/services.yaml`을 참조한다.
 
+Runtime Control이 controllable runtime을 다시 시작할 때 지켜야 하는 순차 기동 관계도
+`configs/runtime_topology.yaml`의 `start_prerequisites`가 소유한다. 이 값은 다른 runtime
+key를 참조하며 Admin Sidecar가 직접 소비한다. Compose `depends_on`은 최초 deployment
+boot에 필요한 추가 관계를 가질 수 있지만, controllable runtime 사이의 관계를 별도
+정책으로 정의하지 않는다. 정적 validation은 Compose에 투영된 controllable dependency가
+`start_prerequisites`와 일치하고 `condition: service_healthy`를 사용하는지 확인한다.
+
 현재 Sidecar API 구조에서는 `runtime_control`, `model_switching`, `gpu_admission`이 하나의
 원자적 control bundle이다. 세 플래그는 함께 켜거나 함께 꺼야 하며 governance validation이
 이를 강제한다. API를 독립 router로 분리하기 전에는 부분 조합을 지원한다고 선언하지 않는다.
@@ -66,5 +73,6 @@ Compose 서비스명과 포트는 `service_id`로 `configs/services.yaml`을 참
 - optional feature가 없는 target은 해당 client, readiness dependency, public model과 route를 만들지 않는다.
 - target-specific runtime 값은 환경 또는 향후 deployment manifest가 제공한다.
 - Linux Sidecar의 Docker command catalog와 Mac native runtime catalog는 분리된다.
+- Runtime Control의 재기동 순서는 deployment Compose를 역으로 파싱하지 않고 runtime topology 선언에서 결정된다.
 - macOS target의 모델, context, concurrency, modality는 구현 설정과 실제 workload
   qualification 상태를 구분하며, 실측 전 profile compatibility를 `verified`로 선언하지 않는다.
