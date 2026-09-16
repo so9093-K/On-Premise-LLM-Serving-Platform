@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # vLLM unified 이미지 태그를 확정합니다.
 #
-# 2026-07-24부터 VLLM_IMAGE/EMBEDDING_KO_VLLM_IMAGE/RISK_VLLM_IMAGE는 전부 같은
-# 이미지(ops/images/vllm-unified)를 가리키는 게 정상이다 -- Gemma4 멀티모달
-# 패치와 Kanana Llama head_dim 패치가 파일이 안 겹쳐 한 이미지에 같이 들어있고,
-# 각 patch는 그걸 필요로 하지 않는 모델에는 no-op이기 때문이다. (예전에는 risk
-# 이미지가 실수로 공용/base 이미지와 같아지는 걸 막는 마이그레이션 가드가 여기
-# 있었는데, 지금은 정확히 그 상태가 의도된 정상 상태라 가드를 제거했다.)
+# VLLM_IMAGE가 26B/12B/embedding/embedding-ko/risk-prompt가 공유하는 persistent
+# runtime image authority다. EMBEDDING_KO_VLLM_IMAGE와 RISK_VLLM_IMAGE는 기존
+# .env/Compose 상태를 해석하기 위한 compatibility projection으로만 유지한다.
+# 명시된 legacy 값은 migration audit 전까지 보존하지만 shared authority와 다르면
+# 경고한다. 독립 runtime artifact lifecycle이 다시 필요해질 때는 별도 build,
+# qualification, promotion, rollback 계약과 함께 새 authority를 정의한다.
 
 vllm_unified_default_image() {
   local version
@@ -40,6 +40,15 @@ vllm_unified_env_file_value() {
   ' "$env_file"
 }
 
+vllm_unified_warn_legacy_divergence() {
+  local key="${1:?legacy key required}"
+  local value="${2:-}"
+  local shared="${3:-}"
+  if [[ -n "$value" && -n "$shared" && "$value" != "$shared" ]]; then
+    echo "[vllm-unified] WARNING: ${key} is a deprecated compatibility override and differs from VLLM_IMAGE; preserving it for migration audit" >&2
+  fi
+}
+
 vllm_unified_resolve_images() {
   local env_file="${1:-.env}"
   local default_image
@@ -47,9 +56,10 @@ vllm_unified_resolve_images() {
   local canonical_base_image
   canonical_base_image="$(vllm_unified_canonical_base_image)"
 
-  local file_risk file_main
-  file_risk="$(vllm_unified_env_file_value "$env_file" RISK_VLLM_IMAGE 2>/dev/null || true)"
+  local file_main file_embedding_ko file_risk
   file_main="$(vllm_unified_env_file_value "$env_file" VLLM_IMAGE 2>/dev/null || true)"
+  file_embedding_ko="$(vllm_unified_env_file_value "$env_file" EMBEDDING_KO_VLLM_IMAGE 2>/dev/null || true)"
+  file_risk="$(vllm_unified_env_file_value "$env_file" RISK_VLLM_IMAGE 2>/dev/null || true)"
 
   VLLM_IMAGE_RESOLVED="${VLLM_IMAGE:-${file_main:-$default_image}}"
   # base override는 프로세스 환경변수로만 받는다. .env는 일부러 읽지 않는다 --
@@ -65,9 +75,17 @@ vllm_unified_resolve_images() {
     echo "[vllm-unified] ERROR: VLLM_BASE_IMAGE must be a digest (name@sha256:...), got ${VLLM_BASE_IMAGE_RESOLVED}" >&2
     return 2
   fi
-  RISK_VLLM_IMAGE_RESOLVED="${RISK_VLLM_IMAGE:-${file_risk:-$default_image}}"
+
+  EMBEDDING_KO_VLLM_IMAGE_RESOLVED="${EMBEDDING_KO_VLLM_IMAGE:-${file_embedding_ko:-$VLLM_IMAGE_RESOLVED}}"
+  RISK_VLLM_IMAGE_RESOLVED="${RISK_VLLM_IMAGE:-${file_risk:-$VLLM_IMAGE_RESOLVED}}"
+
+  vllm_unified_warn_legacy_divergence \
+    EMBEDDING_KO_VLLM_IMAGE "$EMBEDDING_KO_VLLM_IMAGE_RESOLVED" "$VLLM_IMAGE_RESOLVED"
+  vllm_unified_warn_legacy_divergence \
+    RISK_VLLM_IMAGE "$RISK_VLLM_IMAGE_RESOLVED" "$VLLM_IMAGE_RESOLVED"
 
   export VLLM_IMAGE_RESOLVED
   export VLLM_BASE_IMAGE_RESOLVED
+  export EMBEDDING_KO_VLLM_IMAGE_RESOLVED
   export RISK_VLLM_IMAGE_RESOLVED
 }

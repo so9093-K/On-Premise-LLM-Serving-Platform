@@ -14,7 +14,12 @@ import yaml
 from scripts.build.pin_local_vllm_image import pin_matching_env_values
 from scripts import platform_cli
 
-_ISOLATED_KEYS = ("VLLM_IMAGE", "RISK_VLLM_IMAGE", "VLLM_BASE_IMAGE")
+_ISOLATED_KEYS = (
+    "VLLM_IMAGE",
+    "EMBEDDING_KO_VLLM_IMAGE",
+    "RISK_VLLM_IMAGE",
+    "VLLM_BASE_IMAGE",
+)
 
 
 def run_bash(repo: Path, script: str, *, env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
@@ -65,30 +70,25 @@ def copy_minimal_repo(tmp_path: Path) -> Path:
     return repo
 
 
-def _expected_unified_image() -> str:
-    root = Path(__file__).resolve().parents[2]
-    version = (root / 'VERSION').read_text(encoding='utf-8').strip()
-    return f'ai-model-serving-vllm-unified:{version}'
-
-
 def _canonical_base_image() -> str:
     root = Path(__file__).resolve().parents[2]
     document = yaml.safe_load((root / "configs/vllm_unified_build.yaml").read_text(encoding="utf-8"))
     return str(document["base_image_default"])
 
 
-def test_vllm_unified_image_resolver_defaults_when_unset(tmp_path):
+def test_vllm_unified_image_resolver_legacy_pins_default_to_shared_image(tmp_path):
     repo = copy_minimal_repo(tmp_path)
-    (repo / '.env').write_text('VLLM_IMAGE=some/other:tag\n', encoding='utf-8')
+    shared = 'registry.example.com/project/vllm-unified:qualified'
+    (repo / '.env').write_text(f'VLLM_IMAGE={shared}\n', encoding='utf-8')
     result = run_bash(
         repo,
         'source scripts/lib/vllm_unified_image.sh; '
         'vllm_unified_resolve_images .env; '
-        'printf "%s\\n" "$RISK_VLLM_IMAGE_RESOLVED"',
+        'printf "%s\\n%s\\n" "$EMBEDDING_KO_VLLM_IMAGE_RESOLVED" "$RISK_VLLM_IMAGE_RESOLVED"',
     )
-    expected = _expected_unified_image()
     assert result.returncode == 0, result.stderr
-    assert result.stdout.strip() == expected
+    assert result.stdout.splitlines() == [shared, shared]
+    assert result.stderr == ''
 
 
 def test_vllm_unified_image_resolver_default_base_matches_canonical_image_config(tmp_path):
@@ -116,6 +116,32 @@ def test_vllm_unified_image_resolver_preserves_custom_exported_image(tmp_path):
     )
     assert result.returncode == 0, result.stderr
     assert result.stdout.strip() == custom
+    assert 'RISK_VLLM_IMAGE' in result.stderr
+    assert 'deprecated compatibility override' in result.stderr
+
+
+def test_vllm_unified_image_resolver_preserves_divergent_legacy_pins_with_warning(tmp_path):
+    repo = copy_minimal_repo(tmp_path)
+    shared = 'registry.example.com/project/vllm-unified@sha256:' + 'a' * 64
+    embedding_ko = 'registry.example.com/project/embedding-ko@sha256:' + 'b' * 64
+    risk = 'registry.example.com/project/risk@sha256:' + 'c' * 64
+    (repo / '.env').write_text(
+        f'VLLM_IMAGE={shared}\n'
+        f'EMBEDDING_KO_VLLM_IMAGE={embedding_ko}\n'
+        f'RISK_VLLM_IMAGE={risk}\n',
+        encoding='utf-8',
+    )
+    result = run_bash(
+        repo,
+        'source scripts/lib/vllm_unified_image.sh; '
+        'vllm_unified_resolve_images .env; '
+        'printf "%s\\n%s\\n" "$EMBEDDING_KO_VLLM_IMAGE_RESOLVED" "$RISK_VLLM_IMAGE_RESOLVED"',
+    )
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.splitlines() == [embedding_ko, risk]
+    assert 'EMBEDDING_KO_VLLM_IMAGE' in result.stderr
+    assert 'RISK_VLLM_IMAGE' in result.stderr
+    assert result.stderr.count('deprecated compatibility override') == 2
 
 
 def test_local_image_pin_updates_only_matching_unified_refs(tmp_path):
