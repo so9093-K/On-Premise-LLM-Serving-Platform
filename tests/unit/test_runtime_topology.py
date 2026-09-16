@@ -36,22 +36,10 @@ def test_runtime_topology_uses_explicit_lifecycle_bindings() -> None:
     }
 
 
-def test_runtime_topology_does_not_derive_policy_from_compose(tmp_path) -> None:
-    root = Path(__file__).resolve().parents[2]
-    compose_path = tmp_path / "compose.yaml"
-    compose_path.write_text(
-        """
-services:
-  embedding-ko-vllm:
-    depends_on:
-      risk-prompt-vllm:
-        condition: service_healthy
-""".strip()
-        + "\n",
-        encoding="utf-8",
-    )
+def test_runtime_topology_loads_without_compose_file(tmp_path) -> None:
+    _copy_runtime_configs(tmp_path)
 
-    topology = load_runtime_topology(root, compose_path=compose_path)
+    topology = load_runtime_topology(tmp_path)
 
     assert topology.start_prerequisites_by_service["embedding-ko-vllm"] == [
         "embedding-vllm"

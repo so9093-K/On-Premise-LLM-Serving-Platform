@@ -450,7 +450,6 @@ services:
     - ../../.runtime/log-targets:/var/lib/ai-model-serving/log-targets
     - ${HF_CACHE_DIR:-./model_cache/huggingface}:/root/.cache/huggingface
     - ../../configs:/app/configs:ro
-    - ../../ops/compose/full-stack.private-network.yaml:/app/ops/compose/full-stack.private-network.yaml:ro
     expose:
     - '8080'
     healthcheck:

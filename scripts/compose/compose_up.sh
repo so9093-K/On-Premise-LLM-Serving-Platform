@@ -103,7 +103,6 @@ fi
 DEFERRED_RUNTIME_RESOLUTION="$(
   "$PYTHON_BIN" scripts/runtime/deferred_runtimes.py \
     --config-root "$ROOT" \
-    --compose-file "$COMPOSE_FILE" \
     --profile "${RUNTIME_PROFILE:-}" \
     --output lines
 )"

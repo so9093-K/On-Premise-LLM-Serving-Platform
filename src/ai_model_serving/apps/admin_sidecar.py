@@ -120,10 +120,7 @@ SIDECAR_TOKEN = _CONFIG.internal_service_token
 LOG_TARGET_MANIFEST_PATH = _CONFIG.log_target_manifest_path
 LOG_TARGET_REFRESH_SECONDS = _CONFIG.log_target_refresh_seconds
 
-_TOPOLOGY = load_runtime_topology(
-    APP_CONFIG_ROOT,
-    compose_path=APP_CONFIG_ROOT / "ops/compose/full-stack.private-network.yaml",
-)
+_TOPOLOGY = load_runtime_topology(APP_CONFIG_ROOT)
 CONTROLLABLE: frozenset[str] = _TOPOLOGY.controllable_services
 # health URL은 topology가 소유한다. 경로 파라미터로 들어온 service 문자열로
 # URL을 조립하지 않기 위해서다 -- allowlist(CONTROLLABLE)가 이미 값을 막지만,
