@@ -9,10 +9,12 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 POLICY = "scripts/lib/deploy_request_policy.sh"
+PLATFORM_DIGEST = "registry.example/platform@sha256:" + "f" * 64
 
 _ISOLATED_KEYS = (
     "DEPLOY_MODE",
     "DEPLOY_MODE_REASON",
+    "PLATFORM_IMAGE_TO_DEPLOY",
     "RISK_VLLM_IMAGE_TO_DEPLOY",
     "VLLM_UNIFIED_IMAGE_TO_DEPLOY",
     "AUDIO_VLLM_IMAGE_TO_DEPLOY",
@@ -28,6 +30,7 @@ def run_policy(command: str, **environment: str) -> subprocess.CompletedProcess[
     # 좌우된다 -- 여기서 명시적으로 지워서 각 테스트가 지정한 값만 보게 한다.
     for key in _ISOLATED_KEYS:
         env.pop(key, None)
+    env["PLATFORM_IMAGE_TO_DEPLOY"] = PLATFORM_DIGEST
     env |= environment
     return subprocess.run(
         ["bash", "-c", f"source {POLICY}; {command}"],
@@ -68,6 +71,31 @@ def test_fresh_unified_image_promotes_rolling_request_to_full():
     assert result.stdout == "full|fresh unified vLLM image artifact"
 
 
+def test_mutable_platform_image_is_rejected_before_remote_mutation():
+    result = run_policy(
+        "DEPLOY_MODE=full; deploy_validate_request release-1 5",
+        PLATFORM_IMAGE_TO_DEPLOY="registry.example/platform:latest",
+    )
+
+    assert result.returncode == 2
+    assert "PLATFORM_IMAGE_TO_DEPLOY must be an immutable registry digest" in result.stderr
+
+
+def test_runtime_promotion_inputs_require_registry_digests():
+    for key in (
+        "VLLM_UNIFIED_IMAGE_TO_DEPLOY",
+        "RISK_VLLM_IMAGE_TO_DEPLOY",
+        "AUDIO_VLLM_IMAGE_TO_DEPLOY",
+    ):
+        result = run_policy(
+            "DEPLOY_MODE=full; deploy_validate_request release-1 5",
+            **{key: "registry.example/runtime:release"},
+        )
+
+        assert result.returncode == 2
+        assert f"{key} must be an immutable registry digest" in result.stderr
+
+
 def test_conflicting_shared_runtime_promotion_inputs_are_rejected():
     result = run_policy(
         'DEPLOY_MODE=full; deploy_validate_request release-1 5',
@@ -99,7 +127,7 @@ def test_rolling_deploy_rejects_runtime_image_promotion_input():
     assert "runtime image promotion inputs require DEPLOY_MODE=full" in result.stderr
 
 
-def test_full_deploy_accepts_compatibility_and_audio_promotion_inputs():
+def test_full_deploy_accepts_immutable_platform_compatibility_and_audio_inputs():
     result = run_policy(
         'DEPLOY_MODE=full; deploy_validate_request release-1 5',
         RISK_VLLM_IMAGE_TO_DEPLOY="registry.example/unified@sha256:" + "a" * 64,

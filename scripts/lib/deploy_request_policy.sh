@@ -6,6 +6,10 @@
 # 방식으로 검증할 수 있다. 호출자는 필요한 변수를 설정한 뒤 아래 함수를 순서대로
 # 호출하고, 실패 시 반환 코드를 그대로 배포 실패로 처리한다.
 
+_DEPLOY_REQUEST_POLICY_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${_DEPLOY_REQUEST_POLICY_LIB_DIR}/image_ref_policy.sh"
+unset _DEPLOY_REQUEST_POLICY_LIB_DIR
+
 deploy_resolve_mode() {
   # 새로 빌드·publish한 unified image는 그 digest를 모든 vLLM runtime에 같이
   # 적용해야 한다. 사용자가 rolling을 요청했더라도 image를 빌드한 사실이 더
@@ -27,7 +31,7 @@ deploy_resolve_mode() {
 }
 
 deploy_validate_request() {
-  local release_id="$1" releases_to_keep="$2"
+  local release_id="$1" releases_to_keep="$2" key value
 
   if [[ ! "${release_id}" =~ ^[A-Za-z0-9._-]{1,128}$ ]]; then
     echo "[deploy] ERROR: DEPLOY_RELEASE_ID must contain only A-Za-z0-9._- and be <=128 chars." >&2
@@ -37,6 +41,21 @@ deploy_validate_request() {
     echo "[deploy] ERROR: RELEASES_TO_KEEP must be a positive integer." >&2
     return 2
   fi
+
+  if ! require_registry_digest_image_ref \
+    "PLATFORM_IMAGE_TO_DEPLOY" "${PLATFORM_IMAGE_TO_DEPLOY:-}"; then
+    return 2
+  fi
+  for key in \
+    VLLM_UNIFIED_IMAGE_TO_DEPLOY \
+    RISK_VLLM_IMAGE_TO_DEPLOY \
+    AUDIO_VLLM_IMAGE_TO_DEPLOY
+  do
+    value="${!key:-}"
+    if [[ -n "${value}" ]] && ! require_registry_digest_image_ref "${key}" "${value}"; then
+      return 2
+    fi
+  done
 
   case "${DEPLOY_MODE:-}" in
     rolling|full) ;;

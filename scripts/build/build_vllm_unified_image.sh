@@ -4,6 +4,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT"
 source scripts/lib/project_image_ownership.sh
+source scripts/lib/image_ref_policy.sh
 
 if ! command -v docker >/dev/null 2>&1; then
   echo "[vllm-unified-image] Docker CLI is required." >&2
@@ -30,8 +31,7 @@ esac
 IMAGE="${VLLM_UNIFIED_BUILD_IMAGE:-$(vllm_unified_default_image)}"
 EXTRA_TAGS="${VLLM_UNIFIED_BUILD_EXTRA_TAGS:-}"
 BASE_IMAGE="${VLLM_BASE_IMAGE:-$(vllm_unified_canonical_base_image)}"
-if [[ "$BASE_IMAGE" != *"@sha256:"* ]]; then
-  echo "[vllm-unified-image] Base image must be immutable (name@sha256:...): ${BASE_IMAGE}" >&2
+if ! require_registry_digest_image_ref "VLLM_BASE_IMAGE" "${BASE_IMAGE}"; then
   exit 2
 fi
 CACHE_FROM="${VLLM_UNIFIED_BUILD_CACHE_FROM:-}"
