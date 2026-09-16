@@ -146,6 +146,26 @@ def test_state_store_atomic_round_trip_and_corruption(tmp_path):
     assert not list(tmp_path.glob("*.tmp"))
 
 
+def test_main_model_operation_projection_is_newest_first(tmp_path):
+    loaded = catalog()
+    store = MainModelStateStore(tmp_path / "state.json", loaded.default_profile)
+    state = store.read()
+    state["operations"] = [
+        {"id": "older", "created_at": 1.0},
+        {"id": "newer", "created_at": 2.0},
+    ]
+    store.write(state)
+    manager = MainModelManager(
+        loaded,
+        store,
+        FakeBackend(),
+        boot_profile=loaded.default_profile,
+    )
+
+    assert [item["id"] for item in manager.operations()] == ["newer", "older"]
+    assert manager.operation("older") == {"id": "older", "created_at": 1.0}
+
+
 def _increment_state_store(state_path: str, count: int) -> None:
     # spawn은 작업 함수를 import한다. 함수 내부 정의는 fork에서만 동작한다.
     child = MainModelStateStore(Path(state_path), "gemma4-26b-a4b-fp8")

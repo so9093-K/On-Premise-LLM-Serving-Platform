@@ -699,6 +699,14 @@ async def switch_main_model(
     )
 
 
+@app.get("/main-model/operations")
+async def main_model_operations(
+    authorization: str | None = Header(default=None),
+) -> JSONResponse:
+    await _require_sidecar_token(authorization)
+    return JSONResponse({"items": _main_model_manager.operations()})
+
+
 @app.get("/main-model/operations/{operation_id}")
 async def main_model_operation(
     operation_id: str,

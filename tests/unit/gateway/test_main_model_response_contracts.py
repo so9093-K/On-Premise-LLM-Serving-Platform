@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from jsonschema import Draft202012Validator
 
+from ai_model_serving.main_model.control import OPERATION_STAGES
 from ai_model_serving.openapi_contracts import load_contract_schema
 
 from .helpers import FakeGatewayClients, TestClient, create_gateway_app, settings
@@ -55,6 +56,13 @@ class ContractMainModelSidecar:
     async def switch_main_model(self, profile, *, confirm_unverified=False, request_id=None):
         return {"operation_id": "41cf50bb-60b2-4dbc-b38a-7dd07da91d97", "status": "pending", "reused": False}
 
+    async def main_model_operations(self):
+        return {
+            "items": [
+                await self.main_model_operation("41cf50bb-60b2-4dbc-b38a-7dd07da91d97")
+            ]
+        }
+
     async def main_model_operation(self, operation_id):
         return {
             "id": operation_id,
@@ -86,6 +94,17 @@ def test_main_model_admin_reads_match_checked_in_contracts():
     assert profiles.status_code == 200
     _validate("main_model_profiles_response.schema.json", profiles.json())
 
+    operations = client.get("/admin/main-model/operations")
+    assert operations.status_code == 200
+    _validate("main_model_operation_list_response.schema.json", operations.json())
+
     operation = client.get("/admin/main-model/operations/41cf50bb-60b2-4dbc-b38a-7dd07da91d97")
     assert operation.status_code == 200
     _validate("main_model_operation_response.schema.json", operation.json())
+
+
+def test_main_model_operation_contract_stages_match_runtime_grammar() -> None:
+    schema = load_contract_schema("main_model_operation_response.schema.json")
+    properties = schema["properties"]
+    assert tuple(properties["status"]["enum"]) == OPERATION_STAGES
+    assert tuple(properties["stage"]["enum"]) == OPERATION_STAGES

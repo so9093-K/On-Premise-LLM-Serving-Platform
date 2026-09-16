@@ -167,6 +167,7 @@ Retrieval Score
 | Main Model | `GET` | `/admin/main-model` | Admin |
 | Main Model | `GET` | `/admin/main-model/profiles` | Admin |
 | Main Model | `POST` | `/admin/main-model/switch` | Admin |
+| Main Model | `GET` | `/admin/main-model/operations` | Admin |
 | Main Model | `GET` | `/admin/main-model/operations/{operation_id}` | Admin |
 
 ---
@@ -1580,7 +1581,26 @@ curl -X POST "$GATEWAY_URL/admin/main-model/switch" \
 
 같은 `request_id`의 최근 작업이 존재하면 새 작업을 만들지 않고 기존 operation을 반환하며 `reused=true`가 될 수 있다.
 
-### 8.6 GET `/admin/main-model/operations/{operation_id}`
+### 8.6 GET `/admin/main-model/operations`
+
+Main Model state가 보존하는 최근 profile switch operation을 최신 순서로 조회한다. 이 목록은 운영 화면을 위한 bounded recent projection이며 장기 audit history를 의미하지 않는다. 각 item은 단건 operation과 같은 contract를 사용한다.
+
+```json
+{
+  "items": [
+    {
+      "id": "41cf50bb-60b2-4dbc-b38a-7dd07da91d97",
+      "requested_profile": "gemma4-12b-unified-fp8",
+      "status": "completed",
+      "stage": "completed",
+      "created_at": 1782086105.78,
+      "updated_at": 1782086258.20
+    }
+  ]
+}
+```
+
+### 8.7 GET `/admin/main-model/operations/{operation_id}`
 
 전환 작업 상태를 조회한다.
 
