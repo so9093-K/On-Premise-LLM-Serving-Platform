@@ -223,7 +223,9 @@ def build_target(target: DeploymentTarget, *, no_cache: bool = False) -> None:
             print(f"[platform] pinned local Platform image: PLATFORM_IMAGE={new_image_id}")
 
     if target.controllable:
-        image = values.get("RISK_VLLM_IMAGE", "")
+        # VLLM_IMAGE is the shared runtime artifact authority. The risk key is
+        # read only as a compatibility fallback for pre-migration env files.
+        image = values.get("VLLM_IMAGE") or values.get("RISK_VLLM_IMAGE", "")
         if _registry_digest(image):
             external.append("vllm-unified")
             print(f"[platform] preserving external Unified vLLM image: {image}")
