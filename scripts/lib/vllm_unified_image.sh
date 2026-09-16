@@ -2,11 +2,8 @@
 # vLLM unified 이미지 태그를 확정합니다.
 #
 # VLLM_IMAGE가 26B/12B/embedding/embedding-ko/risk-prompt가 공유하는 persistent
-# runtime image authority다. EMBEDDING_KO_VLLM_IMAGE와 RISK_VLLM_IMAGE는 기존
-# .env/Compose 상태를 해석하기 위한 compatibility projection으로만 유지한다.
-# 명시된 legacy 값은 migration audit 전까지 보존하지만 shared authority와 다르면
-# 경고한다. 독립 runtime artifact lifecycle이 다시 필요해질 때는 별도 build,
-# qualification, promotion, rollback 계약과 함께 새 authority를 정의한다.
+# runtime image authority다. 독립 runtime artifact lifecycle이 다시 필요해질 때는
+# 별도 build, qualification, promotion, rollback 계약과 함께 새 authority를 정의한다.
 
 vllm_unified_default_image() {
   local version
@@ -40,15 +37,6 @@ vllm_unified_env_file_value() {
   ' "$env_file"
 }
 
-vllm_unified_warn_legacy_divergence() {
-  local key="${1:?legacy key required}"
-  local value="${2:-}"
-  local shared="${3:-}"
-  if [[ -n "$value" && -n "$shared" && "$value" != "$shared" ]]; then
-    echo "[vllm-unified] WARNING: ${key} is a deprecated compatibility override and differs from VLLM_IMAGE; preserving it for migration audit" >&2
-  fi
-}
-
 vllm_unified_resolve_images() {
   local env_file="${1:-.env}"
   local default_image
@@ -56,10 +44,8 @@ vllm_unified_resolve_images() {
   local canonical_base_image
   canonical_base_image="$(vllm_unified_canonical_base_image)"
 
-  local file_main file_embedding_ko file_risk
+  local file_main
   file_main="$(vllm_unified_env_file_value "$env_file" VLLM_IMAGE 2>/dev/null || true)"
-  file_embedding_ko="$(vllm_unified_env_file_value "$env_file" EMBEDDING_KO_VLLM_IMAGE 2>/dev/null || true)"
-  file_risk="$(vllm_unified_env_file_value "$env_file" RISK_VLLM_IMAGE 2>/dev/null || true)"
 
   VLLM_IMAGE_RESOLVED="${VLLM_IMAGE:-${file_main:-$default_image}}"
   # base override는 프로세스 환경변수로만 받는다. .env는 일부러 읽지 않는다 --
@@ -76,13 +62,8 @@ vllm_unified_resolve_images() {
     return 2
   fi
 
-  EMBEDDING_KO_VLLM_IMAGE_RESOLVED="${EMBEDDING_KO_VLLM_IMAGE:-${file_embedding_ko:-$VLLM_IMAGE_RESOLVED}}"
-  RISK_VLLM_IMAGE_RESOLVED="${RISK_VLLM_IMAGE:-${file_risk:-$VLLM_IMAGE_RESOLVED}}"
-
-  vllm_unified_warn_legacy_divergence \
-    EMBEDDING_KO_VLLM_IMAGE "$EMBEDDING_KO_VLLM_IMAGE_RESOLVED" "$VLLM_IMAGE_RESOLVED"
-  vllm_unified_warn_legacy_divergence \
-    RISK_VLLM_IMAGE "$RISK_VLLM_IMAGE_RESOLVED" "$VLLM_IMAGE_RESOLVED"
+  EMBEDDING_KO_VLLM_IMAGE_RESOLVED="$VLLM_IMAGE_RESOLVED"
+  RISK_VLLM_IMAGE_RESOLVED="$VLLM_IMAGE_RESOLVED"
 
   export VLLM_IMAGE_RESOLVED
   export VLLM_BASE_IMAGE_RESOLVED

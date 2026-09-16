@@ -13,41 +13,19 @@ compose_context_init() {
   local root="${1:?project root required}"
   local python_bin="${PYTHON_BIN:-$(command -v python3.12 || command -v python3 || command -v python)}"
   local project_name="${COMPOSE_PROJECT_NAME:-}"
-  local file_vllm_image="" file_embedding_ko_image="" file_risk_image="" shared_vllm_image=""
 
   ENV_FILE="${ENV_FILE:-.env}"
   COMPOSE_FILE="${COMPOSE_FILE:-ops/compose/full-stack.private-network.yaml}"
   ENV_FILE_ABS="$("$python_bin" -c 'import os,sys; print(os.path.abspath(sys.argv[1]))' "$ENV_FILE")"
   COMPOSE_FILE_ABS="$("$python_bin" -c 'import os,sys; print(os.path.abspath(sys.argv[1]))' "$COMPOSE_FILE")"
 
-  if [[ -f "$ENV_FILE_ABS" ]]; then
-    if [[ -z "$project_name" ]]; then
-      project_name="$(
-        "$python_bin" "$root/scripts/env/env_get.py" \
-          --env-file "$ENV_FILE_ABS" COMPOSE_PROJECT_NAME --default ai-model-serving-platform
-      )"
-    fi
-    file_vllm_image="$(
+  if [[ -z "$project_name" && -f "$ENV_FILE_ABS" ]]; then
+    project_name="$(
       "$python_bin" "$root/scripts/env/env_get.py" \
-        --env-file "$ENV_FILE_ABS" VLLM_IMAGE --default ''
-    )"
-    file_embedding_ko_image="$(
-      "$python_bin" "$root/scripts/env/env_get.py" \
-        --env-file "$ENV_FILE_ABS" EMBEDDING_KO_VLLM_IMAGE --default ''
-    )"
-    file_risk_image="$(
-      "$python_bin" "$root/scripts/env/env_get.py" \
-        --env-file "$ENV_FILE_ABS" RISK_VLLM_IMAGE --default ''
+        --env-file "$ENV_FILE_ABS" COMPOSE_PROJECT_NAME --default ai-model-serving-platform
     )"
   fi
   project_name="${project_name:-ai-model-serving-platform}"
-
-  # VLLM_IMAGE is the shared persistent authority. Existing per-runtime values
-  # remain compatibility overrides; when absent, expose the shared value only in
-  # the Compose process environment instead of materializing legacy keys in .env.
-  shared_vllm_image="${VLLM_IMAGE:-${file_vllm_image}}"
-  EMBEDDING_KO_VLLM_IMAGE="${EMBEDDING_KO_VLLM_IMAGE:-${file_embedding_ko_image:-${shared_vllm_image}}}"
-  RISK_VLLM_IMAGE="${RISK_VLLM_IMAGE:-${file_risk_image:-${shared_vllm_image}}}"
 
   COMPOSE_PROJECT_NAME="$project_name"
   COMPOSE_PROJECT_NAME_EFFECTIVE="$project_name"
@@ -59,8 +37,7 @@ compose_context_init() {
 
   export \
     ENV_FILE COMPOSE_FILE ENV_FILE_ABS COMPOSE_FILE_ABS \
-    COMPOSE_PROJECT_NAME COMPOSE_PROJECT_NAME_EFFECTIVE COMPOSE_SERVICE_ENV_FILE \
-    EMBEDDING_KO_VLLM_IMAGE RISK_VLLM_IMAGE
+    COMPOSE_PROJECT_NAME COMPOSE_PROJECT_NAME_EFFECTIVE COMPOSE_SERVICE_ENV_FILE
 }
 
 # 동일 Docker daemon에서 다른 working directory가 같은 Compose project name을

@@ -176,7 +176,7 @@ services:
           - capabilities:
             - gpu
   embedding-ko-vllm:
-    image: ${EMBEDDING_KO_VLLM_IMAGE:?Set EMBEDDING_KO_VLLM_IMAGE to a tested vLLM OpenAI image tag}
+    image: ${VLLM_IMAGE:?Set VLLM_IMAGE to a tested vLLM OpenAI image tag}
     restart: unless-stopped
     command:
     - --model
@@ -227,8 +227,7 @@ services:
           - capabilities:
             - gpu
   risk-prompt-vllm:
-    image: ${RISK_VLLM_IMAGE:?Set RISK_VLLM_IMAGE to a tested vLLM OpenAI image tag
-      for risk models}
+    image: ${VLLM_IMAGE:?Set VLLM_IMAGE to a tested vLLM OpenAI image tag}
     restart: unless-stopped
     command:
     - --model
