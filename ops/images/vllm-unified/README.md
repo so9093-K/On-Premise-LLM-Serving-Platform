@@ -37,11 +37,10 @@ persistent image authority는 `VLLM_IMAGE`다. Main LLM의 일반 profile,
 embedding, embedding-ko, risk-prompt는 이 authority가 가리키는 검증된 artifact를
 공유한다.
 
-`EMBEDDING_KO_VLLM_IMAGE`와 `RISK_VLLM_IMAGE`는 기존 `.env`와 Compose 상태를
-해석하기 위한 compatibility projection으로만 유지한다. 값이 `VLLM_IMAGE`와 다르면
-migration audit 전까지 그 값을 보존하고 진단 경고를 낸다. 새 독립 promotion 또는
-rollback authority로 사용하지 않는다. `AUDIO_VLLM_IMAGE`는 Main Model profile의
-명시적 image override 계약이 있으므로 이 migration과 별도로 유지한다.
+`EMBEDDING_KO_VLLM_IMAGE`와 `RISK_VLLM_IMAGE`는 retired persistent key이며
+runtime 또는 local build의 override로 해석하지 않는다. 기존 `.env`에 남아 있으면
+`make sync-env`가 제거한다. Main Model profile이 명시적으로 다른 image를 선택해야 할 때는
+`AUDIO_VLLM_IMAGE`가 그 profile-specific override를 소유한다.
 
 원격 shared artifact promotion의 canonical input은 `VLLM_UNIFIED_IMAGE_TO_DEPLOY`다.
 Registry publish와 원격 적용은 특정 CI provider의 책임으로 저장소에 고정하지 않는다.
