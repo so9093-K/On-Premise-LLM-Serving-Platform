@@ -1,4 +1,4 @@
-"""원격 full deploy의 runtime image promotion/pin 보존 정책을 검증한다."""
+"""원격 full deploy의 shared runtime image promotion/pin 정책을 검증한다."""
 
 from __future__ import annotations
 
@@ -19,9 +19,7 @@ _IMAGE_KEYS = (
 def _env_file(tmp_path: Path) -> Path:
     path = tmp_path / ".env"
     path.write_text(
-        "VLLM_IMAGE=registry.example/main@sha256:" + "1" * 64 + "\n"
-        "EMBEDDING_KO_VLLM_IMAGE=registry.example/embedding-ko@sha256:" + "2" * 64 + "\n"
-        "RISK_VLLM_IMAGE=registry.example/risk@sha256:" + "3" * 64 + "\n"
+        "VLLM_IMAGE=registry.example/shared@sha256:" + "1" * 64 + "\n"
         "AUDIO_VLLM_IMAGE=registry.example/audio@sha256:" + "4" * 64 + "\n",
         encoding="utf-8",
     )
@@ -39,9 +37,8 @@ def _resolve(env_file: Path, **environment: str) -> tuple[str, str]:
         'printf "%s|%s|%s|%s\\n" '
         '"$VLLM_IMAGE_EFFECTIVE" "$EMBEDDING_KO_VLLM_IMAGE_EFFECTIVE" '
         '"$RISK_VLLM_IMAGE_EFFECTIVE" "$AUDIO_VLLM_IMAGE_EFFECTIVE"; '
-        'printf "%s|%s|%s|%s" '
-        '"${VLLM_IMAGE_PROMOTION:-}" "${EMBEDDING_KO_VLLM_IMAGE_PROMOTION:-}" '
-        '"${RISK_VLLM_IMAGE_PROMOTION:-}" "${AUDIO_VLLM_IMAGE_PROMOTION:-}"'
+        'printf "%s|%s" '
+        '"${VLLM_IMAGE_PROMOTION:-}" "${AUDIO_VLLM_IMAGE_PROMOTION:-}"'
     )
     result = subprocess.run(
         ["bash", "-c", command],
@@ -56,20 +53,15 @@ def _resolve(env_file: Path, **environment: str) -> tuple[str, str]:
     return effective, promotion
 
 
-def test_full_deploy_without_image_inputs_preserves_each_persistent_pin(tmp_path: Path):
+def test_full_deploy_without_image_inputs_preserves_shared_and_audio_pins(tmp_path: Path):
     env_file = _env_file(tmp_path)
+    shared = "registry.example/shared@sha256:" + "1" * 64
+    audio = "registry.example/audio@sha256:" + "4" * 64
 
     effective, promotion = _resolve(env_file)
 
-    assert effective == "|".join(
-        [
-            "registry.example/main@sha256:" + "1" * 64,
-            "registry.example/embedding-ko@sha256:" + "2" * 64,
-            "registry.example/risk@sha256:" + "3" * 64,
-            "registry.example/audio@sha256:" + "4" * 64,
-        ]
-    )
-    assert promotion == "|||"
+    assert effective == "|".join([shared, shared, shared, audio])
+    assert promotion == "|"
 
 
 def test_unified_artifact_promotes_shared_consumers_and_audio_by_default(tmp_path: Path):
@@ -79,7 +71,7 @@ def test_unified_artifact_promotes_shared_consumers_and_audio_by_default(tmp_pat
     effective, promotion = _resolve(env_file, VLLM_UNIFIED_IMAGE_TO_DEPLOY=unified)
 
     assert effective == "|".join([unified, unified, unified, unified])
-    assert promotion == "|".join([unified, unified, unified, unified])
+    assert promotion == "|".join([unified, unified])
 
 
 def test_compatibility_risk_input_keeps_existing_shared_promotion_semantics(tmp_path: Path):
@@ -89,7 +81,7 @@ def test_compatibility_risk_input_keeps_existing_shared_promotion_semantics(tmp_
     effective, promotion = _resolve(env_file, RISK_VLLM_IMAGE_TO_DEPLOY=unified)
 
     assert effective == "|".join([unified, unified, unified, unified])
-    assert promotion == "|".join([unified, unified, unified, unified])
+    assert promotion == "|".join([unified, unified])
 
 
 def test_audio_override_remains_independent_from_shared_promotion(tmp_path: Path):
@@ -104,4 +96,4 @@ def test_audio_override_remains_independent_from_shared_promotion(tmp_path: Path
     )
 
     assert effective == "|".join([unified, unified, unified, audio])
-    assert promotion == "|".join([unified, unified, unified, audio])
+    assert promotion == "|".join([unified, audio])

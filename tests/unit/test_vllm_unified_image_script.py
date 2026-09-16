@@ -1,5 +1,5 @@
 """scripts/lib/vllm_unified_image.sh(통합 vLLM 이미지 resolver)를 검증한다:
-기본값/커스텀 이미지 해석, base image가 vllm_unified_build.yaml과 일치하는지,
+shared image 해석, base image가 vllm_unified_build.yaml과 일치하는지,
 media 의존성(soundfile/librosa/av)이 검증된 lock 파일을 그대로 쓰는지."""
 
 from __future__ import annotations
@@ -16,19 +16,13 @@ from scripts import platform_cli
 
 _ISOLATED_KEYS = (
     "VLLM_IMAGE",
-    "EMBEDDING_KO_VLLM_IMAGE",
-    "RISK_VLLM_IMAGE",
     "VLLM_BASE_IMAGE",
 )
 
 
 def run_bash(repo: Path, script: str, *, env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
     merged_env = os.environ.copy()
-    # pytest를 Make 밖에서 직접 실행해도 fixture shell은 현재 test interpreter를 쓴다.
     merged_env["PYTHON_BIN"] = sys.executable
-    # 다른 테스트나 이 프로세스의 실제 배포 환경에서 이 키들이 이미 export돼
-    # 있으면 resolver가 그 값을 우선시켜 .env 픽스처를 무시하게 된다 -- 여기서
-    # 명시적으로 지워서 각 테스트가 자기 .env/override만으로 결정되게 한다.
     for key in _ISOLATED_KEYS:
         merged_env.pop(key, None)
     if env:
@@ -76,7 +70,7 @@ def _canonical_base_image() -> str:
     return str(document["base_image_default"])
 
 
-def test_vllm_unified_image_resolver_legacy_pins_default_to_shared_image(tmp_path):
+def test_vllm_unified_image_resolver_projects_shared_image_to_runtime_views(tmp_path):
     repo = copy_minimal_repo(tmp_path)
     shared = 'registry.example.com/project/vllm-unified:qualified'
     (repo / '.env').write_text(f'VLLM_IMAGE={shared}\n', encoding='utf-8')
@@ -84,10 +78,11 @@ def test_vllm_unified_image_resolver_legacy_pins_default_to_shared_image(tmp_pat
         repo,
         'source scripts/lib/vllm_unified_image.sh; '
         'vllm_unified_resolve_images .env; '
-        'printf "%s\\n%s\\n" "$EMBEDDING_KO_VLLM_IMAGE_RESOLVED" "$RISK_VLLM_IMAGE_RESOLVED"',
+        'printf "%s\\n%s\\n%s\\n" "$VLLM_IMAGE_RESOLVED" '
+        '"$EMBEDDING_KO_VLLM_IMAGE_RESOLVED" "$RISK_VLLM_IMAGE_RESOLVED"',
     )
     assert result.returncode == 0, result.stderr
-    assert result.stdout.splitlines() == [shared, shared]
+    assert result.stdout.splitlines() == [shared, shared, shared]
     assert result.stderr == ''
 
 
@@ -103,7 +98,7 @@ def test_vllm_unified_image_resolver_default_base_matches_canonical_image_config
     assert result.stdout.strip() == _canonical_base_image()
 
 
-def test_vllm_unified_image_resolver_preserves_custom_exported_image(tmp_path):
+def test_vllm_unified_image_resolver_preserves_explicit_shared_image(tmp_path):
     repo = copy_minimal_repo(tmp_path)
     custom = 'registry.example.com/custom/vllm-unified:dev'
     (repo / '.env').write_text('VLLM_IMAGE=some/other:tag\n', encoding='utf-8')
@@ -111,61 +106,30 @@ def test_vllm_unified_image_resolver_preserves_custom_exported_image(tmp_path):
         repo,
         'source scripts/lib/vllm_unified_image.sh; '
         'vllm_unified_resolve_images .env; '
-        'printf "%s\\n" "$RISK_VLLM_IMAGE_RESOLVED"',
-        env={'RISK_VLLM_IMAGE': custom},
+        'printf "%s\\n" "$VLLM_IMAGE_RESOLVED"',
+        env={'VLLM_IMAGE': custom},
     )
     assert result.returncode == 0, result.stderr
     assert result.stdout.strip() == custom
-    assert 'RISK_VLLM_IMAGE' in result.stderr
-    assert 'deprecated compatibility override' in result.stderr
+    assert result.stderr == ''
 
 
-def test_vllm_unified_image_resolver_preserves_divergent_legacy_pins_with_warning(tmp_path):
-    repo = copy_minimal_repo(tmp_path)
-    shared = 'registry.example.com/project/vllm-unified@sha256:' + 'a' * 64
-    embedding_ko = 'registry.example.com/project/embedding-ko@sha256:' + 'b' * 64
-    risk = 'registry.example.com/project/risk@sha256:' + 'c' * 64
-    (repo / '.env').write_text(
-        f'VLLM_IMAGE={shared}\n'
-        f'EMBEDDING_KO_VLLM_IMAGE={embedding_ko}\n'
-        f'RISK_VLLM_IMAGE={risk}\n',
-        encoding='utf-8',
-    )
-    result = run_bash(
-        repo,
-        'source scripts/lib/vllm_unified_image.sh; '
-        'vllm_unified_resolve_images .env; '
-        'printf "%s\\n%s\\n" "$EMBEDDING_KO_VLLM_IMAGE_RESOLVED" "$RISK_VLLM_IMAGE_RESOLVED"',
-    )
-    assert result.returncode == 0, result.stderr
-    assert result.stdout.splitlines() == [embedding_ko, risk]
-    assert 'EMBEDDING_KO_VLLM_IMAGE' in result.stderr
-    assert 'RISK_VLLM_IMAGE' in result.stderr
-    assert result.stderr.count('deprecated compatibility override') == 2
-
-
-def test_local_image_pin_updates_only_matching_unified_refs(tmp_path):
+def test_local_image_pin_updates_shared_and_profile_override_refs(tmp_path):
     env_path = tmp_path / ".env"
     source = "ai-model-serving-vllm-unified:0.0.1"
-    custom = "registry.example.com/operator/embedding@sha256:" + "a" * 64
     image_id = "sha256:" + "b" * 64
     env_path.write_text(
         f"VLLM_IMAGE={source}\n"
-        f"EMBEDDING_KO_VLLM_IMAGE={custom}\n"
-        f"RISK_VLLM_IMAGE={source}\n"
         f"AUDIO_VLLM_IMAGE={source}\n",
         encoding="utf-8",
     )
 
     assert pin_matching_env_values(env_path, source, image_id) == [
         "VLLM_IMAGE",
-        "RISK_VLLM_IMAGE",
         "AUDIO_VLLM_IMAGE",
     ]
     assert env_path.read_text(encoding="utf-8") == (
         f"VLLM_IMAGE={image_id}\n"
-        f"EMBEDDING_KO_VLLM_IMAGE={custom}\n"
-        f"RISK_VLLM_IMAGE={image_id}\n"
         f"AUDIO_VLLM_IMAGE={image_id}\n"
     )
 
@@ -179,7 +143,7 @@ def test_target_rebuild_does_not_treat_local_image_id_as_external(monkeypatch):
         "_env_values",
         lambda: {
             "PLATFORM_IMAGE": "ai-model-serving-platform:test",
-            "RISK_VLLM_IMAGE": local_id,
+            "VLLM_IMAGE": local_id,
         },
     )
     monkeypatch.setattr(
@@ -195,7 +159,7 @@ def test_target_rebuild_does_not_treat_local_image_id_as_external(monkeypatch):
     monkeypatch.setattr(
         platform_cli,
         "pin_matching_env_values",
-        lambda _path, source, image_id, **_kwargs: pinned.append((source, image_id)) or ["RISK_VLLM_IMAGE"],
+        lambda _path, source, image_id, **_kwargs: pinned.append((source, image_id)) or ["VLLM_IMAGE"],
     )
     target = type("Target", (), {"controllable": True, "target_id": "linux-nvidia-dynamic"})()
 
