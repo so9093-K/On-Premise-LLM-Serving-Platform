@@ -17,7 +17,9 @@ def test_fresh_compose_env_uses_single_shared_vllm_authority(tmp_path: Path) -> 
     assert "RISK_VLLM_IMAGE" not in values
 
 
-def test_sync_env_preserves_existing_legacy_image_overrides(tmp_path: Path) -> None:
+def test_sync_env_removes_retired_embedding_ko_image_and_preserves_risk_compatibility(
+    tmp_path: Path,
+) -> None:
     out = tmp_path / ".env"
     out.write_text(
         "BUILD_PROFILE=compose\n"
@@ -32,11 +34,13 @@ def test_sync_env_preserves_existing_legacy_image_overrides(tmp_path: Path) -> N
     assert rc == 0
     values = setup_env.read_env_values(out)
     assert values["VLLM_IMAGE"] == "registry.example.com/vllm@sha256:shared"
-    assert values["EMBEDDING_KO_VLLM_IMAGE"] == "registry.example.com/vllm@sha256:ko"
+    assert "EMBEDDING_KO_VLLM_IMAGE" not in values
     assert values["RISK_VLLM_IMAGE"] == "registry.example.com/vllm@sha256:risk"
 
 
-def test_force_preserves_existing_legacy_image_overrides(tmp_path: Path) -> None:
+def test_force_removes_retired_embedding_ko_image_and_preserves_risk_compatibility(
+    tmp_path: Path,
+) -> None:
     out = tmp_path / ".env"
     out.write_text(
         "VLLM_IMAGE=registry.example.com/vllm@sha256:shared\n"
@@ -49,7 +53,7 @@ def test_force_preserves_existing_legacy_image_overrides(tmp_path: Path) -> None
 
     assert rc == 0
     values = setup_env.read_env_values(out)
-    assert values["EMBEDDING_KO_VLLM_IMAGE"] == "registry.example.com/vllm@sha256:ko"
+    assert "EMBEDDING_KO_VLLM_IMAGE" not in values
     assert values["RISK_VLLM_IMAGE"] == "registry.example.com/vllm@sha256:risk"
 
 

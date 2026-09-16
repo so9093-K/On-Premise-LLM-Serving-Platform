@@ -183,3 +183,6 @@ removed_keys:
   VLLM_BASE_IMAGE: >-
     canonical base digest는 configs/vllm_unified_build.yaml이 소유한다. 검증 목적의
     일회성 process override만 허용하고 영속 .env에서는 제거한다.
+  EMBEDDING_KO_VLLM_IMAGE: >-
+    shared vLLM runtime artifact의 persistent authority는 VLLM_IMAGE다. embedding-ko는
+    별도 persistent image pin을 소유하지 않으며 기존 key는 sync-env에서 제거한다.
