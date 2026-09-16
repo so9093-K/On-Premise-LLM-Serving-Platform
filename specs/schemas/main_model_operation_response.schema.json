@@ -5,12 +5,17 @@
   "required": [
     "id",
     "requested_profile",
+    "previous_profile",
+    "client_request_id",
     "status",
     "stage",
+    "error",
+    "rollback_error",
+    "recovered_after_restart",
     "created_at",
     "updated_at"
   ],
-  "additionalProperties": true,
+  "additionalProperties": false,
   "properties": {
     "id": {
       "type": "string",
@@ -81,6 +86,10 @@
     "updated_at": {
       "type": "number",
       "minimum": 0
+    },
+    "recovered_after_restart": {
+      "type": "boolean",
+      "description": "true면 process restart 뒤 실제 runtime을 재관측해 이 operation을 terminal 상태로 복구했다."
     }
   }
 }

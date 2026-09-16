@@ -73,6 +73,7 @@ class ContractMainModelSidecar:
             "stage": "validating",
             "error": None,
             "rollback_error": None,
+            "recovered_after_restart": False,
             "created_at": 1.0,
             "updated_at": 2.0,
         }
@@ -108,3 +109,11 @@ def test_main_model_operation_contract_stages_match_runtime_grammar() -> None:
     properties = schema["properties"]
     assert tuple(properties["status"]["enum"]) == OPERATION_STAGES
     assert tuple(properties["stage"]["enum"]) == OPERATION_STAGES
+
+
+def test_main_model_operation_contract_excludes_internal_controller_state() -> None:
+    schema = load_contract_schema("main_model_operation_response.schema.json")
+    assert schema["additionalProperties"] is False
+    assert "recovered_after_restart" in schema["required"]
+    assert "previous_gate" not in schema["properties"]
+    assert "boot_reconcile" not in schema["properties"]

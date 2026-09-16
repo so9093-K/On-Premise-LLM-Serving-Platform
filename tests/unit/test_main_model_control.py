@@ -146,14 +146,32 @@ def test_state_store_atomic_round_trip_and_corruption(tmp_path):
     assert not list(tmp_path.glob("*.tmp"))
 
 
-def test_main_model_operation_projection_is_newest_first(tmp_path):
+def test_main_model_operation_projection_is_newest_first_and_hides_internal_state(tmp_path):
     loaded = catalog()
     store = MainModelStateStore(tmp_path / "state.json", loaded.default_profile)
+    older_id = "00000000-0000-4000-8000-000000000001"
+    newer_id = "00000000-0000-4000-8000-000000000002"
+
+    def operation(operation_id: str, created_at: float, *, recovered: bool = False):
+        return {
+            "id": operation_id,
+            "requested_profile": loaded.default_profile,
+            "previous_profile": None,
+            "previous_gate": "open",
+            "boot_reconcile": True,
+            "client_request_id": None,
+            "status": "completed",
+            "stage": "completed",
+            "error": None,
+            "rollback_error": None,
+            "recovered_after_restart": recovered,
+            "created_at": created_at,
+            "updated_at": created_at + 1.0,
+        }
+
     state = store.read()
-    state["operations"] = [
-        {"id": "older", "created_at": 1.0},
-        {"id": "newer", "created_at": 2.0},
-    ]
+    state["operations"] = [operation(older_id, 1.0), operation(newer_id, 2.0, recovered=True)]
+    state["last_operation"] = state["operations"][-1]
     store.write(state)
     manager = MainModelManager(
         loaded,
@@ -162,8 +180,14 @@ def test_main_model_operation_projection_is_newest_first(tmp_path):
         boot_profile=loaded.default_profile,
     )
 
-    assert [item["id"] for item in manager.operations()] == ["newer", "older"]
-    assert manager.operation("older") == {"id": "older", "created_at": 1.0}
+    projected = manager.operations()
+    assert [item["id"] for item in projected] == [newer_id, older_id]
+    assert projected[0]["recovered_after_restart"] is True
+    assert projected[1]["recovered_after_restart"] is False
+    assert "previous_gate" not in projected[0]
+    assert "boot_reconcile" not in projected[0]
+    assert manager.operation(older_id) == projected[1]
+    assert manager.snapshot()["last_operation"] == projected[0]
 
 
 def _increment_state_store(state_path: str, count: int) -> None:
