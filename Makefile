@@ -27,7 +27,7 @@ PLATFORM_ACCESS_ARG = $(if $(ACCESS),--access-profile "$(ACCESS)",)
 PLATFORM_ACCESS_CONFIRM_ARG = $(if $(filter access,$(CONFIRM)),--confirm-access,)
 
 setup: ## target과 접근 범위의 로컬 환경 준비 (TARGET=<id>, ACCESS 기본값 local)
-	"$(PYTHON)" scripts/build/setup_dev.py
+	"$(PYTHON)" scripts/build/setup_python_environment.py --profile runtime
 	$(PLATFORM_CLI) setup $(PLATFORM_TARGET_ARG) $(PLATFORM_PROFILE_ARG) $(PLATFORM_MAIN_URL_ARG) $(PLATFORM_ACCESS_ARG) $(PLATFORM_ACCESS_CONFIRM_ARG)
 
 build: ## 선택 target에서 이 저장소가 소유한 image 전체 빌드
