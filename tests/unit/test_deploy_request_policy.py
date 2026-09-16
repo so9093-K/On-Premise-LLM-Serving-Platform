@@ -68,6 +68,17 @@ def test_fresh_unified_image_promotes_rolling_request_to_full():
     assert result.stdout == "full|fresh unified vLLM image artifact"
 
 
+def test_conflicting_shared_runtime_promotion_inputs_are_rejected():
+    result = run_policy(
+        'DEPLOY_MODE=full; deploy_validate_request release-1 5',
+        VLLM_UNIFIED_IMAGE_TO_DEPLOY="registry.example/unified@sha256:" + "a" * 64,
+        RISK_VLLM_IMAGE_TO_DEPLOY="registry.example/legacy@sha256:" + "b" * 64,
+    )
+
+    assert result.returncode == 2
+    assert "compatibility RISK_VLLM_IMAGE_TO_DEPLOY disagree" in result.stderr
+
+
 def test_rolling_deploy_rejects_runtime_startup_policy():
     result = run_policy(
         'DEPLOY_MODE=rolling; DEPLOY_RUNTIME_PROFILE=main_only; '
@@ -78,22 +89,21 @@ def test_rolling_deploy_rejects_runtime_startup_policy():
     assert "require DEPLOY_MODE=full" in result.stderr
 
 
-def test_full_deploy_uses_one_unified_image_for_risk_and_audio():
-    image = "registry.example/vllm@sha256:" + "b" * 64
+def test_rolling_deploy_rejects_runtime_image_promotion_input():
     result = run_policy(
-        'DEPLOY_MODE=full; deploy_resolve_full_runtime_images; '
-        'printf "%s|%s" "$RISK_VLLM_IMAGE_TO_DEPLOY" "$AUDIO_VLLM_IMAGE_TO_DEPLOY"',
-        VLLM_UNIFIED_IMAGE_TO_DEPLOY=image,
-    )
-    assert result.returncode == 0
-    assert result.stdout == f"{image}|{image}"
-
-
-def test_full_deploy_without_new_unified_image_keeps_remote_pins():
-    result = run_policy(
-        'DEPLOY_MODE=full; deploy_resolve_full_runtime_images; '
-        'printf "%s|%s" "${RISK_VLLM_IMAGE_TO_DEPLOY:-}" "${AUDIO_VLLM_IMAGE_TO_DEPLOY:-}"',
+        'DEPLOY_MODE=rolling; deploy_validate_request release-1 5',
+        RISK_VLLM_IMAGE_TO_DEPLOY="registry.example/unified@sha256:" + "a" * 64,
     )
 
+    assert result.returncode == 2
+    assert "runtime image promotion inputs require DEPLOY_MODE=full" in result.stderr
+
+
+def test_full_deploy_accepts_compatibility_and_audio_promotion_inputs():
+    result = run_policy(
+        'DEPLOY_MODE=full; deploy_validate_request release-1 5',
+        RISK_VLLM_IMAGE_TO_DEPLOY="registry.example/unified@sha256:" + "a" * 64,
+        AUDIO_VLLM_IMAGE_TO_DEPLOY="registry.example/audio@sha256:" + "b" * 64,
+    )
+
     assert result.returncode == 0
-    assert result.stdout == "|"

@@ -12,10 +12,16 @@
 # 배포는 실제 docker pull 성공 여부만 검증한다.
 #
 # 선택:
-#   RISK_VLLM_IMAGE_TO_DEPLOY         RISK_VLLM_IMAGE를 덮어쓰는 전체 런타임 배포 override;
-#                                     DEPLOY_MODE=full일 때만 허용
-#   VLLM_UNIFIED_IMAGE_TO_DEPLOY      새로 빌드·publish한 immutable digest;
-#                                     unified source 변경 full 배포에서는 필수
+#   VLLM_UNIFIED_IMAGE_TO_DEPLOY      새로 빌드·publish한 immutable digest. 지정하면
+#                                     VLLM_IMAGE/EMBEDDING_KO_VLLM_IMAGE/RISK_VLLM_IMAGE를
+#                                     함께 승격하며 full 배포로 전환한다.
+#   RISK_VLLM_IMAGE_TO_DEPLOY         기존 호출자를 위한 shared runtime promotion
+#                                     compatibility 입력. canonical 입력은
+#                                     VLLM_UNIFIED_IMAGE_TO_DEPLOY이며 둘을 함께 주면
+#                                     같은 값이어야 한다. DEPLOY_MODE=full에서만 허용.
+#   AUDIO_VLLM_IMAGE_TO_DEPLOY        Main Model profile 전용 image override를 승격할 ref;
+#                                     DEPLOY_MODE=full일 때만 허용. shared promotion이
+#                                     있고 별도 값이 없으면 같은 digest를 사용한다.
 #   DEPLOY_COMPOSE_FILE               DEPLOY_PATH 기준 상대 compose 파일 경로
 #                              기본값: ops/compose/full-stack.private-network.yaml
 #   DEPLOY_MODE                기본값 full. 빠른 platform-only 배포에만 rolling을 명시한다.
@@ -95,8 +101,6 @@ echo "[deploy] platform image: ${PLATFORM_IMAGE_TO_DEPLOY}"
 echo "[deploy] compose file: ${COMPOSE_FILE}"
 echo "[deploy] mode: ${DEPLOY_MODE}"
 echo "[deploy] release: ${RELEASE_ID}"
-
-deploy_resolve_full_runtime_images
 
 # package_release.sh와 동일한 resolver/materializer로 immutable release tree를 먼저
 # 로컬에서 완성한다. 전송 도중에는 Git checkout을 다시 해석하거나 exclude 정책을

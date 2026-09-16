@@ -75,16 +75,7 @@ if [[ "${DEPLOY_MODE}" == "rolling" ]]; then
     echo "[deploy] runtime-sensitive files changed — auto-upgrading to full deploy:"
     for _f in "${_changed_sensitive[@]}"; do echo "[deploy]   ${_f}"; done
     DEPLOY_MODE="full"
-    if [[ -z "${RISK_VLLM_IMAGE_TO_DEPLOY:-}" ]]; then
-      RISK_VLLM_IMAGE_TO_DEPLOY="$(deploy_env_value RISK_VLLM_IMAGE)"
-      echo "[deploy] keeping current RISK_VLLM_IMAGE: ${RISK_VLLM_IMAGE_TO_DEPLOY}"
-    fi
   fi
-fi
-# rolling에서 full로 승격됐을 때도, 명시적 12B override가 없다면 동일한 unified
-# image를 사용한다. 설정-only 변경은 current image를 재사용할 수 있다.
-if [[ "${DEPLOY_MODE}" == "full" && -n "${RISK_VLLM_IMAGE_TO_DEPLOY:-}" ]]; then
-  AUDIO_VLLM_IMAGE_TO_DEPLOY="${AUDIO_VLLM_IMAGE_TO_DEPLOY:-${RISK_VLLM_IMAGE_TO_DEPLOY}}"
 fi
 if [[ "${DEPLOY_MODE}" != "full" &&
   ( -n "${DEPLOY_RUNTIME_PROFILE:-}" || -n "${DEPLOY_DEFERRED_RUNTIMES:-}" ) ]]; then
@@ -464,15 +455,23 @@ pull_preflight_image() {
     echo "[deploy] ERROR: cannot pull ${label}: ${image}" >&2
     echo "[deploy]   Ensure this immutable image exists and the target host already has registry pull access." >&2
     if [[ "${DEPLOY_MODE}" == "full" ]]; then
-      echo "[deploy]   Build the unified image and provide its immutable digest for the full deployment." >&2
-      echo "[deploy]   Or set RISK_VLLM_IMAGE_TO_DEPLOY" >&2
-      echo "[deploy]   to image refs that already exist in the registry." >&2
+      echo "[deploy]   Existing runtime pins remain authoritative unless an explicit image promotion input is provided." >&2
+      echo "[deploy]   Use VLLM_UNIFIED_IMAGE_TO_DEPLOY only when promoting a newly built shared artifact." >&2
     else
       echo "[deploy]   Ensure the Platform image was published and the immutable ref is correct." >&2
     fi
     exit 1
   fi
   echo "[deploy] ${label} image verified: ${image}"
+}
+
+pull_required_runtime_image() {
+  local label="$1" image="$2"
+  if [[ -z "${image}" ]]; then
+    echo "[deploy] ERROR: ${label} image pin is empty in ${COMPOSE_ENV_FILE}" >&2
+    exit 2
+  fi
+  pull_preflight_image "${label}" "${image}"
 }
 
 # ── preflight: .env를 건드리기 전에 이미지를 pull할 수 있는지 확인 ───────────────
@@ -489,23 +488,19 @@ if ! ensure_platform_runtime_dir "${DEPLOY_PATH}/${REQUEST_EVENT_LOG_DIR_RELPATH
 fi
 
 if [[ "${DEPLOY_MODE}" == "full" ]]; then
-  # 새 artifact가 없으면 기존 .env pin을 사용한다. 일반 full 배포도 strict
-  # readiness를 실행하지만, image까지 바꾸지는 않아 모델 fleet을 유지할 수 있다.
-  if [[ -z "${RISK_VLLM_IMAGE_TO_DEPLOY:-}" ]]; then
-    RISK_VLLM_IMAGE_TO_DEPLOY="$(deploy_env_value RISK_VLLM_IMAGE)"
-  fi
-  pull_preflight_image "risk-prompt vLLM (vllm-unified)" "${RISK_VLLM_IMAGE_TO_DEPLOY}"
+  # target .env의 각 runtime pin은 독립된 현재 상태다. promotion input이 없는 full
+  # deploy는 값을 바꾸지 않고 그대로 검증한다. shared promotion이 명시된 경우에만
+  # main/embedding-ko/risk가 함께 해당 artifact로 승격된다.
+  deploy_resolve_runtime_image_plan
+  pull_required_runtime_image "main/embedding vLLM" "${VLLM_IMAGE_EFFECTIVE}"
+  pull_required_runtime_image "embedding-ko vLLM" "${EMBEDDING_KO_VLLM_IMAGE_EFFECTIVE}"
+  pull_required_runtime_image "risk-prompt vLLM" "${RISK_VLLM_IMAGE_EFFECTIVE}"
 
-  # 12B 멀티모달 이미지는 (compose 서비스가 아니라) 프로필 단위라서 compose가
-  # 절대 pull하지 않고, sidecar의 /containers/create도 자동 pull하지 않는다 — 미리
-  # 박스에 있지 않으면 12B로 전환할 때 "No such image"로 실패한다. gate가 닫힌 채로
-  # 전환 도중에 하지 말고, 지금 채팅 모델이 아직 서빙 중일 때 박스가 쓸 digest를
-  # (새 빌드가 있으면 그것, 없으면 현재 .env pin을) 미리 pull해 둔다.
-  if [[ -z "${AUDIO_VLLM_IMAGE_TO_DEPLOY:-}" ]]; then
-    AUDIO_VLLM_IMAGE_TO_DEPLOY="$(deploy_env_value AUDIO_VLLM_IMAGE)"
-  fi
-  if [[ -n "${AUDIO_VLLM_IMAGE_TO_DEPLOY}" ]]; then
-    pull_preflight_image "12B main-LLM vLLM (vllm-unified)" "${AUDIO_VLLM_IMAGE_TO_DEPLOY}"
+  # Main Model profile image는 compose 서비스가 아니라 sidecar의 /containers/create가
+  # 직접 소비하므로 compose pull이 대신 가져오지 않는다. 값이 존재하면 전환 전에
+  # 미리 pull해 profile switch가 "No such image"로 실패하지 않게 한다.
+  if [[ -n "${AUDIO_VLLM_IMAGE_EFFECTIVE}" ]]; then
+    pull_preflight_image "Main Model profile vLLM" "${AUDIO_VLLM_IMAGE_EFFECTIVE}"
   fi
 fi
 
@@ -729,25 +724,24 @@ echo "[deploy] PLATFORM_IMAGE set to ${PLATFORM_IMAGE_TO_DEPLOY}"
 deploy_set_env_value DEPLOY_RELEASE_ID "${RELEASE_ID}"
 echo "[deploy] DEPLOY_RELEASE_ID set to ${RELEASE_ID}"
 
-# 필요 시 RISK_VLLM_IMAGE 갱신
-if [[ -n "${RISK_VLLM_IMAGE_TO_DEPLOY:-}" ]]; then
-  deploy_set_env_value RISK_VLLM_IMAGE "${RISK_VLLM_IMAGE_TO_DEPLOY}"
-  echo "[deploy] RISK_VLLM_IMAGE set to ${RISK_VLLM_IMAGE_TO_DEPLOY}"
-
-  # VLLM_IMAGE/EMBEDDING_KO_VLLM_IMAGE도 같은 vllm-unified 이미지를 쓰므로 같이 갱신한다.
-  deploy_set_env_value VLLM_IMAGE "${RISK_VLLM_IMAGE_TO_DEPLOY}"
-  echo "[deploy] VLLM_IMAGE set to ${RISK_VLLM_IMAGE_TO_DEPLOY}"
-  deploy_set_env_value EMBEDDING_KO_VLLM_IMAGE "${RISK_VLLM_IMAGE_TO_DEPLOY}"
-  echo "[deploy] EMBEDDING_KO_VLLM_IMAGE set to ${RISK_VLLM_IMAGE_TO_DEPLOY}"
-fi
-
-# 필요 시 AUDIO_VLLM_IMAGE 갱신 — 12B 프로필이 ${AUDIO_VLLM_IMAGE}로 pin하는
-# (configs/main_model_profiles.yaml) derived 멀티모달 런타임이다. 빌드 job이 불변
-# digest를 만들어내며, 새 빌드가 없으면 기존 .env 값(=현재 pin)이 그대로 유지되므로
-# 일상적인 배포에서는 수동으로 repin할 일이 없다.
-if [[ -n "${AUDIO_VLLM_IMAGE_TO_DEPLOY:-}" ]]; then
-  deploy_set_env_value AUDIO_VLLM_IMAGE "${AUDIO_VLLM_IMAGE_TO_DEPLOY}"
-  echo "[deploy] AUDIO_VLLM_IMAGE set to ${AUDIO_VLLM_IMAGE_TO_DEPLOY}"
+# runtime image pin은 target .env의 현재 값을 유지하며, 앞서 계산한 명시적
+# promotion만 반영한다. VLLM_UNIFIED_IMAGE_TO_DEPLOY가 shared promotion을 소유하고
+# RISK_VLLM_IMAGE_TO_DEPLOY는 기존 shared-promotion 호출자의 compatibility alias다.
+# AUDIO_VLLM_IMAGE_TO_DEPLOY는 Main Model profile image만 독립적으로 override한다.
+if [[ "${DEPLOY_MODE}" == "full" ]]; then
+  deploy_apply_runtime_image_promotions
+  if [[ -n "${VLLM_IMAGE_PROMOTION:-}" ]]; then
+    echo "[deploy] VLLM_IMAGE promoted to ${VLLM_IMAGE_PROMOTION}"
+  fi
+  if [[ -n "${EMBEDDING_KO_VLLM_IMAGE_PROMOTION:-}" ]]; then
+    echo "[deploy] EMBEDDING_KO_VLLM_IMAGE promoted to ${EMBEDDING_KO_VLLM_IMAGE_PROMOTION}"
+  fi
+  if [[ -n "${RISK_VLLM_IMAGE_PROMOTION:-}" ]]; then
+    echo "[deploy] RISK_VLLM_IMAGE promoted to ${RISK_VLLM_IMAGE_PROMOTION}"
+  fi
+  if [[ -n "${AUDIO_VLLM_IMAGE_PROMOTION:-}" ]]; then
+    echo "[deploy] AUDIO_VLLM_IMAGE promoted to ${AUDIO_VLLM_IMAGE_PROMOTION}"
+  fi
 fi
 
 # 마지막 배포 이후 template에 추가된 새 키를 동기화(기존 값은 보존)
@@ -902,7 +896,7 @@ fi
 if [[ "${DEPLOY_MODE}" == "full" ]]; then
   echo "[deploy] full deploy: pulling all compose images..."
   if ! compose_run pull; then
-    fail_after_env_backup "image pull failed during full deploy. Provide a published immutable unified image digest or an existing RISK_VLLM_IMAGE_TO_DEPLOY ref."
+    fail_after_env_backup "image pull failed during full deploy. Ensure existing runtime pins are pullable or provide an explicit immutable promotion input."
   fi
   # 이미지 또는 resolve된 설정이 실제로 바뀐 서비스만 수렴시킨다.
   # 안 바뀐 vLLM 모델은 계속 서빙 상태를 유지하므로, readiness gate는 실제로
@@ -1218,4 +1212,3 @@ for _config_state_index in "${!CONFIG_SERVICE_STATE_FILES[@]}"; do
 done
 
 echo "[deploy] done"
-
