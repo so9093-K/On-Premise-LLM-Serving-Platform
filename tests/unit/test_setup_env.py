@@ -234,19 +234,6 @@ def test_sync_env_uses_recommended_image_defaults(tmp_path, monkeypatch):
     assert 'PLATFORM_IMAGE=example/platform:canonical' in out.read_text(encoding='utf-8')
 
 
-def test_setup_env_force_preserves_custom_risk_vllm_image(tmp_path):
-    out = tmp_path / '.env'
-    out.write_text(
-        'VLLM_IMAGE=vllm/vllm-openai:gemma4-0505-cu129\n'
-        'RISK_VLLM_IMAGE=registry.example.com/custom/kanana-risk:dev\n',
-        encoding='utf-8',
-    )
-    rc = setup_env.main(['--profile', 'compose', '--output', str(out), '--force'])
-    assert rc == 0
-    text = out.read_text(encoding='utf-8')
-    assert 'RISK_VLLM_IMAGE=registry.example.com/custom/kanana-risk:dev' in text
-
-
 def test_setup_env_syncs_runtime_secret_from_existing_env(tmp_path, monkeypatch):
     monkeypatch.setattr(setup_env, "ROOT", tmp_path)
     env_path = tmp_path / '.env'

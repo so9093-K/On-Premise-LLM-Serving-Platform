@@ -9,7 +9,7 @@ ENV_FILE="${ENV_FILE:-.env}"
 load_local_env "$ENV_FILE"
 vllm_unified_resolve_images "$ENV_FILE"
 
-IMAGE="$RISK_VLLM_IMAGE_RESOLVED"
+IMAGE="$VLLM_IMAGE_RESOLVED"
 PYTHON_IN_IMAGE="${RISK_VLLM_IMAGE_PYTHON:-python3}"
 MODELS=("${@:-}")
 if [[ ${#MODELS[@]} -eq 0 || -z "${MODELS[0]:-}" ]]; then
