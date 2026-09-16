@@ -4,6 +4,7 @@
 체크 항목:
 - env_contract.yaml에 선언된 env example이 각각 필요한 키 집합을 포함하는지
 - 필요한 키 집합: 공통 예시 키, 인증 키, runtime override 키, exposure 키
+- removed key가 active/commented assignment 또는 service env projection으로 재도입되지 않는지
 - non-base exposure profile에 필요한 example key가 선언되어 있는지
 
 사용법:
@@ -12,6 +13,7 @@
 """
 from __future__ import annotations
 
+import re
 import sys
 from pathlib import Path
 from typing import Any
@@ -30,6 +32,9 @@ from ai_model_serving.auth_control import auth_profile_env_values  # noqa: E402
 from ai_model_serving.access_profile import access_profile_mismatches  # noqa: E402
 
 
+_COMMENTED_ASSIGNMENT = re.compile(r"^\s*#\s*([A-Za-z_][A-Za-z0-9_]*)\s*=")
+
+
 def load_yaml(path: Path) -> dict[str, Any]:
     if not path.exists():
         raise SystemExit(f"File not found: {path}")
@@ -37,6 +42,16 @@ def load_yaml(path: Path) -> dict[str, Any]:
     if not isinstance(data, dict):
         raise SystemExit(f"Expected YAML mapping at {path}")
     return data
+
+
+def _commented_assignment_keys(path: Path) -> set[str]:
+    """Return assignment-shaped keys offered inside comments of an env example."""
+    keys: set[str] = set()
+    for line in path.read_text(encoding="utf-8").splitlines():
+        match = _COMMENTED_ASSIGNMENT.match(line)
+        if match:
+            keys.add(match.group(1))
+    return keys
 
 
 def expand_required_keys(
@@ -166,6 +181,8 @@ def validate_service_env_projections(root: Path, contract: dict[str, Any]) -> li
             "env_contract.yaml: service_env_projections must be a non-empty mapping"
         ]
 
+    removed = contract.get("removed_keys")
+    removed_keys = set(removed) if isinstance(removed, dict) else set()
     targets_path = root / "configs" / "deployment_targets.yaml"
     targets_document = load_yaml(targets_path) if targets_path.exists() else {}
     targets = targets_document.get("targets") if isinstance(targets_document.get("targets"), dict) else {}
@@ -201,6 +218,12 @@ def validate_service_env_projections(root: Path, contract: dict[str, Any]) -> li
             violations.append(
                 f"env_contract.yaml: {label}.required_source_keys missing from runtime_keys: "
                 + ", ".join(sorted(omitted_required))
+            )
+        projected_removed = removed_keys & set(runtime)
+        if projected_removed:
+            violations.append(
+                f"env_contract.yaml: {label}.runtime_keys contains removed persistent key(s): "
+                + ", ".join(sorted(projected_removed))
             )
         if "DEPLOYMENT_TARGET" not in runtime:
             violations.append(f"env_contract.yaml: {label}.runtime_keys must include DEPLOYMENT_TARGET")
@@ -325,6 +348,7 @@ def validate(root: Path = ROOT, strict: bool = False) -> list[str]:
         violations.extend(parse_result.errors)
         values = parse_result.values
         present_keys = set(values)
+        commented_assignments = _commented_assignment_keys(file_path)
         if not isinstance(cfg, dict):
             continue  # validate_contract_structure()가 보고한다.
         key_set_names = cfg.get("required_key_sets")
@@ -345,12 +369,18 @@ def validate(root: Path = ROOT, strict: bool = False) -> list[str]:
                 violations.append(f"{filename}: missing required key {key!r}")
 
         # removed_keys는 sync-env가 기존 .env에서 지우는 키다. 그 키가 예시 파일에
-        # 다시 들어오면 두 동작이 정면으로 싸운다 -- 템플릿은 "이 키를 쓰라"고 하고
-        # sync-env는 매번 지운다. 등록과 템플릿이 갈라지는 걸 여기서 막는다.
+        # 다시 들어오면 두 동작이 정면으로 싸운다 -- active assignment뿐 아니라
+        # `# KEY=...` 형태의 복사 가능한 예시도 persistent env surface를 다시 만든다.
         for key in sorted(removed_keys.keys() & present_keys):
             violations.append(
                 f"{filename}: {key!r} is registered in env_contract.yaml removed_keys "
                 f"(`make sync-env` deletes it), so it must not be declared in the template "
+                f"-- {removed_keys[key]}"
+            )
+        for key in sorted(removed_keys.keys() & commented_assignments):
+            violations.append(
+                f"{filename}: {key!r} is registered in env_contract.yaml removed_keys, "
+                "so it must not be offered as a commented assignment in the template "
                 f"-- {removed_keys[key]}"
             )
 

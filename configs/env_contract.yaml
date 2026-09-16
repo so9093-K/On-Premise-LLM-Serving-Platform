@@ -104,6 +104,7 @@ access_example_profiles:
 # Compose 변수와 컨테이너 프로세스 환경은 다른 소비자다. 운영자 `.env`는 값의
 # 원본으로 유지하고, 아래 projection만 서비스에 생성·주입한다. 목록 밖의 키가
 # static Gateway에 조용히 흘러들어가지 않게 하므로, 키 분류의 SoT는 이 파일이다.
+# removed_keys는 persistent `.env`에서 제거되는 키이므로 이 projection에도 포함하지 않는다.
 service_env_projections:
   static_gateway:
     deployment_targets: [linux-nvidia-static, macos-metal-static]
@@ -140,9 +141,6 @@ service_env_projections:
       - MAIN_LLM_CIRCUIT_BREAKER_FAILURE_THRESHOLD
       - MAIN_LLM_CIRCUIT_BREAKER_RESET_SECONDS
       - MAIN_LLM_STATIC_PROFILE
-      - HTTP_MAX_CONNECTIONS
-      - HTTP_MAX_KEEPALIVE_CONNECTIONS
-      - MAX_REQUEST_BODY_BYTES
       - DEPLOY_RELEASE_ID
       - LOG_REQUEST_RESPONSE_BODY
 
@@ -168,11 +166,14 @@ removed_keys:
   MAX_REQUEST_BODY_BYTES: >-
     configs/model_serving.yaml(operational_limits.max_request_body_bytes)이 소유한다.
     .env 템플릿에 중복 정의돼 yaml 값을 가리고, 배포된 .env가 릴리스마다 1.25MB로
-    고정되는 문제가 있었다. settings.py는 명시적 env override는 계속 존중한다.
+    고정되는 문제가 있었다. settings.py의 명시적 process environment override는
+    직접 process 실행에서 계속 존중하지만 persistent .env projection은 아니다.
   HTTP_MAX_CONNECTIONS: >-
     configs/model_serving.yaml(operational_limits.http_client.max_connections)이 소유한다.
+    명시적 process environment override는 persistent .env projection과 분리한다.
   HTTP_MAX_KEEPALIVE_CONNECTIONS: >-
     configs/model_serving.yaml(operational_limits.http_client.max_keepalive_connections)이 소유한다.
+    명시적 process environment override는 persistent .env projection과 분리한다.
   PROMTAIL_IMAGE: >-
     Promtail이 Grafana Alloy로 교체됐다. 읽는 코드도 compose 참조도 남아있지 않은데
     기존 .env에는 계속 남아, 실제 로그 수집기와 무관한 이미지 태그를 보여준다.
