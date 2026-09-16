@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 # Deploy recreate 판단의 순수 정책 함수. 호출자는 현재 release 디렉터리에서 실행한다.
 
+_DEPLOY_RECREATE_POLICY_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${_DEPLOY_RECREATE_POLICY_LIB_DIR}/image_ref_policy.sh"
+unset _DEPLOY_RECREATE_POLICY_LIB_DIR
+
 vllm_unified_image_source_paths() {
   # configs/vllm_unified_build.yaml은 아래 semantic 비교 함수가 실제 build 값만
   # 따로 비교한다. 여기는 Dockerfile 자체와 그 직접 입력만 둔다.
@@ -41,12 +45,11 @@ deploy_changed_files() {
 }
 
 deploy_has_fresh_unified_image() {
-  # 새 unified 이미지가 현재 release source에서 빌드·publish됐는지 호출자가 보장한다.
-  # 여기서는 mutable tag/current .env 값과 구분하기 위해 immutable digest 모양만
-  # 허용한다. Dockerfile·patch 변경 배포에서 기존 이미지 ref를 이 값으로 넘겨
+  # 새 unified 이미지가 현재 release source에서 빌드·publish됐는지는 호출자가 보장한다.
+  # 여기서는 mutable tag/current .env 값과 구분하기 위해 공통 registry digest 정책을
+  # 적용한다. Dockerfile·patch 변경 배포에서 기존 이미지 ref를 이 값으로 넘겨
   # stale-image 가드를 우회하지 않게 하는 최소 정책이다.
-  local image_ref="${1:-}"
-  [[ "${image_ref}" =~ @sha256:[0-9a-f]{64}$ ]]
+  is_registry_digest_image_ref "${1:-}"
 }
 
 deploy_unified_image_config_changed() {
