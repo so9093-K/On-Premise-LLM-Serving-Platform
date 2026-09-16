@@ -7,6 +7,7 @@ import { ApiError, fetchBootstrap, type BootstrapResponse, verifyAdminToken } fr
 import { useAdminSession } from './auth/AdminSessionContext';
 import { ConfigurationPage } from './ConfigurationPage';
 import { MainModelPage } from './MainModelPage';
+import { OperationsPage } from './OperationsPage';
 import { RuntimePage } from './RuntimePage';
 
 const SUPPORTED_BOOTSTRAP_VERSION = 1;
@@ -200,7 +201,7 @@ function Shell({ bootstrap }: { bootstrap: BootstrapResponse }) {
             <Route path="/runtimes" element={<RuntimePage token={token} onUnauthorized={clearToken} />} />
             <Route path="/main-model" element={<MainModelPage token={token} onUnauthorized={clearToken} />} />
             <Route path="/configuration" element={<ConfigurationPage token={token} onUnauthorized={clearToken} deploymentFeatures={bootstrap.deployment.features} />} />
-            <Route path="/operations" element={<Placeholder title="Operations" />} />
+            <Route path="/operations" element={<OperationsPage token={token} onUnauthorized={clearToken} deploymentFeatures={bootstrap.deployment.features} />} />
             <Route path="/history" element={<Placeholder title="History" />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
