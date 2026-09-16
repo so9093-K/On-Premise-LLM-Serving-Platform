@@ -189,6 +189,10 @@ then
 fi
 
 # ── 2. 원격: 검증된 candidate 배포 → current를 원자적으로 전환 ──────────────
+# Staged payload identity 검증까지만 대상 host의 stdlib Python을 사용한다. 이후 release
+# helper는 Platform image의 locked runtime dependency를 사용한다. PYTHON_BIN은 Makefile과
+# policy helper에 명시적으로 전달하고, PATH 앞에도 같은 runner를 두어 이름으로 Python을
+# 찾는 기존 shell helper까지 동일한 실행 환경으로 수렴시킨다.
 ssh "${SSH_TARGET}" \
   PLATFORM_IMAGE_TO_DEPLOY="${PLATFORM_IMAGE_TO_DEPLOY}" \
   VLLM_UNIFIED_IMAGE_TO_DEPLOY="${VLLM_UNIFIED_IMAGE_TO_DEPLOY:-}" \
@@ -205,5 +209,8 @@ ssh "${SSH_TARGET}" \
   DEPLOY_RUNTIME_PROFILE="${DEPLOY_RUNTIME_PROFILE:-}" \
   DEPLOY_DEFERRED_RUNTIMES="${DEPLOY_DEFERRED_RUNTIMES:-}" \
   AUTH_MODE="${AUTH_MODE:-}" \
+  TMPDIR="${DEPLOY_PATH}/.runtime" \
+  PYTHON_BIN="${RELEASE_PATH}/scripts/deploy/runtime-bin/python3.12" \
+  PATH="${RELEASE_PATH}/scripts/deploy/runtime-bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" \
   PYTHONDONTWRITEBYTECODE=1 \
   bash "${RELEASE_PATH}/scripts/deploy/apply_remote_release.sh"
