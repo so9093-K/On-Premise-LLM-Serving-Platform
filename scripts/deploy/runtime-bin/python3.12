@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+# 원격 release의 Python helper를 Platform image에 고정된 runtime dependency로 실행한다.
+# staged release 무결성 검증은 deploy_compose_release.sh의 host stdlib Python이 소유하고,
+# 이 runner는 검증된 release를 적용하는 동안 사용하는 Python 실행 환경만 소유한다.
+set -euo pipefail
+
+: "${PLATFORM_IMAGE_TO_DEPLOY:?Required: PLATFORM_IMAGE_TO_DEPLOY}"
+: "${DEPLOY_PATH:?Required: DEPLOY_PATH}"
+
+if ! command -v docker >/dev/null 2>&1; then
+  echo "[deploy-python] ERROR: docker is required on the deployment host." >&2
+  exit 2
+fi
+if [[ ! -d "${DEPLOY_PATH}" ]]; then
+  echo "[deploy-python] ERROR: deployment root does not exist: ${DEPLOY_PATH}" >&2
+  exit 2
+fi
+
+deploy_root="$(cd "${DEPLOY_PATH}" && pwd -P)"
+working_dir="$(pwd -P)"
+case "${working_dir}/" in
+  "${deploy_root}/"*) ;;
+  *)
+    echo "[deploy-python] ERROR: refusing to run outside deployment root: ${working_dir}" >&2
+    exit 2
+    ;;
+esac
+
+# Candidate 검증 전에는 새 Platform image를 사용한다. .env가 export된 뒤에는 그
+# PLATFORM_IMAGE가 현재 convergence의 dependency authority이며, rollback이 backup .env를
+# 복원하면 이전 Platform image로 함께 되돌아간다.
+helper_image="${PLATFORM_IMAGE:-${PLATFORM_IMAGE_TO_DEPLOY}}"
+
+# Host Python이 받던 exported environment를 그대로 전달하되, interpreter/runtime 경로는
+# container가 소유한다. --env NAME은 값을 command line에 복사하지 않고 현재 환경에서
+# 전달하므로 secret 값 자체가 process argument에 노출되지 않는다.
+env_args=()
+while IFS='=' read -r name _; do
+  case "${name}" in
+    PATH|PYTHONPATH|PYTHONHOME|VIRTUAL_ENV|BASH_FUNC_*) continue ;;
+  esac
+  if [[ "${name}" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]]; then
+    env_args+=(--env "${name}")
+  fi
+done < <(env)
+
+exec docker run --rm -i \
+  --network host \
+  --user "$(id -u):$(id -g)" \
+  --workdir "${working_dir}" \
+  -v "${deploy_root}:${deploy_root}" \
+  "${env_args[@]}" \
+  -e HOME=/tmp \
+  -e PYTHONDONTWRITEBYTECODE=1 \
+  -e "PYTHONPATH=${working_dir}/src:${working_dir}" \
+  -e "APP_CONFIG_ROOT=${working_dir}" \
+  --entrypoint /app/.venv/bin/python \
+  "${helper_image}" \
+  "$@"
