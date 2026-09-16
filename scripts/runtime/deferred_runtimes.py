@@ -85,16 +85,12 @@ def main() -> int:
         description="Resolve the deferred runtime set for a deploy."
     )
     parser.add_argument("--config-root", type=Path, default=Path.cwd())
-    parser.add_argument("--compose-file", type=Path, default=Path("ops/compose/full-stack.private-network.yaml"))
     parser.add_argument("--runtimes", default="")
     parser.add_argument("--profile", default="")
     parser.add_argument("--output", choices=("lines", "json"), default="lines")
     args = parser.parse_args()
 
-    compose_path = args.compose_file
-    if not compose_path.is_absolute():
-        compose_path = args.config_root / compose_path
-    topology = load_runtime_topology(args.config_root, compose_path=compose_path)
+    topology = load_runtime_topology(args.config_root)
     raw_runtimes = args.runtimes
     effective_profile = ""
     if not raw_runtimes:

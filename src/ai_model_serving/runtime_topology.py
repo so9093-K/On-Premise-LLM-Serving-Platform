@@ -122,16 +122,10 @@ def _validate_prerequisite_graph(
         visit(key)
 
 
-def load_runtime_topology(
-    config_root: Path,
-    *,
-    compose_path: Path | None = None,
-) -> RuntimeTopology:
+def load_runtime_topology(config_root: Path) -> RuntimeTopology:
     """Load the canonical runtime lifecycle topology.
 
     ``configs/runtime_topology.yaml`` owns Runtime Control start prerequisites.
-    ``compose_path`` remains accepted only while older callers are migrated; it no
-    longer contributes policy and is intentionally not read.
     """
     model_serving = load_yaml_mapping(config_root / "configs/model_serving.yaml")
     services_document = load_yaml_mapping(config_root / "configs/services.yaml")
@@ -142,11 +136,6 @@ def load_runtime_topology(
         raise ValueError("runtime_topology.yaml runtimes must be a mapping")
     if not isinstance(services, dict):
         raise ValueError("services.yaml services must be a mapping")
-
-    # Runtime Control policy must not depend on a deployment representation. Keep
-    # accepting the keyword until the remaining shell/admin call sites are migrated,
-    # but never inspect the path or derive prerequisites from Compose.
-    _ = compose_path
 
     bindings_by_key: dict[str, RuntimeBinding] = {}
     health_port_by_service: dict[str, int] = {}

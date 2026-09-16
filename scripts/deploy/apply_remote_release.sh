@@ -237,7 +237,6 @@ resolve_deferred_runtimes() {
   if ! resolved="$(
     "${_PYTHON_BIN}" scripts/runtime/deferred_runtimes.py \
       --config-root "${PWD}" \
-      --compose-file "${COMPOSE_FILE}" \
       --profile "${DEPLOY_RUNTIME_PROFILE}" \
       --runtimes "${DEPLOY_DEFERRED_RUNTIMES}" \
       --output lines
