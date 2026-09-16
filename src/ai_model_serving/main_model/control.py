@@ -63,6 +63,28 @@ OPERATION_STAGES: tuple[str, ...] = (
     "rollback_failed",
 )
 _TERMINAL_STATES = frozenset({"completed", "failed", "rollback_failed"})
+
+
+def project_main_model_operation(operation: dict[str, Any]) -> dict[str, Any]:
+    """Internal switch state를 stable public operation evidence로 투영한다.
+
+    ``previous_gate``와 ``boot_reconcile`` 같은 필드는 rollback/reconcile 실행을 위한
+    controller bookkeeping이며 API 계약이 아니다. restart recovery는 terminal 결과의
+    해석에 필요한 운영 증거이므로 명시적인 public boolean으로 정규화한다.
+    """
+    return {
+        "id": operation["id"],
+        "requested_profile": operation["requested_profile"],
+        "previous_profile": operation.get("previous_profile"),
+        "client_request_id": operation.get("client_request_id"),
+        "status": operation["status"],
+        "stage": operation["stage"],
+        "error": operation.get("error"),
+        "rollback_error": operation.get("rollback_error"),
+        "recovered_after_restart": bool(operation.get("recovered_after_restart", False)),
+        "created_at": operation["created_at"],
+        "updated_at": operation["updated_at"],
+    }
 # reconcile_if_restarted()의 재시도 backoff. admin_sidecar.py의 10초 poll
 # 간격을 기준 단위로 2배씩 늘리다 최대 5분에서 멈춘다 -- validate()가 계속
 # 실패하는 동안(예: active_profile과 실제 컨테이너가 어긋난 채로 남는 drift)
@@ -473,6 +495,7 @@ class MainModelManager:
         state = self.state_store.read()
         active_id = state.get("active_profile")
         active = self.catalog.profiles.get(active_id) if active_id else None
+        last_operation = state.get("last_operation")
         return {
             "public_model": self.catalog.public_model,
             "active_profile": active.public_view() if active else None,
@@ -482,7 +505,11 @@ class MainModelManager:
             "runtime_state": state.get("runtime_state", "active"),
             "profile_locked": self.profile_locked,
             "boot_profile": self.boot_profile,
-            "last_operation": state.get("last_operation"),
+            "last_operation": (
+                project_main_model_operation(last_operation)
+                if last_operation is not None
+                else None
+            ),
             "stats": state.get("stats", {}),
             # 실제로 살아있는 런타임을 지원하는 이미지는 active profile의 이미지이며
             # (공유된 runtime.image를 오버라이드할 수 있다); 아직 활성 프로필이 없으면
@@ -521,19 +548,24 @@ class MainModelManager:
         ]
 
     def operations(self) -> list[dict[str, Any]]:
-        """최근 보존된 switch operation을 최신 순서로 반환한다.
+        """최근 보존된 switch operation의 public projection을 최신 순서로 반환한다.
 
         persistent main-model state의 ``operations``가 유일한 authority다. 이 read
         projection은 별도 history를 만들지 않으며 write 경계가 유지하는 bounded
         retention을 그대로 노출한다.
         """
-        return list(reversed(self.state_store.read().get("operations", [])))
+        records = self.state_store.read().get("operations", [])
+        return [project_main_model_operation(operation) for operation in reversed(records)]
 
-    def operation(self, operation_id: str) -> dict[str, Any] | None:
-        for operation in self.operations():
+    def _operation_record(self, operation_id: str) -> dict[str, Any] | None:
+        for operation in self.state_store.read().get("operations", []):
             if operation.get("id") == operation_id:
                 return operation
         return None
+
+    def operation(self, operation_id: str) -> dict[str, Any] | None:
+        record = self._operation_record(operation_id)
+        return project_main_model_operation(record) if record is not None else None
 
     async def _validate_and_record(self, profile: MainModelProfile) -> None:
         """``backend.validate()``를 실행하고 검증한 컨테이너 instance를 기록한다.
@@ -925,7 +957,7 @@ class MainModelManager:
         }
 
     def _record_terminal(self, operation_id: str, *, success: bool, rollback: bool = False, rollback_failed: bool = False) -> None:
-        operation = self.operation(operation_id) or {}
+        operation = self._operation_record(operation_id) or {}
         now = time.time()
         duration = max(0.0, now - float(operation.get("created_at", now)))
         def mutate(state: dict[str, Any]) -> None:
@@ -954,7 +986,7 @@ class MainModelManager:
             operation_lock.__exit__(None, None, None)
 
     async def _run_locked(self, operation_id: str, *, boot_reconcile: bool) -> None:
-        operation = self.operation(operation_id)
+        operation = self._operation_record(operation_id)
         if operation is None:
             return
         target = self.catalog.profiles[operation["requested_profile"]]

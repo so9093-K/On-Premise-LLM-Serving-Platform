@@ -4479,6 +4479,7 @@ paths:
                   client_request_id: ops-20260622-12b
                   status: completed
                   stage: completed
+                  recovered_after_restart: false
                   created_at: 1782086105.78
                   updated_at: 1782086258.2
         '503':
@@ -4565,6 +4566,7 @@ paths:
                     client_request_id: ops-20260622-12b
                     status: validating
                     stage: validating
+                    recovered_after_restart: false
                     created_at: 1782086105.78
                     updated_at: 1782086230.12
                 completed:
@@ -4576,6 +4578,7 @@ paths:
                     client_request_id: ops-20260622-12b
                     status: completed
                     stage: completed
+                    recovered_after_restart: false
                     created_at: 1782086105.78
                     updated_at: 1782086258.2
                 failed:
@@ -4588,6 +4591,7 @@ paths:
                     status: failed
                     stage: validating
                     error: 'runtime validation failed: /v1/models did not report local-main'
+                    recovered_after_restart: false
                     created_at: 1782086105.78
                     updated_at: 1782086240.55
         '404':
