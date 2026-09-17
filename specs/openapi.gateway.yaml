@@ -1157,14 +1157,14 @@ paths:
               $ref: ./schemas/chat_completion_request.schema.json
             examples:
               basic:
-                summary: 최소 요청 (runtime 기본 sampling)
+                summary: Quick start · 기본 Chat
                 value:
                   model: local-main
                   messages:
                   - role: user
                     content: 안녕하세요. 한 문장으로 인사해주세요.
               deterministic_smoke:
-                summary: 짧은 결정적 smoke 요청
+                summary: Diagnostics · 결정적 smoke
                 value:
                   model: local-main
                   messages:
@@ -1174,7 +1174,7 @@ paths:
                   temperature: 0
                   n: 1
               balanced_sampling:
-                summary: 일반 대화용 sampling 예시
+                summary: Common · Sampling
                 value:
                   model: local-main
                   messages:
@@ -1184,7 +1184,7 @@ paths:
                   temperature: 0.7
                   top_p: 0.9
               streaming:
-                summary: 스트리밍 요청 (stream=true)
+                summary: Quick start · Streaming
                 value:
                   model: local-main
                   messages:
@@ -1192,7 +1192,7 @@ paths:
                     content: 안녕하세요.
                   stream: true
               streaming_with_usage:
-                summary: 스트리밍 + usage 추적
+                summary: Diagnostics · Streaming + usage
                 value:
                   model: local-main
                   messages:
@@ -1202,7 +1202,7 @@ paths:
                   stream_options:
                     include_usage: true
               with_system_prompt:
-                summary: 시스템 프롬프트 + 샘플링 파라미터
+                summary: Common · System instructions
                 value:
                   model: local-main
                   messages:
@@ -1214,7 +1214,7 @@ paths:
                   temperature: 0.8
                   top_p: 0.9
               json_object:
-                summary: JSON mode (json_object)
+                summary: Structured output · JSON object
                 value:
                   model: local-main
                   messages:
@@ -1229,7 +1229,7 @@ paths:
                   max_tokens: 128
                   temperature: 0
               with_tools:
-                summary: Tool calling (함수 호출)
+                summary: Tools · Function calling
                 value:
                   model: local-main
                   messages:
@@ -1251,7 +1251,7 @@ paths:
                   tool_choice: auto
                   parallel_tool_calls: false
               with_reasoning:
-                summary: Reasoning/thinking opt-in
+                summary: Reasoning · Thinking opt-in
                 value:
                   model: local-main
                   messages:
@@ -1261,7 +1261,7 @@ paths:
                   max_tokens: 3072
                   temperature: 0.2
               json_schema:
-                summary: Structured Outputs (json_schema)
+                summary: Structured output · JSON schema
                 value:
                   model: local-main
                   messages:
@@ -1281,7 +1281,7 @@ paths:
                         required:
                         - answer
               logprobs:
-                summary: Log probabilities
+                summary: Diagnostics · Log probabilities
                 value:
                   model: local-main
                   messages:
@@ -1290,7 +1290,7 @@ paths:
                   logprobs: true
                   top_logprobs: 3
               with_image:
-                summary: Vision 요청 (이미지 + 텍스트)
+                summary: Multimodal · Image
                 value:
                   model: local-main
                   messages:
@@ -1303,7 +1303,7 @@ paths:
                         url: data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI6QAAAABJRU5ErkJggg==
                   max_tokens: 256
               with_audio:
-                summary: 오디오 요청 (오디오 + 텍스트) — 오디오 프로필 활성 시
+                summary: Multimodal · Audio (지원 프로필)
                 value:
                   model: local-main
                   messages:
@@ -1317,7 +1317,7 @@ paths:
                         format: wav
                   max_tokens: 256
               with_video:
-                summary: 비디오 요청 (비디오 + 텍스트) — 비디오 프로필 활성 시
+                summary: Multimodal · Video (지원 프로필)
                 value:
                   model: local-main
                   messages:
@@ -1558,6 +1558,25 @@ paths:
                           - CONFLICT
       security:
       - bearerAuth: []
+      x-codeSamples:
+      - lang: Python
+        label: OpenAI Python SDK
+        source: "import os\nfrom openai import OpenAI\n\ngateway_url = os.environ.get(\"\
+          GATEWAY_URL\", \"http://127.0.0.1:9400\").rstrip(\"/\")\nclient = OpenAI(\n\
+          \    api_key=os.environ.get(\"API_KEY\", \"local-open\"),\n    base_url=f\"\
+          {gateway_url}/v1\",\n)\n\nresponse = client.chat.completions.create(**{'model':\
+          \ 'local-main', 'messages': [{'role': 'user', 'content': '안녕하세요. 한 문장으로\
+          \ 인사해주세요.'}]})\nprint(response.choices[0].message.content)\n"
+      - lang: JavaScript
+        label: OpenAI JavaScript SDK
+        source: "import OpenAI from \"openai\";\n\nconst configuredGatewayUrl = process.env.GATEWAY_URL\
+          \ ?? \"http://127.0.0.1:9400\";\nconst gatewayUrl = configuredGatewayUrl.endsWith(\"\
+          /\")\n  ? configuredGatewayUrl.slice(0, -1)\n  : configuredGatewayUrl;\n\
+          const client = new OpenAI({\n  apiKey: process.env.API_KEY ?? \"local-open\"\
+          ,\n  baseURL: `${gatewayUrl}/v1`,\n});\n\nconst response = await client.chat.completions.create({\n\
+          \  \"model\": \"local-main\",\n  \"messages\": [\n    {\n      \"role\"\
+          : \"user\",\n      \"content\": \"안녕하세요. 한 문장으로 인사해주세요.\"\n    }\n  ]\n\
+          });\nconsole.log(response.choices[0].message.content);\n"
       x-contract-schema: chat_completion_request.schema.json
       x-response-contract-schema: chat_completion_response.schema.json
   /v1/responses:
@@ -1586,18 +1605,18 @@ paths:
               $ref: ./schemas/responses_request.schema.json
             examples:
               basic:
-                summary: 기본 텍스트 응답
+                summary: Quick start · 기본 Response
                 value:
                   model: local-main
                   input: 안녕하세요. 한 문장으로 인사해주세요.
               streaming:
-                summary: Typed event 스트리밍
+                summary: Quick start · Typed streaming
                 value:
                   model: local-main
                   input: 세 문장으로 요약해주세요.
                   stream: true
               structured_json:
-                summary: Structured Outputs (text.format)
+                summary: Structured output · JSON schema
                 value:
                   model: local-main
                   input: 이름은 test, 점수는 42인 객체를 반환하세요.
@@ -1618,7 +1637,7 @@ paths:
                         - score
                         additionalProperties: false
               function_calling:
-                summary: Function tool 호출
+                summary: Tools · Function calling
                 value:
                   model: local-main
                   input: 서울 날씨를 확인해줘.
@@ -1635,14 +1654,14 @@ paths:
                       - city
                       additionalProperties: false
               reasoning:
-                summary: Reasoning opt-in
+                summary: Reasoning · Effort
                 value:
                   model: local-main
                   input: 15 * 37을 계산해줘.
                   reasoning:
                     effort: medium
               tool_continuation:
-                summary: 이전 output item + function result로 stateless continuation
+                summary: Tools · Function result continuation
                 value:
                   model: local-main
                   input:
@@ -1882,6 +1901,23 @@ paths:
                           - CONFLICT
       security:
       - bearerAuth: []
+      x-codeSamples:
+      - lang: Python
+        label: OpenAI Python SDK
+        source: "import os\nfrom openai import OpenAI\n\ngateway_url = os.environ.get(\"\
+          GATEWAY_URL\", \"http://127.0.0.1:9400\").rstrip(\"/\")\nclient = OpenAI(\n\
+          \    api_key=os.environ.get(\"API_KEY\", \"local-open\"),\n    base_url=f\"\
+          {gateway_url}/v1\",\n)\n\nresponse = client.responses.create(**{'model':\
+          \ 'local-main', 'input': '안녕하세요. 한 문장으로 인사해주세요.'})\nprint(response.output_text)\n"
+      - lang: JavaScript
+        label: OpenAI JavaScript SDK
+        source: "import OpenAI from \"openai\";\n\nconst configuredGatewayUrl = process.env.GATEWAY_URL\
+          \ ?? \"http://127.0.0.1:9400\";\nconst gatewayUrl = configuredGatewayUrl.endsWith(\"\
+          /\")\n  ? configuredGatewayUrl.slice(0, -1)\n  : configuredGatewayUrl;\n\
+          const client = new OpenAI({\n  apiKey: process.env.API_KEY ?? \"local-open\"\
+          ,\n  baseURL: `${gatewayUrl}/v1`,\n});\n\nconst response = await client.responses.create({\n\
+          \  \"model\": \"local-main\",\n  \"input\": \"안녕하세요. 한 문장으로 인사해주세요.\"\n\
+          });\nconsole.log(response.output_text);\n"
       x-contract-schema: responses_request.schema.json
       x-response-contract-schema: responses_response.schema.json
   /v1/embeddings:

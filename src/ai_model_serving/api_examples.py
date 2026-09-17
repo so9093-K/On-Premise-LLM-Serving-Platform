@@ -134,11 +134,11 @@ def loading_response_example() -> dict[str, Any]:
 
 GATEWAY_CHAT_REQUEST_EXAMPLES: dict[str, Any] = {
     "basic": {
-        "summary": "최소 요청 (runtime 기본 sampling)",
+        "summary": "Quick start · 기본 Chat",
         "value": CHAT_EXAMPLE,
     },
     "deterministic_smoke": {
-        "summary": "짧은 결정적 smoke 요청",
+        "summary": "Diagnostics · 결정적 smoke",
         "value": {
             "model": MAIN_MODEL,
             "messages": [{"role": "user", "content": "Say OK only."}],
@@ -148,7 +148,7 @@ GATEWAY_CHAT_REQUEST_EXAMPLES: dict[str, Any] = {
         },
     },
     "balanced_sampling": {
-        "summary": "일반 대화용 sampling 예시",
+        "summary": "Common · Sampling",
         "value": {
             "model": MAIN_MODEL,
             "messages": [{"role": "user", "content": "Gemma 4 모델의 특징을 세 문장으로 설명해주세요."}],
@@ -158,7 +158,7 @@ GATEWAY_CHAT_REQUEST_EXAMPLES: dict[str, Any] = {
         },
     },
     "streaming": {
-        "summary": "스트리밍 요청 (stream=true)",
+        "summary": "Quick start · Streaming",
         "value": {
             "model": MAIN_MODEL,
             "messages": [{"role": "user", "content": "안녕하세요."}],
@@ -166,7 +166,7 @@ GATEWAY_CHAT_REQUEST_EXAMPLES: dict[str, Any] = {
         },
     },
     "streaming_with_usage": {
-        "summary": "스트리밍 + usage 추적",
+        "summary": "Diagnostics · Streaming + usage",
         "value": {
             "model": MAIN_MODEL,
             "messages": [{"role": "user", "content": "안녕하세요."}],
@@ -175,7 +175,7 @@ GATEWAY_CHAT_REQUEST_EXAMPLES: dict[str, Any] = {
         },
     },
     "with_system_prompt": {
-        "summary": "시스템 프롬프트 + 샘플링 파라미터",
+        "summary": "Common · System instructions",
         "value": {
             "model": MAIN_MODEL,
             "messages": [
@@ -188,7 +188,7 @@ GATEWAY_CHAT_REQUEST_EXAMPLES: dict[str, Any] = {
         },
     },
     "json_object": {
-        "summary": "JSON mode (json_object)",
+        "summary": "Structured output · JSON object",
         "value": {
             "model": MAIN_MODEL,
             "messages": [
@@ -201,7 +201,7 @@ GATEWAY_CHAT_REQUEST_EXAMPLES: dict[str, Any] = {
         },
     },
     "with_tools": {
-        "summary": "Tool calling (함수 호출)",
+        "summary": "Tools · Function calling",
         "value": {
             "model": MAIN_MODEL,
             "messages": [{"role": "user", "content": "서울의 현재 날씨가 어때요?"}],
@@ -226,7 +226,7 @@ GATEWAY_CHAT_REQUEST_EXAMPLES: dict[str, Any] = {
         },
     },
     "with_reasoning": {
-        "summary": "Reasoning/thinking opt-in",
+        "summary": "Reasoning · Thinking opt-in",
         "value": {
             "model": MAIN_MODEL,
             "messages": [{"role": "user", "content": "이 장애 원인을 단계적으로 분석하고 최종 조치만 정리해줘."}],
@@ -238,7 +238,7 @@ GATEWAY_CHAT_REQUEST_EXAMPLES: dict[str, Any] = {
         },
     },
     "json_schema": {
-        "summary": "Structured Outputs (json_schema)",
+        "summary": "Structured output · JSON schema",
         "value": {
             "model": MAIN_MODEL,
             "messages": [{"role": "user", "content": "Return JSON with a short answer."}],
@@ -258,7 +258,7 @@ GATEWAY_CHAT_REQUEST_EXAMPLES: dict[str, Any] = {
         },
     },
     "logprobs": {
-        "summary": "Log probabilities",
+        "summary": "Diagnostics · Log probabilities",
         "value": {
             "model": MAIN_MODEL,
             "messages": [{"role": "user", "content": "Say OK only."}],
@@ -267,7 +267,7 @@ GATEWAY_CHAT_REQUEST_EXAMPLES: dict[str, Any] = {
         },
     },
     "with_image": {
-        "summary": "Vision 요청 (이미지 + 텍스트)",
+        "summary": "Multimodal · Image",
         "value": {
             "model": MAIN_MODEL,
             "messages": [
@@ -288,7 +288,7 @@ GATEWAY_CHAT_REQUEST_EXAMPLES: dict[str, Any] = {
         },
     },
     "with_audio": {
-        "summary": "오디오 요청 (오디오 + 텍스트) — 오디오 프로필 활성 시",
+        "summary": "Multimodal · Audio (지원 프로필)",
         "value": {
             "model": MAIN_MODEL,
             "messages": [
@@ -310,7 +310,7 @@ GATEWAY_CHAT_REQUEST_EXAMPLES: dict[str, Any] = {
         },
     },
     "with_video": {
-        "summary": "비디오 요청 (비디오 + 텍스트) — 비디오 프로필 활성 시",
+        "summary": "Multimodal · Video (지원 프로필)",
         "value": {
             "model": MAIN_MODEL,
             "messages": [
@@ -335,15 +335,15 @@ GATEWAY_CHAT_REQUEST_EXAMPLES: dict[str, Any] = {
 
 GATEWAY_RESPONSES_REQUEST_EXAMPLES: dict[str, Any] = {
     "basic": {
-        "summary": "기본 텍스트 응답",
+        "summary": "Quick start · 기본 Response",
         "value": {"model": MAIN_MODEL, "input": "안녕하세요. 한 문장으로 인사해주세요."},
     },
     "streaming": {
-        "summary": "Typed event 스트리밍",
+        "summary": "Quick start · Typed streaming",
         "value": {"model": MAIN_MODEL, "input": "세 문장으로 요약해주세요.", "stream": True},
     },
     "structured_json": {
-        "summary": "Structured Outputs (text.format)",
+        "summary": "Structured output · JSON schema",
         "value": {
             "model": MAIN_MODEL,
             "input": "이름은 test, 점수는 42인 객체를 반환하세요.",
@@ -363,7 +363,7 @@ GATEWAY_RESPONSES_REQUEST_EXAMPLES: dict[str, Any] = {
         },
     },
     "function_calling": {
-        "summary": "Function tool 호출",
+        "summary": "Tools · Function calling",
         "value": {
             "model": MAIN_MODEL,
             "input": "서울 날씨를 확인해줘.",
@@ -381,11 +381,11 @@ GATEWAY_RESPONSES_REQUEST_EXAMPLES: dict[str, Any] = {
         },
     },
     "reasoning": {
-        "summary": "Reasoning opt-in",
+        "summary": "Reasoning · Effort",
         "value": {"model": MAIN_MODEL, "input": "15 * 37을 계산해줘.", "reasoning": {"effort": "medium"}},
     },
     "tool_continuation": {
-        "summary": "이전 output item + function result로 stateless continuation",
+        "summary": "Tools · Function result continuation",
         "value": {
             "model": MAIN_MODEL,
             "input": [

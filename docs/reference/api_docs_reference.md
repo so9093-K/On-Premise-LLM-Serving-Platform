@@ -16,7 +16,8 @@
 FastAPI route는 플랫폼 자체 validator와 오류 매핑을 적용한다. 따라서 자동 생성 OpenAPI의 느슨한 `object` schema를 사용하지 않는다.
 
 - `specs/schemas/*.json`은 request/response body의 단일 계약이다.
-- `src/ai_model_serving/openapi_contracts.py`가 같은 schema를 생성 OpenAPI에 주입한다.
+- `src/ai_model_serving/openapi_contracts.py`가 같은 schema와 operation-level code sample을 생성 OpenAPI에 주입한다.
+- `src/ai_model_serving/api_examples.py`가 request example payload를 소유하고, `api_code_samples.py`는 그 canonical payload에서 OpenAI SDK sample을 만든다.
 - `specs/openapi.gateway.yaml`, `specs/openapi.risk-adapter.yaml`은 runtime route와
   endpoint metadata에서 생성한 배포 가능한 정적 OpenAPI다.
 - `make validate`는 runtime OpenAPI와 정적 산출물의 path, method, operation ID,
@@ -32,12 +33,20 @@ Gateway 문서 화면은 네 곳에 나눠 설명을 싣는다. 태그 설명의
 |---|---|---|
 | 첫 화면(`info.description`) | 빠른 시작, 인증, **요청별 디버깅**(추적 헤더·오류 본문 필드·증상별 확인 순서), readiness | 고정 문안 |
 | `Models` 태그 | 모델별 backend·입력 modality·capability·파라미터 개수, `local-main` 프로필 목록과 호환성 | `settings.public_models`, `settings.main_model_profile_summaries` |
-| `Chat` 태그 | 기능별 한도 — 파라미터 allowlist, 토큰 한도, 스트리밍, 도구 호출, 구조화 출력, reasoning, 진단 파라미터, 멀티모달 입력 | 기본 프로필의 `gateway_policy`, streaming/body 한도 |
+| `Chat` / `Responses` operation | 파라미터 한도, request example selector, streaming·tools·structured output·reasoning 사용 예시 | profile `gateway_policy`, `api_examples.py` |
 | `Runtime Control` 태그 | 함대 제어 모델, GPU 예산, gate 의미, 전환 작업 stage 표 | 고정 문안 + `main_model.control.OPERATION_STAGES` |
 
 태그 설명의 값은 **기본 프로필** 기준이다. 실행 시점 권위는 사용자에게는 `GET /v1/models`, 운영자에게는 `GET /admin/main-model`의 `active_profile.gateway_policy`다.
 
 각 route의 summary·description은 `src/ai_model_serving/api/endpoint_spec.py`가 단일 출처이며, router는 그 값을 읽어 붙인다. status별 오류 code 설명은 `configs/error_catalog.yaml`에서 주입된다.
+
+## 요청 예시와 코드 샘플
+
+`POST /v1/chat/completions`와 `POST /v1/responses`는 OpenAPI `requestBody.examples`를 사용한다. Scalar는 이 named example을 request example selector와 Test Request에 그대로 사용한다. 예시는 Quick start, Common, Structured output, Tools, Reasoning, Multimodal, Diagnostics처럼 작업 목적이 summary에 드러나도록 표현한다.
+
+코드 picker는 두 층으로 구성한다. cURL과 일반 HTTP client 코드는 Scalar가 현재 선택한 request example에서 생성하고, OpenAI SDK 사용법은 operation의 `x-codeSamples`로 추가한다. Python/JavaScript SDK sample의 request body는 별도 복사본이 아니라 `api_examples.py`의 `basic` example에서 생성한다. 따라서 public model alias나 기본 요청 구조가 바뀌면 request example과 SDK sample이 함께 바뀐다.
+
+`make validate`는 생성 OpenAPI와 checked-in OpenAPI의 drift를 검증하고, unit test는 Generation 문서 예제가 public JSON Schema에 유효한지 확인한다. profile별로 조건부인 multimodal/reasoning capability의 실행 시점 권위는 계속 `GET /v1/models`와 runtime validator다.
 
 ## 문서 화면의 역할
 

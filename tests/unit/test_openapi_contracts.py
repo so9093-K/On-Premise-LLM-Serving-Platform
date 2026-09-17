@@ -7,10 +7,13 @@ generated artifacts 단계가 Gateway와 Risk Adapter 전체에 대해 검사한
 from __future__ import annotations
 
 from fastapi import FastAPI
+from jsonschema import Draft202012Validator
 import pytest
 
 from ai_model_serving.apps.gateway import create_gateway_app
 from ai_model_serving.apps.risk_adapter import create_risk_adapter_app
+from ai_model_serving.api_examples import GATEWAY_CHAT_REQUEST_EXAMPLES, GATEWAY_RESPONSES_REQUEST_EXAMPLES
+from ai_model_serving.api_code_samples import GATEWAY_CHAT_CODE_SAMPLES, GATEWAY_RESPONSES_CODE_SAMPLES
 from ai_model_serving.openapi_contracts import install_contract_openapi, load_contract_schema
 
 from tests.unit.gateway.helpers import FakeGatewayClients, settings as gateway_settings
@@ -43,6 +46,43 @@ def test_contract_openapi_installer_preserves_existing_examples():
     assert request_body["required"] is True
     assert content["schema"] == load_contract_schema("risk_assessment_request.schema.json")
     assert content["examples"]["basic"]["value"] == {"prompt": "hello"}
+
+
+def test_contract_openapi_installer_projects_custom_code_samples():
+    app = FastAPI()
+
+    @app.post("/example")
+    async def example(payload: dict):
+        return payload
+
+    samples = [{"lang": "Python", "label": "SDK", "source": "print('ok')"}]
+    install_contract_openapi(app, code_samples={("POST", "/example"): samples})
+
+    operation = app.openapi()["paths"]["/example"]["post"]
+    assert operation["x-codeSamples"] == samples
+    assert operation["x-codeSamples"] is not samples
+
+
+@pytest.mark.parametrize(
+    ("schema_name", "examples"),
+    [
+        ("chat_completion_request.schema.json", GATEWAY_CHAT_REQUEST_EXAMPLES),
+        ("responses_request.schema.json", GATEWAY_RESPONSES_REQUEST_EXAMPLES),
+    ],
+)
+def test_generation_documentation_examples_match_public_request_schema(schema_name, examples):
+    validator = Draft202012Validator(load_contract_schema(schema_name))
+    for key, example in examples.items():
+        errors = sorted(validator.iter_errors(example["value"]), key=lambda error: list(error.path))
+        assert errors == [], f"{key}: {errors}"
+
+
+def test_gateway_openapi_exposes_openai_sdk_samples_for_generation_surfaces():
+    document = create_gateway_app(gateway_settings(), FakeGatewayClients()).openapi()
+    assert document["paths"]["/v1/chat/completions"]["post"]["x-codeSamples"] == GATEWAY_CHAT_CODE_SAMPLES
+    assert document["paths"]["/v1/responses"]["post"]["x-codeSamples"] == GATEWAY_RESPONSES_CODE_SAMPLES
+    assert "client.chat.completions.create" in GATEWAY_CHAT_CODE_SAMPLES[0]["source"]
+    assert "client.responses.create" in GATEWAY_RESPONSES_CODE_SAMPLES[0]["source"]
 
 
 def test_gateway_openapi_security_matches_effective_public_auth():
