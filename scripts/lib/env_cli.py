@@ -5,7 +5,9 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-from ai_model_serving.settings import ROOT as PROJECT_ROOT
+from ai_model_serving.project_paths import resolve_project_root
+
+PROJECT_ROOT = resolve_project_root()
 
 
 def resolve_path(value: str) -> Path:
