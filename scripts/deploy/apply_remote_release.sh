@@ -726,7 +726,6 @@ echo "[deploy] DEPLOY_RELEASE_ID set to ${RELEASE_ID}"
 
 # runtime image pin은 target .env의 현재 값을 유지하며, 앞서 계산한 명시적
 # promotion만 반영한다. VLLM_UNIFIED_IMAGE_TO_DEPLOY가 shared promotion을 소유하고
-# RISK_VLLM_IMAGE_TO_DEPLOY는 기존 shared-promotion 호출자의 compatibility alias다.
 # AUDIO_VLLM_IMAGE_TO_DEPLOY는 Main Model profile image만 독립적으로 override한다.
 if [[ "${DEPLOY_MODE}" == "full" ]]; then
   deploy_apply_runtime_image_promotions

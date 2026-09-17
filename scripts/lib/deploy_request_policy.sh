@@ -46,9 +46,13 @@ deploy_validate_request() {
     "PLATFORM_IMAGE_TO_DEPLOY" "${PLATFORM_IMAGE_TO_DEPLOY:-}"; then
     return 2
   fi
+  if [[ -n "${RISK_VLLM_IMAGE_TO_DEPLOY:-}" ]]; then
+    echo "[deploy] ERROR: RISK_VLLM_IMAGE_TO_DEPLOY is retired." >&2
+    echo "[deploy] Use VLLM_UNIFIED_IMAGE_TO_DEPLOY for shared vLLM image promotion." >&2
+    return 2
+  fi
   for key in \
     VLLM_UNIFIED_IMAGE_TO_DEPLOY \
-    RISK_VLLM_IMAGE_TO_DEPLOY \
     AUDIO_VLLM_IMAGE_TO_DEPLOY
   do
     value="${!key:-}"
@@ -65,14 +69,6 @@ deploy_validate_request() {
       ;;
   esac
 
-  if [[ -n "${VLLM_UNIFIED_IMAGE_TO_DEPLOY:-}" &&
-    -n "${RISK_VLLM_IMAGE_TO_DEPLOY:-}" &&
-    "${VLLM_UNIFIED_IMAGE_TO_DEPLOY}" != "${RISK_VLLM_IMAGE_TO_DEPLOY}" ]]; then
-    echo "[deploy] ERROR: VLLM_UNIFIED_IMAGE_TO_DEPLOY and compatibility RISK_VLLM_IMAGE_TO_DEPLOY disagree." >&2
-    echo "[deploy] Use VLLM_UNIFIED_IMAGE_TO_DEPLOY as the canonical shared runtime promotion input." >&2
-    return 2
-  fi
-
   if [[ "${DEPLOY_MODE}" != "full" &&
     ( -n "${DEPLOY_RUNTIME_PROFILE:-}" || -n "${DEPLOY_DEFERRED_RUNTIMES:-}" ) ]]; then
     echo "[deploy] ERROR: DEPLOY_RUNTIME_PROFILE/DEPLOY_DEFERRED_RUNTIMES require DEPLOY_MODE=full." >&2
@@ -81,7 +77,7 @@ deploy_validate_request() {
   fi
 
   if [[ "${DEPLOY_MODE}" != "full" &&
-    ( -n "${RISK_VLLM_IMAGE_TO_DEPLOY:-}" || -n "${AUDIO_VLLM_IMAGE_TO_DEPLOY:-}" ) ]]; then
+    ( -n "${VLLM_UNIFIED_IMAGE_TO_DEPLOY:-}" || -n "${AUDIO_VLLM_IMAGE_TO_DEPLOY:-}" ) ]]; then
     echo "[deploy] ERROR: runtime image promotion inputs require DEPLOY_MODE=full." >&2
     return 2
   fi

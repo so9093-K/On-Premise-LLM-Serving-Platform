@@ -45,16 +45,15 @@ deploy_set_env_value() {
 
 # Full deploy가 실제로 사용할 runtime image와 persistent pin 변경 범위를 계산한다.
 # VLLM_IMAGE가 main/embedding/embedding-ko/risk-prompt가 공유하는 persistent image
-# authority다. RISK_VLLM_IMAGE_TO_DEPLOY는 기존 외부 호출자를 위한 shared-promotion
-# compatibility alias이고 canonical 입력은 VLLM_UNIFIED_IMAGE_TO_DEPLOY다.
+# authority다. deployment-time shared promotion은 VLLM_UNIFIED_IMAGE_TO_DEPLOY 하나가
+# 소유하고, AUDIO_VLLM_IMAGE_TO_DEPLOY만 profile-specific override로 분리한다.
 deploy_resolve_runtime_image_plan() {
-  local current_vllm current_audio shared_promotion
+  local current_vllm current_audio
   current_vllm="$(deploy_env_value VLLM_IMAGE)"
   current_audio="$(deploy_env_value AUDIO_VLLM_IMAGE)"
-  shared_promotion="${VLLM_UNIFIED_IMAGE_TO_DEPLOY:-${RISK_VLLM_IMAGE_TO_DEPLOY:-}}"
 
-  VLLM_IMAGE_PROMOTION="${shared_promotion}"
-  AUDIO_VLLM_IMAGE_PROMOTION="${AUDIO_VLLM_IMAGE_TO_DEPLOY:-${shared_promotion}}"
+  VLLM_IMAGE_PROMOTION="${VLLM_UNIFIED_IMAGE_TO_DEPLOY:-}"
+  AUDIO_VLLM_IMAGE_PROMOTION="${AUDIO_VLLM_IMAGE_TO_DEPLOY:-${VLLM_UNIFIED_IMAGE_TO_DEPLOY:-}}"
 
   VLLM_IMAGE_EFFECTIVE="${VLLM_IMAGE_PROMOTION:-${current_vllm}}"
   EMBEDDING_KO_VLLM_IMAGE_EFFECTIVE="${VLLM_IMAGE_EFFECTIVE}"

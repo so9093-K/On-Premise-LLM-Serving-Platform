@@ -11,7 +11,6 @@ ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = "scripts/lib/deploy_env.sh"
 _IMAGE_KEYS = (
     "VLLM_UNIFIED_IMAGE_TO_DEPLOY",
-    "RISK_VLLM_IMAGE_TO_DEPLOY",
     "AUDIO_VLLM_IMAGE_TO_DEPLOY",
 )
 
@@ -73,15 +72,6 @@ def test_unified_artifact_promotes_shared_consumers_and_audio_by_default(tmp_pat
     assert effective == "|".join([unified, unified, unified, unified])
     assert promotion == "|".join([unified, unified])
 
-
-def test_compatibility_risk_input_keeps_existing_shared_promotion_semantics(tmp_path: Path):
-    env_file = _env_file(tmp_path)
-    unified = "registry.example/legacy-shared@sha256:" + "b" * 64
-
-    effective, promotion = _resolve(env_file, RISK_VLLM_IMAGE_TO_DEPLOY=unified)
-
-    assert effective == "|".join([unified, unified, unified, unified])
-    assert promotion == "|".join([unified, unified])
 
 
 def test_audio_override_remains_independent_from_shared_promotion(tmp_path: Path):
