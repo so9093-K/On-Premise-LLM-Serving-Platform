@@ -9,10 +9,6 @@ from scripts.validation.governance.common import read_json as real_read_json
 from scripts.validation.governance.common import read_yaml as real_read_yaml
 
 
-def test_configuration_schema_v2_governance_accepts_repository_contracts() -> None:
-    governance.validate_configuration_schema()
-
-
 def test_configuration_schema_v2_governance_rejects_retrieval_contract_drift(monkeypatch) -> None:
     def read_json(path: str):
         document = deepcopy(real_read_json(path))

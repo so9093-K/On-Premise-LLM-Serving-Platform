@@ -1,24 +1,14 @@
-"""성능 계약이 저장소의 다른 기준과 갈라지지 않는지 고정한다(ADR-0026).
+"""성능 계약과 benchmark 실행 코드의 cross-boundary 정합을 고정한다(ADR-0026).
 
-계약 규칙 자체는 scripts/validation/validate_performance_contract.py가 소유한다.
-같은 규칙을 여기에도 적으면 한 규칙을 바꿀 때 두 곳을 고쳐야 하고, 한쪽만 고치면
-검증기와 테스트가 서로 다른 계약을 주장한다. 실제로 드리프트 8종을 주입해 봤더니
-7종을 양쪽이 똑같이 잡았다 -- 얻는 것 없이 유지 비용만 두 배였다.
-
-그래서 여기에는 두 가지만 남긴다. 검증기가 통과하는지, 그리고 검증기가 확인할 수
-없는 것(실행 코드와의 정합)이다.
+Repository contract 자체의 정합성은
+`scripts/validation/validate_performance_contract.py`와 `make validate`가 소유한다.
+Pytest는 같은 canonical 입력으로 validator를 다시 실행하지 않고, validator가 YAML만
+읽어서는 확인할 수 없는 실행 코드와의 연결만 보호한다.
 """
 
 from __future__ import annotations
 
 from scripts.validation import validate_performance_contract as contract
-
-
-def test_the_contract_validator_passes_on_the_repository_contract():
-    """진입점이 하나여야 호출자가 일부만 검증하고 통과했다고 믿지 않는다."""
-    failures: list[str] = []
-    contract.validate(failures)
-    assert failures == []
 
 
 def test_every_primary_metric_has_a_producer_in_the_benchmark_client():
