@@ -44,7 +44,7 @@ COPY configs ./configs
 COPY specs/schemas ./specs/schemas
 COPY VERSION LICENSE NOTICE ./
 
-# /var/lib/ai-model-serving은 Gateway desired state와 향후 operator configuration을
+# /var/lib/ai-model-serving은 Gateway runtime desired state/history와 operator configuration을
 # 함께 두는 canonical persistent state root다. Compose bind mount가 이 경로를
 # 덮더라도 이미지 자체가 appuser 소유 경로를 제공해야 단독 실행에서도 동작한다.
 RUN install -d /usr/share/licenses/ai-model-serving-platform \
