@@ -230,7 +230,7 @@ export function OperationsPage({ token, onUnauthorized, deploymentFeatures }: Op
       <Card>
         <CardTitle>Configuration mutations</CardTitle>
         <CardBody>
-          <p className="configuration-help">Configuration durable journal의 최근 page를 읽기 전용으로 보여줍니다. Rollback은 Configuration 화면이 계속 소유합니다.</p>
+          <p className="configuration-help">Configuration durable journal의 최근 page를 읽기 전용으로 보여줍니다. Rollback과 전체 history 탐색은 Configuration 화면이 소유합니다.</p>
           {configurationQuery.isPending ? (
             <SourceLoading label="Configuration" />
           ) : configurationQuery.isError ? (
@@ -256,7 +256,7 @@ export function OperationsPage({ token, onUnauthorized, deploymentFeatures }: Op
                   </tbody>
                 </table>
               </div>
-              {configurationQuery.data.next_cursor ? <p className="configuration-help">이 화면은 recent operations만 표시합니다. 전체 Configuration audit navigation은 별도 History surface가 소유합니다.</p> : null}
+              {configurationQuery.data.next_cursor ? <p className="configuration-help">이 화면은 recent operations만 표시합니다. Configuration 화면에서 cursor 기반 durable history를 계속 탐색할 수 있습니다.</p> : null}
             </>
           )}
         </CardBody>
