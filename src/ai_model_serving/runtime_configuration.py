@@ -13,7 +13,7 @@ class RuntimeConfigurationSnapshot:
     """요청 처리 중 안전하게 교체할 수 있는 운영 설정 snapshot.
 
     ``AppSettings``는 deployment/runtime identity 같은 부팅 시점 계약을 계속
-    소유한다. 이 snapshot에는 Control Plane이 향후 operator override로 변경할
+    소유한다. 이 snapshot에는 Configuration Plane이 operator override로 관리하는
     값 중, 이미 생성된 RuntimeClient나 별도 프로세스를 재구성하지 않고 Gateway
     요청 경로가 즉시 다시 읽을 수 있는 값만 둔다.
     """
