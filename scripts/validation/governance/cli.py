@@ -21,6 +21,7 @@ from .versioning import (
     validate_python_compatibility,
     validate_version_alignment,
 )
+from .vllm_image import validate_vllm_unified_build_inputs
 
 
 # validate_json_and_yaml_parse는 CHECKS에 넣지 않고 먼저 단독으로 돌린다 -- 아래
@@ -31,6 +32,7 @@ CHECKS = [
     validate_deploy_profiles,
     validate_runtime_prerequisite_projection,
     validate_alignment,
+    validate_vllm_unified_build_inputs,
     validate_version_alignment,
     validate_python_compatibility,
     validate_openapi_refs,
