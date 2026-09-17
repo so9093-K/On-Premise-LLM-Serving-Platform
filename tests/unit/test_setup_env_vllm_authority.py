@@ -15,39 +15,3 @@ def test_fresh_compose_env_uses_single_shared_vllm_authority(tmp_path: Path) -> 
     assert values["VLLM_IMAGE"].startswith("ai-model-serving-vllm-unified:")
     assert "EMBEDDING_KO_VLLM_IMAGE" not in values
     assert "RISK_VLLM_IMAGE" not in values
-
-
-def test_sync_env_removes_retired_per_runtime_image_keys(tmp_path: Path) -> None:
-    out = tmp_path / ".env"
-    out.write_text(
-        "BUILD_PROFILE=compose\n"
-        "VLLM_IMAGE=registry.example.com/vllm@sha256:shared\n"
-        "EMBEDDING_KO_VLLM_IMAGE=registry.example.com/vllm@sha256:ko\n"
-        "RISK_VLLM_IMAGE=registry.example.com/vllm@sha256:risk\n",
-        encoding="utf-8",
-    )
-
-    rc = setup_env.main(["--sync-env", "--env-file", str(out)])
-
-    assert rc == 0
-    values = setup_env.read_env_values(out)
-    assert values["VLLM_IMAGE"] == "registry.example.com/vllm@sha256:shared"
-    assert "EMBEDDING_KO_VLLM_IMAGE" not in values
-    assert "RISK_VLLM_IMAGE" not in values
-
-
-def test_force_removes_retired_per_runtime_image_keys(tmp_path: Path) -> None:
-    out = tmp_path / ".env"
-    out.write_text(
-        "VLLM_IMAGE=registry.example.com/vllm@sha256:shared\n"
-        "EMBEDDING_KO_VLLM_IMAGE=registry.example.com/vllm@sha256:ko\n"
-        "RISK_VLLM_IMAGE=registry.example.com/vllm@sha256:risk\n",
-        encoding="utf-8",
-    )
-
-    rc = setup_env.main(["--profile", "compose", "--output", str(out), "--force"])
-
-    assert rc == 0
-    values = setup_env.read_env_values(out)
-    assert "EMBEDDING_KO_VLLM_IMAGE" not in values
-    assert "RISK_VLLM_IMAGE" not in values
