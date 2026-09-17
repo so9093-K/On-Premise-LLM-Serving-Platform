@@ -21,7 +21,6 @@ def _bash(command: str) -> subprocess.CompletedProcess[str]:
         "EMBEDDING_KO_VLLM_IMAGE",
         "RISK_VLLM_IMAGE",
         "VLLM_UNIFIED_IMAGE_TO_DEPLOY",
-        "RISK_VLLM_IMAGE_TO_DEPLOY",
         "AUDIO_VLLM_IMAGE_TO_DEPLOY",
     ):
         process_env.pop(key, None)

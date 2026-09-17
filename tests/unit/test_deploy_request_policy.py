@@ -84,7 +84,6 @@ def test_mutable_platform_image_is_rejected_before_remote_mutation():
 def test_runtime_promotion_inputs_require_registry_digests():
     for key in (
         "VLLM_UNIFIED_IMAGE_TO_DEPLOY",
-        "RISK_VLLM_IMAGE_TO_DEPLOY",
         "AUDIO_VLLM_IMAGE_TO_DEPLOY",
     ):
         result = run_policy(
@@ -96,15 +95,15 @@ def test_runtime_promotion_inputs_require_registry_digests():
         assert f"{key} must be an immutable registry digest" in result.stderr
 
 
-def test_conflicting_shared_runtime_promotion_inputs_are_rejected():
+def test_retired_risk_runtime_promotion_input_is_rejected():
     result = run_policy(
         'DEPLOY_MODE=full; deploy_validate_request release-1 5',
-        VLLM_UNIFIED_IMAGE_TO_DEPLOY="registry.example/unified@sha256:" + "a" * 64,
         RISK_VLLM_IMAGE_TO_DEPLOY="registry.example/legacy@sha256:" + "b" * 64,
     )
 
     assert result.returncode == 2
-    assert "compatibility RISK_VLLM_IMAGE_TO_DEPLOY disagree" in result.stderr
+    assert "RISK_VLLM_IMAGE_TO_DEPLOY is retired" in result.stderr
+    assert "Use VLLM_UNIFIED_IMAGE_TO_DEPLOY" in result.stderr
 
 
 def test_rolling_deploy_rejects_runtime_startup_policy():
@@ -120,17 +119,17 @@ def test_rolling_deploy_rejects_runtime_startup_policy():
 def test_rolling_deploy_rejects_runtime_image_promotion_input():
     result = run_policy(
         'DEPLOY_MODE=rolling; deploy_validate_request release-1 5',
-        RISK_VLLM_IMAGE_TO_DEPLOY="registry.example/unified@sha256:" + "a" * 64,
+        AUDIO_VLLM_IMAGE_TO_DEPLOY="registry.example/audio@sha256:" + "a" * 64,
     )
 
     assert result.returncode == 2
     assert "runtime image promotion inputs require DEPLOY_MODE=full" in result.stderr
 
 
-def test_full_deploy_accepts_immutable_platform_compatibility_and_audio_inputs():
+def test_full_deploy_accepts_immutable_shared_and_audio_inputs():
     result = run_policy(
         'DEPLOY_MODE=full; deploy_validate_request release-1 5',
-        RISK_VLLM_IMAGE_TO_DEPLOY="registry.example/unified@sha256:" + "a" * 64,
+        VLLM_UNIFIED_IMAGE_TO_DEPLOY="registry.example/unified@sha256:" + "a" * 64,
         AUDIO_VLLM_IMAGE_TO_DEPLOY="registry.example/audio@sha256:" + "b" * 64,
     )
 

@@ -13,12 +13,7 @@
 #
 # 선택:
 #   VLLM_UNIFIED_IMAGE_TO_DEPLOY      새로 빌드·publish한 immutable digest. 지정하면
-#                                     VLLM_IMAGE/EMBEDDING_KO_VLLM_IMAGE/RISK_VLLM_IMAGE를
-#                                     함께 승격하며 full 배포로 전환한다.
-#   RISK_VLLM_IMAGE_TO_DEPLOY         기존 호출자를 위한 shared runtime promotion
-#                                     compatibility 입력. canonical 입력은
-#                                     VLLM_UNIFIED_IMAGE_TO_DEPLOY이며 둘을 함께 주면
-#                                     같은 값이어야 한다. DEPLOY_MODE=full에서만 허용.
+#                                     shared VLLM_IMAGE를 승격하고 full 배포로 전환한다.
 #   AUDIO_VLLM_IMAGE_TO_DEPLOY        Main Model profile 전용 image override를 승격할 ref;
 #                                     DEPLOY_MODE=full일 때만 허용. shared promotion이
 #                                     있고 별도 값이 없으면 같은 digest를 사용한다.
@@ -200,7 +195,6 @@ fi
 ssh "${SSH_TARGET}" \
   PLATFORM_IMAGE_TO_DEPLOY="${PLATFORM_IMAGE_TO_DEPLOY}" \
   VLLM_UNIFIED_IMAGE_TO_DEPLOY="${VLLM_UNIFIED_IMAGE_TO_DEPLOY:-}" \
-  RISK_VLLM_IMAGE_TO_DEPLOY="${RISK_VLLM_IMAGE_TO_DEPLOY:-}" \
   AUDIO_VLLM_IMAGE_TO_DEPLOY="${AUDIO_VLLM_IMAGE_TO_DEPLOY:-}" \
   DEPLOY_PATH="${DEPLOY_PATH}" \
   RELEASE_PATH="${RELEASE_PATH}" \
