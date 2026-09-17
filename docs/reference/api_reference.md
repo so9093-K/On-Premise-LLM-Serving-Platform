@@ -1,6 +1,6 @@
 # API 인터페이스
 
-AI Model Serving Platform의 외부 API는 Gateway를 기준으로 제공한다. 기본 Gateway port는 `9400`이며 Chat, Embedding, Retrieval, Prompt Guard, Runtime Control API를 한 곳에서 제공한다.
+AI Model Serving Platform의 외부 API는 Gateway를 기준으로 제공한다. 기본 Gateway port는 `9400`이며 Chat Completions, Responses, Embedding, Retrieval, Prompt Guard, Runtime Control API를 한 곳에서 제공한다.
 
 ```text
 Client / Application
@@ -152,6 +152,7 @@ Retrieval Score
 |---|---|---|---|
 | Models | `GET` | `/v1/models` | Public API |
 | Chat | `POST` | `/v1/chat/completions` | Public API |
+| Responses | `POST` | `/v1/responses` | Public API |
 | Embedding | `POST` | `/v1/embeddings` | Public API |
 | Retrieval | `POST` | `/v1/retrieval/score` | Public API |
 | Retrieval | `POST` | `/v1/retrieval/rerank` | Public API |
@@ -228,7 +229,7 @@ curl "$GATEWAY_URL/v1/models" \
 
 ---
 
-## 3. Chat
+## 3. Generation APIs
 
 ### POST `/v1/chat/completions`
 
@@ -813,6 +814,17 @@ Video는 활성 Main Model profile의 `deployed_input`에 `video`가 포함된 �
   }
 }
 ```
+
+### 3.13 Responses API
+
+`POST /v1/responses`는 신규 integration을 위한 OpenAI-compatible generation surface다. Chat Completions와 같은 `local-main` gate, admission, active profile capability를 사용하지만 request/response item과 typed streaming event 계약은 독립적으로 유지한다.
+
+지원 범위는 text input과 self-contained item continuation, function tools, `text.format` structured output, profile-backed `reasoning.effort`, typed SSE streaming이다. 이전 response의 `function_call`/reasoning item과 `function_call_output`을 다음 요청 `input`에 함께 보내 stateless continuation을 수행할 수 있다.
+
+Gateway가 server-side conversation state를 소유하지 않으므로 `store`, `previous_response_id`, background execution, OpenAI-hosted tools를 받은 척하지 않는다. 계약 밖 필드는 validation error로 거부한다. 정확한 현재 profile capability와 reasoning/tool 한도는 `GET /v1/models`를 기준으로 한다.
+
+브라우저 `/docs`의 request example selector에서 Basic, Streaming, Structured output, Function calling, Reasoning, Function result continuation 예제를 선택할 수 있다. 같은 operation의 code picker에는 OpenAI Python/JavaScript SDK 예제가 추가되며 cURL은 Scalar가 선택한 request example에서 생성한다.
+
 
 ---
 

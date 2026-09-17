@@ -46,6 +46,7 @@ from ..settings import AppSettings, RuntimeEndpoint, SecuritySettings, load_sett
 from ..services.gateway_service import GatewayService
 from ..upstream import RuntimeClient
 from ..api_descriptions import gateway_description, gateway_tags_metadata
+from ..api_code_samples import GATEWAY_CHAT_CODE_SAMPLES, GATEWAY_RESPONSES_CODE_SAMPLES
 from ..api_examples import (
     GATEWAY_CHAT_REQUEST_EXAMPLES,
     GATEWAY_EMBEDDING_REQUEST_EXAMPLES,
@@ -345,6 +346,10 @@ def create_gateway_app(settings: AppSettings | None = None, clients: GatewayClie
             ("POST", "/v1/responses"): lambda schema: narrow_responses_request_schema(
                 schema, settings.main_model_profile_policies
             ),
+        },
+        code_samples={
+            ("POST", "/v1/chat/completions"): GATEWAY_CHAT_CODE_SAMPLES,
+            ("POST", "/v1/responses"): GATEWAY_RESPONSES_CODE_SAMPLES,
         },
         request_examples={
             ("POST", "/v1/chat/completions"): GATEWAY_CHAT_REQUEST_EXAMPLES,

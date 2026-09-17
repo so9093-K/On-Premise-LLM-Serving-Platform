@@ -14,6 +14,7 @@ from .project_paths import resolve_project_root
 ContractRouteKey = tuple[str, str]
 SchemaMap = Mapping[ContractRouteKey, str]
 ExamplesMap = Mapping[ContractRouteKey, dict[str, Any]]
+CodeSamplesMap = Mapping[ContractRouteKey, Sequence[Mapping[str, str]]]
 ErrorCodesMap = Mapping[ContractRouteKey, Sequence[str]]
 
 
@@ -330,6 +331,7 @@ def install_contract_openapi(
     response_schemas: SchemaMap | None = None,
     error_codes: ErrorCodesMap | None = None,
     request_examples: ExamplesMap | None = None,
+    code_samples: CodeSamplesMap | None = None,
     schema_narrowers: dict[tuple[str, str], Any] | None = None,
     operation_details: dict[tuple[str, str], str] | None = None,
     root: Path | None = None,
@@ -339,6 +341,7 @@ def install_contract_openapi(
     response_schemas = response_schemas or {}
     error_codes = error_codes or {}
     request_examples = request_examples or {}
+    code_samples = code_samples or {}
     schema_narrowers = schema_narrowers or {}
     operation_details = operation_details or {}
     original_openapi = app.openapi
@@ -364,6 +367,11 @@ def install_contract_openapi(
                     continue
                 existing = (operation.get("description") or "").rstrip()
                 operation["description"] = f"{existing}\n\n{detail}" if existing else detail
+            for (method, path), samples in code_samples.items():
+                operation = paths.get(path, {}).get(method.lower())
+                if not isinstance(operation, dict) or not samples:
+                    continue
+                operation["x-codeSamples"] = copy.deepcopy(list(samples))
             for (method, path), schema_name in request_schemas.items():
                 operation = paths.get(path, {}).get(method.lower())
                 if not isinstance(operation, dict):
