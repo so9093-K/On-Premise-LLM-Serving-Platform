@@ -332,6 +332,81 @@ GATEWAY_CHAT_REQUEST_EXAMPLES: dict[str, Any] = {
     },
 }
 
+
+GATEWAY_RESPONSES_REQUEST_EXAMPLES: dict[str, Any] = {
+    "basic": {
+        "summary": "기본 텍스트 응답",
+        "value": {"model": MAIN_MODEL, "input": "안녕하세요. 한 문장으로 인사해주세요."},
+    },
+    "streaming": {
+        "summary": "Typed event 스트리밍",
+        "value": {"model": MAIN_MODEL, "input": "세 문장으로 요약해주세요.", "stream": True},
+    },
+    "structured_json": {
+        "summary": "Structured Outputs (text.format)",
+        "value": {
+            "model": MAIN_MODEL,
+            "input": "이름은 test, 점수는 42인 객체를 반환하세요.",
+            "text": {
+                "format": {
+                    "type": "json_schema",
+                    "name": "score_result",
+                    "strict": True,
+                    "schema": {
+                        "type": "object",
+                        "properties": {"name": {"type": "string"}, "score": {"type": "integer"}},
+                        "required": ["name", "score"],
+                        "additionalProperties": False,
+                    },
+                }
+            },
+        },
+    },
+    "function_calling": {
+        "summary": "Function tool 호출",
+        "value": {
+            "model": MAIN_MODEL,
+            "input": "서울 날씨를 확인해줘.",
+            "tools": [{
+                "type": "function",
+                "name": "get_weather",
+                "description": "도시의 날씨를 조회합니다.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {"city": {"type": "string"}},
+                    "required": ["city"],
+                    "additionalProperties": False,
+                },
+            }],
+        },
+    },
+    "reasoning": {
+        "summary": "Reasoning opt-in",
+        "value": {"model": MAIN_MODEL, "input": "15 * 37을 계산해줘.", "reasoning": {"effort": "medium"}},
+    },
+    "tool_continuation": {
+        "summary": "이전 output item + function result로 stateless continuation",
+        "value": {
+            "model": MAIN_MODEL,
+            "input": [
+                {
+                    "type": "function_call",
+                    "id": "fc_example",
+                    "call_id": "call_example",
+                    "name": "get_weather",
+                    "arguments": "{\"city\":\"Seoul\"}",
+                    "status": "completed",
+                },
+                {
+                    "type": "function_call_output",
+                    "call_id": "call_example",
+                    "output": "{\"temperature\":22}",
+                },
+            ],
+        },
+    },
+}
+
 GATEWAY_EMBEDDING_REQUEST_EXAMPLES: dict[str, Any] = {
     "basic": {
         "summary": "기본 요청 (단일 입력)",

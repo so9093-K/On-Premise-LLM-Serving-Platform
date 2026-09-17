@@ -1,0 +1,333 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "GatewayResponsesResponse",
+  "type": "object",
+  "required": [
+    "id",
+    "object",
+    "created_at",
+    "model",
+    "status",
+    "output"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "object": {
+      "const": "response"
+    },
+    "created_at": {
+      "type": "number",
+      "minimum": 0
+    },
+    "model": {
+      "const": "local-main"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "completed",
+        "failed",
+        "in_progress",
+        "cancelled",
+        "queued",
+        "incomplete"
+      ]
+    },
+    "output": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          {
+            "$ref": "#/$defs/message"
+          },
+          {
+            "$ref": "#/$defs/function_call"
+          },
+          {
+            "$ref": "#/$defs/reasoning"
+          }
+        ]
+      }
+    },
+    "usage": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "input_tokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "output_tokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "total_tokens": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "error": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": true
+    },
+    "incomplete_details": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": true
+    },
+    "instructions": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "metadata": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": true
+    },
+    "parallel_tool_calls": {
+      "type": "boolean"
+    },
+    "temperature": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "tool_choice": {},
+    "tools": {
+      "type": "array"
+    },
+    "top_p": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "background": {
+      "type": "boolean"
+    },
+    "max_output_tokens": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "max_tool_calls": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "previous_response_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "reasoning": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": true
+    },
+    "service_tier": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "store": {
+      "type": "boolean"
+    },
+    "text": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": true
+    },
+    "top_logprobs": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "truncation": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "$defs": {
+    "output_text": {
+      "type": "object",
+      "required": [
+        "type",
+        "text"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "type": {
+          "const": "output_text"
+        },
+        "text": {
+          "type": "string"
+        }
+      }
+    },
+    "refusal": {
+      "type": "object",
+      "required": [
+        "type",
+        "refusal"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "refusal"
+        },
+        "refusal": {
+          "type": "string"
+        }
+      }
+    },
+    "message": {
+      "type": "object",
+      "required": [
+        "type",
+        "role",
+        "content"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "type": {
+          "const": "message"
+        },
+        "role": {
+          "const": "assistant"
+        },
+        "status": {
+          "type": "string"
+        },
+        "content": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/output_text"
+              },
+              {
+                "$ref": "#/$defs/refusal"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "function_call": {
+      "type": "object",
+      "required": [
+        "type",
+        "call_id",
+        "name",
+        "arguments"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "type": {
+          "const": "function_call"
+        },
+        "call_id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "arguments": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        }
+      }
+    },
+    "reasoning_part": {
+      "type": "object",
+      "required": [
+        "type",
+        "text"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "reasoning_text",
+            "summary_text"
+          ]
+        },
+        "text": {
+          "type": "string"
+        }
+      }
+    },
+    "reasoning": {
+      "type": "object",
+      "required": [
+        "type"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "type": {
+          "const": "reasoning"
+        },
+        "status": {
+          "type": "string"
+        },
+        "summary": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/reasoning_part"
+          }
+        },
+        "content": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/reasoning_part"
+          }
+        },
+        "encrypted_content": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    }
+  }
+}

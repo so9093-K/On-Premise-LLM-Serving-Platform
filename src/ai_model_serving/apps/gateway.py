@@ -38,7 +38,7 @@ from ..operator_configuration import (
     repository_operator_defaults,
     runtime_snapshot_from_resolver,
 )
-from ..openapi_contracts import install_contract_openapi, narrow_chat_request_schema
+from ..openapi_contracts import install_contract_openapi, narrow_chat_request_schema, narrow_responses_request_schema
 from ..runtime_configuration import RuntimeConfigurationProvider
 from ..runtime_transition_history import RuntimeTransitionHistoryStore
 from ..security import require_bearer_auth
@@ -51,6 +51,7 @@ from ..api_examples import (
     GATEWAY_EMBEDDING_REQUEST_EXAMPLES,
     GATEWAY_RETRIEVAL_RERANK_REQUEST_EXAMPLES,
     GATEWAY_RETRIEVAL_SCORE_REQUEST_EXAMPLES,
+    GATEWAY_RESPONSES_REQUEST_EXAMPLES,
     GATEWAY_RISK_AGGREGATE_REQUEST_EXAMPLES,
     GATEWAY_RISK_PROMPT_REQUEST_EXAMPLES,
     PII_EXAMPLES,
@@ -341,9 +342,13 @@ def create_gateway_app(settings: AppSettings | None = None, clients: GatewayClie
             ("POST", "/v1/chat/completions"): lambda schema: narrow_chat_request_schema(
                 schema, settings.main_model_profile_policies
             ),
+            ("POST", "/v1/responses"): lambda schema: narrow_responses_request_schema(
+                schema, settings.main_model_profile_policies
+            ),
         },
         request_examples={
             ("POST", "/v1/chat/completions"): GATEWAY_CHAT_REQUEST_EXAMPLES,
+            ("POST", "/v1/responses"): GATEWAY_RESPONSES_REQUEST_EXAMPLES,
             ("POST", "/v1/embeddings"): GATEWAY_EMBEDDING_REQUEST_EXAMPLES,
             ("POST", "/v1/risk/detectors/prompt/assessments"): GATEWAY_RISK_PROMPT_REQUEST_EXAMPLES,
             ("POST", "/v1/risk/detectors/pii/assessments"): PII_EXAMPLES,

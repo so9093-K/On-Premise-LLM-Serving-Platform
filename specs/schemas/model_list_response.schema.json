@@ -60,6 +60,7 @@
                 "chat.completions",
                 "chat.completions.vision",
                 "chat.completions.tools",
+                "responses",
                 "embeddings",
                 "retrieval_rerank",
                 "retrieval_score",

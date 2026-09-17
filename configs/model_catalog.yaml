@@ -19,7 +19,7 @@ models:
       # target-neutral registry projection의 fallback. Gateway /v1/models에서는
       # deployment_targets.yaml의 runtime_backend가 실제 값으로 투영된다.
       backend: main_llm_vllm
-      capabilities: [chat.completions, chat.completions.vision, chat.completions.tools]
+      capabilities: [chat.completions, chat.completions.vision, chat.completions.tools, responses]
 
   local-embed:
     role: embedding

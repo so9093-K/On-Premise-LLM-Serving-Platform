@@ -350,6 +350,34 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
     ),
     EndpointSpec(
         method="POST",
+        path="/v1/responses",
+        operation_id="createResponse",
+        tag="Responses",
+        summary="Model response 생성",
+        description=(
+            "`local-main`의 OpenAI Responses API 호환 surface입니다. Chat Completions와 같은 활성 Main Model "
+            "profile, request admission, capability policy를 사용하되 item 기반 입력·출력과 typed streaming event를 제공합니다.\n\n"
+            "Gateway는 self-contained stateless 요청을 소유합니다. 이전 응답의 `output` item과 function result를 "
+            "다음 요청의 `input`에 포함해 multi-turn/tool continuation을 수행합니다. `store`, `previous_response_id`, "
+            "background/hosted tool state처럼 server-side response state가 필요한 기능은 이 계약에 포함하지 않습니다.\n\n"
+            "Structured output은 `text.format`, reasoning은 active profile이 구분 가능한 `reasoning.effort`, "
+            "function calling은 profile의 tool policy를 따릅니다."
+        ),
+        request_schema="responses_request.schema.json",
+        response_schema="responses_response.schema.json",
+        error_codes=(
+            *UPSTREAM_ERROR_CODES,
+            "STRUCTURED_OUTPUT_INVALID",
+            "MODEL_CAPABILITY_MISMATCH",
+            "MODEL_UNAVAILABLE",
+            "MAIN_MODEL_CONTROL_UNAVAILABLE",
+            "MAIN_MODEL_SWITCH_IN_PROGRESS",
+            "STREAM_LIMIT_EXCEEDED",
+            "CONFLICT",
+        ),
+    ),
+    EndpointSpec(
+        method="POST",
         path="/v1/embeddings",
         operation_id="createEmbedding",
         tag="Embeddings",

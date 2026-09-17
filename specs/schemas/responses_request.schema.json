@@ -1,0 +1,520 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "GatewayResponsesRequest",
+  "type": "object",
+  "required": [
+    "model",
+    "input"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "model": {
+      "const": "local-main",
+      "x-openai-compatibility": "narrowed"
+    },
+    "input": {
+      "oneOf": [
+        {
+          "type": "string",
+          "minLength": 1
+        },
+        {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/message_item"
+              },
+              {
+                "$ref": "#/$defs/reasoning_item"
+              },
+              {
+                "$ref": "#/$defs/function_call_item"
+              },
+              {
+                "$ref": "#/$defs/function_call_output_item"
+              }
+            ]
+          }
+        }
+      ],
+      "x-openai-compatibility": "narrowed"
+    },
+    "instructions": {
+      "type": "string",
+      "x-openai-compatibility": "standard"
+    },
+    "max_output_tokens": {
+      "type": "integer",
+      "minimum": 1,
+      "x-openai-compatibility": "standard"
+    },
+    "temperature": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 2,
+      "x-openai-compatibility": "standard"
+    },
+    "top_p": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "maximum": 1,
+      "x-openai-compatibility": "standard"
+    },
+    "stream": {
+      "type": "boolean",
+      "x-openai-compatibility": "standard"
+    },
+    "tools": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/function_tool"
+      },
+      "x-openai-compatibility": "narrowed"
+    },
+    "tool_choice": {
+      "oneOf": [
+        {
+          "type": "string",
+          "enum": [
+            "auto",
+            "none",
+            "required"
+          ]
+        },
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "name"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "function"
+            },
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            }
+          }
+        }
+      ],
+      "x-openai-compatibility": "narrowed"
+    },
+    "parallel_tool_calls": {
+      "type": "boolean",
+      "x-openai-compatibility": "standard"
+    },
+    "reasoning": {
+      "type": "object",
+      "required": [
+        "effort"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "effort": {
+          "type": "string",
+          "enum": [
+            "none",
+            "minimal",
+            "low",
+            "medium",
+            "high",
+            "xhigh"
+          ],
+          "description": "OpenAPI projection narrows this enum to none plus effort values that deployed profiles give a distinct runtime meaning."
+        }
+      },
+      "x-openai-compatibility": "narrowed"
+    },
+    "text": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "format": {
+          "$ref": "#/$defs/text_format"
+        }
+      },
+      "x-openai-compatibility": "narrowed"
+    },
+    "store": {
+      "const": false,
+      "description": "The Gateway owns a stateless Responses contract; server-side response storage is not part of this API.",
+      "x-openai-compatibility": "narrowed"
+    }
+  },
+  "$defs": {
+    "message_item": {
+      "type": "object",
+      "required": [
+        "role",
+        "content"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "message"
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "role": {
+          "type": "string",
+          "enum": [
+            "user",
+            "assistant",
+            "system",
+            "developer"
+          ]
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "in_progress",
+            "completed",
+            "incomplete"
+          ]
+        },
+        "content": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "oneOf": [
+                  {
+                    "$ref": "#/$defs/input_text"
+                  },
+                  {
+                    "$ref": "#/$defs/input_image"
+                  },
+                  {
+                    "$ref": "#/$defs/output_text"
+                  },
+                  {
+                    "$ref": "#/$defs/refusal"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    },
+    "input_text": {
+      "type": "object",
+      "required": [
+        "type",
+        "text"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "input_text"
+        },
+        "text": {
+          "type": "string"
+        }
+      }
+    },
+    "input_image": {
+      "type": "object",
+      "required": [
+        "type",
+        "image_url"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "input_image"
+        },
+        "image_url": {
+          "type": "string",
+          "pattern": "^data:image/(png|jpeg|webp|avif|jp2|gif|bmp|tiff|x-tiff);base64,"
+        },
+        "detail": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "low",
+            "high"
+          ]
+        }
+      }
+    },
+    "output_text": {
+      "type": "object",
+      "required": [
+        "type",
+        "text"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "output_text"
+        },
+        "text": {
+          "type": "string"
+        },
+        "annotations": {
+          "type": "array"
+        },
+        "logprobs": {
+          "type": "array"
+        }
+      }
+    },
+    "refusal": {
+      "type": "object",
+      "required": [
+        "type",
+        "refusal"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "refusal"
+        },
+        "refusal": {
+          "type": "string"
+        }
+      }
+    },
+    "reasoning_text": {
+      "type": "object",
+      "required": [
+        "type",
+        "text"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "reasoning_text"
+        },
+        "text": {
+          "type": "string"
+        }
+      }
+    },
+    "summary_text": {
+      "type": "object",
+      "required": [
+        "type",
+        "text"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "summary_text"
+        },
+        "text": {
+          "type": "string"
+        }
+      }
+    },
+    "reasoning_item": {
+      "type": "object",
+      "required": [
+        "type"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "reasoning"
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "in_progress",
+            "completed",
+            "incomplete"
+          ]
+        },
+        "summary": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/summary_text"
+          }
+        },
+        "content": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/reasoning_text"
+          }
+        },
+        "encrypted_content": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "function_call_item": {
+      "type": "object",
+      "required": [
+        "type",
+        "call_id",
+        "name",
+        "arguments"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "function_call"
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "call_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "arguments": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "in_progress",
+            "completed",
+            "incomplete"
+          ]
+        }
+      }
+    },
+    "function_call_output_item": {
+      "type": "object",
+      "required": [
+        "type",
+        "call_id",
+        "output"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "function_call_output"
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "call_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "output": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "in_progress",
+            "completed",
+            "incomplete"
+          ]
+        }
+      }
+    },
+    "function_tool": {
+      "type": "object",
+      "required": [
+        "type",
+        "name"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "function"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "description": {
+          "type": "string"
+        },
+        "parameters": {
+          "type": "object"
+        },
+        "strict": {
+          "type": "boolean"
+        }
+      }
+    },
+    "text_format": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "type"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "text"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "type"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "json_object"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "name",
+            "schema"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "json_schema"
+            },
+            "name": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{1,64}$"
+            },
+            "description": {
+              "type": "string"
+            },
+            "strict": {
+              "type": "boolean"
+            },
+            "schema": {
+              "type": "object"
+            }
+          }
+        }
+      ]
+    }
+  }
+}

@@ -271,6 +271,58 @@ def narrow_chat_request_schema(
     return schema
 
 
+
+def narrow_responses_request_schema(
+    schema: dict[str, Any], policies: "Sequence[dict[str, Any]] | None"
+) -> dict[str, Any]:
+    """Responses schema를 deployed Main Model profiles의 union capability로 좁힌다.
+
+    OpenAPI는 active profile 전환마다 재생성되지 않으므로 한 프로필의 값이 아니라
+    배포된 profile 전체의 상한/지원 union을 문서화한다. 요청 시점의 정확한 값은
+    `/v1/models`와 runtime validator가 소유한다.
+    """
+    policies = [p for p in (policies or []) if isinstance(p, dict)]
+    properties = schema.get("properties")
+    if not policies or not isinstance(properties, dict):
+        return schema
+
+    max_outputs = [p.get("max_output_tokens") for p in policies]
+    max_outputs = [v for v in max_outputs if isinstance(v, int) and not isinstance(v, bool) and v > 0]
+    if max_outputs and isinstance(properties.get("max_output_tokens"), dict):
+        properties["max_output_tokens"]["maximum"] = max(max_outputs)
+
+    tool_policies = [((p.get("request_parameter_policy") or {}).get("tool_calling") or {}) for p in policies]
+    tool_policies = [p for p in tool_policies if isinstance(p, dict)]
+    enabled_tools = [p for p in tool_policies if p.get("enabled") is True]
+    if enabled_tools:
+        limits = [p.get("max_tools") for p in enabled_tools]
+        limits = [v for v in limits if isinstance(v, int) and not isinstance(v, bool) and v > 0]
+        if limits and isinstance(properties.get("tools"), dict):
+            properties["tools"]["maxItems"] = max(limits)
+    else:
+        for name in ("tools", "tool_choice", "parallel_tool_calls"):
+            properties.pop(name, None)
+
+    efforts = {"none"}
+    reasoning_enabled = False
+    for policy in policies:
+        reasoning = ((policy.get("request_parameter_policy") or {}).get("reasoning") or {})
+        if not isinstance(reasoning, dict) or reasoning.get("enabled") is not True:
+            continue
+        reasoning_enabled = True
+        effort = reasoning.get("responses_effort")
+        if isinstance(effort, str) and effort:
+            efforts.add(effort)
+    if reasoning_enabled:
+        reasoning = properties.get("reasoning")
+        if isinstance(reasoning, dict):
+            effort_schema = (reasoning.get("properties") or {}).get("effort")
+            if isinstance(effort_schema, dict):
+                effort_schema["enum"] = sorted(efforts)
+    else:
+        properties.pop("reasoning", None)
+    return schema
+
 def install_contract_openapi(
     app: FastAPI,
     *,
@@ -333,9 +385,11 @@ def install_contract_openapi(
                 response = responses.setdefault("200", {"description": "성공 응답"})
                 if path == "/v1/chat/completions" and method.upper() == "POST":
                     response["description"] = "Main LLM runtime에서 반환한 OpenAI 호환 chat completion 응답. stream=true일 때는 text/event-stream SSE 응답을 반환한다."
+                if path == "/v1/responses" and method.upper() == "POST":
+                    response["description"] = "Main LLM runtime의 OpenAI Responses 호환 응답. stream=true일 때 typed response.* event를 text/event-stream으로 반환한다."
                 content = response.setdefault("content", {}).setdefault("application/json", {})
                 content["schema"] = schema_for(schema_name)
-                if path == "/v1/chat/completions" and method.upper() == "POST":
+                if path in {"/v1/chat/completions", "/v1/responses"} and method.upper() == "POST":
                     stream_content = response.setdefault("content", {}).setdefault("text/event-stream", {})
                     stream_content.setdefault(
                         "schema",

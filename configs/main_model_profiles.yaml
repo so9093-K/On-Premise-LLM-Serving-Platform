@@ -104,6 +104,7 @@ profiles:
           enabled: true
           default: false
           mode: request_opt_in
+          responses_effort: medium
           upstream_chat_template_kwargs:
             enable_thinking: true
         response_format:
@@ -345,6 +346,7 @@ profiles:
           enabled: true
           default: false
           mode: request_opt_in
+          responses_effort: medium
           upstream_chat_template_kwargs:
             enable_thinking: true
         response_format:
