@@ -75,10 +75,10 @@ Provider-neutral deploy entrypoint
 - 새 Unified vLLM image가 필요한 경우 해당 immutable ref
 - release ID
 - 배포 대상과 release root
-- image를 pull할 registry endpoint와 credential
 - full/rolling mode 및 runtime profile
 
-환경별 credential 값과 인증 정책은 저장소에 기록하지 않는다.
+Registry pull authentication은 대상 host bootstrap이 소유한다. Release deploy의 입력은
+immutable image ref이며, 대상 host에서 해당 ref의 `docker pull` 성공을 검증한다.
 
 ## 9.4 자원 경계
 
