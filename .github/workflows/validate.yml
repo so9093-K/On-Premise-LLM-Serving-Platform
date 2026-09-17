@@ -33,6 +33,10 @@ jobs:
           python-version: "${{ matrix.python_version }}"
       - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
         with:
+          # pyproject.toml의 required-version 범위에서 최신 patch를 검증한다.
+          # dependency 결과는 uv.lock + --locked가 고정하고, 새 uv minor는 별도
+          # qualification 없이 이 workflow에 들어오지 않는다.
+          resolution-strategy: highest
           enable-cache: true
           cache-dependency-glob: uv.lock
       - name: Prepare developer environment

@@ -11,7 +11,9 @@ dependencies = [
 
 [tool.uv]
 package = false
-required-version = "==0.12.11"
+# Platform과 같은 uv 0.12 patch compatibility 계약을 사용한다. 독립 runtime lock의
+# dependency 결과는 runtimes/mlx/uv.lock과 --locked 소비 경계가 고정한다.
+required-version = ">=0.12.11,<0.13"
 environments = [
   "sys_platform == 'darwin' and platform_machine == 'arm64'",
 ]

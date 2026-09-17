@@ -34,7 +34,9 @@ quality = [
 ]
 
 [tool.uv]
-required-version = "==0.12.11"
+# 0.12.11은 검증된 최소 toolchain이다. 같은 0.12 minor의 patch release는 허용하고,
+# minor 변경은 lock/install semantics를 다시 qualification한 뒤 별도 변경으로 올린다.
+required-version = ">=0.12.11,<0.13"
 environments = [
   "sys_platform == 'linux' and platform_machine == 'x86_64'",
   "sys_platform == 'linux' and platform_machine == 'aarch64'",
