@@ -3,7 +3,6 @@ import { Alert, Button, Card, CardBody, CardTitle, Label, Spinner } from '@patte
 import { useQuery } from '@tanstack/react-query';
 
 import {
-  ApiError,
   fetchConfigurationHistory,
   fetchMainModelOperations,
   fetchRuntimeOperations,
@@ -11,6 +10,7 @@ import {
   type MainModelOperation,
   type RuntimeOperation,
 } from './api';
+import { apiErrorMessage, isUnauthorized } from './apiFeedback';
 
 type OperationsPageProps = {
   token: string | null;
@@ -19,17 +19,6 @@ type OperationsPageProps = {
 };
 
 type LabelColor = 'blue' | 'green' | 'orange' | 'red' | 'grey';
-
-function isUnauthorized(error: unknown): boolean {
-  return error instanceof ApiError && error.status === 401;
-}
-
-function errorMessage(error: unknown): string {
-  if (error instanceof ApiError) {
-    return error.code ? `${error.code}: ${error.message}` : error.message;
-  }
-  return error instanceof Error ? error.message : '요청에 실패했습니다.';
-}
 
 function formatTimestamp(value: number): string {
   return new Date(value * 1000).toLocaleString('ko-KR');
@@ -136,7 +125,7 @@ export function OperationsPage({ token, onUnauthorized, deploymentFeatures }: Op
       <div className="page-heading">
         <div>
           <h1>Operations</h1>
-          <p>각 control domain이 소유하는 최근 operation evidence를 한곳에서 조회합니다. 이 화면은 mutation이나 새로운 global operation ledger를 소유하지 않습니다.</p>
+          <p>Runtime, Main Model, Configuration에서 발생한 최근 operation evidence를 읽기 전용으로 확인합니다.</p>
         </div>
         <Button
           variant="secondary"
@@ -154,7 +143,7 @@ export function OperationsPage({ token, onUnauthorized, deploymentFeatures }: Op
       <Card>
         <CardTitle>Runtime transitions</CardTitle>
         <CardBody>
-          <p className="configuration-help">Runtime start/stop operation journal의 최근 50개를 보여줍니다. 각 record의 Durability가 persistent evidence 여부를 명시하며, 더 오래된 기록은 Runtime history contract가 계속 보존합니다.</p>
+          <p className="configuration-help">Runtime start/stop의 최근 50개 operation을 보여줍니다. Durability에서 persistent evidence 여부를 확인할 수 있습니다.</p>
           {!runtimeEnabled ? (
             <Alert isInline variant="info" title="이 배포는 Runtime Control을 제공하지 않습니다.">
               Bootstrap capability에 `runtime_control`이 없어 Runtime operation API를 호출하지 않습니다.
@@ -162,7 +151,7 @@ export function OperationsPage({ token, onUnauthorized, deploymentFeatures }: Op
           ) : runtimeQuery.isPending ? (
             <SourceLoading label="Runtime" />
           ) : runtimeQuery.isError ? (
-            <Alert isInline variant="danger" title="Runtime operations를 불러오지 못했습니다.">{errorMessage(runtimeQuery.error)}</Alert>
+            <Alert isInline variant="danger" title="Runtime operations를 불러오지 못했습니다.">{apiErrorMessage(runtimeQuery.error)}</Alert>
           ) : runtimeQuery.data.items.length === 0 ? (
             <p>기록된 Runtime transition operation이 없습니다.</p>
           ) : (
@@ -193,7 +182,7 @@ export function OperationsPage({ token, onUnauthorized, deploymentFeatures }: Op
       <Card>
         <CardTitle>Main Model profile switches</CardTitle>
         <CardBody>
-          <p className="configuration-help">Main Model state가 보존하는 bounded recent projection입니다. 장기 audit history가 아닙니다.</p>
+          <p className="configuration-help">최근 Main Model profile switch의 진행 상태와 recovery 결과를 보여줍니다.</p>
           {!mainModelEnabled ? (
             <Alert isInline variant="info" title="이 배포는 Main Model switching을 제공하지 않습니다.">
               Bootstrap capability에 `model_switching`이 없어 Main Model operation API를 호출하지 않습니다.
@@ -201,7 +190,7 @@ export function OperationsPage({ token, onUnauthorized, deploymentFeatures }: Op
           ) : mainModelQuery.isPending ? (
             <SourceLoading label="Main Model" />
           ) : mainModelQuery.isError ? (
-            <Alert isInline variant="danger" title="Main Model operations를 불러오지 못했습니다.">{errorMessage(mainModelQuery.error)}</Alert>
+            <Alert isInline variant="danger" title="Main Model operations를 불러오지 못했습니다.">{apiErrorMessage(mainModelQuery.error)}</Alert>
           ) : mainModelQuery.data.items.length === 0 ? (
             <p>기록된 Main Model switch operation이 없습니다.</p>
           ) : (
@@ -230,11 +219,11 @@ export function OperationsPage({ token, onUnauthorized, deploymentFeatures }: Op
       <Card>
         <CardTitle>Configuration mutations</CardTitle>
         <CardBody>
-          <p className="configuration-help">Configuration durable journal의 최근 page를 읽기 전용으로 보여줍니다. Rollback과 전체 history 탐색은 Configuration 화면이 소유합니다.</p>
+          <p className="configuration-help">최근 Configuration 변경과 verification 결과를 보여줍니다. Rollback과 전체 history 탐색은 Configuration 화면에서 수행합니다.</p>
           {configurationQuery.isPending ? (
             <SourceLoading label="Configuration" />
           ) : configurationQuery.isError ? (
-            <Alert isInline variant="danger" title="Configuration operations를 불러오지 못했습니다.">{errorMessage(configurationQuery.error)}</Alert>
+            <Alert isInline variant="danger" title="Configuration operations를 불러오지 못했습니다.">{apiErrorMessage(configurationQuery.error)}</Alert>
           ) : configurationQuery.data.items.length === 0 ? (
             <p>기록된 Configuration mutation이 없습니다.</p>
           ) : (

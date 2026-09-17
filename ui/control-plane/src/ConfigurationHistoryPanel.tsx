@@ -11,6 +11,7 @@ import {
   type ConfigurationRollbackApplyResponse,
   type ConfigurationRollbackPlanResponse,
 } from './api';
+import { apiErrorMessage, isUnauthorized } from './apiFeedback';
 import {
   configurationRollbackApplyRequest,
   configurationRollbackTargetRevision,
@@ -37,10 +38,6 @@ type ReviewedRollback = {
   etag: string;
 };
 
-function isUnauthorized(error: unknown): boolean {
-  return error instanceof ApiError && error.status === 401;
-}
-
 function isRevisionConflict(error: unknown): boolean {
   return error instanceof ApiError
     && error.status === 412
@@ -51,10 +48,7 @@ function errorMessage(error: unknown): string {
   if (isRevisionConflict(error)) {
     return 'Configuration revision이 변경되어 기존 rollback 검토를 사용할 수 없습니다. 최신 상태에서 새 Plan을 검토하세요.';
   }
-  if (error instanceof ApiError) {
-    return error.code ? `${error.code}: ${error.message}` : error.message;
-  }
-  return error instanceof Error ? error.message : '요청에 실패했습니다.';
+  return apiErrorMessage(error);
 }
 
 function formatTimestamp(seconds: number): string {
