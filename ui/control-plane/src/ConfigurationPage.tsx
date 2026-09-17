@@ -15,6 +15,7 @@ import {
   type ConfigurationSchemaItem,
 } from './api';
 import { ConfigurationHistoryPanel } from './ConfigurationHistoryPanel';
+import { apiErrorMessage, isUnauthorized } from './apiFeedback';
 import {
   configurationApplyRequest,
   configurationItemApplies,
@@ -43,10 +44,6 @@ type PlanIntent = {
 
 type ConfigurationDraft = string | number | boolean | null;
 
-function isUnauthorized(error: unknown): boolean {
-  return error instanceof ApiError && error.status === 401;
-}
-
 function isRevisionConflict(error: unknown): boolean {
   return error instanceof ApiError
     && error.status === 412
@@ -66,10 +63,7 @@ function errorMessage(error: unknown): string {
       ? `${error.message} operation: ${operationId}. 현재 상태를 다시 조회한 뒤 새 Plan을 검토하세요.`
       : `${error.message} 현재 상태를 다시 조회한 뒤 새 Plan을 검토하세요.`;
   }
-  if (error instanceof ApiError) {
-    return error.code ? `${error.code}: ${error.message}` : error.message;
-  }
-  return error instanceof Error ? error.message : '요청에 실패했습니다.';
+  return apiErrorMessage(error);
 }
 
 function displayValue(item: ConfigurationEffectiveItem | null): string {

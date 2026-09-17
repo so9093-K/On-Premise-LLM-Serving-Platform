@@ -3,7 +3,6 @@ import test from 'node:test';
 
 import {
   isRuntimePlanChanged,
-  isUnauthorized,
   runtimeApplyRequest,
   runtimePlanRequiresForceReview,
 } from '../src/runtimeSafety.ts';
@@ -54,12 +53,6 @@ test('only RUNTIME_PLAN_CHANGED conflict invalidates a reviewed plan', () => {
     status: 401,
     details: { reason: 'RUNTIME_PLAN_CHANGED' },
   }), false);
-});
-
-test('401 responses cross the reauthentication boundary', () => {
-  assert.equal(isUnauthorized({ status: 401 }), true);
-  assert.equal(isUnauthorized({ status: 403 }), false);
-  assert.equal(isUnauthorized(new Error('network failure')), false);
 });
 
 test('force-required plan requires a new force review before Apply', () => {

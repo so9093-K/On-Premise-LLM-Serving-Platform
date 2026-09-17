@@ -13,10 +13,10 @@ import {
 } from './api';
 import {
   isRuntimePlanChanged,
-  isUnauthorized,
   runtimeApplyRequest,
   runtimePlanRequiresForceReview,
 } from './runtimeSafety';
+import { apiErrorMessage, isUnauthorized } from './apiFeedback';
 
 type DesiredState = 'active' | 'stopped';
 
@@ -33,10 +33,7 @@ function errorMessage(error: unknown): string {
   if (error instanceof ApiError && isRuntimePlanChanged(error)) {
     return `${error.message} 현재 상태가 검토 시점과 달라졌으므로 새 Plan을 확인하세요.`;
   }
-  if (error instanceof ApiError) {
-    return error.code ? `${error.code}: ${error.message}` : error.message;
-  }
-  return error instanceof Error ? error.message : '요청에 실패했습니다.';
+  return apiErrorMessage(error);
 }
 
 function operationIdFromError(error: unknown): string | null {

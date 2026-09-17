@@ -3,13 +3,13 @@ import { Alert, Button, Card, CardBody, CardTitle, Label, Spinner } from '@patte
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
-  ApiError,
   fetchMainModel,
   fetchMainModelOperation,
   fetchMainModelProfiles,
   switchMainModel,
   type MainModelProfile,
 } from './api';
+import { apiErrorMessage, isUnauthorized } from './apiFeedback';
 import {
   isMainModelOperationTerminal,
   mainModelProfileRequiresConfirmation,
@@ -21,17 +21,6 @@ type MainModelPageProps = {
   token: string | null;
   onUnauthorized: () => void;
 };
-
-function errorMessage(error: unknown): string {
-  if (error instanceof ApiError) {
-    return error.code ? `${error.code}: ${error.message}` : error.message;
-  }
-  return error instanceof Error ? error.message : '요청에 실패했습니다.';
-}
-
-function isUnauthorized(error: unknown): boolean {
-  return error instanceof ApiError && error.status === 401;
-}
 
 function compatibilityVariant(status: string): 'green' | 'orange' | 'red' | 'grey' | 'blue' {
   if (status === 'verified') return 'green';
@@ -125,7 +114,7 @@ export function MainModelPage({ token, onUnauthorized }: MainModelPageProps) {
         onUnauthorized();
         return;
       }
-      setActionError(errorMessage(error));
+      setActionError(apiErrorMessage(error));
     },
   });
 
@@ -133,10 +122,10 @@ export function MainModelPage({ token, onUnauthorized }: MainModelPageProps) {
     return <div className="inline-loading"><Spinner size="lg" aria-label="Main Model 상태 loading" /> Main Model 상태를 불러오는 중입니다.</div>;
   }
   if (statusQuery.isError) {
-    return <Alert isInline variant="danger" title="Main Model 상태를 불러오지 못했습니다.">{errorMessage(statusQuery.error)}</Alert>;
+    return <Alert isInline variant="danger" title="Main Model 상태를 불러오지 못했습니다.">{apiErrorMessage(statusQuery.error)}</Alert>;
   }
   if (profilesQuery.isError) {
-    return <Alert isInline variant="danger" title="Main Model 프로필을 불러오지 못했습니다.">{errorMessage(profilesQuery.error)}</Alert>;
+    return <Alert isInline variant="danger" title="Main Model 프로필을 불러오지 못했습니다.">{apiErrorMessage(profilesQuery.error)}</Alert>;
   }
 
   const status = statusQuery.data;
@@ -274,7 +263,7 @@ export function MainModelPage({ token, onUnauthorized }: MainModelPageProps) {
             {operationQuery.isPending ? (
               <div className="inline-loading"><Spinner size="md" aria-label="Main Model operation loading" /> Operation 상태를 확인하는 중입니다.</div>
             ) : operationQuery.isError ? (
-              <Alert isInline variant="danger" title="Operation 상태를 불러오지 못했습니다.">{errorMessage(operationQuery.error)}</Alert>
+              <Alert isInline variant="danger" title="Operation 상태를 불러오지 못했습니다.">{apiErrorMessage(operationQuery.error)}</Alert>
             ) : operationQuery.data ? (
               <>
                 <Alert isInline variant={operationVariant(operationQuery.data.status)} title={`Operation ${operationQuery.data.status}`}>
