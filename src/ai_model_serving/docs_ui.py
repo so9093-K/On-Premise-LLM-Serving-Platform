@@ -56,9 +56,12 @@ class VendoredAsset:
 
 
 SCALAR_BUNDLE = VendoredAsset(
-    filename="scalar-api-reference-1.60.0.js",
-    source_url="https://cdn.jsdelivr.net/npm/@scalar/api-reference@1.60.0",
-    integrity="sha384-4BdmZQQTc462+ocGPo+GP3Hi/eQjMQTmNkSU9J5w3FD6hGUEmU2PqNRnbklONt4R",
+    filename="scalar-api-reference-1.69.0.js",
+    source_url=(
+        "https://cdn.jsdelivr.net/npm/@scalar/api-reference@1.69.0/"
+        "dist/browser/standalone.js"
+    ),
+    integrity="sha384-UL+pt9bcR3hCuzEybA1bAyu6yv9qkzJuYCP5N+HZPOo9ZkUXcMflxqBjC1vfDzfe",
 )
 # FastAPI 기본 /redoc은 `redoc@2`라는 가변 태그를 SRI 없이 부른다. 다른 모든 외부
 # 아티팩트를 digest로 고정하는 이 저장소 기준에 어긋나므로, 태그가 가리키던 실제
