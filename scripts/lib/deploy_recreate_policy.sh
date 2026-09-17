@@ -6,10 +6,14 @@ source "${_DEPLOY_RECREATE_POLICY_LIB_DIR}/image_ref_policy.sh"
 unset _DEPLOY_RECREATE_POLICY_LIB_DIR
 
 vllm_unified_image_source_paths() {
+  # Unified vLLM image source-drift 판단의 canonical file manifest다.
   # configs/vllm_unified_build.yaml은 아래 semantic 비교 함수가 실제 build 값만
-  # 따로 비교한다. 여기는 Dockerfile 자체와 그 직접 입력만 둔다.
+  # 따로 비교한다. Dockerfile의 local COPY source는 governance validation이 이
+  # 목록에 모두 포함되는지 확인해 새 build input이 조용히 빠지지 않게 한다.
   printf '%s\n' \
     .dockerignore \
+    LICENSE \
+    NOTICE \
     ops/images/vllm-unified/Dockerfile \
     ops/images/vllm-unified/requirements.media.lock \
     ops/patches/apply_gemma4_multimodal_patches.py \
