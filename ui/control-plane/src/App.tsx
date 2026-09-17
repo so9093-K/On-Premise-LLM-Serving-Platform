@@ -32,7 +32,6 @@ const SECTIONS: Section[] = [
   },
   { path: '/configuration', label: 'Configuration', enabled: () => true },
   { path: '/operations', label: 'Operations', enabled: () => true },
-  { path: '/history', label: 'History', enabled: () => true },
 ];
 
 function LoadingScreen() {
@@ -150,17 +149,6 @@ function Overview({ bootstrap }: { bootstrap: BootstrapResponse }) {
   );
 }
 
-function Placeholder({ title }: { title: string }) {
-  return (
-    <Card>
-      <CardTitle>{title}</CardTitle>
-      <CardBody>
-        <p>이 화면의 operation UX는 backend 계약을 그대로 소비하는 다음 기능 단계에서 연결합니다.</p>
-      </CardBody>
-    </Card>
-  );
-}
-
 function Shell({ bootstrap }: { bootstrap: BootstrapResponse }) {
   const { token, clearToken } = useAdminSession();
   const sections = SECTIONS.filter((section) => section.enabled(bootstrap));
@@ -202,7 +190,6 @@ function Shell({ bootstrap }: { bootstrap: BootstrapResponse }) {
             <Route path="/main-model" element={<MainModelPage token={token} onUnauthorized={clearToken} />} />
             <Route path="/configuration" element={<ConfigurationPage token={token} onUnauthorized={clearToken} deploymentFeatures={bootstrap.deployment.features} />} />
             <Route path="/operations" element={<OperationsPage token={token} onUnauthorized={clearToken} deploymentFeatures={bootstrap.deployment.features} />} />
-            <Route path="/history" element={<Placeholder title="History" />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </main>
