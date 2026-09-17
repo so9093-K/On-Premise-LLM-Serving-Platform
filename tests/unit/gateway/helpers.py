@@ -383,11 +383,7 @@ def tool_calling_settings() -> AppSettings:
                     "named_tool_choice_upstream"
                 ],
             },
-            "reasoning": {
-                "enabled": True,
-                "default": False,
-                "upstream_chat_template_kwargs": {"enable_thinking": True},
-            },
+            "reasoning": dict(_PRODUCTION_CHAT_POLICY["reasoning"]),
         },
     )
     return replace(

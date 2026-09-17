@@ -1560,6 +1560,330 @@ paths:
       - bearerAuth: []
       x-contract-schema: chat_completion_request.schema.json
       x-response-contract-schema: chat_completion_response.schema.json
+  /v1/responses:
+    post:
+      tags:
+      - Responses
+      summary: Model response 생성
+      description: '`local-main`의 OpenAI Responses API 호환 surface입니다. Chat Completions와
+        같은 활성 Main Model profile, request admission, capability policy를 사용하되 item
+        기반 입력·출력과 typed streaming event를 제공합니다.
+
+
+        Gateway는 self-contained stateless 요청을 소유합니다. 이전 응답의 `output` item과 function
+        result를 다음 요청의 `input`에 포함해 multi-turn/tool continuation을 수행합니다. `store`,
+        `previous_response_id`, background/hosted tool state처럼 server-side response
+        state가 필요한 기능은 이 계약에 포함하지 않습니다.
+
+
+        Structured output은 `text.format`, reasoning은 active profile이 구분 가능한 `reasoning.effort`,
+        function calling은 profile의 tool policy를 따릅니다.'
+      operationId: createResponse
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: ./schemas/responses_request.schema.json
+            examples:
+              basic:
+                summary: 기본 텍스트 응답
+                value:
+                  model: local-main
+                  input: 안녕하세요. 한 문장으로 인사해주세요.
+              streaming:
+                summary: Typed event 스트리밍
+                value:
+                  model: local-main
+                  input: 세 문장으로 요약해주세요.
+                  stream: true
+              structured_json:
+                summary: Structured Outputs (text.format)
+                value:
+                  model: local-main
+                  input: 이름은 test, 점수는 42인 객체를 반환하세요.
+                  text:
+                    format:
+                      type: json_schema
+                      name: score_result
+                      strict: true
+                      schema:
+                        type: object
+                        properties:
+                          name:
+                            type: string
+                          score:
+                            type: integer
+                        required:
+                        - name
+                        - score
+                        additionalProperties: false
+              function_calling:
+                summary: Function tool 호출
+                value:
+                  model: local-main
+                  input: 서울 날씨를 확인해줘.
+                  tools:
+                  - type: function
+                    name: get_weather
+                    description: 도시의 날씨를 조회합니다.
+                    parameters:
+                      type: object
+                      properties:
+                        city:
+                          type: string
+                      required:
+                      - city
+                      additionalProperties: false
+              reasoning:
+                summary: Reasoning opt-in
+                value:
+                  model: local-main
+                  input: 15 * 37을 계산해줘.
+                  reasoning:
+                    effort: medium
+              tool_continuation:
+                summary: 이전 output item + function result로 stateless continuation
+                value:
+                  model: local-main
+                  input:
+                  - type: function_call
+                    id: fc_example
+                    call_id: call_example
+                    name: get_weather
+                    arguments: '{"city":"Seoul"}'
+                    status: completed
+                  - type: function_call_output
+                    call_id: call_example
+                    output: '{"temperature":22}'
+        required: true
+      responses:
+        '200':
+          description: Main LLM runtime의 OpenAI Responses 호환 응답. stream=true일 때 typed
+            response.* event를 text/event-stream으로 반환한다.
+          content:
+            application/json:
+              schema:
+                $ref: ./schemas/responses_response.schema.json
+            text/event-stream:
+              schema:
+                type: string
+                description: 'OpenAI 호환 SSE 스트림. 스트리밍 전송 오류 시 Gateway는 SSE error 이벤트를
+                  먼저 전송하고 data: [DONE]으로 종료합니다.'
+        '401':
+          description: 'API Bearer token 필요
+
+
+            이 status로 올 수 있는 `error.code`:
+
+            - `UNAUTHORIZED` — API 키 또는 인증 정보가 없거나 유효하지 않다. (재시도 불가)'
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: ./schemas/common_error.schema.json
+                - type: object
+                  properties:
+                    error:
+                      type: object
+                      properties:
+                        code:
+                          enum:
+                          - UNAUTHORIZED
+        '503':
+          description: '메인 모델 전환 중, control plane 불가, 또는 upstream admission 거부
+
+
+            이 status로 올 수 있는 `error.code`:
+
+            - `CIRCUIT_OPEN` — 연속 실패로 upstream 서킷이 열려 일시적으로 차단 중이다. (재시도 가능)
+
+            - `MAIN_MODEL_CONTROL_UNAVAILABLE` — 메인 모델 control plane(admin sidecar)을
+            사용할 수 없다. (재시도 가능)
+
+            - `MAIN_MODEL_SWITCH_IN_PROGRESS` — 메인 모델 프로파일 전환이 진행 중이다. (재시도 가능)
+
+            - `MODEL_UNAVAILABLE` — 대상 모델 런타임을 현재 사용할 수 없다(미기동·축출 등). (재시도 가능)
+
+            - `QUEUE_TIMEOUT` — 동시 처리 한도로 대기열에서 시간이 초과됐다. (재시도 가능)'
+          headers:
+            Retry-After:
+              description: 재시도 전 대기 시간(초)
+              schema:
+                type: integer
+                example: 5
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: ./schemas/common_error.schema.json
+                - type: object
+                  properties:
+                    error:
+                      type: object
+                      properties:
+                        code:
+                          enum:
+                          - CIRCUIT_OPEN
+                          - MAIN_MODEL_CONTROL_UNAVAILABLE
+                          - MAIN_MODEL_SWITCH_IN_PROGRESS
+                          - MODEL_UNAVAILABLE
+                          - QUEUE_TIMEOUT
+        '422':
+          description: 'Validation Error
+
+
+            이 status로 올 수 있는 `error.code`:
+
+            - `MODEL_CAPABILITY_MISMATCH` — 요청이 활성 모델이 지원하지 않는 기능을 요구한다(예 - 비활성 모달리티).
+            (재시도 불가)
+
+            - `VALIDATION_ERROR` — 요청이 Gateway 입력 계약 검증을 통과하지 못했다. (재시도 불가)'
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: ./schemas/common_error.schema.json
+                - type: object
+                  properties:
+                    error:
+                      type: object
+                      properties:
+                        code:
+                          enum:
+                          - MODEL_CAPABILITY_MISMATCH
+                          - VALIDATION_ERROR
+        '413':
+          description: '요청 body가 너무 큼
+
+
+            이 status로 올 수 있는 `error.code`:
+
+            - `REQUEST_TOO_LARGE` — 요청 body 가 허용 한도를 초과했다. (재시도 불가)'
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: ./schemas/common_error.schema.json
+                - type: object
+                  properties:
+                    error:
+                      type: object
+                      properties:
+                        code:
+                          enum:
+                          - REQUEST_TOO_LARGE
+        '500':
+          description: '내부 서버 오류
+
+
+            이 status로 올 수 있는 `error.code`:
+
+            - `INTERNAL_ERROR` — Gateway 내부 처리 중 예기치 못한 오류가 발생했다. (재시도 불가)'
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: ./schemas/common_error.schema.json
+                - type: object
+                  properties:
+                    error:
+                      type: object
+                      properties:
+                        code:
+                          enum:
+                          - INTERNAL_ERROR
+        '429':
+          description: 'Upstream rate limit
+
+
+            이 status로 올 수 있는 `error.code`:
+
+            - `RATE_LIMITED` — upstream rate limit에 도달했다. (재시도 가능)'
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: ./schemas/common_error.schema.json
+                - type: object
+                  properties:
+                    error:
+                      type: object
+                      properties:
+                        code:
+                          enum:
+                          - RATE_LIMITED
+        '504':
+          description: 'Upstream timeout
+
+
+            이 status로 올 수 있는 `error.code`:
+
+            - `UPSTREAM_TIMEOUT` — upstream 런타임 응답이 제한 시간을 초과했다. (재시도 가능)'
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: ./schemas/common_error.schema.json
+                - type: object
+                  properties:
+                    error:
+                      type: object
+                      properties:
+                        code:
+                          enum:
+                          - UPSTREAM_TIMEOUT
+        '502':
+          description: 'Upstream 오류 또는 유효하지 않은 upstream 응답
+
+
+            이 status로 올 수 있는 `error.code`:
+
+            - `STRUCTURED_OUTPUT_INVALID` — 모델이 생성한 JSON이 요청한 출력 형식 또는 json_schema를
+            만족하지 못했다. (재시도 가능)
+
+            - `UPSTREAM_ERROR` — upstream 런타임이 오류를 반환했거나 통신에 실패했다. (재시도 가능)
+
+            - `UPSTREAM_RESPONSE_INVALID` — upstream 응답의 envelope, 필드 또는 detector
+            출력이 계약을 만족하지 못했다. (재시도 가능)'
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: ./schemas/common_error.schema.json
+                - type: object
+                  properties:
+                    error:
+                      type: object
+                      properties:
+                        code:
+                          enum:
+                          - STRUCTURED_OUTPUT_INVALID
+                          - UPSTREAM_ERROR
+                          - UPSTREAM_RESPONSE_INVALID
+        '409':
+          description: '현재 상태 또는 리소스와 충돌
+
+
+            이 status로 올 수 있는 `error.code`:
+
+            - `CONFLICT` — 현재 리소스 상태와 요청이 충돌해 작업을 수행할 수 없다. (재시도 불가)'
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: ./schemas/common_error.schema.json
+                - type: object
+                  properties:
+                    error:
+                      type: object
+                      properties:
+                        code:
+                          enum:
+                          - CONFLICT
+      security:
+      - bearerAuth: []
+      x-contract-schema: responses_request.schema.json
+      x-response-contract-schema: responses_response.schema.json
   /v1/embeddings:
     post:
       tags:
@@ -4718,7 +5042,7 @@ tags:
     |---|---|---|
 
     | `local-main` | `text`, `image`, `audio`, `video` | `chat.completions`, `chat.completions.vision`,
-    `chat.completions.tools` |
+    `chat.completions.tools`, `responses` |
 
     | `local-embed` | `text` | `embeddings`, `retrieval_rerank`, `retrieval_score`
     |
@@ -4745,6 +5069,19 @@ tags:
 
     스트리밍·도구 호출·구조화 출력·멀티모달 한도 같은 세부는 아래 `POST /v1/chat/completions` 설명에 있습니다. 값은 프로필을
     바꾸면 함께 바뀝니다.'
+- name: Responses
+  description: 'OpenAI Responses API 호환 generation surface입니다. Chat Completions와 같은
+    `local-main` active profile과 admission/capability policy를 사용하며, item 기반 output·function
+    continuation·typed streaming event를 제공합니다.
+
+
+    이 플랫폼의 Responses API는 self-contained stateless contract입니다. 이전 응답의 output item과
+    tool result를 다음 요청 input에 포함해 이어가며 server-side response storage를 만들지 않습니다.
+
+
+    - 기본 프로필 입력 — `text`, `image`, `audio`, `video`
+
+    - 기본 프로필 컨텍스트 상한 — 50,000토큰'
 - name: Embeddings
   description: 'OpenAI 호환 embedding API입니다. 모델마다 출력 차원이 고정되어 있고, Gateway가 요청 차원과 응답
     차원이 일치하는지 확인합니다.
@@ -4805,9 +5142,9 @@ tags:
     ### gate — 요청 경로와의 관계
 
 
-    - `gate: open`이어야 `/v1/chat/completions`가 요청을 받습니다.
+    - `gate: open`이어야 `/v1/chat/completions`와 `/v1/responses`가 요청을 받습니다.
 
-    - 전환·정지 중에는 `gate`가 닫히고 chat 요청은 `503 MAIN_MODEL_SWITCH_IN_PROGRESS` + `Retry-After:
+    - 전환·정지 중에는 `gate`가 닫히고 generation 요청은 `503 MAIN_MODEL_SWITCH_IN_PROGRESS` + `Retry-After:
     5`로 fail-closed 응답합니다(요청이 조용히 잘못된 모델로 가지 않습니다).
 
     - 요청 경로는 `gate`와 활성 프로필을 control plane 기록에서만 읽습니다. Docker 관측은 `GET /admin/main-model`에서만

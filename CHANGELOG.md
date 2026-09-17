@@ -6,6 +6,7 @@
 
 ### Added
 
+- Gateway에 `POST /v1/responses`를 추가했다. `local-main`의 active profile/admission을 Chat Completions와 공유하면서 item 기반 input/output, function tool continuation, `text.format` structured output, profile-backed `reasoning.effort`, typed SSE streaming을 제공한다. Gateway 계약은 stateless이며 이전 output item과 tool result를 다음 `input`에 포함해 대화를 이어간다. server-side response storage와 `previous_response_id`는 이 surface가 소유하지 않는다.
 - Gateway가 `/admin/console/`에서 first-party Control Plane Console의 generated asset을 same-origin으로 제공하는 foundation을 추가했다. Console은 docs enable flag와 독립적으로 제공되고 Bootstrap capability를 먼저 소비하며, 보호된 profile의 Admin key는 브라우저 메모리에만 유지한다. Frontend source는 OpenAPI-derived TypeScript type과 deterministic checked-in dist를 사용하고 production runtime에는 Node/npm을 포함하지 않는다.
 
 - macOS·Ubuntu 개발 환경을 위한 `make setup-dev`와 `make doctor-dev`, GitHub Actions 검증 workflow를 추가했다. app/contract 진입점에서는 Python을 확인하고 운영 shell helper용 Bash는 doctor에서 별도 진단한다. 기존 `.env`와 runtime state는 유지하며 GPU 런타임 검증과는 별도다.

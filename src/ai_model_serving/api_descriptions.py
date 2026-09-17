@@ -348,6 +348,21 @@ def chat_operation_detail(settings: AppSettings) -> str:
     return "\n".join(lines)
 
 
+
+def responses_tag_summary(settings: AppSettings) -> str:
+    policy = settings.default_main_model_gateway_policy or {}
+    limits = policy.get("request_limits") or {}
+    lines = [
+        "OpenAI Responses API 호환 generation surface입니다. Chat Completions와 같은 `local-main` active profile과 "
+        "admission/capability policy를 사용하며, item 기반 output·function continuation·typed streaming event를 제공합니다.",
+        "",
+        "이 플랫폼의 Responses API는 self-contained stateless contract입니다. 이전 응답의 output item과 tool result를 "
+        "다음 요청 input에 포함해 이어가며 server-side response storage를 만들지 않습니다.",
+    ]
+    if limits:
+        lines += ["", f"- 기본 프로필 입력 — {_codes(limits.get('input_modalities'))}", f"- 기본 프로필 컨텍스트 상한 — {_number(limits.get('max_model_len'))}토큰"]
+    return "\n".join(lines)
+
 def embeddings_tag_summary(settings: AppSettings) -> str:
     """Embeddings 그룹의 표지. 쓸 수 있는 모델과 차원까지만."""
     lines = [
@@ -423,8 +438,8 @@ def _runtime_control_tag_description(settings: AppSettings) -> str:
         "",
         "### gate — 요청 경로와의 관계",
         "",
-        "- `gate: open`이어야 `/v1/chat/completions`가 요청을 받습니다.",
-        "- 전환·정지 중에는 `gate`가 닫히고 chat 요청은 `503 MAIN_MODEL_SWITCH_IN_PROGRESS` + `Retry-After: 5`로 "
+        "- `gate: open`이어야 `/v1/chat/completions`와 `/v1/responses`가 요청을 받습니다.",
+        "- 전환·정지 중에는 `gate`가 닫히고 generation 요청은 `503 MAIN_MODEL_SWITCH_IN_PROGRESS` + `Retry-After: 5`로 "
         "fail-closed 응답합니다(요청이 조용히 잘못된 모델로 가지 않습니다).",
         "- 요청 경로는 `gate`와 활성 프로필을 control plane 기록에서만 읽습니다. Docker 관측은 "
         "`GET /admin/main-model`에서만 수행하므로, 추론 트래픽이 Docker daemon 상태에 묶이지 않습니다.",
@@ -474,6 +489,10 @@ def gateway_tags_metadata(settings: AppSettings) -> list[dict[str, str]]:
         {
             "name": "Chat",
             "description": chat_tag_summary(settings),
+        },
+        {
+            "name": "Responses",
+            "description": responses_tag_summary(settings),
         },
         {
             "name": "Embeddings",

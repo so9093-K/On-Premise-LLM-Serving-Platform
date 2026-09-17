@@ -204,10 +204,19 @@ _UPSTREAM_RESPONSE_ID_LIMIT = 128
 def _apply_token_usage(sink: dict[str, Any], usage: Any) -> None:
     if not isinstance(usage, dict):
         return
-    for field in TOKEN_USAGE_FIELDS:
-        value = usage.get(field)
-        if is_int(value) and value >= 0:
-            sink[field] = value
+    # Access-log field names stay stable across the two OpenAI generation surfaces.
+    # Chat uses prompt/completion_tokens while Responses uses input/output_tokens.
+    aliases = {
+        "prompt_tokens": ("prompt_tokens", "input_tokens"),
+        "completion_tokens": ("completion_tokens", "output_tokens"),
+        "total_tokens": ("total_tokens",),
+    }
+    for field, sources in aliases.items():
+        for source in sources:
+            value = usage.get(source)
+            if is_int(value) and value >= 0:
+                sink[field] = value
+                break
 
 
 def _apply_upstream_identity(sink: dict[str, Any], *, usage: Any, response_id: Any) -> None:

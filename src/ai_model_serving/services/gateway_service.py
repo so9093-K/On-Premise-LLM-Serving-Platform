@@ -273,7 +273,7 @@ class GatewayService:
             runtime_configuration=self.runtime_configuration,
         )
 
-    def _main_llm_endpoint(
+    def main_llm_endpoint(
         self,
         gateway_policy: dict[str, Any] | None,
         active_modalities: tuple[str, ...] | None,
@@ -319,7 +319,7 @@ class GatewayService:
         active_modalities: tuple[str, ...] | None = None,
         gateway_policy: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        endpoint = self._main_llm_endpoint(gateway_policy, active_modalities)
+        endpoint = self.main_llm_endpoint(gateway_policy, active_modalities)
         return validate_chat_request(
             payload,
             expected_model=endpoint.model,
@@ -348,7 +348,7 @@ class GatewayService:
         payload: dict[str, Any],
         gateway_policy: dict[str, Any] | None,
     ) -> tuple[dict[str, Any], ChatResponseExpectations]:
-        endpoint = self._main_llm_endpoint(gateway_policy, None)
+        endpoint = self.main_llm_endpoint(gateway_policy, None)
         return normalize_chat_request_for_runtime(
             payload,
             endpoint.request_parameter_policy,

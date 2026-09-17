@@ -15,6 +15,7 @@ from ...logging_policy import record_request_response_preview, record_upstream_r
 from ...services.runtime_state import RuntimeState, RuntimeStateStore
 from ...services.sidecar_client import SidecarClient, SidecarRequestError, SidecarUnavailableError
 from ...services.main_model_inflight import MainModelInFlight
+from ...services.responses_service import ResponsesService
 
 _GW = {(s.method, s.path): s for s in GATEWAY_ENDPOINTS}
 
@@ -55,6 +56,50 @@ def _chat_response_preview(response: dict[str, Any]) -> str:
             parts.append(content)
     return "\n".join(parts)
 
+
+
+def _responses_request_preview(payload: dict[str, Any]) -> str:
+    lines: list[str] = []
+    instructions = payload.get("instructions")
+    if isinstance(instructions, str):
+        lines.append(f"instructions: {instructions}")
+    raw_input = payload.get("input")
+    if isinstance(raw_input, str):
+        lines.append(f"user: {raw_input}")
+    elif isinstance(raw_input, list):
+        for item in raw_input:
+            if not isinstance(item, dict):
+                continue
+            if item.get("type", "message") == "message":
+                role = str(item.get("role", ""))
+                content = item.get("content")
+                if isinstance(content, str):
+                    lines.append(f"{role}: {content}")
+                elif isinstance(content, list):
+                    text = " ".join(
+                        str(part.get("text") or part.get("refusal") or "")
+                        for part in content
+                        if isinstance(part, dict) and part.get("type") in {"input_text", "output_text", "refusal"}
+                    )
+                    if text:
+                        lines.append(f"{role}: {text}")
+            elif item.get("type") == "function_call_output" and isinstance(item.get("output"), str):
+                lines.append(f"tool: {item['output']}")
+    return "\n".join(lines)
+
+
+def _responses_response_preview(response: dict[str, Any]) -> str:
+    texts: list[str] = []
+    for item in response.get("output", []):
+        if not isinstance(item, dict) or item.get("type") != "message":
+            continue
+        for part in item.get("content", []):
+            if not isinstance(part, dict):
+                continue
+            value = part.get("text") if part.get("type") == "output_text" else part.get("refusal")
+            if isinstance(value, str):
+                texts.append(value)
+    return "\n".join(texts)
 
 def _embedding_input_preview(payload: dict[str, Any]) -> str:
     """embeddings 요청의 input을 사람이 읽을 프리뷰로 합친다(문자열 또는 문자열 리스트)."""
@@ -137,6 +182,36 @@ def build_router(
     include_embeddings: bool = True,
 ) -> APIRouter:
     router = APIRouter()
+    responses_service = ResponsesService(service)
+
+
+    async def _main_model_request_context() -> tuple[
+        tuple[str, ...] | None, dict[str, Any] | None, JSONResponse | None
+    ]:
+        if sidecar is None:
+            return None, None, None
+        try:
+            main_model = await sidecar.main_model(observed=False)
+        except SidecarRequestError as exc:
+            return None, None, sidecar_request_error_response(exc)
+        except SidecarUnavailableError as exc:
+            return None, None, sidecar_unavailable_response(exc)
+        if main_model.get("gate") != "open":
+            operation = main_model.get("last_operation") or {}
+            body = error_payload(
+                "MAIN_MODEL_SWITCH_IN_PROGRESS",
+                "Main model requests are temporarily unavailable.",
+            )
+            body["error"]["operation_id"] = operation.get("id")
+            body["error"]["operation_status"] = operation.get("status")
+            return None, None, JSONResponse(
+                body,
+                status_code=503,
+                headers=error_response_headers(
+                    "MAIN_MODEL_SWITCH_IN_PROGRESS", body, retry_after_seconds=5
+                ),
+            )
+        return _active_input_modalities(main_model), _active_gateway_policy(main_model), None
 
     _s = _GW[("GET", "/v1/models")]
 
@@ -226,35 +301,9 @@ def build_router(
         async with AsyncExitStack() as stack:
             if main_model_inflight is not None:
                 await stack.enter_async_context(main_model_inflight.track())
-            active_modalities: tuple[str, ...] | None = None
-            gateway_policy: dict[str, Any] | None = None
-            if sidecar is not None:
-                try:
-                    # 요청 경로에서는 gate와 active profile만 필요하다.
-                    main_model = await sidecar.main_model(observed=False)
-                except SidecarRequestError as exc:
-                    # 4xx는 요청이 잘못된 것이다. control plane 장애(503, retryable)로
-                    # 보고하면 성공할 수 없는 요청을 계속 재시도하게 된다.
-                    return sidecar_request_error_response(exc)
-                except SidecarUnavailableError as exc:
-                    return sidecar_unavailable_response(exc)
-                if main_model.get("gate") != "open":
-                    operation = main_model.get("last_operation") or {}
-                    body = error_payload(
-                        "MAIN_MODEL_SWITCH_IN_PROGRESS",
-                        "Main model requests are temporarily unavailable.",
-                    )
-                    body["error"]["operation_id"] = operation.get("id")
-                    body["error"]["operation_status"] = operation.get("status")
-                    return JSONResponse(
-                        body,
-                        status_code=503,
-                        headers=error_response_headers(
-                            "MAIN_MODEL_SWITCH_IN_PROGRESS", body, retry_after_seconds=5
-                        ),
-                    )
-                active_modalities = _active_input_modalities(main_model)
-                gateway_policy = _active_gateway_policy(main_model)
+            active_modalities, gateway_policy, admission_error = await _main_model_request_context()
+            if admission_error is not None:
+                return admission_error
 
             if payload.get("stream") is True:
                 # admission(circuit breaker/동시성 slot)은 여기서 끝난다. 거부되면
@@ -291,6 +340,73 @@ def build_router(
                     request,
                     request_text=_chat_text_preview(payload),
                     response_text=_chat_response_preview(result),
+                )
+            return result
+
+
+    _s = _GW[("POST", "/v1/responses")]
+
+    @router.post(
+        "/v1/responses",
+        dependencies=api_dependencies,
+        tags=[_s.tag],
+        summary=_s.summary,
+        operation_id=_s.operation_id,
+        description=_s.description,
+        responses={
+            401: {"description": "API Bearer token 필요"},
+            503: {
+                "description": "메인 모델 전환 중, control plane 불가, 또는 upstream admission 거부",
+                "headers": {
+                    "Retry-After": {
+                        "description": "재시도 전 대기 시간(초)",
+                        "schema": {"type": "integer", "example": 5},
+                    }
+                },
+            },
+        },
+    )
+    async def responses(
+        request: Request,
+        payload: dict[str, Any] = Body(...),
+    ) -> Any:
+        async with AsyncExitStack() as stack:
+            if main_model_inflight is not None:
+                await stack.enter_async_context(main_model_inflight.track())
+            active_modalities, gateway_policy, admission_error = await _main_model_request_context()
+            if admission_error is not None:
+                return admission_error
+
+            if payload.get("stream") is True:
+                upstream_stream = await responses_service.stream_response(
+                    payload,
+                    active_modalities=active_modalities,
+                    gateway_policy=gateway_policy,
+                )
+                stream_scope = stack.pop_all()
+
+                async def tracked_response_stream() -> AsyncIterator[bytes]:
+                    async with stream_scope, aclosing(upstream_stream) as chunks:
+                        async for chunk in chunks:
+                            yield chunk
+
+                return StreamingResponse(
+                    tracked_response_stream(),
+                    media_type="text/event-stream",
+                    headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+                )
+
+            result = await responses_service.create_response(
+                payload,
+                active_modalities=active_modalities,
+                gateway_policy=gateway_policy,
+            )
+            record_upstream_response(request, result)
+            if settings.log_request_response_body:
+                record_request_response_preview(
+                    request,
+                    request_text=_responses_request_preview(payload),
+                    response_text=_responses_response_preview(result),
                 )
             return result
 
