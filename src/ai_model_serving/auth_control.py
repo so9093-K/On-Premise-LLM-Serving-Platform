@@ -8,6 +8,7 @@ import yaml
 
 from .configuration import load_yaml_mapping
 from .deployment_target import effective_published_compose_services
+from .project_paths import resolve_project_root
 from .settings import AppSettings
 from .settings_parts.env import LOCAL_ENVIRONMENTS, default_env_path, env as _env
 
@@ -18,7 +19,10 @@ from .settings_parts.env import LOCAL_ENVIRONMENTS, default_env_path, env as _en
 # 관리하는 dict가 아니다. auth 의미론 변경은 반드시 YAML을 먼저 수정한다.
 # ---------------------------------------------------------------------------
 
-_PROJECT_ROOT = Path(__file__).resolve().parents[2]
+# Image builds install the package in /app/.venv while configs live at /app/configs
+# (and may be replaced by the read-only Compose mount).  Do not derive the
+# config root from the installed module path; APP_CONFIG_ROOT owns that boundary.
+_PROJECT_ROOT = resolve_project_root(required_paths=("configs/auth_profiles.yaml",))
 _AUTH_PROFILES_YAML = _PROJECT_ROOT / "configs" / "auth_profiles.yaml"
 
 _BOOL_FIELDS = (

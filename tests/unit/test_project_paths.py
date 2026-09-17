@@ -19,6 +19,19 @@ def test_resolve_project_root_uses_caller_required_markers(tmp_path: Path) -> No
     ) == root.resolve()
 
 
+def test_resolve_project_root_uses_app_config_root_for_installed_package_layout(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = tmp_path / "image-app"
+    (root / "configs").mkdir(parents=True)
+    (root / "configs" / "auth_profiles.yaml").write_text("profiles: {}\n", encoding="utf-8")
+    monkeypatch.setenv("APP_CONFIG_ROOT", str(root))
+
+    assert resolve_project_root(
+        required_paths=("configs/auth_profiles.yaml",), strict=True
+    ) == root.resolve()
+
+
 def test_resolve_project_root_strict_mode_rejects_missing_markers(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
