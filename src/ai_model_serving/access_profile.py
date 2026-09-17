@@ -7,9 +7,15 @@ from typing import Mapping
 
 from .configuration import load_yaml_mapping
 from .auth_control import auth_profile_env_values
+from .project_paths import resolve_project_root
 
 
-_PROJECT_ROOT = Path(__file__).resolve().parents[2]
+# Keep the configuration root independent of whether this is a source-tree
+# invocation or an installed package in the Platform image.  The latter keeps
+# configs at /app/configs and declares it through APP_CONFIG_ROOT.
+_PROJECT_ROOT = resolve_project_root(
+    required_paths=("configs/access_profiles.yaml", "configs/services.yaml"),
+)
 
 
 @dataclass(frozen=True)
