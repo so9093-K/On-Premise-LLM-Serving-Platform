@@ -1,5 +1,5 @@
 import { useState, type FormEvent, type ReactNode } from 'react';
-import { Alert, Button, Card, CardBody, CardTitle, Label, Spinner } from '@patternfly/react-core';
+import { Alert, Button, Card, CardBody, CardTitle, Spinner } from '@patternfly/react-core';
 import { useQuery } from '@tanstack/react-query';
 import { Navigate, NavLink, Route, Routes } from 'react-router-dom';
 
@@ -8,6 +8,7 @@ import { useAdminSession } from './auth/AdminSessionContext';
 import { ConfigurationPage } from './ConfigurationPage';
 import { MainModelPage } from './MainModelPage';
 import { OperationsPage } from './OperationsPage';
+import { OverviewPage } from './OverviewPage';
 import { RuntimePage } from './RuntimePage';
 
 const SUPPORTED_BOOTSTRAP_VERSION = 1;
@@ -112,43 +113,6 @@ function AuthGate() {
   );
 }
 
-function Overview({ bootstrap }: { bootstrap: BootstrapResponse }) {
-  const release = bootstrap.platform.release_id ?? 'development';
-  return (
-    <section className="page-grid">
-      <Card>
-        <CardTitle>Platform</CardTitle>
-        <CardBody>
-          <dl className="facts">
-            <dt>Version</dt><dd>{bootstrap.platform.version}</dd>
-            <dt>Release</dt><dd>{release}</dd>
-            <dt>Deployment</dt><dd>{bootstrap.deployment.display_name}</dd>
-            <dt>Target</dt><dd>{bootstrap.deployment.target}</dd>
-          </dl>
-        </CardBody>
-      </Card>
-      <Card>
-        <CardTitle>Access posture</CardTitle>
-        <CardBody>
-          <dl className="facts">
-            <dt>Profile</dt><dd>{bootstrap.access.profile}</dd>
-            <dt>Admin auth</dt><dd>{bootstrap.access.admin_auth_required ? 'Required' : 'Not required'}</dd>
-            <dt>Configuration revision</dt><dd>{bootstrap.configuration.revision}</dd>
-            <dt>Configuration write</dt>
-            <dd>{bootstrap.configuration.write_available ? 'Available' : 'Unavailable'}</dd>
-          </dl>
-        </CardBody>
-      </Card>
-      <Card>
-        <CardTitle>Capabilities</CardTitle>
-        <CardBody className="capability-list">
-          {bootstrap.deployment.features.map((feature) => <Label key={feature}>{feature}</Label>)}
-        </CardBody>
-      </Card>
-    </section>
-  );
-}
-
 function Shell({ bootstrap }: { bootstrap: BootstrapResponse }) {
   const { token, clearToken } = useAdminSession();
   const sections = SECTIONS.filter((section) => section.enabled(bootstrap));
@@ -185,7 +149,7 @@ function Shell({ bootstrap }: { bootstrap: BootstrapResponse }) {
         </aside>
         <main className="content">
           <Routes>
-            <Route path="/" element={<Overview bootstrap={bootstrap} />} />
+            <Route path="/" element={<OverviewPage bootstrap={bootstrap} token={token} onUnauthorized={clearToken} />} />
             <Route path="/runtimes" element={<RuntimePage token={token} onUnauthorized={clearToken} />} />
             <Route path="/main-model" element={<MainModelPage token={token} onUnauthorized={clearToken} />} />
             <Route path="/configuration" element={<ConfigurationPage token={token} onUnauthorized={clearToken} deploymentFeatures={bootstrap.deployment.features} />} />
