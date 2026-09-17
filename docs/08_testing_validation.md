@@ -2,7 +2,12 @@
 
 코드와 설정 변경에 적용되는 검증 단계와 각 단계의 확인 대상, 실패 시 확인 항목을 설명한다.
 
-프로젝트의 기본 검증 흐름은 다음과 같다.
+Contributor가 저장소 전체 변경을 검증하는 canonical entrypoint는 `make check`다. 이 명령은
+`make app-check`(=`make validate` + `make test`)와 `make console-check`를 실행한다. Python
+application만 변경할 때는 `make app-check`를 사용할 수 있고, CI는 같은 두 하위 target을
+OS matrix와 frontend job으로 나눠 병렬 실행한다.
+
+프로젝트의 application 검증 흐름은 다음과 같다.
 
 ```text
 코드 / 설정 변경
@@ -25,6 +30,8 @@ make perf-*
 
 | 단계 | 확인 질문 | 주요 대상 |
 |---|---|---|
+| `make check` | 저장소 전체 source와 generated artifact가 검증되는가? | Application + Control Plane |
+| `make app-check` | application 정적 계약과 결정론적 테스트가 모두 통과하는가? | Python application, Config, Contract |
 | `make validate` | 설정·계약·생성물이 서로 일치하는가? | Config, Schema, OpenAPI, Compose |
 | `make test` | application logic이 예상한 동작을 수행하는가? | Gateway, Risk, Auth, Runtime Control |
 | `ready-local` / `ready-full` | 현재 실행된 서비스가 요청을 받을 준비가 되었는가? | Process, Dependency, Inference Path |
@@ -51,7 +58,7 @@ baseline만 `benchmarks/baselines/`에 들어가고 그 변경이 리뷰 대상�
 
 ## 8.1 검증 구조
 
-`make validate`와 `make test`는 Python 정책을 먼저 검사한다. 개발 환경 준비는 `make setup-dev`를 사용한다. `make doctor-dev`는 Compose·배포 shell helper까지 실행할 환경의 Bash 4 이상 여부를 별도로 확인한다. GitHub Actions는 공통 Platform lock을 Ubuntu/Python 3.12와 macOS/Python 3.13에서 확인한다. Runner patch는 제공 범위에 따르며 native runtime exact patch와 GPU 통합 검증은 별도 실행 환경이 소유한다.
+`make app-check`는 `make validate`와 `make test`를 묶는 application gate다. 개발 환경 준비는 `make setup-dev`를 사용한다. `make doctor-dev`는 Compose·배포 shell helper까지 실행할 환경의 Bash 4 이상 여부를 별도로 확인한다. GitHub Actions는 공통 Platform lock을 Ubuntu/Python 3.12와 macOS/Python 3.13에서 확인한다. Runner patch는 제공 범위에 따르며 native runtime exact patch와 GPU 통합 검증은 별도 실행 환경이 소유한다.
 
 검증은 변경으로 발생할 수 있는 문제를 가장 가까운 계층에서 확인하도록 구성한다.
 

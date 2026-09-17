@@ -46,6 +46,7 @@ Runtime 구조와 실행 모드는 [4. 실행 환경과 모드](./04_runtime_mod
 | 작업 | 주요 요구사항 |
 |---|---|
 | Application 개발·검증·테스트 | Python `>=3.12,<3.14`, `pyproject.toml`에 고정된 uv |
+| Control Plane 검증 | `ui/control-plane/package.json`에 고정된 Node.js / npm |
 | Platform Image Build | Docker CLI / Docker daemon. 로컬 기본 target은 daemon architecture |
 | Full-stack 실행 | Bash 4 이상, native Linux amd64 Docker daemon, NVIDIA GPU/driver/Container Toolkit |
 | Unified vLLM Image Build | `vllm_unified_build.yaml` target과 같은 native Docker daemon. CUDA/NVIDIA image 전용 |
@@ -72,8 +73,13 @@ uv가 없다면 [공식 설치 안내](https://docs.astral.sh/uv/getting-started
 
 ```bash
 make setup-dev
-make check
+make app-check
 ```
+
+`make app-check`는 Python application/config/contracts만 검증한다. Control Plane까지 포함한 저장소 전체
+변경은 `make check`를 사용하며, 이 경우 `ui/control-plane/package.json`의 `engines`와
+`packageManager`에 고정된 Node.js/npm toolchain이 추가로 필요하다. `make check`는 내부적으로
+`make app-check`와 `make console-check`를 순서대로 호출한다.
 
 로컬 개발은 Python 3.13을 권장한다. 별도로 설치한 Python을 쓰려면
 `make setup-dev PYTHON_BIN=/path/to/python3.13`으로 지정한다. uv는 기존 `.venv`가 없으면
@@ -130,11 +136,11 @@ Full-stack 환경에서는 NVIDIA GPU와 NVIDIA Container Toolkit을 통해 vLLM
 일반적인 source 변경은 다음 순서로 확인한다.
 
 ```bash
-make validate
-make test
+make app-check
 ```
 
-검증이 완료되면 변경 범위에 맞는 실행 환경을 선택한다.
+`app-check`의 내부 단계는 `make validate`와 `make test`이며, 세부 실패를 분리해 확인할 때 두 명령을
+직접 실행할 수 있다. 검증이 완료되면 변경 범위에 맞는 실행 환경을 선택한다.
 
 | 변경 범위 | 권장 확인 환경 |
 |---|---|
