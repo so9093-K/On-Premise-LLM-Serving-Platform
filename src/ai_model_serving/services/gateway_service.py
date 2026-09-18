@@ -569,7 +569,7 @@ class GatewayService:
             return validate_risk_response(response)
         except TimeoutError as exc:
             self.metrics.record_upstream_error("risk-adapter", "GATEWAY_TIMEOUT")
-            raise ServiceError("UPSTREAM_TIMEOUT", "Gateway request timed out before the risk adapter completed.", diagnostic_code="GATEWAY_TIMEOUT") from exc
+            raise ServiceError("UPSTREAM_TIMEOUT", "Gateway request timed out before the Risk Signal Service completed.", diagnostic_code="GATEWAY_TIMEOUT") from exc
         except ServiceError as exc:
             self.metrics.record_upstream_error("risk-adapter", exc.operational_code)
             raise
