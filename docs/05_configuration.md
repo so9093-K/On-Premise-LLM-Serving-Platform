@@ -152,9 +152,9 @@ repository `.env` 자동 로딩은 local / test / development 환경에 적용�
 
 | 파일 | 질문 | 주요 역할 |
 |---|---|---|
-| `model_catalog.yaml` | **어떤 논리 모델인가?** | public identity, upstream model ID, capability, modality, public listing |
-| `model_serving.yaml` | **플랫폼이 이 runtime에 어떻게 연결·운영할 것인가?** | endpoint, timeout, admission, routing |
-| `main_model_profiles.yaml` | **Main Model을 어떤 계약으로 서빙할 것인가?** | model/revision/image, vLLM command, capability, request limits, request parameter policy, runtime features |
+| `model_catalog.yaml` | **어떤 논리 모델인가?** | public identity, capability, modality, public listing; 고정 non-main model의 upstream identity |
+| `model_serving.yaml` | **플랫폼이 이 runtime에 어떻게 연결·운영할 것인가?** | endpoint, timeout, admission, routing; 고정 non-main runtime의 revision/options |
+| `main_model_profiles.yaml` | **Main Model을 어떤 계약으로 서빙할 것인가?** | Main Model checkpoint model/revision/image, vLLM command, capability, request limits, request parameter policy, runtime features |
 
 ### `configs/model_catalog.yaml`
 
@@ -163,13 +163,15 @@ repository `.env` 자동 로딩은 local / test / development 환경에 적용�
 대표적으로 다음 정보를 갖는다.
 
 - `local-main`, `local-embed`, `local-embed-ko` 같은 logical model ID
-- upstream model ID
+- 고정 non-main model의 upstream model ID
 - model role과 capability
 - 지원 input / output modality
 - public model listing 정보
 - model-specific API metadata와 lifecycle metadata
 
 Gateway의 model registry와 `/v1/models` projection은 이 catalog와 `model_serving.yaml`을 함께 사용한다.
+Main Model(`local-main`)의 실제 checkpoint ID/revision은 이 파일에 복제하지 않으며,
+선택된 target의 Main Model Profile catalog가 유일하게 소유한다.
 
 upstream 모델의 사양과 알려진 제약은 [모델 참고 자료](./reference/models/README.md)에 별도로 정리한다. 이 참고 자료는 실행 설정의 기준이 아니다.
 
@@ -195,6 +197,7 @@ model_serving.yaml
 
 - Main / Embedding / Prompt Injection Detector Runtime endpoint
 - Embedding / Prompt Injection의 고정 model revision과 실행 인자
+- Main Model의 공통 connectivity, timeout, admission
 - model별 timeout과 concurrency
 - queue와 circuit breaker 관련 제한
 - embedding model routing
@@ -209,7 +212,7 @@ model_serving.yaml
 
 `local-main` alias 뒤에서 선택할 수 있는 Main Model runtime profile을 정의한다.
 
-현재 구조에서는 public model ID는 `local-main`으로 유지하면서 실제 model/revision과 vLLM command를 profile 단위로 전환할 수 있다.
+현재 구조에서는 public model ID는 `local-main`으로 유지하면서 실제 model/revision과 vLLM command를 profile 단위로 전환할 수 있다. Main Model checkpoint identity는 이 profile catalog 밖의 `model_catalog.yaml`이나 `model_serving.yaml`에 중복 선언하지 않는다.
 
 profile에는 주로 다음 정보가 들어간다.
 
