@@ -117,7 +117,6 @@ class MainModelProfile:
     command: tuple[str, ...]
     compatibility: dict[str, Any]
     qualification: dict[str, Any]
-    legacy_compatibility_status: str
     capabilities: dict[str, Any]
     # Gateway가 이 프로필을 실제로 서빙할 때 적용할 입력 한도·요청 파라미터·
     # vLLM 기능 계약이다. active_profile snapshot에 함께 실어 Gateway가 전환된
@@ -140,14 +139,7 @@ class MainModelProfile:
             "served_model_name": self.served_model_name,
             "upstream_model_id": self.model_id,
             "revision": self.revision,
-            # 기존 Admin API consumer는 compatibility.status의 legacy vocabulary를
-            # 계속 읽을 수 있다. 새 consumer는 technical_status + qualification.status를
-            # 사용하고, compatibility 기간 뒤 status 자체를 canonical vocabulary로 옮긴다.
-            "compatibility": {
-                **self.compatibility,
-                "status": self.legacy_compatibility_status,
-                "technical_status": self.compatibility["status"],
-            },
+            "compatibility": self.compatibility,
             "qualification": self.qualification,
             "capabilities": self.capabilities,
             "gateway_policy": self.gateway_policy,
@@ -416,7 +408,6 @@ def load_main_model_catalog(
             command=tuple(command),
             compatibility=dict(profile_state.compatibility),
             qualification=dict(profile_state.qualification),
-            legacy_compatibility_status=profile_state.legacy_status,
             capabilities=dict(capabilities),
             gateway_policy=dict(gateway_policy),
             image=resolved_image,
