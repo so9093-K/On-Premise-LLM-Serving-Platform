@@ -13,7 +13,7 @@ from .settings_parts.env import env as _env
 from .settings_parts.types import AppSettings
 
 
-BOOTSTRAP_VERSION = 1
+BOOTSTRAP_VERSION = 2
 _LEGACY_PROFILE = "legacy/custom"
 _LEGACY_PROFILE_DESCRIPTION = (
     "Access Profile이 선택되지 않은 advanced/custom 구성입니다. 저수준 인증·노출 설정을 진단용으로 사용합니다."
