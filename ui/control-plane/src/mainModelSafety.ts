@@ -5,12 +5,11 @@ import type {
 } from './api';
 
 export function mainModelProfileRequiresConfirmation(profile: MainModelProfile): boolean {
-  const status = profile.compatibility.status;
-  return status !== 'verified' && status !== 'incompatible';
+  return profile.qualification.status !== 'verified';
 }
 
 export function mainModelProfileSwitchable(profile: MainModelProfile): boolean {
-  return profile.active !== true && profile.compatibility.status !== 'incompatible';
+  return profile.active !== true && profile.compatibility.technical_status !== 'incompatible';
 }
 
 export function mainModelSwitchRequest(

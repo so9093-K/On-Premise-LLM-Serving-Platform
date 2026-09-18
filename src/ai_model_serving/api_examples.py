@@ -5,6 +5,7 @@ from typing import Any
 
 from .configuration import load_yaml_mapping
 from .media_samples import TINY_MP4_VIDEO_B64
+from .main_model.profile_state import normalize_profile_state, public_compatibility_projection
 from .project_paths import resolve_project_root
 from .services.readiness import dependency_endpoint
 
@@ -788,13 +789,19 @@ def main_model_profile_example(profile_id: str, *, active: bool | None = None) -
     """
     document = _main_model_profiles()
     profile = document["profiles"][profile_id]
+    profile_state = normalize_profile_state(
+        profile_id,
+        profile.get("compatibility", {}),
+        profile.get("qualification"),
+    )
     example: dict[str, Any] = {
         "id": profile_id,
         "display_name": str(profile["display_name"]),
         "served_model_name": str(document["public_model"]),
         "upstream_model_id": str(profile["model_id"]),
         "revision": str(profile["revision"]),
-        "compatibility": dict(profile.get("compatibility", {})),
+        "compatibility": public_compatibility_projection(profile_state),
+        "qualification": dict(profile_state.qualification),
         "capabilities": dict(profile.get("capabilities", {})),
         "runtime_image": PLACEHOLDER_RUNTIME_IMAGE,
         "vram_fraction": _profile_vram_fraction(profile),

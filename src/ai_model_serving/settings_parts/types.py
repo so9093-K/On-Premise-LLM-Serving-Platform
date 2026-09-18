@@ -116,7 +116,7 @@ class AppSettings:
     # 실제 full-stack 요청은 active_profile snapshot의 정책으로 항상 덮어쓴다.
     default_main_model_gateway_policy: dict[str, Any] = field(default_factory=dict)
     # profile 전환 API의 OpenAPI 예시를 catalog에서 그대로 만들기 위한 목록이다.
-    # (profile_id, display_name, compatibility status) 순. 예시를 손으로 적으면
+    # (profile_id, display_name, qualification status) 순. 예시를 손으로 적으면
     # catalog에 profile을 추가할 때 조용히 빠진다.
     main_model_profile_summaries: tuple[tuple[str, str, str], ...] = ()
     # 모든 프로필의 gateway_policy. 공개 OpenAPI에 실을 "상한"을 계산하는 데 쓴다.

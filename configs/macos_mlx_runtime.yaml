@@ -47,10 +47,11 @@ profiles:
     compatibility:
       # M5 32GB에서 text/image/reasoning, 24K input, 최대 8 images와 8K generation
       # 경계를 target/assistant revision 및 MLX-VLM/MTP 고정 조합으로 확인했다.
-      status: verified
+      status: compatible
     capabilities:
       deployed_input: [text, image]
     qualification:
+      status: verified
       normal:
         input_tokens: 24576
         generation_tokens: *metal_generation_limit

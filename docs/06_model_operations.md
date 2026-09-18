@@ -111,6 +111,7 @@ Main Model Profile
    ├─ context / concurrency
    ├─ GPU utilization
    ├─ modality capability
+   ├─ compatibility status
    └─ qualification status
 ```
 
@@ -129,22 +130,33 @@ Profile을 선택할 때는 다음 항목을 확인한다.
 - upstream model과 pinned revision
 - runtime image
 - GPU VRAM fraction
+- technical compatibility status
 - qualification status
 - input / output capability
 - 현재 active 여부
 
-### Qualification Status
+### Compatibility와 Qualification
 
-| 상태 | 운영 의미 |
-|---|---|
-| `verified` | 현재 배포에서 정의된 검증 근거를 충족한 profile |
-| `likely` | **legacy provisional 상태**. 신규 profile에는 사용하지 않으며 추가 검증이 필요하다 |
-| `unverified` | 현재 배포에서 qualification이 완료되지 않은 profile |
-| `unknown` | 검증 근거를 판단할 정보가 충분하지 않은 profile |
-| `incompatible` | 현재 deployment와 기술적으로 호환되지 않는 profile |
+Main Model Profile은 기술 호환성과 실제 검증 수준을 별도 축으로 관리한다.
 
-API field 이름은 호환성을 위해 `compatibility.status`를 유지하지만, 운영자에게 보여주는 의미는 **Qualification**이다.
-`verified`가 아닌 전환 가능 profile은 switch 요청에 `confirm_unverified=true`가 필요하고, `incompatible`은 전환할 수 없다.
+| 축 | 상태 | 운영 의미 |
+|---|---|---|
+| Compatibility | `compatible` | 현재 deployment/runtime 조합에서 기술적으로 전환 가능한 profile |
+| Compatibility | `incompatible` | 현재 deployment/runtime 조합과 기술적으로 호환되지 않아 전환 불가 |
+| Compatibility | `unknown` | 기술 호환성을 아직 확정할 정보가 부족함 |
+| Qualification | `verified` | 현재 배포에서 정의된 검증 근거를 충족함 |
+| Qualification | `unverified` | qualification이 완료되지 않았거나 추가 검증이 필요함 |
+
+canonical config는 `compatibility.status`와 `qualification.status`를 각각 사용한다.
+기존 Admin API consumer 호환을 위해 응답의 `compatibility.status`는 migration 기간 동안
+legacy vocabulary를 유지하며, 같은 객체의 `technical_status`가 canonical Compatibility를,
+`qualification.status`가 canonical Qualification을 제공한다.
+
+legacy catalog의 `verified / likely / unverified / incompatible / unknown` 값도 migration 기간에는
+읽을 수 있다. `likely`는 canonical 상태가 아니며 `unknown + unverified`로 정규화된다.
+
+전환 가능 여부는 Compatibility가 결정한다. `incompatible`은 전환할 수 없고, 그 외 전환 가능한
+profile에서 Qualification이 `verified`가 아니면 switch 요청에 `confirm_unverified=true`가 필요하다.
 
 ### Profile Lock
 
