@@ -138,7 +138,7 @@ def test_runtime_transition_history_local_fallback_is_explicitly_non_durable() -
         status="noop",
         phase="completed",
         apply_result={"changed": False},
-        verification={"converged": None, "reason": "sidecar_unconfigured"},
+        verification={"converged": None, "reason": "runtime_controller_unconfigured"},
     )
 
     assert record["durable"] is False
