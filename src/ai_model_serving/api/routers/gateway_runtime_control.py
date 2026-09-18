@@ -13,8 +13,8 @@ from ..error_responses import runtime_controller_request_error_response, runtime
 from ...api_examples import (
     RUNTIME_BUDGET_EXCEEDED_EXAMPLE,
     RUNTIME_ERROR_404_EXAMPLE,
-    RUNTIME_ERROR_503_NO_SIDECAR_EXAMPLE,
-    RUNTIME_ERROR_503_SIDECAR_UNAVAILABLE_EXAMPLE,
+    RUNTIME_ERROR_503_NO_RUNTIME_CONTROLLER_EXAMPLE,
+    RUNTIME_ERROR_503_RUNTIME_CONTROLLER_UNAVAILABLE_EXAMPLE,
     RUNTIME_ERROR_503_TRANSITIONING_EXAMPLE,
     RUNTIME_LIST_MIXED_STATE_EXAMPLE,
     MAIN_MODEL,
@@ -376,7 +376,7 @@ async def _verify_secondary_transition(
     )
     return {
         "converged": _secondary_converged(desired_state, observed_state) and effects_converged,
-        "source": "sidecar_container_status",
+        "source": "runtime_controller_container_status",
         "desired_state": desired_state,
         "observed_state": observed_state,
         "effects": effects,
@@ -713,8 +713,8 @@ def build_router(
                 }}},
             },
             503: {"content": {"application/json": {"examples": {
-                "no_sidecar": {"summary": "Runtime Controller 미설정", "value": RUNTIME_ERROR_503_NO_SIDECAR_EXAMPLE},
-                "sidecar_unavailable": {"summary": "Runtime Controller 연결 실패", "value": RUNTIME_ERROR_503_SIDECAR_UNAVAILABLE_EXAMPLE},
+                "no_runtime_controller": {"summary": "Runtime Controller 미설정", "value": RUNTIME_ERROR_503_NO_RUNTIME_CONTROLLER_EXAMPLE},
+                "runtime_controller_unavailable": {"summary": "Runtime Controller 연결 실패", "value": RUNTIME_ERROR_503_RUNTIME_CONTROLLER_UNAVAILABLE_EXAMPLE},
                 "in_progress": {"summary": "전환 중 (재시도 가능)", "value": RUNTIME_ERROR_503_TRANSITIONING_EXAMPLE},
             }}}},
             **_ADMIN_401,
@@ -773,7 +773,7 @@ def build_router(
                     phase="apply",
                     apply_result=None,
                     verification=None,
-                    error={"code": "sidecar_request_rejected", "status_code": exc.status_code},
+                    error={"code": "runtime_controller_request_rejected", "status_code": exc.status_code},
                 )
                 return _with_operation_header(runtime_controller_request_error_response(exc), operation_id)
             except RuntimeControllerUnavailableError as exc:
@@ -785,7 +785,7 @@ def build_router(
                     phase="apply",
                     apply_result=None,
                     verification=None,
-                    error={"code": "sidecar_unavailable"},
+                    error={"code": "runtime_controller_unavailable"},
                 )
                 return _with_operation_header(runtime_controller_unavailable_response(exc), operation_id)
 
@@ -861,7 +861,7 @@ def build_router(
                     "source": "desired_state_only",
                     "desired_state": desired_state,
                     "observed_state": None,
-                    "reason": "sidecar_unconfigured",
+                    "reason": "runtime_controller_unconfigured",
                 }
                 _finish_runtime_operation(
                     history_store,
@@ -899,7 +899,7 @@ def build_router(
                     )
                     verification = {
                         "converged": True,
-                        "source": "sidecar_container_status",
+                        "source": "runtime_controller_container_status",
                         "desired_state": desired_state,
                         "observed_state": actual,
                         "effects": {},
@@ -968,14 +968,14 @@ def build_router(
                     phase="apply",
                     apply_result=None,
                     verification=None,
-                    error={"code": "sidecar_request_rejected", "status_code": exc.status_code},
+                    error={"code": "runtime_controller_request_rejected", "status_code": exc.status_code},
                 )
                 return _with_operation_header(runtime_controller_request_error_response(exc), operation_id)
             except RuntimeControllerUnavailableError as exc:
                 await state_store.set(
                     service_key,
                     RuntimeState.stopped,
-                    reason="start_sidecar_unavailable",
+                    reason="start_runtime_controller_unavailable",
                     source="runtime_control",
                 )
                 _finish_runtime_operation(
@@ -986,7 +986,7 @@ def build_router(
                     phase="apply",
                     apply_result=None,
                     verification=None,
-                    error={"code": "sidecar_unavailable"},
+                    error={"code": "runtime_controller_unavailable"},
                 )
                 return _with_operation_header(runtime_controller_unavailable_response(exc), operation_id)
             started_containers = list(result.get("started", []))
@@ -1031,7 +1031,7 @@ def build_router(
             except (RuntimeControllerRequestError, RuntimeControllerUnavailableError):
                 verification = {
                     "converged": False,
-                    "source": "sidecar_container_status",
+                    "source": "runtime_controller_container_status",
                     "desired_state": desired_state,
                     "observed_state": None,
                     "reason": "observation_unavailable",
@@ -1082,7 +1082,7 @@ def build_router(
                 "source": "desired_state_only",
                 "desired_state": desired_state,
                 "observed_state": None,
-                "reason": "sidecar_unconfigured",
+                "reason": "runtime_controller_unconfigured",
             }
             _finish_runtime_operation(
                 history_store,
@@ -1120,7 +1120,7 @@ def build_router(
                 )
                 verification = {
                     "converged": True,
-                    "source": "sidecar_container_status",
+                    "source": "runtime_controller_container_status",
                     "desired_state": desired_state,
                     "observed_state": actual,
                     "effects": {},
@@ -1180,14 +1180,14 @@ def build_router(
                 phase="apply",
                 apply_result=None,
                 verification=None,
-                error={"code": "sidecar_request_rejected", "status_code": exc.status_code},
+                error={"code": "runtime_controller_request_rejected", "status_code": exc.status_code},
             )
             return _with_operation_header(runtime_controller_request_error_response(exc), operation_id)
         except RuntimeControllerUnavailableError as exc:
             await state_store.set(
                 service_key,
                 RuntimeState.active,
-                reason="stop_sidecar_unavailable",
+                reason="stop_runtime_controller_unavailable",
                 source="runtime_control",
             )
             _finish_runtime_operation(
@@ -1198,7 +1198,7 @@ def build_router(
                 phase="apply",
                 apply_result=None,
                 verification=None,
-                error={"code": "sidecar_unavailable"},
+                error={"code": "runtime_controller_unavailable"},
             )
             return _with_operation_header(runtime_controller_unavailable_response(exc), operation_id)
         stopped = list(stopped_containers)
@@ -1215,7 +1215,7 @@ def build_router(
         except (RuntimeControllerRequestError, RuntimeControllerUnavailableError):
             verification = {
                 "converged": False,
-                "source": "sidecar_container_status",
+                "source": "runtime_controller_container_status",
                 "desired_state": desired_state,
                 "observed_state": None,
                 "reason": "observation_unavailable",
