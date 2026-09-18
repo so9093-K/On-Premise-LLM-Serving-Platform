@@ -247,6 +247,16 @@ def write_runtime_secrets(values: dict[str, str]) -> None:
         return
     secret_dir = ROOT / ".runtime" / "prometheus"
     secret_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        # Compose file-backed secret은 host file을 bind mount하므로 container의
+        # non-root Prometheus가 읽을 수 있게 파일은 0644여야 한다. 대신 host의
+        # 다른 사용자가 path를 traverse하지 못하도록 source directory를 0700으로
+        # 고정한다. 기존 directory가 더 넓은 mode여도 sync 시 수렴시킨다.
+        secret_dir.chmod(0o700)
+    except OSError as exc:
+        raise RuntimeError(
+            f"failed to secure runtime secret directory {secret_dir}: {exc}"
+        ) from exc
     secret_path = secret_dir / "admin_api_key"
     if secret_path.is_dir():
         try:
