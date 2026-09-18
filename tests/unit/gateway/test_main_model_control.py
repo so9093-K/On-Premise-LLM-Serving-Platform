@@ -8,7 +8,7 @@ from __future__ import annotations
 import pytest
 
 from .helpers import *  # noqa: F401,F403
-from ai_model_serving.services.sidecar_client import SidecarRequestError
+from ai_model_serving.services.runtime_controller_client import RuntimeControllerRequestError
 
 
 class FakeMainModelSidecar:
@@ -20,7 +20,7 @@ class FakeMainModelSidecar:
     async def main_model(self, *, observed: bool = True):
         self.observed_requested.append(observed)
         if self.gate == "rejected":
-            raise SidecarRequestError(409, {"code": "STATE_CONFLICT", "message": "Control state conflict"})
+            raise RuntimeControllerRequestError(409, {"code": "STATE_CONFLICT", "message": "Control state conflict"})
         return {
             "public_model": "local-main",
             "active_profile": {"id": "gemma4-26b-a4b-fp8"},
