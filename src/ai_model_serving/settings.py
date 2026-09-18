@@ -372,7 +372,7 @@ def load_settings(root: Path | None = None, env_file: Path | str | None = None) 
             selected_gateway_policy
         ),
         main_model_profile_summaries=tuple(
-            (profile.profile_id, profile.display_name, str(profile.compatibility.get("status", "")))
+            (profile.profile_id, profile.display_name, str(profile.qualification.get("status", "")))
             for profile in main_model_catalog.profiles.values()
         ) if deployment_target.supports("model_switching") else (),
         main_model_profile_policies=tuple(
