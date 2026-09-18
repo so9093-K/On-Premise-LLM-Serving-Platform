@@ -36,7 +36,7 @@ items:
     risk: high
     applicability:
       features: []
-    meaning: Runtime lifecycle 제어가 Sidecar인지 static 외부 소유인지 나타냅니다.
+    meaning: Runtime lifecycle 제어가 Runtime Controller 관리형인지 static 외부 소유인지 나타냅니다.
     help: Deployment Target에서 파생되는 값으로 Console에서 직접 수정하지 않습니다.
     related_adrs: [ADR-0020, ADR-0027]
 
