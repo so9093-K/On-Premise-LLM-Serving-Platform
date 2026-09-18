@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted
+Accepted; deployment state vocabulary updated by [ADR-0030](./0030-target-architecture-state-and-artifact-boundary.md).
 
 ## Context
 
@@ -23,8 +23,13 @@ macOS 지원을 운영체제 분기로 구현하면 serving 계약과 runtime li
 - `main_profile_catalog`: target이 사용하는 Main serving/runtime catalog
 - `control_mode`: `sidecar` 또는 `static`
 - `lifecycle_owner`: `platform` 또는 `external`
-- `validation_status`: `verified`, `implemented`, `planned`, `unvalidated`
+- `implementation_status`: `planned` 또는 `implemented`
+- `qualification_status`: `verified` 또는 `unverified`
 - `features`: API와 운영 기능의 활성 집합
+
+기존 `validation_status`는 migration 기간의 legacy projection이다. 새 canonical config에는
+사용하지 않으며, 실행 가능 여부는 `implementation_status`가 소유하고 실제 검증 근거는
+`qualification_status`가 소유한다.
 
 `static`은 macOS의 별칭이 아니다. static에서는 runtime lifecycle을 외부가 소유하고
 Gateway는 고정 endpoint만 사용한다. 모델 switching, GPU admission, Docker reconciliation은
@@ -62,7 +67,7 @@ boot에 필요한 추가 관계를 가질 수 있지만, controllable runtime �
 
 - `linux-nvidia-dynamic`: 기존 full-stack. Sidecar와 전체 기능을 유지한다.
 - `linux-nvidia-static`: 외부에서 기동한 CUDA Main runtime 하나를 Gateway가 사용한다.
-  Gateway static 경로는 `implemented`이고, 장시간·장문맥 qualification은 남아 있다.
+  implementation은 `implemented`, qualification은 `unverified`이며 장시간·장문맥 검증이 남아 있다.
 - `macos-metal-static`: native MLX-VLM runtime과 static Gateway 경로가 구현된 Main-only
   target이다. 모델·assistant revision과 실행 한도는 `configs/macos_mlx_runtime.yaml`,
   Python dependency와 lock은 `runtimes/mlx/`가 소유하며 M5 workload qualification은 별도 상태다.
