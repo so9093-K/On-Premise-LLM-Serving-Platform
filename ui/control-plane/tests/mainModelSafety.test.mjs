@@ -8,14 +8,27 @@ import {
   mainModelSwitchRequest,
 } from '../src/mainModelSafety.ts';
 
-function profile(status, overrides = {}) {
+function profile(
+  technicalStatus = 'compatible',
+  qualificationStatus = 'verified',
+  overrides = {},
+) {
+  const legacyStatus = technicalStatus === 'incompatible'
+    ? 'incompatible'
+    : technicalStatus === 'unknown'
+      ? 'unknown'
+      : qualificationStatus;
   return {
     id: 'candidate',
     display_name: 'Candidate',
     served_model_name: 'local-main',
     upstream_model_id: 'org/model',
     revision: 'a'.repeat(40),
-    compatibility: { status },
+    compatibility: {
+      status: legacyStatus,
+      technical_status: technicalStatus,
+    },
+    qualification: { status: qualificationStatus },
     capabilities: { deployed_input: ['text'] },
     gateway_policy: {},
     runtime_image: 'registry.example/model@sha256:' + 'b'.repeat(64),
@@ -25,28 +38,35 @@ function profile(status, overrides = {}) {
   };
 }
 
-test('every switchable non-verified profile requires explicit confirmation', () => {
-  assert.equal(mainModelProfileRequiresConfirmation(profile('verified')), false);
-  assert.equal(mainModelProfileRequiresConfirmation(profile('likely')), true);
-  assert.equal(mainModelProfileRequiresConfirmation(profile('unverified')), true);
-  assert.equal(mainModelProfileRequiresConfirmation(profile('unknown')), true);
+test('qualification alone controls explicit confirmation', () => {
+  assert.equal(mainModelProfileRequiresConfirmation(profile('compatible', 'verified')), false);
+  assert.equal(mainModelProfileRequiresConfirmation(profile('compatible', 'unverified')), true);
+  assert.equal(mainModelProfileRequiresConfirmation(profile('unknown', 'unverified')), true);
 });
 
-test('incompatible and already-active profiles cannot create a switch request', () => {
-  assert.equal(mainModelProfileSwitchable(profile('incompatible')), false);
-  assert.equal(mainModelProfileSwitchable(profile('verified', { active: true })), false);
-  assert.throws(() => mainModelSwitchRequest(profile('incompatible'), true));
+test('technical incompatibility and active state control switchability', () => {
+  assert.equal(mainModelProfileSwitchable(profile('incompatible', 'unverified')), false);
+  assert.equal(
+    mainModelProfileSwitchable(profile('compatible', 'verified', { active: true })),
+    false,
+  );
+  assert.equal(mainModelProfileSwitchable(profile('unknown', 'unverified')), true);
+  assert.throws(() => mainModelSwitchRequest(profile('incompatible', 'unverified'), true));
 });
 
-test('switch request preserves backend confirmation semantics and terminal states', () => {
-  assert.deepEqual(mainModelSwitchRequest(profile('likely'), true), {
+test('switch request preserves legacy confirmation request field and terminal states', () => {
+  assert.deepEqual(mainModelSwitchRequest(profile('compatible', 'unverified'), true), {
     profile: 'candidate',
     confirm_unverified: true,
   });
-  assert.throws(() => mainModelSwitchRequest(profile('unknown'), false));
-  assert.deepEqual(mainModelSwitchRequest(profile('unknown'), true), {
+  assert.throws(() => mainModelSwitchRequest(profile('unknown', 'unverified'), false));
+  assert.deepEqual(mainModelSwitchRequest(profile('unknown', 'unverified'), true), {
     profile: 'candidate',
     confirm_unverified: true,
+  });
+  assert.deepEqual(mainModelSwitchRequest(profile('compatible', 'verified'), false), {
+    profile: 'candidate',
+    confirm_unverified: false,
   });
   assert.equal(isMainModelOperationTerminal({ status: 'validating' }), false);
   assert.equal(isMainModelOperationTerminal({ status: 'completed' }), true);
