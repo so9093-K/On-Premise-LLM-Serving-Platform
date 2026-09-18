@@ -77,7 +77,7 @@ legacy removal 순서를 따른다.
 
 | Legacy namespace | Canonical target | 현재 정책 |
 |---|---|---|
-| `MAIN_LLM_*` | `MAIN_MODEL_*` | operator env는 canonical로 전환됨. legacy는 read/sync compatibility alias이며 `MAIN_LLM_MODEL`은 `MAIN_MODEL_ALIAS`로 이관 |
+| `MAIN_LLM_*` | `MAIN_MODEL_*` | runtime read alias는 제거됨. 기존 persistent `.env`의 legacy key는 `sync-env` migration 입력으로만 유지되며 `MAIN_LLM_MODEL`은 `MAIN_MODEL_ALIAS`로 이관 |
 | `risk_adapter` / `RISK_ADAPTER_*` | Risk Signal Service 계열 identifier | 공개 `/v1/risk/*` API는 그대로 유지 |
 | `risk_prompt` / `RISK_PROMPT_*` | Prompt Injection Detector 계열 identifier | runtime/model 내부 identifier만 별도 migration |
 | `admin-sidecar` / `admin_sidecar` | Runtime Controller 계열 identifier | Python client와 application module compatibility shim은 제거됨. Compose service ID와 telemetry service key는 별도 migration |
@@ -91,7 +91,7 @@ canonical과 legacy 값이 동시에 존재하면서 다르면 fail-closed를 �
 
 | Key | 실제 의미 | 주의 |
 |---|---|---|
-| `MAIN_MODEL_ALIAS` | client-facing **Public Model Alias**. 현재 기본값은 `local-main` | upstream model/checkpoint 이름이 아니다. legacy `MAIN_LLM_MODEL`은 migration alias |
+| `MAIN_MODEL_ALIAS` | client-facing **Public Model Alias**. 현재 기본값은 `local-main` | upstream model/checkpoint 이름이 아니다. 기존 `MAIN_LLM_MODEL`은 persistent env migration 입력으로만 처리 |
 | `GATEWAY_HOST` | host에서 직접 실행하는 Gateway process의 listen address | Compose host publish address가 아니다 |
 | `GATEWAY_BIND_ADDR` | Compose가 Gateway port를 host에 publish할 때 bind할 address | application process listen address와 구분 |
 | `API_KEYS` | Gateway가 허용하는 Bearer key 집합 | server-side accepted credential set |
@@ -121,4 +121,4 @@ API 오류 메시지·OpenAPI 설명/예제·CLI help·Console help·운영 설�
 `Risk Signal Service`, `Prompt Injection Detector Runtime` 같은 canonical term을 사용하고,
 `admin-sidecar`, `risk_adapter`, `risk-prompt-vllm` 같은 값은 실제 identifier를 정확히
 가리켜야 할 때만 code formatting과 함께 노출한다. Runtime Controller endpoint의 canonical
-env는 `RUNTIME_CONTROLLER_URL`이며 `ADMIN_SIDECAR_URL`은 migration compatibility alias다.
+env는 `RUNTIME_CONTROLLER_URL`이며 `ADMIN_SIDECAR_URL`은 persistent env migration 입력으로만 남는다.
