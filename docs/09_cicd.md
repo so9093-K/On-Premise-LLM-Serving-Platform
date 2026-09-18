@@ -48,7 +48,11 @@ Platform image의 exact Python patch와 base digest는 `Dockerfile`이 각각 �
 
 ## 9.3 빌드와 배포의 독립 경계
 
-Image build와 registry publish는 다른 책임이다.
+Image build와 registry publish는 다른 책임이다. Git repository는 source/configuration/build contract의
+authority이며 Docker/OCI image 자체의 저장소가 아니다. 로컬 개발은 registry 없이 완결되어야 하고,
+원격 재사용·promotion·rollback이 필요할 때만 OCI-compatible registry를 distribution adapter로
+추가한다. 특정 registry provider나 credential은 core application contract가 아니다.
+
 
 ```text
 Source + locked inputs
@@ -97,15 +101,25 @@ admission, prerequisite 순차 기동과 readiness/rollback 정책이 소유한�
 
 ## 9.5 미래 자동화 추가 원칙
 
-실제 publish·배포 요구가 생겼을 때만 자동화를 추가한다.
+실제 publish·배포 요구가 생겼을 때만 자동화를 추가한다. Docker build를 현재 CI의 빈칸으로 보고
+즉시 required gate에 넣지 않는다. 먼저 어떤 장애를 막으려는지, 어떤 변경이 artifact를
+invalidate하는지, cold/warm build와 cache 비용이 얼마인지, verification image와 release candidate를
+어떻게 구분할지를 확인한다.
 
 1. 기존 명령으로 로컬에서 같은 작업을 먼저 수행할 수 있어야 한다.
 2. Workflow는 provider adapter로 유지하고 동작을 중복 구현하지 않는다.
-3. Build와 publish를 구분하고 운영 결과는 immutable digest로 연결한다.
-4. 대형 image builder와 GPU deployment는 서로 다른 resource lock을 사용한다.
-5. 오래된 실행은 취소할 수 있지만 진행 중인 운영 배포는 새 요청으로 중단하지 않는다.
-6. Workflow 문법은 provider 자체 검증을 사용하며 `make validate`에 YAML parser를 넣지 않는다.
-7. CI를 위해 테스트 전용 helper나 Source of Truth 복제 파일을 만들지 않는다.
+3. Build, publish, promote, deploy를 서로 다른 책임으로 유지하고 운영 결과는 immutable digest로 연결한다.
+4. Platform Image와 Unified vLLM Image의 build/publish lifecycle을 분리한다.
+5. 대형 image builder와 GPU deployment는 서로 다른 resource lock을 사용한다.
+6. PR cache write 권한, registry credential과 publish 권한은 source verification 권한과 분리한다.
+7. 오래된 검증 실행은 취소할 수 있지만 진행 중인 운영 배포는 새 요청으로 중단하지 않는다.
+8. Workflow 문법은 provider 자체 검증을 사용하며 `make validate`에 YAML parser를 넣지 않는다.
+9. CI를 위해 테스트 전용 helper나 Source of Truth 복제 파일을 만들지 않는다.
+
+자동 image 검증이 필요해지면 manual 또는 non-blocking pilot로 시작하고 실행 시간, cache hit rate,
+infra failure rate를 관찰한 뒤 required gate 승격 여부를 별도 결정한다. Unified vLLM artifact는
+CUDA/runtime compatibility와 GPU qualification을 포함하므로 일반 application PR image build와
+같은 gate로 취급하지 않는다.
 
 ## 9.6 관련 문서
 
