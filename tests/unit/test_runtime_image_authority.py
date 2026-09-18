@@ -23,7 +23,6 @@ def _bash(command: str) -> subprocess.CompletedProcess[str]:
         "RISK_VLLM_IMAGE",
         "VLLM_UNIFIED_IMAGE_TO_DEPLOY",
         "MAIN_MODEL_VLLM_IMAGE_OVERRIDE_TO_DEPLOY",
-        "AUDIO_VLLM_IMAGE_TO_DEPLOY",
     ):
         process_env.pop(key, None)
     return subprocess.run(
