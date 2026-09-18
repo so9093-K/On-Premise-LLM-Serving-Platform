@@ -42,6 +42,7 @@ def test_bootstrap_is_public_even_when_admin_api_requires_bearer(monkeypatch) ->
     assert response.status_code == 200
     body = response.json()
     Draft202012Validator(SCHEMA).validate(body)
+    assert body["bootstrap_version"] == 2
     assert body["access"]["profile"] == "private"
     assert body["access"]["admin_auth_required"] is True
     assert body["deployment"]["target"] == "linux-nvidia-dynamic"
