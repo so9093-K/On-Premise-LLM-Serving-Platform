@@ -36,13 +36,15 @@ def compose_container_filter(project: str, service: str | None = None) -> str:
 
 
 def scoped_container_id(
-    row: Mapping[str, Any],
+    row: object,
     *,
     project: str,
     service: str | None = None,
 ) -> str:
     """Validate one Docker list row belongs to the requested Compose scope."""
     normalized_project = require_compose_project(project)
+    if not isinstance(row, Mapping):
+        raise RuntimeError("Docker container row must be an object")
     labels = row.get("Labels")
     if not isinstance(labels, Mapping):
         raise RuntimeError("Docker container row is missing Compose labels")
