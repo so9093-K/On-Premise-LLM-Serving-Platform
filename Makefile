@@ -36,7 +36,7 @@ build: ## 선택 target에서 이 저장소가 소유한 image 전체 빌드
 rebuild: ## 선택 target의 project-owned image를 cache 재사용 없이 다시 빌드
 	$(PLATFORM_CLI) rebuild $(PLATFORM_TARGET_ARG)
 
-prepare: ## 선택 target의 선택 Main model 준비 (secondary model 제외)
+prepare: ## 선택 target의 선택 Main Model 준비 (non-main model 제외)
 	$(PLATFORM_CLI) prepare $(PLATFORM_TARGET_ARG)
 
 up: ## .env에 선택된 target 전체 기동 후 readiness 확인

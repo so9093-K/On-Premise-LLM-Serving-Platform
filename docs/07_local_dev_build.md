@@ -256,7 +256,7 @@ HF_TOKEN=hf_xxx make prepare
 ```
 
 `build`는 선택 target에서 이 저장소가 소유한 Platform/Unified vLLM image만 만들고,
-`prepare`는 선택된 Main Model만 준비한다. secondary model은
+`prepare`는 선택된 Main Model만 준비한다. non-main model은
 각 기능을 활성화할 때 별도로 준비하며, 일반 재기동에서는 `prepare`를 반복하지 않는다.
 
 Compose용 `.env`만 직접 생성해야 하는 유지보수 상황에서는 다음 내부 명령을 사용한다.
@@ -275,7 +275,7 @@ make up
 
 기본 `main_only` profile은 Main Model만 준비하고 non-main Model Runtime은 stopped 상태로
 생성한다. Retrieval runtime도 처음부터 필요하면
-`RUNTIME_PROFILE=retrieval_ready make compose-up`을 명시한다.
+`RUNTIME_STARTUP_PROFILE=retrieval_ready make compose-up`을 명시한다.
 
 내부적으로 `compose-up`은 다음 준비 작업을 수행한 뒤 effective Compose stack을 기동한다.
 
@@ -462,7 +462,7 @@ make rebuild
 ```
 
 `build`와 `rebuild` 모두 모델 weight를 다운로드하지 않는다. 선택 Main Model download는
-`prepare`, secondary model 준비는 각 기능의 운영 경로가 소유한다.
+`prepare`, non-main model 준비는 각 기능의 운영 경로가 소유한다.
 
 ---
 

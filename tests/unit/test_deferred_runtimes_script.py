@@ -21,7 +21,7 @@ def run_script(*args: str) -> subprocess.CompletedProcess[str]:
     )
 
 
-def test_default_profile_defers_all_secondary_runtimes():
+def test_default_profile_defers_all_non_main_runtimes():
     result = run_script("--output", "json")
 
     payload = json.loads(result.stdout)

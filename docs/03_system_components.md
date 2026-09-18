@@ -153,7 +153,7 @@ Gateway는 현재 처리 중인 main model 요청 수를 별도로 추적하며 
 
 ### Model Runtime State
 
-Embedding과 Prompt Risk 같은 non-main Model Runtime은 운영 상태에 따라 active / stopped로 관리할 수 있다.
+Embedding과 Prompt Injection Detector 같은 non-main Model Runtime은 운영 상태에 따라 active / stopped로 관리할 수 있다.
 
 Gateway는 stopped 또는 starting 상태의 runtime으로 신규 요청을 보내지 않는다.
 
@@ -406,7 +406,7 @@ Embedding이나 Risk처럼 Sidecar gate를 매 요청마다 사용하지 않는 
 
 vLLM Runtime은 실제 model weight를 load하고 GPU에서 inference를 수행하는 **model data plane**이다.
 
-Main LLM, Embedding, Korean Embedding, Prompt Risk model은 각각 독립된 vLLM process와 port를 사용한다.
+Main Model, Embedding, Korean Embedding, Prompt Injection Detector model은 각각 독립된 vLLM process와 port를 사용한다.
 
 ```text
 Shared GPU
@@ -436,7 +436,7 @@ vLLM은 **모델 실행 엔진**이며 외부 API policy나 container lifecycle 
 | **Main Model** | `main-llm-vllm` | `9401` | generation | `local-main` | Chat / Multimodal |
 | **Embedding** | `embedding-vllm` | `9402` | pooling | `local-embed` | 범용 Embedding |
 | **Korean Embedding** | `embedding-ko-vllm` | `9406` | pooling | `local-embed-ko` | Korean Retrieval |
-| **Prompt Risk** | `risk-prompt-vllm` | `9403` | generation | `risk-prompt` | Prompt detector inference |
+| **Prompt Injection Detector** | `risk-prompt-vllm` | `9403` | generation | `risk-prompt` | Prompt detector inference |
 
 ### Main Model Runtime
 
@@ -530,7 +530,7 @@ vLLM runtime은 다음 책임을 소유하지 않는다.
 | Main Model | Chat / Multimodal 중단 |
 | Embedding | `local-embed` 요청 중단 |
 | Korean Embedding | `local-embed-ko`와 기본 Retrieval 중단 |
-| Prompt Risk | Prompt detector 실패; PII / Secret local detector는 독립 실행 가능 |
+| Prompt Injection Detector | Prompt detector 실패; PII / Secret local detector는 독립 실행 가능 |
 
 ---
 

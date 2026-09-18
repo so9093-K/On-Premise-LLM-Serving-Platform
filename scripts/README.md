@@ -87,7 +87,7 @@ make down
 - app-only `.env`의 `make up`은 vLLM을 시작하지 않고 Gateway/Risk Signal Service만 실행한다.
 - app-only 확인은 `make ready-local`, strict full-stack 확인은 `make ready-full`을 사용한다.
 - full-stack 기동인 `make compose-up`에는 Docker/GPU/포트/secret preflight가 포함된다.
-- `make compose-up`은 `configs/deploy_profiles.yaml`의 기본 `main_only`를 적용해 Main만 시작한다. Retrieval runtime도 처음부터 필요하면 `RUNTIME_PROFILE=retrieval_ready make compose-up`을 명시한다.
+- `make compose-up`은 `configs/deploy_profiles.yaml`의 기본 `main_only`를 적용해 Main만 시작한다. Retrieval runtime도 처음부터 필요하면 `RUNTIME_STARTUP_PROFILE=retrieval_ready make compose-up`을 명시한다.
 - 라이브 검증은 `make runtime-validate`, 실행 전 정적 검증은 `make validate`로 수행한다.
 - 저비용 정리 대상은 `make clean DRY_RUN=1`으로 확인한다. project-local 초기화는 `make reset`이 plan만 출력한다.
 

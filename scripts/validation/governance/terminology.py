@@ -5,20 +5,23 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[3]
 
 # 사용자-facing 표시명에서 다시 사용하지 않을 legacy terminology.
-# 안정 식별자(admin-sidecar, risk-adapter, DEPLOY_RUNTIME_PROFILE 등)는 소문자/코드
-# 형태로 별도 계약이므로 이 목록의 대상이 아니다.
+# 안정 식별자(admin-sidecar, risk-adapter 등)는 소문자/코드 형태로 별도 계약이므로
+# 이 목록의 대상이 아니다. Deprecated process alias는 terminology.md에서 별도로 관리한다.
 LEGACY_DISPLAY_TERMS: dict[str, str] = {
     "Admin Sidecar": "Runtime Controller",
     "Risk Adapter": "Risk Signal Service",
     "Secondary Runtime": "Model Runtime 또는 역할별 Runtime",
+    "secondary runtime": "non-main Model Runtime 또는 역할별 Runtime",
+    "secondary model": "non-main model",
     "Deploy Runtime Profile": "Runtime Startup Profile",
-    "Prompt Risk Runtime": "Prompt Injection Detector Runtime",
+    "Prompt Risk": "Prompt Injection Detector",
 }
 
 
 def _user_facing_paths(root: Path) -> list[Path]:
     paths = [
         root / "README.md",
+        root / "Makefile",
         root / ".env.local.example",
         root / ".env.compose.example",
         root / "scripts" / "README.md",

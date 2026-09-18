@@ -21,7 +21,7 @@
 
 | Canonical term | 의미 | 기존/내부 식별자 |
 |---|---|---|
-| **On-Premises LLM Serving Platform** | 제품명 | repository slug는 호환성을 위해 별도 |
+| **On-Premises LLM Serving Platform** | 제품명 | repository: `On-Premises-LLM-Serving-Platform` |
 | **Gateway** | 외부 API 진입점. 요청 검증, 인증, routing과 응답 처리를 담당 | `gateway` |
 | **Control Plane** | runtime·configuration·model profile을 운영하는 관리 계층 | `/admin/*`, Console |
 | **Runtime Controller** | runtime lifecycle, Main Model 전환, reconciliation과 Docker 제어를 담당 | `admin-sidecar` |
@@ -34,7 +34,7 @@
 | **Main Model Profile** | Main Model의 model revision, runtime image, command, capability와 request policy 조합 | `configs/main_model_profiles.yaml` |
 | **Public Model Alias** | client가 고정적으로 사용하는 model 이름 | `local-main` |
 | **Deployment Target** | platform/backend/lifecycle ownership 조합을 고르는 안정 설정 ID | `DEPLOYMENT_TARGET` |
-| **Runtime Startup Profile** | 배포 직후 어떤 non-main runtime을 시작 상태로 둘지 정하는 preset | 기존 문서명 Deploy Runtime Profile, `configs/deploy_profiles.yaml` |
+| **Runtime Startup Profile** | 배포 직후 어떤 non-main runtime을 시작 상태로 둘지 정하는 preset | `RUNTIME_STARTUP_PROFILE`, `configs/deploy_profiles.yaml` |
 | **Access Profile** | 사용자가 선택하는 접근 의도(local/private/edge) | `ACCESS_PROFILE` |
 | **Desired State** | Control Plane이 수렴시키려는 runtime 상태 | `desired_state` |
 | **Observed State** | 실제 container/runtime에서 관측한 상태 | `observed_runtime`, `container_status` |
@@ -55,6 +55,41 @@
 | **force** (단독 버튼) | 실제 영향이 드러나지 않음 | 필요한 runtime 자동 중지 허용 |
 | **likely** (표시 상태) | 무엇이 얼마나 probable한지 기준이 불명확 | 추가 검증 필요 / provisional 성격을 설명 |
 | **AUDIO_VLLM_IMAGE** (신규 이름으로 사용) | 현재 역할이 audio 전용이 아니라 Main Model profile image override임 | Main Model profile image override 계열 이름 |
+
+### Process-input aliases
+
+- `RUNTIME_STARTUP_PROFILE`이 로컬 compose-up과 원격 full deploy의 canonical input이다.
+- 기존 `RUNTIME_PROFILE`과 `DEPLOY_RUNTIME_PROFILE`은 migration 기간의 read compatibility alias다.
+- canonical과 legacy 값이 동시에 존재하면서 다르면 실행을 중단한다.
+- `PACKAGE_NAME`은 release ZIP 파일명을 바꾸는 packaging process override이며 Runtime `.env` key가 아니다.
+
+## Stable legacy namespaces
+
+다음 식별자는 이름이 canonical display term과 완전히 일치하지 않지만 기존 자동화와 runtime key에
+넓게 연결되어 있어 **안정 호환 namespace**로 유지한다. 새 의미를 추가할 때 이 prefix를 관성적으로
+복제하지 않는다.
+
+- `MAIN_LLM_*`: 내부 runtime key `main_llm`과 오랫동안 연결된 operator env namespace.
+  Main Model이 multimodal까지 확장되어 이름은 좁지만, 전면 rename은 별도 compatibility migration으로 다룬다.
+- `risk_adapter` / `RISK_ADAPTER_*`: 안정 service/config identifier. 사용자-facing 표시명은
+  **Risk Signal Service**를 사용한다.
+- `risk_prompt` / `RISK_PROMPT_*`: 안정 runtime/model identifier. 사용자-facing 표시명은
+  **Prompt Injection Detector**를 사용한다.
+- `admin-sidecar`: 안정 Compose service ID. 사용자-facing 표시명은 **Runtime Controller**다.
+
+## Ambiguous stable env keys
+
+다음 key는 이름만 보고 의미를 추측하면 잘못 쓰기 쉬우므로 별도 의미 계약으로 유지한다.
+
+| Key | 실제 의미 | 주의 |
+|---|---|---|
+| `MAIN_LLM_MODEL` | client-facing **Public Model Alias**. 현재 기본값은 `local-main` | upstream model/checkpoint 이름이 아니다 |
+| `GATEWAY_HOST` | host에서 직접 실행하는 Gateway process의 listen address | Compose host publish address가 아니다 |
+| `GATEWAY_BIND_ADDR` | Compose가 Gateway port를 host에 publish할 때 bind할 address | application process listen address와 구분 |
+| `API_KEYS` | Gateway가 허용하는 Bearer key 집합 | server-side accepted credential set |
+| `API_KEY` | smoke/ops client가 요청에 사용할 단일 Bearer key | 기본 생성 경로에서는 `API_KEYS`의 첫 key와 같지만 역할은 다르다 |
+| `ADMIN_API_KEYS` | Admin API가 허용하는 Bearer key 집합 | server-side accepted credential set |
+| `ADMIN_API_KEY` | 운영 도구가 사용할 단일 Admin credential이자 일부 내부 secret projection의 source | plural key set과 역할을 구분한다 |
 
 ## 식별자 변경 정책
 

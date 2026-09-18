@@ -160,6 +160,9 @@ renamed_keys:
 # 때문에 그 기준을 쓰면 배포할 때마다 운영 설정이 사라진다. 그래서 지울 키는
 # 여기에 명시적으로 등록한다.
 removed_keys:
+  PACKAGE_NAME: >-
+    release ZIP 이름을 바꾸는 package_release.sh process override다. Runtime .env 계약이 아니므로
+    persistent env에서는 제거한다. 필요하면 package 명령 실행 시 process env로 지정한다.
   PYTHON_VERSION: >-
     실행 중인 코드와 image build가 소비하지 않는다. Platform image의 Python patch는
     Dockerfile의 digest-pinned base image가 소유하고, 개발 지원 범위는 pyproject.toml과

@@ -1,5 +1,5 @@
 """배포 시점에 GPU VRAM 예산이 빠듯할 때 embedding/embedding-ko/risk-prompt 같은
-secondary 런타임을 처음부터 정지 상태로 둘지 정한다. defer를 빠뜨리면 main model이
+non-main Model Runtime을 처음부터 정지 상태로 둘지 정한다. defer를 빠뜨리면 main model이
 부팅 중 GPU 메모리 부족으로 기동을 실패할 수 있고, 반대로 잘못 defer하면 배포
 직후부터 해당 엔드포인트가 이유 없이 503을 낸다. scripts/deploy/deploy_compose_release.sh가
 실제 배포 시퀀스에서 이 스크립트를 하드 게이트로 호출하므로, 여기서 실패하면
@@ -29,7 +29,7 @@ def _items(raw: str) -> list[str]:
     return [item.strip() for item in raw.split(",") if item.strip()]
 
 
-def load_deploy_profile(config_root: Path, profile: str) -> tuple[str, list[str]]:
+def load_runtime_startup_profile(config_root: Path, profile: str) -> tuple[str, list[str]]:
     # --runtimes를 배포마다 손으로 나열하는 대신, configs/deploy_profiles.yaml에
     # 미리 정의해둔 조합(예: GPU가 작은 호스트용 프로필)을 이름으로 재사용하기 위함.
     path = config_root / "configs/deploy_profiles.yaml"
@@ -44,12 +44,12 @@ def load_deploy_profile(config_root: Path, profile: str) -> tuple[str, list[str]
     if not isinstance(item, dict):
         valid = ", ".join(sorted(str(key) for key in profiles))
         raise SystemExit(
-            f"unknown deploy runtime profile: {effective_profile}; valid values: {valid}"
+            f"unknown Runtime Startup Profile: {effective_profile}; valid values: {valid}"
         )
     runtimes = item.get("deferred_runtimes", [])
     if not isinstance(runtimes, list) or not all(isinstance(value, str) for value in runtimes):
         raise SystemExit(
-            f"deploy profile {effective_profile} must define deferred_runtimes as a string list"
+            f"Runtime Startup Profile {effective_profile} must define deferred_runtimes as a string list"
         )
     return effective_profile, runtimes
 
@@ -94,7 +94,7 @@ def main() -> int:
     raw_runtimes = args.runtimes
     effective_profile = ""
     if not raw_runtimes:
-        effective_profile, profile_runtimes = load_deploy_profile(
+        effective_profile, profile_runtimes = load_runtime_startup_profile(
             args.config_root, args.profile
         )
         raw_runtimes = ",".join(profile_runtimes)

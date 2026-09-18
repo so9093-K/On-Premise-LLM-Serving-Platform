@@ -17,7 +17,7 @@ version: 0.1.0
 #   operations_endpoint = 운영 endpoint, visualization = Grafana UI
 #   metrics_backend/metrics_exporter/gpu_metrics/container_metrics/log_backend = 관측성 역할
 services:
-  # 외부 요청을 받아 모델 runtime과 risk adapter로 전달하는 API 진입점.
+  # 외부 요청을 받아 Model Runtime과 Risk Signal Service로 전달하는 API 진입점.
   gateway:
     compose_service: gateway
     container_port: 9400
@@ -29,7 +29,7 @@ services:
       - gateway
       - public_entrypoint
 
-  # PII·secret·prompt detector를 제공하는 내부 risk 서비스.
+  # PII·secret·Prompt Injection detector 결과를 정규화하는 내부 Risk Signal Service.
   risk_adapter:
     compose_service: risk-adapter
     container_port: 9405

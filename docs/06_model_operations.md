@@ -111,7 +111,7 @@ Main Model Profile
    ├─ context / concurrency
    ├─ GPU utilization
    ├─ modality capability
-   └─ compatibility status
+   └─ qualification status
 ```
 
 Profile의 Source of Truth는 `configs/main_model_profiles.yaml`이다.
@@ -129,7 +129,7 @@ Profile을 선택할 때는 다음 항목을 확인한다.
 - upstream model과 pinned revision
 - runtime image
 - GPU VRAM fraction
-- compatibility status
+- qualification status
 - input / output capability
 - 현재 active 여부
 
@@ -313,7 +313,7 @@ GPU Budget
 ├─ Main Model
 ├─ Embedding
 ├─ Korean Embedding
-└─ Prompt Risk
+└─ Prompt Injection Detector
 ```
 
 GPU 상태는 다음 API에서 확인한다.
@@ -423,10 +423,10 @@ Runtime Validation
 
 | 상황 | 확인 지점 | 운영 방향 |
 |---|---|---|
-| Profile 확인 실패 | `/admin/main-model/profiles` | profile ID와 compatibility 확인 |
+| Profile 확인 실패 | `/admin/main-model/profiles` | profile ID와 qualification 확인 |
 | Profile lock | `/admin/main-model` | deployment lock 정책 확인 |
 | GPU admission 실패 | `/admin/runtimes` | stop plan 또는 runtime 구성 조정 |
-| Model 준비 실패 | model cache / Sidecar log | snapshot과 revision 접근 상태 확인 |
+| Model 준비 실패 | model cache / Runtime Controller log | snapshot과 revision 접근 상태 확인 |
 | Drain 지연 | in-flight Chat request | 진행 중 요청과 drain 상태 확인 |
 | Runtime 시작 실패 | `main-llm-vllm` log | image, command, GPU allocation 확인 |
 | Validation 실패 | health, `/v1/models`, canary | runtime과 profile 일치 여부 확인 |
@@ -510,7 +510,7 @@ curl -X PATCH \
 
 Start 과정에서는 prerequisite와 GPU budget을 확인하고 필요한 runtime을 startup order에 따라 시작한다.
 
-compose-up/full 배포 시 처음부터 활성화할 non-main Model Runtime 조합은 `configs/deploy_profiles.yaml`에서 결정한다. 배포의 `DEPLOY_RUNTIME_PROFILE` 또는 로컬 `compose-up`의 `RUNTIME_PROFILE`을 생략하면 `main_only`가 적용되어 모든 non-main Model Runtime은 초기 중지 상태가 된다. Retrieval이 즉시 필요하면 `retrieval_ready`를 명시한다.
+compose-up/full 배포 시 처음부터 활성화할 non-main Model Runtime 조합은 `configs/deploy_profiles.yaml`에서 결정한다. 배포의 `RUNTIME_STARTUP_PROFILE` 또는 로컬 `compose-up`의 `RUNTIME_STARTUP_PROFILE`을 생략하면 `main_only`가 적용되어 모든 non-main Model Runtime은 초기 중지 상태가 된다. Retrieval이 즉시 필요하면 `retrieval_ready`를 명시한다. 기존 `RUNTIME_PROFILE`과 `DEPLOY_RUNTIME_PROFILE`은 migration 기간의 process-input alias이며 새 자동화는 `RUNTIME_STARTUP_PROFILE`을 사용한다.
 
 ---
 

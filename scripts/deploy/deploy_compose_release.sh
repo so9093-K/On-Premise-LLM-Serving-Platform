@@ -30,14 +30,14 @@
 #   RUN_READY_SMOKE            1(기본) 또는 0 — 배포 후 gateway /health 체크 실행 여부
 #   DEPLOY_RELEASE_ID          불변 release 디렉터리 이름; 기본값은 현재 Git commit
 #   RELEASES_TO_KEEP           보관할 성공한 release 디렉터리 개수 (기본값: 5)
-#   DEPLOY_RUNTIME_PROFILE     configs/deploy_profiles.yaml의 런타임 시작 프로필
+#   RUNTIME_STARTUP_PROFILE     configs/deploy_profiles.yaml의 Runtime Startup Profile
 #                              (예: main_only, retrieval_ready). 생략 시 파일의
 #                              default_profile을 사용한다.
 #   DEPLOY_DEFERRED_RUNTIMES   배포 후 정지 상태로 유지할, 콤마로 구분된 controllable
 #                              런타임 키 또는 compose 서비스 (예:
 #                              embedding,embedding_ko,risk_prompt). full 배포는 이
 #                              컨테이너들을 시작하지 않고 생성만 한다. 이 값이 설정되면
-#                              DEPLOY_RUNTIME_PROFILE보다 우선한다.
+#                              RUNTIME_STARTUP_PROFILE보다 우선한다.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -204,7 +204,7 @@ ssh "${SSH_TARGET}" \
   DEPLOY_MODE="${DEPLOY_MODE}" \
   GATEWAY_HEALTH_URL="${GATEWAY_HEALTH_URL:-}" \
   RUN_READY_SMOKE="${RUN_READY_SMOKE}" \
-  DEPLOY_RUNTIME_PROFILE="${DEPLOY_RUNTIME_PROFILE:-}" \
+  RUNTIME_STARTUP_PROFILE="${RUNTIME_STARTUP_PROFILE:-}" \
   DEPLOY_DEFERRED_RUNTIMES="${DEPLOY_DEFERRED_RUNTIMES:-}" \
   AUTH_MODE="${AUTH_MODE:-}" \
   TMPDIR="${DEPLOY_PATH}/.runtime" \

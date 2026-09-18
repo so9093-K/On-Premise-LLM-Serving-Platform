@@ -10,6 +10,7 @@ COMPOSE_FILE="${COMPOSE_FILE:-ops/compose/full-stack.private-network.yaml}"
 source scripts/lib/compose_context.sh
 source scripts/lib/bind_mounted_config.sh
 source scripts/lib/gateway_runtime_state.sh
+source scripts/lib/runtime_startup_profile.sh
 compose_context_init "$ROOT"
 compose_context_assert_mutation_safe
 PROM_SECRET=".runtime/prometheus/admin_api_key"
@@ -100,16 +101,19 @@ if [[ "${SKIP_PREFLIGHT:-0}" == "1" ]]; then
   docker compose "${COMPOSE_ARGS[@]}" --env-file "$ENV_FILE_ABS" config >/dev/null
 fi
 
+normalize_runtime_startup_profile RUNTIME_PROFILE
+RUNTIME_STARTUP_PROFILE_REQUESTED="${RUNTIME_STARTUP_PROFILE:-}"
+
 DEFERRED_RUNTIME_RESOLUTION="$(
   "$PYTHON_BIN" scripts/runtime/deferred_runtimes.py \
     --config-root "$ROOT" \
-    --profile "${RUNTIME_PROFILE:-}" \
+    --profile "$RUNTIME_STARTUP_PROFILE_REQUESTED" \
     --output lines
 )"
 mapfile -t DEFERRED_RUNTIME_LINES <<<"$DEFERRED_RUNTIME_RESOLUTION"
 read -r -a DEFERRED_RUNTIME_KEYS <<<"${DEFERRED_RUNTIME_LINES[0]:-}"
 read -r -a DEFERRED_RUNTIME_SERVICES <<<"${DEFERRED_RUNTIME_LINES[1]:-}"
-RUNTIME_PROFILE_EFFECTIVE="${DEFERRED_RUNTIME_LINES[2]:-}"
+RUNTIME_STARTUP_PROFILE_EFFECTIVE="${DEFERRED_RUNTIME_LINES[2]:-}"
 
 HF_CACHE_HOST="$(
   "$PYTHON_BIN" scripts/models/resolve_hf_cache_dir.py \
@@ -132,7 +136,7 @@ PYTHONPATH="$ROOT/src${PYTHONPATH:+:$PYTHONPATH}" \
     --cache-dir "$HF_CACHE_HOST/hub" \
     --profile "$MAIN_MODEL_BOOT_PROFILE"
 
-echo "[compose-up] starting stack (EXPOSURE_MODE=$CANONICAL_MODE, main-profile=$MAIN_MODEL_BOOT_PROFILE, runtime-profile=$RUNTIME_PROFILE_EFFECTIVE)"
+echo "[compose-up] starting stack (EXPOSURE_MODE=$CANONICAL_MODE, main-profile=$MAIN_MODEL_BOOT_PROFILE, startup-profile=$RUNTIME_STARTUP_PROFILE_EFFECTIVE)"
 # Compose는 bind-mounted 파일의 내용 변경만으로는 기존 컨테이너를 바꾸지 않는다.
 # 일반 source는 이미지 재빌드로 수렴하지만, 아래 목록은 각 프로세스가 호스트
 # 설정을 직접 읽으므로 이전 적용 fingerprint와 다르면 해당 서비스만 재생성한다.
@@ -190,7 +194,7 @@ for config_service_spec in "${BIND_MOUNTED_CONFIG_SERVICE_SPECS[@]}"; do
   CONFIG_SERVICE_STATE_FILES+=("$config_state_file")
   CONFIG_SERVICE_FINGERPRINTS+=("$config_fingerprint")
 done
-# 기본 runtime profile의 deferred 모델은 container를 남겨 Admin API가 시작할 수
+# 기본 Runtime Startup Profile의 deferred 모델은 container를 남겨 Admin API가 시작할 수
 # 있게 하되, compose-up 자체가 GPU 메모리를 점유시키지는 않는다.
 #
 # runtime-state.json은 여기서 직접 쓰지 않는다. 그 파일은 Gateway 컨테이너가
