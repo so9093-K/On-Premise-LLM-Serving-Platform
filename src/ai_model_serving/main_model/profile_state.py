@@ -9,16 +9,16 @@ QUALIFICATION_STATUSES = frozenset({"verified", "unverified"})
 
 
 @dataclass(frozen=True)
-class NormalizedProfileState:
+class ProfileState:
     compatibility: dict[str, Any]
     qualification: dict[str, Any]
 
 
-def normalize_profile_state(
+def validate_profile_state(
     profile_id: str,
     compatibility: object,
     qualification: object | None,
-) -> NormalizedProfileState:
+) -> ProfileState:
     """Validate the canonical Main Model compatibility and qualification axes."""
     if not isinstance(compatibility, dict):
         raise ValueError(f"profile {profile_id} compatibility must be an object")
@@ -40,7 +40,7 @@ def normalize_profile_state(
             f"{sorted(QUALIFICATION_STATUSES)}"
         )
 
-    return NormalizedProfileState(
+    return ProfileState(
         compatibility=compatibility_out,
         qualification=qualification_out,
     )
