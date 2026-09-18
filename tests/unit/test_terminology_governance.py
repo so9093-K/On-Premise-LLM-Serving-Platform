@@ -15,6 +15,20 @@ def test_user_facing_legacy_term_is_rejected(tmp_path):
     ]
 
 
+def test_compound_legacy_runtime_controller_term_is_rejected(tmp_path):
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "03_system_components.md").write_text(
+        "Admin / Control Sidecar controls runtimes.\n",
+        encoding="utf-8",
+    )
+
+    assert terminology_violations(tmp_path) == [
+        "docs/03_system_components.md:1: legacy display term "
+        "'Admin / Control Sidecar'; use 'Runtime Controller'"
+    ]
+
+
 def test_adr_history_is_outside_display_terminology_gate(tmp_path):
     adr = tmp_path / "docs" / "adr"
     adr.mkdir(parents=True)
