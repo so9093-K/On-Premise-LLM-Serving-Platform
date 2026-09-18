@@ -240,6 +240,7 @@ Contract Test는 여러 모듈이나 artifact가 공유하는 규칙을 검증�
 
 주요 대상은 다음과 같다.
 
+- 공식 OpenAI Python SDK의 실제 serializer/parser를 통한 `/v1/models`, Chat Completions, Responses, Embeddings 호환성
 - OpenAPI / JSON Schema 계약
 - 공개 error contract
 - authentication·authorization invariant
@@ -256,6 +257,7 @@ Unit Test
 
 Contract Test
   → module / artifact 사이의 공유 계약을 검증
+  → OpenAI-compatible surface는 pinned 공식 Python SDK가 실제 HTTP wire shape를 소비하는지도 검증
 ```
 
 ### 테스트 소스와 Release Package
