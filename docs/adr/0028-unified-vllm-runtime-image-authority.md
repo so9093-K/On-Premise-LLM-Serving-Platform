@@ -75,4 +75,8 @@ artifact boundary와 함께 새 authority를 정의한다.
 canonical key는 `MAIN_MODEL_VLLM_IMAGE_OVERRIDE`이다. deployment-time
 `AUDIO_VLLM_IMAGE_TO_DEPLOY` alias는 제거했다. persistent `AUDIO_VLLM_IMAGE`는 기존
 배포 `.env`의 값을 잃지 않고 `make sync-env`로 옮기기 위한 migration debt로만 남긴다.
-이 값은 신규 실행 계약이 아니며, migration이 한 release에 반영된 뒤 direct read path를 제거한다.
+이 값은 신규 실행 계약이 아니다. 원격 full deploy는 persistent `.env` 복사본을 먼저
+`sync-env`로 canonicalize한 뒤 runtime image preflight를 계산하며,
+`deploy_resolve_runtime_image_plan`의 `AUDIO_VLLM_IMAGE` direct read는 제거했다.
+실제 persistent key는 image pull 성공 후 `.env` backup과 rollback trap을 준비한 다음,
+image promotion보다 먼저 실행되는 `make sync-env` 단계에서 canonical key로 이관된다.

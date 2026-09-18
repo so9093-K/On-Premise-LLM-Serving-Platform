@@ -22,6 +22,8 @@
 
 ### Changed
 
+- 원격 full deploy의 runtime image preflight가 persistent `.env` 복사본을 먼저 `make sync-env`로 canonicalize한 뒤 image plan을 계산하도록 바꿨다. 실제 `.env`는 image pull 성공 전까지 수정하지 않고, backup/rollback 경계가 준비된 뒤에는 runtime image promotion보다 먼저 `sync-env`를 적용해 legacy/canonical 충돌 없이 수렴한다. ([ADR-0028](docs/adr/0028-unified-vllm-runtime-image-authority.md))
+
 - Runtime transition Apply를 Configuration mutation과 같은 reviewed-plan 계약으로 수렴했다. `PATCH /admin/runtimes/{service_key}`는 이제 Plan에서 받은 `plan_digest`를 필수로 요구하고, Runtime Controller도 mutation 직전 GPU budget lock 안에서 같은 plan을 재계산해 digest drift를 fail-closed한다. 초기 compatibility 기간의 digest 없는 Apply 경로는 제거했다. ([ADR-0027](docs/adr/0027-control-plane-runtime-configuration-and-console-boundary.md))
 
 - Risk Signal Service의 active service identity를 `risk-adapter`에서 `risk-signal-service`로 수렴했다. Compose/DNS, health payload, metrics/logging identity, Prometheus job, Grafana query, runtime validation과 OpenAPI artifact(`openapi.risk-signal-service.yaml`)가 같은 이름을 사용한다. Python/config/env의 `risk_adapter` / `RISK_ADAPTER_*` namespace는 별도 migration으로 남긴다.
@@ -168,6 +170,8 @@
 - 미디어 base64 검증이 개행·공백 포함 base64를 `422`로 거부하던 문제를 수정했다. 게이트가 `base64.b64decode(validate=True)`를 공백 정규화 없이 호출해, `base64 file.m4a`(CLI 기본 76칸 wrap)·MIME 인코더 출력 같은 정상 페이로드가 downstream(vLLM)은 받아들이는데도 게이트에서 먼저 차단됐다(`input_audio.data must contain valid base64.`). 공유 헬퍼 `_decode_media_base64`가 ASCII 공백만 관용하고 알파벳·패딩은 엄격히 유지(`validate=True`)하도록 image_url·input_audio·video 4개 디코드 지점에 적용했다. 패딩 누락·invalid 문자는 여전히 거부한다. 또한 `input_audio.data`에 `data:` URL 접두사가 들어오면(필드 형태 오용) 모호한 base64 에러 대신 `input_audio.data must be raw base64 (no data: URL prefix).`로 구체적 안내한다.
 
 ### Removed
+
+- `deploy_resolve_runtime_image_plan`의 persistent `AUDIO_VLLM_IMAGE` direct read와 충돌/fallback 분기를 제거했다. legacy 값 보존과 canonical 이관은 `configs/env_contract.yaml` + `make sync-env`만 소유한다.
 
 - `AUDIO_VLLM_IMAGE_TO_DEPLOY` deployment-time compatibility alias와 이를 정규화·충돌 검사하던 코드/테스트를 제거했다. 배포 promotion input은 `MAIN_MODEL_VLLM_IMAGE_OVERRIDE_TO_DEPLOY`만 사용한다. 기존 persistent `AUDIO_VLLM_IMAGE`는 값 손실 없는 `sync-env` migration을 위해 한정적으로 남는다.
 - `RUNTIME_PROFILE`과 `DEPLOY_RUNTIME_PROFILE` process-input alias 및 이를 정규화하던 shell helper/test를 제거했다. 로컬 compose-up과 원격 full deploy는 `RUNTIME_STARTUP_PROFILE`만 사용한다.

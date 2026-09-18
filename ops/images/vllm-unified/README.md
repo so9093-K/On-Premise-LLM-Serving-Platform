@@ -68,5 +68,6 @@ back — 12B never goes live half-capable.
 
 > Migration: deployment input `AUDIO_VLLM_IMAGE_TO_DEPLOY`는 제거됐다.
 > 기존 persistent `AUDIO_VLLM_IMAGE`만 값 손실 방지를 위해 migration 대상으로 남으며
-> `make sync-env`가 `MAIN_MODEL_VLLM_IMAGE_OVERRIDE`로 이동한다. 이 persistent read는
-> migration이 배포에 적용된 뒤 제거하는 임시 debt이며 신규 자동화에서는 사용하지 않는다.
+> `make sync-env`가 `MAIN_MODEL_VLLM_IMAGE_OVERRIDE`로 이동한다. 원격 image preflight는
+> 임시 env 복사본을 먼저 sync한 canonical key만 읽으며, deploy helper의 legacy direct read는
+> 제거됐다. 신규 자동화에서는 legacy key를 사용하지 않는다.
