@@ -666,8 +666,7 @@ description: |
   리소스 설정 변경 재부팅 로그를 다시 확인한 결과, 재시작 감지 reconcile이 4종 canary를
   다시 돌렸고(GET /v1/models -> text -> image -> audio -> video, 전부 200) 이 역시
   성공했다 -- 즉 독립된 재부팅 2회(fixture 수정 직후, 리소스 설정 변경 후) 모두 4종 전부
-  성공해 재현성 조건을 충족한다. compatibility.status를 unverified -> likely로 승격했다.
-  use_audio_in_video와 다중 media 정책은 후속 실측으로 확인했다. response_format,
+  성공해 재현성 조건을 충족했다. use_audio_in_video와 다중 media 정책은 후속 실측으로 확인했다. response_format,
   logprobs, logit_bias는 vLLM 직접 요청과 Gateway 경유에서 확인했다: logprobs/top_logprobs,
   logit_bias, stream+logprobs, json_schema+logit_bias가 모두 HTTP 200 및 기대 응답 형상을
   통과했다. 이 근거로 status를 verified로 승격했다. tool calling은 안정적인 parser/template
