@@ -275,7 +275,7 @@ def test_sidecar_failure_is_publicly_generic_and_internally_correlated(monkeypat
     internal_detail = "state file /var/lib/ai-model-serving/main-model-state.json is corrupt"
 
     clients = FakeGatewayClients()
-    sidecar = RuntimeControllerClient("http://admin-sidecar:8080", "internal-token")
+    sidecar = RuntimeControllerClient("http://runtime-controller:8080", "internal-token")
     sidecar._client = httpx.AsyncClient(
         transport=httpx.MockTransport(lambda request: httpx.Response(500, json={"detail": internal_detail})),
         headers={},
