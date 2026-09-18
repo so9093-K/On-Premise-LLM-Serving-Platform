@@ -3,7 +3,7 @@ from __future__ import annotations
 from scripts.validation.governance.terminology import terminology_violations
 
 
-def test_user_facing_legacy_term_is_rejected(tmp_path):
+def test_user_facing_noncanonical_term_is_reported(tmp_path):
     docs = tmp_path / "docs"
     docs.mkdir()
     (docs / "01_overview.md").write_text("Admin Sidecar controls runtimes.\n", encoding="utf-8")
@@ -11,11 +11,11 @@ def test_user_facing_legacy_term_is_rejected(tmp_path):
     violations = terminology_violations(tmp_path)
 
     assert violations == [
-        "docs/01_overview.md:1: legacy display term 'Admin Sidecar'; use 'Runtime Controller'"
+        "docs/01_overview.md:1: noncanonical display term 'Admin Sidecar'; use 'Runtime Controller'"
     ]
 
 
-def test_compound_legacy_runtime_controller_term_is_rejected(tmp_path):
+def test_compound_noncanonical_runtime_controller_term_is_reported(tmp_path):
     docs = tmp_path / "docs"
     docs.mkdir()
     (docs / "03_system_components.md").write_text(
@@ -24,12 +24,12 @@ def test_compound_legacy_runtime_controller_term_is_rejected(tmp_path):
     )
 
     assert terminology_violations(tmp_path) == [
-        "docs/03_system_components.md:1: legacy display term "
+        "docs/03_system_components.md:1: noncanonical display term "
         "'Admin / Control Sidecar'; use 'Runtime Controller'"
     ]
 
 
-def test_lowercase_runtime_controller_error_term_is_rejected(tmp_path):
+def test_lowercase_noncanonical_runtime_controller_term_is_reported(tmp_path):
     src = tmp_path / "src" / "ai_model_serving"
     src.mkdir(parents=True)
     (src / "api_examples.py").write_text(
@@ -38,12 +38,12 @@ def test_lowercase_runtime_controller_error_term_is_rejected(tmp_path):
     )
 
     assert terminology_violations(tmp_path) == [
-        "src/ai_model_serving/api_examples.py:1: legacy display term "
+        "src/ai_model_serving/api_examples.py:1: noncanonical display term "
         "'admin sidecar'; use 'Runtime Controller'"
     ]
 
 
-def test_runtime_cli_legacy_service_term_is_rejected(tmp_path):
+def test_runtime_cli_noncanonical_service_term_is_reported(tmp_path):
     cli = tmp_path / "scripts" / "validation" / "runtime"
     cli.mkdir(parents=True)
     (cli / "cli.py").write_text(
@@ -52,7 +52,7 @@ def test_runtime_cli_legacy_service_term_is_rejected(tmp_path):
     )
 
     assert terminology_violations(tmp_path) == [
-        "scripts/validation/runtime/cli.py:1: legacy display term "
+        "scripts/validation/runtime/cli.py:1: noncanonical display term "
         "'Risk Adapter'; use 'Risk Signal Service'"
     ]
 
@@ -65,15 +65,3 @@ def test_adr_history_is_outside_display_terminology_gate(tmp_path):
     assert terminology_violations(tmp_path) == []
 
 
-def test_retired_runtime_controller_service_id_is_rejected(tmp_path):
-    compose = tmp_path / "ops" / "compose"
-    compose.mkdir(parents=True)
-    (compose / "full-stack.private-network.yaml").write_text(
-        "services:\n  admin-sidecar:\n    image: platform\n",
-        encoding="utf-8",
-    )
-
-    assert terminology_violations(tmp_path) == [
-        "ops/compose/full-stack.private-network.yaml:2: retired active identifier "
-        "'admin-sidecar'; use 'runtime-controller'"
-    ]

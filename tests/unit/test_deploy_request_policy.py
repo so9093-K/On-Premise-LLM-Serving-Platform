@@ -15,7 +15,6 @@ _ISOLATED_KEYS = (
     "DEPLOY_MODE",
     "DEPLOY_MODE_REASON",
     "PLATFORM_IMAGE_TO_DEPLOY",
-    "RISK_VLLM_IMAGE_TO_DEPLOY",
     "VLLM_UNIFIED_IMAGE_TO_DEPLOY",
     "MAIN_MODEL_VLLM_IMAGE_OVERRIDE_TO_DEPLOY",
     "RUNTIME_STARTUP_PROFILE",
@@ -93,17 +92,6 @@ def test_runtime_promotion_inputs_require_registry_digests():
 
         assert result.returncode == 2
         assert f"{key} must be an immutable registry digest" in result.stderr
-
-
-def test_retired_risk_runtime_promotion_input_is_rejected():
-    result = run_policy(
-        'DEPLOY_MODE=full; deploy_validate_request release-1 5',
-        RISK_VLLM_IMAGE_TO_DEPLOY="registry.example/legacy@sha256:" + "b" * 64,
-    )
-
-    assert result.returncode == 2
-    assert "RISK_VLLM_IMAGE_TO_DEPLOY is retired" in result.stderr
-    assert "Use VLLM_UNIFIED_IMAGE_TO_DEPLOY" in result.stderr
 
 
 def test_rolling_deploy_rejects_runtime_startup_policy():

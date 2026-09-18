@@ -46,11 +46,6 @@ deploy_validate_request() {
     "PLATFORM_IMAGE_TO_DEPLOY" "${PLATFORM_IMAGE_TO_DEPLOY:-}"; then
     return 2
   fi
-  if [[ -n "${RISK_VLLM_IMAGE_TO_DEPLOY:-}" ]]; then
-    echo "[deploy] ERROR: RISK_VLLM_IMAGE_TO_DEPLOY is retired." >&2
-    echo "[deploy] Use VLLM_UNIFIED_IMAGE_TO_DEPLOY for shared vLLM image promotion." >&2
-    return 2
-  fi
   for key in \
     VLLM_UNIFIED_IMAGE_TO_DEPLOY \
     MAIN_MODEL_VLLM_IMAGE_OVERRIDE_TO_DEPLOY

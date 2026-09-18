@@ -4,10 +4,10 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
 
-# 사용자-facing 표시명에서 다시 사용하지 않을 legacy terminology.
+# 사용자-facing surface에서 허용하지 않는 non-canonical 표시 용어.
 # 안정 식별자(runtime-controller, risk-adapter 등)는 소문자/코드 형태로 별도 계약이므로
-# 이 목록의 대상이 아니다. Deprecated process alias는 terminology.md에서 별도로 관리한다.
-LEGACY_DISPLAY_TERMS: dict[str, str] = {
+# 이 목록은 현재 사용자-facing 표시 용어의 일관성만 검사한다.
+NONCANONICAL_DISPLAY_TERMS: dict[str, str] = {
     "Admin / Control Sidecar": "Runtime Controller",
     "Admin Sidecar": "Runtime Controller",
     "admin sidecar": "Runtime Controller",
@@ -23,9 +23,6 @@ LEGACY_DISPLAY_TERMS: dict[str, str] = {
     "Prompt Risk": "Prompt Injection Detector",
 }
 
-LEGACY_ACTIVE_IDENTIFIERS: dict[str, str] = {
-    "admin-sidecar": "runtime-controller",
-}
 
 
 def _user_facing_paths(root: Path) -> list[Path]:
@@ -61,47 +58,20 @@ def _user_facing_paths(root: Path) -> list[Path]:
     return [path for path in paths if path.is_file()]
 
 
-def _active_contract_paths(root: Path) -> list[Path]:
-    paths = [
-        root / "ops" / "compose" / "full-stack.private-network.yaml",
-        root / "scripts" / "deploy" / "apply_remote_release.sh",
-        root / "scripts" / "ops" / "ready_full.sh",
-        root / "scripts" / "compose" / "compose_diagnostics.sh",
-        root / "src" / "ai_model_serving" / "api_examples.py",
-        root / "src" / "ai_model_serving" / "apps" / "runtime_controller.py",
-        root / "src" / "ai_model_serving" / "log_target_manifest.py",
-        root / "src" / "ai_model_serving" / "main_model" / "control.py",
-        root / "specs" / "openapi.gateway.yaml",
-    ]
-    return [path for path in paths if path.is_file()]
-
-
 def terminology_violations(root: Path = ROOT) -> list[str]:
     violations: list[str] = []
     for path in _user_facing_paths(root):
         text = path.read_text(encoding="utf-8")
-        for legacy, canonical in LEGACY_DISPLAY_TERMS.items():
+        for legacy, canonical in NONCANONICAL_DISPLAY_TERMS.items():
             if legacy not in text:
                 continue
             for line_number, line in enumerate(text.splitlines(), start=1):
                 if legacy in line:
                     violations.append(
-                        f"{path.relative_to(root)}:{line_number}: legacy display term "
+                        f"{path.relative_to(root)}:{line_number}: noncanonical display term "
                         f"{legacy!r}; use {canonical!r}"
                     )
 
-    active_paths = dict.fromkeys([*_user_facing_paths(root), *_active_contract_paths(root)])
-    for path in active_paths:
-        text = path.read_text(encoding="utf-8")
-        for legacy, canonical in LEGACY_ACTIVE_IDENTIFIERS.items():
-            if legacy not in text:
-                continue
-            for line_number, line in enumerate(text.splitlines(), start=1):
-                if legacy in line:
-                    violations.append(
-                        f"{path.relative_to(root)}:{line_number}: retired active identifier "
-                        f"{legacy!r}; use {canonical!r}"
-                    )
     return violations
 
 
