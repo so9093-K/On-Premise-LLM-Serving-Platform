@@ -22,6 +22,7 @@ from tests.support.asgi import InlineASGITestClient as TestClient
 def _load_sidecar(tmp_path, monkeypatch):
     monkeypatch.setenv("MAIN_MODEL_STATE_PATH", str(tmp_path / "state.json"))
     monkeypatch.setenv("INTERNAL_SERVICE_TOKEN", "")
+    monkeypatch.setenv("COMPOSE_PROJECT", "test-platform")
     import ai_model_serving.apps.admin_sidecar as sidecar
 
     return importlib.reload(sidecar)
@@ -44,6 +45,16 @@ def test_lifespan_does_not_block_health_on_main_model_reconciliation(tmp_path, m
         assert resp.json() == {"status": "ok"}
         # reconciliation은 아직 진행 중이다: 완료도 에러도 아니다.
         assert not sidecar._initialized.is_set()
+
+
+def test_initialization_fails_closed_without_compose_project(tmp_path, monkeypatch):
+    sidecar = _load_sidecar(tmp_path, monkeypatch)
+    monkeypatch.setattr(sidecar, "COMPOSE_PROJECT", "")
+
+    asyncio.run(sidecar._run_initialize())
+
+    assert sidecar._initialized.is_set()
+    assert "COMPOSE_PROJECT is required" in (sidecar._initialization_error or "")
 
 
 def test_health_surfaces_definitive_reconciliation_failure(tmp_path, monkeypatch):
