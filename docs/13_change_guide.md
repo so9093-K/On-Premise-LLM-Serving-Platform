@@ -156,9 +156,9 @@ make build-image
 
 | 설정 | 주요 반영 대상 |
 |---|---|
-| `configs/model_catalog.yaml` | Model Registry, `/v1/models`, Runtime target |
-| `configs/model_serving.yaml` | 모델 endpoint, 요청 정책, 운영 제한 |
-| `configs/main_model_profiles.yaml` | Main Model 실행 profile |
+| `configs/model_catalog.yaml` | Model Registry, `/v1/models`, logical identity/capability |
+| `configs/model_serving.yaml` | runtime endpoint, 공통 운영 제한, 고정 non-main checkpoint/runtime 정책 |
+| `configs/main_model_profiles.yaml` | Main Model checkpoint identity와 실행 profile |
 | `configs/services.yaml` | Service 이름, port, host bind metadata |
 | `configs/access_profiles.yaml` | 사용자 접근 profile의 지원 조합 |
 | `configs/exposure_profiles.yaml` | Host port 공개 범위 |
@@ -259,7 +259,7 @@ make runtime-validate
 
 ### Main Model Profile 변경
 
-`configs/main_model_profiles.yaml`은 `local-main`의 실제 실행 profile을 정의한다. 변경 내용은 model revision, Runtime Image, command, GPU allocation과 모델 전환 과정에 반영된다.
+`configs/main_model_profiles.yaml`은 `local-main`의 실제 실행 profile과 checkpoint identity를 정의한다. Main Model의 model ID/revision을 `model_catalog.yaml`이나 `model_serving.yaml`에 복제하지 않는다. 변경 내용은 model revision, Runtime Image, command, GPU allocation과 모델 전환 과정에 반영된다.
 
 ```text
 Profile 변경
