@@ -14,7 +14,7 @@
 services:
   main-llm-vllm:
     ports:
-      - ${MAIN_MODEL_VLLM_BIND_ADDR:-${MAIN_LLM_VLLM_BIND_ADDR:-0.0.0.0}}:${MAIN_MODEL_VLLM_PORT:-${MAIN_LLM_VLLM_PORT:-9401}}:9401
+      - ${MAIN_MODEL_VLLM_BIND_ADDR:-0.0.0.0}:${MAIN_MODEL_VLLM_PORT:-9401}:9401
   embedding-vllm:
     ports:
       - ${EMBEDDING_VLLM_BIND_ADDR:-0.0.0.0}:${EMBEDDING_VLLM_PORT:-9402}:9402
