@@ -17,25 +17,6 @@ async def _exercise_openai_sdk() -> None:
     wire-shape drift that only appears to a real OpenAI client.
     """
     gateway_clients = FakeGatewayClients()
-    gateway_clients.main_llm.post_response = {
-        "id": "resp_1",
-        "object": "response",
-        "created_at": 1.0,
-        "model": "local-main",
-        "status": "completed",
-        "output": [
-            {
-                "id": "msg_1",
-                "type": "message",
-                "role": "assistant",
-                "status": "completed",
-                "content": [
-                    {"type": "output_text", "text": "ok", "annotations": []}
-                ],
-            }
-        ],
-        "usage": {"input_tokens": 2, "output_tokens": 1, "total_tokens": 3},
-    }
     app = create_gateway_app(settings(), gateway_clients)
 
     async with httpx.AsyncClient(
@@ -59,6 +40,25 @@ async def _exercise_openai_sdk() -> None:
             assert chat.choices[0].message.content == "ok"
             assert gateway_clients.main_llm.last_path == "chat/completions"
 
+            gateway_clients.main_llm.post_response = {
+                "id": "resp_1",
+                "object": "response",
+                "created_at": 1.0,
+                "model": "local-main",
+                "status": "completed",
+                "output": [
+                    {
+                        "id": "msg_1",
+                        "type": "message",
+                        "role": "assistant",
+                        "status": "completed",
+                        "content": [
+                            {"type": "output_text", "text": "ok", "annotations": []}
+                        ],
+                    }
+                ],
+                "usage": {"input_tokens": 2, "output_tokens": 1, "total_tokens": 3},
+            }
             response = await client.responses.create(
                 model="local-main",
                 input="Say OK only.",
