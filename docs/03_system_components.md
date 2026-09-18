@@ -394,15 +394,15 @@ Runtime Controller는 **control plane**이며 user data plane 역할을 하지 �
 
 Runtime Controller가 중단되면 main model 상태 조회, model switch, runtime start / stop, GPU budget admission이 영향을 받는다.
 
-Gateway는 Sidecar 장애 때문에 process 자체가 시작되지 못하는 구조를 피한다. 다만 Chat은 active main model gate를 확인할 수 없으므로 `503 MAIN_MODEL_CONTROL_UNAVAILABLE`을 반환한다.
+Gateway는 Runtime Controller 장애 때문에 process 자체가 시작되지 못하는 구조를 피한다. 다만 Chat은 active main model gate를 확인할 수 없으므로 `503 MAIN_MODEL_CONTROL_UNAVAILABLE`을 반환한다.
 
-Embedding이나 Risk처럼 Sidecar gate를 매 요청마다 사용하지 않는 경로는 해당 runtime이 이미 실행 중이면 별도로 동작할 수 있다.
+Embedding이나 Risk처럼 Runtime Controller gate를 매 요청마다 사용하지 않는 경로는 해당 runtime이 이미 실행 중이면 별도로 동작할 수 있다.
 
 ### 구현 위치
 
 | 영역 | 주요 위치 |
 |---|---|
-| Sidecar application | `src/ai_model_serving/apps/admin_sidecar.py` |
+| Runtime Controller application | `src/ai_model_serving/apps/admin_sidecar.py` |
 | Main model control | `src/ai_model_serving/main_model/control.py` |
 | Docker backend | `src/ai_model_serving/main_model/docker_backend.py` |
 | Main model state | `src/ai_model_serving/main_model/state.py` |
@@ -465,7 +465,7 @@ Active Profile Model
 
 Gateway는 Runtime Controller가 제공하는 active profile의 deployed capability를 사용해 실제 허용 modality를 판단한다.
 
-Main Model container는 profile switch 과정에서 Sidecar에 의해 교체될 수 있으므로 실제 운영 상태는 Compose의 초기 command만으로 판단하지 않는다.
+Main Model container는 profile switch 과정에서 Runtime Controller에 의해 교체될 수 있으므로 실제 운영 상태는 Compose의 초기 command만으로 판단하지 않는다.
 
 ### Embedding Runtime
 
