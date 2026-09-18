@@ -1,7 +1,13 @@
 # ADR-0029: Canonical terminology와 stable identifier 분리
 
-- Status: Accepted
+- Status: Superseded by [ADR-0030](./0030-target-architecture-state-and-artifact-boundary.md)
 - Date: 2026-09-18
+
+## Supersession note
+
+ADR-0030은 이 ADR의 사용자-facing terminology 개선은 유지하지만, 기존 namespace를 장기적으로
+영구 stable canonical로 두는 해석과 compatibility/qualification 상태 결합은 supersede한다.
+기존 식별자는 별도 migration 전까지 호환 계약으로 유지한다.
 
 ## Context
 
