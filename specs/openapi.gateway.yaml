@@ -4179,7 +4179,7 @@ paths:
                 no_sidecar:
                   summary: Runtime Controller 미설정
                   value:
-                    detail: Runtime Controller is not configured (ADMIN_SIDECAR_URL
+                    detail: Runtime Controller is not configured (RUNTIME_CONTROLLER_URL
                       missing)
                 sidecar_unavailable:
                   summary: Runtime Controller 연결 실패
