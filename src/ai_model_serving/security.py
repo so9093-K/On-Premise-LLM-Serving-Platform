@@ -19,7 +19,7 @@ class AdminAuthContext:
 api_bearer_scheme = HTTPBearer(
     auto_error=False,
     scheme_name="bearerAuth",
-    description="Gateway API 또는 내부 Risk Adapter 호출에 사용하는 Bearer token입니다.",
+    description="Gateway API 또는 내부 Risk Signal Service 호출에 사용하는 Bearer token입니다.",
 )
 admin_bearer_scheme = HTTPBearer(
     auto_error=False,
