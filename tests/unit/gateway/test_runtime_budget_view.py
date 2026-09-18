@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 
 from ai_model_serving.api.error_responses import (
-    sidecar_request_error_response,
+    runtime_controller_request_error_response,
 )
 from ai_model_serving.services.runtime_controller_client import RuntimeControllerRequestError
 from ai_model_serving.services.runtime_state import RuntimeState
@@ -100,7 +100,7 @@ class BudgetRejectingSidecar:
 
 def test_runtime_start_marks_sidecar_evictions_stopped():
     clients = FakeGatewayClients()
-    clients.sidecar = EvictingSidecar()
+    clients.runtime_controller = EvictingSidecar()
     client = TestClient(create_gateway_app(settings(), clients))
 
     asyncio.run(clients.runtime_state.set("embedding_ko", RuntimeState.stopped))
@@ -120,7 +120,7 @@ def test_runtime_start_marks_sidecar_evictions_stopped():
 def test_runtime_active_reconciles_when_desired_active_but_container_is_down():
     clients = FakeGatewayClients()
     sidecar = StartReconcilingSidecar()
-    clients.sidecar = sidecar
+    clients.runtime_controller = sidecar
     client = TestClient(create_gateway_app(settings(), clients))
 
     response = client.request(
@@ -147,7 +147,7 @@ def test_runtime_active_reconciles_when_desired_active_but_container_is_down():
 
 def test_runtime_budget_rejection_uses_standard_error_envelope():
     clients = FakeGatewayClients()
-    clients.sidecar = BudgetRejectingSidecar()
+    clients.runtime_controller = BudgetRejectingSidecar()
     client = TestClient(create_gateway_app(settings(), clients))
 
     asyncio.run(clients.runtime_state.set("embedding_ko", RuntimeState.stopped))
@@ -167,7 +167,7 @@ def test_runtime_budget_rejection_uses_standard_error_envelope():
 
 
 def test_sidecar_non_conflict_error_uses_its_http_status_code():
-    response = sidecar_request_error_response(
+    response = runtime_controller_request_error_response(
         RuntimeControllerRequestError(
             422,
             {"code": "MODEL_PROFILE_INCOMPATIBLE", "message": "profile is incompatible"},
@@ -182,7 +182,7 @@ def test_sidecar_non_conflict_error_uses_its_http_status_code():
 def test_runtime_stop_reconciles_when_desired_stopped_but_container_is_running():
     clients = FakeGatewayClients()
     sidecar = StopReconcilingSidecar()
-    clients.sidecar = sidecar
+    clients.runtime_controller = sidecar
     client = TestClient(create_gateway_app(settings(), clients))
 
     asyncio.run(clients.runtime_state.set("embedding_ko", RuntimeState.stopped))
@@ -199,7 +199,7 @@ def test_runtime_stop_reconciles_when_desired_stopped_but_container_is_running()
 
 def test_main_runtime_start_marks_sidecar_evictions_stopped():
     clients = FakeGatewayClients()
-    clients.sidecar = MainStartEvictingSidecar()
+    clients.runtime_controller = MainStartEvictingSidecar()
     client = TestClient(create_gateway_app(settings(), clients))
 
     response = client.request(
