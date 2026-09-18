@@ -7,6 +7,8 @@ import pytest
 from ai_model_serving.docker_scope import (
     compose_container_filter,
     one_scoped_container_id,
+    one_scoped_container_row,
+    require_compose_project,
     scoped_container_id,
 )
 
@@ -73,3 +75,25 @@ def test_one_scoped_container_id_returns_only_scoped_match() -> None:
         )
         == "one"
     )
+
+
+def test_scoped_container_id_rejects_missing_labels() -> None:
+    with pytest.raises(RuntimeError, match="missing Compose labels"):
+        scoped_container_id(
+            {"Id": "abc"},
+            project="platform",
+            service="embedding-vllm",
+        )
+
+
+def test_one_scoped_container_row_rejects_non_object_rows() -> None:
+    with pytest.raises(RuntimeError, match="non-object row"):
+        one_scoped_container_row(
+            ["not-a-container-row"],
+            project="platform",
+            service="embedding-vllm",
+        )
+
+
+def test_require_compose_project_normalizes_whitespace() -> None:
+    assert require_compose_project("  platform  ") == "platform"
