@@ -54,13 +54,13 @@ def parse_runtime_transition_request(
     return desired_state, force, plan_digest
 
 
-def project_sidecar_runtime_plan(
+def project_runtime_controller_plan(
     plan: Mapping[str, Any],
     *,
     service_key: str,
     container_to_key: Mapping[str, str],
 ) -> dict[str, Any]:
-    """Sidecar 내부 compose service 이름을 public service_key contract로 투영한다."""
+    """Runtime Controller 내부 compose service 이름을 public service_key contract로 투영한다."""
 
     def public_key(value: object) -> str:
         key = str(value)
