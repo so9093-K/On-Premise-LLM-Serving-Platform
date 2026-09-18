@@ -113,7 +113,7 @@ def test_static_target_keeps_bootstrap_but_disables_runtime_and_monitoring_capab
     monkeypatch,
 ) -> None:
     monkeypatch.setenv("DEPLOYMENT_TARGET", "linux-nvidia-static")
-    monkeypatch.setenv("MAIN_LLM_STATIC_PROFILE", "gemma4-12b-unified-fp8")
+    monkeypatch.setenv("MAIN_MODEL_STATIC_PROFILE", "gemma4-12b-unified-fp8")
     monkeypatch.setenv("ACCESS_PROFILE", "local")
     cfg = load_settings()
     clients = FakeGatewayClients()
@@ -139,8 +139,8 @@ def test_static_target_keeps_bootstrap_but_disables_runtime_and_monitoring_capab
 
 def test_macos_static_bootstrap_uses_target_monitoring_and_compose_exposure(monkeypatch) -> None:
     monkeypatch.setenv("DEPLOYMENT_TARGET", "macos-metal-static")
-    monkeypatch.setenv("MAIN_LLM_STATIC_PROFILE", "gemma4-26b-a4b-qat-4bit-mlx")
-    monkeypatch.setenv("MAIN_LLM_BASE_URL", "http://host.docker.internal:9401/v1")
+    monkeypatch.setenv("MAIN_MODEL_STATIC_PROFILE", "gemma4-26b-a4b-qat-4bit-mlx")
+    monkeypatch.setenv("MAIN_MODEL_BASE_URL", "http://host.docker.internal:9401/v1")
     monkeypatch.setenv("ACCESS_PROFILE", "local")
     monkeypatch.setenv("GRAFANA_PORT", "9611")
     cfg = load_settings()
