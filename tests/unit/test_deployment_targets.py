@@ -159,7 +159,8 @@ def test_static_settings_project_only_main_runtime(monkeypatch) -> None:
     assert settings.embedding_profiles == {}
     assert settings.risk_detectors == ()
     assert settings.risk_adapter_base_url == ""
-    assert settings.admin_sidecar_url == ""
+    assert settings.runtime_controller_url == ""
+    assert settings.admin_sidecar_url == settings.runtime_controller_url
     assert settings.static_main_profile == "gemma4-e4b-it"
     assert settings.default_main_model_gateway_policy["max_output_tokens"] == 15_000
     assert [item["id"] for item in settings.public_models] == ["local-main"]

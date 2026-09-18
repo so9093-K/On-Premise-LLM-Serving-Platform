@@ -1,8 +1,8 @@
-"""SidecarClient가 sidecar 응답을 호출자 계약으로 옮기는 규칙을 검증한다.
+"""RuntimeControllerClient가 Runtime Controller 응답을 호출자 계약으로 옮기는 규칙을 검증한다.
 
-이 client는 gateway가 sidecar에 접근하는 유일한 통로이고, chat 요청 경로에도
-들어있다. 특히 두 가지가 섞이면 안 된다 -- "sidecar에 닿지 못했다"(Unavailable)와
-"sidecar가 요청을 거부했다"(RequestError, 예: GPU 예산 부족 409)."""
+이 client는 Gateway가 Runtime Controller에 접근하는 유일한 통로이고, chat 요청 경로에도
+들어있다. 특히 두 가지가 섞이면 안 된다 -- "Runtime Controller에 닿지 못했다"(Unavailable)와
+"Runtime Controller가 요청을 거부했다"(RequestError, 예: GPU 예산 부족 409)."""
 
 from __future__ import annotations
 
@@ -11,15 +11,27 @@ import asyncio
 import httpx
 import pytest
 
-from ai_model_serving.services.sidecar_client import (
-    SidecarClient,
-    SidecarRequestError,
-    SidecarUnavailableError,
+from ai_model_serving.services.runtime_controller_client import (
+    RuntimeControllerClient,
+    RuntimeControllerRequestError,
+    RuntimeControllerUnavailableError,
 )
 
 
-def _client(handler) -> SidecarClient:
-    client = SidecarClient("http://sidecar:8080", "token")
+def test_legacy_sidecar_client_exports_are_identity_aliases():
+    from ai_model_serving.services.sidecar_client import (
+        SidecarClient,
+        SidecarRequestError,
+        SidecarUnavailableError,
+    )
+
+    assert SidecarClient is RuntimeControllerClient
+    assert SidecarRequestError is RuntimeControllerRequestError
+    assert SidecarUnavailableError is RuntimeControllerUnavailableError
+
+
+def _client(handler) -> RuntimeControllerClient:
+    client = RuntimeControllerClient("http://runtime-controller:8080", "token")
     client._client = httpx.AsyncClient(
         transport=httpx.MockTransport(handler), headers={"Authorization": "Bearer token"}
     )
@@ -49,14 +61,14 @@ def test_budget_rejection_keeps_status_and_plan_but_other_errors_do_not():
 
     client = _client(handler)
 
-    with pytest.raises(SidecarRequestError) as budget:
+    with pytest.raises(RuntimeControllerRequestError) as budget:
         asyncio.run(client.start("main-llm-vllm"))
     assert budget.value.status_code == 409
     assert budget.value.detail == {"evict": ["embedding"]}
 
-    # 500은 계획을 담은 거부가 아니라 그냥 control-plane 장애다. 다만 sidecar에
+    # 500은 계획을 담은 거부가 아니라 그냥 control-plane 장애다. 다만 Runtime Controller에
     # 닿지도 못한 경우와 구분되도록 상태 코드는 메시지에 남아야 한다.
-    with pytest.raises(SidecarUnavailableError) as failure:
+    with pytest.raises(RuntimeControllerUnavailableError) as failure:
         asyncio.run(client.gpu_budget())
     assert "500" in str(failure.value)
 
@@ -65,5 +77,5 @@ def test_transport_failure_is_reported_as_unavailable():
     def handler(request: httpx.Request) -> httpx.Response:
         raise httpx.ConnectError("no route to host")
 
-    with pytest.raises(SidecarUnavailableError):
+    with pytest.raises(RuntimeControllerUnavailableError):
         asyncio.run(_client(handler).main_model(observed=False))

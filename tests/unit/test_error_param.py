@@ -269,13 +269,13 @@ def test_sidecar_failure_is_publicly_generic_and_internally_correlated(monkeypat
         create_gateway_app,
         settings,
     )
-    from ai_model_serving.services.sidecar_client import SidecarClient
+    from ai_model_serving.services.runtime_controller_client import RuntimeControllerClient
 
     monkeypatch.setenv("REQUEST_EVENT_LOG_DIR", str(tmp_path))
     internal_detail = "state file /var/lib/ai-model-serving/main-model-state.json is corrupt"
 
     clients = FakeGatewayClients()
-    sidecar = SidecarClient("http://admin-sidecar:8080", "internal-token")
+    sidecar = RuntimeControllerClient("http://admin-sidecar:8080", "internal-token")
     sidecar._client = httpx.AsyncClient(
         transport=httpx.MockTransport(lambda request: httpx.Response(500, json={"detail": internal_detail})),
         headers={},
@@ -299,6 +299,6 @@ def test_sidecar_failure_is_publicly_generic_and_internally_correlated(monkeypat
     records = [json.loads(line) for line in (tmp_path / "gateway.jsonl").read_text().splitlines()]
     assert len(records) == 1
     assert internal_detail in records[0]["error_cause_message"]
-    assert records[0]["error_cause_type"] == "SidecarUnavailableError"
+    assert records[0]["error_cause_type"] == "RuntimeControllerUnavailableError"
     assert records[0]["error_code"] == "MAIN_MODEL_CONTROL_UNAVAILABLE"
     assert records[0]["request_id"] == body["request_id"]

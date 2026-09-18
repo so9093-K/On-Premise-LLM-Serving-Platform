@@ -36,10 +36,10 @@ from ...runtime_transition_history import (
     RuntimeTransitionHistoryUnavailable,
 )
 from ...services.runtime_state import RuntimeState, RuntimeStateStore
-from ...services.sidecar_client import (
-    SidecarClient,
-    SidecarRequestError,
-    SidecarUnavailableError,
+from ...services.runtime_controller_client import (
+    RuntimeControllerClient,
+    RuntimeControllerRequestError,
+    RuntimeControllerUnavailableError,
 )
 from ...runtime_transition_contract import (
     parse_runtime_transition_request,
@@ -342,7 +342,7 @@ def _secondary_converged(desired_state: str, observed_state: str | None) -> bool
 
 
 async def _best_effort_secondary_before(
-    sidecar: SidecarClient | None,
+    sidecar: RuntimeControllerClient | None,
     container: str,
     desired_state: str,
 ) -> dict[str, Any]:
@@ -350,13 +350,13 @@ async def _best_effort_secondary_before(
     if sidecar is not None:
         try:
             observed_state = (await sidecar.get_status()).get(container, "not_found")
-        except (SidecarRequestError, SidecarUnavailableError):
+        except (RuntimeControllerRequestError, RuntimeControllerUnavailableError):
             observed_state = None
     return {"desired_state": desired_state, "observed_state": observed_state}
 
 
 async def _verify_secondary_transition(
-    sidecar: SidecarClient,
+    sidecar: RuntimeControllerClient,
     *,
     container: str,
     desired_state: str,
@@ -383,10 +383,10 @@ async def _verify_secondary_transition(
     }
 
 
-async def _best_effort_main_before(sidecar: SidecarClient) -> dict[str, Any]:
+async def _best_effort_main_before(sidecar: RuntimeControllerClient) -> dict[str, Any]:
     try:
         snapshot = await sidecar.main_model()
-    except (SidecarRequestError, SidecarUnavailableError):
+    except (RuntimeControllerRequestError, RuntimeControllerUnavailableError):
         return {"runtime_state": None, "observed_state": None}
     observed = snapshot.get("observed_runtime") or {}
     return {
@@ -397,7 +397,7 @@ async def _best_effort_main_before(sidecar: SidecarClient) -> dict[str, Any]:
 
 
 async def _verify_main_transition(
-    sidecar: SidecarClient,
+    sidecar: RuntimeControllerClient,
     *,
     desired_state: str,
     evicted: list[str],
@@ -453,7 +453,7 @@ def _verification_failure(
 def build_router(
     admin_dependencies: list,
     state_store: RuntimeStateStore,
-    sidecar: SidecarClient | None,
+    sidecar: RuntimeControllerClient | None,
     settings: Any,
     history_store: RuntimeTransitionHistoryStore,
 ) -> APIRouter:
@@ -506,16 +506,16 @@ def build_router(
         if sidecar is not None:
             try:
                 container_statuses = await sidecar.get_status()
-            except SidecarUnavailableError:
+            except RuntimeControllerUnavailableError:
                 container_statuses = {}
             try:
                 budget = await sidecar.gpu_budget()
-            except SidecarUnavailableError:
+            except RuntimeControllerUnavailableError:
                 budget = None
             try:
                 # 이 목록은 gate·runtime_state·active profile만 쓴다.
                 main_model = await sidecar.main_model(observed=False)
-            except SidecarUnavailableError:
+            except RuntimeControllerUnavailableError:
                 main_model = None
 
         runtimes = []
@@ -616,9 +616,9 @@ def build_router(
                 desired_state=desired_state,
                 force=force,
             )
-        except SidecarRequestError as exc:
+        except RuntimeControllerRequestError as exc:
             return sidecar_request_error_response(exc)
-        except SidecarUnavailableError as exc:
+        except RuntimeControllerUnavailableError as exc:
             return sidecar_unavailable_response(exc)
         return JSONResponse(
             project_sidecar_runtime_plan(
@@ -764,7 +764,7 @@ def build_router(
                         if plan_digest
                         else await sidecar.main_stop()
                     )
-            except SidecarRequestError as exc:
+            except RuntimeControllerRequestError as exc:
                 _finish_runtime_operation(
                     history_store,
                     request,
@@ -776,7 +776,7 @@ def build_router(
                     error={"code": "sidecar_request_rejected", "status_code": exc.status_code},
                 )
                 return _with_operation_header(sidecar_request_error_response(exc), operation_id)
-            except SidecarUnavailableError as exc:
+            except RuntimeControllerUnavailableError as exc:
                 _finish_runtime_operation(
                     history_store,
                     request,
@@ -799,7 +799,7 @@ def build_router(
                     desired_state=desired_state,
                     evicted=apply_result["evicted"],
                 )
-            except (SidecarRequestError, SidecarUnavailableError):
+            except (RuntimeControllerRequestError, RuntimeControllerUnavailableError):
                 verification = {
                     "converged": False,
                     "source": "main_model_observed",
@@ -883,9 +883,9 @@ def build_router(
             if current_state == RuntimeState.active and sidecar is not None:
                 try:
                     actual = (await sidecar.get_status()).get(container, "not_found")
-                except SidecarRequestError as exc:
+                except RuntimeControllerRequestError as exc:
                     return sidecar_request_error_response(exc)
-                except SidecarUnavailableError as exc:
+                except RuntimeControllerUnavailableError as exc:
                     return sidecar_unavailable_response(exc)
                 if actual == "running" and plan_digest is None:
                     operation_id = _begin_runtime_operation(
@@ -953,7 +953,7 @@ def build_router(
                     if plan_digest
                     else await sidecar.start(container, force=force)
                 )
-            except SidecarRequestError as exc:
+            except RuntimeControllerRequestError as exc:
                 await state_store.set(
                     service_key,
                     RuntimeState.stopped,
@@ -971,7 +971,7 @@ def build_router(
                     error={"code": "sidecar_request_rejected", "status_code": exc.status_code},
                 )
                 return _with_operation_header(sidecar_request_error_response(exc), operation_id)
-            except SidecarUnavailableError as exc:
+            except RuntimeControllerUnavailableError as exc:
                 await state_store.set(
                     service_key,
                     RuntimeState.stopped,
@@ -1028,7 +1028,7 @@ def build_router(
                     stopped=[],
                     evicted=evicted_containers,
                 )
-            except (SidecarRequestError, SidecarUnavailableError):
+            except (RuntimeControllerRequestError, RuntimeControllerUnavailableError):
                 verification = {
                     "converged": False,
                     "source": "sidecar_container_status",
@@ -1104,9 +1104,9 @@ def build_router(
         if current_state == RuntimeState.stopped and sidecar is not None:
             try:
                 actual = (await sidecar.get_status()).get(container, "not_found")
-            except SidecarRequestError as exc:
+            except RuntimeControllerRequestError as exc:
                 return sidecar_request_error_response(exc)
-            except SidecarUnavailableError as exc:
+            except RuntimeControllerUnavailableError as exc:
                 return sidecar_unavailable_response(exc)
             if actual in {"exited", "not_found"} and plan_digest is None:
                 operation_id = _begin_runtime_operation(
@@ -1171,7 +1171,7 @@ def build_router(
                 if plan_digest
                 else await sidecar.stop(container)
             )
-        except SidecarRequestError as exc:
+        except RuntimeControllerRequestError as exc:
             _finish_runtime_operation(
                 history_store,
                 request,
@@ -1183,7 +1183,7 @@ def build_router(
                 error={"code": "sidecar_request_rejected", "status_code": exc.status_code},
             )
             return _with_operation_header(sidecar_request_error_response(exc), operation_id)
-        except SidecarUnavailableError as exc:
+        except RuntimeControllerUnavailableError as exc:
             await state_store.set(
                 service_key,
                 RuntimeState.active,
@@ -1212,7 +1212,7 @@ def build_router(
                 stopped=stopped,
                 evicted=[],
             )
-        except (SidecarRequestError, SidecarUnavailableError):
+        except (RuntimeControllerRequestError, RuntimeControllerUnavailableError):
             verification = {
                 "converged": False,
                 "source": "sidecar_container_status",
@@ -1250,7 +1250,7 @@ def build_router(
             "verification": verification,
         })
 
-    async def require_sidecar() -> SidecarClient:
+    async def require_sidecar() -> RuntimeControllerClient:
         if sidecar is None:
             raise ServiceError(
                 "MAIN_MODEL_CONTROL_UNAVAILABLE",
@@ -1306,11 +1306,11 @@ def build_router(
         client = await require_sidecar()
         try:
             return JSONResponse(await client.main_model())
-        except SidecarRequestError as exc:
+        except RuntimeControllerRequestError as exc:
             # 4xx는 요청이 잘못된 것이다. control plane 장애(503, retryable)로
             # 보고하면 성공할 수 없는 요청을 계속 재시도하게 된다.
             return sidecar_request_error_response(exc)
-        except SidecarUnavailableError as exc:
+        except RuntimeControllerUnavailableError as exc:
             return sidecar_unavailable_response(exc)
 
     _s = _GW[("GET", "/admin/main-model/profiles")]
@@ -1343,11 +1343,11 @@ def build_router(
         client = await require_sidecar()
         try:
             return JSONResponse({"profiles": await client.main_model_profiles()})
-        except SidecarRequestError as exc:
+        except RuntimeControllerRequestError as exc:
             # 4xx는 요청이 잘못된 것이다. control plane 장애(503, retryable)로
             # 보고하면 성공할 수 없는 요청을 계속 재시도하게 된다.
             return sidecar_request_error_response(exc)
-        except SidecarUnavailableError as exc:
+        except RuntimeControllerUnavailableError as exc:
             return sidecar_unavailable_response(exc)
 
     _s = _GW[("POST", "/admin/main-model/switch")]
@@ -1416,9 +1416,9 @@ def build_router(
                 request_id=payload.get("request_id"),
             )
             return JSONResponse(result, status_code=202)
-        except SidecarRequestError as exc:
+        except RuntimeControllerRequestError as exc:
             return sidecar_request_error_response(exc)
-        except SidecarUnavailableError as exc:
+        except RuntimeControllerUnavailableError as exc:
             return sidecar_unavailable_response(exc)
 
     _s = _GW[("GET", "/admin/main-model/operations")]
@@ -1448,9 +1448,9 @@ def build_router(
         client = await require_sidecar()
         try:
             return JSONResponse(await client.main_model_operations())
-        except SidecarRequestError as exc:
+        except RuntimeControllerRequestError as exc:
             return sidecar_request_error_response(exc)
-        except SidecarUnavailableError as exc:
+        except RuntimeControllerUnavailableError as exc:
             return sidecar_unavailable_response(exc)
 
     _s = _GW[("GET", "/admin/main-model/operations/{operation_id}")]
@@ -1481,10 +1481,10 @@ def build_router(
         client = await require_sidecar()
         try:
             return JSONResponse(await client.main_model_operation(operation_id))
-        except SidecarRequestError as exc:
+        except RuntimeControllerRequestError as exc:
             # 404(없는 operation)는 여기서 NOT_FOUND / retryable=false로 나간다.
             return sidecar_request_error_response(exc)
-        except SidecarUnavailableError as exc:
+        except RuntimeControllerUnavailableError as exc:
             return sidecar_unavailable_response(exc)
 
     # 메인 정지/시작은 별도 엔드포인트가 아니다: 메인 모델도 예산 참여자이며
