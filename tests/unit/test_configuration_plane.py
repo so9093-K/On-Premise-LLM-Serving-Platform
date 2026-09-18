@@ -43,7 +43,7 @@ def test_configuration_projection_has_explicit_ownership_and_never_returns_secre
     }
     assert "test-key" not in str(body)
     values = {item["key"]: item["effective_value"] for item in body["items"]}
-    assert values["deployment.control_mode"] == "sidecar"
+    assert values["deployment.control_mode"] == "runtime_controller"
     assert values["deployment.lifecycle_owner"] == "platform"
     assert "runtime_control" in values["deployment.features"]
     assert values["operational.max_retrieval_documents"] == app_settings.max_retrieval_documents
