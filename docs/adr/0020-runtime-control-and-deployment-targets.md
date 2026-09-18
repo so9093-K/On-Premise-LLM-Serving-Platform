@@ -21,7 +21,7 @@ macOS 지원을 운영체제 분기로 구현하면 serving 계약과 runtime li
 
 - `runtime_backend`: `vllm-cuda`, `mlx-vlm` 등 실제 inference backend
 - `main_profile_catalog`: target이 사용하는 Main serving/runtime catalog
-- `control_mode`: `sidecar` 또는 `static`
+- `control_mode`: `runtime_controller` 또는 `static`
 - `lifecycle_owner`: `platform` 또는 `external`
 - `implementation_status`: `planned` 또는 `implemented`
 - `qualification_status`: `verified` 또는 `unverified`
