@@ -457,8 +457,17 @@ def diagnose_auth(settings: AppSettings, project_root: Path) -> list[AuthFinding
                 for svc_name in published_svc_names:
                     svc = services_data.get(svc_name, {})
                     bind_env = svc.get("host_env_bind", "")
+                    legacy_bind_env = svc.get("legacy_host_env_bind", "")
                     default_bind = svc.get("default_bind", "0.0.0.0")
-                    actual_bind = _env(bind_env, default_bind) if bind_env else default_bind
+                    actual_bind = (
+                        _env(
+                            str(bind_env),
+                            str(default_bind),
+                            legacy_name=str(legacy_bind_env) or None,
+                        )
+                        if bind_env
+                        else default_bind
+                    )
                     if actual_bind == "0.0.0.0":
                         open_bind_svcs.append(f"{svc.get('compose_service', svc_name)} ({bind_env or 'default'}={actual_bind})")
                 if open_bind_svcs:
