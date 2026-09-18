@@ -95,8 +95,8 @@ def create_risk_adapter_app(settings: AppSettings | None = None, clients: RiskCl
     clients = clients or RiskClients(settings)
     _ensure_detector_client_map(clients)
     local_detectors = _build_local_detectors(settings)
-    metrics = Metrics("risk-adapter")
-    logger = service_logger("risk-adapter")
+    metrics = Metrics("risk-signal-service")
+    logger = service_logger("risk-signal-service")
     service = RiskAssessmentService(
         clients,
         metrics,
@@ -132,7 +132,7 @@ def create_risk_adapter_app(settings: AppSettings | None = None, clients: RiskCl
 
     install_exception_handlers(app, metrics=metrics, logger=logger, validation_reason=validation_reason)
     register_documentation_ui(app, settings=settings, title="Risk Signal Service")
-    register_health(app, service="risk-adapter", spec=_RA_SPECS[("GET", "/health")])
+    register_health(app, service="risk-signal-service", spec=_RA_SPECS[("GET", "/health")])
 
     app.include_router(_build_ops_router(admin_dependencies, clients, metrics, settings))
     app.include_router(_build_risk_router(api_dependencies, service, settings))
