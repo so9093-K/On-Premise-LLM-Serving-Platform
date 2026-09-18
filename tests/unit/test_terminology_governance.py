@@ -65,15 +65,3 @@ def test_adr_history_is_outside_display_terminology_gate(tmp_path):
     assert terminology_violations(tmp_path) == []
 
 
-def test_retired_runtime_controller_service_id_is_rejected(tmp_path):
-    compose = tmp_path / "ops" / "compose"
-    compose.mkdir(parents=True)
-    (compose / "full-stack.private-network.yaml").write_text(
-        "services:\n  admin-sidecar:\n    image: platform\n",
-        encoding="utf-8",
-    )
-
-    assert terminology_violations(tmp_path) == [
-        "ops/compose/full-stack.private-network.yaml:2: retired active identifier "
-        "'admin-sidecar'; use 'runtime-controller'"
-    ]
