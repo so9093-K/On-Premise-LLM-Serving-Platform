@@ -2,7 +2,7 @@
 version: 1
 # 외부 API가 사용하는 고정 model 이름이다.
 public_model: local-main
-# MAIN_LLM_BOOT_PROFILE이 비어 있을 때 시작할 profile이다.
+# MAIN_MODEL_BOOT_PROFILE이 비어 있을 때 시작할 profile이다.
 default_profile: gemma4-12b-unified-fp8
 # Admin Sidecar가 전환·상태 확인에 사용하는 공통 runtime 연결 정보다.
 runtime:
@@ -179,7 +179,7 @@ profiles:
     - "50000"
     - --optimization-level
     - "3"
-    # host별 VRAM 비율은 MAIN_LLM_GPU_MEMORY_UTILIZATION으로만 바꾼다.
+    # host별 VRAM 비율은 MAIN_MODEL_GPU_MEMORY_UTILIZATION으로만 바꾼다.
     - --gpu-memory-utilization
     - "0.76"
     - --tensor-parallel-size
@@ -302,7 +302,7 @@ profiles:
       # 15,000 token은 73 tok/s 기준 약 205초다. 자연 종료 최댓값이 12,616 token(상한의
       # 97%)까지 관측돼 13000은 여유가 3%밖에 없었다.
       #
-      # 전제: MAIN_LLM_TIMEOUT_SECONDS >= 400 (그리고 REQUEST_TIMEOUT_SECONDS는 그 이상).
+      # 전제: MAIN_MODEL_TIMEOUT_SECONDS >= 400 (그리고 REQUEST_TIMEOUT_SECONDS는 그 이상).
       # 배포된 .env의 운영자 값이며 sync-env가 덮지 않는다. 300초로 남아 있어도 단일·2건
       # 경로는 205초라 들어가지만, 4-way 동시 긴 생성이나 reasoning이 붙으면 여유가 없다.
       #
@@ -582,7 +582,7 @@ description: |
   작을 것으로 예상하나 확정 아님). 배포 전 재부팅 후 재측정 필요.
 
   게이트웨이 max_output_tokens 정책을 8192 -> 13000으로 올렸다(단일 스트림 실측 52
-  tokens/sec 기준, MAIN_LLM_TIMEOUT_SECONDS=300 안에 약 250초로 여유 50초). 위 58192
+  tokens/sec 기준, MAIN_MODEL_TIMEOUT_SECONDS=300 안에 약 250초로 여유 50초). 위 58192
   산식(50000 입력 + 8192 출력)이 더 이상 정확히 들어맞지 않는다 -- max-model-len은 58192
   그대로 뒀으므로, 출력이 13000을 다 쓰는 최악의 경우 입력 여유는 50000이 아니라
   58192-13000=45192로 줄어든다. 원래 의도한 50000 입력 여유를 그대로 지키려면
