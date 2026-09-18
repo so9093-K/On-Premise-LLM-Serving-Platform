@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from .configuration import load_yaml_mapping
-from .deployment_target_state import normalize_deployment_target_state
+from .deployment_target_state import validate_deployment_target_state
 
 
 KNOWN_FEATURES = frozenset(
@@ -36,7 +36,6 @@ class DeploymentTarget:
     internal_service_token_required: bool
     implementation_status: str
     qualification_status: str
-    legacy_validation_status: str
     features: frozenset[str]
     compose_files: tuple[str, ...]
     exposure_profile_applies: bool
@@ -48,11 +47,6 @@ class DeploymentTarget:
     @property
     def controllable(self) -> bool:
         return self.control_mode == "sidecar" and self.lifecycle_owner == "platform"
-
-    @property
-    def validation_status(self) -> str:
-        """Legacy projection retained for existing API/configuration consumers."""
-        return self.legacy_validation_status
 
 
 def effective_published_compose_services(
@@ -100,7 +94,7 @@ def load_deployment_target(path: Path, target_id: str | None = None) -> Deployme
     runs_monitoring_stack = raw.get("runs_monitoring_stack")
     internal_service_token_required = raw.get("internal_service_token_required")
     try:
-        target_state = normalize_deployment_target_state(selected, raw)
+        target_state = validate_deployment_target_state(selected, raw)
     except ValueError as exc:
         raise RuntimeError(str(exc)) from exc
     raw_features: Any = raw.get("features")
@@ -230,7 +224,6 @@ def load_deployment_target(path: Path, target_id: str | None = None) -> Deployme
         internal_service_token_required=internal_service_token_required,
         implementation_status=target_state.implementation_status,
         qualification_status=target_state.qualification_status,
-        legacy_validation_status=target_state.legacy_validation_status,
         features=features,
         compose_files=tuple(compose_files),
         exposure_profile_applies=exposure_profile_applies,
