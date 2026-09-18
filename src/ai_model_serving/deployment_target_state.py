@@ -67,12 +67,12 @@ def normalize_deployment_target_state(
                 f"deployment target {target_id!r} must not combine canonical state "
                 "with legacy validation_status"
             )
-        if implementation not in IMPLEMENTATION_STATUSES:
+        if not isinstance(implementation, str) or implementation not in IMPLEMENTATION_STATUSES:
             raise ValueError(
                 f"deployment target {target_id!r} has invalid implementation_status "
                 f"{implementation!r}; allowed: {sorted(IMPLEMENTATION_STATUSES)}"
             )
-        if qualification not in QUALIFICATION_STATUSES:
+        if not isinstance(qualification, str) or qualification not in QUALIFICATION_STATUSES:
             raise ValueError(
                 f"deployment target {target_id!r} has invalid qualification_status "
                 f"{qualification!r}; allowed: {sorted(QUALIFICATION_STATUSES)}"
@@ -89,7 +89,7 @@ def normalize_deployment_target_state(
             legacy_validation_status=projected,
         )
 
-    if legacy not in LEGACY_VALIDATION_STATUSES:
+    if not isinstance(legacy, str) or legacy not in LEGACY_VALIDATION_STATUSES:
         raise ValueError(
             f"deployment target {target_id!r} has invalid validation_status {legacy!r}; "
             f"allowed during migration: {sorted(LEGACY_VALIDATION_STATUSES)}"
