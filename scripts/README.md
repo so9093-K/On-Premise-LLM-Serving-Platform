@@ -83,7 +83,7 @@ make down
 ## 운영 주의사항
 
 - `make init-env-compose`는 기존 `.env`가 있으면 실패하고 보존한다.
-- `.runtime/prometheus/admin_api_key`만 사라졌거나 손상되었다면 `.env`를 다시 만들지 말고 `make compose-up`을 실행한다. Compose 기동 전 이 파일을 자동 복구한다. 이 파일은 Prometheus Compose secret source이므로 일반 파일이어야 하며, non-root Prometheus image가 읽을 수 있도록 `0644` 권한으로 생성된다.
+- `.runtime/prometheus/admin_api_key`만 사라졌거나 손상되었다면 `.env`를 다시 만들지 말고 `make compose-up`을 실행한다. Compose 기동 전 이 파일을 자동 복구한다. 이 파일은 Prometheus Compose secret source이므로 일반 파일이어야 하며, non-root Prometheus image가 읽을 수 있도록 파일은 `0644`로 생성한다. Host에서는 source directory `.runtime/prometheus`를 `0700`으로 고정해 다른 사용자의 path 접근을 막는다.
 - app-only `.env`의 `make up`은 vLLM을 시작하지 않고 Gateway/Risk Adapter만 실행한다.
 - app-only 확인은 `make ready-local`, strict full-stack 확인은 `make ready-full`을 사용한다.
 - full-stack 기동인 `make compose-up`에는 Docker/GPU/포트/secret preflight가 포함된다.
