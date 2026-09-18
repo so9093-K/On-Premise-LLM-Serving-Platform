@@ -35,3 +35,13 @@ def test_runtime_controller_docker_socket_is_not_host_published() -> None:
     assert controller["expose"] == ["8080"]
     assert controller["environment"]["DOCKER_SOCKET"] == "/var/run/docker.sock"
     assert "COMPOSE_PROJECT_NAME" in controller["environment"]["COMPOSE_PROJECT"]
+
+
+def test_runtime_controller_is_not_host_privileged_or_host_networked() -> None:
+    document = yaml.safe_load(COMPOSE.read_text(encoding="utf-8"))
+    controller = document["services"]["admin-sidecar"]
+
+    assert controller.get("privileged") is not True
+    assert controller.get("network_mode") != "host"
+    assert not controller.get("cap_add")
+    assert controller["environment"]["COMPOSE_PROJECT"].strip()
