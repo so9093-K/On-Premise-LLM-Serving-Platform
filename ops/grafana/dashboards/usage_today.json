@@ -303,7 +303,7 @@
         },
         "overrides": []
       },
-      "description": "선택 window 동안 upstream(vLLM/risk-adapter) 호출이 target별·code별로 얼마나 실패했는지 본다(QUEUE_TIMEOUT, CIRCUIT_OPEN, GATEWAY_TIMEOUT 등). Healthy: 값 없음 — 정상. Attention: 항목이 보이면 어느 target에서 어떤 code로 실패하는지 바로 보고 admission/circuit breaker/모델 상태를 확인한다. No Data: check gateway scrape."
+      "description": "선택 window 동안 upstream(vLLM/risk-signal-service) 호출이 target별·code별로 얼마나 실패했는지 본다(QUEUE_TIMEOUT, CIRCUIT_OPEN, GATEWAY_TIMEOUT 등). Healthy: 값 없음 — 정상. Attention: 항목이 보이면 어느 target에서 어떤 code로 실패하는지 바로 보고 admission/circuit breaker/모델 상태를 확인한다. No Data: check gateway scrape."
     }
   ],
   "refresh": "30s",
