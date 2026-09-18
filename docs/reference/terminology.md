@@ -11,8 +11,9 @@
 2. **표시명과 식별자를 분리한다.** 사람이 읽는 이름은 개선할 수 있지만, API path·service key·env key는
    migration 없이 바꾸지 않는다.
 3. **원하는 상태와 실제 상태를 구분한다.** `desired state`와 `observed state`를 섞지 않는다.
-4. **검증 수준과 기술 호환성을 섞지 않는다.** 사용자 화면에서는 검증 근거를 `Qualification`으로
-   표현한다. 기존 API의 `compatibility.status`는 호환성 유지를 위한 필드명이다.
+4. **검증 수준과 기술 호환성을 섞지 않는다.** 장기 canonical 상태는 기술적 `Compatibility`와
+   실제 검증 근거인 `Qualification`을 별도 축으로 둔다. 기존 API의 `compatibility.status`는
+   별도 migration 전까지 legacy projection으로 유지할 수 있다.
 5. **위험한 동작은 효과를 설명한다.** `force`처럼 구현 중심 표현만 버튼에 노출하지 않고 실제 영향
    (예: 다른 runtime 자동 중지 허용)을 설명한다.
 6. **영문 제품명은 `On-Premises`를 사용한다.** `On-Premise`는 새 문서·표시명에서 사용하지 않는다.
@@ -63,21 +64,24 @@
 - canonical과 legacy 값이 동시에 존재하면서 다르면 실행을 중단한다.
 - `PACKAGE_NAME`은 release ZIP 파일명을 바꾸는 packaging process override이며 Runtime `.env` key가 아니다.
 
-## Stable legacy namespaces
+## Migration namespaces
 
-다음 식별자는 이름이 canonical display term과 완전히 일치하지 않지만 기존 자동화와 runtime key에
-넓게 연결되어 있어 **안정 호환 namespace**로 유지한다. 새 의미를 추가할 때 이 prefix를 관성적으로
-복제하지 않는다.
+다음 식별자는 현재 자동화와 runtime key에 넓게 연결되어 있어 **즉시 제거하지 않는 compatibility namespace**다.
+사용 범위가 크다는 사실은 migration 기간과 순서를 결정하지만 장기 canonical target 자체를 결정하지 않는다.
+새 코드와 설정은 역할 중심 target을 우선하고, 기존 identifier는 ADR-0030의 alias → migration → validation →
+legacy removal 순서를 따른다.
 
-- `MAIN_LLM_*`: 내부 runtime key `main_llm`과 오랫동안 연결된 operator env namespace.
-  Main Model이 multimodal까지 확장되어 이름은 좁지만, 전면 rename은 별도 compatibility migration으로 다룬다.
-- `risk_adapter` / `RISK_ADAPTER_*`: 안정 service/config identifier. 사용자-facing 표시명은
-  **Risk Signal Service**를 사용한다.
-- `risk_prompt` / `RISK_PROMPT_*`: 안정 runtime/model identifier. 사용자-facing 표시명은
-  **Prompt Injection Detector**를 사용한다.
-- `admin-sidecar`: 안정 Compose service ID. 사용자-facing 표시명은 **Runtime Controller**다.
+| 현재 namespace | 장기 canonical target | 현재 정책 |
+|---|---|---|
+| `MAIN_LLM_*` | `MAIN_MODEL_*` | operator env부터 단계적 migration. `MAIN_LLM_MODEL`은 `MAIN_MODEL_ALIAS`가 target |
+| `risk_adapter` / `RISK_ADAPTER_*` | Risk Signal Service 계열 identifier | 공개 `/v1/risk/*` API는 그대로 유지 |
+| `risk_prompt` / `RISK_PROMPT_*` | Prompt Injection Detector 계열 identifier | runtime/model 내부 identifier만 별도 migration |
+| `admin-sidecar` / `admin_sidecar` | Runtime Controller 계열 identifier | Compose/module/client를 한 번에 바꾸지 않고 단계별 migration |
 
-## Ambiguous stable env keys
+migration이 완료되기 전에는 기존 식별자를 삭제하거나 새 target과 충돌하는 값을 자동 선택하지 않는다.
+canonical과 legacy 값이 동시에 존재하면서 다르면 fail-closed를 기본으로 한다.
+
+## Legacy and ambiguous env keys
 
 다음 key는 이름만 보고 의미를 추측하면 잘못 쓰기 쉬우므로 별도 의미 계약으로 유지한다.
 
@@ -100,6 +104,9 @@
 3. sync/migration 도구가 기존 persistent 값을 손실 없이 새 식별자로 이동한다.
 4. 모든 생성물·검증·테스트가 canonical 식별자를 사용하도록 수렴한다.
 5. 최소 한 호환 기간 뒤 legacy 식별자를 제거한다.
+
+변경 비용이나 현재 참조 수는 target state를 낮추는 근거로 사용하지 않는다. 먼저 의미와 책임에 맞는
+canonical target을 정하고, 그 다음에 migration 순서와 기간을 결정한다.
 
 사용자-facing 표시명 변경은 안정 식별자 변경과 묶지 않는다. 예를 들어 Console과 문서는
 **Runtime Controller**라고 표시하되 Compose service ID `admin-sidecar`는 별도 migration 전까지
