@@ -15,7 +15,7 @@
   "properties": {
     "bootstrap_version": {
       "type": "integer",
-      "const": 1
+      "const": 2
     },
     "platform": {
       "type": "object",
@@ -45,6 +45,8 @@
         "platform",
         "runtime_backend",
         "validation_status",
+        "qualification_status",
+        "implementation_status",
         "control_mode",
         "lifecycle_owner",
         "features"
@@ -97,6 +99,20 @@
             "minLength": 1
           },
           "uniqueItems": true
+        },
+        "implementation_status": {
+          "type": "string",
+          "enum": [
+            "planned",
+            "implemented"
+          ]
+        },
+        "qualification_status": {
+          "type": "string",
+          "enum": [
+            "verified",
+            "unverified"
+          ]
         }
       }
     },

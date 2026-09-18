@@ -27,11 +27,15 @@ function runtimeStateCount(
   return runtimes.filter((runtime) => runtime.state === state).length;
 }
 
-function environmentStatusLabel(status: string): string {
-  if (status === 'verified') return 'Verified';
-  if (status === 'implemented') return 'Implemented · qualification pending';
+function implementationStatusLabel(status: string): string {
+  if (status === 'implemented') return 'Implemented';
   if (status === 'planned') return 'Planned';
-  if (status === 'unvalidated') return 'Unvalidated';
+  return status;
+}
+
+function qualificationStatusLabel(status: string): string {
+  if (status === 'verified') return 'Verified';
+  if (status === 'unverified') return 'Unverified';
   return status;
 }
 
@@ -184,7 +188,8 @@ export function OverviewPage({ bootstrap, token, onUnauthorized }: OverviewPageP
               <dt>Environment</dt><dd>{bootstrap.deployment.display_name}</dd>
               <dt>Environment ID</dt><dd>{bootstrap.deployment.target}</dd>
               <dt>Runtime backend</dt><dd>{bootstrap.deployment.runtime_backend}</dd>
-              <dt>Environment status</dt><dd>{environmentStatusLabel(bootstrap.deployment.validation_status)}</dd>
+              <dt>Implementation</dt><dd>{implementationStatusLabel(bootstrap.deployment.implementation_status)}</dd>
+              <dt>Qualification</dt><dd>{qualificationStatusLabel(bootstrap.deployment.qualification_status)}</dd>
               <dt>Access profile</dt><dd>{bootstrap.access.profile}</dd>
               <dt>Admin auth</dt><dd>{bootstrap.access.admin_auth_required ? 'required' : 'not required'}</dd>
             </dl>

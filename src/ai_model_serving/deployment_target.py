@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from .configuration import load_yaml_mapping
+from .deployment_target_state import normalize_deployment_target_state
 
 
 KNOWN_FEATURES = frozenset(
@@ -20,7 +21,6 @@ KNOWN_FEATURES = frozenset(
 )
 _CONTROL_MODES = frozenset({"sidecar", "static"})
 _LIFECYCLE_OWNERS = frozenset({"platform", "external"})
-_VALIDATION_STATUSES = frozenset({"verified", "implemented", "planned", "unvalidated"})
 
 
 @dataclass(frozen=True)
@@ -34,7 +34,9 @@ class DeploymentTarget:
     control_mode: str
     lifecycle_owner: str
     internal_service_token_required: bool
-    validation_status: str
+    implementation_status: str
+    qualification_status: str
+    legacy_validation_status: str
     features: frozenset[str]
     compose_files: tuple[str, ...]
     exposure_profile_applies: bool
@@ -46,6 +48,11 @@ class DeploymentTarget:
     @property
     def controllable(self) -> bool:
         return self.control_mode == "sidecar" and self.lifecycle_owner == "platform"
+
+    @property
+    def validation_status(self) -> str:
+        """Legacy projection retained for existing API/configuration consumers."""
+        return self.legacy_validation_status
 
 
 def effective_published_compose_services(
@@ -92,7 +99,10 @@ def load_deployment_target(path: Path, target_id: str | None = None) -> Deployme
     lifecycle_owner = str(raw.get("lifecycle_owner", ""))
     runs_monitoring_stack = raw.get("runs_monitoring_stack")
     internal_service_token_required = raw.get("internal_service_token_required")
-    validation_status = str(raw.get("validation_status", ""))
+    try:
+        target_state = normalize_deployment_target_state(selected, raw)
+    except ValueError as exc:
+        raise RuntimeError(str(exc)) from exc
     raw_features: Any = raw.get("features")
     if control_mode not in _CONTROL_MODES:
         raise RuntimeError(f"deployment target {selected!r} has invalid control_mode {control_mode!r}")
@@ -107,10 +117,6 @@ def load_deployment_target(path: Path, target_id: str | None = None) -> Deployme
     if not isinstance(internal_service_token_required, bool):
         raise RuntimeError(
             f"deployment target {selected!r} internal_service_token_required must be boolean"
-        )
-    if validation_status not in _VALIDATION_STATUSES:
-        raise RuntimeError(
-            f"deployment target {selected!r} has invalid validation_status {validation_status!r}"
         )
     if not isinstance(raw_features, dict):
         raise RuntimeError(f"deployment target {selected!r} features must be a mapping")
@@ -222,7 +228,9 @@ def load_deployment_target(path: Path, target_id: str | None = None) -> Deployme
         control_mode=control_mode,
         lifecycle_owner=lifecycle_owner,
         internal_service_token_required=internal_service_token_required,
-        validation_status=validation_status,
+        implementation_status=target_state.implementation_status,
+        qualification_status=target_state.qualification_status,
+        legacy_validation_status=target_state.legacy_validation_status,
         features=features,
         compose_files=tuple(compose_files),
         exposure_profile_applies=exposure_profile_applies,

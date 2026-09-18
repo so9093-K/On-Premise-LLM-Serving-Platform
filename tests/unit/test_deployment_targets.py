@@ -35,6 +35,9 @@ def test_static_target_is_main_only_and_externally_owned() -> None:
     assert target.runs_monitoring_stack is False
     assert target.features == frozenset({"chat"})
     assert target.lifecycle_owner == "external"
+    assert target.implementation_status == "implemented"
+    assert target.qualification_status == "unverified"
+    # Legacy projection remains stable for existing consumers.
     assert target.validation_status == "implemented"
 
 

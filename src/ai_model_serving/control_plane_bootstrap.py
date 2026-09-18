@@ -13,7 +13,7 @@ from .settings_parts.env import env as _env
 from .settings_parts.types import AppSettings
 
 
-BOOTSTRAP_VERSION = 1
+BOOTSTRAP_VERSION = 2
 _LEGACY_PROFILE = "legacy/custom"
 _LEGACY_PROFILE_DESCRIPTION = (
     "Access Profile이 선택되지 않은 advanced/custom 구성입니다. 저수준 인증·노출 설정을 진단용으로 사용합니다."
@@ -37,6 +37,8 @@ class ControlPlaneBootstrapProjection:
     deployment_platform: str
     runtime_backend: str
     validation_status: str
+    implementation_status: str
+    qualification_status: str
     control_mode: str
     lifecycle_owner: str
     features: tuple[str, ...]
@@ -143,6 +145,8 @@ def build_control_plane_bootstrap_projection(
         deployment_platform=target.platform,
         runtime_backend=target.runtime_backend,
         validation_status=target.validation_status,
+        implementation_status=target.implementation_status,
+        qualification_status=target.qualification_status,
         control_mode=target.control_mode,
         lifecycle_owner=target.lifecycle_owner,
         features=tuple(sorted(target.features)),
@@ -185,6 +189,8 @@ def control_plane_bootstrap_document(
             "platform": projection.deployment_platform,
             "runtime_backend": projection.runtime_backend,
             "validation_status": projection.validation_status,
+            "implementation_status": projection.implementation_status,
+            "qualification_status": projection.qualification_status,
             "control_mode": projection.control_mode,
             "lifecycle_owner": projection.lifecycle_owner,
             "features": list(projection.features),
