@@ -79,6 +79,41 @@ jobs:
           PLATFORM_BUILD_PLATFORM: linux/amd64
         run: make build-image
 
+  sdk-lock-sync:
+    name: Temporary SDK lock sync
+    if: ${{ github.event_name == 'pull_request' && github.head_ref == 'test/openai-sdk-conformance' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: "3.12"
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          resolution-strategy: highest
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+      - name: Refresh dependency lock
+        run: uv lock
+      - name: Commit dependency lock
+        env:
+          HEAD_BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: |
+          git add uv.lock
+          if git diff --cached --quiet; then
+            echo "Dependency lock is already current."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "chore: refresh dependency lock"
+          git push origin "HEAD:${HEAD_BRANCH}"
+
   ci-gate:
     name: CI Gate
     if: ${{ always() }}
