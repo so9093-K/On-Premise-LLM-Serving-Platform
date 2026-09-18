@@ -4,7 +4,6 @@ key 없음 등)을 거부하는지 검증한다."""
 
 from __future__ import annotations
 
-from dataclasses import replace
 from pathlib import Path
 import shutil
 
@@ -46,7 +45,6 @@ def isolate_settings_environment(monkeypatch):
         "MAIN_MODEL_MAX_CONCURRENCY",
         "MAIN_MODEL_QUEUE_TIMEOUT_SECONDS",
         "MAIN_MODEL_STATIC_PROFILE",
-        "MAIN_MODEL_MAX_CONCURRENCY",
         "EMBEDDING_MAX_CONCURRENCY",
         "EMBEDDING_QUEUE_TIMEOUT_SECONDS",
         "RISK_PROMPT_TIMEOUT_SECONDS",
