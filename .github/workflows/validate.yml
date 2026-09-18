@@ -64,6 +64,45 @@ jobs:
       - name: Check Control Plane source and generated Console
         run: make console-check
 
+  generated-debug:
+    name: Temporary generated artifact export
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: "3.12"
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          resolution-strategy: highest
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24.20.0"
+          cache: npm
+          cache-dependency-path: ui/control-plane/package-lock.json
+      - name: Pin npm toolchain
+        run: npm install --global npm@11.19.0
+      - name: Prepare developer environment
+        run: make setup-dev PYTHON_BIN=python
+      - name: Render generated API artifacts
+        run: make render-runtime-assets
+      - name: Build generated Control Plane assets
+        run: |
+          npm --prefix ui/control-plane ci
+          npm --prefix ui/control-plane run build
+      - name: Upload generated candidates
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: generated-candidates
+          path: |
+            specs/openapi.gateway.yaml
+            src/ai_model_serving/static/control-plane
+          if-no-files-found: error
+          retention-days: 1
+
   ci-gate:
     name: CI Gate
     if: ${{ always() }}
