@@ -8,7 +8,6 @@
 
 _DEPLOY_REQUEST_POLICY_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${_DEPLOY_REQUEST_POLICY_LIB_DIR}/image_ref_policy.sh"
-source "${_DEPLOY_REQUEST_POLICY_LIB_DIR}/runtime_startup_profile.sh"
 unset _DEPLOY_REQUEST_POLICY_LIB_DIR
 
 deploy_normalize_runtime_image_inputs() {
@@ -26,7 +25,6 @@ deploy_normalize_runtime_image_inputs() {
 
 deploy_resolve_mode() {
   deploy_normalize_runtime_image_inputs || return 2
-  normalize_runtime_startup_profile DEPLOY_RUNTIME_PROFILE || return 2
   # 새로 빌드·publish한 unified image는 그 digest를 모든 vLLM runtime에 같이
   # 적용해야 한다. 사용자가 rolling을 요청했더라도 image를 빌드한 사실이 더
   # 구체적인 의도이므로 full로 승격한다. 일반 full/rolling은 기존 pin을 유지한다.
@@ -49,7 +47,6 @@ deploy_resolve_mode() {
 deploy_validate_request() {
   local release_id="$1" releases_to_keep="$2" key value
   deploy_normalize_runtime_image_inputs || return 2
-  normalize_runtime_startup_profile DEPLOY_RUNTIME_PROFILE || return 2
 
   if [[ ! "${release_id}" =~ ^[A-Za-z0-9._-]{1,128}$ ]]; then
     echo "[deploy] ERROR: DEPLOY_RELEASE_ID must contain only A-Za-z0-9._- and be <=128 chars." >&2
