@@ -136,7 +136,7 @@ def test_sync_env_removes_only_registered_keys_and_keeps_server_only_settings(tm
     assert 'SECRETS_GENERATED_AT=2026-05-11T07:33:08Z' in lines
     assert 'HF_TOKEN=hf_existing' in lines
     assert 'DEPLOYMENT_TARGET=linux-nvidia-dynamic' in lines
-    assert 'MAIN_LLM_STATIC_PROFILE=gemma4-12b-unified-fp8' in lines
+    assert 'MAIN_MODEL_STATIC_PROFILE=gemma4-12b-unified-fp8' in lines
     assert not any(line.startswith('ACCESS_PROFILE=') for line in lines)
 
 
@@ -237,6 +237,52 @@ def test_sync_env_migrates_legacy_main_model_image_override_without_value_loss(t
     values = setup_env.read_env_values(out)
     assert values['MAIN_MODEL_VLLM_IMAGE_OVERRIDE'] == legacy
     assert 'AUDIO_VLLM_IMAGE' not in values
+
+
+def test_sync_env_migrates_legacy_main_llm_namespace_without_value_loss(tmp_path):
+    out = tmp_path / '.env'
+    out.write_text(
+        'BUILD_PROFILE=compose\n'
+        'MAIN_LLM_BASE_URL=http://legacy.example:9401/v1\n'
+        'MAIN_LLM_MODEL=local-main\n'
+        'MAIN_LLM_BOOT_PROFILE=gemma4-12b-unified-fp8\n'
+        'MAIN_LLM_PROFILE_LOCKED=true\n'
+        'MAIN_LLM_GPU_MEMORY_UTILIZATION=0.9\n'
+        'MAIN_LLM_VLLM_BIND_ADDR=127.0.0.2\n'
+        'MAIN_LLM_VLLM_PORT=9501\n',
+        encoding='utf-8',
+    )
+
+    rc = setup_env.main(['--sync-env', '--env-file', str(out)])
+
+    assert rc == 0
+    values = setup_env.read_env_values(out)
+    assert values['MAIN_MODEL_BASE_URL'] == 'http://legacy.example:9401/v1'
+    assert values['MAIN_MODEL_ALIAS'] == 'local-main'
+    assert values['MAIN_MODEL_BOOT_PROFILE'] == 'gemma4-12b-unified-fp8'
+    assert values['MAIN_MODEL_PROFILE_LOCKED'] == 'true'
+    assert values['MAIN_MODEL_GPU_MEMORY_UTILIZATION'] == '0.9'
+    assert values['MAIN_MODEL_VLLM_BIND_ADDR'] == '127.0.0.2'
+    assert values['MAIN_MODEL_VLLM_PORT'] == '9501'
+    assert not any(key.startswith('MAIN_LLM_') for key in values)
+
+
+def test_sync_env_rejects_conflicting_main_model_namespace(tmp_path, capsys):
+    out = tmp_path / '.env'
+    out.write_text(
+        'BUILD_PROFILE=compose\n'
+        'MAIN_MODEL_BASE_URL=http://canonical.example:9401/v1\n'
+        'MAIN_LLM_BASE_URL=http://legacy.example:9401/v1\n',
+        encoding='utf-8',
+    )
+
+    rc = setup_env.main(['--sync-env', '--env-file', str(out)])
+
+    assert rc == 2
+    assert (
+        'conflicting env keys MAIN_LLM_BASE_URL and MAIN_MODEL_BASE_URL'
+        in capsys.readouterr().err
+    )
 
 
 def test_sync_env_rejects_conflicting_legacy_and_canonical_image_override(tmp_path, capsys):
