@@ -9,10 +9,10 @@
 | 용어 | 의미 | 관련 문서 |
 |---|---|---|
 | Gateway | 외부 API 요청의 진입점. 요청 검증, 인증, 모델 호출 조정과 응답 처리를 담당한다. | [3. 시스템 구성](./03_system_components.md) |
-| Main Model Runtime | Chat inference를 수행하는 vLLM Runtime. | [6. 모델 운영](./06_model_operations.md) |
+| Main Model Runtime | Chat Completions와 Responses generation을 수행하는 vLLM Runtime. | [6. 모델 운영](./06_model_operations.md) |
 | Admin Sidecar | Main Model Runtime의 시작, 중지, 전환과 Docker lifecycle을 관리하는 내부 서비스. | [3. 시스템 구성](./03_system_components.md), [6. 모델 운영](./06_model_operations.md) |
 | Secondary Runtime | Embedding, 한국어 Embedding, Prompt Risk 등 Main Model 외 모델 Runtime. | [4. 실행 환경과 모드](./04_runtime_modes.md) |
-| Risk Adapter | ~~PII·Secret 위험 탐지~~와 Prompt Risk 신호를 제공하는 서비스. PII와 Secret은 내부 detector를 사용하고 Prompt Risk는 별도 vLLM Runtime을 호출한다. | [3. 시스템 구성](./03_system_components.md) |
+| Risk Adapter | PII·Secret 위험 탐지와 Prompt Risk 신호를 제공하는 서비스. PII와 Secret은 내부 detector를 사용하고 Prompt Risk는 별도 vLLM Runtime을 호출한다. | [3. 시스템 구성](./03_system_components.md) |
 | Main Model Profile | Main Model을 어떤 모델과 Runtime 설정으로 실행할지 정의하는 프로파일. | [5. 설정 체계와 Source of Truth](./05_configuration.md), [6. 모델 운영](./06_model_operations.md) |
 | Deploy Runtime Profile | compose-up/full 배포 후 Secondary Runtime의 초기 실행 상태를 정의하는 프로파일. | [5. 설정 체계와 Source of Truth](./05_configuration.md), [10. 배포](./10_deployment.md) |
 | Exposure Profile | 실행된 서비스 중 Host에 공개할 대상을 정의하는 프로파일. | [4. 실행 환경과 모드](./04_runtime_modes.md), [5. 설정 체계와 Source of Truth](./05_configuration.md) |
@@ -38,10 +38,10 @@
 | 서비스 | Compose 서비스 | Container Port | 기본 Host Port | 역할 |
 |---|---|---:|---:|---|
 | Gateway | `gateway` | `9400` | `9400` | 외부 API 진입점 |
-| Main Model Runtime | `main-llm-vllm` | `9401` | `9401` | Chat inference |
+| Main Model Runtime | `main-llm-vllm` | `9401` | `9401` | Chat / Responses generation |
 | Embedding Runtime | `embedding-vllm` | `9402` | `9402` | 일반 Embedding |
 | Prompt Risk Runtime | `risk-prompt-vllm` | `9403` | `9403` | Prompt Risk inference |
-| Risk Adapter | `risk-adapter` | `9405` | `9405` | ~~PII·Secret 위험 탐지~~, Prompt Risk 신호 처리 |
+| Risk Adapter | `risk-adapter` | `9405` | `9405` | PII·Secret 위험 탐지, Prompt Risk 신호 처리 |
 | Korean Embedding Runtime | `embedding-ko-vllm` | `9406` | `9406` | Retrieval용 한국어 Embedding |
 | Admin Sidecar | `admin-sidecar` | `8080` | - | Main Model Runtime lifecycle 관리. Compose 내부에서 사용 |
 
@@ -74,7 +74,8 @@
 | target 시작 / 상태 / 종료 | `make up` / `make status` / `make down` | [4. 실행 환경과 모드](./04_runtime_modes.md) |
 | checkout 전체 종료 | `make down-all` | [7. 로컬 개발과 빌드](./07_local_dev_build.md) |
 | 프로젝트 로컬 상태 초기화 plan / 적용 | `make reset` / `make reset CONFIRM=reset` | [7. 로컬 개발과 빌드](./07_local_dev_build.md) |
-| application 변경 검증 | `make check` | [8. 테스트와 검증](./08_testing_validation.md) |
+| application 변경 검증 | `make app-check` | [8. 테스트와 검증](./08_testing_validation.md) |
+| 저장소 전체 변경 검증 | `make check` | [8. 테스트와 검증](./08_testing_validation.md) |
 | 내부 빌드·진단 명령 조회 | `make help-all` | [7. 로컬 개발과 빌드](./07_local_dev_build.md) |
 
 ### 검증과 테스트

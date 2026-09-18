@@ -8,7 +8,7 @@ Client / Application
         ▼
       Gateway
         │
-        ├─ Chat ───────────────► Main vLLM
+        ├─ Chat / Responses ────► Main vLLM
         ├─ Embedding ──────────► Embedding vLLM
         ├─ Retrieval ──────────► Embedding-KO vLLM
         └─ Prompt Guard ───────► Risk Adapter ─► risk-prompt vLLM
@@ -39,6 +39,7 @@ Gateway는 외부 클라이언트가 사용하는 모델 API와 운영 API를 �
 |---|---|---|
 | **Models** | `GET /v1/models` | 사용 가능한 logical model과 capability 조회 |
 | **Chat** | `POST /v1/chat/completions` | `local-main` |
+| **Responses** | `POST /v1/responses` | `local-main` |
 | **Embedding** | `POST /v1/embeddings` | `local-embed`, `local-embed-ko` |
 | **Retrieval** | `POST /v1/retrieval/score`<br>`POST /v1/retrieval/rerank` | Embedding 기반 dense cosine score |
 | **Prompt Guard** | `POST /v1/risk/*` | `risk-adapter` / `risk-prompt-vllm` |
@@ -134,6 +135,7 @@ Gateway는 route별 요청 스펙을 기준으로 입력을 검증한다.
 | 기능 | 주요 검증 |
 |---|---|
 | **Chat** | `local-main` model ID, messages, token limit, 지원 parameter, 활성 modality |
+| **Responses** | `local-main` model ID, input/output item, tools, reasoning effort, structured output, 활성 modality |
 | **Embedding** | Model ID, input, dimensions, 지원 parameter |
 | **Retrieval** | Query, documents, model, score mode, document 수 |
 | **Prompt Guard** | `{prompt}` request 형식과 prompt 길이 |
@@ -147,12 +149,12 @@ Runtime 상태 확인 방식은 기능에 따라 다르다.
 
 | 기능 | 상태 확인 |
 |---|---|
-| **Chat** | Admin Sidecar에서 활성 Main Model profile과 gate 확인 |
+| **Generation** | Chat Completions와 Responses 모두 Admin Sidecar에서 활성 Main Model profile과 gate 확인 |
 | **Embedding** | Gateway runtime state에서 대상 embedding runtime 확인 |
 | **Retrieval** | Gateway runtime state에서 선택한 embedding runtime 확인 |
 | **Prompt Guard** | Prompt model을 사용하는 경로에서 `risk_prompt` runtime 상태 확인 |
 
-Main Model 전환 중에는 Chat gate가 닫히며 신규 Chat 요청은 `MAIN_MODEL_SWITCH_IN_PROGRESS`로 응답한다. Sidecar에 접근할 수 없는 경우 Chat은 `MAIN_MODEL_CONTROL_UNAVAILABLE`로 응답한다.
+Main Model 전환 중에는 generation gate가 닫히며 신규 Chat Completions와 Responses 요청은 `MAIN_MODEL_SWITCH_IN_PROGRESS`로 응답한다. Sidecar에 접근할 수 없는 경우 두 generation surface는 `MAIN_MODEL_CONTROL_UNAVAILABLE`로 응답한다.
 
 Embedding, Retrieval, Prompt Guard는 각 기능에 필요한 runtime의 상태를 독립적으로 확인한다.
 
@@ -190,7 +192,7 @@ Response Validation
        └─ 오류 ─► Platform Error ─► Client
 ```
 
-Chat과 Embedding 응답은 model, choice/data 구조, token usage 등 기능별 형식을 확인한다. Prompt Guard 응답은 detector signal 형식을 확인한 뒤 Gateway를 통해 반환한다.
+Chat Completions, Responses, Embedding 응답은 각 surface의 model, item/choice/data 구조와 token usage 등 기능별 형식을 확인한다. Prompt Guard 응답은 detector signal 형식을 확인한 뒤 Gateway를 통해 반환한다.
 
 검증 뒤 응답은 `specs/schemas/`가 선언한 키만 남긴다. 런타임이 덧붙인 것은 공개
 API로 내보내지 않는다. 실제로 mlx-vlm은 chunk마다 `timings`(`peak_memory`,
@@ -199,7 +201,7 @@ API로 내보내지 않는다. 실제로 mlx-vlm은 chunk마다 `timings`(`peak_
 
 ## 2.2.1 OpenAI 호환 범위
 
-이 Gateway는 OpenAI Chat Completions와 Embeddings의 요청·응답 형식을 따른다. 기존
+이 Gateway는 OpenAI Chat Completions, Responses와 Embeddings의 요청·응답 형식을 따른다. 기존
 SDK로 `base_url`만 바꿔 호출할 수 있다. 다만 아래는 다르며, 이 목록이 호환 범위의
 선언이다.
 
@@ -222,9 +224,9 @@ OpenAI SDK는 HTTP 상태와 `message`를 읽으므로 예외 처리는 그대�
 
 ## 2.3 기능별 처리 흐름
 
-### Chat
+### Chat Completions
 
-Chat 요청은 `local-main`을 통해 현재 활성 Main Model runtime으로 전달된다.
+Chat Completions 요청은 `local-main`을 통해 현재 활성 Main Model runtime으로 전달된다.
 
 ```text
 Client
@@ -324,6 +326,12 @@ Client
 ```
 
 Streaming 경로에도 동일한 request validation, concurrency admission, circuit breaker가 적용된다. Gateway는 upstream SSE chunk를 수신하는 즉시 순서대로 전달한다.
+
+### Responses
+
+Responses 요청은 Chat Completions와 같은 `local-main` gate, in-flight drain accounting, active profile capability와 runtime endpoint를 사용한다. 외부 request/response item과 typed streaming event는 Chat DTO와 섞지 않고 별도 Responses contract adapter가 소유한다.
+
+Gateway의 Responses 계약은 stateless다. 이전 output item과 function tool result를 다음 요청의 `input`에 포함해 이어갈 수 있지만 server-side response storage, `store`, `previous_response_id`는 제공하지 않는다.
 
 ### Embedding
 
@@ -464,14 +472,14 @@ Client
 
 Prompt detector는 Kanana Safeguard-Prompt가 생성한 단일 label을 A1 Prompt Injection, A2 Prompt Leaking signal로 변환한다.
 
-현재 `/v1/risk/*` endpoint group에는 Prompt Guard와 함께 ~~local PII/Secret detector~~, aggregate endpoint가 구성되어 있다.
+현재 `/v1/risk/*` endpoint group에는 Prompt Guard와 함께 local PII/Secret detector, aggregate endpoint가 구성되어 있다.
 
 | API | Backend |
 |---|---|
 | `/v1/risk/detectors/prompt/assessments` | Kanana `risk-prompt-vllm` |
-| ~~`/v1/risk/detectors/pii/assessments`~~ | Risk Adapter in-process PII detector |
-| ~~`/v1/risk/detectors/secret/assessments`~~ | Risk Adapter in-process Secret detector |
-| `/v1/risk/assessments` | ~~PII → Secret~~ → Prompt 순차 처리 |
+| `/v1/risk/detectors/pii/assessments` | Risk Adapter in-process PII detector |
+| `/v1/risk/detectors/secret/assessments` | Risk Adapter in-process Secret detector |
+| `/v1/risk/assessments` | PII → Secret → Prompt 순차 처리 |
 
 Aggregate 요청은 세 detector 결과를 하나의 signal response로 합친다. 응답은 탐지 결과와 system signal을 제공하며 최종 허용·차단 판단은 호출 측 policy layer가 담당한다.
 

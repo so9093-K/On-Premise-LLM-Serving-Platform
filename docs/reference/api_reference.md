@@ -157,8 +157,8 @@ Retrieval Score
 | Retrieval | `POST` | `/v1/retrieval/score` | Public API |
 | Retrieval | `POST` | `/v1/retrieval/rerank` | Public API |
 | Prompt Guard | `POST` | `/v1/risk/detectors/prompt/assessments` | Public API |
-| ~~PII Detector~~ | `POST` | ~~`/v1/risk/detectors/pii/assessments`~~ | Public API |
-| ~~Secret Detector~~ | `POST` | ~~`/v1/risk/detectors/secret/assessments`~~ | Public API |
+| PII Detector | `POST` | `/v1/risk/detectors/pii/assessments` | Public API |
+| Secret Detector | `POST` | `/v1/risk/detectors/secret/assessments` | Public API |
 | Risk Aggregate | `POST` | `/v1/risk/assessments` | Public API |
 | Liveness | `GET` | `/health` | 없음 |
 | Readiness | `GET` | `/ready` | Admin |
@@ -212,7 +212,8 @@ curl "$GATEWAY_URL/v1/models" \
       "capabilities": [
         "chat.completions",
         "chat.completions.vision",
-        "chat.completions.tools"
+        "chat.completions.tools",
+        "responses"
       ],
       "input_modalities": ["text", "image", "audio", "video"],
       "request_parameters": {
@@ -1074,7 +1075,7 @@ Runtime 중지:
 
 ## 6. Prompt Guard / Risk
 
-외부 API에서는 `/v1/risk/*` endpoint를 사용한다. Prompt Guard는 Kanana `risk-prompt` model을 사용하는 prompt detector이며, 같은 API group에 ~~PII/Secret local detector~~와 aggregate endpoint도 포함된다.
+외부 API에서는 `/v1/risk/*` endpoint를 사용한다. Prompt Guard는 Kanana `risk-prompt` model을 사용하는 prompt detector이며, 같은 API group에 PII/Secret local detector와 aggregate endpoint도 포함된다.
 
 ### 6.1 공통 Request
 
@@ -1138,9 +1139,9 @@ Prompt detector response 예시:
 
 `confidence`와 `top_probabilities`는 모델의 first-token log probability에서 파생된 진단 정보이며 보정된 위험 확률로 해석하지 않는다.
 
-### 6.3 ~~PII Detector~~
+### 6.3 PII Detector
 
-#### ~~POST `/v1/risk/detectors/pii/assessments`~~
+#### POST `/v1/risk/detectors/pii/assessments`
 
 ```json
 {
@@ -1170,9 +1171,9 @@ Prompt detector response 예시:
 }
 ```
 
-### 6.4 ~~Secret Detector~~
+### 6.4 Secret Detector
 
-#### ~~POST `/v1/risk/detectors/secret/assessments`~~
+#### POST `/v1/risk/detectors/secret/assessments`
 
 ```json
 {
@@ -1193,7 +1194,7 @@ Secret 원문은 response에 포함하지 않는다.
 
 #### POST `/v1/risk/assessments`
 
-~~PII → Secret~~ → Prompt 순서로 enabled detector를 실행하고 하나의 response로 합친다.
+PII → Secret → Prompt 순서로 enabled detector를 실행하고 하나의 response로 합친다.
 
 ```json
 {
@@ -1759,7 +1760,7 @@ else:
 
 ### 10.2 OpenAI Python Client
 
-Chat과 Embedding endpoint는 OpenAI-compatible client를 사용할 수 있다.
+Chat Completions, Responses, Embedding endpoint는 OpenAI-compatible client를 사용할 수 있다.
 
 ```python
 import os
@@ -1779,6 +1780,17 @@ response = client.chat.completions.create(
 )
 
 print(response.choices[0].message.content)
+```
+
+Responses:
+
+```python
+response = client.responses.create(
+    model="local-main",
+    input="안녕하세요. 한 문장으로 인사해주세요.",
+)
+
+print(response.output_text)
 ```
 
 Embedding:
