@@ -25,7 +25,7 @@
 | Access Profile | local/private/edge처럼 사용자가 선택하는 접근 의도. | `ACCESS_PROFILE` |
 | Desired State | Control Plane이 수렴시키려는 Runtime 상태. | `desired_state` |
 | Observed State | 실제 container/Runtime에서 관측한 상태. | `observed_runtime`, `container_status` |
-| Compatibility | 특정 Main Model Profile이 현재 deployment/runtime 조합에서 기술적으로 호환되는지 나타내는 상태. | `compatibility.status` canonical config / API `compatibility.technical_status` |
+| Compatibility | 특정 Main Model Profile이 현재 deployment/runtime 조합에서 기술적으로 호환되는지 나타내는 상태. | `compatibility.status` |
 | Implementation Status | Deployment Target이 실행 가능한 구현 상태인지 나타내는 상태. | `implementation_status` |
 | Qualification | 특정 Main Model 또는 Deployment Target의 실제 검증 근거가 충족됐는지 나타내는 상태. | `qualification.status`, `qualification_status` |
 | Readiness | 서비스와 필요한 Model Runtime이 실제 요청을 처리할 준비가 된 상태. | `/ready` |
