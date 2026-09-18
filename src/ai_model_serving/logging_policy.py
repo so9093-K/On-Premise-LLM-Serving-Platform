@@ -247,7 +247,7 @@ def record_upstream_response(request: Request, response: Any) -> None:
         값을 응답 ``id``로 돌려준다). Gateway의 request_id와 runtime 컨테이너
         로그를 시간대 추정 없이 연결하는 열쇠다. 앞의 ``upstream_request_id``와는
         출처가 다르다 -- 그쪽은 업스트림이 이 플랫폼의 오류 봉투로 알려준
-        자기 request_id이고(현재는 risk-adapter뿐), 이쪽은 정상 응답에 실려 온
+        자기 request_id이고(현재는 risk-signal-service뿐), 이쪽은 정상 응답에 실려 온
         runtime의 생성 id다.
 
     ``id``가 없는 응답(집계된 risk 평가 등)은 그 필드만 비운다. 그 경로에는

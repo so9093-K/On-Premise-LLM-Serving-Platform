@@ -35,7 +35,7 @@ async def _readiness(
         if key in service_id_by_detector
     ]
     return await collect_readiness(
-        service="risk-adapter",
+        service="risk-signal-service",
         probes=probes,
         metrics=metrics,
         timeout_seconds=timeout_seconds,

@@ -112,9 +112,9 @@ class GatewayClients:
         self.risk_adapter = (
             RuntimeClient(
                 RuntimeEndpoint(
-                    logical_id="risk-adapter",
+                    logical_id="risk-signal-service",
                     base_url=settings.risk_adapter_base_url,
-                    model="risk-adapter",
+                    model="risk-signal-service",
                     timeout_seconds=settings.risk_adapter_timeout_seconds,
                     max_concurrency=4,
                 )
