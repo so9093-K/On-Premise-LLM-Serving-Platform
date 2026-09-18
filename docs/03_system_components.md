@@ -200,7 +200,7 @@ Gateway는 다음 책임을 직접 소유하지 않는다.
 | `main-llm-vllm` | Chat / Responses / Multimodal generation |
 | `embedding-vllm` | 범용 Embedding |
 | `embedding-ko-vllm` | Korean Embedding / 기본 Retrieval |
-| `risk-adapter` | Risk assessment |
+| `risk-signal-service` | Risk assessment |
 | `runtime-controller` | Main model gate, runtime control, model switching |
 
 Gateway `/ready`는 main model과 활성 상태로 간주되는 dependency를 probe해 전체 readiness를 계산한다.
@@ -563,7 +563,7 @@ Risk Signal Service :9405
        risk-prompt-vllm :9403
 ```
 
-`risk-adapter`와 `risk-prompt-vllm`은 서로 다른 서비스다.
+`risk-signal-service`와 `risk-prompt-vllm`은 서로 다른 서비스다.
 
 ### Risk Signal Service Purpose
 
@@ -931,7 +931,7 @@ vLLM runtime과 Risk Signal Service도 standard private topology에서는 Gatewa
 | Deployment runtime profile | `configs/deploy_profiles.yaml` |
 | Monitoring | `configs/monitoring.yaml` |
 | Gateway API contract | `specs/openapi.gateway.yaml` |
-| Risk Signal Service API contract | `specs/openapi.risk-adapter.yaml` |
+| Risk Signal Service API contract | `specs/openapi.risk-signal-service.yaml` |
 
 이 문서에서는 설정이 어떤 컴포넌트에 영향을 주는지만 설명한다. 설정 우선순위, environment override와 생성 artifact 관계는 [5. 설정 체계와 Source of Truth](./05_configuration.md)에서 다룬다.
 

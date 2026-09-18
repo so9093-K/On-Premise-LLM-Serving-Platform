@@ -88,7 +88,7 @@ paths:
                 $ref: ./schemas/readiness_response.schema.json
               example:
                 status: ready
-                service: risk-adapter
+                service: risk-signal-service
                 phase: serving
                 not_ready_dependencies: []
                 required_not_ready_dependencies: []
@@ -123,7 +123,7 @@ paths:
             application/json:
               example:
                 status: not_ready
-                service: risk-adapter
+                service: risk-signal-service
                 phase: waiting_for_dependencies
                 not_ready_dependencies:
                 - risk_prompt_vllm

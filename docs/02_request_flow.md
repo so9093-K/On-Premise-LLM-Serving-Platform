@@ -42,7 +42,7 @@ Gateway는 외부 클라이언트가 사용하는 모델 API와 운영 API를 �
 | **Responses** | `POST /v1/responses` | `local-main` |
 | **Embedding** | `POST /v1/embeddings` | `local-embed`, `local-embed-ko` |
 | **Retrieval** | `POST /v1/retrieval/score`<br>`POST /v1/retrieval/rerank` | Embedding 기반 dense cosine score |
-| **Prompt Guard** | `POST /v1/risk/*` | `risk-adapter` / `risk-prompt-vllm` |
+| **Prompt Guard** | `POST /v1/risk/*` | `risk-signal-service` / `risk-prompt-vllm` |
 | **Runtime Control** | `/admin/runtimes*`<br>`/admin/main-model*` | Runtime 상태와 Main Model 전환 |
 | **Operations** | `/health`<br>`/ready`<br>`/metrics` | Liveness, readiness, metrics |
 
@@ -437,7 +437,7 @@ Gateway
   ├─ Internal Service Token 전달
   │
   ▼
-risk-adapter :9405
+risk-signal-service :9405
   │
   ├─ Prompt Detector 선택
   │
@@ -495,7 +495,7 @@ Gateway 뒤의 서비스는 Compose DNS와 container port로 연결된다.
 | Gateway → Main vLLM | `http://main-llm-vllm:9401/v1` | Chat |
 | Gateway → Embedding vLLM | `http://embedding-vllm:9402/v1` | 범용 Embedding |
 | Gateway → Embedding-KO vLLM | `http://embedding-ko-vllm:9406/v1` | Korean Embedding / Retrieval |
-| Gateway → Risk Signal Service | `http://risk-adapter:9405` | Prompt Guard / Risk 요청 |
+| Gateway → Risk Signal Service | `http://risk-signal-service:9405` | Prompt Guard / Risk 요청 |
 | Risk Signal Service → Prompt vLLM | `http://risk-prompt-vllm:9403/v1` | Prompt attack detector |
 | Gateway → Runtime Controller | `http://runtime-controller:8080` | Runtime / Main Model control |
 
@@ -512,7 +512,7 @@ Host
 Compose Network
   │
   ├─ runtime-controller :8080
-  ├─ risk-adapter :9405
+  ├─ risk-signal-service :9405
   ├─ main-llm-vllm :9401
   ├─ embedding-vllm :9402
   ├─ embedding-ko-vllm :9406

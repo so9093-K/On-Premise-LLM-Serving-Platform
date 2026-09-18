@@ -3,7 +3,7 @@ set -euo pipefail
 
 # 실행 중인 compose 스택에서 특정 서비스만 안전하게 재기동합니다.
 #
-# `full-stack.private-network.yaml`의 gateway/risk-adapter/vLLM 서비스들은
+# `full-stack.private-network.yaml`의 gateway/risk-signal-service/vLLM 서비스들은
 # env_file(.env 전체)을 공유합니다. .env 값을 바꾼 뒤 `docker compose up -d
 # <service>`를 그냥 실행하면, 그 서비스가 depends_on으로 물고 있는 다른
 # 서비스들도 설정 해시가 바뀐 것으로 감지돼 함께 재생성됩니다(예: gateway를

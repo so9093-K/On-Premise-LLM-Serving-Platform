@@ -642,7 +642,7 @@ restore_previous_release() {
         if ! compose_run up -d --no-deps runtime-controller; then
           restore_failure "failed to restore the previous runtime-controller"
         fi
-        if ! compose_run up -d --no-deps gateway risk-adapter prometheus grafana; then
+        if ! compose_run up -d --no-deps gateway risk-signal-service prometheus grafana; then
           restore_failure "failed to restore previous app/observability services"
         fi
       fi
@@ -972,8 +972,8 @@ else
   # application/control-plane 이미지만 pull한다. Gateway와 Runtime Controller는
   # 하나의 관리 API를 구현하므로 반드시 같은 revision으로 배포해야 한다.
   echo "[deploy] rolling deploy: pulling app/control-plane images..."
-  if ! compose_run pull gateway runtime-controller risk-adapter; then
-    fail_after_env_backup "rolling deploy image pull failed for gateway/runtime-controller/risk-adapter"
+  if ! compose_run pull gateway runtime-controller risk-signal-service; then
+    fail_after_env_backup "rolling deploy image pull failed for gateway/runtime-controller/risk-signal-service"
   fi
 
   # vLLM은 건드리지 않는다. 새 Gateway가 구버전 control-plane 구현을 바라보는
@@ -983,8 +983,8 @@ else
   if ! compose_run up -d --no-deps runtime-controller; then
     fail_after_env_backup "rolling deploy restart failed for runtime-controller"
   fi
-  if ! compose_run up -d --no-deps gateway risk-adapter; then
-    fail_after_env_backup "rolling deploy restart failed for gateway/risk-adapter"
+  if ! compose_run up -d --no-deps gateway risk-signal-service; then
+    fail_after_env_backup "rolling deploy restart failed for gateway/risk-signal-service"
   fi
 fi
 

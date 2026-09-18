@@ -10,7 +10,7 @@ load_local_env "$ENV_FILE"
 PYTHON_BIN="${PYTHON_BIN:-$(command -v python3.12 || command -v python3 || command -v python)}"
 "$PYTHON_BIN" scripts/build/check_python.py --context smoke-test >/dev/null
 # Smoke test는 항상 host에 노출된 포트를 대상으로 probe한다. .env의
-# RISK_ADAPTER_BASE_URL은 compose 내부용 URL(http://risk-adapter:9405)이므로
+# RISK_ADAPTER_BASE_URL은 compose 내부용 URL(http://risk-signal-service:9405)이므로
 # 여기서 사용하면 안 된다.
 GATEWAY_PROBE_HOST="${GATEWAY_PROBE_HOST:-${GATEWAY_BIND_ADDR:-localhost}}"
 if [[ -z "$GATEWAY_PROBE_HOST" || "$GATEWAY_PROBE_HOST" == "0.0.0.0" ]]; then
@@ -266,7 +266,7 @@ else
   assert_json risk
 fi
 
-# Private-network compose에서는 risk-adapter 포트가 host에 노출되지 않는다.
+# Private-network compose에서는 risk-signal-service 포트가 host에 노출되지 않는다.
 # 접근 가능할 때만 직접 프로브를 실행하고, 아닐 경우 gateway 경유 테스트로 검증한다.
 if skip_runtime "$SMOKE_RISK_PROMPT_RUNTIME"; then
   :
@@ -284,7 +284,7 @@ elif curl -sS --max-time 3 -o /dev/null "$RISK_ADAPTER_BASE_URL/health" 2>/dev/n
     '{"prompt":"smoke test prompt"}' internal
   assert_json risk
 else
-  echo "[smoke] risk-adapter: host port not accessible (private-network compose); gateway /v1/risk/assessments covers risk path" >&2
+  echo "[smoke] risk-signal-service: host port not accessible (private-network compose); gateway /v1/risk/assessments covers risk path" >&2
 fi
 
 post_json_with_retry chat "$GATEWAY_BASE_URL/v1/chat/completions" \

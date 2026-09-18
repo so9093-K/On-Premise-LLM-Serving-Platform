@@ -5,7 +5,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[3]
 
 # 사용자-facing surface에서 허용하지 않는 non-canonical 표시 용어.
-# 안정 식별자(runtime-controller, risk-adapter 등)는 소문자/코드 형태로 별도 계약이므로
+# 안정 식별자(runtime-controller, risk-signal-service 등)는 소문자/코드 형태로 별도 계약이므로
 # 이 목록은 현재 사용자-facing 표시 용어의 일관성만 검사한다.
 NONCANONICAL_DISPLAY_TERMS: dict[str, str] = {
     "Admin / Control Sidecar": "Runtime Controller",

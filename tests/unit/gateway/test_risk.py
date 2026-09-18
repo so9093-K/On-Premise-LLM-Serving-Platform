@@ -1,4 +1,4 @@
-"""gateway가 risk-adapter로 A1(prompt_attack) 판정을 포워딩하는 경로를 검증한다:
+"""gateway가 risk-signal-service로 A1(prompt_attack) 판정을 포워딩하는 경로를 검증한다:
 로깅, 페이로드 전달, 런타임 중지 시 503, forbidden 필드/스키마 위반 거부."""
 
 from __future__ import annotations
@@ -13,7 +13,7 @@ from ai_model_serving.services.runtime_state import RuntimeState
 
 
 def test_gateway_risk_assessment_logs_prompt_and_response_when_flag_enabled():
-    # 클라이언트가 실제로 때리는 건 risk-adapter 자체가 아니라 gateway의 프록시
+    # 클라이언트가 실제로 때리는 건 risk-signal-service 자체가 아니라 gateway의 프록시
     # 라우트(gateway_risk.py)다 -- Grafana Request Log Explorer에 service=gateway로
     # 찍히는 그 행. risk_adapter_risk.py(내부 전용 라우트)만 고치면 이 행엔
     # 여전히 반영이 안 되므로 별도로 검증한다.

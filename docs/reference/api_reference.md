@@ -1360,7 +1360,7 @@ Ready:
     {
       "name": "risk_adapter",
       "status": "ready",
-      "endpoint": "http://risk-adapter:9405/ready"
+      "endpoint": "http://risk-signal-service:9405/ready"
     }
   ]
 }
@@ -1380,7 +1380,7 @@ Dependency loading:
     {
       "name": "risk_adapter",
       "status": "not_ready",
-      "endpoint": "http://risk-adapter:9405/ready",
+      "endpoint": "http://risk-signal-service:9405/ready",
       "message": "waiting for Risk Signal Service dependencies: risk_prompt_vllm"
     }
   ]
