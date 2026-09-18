@@ -22,6 +22,8 @@
 
 ### Changed
 
+- Main Model operator 환경변수 namespace를 `MAIN_MODEL_*`로 수렴했다. 기존 `MAIN_LLM_*`는 read/sync compatibility alias로 유지하며 `make sync-env`가 값을 손실 없이 canonical key로 이관한다. `MAIN_LLM_MODEL`은 실제 의미에 맞게 `MAIN_MODEL_ALIAS`로 바뀌고, canonical/legacy 양쪽에 서로 다른 값이 있으면 fail-closed한다. 내부 service key `main_llm`과 Compose service ID `main-llm-vllm`은 이번 migration 범위에 포함하지 않는다. ([ADR-0030](docs/adr/0030-target-architecture-state-and-artifact-boundary.md))
+
 - shared vLLM runtime artifact의 persistent image authority를 `VLLM_IMAGE` 하나로 수렴했다. 기존 `EMBEDDING_KO_VLLM_IMAGE`와 `RISK_VLLM_IMAGE`는 retired key이며 `make sync-env`와 `setup_env.py --force`가 기존 `.env`에서 제거한다. Main Model profile 전용 `MAIN_MODEL_VLLM_IMAGE_OVERRIDE`와 deployment-time `VLLM_UNIFIED_IMAGE_TO_DEPLOY` promotion input은 별도 계약으로 유지한다. 기존 `AUDIO_VLLM_IMAGE`는 migration compatibility alias다. ([ADR-0028](docs/adr/0028-unified-vllm-runtime-image-authority.md))
 
 - 신규 환경의 접근 UX를 `ACCESS_PROFILE=local|private|edge`로 단순화했다. `make setup
