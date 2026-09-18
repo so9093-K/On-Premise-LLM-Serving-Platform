@@ -20,6 +20,33 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 
 
+def test_docker_lookup_filter_requires_compose_project() -> None:
+    backend = DockerMainModelBackend(
+        "/var/run/docker.sock",
+        gateway_url="http://gateway:9400",
+    )
+
+    with pytest.raises(RuntimeError, match="COMPOSE_PROJECT is required"):
+        backend._filters("main-llm-vllm")
+
+
+def test_docker_lookup_filter_includes_project_and_service_scope() -> None:
+    import json
+
+    backend = DockerMainModelBackend(
+        "/var/run/docker.sock",
+        "platform",
+        gateway_url="http://gateway:9400",
+    )
+
+    assert json.loads(backend._filters("main-llm-vllm")) == {
+        "label": [
+            "com.docker.compose.project=platform",
+            "com.docker.compose.service=main-llm-vllm",
+        ]
+    }
+
+
 def test_creation_template_copies_only_allowlisted_container_fields():
     inspected = {
         "Name": "/compose-main-llm-vllm-1",
