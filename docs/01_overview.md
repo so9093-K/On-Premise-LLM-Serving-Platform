@@ -61,7 +61,7 @@ Client / Application
            └──────────────► Prompt Guard
                                   │
                                   ▼
-                           risk-adapter :9405
+                           risk-signal-service :9405
                                   │
                                   ▼
                            risk-prompt-vllm
@@ -91,7 +91,7 @@ Client / Application
 | **Gateway** | API 인터페이스<br>Request / Response 처리<br>멀티모달 입력 검증<br>Routing / Orchestration | `Client` → `Gateway`<br>→ Model Runtime<br>→ Prompt Guard |
 | **Runtime Controller** | Runtime Lifecycle<br>Main Model 전환<br>GPU Budget Admission<br>Container 제어 | `Gateway` → `Sidecar`<br>→ Docker / Runtime |
 | **vLLM Runtime** | Model Load<br>Inference 실행<br>모델별 Runtime 설정 적용 | Main LLM<br>Embedding<br>Embedding-KO<br>Prompt Guard Model |
-| **Prompt Guard** | Prompt 검사<br>Detector 호출<br>결과 정규화 | `Gateway` → `risk-adapter`<br>→ `risk-prompt-vllm` |
+| **Prompt Guard** | Prompt 검사<br>Detector 호출<br>결과 정규화 | `Gateway` → `risk-signal-service`<br>→ `risk-prompt-vllm` |
 | **관측성 스택** | Metrics 수집<br>Logs 수집<br>GPU / Container 관측<br>Dashboard | Prometheus · Grafana<br>Loki · Alloy<br>DCGM · cAdvisor |
 
 Gateway와 Runtime Controller는 역할이 분리되어 있다.
