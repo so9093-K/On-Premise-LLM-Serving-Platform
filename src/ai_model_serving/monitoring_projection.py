@@ -98,7 +98,7 @@ def prometheus_scrape_config_document(
                 "static_configs": [{"targets": [f"{gateway_service}:{services['gateway']['container_port']}"]}],
             },
             {
-                "job_name": "risk-adapter",
+                "job_name": "risk-signal-service",
                 "metrics_path": risk.get("metrics_path", "/metrics"),
                 "bearer_token_file": "/run/secrets/admin_api_key",
                 "static_configs": [{"targets": [f"{risk_service}:{services['risk_adapter']['container_port']}"]}],
