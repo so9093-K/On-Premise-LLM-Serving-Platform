@@ -830,6 +830,8 @@ profiles:
     revision: "{_REV_A}"
     served_model_name: local-main
     compatibility:
+      status: compatible
+    qualification:
       status: verified
     command: [--host, 0.0.0.0]
   audio:
@@ -838,6 +840,8 @@ profiles:
     revision: "{_REV_B}"
     served_model_name: local-main
     compatibility:
+      status: compatible
+    qualification:
       status: verified
     command: [--host, 0.0.0.0]
 """
@@ -938,8 +942,8 @@ def test_deployed_input_rejects_unknown_modality(tmp_path):
     # "지원"으로 선언될 수 있다 -- 이 조합을 loader에서 막는다.
     path = _write_catalog_path(tmp_path, profile_image=None)
     raw = path.read_text(encoding="utf-8").replace(
-        "    compatibility:\n      status: verified\n    command: [--host, 0.0.0.0]",
-        "    compatibility:\n      status: verified\n    capabilities:\n      deployed_input: [text, imgae]\n"
+        "    compatibility:\n      status: compatible\n    qualification:\n      status: verified\n    command: [--host, 0.0.0.0]",
+        "    compatibility:\n      status: compatible\n    qualification:\n      status: verified\n    capabilities:\n      deployed_input: [text, imgae]\n"
         "    command: [--host, 0.0.0.0]",
         1,
     )
@@ -953,8 +957,8 @@ def test_capabilities_rejects_legacy_audio_video_enabled_keys(tmp_path):
     # 다시 들어오면 두 source가 어긋날 수 있으므로 loader가 설정 오류로 거부해야 한다.
     path = _write_catalog_path(tmp_path, profile_image=None)
     raw = path.read_text(encoding="utf-8").replace(
-        "    compatibility:\n      status: verified\n    command: [--host, 0.0.0.0]",
-        "    compatibility:\n      status: verified\n    capabilities:\n      deployed_input: [text]\n"
+        "    compatibility:\n      status: compatible\n    qualification:\n      status: verified\n    command: [--host, 0.0.0.0]",
+        "    compatibility:\n      status: compatible\n    qualification:\n      status: verified\n    capabilities:\n      deployed_input: [text]\n"
         "      audio_enabled: false\n    command: [--host, 0.0.0.0]",
         1,
     )
