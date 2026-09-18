@@ -201,7 +201,7 @@ Gateway는 다음 책임을 직접 소유하지 않는다.
 | `embedding-vllm` | 범용 Embedding |
 | `embedding-ko-vllm` | Korean Embedding / 기본 Retrieval |
 | `risk-adapter` | Risk assessment |
-| `admin-sidecar` | Main model gate, runtime control, model switching |
+| `runtime-controller` | Main model gate, runtime control, model switching |
 
 Gateway `/ready`는 main model과 활성 상태로 간주되는 dependency를 probe해 전체 readiness를 계산한다.
 
@@ -236,7 +236,7 @@ Runtime Controller는 Gateway의 startup hard dependency가 아니다. Runtime C
 
 ## 3.3 Runtime Controller
 
-`admin-sidecar`는 현재 Compose service/module compatibility identifier이며 사용자-facing 구성요소 이름이 아니다. 새 문서·Console·운영 설명은 canonical term인 **Runtime Controller**를 사용한다.
+`runtime-controller`는 현재 Compose service/module compatibility identifier이며 사용자-facing 구성요소 이름이 아니다. 새 문서·Console·운영 설명은 canonical term인 **Runtime Controller**를 사용한다.
 
 
 Runtime Controller는 플랫폼의 **runtime control plane**이다.
@@ -283,7 +283,7 @@ project가 비어 있거나 동일 service가 중복으로 발견되면 자동 �
 Runtime Controller의 기본 port는 `8080`이며 Compose network 내부에서만 사용한다.
 
 ```text
-Gateway ──► http://admin-sidecar:8080
+Gateway ──► http://runtime-controller:8080
 ```
 
 Runtime Controller port는 standard topology에서 host에 publish하지 않는다. 외부 운영 요청은 Gateway의 `/admin/*` API로 들어오고 Gateway가 Runtime Controller internal API를 호출한다.
