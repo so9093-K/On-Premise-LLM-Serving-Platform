@@ -34,7 +34,7 @@ class _FakeSidecar:
 
 def _app_with_sidecar(sidecar):
     clients = FakeGatewayClients()
-    clients.sidecar = sidecar
+    clients.runtime_controller = sidecar
     return TestClient(create_gateway_app(settings(), clients))
 
 
@@ -71,7 +71,7 @@ def test_models_listing_does_not_advertise_tools_when_active_profile_rejects_the
 def test_models_listing_falls_back_when_sidecar_unavailable():
     cfg = settings()
     clients = FakeGatewayClients()
-    clients.sidecar = _FakeSidecar(available=False)
+    clients.runtime_controller = _FakeSidecar(available=False)
     client = TestClient(create_gateway_app(cfg, clients))
     main = _main_model(client.get("/v1/models", headers=auth_headers()))
     assert main["input_modalities"] == list(cfg.runtime("main_llm").allowed_input_modalities)
