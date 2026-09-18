@@ -1,6 +1,6 @@
 """Compose 컨테이너 로그를 Alloy target으로 투영한다.
 
-Docker API 권한은 admin-sidecar에만 둔다. Alloy는 이 모듈이 만든 읽기 전용
+Docker API 권한은 Runtime Controller에만 둔다. Alloy는 이 모듈이 만든 읽기 전용
 manifest와 json-file 로그만 읽으므로, 로그 수집기가 Docker 제어 권한을 갖지 않는다.
 """
 
