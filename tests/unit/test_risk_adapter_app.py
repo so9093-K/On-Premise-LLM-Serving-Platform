@@ -132,7 +132,7 @@ def test_risk_adapter_preserves_upstream_usage_in_response_and_request_log():
     }
     usage = {"prompt_tokens": 139, "completion_tokens": 1, "total_tokens": 140}
     stream = io.StringIO()
-    logger = logging.getLogger("ai_model_serving.risk-adapter")
+    logger = logging.getLogger("ai_model_serving.risk-signal-service")
     handler = logging.StreamHandler(stream)
     logger.addHandler(handler)
     try:
@@ -229,8 +229,8 @@ def test_risk_adapter_metrics_records_assessment_and_system_signals():
     assert response.headers["content-type"].startswith("text/plain")
     metrics = response.text
     assert not metrics.rstrip().endswith("# EOF")
-    assert 'risk_assessments_total{detector="prompt",service="risk-adapter",status="failed"}' in metrics
-    assert 'risk_adapter_system_signal_total{service="risk-adapter",system_signal_code="PARSE_ERROR"}' in metrics
+    assert 'risk_assessments_total{detector="prompt",service="risk-signal-service",status="failed"}' in metrics
+    assert 'risk_adapter_system_signal_total{service="risk-signal-service",system_signal_code="PARSE_ERROR"}' in metrics
 
 
 def test_risk_adapter_rejects_oversized_request_body():
@@ -269,7 +269,7 @@ def test_risk_adapter_validation_rejection_metric_uses_safe_reason_label():
     client = TestClient(create_risk_adapter_app(settings(), FakeRiskClients()))
     client.post("/v1/risk/assessments", headers=auth_headers(), json={"prompt": "hello", "extra": "no"})
     metrics = client.get("/metrics").text
-    assert 'request_validation_rejections_total{reason="risk_prompt",service="risk-adapter"}' in metrics
+    assert 'request_validation_rejections_total{reason="risk_prompt",service="risk-signal-service"}' in metrics
 
 
 def test_risk_adapter_rejects_whitespace_only_prompt():
@@ -311,7 +311,7 @@ def test_risk_prompt_assessment_logs_prompt_and_response_when_flag_enabled():
 
     stream = io.StringIO()
     handler = logging.StreamHandler(stream)
-    logger = logging.getLogger("ai_model_serving.risk-adapter")
+    logger = logging.getLogger("ai_model_serving.risk-signal-service")
     logger.addHandler(handler)
     try:
         client = TestClient(create_risk_adapter_app(cfg, clients))
@@ -339,7 +339,7 @@ def test_risk_prompt_assessment_omits_request_response_body_when_flag_disabled()
     clients = FakeRiskClients(prompt_label="<SAFE>")
     stream = io.StringIO()
     handler = logging.StreamHandler(stream)
-    logger = logging.getLogger("ai_model_serving.risk-adapter")
+    logger = logging.getLogger("ai_model_serving.risk-signal-service")
     logger.addHandler(handler)
     try:
         client = TestClient(create_risk_adapter_app(settings(), clients))
