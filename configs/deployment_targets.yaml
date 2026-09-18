@@ -17,7 +17,7 @@ targets:
     #
     # exposure profile의 host_published가 실제 공개 집합을 결정한다.
     exposure_profile_applies: true
-    control_mode: sidecar
+    control_mode: runtime_controller
     lifecycle_owner: platform
     # Gateway가 Sidecar/Risk Adapter 같은 내부 서비스에 인증 호출을 수행한다.
     # 이 값은 auth profile의 정책과 별개로, 해당 target에 token 소비면이 실제로

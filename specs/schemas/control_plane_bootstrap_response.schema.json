@@ -15,7 +15,7 @@
   "properties": {
     "bootstrap_version": {
       "type": "integer",
-      "const": 3
+      "const": 4
     },
     "platform": {
       "type": "object",
@@ -71,7 +71,7 @@
         "control_mode": {
           "type": "string",
           "enum": [
-            "sidecar",
+            "runtime_controller",
             "static"
           ]
         },

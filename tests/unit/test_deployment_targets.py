@@ -44,7 +44,7 @@ def test_unknown_target_fails_closed() -> None:
         load_deployment_target(CATALOG, "missing-target")
 
 
-def test_partial_sidecar_control_bundle_fails_closed(tmp_path) -> None:
+def test_partial_runtime_controller_bundle_fails_closed(tmp_path) -> None:
     document = yaml.safe_load(CATALOG.read_text(encoding="utf-8"))
     document["targets"]["linux-nvidia-dynamic"]["features"]["gpu_admission"] = False
     path = tmp_path / "deployment_targets.yaml"
