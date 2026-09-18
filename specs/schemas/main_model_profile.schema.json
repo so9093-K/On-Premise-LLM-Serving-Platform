@@ -40,22 +40,11 @@
     "compatibility": {
       "type": "object",
       "required": [
-        "status",
-        "technical_status"
+        "status"
       ],
       "additionalProperties": true,
       "properties": {
         "status": {
-          "type": "string",
-          "enum": [
-            "verified",
-            "likely",
-            "unverified",
-            "incompatible",
-            "unknown"
-          ]
-        },
-        "technical_status": {
           "type": "string",
           "enum": [
             "compatible",
