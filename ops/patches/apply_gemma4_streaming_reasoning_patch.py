@@ -20,13 +20,18 @@ from __future__ import annotations
 
 import os
 
-import vllm
+
+def resolve_target() -> str:
+    override = os.environ.get("GEMMA4_PARSER_PATH")
+    if override:
+        return override
+
+    import vllm
+
+    return os.path.join(os.path.dirname(vllm.__file__), "parser", "gemma4.py")
 
 
-target = os.environ.get(
-    "GEMMA4_PARSER_PATH",
-    os.path.join(os.path.dirname(vllm.__file__), "parser", "gemma4.py"),
-)
+target = resolve_target()
 source = open(target, encoding="utf-8").read()
 
 
@@ -94,54 +99,75 @@ new = '''    # Backported by On-Premise-LLM-Serving-Platform from vLLM PR #48262
         self._streaming_initialized = True
 '''
 
-source = replace_once(source, old, new, "adjust_initial_state_from_prompt")
+if old in source:
+    source = replace_once(source, old, new, "adjust_initial_state_from_prompt")
+    reasoning_fix_status = "backported"
+elif (
+    "def _prompt_ends_in_open_reasoning" in source
+    and "if not self._prompt_ends_in_open_reasoning(prompt_token_ids):" in source
+):
+    reasoning_fix_status = "upstream"
+else:
+    raise AssertionError(
+        "Gemma4 reasoning parser is neither the qualified pre-#48262 layout "
+        "nor a layout containing the upstream open-channel fix"
+    )
 
 # ── Part 2 (local): absorb the <turn|> turn-end token ──────────────────────
-source = replace_once(
-    source,
-    'TOOL_CALL_END = "<tool_call|>"\n',
-    'TOOL_CALL_END = "<tool_call|>"\nTURN_END = "<turn|>"\n',
-    "TURN_END constant",
+turn_end_markers = (
+    'TURN_END = "<turn|>"',
+    '"TURN_END": TURN_END',
+    '(ParserState.CONTENT, "TURN_END")',
+    '(ParserState.REASONING, "TURN_END")',
 )
 
-source = replace_once(
-    source,
-    '''            "TOOL_END": TOOL_CALL_END,
+
+def apply_turn_end_patch(text: str) -> str:
+    text = replace_once(
+        text,
+        'TOOL_CALL_END = "<tool_call|>"\n',
+        'TOOL_CALL_END = "<tool_call|>"\nTURN_END = "<turn|>"\n',
+        "TURN_END constant",
+    )
+
+    text = replace_once(
+        text,
+        '''            "TOOL_END": TOOL_CALL_END,
             "CALL_PREFIX": "call:",''',
-    '''            "TOOL_END": TOOL_CALL_END,
+        '''            "TOOL_END": TOOL_CALL_END,
             "TURN_END": TURN_END,
             "CALL_PREFIX": "call:",''',
-    "terminals TURN_END",
-)
+        "terminals TURN_END",
+    )
 
-source = replace_once(
-    source,
-    '''        token_id_terminals={
+    text = replace_once(
+        text,
+        '''        token_id_terminals={
             "THINK_START": CHANNEL_START,
             "THINK_END": CHANNEL_END,
             "TOOL_START": TOOL_CALL_START,
             "TOOL_END": TOOL_CALL_END,
         },''',
-    '''        token_id_terminals={
+        '''        token_id_terminals={
             "THINK_START": CHANNEL_START,
             "THINK_END": CHANNEL_END,
             "TOOL_START": TOOL_CALL_START,
             "TOOL_END": TOOL_CALL_END,
             "TURN_END": TURN_END,
         },''',
-    "token_id_terminals TURN_END",
-)
+        "token_id_terminals TURN_END",
+    )
 
-source = replace_once(
-    source,
-    '''            # Absorb a bare <channel|> that arrives after we already
+    return replace_once(
+        text,
+        '''            # Absorb a bare <channel|> that arrives after we already
             # returned to CONTENT; prevents leaking it as TEXT_CHUNK.
             (ParserState.CONTENT, "THINK_END"): Transition(
                 ParserState.CONTENT,
                 (),
             ),
         },''',
-    '''            # Absorb a bare <channel|> that arrives after we already
+        '''            # Absorb a bare <channel|> that arrives after we already
             # returned to CONTENT; prevents leaking it as TEXT_CHUNK.
             (ParserState.CONTENT, "THINK_END"): Transition(
                 ParserState.CONTENT,
@@ -160,8 +186,21 @@ source = replace_once(
                 (EventType.REASONING_END,),
             ),
         },''',
-    "TURN_END transitions",
-)
+        "TURN_END transitions",
+    )
+
+
+turn_end_presence = tuple(marker in source for marker in turn_end_markers)
+if all(turn_end_presence):
+    turn_end_status = "present"
+elif any(turn_end_presence):
+    raise AssertionError(
+        "Gemma4 TURN_END handling is only partially present; refusing to guess "
+        "whether the installed parser is safe"
+    )
+else:
+    source = apply_turn_end_patch(source)
+    turn_end_status = "applied"
 
 open(target, "w", encoding="utf-8").write(source)
 
@@ -171,4 +210,7 @@ assert "if not self._prompt_ends_in_open_reasoning(prompt_token_ids):" in verifi
 assert verified.count('"TURN_END": TURN_END') == 2
 assert '(ParserState.CONTENT, "TURN_END")' in verified
 assert '(ParserState.REASONING, "TURN_END")' in verified
-print("gemma4 parser patch applied: upstream PR #48262 + local <turn|> absorption")
+print(
+    "gemma4 parser patch ready: "
+    f"reasoning_fix={reasoning_fix_status} turn_end={turn_end_status}"
+)
