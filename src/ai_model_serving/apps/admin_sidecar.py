@@ -29,6 +29,7 @@ from ..platform_state import DEFAULT_PLATFORM_STATE_DIR, configured_platform_sta
 from ..docker_scope import (
     compose_container_filter,
     one_scoped_container_row,
+    require_compose_project,
     scoped_container_id,
 )
 from ..env_compat import renamed_env_value
@@ -508,6 +509,9 @@ async def _require_sidecar_token(authorization: str | None = Header(default=None
 async def _run_initialize() -> None:
     global _initialization_error
     try:
+        # Running without a project label would widen Docker lookup authority to
+        # every Compose project that reuses the same service names on this host.
+        require_compose_project(COMPOSE_PROJECT)
         await _main_model_manager.initialize()
     except Exception as exc:  # noqa: BLE001 - /health를 통해 노출되며, 루프를 죽여서는 안 된다
         _initialization_error = str(exc)
