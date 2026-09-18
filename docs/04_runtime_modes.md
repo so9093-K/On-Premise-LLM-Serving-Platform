@@ -198,7 +198,7 @@ full-stack의 base Compose 정의는 `ops/compose/full-stack.private-network.yam
 | `main-llm-vllm` | `9401` | Chat / Multimodal inference |
 | `embedding-vllm` | `9402` | 범용 embedding |
 | `risk-prompt-vllm` | `9403` | Prompt risk inference |
-| `risk-adapter` | `9405` | Risk signal 처리 |
+| `risk-signal-service` | `9405` | Risk signal 처리 |
 | `embedding-ko-vllm` | `9406` | Korean retrieval embedding |
 | `prometheus` | `9090` | Metrics backend |
 | `grafana` | `3000` | Dashboard |
@@ -214,7 +214,7 @@ application과 model runtime은 서로 다른 image 계층으로 실행된다.
 ```text
 Platform Image
   ├─ gateway
-  ├─ risk-adapter
+  ├─ risk-signal-service
   └─ runtime-controller
 
 vLLM Runtime Image
@@ -259,7 +259,7 @@ Compose Network
 ├─ embedding-vllm
 ├─ embedding-ko-vllm
 ├─ risk-prompt-vllm
-├─ risk-adapter
+├─ risk-signal-service
 ├─ runtime-controller
 ├─ prometheus
 ├─ dcgm-exporter
@@ -353,7 +353,7 @@ risk-prompt-vllm
 
 vLLM runtime은 초기화 과정에서 GPU memory를 확인하고 runtime memory를 구성한다. 순차 기동은 여러 runtime이 동일 GPU를 사용할 때 초기화 경쟁을 줄이는 역할을 한다.
 
-Gateway는 기본적으로 `risk-adapter`와 `main-llm-vllm`의 상태를 기준으로 기동되며, Runtime Controller는 Gateway의 hard startup dependency로 두지 않는다.
+Gateway는 기본적으로 `risk-signal-service`와 `main-llm-vllm`의 상태를 기준으로 기동되며, Runtime Controller는 Gateway의 hard startup dependency로 두지 않는다.
 
 따라서 Sidecar 장애는 Main Model control에 영향을 주지만 Gateway process 자체의 기동과 직접 결합되지는 않는다.
 
