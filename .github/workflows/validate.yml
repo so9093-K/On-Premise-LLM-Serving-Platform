@@ -64,12 +64,28 @@ jobs:
       - name: Check Control Plane source and generated Console
         run: make console-check
 
+  platform-image:
+    name: Platform image build and smoke
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      # Dockerfile/build semantics stay in the provider-neutral repository command.
+      # This job only verifies that the exact source under review still produces a
+      # runnable Linux Platform image; it does not publish or promote the image.
+      - name: Build and smoke-test Platform image
+        env:
+          PLATFORM_IMAGE: ai-model-serving-platform:ci-${{ github.sha }}
+          PLATFORM_BUILD_PLATFORM: linux/amd64
+        run: make build-image
+
   ci-gate:
     name: CI Gate
     if: ${{ always() }}
     needs:
       - app-contract
       - console
+      - platform-image
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
@@ -77,9 +93,11 @@ jobs:
         env:
           APP_CONTRACT_RESULT: ${{ needs.app-contract.result }}
           CONSOLE_RESULT: ${{ needs.console.result }}
+          PLATFORM_IMAGE_RESULT: ${{ needs.platform-image.result }}
         run: |
           printf 'app-contract: %s\n' "${APP_CONTRACT_RESULT}"
           printf 'console: %s\n' "${CONSOLE_RESULT}"
+          printf 'platform-image: %s\n' "${PLATFORM_IMAGE_RESULT}"
 
           if [[ "${APP_CONTRACT_RESULT}" != "success" ]]; then
             echo "App and contracts did not succeed." >&2
@@ -88,6 +106,11 @@ jobs:
 
           if [[ "${CONSOLE_RESULT}" != "success" ]]; then
             echo "Control Plane frontend did not succeed." >&2
+            exit 1
+          fi
+
+          if [[ "${PLATFORM_IMAGE_RESULT}" != "success" ]]; then
+            echo "Platform image build and smoke did not succeed." >&2
             exit 1
           fi
 
