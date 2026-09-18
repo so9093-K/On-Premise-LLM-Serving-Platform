@@ -1,6 +1,6 @@
 # 3. 시스템 구성
 
-AI Model Serving Platform은 외부 API를 처리하는 **Gateway**, runtime과 container를 제어하는 **Admin / Control Sidecar**, 실제 모델 추론을 수행하는 **vLLM Runtime**, 위험 신호를 정규화하는 **Risk Signal Service**, 그리고 metrics·logs·GPU·container 상태를 수집하는 **관측성 스택**으로 구성된다.
+AI Model Serving Platform은 외부 API를 처리하는 **Gateway**, runtime과 container를 제어하는 **Runtime Controller**, 실제 모델 추론을 수행하는 **Model Runtime**, 위험 신호를 정규화하는 **Risk Signal Service**, 그리고 metrics·logs·GPU·container 상태를 수집하는 **관측성 스택**으로 구성된다.
 
 각 구성 요소는 별도의 책임 경계를 갖는다. 핵심 원칙은 **외부 API 처리, 모델 inference, privileged container control을 서로 분리하는 것**이다.
 
@@ -34,7 +34,7 @@ Client / Application
         │                                      ▼
         │                               risk-prompt-vllm :9403
         │
-        └────────────────────────► Admin / Control Sidecar :8080
+        └────────────────────────► Runtime Controller :8080
                                            │
                                            └─ Docker Engine
 
@@ -51,7 +51,7 @@ Client / Application
 | 구성 요소 | 내부 Port | 주요 책임 |
 |---|---:|---|
 | **Gateway** | `9400` | 외부 API, 인증, 검증, routing, orchestration, retrieval |
-| **Admin / Control Sidecar** | `8080` | Runtime lifecycle, main model 전환, GPU budget admission, Docker 제어 |
+| **Runtime Controller** | `8080` | Runtime lifecycle, main model 전환, GPU budget admission, Docker 제어 |
 | **Main Model Runtime** | `9401` | Chat / Responses / Multimodal generation |
 | **Embedding Runtime** | `9402` | 범용 text embedding |
 | **Korean Embedding Runtime** | `9406` | Korean retrieval embedding |
@@ -84,7 +84,7 @@ Gateway :9400
   ├─ Embedding Runtime
   ├─ Korean Embedding Runtime
   ├─ Risk Signal Service
-  └─ Admin / Control Sidecar
+  └─ Runtime Controller
 ```
 
 ### Purpose
@@ -149,7 +149,7 @@ Main Model State
 
 model 전환 중에는 `MAIN_MODEL_SWITCH_IN_PROGRESS`, control plane 자체에 접근할 수 없으면 `MAIN_MODEL_CONTROL_UNAVAILABLE`로 처리한다.
 
-Gateway는 현재 처리 중인 main model 요청 수를 별도로 추적하며 Sidecar의 switch drain 과정에 이 정보를 제공한다.
+Gateway는 현재 처리 중인 main model 요청 수를 별도로 추적하며 Runtime Controller의 switch drain 과정에 이 정보를 제공한다.
 
 ### Model Runtime State
 
@@ -218,7 +218,7 @@ Gateway `/ready`는 main model과 활성 상태로 간주되는 dependency를 pr
 | Risk Signal Service 장애 | Gateway Risk API 불가 |
 | Runtime Controller 장애 | Main Model generation gate 확인과 Admin runtime control 불가 |
 
-Runtime Controller는 Gateway의 startup hard dependency가 아니다. Sidecar가 장애 상태여도 Gateway process 자체와 Sidecar를 직접 사용하지 않는 일부 경로는 살아 있을 수 있다.
+Runtime Controller는 Gateway의 startup hard dependency가 아니다. Runtime Controller가 장애 상태여도 Gateway process 자체와 Runtime Controller를 직접 사용하지 않는 일부 경로는 살아 있을 수 있다.
 
 ### 구현 위치
 
@@ -234,9 +234,12 @@ Runtime Controller는 Gateway의 startup hard dependency가 아니다. Sidecar�
 
 ---
 
-## 3.3 Admin / Control Sidecar
+## 3.3 Runtime Controller
 
-Admin / Control Sidecar는 플랫폼의 **runtime control plane**이다.
+`admin-sidecar`는 현재 Compose service/module compatibility identifier이며 사용자-facing 구성요소 이름이 아니다. 새 문서·Console·운영 설명은 canonical term인 **Runtime Controller**를 사용한다.
+
+
+Runtime Controller는 플랫폼의 **runtime control plane**이다.
 
 Gateway가 외부 요청 처리에 집중하도록 Docker 제어 권한과 runtime lifecycle을 별도 process로 격리한다.
 
@@ -257,7 +260,7 @@ Docker Engine
 
 ### Purpose
 
-Sidecar의 가장 중요한 목적은 **Gateway와 Docker 권한을 분리하는 것**이다.
+Runtime Controller의 가장 중요한 목적은 **Gateway와 Docker 권한을 분리하는 것**이다.
 
 Docker socket은 Runtime Controller에 mount되고 Gateway에는 연결되지 않는다.
 
@@ -277,15 +280,15 @@ project가 비어 있거나 동일 service가 중복으로 발견되면 자동 �
 
 ### Network Boundary
 
-Sidecar의 기본 port는 `8080`이며 Compose network 내부에서만 사용한다.
+Runtime Controller의 기본 port는 `8080`이며 Compose network 내부에서만 사용한다.
 
 ```text
 Gateway ──► http://admin-sidecar:8080
 ```
 
-Sidecar port는 standard topology에서 host에 publish하지 않는다. 외부 운영 요청은 Gateway의 `/admin/*` API로 들어오고 Gateway가 Sidecar internal API를 호출한다.
+Runtime Controller port는 standard topology에서 host에 publish하지 않는다. 외부 운영 요청은 Gateway의 `/admin/*` API로 들어오고 Gateway가 Runtime Controller internal API를 호출한다.
 
-설정에 따라 Gateway ↔ Sidecar 요청에는 internal service token을 사용한다.
+설정에 따라 Gateway ↔ Runtime Controller 요청에는 internal service token을 사용한다.
 
 ### Responsibilities
 
@@ -324,7 +327,7 @@ profile에는 실제 model revision, runtime image와 command, context, concurre
 Main Model 전환은 신규 요청을 차단한 뒤 기존 Chat 요청을 drain하는 방식으로 진행한다.
 
 ```text
-Sidecar
+Runtime Controller
   │
   ├─ Main Model Gate Close
   ▼
@@ -334,18 +337,18 @@ Gateway
   └─ In-Flight 요청 완료
         │
         ▼
-Sidecar
+Runtime Controller
   │
   └─ Runtime 교체
 ```
 
-Gateway는 internal drain status를 제공하고 Sidecar는 이를 확인한 뒤 runtime lifecycle 작업을 진행한다.
+Gateway는 internal drain status를 제공하고 Runtime Controller는 이를 확인한 뒤 runtime lifecycle 작업을 진행한다.
 
 ### GPU Budget Admission
 
 모든 vLLM runtime은 하나의 GPU를 공유한다.
 
-Sidecar는 runtime start 또는 main model activation 전에 현재 활성 runtime과 목표 runtime의 GPU budget을 계산한다.
+Runtime Controller는 runtime start 또는 main model activation 전에 현재 활성 runtime과 목표 runtime의 GPU budget을 계산한다.
 
 ```text
 Current Runtime Budget
@@ -375,7 +378,7 @@ Runtime Controller는 다음 책임을 소유하지 않는다.
 - Risk signal schema의 최종 표현
 - Metrics / logs 장기 저장
 
-Sidecar는 **control plane**이며 user data plane 역할을 하지 않는다.
+Runtime Controller는 **control plane**이며 user data plane 역할을 하지 않는다.
 
 ### Dependencies
 
@@ -389,7 +392,7 @@ Sidecar는 **control plane**이며 user data plane 역할을 하지 않는다.
 
 ### Failure Impact
 
-Sidecar가 중단되면 main model 상태 조회, model switch, runtime start / stop, GPU budget admission이 영향을 받는다.
+Runtime Controller가 중단되면 main model 상태 조회, model switch, runtime start / stop, GPU budget admission이 영향을 받는다.
 
 Gateway는 Sidecar 장애 때문에 process 자체가 시작되지 못하는 구조를 피한다. 다만 Chat은 active main model gate를 확인할 수 없으므로 `503 MAIN_MODEL_CONTROL_UNAVAILABLE`을 반환한다.
 
@@ -460,7 +463,7 @@ main-llm-vllm :9401
 Active Profile Model
 ```
 
-Gateway는 Sidecar가 제공하는 active profile의 deployed capability를 사용해 실제 허용 modality를 판단한다.
+Gateway는 Runtime Controller가 제공하는 active profile의 deployed capability를 사용해 실제 허용 modality를 판단한다.
 
 Main Model container는 profile switch 과정에서 Sidecar에 의해 교체될 수 있으므로 실제 운영 상태는 Compose의 초기 command만으로 판단하지 않는다.
 
