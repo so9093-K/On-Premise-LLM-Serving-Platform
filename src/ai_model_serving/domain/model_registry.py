@@ -137,16 +137,33 @@ class ModelRegistry:
             issues.append(RegistryIssue("missing_serving_model", f"{logical_id} exists in model_catalog.yaml but not model_serving.yaml."))
         for logical_id in sorted(serving_ids - catalog_ids):
             issues.append(RegistryIssue("unknown_serving_model", f"{logical_id} exists in model_serving.yaml but not model_catalog.yaml."))
+        catalog_models = self._catalog_models()
         for record in self.iter_records():
             if record.serving_key is None:
                 continue
-            # Main Model checkpoint identity is profile-owned and changes when the
-            # active profile changes. Requiring a static catalog/serving copy here
-            # would recreate a second Source of Truth. Fixed non-main runtimes keep
-            # the existing exact alignment check.
-            if record.role == "main_llm":
-                continue
             serving_cfg = self._serving_models()[record.serving_key]
+            # Main Model checkpoint identity is profile-owned and changes when the
+            # active profile changes. A static copy in either registry config would
+            # recreate a second Source of Truth, so fail closed if one is re-added.
+            if record.role == "main_llm":
+                catalog_cfg = catalog_models[record.logical_id]
+                duplicated_fields: list[str] = []
+                if "upstream_model_id" in catalog_cfg:
+                    duplicated_fields.append("model_catalog.upstream_model_id")
+                for field in ("name", "revision", "runtime_model_path"):
+                    if field in serving_cfg:
+                        duplicated_fields.append(f"model_serving.{field}")
+                if duplicated_fields:
+                    issues.append(
+                        RegistryIssue(
+                            "main_checkpoint_identity_outside_profile",
+                            f"{record.logical_id} Main Model checkpoint identity must be owned only by "
+                            "the Main Model Profile; remove "
+                            + ", ".join(duplicated_fields)
+                            + ".",
+                        )
+                    )
+                continue
             if str(serving_cfg.get("name", "")) != record.upstream_model_id:
                 issues.append(RegistryIssue("upstream_model_mismatch", f"{record.logical_id} upstream model id disagrees between catalog and serving config."))
         return tuple(issues)
