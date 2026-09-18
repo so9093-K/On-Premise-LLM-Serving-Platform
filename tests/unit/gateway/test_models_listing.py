@@ -64,7 +64,11 @@ def test_models_listing_does_not_advertise_tools_when_active_profile_rejects_the
         ["text", "image", "audio", "video"],
         gateway_policy={"request_parameter_policy": {"supported_parameters": ["max_tokens"]}},
     )
-    main = _main_model(\n        _app_with_runtime_controller(runtime_controller).get(\n            "/v1/models", headers=auth_headers()\n        )\n    )
+    main = _main_model(
+        _app_with_runtime_controller(runtime_controller).get(
+            "/v1/models", headers=auth_headers()
+        )
+    )
     assert "chat.completions.tools" not in main["capabilities"]
 
 
