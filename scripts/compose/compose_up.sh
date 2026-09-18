@@ -10,7 +10,6 @@ COMPOSE_FILE="${COMPOSE_FILE:-ops/compose/full-stack.private-network.yaml}"
 source scripts/lib/compose_context.sh
 source scripts/lib/bind_mounted_config.sh
 source scripts/lib/gateway_runtime_state.sh
-source scripts/lib/runtime_startup_profile.sh
 compose_context_init "$ROOT"
 compose_context_assert_mutation_safe
 PROM_SECRET=".runtime/prometheus/admin_api_key"
@@ -101,7 +100,6 @@ if [[ "${SKIP_PREFLIGHT:-0}" == "1" ]]; then
   docker compose "${COMPOSE_ARGS[@]}" --env-file "$ENV_FILE_ABS" config >/dev/null
 fi
 
-normalize_runtime_startup_profile RUNTIME_PROFILE
 RUNTIME_STARTUP_PROFILE_REQUESTED="${RUNTIME_STARTUP_PROFILE:-}"
 
 DEFERRED_RUNTIME_RESOLUTION="$(
