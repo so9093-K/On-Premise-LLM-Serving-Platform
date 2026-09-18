@@ -38,7 +38,7 @@ services:
       # export한 뒤라 여기서도 같은 값이 잡히고, compose-up은 실행마다 새 값을 준다.
       DEPLOY_RELEASE_ID: ${DEPLOY_RELEASE_ID:-}
     depends_on:
-      risk-adapter:
+      risk-signal-service:
         condition: service_healthy
       main-llm-vllm:
         condition: service_healthy
@@ -54,7 +54,7 @@ services:
     - ../../.runtime/request-events:/var/log/ai-model-serving
     - ../../configs:/app/configs:ro
     - ../../specs/schemas:/app/specs/schemas:ro
-  risk-adapter:
+  risk-signal-service:
     image: ${PLATFORM_IMAGE:?Set PLATFORM_IMAGE to a tested platform image tag}
     restart: unless-stopped
     command:
@@ -323,7 +323,7 @@ services:
     restart: unless-stopped
     depends_on:
     - gateway
-    - risk-adapter
+    - risk-signal-service
     - main-llm-vllm
     - dcgm-exporter
     - cadvisor
