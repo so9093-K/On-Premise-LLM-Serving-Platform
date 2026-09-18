@@ -79,7 +79,7 @@ legacy removal 순서를 따른다.
 | `MAIN_LLM_*` | `MAIN_MODEL_*` | runtime read alias는 제거됨. 기존 persistent `.env`의 legacy key는 `sync-env` migration 입력으로만 유지되며 `MAIN_LLM_MODEL`은 `MAIN_MODEL_ALIAS`로 이관 |
 | `risk_adapter` / `RISK_ADAPTER_*` | Risk Signal Service 계열 identifier | 공개 `/v1/risk/*` API는 그대로 유지 |
 | `risk_prompt` / `RISK_PROMPT_*` | Prompt Injection Detector 계열 identifier | runtime/model 내부 identifier만 별도 migration |
-| `admin-sidecar` / `admin_sidecar` | Runtime Controller 계열 identifier | Python client와 application module compatibility shim은 제거됨. Compose service ID와 telemetry service key는 별도 migration |
+| `admin-sidecar` / `admin_sidecar` | Runtime Controller 계열 legacy identifier | Python shim, Compose service ID, DNS, telemetry key migration이 모두 완료됨. 현재 identifier는 `runtime-controller` / `runtime_controller` |
 
 migration이 완료되기 전에는 기존 식별자를 삭제하거나 새 target과 충돌하는 값을 자동 선택하지 않는다.
 canonical과 legacy 값이 동시에 존재하면서 다르면 fail-closed를 기본으로 한다.
@@ -118,6 +118,6 @@ canonical target을 정하고, 그 다음에 migration 순서와 기간을 결�
 API 오류 메시지·OpenAPI 설명/예제·CLI help·Console help·운영 설정의 description도
 사용자-facing 표시 계약에 포함한다. 이 surface에서는 `Runtime Controller`,
 `Risk Signal Service`, `Prompt Injection Detector Runtime` 같은 canonical term을 사용하고,
-`admin-sidecar`, `risk_adapter`, `risk-prompt-vllm` 같은 값은 실제 identifier를 정확히
+`runtime-controller`, `risk_adapter`, `risk-prompt-vllm` 같은 값은 실제 identifier를 정확히
 가리켜야 할 때만 code formatting과 함께 노출한다. Runtime Controller endpoint의 canonical
 env는 `RUNTIME_CONTROLLER_URL`이며 `ADMIN_SIDECAR_URL`은 persistent env migration 입력으로만 남는다.

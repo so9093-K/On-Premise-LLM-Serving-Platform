@@ -36,8 +36,7 @@ from ..settings_parts.env import as_bool, is_default_secret
 from ..runtime_topology import load_runtime_topology
 from ..runtime_transition import plan_runtime_transition
 
-# Telemetry service key remains a compatibility identifier until the service-ID migration.
-_logger = service_logger("admin_sidecar")
+_logger = service_logger("runtime_controller")
 
 # --------------------------------------------------------------------- config
 

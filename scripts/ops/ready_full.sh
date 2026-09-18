@@ -26,7 +26,7 @@ fi
 GATEWAY_BASE_URL="http://${GATEWAY_PROBE_HOST}:${GATEWAY_PORT:-$(service_default_host_port gateway)}"
 READY_FULL_TIMEOUT_SECONDS="${READY_FULL_TIMEOUT_SECONDS:-1800}"
 READY_FULL_INTERVAL_SECONDS="${READY_FULL_INTERVAL_SECONDS:-10}"
-# admin-sidecar를 재생성하면(배포마다 PLATFORM_IMAGE가 bump됨) main-model inference
+# runtime-controller를 재생성하면(배포마다 PLATFORM_IMAGE가 bump됨) main-model inference
 # gate가 닫힌다. boot reconcile이 persisted profile을 재검증할 때까지 gateway는
 # main-model chat에 503을 반환한다. /ready에는 이 gate 상태가 반영되지 않으므로,
 # ready-full은 엄격한 smoke gate 전에 chat이 실제로 서빙될 때까지 기다린다.
@@ -209,9 +209,9 @@ wait_for_main_model_ready() {
       return 0
     fi
     # 실패를 그 자리에서 진단할 수 있도록 gateway의 에러를 그대로 노출한다.
-    # 여기서 MAIN_MODEL_CONTROL_UNAVAILABLE은 gateway가 admin-sidecar로부터 gate
-    # 상태를 읽지 못한다는 의미이므로(예: sidecar의 /main-model이 에러를 내는 경우)
-    # 아래 diagnostics에서 admin-sidecar 로그를 확인해야 한다. MAIN_MODEL_SWITCH_IN_PROGRESS는
+    # 여기서 MAIN_MODEL_CONTROL_UNAVAILABLE은 gateway가 runtime-controller로부터 gate
+    # 상태를 읽지 못한다는 의미이므로(예: Runtime Controller의 /main-model이 에러를 내는 경우)
+    # 아래 diagnostics에서 runtime-controller 로그를 확인해야 한다. MAIN_MODEL_SWITCH_IN_PROGRESS는
     # gate가 아직 정상적으로 재개방되는 중이라는 의미이므로 계속 기다리면 된다.
     detail="$(tr '\n' ' ' < "$tmp" 2>/dev/null | cut -c1-300)"
     error_code="$("$PYTHON_BIN" - "$tmp" <<'PY'
@@ -234,7 +234,7 @@ PY
     fi
     if (( SECONDS >= deadline )); then
       echo "[ready-full] main-model chat not serving after ${READY_FULL_MAIN_MODEL_TIMEOUT_SECONDS}s (last HTTP ${code:-000}): ${detail}" >&2
-      echo "[ready-full] gate did not open — inspect admin-sidecar logs in the diagnostics that follow" >&2
+      echo "[ready-full] gate did not open — inspect runtime-controller logs in the diagnostics that follow" >&2
       rm -f "$tmp"
       return 1
     fi
@@ -252,7 +252,7 @@ wait_for_gateway_ready "$GATEWAY_BASE_URL/ready" "$ADMIN_API_KEY"
 # 엄격한 smoke gate 전에 readiness dependency 목록을 출력한다.
 bash scripts/ops/status_services.sh --full || true
 
-# control-plane 재배포 후 admin-sidecar가 main-model gate를 닫았다가 boot reconcile로
+# control-plane 재배포 후 runtime-controller가 main-model gate를 닫았다가 boot reconcile로
 # 다시 연다. gate가 닫혀 있는 동안 main-model chat은 503이고 /ready엔 반영되지 않으므로,
 # smoke(엄격 gate) 전에 chat이 실제로 200을 줄 때까지 기다린다.
 wait_for_main_model_ready

@@ -497,7 +497,7 @@ Gateway 뒤의 서비스는 Compose DNS와 container port로 연결된다.
 | Gateway → Embedding-KO vLLM | `http://embedding-ko-vllm:9406/v1` | Korean Embedding / Retrieval |
 | Gateway → Risk Signal Service | `http://risk-adapter:9405` | Prompt Guard / Risk 요청 |
 | Risk Signal Service → Prompt vLLM | `http://risk-prompt-vllm:9403/v1` | Prompt attack detector |
-| Gateway → Runtime Controller | `http://admin-sidecar:8080` | Runtime / Main Model control |
+| Gateway → Runtime Controller | `http://runtime-controller:8080` | Runtime / Main Model control |
 
 ### `private_network`
 
@@ -511,7 +511,7 @@ Host
 
 Compose Network
   │
-  ├─ admin-sidecar :8080
+  ├─ runtime-controller :8080
   ├─ risk-adapter :9405
   ├─ main-llm-vllm :9401
   ├─ embedding-vllm :9402

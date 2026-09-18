@@ -28,7 +28,7 @@ services:
       ADMIN_API_KEY_REQUIRED: '${ADMIN_API_KEY_REQUIRED:-true}'
       ADMIN_ENDPOINTS_INTERNAL_ONLY: '${ADMIN_ENDPOINTS_INTERNAL_ONLY:-false}'
       STRICT_ADMIN_ENDPOINT_SECURITY: '${STRICT_ADMIN_ENDPOINT_SECURITY:-true}'
-      RUNTIME_CONTROLLER_URL: http://admin-sidecar:8080
+      RUNTIME_CONTROLLER_URL: http://runtime-controller:8080
       REQUEST_EVENT_LOG_DIR: /var/log/ai-model-serving
       # 배포가 결정한 deferred runtime 목록. Gateway가 기동 시 한 번 적용하며,
       # 상태 파일 자체는 Gateway만 쓴다(두 writer 소유권 충돌 방지).
@@ -42,10 +42,10 @@ services:
         condition: service_healthy
       main-llm-vllm:
         condition: service_healthy
-      # admin-sidecar는 의도적으로 하드 의존에서 뺐다: gateway_inference.py의
+      # runtime-controller는 의도적으로 하드 의존에서 뺐다: gateway_inference.py의
       # sidecar 호출은 이미 SidecarUnavailableError를 잡아 main-model 관련
       # 요청만 503으로 낙제시키고(gateway_ops.py의 /metrics도 동일하게 낙제),
-      # embeddings/risk 경로는 sidecar를 아예 쓰지 않는다. admin-sidecar가
+      # embeddings/risk 경로는 sidecar를 아예 쓰지 않는다. runtime-controller가
       # 계속 crash-loop해도(예: 상태 경로 권한 문제) gateway 전체가
       # "Created" 상태로 영원히 멈추는 단일 장애점을 만들지 않기 위함이다
       # — 2026-07-21 장애의 근본 원인.
@@ -84,12 +84,12 @@ services:
     - ../../specs/schemas:/app/specs/schemas:ro
   main-llm-vllm:
     # 이 image는 최초 `docker compose up` 부트스트랩 전용 placeholder다.
-    # admin-sidecar가 뜬 뒤에는 configs/main_model_profiles.yaml의 active profile
+    # runtime-controller가 뜬 뒤에는 configs/main_model_profiles.yaml의 active profile
     # 기준으로 항상 컨테이너를 stop/재생성하며 image도 그때마다 덮어쓴다
     # (main_model/docker_backend.py의 replace(): payload["Image"] = profile.image).
     # 실제 서빙 이미지는 이 값이 아니라 항상 그쪽을 봐야 한다. 이 값은
     # default_profile이 resolve하는 image와 일치해야 하며(최초 부팅 시 이 값으로
-    # 뜬 컨테이너가 healthy해야 admin-sidecar의 첫 reconcile까지 갈 수 있다),
+    # 뜬 컨테이너가 healthy해야 runtime-controller의 첫 reconcile까지 갈 수 있다),
     # 어긋나면 scripts/compose/validate_vllm_compose.py가 정적 계약 검증에서 잡는다.
     # default_profile(gemma4-12b-unified-fp8)의 image는 ${MAIN_MODEL_VLLM_IMAGE_OVERRIDE}
     # 참조라서, main_model/control.py의 _resolve_profile_image()와 동일한 폴백
@@ -403,13 +403,13 @@ services:
     - ../grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
     - ../grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
   # -------------------------------------------------------------------------
-  # Admin sidecar — internal container lifecycle control.
+  # Runtime Controller — internal container lifecycle control.
   # Docker socket is mounted here, NOT on gateway (security boundary).
   # The :ro bind does NOT make Docker Engine API methods read-only; application
   # authority is restricted by project/service scope and allowlisted operations.
   # Port 8080 is expose-only; never publish to host.
   # -------------------------------------------------------------------------
-  admin-sidecar:
+  runtime-controller:
     image: ${PLATFORM_IMAGE:?Set PLATFORM_IMAGE to a tested platform image tag}
     restart: unless-stopped
     user: 0:0
@@ -428,7 +428,7 @@ services:
       PYTHONPATH: /app/src
       PLATFORM_STATE_DIR: /var/lib/ai-model-serving
       DOCKER_SOCKET: /var/run/docker.sock
-      # 이 값으로 admin-sidecar가 com.docker.compose.project 라벨을 걸러 컨테이너를
+      # 이 값으로 runtime-controller가 com.docker.compose.project 라벨을 걸러 컨테이너를
       # 찾는다. 위 `name:`과 기본값이 어긋나면 sidecar가 아무 컨테이너도 찾지 못해
       # 런타임 start/stop이 조용히 아무 일도 하지 않는다. 기본값을 같이 둔다.
       COMPOSE_PROJECT: ${COMPOSE_PROJECT_NAME:-ai-model-serving-platform}

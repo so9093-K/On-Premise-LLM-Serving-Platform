@@ -4176,18 +4176,18 @@ paths:
           content:
             application/json:
               examples:
-                no_sidecar:
+                no_runtime_controller:
                   summary: Runtime Controller 미설정
                   value:
                     detail: Runtime Controller is not configured (RUNTIME_CONTROLLER_URL
                       missing)
-                sidecar_unavailable:
+                runtime_controller_unavailable:
                   summary: Runtime Controller 연결 실패
                   value:
                     error:
                       code: MAIN_MODEL_CONTROL_UNAVAILABLE
                       message: 'Runtime Controller unavailable: Connection refused
-                        http://admin-sidecar:8080'
+                        http://runtime-controller:8080'
                       retryable: true
                       request_id: req_00000000000000000000000000000000
                 in_progress:

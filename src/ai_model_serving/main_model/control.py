@@ -650,7 +650,7 @@ class MainModelManager:
             if now < self._reconcile_backoff_until:
                 return  # backoff 중 — 이번 tick은 건너뛴다
             _logger.warning(
-                "main-llm-vllm container restarted outside admin-sidecar control "
+                "main-llm-vllm container restarted outside Runtime Controller control "
                 "(observed StartedAt=%s, last validated=%s); re-validating without closing the gate",
                 observed_started_at,
                 last_validated,

@@ -49,6 +49,6 @@ images:
     env_key: ALLOY_IMAGE
     reference_policy: immutable_upstream
     default: grafana/alloy:v1.18.0@sha256:491b0578c04983fd54fe99b587b6fab4404dc46d0dc16677bd6b00cc1140b308
-    purpose: admin-sidecar가 생성한 읽기 전용 target manifest를 사용해 Docker json-file
+    purpose: Runtime Controller가 생성한 읽기 전용 target manifest를 사용해 Docker json-file
       container log를 Loki로 전송한다. Alloy에는 Docker API 접근 권한이 없다.
     source: Grafana Alloy v1.18.0 multi-arch manifest

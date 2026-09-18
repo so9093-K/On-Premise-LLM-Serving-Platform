@@ -1,4 +1,4 @@
-// Static target에는 admin-sidecar와 Docker LogPath discovery가 없다. 제품 기능인
+// Static target에는 Runtime Controller와 Docker LogPath discovery가 없다. 제품 기능인
 // 요청 이벤트만 앱 소유 고정 JSONL에서 읽고, 컨테이너 오류는 docker logs 또는
 // native runtime supervisor에서 best-effort로 확인한다.
 loki.source.file "request_events" {

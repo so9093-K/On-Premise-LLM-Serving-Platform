@@ -22,6 +22,8 @@
 
 ### Changed
 
+- Runtime Controller의 active service identifier를 `admin-sidecar` / `admin_sidecar`에서 `runtime-controller` / `runtime_controller`로 수렴했다. Compose service와 DNS, Gateway `RUNTIME_CONTROLLER_URL`, rolling deploy, Docker socket boundary test, telemetry service key와 current 운영 문서가 모두 같은 identifier를 사용한다. historical ADR/CHANGELOG의 당시 명칭만 기록으로 남긴다.
+
 - Main Model/Runtime Controller 환경변수 rename migration을 실행 계약에서 종료했다. Runtime, boot override, benchmark, preflight, service env projection은 `MAIN_MODEL_*`와 `RUNTIME_CONTROLLER_URL`만 읽으며, `MAIN_LLM_*`와 `ADMIN_SIDECAR_URL`은 `make sync-env`가 기존 persistent `.env`를 canonical key로 옮길 때만 인식한다. Main Model host bind/port도 `MAIN_MODEL_VLLM_*`만 사용한다. ([ADR-0030](docs/adr/0030-target-architecture-state-and-artifact-boundary.md))
 
 - Deployment Target 상태 계약을 canonical 두 축으로 수렴하고 Control Plane Bootstrap을 v3로 올렸다. `validation_status` legacy projection과 parser를 제거했으며, `implementation_status`가 구현 여부를, `qualification_status`가 검증 근거를 각각 소유한다. ([ADR-0020](docs/adr/0020-runtime-control-and-deployment-targets.md), [ADR-0030](docs/adr/0030-target-architecture-state-and-artifact-boundary.md))

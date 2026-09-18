@@ -194,7 +194,7 @@ full-stack의 base Compose 정의는 `ops/compose/full-stack.private-network.yam
 | Compose Service | Container Port | 역할 |
 |---|---:|---|
 | `gateway` | `9400` | 외부 API 진입점 |
-| `admin-sidecar` | `8080` | Main Model runtime control |
+| `runtime-controller` | `8080` | Main Model runtime control |
 | `main-llm-vllm` | `9401` | Chat / Multimodal inference |
 | `embedding-vllm` | `9402` | 범용 embedding |
 | `risk-prompt-vllm` | `9403` | Prompt risk inference |
@@ -215,7 +215,7 @@ application과 model runtime은 서로 다른 image 계층으로 실행된다.
 Platform Image
   ├─ gateway
   ├─ risk-adapter
-  └─ admin-sidecar
+  └─ runtime-controller
 
 vLLM Runtime Image
   ├─ main-llm-vllm
@@ -260,7 +260,7 @@ Compose Network
 ├─ embedding-ko-vllm
 ├─ risk-prompt-vllm
 ├─ risk-adapter
-├─ admin-sidecar
+├─ runtime-controller
 ├─ prometheus
 ├─ dcgm-exporter
 ├─ cadvisor
