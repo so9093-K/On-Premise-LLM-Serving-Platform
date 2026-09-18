@@ -424,10 +424,10 @@ def validate(root: Path = ROOT, strict: bool = False) -> list[str]:
                 f"-- {removed_keys[key]}"
             )
 
-        static_profile = values.get("MAIN_LLM_STATIC_PROFILE", "").strip()
-        if "MAIN_LLM_STATIC_PROFILE" in values and static_profile not in main_profiles:
+        static_profile = values.get("MAIN_MODEL_STATIC_PROFILE", "").strip()
+        if "MAIN_MODEL_STATIC_PROFILE" in values and static_profile not in main_profiles:
             violations.append(
-                f"{filename}: MAIN_LLM_STATIC_PROFILE references unknown profile "
+                f"{filename}: MAIN_MODEL_STATIC_PROFILE references unknown profile "
                 f"{static_profile!r}"
             )
 
