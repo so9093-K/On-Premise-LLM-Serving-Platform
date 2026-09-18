@@ -239,6 +239,40 @@ def test_sync_env_migrates_legacy_main_model_image_override_without_value_loss(t
     assert 'AUDIO_VLLM_IMAGE' not in values
 
 
+def test_sync_env_migrates_legacy_runtime_controller_url_without_value_loss(tmp_path):
+    out = tmp_path / '.env'
+    out.write_text(
+        'BUILD_PROFILE=compose\n'
+        'ADMIN_SIDECAR_URL=http://legacy-controller:8080\n',
+        encoding='utf-8',
+    )
+
+    rc = setup_env.main(['--sync-env', '--env-file', str(out)])
+
+    assert rc == 0
+    values = setup_env.read_env_values(out)
+    assert values['RUNTIME_CONTROLLER_URL'] == 'http://legacy-controller:8080'
+    assert 'ADMIN_SIDECAR_URL' not in values
+
+
+def test_sync_env_rejects_conflicting_runtime_controller_urls(tmp_path, capsys):
+    out = tmp_path / '.env'
+    out.write_text(
+        'BUILD_PROFILE=compose\n'
+        'RUNTIME_CONTROLLER_URL=http://canonical-controller:8080\n'
+        'ADMIN_SIDECAR_URL=http://legacy-controller:8080\n',
+        encoding='utf-8',
+    )
+
+    rc = setup_env.main(['--sync-env', '--env-file', str(out)])
+
+    assert rc == 2
+    assert (
+        'conflicting env keys ADMIN_SIDECAR_URL and RUNTIME_CONTROLLER_URL'
+        in capsys.readouterr().err
+    )
+
+
 def test_sync_env_migrates_legacy_main_llm_namespace_without_value_loss(tmp_path):
     out = tmp_path / '.env'
     out.write_text(
