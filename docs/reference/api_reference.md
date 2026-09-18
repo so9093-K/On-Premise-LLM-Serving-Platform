@@ -783,7 +783,7 @@ Video는 활성 Main Model profile의 `deployed_input`에 `video`가 포함된 �
 {
   "error": {
     "code": "MAIN_MODEL_CONTROL_UNAVAILABLE",
-    "message": "Runtime Controller unavailable: Connection refused http://admin-sidecar:8080",
+    "message": "Runtime Controller unavailable: Connection refused http://runtime-controller:8080",
     "retryable": true,
     "request_id": "req_..."
   }
