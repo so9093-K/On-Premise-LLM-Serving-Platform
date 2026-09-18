@@ -43,7 +43,7 @@ def test_runtime_list_matches_checked_in_response_contract():
 
 def test_runtime_apply_matches_checked_in_response_contract():
     clients = FakeGatewayClients()
-    clients.sidecar = ConvergingRuntimeSidecar()
+    clients.runtime_controller = ConvergingRuntimeSidecar()
     client = TestClient(create_gateway_app(settings(), clients))
     asyncio.run(clients.runtime_state.set("embedding_ko", RuntimeState.stopped))
 
