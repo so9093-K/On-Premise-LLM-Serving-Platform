@@ -59,7 +59,7 @@
 | **Deploy Runtime Profile** | deployment 전체 profile처럼 보임 | Runtime Startup Profile |
 | **operation evidence** | 내부 영속성 구현 용어에 가까움 | Verification Details / Activity |
 | **force** (단독 버튼) | 실제 영향이 드러나지 않음 | 필요한 runtime 자동 중지 허용 |
-| **AUDIO_VLLM_IMAGE** (신규 이름으로 사용) | 현재 역할이 audio 전용이 아니라 Main Model profile image override임 | Main Model profile image override 계열 이름 |
+| **AUDIO_VLLM_IMAGE** (신규 이름으로 사용) | 현재 역할이 audio 전용이 아니라 Main Model profile image override임 | 신규 사용 금지. deployment-time alias는 제거됐고 persistent key만 `sync-env` migration debt로 남음 |
 
 ### Process inputs
 

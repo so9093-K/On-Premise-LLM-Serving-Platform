@@ -66,6 +66,7 @@ If the runtime can't decode an advertised modality, the switch fails and rolls
 back — 12B never goes live half-capable.
 
 
-> Compatibility: 기존 persistent `AUDIO_VLLM_IMAGE`와 deployment input
-> `AUDIO_VLLM_IMAGE_TO_DEPLOY`는 migration 기간에만 읽기 alias로 허용한다.
-> `make sync-env`는 persistent 값을 `MAIN_MODEL_VLLM_IMAGE_OVERRIDE`로 이동한다.
+> Migration: deployment input `AUDIO_VLLM_IMAGE_TO_DEPLOY`는 제거됐다.
+> 기존 persistent `AUDIO_VLLM_IMAGE`만 값 손실 방지를 위해 migration 대상으로 남으며
+> `make sync-env`가 `MAIN_MODEL_VLLM_IMAGE_OVERRIDE`로 이동한다. 이 persistent read는
+> migration이 배포에 적용된 뒤 제거하는 임시 debt이며 신규 자동화에서는 사용하지 않는다.

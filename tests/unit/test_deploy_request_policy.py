@@ -18,7 +18,6 @@ _ISOLATED_KEYS = (
     "RISK_VLLM_IMAGE_TO_DEPLOY",
     "VLLM_UNIFIED_IMAGE_TO_DEPLOY",
     "MAIN_MODEL_VLLM_IMAGE_OVERRIDE_TO_DEPLOY",
-    "AUDIO_VLLM_IMAGE_TO_DEPLOY",
     "RUNTIME_STARTUP_PROFILE",
     "DEPLOY_DEFERRED_RUNTIMES",
 )
@@ -135,28 +134,5 @@ def test_full_deploy_accepts_immutable_shared_and_profile_override_inputs():
     )
 
     assert result.returncode == 0
-
-
-def test_legacy_audio_promotion_input_is_accepted_as_compatibility_alias():
-    image = "registry.example/profile@sha256:" + "d" * 64
-    result = run_policy(
-        'DEPLOY_MODE=full; deploy_validate_request release-1 5; '
-        'printf "%s" "$MAIN_MODEL_VLLM_IMAGE_OVERRIDE_TO_DEPLOY"',
-        AUDIO_VLLM_IMAGE_TO_DEPLOY=image,
-    )
-
-    assert result.returncode == 0
-    assert result.stdout == image
-
-
-def test_conflicting_legacy_and_canonical_profile_image_inputs_are_rejected():
-    result = run_policy(
-        'DEPLOY_MODE=full; deploy_validate_request release-1 5',
-        MAIN_MODEL_VLLM_IMAGE_OVERRIDE_TO_DEPLOY="registry.example/profile@sha256:" + "a" * 64,
-        AUDIO_VLLM_IMAGE_TO_DEPLOY="registry.example/legacy@sha256:" + "b" * 64,
-    )
-
-    assert result.returncode == 2
-    assert "conflicts with legacy AUDIO_VLLM_IMAGE_TO_DEPLOY" in result.stderr
 
 

@@ -72,5 +72,7 @@ artifact boundary와 함께 새 authority를 정의한다.
 
 2026-09-18 terminology audit에서 `AUDIO_VLLM_IMAGE`는 실제 역할보다 좁은 이름으로 판정했다.
 이 값은 audio 전용 artifact가 아니라 Main Model profile-specific vLLM image override다.
-canonical key는 `MAIN_MODEL_VLLM_IMAGE_OVERRIDE`이며, legacy key는 값 손실 없는 migration을
-위한 compatibility alias로만 유지한다.
+canonical key는 `MAIN_MODEL_VLLM_IMAGE_OVERRIDE`이다. deployment-time
+`AUDIO_VLLM_IMAGE_TO_DEPLOY` alias는 제거했다. persistent `AUDIO_VLLM_IMAGE`는 기존
+배포 `.env`의 값을 잃지 않고 `make sync-env`로 옮기기 위한 migration debt로만 남긴다.
+이 값은 신규 실행 계약이 아니며, migration이 한 release에 반영된 뒤 direct read path를 제거한다.
