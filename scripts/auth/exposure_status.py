@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import os
+from collections import ChainMap
 import sys
 from pathlib import Path
 
@@ -20,6 +21,7 @@ sys.path.insert(0, str(ROOT))
 from scripts.lib.env_path import resolve_env_path  # noqa: E402
 from scripts.compose.resolve_exposure_mode import load_exposure_data, resolve  # noqa: E402
 sys.path.insert(0, str(ROOT / "src"))
+from ai_model_serving.env_compat import renamed_env_value  # noqa: E402
 from ai_model_serving.settings_parts.dotenv_parser import load_strict_env_file  # noqa: E402
 from ai_model_serving.settings_parts.env import DEFAULT_ENV_FILENAME  # noqa: E402
 from ai_model_serving.deployment_target import (  # noqa: E402
@@ -86,11 +88,36 @@ def main() -> int:
     for svc_name in published_service_names:
         svc = services.get(svc_name, {})
         port_env = svc.get("host_env_port", "")
+        legacy_port_env = svc.get("legacy_host_env_port", "")
         bind_env = svc.get("host_env_bind", "")
+        legacy_bind_env = svc.get("legacy_host_env_bind", "")
         default_port = svc.get("default_host_port", "")
         default_bind = svc.get("default_bind", "0.0.0.0")
-        actual_port = _env_value(env_values, port_env, str(default_port)) if port_env else str(default_port)
-        actual_bind = _env_value(env_values, bind_env, default_bind) if bind_env else default_bind
+        effective_env = ChainMap(os.environ, env_values)
+        actual_port = (
+            renamed_env_value(
+                effective_env,
+                str(port_env),
+                str(legacy_port_env),
+                str(default_port),
+            )
+            if port_env and legacy_port_env
+            else _env_value(env_values, port_env, str(default_port))
+            if port_env
+            else str(default_port)
+        )
+        actual_bind = (
+            renamed_env_value(
+                effective_env,
+                str(bind_env),
+                str(legacy_bind_env),
+                str(default_bind),
+            )
+            if bind_env and legacy_bind_env
+            else _env_value(env_values, bind_env, str(default_bind))
+            if bind_env
+            else str(default_bind)
+        )
         published_services_detail.append({
             "name": svc_name,
             "compose_service": svc.get("compose_service", svc_name),
