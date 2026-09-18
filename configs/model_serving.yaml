@@ -179,7 +179,7 @@ models:
         temperature: 0
 risk_adapter:
   # PII·secret·prompt detector를 조합하는 내부 서비스 정책이다.
-  endpoint: http://risk-adapter:9405
+  endpoint: http://risk-signal-service:9405
   detectors:
     pii:
       type: local
