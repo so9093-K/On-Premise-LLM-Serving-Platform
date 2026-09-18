@@ -42,13 +42,12 @@ def test_bootstrap_is_public_even_when_admin_api_requires_bearer(monkeypatch) ->
     assert response.status_code == 200
     body = response.json()
     Draft202012Validator(SCHEMA).validate(body)
-    assert body["bootstrap_version"] == 2
+    assert body["bootstrap_version"] == 3
     assert body["access"]["profile"] == "private"
     assert body["access"]["admin_auth_required"] is True
     assert body["deployment"]["target"] == "linux-nvidia-dynamic"
     assert body["deployment"]["implementation_status"] == "implemented"
     assert body["deployment"]["qualification_status"] == "verified"
-    assert body["deployment"]["validation_status"] == "verified"
     assert "runtime_control" in body["deployment"]["features"]
     assert body["monitoring"] == {"available": True, "grafana_available": True}
     # private/edge의 TLS ownership은 Gateway 밖에 있을 수 있어 URL을 추측하지 않는다.
@@ -130,7 +129,6 @@ def test_static_target_keeps_bootstrap_but_disables_runtime_and_monitoring_capab
     assert body["deployment"]["target"] == "linux-nvidia-static"
     assert body["deployment"]["implementation_status"] == "implemented"
     assert body["deployment"]["qualification_status"] == "unverified"
-    assert body["deployment"]["validation_status"] == "implemented"
     assert body["deployment"]["features"] == ["chat"]
     assert body["monitoring"] == {"available": False, "grafana_available": False}
     assert body["links"]["grafana"] is None
