@@ -30,11 +30,9 @@ embedding_profiles:
       retrieval_document:
         mode: none
 models:
-  # 각 runtime의 공통 연결·운영 설정이다. Main Model의 모델별 기동·Gateway 정책은
-  # main_model_profiles.yaml의 활성 Profile이 소유한다.
+  # 각 runtime의 공통 연결·운영 설정이다. Main Model checkpoint identity와
+  # 모델별 기동·Gateway 정책은 target별 Main Model Profile이 소유한다.
   main_llm:
-    name: RedHatAI/gemma-4-12B-it-FP8-Dynamic
-    revision: 67e53491df7a281623fa740de61307d5c542b7f4
     served_model_name: local-main
     backend: vllm
     port: 9401

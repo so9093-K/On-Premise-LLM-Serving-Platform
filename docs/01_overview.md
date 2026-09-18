@@ -177,9 +177,9 @@ Runtime Flags
 
 | 설정 영역 | 주요 파일 | 역할 |
 |---|---|---|
-| **Model Catalog** | `configs/model_catalog.yaml` | 사용 가능한 모델과 기본 메타데이터 정의 |
-| **Main Model Profile** | `configs/main_model_profiles.yaml` | Main LLM별 runtime profile과 전환 대상 정의 |
-| **Model Runtime** | `configs/model_serving.yaml` | 모델별 backend, port, context, concurrency, runtime option 설정 |
+| **Model Catalog** | `configs/model_catalog.yaml` | 논리 모델 identity, capability와 public listing 정의 |
+| **Main Model Profile** | `configs/main_model_profiles.yaml` | Main LLM checkpoint model/revision과 runtime profile·전환 대상 정의 |
+| **Model Runtime** | `configs/model_serving.yaml` | 공통 backend/port/connectivity/admission과 고정 non-main runtime option 설정 |
 | **GPU Budget** | `configs/gpu_budgets.yaml` | Runtime별 GPU memory budget과 전체 사용 한도 관리 |
 | **Service / Port** | `configs/services.yaml` | 서비스 이름, 내부 port, 연결 정보 정의 |
 | **Access Profile** | `configs/access_profiles.yaml` | 사용자 접근 의도를 인증·노출·bind 조합으로 투영 |

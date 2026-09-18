@@ -75,9 +75,9 @@ Unified vLLM image build 과정에서 설치된 Transformers 소스에 로컬 �
 프로젝트의 Apache-2.0 라이선스로 재라이선스되지 않는다.
 
 정확한 model ID와 revision의 기준:
-  configs/main_model_profiles.yaml
-  configs/model_serving.yaml
-  configs/macos_mlx_runtime.yaml
+  - Main Model (Linux/NVIDIA): configs/main_model_profiles.yaml
+  - Main Model (macOS/MLX): configs/macos_mlx_runtime.yaml
+  - 고정 non-main runtime: configs/model_serving.yaml
 
 Apache License 2.0으로 표시된 upstream model repositories:
   - RedHatAI/gemma-4-26B-A4B-it-FP8-Dynamic
