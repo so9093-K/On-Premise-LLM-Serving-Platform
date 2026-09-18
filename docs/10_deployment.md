@@ -277,7 +277,7 @@ Full 배포는 현재 실행 상태와 새 Release를 비교해 갱신이 필요
 Rolling 배포는 다음 순서로 애플리케이션 서비스를 갱신한다.
 
 1. `runtime-controller`
-2. `gateway`, `risk-adapter`
+2. `gateway`, `risk-signal-service`
 
 Runtime Controller를 먼저 갱신한 뒤 Gateway와 Risk Signal Service를 적용한다.
 
