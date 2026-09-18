@@ -279,7 +279,7 @@ Inference 확인
 - Runtime Image
 - context / sequence / batch 설정
 - GPU memory fraction과 전체 GPU budget
-- compatibility status
+- qualification status
 - capability와 canary 범위
 
 Target model cache를 미리 준비할 수 있다.

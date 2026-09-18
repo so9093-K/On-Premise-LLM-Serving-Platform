@@ -287,7 +287,7 @@ Prometheus, Grafana, Loki, Alloy의 설정 파일이 변경된 Release에서는 
 
 ## 10.5 Runtime 프로파일 적용
 
-Full 배포에서는 Runtime Startup Profile을 기준으로 배포 직후 실행할 non-main Model Runtime을 결정한다. `DEPLOY_RUNTIME_PROFILE`을 생략하면 설정의 기본값인 `main_only`를 사용한다.
+Full 배포에서는 Runtime Startup Profile을 기준으로 배포 직후 실행할 non-main Model Runtime을 결정한다. `RUNTIME_STARTUP_PROFILE`을 생략하면 설정의 기본값인 `main_only`를 사용한다.
 
 ```text
 Runtime Startup Profile
@@ -536,7 +536,7 @@ make ready-full
 |---|---|
 | `DEPLOY_MODE` | `full` / `rolling` 결정 |
 | `DEPLOY_PATH` | Release와 공유 Runtime 데이터가 위치하는 배포 루트 |
-| `DEPLOY_RUNTIME_PROFILE` | Full 배포의 non-main Model Runtime 초기 상태(생략 시 `main_only`) |
+| `RUNTIME_STARTUP_PROFILE` | Full 배포의 non-main Model Runtime 초기 상태(생략 시 `main_only`) |
 | `DEPLOY_DEFERRED_RUNTIMES` | 초기 중지 Runtime 직접 지정 |
 | `GATEWAY_HEALTH_URL` | 배포 후 Gateway health 확인 URL 재정의 |
 | `RUN_READY_SMOKE` | Gateway `/health` 확인 실행 |

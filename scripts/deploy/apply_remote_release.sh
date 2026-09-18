@@ -13,6 +13,8 @@ if [[ ! -d "${RELEASE_PATH}" ]]; then
   exit 1
 fi
 source "${RELEASE_PATH}/scripts/lib/bind_mounted_config.sh"
+source "${RELEASE_PATH}/scripts/lib/runtime_startup_profile.sh"
+normalize_runtime_startup_profile DEPLOY_RUNTIME_PROFILE
 if [[ ! -f "${DEPLOY_PATH}/.env" ]]; then
   echo "[deploy] ERROR: shared .env not found at ${DEPLOY_PATH}/.env" >&2
   echo "[deploy] Run bootstrap on the deployment root before the first remote deployment." >&2
@@ -78,8 +80,8 @@ if [[ "${DEPLOY_MODE}" == "rolling" ]]; then
   fi
 fi
 if [[ "${DEPLOY_MODE}" != "full" &&
-  ( -n "${DEPLOY_RUNTIME_PROFILE:-}" || -n "${DEPLOY_DEFERRED_RUNTIMES:-}" ) ]]; then
-  echo "[deploy] ERROR: DEPLOY_RUNTIME_PROFILE/DEPLOY_DEFERRED_RUNTIMES require DEPLOY_MODE=full." >&2
+  ( -n "${RUNTIME_STARTUP_PROFILE:-}" || -n "${DEPLOY_DEFERRED_RUNTIMES:-}" ) ]]; then
+  echo "[deploy] ERROR: RUNTIME_STARTUP_PROFILE/DEPLOY_DEFERRED_RUNTIMES require DEPLOY_MODE=full." >&2
   rm -rf "${RELEASE_PATH}"
   exit 2
 fi
@@ -115,7 +117,7 @@ _PYTHON_BIN="$(command -v python3.12 || command -v python3 || command -v python)
 _exposure_mode=""
 COMPOSE_OVERRIDE=""
 MAIN_MODEL_BOOT_OVERRIDE=""
-DEPLOY_RUNTIME_PROFILE="${DEPLOY_RUNTIME_PROFILE:-}"
+RUNTIME_STARTUP_PROFILE="${RUNTIME_STARTUP_PROFILE:-}"
 DEPLOY_DEFERRED_RUNTIMES="${DEPLOY_DEFERRED_RUNTIMES:-}"
 export DEPLOY_ACTIVE_RUNTIMES=""  # 롤백 전용 신호. 요청자 입력은 받지 않는다.
 DEFERRED_RUNTIME_KEYS=()
@@ -123,7 +125,7 @@ DEFERRED_RUNTIME_SERVICES=()
 DEFERRED_RUNTIME_WAS_RUNNING=()
 DEFERRED_RUNTIME_WAS_RUNNING_KEYS=()
 RESTORE_FAILURES=()
-DEPLOY_RUNTIME_PROFILE_EFFECTIVE=""
+RUNTIME_STARTUP_PROFILE_EFFECTIVE=""
 RESTORING_RELEASE=0
 ENV_BACKUP_CREATED=0
 cleanup_generated_files() {
@@ -222,13 +224,13 @@ compose_run() {
 resolve_deferred_runtimes() {
   DEFERRED_RUNTIME_KEYS=()
   DEFERRED_RUNTIME_SERVICES=()
-  DEPLOY_RUNTIME_PROFILE_EFFECTIVE=""
+  RUNTIME_STARTUP_PROFILE_EFFECTIVE=""
   [[ "${DEPLOY_MODE}" == "full" ]] || return 0
   local resolved
   if ! resolved="$(
     "${_PYTHON_BIN}" scripts/runtime/deferred_runtimes.py \
       --config-root "${PWD}" \
-      --profile "${DEPLOY_RUNTIME_PROFILE}" \
+      --profile "${RUNTIME_STARTUP_PROFILE}" \
       --runtimes "${DEPLOY_DEFERRED_RUNTIMES}" \
       --output lines
   )"; then
@@ -237,11 +239,11 @@ resolve_deferred_runtimes() {
   mapfile -t _resolved_lines <<<"${resolved}"
   read -r -a DEFERRED_RUNTIME_KEYS <<<"${_resolved_lines[0]:-}"
   read -r -a DEFERRED_RUNTIME_SERVICES <<<"${_resolved_lines[1]:-}"
-  DEPLOY_RUNTIME_PROFILE_EFFECTIVE="${_resolved_lines[2]:-}"
+  RUNTIME_STARTUP_PROFILE_EFFECTIVE="${_resolved_lines[2]:-}"
   if [[ ${#DEFERRED_RUNTIME_KEYS[@]} -gt 0 ]]; then
-    echo "[deploy] runtime profile ${DEPLOY_RUNTIME_PROFILE_EFFECTIVE:-direct}: deferred ${DEFERRED_RUNTIME_KEYS[*]} (${DEFERRED_RUNTIME_SERVICES[*]})"
-  elif [[ -n "${DEPLOY_RUNTIME_PROFILE_EFFECTIVE:-}" ]]; then
-    echo "[deploy] runtime profile ${DEPLOY_RUNTIME_PROFILE_EFFECTIVE}: no deferred runtimes"
+    echo "[deploy] startup profile ${RUNTIME_STARTUP_PROFILE_EFFECTIVE:-direct}: deferred ${DEFERRED_RUNTIME_KEYS[*]} (${DEFERRED_RUNTIME_SERVICES[*]})"
+  elif [[ -n "${RUNTIME_STARTUP_PROFILE_EFFECTIVE:-}" ]]; then
+    echo "[deploy] startup profile ${RUNTIME_STARTUP_PROFILE_EFFECTIVE}: no deferred runtimes"
   fi
 }
 
