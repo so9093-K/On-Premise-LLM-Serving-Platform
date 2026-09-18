@@ -67,7 +67,7 @@ YAML 파일은 모델, runtime, 서비스, 보안 정책 같은 **repository-lev
 | Monitoring 설정 | `configs/monitoring.yaml` | Prometheus scrape와 live metric 검증 기준 정의 |
 | vLLM derived image build | `configs/vllm_unified_build.yaml` | target platform, base image와 compatibility pin 정의 |
 | vLLM runtime patch | `ops/images/vllm-unified/Dockerfile`, `ops/patches/` | derived image에 적용할 patch와 적용 조건 정의 |
-| 권장 container image | `configs/recommended_images.yaml` | project-owned 로컬 build tag와 third-party immutable registry default를 정의. 원격 배포는 registry digest를 실행 경계로 사용 |
+| 권장 container image | `configs/recommended_images.yaml` | project-built image의 로컬 기본 tag, third-party upstream image의 immutable manifest digest와 env projection policy 정의 |
 | Error transport contract | `src/ai_model_serving/errors.py` | error code별 HTTP status와 retryable 정의 |
 | Error guidance | `configs/error_catalog.yaml` | error code의 의미와 operator action 설명 |
 | API endpoint | `src/ai_model_serving/api/endpoint_spec.py` | endpoint metadata와 endpoint별 공개 오류 code 정의 |
@@ -410,11 +410,12 @@ make exposure-apply MODE=<mode>
 | `.env.compose.example` | full-stack Compose 실행 환경 template |
 
 example 파일은 실행 환경별 `.env`를 구성하기 위한 template으로 사용한다.
-두 경로의 layout과 일반 기본값은 각 template이 소유한다. Compose image 기본값은
-`configs/recommended_images.yaml`이 소유하며 최초 생성과 `sync-env`가 같은 값을 사용한다.
-Platform/vLLM처럼 저장소가 직접 빌드하는 image는 로컬 tag에서 시작할 수 있지만,
-DCGM Exporter·Prometheus·Grafana·cAdvisor·Loki·Alloy default는 multi-arch manifest digest로
-고정한다. 원격 release 적용은 target `.env`의 이 third-party ref도 immutable digest인지 검증한다.
+두 경로의 layout과 일반 기본값은 각 template이 소유한다. Compose image 기본값과 env key mapping은
+`configs/recommended_images.yaml`이 소유한다. Platform/vLLM project-built image는 operator/local build 값을
+보존하고, `immutable_upstream` third-party image는 최초 생성과 `sync-env`에서 같은 pinned digest로 수렴한다.
+원격 release 적용은 동기화된 `.env`의 third-party image ref가 immutable digest인지 서비스 변경 전에 다시 검증한다.
+수동 Compose 실행에서 private mirror가 필요한 경우 shell environment로 image env key를 override할 수 있지만,
+managed remote release는 target `.env`를 다시 export하므로 repository-pinned projection을 사용한다.
 
 ```bash
 make init-env-local

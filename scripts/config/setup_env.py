@@ -50,18 +50,38 @@ def read_yaml(path: Path) -> dict[str, Any]:
     return yaml.safe_load(path.read_text(encoding="utf-8"))
 
 
+def _image_specs() -> dict[str, dict[str, Any]]:
+    images = read_yaml(IMAGE_CONFIG).get("images")
+    if not isinstance(images, dict):
+        raise ValueError("recommended_images.yaml must define an images mapping")
+    return images
+
+
 def recommended_images() -> dict[str, str]:
-    images = read_yaml(IMAGE_CONFIG)["images"]
-    return {
-        "PLATFORM_IMAGE": str(images["platform"]["default"]),
-        "VLLM_IMAGE": str(images["vllm"]["default"]),
-        "DCGM_EXPORTER_IMAGE": str(images["dcgm_exporter"]["default"]),
-        "PROMETHEUS_IMAGE": str(images["prometheus"]["default"]),
-        "GRAFANA_IMAGE": str(images["grafana"]["default"]),
-        "CADVISOR_IMAGE": str(images["cadvisor"]["default"]),
-        "LOKI_IMAGE": str(images["loki"]["default"]),
-        "ALLOY_IMAGE": str(images["alloy"]["default"]),
-    }
+    result: dict[str, str] = {}
+    for image_id, spec in _image_specs().items():
+        if not isinstance(spec, dict):
+            raise ValueError(f"recommended image {image_id!r} must be a mapping")
+        env_key = str(spec.get("env_key", "")).strip()
+        default = str(spec.get("default", "")).strip()
+        if not env_key or not default:
+            raise ValueError(
+                f"recommended image {image_id!r} must define env_key and default"
+            )
+        if env_key in result:
+            raise ValueError(f"duplicate recommended image env_key: {env_key}")
+        result[env_key] = default
+    return result
+
+
+def repository_managed_image_keys() -> frozenset[str]:
+    return frozenset(
+        str(spec["env_key"])
+        for spec in _image_specs().values()
+        if isinstance(spec, dict)
+        and spec.get("reference_policy") == "immutable_upstream"
+        and spec.get("env_key")
+    )
 
 
 def deployment_target_values(target_id: str, main_profile: str | None = None) -> dict[str, str]:
@@ -221,7 +241,8 @@ def preserve_existing_values(out_path: Path, *, force: bool) -> dict[str, str]:
 
     `--force` regenerates generated secrets, but it should not
     silently erase operator-owned choices such as ports, timeout values, model URLs,
-    image tags, Grafana user, or Hugging Face tokens.
+    project-built image references, Grafana user, or Hugging Face tokens. Upstream
+    infrastructure image references are repository-managed projections.
     """
     if not force or not out_path.exists():
         return {}
@@ -229,7 +250,10 @@ def preserve_existing_values(out_path: Path, *, force: bool) -> dict[str, str]:
     preserved = {
         key: value
         for key, value in existing.items()
-        if value and key not in ALWAYS_REFRESH_KEYS and key not in REMOVED_ENV_KEYS
+        if value
+        and key not in ALWAYS_REFRESH_KEYS
+        and key not in REMOVED_ENV_KEYS
+        and key not in repository_managed_image_keys()
     }
     if "HF_TOKEN" in preserved and "HUGGING_FACE_HUB_TOKEN" not in preserved:
         preserved["HUGGING_FACE_HUB_TOKEN"] = preserved["HF_TOKEN"]
@@ -298,7 +322,9 @@ def sync_env_keys(env_path: Path, *, dry_run: bool = False) -> int:
     """템플릿의 누락 키를 추가하고, 명시적으로 등록된 폐기 키만 제거한다.
 
     BUILD_PROFILE로 템플릿 자동 감지. 시크릿은 재생성하지 않는다.
-    기존 값(HF_TOKEN, API 키 등)은 모두 보존된다.
+    operator-owned 값(HF_TOKEN, API 키, project-built image 등)은 보존하고,
+    recommended_images.yaml이 immutable_upstream으로 소유하는 image reference만
+    canonical digest로 갱신한다.
 
     제거 대상은 env_contract.yaml의 `removed_keys`에 등록된 것뿐이다.
     "템플릿에 없는 키"를 제거 기준으로 삼지 않는 것이 ADR-0013의 핵심이다 --
@@ -333,8 +359,16 @@ def sync_env_keys(env_path: Path, *, dry_run: bool = False) -> int:
         and key not in legacy_access_owned
     ]
     removed = [k for k in existing if k in REMOVED_ENV_KEYS]
+    managed_image_keys = (
+        repository_managed_image_keys() if profile == "compose" else frozenset()
+    )
+    refreshed = [
+        key
+        for key in managed_image_keys
+        if key in template_values and existing.get(key) != template_values[key]
+    ]
 
-    if not added and not removed:
+    if not added and not removed and not refreshed:
         print(f"변경 없음: .env가 최신 상태입니다. (profile={profile})")
         return 0
 
@@ -342,6 +376,11 @@ def sync_env_keys(env_path: Path, *, dry_run: bool = False) -> int:
         print(f"추가될 키 ({len(added)}개): {', '.join(sorted(added))}")
     if removed:
         print(f"제거될 키 ({len(removed)}개): {', '.join(sorted(removed))}")
+    if refreshed:
+        print(
+            "갱신될 repository image key "
+            f"({len(refreshed)}개): {', '.join(sorted(refreshed))}"
+        )
 
     if dry_run:
         print("dry-run: 실제 변경 없음.")
@@ -350,6 +389,9 @@ def sync_env_keys(env_path: Path, *, dry_run: bool = False) -> int:
     merged = {k: v for k, v in existing.items() if k not in REMOVED_ENV_KEYS}
     for k in added:
         merged[k] = template_values[k]
+    for k in managed_image_keys:
+        if k in template_values:
+            merged[k] = template_values[k]
 
     if merged.get("HF_TOKEN") and not merged.get("HUGGING_FACE_HUB_TOKEN"):
         merged["HUGGING_FACE_HUB_TOKEN"] = merged["HF_TOKEN"]
@@ -553,9 +595,6 @@ def build_parser() -> KoreanArgumentParser:
     )
     parser.add_argument("--platform-image")
     parser.add_argument("--vllm-image")
-    parser.add_argument("--dcgm-exporter-image")
-    parser.add_argument("--prometheus-image")
-    parser.add_argument("--grafana-image")
     parser.add_argument(
         "--deployment-target",
         help="생성할 실행 target. target별 Main profile과 기본 endpoint를 함께 투영합니다.",
@@ -641,9 +680,6 @@ def main(argv: list[str] | None = None) -> int:
     overrides = {
         "PLATFORM_IMAGE": args.platform_image,
         "VLLM_IMAGE": args.vllm_image,
-        "DCGM_EXPORTER_IMAGE": args.dcgm_exporter_image,
-        "PROMETHEUS_IMAGE": args.prometheus_image,
-        "GRAFANA_IMAGE": args.grafana_image,
     }
     try:
         selected_access_profile = args.access_profile
@@ -697,8 +733,8 @@ def main(argv: list[str] | None = None) -> int:
             f"auth={values['AUTH_MODE']} exposure={values['EXPOSURE_MODE']}"
         )
     if args.profile == "compose":
-        print("image tags:")
-        for key in ["PLATFORM_IMAGE", "VLLM_IMAGE", "DCGM_EXPORTER_IMAGE", "PROMETHEUS_IMAGE", "GRAFANA_IMAGE", "CADVISOR_IMAGE"]:
+        print("image references:")
+        for key in recommended_images():
             print(f"  {key}={values[key]}")
     if args.profile == "compose":
         if out_path.resolve() == default_env_path(ROOT).resolve():
