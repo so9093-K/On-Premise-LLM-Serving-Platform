@@ -4,6 +4,7 @@ key 없음 등)을 거부하는지 검증한다."""
 
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 import shutil
 
@@ -65,7 +66,8 @@ def test_load_settings_uses_canonical_runtime_controller_url(monkeypatch):
 
     settings = load_settings()
 
-    assert settings.admin_sidecar_url == "http://runtime-controller:8080"
+    assert settings.runtime_controller_url == "http://runtime-controller:8080"
+    assert settings.admin_sidecar_url == settings.runtime_controller_url
 
 
 def test_load_settings_reads_legacy_admin_sidecar_url(monkeypatch):
@@ -73,7 +75,8 @@ def test_load_settings_reads_legacy_admin_sidecar_url(monkeypatch):
 
     settings = load_settings()
 
-    assert settings.admin_sidecar_url == "http://legacy-controller:8080"
+    assert settings.runtime_controller_url == "http://legacy-controller:8080"
+    assert settings.admin_sidecar_url == settings.runtime_controller_url
 
 
 def test_load_settings_rejects_conflicting_runtime_controller_url_names(monkeypatch):
@@ -85,6 +88,29 @@ def test_load_settings_rejects_conflicting_runtime_controller_url_names(monkeypa
         match="conflicting env keys ADMIN_SIDECAR_URL and RUNTIME_CONTROLLER_URL",
     ):
         load_settings()
+
+
+def test_app_settings_runtime_controller_url_aliases_share_one_value():
+    base = load_settings()
+
+    legacy = replace(
+        base,
+        runtime_controller_url="",
+        admin_sidecar_url="http://legacy-controller:8080",
+    )
+
+    assert legacy.runtime_controller_url == "http://legacy-controller:8080"
+    assert legacy.admin_sidecar_url == legacy.runtime_controller_url
+
+    with pytest.raises(
+        ValueError,
+        match="runtime_controller_url and admin_sidecar_url must not conflict",
+    ):
+        replace(
+            base,
+            runtime_controller_url="http://runtime-controller:8080",
+            admin_sidecar_url="http://legacy-controller:8080",
+        )
 
 
 def test_load_settings_rejects_default_api_key_in_non_local_env(monkeypatch):

@@ -69,7 +69,7 @@ from ..api.routers.gateway_risk import build_router as _build_risk_router
 from ..api.routers.gateway_retrieval import build_router as _build_retrieval_router
 from ..api.routers.gateway_runtime_control import build_router as _build_runtime_control_router
 from ..services.runtime_state import RuntimeStateStore
-from ..services.sidecar_client import SidecarClient
+from ..services.runtime_controller_client import RuntimeControllerClient
 from ..services.main_model_inflight import MainModelInFlight
 
 
@@ -91,12 +91,12 @@ class GatewayClients:
             runtime_transition_history_path()
         )
         self.main_model_inflight = MainModelInFlight()
-        self.sidecar: SidecarClient | None = (
-            SidecarClient(
-                settings.admin_sidecar_url,
+        self.sidecar: RuntimeControllerClient | None = (
+            RuntimeControllerClient(
+                settings.runtime_controller_url,
                 settings.security.internal_service_token,
             )
-            if settings.admin_sidecar_url
+            if settings.runtime_controller_url
             else None
         )
         self.main_llm = RuntimeClient(settings.runtime("main_llm"))

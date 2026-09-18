@@ -13,7 +13,11 @@ from ...errors import ServiceError, error_payload, error_response_headers
 from ...domain.request_surfaces import chat_request_limit_surface, chat_request_parameter_surface
 from ...logging_policy import record_request_response_preview, record_upstream_response
 from ...services.runtime_state import RuntimeState, RuntimeStateStore
-from ...services.sidecar_client import SidecarClient, SidecarRequestError, SidecarUnavailableError
+from ...services.runtime_controller_client import (
+    RuntimeControllerClient,
+    RuntimeControllerRequestError,
+    RuntimeControllerUnavailableError,
+)
 from ...services.main_model_inflight import MainModelInFlight
 from ...services.responses_service import ResponsesService
 
@@ -176,7 +180,7 @@ def build_router(
     service: Any,
     settings: Any,
     state_store: RuntimeStateStore | None = None,
-    sidecar: SidecarClient | None = None,
+    sidecar: RuntimeControllerClient | None = None,
     main_model_inflight: MainModelInFlight | None = None,
     *,
     include_embeddings: bool = True,
@@ -192,9 +196,9 @@ def build_router(
             return None, None, None
         try:
             main_model = await sidecar.main_model(observed=False)
-        except SidecarRequestError as exc:
+        except RuntimeControllerRequestError as exc:
             return None, None, sidecar_request_error_response(exc)
-        except SidecarUnavailableError as exc:
+        except RuntimeControllerUnavailableError as exc:
             return None, None, sidecar_unavailable_response(exc)
         if main_model.get("gate") != "open":
             operation = main_model.get("last_operation") or {}
@@ -239,7 +243,7 @@ def build_router(
             try:
                 # /v1/models는 active profile의 modality·정책만 읽는다.
                 active_snapshot = await sidecar.main_model(observed=False)
-            except SidecarUnavailableError:
+            except RuntimeControllerUnavailableError:
                 # 이 라우트는 경로/본문 파라미터가 없어 4xx가 나올 수 없다.
                 active_snapshot = None
             if isinstance(active_snapshot, dict):
@@ -293,7 +297,7 @@ def build_router(
         request: Request,
         payload: dict[str, Any] = Body(...),
     ) -> Any:
-        # in-flight 집계는 sidecar가 전환 전 drain을 기다릴 때 보는 값이라, 어떤
+        # in-flight 집계는 Runtime Controller가 전환 전 drain을 기다릴 때 보는 값이라, 어떤
         # 경로로 빠져나가도 정확히 한 번 해제되어야 한다(해제를 빠뜨리면 drain이
         # 영원히 0을 못 봐서 전환이 타임아웃된다). 해제 지점을 분기마다 손으로
         # 적는 대신 stack에 맡긴다 -- streaming만 예외적으로 응답 본문이 다 나갈

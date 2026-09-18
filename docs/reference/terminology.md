@@ -26,7 +26,7 @@
 | **On-Premises LLM Serving Platform** | 제품명 | repository: `On-Premises-LLM-Serving-Platform` |
 | **Gateway** | 외부 API 진입점. 요청 검증, 인증, routing과 응답 처리를 담당 | `gateway` |
 | **Control Plane** | runtime·configuration·model profile을 운영하는 관리 계층 | `/admin/*`, Console |
-| **Runtime Controller** | runtime lifecycle, Main Model 전환, reconciliation과 Docker 제어를 담당 | `admin-sidecar` |
+| **Runtime Controller** | runtime lifecycle, Main Model 전환, reconciliation과 Docker 제어를 담당 | canonical Python client: `runtime_controller_client` / `RuntimeControllerClient`; legacy service/module IDs include `admin-sidecar` / `admin_sidecar` |
 | **Model Runtime** | 실제 model inference/embedding/detection을 수행하는 실행 단위 | vLLM/MLX runtime |
 | **Main Model Runtime** | `local-main` 요청을 수행하는 주 generation runtime | `main-llm-vllm` |
 | **Embedding Runtime** | embedding과 dense retrieval scoring에 사용하는 runtime | `embedding-vllm` |
@@ -78,7 +78,7 @@ legacy removal 순서를 따른다.
 | `MAIN_LLM_*` | `MAIN_MODEL_*` | operator env는 canonical로 전환됨. legacy는 read/sync compatibility alias이며 `MAIN_LLM_MODEL`은 `MAIN_MODEL_ALIAS`로 이관 |
 | `risk_adapter` / `RISK_ADAPTER_*` | Risk Signal Service 계열 identifier | 공개 `/v1/risk/*` API는 그대로 유지 |
 | `risk_prompt` / `RISK_PROMPT_*` | Prompt Injection Detector 계열 identifier | runtime/model 내부 identifier만 별도 migration |
-| `admin-sidecar` / `admin_sidecar` | Runtime Controller 계열 identifier | Compose/module/client를 한 번에 바꾸지 않고 단계별 migration |
+| `admin-sidecar` / `admin_sidecar` | Runtime Controller 계열 identifier | Python client는 `runtime_controller_client` / `RuntimeControllerClient`로 전환. `sidecar_client` / `Sidecar*`는 compatibility alias이며 Compose service와 app module은 후속 migration |
 
 migration이 완료되기 전에는 기존 식별자를 삭제하거나 새 target과 충돌하는 값을 자동 선택하지 않는다.
 canonical과 legacy 값이 동시에 존재하면서 다르면 fail-closed를 기본으로 한다.
