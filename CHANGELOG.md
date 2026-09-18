@@ -22,6 +22,8 @@
 
 ### Changed
 
+- Main Model Admin API의 상태 계약을 canonical 두 축으로 수렴했다. `compatibility.status`는 이제 `compatible / incompatible / unknown`만 반환하고, 실제 검증 수준은 `qualification.status`가 소유한다. migration용 `technical_status`와 `verified / likely / unverified` legacy compatibility projection, 이를 유지하던 변환 코드와 전용 테스트를 제거했다. ([ADR-0030](docs/adr/0030-target-architecture-state-and-artifact-boundary.md))
+
 - Main Model `verified` qualification을 machine-readable evidence와 연결했다. `configs/qualification_evidence.yaml`이 검증 record를 소유하고, CI는 현재 profile의 model ID/revision/deployed capability와 일치하는 passed evidence가 없으면 실패한다. 기존 검증은 누락 fingerprint를 추측하지 않는 `legacy_backfill`로 이관하고, 새 `qualified_run`은 검증 시각·runtime engine/version·resolved image digest·GPU·driver와 수행한 named checks를 필수로 기록한다. ([ADR-0032](docs/adr/0032-qualification-evidence-v1.md))
 
 - Runtime Controller endpoint 환경변수를 `RUNTIME_CONTROLLER_URL`로 수렴했다. 기존 `ADMIN_SIDECAR_URL`은 read/sync compatibility alias로 유지하며, 양쪽에 서로 다른 값이 있으면 fail-closed한다. Compose service ID `admin-sidecar`와 Python client/module 이름은 이번 단계에서 변경하지 않는다.
