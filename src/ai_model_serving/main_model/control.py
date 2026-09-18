@@ -30,7 +30,7 @@ class SwitchOutcome(NamedTuple):
 import yaml
 
 from ..image_refs import is_immutable_image_ref
-from .profile_state import normalize_profile_state, public_compatibility_projection
+from .profile_state import normalize_profile_state
 
 _REVISION_RE = re.compile(r"^[0-9a-f]{40}$")
 # 프로필 이미지는 리터럴 digest이거나 CI/deploy가 이를 resolve하는 단일 ${ENV_VAR} 참조일 수 있다 —
@@ -139,13 +139,14 @@ class MainModelProfile:
             "served_model_name": self.served_model_name,
             "upstream_model_id": self.model_id,
             "revision": self.revision,
-            "compatibility": public_compatibility_projection(
-                normalize_profile_state(
-                    self.profile_id,
-                    self.compatibility,
-                    self.qualification,
-                )
-            ),
+            # 기존 Admin API consumer는 compatibility.status의 legacy vocabulary를
+            # 계속 읽을 수 있다. 새 consumer는 technical_status + qualification.status를
+            # 사용하고, compatibility 기간 뒤 status 자체를 canonical vocabulary로 옮긴다.
+            "compatibility": {
+                **self.compatibility,
+                "status": self.legacy_compatibility_status,
+                "technical_status": self.compatibility["status"],
+            },
             "qualification": self.qualification,
             "capabilities": self.capabilities,
             "gateway_policy": self.gateway_policy,
