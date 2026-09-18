@@ -13,7 +13,7 @@ AUTH_ENV ?= $(if $(ENV_FILE),$(ENV_FILE),$(ENV))
 AUTH_ENV_ARG = $(if $(AUTH_ENV),--env $(AUTH_ENV),)
 
 
-.PHONY: help help-all setup build rebuild prepare up status down down-all check init-env-local init-env-compose sync-env static-compose-config metal-doctor metal-command metal-start metal-supervisor-install metal-supervisor-uninstall validate test build-image build-vllm-unified-image lock package compose-up compose-config ready-local ready-full smoke runtime-validate perf-smoke perf-sweep perf-run perf-gate perf-promote perf-report auth-status auth-doctor auth-plan auth-apply exposure-status exposure-plan exposure-apply main-model-prepare compose-down compose-restart compose-logs logs compose-diagnostics clean reset reset-version render-runtime-assets fetch-docs-assets console-build console-check
+.PHONY: help help-all setup build rebuild prepare up status down down-all check app-check init-env-local init-env-compose sync-env static-compose-config metal-doctor metal-command metal-start metal-supervisor-install metal-supervisor-uninstall validate test build-image build-vllm-unified-image lock package compose-up compose-config ready-local ready-full smoke runtime-validate perf-smoke perf-sweep perf-run perf-gate perf-promote perf-report auth-status auth-doctor auth-plan auth-apply exposure-status exposure-plan exposure-apply main-model-prepare compose-down compose-restart compose-logs logs compose-diagnostics clean reset reset-version render-runtime-assets fetch-docs-assets console-build console-check
 .PHONY: setup-dev doctor-dev
 
 PUBLIC_TARGETS := setup build prepare up status down
@@ -51,9 +51,13 @@ down-all: ## .env와 무관하게 이 checkout이 소유한 모든 실행 리소
 reset: ## 프로젝트 로컬 상태 초기화 계획 출력 (적용: CONFIRM=reset)
 	bash scripts/ops/reset_all.sh $(if $(filter reset,$(CONFIRM)),--confirm reset,)
 
-check: ## application 변경의 정적 계약과 결정론적 테스트 확인
+app-check: ## Python application·config·contract 검증
 	$(MAKE) validate
 	$(MAKE) test
+
+check: ## repository 전체 application·Control Plane 검증
+	$(MAKE) app-check
+	$(MAKE) console-check
 
 setup-dev: ## Platform 개발용 .venv 준비 (Docker·GPU·.env 불필요)
 	"$(PYTHON)" scripts/build/setup_dev.py

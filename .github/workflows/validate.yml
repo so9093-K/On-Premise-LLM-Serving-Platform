@@ -41,10 +41,8 @@ jobs:
           cache-dependency-glob: uv.lock
       - name: Prepare developer environment
         run: make setup-dev PYTHON_BIN=python
-      - name: Validate configuration and contracts
-        run: make validate
-      - name: Test application and contracts
-        run: make test
+      - name: Check application and contracts
+        run: make app-check
       # CI owns no release selection rules. Exercise the same provider-neutral command
       # used from a developer workstation so Linux/macOS cannot silently diverge.
       - name: Build canonical release package
@@ -63,7 +61,5 @@ jobs:
           cache-dependency-path: ui/control-plane/package-lock.json
       - name: Pin npm toolchain
         run: npm install --global npm@11.19.0
-      - name: Install frontend dependencies
-        run: npm --prefix ui/control-plane ci
-      - name: Typecheck and verify generated Console
-        run: npm --prefix ui/control-plane run check
+      - name: Check Control Plane source and generated Console
+        run: make console-check

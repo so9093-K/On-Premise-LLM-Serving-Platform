@@ -87,7 +87,7 @@ uv가 필요하며 Docker와 GPU는 필요하지 않다. `setup-dev`는 `uv.lock
 
 ```bash
 make setup-dev
-make check
+make app-check
 make init-env-local
 make up
 make status
@@ -148,8 +148,9 @@ Embedding, Retrieval, Risk Detection, Streaming, 인증 방식과 전체 요청�
 
 ## 개발과 배포
 
-로컬 개발자는 `make check`로 정적 계약과 결정론적 테스트를 함께 실행한다. CI도 내부적으로
-같은 `validate`, `test` 단계를 사용한다. 운영 이미지는 clean commit에서 만들고 immutable
+저장소 전체 변경은 `make check`로 application/config/contracts와 Control Plane source/build를 함께 검증한다.
+Python application만 변경할 때는 `make app-check`로 동일한 application gate를 실행하며, CI도 같은 Make target을
+OS/프론트엔드 job으로 나눠 병렬 실행한다. 운영 이미지는 clean commit에서 만들고 immutable
 digest로 배포한다. 로컬 image는 변경 중인 코드를 확인하는 개발 산출물이며 운영 artifact를 대체하지 않는다.
 
 현재 자동 검증과 미래 publish·deploy 연결 경계는 [자동화 경계](docs/09_cicd.md), Release 적용과 복구 절차는 [배포](docs/10_deployment.md)에서 설명한다.
@@ -167,7 +168,8 @@ digest로 배포한다. 로컬 image는 변경 중인 코드를 확인하는 개
 | checkout 전체 종료 | `make down-all` |
 | 프로젝트 로컬 상태 초기화 계획 | `make reset` |
 | 통합 상태 확인 | `make status` |
-| 개발 변경 검증 | `make check` |
+| Application 변경 검증 | `make app-check` |
+| 저장소 전체 변경 검증 | `make check` |
 | 고급·유지보수 명령 | `make help-all` |
 
 개발 환경과 이미지 빌드는 [로컬 개발과 빌드](docs/07_local_dev_build.md), 검증 항목은 [테스트와 검증](docs/08_testing_validation.md)에서 설명한다.
