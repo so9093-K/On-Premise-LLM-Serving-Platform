@@ -13,7 +13,7 @@
 |---|---|---|
 | Gateway | 외부 API 요청의 진입점. 요청 검증, 인증, 모델 호출 routing과 응답 처리를 담당한다. | `gateway` |
 | Control Plane | Runtime·Configuration·Main Model Profile을 운영하는 관리 계층. | `/admin/*`, Console |
-| Runtime Controller | Model Runtime lifecycle, Main Model 전환과 reconciliation을 관리하는 내부 control service. | `admin-sidecar` |
+| Runtime Controller | Model Runtime lifecycle, Main Model 전환과 reconciliation을 관리하는 내부 control service. | `runtime-controller` |
 | Model Runtime | 실제 inference, embedding 또는 detection을 수행하는 실행 단위. 필요하면 Main/Embedding/Prompt Injection처럼 역할을 붙여 부른다. | `main-llm-vllm`, `embedding-vllm` |
 | Main Model Runtime | Chat Completions와 Responses generation을 수행하는 주 Runtime. | `main-llm-vllm` |
 | Risk Signal Service | PII·Secret·Prompt Injection detector 결과를 signal-only 계약으로 정규화한다. 최종 allow/block 정책은 소유하지 않는다. | `risk-adapter` |
@@ -54,7 +54,7 @@
 | Prompt Injection Detector Runtime | `risk-prompt-vllm` | `9403` | `9403` | Prompt Injection / Leaking signal inference |
 | Risk Signal Service | `risk-adapter` | `9405` | `9405` | PII·Secret·Prompt Injection 신호 정규화 |
 | Korean Embedding Runtime | `embedding-ko-vllm` | `9406` | `9406` | Retrieval용 한국어 Embedding |
-| Runtime Controller | `admin-sidecar` | `8080` | - | Model Runtime lifecycle·Main Model 전환 관리. Compose 내부에서 사용 |
+| Runtime Controller | `runtime-controller` | `8080` | - | Model Runtime lifecycle·Main Model 전환 관리. Compose 내부에서 사용 |
 
 ### Monitoring
 
