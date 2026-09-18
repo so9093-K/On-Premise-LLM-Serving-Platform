@@ -30,6 +30,7 @@ dependencies = [
 [dependency-groups]
 quality = [
   "Jinja2==3.1.6",
+  "openai==3.14.1",
   "pytest==8.4.2",
 ]
 
