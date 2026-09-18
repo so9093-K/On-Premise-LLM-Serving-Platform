@@ -200,7 +200,7 @@ Gateway는 다음 책임을 직접 소유하지 않는다.
 | `main-llm-vllm` | Chat / Responses / Multimodal generation |
 | `embedding-vllm` | 범용 Embedding |
 | `embedding-ko-vllm` | Korean Embedding / 기본 Retrieval |
-| `risk-adapter` | Risk assessment |
+| `risk-signal-service` | Risk assessment |
 | `runtime-controller` | Main model gate, runtime control, model switching |
 
 Gateway `/ready`는 main model과 활성 상태로 간주되는 dependency를 probe해 전체 readiness를 계산한다.
@@ -563,7 +563,7 @@ Risk Signal Service :9405
        risk-prompt-vllm :9403
 ```
 
-`risk-adapter`와 `risk-prompt-vllm`은 서로 다른 서비스다.
+`risk-signal-service`와 `risk-prompt-vllm`은 서로 다른 서비스다.
 
 ### Risk Signal Service Purpose
 
