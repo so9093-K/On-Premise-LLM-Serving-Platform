@@ -52,10 +52,10 @@ Client / Application
 |---|---:|---|
 | **Gateway** | `9400` | 외부 API, 인증, 검증, routing, orchestration, retrieval |
 | **Admin / Control Sidecar** | `8080` | Runtime lifecycle, main model 전환, GPU budget admission, Docker 제어 |
-| **Main Model Runtime** | `9401` | Chat / Multimodal inference |
+| **Main Model Runtime** | `9401` | Chat / Responses / Multimodal generation |
 | **Embedding Runtime** | `9402` | 범용 text embedding |
 | **Korean Embedding Runtime** | `9406` | Korean retrieval embedding |
-| **Risk Adapter** | `9405` | ~~PII / Secret 위험 탐지~~ / Prompt risk signal 정규화 |
+| **Risk Adapter** | `9405` | PII / Secret local detection, Prompt risk signal orchestration |
 | **Prompt Risk Runtime** | `9403` | Prompt detector model inference |
 | **Prometheus** | `9090` | Metrics 수집·저장 |
 | **Grafana** | `3000` | Metrics / logs 시각화 |
@@ -97,14 +97,14 @@ Gateway는 모델별 runtime 차이와 내부 서비스 topology를 외부 호�
 
 | 책임 | 설명 |
 |---|---|
-| **API Entry Point** | Chat, Embedding, Retrieval, Risk, Admin API 제공 |
+| **API Entry Point** | Chat Completions, Responses, Embedding, Retrieval, Risk, Admin API 제공 |
 | **Authentication** | 활성 auth profile에 따라 API / Admin 인증 적용 |
 | **Request Validation** | schema, parameter, model, modality, media input 제한 검증 |
 | **Normalization** | 외부 요청을 runtime에서 처리할 수 있는 형태로 정규화 |
 | **Routing** | 기능과 model ID에 따라 내부 runtime 선택 |
 | **Orchestration** | 여러 내부 호출이 필요한 기능의 실행 순서 관리 |
 | **Runtime Admission** | runtime state, concurrency, circuit 상태에 따라 요청 허용 여부 판단 |
-| **Main Model Gate** | model 전환 중 신규 Chat 요청 차단 |
+| **Main Model Gate** | model 전환 중 신규 Chat Completions / Responses 요청 차단 |
 | **Retrieval** | embedding 호출 후 cosine similarity 계산과 rerank 수행 |
 | **Risk Forwarding** | Risk API 요청을 Risk Adapter로 전달 |
 | **Response Validation** | upstream response 구조와 model-specific contract 검증 |
@@ -117,6 +117,7 @@ Gateway는 모델별 runtime 차이와 내부 서비스 topology를 외부 호�
 ```text
 /v1/models
 /v1/chat/completions
+/v1/responses
 /v1/embeddings
 /v1/retrieval/*
 /v1/risk/*
@@ -130,7 +131,7 @@ Gateway는 모델별 runtime 차이와 내부 서비스 topology를 외부 호�
 
 ### Main Model Gate
 
-Main Model은 profile switching을 지원하므로 Chat 요청마다 현재 control state를 확인한다.
+Main Model은 profile switching을 지원하므로 Chat Completions와 Responses 요청마다 현재 control state를 확인한다.
 
 ```text
 Gateway
@@ -140,10 +141,10 @@ Gateway
 Main Model State
   │
   ├─ gate = open
-  │     └─ Chat 처리
+  │     └─ Generation 처리
   │
   └─ gate != open
-        └─ 신규 Chat 요청 503
+        └─ 신규 generation 요청 503
 ```
 
 model 전환 중에는 `MAIN_MODEL_SWITCH_IN_PROGRESS`, control plane 자체에 접근할 수 없으면 `MAIN_MODEL_CONTROL_UNAVAILABLE`로 처리한다.
@@ -196,7 +197,7 @@ Gateway는 다음 책임을 직접 소유하지 않는다.
 
 | Dependency | 사용 목적 |
 |---|---|
-| `main-llm-vllm` | Chat / Multimodal inference |
+| `main-llm-vllm` | Chat / Responses / Multimodal generation |
 | `embedding-vllm` | 범용 Embedding |
 | `embedding-ko-vllm` | Korean Embedding / 기본 Retrieval |
 | `risk-adapter` | Risk assessment |
@@ -211,11 +212,11 @@ Gateway `/ready`는 main model과 활성 상태로 간주되는 dependency를 pr
 | 장애 | 주요 영향 |
 |---|---|
 | Gateway 장애 | 모든 외부 API 진입점 중단 |
-| Main Model Runtime 장애 | Chat / Multimodal 불가 |
+| Main Model Runtime 장애 | Chat / Responses / Multimodal generation 불가 |
 | Embedding Runtime 장애 | 해당 embedding model 사용 불가 |
 | Korean Embedding 장애 | `local-embed-ko` 및 기본 Retrieval 불가 |
 | Risk Adapter 장애 | Gateway Risk API 불가 |
-| Admin Sidecar 장애 | Main Model Chat gate 확인과 Admin runtime control 불가 |
+| Admin Sidecar 장애 | Main Model generation gate 확인과 Admin runtime control 불가 |
 
 Admin Sidecar는 Gateway의 startup hard dependency가 아니다. Sidecar가 장애 상태여도 Gateway process 자체와 Sidecar를 직접 사용하지 않는 일부 경로는 살아 있을 수 있다.
 
@@ -561,8 +562,8 @@ Risk Adapter는 detector별 구현 차이를 숨기고 결과를 공통 **risk s
 
 | Detector | 실행 방식 | 주요 역할 |
 |---|---|---|
-| ~~**PII**~~ | Risk Adapter process 내부 local detector | 개인정보 노출 signal 탐지 |
-| ~~**Secret**~~ | Risk Adapter process 내부 local detector | credential / secret 노출 signal 탐지 |
+| **PII** | Risk Adapter process 내부 local detector | 개인정보 노출 signal 탐지 |
+| **Secret** | Risk Adapter process 내부 local detector | credential / secret 노출 signal 탐지 |
 | **Prompt** | `risk-prompt-vllm` 호출 | Prompt attack signal 탐지 |
 
 ### Local Detector와 Prompt Runtime

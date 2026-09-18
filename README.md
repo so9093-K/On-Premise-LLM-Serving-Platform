@@ -1,6 +1,6 @@
 # On-Premise-LLM-Serving-Platform
 
-GPU 기반 AI 모델을 **OpenAI-compatible API**로 제공하고, Chat, Embedding, Retrieval, Risk Detection, 모델 운영, 관측과 배포를 하나의 플랫폼에서 관리한다.
+GPU 기반 AI 모델을 **OpenAI-compatible API**로 제공하고, Chat Completions, Responses, Embedding, Retrieval, Risk Detection, 모델 운영, 관측과 배포를 하나의 플랫폼에서 관리한다.
 
 외부 애플리케이션은 Gateway를 통해 모델 기능을 사용한다. 모델 실행 환경은 Linux/NVIDIA의
 vLLM 또는 Apple Silicon의 MLX-VLM을 사용하며, 실행 target에 맞는 lifecycle은 같은 로컬
@@ -8,7 +8,7 @@ vLLM 또는 Apple Silicon의 MLX-VLM을 사용하며, 실행 target에 맞는 li
 
 ## 주요 기능
 
-- OpenAI-compatible Chat / Embedding API
+- OpenAI-compatible Chat Completions / Responses / Embedding API
 - 한국어 Retrieval
 - Prompt 위험 탐지 / PII·Secret 위험 탐지
 - Main Model 시작·중지·전환
@@ -126,7 +126,7 @@ curl -s http://127.0.0.1:9400/health
 curl -s http://127.0.0.1:9400/v1/models
 ```
 
-### Chat 요청
+### Chat Completions 요청
 
 전체 GPU 환경의 준비가 완료된 상태에서 Main Model에 요청을 보낸다.
 
@@ -142,7 +142,20 @@ curl -s http://127.0.0.1:9400/v1/chat/completions \
   }'
 ```
 
-Embedding, Retrieval, Risk Detection, Streaming, 인증 방식과 전체 요청·응답 계약은 [API 인터페이스](docs/reference/api_reference.md)에서 확인한다. Gateway의 브라우저 API Reference와 OpenAPI 명세는 `/docs`, `/redoc`, `/openapi.json`에서 제공한다.
+### Responses 요청
+
+신규 integration은 같은 `local-main` gate와 active profile capability를 사용하는 Responses API를 사용할 수 있다.
+
+```bash
+curl -s http://127.0.0.1:9400/v1/responses \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "local-main",
+    "input": "안녕하세요. 한 문장으로 인사해주세요."
+  }'
+```
+
+Responses, Embedding, Retrieval, Risk Detection, Streaming, 인증 방식과 전체 요청·응답 계약은 [API 인터페이스](docs/reference/api_reference.md)에서 확인한다. Gateway의 브라우저 API Reference와 OpenAPI 명세는 `/docs`, `/redoc`, `/openapi.json`에서 제공한다.
 
 ---
 
