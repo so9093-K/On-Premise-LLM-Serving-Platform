@@ -759,7 +759,7 @@ RUNTIME_ERROR_503_NO_SIDECAR_EXAMPLE: dict[str, Any] = {
 RUNTIME_ERROR_503_SIDECAR_UNAVAILABLE_EXAMPLE: dict[str, Any] = {
     "error": {
         "code": "MAIN_MODEL_CONTROL_UNAVAILABLE",
-        "message": "Runtime Controller unavailable: Connection refused http://admin-sidecar:8080",
+        "message": "Runtime Controller unavailable: Connection refused http://runtime-controller:8080",
         "retryable": True,
         "request_id": "req_00000000000000000000000000000000",
     },
