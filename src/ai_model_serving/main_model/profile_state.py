@@ -75,7 +75,14 @@ def normalize_profile_state(
 
     qualification_status = qualification_out.get("status")
 
-    if raw_compatibility_status in TECHNICAL_COMPATIBILITY_STATUSES:
+    canonical_form = (
+        raw_compatibility_status == "compatible"
+        or (
+            raw_compatibility_status in {"incompatible", "unknown"}
+            and qualification_status is not None
+        )
+    )
+    if canonical_form:
         if qualification_status not in QUALIFICATION_STATUSES:
             raise ValueError(
                 f"profile {profile_id} canonical compatibility.status "
