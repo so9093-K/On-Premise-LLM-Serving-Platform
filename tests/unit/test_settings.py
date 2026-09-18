@@ -4,7 +4,6 @@ key 없음 등)을 거부하는지 검증한다."""
 
 from __future__ import annotations
 
-from dataclasses import replace
 from pathlib import Path
 import shutil
 
@@ -35,7 +34,6 @@ def isolate_settings_environment(monkeypatch):
         "ADMIN_API_KEYS",
         "ADMIN_ENDPOINTS_INTERNAL_ONLY",
         "RUNTIME_CONTROLLER_URL",
-        "ADMIN_SIDECAR_URL",
         "FASTAPI_DOCS_ENABLED",
         "FASTAPI_DOCS_URL",
         "FASTAPI_REDOC_URL",
@@ -47,12 +45,6 @@ def isolate_settings_environment(monkeypatch):
         "MAIN_MODEL_MAX_CONCURRENCY",
         "MAIN_MODEL_QUEUE_TIMEOUT_SECONDS",
         "MAIN_MODEL_STATIC_PROFILE",
-        "MAIN_LLM_BASE_URL",
-        "MAIN_LLM_MODEL",
-        "MAIN_LLM_TIMEOUT_SECONDS",
-        "MAIN_LLM_MAX_CONCURRENCY",
-        "MAIN_LLM_QUEUE_TIMEOUT_SECONDS",
-        "MAIN_LLM_STATIC_PROFILE",
         "EMBEDDING_MAX_CONCURRENCY",
         "EMBEDDING_QUEUE_TIMEOUT_SECONDS",
         "RISK_PROMPT_TIMEOUT_SECONDS",
@@ -67,50 +59,6 @@ def test_load_settings_uses_canonical_runtime_controller_url(monkeypatch):
     settings = load_settings()
 
     assert settings.runtime_controller_url == "http://runtime-controller:8080"
-    assert settings.admin_sidecar_url == settings.runtime_controller_url
-
-
-def test_load_settings_reads_legacy_admin_sidecar_url(monkeypatch):
-    monkeypatch.setenv("ADMIN_SIDECAR_URL", "http://legacy-controller:8080")
-
-    settings = load_settings()
-
-    assert settings.runtime_controller_url == "http://legacy-controller:8080"
-    assert settings.admin_sidecar_url == settings.runtime_controller_url
-
-
-def test_load_settings_rejects_conflicting_runtime_controller_url_names(monkeypatch):
-    monkeypatch.setenv("RUNTIME_CONTROLLER_URL", "http://runtime-controller:8080")
-    monkeypatch.setenv("ADMIN_SIDECAR_URL", "http://legacy-controller:8080")
-
-    with pytest.raises(
-        RuntimeError,
-        match="conflicting env keys ADMIN_SIDECAR_URL and RUNTIME_CONTROLLER_URL",
-    ):
-        load_settings()
-
-
-def test_app_settings_runtime_controller_url_aliases_share_one_value():
-    base = load_settings()
-
-    legacy = replace(
-        base,
-        runtime_controller_url="",
-        admin_sidecar_url="http://legacy-controller:8080",
-    )
-
-    assert legacy.runtime_controller_url == "http://legacy-controller:8080"
-    assert legacy.admin_sidecar_url == legacy.runtime_controller_url
-
-    with pytest.raises(
-        ValueError,
-        match="runtime_controller_url and admin_sidecar_url must not conflict",
-    ):
-        replace(
-            base,
-            runtime_controller_url="http://runtime-controller:8080",
-            admin_sidecar_url="http://legacy-controller:8080",
-        )
 
 
 def test_load_settings_rejects_default_api_key_in_non_local_env(monkeypatch):
@@ -165,13 +113,13 @@ def test_load_settings_reads_local_dotenv_without_overriding_exported_values(tmp
     shutil.copy(repo / "configs" / "services.yaml", root / "configs" / "services.yaml")
     shutil.copy(repo / "VERSION", root / "VERSION")
     (root / ".env").write_text(
-        "APP_ENV=local\nAPI_KEYS=dotenv-key\nMAX_REQUEST_BODY_BYTES=1234\nMAIN_LLM_MAX_CONCURRENCY=2\n",
+        "APP_ENV=local\nAPI_KEYS=dotenv-key\nMAX_REQUEST_BODY_BYTES=1234\nMAIN_MODEL_MAX_CONCURRENCY=2\n",
         encoding="utf-8",
     )
 
     monkeypatch.delenv("API_KEYS", raising=False)
     monkeypatch.delenv("MAX_REQUEST_BODY_BYTES", raising=False)
-    monkeypatch.delenv("MAIN_LLM_MAX_CONCURRENCY", raising=False)
+    monkeypatch.delenv("MAIN_MODEL_MAX_CONCURRENCY", raising=False)
     settings = load_settings(root)
     assert settings.security.api_keys == frozenset({"dotenv-key"})
     assert settings.max_request_body_bytes == 1234
@@ -326,7 +274,7 @@ def test_load_settings_requires_internal_token_in_non_local_env(monkeypatch):
     # profile의 internal-auth 정책은 유지하되, 존재하지 않는 소비자 때문에
     # secret을 요구하지 않는다.
     monkeypatch.setenv("DEPLOYMENT_TARGET", "linux-nvidia-static")
-    monkeypatch.setenv("MAIN_LLM_STATIC_PROFILE", "gemma4-12b-unified-fp8")
+    monkeypatch.setenv("MAIN_MODEL_STATIC_PROFILE", "gemma4-12b-unified-fp8")
     monkeypatch.setenv("ADMIN_ENDPOINTS_INTERNAL_ONLY", "true")
     settings = load_settings()
     assert settings.deployment_target.internal_service_token_required is False
@@ -375,26 +323,6 @@ def test_load_settings_uses_canonical_main_model_runtime_env(monkeypatch):
 
     assert settings.runtime("main_llm").max_concurrency == 3
     assert settings.runtime("main_llm").model == "local-main"
-
-
-def test_load_settings_reads_legacy_main_llm_runtime_env(monkeypatch):
-    monkeypatch.setenv("MAIN_LLM_MAX_CONCURRENCY", "2")
-    monkeypatch.setenv("MAIN_LLM_MODEL", "local-main")
-    settings = load_settings()
-
-    assert settings.runtime("main_llm").max_concurrency == 2
-    assert settings.runtime("main_llm").model == "local-main"
-
-
-def test_load_settings_rejects_conflicting_main_model_env_names(monkeypatch):
-    monkeypatch.setenv("MAIN_MODEL_MAX_CONCURRENCY", "3")
-    monkeypatch.setenv("MAIN_LLM_MAX_CONCURRENCY", "2")
-
-    with pytest.raises(
-        RuntimeError,
-        match="conflicting env keys MAIN_LLM_MAX_CONCURRENCY and MAIN_MODEL_MAX_CONCURRENCY",
-    ):
-        load_settings()
 
 
 def test_load_settings_rejects_generated_placeholder_secrets_in_non_local_env(monkeypatch):

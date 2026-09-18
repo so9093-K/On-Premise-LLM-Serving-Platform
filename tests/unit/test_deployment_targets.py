@@ -86,11 +86,11 @@ def test_control_mode_and_lifecycle_owner_must_align(tmp_path) -> None:
 
 def test_macos_target_uses_its_mlx_profile_and_main_only_admission(monkeypatch) -> None:
     monkeypatch.setenv("DEPLOYMENT_TARGET", "macos-metal-static")
-    monkeypatch.setenv("MAIN_LLM_STATIC_PROFILE", "gemma4-26b-a4b-qat-4bit-mlx")
-    monkeypatch.setenv("MAIN_LLM_BASE_URL", "http://host.docker.internal:9401/v1")
+    monkeypatch.setenv("MAIN_MODEL_STATIC_PROFILE", "gemma4-26b-a4b-qat-4bit-mlx")
+    monkeypatch.setenv("MAIN_MODEL_BASE_URL", "http://host.docker.internal:9401/v1")
     # target profile이 M5 32GB 계약의 concurrency=1을 소유하므로 generic env가
     # 더 큰 값을 갖더라도 static runtime admission은 profile 값으로 고정된다.
-    monkeypatch.setenv("MAIN_LLM_MAX_CONCURRENCY", "4")
+    monkeypatch.setenv("MAIN_MODEL_MAX_CONCURRENCY", "4")
 
     settings = load_settings()
 
@@ -116,7 +116,7 @@ def test_macos_reasoning_uses_the_mlx_top_level_parameter_and_stays_opt_in(monke
     (끄면 같은 인사가 11 토큰이다).
     """
     monkeypatch.setenv("DEPLOYMENT_TARGET", "macos-metal-static")
-    monkeypatch.setenv("MAIN_LLM_STATIC_PROFILE", "gemma4-26b-a4b-qat-4bit-mlx")
+    monkeypatch.setenv("MAIN_MODEL_STATIC_PROFILE", "gemma4-26b-a4b-qat-4bit-mlx")
     settings = load_settings()
     clients = FakeGatewayClients()
     clients.runtime_controller = None
@@ -146,8 +146,8 @@ def test_macos_reasoning_uses_the_mlx_top_level_parameter_and_stays_opt_in(monke
 
 def test_static_settings_project_only_main_runtime(monkeypatch) -> None:
     monkeypatch.setenv("DEPLOYMENT_TARGET", "linux-nvidia-static")
-    monkeypatch.setenv("MAIN_LLM_STATIC_PROFILE", "gemma4-e4b-it")
-    monkeypatch.setenv("MAIN_LLM_BASE_URL", "http://runtime.example:9401/v1")
+    monkeypatch.setenv("MAIN_MODEL_STATIC_PROFILE", "gemma4-e4b-it")
+    monkeypatch.setenv("MAIN_MODEL_BASE_URL", "http://runtime.example:9401/v1")
 
     settings = load_settings()
 
@@ -158,7 +158,6 @@ def test_static_settings_project_only_main_runtime(monkeypatch) -> None:
     assert settings.risk_detectors == ()
     assert settings.risk_adapter_base_url == ""
     assert settings.runtime_controller_url == ""
-    assert settings.admin_sidecar_url == settings.runtime_controller_url
     assert settings.static_main_profile == "gemma4-e4b-it"
     assert settings.default_main_model_gateway_policy["max_output_tokens"] == 15_000
     assert [item["id"] for item in settings.public_models] == ["local-main"]
@@ -166,7 +165,7 @@ def test_static_settings_project_only_main_runtime(monkeypatch) -> None:
 
 def test_static_gateway_surface_and_clients_are_main_only(monkeypatch) -> None:
     monkeypatch.setenv("DEPLOYMENT_TARGET", "linux-nvidia-static")
-    monkeypatch.setenv("MAIN_LLM_STATIC_PROFILE", "gemma4-12b-unified-fp8")
+    monkeypatch.setenv("MAIN_MODEL_STATIC_PROFILE", "gemma4-12b-unified-fp8")
     settings = load_settings()
     clients = GatewayClients(settings)
     try:
@@ -195,7 +194,7 @@ def test_static_gateway_surface_and_clients_are_main_only(monkeypatch) -> None:
 
 def test_static_readiness_depends_only_on_main(monkeypatch) -> None:
     monkeypatch.setenv("DEPLOYMENT_TARGET", "linux-nvidia-static")
-    monkeypatch.setenv("MAIN_LLM_STATIC_PROFILE", "gemma4-12b-unified-fp8")
+    monkeypatch.setenv("MAIN_MODEL_STATIC_PROFILE", "gemma4-12b-unified-fp8")
     settings = load_settings()
     clients = FakeGatewayClients()
     clients.runtime_controller = None
@@ -209,7 +208,7 @@ def test_static_readiness_depends_only_on_main(monkeypatch) -> None:
 
 def test_static_readiness_fails_when_external_main_is_down(monkeypatch) -> None:
     monkeypatch.setenv("DEPLOYMENT_TARGET", "linux-nvidia-static")
-    monkeypatch.setenv("MAIN_LLM_STATIC_PROFILE", "gemma4-12b-unified-fp8")
+    monkeypatch.setenv("MAIN_MODEL_STATIC_PROFILE", "gemma4-12b-unified-fp8")
     settings = load_settings()
     clients = FakeGatewayClients()
     clients.runtime_controller = None
@@ -229,7 +228,7 @@ def test_static_readiness_fails_when_external_main_is_down(monkeypatch) -> None:
 def test_static_target_requires_an_explicit_serving_profile(monkeypatch) -> None:
     monkeypatch.setenv("DEPLOYMENT_TARGET", "linux-nvidia-static")
     monkeypatch.delenv("MAIN_MODEL_STATIC_PROFILE", raising=False)
-    monkeypatch.delenv("MAIN_LLM_STATIC_PROFILE", raising=False)
+    monkeypatch.delenv("MAIN_MODEL_STATIC_PROFILE", raising=False)
 
     with pytest.raises(RuntimeError, match="MAIN_MODEL_STATIC_PROFILE is required"):
         load_settings()

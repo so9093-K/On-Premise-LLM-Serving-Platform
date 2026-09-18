@@ -10,7 +10,6 @@ from pathlib import Path
 from typing import Any, NamedTuple, Protocol
 
 from .state import MainModelStateError, MainModelStateStore, MainModelSwitchLockError
-from ..env_compat import renamed_env_value
 from ..service_logging import service_logger
 
 _logger = service_logger("main_model_control")
@@ -171,19 +170,10 @@ def _parse_gpu_fraction(command: list[str]) -> float:
 # 않고도 동일한 프로필이 맞도록 이 값을 설정한다. 이는 *해당 호스트*의 VRAM 대비 비율이므로,
 # GPU가 작을수록 더 큰 비율을 설정하게 된다.
 GPU_UTIL_OVERRIDE_ENV = "MAIN_MODEL_GPU_MEMORY_UTILIZATION"
-LEGACY_GPU_UTIL_OVERRIDE_ENV = "MAIN_LLM_GPU_MEMORY_UTILIZATION"
-
 
 def gpu_util_override_from_mapping(mapping: dict[str, str]) -> float | None:
     """호스트별 gpu-memory-utilization override를 파싱하고 없으면 ``None``을 반환한다."""
-    try:
-        raw = renamed_env_value(
-            mapping,
-            GPU_UTIL_OVERRIDE_ENV,
-            LEGACY_GPU_UTIL_OVERRIDE_ENV,
-        ).strip()
-    except RuntimeError as exc:
-        raise MainModelConfigurationError(str(exc)) from exc
+    raw = mapping.get(GPU_UTIL_OVERRIDE_ENV, "").strip()
     if not raw:
         return None
     try:

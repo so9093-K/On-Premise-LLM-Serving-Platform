@@ -16,7 +16,6 @@ from pathlib import Path
 from typing import Any
 
 from scripts.benchmark.contract import ROOT, load_yaml_mapping
-from ai_model_serving.env_compat import renamed_env_value
 
 _MACOS_RUNTIME = ROOT / "configs" / "macos_mlx_runtime.yaml"
 _MAIN_PROFILES = ROOT / "configs" / "main_model_profiles.yaml"
@@ -46,11 +45,7 @@ def _deployment_target() -> tuple[str, dict[str, Any]]:
 
 def _mlx_profile() -> tuple[str, dict[str, Any], dict[str, Any]]:
     document = load_yaml_mapping(_MACOS_RUNTIME)
-    profile_id = renamed_env_value(
-        os.environ,
-        "MAIN_MODEL_STATIC_PROFILE",
-        "MAIN_LLM_STATIC_PROFILE",
-    ).strip() or str(document["default_profile"])
+    profile_id = os.getenv("MAIN_MODEL_STATIC_PROFILE", "").strip() or str(document["default_profile"])
     return profile_id, document["profiles"][profile_id], document.get("runtime") or {}
 
 
@@ -63,11 +58,7 @@ _VLLM_FLAGS = ("max_model_len", "max_num_seqs", "max_num_batched_tokens", "gpu_m
 def _vllm_profile() -> tuple[str, dict[str, Any], dict[str, Any]]:
     document = load_yaml_mapping(_MAIN_PROFILES)
     profiles = document.get("profiles") or {}
-    profile_id = renamed_env_value(
-        os.environ,
-        "MAIN_MODEL_BOOT_PROFILE",
-        "MAIN_LLM_BOOT_PROFILE",
-    ).strip() or str(document.get("default_profile", ""))
+    profile_id = os.getenv("MAIN_MODEL_BOOT_PROFILE", "").strip() or str(document.get("default_profile", ""))
     if profile_id not in profiles:
         raise RuntimeError(f"cannot resolve main model profile {profile_id!r}")
     profile = profiles[profile_id]

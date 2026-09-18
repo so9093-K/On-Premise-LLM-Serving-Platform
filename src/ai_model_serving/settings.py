@@ -93,26 +93,18 @@ def _cors_settings() -> CorsSettings:
     return CorsSettings(allowed_origins=origins)
 
 
-def _runtime_env_names(
-    model_key: str,
-) -> tuple[str, str | None, str, str | None, str, str | None]:
+def _runtime_env_names(model_key: str) -> tuple[str, str, str]:
     if model_key == "main_llm":
         return (
             "MAIN_MODEL",
-            "MAIN_LLM",
             "MAIN_MODEL_BASE_URL",
-            "MAIN_LLM_BASE_URL",
             "MAIN_MODEL_ALIAS",
-            "MAIN_LLM_MODEL",
         )
     prefix = model_key.upper()
     return (
         prefix,
-        None,
         f"{prefix}_BASE_URL",
-        None,
         f"{prefix}_MODEL",
-        None,
     )
 
 
@@ -129,22 +121,12 @@ def _build_runtime_endpoints(
             continue
         if cfg.get("enabled", True) is not True:
             continue
-        (
-            env_prefix,
-            legacy_env_prefix,
-            env_url,
-            legacy_env_url,
-            env_model,
-            legacy_env_model,
-        ) = _runtime_env_names(str(model_key))
+        env_prefix, env_url, env_model = _runtime_env_names(str(model_key))
         endpoints[str(model_key)] = build_runtime_endpoint(
             model_key=str(model_key),
             env_prefix=env_prefix,
-            legacy_env_prefix=legacy_env_prefix,
             env_url=env_url,
-            legacy_env_url=legacy_env_url,
             env_model=env_model,
-            legacy_env_model=legacy_env_model,
             timeout=timeout,
             models=models,
             operational_limits=operational_limits,
@@ -254,11 +236,7 @@ def load_settings(root: Path | None = None, env_file: Path | str | None = None) 
     static_main_profile = ""
     selected_main_profile = main_model_catalog.default_profile
     if deployment_target.control_mode == "static":
-        static_main_profile = _env(
-            "MAIN_MODEL_STATIC_PROFILE",
-            "",
-            legacy_name="MAIN_LLM_STATIC_PROFILE",
-        ).strip()
+        static_main_profile = _env("MAIN_MODEL_STATIC_PROFILE", "").strip()
         if not static_main_profile:
             raise RuntimeError("MAIN_MODEL_STATIC_PROFILE is required for a static deployment target")
         if static_main_profile not in main_model_catalog.profiles:
@@ -445,11 +423,7 @@ def load_settings(root: Path | None = None, env_file: Path | str | None = None) 
         streaming_max_chunks=int(streaming_cfg.get("max_chunks", 20_000)),
         streaming_max_bytes=int(streaming_cfg.get("max_bytes", 104_857_600)),
         runtime_controller_url=(
-            _env(
-                "RUNTIME_CONTROLLER_URL",
-                "",
-                legacy_name="ADMIN_SIDECAR_URL",
-            )
+            _env("RUNTIME_CONTROLLER_URL", "")
             if deployment_target.controllable
             else ""
         ),

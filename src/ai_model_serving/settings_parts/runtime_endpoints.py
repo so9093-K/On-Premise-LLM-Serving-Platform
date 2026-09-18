@@ -10,11 +10,8 @@ def build_runtime_endpoint(
     *,
     model_key: str,
     env_prefix: str,
-    legacy_env_prefix: str | None,
     env_url: str,
-    legacy_env_url: str | None,
     env_model: str,
-    legacy_env_model: str | None,
     timeout: float,
     models: dict[str, Any],
     operational_limits: dict[str, Any],
@@ -34,61 +31,34 @@ def build_runtime_endpoint(
         f"{env_prefix}_TIMEOUT_SECONDS",
         float(cfg.get("timeout_seconds", timeout)),
         minimum=0.1,
-        legacy_name=(
-            f"{legacy_env_prefix}_TIMEOUT_SECONDS"
-            if legacy_env_prefix is not None
-            else None
-        ),
     )
     return RuntimeEndpoint(
         logical_id=str(cfg["served_model_name"]),
         base_url=env(
             env_url,
             str(cfg["endpoint"]),
-            legacy_name=legacy_env_url,
         ).rstrip("/"),
         model=env(
             env_model,
             str(cfg["served_model_name"]),
-            legacy_name=legacy_env_model,
         ),
         timeout_seconds=endpoint_timeout,
         max_concurrency=as_int(
             f"{env_prefix}_MAX_CONCURRENCY",
             int(cfg.get("gateway_max_concurrency", admission_control.get("max_concurrency", default_model_concurrency))),
-            legacy_name=(
-                f"{legacy_env_prefix}_MAX_CONCURRENCY"
-                if legacy_env_prefix is not None
-                else None
-            ),
         ),
         queue_timeout_seconds=as_float(
             f"{env_prefix}_QUEUE_TIMEOUT_SECONDS",
             float(cfg.get("queue_timeout_seconds", admission_control.get("queue_timeout_seconds", default_queue_timeout))),
-            legacy_name=(
-                f"{legacy_env_prefix}_QUEUE_TIMEOUT_SECONDS"
-                if legacy_env_prefix is not None
-                else None
-            ),
         ),
         circuit_breaker_failure_threshold=as_int(
             f"{env_prefix}_CIRCUIT_BREAKER_FAILURE_THRESHOLD",
             int(cfg.get("circuit_breaker_failure_threshold", default_failure_threshold)),
-            legacy_name=(
-                f"{legacy_env_prefix}_CIRCUIT_BREAKER_FAILURE_THRESHOLD"
-                if legacy_env_prefix is not None
-                else None
-            ),
         ),
         circuit_breaker_reset_seconds=as_float(
             f"{env_prefix}_CIRCUIT_BREAKER_RESET_SECONDS",
             float(cfg.get("circuit_breaker_reset_seconds", default_reset_seconds)),
             minimum=0.1,
-            legacy_name=(
-                f"{legacy_env_prefix}_CIRCUIT_BREAKER_RESET_SECONDS"
-                if legacy_env_prefix is not None
-                else None
-            ),
         ),
         http_max_connections=as_int("HTTP_MAX_CONNECTIONS", default_max_connections),
         http_max_keepalive_connections=as_int("HTTP_MAX_KEEPALIVE_CONNECTIONS", default_keepalive),

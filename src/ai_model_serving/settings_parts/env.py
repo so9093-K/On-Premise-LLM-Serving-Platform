@@ -1,10 +1,8 @@
 from __future__ import annotations
 
 import os
-from collections import ChainMap
 from pathlib import Path
 
-from ..env_compat import renamed_env_value
 from .dotenv_parser import load_strict_env_file
 
 DOTENV_VALUES: dict[str, str] = {}
@@ -37,14 +35,7 @@ def as_bool(value: str | bool | None, default: bool) -> bool:
     return value.strip().lower() in {"1", "true", "yes", "on"}
 
 
-def env(name: str, default: str, *, legacy_name: str | None = None) -> str:
-    if legacy_name is not None:
-        return renamed_env_value(
-            ChainMap(os.environ, DOTENV_VALUES),
-            name,
-            legacy_name,
-            default,
-        )
+def env(name: str, default: str) -> str:
     if name in os.environ:
         return os.environ[name]
     return DOTENV_VALUES.get(name, default)
@@ -103,9 +94,8 @@ def as_int(
     default: int,
     *,
     minimum: int = 1,
-    legacy_name: str | None = None,
 ) -> int:
-    value = int(env(name, str(default), legacy_name=legacy_name))
+    value = int(env(name, str(default)))
     if value < minimum:
         raise RuntimeError(f"{name} must be >= {minimum}.")
     return value
@@ -116,9 +106,8 @@ def as_float(
     default: float,
     *,
     minimum: float = 0.0,
-    legacy_name: str | None = None,
 ) -> float:
-    value = float(env(name, str(default), legacy_name=legacy_name))
+    value = float(env(name, str(default)))
     if value < minimum:
         raise RuntimeError(f"{name} must be >= {minimum}.")
     return value

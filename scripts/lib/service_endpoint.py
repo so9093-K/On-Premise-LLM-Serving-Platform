@@ -8,32 +8,20 @@ from __future__ import annotations
 import os
 from typing import Any
 
-from ai_model_serving.env_compat import renamed_env_value
-
 # Compose의 wildcard bind는 listen 주소이지 접속 대상이 아니다.
 _WILDCARD_BINDS = {"0.0.0.0", "::", "[::]"}
 
 
 def _published_host(service: dict[str, Any]) -> str:
     bind_key = str(service.get("host_env_bind", ""))
-    legacy_key = str(service.get("legacy_host_env_bind", ""))
-    bind = (
-        renamed_env_value(os.environ, bind_key, legacy_key)
-        if bind_key and legacy_key
-        else os.getenv(bind_key, "")
-    ).strip()
+    bind = os.getenv(bind_key, "").strip()
     return bind if bind and bind not in _WILDCARD_BINDS else "localhost"
 
 
 def _published_port(service: dict[str, Any]) -> int:
     """운영자가 port를 바꿔 띄웠으면 그 port로 접속해야 한다."""
     port_key = str(service.get("host_env_port", ""))
-    legacy_key = str(service.get("legacy_host_env_port", ""))
-    override = (
-        renamed_env_value(os.environ, port_key, legacy_key)
-        if port_key and legacy_key
-        else os.getenv(port_key, "")
-    ).strip()
+    override = os.getenv(port_key, "").strip()
     if override:
         try:
             return int(override)

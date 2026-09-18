@@ -15,9 +15,9 @@ def boot_config(tmp_path, *, utilization="0.76", locked=False):
     env_path = tmp_path / ".env"
     env_path.write_text(
         "VLLM_IMAGE=registry.example.com/runtime@sha256:" + "a" * 64 + "\n"
-        "MAIN_LLM_BOOT_PROFILE=gemma4-12b-unified-fp8\n"
-        f"MAIN_LLM_PROFILE_LOCKED={str(locked).lower()}\n"
-        f"MAIN_LLM_GPU_MEMORY_UTILIZATION={utilization}\n",
+        "MAIN_MODEL_BOOT_PROFILE=gemma4-12b-unified-fp8\n"
+        f"MAIN_MODEL_PROFILE_LOCKED={str(locked).lower()}\n"
+        f"MAIN_MODEL_GPU_MEMORY_UTILIZATION={utilization}\n",
         encoding="utf-8",
     )
     state_path = tmp_path / "state.json"

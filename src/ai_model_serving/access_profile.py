@@ -7,7 +7,6 @@ from typing import Mapping
 
 from .configuration import load_yaml_mapping
 from .auth_control import auth_profile_env_values
-from .env_compat import renamed_env_value
 from .project_paths import resolve_project_root
 
 
@@ -91,14 +90,9 @@ def access_profile_env_values(
         bind_key = service.get("host_env_bind")
         if bind_key:
             key = str(bind_key)
-            legacy_key = str(service.get("legacy_host_env_bind") or "")
             current_value = ""
             if profile.host_bind_policy == "operator" and current:
-                current_value = (
-                    renamed_env_value(current, key, legacy_key)
-                    if legacy_key
-                    else current.get(key, "")
-                )
+                current_value = current.get(key, "")
             values[key] = current_value or profile.host_bind_default
     return values
 

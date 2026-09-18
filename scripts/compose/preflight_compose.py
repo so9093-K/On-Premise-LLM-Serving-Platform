@@ -22,7 +22,6 @@ if str(ROOT) not in sys.path:
 if str(ROOT / "src") not in sys.path:
     sys.path.insert(0, str(ROOT / "src"))
 
-from ai_model_serving.env_compat import renamed_env_value  # noqa: E402
 from ai_model_serving.main_model.boot import (  # noqa: E402
     render_boot_override,
     resolve_compose_relative_path,
@@ -53,8 +52,6 @@ def _warn(message: str) -> None:
 def _env_value(
     key: str,
     default: str = "",
-    *,
-    legacy_key: str | None = None,
 ) -> str:
     env_path = resolve_env_file(os.environ.get("ENV_FILE"), ROOT)
     file_values: dict[str, str] = {}
@@ -72,10 +69,6 @@ def _env_value(
             )
             raise SystemExit("[preflight] configuration preflight failed; fix env file syntax.") from exc
 
-    if legacy_key is not None:
-        effective = dict(file_values)
-        effective.update(os.environ)
-        return renamed_env_value(effective, key, legacy_key, default)
     value = os.environ.get(key)
     if value is not None:
         return value
@@ -95,21 +88,8 @@ def _check_auth_profile_preflight() -> None:
     if access_profile:
         try:
             expected = access_profile_env_values(access_profile, ROOT)
-            contract = _load_yaml(ROOT / "configs/env_contract.yaml", "environment contract")
-            renamed = contract.get("renamed_keys") or {}
-            if not isinstance(renamed, dict):
-                raise ValueError("env_contract.yaml renamed_keys must be a mapping")
-            legacy_by_canonical = {
-                str(canonical): str(legacy)
-                for legacy, canonical in renamed.items()
-                if isinstance(legacy, str) and isinstance(canonical, str)
-            }
             current = {
-                key: _env_value(
-                    key,
-                    "",
-                    legacy_key=legacy_by_canonical.get(key),
-                )
+                key: _env_value(key, "")
                 for key in expected
             }
             access_mismatches = access_profile_mismatches(access_profile, current, ROOT)
@@ -192,27 +172,13 @@ def _bind_conflicts(
     for service_name in profile.get("host_published", []):
         service = services.get(service_name, {})
         bind_env = str(service.get("host_env_bind", ""))
-        legacy_bind_env = str(service.get("legacy_host_env_bind", ""))
         default_bind = str(service.get("default_bind", "0.0.0.0"))
-        bind = (
-            _env_value(
-                bind_env,
-                default_bind,
-                legacy_key=legacy_bind_env or None,
-            )
-            if bind_env
-            else default_bind
-        )
+        bind = _env_value(bind_env, default_bind) if bind_env else default_bind
         if bind != "0.0.0.0":
             continue
         port_env = str(service.get("host_env_port", ""))
-        legacy_port_env = str(service.get("legacy_host_env_port", ""))
         port = (
-            _env_value(
-                port_env,
-                str(service.get("default_host_port", "")),
-                legacy_key=legacy_port_env or None,
-            )
+            _env_value(port_env, str(service.get("default_host_port", "")))
             if port_env
             else ""
         )
