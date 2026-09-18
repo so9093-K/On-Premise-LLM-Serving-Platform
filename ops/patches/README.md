@@ -34,9 +34,11 @@ turn은 content 상태에서 시작하고, 실제로 열린 `<|channel>` prompt�
 streaming 최종 답 끝에 그대로 노출됐다(비스트리밍에는 없었다). `TURN_END` terminal과
 `CONTENT`/`REASONING` 흡수 transition을 추가한다.
 
-이 patch는 각 anchor가 정확히 1회 나올 때만 치환한다. upstream base가 수정을 포함하거나
-레이아웃이 달라지면 build가 실패하므로, 그때 해당 부분을 제거하고 parser streaming canary를
-다시 통과시킨다. 두 부분은 독립적이라 upstream이 backport 쪽만 흡수하면 그 부분만 뺀다.
+patch script는 두 부분을 독립적으로 판정한다. 현재 qualified 0.25.1처럼 #48262 이전
+레이아웃이면 reasoning fix를 backport하고, #48262가 이미 포함된 후보 base에서는 해당
+동작을 source marker로 검증한 뒤 재치환하지 않는다. 로컬 `<turn|>` 흡수는 upstream에
+동일한 terminal/transition이 확인될 때까지 별도로 적용한다. 어느 한 부분이 반쯤 적용된
+레이아웃은 추측하지 않고 build를 실패시킨다.
 
 관련 상위 결함이 하나 더 있다. thinking을 끈 generation prompt가 이미 닫힌 빈 thought
 channel로 끝나면 model이 여는 마커 없이 사고를 다시 시작해 streaming parser가 그것을
