@@ -24,7 +24,7 @@ services:
   risk-prompt-vllm:
     ports:
       - ${RISK_PROMPT_VLLM_BIND_ADDR:-0.0.0.0}:${RISK_PROMPT_VLLM_PORT:-9403}:9403
-  risk-adapter:
+  risk-signal-service:
     ports:
       - ${RISK_ADAPTER_BIND_ADDR:-0.0.0.0}:${RISK_ADAPTER_PORT:-9405}:9405
   prometheus:
