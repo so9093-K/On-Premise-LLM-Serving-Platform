@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import pytest
 
-from ai_model_serving.services.sidecar_client import SidecarUnavailableError
+from ai_model_serving.services.runtime_controller_client import RuntimeControllerUnavailableError
 
 from .helpers import *  # noqa: F401,F403
 
@@ -28,7 +28,7 @@ class _FakeSidecar:
     async def main_model(self, *, observed: bool = True):
         self.observed_requested.append(observed)
         if not self._available:
-            raise SidecarUnavailableError("sidecar down")
+            raise RuntimeControllerUnavailableError("sidecar down")
         return self._snapshot
 
 
