@@ -1,6 +1,6 @@
 """gateway 단위 테스트 전체가 공유하는 fake client/설정 픽스처 모음.
 
-FakeGatewayClients/FakeRuntimeClient로 실제 vLLM/risk-adapter 없이 gateway
+FakeGatewayClients/FakeRuntimeClient로 실제 vLLM/risk-signal-service 없이 gateway
 앱을 띄우고, settings()/tool_calling_settings()/advanced_chat_settings() 등으로
 각 테스트가 필요한 정책 조합을 만든다."""
 
@@ -150,7 +150,7 @@ class ExplodingGatewayClients:
         self.embedding_clients = {"local-embed": embedding}
         self.runtime_clients_by_service_key = {"embedding": embedding}
         self.runtimes = {"main_llm": self.main_llm, "embedding": embedding}
-        self.risk_adapter = FakeRuntimeClient({"status": "ready", "service": "risk-adapter", "dependencies": []})
+        self.risk_adapter = FakeRuntimeClient({"status": "ready", "service": "risk-signal-service", "dependencies": []})
         self.runtimes["risk_adapter"] = self.risk_adapter
         from ai_model_serving.services.runtime_state import RuntimeStateStore
         self.runtime_state = RuntimeStateStore()
@@ -195,8 +195,8 @@ class FakeGatewayClients:
                 "categories": [],
                 "system_signals": [],
             },
-            get_response={"status": "ready", "service": "risk-adapter", "dependencies": []},
-            endpoint=RuntimeEndpoint("risk-adapter", "http://risk", "risk-adapter", 1),
+            get_response={"status": "ready", "service": "risk-signal-service", "dependencies": []},
+            endpoint=RuntimeEndpoint("risk-signal-service", "http://risk", "risk-signal-service", 1),
         )
         self.runtimes = {
             "main_llm": self.main_llm,
