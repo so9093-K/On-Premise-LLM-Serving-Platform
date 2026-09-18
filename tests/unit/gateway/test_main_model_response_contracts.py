@@ -19,7 +19,7 @@ class ContractMainModelSidecar:
         "served_model_name": "local-main",
         "upstream_model_id": "RedHatAI/gemma-4-12B-it-FP8-Dynamic",
         "revision": "67e53491df7a281623fa740de61307d5c542b7f4",
-        "compatibility": {"status": "verified", "technical_status": "compatible"},
+        "compatibility": {"status": "compatible"},
         "qualification": {"status": "verified"},
         "capabilities": {"deployed_input": ["text", "image"]},
         "gateway_policy": {},
