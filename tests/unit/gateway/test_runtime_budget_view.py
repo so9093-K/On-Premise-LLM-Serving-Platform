@@ -7,7 +7,7 @@ import asyncio
 from ai_model_serving.api.error_responses import (
     sidecar_request_error_response,
 )
-from ai_model_serving.services.sidecar_client import SidecarRequestError
+from ai_model_serving.services.runtime_controller_client import RuntimeControllerRequestError
 from ai_model_serving.services.runtime_state import RuntimeState
 from .helpers import FakeGatewayClients, TestClient, create_gateway_app, settings
 
@@ -87,7 +87,7 @@ class BudgetRejectingSidecar:
         return {"embed-ko": "exited"}
 
     async def start(self, container: str, *, force: bool = False):
-        raise SidecarRequestError(
+        raise RuntimeControllerRequestError(
             409,
             {
                 "code": "GPU_BUDGET_EXCEEDED",
@@ -168,7 +168,7 @@ def test_runtime_budget_rejection_uses_standard_error_envelope():
 
 def test_sidecar_non_conflict_error_uses_its_http_status_code():
     response = sidecar_request_error_response(
-        SidecarRequestError(
+        RuntimeControllerRequestError(
             422,
             {"code": "MODEL_PROFILE_INCOMPATIBLE", "message": "profile is incompatible"},
         )
