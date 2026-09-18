@@ -161,6 +161,7 @@
 
 ### Removed
 
+- `AUDIO_VLLM_IMAGE_TO_DEPLOY` deployment-time compatibility alias와 이를 정규화·충돌 검사하던 코드/테스트를 제거했다. 배포 promotion input은 `MAIN_MODEL_VLLM_IMAGE_OVERRIDE_TO_DEPLOY`만 사용한다. 기존 persistent `AUDIO_VLLM_IMAGE`는 값 손실 없는 `sync-env` migration을 위해 한정적으로 남는다.
 - `RUNTIME_PROFILE`과 `DEPLOY_RUNTIME_PROFILE` process-input alias 및 이를 정규화하던 shell helper/test를 제거했다. 로컬 compose-up과 원격 full deploy는 `RUNTIME_STARTUP_PROFILE`만 사용한다.
 - `scripts/validation/governance/model_config.py`에 남아 있던 호출되지 않는 옛 `validate_configuration_schema()` 구현을 제거했다. 현재 governance CLI는 `governance/configuration_plane.py`의 validator만 사용하며, 이 경로는 production schema validator를 재사용하고 repository default와 public retrieval contract까지 함께 교차 검증한다.
 - Runtime Controller Python rename의 migration-only shim을 제거했다. `services.sidecar_client`와 `apps.admin_sidecar`는 더 이상 import surface가 아니며, production/test 코드는 `runtime_controller_client`와 `apps.runtime_controller`를 직접 사용한다. Compose service ID `admin-sidecar`와 operator env compatibility는 별도 계약으로 유지한다.
