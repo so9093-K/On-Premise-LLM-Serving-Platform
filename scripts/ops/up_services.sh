@@ -70,7 +70,7 @@ start_service risk_adapter ai_model_serving.apps.risk_adapter_asgi:app "$RISK_AD
 wait_for_health risk_adapter "http://${RISK_ADAPTER_HOST}:${RISK_ADAPTER_PORT}"
 
 cat <<MSG
-[up] Gateway and Risk Adapter processes started and passed /health.
+[up] Gateway and Risk Signal Service processes started and passed /health.
 [up] This starts the application layer only. It does not start vLLM model servers.
 [up] Use 'make ready-local' for app-only health or 'make ready-full' to verify real upstream vLLM services.
 MSG
