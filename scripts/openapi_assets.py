@@ -48,7 +48,7 @@ def build_generated_openapi() -> tuple[dict[str, dict[str, Any]], list[dict[str,
         policies = settings.main_model_profile_policies
         return {
             "gateway": create_gateway_app(settings=settings).openapi(),
-            "risk-adapter": create_risk_adapter_app(settings=settings).openapi(),
+            "risk-signal-service": create_risk_adapter_app(settings=settings).openapi(),
         }, policies
     finally:
         for key, value in previous.items():
