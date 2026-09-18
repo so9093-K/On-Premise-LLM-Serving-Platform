@@ -232,13 +232,28 @@ def test_unverified_switch_requires_confirmation(tmp_path):
     profile = loaded.profiles["gemma4-12b-unified-fp8"]
     loaded.profiles["gemma4-12b-unified-fp8"] = replace(
         profile,
-        compatibility={**profile.compatibility, "status": "unknown"},
+        qualification={**profile.qualification, "status": "unverified"},
     )
     store = MainModelStateStore(tmp_path / "state.json", loaded.default_profile)
     manager = MainModelManager(loaded, store, FakeBackend(), boot_profile=loaded.default_profile)
     with pytest.raises(MainModelSwitchError) as error:
         manager.request_switch("gemma4-12b-unified-fp8")
     assert error.value.code == "MODEL_PROFILE_CONFIRMATION_REQUIRED"
+
+
+def test_incompatible_switch_is_rejected_even_when_qualified(tmp_path):
+    loaded = catalog()
+    profile = loaded.profiles["gemma4-12b-unified-fp8"]
+    loaded.profiles["gemma4-12b-unified-fp8"] = replace(
+        profile,
+        compatibility={**profile.compatibility, "status": "incompatible"},
+        qualification={**profile.qualification, "status": "verified"},
+    )
+    store = MainModelStateStore(tmp_path / "state.json", loaded.default_profile)
+    manager = MainModelManager(loaded, store, FakeBackend(), boot_profile=loaded.default_profile)
+    with pytest.raises(MainModelSwitchError) as error:
+        manager.request_switch("gemma4-12b-unified-fp8", confirm_unverified=True)
+    assert error.value.code == "MODEL_PROFILE_INCOMPATIBLE"
 
 
 def test_successful_switch_commits_only_after_validation(tmp_path):
