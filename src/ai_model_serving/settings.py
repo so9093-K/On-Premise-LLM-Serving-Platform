@@ -444,7 +444,7 @@ def load_settings(root: Path | None = None, env_file: Path | str | None = None) 
         streaming_max_duration_seconds=float(streaming_cfg.get("max_duration_seconds", 300.0)),
         streaming_max_chunks=int(streaming_cfg.get("max_chunks", 20_000)),
         streaming_max_bytes=int(streaming_cfg.get("max_bytes", 104_857_600)),
-        admin_sidecar_url=(
+        runtime_controller_url=(
             _env(
                 "RUNTIME_CONTROLLER_URL",
                 "",

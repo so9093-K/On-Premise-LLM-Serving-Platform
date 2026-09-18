@@ -65,15 +65,15 @@ def test_load_settings_uses_canonical_runtime_controller_url(monkeypatch):
 
     settings = load_settings()
 
-    assert settings.admin_sidecar_url == "http://runtime-controller:8080"
+    assert settings.runtime_controller_url == "http://runtime-controller:8080"
 
 
-def test_load_settings_reads_legacy_admin_sidecar_url(monkeypatch):
+def test_load_settings_reads_legacy_runtime_controller_url_alias(monkeypatch):
     monkeypatch.setenv("ADMIN_SIDECAR_URL", "http://legacy-controller:8080")
 
     settings = load_settings()
 
-    assert settings.admin_sidecar_url == "http://legacy-controller:8080"
+    assert settings.runtime_controller_url == "http://legacy-controller:8080"
 
 
 def test_load_settings_rejects_conflicting_runtime_controller_url_names(monkeypatch):

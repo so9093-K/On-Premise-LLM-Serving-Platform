@@ -93,10 +93,10 @@ class GatewayClients:
         self.main_model_inflight = MainModelInFlight()
         self.sidecar: SidecarClient | None = (
             SidecarClient(
-                settings.admin_sidecar_url,
+                settings.runtime_controller_url,
                 settings.security.internal_service_token,
             )
-            if settings.admin_sidecar_url
+            if settings.runtime_controller_url
             else None
         )
         self.main_llm = RuntimeClient(settings.runtime("main_llm"))

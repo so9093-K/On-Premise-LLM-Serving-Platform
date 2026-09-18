@@ -155,7 +155,7 @@ def test_runtime_configuration_rejects_invalid_or_unknown_changes() -> None:
     with pytest.raises(ValueError, match="max_retrieval_documents"):
         provider.update(max_retrieval_documents=0)
     with pytest.raises(ValueError, match="unknown runtime configuration fields"):
-        provider.update(admin_sidecar_url="http://example.invalid")
+        provider.update(runtime_controller_url="http://example.invalid")
 
     assert provider.snapshot().revision == 0
 
