@@ -1,4 +1,4 @@
-# On-Premise-LLM-Serving-Platform
+# On-Premises LLM Serving Platform
 
 GPU 기반 AI 모델을 **OpenAI-compatible API**로 제공하고, Chat Completions, Responses, Embedding, Retrieval, Risk Detection, 모델 운영, 관측과 배포를 하나의 플랫폼에서 관리한다.
 
@@ -18,7 +18,7 @@ vLLM 또는 Apple Silicon의 MLX-VLM을 사용하며, 실행 target에 맞는 li
 
 ## 시스템 구성
 
-Gateway를 중심으로 모델 Runtime, Risk 처리, 운영 제어와 관측 서비스가 연결된다.
+Gateway를 중심으로 Model Runtime, Risk Signal Service, Runtime Controller와 관측 서비스가 연결된다.
 
 ![AI 모델 서빙 플랫폼 시스템 구성도](assets/ai_model_serving_system_architecture.jpg)
 
@@ -59,7 +59,7 @@ make status
 ```
 
 `build`는 선택 target에서 이 저장소가 소유한 image만 만들고, `prepare`는 선택된 Main
-Model만 받는다. secondary model을 전부 다운로드하지 않으며, 이미 준비된 환경의 일반
+Model만 받는다. Main Model 외 모델을 전부 다운로드하지 않으며, 이미 준비된 환경의 일반
 기동에서는 둘 다 반복하지 않는다. 이후 명령은 `.env`의 target을 사용하므로 `TARGET`을 반복하지 않는다.
 Main profile을 처음부터 바꾸려면 `make setup TARGET=... MODEL=...`로 지정한다.
 허용 profile은 각 target이 가리키는 `configs/main_model_profiles.yaml` 또는
@@ -81,7 +81,7 @@ make down
 
 ### 애플리케이션만 실행
 
-Gateway와 Risk Adapter를 로컬 Python 프로세스로 실행한다. Python `>=3.12,<3.14`와
+Gateway와 Risk Signal Service를 로컬 Python 프로세스로 실행한다. Python `>=3.12,<3.14`와
 uv가 필요하며 Docker와 GPU는 필요하지 않다. `setup-dev`는 `uv.lock`에서
 `.venv`를 동기화하고 runtime 설정과 실행 중인 서비스를 변경하지 않는다.
 
@@ -101,7 +101,7 @@ make status
 make down
 ```
 
-실행 구조와 네트워크 공개 방식은 [실행 환경과 모드](docs/04_runtime_modes.md), 설정 항목은 [설정 체계](docs/05_configuration.md)에서 확인한다. 다른 Main Model과 secondary runtime 운영은 [모델 운영](docs/06_model_operations.md), Release package 적용은 [배포](docs/10_deployment.md)에서 다룬다.
+실행 구조와 네트워크 공개 방식은 [실행 환경과 모드](docs/04_runtime_modes.md), 설정 항목은 [설정 체계](docs/05_configuration.md)에서 확인한다. 다른 Main Model과 Embedding/Risk Model Runtime 운영은 [모델 운영](docs/06_model_operations.md), Release package 적용은 [배포](docs/10_deployment.md)에서 다룬다.
 
 ---
 
@@ -211,6 +211,7 @@ assets/     아키텍처·문서 이미지
 |---|---|
 | [문서 안내](docs/README.md) | 전체 문서 구성과 읽기 순서 |
 | [API 인터페이스](docs/reference/api_reference.md) | API 계약, 요청·응답, 인증, 예제 |
+| [표준 용어](docs/reference/terminology.md) | 사용자-facing 표준 용어와 안정 식별자 구분 |
 | [vLLM Container 실행 가이드](docs/reference/vllm_container_guide.md) | vLLM Container 직접 실행과 API 요청 |
 | [설정 체계](docs/05_configuration.md) | 설정 구조와 적용 방식 |
 | [자동화 경계](docs/09_cicd.md) | 현재 GitHub 검증과 미래 publish·deploy 연결 원칙 |

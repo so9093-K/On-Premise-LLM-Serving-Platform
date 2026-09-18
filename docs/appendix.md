@@ -6,26 +6,35 @@
 
 ## A. 용어 정리
 
-| 용어 | 의미 | 관련 문서 |
+전체 canonical 용어와 legacy 식별자 migration 원칙은 [표준 용어](./reference/terminology.md)를 기준으로 한다.
+이 부록은 운영 중 자주 확인하는 핵심 용어만 요약한다.
+
+| 용어 | 의미 | 안정 식별자 예 |
 |---|---|---|
-| Gateway | 외부 API 요청의 진입점. 요청 검증, 인증, 모델 호출 조정과 응답 처리를 담당한다. | [3. 시스템 구성](./03_system_components.md) |
-| Main Model Runtime | Chat Completions와 Responses generation을 수행하는 vLLM Runtime. | [6. 모델 운영](./06_model_operations.md) |
-| Admin Sidecar | Main Model Runtime의 시작, 중지, 전환과 Docker lifecycle을 관리하는 내부 서비스. | [3. 시스템 구성](./03_system_components.md), [6. 모델 운영](./06_model_operations.md) |
-| Secondary Runtime | Embedding, 한국어 Embedding, Prompt Risk 등 Main Model 외 모델 Runtime. | [4. 실행 환경과 모드](./04_runtime_modes.md) |
-| Risk Adapter | PII·Secret 위험 탐지와 Prompt Risk 신호를 제공하는 서비스. PII와 Secret은 내부 detector를 사용하고 Prompt Risk는 별도 vLLM Runtime을 호출한다. | [3. 시스템 구성](./03_system_components.md) |
-| Main Model Profile | Main Model을 어떤 모델과 Runtime 설정으로 실행할지 정의하는 프로파일. | [5. 설정 체계와 Source of Truth](./05_configuration.md), [6. 모델 운영](./06_model_operations.md) |
-| Deploy Runtime Profile | compose-up/full 배포 후 Secondary Runtime의 초기 실행 상태를 정의하는 프로파일. | [5. 설정 체계와 Source of Truth](./05_configuration.md), [10. 배포](./10_deployment.md) |
-| Exposure Profile | 실행된 서비스 중 Host에 공개할 대상을 정의하는 프로파일. | [4. 실행 환경과 모드](./04_runtime_modes.md), [5. 설정 체계와 Source of Truth](./05_configuration.md) |
-| Auth Profile | Gateway, Admin API, 내부 서비스의 인증 정책 조합을 정의하는 프로파일. | [5. 설정 체계와 Source of Truth](./05_configuration.md) |
-| Readiness | 서비스와 필요한 모델 Runtime이 실제 요청을 처리할 준비가 된 상태. | [8. 테스트와 검증](./08_testing_validation.md) |
-| Smoke Test | 대표 API 요청을 실제로 실행해 주요 요청 경로를 확인하는 검증. | [8. 테스트와 검증](./08_testing_validation.md) |
-| Runtime Validation | GPU, vLLM, 모델 Runtime 등 실제 실행 환경을 확인하는 검증. | [8. 테스트와 검증](./08_testing_validation.md), [12. 운영 관리 및 장애 대응](./12_operations.md) |
-| Platform Image | Gateway, Risk Adapter, Admin Sidecar 애플리케이션을 실행하는 Container Image. | [7. 로컬 개발과 빌드](./07_local_dev_build.md) |
-| Unified vLLM Image | Main Model, Embedding, Prompt Risk Runtime이 공유하는 vLLM 기반 Runtime Image. | [7. 로컬 개발과 빌드](./07_local_dev_build.md) |
-| Image Digest | Registry에 저장된 Container Image 내용을 고유하게 식별하는 `sha256` 값. Publish 결과와 배포에서 실제 Image version을 고정하는 데 사용한다. | [9. 자동화 경계](./09_cicd.md), [10. 배포](./10_deployment.md) |
-| Release | 배포에 사용할 소스, 설정, Runtime 정보를 독립된 디렉터리에 준비한 배포 단위. | [10. 배포](./10_deployment.md) |
-| Source of Truth | 특정 설정이나 계약의 기준이 되는 코드 또는 설정 파일. | [5. 설정 체계와 Source of Truth](./05_configuration.md) |
-| Generated Artifact | Source of Truth를 기준으로 스크립트가 생성하는 Runtime/Compose/OpenAPI 관련 파일. | [5. 설정 체계와 Source of Truth](./05_configuration.md) |
+| Gateway | 외부 API 요청의 진입점. 요청 검증, 인증, 모델 호출 routing과 응답 처리를 담당한다. | `gateway` |
+| Control Plane | Runtime·Configuration·Main Model Profile을 운영하는 관리 계층. | `/admin/*`, Console |
+| Runtime Controller | Model Runtime lifecycle, Main Model 전환과 reconciliation을 관리하는 내부 control service. | `admin-sidecar` |
+| Model Runtime | 실제 inference, embedding 또는 detection을 수행하는 실행 단위. 필요하면 Main/Embedding/Prompt Injection처럼 역할을 붙여 부른다. | `main-llm-vllm`, `embedding-vllm` |
+| Main Model Runtime | Chat Completions와 Responses generation을 수행하는 주 Runtime. | `main-llm-vllm` |
+| Risk Signal Service | PII·Secret·Prompt Injection detector 결과를 signal-only 계약으로 정규화한다. 최종 allow/block 정책은 소유하지 않는다. | `risk-adapter` |
+| Prompt Injection Detector Runtime | Prompt Injection / Prompt Leaking 신호를 생성하는 Model Runtime. | `risk-prompt-vllm`, `risk-prompt` |
+| Main Model Profile | Main Model의 model revision, Runtime image, command, capability와 request policy 조합. | `configs/main_model_profiles.yaml` |
+| Public Model Alias | client가 실제 profile과 무관하게 고정적으로 사용하는 model 이름. | `local-main` |
+| Deployment Target | platform/backend/lifecycle ownership 조합을 선택하는 안정 설정 ID. | `DEPLOYMENT_TARGET` |
+| Runtime Startup Profile | 배포 직후 non-main Model Runtime의 초기 시작 상태를 정의하는 preset. | `configs/deploy_profiles.yaml` |
+| Access Profile | local/private/edge처럼 사용자가 선택하는 접근 의도. | `ACCESS_PROFILE` |
+| Desired State | Control Plane이 수렴시키려는 Runtime 상태. | `desired_state` |
+| Observed State | 실제 container/Runtime에서 관측한 상태. | `observed_runtime`, `container_status` |
+| Qualification | 특정 배포에서 실제 검증 근거가 어느 수준인지 나타내는 사용자-facing 개념. | 현재 `compatibility.status`, `validation_status` 일부 |
+| Readiness | 서비스와 필요한 Model Runtime이 실제 요청을 처리할 준비가 된 상태. | `/ready` |
+| Smoke Test | 대표 API 요청을 실제 실행해 주요 요청 경로를 확인하는 검증. | `make smoke` |
+| Runtime Validation | GPU, serving engine, Model Runtime 등 실제 실행 환경을 확인하는 검증. | `make runtime-validate` |
+| Platform Image | Gateway, Risk Signal Service, Runtime Controller 애플리케이션을 실행하는 Container Image. | `PLATFORM_IMAGE` |
+| Unified vLLM Image | Main Model, Embedding, Prompt Injection Detector Runtime이 공유하는 vLLM 기반 Runtime Image. | `VLLM_IMAGE` |
+| Image Digest | Registry의 Container Image 내용을 고유하게 식별하는 `sha256` 값. | `image@sha256:...` |
+| Release | 배포할 소스, 설정, Runtime 정보를 독립된 디렉터리에 준비한 배포 단위. | release directory |
+| Source of Truth | 특정 설정이나 계약의 기준이 되는 코드 또는 설정 파일. | 영역별 canonical config |
+| Generated Artifact | Source of Truth에서 스크립트가 생성하는 Runtime/Compose/OpenAPI 관련 파일. | generated files |
 
 ---
 
@@ -40,10 +49,10 @@
 | Gateway | `gateway` | `9400` | `9400` | 외부 API 진입점 |
 | Main Model Runtime | `main-llm-vllm` | `9401` | `9401` | Chat / Responses generation |
 | Embedding Runtime | `embedding-vllm` | `9402` | `9402` | 일반 Embedding |
-| Prompt Risk Runtime | `risk-prompt-vllm` | `9403` | `9403` | Prompt Risk inference |
-| Risk Adapter | `risk-adapter` | `9405` | `9405` | PII·Secret 위험 탐지, Prompt Risk 신호 처리 |
+| Prompt Injection Detector Runtime | `risk-prompt-vllm` | `9403` | `9403` | Prompt Injection / Leaking signal inference |
+| Risk Signal Service | `risk-adapter` | `9405` | `9405` | PII·Secret·Prompt Injection 신호 정규화 |
 | Korean Embedding Runtime | `embedding-ko-vllm` | `9406` | `9406` | Retrieval용 한국어 Embedding |
-| Admin Sidecar | `admin-sidecar` | `8080` | - | Main Model Runtime lifecycle 관리. Compose 내부에서 사용 |
+| Runtime Controller | `admin-sidecar` | `8080` | - | Model Runtime lifecycle·Main Model 전환 관리. Compose 내부에서 사용 |
 
 ### Monitoring
 
@@ -138,7 +147,7 @@
 |---|---|---|
 | API Endpoint | `src/ai_model_serving/api/routers/` | Gateway와 Admin API의 endpoint 정의 |
 | Request / Response | `src/ai_model_serving/contracts/` | 요청·응답 모델과 application contract |
-| Application | `src/ai_model_serving/` | Gateway, Risk Adapter, Admin Sidecar와 공통 application logic |
+| Application | `src/ai_model_serving/` | Gateway, Risk Signal Service, Runtime Controller와 공통 application logic |
 | Main Model Control | `src/ai_model_serving/main_model/` | Main Model 상태, 전환, Docker Runtime 제어 로직 |
 | 설정 | `configs/` | 모델, 서비스, GPU, 인증, 노출, 배포 정책 |
 | JSON Schema | `specs/schemas/` | API schema와 validation contract |

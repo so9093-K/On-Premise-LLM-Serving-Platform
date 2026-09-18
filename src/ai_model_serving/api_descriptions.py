@@ -526,7 +526,7 @@ def gateway_tags_metadata(settings: AppSettings) -> list[dict[str, str]]:
     ]
 
 
-_OPERATIONS_TAG = """`/health`는 프로세스가 살아 있는지, `/ready`는 vLLM과 Risk Adapter가 모두 준비됐는지 확인합니다.
+_OPERATIONS_TAG = """`/health`는 프로세스가 살아 있는지, `/ready`는 vLLM과 Risk Signal Service가 모두 준비됐는지 확인합니다.
 
 문제가 생긴 요청 하나를 끝까지 추적하는 방법도 여기에 정리했습니다.
 
@@ -647,7 +647,7 @@ curl -X POST "$GATEWAY/v1/chat/completions" \\
 
 
 # ---------------------------------------------------------------------------
-# Risk Adapter
+# Risk Signal Service
 # ---------------------------------------------------------------------------
 
 RISK_ADAPTER_TAGS_METADATA = [
@@ -657,7 +657,7 @@ RISK_ADAPTER_TAGS_METADATA = [
     },
     {
         "name": "Monitoring",
-        "description": "Risk Adapter와 탐지기별 신호 지표입니다. 운영 환경에서는 admin 토큰 또는 내부망으로 보호합니다.",
+        "description": "Risk Signal Service와 탐지기별 신호 지표입니다. 운영 환경에서는 admin 토큰 또는 내부망으로 보호합니다.",
     },
     {
         "name": "Risk Signal",
@@ -676,7 +676,7 @@ RISK_ADAPTER_TAGS_METADATA = [
 RISK_ADAPTER_DESCRIPTION_TEMPLATE = """
 ## 개요
 
-내부 Risk Adapter API입니다. Gateway 또는 내부 호출자가 사용합니다.
+내부 Risk Signal Service API입니다. Gateway 또는 내부 호출자가 사용합니다.
 
 ## Detector 역할
 

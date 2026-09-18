@@ -52,7 +52,7 @@ function isRevisionConflict(error: unknown): boolean {
 
 function errorMessage(error: unknown): string {
   if (error instanceof ApiError && isRevisionConflict(error)) {
-    return `${error.message} Configuration 상태가 검토 시점과 달라졌으므로 새 상태를 조회한 뒤 다시 Plan을 검토하세요.`;
+    return `${error.message} Configuration 상태가 검토 시점과 달라졌으므로 새 상태를 조회한 뒤 변경 내용을 다시 검토하세요.`;
   }
   if (error instanceof ApiError && error.code === 'CONFIGURATION_APPLY_FAILED') {
     const details = typeof error.details === 'object' && error.details !== null
@@ -60,8 +60,8 @@ function errorMessage(error: unknown): string {
       : null;
     const operationId = typeof details?.operation_id === 'string' ? details.operation_id : null;
     return operationId
-      ? `${error.message} operation: ${operationId}. 현재 상태를 다시 조회한 뒤 새 Plan을 검토하세요.`
-      : `${error.message} 현재 상태를 다시 조회한 뒤 새 Plan을 검토하세요.`;
+      ? `${error.message} operation: ${operationId}. 현재 상태를 다시 조회한 뒤 변경 내용을 다시 검토하세요.`
+      : `${error.message} 현재 상태를 다시 조회한 뒤 변경 내용을 다시 검토하세요.`;
   }
   return apiErrorMessage(error);
 }
@@ -251,7 +251,7 @@ export function ConfigurationPage({ token, onUnauthorized, deploymentFeatures }:
       <div className="page-heading">
         <div>
           <h1>Configuration</h1>
-          <p>Operator-owned runtime 설정을 Edit → Plan → Review → Apply → Verify 순서로 변경합니다.</p>
+          <p>운영자 설정을 편집하고 변경 내용을 확인한 뒤 적용하며, 실제 Runtime 반영 결과까지 검증합니다.</p>
         </div>
         <Button variant="secondary" onClick={() => void refresh()} isDisabled={schemaQuery.isFetching || effectiveQuery.isFetching || pageActionLocked}>
           {schemaQuery.isFetching || effectiveQuery.isFetching ? '새로고침 중…' : '새로고침'}
@@ -259,7 +259,7 @@ export function ConfigurationPage({ token, onUnauthorized, deploymentFeatures }:
       </div>
 
       {!writeStatus.available ? (
-        <Alert isInline variant="warning" title="Configuration write plane을 사용할 수 없습니다.">
+        <Alert isInline variant="warning" title="Configuration 변경 기능을 사용할 수 없습니다.">
           reason: {writeStatus.reason ?? 'unknown'} · resolver revision: {writeStatus.resolver_revision} · runtime revision: {writeStatus.runtime_revision}
           {writeStatus.pending_operations !== null ? ` · pending operations: ${writeStatus.pending_operations}` : ''}
         </Alert>
@@ -384,9 +384,9 @@ export function ConfigurationPage({ token, onUnauthorized, deploymentFeatures }:
                 isDanger
                 isDisabled={pageActionLocked || selectedEffective.operator_value === null || selectedEffective.operator_value === undefined}
                 onClick={() => submitPlan([configurationResetChange(selectedMetadata.key)])}
-              >Override reset Plan</Button>
+              >Override 초기화 검토</Button>
               <Button variant="primary" isDisabled={pageActionLocked} onClick={planSelectedValue}>
-                {planMutation.isPending ? 'Plan 계산 중…' : '변경 Plan 검토'}
+                {planMutation.isPending ? '변경 계산 중…' : '변경 내용 검토'}
               </Button>
             </div>
           </CardBody>
@@ -401,7 +401,7 @@ export function ConfigurationPage({ token, onUnauthorized, deploymentFeatures }:
               <dt>Base revision</dt><dd>{review.plan.base_revision}</dd>
               <dt>Candidate revision</dt><dd>{review.plan.candidate_revision}</dd>
               <dt>Would change</dt><dd>{review.plan.would_change ? 'Yes' : 'No'}</dd>
-              <dt>Plan digest</dt><dd><code>{review.plan.plan_digest}</code></dd>
+              <dt>Change digest</dt><dd><code>{review.plan.plan_digest}</code></dd>
             </dl>
             <div className="table-scroll configuration-review-table">
               <table className="runtime-table">
@@ -424,15 +424,15 @@ export function ConfigurationPage({ token, onUnauthorized, deploymentFeatures }:
               </table>
             </div>
             {!review.plan.would_change ? (
-              <Alert isInline variant="info" title="적용할 변경이 없습니다.">현재 operator state와 같은 Plan이므로 Apply를 실행하지 않습니다.</Alert>
+              <Alert isInline variant="info" title="적용할 변경이 없습니다.">현재 operator state와 같은 변경 내용이므로 적용하지 않습니다.</Alert>
             ) : null}
             <div className="review-actions">
-              <Button variant="secondary" onClick={() => setReview(null)} isDisabled={pageActionLocked}>Plan 닫기</Button>
+              <Button variant="secondary" onClick={() => setReview(null)} isDisabled={pageActionLocked}>검토 닫기</Button>
               <Button
                 variant="primary"
                 isDisabled={!review.plan.would_change || pageActionLocked}
                 onClick={() => applyMutation.mutate(review)}
-              >{applyMutation.isPending ? '적용·검증 중…' : '검토한 Plan 적용'}</Button>
+              >{applyMutation.isPending ? '적용·검증 중…' : '검토한 변경 적용'}</Button>
             </div>
           </CardBody>
         </Card>

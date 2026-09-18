@@ -32,7 +32,7 @@ const SECTIONS: Section[] = [
     enabled: (bootstrap) => bootstrap.deployment.features.includes('model_switching'),
   },
   { path: '/configuration', label: 'Configuration', enabled: () => true },
-  { path: '/operations', label: 'Operations', enabled: () => true },
+  { path: '/operations', label: 'Activity', enabled: () => true },
 ];
 
 function LoadingScreen() {

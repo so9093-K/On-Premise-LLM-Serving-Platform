@@ -18,7 +18,7 @@ from scripts.config.setup_env import parse_env_template, write_env  # noqa: E402
 
 UNIFIED_IMAGE_KEYS = (
     "VLLM_IMAGE",
-    "AUDIO_VLLM_IMAGE",
+    "MAIN_MODEL_VLLM_IMAGE_OVERRIDE",
 )
 
 

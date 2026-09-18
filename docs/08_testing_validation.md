@@ -164,7 +164,7 @@ Generated Artifacts
 
 ### API Contract 검증
 
-Gateway와 Risk Adapter API는 FastAPI 구현, checked-in OpenAPI, JSON Schema를 함께 사용한다.
+Gateway와 Risk Signal Service API는 FastAPI 구현, checked-in OpenAPI, JSON Schema를 함께 사용한다.
 Generated Artifacts 단계의 OpenAPI projection 검증은 다음 항목을 비교한다.
 
 - path와 HTTP method
@@ -226,7 +226,7 @@ Unit Test는 application의 작은 decision unit을 검증한다.
 | Settings | config loading, environment override, profile resolution |
 | Gateway | request validation, routing, error mapping, orchestration |
 | Authentication | API key와 admin/internal access decision |
-| Risk Adapter | PII·Secret·Prompt Risk 결과 조합과 response contract |
+| Risk Signal Service | PII·Secret·Prompt Injection 결과 조합과 response contract |
 | Main Model Control | state transition, profile validation, switch decision |
 | GPU Admission | runtime 시작 가능 여부와 resource decision |
 | Upstream Client | timeout, response parsing, error handling |
@@ -299,9 +299,9 @@ make ready-local
 app-only에서는 다음 process health를 확인한다.
 
 - Gateway `/health`
-- Risk Adapter `/health`
+- Risk Signal Service `/health`
 
-이 단계는 Gateway와 Risk Adapter의 application process가 정상적으로 응답하는지 확인하는 빠른 개발 검증이다.
+이 단계는 Gateway와 Risk Signal Service의 application process가 정상적으로 응답하는지 확인하는 빠른 개발 검증이다.
 
 ### full-stack — `make ready-full`
 
@@ -343,7 +343,7 @@ Smoke Test는 대표 API 요청이 실제 inference 경로를 통과하는지 �
 | `/v1/embeddings` / `local-embed` | 일반 embedding path |
 | `/v1/embeddings` / `local-embed-ko` | Korean retrieval embedding path |
 
-Risk Adapter host port를 사용할 수 있는 exposure에서는 Risk Adapter health/readiness와 detector API도 함께 확인한다.
+Risk Signal Service host port를 사용할 수 있는 exposure에서는 Risk Signal Service health/readiness와 detector API도 함께 확인한다.
 
 `make ready-full`은 마지막 단계에서 동일한 strict smoke script를 실행하므로 full-stack readiness와 대표 inference path를 한 번에 검증한다. 실패를 무시하는 별도 warmup은 두지 않는다.
 
@@ -407,13 +407,13 @@ RUNTIME_VALIDATION_GATEWAY_BASE_URL=http://staging-gateway:9400 python scripts/v
 | 영역 | 주요 확인 내용 |
 |---|---|
 | Gateway | `/health`, `/ready`, `/v1/models` |
-| Risk Adapter | health, readiness, enabled detector, aggregate assessment |
+| Risk Signal Service | health, readiness, enabled detector, aggregate assessment |
 | vLLM Runtime | 각 runtime `/models`와 logical model 연결 |
 | Chat | 일반 Chat, streaming Chat |
 | Structured Output | 활성 main profile이 `/v1/models`에 노출한 text, `json_object`, `json_schema` |
 | Advanced Request | 활성 main profile이 노출한 logprobs, logit bias, tools + JSON schema, reasoning + JSON schema |
 | Embedding | `local-embed`, `local-embed-ko` |
-| Metrics | Gateway / Risk Adapter metric scrape |
+| Metrics | Gateway / Risk Signal Service metric scrape |
 | Prometheus | active scrape target |
 | Grafana | API health, Prometheus datasource, dashboard import |
 
@@ -448,7 +448,7 @@ Runtime report는 check 결과와 latency·상태 정보를 중심으로 기록�
 
 | 변경 영역 | 기본 검증 | Runtime 확인 |
 |---|---|---|
-| Gateway / Risk Adapter Python 코드 | `make validate` → `make test` | `make ready-local` 또는 관련 smoke |
+| Gateway / Risk Signal Service Python 코드 | `make validate` → `make test` | `make ready-local` 또는 관련 smoke |
 | API route / schema / error contract | `make validate` → `make test` | API smoke |
 | `configs/*.yaml` | `make validate` → `make test` | 영향받는 runtime readiness |
 | `.env.*.example` / env contract | `make validate` | app-only 또는 full-stack 기동 |
@@ -604,7 +604,7 @@ Source와 artifact 관계가 핵심이면 validator를 강화하고, application
 | Runtime Asset Drift | runtime artifact 생성 상태 |
 | Unit Test | 해당 decision function의 behavior |
 | Contract Test | 공개 계약 또는 module 간 invariant |
-| `ready-local` | Gateway / Risk Adapter process 상태 |
+| `ready-local` | Gateway / Risk Signal Service process 상태 |
 | Gateway `/ready` | dependency와 runtime loading 상태 |
 | Smoke Test | Chat / Risk / Embedding inference path |
 | Runtime Validation | vLLM, monitoring, advanced inference category |

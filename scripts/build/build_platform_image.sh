@@ -89,7 +89,7 @@ if [[ -n "$TARGET_PLATFORM" ]]; then
 fi
 docker run "${run_args[@]}" \
   --env "VLLM_IMAGE=${IMAGE_SMOKE_VLLM}" \
-  --env "AUDIO_VLLM_IMAGE=${IMAGE_SMOKE_VLLM}" \
+  --env "MAIN_MODEL_VLLM_IMAGE_OVERRIDE=${IMAGE_SMOKE_VLLM}" \
   --entrypoint python "$IMAGE" -c \
   "from ai_model_serving.apps.gateway import create_gateway_app; from ai_model_serving.apps.risk_adapter import create_risk_adapter_app; from ai_model_serving.apps.mlx_metrics_exporter import app as mlx_metrics_app; create_gateway_app(); create_risk_adapter_app(); assert mlx_metrics_app is not None"
 IMAGE_ID="$(docker image inspect "$IMAGE" --format '{{.Id}}')"

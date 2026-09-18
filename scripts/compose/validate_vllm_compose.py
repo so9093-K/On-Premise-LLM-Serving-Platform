@@ -144,7 +144,7 @@ def validate_main_llm_bootstrap_image(compose: dict[str, Any]) -> list[str]:
 
     Compose needs an image before admin-sidecar can apply the active profile.  The
     profile catalog is the source of that fallback; the Compose interpolation is
-    deliberately a projection so an empty AUDIO_VLLM_IMAGE has identical meaning
+    deliberately a projection so an empty MAIN_MODEL_VLLM_IMAGE_OVERRIDE has identical meaning
     in both paths.
     """
     errors: list[str] = []
@@ -157,12 +157,12 @@ def validate_main_llm_bootstrap_image(compose: dict[str, Any]) -> list[str]:
 
     if not isinstance(default_profile_id, str) or not isinstance(runtime_image, str):
         return ["configs/main_model_profiles.yaml must declare default_profile and runtime.image"]
-    if profile_image != "${AUDIO_VLLM_IMAGE}":
+    if profile_image != "${MAIN_MODEL_VLLM_IMAGE_OVERRIDE}":
         errors.append(
-            f"default main-model profile {default_profile_id} must use ${{AUDIO_VLLM_IMAGE}} "
+            f"default main-model profile {default_profile_id} must use ${{MAIN_MODEL_VLLM_IMAGE_OVERRIDE}} "
             "so CI/deploy can inject its immutable image digest"
         )
-    expected_compose_image = f"${{AUDIO_VLLM_IMAGE:-{runtime_image}}}"
+    expected_compose_image = f"${{MAIN_MODEL_VLLM_IMAGE_OVERRIDE:-{runtime_image}}}"
     if compose_image != expected_compose_image:
         errors.append(
             "main-llm-vllm.image must project the default profile fallback exactly: "
@@ -241,7 +241,7 @@ def validate_alignment(
     effective_compose: dict[str, Any] | None = None,
     boot_override: dict[str, Any] | None = None,
 ) -> None:
-    # main-llm bootstrap image의 `${AUDIO_VLLM_IMAGE:-${VLLM_IMAGE}}`는
+    # main-llm bootstrap image의 `${MAIN_MODEL_VLLM_IMAGE_OVERRIDE:-${VLLM_IMAGE}}`는
     # 원본 Compose가 보존해야 하는 projection 계약이다. `docker compose config`를
     # 거친 effective Compose에서는 이 표현식이 실제 digest로 해석되므로, 그 값을
     # 원본 표현식과 비교하면 정상 배포도 항상 실패한다. 반면 command/GPU 값은 실제

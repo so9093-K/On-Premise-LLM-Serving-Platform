@@ -27,6 +27,27 @@ function runtimeStateCount(
   return runtimes.filter((runtime) => runtime.state === state).length;
 }
 
+function environmentStatusLabel(status: string): string {
+  if (status === 'verified') return 'Verified';
+  if (status === 'implemented') return 'Implemented · qualification pending';
+  if (status === 'planned') return 'Planned';
+  if (status === 'unvalidated') return 'Unvalidated';
+  return status;
+}
+
+function featureLabel(feature: string): string {
+  const labels: Record<string, string> = {
+    chat: 'Chat',
+    embeddings: 'Embeddings',
+    retrieval: 'Retrieval',
+    risk: 'Risk signals',
+    runtime_control: 'Runtime control',
+    model_switching: 'Model switching',
+    gpu_admission: 'GPU admission',
+  };
+  return labels[feature] ?? feature;
+}
+
 export function OverviewPage({ bootstrap, token, onUnauthorized }: OverviewPageProps) {
   const authClass = token === null ? 'anonymous' : 'authenticated';
   const runtimeControlEnabled = bootstrap.deployment.features.includes('runtime_control');
@@ -74,7 +95,7 @@ export function OverviewPage({ bootstrap, token, onUnauthorized }: OverviewPageP
       <div className="page-heading">
         <div>
           <h1>Overview</h1>
-          <p>각 control domain이 보고하는 현재 상태와 deployment posture를 한곳에서 확인합니다.</p>
+          <p>현재 모델, Runtime, Configuration, 접근 방식과 관측 상태를 한곳에서 확인합니다.</p>
         </div>
         <Button variant="secondary" onClick={refresh} isDisabled={refreshing}>
           {refreshing ? '새로고침 중…' : '새로고침'}
@@ -98,14 +119,14 @@ export function OverviewPage({ bootstrap, token, onUnauthorized }: OverviewPageP
           <CardBody>
             {!modelSwitchingEnabled ? (
               <dl className="facts">
-                <dt>Lifecycle</dt><dd>{bootstrap.deployment.lifecycle_owner}</dd>
+                <dt>Runtime ownership</dt><dd>{bootstrap.deployment.lifecycle_owner}</dd>
                 <dt>Control mode</dt><dd>{bootstrap.deployment.control_mode}</dd>
               </dl>
             ) : mainModelQuery.isPending ? (
               <div className="inline-loading"><Spinner size="md" aria-label="Main Model 상태 loading" /> 상태를 불러오는 중입니다.</div>
             ) : mainModel ? (
               <dl className="facts">
-                <dt>Public model</dt><dd>{mainModel.public_model}</dd>
+                <dt>Public model alias</dt><dd>{mainModel.public_model}</dd>
                 <dt>Active profile</dt><dd>{mainModel.active_profile?.display_name ?? '—'}</dd>
                 <dt>Gate</dt>
                 <dd><Label color={mainModel.gate === 'open' ? 'green' : 'orange'}>{mainModel.gate}</Label></dd>
@@ -120,11 +141,11 @@ export function OverviewPage({ bootstrap, token, onUnauthorized }: OverviewPageP
         </Card>
 
         <Card>
-          <CardTitle>Runtimes & GPU</CardTitle>
+          <CardTitle>Model Runtimes & GPU</CardTitle>
           <CardBody>
             {!runtimeControlEnabled ? (
               <dl className="facts">
-                <dt>Lifecycle</dt><dd>{bootstrap.deployment.lifecycle_owner}</dd>
+                <dt>Runtime ownership</dt><dd>{bootstrap.deployment.lifecycle_owner}</dd>
                 <dt>Control mode</dt><dd>{bootstrap.deployment.control_mode}</dd>
               </dl>
             ) : runtimesQuery.isPending ? (
@@ -157,13 +178,13 @@ export function OverviewPage({ bootstrap, token, onUnauthorized }: OverviewPageP
         </Card>
 
         <Card>
-          <CardTitle>Deployment & access</CardTitle>
+          <CardTitle>Runtime environment & access</CardTitle>
           <CardBody>
             <dl className="facts">
-              <dt>Deployment</dt><dd>{bootstrap.deployment.display_name}</dd>
-              <dt>Target</dt><dd>{bootstrap.deployment.target}</dd>
+              <dt>Environment</dt><dd>{bootstrap.deployment.display_name}</dd>
+              <dt>Environment ID</dt><dd>{bootstrap.deployment.target}</dd>
               <dt>Runtime backend</dt><dd>{bootstrap.deployment.runtime_backend}</dd>
-              <dt>Validation</dt><dd>{bootstrap.deployment.validation_status}</dd>
+              <dt>Environment status</dt><dd>{environmentStatusLabel(bootstrap.deployment.validation_status)}</dd>
               <dt>Access profile</dt><dd>{bootstrap.access.profile}</dd>
               <dt>Admin auth</dt><dd>{bootstrap.access.admin_auth_required ? 'required' : 'not required'}</dd>
             </dl>
@@ -171,12 +192,12 @@ export function OverviewPage({ bootstrap, token, onUnauthorized }: OverviewPageP
         </Card>
 
         <Card>
-          <CardTitle>Platform & monitoring</CardTitle>
+          <CardTitle>Platform & observability</CardTitle>
           <CardBody>
             <dl className="facts">
               <dt>Version</dt><dd>{bootstrap.platform.version}</dd>
               <dt>Release</dt><dd>{release}</dd>
-              <dt>Monitoring</dt><dd>{bootstrap.monitoring.available ? 'available' : 'unavailable'}</dd>
+              <dt>Observability</dt><dd>{bootstrap.monitoring.available ? 'available' : 'unavailable'}</dd>
               <dt>Grafana</dt><dd>{bootstrap.monitoring.grafana_available ? 'available' : 'unavailable'}</dd>
             </dl>
           </CardBody>
@@ -185,7 +206,7 @@ export function OverviewPage({ bootstrap, token, onUnauthorized }: OverviewPageP
         <Card>
           <CardTitle>Capabilities</CardTitle>
           <CardBody className="capability-list">
-            {bootstrap.deployment.features.map((feature) => <Label key={feature}>{feature}</Label>)}
+            {bootstrap.deployment.features.map((feature) => <Label key={feature}>{featureLabel(feature)}</Label>)}
           </CardBody>
         </Card>
       </div>

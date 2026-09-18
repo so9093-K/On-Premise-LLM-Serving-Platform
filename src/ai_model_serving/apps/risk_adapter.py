@@ -117,7 +117,7 @@ def create_risk_adapter_app(settings: AppSettings | None = None, clients: RiskCl
     admin_dependencies = build_admin_dependencies(settings)
 
     app = create_service_app(
-        title="Risk Adapter",
+        title="Risk Signal Service",
         version=settings.project_version,
         description=RISK_ADAPTER_DESCRIPTION_TEMPLATE,
         settings=settings,
@@ -131,7 +131,7 @@ def create_risk_adapter_app(settings: AppSettings | None = None, clients: RiskCl
         return "risk_prompt" if "prompt" in exc.message.lower() else "request"
 
     install_exception_handlers(app, metrics=metrics, logger=logger, validation_reason=validation_reason)
-    register_documentation_ui(app, settings=settings, title="Risk Adapter")
+    register_documentation_ui(app, settings=settings, title="Risk Signal Service")
     register_health(app, service="risk-adapter", spec=_RA_SPECS[("GET", "/health")])
 
     app.include_router(_build_ops_router(admin_dependencies, clients, metrics, settings))

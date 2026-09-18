@@ -3,13 +3,13 @@
 # 명령: make render-runtime-assets
 openapi: 3.1.0
 info:
-  title: Risk Adapter
+  title: Risk Signal Service
   description: '
 
     ## 개요
 
 
-    내부 Risk Adapter API입니다. Gateway 또는 내부 호출자가 사용합니다.
+    내부 Risk Signal Service API입니다. Gateway 또는 내부 호출자가 사용합니다.
 
 
     ## Detector 역할
@@ -75,7 +75,7 @@ paths:
     get:
       tags:
       - Operations
-      summary: Risk Adapter readiness 확인
+      summary: Risk Signal Service readiness 확인
       description: 활성화된 탐지기의 vLLM 런타임이 요청을 받을 준비가 됐는지 확인합니다. 모델 로딩 중에는 HTTP 503을 반환하고
         `not_ready_dependencies`와 dependency별 `message`를 제공합니다.
       operationId: getRiskAdapterReadiness
@@ -143,8 +143,8 @@ paths:
       tags:
       - Monitoring
       summary: Prometheus 지표 조회
-      description: Prometheus가 수집하는 Risk Adapter 지표입니다. 탐지기별 타임아웃, 파싱 실패, 신호 건수를 볼
-        수 있습니다.
+      description: Prometheus가 수집하는 Risk Signal Service 지표입니다. 탐지기별 타임아웃, 파싱 실패, 신호
+        건수를 볼 수 있습니다.
       operationId: getRiskAdapterMetrics
       responses:
         '200':
@@ -825,7 +825,7 @@ tags:
 - name: Operations
   description: '`/health`는 프로세스가 살아 있는지, `/ready`는 탐지기 vLLM이 준비됐는지 확인합니다.'
 - name: Monitoring
-  description: Risk Adapter와 탐지기별 신호 지표입니다. 운영 환경에서는 admin 토큰 또는 내부망으로 보호합니다.
+  description: Risk Signal Service와 탐지기별 신호 지표입니다. 운영 환경에서는 admin 토큰 또는 내부망으로 보호합니다.
 - name: Risk Signal
   description: '내부 탐지기 호출 결과를 신호 전용 응답으로 정규화합니다. 최종 정책 결정 필드는 반환하지 않습니다.
 

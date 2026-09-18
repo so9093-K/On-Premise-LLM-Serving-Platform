@@ -28,7 +28,7 @@ Gateway Ready 확인
 Chat Smoke Test
 ```
 
-Main Model control path는 Gateway와 Admin / Control Sidecar를 사용한다.
+Main Model control path는 Gateway와 Runtime Controller를 사용한다.
 
 ```text
 Operator
@@ -38,7 +38,7 @@ Operator
 Gateway :9400
    │
    ▼
-Admin / Control Sidecar :8080
+Runtime Controller :8080
    │
    ├─ Main Model state
    ├─ GPU admission
@@ -52,7 +52,7 @@ Admin / Control Sidecar :8080
 | 계층 | 역할 |
 |---|---|
 | **Gateway** | Admin API 제공, 인증, control 요청 전달, Chat gate 적용 |
-| **Admin / Control Sidecar** | Main Model 상태, 모델 전환, GPU admission, Docker lifecycle 관리 |
+| **Runtime Controller** | Main Model 상태, 모델 전환, GPU admission, Docker lifecycle 관리 |
 | **Main Model Runtime** | 선택된 profile의 vLLM inference 수행 |
 | **Main Model State** | active profile, runtime state, gate, 최근 operation 기록 유지 |
 
@@ -95,7 +95,7 @@ curl -H "Authorization: Bearer $ADMIN_API_KEY" \
   http://127.0.0.1:9400/admin/runtimes
 ```
 
-이 API에서는 Main Model과 secondary runtime의 상태, GPU budget 사용량을 함께 확인할 수 있다.
+이 API에서는 Main Model과 non-main Model Runtime의 상태, GPU budget 사용량을 함께 확인할 수 있다.
 
 ---
 
@@ -133,17 +133,18 @@ Profile을 선택할 때는 다음 항목을 확인한다.
 - input / output capability
 - 현재 active 여부
 
-### Compatibility Status
+### Qualification Status
 
 | 상태 | 운영 의미 |
 |---|---|
-| `verified` | 현재 정의된 검증 근거를 가진 profile |
-| `likely` | 호환 가능성이 높고 추가 검증 근거가 필요한 profile |
-| `unverified` | 운영자 확인 후 전환할 수 있는 미검증 profile |
-| `unknown` | 호환성 근거가 충분하지 않은 profile |
-| `incompatible` | 현재 deployment와 호환되지 않는 profile |
+| `verified` | 현재 배포에서 정의된 검증 근거를 충족한 profile |
+| `likely` | **legacy provisional 상태**. 신규 profile에는 사용하지 않으며 추가 검증이 필요하다 |
+| `unverified` | 현재 배포에서 qualification이 완료되지 않은 profile |
+| `unknown` | 검증 근거를 판단할 정보가 충분하지 않은 profile |
+| `incompatible` | 현재 deployment와 기술적으로 호환되지 않는 profile |
 
-`unverified`와 `unknown` profile은 switch 요청에 `confirm_unverified=true`가 필요하다. `incompatible` profile은 전환 대상에서 제외된다.
+API field 이름은 호환성을 위해 `compatibility.status`를 유지하지만, 운영자에게 보여주는 의미는 **Qualification**이다.
+`verified`가 아닌 전환 가능 profile은 switch 요청에 `confirm_unverified=true`가 필요하고, `incompatible`은 전환할 수 없다.
 
 ### Profile Lock
 
@@ -305,7 +306,7 @@ curl -X POST \
 
 모델을 시작하거나 전환하기 전에 필요한 GPU 자원을 확보할 수 있는지 확인한다. 이 판단 과정이 **GPU Admission**이다.
 
-Main Model과 secondary runtime은 같은 GPU VRAM budget을 사용한다.
+Main Model과 non-main Model Runtime은 같은 GPU VRAM budget을 사용한다.
 
 ```text
 GPU Budget
@@ -462,7 +463,7 @@ switch operation
 
 ### 중단된 전환 복구
 
-Admin Sidecar가 switch 중 재시작되면 저장된 operation과 실제 Main Model container를 비교해 상태를 복구한다.
+Runtime Controller가 switch 중 재시작되면 저장된 operation과 실제 Main Model container를 비교해 상태를 복구한다.
 
 - target profile이 실행 중이고 검증되면 operation을 `completed`로 정리한다.
 - 이전 정상 profile이 실행 중이고 검증되면 해당 profile을 활성 상태로 복구하고 operation을 `failed`로 정리한다.
@@ -470,7 +471,7 @@ Admin Sidecar가 switch 중 재시작되면 저장된 operation과 실제 Main M
 
 ---
 
-## 6.10 Secondary Runtime 운영
+## 6.10 Embedding / Risk Model Runtime 운영
 
 Main Model 외 controllable runtime도 Admin API에서 시작·중지할 수 있다.
 
@@ -509,7 +510,7 @@ curl -X PATCH \
 
 Start 과정에서는 prerequisite와 GPU budget을 확인하고 필요한 runtime을 startup order에 따라 시작한다.
 
-compose-up/full 배포 시 처음부터 활성화할 secondary runtime 조합은 `configs/deploy_profiles.yaml`에서 결정한다. 배포의 `DEPLOY_RUNTIME_PROFILE` 또는 로컬 `compose-up`의 `RUNTIME_PROFILE`을 생략하면 `main_only`가 적용되어 모든 secondary runtime은 초기 중지 상태가 된다. Retrieval이 즉시 필요하면 `retrieval_ready`를 명시한다.
+compose-up/full 배포 시 처음부터 활성화할 non-main Model Runtime 조합은 `configs/deploy_profiles.yaml`에서 결정한다. 배포의 `DEPLOY_RUNTIME_PROFILE` 또는 로컬 `compose-up`의 `RUNTIME_PROFILE`을 생략하면 `main_only`가 적용되어 모든 non-main Model Runtime은 초기 중지 상태가 된다. Retrieval이 즉시 필요하면 `retrieval_ready`를 명시한다.
 
 ---
 
@@ -556,8 +557,8 @@ Main Model 변경 작업은 다음 순서로 확인한다.
 | Main Model profile | `configs/main_model_profiles.yaml` | model, revision, image, vLLM command, capability, Gateway 요청 정책, compatibility 정의 |
 | GPU budget | `configs/gpu_budgets.yaml` | GPU admission ceiling과 runtime resource policy 정의 |
 | Runtime serving policy | `configs/model_serving.yaml` | Gateway runtime 연결, timeout, admission 정의 |
-| Deploy Runtime Profile | `configs/deploy_profiles.yaml` | compose-up/full 배포 후 secondary runtime 활성 구성 정의 |
-| Runtime topology | `ops/compose/full-stack.private-network.yaml` | Main / secondary runtime container 기본 topology 정의 |
+| Runtime Startup Profile | `configs/deploy_profiles.yaml` | compose-up/full 배포 후 non-main Model Runtime 활성 구성 정의 |
+| Runtime topology | `ops/compose/full-stack.private-network.yaml` | Main / non-main Model Runtime container 기본 topology 정의 |
 | Main Model state | `.runtime/main-model/main-model-state.json` 또는 deployment state path | active profile, gate, runtime state, switch operation 기록 |
 | Runtime control implementation | `src/ai_model_serving/main_model/`, `src/ai_model_serving/apps/admin_sidecar.py` | switch, validation, rollback, Docker lifecycle 구현 |
 | Gateway Admin API | `src/ai_model_serving/api/routers/gateway_runtime_control.py` | Runtime / Main Model Admin API 제공 |

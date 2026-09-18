@@ -1299,7 +1299,7 @@ def build_router(
                     }}
                 },
             },
-            503: {"description": "Admin Sidecar 연결 또는 상태 파일 오류"},
+            503: {"description": "Runtime Controller 연결 또는 상태 파일 오류"},
         },
     )
     async def get_main_model() -> JSONResponse:
@@ -1336,7 +1336,7 @@ def build_router(
                     }
                 },
             },
-            503: {"description": "Admin Sidecar 연결 실패"},
+            503: {"description": "Runtime Controller 연결 실패"},
         },
     )
     async def list_main_model_profiles() -> JSONResponse:
@@ -1367,7 +1367,7 @@ def build_router(
             },
             409: {"description": "전환 중, locked, confirmation 필요 또는 request_id 충돌"},
             422: {"description": "잘못된 profile 또는 request"},
-            503: {"description": "Admin Sidecar 연결 실패"},
+            503: {"description": "Runtime Controller 연결 실패"},
         },
         openapi_extra={
             "requestBody": {
@@ -1441,7 +1441,7 @@ def build_router(
                     }
                 },
             },
-            503: {"description": "Admin Sidecar 연결 실패"},
+            503: {"description": "Runtime Controller 연결 실패"},
         },
     )
     async def list_main_model_operations() -> JSONResponse:
@@ -1472,7 +1472,7 @@ def build_router(
                 },
             },
             404: {"description": "operation 없음 (id 오타이거나 만료/미존재)"},
-            503: {"description": "Admin Sidecar 연결 실패"},
+            503: {"description": "Runtime Controller 연결 실패"},
         },
         openapi_extra={"parameters": [_OPERATION_ID_PARAMETER]},
     )

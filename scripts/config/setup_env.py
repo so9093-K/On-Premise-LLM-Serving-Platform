@@ -221,19 +221,47 @@ ALWAYS_REFRESH_KEYS = {
 } | GENERATED_SECRET_KEYS
 
 
-def _removed_env_keys() -> frozenset[str]:
-    """sync-env가 기존 .env에서 제거하는 키. 단일 소스는 env_contract.yaml이다.
+def _env_contract() -> dict[str, Any]:
+    return yaml.safe_load(
+        (ROOT / "configs" / "env_contract.yaml").read_text(encoding="utf-8")
+    )
 
-    여기에 목록을 복제하지 않는 이유는 그 순간 두 소스가 갈라지기 때문이다 --
-    validate는 통과하는데 sync-env는 다르게 동작하는, 가장 알아채기 어려운 형태의
-    드리프트가 된다. validate_env_contract.py가 같은 항목으로 "예시 파일에 다시
-    등장하지 않았는지"를 검증한다.
-    """
-    contract = yaml.safe_load((ROOT / "configs" / "env_contract.yaml").read_text(encoding="utf-8"))
-    return frozenset(contract.get("removed_keys") or {})
+
+def _removed_env_keys() -> frozenset[str]:
+    """sync-env가 기존 .env에서 제거하는 key. 단일 소스는 env_contract.yaml이다."""
+    return frozenset(_env_contract().get("removed_keys") or {})
+
+
+def _renamed_env_keys() -> dict[str, str]:
+    """Legacy persistent key -> canonical replacement mapping."""
+    raw = _env_contract().get("renamed_keys") or {}
+    if not isinstance(raw, dict):
+        raise ValueError("env_contract.yaml renamed_keys must be a mapping")
+    return {str(old): str(new) for old, new in raw.items()}
 
 
 REMOVED_ENV_KEYS = _removed_env_keys()
+RENAMED_ENV_KEYS = _renamed_env_keys()
+
+
+def migrate_renamed_env_values(values: dict[str, str]) -> tuple[dict[str, str], list[tuple[str, str]]]:
+    """Move legacy persistent values to canonical keys without losing operator input."""
+    migrated = dict(values)
+    moves: list[tuple[str, str]] = []
+    for old_key, new_key in RENAMED_ENV_KEYS.items():
+        if old_key not in migrated:
+            continue
+        old_value = migrated.get(old_key, "")
+        new_value = migrated.get(new_key, "")
+        if old_value and new_value and old_value != new_value:
+            raise ValueError(
+                f"conflicting env keys {old_key} and {new_key}; keep only {new_key}"
+            )
+        if old_value and not new_value:
+            migrated[new_key] = old_value
+            moves.append((old_key, new_key))
+        migrated.pop(old_key, None)
+    return migrated, moves
 
 
 def preserve_existing_values(out_path: Path, *, force: bool) -> dict[str, str]:
@@ -247,6 +275,7 @@ def preserve_existing_values(out_path: Path, *, force: bool) -> dict[str, str]:
     if not force or not out_path.exists():
         return {}
     _, existing = parse_env_template(out_path)
+    existing, _ = migrate_renamed_env_values(existing)
     preserved = {
         key: value
         for key, value in existing.items()
@@ -337,6 +366,8 @@ def sync_env_keys(env_path: Path, *, dry_run: bool = False) -> int:
         raise FileNotFoundError(f".env 파일이 없습니다: {env_path}")
 
     env_lines, existing = parse_env_template(env_path)
+    original_existing = dict(existing)
+    existing, renamed = migrate_renamed_env_values(existing)
     profile = existing.get("BUILD_PROFILE", "compose")
     if profile not in ("local", "compose"):
         profile = "compose"
@@ -358,7 +389,8 @@ def sync_env_keys(env_path: Path, *, dry_run: bool = False) -> int:
         and key not in REMOVED_ENV_KEYS
         and key not in legacy_access_owned
     ]
-    removed = [k for k in existing if k in REMOVED_ENV_KEYS]
+    removed = [k for k in original_existing if k in REMOVED_ENV_KEYS]
+    retired_renamed = [k for k in original_existing if k in RENAMED_ENV_KEYS]
     managed_image_keys = (
         repository_managed_image_keys() if profile == "compose" else frozenset()
     )
@@ -368,12 +400,19 @@ def sync_env_keys(env_path: Path, *, dry_run: bool = False) -> int:
         if key in template_values and existing.get(key) != template_values[key]
     ]
 
-    if not added and not removed and not refreshed:
+    if not added and not removed and not retired_renamed and not refreshed:
         print(f"변경 없음: .env가 최신 상태입니다. (profile={profile})")
         return 0
 
     if added:
         print(f"추가될 키 ({len(added)}개): {', '.join(sorted(added))}")
+    if renamed:
+        print(
+            "이름이 변경될 키: "
+            + ", ".join(f"{old} -> {new}" for old, new in renamed)
+        )
+    if retired_renamed and not renamed:
+        print(f"제거될 legacy key: {', '.join(sorted(retired_renamed))}")
     if removed:
         print(f"제거될 키 ({len(removed)}개): {', '.join(sorted(removed))}")
     if refreshed:
@@ -386,7 +425,11 @@ def sync_env_keys(env_path: Path, *, dry_run: bool = False) -> int:
         print("dry-run: 실제 변경 없음.")
         return 0
 
-    merged = {k: v for k, v in existing.items() if k not in REMOVED_ENV_KEYS}
+    merged = {
+        k: v
+        for k, v in existing.items()
+        if k not in REMOVED_ENV_KEYS and k not in RENAMED_ENV_KEYS
+    }
     for k in added:
         merged[k] = template_values[k]
     for k in managed_image_keys:
@@ -402,7 +445,8 @@ def sync_env_keys(env_path: Path, *, dry_run: bool = False) -> int:
             line.strip()
             and not line.strip().startswith("#")
             and "=" in line.strip()
-            and line.strip().split("=", 1)[0] in REMOVED_ENV_KEYS
+            and line.strip().split("=", 1)[0]
+            in (REMOVED_ENV_KEYS | frozenset(RENAMED_ENV_KEYS))
         )
     ]
 

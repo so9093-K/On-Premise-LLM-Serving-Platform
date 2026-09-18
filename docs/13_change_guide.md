@@ -59,7 +59,7 @@ Runtime 적용 / 배포
 | 변경 작업 | 주요 위치 | 실행 영향 | 기본 확인 |
 |---|---|---|---|
 | API 추가·수정 | Router, contract, schema | Gateway API | `make validate`, `make test` |
-| Gateway / Risk Adapter 로직 | `src/ai_model_serving/` | Platform 서비스 | app-only + Platform Build |
+| Gateway / Risk Signal Service 로직 | `src/ai_model_serving/` | Platform 서비스 | app-only + Platform Build |
 | 모델 정책·제한값 | `configs/model_serving.yaml` | Gateway + 모델 정책 | 생성 파일 + 정적 검증 |
 | Main Model Profile | `configs/main_model_profiles.yaml` | Main Model Runtime | Profile + 모델 전환 검증 |
 | 모델 추가·제거 | Model Registry 관련 설정 | API 목록, Runtime, 모니터링 | `make validate` + full-stack |
@@ -110,21 +110,21 @@ make validate
 make test
 ```
 
-Gateway와 Risk Adapter만으로 확인 가능한 변경은 app-only에서 검증한다.
+Gateway와 Risk Signal Service만으로 확인 가능한 변경은 app-only에서 검증한다.
 
 ```bash
 make up
 make status
 ```
 
-실제 Main Model, Embedding, Prompt Risk와 연결되는 요청 흐름이 바뀌면 full-stack까지 확인한다.
+실제 Main Model, Embedding, Prompt Injection와 연결되는 요청 흐름이 바뀌면 full-stack까지 확인한다.
 
 ```bash
 make compose-up
 make ready-full
 ```
 
-### Gateway / Risk Adapter 로직 변경
+### Gateway / Risk Signal Service 로직 변경
 
 Gateway orchestration, authentication, retrieval, PII·Secret detector 등 애플리케이션 로직은 Platform Image에 포함된다.
 
@@ -137,7 +137,7 @@ app-only 또는 full-stack
       ↓
 Platform Image
       ↓
-Gateway / Risk Adapter 적용
+Gateway / Risk Signal Service 적용
 ```
 
 Platform Image만 다시 만들 때는 다음 명령을 사용한다.
@@ -162,7 +162,7 @@ make build-image
 | `configs/services.yaml` | Service 이름, port, host bind metadata |
 | `configs/access_profiles.yaml` | 사용자 접근 profile의 지원 조합 |
 | `configs/exposure_profiles.yaml` | Host port 공개 범위 |
-| `configs/deploy_profiles.yaml` | Secondary Runtime 초기 상태 |
+| `configs/deploy_profiles.yaml` | non-main Model Runtime 초기 상태 |
 | `configs/gpu_budgets.yaml` | Runtime GPU 자원 판단 |
 | `configs/auth_profiles.yaml` | Authentication mode |
 | `configs/monitoring.yaml` | Monitoring scrape와 live metric 검증 기준 |
@@ -295,7 +295,7 @@ Face 환경에서 profile config를 확인하고 실제 모델 전환 흐름은 
 
 ## 13.6 Unified vLLM / Runtime Image 변경
 
-Unified vLLM Image는 Main Model, Embedding, Korean Embedding, Prompt Risk Runtime이 공유한다.
+Unified vLLM Image는 Main Model, Embedding, Korean Embedding, Prompt Injection Detector Runtime이 공유한다.
 
 주요 Build 입력:
 
@@ -501,7 +501,7 @@ make build
 
 | 변경 유형 | 기본 검증 | 실행 환경 확인 | 빌드 / 배포 범위 |
 |---|---|---|---|
-| Gateway / Risk Adapter Python | `make validate`, `make test` | `make ready-local` | Platform / Rolling 중심 |
+| Gateway / Risk Signal Service Python | `make validate`, `make test` | `make ready-local` | Platform / Rolling 중심 |
 | API / Schema | `make validate`, `make test` | app-only 또는 full-stack | Platform Image |
 | 일반 Config | `make validate` + 생성기 입력일 때만 생성 파일 갱신 | 영향 서비스 확인 | 변경 내용 기준 |
 | Main Model Profile | config/profile 검증 | model prepare + switch + `ready-full` | Main Model / Full 가능 |

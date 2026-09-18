@@ -3,7 +3,7 @@ default_target: linux-nvidia-dynamic
 
 targets:
   linux-nvidia-dynamic:
-    display_name: Linux NVIDIA Dynamic
+    display_name: Linux + NVIDIA — Managed Runtimes
     platform: linux
     runtime_backend: vllm-cuda
     # 이 target이 Prometheus를 포함한 모니터링 스택을 띄우는가. 성능 벤치마크의
@@ -34,7 +34,7 @@ targets:
       gpu_admission: true
 
   linux-nvidia-static:
-    display_name: Linux NVIDIA Static Main
+    display_name: Linux + NVIDIA — External Main Runtime
     platform: linux
     runtime_backend: vllm-cuda
     # 이 target이 Prometheus를 포함한 모니터링 스택을 띄우는가. 성능 벤치마크의
@@ -64,7 +64,7 @@ targets:
       gpu_admission: false
 
   macos-metal-static:
-    display_name: macOS Metal Static Main
+    display_name: macOS + Metal — External Main Runtime
     platform: macos
     runtime_backend: mlx-vlm
     # 이 target이 Prometheus를 포함한 모니터링 스택을 띄우는가. 성능 벤치마크의

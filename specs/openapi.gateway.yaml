@@ -58,9 +58,9 @@ paths:
       tags:
       - Operations
       summary: 의존 서비스 준비 상태 확인
-      description: Gateway가 의존하는 vLLM 런타임과 Risk Adapter가 모두 요청을 받을 준비가 됐는지 확인합니다.
-        모델 로딩 중에는 HTTP 503을 반환하며, body의 `not_ready_dependencies`에 아직 준비되지 않은 dependency
-        목록과 `message`가 포함됩니다.
+      description: Gateway가 의존하는 vLLM 런타임과 Risk Signal Service가 모두 요청을 받을 준비가 됐는지
+        확인합니다. 모델 로딩 중에는 HTTP 503을 반환하며, body의 `not_ready_dependencies`에 아직 준비되지 않은
+        dependency 목록과 `message`가 포함됩니다.
       operationId: getGatewayReadiness
       responses:
         '200':
@@ -4445,7 +4445,7 @@ paths:
                       profile_id: gemma4-12b-unified-fp8
                       observed_at: 1782086258.2
         '503':
-          description: 'Admin Sidecar 연결 또는 상태 파일 오류
+          description: 'Runtime Controller 연결 또는 상태 파일 오류
 
 
             이 status로 올 수 있는 `error.code`:
@@ -4549,7 +4549,7 @@ paths:
                   vram_fraction: 0.76
                   active: false
         '503':
-          description: 'Admin Sidecar 연결 실패
+          description: 'Runtime Controller 연결 실패
 
 
             이 status로 올 수 있는 `error.code`:
@@ -4605,8 +4605,9 @@ paths:
         - `profile` — `GET /admin/main-model/profiles`가 반환한 ID만 허용합니다. 그 외 필드(model
         id, command 등)는 `422`로 거부되며 임의 실행 인자를 넣을 수 없습니다.
 
-        - `confirm_unverified` — `compatibility.status`가 `unverified` 또는 `unknown`인
-        프로필로 전환할 때 필요합니다. `likely`는 추가 확인 없이 허용되고 `incompatible`은 전환할 수 없습니다.
+        - `confirm_unverified` — `compatibility.status`가 `verified`가 아닌 전환 가능 프로필에
+        필요합니다. `likely`는 legacy provisional 상태이며 명시 확인이 필요하고, `incompatible`은 전환할
+        수 없습니다.
 
         - `request_id` — 선택적 멱등 키입니다. 진행 중이거나 방금 끝난 동일 작업이 있으면 새 전환을 시작하지 않고 그 작업을
         반환하며 응답에 `reused: true`로 표시합니다(재시도 안전용이라 일정 시간 뒤 만료됩니다). 매번 새 전환을 원하면 고유한
@@ -4708,7 +4709,7 @@ paths:
                           enum:
                           - VALIDATION_ERROR
         '503':
-          description: 'Admin Sidecar 연결 실패
+          description: 'Runtime Controller 연결 실패
 
 
             이 status로 올 수 있는 `error.code`:
@@ -4843,7 +4844,7 @@ paths:
                   created_at: 1782086105.78
                   updated_at: 1782086258.2
         '503':
-          description: 'Admin Sidecar 연결 실패
+          description: 'Runtime Controller 연결 실패
 
 
             이 status로 올 수 있는 `error.code`:
@@ -4975,7 +4976,7 @@ paths:
                           enum:
                           - NOT_FOUND
         '503':
-          description: 'Admin Sidecar 연결 실패
+          description: 'Runtime Controller 연결 실패
 
 
             이 status로 올 수 있는 `error.code`:
@@ -5038,13 +5039,13 @@ components:
       scheme: bearer
 tags:
 - name: Operations
-  description: "`/health`는 프로세스가 살아 있는지, `/ready`는 vLLM과 Risk Adapter가 모두 준비됐는지 확인합니다.\n\
-    \n문제가 생긴 요청 하나를 끝까지 추적하는 방법도 여기에 정리했습니다.\n\n### 요청 추적 헤더\n\n| 헤더 | 언제 | 내용 |\n\
-    |---|---|---|\n| `X-Request-Id` | 애플리케이션 응답 | 요청 추적 키. 접근 로그의 `request_id`와 같습니다\
-    \ |\n| `X-Error-Code` | 오류 응답 | `error.code`. status만으로 원인을 나누면 안 됩니다 |\n| `Retry-After`\
-    \ | 재시도 가능한 429/503 | 다음 재시도까지 기다릴 초(올림, 최소 `1`) |\n\n`X-Request-Id`를 직접 보내지 않으면\
-    \ Gateway가 `req_<hex>`를 발급합니다. 호출할 때 붙이면\n(최대 128자) 클라이언트 로그와 서버 로그를 같은 키로 맞출\
-    \ 수 있습니다.\n\n같은 HTTP status에 여러 code가 몰립니다. 예를 들어 `503`은 `MODEL_UNAVAILABLE`,\n\
+  description: "`/health`는 프로세스가 살아 있는지, `/ready`는 vLLM과 Risk Signal Service가 모두 준비됐는지\
+    \ 확인합니다.\n\n문제가 생긴 요청 하나를 끝까지 추적하는 방법도 여기에 정리했습니다.\n\n### 요청 추적 헤더\n\n| 헤더 | 언제\
+    \ | 내용 |\n|---|---|---|\n| `X-Request-Id` | 애플리케이션 응답 | 요청 추적 키. 접근 로그의 `request_id`와\
+    \ 같습니다 |\n| `X-Error-Code` | 오류 응답 | `error.code`. status만으로 원인을 나누면 안 됩니다 |\n\
+    | `Retry-After` | 재시도 가능한 429/503 | 다음 재시도까지 기다릴 초(올림, 최소 `1`) |\n\n`X-Request-Id`를\
+    \ 직접 보내지 않으면 Gateway가 `req_<hex>`를 발급합니다. 호출할 때 붙이면\n(최대 128자) 클라이언트 로그와 서버 로그를\
+    \ 같은 키로 맞출 수 있습니다.\n\n같은 HTTP status에 여러 code가 몰립니다. 예를 들어 `503`은 `MODEL_UNAVAILABLE`,\n\
     `QUEUE_TIMEOUT`, `CIRCUIT_OPEN`, `MAIN_MODEL_SWITCH_IN_PROGRESS`가 모두 씁니다.\n\n\
     ### 오류 본문\n\n```json\n{\n  \"error\": {\n    \"code\": \"VALIDATION_ERROR\",\n\
     \    \"message\": \"...\",\n    \"retryable\": false,\n    \"request_id\": \"\

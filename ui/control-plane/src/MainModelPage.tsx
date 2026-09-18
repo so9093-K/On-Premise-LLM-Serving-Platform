@@ -22,12 +22,20 @@ type MainModelPageProps = {
   onUnauthorized: () => void;
 };
 
-function compatibilityVariant(status: string): 'green' | 'orange' | 'red' | 'grey' | 'blue' {
+function compatibilityVariant(status: string): 'green' | 'orange' | 'red' | 'grey' {
   if (status === 'verified') return 'green';
-  if (status === 'likely') return 'blue';
   if (status === 'incompatible') return 'red';
-  if (status === 'unverified' || status === 'unknown') return 'orange';
+  if (status === 'likely' || status === 'unverified' || status === 'unknown') return 'orange';
   return 'grey';
+}
+
+function qualificationLabel(status: string): string {
+  if (status === 'verified') return 'Verified';
+  if (status === 'likely') return 'Provisional · confirmation required';
+  if (status === 'unverified') return 'Unverified · confirmation required';
+  if (status === 'unknown') return 'Unknown · confirmation required';
+  if (status === 'incompatible') return 'Incompatible';
+  return status;
 }
 
 function operationVariant(status: string): 'success' | 'warning' | 'danger' | 'info' {
@@ -139,7 +147,7 @@ export function MainModelPage({ token, onUnauthorized }: MainModelPageProps) {
       <div className="page-heading">
         <div>
           <h1>Main Model</h1>
-          <p>프로필의 compatibility와 capability를 검토한 뒤 비동기 switch operation을 추적합니다. Runtime 시작·정지는 Runtimes 화면이 소유합니다.</p>
+          <p>프로필의 검증 상태와 입력 capability를 확인한 뒤 Main Model 전환을 요청하고 진행 상태를 추적합니다. Runtime 시작·정지는 Runtimes 화면에서 수행합니다.</p>
         </div>
         <Button
           variant="secondary"
@@ -169,7 +177,7 @@ export function MainModelPage({ token, onUnauthorized }: MainModelPageProps) {
         <CardTitle>Current control state</CardTitle>
         <CardBody>
           <dl className="facts">
-            <dt>Public model</dt><dd>{status.public_model}</dd>
+            <dt>Public model alias</dt><dd>{status.public_model}</dd>
             <dt>Active profile</dt><dd>{active?.display_name ?? '—'}{active ? ` (${active.id})` : ''}</dd>
             <dt>Gate</dt><dd><Label color={status.gate === 'open' ? 'green' : 'orange'}>{status.gate}</Label></dd>
             <dt>Runtime state</dt><dd>{status.runtime_state}</dd>
@@ -187,7 +195,7 @@ export function MainModelPage({ token, onUnauthorized }: MainModelPageProps) {
           <div className="table-scroll">
             <table className="runtime-table">
               <thead>
-                <tr><th>Profile</th><th>Compatibility</th><th>Inputs</th><th>VRAM</th><th>State</th><th>Action</th></tr>
+                <tr><th>Profile</th><th>Qualification</th><th>Inputs</th><th>VRAM</th><th>State</th><th>Action</th></tr>
               </thead>
               <tbody>
                 {profiles.map((profile) => {
@@ -195,7 +203,7 @@ export function MainModelPage({ token, onUnauthorized }: MainModelPageProps) {
                   return (
                     <tr key={profile.id}>
                       <td><strong>{profile.display_name}</strong><br /><code>{profile.id}</code></td>
-                      <td><Label color={compatibilityVariant(profile.compatibility.status)}>{profile.compatibility.status}</Label></td>
+                      <td><Label color={compatibilityVariant(profile.compatibility.status)}>{qualificationLabel(profile.compatibility.status)}</Label></td>
                       <td>{profile.capabilities.deployed_input.join(', ')}</td>
                       <td>{profile.vram_fraction.toFixed(2)}</td>
                       <td>{profile.active ? <Label color="green">active</Label> : 'available'}</td>
@@ -228,19 +236,19 @@ export function MainModelPage({ token, onUnauthorized }: MainModelPageProps) {
               <dt>Target</dt><dd>{reviewProfile.display_name} ({reviewProfile.id})</dd>
               <dt>Upstream</dt><dd>{reviewProfile.upstream_model_id}</dd>
               <dt>Revision</dt><dd><code>{reviewProfile.revision}</code></dd>
-              <dt>Compatibility</dt><dd>{reviewProfile.compatibility.status}</dd>
+              <dt>Qualification</dt><dd>{qualificationLabel(reviewProfile.compatibility.status)}</dd>
               <dt>Inputs</dt><dd>{reviewProfile.capabilities.deployed_input.join(', ')}</dd>
               <dt>VRAM fraction</dt><dd>{reviewProfile.vram_fraction.toFixed(2)}</dd>
             </dl>
             {requiresConfirmation ? (
-              <Alert isInline variant="warning" title="검증되지 않은 compatibility 상태입니다.">
+              <Alert isInline variant="warning" title="추가 확인이 필요한 프로필입니다.">
                 <label>
                   <input
                     type="checkbox"
                     checked={confirmed}
                     onChange={(event) => setConfirmed(event.currentTarget.checked)}
                   />{' '}
-                  이 profile이 현재 배포에서 검증되지 않았음을 확인했습니다.
+                  이 프로필의 qualification이 현재 배포에서 verified가 아님을 확인했습니다.
                 </label>
               </Alert>
             ) : null}
@@ -258,12 +266,12 @@ export function MainModelPage({ token, onUnauthorized }: MainModelPageProps) {
 
       {operationId ? (
         <Card>
-          <CardTitle>Switch operation</CardTitle>
+          <CardTitle>Switch progress</CardTitle>
           <CardBody>
             {operationQuery.isPending ? (
-              <div className="inline-loading"><Spinner size="md" aria-label="Main Model operation loading" /> Operation 상태를 확인하는 중입니다.</div>
+              <div className="inline-loading"><Spinner size="md" aria-label="Main Model switch loading" /> 전환 상태를 확인하는 중입니다.</div>
             ) : operationQuery.isError ? (
-              <Alert isInline variant="danger" title="Operation 상태를 불러오지 못했습니다.">{apiErrorMessage(operationQuery.error)}</Alert>
+              <Alert isInline variant="danger" title="전환 상태를 불러오지 못했습니다.">{apiErrorMessage(operationQuery.error)}</Alert>
             ) : operationQuery.data ? (
               <>
                 <Alert isInline variant={operationVariant(operationQuery.data.status)} title={`Operation ${operationQuery.data.status}`}>
@@ -284,7 +292,7 @@ export function MainModelPage({ token, onUnauthorized }: MainModelPageProps) {
         </Card>
       ) : status.last_operation ? (
         <Card>
-          <CardTitle>Latest switch operation</CardTitle>
+          <CardTitle>Latest switch</CardTitle>
           <CardBody>
             <dl className="facts">
               <dt>Operation ID</dt><dd><code>{status.last_operation.id}</code></dd>

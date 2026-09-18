@@ -496,9 +496,9 @@ if [[ "${DEPLOY_MODE}" == "full" ]]; then
 
   # Main Model profile override가 shared image와 다른 경우에만 별도 artifact를
   # preflight한다. 같은 digest면 위 shared pull이 이미 registry availability를 증명한다.
-  if [[ -n "${AUDIO_VLLM_IMAGE_EFFECTIVE}" &&
-    "${AUDIO_VLLM_IMAGE_EFFECTIVE}" != "${VLLM_IMAGE_EFFECTIVE}" ]]; then
-    pull_preflight_image "Main Model profile vLLM" "${AUDIO_VLLM_IMAGE_EFFECTIVE}"
+  if [[ -n "${MAIN_MODEL_VLLM_IMAGE_OVERRIDE_EFFECTIVE}" &&
+    "${MAIN_MODEL_VLLM_IMAGE_OVERRIDE_EFFECTIVE}" != "${VLLM_IMAGE_EFFECTIVE}" ]]; then
+    pull_preflight_image "Main Model profile vLLM" "${MAIN_MODEL_VLLM_IMAGE_OVERRIDE_EFFECTIVE}"
   fi
 fi
 
@@ -724,14 +724,14 @@ echo "[deploy] DEPLOY_RELEASE_ID set to ${RELEASE_ID}"
 
 # runtime image pin은 target .env의 현재 값을 유지하며, 앞서 계산한 명시적
 # promotion만 반영한다. VLLM_UNIFIED_IMAGE_TO_DEPLOY가 shared promotion을 소유하고
-# AUDIO_VLLM_IMAGE_TO_DEPLOY는 Main Model profile image만 독립적으로 override한다.
+# MAIN_MODEL_VLLM_IMAGE_OVERRIDE_TO_DEPLOY는 Main Model profile image만 독립적으로 override한다.
 if [[ "${DEPLOY_MODE}" == "full" ]]; then
   deploy_apply_runtime_image_promotions
   if [[ -n "${VLLM_IMAGE_PROMOTION:-}" ]]; then
     echo "[deploy] VLLM_IMAGE promoted to ${VLLM_IMAGE_PROMOTION}"
   fi
-  if [[ -n "${AUDIO_VLLM_IMAGE_PROMOTION:-}" ]]; then
-    echo "[deploy] AUDIO_VLLM_IMAGE promoted to ${AUDIO_VLLM_IMAGE_PROMOTION}"
+  if [[ -n "${MAIN_MODEL_VLLM_IMAGE_OVERRIDE_PROMOTION:-}" ]]; then
+    echo "[deploy] MAIN_MODEL_VLLM_IMAGE_OVERRIDE promoted to ${MAIN_MODEL_VLLM_IMAGE_OVERRIDE_PROMOTION}"
   fi
 fi
 
