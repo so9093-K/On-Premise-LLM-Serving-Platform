@@ -18,13 +18,6 @@ def test_canonical_deployment_target_state_is_preserved() -> None:
     assert state.qualification_status == "verified"
 
 
-def test_legacy_validation_status_is_rejected() -> None:
-    with pytest.raises(ValueError, match="removed legacy validation_status"):
-        validate_deployment_target_state(
-            "legacy-target",
-            {"validation_status": "verified"},
-        )
-
 
 def test_planned_target_cannot_be_qualification_verified() -> None:
     with pytest.raises(ValueError, match="cannot be qualification verified"):

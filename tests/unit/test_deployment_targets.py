@@ -44,6 +44,16 @@ def test_unknown_target_fails_closed() -> None:
         load_deployment_target(CATALOG, "missing-target")
 
 
+def test_unknown_target_field_fails_closed(tmp_path) -> None:
+    document = yaml.safe_load(CATALOG.read_text(encoding="utf-8"))
+    document["targets"]["linux-nvidia-dynamic"]["unexpected_state"] = "verified"
+    path = tmp_path / "deployment_targets.yaml"
+    path.write_text(yaml.safe_dump(document), encoding="utf-8")
+
+    with pytest.raises(RuntimeError, match="unknown fields: unexpected_state"):
+        load_deployment_target(path, "linux-nvidia-dynamic")
+
+
 def test_partial_runtime_controller_bundle_fails_closed(tmp_path) -> None:
     document = yaml.safe_load(CATALOG.read_text(encoding="utf-8"))
     document["targets"]["linux-nvidia-dynamic"]["features"]["gpu_admission"] = False

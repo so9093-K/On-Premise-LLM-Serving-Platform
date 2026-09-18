@@ -21,6 +21,24 @@ KNOWN_FEATURES = frozenset(
 )
 _CONTROL_MODES = frozenset({"runtime_controller", "static"})
 _LIFECYCLE_OWNERS = frozenset({"platform", "external"})
+_TARGET_FIELDS = frozenset(
+    {
+        "display_name",
+        "platform",
+        "runtime_backend",
+        "runs_monitoring_stack",
+        "main_profile_catalog",
+        "control_mode",
+        "lifecycle_owner",
+        "internal_service_token_required",
+        "implementation_status",
+        "qualification_status",
+        "features",
+        "compose_files",
+        "exposure_profile_applies",
+        "gateway_runtime_host",
+    }
+)
 
 
 @dataclass(frozen=True)
@@ -88,6 +106,13 @@ def load_deployment_target(path: Path, target_id: str | None = None) -> Deployme
     if not isinstance(raw, dict):
         allowed = ", ".join(sorted(str(item) for item in targets))
         raise RuntimeError(f"unknown DEPLOYMENT_TARGET {selected!r}; allowed: {allowed}")
+
+    unknown_fields = set(raw) - _TARGET_FIELDS
+    if unknown_fields:
+        raise RuntimeError(
+            f"deployment target {selected!r} has unknown fields: "
+            f"{', '.join(sorted(unknown_fields))}"
+        )
 
     control_mode = str(raw.get("control_mode", ""))
     lifecycle_owner = str(raw.get("lifecycle_owner", ""))

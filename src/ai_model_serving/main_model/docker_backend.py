@@ -395,9 +395,8 @@ class DockerMainModelBackend:
             # 수행한다. gate가 열리기 전에 런타임이 컨테이너 media를 디코드할 수
             # 있음을 증명하여, 지원한다고 표시되었지만 실제로는 깨진 modality가
             # 실제 요청에서 500을 내는 대신 rollback되도록 한다. 입력 modality의
-            # 단일 source of truth는 capabilities.deployed_input이다 -- 별도
-            # audio_enabled/video_enabled 플래그는 이 값과 항상 일치해야 하는
-            # 중복 정보라 두지 않는다.
+            # 단일 source of truth는 capabilities.deployed_input이다. 같은 의미를
+            # 별도 boolean flag로 중복 선언하지 않는다.
             deployed_modalities = set(profile.capabilities.get("deployed_input", []))
             if "image" in deployed_modalities:
                 image_canary = await client.post(

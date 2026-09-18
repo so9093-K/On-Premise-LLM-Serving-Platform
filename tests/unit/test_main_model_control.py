@@ -952,18 +952,16 @@ def test_deployed_input_rejects_unknown_modality(tmp_path):
         load_main_model_catalog(path)
 
 
-def test_capabilities_rejects_legacy_audio_video_enabled_keys(tmp_path):
-    # audio_enabled/video_enabled는 deployed_input과 중복되는 정보라 제거됐다 -- YAML에
-    # 다시 들어오면 두 source가 어긋날 수 있으므로 loader가 설정 오류로 거부해야 한다.
+def test_capabilities_rejects_unknown_fields(tmp_path):
     path = _write_catalog_path(tmp_path, profile_image=None)
     raw = path.read_text(encoding="utf-8").replace(
         "    compatibility:\n      status: compatible\n    qualification:\n      status: verified\n    command: [--host, 0.0.0.0]",
         "    compatibility:\n      status: compatible\n    qualification:\n      status: verified\n    capabilities:\n      deployed_input: [text]\n"
-        "      audio_enabled: false\n    command: [--host, 0.0.0.0]",
+        "      unsupported_flag: false\n    command: [--host, 0.0.0.0]",
         1,
     )
     path.write_text(raw, encoding="utf-8")
-    with pytest.raises(MainModelConfigurationError):
+    with pytest.raises(MainModelConfigurationError, match="unsupported key"):
         load_main_model_catalog(path)
 
 
