@@ -11,9 +11,10 @@
 2. **표시명과 식별자를 분리한다.** 사람이 읽는 이름은 개선할 수 있지만, API path·service key·env key는
    migration 없이 바꾸지 않는다.
 3. **원하는 상태와 실제 상태를 구분한다.** `desired state`와 `observed state`를 섞지 않는다.
-4. **검증 수준과 기술 호환성을 섞지 않는다.** 장기 canonical 상태는 기술적 `Compatibility`와
-   실제 검증 근거인 `Qualification`을 별도 축으로 둔다. 기존 API의 `compatibility.status`는
-   별도 migration 전까지 legacy projection으로 유지할 수 있다.
+4. **검증 수준을 다른 상태 의미와 섞지 않는다.** Main Model은 기술적 `Compatibility`와
+   실제 검증 근거인 `Qualification`을 별도 축으로 두고, Deployment Target은
+   `Implementation Status`와 `Qualification`을 별도 축으로 둔다. 기존 API의
+   `compatibility.status`와 `validation_status`는 migration 기간의 legacy projection이다.
 5. **위험한 동작은 효과를 설명한다.** `force`처럼 구현 중심 표현만 버튼에 노출하지 않고 실제 영향
    (예: 다른 runtime 자동 중지 허용)을 설명한다.
 6. **영문 제품명은 `On-Premises`를 사용한다.** `On-Premise`는 새 문서·표시명에서 사용하지 않는다.
