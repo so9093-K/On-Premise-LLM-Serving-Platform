@@ -23,18 +23,28 @@ type MainModelPageProps = {
 };
 
 function compatibilityVariant(status: string): 'green' | 'orange' | 'red' | 'grey' {
-  if (status === 'verified') return 'green';
+  if (status === 'compatible') return 'green';
   if (status === 'incompatible') return 'red';
-  if (status === 'likely' || status === 'unverified' || status === 'unknown') return 'orange';
+  if (status === 'unknown') return 'orange';
+  return 'grey';
+}
+
+function compatibilityLabel(status: string): string {
+  if (status === 'compatible') return 'Compatible';
+  if (status === 'incompatible') return 'Incompatible';
+  if (status === 'unknown') return 'Unknown';
+  return status;
+}
+
+function qualificationVariant(status: string): 'green' | 'orange' | 'grey' {
+  if (status === 'verified') return 'green';
+  if (status === 'unverified') return 'orange';
   return 'grey';
 }
 
 function qualificationLabel(status: string): string {
   if (status === 'verified') return 'Verified';
-  if (status === 'likely') return 'Provisional · confirmation required';
   if (status === 'unverified') return 'Unverified · confirmation required';
-  if (status === 'unknown') return 'Unknown · confirmation required';
-  if (status === 'incompatible') return 'Incompatible';
   return status;
 }
 
@@ -195,7 +205,7 @@ export function MainModelPage({ token, onUnauthorized }: MainModelPageProps) {
           <div className="table-scroll">
             <table className="runtime-table">
               <thead>
-                <tr><th>Profile</th><th>Qualification</th><th>Inputs</th><th>VRAM</th><th>State</th><th>Action</th></tr>
+                <tr><th>Profile</th><th>Compatibility</th><th>Qualification</th><th>Inputs</th><th>VRAM</th><th>State</th><th>Action</th></tr>
               </thead>
               <tbody>
                 {profiles.map((profile) => {
@@ -203,7 +213,8 @@ export function MainModelPage({ token, onUnauthorized }: MainModelPageProps) {
                   return (
                     <tr key={profile.id}>
                       <td><strong>{profile.display_name}</strong><br /><code>{profile.id}</code></td>
-                      <td><Label color={compatibilityVariant(profile.compatibility.status)}>{qualificationLabel(profile.compatibility.status)}</Label></td>
+                      <td><Label color={compatibilityVariant(profile.compatibility.technical_status)}>{compatibilityLabel(profile.compatibility.technical_status)}</Label></td>
+                      <td><Label color={qualificationVariant(profile.qualification.status)}>{qualificationLabel(profile.qualification.status)}</Label></td>
                       <td>{profile.capabilities.deployed_input.join(', ')}</td>
                       <td>{profile.vram_fraction.toFixed(2)}</td>
                       <td>{profile.active ? <Label color="green">active</Label> : 'available'}</td>
@@ -236,7 +247,8 @@ export function MainModelPage({ token, onUnauthorized }: MainModelPageProps) {
               <dt>Target</dt><dd>{reviewProfile.display_name} ({reviewProfile.id})</dd>
               <dt>Upstream</dt><dd>{reviewProfile.upstream_model_id}</dd>
               <dt>Revision</dt><dd><code>{reviewProfile.revision}</code></dd>
-              <dt>Qualification</dt><dd>{qualificationLabel(reviewProfile.compatibility.status)}</dd>
+              <dt>Compatibility</dt><dd>{compatibilityLabel(reviewProfile.compatibility.technical_status)}</dd>
+              <dt>Qualification</dt><dd>{qualificationLabel(reviewProfile.qualification.status)}</dd>
               <dt>Inputs</dt><dd>{reviewProfile.capabilities.deployed_input.join(', ')}</dd>
               <dt>VRAM fraction</dt><dd>{reviewProfile.vram_fraction.toFixed(2)}</dd>
             </dl>
