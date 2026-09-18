@@ -118,7 +118,7 @@ def test_static_target_keeps_bootstrap_but_disables_runtime_and_monitoring_capab
     monkeypatch.setenv("ACCESS_PROFILE", "local")
     cfg = load_settings()
     clients = FakeGatewayClients()
-    clients.sidecar = None
+    clients.runtime_controller = None
 
     response = TestClient(create_gateway_app(cfg, clients)).get(
         "/admin/control-plane/bootstrap"
@@ -147,7 +147,7 @@ def test_macos_static_bootstrap_uses_target_monitoring_and_compose_exposure(monk
     monkeypatch.setenv("GRAFANA_PORT", "9611")
     cfg = load_settings()
     clients = FakeGatewayClients()
-    clients.sidecar = None
+    clients.runtime_controller = None
 
     response = TestClient(create_gateway_app(cfg, clients)).get(
         "/admin/control-plane/bootstrap"

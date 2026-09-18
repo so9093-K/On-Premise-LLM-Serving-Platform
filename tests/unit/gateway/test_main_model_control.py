@@ -8,7 +8,7 @@ from __future__ import annotations
 import pytest
 
 from .helpers import *  # noqa: F401,F403
-from ai_model_serving.services.sidecar_client import SidecarRequestError
+from ai_model_serving.services.runtime_controller_client import RuntimeControllerRequestError
 
 
 class FakeMainModelSidecar:
@@ -20,7 +20,7 @@ class FakeMainModelSidecar:
     async def main_model(self, *, observed: bool = True):
         self.observed_requested.append(observed)
         if self.gate == "rejected":
-            raise SidecarRequestError(409, {"code": "STATE_CONFLICT", "message": "Control state conflict"})
+            raise RuntimeControllerRequestError(409, {"code": "STATE_CONFLICT", "message": "Control state conflict"})
         return {
             "public_model": "local-main",
             "active_profile": {"id": "gemma4-26b-a4b-fp8"},
@@ -78,7 +78,7 @@ def test_chat_uses_active_profile_request_limit() -> None:
             }
 
     clients = FakeGatewayClients()
-    clients.sidecar = ProfilePolicySidecar()
+    clients.runtime_controller = ProfilePolicySidecar()
     client = TestClient(create_gateway_app(settings(), clients))
     response = client.post(
         "/v1/chat/completions",
@@ -96,7 +96,7 @@ def test_chat_uses_active_profile_request_limit() -> None:
 @pytest.mark.parametrize("gate", ["closed", "rejected"])
 def test_chat_is_fail_closed_while_main_model_switches(gate):
     clients = FakeGatewayClients()
-    clients.sidecar = FakeMainModelSidecar(gate=gate)
+    clients.runtime_controller = FakeMainModelSidecar(gate=gate)
     client = TestClient(create_gateway_app(settings(), clients))
     response = client.post(
         "/v1/chat/completions",
@@ -127,7 +127,7 @@ def test_request_path_does_not_depend_on_docker_observation():
     """
     clients = FakeGatewayClients()
     sidecar = FakeMainModelSidecar()
-    clients.sidecar = sidecar
+    clients.runtime_controller = sidecar
     client = TestClient(create_gateway_app(settings(), clients))
 
     client.post(
@@ -144,7 +144,7 @@ def test_request_path_does_not_depend_on_docker_observation():
 def test_main_model_admin_routes_proxy_only_profile_ids():
     clients = FakeGatewayClients()
     sidecar = FakeMainModelSidecar()
-    clients.sidecar = sidecar
+    clients.runtime_controller = sidecar
     client = TestClient(create_gateway_app(settings(), clients))
 
     status = client.get("/admin/main-model")
@@ -214,7 +214,7 @@ def test_in_flight_count_returns_to_zero_on_every_request_outcome():
 
     # 3) gate 차단 (핸들러가 조기 return)
     closed_clients = FakeGatewayClients()
-    closed_clients.sidecar = FakeMainModelSidecar(gate="closed")
+    closed_clients.runtime_controller = FakeMainModelSidecar(gate="closed")
     closed = TestClient(create_gateway_app(settings(), closed_clients))
     blocked = closed.post(
         "/v1/chat/completions",

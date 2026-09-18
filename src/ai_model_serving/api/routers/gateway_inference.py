@@ -8,7 +8,7 @@ from fastapi import APIRouter, Body, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 
 from ..endpoint_spec import GATEWAY_ENDPOINTS
-from ..error_responses import sidecar_request_error_response, sidecar_unavailable_response
+from ..error_responses import runtime_controller_request_error_response, runtime_controller_unavailable_response
 from ...errors import ServiceError, error_payload, error_response_headers
 from ...domain.request_surfaces import chat_request_limit_surface, chat_request_parameter_surface
 from ...logging_policy import record_request_response_preview, record_upstream_response
@@ -180,7 +180,7 @@ def build_router(
     service: Any,
     settings: Any,
     state_store: RuntimeStateStore | None = None,
-    sidecar: RuntimeControllerClient | None = None,
+    runtime_controller: RuntimeControllerClient | None = None,
     main_model_inflight: MainModelInFlight | None = None,
     *,
     include_embeddings: bool = True,
@@ -192,14 +192,14 @@ def build_router(
     async def _main_model_request_context() -> tuple[
         tuple[str, ...] | None, dict[str, Any] | None, JSONResponse | None
     ]:
-        if sidecar is None:
+        if runtime_controller is None:
             return None, None, None
         try:
-            main_model = await sidecar.main_model(observed=False)
+            main_model = await runtime_controller.main_model(observed=False)
         except RuntimeControllerRequestError as exc:
-            return None, None, sidecar_request_error_response(exc)
+            return None, None, runtime_controller_request_error_response(exc)
         except RuntimeControllerUnavailableError as exc:
-            return None, None, sidecar_unavailable_response(exc)
+            return None, None, runtime_controller_unavailable_response(exc)
         if main_model.get("gate") != "open":
             operation = main_model.get("last_operation") or {}
             body = error_payload(
@@ -239,10 +239,10 @@ def build_router(
                 "input_modalities", settings.runtime("main_llm").allowed_input_modalities
             )
         )
-        if sidecar is not None:
+        if runtime_controller is not None:
             try:
                 # /v1/models는 active profile의 modality·정책만 읽는다.
-                active_snapshot = await sidecar.main_model(observed=False)
+                active_snapshot = await runtime_controller.main_model(observed=False)
             except RuntimeControllerUnavailableError:
                 # 이 라우트는 경로/본문 파라미터가 없어 4xx가 나올 수 없다.
                 active_snapshot = None

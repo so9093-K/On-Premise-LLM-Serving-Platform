@@ -254,7 +254,7 @@ def test_unhandled_exception_is_publicly_generic_and_internally_correlated(monke
 def test_sidecar_failure_is_publicly_generic_and_internally_correlated(monkeypatch, tmp_path):
     """control plane 장애도 위 unhandled exception과 같은 계약을 지켜야 한다.
 
-    sidecar_unavailable_response가 str(exc)를 공개 message로 쓰던 동안, 이 helper를
+    runtime_controller_unavailable_response가 str(exc)를 공개 message로 쓰던 동안, 이 helper를
     쓰는 공개 /v1/chat/completions 응답으로 내부 hostname과 main-model 상태 파일
     경로가 그대로 나갔다. 원인은 요청 로그에만 남아야 한다.
     """
@@ -280,7 +280,7 @@ def test_sidecar_failure_is_publicly_generic_and_internally_correlated(monkeypat
         transport=httpx.MockTransport(lambda request: httpx.Response(500, json={"detail": internal_detail})),
         headers={},
     )
-    clients.sidecar = sidecar
+    clients.runtime_controller = sidecar
     client = TestClient(create_gateway_app(settings(), clients))
 
     response = client.post(

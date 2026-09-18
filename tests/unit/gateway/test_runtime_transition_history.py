@@ -34,7 +34,7 @@ class UnverifiedStartSidecar(VerifiedStartSidecar):
 
 def test_runtime_transition_exposes_verified_operation_and_history() -> None:
     clients = FakeGatewayClients()
-    clients.sidecar = VerifiedStartSidecar()
+    clients.runtime_controller = VerifiedStartSidecar()
     asyncio.run(clients.runtime_state.set("embedding_ko", RuntimeState.stopped))
     client = TestClient(create_gateway_app(settings(), clients))
 
@@ -79,7 +79,7 @@ def test_runtime_transition_history_records_admin_actor_without_raw_key() -> Non
         ),
     )
     clients = FakeGatewayClients()
-    clients.sidecar = VerifiedStartSidecar()
+    clients.runtime_controller = VerifiedStartSidecar()
     asyncio.run(clients.runtime_state.set("embedding_ko", RuntimeState.stopped))
     client = TestClient(create_gateway_app(protected, clients))
     headers = {"Authorization": f"Bearer {token}"}
@@ -105,7 +105,7 @@ def test_runtime_transition_history_records_admin_actor_without_raw_key() -> Non
 
 def test_runtime_transition_fails_closed_when_apply_cannot_be_verified() -> None:
     clients = FakeGatewayClients()
-    clients.sidecar = UnverifiedStartSidecar()
+    clients.runtime_controller = UnverifiedStartSidecar()
     asyncio.run(clients.runtime_state.set("embedding_ko", RuntimeState.stopped))
     client = TestClient(create_gateway_app(settings(), clients))
 

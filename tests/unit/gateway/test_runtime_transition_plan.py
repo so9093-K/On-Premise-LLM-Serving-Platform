@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 
 from ai_model_serving.services.runtime_state import RuntimeState
-from ai_model_serving.services.sidecar_client import SidecarRequestError
+from ai_model_serving.services.runtime_controller_client import RuntimeControllerRequestError
 from .helpers import FakeGatewayClients, TestClient, create_gateway_app, settings
 
 
@@ -66,7 +66,7 @@ class DriftRejectingSidecar(PlanningSidecar):
         force: bool = False,
         plan_digest: str | None = None,
     ):
-        raise SidecarRequestError(
+        raise RuntimeControllerRequestError(
             409,
             {
                 "code": "RUNTIME_PLAN_CHANGED",
@@ -79,7 +79,7 @@ class DriftRejectingSidecar(PlanningSidecar):
 
 def test_runtime_plan_projects_sidecar_container_names_to_public_service_keys() -> None:
     clients = FakeGatewayClients()
-    clients.sidecar = PlanningSidecar()
+    clients.runtime_controller = PlanningSidecar()
     client = TestClient(create_gateway_app(settings(), clients))
 
     response = client.post(
@@ -107,7 +107,7 @@ def test_runtime_plan_projects_sidecar_container_names_to_public_service_keys() 
 def test_runtime_apply_forwards_reviewed_plan_digest_without_breaking_legacy_shape() -> None:
     clients = FakeGatewayClients()
     sidecar = PlanningSidecar()
-    clients.sidecar = sidecar
+    clients.runtime_controller = sidecar
     client = TestClient(create_gateway_app(settings(), clients))
     asyncio.run(clients.runtime_state.set("embedding_ko", RuntimeState.stopped))
 
@@ -124,7 +124,7 @@ def test_runtime_apply_forwards_reviewed_plan_digest_without_breaking_legacy_sha
 
 def test_runtime_plan_and_apply_use_strict_public_validation_contract() -> None:
     clients = FakeGatewayClients()
-    clients.sidecar = PlanningSidecar()
+    clients.runtime_controller = PlanningSidecar()
     client = TestClient(create_gateway_app(settings(), clients))
 
     bad_force = client.post(
@@ -146,7 +146,7 @@ def test_runtime_plan_and_apply_use_strict_public_validation_contract() -> None:
 
 def test_runtime_apply_rejects_reviewed_plan_when_sidecar_snapshot_changed() -> None:
     clients = FakeGatewayClients()
-    clients.sidecar = DriftRejectingSidecar()
+    clients.runtime_controller = DriftRejectingSidecar()
     client = TestClient(create_gateway_app(settings(), clients))
     asyncio.run(clients.runtime_state.set("embedding_ko", RuntimeState.stopped))
 

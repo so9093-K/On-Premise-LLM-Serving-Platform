@@ -9,7 +9,7 @@ from fastapi.responses import JSONResponse
 
 from ..endpoint_spec import GATEWAY_ENDPOINTS
 from ...errors import ServiceError, error_response, request_id_for
-from ..error_responses import sidecar_request_error_response, sidecar_unavailable_response
+from ..error_responses import runtime_controller_request_error_response, runtime_controller_unavailable_response
 from ...api_examples import (
     RUNTIME_BUDGET_EXCEEDED_EXAMPLE,
     RUNTIME_ERROR_404_EXAMPLE,
@@ -43,7 +43,7 @@ from ...services.runtime_controller_client import (
 )
 from ...runtime_transition_contract import (
     parse_runtime_transition_request,
-    project_sidecar_runtime_plan,
+    project_runtime_controller_plan,
 )
 
 # 예시의 모델 신원은 configs/main_model_profiles.yaml에서 그대로 온다. 손으로
@@ -342,21 +342,21 @@ def _secondary_converged(desired_state: str, observed_state: str | None) -> bool
 
 
 async def _best_effort_secondary_before(
-    sidecar: RuntimeControllerClient | None,
+    runtime_controller: RuntimeControllerClient | None,
     container: str,
     desired_state: str,
 ) -> dict[str, Any]:
     observed_state: str | None = None
-    if sidecar is not None:
+    if runtime_controller is not None:
         try:
-            observed_state = (await sidecar.get_status()).get(container, "not_found")
+            observed_state = (await runtime_controller.get_status()).get(container, "not_found")
         except (RuntimeControllerRequestError, RuntimeControllerUnavailableError):
             observed_state = None
     return {"desired_state": desired_state, "observed_state": observed_state}
 
 
 async def _verify_secondary_transition(
-    sidecar: RuntimeControllerClient,
+    runtime_controller: RuntimeControllerClient,
     *,
     container: str,
     desired_state: str,
@@ -364,7 +364,7 @@ async def _verify_secondary_transition(
     stopped: list[str],
     evicted: list[str],
 ) -> dict[str, Any]:
-    statuses = await sidecar.get_status()
+    statuses = await runtime_controller.get_status()
     observed_state = statuses.get(container, "not_found")
     effects: dict[str, str] = {}
     for name in sorted(set([*started, *stopped, *evicted])):
@@ -383,9 +383,9 @@ async def _verify_secondary_transition(
     }
 
 
-async def _best_effort_main_before(sidecar: RuntimeControllerClient) -> dict[str, Any]:
+async def _best_effort_main_before(runtime_controller: RuntimeControllerClient) -> dict[str, Any]:
     try:
-        snapshot = await sidecar.main_model()
+        snapshot = await runtime_controller.main_model()
     except (RuntimeControllerRequestError, RuntimeControllerUnavailableError):
         return {"runtime_state": None, "observed_state": None}
     observed = snapshot.get("observed_runtime") or {}
@@ -397,12 +397,12 @@ async def _best_effort_main_before(sidecar: RuntimeControllerClient) -> dict[str
 
 
 async def _verify_main_transition(
-    sidecar: RuntimeControllerClient,
+    runtime_controller: RuntimeControllerClient,
     *,
     desired_state: str,
     evicted: list[str],
 ) -> dict[str, Any]:
-    snapshot = await sidecar.main_model()
+    snapshot = await runtime_controller.main_model()
     observed = snapshot.get("observed_runtime") or {}
     observed_status = observed.get("status")
     container_state = observed.get("container_state")
@@ -422,7 +422,7 @@ async def _verify_main_transition(
     effects: dict[str, str] = {}
     effects_converged = True
     if evicted:
-        statuses = await sidecar.get_status()
+        statuses = await runtime_controller.get_status()
         for name in sorted(set(evicted)):
             effects[name] = statuses.get(name, "not_found")
         effects_converged = all(state in {"exited", "not_found"} for state in effects.values())
@@ -453,7 +453,7 @@ def _verification_failure(
 def build_router(
     admin_dependencies: list,
     state_store: RuntimeStateStore,
-    sidecar: RuntimeControllerClient | None,
+    runtime_controller: RuntimeControllerClient | None,
     settings: Any,
     history_store: RuntimeTransitionHistoryStore,
 ) -> APIRouter:
@@ -503,18 +503,18 @@ def build_router(
         container_statuses: dict[str, str] = {}
         budget: dict[str, Any] | None = None
         main_model: dict[str, Any] | None = None
-        if sidecar is not None:
+        if runtime_controller is not None:
             try:
-                container_statuses = await sidecar.get_status()
+                container_statuses = await runtime_controller.get_status()
             except RuntimeControllerUnavailableError:
                 container_statuses = {}
             try:
-                budget = await sidecar.gpu_budget()
+                budget = await runtime_controller.gpu_budget()
             except RuntimeControllerUnavailableError:
                 budget = None
             try:
                 # 이 목록은 gate·runtime_state·active profile만 쓴다.
-                main_model = await sidecar.main_model(observed=False)
+                main_model = await runtime_controller.main_model(observed=False)
             except RuntimeControllerUnavailableError:
                 main_model = None
 
@@ -596,32 +596,32 @@ def build_router(
             await _runtime_request_json(request),
             allow_plan_digest=False,
         )
-        if sidecar is None:
+        if runtime_controller is None:
             raise ServiceError(
                 "MAIN_MODEL_CONTROL_UNAVAILABLE",
                 "Runtime Controller is not configured",
                 retry_after_seconds=5,
             )
         if service_key == "main":
-            sidecar_service = "main"
+            runtime_service = "main"
         else:
             _validate_service_key(service_key, state_store)
             ep = settings.runtime_endpoints.get(service_key)
             if ep is None:
                 raise ServiceError("NOT_FOUND", f"runtime endpoint not found: {service_key}")
-            sidecar_service = _container_name(ep.base_url)
+            runtime_service = _container_name(ep.base_url)
         try:
-            raw_plan = await sidecar.runtime_plan(
-                sidecar_service,
+            raw_plan = await runtime_controller.runtime_plan(
+                runtime_service,
                 desired_state=desired_state,
                 force=force,
             )
         except RuntimeControllerRequestError as exc:
-            return sidecar_request_error_response(exc)
+            return runtime_controller_request_error_response(exc)
         except RuntimeControllerUnavailableError as exc:
-            return sidecar_unavailable_response(exc)
+            return runtime_controller_unavailable_response(exc)
         return JSONResponse(
-            project_sidecar_runtime_plan(
+            project_runtime_controller_plan(
                 raw_plan,
                 service_key=service_key,
                 container_to_key=container_to_key,
@@ -730,9 +730,9 @@ def build_router(
         )
 
         if service_key == "main":
-            if sidecar is None:
+            if runtime_controller is None:
                 raise HTTPException(503, detail="Runtime Controller is not configured (RUNTIME_CONTROLLER_URL missing)")
-            before = await _best_effort_main_before(sidecar)
+            before = await _best_effort_main_before(runtime_controller)
             operation_id = _begin_runtime_operation(
                 history_store,
                 request,
@@ -745,9 +745,9 @@ def build_router(
             try:
                 if desired_state == "active":
                     result = (
-                        await sidecar.main_start(force=force, plan_digest=plan_digest)
+                        await runtime_controller.main_start(force=force, plan_digest=plan_digest)
                         if plan_digest
-                        else await sidecar.main_start(force=force)
+                        else await runtime_controller.main_start(force=force)
                     )
                     for evicted_container in result.get("evicted", []):
                         evicted_key = container_to_key.get(evicted_container)
@@ -760,9 +760,9 @@ def build_router(
                             )
                 else:
                     result = (
-                        await sidecar.main_stop(plan_digest=plan_digest)
+                        await runtime_controller.main_stop(plan_digest=plan_digest)
                         if plan_digest
-                        else await sidecar.main_stop()
+                        else await runtime_controller.main_stop()
                     )
             except RuntimeControllerRequestError as exc:
                 _finish_runtime_operation(
@@ -775,7 +775,7 @@ def build_router(
                     verification=None,
                     error={"code": "sidecar_request_rejected", "status_code": exc.status_code},
                 )
-                return _with_operation_header(sidecar_request_error_response(exc), operation_id)
+                return _with_operation_header(runtime_controller_request_error_response(exc), operation_id)
             except RuntimeControllerUnavailableError as exc:
                 _finish_runtime_operation(
                     history_store,
@@ -787,7 +787,7 @@ def build_router(
                     verification=None,
                     error={"code": "sidecar_unavailable"},
                 )
-                return _with_operation_header(sidecar_unavailable_response(exc), operation_id)
+                return _with_operation_header(runtime_controller_unavailable_response(exc), operation_id)
 
             apply_result = {
                 "state": result.get("runtime_state", desired_state),
@@ -795,7 +795,7 @@ def build_router(
             }
             try:
                 verification = await _verify_main_transition(
-                    sidecar,
+                    runtime_controller,
                     desired_state=desired_state,
                     evicted=apply_result["evicted"],
                 )
@@ -845,7 +845,7 @@ def build_router(
         actual: str | None = None
 
         if desired_state == "active":
-            if current_state == RuntimeState.active and sidecar is None and plan_digest is None:
+            if current_state == RuntimeState.active and runtime_controller is None and plan_digest is None:
                 before = {"desired_state": current_state.value, "observed_state": None}
                 operation_id = _begin_runtime_operation(
                     history_store,
@@ -880,13 +880,13 @@ def build_router(
                     "operation_status": "noop",
                     "verification": verification,
                 })
-            if current_state == RuntimeState.active and sidecar is not None:
+            if current_state == RuntimeState.active and runtime_controller is not None:
                 try:
-                    actual = (await sidecar.get_status()).get(container, "not_found")
+                    actual = (await runtime_controller.get_status()).get(container, "not_found")
                 except RuntimeControllerRequestError as exc:
-                    return sidecar_request_error_response(exc)
+                    return runtime_controller_request_error_response(exc)
                 except RuntimeControllerUnavailableError as exc:
-                    return sidecar_unavailable_response(exc)
+                    return runtime_controller_unavailable_response(exc)
                 if actual == "running" and plan_digest is None:
                     operation_id = _begin_runtime_operation(
                         history_store,
@@ -923,14 +923,14 @@ def build_router(
                     })
             if current_state == RuntimeState.starting:
                 return _runtime_transitioning_response()
-            if sidecar is None:
+            if runtime_controller is None:
                 raise HTTPException(503, detail="Runtime Controller is not configured (RUNTIME_CONTROLLER_URL missing)")
             before = {
                 "desired_state": current_state.value,
                 "observed_state": actual,
             }
             if actual is None:
-                observed = await _best_effort_secondary_before(sidecar, container, current_state.value)
+                observed = await _best_effort_secondary_before(runtime_controller, container, current_state.value)
                 before["observed_state"] = observed["observed_state"]
             operation_id = _begin_runtime_operation(
                 history_store,
@@ -949,9 +949,9 @@ def build_router(
             )
             try:
                 result = (
-                    await sidecar.start(container, force=force, plan_digest=plan_digest)
+                    await runtime_controller.start(container, force=force, plan_digest=plan_digest)
                     if plan_digest
-                    else await sidecar.start(container, force=force)
+                    else await runtime_controller.start(container, force=force)
                 )
             except RuntimeControllerRequestError as exc:
                 await state_store.set(
@@ -970,7 +970,7 @@ def build_router(
                     verification=None,
                     error={"code": "sidecar_request_rejected", "status_code": exc.status_code},
                 )
-                return _with_operation_header(sidecar_request_error_response(exc), operation_id)
+                return _with_operation_header(runtime_controller_request_error_response(exc), operation_id)
             except RuntimeControllerUnavailableError as exc:
                 await state_store.set(
                     service_key,
@@ -988,7 +988,7 @@ def build_router(
                     verification=None,
                     error={"code": "sidecar_unavailable"},
                 )
-                return _with_operation_header(sidecar_unavailable_response(exc), operation_id)
+                return _with_operation_header(runtime_controller_unavailable_response(exc), operation_id)
             started_containers = list(result.get("started", []))
             evicted_containers = list(result.get("evicted", []))
             for evicted_container in evicted_containers:
@@ -1021,7 +1021,7 @@ def build_router(
             }
             try:
                 verification = await _verify_secondary_transition(
-                    sidecar,
+                    runtime_controller,
                     container=container,
                     desired_state=desired_state,
                     started=started_containers,
@@ -1066,7 +1066,7 @@ def build_router(
                 "verification": verification,
             })
 
-        if current_state == RuntimeState.stopped and sidecar is None and plan_digest is None:
+        if current_state == RuntimeState.stopped and runtime_controller is None and plan_digest is None:
             before = {"desired_state": current_state.value, "observed_state": None}
             operation_id = _begin_runtime_operation(
                 history_store,
@@ -1101,13 +1101,13 @@ def build_router(
                 "operation_status": "noop",
                 "verification": verification,
             })
-        if current_state == RuntimeState.stopped and sidecar is not None:
+        if current_state == RuntimeState.stopped and runtime_controller is not None:
             try:
-                actual = (await sidecar.get_status()).get(container, "not_found")
+                actual = (await runtime_controller.get_status()).get(container, "not_found")
             except RuntimeControllerRequestError as exc:
-                return sidecar_request_error_response(exc)
+                return runtime_controller_request_error_response(exc)
             except RuntimeControllerUnavailableError as exc:
-                return sidecar_unavailable_response(exc)
+                return runtime_controller_unavailable_response(exc)
             if actual in {"exited", "not_found"} and plan_digest is None:
                 operation_id = _begin_runtime_operation(
                     history_store,
@@ -1144,11 +1144,11 @@ def build_router(
                 })
         if current_state == RuntimeState.starting:
             return _runtime_transitioning_response()
-        if sidecar is None:
+        if runtime_controller is None:
             raise HTTPException(503, detail="Runtime Controller is not configured (RUNTIME_CONTROLLER_URL missing)")
         before = {"desired_state": current_state.value, "observed_state": actual}
         if actual is None:
-            observed = await _best_effort_secondary_before(sidecar, container, current_state.value)
+            observed = await _best_effort_secondary_before(runtime_controller, container, current_state.value)
             before["observed_state"] = observed["observed_state"]
         operation_id = _begin_runtime_operation(
             history_store,
@@ -1167,9 +1167,9 @@ def build_router(
         )
         try:
             stopped_containers = (
-                await sidecar.stop(container, plan_digest=plan_digest)
+                await runtime_controller.stop(container, plan_digest=plan_digest)
                 if plan_digest
-                else await sidecar.stop(container)
+                else await runtime_controller.stop(container)
             )
         except RuntimeControllerRequestError as exc:
             _finish_runtime_operation(
@@ -1182,7 +1182,7 @@ def build_router(
                 verification=None,
                 error={"code": "sidecar_request_rejected", "status_code": exc.status_code},
             )
-            return _with_operation_header(sidecar_request_error_response(exc), operation_id)
+            return _with_operation_header(runtime_controller_request_error_response(exc), operation_id)
         except RuntimeControllerUnavailableError as exc:
             await state_store.set(
                 service_key,
@@ -1200,12 +1200,12 @@ def build_router(
                 verification=None,
                 error={"code": "sidecar_unavailable"},
             )
-            return _with_operation_header(sidecar_unavailable_response(exc), operation_id)
+            return _with_operation_header(runtime_controller_unavailable_response(exc), operation_id)
         stopped = list(stopped_containers)
         apply_result = {"containers_stopped": stopped}
         try:
             verification = await _verify_secondary_transition(
-                sidecar,
+                runtime_controller,
                 container=container,
                 desired_state=desired_state,
                 started=[],
@@ -1250,14 +1250,14 @@ def build_router(
             "verification": verification,
         })
 
-    async def require_sidecar() -> RuntimeControllerClient:
-        if sidecar is None:
+    async def require_runtime_controller() -> RuntimeControllerClient:
+        if runtime_controller is None:
             raise ServiceError(
                 "MAIN_MODEL_CONTROL_UNAVAILABLE",
                 "Runtime Controller is not configured",
                 retry_after_seconds=5,
             )
-        return sidecar
+        return runtime_controller
 
     _s = _GW[("GET", "/admin/main-model")]
 
@@ -1303,15 +1303,15 @@ def build_router(
         },
     )
     async def get_main_model() -> JSONResponse:
-        client = await require_sidecar()
+        client = await require_runtime_controller()
         try:
             return JSONResponse(await client.main_model())
         except RuntimeControllerRequestError as exc:
             # 4xx는 요청이 잘못된 것이다. control plane 장애(503, retryable)로
             # 보고하면 성공할 수 없는 요청을 계속 재시도하게 된다.
-            return sidecar_request_error_response(exc)
+            return runtime_controller_request_error_response(exc)
         except RuntimeControllerUnavailableError as exc:
-            return sidecar_unavailable_response(exc)
+            return runtime_controller_unavailable_response(exc)
 
     _s = _GW[("GET", "/admin/main-model/profiles")]
 
@@ -1340,15 +1340,15 @@ def build_router(
         },
     )
     async def list_main_model_profiles() -> JSONResponse:
-        client = await require_sidecar()
+        client = await require_runtime_controller()
         try:
             return JSONResponse({"profiles": await client.main_model_profiles()})
         except RuntimeControllerRequestError as exc:
             # 4xx는 요청이 잘못된 것이다. control plane 장애(503, retryable)로
             # 보고하면 성공할 수 없는 요청을 계속 재시도하게 된다.
-            return sidecar_request_error_response(exc)
+            return runtime_controller_request_error_response(exc)
         except RuntimeControllerUnavailableError as exc:
-            return sidecar_unavailable_response(exc)
+            return runtime_controller_unavailable_response(exc)
 
     _s = _GW[("POST", "/admin/main-model/switch")]
 
@@ -1408,7 +1408,7 @@ def build_router(
                 f"unsupported fields: {sorted(unknown)}",
                 param=sorted(unknown)[0],
             )
-        client = await require_sidecar()
+        client = await require_runtime_controller()
         try:
             result = await client.switch_main_model(
                 payload["profile"],
@@ -1417,9 +1417,9 @@ def build_router(
             )
             return JSONResponse(result, status_code=202)
         except RuntimeControllerRequestError as exc:
-            return sidecar_request_error_response(exc)
+            return runtime_controller_request_error_response(exc)
         except RuntimeControllerUnavailableError as exc:
-            return sidecar_unavailable_response(exc)
+            return runtime_controller_unavailable_response(exc)
 
     _s = _GW[("GET", "/admin/main-model/operations")]
 
@@ -1445,13 +1445,13 @@ def build_router(
         },
     )
     async def list_main_model_operations() -> JSONResponse:
-        client = await require_sidecar()
+        client = await require_runtime_controller()
         try:
             return JSONResponse(await client.main_model_operations())
         except RuntimeControllerRequestError as exc:
-            return sidecar_request_error_response(exc)
+            return runtime_controller_request_error_response(exc)
         except RuntimeControllerUnavailableError as exc:
-            return sidecar_unavailable_response(exc)
+            return runtime_controller_unavailable_response(exc)
 
     _s = _GW[("GET", "/admin/main-model/operations/{operation_id}")]
 
@@ -1478,14 +1478,14 @@ def build_router(
     )
     async def get_main_model_operation(request: Request) -> JSONResponse:
         operation_id = str(request.path_params["operation_id"])
-        client = await require_sidecar()
+        client = await require_runtime_controller()
         try:
             return JSONResponse(await client.main_model_operation(operation_id))
         except RuntimeControllerRequestError as exc:
             # 404(없는 operation)는 여기서 NOT_FOUND / retryable=false로 나간다.
-            return sidecar_request_error_response(exc)
+            return runtime_controller_request_error_response(exc)
         except RuntimeControllerUnavailableError as exc:
-            return sidecar_unavailable_response(exc)
+            return runtime_controller_unavailable_response(exc)
 
     # 메인 정지/시작은 별도 엔드포인트가 아니다: 메인 모델도 예산 참여자이며
     # 통일된 fleet verb인 PATCH /admin/runtimes/main {desired_state}로

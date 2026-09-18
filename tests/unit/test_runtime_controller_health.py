@@ -163,12 +163,3 @@ def test_runtime_controller_refuses_to_start_when_declared_internal_auth_has_no_
     )
     assert admitted.internal_service_token == "real-internal-token"
 
-
-def test_legacy_admin_sidecar_module_reexports_canonical_application_contract(tmp_path, monkeypatch):
-    controller = _load_runtime_controller(tmp_path, monkeypatch)
-    import ai_model_serving.apps.admin_sidecar as legacy
-
-    legacy = importlib.reload(legacy)
-    assert legacy.app is controller.app
-    assert legacy.SidecarConfig is controller.RuntimeControllerConfig
-    assert legacy.load_sidecar_config is controller.load_runtime_controller_config
