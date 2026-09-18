@@ -25,7 +25,10 @@ profiles:
     revision: 8edbb9269ec9c3faad538ee1208a07eb46051f34
     served_model_name: local-main
     compatibility:
-      # verified만 별도 확인 없이 전환할 수 있다.
+      # 현재 deployment/runtime 조합에서 기술적으로 호환되는 profile이다.
+      status: compatible
+    qualification:
+      # 실제 검증 근거가 완료된 profile만 별도 확인 없이 전환한다.
       status: verified
     capabilities:
       # Gateway 허용 입력이자 switch-time media boot canary의 단일 source of truth다 --
@@ -153,7 +156,10 @@ profiles:
     # CI/deploy가 derived image digest를 주입한다.
     image: ${MAIN_MODEL_VLLM_IMAGE_OVERRIDE}
     compatibility:
-      # verified만 별도 확인 없이 전환할 수 있다.
+      # 현재 deployment/runtime 조합에서 기술적으로 호환되는 profile이다.
+      status: compatible
+    qualification:
+      # 실제 검증 근거가 완료된 profile만 별도 확인 없이 전환한다.
       status: verified
     capabilities:
       # Gateway 허용 입력이자 switch-time media boot canary의 단일 source of truth다 --
@@ -226,6 +232,8 @@ profiles:
       # 배포본에서 실측했고, 12B/26B 회귀와 리소스 한도 확정(65K context, seqs=4,
       # 15,000 출력)까지 끝냈다. 전환 실패 rollback은 세 profile이 공유하는 플랫폼
       # 메커니즘이라 E4B 고유 조건에서 제외했다(12B/26B도 검증한 적 없음).
+      status: compatible
+    qualification:
       status: verified
     capabilities:
       # 이 집합은 Gateway 허용 입력과 switch-time media canary의 단일 기준이다.
@@ -400,6 +408,8 @@ profiles:
       # 2026-08-14: 독립된 재부팅 2회에서 text/image/audio/video switch-time canary를 모두
       # 통과했고, Gateway 경유 response_format/logprobs/top_logprobs/logit_bias/
       # stream+logprobs/json_schema+logit_bias 계약까지 실측해 verified로 승격했다.
+      status: compatible
+    qualification:
       status: verified
     capabilities:
       # Gateway 허용 입력이자 switch-time media boot canary의 단일 source of truth다.
