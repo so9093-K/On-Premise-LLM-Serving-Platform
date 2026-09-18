@@ -117,7 +117,7 @@ def test_stop_and_already_active_plans_are_explicit_noop_or_budget_change() -> N
     assert stopped_with_irrelevant_force.digest == stopped.digest
 
 
-def test_runtime_request_parser_is_strict_and_digest_is_optional_for_legacy_apply() -> None:
+def test_runtime_request_parser_enforces_types_fields_and_digest_format() -> None:
     assert parse_runtime_transition_request(
         {"desired_state": "active", "force": False}, allow_plan_digest=True
     ) == ("active", False, None)

@@ -104,7 +104,7 @@ def test_runtime_plan_projects_sidecar_container_names_to_public_service_keys() 
     assert body["plan_digest"] == _DIGEST
 
 
-def test_runtime_apply_forwards_reviewed_plan_digest_without_breaking_legacy_shape() -> None:
+def test_runtime_apply_forwards_reviewed_plan_digest() -> None:
     clients = FakeGatewayClients()
     sidecar = PlanningSidecar()
     clients.runtime_controller = sidecar

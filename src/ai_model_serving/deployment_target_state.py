@@ -19,12 +19,6 @@ def validate_deployment_target_state(
     raw: dict[str, Any],
 ) -> DeploymentTargetState:
     """Validate the canonical Deployment Target implementation and qualification axes."""
-    if "validation_status" in raw:
-        raise ValueError(
-            f"deployment target {target_id!r} uses removed legacy validation_status; "
-            "use implementation_status and qualification_status"
-        )
-
     implementation = raw.get("implementation_status")
     qualification = raw.get("qualification_status")
     if not isinstance(implementation, str) or implementation not in IMPLEMENTATION_STATUSES:
