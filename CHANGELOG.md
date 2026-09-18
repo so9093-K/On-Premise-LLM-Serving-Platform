@@ -22,6 +22,8 @@
 
 ### Changed
 
+- Risk Signal Service의 active service identity를 `risk-adapter`에서 `risk-signal-service`로 수렴했다. Compose/DNS, health payload, metrics/logging identity, Prometheus job, Grafana query, runtime validation과 OpenAPI artifact(`openapi.risk-signal-service.yaml`)가 같은 이름을 사용한다. Python/config/env의 `risk_adapter` / `RISK_ADAPTER_*` namespace는 별도 migration으로 남긴다.
+
 - Deployment Target `control_mode`의 `sidecar` 값을 제거하고 `runtime_controller`로 수렴했다. Control Plane Bootstrap은 이 breaking contract를 명시하기 위해 v4로 올라가며, `static` target은 기존 의미를 유지한다. ([ADR-0020](docs/adr/0020-runtime-control-and-deployment-targets.md))
 
 - Runtime Controller의 active service identifier를 `admin-sidecar` / `admin_sidecar`에서 `runtime-controller` / `runtime_controller`로 수렴했다. Compose service와 DNS, Gateway `RUNTIME_CONTROLLER_URL`, rolling deploy, Docker socket boundary test, telemetry service key와 current 운영 문서가 모두 같은 identifier를 사용한다. historical ADR/CHANGELOG의 당시 명칭만 기록으로 남긴다.

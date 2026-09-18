@@ -148,7 +148,7 @@ class RiskAssessmentService:
             code = system_signal_code(exc)
             detail = exc.message
             if exc.code == "VALIDATION_ERROR":
-                detail = "Detector upstream rejected the request. Check risk-adapter and risk-prompt logs with the assessment time."
+                detail = "Detector upstream rejected the request. Check risk-signal-service and risk-prompt logs with the assessment time."
             if self.metrics is not None:
                 self.metrics.record_upstream_error(detector.source_model, exc.operational_code)
             response = assessment_response(

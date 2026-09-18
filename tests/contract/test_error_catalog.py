@@ -29,7 +29,7 @@ def test_generated_openapi_scopes_errors_by_endpoint_and_effective_auth():
         "QUEUE_TIMEOUT",
     }
 
-    local_pii = documents["risk-adapter"]["paths"][
+    local_pii = documents["risk-signal-service"]["paths"][
         "/v1/risk/detectors/pii/assessments"
     ]["post"]["responses"]
     assert not {"429", "502", "503", "504"} & set(local_pii)

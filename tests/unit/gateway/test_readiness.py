@@ -30,10 +30,10 @@ def test_gateway_readiness_reflects_risk_adapter_body_status():
     clients.risk_adapter = FakeRuntimeClient(
         get_response={
             "status": "not_ready",
-            "service": "risk-adapter",
+            "service": "risk-signal-service",
             "dependencies": [{"name": "risk_prompt_vllm", "status": "not_ready"}],
         },
-        endpoint=RuntimeEndpoint("risk-adapter", "http://risk", "risk-adapter", 1),
+        endpoint=RuntimeEndpoint("risk-signal-service", "http://risk", "risk-signal-service", 1),
     )
     client = TestClient(create_gateway_app(settings(), clients))
 
