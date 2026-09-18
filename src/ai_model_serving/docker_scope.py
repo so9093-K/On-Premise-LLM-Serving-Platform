@@ -66,24 +66,35 @@ def scoped_container_id(
     return container_id
 
 
+def one_scoped_container_row(
+    rows: object,
+    *,
+    project: str,
+    service: str,
+) -> Mapping[str, Any] | None:
+    if not isinstance(rows, list):
+        raise RuntimeError("Docker container listing must be a list")
+    if any(not isinstance(row, Mapping) for row in rows):
+        raise RuntimeError("Docker container listing contains a non-object row")
+    if len(rows) > 1:
+        raise RuntimeError(
+            f"multiple containers found for scoped service {service!r} "
+            f"in Compose project {require_compose_project(project)!r}: {len(rows)}"
+        )
+    if not rows:
+        return None
+    row = rows[0]
+    scoped_container_id(row, project=project, service=service)
+    return row
+
+
 def one_scoped_container_id(
     rows: object,
     *,
     project: str,
     service: str,
 ) -> str | None:
-    if not isinstance(rows, list):
-        raise RuntimeError("Docker container listing must be a list")
-    ids = [
-        scoped_container_id(row, project=project, service=service)
-        for row in rows
-        if isinstance(row, Mapping)
-    ]
-    if len(ids) != len(rows):
-        raise RuntimeError("Docker container listing contains a non-object row")
-    if len(ids) > 1:
-        raise RuntimeError(
-            f"multiple containers found for scoped service {service!r} "
-            f"in Compose project {require_compose_project(project)!r}: {len(ids)}"
-        )
-    return ids[0] if ids else None
+    row = one_scoped_container_row(rows, project=project, service=service)
+    if row is None:
+        return None
+    return scoped_container_id(row, project=project, service=service)
