@@ -5,7 +5,7 @@ from typing import Any
 
 from .configuration import load_yaml_mapping
 from .media_samples import TINY_MP4_VIDEO_B64
-from .main_model.profile_state import normalize_profile_state
+from .main_model.profile_state import validate_profile_state
 from .project_paths import resolve_project_root
 from .services.readiness import dependency_endpoint
 
@@ -789,7 +789,7 @@ def main_model_profile_example(profile_id: str, *, active: bool | None = None) -
     """
     document = _main_model_profiles()
     profile = document["profiles"][profile_id]
-    profile_state = normalize_profile_state(
+    profile_state = validate_profile_state(
         profile_id,
         profile.get("compatibility", {}),
         profile.get("qualification"),
