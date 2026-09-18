@@ -13,6 +13,7 @@ from .model_config import (
 )
 from .runtime_topology import validate_runtime_prerequisite_projection
 from .terminology import validate_canonical_terminology
+from .qualification import validate_qualification_evidence
 from .schemas import (
     validate_common_error_codes,
     validate_openapi_refs,
@@ -31,6 +32,7 @@ from .vllm_image import validate_vllm_unified_build_inputs
 CHECKS = [
     validate_configuration_schema,
     validate_canonical_terminology,
+    validate_qualification_evidence,
     validate_deployment_targets,
     validate_deploy_profiles,
     validate_runtime_prerequisite_projection,
