@@ -31,7 +31,7 @@ services:
 
   # PII·secret·Prompt Injection detector 결과를 정규화하는 내부 Risk Signal Service.
   risk_adapter:
-    compose_service: risk-adapter
+    compose_service: risk-signal-service
     container_port: 9405
     host_env_port: RISK_ADAPTER_PORT
     default_host_port: 9405
