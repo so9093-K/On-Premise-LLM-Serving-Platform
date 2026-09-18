@@ -126,9 +126,10 @@ RESTORE_FAILURES=()
 RUNTIME_STARTUP_PROFILE_EFFECTIVE=""
 RESTORING_RELEASE=0
 ENV_BACKUP_CREATED=0
+PREFLIGHT_ENV_FILE=""
 cleanup_generated_files() {
   local path
-  for path in "${MAIN_MODEL_BOOT_OVERRIDE:-}"; do
+  for path in "${MAIN_MODEL_BOOT_OVERRIDE:-}" "${PREFLIGHT_ENV_FILE:-}"; do
     if [[ -n "${path}" ]]; then
       rm -f "${path}"
     fi
@@ -447,6 +448,19 @@ compute_recreate_set() {
   } | awk 'NF && !seen[$0]++'
 }
 
+prepare_runtime_preflight_env() {
+  PREFLIGHT_ENV_FILE="$(mktemp "${TMPDIR:-/tmp}/runtime-preflight-env.XXXXXX")"
+  if ! cp "${COMPOSE_ENV_FILE}" "${PREFLIGHT_ENV_FILE}"; then
+    echo "[deploy] ERROR: cannot prepare temporary env for runtime image preflight" >&2
+    return 1
+  fi
+  echo "[deploy] canonicalizing temporary env before runtime image preflight..."
+  if ! make sync-env ENV_FILE="${PREFLIGHT_ENV_FILE}"; then
+    echo "[deploy] ERROR: env migration preflight failed; persistent .env was not modified" >&2
+    return 1
+  fi
+}
+
 pull_preflight_image() {
   local label="$1"
   local image="$2"
@@ -488,10 +502,24 @@ if ! ensure_platform_runtime_dir "${DEPLOY_PATH}/${REQUEST_EVENT_LOG_DIR_RELPATH
 fi
 
 if [[ "${DEPLOY_MODE}" == "full" ]]; then
+  # persistent .env는 image pull 성공 전까지 수정하지 않는다. 대신 복사본을 먼저
+  # sync-env로 canonicalize해, legacy persistent key를 deploy helper가 직접 해석하지
+  # 않아도 실제 배포가 사용할 post-migration image pin으로 preflight한다.
+  prepare_runtime_preflight_env
+  _persistent_env_file="${COMPOSE_ENV_FILE}"
+  COMPOSE_ENV_FILE="${PREFLIGHT_ENV_FILE}"
+  if ! deploy_resolve_runtime_image_plan; then
+    COMPOSE_ENV_FILE="${_persistent_env_file}"
+    echo "[deploy] ERROR: failed to resolve runtime image plan from canonical preflight env" >&2
+    exit 2
+  fi
+  COMPOSE_ENV_FILE="${_persistent_env_file}"
+  rm -f "${PREFLIGHT_ENV_FILE}"
+  PREFLIGHT_ENV_FILE=""
+
   # VLLM_IMAGE 하나가 main/embedding/embedding-ko/risk-prompt가 공유하는
   # persistent runtime image authority다. 같은 artifact를 consumer 이름별로 다시
   # pull하지 않고 shared image identity를 한 번만 검증한다.
-  deploy_resolve_runtime_image_plan
   pull_required_runtime_image "shared vLLM" "${VLLM_IMAGE_EFFECTIVE}"
 
   # Main Model profile override가 shared image와 다른 경우에만 별도 artifact를

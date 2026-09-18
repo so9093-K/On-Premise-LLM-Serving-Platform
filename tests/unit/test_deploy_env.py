@@ -88,7 +88,7 @@ def test_profile_override_remains_independent_from_shared_promotion(tmp_path: Pa
     assert promotion == "|".join([unified, profile_override])
 
 
-def test_legacy_audio_key_is_read_as_profile_override_during_migration(tmp_path: Path):
+def test_runtime_image_plan_does_not_read_legacy_profile_override(tmp_path: Path):
     env_file = tmp_path / ".env"
     legacy = "registry.example/legacy-profile@sha256:" + "e" * 64
     env_file.write_text(
@@ -100,5 +100,5 @@ def test_legacy_audio_key_is_read_as_profile_override_during_migration(tmp_path:
     effective, promotion = _resolve(env_file)
 
     shared = "registry.example/shared@sha256:" + "1" * 64
-    assert effective == "|".join([shared, legacy])
+    assert effective == "|".join([shared, ""])
     assert promotion == "|"
