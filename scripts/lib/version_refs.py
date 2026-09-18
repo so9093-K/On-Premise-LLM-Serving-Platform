@@ -39,7 +39,7 @@ class LineRef:
 LINE_REFS: tuple[LineRef, ...] = (
     LineRef('pyproject.toml', r'(?m)^version = ".+"$', 'version = "{python_version}"'),
     LineRef('specs/openapi.gateway.yaml', r'(?m)^  version: .+$', '  version: {version}'),
-    LineRef('specs/openapi.risk-adapter.yaml', r'(?m)^  version: .+$', '  version: {version}'),
+    LineRef('specs/openapi.risk-signal-service.yaml', r'(?m)^  version: .+$', '  version: {version}'),
     LineRef(
         '.env.compose.example',
         r'(?m)^PLATFORM_IMAGE=ai-model-serving-platform:.+$',
