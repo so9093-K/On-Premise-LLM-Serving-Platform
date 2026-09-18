@@ -22,6 +22,8 @@
 
 ### Changed
 
+- Deployment Target 상태 계약을 canonical 두 축으로 수렴하고 Control Plane Bootstrap을 v3로 올렸다. `validation_status` legacy projection과 parser를 제거했으며, `implementation_status`가 구현 여부를, `qualification_status`가 검증 근거를 각각 소유한다. ([ADR-0020](docs/adr/0020-runtime-control-and-deployment-targets.md), [ADR-0030](docs/adr/0030-target-architecture-state-and-artifact-boundary.md))
+
 - Main Model Admin API의 상태 계약을 canonical 두 축으로 수렴했다. `compatibility.status`는 이제 `compatible / incompatible / unknown`만 반환하고, 실제 검증 수준은 `qualification.status`가 소유한다. migration용 `technical_status`와 `verified / likely / unverified` legacy compatibility projection, 이를 유지하던 변환 코드와 전용 테스트를 제거했다. ([ADR-0030](docs/adr/0030-target-architecture-state-and-artifact-boundary.md))
 
 - Main Model `verified` qualification을 machine-readable evidence와 연결했다. `configs/qualification_evidence.yaml`이 검증 record를 소유하고, CI는 현재 profile의 model ID/revision/deployed capability와 일치하는 passed evidence가 없으면 실패한다. 기존 검증은 누락 fingerprint를 추측하지 않는 `legacy_backfill`로 이관하고, 새 `qualified_run`은 검증 시각·runtime engine/version·resolved image digest·GPU·driver와 수행한 named checks를 필수로 기록한다. ([ADR-0032](docs/adr/0032-qualification-evidence-v1.md))
