@@ -32,7 +32,6 @@ from ..docker_scope import (
     require_compose_project,
     scoped_container_id,
 )
-from ..env_compat import renamed_env_value
 from ..settings_parts.env import as_bool, is_default_secret
 from ..runtime_topology import load_runtime_topology
 from ..runtime_transition import plan_runtime_transition
@@ -99,22 +98,9 @@ def load_runtime_controller_config(
         compose_project=environment.get("COMPOSE_PROJECT", ""),
         config_root=config_root,
         state_path=Path(environment.get("MAIN_MODEL_STATE_PATH", str(default_state_path))),
-        boot_profile=renamed_env_value(
-            environment,
-            "MAIN_MODEL_BOOT_PROFILE",
-            "MAIN_LLM_BOOT_PROFILE",
-        ) or None,
-        profile_locked=renamed_env_value(
-            environment,
-            "MAIN_MODEL_PROFILE_LOCKED",
-            "MAIN_LLM_PROFILE_LOCKED",
-            "false",
-        ).lower() == "true",
-        idempotency_ttl_seconds=renamed_env_value(
-            environment,
-            "MAIN_MODEL_SWITCH_IDEMPOTENCY_TTL_SECONDS",
-            "MAIN_LLM_SWITCH_IDEMPOTENCY_TTL_SECONDS",
-        ) or None,
+        boot_profile=environment.get("MAIN_MODEL_BOOT_PROFILE") or None,
+        profile_locked=environment.get("MAIN_MODEL_PROFILE_LOCKED", "false").lower() == "true",
+        idempotency_ttl_seconds=environment.get("MAIN_MODEL_SWITCH_IDEMPOTENCY_TTL_SECONDS") or None,
         internal_service_token=internal_service_token,
         internal_service_auth_required=internal_service_auth_required,
         gateway_internal_url=environment.get("GATEWAY_INTERNAL_URL") or _default_gateway_internal_url(config_root),
