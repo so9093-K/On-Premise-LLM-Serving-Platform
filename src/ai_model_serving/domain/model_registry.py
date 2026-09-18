@@ -140,6 +140,12 @@ class ModelRegistry:
         for record in self.iter_records():
             if record.serving_key is None:
                 continue
+            # Main Model checkpoint identity is profile-owned and changes when the
+            # active profile changes. Requiring a static catalog/serving copy here
+            # would recreate a second Source of Truth. Fixed non-main runtimes keep
+            # the existing exact alignment check.
+            if record.role == "main_llm":
+                continue
             serving_cfg = self._serving_models()[record.serving_key]
             if str(serving_cfg.get("name", "")) != record.upstream_model_id:
                 issues.append(RegistryIssue("upstream_model_mismatch", f"{record.logical_id} upstream model id disagrees between catalog and serving config."))
