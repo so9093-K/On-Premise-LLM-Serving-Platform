@@ -18,7 +18,7 @@ _CODE_TITLES: dict[str, str] = {
 def _detected_codes_block(labels_by_code: dict[str, tuple[str, ...]]) -> str:
     """탐지기가 실제로 내보내는 라벨 목록에서 문서의 코드 표를 만든다.
 
-    예전에는 이 목록을 설명 문자열에 손으로 적어두고 gateway/risk-adapter 두
+    예전에는 이 목록을 설명 문자열에 손으로 적어두고 gateway/risk-signal-service 두
     군데에 복사해뒀다. 그래서 ANTHROPIC_API_KEY가 추가됐을 때 네 곳이 그대로
     뒤처졌고, OpenAPI 스냅샷 비교는 description을 보지 않아 아무도 몰랐다.
     """
