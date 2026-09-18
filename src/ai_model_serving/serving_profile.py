@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from .configuration import load_yaml_mapping
-from .main_model.profile_state import normalize_profile_state
+from .main_model.profile_state import validate_profile_state
 
 
 NAMED_TOOL_CHOICE_UPSTREAM_REQUIRED_SINGLE = "required_single"
@@ -65,7 +65,7 @@ def load_main_serving_catalog(path: Path) -> MainServingCatalog:
                     f"named_tool_choice_upstream: {mode!r}"
                 )
         try:
-            profile_state = normalize_profile_state(
+            profile_state = validate_profile_state(
                 str(profile_id),
                 raw.get("compatibility", {}),
                 raw.get("qualification"),
