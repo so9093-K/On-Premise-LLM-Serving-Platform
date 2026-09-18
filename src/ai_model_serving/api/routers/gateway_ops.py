@@ -149,11 +149,11 @@ def build_router(admin_dependencies: list, clients: Any, metrics: Any, settings:
         responses={401: {"description": "Admin Bearer token 필요"}},
     )
     async def metrics_endpoint():
-        sidecar = getattr(clients, "sidecar", None)
-        if sidecar is not None:
+        runtime_controller = getattr(clients, "runtime_controller", None)
+        if runtime_controller is not None:
             try:
                 # metric projection은 ledger 필드만 읽는다.
-                metrics.project_main_model(await sidecar.main_model(observed=False))
+                metrics.project_main_model(await runtime_controller.main_model(observed=False))
             except RuntimeControllerUnavailableError:
                 metrics.main_model_gate.labels(metrics.service).set(0)
         return metrics.response()
