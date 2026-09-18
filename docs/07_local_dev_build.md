@@ -425,9 +425,13 @@ Unified vLLM Image의 주요 build 입력은 다음과 같다.
 | `configs/vllm_unified_build.yaml` | Target platform, base image와 compatibility pin 관리 |
 | `ops/images/vllm-unified/requirements.media.lock` | 고정 vLLM base에서 검증하는 multimodal media overlay |
 | `ops/patches/apply_gemma4_multimodal_patches.py` | Gemma4 multimodal compatibility patch |
+| `ops/patches/apply_gemma4_streaming_reasoning_patch.py` | Gemma4 streaming reasoning/content parser compatibility patch |
 | `ops/patches/transformers_llama_head_dim_guard.py` | Prompt Risk Llama `head_dim` compatibility patch |
+| `scripts/build/build_vllm_unified_image.sh` | Native target 확인과 Docker build argument 조립 |
+| `scripts/models/print_vllm_unified_compatibility.py` | build config의 target/dependency pin projection |
 
-Build script는 `configs/vllm_unified_build.yaml`에서 base image와 compatibility version을 읽어 Docker build argument로 전달한다.
+Build script는 `print_vllm_unified_compatibility.py`를 통해 `configs/vllm_unified_build.yaml`의
+target platform과 compatibility version을 읽어 Docker build argument로 전달한다.
 
 Unified vLLM Image는 다음 변경에서 다시 빌드한다.
 

@@ -300,10 +300,13 @@ Unified vLLM Image는 Main Model, Embedding, Korean Embedding, Prompt Risk Runti
 주요 Build 입력:
 
 - `ops/images/vllm-unified/Dockerfile`
+- `configs/vllm_unified_build.yaml`
 - `ops/images/vllm-unified/requirements.media.lock`
 - `ops/patches/apply_gemma4_multimodal_patches.py`
+- `ops/patches/apply_gemma4_streaming_reasoning_patch.py`
 - `ops/patches/transformers_llama_head_dim_guard.py`
-- `configs/vllm_unified_build.yaml`
+- `scripts/build/build_vllm_unified_image.sh`
+- `scripts/models/print_vllm_unified_compatibility.py`
 
 ```text
 Dockerfile / Patch / Compatibility
