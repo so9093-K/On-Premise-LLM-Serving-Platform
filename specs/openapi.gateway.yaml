@@ -4187,7 +4187,7 @@ paths:
                     error:
                       code: MAIN_MODEL_CONTROL_UNAVAILABLE
                       message: 'Runtime Controller unavailable: Connection refused
-                        http://admin-sidecar:8080'
+                        http://runtime-controller:8080'
                       retryable: true
                       request_id: req_00000000000000000000000000000000
                 in_progress:
