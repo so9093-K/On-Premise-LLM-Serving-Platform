@@ -28,7 +28,7 @@
 | **Control Plane** | runtime·configuration·model profile을 운영하는 관리 계층 | `/admin/*`, Console |
 | **Control Plane Console** | Control Plane API를 same-origin으로 사용하는 first-party 운영자 UI | `/admin/console/` |
 | **Configuration Plane** | operator-owned 설정의 metadata, effective value, Plan/Apply/Verify와 history를 관리하는 계층 | `/admin/configuration/*` |
-| **Runtime Controller** | runtime lifecycle, Main Model 전환, reconciliation과 Docker 제어를 담당 | canonical Python client: `runtime_controller_client` / `RuntimeControllerClient`; legacy service/module IDs include `admin-sidecar` / `admin_sidecar` |
+| **Runtime Controller** | runtime lifecycle, Main Model 전환, reconciliation과 Docker 제어를 담당 | service ID `runtime-controller`, telemetry/module identifier `runtime_controller`, Python client `runtime_controller_client` / `RuntimeControllerClient` |
 | **Model Runtime** | 실제 model inference/embedding/detection을 수행하는 실행 단위 | vLLM/MLX runtime |
 | **Main Model Runtime** | `local-main` 요청을 수행하는 주 generation runtime | `main-llm-vllm` |
 | **Embedding Runtime** | embedding과 dense retrieval scoring에 사용하는 runtime | `embedding-vllm` |
@@ -112,7 +112,7 @@ canonical과 legacy 값이 동시에 존재하면서 다르면 fail-closed를 �
 canonical target을 정하고, 그 다음에 migration 순서와 기간을 결정한다.
 
 사용자-facing 표시명 변경은 안정 식별자 변경과 묶지 않는다. 예를 들어 Console과 문서는
-**Runtime Controller**라고 표시하되 Compose service ID `admin-sidecar`는 별도 migration 전까지
+**Runtime Controller**라고 표시하고 Compose service ID도 `runtime-controller`를 사용한다. 과거 `admin-sidecar`는 historical
 그대로 유지한다.
 
 API 오류 메시지·OpenAPI 설명/예제·CLI help·Console help·운영 설정의 description도
