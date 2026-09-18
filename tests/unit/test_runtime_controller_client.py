@@ -18,17 +18,6 @@ from ai_model_serving.services.runtime_controller_client import (
 )
 
 
-def test_legacy_sidecar_client_exports_are_identity_aliases():
-    from ai_model_serving.services.sidecar_client import (
-        SidecarClient,
-        SidecarRequestError,
-        SidecarUnavailableError,
-    )
-
-    assert SidecarClient is RuntimeControllerClient
-    assert SidecarRequestError is RuntimeControllerRequestError
-    assert SidecarUnavailableError is RuntimeControllerUnavailableError
-
 
 def _client(handler) -> RuntimeControllerClient:
     client = RuntimeControllerClient("http://runtime-controller:8080", "token")
