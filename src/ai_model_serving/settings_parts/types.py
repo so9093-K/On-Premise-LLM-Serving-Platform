@@ -137,10 +137,15 @@ class AppSettings:
     streaming_max_duration_seconds: float = 300.0
     streaming_max_chunks: int = 20_000
     streaming_max_bytes: int = 104_857_600
-    admin_sidecar_url: str = ""
+    runtime_controller_url: str = ""
     static_main_profile: str = ""
     deploy_release_id: str = ""
     log_request_response_body: bool = False
+
+    @property
+    def admin_sidecar_url(self) -> str:
+        """Legacy read alias for the canonical Runtime Controller endpoint."""
+        return self.runtime_controller_url
 
     def runtime_service_id(self, runtime_key: str) -> str:
         """이 runtime이 배포 토폴로지에서 갖는 service 식별자를 반환한다."""

@@ -8,12 +8,12 @@ from fastapi import APIRouter, Body, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 
 from ..endpoint_spec import GATEWAY_ENDPOINTS
-from ..error_responses import sidecar_request_error_response, sidecar_unavailable_response
+from ..error_responses import runtime_controller_request_error_response, runtime_controller_unavailable_response
 from ...errors import ServiceError, error_payload, error_response_headers
 from ...domain.request_surfaces import chat_request_limit_surface, chat_request_parameter_surface
 from ...logging_policy import record_request_response_preview, record_upstream_response
 from ...services.runtime_state import RuntimeState, RuntimeStateStore
-from ...services.sidecar_client import SidecarClient, SidecarRequestError, SidecarUnavailableError
+from ...services.runtime_controller_client import RuntimeControllerClient, RuntimeControllerRequestError, RuntimeControllerUnavailableError
 from ...services.main_model_inflight import MainModelInFlight
 from ...services.responses_service import ResponsesService
 
@@ -176,7 +176,7 @@ def build_router(
     service: Any,
     settings: Any,
     state_store: RuntimeStateStore | None = None,
-    sidecar: SidecarClient | None = None,
+    sidecar: RuntimeControllerClient | None = None,
     main_model_inflight: MainModelInFlight | None = None,
     *,
     include_embeddings: bool = True,
@@ -192,10 +192,10 @@ def build_router(
             return None, None, None
         try:
             main_model = await sidecar.main_model(observed=False)
-        except SidecarRequestError as exc:
-            return None, None, sidecar_request_error_response(exc)
-        except SidecarUnavailableError as exc:
-            return None, None, sidecar_unavailable_response(exc)
+        except RuntimeControllerRequestError as exc:
+            return None, None, runtime_controller_request_error_response(exc)
+        except RuntimeControllerUnavailableError as exc:
+            return None, None, runtime_controller_unavailable_response(exc)
         if main_model.get("gate") != "open":
             operation = main_model.get("last_operation") or {}
             body = error_payload(
@@ -239,7 +239,7 @@ def build_router(
             try:
                 # /v1/models는 active profile의 modality·정책만 읽는다.
                 active_snapshot = await sidecar.main_model(observed=False)
-            except SidecarUnavailableError:
+            except RuntimeControllerUnavailableError:
                 # 이 라우트는 경로/본문 파라미터가 없어 4xx가 나올 수 없다.
                 active_snapshot = None
             if isinstance(active_snapshot, dict):
