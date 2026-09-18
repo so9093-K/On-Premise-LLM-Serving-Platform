@@ -269,6 +269,12 @@ Runtime Controller
   └─ /var/run/docker.sock
 ```
 
+Docker socket은 높은 신뢰가 필요한 control-plane 권한이다. `:ro` bind mount는 Docker API를
+read-only로 제한하는 authorization mechanism으로 취급하지 않는다. Runtime Controller의 Docker
+lookup은 `COMPOSE_PROJECT`와 service label을 함께 요구하고, daemon 응답 label도 다시 검증한다.
+project가 비어 있거나 동일 service가 중복으로 발견되면 자동 선택하지 않고 fail-closed한다.
+세부 threat model과 현재 한계는 [ADR-0031](./adr/0031-runtime-controller-docker-authority-boundary.md)을 따른다.
+
 ### Network Boundary
 
 Sidecar의 기본 port는 `8080`이며 Compose network 내부에서만 사용한다.
