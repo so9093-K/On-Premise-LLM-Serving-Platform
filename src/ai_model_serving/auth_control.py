@@ -341,7 +341,22 @@ def diagnose_auth(settings: AppSettings, project_root: Path) -> list[AuthFinding
 
         try:
             expected_access = access_profile_env_values(access_profile, project_root)
-            current_access = {key: _env(key, "") for key in expected_access}
+            services_data = _exposure_services(project_root)
+            legacy_by_canonical = {
+                str(service.get("host_env_bind")): str(service.get("legacy_host_env_bind"))
+                for service in services_data.values()
+                if isinstance(service, dict)
+                and service.get("host_env_bind")
+                and service.get("legacy_host_env_bind")
+            }
+            current_access = {
+                key: _env(
+                    key,
+                    "",
+                    legacy_name=legacy_by_canonical.get(key),
+                )
+                for key in expected_access
+            }
             access_mismatches = access_profile_mismatches(
                 access_profile, current_access, project_root
             )
