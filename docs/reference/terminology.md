@@ -69,10 +69,11 @@
 
 ## Migration namespaces
 
-다음 식별자는 현재 자동화와 runtime key에 넓게 연결되어 있어 **즉시 제거하지 않는 compatibility namespace**다.
-사용 범위가 크다는 사실은 migration 기간과 순서를 결정하지만 장기 canonical target 자체를 결정하지 않는다.
-새 코드와 설정은 역할 중심 target을 우선하고, 기존 identifier는 ADR-0030의 alias → migration → validation →
-legacy removal 순서를 따른다.
+legacy 유지 여부는 참조 수가 아니라 **실제 보존해야 할 계약**으로 결정한다.
+영속 데이터 손실을 막기 위한 migration, 외부 표준 호환, 명시적으로 안정화한 공개 계약이 아니면
+compatibility alias를 기본으로 만들지 않는다. 내부/process 식별자는 같은 release에서 모든 producer와
+consumer를 함께 바꿀 수 있으면 직접 cutover한다. migration bridge가 필요한 경우에도 신규 runtime
+계약으로 승격하지 않고 제거 조건을 명시한다.
 
 | Legacy namespace | Canonical target | 현재 정책 |
 |---|---|---|
@@ -100,20 +101,22 @@ canonical과 legacy 값이 동시에 존재하면서 다르면 fail-closed를 �
 
 ## 식별자 변경 정책
 
-기존 API field, endpoint, Compose service, environment key를 바꿀 때는 다음 순서를 따른다.
+기존 API field, endpoint, Compose service, environment key를 바꿀 때 기본 정책은 **canonical contract로 직접 cutover**하는 것이다.
+compatibility layer는 다음 중 하나가 구체적으로 성립할 때만 둔다.
 
-1. 새 canonical 식별자를 추가한다.
-2. 기존 식별자를 읽기 호환 alias로 유지하고 deprecation을 문서화한다.
-3. sync/migration 도구가 기존 persistent 값을 손실 없이 새 식별자로 이동한다.
-4. 모든 생성물·검증·테스트가 canonical 식별자를 사용하도록 수렴한다.
-5. 최소 한 호환 기간 뒤 legacy 식별자를 제거한다.
+1. 기존 persistent state/config 값을 읽지 못하면 업그레이드 과정에서 데이터 또는 운영 의도가 손실된다.
+2. OpenAI-compatible API처럼 외부 표준 호환 자체가 제품 기능이다.
+3. 버전 정책에서 안정화했다고 명시한 공개 계약을 실제 외부 consumer가 사용한다.
 
-변경 비용이나 현재 참조 수는 target state를 낮추는 근거로 사용하지 않는다. 먼저 의미와 책임에 맞는
-canonical target을 정하고, 그 다음에 migration 순서와 기간을 결정한다.
+이 경우에도 runtime dual-read를 영구 계약으로 만들지 않는다. 가능한 경우 `sync-env` 같은 migration 도구가
+기존 값을 canonical 형태로 한 번 옮기고, bridge에는 제거 조건을 함께 기록한다. 단순히 "기존 사용자가 있을 수 있다"는
+추측이나 참조 수가 많다는 이유만으로 alias를 유지하지 않는다.
 
-사용자-facing 표시명 변경은 안정 식별자 변경과 묶지 않는다. 예를 들어 Console과 문서는
-**Runtime Controller**라고 표시하고 Compose service ID도 `runtime-controller`를 사용한다. 과거 `admin-sidecar`는 historical
-그대로 유지한다.
+사용자-facing 표시명과 안정 식별자는 각각 의미에 맞게 canonicalize한다. 현재 Runtime Controller는
+표시명뿐 아니라 Compose service ID도 `runtime-controller`를 사용한다. 과거 `admin-sidecar`는 historical
+ADR/CHANGELOG에서 당시 사실을 설명할 때만 보존한다. `/admin/*`은 Control Plane 관리 API namespace이고
+옛 sidecar 이름의 호환 path가 아니다. `/v1/risk/*`도 Risk 도메인을 표현하는 현재 public API이며
+`risk-adapter` 이름을 보존하기 위한 alias가 아니다.
 
 API 오류 메시지·OpenAPI 설명/예제·CLI help·Console help·운영 설정의 description도
 사용자-facing 표시 계약에 포함한다. 이 surface에서는 `Runtime Controller`,
