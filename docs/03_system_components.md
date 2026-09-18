@@ -136,7 +136,7 @@ Main Model은 profile switching을 지원하므로 Chat Completions와 Responses
 ```text
 Gateway
   │
-  │ GET admin-sidecar /main-model
+  │ GET Runtime Controller /main-model
   ▼
 Main Model State
   │
@@ -407,7 +407,7 @@ Embedding이나 Risk처럼 Runtime Controller gate를 매 요청마다 사용하
 | Docker backend | `src/ai_model_serving/main_model/docker_backend.py` |
 | Main model state | `src/ai_model_serving/main_model/state.py` |
 | GPU budget | `src/ai_model_serving/gpu_budget.py` |
-| Gateway sidecar client | `src/ai_model_serving/services/sidecar_client.py` |
+| Runtime Controller client | `src/ai_model_serving/services/runtime_controller_client.py` |
 
 ---
 
