@@ -93,8 +93,27 @@ def _cors_settings() -> CorsSettings:
     return CorsSettings(allowed_origins=origins)
 
 
-def _env_name(model_key: str, suffix: str) -> str:
-    return f"{model_key.upper()}_{suffix}"
+def _runtime_env_names(
+    model_key: str,
+) -> tuple[str, str | None, str, str | None, str, str | None]:
+    if model_key == "main_llm":
+        return (
+            "MAIN_MODEL",
+            "MAIN_LLM",
+            "MAIN_MODEL_BASE_URL",
+            "MAIN_LLM_BASE_URL",
+            "MAIN_MODEL_ALIAS",
+            "MAIN_LLM_MODEL",
+        )
+    prefix = model_key.upper()
+    return (
+        prefix,
+        None,
+        f"{prefix}_BASE_URL",
+        None,
+        f"{prefix}_MODEL",
+        None,
+    )
 
 
 def _build_runtime_endpoints(
@@ -110,10 +129,22 @@ def _build_runtime_endpoints(
             continue
         if cfg.get("enabled", True) is not True:
             continue
+        (
+            env_prefix,
+            legacy_env_prefix,
+            env_url,
+            legacy_env_url,
+            env_model,
+            legacy_env_model,
+        ) = _runtime_env_names(str(model_key))
         endpoints[str(model_key)] = build_runtime_endpoint(
             model_key=str(model_key),
-            env_url=_env_name(str(model_key), "BASE_URL"),
-            env_model=_env_name(str(model_key), "MODEL"),
+            env_prefix=env_prefix,
+            legacy_env_prefix=legacy_env_prefix,
+            env_url=env_url,
+            legacy_env_url=legacy_env_url,
+            env_model=env_model,
+            legacy_env_model=legacy_env_model,
             timeout=timeout,
             models=models,
             operational_limits=operational_limits,
@@ -223,13 +254,17 @@ def load_settings(root: Path | None = None, env_file: Path | str | None = None) 
     static_main_profile = ""
     selected_main_profile = main_model_catalog.default_profile
     if deployment_target.control_mode == "static":
-        static_main_profile = _env("MAIN_LLM_STATIC_PROFILE", "").strip()
+        static_main_profile = _env(
+            "MAIN_MODEL_STATIC_PROFILE",
+            "",
+            legacy_name="MAIN_LLM_STATIC_PROFILE",
+        ).strip()
         if not static_main_profile:
-            raise RuntimeError("MAIN_LLM_STATIC_PROFILE is required for a static deployment target")
+            raise RuntimeError("MAIN_MODEL_STATIC_PROFILE is required for a static deployment target")
         if static_main_profile not in main_model_catalog.profiles:
             allowed = ", ".join(sorted(main_model_catalog.profiles))
             raise RuntimeError(
-                f"unknown MAIN_LLM_STATIC_PROFILE {static_main_profile!r}; allowed: {allowed}"
+                f"unknown MAIN_MODEL_STATIC_PROFILE {static_main_profile!r}; allowed: {allowed}"
             )
         selected_main_profile = static_main_profile
     version = (project_root / "VERSION").read_text(encoding="utf-8").strip()
