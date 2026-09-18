@@ -85,7 +85,7 @@ class ContractMainModelSidecar:
 
 def test_main_model_admin_reads_match_checked_in_contracts():
     clients = FakeGatewayClients()
-    clients.sidecar = ContractMainModelSidecar()
+    clients.runtime_controller = ContractMainModelSidecar()
     client = TestClient(create_gateway_app(settings(), clients))
 
     status = client.get("/admin/main-model")
