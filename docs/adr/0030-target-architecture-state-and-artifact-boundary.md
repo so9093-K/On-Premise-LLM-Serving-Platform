@@ -86,7 +86,7 @@ qualification_status: verified | unverified
 
 - 실행 가능한지 여부는 `implementation_status`가 소유한다.
 - 실제 검증 근거 수준은 `qualification_status`가 소유한다.
-- 기존 `validation_status` projection은 compatibility 기간 동안 유지할 수 있다.
+- 초기 migration에서 유지했던 `validation_status` projection은 compatibility 기간 뒤 제거되었다.
 
 ### 5. Main Model checkpoint identity는 Main Model Profile이 소유한다
 
@@ -181,8 +181,8 @@ SBOM, provenance, signature는 향후 OCI artifact metadata로 추가할 수 있
 
 이 ADR 이후의 구현 순서는 다음을 기본으로 한다.
 
-1. Main Model compatibility / qualification 분리와 legacy projection
-2. Deployment Target implementation / qualification 분리와 legacy projection
+1. Main Model compatibility / qualification 분리와 legacy projection 제거
+2. Deployment Target implementation / qualification 분리와 legacy projection 제거
 3. Main Model checkpoint Source of Truth 수렴
 4. Qualification evidence v1 — [ADR-0032](./0032-qualification-evidence-v1.md)
 5. official OpenAI SDK conformance

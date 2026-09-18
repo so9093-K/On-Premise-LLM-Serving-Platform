@@ -11,7 +11,7 @@ import { OperationsPage } from './OperationsPage';
 import { OverviewPage } from './OverviewPage';
 import { RuntimePage } from './RuntimePage';
 
-const SUPPORTED_BOOTSTRAP_VERSION = 2;
+const SUPPORTED_BOOTSTRAP_VERSION = 3;
 
 type Section = {
   path: string;

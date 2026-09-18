@@ -27,9 +27,8 @@ macOS 지원을 운영체제 분기로 구현하면 serving 계약과 runtime li
 - `qualification_status`: `verified` 또는 `unverified`
 - `features`: API와 운영 기능의 활성 집합
 
-기존 `validation_status`는 migration 기간의 legacy projection이다. 새 canonical config에는
-사용하지 않으며, 실행 가능 여부는 `implementation_status`가 소유하고 실제 검증 근거는
-`qualification_status`가 소유한다.
+`validation_status` migration projection은 제거되었다. 실행 가능 여부는
+`implementation_status`가 소유하고 실제 검증 근거는 `qualification_status`가 소유한다.
 
 `static`은 macOS의 별칭이 아니다. static에서는 runtime lifecycle을 외부가 소유하고
 Gateway는 고정 endpoint만 사용한다. 모델 switching, GPU admission, Docker reconciliation은

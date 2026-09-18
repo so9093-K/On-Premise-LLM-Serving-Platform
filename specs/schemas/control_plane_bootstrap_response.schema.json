@@ -15,7 +15,7 @@
   "properties": {
     "bootstrap_version": {
       "type": "integer",
-      "const": 2
+      "const": 3
     },
     "platform": {
       "type": "object",
@@ -44,7 +44,6 @@
         "display_name",
         "platform",
         "runtime_backend",
-        "validation_status",
         "qualification_status",
         "implementation_status",
         "control_mode",
@@ -68,15 +67,6 @@
         "runtime_backend": {
           "type": "string",
           "minLength": 1
-        },
-        "validation_status": {
-          "type": "string",
-          "enum": [
-            "verified",
-            "implemented",
-            "planned",
-            "unvalidated"
-          ]
         },
         "control_mode": {
           "type": "string",
