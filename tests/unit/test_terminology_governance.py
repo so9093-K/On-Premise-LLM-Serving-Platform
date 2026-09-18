@@ -30,7 +30,7 @@ def test_compound_legacy_runtime_controller_term_is_rejected(tmp_path):
 
 
 def test_lowercase_runtime_controller_error_term_is_rejected(tmp_path):
-    src = tmp_path / "src" / "ai_model_serving" / "api"
+    src = tmp_path / "src" / "ai_model_serving"
     src.mkdir(parents=True)
     (src / "api_examples.py").write_text(
         'DETAIL = "admin sidecar is not configured"\n',
