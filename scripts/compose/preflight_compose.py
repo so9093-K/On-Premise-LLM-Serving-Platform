@@ -22,6 +22,7 @@ if str(ROOT) not in sys.path:
 if str(ROOT / "src") not in sys.path:
     sys.path.insert(0, str(ROOT / "src"))
 
+from ai_model_serving.env_compat import renamed_env_value  # noqa: E402
 from ai_model_serving.main_model.boot import (  # noqa: E402
     render_boot_override,
     resolve_compose_relative_path,
@@ -49,14 +50,17 @@ def _warn(message: str) -> None:
     print(f"[preflight] warn: {message}", file=sys.stderr)
 
 
-def _env_value(key: str, default: str = "") -> str:
-    value = os.environ.get(key)
-    if value is not None:
-        return value
+def _env_value(
+    key: str,
+    default: str = "",
+    *,
+    legacy_key: str | None = None,
+) -> str:
     env_path = resolve_env_file(os.environ.get("ENV_FILE"), ROOT)
+    file_values: dict[str, str] = {}
     if env_path.exists():
         try:
-            return load_strict_env_file(env_path).get(key, default)
+            file_values = load_strict_env_file(env_path)
         except RuntimeError as exc:
             _fail(f"invalid env file: {env_path}")
             for line in str(exc).splitlines():
@@ -67,7 +71,15 @@ def _env_value(key: str, default: str = "") -> str:
                 file=sys.stderr,
             )
             raise SystemExit("[preflight] configuration preflight failed; fix env file syntax.") from exc
-    return default
+
+    if legacy_key is not None:
+        effective = dict(file_values)
+        effective.update(os.environ)
+        return renamed_env_value(effective, key, legacy_key, default)
+    value = os.environ.get(key)
+    if value is not None:
+        return value
+    return file_values.get(key, default)
 
 
 def _non_local_app_env() -> bool:
@@ -164,12 +176,30 @@ def _bind_conflicts(
     for service_name in profile.get("host_published", []):
         service = services.get(service_name, {})
         bind_env = str(service.get("host_env_bind", ""))
+        legacy_bind_env = str(service.get("legacy_host_env_bind", ""))
         default_bind = str(service.get("default_bind", "0.0.0.0"))
-        bind = _env_value(bind_env, default_bind) if bind_env else default_bind
+        bind = (
+            _env_value(
+                bind_env,
+                default_bind,
+                legacy_key=legacy_bind_env or None,
+            )
+            if bind_env
+            else default_bind
+        )
         if bind != "0.0.0.0":
             continue
         port_env = str(service.get("host_env_port", ""))
-        port = _env_value(port_env, str(service.get("default_host_port", ""))) if port_env else ""
+        legacy_port_env = str(service.get("legacy_host_env_port", ""))
+        port = (
+            _env_value(
+                port_env,
+                str(service.get("default_host_port", "")),
+                legacy_key=legacy_port_env or None,
+            )
+            if port_env
+            else ""
+        )
         conflicts.append(f"{service.get('compose_service', service_name)}:{port}")
     return conflicts
 
