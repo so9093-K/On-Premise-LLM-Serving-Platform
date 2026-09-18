@@ -121,7 +121,7 @@ def test_macos_reasoning_uses_the_mlx_top_level_parameter_and_stays_opt_in(monke
     monkeypatch.setenv("MAIN_LLM_STATIC_PROFILE", "gemma4-26b-a4b-qat-4bit-mlx")
     settings = load_settings()
     clients = FakeGatewayClients()
-    clients.sidecar = None
+    clients.runtime_controller = None
     client = TestClient(create_gateway_app(settings, clients))
 
     # 요청이 말하지 않으면 꺼진다. 사용자가 요청하지 않은 비용을 물리지 않는다.
@@ -172,7 +172,7 @@ def test_static_gateway_surface_and_clients_are_main_only(monkeypatch) -> None:
     settings = load_settings()
     clients = GatewayClients(settings)
     try:
-        assert clients.sidecar is None
+        assert clients.runtime_controller is None
         assert clients.embedding_clients == {}
         assert clients.risk_adapter is None
         assert set(clients.runtimes) == {"main_llm"}
@@ -182,7 +182,7 @@ def test_static_gateway_surface_and_clients_are_main_only(monkeypatch) -> None:
         asyncio.run(clients.close())
 
     fake_clients = FakeGatewayClients()
-    fake_clients.sidecar = None
+    fake_clients.runtime_controller = None
     app = create_gateway_app(settings, fake_clients)
     client = TestClient(app)
     paths = set(app.openapi()["paths"])
@@ -200,7 +200,7 @@ def test_static_readiness_depends_only_on_main(monkeypatch) -> None:
     monkeypatch.setenv("MAIN_LLM_STATIC_PROFILE", "gemma4-12b-unified-fp8")
     settings = load_settings()
     clients = FakeGatewayClients()
-    clients.sidecar = None
+    clients.runtime_controller = None
     app = create_gateway_app(settings, clients)
 
     response = TestClient(app).get("/ready")
@@ -214,7 +214,7 @@ def test_static_readiness_fails_when_external_main_is_down(monkeypatch) -> None:
     monkeypatch.setenv("MAIN_LLM_STATIC_PROFILE", "gemma4-12b-unified-fp8")
     settings = load_settings()
     clients = FakeGatewayClients()
-    clients.sidecar = None
+    clients.runtime_controller = None
     clients.main_llm = FakeRuntimeClient(
         ready=False,
         get_response={"error": "model not loaded"},
