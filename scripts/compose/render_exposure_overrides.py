@@ -78,12 +78,24 @@ def render_override(mode: str, profile: dict, services: dict, base_published: se
             continue  # gateway는 base compose 파일에 있음
         container_port = svc.get("container_port", "")
         bind_env = svc.get("host_env_bind", "")
+        legacy_bind_env = svc.get("legacy_host_env_bind", "")
         port_env = svc.get("host_env_port", "")
+        legacy_port_env = svc.get("legacy_host_env_port", "")
         default_bind = svc.get("default_bind", "0.0.0.0")
         default_port = svc.get("default_host_port", "")
 
-        bind_expr = f"${{{bind_env}:-{default_bind}}}" if bind_env else default_bind
-        port_expr = f"${{{port_env}:-{default_port}}}" if port_env else str(default_port)
+        bind_default = (
+            f"${{{legacy_bind_env}:-{default_bind}}}"
+            if legacy_bind_env
+            else str(default_bind)
+        )
+        port_default = (
+            f"${{{legacy_port_env}:-{default_port}}}"
+            if legacy_port_env
+            else str(default_port)
+        )
+        bind_expr = f"${{{bind_env}:-{bind_default}}}" if bind_env else bind_default
+        port_expr = f"${{{port_env}:-{port_default}}}" if port_env else port_default
 
         lines.append(f"  {compose_svc}:")
         lines.append("    ports:")
