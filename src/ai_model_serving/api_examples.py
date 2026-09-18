@@ -5,7 +5,7 @@ from typing import Any
 
 from .configuration import load_yaml_mapping
 from .media_samples import TINY_MP4_VIDEO_B64
-from .main_model.profile_state import normalize_profile_state, public_compatibility_projection
+from .main_model.profile_state import normalize_profile_state
 from .project_paths import resolve_project_root
 from .services.readiness import dependency_endpoint
 
@@ -800,7 +800,7 @@ def main_model_profile_example(profile_id: str, *, active: bool | None = None) -
         "served_model_name": str(document["public_model"]),
         "upstream_model_id": str(profile["model_id"]),
         "revision": str(profile["revision"]),
-        "compatibility": public_compatibility_projection(profile_state),
+        "compatibility": dict(profile_state.compatibility),
         "qualification": dict(profile_state.qualification),
         "capabilities": dict(profile.get("capabilities", {})),
         "runtime_image": PLACEHOLDER_RUNTIME_IMAGE,
