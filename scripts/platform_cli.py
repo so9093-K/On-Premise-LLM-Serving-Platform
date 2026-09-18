@@ -22,7 +22,6 @@ if str(ROOT / "src") not in sys.path:
     sys.path.insert(0, str(ROOT / "src"))
 
 from ai_model_serving.deployment_target import DeploymentTarget, load_deployment_target  # noqa: E402
-from ai_model_serving.env_compat import renamed_env_value  # noqa: E402
 from ai_model_serving.configuration import load_yaml_mapping  # noqa: E402
 from ai_model_serving.access_profile import (  # noqa: E402
     access_profile_mismatches,
@@ -68,11 +67,8 @@ def _target(explicit: str | None, *, require_env: bool = True) -> DeploymentTarg
 
 
 def _main_profile(target: DeploymentTarget, values: dict[str, str]) -> str:
-    if target.control_mode == "static":
-        key, legacy = "MAIN_MODEL_STATIC_PROFILE", "MAIN_LLM_STATIC_PROFILE"
-    else:
-        key, legacy = "MAIN_MODEL_BOOT_PROFILE", "MAIN_LLM_BOOT_PROFILE"
-    profile = renamed_env_value(values, key, legacy)
+    key = "MAIN_MODEL_STATIC_PROFILE" if target.control_mode == "static" else "MAIN_MODEL_BOOT_PROFILE"
+    profile = values.get(key, "")
     if not profile:
         raise RuntimeError(f"{key} is missing from .env; rerun setup for target {target.target_id}")
     return profile
