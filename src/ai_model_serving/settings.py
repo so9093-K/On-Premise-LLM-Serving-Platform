@@ -208,10 +208,10 @@ def load_settings(root: Path | None = None, env_file: Path | str | None = None) 
         project_root / "configs" / "deployment_targets.yaml",
         _env("DEPLOYMENT_TARGET", "") or None,
     )
-    if deployment_target.validation_status not in {"verified", "implemented"}:
+    if deployment_target.implementation_status != "implemented":
         raise RuntimeError(
             f"DEPLOYMENT_TARGET {deployment_target.target_id!r} is "
-            f"{deployment_target.validation_status} and cannot be started"
+            f"{deployment_target.implementation_status} and cannot be started"
         )
     model_catalog = load_yaml_mapping(project_root / "configs" / "model_catalog.yaml")
     main_catalog_path = (project_root / deployment_target.main_profile_catalog).resolve()
