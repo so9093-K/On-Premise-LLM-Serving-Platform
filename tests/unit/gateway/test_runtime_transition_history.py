@@ -7,6 +7,8 @@ from ai_model_serving.services.runtime_state import RuntimeState
 from ai_model_serving.settings import SecuritySettings
 from .helpers import FakeGatewayClients, TestClient, create_gateway_app, settings
 
+_DIGEST = "a" * 64
+
 
 class VerifiedStartSidecar:
     def __init__(self) -> None:
@@ -15,7 +17,7 @@ class VerifiedStartSidecar:
     async def get_status(self):
         return dict(self.statuses)
 
-    async def start(self, container: str, *, force: bool = False, plan_digest: str | None = None):
+    async def start(self, container: str, *, force: bool = False, plan_digest: str):
         assert container == "embed-ko"
         self.statuses["embed-ko"] = "running"
         if force:
@@ -27,7 +29,7 @@ class VerifiedStartSidecar:
 
 
 class UnverifiedStartSidecar(VerifiedStartSidecar):
-    async def start(self, container: str, *, force: bool = False, plan_digest: str | None = None):
+    async def start(self, container: str, *, force: bool = False, plan_digest: str):
         assert container == "embed-ko"
         return {"started": ["embed-ko"], "evicted": []}
 
@@ -41,7 +43,7 @@ def test_runtime_transition_exposes_verified_operation_and_history() -> None:
     response = client.request(
         "PATCH",
         "/admin/runtimes/embedding_ko",
-        json={"desired_state": "active"},
+        json={"desired_state": "active", "plan_digest": _DIGEST},
     )
 
     assert response.status_code == 200
@@ -88,7 +90,7 @@ def test_runtime_transition_history_records_admin_actor_without_raw_key() -> Non
         "PATCH",
         "/admin/runtimes/embedding_ko",
         headers=headers,
-        json={"desired_state": "active", "plan_digest": "a" * 64},
+        json={"desired_state": "active", "plan_digest": _DIGEST},
     )
     assert response.status_code == 200
 
@@ -112,7 +114,7 @@ def test_runtime_transition_fails_closed_when_apply_cannot_be_verified() -> None
     response = client.request(
         "PATCH",
         "/admin/runtimes/embedding_ko",
-        json={"desired_state": "active"},
+        json={"desired_state": "active", "plan_digest": _DIGEST},
     )
 
     assert response.status_code == 500

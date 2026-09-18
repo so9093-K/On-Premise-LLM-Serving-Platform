@@ -118,26 +118,38 @@ def test_stop_and_already_active_plans_are_explicit_noop_or_budget_change() -> N
 
 
 def test_runtime_request_parser_enforces_types_fields_and_digest_format() -> None:
+    digest = "a" * 64
     assert parse_runtime_transition_request(
-        {"desired_state": "active", "force": False}, allow_plan_digest=True
-    ) == ("active", False, None)
+        {"desired_state": "active", "force": False, "plan_digest": digest},
+        require_plan_digest=True,
+    ) == ("active", False, digest)
+
+    with pytest.raises(ServiceError) as missing_digest:
+        parse_runtime_transition_request(
+            {"desired_state": "active", "force": False},
+            require_plan_digest=True,
+        )
+    assert missing_digest.value.code == "VALIDATION_ERROR"
+    assert missing_digest.value.param == "plan_digest"
 
     with pytest.raises(ServiceError) as force_error:
         parse_runtime_transition_request(
-            {"desired_state": "active", "force": "false"}, allow_plan_digest=True
+            {"desired_state": "active", "force": "false", "plan_digest": digest},
+            require_plan_digest=True,
         )
     assert force_error.value.code == "VALIDATION_ERROR"
     assert force_error.value.param == "force"
 
     with pytest.raises(ServiceError) as field_error:
         parse_runtime_transition_request(
-            {"desired_state": "active", "unexpected": True}, allow_plan_digest=False
+            {"desired_state": "active", "unexpected": True},
+            require_plan_digest=False,
         )
     assert field_error.value.param == "unexpected"
 
     with pytest.raises(ServiceError) as digest_error:
         parse_runtime_transition_request(
             {"desired_state": "active", "plan_digest": "not-a-digest"},
-            allow_plan_digest=True,
+            require_plan_digest=True,
         )
     assert digest_error.value.param == "plan_digest"

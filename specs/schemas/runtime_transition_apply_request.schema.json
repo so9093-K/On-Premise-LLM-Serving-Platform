@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "RuntimeTransitionApplyRequest",
   "type": "object",
-  "required": ["desired_state"],
+  "required": ["desired_state", "plan_digest"],
   "additionalProperties": false,
   "properties": {
     "desired_state": {

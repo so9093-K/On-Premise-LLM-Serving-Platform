@@ -594,7 +594,7 @@ def build_router(
     ) -> JSONResponse:
         desired_state, force, _ = parse_runtime_transition_request(
             await _runtime_request_json(request),
-            allow_plan_digest=False,
+            require_plan_digest=False,
         )
         if runtime_controller is None:
             raise ServiceError(
@@ -726,7 +726,7 @@ def build_router(
     ) -> JSONResponse:
         desired_state, force, plan_digest = parse_runtime_transition_request(
             await _runtime_request_json(request),
-            allow_plan_digest=True,
+            require_plan_digest=True,
         )
 
         if service_key == "main":
@@ -744,10 +744,9 @@ def build_router(
             )
             try:
                 if desired_state == "active":
-                    result = (
-                        await runtime_controller.main_start(force=force, plan_digest=plan_digest)
-                        if plan_digest
-                        else await runtime_controller.main_start(force=force)
+                    result = await runtime_controller.main_start(
+                        force=force,
+                        plan_digest=plan_digest,
                     )
                     for evicted_container in result.get("evicted", []):
                         evicted_key = container_to_key.get(evicted_container)
@@ -759,11 +758,7 @@ def build_router(
                                 source="runtime_control",
                             )
                 else:
-                    result = (
-                        await runtime_controller.main_stop(plan_digest=plan_digest)
-                        if plan_digest
-                        else await runtime_controller.main_stop()
-                    )
+                    result = await runtime_controller.main_stop(plan_digest=plan_digest)
             except RuntimeControllerRequestError as exc:
                 _finish_runtime_operation(
                     history_store,
@@ -845,41 +840,6 @@ def build_router(
         actual: str | None = None
 
         if desired_state == "active":
-            if current_state == RuntimeState.active and runtime_controller is None and plan_digest is None:
-                before = {"desired_state": current_state.value, "observed_state": None}
-                operation_id = _begin_runtime_operation(
-                    history_store,
-                    request,
-                    service_key=service_key,
-                    desired_state=desired_state,
-                    force=force,
-                    plan_digest=plan_digest,
-                    before=before,
-                )
-                verification = {
-                    "converged": None,
-                    "source": "desired_state_only",
-                    "desired_state": desired_state,
-                    "observed_state": None,
-                    "reason": "runtime_controller_unconfigured",
-                }
-                _finish_runtime_operation(
-                    history_store,
-                    request,
-                    operation_id,
-                    status="noop",
-                    phase="completed",
-                    apply_result={"changed": False},
-                    verification=verification,
-                )
-                return JSONResponse({
-                    "service_key": service_key,
-                    "state": "active",
-                    "changed": False,
-                    "operation_id": operation_id,
-                    "operation_status": "noop",
-                    "verification": verification,
-                })
             if current_state == RuntimeState.active and runtime_controller is not None:
                 try:
                     actual = (await runtime_controller.get_status()).get(container, "not_found")
@@ -887,40 +847,6 @@ def build_router(
                     return runtime_controller_request_error_response(exc)
                 except RuntimeControllerUnavailableError as exc:
                     return runtime_controller_unavailable_response(exc)
-                if actual == "running" and plan_digest is None:
-                    operation_id = _begin_runtime_operation(
-                        history_store,
-                        request,
-                        service_key=service_key,
-                        desired_state=desired_state,
-                        force=force,
-                        plan_digest=plan_digest,
-                        before={"desired_state": current_state.value, "observed_state": actual},
-                    )
-                    verification = {
-                        "converged": True,
-                        "source": "runtime_controller_container_status",
-                        "desired_state": desired_state,
-                        "observed_state": actual,
-                        "effects": {},
-                    }
-                    _finish_runtime_operation(
-                        history_store,
-                        request,
-                        operation_id,
-                        status="noop",
-                        phase="completed",
-                        apply_result={"changed": False},
-                        verification=verification,
-                    )
-                    return JSONResponse({
-                        "service_key": service_key,
-                        "state": "active",
-                        "changed": False,
-                        "operation_id": operation_id,
-                        "operation_status": "noop",
-                        "verification": verification,
-                    })
             if current_state == RuntimeState.starting:
                 return _runtime_transitioning_response()
             if runtime_controller is None:
@@ -948,10 +874,10 @@ def build_router(
                 source="runtime_control",
             )
             try:
-                result = (
-                    await runtime_controller.start(container, force=force, plan_digest=plan_digest)
-                    if plan_digest
-                    else await runtime_controller.start(container, force=force)
+                result = await runtime_controller.start(
+                    container,
+                    force=force,
+                    plan_digest=plan_digest,
                 )
             except RuntimeControllerRequestError as exc:
                 await state_store.set(
@@ -1066,41 +992,6 @@ def build_router(
                 "verification": verification,
             })
 
-        if current_state == RuntimeState.stopped and runtime_controller is None and plan_digest is None:
-            before = {"desired_state": current_state.value, "observed_state": None}
-            operation_id = _begin_runtime_operation(
-                history_store,
-                request,
-                service_key=service_key,
-                desired_state=desired_state,
-                force=force,
-                plan_digest=plan_digest,
-                before=before,
-            )
-            verification = {
-                "converged": None,
-                "source": "desired_state_only",
-                "desired_state": desired_state,
-                "observed_state": None,
-                "reason": "runtime_controller_unconfigured",
-            }
-            _finish_runtime_operation(
-                history_store,
-                request,
-                operation_id,
-                status="noop",
-                phase="completed",
-                apply_result={"changed": False},
-                verification=verification,
-            )
-            return JSONResponse({
-                "service_key": service_key,
-                "state": "stopped",
-                "changed": False,
-                "operation_id": operation_id,
-                "operation_status": "noop",
-                "verification": verification,
-            })
         if current_state == RuntimeState.stopped and runtime_controller is not None:
             try:
                 actual = (await runtime_controller.get_status()).get(container, "not_found")
@@ -1108,40 +999,6 @@ def build_router(
                 return runtime_controller_request_error_response(exc)
             except RuntimeControllerUnavailableError as exc:
                 return runtime_controller_unavailable_response(exc)
-            if actual in {"exited", "not_found"} and plan_digest is None:
-                operation_id = _begin_runtime_operation(
-                    history_store,
-                    request,
-                    service_key=service_key,
-                    desired_state=desired_state,
-                    force=force,
-                    plan_digest=plan_digest,
-                    before={"desired_state": current_state.value, "observed_state": actual},
-                )
-                verification = {
-                    "converged": True,
-                    "source": "runtime_controller_container_status",
-                    "desired_state": desired_state,
-                    "observed_state": actual,
-                    "effects": {},
-                }
-                _finish_runtime_operation(
-                    history_store,
-                    request,
-                    operation_id,
-                    status="noop",
-                    phase="completed",
-                    apply_result={"changed": False},
-                    verification=verification,
-                )
-                return JSONResponse({
-                    "service_key": service_key,
-                    "state": "stopped",
-                    "changed": False,
-                    "operation_id": operation_id,
-                    "operation_status": "noop",
-                    "verification": verification,
-                })
         if current_state == RuntimeState.starting:
             return _runtime_transitioning_response()
         if runtime_controller is None:
@@ -1166,10 +1023,9 @@ def build_router(
             source="runtime_control",
         )
         try:
-            stopped_containers = (
-                await runtime_controller.stop(container, plan_digest=plan_digest)
-                if plan_digest
-                else await runtime_controller.stop(container)
+            stopped_containers = await runtime_controller.stop(
+                container,
+                plan_digest=plan_digest,
             )
         except RuntimeControllerRequestError as exc:
             _finish_runtime_operation(

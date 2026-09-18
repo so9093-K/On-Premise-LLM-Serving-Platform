@@ -11,13 +11,13 @@ _PLAN_DIGEST_RE = re.compile(r"^[0-9a-f]{64}$")
 def parse_runtime_transition_request(
     payload: Any,
     *,
-    allow_plan_digest: bool,
+    require_plan_digest: bool,
 ) -> tuple[str, bool, str | None]:
     if not isinstance(payload, dict):
         raise ServiceError("VALIDATION_ERROR", "Request body must be a JSON object", param="body")
 
     allowed = {"desired_state", "force"}
-    if allow_plan_digest:
+    if require_plan_digest:
         allowed.add("plan_digest")
     unknown = sorted(set(payload) - allowed)
     if unknown:
@@ -43,14 +43,21 @@ def parse_runtime_transition_request(
             param="force",
         )
 
-    plan_digest = payload.get("plan_digest") if allow_plan_digest else None
-    if plan_digest is not None:
-        if not isinstance(plan_digest, str) or not _PLAN_DIGEST_RE.fullmatch(plan_digest):
-            raise ServiceError(
-                "VALIDATION_ERROR",
-                "plan_digest must be a lowercase SHA-256 hex digest",
-                param="plan_digest",
-            )
+    plan_digest = payload.get("plan_digest") if require_plan_digest else None
+    if require_plan_digest and plan_digest is None:
+        raise ServiceError(
+            "VALIDATION_ERROR",
+            "plan_digest is required; create and review a runtime transition plan before apply",
+            param="plan_digest",
+        )
+    if plan_digest is not None and (
+        not isinstance(plan_digest, str) or not _PLAN_DIGEST_RE.fullmatch(plan_digest)
+    ):
+        raise ServiceError(
+            "VALIDATION_ERROR",
+            "plan_digest must be a lowercase SHA-256 hex digest",
+            param="plan_digest",
+        )
     return desired_state, force, plan_digest
 
 

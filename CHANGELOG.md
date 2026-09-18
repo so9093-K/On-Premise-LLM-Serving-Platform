@@ -22,6 +22,8 @@
 
 ### Changed
 
+- Runtime transition Apply를 Configuration mutation과 같은 reviewed-plan 계약으로 수렴했다. `PATCH /admin/runtimes/{service_key}`는 이제 Plan에서 받은 `plan_digest`를 필수로 요구하고, Runtime Controller도 mutation 직전 GPU budget lock 안에서 같은 plan을 재계산해 digest drift를 fail-closed한다. 초기 compatibility 기간의 digest 없는 Apply 경로는 제거했다. ([ADR-0027](docs/adr/0027-control-plane-runtime-configuration-and-console-boundary.md))
+
 - Risk Signal Service의 active service identity를 `risk-adapter`에서 `risk-signal-service`로 수렴했다. Compose/DNS, health payload, metrics/logging identity, Prometheus job, Grafana query, runtime validation과 OpenAPI artifact(`openapi.risk-signal-service.yaml`)가 같은 이름을 사용한다. Python/config/env의 `risk_adapter` / `RISK_ADAPTER_*` namespace는 별도 migration으로 남긴다.
 
 - Deployment Target `control_mode`의 `sidecar` 값을 제거하고 `runtime_controller`로 수렴했다. Control Plane Bootstrap은 이 breaking contract를 명시하기 위해 v4로 올라가며, `static` target은 기존 의미를 유지한다. ([ADR-0020](docs/adr/0020-runtime-control-and-deployment-targets.md))

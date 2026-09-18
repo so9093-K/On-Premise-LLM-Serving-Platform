@@ -11,6 +11,7 @@ from .helpers import FakeGatewayClients, TestClient, create_gateway_app, setting
 
 _ROOT = Path(__file__).resolve().parents[3]
 _SCHEMA_ROOT = _ROOT / "specs" / "schemas"
+_DIGEST = "a" * 64
 
 
 def _validate(schema_name: str, payload: object) -> None:
@@ -25,7 +26,7 @@ class ConvergingRuntimeSidecar:
     async def get_status(self):
         return {"embed-ko": "running" if self.running else "exited"}
 
-    async def start(self, container: str, *, force: bool = False):
+    async def start(self, container: str, *, force: bool = False, plan_digest: str):
         assert container == "embed-ko"
         self.running = True
         return {"started": ["embed-ko"], "evicted": []}
@@ -50,7 +51,7 @@ def test_runtime_apply_matches_checked_in_response_contract():
     response = client.request(
         "PATCH",
         "/admin/runtimes/embedding_ko",
-        json={"desired_state": "active"},
+        json={"desired_state": "active", "plan_digest": _DIGEST},
     )
 
     assert response.status_code == 200

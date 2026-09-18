@@ -105,14 +105,14 @@ class RuntimeControllerClient:
         body = await self._request("GET", "/containers/status", what="status", timeout=5.0)
         return body.get("containers", {})
 
-    async def stop(self, container: str, *, plan_digest: str | None = None) -> list[str]:
+    async def stop(self, container: str, *, plan_digest: str) -> list[str]:
         """컨테이너를 중지하고 실제로 중지한 컨테이너 목록을 반환한다."""
         body = await self._request(
             "POST",
             f"/containers/{container}/stop",
             what="stop",
             timeout=35.0,
-            params={"plan_digest": plan_digest} if plan_digest else None,
+            params={"plan_digest": plan_digest},
         )
         return body.get("stopped", [container])
 
@@ -121,13 +121,9 @@ class RuntimeControllerClient:
         container: str,
         *,
         force: bool = False,
-        plan_digest: str | None = None,
+        plan_digest: str,
     ) -> dict:
-        """컨테이너와 필요한 선행 컨테이너를 시작하고 Runtime Controller 결과를 반환한다.
-
-        A 409 GPU-budget rejection is surfaced as RuntimeControllerRequestError (carrying the
-        eviction plan); connection/other failures remain RuntimeControllerUnavailableError.
-        """
+        """검토된 plan digest로 컨테이너와 필요한 선행 컨테이너를 시작한다."""
         body = await self._request(
             "POST",
             f"/containers/{container}/start",
@@ -135,8 +131,8 @@ class RuntimeControllerClient:
             timeout=180.0,
             params={
                 **({"force": "true"} if force else {}),
-                **({"plan_digest": plan_digest} if plan_digest else {}),
-            } or None,
+                "plan_digest": plan_digest,
+            },
         )
         return {
             "started": body.get("started", [container]),
@@ -161,22 +157,22 @@ class RuntimeControllerClient:
             json={"desired_state": desired_state, "force": force},
         )
 
-    async def main_stop(self, *, plan_digest: str | None = None) -> dict:
+    async def main_stop(self, *, plan_digest: str) -> dict:
         return await self._request(
             "POST",
             "/main-model/stop",
             what="main-model stop",
             timeout=60.0,
-            params={"plan_digest": plan_digest} if plan_digest else None,
+            params={"plan_digest": plan_digest},
         )
 
     async def main_start(
         self,
         *,
         force: bool = False,
-        plan_digest: str | None = None,
+        plan_digest: str,
     ) -> dict:
-        """main runtime을 시작한다. 예산 부족 409는 계획을 포함한 오류로 변환한다."""
+        """검토된 plan digest로 main runtime을 시작한다."""
         return await self._request(
             "POST",
             "/main-model/start",
@@ -184,8 +180,8 @@ class RuntimeControllerClient:
             timeout=180.0,
             params={
                 **({"force": "true"} if force else {}),
-                **({"plan_digest": plan_digest} if plan_digest else {}),
-            } or None,
+                "plan_digest": plan_digest,
+            },
         )
 
     async def main_model(self, *, observed: bool = True) -> dict:

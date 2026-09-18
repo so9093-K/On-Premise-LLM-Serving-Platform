@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+import re
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from pathlib import Path
@@ -389,9 +390,15 @@ async def _runtime_transition_plan(
     return response
 
 
+_PLAN_DIGEST_RE = re.compile(r"^[0-9a-f]{64}$")
+
+
 def _validate_reviewed_plan(plan: dict[str, Any], plan_digest: str | None) -> None:
-    if not plan_digest:
-        return
+    if not isinstance(plan_digest, str) or not _PLAN_DIGEST_RE.fullmatch(plan_digest):
+        raise HTTPException(
+            422,
+            detail="plan_digest is required and must be a lowercase SHA-256 hex digest",
+        )
     actual = str(plan.get("plan_digest") or "")
     if actual != plan_digest:
         raise HTTPException(
@@ -741,12 +748,9 @@ async def main_model_stop(
 ) -> JSONResponse:
     """VRAM 회수를 위해 main runtime을 drain 후 중지하고 chat 요청은 fail-closed 처리한다."""
     await _require_runtime_controller_token(authorization)
-    if plan_digest:
-        async with _budget_lock:
-            plan = await _runtime_transition_plan("main", "stopped", force=False)
-            _validate_reviewed_plan(plan, plan_digest)
-            await _main_model_manager.stop_main()
-    else:
+    async with _budget_lock:
+        plan = await _runtime_transition_plan("main", "stopped", force=False)
+        _validate_reviewed_plan(plan, plan_digest)
         await _main_model_manager.stop_main()
     return JSONResponse({"action": "stop", "service": _MAIN_SERVICE, "runtime_state": "stopped"})
 
@@ -766,9 +770,8 @@ async def main_model_start(
         or _catalog.profiles[_main_model_manager.boot_profile].vram_fraction
     )
     async with _budget_lock:
-        if plan_digest:
-            plan = await _runtime_transition_plan("main", "active", force=force)
-            _validate_reviewed_plan(plan, plan_digest)
+        plan = await _runtime_transition_plan("main", "active", force=force)
+        _validate_reviewed_plan(plan, plan_digest)
         evicted = await _admit_or_raise(_MAIN_SERVICE, target_fraction, force=force)
         await _main_model_manager.start_main()
     return JSONResponse(
@@ -785,15 +788,9 @@ async def stop_container(
     await _require_runtime_controller_token(authorization)
     if service not in CONTROLLABLE:
         raise HTTPException(403, detail=f"not controllable: {service}")
-    if plan_digest:
-        async with _budget_lock:
-            plan = await _runtime_transition_plan(service, "stopped", force=False)
-            _validate_reviewed_plan(plan, plan_digest)
-            container_id = await _find_container_id(service)
-            if container_id is None:
-                raise HTTPException(404, detail=f"container not found: {service}")
-            await _do_stop(container_id)
-    else:
+    async with _budget_lock:
+        plan = await _runtime_transition_plan(service, "stopped", force=False)
+        _validate_reviewed_plan(plan, plan_digest)
         container_id = await _find_container_id(service)
         if container_id is None:
             raise HTTPException(404, detail=f"container not found: {service}")
@@ -816,9 +813,8 @@ async def start_container(
     evicted: list[str] = []
 
     async with _budget_lock:
-        if plan_digest:
-            plan = await _runtime_transition_plan(service, "active", force=force)
-            _validate_reviewed_plan(plan, plan_digest)
+        plan = await _runtime_transition_plan(service, "active", force=force)
+        _validate_reviewed_plan(plan, plan_digest)
         # 아무것도 건드리기 전에, 함께 기동되는 전체 집합(service + 아직 실행 중이 아닌
         # prerequisite들)을 공유 GPU budget에 대해 admit한다. 실제 start/health
         # 시퀀스 동안에도 lock을 유지하여, 다른 동시 activation이 동일한 pre-start

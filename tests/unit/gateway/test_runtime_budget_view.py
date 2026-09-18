@@ -11,6 +11,8 @@ from ai_model_serving.services.runtime_controller_client import RuntimeControlle
 from ai_model_serving.services.runtime_state import RuntimeState
 from .helpers import FakeGatewayClients, TestClient, create_gateway_app, settings
 
+_DIGEST = "a" * 64
+
 class EvictingSidecar:
     def __init__(self):
         self.statuses = {"embed-ko": "exited", "embed": "running"}
@@ -18,7 +20,7 @@ class EvictingSidecar:
     async def get_status(self):
         return dict(self.statuses)
 
-    async def start(self, container: str, *, force: bool = False):
+    async def start(self, container: str, *, force: bool = False, plan_digest: str):
         assert container == "embed-ko"
         assert force is True
         self.statuses["embed-ko"] = "running"
@@ -33,7 +35,7 @@ class StartReconcilingSidecar:
     async def get_status(self):
         return {"embed-ko": "running" if self.started else "exited"}
 
-    async def start(self, container: str, *, force: bool = False):
+    async def start(self, container: str, *, force: bool = False, plan_digest: str):
         assert container == "embed-ko"
         self.started = True
         return {"started": ["embed-ko"], "evicted": []}
@@ -46,7 +48,7 @@ class StopReconcilingSidecar:
     async def get_status(self):
         return {"embed-ko": "exited" if self.stopped else "running"}
 
-    async def stop(self, container: str):
+    async def stop(self, container: str, *, plan_digest: str):
         assert container == "embed-ko"
         self.stopped = True
         return ["embed-ko"]
@@ -73,7 +75,7 @@ class MainStartEvictingSidecar:
             },
         }
 
-    async def main_start(self, *, force: bool = False):
+    async def main_start(self, *, force: bool = False, plan_digest: str):
         assert force is True
         self.active = True
         return {"runtime_state": "active", "evicted": ["embed-ko"]}
@@ -86,7 +88,7 @@ class BudgetRejectingSidecar:
     async def get_status(self):
         return {"embed-ko": "exited"}
 
-    async def start(self, container: str, *, force: bool = False):
+    async def start(self, container: str, *, force: bool = False, plan_digest: str):
         raise RuntimeControllerRequestError(
             409,
             {
@@ -107,7 +109,7 @@ def test_runtime_start_marks_sidecar_evictions_stopped():
     response = client.request(
         "PATCH",
         "/admin/runtimes/embedding_ko",
-        json={"desired_state": "active", "force": True},
+        json={"desired_state": "active", "force": True, "plan_digest": _DIGEST},
     )
 
     assert response.status_code == 200
@@ -126,7 +128,7 @@ def test_runtime_active_reconciles_when_desired_active_but_container_is_down():
     response = client.request(
         "PATCH",
         "/admin/runtimes/embedding_ko",
-        json={"desired_state": "active"},
+        json={"desired_state": "active", "plan_digest": _DIGEST},
     )
 
     assert response.status_code == 200
@@ -138,7 +140,7 @@ def test_runtime_active_reconciles_when_desired_active_but_container_is_down():
     transitioning = client.request(
         "PATCH",
         "/admin/runtimes/embedding_ko",
-        json={"desired_state": "active"},
+        json={"desired_state": "active", "plan_digest": _DIGEST},
     )
     assert transitioning.status_code == 503
     assert transitioning.json()["error"]["code"] == "MODEL_UNAVAILABLE"
@@ -154,7 +156,7 @@ def test_runtime_budget_rejection_uses_standard_error_envelope():
     response = client.request(
         "PATCH",
         "/admin/runtimes/embedding_ko",
-        json={"desired_state": "active"},
+        json={"desired_state": "active", "plan_digest": _DIGEST},
     )
 
     assert response.status_code == 409
@@ -189,7 +191,7 @@ def test_runtime_stop_reconciles_when_desired_stopped_but_container_is_running()
     response = client.request(
         "PATCH",
         "/admin/runtimes/embedding_ko",
-        json={"desired_state": "stopped"},
+        json={"desired_state": "stopped", "plan_digest": _DIGEST},
     )
 
     assert response.status_code == 200
@@ -205,7 +207,7 @@ def test_main_runtime_start_marks_sidecar_evictions_stopped():
     response = client.request(
         "PATCH",
         "/admin/runtimes/main",
-        json={"desired_state": "active", "force": True},
+        json={"desired_state": "active", "force": True, "plan_digest": _DIGEST},
     )
 
     assert response.status_code == 200
