@@ -8,6 +8,7 @@ ROOT = Path(__file__).resolve().parents[3]
 # 안정 식별자(admin-sidecar, risk-adapter 등)는 소문자/코드 형태로 별도 계약이므로
 # 이 목록의 대상이 아니다. Deprecated process alias는 terminology.md에서 별도로 관리한다.
 LEGACY_DISPLAY_TERMS: dict[str, str] = {
+    "Admin / Control Sidecar": "Runtime Controller",
     "Admin Sidecar": "Runtime Controller",
     "Risk Adapter": "Risk Signal Service",
     "Secondary Runtime": "Model Runtime 또는 역할별 Runtime",
