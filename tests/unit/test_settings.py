@@ -33,6 +33,8 @@ def isolate_settings_environment(monkeypatch):
         "ADMIN_API_KEY",
         "ADMIN_API_KEYS",
         "ADMIN_ENDPOINTS_INTERNAL_ONLY",
+        "RUNTIME_CONTROLLER_URL",
+        "ADMIN_SIDECAR_URL",
         "FASTAPI_DOCS_ENABLED",
         "FASTAPI_DOCS_URL",
         "FASTAPI_REDOC_URL",
@@ -56,6 +58,33 @@ def isolate_settings_environment(monkeypatch):
         "RISK_ADAPTER_TIMEOUT_SECONDS",
     ]:
         monkeypatch.delenv(name, raising=False)
+
+
+def test_load_settings_uses_canonical_runtime_controller_url(monkeypatch):
+    monkeypatch.setenv("RUNTIME_CONTROLLER_URL", "http://runtime-controller:8080")
+
+    settings = load_settings()
+
+    assert settings.admin_sidecar_url == "http://runtime-controller:8080"
+
+
+def test_load_settings_reads_legacy_admin_sidecar_url(monkeypatch):
+    monkeypatch.setenv("ADMIN_SIDECAR_URL", "http://legacy-controller:8080")
+
+    settings = load_settings()
+
+    assert settings.admin_sidecar_url == "http://legacy-controller:8080"
+
+
+def test_load_settings_rejects_conflicting_runtime_controller_url_names(monkeypatch):
+    monkeypatch.setenv("RUNTIME_CONTROLLER_URL", "http://runtime-controller:8080")
+    monkeypatch.setenv("ADMIN_SIDECAR_URL", "http://legacy-controller:8080")
+
+    with pytest.raises(
+        RuntimeError,
+        match="conflicting env keys ADMIN_SIDECAR_URL and RUNTIME_CONTROLLER_URL",
+    ):
+        load_settings()
 
 
 def test_load_settings_rejects_default_api_key_in_non_local_env(monkeypatch):
