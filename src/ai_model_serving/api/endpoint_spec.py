@@ -135,7 +135,7 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
         tag="Operations",
         summary="의존 서비스 준비 상태 확인",
         description=(
-            "Gateway가 의존하는 vLLM 런타임과 Risk Adapter가 모두 요청을 받을 준비가 됐는지 확인합니다. "
+            "Gateway가 의존하는 vLLM 런타임과 Risk Signal Service가 모두 요청을 받을 준비가 됐는지 확인합니다. "
             "모델 로딩 중에는 HTTP 503을 반환하며, body의 `not_ready_dependencies`에 "
             "아직 준비되지 않은 dependency 목록과 `message`가 포함됩니다."
         ),
@@ -294,7 +294,7 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
         tag="Runtime Control",
         summary="메인 모델 요청 drain 상태 조회",
         description=(
-            "Admin Sidecar가 모델 교체 전에 진행 중인 local-main 요청 수를 확인하는 "
+            "Runtime Controller가 모델 교체 전에 진행 중인 local-main 요청 수를 확인하는 "
             "내부 서비스 전용 endpoint입니다. OpenAPI UI에는 노출하지 않습니다."
         ),
         request_schema=None,
@@ -629,8 +629,8 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
             "`503 MAIN_MODEL_SWITCH_IN_PROGRESS`를 받습니다.\n\n"
             "- `profile` — `GET /admin/main-model/profiles`가 반환한 ID만 허용합니다. "
             "그 외 필드(model id, command 등)는 `422`로 거부되며 임의 실행 인자를 넣을 수 없습니다.\n"
-            "- `confirm_unverified` — `compatibility.status`가 `unverified` 또는 `unknown`인 프로필로 "
-            "전환할 때 필요합니다. `likely`는 추가 확인 없이 허용되고 `incompatible`은 전환할 수 없습니다.\n"
+            "- `confirm_unverified` — `compatibility.status`가 `verified`가 아닌 전환 가능 프로필에 "
+            "필요합니다. `likely`는 legacy provisional 상태이며 명시 확인이 필요하고, `incompatible`은 전환할 수 없습니다.\n"
             "- `request_id` — 선택적 멱등 키입니다. 진행 중이거나 방금 끝난 동일 작업이 있으면 새 전환을 "
             "시작하지 않고 그 작업을 반환하며 응답에 `reused: true`로 표시합니다(재시도 안전용이라 일정 시간 뒤 "
             "만료됩니다). 매번 새 전환을 원하면 고유한 값을 쓰거나 생략합니다.\n\n"
@@ -686,7 +686,7 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
 ]
 
 # ---------------------------------------------------------------------------
-# Risk Adapter 엔드포인트 (port 9405)
+# Risk Signal Service 엔드포인트 (port 9405)
 # ---------------------------------------------------------------------------
 
 RISK_ADAPTER_ENDPOINTS: list[EndpointSpec] = [
@@ -705,7 +705,7 @@ RISK_ADAPTER_ENDPOINTS: list[EndpointSpec] = [
         path="/ready",
         operation_id="getRiskAdapterReadiness",
         tag="Operations",
-        summary="Risk Adapter readiness 확인",
+        summary="Risk Signal Service readiness 확인",
         description=(
             "활성화된 탐지기의 vLLM 런타임이 요청을 받을 준비가 됐는지 확인합니다. "
             "모델 로딩 중에는 HTTP 503을 반환하고 `not_ready_dependencies`와 dependency별 `message`를 제공합니다."
@@ -719,7 +719,7 @@ RISK_ADAPTER_ENDPOINTS: list[EndpointSpec] = [
         operation_id="getRiskAdapterMetrics",
         tag="Monitoring",
         summary="Prometheus 지표 조회",
-        description="Prometheus가 수집하는 Risk Adapter 지표입니다. 탐지기별 타임아웃, 파싱 실패, 신호 건수를 볼 수 있습니다.",
+        description="Prometheus가 수집하는 Risk Signal Service 지표입니다. 탐지기별 타임아웃, 파싱 실패, 신호 건수를 볼 수 있습니다.",
         request_schema=None,
         response_schema=None,
     ),

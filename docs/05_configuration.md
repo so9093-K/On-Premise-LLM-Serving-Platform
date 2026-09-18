@@ -61,7 +61,7 @@ YAML 파일은 모델, runtime, 서비스, 보안 정책 같은 **repository-lev
 | GPU resource budget | `configs/gpu_budgets.yaml` | runtime별 GPU budget과 admission 기준 정의 |
 | Service / port registry | `configs/services.yaml` | Compose service 이름, container/host port, bind env, exposure category 정의 |
 | Exposure mode | `configs/exposure_profiles.yaml` | 어떤 서비스를 host에 publish할지 정의 |
-| Deploy Runtime Profile | `configs/deploy_profiles.yaml` | compose-up/full deploy 후 어떤 secondary runtime을 deferred 상태로 둘지 정의 |
+| Runtime Startup Profile | `configs/deploy_profiles.yaml` | compose-up/full deploy 후 어떤 non-main Model Runtime을 deferred 상태로 둘지 정의 |
 | Authentication profile | `configs/auth_profiles.yaml` | `AUTH_MODE`별 인증·관리 endpoint 보호 정책 정의 |
 | Environment example contract | `configs/env_contract.yaml` | `.env` 예시 파일에 포함할 키 정의 |
 | Monitoring 설정 | `configs/monitoring.yaml` | Prometheus scrape와 live metric 검증 기준 정의 |
@@ -101,7 +101,7 @@ ADR과 resource 문서는 결정 이유와 검증 이력을 보존한다. 이 �
 
 ### Application 설정
 
-Gateway와 Risk Adapter가 사용하는 일부 runtime 설정은 다음 순서로 해석된다.
+Gateway와 Risk Signal Service가 사용하는 일부 runtime 설정은 다음 순서로 해석된다.
 
 ```text
 Process Environment
@@ -175,7 +175,7 @@ upstream 모델의 사양과 알려진 제약은 [모델 참고 자료](./refere
 
 ### `configs/model_serving.yaml`
 
-Gateway와 Risk Adapter가 runtime을 사용하는 방식을 정의한다.
+Gateway와 Risk Signal Service가 runtime을 사용하는 방식을 정의한다.
 
 주요 영역은 다음과 같다.
 
@@ -193,8 +193,8 @@ model_serving.yaml
 
 이 파일은 다음과 같은 정책의 기준이 된다.
 
-- Main / Embedding / Prompt Risk runtime endpoint
-- Embedding / Prompt Risk의 고정 model revision과 실행 인자
+- Main / Embedding / Prompt Injection Detector Runtime endpoint
+- Embedding / Prompt Injection의 고정 model revision과 실행 인자
 - model별 timeout과 concurrency
 - queue와 circuit breaker 관련 제한
 - embedding model routing
@@ -281,12 +281,12 @@ main-llm-vllm
 | Mode | Host publish 범위 |
 |---|---|
 | `private_network` | Gateway와 Grafana 중심 |
-| `master_open` | Gateway, model runtime, Risk Adapter, operations endpoint 등 전체 stack 중심 |
+| `master_open` | Gateway, model runtime, Risk Signal Service, operations endpoint 등 전체 stack 중심 |
 
-Exposure Profile은 실행된 service의 host 공개 범위를 관리한다. runtime 활성 상태는 Deploy Runtime Profile과 각 runtime lifecycle에서 결정한다.
+Exposure Profile은 실행된 service의 host 공개 범위를 관리한다. runtime 활성 상태는 Runtime Startup Profile과 각 runtime lifecycle에서 결정한다.
 
 ```text
-Deploy Runtime Profile
+Runtime Startup Profile
   └─ 어떤 runtime을 실행 상태로 둘 것인가
 
 Exposure Profile
@@ -297,9 +297,9 @@ Exposure Profile
 
 ---
 
-## 5.7 Deploy Runtime Profile
+## 5.7 Runtime Startup Profile
 
-`configs/deploy_profiles.yaml`은 compose-up과 full deploy 이후 secondary runtime의 초기 운영 상태를 정의한다. profile을 명시하지 않으면 `default_profile: main_only`가 적용되어 embedding 계열과 Prompt Risk 모델은 컨테이너만 생성되고 시작되지 않는다. Risk Adapter와 PII·Secret 검사 경로는 그대로 유지된다.
+`configs/deploy_profiles.yaml`은 compose-up과 full deploy 이후 non-main Model Runtime의 초기 운영 상태를 정의한다. profile을 명시하지 않으면 `default_profile: main_only`가 적용되어 embedding 계열과 Prompt Injection 모델은 컨테이너만 생성되고 시작되지 않는다. Risk Signal Service와 PII·Secret 검사 경로는 그대로 유지된다.
 
 현재 control 대상은 다음과 같다.
 
@@ -311,17 +311,17 @@ Exposure Profile
 
 | Profile | 의미 |
 |---|---|
-| `main_only` (기본) | Main Model 중심으로 기동하고 secondary runtime은 deferred |
-| `retrieval_ready` | embedding 계열은 준비하고 Prompt Risk는 deferred |
+| `main_only` (기본) | Main Model 중심으로 기동하고 non-main Model Runtime은 deferred |
+| `retrieval_ready` | embedding 계열은 준비하고 Prompt Injection는 deferred |
 
-Main Model Profile과 Deploy Runtime Profile은 서로 다른 실행 축을 관리한다.
+Main Model Profile과 Runtime Startup Profile은 서로 다른 실행 축을 관리한다.
 
 ```text
 Main Model Profile
   └─ 어떤 Main Model을 실행할 것인가
 
-Deploy Runtime Profile
-  └─ 어떤 secondary runtime을 함께 활성화할 것인가
+Runtime Startup Profile
+  └─ 어떤 non-main Model Runtime을 함께 활성화할 것인가
 ```
 
 ---
@@ -466,7 +466,7 @@ runtime_override_example_keys
 | `FASTAPI_DOCS_ENABLED` | `/docs`, `/redoc`, `/openapi.json`과 이들이 쓰는 self-host asset (`/static/*`, `/favicon.ico`) 활성화 여부. 기본 `true`. 문서 화면은 외부 CDN을 쓰지 않으므로 air-gap 망에서도 그대로 뜬다 |
 | `CORS_ALLOWED_ORIGINS` | 브라우저 기반 별도 client를 허용할 origin 목록 |
 | `REQUEST_TIMEOUT_SECONDS` | Gateway 전체 요청 timeout |
-| `RISK_ADAPTER_TIMEOUT_SECONDS` | Gateway의 Risk Adapter 호출 timeout |
+| `RISK_ADAPTER_TIMEOUT_SECONDS` | Gateway의 Risk Signal Service 호출 timeout |
 | `*_BASE_URL` | vLLM 또는 내부 service endpoint override |
 | `*_MAX_CONCURRENCY` | 모델별 Gateway-side 동시 처리 상한 |
 | `*_QUEUE_TIMEOUT_SECONDS` | 모델별 admission queue 대기 상한 |
@@ -509,7 +509,7 @@ Generated artifact는 원본 config를 변경한 뒤 다시 생성하는 방식�
 | `ops/prometheus/prometheus.yml` | `model_catalog.yaml` + `model_serving.yaml` + `monitoring.yaml` |
 | `specs/schemas/model_list_response.schema.json` | Model Registry projection |
 | `specs/openapi.gateway.yaml` | Gateway runtime OpenAPI + contract schema + endpoint spec |
-| `specs/openapi.risk-adapter.yaml` | Risk Adapter runtime OpenAPI + contract schema + endpoint spec |
+| `specs/openapi.risk-adapter.yaml` | Risk Signal Service runtime OpenAPI + contract schema + endpoint spec |
 
 generated artifact를 갱신할 때는 다음 명령을 사용한다.
 
@@ -573,7 +573,7 @@ make exposure-status
 | Service / port | `services.yaml` | Compose / exposure / Prometheus 생성 | `make validate`, `make compose-config` |
 | Exposure mode | `exposure_profiles.yaml` | host publish 범위 | `make validate`, exposure 적용, Compose 재적용 |
 | Access profile | `access_profiles.yaml` | 사용자 접근 의도를 auth/exposure/bind로 투영 | `make validate`, `make setup ACCESS=...` |
-| Deploy profile | `deploy_profiles.yaml` | secondary runtime 초기 상태 | compose-up, full deploy 또는 runtime reconcile |
+| Deploy profile | `deploy_profiles.yaml` | non-main Model Runtime 초기 상태 | compose-up, full deploy 또는 runtime reconcile |
 | Auth profile | `auth_profiles.yaml` | API / Admin / internal auth 정책 | `make validate`, auth plan/apply/doctor |
 | Environment example contract | `env_contract.yaml` | example env key | example env 갱신, `make sync-env`, `make validate` |
 | `.env` | runtime environment | 현재 실행 instance의 endpoint, secret, timeout 등 | 대상 process/container 재기동 가능 |

@@ -14,7 +14,7 @@
 # 선택:
 #   VLLM_UNIFIED_IMAGE_TO_DEPLOY      새로 빌드·publish한 immutable digest. 지정하면
 #                                     shared VLLM_IMAGE를 승격하고 full 배포로 전환한다.
-#   AUDIO_VLLM_IMAGE_TO_DEPLOY        Main Model profile 전용 image override를 승격할 ref;
+#   MAIN_MODEL_VLLM_IMAGE_OVERRIDE_TO_DEPLOY        Main Model profile 전용 image override를 승격할 ref;
 #                                     DEPLOY_MODE=full일 때만 허용. shared promotion이
 #                                     있고 별도 값이 없으면 같은 digest를 사용한다.
 #   DEPLOY_COMPOSE_FILE               DEPLOY_PATH 기준 상대 compose 파일 경로
@@ -195,7 +195,7 @@ fi
 ssh "${SSH_TARGET}" \
   PLATFORM_IMAGE_TO_DEPLOY="${PLATFORM_IMAGE_TO_DEPLOY}" \
   VLLM_UNIFIED_IMAGE_TO_DEPLOY="${VLLM_UNIFIED_IMAGE_TO_DEPLOY:-}" \
-  AUDIO_VLLM_IMAGE_TO_DEPLOY="${AUDIO_VLLM_IMAGE_TO_DEPLOY:-}" \
+  MAIN_MODEL_VLLM_IMAGE_OVERRIDE_TO_DEPLOY="${MAIN_MODEL_VLLM_IMAGE_OVERRIDE_TO_DEPLOY:-}" \
   DEPLOY_PATH="${DEPLOY_PATH}" \
   RELEASE_PATH="${RELEASE_PATH}" \
   RELEASE_ID="${RELEASE_ID}" \

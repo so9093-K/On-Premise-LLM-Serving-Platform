@@ -46,7 +46,7 @@ E2B/E4B/12B/26B-A4B/31B 전 라인업 공통). 하지만 현재 설치된 vLLM `
 `encoder_cache_manager.py`의 `can_allocate()`는 이런 경우 크래시 대신 `False`를
 반환한다 — 즉 크래시가 아니라 **요청이 스케줄링되지 못하고 멈추거나 타임아웃**될
 위험이 있다. `_VIDEO_MAX_FRAMES` 자체를 60으로 고치려면 설치된 vLLM 패키지를 패치한
-커스텀 파생 이미지가 필요하다(12B 오디오/이미지 버그 수정 때 만든 `AUDIO_VLLM_IMAGE`와
+커스텀 파생 이미지가 필요하다(12B 오디오/이미지 버그 수정 때 만든 현재의 `MAIN_MODEL_VLLM_IMAGE_OVERRIDE`와
 동급 작업). 게다가 이 변경은 GPU 메모리 프로파일링에도 영향을 준다 — ADR-0015의
 Update(2026-07-16) 기록처럼, dummy 프로파일링 입력이 커지면 activation 메모리 추정치가
 커져서 KV cache pool(`num_gpu_blocks`)이 줄어드는 동일한 트레이드오프가 예상된다.
@@ -99,7 +99,7 @@ MIME 시그니처만 확인할 뿐 frame count나 duration을 전혀 검증하�
 ## Related
 
 - [ADR-0015](0015-main-llm-20k-o3-runtime-target.md) — `--max-num-batched-tokens` 증가가 KV cache pool을 줄이는 동일한 트레이드오프 실측 기록
-- [ADR-0018](0018-gpu-vram-admission-and-per-profile-runtime-image.md) — per-profile 커스텀 런타임 이미지 선례 (`AUDIO_VLLM_IMAGE`)
+- [ADR-0018](0018-gpu-vram-admission-and-per-profile-runtime-image.md) — per-profile 커스텀 런타임 이미지 선례 (`MAIN_MODEL_VLLM_IMAGE_OVERRIDE`, 당시 `AUDIO_VLLM_IMAGE`)
 - `configs/model_serving.yaml` (`main_llm.request_limits.audio_input_note`/`video_input_note`)
 - `configs/main_model_profiles.yaml` (`gemma4-12b-unified-fp8`)
 - `src/ai_model_serving/contracts/media.py`

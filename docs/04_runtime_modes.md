@@ -3,8 +3,8 @@
 AI Model Serving Platform은 개발 목적의 **app-only**, 전체 lifecycle을 소유하는
 **full-stack dynamic**, 외부가 Main runtime lifecycle을 소유하는 **static main** 실행 방식을 제공한다.
 
-- **app-only**: Gateway와 Risk Adapter 중심의 application 개발 환경
-- **full-stack**: vLLM runtime, Admin / Control Sidecar, observability를 포함한 전체 서빙 환경
+- **app-only**: Gateway와 Risk Signal Service 중심의 application 개발 환경
+- **full-stack**: vLLM runtime, Runtime Controller, observability를 포함한 전체 서빙 환경
 - **static main**: 고정된 OpenAI-compatible Main runtime endpoint만 사용하는 최소 서빙 환경
 
 실행 환경의 기능 집합은 `configs/deployment_targets.yaml`의 `DEPLOYMENT_TARGET`이 결정한다.
@@ -21,7 +21,7 @@ Gateway는 고정 endpoint로 Chat과 Streaming만 제공한다.
 Client -> Gateway -> externally managed Main runtime
 ```
 
-Embedding, Retrieval, Risk Adapter, Sidecar, 모델 전환과 GPU admission은 이 target의
+Embedding, Retrieval, Risk Signal Service, Sidecar, 모델 전환과 GPU admission은 이 target의
 feature set에 포함되지 않으므로 client, readiness dependency, route, OpenAPI 및
 `/v1/models`에도 나타나지 않는다. Gateway-only Compose 정의는
 `ops/compose/static-main.external-runtime.yaml`에 있다.
@@ -117,13 +117,13 @@ Mac 로컬 기본은 `PLATFORM_IMAGE`를 registry에서 pull하지 않고 `make 
 
 ### app-only
 
-app-only는 GPU와 vLLM runtime 없이 Gateway와 Risk Adapter를 로컬 process로 실행하는 개발 모드다.
+app-only는 GPU와 vLLM runtime 없이 Gateway와 Risk Signal Service를 로컬 process로 실행하는 개발 모드다.
 
 ```text
 Developer Host
 │
 ├─ Gateway       localhost:9400
-└─ Risk Adapter  localhost:9405
+└─ Risk Signal Service  localhost:9405
 ```
 
 주요 실행 명령은 다음과 같다.
@@ -136,7 +136,7 @@ make status
 
 app-only는 다음 작업에 적합하다.
 
-- Gateway / Risk Adapter startup 확인
+- Gateway / Risk Signal Service startup 확인
 - API routing과 request validation 개발
 - 인증과 error mapping 로직 확인
 - OpenAPI / schema 개발
@@ -160,8 +160,8 @@ Gateway
   │
   ├─ Main Model Runtime
   ├─ Embedding Runtimes
-  ├─ Risk Adapter ── Prompt Risk Runtime
-  └─ Admin / Control Sidecar ── Docker Engine
+  ├─ Risk Signal Service ── Prompt Injection Detector Runtime
+  └─ Runtime Controller ── Docker Engine
 
 Observability
   ├─ Prometheus / Grafana
@@ -277,8 +277,8 @@ Compose Network
 | `9400` | Gateway |
 | `9401` | Main Model Runtime |
 | `9402` | Embedding Runtime |
-| `9403` | Prompt Risk Runtime |
-| `9405` | Risk Adapter |
+| `9403` | Prompt Injection Detector Runtime |
+| `9405` | Risk Signal Service |
 | `9406` | Korean Embedding Runtime |
 | `9410` | Prometheus |
 | `9411` | Grafana |
@@ -353,7 +353,7 @@ risk-prompt-vllm
 
 vLLM runtime은 초기화 과정에서 GPU memory를 확인하고 runtime memory를 구성한다. 순차 기동은 여러 runtime이 동일 GPU를 사용할 때 초기화 경쟁을 줄이는 역할을 한다.
 
-Gateway는 기본적으로 `risk-adapter`와 `main-llm-vllm`의 상태를 기준으로 기동되며, Admin Sidecar는 Gateway의 hard startup dependency로 두지 않는다.
+Gateway는 기본적으로 `risk-adapter`와 `main-llm-vllm`의 상태를 기준으로 기동되며, Runtime Controller는 Gateway의 hard startup dependency로 두지 않는다.
 
 따라서 Sidecar 장애는 Main Model control에 영향을 주지만 Gateway process 자체의 기동과 직접 결합되지는 않는다.
 
@@ -401,7 +401,7 @@ required_not_ready_dependencies: [...]
 optional_not_ready_dependencies: [...]
 ```
 
-Deploy Runtime Profile에서 stopped 또는 deferred로 지정된 secondary runtime은 optional dependency로 처리될 수 있다.
+Runtime Startup Profile에서 stopped 또는 deferred로 지정된 non-main Model Runtime은 optional dependency로 처리될 수 있다.
 
 ### `make ready-local`
 
@@ -411,7 +411,7 @@ app-only 환경의 application process를 확인한다.
 make ready-local
 ```
 
-검증 대상은 Gateway와 Risk Adapter의 `/health`다.
+검증 대상은 Gateway와 Risk Signal Service의 `/health`다.
 
 ### `make ready-full`
 
@@ -453,13 +453,13 @@ Chat(Structured Output 포함), Risk, 일반 Embedding, Korean Embedding 경로�
 
 ### Main Model
 
-Main Model은 profile 전환이 가능한 runtime이며 Gateway, Admin Sidecar, vLLM Runtime이 역할을 나누어 관리한다.
+Main Model은 profile 전환이 가능한 runtime이며 Gateway, Runtime Controller, vLLM Runtime이 역할을 나누어 관리한다.
 
 ```text
 Gateway
   └─ Chat gate / in-flight request tracking
 
-Admin Sidecar
+Runtime Controller
   └─ drain / container lifecycle / validation / rollback
 
 Main Model vLLM
@@ -470,11 +470,11 @@ Main Model vLLM
 
 세부 switch API와 rollback 절차는 [6. 모델 운영](./06_model_operations.md)에서 설명한다.
 
-### Secondary Runtime
+### non-main Model Runtime
 
-Embedding과 Prompt Risk runtime은 Deploy Runtime Profile에 따라 active 또는 deferred 상태로 운영할 수 있다.
+Embedding과 Prompt Injection Detector Runtime은 Runtime Startup Profile에 따라 active 또는 deferred 상태로 운영할 수 있다.
 
-현재 secondary runtime control 대상은 다음과 같다.
+현재 non-main Model Runtime control 대상은 다음과 같다.
 
 - `embedding`
 - `embedding_ko`
@@ -482,15 +482,15 @@ Embedding과 Prompt Risk runtime은 Deploy Runtime Profile에 따라 active 또�
 
 대표 profile은 다음과 같다.
 
-| Deploy Runtime Profile | 실행 상태 |
+| Runtime Startup Profile | 실행 상태 |
 |---|---|
-| `main_only` (기본) | Main Model 중심, secondary runtime deferred |
-| `retrieval_ready` | Main + embedding 계열 준비, Prompt Risk deferred |
+| `main_only` (기본) | Main Model 중심, non-main Model Runtime deferred |
+| `retrieval_ready` | Main + embedding 계열 준비, Prompt Injection deferred |
 
-Deploy Runtime Profile과 Exposure Profile의 역할은 다르다.
+Runtime Startup Profile과 Exposure Profile의 역할은 다르다.
 
 ```text
-Deploy Runtime Profile
+Runtime Startup Profile
   └─ 어떤 runtime을 실행할 것인가
 
 Exposure Profile
@@ -510,12 +510,12 @@ NVIDIA GPU
 ├─ Main Model
 ├─ Embedding
 ├─ Embedding-KO
-└─ Prompt Risk
+└─ Prompt Injection
 ```
 
 각 runtime은 독립 process와 container로 실행되지만 GPU memory는 공용 resource다.
 
-Runtime 시작과 Main Model 전환 시에는 현재 활성화된 runtime의 GPU budget을 함께 확인한다. Admin Sidecar는 runtime activation 전에 GPU admission을 수행한다.
+Runtime 시작과 Main Model 전환 시에는 현재 활성화된 runtime의 GPU budget을 함께 확인한다. Runtime Controller는 runtime activation 전에 GPU admission을 수행한다.
 
 실제 VRAM budget, priority, eviction 정책은 [6. 모델 운영](./06_model_operations.md)과 `configs/gpu_budgets.yaml`에서 다룬다.
 
@@ -527,11 +527,11 @@ Runtime 시작과 Main Model 전환 시에는 현재 활성화된 runtime의 GPU
 
 | 작업 | 권장 모드 | 주요 확인 |
 |---|---|---|
-| Gateway / Risk Adapter 개발 | app-only | `make ready-local` |
+| Gateway / Risk Signal Service 개발 | app-only | `make ready-local` |
 | API contract / validation 개발 | app-only | test + `make ready-local` |
 | 실제 Chat inference | full-stack | `make ready-full` |
 | Embedding / Retrieval 검증 | full-stack | `make ready-full` |
-| Prompt Risk runtime 검증 | full-stack | `make ready-full` |
+| Prompt Injection Detector Runtime 검증 | full-stack | `make ready-full` |
 | Main Model switch | full-stack | Model Operations 검증 |
 | GPU budget 변경 | full-stack | Runtime / GPU validation |
 | Compose / exposure 변경 | full-stack | `make compose-config`, `make exposure-status` |
@@ -545,7 +545,7 @@ Runtime 시작과 Main Model 전환 시에는 현재 활성화된 runtime의 GPU
 | Base Compose topology   | `ops/compose/full-stack.private-network.yaml` | 전체 서비스의 기본 컨테이너 구성과 연결 관계 정의        |
 | Service / port registry | `configs/services.yaml`                       | 서비스 이름, 포트, bind 정보 등 서비스 메타데이터 정의  |
 | Exposure profile        | `configs/exposure_profiles.yaml`              | 서비스별 host port 공개 범위 정의             |
-| Deploy Runtime Profile  | `configs/deploy_profiles.yaml`                | compose-up/full 배포 시 활성화할 secondary runtime 조합 정의 |
+| Runtime Startup Profile  | `configs/deploy_profiles.yaml`                | compose-up/full 배포 시 활성화할 non-main Model Runtime 조합 정의 |
 | Model runtime           | `configs/model_serving.yaml`                  | 모델 runtime 연결, 제한값 및 serving 정책 정의  |
 | Main Model profile      | `configs/main_model_profiles.yaml`            | Main Model별 runtime 및 실행 profile 정의 |
 | GPU budget              | `configs/gpu_budgets.yaml`                    | GPU별 runtime 자원 사용 한도 정의            |

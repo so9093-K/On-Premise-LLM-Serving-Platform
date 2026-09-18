@@ -208,7 +208,7 @@ def _resolve_profile_image(
 
     - ``None`` inherits the shared ``runtime.image``.
     - ``"${VAR}"`` is resolved from ``env`` (set by CI/deploy, like compose's
-      ``${AUDIO_VLLM_IMAGE}``). When ``VAR`` is unset/empty the profile override is not built yet,
+      ``${MAIN_MODEL_VLLM_IMAGE_OVERRIDE}``). When ``VAR`` is unset/empty the profile override is not built yet,
       so the profile inherits the shared base only to keep the sidecar booting; the
       profile's declared capabilities are unchanged (it is a multimodal model, not a
       separate text-only one), and the switch-time boot canary is what proves the live
@@ -840,7 +840,7 @@ class MainModelManager:
                 "the selected model is incompatible with the current deployment",
                 status_code=422,
             )
-        if compatibility in {"unverified", "unknown"} and not confirm_unverified:
+        if compatibility != "verified" and not confirm_unverified:
             raise MainModelSwitchError(
                 "MODEL_PROFILE_CONFIRMATION_REQUIRED",
                 "the selected model is not verified; explicit confirmation is required",

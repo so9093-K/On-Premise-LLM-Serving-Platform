@@ -90,7 +90,7 @@ class FakeBackend:
 def catalog():
     result = load_main_model_catalog(
         ROOT / "configs/main_model_profiles.yaml",
-        env={"VLLM_IMAGE": _SHARED_IMAGE, "AUDIO_VLLM_IMAGE": _AUDIO_IMAGE},
+        env={"VLLM_IMAGE": _SHARED_IMAGE, "MAIN_MODEL_VLLM_IMAGE_OVERRIDE": _PROFILE_IMAGE},
     )
     result.runtime["drain_timeout_seconds"] = 0
     return result
@@ -793,14 +793,14 @@ def test_initialize_respects_deliberate_stop(tmp_path):
 
 
 _SHARED_IMAGE = "registry.example.com/vllm@sha256:" + "a" * 64
-_AUDIO_IMAGE = "registry.example.com/vllm-audio@sha256:" + "b" * 64
+_PROFILE_IMAGE = "registry.example.com/vllm-profile@sha256:" + "b" * 64
 _LOCAL_IMAGE = "sha256:" + "c" * 64
 _REV_A = "0" * 40
 _REV_B = "1" * 40
 
 
-def _catalog_yaml(*, audio_image: str | None) -> str:
-    audio_line = f"\n    image: {audio_image}" if audio_image is not None else ""
+def _catalog_yaml(*, profile_image: str | None) -> str:
+    audio_line = f"\n    image: {profile_image}" if profile_image is not None else ""
     return f"""
 version: 1
 public_model: local-main
@@ -828,40 +828,40 @@ profiles:
 """
 
 
-def _write_catalog_path(tmp_path, *, audio_image: str | None = None):
+def _write_catalog_path(tmp_path, *, profile_image: str | None = None):
     path = tmp_path / "profiles.yaml"
-    path.write_text(_catalog_yaml(audio_image=audio_image), encoding="utf-8")
+    path.write_text(_catalog_yaml(profile_image=profile_image), encoding="utf-8")
     return path
 
 
-def _write_catalog(tmp_path, *, audio_image: str | None, env: dict[str, str] | None = None):
+def _write_catalog(tmp_path, *, profile_image: str | None, env: dict[str, str] | None = None):
     return load_main_model_catalog(
-        _write_catalog_path(tmp_path, audio_image=audio_image), env=env
+        _write_catalog_path(tmp_path, profile_image=profile_image), env=env
     )
 
 
 def test_profile_image_env_ref_resolves_from_env(tmp_path):
-    # CI/배포가 불변 digest를 주입한다; 프로필은 ${AUDIO_VLLM_IMAGE}를 고정 참조한다.
+    # CI/배포가 불변 digest를 주입한다; 프로필은 ${MAIN_MODEL_VLLM_IMAGE_OVERRIDE}를 고정 참조한다.
     loaded = _write_catalog(
-        tmp_path, audio_image="${AUDIO_VLLM_IMAGE}", env={"AUDIO_VLLM_IMAGE": _AUDIO_IMAGE}
+        tmp_path, profile_image="${MAIN_MODEL_VLLM_IMAGE_OVERRIDE}", env={"MAIN_MODEL_VLLM_IMAGE_OVERRIDE": _PROFILE_IMAGE}
     )
-    assert loaded.profiles["audio"].image == _AUDIO_IMAGE
+    assert loaded.profiles["audio"].image == _PROFILE_IMAGE
     assert loaded.profiles["base"].image == _SHARED_IMAGE
 
 
 def test_runtime_image_env_ref_resolves_before_profiles_inherit_it(tmp_path):
-    path = _write_catalog_path(tmp_path, audio_image=None)
+    path = _write_catalog_path(tmp_path, profile_image=None)
     raw = path.read_text(encoding="utf-8").replace(
         f"image: {_SHARED_IMAGE}", "image: ${VLLM_IMAGE}", 1
     )
     path.write_text(raw, encoding="utf-8")
-    loaded = load_main_model_catalog(path, env={"VLLM_IMAGE": _AUDIO_IMAGE})
-    assert loaded.runtime["image"] == _AUDIO_IMAGE
-    assert loaded.profiles["base"].image == _AUDIO_IMAGE
+    loaded = load_main_model_catalog(path, env={"VLLM_IMAGE": _PROFILE_IMAGE})
+    assert loaded.runtime["image"] == _PROFILE_IMAGE
+    assert loaded.profiles["base"].image == _PROFILE_IMAGE
 
 
 def test_runtime_image_accepts_immutable_local_docker_image_id(tmp_path):
-    path = _write_catalog_path(tmp_path, audio_image=None)
+    path = _write_catalog_path(tmp_path, profile_image=None)
     raw = path.read_text(encoding="utf-8").replace(
         f"image: {_SHARED_IMAGE}", "image: ${VLLM_IMAGE}", 1
     )
@@ -874,7 +874,7 @@ def test_profile_image_env_ref_falls_back_to_shared_when_unset(tmp_path):
     # 아직 digest가 빌드되지 않음 -> env가 비어있음 -> 프로필이 공유 base를
     # 상속한다, 그래도 sidecar는 부팅된다(go-live를 막는 건 pin이 아니라
     # media boot canary다).
-    loaded = _write_catalog(tmp_path, audio_image="${AUDIO_VLLM_IMAGE}", env={})
+    loaded = _write_catalog(tmp_path, profile_image="${MAIN_MODEL_VLLM_IMAGE_OVERRIDE}", env={})
     assert loaded.profiles["audio"].image == _SHARED_IMAGE
 
 
@@ -882,13 +882,13 @@ def test_profile_image_env_ref_rejects_non_digest_value(tmp_path):
     with pytest.raises(MainModelConfigurationError):
         _write_catalog(
             tmp_path,
-            audio_image="${AUDIO_VLLM_IMAGE}",
-            env={"AUDIO_VLLM_IMAGE": "registry.example.com/vllm-audio:latest"},
+            profile_image="${MAIN_MODEL_VLLM_IMAGE_OVERRIDE}",
+            env={"MAIN_MODEL_VLLM_IMAGE_OVERRIDE": "registry.example.com/vllm-profile:latest"},
         )
 
 
 def test_profile_without_image_inherits_shared_runtime_image(tmp_path):
-    loaded = _write_catalog(tmp_path, audio_image=None)
+    loaded = _write_catalog(tmp_path, profile_image=None)
     # 어느 프로필도 이미지를 고정하지 않음 -> 둘 다 공유 runtime.image로
     # 귀결된다, 그래서 프로필 전환이 26b를 받치는 runtime을 조용히 바꾸는 일은 없다.
     assert loaded.profiles["base"].image == _SHARED_IMAGE
@@ -897,31 +897,31 @@ def test_profile_without_image_inherits_shared_runtime_image(tmp_path):
 
 
 def test_profile_image_override_travels_with_profile(tmp_path):
-    loaded = _write_catalog(tmp_path, audio_image=_AUDIO_IMAGE)
+    loaded = _write_catalog(tmp_path, profile_image=_PROFILE_IMAGE)
     # audio 프로필은 자신만의 runtime을 고정한다; base 프로필은 영향받지 않는다.
     assert loaded.profiles["base"].image == _SHARED_IMAGE
-    assert loaded.profiles["audio"].image == _AUDIO_IMAGE
+    assert loaded.profiles["audio"].image == _PROFILE_IMAGE
 
 
 def test_profile_image_must_be_digest_pinned(tmp_path):
     with pytest.raises(MainModelConfigurationError):
-        _write_catalog(tmp_path, audio_image="registry.example.com/vllm-audio:latest")
+        _write_catalog(tmp_path, profile_image="registry.example.com/vllm-profile:latest")
 
 
 def test_snapshot_runtime_image_reflects_active_profile(tmp_path):
-    loaded = _write_catalog(tmp_path, audio_image=_AUDIO_IMAGE)
+    loaded = _write_catalog(tmp_path, profile_image=_PROFILE_IMAGE)
     store = MainModelStateStore(tmp_path / "state.json", loaded.default_profile)
     store.write({**store.read(), "active_profile": "audio", "gate": "open"})
     manager = MainModelManager(loaded, store, FakeBackend("audio"))
     # 실제 runtime 이미지는 공유 기본값이 아니라 active profile을 따라간다.
-    assert manager.snapshot()["runtime_image"] == _AUDIO_IMAGE
+    assert manager.snapshot()["runtime_image"] == _PROFILE_IMAGE
 
 
 def test_deployed_input_rejects_unknown_modality(tmp_path):
     # "imgae" 같은 오타가 loader를 통과하면 Gateway 모델 정보엔 노출되면서도
     # switch-time canary는 정확한 문자열("image")만 알아서 절대 검증되지 않는 modality가
     # "지원"으로 선언될 수 있다 -- 이 조합을 loader에서 막는다.
-    path = _write_catalog_path(tmp_path, audio_image=None)
+    path = _write_catalog_path(tmp_path, profile_image=None)
     raw = path.read_text(encoding="utf-8").replace(
         "    compatibility:\n      status: verified\n    command: [--host, 0.0.0.0]",
         "    compatibility:\n      status: verified\n    capabilities:\n      deployed_input: [text, imgae]\n"
@@ -936,7 +936,7 @@ def test_deployed_input_rejects_unknown_modality(tmp_path):
 def test_capabilities_rejects_legacy_audio_video_enabled_keys(tmp_path):
     # audio_enabled/video_enabled는 deployed_input과 중복되는 정보라 제거됐다 -- YAML에
     # 다시 들어오면 두 source가 어긋날 수 있으므로 loader가 설정 오류로 거부해야 한다.
-    path = _write_catalog_path(tmp_path, audio_image=None)
+    path = _write_catalog_path(tmp_path, profile_image=None)
     raw = path.read_text(encoding="utf-8").replace(
         "    compatibility:\n      status: verified\n    command: [--host, 0.0.0.0]",
         "    compatibility:\n      status: verified\n    capabilities:\n      deployed_input: [text]\n"

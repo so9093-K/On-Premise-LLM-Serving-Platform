@@ -25,7 +25,7 @@ STRICT_ENV = {
     "INTERNAL_SERVICE_TOKEN": "openapi-internal-fixture",
     "FASTAPI_DOCS_ENABLED": "true",
     "VLLM_IMAGE": "registry.example.com/vllm-unified@sha256:" + "0" * 64,
-    "AUDIO_VLLM_IMAGE": "registry.example.com/vllm-unified@sha256:" + "1" * 64,
+    "MAIN_MODEL_VLLM_IMAGE_OVERRIDE": "registry.example.com/vllm-unified@sha256:" + "1" * 64,
 }
 
 _GENERATED_HEADER = (

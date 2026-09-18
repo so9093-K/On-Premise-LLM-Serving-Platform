@@ -16,7 +16,7 @@ Gemma4 multimodal patch와 Kanana compatibility patch도 같은 image 안에서 
 runtime별 env key로 표현하면 실제 build/qualification/promotion/rollback 경계보다 더 많은
 상태를 만들고 artifact provenance를 모호하게 한다.
 
-Main Model의 `AUDIO_VLLM_IMAGE`는 일부 profile이 명시적으로 선택하는 image override이며
+Main Model의 `MAIN_MODEL_VLLM_IMAGE_OVERRIDE`는 일부 profile이 명시적으로 선택하는 image override이며
 shared runtime pin과 다른 lifecycle 의미를 가진다.
 
 ## Decision
@@ -29,7 +29,7 @@ Main Model의 기본 runtime, embedding, embedding-ko, risk-prompt는 동일한 
 retired key다. 기존 `.env`에 남아 있으면 env lifecycle이 제거하며 runtime과 local build는
 이 값을 image authority 또는 fallback으로 해석하지 않는다.
 
-`AUDIO_VLLM_IMAGE`는 Main Model profile-specific image override 계약을 소유한다. profile이
+`MAIN_MODEL_VLLM_IMAGE_OVERRIDE`는 Main Model profile-specific image override 계약을 소유한다. profile이
 별도 image를 지정하지 않으면 shared `VLLM_IMAGE`를 사용한다.
 
 shared artifact의 deployment-time promotion authority는
@@ -45,7 +45,7 @@ artifact boundary와 함께 새 authority를 정의한다.
 - 하나의 qualified vLLM artifact와 하나의 persistent authority가 대응한다.
 - embedding-ko와 risk-prompt는 shared artifact를 독립적으로 pin하지 않는다.
 - 모델별 runtime 설정과 runtime software artifact의 책임이 분리된다.
-- Main Model profile은 실제 profile-specific artifact가 필요한 경우 `AUDIO_VLLM_IMAGE`로
+- Main Model profile은 실제 profile-specific artifact가 필요한 경우 `MAIN_MODEL_VLLM_IMAGE_OVERRIDE`로
   별도 override를 표현할 수 있다.
 - embedding-ko 또는 risk-prompt에 독립 image lifecycle이 필요해지면 별도 artifact
   qualification/promotion/rollback 계약을 먼저 정의해야 한다.
@@ -56,7 +56,7 @@ artifact boundary와 함께 새 authority를 정의한다.
 - shared image promotion은 `VLLM_UNIFIED_IMAGE_TO_DEPLOY`에 immutable registry digest를
   제공한다.
 - image promotion input이 없는 full deploy는 현재 persistent pin을 유지한다.
-- `AUDIO_VLLM_IMAGE`는 Main Model profile override로 독립적으로 해석한다.
+- `MAIN_MODEL_VLLM_IMAGE_OVERRIDE`는 Main Model profile override로 독립적으로 해석한다.
 
 ## Related
 
@@ -66,3 +66,11 @@ artifact boundary와 함께 새 authority를 정의한다.
 - ADR-0018: GPU VRAM admission and per-profile runtime image
 - `ops/images/vllm-unified/README.md`
 - `scripts/lib/vllm_unified_image.sh`
+
+
+## Terminology migration
+
+2026-09-18 terminology audit에서 `AUDIO_VLLM_IMAGE`는 실제 역할보다 좁은 이름으로 판정했다.
+이 값은 audio 전용 artifact가 아니라 Main Model profile-specific vLLM image override다.
+canonical key는 `MAIN_MODEL_VLLM_IMAGE_OVERRIDE`이며, legacy key는 값 손실 없는 migration을
+위한 compatibility alias로만 유지한다.

@@ -40,7 +40,7 @@ def test_cache_cli_reads_profile_metadata_without_runtime_image_env(tmp_path, mo
     from ai_model_serving.main_model import cache_cli
 
     monkeypatch.delenv("VLLM_IMAGE", raising=False)
-    monkeypatch.delenv("AUDIO_VLLM_IMAGE", raising=False)
+    monkeypatch.delenv("MAIN_MODEL_VLLM_IMAGE_OVERRIDE", raising=False)
     def fake_prepare(**kwargs):
         return PreparedModelSnapshot(
             model_id=kwargs["model_id"],

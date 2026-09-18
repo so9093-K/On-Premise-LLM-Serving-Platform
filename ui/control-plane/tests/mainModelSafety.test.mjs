@@ -25,9 +25,9 @@ function profile(status, overrides = {}) {
   };
 }
 
-test('only unverified and unknown profiles require explicit confirmation', () => {
+test('every switchable non-verified profile requires explicit confirmation', () => {
   assert.equal(mainModelProfileRequiresConfirmation(profile('verified')), false);
-  assert.equal(mainModelProfileRequiresConfirmation(profile('likely')), false);
+  assert.equal(mainModelProfileRequiresConfirmation(profile('likely')), true);
   assert.equal(mainModelProfileRequiresConfirmation(profile('unverified')), true);
   assert.equal(mainModelProfileRequiresConfirmation(profile('unknown')), true);
 });
@@ -39,9 +39,9 @@ test('incompatible and already-active profiles cannot create a switch request', 
 });
 
 test('switch request preserves backend confirmation semantics and terminal states', () => {
-  assert.deepEqual(mainModelSwitchRequest(profile('likely'), false), {
+  assert.deepEqual(mainModelSwitchRequest(profile('likely'), true), {
     profile: 'candidate',
-    confirm_unverified: false,
+    confirm_unverified: true,
   });
   assert.throws(() => mainModelSwitchRequest(profile('unknown'), false));
   assert.deepEqual(mainModelSwitchRequest(profile('unknown'), true), {

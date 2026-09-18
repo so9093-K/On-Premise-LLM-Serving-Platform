@@ -221,6 +221,38 @@ def test_confirmed_access_migration_updates_policy_as_one_set_and_keeps_secret(t
     assert values['API_KEYS'] == 'keep-me'
 
 
+
+def test_sync_env_migrates_legacy_main_model_image_override_without_value_loss(tmp_path):
+    out = tmp_path / '.env'
+    legacy = 'registry.example/main-profile@sha256:' + '4' * 64
+    out.write_text(
+        'BUILD_PROFILE=compose\n'
+        f'AUDIO_VLLM_IMAGE={legacy}\n',
+        encoding='utf-8',
+    )
+
+    rc = setup_env.main(['--sync-env', '--env-file', str(out)])
+
+    assert rc == 0
+    values = setup_env.read_env_values(out)
+    assert values['MAIN_MODEL_VLLM_IMAGE_OVERRIDE'] == legacy
+    assert 'AUDIO_VLLM_IMAGE' not in values
+
+
+def test_sync_env_rejects_conflicting_legacy_and_canonical_image_override(tmp_path, capsys):
+    out = tmp_path / '.env'
+    out.write_text(
+        'BUILD_PROFILE=compose\n'
+        'AUDIO_VLLM_IMAGE=registry.example/legacy@sha256:' + '1' * 64 + '\n'
+        'MAIN_MODEL_VLLM_IMAGE_OVERRIDE=registry.example/canonical@sha256:' + '2' * 64 + '\n',
+        encoding='utf-8',
+    )
+
+    rc = setup_env.main(['--sync-env', '--env-file', str(out)])
+
+    assert rc == 2
+    assert 'conflicting env keys AUDIO_VLLM_IMAGE and MAIN_MODEL_VLLM_IMAGE_OVERRIDE' in capsys.readouterr().err
+
 def test_sync_env_uses_recommended_image_defaults(tmp_path, monkeypatch):
     out = tmp_path / '.env'
     out.write_text('BUILD_PROFILE=compose\n', encoding='utf-8')

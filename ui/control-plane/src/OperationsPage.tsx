@@ -124,8 +124,8 @@ export function OperationsPage({ token, onUnauthorized, deploymentFeatures }: Op
     <section className="runtime-page">
       <div className="page-heading">
         <div>
-          <h1>Operations</h1>
-          <p>Runtime, Main Model, Configuration에서 발생한 최근 operation evidence를 읽기 전용으로 확인합니다.</p>
+          <h1>Activity</h1>
+          <p>Runtime, Main Model, Configuration에서 발생한 최근 변경과 검증 결과를 읽기 전용으로 확인합니다.</p>
         </div>
         <Button
           variant="secondary"
@@ -141,58 +141,58 @@ export function OperationsPage({ token, onUnauthorized, deploymentFeatures }: Op
       </div>
 
       <Card>
-        <CardTitle>Runtime transitions</CardTitle>
+        <CardTitle>Runtime changes</CardTitle>
         <CardBody>
-          <p className="configuration-help">Runtime start/stop의 최근 50개 operation을 보여줍니다. Durability에서 persistent evidence 여부를 확인할 수 있습니다.</p>
+          <p className="configuration-help">Runtime 시작·중지의 최근 50개 변경 기록을 보여줍니다. Persistence에서 재시작 후에도 남는 기록인지 확인할 수 있습니다.</p>
           {!runtimeEnabled ? (
             <Alert isInline variant="info" title="이 배포는 Runtime Control을 제공하지 않습니다.">
-              Bootstrap capability에 `runtime_control`이 없어 Runtime operation API를 호출하지 않습니다.
+              Bootstrap capability에 `runtime_control`이 없어 Runtime change API를 호출하지 않습니다.
             </Alert>
           ) : runtimeQuery.isPending ? (
             <SourceLoading label="Runtime" />
           ) : runtimeQuery.isError ? (
-            <Alert isInline variant="danger" title="Runtime operations를 불러오지 못했습니다.">{apiErrorMessage(runtimeQuery.error)}</Alert>
+            <Alert isInline variant="danger" title="Runtime 변경 기록을 불러오지 못했습니다.">{apiErrorMessage(runtimeQuery.error)}</Alert>
           ) : runtimeQuery.data.items.length === 0 ? (
-            <p>기록된 Runtime transition operation이 없습니다.</p>
+            <p>기록된 Runtime 변경이 없습니다.</p>
           ) : (
             <>
               <div className="table-scroll">
                 <table className="runtime-table">
-                  <thead><tr><th>Updated</th><th>Runtime</th><th>Intent</th><th>Status</th><th>Verification</th><th>Durability</th></tr></thead>
+                  <thead><tr><th>Updated</th><th>Runtime</th><th>Intent</th><th>Status</th><th>Verification</th><th>Persistence</th></tr></thead>
                   <tbody>
                     {runtimeQuery.data.items.map((operation) => (
                       <tr key={operation.operation_id}>
                         <td>{formatTimestamp(operation.updated_at)}<small><code>{operation.operation_id}</code></small></td>
                         <td><strong>{operation.service_key}</strong></td>
-                        <td>{operation.desired_state}{operation.force ? ' · force' : ''}</td>
+                        <td>{operation.desired_state}{operation.force ? ' · auto-stop allowed' : ''}</td>
                         <td><Label color={runtimeStatusColor(operation.status)}>{operation.status}</Label><small>{operation.phase}</small></td>
                         <td>{runtimeVerification(operation.verification)}</td>
-                        <td>{operation.durable ? 'durable' : 'in-memory'}</td>
+                        <td>{operation.durable ? 'persisted' : 'in-memory'}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-              {runtimeQuery.data.next_cursor ? <p className="configuration-help">이 화면은 recent operations만 표시합니다. 더 오래된 Runtime evidence는 server cursor 뒤에 남아 있습니다.</p> : null}
+              {runtimeQuery.data.next_cursor ? <p className="configuration-help">이 화면은 최근 변경만 표시합니다. 더 오래된 Runtime 기록은 server cursor를 통해 조회할 수 있습니다.</p> : null}
             </>
           )}
         </CardBody>
       </Card>
 
       <Card>
-        <CardTitle>Main Model profile switches</CardTitle>
+        <CardTitle>Main Model profile changes</CardTitle>
         <CardBody>
-          <p className="configuration-help">최근 Main Model profile switch의 진행 상태와 recovery 결과를 보여줍니다.</p>
+          <p className="configuration-help">최근 Main Model profile 전환의 진행 상태와 복구 결과를 보여줍니다.</p>
           {!mainModelEnabled ? (
             <Alert isInline variant="info" title="이 배포는 Main Model switching을 제공하지 않습니다.">
-              Bootstrap capability에 `model_switching`이 없어 Main Model operation API를 호출하지 않습니다.
+              Bootstrap capability에 `model_switching`이 없어 Main Model change API를 호출하지 않습니다.
             </Alert>
           ) : mainModelQuery.isPending ? (
             <SourceLoading label="Main Model" />
           ) : mainModelQuery.isError ? (
-            <Alert isInline variant="danger" title="Main Model operations를 불러오지 못했습니다.">{apiErrorMessage(mainModelQuery.error)}</Alert>
+            <Alert isInline variant="danger" title="Main Model 변경 기록을 불러오지 못했습니다.">{apiErrorMessage(mainModelQuery.error)}</Alert>
           ) : mainModelQuery.data.items.length === 0 ? (
-            <p>기록된 Main Model switch operation이 없습니다.</p>
+            <p>기록된 Main Model 전환이 없습니다.</p>
           ) : (
             <div className="table-scroll">
               <table className="runtime-table">
@@ -217,15 +217,15 @@ export function OperationsPage({ token, onUnauthorized, deploymentFeatures }: Op
       </Card>
 
       <Card>
-        <CardTitle>Configuration mutations</CardTitle>
+        <CardTitle>Configuration changes</CardTitle>
         <CardBody>
-          <p className="configuration-help">최근 Configuration 변경과 verification 결과를 보여줍니다. Rollback과 전체 history 탐색은 Configuration 화면에서 수행합니다.</p>
+          <p className="configuration-help">최근 Configuration 변경과 검증 결과를 보여줍니다. Rollback과 전체 기록 탐색은 Configuration 화면에서 수행합니다.</p>
           {configurationQuery.isPending ? (
             <SourceLoading label="Configuration" />
           ) : configurationQuery.isError ? (
-            <Alert isInline variant="danger" title="Configuration operations를 불러오지 못했습니다.">{apiErrorMessage(configurationQuery.error)}</Alert>
+            <Alert isInline variant="danger" title="Configuration 변경 기록을 불러오지 못했습니다.">{apiErrorMessage(configurationQuery.error)}</Alert>
           ) : configurationQuery.data.items.length === 0 ? (
-            <p>기록된 Configuration mutation이 없습니다.</p>
+            <p>기록된 Configuration 변경이 없습니다.</p>
           ) : (
             <>
               <div className="table-scroll">
@@ -245,7 +245,7 @@ export function OperationsPage({ token, onUnauthorized, deploymentFeatures }: Op
                   </tbody>
                 </table>
               </div>
-              {configurationQuery.data.next_cursor ? <p className="configuration-help">이 화면은 recent operations만 표시합니다. Configuration 화면에서 cursor 기반 durable history를 계속 탐색할 수 있습니다.</p> : null}
+              {configurationQuery.data.next_cursor ? <p className="configuration-help">이 화면은 최근 변경만 표시합니다. Configuration 화면에서 cursor 기반 persistent history를 계속 탐색할 수 있습니다.</p> : null}
             </>
           )}
         </CardBody>

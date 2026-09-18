@@ -80,7 +80,7 @@ Audio/video는 0017과 동일하게 기본 inert다. 활성화는 게이트된 �
 
 1. `make build-vllm-unified-image`로 공용 이미지를 빌드한다. 외부 publish 단계가 만든
    immutable registry digest를 원격 release 입력으로 전달한다.
-2. 배포가 그 digest를 `AUDIO_VLLM_IMAGE`에 반영하고,
+2. 배포가 그 digest를 `MAIN_MODEL_VLLM_IMAGE_OVERRIDE`에 반영하고(당시 이름 `AUDIO_VLLM_IMAGE`),
    `gemma4-12b-unified-fp8`의 `capabilities.deployed_input`이 audio/video를 선언한다.
    이 값이 media boot canary 실행 여부를 그대로 결정한다.
 3. 12B로 switch하면 `validate()`가 media boot canaries를 실행한다. 디코드 실패 시 26B로

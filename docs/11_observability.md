@@ -20,7 +20,7 @@ Service / Runtime
 
 | 구성요소 | 역할 |
 |---|---|
-| Gateway / Risk Adapter | 요청, 오류, 지연 시간, 준비 상태 등의 서비스 지표 제공 |
+| Gateway / Risk Signal Service | 요청, 오류, 지연 시간, 준비 상태 등의 서비스 지표 제공 |
 | vLLM Runtime | 모델 요청량, 지연 시간, Token 처리량, Queue, KV Cache 지표 제공 |
 | DCGM Exporter | GPU 메모리, 사용률, 온도, 전력 등 GPU 지표 제공 |
 | cAdvisor | 컨테이너 CPU, 메모리, OOM, 재시작 관련 지표 제공 |
@@ -39,25 +39,25 @@ Service / Runtime
 
 ```text
 Gateway ───────────────┐
-Risk Adapter ──────────┤
+Risk Signal Service ──────────┤
 vLLM Runtime ──────────┤
 DCGM Exporter ─────────┤──→ Prometheus ──→ Grafana
 cAdvisor ──────────────┘
 ```
 
-Prometheus는 Gateway, Risk Adapter, 각 vLLM Runtime, DCGM Exporter, cAdvisor의 `/metrics`를 주기적으로 수집한다.
+Prometheus는 Gateway, Risk Signal Service, 각 vLLM Runtime, DCGM Exporter, cAdvisor의 `/metrics`를 주기적으로 수집한다.
 
 vLLM Runtime은 하나의 scrape job으로 수집하고 `model`, `runtime_service` label을 사용해 모델과 실행 서비스를 구분한다.
 
 ### Logs
 
 ```text
-Gateway / Risk Adapter JSONL ─┐
+Gateway / Risk Signal Service JSONL ─┐
                               ├─→ Alloy ─→ Loki ─→ Grafana
 Container stdout/stderr ──────┘
 ```
 
-Gateway와 Risk Adapter는 구조화된 요청 이벤트를 앱 소유 JSONL에 기록한다. Alloy는
+Gateway와 Risk Signal Service는 구조화된 요청 이벤트를 앱 소유 JSONL에 기록한다. Alloy는
 이 고정 경로를 직접 읽으므로 Docker container ID와 admin-sidecar에 의존하지 않는다.
 vLLM traceback 등 컨테이너 stdout/stderr는 full-stack에서 Docker LogPath manifest를
 통해 `job="docker"`로, macOS Metal의 native MLX runtime stdout은 `.runtime/metal/logs/*.log`에서
@@ -119,7 +119,7 @@ Grafana의 **GPU Capacity and OOM Risk** Dashboard는 모델 Runtime과 GPU 자�
 
 GPU Memory Used는 실제 GPU 메모리 사용량을 나타내고, GPU Headroom은 현재 사용 가능한 여유 용량을 보여준다.
 
-Main Model 전환이나 Secondary Runtime 시작 전후에는 GPU 사용량과 Headroom 변화를 함께 확인한다. Runtime의 GPU 자원 정책은 [6. 모델 운영](./06_model_operations.md)에서 설명한다.
+Main Model 전환이나 non-main Model Runtime 시작 전후에는 GPU 사용량과 Headroom 변화를 함께 확인한다. Runtime의 GPU 자원 정책은 [6. 모델 운영](./06_model_operations.md)에서 설명한다.
 
 ### Queue와 KV Cache
 
@@ -158,7 +158,7 @@ Request Log Explorer는 Gateway 요청과 Runtime 로그를 Loki에서 조회한
 
 Request Log Explorer는 다음 영역으로 구성된다.
 
-- **Gateway Request Log**: Gateway와 Risk Adapter의 구조화된 요청 로그
+- **Gateway Request Log**: Gateway와 Risk Signal Service의 구조화된 요청 로그
 - **API Errors**: HTTP 4xx/5xx 요청
 - **Readiness Failures**: `/ready`에서 확인된 dependency 상태
 - **Non-JSON Runtime Errors**: vLLM·MLX 등 Runtime의 오류 로그
@@ -319,14 +319,14 @@ Rolling 배포 후에는 Gateway 상태와 요청 흐름을 우선 확인한다.
 - Gateway `/health`
 - 요청량과 오류율
 - 응답 시간
-- Gateway / Risk Adapter 관련 로그
+- Gateway / Risk Signal Service 관련 로그
 
 ### Full 배포
 
 Full 배포 후에는 전체 Runtime 준비 상태와 GPU 자원을 함께 확인한다.
 
 - `make ready-full`
-- Main Model과 Secondary Runtime 상태
+- Main Model과 non-main Model Runtime 상태
 - GPU Memory / Headroom
 - Queue / KV Cache
 - OOM / Restart 신호

@@ -2,7 +2,7 @@
 
 AI Model Serving Platform은 Chat, Embedding, Retrieval, Prompt Guard 기능을 하나의 Gateway API로 제공하는 온프레미스 모델 서빙 플랫폼이다.
 
-모델 inference는 독립된 vLLM runtime으로 실행하고, runtime과 container 제어는 Admin / Control Sidecar로 분리한다. 메트릭과 로그는 별도 관측성 스택에서 수집한다.
+모델 inference는 독립된 vLLM runtime으로 실행하고, runtime과 container 제어는 Runtime Controller로 분리한다. 메트릭과 로그는 별도 관측성 스택에서 수집한다.
 
 ## 1.1 프로젝트 배경
 
@@ -41,7 +41,7 @@ Validation / Deployment / Monitoring
 
 위 구성도는 클라이언트 요청이 Gateway를 거쳐 모델 runtime과 Prompt Guard로 전달되고, metrics가 운영·모니터링 계층으로 수집되는 서빙 경로를 보여준다.
 
-Admin / Control Sidecar와 로그 수집 계층까지 포함한 현재 주요 경계는 다음과 같다.
+Runtime Controller와 로그 수집 계층까지 포함한 현재 주요 경계는 다음과 같다.
 
 ```text
 Client / Application
@@ -68,7 +68,7 @@ Client / Application
 
 
 ┌──────────────────────────┐
-│ Admin / Control Sidecar  │
+│ Runtime Controller  │
 │          :8080           │
 └────────────┬─────────────┘
              │
@@ -89,25 +89,25 @@ Client / Application
 | 구성 요소 | 주요 역할 | 연결 구조 |
 |---|---|---|
 | **Gateway** | API 인터페이스<br>Request / Response 처리<br>멀티모달 입력 검증<br>Routing / Orchestration | `Client` → `Gateway`<br>→ Model Runtime<br>→ Prompt Guard |
-| **Admin / Control Sidecar** | Runtime Lifecycle<br>Main Model 전환<br>GPU Budget Admission<br>Container 제어 | `Gateway` → `Sidecar`<br>→ Docker / Runtime |
+| **Runtime Controller** | Runtime Lifecycle<br>Main Model 전환<br>GPU Budget Admission<br>Container 제어 | `Gateway` → `Sidecar`<br>→ Docker / Runtime |
 | **vLLM Runtime** | Model Load<br>Inference 실행<br>모델별 Runtime 설정 적용 | Main LLM<br>Embedding<br>Embedding-KO<br>Prompt Guard Model |
 | **Prompt Guard** | Prompt 검사<br>Detector 호출<br>결과 정규화 | `Gateway` → `risk-adapter`<br>→ `risk-prompt-vllm` |
 | **관측성 스택** | Metrics 수집<br>Logs 수집<br>GPU / Container 관측<br>Dashboard | Prometheus · Grafana<br>Loki · Alloy<br>DCGM · cAdvisor |
 
-Gateway와 Admin / Control Sidecar는 역할이 분리되어 있다.
+Gateway와 Runtime Controller는 역할이 분리되어 있다.
 
 ```text
 Gateway
   API / Request 처리
   Routing / Orchestration
 
-Admin / Control Sidecar
+Runtime Controller
   Runtime 제어
   GPU Budget 확인
   Container Lifecycle
 ```
 
-Docker socket은 Admin / Control Sidecar에 연결된다. Gateway는 내부 control API를 통해 runtime 상태 조회와 전환 기능을 사용한다.
+Docker socket은 Runtime Controller에 연결된다. Gateway는 내부 control API를 통해 runtime 상태 조회와 전환 기능을 사용한다.
 
 vLLM runtime은 모델별 독립 process와 port로 구성된다.
 
@@ -147,8 +147,8 @@ Gateway는 외부 API 형식을 유지하면서 request parameter, 이미지·�
 | 영역 | 담당 |
 |---|---|
 | API 요청·Routing | Gateway |
-| Runtime 상태·전환 | Admin / Control Sidecar |
-| Container Lifecycle | Admin / Control Sidecar |
+| Runtime 상태·전환 | Runtime Controller |
+| Container Lifecycle | Runtime Controller |
 | Model Inference | vLLM Runtime |
 
 이 구조를 통해 API 처리 영역과 Docker 제어 권한을 분리한다.
@@ -203,7 +203,7 @@ RTX 6000 Ada 48 GiB
         └─ Prompt Guard Model
 ```
 
-각 runtime은 `gpu_memory_utilization` budget을 갖고, Admin / Control Sidecar는 runtime 기동과 전환 시 전체 GPU budget을 확인한다.
+각 runtime은 `gpu_memory_utilization` budget을 갖고, Runtime Controller는 runtime 기동과 전환 시 전체 GPU budget을 확인한다.
 
 구체적인 budget과 기동 순서는 [6. 모델 운영](./06_model_operations.md)에서 다룬다.
 
@@ -214,8 +214,8 @@ Platform application과 vLLM runtime은 별도 image artifact로 관리한다.
 ```text
 Platform Image
   ├─ Gateway
-  ├─ Risk Adapter
-  └─ Admin / Control Sidecar
+  ├─ Risk Signal Service
+  └─ Runtime Controller
 
 vLLM Unified Image
   ├─ Main LLM
@@ -273,8 +273,8 @@ Host Published
   └─ Grafana
 
 Compose Internal
-  ├─ Admin / Control Sidecar
-  ├─ Risk Adapter
+  ├─ Runtime Controller
+  ├─ Risk Signal Service
   ├─ Main vLLM
   ├─ Embedding vLLM
   ├─ Embedding-KO vLLM

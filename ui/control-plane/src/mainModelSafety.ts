@@ -6,7 +6,7 @@ import type {
 
 export function mainModelProfileRequiresConfirmation(profile: MainModelProfile): boolean {
   const status = profile.compatibility.status;
-  return status === 'unverified' || status === 'unknown';
+  return status !== 'verified' && status !== 'incompatible';
 }
 
 export function mainModelProfileSwitchable(profile: MainModelProfile): boolean {

@@ -50,9 +50,9 @@ function verificationSummary(operation: RuntimeOperationResponse): string {
     return '관측 정보 없음';
   }
   const converged = (verification as Record<string, unknown>).converged;
-  if (converged === true) return 'Observed state converged';
-  if (converged === false) return 'Observed state did not converge';
-  return 'Observed convergence not asserted';
+  if (converged === true) return '실제 상태가 원하는 상태로 수렴했습니다.';
+  if (converged === false) return '실제 상태가 원하는 상태로 수렴하지 않았습니다.';
+  return '상태 수렴 여부가 기록되지 않았습니다.';
 }
 
 export function RuntimePage({ token, onUnauthorized }: RuntimePageProps) {
@@ -160,7 +160,7 @@ export function RuntimePage({ token, onUnauthorized }: RuntimePageProps) {
       <div className="page-heading">
         <div>
           <h1>Runtimes</h1>
-          <p>서버가 계산한 Plan을 검토한 뒤 동일한 digest로 적용하고 observed verification evidence를 확인합니다.</p>
+          <p>Runtime 시작·중지로 발생할 변경과 GPU 영향을 확인한 뒤 적용하고, 실제 상태가 수렴했는지 검증합니다.</p>
         </div>
         <Button variant="secondary" onClick={() => runtimesQuery.refetch()} isDisabled={runtimesQuery.isFetching}>
           {runtimesQuery.isFetching ? '새로고침 중…' : '새로고침'}
@@ -169,7 +169,7 @@ export function RuntimePage({ token, onUnauthorized }: RuntimePageProps) {
 
       {budget ? (
         <Card>
-          <CardTitle>GPU budget</CardTitle>
+          <CardTitle>GPU capacity</CardTitle>
           <CardBody>
             <dl className="facts compact-facts">
               <dt>Ceiling</dt><dd>{displayNumber(budget.ceiling)}</dd>
@@ -180,7 +180,7 @@ export function RuntimePage({ token, onUnauthorized }: RuntimePageProps) {
         </Card>
       ) : (
         <Alert isInline variant="warning" title="GPU budget 관측을 사용할 수 없습니다.">
-          Runtime 상태는 표시하지만 resource impact는 Plan 응답을 기준으로 판단하세요.
+          Runtime 상태는 표시하지만 자원 영향은 변경 검토 결과를 기준으로 판단하세요.
         </Alert>
       )}
 
@@ -194,7 +194,7 @@ export function RuntimePage({ token, onUnauthorized }: RuntimePageProps) {
               <th>Desired</th>
               <th>Observed container</th>
               <th>VRAM</th>
-              <th>Criticality</th>
+              <th>Priority</th>
               <th>Actions</th>
             </tr>
           </thead>
@@ -234,21 +234,21 @@ export function RuntimePage({ token, onUnauthorized }: RuntimePageProps) {
         </table>
       </div>
 
-      {planMutation.isPending ? <div className="inline-loading"><Spinner size="md" aria-label="Runtime Plan 계산 중" /> Plan을 계산하는 중입니다.</div> : null}
+      {planMutation.isPending ? <div className="inline-loading"><Spinner size="md" aria-label="Runtime 변경 계산 중" /> 변경 영향을 계산하는 중입니다.</div> : null}
 
       {review ? (
         <Card className="review-card">
-          <CardTitle>Transition review — {review.service_key}</CardTitle>
+          <CardTitle>Runtime change review — {review.service_key}</CardTitle>
           <CardBody>
             <div className="review-grid">
               <dl className="facts compact-facts">
-                <dt>Desired before</dt><dd>{review.current_state}</dd>
-                <dt>Desired after</dt><dd>{review.desired_state}</dd>
-                <dt>Observed</dt><dd>{selectedRuntime?.container_status ?? '—'}</dd>
-                <dt>No-op</dt><dd>{review.no_op ? 'Yes' : 'No'}</dd>
-                <dt>Admissible</dt><dd>{review.admissible ? 'Yes' : 'No'}</dd>
-                <dt>Force reviewed</dt><dd>{review.force ? 'Yes' : 'No'}</dd>
-                <dt>Requires force</dt><dd>{review.requires_force ? 'Yes' : 'No'}</dd>
+                <dt>Desired state before</dt><dd>{review.current_state}</dd>
+                <dt>Desired state after</dt><dd>{review.desired_state}</dd>
+                <dt>Observed container</dt><dd>{selectedRuntime?.container_status ?? '—'}</dd>
+                <dt>Would change</dt><dd>{review.no_op ? 'No' : 'Yes'}</dd>
+                <dt>Can apply</dt><dd>{review.admissible ? 'Yes' : 'No'}</dd>
+                <dt>Auto-stop allowed</dt><dd>{review.force ? 'Yes' : 'No'}</dd>
+                <dt>Auto-stop required</dt><dd>{review.requires_force ? 'Yes' : 'No'}</dd>
               </dl>
               <dl className="facts compact-facts">
                 <dt>GPU before</dt><dd>{displayNumber(review.budget.before.used)} / {displayNumber(review.budget.before.ceiling)}</dd>
@@ -261,7 +261,7 @@ export function RuntimePage({ token, onUnauthorized }: RuntimePageProps) {
 
             {review.impact.length ? (
               <div className="impact-block">
-                <strong>Public impact</strong>
+                <strong>Service impact</strong>
                 <ul>
                   {review.impact.map((item) => (
                     <li key={`${item.service_key}:${item.action}`}>{item.service_key}: {item.action} ({item.criticality ?? 'unspecified'})</li>
@@ -270,7 +270,7 @@ export function RuntimePage({ token, onUnauthorized }: RuntimePageProps) {
               </div>
             ) : null}
 
-            {review.reason ? <Alert isInline variant={review.admissible ? 'info' : 'warning'} title="Plan 판단">{review.reason}</Alert> : null}
+            {review.reason ? <Alert isInline variant={review.admissible ? 'info' : 'warning'} title="변경 검토 결과">{review.reason}</Alert> : null}
 
             <div className="review-actions">
               <Button variant="secondary" onClick={() => setReview(null)} isDisabled={actionPending}>취소</Button>
@@ -284,7 +284,7 @@ export function RuntimePage({ token, onUnauthorized }: RuntimePageProps) {
                     force: true,
                   })}
                 >
-                  Force 포함 Plan 다시 계산
+                  필요한 Runtime 자동 중지를 허용하고 다시 계산
                 </Button>
               ) : null}
               <Button
@@ -292,7 +292,7 @@ export function RuntimePage({ token, onUnauthorized }: RuntimePageProps) {
                 isDisabled={!review.admissible || actionPending}
                 onClick={() => applyMutation.mutate(review)}
               >
-                {applyMutation.isPending ? '적용·검증 중…' : '검토한 Plan 적용'}
+                {applyMutation.isPending ? '적용·검증 중…' : '검토한 변경 적용'}
               </Button>
             </div>
           </CardBody>
@@ -301,10 +301,10 @@ export function RuntimePage({ token, onUnauthorized }: RuntimePageProps) {
 
       {operationId !== null ? (
         <Card>
-          <CardTitle>Operation evidence</CardTitle>
+          <CardTitle>Verification details</CardTitle>
           <CardBody>
-            {operationQuery.isPending ? <div className="inline-loading"><Spinner size="md" aria-label="Operation evidence loading" /> Durable operation evidence를 불러오는 중입니다.</div> : null}
-            {operationQuery.isError ? <Alert isInline variant="danger" title="Operation evidence를 불러오지 못했습니다.">{errorMessage(operationQuery.error)}</Alert> : null}
+            {operationQuery.isPending ? <div className="inline-loading"><Spinner size="md" aria-label="Verification details loading" /> 적용 결과를 불러오는 중입니다.</div> : null}
+            {operationQuery.isError ? <Alert isInline variant="danger" title="적용 결과를 불러오지 못했습니다.">{errorMessage(operationQuery.error)}</Alert> : null}
             {operationQuery.data ? (
               <>
                 <dl className="facts operation-facts">
@@ -313,11 +313,11 @@ export function RuntimePage({ token, onUnauthorized }: RuntimePageProps) {
                   <dt>Phase</dt><dd>{operationQuery.data.phase}</dd>
                   <dt>Runtime</dt><dd>{operationQuery.data.service_key}</dd>
                   <dt>Desired state</dt><dd>{operationQuery.data.desired_state}</dd>
-                  <dt>Reviewed plan</dt><dd>{operationQuery.data.reviewed_plan ? 'Yes' : 'No'}</dd>
+                  <dt>Reviewed change</dt><dd>{operationQuery.data.reviewed_plan ? 'Yes' : 'No'}</dd>
                   <dt>Actor</dt><dd>{operationQuery.data.actor.actor_id}</dd>
                   <dt>Request ID</dt><dd>{operationQuery.data.request_id}</dd>
                   <dt>Verification</dt><dd>{verificationSummary(operationQuery.data)}</dd>
-                  <dt>Durable</dt><dd>{operationQuery.data.durable ? 'Yes' : 'No'}</dd>
+                  <dt>Persisted</dt><dd>{operationQuery.data.durable ? 'Yes' : 'No'}</dd>
                 </dl>
                 {operationQuery.data.verification ? <pre className="evidence-json">{JSON.stringify(operationQuery.data.verification, null, 2)}</pre> : null}
               </>

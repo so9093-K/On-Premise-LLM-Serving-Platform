@@ -40,7 +40,7 @@ embedding, embedding-ko, risk-prompt는 이 authority가 가리키는 검증된 
 `EMBEDDING_KO_VLLM_IMAGE`와 `RISK_VLLM_IMAGE`는 retired persistent key이며
 runtime 또는 local build의 override로 해석하지 않는다. 기존 `.env`에 남아 있으면
 `make sync-env`가 제거한다. Main Model profile이 명시적으로 다른 image를 선택해야 할 때는
-`AUDIO_VLLM_IMAGE`가 그 profile-specific override를 소유한다.
+`MAIN_MODEL_VLLM_IMAGE_OVERRIDE`가 그 profile-specific override를 소유한다.
 
 원격 shared artifact promotion의 canonical input은 `VLLM_UNIFIED_IMAGE_TO_DEPLOY`다.
 Registry publish와 원격 적용은 특정 CI provider의 책임으로 저장소에 고정하지 않는다.
@@ -64,3 +64,8 @@ base를 영속 파일에 적어두면 값이 낡아도 아무도 모른 채 cano
 On switch the backend runs the text canary plus media boot canaries (audio/video).
 If the runtime can't decode an advertised modality, the switch fails and rolls
 back — 12B never goes live half-capable.
+
+
+> Compatibility: 기존 persistent `AUDIO_VLLM_IMAGE`와 deployment input
+> `AUDIO_VLLM_IMAGE_TO_DEPLOY`는 migration 기간에만 읽기 alias로 허용한다.
+> `make sync-env`는 persistent 값을 `MAIN_MODEL_VLLM_IMAGE_OVERRIDE`로 이동한다.

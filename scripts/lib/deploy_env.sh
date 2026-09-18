@@ -46,24 +46,42 @@ deploy_set_env_value() {
 # Full deploy가 실제로 사용할 runtime image와 persistent pin 변경 범위를 계산한다.
 # VLLM_IMAGE가 main/embedding/embedding-ko/risk-prompt가 공유하는 persistent image
 # authority다. deployment-time shared promotion은 VLLM_UNIFIED_IMAGE_TO_DEPLOY 하나가
-# 소유하고, AUDIO_VLLM_IMAGE_TO_DEPLOY만 profile-specific override로 분리한다.
+# 소유하고, MAIN_MODEL_VLLM_IMAGE_OVERRIDE_TO_DEPLOY만 profile-specific override로
+# 분리한다. AUDIO_VLLM_IMAGE*는 migration 기간의 read-only compatibility alias다.
 deploy_resolve_runtime_image_plan() {
-  local current_vllm current_audio
+  local current_vllm current_profile_override legacy_profile_override
   current_vllm="$(deploy_env_value VLLM_IMAGE)"
-  current_audio="$(deploy_env_value AUDIO_VLLM_IMAGE)"
+  current_profile_override="$(deploy_env_value MAIN_MODEL_VLLM_IMAGE_OVERRIDE)"
+  legacy_profile_override="$(deploy_env_value AUDIO_VLLM_IMAGE)"
+
+  if [[ -n "${current_profile_override}" && -n "${legacy_profile_override}" &&
+    "${current_profile_override}" != "${legacy_profile_override}" ]]; then
+    echo "[deploy] ERROR: MAIN_MODEL_VLLM_IMAGE_OVERRIDE conflicts with legacy AUDIO_VLLM_IMAGE." >&2
+    return 2
+  fi
+  if [[ -z "${current_profile_override}" ]]; then
+    current_profile_override="${legacy_profile_override}"
+  fi
+
+  if [[ -n "${MAIN_MODEL_VLLM_IMAGE_OVERRIDE_TO_DEPLOY:-}" &&
+    -n "${AUDIO_VLLM_IMAGE_TO_DEPLOY:-}" &&
+    "${MAIN_MODEL_VLLM_IMAGE_OVERRIDE_TO_DEPLOY}" != "${AUDIO_VLLM_IMAGE_TO_DEPLOY}" ]]; then
+    echo "[deploy] ERROR: canonical and legacy Main Model image promotion inputs conflict." >&2
+    return 2
+  fi
 
   VLLM_IMAGE_PROMOTION="${VLLM_UNIFIED_IMAGE_TO_DEPLOY:-}"
-  AUDIO_VLLM_IMAGE_PROMOTION="${AUDIO_VLLM_IMAGE_TO_DEPLOY:-${VLLM_UNIFIED_IMAGE_TO_DEPLOY:-}}"
+  MAIN_MODEL_VLLM_IMAGE_OVERRIDE_PROMOTION="${MAIN_MODEL_VLLM_IMAGE_OVERRIDE_TO_DEPLOY:-${AUDIO_VLLM_IMAGE_TO_DEPLOY:-${VLLM_UNIFIED_IMAGE_TO_DEPLOY:-}}}"
 
   VLLM_IMAGE_EFFECTIVE="${VLLM_IMAGE_PROMOTION:-${current_vllm}}"
-  AUDIO_VLLM_IMAGE_EFFECTIVE="${AUDIO_VLLM_IMAGE_PROMOTION:-${current_audio}}"
+  MAIN_MODEL_VLLM_IMAGE_OVERRIDE_EFFECTIVE="${MAIN_MODEL_VLLM_IMAGE_OVERRIDE_PROMOTION:-${current_profile_override}}"
 }
 
 deploy_apply_runtime_image_promotions() {
   if [[ -n "${VLLM_IMAGE_PROMOTION:-}" ]]; then
     deploy_set_env_value VLLM_IMAGE "${VLLM_IMAGE_PROMOTION}"
   fi
-  if [[ -n "${AUDIO_VLLM_IMAGE_PROMOTION:-}" ]]; then
-    deploy_set_env_value AUDIO_VLLM_IMAGE "${AUDIO_VLLM_IMAGE_PROMOTION}"
+  if [[ -n "${MAIN_MODEL_VLLM_IMAGE_OVERRIDE_PROMOTION:-}" ]]; then
+    deploy_set_env_value MAIN_MODEL_VLLM_IMAGE_OVERRIDE "${MAIN_MODEL_VLLM_IMAGE_OVERRIDE_PROMOTION}"
   fi
 }

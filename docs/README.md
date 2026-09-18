@@ -2,7 +2,7 @@
 
 AI Model Serving Platform의 구조와 요청 처리, Runtime 운영, 개발·검증, 자동화 경계, 배포, 관측성, 장애 대응 및 변경 절차를 정리합니다.
 
-외부 API의 요청·응답 형식과 사용 예시는 [API 인터페이스](reference/api_reference.md)에서, OpenAI SDK로 바꿔 부를 때 무엇이 같고 무엇이 다른지는 [OpenAI 호환 범위](reference/openai_compatibility.md)에서, `/docs`·`/redoc`·`/openapi.json`의 운영 경계는 [API 문서 화면 Reference](reference/api_docs_reference.md)에서 확인할 수 있습니다.
+프로젝트의 사용자-facing 이름과 안정 식별자 구분은 [표준 용어](reference/terminology.md)에서 확인합니다. 외부 API의 요청·응답 형식과 사용 예시는 [API 인터페이스](reference/api_reference.md)에서, OpenAI SDK로 바꿔 부를 때 무엇이 같고 무엇이 다른지는 [OpenAI 호환 범위](reference/openai_compatibility.md)에서, `/docs`·`/redoc`·`/openapi.json`의 운영 경계는 [API 문서 화면 Reference](reference/api_docs_reference.md)에서 확인할 수 있습니다.
 
 ## 목차
 
@@ -149,9 +149,15 @@ AI Model Serving Platform의 구조와 요청 처리, Runtime 운영, 개발·�
 - 응답 메시지 필드
 - 계약 스키마에서 생성하는 문서다
 
+### [표준 용어](reference/terminology.md)
+
+- Canonical 사용자-facing 용어
+- 안정 API·service·env 식별자와 표시명 구분
+- legacy 용어 migration 원칙
+
 ### [부록](appendix.md)
 
-- 용어 정리
+- 용어 요약
 - 서비스와 포트
 - 주요 명령
 - Source of Truth

@@ -17,6 +17,7 @@ _ISOLATED_KEYS = (
     "PLATFORM_IMAGE_TO_DEPLOY",
     "RISK_VLLM_IMAGE_TO_DEPLOY",
     "VLLM_UNIFIED_IMAGE_TO_DEPLOY",
+    "MAIN_MODEL_VLLM_IMAGE_OVERRIDE_TO_DEPLOY",
     "AUDIO_VLLM_IMAGE_TO_DEPLOY",
     "DEPLOY_RUNTIME_PROFILE",
     "DEPLOY_DEFERRED_RUNTIMES",
@@ -84,7 +85,7 @@ def test_mutable_platform_image_is_rejected_before_remote_mutation():
 def test_runtime_promotion_inputs_require_registry_digests():
     for key in (
         "VLLM_UNIFIED_IMAGE_TO_DEPLOY",
-        "AUDIO_VLLM_IMAGE_TO_DEPLOY",
+        "MAIN_MODEL_VLLM_IMAGE_OVERRIDE_TO_DEPLOY",
     ):
         result = run_policy(
             "DEPLOY_MODE=full; deploy_validate_request release-1 5",
@@ -119,18 +120,41 @@ def test_rolling_deploy_rejects_runtime_startup_policy():
 def test_rolling_deploy_rejects_runtime_image_promotion_input():
     result = run_policy(
         'DEPLOY_MODE=rolling; deploy_validate_request release-1 5',
-        AUDIO_VLLM_IMAGE_TO_DEPLOY="registry.example/audio@sha256:" + "a" * 64,
+        MAIN_MODEL_VLLM_IMAGE_OVERRIDE_TO_DEPLOY="registry.example/profile@sha256:" + "a" * 64,
     )
 
     assert result.returncode == 2
     assert "runtime image promotion inputs require DEPLOY_MODE=full" in result.stderr
 
 
-def test_full_deploy_accepts_immutable_shared_and_audio_inputs():
+def test_full_deploy_accepts_immutable_shared_and_profile_override_inputs():
     result = run_policy(
         'DEPLOY_MODE=full; deploy_validate_request release-1 5',
         VLLM_UNIFIED_IMAGE_TO_DEPLOY="registry.example/unified@sha256:" + "a" * 64,
-        AUDIO_VLLM_IMAGE_TO_DEPLOY="registry.example/audio@sha256:" + "b" * 64,
+        MAIN_MODEL_VLLM_IMAGE_OVERRIDE_TO_DEPLOY="registry.example/profile@sha256:" + "b" * 64,
     )
 
     assert result.returncode == 0
+
+
+def test_legacy_audio_promotion_input_is_accepted_as_compatibility_alias():
+    image = "registry.example/profile@sha256:" + "d" * 64
+    result = run_policy(
+        'DEPLOY_MODE=full; deploy_validate_request release-1 5; '
+        'printf "%s" "$MAIN_MODEL_VLLM_IMAGE_OVERRIDE_TO_DEPLOY"',
+        AUDIO_VLLM_IMAGE_TO_DEPLOY=image,
+    )
+
+    assert result.returncode == 0
+    assert result.stdout == image
+
+
+def test_conflicting_legacy_and_canonical_profile_image_inputs_are_rejected():
+    result = run_policy(
+        'DEPLOY_MODE=full; deploy_validate_request release-1 5',
+        MAIN_MODEL_VLLM_IMAGE_OVERRIDE_TO_DEPLOY="registry.example/profile@sha256:" + "a" * 64,
+        AUDIO_VLLM_IMAGE_TO_DEPLOY="registry.example/legacy@sha256:" + "b" * 64,
+    )
+
+    assert result.returncode == 2
+    assert "conflicts with legacy AUDIO_VLLM_IMAGE_TO_DEPLOY" in result.stderr

@@ -21,11 +21,11 @@ _AUDIO_IMAGE = "registry.example.com/vllm-gemma4-audio@sha256:" + "a" * 64
 _RUNTIME_IMAGE = "registry.example.com/vllm-unified@sha256:" + "b" * 64
 
 
-def _env(path: Path, *, profile: str, locked: bool, audio_image: str = "", runtime_image: str = _RUNTIME_IMAGE) -> None:
+def _env(path: Path, *, profile: str, locked: bool, profile_image: str = "", runtime_image: str = _RUNTIME_IMAGE) -> None:
     path.write_text(
         f"MAIN_LLM_BOOT_PROFILE={profile}\n"
         f"MAIN_LLM_PROFILE_LOCKED={'true' if locked else 'false'}\n"
-        f"AUDIO_VLLM_IMAGE={audio_image}\n"
+        f"MAIN_MODEL_VLLM_IMAGE_OVERRIDE={profile_image}\n"
         f"VLLM_IMAGE={runtime_image}\n",
         encoding="utf-8",
     )
@@ -42,7 +42,7 @@ def _state(path: Path, active: str | None) -> None:
 def test_persisted_profile_is_projected_to_compose_command_and_image(tmp_path):
     env = tmp_path / ".env"
     state = tmp_path / "state.json"
-    _env(env, profile="gemma4-26b-a4b-fp8", locked=False, audio_image=_AUDIO_IMAGE)
+    _env(env, profile="gemma4-26b-a4b-fp8", locked=False, profile_image=_AUDIO_IMAGE)
     _state(state, "gemma4-12b-unified-fp8")
 
     profile, override = render_boot_override(

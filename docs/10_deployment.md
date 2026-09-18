@@ -25,7 +25,7 @@ Health / Readiness 확인
 
 | 배포 방식 | 적용 기준 | 적용 범위 | 완료 기준 |
 |---|---|---|---|
-| `rolling` | Gateway, Risk Adapter, Admin Sidecar 등 애플리케이션 변경 | 필요한 애플리케이션 서비스와 관련 모니터링 설정 갱신 | Gateway `/health` |
+| `rolling` | Gateway, Risk Signal Service, Runtime Controller 등 애플리케이션 변경 | 필요한 애플리케이션 서비스와 관련 모니터링 설정 갱신 | Gateway `/health` |
 | `full` | Main Model 설정, Compose, Unified vLLM 등 모델 실행 환경 변경 | 모델 Runtime을 포함한 관련 서비스와 실행 상태 갱신 | `make ready-full` |
 
 ### Rolling
@@ -35,14 +35,14 @@ Platform Image
      ↓
 새 Release 준비
      ↓
-Admin Sidecar 갱신
+Runtime Controller 갱신
      ↓
-Gateway + Risk Adapter 갱신
+Gateway + Risk Signal Service 갱신
      ↓
 Gateway /health
 ```
 
-Rolling 배포는 실행 중인 모델 Runtime을 유지하면서 Gateway, Risk Adapter, Admin Sidecar 등 애플리케이션 서비스를 갱신한다.
+Rolling 배포는 실행 중인 모델 Runtime을 유지하면서 Gateway, Risk Signal Service, Runtime Controller 등 애플리케이션 서비스를 갱신한다.
 
 ### Full
 
@@ -68,11 +68,11 @@ Full 배포는 애플리케이션과 모델 실행 환경의 변경을 함께 �
 
 ## 10.2 배포 방식 결정
 
-기본 배포 방식은 `full`이다. Gateway, Risk Adapter, Admin Sidecar 등 애플리케이션 서비스만 변경된 경우 `rolling`을 사용할 수 있다.
+기본 배포 방식은 `full`이다. Gateway, Risk Signal Service, Runtime Controller 등 애플리케이션 서비스만 변경된 경우 `rolling`을 사용할 수 있다.
 
 | 변경 내용 | 배포 방식 |
 |---|---|
-| Gateway / Risk Adapter / Admin Sidecar 변경 | `rolling` |
+| Gateway / Risk Signal Service / Runtime Controller 변경 | `rolling` |
 | Main Model 프로파일 / Chat Template 변경 | `full` |
 | Compose 구성 변경 | `full` |
 | Unified vLLM 이미지 변경 | `full` |
@@ -97,11 +97,11 @@ Full 배포는 애플리케이션과 모델 실행 환경의 변경을 함께 �
 
 | 입력 | 역할 |
 |---|---|
-| Platform 이미지 | Gateway, Risk Adapter, Admin Sidecar에 적용할 버전 |
+| Platform 이미지 | Gateway, Risk Signal Service, Runtime Controller에 적용할 버전 |
 | Unified vLLM 이미지 | 새 모델 Runtime 이미지가 생성된 경우 적용할 버전 |
 | 대상 `.env` | 서버별 실행 설정과 Secret 참조값 |
 | 배포 방식 | `rolling` / `full` 결정 |
-| Deploy Runtime Profile | Full 배포 직후 실행할 Secondary Runtime 구성 |
+| Runtime Startup Profile | Full 배포 직후 실행할 non-main Model Runtime 구성 |
 | Main Model 프로파일 / 상태 | Full 배포 시 시작할 Main Model 구성 |
 
 Platform 이미지는 Registry의 고정된 digest로 전달된다.
@@ -224,7 +224,7 @@ Full 배포에서는 다음 입력을 함께 반영한다.
 - `EXPOSURE_MODE`
 - 저장된 Main Model 실행 상태
 - `main_model_profiles.yaml`
-- Deploy Runtime Profile 또는 초기 중지 Runtime 설정
+- Runtime Startup Profile 또는 초기 중지 Runtime 설정
 
 Base Compose에 네트워크 공개 설정, Main Model 시작 설정, 대상 `.env`를 반영해 실제 배포에 사용할 Compose 구성을 만든다.
 
@@ -279,7 +279,7 @@ Rolling 배포는 다음 순서로 애플리케이션 서비스를 갱신한다.
 1. `admin-sidecar`
 2. `gateway`, `risk-adapter`
 
-Admin Sidecar를 먼저 갱신한 뒤 Gateway와 Risk Adapter를 적용한다.
+Runtime Controller를 먼저 갱신한 뒤 Gateway와 Risk Signal Service를 적용한다.
 
 Prometheus, Grafana, Loki, Alloy의 설정 파일이 변경된 Release에서는 해당 서비스도 함께 갱신한다.
 
@@ -287,10 +287,10 @@ Prometheus, Grafana, Loki, Alloy의 설정 파일이 변경된 Release에서는 
 
 ## 10.5 Runtime 프로파일 적용
 
-Full 배포에서는 Deploy Runtime Profile을 기준으로 배포 직후 실행할 Secondary Runtime을 결정한다. `DEPLOY_RUNTIME_PROFILE`을 생략하면 설정의 기본값인 `main_only`를 사용한다.
+Full 배포에서는 Runtime Startup Profile을 기준으로 배포 직후 실행할 non-main Model Runtime을 결정한다. `DEPLOY_RUNTIME_PROFILE`을 생략하면 설정의 기본값인 `main_only`를 사용한다.
 
 ```text
-Deploy Runtime Profile
+Runtime Startup Profile
         ↓
 배포 직후 실행 상태 결정
         ↓
@@ -299,8 +299,8 @@ Deploy Runtime Profile
 
 | 프로파일 | 배포 직후 구성 |
 |---|---|
-| `main_only` (기본) | Embedding / Korean Embedding / Prompt Risk는 초기 중지 상태로 구성 |
-| `retrieval_ready` | Prompt Risk를 초기 중지 상태로 구성 |
+| `main_only` (기본) | Embedding / Korean Embedding / Prompt Injection는 초기 중지 상태로 구성 |
+| `retrieval_ready` | Prompt Injection를 초기 중지 상태로 구성 |
 
 `DEPLOY_DEFERRED_RUNTIMES`가 지정된 경우 해당 목록을 직접 적용한다.
 
@@ -311,7 +311,7 @@ Deploy Runtime Profile
 않아, 이후 Admin Runtime API에서 변경한 상태가 유지된다. 배포 롤백은 배포 직전에
 실행 중이던 Runtime을 활성화 지시로 전달한다.
 
-Main Model 프로파일과 Secondary Runtime의 시작/중지 운영은 [6. 모델 운영](./06_model_operations.md)에서 설명한다.
+Main Model 프로파일과 non-main Model Runtime의 시작/중지 운영은 [6. 모델 운영](./06_model_operations.md)에서 설명한다.
 
 ---
 
@@ -536,7 +536,7 @@ make ready-full
 |---|---|
 | `DEPLOY_MODE` | `full` / `rolling` 결정 |
 | `DEPLOY_PATH` | Release와 공유 Runtime 데이터가 위치하는 배포 루트 |
-| `DEPLOY_RUNTIME_PROFILE` | Full 배포의 Secondary Runtime 초기 상태(생략 시 `main_only`) |
+| `DEPLOY_RUNTIME_PROFILE` | Full 배포의 non-main Model Runtime 초기 상태(생략 시 `main_only`) |
 | `DEPLOY_DEFERRED_RUNTIMES` | 초기 중지 Runtime 직접 지정 |
 | `GATEWAY_HEALTH_URL` | 배포 후 Gateway health 확인 URL 재정의 |
 | `RUN_READY_SMOKE` | Gateway `/health` 확인 실행 |
@@ -551,7 +551,7 @@ make ready-full
 | 배포 요청 정책 | `scripts/lib/deploy_request_policy.sh` | `full` / `rolling` 결정과 요청 조건 검증 |
 | 서비스 재생성 정책 | `scripts/lib/deploy_recreate_policy.sh` | 변경 서비스와 모델 실행 환경 관련 설정 판별 |
 | 배포 환경 처리 | `scripts/lib/deploy_env.sh` | 대상 `.env` 조회, 갱신, export |
-| 초기 중지 Runtime 계산 | `scripts/runtime/deferred_runtimes.py` | Deploy Runtime Profile과 Runtime 상태 적용 |
+| 초기 중지 Runtime 계산 | `scripts/runtime/deferred_runtimes.py` | Runtime Startup Profile과 Runtime 상태 적용 |
 | Bind-mounted 설정 정책 | `scripts/lib/bind_mounted_config.sh` | 갱신 대상 서비스와 경로를 Compose 정의에서 파생하고, 설정 변경 여부를 판정 |
 | Base Compose | `ops/compose/full-stack.private-network.yaml` | Full-stack 서비스 구성 |
 | 전체 Runtime 준비 상태 | `scripts/ops/ready_full.sh` | Gateway, 의존 서비스, Main Model, inference 경로 검증 |

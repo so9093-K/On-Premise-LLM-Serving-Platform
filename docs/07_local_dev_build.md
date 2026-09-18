@@ -146,10 +146,10 @@ make app-check
 |---|---|
 | Gateway routing / validation | app-only |
 | Authentication / error handling | app-only |
-| Risk Adapter application logic | app-only |
+| Risk Signal Service application logic | app-only |
 | Main Model inference | full-stack |
 | Embedding / Retrieval runtime | full-stack |
-| Prompt Risk vLLM | full-stack |
+| Prompt Injection vLLM | full-stack |
 | GPU / Runtime lifecycle | full-stack |
 | Dockerfile / application dependency | Platform Image Build |
 | vLLM base / compatibility pin / runtime patch | Unified vLLM Image Build |
@@ -186,7 +186,7 @@ make up
 
 ## 7.3 app-only 실행
 
-app-only는 Gateway와 Risk Adapter를 로컬 Python process로 실행하는 개발 방식이다.
+app-only는 Gateway와 Risk Signal Service를 로컬 Python process로 실행하는 개발 방식이다.
 
 ### 환경 준비
 
@@ -208,7 +208,7 @@ app-only `.env`에서 `make up`은 다음 application process를 실행한다.
 Developer Host
 │
 ├─ Gateway       localhost:9400
-└─ Risk Adapter  localhost:9405
+└─ Risk Signal Service  localhost:9405
 ```
 
 각 process를 시작한 뒤 `/health` 응답을 확인하고 실행 결과를 `run/`과 `logs/`에 기록한다.
@@ -219,7 +219,7 @@ Developer Host
 make ready-local
 ```
 
-`make ready-local`은 Gateway와 Risk Adapter의 localhost `/health`를 확인한다.
+`make ready-local`은 Gateway와 Risk Signal Service의 localhost `/health`를 확인한다.
 
 app-only는 다음과 같은 application layer 작업에 적합하다.
 
@@ -228,7 +228,7 @@ app-only는 다음과 같은 application layer 작업에 적합하다.
 - authentication
 - error mapping
 - OpenAPI / schema 변경
-- Gateway와 Risk Adapter 로직
+- Gateway와 Risk Signal Service 로직
 
 ### 종료
 
@@ -273,7 +273,7 @@ Hugging Face에서 모델을 가져오는 runtime은 `.env`에 설정된 token�
 make up
 ```
 
-기본 `main_only` profile은 Main Model만 준비하고 secondary runtime은 stopped 상태로
+기본 `main_only` profile은 Main Model만 준비하고 non-main Model Runtime은 stopped 상태로
 생성한다. Retrieval runtime도 처음부터 필요하면
 `RUNTIME_PROFILE=retrieval_ready make compose-up`을 명시한다.
 
@@ -309,7 +309,7 @@ Full-stack은 다음 작업에 사용한다.
 
 - Main Model inference
 - Embedding / Retrieval
-- Prompt Risk runtime
+- Prompt Injection Detector Runtime
 - Main Model switching
 - GPU resource admission
 - Docker runtime lifecycle
@@ -325,7 +325,7 @@ make down
 
 ## 7.5 Platform Image Build
 
-Platform Image는 Gateway, Risk Adapter, Admin / Control Sidecar 등 application과 control-plane 코드를 실행하는 Docker image다.
+Platform Image는 Gateway, Risk Signal Service, Runtime Controller 등 application과 control-plane 코드를 실행하는 Docker image다.
 
 기본 image tag는 프로젝트 `VERSION`을 사용한다.
 
@@ -359,7 +359,7 @@ Docker cache를 재사용하지 않고 같은 target의 project-owned image를 �
 make build-image
 ```
 
-`make build-image`는 `Dockerfile`을 사용해 Platform Image를 생성하고, 생성된 image 안에서 Gateway와 Risk Adapter application factory를 실제로 import·초기화한다.
+`make build-image`는 `Dockerfile`을 사용해 Platform Image를 생성하고, 생성된 image 안에서 Gateway와 Risk Signal Service application factory를 실제로 import·초기화한다.
 
 | 명령 | 범위 |
 |---|---|
@@ -395,14 +395,14 @@ digest 전달만 외부 adapter에서 담당한다. 자동화 경계는 [9. 자�
 
 ## 7.6 Unified vLLM Image Build
 
-Main Model, Embedding, Korean Embedding, Prompt Risk runtime은 하나의 **Unified vLLM Image**를 공유한다.
+Main Model, Embedding, Korean Embedding, Prompt Injection Detector Runtime은 하나의 **Unified vLLM Image**를 공유한다.
 
 ```text
 Unified vLLM Image
 ├─ Main Model
 ├─ Embedding
 ├─ Korean Embedding
-└─ Prompt Risk
+└─ Prompt Injection
 ```
 
 기본 build 명령은 다음과 같다.
@@ -426,7 +426,7 @@ Unified vLLM Image의 주요 build 입력은 다음과 같다.
 | `ops/images/vllm-unified/requirements.media.lock` | 고정 vLLM base에서 검증하는 multimodal media overlay |
 | `ops/patches/apply_gemma4_multimodal_patches.py` | Gemma4 multimodal compatibility patch |
 | `ops/patches/apply_gemma4_streaming_reasoning_patch.py` | Gemma4 streaming reasoning/content parser compatibility patch |
-| `ops/patches/transformers_llama_head_dim_guard.py` | Prompt Risk Llama `head_dim` compatibility patch |
+| `ops/patches/transformers_llama_head_dim_guard.py` | Prompt Injection Llama `head_dim` compatibility patch |
 | `scripts/build/build_vllm_unified_image.sh` | Native target 확인과 Docker build argument 조립 |
 | `scripts/models/print_vllm_unified_compatibility.py` | build config의 target/dependency pin projection |
 
@@ -548,7 +548,7 @@ Hugging Face cache는 제거하지 않는다. daemon 전체에 영향을 주는 
 
 | 작업 | 확인 명령 | 확인 범위 |
 |---|---|---|
-| app-only | `make ready-local` | Gateway / Risk Adapter health |
+| app-only | `make ready-local` | Gateway / Risk Signal Service health |
 | full-stack | `make ready-full` | Gateway readiness + vLLM + inference path |
 | Platform Image | `make build-image` | Docker build + application import |
 | 선택 target image | `make build` | target별 저장소 소유 image 전체 |

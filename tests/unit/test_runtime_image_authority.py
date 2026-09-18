@@ -22,6 +22,7 @@ def _bash(command: str) -> subprocess.CompletedProcess[str]:
         "EMBEDDING_KO_VLLM_IMAGE",
         "RISK_VLLM_IMAGE",
         "VLLM_UNIFIED_IMAGE_TO_DEPLOY",
+        "MAIN_MODEL_VLLM_IMAGE_OVERRIDE_TO_DEPLOY",
         "AUDIO_VLLM_IMAGE_TO_DEPLOY",
     ):
         process_env.pop(key, None)
@@ -81,7 +82,7 @@ def test_remote_promotion_updates_only_shared_and_profile_override_pins(tmp_path
     env_file = tmp_path / ".env"
     env_file.write_text(
         "VLLM_IMAGE=registry.example.com/vllm@sha256:old\n"
-        "AUDIO_VLLM_IMAGE=\n",
+        "MAIN_MODEL_VLLM_IMAGE_OVERRIDE=\n",
         encoding="utf-8",
     )
     result = _bash(
@@ -94,6 +95,6 @@ def test_remote_promotion_updates_only_shared_and_profile_override_pins(tmp_path
     assert result.returncode == 0, result.stderr
     persisted = result.stdout.splitlines()
     assert "VLLM_IMAGE=registry.example.com/vllm@sha256:new" in persisted
-    assert "AUDIO_VLLM_IMAGE=registry.example.com/vllm@sha256:new" in persisted
+    assert "MAIN_MODEL_VLLM_IMAGE_OVERRIDE=registry.example.com/vllm@sha256:new" in persisted
     assert not any(line.startswith("EMBEDDING_KO_VLLM_IMAGE=") for line in persisted)
     assert not any(line.startswith("RISK_VLLM_IMAGE=") for line in persisted)

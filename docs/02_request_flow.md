@@ -11,10 +11,10 @@ Client / Application
         ├─ Chat / Responses ────► Main vLLM
         ├─ Embedding ──────────► Embedding vLLM
         ├─ Retrieval ──────────► Embedding-KO vLLM
-        └─ Prompt Guard ───────► Risk Adapter ─► risk-prompt vLLM
+        └─ Prompt Guard ───────► Risk Signal Service ─► risk-prompt vLLM
 ```
 
-Admin 요청도 Gateway에서 시작하지만 inference 경로와 분리되어 Admin / Control Sidecar로 전달된다.
+Admin 요청도 Gateway에서 시작하지만 inference 경로와 분리되어 Runtime Controller로 전달된다.
 
 ```text
 Operator
@@ -23,7 +23,7 @@ Operator
 Gateway /admin/*
    │
    ▼
-Admin / Control Sidecar
+Runtime Controller
    │
    ▼
 Docker / Runtime Lifecycle
@@ -124,7 +124,7 @@ Client ──────────►│         Gateway         │
               ┌────────────────┼────────────────┐
               │                │                │
               ▼                ▼                ▼
-           vLLM          Risk Adapter       Sidecar
+           vLLM          Risk Signal Service       Sidecar
         Inference        Detection          Control
 ```
 
@@ -149,7 +149,7 @@ Runtime 상태 확인 방식은 기능에 따라 다르다.
 
 | 기능 | 상태 확인 |
 |---|---|
-| **Generation** | Chat Completions와 Responses 모두 Admin Sidecar에서 활성 Main Model profile과 gate 확인 |
+| **Generation** | Chat Completions와 Responses 모두 Runtime Controller에서 활성 Main Model profile과 gate 확인 |
 | **Embedding** | Gateway runtime state에서 대상 embedding runtime 확인 |
 | **Retrieval** | Gateway runtime state에서 선택한 embedding runtime 확인 |
 | **Prompt Guard** | Prompt model을 사용하는 경로에서 `risk_prompt` runtime 상태 확인 |
@@ -264,10 +264,10 @@ Client
 
 #### Main Model Gate
 
-Chat은 요청마다 Admin Sidecar의 Main Model 상태를 확인한다.
+Chat은 요청마다 Runtime Controller의 Main Model 상태를 확인한다.
 
 ```text
-Admin Sidecar
+Runtime Controller
    │
    ├─ active_profile
    ├─ gate
@@ -423,7 +423,7 @@ RetrievalService
 
 ### Prompt Guard
 
-Prompt Guard 관련 요청은 Gateway에서 Risk Adapter로 전달된다.
+Prompt Guard 관련 요청은 Gateway에서 Risk Signal Service로 전달된다.
 
 ```text
 Client
@@ -456,7 +456,7 @@ Kanana Safeguard-Prompt
   │ <UNSAFE-A1>
   │ <UNSAFE-A2>
   ▼
-Risk Adapter
+Risk Signal Service
   │
   ├─ Label Parsing
   ├─ Signal 정규화
@@ -477,8 +477,8 @@ Prompt detector는 Kanana Safeguard-Prompt가 생성한 단일 label을 A1 Promp
 | API | Backend |
 |---|---|
 | `/v1/risk/detectors/prompt/assessments` | Kanana `risk-prompt-vllm` |
-| `/v1/risk/detectors/pii/assessments` | Risk Adapter in-process PII detector |
-| `/v1/risk/detectors/secret/assessments` | Risk Adapter in-process Secret detector |
+| `/v1/risk/detectors/pii/assessments` | Risk Signal Service in-process PII detector |
+| `/v1/risk/detectors/secret/assessments` | Risk Signal Service in-process Secret detector |
 | `/v1/risk/assessments` | PII → Secret → Prompt 순차 처리 |
 
 Aggregate 요청은 세 detector 결과를 하나의 signal response로 합친다. 응답은 탐지 결과와 system signal을 제공하며 최종 허용·차단 판단은 호출 측 policy layer가 담당한다.
@@ -495,9 +495,9 @@ Gateway 뒤의 서비스는 Compose DNS와 container port로 연결된다.
 | Gateway → Main vLLM | `http://main-llm-vllm:9401/v1` | Chat |
 | Gateway → Embedding vLLM | `http://embedding-vllm:9402/v1` | 범용 Embedding |
 | Gateway → Embedding-KO vLLM | `http://embedding-ko-vllm:9406/v1` | Korean Embedding / Retrieval |
-| Gateway → Risk Adapter | `http://risk-adapter:9405` | Prompt Guard / Risk 요청 |
-| Risk Adapter → Prompt vLLM | `http://risk-prompt-vllm:9403/v1` | Prompt attack detector |
-| Gateway → Admin Sidecar | `http://admin-sidecar:8080` | Runtime / Main Model control |
+| Gateway → Risk Signal Service | `http://risk-adapter:9405` | Prompt Guard / Risk 요청 |
+| Risk Signal Service → Prompt vLLM | `http://risk-prompt-vllm:9403/v1` | Prompt attack detector |
+| Gateway → Runtime Controller | `http://admin-sidecar:8080` | Runtime / Main Model control |
 
 ### `private_network`
 
@@ -531,7 +531,7 @@ Gateway         :9400
 Main vLLM       :9401
 Embedding       :9402
 Prompt vLLM     :9403
-Risk Adapter    :9405
+Risk Signal Service    :9405
 Embedding-KO    :9406
 Prometheus      :9410
 Grafana         :9411
@@ -540,7 +540,7 @@ cAdvisor        :9413
 Loki            :9414
 ```
 
-Admin / Control Sidecar는 `master_open`에서도 Compose 내부 `:8080` 경계를 유지한다.
+Runtime Controller는 `master_open`에서도 Compose 내부 `:8080` 경계를 유지한다.
 
 제품·애플리케이션 연동은 Gateway API를 사용해 request validation, runtime routing, response validation을 적용한다. `master_open`의 직접 runtime port는 진단 경로로 사용한다.
 
@@ -558,7 +558,7 @@ Gateway :9400
    │
    │ Internal Control Request
    ▼
-Admin Sidecar :8080
+Runtime Controller :8080
    │
    ├─ GPU Budget
    ├─ Runtime Start / Stop
@@ -569,7 +569,7 @@ Admin Sidecar :8080
 Docker / Runtime
 ```
 
-Docker socket과 container control은 Admin / Control Sidecar에 집중된다.
+Docker socket과 container control은 Runtime Controller에 집중된다.
 
 ## 2.5 인증·권한 경계
 
@@ -582,9 +582,9 @@ Client
   ▼
 Gateway /v1/*
   │
-  ├──────── Internal Service Auth ───────► Risk Adapter
+  ├──────── Internal Service Auth ───────► Risk Signal Service
   │
-  └──────── Internal Control Auth ───────► Admin Sidecar
+  └──────── Internal Control Auth ───────► Runtime Controller
 
 Operator
   │
@@ -601,7 +601,7 @@ Gateway /ready /metrics /admin/*
 | **Public API** | `/v1/*` | `API_KEY_REQUIRED`에 따라 API Bearer token 적용 |
 | **Admin / Operations** | `/ready`, `/metrics`, `/admin/*` | `ADMIN_API_KEY_REQUIRED`에 따라 Admin Bearer token 적용 |
 | **Gateway Internal** | `/internal/main-model/drain-status` | `INTERNAL_SERVICE_AUTH_REQUIRED`에 따라 Internal Service token 적용 |
-| **Gateway → Risk Adapter** | Risk Adapter `/v1/risk/*` | `INTERNAL_SERVICE_AUTH_REQUIRED`에 따라 Internal Service token 적용 |
+| **Gateway → Risk Signal Service** | Risk Signal Service `/v1/risk/*` | `INTERNAL_SERVICE_AUTH_REQUIRED`에 따라 Internal Service token 적용 |
 | **Gateway → Sidecar** | Sidecar control API | `INTERNAL_SERVICE_AUTH_REQUIRED`에 따라 Internal Service token 적용 |
 
 Gateway의 `/v1/*`와 `/admin/*`는 서로 다른 bearer credential을 사용할 수 있다.
@@ -649,7 +649,7 @@ Operator
 Gateway Admin API
     │
     ▼
-Admin Sidecar
+Runtime Controller
     │
     ▼
 Docker / Runtime Control

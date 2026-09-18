@@ -1,6 +1,6 @@
 # 3. 시스템 구성
 
-AI Model Serving Platform은 외부 API를 처리하는 **Gateway**, runtime과 container를 제어하는 **Admin / Control Sidecar**, 실제 모델 추론을 수행하는 **vLLM Runtime**, 위험 신호를 정규화하는 **Risk Adapter**, 그리고 metrics·logs·GPU·container 상태를 수집하는 **관측성 스택**으로 구성된다.
+AI Model Serving Platform은 외부 API를 처리하는 **Gateway**, runtime과 container를 제어하는 **Admin / Control Sidecar**, 실제 모델 추론을 수행하는 **vLLM Runtime**, 위험 신호를 정규화하는 **Risk Signal Service**, 그리고 metrics·logs·GPU·container 상태를 수집하는 **관측성 스택**으로 구성된다.
 
 각 구성 요소는 별도의 책임 경계를 갖는다. 핵심 원칙은 **외부 API 처리, 모델 inference, privileged container control을 서로 분리하는 것**이다.
 
@@ -25,7 +25,7 @@ Client / Application
         │         ├──────────────► embedding-vllm     :9402
         │         ├──────────────► embedding-ko-vllm  :9406
         │         │
-        │         └──────────────► Risk Adapter       :9405
+        │         └──────────────► Risk Signal Service       :9405
         │                                │
         │                                ├─ PII Detector    (local)
         │                                ├─ Secret Detector (local)
@@ -55,8 +55,8 @@ Client / Application
 | **Main Model Runtime** | `9401` | Chat / Responses / Multimodal generation |
 | **Embedding Runtime** | `9402` | 범용 text embedding |
 | **Korean Embedding Runtime** | `9406` | Korean retrieval embedding |
-| **Risk Adapter** | `9405` | PII / Secret local detection, Prompt risk signal orchestration |
-| **Prompt Risk Runtime** | `9403` | Prompt detector model inference |
+| **Risk Signal Service** | `9405` | PII / Secret local detection, Prompt risk signal orchestration |
+| **Prompt Injection Detector Runtime** | `9403` | Prompt detector model inference |
 | **Prometheus** | `9090` | Metrics 수집·저장 |
 | **Grafana** | `3000` | Metrics / logs 시각화 |
 | **DCGM Exporter** | `9400` | GPU telemetry |
@@ -72,7 +72,7 @@ Client / Application
 
 Gateway는 플랫폼의 **외부 API 경계이자 요청 orchestration 계층**이다.
 
-애플리케이션은 개별 vLLM runtime이나 Risk Adapter의 내부 API를 직접 호출하지 않고 Gateway를 통해 기능을 사용한다.
+애플리케이션은 개별 vLLM runtime이나 Risk Signal Service의 내부 API를 직접 호출하지 않고 Gateway를 통해 기능을 사용한다.
 
 ```text
 Client
@@ -83,7 +83,7 @@ Gateway :9400
   ├─ Main Model Runtime
   ├─ Embedding Runtime
   ├─ Korean Embedding Runtime
-  ├─ Risk Adapter
+  ├─ Risk Signal Service
   └─ Admin / Control Sidecar
 ```
 
@@ -106,7 +106,7 @@ Gateway는 모델별 runtime 차이와 내부 서비스 topology를 외부 호�
 | **Runtime Admission** | runtime state, concurrency, circuit 상태에 따라 요청 허용 여부 판단 |
 | **Main Model Gate** | model 전환 중 신규 Chat Completions / Responses 요청 차단 |
 | **Retrieval** | embedding 호출 후 cosine similarity 계산과 rerank 수행 |
-| **Risk Forwarding** | Risk API 요청을 Risk Adapter로 전달 |
+| **Risk Forwarding** | Risk API 요청을 Risk Signal Service로 전달 |
 | **Response Validation** | upstream response 구조와 model-specific contract 검증 |
 | **Readiness / Metrics** | dependency readiness 집계와 API metrics 제공 |
 
@@ -151,13 +151,13 @@ model 전환 중에는 `MAIN_MODEL_SWITCH_IN_PROGRESS`, control plane 자체에 
 
 Gateway는 현재 처리 중인 main model 요청 수를 별도로 추적하며 Sidecar의 switch drain 과정에 이 정보를 제공한다.
 
-### Secondary Runtime State
+### Model Runtime State
 
-Embedding과 Prompt Risk 같은 secondary runtime은 운영 상태에 따라 active / stopped로 관리할 수 있다.
+Embedding과 Prompt Risk 같은 non-main Model Runtime은 운영 상태에 따라 active / stopped로 관리할 수 있다.
 
 Gateway는 stopped 또는 starting 상태의 runtime으로 신규 요청을 보내지 않는다.
 
-실제 container start / stop은 Gateway가 직접 수행하지 않고 Admin Sidecar에 위임한다.
+실제 container start / stop은 Gateway가 직접 수행하지 않고 Runtime Controller에 위임한다.
 
 ### Retrieval Ownership
 
@@ -205,7 +205,7 @@ Gateway는 다음 책임을 직접 소유하지 않는다.
 
 Gateway `/ready`는 main model과 활성 상태로 간주되는 dependency를 probe해 전체 readiness를 계산한다.
 
-운영자가 secondary runtime을 의도적으로 stopped 상태로 둔 경우 해당 runtime은 readiness의 필수 dependency에서 제외될 수 있다.
+운영자가 non-main Model Runtime을 의도적으로 stopped 상태로 둔 경우 해당 runtime은 readiness의 필수 dependency에서 제외될 수 있다.
 
 ### Failure Impact
 
@@ -215,10 +215,10 @@ Gateway `/ready`는 main model과 활성 상태로 간주되는 dependency를 pr
 | Main Model Runtime 장애 | Chat / Responses / Multimodal generation 불가 |
 | Embedding Runtime 장애 | 해당 embedding model 사용 불가 |
 | Korean Embedding 장애 | `local-embed-ko` 및 기본 Retrieval 불가 |
-| Risk Adapter 장애 | Gateway Risk API 불가 |
-| Admin Sidecar 장애 | Main Model generation gate 확인과 Admin runtime control 불가 |
+| Risk Signal Service 장애 | Gateway Risk API 불가 |
+| Runtime Controller 장애 | Main Model generation gate 확인과 Admin runtime control 불가 |
 
-Admin Sidecar는 Gateway의 startup hard dependency가 아니다. Sidecar가 장애 상태여도 Gateway process 자체와 Sidecar를 직접 사용하지 않는 일부 경로는 살아 있을 수 있다.
+Runtime Controller는 Gateway의 startup hard dependency가 아니다. Sidecar가 장애 상태여도 Gateway process 자체와 Sidecar를 직접 사용하지 않는 일부 경로는 살아 있을 수 있다.
 
 ### 구현 위치
 
@@ -245,7 +245,7 @@ Gateway
   │
   │ Internal Control API
   ▼
-Admin Sidecar :8080
+Runtime Controller :8080
   │
   ├─ Main Model Manager
   ├─ GPU Budget Admission
@@ -259,13 +259,13 @@ Docker Engine
 
 Sidecar의 가장 중요한 목적은 **Gateway와 Docker 권한을 분리하는 것**이다.
 
-Docker socket은 Admin Sidecar에 mount되고 Gateway에는 연결되지 않는다.
+Docker socket은 Runtime Controller에 mount되고 Gateway에는 연결되지 않는다.
 
 ```text
 Gateway
   └─ Docker Socket 없음
 
-Admin Sidecar
+Runtime Controller
   └─ /var/run/docker.sock
 ```
 
@@ -360,7 +360,7 @@ budget이 부족하면 기본적으로 `409 GPU_BUDGET_EXCEEDED`를 반환하고
 
 ### Does Not Own
 
-Admin Sidecar는 다음 책임을 소유하지 않는다.
+Runtime Controller는 다음 책임을 소유하지 않는다.
 
 - 외부 Chat / Embedding / Risk API contract
 - 사용자 request validation
@@ -423,7 +423,7 @@ Shared GPU
 
 - 모델별 독립 vLLM process와 port 사용
 - 모델별 context, concurrency, GPU memory budget 사용
-- Gateway 또는 Risk Adapter에서 internal OpenAI-compatible API 호출
+- Gateway 또는 Risk Signal Service에서 internal OpenAI-compatible API 호출
 - model fallback 사용 안 함
 - runtime health와 model readiness 확인
 
@@ -486,12 +486,12 @@ Default Dim   : 1024
 
 Retrieval에서 query와 document에 적용되는 prompt policy는 embedding profile에서 관리하고 Gateway가 이를 적용한다.
 
-### Prompt Risk Runtime
+### Prompt Injection Detector Runtime
 
 `risk-prompt-vllm`은 Prompt detector model을 실행한다.
 
 ```text
-Risk Adapter
+Risk Signal Service
   │
   ▼
 risk-prompt-vllm :9403
@@ -500,7 +500,7 @@ risk-prompt-vllm :9403
 Detector Model
 ```
 
-Client가 이 model output을 직접 해석하지 않는다. Risk Adapter가 detector input을 만들고 output을 플랫폼 risk signal contract로 정규화한다.
+Client가 이 model output을 직접 해석하지 않는다. Risk Signal Service가 detector input을 만들고 output을 플랫폼 risk signal contract로 정규화한다.
 
 현재 Prompt detector generation은 설정상 `max_tokens=1`, `temperature=0`으로 고정된다.
 
@@ -508,7 +508,7 @@ Client가 이 model output을 직접 해석하지 않는다. Risk Adapter가 det
 
 기준 환경에서는 네 vLLM runtime이 하나의 **NVIDIA RTX 6000 Ada Generation 48 GiB GPU**를 공유한다.
 
-각 runtime은 독립된 GPU memory budget을 갖고, 새로운 runtime 기동 시 Admin Sidecar가 전체 budget을 확인한다.
+각 runtime은 독립된 GPU memory budget을 갖고, 새로운 runtime 기동 시 Runtime Controller가 전체 budget을 확인한다.
 
 GPU budget 숫자, startup 순서와 실제 검증 기준은 [6. 모델 운영](./06_model_operations.md)에서 다룬다.
 
@@ -534,9 +534,9 @@ vLLM runtime은 다음 책임을 소유하지 않는다.
 
 ---
 
-## 3.5 Risk Adapter
+## 3.5 Risk Signal Service
 
-이 문서에서 **Prompt Guard**는 하나의 단일 container 이름이 아니라 Gateway의 Risk API, **Risk Adapter**, 그리고 Prompt detector용 **Prompt Risk Runtime**이 함께 제공하는 기능 영역을 의미한다.
+이 문서에서 **Prompt Guard**는 하나의 단일 container 이름이 아니라 Gateway의 Risk API, **Risk Signal Service**, 그리고 Prompt detector용 **Prompt Injection Detector Runtime**이 함께 제공하는 기능 영역을 의미한다.
 
 실제 서비스 경계는 다음과 같다.
 
@@ -544,7 +544,7 @@ vLLM runtime은 다음 책임을 소유하지 않는다.
 Gateway Risk API
       │
       ▼
-Risk Adapter :9405
+Risk Signal Service :9405
       │
       ├─ PII Detector      ── local
       ├─ Secret Detector   ── local
@@ -556,14 +556,14 @@ Risk Adapter :9405
 
 `risk-adapter`와 `risk-prompt-vllm`은 서로 다른 서비스다.
 
-### Risk Adapter Purpose
+### Risk Signal Service Purpose
 
-Risk Adapter는 detector별 구현 차이를 숨기고 결과를 공통 **risk signal contract**로 정규화한다.
+Risk Signal Service는 detector별 구현 차이를 숨기고 결과를 공통 **risk signal contract**로 정규화한다.
 
 | Detector | 실행 방식 | 주요 역할 |
 |---|---|---|
-| **PII** | Risk Adapter process 내부 local detector | 개인정보 노출 signal 탐지 |
-| **Secret** | Risk Adapter process 내부 local detector | credential / secret 노출 signal 탐지 |
+| **PII** | Risk Signal Service process 내부 local detector | 개인정보 노출 signal 탐지 |
+| **Secret** | Risk Signal Service process 내부 local detector | credential / secret 노출 signal 탐지 |
 | **Prompt** | `risk-prompt-vllm` 호출 | Prompt attack signal 탐지 |
 
 ### Local Detector와 Prompt Runtime
@@ -573,7 +573,7 @@ PII와 Secret detector는 별도 model runtime을 호출하지 않는다.
 Prompt detector만 vLLM runtime을 사용한다.
 
 ```text
-Risk Adapter
+Risk Signal Service
   │
   ├─ PII     → Local Detector
   ├─ Secret  → Local Detector
@@ -584,7 +584,7 @@ Risk Adapter
 
 ### Risk Signal Contract
 
-Risk Adapter 결과는 크게 detector category와 system signal로 구분된다.
+Risk Signal Service 결과는 크게 detector category와 system signal로 구분된다.
 
 ```text
 Assessment
@@ -600,7 +600,7 @@ inference 또는 parse 실패를 정상적인 SAFE 결과로 바꾸지 않고 sy
 
 ### Signal-Only Boundary
 
-Risk Adapter는 **최종 정책 결정 엔진이 아니다.**
+Risk Signal Service는 **최종 정책 결정 엔진이 아니다.**
 
 설정에서 다음과 같은 policy field를 response에 포함하지 않도록 제한한다.
 
@@ -630,7 +630,7 @@ Risk Signal ≠ Final Policy Decision
 
 ### Aggregate Assessment
 
-Risk Adapter는 개별 detector API와 aggregate assessment를 제공한다.
+Risk Signal Service는 개별 detector API와 aggregate assessment를 제공한다.
 
 현재 aggregate detector order는 다음과 같다.
 
@@ -642,13 +642,13 @@ aggregate는 순차 실행되며 detector 일부가 실패하면 system signal�
 
 ### Input Guard
 
-Risk Adapter는 detector 호출 전에 입력 길이 정책을 적용한다.
+Risk Signal Service는 detector 호출 전에 입력 길이 정책을 적용한다.
 
 입력이 detector 처리 범위를 초과하면 설정된 정책에 따라 detector 호출을 생략하고 `TRUNCATED_INPUT` system signal을 반환할 수 있다.
 
 ### Interfaces
 
-Risk Adapter의 주요 내부 API는 다음과 같다.
+Risk Signal Service의 주요 내부 API는 다음과 같다.
 
 ```text
 /v1/risk/detectors/pii/assessments
@@ -657,11 +657,11 @@ Risk Adapter의 주요 내부 API는 다음과 같다.
 /v1/risk/assessments
 ```
 
-standard private topology에서는 Risk Adapter를 host에 직접 publish하지 않고 Gateway가 내부 network를 통해 호출한다.
+standard private topology에서는 Risk Signal Service를 host에 직접 publish하지 않고 Gateway가 내부 network를 통해 호출한다.
 
 ### Does Not Own
 
-Risk Adapter는 다음 책임을 소유하지 않는다.
+Risk Signal Service는 다음 책임을 소유하지 않는다.
 
 - 사용자 요청의 최종 allow / block policy
 - Chat 요청에 Risk 검사를 자동 강제하는 policy gate
@@ -676,16 +676,16 @@ Risk Adapter는 다음 책임을 소유하지 않는다.
 
 | Dependency | 사용 목적 |
 |---|---|
-| Prompt Risk Runtime | Prompt detector inference |
+| Prompt Injection Detector Runtime | Prompt detector inference |
 | Risk configuration | detector enablement, signal code, order, timeout, input policy |
-| Internal auth policy | Gateway ↔ Risk Adapter 인증 |
+| Internal auth policy | Gateway ↔ Risk Signal Service 인증 |
 
 ### Failure Impact
 
 | 장애 | 영향 |
 |---|---|
-| Risk Adapter 장애 | Gateway의 모든 Risk API 사용 불가 |
-| Prompt Risk Runtime 장애 | Prompt detector 실패; aggregate는 partial 가능 |
+| Risk Signal Service 장애 | Gateway의 모든 Risk API 사용 불가 |
+| Prompt Injection Detector Runtime 장애 | Prompt detector 실패; aggregate는 partial 가능 |
 | PII local detector 장애 | PII detector 실패 signal 발생 |
 | Secret local detector 장애 | Secret detector 실패 signal 발생 |
 
@@ -693,7 +693,7 @@ Risk Adapter는 다음 책임을 소유하지 않는다.
 
 | 영역 | 주요 위치 |
 |---|---|
-| Risk Adapter application | `src/ai_model_serving/apps/risk_adapter.py` |
+| Risk Signal Service application | `src/ai_model_serving/apps/risk_adapter.py` |
 | Risk API | `src/ai_model_serving/api/routers/risk_adapter_risk.py` |
 | Assessment orchestration | `src/ai_model_serving/services/risk_assessment.py` |
 | PII detector | `src/ai_model_serving/detectors/pii.py` |
@@ -708,7 +708,7 @@ Risk Adapter는 다음 책임을 소유하지 않는다.
 
 ```text
 Gateway ──────────────┐
-Risk Adapter ─────────┤
+Risk Signal Service ─────────┤
 vLLM Runtimes ────────┤
 DCGM Exporter ────────┤
 cAdvisor ─────────────┤
@@ -737,7 +737,7 @@ Prometheus는 서비스와 runtime의 metrics를 scrape하고 시계열 데이�
 | Source | 주요 관측 내용 |
 |---|---|
 | Gateway | request, latency, validation rejection, upstream error, streaming, readiness |
-| Risk Adapter | assessment, latency, risk signal, system signal |
+| Risk Signal Service | assessment, latency, risk signal, system signal |
 | vLLM Runtime | request rate, latency, token throughput, KV cache, queue |
 | DCGM Exporter | GPU memory, utilization, temperature, power |
 | cAdvisor | container CPU, memory, network, OOM / restart signal |
@@ -803,7 +803,7 @@ Container Logs → Alloy → Loki → Grafana
 
 Alloy 자체는 사용자가 조회하는 API component가 아니므로 host-published 대상이 아니다.
 
-Admin Sidecar는 실행 중인 container 정보를 바탕으로 Alloy log target manifest를 갱신한다.
+Runtime Controller는 실행 중인 container 정보를 바탕으로 Alloy log target manifest를 갱신한다.
 
 ### Metrics Privacy Boundary
 
@@ -855,19 +855,19 @@ endpoint, service, logical model ID, status code, risk code, reason, runtime ser
 | 외부 API 진입점 | **Gateway** |
 | Client 인증 | **Gateway** |
 | Request contract validation | **Gateway** |
-| Main Model gate | **Gateway + Admin Sidecar** |
+| Main Model gate | **Gateway + Runtime Controller** |
 | Chat inference | **Main Model Runtime** |
 | Embedding inference | **Embedding Runtime** |
 | Retrieval orchestration / cosine | **Gateway** |
-| PII detection | **Risk Adapter local detector** |
-| Secret detection | **Risk Adapter local detector** |
-| Prompt risk inference | **Prompt Risk Runtime** |
-| Risk output normalization | **Risk Adapter** |
+| PII detection | **Risk Signal Service local detector** |
+| Secret detection | **Risk Signal Service local detector** |
+| Prompt risk inference | **Prompt Injection Detector Runtime** |
+| Risk output normalization | **Risk Signal Service** |
 | 최종 allow / block policy | **플랫폼 외부 Policy Owner** |
-| Container lifecycle | **Admin Sidecar** |
-| Main model profile switch | **Admin Sidecar** |
-| GPU budget admission | **Admin Sidecar** |
-| Docker socket access | **Admin Sidecar** |
+| Container lifecycle | **Runtime Controller** |
+| Main model profile switch | **Runtime Controller** |
+| GPU budget admission | **Runtime Controller** |
+| Docker socket access | **Runtime Controller** |
 | Model weight loading | **vLLM Runtime** |
 | Metrics storage | **Prometheus** |
 | Dashboard | **Grafana** |
@@ -890,10 +890,10 @@ External Client
       │                    vLLM Runtimes
       │
       ├──────────────► [ Risk Service Boundary ]
-      │                    Risk Adapter
+      │                    Risk Signal Service
       │
       └──────────────► [ Control Plane Boundary ]
-                           Admin Sidecar
+                           Runtime Controller
                               │
                               ▼
                     [ Docker Privilege Boundary ]
@@ -901,9 +901,9 @@ External Client
 
 Gateway는 외부 요청을 받지만 Docker privilege를 갖지 않는다.
 
-Admin Sidecar는 Docker privilege를 갖지만 외부 public API로 노출하지 않는다.
+Runtime Controller는 Docker privilege를 갖지만 외부 public API로 노출하지 않는다.
 
-vLLM runtime과 Risk Adapter도 standard private topology에서는 Gateway 뒤의 내부 service로 유지한다.
+vLLM runtime과 Risk Signal Service도 standard private topology에서는 Gateway 뒤의 내부 service로 유지한다.
 
 이 구조의 목적은 **API boundary, model data plane, privileged control plane을 분리하는 것**이다.
 
@@ -922,7 +922,7 @@ vLLM runtime과 Risk Adapter도 standard private topology에서는 Gateway 뒤�
 | Deployment runtime profile | `configs/deploy_profiles.yaml` |
 | Monitoring | `configs/monitoring.yaml` |
 | Gateway API contract | `specs/openapi.gateway.yaml` |
-| Risk Adapter API contract | `specs/openapi.risk-adapter.yaml` |
+| Risk Signal Service API contract | `specs/openapi.risk-adapter.yaml` |
 
 이 문서에서는 설정이 어떤 컴포넌트에 영향을 주는지만 설명한다. 설정 우선순위, environment override와 생성 artifact 관계는 [5. 설정 체계와 Source of Truth](./05_configuration.md)에서 다룬다.
 

@@ -1329,7 +1329,7 @@ curl "$GATEWAY_URL/health"
 
 ### 7.2 GET `/ready`
 
-Gateway가 의존하는 runtime과 Risk Adapter의 readiness를 확인한다.
+Gateway가 의존하는 runtime과 Risk Signal Service의 readiness를 확인한다.
 
 ```bash
 curl "$GATEWAY_URL/ready" \
@@ -1682,7 +1682,7 @@ rollback_failed
 | `MODEL_UNAVAILABLE` | 503 | Y | 잠시 후 재시도하거나 `/admin/runtimes`를 확인한다. |
 | `QUEUE_TIMEOUT` | 503 | Y | 동시 요청 수를 줄인 뒤 재시도한다. |
 | `CIRCUIT_OPEN` | 503 | Y | 잠시 후 재시도한다. |
-| `MAIN_MODEL_CONTROL_UNAVAILABLE` | 503 | Y | 재시도하고 반복되면 Admin Sidecar 상태를 확인한다. |
+| `MAIN_MODEL_CONTROL_UNAVAILABLE` | 503 | Y | 재시도하고 반복되면 Runtime Controller 상태를 확인한다. |
 | `MAIN_MODEL_SWITCH_IN_PROGRESS` | 503 | Y | 전환 operation 완료 후 재시도한다. |
 | `UPSTREAM_TIMEOUT` | 504 | Y | 재시도하거나 요청 크기·복잡도를 줄인다. |
 | `STREAM_LIMIT_EXCEEDED` | SSE 이벤트 | N | 출력 길이를 줄이거나 비스트리밍으로 재시도한다. 이미 시작된 HTTP 상태를 바꾸지 않는다. |
@@ -1826,14 +1826,14 @@ for chunk in stream:
 
 | 서비스 | Endpoint | 호출 주체 | 용도 |
 |---|---|---|---|
-| Gateway | `/internal/main-model/drain-status` | Admin Sidecar | Main Model drain 중 in-flight count 조회 |
-| Risk Adapter | `/v1/risk/detectors/prompt/assessments` | Gateway | Prompt detector 호출 |
-| Risk Adapter | `/v1/risk/detectors/pii/assessments` | Gateway | PII detector 호출 |
-| Risk Adapter | `/v1/risk/detectors/secret/assessments` | Gateway | Secret detector 호출 |
-| Risk Adapter | `/v1/risk/assessments` | Gateway | Aggregate risk assessment |
-| Admin Sidecar | `/main-model*`, `/containers/*`, `/gpu-budget` | Gateway | Runtime / container control |
+| Gateway | `/internal/main-model/drain-status` | Runtime Controller | Main Model drain 중 in-flight count 조회 |
+| Risk Signal Service | `/v1/risk/detectors/prompt/assessments` | Gateway | Prompt detector 호출 |
+| Risk Signal Service | `/v1/risk/detectors/pii/assessments` | Gateway | PII detector 호출 |
+| Risk Signal Service | `/v1/risk/detectors/secret/assessments` | Gateway | Secret detector 호출 |
+| Risk Signal Service | `/v1/risk/assessments` | Gateway | Aggregate risk assessment |
+| Runtime Controller | `/main-model*`, `/containers/*`, `/gpu-budget` | Gateway | Runtime / container control |
 
-Risk Adapter는 기본 Compose에서 `:9405`, Admin Sidecar는 `:8080` 내부 service port를 사용한다.
+Risk Signal Service는 기본 Compose에서 `:9405`, Runtime Controller는 `:8080` 내부 service port를 사용한다.
 
 ---
 

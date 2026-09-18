@@ -1,15 +1,15 @@
 # API 문서 화면 Reference
 
-이 문서는 Gateway와 Risk Adapter가 제공하는 API 문서 화면의 현재 동작과 운영 경계를 설명한다. 요청·응답 계약과 호출 예시는 [API 인터페이스](./api_reference.md)를 기준으로 한다.
+이 문서는 Gateway와 Risk Signal Service가 제공하는 API 문서 화면의 현재 동작과 운영 경계를 설명한다. 요청·응답 계약과 호출 예시는 [API 인터페이스](./api_reference.md)를 기준으로 한다.
 
 ## 제공 경로
 
 | 서비스 | Scalar | ReDoc | OpenAPI JSON |
 |---|---|---|---|
 | Gateway | `:9400/docs` | `:9400/redoc` | `:9400/openapi.json` |
-| Risk Adapter | `:9405/docs` | `:9405/redoc` | `:9405/openapi.json` |
+| Risk Signal Service | `:9405/docs` | `:9405/redoc` | `:9405/openapi.json` |
 
-`/docs`는 Scalar UI이고, `/redoc`은 읽기 전용 문서 화면이다. 두 화면은 인증을 우회하지 않는다. Gateway의 사용자 API는 API token, admin endpoint는 admin token, Risk Adapter 직접 호출은 internal service token이 필요하다.
+`/docs`는 Scalar UI이고, `/redoc`은 읽기 전용 문서 화면이다. 두 화면은 인증을 우회하지 않는다. Gateway의 사용자 API는 API token, admin endpoint는 admin token, Risk Signal Service 직접 호출은 internal service token이 필요하다.
 
 ## 계약 정렬
 

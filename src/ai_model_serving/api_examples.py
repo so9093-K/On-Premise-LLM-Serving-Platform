@@ -479,7 +479,7 @@ GATEWAY_RETRIEVAL_SCORE_REQUEST_EXAMPLES: dict[str, Any] = {
 }
 
 # ---------------------------------------------------------------------------
-# Risk Adapter 요청 예시
+# Risk Signal Service 요청 예시
 # ---------------------------------------------------------------------------
 
 PROMPT_EXAMPLES: dict[str, Any] = {
@@ -577,7 +577,7 @@ SECRET_EXAMPLES: dict[str, Any] = {
 }
 
 # ---------------------------------------------------------------------------
-# Risk Adapter readiness 응답 예시
+# Risk Signal Service readiness 응답 예시
 # ---------------------------------------------------------------------------
 
 def risk_ready_response_example() -> dict[str, Any]:

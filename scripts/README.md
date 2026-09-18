@@ -19,7 +19,7 @@ make down
 유지보수와 변경 범위별 검증에 사용한다. 일반 실행자가 아래 단계를 직접
 조립하는 것은 기본 UX가 아니다.
 
-로컬에서 Gateway와 Risk Adapter만 확인하는 app-only 개발 흐름은 다음과 같다.
+로컬에서 Gateway와 Risk Signal Service만 확인하는 app-only 개발 흐름은 다음과 같다.
 
 ```bash
 make setup-dev
@@ -68,7 +68,7 @@ make down
 | `compose/compose_service_diff.py` | 두 Release의 렌더된 Compose 정의를 비교해 실제로 변경된 서비스만 출력한다. Release 절대경로 차이는 제거한다. |
 | `build/reset_version.py` | 프로젝트 버전을 `lib/version_refs.py`가 선언한 모든 자리에 한 번에 반영한다. 선언된 자리가 파일에서 사라졌으면 조용히 넘기지 않고 실패한다. |
 | `build/check_python.py` | 현재 interpreter가 `>=3.12,<3.14`인지 fail-fast로 확인한다. |
-| `ops/up_services.sh` | 로컬 app-only Gateway/Risk Adapter를 실행하고 `/health`를 기다린다. |
+| `ops/up_services.sh` | 로컬 app-only Gateway/Risk Signal Service를 실행하고 `/health`를 기다린다. |
 | `ops/ready_local.sh` | app-only `/health` 상태를 strict하게 확인한다. app service가 내려가 있으면 실패하며 vLLM은 요구하지 않는다. |
 | `ops/ready_full.sh` | strict `/ready`와 smoke test를 실행한다. 실제 vLLM runtime이 필요하다. |
 | `compose/preflight_compose.sh` | full-stack compose 전 exposure config를 먼저 검증하고, 통과한 뒤 Docker, GPU 표시, effective compose host-published port, secret 상태를 점검한다. compose 내부 `expose` ports는 host port 검사 대상이 아니다. host bind와 port는 `docker compose config` 결과를 따른다. |
@@ -84,7 +84,7 @@ make down
 
 - `make init-env-compose`는 기존 `.env`가 있으면 실패하고 보존한다.
 - `.runtime/prometheus/admin_api_key`만 사라졌거나 손상되었다면 `.env`를 다시 만들지 말고 `make compose-up`을 실행한다. Compose 기동 전 이 파일을 자동 복구한다. 이 파일은 Prometheus Compose secret source이므로 일반 파일이어야 하며, non-root Prometheus image가 읽을 수 있도록 파일은 `0644`로 생성한다. Host에서는 source directory `.runtime/prometheus`를 `0700`으로 고정해 다른 사용자의 path 접근을 막는다.
-- app-only `.env`의 `make up`은 vLLM을 시작하지 않고 Gateway/Risk Adapter만 실행한다.
+- app-only `.env`의 `make up`은 vLLM을 시작하지 않고 Gateway/Risk Signal Service만 실행한다.
 - app-only 확인은 `make ready-local`, strict full-stack 확인은 `make ready-full`을 사용한다.
 - full-stack 기동인 `make compose-up`에는 Docker/GPU/포트/secret preflight가 포함된다.
 - `make compose-up`은 `configs/deploy_profiles.yaml`의 기본 `main_only`를 적용해 Main만 시작한다. Retrieval runtime도 처음부터 필요하면 `RUNTIME_PROFILE=retrieval_ready make compose-up`을 명시한다.

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from scripts.validation.validate_env_contract import (
     _commented_assignment_keys,
+    validate_contract_structure,
     validate_service_env_projections,
 )
 
@@ -43,3 +44,22 @@ def test_service_projection_rejects_removed_persistent_key(tmp_path):
         "runtime_keys contains removed persistent key(s): MAX_REQUEST_BODY_BYTES" in violation
         for violation in violations
     )
+
+
+def test_renamed_key_contract_rejects_self_mapping():
+    violations = validate_contract_structure(
+        {
+            "common_example_keys": ["APP_ENV"],
+            "auth_mode_keys": ["AUTH_MODE"],
+            "auth_evidence_keys": ["CUSTOM_AUTH_RISK_ACCEPTED"],
+            "runtime_override_example_keys": {
+                "main": {"env_prefix": "MAIN", "suffixes": ["MODEL"]}
+            },
+            "env_examples": {
+                ".env.example": {"required_key_sets": ["common_example_keys"]}
+            },
+            "renamed_keys": {"OLD_KEY": "OLD_KEY"},
+        }
+    )
+
+    assert "env_contract.yaml: renamed key 'OLD_KEY' cannot map to itself" in violations

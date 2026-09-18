@@ -24,7 +24,7 @@ Container 종료
 정리 확인
 ```
 
-기본 실행 경로는 vLLM Container 기동부터 직접 API 응답 확인까지다. Gateway 연동, Main Model 전환, Risk Adapter, 전체 Platform 배포와 운영 절차는 각 관련 문서에서 이어진다.
+기본 실행 경로는 vLLM Container 기동부터 직접 API 응답 확인까지다. Gateway 연동, Main Model 전환, Risk Signal Service, 전체 Platform 배포와 운영 절차는 각 관련 문서에서 이어진다.
 
 ---
 

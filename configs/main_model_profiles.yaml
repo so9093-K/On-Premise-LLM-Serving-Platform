@@ -151,7 +151,7 @@ profiles:
     revision: 67e53491df7a281623fa740de61307d5c542b7f4
     served_model_name: local-main
     # CI/deploy가 derived image digest를 주입한다.
-    image: ${AUDIO_VLLM_IMAGE}
+    image: ${MAIN_MODEL_VLLM_IMAGE_OVERRIDE}
     compatibility:
       # verified만 별도 확인 없이 전환할 수 있다.
       status: verified
@@ -220,7 +220,7 @@ profiles:
     model_id: google/gemma-4-E4B-it
     revision: ee0ef6023621cff504d758262d4e04895a5af4a2
     served_model_name: local-main
-    image: ${AUDIO_VLLM_IMAGE}
+    image: ${MAIN_MODEL_VLLM_IMAGE_OVERRIDE}
     compatibility:
       # 전환·Gateway 계약·streaming reasoning·structured output·tool call·media 4종을
       # 배포본에서 실측했고, 12B/26B 회귀와 리소스 한도 확정(65K context, seqs=4,
@@ -395,7 +395,7 @@ profiles:
     # 12B와 같은 media decode stack(soundfile/librosa/PyAV)이 필요해 같은 derived image를
     # 공유한다. Gemma4 전용 패치(vision_embedder.patch_dense, feature_extractor.fft_length)는
     # 이 모델의 코드 경로와 겹치지 않아 no-op일 것으로 예상하나, 3단계 실제 부팅에서 확인한다.
-    image: ${AUDIO_VLLM_IMAGE}
+    image: ${MAIN_MODEL_VLLM_IMAGE_OVERRIDE}
     compatibility:
       # 2026-08-14: 독립된 재부팅 2회에서 text/image/audio/video switch-time canary를 모두
       # 통과했고, Gateway 경유 response_format/logprobs/top_logprobs/logit_bias/
@@ -622,7 +622,7 @@ description: |
   출력이 13000을 다 쓰는 요청은 입력 37000 안에서만 허용된다는 걸 gateway 정책 결정으로
   의식하고 있어야 한다 -- 별도 결정 없이는 이 상태 유지.
 
-  2026-07-25, ${AUDIO_VLLM_IMAGE}가 resolve하는 image 값이 이제 Gemma4 멀티모달 패치 +
+  2026-07-25, ${MAIN_MODEL_VLLM_IMAGE_OVERRIDE}가 resolve하는 image 값이 이제 Gemma4 멀티모달 패치 +
   Kanana Llama head_dim 패치가 병합된 vllm-unified 이미지를 가리킨다(당시 build
   automation에서 실제로 빌드/push함). 실제 이 이미지로 재부팅 -- healthy, 텍스트 채팅 정상,
   이미지 입력도 정상 응답(패치가 여전히 유효함을 확인).

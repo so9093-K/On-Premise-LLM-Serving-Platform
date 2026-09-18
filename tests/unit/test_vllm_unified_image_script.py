@@ -119,17 +119,17 @@ def test_local_image_pin_updates_shared_and_profile_override_refs(tmp_path):
     image_id = "sha256:" + "b" * 64
     env_path.write_text(
         f"VLLM_IMAGE={source}\n"
-        f"AUDIO_VLLM_IMAGE={source}\n",
+        f"MAIN_MODEL_VLLM_IMAGE_OVERRIDE={source}\n",
         encoding="utf-8",
     )
 
     assert pin_matching_env_values(env_path, source, image_id) == [
         "VLLM_IMAGE",
-        "AUDIO_VLLM_IMAGE",
+        "MAIN_MODEL_VLLM_IMAGE_OVERRIDE",
     ]
     assert env_path.read_text(encoding="utf-8") == (
         f"VLLM_IMAGE={image_id}\n"
-        f"AUDIO_VLLM_IMAGE={image_id}\n"
+        f"MAIN_MODEL_VLLM_IMAGE_OVERRIDE={image_id}\n"
     )
 
 

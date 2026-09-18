@@ -28,10 +28,10 @@
 
 | 단계 | 확인 내용 | 주요 수단 |
 |---|---|---|
-| 1. 서비스 상태 | Gateway와 Risk Adapter 실행 상태 | `make status`, `/health` |
+| 1. 서비스 상태 | Gateway와 Risk Signal Service 실행 상태 | `make status`, `/health` |
 | 2. 주요 기능 준비 상태 | Main Model, Embedding, Risk Runtime 상태 | `/ready`, `make ready-full` |
 | 3. 요청과 오류 | 실패한 API, 응답 코드, 오류 코드, 응답 시간 | Request Log Explorer |
-| 4. 모델 Runtime | Main / Secondary Runtime 실행 상태 | Grafana, Runtime 상태 API |
+| 4. 모델 Runtime | Main / non-main Model Runtime 실행 상태 | Grafana, Runtime 상태 API |
 | 5. GPU / 컨테이너 | GPU 메모리, 요청 대기량, OOM(메모리 부족), 재시작 | Grafana, `make compose-diagnostics` |
 | 6. 상세 로그 | 서비스별 오류와 traceback | Loki / Grafana, `make compose-logs` |
 | 7. 복구 확인 | 전체 준비 상태와 대표 API 요청 | `make ready-full`, `make runtime-validate` |
@@ -61,7 +61,7 @@ make ready-full   # Linux/NVIDIA full-stack
 |---|---|
 | `/health` | 해당 서비스 프로세스가 요청에 응답하는 상태 |
 | `/ready` | 주요 Runtime을 포함한 요청 처리 준비 상태 |
-| `make ready-local` | app-only Gateway / Risk Adapter 상태 확인 |
+| `make ready-local` | app-only Gateway / Risk Signal Service 상태 확인 |
 | `make ready-full` | full-stack Runtime 준비 상태와 대표 추론 경로 확인 |
 
 Gateway `/ready`가 `503`을 반환하면 응답에서 준비되지 않은 Runtime을 확인한다. `make ready-full`은 모델 로딩 중인 서비스와 아직 준비되지 않은 Runtime을 함께 표시한다.
@@ -178,7 +178,7 @@ Compose 진단과 Runtime 로그에서 자주 확인하는 메시지는 다음�
 | `make ready-full` 대기 시간 초과 | 모델 로딩 또는 Runtime 재시작 상태 | `make compose-diagnostics` |
 | Chat 요청 실패 | Main Model Runtime 상태 | Main Model 로그와 모델 전환 상태 확인 |
 | Embedding / Retrieval 실패 | Embedding Runtime 상태 | 해당 Runtime 실행 상태와 로그 확인 |
-| Risk 요청 실패 | Risk Adapter와 Prompt Risk Runtime | Risk Adapter / risk-prompt 로그 확인 |
+| Risk 요청 실패 | Risk Signal Service와 Prompt Injection Detector Runtime | Risk Signal Service / risk-prompt 로그 확인 |
 | 응답 지연 증가 | 응답 시간, 요청 대기량, GPU | Request Log와 Runtime 대시보드 확인 |
 | OOM / 반복 재시작 | GPU 메모리와 여유 공간 | Runtime 설정과 GPU 자원 정책 확인 |
 | 401 / 403 증가 | 인증 설정과 현재 환경 | `make auth-status`, `make auth-doctor` |
@@ -211,7 +211,7 @@ Main Model 전환 문제는 전환 진행 상태와 현재 Main Model 상태를 
       ↓
 현재 Main Model 상태
       ↓
-Admin Sidecar / Main Model 로그
+Runtime Controller / Main Model 로그
       ↓
 복구 결과 확인
       ↓
@@ -267,7 +267,7 @@ make ready-full
 - 이전 Release 활성화 여부
 - 대상 `.env`와 Runtime 상태가 이전 상태로 복원되었는지
 - Gateway와 주요 서비스 상태
-- Main Model과 Secondary Runtime 상태
+- Main Model과 non-main Model Runtime 상태
 - `make ready-full` 결과
 
 Release 구조와 자동 복구 범위는 [10. 배포](./10_deployment.md)에 정리되어 있다.
@@ -287,7 +287,7 @@ Request Log Explorer에서 대상 요청이나 서비스를 식별한 뒤 원본
 
 ![Request Log Explorer - Raw Logs](../assets/screenshots/request_log_explorer_raw_logs.png)
 
-원본 로그 화면에서는 Gateway, Risk Adapter, vLLM Runtime 등 서비스별 로그와 traceback을 확인할 수 있다.
+원본 로그 화면에서는 Gateway, Risk Signal Service, vLLM Runtime 등 서비스별 로그와 traceback을 확인할 수 있다.
 
 ### Compose 로그
 
@@ -428,7 +428,7 @@ make smoke
 | Compose 진단 | `scripts/compose/compose_diagnostics.sh` | 서비스 상태와 주요 Runtime 오류 패턴 확인 |
 | Compose 로그 | `scripts/compose/compose_logs.sh` | full-stack 로그 조회 |
 | Runtime 검증 | `scripts/validation/runtime_validation.py` | vLLM API·monitoring 실제 연결 검증 |
-| Runtime 제어 | Gateway Runtime Control API | Main / Secondary Runtime 상태 확인과 제어 |
+| Runtime 제어 | Gateway Runtime Control API | Main / non-main Model Runtime 상태 확인과 제어 |
 
 관련 문서는 다음과 연결된다.
 

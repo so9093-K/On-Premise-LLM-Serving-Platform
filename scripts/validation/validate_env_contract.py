@@ -4,7 +4,8 @@
 체크 항목:
 - env_contract.yaml에 선언된 env example이 각각 필요한 키 집합을 포함하는지
 - 필요한 키 집합: 공통 예시 키, 인증 키, runtime override 키, exposure 키
-- removed key가 active/commented assignment 또는 service env projection으로 재도입되지 않는지
+- removed/renamed legacy key가 active/commented assignment 또는 service env projection으로 재도입되지 않는지
+- renamed key의 replacement가 예시 파일에 실제로 투영되는지
 - non-base exposure profile에 필요한 example key가 선언되어 있는지
 
 사용법:
@@ -169,6 +170,31 @@ def validate_contract_structure(contract: dict[str, Any]) -> list[str]:
                 violations=violations,
             )
 
+    renamed = contract.get("renamed_keys")
+    if renamed is not None:
+        if not isinstance(renamed, dict):
+            violations.append("env_contract.yaml: renamed_keys must be a mapping")
+        else:
+            for old_key, new_key in renamed.items():
+                if (
+                    not isinstance(old_key, str)
+                    or not old_key
+                    or not isinstance(new_key, str)
+                    or not new_key
+                ):
+                    violations.append(
+                        "env_contract.yaml: renamed_keys entries must map non-empty string keys"
+                    )
+                elif old_key == new_key:
+                    violations.append(
+                        f"env_contract.yaml: renamed key {old_key!r} cannot map to itself"
+                    )
+            replacements = [value for value in renamed.values() if isinstance(value, str)]
+            if len(replacements) != len(set(replacements)):
+                violations.append(
+                    "env_contract.yaml: renamed_keys replacement keys must be unique"
+                )
+
     return violations
 
 
@@ -325,6 +351,11 @@ def validate(root: Path = ROOT, strict: bool = False) -> list[str]:
     elif not isinstance(removed_keys, dict):
         violations.append("env_contract.yaml: removed_keys must be a mapping")
         removed_keys = {}
+    renamed_keys = contract.get("renamed_keys")
+    if renamed_keys is None:
+        renamed_keys = {}
+    elif not isinstance(renamed_keys, dict):
+        renamed_keys = {}
     violations.extend(validate_service_env_projections(root, contract))
     violations.extend(validate_auth_example_profiles(root, contract))
     violations.extend(validate_access_example_profiles(root, contract))
@@ -368,6 +399,15 @@ def validate(root: Path = ROOT, strict: bool = False) -> list[str]:
             if key not in present_keys:
                 violations.append(f"{filename}: missing required key {key!r}")
 
+        for old_key, new_key in renamed_keys.items():
+            if not isinstance(old_key, str) or not isinstance(new_key, str):
+                continue
+            if old_key in present_keys or old_key in commented_assignments:
+                violations.append(
+                    f"{filename}: legacy renamed key {old_key!r} must not be offered; "
+                    f"use {new_key!r}"
+                )
+
         # removed_keys는 sync-env가 기존 .env에서 지우는 키다. 그 키가 예시 파일에
         # 다시 들어오면 두 동작이 정면으로 싸운다 -- active assignment뿐 아니라
         # `# KEY=...` 형태의 복사 가능한 예시도 persistent env surface를 다시 만든다.
@@ -397,6 +437,21 @@ def validate(root: Path = ROOT, strict: bool = False) -> list[str]:
                     f"{filename}: {port_key}={values[port_key].strip()} does not match "
                     f"configs/services.yaml default_host_port={expected_port}"
                 )
+
+    all_example_keys: set[str] = set()
+    for filename in env_examples:
+        file_path = root / filename
+        if not file_path.exists():
+            continue
+        all_example_keys.update(parse_env_file(file_path).values)
+    for old_key, new_key in renamed_keys.items():
+        if not isinstance(old_key, str) or not isinstance(new_key, str):
+            continue
+        if new_key not in all_example_keys:
+            violations.append(
+                f"env_contract.yaml: renamed key replacement {new_key!r} for {old_key!r} "
+                "is not projected by any env example"
+            )
 
     if strict:
         # exposure profile마다 필요한 env key 묶음이 빠지지 않았는지 확인한다.
