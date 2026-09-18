@@ -124,7 +124,7 @@ def loading_response_example() -> dict[str, Any]:
                 "name": "risk_adapter",
                 "status": "not_ready",
                 "endpoint": endpoints["risk_adapter"],
-                "message": "waiting for risk adapter dependencies: risk_prompt_vllm",
+                "message": "waiting for Risk Signal Service dependencies: risk_prompt_vllm",
             },
         ],
     }
@@ -753,13 +753,13 @@ RUNTIME_BUDGET_EXCEEDED_EXAMPLE: dict[str, Any] = {
 }
 
 RUNTIME_ERROR_503_NO_SIDECAR_EXAMPLE: dict[str, Any] = {
-    "detail": "admin sidecar is not configured (ADMIN_SIDECAR_URL missing)",
+    "detail": "Runtime Controller is not configured (ADMIN_SIDECAR_URL missing)",
 }
 
 RUNTIME_ERROR_503_SIDECAR_UNAVAILABLE_EXAMPLE: dict[str, Any] = {
     "error": {
         "code": "MAIN_MODEL_CONTROL_UNAVAILABLE",
-        "message": "sidecar unavailable: Connection refused http://admin-sidecar:8080",
+        "message": "Runtime Controller unavailable: Connection refused http://admin-sidecar:8080",
         "retryable": True,
         "request_id": "req_00000000000000000000000000000000",
     },
