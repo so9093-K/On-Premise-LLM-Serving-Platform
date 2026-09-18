@@ -70,8 +70,11 @@ def test_remote_preflight_uses_one_shared_vllm_image_identity() -> None:
     assert "RISK_VLLM_IMAGE_EFFECTIVE" not in deploy_env
     assert "AUDIO_VLLM_IMAGE" not in deploy_env
     assert 'make sync-env ENV_FILE="${PREFLIGHT_ENV_FILE}"' in remote_apply
-    assert remote_apply.index("prepare_runtime_preflight_env") < remote_apply.index(
+    assert remote_apply.index('make sync-env ENV_FILE="${PREFLIGHT_ENV_FILE}"') < remote_apply.index(
         "deploy_resolve_runtime_image_plan"
+    )
+    assert remote_apply.index('make sync-env ENV_FILE="${COMPOSE_ENV_FILE}"') < remote_apply.index(
+        "deploy_apply_runtime_image_promotions"
     )
     assert "EMBEDDING_KO_VLLM_IMAGE_EFFECTIVE" not in remote_apply
     assert "RISK_VLLM_IMAGE_EFFECTIVE" not in remote_apply

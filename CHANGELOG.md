@@ -22,7 +22,7 @@
 
 ### Changed
 
-- 원격 full deploy의 runtime image preflight가 persistent `.env` 복사본을 먼저 `make sync-env`로 canonicalize한 뒤 image plan을 계산하도록 바꿨다. 실제 `.env`는 image pull 성공 전까지 수정하지 않으면서도 preflight는 post-migration canonical key를 기준으로 수행한다. ([ADR-0028](docs/adr/0028-unified-vllm-runtime-image-authority.md))
+- 원격 full deploy의 runtime image preflight가 persistent `.env` 복사본을 먼저 `make sync-env`로 canonicalize한 뒤 image plan을 계산하도록 바꿨다. 실제 `.env`는 image pull 성공 전까지 수정하지 않고, backup/rollback 경계가 준비된 뒤에는 runtime image promotion보다 먼저 `sync-env`를 적용해 legacy/canonical 충돌 없이 수렴한다. ([ADR-0028](docs/adr/0028-unified-vllm-runtime-image-authority.md))
 
 - Runtime transition Apply를 Configuration mutation과 같은 reviewed-plan 계약으로 수렴했다. `PATCH /admin/runtimes/{service_key}`는 이제 Plan에서 받은 `plan_digest`를 필수로 요구하고, Runtime Controller도 mutation 직전 GPU budget lock 안에서 같은 plan을 재계산해 digest drift를 fail-closed한다. 초기 compatibility 기간의 digest 없는 Apply 경로는 제거했다. ([ADR-0027](docs/adr/0027-control-plane-runtime-configuration-and-console-boundary.md))
 

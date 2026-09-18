@@ -744,6 +744,14 @@ trap 'interrupted_after_env_backup INT 130' INT
 trap 'interrupted_after_env_backup TERM 143' TERM
 trap 'interrupted_after_env_backup HUP 129' HUP
 
+# image promotion보다 먼저 persistent env migration을 적용한다. legacy/canonical 값이
+# 함께 남은 상태에서 새 canonical promotion을 쓰면 서로 다른 값으로 충돌할 수 있다.
+# backup과 rollback trap이 이미 준비된 뒤이므로 실패 시 기존 .env로 복구한다.
+echo "[deploy] syncing .env template keys..."
+if ! make sync-env ENV_FILE="${COMPOSE_ENV_FILE}"; then
+  fail_after_env_backup "sync-env failed"
+fi
+
 # .env에 PLATFORM_IMAGE 갱신
 deploy_set_env_value PLATFORM_IMAGE "${PLATFORM_IMAGE_TO_DEPLOY}"
 echo "[deploy] PLATFORM_IMAGE set to ${PLATFORM_IMAGE_TO_DEPLOY}"
@@ -761,12 +769,6 @@ if [[ "${DEPLOY_MODE}" == "full" ]]; then
   if [[ -n "${MAIN_MODEL_VLLM_IMAGE_OVERRIDE_PROMOTION:-}" ]]; then
     echo "[deploy] MAIN_MODEL_VLLM_IMAGE_OVERRIDE promoted to ${MAIN_MODEL_VLLM_IMAGE_OVERRIDE_PROMOTION}"
   fi
-fi
-
-# 마지막 배포 이후 template에 추가된 새 키를 동기화(기존 값은 보존)
-echo "[deploy] syncing .env template keys..."
-if ! make sync-env ENV_FILE="${COMPOSE_ENV_FILE}"; then
-  fail_after_env_backup "sync-env failed"
 fi
 
 if [[ -n "${AUTH_MODE:-}" ]]; then
