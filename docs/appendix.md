@@ -16,7 +16,7 @@
 | Runtime Controller | Model Runtime lifecycle, Main Model 전환과 reconciliation을 관리하는 내부 control service. | `runtime-controller` |
 | Model Runtime | 실제 inference, embedding 또는 detection을 수행하는 실행 단위. 필요하면 Main/Embedding/Prompt Injection처럼 역할을 붙여 부른다. | `main-llm-vllm`, `embedding-vllm` |
 | Main Model Runtime | Chat Completions와 Responses generation을 수행하는 주 Runtime. | `main-llm-vllm` |
-| Risk Signal Service | PII·Secret·Prompt Injection detector 결과를 signal-only 계약으로 정규화한다. 최종 allow/block 정책은 소유하지 않는다. | `risk-adapter` |
+| Risk Signal Service | PII·Secret·Prompt Injection detector 결과를 signal-only 계약으로 정규화한다. 최종 allow/block 정책은 소유하지 않는다. | `risk-signal-service` |
 | Prompt Injection Detector Runtime | Prompt Injection / Prompt Leaking 신호를 생성하는 Model Runtime. | `risk-prompt-vllm`, `risk-prompt` |
 | Main Model Profile | Main Model의 model revision, Runtime image, command, capability와 request policy 조합. | `configs/main_model_profiles.yaml` |
 | Public Model Alias | client가 실제 profile과 무관하게 고정적으로 사용하는 model 이름. | `local-main` |
@@ -52,7 +52,7 @@
 | Main Model Runtime | `main-llm-vllm` | `9401` | `9401` | Chat / Responses generation |
 | Embedding Runtime | `embedding-vllm` | `9402` | `9402` | 일반 Embedding |
 | Prompt Injection Detector Runtime | `risk-prompt-vllm` | `9403` | `9403` | Prompt Injection / Leaking signal inference |
-| Risk Signal Service | `risk-adapter` | `9405` | `9405` | PII·Secret·Prompt Injection 신호 정규화 |
+| Risk Signal Service | `risk-signal-service` | `9405` | `9405` | PII·Secret·Prompt Injection 신호 정규화 |
 | Korean Embedding Runtime | `embedding-ko-vllm` | `9406` | `9406` | Retrieval용 한국어 Embedding |
 | Runtime Controller | `runtime-controller` | `8080` | - | Model Runtime lifecycle·Main Model 전환 관리. Compose 내부에서 사용 |
 
