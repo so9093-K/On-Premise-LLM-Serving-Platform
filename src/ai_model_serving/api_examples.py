@@ -752,11 +752,11 @@ RUNTIME_BUDGET_EXCEEDED_EXAMPLE: dict[str, Any] = {
     },
 }
 
-RUNTIME_ERROR_503_NO_SIDECAR_EXAMPLE: dict[str, Any] = {
+RUNTIME_ERROR_503_NO_RUNTIME_CONTROLLER_EXAMPLE: dict[str, Any] = {
     "detail": "Runtime Controller is not configured (RUNTIME_CONTROLLER_URL missing)",
 }
 
-RUNTIME_ERROR_503_SIDECAR_UNAVAILABLE_EXAMPLE: dict[str, Any] = {
+RUNTIME_ERROR_503_RUNTIME_CONTROLLER_UNAVAILABLE_EXAMPLE: dict[str, Any] = {
     "error": {
         "code": "MAIN_MODEL_CONTROL_UNAVAILABLE",
         "message": "Runtime Controller unavailable: Connection refused http://runtime-controller:8080",
