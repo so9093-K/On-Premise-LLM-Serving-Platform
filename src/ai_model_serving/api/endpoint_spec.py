@@ -558,7 +558,7 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
             "canary 검증을 거칩니다(프로필 교체는 `POST /admin/main-model/switch`).\n\n"
             "GPU 예산을 초과하면 409와 정지 계획(`plan.stop`)을 반환하며, "
             "`force: true`로 우선순위 낮은 보조를 자동 축출할 수 있습니다. "
-            "apply가 반환된 뒤 Sidecar/Docker 관측으로 목표 상태 수렴을 검증하고, 결과는 "
+            "apply가 반환된 뒤 Runtime Controller/Docker 관측으로 목표 상태 수렴을 검증하고, 결과는 "
             "`/admin/runtimes/operations` journal에 actor/request evidence와 함께 남깁니다."
         ),
         request_schema="runtime_transition_apply_request.schema.json",

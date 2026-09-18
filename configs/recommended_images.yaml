@@ -3,7 +3,7 @@ images:
     env_key: PLATFORM_IMAGE
     reference_policy: local_build
     default: ai-model-serving-platform:0.0.1
-    purpose: 이 저장소에서 빌드하는 Gateway와 Risk Adapter 애플리케이션 이미지.
+    purpose: 이 저장소에서 빌드하는 Gateway와 Risk Signal Service 애플리케이션 이미지.
     source: 로컬 Docker 빌드
   vllm:
     env_key: VLLM_IMAGE

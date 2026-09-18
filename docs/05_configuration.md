@@ -53,7 +53,7 @@ YAML 파일은 모델, runtime, 서비스, 보안 정책 같은 **repository-lev
 |---|---|---|
 | 모델 목록 | `configs/model_catalog.yaml` | target-neutral 논리 model ID와 공개 capability 상한 정의 |
 | Runtime serving 정책 | `configs/model_serving.yaml` | 공통 endpoint, timeout, admission, embedding/risk routing 정의 |
-| Linux Main Model 실행·API profile | `configs/main_model_profiles.yaml` | Sidecar가 전환하는 vLLM command와 실제 modality·Gateway 요청 정책 정의 |
+| Linux Main Model 실행·API profile | `configs/main_model_profiles.yaml` | Runtime Controller가 전환하는 vLLM command와 실제 modality·Gateway 요청 정책 정의 |
 | MLX Main Model 실행·API profile | `configs/macos_mlx_runtime.yaml` | 모델 revision, 실행 한도와 실제 modality·Gateway 요청 정책 정의 |
 | Platform Python dependency | `pyproject.toml`, `uv.lock` | 공통 application 직접 의존성과 Linux/macOS 해석 결과 |
 | MLX Python dependency | `runtimes/mlx/pyproject.toml`, `runtimes/mlx/uv.lock` | 독립 native runtime 직접 의존성과 Darwin arm64 해석 결과 |

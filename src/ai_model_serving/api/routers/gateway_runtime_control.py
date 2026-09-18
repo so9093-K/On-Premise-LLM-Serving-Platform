@@ -599,7 +599,7 @@ def build_router(
         if sidecar is None:
             raise ServiceError(
                 "MAIN_MODEL_CONTROL_UNAVAILABLE",
-                "admin sidecar is not configured",
+                "Runtime Controller is not configured",
                 retry_after_seconds=5,
             )
         if service_key == "main":
@@ -713,8 +713,8 @@ def build_router(
                 }}},
             },
             503: {"content": {"application/json": {"examples": {
-                "no_sidecar": {"summary": "sidecar 미설정", "value": RUNTIME_ERROR_503_NO_SIDECAR_EXAMPLE},
-                "sidecar_unavailable": {"summary": "sidecar 연결 실패", "value": RUNTIME_ERROR_503_SIDECAR_UNAVAILABLE_EXAMPLE},
+                "no_sidecar": {"summary": "Runtime Controller 미설정", "value": RUNTIME_ERROR_503_NO_SIDECAR_EXAMPLE},
+                "sidecar_unavailable": {"summary": "Runtime Controller 연결 실패", "value": RUNTIME_ERROR_503_SIDECAR_UNAVAILABLE_EXAMPLE},
                 "in_progress": {"summary": "전환 중 (재시도 가능)", "value": RUNTIME_ERROR_503_TRANSITIONING_EXAMPLE},
             }}}},
             **_ADMIN_401,
@@ -731,7 +731,7 @@ def build_router(
 
         if service_key == "main":
             if sidecar is None:
-                raise HTTPException(503, detail="admin sidecar is not configured (ADMIN_SIDECAR_URL missing)")
+                raise HTTPException(503, detail="Runtime Controller is not configured (ADMIN_SIDECAR_URL missing)")
             before = await _best_effort_main_before(sidecar)
             operation_id = _begin_runtime_operation(
                 history_store,
@@ -924,7 +924,7 @@ def build_router(
             if current_state == RuntimeState.starting:
                 return _runtime_transitioning_response()
             if sidecar is None:
-                raise HTTPException(503, detail="admin sidecar is not configured (ADMIN_SIDECAR_URL missing)")
+                raise HTTPException(503, detail="Runtime Controller is not configured (ADMIN_SIDECAR_URL missing)")
             before = {
                 "desired_state": current_state.value,
                 "observed_state": actual,
@@ -1145,7 +1145,7 @@ def build_router(
         if current_state == RuntimeState.starting:
             return _runtime_transitioning_response()
         if sidecar is None:
-            raise HTTPException(503, detail="admin sidecar is not configured (ADMIN_SIDECAR_URL missing)")
+            raise HTTPException(503, detail="Runtime Controller is not configured (ADMIN_SIDECAR_URL missing)")
         before = {"desired_state": current_state.value, "observed_state": actual}
         if actual is None:
             observed = await _best_effort_secondary_before(sidecar, container, current_state.value)
@@ -1254,7 +1254,7 @@ def build_router(
         if sidecar is None:
             raise ServiceError(
                 "MAIN_MODEL_CONTROL_UNAVAILABLE",
-                "admin sidecar is not configured",
+                "Runtime Controller is not configured",
                 retry_after_seconds=5,
             )
         return sidecar

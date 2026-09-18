@@ -580,8 +580,8 @@ async def _lifespan(app: FastAPI):
 # --------------------------------------------------------------------- app
 
 app = FastAPI(
-    title="Admin Sidecar",
-    description="Internal container lifecycle control. Not exposed publicly.",
+    title="Runtime Controller",
+    description="Internal runtime lifecycle and Main Model control plane. Not exposed publicly.",
     docs_url=None,
     redoc_url=None,
     openapi_url=None,

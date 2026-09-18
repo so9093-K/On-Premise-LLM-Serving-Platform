@@ -58,7 +58,7 @@ Container stdout/stderr ──────┘
 ```
 
 Gateway와 Risk Signal Service는 구조화된 요청 이벤트를 앱 소유 JSONL에 기록한다. Alloy는
-이 고정 경로를 직접 읽으므로 Docker container ID와 admin-sidecar에 의존하지 않는다.
+이 고정 경로를 직접 읽으므로 Docker container ID와 Runtime Controller에 의존하지 않는다.
 vLLM traceback 등 컨테이너 stdout/stderr는 full-stack에서 Docker LogPath manifest를
 통해 `job="docker"`로, macOS Metal의 native MLX runtime stdout은 `.runtime/metal/logs/*.log`에서
 `job="native"`로 각각 best-effort 수집한다. 둘 다 요청 이벤트의 신뢰 경로
@@ -223,7 +223,7 @@ static Metal에서 각 Dashboard의 적용 여부는 다음과 같이 구분한�
 | Dashboard | 상태 | 이유 |
 |---|---|---|
 | GPU Capacity and OOM Risk | 이 구성에서 불가능 | DCGM은 NVIDIA 전용이라 Apple Silicon에 대응물이 없고, Main runtime이 vLLM이 아니라 native MLX-VLM이라 `vllm:*` metric도 존재하지 않는다. exporter 추가로 해결되는 문제가 아니다. |
-| Request Log Explorer | 제공 | Gateway 요청 이벤트는 앱 소유 JSONL에서 수집한다. Docker/admin-sidecar와 NVIDIA runtime이 필요하지 않다. Runtime 원본 로그 패널은 native MLX runtime의 stdout(`job="native"`)으로 채워진다. |
+| Request Log Explorer | 제공 | Gateway 요청 이벤트는 앱 소유 JSONL에서 수집한다. Docker/Runtime Controller와 NVIDIA runtime이 필요하지 않다. Runtime 원본 로그 패널은 native MLX runtime의 stdout(`job="native"`)으로 채워진다. |
 | Usage Today | 판단에 따른 제외 | 6개 panel 중 4개(모델별 요청량, rejected request, upstream 오류)는 Gateway metric만 써서 동작한다. 나머지 2개가 위 exporter를 전제해 영구 No Data가 되므로 상시 빈 panel을 남기지 않는 쪽을 택했다. |
 
 static Metal에서는 Request Log Explorer의 요청·API 오류·readiness 패널과 함께 Runtime

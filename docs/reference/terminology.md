@@ -113,3 +113,9 @@ canonical target을 정하고, 그 다음에 migration 순서와 기간을 결�
 사용자-facing 표시명 변경은 안정 식별자 변경과 묶지 않는다. 예를 들어 Console과 문서는
 **Runtime Controller**라고 표시하되 Compose service ID `admin-sidecar`는 별도 migration 전까지
 그대로 유지한다.
+
+API 오류 메시지·OpenAPI 설명/예제·CLI help·Console help·운영 설정의 description도
+사용자-facing 표시 계약에 포함한다. 이 surface에서는 `Runtime Controller`,
+`Risk Signal Service`, `Prompt Injection Detector Runtime` 같은 canonical term을 사용하고,
+`admin-sidecar`, `risk_adapter`, `risk-prompt-vllm`, `ADMIN_SIDECAR_URL` 같은 값은
+실제 identifier를 정확히 가리켜야 할 때만 code formatting과 함께 노출한다.

@@ -777,13 +777,13 @@ Video는 활성 Main Model profile의 `deployed_input`에 `video`가 포함된 �
 
 응답에는 `Retry-After: 5`가 포함된다.
 
-#### Sidecar 연결 실패
+#### Runtime Controller 연결 실패
 
 ```json
 {
   "error": {
     "code": "MAIN_MODEL_CONTROL_UNAVAILABLE",
-    "message": "sidecar unavailable: Connection refused http://admin-sidecar:8080",
+    "message": "Runtime Controller unavailable: Connection refused http://admin-sidecar:8080",
     "retryable": true,
     "request_id": "req_..."
   }
@@ -1381,7 +1381,7 @@ Dependency loading:
       "name": "risk_adapter",
       "status": "not_ready",
       "endpoint": "http://risk-adapter:9405/ready",
-      "message": "waiting for risk adapter dependencies: risk_prompt_vllm"
+      "message": "waiting for Risk Signal Service dependencies: risk_prompt_vllm"
     }
   ]
 }

@@ -27,9 +27,9 @@ def _risk_adapter_readiness(body: dict[str, Any]) -> tuple[str, str | None]:
         if isinstance(item, dict) and item.get("status") != "ready"
     ]
     message = (
-        "waiting for risk adapter dependencies: " + ", ".join(str(item) for item in waiting)
+        "waiting for Risk Signal Service dependencies: " + ", ".join(str(item) for item in waiting)
         if waiting
-        else "risk adapter is not ready"
+        else "Risk Signal Service is not ready"
     )
     return status, message
 
