@@ -64,7 +64,7 @@ old = '''    def adjust_initial_state_from_prompt(self, prompt_token_ids: Sequen
         self._streaming_initialized = True
 '''
 
-new = '''    # Backported by On-Premise-LLM-Serving-Platform from vLLM PR #48262.
+new = '''    # Backported by On-Premises-LLM-Serving-Platform from vLLM PR #48262.
     # The installed upstream file is modified further below for TURN_END handling.
     def _prompt_ends_in_open_reasoning(self, prompt_token_ids: Sequence[int]) -> bool:
         \"\"\"Whether the prompt tail is inside an open ``<|channel>`` block.\n\n        Scans backwards: a ``<|channel>`` start token seen before any\n        closing or turn-boundary token means the block is still open.\n        \"\"\"
