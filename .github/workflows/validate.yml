@@ -64,53 +64,6 @@ jobs:
       - name: Check Control Plane source and generated Console
         run: make console-check
 
-  generated-debug:
-    name: Temporary generated artifact sync
-    if: ${{ github.event_name == 'pull_request' && github.head_ref == 'refactor/main-model-state-semantics' }}
-    runs-on: ubuntu-24.04
-    timeout-minutes: 15
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          ref: ${{ github.event.pull_request.head.ref }}
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
-        with:
-          python-version: "3.12"
-      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
-        with:
-          resolution-strategy: highest
-          enable-cache: true
-          cache-dependency-glob: uv.lock
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: "24.20.0"
-          cache: npm
-          cache-dependency-path: ui/control-plane/package-lock.json
-      - name: Pin npm toolchain
-        run: npm install --global npm@11.19.0
-      - name: Prepare developer environment
-        run: make setup-dev PYTHON_BIN=python
-      - name: Regenerate checked-in artifacts
-        run: |
-          make render-runtime-assets
-          npm --prefix ui/control-plane ci
-          npm --prefix ui/control-plane run build
-      - name: Commit generated artifacts
-        env:
-          HEAD_BRANCH: ${{ github.event.pull_request.head.ref }}
-        run: |
-          git add specs/openapi.gateway.yaml src/ai_model_serving/static/control-plane
-          if git diff --cached --quiet; then
-            echo "Generated artifacts are already current."
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -m "chore: refresh generated artifacts"
-          git push origin "HEAD:${HEAD_BRANCH}"
-
   ci-gate:
     name: CI Gate
     if: ${{ always() }}
