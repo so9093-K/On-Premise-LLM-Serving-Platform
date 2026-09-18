@@ -9,7 +9,7 @@ export function mainModelProfileRequiresConfirmation(profile: MainModelProfile):
 }
 
 export function mainModelProfileSwitchable(profile: MainModelProfile): boolean {
-  return profile.active !== true && profile.compatibility.technical_status !== 'incompatible';
+  return profile.active !== true && profile.compatibility.status !== 'incompatible';
 }
 
 export function mainModelSwitchRequest(
