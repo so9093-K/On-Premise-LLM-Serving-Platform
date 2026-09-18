@@ -34,7 +34,7 @@ def load_main_serving_catalog(path: Path) -> MainServingCatalog:
     """Project only the API-serving contract from the runtime profile catalog.
 
     Docker image, command and GPU fields deliberately never enter this object. The
-    Admin Sidecar continues to load the full runtime catalog from main_model.control.
+    Runtime Controller continues to load the full runtime catalog from main_model.control.
     """
     document = load_yaml_mapping(path)
     public_model = str(document.get("public_model", ""))
