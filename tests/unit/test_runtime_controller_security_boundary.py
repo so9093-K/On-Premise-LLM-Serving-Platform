@@ -37,6 +37,14 @@ def test_runtime_controller_docker_socket_is_not_host_published() -> None:
     assert "COMPOSE_PROJECT_NAME" in controller["environment"]["COMPOSE_PROJECT"]
 
 
+def test_gateway_uses_canonical_runtime_controller_url_env() -> None:
+    document = yaml.safe_load(COMPOSE.read_text(encoding="utf-8"))
+    gateway_environment = document["services"]["gateway"]["environment"]
+
+    assert gateway_environment["RUNTIME_CONTROLLER_URL"] == "http://admin-sidecar:8080"
+    assert "ADMIN_SIDECAR_URL" not in gateway_environment
+
+
 def test_runtime_controller_is_not_host_privileged_or_host_networked() -> None:
     document = yaml.safe_load(COMPOSE.read_text(encoding="utf-8"))
     controller = document["services"]["admin-sidecar"]

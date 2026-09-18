@@ -22,6 +22,8 @@
 
 ### Changed
 
+- Runtime Controller endpoint 환경변수를 `RUNTIME_CONTROLLER_URL`로 수렴했다. 기존 `ADMIN_SIDECAR_URL`은 read/sync compatibility alias로 유지하며, 양쪽에 서로 다른 값이 있으면 fail-closed한다. Compose service ID `admin-sidecar`와 Python client/module 이름은 이번 단계에서 변경하지 않는다.
+
 - 사용자-facing 서비스 용어를 `Runtime Controller`와 `Risk Signal Service`로 수렴했다. API 오류·OpenAPI 설명/예제·CLI help·설정 help에서 `Admin Sidecar`/`Risk Adapter` 표시명을 제거하고, `admin-sidecar`, `risk_adapter`, `ADMIN_SIDECAR_URL` 같은 compatibility/internal identifier는 실제 식별자를 가리킬 때만 유지한다. 중앙 terminology governance가 이 surface까지 검사한다. ([Canonical Terminology](docs/reference/terminology.md))
 
 - Runtime Controller의 Docker lifecycle authority를 현재 Compose project에 fail-closed로 제한했다. 모든 container lookup은 project+service label을 함께 사용하고 daemon 응답 label을 다시 검증하며, project 누락·cross-project 결과·중복 container를 거부한다. Docker socket은 계속 Runtime Controller에만 mount되고 host port는 열지 않으며, `:ro` mount를 Docker API read-only 권한으로 간주하지 않는다. ([ADR-0031](docs/adr/0031-runtime-controller-docker-authority-boundary.md))

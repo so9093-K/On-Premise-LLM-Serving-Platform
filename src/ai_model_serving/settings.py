@@ -445,7 +445,11 @@ def load_settings(root: Path | None = None, env_file: Path | str | None = None) 
         streaming_max_chunks=int(streaming_cfg.get("max_chunks", 20_000)),
         streaming_max_bytes=int(streaming_cfg.get("max_bytes", 104_857_600)),
         admin_sidecar_url=(
-            _env("ADMIN_SIDECAR_URL", "")
+            _env(
+                "RUNTIME_CONTROLLER_URL",
+                "",
+                legacy_name="ADMIN_SIDECAR_URL",
+            )
             if deployment_target.controllable
             else ""
         ),

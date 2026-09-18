@@ -753,7 +753,7 @@ RUNTIME_BUDGET_EXCEEDED_EXAMPLE: dict[str, Any] = {
 }
 
 RUNTIME_ERROR_503_NO_SIDECAR_EXAMPLE: dict[str, Any] = {
-    "detail": "Runtime Controller is not configured (ADMIN_SIDECAR_URL missing)",
+    "detail": "Runtime Controller is not configured (RUNTIME_CONTROLLER_URL missing)",
 }
 
 RUNTIME_ERROR_503_SIDECAR_UNAVAILABLE_EXAMPLE: dict[str, Any] = {

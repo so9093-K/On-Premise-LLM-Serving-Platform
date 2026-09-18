@@ -28,7 +28,7 @@ services:
       ADMIN_API_KEY_REQUIRED: '${ADMIN_API_KEY_REQUIRED:-true}'
       ADMIN_ENDPOINTS_INTERNAL_ONLY: '${ADMIN_ENDPOINTS_INTERNAL_ONLY:-false}'
       STRICT_ADMIN_ENDPOINT_SECURITY: '${STRICT_ADMIN_ENDPOINT_SECURITY:-true}'
-      ADMIN_SIDECAR_URL: http://admin-sidecar:8080
+      RUNTIME_CONTROLLER_URL: http://admin-sidecar:8080
       REQUEST_EVENT_LOG_DIR: /var/log/ai-model-serving
       # 배포가 결정한 deferred runtime 목록. Gateway가 기동 시 한 번 적용하며,
       # 상태 파일 자체는 Gateway만 쓴다(두 writer 소유권 충돌 방지).
