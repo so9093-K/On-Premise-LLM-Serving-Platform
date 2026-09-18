@@ -12,7 +12,7 @@ from ..services.runtime_controller_client import (
 _CONTROL_UNAVAILABLE_MESSAGE = "Main model control service is temporarily unavailable."
 
 
-def sidecar_unavailable_response(exc: RuntimeControllerUnavailableError) -> JSONResponse:
+def runtime_controller_unavailable_response(exc: RuntimeControllerUnavailableError) -> JSONResponse:
     """관리 plane 연결 실패를 Gateway의 공개 오류 계약으로 변환한다.
 
     ``str(exc)``를 공개 message로 쓰지 않는다. RuntimeControllerUnavailableError의 문자열에는
@@ -36,7 +36,7 @@ def sidecar_unavailable_response(exc: RuntimeControllerUnavailableError) -> JSON
     return response
 
 
-def sidecar_request_error_response(exc: RuntimeControllerRequestError) -> JSONResponse:
+def runtime_controller_request_error_response(exc: RuntimeControllerRequestError) -> JSONResponse:
     """Runtime Controller의 구조화된 작업 거부를 Gateway 표준 오류 envelope로 전달한다."""
     detail = exc.detail
     raw_detail = detail if isinstance(detail, dict) else {}
