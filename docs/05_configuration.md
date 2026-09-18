@@ -413,6 +413,9 @@ make exposure-apply MODE=<mode>
 | `.env.compose.example` | full-stack Compose 실행 환경 template |
 
 example 파일은 실행 환경별 `.env`를 구성하기 위한 template으로 사용한다.
+Main Model operator env의 canonical namespace는 `MAIN_MODEL_*`이다. 기존 `MAIN_LLM_*` 값은
+`configs/env_contract.yaml`의 `renamed_keys`를 통해 read compatibility와 `make sync-env`
+이관만 지원하며, 두 이름에 서로 다른 값이 동시에 있으면 실행을 중단한다.
 두 경로의 layout과 일반 기본값은 각 template이 소유한다. Compose image 기본값과 env key mapping은
 `configs/recommended_images.yaml`이 소유한다. Platform/vLLM project-built image는 operator/local build 값을
 보존하고, `immutable_upstream` third-party image는 최초 생성과 `sync-env`에서 같은 pinned digest로 수렴한다.
@@ -452,7 +455,7 @@ common_example_keys
 └─ COMPOSE_PROJECT_NAME
 
 runtime_override_example_keys
-├─ MAIN_LLM_*
+├─ MAIN_MODEL_*
 ├─ EMBEDDING_*
 ├─ EMBEDDING_KO_*
 └─ RISK_PROMPT_*
