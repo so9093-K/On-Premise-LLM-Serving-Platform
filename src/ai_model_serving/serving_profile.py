@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from .configuration import load_yaml_mapping
+from .main_model.profile_state import normalize_profile_state
 
 
 NAMED_TOOL_CHOICE_UPSTREAM_REQUIRED_SINGLE = "required_single"
@@ -17,6 +18,7 @@ class MainServingProfile:
     display_name: str
     served_model_name: str
     compatibility: dict[str, Any]
+    qualification: dict[str, Any]
     deployed_input: tuple[str, ...]
     gateway_policy: dict[str, Any]
 
@@ -62,13 +64,22 @@ def load_main_serving_catalog(path: Path) -> MainServingCatalog:
                     f"main serving profile {profile_id!r} has invalid "
                     f"named_tool_choice_upstream: {mode!r}"
                 )
+        try:
+            profile_state = normalize_profile_state(
+                str(profile_id),
+                raw.get("compatibility", {}),
+                raw.get("qualification"),
+            )
+        except ValueError as exc:
+            raise RuntimeError(str(exc)) from exc
         capabilities = raw.get("capabilities", {})
         deployed_input = capabilities.get("deployed_input", []) if isinstance(capabilities, dict) else []
         profiles[str(profile_id)] = MainServingProfile(
             profile_id=str(profile_id),
             display_name=str(raw.get("display_name", profile_id)),
             served_model_name=str(raw.get("served_model_name", public_model)),
-            compatibility=dict(raw.get("compatibility", {})),
+            compatibility=dict(profile_state.compatibility),
+            qualification=dict(profile_state.qualification),
             deployed_input=tuple(str(item) for item in deployed_input),
             gateway_policy=dict(policy),
         )
