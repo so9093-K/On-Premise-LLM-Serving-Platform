@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import json
 import os
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
@@ -27,6 +26,11 @@ from ..main_model.control import (
 )
 from ..log_target_manifest import build_targets, write_manifest
 from ..platform_state import DEFAULT_PLATFORM_STATE_DIR, configured_platform_state_root
+from ..docker_scope import (
+    compose_container_filter,
+    one_scoped_container_row,
+    scoped_container_id,
+)
 from ..env_compat import renamed_env_value
 from ..settings_parts.env import as_bool, is_default_secret
 from ..runtime_topology import load_runtime_topology
@@ -177,14 +181,11 @@ def _docker_client() -> httpx.AsyncClient:
 
 
 def _label_filter(service: str) -> str:
-    labels = [f"com.docker.compose.service={service}"]
-    if COMPOSE_PROJECT:
-        labels.append(f"com.docker.compose.project={COMPOSE_PROJECT}")
-    return json.dumps({"label": labels})
+    return compose_container_filter(COMPOSE_PROJECT, service)
 
 
 def _compose_project_filter() -> str:
-    return json.dumps({"label": [f"com.docker.compose.project={COMPOSE_PROJECT}"]})
+    return compose_container_filter(COMPOSE_PROJECT)
 
 
 async def _refresh_log_targets() -> int:
@@ -205,9 +206,12 @@ async def _refresh_log_targets() -> int:
         containers = listed.json()
         inspected: list[Mapping[str, Any]] = []
         for container in containers:
-            container_id = str(container.get("Id") or "")
-            if not container_id:
-                continue
+            if not isinstance(container, Mapping):
+                raise RuntimeError("Docker container listing contains a non-object row")
+            container_id = scoped_container_id(
+                container,
+                project=COMPOSE_PROJECT,
+            )
             response = await dc.get(f"/containers/{container_id}/json", timeout=5.0)
             response.raise_for_status()
             inspected.append(response.json())
@@ -224,8 +228,14 @@ async def _find_container_id(service: str) -> str | None:
             timeout=5.0,
         )
         resp.raise_for_status()
-        containers = resp.json()
-        return containers[0]["Id"] if containers else None
+        row = one_scoped_container_row(
+            resp.json(),
+            project=COMPOSE_PROJECT,
+            service=service,
+        )
+        if row is None:
+            return None
+        return scoped_container_id(row, project=COMPOSE_PROJECT, service=service)
 
 
 async def _container_status(service: str) -> str:
@@ -236,10 +246,14 @@ async def _container_status(service: str) -> str:
             timeout=5.0,
         )
         resp.raise_for_status()
-        containers = resp.json()
-        if not containers:
+        row = one_scoped_container_row(
+            resp.json(),
+            project=COMPOSE_PROJECT,
+            service=service,
+        )
+        if row is None:
             return "not_found"
-        return containers[0]["State"]  # "running", "exited", "paused" 등
+        return str(row.get("State") or "unknown")
 
 
 async def _do_stop(container_id: str) -> None:
