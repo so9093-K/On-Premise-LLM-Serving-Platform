@@ -154,7 +154,7 @@ class ExplodingGatewayClients:
         self.runtimes["risk_adapter"] = self.risk_adapter
         from ai_model_serving.services.runtime_state import RuntimeStateStore
         self.runtime_state = RuntimeStateStore()
-        self.sidecar = None
+        self.runtime_controller = None
 
 
 class FakeGatewayClients:
@@ -206,7 +206,7 @@ class FakeGatewayClients:
         }
         from ai_model_serving.services.runtime_state import RuntimeStateStore
         self.runtime_state = RuntimeStateStore()
-        self.sidecar = None
+        self.runtime_controller = None
 
 
 def public_models():
