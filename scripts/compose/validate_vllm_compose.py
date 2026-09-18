@@ -142,7 +142,7 @@ def validate_production_compose_no_build_blocks(
 def validate_main_llm_bootstrap_image(compose: dict[str, Any]) -> list[str]:
     """Keep the static Compose bootstrap image aligned with the model-profile fallback.
 
-    Compose needs an image before admin-sidecar can apply the active profile.  The
+    Compose needs an image before Runtime Controller can apply the active profile.  The
     profile catalog is the source of that fallback; the Compose interpolation is
     deliberately a projection so an empty MAIN_MODEL_VLLM_IMAGE_OVERRIDE has identical meaning
     in both paths.
