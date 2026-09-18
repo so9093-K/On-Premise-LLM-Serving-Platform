@@ -15,7 +15,7 @@
   "properties": {
     "bootstrap_version": {
       "type": "integer",
-      "const": 1
+      "const": 2
     },
     "platform": {
       "type": "object",
