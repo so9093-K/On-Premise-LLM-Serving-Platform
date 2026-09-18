@@ -65,11 +65,16 @@ jobs:
         run: make console-check
 
   generated-debug:
-    name: Temporary generated artifact export
+    name: Temporary generated artifact sync
+    if: ${{ github.event_name == 'pull_request' && github.head_ref == 'refactor/main-model-state-semantics' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
           python-version: "3.12"
@@ -87,21 +92,24 @@ jobs:
         run: npm install --global npm@11.19.0
       - name: Prepare developer environment
         run: make setup-dev PYTHON_BIN=python
-      - name: Render generated API artifacts
-        run: make render-runtime-assets
-      - name: Build generated Control Plane assets
+      - name: Regenerate checked-in artifacts
         run: |
+          make render-runtime-assets
           npm --prefix ui/control-plane ci
           npm --prefix ui/control-plane run build
-      - name: Upload generated candidates
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: generated-candidates
-          path: |
-            specs/openapi.gateway.yaml
-            src/ai_model_serving/static/control-plane
-          if-no-files-found: error
-          retention-days: 1
+      - name: Commit generated artifacts
+        env:
+          HEAD_BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: |
+          git add specs/openapi.gateway.yaml src/ai_model_serving/static/control-plane
+          if git diff --cached --quiet; then
+            echo "Generated artifacts are already current."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "chore: refresh generated artifacts"
+          git push origin "HEAD:${HEAD_BRANCH}"
 
   ci-gate:
     name: CI Gate
