@@ -39,7 +39,8 @@
 | **Access Profile** | 사용자가 선택하는 접근 의도(local/private/edge) | `ACCESS_PROFILE` |
 | **Desired State** | Control Plane이 수렴시키려는 runtime 상태 | `desired_state` |
 | **Observed State** | 실제 container/runtime에서 관측한 상태 | `observed_runtime`, `container_status` |
-| **Qualification** | 특정 배포에서 실제 검증 근거가 어느 수준인지 나타내는 사용자-facing 개념 | 현재 `compatibility.status`, `validation_status` 일부 |
+| **Implementation Status** | Deployment Target 자체가 실행 가능한 구현 상태인지 나타내는 축 | `implementation_status` |
+| **Qualification** | 특정 Main Model 또는 Deployment Target의 실제 검증 근거가 충족됐는지 나타내는 축 | `qualification.status`, `qualification_status` |
 | **Activity** | 최근 runtime/model/configuration 변경 기록을 모아 보는 Console 화면 | API object는 `operation` 유지 |
 | **Verification Details** | apply/switch 후 실제 상태가 기대 상태와 일치했는지 확인한 정보 | 기존 UI 문구 operation evidence |
 
