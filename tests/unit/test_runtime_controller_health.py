@@ -1,10 +1,10 @@
-"""admin-sidecar control-plane healthcheck에 대한 회귀 가드.
+"""Runtime Controller healthcheck에 대한 회귀 가드.
 
-예전에 sidecar가 lifespan startup 안에서 main-model reconciliation을 기다리다가
+예전에 Runtime Controller가 lifespan startup 안에서 main-model reconciliation을 기다리다가
 (startup_timeout_seconds까지, 600초) 콜드 배포가 롤백된 적이 있다. uvicorn은
 startup이 끝나기 전엔 요청을 받지 않으므로, /health가 컨테이너의 ~40초
-healthcheck 예산을 넘도록 응답 불가 상태였고, sidecar는 unhealthy로 표시되어
-Gateway의 depends_on(service_healthy)가 전체 롤아웃을 실패시켰다. sidecar는
+healthcheck 예산을 넘도록 응답 불가 상태였고, Runtime Controller는 unhealthy로 표시되어
+Gateway의 depends_on(service_healthy)가 전체 롤아웃을 실패시켰다. Runtime Controller는
 control plane이다: 그 liveness는 main-llm 부팅(gate가 따로 추적한다)과
 독립적이어야 한다.
 """
@@ -19,17 +19,17 @@ from fastapi import HTTPException
 from tests.support.asgi import InlineASGITestClient as TestClient
 
 
-def _load_sidecar(tmp_path, monkeypatch):
+def _load_runtime_controller(tmp_path, monkeypatch):
     monkeypatch.setenv("MAIN_MODEL_STATE_PATH", str(tmp_path / "state.json"))
     monkeypatch.setenv("INTERNAL_SERVICE_TOKEN", "")
     monkeypatch.setenv("COMPOSE_PROJECT", "test-platform")
-    import ai_model_serving.apps.admin_sidecar as sidecar
+    import ai_model_serving.apps.runtime_controller as runtime_controller
 
-    return importlib.reload(sidecar)
+    return importlib.reload(runtime_controller)
 
 
 def test_lifespan_does_not_block_health_on_main_model_reconciliation(tmp_path, monkeypatch):
-    sidecar = _load_sidecar(tmp_path, monkeypatch)
+    controller = _load_runtime_controller(tmp_path, monkeypatch)
 
     async def slow_initialize() -> None:
         # validate()가 컨테이너의 healthcheck 예산을 훨씬 넘겨 main-llm health를
@@ -37,61 +37,61 @@ def test_lifespan_does_not_block_health_on_main_model_reconciliation(tmp_path, m
         # __enter__(lifespan startup을 실행함)가 블록되어 테스트가 멈췄을 것이다.
         await asyncio.sleep(3600)
 
-    monkeypatch.setattr(sidecar._main_model_manager, "initialize", slow_initialize)
+    monkeypatch.setattr(controller._main_model_manager, "initialize", slow_initialize)
 
-    with TestClient(sidecar.app) as client:
+    with TestClient(controller.app) as client:
         resp = client.get("/health")
         assert resp.status_code == 200
         assert resp.json() == {"status": "ok"}
         # reconciliation은 아직 진행 중이다: 완료도 에러도 아니다.
-        assert not sidecar._initialized.is_set()
+        assert not controller._initialized.is_set()
 
 
 def test_initialization_fails_closed_without_compose_project(tmp_path, monkeypatch):
-    sidecar = _load_sidecar(tmp_path, monkeypatch)
-    monkeypatch.setattr(sidecar, "COMPOSE_PROJECT", "")
+    controller = _load_runtime_controller(tmp_path, monkeypatch)
+    monkeypatch.setattr(controller, "COMPOSE_PROJECT", "")
 
-    asyncio.run(sidecar._run_initialize())
+    asyncio.run(controller._run_initialize())
 
-    assert sidecar._initialized.is_set()
-    assert "COMPOSE_PROJECT is required" in (sidecar._initialization_error or "")
+    assert controller._initialized.is_set()
+    assert "COMPOSE_PROJECT is required" in (controller._initialization_error or "")
 
 
 def test_health_surfaces_definitive_reconciliation_failure(tmp_path, monkeypatch):
-    sidecar = _load_sidecar(tmp_path, monkeypatch)
+    controller = _load_runtime_controller(tmp_path, monkeypatch)
 
     async def failing_initialize() -> None:
         raise RuntimeError("main runtime did not become healthy")
 
-    monkeypatch.setattr(sidecar._main_model_manager, "initialize", failing_initialize)
+    monkeypatch.setattr(controller._main_model_manager, "initialize", failing_initialize)
 
-    # reconciliation이 끝나지 않은 동안에는 sidecar가 healthy 상태를 유지한다.
-    assert asyncio.run(sidecar.health()) == {"status": "ok"}
+    # reconciliation이 끝나지 않은 동안에는 Runtime Controller가 healthy 상태를 유지한다.
+    assert asyncio.run(controller.health()) == {"status": "ok"}
 
     # 백그라운드 initializer는 실패를 기록하되 task 밖으로 예외를 던지지 않는다
     # (그리고 완료 이벤트는 항상 set한다).
-    asyncio.run(sidecar._run_initialize())
-    assert sidecar._initialized.is_set()
-    assert "main runtime did not become healthy" in (sidecar._initialization_error or "")
+    asyncio.run(controller._run_initialize())
+    assert controller._initialized.is_set()
+    assert "main runtime did not become healthy" in (controller._initialization_error or "")
 
     # 이제 확정된 실패는 unhealthy로 드러난다.
     with pytest.raises(HTTPException) as excinfo:
-        asyncio.run(sidecar.health())
+        asyncio.run(controller.health())
     assert excinfo.value.status_code == 503
     assert "main runtime did not become healthy" in str(excinfo.value.detail)
 
 
-def test_sidecar_reads_canonical_and_legacy_main_model_env(tmp_path):
+def test_runtime_controller_reads_canonical_and_legacy_main_model_env(tmp_path):
     from pathlib import Path
 
-    from ai_model_serving.apps.admin_sidecar import load_sidecar_config
+    from ai_model_serving.apps.runtime_controller import load_runtime_controller_config
 
     base = {
         "APP_CONFIG_ROOT": str(Path(".").resolve()),
         "MAIN_MODEL_STATE_PATH": str(tmp_path / "state.json"),
         "INTERNAL_SERVICE_AUTH_REQUIRED": "false",
     }
-    canonical = load_sidecar_config(
+    canonical = load_runtime_controller_config(
         {
             **base,
             "MAIN_MODEL_BOOT_PROFILE": "gemma4-12b-unified-fp8",
@@ -103,7 +103,7 @@ def test_sidecar_reads_canonical_and_legacy_main_model_env(tmp_path):
     assert canonical.profile_locked is True
     assert canonical.idempotency_ttl_seconds == "30"
 
-    legacy = load_sidecar_config(
+    legacy = load_runtime_controller_config(
         {
             **base,
             "MAIN_LLM_BOOT_PROFILE": "gemma4-26b-a4b-fp8",
@@ -116,13 +116,13 @@ def test_sidecar_reads_canonical_and_legacy_main_model_env(tmp_path):
     assert legacy.idempotency_ttl_seconds == "45"
 
 
-def test_sidecar_rejects_conflicting_main_model_env_names(tmp_path):
+def test_runtime_controller_rejects_conflicting_main_model_env_names(tmp_path):
     from pathlib import Path
 
-    from ai_model_serving.apps.admin_sidecar import load_sidecar_config
+    from ai_model_serving.apps.runtime_controller import load_runtime_controller_config
 
     with pytest.raises(RuntimeError, match="conflicting env keys MAIN_LLM_BOOT_PROFILE and MAIN_MODEL_BOOT_PROFILE"):
-        load_sidecar_config(
+        load_runtime_controller_config(
             {
                 "APP_CONFIG_ROOT": str(Path(".").resolve()),
                 "MAIN_MODEL_STATE_PATH": str(tmp_path / "state.json"),
@@ -133,32 +133,42 @@ def test_sidecar_rejects_conflicting_main_model_env_names(tmp_path):
         )
 
 
-def test_sidecar_refuses_to_start_when_declared_internal_auth_has_no_token(tmp_path):
+def test_runtime_controller_refuses_to_start_when_declared_internal_auth_has_no_token(tmp_path):
     """가장 높은 권한을 가진 프로세스는 인증을 조용히 끄지 않아야 한다.
 
     예전에는 인증 활성 여부를 토큰 문자열이 비었는지로 판단했다. 그래서
     private_network/strict처럼 내부 인증을 요구한 구성에서 토큰이 유실되면
-    Docker socket을 쥔 sidecar가 거부 대신 무인증 서비스를 택했다. 판단 근거를
+    Docker socket을 쥔 Runtime Controller가 거부 대신 무인증 서비스를 택했다. 판단 근거를
     운영자가 선언한 INTERNAL_SERVICE_AUTH_REQUIRED로 옮긴다.
     """
     from pathlib import Path
 
-    from ai_model_serving.apps.admin_sidecar import load_sidecar_config
+    from ai_model_serving.apps.runtime_controller import load_runtime_controller_config
 
     base = {"APP_CONFIG_ROOT": str(Path(".").resolve()), "MAIN_MODEL_STATE_PATH": str(tmp_path / "s.json")}
 
     for missing_token in ({}, {"INTERNAL_SERVICE_TOKEN": ""}, {"INTERNAL_SERVICE_TOKEN": "change-me-internal"}):
         with pytest.raises(RuntimeError, match="INTERNAL_SERVICE_TOKEN"):
-            load_sidecar_config({**base, "INTERNAL_SERVICE_AUTH_REQUIRED": "true", **missing_token})
+            load_runtime_controller_config({**base, "INTERNAL_SERVICE_AUTH_REQUIRED": "true", **missing_token})
 
     # 선언이 없거나 인증 없음을 선언한 구성은 지금 동작을 유지한다. auth profile
     # local_open/internal_trusted가 내부 인증 없음을 명시하는 정당한 배포다.
     for declared in ({}, {"INTERNAL_SERVICE_AUTH_REQUIRED": "false"}):
-        config = load_sidecar_config({**base, **declared})
+        config = load_runtime_controller_config({**base, **declared})
         assert config.internal_service_token == ""
         assert config.internal_service_auth_required is False
 
-    admitted = load_sidecar_config(
+    admitted = load_runtime_controller_config(
         {**base, "INTERNAL_SERVICE_AUTH_REQUIRED": "true", "INTERNAL_SERVICE_TOKEN": "real-internal-token"}
     )
     assert admitted.internal_service_token == "real-internal-token"
+
+
+def test_legacy_admin_sidecar_module_reexports_canonical_application_contract(tmp_path, monkeypatch):
+    controller = _load_runtime_controller(tmp_path, monkeypatch)
+    import ai_model_serving.apps.admin_sidecar as legacy
+
+    legacy = importlib.reload(legacy)
+    assert legacy.app is controller.app
+    assert legacy.SidecarConfig is controller.RuntimeControllerConfig
+    assert legacy.load_sidecar_config is controller.load_runtime_controller_config

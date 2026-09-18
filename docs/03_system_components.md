@@ -402,7 +402,7 @@ Embedding이나 Risk처럼 Runtime Controller gate를 매 요청마다 사용하
 
 | 영역 | 주요 위치 |
 |---|---|
-| Runtime Controller application | `src/ai_model_serving/apps/admin_sidecar.py` |
+| Runtime Controller application | `src/ai_model_serving/apps/runtime_controller.py` |
 | Main model control | `src/ai_model_serving/main_model/control.py` |
 | Docker backend | `src/ai_model_serving/main_model/docker_backend.py` |
 | Main model state | `src/ai_model_serving/main_model/state.py` |

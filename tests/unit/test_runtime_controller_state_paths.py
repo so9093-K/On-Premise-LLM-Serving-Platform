@@ -2,12 +2,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from ai_model_serving.apps.admin_sidecar import load_sidecar_config
+from ai_model_serving.apps.runtime_controller import load_runtime_controller_config
 
 
-def test_sidecar_state_children_follow_platform_state_root(tmp_path: Path) -> None:
+def test_runtime_controller_state_children_follow_platform_state_root(tmp_path: Path) -> None:
     state_root = tmp_path / "platform-state"
-    config = load_sidecar_config(
+    config = load_runtime_controller_config(
         {
             "APP_CONFIG_ROOT": str(Path(".").resolve()),
             "PLATFORM_STATE_DIR": str(state_root),

@@ -572,7 +572,7 @@ Main Model 변경 작업은 다음 순서로 확인한다.
 | Runtime Startup Profile | `configs/deploy_profiles.yaml` | compose-up/full 배포 후 non-main Model Runtime 활성 구성 정의 |
 | Runtime topology | `ops/compose/full-stack.private-network.yaml` | Main / non-main Model Runtime container 기본 topology 정의 |
 | Main Model state | `.runtime/main-model/main-model-state.json` 또는 deployment state path | active profile, gate, runtime state, switch operation 기록 |
-| Runtime control implementation | `src/ai_model_serving/main_model/`, `src/ai_model_serving/apps/admin_sidecar.py` | switch, validation, rollback, Docker lifecycle 구현 |
+| Runtime control implementation | `src/ai_model_serving/main_model/`, `src/ai_model_serving/apps/runtime_controller.py` | switch, validation, rollback, Docker lifecycle 구현 |
 | Gateway Admin API | `src/ai_model_serving/api/routers/gateway_runtime_control.py` | Runtime / Main Model Admin API 제공 |
 
 설정 구조와 적용 방식은 [5. 설정 체계와 Source of Truth](./05_configuration.md)에서 설명한다.

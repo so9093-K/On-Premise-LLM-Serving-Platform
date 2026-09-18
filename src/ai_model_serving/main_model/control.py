@@ -86,7 +86,7 @@ def project_main_model_operation(operation: dict[str, Any]) -> dict[str, Any]:
         "created_at": operation["created_at"],
         "updated_at": operation["updated_at"],
     }
-# reconcile_if_restarted()의 재시도 backoff. admin_sidecar.py의 10초 poll
+# reconcile_if_restarted()의 재시도 backoff. runtime_controller.py의 10초 poll
 # 간격을 기준 단위로 2배씩 늘리다 최대 5분에서 멈춘다 -- validate()가 계속
 # 실패하는 동안(예: active_profile과 실제 컨테이너가 어긋난 채로 남는 drift)
 # GPU 엔진에 매 poll tick마다 무의미한 canary 요청을 영구히 반복하지 않기
