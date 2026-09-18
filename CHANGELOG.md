@@ -159,6 +159,7 @@
 
 ### Removed
 
+- `scripts/validation/governance/model_config.py`에 남아 있던 호출되지 않는 옛 `validate_configuration_schema()` 구현을 제거했다. 현재 governance CLI는 `governance/configuration_plane.py`의 validator만 사용하며, 이 경로는 production schema validator를 재사용하고 repository default와 public retrieval contract까지 함께 교차 검증한다.
 - Runtime Controller Python rename의 migration-only shim을 제거했다. `services.sidecar_client`와 `apps.admin_sidecar`는 더 이상 import surface가 아니며, production/test 코드는 `runtime_controller_client`와 `apps.runtime_controller`를 직접 사용한다. Compose service ID `admin-sidecar`와 operator env compatibility는 별도 계약으로 유지한다.
 - 오디오·비디오의 magic byte 라벨 일치 검사(`_audio_format_matches`, `_video_format_matches`)와 그 부수물을 제거했다. 실제 런타임으로 확인한 결과 (1) 런타임은 컨테이너를 스스로 감지해 `format`이 틀려도 정상 처리하고, (2) 쓰레기 바이트는 0.0초에 HTTP 400으로 거부한다. 즉 이 검사는 막는 것이 없고, 잘못 라벨링했지만 정상 처리될 요청에 422를 낼 뿐이었다 — 이 프로젝트가 이미지에서 이미 제거하기로 결정한 바로 그 실패 양상이다([ADR-0014](docs/adr/0014-image-validation-policy.md)). JPEG 프레임 경로의 호출은 바로 다음 두 줄의 차원 검사와 중복이었다.
 - 위 검사만을 위해 존재하던 `SNIFFABLE_AUDIO_FORMATS`·`SNIFFABLE_VIDEO_MIME_TYPES` 상수와, "config 허용 목록을 이 집합의 부분집합으로 유지하라"는 수동 규율, 그리고 그 규율을 지키던 테스트 2개를 함께 제거했다. 매처가 사라지면서 제약 자체가 없어졌다.
