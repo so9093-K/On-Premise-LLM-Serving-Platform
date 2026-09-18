@@ -39,7 +39,7 @@ Accepted
 
 ## Operational impact
 
-- `embedding-ko-vllm` runtime은 `EMBEDDING_KO_VLLM_IMAGE` 환경 변수로 지정한 표준 vLLM image를 사용한다. 별도 derived Dockerfile 빌드가 없다.
+- `embedding-ko-vllm` runtime은 현재 다른 shared vLLM consumer와 동일하게 `VLLM_IMAGE`가 가리키는 Unified vLLM image를 사용한다. 별도 derived Dockerfile이나 embedding-ko 전용 image authority는 없다. ([ADR-0028](./0028-unified-vllm-runtime-image-authority.md))
 - `ops/compose/full-stack.private-network.yaml`에서 `embedding-ko-vllm` service가 `embedding-vllm` 다음 순서로 기동한다(serial GPU vLLM startup 정책).
 - Grafana `$model` variable에 `local-embed-ko`를 포함한다.
 
