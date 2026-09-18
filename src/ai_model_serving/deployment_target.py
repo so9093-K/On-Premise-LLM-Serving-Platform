@@ -19,7 +19,7 @@ KNOWN_FEATURES = frozenset(
         "gpu_admission",
     }
 )
-_CONTROL_MODES = frozenset({"sidecar", "static"})
+_CONTROL_MODES = frozenset({"runtime_controller", "static"})
 _LIFECYCLE_OWNERS = frozenset({"platform", "external"})
 
 
@@ -46,7 +46,7 @@ class DeploymentTarget:
 
     @property
     def controllable(self) -> bool:
-        return self.control_mode == "sidecar" and self.lifecycle_owner == "platform"
+        return self.control_mode == "runtime_controller" and self.lifecycle_owner == "platform"
 
 
 def effective_published_compose_services(
@@ -189,7 +189,7 @@ def load_deployment_target(path: Path, target_id: str | None = None) -> Deployme
                 f"deployment target {selected!r} gateway_runtime_host is only valid for static targets"
             )
 
-    expected_owner = "platform" if control_mode == "sidecar" else "external"
+    expected_owner = "platform" if control_mode == "runtime_controller" else "external"
     if lifecycle_owner != expected_owner:
         raise RuntimeError(
             f"deployment target {selected!r} control_mode={control_mode!r} requires "
