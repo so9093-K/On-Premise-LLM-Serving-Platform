@@ -517,7 +517,7 @@ Generated artifact는 원본 config를 변경한 뒤 다시 생성하는 방식�
 | `ops/prometheus/prometheus.yml` | `model_catalog.yaml` + `model_serving.yaml` + `monitoring.yaml` |
 | `specs/schemas/model_list_response.schema.json` | Model Registry projection |
 | `specs/openapi.gateway.yaml` | Gateway runtime OpenAPI + contract schema + endpoint spec |
-| `specs/openapi.risk-adapter.yaml` | Risk Signal Service runtime OpenAPI + contract schema + endpoint spec |
+| `specs/openapi.risk-signal-service.yaml` | Risk Signal Service runtime OpenAPI + contract schema + endpoint spec |
 
 generated artifact를 갱신할 때는 다음 명령을 사용한다.
 
