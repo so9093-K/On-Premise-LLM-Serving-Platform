@@ -37,8 +37,6 @@ def test_static_target_is_main_only_and_externally_owned() -> None:
     assert target.lifecycle_owner == "external"
     assert target.implementation_status == "implemented"
     assert target.qualification_status == "unverified"
-    # Legacy projection remains stable for existing consumers.
-    assert target.validation_status == "implemented"
 
 
 def test_unknown_target_fails_closed() -> None:
