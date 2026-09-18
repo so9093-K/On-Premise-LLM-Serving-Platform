@@ -4176,12 +4176,12 @@ paths:
           content:
             application/json:
               examples:
-                no_sidecar:
+                no_runtime_controller:
                   summary: Runtime Controller 미설정
                   value:
                     detail: Runtime Controller is not configured (RUNTIME_CONTROLLER_URL
                       missing)
-                sidecar_unavailable:
+                runtime_controller_unavailable:
                   summary: Runtime Controller 연결 실패
                   value:
                     error:
