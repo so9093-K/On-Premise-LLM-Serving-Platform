@@ -78,7 +78,7 @@ legacy removal 순서를 따른다.
 | `MAIN_LLM_*` | `MAIN_MODEL_*` | operator env는 canonical로 전환됨. legacy는 read/sync compatibility alias이며 `MAIN_LLM_MODEL`은 `MAIN_MODEL_ALIAS`로 이관 |
 | `risk_adapter` / `RISK_ADAPTER_*` | Risk Signal Service 계열 identifier | 공개 `/v1/risk/*` API는 그대로 유지 |
 | `risk_prompt` / `RISK_PROMPT_*` | Prompt Injection Detector 계열 identifier | runtime/model 내부 identifier만 별도 migration |
-| `admin-sidecar` / `admin_sidecar` | Runtime Controller 계열 identifier | Python client는 `runtime_controller_client` / `RuntimeControllerClient`로 전환. `sidecar_client` / `Sidecar*`는 compatibility alias이며 Compose service와 app module은 후속 migration |
+| `admin-sidecar` / `admin_sidecar` | Runtime Controller 계열 identifier | Python client/settings와 application module은 canonical 이름으로 전환. `sidecar_client` / `Sidecar*`, `apps.admin_sidecar`는 compatibility alias이며 Compose service ID는 별도 migration |
 
 migration이 완료되기 전에는 기존 식별자를 삭제하거나 새 target과 충돌하는 값을 자동 선택하지 않는다.
 canonical과 legacy 값이 동시에 존재하면서 다르면 fail-closed를 기본으로 한다.
