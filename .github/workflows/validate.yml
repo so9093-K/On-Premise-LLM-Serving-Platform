@@ -79,6 +79,45 @@ jobs:
           PLATFORM_BUILD_PLATFORM: linux/amd64
         run: make build-image
 
+  generated-debug:
+    name: Temporary terminology artifact sync
+    if: ${{ github.event_name == 'pull_request' && github.head_ref == 'docs/canonical-service-terminology' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: "3.12"
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          resolution-strategy: highest
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+      - name: Prepare developer environment
+        run: make setup-dev PYTHON_BIN=python
+      - name: Regenerate terminology-sensitive artifacts
+        run: |
+          make render-runtime-assets
+          python scripts/compose/render_exposure_overrides.py
+      - name: Commit generated artifacts
+        env:
+          HEAD_BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: |
+          git add specs/openapi.gateway.yaml specs/openapi.risk-adapter.yaml ops/compose/overrides/exposure.master-open.yaml
+          if git diff --cached --quiet; then
+            echo "Generated artifacts are already current."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "chore: refresh terminology generated artifacts"
+          git push origin "HEAD:${HEAD_BRANCH}"
+
   ci-gate:
     name: CI Gate
     if: ${{ always() }}
