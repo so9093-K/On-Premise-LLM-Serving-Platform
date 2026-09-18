@@ -434,11 +434,10 @@ services:
       COMPOSE_PROJECT: ${COMPOSE_PROJECT_NAME:-ai-model-serving-platform}
       GATEWAY_INTERNAL_URL: http://gateway:9400
       MAIN_MODEL_STATE_PATH: /var/lib/ai-model-serving/main-model-state.json
-      MAIN_MODEL_BOOT_PROFILE: ${MAIN_MODEL_BOOT_PROFILE:-${MAIN_LLM_BOOT_PROFILE:-}}
-      MAIN_MODEL_PROFILE_LOCKED: ${MAIN_MODEL_PROFILE_LOCKED:-${MAIN_LLM_PROFILE_LOCKED:-false}}
+      MAIN_MODEL_BOOT_PROFILE: ${MAIN_MODEL_BOOT_PROFILE:-}
+      MAIN_MODEL_PROFILE_LOCKED: ${MAIN_MODEL_PROFILE_LOCKED:-false}
       # Optional per-host override for the main model's --gpu-memory-utilization.
-      # Legacy MAIN_LLM_* names remain read aliases only during migration.
-      MAIN_MODEL_GPU_MEMORY_UTILIZATION: ${MAIN_MODEL_GPU_MEMORY_UTILIZATION:-${MAIN_LLM_GPU_MEMORY_UTILIZATION:-}}
+      MAIN_MODEL_GPU_MEMORY_UTILIZATION: ${MAIN_MODEL_GPU_MEMORY_UTILIZATION:-}
       HF_TOKEN: ${HF_TOKEN:-}
       HUGGING_FACE_HUB_TOKEN: ${HUGGING_FACE_HUB_TOKEN:-}
       HF_HOME: /root/.cache/huggingface
