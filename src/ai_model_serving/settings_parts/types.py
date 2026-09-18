@@ -138,8 +138,6 @@ class AppSettings:
     streaming_max_chunks: int = 20_000
     streaming_max_bytes: int = 104_857_600
     runtime_controller_url: str = ""
-    # Compatibility constructor/attribute alias. New code uses runtime_controller_url.
-    admin_sidecar_url: str = ""
     static_main_profile: str = ""
     deploy_release_id: str = ""
     log_request_response_body: bool = False
@@ -154,18 +152,6 @@ class AppSettings:
             ) from None
 
     def __post_init__(self) -> None:
-        if (
-            self.runtime_controller_url
-            and self.admin_sidecar_url
-            and self.runtime_controller_url != self.admin_sidecar_url
-        ):
-            raise ValueError(
-                "runtime_controller_url and admin_sidecar_url must not conflict"
-            )
-        controller_url = self.runtime_controller_url or self.admin_sidecar_url
-        object.__setattr__(self, "runtime_controller_url", controller_url)
-        object.__setattr__(self, "admin_sidecar_url", controller_url)
-
         if "main_llm" not in self.runtime_endpoints:
             raise ValueError("main_llm runtime endpoint must be configured")
         unknown_required = self.required_runtime_keys - self.runtime_endpoints.keys()
