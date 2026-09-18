@@ -531,7 +531,8 @@ GATEWAY_ENDPOINTS: list[EndpointSpec] = [
         description=(
             "런타임을 실제로 변경하지 않고 현재 GPU budget과 prerequisite 상태에서 transition 영향을 계산합니다. "
             "정상 경로에서도 시작/정지 대상, 축출 영향과 projected budget을 반환하며, `plan_digest`는 검토한 "
-            "snapshot을 선택적으로 PATCH apply에 묶는 데 사용합니다."
+            "snapshot을 PATCH apply에 반드시 묶는 opaque token입니다. "
+            "Apply는 Plan에서 받은 `plan_digest` 없이는 실행되지 않습니다."
         ),
         request_schema="runtime_transition_plan_request.schema.json",
         response_schema="runtime_transition_plan_response.schema.json",

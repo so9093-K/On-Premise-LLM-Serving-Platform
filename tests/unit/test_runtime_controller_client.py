@@ -51,7 +51,7 @@ def test_budget_rejection_keeps_status_and_plan_but_other_errors_do_not():
     client = _client(handler)
 
     with pytest.raises(RuntimeControllerRequestError) as budget:
-        asyncio.run(client.start("main-llm-vllm"))
+        asyncio.run(client.start("main-llm-vllm", plan_digest="a" * 64))
     assert budget.value.status_code == 409
     assert budget.value.detail == {"evict": ["embedding"]}
 

@@ -48,7 +48,7 @@ class PlanningSidecar:
         container: str,
         *,
         force: bool = False,
-        plan_digest: str | None = None,
+        plan_digest: str,
     ):
         assert container == "embed-ko"
         assert force is True
@@ -64,7 +64,7 @@ class DriftRejectingSidecar(PlanningSidecar):
         container: str,
         *,
         force: bool = False,
-        plan_digest: str | None = None,
+        plan_digest: str,
     ):
         raise RuntimeControllerRequestError(
             409,
@@ -143,6 +143,22 @@ def test_runtime_plan_and_apply_use_strict_public_validation_contract() -> None:
     assert unknown.status_code == 422
     assert unknown.json()["error"]["param"] == "unknown"
 
+
+
+def test_runtime_apply_requires_reviewed_plan_digest() -> None:
+    clients = FakeGatewayClients()
+    clients.runtime_controller = PlanningSidecar()
+    client = TestClient(create_gateway_app(settings(), clients))
+
+    response = client.request(
+        "PATCH",
+        "/admin/runtimes/embedding_ko",
+        json={"desired_state": "active", "force": True},
+    )
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+    assert response.json()["error"]["param"] == "plan_digest"
 
 def test_runtime_apply_rejects_reviewed_plan_when_sidecar_snapshot_changed() -> None:
     clients = FakeGatewayClients()

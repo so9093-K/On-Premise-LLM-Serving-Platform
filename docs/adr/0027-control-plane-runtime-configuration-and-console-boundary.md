@@ -184,9 +184,9 @@ Console이 두 도구를 다시 구현하지 않는다.
 
 Runtime transition plan은 실제 sidecar execution이 사용하는 `gpu_budget.plan_activation`을 그대로
 사용하며 별도 UI 계산기를 두지 않는다. Plan은 정상 경로에서도 prerequisite/start/stop 영향과
-projected budget을 반환한다. 운영자가 `plan_digest`를 PATCH에 보내면 sidecar가 GPU budget lock
-안에서 같은 plan을 재계산해 digest drift를 `409 CONFLICT`로 거부한 뒤 기존 start/stop 경로를
-실행한다. digest가 없는 기존 API 호출은 호환성을 유지한다. `force`는 activation eviction에만
+projected budget을 반환한다. Apply는 Plan에서 받은 `plan_digest`를 반드시 요구하며 Runtime Controller가 GPU budget lock
+안에서 같은 plan을 재계산해 digest drift를 `409 CONFLICT`로 거부한 뒤 start/stop 경로를
+실행한다. 초기 compatibility 기간에 허용했던 digest 없는 Apply는 종료했다. `force`는 activation eviction에만
 의미가 있으므로 stop plan에서는 canonical `false`로 정규화한다.
 
 Bootstrap은 Deployment Target, Access Profile, Configuration revision, release identity를 새로 소유하지 않고 기존 SoT를 browser-safe projection으로만 제공한다. Admin 인증이 필요한 profile에서도 Console이 인증 posture를 먼저 발견할 수 있도록 Bootstrap 자체는 공개하지만 secret, 내부 endpoint, host path, raw environment는 반환하지 않는다. Monitoring capability도 Deployment Target의 typed `runs_monitoring_stack`에서 투영하며, Grafana URL은 현재 access/exposure 계약으로 안전하게 계산할 수 있을 때만 제공한다.
