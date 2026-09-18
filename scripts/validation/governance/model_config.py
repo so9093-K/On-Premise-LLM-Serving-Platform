@@ -78,7 +78,7 @@ def validate_deployment_targets() -> None:
         raise SystemExit('deployment_targets.yaml must declare an existing default_target')
     for target_id in targets:
         target = load_deployment_target(ROOT / 'configs/deployment_targets.yaml', str(target_id))
-        if target.validation_status == 'planned' and target_id == default_target:
+        if target.implementation_status == 'planned' and target_id == default_target:
             raise SystemExit('a planned deployment target cannot be the default')
         load_main_serving_catalog(ROOT / target.main_profile_catalog)
 
