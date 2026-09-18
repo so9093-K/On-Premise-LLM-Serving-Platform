@@ -213,7 +213,7 @@ export function MainModelPage({ token, onUnauthorized }: MainModelPageProps) {
                   return (
                     <tr key={profile.id}>
                       <td><strong>{profile.display_name}</strong><br /><code>{profile.id}</code></td>
-                      <td><Label color={compatibilityVariant(profile.compatibility.technical_status)}>{compatibilityLabel(profile.compatibility.technical_status)}</Label></td>
+                      <td><Label color={compatibilityVariant(profile.compatibility.status)}>{compatibilityLabel(profile.compatibility.status)}</Label></td>
                       <td><Label color={qualificationVariant(profile.qualification.status)}>{qualificationLabel(profile.qualification.status)}</Label></td>
                       <td>{profile.capabilities.deployed_input.join(', ')}</td>
                       <td>{profile.vram_fraction.toFixed(2)}</td>
@@ -247,7 +247,7 @@ export function MainModelPage({ token, onUnauthorized }: MainModelPageProps) {
               <dt>Target</dt><dd>{reviewProfile.display_name} ({reviewProfile.id})</dd>
               <dt>Upstream</dt><dd>{reviewProfile.upstream_model_id}</dd>
               <dt>Revision</dt><dd><code>{reviewProfile.revision}</code></dd>
-              <dt>Compatibility</dt><dd>{compatibilityLabel(reviewProfile.compatibility.technical_status)}</dd>
+              <dt>Compatibility</dt><dd>{compatibilityLabel(reviewProfile.compatibility.status)}</dd>
               <dt>Qualification</dt><dd>{qualificationLabel(reviewProfile.qualification.status)}</dd>
               <dt>Inputs</dt><dd>{reviewProfile.capabilities.deployed_input.join(', ')}</dd>
               <dt>VRAM fraction</dt><dd>{reviewProfile.vram_fraction.toFixed(2)}</dd>
