@@ -30,13 +30,13 @@ class SwitchOutcome(NamedTuple):
 import yaml
 
 from ..image_refs import is_immutable_image_ref
+from .profile_state import normalize_profile_state, public_compatibility_projection
 
 _REVISION_RE = re.compile(r"^[0-9a-f]{40}$")
 # 프로필 이미지는 리터럴 digest이거나 CI/deploy가 이를 resolve하는 단일 ${ENV_VAR} 참조일 수 있다 —
 # compose의 `${RISK_VLLM_IMAGE}`와 동일한 방식으로, 파생 런타임(예: audio/multimodal 이미지)이
 # 수동이 아니라 파이프라인에 의해 고정(pin)된다.
 _IMAGE_ENV_REF_RE = re.compile(r"^\$\{([A-Z_][A-Z0-9_]*)\}$")
-_COMPATIBILITY = frozenset({"verified", "likely", "unverified", "incompatible", "unknown"})
 # switch-time media boot canary가 실제로 아는 modality 집합이다. deployed_input은 이
 # 값들로만 구성돼야 한다 -- 그래야 "선언한 modality는 반드시 canary된다"는 원칙이 오타나
 # 미지원 값(예: "imgae") 앞에서도 깨지지 않는다.
@@ -115,6 +115,8 @@ class MainModelProfile:
     served_model_name: str
     command: tuple[str, ...]
     compatibility: dict[str, Any]
+    qualification: dict[str, Any]
+    legacy_compatibility_status: str
     capabilities: dict[str, Any]
     # Gateway가 이 프로필을 실제로 서빙할 때 적용할 입력 한도·요청 파라미터·
     # vLLM 기능 계약이다. active_profile snapshot에 함께 실어 Gateway가 전환된
@@ -137,7 +139,14 @@ class MainModelProfile:
             "served_model_name": self.served_model_name,
             "upstream_model_id": self.model_id,
             "revision": self.revision,
-            "compatibility": self.compatibility,
+            "compatibility": public_compatibility_projection(
+                normalize_profile_state(
+                    self.profile_id,
+                    self.compatibility,
+                    self.qualification,
+                )
+            ),
+            "qualification": self.qualification,
             "capabilities": self.capabilities,
             "gateway_policy": self.gateway_policy,
             "runtime_image": self.image,
@@ -324,9 +333,14 @@ def load_main_model_catalog(
         # 호스트별 gpu-memory-utilization 오버라이드가 있으면 적용하여
         # 런타임 커맨드와 파싱된 vram_fraction이 항상 서로 일치하도록 한다.
         command = _apply_util_override(command, gpu_memory_utilization_override)
-        compatibility = item.get("compatibility", {})
-        if compatibility.get("status") not in _COMPATIBILITY:
-            raise MainModelConfigurationError(f"profile {profile_id} has invalid compatibility status")
+        try:
+            profile_state = normalize_profile_state(
+                str(profile_id),
+                item.get("compatibility", {}),
+                item.get("qualification"),
+            )
+        except ValueError as exc:
+            raise MainModelConfigurationError(str(exc)) from exc
         capabilities = item.get("capabilities", {"deployed_input": ["text"]})
         if not isinstance(capabilities, dict):
             raise MainModelConfigurationError(f"profile {profile_id} capabilities must be an object")
@@ -390,7 +404,9 @@ def load_main_model_catalog(
             revision=revision,
             served_model_name=alias,
             command=tuple(command),
-            compatibility=dict(compatibility),
+            compatibility=dict(profile_state.compatibility),
+            qualification=dict(profile_state.qualification),
+            legacy_compatibility_status=profile_state.legacy_status,
             capabilities=dict(capabilities),
             gateway_policy=dict(gateway_policy),
             image=resolved_image,
@@ -834,16 +850,17 @@ class MainModelManager:
             raise MainModelSwitchError("MODEL_PROFILE_LOCKED", "main model profile is deployment-locked")
         profile = self.catalog.profiles[profile_id]
         compatibility = profile.compatibility.get("status")
+        qualification = profile.qualification.get("status")
         if compatibility == "incompatible":
             raise MainModelSwitchError(
                 "MODEL_PROFILE_INCOMPATIBLE",
                 "the selected model is incompatible with the current deployment",
                 status_code=422,
             )
-        if compatibility != "verified" and not confirm_unverified:
+        if qualification != "verified" and not confirm_unverified:
             raise MainModelSwitchError(
                 "MODEL_PROFILE_CONFIRMATION_REQUIRED",
-                "the selected model is not verified; explicit confirmation is required",
+                "the selected model is not qualified as verified; explicit confirmation is required",
                 status_code=409,
             )
         if client_request_id is not None and not _CLIENT_REQUEST_RE.fullmatch(
