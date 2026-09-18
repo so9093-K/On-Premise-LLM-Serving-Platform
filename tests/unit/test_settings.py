@@ -35,7 +35,6 @@ def isolate_settings_environment(monkeypatch):
         "ADMIN_API_KEYS",
         "ADMIN_ENDPOINTS_INTERNAL_ONLY",
         "RUNTIME_CONTROLLER_URL",
-        "ADMIN_SIDECAR_URL",
         "FASTAPI_DOCS_ENABLED",
         "FASTAPI_DOCS_URL",
         "FASTAPI_REDOC_URL",
@@ -47,12 +46,7 @@ def isolate_settings_environment(monkeypatch):
         "MAIN_MODEL_MAX_CONCURRENCY",
         "MAIN_MODEL_QUEUE_TIMEOUT_SECONDS",
         "MAIN_MODEL_STATIC_PROFILE",
-        "MAIN_LLM_BASE_URL",
-        "MAIN_LLM_MODEL",
-        "MAIN_LLM_TIMEOUT_SECONDS",
         "MAIN_MODEL_MAX_CONCURRENCY",
-        "MAIN_LLM_QUEUE_TIMEOUT_SECONDS",
-        "MAIN_LLM_STATIC_PROFILE",
         "EMBEDDING_MAX_CONCURRENCY",
         "EMBEDDING_QUEUE_TIMEOUT_SECONDS",
         "RISK_PROMPT_TIMEOUT_SECONDS",
@@ -282,7 +276,7 @@ def test_load_settings_requires_internal_token_in_non_local_env(monkeypatch):
     # profile의 internal-auth 정책은 유지하되, 존재하지 않는 소비자 때문에
     # secret을 요구하지 않는다.
     monkeypatch.setenv("DEPLOYMENT_TARGET", "linux-nvidia-static")
-    monkeypatch.setenv("MAIN_LLM_STATIC_PROFILE", "gemma4-12b-unified-fp8")
+    monkeypatch.setenv("MAIN_MODEL_STATIC_PROFILE", "gemma4-12b-unified-fp8")
     monkeypatch.setenv("ADMIN_ENDPOINTS_INTERNAL_ONLY", "true")
     settings = load_settings()
     assert settings.deployment_target.internal_service_token_required is False
@@ -331,26 +325,6 @@ def test_load_settings_uses_canonical_main_model_runtime_env(monkeypatch):
 
     assert settings.runtime("main_llm").max_concurrency == 3
     assert settings.runtime("main_llm").model == "local-main"
-
-
-def test_load_settings_reads_legacy_main_llm_runtime_env(monkeypatch):
-    monkeypatch.setenv("MAIN_MODEL_MAX_CONCURRENCY", "2")
-    monkeypatch.setenv("MAIN_LLM_MODEL", "local-main")
-    settings = load_settings()
-
-    assert settings.runtime("main_llm").max_concurrency == 2
-    assert settings.runtime("main_llm").model == "local-main"
-
-
-def test_load_settings_rejects_conflicting_main_model_env_names(monkeypatch):
-    monkeypatch.setenv("MAIN_MODEL_MAX_CONCURRENCY", "3")
-    monkeypatch.setenv("MAIN_MODEL_MAX_CONCURRENCY", "2")
-
-    with pytest.raises(
-        RuntimeError,
-        match="conflicting env keys MAIN_MODEL_MAX_CONCURRENCY and MAIN_MODEL_MAX_CONCURRENCY",
-    ):
-        load_settings()
 
 
 def test_load_settings_rejects_generated_placeholder_secrets_in_non_local_env(monkeypatch):
