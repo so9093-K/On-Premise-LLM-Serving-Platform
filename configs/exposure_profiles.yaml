@@ -3,7 +3,7 @@
 profiles:
   private_network:
     class: default_private
-    description: "Gateway와 Grafana만 host-published. vLLM, Risk Adapter, Prometheus, DCGM, cAdvisor, Loki, Alloy는 compose 내부망만."
+    description: "Gateway와 Grafana만 host-published. vLLM, Risk Signal Service, Prometheus, DCGM, cAdvisor, Loki, Alloy는 compose 내부망만."
     host_published:
       - gateway
       - grafana
@@ -17,7 +17,7 @@ profiles:
     class: diagnostic_full_stack
     description: >
       전체 stack host-published. 외부 접근이 차단된 신뢰된 사내망에서
-      Gateway와 vLLM runtime, Risk Adapter, Prometheus, DCGM, cAdvisor, Loki를
+      Gateway와 vLLM runtime, Risk Signal Service, Prometheus, DCGM, cAdvisor, Loki를
       직접 사용한다. Alloy는 조회 API가 없어 여기서도 host-published 대상이 아니다.
     host_published:
       - gateway
