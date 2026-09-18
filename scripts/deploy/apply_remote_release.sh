@@ -767,11 +767,12 @@ fi
 deploy_export_compose_env
 echo "[deploy] compose environment exported from ${COMPOSE_ENV_FILE}"
 
-# Third-party operations image는 publish 단계가 따로 없으므로 target .env의 ref 자체가
-# 원격 배포 artifact identity다. mutable tag가 남아 있으면 같은 release가 나중에 다른
-# image를 pull할 수 있으므로 서비스 변경 전에 fail-closed로 검증한다.
+# sync-env가 repository-owned immutable_upstream image를 canonical digest로
+# 수렴시킨 뒤 같은 config schema로 remote env를 다시 검증한다. 여기서 실패하면
+# operator migration 문제가 아니라 config/projection drift이므로 서비스 변경 전에
+# fail-closed로 중단한다.
 if ! "${_PYTHON_BIN}" scripts/config/validate_image_refs.py --env-file "${COMPOSE_ENV_FILE}"; then
-  fail_after_env_backup "third-party Compose image refs must use immutable registry digests; update the *_IMAGE values from configs/recommended_images.yaml before retrying"
+  fail_after_env_backup "synced third-party Compose image refs violate the repository image authority contract; check configs/recommended_images.yaml and sync-env projection"
 fi
 
 # 동기화된 .env는 stale한 크로스 변수 불변식(예: 타임아웃 값을 올렸는데

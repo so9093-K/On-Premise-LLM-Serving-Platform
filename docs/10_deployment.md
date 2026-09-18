@@ -188,8 +188,10 @@ state, model cache는 배포 루트의 공유 경로를 사용한다.
 - 기존 환경 설정 백업 상태
 
 Full 배포에서는 Platform 이미지와 필요한 vLLM Runtime 이미지의 Registry pull 가능 여부를 확인한다.
-동기화된 target `.env`의 third-party operations image도 immutable digest인지 서비스 변경 전에 검증한다.
-기존 환경에 mutable tag가 남아 있으면 `configs/recommended_images.yaml`의 현재 digest로 갱신한 뒤 재시도한다.
+`make sync-env`가 `immutable_upstream` third-party operations image를 `configs/recommended_images.yaml`의
+canonical digest로 수렴시킨 뒤, 배포 validator가 동기화된 target `.env`를 다시 검사해 서비스 변경 전에
+immutable contract와 projection 이상을 fail-closed로 차단한다. Managed remote release에서는 이 repository-pinned
+projection이 authority이며, private mirror용 shell image override는 수동 Compose 실행 범위에만 해당한다.
 
 vLLM 빌드 구성이 변경된 배포에서는 새로 빌드·publish한 Runtime image의 immutable digest를
 명시해야 한다.
@@ -207,8 +209,9 @@ DEPLOY_RELEASE_ID=<release id>
 
 배포 소스의 환경 템플릿에 새 키가 추가된 경우 `make sync-env`가 `COMPOSE_ENV_FILE`로
 지정된 공유 `.env`에 해당 키를 동기화한다. 배포 스크립트는 이 경로를 `ENV_FILE`로
-명시해 릴리스 디렉터리의 상대 경로나 심볼릭 링크 해석에 의존하지 않는다. 기존 운영
-값과 secret은 유지되며, 실패하면 배포 전에 만든 `.env` 백업으로 복구한다.
+명시해 릴리스 디렉터리의 상대 경로나 심볼릭 링크 해석에 의존하지 않는다. Operator-owned 운영
+값과 secret, project-built image ref는 유지하고 `immutable_upstream` third-party image ref만 canonical
+repository digest로 수렴시킨다. 실패하면 배포 전에 만든 `.env` 백업으로 복구한다.
 
 `AUTH_MODE`가 전달된 배포에서는 해당 인증 프로파일을 적용하고, Runtime Secret 설정은 배포 workflow가 현재 `.env`에서 직접 갱신한다.
 

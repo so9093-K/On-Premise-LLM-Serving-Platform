@@ -234,6 +234,26 @@ def test_sync_env_uses_recommended_image_defaults(tmp_path, monkeypatch):
     assert 'PLATFORM_IMAGE=example/platform:canonical' in out.read_text(encoding='utf-8')
 
 
+def test_sync_env_refreshes_upstream_images_and_preserves_project_image(tmp_path):
+    out = tmp_path / '.env'
+    out.write_text(
+        'BUILD_PROFILE=compose\n'
+        'PLATFORM_IMAGE=custom/platform:dev\n'
+        'PROMETHEUS_IMAGE=prom/prometheus:mutable\n'
+        'GRAFANA_IMAGE=grafana/grafana:mutable\n',
+        encoding='utf-8',
+    )
+    expected = setup_env.recommended_images()
+
+    rc = setup_env.main(['--sync-env', '--env-file', str(out)])
+
+    assert rc == 0
+    values = setup_env.read_env_values(out)
+    assert values['PLATFORM_IMAGE'] == 'custom/platform:dev'
+    assert values['PROMETHEUS_IMAGE'] == expected['PROMETHEUS_IMAGE']
+    assert values['GRAFANA_IMAGE'] == expected['GRAFANA_IMAGE']
+
+
 def test_setup_env_syncs_runtime_secret_from_existing_env(tmp_path, monkeypatch):
     monkeypatch.setattr(setup_env, "ROOT", tmp_path)
     env_path = tmp_path / '.env'

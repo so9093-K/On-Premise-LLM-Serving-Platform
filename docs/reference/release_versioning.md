@@ -11,11 +11,12 @@
 | Package version | `VERSION` | 예 |
 | Python package version | `pyproject.toml` | 예. prerelease는 PEP 440 표기 사용 |
 | API contract version | `specs/openapi.*.yaml` | 예 |
-| Platform / Unified vLLM 기본 image tag | `version_manifest.json`, `.env.compose.example`, `configs/recommended_images.yaml` | 예 |
+| Platform / Unified vLLM 로컬 기본 image tag | `version_manifest.json`, `.env.compose.example`, `configs/recommended_images.yaml` | 예 |
+| Third-party upstream image digest | `configs/recommended_images.yaml` | 아니오 |
 | Config schema version | 각 `configs/*.yaml`의 `version` | 아니오 |
-| Runtime image digest | publish 결과와 배포 대상 `.env` | 아니오 |
+| Project-built runtime image digest | publish 결과와 배포 대상 `.env` | 아니오 |
 
-`VERSION`은 package와 사람이 읽는 기본 image tag의 기준이다. 실제 배포에서 사용하는 container image의 재현성 기준은 tag가 아니라 immutable digest다. config schema version은 package version과 독립적이며 해당 config의 구조가 바뀔 때만 변경한다.
+`VERSION`은 package와 project-built image의 사람이 읽는 로컬 기본 tag 기준이다. Project-built 운영 image의 identity는 publish 결과 digest가 소유하고, third-party upstream image는 `configs/recommended_images.yaml`의 pinned manifest digest가 소유한다. config schema version은 package version과 독립적이며 해당 config의 구조가 바뀔 때만 변경한다.
 
 ---
 
@@ -46,7 +47,8 @@ make validate
 ```
 
 이 명령은 `VERSION`, version manifest, Python package version, checked-in OpenAPI version,
-compose env template의 프로젝트 image tag와 권장 image 설정을 함께 맞춘다.
+compose env template과 권장 image 설정의 **project-built image tag**를 함께 맞춘다.
+Third-party upstream digest는 version reset 대상이 아니며 해당 upstream image qualification 결과로만 변경한다.
 
 과거 `CHANGELOG` 항목, config schema version, CI에서 생성한 digest와 대상 서버의 runtime state는 변경하지 않는다.
 

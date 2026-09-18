@@ -99,7 +99,7 @@ init-env-local: ## 로컬 app-only .env 생성
 init-env-compose: ## compose용 .env 생성 (기존 .env가 있으면 실패)
 	$(PYTHON) scripts/config/setup_env.py --profile compose
 
-sync-env: ## template에 추가된 새 키를 .env에 동기화 (기존 값 보존)
+sync-env: ## .env 키 동기화 + repository-managed image digest 수렴
 	$(PYTHON) scripts/config/setup_env.py --sync-env --env-file "$(if $(ENV_FILE),$(ENV_FILE),.env)"
 
 static-compose-config: ## static Gateway의 분리된 Compose 정의 출력
