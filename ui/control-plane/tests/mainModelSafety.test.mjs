@@ -13,21 +13,13 @@ function profile(
   qualificationStatus = 'verified',
   overrides = {},
 ) {
-  const legacyStatus = technicalStatus === 'incompatible'
-    ? 'incompatible'
-    : technicalStatus === 'unknown'
-      ? 'unknown'
-      : qualificationStatus;
   return {
     id: 'candidate',
     display_name: 'Candidate',
     served_model_name: 'local-main',
     upstream_model_id: 'org/model',
     revision: 'a'.repeat(40),
-    compatibility: {
-      status: legacyStatus,
-      technical_status: technicalStatus,
-    },
+    compatibility: { status: technicalStatus },
     qualification: { status: qualificationStatus },
     capabilities: { deployed_input: ['text'] },
     gateway_policy: {},
@@ -44,7 +36,7 @@ test('qualification alone controls explicit confirmation', () => {
   assert.equal(mainModelProfileRequiresConfirmation(profile('unknown', 'unverified')), true);
 });
 
-test('technical incompatibility and active state control switchability', () => {
+test('compatibility and active state control switchability', () => {
   assert.equal(mainModelProfileSwitchable(profile('incompatible', 'unverified')), false);
   assert.equal(
     mainModelProfileSwitchable(profile('compatible', 'verified', { active: true })),
@@ -54,7 +46,7 @@ test('technical incompatibility and active state control switchability', () => {
   assert.throws(() => mainModelSwitchRequest(profile('incompatible', 'unverified'), true));
 });
 
-test('switch request preserves legacy confirmation request field and terminal states', () => {
+test('switch request carries qualification confirmation and terminal states', () => {
   assert.deepEqual(mainModelSwitchRequest(profile('compatible', 'unverified'), true), {
     profile: 'candidate',
     confirm_unverified: true,

@@ -13,8 +13,8 @@
 3. **원하는 상태와 실제 상태를 구분한다.** `desired state`와 `observed state`를 섞지 않는다.
 4. **검증 수준을 다른 상태 의미와 섞지 않는다.** Main Model은 기술적 `Compatibility`와
    실제 검증 근거인 `Qualification`을 별도 축으로 두고, Deployment Target은
-   `Implementation Status`와 `Qualification`을 별도 축으로 둔다. 기존 API의
-   `compatibility.status`와 `validation_status`는 migration 기간의 legacy projection이다.
+   `Implementation Status`와 `Qualification`을 별도 축으로 둔다. Main Model config와
+   Admin API는 같은 canonical 상태 vocabulary를 사용한다.
 5. **위험한 동작은 효과를 설명한다.** `force`처럼 구현 중심 표현만 버튼에 노출하지 않고 실제 영향
    (예: 다른 runtime 자동 중지 허용)을 설명한다.
 6. **영문 제품명은 `On-Premises`를 사용한다.** `On-Premise`는 새 문서·표시명에서 사용하지 않는다.
@@ -26,6 +26,8 @@
 | **On-Premises LLM Serving Platform** | 제품명 | repository: `On-Premises-LLM-Serving-Platform` |
 | **Gateway** | 외부 API 진입점. 요청 검증, 인증, routing과 응답 처리를 담당 | `gateway` |
 | **Control Plane** | runtime·configuration·model profile을 운영하는 관리 계층 | `/admin/*`, Console |
+| **Control Plane Console** | Control Plane API를 same-origin으로 사용하는 first-party 운영자 UI | `/admin/console/` |
+| **Configuration Plane** | operator-owned 설정의 metadata, effective value, Plan/Apply/Verify와 history를 관리하는 계층 | `/admin/configuration/*` |
 | **Runtime Controller** | runtime lifecycle, Main Model 전환, reconciliation과 Docker 제어를 담당 | canonical Python client: `runtime_controller_client` / `RuntimeControllerClient`; legacy service/module IDs include `admin-sidecar` / `admin_sidecar` |
 | **Model Runtime** | 실제 model inference/embedding/detection을 수행하는 실행 단위 | vLLM/MLX runtime |
 | **Main Model Runtime** | `local-main` 요청을 수행하는 주 generation runtime | `main-llm-vllm` |
@@ -40,6 +42,7 @@
 | **Access Profile** | 사용자가 선택하는 접근 의도(local/private/edge) | `ACCESS_PROFILE` |
 | **Desired State** | Control Plane이 수렴시키려는 runtime 상태 | `desired_state` |
 | **Observed State** | 실제 container/runtime에서 관측한 상태 | `observed_runtime`, `container_status` |
+| **Compatibility** | Main Model Profile이 현재 deployment/runtime 조합에서 기술적으로 가능한지 나타내는 축 | `compatibility.status` |
 | **Implementation Status** | Deployment Target 자체가 실행 가능한 구현 상태인지 나타내는 축 | `implementation_status` |
 | **Qualification** | 특정 Main Model 또는 Deployment Target의 실제 검증 근거가 충족됐는지 나타내는 축 | `qualification.status`, `qualification_status` |
 | **Activity** | 최근 runtime/model/configuration 변경 기록을 모아 보는 Console 화면 | API object는 `operation` 유지 |
@@ -56,7 +59,6 @@
 | **Deploy Runtime Profile** | deployment 전체 profile처럼 보임 | Runtime Startup Profile |
 | **operation evidence** | 내부 영속성 구현 용어에 가까움 | Verification Details / Activity |
 | **force** (단독 버튼) | 실제 영향이 드러나지 않음 | 필요한 runtime 자동 중지 허용 |
-| **likely** (표시 상태) | 무엇이 얼마나 probable한지 기준이 불명확 | 추가 검증 필요 / provisional 성격을 설명 |
 | **AUDIO_VLLM_IMAGE** (신규 이름으로 사용) | 현재 역할이 audio 전용이 아니라 Main Model profile image override임 | Main Model profile image override 계열 이름 |
 
 ### Process-input aliases

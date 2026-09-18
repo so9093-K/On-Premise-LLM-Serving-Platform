@@ -130,7 +130,7 @@ Profile을 선택할 때는 다음 항목을 확인한다.
 - upstream model과 pinned revision
 - runtime image
 - GPU VRAM fraction
-- technical compatibility status
+- compatibility status
 - qualification status
 - input / output capability
 - 현재 active 여부
@@ -147,13 +147,8 @@ Main Model Profile은 기술 호환성과 실제 검증 수준을 별도 축으�
 | Qualification | `verified` | 현재 배포에서 정의된 검증 근거를 충족함 |
 | Qualification | `unverified` | qualification이 완료되지 않았거나 추가 검증이 필요함 |
 
-canonical config는 `compatibility.status`와 `qualification.status`를 각각 사용한다.
-기존 Admin API consumer 호환을 위해 응답의 `compatibility.status`는 migration 기간 동안
-legacy vocabulary를 유지하며, 같은 객체의 `technical_status`가 canonical Compatibility를,
-`qualification.status`가 canonical Qualification을 제공한다.
-
-legacy catalog의 `verified / likely / unverified / incompatible / unknown` 값도 migration 기간에는
-읽을 수 있다. `likely`는 canonical 상태가 아니며 `unknown + unverified`로 정규화된다.
+`configs/main_model_profiles.yaml`과 Admin API는 동일한 canonical 상태를 사용한다.
+`compatibility.status`는 기술 호환성만, `qualification.status`는 실제 검증 근거만 표현한다.
 
 전환 가능 여부는 Compatibility가 결정한다. `incompatible`은 전환할 수 없고, 그 외 전환 가능한
 profile에서 Qualification이 `verified`가 아니면 switch 요청에 `confirm_unverified=true`가 필요하다.

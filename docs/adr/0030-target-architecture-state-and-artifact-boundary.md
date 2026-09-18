@@ -69,9 +69,9 @@ qualification:
 - `likely`는 canonical 상태가 아니며 legacy provisional 상태로만 migration한다.
 - switch 가능 여부는 compatibility가 결정하고, 추가 확인 필요 여부는 qualification이 결정한다.
 
-기존 Admin API의 `compatibility.status` 값을 즉시 깨지 않는다. 코드 migration에서는 새 canonical
-축을 내부/config에 먼저 도입하고, 기존 API 필드는 compatibility 기간 동안 legacy projection으로
-유지한다. 새 canonical 상태를 읽을 수 있는 명시적 projection을 추가한 뒤 제거 시점을 별도로 결정한다.
+Main Model config와 Admin API는 canonical 두 축을 직접 사용한다. 초기 migration에서 유지했던
+legacy `compatibility.status` projection과 `technical_status` 보조 필드는 compatibility 기간을
+마친 뒤 제거되었으며, `compatibility.status`는 기술 호환성만 표현한다.
 
 ### 4. Deployment Target의 구현 상태와 qualification을 분리한다
 
