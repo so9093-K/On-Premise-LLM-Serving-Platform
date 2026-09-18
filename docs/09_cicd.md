@@ -2,7 +2,8 @@
 
 이 저장소는 GitHub를 Source Repository로 사용한다. 현재 자동화는
 [GitHub 검증 워크플로](../.github/workflows/validate.yml)가 `main` push, Pull Request와
-수동 실행에서 macOS·Ubuntu의 application/contract 검사를 수행하는 범위까지다.
+수동 실행에서 macOS·Ubuntu의 application/contract 검사, Control Plane 검사와
+Linux Platform image build·container smoke를 수행한다.
 
 Container image publish와 운영 배포를 담당하는 CI/CD pipeline은 현재 정의하지 않는다.
 특정 CI provider, registry 또는 runner를 먼저 선택하지 않고도 같은 결과를 만들 수 있도록
@@ -26,10 +27,12 @@ Docker build argument, runtime 기동 순서와 rollback 정책을 workflow YAML
 
 ## 9.2 현재 검증 자동화
 
-GitHub의 app/contract workflow는 다음 두 환경을 독립적으로 확인한다.
+GitHub의 검증 workflow는 다음 경계를 독립적으로 확인한다.
 
 - Ubuntu: Linux application·shell·contract 호환성
 - macOS: 로컬 개발 환경의 application·contract 호환성
+- Control Plane: frontend source/type/test와 checked-in bundle drift
+- Platform image: `make build-image`로 Linux/amd64 Dockerfile build와 image 내부 app composition smoke
 
 Ubuntu/Python 3.12와 macOS/Python 3.13은 같은 Platform `uv.lock`의 대표 호환 조합이다.
 로컬 기본 patch는 `.python-version`, native runtime exact patch는 runtime 설정, Linux
@@ -37,14 +40,17 @@ Platform image의 exact Python patch와 base digest는 `Dockerfile`이 각각 �
 
 이 workflow는 다음 작업을 수행하지 않는다.
 
-- Docker image build 또는 registry push
+- Platform image registry push/promotion
+- Unified vLLM image build
 - 모델 다운로드
 - CUDA·NVIDIA GPU runtime 실행
 - 운영 서버 배포
 - 장시간 부하·성능 측정
 
-따라서 workflow 성공은 application/contract 검증 결과이며 GPU runtime qualification을
-대체하지 않는다.
+Platform image job은 source 아래 Dockerfile·lock·package composition이 실제 runnable image를
+만드는지 확인하는 verification gate다. 결과 image를 registry에 publish하거나 release candidate로
+승격하지 않는다. 따라서 workflow 성공은 application/contract와 Platform image packaging 검증
+결과이며 GPU runtime qualification을 대체하지 않는다.
 
 ## 9.3 빌드와 배포의 독립 경계
 
@@ -101,10 +107,11 @@ admission, prerequisite 순차 기동과 readiness/rollback 정책이 소유한�
 
 ## 9.5 미래 자동화 추가 원칙
 
-실제 publish·배포 요구가 생겼을 때만 자동화를 추가한다. Docker build를 현재 CI의 빈칸으로 보고
-즉시 required gate에 넣지 않는다. 먼저 어떤 장애를 막으려는지, 어떤 변경이 artifact를
-invalidate하는지, cold/warm build와 cache 비용이 얼마인지, verification image와 release candidate를
-어떻게 구분할지를 확인한다.
+Platform image는 application source·lock·Dockerfile·runtime config가 하나의 배포 artifact로
+조립되는 경계라 PR에서 build와 container smoke를 required gate로 검증한다. 이 검증은
+`make build-image`를 그대로 호출하며 image publish나 운영 promotion 규칙을 소유하지 않는다.
+추가 자동화를 넣을 때는 어떤 장애를 막는지, artifact invalidation 범위, cold/warm build 비용,
+verification image와 release candidate의 구분을 먼저 확인한다.
 
 1. 기존 명령으로 로컬에서 같은 작업을 먼저 수행할 수 있어야 한다.
 2. Workflow는 provider adapter로 유지하고 동작을 중복 구현하지 않는다.
@@ -116,10 +123,10 @@ invalidate하는지, cold/warm build와 cache 비용이 얼마인지, verificati
 8. Workflow 문법은 provider 자체 검증을 사용하며 `make validate`에 YAML parser를 넣지 않는다.
 9. CI를 위해 테스트 전용 helper나 Source of Truth 복제 파일을 만들지 않는다.
 
-자동 image 검증이 필요해지면 manual 또는 non-blocking pilot로 시작하고 실행 시간, cache hit rate,
-infra failure rate를 관찰한 뒤 required gate 승격 여부를 별도 결정한다. Unified vLLM artifact는
-CUDA/runtime compatibility와 GPU qualification을 포함하므로 일반 application PR image build와
-같은 gate로 취급하지 않는다.
+Platform image의 build·smoke는 현재 required gate다. 반면 Unified vLLM artifact는 크기와
+CUDA/runtime compatibility, GPU qualification을 함께 다루므로 일반 application PR의 Platform
+image gate와 같은 경로로 취급하지 않는다. Unified vLLM 자동 검증을 추가할 때는 별도 builder와
+qualification evidence를 전제로 manual/non-blocking 단계부터 시작한다.
 
 ## 9.6 관련 문서
 
