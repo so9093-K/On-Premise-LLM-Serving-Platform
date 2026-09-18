@@ -9,6 +9,7 @@
     "upstream_model_id",
     "revision",
     "compatibility",
+    "qualification",
     "capabilities",
     "gateway_policy",
     "runtime_image",
@@ -39,7 +40,8 @@
     "compatibility": {
       "type": "object",
       "required": [
-        "status"
+        "status",
+        "technical_status"
       ],
       "additionalProperties": true,
       "properties": {
@@ -49,6 +51,14 @@
             "verified",
             "likely",
             "unverified",
+            "incompatible",
+            "unknown"
+          ]
+        },
+        "technical_status": {
+          "type": "string",
+          "enum": [
+            "compatible",
             "incompatible",
             "unknown"
           ]
@@ -93,6 +103,22 @@
     },
     "active": {
       "type": "boolean"
+    },
+    "qualification": {
+      "type": "object",
+      "required": [
+        "status"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": [
+            "verified",
+            "unverified"
+          ]
+        }
+      }
     }
   }
 }
