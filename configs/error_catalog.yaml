@@ -91,8 +91,8 @@ errors:
     meaning: "스트리밍 응답이 chunk/byte 한도를 초과했다."
     action: "출력 길이를 줄이거나 비스트리밍으로 재시도한다."
   MAIN_MODEL_CONTROL_UNAVAILABLE:
-    meaning: "메인 모델 control plane(admin sidecar)을 사용할 수 없다."
-    action: "잠시 후 재시도한다. 반복되면 sidecar 상태를 확인한다."
+    meaning: "메인 모델 Runtime Controller를 사용할 수 없다."
+    action: "잠시 후 재시도한다. 반복되면 Runtime Controller 상태를 확인한다."
   MAIN_MODEL_SWITCH_IN_PROGRESS:
     meaning: "메인 모델 프로파일 전환이 진행 중이다."
     action: "전환 완료(operation 상태) 후 재시도한다."
