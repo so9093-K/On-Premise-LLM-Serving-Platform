@@ -20,6 +20,7 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT / "src") not in sys.path:
     sys.path.insert(0, str(ROOT / "src"))
 
+from ai_model_serving.env_compat import renamed_env_value  # noqa: E402
 from ai_model_serving.settings_parts.dotenv_parser import load_strict_env_file  # noqa: E402
 from ai_model_serving.settings_parts.env import DEFAULT_ENV_FILENAME  # noqa: E402
 
@@ -59,7 +60,24 @@ def render(*, target: str, source_env: Path, output: Path) -> tuple[str, int]:
     if source_env.resolve() == output.resolve():
         raise RuntimeError("source env and rendered service env must be different files")
     values = load_strict_env_file(source_env)
-    name, projection = _projection(_load_contract(), target)
+    contract = _load_contract()
+    renamed = contract.get("renamed_keys") or {}
+    if not isinstance(renamed, dict):
+        raise RuntimeError("env_contract.yaml renamed_keys must be a mapping")
+    normalized = dict(values)
+    for legacy, canonical in renamed.items():
+        if not isinstance(legacy, str) or not isinstance(canonical, str):
+            continue
+        if legacy not in normalized and canonical not in normalized:
+            continue
+        normalized[canonical] = renamed_env_value(
+            normalized,
+            canonical,
+            legacy,
+        )
+        normalized.pop(legacy, None)
+    values = normalized
+    name, projection = _projection(contract, target)
     required = _string_list(
         projection.get("required_source_keys"), label=f"service_env_projections.{name}.required_source_keys"
     )
