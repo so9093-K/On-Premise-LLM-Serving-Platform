@@ -107,14 +107,14 @@ def models_operation_detail(settings: AppSettings) -> str:
             "프로필을 바꾸면 받을 수 있는 입력 종류, 토큰 한도, 허용 파라미터 목록이 함께 바뀌고 `/v1/models` 응답이 "
             "즉시 그 값을 반영합니다.",
             "",
-            "| 프로필 ID | 이름 | 호환성 |",
+            "| 프로필 ID | 이름 | Qualification |",
             "|---|---|---|",
         ]
         for profile_id, display_name, status in settings.main_model_profile_summaries:
             lines.append(f"| `{profile_id}` | {display_name} | `{status or 'unknown'}` |")
         lines += [
             "",
-            "호환성이 `verified`가 아닌 프로필로 전환하려면 `POST /admin/main-model/switch`에 "
+            "Qualification이 `verified`가 아닌 프로필로 전환하려면 `POST /admin/main-model/switch`에 "
             "`confirm_unverified: true`가 필요합니다. 각 프로필의 근거는 "
             "`GET /admin/main-model/profiles`가 반환합니다.",
         ]
