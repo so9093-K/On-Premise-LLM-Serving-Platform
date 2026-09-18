@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 
 from ai_model_serving.services.runtime_state import RuntimeState
-from ai_model_serving.services.sidecar_client import SidecarRequestError
+from ai_model_serving.services.runtime_controller_client import RuntimeControllerRequestError
 from .helpers import FakeGatewayClients, TestClient, create_gateway_app, settings
 
 
@@ -66,7 +66,7 @@ class DriftRejectingSidecar(PlanningSidecar):
         force: bool = False,
         plan_digest: str | None = None,
     ):
-        raise SidecarRequestError(
+        raise RuntimeControllerRequestError(
             409,
             {
                 "code": "RUNTIME_PLAN_CHANGED",
