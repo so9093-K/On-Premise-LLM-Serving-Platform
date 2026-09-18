@@ -931,7 +931,7 @@ vLLM runtime과 Risk Signal Service도 standard private topology에서는 Gatewa
 | Deployment runtime profile | `configs/deploy_profiles.yaml` |
 | Monitoring | `configs/monitoring.yaml` |
 | Gateway API contract | `specs/openapi.gateway.yaml` |
-| Risk Signal Service API contract | `specs/openapi.risk-adapter.yaml` |
+| Risk Signal Service API contract | `specs/openapi.risk-signal-service.yaml` |
 
 이 문서에서는 설정이 어떤 컴포넌트에 영향을 주는지만 설명한다. 설정 우선순위, environment override와 생성 artifact 관계는 [5. 설정 체계와 Source of Truth](./05_configuration.md)에서 다룬다.
 
