@@ -23,7 +23,8 @@ targets:
     # 이 값은 auth profile의 정책과 별개로, 해당 target에 token 소비면이 실제로
     # 존재하는지를 선언한다.
     internal_service_token_required: true
-    validation_status: verified
+    implementation_status: implemented
+    qualification_status: verified
     features:
       chat: true
       embeddings: true
@@ -53,7 +54,8 @@ targets:
     # 호출면이 없으므로 INTERNAL_SERVICE_TOKEN을 Gateway에 주입하지 않는다.
     internal_service_token_required: false
     # Gateway static serving 경로는 구현·실측됐지만 장시간/장문맥 qualification은 남아 있다.
-    validation_status: implemented
+    implementation_status: implemented
+    qualification_status: unverified
     features:
       chat: true
       embeddings: false
@@ -84,7 +86,8 @@ targets:
     gateway_runtime_host: host.docker.internal
     # Gateway/Compose/native runtime과 M5 32GB의 text/image/reasoning, 24K input,
     # 최대 8 images 및 8K generation 경계를 고정 runtime 조합으로 확인했다.
-    validation_status: verified
+    implementation_status: implemented
+    qualification_status: verified
     features:
       chat: true
       embeddings: false
