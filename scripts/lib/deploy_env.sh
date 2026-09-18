@@ -47,7 +47,7 @@ deploy_set_env_value() {
 # VLLM_IMAGE가 main/embedding/embedding-ko/risk-prompt가 공유하는 persistent image
 # authority다. deployment-time shared promotion은 VLLM_UNIFIED_IMAGE_TO_DEPLOY 하나가
 # 소유하고, MAIN_MODEL_VLLM_IMAGE_OVERRIDE_TO_DEPLOY만 profile-specific override로
-# 분리한다. AUDIO_VLLM_IMAGE*는 migration 기간의 read-only compatibility alias다.
+# 분리한다. persistent AUDIO_VLLM_IMAGE는 기존 .env를 잃지 않기 위한 migration read만 허용한다.
 deploy_resolve_runtime_image_plan() {
   local current_vllm current_profile_override legacy_profile_override
   current_vllm="$(deploy_env_value VLLM_IMAGE)"
@@ -63,15 +63,8 @@ deploy_resolve_runtime_image_plan() {
     current_profile_override="${legacy_profile_override}"
   fi
 
-  if [[ -n "${MAIN_MODEL_VLLM_IMAGE_OVERRIDE_TO_DEPLOY:-}" &&
-    -n "${AUDIO_VLLM_IMAGE_TO_DEPLOY:-}" &&
-    "${MAIN_MODEL_VLLM_IMAGE_OVERRIDE_TO_DEPLOY}" != "${AUDIO_VLLM_IMAGE_TO_DEPLOY}" ]]; then
-    echo "[deploy] ERROR: canonical and legacy Main Model image promotion inputs conflict." >&2
-    return 2
-  fi
-
   VLLM_IMAGE_PROMOTION="${VLLM_UNIFIED_IMAGE_TO_DEPLOY:-}"
-  MAIN_MODEL_VLLM_IMAGE_OVERRIDE_PROMOTION="${MAIN_MODEL_VLLM_IMAGE_OVERRIDE_TO_DEPLOY:-${AUDIO_VLLM_IMAGE_TO_DEPLOY:-${VLLM_UNIFIED_IMAGE_TO_DEPLOY:-}}}"
+  MAIN_MODEL_VLLM_IMAGE_OVERRIDE_PROMOTION="${MAIN_MODEL_VLLM_IMAGE_OVERRIDE_TO_DEPLOY:-${VLLM_UNIFIED_IMAGE_TO_DEPLOY:-}}"
 
   VLLM_IMAGE_EFFECTIVE="${VLLM_IMAGE_PROMOTION:-${current_vllm}}"
   MAIN_MODEL_VLLM_IMAGE_OVERRIDE_EFFECTIVE="${MAIN_MODEL_VLLM_IMAGE_OVERRIDE_PROMOTION:-${current_profile_override}}"
