@@ -187,7 +187,7 @@ SBOM, provenance, signature는 향후 OCI artifact metadata로 추가할 수 있
 4. Qualification evidence v1
 5. official OpenAI SDK conformance
 6. `MAIN_LLM_* → MAIN_MODEL_*` operator namespace migration
-7. Runtime Controller authority/threat model
+7. Runtime Controller authority/threat model — [ADR-0031](./0031-runtime-controller-docker-authority-boundary.md)
 8. Runtime Controller / Risk Signal Service / Prompt Injection Detector 내부 identifier migration
 9. artifact automation은 실제 운영 trigger가 생긴 경우 별도 ADR/PR로 진행
 

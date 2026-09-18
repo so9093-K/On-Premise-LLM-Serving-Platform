@@ -2,13 +2,13 @@ from __future__ import annotations
 
 import asyncio
 import copy
-import json
 from pathlib import Path
 from typing import Any
 
 import httpx
 
 from ..contracts.chat_response import validate_chat_response
+from ..docker_scope import compose_container_filter, scoped_container_id
 from ..errors import ServiceError
 from .control import MainModelCatalog, MainModelProfile
 from ..media_samples import TINY_JPEG_1X1_B64, TINY_M4A_AAC_B64, TINY_MP4_VIDEO_B64
@@ -79,10 +79,7 @@ class DockerMainModelBackend:
         )
 
     def _filters(self, service: str) -> str:
-        labels = [f"com.docker.compose.service={service}"]
-        if self.compose_project:
-            labels.append(f"com.docker.compose.project={self.compose_project}")
-        return json.dumps({"label": labels})
+        return compose_container_filter(self.compose_project, service)
 
     async def _container_ids(self, service: str) -> list[str]:
         async with self._client() as client:
@@ -93,13 +90,23 @@ class DockerMainModelBackend:
             )
             response.raise_for_status()
             rows = response.json()
-            return [str(row["Id"]) for row in rows]
+            if not isinstance(rows, list):
+                raise RuntimeError("Docker container listing must be a list")
+            return [
+                scoped_container_id(
+                    row,
+                    project=self.compose_project,
+                    service=service,
+                )
+                for row in rows
+            ]
 
     async def _container_id(self, service: str) -> str | None:
         ids = await self._container_ids(service)
         if len(ids) > 1:
             raise RuntimeError(
-                f"multiple containers found for allowlisted service {service}: {len(ids)}"
+                f"multiple containers found for allowlisted service {service} "
+                f"in Compose project {self.compose_project!r}: {len(ids)}"
             )
         return ids[0] if ids else None
 

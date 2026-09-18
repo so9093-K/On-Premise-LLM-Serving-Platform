@@ -405,6 +405,8 @@ services:
   # -------------------------------------------------------------------------
   # Admin sidecar — internal container lifecycle control.
   # Docker socket is mounted here, NOT on gateway (security boundary).
+  # The :ro bind does NOT make Docker Engine API methods read-only; application
+  # authority is restricted by project/service scope and allowlisted operations.
   # Port 8080 is expose-only; never publish to host.
   # -------------------------------------------------------------------------
   admin-sidecar:

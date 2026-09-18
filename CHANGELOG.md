@@ -22,6 +22,8 @@
 
 ### Changed
 
+- Runtime Controller의 Docker lifecycle authority를 현재 Compose project에 fail-closed로 제한했다. 모든 container lookup은 project+service label을 함께 사용하고 daemon 응답 label을 다시 검증하며, project 누락·cross-project 결과·중복 container를 거부한다. Docker socket은 계속 Runtime Controller에만 mount되고 host port는 열지 않으며, `:ro` mount를 Docker API read-only 권한으로 간주하지 않는다. ([ADR-0031](docs/adr/0031-runtime-controller-docker-authority-boundary.md))
+
 - Main Model operator 환경변수 namespace를 `MAIN_MODEL_*`로 수렴했다. 기존 `MAIN_LLM_*`는 read/sync compatibility alias로 유지하며 `make sync-env`가 값을 손실 없이 canonical key로 이관한다. `MAIN_LLM_MODEL`은 실제 의미에 맞게 `MAIN_MODEL_ALIAS`로 바뀌고, canonical/legacy 양쪽에 서로 다른 값이 있으면 fail-closed한다. 내부 service key `main_llm`과 Compose service ID `main-llm-vllm`은 이번 migration 범위에 포함하지 않는다. ([ADR-0030](docs/adr/0030-target-architecture-state-and-artifact-boundary.md))
 
 - shared vLLM runtime artifact의 persistent image authority를 `VLLM_IMAGE` 하나로 수렴했다. 기존 `EMBEDDING_KO_VLLM_IMAGE`와 `RISK_VLLM_IMAGE`는 retired key이며 `make sync-env`와 `setup_env.py --force`가 기존 `.env`에서 제거한다. Main Model profile 전용 `MAIN_MODEL_VLLM_IMAGE_OVERRIDE`와 deployment-time `VLLM_UNIFIED_IMAGE_TO_DEPLOY` promotion input은 별도 계약으로 유지한다. 기존 `AUDIO_VLLM_IMAGE`는 migration compatibility alias다. ([ADR-0028](docs/adr/0028-unified-vllm-runtime-image-authority.md))
