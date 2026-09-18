@@ -531,7 +531,7 @@ curl -X PATCH \
 
 Start 과정에서는 prerequisite와 GPU budget을 확인하고 필요한 runtime을 startup order에 따라 시작한다.
 
-compose-up/full 배포 시 처음부터 활성화할 non-main Model Runtime 조합은 `configs/deploy_profiles.yaml`에서 결정한다. 배포의 `RUNTIME_STARTUP_PROFILE` 또는 로컬 `compose-up`의 `RUNTIME_STARTUP_PROFILE`을 생략하면 `main_only`가 적용되어 모든 non-main Model Runtime은 초기 중지 상태가 된다. Retrieval이 즉시 필요하면 `retrieval_ready`를 명시한다. 기존 `RUNTIME_PROFILE`과 `DEPLOY_RUNTIME_PROFILE`은 migration 기간의 process-input alias이며 새 자동화는 `RUNTIME_STARTUP_PROFILE`을 사용한다.
+compose-up/full 배포 시 처음부터 활성화할 non-main Model Runtime 조합은 `configs/deploy_profiles.yaml`에서 결정한다. 로컬 compose-up과 원격 full deploy 모두 `RUNTIME_STARTUP_PROFILE` 하나만 사용한다. 값을 생략하면 `main_only`가 적용되어 모든 non-main Model Runtime은 초기 중지 상태가 된다. Retrieval이 즉시 필요하면 `retrieval_ready`를 명시한다.
 
 ---
 

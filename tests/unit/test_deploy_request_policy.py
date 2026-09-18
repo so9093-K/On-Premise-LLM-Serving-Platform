@@ -20,7 +20,6 @@ _ISOLATED_KEYS = (
     "MAIN_MODEL_VLLM_IMAGE_OVERRIDE_TO_DEPLOY",
     "AUDIO_VLLM_IMAGE_TO_DEPLOY",
     "RUNTIME_STARTUP_PROFILE",
-    "DEPLOY_RUNTIME_PROFILE",
     "DEPLOY_DEFERRED_RUNTIMES",
 )
 
@@ -161,23 +160,3 @@ def test_conflicting_legacy_and_canonical_profile_image_inputs_are_rejected():
     assert "conflicts with legacy AUDIO_VLLM_IMAGE_TO_DEPLOY" in result.stderr
 
 
-def test_legacy_deploy_runtime_profile_is_normalized_to_canonical_input():
-    result = run_policy(
-        'DEPLOY_MODE=full; deploy_validate_request release-1 5; '
-        'printf "%s" "$RUNTIME_STARTUP_PROFILE"',
-        DEPLOY_RUNTIME_PROFILE="retrieval_ready",
-    )
-
-    assert result.returncode == 0
-    assert result.stdout == "retrieval_ready"
-
-
-def test_conflicting_runtime_startup_profile_alias_is_rejected():
-    result = run_policy(
-        'DEPLOY_MODE=full; deploy_validate_request release-1 5',
-        RUNTIME_STARTUP_PROFILE="main_only",
-        DEPLOY_RUNTIME_PROFILE="retrieval_ready",
-    )
-
-    assert result.returncode == 2
-    assert "conflicts with legacy DEPLOY_RUNTIME_PROFILE" in result.stderr

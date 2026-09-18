@@ -61,11 +61,10 @@
 | **force** (단독 버튼) | 실제 영향이 드러나지 않음 | 필요한 runtime 자동 중지 허용 |
 | **AUDIO_VLLM_IMAGE** (신규 이름으로 사용) | 현재 역할이 audio 전용이 아니라 Main Model profile image override임 | Main Model profile image override 계열 이름 |
 
-### Process-input aliases
+### Process inputs
 
-- `RUNTIME_STARTUP_PROFILE`이 로컬 compose-up과 원격 full deploy의 canonical input이다.
-- 기존 `RUNTIME_PROFILE`과 `DEPLOY_RUNTIME_PROFILE`은 migration 기간의 read compatibility alias다.
-- canonical과 legacy 값이 동시에 존재하면서 다르면 실행을 중단한다.
+- `RUNTIME_STARTUP_PROFILE`이 로컬 compose-up과 원격 full deploy의 유일한 startup profile input이다.
+- `RUNTIME_PROFILE`과 `DEPLOY_RUNTIME_PROFILE` process alias는 제거됐다.
 - `PACKAGE_NAME`은 release ZIP 파일명을 바꾸는 packaging process override이며 Runtime `.env` key가 아니다.
 
 ## Migration namespaces

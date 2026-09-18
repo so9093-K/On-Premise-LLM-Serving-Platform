@@ -13,8 +13,6 @@ if [[ ! -d "${RELEASE_PATH}" ]]; then
   exit 1
 fi
 source "${RELEASE_PATH}/scripts/lib/bind_mounted_config.sh"
-source "${RELEASE_PATH}/scripts/lib/runtime_startup_profile.sh"
-normalize_runtime_startup_profile DEPLOY_RUNTIME_PROFILE
 if [[ ! -f "${DEPLOY_PATH}/.env" ]]; then
   echo "[deploy] ERROR: shared .env not found at ${DEPLOY_PATH}/.env" >&2
   echo "[deploy] Run bootstrap on the deployment root before the first remote deployment." >&2
