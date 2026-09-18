@@ -63,3 +63,31 @@ jobs:
         run: npm install --global npm@11.19.0
       - name: Check Control Plane source and generated Console
         run: make console-check
+
+  ci-gate:
+    name: CI Gate
+    if: ${{ always() }}
+    needs:
+      - app-contract
+      - console
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Require validation jobs
+        env:
+          APP_CONTRACT_RESULT: ${{ needs.app-contract.result }}
+          CONSOLE_RESULT: ${{ needs.console.result }}
+        run: |
+          printf 'app-contract: %s\n' "${APP_CONTRACT_RESULT}"
+          printf 'console: %s\n' "${CONSOLE_RESULT}"
+
+          if [[ "${APP_CONTRACT_RESULT}" != "success" ]]; then
+            echo "App and contracts did not succeed." >&2
+            exit 1
+          fi
+
+          if [[ "${CONSOLE_RESULT}" != "success" ]]; then
+            echo "Control Plane frontend did not succeed." >&2
+            exit 1
+          fi
+
