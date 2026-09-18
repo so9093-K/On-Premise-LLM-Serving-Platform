@@ -204,7 +204,7 @@ class RuntimeClient:
 
     backend에 의존하지 않는다. vLLM(CUDA)과 mlx-vlm(Metal) 모두 이 클래스를 쓰며,
     양쪽 다 OpenAI 호환 경로만 노출한다. runtime의 제어 평면(프로필 전환, 컨테이너
-    수명주기)은 여기 없고 services/sidecar_client.py가 따로 소유한다.
+    수명주기)은 여기 없고 services/runtime_controller_client.py가 따로 소유한다.
     """
 
     def __init__(self, endpoint: RuntimeEndpoint) -> None:
