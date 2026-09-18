@@ -31,7 +31,7 @@ class SwitchOutcome(NamedTuple):
 import yaml
 
 from ..image_refs import is_immutable_image_ref
-from .profile_state import normalize_profile_state
+from .profile_state import validate_profile_state
 
 _REVISION_RE = re.compile(r"^[0-9a-f]{40}$")
 # 프로필 이미지는 리터럴 digest이거나 CI/deploy가 이를 resolve하는 단일 ${ENV_VAR} 참조일 수 있다 —
@@ -336,7 +336,7 @@ def load_main_model_catalog(
         # 런타임 커맨드와 파싱된 vram_fraction이 항상 서로 일치하도록 한다.
         command = _apply_util_override(command, gpu_memory_utilization_override)
         try:
-            profile_state = normalize_profile_state(
+            profile_state = validate_profile_state(
                 str(profile_id),
                 item.get("compatibility", {}),
                 item.get("qualification"),
