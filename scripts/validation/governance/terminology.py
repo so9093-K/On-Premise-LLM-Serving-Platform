@@ -10,7 +10,12 @@ ROOT = Path(__file__).resolve().parents[3]
 LEGACY_DISPLAY_TERMS: dict[str, str] = {
     "Admin / Control Sidecar": "Runtime Controller",
     "Admin Sidecar": "Runtime Controller",
+    "admin sidecar": "Runtime Controller",
+    "sidecar 미설정": "Runtime Controller 미설정",
+    "sidecar 연결 실패": "Runtime Controller 연결 실패",
+    "sidecar unavailable": "Runtime Controller unavailable",
     "Risk Adapter": "Risk Signal Service",
+    "risk adapter": "Risk Signal Service",
     "Secondary Runtime": "Model Runtime 또는 역할별 Runtime",
     "secondary runtime": "non-main Model Runtime 또는 역할별 Runtime",
     "secondary model": "non-main model",
@@ -30,7 +35,17 @@ def _user_facing_paths(root: Path) -> list[Path]:
         root / "src" / "ai_model_serving" / "api_descriptions.py",
         root / "src" / "ai_model_serving" / "api_examples.py",
         root / "src" / "ai_model_serving" / "api" / "routers" / "gateway_runtime_control.py",
+        root / "src" / "ai_model_serving" / "api" / "routers" / "gateway_ops.py",
+        root / "src" / "ai_model_serving" / "apps" / "admin_sidecar.py",
         root / "src" / "ai_model_serving" / "apps" / "risk_adapter.py",
+        root / "src" / "ai_model_serving" / "services" / "gateway_service.py",
+        root / "src" / "ai_model_serving" / "security.py",
+        root / "scripts" / "validation" / "runtime" / "cli.py",
+        root / "scripts" / "ops" / "up_services.sh",
+        root / "configs" / "exposure_profiles.yaml",
+        root / "configs" / "configuration_schema.yaml",
+        root / "configs" / "recommended_images.yaml",
+        root / "configs" / "main_model_profiles.yaml",
     ]
     paths.extend(sorted((root / "docs").glob("*.md")))
     paths.extend(
