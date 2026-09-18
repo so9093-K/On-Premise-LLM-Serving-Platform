@@ -33,9 +33,8 @@ def _resolve(env_file: Path, **environment: str) -> tuple[str, str]:
     env["COMPOSE_ENV_FILE"] = str(env_file)
     command = (
         f"source {SCRIPT}; deploy_resolve_runtime_image_plan; "
-        'printf "%s|%s|%s|%s\\n" '
-        '"$VLLM_IMAGE_EFFECTIVE" "$EMBEDDING_KO_VLLM_IMAGE_EFFECTIVE" '
-        '"$RISK_VLLM_IMAGE_EFFECTIVE" "$AUDIO_VLLM_IMAGE_EFFECTIVE"; '
+        'printf "%s|%s\\n" '
+        '"$VLLM_IMAGE_EFFECTIVE" "$AUDIO_VLLM_IMAGE_EFFECTIVE"; '
         'printf "%s|%s" '
         '"${VLLM_IMAGE_PROMOTION:-}" "${AUDIO_VLLM_IMAGE_PROMOTION:-}"'
     )
@@ -59,7 +58,7 @@ def test_full_deploy_without_image_inputs_preserves_shared_and_audio_pins(tmp_pa
 
     effective, promotion = _resolve(env_file)
 
-    assert effective == "|".join([shared, shared, shared, audio])
+    assert effective == "|".join([shared, audio])
     assert promotion == "|"
 
 
@@ -69,7 +68,7 @@ def test_unified_artifact_promotes_shared_consumers_and_audio_by_default(tmp_pat
 
     effective, promotion = _resolve(env_file, VLLM_UNIFIED_IMAGE_TO_DEPLOY=unified)
 
-    assert effective == "|".join([unified, unified, unified, unified])
+    assert effective == "|".join([unified, unified])
     assert promotion == "|".join([unified, unified])
 
 
@@ -85,5 +84,5 @@ def test_audio_override_remains_independent_from_shared_promotion(tmp_path: Path
         AUDIO_VLLM_IMAGE_TO_DEPLOY=audio,
     )
 
-    assert effective == "|".join([unified, unified, unified, audio])
+    assert effective == "|".join([unified, audio])
     assert promotion == "|".join([unified, audio])

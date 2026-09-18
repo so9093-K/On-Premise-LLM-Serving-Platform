@@ -11,6 +11,7 @@ import yaml
 ROOT = Path(__file__).resolve().parents[2]
 COMPOSE_CONTEXT = ROOT / "scripts" / "lib" / "compose_context.sh"
 DEPLOY_ENV = ROOT / "scripts" / "lib" / "deploy_env.sh"
+APPLY_REMOTE_RELEASE = ROOT / "scripts" / "deploy" / "apply_remote_release.sh"
 COMPOSE_FILE = ROOT / "ops" / "compose" / "full-stack.private-network.yaml"
 
 
@@ -59,6 +60,21 @@ def test_compose_context_does_not_materialize_retired_runtime_image_keys(tmp_pat
     )
     assert result.returncode == 0, result.stderr
     assert result.stdout == "|"
+
+
+def test_remote_preflight_uses_one_shared_vllm_image_identity() -> None:
+    deploy_env = DEPLOY_ENV.read_text(encoding="utf-8")
+    remote_apply = APPLY_REMOTE_RELEASE.read_text(encoding="utf-8")
+
+    assert "EMBEDDING_KO_VLLM_IMAGE_EFFECTIVE" not in deploy_env
+    assert "RISK_VLLM_IMAGE_EFFECTIVE" not in deploy_env
+    assert "EMBEDDING_KO_VLLM_IMAGE_EFFECTIVE" not in remote_apply
+    assert "RISK_VLLM_IMAGE_EFFECTIVE" not in remote_apply
+    assert remote_apply.count(
+        'pull_required_runtime_image "shared vLLM" "${VLLM_IMAGE_EFFECTIVE}"'
+    ) == 1
+    assert "EMBEDDING_KO_VLLM_IMAGE_PROMOTION" not in remote_apply
+    assert "RISK_VLLM_IMAGE_PROMOTION" not in remote_apply
 
 
 def test_remote_promotion_updates_only_shared_and_profile_override_pins(tmp_path: Path) -> None:

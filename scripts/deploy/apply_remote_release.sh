@@ -488,18 +488,16 @@ if ! ensure_platform_runtime_dir "${DEPLOY_PATH}/${REQUEST_EVENT_LOG_DIR_RELPATH
 fi
 
 if [[ "${DEPLOY_MODE}" == "full" ]]; then
-  # target .env의 각 runtime pin은 독립된 현재 상태다. promotion input이 없는 full
-  # deploy는 값을 바꾸지 않고 그대로 검증한다. shared promotion이 명시된 경우에만
-  # main/embedding-ko/risk가 함께 해당 artifact로 승격된다.
+  # VLLM_IMAGE 하나가 main/embedding/embedding-ko/risk-prompt가 공유하는
+  # persistent runtime image authority다. 같은 artifact를 consumer 이름별로 다시
+  # pull하지 않고 shared image identity를 한 번만 검증한다.
   deploy_resolve_runtime_image_plan
-  pull_required_runtime_image "main/embedding vLLM" "${VLLM_IMAGE_EFFECTIVE}"
-  pull_required_runtime_image "embedding-ko vLLM" "${EMBEDDING_KO_VLLM_IMAGE_EFFECTIVE}"
-  pull_required_runtime_image "risk-prompt vLLM" "${RISK_VLLM_IMAGE_EFFECTIVE}"
+  pull_required_runtime_image "shared vLLM" "${VLLM_IMAGE_EFFECTIVE}"
 
-  # Main Model profile image는 compose 서비스가 아니라 sidecar의 /containers/create가
-  # 직접 소비하므로 compose pull이 대신 가져오지 않는다. 값이 존재하면 전환 전에
-  # 미리 pull해 profile switch가 "No such image"로 실패하지 않게 한다.
-  if [[ -n "${AUDIO_VLLM_IMAGE_EFFECTIVE}" ]]; then
+  # Main Model profile override가 shared image와 다른 경우에만 별도 artifact를
+  # preflight한다. 같은 digest면 위 shared pull이 이미 registry availability를 증명한다.
+  if [[ -n "${AUDIO_VLLM_IMAGE_EFFECTIVE}" &&
+    "${AUDIO_VLLM_IMAGE_EFFECTIVE}" != "${VLLM_IMAGE_EFFECTIVE}" ]]; then
     pull_preflight_image "Main Model profile vLLM" "${AUDIO_VLLM_IMAGE_EFFECTIVE}"
   fi
 fi
@@ -731,12 +729,6 @@ if [[ "${DEPLOY_MODE}" == "full" ]]; then
   deploy_apply_runtime_image_promotions
   if [[ -n "${VLLM_IMAGE_PROMOTION:-}" ]]; then
     echo "[deploy] VLLM_IMAGE promoted to ${VLLM_IMAGE_PROMOTION}"
-  fi
-  if [[ -n "${EMBEDDING_KO_VLLM_IMAGE_PROMOTION:-}" ]]; then
-    echo "[deploy] EMBEDDING_KO_VLLM_IMAGE promoted to ${EMBEDDING_KO_VLLM_IMAGE_PROMOTION}"
-  fi
-  if [[ -n "${RISK_VLLM_IMAGE_PROMOTION:-}" ]]; then
-    echo "[deploy] RISK_VLLM_IMAGE promoted to ${RISK_VLLM_IMAGE_PROMOTION}"
   fi
   if [[ -n "${AUDIO_VLLM_IMAGE_PROMOTION:-}" ]]; then
     echo "[deploy] AUDIO_VLLM_IMAGE promoted to ${AUDIO_VLLM_IMAGE_PROMOTION}"
