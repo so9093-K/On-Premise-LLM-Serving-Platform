@@ -9,14 +9,17 @@ from .types import RuntimeEndpoint
 def build_runtime_endpoint(
     *,
     model_key: str,
+    env_prefix: str,
+    legacy_env_prefix: str | None,
     env_url: str,
+    legacy_env_url: str | None,
     env_model: str,
+    legacy_env_model: str | None,
     timeout: float,
     models: dict[str, Any],
     operational_limits: dict[str, Any],
 ) -> RuntimeEndpoint:
     cfg = models[model_key]
-    env_prefix = model_key.upper()
     http_limits = operational_limits.get("http_client", {})
     resource_control = cfg.get("resource_control", {})
     admission_control = resource_control.get("admission_control", {})
@@ -31,28 +34,61 @@ def build_runtime_endpoint(
         f"{env_prefix}_TIMEOUT_SECONDS",
         float(cfg.get("timeout_seconds", timeout)),
         minimum=0.1,
+        legacy_name=(
+            f"{legacy_env_prefix}_TIMEOUT_SECONDS"
+            if legacy_env_prefix is not None
+            else None
+        ),
     )
     return RuntimeEndpoint(
         logical_id=str(cfg["served_model_name"]),
-        base_url=env(env_url, str(cfg["endpoint"])).rstrip("/"),
-        model=env(env_model, str(cfg["served_model_name"])),
+        base_url=env(
+            env_url,
+            str(cfg["endpoint"]),
+            legacy_name=legacy_env_url,
+        ).rstrip("/"),
+        model=env(
+            env_model,
+            str(cfg["served_model_name"]),
+            legacy_name=legacy_env_model,
+        ),
         timeout_seconds=endpoint_timeout,
         max_concurrency=as_int(
             f"{env_prefix}_MAX_CONCURRENCY",
             int(cfg.get("gateway_max_concurrency", admission_control.get("max_concurrency", default_model_concurrency))),
+            legacy_name=(
+                f"{legacy_env_prefix}_MAX_CONCURRENCY"
+                if legacy_env_prefix is not None
+                else None
+            ),
         ),
         queue_timeout_seconds=as_float(
             f"{env_prefix}_QUEUE_TIMEOUT_SECONDS",
             float(cfg.get("queue_timeout_seconds", admission_control.get("queue_timeout_seconds", default_queue_timeout))),
+            legacy_name=(
+                f"{legacy_env_prefix}_QUEUE_TIMEOUT_SECONDS"
+                if legacy_env_prefix is not None
+                else None
+            ),
         ),
         circuit_breaker_failure_threshold=as_int(
             f"{env_prefix}_CIRCUIT_BREAKER_FAILURE_THRESHOLD",
             int(cfg.get("circuit_breaker_failure_threshold", default_failure_threshold)),
+            legacy_name=(
+                f"{legacy_env_prefix}_CIRCUIT_BREAKER_FAILURE_THRESHOLD"
+                if legacy_env_prefix is not None
+                else None
+            ),
         ),
         circuit_breaker_reset_seconds=as_float(
             f"{env_prefix}_CIRCUIT_BREAKER_RESET_SECONDS",
             float(cfg.get("circuit_breaker_reset_seconds", default_reset_seconds)),
             minimum=0.1,
+            legacy_name=(
+                f"{legacy_env_prefix}_CIRCUIT_BREAKER_RESET_SECONDS"
+                if legacy_env_prefix is not None
+                else None
+            ),
         ),
         http_max_connections=as_int("HTTP_MAX_CONNECTIONS", default_max_connections),
         http_max_keepalive_connections=as_int("HTTP_MAX_KEEPALIVE_CONNECTIONS", default_keepalive),
@@ -87,7 +123,7 @@ def validate_timeout_budget(
     risk_adapter_execution: str,
 ) -> None:
     if gateway_timeout_seconds < main_llm.timeout_seconds:
-        raise RuntimeError("REQUEST_TIMEOUT_SECONDS must be greater than or equal to MAIN_LLM_TIMEOUT_SECONDS.")
+        raise RuntimeError("REQUEST_TIMEOUT_SECONDS must be greater than or equal to MAIN_MODEL_TIMEOUT_SECONDS.")
     if gateway_timeout_seconds < risk_adapter_timeout_seconds:
         raise RuntimeError("REQUEST_TIMEOUT_SECONDS must be greater than or equal to RISK_ADAPTER_TIMEOUT_SECONDS.")
     if risk_adapter_execution == "sequential" and risk_detectors:

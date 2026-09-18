@@ -27,6 +27,7 @@ from ..main_model.control import (
 )
 from ..log_target_manifest import build_targets, write_manifest
 from ..platform_state import DEFAULT_PLATFORM_STATE_DIR, configured_platform_state_root
+from ..env_compat import renamed_env_value
 from ..settings_parts.env import as_bool, is_default_secret
 from ..runtime_topology import load_runtime_topology
 from ..runtime_transition import plan_runtime_transition
@@ -92,9 +93,22 @@ def load_sidecar_config(
         compose_project=environment.get("COMPOSE_PROJECT", ""),
         config_root=config_root,
         state_path=Path(environment.get("MAIN_MODEL_STATE_PATH", str(default_state_path))),
-        boot_profile=environment.get("MAIN_LLM_BOOT_PROFILE") or None,
-        profile_locked=environment.get("MAIN_LLM_PROFILE_LOCKED", "false").lower() == "true",
-        idempotency_ttl_seconds=environment.get("MAIN_LLM_SWITCH_IDEMPOTENCY_TTL_SECONDS") or None,
+        boot_profile=renamed_env_value(
+            environment,
+            "MAIN_MODEL_BOOT_PROFILE",
+            "MAIN_LLM_BOOT_PROFILE",
+        ) or None,
+        profile_locked=renamed_env_value(
+            environment,
+            "MAIN_MODEL_PROFILE_LOCKED",
+            "MAIN_LLM_PROFILE_LOCKED",
+            "false",
+        ).lower() == "true",
+        idempotency_ttl_seconds=renamed_env_value(
+            environment,
+            "MAIN_MODEL_SWITCH_IDEMPOTENCY_TTL_SECONDS",
+            "MAIN_LLM_SWITCH_IDEMPOTENCY_TTL_SECONDS",
+        ) or None,
         internal_service_token=internal_service_token,
         internal_service_auth_required=internal_service_auth_required,
         gateway_internal_url=environment.get("GATEWAY_INTERNAL_URL") or _default_gateway_internal_url(config_root),
@@ -113,9 +127,9 @@ DOCKER_SOCKET = _CONFIG.docker_socket
 COMPOSE_PROJECT = _CONFIG.compose_project
 APP_CONFIG_ROOT = _CONFIG.config_root
 MAIN_MODEL_STATE_PATH = _CONFIG.state_path
-MAIN_LLM_BOOT_PROFILE = _CONFIG.boot_profile
-MAIN_LLM_PROFILE_LOCKED = _CONFIG.profile_locked
-MAIN_LLM_SWITCH_IDEMPOTENCY_TTL_SECONDS = _CONFIG.idempotency_ttl_seconds
+MAIN_MODEL_BOOT_PROFILE = _CONFIG.boot_profile
+MAIN_MODEL_PROFILE_LOCKED = _CONFIG.profile_locked
+MAIN_MODEL_SWITCH_IDEMPOTENCY_TTL_SECONDS = _CONFIG.idempotency_ttl_seconds
 SIDECAR_TOKEN = _CONFIG.internal_service_token
 LOG_TARGET_MANIFEST_PATH = _CONFIG.log_target_manifest_path
 LOG_TARGET_REFRESH_SECONDS = _CONFIG.log_target_refresh_seconds
@@ -279,11 +293,11 @@ _main_model_manager = MainModelManager(
         gateway_url=_CONFIG.gateway_internal_url,
         internal_token=SIDECAR_TOKEN,
     ),
-    boot_profile=MAIN_LLM_BOOT_PROFILE,
-    profile_locked=MAIN_LLM_PROFILE_LOCKED,
+    boot_profile=MAIN_MODEL_BOOT_PROFILE,
+    profile_locked=MAIN_MODEL_PROFILE_LOCKED,
     idempotency_ttl_seconds=(
-        float(MAIN_LLM_SWITCH_IDEMPOTENCY_TTL_SECONDS)
-        if MAIN_LLM_SWITCH_IDEMPOTENCY_TTL_SECONDS
+        float(MAIN_MODEL_SWITCH_IDEMPOTENCY_TTL_SECONDS)
+        if MAIN_MODEL_SWITCH_IDEMPOTENCY_TTL_SECONDS
         else None
     ),
 )

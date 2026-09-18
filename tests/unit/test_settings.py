@@ -38,8 +38,18 @@ def isolate_settings_environment(monkeypatch):
         "FASTAPI_REDOC_URL",
         "OPENAPI_URL",
         "MAX_REQUEST_BODY_BYTES",
+        "MAIN_MODEL_BASE_URL",
+        "MAIN_MODEL_ALIAS",
+        "MAIN_MODEL_TIMEOUT_SECONDS",
+        "MAIN_MODEL_MAX_CONCURRENCY",
+        "MAIN_MODEL_QUEUE_TIMEOUT_SECONDS",
+        "MAIN_MODEL_STATIC_PROFILE",
+        "MAIN_LLM_BASE_URL",
+        "MAIN_LLM_MODEL",
+        "MAIN_LLM_TIMEOUT_SECONDS",
         "MAIN_LLM_MAX_CONCURRENCY",
         "MAIN_LLM_QUEUE_TIMEOUT_SECONDS",
+        "MAIN_LLM_STATIC_PROFILE",
         "EMBEDDING_MAX_CONCURRENCY",
         "EMBEDDING_QUEUE_TIMEOUT_SECONDS",
         "RISK_PROMPT_TIMEOUT_SECONDS",
@@ -301,6 +311,35 @@ def test_load_settings_supports_per_model_timeout_overrides(monkeypatch):
     monkeypatch.setenv("RISK_ADAPTER_TIMEOUT_SECONDS", "10")
     settings = load_settings()
     assert settings.runtime("risk_prompt").timeout_seconds == 3
+
+
+def test_load_settings_uses_canonical_main_model_runtime_env(monkeypatch):
+    monkeypatch.setenv("MAIN_MODEL_MAX_CONCURRENCY", "3")
+    monkeypatch.setenv("MAIN_MODEL_ALIAS", "local-main")
+    settings = load_settings()
+
+    assert settings.runtime("main_llm").max_concurrency == 3
+    assert settings.runtime("main_llm").model == "local-main"
+
+
+def test_load_settings_reads_legacy_main_llm_runtime_env(monkeypatch):
+    monkeypatch.setenv("MAIN_LLM_MAX_CONCURRENCY", "2")
+    monkeypatch.setenv("MAIN_LLM_MODEL", "local-main")
+    settings = load_settings()
+
+    assert settings.runtime("main_llm").max_concurrency == 2
+    assert settings.runtime("main_llm").model == "local-main"
+
+
+def test_load_settings_rejects_conflicting_main_model_env_names(monkeypatch):
+    monkeypatch.setenv("MAIN_MODEL_MAX_CONCURRENCY", "3")
+    monkeypatch.setenv("MAIN_LLM_MAX_CONCURRENCY", "2")
+
+    with pytest.raises(
+        RuntimeError,
+        match="conflicting env keys MAIN_LLM_MAX_CONCURRENCY and MAIN_MODEL_MAX_CONCURRENCY",
+    ):
+        load_settings()
 
 
 def test_load_settings_rejects_generated_placeholder_secrets_in_non_local_env(monkeypatch):

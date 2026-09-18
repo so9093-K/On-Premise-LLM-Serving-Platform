@@ -70,6 +70,58 @@ def test_health_surfaces_definitive_reconciliation_failure(tmp_path, monkeypatch
     assert "main runtime did not become healthy" in str(excinfo.value.detail)
 
 
+def test_sidecar_reads_canonical_and_legacy_main_model_env(tmp_path):
+    from pathlib import Path
+
+    from ai_model_serving.apps.admin_sidecar import load_sidecar_config
+
+    base = {
+        "APP_CONFIG_ROOT": str(Path(".").resolve()),
+        "MAIN_MODEL_STATE_PATH": str(tmp_path / "state.json"),
+        "INTERNAL_SERVICE_AUTH_REQUIRED": "false",
+    }
+    canonical = load_sidecar_config(
+        {
+            **base,
+            "MAIN_MODEL_BOOT_PROFILE": "gemma4-12b-unified-fp8",
+            "MAIN_MODEL_PROFILE_LOCKED": "true",
+            "MAIN_MODEL_SWITCH_IDEMPOTENCY_TTL_SECONDS": "30",
+        }
+    )
+    assert canonical.boot_profile == "gemma4-12b-unified-fp8"
+    assert canonical.profile_locked is True
+    assert canonical.idempotency_ttl_seconds == "30"
+
+    legacy = load_sidecar_config(
+        {
+            **base,
+            "MAIN_LLM_BOOT_PROFILE": "gemma4-26b-a4b-fp8",
+            "MAIN_LLM_PROFILE_LOCKED": "false",
+            "MAIN_LLM_SWITCH_IDEMPOTENCY_TTL_SECONDS": "45",
+        }
+    )
+    assert legacy.boot_profile == "gemma4-26b-a4b-fp8"
+    assert legacy.profile_locked is False
+    assert legacy.idempotency_ttl_seconds == "45"
+
+
+def test_sidecar_rejects_conflicting_main_model_env_names(tmp_path):
+    from pathlib import Path
+
+    from ai_model_serving.apps.admin_sidecar import load_sidecar_config
+
+    with pytest.raises(RuntimeError, match="conflicting env keys MAIN_LLM_BOOT_PROFILE and MAIN_MODEL_BOOT_PROFILE"):
+        load_sidecar_config(
+            {
+                "APP_CONFIG_ROOT": str(Path(".").resolve()),
+                "MAIN_MODEL_STATE_PATH": str(tmp_path / "state.json"),
+                "INTERNAL_SERVICE_AUTH_REQUIRED": "false",
+                "MAIN_MODEL_BOOT_PROFILE": "gemma4-12b-unified-fp8",
+                "MAIN_LLM_BOOT_PROFILE": "gemma4-26b-a4b-fp8",
+            }
+        )
+
+
 def test_sidecar_refuses_to_start_when_declared_internal_auth_has_no_token(tmp_path):
     """가장 높은 권한을 가진 프로세스는 인증을 조용히 끄지 않아야 한다.
 

@@ -1,5 +1,5 @@
-"""render_boot_override()가 부팅 시점에 persisted state와 MAIN_LLM_BOOT_PROFILE/
-MAIN_LLM_PROFILE_LOCKED를 올바르게 합쳐 compose command/image override를
+"""render_boot_override()가 부팅 시점에 persisted state와 MAIN_MODEL_BOOT_PROFILE/
+MAIN_MODEL_PROFILE_LOCKED를 올바르게 합쳐 compose command/image override를
 만드는지, state 파일이 깨져 있으면 조용히 넘어가지 않고 실패하는지 검증한다."""
 
 from __future__ import annotations
@@ -23,8 +23,8 @@ _RUNTIME_IMAGE = "registry.example.com/vllm-unified@sha256:" + "b" * 64
 
 def _env(path: Path, *, profile: str, locked: bool, profile_image: str = "", runtime_image: str = _RUNTIME_IMAGE) -> None:
     path.write_text(
-        f"MAIN_LLM_BOOT_PROFILE={profile}\n"
-        f"MAIN_LLM_PROFILE_LOCKED={'true' if locked else 'false'}\n"
+        f"MAIN_MODEL_BOOT_PROFILE={profile}\n"
+        f"MAIN_MODEL_PROFILE_LOCKED={'true' if locked else 'false'}\n"
         f"MAIN_MODEL_VLLM_IMAGE_OVERRIDE={profile_image}\n"
         f"VLLM_IMAGE={runtime_image}\n",
         encoding="utf-8",
@@ -92,6 +92,46 @@ def test_locked_boot_profile_overrides_persisted_profile(tmp_path):
         env_path=env,
     )
     assert profile == "gemma4-26b-a4b-fp8"
+
+
+def test_legacy_boot_env_aliases_remain_readable(tmp_path):
+    env = tmp_path / ".env"
+    state = tmp_path / "state.json"
+    env.write_text(
+        "MAIN_LLM_BOOT_PROFILE=gemma4-26b-a4b-fp8\n"
+        "MAIN_LLM_PROFILE_LOCKED=true\n"
+        f"VLLM_IMAGE={_RUNTIME_IMAGE}\n",
+        encoding="utf-8",
+    )
+    _state(state, "gemma4-12b-unified-fp8")
+
+    profile, _ = render_boot_override(
+        catalog_path=CATALOG,
+        state_path=state,
+        env_path=env,
+    )
+
+    assert profile == "gemma4-26b-a4b-fp8"
+
+
+def test_conflicting_boot_env_aliases_fail_closed(tmp_path):
+    env = tmp_path / ".env"
+    state = tmp_path / "state.json"
+    env.write_text(
+        "MAIN_MODEL_BOOT_PROFILE=gemma4-12b-unified-fp8\n"
+        "MAIN_LLM_BOOT_PROFILE=gemma4-26b-a4b-fp8\n"
+        "MAIN_MODEL_PROFILE_LOCKED=false\n"
+        f"VLLM_IMAGE={_RUNTIME_IMAGE}\n",
+        encoding="utf-8",
+    )
+    _state(state, None)
+
+    with pytest.raises(RuntimeError, match="conflicting env keys MAIN_LLM_BOOT_PROFILE and MAIN_MODEL_BOOT_PROFILE"):
+        render_boot_override(
+            catalog_path=CATALOG,
+            state_path=state,
+            env_path=env,
+        )
 
 
 def test_corrupt_state_fails_instead_of_falling_back(tmp_path):

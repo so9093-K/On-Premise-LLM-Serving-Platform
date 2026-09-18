@@ -6,6 +6,8 @@
 
 Accepted
 
+> 현재 operator env canonical 이름은 `MAIN_MODEL_BOOT_PROFILE` / `MAIN_MODEL_PROFILE_LOCKED`이며, 이 ADR의 `MAIN_LLM_*` 표기는 당시 이름이다. legacy 이름은 migration compatibility alias로만 유지한다.
+
 > **현재 운영 기준 (2026-08-12)**: Main Model의 기본 profile과 실제 실행 command는
 > `configs/main_model_profiles.yaml`을, Gateway serving limit·parameter policy·runtime feature도
 > 활성 profile의 `gateway_policy`를 기준으로 한다. 이 ADR의 다음 상태 분석은 선택형 profile 전환이 도입되기 전의 문제와

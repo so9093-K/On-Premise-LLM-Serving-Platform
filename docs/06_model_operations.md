@@ -160,7 +160,7 @@ profile에서 Qualification이 `verified`가 아니면 switch 요청에 `confirm
 
 ### Profile Lock
 
-`MAIN_LLM_PROFILE_LOCKED=true`이면 `MAIN_LLM_BOOT_PROFILE`을 기준으로 Main Model profile을 고정한다. 일반 운영에서는 persisted active profile이 다음 기동에도 이어진다.
+`MAIN_MODEL_PROFILE_LOCKED=true`이면 `MAIN_MODEL_BOOT_PROFILE`을 기준으로 Main Model profile을 고정한다. 일반 운영에서는 persisted active profile이 다음 기동에도 이어진다.
 
 관련 설정은 [5. 설정 체계와 Source of Truth](./05_configuration.md)에서 설명한다.
 

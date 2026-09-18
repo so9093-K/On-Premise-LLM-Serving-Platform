@@ -14,7 +14,7 @@ AI Model Serving Platform은 개발 목적의 **app-only**, 전체 lifecycle을 
 
 static target에서는 Main runtime을 별도 process 또는 별도 supervisor가 기동·감시한다.
 Gateway는 고정 endpoint로 Chat과 Streaming만 제공한다.
-`MAIN_LLM_STATIC_PROFILE`은 외부 runtime과 동일한 검증된 Serving Profile로 반드시
+`MAIN_MODEL_STATIC_PROFILE`은 외부 runtime과 동일한 검증된 Serving Profile로 반드시
 고정하며, Gateway request limit과 capability 광고는 이 profile을 따른다.
 
 ```text
@@ -28,7 +28,7 @@ feature set에 포함되지 않으므로 client, readiness dependency, route, Op
 
 외부 Main runtime을 먼저 기동한 뒤 다음과 같이 Gateway만 실행한다.
 
-운영자 `.env`에 `MAIN_LLM_STATIC_PROFILE`과 `MAIN_LLM_BASE_URL`을 지정한 뒤 실행한다.
+운영자 `.env`에 `MAIN_MODEL_STATIC_PROFILE`과 `MAIN_MODEL_BASE_URL`을 지정한 뒤 실행한다.
 
 ```bash
 make up
@@ -42,7 +42,7 @@ static target의 `make up`은 운영자 `.env`를 Compose image/port 치환에�
 token 소비면이 없다는 사실은 `deployment_targets.yaml`에 선언하며, 향후 내부 호출을
 추가하려면 target 계약과 projection을 함께 변경해야 한다.
 
-`MAIN_LLM_STATIC_PROFILE`은 실제 외부 runtime과 같은 target catalog의 profile이어야 한다.
+`MAIN_MODEL_STATIC_PROFILE`은 실제 외부 runtime과 같은 target catalog의 profile이어야 한다.
 Linux는 `configs/main_model_profiles.yaml`, Mac은 `configs/macos_mlx_runtime.yaml`을 읽는다.
 
 #### Apple Silicon MLX-VLM
@@ -62,7 +62,7 @@ make status
 8,192 generation, 이미지 1~4장, Thinking/MTP 활성, TurboQuant 비활성, 동시성 1이다.
 5~8장은 기능 제외가 아니라 extended qualification 구간이다.
 
-`setup`은 target catalog에서 `MAIN_LLM_STATIC_PROFILE`과 Docker Gateway가 native
+`setup`은 target catalog에서 `MAIN_MODEL_STATIC_PROFILE`과 Docker Gateway가 native
 runtime에 연결할 endpoint를 `.env`로 투영한다. `up`은 native MLX runtime을 프로젝트
 소유 background process로 시작해 readiness를 기다린 뒤 static Compose를 기동한다.
 `down`은 두 lifecycle을 역순으로 정리한다. 수동 `metal-*`, `build-image`,

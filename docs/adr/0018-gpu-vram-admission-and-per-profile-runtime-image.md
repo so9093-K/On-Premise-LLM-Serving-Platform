@@ -6,6 +6,8 @@
 
 Accepted
 
+> 현재 operator env canonical 이름은 `MAIN_MODEL_GPU_MEMORY_UTILIZATION`이며, 이 ADR의 `MAIN_LLM_GPU_MEMORY_UTILIZATION` 표기는 당시 이름이다. legacy 이름은 migration compatibility alias로만 유지한다.
+
 > **현재 운영 기준 (2026-08-12)**: GPU admission ceiling은 `configs/gpu_budgets.yaml`,
 > profile별 image·command·capability는 `configs/main_model_profiles.yaml`, Gateway 요청
 > 정책은 각 profile의 `gateway_policy`, 공통 endpoint·timeout·admission은

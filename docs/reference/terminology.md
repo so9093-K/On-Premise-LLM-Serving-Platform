@@ -73,9 +73,9 @@
 새 코드와 설정은 역할 중심 target을 우선하고, 기존 identifier는 ADR-0030의 alias → migration → validation →
 legacy removal 순서를 따른다.
 
-| 현재 namespace | 장기 canonical target | 현재 정책 |
+| Legacy namespace | Canonical target | 현재 정책 |
 |---|---|---|
-| `MAIN_LLM_*` | `MAIN_MODEL_*` | operator env부터 단계적 migration. `MAIN_LLM_MODEL`은 `MAIN_MODEL_ALIAS`가 target |
+| `MAIN_LLM_*` | `MAIN_MODEL_*` | operator env는 canonical로 전환됨. legacy는 read/sync compatibility alias이며 `MAIN_LLM_MODEL`은 `MAIN_MODEL_ALIAS`로 이관 |
 | `risk_adapter` / `RISK_ADAPTER_*` | Risk Signal Service 계열 identifier | 공개 `/v1/risk/*` API는 그대로 유지 |
 | `risk_prompt` / `RISK_PROMPT_*` | Prompt Injection Detector 계열 identifier | runtime/model 내부 identifier만 별도 migration |
 | `admin-sidecar` / `admin_sidecar` | Runtime Controller 계열 identifier | Compose/module/client를 한 번에 바꾸지 않고 단계별 migration |
@@ -89,7 +89,7 @@ canonical과 legacy 값이 동시에 존재하면서 다르면 fail-closed를 �
 
 | Key | 실제 의미 | 주의 |
 |---|---|---|
-| `MAIN_LLM_MODEL` | client-facing **Public Model Alias**. 현재 기본값은 `local-main` | upstream model/checkpoint 이름이 아니다 |
+| `MAIN_MODEL_ALIAS` | client-facing **Public Model Alias**. 현재 기본값은 `local-main` | upstream model/checkpoint 이름이 아니다. legacy `MAIN_LLM_MODEL`은 migration alias |
 | `GATEWAY_HOST` | host에서 직접 실행하는 Gateway process의 listen address | Compose host publish address가 아니다 |
 | `GATEWAY_BIND_ADDR` | Compose가 Gateway port를 host에 publish할 때 bind할 address | application process listen address와 구분 |
 | `API_KEYS` | Gateway가 허용하는 Bearer key 집합 | server-side accepted credential set |

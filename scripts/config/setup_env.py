@@ -98,9 +98,9 @@ def deployment_target_values(target_id: str, main_profile: str | None = None) ->
         )
     values = {"DEPLOYMENT_TARGET": target.target_id}
     if target.control_mode == "static":
-        values["MAIN_LLM_STATIC_PROFILE"] = selected_profile
+        values["MAIN_MODEL_STATIC_PROFILE"] = selected_profile
     else:
-        values["MAIN_LLM_BOOT_PROFILE"] = selected_profile
+        values["MAIN_MODEL_BOOT_PROFILE"] = selected_profile
     if target.gateway_runtime_host:
         runtime = catalog.get("runtime")
         port = runtime.get("port") if isinstance(runtime, dict) else None
@@ -108,7 +108,7 @@ def deployment_target_values(target_id: str, main_profile: str | None = None) ->
             raise ValueError(
                 f"deployment target {target_id!r} profile catalog must provide runtime.port"
             )
-        values["MAIN_LLM_BASE_URL"] = f"http://{target.gateway_runtime_host}:{port}/v1"
+        values["MAIN_MODEL_BASE_URL"] = f"http://{target.gateway_runtime_host}:{port}/v1"
     return values
 
 
@@ -127,9 +127,9 @@ def sync_deployment_target(
         )
     target = load_deployment_target(ROOT / "configs/deployment_targets.yaml", target_id)
     profile_key = (
-        "MAIN_LLM_STATIC_PROFILE"
+        "MAIN_MODEL_STATIC_PROFILE"
         if target.control_mode == "static"
-        else "MAIN_LLM_BOOT_PROFILE"
+        else "MAIN_MODEL_BOOT_PROFILE"
     )
     selected_profile = main_profile or existing.get(profile_key) or None
     try:
@@ -143,10 +143,10 @@ def sync_deployment_target(
     existing[profile_key] = projected[profile_key]
     if main_base_url:
         if not main_base_url.startswith(("http://", "https://")):
-            raise ValueError("--main-llm-base-url must be an HTTP URL")
-        existing["MAIN_LLM_BASE_URL"] = main_base_url
-    elif not existing.get("MAIN_LLM_BASE_URL") and projected.get("MAIN_LLM_BASE_URL"):
-        existing["MAIN_LLM_BASE_URL"] = projected["MAIN_LLM_BASE_URL"]
+            raise ValueError("--main-model-base-url must be an HTTP URL")
+        existing["MAIN_MODEL_BASE_URL"] = main_base_url
+    elif not existing.get("MAIN_MODEL_BASE_URL") and projected.get("MAIN_MODEL_BASE_URL"):
+        existing["MAIN_MODEL_BASE_URL"] = projected["MAIN_MODEL_BASE_URL"]
     write_env(lines, existing, env_path)
 
 
@@ -648,8 +648,10 @@ def build_parser() -> KoreanArgumentParser:
         help="선택 target의 기본 Main profile을 명시적으로 선택합니다.",
     )
     parser.add_argument(
+        "--main-model-base-url",
         "--main-llm-base-url",
-        help="외부 lifecycle static target의 Main runtime URL입니다.",
+        dest="main_model_base_url",
+        help="외부 lifecycle static target의 Main Model runtime URL입니다. --main-llm-base-url은 compatibility alias입니다.",
     )
     return parser
 
@@ -704,7 +706,7 @@ def main(argv: list[str] | None = None) -> int:
                 out_path,
                 args.deployment_target,
                 main_profile=args.main_profile,
-                main_base_url=args.main_llm_base_url,
+                main_base_url=args.main_model_base_url,
             )
             print(f"target 설정 동기화 완료: {args.deployment_target}")
             return 0
@@ -758,11 +760,11 @@ def main(argv: list[str] | None = None) -> int:
         except (RuntimeError, ValueError) as exc:
             print(f"env target 오류: {exc}", file=sys.stderr)
             return 2
-    if args.main_llm_base_url:
-        if not args.main_llm_base_url.startswith(("http://", "https://")):
-            print("env target 오류: --main-llm-base-url must be an HTTP URL", file=sys.stderr)
+    if args.main_model_base_url:
+        if not args.main_model_base_url.startswith(("http://", "https://")):
+            print("env target 오류: --main-model-base-url must be an HTTP URL", file=sys.stderr)
             return 2
-        values["MAIN_LLM_BASE_URL"] = args.main_llm_base_url
+        values["MAIN_MODEL_BASE_URL"] = args.main_model_base_url
     if values.get("HF_TOKEN") and not values.get("HUGGING_FACE_HUB_TOKEN"):
         values["HUGGING_FACE_HUB_TOKEN"] = values["HF_TOKEN"]
     write_env(lines, values, out_path)

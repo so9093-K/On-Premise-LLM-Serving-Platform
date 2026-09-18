@@ -229,7 +229,8 @@ def test_static_readiness_fails_when_external_main_is_down(monkeypatch) -> None:
 
 def test_static_target_requires_an_explicit_serving_profile(monkeypatch) -> None:
     monkeypatch.setenv("DEPLOYMENT_TARGET", "linux-nvidia-static")
+    monkeypatch.delenv("MAIN_MODEL_STATIC_PROFILE", raising=False)
     monkeypatch.delenv("MAIN_LLM_STATIC_PROFILE", raising=False)
 
-    with pytest.raises(RuntimeError, match="MAIN_LLM_STATIC_PROFILE is required"):
+    with pytest.raises(RuntimeError, match="MAIN_MODEL_STATIC_PROFILE is required"):
         load_settings()

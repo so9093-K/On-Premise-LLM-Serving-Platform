@@ -45,7 +45,7 @@ ADR-0029는 사용자-facing terminology와 기존 식별자를 분리해 즉시
 
 | 현재 식별자 | 장기 canonical target | 비고 |
 |---|---|---|
-| `MAIN_LLM_*` | `MAIN_MODEL_*` | operator-facing namespace부터 단계적으로 migration |
+| `MAIN_LLM_*` | `MAIN_MODEL_*` | operator-facing namespace는 canonical 전환 완료; legacy read/sync alias 유지 |
 | `MAIN_LLM_MODEL` | `MAIN_MODEL_ALIAS` | 실제 의미는 checkpoint가 아니라 Public Model Alias |
 | `admin-sidecar` / `admin_sidecar` | Runtime Controller 계열 식별자 | service/module rename은 별도 migration |
 | `risk_adapter` / `risk-adapter` | Risk Signal Service 계열 식별자 | 공개 `/v1/risk/*` path는 변경 대상이 아님 |

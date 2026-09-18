@@ -5,12 +5,15 @@ import argparse
 import sys
 from pathlib import Path
 
+import yaml
+
 ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT / "src") not in sys.path:
     sys.path.insert(0, str(ROOT / "src"))
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from ai_model_serving.env_compat import renamed_env_value  # noqa: E402
 from ai_model_serving.settings_parts.env import DEFAULT_ENV_FILENAME  # noqa: E402
 from scripts.lib.env_cli import print_env_error, resolve_path  # noqa: E402
 from ai_model_serving.settings_parts.dotenv_parser import load_strict_env_file  # noqa: E402
@@ -25,6 +28,15 @@ def main() -> int:
     env_path = resolve_path(args.env_file)
     try:
         values = load_strict_env_file(env_path)
+        contract = yaml.safe_load((ROOT / "configs" / "env_contract.yaml").read_text(encoding="utf-8")) or {}
+        renamed = contract.get("renamed_keys") or {}
+        if not isinstance(renamed, dict):
+            raise RuntimeError("env_contract.yaml renamed_keys must be a mapping")
+        for legacy, canonical in renamed.items():
+            if not isinstance(legacy, str) or not isinstance(canonical, str):
+                continue
+            if legacy in values or canonical in values:
+                renamed_env_value(values, canonical, legacy)
         access_profile = values.get("ACCESS_PROFILE", "").strip()
         if access_profile:
             mismatches = access_profile_mismatches(access_profile, values, ROOT)

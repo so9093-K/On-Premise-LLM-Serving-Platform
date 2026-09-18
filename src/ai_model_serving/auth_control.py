@@ -341,7 +341,22 @@ def diagnose_auth(settings: AppSettings, project_root: Path) -> list[AuthFinding
 
         try:
             expected_access = access_profile_env_values(access_profile, project_root)
-            current_access = {key: _env(key, "") for key in expected_access}
+            services_data = _exposure_services(project_root)
+            legacy_by_canonical = {
+                str(service.get("host_env_bind")): str(service.get("legacy_host_env_bind"))
+                for service in services_data.values()
+                if isinstance(service, dict)
+                and service.get("host_env_bind")
+                and service.get("legacy_host_env_bind")
+            }
+            current_access = {
+                key: _env(
+                    key,
+                    "",
+                    legacy_name=legacy_by_canonical.get(key),
+                )
+                for key in expected_access
+            }
             access_mismatches = access_profile_mismatches(
                 access_profile, current_access, project_root
             )
@@ -457,8 +472,17 @@ def diagnose_auth(settings: AppSettings, project_root: Path) -> list[AuthFinding
                 for svc_name in published_svc_names:
                     svc = services_data.get(svc_name, {})
                     bind_env = svc.get("host_env_bind", "")
+                    legacy_bind_env = svc.get("legacy_host_env_bind", "")
                     default_bind = svc.get("default_bind", "0.0.0.0")
-                    actual_bind = _env(bind_env, default_bind) if bind_env else default_bind
+                    actual_bind = (
+                        _env(
+                            str(bind_env),
+                            str(default_bind),
+                            legacy_name=str(legacy_bind_env) or None,
+                        )
+                        if bind_env
+                        else default_bind
+                    )
                     if actual_bind == "0.0.0.0":
                         open_bind_svcs.append(f"{svc.get('compose_service', svc_name)} ({bind_env or 'default'}={actual_bind})")
                 if open_bind_svcs:

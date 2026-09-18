@@ -770,7 +770,7 @@ if ! "${_PYTHON_BIN}" scripts/config/validate_image_refs.py --env-file "${COMPOS
 fi
 
 # 동기화된 .env는 stale한 크로스 변수 불변식(예: 타임아웃 값을 올렸는데
-# REQUEST_TIMEOUT_SECONDS가 MAIN_LLM_TIMEOUT_SECONDS보다 낮게 남아있는 경우)을
+# REQUEST_TIMEOUT_SECONDS가 MAIN_MODEL_TIMEOUT_SECONDS보다 낮게 남아있는 경우)을
 # 갖고 있을 수 있는데, 이건 gateway 프로세스가 실제로 부팅되어
 # settings.load_settings() 내부의 validate_timeout_budget()을 거칠 때만 실패로
 # 드러난다. 이걸 확인하지 않고 넘어가면, compose가 서비스를 재생성하고 아래
@@ -787,7 +787,7 @@ echo "[deploy] validating gateway settings against synced .env..."
 if ! docker run --rm --env-file "${DEPLOY_PATH}/.env" -e APP_CONFIG_ROOT=/app \
   --entrypoint python "${PLATFORM_IMAGE_TO_DEPLOY}" \
   -c "from ai_model_serving.apps.gateway import create_gateway_app; create_gateway_app()"; then
-  fail_after_env_backup "gateway settings failed to load from synced .env — check timeout/limit invariants (REQUEST_TIMEOUT_SECONDS, MAIN_LLM_TIMEOUT_SECONDS, RISK_ADAPTER_TIMEOUT_SECONDS) before retrying"
+  fail_after_env_backup "gateway settings failed to load from synced .env — check timeout/limit invariants (REQUEST_TIMEOUT_SECONDS, MAIN_MODEL_TIMEOUT_SECONDS, RISK_ADAPTER_TIMEOUT_SECONDS) before retrying"
 fi
 
 if ! configure_release_context "${RELEASE_PATH}"; then
