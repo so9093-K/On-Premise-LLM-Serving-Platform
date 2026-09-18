@@ -9,6 +9,7 @@ from .control import (
     resolve_boot_profile,
 )
 from .state import read_active_profile
+from ..env_compat import renamed_env_value
 from ..settings_parts.dotenv_parser import load_strict_env_file
 
 
@@ -46,10 +47,20 @@ def render_boot_override(
         gpu_memory_utilization_override=gpu_util_override_from_mapping(env),
         env=env,
     )
-    configured = env.get("MAIN_LLM_BOOT_PROFILE") or catalog.default_profile
+    configured = renamed_env_value(
+        env,
+        "MAIN_MODEL_BOOT_PROFILE",
+        "MAIN_LLM_BOOT_PROFILE",
+        catalog.default_profile,
+    )
     locked = _strict_bool(
-        env.get("MAIN_LLM_PROFILE_LOCKED", "false"),
-        key="MAIN_LLM_PROFILE_LOCKED",
+        renamed_env_value(
+            env,
+            "MAIN_MODEL_PROFILE_LOCKED",
+            "MAIN_LLM_PROFILE_LOCKED",
+            "false",
+        ),
+        key="MAIN_MODEL_PROFILE_LOCKED",
     )
     profile_id = resolve_boot_profile(
         catalog,
