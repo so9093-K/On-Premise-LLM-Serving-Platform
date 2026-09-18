@@ -584,7 +584,7 @@ SECRET_EXAMPLES: dict[str, Any] = {
 def risk_ready_response_example() -> dict[str, Any]:
     return {
         "status": "ready",
-        "service": "risk-adapter",
+        "service": "risk-signal-service",
         "phase": "serving",
         "not_ready_dependencies": [],
         "required_not_ready_dependencies": [],
@@ -602,7 +602,7 @@ def risk_ready_response_example() -> dict[str, Any]:
 def risk_loading_response_example() -> dict[str, Any]:
     return {
         "status": "not_ready",
-        "service": "risk-adapter",
+        "service": "risk-signal-service",
         "phase": "waiting_for_dependencies",
         "not_ready_dependencies": ["risk_prompt_vllm"],
         "required_not_ready_dependencies": ["risk_prompt_vllm"],
