@@ -14,7 +14,6 @@ def _registry() -> ModelRegistry:
         "models": {
             "chat": {
                 "role": "main_llm",
-                "upstream_model_id": "vendor/chat",
                 "primary_capability": "chat.completions",
                 "input_modalities": ["text"],
                 "runtime": {
@@ -54,7 +53,6 @@ def _registry() -> ModelRegistry:
     serving = {
         "models": {
             "chat_runtime": {
-                "name": "vendor/chat",
                 "served_model_name": "chat",
                 "backend": "vllm",
                 "port": 9001,
@@ -91,6 +89,7 @@ def test_model_registry_projects_catalog_to_runtime_and_public_contracts() -> No
     assert chat.port == 9001
     assert chat.max_model_len == 128
     assert chat.input_modalities == ("text",)
+    assert chat.upstream_model_id == ""
     assert registry.record("embed").embedding_dimensions == (64, 32)
 
     services = {item.service_key: item for item in registry.iter_runtime_services()}
@@ -107,23 +106,53 @@ def test_model_registry_projects_catalog_to_runtime_and_public_contracts() -> No
     assert targets["chat_runtime"].compose_service_name == "chat-vllm"
 
 
-def test_model_registry_reports_catalog_serving_drift() -> None:
+def test_model_registry_reports_fixed_runtime_catalog_serving_drift() -> None:
     catalog = {
         "models": {
-            "chat": {
-                "role": "main_llm",
+            "embed": {
+                "role": "embedding",
                 "upstream_model_id": "expected/model",
-                "primary_capability": "chat.completions",
-                "runtime": {"served_model_name": "chat", "backend": "vllm", "port": 9001},
+                "primary_capability": "embeddings",
+                "runtime": {"served_model_name": "embed", "backend": "vllm", "port": 9002},
             }
         }
     }
     serving = {
         "models": {
-            "chat_runtime": {"name": "different/model", "served_model_name": "chat", "port": 9009},
+            "embed_runtime": {"name": "different/model", "served_model_name": "embed", "port": 9002},
             "other": {"name": "unknown/model", "served_model_name": "unknown", "port": 9010},
         }
     }
 
     codes = {issue.code for issue in ModelRegistry(catalog, serving).alignment_issues()}
     assert {"unknown_serving_model", "upstream_model_mismatch"}.issubset(codes)
+
+
+def test_main_model_checkpoint_identity_must_not_be_duplicated_outside_profile() -> None:
+    catalog = {
+        "models": {
+            "chat": {
+                "role": "main_llm",
+                "upstream_model_id": "stale/catalog-checkpoint",
+                "runtime": {"served_model_name": "chat"},
+            }
+        }
+    }
+    serving = {
+        "models": {
+            "main_llm": {
+                "name": "stale/serving-checkpoint",
+                "revision": "a" * 40,
+                "served_model_name": "chat",
+                "port": 9001,
+                "endpoint": "http://chat-vllm:9001/v1",
+            }
+        }
+    }
+
+    issues = ModelRegistry(catalog, serving).alignment_issues()
+
+    assert [issue.code for issue in issues] == ["main_checkpoint_identity_outside_profile"]
+    assert "model_catalog.upstream_model_id" in issues[0].message
+    assert "model_serving.name" in issues[0].message
+    assert "model_serving.revision" in issues[0].message
