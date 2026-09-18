@@ -95,7 +95,23 @@ def _check_auth_profile_preflight() -> None:
     if access_profile:
         try:
             expected = access_profile_env_values(access_profile, ROOT)
-            current = {key: _env_value(key, "") for key in expected}
+            contract = _load_yaml(ROOT / "configs/env_contract.yaml", "environment contract")
+            renamed = contract.get("renamed_keys") or {}
+            if not isinstance(renamed, dict):
+                raise ValueError("env_contract.yaml renamed_keys must be a mapping")
+            legacy_by_canonical = {
+                str(canonical): str(legacy)
+                for legacy, canonical in renamed.items()
+                if isinstance(legacy, str) and isinstance(canonical, str)
+            }
+            current = {
+                key: _env_value(
+                    key,
+                    "",
+                    legacy_key=legacy_by_canonical.get(key),
+                )
+                for key in expected
+            }
             access_mismatches = access_profile_mismatches(access_profile, current, ROOT)
         except (OSError, ValueError) as exc:
             failures.append(str(exc))
