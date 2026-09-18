@@ -91,7 +91,7 @@ class GatewayClients:
             runtime_transition_history_path()
         )
         self.main_model_inflight = MainModelInFlight()
-        self.sidecar: RuntimeControllerClient | None = (
+        self.runtime_controller: RuntimeControllerClient | None = (
             RuntimeControllerClient(
                 settings.runtime_controller_url,
                 settings.security.internal_service_token,
@@ -133,7 +133,7 @@ class GatewayClients:
             self.main_llm,
             *self.runtime_clients_by_service_key.values(),
             self.risk_adapter,
-            self.sidecar,
+            self.runtime_controller,
         ):
             if client is None or id(client) in seen:
                 continue
@@ -283,7 +283,7 @@ def create_gateway_app(settings: AppSettings | None = None, clients: GatewayClie
             service,
             settings,
             clients.runtime_state,
-            clients.sidecar,
+            clients.runtime_controller,
             clients.main_model_inflight,
             include_embeddings=settings.feature_enabled("embeddings"),
         )
@@ -301,7 +301,7 @@ def create_gateway_app(settings: AppSettings | None = None, clients: GatewayClie
             _build_runtime_control_router(
                 admin_dependencies,
                 clients.runtime_state,
-                clients.sidecar,
+                clients.runtime_controller,
                 settings,
                 clients.runtime_transition_history,
             )
