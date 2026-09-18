@@ -45,8 +45,10 @@ services:
     compose_service: main-llm-vllm
     container_port: 9401
     host_env_port: MAIN_MODEL_VLLM_PORT
+    legacy_host_env_port: MAIN_LLM_VLLM_PORT
     default_host_port: 9401
     host_env_bind: MAIN_MODEL_VLLM_BIND_ADDR
+    legacy_host_env_bind: MAIN_LLM_VLLM_BIND_ADDR
     default_bind: "0.0.0.0"
     categories:
       - model_runtime
