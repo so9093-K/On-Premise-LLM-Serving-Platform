@@ -22,6 +22,8 @@
 
 ### Changed
 
+- Main Model/Runtime Controller 환경변수 rename migration을 실행 계약에서 종료했다. Runtime, boot override, benchmark, preflight, service env projection은 `MAIN_MODEL_*`와 `RUNTIME_CONTROLLER_URL`만 읽으며, `MAIN_LLM_*`와 `ADMIN_SIDECAR_URL`은 `make sync-env`가 기존 persistent `.env`를 canonical key로 옮길 때만 인식한다. Main Model host bind/port도 `MAIN_MODEL_VLLM_*`만 사용한다. ([ADR-0030](docs/adr/0030-target-architecture-state-and-artifact-boundary.md))
+
 - Deployment Target 상태 계약을 canonical 두 축으로 수렴하고 Control Plane Bootstrap을 v3로 올렸다. `validation_status` legacy projection과 parser를 제거했으며, `implementation_status`가 구현 여부를, `qualification_status`가 검증 근거를 각각 소유한다. ([ADR-0020](docs/adr/0020-runtime-control-and-deployment-targets.md), [ADR-0030](docs/adr/0030-target-architecture-state-and-artifact-boundary.md))
 
 - Main Model Admin API의 상태 계약을 canonical 두 축으로 수렴했다. `compatibility.status`는 이제 `compatible / incompatible / unknown`만 반환하고, 실제 검증 수준은 `qualification.status`가 소유한다. migration용 `technical_status`와 `verified / likely / unverified` legacy compatibility projection, 이를 유지하던 변환 코드와 전용 테스트를 제거했다. ([ADR-0030](docs/adr/0030-target-architecture-state-and-artifact-boundary.md))
