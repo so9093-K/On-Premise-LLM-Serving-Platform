@@ -65,7 +65,10 @@ class PublicModel:
 class ModelRecord:
     """logical model 하나에 대한 정규화된 domain view.
 
-    catalog가 source of truth이지만 호출자는 raw YAML dictionary 대신 이 object를 사용한다. ``serving_key``는 runtime deployment stanza가 생기기 전에도 문서 렌더링 같은 catalog-only workflow가 동작해야 하므로 optional이다.
+    catalog가 logical identity의 source of truth이지만 호출자는 raw YAML dictionary 대신 이 object를 사용한다.
+    ``upstream_model_id``는 고정 checkpoint를 가진 non-main model에만 채워질 수 있다. Main Model의
+    실제 checkpoint identity는 active Main Model Profile이 소유한다. ``serving_key``는 runtime
+    deployment stanza가 생기기 전에도 문서 렌더링 같은 catalog-only workflow가 동작해야 하므로 optional이다.
     """
 
     logical_id: str
