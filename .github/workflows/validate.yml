@@ -103,7 +103,7 @@ jobs:
       - name: Regenerate terminology-sensitive artifacts
         run: |
           make render-runtime-assets
-          python scripts/compose/render_exposure_overrides.py
+          .venv/bin/python scripts/compose/render_exposure_overrides.py
       - name: Commit generated artifacts
         env:
           HEAD_BRANCH: ${{ github.event.pull_request.head.ref }}
